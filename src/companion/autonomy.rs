@@ -27,7 +27,7 @@
 //! still unwired (CA2-B2 calls it).
 
 use crate::combat::{MAGIC_MISSILE, MoveId};
-use crate::companion::director::GoalBrief;
+use crate::companion::director::{Decision, GoalBrief, Veto};
 use crate::companion::engage::leader_engages;
 use crate::companion::profile::{Autonomy, GoalRow, ProfileSet, SkirmisherTable};
 use crate::companion::view::{
@@ -581,6 +581,13 @@ pub struct AutonomyStats {
     pub hunt_claim_excluded: u32,
     /// Evaluations with no spot, where a spot failed only the drift check.
     pub hunt_drift_rejected: u32,
+    /// Ticks the brief allowed interrupts only because the commitment from her
+    /// current x fails the drift check (review F-2).
+    pub brief_drift_blocked_ticks: u32,
+    /// Interrupt presses the director skipped because the worst case of the
+    /// commitment would leave the view (spec 3.3, M16; see
+    /// [`AutonomyState::record_decision`]).
+    pub interrupts_drift_skipped: u32,
 }
 
 /// Everything one tick's step reads.
@@ -591,6 +598,11 @@ pub struct AutonomyInput<'a> {
     pub partner: HeroId,
     pub zone: &'a FreeZone,
     pub drift: &'a DriftCheck,
+    /// The partner's own body motion. The zone proof (spec 3.1) needs a partner
+    /// at least as fast as the leader; [`AutonomyState::step`] asserts it in debug
+    /// builds (a slower partner, for example a future AI-Carl brawler next to a
+    /// human Donut, needs its own leash rule first).
+    pub partner_motion: HeroMotion,
     pub tuning: &'a DonutMoveTuning,
     pub world: &'a dyn SpotWorld,
     /// `SceneSim::camera_pan_remaining()`: the pan the scroll camera still owes.
@@ -696,6 +708,8 @@ struct Ctx<'a> {
     boss: bool,
     travelling: bool,
     travel_dir: i8,
+    /// She is in a move or in the air: committed, so no routine re-decision.
+    committed: bool,
 }
 
 fn sign(dx: f32) -> i8 {
@@ -876,18 +890,50 @@ impl<'a> Ctx<'a> {
         };
         let mut allowed = ticks == 0 || drift.allows(zone, x, ticks);
         if let Some((target, mode)) = t {
-            allowed &= match mode {
-                HuntMode::Pounce => {
-                    let dir = f32::from(sign(target.x - x));
-                    let end = target.x - dir * POUNCE_CONTACT_PX;
-                    drift.allows_pounce(zone, x, end, self.inp.tuning)
-                }
-                HuntMode::Cast => {
-                    drift.allows_commitment(zone, x, Commitment::Missile, self.inp.tuning)
-                }
-            };
+            allowed &= self.drift_ok(x, target, mode);
         }
         (allowed, !allowed)
+    }
+
+    /// The worst-case commitment of attacking `target` from `x` (a pounce with its
+    /// start and end point, or a cast) passes the drift check (spec 3.3, N-6).
+    fn drift_ok(&self, x: f32, target: &TargetView, mode: HuntMode) -> bool {
+        let drift = self.inp.drift;
+        let zone = self.zone();
+        match mode {
+            HuntMode::Pounce => {
+                let dir = f32::from(sign(target.x - x));
+                let end = target.x - dir * POUNCE_CONTACT_PX;
+                drift.allows_pounce(zone, x, end, self.inp.tuning)
+            }
+            HuntMode::Cast => {
+                drift.allows_commitment(zone, x, Commitment::Missile, self.inp.tuning)
+            }
+        }
+    }
+
+    /// The partner positions (x range) from which an interrupt's worst case (a
+    /// swat or a missile, in place) stays in view (spec 3.3: interrupts get no
+    /// exemption, review F-3). Empty (`lo > hi`) when no position qualifies.
+    fn interrupt_commit_x(&self) -> (f32, f32) {
+        let ticks = Commitment::Swat
+            .worst_case_ticks(self.inp.tuning)
+            .max(Commitment::Missile.worst_case_ticks(self.inp.tuning));
+        let zone = self.zone();
+        let drift = self.inp.drift;
+        let left = drift.max_end_distance(zone.safe_left, ticks);
+        let right = drift.max_end_distance(zone.safe_right, ticks);
+        let lo = if left >= 0.0 {
+            self.leader.x - left
+        } else {
+            self.leader.x + 0.01
+        };
+        let hi = if right >= 0.0 {
+            self.leader.x + right
+        } else {
+            self.leader.x - 0.01
+        };
+        (lo, hi)
     }
 
     /// The best spot from which to attack `t` (or spring back from it), spec 5.1.
@@ -965,6 +1011,8 @@ impl<'a> Ctx<'a> {
                 if !zone.contains_spot(x, surface.y) || !self.commit_ok(x, surface, None).0 {
                     return;
                 }
+                // The nearest *standing* enemy: a downed goblin is no threat while
+                // it lies (review N-f).
                 let nearest = self
                     .inp
                     .view
@@ -1095,6 +1143,14 @@ impl AutonomyState {
 
     pub fn stats(&self) -> AutonomyStats {
         self.stats
+    }
+
+    /// Fold the director's decision of this tick into the M16 counters: the scene
+    /// calls it after `step_briefed`.
+    pub fn record_decision(&mut self, decision: &Decision) {
+        if decision.veto == Some(Veto::DriftSkip) {
+            self.stats.interrupts_drift_skipped += 1;
+        }
     }
 
     /// Forget the plan (a swap, the partner is defeated, the hero stops being
@@ -1324,8 +1380,8 @@ impl AutonomyState {
             && !c.travelling
     }
 
-    /// Is the current target still one this goal may work, and is its attack
-    /// still commit-safe from the held spot?
+    /// Is the current target still one this goal may work (it exists, she can hit
+    /// it, and the claim rules still allow it)?
     fn target_valid(&self, c: &Ctx<'_>) -> bool {
         let Some(id) = self.target else {
             return false;
@@ -1333,9 +1389,9 @@ impl AutonomyState {
         let Some(t) = c.inp.view.target(id) else {
             return false;
         };
-        let Some(mode) = c.mode_for(t) else {
+        if c.mode_for(t).is_none() {
             return false;
-        };
+        }
         let claim_ok = match self.goal {
             Goal::Hunt => !(c.t.ca2_q11_exclude_claimed_from_hunt && c.claims.contains(id)),
             Goal::SupportLeader => c.support_allows(t),
@@ -1344,25 +1400,10 @@ impl AutonomyState {
         if !claim_ok {
             return false;
         }
-        // Commit-safe from the spot she is heading to (or standing at).
-        let spot_x = self.spot.map_or(c.me.x, |s| s.x);
-        let end_ok = match mode {
-            HuntMode::Pounce => {
-                let dir = f32::from(sign(t.x - spot_x));
-                c.inp.drift.allows_pounce(
-                    c.zone(),
-                    spot_x,
-                    t.x - dir * POUNCE_CONTACT_PX,
-                    c.inp.tuning,
-                )
-            }
-            HuntMode::Cast => {
-                c.inp
-                    .drift
-                    .allows_commitment(c.zone(), spot_x, Commitment::Missile, c.inp.tuning)
-            }
-        };
-        end_ok || self.recoil_active(c.inp.view.tick)
+        // Commit-safety of the attack is the spot's business (`spot_valid`, the
+        // brief): a spot that stops passing the drift check is re-picked, and the
+        // goal falls back when no spot does.
+        true
     }
 
     fn recoil_active(&self, tick: u64) -> bool {
@@ -1396,7 +1437,9 @@ impl AutonomyState {
                     return true;
                 }
                 let (lo, hi) = c.band(mode);
-                (lo..=hi).contains(&(spot.x - t.x).abs())
+                // In band, and the commitment from the spot still passes the
+                // drift check (review F-2: a stale spot is re-picked).
+                (lo..=hi).contains(&(spot.x - t.x).abs()) && c.drift_ok(spot.x, t, mode)
             }
             (Goal::Retreat, SpotPurpose::Retreat) | (Goal::Escort, SpotPurpose::Escort) => true,
             _ => false,
@@ -1429,6 +1472,10 @@ impl AutonomyState {
             self.clear_plan();
             return None;
         }
+        debug_assert!(
+            inp.partner_motion.run_speed * TICK_SECONDS + 1e-4 >= inp.drift.leader_px_per_tick(),
+            "the zone proof needs a partner at least as fast as the leader (spec 3.1, N-3)"
+        );
         let tick = view.tick;
         self.observe(inp, me, leader, table);
         let mana_cast = me.mana.is_some_and(|m| m.unlocked && m.ai_can_cast);
@@ -1444,6 +1491,7 @@ impl AutonomyState {
             boss: view.boss.is_some(),
             travelling,
             travel_dir: self.travel_dir,
+            committed: me.active_move.is_some() || !me.grounded,
         };
 
         let mut changed = None;
@@ -1489,7 +1537,10 @@ impl AutonomyState {
         } else if matches!(self.goal, Goal::Hunt | Goal::SupportLeader) && !self.target_valid(&ctx)
         {
             cause = Some(GoalReason::TargetLost);
-        } else if due || !self.spot_valid(&ctx) {
+        } else if !ctx.committed && (due || !self.spot_valid(&ctx)) {
+            // No routine re-decision while she is in a move or in the air (spec
+            // 3.3: a commitment). A real pounce would otherwise drop the Hunt
+            // before the recoil (review F-1). The immediate triggers above stay.
             cause = Some(GoalReason::Utility);
         }
 
@@ -1709,7 +1760,9 @@ impl AutonomyState {
                 }
             }
             if let Some((_, t, spot)) = best {
-                let recoil = self.recoil_active(tick) && self.target == Some(t.id);
+                // The recoil spot for any target while the window runs (review
+                // N-b): a Hunt that moved to a new target springs back first.
+                let recoil = self.recoil_active(tick);
                 let spot = if recoil {
                     let mode = c.mode_for(t).unwrap_or(HuntMode::Pounce);
                     c.attack_spot(surfaces, t, mode, true).spot.or(Some(spot))
@@ -1732,20 +1785,29 @@ impl AutonomyState {
         // eligible", which would put it above Show-off (700) and Perch (600) in
         // every quiet moment, so neither could ever win; this keeps the table's
         // numbers and makes them reachable (flagged to the top tier in the PR).
-        let hold_radius = if c.leader_low() {
+        // While escorting, the hold radius is the escort band (review F-4): she walks
+        // back into it before she holds, so the minimum goal time applies.
+        let escorting = self.started && self.goal == Goal::Escort;
+        let hold_radius = if c.leader_low() || escorting {
             f32::from(c.a.ca2_q07_escort_max_px)
         } else {
             f32::from(c.a.ca2_q06_comfort_px)
         };
         let hold = !c.travelling && (c.me.x - c.leader.x).abs() <= hold_radius;
-        if allowed(Goal::Escort) && !hold {
+        // A running Escort that has just arrived keeps its minimum time (CA2-Q16)
+        // as a hold, so it does not flip to Idle the tick she enters the band.
+        let settling = escorting
+            && tick.saturating_sub(self.goal_since) < u64::from(c.a.ca2_q16_min_goal_ticks);
+        if allowed(Goal::Escort) && (!hold || settling) {
             let bonus = if c.travelling {
                 i32::from(c.a.ca2_q07_escort_bonus)
             } else {
                 0
             };
             let keep = self.goal == Goal::Escort && self.spot.is_some() && self.spot_valid(c);
-            let spot = if keep {
+            let spot = if hold {
+                None
+            } else if keep {
                 self.spot
             } else {
                 c.escort_spot(surfaces)
@@ -1784,11 +1846,11 @@ impl AutonomyState {
     }
 
     /// The brief for this tick from the state.
-    fn brief(&self, c: &Ctx<'_>, changed: Option<GoalReason>) -> AutonomyBrief {
+    fn brief(&mut self, c: &Ctx<'_>, changed: Option<GoalReason>) -> AutonomyBrief {
         let tick = c.inp.view.tick;
         let recoil = self.recoil_active(tick) && self.target.is_some();
         let target = self.target.and_then(|id| c.inp.view.target(id));
-        let director = match (self.goal, target) {
+        let mut director = match (self.goal, target) {
             (Goal::Hunt, Some(t)) if !recoil => c
                 .mode_for(t)
                 .map(|m| {
@@ -1806,6 +1868,21 @@ impl AutonomyState {
             (Goal::ShowOff, _) => GoalBrief::silent(),
             _ => GoalBrief::interrupts_only(),
         };
+        // The drift check from where she stands now, every tick (review F-2): the
+        // director presses from anywhere inside both bands, which is wider than
+        // the spot that was checked. When the commitment would leave the view the
+        // brief allows interrupts only (the goal, target and spot are kept).
+        if !director.allowed.is_empty()
+            && let Some(t) = target
+            && let Some(mode) = c.mode_for(t)
+            && !c.drift_ok(c.me.x, t, mode)
+        {
+            director = GoalBrief::interrupts_only();
+            if !c.committed {
+                self.stats.brief_drift_blocked_ticks += 1;
+            }
+        }
+        director.commit_x = Some(c.interrupt_commit_x());
         let face_x = match self.goal {
             Goal::Hunt | Goal::SupportLeader => target.map(|t| t.x),
             Goal::ShowOff => Some(c.leader.x),
@@ -2643,10 +2720,17 @@ mod tests {
         }
 
         fn route_ticks(&self, partner: &HeroView, _x: f32, surface: &Surface) -> Option<u16> {
-            if (surface.y - partner.foot_y).abs() <= 4.0 {
-                Some(0)
-            } else {
-                self.climb
+            // Her surface: the one at her feet or, in the air, the highest one
+            // below her (review F-1), like `NavSpots`.
+            let mut here: Option<&Surface> = None;
+            for s in &self.surfaces {
+                if s.y <= partner.foot_y + 4.0 && here.is_none_or(|h| s.y > h.y) {
+                    here = Some(s);
+                }
+            }
+            match here {
+                Some(h) if (surface.y - h.y).abs() <= 4.0 => Some(0),
+                _ => self.climb,
             }
         }
     }
@@ -2660,6 +2744,8 @@ mod tests {
         v: CompanionView,
         landed: bool,
         pan: i32,
+        leader_motion: HeroMotion,
+        partner_motion: HeroMotion,
     }
 
     impl Rig {
@@ -2674,6 +2760,8 @@ mod tests {
                 v,
                 landed: false,
                 pan: 0,
+                leader_motion: HeroMotion::CARL,
+                partner_motion: crate::agility::agile_motion(),
             }
         }
 
@@ -2702,7 +2790,7 @@ mod tests {
             let leader_view = self.v.heroes[0];
             let zone =
                 FreeZone::compute(&ZoneInput::new(&leader_view, self.v.view, goal_rows()), &a);
-            let drift = DriftCheck::new(HeroMotion::CARL, &a);
+            let drift = DriftCheck::new(self.leader_motion, &a);
             let tuning = DonutMoveTuning::SPEC;
             let brief = self.st.step(&AutonomyInput {
                 view: &self.v,
@@ -2710,6 +2798,7 @@ mod tests {
                 partner: HeroId::Donut,
                 zone: &zone,
                 drift: &drift,
+                partner_motion: self.partner_motion,
                 tuning: &tuning,
                 world: &self.world,
                 pan_remaining: self.pan,
@@ -3910,6 +3999,309 @@ mod tests {
         assert_eq!(xs, vec![10.0, 26.0, 42.0, 58.0, 60.0]);
     }
 
+    // ------------------------------------------- the PR 205 review fixes ----
+
+    /// F-1: a real pounce is airborne. She keeps the Hunt through the move (no
+    /// routine re-decision while committed, and a decision taken in the air still
+    /// prices routes from the surface below her), and the recoil runs after it.
+    #[test]
+    fn an_airborne_pounce_keeps_the_hunt_and_the_recoil_runs() {
+        let mut rig = Rig::new();
+        rig.goblin(
+            1,
+            230.0,
+            TargetState::Lying {
+                down_ticks_left: 90,
+                hold_used: false,
+            },
+        );
+        rig.donut().x = 286.0;
+        assert_eq!(rig.step().unwrap().goal, Goal::Hunt);
+        // The flight: 10 ticks in the air, 12 px up, inside the pounce move.
+        rig.donut().active_move = Some(pounce_in_flight());
+        rig.donut().foot_y = 12.0;
+        rig.donut().grounded = false;
+        for tick in 0..10 {
+            let b = rig.step().unwrap();
+            assert_eq!(b.goal, Goal::Hunt, "airborne tick {tick}");
+            assert_eq!(b.changed, None);
+        }
+        // She lands and the move ends: the recoil window runs for 29 more ticks
+        // and the goal is still Hunt.
+        rig.donut().active_move = None;
+        rig.donut().foot_y = 0.0;
+        rig.donut().grounded = true;
+        for tick in 0..30 {
+            let b = rig.step().unwrap();
+            assert_eq!(b.goal, Goal::Hunt, "recoil tick {tick}");
+            assert!(b.recoil, "recoil tick {tick}");
+            assert!(b.director.allowed.is_empty());
+        }
+        // Even a routine decision that falls in the air is skipped, so it cannot
+        // drop the Hunt, whatever the world answers for an airborne partner.
+        let mut rig = Rig::new();
+        rig.goblin(
+            1,
+            230.0,
+            TargetState::Lying {
+                down_ticks_left: 90,
+                hold_used: false,
+            },
+        );
+        rig.donut().x = 286.0;
+        rig.step();
+        rig.world.climb = None;
+        rig.donut().foot_y = 40.0; // no surface within 4 px, none below but the floor
+        rig.donut().grounded = false;
+        rig.donut().active_move = Some(pounce_in_flight());
+        rig.surfaces_only_at(100.0);
+        for _ in 0..12 {
+            assert_eq!(rig.step().unwrap().goal, Goal::Hunt);
+        }
+    }
+
+    impl Rig {
+        /// Replace the world with one surface far from her feet.
+        fn surfaces_only_at(&mut self, y: f32) {
+            self.world.surfaces = vec![Surface {
+                key: 7,
+                left: 30.0,
+                right: 610.0,
+                y,
+                risk: 0,
+            }];
+        }
+    }
+
+    /// F-2: the drift check runs from where she stands, every tick. The probe: far
+    /// from her spot (230 px behind the leader, inside Z) a cast is not commit-safe,
+    /// so the brief allows interrupts only and the director presses nothing; once
+    /// she is at the spot it allows the target and the director casts.
+    #[test]
+    fn the_drift_check_runs_from_her_own_x_every_tick() {
+        let unlocked = crate::companion::view::ManaView {
+            mana: 6,
+            max: 8,
+            unlocked: true,
+            ai_can_cast: true,
+            projectile_speed_px_per_tick: 6,
+            bolt_lead_px: 35,
+        };
+        let mut rig = Rig::new();
+        rig.donut().mana = Some(unlocked);
+        rig.donut().x = 90.0;
+        rig.goblin(1, 200.0, standing());
+        let set = free_set();
+        let b = rig.step().unwrap();
+        assert_eq!(b.goal, Goal::Hunt);
+        let spot = b.spot.unwrap();
+        assert!((spot.x - 126.0).abs() <= 8.0, "{}", spot.x);
+        // From x 90 the missile's worst case leaves the view: no target allowed.
+        assert!(b.director.allowed.is_empty(), "{:?}", b.director);
+        assert_eq!(rig.st.stats().brief_drift_blocked_ticks, 1);
+        let unbriefed = {
+            let mut d = CompanionDirector::new(HeroId::Donut);
+            d.step_briefed(&rig.v, &set, None).1
+        };
+        assert!(
+            unbriefed.pressed,
+            "the bare director would have cast: {unbriefed:?}"
+        );
+        let (raw, d) =
+            CompanionDirector::new(HeroId::Donut).step_briefed(&rig.v, &set, Some(&b.director));
+        assert!(!d.pressed && !raw.attack && !raw.physical);
+        // She walks to the spot (x 126): allowed, and the director casts.
+        rig.donut().x = 126.0;
+        let b = rig.step().unwrap();
+        assert_eq!(b.director.allowed, vec![StableEntityId::goblin(1)]);
+        let (_, d) =
+            CompanionDirector::new(HeroId::Donut).step_briefed(&rig.v, &set, Some(&b.director));
+        assert!(d.pressed, "{d:?}");
+        // A pounce is checked the same way (pre-unlock, a goblin 90 px behind him).
+        let mut rig = Rig::new();
+        rig.donut().x = 40.0;
+        rig.goblin(1, 230.0, standing());
+        let b = rig.step().unwrap();
+        assert!(b.director.allowed.is_empty() || b.goal != Goal::Hunt);
+    }
+
+    /// F-2: a spot that stops passing the drift check is re-picked, not kept (the
+    /// leader runs and the old spot is now too far from him).
+    #[test]
+    fn a_spot_that_no_longer_passes_the_drift_check_is_repicked() {
+        let mut rig = Rig::new();
+        rig.donut().x = 286.0;
+        rig.goblin(1, 230.0, standing());
+        let first = rig.step().unwrap().spot.unwrap();
+        assert_eq!(rig.st.goal(), Goal::Hunt);
+        // The leader moves 40 px away from her (under the 48 px re-pick rule): the
+        // old spot would now fail the pounce's worst case from the farther side,
+        // so the layer must not keep it.
+        rig.carl().x = 360.0;
+        rig.run(10);
+        if let Some(spot) = rig.st.spot() {
+            let zone = {
+                let a = rig.set.autonomy.clone();
+                FreeZone::compute(
+                    &ZoneInput::new(&rig.v.heroes[0], rig.v.view, goal_rows()),
+                    &a,
+                )
+            };
+            let drift = DriftCheck::new(HeroMotion::CARL, &rig.set.autonomy);
+            let t = rig.v.target(StableEntityId::goblin(1)).unwrap();
+            let end = t.x - f32::from(sign(t.x - spot.x)) * POUNCE_CONTACT_PX;
+            assert!(
+                drift.allows_pounce(&zone, spot.x, end, &DonutMoveTuning::SPEC),
+                "the held spot {spot:?} (first {first:?}) fails the drift check"
+            );
+        }
+    }
+
+    /// F-3: an interrupt is not exempt from the drift check (spec 3.3). From a
+    /// position where a swat's worst case leaves the view the press is skipped
+    /// (`Veto::DriftSkip`) and counted; inside the range it presses.
+    #[test]
+    fn an_interrupt_outside_the_commit_range_is_skipped_and_counted() {
+        let set = free_set();
+        let tell = |x: f32| ThreatView {
+            id: StableEntityId::goblin(3),
+            x,
+            foot_y: 0.0,
+            facing: -1,
+            tell_tick: 6,
+            tell_len: 24,
+            impact_tick: 26,
+            aimed_at: Some(HeroId::Carl),
+            guarded: false,
+            in_view: true,
+        };
+        let mut rig = Rig::new();
+        rig.donut().x = 90.0;
+        rig.v.threats = vec![tell(110.0)];
+        let b = rig.step().unwrap();
+        let (lo, hi) = b.director.commit_x.expect("the range");
+        // 16 ticks at 185 px/s is 49.3 px of drift; the camera bound is 276 px.
+        assert!((lo - (320.0 - (276.0 - 49.34 - 8.0))).abs() < 0.1, "{lo}");
+        assert!((hi - (320.0 + (276.0 - 49.34 - 8.0))).abs() < 0.1, "{hi}");
+        assert!(rig.v.heroes[1].x < lo);
+        // The bare director swats; under the brief the press is skipped.
+        let free = CompanionDirector::new(HeroId::Donut)
+            .step_briefed(&rig.v, &set, None)
+            .1;
+        assert!(free.pressed && free.mode == Mode::Interrupt, "{free:?}");
+        let (raw, d) =
+            CompanionDirector::new(HeroId::Donut).step_briefed(&rig.v, &set, Some(&b.director));
+        assert_eq!(d.mode, Mode::Interrupt, "the interrupt is still chosen");
+        assert!(!d.pressed && !raw.attack && !raw.physical);
+        assert_eq!(d.veto, Some(Veto::DriftSkip));
+        rig.st.record_decision(&d);
+        assert_eq!(rig.st.stats().interrupts_drift_skipped, 1);
+        // Inside the range the same interrupt presses.
+        let mut rig = Rig::new();
+        rig.donut().x = 130.0;
+        rig.v.threats = vec![tell(150.0)];
+        let b = rig.step().unwrap();
+        let (raw, d) =
+            CompanionDirector::new(HeroId::Donut).step_briefed(&rig.v, &set, Some(&b.director));
+        assert!(d.pressed && raw.attack, "{d:?}");
+        rig.st.record_decision(&d);
+        assert_eq!(rig.st.stats().interrupts_drift_skipped, 0);
+        // A near-edge leader loses the side toward the edge.
+        let mut rig = Rig::new();
+        rig.carl().x = 40.0;
+        rig.donut().x = 60.0;
+        let b = rig.step().unwrap();
+        let (lo, hi) = b.director.commit_x.unwrap();
+        // Next to the left edge nothing on his left qualifies (his own x and
+        // everything left of it), but the right side still does.
+        assert!(lo > 40.0 && hi > lo, "{lo}..{hi}");
+    }
+
+    /// F-4: while escorting she walks back into the escort band before she holds,
+    /// so Escort honours its 24 tick minimum and does not flip to Idle at the
+    /// comfort radius.
+    #[test]
+    fn an_escort_walks_into_the_escort_band_and_keeps_its_minimum_time() {
+        let mut rig = Rig::new();
+        rig.donut().x = 500.0; // 180 px from him, past the 160 px comfort radius
+        let mut goals = Vec::new();
+        for _ in 0..40 {
+            let b = rig.step().unwrap();
+            goals.push(b.goal);
+            // She walks home at 3.45 px per tick and stops inside the band.
+            let x = rig.donut().x;
+            if x - 320.0 > 100.0 {
+                rig.donut().x = x - 3.45;
+            }
+        }
+        assert!(goals[..24].iter().all(|g| *g == Goal::Escort), "{goals:?}");
+        let end = rig.donut().x;
+        assert_eq!(*goals.last().unwrap(), Goal::Idle, "{goals:?}");
+        let gap = (end - 320.0).abs();
+        assert!((72.0..=120.0).contains(&gap), "{gap}");
+        // The comfort radius alone (160 px) still holds a fresh partner.
+        let mut rig = Rig::new();
+        rig.donut().x = 470.0;
+        assert_eq!(rig.step().unwrap().goal, Goal::Idle);
+    }
+
+    /// N-b: a Hunt that moves to a new target during the recoil springs back from
+    /// it first (the recoil spot, whatever the target), with no target allowed.
+    #[test]
+    fn a_new_target_during_the_recoil_still_gets_the_recoil_spot() {
+        let mut rig = Rig::new();
+        rig.goblin(
+            1,
+            230.0,
+            TargetState::Lying {
+                down_ticks_left: 90,
+                hold_used: false,
+            },
+        );
+        rig.donut().x = 286.0;
+        rig.step();
+        rig.donut().active_move = Some(pounce_in_flight());
+        rig.run(6);
+        rig.donut().active_move = None;
+        rig.step();
+        // The first goblin dies; another one stands nearby.
+        rig.clear_targets();
+        rig.goblin(2, 250.0, standing());
+        let b = rig.run(8).unwrap();
+        assert_eq!(b.goal, Goal::Hunt);
+        assert!(b.recoil && b.director.allowed.is_empty());
+        assert_eq!(b.spot.unwrap().purpose, SpotPurpose::Recoil);
+    }
+
+    /// N-3: the zone proof needs a partner at least as fast as the leader. A slower
+    /// partner (a future brawler next to a faster leader) is refused in debug
+    /// builds; equal speed and faster are fine.
+    #[test]
+    fn a_partner_slower_than_the_leader_is_refused_in_debug_builds() {
+        for (leader, partner) in [
+            (HeroMotion::CARL, HeroMotion::CARL),
+            (HeroMotion::CARL, crate::agility::agile_motion()),
+            (
+                crate::agility::agile_motion(),
+                crate::agility::agile_motion(),
+            ),
+        ] {
+            let mut rig = Rig::new();
+            rig.leader_motion = leader;
+            rig.partner_motion = partner;
+            assert!(rig.step().is_some());
+        }
+        if cfg!(debug_assertions) {
+            let refused = std::panic::catch_unwind(|| {
+                let mut rig = Rig::new();
+                rig.leader_motion = crate::agility::agile_motion();
+                rig.partner_motion = HeroMotion::CARL;
+                rig.step();
+            });
+            assert!(refused.is_err(), "a slower partner must be refused");
+        }
+    }
+
     // ----------------------------------------- the Floor 1 shadow scenario ----
 
     /// The result of one shadow run.
@@ -3969,6 +4361,7 @@ mod tests {
                 partner: HeroId::Donut,
                 zone: &zone,
                 drift: &drift,
+                partner_motion: crate::agility::agile_motion(),
                 tuning: &tuning,
                 world: &world,
                 pan_remaining: sample.pan_remaining,

@@ -667,6 +667,27 @@ impl<'a> NavSpots<'a> {
         (u64::from(id.solid.0) << 16) | u64::from(id.slot)
     }
 
+    /// The open anchor directly under `x`: the highest top at or just below
+    /// `foot_y` (ties by the lowest id, the graph's order).
+    fn anchor_below(graph: &NavGraph, x: f32, foot_y: f32) -> Option<NavAnchorId> {
+        let mut best: Option<(f32, NavAnchorId)> = None;
+        for a in graph.anchors() {
+            let (Some((x0, x1)), Some((_, top))) = (graph.anchor_span(a), graph.anchor_pos(a))
+            else {
+                continue;
+            };
+            if graph.anchor_open(a)
+                && x >= x0
+                && x <= x1
+                && top <= foot_y + 4.0
+                && best.is_none_or(|(t, _)| top > t)
+            {
+                best = Some((top, a));
+            }
+        }
+        best.map(|(_, a)| a)
+    }
+
     fn anchor_of_key(key: u64) -> NavAnchorId {
         NavAnchorId {
             solid: SolidId((key >> 16) as u32),
@@ -703,7 +724,12 @@ impl SpotWorld for NavSpots<'_> {
 
     fn route_ticks(&self, partner: &HeroView, _x: f32, surface: &Surface) -> Option<u16> {
         let graph = self.driver.graph();
-        let here = graph.anchor_at(partner.x, partner.foot_y)?;
+        // In the air (a pounce, a jump) no anchor is within 4 px of her feet: use
+        // the open anchor under her (review F-1), so a decision taken in flight
+        // can still price its routes.
+        let here = graph
+            .anchor_at(partner.x, partner.foot_y)
+            .or_else(|| Self::anchor_below(graph, partner.x, partner.foot_y))?;
         let dest = Self::anchor_of_key(surface.key);
         if here == dest {
             return Some(0);
@@ -1016,9 +1042,21 @@ mod tests {
             .route_ticks(&me, 450.0, &ledge)
             .expect("agile reaches it");
         assert!(ticks > 0);
-        // Carl's preset cannot climb it.
-        let carl = NavDriver::new(&blocks, NavConfig::agile()).unwrap();
-        let _ = carl;
+        // In the air over the floor (a pounce: feet 12 px up, no anchor within 4 px)
+        // she is priced from the anchor under her, and over the ledge from the ledge.
+        let mut flying = me;
+        flying.foot_y = 12.0;
+        flying.grounded = false;
+        assert_eq!(spots.route_ticks(&flying, 150.0, &floor), Some(0));
+        assert_eq!(spots.route_ticks(&flying, 450.0, &ledge), Some(ticks));
+        let mut over_ledge = flying;
+        over_ledge.x = 450.0;
+        over_ledge.foot_y = 120.0;
+        assert_eq!(spots.route_ticks(&over_ledge, 450.0, &ledge), Some(0));
+        // Below every surface there is nothing to price from.
+        let mut under = flying;
+        under.foot_y = -50.0;
+        assert_eq!(spots.route_ticks(&under, 150.0, &floor), None);
         let integrated = NavDriver::new(&blocks, NavConfig::integrated()).unwrap();
         let cs = NavSpots::new(&integrated, HeroId::Carl, 16.0);
         let mut out2 = Vec::new();

@@ -215,10 +215,10 @@ A small goal selector, the **autonomy layer**, sits above the existing director 
 | Retreat | 1800 | a hurt in the last 90 ticks with a standing enemy within 96 px (128 px while her health is 2 or less); cooldown over (`CA2-Q21`) | to the retreat spot (`CA2-Q22`) | interrupts only |
 | Support-leader | 1400 | the leader outnumbered or low, with a support target (4.3) | to the attack spot of the support target, inside the brief's band | the support target only, while in band |
 | Hunt | 1200 | an **unclaimed** candidate exists (4.2; never an enemy in `C`) | to its attack spot: before the biscuit the pounce band, preferring 56 px; after it 112 px, backing off under 72 px; then the recoil (`CA2-Q19`, `CA2-Q20`) | the hunt target only, while in band; nothing during the recoil |
-| Escort | 800 (+400 while the leader travels; wins at once outside `Z`) | always | to the escort spot: 72 to 120 px behind the leader while he travels, her current spot otherwise | interrupts only |
+| Escort | 800 (+400 while the leader travels; wins at once outside `Z`) | the leader travels, she is past the comfort radius, or she is outside `Z`; while she escorts, or while the leader is low, the hold radius is the escort band (120 px), so she walks back into it before she holds (AD-B4, CA2-B1) | to the escort spot: 72 to 120 px behind the leader while he travels, on her own side of him otherwise | interrupts only |
 | Show-off | 700 | her hit landed in the last 45 ticks, no **standing** enemy within 128 px (lying, staggered and defeated ones do not count), no tell aimed at either hero, cooldown over (`CA2-Q24`) | none: stand still 36 ticks facing the leader (the `smug` key plays); ends at once on a tell aimed at either hero or a hurt | nothing |
 | Perch | 600 | no Hunt candidate, the leader has not travelled for 45 ticks, a perch exists (`CA2-Q23`) | to the highest safe anchor in `Z` within 200 px of the leader | interrupts only |
-| Idle | 100 | always | hold | interrupts only |
+| Idle | 100 | always; it is the quiet resting state, the hold that Escort used to be when she is comfortable and the leader does not travel (AD-B4) | hold | interrupts only |
 
 **Retreat triggers (review F-7).** Health does not regenerate inside an attempt (only a restart or a DEMO-01 respawn restores it), and in solo the last-HP guard keeps an AI Donut at 1 HP or more. A level-triggered "low" rule would therefore fire forever. Revision 1 makes **a hurt the only trigger**: low health only widens its enemy radius from 96 to 128 px. One cooldown (180 ticks, from the end of a Retreat) covers every trigger. A Retreat lasts at most 120 ticks, so the Retreat share of combat ticks is bounded by the hits she takes; M15 measures it beside M13.
 
@@ -230,19 +230,21 @@ A small goal selector, the **autonomy layer**, sits above the existing director 
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Escort
-    Escort --> Hunt: candidate target
-    Escort --> Perch: quiet 45 ticks
-    Hunt --> Escort: target gone or not commit-safe
+    [*] --> Idle
+    Idle --> Escort: leader travels or past the comfort radius
+    Escort --> Idle: back in the escort band
+    Idle --> Hunt: candidate target
+    Idle --> Perch: quiet 45 ticks
+    Hunt --> Idle: target gone or not commit-safe
     Hunt --> ShowOff: her hit landed, safe
-    ShowOff --> Escort: 36 ticks or a threat
+    ShowOff --> Idle: 36 ticks or a threat
     Perch --> Hunt: candidate target
     Perch --> Escort: leader travels
-    Escort --> SupportLeader: leader outnumbered or low
-    SupportLeader --> Escort: pressure over
+    Idle --> SupportLeader: leader outnumbered or low
+    SupportLeader --> Idle: pressure over
     state "Any goal" as Any
     Any --> Retreat: hurt or low with an enemy close
-    Retreat --> Escort: 120 ticks or no enemy within 160
+    Retreat --> Idle: 120 ticks or no enemy within 160
     Any --> Escort: outside Z (immediate)
 ```
 
@@ -299,7 +301,7 @@ Goal *kinds* are code; which goals a role has, their weights and spacings are da
 | Event | Plan-like fields | Cooldowns |
 | --- | --- | --- |
 | Solo swap: the partner becomes human | cleared (`clear_plan`) | kept |
-| The hero becomes companion-driven again | start at Escort, since = now; a spot is picked on the next decision tick | kept |
+| The hero becomes companion-driven again | a fresh decision on its first tick (reason Start, since = now), usually Idle or Hunt under AD-B4; the spot comes with it | kept |
 | The partner is defeated | cleared; nothing is decided while down (as the director's `HeroDown`) | kept |
 | The leader is defeated | cleared; goal Idle, no new commitment, interrupts only | kept |
 | `respawn_at` (DEMO-01 checkpoint), a defeat retry or a restart (`CompanionRuntime::reset`) | reset to default | reset |
@@ -418,7 +420,7 @@ Consulted the [character progression horizon](../01-design/character-progression
 - **O-CA2-2 (owner, non-blocking, review FU-1):** the bible's "fiercely loyal" and "outraged when crossed" are not yet expressed; she only sulks. A small grudge term (a Hunt bonus on the enemy that last hurt her or Carl, once she is out of Retreat; after the biscuit, a missile from her retreat spot at the goblin that hit her) would sell it without new art. Proposed for after the owner plays v1.
 - **M13 comparability (review FU-4):** `cf02_arena_direct`'s inputs were recorded against today's Donut; with her elsewhere, goblin retargeting changes the fight Carl's fixed inputs meet. M13 is indicative and is reported with M16's goblin-targeted-her counts.
 - Whether `cf02_free` becomes the `--cf02` default is the owner's game-feel call after playing it.
-- AI Carl autonomy (the symmetric case) is a later work order: a `brawler` role table on the same layer (5.3).
+- AI Carl autonomy (the symmetric case) is a later work order: a `brawler` role table on the same layer (5.3). **Speed guard (CA2-B1 review N-3 and N-i):** the zone proof of 3.1 needs a partner at least as fast as the leader. A `brawler` Carl (185 px/s) next to a faster human Donut (207 px/s) loses ground every tick and breaks it, so that work order must add a speed-aware leash or a drift credit rule first. Until then `AutonomyState::step` asserts, in debug builds, that the partner's run speed is at least the leader's.
 
 ## 9. Revisions
 

@@ -34,8 +34,11 @@
 //! goal change dies on the next tick), presses only while the target is also
 //! inside the brief's press band and she already faces it, and writes **no**
 //! `move_x` and no turn for a support plan: goal steering owns all movement.
-//! An interrupt keeps the director's own approach, because it is commit-checked
-//! by the autonomy layer's drift check and outranks every goal.
+//! An interrupt keeps the director's own approach and outranks every goal, but it
+//! is not exempt from the drift check (spec 3.3): the brief carries the range of
+//! positions from which an interrupt's worst case stays in view
+//! ([`GoalBrief::commit_x`]), and a press outside it is skipped
+//! ([`Veto::DriftSkip`], counted for M16 by the autonomy layer).
 
 use crate::combat::{CARL_HAYMAKER, CARL_JAB, ENEMY_HALF_WIDTH, MAGIC_MISSILE, MoveId};
 use crate::companion::engage::leader_engages;
@@ -94,6 +97,9 @@ pub enum Veto {
     PressEdge,
     /// CA-26: a Jump during the hero's own move is dropped.
     JumpDuringMove,
+    /// COMPANION-AI-02: an interrupt press skipped because the worst case of its
+    /// commitment would leave the view (spec 3.3, [`GoalBrief::commit_x`]).
+    DriftSkip,
 }
 
 /// What one call decided, for traces and tests (never hashed).
@@ -139,6 +145,12 @@ pub struct GoalBrief {
     /// May the director answer a tell aimed at the leader? False only while a
     /// Show-off hold runs (it ends on such a tell, the next tick).
     pub interrupts: bool,
+    /// The partner positions (x range) from which the worst case of an
+    /// interrupt's commitment (a swat or a missile, 16 ticks) stays in view, from
+    /// the autonomy layer's drift check (spec 3.3). An interrupt press outside it
+    /// is skipped with [`Veto::DriftSkip`]; the approach is not. `None` (the
+    /// tests' hand-made briefs) means no limit.
+    pub commit_x: Option<(f32, f32)>,
 }
 
 impl GoalBrief {
@@ -149,6 +161,7 @@ impl GoalBrief {
             press_min_px: 0.0,
             press_max_px: 0.0,
             interrupts: true,
+            commit_x: None,
         }
     }
 
@@ -167,6 +180,7 @@ impl GoalBrief {
             press_min_px: min,
             press_max_px: max,
             interrupts: true,
+            commit_x: None,
         }
     }
 
@@ -444,6 +458,16 @@ impl CompanionDirector {
                 } else {
                     self.press_veto(view, set, &me, c.action)
                 };
+                // An interrupt is not exempt from the drift check (spec 3.3): from
+                // where the worst case leaves the view, the press is skipped.
+                if decision.veto.is_none()
+                    && mode == Mode::Interrupt
+                    && brief
+                        .and_then(|b| b.commit_x)
+                        .is_some_and(|(lo, hi)| me.x < lo || me.x > hi)
+                {
+                    decision.veto = Some(Veto::DriftSkip);
+                }
                 if decision.veto.is_none() {
                     if c.action.uses_physical() {
                         next.physical = true;
