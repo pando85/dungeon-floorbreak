@@ -601,32 +601,35 @@ fn content_and_rules_mismatches_are_rejected() {
         assert!(failure.message.contains(key), "{failure}");
         restore();
     }
-    for key in ["mana_tuning", "story_unlocks", "carl_prog"] {
+    for key in [
+        "mana_tuning",
+        "story_unlocks",
+        "carl_prog",
+        "donut_prog_tuning",
+    ] {
         tamper_manifest(&session, |m| {
             m.content_hashes.remove(key);
         });
         expect_failure(&session, "content_mismatch");
         restore();
     }
-    // DONUT-PROG-01 DP-Q46: the Donut tuning pin is optional for a recording
-    // that has none and sets no Donut flag (an older recording still
-    // verifies), and required as soon as a Donut flag is set.
-    tamper_manifest(&session, |m| {
-        m.content_hashes.remove("donut_prog_tuning");
-    });
-    verify(&session).expect("no Donut flag, no pin: the check is waived");
-    restore();
-    for flag in 0..3 {
+    // DONUT-PROG-01 DP-Q46: the Donut tuning pin is required like the others,
+    // and a descriptor whose Donut start flag breaks the story order (no
+    // biscuit) is a failure, never a panic.
+    for flag in 0..2 {
         tamper_manifest(&session, |m| {
-            m.content_hashes.remove("donut_prog_tuning");
-            match flag {
-                0 => m.reset.donut_prog = true,
-                1 => m.reset.donut_light_feet = true,
-                _ => m.reset.donut_puddle = true,
+            // A start flag is read by the DEMO-01 hall (a plain fixture ignores it).
+            m.reset.source = "demo".to_owned();
+            m.reset.demo = true;
+            m.reset.donut_biscuit = false;
+            if flag == 0 {
+                m.reset.donut_light_feet = true;
+            } else {
+                m.reset.donut_puddle = true;
             }
         });
-        let failure = expect_failure(&session, "content_mismatch");
-        assert!(failure.message.contains("donut_prog_tuning"), "{failure}");
+        let failure = expect_failure(&session, "rules_mismatch");
+        assert!(failure.message.contains("start_flags["), "{failure}");
         restore();
     }
     tamper_manifest(&session, |m| m.reset.kit_hash ^= 1);

@@ -14,7 +14,7 @@ use crate::donut_mana::RestartKind;
 use crate::party::HeroId;
 use crate::prototype::HERO_HALF_HEIGHT;
 use crate::story_unlock::{
-    CapabilityId, EventMatch, ReadThrough, StoryRuntime, StorySetup, UnlockLedger,
+    CapabilityId, EventMatch, ReadThrough, StoryError, StoryRuntime, StorySetup, UnlockLedger,
     holds_without_story,
 };
 
@@ -27,15 +27,24 @@ impl CombatState {
     ///
     /// When a pin, a start flag or a hold needs a read-through capability the
     /// scene does not have (a Donut capability in a scene where the biscuit is
-    /// locked): the story order is broken by the scene's data, and the message
-    /// names the pin (DP-Q06). Call it after `with_donut`.
+    /// locked): the story order is broken by the scene's own data, and the
+    /// message names the pin (DP-Q06). Scenes built from external input (a
+    /// recording's descriptor, the command line) use [`Self::try_with_story`].
+    /// Call it after `with_donut` (a later `with_donut` is a debug assertion).
     #[must_use]
-    pub fn with_story(mut self, setup: StorySetup) -> Self {
-        if let Err(error) = setup.check_read_through(&self.read_through()) {
-            panic!("{error}");
+    pub fn with_story(self, setup: StorySetup) -> Self {
+        match self.try_with_story(setup) {
+            Ok(state) => state,
+            Err(error) => panic!("{error}"),
         }
+    }
+
+    /// [`Self::with_story`] that returns the story-order error (naming the pin,
+    /// the start flag or the hold) instead of panicking.
+    pub fn try_with_story(mut self, setup: StorySetup) -> Result<Self, StoryError> {
+        setup.check_read_through(&self.read_through())?;
         self.story = StoryRuntime::new(&setup);
-        self
+        Ok(self)
     }
 
     /// The values of the capabilities that live elsewhere, read now.

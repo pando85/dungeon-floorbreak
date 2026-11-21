@@ -234,7 +234,7 @@ mod tests {
     use crate::party_scene::PartyFixtureSim;
     use crate::story_unlock::{
         CapabilityId, FIST_REINFORCED, PRIMARY_RANGED, ReadThrough, SPECIAL_THROWN_CHARGE,
-        StoryRuntime, StoryTable,
+        StoryRuntime, StoryTable, UnlockLedger,
     };
     use std::path::{Path, PathBuf};
 
@@ -689,7 +689,7 @@ mod tests {
                 .collect();
             let mut mixed = Vec::new();
             runtime.hash_into(&mut |v| mixed.push(v));
-            (granted, runtime.debug_log().len(), mixed.len())
+            (granted, runtime.debug_log().len(), mixed)
         };
         // Carl's program alone: only the fist, the skipped blink leaves one debug line.
         let (granted, skipped, _) = juicer(true, false, false);
@@ -707,10 +707,16 @@ mod tests {
         );
         assert_eq!(skipped, 0);
         // A skipped entry changes nothing a hash can see: Carl alone hashes
-        // like a ledger that holds the same capabilities with no skip.
+        // exactly like a ledger that started with the pin and granted only the
+        // fist at the same tick, with no skip anywhere.
         let (_, _, carl_words) = juicer(true, false, false);
+        let mut plain = UnlockLedger::new(table, &[SPECIAL_THROWN_CHARGE]);
+        plain.grant(FIST_REINFORCED, 9, "brute_boss_f01_defeated");
+        let mut plain_words = Vec::new();
+        plain.hash_into(&mut |v| plain_words.push(v));
+        assert_eq!(carl_words, plain_words);
         let (_, _, both_words) = juicer(true, true, false);
-        assert!(carl_words < both_words);
+        assert!(carl_words.len() < both_words.len());
         // The safe-room zone: armed by the Donut program only, one grant, and
         // only with the biscuit read through (the `requires` guard).
         let corridor = |carl: bool, biscuit: bool| {

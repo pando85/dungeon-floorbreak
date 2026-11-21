@@ -198,7 +198,10 @@ fn combat_for(
     let mut combat = CombatState::new(fixture, kit, scene)
         .map_err(|e| VerifyFailure::new("content_mismatch", e))?
         .with_donut(donut_setup(reset, boss))
-        .with_story(story_setup(reset, boss));
+        // A descriptor whose Donut flags break the story order (a start flag
+        // without the biscuit) is a bad manifest, never a panic.
+        .try_with_story(story_setup(reset, boss))
+        .map_err(|e| VerifyFailure::new("rules_mismatch", e.to_string()))?;
     if reset.cf02_rules && reset.demo {
         // CF02-F: `--cf02` is the microarena on the demo machinery.
         combat = combat.with_demo(&crate::cf02::arena::RULES);
@@ -483,22 +486,11 @@ pub(super) fn check_content(
         ));
     }
     check_hash(manifest, "kit", kit)?;
-    let reset = &manifest.reset;
-    let donut_flag = reset.donut_prog || reset.donut_light_feet || reset.donut_puddle;
     for (key, hash) in super::live::data_pins() {
         // DONUT-MOBILITY-01: a session recorded before DM-A has no agility hash
         // (and no motion flag); one that has either must agree with this build.
         if key == "agility_tuning"
             && manifest.reset.donut_motion == MotionProfile::Legacy
-            && !manifest.content_hashes.contains_key(key)
-        {
-            continue;
-        }
-        // DONUT-PROG-01: the Donut tuning pin is checked when the recording
-        // carries it or a Donut flag is set, so a recording without the
-        // program still verifies (the key is stamped on every new recording).
-        if key == crate::donut_prog::PIN_KEY
-            && !donut_flag
             && !manifest.content_hashes.contains_key(key)
         {
             continue;

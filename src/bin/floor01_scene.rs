@@ -969,11 +969,11 @@ fn parse_args_full(
             "--donut-prog" => parsed.donut.prog = true,
             "--donut-light-feet" => {
                 parsed.donut.light_feet = true;
-                parsed.donut_biscuit = true;
+                parsed.donut_biscuit |= parsed.donut.implies_biscuit();
             }
             "--donut-puddle" => {
                 parsed.donut.puddle = true;
-                parsed.donut_biscuit = true;
+                parsed.donut_biscuit |= parsed.donut.implies_biscuit();
             }
             "--audience-probe" => parsed.audience_probe = true,
             "--audience-cue-x" => {
@@ -1588,7 +1588,8 @@ fn build_scene(
             let sim = SceneSim::new_at(kit, view_height(args.deck), fixture.carl_x)?;
             let combat = CombatState::new(fixture, kit, &sim)?
                 .with_donut(donut_setup(args))
-                .with_story(story_setup(args));
+                .try_with_story(story_setup(args))
+                .map_err(|e| e.to_string())?;
             (sim, combat)
         };
         if args.cf02.rules {
