@@ -1,0 +1,27 @@
+{
+  "schema": "floor01-demo-hall-v1",
+  "status": "HRD-A1 greybox room (ENEMY-GAMEPLAY-HOARDER section 3, docs/01-design/enemy-gameplay-hoarder.md): geometry only, composed at load time from approved Floor 01 kit pieces by camera_lab::layout (no new art, not an authored level). Bank A, the J-B post, the boss roster entry and the closed door live in f01_hoarder.encounter.json, validated by src/encounter.rs. The entry gate is boss data (enemy_pile_boss_v0.json, HRD-Q41), not room geometry.",
+  "scenarios": [
+    {
+      "id": "F01-HOARDER",
+      "name": "Junk Pocket",
+      "subtitle": "Floor 01 junk-choked pocket: one lair, two piles, a closed far door",
+      "act": 2,
+      "setting": "hoarder",
+      "width": 1056,
+      "height": 660,
+      "floor": 580,
+      "spawn": { "carl": 112, "donut": 80 },
+      "camera_intro": 112,
+      "ceiling_px": 228,
+      "platforms": [],
+      "props": [],
+      "enemies": [],
+      "hazards": [],
+      "goal_x": 1000,
+      "purpose": "A 1056 px scrolling pocket with one continuous ground lane: a protected entry pocket, a 48 px junk bank on the lane that both heroes clear with an ordinary jump, an open arena for the committed boss attacks, a hanging stack bay at the right, and a protected exit pocket behind a door that is closed until the boss is defeated.",
+      "expected": "The bank, the support post, the boss and the door come from f01_hoarder.encounter.json; this file holds geometry only. The lane ceiling is declared because the bank top is above the DP-Q45 free height.",
+      "coop": "Solo with a swap, or two players: every critical route is open to Carl's 80 px class; no Donut-only gate and no raised surface above 48 px."
+    }
+  ]
+}

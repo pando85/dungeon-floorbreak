@@ -427,6 +427,37 @@ impl Lock {
     }
 }
 
+/// What a [`StaticEntry`] is.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StaticKind {
+    /// A solid that stays where it is (HRD-A1: Hoarder bank A until HRD-B turns
+    /// it into a prop). It stands on the lane and is at most
+    /// [`MAX_LANE_OBSTACLE_PX`] high.
+    Solid,
+    /// A hit target that is not solid (HRD-A1: the J-B support post).
+    HitTarget,
+}
+
+impl StaticKind {
+    pub fn parse(name: &str) -> Option<Self> {
+        Some(match name {
+            "solid" => Self::Solid,
+            "hit_target" => Self::HitTarget,
+            _ => return None,
+        })
+    }
+}
+
+/// A rectangle of the sidecar that never changes state: the home of an
+/// authored obstacle before its prop state machine exists. Layout pixels, y
+/// down, standing on the walking line.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StaticEntry {
+    pub id: String,
+    pub kind: StaticKind,
+    pub rect: IRect,
+}
+
 // -------------------------------------------------------------- typed data
 
 #[derive(Debug, Clone, PartialEq)]
@@ -524,9 +555,10 @@ impl RosterKind {
     }
 
     /// Whether this kind supplies `CompanionView.boss` (HAZ rule 9). Appended to
-    /// by the enemy sheets: today only the slime does.
+    /// by the enemy sheets: today the slime does, and the Hoarder, the single
+    /// supplier of her room (HRD sheet section 8).
     pub const fn supplies_boss(self) -> bool {
-        matches!(self, Self::Slime)
+        matches!(self, Self::Slime | Self::Room(EnemyKind::Hoarder))
     }
 }
 
@@ -595,6 +627,9 @@ pub struct Encounter {
     pub vantages: Vec<(usize, VantageCounter)>,
     /// Solids that open on an event (the "solid toggled by event" hook).
     pub locks: Vec<Lock>,
+    /// Authored rectangles that never change state (HRD-A1: bank A and the J-B
+    /// support post). Empty for a sidecar without the field.
+    pub statics: Vec<StaticEntry>,
     /// The weakest class that reaches each platform from its spawn in any
     /// destruction state (the effective gate class).
     pub effective_gates: Vec<GateClass>,
@@ -767,6 +802,11 @@ pub enum EncounterError {
         zone: &'static str,
     },
     LockOutOfBounds(String),
+    /// A static entry is unknown, misplaced or too tall.
+    StaticInvalid {
+        id: String,
+        reason: String,
+    },
     /// The closed lock walls a hero off from the enemy it waits on.
     LockTargetUnreachable {
         lock: String,
@@ -973,6 +1013,7 @@ impl std::fmt::Display for EncounterError {
                 write!(f, "lock {lock} overlaps the protected {zone}")
             }
             LockOutOfBounds(l) => write!(f, "lock {l} is outside the play area or off the lane"),
+            StaticInvalid { id, reason } => write!(f, "static {id}: {reason}"),
             LockTargetUnreachable { lock, hero, state } => write!(
                 f,
                 "lock {lock} (closed) walls {} off from its target in state {state:#b}",
@@ -1246,6 +1287,14 @@ struct RawLock {
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
+struct RawStatic {
+    id: String,
+    kind: String,
+    rect: RawRect,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct RawGate {
     surface: usize,
     class: String,
@@ -1286,6 +1335,9 @@ struct RawEncounter {
     acid_patches: Vec<RawAcidPatch>,
     #[serde(default)]
     pockets: Vec<RawPocket>,
+    /// HRD-A1, optional: absent means none (every earlier sidecar).
+    #[serde(default)]
+    statics: Vec<RawStatic>,
 }
 
 // ------------------------------------------------------------------ loading
@@ -1887,7 +1939,12 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
         if !seen_ids.insert(r.id.as_str()) {
             errs.push(E::DuplicateId(r.id.clone()));
         }
-        let allowed = |k: EnemyKind| matches!(k, EnemyKind::Goblin | EnemyKind::Engineer);
+        let allowed = |k: EnemyKind| {
+            matches!(
+                k,
+                EnemyKind::Goblin | EnemyKind::Engineer | EnemyKind::Hoarder
+            )
+        };
         let kind = if r.kind == "slime" {
             RosterKind::Slime
         } else {
@@ -2169,6 +2226,12 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
             }
         }
     }
+    for st in raw.statics.iter().filter(|st| st.kind == "solid") {
+        let rise = room.floor_y - IRect::from(&st.rect).y;
+        if rise > rule.free_surface_px && rise <= boosted {
+            tall.push((format!("static {}", st.id), rise));
+        }
+    }
     match ctx.ceiling_px {
         Some(c) if c <= 0 || c > rule.ceiling_max_px => errs.push(E::CeilingTooHigh {
             ceiling_px: c,
@@ -2227,6 +2290,48 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
         });
     }
 
+    // ---- statics: rectangles that never change state
+    let mut statics: Vec<StaticEntry> = Vec::new();
+    for st in &raw.statics {
+        if !is_id(&st.id) {
+            errs.push(E::BadId(st.id.clone()));
+        }
+        if !seen_ids.insert(st.id.as_str()) {
+            errs.push(E::DuplicateId(st.id.clone()));
+        }
+        let bad = |reason: &str| E::StaticInvalid {
+            id: st.id.clone(),
+            reason: reason.into(),
+        };
+        let Some(kind) = StaticKind::parse(&st.kind) else {
+            errs.push(bad("unknown kind (solid or hit_target)"));
+            continue;
+        };
+        let rect = IRect::from(&st.rect);
+        if !within_play(room, rect) || rect.bottom() != room.floor_y {
+            errs.push(bad("must stand on the walking line inside the play area"));
+        }
+        if kind == StaticKind::Solid && rect.h > MAX_LANE_OBSTACLE_PX {
+            errs.push(bad(&format!(
+                "a solid is at most {MAX_LANE_OBSTACLE_PX} px high"
+            )));
+        }
+        for (zone, protect) in [
+            ("spawn", protected_spawn),
+            ("exit", exit),
+            ("checkpoint", checkpoint),
+        ] {
+            if overlaps(rect, protect) {
+                errs.push(bad(&format!("overlaps the protected {zone}")));
+            }
+        }
+        statics.push(StaticEntry {
+            id: st.id.clone(),
+            kind,
+            rect,
+        });
+    }
+
     // ---- reachability, in every destruction state (every lock open)
     let changeable: Vec<usize> = props
         .iter()
@@ -2234,10 +2339,16 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
         .filter(|(_, p)| p.solid_intact || p.remnant.is_some())
         .map(|(i, _)| i)
         .collect();
+    // Static solids never change state: they are in every state's solids.
+    let static_solids: Vec<IRect> = statics
+        .iter()
+        .filter(|st| st.kind == StaticKind::Solid)
+        .map(|st| st.rect)
+        .collect();
     let mut reach: Vec<ReachRow> = Vec::new();
     let mut effective: Vec<GateClass> = final_gates.clone();
     if props.len() <= MAX_PROPS {
-        reach = reach_matrix(room, classes, &props, &changeable);
+        reach = reach_matrix(room, classes, &props, &changeable, &static_solids);
         for row in &reach {
             let hero = row.hero;
             let state = row.state;
@@ -2305,7 +2416,7 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
                 })
                 .collect();
             for (lock, hero, state, why) in
-                locked_unreachable(room, classes, &props, &changeable, &checks)
+                locked_unreachable(room, classes, &props, &changeable, &static_solids, &checks)
             {
                 let lock = locks[lock].id.clone();
                 errs.push(match why {
@@ -2351,6 +2462,7 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
             gates: final_gates,
             vantages,
             locks,
+            statics,
             effective_gates: effective,
             reach,
             acid_patches,
@@ -2600,12 +2712,14 @@ fn locked_unreachable(
     c: &HeightClasses,
     props: &[Prop],
     changeable: &[usize],
+    statics: &[IRect],
     locks: &[LockCheck],
 ) -> Vec<(usize, ReachHero, u16, LockFailure)> {
     let mut bad = Vec::new();
     for hero in ReachHero::ALL {
         for state in 0..(1u16 << changeable.len()) {
             let mut solids = blockers(props, changeable, state);
+            solids.extend_from_slice(statics);
             solids.extend(locks.iter().map(|l| l.solid));
             let graph = nodes_for(room, c, hero, &solids);
             let Some(start) = floor_node_at(&graph.nodes, hero.spawn_x(room)) else {
@@ -2633,18 +2747,21 @@ fn locked_unreachable(
 }
 
 /// The reach matrix: every hero class in every destruction state of the
-/// changeable props (`2^n` states).
+/// changeable props (`2^n` states). `statics` are the solids of the sidecar's
+/// static entries: they are in every state.
 pub fn reach_matrix(
     room: &Room,
     c: &HeightClasses,
     props: &[Prop],
     changeable: &[usize],
+    statics: &[IRect],
 ) -> Vec<ReachRow> {
     let exit_x = room.goal_x.min(room.exit.right() - 1);
     let mut rows = Vec::new();
     for hero in ReachHero::ALL {
         for state in 0..(1u16 << changeable.len()) {
-            let solids = blockers(props, changeable, state);
+            let mut solids = blockers(props, changeable, state);
+            solids.extend_from_slice(statics);
             let graph = nodes_for(room, c, hero, &solids);
             let nodes = &graph.nodes;
             let spawn = floor_node_at(nodes, hero.spawn_x(room));

@@ -872,6 +872,41 @@ fn rule_9_at_most_one_kind_supplies_the_boss_input() {
     );
     assert!(RosterKind::Slime.supplies_boss());
     assert!(!RosterKind::Room(EnemyKind::Goblin).supplies_boss());
+    // HRD-A1: the Hoarder supplies the boss input in her own room.
+    assert!(RosterKind::Room(EnemyKind::Hoarder).supplies_boss());
+}
+
+#[test]
+fn rule_9_fails_for_a_slime_plus_the_hoarder_and_passes_for_the_hoarder_alone() {
+    // A real roster of a slime and the Hoarder: two supplier kinds.
+    let mut v = sidecar();
+    v["roster"].as_array_mut().unwrap().push(json!({
+        "id": "hoard", "kind": "hoarder", "x": 600, "beat": "H1",
+        "trigger_x": 432, "delay_ticks": 7
+    }));
+    let errs = errors(&v);
+    assert!(
+        !rule(&errs, 9).is_empty(),
+        "a slime plus the Hoarder must fail rule 9: {}",
+        text(&errs)
+    );
+    let kinds = [RosterKind::Slime, RosterKind::Room(EnemyKind::Hoarder)];
+    match supplier_conflict(kinds, RosterKind::supplies_boss) {
+        Some(EncounterError::Haz { rule, .. }) => assert_eq!(rule, 9),
+        other => panic!("{other:?}"),
+    }
+    // The Hoarder alone is one supplier kind (and her shipped room validates).
+    let alone = [RosterKind::Room(EnemyKind::Hoarder)];
+    assert!(supplier_conflict(alone, RosterKind::supplies_boss).is_none());
+    let hoarder_room =
+        load(root(), crate::pile_boss::ENCOUNTER_PATH).unwrap_or_else(|e| panic!("{}", text(&e)));
+    assert_eq!(
+        distinct_suppliers(
+            hoarder_room.encounter.roster.iter().map(|e| e.kind),
+            RosterKind::supplies_boss
+        ),
+        1
+    );
 }
 
 // ------------------------------------------------------------------ rule 10

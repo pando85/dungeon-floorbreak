@@ -1,0 +1,34 @@
+{
+  "schema": "floor01-encounter-v1",
+  "status": "HRD-A1 data (ENEMY-GAMEPLAY-HOARDER section 3 and 9, docs/01-design/enemy-gameplay-hoarder.md): greybox hypotheses, validated by src/encounter.rs; nothing here is wired into a scene yet. Bank A and the J-B post are static entries (HRD-B and HRD-C upgrade them in place into the prop state machines). The entry gate is not here: it closes on the engage and opens on defeat, so it is boss data (HRD-Q41) and not a lock. Every number is a tuning knob. Coordinates are layout pixels, y down, like the room file.",
+  "id": "F01-HOARDER-ENC",
+  "room_file": "f01_hoarder.room.json",
+  "room_id": "F01-HOARDER",
+  "story_pin": "f01_pin_pre_pile_boss",
+  "goal": "reach_exit",
+  "grants": [],
+  "max_living": 1,
+  "locks": [
+    {
+      "id": "exit_door",
+      "solid": { "x": 928, "y": 352, "w": 16, "h": 228 },
+      "opens_on": { "event": "enemy_defeated", "target": "pile_boss" }
+    }
+  ],
+  "platform_slab_px": 12,
+  "protected_spawn": { "x": 16, "y": 484, "w": 192, "h": 96 },
+  "checkpoint": { "x": 48, "y": 484, "w": 48, "h": 96 },
+  "exit": { "x": 976, "y": 484, "w": 64, "h": 96 },
+  "props": [],
+  "hazards": [],
+  "links": [],
+  "roster": [
+    { "id": "pile_boss", "kind": "hoarder", "x": 608, "beat": "H1", "trigger_x": 432, "delay_ticks": 0 }
+  ],
+  "gates": [],
+  "vantages": [],
+  "statics": [
+    { "id": "bank_a", "kind": "solid", "rect": { "x": 352, "y": 532, "w": 64, "h": 48 } },
+    { "id": "post_b", "kind": "hit_target", "rect": { "x": 808, "y": 516, "w": 16, "h": 64 } }
+  ]
+}

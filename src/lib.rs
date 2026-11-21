@@ -71,6 +71,7 @@ pub mod morale;
 pub mod pad_slots;
 pub mod party;
 pub mod party_scene;
+pub mod pile_boss;
 pub mod playtrace;
 pub mod prototype;
 pub mod rot_sticker;
