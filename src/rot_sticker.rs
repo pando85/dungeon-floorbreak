@@ -20,9 +20,10 @@
 //!   core's [`Stimulus`] intake, rule B (a Magic Missile bolt within the
 //!   trigger circle), the committed 24-tick warning, the dynamite chain and the
 //!   initiator credit rule;
-//! * the Rot blast ([`RotBlast`]): the `BlastProfile` row as data (core band
-//!   none, also at `sq == 0`; outer 48; `hero_damage: AllHeroes`), one
-//!   evaluation per victim per blast, and the effects on each victim kind;
+//! * the Rot blast as data ([`RotTuning::world_profile`]): the engine's one
+//!   `BlastProfile` (core band none, also at `sq == 0`; outer 48;
+//!   `hero_damage: AllHeroes`), resolved by the scene's shared blast loop, with
+//!   no evaluator of its own (HAZ-A2);
 //! * the presentation frame table ([`warning_frame`], a pure function of the
 //!   ticks left to the detonation).
 //!

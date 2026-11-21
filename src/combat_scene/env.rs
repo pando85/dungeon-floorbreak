@@ -776,6 +776,8 @@ impl EnvRuntime {
                 Machine::Valve { valve, .. } => valve.state() == ValveState::Intact,
                 Machine::Mass(m) => m.is_supported(),
                 Machine::Drum { drum, .. } => drum.is_armed(),
+                // A blast never provokes a sticker (its charge is reached by the chain).
+                Machine::Rot => false,
             })
             .map(|p| (p.index, p.target))
             .collect()
@@ -932,6 +934,8 @@ impl EnvRuntime {
                 // The drum's tell is its warning; its charge keeps the clock.
                 Machine::Drum { .. } => PropPhase::Warning,
                 Machine::Mass(_) => PropPhase::Released,
+                // A sticker takes its stimuli in its own step (`offer` returns above).
+                Machine::Rot => return Some((result, events)),
             };
             events.push(CombatEvent::PropPhase {
                 tick,
@@ -1228,7 +1232,10 @@ impl CombatState {
         let mut sources = Vec::new();
         for (i, st) in env.stickers.iter_mut().enumerate() {
             st.pending.clear();
-            sources.push((i, rot_sticker::rot_source(u8::try_from(i).unwrap_or(u8::MAX))));
+            sources.push((
+                i,
+                rot_sticker::rot_source(u8::try_from(i).unwrap_or(u8::MAX)),
+            ));
         }
         // The charge index is read before each push (a drum's blast charge, BOIL-D,
         // may already stand among the authored charges).
@@ -2271,9 +2278,13 @@ impl CombatState {
             let solid = env.solids()[i - range.start];
             match solid.kind {
                 EnvSolidKind::Drum => struck.push(solid.prop),
-                // The landed weight is a wall, not a trigger; a lock and a gate are
-                // her solids, never a prop to strike.
-                EnvSolidKind::Remnant | EnvSolidKind::Lock { .. } | EnvSolidKind::Gate { .. } => {}
+                // The landed weight is a wall, not a trigger; a lock, a gate, a soffit
+                // and the exit gate are room solids, never a prop to strike.
+                EnvSolidKind::Remnant
+                | EnvSolidKind::Lock { .. }
+                | EnvSolidKind::Gate { .. }
+                | EnvSolidKind::Soffit
+                | EnvSolidKind::ExitGate => {}
             }
         }
         struck.sort_unstable();
