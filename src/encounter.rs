@@ -444,9 +444,9 @@ pub struct RosterEntry {
     pub delay_ticks: u32,
     /// Surfaces this enemy threatens besides its own perch.
     pub threatens: Vec<usize>,
-    /// Opt out of the spawn-inside-a-hazard check (an acid slime spawns in
-    /// its own acid).
-    pub allow_in_hazard: bool,
+    /// Names of the hazards this entry may spawn inside (an acid slime spawns
+    /// in its own acid). Every other hazard still rejects it.
+    pub allow_in_hazard: Vec<String>,
     /// A lock may not wait on an optional enemy.
     pub optional: bool,
 }
@@ -662,6 +662,13 @@ pub enum EncounterError {
         hero: ReachHero,
         state: u16,
     },
+    /// The closed lock walls a hero off from the column that wakes its target:
+    /// the target never spawns and the lock never opens.
+    LockTriggerUnreachable {
+        lock: String,
+        hero: ReachHero,
+        state: u16,
+    },
     TooManyLinks(usize),
     LinkUnknownProp(String),
     LinkSelf(String),
@@ -688,6 +695,11 @@ pub enum EncounterError {
     },
     RosterOutOfBounds(String),
     RosterOnProtected(String),
+    /// `allow_in_hazard` names a hazard that does not exist.
+    RosterUnknownHazard {
+        entry: String,
+        hazard: String,
+    },
     RosterInHazard {
         entry: String,
         hazard: String,
@@ -844,6 +856,11 @@ impl std::fmt::Display for EncounterError {
                 "lock {lock} (closed) walls {} off from its target in state {state:#b}",
                 hero.name()
             ),
+            LockTriggerUnreachable { lock, hero, state } => write!(
+                f,
+                "lock {lock} (closed) walls {} off from the trigger of its target in state {state:#b}: softlock",
+                hero.name()
+            ),
             TooManyLinks(n) => write!(f, "{n} links, at most {MAX_AUTHORED_LINKS}"),
             LinkUnknownProp(p) => write!(f, "link names the unknown prop {p}"),
             LinkSelf(p) => write!(f, "prop {p} links to itself"),
@@ -862,6 +879,10 @@ impl std::fmt::Display for EncounterError {
             ),
             RosterOutOfBounds(e) => write!(f, "roster {e} is outside the play area"),
             RosterOnProtected(e) => write!(f, "roster {e} spawns on the protected spawn"),
+            RosterUnknownHazard { entry, hazard } => write!(
+                f,
+                "roster {entry}: allow_in_hazard names the unknown hazard {hazard}"
+            ),
             RosterInHazard { entry, hazard } => {
                 write!(f, "roster {entry} spawns inside hazard {hazard}")
             }
@@ -1039,7 +1060,7 @@ struct RawRoster {
     #[serde(default)]
     threatens: Vec<usize>,
     #[serde(default)]
-    allow_in_hazard: bool,
+    allow_in_hazard: Vec<String>,
     #[serde(default)]
     optional: bool,
 }
@@ -1705,14 +1726,21 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
         if overlaps(body, protected_spawn) {
             errs.push(E::RosterOnProtected(r.id.clone()));
         }
-        if !r.allow_in_hazard {
-            for h in &hazards {
-                if overlaps(body, h.spec.rect) || overlaps(body, h.spec.telegraph_rect) {
-                    errs.push(E::RosterInHazard {
-                        entry: r.id.clone(),
-                        hazard: h.name.clone(),
-                    });
-                }
+        for name in &r.allow_in_hazard {
+            if !hazards.iter().any(|h| &h.name == name) {
+                errs.push(E::RosterUnknownHazard {
+                    entry: r.id.clone(),
+                    hazard: name.clone(),
+                });
+            }
+        }
+        for h in &hazards {
+            let exempt = r.allow_in_hazard.contains(&h.name);
+            if !exempt && (overlaps(body, h.spec.rect) || overlaps(body, h.spec.telegraph_rect)) {
+                errs.push(E::RosterInHazard {
+                    entry: r.id.clone(),
+                    hazard: h.name.clone(),
+                });
             }
         }
         // F7: an enemy threatens a surface it stands on, or one its attack
@@ -1746,7 +1774,7 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
             trigger_x: r.trigger_x,
             delay_ticks: r.delay_ticks,
             threatens: r.threatens.clone(),
-            allow_in_hazard: r.allow_in_hazard,
+            allow_in_hazard: r.allow_in_hazard.clone(),
             optional: r.optional,
         });
     }
@@ -2001,20 +2029,25 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
         }
         // Locks: closed, no hero may be walled off from the enemy it waits on.
         if !locks.is_empty() {
-            let targets: Vec<(IRect, Option<usize>, i32)> = locks
+            let checks: Vec<LockCheck> = locks
                 .iter()
                 .map(|l| {
                     let LockEvent::EnemyDefeated { roster: r } = l.opens_on;
-                    (l.solid, roster[r].perch, roster[r].x)
+                    LockCheck {
+                        solid: l.solid,
+                        perch: roster[r].perch,
+                        x: roster[r].x,
+                        trigger_x: roster[r].trigger_x,
+                    }
                 })
                 .collect();
-            for (lock, hero, state) in
-                locked_unreachable(room, classes, &props, &changeable, &targets)
+            for (lock, hero, state, why) in
+                locked_unreachable(room, classes, &props, &changeable, &checks)
             {
-                errs.push(E::LockTargetUnreachable {
-                    lock: locks[lock].id.clone(),
-                    hero,
-                    state,
+                let lock = locks[lock].id.clone();
+                errs.push(match why {
+                    LockFailure::Target => E::LockTargetUnreachable { lock, hero, state },
+                    LockFailure::Trigger => E::LockTriggerUnreachable { lock, hero, state },
                 });
             }
         }
@@ -2098,9 +2131,17 @@ fn gap(a: &Node, b: &Node) -> i32 {
 struct Graph {
     nodes: Vec<Node>,
     cuts: Vec<(i32, i32)>,
+    /// Index of the first platform node (platforms come right after the floor
+    /// segments, in the room's order; standable solids come last).
+    platform_base: usize,
 }
 
 impl Graph {
+    /// The node of platform `i` of the room.
+    fn platform(&self, i: usize) -> usize {
+        self.platform_base + i
+    }
+
     /// A solid it cannot hop stands between the two nodes.
     fn walled(&self, a: &Node, b: &Node) -> bool {
         let (g0, g1) = if b.x0 >= a.x1 {
@@ -2134,8 +2175,10 @@ fn platform_end_free(room: &Room, drop_gap: i32, r: IRect) -> bool {
     r.x - drop_gap >= room.play_x.0 || r.right() + drop_gap <= room.play_x.1
 }
 
-/// Floor segments of one hero class (cut by blockers it cannot hop) plus the
-/// platforms.
+/// Floor segments of one hero class (cut by blockers it cannot hop), the
+/// platforms, and every solid it can stand on (an intact drum, a landed
+/// remnant, a closed lock) as a surface of its own: a lane solid is a step, not
+/// only a wall.
 fn nodes_for(room: &Room, c: &HeightClasses, hero: ReachHero, solids: &[IRect]) -> Graph {
     let mut cuts: Vec<(i32, i32)> = solids
         .iter()
@@ -2164,6 +2207,7 @@ fn nodes_for(room: &Room, c: &HeightClasses, hero: ReachHero, solids: &[IRect]) 
             floor: true,
         });
     }
+    let platform_base = nodes.len();
     for p in &room.platforms {
         nodes.push(Node {
             x0: p.rect.x,
@@ -2172,7 +2216,21 @@ fn nodes_for(room: &Room, c: &HeightClasses, hero: ReachHero, solids: &[IRect]) 
             floor: false,
         });
     }
-    Graph { nodes, cuts }
+    for b in solids {
+        if room.floor_y - b.y <= c.max_rise(hero) {
+            nodes.push(Node {
+                x0: b.x,
+                x1: b.right(),
+                top: b.y,
+                floor: false,
+            });
+        }
+    }
+    Graph {
+        nodes,
+        cuts,
+        platform_base,
+    }
 }
 
 fn can_move(
@@ -2232,34 +2290,59 @@ fn floor_node_at(nodes: &[Node], x: i32) -> Option<usize> {
     nodes.iter().position(|n| n.floor && x >= n.x0 && x < n.x1)
 }
 
-/// Locks closed: for every class and state, the target of every lock (each
-/// `(solid, perch, x)` is a lock's closed solid and its target's standing
-/// place) must be reachable from the hero's spawn with all the solids in place.
-/// Returns the failing `(lock, hero, state)` triples.
+/// A lock for the closed-lock reachability check: its closed solid, where its
+/// target enemy stands (`perch`, `x`) and the column that wakes it
+/// (`trigger_x`).
+struct LockCheck {
+    solid: IRect,
+    perch: Option<usize>,
+    x: i32,
+    trigger_x: Option<i32>,
+}
+
+/// Why a closed lock fails for a class and state.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum LockFailure {
+    /// The target's standing place cannot be reached.
+    Target,
+    /// The column that wakes the target cannot be reached: the target never
+    /// spawns and the lock never opens (a softlock).
+    Trigger,
+}
+
+/// Locks closed: for every class and state, the target of every lock and the
+/// trigger column that wakes it must be reachable from the hero's spawn with
+/// all the solids in place. Returns the failing `(lock, hero, state, why)`.
 fn locked_unreachable(
     room: &Room,
     c: &HeightClasses,
     props: &[Prop],
     changeable: &[usize],
-    locks: &[(IRect, Option<usize>, i32)],
-) -> Vec<(usize, ReachHero, u16)> {
+    locks: &[LockCheck],
+) -> Vec<(usize, ReachHero, u16, LockFailure)> {
     let mut bad = Vec::new();
     for hero in ReachHero::ALL {
         for state in 0..(1u16 << changeable.len()) {
             let mut solids = blockers(props, changeable, state);
-            solids.extend(locks.iter().map(|(solid, ..)| *solid));
+            solids.extend(locks.iter().map(|l| l.solid));
             let graph = nodes_for(room, c, hero, &solids);
             let Some(start) = floor_node_at(&graph.nodes, hero.spawn_x(room)) else {
                 continue;
             };
             let seen = reachable_from(room, c, hero, &graph, start);
-            for (i, &(_, perch, x)) in locks.iter().enumerate() {
-                let node = match perch {
-                    Some(p) => Some(graph.nodes.len() - room.platforms.len() + p),
-                    None => floor_node_at(&graph.nodes, x),
+            let reached = |node: Option<usize>| node.is_some_and(|n| seen[n]);
+            for (i, l) in locks.iter().enumerate() {
+                let target = match l.perch {
+                    Some(p) => Some(graph.platform(p)),
+                    None => floor_node_at(&graph.nodes, l.x),
                 };
-                if !node.is_some_and(|n| seen[n]) {
-                    bad.push((i, hero, state));
+                if !reached(target) {
+                    bad.push((i, hero, state, LockFailure::Target));
+                }
+                if let Some(tx) = l.trigger_x
+                    && !reached(floor_node_at(&graph.nodes, tx))
+                {
+                    bad.push((i, hero, state, LockFailure::Trigger));
                 }
             }
         }
@@ -2300,7 +2383,7 @@ pub fn reach_matrix(
                 .iter()
                 .enumerate()
                 .map(|(i, _)| {
-                    let node = nodes.len() - room.platforms.len() + i;
+                    let node = graph.platform(i);
                     let there =
                         spawn.is_some_and(|s| reachable_from(room, c, hero, &graph, s)[node]);
                     // A way back only counts for a perch the class can reach.
@@ -3120,14 +3203,15 @@ mod tests {
 
     #[test]
     fn the_donut_classes_reach_what_their_apex_allows() {
-        // Two perches: 80 px, then 128 px with a gap of 196 px (more than base
-        // Donut's reach through the lower perch, less than the boosted Donut's).
-        // Carl reaches the first only, the boosted Donut both: the matrix says
-        // so, and the 128 px gate holds.
-        let room = room_with_platforms(&[(304, 80, 144), (644, 128, 144)]);
+        // Two perches: 80 px, then 128 px with a gap of 208 px (more than the
+        // reach of base Donut through the lower perch, and than the boosted
+        // Donut's reach through it, who reaches the high perch from the floor).
+        // Carl reaches the first only: the matrix says so, and the 128 px gate
+        // holds.
+        let room = room_with_platforms(&[(304, 80, 144), (48, 128, 48)]);
         let v = sidecar_for(&room, &[(0, "carl"), (1, "donut_boosted")], |v| {
             v["roster"][0]["perch"] = json!(1);
-            v["roster"][0]["x"] = json!(716);
+            v["roster"][0]["x"] = json!(72);
         });
         let enc = parse_sidecar(&v.to_string(), &ctx_for(room.clone()))
             .unwrap_or_else(|e| panic!("{e:?}"));
@@ -3250,8 +3334,10 @@ mod tests {
             )),
             "{errs:?}"
         );
-        // With a gap of 196 px the gate holds: only the boosted class crosses.
-        let room = room_with_platforms(&[(304, 80, 144), (644, 128, 144)]);
+        // With a gap of 208 px the gate holds (the perch is on the far side of
+        // the spawn, away from every lane solid): only the boosted class
+        // reaches it, straight from the floor.
+        let room = room_with_platforms(&[(304, 80, 144), (48, 128, 48)]);
         let v = sidecar_for(&room, &[(0, "carl"), (1, "donut_boosted")], |v| {
             v["vantages"] = json!([{ "surface": 1, "counter": "lane_ceiling" }]);
         });
@@ -3516,8 +3602,125 @@ mod tests {
             e,
             EncounterError::RosterInHazard { .. }
         )));
-        v["roster"][1]["allow_in_hazard"] = json!(true);
+        v["roster"][1]["allow_in_hazard"] = json!(["steam"]);
         assert!(check(&v).is_ok());
+        assert_eq!(
+            check(&v).unwrap().roster[1].allow_in_hazard,
+            ["steam".to_string()]
+        );
+    }
+
+    #[test]
+    fn the_in_hazard_opt_out_exempts_only_the_named_hazard() {
+        // x 830 stands inside two volumes: the weight's footprint and the drum
+        // blast. Naming one leaves the other rejecting; naming both passes.
+        let mut v = sidecar();
+        v["roster"][1]["x"] = json!(830);
+        let hazards_of = |errs: Vec<EncounterError>| -> Vec<String> {
+            errs.into_iter()
+                .filter_map(|e| match e {
+                    EncounterError::RosterInHazard { hazard, .. } => Some(hazard),
+                    _ => None,
+                })
+                .collect()
+        };
+        assert_eq!(hazards_of(errors(&v)), ["weight_fall", "drum_blast"]);
+        v["roster"][1]["allow_in_hazard"] = json!(["weight_fall"]);
+        assert_eq!(hazards_of(errors(&v)), ["drum_blast"]);
+        v["roster"][1]["allow_in_hazard"] = json!(["weight_fall", "drum_blast"]);
+        assert!(check(&v).is_ok());
+        // A name that is no hazard is an error, not a silent wildcard.
+        v["roster"][1]["allow_in_hazard"] = json!(["weight_fall", "drum_blast", "acid"]);
+        assert!(has(&errors(&v), |e| matches!(
+            e,
+            EncounterError::RosterUnknownHazard { hazard, .. } if hazard == "acid"
+        )));
+    }
+
+    #[test]
+    fn r1_a_lane_solid_you_can_stand_on_is_a_step_of_the_route_graph() {
+        // A 112 px perch 16 px right of the intact 32 px drum (848..880),
+        // declared a boosted-Donut gate: Carl stands on the drum (32 px) and
+        // jumps the other 80, so the gate is bypassed in the all-intact state.
+        let room = room_with_platforms(&[(896, 112, 144)]);
+        let v = sidecar_for(&room, &[(0, "donut_boosted")], |v| {
+            v["vantages"] = json!([{ "surface": 0, "counter": "lane_ceiling" }]);
+        });
+        let errs = parse_sidecar(&v.to_string(), &ctx_for(room.clone())).unwrap_err();
+        assert!(
+            has(&errs, |e| matches!(
+                e,
+                EncounterError::GateBypassed {
+                    surface: 0,
+                    declared: "donut_boosted",
+                    by: "carl"
+                }
+            )),
+            "{errs:?}"
+        );
+        // The weight's landed remnant (784..848, 32 px) is a step too: a 112 px
+        // perch right behind it is reachable by Carl in the landed state.
+        let room = room_with_platforms(&[(640, 112, 144)]);
+        let v = sidecar_for(&room, &[(0, "donut_boosted")], |v| {
+            v["vantages"] = json!([{ "surface": 0, "counter": "lane_ceiling" }]);
+        });
+        let errs = parse_sidecar(&v.to_string(), &ctx_for(room)).unwrap_err();
+        assert!(has(&errs, |e| matches!(
+            e,
+            EncounterError::GateBypassed {
+                surface: 0,
+                by: "carl",
+                ..
+            }
+        )));
+        // Far from every lane solid the gate holds: a small perch at the far
+        // right end (208 px from the drum, beyond every reach through it).
+        let room = room_with_platforms(&[(1088, 112, 32)]);
+        let v = sidecar_for(&room, &[(0, "donut_boosted")], |v| {
+            v["vantages"] = json!([{ "surface": 0, "counter": "lane_ceiling" }]);
+        });
+        let enc = parse_sidecar(&v.to_string(), &ctx_for(room)).unwrap_or_else(|e| panic!("{e:?}"));
+        assert_eq!(enc.effective_gates, [ReachHero::DonutBoosted]);
+    }
+
+    #[test]
+    fn r2_a_lock_cannot_wait_on_an_enemy_whose_trigger_sits_behind_it() {
+        // g3 wakes when a hero passes x 1000; a 96 px lock at x 600 waits on g3.
+        // Closed, no hero can reach x 1000, so g3 never spawns: a softlock.
+        let mut v = sidecar();
+        v["roster"][2]["x"] = json!(400);
+        v["roster"][2]["trigger_x"] = json!(1000);
+        with_lock(
+            &mut v,
+            json!({ "x": 600, "y": 484, "w": 16, "h": 96 }),
+            "g3",
+        );
+        let errs = errors(&v);
+        assert!(
+            has(&errs, |e| matches!(
+                e,
+                EncounterError::LockTriggerUnreachable {
+                    hero: ReachHero::Carl,
+                    ..
+                }
+            )),
+            "{errs:?}"
+        );
+        // The target itself is on the near side: only the trigger is the fault.
+        assert!(!has(&errs, |e| matches!(
+            e,
+            EncounterError::LockTargetUnreachable { .. }
+        )));
+        // With the trigger in front of the lock, the same door is fine.
+        let mut v = sidecar();
+        v["roster"][2]["x"] = json!(400);
+        v["roster"][2]["trigger_x"] = json!(480);
+        with_lock(
+            &mut v,
+            json!({ "x": 600, "y": 484, "w": 16, "h": 96 }),
+            "g3",
+        );
+        assert!(check(&v).is_ok(), "{:?}", check(&v));
     }
 
     #[test]
@@ -3576,9 +3779,10 @@ mod tests {
     #[test]
     fn f7_an_enemy_on_a_lower_perch_can_threaten_a_surface_within_its_reach() {
         // Perch A at 80 px with a goblin on it; perch B at 96 px, 160 px away
-        // (beyond Carl's reach, so the 96 px gate holds for Carl). The goblin's
-        // swing is within 30 px of B's height: it threatens B.
-        let room = room_with_platforms(&[(304, 80, 144), (608, 96, 144)]);
+        // on the far side of the spawn (beyond Carl's reach, so the 96 px gate
+        // holds for Carl). The goblin's swing is within 30 px of B's height: it
+        // threatens B.
+        let room = room_with_platforms(&[(304, 80, 144), (48, 96, 96)]);
         let v = sidecar_for(&room, &[(0, "carl"), (1, "donut_base")], |v| {
             v["roster"][0]["perch"] = json!(0);
             v["roster"][0]["x"] = json!(376);

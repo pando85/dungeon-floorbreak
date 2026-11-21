@@ -323,7 +323,7 @@ pub struct HazardHit {
     pub class: HazardClass,
     pub victim: Victim,
     /// 1-based activation number (the token of this hit); the epoch of a
-    /// persistent volume.
+    /// persistent volume, which wraps from 255 to 1.
     pub activation: u8,
     pub damage: u8,
     pub push_x: i16,
@@ -437,12 +437,15 @@ impl HazardVolume {
     }
 
     /// Persistent volumes only: start a new epoch, so every victim may be hit
-    /// again. `false` for a timed volume.
+    /// again. The spent tokens are cleared (the state stays bounded however
+    /// often it is re-armed) and the epoch number wraps from 255 back to 1.
+    /// `false` for a timed volume.
     pub fn rearm(&mut self) -> bool {
         if !self.spec.is_persistent() {
             return false;
         }
-        self.activations = self.activations.saturating_add(1);
+        self.activations = self.activations.checked_add(1).unwrap_or(1);
+        self.applied.clear();
         true
     }
 
@@ -937,6 +940,19 @@ mod tests {
         assert!(v.rearm());
         let again = v.contact(Victim::hero(0), inside()).unwrap();
         assert_eq!(again.activation, 2);
+        // 400 re-arms, 400 hits: the epoch wraps and the tokens stay bounded.
+        let mut long = HazardVolume::new(persistent(6)).unwrap();
+        let mut hits = 0;
+        for _ in 0..400 {
+            if long.contact(Victim::hero(0), inside()).is_some() {
+                hits += 1;
+            }
+            assert!(long.contact(Victim::hero(0), inside()).is_none());
+            assert!(long.rearm());
+            assert!(long.applied.len() <= 1, "bounded: {}", long.applied.len());
+        }
+        assert_eq!(hits, 400);
+        assert!((1..=255).contains(&long.activations()));
         // A timed volume has no epochs to re-arm.
         let mut t = HazardVolume::new(spec(1)).unwrap();
         assert!(!t.rearm());
