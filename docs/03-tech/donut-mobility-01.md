@@ -143,10 +143,10 @@ This fits the progression horizon: Donut is "mobile, fragile and cat-shaped", wi
 | DM-Q14, Q15, Q16 | retired | n/a | The roll mode's chance, streak cap and RNG rule. IDs kept so references stay unambiguous |
 | DM-Q17 | evadable list | **Goblin swing** (every common goblin, every temperament); **Engineer ram**; **llama glob** | Single-target attacks with a readable tell, aimed at a body |
 | DM-Q18 | never evadable | The **shore block** and any falling or collapsing terrain (CF02-Q42); **blasts and explosions**; **boss blows**; **hazards, pits and falls**; **body contacts**; any scripted or defeat-sequence damage. **Default for any future source: not evadable** until its own design opts it in | Area and environmental damage stays a positioning problem |
-| DM-Q19 | evade outcome | Scoped to the **attack instance**, with **no time window** | See below the table |
+| DM-Q19 | evade outcome | Scoped to the **attack instance**, with **no time window** | See below the table; the ram check and the instance key are refined in section 10 (DM-Q19/U3-R1, DM-Q19-R1) |
 | DM-Q20 | order | After the existing guards, before damage | Defeat, `invulnerable_ticks > 0`, D1 M4 off-screen immunity, the box overlap, **then** the evasion check, then damage and the D1 M1 last-HP guard. A hit already stopped by a guard consumes no arm |
 | DM-Q21 | presentation | Stand-ins (section 3.4) | Never authoritative |
-| DM-Q22 | events and hash | `CombatEvent::HeroEvaded { tick, hero, source }` and `CombatEvent::EvadeArmed { tick, hero }` | Hash rule in section 3.5 |
+| DM-Q22 | events and hash | `CombatEvent::HeroEvaded { tick, hero, source }` and `CombatEvent::EvadeArmed { tick, hero }` | Hash rule in section 3.5; `HeroEvaded` also carries `kind` (section 10, DM-Q22-R1) |
 | DM-Q23 | retired | n/a | The `--donut-evasion` CLI override existed only for the roll A/B |
 | DM-Q24 | share | **No target.** The share is measured and reported (section 3.3) | Owner decision 2 |
 | DM-Q25 | low profile | Q4 `Forgiving` 20 x 24, unchanged | Documented, no change |
@@ -171,7 +171,7 @@ A **solo swap does not reset it**: the swap changes who drives her body, not the
   - **Ram (U3):** the evasion check runs **inside** `ram_on_hero`'s candidate loop. An evaded Donut is skipped exactly like an invulnerable one, so Carl behind her can be chosen on the same tick. The ram continues.
   - **Glob:** passes through her and keeps flying. It does not splat.
 - **Instance identity:**
-  - goblin or Engineer: `(enemy index, attack start tick)`, both derivable from existing state (`attack_tick`);
+  - goblin or Engineer: `(enemy index, attack start tick)`; DM-B stores the tell-start tick per enemy because hit-stop freezes `attack_tick` (section 10, DM-Q19-R1);
   - glob: `(owner, spawn_tick)`. `llama::Glob` gains a `spawn_tick: u32` field (Revision 1, F8). It is **not** folded into the state hash, because it is derivable from the spit events, so adding it moves no golden.
 
 **Human and AI.** The evasion is passive and identical for P1, P2, the solo swap, the companion and the follower bot. The AI does **not** read the armed state: no riskier play when armed. Its dodge rules (follower M3, companion profiles) are unchanged.
@@ -402,3 +402,11 @@ Implemented as specified, with the adopted refinements below (each is a default 
 | `HeroEvaded` | `{ tick, hero, source, kind }`: `source` is the attacker's target id as in `HeroHurt`; `kind` names the `EvadeSource` | One field more than DM-Q22, for the log and the share table |
 
 **Measured share (section 3.3, no target).** See the evidence README. With the biscuit at tick 0, the shipped rooms never let her arm before the first thing that reaches her: the only evadable attack that reaches the AI Donut in the microarena is the Engineer's ram, first on tick 427 to 487 of the attempt, inside the 600 ticks of the shortest rearm. So the share is 0 of 3 (fixtures) and 0 of 42 (the Engineer pilot over 48 seeds) at 600, 720 and 900; armed at tick 0 it is 3 of 3 and 42 of 42, every pilot attempt the opener of the second wave (U1). Few attempts reach her at all (the fixture rows are an insufficient sample), so the table says where the reflex sits, not how often it fires in play. 720 stays the default whatever the table shows.
+
+**Rulings (PR #199 review, adopted defaults).** DM-Q19/U3-R1: the ram checks only the hero it would hit. DM-Q19-R1: swing and ram instances are keyed by the tell-start tick; every path into `GoblinMode::Attack` must report `started_tell` (a comment and a `debug_assert` at the stamp and the two call sites guard it). DM-Q22-R1: `HeroEvaded` carries `kind`. The measured share covers the AI-controlled Donut only; a human-Donut population is a DM-C or follow-up item.
+
+**Deviations and gaps (stated, not hidden).**
+
+1. Spec goldens not pinned: `dm_reflex_ram_passes` and `dm_reflex_glob_passes` are test-only (they need `cf02_rules` and the arena kit, keyed by name prefix) with events asserted; `dm_reflex_block_not_evadable` does not exist, its role is played by `the_shore_block_and_a_boss_blow_are_never_evaded` on overlaid real fixtures (the hurt source and the armed state are asserted); `DM_AI_REFLEX_SAME_AS_HUMAN` exists but is neither registered nor pinned, its test compares the two runs tick for tick instead.
+2. Blast: no hero blast damage exists before CP-B1, so "a blast is never evaded" is vacuous today. A blast is non-evadable by construction (no `EvadeSource`, the call-site scan). CP-B1 adds the armed-Donut-in-a-blast test.
+3. Off-screen guard (D1 M4): covered structurally by the guard-order scan; there is no behavioural test yet. Only the i-frame guard is exercised (`a_guard_consumes_no_arm`).

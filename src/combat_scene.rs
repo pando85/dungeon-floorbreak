@@ -2037,6 +2037,10 @@ impl CombatState {
             self.enemies[index].observe_guard();
             if step.started_tell {
                 self.last_tell_start = Some(tick);
+                // DM-Q19-R1: every path into `GoblinMode::Attack` must report
+                // `started_tell`; the swing and ram instance key of the cat reflex
+                // is this tick. A future attack entry that skips it would share a
+                // key with the previous attack and be silently `Passed`.
                 if let Some(slot) = self.attack_started.get_mut(index) {
                     *slot = tick;
                 }
@@ -2206,6 +2210,7 @@ impl CombatState {
         // exactly like an invulnerable one, so Carl behind her can be chosen on
         // the same tick, and the ram goes on.
         let stamp = self.attack_started.get(index).copied().unwrap_or(0);
+        debug_assert!(stamp <= tick, "the attack started in the past");
         let mut chosen = None;
         for (_, id) in candidates {
             if id == HeroId::Donut {
@@ -2761,6 +2766,7 @@ impl CombatState {
         // DM-Q20: after every guard and the overlap, before the damage.
         if id == HeroId::Donut {
             let stamp = self.attack_started.get(index).copied().unwrap_or(0);
+            debug_assert!(stamp <= tick, "the attack started in the past");
             let key = (EvadeSource::GoblinSwing, index as u32, stamp);
             if self.evade_check(scene, key, index as u32, tick) != Verdict::Hit {
                 return false;

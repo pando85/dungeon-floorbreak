@@ -529,15 +529,27 @@ fn the_shore_block_and_a_boss_blow_are_never_evaded() {
         };
         let mut sim = PartyFixtureSim::new(&kit, 360, fixture).unwrap();
         sim.combat.arm_reflex_for_test();
-        let mut armed_when_hurt = false;
+        let want = if fixture.base.boss.is_some() {
+            crate::boss::BOSS_SOURCE_ID
+        } else {
+            arena::SHORE_BLOCK_SOURCE
+        };
+        let mut hurt = None;
+        let mut armed_before = false;
         for _ in 0..fixture.base.ticks {
+            armed_before = sim.combat.reflex().armed();
             sim.step_scripted();
-            if hurts(&sim).iter().any(|h| h.1 == HeroId::Donut) {
-                armed_when_hurt = true;
+            if let Some(h) = hurts(&sim).into_iter().find(|h| h.1 == HeroId::Donut) {
+                hurt = Some(h);
                 break;
             }
         }
-        assert!(armed_when_hurt, "{name}: Donut is hurt by the source");
+        let hurt = hurt.unwrap_or_else(|| panic!("{name}: Donut is hurt by the source"));
+        assert_eq!(
+            hurt.2, want,
+            "{name}: the hurt came from the expected source"
+        );
+        assert!(armed_before, "{name}: she was armed when it landed");
         assert!(evaded(&sim).is_empty(), "{name}: never evaded");
         assert!(
             !sim.combat.reflex().armed(),
