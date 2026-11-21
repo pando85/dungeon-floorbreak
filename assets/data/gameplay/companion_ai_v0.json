@@ -38,7 +38,12 @@
       "cf02_duo_a09_vertical_reach_px": 24,
       "cf02_duo_a11_engage_facing_only": true,
       "cf02_duo_a12_recent_hit_ticks": 31,
-      "cf02_duo_a13_turn_to_target": true
+      "cf02_duo_a13_turn_to_target": true,
+      "cf02_duo_a15_flank": true,
+      "cf02_duo_a15_flank_ahead_px": 56,
+      "cf02_duo_a15_flank_goblin_range_px": 240,
+      "cf02_duo_a15_flank_view_margin_px": 48,
+      "cf02_duo_a15_fallback_behind_px": 40
     }
   },
   "companion_v0": {
@@ -79,7 +84,12 @@
       "cf02_duo_a09_vertical_reach_px": 24,
       "cf02_duo_a11_engage_facing_only": false,
       "cf02_duo_a12_recent_hit_ticks": 0,
-      "cf02_duo_a13_turn_to_target": false
+      "cf02_duo_a13_turn_to_target": false,
+      "cf02_duo_a15_flank": false,
+      "cf02_duo_a15_flank_ahead_px": 56,
+      "cf02_duo_a15_flank_goblin_range_px": 240,
+      "cf02_duo_a15_flank_view_margin_px": 48,
+      "cf02_duo_a15_fallback_behind_px": 40
     }
   }
 }

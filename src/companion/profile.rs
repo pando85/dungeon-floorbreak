@@ -18,7 +18,7 @@ pub const PROFILE_JSON: &str = include_str!("../../assets/data/gameplay/companio
 
 /// The committed FNV-1a 64 content hash of [`PROFILE_JSON`]. Editing the file
 /// without updating this value fails [`ProfileFile::pinned`] and the pin test.
-pub const PROFILE_HASH: u64 = 0x05ee_4399_8642_e54c;
+pub const PROFILE_HASH: u64 = 0x18ff_4553_49b5_fd35;
 
 /// The profile set id under the spec's name (CA-21, section 17): the runtime's
 /// `UncontrolledHero::Companion(CompanionProfileSet)` names it.
@@ -146,6 +146,27 @@ pub struct DuoOffense {
     /// what is in front of her, which a trailing partner who walks toward
     /// Carl almost never has (measured: 1 offensive start in the arena run).
     pub cf02_duo_a13_turn_to_target: bool,
+    /// CF02-DUO-A15 (adopted default): while a standing goblin approaches on
+    /// the side the human Carl faces, AI Donut idles on a flank spot ahead of
+    /// him instead of trailing, so the goblin reaches her pounce band before
+    /// it reaches him. Anti-steal (A08, A11, A12) and the dodge are unchanged.
+    pub cf02_duo_a15_flank: bool,
+    /// CF02-DUO-A15: the flank spot is this many px ahead of Carl, on the
+    /// side he faces (50 to 60 px: inside her 30..80 px pounce band of a goblin
+    /// that is still outside his 40 px reach).
+    pub cf02_duo_a15_flank_ahead_px: u16,
+    /// CF02-DUO-A15: a goblin triggers the flank while it is at most this far
+    /// ahead of Carl, and at least `flank_ahead + a06_pounce_min` (she never
+    /// walks through it to reach the spot).
+    pub cf02_duo_a15_flank_goblin_range_px: u16,
+    /// CF02-DUO-A15: the spot stays at least this many px inside the
+    /// simulation camera (never pushed to the edge or off-screen).
+    pub cf02_duo_a15_flank_view_margin_px: u16,
+    /// CF02-DUO-A15: once the goblin is closer to Carl than the flank spot
+    /// plus her pounce minimum, it would walk through her and leave her too
+    /// close to pounce it again; she falls back to this many px behind Carl
+    /// (the follow bot's own distance), where it arrives inside her band.
+    pub cf02_duo_a15_fallback_behind_px: u16,
 }
 
 /// One profile set.
@@ -340,6 +361,16 @@ impl ProfileSet {
             return bad(
                 &f("cf02_duo.cf02_duo_a06_pounce_min_px"),
                 "must be below cf02_duo_a06_pounce_max_px",
+            );
+        }
+        if duo.cf02_duo_a15_flank
+            && (duo.cf02_duo_a15_flank_ahead_px == 0
+                || duo.cf02_duo_a15_flank_goblin_range_px
+                    <= duo.cf02_duo_a15_flank_ahead_px + duo.cf02_duo_a06_pounce_min_px)
+        {
+            return bad(
+                &f("cf02_duo.cf02_duo_a15_flank_goblin_range_px"),
+                "must exceed flank_ahead_px + a06_pounce_min_px while cf02_duo_a15_flank is on",
             );
         }
         let d = &self.donut;

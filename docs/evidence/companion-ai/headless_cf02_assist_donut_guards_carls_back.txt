@@ -21,7 +21,7 @@ COMBAT_EVENT tick=205 kind=hit move=pounce instance=4 target=1 damage=1 health_l
 COMBAT_EVENT tick=205 kind=enemy_defeated target=1 instigator=1
 COMBAT_EVENT tick=205 kind=goblin_interrupted goblin=1
 COMBAT_EVENT tick=247 kind=move_started move=pounce instance=5
-COMBAT_EVENT tick=262 kind=hit move=pounce instance=5 target=0 damage=1 health_left=0 hit_stop=7
-COMBAT_EVENT tick=262 kind=enemy_defeated target=0 instigator=1
-COMBAT_STATE fixture=cf02_assist_donut_guards_carls_back seed=0xc0a1000b tick=400 elapsed=400 hero_hp=4 deaths=0 enemies=e0=512.333/0,e1=480.832/0 hash=04289f7d9411a126
-PARTY_STATE fixture=cf02_assist_donut_guards_carls_back mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=6adf604efab88cdc
+COMBAT_EVENT tick=260 kind=hit move=pounce instance=5 target=0 damage=1 health_left=0 hit_stop=7
+COMBAT_EVENT tick=260 kind=enemy_defeated target=0 instigator=1
+COMBAT_STATE fixture=cf02_assist_donut_guards_carls_back seed=0xc0a1000b tick=400 elapsed=400 hero_hp=4 deaths=0 enemies=e0=512.333/0,e1=480.832/0 hash=a3f3d4a365ca6640
+PARTY_STATE fixture=cf02_assist_donut_guards_carls_back mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=81d14a5e66a2a3e6

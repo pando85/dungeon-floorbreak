@@ -2138,7 +2138,7 @@ mod tests {
         ("cf02_showoff_taunt_punish", 0x1b204602f6c3dc63),
         ("cf02_pincer_token", 0x2f3867df0c7c1b1a),
         ("cf02_restart_reshuffles", 0x4962783a758ca230),
-        ("cf02_arena_direct", 0x5e6b3fc17a089096),
+        ("cf02_arena_direct", 0xe3d509c81413646a),
         ("cf02_arena_environment", 0xe0ebc6ce91df9677),
         ("cf02_arena_swap", 0xdb7e6daea834a259),
         ("cf02_arena_coop", 0x1eff8a4433a98473),

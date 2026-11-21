@@ -129,9 +129,9 @@ const ENGINEER_GOLDENS: [(&str, u64); 29] = [
     ("eng_kick_launch_contact", 0xefbbcf0840e6ffdc),
     ("eng_2p_targets_nearest", 0xbd0214303e42939e),
     ("eng_2p_partner_in_lane", 0xe4dea8db73069826),
-    ("eng_solo_assist", 0x04681a94990526a1),
-    ("cf02_arena_eng", 0x2bc39f0f88400824),
-    ("cf02_arena_eng_cp2", 0x589735ac0a9ebcfd),
+    ("eng_solo_assist", 0xe48eb2bc7f7f83c0),
+    ("cf02_arena_eng", 0xc7a1659ab4148c9d),
+    ("cf02_arena_eng_cp2", 0x5ccf01566c627904),
 ];
 
 #[test]
@@ -574,8 +574,10 @@ fn the_solo_assist_and_live_rooms_make_progress_and_log_the_ai_counts() {
     // is rammed at most once per clear (the design's follow-up threshold is more
     // than one). Every run must also finish the room, not just produce events.
     let rows = [
-        ("eng_solo_assist", 1, 1),
-        ("cf02_arena_eng", 0, 1),
+        // PR #170 A15 flank: her position moved, so the Engineer does not ram
+        // her in the first two runs (was 1,1 / 0,1; cp2 is unchanged at 0,1).
+        ("eng_solo_assist", 0, 0),
+        ("cf02_arena_eng", 0, 0),
         ("cf02_arena_eng_cp2", 0, 1),
     ];
     for (name, swat_cancels, ram_hits) in rows {

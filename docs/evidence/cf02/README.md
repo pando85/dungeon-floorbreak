@@ -85,8 +85,8 @@ Reading: the scripted plans never produce the skill-gated chain CINE-01 asks for
 | `cf02_donut_bailout` | `50c5db024da0ce67` | cf02/replays | match |
 | `cf02_swap_eased_pan` | `735238da816c1895` | cf02/replays | match |
 | `cf02_assist_swat_interrupt` | `8d3ecbb947c32984` | companion-ai | match |
-| `cf02_assist_swat_trailing_gap` | `4e97396954822058` | companion-ai | match |
-| `cf02_assist_pounce_staggered` | `b7c2bdc4efb604e9` | companion-ai | match |
+| `cf02_assist_swat_trailing_gap` | `4e35b097c459d7ce` | companion-ai | match |
+| `cf02_assist_pounce_staggered` | `b6f8d15f1dcc4a31` | companion-ai | match |
 | `cf02_assist_hp_drops_midmove` | `59fd86eb22c57e86` | companion-ai | match |
 | `cf02_assist_cadence` | `a315d0be02061daf` | companion-ai | match |
 | `cf02_assist_magic_locked` | `3fa0c4ae6aaecf92` | companion-ai | match |
@@ -139,7 +139,7 @@ Reading: the scripted plans never produce the skill-gated chain CINE-01 asks for
 | `cf02_showoff_taunt_punish` | `1b204602f6c3dc63` | cf02/replays | match |
 | `cf02_pincer_token` | `2f3867df0c7c1b1a` | cf02/replays | match |
 | `cf02_restart_reshuffles` | `4962783a758ca230` | cf02/replays | match |
-| `cf02_arena_direct` | `5e6b3fc17a089096` | cf02/replays | match |
+| `cf02_arena_direct` | `e3d509c81413646a` | cf02/replays | match |
 | `cf02_arena_environment` | `e0ebc6ce91df9677` | cf02/replays | match |
 | `cf02_arena_swap` | `db7e6daea834a259` | cf02/replays | match |
 | `cf02_arena_coop` | `1eff8a4433a98473` | cf02/replays | match |

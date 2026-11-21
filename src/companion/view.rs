@@ -215,6 +215,12 @@ pub struct CompanionView {
     pub targets: Vec<TargetView>,
     /// The boss tell, when one is up. Ignored by 01A-core (boss play is 01E).
     pub boss: Option<BossThreat>,
+    /// CF02-DUO-A15: the x interval around Donut that is flat standing ground
+    /// at her own foot level (no ledge edge, no wall, no hole), already inset by
+    /// her body half width; `None` when she is airborne, stands on nothing
+    /// flat, or the nav is driving her this tick. Built only where the flank
+    /// is enabled; the director never leaves it.
+    pub flank_span: Option<(f32, f32)>,
 }
 
 /// A violated view guarantee.
@@ -314,6 +320,7 @@ pub(crate) mod fixtures {
             threats: Vec::new(),
             targets: Vec::new(),
             boss: None,
+            flank_span: None,
         }
     }
 }

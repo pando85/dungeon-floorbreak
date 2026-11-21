@@ -1,0 +1,1 @@
+COMBAT_STATE fixture=cf02_assist_donut_flanks_two_goblins seed=0xc0a1000c tick=120 elapsed=120 hero_hp=4 deaths=0 enemies=e0=594.467/0,e1=605.967/2 hash=ec3eea64a05bd10a
