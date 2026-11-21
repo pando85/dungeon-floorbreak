@@ -22,19 +22,34 @@ impl CombatState {
     /// Declare the story the scene runs under: the capabilities it starts with
     /// and the triggers armed in it (see [`StorySetup`]). An inert setup keeps
     /// the default: no runtime, nothing hashed, nothing evented.
+    ///
+    /// # Panics
+    ///
+    /// When a pin, a start flag or a hold needs a read-through capability the
+    /// scene does not have (a Donut capability in a scene where the biscuit is
+    /// locked): the story order is broken by the scene's data, and the message
+    /// names the pin (DP-Q06). Call it after `with_donut`.
     #[must_use]
     pub fn with_story(mut self, setup: StorySetup) -> Self {
+        if let Err(error) = setup.check_read_through(&self.read_through()) {
+            panic!("{error}");
+        }
         self.story = StoryRuntime::new(&setup);
         self
+    }
+
+    /// The values of the capabilities that live elsewhere, read now.
+    fn read_through(&self) -> ReadThrough {
+        ReadThrough {
+            primary_ranged: self.donut_kit.mana.unlocked(),
+        }
     }
 
     /// Whether the capability is held right now. A stored capability asks the
     /// ledger; the biscuit (`primary_ranged`) is a read-through of
     /// `DonutMana::unlocked()` and nothing else (CP-Q45).
     pub fn story_holds(&self, id: CapabilityId) -> bool {
-        let view = ReadThrough {
-            primary_ranged: self.donut_kit.mana.unlocked(),
-        };
+        let view = self.read_through();
         match &self.story {
             Some(story) => story.holds(id, &view),
             None => holds_without_story(id, &view),
@@ -68,6 +83,7 @@ impl CombatState {
     /// line, whoever controls the hero), an event trigger reads what was logged
     /// this tick. Each grant is one event, in grant order, on this tick.
     pub(super) fn step_story(&mut self, scene: &SceneSim, tick: u64) {
+        let view = self.read_through();
         let Some(story) = self.story.as_mut() else {
             return;
         };
@@ -76,7 +92,7 @@ impl CombatState {
             (body.x, body.y - HERO_HALF_HEIGHT)
         };
         let pivots = [pivot(HeroId::Carl), pivot(HeroId::Donut)];
-        let receipts = story.step(tick, pivots, self.hero_defeated);
+        let receipts = story.step(tick, pivots, self.hero_defeated, &view);
         for receipt in receipts {
             self.log(CombatEvent::CapabilityGranted {
                 tick,

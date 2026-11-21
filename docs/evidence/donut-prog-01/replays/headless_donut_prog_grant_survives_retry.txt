@@ -1,0 +1,30 @@
+COMBAT_EVENT tick=50 kind=unlock_granted hero=1 unlock=primary_ranged
+COMBAT_EVENT tick=246 kind=capability_granted hero=1 capability=jump_reach_boost
+COMBAT_EVENT tick=253 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=265 kind=goblin_tell goblin=1
+COMBAT_EVENT tick=279 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=279 kind=hero_hurt source=0 health_left=3
+COMBAT_EVENT tick=291 kind=goblin_swing goblin=1
+COMBAT_EVENT tick=388 kind=goblin_tell goblin=1
+COMBAT_EVENT tick=414 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=414 kind=goblin_swing goblin=1
+COMBAT_EVENT tick=414 kind=hero_hurt source=1 health_left=2
+COMBAT_EVENT tick=440 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=440 kind=hero_hurt source=0 health_left=0 hero=donut
+COMBAT_EVENT tick=440 kind=hero_defeated hero=donut
+COMBAT_EVENT tick=489 kind=restart deaths=1
+COMBAT_EVENT tick=253 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=265 kind=goblin_tell goblin=1
+COMBAT_EVENT tick=279 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=279 kind=hero_hurt source=0 health_left=3
+COMBAT_EVENT tick=291 kind=goblin_swing goblin=1
+COMBAT_EVENT tick=388 kind=goblin_tell goblin=1
+COMBAT_EVENT tick=414 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=414 kind=goblin_swing goblin=1
+COMBAT_EVENT tick=414 kind=hero_hurt source=1 health_left=2
+COMBAT_EVENT tick=440 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=440 kind=hero_hurt source=0 health_left=0 hero=donut
+COMBAT_EVENT tick=440 kind=hero_defeated hero=donut
+COMBAT_EVENT tick=489 kind=restart deaths=2
+COMBAT_STATE fixture=donut_prog_grant_survives_retry seed=0xd900002 tick=222 elapsed=1200 hero_hp=4 deaths=2 enemies=e0=1287.600/2,e1=1338.967/2 hash=0a4acb41851eada2
+PARTY_STATE fixture=donut_prog_grant_survives_retry mode=2p controlled=Carl carl_hp=4 donut_hp=4 deaths=2 hash=b3e9f4b4c2f6eff8

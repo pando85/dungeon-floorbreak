@@ -166,10 +166,15 @@ fn story_setup(
     boss: bool,
 ) -> crate::story_unlock::StorySetup {
     use crate::story_unlock::SceneKind;
-    let flags = crate::carl_prog::CarlProgFlags {
+    let carl = crate::carl_prog::CarlProgFlags {
         prog: reset.carl_prog,
         dynamite: reset.carl_dynamite,
         gauntlet: reset.carl_gauntlet,
+    };
+    let donut = crate::donut_prog::DonutProgFlags {
+        prog: reset.donut_prog,
+        light_feet: reset.donut_light_feet,
+        puddle: reset.donut_puddle,
     };
     let scene = if reset.cf02_rules && (reset.demo || reset.source == "demo") {
         SceneKind::CfArena
@@ -180,7 +185,7 @@ fn story_setup(
     } else {
         return crate::story_unlock::StorySetup::NONE;
     };
-    flags.story_setup(scene)
+    crate::donut_prog::story_setup(carl, donut, scene)
 }
 
 fn combat_for(
@@ -478,11 +483,22 @@ pub(super) fn check_content(
         ));
     }
     check_hash(manifest, "kit", kit)?;
+    let reset = &manifest.reset;
+    let donut_flag = reset.donut_prog || reset.donut_light_feet || reset.donut_puddle;
     for (key, hash) in super::live::data_pins() {
         // DONUT-MOBILITY-01: a session recorded before DM-A has no agility hash
         // (and no motion flag); one that has either must agree with this build.
         if key == "agility_tuning"
             && manifest.reset.donut_motion == MotionProfile::Legacy
+            && !manifest.content_hashes.contains_key(key)
+        {
+            continue;
+        }
+        // DONUT-PROG-01: the Donut tuning pin is checked when the recording
+        // carries it or a Donut flag is set, so a recording without the
+        // program still verifies (the key is stamped on every new recording).
+        if key == crate::donut_prog::PIN_KEY
+            && !donut_flag
             && !manifest.content_hashes.contains_key(key)
         {
             continue;

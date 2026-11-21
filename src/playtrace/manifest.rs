@@ -78,6 +78,14 @@ pub struct ResetDescriptor {
     /// not silently become agile. Written only when it is not `legacy`.
     #[serde(default = "legacy_motion", skip_serializing_if = "is_legacy_motion")]
     pub donut_motion: MotionProfile,
+    /// DONUT-PROG-01 DP-A (DP-Q10): the second hero's story flags, the same
+    /// rule: absent (false) in older recordings and written only when true.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub donut_prog: bool,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub donut_light_feet: bool,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub donut_puddle: bool,
     /// FNV-1a-64 of the layout and kit contract (0 when not computed).
     #[serde(with = "hex64")]
     pub kit_hash: u64,

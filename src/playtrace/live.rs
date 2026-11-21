@@ -176,6 +176,9 @@ pub fn data_pins() -> Vec<(&'static str, u64)> {
         ("carl_prog", crate::carl_prog::TUNING_HASH),
         // DONUT-MOBILITY-01.
         ("agility_tuning", crate::agility::TUNING_HASH),
+        // DONUT-PROG-01 DP-Q46: checked by a replay only when the manifest
+        // carries it or a Donut flag is set (`replay::check_content`).
+        (crate::donut_prog::PIN_KEY, crate::donut_prog::TUNING_HASH),
     ]
 }
 

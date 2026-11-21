@@ -132,6 +132,7 @@ impl PartyFixture {
             raw.attack |= hold.input.attack;
             raw.physical |= hold.input.physical;
             raw.down |= hold.input.down;
+            raw.ability |= hold.input.ability;
             if hold.input.move_x != 0.0 {
                 raw.move_x = hold.input.move_x;
             }

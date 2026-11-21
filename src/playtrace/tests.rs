@@ -39,6 +39,9 @@ pub(super) fn reset() -> ResetDescriptor {
         carl_dynamite: false,
         carl_gauntlet: false,
         donut_motion: crate::party::PROVISIONAL_TUNING.donut_motion,
+        donut_prog: false,
+        donut_light_feet: false,
+        donut_puddle: false,
         kit_hash: 0,
         start_hash: 0xcbf2_9ce4_8422_2325,
     }
@@ -64,6 +67,50 @@ fn the_story_flags_are_written_only_when_set_and_old_descriptors_load_as_false()
     assert!(text.contains("\"carl_dynamite\":true"));
     assert!(!text.contains("carl_prog"));
     assert_eq!(serde_json::from_str::<ResetDescriptor>(&text).unwrap(), set);
+}
+
+/// DONUT-PROG-01 DP-Q10: the three Donut flags follow the same rule: not
+/// written while false, an older descriptor loads as false, a set one
+/// round-trips and writes only itself.
+#[test]
+fn the_donut_flags_are_written_only_when_set_and_old_descriptors_load_as_false() {
+    let text = serde_json::to_string(&reset()).unwrap();
+    for key in ["donut_prog", "donut_light_feet", "donut_puddle"] {
+        assert!(!text.contains(key), "{key} is not written while false");
+    }
+    assert_eq!(
+        serde_json::from_str::<ResetDescriptor>(&text).unwrap(),
+        reset()
+    );
+    type Set = fn(&mut ResetDescriptor);
+    let cases: [(&str, Set); 3] = [
+        ("donut_prog", |r| r.donut_prog = true),
+        ("donut_light_feet", |r| r.donut_light_feet = true),
+        ("donut_puddle", |r| r.donut_puddle = true),
+    ];
+    for (key, set) in cases {
+        let mut changed = reset();
+        set(&mut changed);
+        let text = serde_json::to_string(&changed).unwrap();
+        assert!(text.contains(&format!("\"{key}\":true")));
+        assert_eq!(
+            [
+                "donut_prog",
+                "donut_light_feet",
+                "donut_puddle",
+                "carl_prog"
+            ]
+            .iter()
+            .filter(|other| text.contains(&format!("\"{other}\"")))
+            .count(),
+            1,
+            "only {key} is written"
+        );
+        assert_eq!(
+            serde_json::from_str::<ResetDescriptor>(&text).unwrap(),
+            changed
+        );
+    }
 }
 
 pub(super) fn manifest() -> SessionManifest {

@@ -80,6 +80,7 @@ use dungeon_floorbreak::{
     demo::{self, SelectAction, SelectControl},
     donut_art, donut_fixtures,
     donut_mana::{DonutSetup, StartState},
+    donut_prog::{self, DonutProgFlags},
     env_kit::{
         EnvKit, IRect, PieceDraw, animation_frame, parallax_copies, parallax_start, to_world_y,
     },
@@ -247,6 +248,10 @@ struct Args {
     /// do nothing to a scripted fixture (it declares its own pin) and are
     /// refused with `--scene combat_lab`.
     carl: CarlProgFlags,
+    /// DONUT-PROG-01 DP-A (`--donut-prog`, `--donut-light-feet`,
+    /// `--donut-puddle`, DP-Q10): the same rules for the second hero's program.
+    /// The two start flags imply `--donut-biscuit` (DP-Q06).
+    donut: DonutProgFlags,
     /// AUDIENCE-01 QA probe (`--audience-probe`): unlock the per-hero viewer
     /// counts at step 1 (both heroes at the baseline) with one authored test
     /// cue at `audience_cue_x`, and print the `AUDIENCE_STATE` digest line.
@@ -518,6 +523,9 @@ fn resolve_lab_args(parsed: &mut Args) -> Result<(), String> {
     }
     if parsed.carl.any() {
         return Err("--carl-prog, --carl-dynamite and --carl-gauntlet are refused with --scene combat_lab (the lab profile pins the dynamite and the gauntlet off, LAB-Q01)".into());
+    }
+    if parsed.donut.any() {
+        return Err("--donut-prog, --donut-light-feet and --donut-puddle are refused with --scene combat_lab (the lab profile keeps the jump boost and the blink off, DP-Q19)".into());
     }
     if parsed.cf02.rules
         || parsed.demo
@@ -900,6 +908,7 @@ fn parse_args_full(
         boss: false,
         donut_biscuit: false,
         carl: CarlProgFlags::OFF,
+        donut: DonutProgFlags::OFF,
         audience_probe: false,
         audience_cue_x: AUDIENCE_PROBE_CUE_X,
         cf02: Cf02Config::OFF,
@@ -957,6 +966,15 @@ fn parse_args_full(
             "--carl-prog" => parsed.carl.prog = true,
             "--carl-dynamite" => parsed.carl.dynamite = true,
             "--carl-gauntlet" => parsed.carl.gauntlet = true,
+            "--donut-prog" => parsed.donut.prog = true,
+            "--donut-light-feet" => {
+                parsed.donut.light_feet = true;
+                parsed.donut_biscuit = true;
+            }
+            "--donut-puddle" => {
+                parsed.donut.puddle = true;
+                parsed.donut_biscuit = true;
+            }
             "--audience-probe" => parsed.audience_probe = true,
             "--audience-cue-x" => {
                 let value = iter.next().ok_or("--audience-cue-x needs a scene x")?;
@@ -1488,7 +1506,8 @@ fn story_setup(args: &Args) -> StorySetup {
     } else {
         return carl_prog_fixtures::story_setup(fixture.name);
     };
-    args.carl.story_setup(scene)
+    // One call for both programs: the per-hero grant filter sees the whole run.
+    donut_prog::story_setup(args.carl, args.donut, scene)
 }
 
 /// One HUD step after a finished simulation tick: the real health values and
@@ -2721,6 +2740,9 @@ fn recording_manifest(
         carl_dynamite: args.carl.dynamite,
         carl_gauntlet: args.carl.gauntlet,
         donut_motion: party.tuning().donut_motion,
+        donut_prog: args.donut.prog,
+        donut_light_feet: args.donut.light_feet,
+        donut_puddle: args.donut.puddle,
         kit_hash,
         start_hash,
     };
@@ -2775,6 +2797,9 @@ fn recording_manifest(
         ("carl_prog", args.carl.prog),
         ("carl_dynamite", args.carl.dynamite),
         ("carl_gauntlet", args.carl.gauntlet),
+        ("donut_prog", args.donut.prog),
+        ("donut_light_feet", args.donut.light_feet),
+        ("donut_puddle", args.donut.puddle),
     ] {
         if value {
             manifest
@@ -8277,6 +8302,74 @@ mod tests {
             );
         }
         assert!(args(&["--scene", "combat_lab"]).is_ok());
+    }
+
+    /// DONUT-PROG-01 DP-A (DP-Q06, DP-Q10): the three flags parse, the two
+    /// start flags imply the biscuit, they are refused with the lab, both
+    /// programs go through one setup, and a scripted fixture never reads them.
+    #[test]
+    fn the_donut_flags_parse_imply_the_biscuit_are_refused_with_the_lab_and_share_one_setup() {
+        let plain = args(&["--cf02"]).unwrap();
+        assert!(!plain.donut.any());
+        let prog = args(&["--donut-prog", "--scene", "boss_f01"]).unwrap();
+        assert!(prog.donut.prog && !prog.donut.light_feet && !prog.donut.puddle);
+        assert!(!prog.carl.any());
+        assert_eq!(
+            story_setup(&prog).holds(),
+            [dungeon_floorbreak::donut_prog::JUMP_REACH_BOOST],
+            "Donut's boss pin"
+        );
+        assert_eq!(
+            story_setup(&prog).trigger_ids(),
+            ["brute_boss_f01_defeated"]
+        );
+        // `--donut-prog` alone holds and arms nothing on the demo hall or the arena.
+        for extra in [&["--demo"][..], &["--cf02"][..]] {
+            let mut list = vec!["--donut-prog"];
+            list.extend_from_slice(extra);
+            assert!(story_setup(&args(&list).unwrap()).is_inert(), "{list:?}");
+        }
+        // Both programs: one setup, the union of the pins.
+        let both = args(&["--carl-prog", "--donut-prog", "--scene", "boss_f01"]).unwrap();
+        assert_eq!(story_setup(&both).holds().len(), 2);
+        assert_eq!(story_setup(&both).grant_heroes(), Some(&[0u8, 1][..]));
+        // The start flags imply the biscuit and, for the blink, the boost.
+        assert!(
+            !prog.donut_biscuit,
+            "`--donut-prog` alone: the biscuit comes from the story"
+        );
+        let light = args(&["--cf02", "--donut-light-feet"]).unwrap();
+        assert!(light.donut.light_feet && light.donut_biscuit);
+        let puddle = args(&["--cf02", "--donut-puddle"]).unwrap();
+        assert!(puddle.donut.puddle && puddle.donut_biscuit);
+        assert_eq!(
+            story_setup(&puddle).holds().len(),
+            2,
+            "the blink and the boost"
+        );
+        // A scripted fixture declares its own pin and ignores every flag.
+        let fixture = args(&["--fixture", "cp01_kick", "--donut-puddle", "--donut-prog"]).unwrap();
+        assert!(story_setup(&fixture).is_inert());
+        let party = args(&[
+            "--headless-floor01-smoke",
+            "--party-fixture",
+            "donut_prog_boss_pins",
+            "--donut-puddle",
+        ])
+        .unwrap();
+        assert_eq!(
+            story_setup(&party).holds(),
+            [dungeon_floorbreak::donut_prog::JUMP_REACH_BOOST],
+            "its own pin, not the flag"
+        );
+        for flag in ["--donut-prog", "--donut-light-feet", "--donut-puddle"] {
+            let error = args(&["--scene", "combat_lab", flag]).expect_err(flag);
+            assert!(
+                error.contains("refused with --scene combat_lab"),
+                "{flag}: {error}"
+            );
+        }
+        assert!(list_fixtures("donut_prog_").contains(&"donut_prog_story_unlocks"));
     }
 
     #[test]
