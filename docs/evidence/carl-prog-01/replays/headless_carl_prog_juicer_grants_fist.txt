@@ -16,5 +16,5 @@ COMBAT_EVENT tick=311 kind=rack_landed rack=0 crushed=1
 COMBAT_EVENT tick=311 kind=boss_hurt source=0 damage=4 hp_left=0
 COMBAT_EVENT tick=311 kind=enemy_defeated target=16981 cause=drop_hazard credit_player=0 rack=0
 COMBAT_EVENT tick=311 kind=capability_granted hero=0 capability=fist_reinforced
-COMBAT_STATE fixture=carl_prog_juicer_grants_fist seed=0xca10003 tick=420 elapsed=420 hero_hp=4 deaths=0 enemies= hash=caea203435329362 boss=0/36/defeated/p3 boss_x=130.00
-PARTY_STATE fixture=carl_prog_juicer_grants_fist mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=3f289ce118dca4b8
+COMBAT_STATE fixture=carl_prog_juicer_grants_fist seed=0xca10003 tick=420 elapsed=420 hero_hp=4 deaths=0 enemies= hash=2358ff7195430476 boss=0/36/defeated/p3 boss_x=130.00
+PARTY_STATE fixture=carl_prog_juicer_grants_fist mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=ddd681ab67f526ac
