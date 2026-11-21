@@ -2577,18 +2577,9 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
     }
 
     // ---- reachability, in every destruction state (every lock open)
-    let changeable: Vec<usize> = props
-        .iter()
-        .enumerate()
-        .filter(|(_, p)| p.solid_intact || p.remnant.is_some() || p.kind == PropKind::Shutter)
-        .map(|(i, _)| i)
-        .collect();
+    let changeable = changeable_props(&props);
     // Static solids never change state: they are in every state's solids.
-    let static_solids: Vec<IRect> = statics
-        .iter()
-        .filter(|st| st.kind == StaticKind::Solid)
-        .map(|st| st.rect)
-        .collect();
+    let static_solids = static_solid_rects(&statics);
     let mut reach: Vec<ReachRow> = Vec::new();
     let mut effective: Vec<GateClass> = final_gates.clone();
     if props.len() <= MAX_PROPS {
@@ -2859,6 +2850,27 @@ fn shutter_cuts(props: &[Prop], changeable: &[usize], state: u16) -> Vec<IRect> 
         .enumerate()
         .filter(|(bit, i)| props[**i].kind == PropKind::Shutter && state & (1 << bit) != 0)
         .map(|(_, &i)| props[i].target)
+        .collect()
+}
+
+/// The props whose state the reach matrix enumerates (`2^n` states): the ones
+/// with a solid or a remnant, and every shutter. Shared by the validation and
+/// [`route_graphs`].
+fn changeable_props(props: &[Prop]) -> Vec<usize> {
+    props
+        .iter()
+        .enumerate()
+        .filter(|(_, p)| p.solid_intact || p.remnant.is_some() || p.kind == PropKind::Shutter)
+        .map(|(i, _)| i)
+        .collect()
+}
+
+/// The sidecar's static solids (they are in every state), in file order.
+fn static_solid_rects(statics: &[StaticEntry]) -> Vec<IRect> {
+    statics
+        .iter()
+        .filter(|st| st.kind == StaticKind::Solid)
+        .map(|st| st.rect)
         .collect()
 }
 
@@ -3223,19 +3235,8 @@ pub struct RouteGraph {
 /// of the changeable props with the locks open, and again with them closed when
 /// the room has locks. The physics-exact check replays each accepted edge.
 pub fn route_graphs(room: &Room, c: &HeightClasses, enc: &Encounter) -> Vec<RouteGraph> {
-    let changeable: Vec<usize> = enc
-        .props
-        .iter()
-        .enumerate()
-        .filter(|(_, p)| p.solid_intact || p.remnant.is_some())
-        .map(|(i, _)| i)
-        .collect();
-    let static_solids: Vec<IRect> = enc
-        .statics
-        .iter()
-        .filter(|st| st.kind == StaticKind::Solid)
-        .map(|st| st.rect)
-        .collect();
+    let changeable = changeable_props(&enc.props);
+    let static_solids = static_solid_rects(&enc.statics);
     let exit_x = room.goal_x.min(room.exit.right() - 1);
     let lock_variants: &[bool] = if enc.locks.is_empty() {
         &[false]
