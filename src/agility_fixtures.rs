@@ -16,7 +16,7 @@ use crate::boss_scene::Pilot;
 use crate::combat_scene::Fixture;
 use crate::donut_mana::DonutSetup;
 use crate::input::{InputFrame, RawInput};
-use crate::party::PROVISIONAL_TUNING;
+use crate::party::{PROVISIONAL_TUNING, PartyTuning};
 use crate::party_scene::{PartyFixture, SlotHold, base, jump, run as run_hold};
 use crate::prototype::{
     Block, BodyDrive, HERO_HALF_HEIGHT, Hero, HeroMotion, Material, Rect, step_hero_motion,
@@ -295,13 +295,164 @@ pub const DM_JUMP_RACE_2P: PartyFixture = PartyFixture {
     donut: DonutSetup::NONE,
 };
 
+// ---------------------------------------------------------------- DM-B --
+//
+// The reflex fixtures. Every one starts with the biscuit and a full pool unless
+// noted (evasion exists only after it). Names follow the spec (section 5); the
+// two that need `cf02_rules` and the arena kit (`dm_reflex_ram_passes`,
+// `dm_reflex_glob_passes`) are keyed by name prefix elsewhere, so they are built
+// by the tests through `PartyFixtureSim::from_parts` and are not name-resolvable.
+
+use crate::combat::EnemyAi;
+use crate::combat_scene::EnemySpawn;
+
+const fn chase(x: i32) -> EnemySpawn {
+    EnemySpawn {
+        x,
+        ai: EnemyAi::Chase,
+    }
+}
+
+const GOBLIN_AT_720: [EnemySpawn; 1] = [chase(720)];
+
+/// Carl stands at column 400 and a goblin at 720: out of its sight (220) until
+/// Donut walks up to it, so the first swing lands only when the script says.
+const fn goblin_base(name: &'static str, summary: &'static str, seed: u64, ticks: u64) -> Fixture {
+    Fixture {
+        carl_x: 400,
+        ..base(name, summary, seed, &GOBLIN_AT_720, ticks)
+    }
+}
+
+/// An armed Donut meets a goblin's swing: P2 Donut walks up to a sleeping goblin
+/// after the reflex armed at tick 720, the first swing is evaded, the second lands.
+const DM_REFLEX_EVADES_SWING_BASE: Fixture = goblin_base(
+    "dm_reflex_evades_swing",
+    "Two players, biscuit from the start: Donut walks into a goblin after tick 720; the first swing is evaded and the next lands",
+    0x0D4D_0010,
+    1000,
+);
+
+pub const DM_REFLEX_EVADES_SWING: PartyFixture = PartyFixture {
+    base: &DM_REFLEX_EVADES_SWING_BASE,
+    two_player: true,
+    tuning: PROVISIONAL_TUNING,
+    script: &[run_hold(620, 700, 1, 1.0)],
+    pilot: Pilot::None,
+    donut: DonutSetup::unlocked(8),
+};
+
+const DM_REFLEX_NOT_ARMED_BASE: Fixture = goblin_base(
+    "dm_reflex_not_armed",
+    "Two players, biscuit from the start: Donut walks into the goblin at tick 40, long before 720; the swing lands",
+    0x0D4D_0011,
+    300,
+);
+
+pub const DM_REFLEX_NOT_ARMED: PartyFixture = PartyFixture {
+    base: &DM_REFLEX_NOT_ARMED_BASE,
+    two_player: true,
+    tuning: PROVISIONAL_TUNING,
+    script: &[run_hold(20, 100, 1, 1.0)],
+    pilot: Pilot::None,
+    donut: DonutSetup::unlocked(8),
+};
+
+/// Locked: no biscuit, 800 hurt-free ticks, then Donut walks into the goblin.
+/// The swing lands: the reflex is a story unlock and nothing else.
+const DM_EVASION_LOCKED_BASE: Fixture = goblin_base(
+    "dm_evasion_locked_before_biscuit",
+    "Two players, no biscuit: 900 hurt-free ticks pass, then Donut walks into the goblin and its swing lands",
+    0x0D4D_0012,
+    1000,
+);
+
+pub const DM_EVASION_LOCKED_BEFORE_BISCUIT: PartyFixture = PartyFixture {
+    base: &DM_EVASION_LOCKED_BASE,
+    two_player: true,
+    tuning: PROVISIONAL_TUNING,
+    script: &[run_hold(800, 880, 1, 1.0)],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+/// The placeholder Guild zone of this fixture: Donut's pivot inside `400..440`
+/// grants the biscuit (the corridor has no Guild room yet).
+pub const DM_GUILD_ZONE: (f32, f32) = (400.0, 440.0);
+
+const DM_EVASION_UNLOCKS_BASE: Fixture = goblin_base(
+    "dm_evasion_unlocks_at_guild",
+    "Two players, locked at the start: Donut enters the guild zone, the reflex arms 720 ticks later and evades the next swing",
+    0x0D4D_0013,
+    1000,
+);
+
+pub const DM_EVASION_UNLOCKS_AT_GUILD: PartyFixture = PartyFixture {
+    base: &DM_EVASION_UNLOCKS_BASE,
+    two_player: true,
+    tuning: PROVISIONAL_TUNING,
+    script: &[run_hold(10, 30, 1, 1.0), run_hold(652, 712, 1, 1.0)],
+    pilot: Pilot::None,
+    donut: DonutSetup {
+        start: crate::donut_mana::StartState {
+            unlocked: false,
+            mana: 0,
+        },
+        guild_zone: Some(DM_GUILD_ZONE),
+    },
+};
+
+/// Human and AI parity (spec test 11): the same room twice, Donut human-driven
+/// (two players, P2 idle) and AI-driven (solo, the follow bot), standing at the
+/// same column. The test brings the goblin in on tick 690 so the swing lands
+/// after the reflex armed; the reflex reads nothing of who drives her.
+const DM_AI_PARITY_BASE: Fixture = goblin_base(
+    "dm_ai_reflex_same_as_human",
+    "Donut human-driven and AI-driven at the same column: the same evade decisions",
+    0x0D4D_0014,
+    1000,
+);
+
+pub const DM_AI_REFLEX_HUMAN: PartyFixture = PartyFixture {
+    base: &DM_AI_PARITY_BASE,
+    two_player: true,
+    tuning: PROVISIONAL_TUNING,
+    script: &[],
+    pilot: Pilot::None,
+    donut: DonutSetup::unlocked(8),
+};
+
+/// The AI twin: solo, Donut is the follow bot, which does not jump a tell here
+/// (`dodge_radius_px` 0) and counts no farther for the goblin's target choice
+/// (`target_ai_bias_px` 0), so her body and her attacker are those of the human twin.
+pub const DM_AI_REFLEX_SAME_AS_HUMAN: PartyFixture = PartyFixture {
+    base: &DM_AI_PARITY_BASE,
+    two_player: false,
+    tuning: PartyTuning {
+        dodge_radius_px: 0,
+        target_ai_bias_px: 0,
+        ..PROVISIONAL_TUNING
+    },
+    script: &[],
+    pilot: Pilot::None,
+    donut: DonutSetup::unlocked(8),
+};
+
 /// The party fixtures of this module, resolvable by name in the binary
 /// (`--party-fixture dm_run_race_2p`) through
 /// [`crate::cf02_fixtures::find_party_fixture`], like the CF02 and Engineer
 /// registries: not chained into [`PartyFixture::all`], so no registry-order
 /// test, listing or committed replay depends on them.
-pub const AGILITY_PARTY_FIXTURES: [&PartyFixture; 3] =
-    [&DM_2P_WALL_RUNNING_JUMP, &DM_RUN_RACE_2P, &DM_JUMP_RACE_2P];
+pub const AGILITY_PARTY_FIXTURES: [&PartyFixture; 7] = [
+    &DM_2P_WALL_RUNNING_JUMP,
+    &DM_RUN_RACE_2P,
+    &DM_JUMP_RACE_2P,
+    // DM-B: the reflex fixtures that run without `cf02_rules`.
+    &DM_REFLEX_EVADES_SWING,
+    &DM_REFLEX_NOT_ARMED,
+    &DM_EVASION_LOCKED_BEFORE_BISCUIT,
+    &DM_EVASION_UNLOCKS_AT_GUILD,
+];
 
 #[cfg(test)]
 mod tests {
@@ -735,11 +886,17 @@ mod tests {
 
     #[test]
     fn the_dm_party_fixtures_replay_identically_and_match_their_goldens() {
-        const PARTY_GOLDENS: [(&str, u64); 3] = [
+        const PARTY_GOLDENS: [(&str, u64); 7] = [
             ("dm_2p_wall_running_jump", 0xa53e_1ee5_fa99_5334),
             ("dm_run_race_2p", 0x7193_59bc_ab34_44ae),
             ("dm_jump_race_2p", 0x0d0c_c1c7_d90b_346d),
+            // DM-B: pinned again by `agility_reflex_tests` with their events.
+            ("dm_reflex_evades_swing", 0x4aca_1b4e_e7b3_9bbe),
+            ("dm_reflex_not_armed", 0x8281_2a44_46dd_6c78),
+            ("dm_evasion_locked_before_biscuit", 0x5a19_8a6c_5553_6f0d),
+            ("dm_evasion_unlocks_at_guild", 0x1f1c_3dfb_5495_417e),
         ];
+        assert_eq!(PARTY_GOLDENS.len(), AGILITY_PARTY_FIXTURES.len());
         for (fixture, (name, golden)) in AGILITY_PARTY_FIXTURES.iter().zip(PARTY_GOLDENS) {
             assert_eq!(fixture.name(), name);
             assert!(crate::cf02_fixtures::find_party_fixture(name).is_some());

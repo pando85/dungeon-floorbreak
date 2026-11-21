@@ -479,6 +479,11 @@ pub struct Glob {
     pub travelled: f32,
     /// Index among the llamas of the one that spat it.
     pub owner: u32,
+    /// DONUT-MOBILITY-01 DM-B (F8): the combat tick the glob spawned on. With
+    /// `owner` it is the glob's instance identity for the cat reflex (DM-Q19).
+    /// Set by the scene at spawn, **not hashed** (derivable from the spit
+    /// events), so adding it moves no golden.
+    pub spawn_tick: u32,
 }
 
 impl Glob {
@@ -491,6 +496,7 @@ impl Glob {
             dir: llama.facing,
             travelled: 0.0,
             owner: 0,
+            spawn_tick: 0,
         }
     }
 
@@ -809,6 +815,7 @@ mod tests {
             dir: -1,
             travelled: 0.0,
             owner: 0,
+            spawn_tick: 0,
         };
         let solids = [wall(230.0)];
         let mut fate = GlobFate::Flying;

@@ -22,6 +22,7 @@
 
 use std::fmt;
 
+use crate::agility::EvadeSource;
 use crate::boss::BossMove;
 use crate::donut_mana::{ManaEvent, RejectReason, Unlock};
 use crate::donut_moves::GlanceReason;
@@ -1610,6 +1611,23 @@ pub enum CombatEvent {
         hero: u8,
         capability: &'static str,
     },
+    /// DONUT-MOBILITY-01 DM-B, appended: Donut's cat reflex evaded one
+    /// evadable attack instance (DM-Q19). `source` is the attacker's target id
+    /// (a goblin index, or the goblin count plus the llama index), as in
+    /// `HeroHurt`; `kind` names the evadable source. No damage, no hurt, no
+    /// i-frames. Only a run after the biscuit emits it.
+    HeroEvaded {
+        tick: u64,
+        hero: HeroId,
+        source: u32,
+        kind: EvadeSource,
+    },
+    /// DONUT-MOBILITY-01 DM-B, appended: the reflex armed (the first tick of
+    /// the armed condition, DM-Q12). Only a run after the biscuit emits it.
+    EvadeArmed {
+        tick: u64,
+        hero: HeroId,
+    },
 }
 
 impl CombatEvent {
@@ -2003,6 +2021,25 @@ impl CombatEvent {
                 mix(u64::from(hero));
                 mix(crate::donut_mana::content_hash(capability));
             }
+            // DONUT-MOBILITY-01 DM-B: "DMEV" and "DMAR", in their own range;
+            // only a run with an armed reflex ever emits them.
+            Self::HeroEvaded {
+                tick,
+                hero,
+                source,
+                kind,
+            } => {
+                mix(0x444d_4556);
+                mix(tick);
+                mix(hero.index() as u64);
+                mix(u64::from(source));
+                mix(kind as u64 + 1);
+            }
+            Self::EvadeArmed { tick, hero } => {
+                mix(0x444d_4152);
+                mix(tick);
+                mix(hero.index() as u64);
+            }
         }
     }
 }
@@ -2322,6 +2359,30 @@ impl fmt::Display for CombatEvent {
             } => write!(
                 f,
                 "COMBAT_EVENT tick={tick} kind=capability_granted hero={hero} capability={capability}"
+            ),
+            Self::HeroEvaded {
+                tick,
+                hero,
+                source,
+                kind,
+            } => write!(
+                f,
+                "COMBAT_EVENT tick={tick} kind=hero_evaded hero={} source={source} attack={}",
+                if hero == HeroId::Carl {
+                    "carl"
+                } else {
+                    "donut"
+                },
+                kind.name()
+            ),
+            Self::EvadeArmed { tick, hero } => write!(
+                f,
+                "COMBAT_EVENT tick={tick} kind=evade_armed hero={}",
+                if hero == HeroId::Carl {
+                    "carl"
+                } else {
+                    "donut"
+                }
             ),
         }
     }

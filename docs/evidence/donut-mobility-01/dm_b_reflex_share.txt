@@ -1,0 +1,49 @@
+DM-B reflex share (spec 3.3): evades / attempts
+attempt = an evadable instance that reached the check on Donut (evaded or hurt)
+A = biscuit from tick 0, as the spec's population (the reflex first arms at the rearm)
+B = biscuit held and 12 s or more hurt-free before the room (armed at tick 0)
+population = every cf02_* and companion party fixture; pilots = three solo pilots, 48 seeds each
+regenerate: DM_B_SHARE_OUT=<file> cargo test --locked --lib the_evade_share
+
+== A: rearm 600 ticks
+population (79 cf02 and companion fixtures): attempts 3 evades 0 share 0.0%
+pilot cf02_arena_direct (48 seeds): attempts 0 evades 0 share 0.0% | wave1 0/0 wave2 0/0 | openers 0/0 evaded | attempts-with-evade 0 of 48 attempts | first attempt on her at ticks -..-
+pilot cf02_arena_swap (48 seeds): attempts 0 evades 0 share 0.0% | wave1 0/0 wave2 0/0 | openers 0/0 evaded | attempts-with-evade 0 of 48 attempts | first attempt on her at ticks -..-
+pilot eng_solo_assist (48 seeds): attempts 42 evades 0 share 0.0% | wave1 0/0 wave2 0/42 | openers 0/42 evaded | attempts-with-evade 0 of 48 attempts | first attempt on her at ticks 427..487
+pilots all: attempts 42 evades 0 share 0.0% | openers 0/42 evaded
+
+== A: rearm 720 ticks
+population (79 cf02 and companion fixtures): attempts 3 evades 0 share 0.0%
+pilot cf02_arena_direct (48 seeds): attempts 0 evades 0 share 0.0% | wave1 0/0 wave2 0/0 | openers 0/0 evaded | attempts-with-evade 0 of 48 attempts | first attempt on her at ticks -..-
+pilot cf02_arena_swap (48 seeds): attempts 0 evades 0 share 0.0% | wave1 0/0 wave2 0/0 | openers 0/0 evaded | attempts-with-evade 0 of 48 attempts | first attempt on her at ticks -..-
+pilot eng_solo_assist (48 seeds): attempts 42 evades 0 share 0.0% | wave1 0/0 wave2 0/42 | openers 0/42 evaded | attempts-with-evade 0 of 48 attempts | first attempt on her at ticks 427..487
+pilots all: attempts 42 evades 0 share 0.0% | openers 0/42 evaded
+
+== A: rearm 900 ticks
+population (79 cf02 and companion fixtures): attempts 3 evades 0 share 0.0%
+pilot cf02_arena_direct (48 seeds): attempts 0 evades 0 share 0.0% | wave1 0/0 wave2 0/0 | openers 0/0 evaded | attempts-with-evade 0 of 48 attempts | first attempt on her at ticks -..-
+pilot cf02_arena_swap (48 seeds): attempts 0 evades 0 share 0.0% | wave1 0/0 wave2 0/0 | openers 0/0 evaded | attempts-with-evade 0 of 48 attempts | first attempt on her at ticks -..-
+pilot eng_solo_assist (48 seeds): attempts 42 evades 0 share 0.0% | wave1 0/0 wave2 0/42 | openers 0/42 evaded | attempts-with-evade 0 of 48 attempts | first attempt on her at ticks 427..487
+pilots all: attempts 42 evades 0 share 0.0% | openers 0/42 evaded
+
+== B: rearm 600 ticks
+population (79 cf02 and companion fixtures): attempts 3 evades 3 share 100.0%
+pilot cf02_arena_direct (48 seeds): attempts 0 evades 0 share 0.0% | wave1 0/0 wave2 0/0 | openers 0/0 evaded | attempts-with-evade 0 of 48 attempts | first attempt on her at ticks -..-
+pilot cf02_arena_swap (48 seeds): attempts 0 evades 0 share 0.0% | wave1 0/0 wave2 0/0 | openers 0/0 evaded | attempts-with-evade 0 of 48 attempts | first attempt on her at ticks -..-
+pilot eng_solo_assist (48 seeds): attempts 42 evades 42 share 100.0% | wave1 0/0 wave2 42/42 | openers 42/42 evaded | attempts-with-evade 42 of 48 attempts | first attempt on her at ticks 427..487
+pilots all: attempts 42 evades 42 share 100.0% | openers 42/42 evaded
+
+== B: rearm 720 ticks
+population (79 cf02 and companion fixtures): attempts 3 evades 3 share 100.0%
+pilot cf02_arena_direct (48 seeds): attempts 0 evades 0 share 0.0% | wave1 0/0 wave2 0/0 | openers 0/0 evaded | attempts-with-evade 0 of 48 attempts | first attempt on her at ticks -..-
+pilot cf02_arena_swap (48 seeds): attempts 0 evades 0 share 0.0% | wave1 0/0 wave2 0/0 | openers 0/0 evaded | attempts-with-evade 0 of 48 attempts | first attempt on her at ticks -..-
+pilot eng_solo_assist (48 seeds): attempts 42 evades 42 share 100.0% | wave1 0/0 wave2 42/42 | openers 42/42 evaded | attempts-with-evade 42 of 48 attempts | first attempt on her at ticks 427..487
+pilots all: attempts 42 evades 42 share 100.0% | openers 42/42 evaded
+
+== B: rearm 900 ticks
+population (79 cf02 and companion fixtures): attempts 3 evades 3 share 100.0%
+pilot cf02_arena_direct (48 seeds): attempts 0 evades 0 share 0.0% | wave1 0/0 wave2 0/0 | openers 0/0 evaded | attempts-with-evade 0 of 48 attempts | first attempt on her at ticks -..-
+pilot cf02_arena_swap (48 seeds): attempts 0 evades 0 share 0.0% | wave1 0/0 wave2 0/0 | openers 0/0 evaded | attempts-with-evade 0 of 48 attempts | first attempt on her at ticks -..-
+pilot eng_solo_assist (48 seeds): attempts 42 evades 42 share 100.0% | wave1 0/0 wave2 42/42 | openers 42/42 evaded | attempts-with-evade 42 of 48 attempts | first attempt on her at ticks 427..487
+pilots all: attempts 42 evades 42 share 100.0% | openers 42/42 evaded
+

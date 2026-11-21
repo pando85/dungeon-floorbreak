@@ -981,6 +981,7 @@ fn a_glob_that_passes_close_flinches_carl_and_one_that_hits_does_not() {
             dir: -1,
             travelled: 0.0,
             owner: 0,
+            spawn_tick: 0,
         }
     };
     let run = |hit: bool| {

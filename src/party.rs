@@ -19,6 +19,7 @@
 //! analysis and its recommendations are in
 //! `docs/01-design/party-2p-open-questions.md`.
 
+use crate::agility::ReflexProfile;
 use crate::combat::{HERO_HEALTH, HERO_INVULNERABLE_TICKS};
 use crate::companion::profile::CompanionProfileSet;
 use crate::feel::HERO_HURT_TICKS;
@@ -253,6 +254,11 @@ pub struct PartyTuning {
     /// DONUT-MOBILITY-01 (DM-Q10). The motion Donut's body steps with, applied
     /// every tick (never stored on the body). Carl is never affected.
     pub donut_motion: MotionProfile,
+    /// DONUT-MOBILITY-01 (DM-Q11, DM-Q12). Which evasion rule runs after the
+    /// biscuit. [`PROVISIONAL_TUNING`] ships [`ReflexProfile::Shipped`] (the
+    /// data file's reflex); `Off` and `Rearm` are constructed only by tests
+    /// and the share measurement.
+    pub donut_reflex: ReflexProfile,
 }
 
 /// CF02-Q20: how the solo-swap camera pan moves toward the new hero.
@@ -343,6 +349,7 @@ pub const PROVISIONAL_TUNING: PartyTuning = PartyTuning {
     donut_moves: true,
     plate_glyphs: PlateGlyphs::OwnPad,
     donut_motion: MotionProfile::Agile,
+    donut_reflex: ReflexProfile::Shipped,
 };
 
 impl Default for PartyTuning {

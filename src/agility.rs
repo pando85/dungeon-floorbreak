@@ -7,10 +7,11 @@
 //! updating [`TUNING_HASH`] fails [`AgilityTuning::pinned`] and the pin test, so
 //! a tuning edit never changes a recorded outcome silently.
 //!
-//! DM-A reads the motion knobs (DM-Q01, Q02, Q08). The evasion knobs (DM-Q11,
-//! Q12) are declared here so DM-B does not reshape the file; nothing reads them
-//! yet. Knob names carry the spec's question ID (`dm_q01_run_speed`). Questions
-//! without a key are listed in [`NO_KNOB`] with the reason.
+//! DM-A reads the motion knobs (DM-Q01, Q02, Q08). DM-B reads the evasion
+//! knobs (DM-Q11, Q12) through [`ReflexProfile`] and runs the reflex itself as
+//! the pure state machine [`Reflex`] (DM-Q13, Q19, Q20, Q22): ticks only, no
+//! RNG, no Bevy. Knob names carry the spec's question ID (`dm_q01_run_speed`).
+//! Questions without a key are listed in [`NO_KNOB`] with the reason.
 
 use crate::donut_mana::content_hash;
 use crate::prototype::{GRAVITY, HeroMotion, TICK_SECONDS};
@@ -39,16 +40,31 @@ pub const NO_KNOB: [(u8, &str); 22] = [
     (7, "not scaled: attacks, hops, knockback, collider, hurtbox"),
     (9, "rule: the 2P wall uses each hero's own run speed"),
     (10, "no motion gate: PartyTuning::donut_motion is Agile"),
-    (13, "DM-B: the reflex reset rule"),
+    (
+        13,
+        "rule: the reflex reset rule, Reflex::reset and the scene hooks",
+    ),
     (14, "retired: roll mode"),
     (15, "retired: roll mode"),
     (16, "retired: roll mode"),
-    (17, "DM-B: the evadable list"),
-    (18, "DM-B: the never-evadable list"),
-    (19, "DM-B: the evade outcome"),
-    (20, "DM-B: the check order"),
+    (17, "allow-list in code: the EvadeSource variants (DM-Q17)"),
+    (
+        18,
+        "default never: a source with no EvadeSource variant is never evaded",
+    ),
+    (
+        19,
+        "rule: the evade outcome, scoped to the attack instance (EvadeKey)",
+    ),
+    (
+        20,
+        "rule: the check order, evade_check after the existing guards",
+    ),
     (21, "DM-C: presentation stand-ins"),
-    (22, "DM-B: events and hash rule"),
+    (
+        22,
+        "rule: HeroEvaded and EvadeArmed, hashed from the first arm",
+    ),
     (23, "retired: the evasion CLI override"),
     (24, "no share target"),
     (25, "Q4 hurtbox, unchanged"),
@@ -177,6 +193,189 @@ impl AgilityTuning {
     /// margin (110.92 px at the adopted values).
     pub fn ai_jump_reach_px(&self) -> f32 {
         discrete_apex_px(self.dm_q02_jump_speed) - self.dm_q08_ai_jump_margin_px
+    }
+}
+
+/// Which evasion rule a tuning runs (DM-Q11). [`Self::Shipped`] reads the
+/// embedded file (`reflex`, 720 ticks) and is what every play path uses. The
+/// other two exist for tests and the share measurement (spec section 3.3): a
+/// test-only mode switch and rearm override inside the loader's range. No CLI
+/// flag or data switch constructs them.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReflexProfile {
+    /// The embedded `hero_agility_v0.json` values (DM-Q11, DM-Q12).
+    Shipped,
+    /// `dm_q11_evasion_mode: off`: no evasion state advances.
+    Off,
+    /// The reflex with this rearm, in ticks (the loader's range is 600..=900).
+    Rearm(u32),
+}
+
+impl ReflexProfile {
+    /// The rearm of the live reflex, or `None` when evasion is off.
+    pub fn rearm(self) -> Option<u32> {
+        match self {
+            Self::Shipped => match tuning().dm_q11_evasion_mode {
+                EvasionMode::Reflex => Some(tuning().dm_q12_reflex_rearm_ticks),
+                EvasionMode::Off => None,
+            },
+            Self::Off => None,
+            Self::Rearm(ticks) => Some(ticks),
+        }
+    }
+}
+
+/// DM-Q17: the evadable sources. This enum **is** the allow-list: the reflex
+/// is only ever asked about a source that has a variant here, so a new source
+/// (a hazard, a blast, a boss blow, a body contact, a shore block, any future
+/// enemy) is **never** evaded until its own design opts it in by adding a
+/// variant and a call site (DM-Q18, owner decision 2026-11-21).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EvadeSource {
+    /// A common goblin's swing, every temperament.
+    GoblinSwing,
+    /// The Engineer's ram.
+    EngineerRam,
+    /// The llama's spit glob.
+    LlamaGlob,
+}
+
+impl EvadeSource {
+    /// Every evadable source, in tag order.
+    pub const ALL: [Self; 3] = [Self::GoblinSwing, Self::EngineerRam, Self::LlamaGlob];
+
+    /// The stable name written to logs.
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::GoblinSwing => "goblin_swing",
+            Self::EngineerRam => "engineer_ram",
+            Self::LlamaGlob => "llama_glob",
+        }
+    }
+
+    const fn tag(self) -> u64 {
+        match self {
+            Self::GoblinSwing => 1,
+            Self::EngineerRam => 2,
+            Self::LlamaGlob => 3,
+        }
+    }
+}
+
+/// DM-Q19: the identity of one attack instance. A goblin swing or an Engineer
+/// ram is `(enemy index, attack start tick)` (the tick its tell started, which
+/// no hit-stop moves); a glob is `(owner, spawn tick)`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct EvadeKey {
+    pub source: EvadeSource,
+    pub enemy: u32,
+    pub stamp: u64,
+}
+
+/// What the reflex says about an instance that reached the check.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Verdict {
+    /// No evasion: the hit resolves as before.
+    Hit,
+    /// The armed reflex evaded this instance now (log `HeroEvaded`).
+    Evaded,
+    /// This same instance was evaded earlier: it never hits her again (no
+    /// event, no new arm consumed).
+    Passed,
+}
+
+/// The reflex state (DM-Q12, DM-Q13, DM-Q19). Armed iff `tick - last_reset_tick
+/// >= rearm`; there is no per-tick countdown. Attempt-local: a fixture or
+/// defeat restart calls [`Self::restart`], a checkpoint respawn [`Self::reset`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct Reflex {
+    last_reset_tick: u64,
+    armed: bool,
+    ever_armed: bool,
+    evaded: Option<EvadeKey>,
+}
+
+impl Reflex {
+    /// DM-Q13: a reset of the wait at `tick` (the unlock tick, every hurt she
+    /// takes, every evade, a checkpoint respawn). The reflex is no longer armed.
+    pub fn reset(&mut self, tick: u64) {
+        self.last_reset_tick = tick;
+        self.armed = false;
+    }
+
+    /// DM-Q13: a new attempt starts: the wait restarts at 0 and nothing of the
+    /// last attempt stays, hashed state included.
+    pub fn restart(&mut self) {
+        *self = Self::default();
+    }
+
+    /// Whether the reflex is ready to evade the next evadable instance.
+    pub const fn armed(&self) -> bool {
+        self.armed
+    }
+
+    /// Whether the reflex armed at least once this attempt (the state is hashed
+    /// from then on, spec section 3.5).
+    pub const fn ever_armed(&self) -> bool {
+        self.ever_armed
+    }
+
+    /// The tick of the last reset (the unlock, a hurt, an evade, a respawn).
+    pub const fn last_reset_tick(&self) -> u64 {
+        self.last_reset_tick
+    }
+
+    /// The instance the last evade covered.
+    pub const fn evaded(&self) -> Option<EvadeKey> {
+        self.evaded
+    }
+
+    /// One fixed tick. `rearm` is `None` when evasion is off, `unlocked` is the
+    /// biscuit state. Returns true on the tick the reflex arms (log
+    /// `EvadeArmed`): the first tick where the armed condition holds.
+    pub fn step(&mut self, rearm: Option<u32>, unlocked: bool, tick: u64) -> bool {
+        let Some(rearm) = rearm else {
+            return false;
+        };
+        if !unlocked || self.armed || tick.saturating_sub(self.last_reset_tick) < u64::from(rearm) {
+            return false;
+        }
+        self.armed = true;
+        self.ever_armed = true;
+        true
+    }
+
+    /// DM-Q19, DM-Q20: the check for an instance that already passed every
+    /// guard and overlaps her. The same instance never hits her again; an
+    /// armed reflex evades a new one and starts the wait again.
+    pub fn check(&mut self, key: EvadeKey, tick: u64) -> Verdict {
+        if self.evaded == Some(key) {
+            return Verdict::Passed;
+        }
+        if !self.armed {
+            return Verdict::Hit;
+        }
+        self.evaded = Some(key);
+        self.reset(tick);
+        Verdict::Evaded
+    }
+
+    /// Fold into the state hash: nothing until the first arm.
+    pub fn hash_into(&self, mix: &mut impl FnMut(u64)) {
+        if !self.ever_armed {
+            return;
+        }
+        mix(0x444d_4252_4546_4c58); // "DMBREFLX"
+        mix(self.last_reset_tick);
+        mix(u64::from(self.armed));
+        match self.evaded {
+            None => mix(0),
+            Some(key) => {
+                mix(key.source.tag());
+                mix(u64::from(key.enemy));
+                mix(key.stamp);
+            }
+        }
     }
 }
 
@@ -366,5 +565,99 @@ mod tests {
         let t = tuning();
         assert!(t.dm_q01_run_speed < RUN_SPEED_CEILING);
         assert!(t.dm_q01_run_speed * TICK_SECONDS < 4.0);
+    }
+
+    fn key(stamp: u64) -> EvadeKey {
+        EvadeKey {
+            source: EvadeSource::GoblinSwing,
+            enemy: 0,
+            stamp,
+        }
+    }
+
+    /// Step the reflex with the shipped rearm, unlocked.
+    fn arm_at(reflex: &mut Reflex, tick: u64) -> bool {
+        reflex.step(ReflexProfile::Shipped.rearm(), true, tick)
+    }
+
+    #[test]
+    fn the_profiles_read_the_data_file_or_a_test_override() {
+        assert_eq!(ReflexProfile::Shipped.rearm(), Some(720));
+        assert_eq!(ReflexProfile::Off.rearm(), None);
+        assert_eq!(ReflexProfile::Rearm(600).rearm(), Some(600));
+        assert_eq!(ReflexProfile::Rearm(900).rearm(), Some(900));
+    }
+
+    #[test]
+    fn it_arms_exactly_the_rearm_after_the_last_reset_and_announces_once() {
+        let mut reflex = Reflex::default();
+        reflex.reset(100);
+        assert!(!arm_at(&mut reflex, 100 + 719));
+        assert!(!reflex.armed() && !reflex.ever_armed());
+        assert!(
+            arm_at(&mut reflex, 100 + 720),
+            "first tick of the condition"
+        );
+        assert!(reflex.armed() && reflex.ever_armed());
+        assert!(!arm_at(&mut reflex, 100 + 721), "announced once");
+    }
+
+    #[test]
+    fn a_locked_or_off_reflex_never_arms_and_hashes_nothing() {
+        let mut reflex = Reflex::default();
+        assert!(!reflex.step(Some(720), false, 5000));
+        assert!(!reflex.step(None, true, 5000));
+        assert!(!reflex.armed());
+        let mut words = Vec::new();
+        reflex.hash_into(&mut |w| words.push(w));
+        assert!(words.is_empty(), "nothing is hashed before the first arm");
+        assert!(arm_at(&mut reflex, 720));
+        reflex.hash_into(&mut |w| words.push(w));
+        assert!(!words.is_empty());
+    }
+
+    #[test]
+    fn an_armed_reflex_evades_one_instance_then_waits_again() {
+        let mut reflex = Reflex::default();
+        assert!(arm_at(&mut reflex, 720));
+        assert_eq!(reflex.check(key(7), 730), Verdict::Evaded);
+        assert!(!reflex.armed());
+        assert_eq!(reflex.last_reset_tick(), 730, "an evade resets the wait");
+        // The same instance never hits her again, and consumes nothing.
+        assert_eq!(reflex.check(key(7), 731), Verdict::Passed);
+        // Any other instance can hit her on the next tick.
+        assert_eq!(reflex.check(key(8), 731), Verdict::Hit);
+        assert!(!arm_at(&mut reflex, 730 + 719));
+        assert!(arm_at(&mut reflex, 730 + 720));
+    }
+
+    #[test]
+    fn an_unarmed_reflex_lets_the_hit_through_and_remembers_nothing() {
+        let mut reflex = Reflex::default();
+        assert_eq!(reflex.check(key(1), 10), Verdict::Hit);
+        assert_eq!(reflex.evaded(), None);
+    }
+
+    #[test]
+    fn a_reset_disarms_and_a_restart_forgets_the_attempt() {
+        let mut reflex = Reflex::default();
+        assert!(arm_at(&mut reflex, 720));
+        reflex.reset(800);
+        assert!(!reflex.armed(), "a hurt rattles her");
+        assert!(reflex.ever_armed(), "a reset keeps the hash gate");
+        assert!(arm_at(&mut reflex, 800 + 720));
+        assert_eq!(reflex.check(key(3), 1530), Verdict::Evaded);
+        reflex.restart();
+        assert_eq!(reflex, Reflex::default());
+        assert!(!reflex.ever_armed() && reflex.evaded().is_none());
+    }
+
+    #[test]
+    fn the_allow_list_is_exactly_three_sources_with_distinct_names() {
+        assert_eq!(EvadeSource::ALL.len(), 3);
+        let names: Vec<_> = EvadeSource::ALL.iter().map(|s| s.name()).collect();
+        assert_eq!(names, ["goblin_swing", "engineer_ram", "llama_glob"]);
+        let tags: Vec<_> = EvadeSource::ALL.iter().map(|s| s.tag()).collect();
+        assert_eq!(tags, [1, 2, 3]);
     }
 }
