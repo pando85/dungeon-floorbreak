@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "id": "floor01_materials_v1",
+  "type": "material_tileset",
+  "source_path": "assets/source/terrain/floor01/materials.ase",
+  "grid_source": "assets/source/terrain/floor01/materials.grid.json",
+  "output_atlas": "generated/art/floor01_materials.png",
+  "output_metadata": "generated/art/floor01_materials.json",
+  "palette_id": "floor01-catacomb-v2",
+  "frame_size": [16, 16],
+  "pivot": [0, 15],
+  "animation_tags": ["iron_plate", "glass_leaded", "timber_boards", "tone_dim", "tone_lit"],
+  "required_alpha": false,
+  "kit_contract": "assets/source/terrain/floor01/floor01_materials_kit.json",
+  "owner": "AI-authored environment pixel art (WORK-007: design and keys Claude Opus (claude-opus-5-5); phase 2 execution Claude Sonnet; independent review pending)",
+  "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+  "license": "Original repo-specific environment art; no standalone asset reuse license; no game/asset-pack distribution rights",
+  "review_status": "prototype_fixture_unapproved",
+  "provenance": {
+    "origin": "Original pixel-grid-v1 16x16 material tiles (riveted iron plate, leaded quarry glass, nailed timber boards, their damage states and tone variants) for the WORK-007 native-resolution fidelity sample; frames 0 to 8 are the Opus keys, frames 9 to 21 are drawn by scripts/author_work007_materials.py; not cropped, traced or resampled from concept art",
+    "generator": "Keys by Claude Opus (claude-opus-5-5); deterministic derivation script scripts/author_work007_materials.py written by Claude Sonnet (broken_r stubs redrawn by hand-set rows, tone variants by a ramp-index shift); no image-model raster output",
+    "generated_art": true,
+    "input_reference_ids": [
+      "floor01-catacomb-kit/env-kit-v2 (owner-approved ENV-01 kit, 2026-11-16)",
+      "docs/02-art/work-007-fidelity-sample-spec.md (design spec and frozen keys)"
+    ]
+  },
+  "tile_size": [16, 16],
+  "tile_note": "Frame-per-tile atlas (one 16x16 tile per Aseprite frame, exported as a rows sheet). Tile ids and states live in the extension contract floor01_materials_kit.json (material_tiles); the exported frame order is frame index = tile index."
+}

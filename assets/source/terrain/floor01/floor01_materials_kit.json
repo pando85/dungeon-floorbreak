@@ -1,0 +1,643 @@
+{
+  "format": "env-kit-v2",
+  "kit_id": "floor01_materials",
+  "extends": "assets/source/terrain/floor01/floor01_catacomb_kit.json",
+  "status": "proposed - WORK-007 phase 2 drawn (Claude Sonnet) on the Opus keys; awaiting independent Opus review; not owner-approved",
+  "extension_note": "Inherits palette, layers, draw order, coordinates, walking-line rule and lighting schema from the ENV-01 contract (env_kit.py resolve_extends). Adds one frame-per-tile atlas (floor01_materials, one 16x16 tile per Aseprite frame, exported as a rows sheet) and the material_tiles section: 16x16 material tiles that may be partial (edge remnants of broken states) and are placed by pixel position in the WORK-007 sample scene (assets/levels/floor01/work007_fidelity_sample.json). They are not part of the env-kit-layout tile grid; no new palette colours.",
+  "palette_use": {
+    "floor01_materials": 42
+  },
+  "atlases": {
+    "floor01_materials": {
+      "grid": "assets/source/terrain/floor01/materials.grid.json",
+      "manifest": "assets/manifests/floor01_materials.json",
+      "image": "generated/art/floor01_materials.png",
+      "metadata": "generated/art/floor01_materials.json"
+    }
+  },
+  "tiles": [],
+  "pieces": [],
+  "material_tiles": [
+    {
+      "id": "iron_plate_intact",
+      "atlas": "floor01_materials",
+      "frame_index": 0,
+      "rect": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "role": "collision",
+      "material": "reinforced",
+      "state": "intact",
+      "tone": "mid",
+      "collidable": true,
+      "grammar": [
+        "A",
+        "B",
+        "C"
+      ],
+      "collider": [
+        0,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "iron_plate_damaged",
+      "atlas": "floor01_materials",
+      "frame_index": 1,
+      "rect": [
+        16,
+        0,
+        16,
+        16
+      ],
+      "role": "collision",
+      "material": "reinforced",
+      "state": "damaged",
+      "tone": "mid",
+      "collidable": true,
+      "grammar": [
+        "A",
+        "B",
+        "C"
+      ],
+      "collider": [
+        0,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "glass_leaded_intact",
+      "atlas": "floor01_materials",
+      "frame_index": 2,
+      "rect": [
+        32,
+        0,
+        16,
+        16
+      ],
+      "role": "collision",
+      "material": "glass",
+      "state": "intact",
+      "tone": "mid",
+      "collidable": true,
+      "grammar": [
+        "A",
+        "B",
+        "C"
+      ],
+      "collider": [
+        0,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "glass_leaded_cracked",
+      "atlas": "floor01_materials",
+      "frame_index": 3,
+      "rect": [
+        48,
+        0,
+        16,
+        16
+      ],
+      "role": "collision",
+      "material": "glass",
+      "state": "cracked",
+      "tone": "mid",
+      "collidable": true,
+      "grammar": [
+        "A",
+        "B",
+        "C"
+      ],
+      "collider": [
+        0,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "glass_leaded_broken_top",
+      "atlas": "floor01_materials",
+      "frame_index": 4,
+      "rect": [
+        64,
+        0,
+        16,
+        16
+      ],
+      "role": "collision",
+      "material": "glass",
+      "state": "broken_top",
+      "tone": "mid",
+      "collidable": false,
+      "grammar": [
+        "A",
+        "B",
+        "C"
+      ],
+      "partial_alpha": true,
+      "note": "edge remnant (1-bit alpha); the cells inside a broken opening are empty, not this tile"
+    },
+    {
+      "id": "glass_leaded_broken_sill",
+      "atlas": "floor01_materials",
+      "frame_index": 5,
+      "rect": [
+        80,
+        0,
+        16,
+        16
+      ],
+      "role": "collision",
+      "material": "glass",
+      "state": "broken_sill",
+      "tone": "mid",
+      "collidable": false,
+      "grammar": [
+        "A",
+        "B",
+        "C"
+      ],
+      "partial_alpha": true,
+      "note": "edge remnant (1-bit alpha); the cells inside a broken opening are empty, not this tile"
+    },
+    {
+      "id": "timber_boards_intact",
+      "atlas": "floor01_materials",
+      "frame_index": 6,
+      "rect": [
+        96,
+        0,
+        16,
+        16
+      ],
+      "role": "collision",
+      "material": "wood",
+      "state": "intact",
+      "tone": "mid",
+      "collidable": true,
+      "grammar": [
+        "A",
+        "B",
+        "C"
+      ],
+      "collider": [
+        0,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "timber_boards_cracked",
+      "atlas": "floor01_materials",
+      "frame_index": 7,
+      "rect": [
+        112,
+        0,
+        16,
+        16
+      ],
+      "role": "collision",
+      "material": "wood",
+      "state": "cracked",
+      "tone": "mid",
+      "collidable": true,
+      "grammar": [
+        "A",
+        "B",
+        "C"
+      ],
+      "collider": [
+        0,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "timber_boards_broken_l",
+      "atlas": "floor01_materials",
+      "frame_index": 8,
+      "rect": [
+        128,
+        0,
+        16,
+        16
+      ],
+      "role": "collision",
+      "material": "wood",
+      "state": "broken_l",
+      "tone": "mid",
+      "collidable": false,
+      "grammar": [
+        "A",
+        "B",
+        "C"
+      ],
+      "partial_alpha": true,
+      "note": "edge remnant (1-bit alpha); the cells inside a broken opening are empty, not this tile"
+    },
+    {
+      "id": "timber_boards_broken_r",
+      "atlas": "floor01_materials",
+      "frame_index": 9,
+      "rect": [
+        144,
+        0,
+        16,
+        16
+      ],
+      "role": "collision",
+      "material": "wood",
+      "state": "broken_r",
+      "tone": "mid",
+      "collidable": false,
+      "grammar": [
+        "A",
+        "B",
+        "C"
+      ],
+      "partial_alpha": true,
+      "note": "edge remnant (1-bit alpha); the cells inside a broken opening are empty, not this tile"
+    },
+    {
+      "id": "iron_plate_intact_dim",
+      "atlas": "floor01_materials",
+      "frame_index": 10,
+      "rect": [
+        160,
+        0,
+        16,
+        16
+      ],
+      "role": "collision",
+      "material": "reinforced",
+      "state": "intact",
+      "tone": "dim",
+      "collidable": true,
+      "grammar": [
+        "A",
+        "B",
+        "C"
+      ],
+      "collider": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "derived_from": "iron_plate_intact"
+    },
+    {
+      "id": "iron_plate_damaged_dim",
+      "atlas": "floor01_materials",
+      "frame_index": 11,
+      "rect": [
+        176,
+        0,
+        16,
+        16
+      ],
+      "role": "collision",
+      "material": "reinforced",
+      "state": "damaged",
+      "tone": "dim",
+      "collidable": true,
+      "grammar": [
+        "A",
+        "B",
+        "C"
+      ],
+      "collider": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "derived_from": "iron_plate_damaged"
+    },
+    {
+      "id": "glass_leaded_intact_dim",
+      "atlas": "floor01_materials",
+      "frame_index": 12,
+      "rect": [
+        192,
+        0,
+        16,
+        16
+      ],
+      "role": "collision",
+      "material": "glass",
+      "state": "intact",
+      "tone": "dim",
+      "collidable": true,
+      "grammar": [
+        "A",
+        "B",
+        "C"
+      ],
+      "collider": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "derived_from": "glass_leaded_intact"
+    },
+    {
+      "id": "glass_leaded_cracked_dim",
+      "atlas": "floor01_materials",
+      "frame_index": 13,
+      "rect": [
+        208,
+        0,
+        16,
+        16
+      ],
+      "role": "collision",
+      "material": "glass",
+      "state": "cracked",
+      "tone": "dim",
+      "collidable": true,
+      "grammar": [
+        "A",
+        "B",
+        "C"
+      ],
+      "collider": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "derived_from": "glass_leaded_cracked"
+    },
+    {
+      "id": "timber_boards_intact_dim",
+      "atlas": "floor01_materials",
+      "frame_index": 14,
+      "rect": [
+        224,
+        0,
+        16,
+        16
+      ],
+      "role": "collision",
+      "material": "wood",
+      "state": "intact",
+      "tone": "dim",
+      "collidable": true,
+      "grammar": [
+        "A",
+        "B",
+        "C"
+      ],
+      "collider": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "derived_from": "timber_boards_intact"
+    },
+    {
+      "id": "timber_boards_cracked_dim",
+      "atlas": "floor01_materials",
+      "frame_index": 15,
+      "rect": [
+        240,
+        0,
+        16,
+        16
+      ],
+      "role": "collision",
+      "material": "wood",
+      "state": "cracked",
+      "tone": "dim",
+      "collidable": true,
+      "grammar": [
+        "A",
+        "B",
+        "C"
+      ],
+      "collider": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "derived_from": "timber_boards_cracked"
+    },
+    {
+      "id": "iron_plate_intact_lit",
+      "atlas": "floor01_materials",
+      "frame_index": 16,
+      "rect": [
+        256,
+        0,
+        16,
+        16
+      ],
+      "role": "collision",
+      "material": "reinforced",
+      "state": "intact",
+      "tone": "lit",
+      "collidable": true,
+      "grammar": [
+        "A",
+        "B",
+        "C"
+      ],
+      "collider": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "derived_from": "iron_plate_intact"
+    },
+    {
+      "id": "iron_plate_damaged_lit",
+      "atlas": "floor01_materials",
+      "frame_index": 17,
+      "rect": [
+        272,
+        0,
+        16,
+        16
+      ],
+      "role": "collision",
+      "material": "reinforced",
+      "state": "damaged",
+      "tone": "lit",
+      "collidable": true,
+      "grammar": [
+        "A",
+        "B",
+        "C"
+      ],
+      "collider": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "derived_from": "iron_plate_damaged"
+    },
+    {
+      "id": "glass_leaded_intact_lit",
+      "atlas": "floor01_materials",
+      "frame_index": 18,
+      "rect": [
+        288,
+        0,
+        16,
+        16
+      ],
+      "role": "collision",
+      "material": "glass",
+      "state": "intact",
+      "tone": "lit",
+      "collidable": true,
+      "grammar": [
+        "A",
+        "B",
+        "C"
+      ],
+      "collider": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "derived_from": "glass_leaded_intact"
+    },
+    {
+      "id": "glass_leaded_cracked_lit",
+      "atlas": "floor01_materials",
+      "frame_index": 19,
+      "rect": [
+        304,
+        0,
+        16,
+        16
+      ],
+      "role": "collision",
+      "material": "glass",
+      "state": "cracked",
+      "tone": "lit",
+      "collidable": true,
+      "grammar": [
+        "A",
+        "B",
+        "C"
+      ],
+      "collider": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "derived_from": "glass_leaded_cracked"
+    },
+    {
+      "id": "timber_boards_intact_lit",
+      "atlas": "floor01_materials",
+      "frame_index": 20,
+      "rect": [
+        320,
+        0,
+        16,
+        16
+      ],
+      "role": "collision",
+      "material": "wood",
+      "state": "intact",
+      "tone": "lit",
+      "collidable": true,
+      "grammar": [
+        "A",
+        "B",
+        "C"
+      ],
+      "collider": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "derived_from": "timber_boards_intact"
+    },
+    {
+      "id": "timber_boards_cracked_lit",
+      "atlas": "floor01_materials",
+      "frame_index": 21,
+      "rect": [
+        336,
+        0,
+        16,
+        16
+      ],
+      "role": "collision",
+      "material": "wood",
+      "state": "cracked",
+      "tone": "lit",
+      "collidable": true,
+      "grammar": [
+        "A",
+        "B",
+        "C"
+      ],
+      "collider": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "derived_from": "timber_boards_cracked"
+    }
+  ],
+  "state_groups": {
+    "iron_plate": {
+      "states": [
+        "intact",
+        "damaged"
+      ],
+      "note": "reinforced is immune in v1: damaged is cosmetic, same opaque outline and collider as intact (W007-D2a)"
+    },
+    "glass_leaded": {
+      "states": [
+        "intact",
+        "cracked",
+        "broken_top",
+        "broken_sill"
+      ],
+      "note": "swap the tile per state; tone variants (_dim, _lit) exist for the intact and cracked or damaged states only"
+    },
+    "timber_boards": {
+      "states": [
+        "intact",
+        "cracked",
+        "broken_l",
+        "broken_r"
+      ],
+      "note": "swap the tile per state; tone variants (_dim, _lit) exist for the intact and cracked or damaged states only"
+    }
+  },
+  "usage_rules": {
+    "W007_scene": "Place by pixel position in the sample scene file. Full tiles carry collider [0, 0, 16, 16]; broken tiles carry none. Reinforced (iron_plate) never changes outline or collider. Stone and iron cells never change between the intact and breached frames.",
+    "tones": "_dim and _lit are one-step ramp shifts of the mid key (W007-D5); accent keys stay; lit glass turns the gal_10 glint into gal_warm_03."
+  }
+}

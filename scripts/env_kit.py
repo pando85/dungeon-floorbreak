@@ -162,13 +162,15 @@ def resolve_extends(contract: dict, path: Path, chain: tuple[Path, ...] = ()) ->
           "palette, layers, coordinates, walking line and lighting come from the base")
     merged = dict(base)
     for key, value in contract.items():
-        if key not in ("atlases", "tiles", "pieces"):
+        if key not in ("atlases", "tiles", "pieces", "material_tiles"):
             merged[key] = value
     clash = sorted(set(base.get("atlases", {})) & set(contract.get("atlases", {})))
     check(not clash, f"extension contract redefines base atlas(es) {clash}")
     merged["atlases"] = {**base.get("atlases", {}), **contract.get("atlases", {})}
     merged["tiles"] = list(base.get("tiles", [])) + list(contract.get("tiles", []))
     merged["pieces"] = list(base.get("pieces", [])) + list(contract.get("pieces", []))
+    if "material_tiles" in base or "material_tiles" in contract:
+        merged["material_tiles"] = list(base.get("material_tiles", [])) + list(contract.get("material_tiles", []))
     merged["extends_chain"] = [base_ref] + list(base.get("extends_chain", []))
     return merged
 
@@ -570,6 +572,68 @@ def validate_contract(kit: Kit) -> None:
         if "window" in piece:
             _check_window(piece)
         _check_lights(kit, piece)
+    _check_material_tiles(kit)
+
+
+MATERIAL_TYPE = "material_tileset"
+MATERIALS = ("reinforced", "glass", "wood")
+TONES = ("dim", "mid", "lit")
+
+
+def _check_material_tiles(kit: Kit) -> None:
+    """``material_tiles``: frame-per-tile atlases of 16x16 material tiles (WORK-007).
+
+    Unlike ``tiles`` these may be partial (edge remnants of a broken state) and are not cells of
+    a layout grid: a scene places them by pixel position. Every frame of a material atlas needs
+    exactly one contract entry; full tiles are opaque and collidable with the full-cell collider,
+    broken remnants use 1-bit alpha and carry no collider."""
+    seen = set(kit.tiles) | set(kit.pieces)
+    per_atlas: dict[str, set[int]] = {}
+    for tile in kit.contract.get("material_tiles", []):
+        tid = tile.get("id")
+        _check_id(tid, "material tile")
+        check(tid not in seen, f"duplicate id {tid}")
+        seen.add(tid)
+        atlas = kit.atlases.get(tile.get("atlas"))
+        check(atlas is not None, f"material tile {tid}: unknown atlas {tile.get('atlas')!r}")
+        check(atlas["manifest"].get("type") == MATERIAL_TYPE,
+              f"material tile {tid}: atlas type must be {MATERIAL_TYPE!r}")
+        frames = atlas["metadata"]["frames"]
+        index = tile.get("frame_index")
+        check(type(index) is int and 0 <= index < len(frames),
+              f"material tile {tid}: frame_index {index!r} outside the exported frames")
+        fr = frames[index]["frame"]
+        check(tile.get("rect") == [fr["x"], fr["y"], TILE, TILE] and fr["w"] == TILE and fr["h"] == TILE,
+              f"material tile {tid}: rect differs from exported frame {index}")
+        check(index not in per_atlas.setdefault(tile["atlas"], set()),
+              f"material tile {tid}: frame {index} already has a tile")
+        per_atlas[tile["atlas"]].add(index)
+        check(tile.get("role") == "collision", f"material tile {tid}: role must be collision")
+        check(tile.get("material") in MATERIALS, f"material tile {tid}: material must be one of {MATERIALS}")
+        check(isinstance(tile.get("state"), str) and tile["state"], f"material tile {tid}: missing state")
+        check(tile.get("tone") in TONES, f"material tile {tid}: tone must be one of {TONES}")
+        check(isinstance(tile.get("grammar"), list) and tile["grammar"]
+              and set(tile["grammar"]) <= set(GRAMMAR), f"material tile {tid}: grammar must be A/B/C")
+        low, high = _alpha_extrema(kit.crop(tile["atlas"], tile["rect"]))
+        check(high == 255, f"material tile {tid}: tile is empty")
+        collidable = tile.get("collidable")
+        check(type(collidable) is bool, f"material tile {tid}: collidable must be a boolean")
+        if collidable:
+            check(tile.get("collider") == [0, 0, TILE, TILE],
+                  f"material tile {tid}: collidable tiles carry the full-cell collider [0, 0, 16, 16]")
+            check(low == 255, f"material tile {tid}: collidable tiles must be fully opaque")
+            check("partial_alpha" not in tile, f"material tile {tid}: partial_alpha on a collidable tile")
+        else:
+            check("collider" not in tile, f"material tile {tid}: non-collidable tiles have no collider")
+            check(tile.get("partial_alpha") is True and low == 0,
+                  f"material tile {tid}: a non-collidable remnant is a partial-alpha tile")
+        if "derived_from" in tile:
+            check(tile["derived_from"] in {t.get("id") for t in kit.contract["material_tiles"]},
+                  f"material tile {tid}: derived_from {tile['derived_from']!r} is not a material tile")
+    for name, atlas in kit.atlases.items():
+        if atlas["manifest"].get("type") == MATERIAL_TYPE:
+            check(per_atlas.get(name, set()) == set(range(len(atlas["metadata"]["frames"]))),
+                  f"{name}: every frame of a material atlas needs exactly one contract tile")
 
 
 # ---------------------------------------------------------------------------

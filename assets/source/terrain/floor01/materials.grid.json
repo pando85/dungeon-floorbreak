@@ -152,6 +152,77 @@
    "key": "D",
    "name": "mortar_02",
    "rgba": "#201622ff"
+  },
+  {
+   "key": "j",
+   "name": "stone_cold_00",
+   "rgba": "#1f2338ff"
+  },
+  {
+   "key": "t",
+   "name": "copper_cold_00",
+   "rgba": "#33283fff"
+  },
+  {
+   "key": "E",
+   "name": "gal_02",
+   "rgba": "#10172cff"
+  },
+  {
+   "key": "F",
+   "name": "gal_07",
+   "rgba": "#3a537cff"
+  },
+  {
+   "key": "G",
+   "name": "gal_00",
+   "rgba": "#070a14ff"
+  },
+  {
+   "key": "H",
+   "name": "floor_06",
+   "rgba": "#844f38ff"
+  },
+  {
+   "key": "I",
+   "name": "mortar_01",
+   "rgba": "#150f1bff"
+  },
+  {
+   "key": "J",
+   "name": "stone_05",
+   "rgba": "#7a5249ff"
+  },
+  {
+   "key": "K",
+   "name": "stone_cold_03",
+   "rgba": "#4b5d86ff"
+  },
+  {
+   "key": "L",
+   "name": "gal_warm_03",
+   "rgba": "#9a5735ff",
+   "accent": true
+  },
+  {
+   "key": "M",
+   "name": "gal_09",
+   "rgba": "#5676a2ff"
+  },
+  {
+   "key": "N",
+   "name": "floor_08",
+   "rgba": "#c3763cff"
+  },
+  {
+   "key": "O",
+   "name": "mortar_03",
+   "rgba": "#2d1d26ff"
+  },
+  {
+   "key": "P",
+   "name": "stone_07",
+   "rgba": "#b98256ff"
   }
  ],
  "layers": [
@@ -364,6 +435,305 @@
      "................"
     ]
    }
+  },
+  {
+   "duration_ms": 100,
+   "cels": {
+    "main": [
+     "...........Bzzzz",
+     "..........BCxyAy",
+     "...........Bxxzz",
+     "............Bwww",
+     "................",
+     ".............Bzz",
+     "............BxAx",
+     "............uBzy",
+     ".............Bxz",
+     "..............Bw",
+     "................",
+     ".........Bzzzzzz",
+     "........BCyyvyAy",
+     ".........Bxxvxzx",
+     "..........Bwwwww",
+     "................"
+    ]
+   }
+  },
+  {
+   "duration_ms": 100,
+   "cels": {
+    "main": [
+     "eeeeeeeeeeeeeeea",
+     "dedccccjccccccba",
+     "ddccccjhccccccba",
+     "dcdgcjhjccdgccba",
+     "dccaahjccccaacba",
+     "dccjhjccjcccccba",
+     "dcjhjccjccccccba",
+     "dchjccjcccccccba",
+     "dcjccjccccccccba",
+     "dcccccccccccccba",
+     "dcccccccccccccba",
+     "dbdgbbbbbbdgbbba",
+     "dbbaabbbbbbaabba",
+     "dbbbbbbbbbbbbbba",
+     "daaaaaaaaaaaaaaa",
+     "aaaaaaaaaaaaaaaa"
+    ]
+   }
+  },
+  {
+   "duration_ms": 100,
+   "cels": {
+    "main": [
+     "eeeeeeeeeeeeeeea",
+     "dedccccjccccccba",
+     "ddccccjhccccccba",
+     "dcdgcjhbccdgccba",
+     "dccaahbcbccaacba",
+     "dccjhbcbbbcclcba",
+     "dclhjcbbbcccclba",
+     "dchlccbaabccccba",
+     "dcjccaaaaabcccba",
+     "dccctbabbcdtccba",
+     "dccctcdeeedtccba",
+     "dbdgbttddtbabbba",
+     "dbbaabbbbbbabbba",
+     "dbbbbbbbbbbbbbba",
+     "daaaaaaaaaaaaaaa",
+     "aaaaaaaaaaaaaaaa"
+    ]
+   }
+  },
+  {
+   "duration_ms": 100,
+   "cels": {
+    "main": [
+     "oonnnnpcapnnnooo",
+     "onnnnnaaaannnnoo",
+     "nnnnnaappaannnno",
+     "nnnncapoopaannnn",
+     "Ennaapoosopaannn",
+     "EEaapoFsFoopaanE",
+     "EcapoooFoFoopaaE",
+     "aapnooooooonnpaa",
+     "apnnnooooonnnnpa",
+     "aannnnooonnnnnca",
+     "paannnnonnnnnaap",
+     "opaannnnnnnnaapo",
+     "sopaannnEnncapoo",
+     "FoopaanEEEaapoFs",
+     "oFoopaaEEaapoooF",
+     "ooonnpaacapnoooo"
+    ]
+   }
+  },
+  {
+   "duration_ms": 100,
+   "cels": {
+    "main": [
+     "oonnnnpcapnnnooo",
+     "onnnnnaaaannnnoo",
+     "nnnnnaappaanFFno",
+     "nnnncapoopaannFn",
+     "Ennaapoosopaannn",
+     "EEaapoFsFFoFaanE",
+     "EcapooFFoFFopaaE",
+     "aapnoooFFsonnpaa",
+     "apnnnooooFnnnnpa",
+     "aannnnooFnFnnnca",
+     "paannnnFFnnFnaap",
+     "opaannnnGnFnaapo",
+     "sopaanFGGGncapoo",
+     "FoopaanGGGaapoFs",
+     "oFoopaaEEaapoooF",
+     "ooonnpaacapnoooo"
+    ]
+   }
+  },
+  {
+   "duration_ms": 100,
+   "cels": {
+    "main": [
+     "yyyyyyyyyyyuyyyy",
+     "wwwxxxxxxuxuHxux",
+     "wwwwwwwwwuwuywww",
+     "vvvvvvvvvvvuvvvv",
+     "uuuuuuuuuuuuuuuu",
+     "yyyyyyyyyyyyyyyy",
+     "xxwwxxxxxxxxxxux",
+     "xwwwwwwxxxxxxxxx",
+     "xxxuxxxxxxwwwwwx",
+     "vvvvvvvvvvvvvvvv",
+     "uuuuuuuuuuuuuuuu",
+     "yyyyuyyyyyyyyyyy",
+     "xxuxuHxuxxxxwwww",
+     "wwuwuywwwwwwwwvw",
+     "vvvvuvvvvvvvvIIv",
+     "uuuuuuuuuuuuuuuu"
+    ]
+   }
+  },
+  {
+   "duration_ms": 100,
+   "cels": {
+    "main": [
+     "yyyyyyyyyyyuxxyy",
+     "wwwxxxxxxuxuHxux",
+     "wwwwwwwwwuwuywww",
+     "vvvvvvvvvvvuvvvv",
+     "uuuuuuuuuuuuuuuu",
+     "yyyyyyyyyyyyyyyy",
+     "xxwwxxxxxxxxvvux",
+     "xwuuuuuuuuuuuuxx",
+     "xxxJJxxJCxJJwwwx",
+     "vvvvvvvvvvvvvvvv",
+     "uuuuuuuuuuuuuuuu",
+     "yyyyuyyJuuJyyyyy",
+     "xxuxuHxuxJxxwwww",
+     "wwuwuywwwwwwwwvw",
+     "vvvvuvvvvvvvvIIv",
+     "uuuuuuuuuuuuuuuu"
+    ]
+   }
+  },
+  {
+   "duration_ms": 100,
+   "cels": {
+    "main": [
+     "gggggggggggggggb",
+     "fgfeeeeieeeeeedb",
+     "ffeeeeiKeeeeeedb",
+     "fefgeiKieefgeedb",
+     "feecbKieeeecbedb",
+     "feeiKieeieeeeedb",
+     "feiKieeieeeeeedb",
+     "feKieeieeeeeeedb",
+     "feieeieeeeeeeedb",
+     "feeeeeeeeeeeeedb",
+     "feeeeeeeeeeeeedb",
+     "fdfgddddddfgdddb",
+     "fddcbddddddcbddb",
+     "fddddddddddddddb",
+     "fccccccccccccccb",
+     "bbbbbbbbbbbbbbbb"
+    ]
+   }
+  },
+  {
+   "duration_ms": 100,
+   "cels": {
+    "main": [
+     "gggggggggggggggb",
+     "fgfeeeeieeeeeedb",
+     "ffeeeeiKeeeeeedb",
+     "fefgeiKdeefgeedb",
+     "feecbKdedeecbedb",
+     "feeiKdedddeeledb",
+     "felKiedddeeeeldb",
+     "feKleedccdeeeedb",
+     "feieecbbbcdeeedb",
+     "feeekdcddefkeedb",
+     "feeekefgggfkeedb",
+     "fdfgdkkffkdbdddb",
+     "fddcbddddddbdddb",
+     "fddddddddddddddb",
+     "fccccccccccccccb",
+     "bbbbbbbbbbbbbbbb"
+    ]
+   }
+  },
+  {
+   "duration_ms": 100,
+   "cels": {
+    "main": [
+     "qqppppFecFpppqqq",
+     "qpppppccccppppqq",
+     "pppppccFFccppppq",
+     "ppppecFqqFccpppp",
+     "oppccFqqLqFccppp",
+     "ooccFqMLMqqFccpo",
+     "oecFqqqMqMqqFcco",
+     "ccFpqqqqqqqppFcc",
+     "cFpppqqqqqppppFc",
+     "ccppppqqqpppppec",
+     "FccppppqpppppccF",
+     "qFccppppppppccFq",
+     "LqFccpppoppecFqq",
+     "MqqFccpoooccFqML",
+     "qMqqFccooccFqqqM",
+     "qqqppFccecFpqqqq"
+    ]
+   }
+  },
+  {
+   "duration_ms": 100,
+   "cels": {
+    "main": [
+     "qqppppFecFpppqqq",
+     "qpppppccccppppqq",
+     "pppppccFFccpMMpq",
+     "ppppecFqqFccppMp",
+     "oppccFqqLqFccppp",
+     "ooccFqMLMMqMccpo",
+     "oecFqqMMqMMqFcco",
+     "ccFpqqqMMLqppFcc",
+     "cFpppqqqqMppppFc",
+     "ccppppqqMpMpppec",
+     "FccppppMMppMpccF",
+     "qFccppppEpMpccFq",
+     "LqFccpMEEEpecFqq",
+     "MqqFccpEEEccFqML",
+     "qMqqFccooccFqqqM",
+     "qqqppFccecFpqqqq"
+    ]
+   }
+  },
+  {
+   "duration_ms": 100,
+   "cels": {
+    "main": [
+     "zzzzzzzzzzzvzzzz",
+     "yyyzzzzzzwzvNzwz",
+     "yyyyyyyyywyvzyyy",
+     "xxxxxxxxxxxvxxxx",
+     "vvvvvvvvvvvvvvvv",
+     "zzzzzzzzzzzzzzzz",
+     "zzyyzzzzzzzzzzwz",
+     "zyyyyyyzzzzzzzzz",
+     "zzzwzzzzzzyyyyyz",
+     "xxxxxxxxxxxxxxxx",
+     "vvvvvvvvvvvvvvvv",
+     "zzzzvzzzzzzzzzzz",
+     "zzwzvNzwzzzzyyyy",
+     "yywyvzyyyyyyyyxy",
+     "xxxxvxxxxxxxxOOx",
+     "vvvvvvvvvvvvvvvv"
+    ]
+   }
+  },
+  {
+   "duration_ms": 100,
+   "cels": {
+    "main": [
+     "zzzzzzzzzzzvzzzz",
+     "yyyzzzzzzvzvNzwz",
+     "yyyyyyyyywyvzyyy",
+     "xxxxxxxxxxxvxxxx",
+     "vvvvvvvvvvvvvvvv",
+     "zzzzzzzzzzzzzzzz",
+     "zzyyzzzzzzzzxxwz",
+     "zyvvvvvvvvvvvvzz",
+     "zzzPPzzPCzPPyyyz",
+     "xxxxxxxxxxxxxxxx",
+     "vvvvvvvvvvvvvvvv",
+     "zzzzvzzPvvPzzzzz",
+     "zzwzvNzwzPzzyyyy",
+     "yywyvzyyyyyyyyxy",
+     "xxxxvxxxxxxxxOOx",
+     "vvvvvvvvvvvvvvvv"
+    ]
+   }
   }
  ],
  "tags": [
@@ -382,7 +752,19 @@
   {
    "name": "timber_boards",
    "from": 6,
-   "to": 8,
+   "to": 9,
+   "direction": "forward"
+  },
+  {
+   "name": "tone_dim",
+   "from": 10,
+   "to": 15,
+   "direction": "forward"
+  },
+  {
+   "name": "tone_lit",
+   "from": 16,
+   "to": 21,
    "direction": "forward"
   }
  ]
