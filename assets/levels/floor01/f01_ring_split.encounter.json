@@ -1,0 +1,28 @@
+{
+  "schema": "floor01-encounter-v1",
+  "status": "RING-A/B core data (FLOOR01-RINGS-01, docs/07-agents/f01-playtest-integration-plan.md section 15): greybox hypotheses, validated by src/encounter.rs; nothing here is wired into a scene yet. RING-11 is a data-only roster swap here after HAZ-B (KR20). Every number is a tuning knob. Coordinates are layout pixels, y down, like the room file.",
+  "id": "F01-RING-SPLIT-ENC",
+  "room_file": "f01_ring_split.room.json",
+  "room_id": "F01-RING-SPLIT",
+  "story_pin": "f01_pin_post_pile_boss",
+  "goal": "reach_exit",
+  "grants": [],
+  "max_living": 4,
+  "locks": [],
+  "platform_slab_px": 12,
+  "protected_spawn": { "x": 16, "y": 484, "w": 208, "h": 96 },
+  "checkpoint": { "x": 176, "y": 484, "w": 48, "h": 96 },
+  "exit": { "x": 1072, "y": 484, "w": 64, "h": 96 },
+  "props": [],
+  "hazards": [],
+  "links": [],
+  "roster": [
+    { "id": "g1", "kind": "goblin", "x": 560, "beat": "R2", "trigger_x": 256, "delay_ticks": 0 },
+    { "id": "g2", "kind": "goblin", "x": 848, "beat": "R2", "trigger_x": 256, "delay_ticks": 90 }
+  ],
+  "gates": [
+    { "surface": 0, "class": "carl" },
+    { "surface": 1, "class": "carl" }
+  ],
+  "vantages": []
+}

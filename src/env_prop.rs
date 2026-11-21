@@ -1111,6 +1111,585 @@ impl FallingMass {
     }
 }
 
+// ---------------------------------------------------------------------------
+// RING-B core: the shutter's knobs. RING-C core: the shutter machine.
+// ---------------------------------------------------------------------------
+
+/// The closing (and opening) of a shutter takes this many ticks at least:
+/// #189 "moving closure 24-36 fixed ticks" (KR2, KR19).
+pub const SHUTTER_MIN_CLOSING_TICKS: u16 = 24;
+/// ... and at most this many (#189, KR19).
+pub const SHUTTER_MAX_CLOSING_TICKS: u16 = 36;
+/// A shutter descends at most this many px per tick (KR2: slow, readable).
+pub const SHUTTER_MAX_SPEED_PX_PER_TICK: u8 = 2;
+/// The warning lasts 36..=48 ticks (#189 "36-48 fixed ticks", KR2 adopts 40).
+pub const SHUTTER_MIN_WARNING_TICKS: u16 = 36;
+pub const SHUTTER_MAX_WARNING_TICKS: u16 = 48;
+/// The arming position is at most this far from the shutter (KR18: within 256 px).
+pub const SHUTTER_MAX_ARM_DISTANCE_PX: i32 = 256;
+/// A moving shutter stays closed at most this many ticks (#189 "dwell 90-150",
+/// KR19).
+pub const SHUTTER_MAX_CLOSED_TICKS: u16 = 150;
+/// The stuck limit an AI partner pressing on a closed shutter must stay under
+/// (KR19: 300 ticks).
+pub const SHUTTER_STUCK_LIMIT_TICKS: u32 = 300;
+/// A pin is written to a goblin's `stagger_left`, a `u8` (KR4).
+pub const SHUTTER_MAX_PIN_TICKS: u16 = 255;
+
+/// KR19: `2 x closing ticks + max_closed_ticks` is under the stuck limit. With
+/// the closing and dwell bounds above it holds by construction (at most
+/// 2 x 36 + 150 = 222); it stays as its own check so that moving a bound cannot
+/// silently break the AI partner's guarantee.
+pub const fn shutter_window_ok(closing_ticks: u16, max_closed_ticks: u16) -> bool {
+    2 * closing_ticks as u32 + (max_closed_ticks as u32) < SHUTTER_STUCK_LIMIT_TICKS
+}
+
+/// Whether the shutter starts open (a moving one) or closed (a static gate).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ShutterInitial {
+    Open,
+    Closed,
+}
+
+impl ShutterInitial {
+    pub fn parse(name: &str) -> Option<Self> {
+        Some(match name {
+            "open" => Self::Open,
+            "closed" => Self::Closed,
+            _ => return None,
+        })
+    }
+}
+
+/// Tunables of one shutter (RING-B core appends the type, RING-C core runs it).
+/// The geometry is the prop's `target`: the **closed** rectangle, standing on
+/// the floor under a platform slab (KR3). Defaults and where each number comes
+/// from:
+///
+/// * `warning_ticks` 40: KR2 (inside #189's 36-48);
+/// * `speed_px_per_tick` 2: KR2 (at most 2); a 68 px shutter then closes in 34
+///   ticks, inside #189's 24-36;
+/// * `slice_px` 4: KR6 (the 68 px shutter is 17 slices);
+/// * `cycles` 1: KR5 (one close per attempt, then it reopens and stays open);
+///   0 is a **static** gate that stays as authored;
+/// * `pin_ticks` 36: KR4;
+/// * `max_closed_ticks` 150: #189's longest dwell, KR19;
+/// * `arm_trail_px` 320: KR18.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ShutterConfig {
+    /// `Closed` is a static gate (`cycles` 0), `Open` a moving shutter.
+    pub initial: ShutterInitial,
+    /// A hero that has crossed this x arms the warning (KR18). Required for a
+    /// moving shutter, within [`SHUTTER_MAX_ARM_DISTANCE_PX`] of it.
+    pub arm_x: Option<i32>,
+    /// The trailing living hero must be within this many px of the shutter for
+    /// it to warn (KR18).
+    pub arm_trail_px: i32,
+    pub warning_ticks: u16,
+    pub speed_px_per_tick: u8,
+    /// Height of one collision slice; it divides the shutter's height.
+    pub slice_px: u8,
+    /// Closures per attempt; 0 = static.
+    pub cycles: u8,
+    /// Ticks a pinned goblin is staggered (KR4), `1..=`[`SHUTTER_MAX_PIN_TICKS`].
+    pub pin_ticks: u16,
+    /// A moving shutter's closed dwell, `1..=`[`SHUTTER_MAX_CLOSED_TICKS`].
+    pub max_closed_ticks: u16,
+}
+
+impl ShutterConfig {
+    /// The adopted defaults around a given start (see the type docs). The
+    /// `initial` and `cycles` pair must agree: [`ShutterConfig::validate`].
+    pub const fn defaults(initial: ShutterInitial) -> Self {
+        Self {
+            initial,
+            arm_x: None,
+            arm_trail_px: 320,
+            warning_ticks: 40,
+            speed_px_per_tick: 2,
+            slice_px: 4,
+            cycles: match initial {
+                ShutterInitial::Open => 1,
+                ShutterInitial::Closed => 0,
+            },
+            pin_ticks: 36,
+            max_closed_ticks: 150,
+        }
+    }
+
+    pub const fn is_static(&self) -> bool {
+        self.cycles == 0
+    }
+
+    /// Ticks the lower edge needs to travel `height_px`: `ceil(height / speed)`
+    /// (KR19). Opening takes as long as closing.
+    pub const fn closing_ticks(&self, height_px: i32) -> u16 {
+        let speed = self.speed_px_per_tick as i32;
+        if speed == 0 || height_px <= 0 {
+            return 0;
+        }
+        let ticks = (height_px + speed - 1) / speed;
+        if ticks > u16::MAX as i32 {
+            u16::MAX
+        } else {
+            ticks as u16
+        }
+    }
+
+    /// The longest an **unheld** cycle blocks the lane: closing, closed and
+    /// opening (KR19, about 218 ticks at the authored numbers).
+    pub const fn blocked_window_ticks(&self, height_px: i32) -> u32 {
+        2 * self.closing_ticks(height_px) as u32 + self.max_closed_ticks as u32
+    }
+
+    /// Every bound of the knobs for a shutter whose closed rectangle is
+    /// `target`. One source of truth: `encounter.rs` calls it for the sidecar
+    /// and [`Shutter::new`] for the machine.
+    pub fn validate(&self, target: IRect) -> Result<(), String> {
+        if target.w <= 0 || target.h <= 0 {
+            return Err("the shutter needs an area".into());
+        }
+        if self.speed_px_per_tick == 0 || self.speed_px_per_tick > SHUTTER_MAX_SPEED_PX_PER_TICK {
+            return Err(format!(
+                "speed_px_per_tick must be 1..={SHUTTER_MAX_SPEED_PX_PER_TICK}, is {}",
+                self.speed_px_per_tick
+            ));
+        }
+        let closing = self.closing_ticks(target.h);
+        if !(SHUTTER_MIN_CLOSING_TICKS..=SHUTTER_MAX_CLOSING_TICKS).contains(&closing) {
+            return Err(format!(
+                "a {} px shutter at {} px/tick closes in {closing} ticks, must be \
+                 {SHUTTER_MIN_CLOSING_TICKS}..={SHUTTER_MAX_CLOSING_TICKS}",
+                target.h, self.speed_px_per_tick
+            ));
+        }
+        if !(SHUTTER_MIN_WARNING_TICKS..=SHUTTER_MAX_WARNING_TICKS).contains(&self.warning_ticks) {
+            return Err(format!(
+                "warning_ticks must be {SHUTTER_MIN_WARNING_TICKS}..={SHUTTER_MAX_WARNING_TICKS}, is {}",
+                self.warning_ticks
+            ));
+        }
+        if self.slice_px == 0 || target.h % i32::from(self.slice_px) != 0 {
+            return Err(format!(
+                "slice_px {} must be at least 1 and divide the {} px height",
+                self.slice_px, target.h
+            ));
+        }
+        if self.pin_ticks == 0 || self.pin_ticks > SHUTTER_MAX_PIN_TICKS {
+            return Err(format!(
+                "pin_ticks must be 1..={SHUTTER_MAX_PIN_TICKS}, is {}",
+                self.pin_ticks
+            ));
+        }
+        if self.arm_trail_px <= 0 {
+            return Err("arm_trail_px must be positive".into());
+        }
+        if let Some(x) = self.arm_x {
+            let dist = (target.x - x).max(x - target.right()).max(0);
+            if dist > SHUTTER_MAX_ARM_DISTANCE_PX {
+                return Err(format!(
+                    "arm_x {x} is {dist} px from the shutter, at most {SHUTTER_MAX_ARM_DISTANCE_PX}"
+                ));
+            }
+        }
+        match (self.is_static(), self.initial) {
+            (true, ShutterInitial::Open) => {
+                return Err("a static shutter (cycles 0) starts closed".into());
+            }
+            (false, ShutterInitial::Closed) => {
+                return Err("a moving shutter (cycles above 0) starts open".into());
+            }
+            _ => {}
+        }
+        if !self.is_static() {
+            if self.arm_x.is_none() {
+                return Err("a moving shutter needs arm_x".into());
+            }
+            if self.max_closed_ticks == 0 || self.max_closed_ticks > SHUTTER_MAX_CLOSED_TICKS {
+                return Err(format!(
+                    "max_closed_ticks must be 1..={SHUTTER_MAX_CLOSED_TICKS}, is {}",
+                    self.max_closed_ticks
+                ));
+            }
+            // KR19: an AI pressing on the shutter is blocked for the closing,
+            // closed and opening windows, under the stuck limit.
+            if !shutter_window_ok(closing, self.max_closed_ticks) {
+                return Err(format!(
+                    "2 x closing ticks + max_closed_ticks is {}, must be under \
+                     {SHUTTER_STUCK_LIMIT_TICKS} (KR19)",
+                    self.blocked_window_ticks(target.h)
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    /// The deterministic arm rule (KR18): a living hero has crossed `arm_x`
+    /// **and** the trailing living hero is within `arm_trail_px` of the shutter
+    /// (distance to its nearest edge). A position bound, never a camera read.
+    /// `hero_xs` are the centres of the **living** heroes. A static shutter
+    /// never arms.
+    pub fn arm_ready(&self, target: IRect, hero_xs: &[i32]) -> bool {
+        let Some(arm_x) = self.arm_x else {
+            return false;
+        };
+        if self.is_static() || hero_xs.is_empty() {
+            return false;
+        }
+        // Heroes advance toward the shutter: crossed means on its side of arm_x.
+        let from_left = arm_x <= target.x;
+        let crossed = hero_xs
+            .iter()
+            .any(|&x| if from_left { x >= arm_x } else { x <= arm_x });
+        let trailing = hero_xs
+            .iter()
+            .map(|&x| (target.x - x).max(x - target.right()).max(0))
+            .max()
+            .unwrap_or(0);
+        crossed && trailing <= self.arm_trail_px
+    }
+}
+
+/// The phases of a shutter. A static gate stays `Closed`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ShutterPhase {
+    Open,
+    /// Armed: the tell (stone scraping, the lower-edge cue). Nothing moves.
+    Warning,
+    /// The lower edge descends; slices turn intact behind it.
+    Closing,
+    Closed,
+    /// The lower edge rises; slices turn non-intact from the bottom.
+    Opening,
+}
+
+impl ShutterPhase {
+    const fn code(self) -> u64 {
+        self as u64
+    }
+}
+
+/// What a body is for the shutter. The core cannot see goblin modes, so the
+/// wire maps them (KR4): `Neutral` and `Attack` are `Free`; `Launched`,
+/// `Downed` and `Airborne` are `Busy`; `Down` and `Corpse` are `Gone`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ShutterBodyState {
+    /// Alive and standing: holds the shutter, and a goblin can be pinned.
+    Free,
+    /// Alive but mid-launch, down-in-progress or airborne: holds the shutter,
+    /// is never pinned here (a pin never overwrites those modes, KR4).
+    Busy,
+    /// A downed or dead body: no collision, never holds (KR4).
+    Gone,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ShutterBody {
+    /// Where the body was and is (layout px); `prev == cur` after a teleport.
+    pub body: MassBody,
+    pub state: ShutterBodyState,
+}
+
+impl ShutterBody {
+    pub const fn new(body: MassBody, state: ShutterBodyState) -> Self {
+        Self { body, state }
+    }
+}
+
+/// A state change of one tick.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ShutterEdge {
+    /// The warning ended; the edge moves from the next tick.
+    ClosingStarted,
+    /// The edge reached the floor: every slice is intact.
+    Closed,
+    /// The closed dwell ended; the edge rises from the next tick.
+    OpeningStarted,
+    /// The edge is fully up: no slice is intact; the closure is over.
+    Opened,
+}
+
+/// A pin to apply to a goblin: set it staggered for `ticks` with no damage
+/// (KR4). The wire writes the public goblin fields; it never overwrites a
+/// launched, downed or airborne goblin (those bodies are `Busy`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ShutterPin {
+    pub victim: Victim,
+    pub ticks: u16,
+    /// The launch's instigator; `None` for a goblin that walked in (KR4).
+    pub source: Option<u32>,
+}
+
+/// What one tick of a shutter did.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct ShutterTick {
+    pub edge: Option<ShutterEdge>,
+    /// The closing edge would have turned a slice intact over a living body, so
+    /// it did not move this tick.
+    pub held: bool,
+    /// New pins of this tick (one per enemy per closure).
+    pub pins: Vec<ShutterPin>,
+}
+
+/// The outcome of a launched goblin hitting the shutter's face.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FaceHit {
+    /// The token of this enemy for this closure is spent: no walk-in pin will
+    /// follow (the existing slam is the effect, KR4: no new damage).
+    Spent,
+    /// This enemy already used its token in this closure.
+    Duplicate,
+    /// No slice is intact, so there is no face to hit.
+    NotSolid,
+    /// Heroes carry no pin token.
+    NotAnEnemy,
+}
+
+/// The shutter: `Open -> Warning -> Closing -> Closed -> Opening -> Open`
+/// (KR2, KR4, KR5). A kinematic stack of collision **slices** descending at
+/// most [`SHUTTER_MAX_SPEED_PX_PER_TICK`] px per tick.
+///
+/// Tick contract (the future wire step, KR18): when
+/// [`ShutterConfig::arm_ready`] holds, call [`Shutter::arm`] on an open
+/// shutter; then [`Shutter::step`] once per tick with the bodies. A closure
+/// armed before step `R` warns during steps `R..R + warning - 1`, is `Closing`
+/// from the step that ended the warning (the edge first moves one step later)
+/// for `ceil(height / speed)` unheld steps, is `Closed` for `max_closed_ticks`
+/// and `Opening` for as many steps as it closed.
+///
+/// **Hold rule (KR4).** A slice turns intact once the lower edge has passed
+/// its bottom. If any **living** body (hero or enemy, [`ShutterBodyState::Gone`]
+/// excluded) overlaps a slice that this step would turn intact (its swept
+/// volume, [`swept_rect`]), the edge does not move: nobody is squeezed, shoved
+/// or hurt, and no slice turns intact over a body. The hold has no time bound
+/// (a body under the edge holds it below its own height). Opening never holds.
+///
+/// **Pins (KR4).** A `Free` enemy that holds the edge is pinned once per
+/// closure ([`ShutterPin`]); a launched enemy that hits the face spends its
+/// token through [`Shutter::face_hit`]. Heroes are never pinned.
+///
+/// Integer math only; no RNG, no wall-clock time.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Shutter {
+    cfg: ShutterConfig,
+    /// The closed rectangle.
+    rect: IRect,
+    phase: ShutterPhase,
+    ticks_left: u16,
+    /// Px the lower edge has descended from the top, `0..=rect.h`.
+    edge_px: i32,
+    /// Closures armed this attempt.
+    closures: u8,
+    /// Enemy ids whose pin token of this closure is spent.
+    spent: Vec<u32>,
+}
+
+impl Shutter {
+    pub fn new(cfg: ShutterConfig, rect: IRect) -> Result<Self, String> {
+        cfg.validate(rect)?;
+        let closed = cfg.initial == ShutterInitial::Closed;
+        Ok(Self {
+            cfg,
+            rect,
+            phase: if closed {
+                ShutterPhase::Closed
+            } else {
+                ShutterPhase::Open
+            },
+            ticks_left: 0,
+            edge_px: if closed { rect.h } else { 0 },
+            closures: 0,
+            spent: Vec::new(),
+        })
+    }
+
+    pub fn config(&self) -> &ShutterConfig {
+        &self.cfg
+    }
+    pub fn phase(&self) -> ShutterPhase {
+        self.phase
+    }
+    /// The closed rectangle (the footprint).
+    pub fn footprint(&self) -> IRect {
+        self.rect
+    }
+    /// Px the lower edge has descended from the top of the arch.
+    pub fn edge_px(&self) -> i32 {
+        self.edge_px
+    }
+    /// The y of the lower edge (layout px, y down).
+    pub fn lower_edge_y(&self) -> i32 {
+        self.rect.y + self.edge_px
+    }
+    /// Closures armed so far this attempt.
+    pub fn closures(&self) -> u8 {
+        self.closures
+    }
+    /// Restart the attempt: the same state as [`Shutter::new`].
+    pub fn reset(&mut self) {
+        *self = Self::new(self.cfg, self.rect).expect("a built shutter has a valid config");
+    }
+
+    pub fn slice_count(&self) -> usize {
+        (self.rect.h / i32::from(self.cfg.slice_px)) as usize
+    }
+
+    /// Slice `k` counted from the top of the arch.
+    pub fn slice_rect(&self, k: usize) -> IRect {
+        let s = i32::from(self.cfg.slice_px);
+        IRect::new(self.rect.x, self.rect.y + s * k as i32, self.rect.w, s)
+    }
+
+    /// How many slices are intact: those whose bottom the lower edge passed.
+    pub fn intact_slices(&self) -> usize {
+        (self.edge_px / i32::from(self.cfg.slice_px)) as usize
+    }
+
+    pub fn slice_intact(&self, k: usize) -> bool {
+        k < self.intact_slices()
+    }
+
+    /// The intact stack as one rectangle (the slices touch end to end), the
+    /// face a launched body hits. `None` when no slice is intact.
+    pub fn solid_rect(&self) -> Option<IRect> {
+        let n = self.intact_slices();
+        (n > 0).then(|| {
+            IRect::new(
+                self.rect.x,
+                self.rect.y,
+                self.rect.w,
+                i32::from(self.cfg.slice_px) * n as i32,
+            )
+        })
+    }
+
+    /// The footprint shadow the warning draws, while warning or closing.
+    pub fn telegraph_rect(&self) -> Option<IRect> {
+        matches!(self.phase, ShutterPhase::Warning | ShutterPhase::Closing).then_some(self.rect)
+    }
+
+    /// Start a closure from `Open`: the warning begins and the pin tokens of
+    /// the previous closure are cleared. `false` (nothing changes) when the
+    /// shutter is not open, is static, or has used its `cycles`.
+    pub fn arm(&mut self) -> bool {
+        if self.phase != ShutterPhase::Open
+            || self.cfg.is_static()
+            || self.closures >= self.cfg.cycles
+        {
+            return false;
+        }
+        self.closures += 1;
+        self.phase = ShutterPhase::Warning;
+        self.ticks_left = self.cfg.warning_ticks;
+        self.spent.clear();
+        true
+    }
+
+    /// A launched enemy hit the shutter's face: spend its pin token (KR4: the
+    /// existing slam is the effect, so a walk-in pin must not follow). The
+    /// wire calls it when the slam's down state happens.
+    pub fn face_hit(&mut self, victim: Victim) -> FaceHit {
+        if victim.team != Team::Enemy {
+            return FaceHit::NotAnEnemy;
+        }
+        if self.solid_rect().is_none() {
+            return FaceHit::NotSolid;
+        }
+        if self.spent.contains(&victim.id) {
+            return FaceHit::Duplicate;
+        }
+        self.spent.push(victim.id);
+        FaceHit::Spent
+    }
+
+    /// One fixed tick. See the type docs for the order and the hold rule.
+    pub fn step(&mut self, bodies: &[ShutterBody]) -> ShutterTick {
+        let mut tick = ShutterTick::default();
+        if self.cfg.is_static() {
+            return tick;
+        }
+        match self.phase {
+            ShutterPhase::Open => {}
+            ShutterPhase::Warning => {
+                self.ticks_left -= 1;
+                if self.ticks_left == 0 {
+                    self.phase = ShutterPhase::Closing;
+                    tick.edge = Some(ShutterEdge::ClosingStarted);
+                }
+            }
+            ShutterPhase::Closing => self.step_closing(bodies, &mut tick),
+            ShutterPhase::Closed => {
+                self.ticks_left = self.ticks_left.saturating_sub(1);
+                if self.ticks_left == 0 {
+                    self.phase = ShutterPhase::Opening;
+                    tick.edge = Some(ShutterEdge::OpeningStarted);
+                }
+            }
+            ShutterPhase::Opening => {
+                self.edge_px = (self.edge_px - i32::from(self.cfg.speed_px_per_tick)).max(0);
+                if self.edge_px == 0 {
+                    self.phase = ShutterPhase::Open;
+                    tick.edge = Some(ShutterEdge::Opened);
+                }
+            }
+        }
+        tick
+    }
+
+    fn step_closing(&mut self, bodies: &[ShutterBody], tick: &mut ShutterTick) {
+        let height = self.rect.h;
+        let next = (self.edge_px + i32::from(self.cfg.speed_px_per_tick)).min(height);
+        let slice = i32::from(self.cfg.slice_px);
+        // The slices this step would turn intact.
+        let (from, to) = ((self.edge_px / slice) as usize, (next / slice) as usize);
+        let mut held = false;
+        for b in bodies {
+            if b.state == ShutterBodyState::Gone {
+                continue;
+            }
+            let swept = swept_rect(b.body.prev, b.body.cur);
+            if !(from..to).any(|k| swept.overlaps(self.slice_rect(k))) {
+                continue;
+            }
+            held = true;
+            let v = b.body.victim;
+            if v.team == Team::Enemy
+                && b.state == ShutterBodyState::Free
+                && !self.spent.contains(&v.id)
+            {
+                self.spent.push(v.id);
+                tick.pins.push(ShutterPin {
+                    victim: v,
+                    ticks: self.cfg.pin_ticks,
+                    source: None,
+                });
+            }
+        }
+        if held {
+            tick.held = true;
+            return;
+        }
+        self.edge_px = next;
+        if next == height {
+            self.phase = ShutterPhase::Closed;
+            self.ticks_left = self.cfg.max_closed_ticks;
+            tick.edge = Some(ShutterEdge::Closed);
+        }
+    }
+
+    /// Fold the full state into a state hash.
+    pub fn mix_into(&self, mix: &mut impl FnMut(u64)) {
+        mix(self.phase.code());
+        mix(u64::from(self.ticks_left));
+        mix(self.edge_px as u64);
+        mix(u64::from(self.closures));
+        mix(self.spent.len() as u64);
+        for id in &self.spent {
+            mix(u64::from(*id));
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2383,4 +2962,596 @@ mod falling_mass_tests {
         let (tick, _) = run_to_landing(&mut m, &[]);
         assert_eq!(tick, 30 + 12 - 1);
     }
+}
+
+#[cfg(test)]
+mod shutter_tests {
+    use super::*;
+
+    const FLOOR: i32 = 580;
+    /// The Ring court's arch: 68 px from the slab underside to the floor.
+    const ARCH: IRect = IRect::new(1200, FLOOR - 68, 32, 68);
+
+    fn cfg() -> ShutterConfig {
+        ShutterConfig {
+            arm_x: Some(1008),
+            ..ShutterConfig::defaults(ShutterInitial::Open)
+        }
+    }
+
+    fn shutter() -> Shutter {
+        Shutter::new(cfg(), ARCH).unwrap()
+    }
+
+    fn body(victim: Victim, cx: i32, h: i32, state: ShutterBodyState) -> ShutterBody {
+        ShutterBody::new(
+            MassBody::still(victim, IRect::new(cx - 14, FLOOR - h, 28, h)),
+            state,
+        )
+    }
+
+    fn goblin(id: u32) -> ShutterBody {
+        body(Victim::enemy(id), 1216, 38, ShutterBodyState::Free)
+    }
+
+    fn carl() -> ShutterBody {
+        body(Victim::hero(0), 1216, 52, ShutterBodyState::Free)
+    }
+
+    fn hash(s: &Shutter) -> u64 {
+        let mut h = 0xcbf2_9ce4_8422_2325_u64;
+        s.mix_into(&mut |x| {
+            h ^= x;
+            h = h.wrapping_mul(0x0000_0100_0000_01b3);
+        });
+        h
+    }
+
+    /// Step until `pred` holds, returning how many steps it took (at most 600).
+    fn run_until(s: &mut Shutter, bodies: &[ShutterBody], pred: impl Fn(&Shutter) -> bool) -> u32 {
+        for n in 1..=600 {
+            s.step(bodies);
+            if pred(s) {
+                return n;
+            }
+        }
+        panic!("never reached the state");
+    }
+
+    // ---- the knobs (RING-B core)
+
+    #[test]
+    fn the_defaults_are_the_adopted_numbers_and_validate() {
+        let c = cfg();
+        assert_eq!(
+            (
+                c.warning_ticks,
+                c.speed_px_per_tick,
+                c.slice_px,
+                c.cycles,
+                c.pin_ticks,
+                c.max_closed_ticks,
+                c.arm_trail_px
+            ),
+            (40, 2, 4, 1, 36, 150, 320)
+        );
+        assert_eq!(c.validate(ARCH), Ok(()));
+        assert_eq!(c.closing_ticks(68), 34);
+        assert_eq!(c.blocked_window_ticks(68), 218);
+        let s = ShutterConfig::defaults(ShutterInitial::Closed);
+        assert!(s.is_static());
+        assert_eq!(s.validate(ARCH), Ok(()));
+    }
+
+    #[test]
+    fn the_closing_tick_bounds_hold_on_both_sides() {
+        // ceil(h / 2): 48 and 47 px close in 24, 46 px in 23; 72 px in 36, 73 in 37.
+        let at = |h: i32, speed: u8| {
+            ShutterConfig {
+                speed_px_per_tick: speed,
+                arm_x: Some(0),
+                slice_px: 1,
+                ..cfg()
+            }
+            .validate(IRect::new(0, 0, 32, h))
+        };
+        assert_eq!(at(48, 2), Ok(()));
+        assert_eq!(at(47, 2), Ok(()));
+        assert!(at(46, 2).unwrap_err().contains("closes in 23"));
+        assert_eq!(at(72, 2), Ok(()));
+        assert!(at(73, 2).unwrap_err().contains("closes in 37"));
+        // One px per tick: 24..=36 px.
+        assert_eq!(at(24, 1), Ok(()));
+        assert_eq!(at(36, 1), Ok(()));
+        assert!(at(23, 1).is_err());
+        assert!(at(37, 1).is_err());
+        assert!(at(0, 2).is_err());
+    }
+
+    #[test]
+    fn arm_ready_needs_a_crossed_arm_x_and_a_near_trailing_hero() {
+        let c = cfg();
+        // arm_x 1008, the shutter at [1200, 1232), trail 320.
+        assert!(!c.arm_ready(ARCH, &[]), "no living hero");
+        assert!(!c.arm_ready(ARCH, &[1007]), "not crossed");
+        assert!(c.arm_ready(ARCH, &[1008]), "crossed, trailing 192 px away");
+        // The trailing hero decides: 1200 - 880 = 320 is the limit.
+        assert!(c.arm_ready(ARCH, &[1100, 880]));
+        assert!(
+            !c.arm_ready(ARCH, &[1100, 879]),
+            "trailing hero 321 px back"
+        );
+        // A hero that passed the shutter is at distance 0 (the far side).
+        assert!(c.arm_ready(ARCH, &[1300, 1100]));
+        // A static gate never arms.
+        let s = ShutterConfig {
+            arm_x: Some(1008),
+            ..ShutterConfig::defaults(ShutterInitial::Closed)
+        };
+        assert!(!s.arm_ready(ARCH, &[1100]));
+    }
+
+    // ---- the phases
+
+    #[test]
+    fn nothing_moves_before_the_warning_ends() {
+        let mut s = shutter();
+        assert_eq!(s.phase(), ShutterPhase::Open);
+        assert_eq!((s.edge_px(), s.intact_slices()), (0, 0));
+        assert_eq!(s.solid_rect(), None);
+        // Stepping an open shutter changes nothing.
+        let h0 = hash(&s);
+        for _ in 0..10 {
+            assert_eq!(s.step(&[]), ShutterTick::default());
+        }
+        assert_eq!(hash(&s), h0);
+        assert!(s.arm());
+        assert_eq!(s.phase(), ShutterPhase::Warning);
+        assert_eq!(s.telegraph_rect(), Some(ARCH));
+        // Warning steps 1..=39: nothing moves, no slice is intact.
+        for n in 1..40 {
+            let t = s.step(&[]);
+            assert_eq!(t, ShutterTick::default(), "step {n}");
+            assert_eq!(s.phase(), ShutterPhase::Warning);
+            assert_eq!((s.edge_px(), s.intact_slices()), (0, 0), "step {n}");
+        }
+        // Step 40 ends the warning: the phase is Closing, the edge still at 0.
+        let t = s.step(&[]);
+        assert_eq!(t.edge, Some(ShutterEdge::ClosingStarted));
+        assert_eq!(s.phase(), ShutterPhase::Closing);
+        assert_eq!((s.edge_px(), s.intact_slices()), (0, 0));
+        // The first motion is the next step: 2 px, still no whole slice.
+        s.step(&[]);
+        assert_eq!((s.edge_px(), s.intact_slices()), (2, 0));
+        s.step(&[]);
+        assert_eq!((s.edge_px(), s.intact_slices()), (4, 1));
+    }
+
+    #[test]
+    fn an_unheld_cycle_takes_exactly_the_authored_ticks() {
+        let mut s = shutter();
+        assert!(s.arm());
+        let mut edges = Vec::new();
+        for n in 1..=300u32 {
+            if let Some(e) = s.step(&[]).edge {
+                edges.push((n, e));
+            }
+        }
+        // Warning 40, closing 34 (68 px at 2 px/tick), closed 150, opening 34.
+        assert_eq!(
+            edges,
+            [
+                (40, ShutterEdge::ClosingStarted),
+                (40 + 34, ShutterEdge::Closed),
+                (40 + 34 + 150, ShutterEdge::OpeningStarted),
+                (40 + 34 + 150 + 34, ShutterEdge::Opened),
+            ]
+        );
+        assert_eq!(s.phase(), ShutterPhase::Open);
+        assert_eq!(s.intact_slices(), 0);
+        // KR19: the lane is blocked from Closing to Opened: 34 + 150 + 34.
+        assert_eq!(edges[3].0 - edges[0].0, 218);
+        assert!(edges[3].0 - edges[0].0 < SHUTTER_STUCK_LIMIT_TICKS);
+    }
+
+    #[test]
+    fn the_edge_moves_at_most_two_px_per_tick_and_slices_follow_it() {
+        let mut s = shutter();
+        s.arm();
+        run_until(&mut s, &[], |s| s.phase() == ShutterPhase::Closing);
+        let mut last = 0;
+        for tick in 1..=34 {
+            s.step(&[]);
+            assert!(s.edge_px() - last <= 2, "tick {tick}");
+            last = s.edge_px();
+            // A slice is intact once the edge has passed its bottom (4 px each).
+            assert_eq!(s.intact_slices(), (last / 4) as usize);
+            for k in 0..s.slice_count() {
+                assert_eq!(s.slice_intact(k), (k as i32 + 1) * 4 <= last, "slice {k}");
+            }
+            assert_eq!(s.lower_edge_y(), ARCH.y + last);
+        }
+        assert_eq!(s.phase(), ShutterPhase::Closed);
+        assert_eq!(s.slice_count(), 17);
+        assert_eq!(s.intact_slices(), 17);
+        assert_eq!(s.solid_rect(), Some(ARCH));
+        // The stack is contiguous from the top and each slice is 4 px.
+        assert_eq!(s.slice_rect(0), IRect::new(1200, ARCH.y, 32, 4));
+        assert_eq!(s.slice_rect(16).bottom(), FLOOR);
+    }
+
+    #[test]
+    fn opening_removes_slices_from_the_bottom_at_the_same_speed() {
+        let mut s = shutter();
+        s.arm();
+        run_until(&mut s, &[], |s| s.phase() == ShutterPhase::Opening);
+        assert_eq!(s.intact_slices(), 17);
+        let mut last = 68;
+        for _ in 0..34 {
+            s.step(&[]);
+            assert!(last - s.edge_px() <= 2);
+            last = s.edge_px();
+            assert_eq!(s.intact_slices(), (last / 4) as usize);
+        }
+        assert_eq!(s.phase(), ShutterPhase::Open);
+        assert_eq!(s.solid_rect(), None);
+    }
+
+    // ---- the hold rule (KR4)
+
+    #[test]
+    fn a_living_body_under_the_edge_holds_it_and_a_downed_one_does_not() {
+        // A goblin (38 px) standing in the arch: the slice that would reach its
+        // head (y 542) is the 8th (rows 32..36 from the top, y 544..548) .
+        let mut s = shutter();
+        s.arm();
+        run_until(&mut s, &[], |s| s.phase() == ShutterPhase::Closing);
+        let g = [goblin(1)];
+        let mut held_ticks = 0;
+        for _ in 0..80 {
+            let t = s.step(&g);
+            held_ticks += u32::from(t.held);
+        }
+        assert!(held_ticks > 0, "the goblin holds the edge");
+        assert_eq!(s.phase(), ShutterPhase::Closing, "never closes over it");
+        // The edge stopped above the goblin's head: no intact slice overlaps it.
+        let head = FLOOR - 38;
+        assert!(s.solid_rect().unwrap().bottom() <= head);
+        assert!(s.edge_px() < 68);
+        // Carl (52 px) is held the same way, and higher up.
+        let mut s2 = shutter();
+        s2.arm();
+        run_until(&mut s2, &[], |s| s.phase() == ShutterPhase::Closing);
+        for _ in 0..80 {
+            s2.step(&[carl()]);
+        }
+        assert!(s2.solid_rect().unwrap().bottom() <= FLOOR - 52);
+        assert!(
+            s2.intact_slices() < s.intact_slices(),
+            "the taller body holds higher"
+        );
+        // A downed or dead goblin is not a body: the shutter closes over it.
+        let mut s3 = shutter();
+        s3.arm();
+        let gone = [body(Victim::enemy(1), 1216, 38, ShutterBodyState::Gone)];
+        let n = run_until(&mut s3, &gone, |s| s.phase() == ShutterPhase::Closed);
+        assert_eq!(n, 40 + 34);
+    }
+
+    #[test]
+    fn held_for_n_ticks_then_released_it_completes_n_ticks_late() {
+        for n_held in [1u32, 17, 60] {
+            let mut s = shutter();
+            s.arm();
+            run_until(&mut s, &[], |s| s.phase() == ShutterPhase::Closing);
+            // Let it close until it reaches the goblin's head, then hold N ticks.
+            let mut steps = 0u32;
+            let mut held = 0u32;
+            while held < n_held {
+                let t = s.step(&[goblin(1)]);
+                steps += 1;
+                held += u32::from(t.held);
+                assert!(steps < 500);
+            }
+            assert_eq!(s.phase(), ShutterPhase::Closing);
+            // Released: the body is gone (or walked away).
+            let mut free_steps = 0;
+            while s.phase() == ShutterPhase::Closing {
+                s.step(&[]);
+                free_steps += 1;
+                assert!(free_steps < 100);
+            }
+            assert_eq!(s.phase(), ShutterPhase::Closed);
+            assert_eq!(s.intact_slices(), 17);
+            // Total closing steps = 34 (the travel) + the held ticks.
+            assert_eq!(steps + free_steps, 34 + n_held, "held {n_held}");
+        }
+    }
+
+    #[test]
+    fn no_slice_ever_turns_intact_over_a_body() {
+        // Bodies of several heights drift through the arch while it closes and
+        // opens: after every step no intact slice overlaps any living body.
+        let mut s = shutter();
+        s.arm();
+        for tick in 0..300u32 {
+            let cx = 1180 + ((tick * 7) % 60) as i32;
+            let cx2 = 1250 - ((tick * 5) % 70) as i32;
+            let prev = |c: i32, h: i32| IRect::new(c - 14, FLOOR - h, 28, h);
+            let bodies = [
+                ShutterBody::new(
+                    MassBody {
+                        victim: Victim::hero(0),
+                        prev: prev(cx - 7, 52),
+                        cur: prev(cx, 52),
+                    },
+                    ShutterBodyState::Free,
+                ),
+                ShutterBody::new(
+                    MassBody {
+                        victim: Victim::enemy(3),
+                        prev: prev(cx2 + 5, 38),
+                        cur: prev(cx2, 38),
+                    },
+                    ShutterBodyState::Busy,
+                ),
+            ];
+            let before = s.intact_slices();
+            s.step(&bodies);
+            // Every slice that turned intact on this step is clear of every
+            // living body (a body that walks into a closed arch later is the
+            // collision's business, not the shutter's).
+            for k in before..s.intact_slices() {
+                for b in &bodies {
+                    let swept = swept_rect(b.body.prev, b.body.cur);
+                    assert!(
+                        !s.slice_rect(k).overlaps(swept) && !s.slice_rect(k).overlaps(b.body.cur),
+                        "tick {tick}: slice {k} turned intact over {:?}",
+                        b.body.cur
+                    );
+                }
+            }
+        }
+        // The same run with a body that stays under the edge never closes it.
+        let mut s = shutter();
+        s.arm();
+        for _ in 0..300 {
+            s.step(&[goblin(1)]);
+            assert!(
+                s.solid_rect()
+                    .is_none_or(|r| !r.overlaps(goblin(1).body.cur))
+            );
+        }
+        assert_eq!(s.phase(), ShutterPhase::Closing);
+    }
+
+    #[test]
+    fn a_fast_body_crossing_the_arch_in_one_tick_still_holds_it() {
+        // Swept volume: the body was left of the arch and is right of it now, so
+        // it crossed the column during the tick.
+        let mut s = shutter();
+        s.arm();
+        run_until(&mut s, &[], |s| s.phase() == ShutterPhase::Closing);
+        // Close until the next step would turn the slice at the goblin's head.
+        let mut held = false;
+        for _ in 0..40 {
+            let b = ShutterBody::new(
+                MassBody {
+                    victim: Victim::hero(1),
+                    prev: IRect::new(1100, FLOOR - 52, 28, 52),
+                    cur: IRect::new(1260, FLOOR - 52, 28, 52),
+                },
+                ShutterBodyState::Busy,
+            );
+            held |= s.step(&[b]).held;
+        }
+        assert!(held);
+        // A body that is clear of the column by a pixel does not hold it.
+        let mut s = shutter();
+        s.arm();
+        let clear = [ShutterBody::new(
+            MassBody::still(Victim::hero(1), IRect::new(1232, FLOOR - 52, 28, 52)),
+            ShutterBodyState::Free,
+        )];
+        let n = run_until(&mut s, &clear, |s| s.phase() == ShutterPhase::Closed);
+        assert_eq!(n, 74);
+    }
+
+    // ---- pins (KR4)
+
+    #[test]
+    fn one_pin_per_enemy_per_closure() {
+        let mut s = shutter();
+        s.arm();
+        run_until(&mut s, &[], |s| s.phase() == ShutterPhase::Closing);
+        let mut pins = Vec::new();
+        for _ in 0..120 {
+            pins.extend(s.step(&[goblin(1), goblin(2)]).pins);
+        }
+        // Each goblin is pinned once, however long it holds the edge.
+        assert_eq!(pins.len(), 2, "{pins:?}");
+        assert_eq!(pins[0].victim, Victim::enemy(1));
+        assert_eq!(pins[1].victim, Victim::enemy(2));
+        assert!(pins.iter().all(|p| p.ticks == 36 && p.source.is_none()));
+    }
+
+    #[test]
+    fn heroes_and_busy_bodies_hold_but_are_never_pinned() {
+        let mut s = shutter();
+        s.arm();
+        run_until(&mut s, &[], |s| s.phase() == ShutterPhase::Closing);
+        let busy = body(Victim::enemy(4), 1216, 38, ShutterBodyState::Busy);
+        for _ in 0..100 {
+            let t = s.step(&[carl(), busy]);
+            assert!(t.pins.is_empty(), "{:?}", t.pins);
+        }
+        assert_eq!(s.phase(), ShutterPhase::Closing);
+        // A goblin pinned by walking in is in a Free body, not a Busy one: the
+        // busy goblin (mid-launch) is not pinned even when it holds the edge.
+        let mut s = shutter();
+        s.arm();
+        run_until(&mut s, &[], |s| s.phase() == ShutterPhase::Closing);
+        let t: Vec<_> = (0..100).flat_map(|_| s.step(&[busy]).pins).collect();
+        assert!(t.is_empty());
+    }
+
+    #[test]
+    fn a_face_hit_spends_the_token_and_prevents_a_later_pin() {
+        let mut s = shutter();
+        // No face before any slice is intact.
+        assert_eq!(s.face_hit(Victim::enemy(1)), FaceHit::NotSolid);
+        s.arm();
+        run_until(&mut s, &[], |s| s.phase() == ShutterPhase::Closed);
+        assert_eq!(s.face_hit(Victim::hero(0)), FaceHit::NotAnEnemy);
+        assert_eq!(s.face_hit(Victim::enemy(1)), FaceHit::Spent);
+        assert_eq!(s.face_hit(Victim::enemy(1)), FaceHit::Duplicate);
+        assert_eq!(s.face_hit(Victim::enemy(2)), FaceHit::Spent);
+        // Next closure: tokens are fresh (cycles 2).
+        let mut two = Shutter::new(ShutterConfig { cycles: 2, ..cfg() }, ARCH).unwrap();
+        two.arm();
+        run_until(&mut two, &[], |s| s.phase() == ShutterPhase::Closed);
+        assert_eq!(two.face_hit(Victim::enemy(1)), FaceHit::Spent);
+        run_until(&mut two, &[], |s| s.phase() == ShutterPhase::Open);
+        assert!(two.arm());
+        run_until(&mut two, &[], |s| s.phase() == ShutterPhase::Closing);
+        // The token of the first closure is gone: a walk-in pins goblin 1 again.
+        let pins: Vec<_> = (0..60).flat_map(|_| two.step(&[goblin(1)]).pins).collect();
+        assert_eq!(pins.len(), 1);
+        // A spent token blocks the pin in the same closure.
+        let mut s = shutter();
+        s.arm();
+        run_until(&mut s, &[], |s| s.phase() == ShutterPhase::Closing);
+        s.step(&[]);
+        s.step(&[]);
+        s.step(&[]);
+        assert_eq!(s.face_hit(Victim::enemy(1)), FaceHit::Spent);
+        let pins: Vec<_> = (0..120).flat_map(|_| s.step(&[goblin(1)]).pins).collect();
+        assert!(pins.is_empty(), "the slam consumed the token: {pins:?}");
+    }
+
+    // ---- cycles, static, reset, hash
+
+    #[test]
+    fn cycles_limit_the_closures_and_it_stays_open_afterwards() {
+        let mut s = shutter();
+        assert!(s.arm());
+        assert!(!s.arm(), "already warning");
+        run_until(&mut s, &[], |s| s.phase() == ShutterPhase::Open);
+        assert_eq!(s.closures(), 1);
+        assert!(!s.arm(), "cycles 1: one closure per attempt");
+        for _ in 0..50 {
+            assert_eq!(s.step(&[]), ShutterTick::default());
+        }
+        assert_eq!(s.phase(), ShutterPhase::Open);
+        // Two cycles: a second closure, then the lane stays open.
+        let mut two = Shutter::new(ShutterConfig { cycles: 2, ..cfg() }, ARCH).unwrap();
+        for expected in [1u8, 2] {
+            assert!(two.arm());
+            assert_eq!(two.closures(), expected);
+            run_until(&mut two, &[], |s| s.phase() == ShutterPhase::Open);
+        }
+        assert!(!two.arm());
+    }
+
+    #[test]
+    fn a_static_gate_stays_closed_and_never_arms() {
+        let mut s = Shutter::new(ShutterConfig::defaults(ShutterInitial::Closed), ARCH).unwrap();
+        assert_eq!(s.phase(), ShutterPhase::Closed);
+        assert_eq!(s.solid_rect(), Some(ARCH));
+        assert!(!s.arm());
+        let h0 = hash(&s);
+        for _ in 0..500 {
+            assert_eq!(s.step(&[goblin(1), carl()]), ShutterTick::default());
+        }
+        assert_eq!(hash(&s), h0);
+        assert_eq!(s.phase(), ShutterPhase::Closed);
+        assert_eq!(s.intact_slices(), 17);
+    }
+
+    #[test]
+    fn a_bad_config_builds_no_machine() {
+        for bad in [
+            ShutterConfig {
+                speed_px_per_tick: 3,
+                ..cfg()
+            },
+            ShutterConfig {
+                warning_ticks: 20,
+                ..cfg()
+            },
+            ShutterConfig {
+                arm_x: None,
+                ..cfg()
+            },
+            ShutterConfig {
+                slice_px: 5,
+                ..cfg()
+            },
+        ] {
+            assert!(Shutter::new(bad, ARCH).is_err(), "{bad:?}");
+        }
+    }
+
+    #[test]
+    fn reset_mid_closing_restores_the_first_state_exactly() {
+        let fresh = hash(&shutter());
+        let mut s = shutter();
+        s.arm();
+        run_until(&mut s, &[], |s| s.edge_px() >= 20);
+        // Mid-closing, with a goblin pinned and a token spent.
+        s.step(&[goblin(1)]);
+        s.face_hit(Victim::enemy(2));
+        assert_ne!(hash(&s), fresh);
+        s.reset();
+        assert_eq!(hash(&s), fresh);
+        assert_eq!(s, shutter());
+        assert_eq!(s.phase(), ShutterPhase::Open);
+        assert_eq!((s.edge_px(), s.closures(), s.intact_slices()), (0, 0, 0));
+        // A retry after the reset replays the same closure: same hash trail.
+        let trail = |s: &mut Shutter| {
+            s.arm();
+            (0..120)
+                .map(|_| {
+                    s.step(&[]);
+                    hash(s)
+                })
+                .collect::<Vec<_>>()
+        };
+        let mut a = shutter();
+        let first = trail(&mut a);
+        a.reset();
+        assert_eq!(trail(&mut a), first);
+    }
+
+    #[test]
+    fn two_runs_give_the_same_hash() {
+        let run = || {
+            let mut s = shutter();
+            let mut trail = Vec::new();
+            for tick in 0..400u32 {
+                if tick == 25 {
+                    s.arm();
+                }
+                let bodies: Vec<ShutterBody> = match tick % 90 {
+                    0..=29 => vec![goblin(1)],
+                    30..=49 => vec![carl(), goblin(2)],
+                    _ => Vec::new(),
+                };
+                let t = s.step(&bodies);
+                if tick == 200 {
+                    s.face_hit(Victim::enemy(1));
+                }
+                trail.push((hash(&s), t.held, t.pins.len()));
+            }
+            (hash(&s), trail)
+        };
+        let (a, ta) = run();
+        let (b, tb) = run();
+        assert_eq!(a, b);
+        assert_eq!(ta, tb);
+        // And the final hash is pinned: a behaviour edit must update it on purpose.
+        assert_eq!(a, GOLDEN_HASH, "update with the shutter behaviour");
+    }
+
+    const GOLDEN_HASH: u64 = 14_285_659_963_568_459_907;
 }

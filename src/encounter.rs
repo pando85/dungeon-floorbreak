@@ -63,7 +63,7 @@ use serde::Deserialize;
 
 use crate::camera_lab::room::{EnemyKind, IRect, Room, parse_rooms};
 use crate::env_hazard::{HazardClass, HazardSet, HazardSetError, HazardSpec, HazardWindow};
-use crate::env_prop::ValveConfig;
+use crate::env_prop::{ShutterConfig, ShutterInitial, ValveConfig};
 use crate::hero_damage::HeroDamagePolicy;
 use crate::rot_sticker::{Orientation, Track, TrackError};
 use crate::slime::AcidPatchSpec;
@@ -344,6 +344,9 @@ pub enum PropKind {
     /// HAZ-A1: a Rot Sticker on a wall or ceiling track. An env prop that owns
     /// no hazard volume: its blast is an authored `BlastCharge` (HAZ-A2).
     RotSticker,
+    /// RING-B core (KR3): a portcullis in an arch under a platform slab. Closed,
+    /// it is a cut for every class and never a standable node.
+    Shutter,
 }
 
 impl PropKind {
@@ -353,6 +356,7 @@ impl PropKind {
             "weight_rig" => Self::WeightRig,
             "drum" => Self::Drum,
             "rot_sticker" => Self::RotSticker,
+            "shutter" => Self::Shutter,
             _ => return None,
         })
     }
@@ -478,6 +482,8 @@ pub struct Prop {
     pub valve: Option<ValveConfig>,
     /// A rot sticker's track (layout px, y down).
     pub track: Option<StickerLayout>,
+    /// A shutter's knobs (RING-B core). `target` is its closed rectangle.
+    pub shutter: Option<ShutterConfig>,
 }
 
 /// A rot sticker's track as authored in the sidecar (layout px, y down): the
@@ -696,6 +702,22 @@ pub struct Loaded {
     pub sidecar_hash: u64,
 }
 
+/// Which side of a closed shutter a route check starts from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ShutterSide {
+    Left,
+    Right,
+}
+
+impl ShutterSide {
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Left => "left",
+            Self::Right => "right",
+        }
+    }
+}
+
 // ------------------------------------------------------------------- errors
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -746,6 +768,38 @@ pub enum EncounterError {
         prop: String,
         reason: String,
     },
+    /// RING-B core: a shutter knob out of its bounds (KR2, KR19).
+    ShutterConfig {
+        prop: String,
+        reason: String,
+    },
+    /// KR3: a closed shutter's top must equal a platform's slab underside and
+    /// its x range must lie inside that platform's.
+    ShutterNotUnderPlatform(String),
+    /// KR2/KR3: the closed shutter's bottom is the walking line.
+    ShutterNotOnFloor(String),
+    /// KR3: nothing else may overlap the closed shutter's rectangle.
+    ShutterOverlaps {
+        prop: String,
+        with: String,
+    },
+    /// KR3: a floor node on each side of the closed shutter.
+    ShutterNoFloorNode {
+        prop: String,
+        hero: ReachHero,
+        state: u16,
+        side: ShutterSide,
+    },
+    /// KR3 clause 4: in a state with the shutter closed, the exit is not
+    /// reachable from this side's floor node without crossing it.
+    ShutterBypass {
+        prop: String,
+        hero: ReachHero,
+        state: u16,
+        side: ShutterSide,
+    },
+    /// A shutter takes no link in v1 (it hurts nobody and has no contact).
+    LinkShutter(String),
     HazardClass(String),
     HazardPolicy(String),
     HazardUnknownOwner {
@@ -967,6 +1021,40 @@ impl std::fmt::Display for EncounterError {
                 "prop {prop} leaves a {px} px solid on the lane, at most {MAX_LANE_OBSTACLE_PX} px"
             ),
             ValveConfig { prop, reason } => write!(f, "prop {prop}: valve config: {reason}"),
+            ShutterConfig { prop, reason } => write!(f, "prop {prop}: shutter config: {reason}"),
+            ShutterNotUnderPlatform(p) => write!(
+                f,
+                "shutter {p} must sit under a platform: its top equals the platform's slab underside and it lies inside the platform's x range (KR3)"
+            ),
+            ShutterNotOnFloor(p) => {
+                write!(f, "shutter {p} must stand on the walking line (KR2, KR3)")
+            }
+            ShutterOverlaps { prop, with } => {
+                write!(f, "shutter {prop} (closed) overlaps {with} (KR3)")
+            }
+            ShutterNoFloorNode {
+                prop,
+                hero,
+                state,
+                side,
+            } => write!(
+                f,
+                "shutter {prop} has no floor node on its {} side for {} in state {state:#b} (KR3)",
+                side.name(),
+                hero.name()
+            ),
+            ShutterBypass {
+                prop,
+                hero,
+                state,
+                side,
+            } => write!(
+                f,
+                "from the {} side of closed shutter {prop} {} cannot reach the exit in state {state:#b}: no real crossing (KR3)",
+                side.name(),
+                hero.name()
+            ),
+            LinkShutter(p) => write!(f, "link names the shutter {p}: a shutter takes no link"),
             HazardClass(c) => write!(f, "unknown hazard class {c:?}"),
             HazardPolicy(p) => write!(f, "unknown team policy {p:?}"),
             HazardUnknownOwner { hazard, owner } => {
@@ -1165,6 +1253,20 @@ struct RawValve {
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
+struct RawShutter {
+    initial: String,
+    arm_x: Option<i32>,
+    arm_trail_px: Option<i32>,
+    warning_ticks: Option<u16>,
+    speed_px_per_tick: Option<u8>,
+    slice_px: Option<u8>,
+    cycles: Option<u8>,
+    pin_ticks: Option<u16>,
+    max_closed_ticks: Option<u16>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct RawProp {
     id: String,
     kind: String,
@@ -1178,6 +1280,7 @@ struct RawProp {
     blast_radius_px: Option<i32>,
     valve: Option<RawValve>,
     track: Option<RawTrack>,
+    shutter: Option<RawShutter>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -1545,7 +1648,29 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
             prop: p.id.clone(),
             reason: reason.into(),
         };
+        if kind != PropKind::Shutter && p.shutter.is_some() {
+            errs.push(field("only a shutter has a shutter object"));
+        }
         match kind {
+            PropKind::Shutter => {
+                if p.hang_px.is_some()
+                    || remnant.is_some()
+                    || p.blast_radius_px.is_some()
+                    || p.valve.is_some()
+                {
+                    errs.push(field(
+                        "a shutter has no hang_px, remnant, blast_radius_px or valve",
+                    ));
+                }
+                if p.solid_intact {
+                    errs.push(field(
+                        "a shutter has no solid_intact: its solidity is its state (KR3)",
+                    ));
+                }
+                if p.shutter.is_none() {
+                    errs.push(field("a shutter needs a shutter object"));
+                }
+            }
             PropKind::Valve => {
                 if p.hang_px.is_some() || remnant.is_some() || p.blast_radius_px.is_some() {
                     errs.push(field("a valve has no hang_px, remnant or blast_radius_px"));
@@ -1637,7 +1762,10 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
             ("exit", exit),
             ("checkpoint", checkpoint),
         ] {
+            // A closed shutter may never seal the spawn, the checkpoint or the
+            // exit (#189: the gate cannot seal checkpoint or exit).
             let blocks = (p.solid_intact && overlaps(target, rect))
+                || (kind == PropKind::Shutter && overlaps(target, rect))
                 || remnant.is_some_and(|r| overlaps(r, rect));
             // A hit target on the protected spawn is also wrong: the first
             // seconds of the room stay free of the machine.
@@ -1659,6 +1787,7 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
             blast_radius_px: p.blast_radius_px,
             valve: None,
             track,
+            shutter: None,
         });
     }
     let prop_pos: BTreeMap<String, usize> = props
@@ -1773,9 +1902,11 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
         let _ = i;
         let kind = props[pos].kind;
         let want = match kind {
-            PropKind::Valve => HazardClass::Steam,
-            PropKind::WeightRig => HazardClass::FallingMass,
-            PropKind::Drum => HazardClass::Blast,
+            PropKind::Valve => Some(HazardClass::Steam),
+            PropKind::WeightRig => Some(HazardClass::FallingMass),
+            PropKind::Drum => Some(HazardClass::Blast),
+            // A shutter is never a hazard volume: it hurts nobody (KR5).
+            PropKind::Shutter => None,
             PropKind::RotSticker => {
                 // HAZ never authors a damage-dealing volume for a sticker: its
                 // damage comes only from its BlastCharge (no double blast).
@@ -1789,15 +1920,65 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
                 continue;
             }
         };
-        let owned = hazards
-            .iter()
-            .filter(|h| h.owner == Some(pos) && h.spec.class == want)
-            .count();
-        if owned != 1 {
+        if let Some(want) = want {
+            let owned = hazards
+                .iter()
+                .filter(|h| h.owner == Some(pos) && h.spec.class == want)
+                .count();
+            if owned != 1 {
+                errs.push(E::HazardOwnerMismatch {
+                    prop: raw_prop.id.clone(),
+                    reason: format!("needs exactly one {} hazard, has {owned}", want.name()),
+                });
+            }
+        } else if hazards.iter().any(|h| h.owner == Some(pos)) {
             errs.push(E::HazardOwnerMismatch {
                 prop: raw_prop.id.clone(),
-                reason: format!("needs exactly one {} hazard, has {owned}", want.name()),
+                reason: "a shutter owns no hazard".into(),
             });
+        }
+        if kind == PropKind::Shutter
+            && let Some(rs) = raw_prop.shutter.as_ref()
+        {
+            let bad = |reason: String| E::ShutterConfig {
+                prop: raw_prop.id.clone(),
+                reason,
+            };
+            match ShutterInitial::parse(&rs.initial) {
+                None => errs.push(bad(format!(
+                    "initial {:?} must be open or closed",
+                    rs.initial
+                ))),
+                Some(initial) => {
+                    let mut cfg = ShutterConfig::defaults(initial);
+                    cfg.arm_x = rs.arm_x;
+                    if let Some(v) = rs.arm_trail_px {
+                        cfg.arm_trail_px = v;
+                    }
+                    if let Some(v) = rs.warning_ticks {
+                        cfg.warning_ticks = v;
+                    }
+                    if let Some(v) = rs.speed_px_per_tick {
+                        cfg.speed_px_per_tick = v;
+                    }
+                    if let Some(v) = rs.slice_px {
+                        cfg.slice_px = v;
+                    }
+                    if let Some(v) = rs.cycles {
+                        cfg.cycles = v;
+                    }
+                    if let Some(v) = rs.pin_ticks {
+                        cfg.pin_ticks = v;
+                    }
+                    if let Some(v) = rs.max_closed_ticks {
+                        cfg.max_closed_ticks = v;
+                    }
+                    match cfg.validate(props[pos].target) {
+                        Ok(()) => props[pos].shutter = Some(cfg),
+                        Err(reason) => errs.push(bad(reason)),
+                    }
+                }
+            }
         }
         if kind == PropKind::Valve {
             let steam = hazards
@@ -1880,6 +2061,13 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
         };
         if from == to {
             errs.push(E::LinkSelf(l.from.clone()));
+            continue;
+        }
+        if let Some(&i) = [from, to]
+            .iter()
+            .find(|&&i| props[i].kind == PropKind::Shutter)
+        {
+            errs.push(E::LinkShutter(props[i].id.clone()));
             continue;
         }
         if links.iter().any(|k| k.from == from && k.to == to) {
@@ -2332,11 +2520,66 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
         });
     }
 
+    // ---- KR3: the closed shutter's own geometry
+    let slab_px = raw.platform_slab_px;
+    for (pi, p) in props
+        .iter()
+        .enumerate()
+        .filter(|(_, p)| p.kind == PropKind::Shutter)
+    {
+        let t = p.target;
+        let mut withs: Vec<String> = Vec::new();
+        if t.bottom() != room.floor_y {
+            errs.push(E::ShutterNotOnFloor(p.id.clone()));
+        }
+        // Sits under a platform slab: bounds the height now that the lane
+        // obstacle limit is waived for it.
+        let under = room.platforms.iter().any(|pl| {
+            t.y == pl.rect.y + slab_px && t.x >= pl.rect.x && t.right() <= pl.rect.right()
+        });
+        if !under {
+            errs.push(E::ShutterNotUnderPlatform(p.id.clone()));
+        }
+        for (i, pl) in room.platforms.iter().enumerate() {
+            let slab = IRect::new(pl.rect.x, pl.rect.y, pl.rect.w, slab_px);
+            if overlaps(t, slab) {
+                withs.push(format!("platform {i}"));
+            }
+        }
+        for other in props
+            .iter()
+            .enumerate()
+            .filter(|(j, _)| *j != pi)
+            .map(|(_, o)| o)
+        {
+            if overlaps(t, other.target) {
+                withs.push(format!("the target of prop {}", other.id));
+            }
+            if other.remnant.is_some_and(|r| overlaps(t, r)) {
+                withs.push(format!("the remnant of prop {}", other.id));
+            }
+        }
+        for l in &locks {
+            if overlaps(t, l.solid) {
+                withs.push(format!("the solid of lock {}", l.id));
+            }
+        }
+        for st in &statics {
+            if overlaps(t, st.rect) {
+                withs.push(format!("the static {}", st.id));
+            }
+        }
+        errs.extend(withs.into_iter().map(|with| E::ShutterOverlaps {
+            prop: p.id.clone(),
+            with,
+        }));
+    }
+
     // ---- reachability, in every destruction state (every lock open)
     let changeable: Vec<usize> = props
         .iter()
         .enumerate()
-        .filter(|(_, p)| p.solid_intact || p.remnant.is_some())
+        .filter(|(_, p)| p.solid_intact || p.remnant.is_some() || p.kind == PropKind::Shutter)
         .map(|(i, _)| i)
         .collect();
     // Static solids never change state: they are in every state's solids.
@@ -2353,7 +2596,17 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
             let hero = row.hero;
             let state = row.state;
             if !row.lane && (hero == ReachHero::Carl || !row.exit) {
-                errs.push(E::LaneCut { hero, state });
+                // KR3 clause 3: waived only where the closed shutter causes
+                // the cut, i.e. the same state with every shutter open keeps
+                // the lane. Any other cut still fails.
+                let shutter_mask = shutter_state_mask(&props, &changeable);
+                let waived = state & shutter_mask != 0
+                    && reach
+                        .iter()
+                        .any(|r| r.hero == hero && r.state == state & !shutter_mask && r.lane);
+                if !waived {
+                    errs.push(E::LaneCut { hero, state });
+                }
             }
             if !row.exit {
                 errs.push(E::ExitUnreachable { hero, state });
@@ -2424,6 +2677,26 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
                     LockFailure::Trigger => E::LockTriggerUnreachable { lock, hero, state },
                 });
             }
+        }
+        // KR3 clause 4: the per-side bypass proof of every closed shutter.
+        for (prop, hero, state, side, why) in
+            shutter_side_failures(room, classes, &props, &changeable, &static_solids)
+        {
+            let prop = props[prop].id.clone();
+            errs.push(match why {
+                SideFailure::NoFloorNode => E::ShutterNoFloorNode {
+                    prop,
+                    hero,
+                    state,
+                    side,
+                },
+                SideFailure::NoCrossing => E::ShutterBypass {
+                    prop,
+                    hero,
+                    state,
+                    side,
+                },
+            });
         }
     }
 
@@ -2565,6 +2838,29 @@ fn blockers(props: &[Prop], changeable: &[usize], state: u16) -> Vec<IRect> {
     out
 }
 
+/// Bit mask of the changeable-prop bits that are shutters (set = closed).
+fn shutter_state_mask(props: &[Prop], changeable: &[usize]) -> u16 {
+    changeable
+        .iter()
+        .enumerate()
+        .filter(|(_, i)| props[**i].kind == PropKind::Shutter)
+        .fold(0u16, |m, (bit, _)| m | (1 << bit))
+}
+
+/// The closed shutters of one state (KR3): rectangles that cut the floor for
+/// **every** class whatever their height and are **never** a standable node.
+/// Kept apart from [`blockers`], whose solids a short class can stand on or
+/// hop. A set bit means closed (the open state is bit 0, the superset check of
+/// any held partial state).
+fn shutter_cuts(props: &[Prop], changeable: &[usize], state: u16) -> Vec<IRect> {
+    changeable
+        .iter()
+        .enumerate()
+        .filter(|(bit, i)| props[**i].kind == PropKind::Shutter && state & (1 << bit) != 0)
+        .map(|(_, &i)| props[i].target)
+        .collect()
+}
+
 fn platform_end_free(room: &Room, drop_gap: i32, r: IRect) -> bool {
     r.x - drop_gap >= room.play_x.0 || r.right() + drop_gap <= room.play_x.1
 }
@@ -2573,11 +2869,21 @@ fn platform_end_free(room: &Room, drop_gap: i32, r: IRect) -> bool {
 /// platforms, and every solid it can stand on (an intact drum, a landed
 /// remnant, a closed lock) as a surface of its own: a lane solid is a step, not
 /// only a wall.
-fn nodes_for(room: &Room, c: &HeightClasses, hero: ReachHero, solids: &[IRect]) -> Graph {
+///
+/// `cut_only` are the closed shutters (KR3): each is a cut for every class and
+/// never becomes a surface node, so the graph cannot step over one.
+fn nodes_for(
+    room: &Room,
+    c: &HeightClasses,
+    hero: ReachHero,
+    solids: &[IRect],
+    cut_only: &[IRect],
+) -> Graph {
     let mut cuts: Vec<(i32, i32)> = solids
         .iter()
         .filter(|b| room.floor_y - b.y > c.max_rise(hero) || b.w > c.reach_x(hero))
         .map(|b| (b.x, b.right()))
+        .chain(cut_only.iter().map(|b| (b.x, b.right())))
         .collect();
     cuts.sort_unstable();
     let mut nodes = Vec::new();
@@ -2721,7 +3027,8 @@ fn locked_unreachable(
             let mut solids = blockers(props, changeable, state);
             solids.extend_from_slice(statics);
             solids.extend(locks.iter().map(|l| l.solid));
-            let graph = nodes_for(room, c, hero, &solids);
+            let cut_only = shutter_cuts(props, changeable, state);
+            let graph = nodes_for(room, c, hero, &solids, &cut_only);
             let Some(start) = floor_node_at(&graph.nodes, hero.spawn_x(room)) else {
                 continue;
             };
@@ -2746,6 +3053,66 @@ fn locked_unreachable(
     bad
 }
 
+/// Why the per-side proof of a closed shutter fails.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SideFailure {
+    /// No floor node touches this side of the shutter.
+    NoFloorNode,
+    /// The exit is not reachable from that floor node: no real crossing.
+    NoCrossing,
+}
+
+/// KR3 clause 4, the per-side bypass proof ("2P regroup"): in every state with
+/// a shutter closed, for every class, the exit is reachable from the floor node
+/// on **each** side of that shutter, on a graph with every closed shutter as a
+/// cut and no shutter-top node, so it passes only through a real crossing such
+/// as the walkway. A missing floor node on a side fails too. Returns the failing
+/// `(prop, hero, state, side, why)`.
+fn shutter_side_failures(
+    room: &Room,
+    c: &HeightClasses,
+    props: &[Prop],
+    changeable: &[usize],
+    statics: &[IRect],
+) -> Vec<(usize, ReachHero, u16, ShutterSide, SideFailure)> {
+    let exit_x = room.goal_x.min(room.exit.right() - 1);
+    let mask = shutter_state_mask(props, changeable);
+    let mut bad = Vec::new();
+    for hero in ReachHero::ALL {
+        for state in 0..(1u16 << changeable.len()) {
+            if state & mask == 0 {
+                continue;
+            }
+            let mut solids = blockers(props, changeable, state);
+            solids.extend_from_slice(statics);
+            let cut_only = shutter_cuts(props, changeable, state);
+            let graph = nodes_for(room, c, hero, &solids, &cut_only);
+            let goal = floor_node_at(&graph.nodes, exit_x);
+            for (bit, &prop) in changeable.iter().enumerate() {
+                if props[prop].kind != PropKind::Shutter || state & (1 << bit) == 0 {
+                    continue;
+                }
+                let t = props[prop].target;
+                for (side, x) in [
+                    (ShutterSide::Left, t.x - 1),
+                    (ShutterSide::Right, t.right()),
+                ] {
+                    let Some(node) = floor_node_at(&graph.nodes, x) else {
+                        bad.push((prop, hero, state, side, SideFailure::NoFloorNode));
+                        continue;
+                    };
+                    let crosses =
+                        goal.is_some_and(|g| reachable_from(room, c, hero, &graph, node)[g]);
+                    if !crosses {
+                        bad.push((prop, hero, state, side, SideFailure::NoCrossing));
+                    }
+                }
+            }
+        }
+    }
+    bad
+}
+
 /// The reach matrix: every hero class in every destruction state of the
 /// changeable props (`2^n` states). `statics` are the solids of the sidecar's
 /// static entries: they are in every state.
@@ -2762,7 +3129,8 @@ pub fn reach_matrix(
         for state in 0..(1u16 << changeable.len()) {
             let mut solids = blockers(props, changeable, state);
             solids.extend_from_slice(statics);
-            let graph = nodes_for(room, c, hero, &solids);
+            let cut_only = shutter_cuts(props, changeable, state);
+            let graph = nodes_for(room, c, hero, &solids, &cut_only);
             let nodes = &graph.nodes;
             let spawn = floor_node_at(nodes, hero.spawn_x(room));
             let other_spawn = match hero {
@@ -4217,5 +4585,649 @@ mod tests {
         assert_eq!(dist2_point_rect(15, 15, r), 0);
         assert_eq!(dist2_point_rect(5, 15, r), 25);
         assert_eq!(dist2_point_rect(25, 25, r), 25 + 25);
+    }
+}
+
+/// RING-B core: the shutter rule (KR3) and its knobs on the Ring court.
+#[cfg(test)]
+mod shutter_tests {
+    use super::*;
+    use crate::ring_fixtures::{COURT_ENCOUNTER_PATH, COURT_ROOM_PATH};
+    use serde_json::{Value, json};
+
+    fn root() -> &'static Path {
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+    }
+
+    fn loaded() -> Loaded {
+        load(root(), COURT_ENCOUNTER_PATH).unwrap_or_else(|e| {
+            panic!(
+                "{}",
+                e.iter()
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>()
+                    .join("; ")
+            )
+        })
+    }
+
+    fn sidecar() -> Value {
+        let text = std::fs::read_to_string(root().join(COURT_ENCOUNTER_PATH)).unwrap();
+        serde_json::from_str(&text).unwrap()
+    }
+
+    fn ctx() -> Context {
+        let l = loaded();
+        Context {
+            room: l.room,
+            classes: l.classes,
+            ceiling_px: l.ceiling_px,
+        }
+    }
+
+    fn result(v: &Value) -> Result<Encounter, Vec<EncounterError>> {
+        parse_sidecar(&v.to_string(), &ctx())
+    }
+
+    fn errors(v: &Value) -> Vec<EncounterError> {
+        result(v).expect_err("the edited sidecar must be rejected")
+    }
+
+    fn has(errs: &[EncounterError], pred: impl Fn(&EncounterError) -> bool) -> bool {
+        errs.iter().any(pred)
+    }
+
+    fn shutter_config_error(errs: &[EncounterError]) -> Option<String> {
+        errs.iter().find_map(|e| match e {
+            EncounterError::ShutterConfig { reason, .. } => Some(reason.clone()),
+            _ => None,
+        })
+    }
+
+    /// The court with the shutter's knobs replaced.
+    fn with_knobs(knobs: Value) -> Value {
+        let mut v = sidecar();
+        v["props"][0]["shutter"] = knobs;
+        v
+    }
+
+    /// The boiler's drum (and its blast hazard) moved onto the court's left
+    /// stretch: a solid prop, optionally widened so it cuts the lane for Carl.
+    fn with_drum(v: &mut Value, w: i32) {
+        v["props"].as_array_mut().unwrap().push(json!({
+            "id": "drum",
+            "kind": "drum",
+            "target": { "x": 640, "y": 580 - 48, "w": w, "h": 48 },
+            "solid_intact": true,
+            "blast_radius_px": 48
+        }));
+        v["hazards"].as_array_mut().unwrap().push(json!({
+            "id": 3,
+            "name": "drum_blast",
+            "class": "blast",
+            "owner": "drum",
+            "rect": { "x": 624, "y": 500, "w": 96, "h": 80 },
+            "telegraph_ticks": 24,
+            "active_ticks": 1,
+            "max_activations": 1,
+            "damage": 1,
+            "push_x": 0,
+            "hero_damage": "all_heroes",
+            "hurts_enemies": true
+        }));
+    }
+
+    #[test]
+    fn the_court_loads_with_its_static_closed_shutter() {
+        let l = loaded();
+        assert_eq!(l.room.id, "F01-RING-COURT");
+        let e = &l.encounter;
+        assert_eq!(e.story_pin, "f01_pin_post_pile_boss");
+        let p = &e.props[0];
+        assert_eq!(p.kind, PropKind::Shutter);
+        assert!(!p.solid_intact && p.remnant.is_none() && p.valve.is_none());
+        let cfg = p.shutter.unwrap();
+        assert!(cfg.is_static());
+        assert_eq!(cfg.initial, ShutterInitial::Closed);
+        // One changeable prop: two states (open, closed) times three classes.
+        assert_eq!(e.reach.len(), 3 * 2);
+        assert!(e.hazards.is_empty() && e.links.is_empty());
+        let text = std::fs::read_to_string(root().join(COURT_ROOM_PATH)).unwrap();
+        assert_eq!(room_ceiling_px(&text, "F01-RING-COURT"), Some(228));
+    }
+
+    #[test]
+    fn a_moving_shutter_with_the_adopted_defaults_validates_the_whole_court() {
+        // initial open, cycles 1 (the default), arm 192 px before the shutter.
+        let v = with_knobs(json!({ "initial": "open", "arm_x": 1008 }));
+        let e = result(&v).expect("a moving shutter validates");
+        let cfg = e.props[0].shutter.unwrap();
+        assert!(!cfg.is_static());
+        assert_eq!(
+            (
+                cfg.warning_ticks,
+                cfg.speed_px_per_tick,
+                cfg.slice_px,
+                cfg.cycles,
+                cfg.pin_ticks,
+                cfg.max_closed_ticks,
+                cfg.arm_trail_px
+            ),
+            (40, 2, 4, 1, 36, 150, 320)
+        );
+        assert_eq!(cfg.blocked_window_ticks(68), 218, "KR19");
+        // Both states are still proven: the open lane, the closed crossing.
+        assert_eq!(e.reach.len(), 6);
+    }
+
+    #[test]
+    fn a_shutter_object_is_required_and_belongs_to_a_shutter_only() {
+        let mut v = sidecar();
+        v["props"][0].as_object_mut().unwrap().remove("shutter");
+        assert!(has(&errors(&v), |e| matches!(
+            e,
+            EncounterError::PropFields { reason, .. } if reason.contains("needs a shutter object")
+        )));
+        let mut v = sidecar();
+        with_drum(&mut v, 32);
+        v["props"][1]["shutter"] = json!({ "initial": "closed" });
+        assert!(has(&errors(&v), |e| matches!(
+            e,
+            EncounterError::PropFields { prop, reason }
+                if prop == "drum" && reason.contains("only a shutter")
+        )));
+        // A shutter is not a solid prop, a hanging weight or a valve.
+        for (key, value) in [
+            ("solid_intact", json!(true)),
+            ("hang_px", json!(128)),
+            ("blast_radius_px", json!(48)),
+        ] {
+            let mut v = sidecar();
+            v["props"][0][key] = value;
+            assert!(
+                has(
+                    &errors(&v),
+                    |e| matches!(e, EncounterError::PropFields { prop, .. } if prop == "shutter")
+                ),
+                "{key}"
+            );
+        }
+        let mut v = sidecar();
+        v["props"][0]["surprise"] = json!(1);
+        assert!(has(&errors(&v), |e| matches!(e, EncounterError::Parse(_))));
+        let mut v = sidecar();
+        v["props"][0]["shutter"]["surprise"] = json!(1);
+        assert!(has(&errors(&v), |e| matches!(e, EncounterError::Parse(_))));
+    }
+
+    #[test]
+    fn every_knob_is_bounded_on_both_sides() {
+        // (knobs, must the sidecar validate?, text the error names)
+        let moving = |extra: Value| {
+            let mut k = json!({ "initial": "open", "arm_x": 1008 });
+            for (key, value) in extra.as_object().unwrap() {
+                k[key] = value.clone();
+            }
+            k
+        };
+        let cases: Vec<(Value, Option<&str>)> = vec![
+            // speed: 1..=2, and a slower shutter closes too slowly (68 px).
+            (
+                moving(json!({ "speed_px_per_tick": 3 })),
+                Some("speed_px_per_tick"),
+            ),
+            (
+                moving(json!({ "speed_px_per_tick": 0 })),
+                Some("speed_px_per_tick"),
+            ),
+            (
+                moving(json!({ "speed_px_per_tick": 1 })),
+                Some("closes in 68 ticks"),
+            ),
+            // warning: 36..=48.
+            (
+                moving(json!({ "warning_ticks": 35 })),
+                Some("warning_ticks"),
+            ),
+            (
+                moving(json!({ "warning_ticks": 49 })),
+                Some("warning_ticks"),
+            ),
+            (moving(json!({ "warning_ticks": 36 })), None),
+            (moving(json!({ "warning_ticks": 48 })), None),
+            // slices divide 68.
+            (moving(json!({ "slice_px": 0 })), Some("slice_px")),
+            (moving(json!({ "slice_px": 3 })), Some("slice_px")),
+            (moving(json!({ "slice_px": 17 })), None),
+            // pin ticks fit a u8 stagger.
+            (moving(json!({ "pin_ticks": 0 })), Some("pin_ticks")),
+            (moving(json!({ "pin_ticks": 256 })), Some("pin_ticks")),
+            (moving(json!({ "pin_ticks": 255 })), None),
+            (moving(json!({ "arm_trail_px": 0 })), Some("arm_trail_px")),
+            // arm_x within 256 px of the shutter [1200, 1232).
+            (moving(json!({ "arm_x": 943 })), Some("arm_x")),
+            (moving(json!({ "arm_x": 944 })), None),
+            (moving(json!({ "arm_x": 1488 })), None),
+            (moving(json!({ "arm_x": 1489 })), Some("arm_x")),
+            // dwell: 1..=150.
+            (
+                moving(json!({ "max_closed_ticks": 0 })),
+                Some("max_closed_ticks"),
+            ),
+            (
+                moving(json!({ "max_closed_ticks": 151 })),
+                Some("max_closed_ticks"),
+            ),
+            (moving(json!({ "max_closed_ticks": 1 })), None),
+            // a moving shutter needs its arming position and an open start.
+            (json!({ "initial": "open" }), Some("needs arm_x")),
+            (
+                json!({ "initial": "closed", "cycles": 1, "arm_x": 1008 }),
+                Some("starts open"),
+            ),
+            (moving(json!({ "cycles": 0 })), Some("starts closed")),
+            (json!({ "initial": "ajar" }), Some("open or closed")),
+        ];
+        for (knobs, expect) in cases {
+            let r = result(&with_knobs(knobs.clone()));
+            match expect {
+                None => assert!(r.is_ok(), "{knobs}: {r:?}"),
+                Some(text) => {
+                    let errs = r.expect_err(&knobs.to_string());
+                    let reason = shutter_config_error(&errs)
+                        .unwrap_or_else(|| panic!("{knobs}: no shutter config error in {errs:?}"));
+                    assert!(reason.contains(text), "{knobs}: {reason}");
+                }
+            }
+        }
+        // A static gate needs only its start: the moving bounds do not apply.
+        assert!(result(&with_knobs(json!({ "initial": "closed" }))).is_ok());
+        assert!(
+            result(&with_knobs(
+                json!({ "initial": "closed", "max_closed_ticks": 400 })
+            ))
+            .is_ok(),
+            "max_closed_ticks is for the moving machine only"
+        );
+    }
+
+    #[test]
+    fn the_kr19_window_rule_has_its_own_check() {
+        use crate::env_prop::shutter_window_ok;
+        // At the authored numbers and at the extremes of every other bound.
+        assert!(shutter_window_ok(34, 150));
+        assert!(
+            shutter_window_ok(36, 150),
+            "222 is the most the bounds allow"
+        );
+        // The edge of the rule itself: 2 x 36 + 227 = 299 passes, 228 does not.
+        assert!(shutter_window_ok(36, 227));
+        assert!(!shutter_window_ok(36, 228));
+        assert!(!shutter_window_ok(36, 400));
+        assert!(!shutter_window_ok(150, 1));
+    }
+
+    #[test]
+    fn a_shutter_must_stand_on_the_walking_line() {
+        let mut v = sidecar();
+        v["props"][0]["target"] = json!({ "x": 1200, "y": 508, "w": 32, "h": 68 });
+        let errs = errors(&v);
+        assert!(has(&errs, |e| matches!(
+            e,
+            EncounterError::ShutterNotOnFloor(p) if p == "shutter"
+        )));
+    }
+
+    #[test]
+    fn a_shutter_must_sit_under_a_platform_slab_inside_its_x_range() {
+        // Top one px below the slab underside (512): not flush.
+        let mut v = sidecar();
+        v["props"][0]["target"] = json!({ "x": 1200, "y": 513, "w": 32, "h": 67 });
+        assert!(has(&errors(&v), |e| matches!(
+            e,
+            EncounterError::ShutterNotUnderPlatform(_)
+        )));
+        // The walkway spans [1120, 1312): 1296 + 32 = 1328 sticks out.
+        let mut v = sidecar();
+        v["props"][0]["target"] = json!({ "x": 1296, "y": 512, "w": 32, "h": 68 });
+        assert!(has(&errors(&v), |e| matches!(
+            e,
+            EncounterError::ShutterNotUnderPlatform(_)
+        )));
+        // Flush against both ends of the walkway is inside its range.
+        for x in [1120, 1280] {
+            let mut v = sidecar();
+            v["props"][0]["target"] = json!({ "x": x, "y": 512, "w": 32, "h": 68 });
+            assert!(result(&v).is_ok(), "x {x}: {:?}", result(&v));
+        }
+    }
+
+    #[test]
+    fn a_shutter_with_no_platform_over_it_cuts_every_class_and_is_never_a_step() {
+        // Only the shelf is left: the shutter has no slab over it (structure
+        // error), and, because a closed shutter is a cut and never a standable
+        // node, even a 68 px solid inside every class's rise walls off the exit
+        // for Carl, base Donut and boosted Donut alike.
+        let l = loaded();
+        let mut room = l.room.clone();
+        room.platforms = vec![room.platforms[2].clone()];
+        let mut v = sidecar();
+        v["gates"] = json!([{ "surface": 0, "class": "donut_boosted" }]);
+        v["vantages"] = json!([{ "surface": 0, "counter": "lane_ceiling" }]);
+        let errs = parse_sidecar(&v.to_string(), &Context { room, ..ctx() }).unwrap_err();
+        assert!(has(&errs, |e| matches!(
+            e,
+            EncounterError::ShutterNotUnderPlatform(_)
+        )));
+        for hero in ReachHero::ALL {
+            assert!(
+                has(&errs, |e| *e
+                    == EncounterError::ExitUnreachable { hero, state: 1 }),
+                "{hero:?}: {errs:?}"
+            );
+            assert!(
+                has(&errs, |e| matches!(
+                    e,
+                    EncounterError::ShutterBypass { hero: h, side: ShutterSide::Left, .. } if *h == hero
+                )),
+                "{hero:?}: {errs:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn nothing_may_overlap_the_closed_shutter() {
+        // A platform slab: the shutter reaches up into the walkway.
+        let mut v = sidecar();
+        v["props"][0]["target"] = json!({ "x": 1200, "y": 506, "w": 32, "h": 74 });
+        assert!(has(&errors(&v), |e| matches!(
+            e,
+            EncounterError::ShutterOverlaps { with, .. } if with == "platform 1"
+        )));
+        // Another prop's target (a second shutter).
+        let mut v = sidecar();
+        v["props"].as_array_mut().unwrap().push(json!({
+            "id": "shutter_b",
+            "kind": "shutter",
+            "target": { "x": 1216, "y": 512, "w": 32, "h": 68 },
+            "shutter": { "initial": "closed" }
+        }));
+        let errs = errors(&v);
+        assert!(has(&errs, |e| matches!(
+            e,
+            EncounterError::ShutterOverlaps { prop, with }
+                if prop == "shutter" && with.contains("shutter_b")
+        )));
+        // A remnant: a landed weight left on the floor under the arch.
+        let mut v = sidecar();
+        v["props"].as_array_mut().unwrap().push(json!({
+            "id": "weight",
+            "kind": "weight_rig",
+            "target": { "x": 1100, "y": 540, "w": 32, "h": 40 },
+            "hang_px": 128,
+            "remnant": { "x": 1208, "y": 564, "w": 48, "h": 16 }
+        }));
+        v["hazards"].as_array_mut().unwrap().push(json!({
+            "id": 2,
+            "name": "weight_fall",
+            "class": "falling_mass",
+            "owner": "weight",
+            "rect": { "x": 1200, "y": 484, "w": 64, "h": 96 },
+            "telegraph_rect": { "x": 1200, "y": 572, "w": 64, "h": 8 },
+            "telegraph_ticks": 24,
+            "active_ticks": 1,
+            "max_activations": 1,
+            "damage": 1,
+            "push_x": 0,
+            "hero_damage": "all_heroes",
+            "hurts_enemies": true
+        }));
+        assert!(has(&errors(&v), |e| matches!(
+            e,
+            EncounterError::ShutterOverlaps { with, .. } if with.starts_with("the remnant of prop weight")
+        )));
+        // A lock solid.
+        let mut v = sidecar();
+        v["locks"] = json!([{
+            "id": "door",
+            "solid": { "x": 1216, "y": 484, "w": 16, "h": 96 },
+            "opens_on": { "event": "enemy_defeated", "target": "g1" }
+        }]);
+        assert!(has(&errors(&v), |e| matches!(
+            e,
+            EncounterError::ShutterOverlaps { with, .. } if with == "the solid of lock door"
+        )));
+        // Touching is not overlapping: a lock flush against the shutter's edge.
+        let mut v = sidecar();
+        v["locks"] = json!([{
+            "id": "door",
+            "solid": { "x": 1232, "y": 484, "w": 16, "h": 96 },
+            "opens_on": { "event": "enemy_defeated", "target": "g1" }
+        }]);
+        assert!(!has(&errors_or_empty(&v), |e| matches!(
+            e,
+            EncounterError::ShutterOverlaps { .. }
+        )));
+    }
+
+    fn errors_or_empty(v: &Value) -> Vec<EncounterError> {
+        result(v).err().unwrap_or_default()
+    }
+
+    #[test]
+    fn a_floor_node_must_touch_each_side_of_the_closed_shutter() {
+        // A 160 px drum flush against the left side: while it stands it is
+        // wider than Carl's reach, so it cuts his floor and no floor node
+        // touches the shutter's left side (state 0b01: closed, drum intact).
+        let mut v = sidecar();
+        with_drum(&mut v, 160);
+        v["props"][1]["target"] = json!({ "x": 1040, "y": 580 - 48, "w": 160, "h": 48 });
+        v["hazards"][0]["rect"] = json!({ "x": 1000, "y": 500, "w": 96, "h": 80 });
+        let errs = errors(&v);
+        assert!(
+            has(&errs, |e| matches!(
+                e,
+                EncounterError::ShutterNoFloorNode {
+                    hero: ReachHero::Carl,
+                    state: 0b01,
+                    side: ShutterSide::Left,
+                    ..
+                }
+            )),
+            "{errs:?}"
+        );
+        // Base Donut hops the drum, so her left floor node is still there.
+        assert!(!has(&errs, |e| matches!(
+            e,
+            EncounterError::ShutterNoFloorNode {
+                hero: ReachHero::DonutBase,
+                ..
+            }
+        )));
+        // The court itself has both nodes.
+        assert!(result(&sidecar()).is_ok());
+    }
+
+    #[test]
+    fn the_shutter_rule_composes_with_the_static_solids_of_the_sidecar() {
+        // HRD-A1 / HAZ-A1 statics: a 160 px solid (wider than Carl's reach)
+        // flush against the shutter's left side takes the left floor node of the
+        // closed state away for Carl, so the per-side proof sees it.
+        let mut v = sidecar();
+        v["statics"] = json!([{
+            "id": "wall",
+            "kind": "solid",
+            "rect": { "x": 1040, "y": 580 - 48, "w": 160, "h": 48 }
+        }]);
+        let errs = errors(&v);
+        assert!(
+            has(&errs, |e| matches!(
+                e,
+                EncounterError::ShutterNoFloorNode {
+                    hero: ReachHero::Carl,
+                    state: 0b1,
+                    side: ShutterSide::Left,
+                    ..
+                }
+            )),
+            "{errs:?}"
+        );
+        // A static that overlaps the closed shutter is refused like any solid.
+        let mut v = sidecar();
+        v["statics"] = json!([{
+            "id": "wall",
+            "kind": "solid",
+            "rect": { "x": 1216, "y": 580 - 32, "w": 32, "h": 32 }
+        }]);
+        assert!(has(&errors(&v), |e| matches!(
+            e,
+            EncounterError::ShutterOverlaps { with, .. } if with == "the static wall"
+        )));
+        // A low static far from the arch and the shelf changes nothing.
+        let mut v = sidecar();
+        v["statics"] = json!([{
+            "id": "wall",
+            "kind": "solid",
+            "rect": { "x": 1900, "y": 580 - 32, "w": 32, "h": 32 }
+        }]);
+        assert!(result(&v).is_ok(), "{:?}", result(&v));
+    }
+
+    #[test]
+    fn a_shutter_owns_no_hazard_and_takes_no_link() {
+        let mut v = sidecar();
+        v["hazards"].as_array_mut().unwrap().push(json!({
+            "id": 1,
+            "name": "scrape",
+            "class": "blast",
+            "owner": "shutter",
+            "rect": { "x": 1200, "y": 512, "w": 32, "h": 68 },
+            "telegraph_ticks": 24,
+            "active_ticks": 1,
+            "max_activations": 1,
+            "damage": 1,
+            "push_x": 0,
+            "hero_damage": "all_heroes",
+            "hurts_enemies": true
+        }));
+        assert!(has(&errors(&v), |e| matches!(
+            e,
+            EncounterError::HazardOwnerMismatch { prop, reason }
+                if prop == "shutter" && reason.contains("owns no hazard")
+        )));
+        // A link into the shutter (the drum's blast reaches it) is refused.
+        let mut v = sidecar();
+        with_drum(&mut v, 32);
+        v["props"][1]["target"] = json!({ "x": 1168, "y": 580 - 48, "w": 32, "h": 48 });
+        v["hazards"][0]["rect"] = json!({ "x": 1152, "y": 500, "w": 96, "h": 80 });
+        v["links"] = json!([{ "from": "drum", "to": "shutter", "kind": "blast" }]);
+        assert!(has(&errors(&v), |e| matches!(
+            e,
+            EncounterError::LinkShutter(p) if p == "shutter"
+        )));
+    }
+
+    #[test]
+    fn a_closed_shutter_may_not_seal_the_spawn_the_checkpoint_or_the_exit() {
+        // The sidecar's checkpoint moved onto the arch.
+        let mut v = sidecar();
+        v["checkpoint"] = json!({ "x": 1190, "y": 484, "w": 48, "h": 96 });
+        assert!(has(&errors(&v), |e| matches!(
+            e,
+            EncounterError::PropOnProtected {
+                zone: "checkpoint",
+                ..
+            }
+        )));
+    }
+
+    #[test]
+    fn the_lane_cut_waiver_covers_the_closed_shutter_and_nothing_else() {
+        // The court's closed state cuts the lane for every class, and that is
+        // not an error: the same state with the shutter open keeps the lane.
+        let l = loaded();
+        assert!(l.encounter.reach.iter().any(|r| !r.lane && r.state == 1));
+        // A 160 px drum (wider than Carl's reach) cuts the lane on its own in
+        // every state: the waiver does not hide it, in the open state or the
+        // closed one.
+        let mut v = sidecar();
+        with_drum(&mut v, 160);
+        let errs = errors(&v);
+        // Changeable props: the shutter is bit 0, the drum bit 1 (set = used
+        // up / closed): states 0b00 (open) and 0b01 (closed) keep the drum.
+        for state in [0b00, 0b01] {
+            assert!(
+                has(&errs, |e| *e
+                    == EncounterError::LaneCut {
+                        hero: ReachHero::Carl,
+                        state
+                    }),
+                "state {state:#b}: {errs:?}"
+            );
+        }
+        // With the drum used up (0b10) and the shutter open, nothing is cut;
+        // with it closed (0b11) the shutter alone cuts it: waived.
+        for state in [0b10, 0b11] {
+            assert!(
+                !has(&errs, |e| *e
+                    == EncounterError::LaneCut {
+                        hero: ReachHero::Carl,
+                        state
+                    }),
+                "state {state:#b}: {errs:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn the_closed_shutter_is_part_of_every_validator_graph() {
+        // A lock closed behind the shutter: the locked-target check runs the
+        // same graphs, so it must see the closed shutter as a cut and the
+        // walkway as the crossing (no error here), while the target is still
+        // reachable. Without the crossing the same check fails.
+        let mut v = sidecar();
+        v["locks"] = json!([{
+            "id": "door",
+            "solid": { "x": 1960, "y": 484, "w": 8, "h": 96 },
+            "opens_on": { "event": "enemy_defeated", "target": "g1" }
+        }]);
+        assert!(result(&v).is_ok(), "{:?}", result(&v));
+        // Strict Carl (reliable rise 72) with the step removed: the closed
+        // shutter walls him off from g1 on the far side: the locked-target
+        // graph sees the shutter cut too.
+        let l = loaded();
+        let text = std::fs::read_to_string(root().join(HEIGHT_CLASSES_PATH)).unwrap();
+        let strict = HeightClasses::parse(&text.replace(
+            "\"carl\": { \"max_rise_px\": 80,",
+            "\"carl\": { \"max_rise_px\": 72,",
+        ))
+        .unwrap();
+        let mut room = l.room.clone();
+        room.platforms.remove(0);
+        v["gates"] = json!([
+            { "surface": 0, "class": "donut_base" },
+            { "surface": 1, "class": "donut_boosted" }
+        ]);
+        v["vantages"] = json!([{ "surface": 1, "counter": "lane_ceiling" }]);
+        let errs = parse_sidecar(
+            &v.to_string(),
+            &Context {
+                room,
+                classes: strict,
+                ..ctx()
+            },
+        )
+        .unwrap_err();
+        assert!(
+            has(&errs, |e| matches!(
+                e,
+                EncounterError::LockTargetUnreachable {
+                    hero: ReachHero::Carl,
+                    state: 1,
+                    ..
+                }
+            )),
+            "{errs:?}"
+        );
     }
 }

@@ -1,0 +1,30 @@
+{
+  "schema": "floor01-demo-hall-v1",
+  "status": "RING-A core greybox room (FLOOR01-RINGS-01, room 4b, KR1): geometry only, composed at load time from approved Floor 01 kit pieces by camera_lab::layout (no new art, not an authored level, not wired into any scene). The roster and zones live in f01_ring_split.encounter.json, validated by src/encounter.rs.",
+  "scenarios": [
+    {
+      "id": "F01-RING-SPLIT",
+      "name": "The Split Passage",
+      "subtitle": "Floor 01 broken ring: the split passage and the light beyond stone",
+      "act": 2,
+      "setting": "dry-catacomb",
+      "width": 1152,
+      "height": 660,
+      "floor": 580,
+      "spawn": { "carl": 112, "donut": 80 },
+      "camera_intro": 112,
+      "ceiling_px": 228,
+      "platforms": [
+        { "x": 336, "y": 516, "w": 384, "h": 16 },
+        { "x": 896, "y": 516, "w": 96, "h": 16 }
+      ],
+      "props": [],
+      "enemies": [],
+      "hazards": [],
+      "goal_x": 1104,
+      "purpose": "A 1152 px scrolling hall in local coordinates (R2 and R3 of the Broken Ring, KR1). One continuous ground lane. Platform 0 is the 64 px overhead route of the fork: 384 px long, it rejoins the ground lane at its far end, well inside one 640 px screen. Platform 1 is the R3 view ledge, 64 px (at most 80, KR10), so both heroes see the camp together.",
+      "expected": "Spawns, zones and the roster come from f01_ring_split.encounter.json; this file holds geometry only. The ceiling is the DP-Q45 soffit at 228 px above the walking line (KR9).",
+      "coop": "Solo with a swap, or two players: both routes and the view ledge are Carl's class; nothing here is Donut-only."
+    }
+  ]
+}

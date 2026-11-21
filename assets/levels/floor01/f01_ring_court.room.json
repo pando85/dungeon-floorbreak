@@ -1,0 +1,31 @@
+{
+  "schema": "floor01-demo-hall-v1",
+  "status": "RING-A core greybox room (FLOOR01-RINGS-01, room 4a, KR1): geometry only, composed at load time from approved Floor 01 kit pieces by camera_lab::layout (no new art, not an authored level, not wired into any scene). The shutter, roster and zones live in f01_ring_court.encounter.json, validated by src/encounter.rs.",
+  "scenarios": [
+    {
+      "id": "F01-RING-COURT",
+      "name": "The Shutter Court",
+      "subtitle": "Floor 01 broken ring: the crowned breach and the shutter court",
+      "act": 2,
+      "setting": "dry-catacomb",
+      "width": 2048,
+      "height": 660,
+      "floor": 580,
+      "spawn": { "carl": 112, "donut": 80 },
+      "camera_intro": 112,
+      "ceiling_px": 228,
+      "platforms": [
+        { "x": 1056, "y": 516, "w": 64, "h": 16 },
+        { "x": 1120, "y": 500, "w": 192, "h": 16 },
+        { "x": 1536, "y": 452, "w": 96, "h": 16 }
+      ],
+      "props": [],
+      "enemies": [],
+      "hazards": [],
+      "goal_x": 2000,
+      "purpose": "A 2048 px scrolling hall (R0 and R1 of the Broken Ring, KR1). One continuous ground lane. Platform 0 is the 64 px step (a 16 px rise onto the walkway, KR2), platform 1 the 80 px stone walkway over the arch (top 80, underside 68: the CF02-Q45 slab), platform 2 the 128 px Donut-only shelf on the goblins' side, 224 px clear of the walkway (KR8). The shutter that fills the arch under the walkway is an encounter sidecar prop, not room geometry.",
+      "expected": "Spawns, the shutter, zones and the roster come from f01_ring_court.encounter.json; this file holds geometry only. The ceiling is the DP-Q45 soffit at 228 px above the walking line (KR9).",
+      "coop": "Solo with a swap, or two players: the walkway crossing over the shutter is reachable by Carl's 80 px class from the 64 px step; the 128 px shelf is optional and boosted-Donut only."
+    }
+  ]
+}

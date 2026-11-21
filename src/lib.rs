@@ -74,6 +74,7 @@ pub mod party_scene;
 pub mod pile_boss;
 pub mod playtrace;
 pub mod prototype;
+pub mod ring_fixtures;
 pub mod rot_sticker;
 pub mod scene_anim;
 pub mod scene_camera;
