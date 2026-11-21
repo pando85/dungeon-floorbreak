@@ -32,6 +32,7 @@ The sequence should feel like progressing through a huge, strange place rather t
 
 - The shutter is **slow and readable**, distinct from the dramatic rapid Ball of Swine boss gates. Initial design hypotheses: warning 36–48 ticks, movement 24–36 ticks, dwell 90–150 ticks only if testing justifies cycling. Keep data-driven.
 - Moving shutter may block a shortcut or one combat projectile lane; **both Carl and Donut can always follow a standard ground/64px bypass**. An optional +128px ledge demonstrates Donut's earned leap; her straight horizontal Magic Missile is not auto-aimed.
+- At raised paths respect **DONUT-PROG DP-Q45**'s 228px lane ceiling and validate the boosted 128px ledge with actual physics and HUD, not sprite assumptions.
 - Gate cannot instantly crush the player. If moving contact cannot be resolved through existing authoritative physics without trapping/teleporting players, **defer moving collision**, use static variants and label the remaining work.
 - An enemy legitimately kicked/knocked into the moving gate can be **pinned/staggered once**, with true source attribution, and then punished with normal attacks; it is not a scripted instant death. Direct combat (never using gate) is equally legitimate.
 - Enemy AI may not fire, spawn or land hazards offscreen because the player approaches from an optional upper line or P2 lags. No AI companion navigation implementation in this work.
