@@ -769,12 +769,22 @@ impl CombatState {
         let Some(nav) = &mut self.companion.nav else {
             return;
         };
-        if let Ok(true) = nav.set_hazards(hazards, &scene.world.solids) {
-            self.companion.stats.hazard_feed_changes += 1;
-            self.companion.push_event(CompanionEvent::HazardFeed {
-                tick,
-                rects: u8::try_from(rects).unwrap_or(u8::MAX),
-            });
+        match nav.set_hazards(hazards, &scene.world.solids) {
+            Ok(true) => {
+                self.companion.stats.hazard_feed_changes += 1;
+                self.companion.push_event(CompanionEvent::HazardFeed {
+                    tick,
+                    rects: u8::try_from(rects).unwrap_or(u8::MAX),
+                });
+            }
+            Ok(false) => {}
+            Err(error) => {
+                // The graph refused the list (a duplicate id; the feed makes them
+                // unique, so this is a defect). Loud in debug and test builds; in
+                // release the graph keeps the last list and the failure is counted.
+                self.companion.stats.hazard_feed_errors += 1;
+                debug_assert!(false, "the hazard feed was refused: {error:?}");
+            }
         }
     }
 

@@ -453,3 +453,156 @@ fn print_evidence_trace() {
         );
     }
 }
+
+// ------------------------------------------------------------ acid (HAZ-A2)
+
+mod acid {
+    use super::*;
+    use crate::hazards_fixtures::{Layout, Rig, SlimeAt};
+    use crate::scene_enemy::{EnvSource, SlotEnvHit};
+
+    /// The acid patch of the pocket fixtures (layout px).
+    const POOL: (i32, i32) = (700, 764);
+
+    fn rig(link: Option<u8>) -> Rig {
+        Layout {
+            acid: vec![(POOL.0, POOL.1, link)],
+            slimes: if link.is_some() {
+                vec![SlimeAt {
+                    x: POOL.0 + 32,
+                    facing: -1,
+                    home: POOL.0 + 32,
+                }]
+            } else {
+                Vec::new()
+            },
+            carl_x: 830,
+            tuning: Some(FREE),
+            ..Layout::default()
+        }
+        .sim(Some(false))
+    }
+
+    fn kill_slime(rig: &mut Rig) {
+        let hit = SlotEnvHit {
+            victim: crate::combat_scene::slime::target_id(0),
+            source: EnvSource::Prop(0),
+            class: crate::env_hazard::HazardClass::FallingMass,
+            damage: 9,
+            push_x: 0,
+            initiator: Some(0),
+            activation: 1,
+        };
+        let tick = rig.tick();
+        let (scene, combat) = rig.parts();
+        combat.slot_env_hits(scene, &[hit], tick);
+    }
+
+    struct Run {
+        acid_hurts: usize,
+        any_hurts: usize,
+        entered_live: bool,
+        feed_changes: u32,
+        feed_errors: u32,
+        reached: Option<u64>,
+        end_x: f32,
+        hash: u64,
+    }
+
+    /// Carl stands beyond the patch (x 830), she starts short of it (x 640).
+    fn run(link: Option<u8>, ticks: u64) -> Run {
+        let mut r = rig(link);
+        r.place(HeroId::Donut, 640.0);
+        let mut out = Run {
+            acid_hurts: 0,
+            any_hurts: 0,
+            entered_live: false,
+            feed_changes: 0,
+            feed_errors: 0,
+            reached: None,
+            end_x: 0.0,
+            hash: 0,
+        };
+        for t in 1..=ticks {
+            r.step(RawInput::NONE, RawInput::NONE);
+            if link.is_some() && t == 2 {
+                kill_slime(&mut r);
+            }
+            if t == 70 {
+                // The drain is over (60 ticks): Carl steps on to x 1040: she is outside her free zone, so
+                // she must get across the patch's ground to him (Escort wins at once).
+                r.place(HeroId::Carl, 1040.0);
+            }
+            let x = r.x_of(HeroId::Donut);
+            let live = r
+                .combat()
+                .env()
+                .and_then(|e| e.acid().get(1))
+                .and_then(|p| p.bounds());
+            if let Some((a, b)) = live
+                && over(x, a as f32, b as f32)
+            {
+                out.entered_live = true;
+            }
+            if out.reached.is_none() && (r.x_of(HeroId::Carl) - x).abs() < 120.0 {
+                out.reached = Some(t);
+            }
+        }
+        let hurts = r.hurts(HeroId::Donut);
+        out.any_hurts = hurts.len();
+        out.acid_hurts = hurts
+            .iter()
+            .filter(|h| h.1 == crate::slime::acid_source(1))
+            .count();
+        let stats = r.combat().companion_stats();
+        out.feed_changes = stats.hazard_feed_changes;
+        out.feed_errors = stats.hazard_feed_errors;
+        out.end_x = r.x_of(HeroId::Donut);
+        out.hash = r.hash();
+        out
+    }
+
+    /// A persistent patch (no slime links it): the acid reaches her feed and she
+    /// is not hurt by it. **Known limit, pinned so it cannot change unseen:** with
+    /// Carl beyond and no other route she holds short of the patch for good. The
+    /// graph offers no jump over it: a takeoff beside a hazard has the body over it
+    /// while it is still low (`nav.rs` `transit` counts those ticks as hazard
+    /// ticks), and the takeoff is not set back by the hazard's height. The pockets'
+    /// patches are all linked to a slime and drain when it falls (the next test);
+    /// a takeoff clearance in `nav.rs` is a design note for the top tier.
+    #[test]
+    fn a_persistent_patch_reaches_her_feed_she_is_not_hurt_and_the_stall_is_pinned() {
+        let r = run(None, 600);
+        assert!(r.feed_changes >= 1, "the acid reached the feed");
+        assert_eq!(r.feed_errors, 0);
+        assert_eq!(r.acid_hurts, 0, "no acid hurt");
+        assert_eq!(r.any_hurts, 0);
+        assert!(!r.entered_live, "never inside the live patch");
+        assert_eq!(
+            r.reached, None,
+            "known limit: no safe way over a live patch"
+        );
+        assert!(r.end_x + 12.0 <= POOL.0 as f32, "held short: {}", r.end_x);
+    }
+
+    /// The drain: the slime falls on tick 2, the patch shrinks over 60 ticks and is
+    /// removed on the 61st. She is not hurt, never enters the live patch and does
+    /// not stall: once it is gone and Carl steps on, she crosses to him. The feed
+    /// rounds outward to 8 px (CA2-Q29), so the graph is rebuilt 6 times across the
+    /// drain, not about 48 (the rectangle moves about 1 px every 1.25 ticks).
+    #[test]
+    fn a_draining_patch_is_avoided_and_costs_a_handful_of_rebuilds() {
+        let r = run(Some(0), 400);
+        assert_eq!(r.acid_hurts, 0);
+        assert_eq!(r.any_hurts, 0, "the slime is dead; she takes no hurt");
+        assert!(!r.entered_live, "never inside the live patch");
+        assert_eq!(r.feed_errors, 0);
+        assert_eq!(r.feed_changes, REBUILDS, "rebuilds across one drain");
+        let at = r.reached.expect("she reached Carl");
+        assert!(at <= 300, "reached Carl on tick {at}, end x {}", r.end_x);
+        let again = run(Some(0), 400);
+        assert_eq!((again.hash, again.feed_changes), (r.hash, r.feed_changes));
+    }
+
+    const REBUILDS: u32 = 6;
+}

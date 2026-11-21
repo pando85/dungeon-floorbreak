@@ -101,6 +101,8 @@ pub struct CompanionStats {
     /// CA2-C: times the hazard rectangles fed to the nav graph changed (each a
     /// graph rebuild).
     pub hazard_feed_changes: u32,
+    /// CA2-C: times the graph refused the hazard list (always 0: a defect if not).
+    pub hazard_feed_errors: u32,
 }
 
 /// The cap of the bounded event buffer (oldest dropped first).

@@ -994,21 +994,49 @@ impl SpotWorld for NavSpots<'_> {
     }
 }
 
+/// CA2-Q29 (adopted default, PR #220 review ruling 6): every fed rectangle is
+/// rounded **outward** to this grid (layout px) before it reaches the graph, so a
+/// shrinking or creeping volume (the acid drain moves an edge by about 1 px every
+/// 1.25 ticks) changes the list, and rebuilds the graph, once per 8 px of travel
+/// instead of nearly every tick. Class-blind; the steam lane and the acid
+/// patches of the sidecars already sit on the grid.
+pub const HAZARD_FEED_GRID_PX: i32 = 8;
+
+fn grid_floor(v: i32) -> i32 {
+    v.div_euclid(HAZARD_FEED_GRID_PX) * HAZARD_FEED_GRID_PX
+}
+
+fn grid_ceil(v: i32) -> i32 {
+    -grid_floor(-v)
+}
+
 /// The hero-hurting rectangles of a hazard feed, as the graph's y-up
 /// [`NavHazard`]s (the feed is in layout px, y down; `layout_h` is the layout's
-/// height). A volume that only hurts enemies is not fed in (spec 3.5). The id is
-/// the volume's id.
+/// height). A volume that only hurts enemies is not fed in (spec 3.5). Each
+/// rectangle is rounded outward to [`HAZARD_FEED_GRID_PX`].
+///
+/// **Ids are made here and are unique** (PR #220 review F-2): the producers share
+/// the `u16` hazard id space with no contract (sidecar volumes, acid patches, the
+/// weight's footprint), and the graph refuses a duplicate. The feed is put in a
+/// fixed order (hazard id, class, rectangle) and each entry takes its index as
+/// the id, so equal feeds give equal ids and no producer can collide with another.
 pub fn hazards_from_feed(feed: &[NavRect], layout_h: i32) -> Vec<NavHazard> {
-    feed.iter()
-        .filter(|n| n.hurts_heroes)
-        .map(|n| NavHazard {
-            id: u32::from(n.hazard),
-            rect: Rect {
-                left: n.rect.x as f32,
-                bottom: (layout_h - n.rect.bottom()) as f32,
-                width: n.rect.w as f32,
-                height: n.rect.h as f32,
-            },
+    let mut rows: Vec<&NavRect> = feed.iter().filter(|n| n.hurts_heroes).collect();
+    rows.sort_by_key(|n| (n.hazard, n.class, n.rect.x, n.rect.y, n.rect.w, n.rect.h));
+    rows.into_iter()
+        .enumerate()
+        .map(|(i, n)| {
+            let (x0, x1) = (grid_floor(n.rect.x), grid_ceil(n.rect.x + n.rect.w));
+            let (y0, y1) = (grid_floor(n.rect.y), grid_ceil(n.rect.y + n.rect.h));
+            NavHazard {
+                id: i as u32,
+                rect: Rect {
+                    left: x0 as f32,
+                    bottom: (layout_h - y1) as f32,
+                    width: (x1 - x0) as f32,
+                    height: (y1 - y0) as f32,
+                },
+            }
         })
         .collect()
 }
@@ -1925,17 +1953,26 @@ mod tests {
         let (climb_left, driven) = priced_and_driven(100.0, 0.0, 330.0, 120.0);
         assert_eq!(climb_left, 136, "two hops from the left");
         assert!(
-            (i64::from(climb_left) - i64::from(driven)).abs() <= 12,
+            (i64::from(climb_left) - i64::from(driven)).abs() <= 4,
             "priced {climb_left}, driven {driven}"
         );
-        // From the right of the stairs the same climb starts from the far side.
+        // From the right of the stairs the same climb starts from the far side. The
+        // price grows 16 ticks per 50 px of start distance (Carl's walk): 162 from
+        // x = 500 and 195 from x = 600, the value of the #213 review's table (PR #220
+        // review ruling 4); each is within 2 ticks of the driven transit.
         let (climb_right, driven) = priced_and_driven(500.0, 0.0, 330.0, 120.0);
-        assert_eq!(climb_right, 162, "two hops from the right");
+        assert_eq!(climb_right, 162, "two hops from x = 500");
         assert!(
-            (i64::from(climb_right) - i64::from(driven)).abs() <= 12,
+            (i64::from(climb_right) - i64::from(driven)).abs() <= 4,
             "priced {climb_right}, driven {driven}"
         );
-        assert!(climb_right > climb_left, "the far start costs its walk");
+        let (climb_far, driven) = priced_and_driven(600.0, 0.0, 330.0, 120.0);
+        assert_eq!(climb_far, 195, "two hops from x = 600 (the #213 table)");
+        assert!(
+            (i64::from(climb_far) - i64::from(driven)).abs() <= 4,
+            "priced {climb_far}, driven {driven}"
+        );
+        assert!(climb_far > climb_right && climb_right > climb_left);
         // One hop (floor to the 60 px step), for the reference value.
         let (hop, driven) = priced_and_driven(100.0, 0.0, 230.0, 60.0);
         assert_eq!(hop, 78, "one hop");
@@ -2066,20 +2103,74 @@ mod tests {
         ];
         let got = hazards_from_feed(&feed, 580);
         assert_eq!(got.len(), 2, "the enemy-only volume is not fed in");
-        assert_eq!(got[0].id, 3);
-        // Layout y 484 + 96 = 580 is the floor line: the world bottom is 0.
+        // Sorted by hazard id, ids are the index. Layout y 484 to 580 rounds
+        // outward to 480 to 584 on the 8 px grid: world bottom -4, height 104.
+        assert_eq!(got[0].id, 0);
         assert_eq!(
             got[0].rect,
             Rect {
                 left: 688.0,
-                bottom: 0.0,
+                bottom: -4.0,
                 width: 80.0,
-                height: 96.0
+                height: 104.0
             }
         );
-        assert_eq!(got[1].id, 4);
-        assert_eq!(got[1].rect.bottom, 0.0);
-        assert_eq!(got[1].rect.height, 8.0);
+        assert_eq!(got[1].id, 1);
+        // The footprint's 572..580 shadow rounds to 568..584.
+        assert_eq!(got[1].rect.bottom, -4.0);
+        assert_eq!(got[1].rect.height, 16.0);
+        // An off-grid rectangle rounds outward on every side.
+        let off = [NavRect {
+            hazard: 9,
+            class: HazardClass::Acid,
+            rect: rect(701, 570, 62, 10),
+            phase: NavPhase::Active,
+            ticks_left: None,
+            hurts_heroes: true,
+            hurts_enemies: false,
+        }];
+        let r = hazards_from_feed(&off, 580)[0].rect;
+        assert_eq!((r.left, r.right()), (696.0, 768.0));
+        assert_eq!((r.bottom, r.top()), (-4.0, 12.0));
+        // A shrinking volume changes the list once per 8 px of travel, not per px.
+        let lists: std::collections::BTreeSet<i64> = (0..32)
+            .map(|k| {
+                let n = NavRect {
+                    rect: rect(700 + k, 560, 64 - 2 * k, 20),
+                    ..off[0]
+                };
+                let r = hazards_from_feed(&[n], 580)[0].rect;
+                (r.left as i64) * 10_000 + r.right() as i64
+            })
+            .collect();
+        assert!(
+            lists.len() <= 9,
+            "32 px of drain gave {} lists",
+            lists.len()
+        );
+        // Two producers with the same id never collide: the ids are the index.
+        let same = [
+            NavRect {
+                hazard: 1,
+                ..off[0]
+            },
+            NavRect {
+                hazard: 1,
+                class: HazardClass::Steam,
+                rect: rect(0, 500, 32, 80),
+                ..off[0]
+            },
+        ];
+        let ids: Vec<u32> = hazards_from_feed(&same, 580).iter().map(|h| h.id).collect();
+        assert_eq!(ids, [0, 1]);
+        // And the graph takes the list the two colliding sources made.
+        let blocks = flat();
+        let mut driver = NavDriver::new(&blocks, NavConfig::integrated()).unwrap();
+        assert_eq!(
+            driver.set_hazards(hazards_from_feed(&same, 580), &blocks),
+            Ok(true)
+        );
+        assert_eq!(driver.hazards().len(), 2);
         assert!(hazards_from_feed(&[], 580).is_empty());
     }
 
