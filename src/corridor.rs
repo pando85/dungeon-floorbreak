@@ -567,6 +567,12 @@ pub struct SceneSim {
     /// hashed**, and with the companion off it is never set, so the legacy rule
     /// of [`SceneSim::regroup_bots`] runs unchanged.
     nav_regroup: [bool; 2],
+    /// COMPANION-AI-01 01B-wire: the heroes whose due regroup was deferred this
+    /// tick (the leader is in the air): their off-screen counter is held at its
+    /// due value so the regroup is asked again next tick. Set before each step
+    /// by `combat_scene/companion.rs`, cleared by the step, `[false; 2]` with
+    /// the companion off. Control flag, never hashed (the counter it holds is).
+    nav_hold: [bool; 2],
 }
 
 /// What the combat layer tells a live party step about each hero.
@@ -641,6 +647,7 @@ impl SceneSim {
             arena_locked: kit.width <= view.w,
             last_effective: [RawInput::NONE; 2],
             nav_regroup: [false; 2],
+            nav_hold: [false; 2],
         })
     }
 
@@ -812,6 +819,7 @@ impl SceneSim {
         let drive = self.drive;
         self.regroup_bots();
         self.nav_regroup = [false; 2];
+        self.nav_hold = [false; 2];
         // Bots decide from the state before this tick; humans arrive gated.
         let mut raws = humans;
         for id in HeroId::ALL {
@@ -940,6 +948,13 @@ impl SceneSim {
         true
     }
 
+    /// 01B-wire: the regroup of `id` could not be judged this tick (deferred):
+    /// keep its off-screen counter at the due value, so [`Self::regroup_due`]
+    /// holds again on the next tick.
+    pub(crate) fn regroup_hold(&mut self, id: HeroId) {
+        self.nav_hold[id.index()] = true;
+    }
+
     /// 01B-wire: which heroes' regroup the companion's nav owns this tick.
     pub(crate) fn set_nav_regroup(&mut self, owned: [bool; 2]) {
         self.nav_regroup = owned;
@@ -962,6 +977,11 @@ impl SceneSim {
             }
             self.bot_offscreen[i] = self.bot_offscreen[i].saturating_add(1);
             if self.bot_offscreen[i] < drive.tuning.regroup_ticks {
+                continue;
+            }
+            if self.nav_hold[i] {
+                // Deferred by the companion: stay due (see `regroup_hold`).
+                self.bot_offscreen[i] = drive.tuning.regroup_ticks.saturating_sub(1);
                 continue;
             }
             self.bot_offscreen[i] = 0;

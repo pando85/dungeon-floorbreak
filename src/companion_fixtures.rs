@@ -1505,4 +1505,52 @@ mod tests {
         assert_eq!(foot(&sim, HeroId::Donut), floor, "on the floor, at rest");
         assert_eq!(sim.combat.companion_stats().regroups, [0, 1]);
     }
+
+    /// 01B-wire, N-2: a regroup deferred because the leader is in the air is
+    /// asked again on the very next tick, so the hero is placed on the first
+    /// tick the leader stands, not `regroup_ticks` later.
+    #[test]
+    fn a_deferred_regroup_is_placed_on_the_first_tick_the_leader_stands() {
+        let f = &COMPANION_ARENA_NAV_PERCH_DONUT;
+        let mut sim = sim_of(f);
+        let carl_floor = foot(&sim, HeroId::Carl);
+        sim.scene.world.hero.x = 1000.0;
+        sim.scene.world.donut_body.x = 40.0;
+        let mut regroups = Vec::new();
+        let mut release = None;
+        let mut first_stand = None;
+        for tick in 0..300 {
+            // Carl is held a little above the floor for 130 ticks (past the 120
+            // regroup_ticks, while the AI Donut is still off-screen),
+            // then falls and lands.
+            if tick < 130 {
+                let h = &mut sim.scene.world.hero;
+                h.y = carl_floor + 24.0;
+                h.vy = 0.0;
+                h.grounded = false;
+            } else if release.is_none() {
+                release = Some(tick);
+            }
+            let standing_before = sim.scene.world.hero.grounded;
+            if release.is_some() && standing_before && first_stand.is_none() {
+                first_stand = Some(tick);
+            }
+            sim.step_slots([crate::input::RawInput::NONE; 2]);
+            for e in sim.combat.take_companion_events() {
+                if let CompanionEvent::Regroup { outcome, .. } = e {
+                    regroups.push((tick, outcome));
+                }
+            }
+        }
+        let first_stand = first_stand.expect("Carl landed");
+        assert_eq!(regroups.len(), 1, "{regroups:?}");
+        assert!(
+            matches!(regroups[0].1, RegroupOutcome::Placed { .. }),
+            "{regroups:?}"
+        );
+        assert_eq!(
+            regroups[0].0, first_stand,
+            "placed on the first tick Carl stands: {regroups:?}"
+        );
+    }
 }

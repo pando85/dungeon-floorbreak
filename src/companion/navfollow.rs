@@ -194,9 +194,13 @@ pub enum Regroup {
     /// No safe, reachable, off-screen anchor exists (the camera warning):
     /// the hero stays where it is and the reason is traced.
     Denied(Reason),
-    /// The leader is in the air over no known anchor, so whether it stays
-    /// reachable cannot be checked this tick: do nothing and ask again next
-    /// tick (the off-screen counter keeps running).
+    /// The leader is in the air (a jump or a fall): the surface under him is
+    /// not where he lands, so whether the hero stays able to reach him cannot
+    /// be judged. Do nothing and hold the off-screen counter at its due value
+    /// (`SceneSim::regroup_hold`), so the regroup is asked again on the very
+    /// next tick and is placed on the first tick the leader stands. Bounded by
+    /// the leader's airtime (a landing, a respawn or the hero walking into the
+    /// view ends it).
     Defer,
 }
 
@@ -482,26 +486,6 @@ impl NavDriver {
         self.continue_transit(actor, me, notes)
     }
 
-    /// The highest open anchor under a body in the air (its x within the span,
-    /// the surface not above the feet).
-    fn anchor_below(&self, b: Body) -> Option<NavAnchorId> {
-        let mut best: Option<(f32, NavAnchorId)> = None;
-        for a in self.graph.anchors() {
-            let (Some((x0, x1)), Some((_, top))) =
-                (self.graph.anchor_span(a), self.graph.anchor_pos(a))
-            else {
-                continue;
-            };
-            if !self.graph.anchor_open(a) || b.x < x0 || b.x > x1 || top > b.foot_y + 4.0 {
-                continue;
-            }
-            if best.is_none_or(|(t, _)| top > t) {
-                best = Some((top, a));
-            }
-        }
-        best.map(|(_, a)| a)
-    }
-
     /// The camera-safe regroup of a hero that has been off-screen too long (see
     /// the module docs). `leader` is the other hero.
     pub fn regroup(&self, actor: HeroId, me: Body, leader: Body, view: &RegroupView) -> Regroup {
@@ -510,18 +494,13 @@ impl NavDriver {
         let Some(here) = self.graph.anchor_at(me.x, me.foot_y) else {
             return Regroup::Legacy;
         };
-        // The anchor the leader stands on, or, in a jump or a fall, the one
-        // under it: the "leader stays reachable" check runs in the air too, so
-        // a dead end is never picked on the tick the counter happens to expire
-        // mid-jump. Over no anchor in the air nothing can be checked: wait.
-        let lead = if leader.grounded {
-            self.graph.anchor_at(leader.x, leader.foot_y)
-        } else {
-            match self.anchor_below(leader) {
-                Some(a) => Some(a),
-                None => return Regroup::Defer,
-            }
-        };
+        // A leader in the air has no standing anchor to check against (the
+        // surface under him is not where he lands: over a pit it is the pit
+        // bottom, a dead end), so nothing is placed until he stands.
+        if !leader.grounded {
+            return Regroup::Defer;
+        }
+        let lead = self.graph.anchor_at(leader.x, leader.foot_y);
         let edge_x = if view.behind < 0.0 {
             view.view_left - HERO_HALF_WIDTH - 2.0
         } else {
@@ -913,7 +892,55 @@ mod tests {
     }
 
     #[test]
-    fn a_regroup_checks_the_leader_is_reachable_while_he_is_airborne() {
+    fn a_regroup_waits_for_the_leader_to_stand() {
+        // The reviewer's probe: the hero stands on the left floor, a pit
+        // nobody can climb out of lies between it and the leader's platforms,
+        // and the leader jumps over the pit between stone A and platform B.
+        let blocks = vec![
+            stone(0.0, 0.0, 700.0, 40.0),
+            stone(700.0, -200.0, 900.0, 40.0),
+            stone(740.0, 0.0, 40.0, 16.0),
+            stone(820.0, 0.0, 40.0, 16.0),
+            stone(900.0, 0.0, 40.0, 16.0),
+            stone(980.0, 0.0, 40.0, 16.0),
+            stone(1060.0, 0.0, 140.0, 16.0),
+            stone(1240.0, 0.0, 1700.0, 16.0),
+        ];
+        let driver = NavDriver::new(&blocks).unwrap();
+        let v = RegroupView {
+            view_left: 900.0,
+            view_right: 1540.0,
+            behind: -1.0,
+        };
+        let hero = standing(100.0, 0.0);
+        let jumping = Body {
+            grounded: false,
+            ..standing(1220.0, 40.0)
+        };
+        assert_eq!(
+            driver.regroup(HeroId::Donut, hero, jumping, &v),
+            Regroup::Defer
+        );
+        // Falling over the pit itself, and in the air over no anchor at all.
+        for (x, foot) in [(1220.0, -100.0), (5000.0, 70.0)] {
+            let air = Body {
+                grounded: false,
+                ..standing(x, foot)
+            };
+            assert_eq!(driver.regroup(HeroId::Donut, hero, air, &v), Regroup::Defer);
+        }
+        // The same leader standing on platform A: a stone, never the pit
+        // bottom (x 886, foot -200), which the hero could not climb out of.
+        let r = driver.regroup(HeroId::Donut, hero, standing(1130.0, 0.0), &v);
+        let Regroup::Place { anchor, x, foot_y } = r else {
+            panic!("{r:?}")
+        };
+        assert!(foot_y >= 0.0, "not the pit bottom: {anchor:?} {x} {foot_y}");
+        assert!(x < 900.0 - HERO_HALF_WIDTH);
+    }
+
+    #[test]
+    fn a_regroup_checks_the_leader_is_reachable_once_he_stands() {
         let blocks = dead_end_level();
         let driver = NavDriver::new(&blocks).unwrap();
         let v = RegroupView {
@@ -921,24 +948,14 @@ mod tests {
             view_right: 1540.0,
             behind: -1.0,
         };
-        let hero = standing(2800.0, 0.0);
-        // Grounded on the main floor: the pit is a dead end, so it is refused.
-        let r = driver.regroup(HeroId::Donut, hero, standing(1400.0, 0.0), &v);
+        // The pit is a dead end for a leader on the main floor: refused.
+        let r = driver.regroup(
+            HeroId::Donut,
+            standing(2800.0, 0.0),
+            standing(1400.0, 0.0),
+            &v,
+        );
         assert!(matches!(r, Regroup::Denied(_)), "{r:?}");
-        // The same leader in mid-jump: the anchor under him is used.
-        let jumping = Body {
-            grounded: false,
-            ..standing(1400.0, 70.0)
-        };
-        let r = driver.regroup(HeroId::Donut, hero, jumping, &v);
-        assert!(matches!(r, Regroup::Denied(_)), "{r:?}");
-        // In the air over no anchor nothing can be judged: ask again next tick.
-        let over_void = Body {
-            grounded: false,
-            ..standing(5000.0, 70.0)
-        };
-        let r = driver.regroup(HeroId::Donut, hero, over_void, &v);
-        assert_eq!(r, Regroup::Defer);
     }
 
     #[test]

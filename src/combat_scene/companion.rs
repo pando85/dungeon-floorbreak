@@ -550,9 +550,13 @@ impl CombatState {
                     self.companion.stats.regroups_denied[i] += 1;
                     RegroupOutcome::Denied(reason)
                 }
-                // Cannot be judged this tick (the leader is in the air over no
-                // anchor): no event, no counter reset, ask again next tick.
-                Regroup::Defer => continue,
+                // Cannot be judged while the leader is in the air: no event,
+                // no placement, and the off-screen counter is held at its due
+                // value, so the regroup is asked again on the very next tick.
+                Regroup::Defer => {
+                    scene.regroup_hold(hero);
+                    continue;
+                }
             };
             self.companion.push_event(CompanionEvent::Regroup {
                 tick,
