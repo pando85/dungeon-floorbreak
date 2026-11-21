@@ -108,6 +108,7 @@ use dungeon_floorbreak::{
     party_scene::{self, PartyFixture},
     playtrace::{self, RECORD_DEFAULT_ON, ResetDescriptor, SessionManifest, live::LiveRecorder},
     prototype::{HERO_HALF_HEIGHT, HERO_HALF_WIDTH, Hero, TICK_SECONDS},
+    refuge,
     scene_anim::SceneAnimators,
     scene_camera::{
         CameraChoice, CameraInterest, RigConfig, SceneCameraRig, llama_interest,
@@ -306,6 +307,10 @@ struct Args {
     /// arguments are resolved) without the `--cf02` DEMO forcing: the room is the
     /// Goblin Boiler hall, not the microarena.
     f01_boiler: bool,
+    /// AREA-REFUGE-01: `--scene refuge_guild`, Mordecai's Tutorial Guild room: a
+    /// review pose (`--reference-frame` rules) in its own room, Carl and Donut on
+    /// the room's marks.
+    refuge: bool,
     /// The launched Boiler room (`main` fills it right after parsing).
     boiler_run: Option<Box<f01_boiler::BoilerRun>>,
     /// PT-SCENE: `--scene f01_late`. It is a launcher: the room (`--f01-room`)
@@ -646,6 +651,38 @@ fn resolve_boiler_args(parsed: &mut Args) -> Result<(), String> {
         || parsed.exit_after_ticks.is_some()
         || parsed.freeze
         || parsed.perf_frames.is_some());
+    Ok(())
+}
+
+/// AREA-REFUGE-01: `--scene refuge_guild`. The room is its own scene (not an
+/// `f01_late` room): a lit review pose, the `--reference-frame` rules, with Carl
+/// and Donut on the room's marks. Nothing is simulated, recorded or scripted, so
+/// every run mode that picks another room or script is refused.
+fn resolve_refuge_args(parsed: &mut Args) -> Result<(), String> {
+    if !parsed.refuge {
+        return Ok(());
+    }
+    if parsed.cf02.rules
+        || parsed.cf02_engineer
+        || parsed.demo
+        || parsed.autopilot
+        || parsed.demo_beat != 0
+        || parsed.fixture.is_some()
+        || parsed.party_fixture.is_some()
+        || parsed.scenario.is_some()
+        || parsed.camera_test_room.is_some()
+        || parsed.reference_frame
+        || parsed.camera.is_some()
+        || parsed.capture_tick.is_some()
+        || parsed.capture_sequence.is_some()
+        || parsed.exit_after_ticks.is_some()
+        || parsed.perf_frames.is_some()
+        || parsed.f01_room.is_some()
+        || parsed.f01_loadout.is_some()
+    {
+        return Err("--scene refuge_guild is a fixed review pose: it replaces --demo, --cf02, --autopilot, --fixture, --party-fixture, --scenario, --camera, --camera-test-room, --reference-frame, --capture-*, --exit-after-ticks and --perf-frames, and takes no --f01-room".into());
+    }
+    parsed.reference_frame = true;
     Ok(())
 }
 
@@ -1066,6 +1103,7 @@ fn parse_args_full(
         lab_variant_set: false,
         lab_run: None,
         f01_boiler: false,
+        refuge: false,
         boiler_run: None,
         f01_late: false,
         f01_room: None,
@@ -1174,10 +1212,15 @@ fn parse_args_full(
             "--scene" => {
                 let value = iter
                     .next()
-                    .ok_or("--scene needs a name (boss_f01, combat_lab, f01_boiler, f01_late)")?;
-                if parsed.boss || parsed.lab_scene || parsed.f01_boiler || parsed.f01_late {
+                    .ok_or("--scene needs a name (boss_f01, combat_lab, f01_boiler, f01_late, refuge_guild)")?;
+                if parsed.boss
+                    || parsed.lab_scene
+                    || parsed.f01_boiler
+                    || parsed.f01_late
+                    || parsed.refuge
+                {
                     return Err(
-                        "--scene takes one scene: boss_f01, combat_lab, f01_boiler and f01_late are exclusive"
+                        "--scene takes one scene: boss_f01, combat_lab, f01_boiler, f01_late and refuge_guild are exclusive"
                             .into(),
                     );
                 }
@@ -1194,9 +1237,10 @@ fn parse_args_full(
                     "combat_lab" => parsed.lab_scene = true,
                     f01_boiler::SCENE_NAME => parsed.f01_boiler = true,
                     f01_late::SCENE_NAME => parsed.f01_late = true,
+                    refuge::SCENE_NAME => parsed.refuge = true,
                     _ => {
                         return Err(format!(
-                            "unknown scene {value:?} (expected boss_f01, combat_lab, f01_boiler, f01_late)"
+                            "unknown scene {value:?} (expected boss_f01, combat_lab, f01_boiler, f01_late, refuge_guild)"
                         ));
                     }
                 }
@@ -1359,6 +1403,7 @@ fn parse_args_full(
     resolve_lab_args(&mut parsed)?;
     resolve_f01_late_args(&mut parsed)?;
     resolve_boiler_args(&mut parsed)?;
+    resolve_refuge_args(&mut parsed)?;
     if parsed.cf02.seed.is_some() && !parsed.cf02.rules && !parsed.lab_scene {
         return Err("--cf02-seed needs --cf02 (or --scene combat_lab)".into());
     }
@@ -2202,6 +2247,8 @@ fn main() -> ExitCode {
         Ok(run.kit.clone())
     } else if let Some(run) = &args.boiler_run {
         Ok(run.kit.clone())
+    } else if args.refuge {
+        refuge::load(&root).map(|(kit, _)| kit)
     } else if args.arena_room() {
         cf02::arena::load_arena(&root)
     } else if args.demo {
@@ -3241,10 +3288,27 @@ fn run_window(
     let cine_settings = args.cinematic_settings();
     let camera = scene_camera_of(&kit, &args, &sim, combat.as_ref(), window_size);
     let lighting_on = !args.no_lighting && kit.lighting.is_some();
-    let reference = args.reference_frame.then_some(RefPose {
-        carl_x: REFERENCE_CARL_X,
-        donut_x: REFERENCE_DONUT_X,
-    });
+    let reference = if args.refuge {
+        // AREA-REFUGE-01: Carl and Donut on the room's marks (already checked by the kit load).
+        match refuge::Room::load(root) {
+            Ok(room) => {
+                let cast = room.cast_x();
+                Some(RefPose {
+                    carl_x: cast.carl,
+                    donut_x: cast.donut,
+                })
+            }
+            Err(message) => {
+                println!("FLOOR1_ASSET_FAILURE: {message}");
+                std::process::exit(1);
+            }
+        }
+    } else {
+        args.reference_frame.then_some(RefPose {
+            carl_x: REFERENCE_CARL_X,
+            donut_x: REFERENCE_DONUT_X,
+        })
+    };
     let present_mode = if args.perf_frames.is_some() {
         PresentMode::AutoNoVsync
     } else {
@@ -9176,5 +9240,49 @@ mod tests {
             "a diagonal run is not a stomp"
         );
         assert!(!pad_down(0.0, stick(0.0, 1.0)), "up is not down");
+    }
+
+    /// AREA-REFUGE-01: `--scene refuge_guild` is a fixed review pose in its own room.
+    #[test]
+    fn refuge_guild_scene_is_a_review_pose_and_its_own_scene() {
+        let refuge = args(&["--scene", "refuge_guild"]).unwrap();
+        assert!(refuge.refuge && refuge.reference_frame);
+        assert!(!refuge.f01_late && !refuge.f01_boiler && !refuge.boss && !refuge.demo);
+        assert!(refuge.f01_room.is_none() && refuge.fixture.is_none());
+        // Never recorded, never live input: a review pose.
+        assert!(!refuge.live_input() && !refuge.recording_enabled());
+        // The deck framing is the layout's 640x400 view.
+        assert!(args(&["--scene", "refuge_guild", "--deck"]).unwrap().deck);
+        // Exclusive with the other scenes, and refuses the modes that pick another room or script.
+        for other in ["boss_f01", "combat_lab", "f01_boiler", "f01_late"] {
+            assert!(args(&["--scene", "refuge_guild", "--scene", other]).is_err());
+            assert!(args(&["--scene", other, "--scene", "refuge_guild"]).is_err());
+        }
+        for flags in [
+            &["--demo"][..],
+            &["--cf02"],
+            &["--reference-frame"],
+            &["--scenario", "walk_right"],
+            &["--fixture", "cp01_kick"],
+            &["--f01-room", "boiler"],
+            &["--capture-tick", "10"],
+        ] {
+            let mut list = vec!["--scene", "refuge_guild"];
+            list.extend_from_slice(flags);
+            assert!(args(&list).is_err(), "{flags:?}");
+        }
+        // The f01_late manifest is untouched: the room is not one of its rooms.
+        assert!(args(&["--scene", "f01_late", "--f01-room", "refuge_guild"]).is_err());
+    }
+
+    /// The room loads through the scene's own loader and its view names are the
+    /// ones the scene asks the layout for.
+    #[test]
+    fn refuge_guild_room_exposes_the_reference_views() {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        let (kit, room) = refuge::load(root).unwrap();
+        assert!(kit.view(REFERENCE_VIEW).is_some() && kit.view(REFERENCE_VIEW_DECK).is_some());
+        assert_eq!(kit.view("refuge_640x360"), kit.view(REFERENCE_VIEW));
+        assert_eq!(room.cast_x().carl, 258.0);
     }
 }

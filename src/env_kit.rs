@@ -295,6 +295,68 @@ fn load_json<T: for<'de> Deserialize<'de>>(path: &Path) -> Result<T, EnvError> {
     serde_json::from_str(&text).map_err(|e| EnvError::Parse(format!("{}: {e}", path.display())))
 }
 
+/// Longest `extends` chain a contract may have (a cycle guard).
+const MAX_EXTENDS_DEPTH: usize = 4;
+
+/// The contract at `path` (relative to `root`) with its `extends` chain merged,
+/// as `scripts/env_kit.py resolve_extends` does: an extension adds atlases
+/// (names must be new), tiles and pieces to its base and overrides descriptive
+/// fields; a contract without `extends` is read as it is.
+fn load_contract(root: &Path, path: &str) -> Result<Contract, EnvError> {
+    let value = merged_contract_value(root, path, 0)?;
+    serde_json::from_value(value).map_err(|e| EnvError::Parse(format!("{path}: {e}")))
+}
+
+fn merged_contract_value(
+    root: &Path,
+    path: &str,
+    depth: usize,
+) -> Result<serde_json::Value, EnvError> {
+    use serde_json::Value;
+    let mut ext: Value = load_json(&root.join(path))?;
+    let Some(base_ref) = ext.get("extends").and_then(Value::as_str).map(str::to_owned) else {
+        return Ok(ext);
+    };
+    if depth >= MAX_EXTENDS_DEPTH {
+        return invalid(format!("contract {path} extends too deep (cycle?)"));
+    }
+    let mut merged = merged_contract_value(root, &base_ref, depth + 1)?;
+    let (Some(base), Some(ext)) = (merged.as_object_mut(), ext.as_object_mut()) else {
+        return invalid(format!("contract {path} is not an object"));
+    };
+    for (key, value) in std::mem::take(ext) {
+        match (key.as_str(), value) {
+            ("extends", _) => {}
+            ("atlases", Value::Object(add)) => {
+                let atlases = base
+                    .entry("atlases")
+                    .or_insert_with(|| Value::Object(Default::default()));
+                let Some(atlases) = atlases.as_object_mut() else {
+                    return invalid(format!("base atlases of {path} is not an object"));
+                };
+                for (name, atlas) in add {
+                    if atlases.insert(name.clone(), atlas).is_some() {
+                        return invalid(format!("contract {path} redefines base atlas {name}"));
+                    }
+                }
+            }
+            ("tiles" | "pieces" | "material_tiles", Value::Array(add)) => {
+                let list = base
+                    .entry(key.clone())
+                    .or_insert_with(|| Value::Array(Vec::new()));
+                let Some(list) = list.as_array_mut() else {
+                    return invalid(format!("base {key} of {path} is not a list"));
+                };
+                list.extend(add);
+            }
+            (_, value) => {
+                base.insert(key, value);
+            }
+        }
+    }
+    Ok(merged)
+}
+
 fn irect(r: [i32; 4]) -> IRect {
     IRect {
         x: r[0],
@@ -308,7 +370,7 @@ impl EnvKit {
     /// Load a layout (path relative to `root`) and the contract it names.
     pub fn load(root: &Path, layout_path: &str) -> Result<Self, EnvError> {
         let layout: Layout = load_json(&root.join(layout_path))?;
-        let contract: Contract = load_json(&root.join(&layout.kit_contract))?;
+        let contract = load_contract(root, &layout.kit_contract)?;
         Self::build(&contract, &layout)
     }
 

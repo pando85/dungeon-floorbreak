@@ -6,7 +6,7 @@ palette (no new colours):
 
 - ``assets/source/props/floor01/refuge_hearth.grid.json``  pixel-grid-v1, 80 x 80, pivot (40, 79),
   layers ``surround`` (static stone, firebox, logs, andirons, mantel dressing) and ``fire``
-  (flames only). Frame 0 of the ``burn`` loop is the frozen hero key; frames 1-3 are execution work.
+  (flames only). Frame 0 of the ``burn`` loop is the frozen hero key; frames 1-3 vary the ``fire`` cel only.
 - ``assets/source/props/floor01/refuge_hearth.ase``        built from the grid by ``scripts/pixel_grid_to_ase.py``.
 
 ``scene`` composes the key at 1x in the lit ENV-02 guild view (``opening_route_proposal.json``,
@@ -62,6 +62,28 @@ class Layer:
 def fire_light(x, y, r=30.0) -> float:
     d = math.hypot(x - FIRE_C[0], (y - FIRE_C[1]) * 1.2)
     return clamp(1.0 - d / r, 0.0, 1.0)
+
+
+def despeckle(s: "Layer", ramp: str, rows: range, cols: range) -> None:
+    """Gate note 2: clear isolated one-pixel noise inside the blocks. A pixel whose value differs from
+    all of three or four 4-neighbours that agree with each other takes their value. The lit top row and
+    the shadow bottom row of a block survive (their left and right neighbours share the pixel's value)."""
+    changes = {}
+    for y in rows:
+        for x in cols:
+            here = s.get(x, y)
+            if not here or here[0] != ramp:
+                continue
+            around = [s.get(x + dx, y + dy) for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))]
+            same = [a for a in around if a and a[0] == ramp]
+            if len(same) < 3:
+                continue
+            values = [a[1] for a in same]
+            for v in set(values):
+                if values.count(v) >= 3 and v != here[1]:
+                    changes[(x, y)] = v
+    for (x, y), v in changes.items():
+        s.put(x, y, ramp, v)
 
 
 # --------------------------------------------------------------- surround
@@ -213,7 +235,53 @@ def surround(s: Layer) -> None:
             s.put(x, y, "brick", v)
 
 
-# --------------------------------------------------------------- fire (frame 0)
+def polish(s: "Layer") -> None:
+    """The five optional execution fixes of the hearth gate verdict (refuge-hearth-gate, PASS)."""
+    # 2: chunky blocks, no gravel (before the warm-up of note 1, which adds its own smooth ramp)
+    despeckle(s, "stone", range(28, 74), range(4, 76))
+    despeckle(s, "stone", range(0, 22), range(10, 70))
+    # 1: inner jamb faces (x 20..25 and 54..59, y 38..72) one to two ramp steps warmer and brighter
+    for y in range(38, 73):
+        for x in list(range(20, 26)) + list(range(54, 60)):
+            px = s.get(x, y)
+            if px and px[0] == "stone":
+                s.put(x, y, "stone", px[1] + 1.2 + 1.2 * fire_light(x, y, 30))
+    # 3: tin mug: dark outline against the brick, rim and body highlight, a handle
+    for x in range(51, 58):
+        s.put(x, 16, "mortar", 1)
+    for y in range(17, 22):
+        s.put(51, y, "mortar", 1)
+    for x in range(52, 57):
+        s.put(x, 17, "iron", 6)                           # lit rim
+    for y in range(18, 22):
+        s.put(52, y, "iron", 5)
+        s.put(53, y, "iron", 6)                           # highlight column
+        s.put(54, y, "iron", 4)
+        s.put(55, y, "iron", 3)
+        s.put(56, y, "iron", 3)
+    s.put(57, 18, "iron", 5)
+    s.put(58, 18, "iron", 4)                              # handle
+    s.put(58, 19, "iron", 4)
+    s.put(57, 20, "iron", 4)
+    # 4: clay jug sits on the shelf: a darker base row and a shadow on the mantel top
+    for x in range(12, 16):
+        s.put(x, 21, "copper", 2)
+    for x in range(10, 19):
+        s.put(x, 22, "stone", 4.6 if 11 <= x <= 17 else 6.0)
+    # 5: hearthstone top rows in front of the opening warm toward flame 1-2
+    for x in range(24, 57):
+        near = 1.0 - min(1.0, abs(x - 40) / 18.0)
+        if near > 0.6:
+            s.put(x, 74, "flame", 0)
+        elif near > 0.15:
+            s.put(x, 74, "copper", 3.0 + 3.0 * near)
+        if near > 0.5:
+            s.put(x, 75, "copper", 4.0 + 1.5 * near)
+        elif near > 0.15:
+            s.put(x, 75, "copper", 2.5 + 2.0 * near)
+
+
+# --------------------------------------------------------------- fire
 TONGUES = [  # base x, base y, height, half width at base, lean (px at tip)
     (40, 66, 26, 7.5, -1.0),
     (33, 66, 17, 5.0, -2.0),
@@ -221,11 +289,27 @@ TONGUES = [  # base x, base y, height, half width at base, lean (px at tip)
     (29, 65, 9, 3.0, -1.5),
     (51, 65, 8, 3.0, 1.0),
 ]
+# Frames 1-3: per tongue (height delta px, lean delta px). Heights vary -4..+3, lean up to 2 px; each of the
+# three big tongues peaks in its own frame (centre 2, left 1, right 3). The two small side tongues share
+# the peak frame 0 (five tongues, four frames: one shared peak is unavoidable). Centre >= 22 px.
+FLICKER = {
+    0: [(0, 0.0)] * 5,
+    1: [(-2, 1.0), (3, -1.0), (-4, 0.0), (-3, 1.0), (1, -1.0)],
+    2: [(3, -1.0), (-1, 2.0), (1, -2.0), (-2, -1.0), (-3, 2.0)],
+    3: [(-1, 2.0), (-3, 1.0), (3, 2.0), (-1, 2.0), (-2, 1.0)],
+}
+SPARKS = {  # 1-3 per frame; the same pixel never twice in a row (including 3 -> 0 on the loop)
+    0: [(38, 36), (44, 41), (31, 44)],
+    1: [(41, 35), (36, 40)],
+    2: [(45, 38), (33, 41), (40, 33)],
+    3: [(35, 37), (43, 44)],
+}
 
 
-def fire(f: Layer) -> None:
+def fire(f: Layer, frame: int = 0) -> None:
     best = {}
-    for bx, by, h, hw, lean in TONGUES:
+    for (bx, by, h, hw, lean), (dh, dl) in zip(TONGUES, FLICKER[frame]):
+        h, lean = h + dh, lean + dl
         for y in range(by - h, by + 1):
             t = (by - y) / h
             half = hw * (1 - t) ** 0.75 * (1 + 0.18 * math.sin(t * 7.0 + bx))
@@ -247,7 +331,7 @@ def fire(f: Layer) -> None:
                 best[(x, y)] = max(best.get((x, y), -1), v)
     for (x, y), v in best.items():
         f.put(x, y, "flame", v)
-    for x, y in ((38, 36), (44, 41), (31, 44)):           # loose sparks
+    for x, y in SPARKS[frame]:                            # loose sparks
         f.put(x, y, "flame", 3)
 
 
@@ -265,14 +349,21 @@ def outline(s: Layer, f: Layer) -> None:
 
 
 def build() -> dict:
-    s, f = Layer(), Layer()
+    s = Layer()
     surround(s)
-    fire(f)
-    outline(s, f)
-    grid = kit.grid_from([], pivot=PIVOT, layer_names=["surround", "fire"],
-                        frames_layers=[{"surround": s, "fire": f}], durations=[120],
-                        tags=[{"name": "burn", "from": 0, "to": 0, "direction": "forward"}])
-    return grid
+    frames = []
+    fires = []
+    for frame in range(4):
+        f = Layer()
+        fire(f, frame)
+        fires.append(f)
+    outline(s, fires[0])
+    polish(s)
+    for f in fires:
+        frames.append({"surround": s, "fire": f})
+    return kit.grid_from([], pivot=PIVOT, layer_names=["surround", "fire"], frames_layers=frames,
+                         durations=[120] * 4,
+                         tags=[{"name": "burn", "from": 0, "to": 3, "direction": "forward"}])
 
 
 def write() -> None:
