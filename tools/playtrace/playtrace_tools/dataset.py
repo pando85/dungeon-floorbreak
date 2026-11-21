@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -17,7 +18,7 @@ from typing import Any
 import numpy as np
 
 from . import schema
-from .export import DATASET_SCHEMA, _sha256
+from .export import DATASET_SCHEMA, IN_STEP_RESET_OUTCOMES, _sha256
 from .journal import read_session
 from .split import SPLITS, LeakageError, check_leakage
 
@@ -96,6 +97,62 @@ def load_dataset(path: Path) -> Dataset:
     return Dataset(path, meta, streams)
 
 
+def _check_boundary(session: Any, row: dict[str, Any], where: str) -> None:
+    """``next_kind``, ``terminal``, ``truncated`` and ``outcome`` follow from the
+    source: the next tick (same episode, t+1) or the ``episode_end`` record."""
+    t = row["t"]
+    nxt = session.ticks[t + 1] if t + 1 < len(session.ticks) else None
+    if nxt is not None and nxt.raw["ep"] == row["ep"] and nxt.t == t + 1:
+        expected = ("step", None, False, False)
+    else:
+        end = session.episode_ends.get(row["ep"])
+        outcome = end["outcome"] if end else None
+        if end is None or end.get("final_obs") is None:
+            expected = ("missing", outcome, False, False)
+        elif outcome in IN_STEP_RESET_OUTCOMES:
+            expected = ("post_reset", outcome, True, False)
+        else:
+            expected = ("final_obs", outcome, False, True)
+    got = (row["next_kind"], row["outcome"], row["terminal"], row["truncated"])
+    if got != expected:
+        raise DatasetError(
+            f"{where}: (next_kind, outcome, terminal, truncated) {got} do not follow from the source {expected}"
+        )
+
+
+def _check_tensors(
+    stream: Stream, index: int, row: dict[str, Any], groups: dict[str, str], where: str
+) -> None:
+    """The arrays the loader and BC read agree with the row they belong to."""
+    if list(stream.mask[index]) != row["mask"]:
+        raise DatasetError(f"{where}: mask tensor differs from the row")
+    if groups.get(row["group"]) != row["split"] or stream.split[index] != SPLITS.index(row["split"]):
+        raise DatasetError(f"{where}: split tensor or row split differs from the split assignment")
+    if stream.terminal is not None and bool(stream.terminal[index]) != row["terminal"]:
+        raise DatasetError(f"{where}: terminal tensor differs from the row")
+    if stream.next_valid is not None and bool(stream.next_valid[index]) != row["next_valid"]:
+        raise DatasetError(f"{where}: next_valid tensor differs from the row")
+
+
+def _check_context(name: str, stream: Stream) -> None:
+    """``context.npy`` equals the previous actions of the same trajectory, zero-padded
+    at the front, and ``ctx_len`` says how many are real."""
+    if stream.context is None:
+        return
+    if len(stream.context) != len(stream.rows):
+        raise DatasetError(f"{name}: context length does not match the rows")
+    size = stream.context.shape[1]
+    recent: dict[str, deque] = {}
+    for index, row in enumerate(stream.rows):
+        history = recent.setdefault(row["traj_id"], deque(maxlen=size))
+        expected = np.zeros((size, schema.ACTION_LEN), dtype=np.int64)
+        if history:
+            expected[size - len(history) :] = np.array(list(history), dtype=np.int64)
+        if row.get("ctx_len") != len(history) or not np.array_equal(stream.context[index], expected):
+            raise DatasetError(f"{name} row {index}: context differs from the trajectory's previous actions")
+        history.append(row["action"])
+
+
 def check_against_sources(dataset: Dataset, base: Path) -> dict[str, Any]:
     """Raise ``DatasetError`` unless every row maps to its source tick.
 
@@ -144,6 +201,8 @@ def check_against_sources(dataset: Dataset, base: Path) -> dict[str, Any]:
                 raise DatasetError(f"{where}: observation is not the tick's o_t")
             if schema.action_mask(own) != row["mask"]:
                 raise DatasetError(f"{where}: mask is not derived from the observation")
+            _check_boundary(session, row, where)
+            _check_tensors(stream, index, row, dataset.meta["splits"]["groups"], where)
             if stream.next_obs is not None:
                 kind = row["next_kind"]
                 if kind == "step":
@@ -160,6 +219,8 @@ def check_against_sources(dataset: Dataset, base: Path) -> dict[str, Any]:
                     raise DatasetError(f"{where}: next_obs is not the following o_t")
             checked += 1
             all_rows.append(row)
+    for name, stream in dataset.streams.items():
+        _check_context(name, stream)
     groups = dataset.meta["splits"]["groups"]
     try:
         leakage = check_leakage(all_rows, groups)

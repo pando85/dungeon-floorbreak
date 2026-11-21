@@ -61,6 +61,8 @@ pub struct HeroStats {
 /// Aggregate counts of one session.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct SessionStats {
+    /// The manifest marks the session synthetic (a fixture, never a human).
+    pub synthetic: bool,
     pub ticks: u64,
     pub episodes: u32,
     pub combat_events: u64,
@@ -70,6 +72,7 @@ pub struct SessionStats {
 
 pub fn session_stats(session: &LoadedSession) -> SessionStats {
     let mut out = SessionStats {
+        synthetic: super::synthetic::is_synthetic(&session.manifest),
         ticks: session.ticks.len() as u64,
         episodes: session.ticks.last().map_or(0, |t| t.ep + 1),
         ..SessionStats::default()

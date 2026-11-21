@@ -50,8 +50,13 @@ def features(stream: Stream, index: np.ndarray, history: int) -> np.ndarray:
     if history:
         if stream.context is None or stream.context.shape[1] < history:
             raise DatasetError(f"the dataset has no action context of length {history}: re-export with --context")
-        ctx = stream.context[index][:, -history:, :].astype(np.float32).reshape(len(index), -1)
-        x = np.concatenate([x, ctx], axis=1)
+        ctx = stream.context[index][:, -history:, :].astype(np.float32)
+        # The export zero-pads missing earlier actions, and 0 means "left": a validity
+        # bit per slot tells padding from a real previous action (padding is at the front).
+        have = np.array([min(stream.rows[i].get("ctx_len", 0), history) for i in index])
+        valid = (np.arange(history)[None, :] >= (history - have)[:, None]).astype(np.float32)
+        ctx = ctx * valid[:, :, None]
+        x = np.concatenate([x, ctx.reshape(len(index), -1), valid], axis=1)
     return x
 
 

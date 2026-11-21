@@ -66,7 +66,8 @@ def test_rust_stats_agree_with_the_exported_histogram(rust_sessions, verifier, t
     )
     totals: Counter = Counter()
     for line in done.stdout.splitlines():
-        if "class=human" in line:
+        assert "class=human" not in line, "a synthetic session must never be counted as human"
+        if "class=synthetic_human" in line:
             for key, value in re.findall(r"(\w+)=(\d+)", line):
                 if key in ("ticks", "left", "neutral", "right", "jump", "attack", "physical", "ability", "down"):
                     totals[key] += int(value)
@@ -79,6 +80,51 @@ def test_rust_stats_agree_with_the_exported_histogram(rust_sessions, verifier, t
     )
     assert totals["jump"] == hist["jump"] and totals["attack"] == hist["primary"]
     assert totals["physical"] == hist["physical"] and totals["down"] == hist["down"]
+
+
+def test_stats_label_synthetic_sessions_and_keep_them_out_of_the_totals(rust_sessions):
+    """B-3: synthetic play is never reported as human minutes."""
+    done = subprocess.run(
+        [os.environ["PLAYTRACE_BIN"], "stats", "--dir", str(rust_sessions)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    lines = done.stdout.splitlines()
+    assert lines[0].startswith("PLAYTRACE_STATS sessions=0 ticks=0 ")
+    assert "synthetic_sessions=2 synthetic_ticks=700" in lines[0]
+    sessions = [line for line in lines if line.startswith("PLAYTRACE_STATS_SESSION")]
+    assert len(sessions) == 2 and all("synthetic=true" in line for line in sessions)
+    assert not any("class=human" in line for line in lines)
+
+
+def test_synth_fixture_refuses_the_default_recording_store(tmp_path):
+    """B-3: a synthetic session can never be written among real recordings."""
+    binary = os.environ.get("PLAYTRACE_BIN")
+    if not binary or not Path(binary).is_file():
+        pytest.skip("PLAYTRACE_BIN is not set")
+    data_home = tmp_path / "xdg"
+    store = data_home / "dungeon-floorbreak" / "playtrace"
+    env = {**os.environ, "XDG_DATA_HOME": str(data_home)}
+    for target in (store, store / "nested", data_home / "dungeon-floorbreak" / "playtrace" / ".." / "playtrace"):
+        done = subprocess.run(
+            [binary, "synth-fixture", "--dir", str(target), "--ticks", "20", "--root", str(repo_root())],
+            capture_output=True,
+            text=True,
+            env=env,
+            cwd=repo_root(),
+        )
+        assert done.returncode != 0 and "default recording store" in done.stderr
+    assert not store.exists(), "nothing may be created in the default store"
+    elsewhere = tmp_path / "elsewhere"
+    ok = subprocess.run(
+        [binary, "synth-fixture", "--dir", str(elsewhere), "--ticks", "20", "--root", str(repo_root())],
+        capture_output=True,
+        text=True,
+        env=env,
+        cwd=repo_root(),
+    )
+    assert ok.returncode == 0, ok.stderr
 
 
 def _reseal_with_edit(session: Path, edit) -> None:

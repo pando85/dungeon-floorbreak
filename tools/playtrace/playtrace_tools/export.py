@@ -37,9 +37,11 @@ DATASET_SCHEMA = "playtrace-dataset/1"
 ROW_SCHEMA = "playtrace-bc-row/1"
 EXPORTER_VERSION = "playtrace-tools/1"
 SYNTHETIC_FLAG = "synthetic_fixture"
+SYNTHETIC_MODE = "synthetic_fixture"
 
 HUMAN_SOURCES = ("human_p1", "human_p2")
 AI_SOURCES = ("companion_ai", "scripted_bot")
+UNDRIVEN_SOURCE = "none"
 # Episode outcomes that end an episode in a defeat the step itself reset.
 IN_STEP_RESET_OUTCOMES = ("party_defeat", "demo_defeat_respawn")
 SPLIT_INDEX = {name: i for i, name in enumerate(SPLITS)}
@@ -115,6 +117,21 @@ def _variant(manifest: dict[str, Any]) -> str:
     )
 
 
+def synthetic_markers(manifest: dict[str, Any]) -> list[bool]:
+    """The three independent synthetic markers: quality flag, mode, feature flag."""
+    return [
+        SYNTHETIC_FLAG in manifest.get("quality_flags", []),
+        manifest.get("mode") == SYNTHETIC_MODE,
+        manifest.get("feature_flags", {}).get("synthetic") == "true",
+    ]
+
+
+def is_synthetic(manifest: dict[str, Any]) -> bool:
+    """Synthetic when any marker says so (dropping one flag does not make a
+    fixture a human session); ``check_eligibility`` rejects a disagreement."""
+    return any(synthetic_markers(manifest))
+
+
 def check_eligibility(manifest: dict[str, Any], options: Options, explicit: bool) -> tuple[str, str] | None:
     """A ``(reason, detail)`` rejection from the manifest alone, or ``None``."""
     if manifest.get("status") not in ACCEPTED_STATUS or not manifest.get("capture_complete"):
@@ -133,7 +150,13 @@ def check_eligibility(manifest: dict[str, Any], options: Options, explicit: bool
             "other_tester_not_consented",
             "participants=includes_other_tester needs --export-consented and an explicit --session",
         )
-    if SYNTHETIC_FLAG in manifest.get("quality_flags", []) and not options.allow_synthetic:
+    markers = synthetic_markers(manifest)
+    if any(markers) and not all(markers):
+        return (
+            "synthetic_marker_mismatch",
+            "quality flag, mode and feature flag disagree about the session being synthetic",
+        )
+    if any(markers) and not options.allow_synthetic:
         return "synthetic_not_allowed", "a synthetic fixture needs --allow-synthetic"
     return None
 
@@ -180,10 +203,16 @@ def build_session_rows(session: Session, options: Options) -> SessionRows:
                     raise JournalError("label_mismatch", "human tick in a non-human run")
             elif source in AI_SOURCES:
                 stream = "ai"
-            else:
+            elif source == UNDRIVEN_SOURCE:
                 out.excluded[f"undriven_{hero_name}"] += 1
                 previous = None
                 continue
+            else:
+                # A new control source (a learned policy, another human seat) must not
+                # vanish from the human stream: the whole session is rejected.
+                raise JournalError(
+                    "unsupported_label", f"tick {tick.t}: unknown control source {source!r}"
+                )
             if stream not in options.streams:
                 previous = None
                 continue
@@ -351,19 +380,35 @@ def _write_stream(
         np.save(directory / "context.npy", np.stack(ctx) if count else np.zeros((0, options.context, schema.ACTION_LEN), np.int8))
 
 
+def resolve_sessions(candidates: list[Path], session_ids: list[str]) -> list[Path]:
+    """Select the sessions named by ``--session``: each id must be a full session id
+    that matches exactly one session directory. An empty id, a prefix, an unknown id
+    or an ambiguous id is an error, so a short id can never widen the selection (and,
+    with ``--export-consented``, never widens consent). No ids selects every session."""
+    if not session_ids:
+        return candidates
+    chosen: dict[str, Path] = {}
+    for session_id in session_ids:
+        if not session_id.strip():
+            raise ExportError("--session needs a non-empty full session id")
+        matches = [p for p in candidates if p.name == session_id]
+        if not matches:
+            raise ExportError(
+                f"no session has the exact id {session_id!r} (--session takes full ids, not prefixes)"
+            )
+        if len(matches) > 1:
+            raise ExportError(f"{session_id!r} matches {len(matches)} sessions")
+        chosen[session_id] = matches[0]
+    return sorted(chosen.values())
+
+
 def export_dataset(
     base: Path, out_dir: Path, options: Options, verifier: Verifier
 ) -> dict[str, Any]:
     """Export a dataset into ``out_dir/dataset-<id>/`` and return its manifest."""
     options.validate()
-    explicit = set(options.session_ids)
-    candidates = list_session_dirs(base)
-    if explicit:
-        matched = {s for s in explicit for p in candidates if p.name.startswith(s)}
-        missing = sorted(explicit - matched)
-        if missing:
-            raise ExportError(f"no session matches {missing}")
-        candidates = [p for p in candidates if any(p.name.startswith(s) for s in explicit)]
+    candidates = resolve_sessions(list_session_dirs(base), options.session_ids)
+    explicit = bool(options.session_ids)
 
     rejected: list[dict[str, str]] = []
     accepted: list[tuple[Session, dict[str, Any], str]] = []
@@ -376,7 +421,12 @@ def export_dataset(
         name = path.name
         try:
             manifest = read_manifest(path)
-            problem = check_eligibility(manifest, options, explicit=bool(explicit))
+            if manifest.get("session_id") != name:
+                # Rows are looked up by directory name: a renamed or copied session
+                # directory would collide with, or hide behind, another id.
+                reject(name, "invalid_journal", "the directory name differs from the manifest session_id")
+                continue
+            problem = check_eligibility(manifest, options, explicit=explicit)
             if problem:
                 reject(name, *problem)
                 continue
@@ -401,10 +451,10 @@ def export_dataset(
         )
         built[session.session_id] = rows
 
-    synthetic = {SYNTHETIC_FLAG in s.manifest.get("quality_flags", []) for s, _, _ in accepted}
+    synthetic = {is_synthetic(s.manifest) for s, _, _ in accepted}
     if len(synthetic) > 1:
         raise ExportError("refusing to mix synthetic fixtures with real sessions in one dataset")
-    is_synthetic = synthetic == {True}
+    dataset_synthetic = synthetic == {True}
 
     groups = assign_splits(
         [group_key(s.manifest) for s, _, _ in accepted],
@@ -461,7 +511,7 @@ def export_dataset(
         core = {
             "schema": DATASET_SCHEMA,
             "kind": options.kind,
-            "synthetic": is_synthetic,
+            "synthetic": dataset_synthetic,
             "row_schema": ROW_SCHEMA,
             "exporter_version": EXPORTER_VERSION,
             "observation": {"schema": schema.OBS_SCHEMA_ID, "length": schema.OBS_LEN},

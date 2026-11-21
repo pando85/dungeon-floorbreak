@@ -219,7 +219,7 @@ def write_session(
         "build_dirty": False,
         "source_fingerprint": "0000000000000000",
         "game_ruleset_id": "synthetic",
-        "feature_flags": {"synthetic": "true"},
+        "feature_flags": {"synthetic": "true"} if synthetic else {},
         "tick_rate_hz": 60,
         "reset": {
             "source": "party_fixture",
@@ -235,7 +235,7 @@ def write_session(
         },
         "action_schema_id": "rawinput-bits/2",
         "observation_schema_id": "none" if partial_observation else schema.OBS_SCHEMA_ID,
-        "mode": "synthetic_fixture",
+        "mode": "synthetic_fixture" if synthetic else "solo_human",
         "status": status,
         "capture_complete": status in ("completed", "abandoned"),
         "replay_verified": False,

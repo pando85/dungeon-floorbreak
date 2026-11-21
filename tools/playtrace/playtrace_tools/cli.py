@@ -18,6 +18,7 @@ from pathlib import Path
 from .bc import TrainConfig, train_bc
 from .dataset import DatasetError, check_against_sources, load_dataset
 from .export import ExportError, Options, export_dataset
+from .split import LeakageError
 from .verify import VerifyResult, find_verifier, make_cli_verifier, repo_root
 
 
@@ -39,7 +40,7 @@ def _add_export_args(parser: argparse.ArgumentParser) -> None:
         "--out", type=Path, default=None, help="dataset output directory (outside the repository)"
     )
     parser.add_argument(
-        "--session", action="append", default=[], help="session id or prefix (repeatable)"
+        "--session", action="append", default=[], help="full session id (repeatable; no prefixes)"
     )
     parser.add_argument("--hero", choices=("carl", "donut", "both"), default="both")
     parser.add_argument(
@@ -102,6 +103,9 @@ def cmd_export(args: argparse.Namespace, kind: str) -> int:
         meta = export_dataset(base, out, options, _verifier(args))
     except ExportError as error:
         print(f"playtrace_tools: {error}", file=sys.stderr)
+        return 2
+    except LeakageError as error:
+        print(f"PLAYTRACE_EXPORT result=FAIL reason={str(error)!r}", file=sys.stderr)
         return 2
     summary = {
         "dataset_id": meta["dataset_id"],

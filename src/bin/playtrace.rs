@@ -211,6 +211,8 @@ fn run(args: &[String]) -> Result<(), String> {
             paths.sort();
             let mut total = SessionStats::default();
             let mut sessions = 0_u64;
+            let mut synthetic_sessions = 0_u64;
+            let mut synthetic_ticks = 0_u64;
             let mut lines = Vec::new();
             for path in &paths {
                 let name = path
@@ -219,12 +221,19 @@ fn run(args: &[String]) -> Result<(), String> {
                 match read_session(path, true) {
                     Ok(loaded) => {
                         let stats = session_stats(&loaded);
-                        sessions += 1;
-                        total.ticks += stats.ticks;
-                        total.episodes += stats.episodes;
-                        total.combat_events += stats.combat_events;
+                        if stats.synthetic {
+                            // Synthetic play never enters the totals nor a human class.
+                            synthetic_sessions += 1;
+                            synthetic_ticks += stats.ticks;
+                        } else {
+                            sessions += 1;
+                            total.ticks += stats.ticks;
+                            total.episodes += stats.episodes;
+                            total.combat_events += stats.combat_events;
+                        }
                         lines.push(format!(
-                            "PLAYTRACE_STATS_SESSION session={name} status={} ticks={} episodes={} combat_events={}",
+                            "PLAYTRACE_STATS_SESSION session={name} synthetic={} status={} ticks={} episodes={} combat_events={}",
+                            stats.synthetic,
                             status_name(loaded.manifest.status),
                             stats.ticks,
                             stats.episodes,
@@ -232,7 +241,12 @@ fn run(args: &[String]) -> Result<(), String> {
                         ));
                         for (hero, name_of) in ["carl", "donut"].iter().enumerate() {
                             let h = &stats.heroes[hero];
-                            for (class, hist) in [("human", &h.human), ("ai", &h.ai)] {
+                            let human_class = if stats.synthetic {
+                                "synthetic_human"
+                            } else {
+                                "human"
+                            };
+                            for (class, hist) in [(human_class, &h.human), ("ai", &h.ai)] {
                                 lines.push(format!(
                                     "  hero={name_of} class={class} ticks={} left={} neutral={} right={} jump={} attack={} physical={} ability={} down={} swap={}",
                                     hist.ticks,
@@ -259,7 +273,7 @@ fn run(args: &[String]) -> Result<(), String> {
                 }
             }
             println!(
-                "PLAYTRACE_STATS sessions={sessions} ticks={} episodes={} combat_events={}",
+                "PLAYTRACE_STATS sessions={sessions} ticks={} episodes={} combat_events={} (recorded sessions only) synthetic_sessions={synthetic_sessions} synthetic_ticks={synthetic_ticks}",
                 total.ticks, total.episodes, total.combat_events
             );
             for line in lines {
@@ -274,6 +288,12 @@ fn run(args: &[String]) -> Result<(), String> {
                 return Err("synth-fixture needs an explicit --dir (it never writes to the default recording store)".to_owned());
             };
             let base = PathBuf::from(args.get(at + 1).ok_or("--dir needs a directory")?);
+            if let Ok(store) = playtrace::default_record_dir(
+                std::env::var("XDG_DATA_HOME").ok().as_deref(),
+                std::env::var("HOME").ok().as_deref(),
+            ) {
+                synthetic::refuse_default_store(&base, &store)?;
+            }
             let value = |flag: &str| {
                 args.iter()
                     .position(|a| a == flag)

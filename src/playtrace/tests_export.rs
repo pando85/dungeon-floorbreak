@@ -63,3 +63,53 @@ fn stats_count_every_tick_once_and_keep_human_and_ai_apart() {
     );
     assert!(stats.heroes[0].human.ticks > 0 && stats.heroes[1].human.ticks > 0);
 }
+
+#[test]
+fn synth_fixture_refuses_the_default_store_and_anything_inside_it() {
+    use super::synthetic::refuse_default_store;
+    let dir = TempDir::new("pt-d-store");
+    let store = dir.0.join("data/dungeon-floorbreak/playtrace");
+    // The store itself, a not-yet-created child and a `..` detour are all refused.
+    for base in [
+        store.clone(),
+        store.join("nested/new"),
+        store.join("x/../y"),
+        dir.0.join("data/dungeon-floorbreak/./playtrace"),
+    ] {
+        assert!(
+            refuse_default_store(&base, &store).is_err(),
+            "{} must be refused",
+            base.display()
+        );
+    }
+    // A sibling (sharing a name prefix) and an unrelated directory are fine.
+    assert!(
+        refuse_default_store(&dir.0.join("data/dungeon-floorbreak/playtrace-x"), &store).is_ok()
+    );
+    assert!(refuse_default_store(&dir.0.join("scratch"), &store).is_ok());
+    // A symlink into the store is refused too.
+    #[cfg(unix)]
+    {
+        std::fs::create_dir_all(&store).unwrap();
+        let link = dir.0.join("link");
+        std::os::unix::fs::symlink(&store, &link).unwrap();
+        assert!(refuse_default_store(&link.join("child"), &store).is_err());
+    }
+}
+
+#[test]
+fn stats_label_a_synthetic_session_as_synthetic_not_human() {
+    use super::synthetic::is_synthetic;
+    let dir = TempDir::new("pt-d-stats-synth");
+    let manifest = record_synthetic(&dir.0, &root(), DEFAULT_FIXTURE, 120).expect("recorded");
+    let loaded = read_session(&dir.0.join(&manifest.session_id), false).unwrap();
+    assert!(session_stats(&loaded).synthetic);
+    // Any single marker is enough, so dropping one flag does not relabel it human.
+    let mut m = loaded.manifest.clone();
+    m.quality_flags.clear();
+    assert!(is_synthetic(&m), "mode and feature flag still mark it");
+    m.feature_flags.clear();
+    assert!(is_synthetic(&m), "the mode still marks it");
+    m.mode = "human".to_owned();
+    assert!(!is_synthetic(&m));
+}

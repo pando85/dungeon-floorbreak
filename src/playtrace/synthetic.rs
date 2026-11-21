@@ -32,6 +32,45 @@ pub const DEFAULT_FIXTURE: &str = "duo_independent_moves";
 
 const LAYOUT: &str = "assets/levels/floor01/corridor_abc_sample.json";
 
+/// Whether a manifest marks a synthetic session. Any of the three markers is
+/// enough, so removing one flag does not turn a fixture into a "human" session.
+pub fn is_synthetic(manifest: &SessionManifest) -> bool {
+    manifest.mode == SYNTHETIC_MODE
+        || manifest.quality_flags.iter().any(|f| f == SYNTHETIC_FLAG)
+        || manifest.feature_flags.get("synthetic").map(String::as_str) == Some("true")
+}
+
+/// The canonical form of `path` even when it does not exist yet: the longest
+/// existing ancestor is canonicalized and the missing tail is appended.
+fn canonical_or_lexical(path: &Path) -> std::path::PathBuf {
+    let mut tail = Vec::new();
+    let mut at = path;
+    loop {
+        if let Ok(real) = at.canonicalize() {
+            return tail.iter().rev().fold(real, |acc, part| acc.join(part));
+        }
+        match (at.parent(), at.file_name()) {
+            (Some(parent), Some(name)) => {
+                tail.push(name.to_owned());
+                at = parent;
+            }
+            _ => return path.to_path_buf(),
+        }
+    }
+}
+
+/// Refuse an output directory that is the default recording store or inside it:
+/// a synthetic session must never sit among real recordings.
+pub fn refuse_default_store(base: &Path, default_store: &Path) -> Result<(), String> {
+    if canonical_or_lexical(base).starts_with(canonical_or_lexical(default_store)) {
+        return Err(
+            "synth-fixture refuses to write into the default recording store: pass --dir outside it"
+                .to_owned(),
+        );
+    }
+    Ok(())
+}
+
 /// Record `ticks` fixed steps of `fixture_name` (a non-arena party fixture)
 /// into a new session under `base`, with one restart at `ticks / 2`.
 pub fn record_synthetic(

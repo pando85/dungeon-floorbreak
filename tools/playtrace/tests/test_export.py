@@ -374,3 +374,133 @@ def test_cli_without_a_verifier_rejects_every_session(base, out, monkeypatch, ca
     captured = capsys.readouterr()
     assert code == 1
     assert "verifier_unavailable" in captured.out
+
+
+def _two_other_tester_sessions(base):
+    write_session(base, "ab" + "0" * 30, seed=1, participants="includes_other_tester")
+    write_session(base, "ac" + "0" * 30, seed=2, participants="includes_other_tester")
+    write_session(base, "ad" + "0" * 30, seed=3, participants="includes_other_tester")
+
+
+@pytest.mark.parametrize("bad", ["a", "ab", "", "  ", "ab" + "0" * 29])
+def test_consent_never_widens_through_a_prefix_or_an_empty_id(base, out, bad):
+    """B-2: --session is an exact full id; a prefix or empty id exports nothing."""
+    _two_other_tester_sessions(base)
+    with pytest.raises(ExportError):
+        export(base, out, session_ids=[bad], export_consented=True)
+    assert not out.exists() or not list(out.glob("dataset-*"))
+
+
+def test_consent_applies_only_to_the_sessions_named_by_full_id(base, out):
+    _two_other_tester_sessions(base)
+    named = "ac" + "0" * 30
+    meta = export(base, out, session_ids=[named, named], export_consented=True)
+    assert [s["session_id"] for s in meta["sessions"]] == [named]
+    assert not meta["rejected"]
+    with pytest.raises(ExportError, match="no session"):
+        export(base, out, session_ids=[named, "zz" + "0" * 30], export_consented=True)
+
+
+def test_an_unknown_control_source_rejects_the_session_instead_of_dropping_rows(base, out):
+    """F-1: only ``none`` is undriven; any other source is an explicit rejection."""
+    write_session(base, "a" * 32, seed=1, src=("remote_human", "companion_ai"))
+    meta = export(base, out)
+    assert not meta["sessions"]
+    (rejection,) = meta["rejected"]
+    assert rejection["reason"] == "unsupported_label" and "remote_human" in rejection["detail"]
+    write_session(base, "b" * 32, seed=2, src=("none", "companion_ai"))
+    meta = export(base, out, session_ids=["b" * 32])
+    assert meta["excluded_rows"]["undriven_carl"] == 200
+
+
+def _edit_manifest(path, edit):
+    manifest = json.loads((path / "manifest.json").read_text())
+    edit(manifest)
+    (path / "manifest.json").write_text(json.dumps(manifest))
+
+
+def test_one_synthetic_marker_is_enough_and_a_disagreement_is_rejected(base, out):
+    """F-4: dropping the quality flag does not turn a fixture into a human session."""
+    write_session(base, "a" * 32, seed=1)
+    write_session(base, "b" * 32, seed=2)
+    write_session(base, "c" * 32, seed=3)
+    _edit_manifest(base / ("a" * 32), lambda m: m.update(quality_flags=[]))
+    _edit_manifest(base / ("b" * 32), lambda m: m.update(quality_flags=[], mode="solo_human"))
+    _edit_manifest(base / ("c" * 32), lambda m: m.update(quality_flags=[], mode="solo_human", feature_flags={}))
+    got = reasons(export(base, out, allow_synthetic=False))
+    assert got == {"a": "synthetic_marker_mismatch", "b": "synthetic_marker_mismatch"}
+    meta = export(base, out, allow_synthetic=False)
+    assert [s["session_id"] for s in meta["sessions"]] == ["c" * 32]  # no marker left: a plain session
+
+
+def test_a_copied_session_directory_is_rejected_not_a_traceback(base, out):
+    """F-6: the directory name must equal the manifest session_id."""
+    import shutil
+
+    write_session(base, "a" * 32, seed=1)
+    shutil.copytree(base / ("a" * 32), base / ("b" * 32))
+    meta = export(base, out)
+    assert [s["session_id"] for s in meta["sessions"]] == ["a" * 32]
+    (rejection,) = meta["rejected"]
+    assert rejection["session_id"] == "b" * 32 and "directory name" in rejection["detail"]
+
+
+def test_cli_reports_a_leakage_error_without_a_traceback(base, out, monkeypatch, capsys):
+    from playtrace_tools import cli
+
+    def boom(*_args, **_kwargs):
+        raise LeakageError("duplicate (session, tick, hero)")
+
+    monkeypatch.setattr(cli, "export_dataset", boom)
+    code = cli.main(["export-bc", "--dir", str(base), "--out", str(out), "--allow-synthetic"])
+    captured = capsys.readouterr()
+    assert code == 2 and "PLAYTRACE_EXPORT result=FAIL" in captured.err
+    assert "Traceback" not in captured.err
+
+
+def _fresh(five_sessions, out, **kw):
+    meta = export(five_sessions, out, **kw)
+    return load_dataset(Path(meta["path"]))
+
+
+def test_check_dataset_catches_wrong_boundary_split_terminal_mask_and_context(five_sessions, out):
+    """F-2: the check proves terminal/truncated/next_kind and the tensors BC reads."""
+    stream = lambda d: d.streams["human"]  # noqa: E731
+    boundary = next(i for i, r in enumerate(stream(_fresh(five_sessions, out)).rows) if r["next_kind"] == "final_obs")
+    step = next(i for i, r in enumerate(stream(_fresh(five_sessions, out)).rows) if r["next_kind"] == "step")
+
+    d = _fresh(five_sessions, out)
+    stream(d).rows[boundary]["terminal"] = True
+    with pytest.raises(DatasetError, match="follow from the source"):
+        check_against_sources(d, five_sessions)
+
+    d = _fresh(five_sessions, out)
+    stream(d).rows[step]["next_kind"] = "missing"
+    with pytest.raises(DatasetError, match="follow from the source"):
+        check_against_sources(d, five_sessions)
+
+    d = _fresh(five_sessions, out)
+    stream(d).rows[boundary]["outcome"] = "party_defeat"
+    with pytest.raises(DatasetError, match="follow from the source"):
+        check_against_sources(d, five_sessions)
+
+    d = _fresh(five_sessions, out)
+    stream(d).split[step] = (int(stream(d).split[step]) + 1) % 3
+    with pytest.raises(DatasetError, match="split"):
+        check_against_sources(d, five_sessions)
+
+    d = _fresh(five_sessions, out)
+    stream(d).terminal[boundary] ^= 1
+    with pytest.raises(DatasetError, match="terminal tensor"):
+        check_against_sources(d, five_sessions)
+
+    d = _fresh(five_sessions, out)
+    stream(d).mask[step, 1] ^= 1
+    with pytest.raises(DatasetError, match="mask"):
+        check_against_sources(d, five_sessions)
+
+    d = _fresh(five_sessions, out, context=3)
+    assert check_against_sources(d, five_sessions)["rows_checked"] > 0
+    stream(d).context[step + 5, 0, 0] ^= 1
+    with pytest.raises(DatasetError, match="context"):
+        check_against_sources(d, five_sessions)

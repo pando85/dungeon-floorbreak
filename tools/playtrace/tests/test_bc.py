@@ -45,7 +45,7 @@ def test_policy_features_are_the_observation_and_context_only(five_sessions, out
     stream = dataset.streams["human"]
     index = np.arange(10)
     assert features(stream, index, 0).shape == (10, schema.OBS_LEN)
-    assert features(stream, index, 2).shape == (10, schema.OBS_LEN + 2 * schema.ACTION_LEN)
+    assert features(stream, index, 2).shape == (10, schema.OBS_LEN + 2 * schema.ACTION_LEN + 2)
     assert np.array_equal(features(stream, index, 0), stream.obs[index])
     with pytest.raises(DatasetError, match="context"):
         features(stream, index, 5)
@@ -66,3 +66,18 @@ def test_bc_refuses_the_ai_stream(five_sessions, out):
     dataset = load_dataset(Path(export_dataset(five_sessions, out, options, pass_verifier)["path"]))
     with pytest.raises(DatasetError, match="human stream only"):
         train_bc(dataset, TrainConfig(stream="ai", epochs=1))
+
+
+def test_context_padding_is_marked_invalid_not_read_as_left(five_sessions, out):
+    """F-3: the first rows of a trajectory have no previous action; a validity bit says so."""
+    stream = make_dataset(five_sessions, out, context=3).streams["human"]
+    first = next(i for i, r in enumerate(stream.rows) if r["ctx_len"] == 0)
+    second = next(i for i, r in enumerate(stream.rows) if r["ctx_len"] == 1)
+    third = next(i for i, r in enumerate(stream.rows) if r["ctx_len"] == 3)
+    width = schema.OBS_LEN + 3 * schema.ACTION_LEN
+    x = features(stream, np.array([first, second, third]), 3)
+    assert x[0, width:].tolist() == [0, 0, 0]
+    assert x[1, width:].tolist() == [0, 0, 1]
+    assert x[2, width:].tolist() == [1, 1, 1]
+    # a real "left" first action differs from padding only by its validity bit
+    assert np.array_equal(x[0, schema.OBS_LEN:width], np.zeros(3 * schema.ACTION_LEN))
