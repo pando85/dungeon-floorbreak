@@ -75,6 +75,9 @@ impl SlotRuntime {
             return;
         }
         self.enemies = self.pristine.clone();
+        for enemy in &mut self.enemies {
+            enemy.on_retry();
+        }
         self.env = EnvView::default();
         self.deferred.clear();
     }
@@ -377,6 +380,7 @@ impl CombatState {
         for (live, fresh) in enemies.iter_mut().zip(pristine.iter()) {
             if live.alive() {
                 *live = fresh.clone();
+                live.on_retry();
             }
         }
         self.slot.deferred.clear();

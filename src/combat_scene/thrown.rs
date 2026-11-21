@@ -719,7 +719,7 @@ mod tests {
         let story = if held {
             StorySetup::NONE.with_hold("special_thrown_charge")
         } else {
-            StorySetup::NONE.with_trigger("pile_boss_f01_defeated")
+            StorySetup::NONE.with_trigger("carl_prog_find_zone_stub")
         };
         let combat = CombatState::new(fixture.base, &kit, &scene)
             .unwrap()

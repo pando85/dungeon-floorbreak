@@ -30,7 +30,7 @@ pub const TABLE_JSON: &str = include_str!("../assets/data/gameplay/story_unlocks
 
 /// The committed FNV-1a 64 content hash of [`TABLE_JSON`]. Editing the file
 /// without updating this value fails [`StoryTable::pinned`] and the pin test.
-pub const TABLE_HASH: u64 = 0xf994_370a_a583_527d;
+pub const TABLE_HASH: u64 = 0x00f9_0eb3_7c41_fd8a;
 
 /// The schema version [`StoryTable`] accepts.
 pub const SCHEMA_VERSION: u32 = 1;
@@ -107,6 +107,11 @@ pub enum SceneKind {
     CfArena,
     /// The Floor 01 boss arena.
     Boss,
+    /// HRD-A2: the Hoarder's room (`f01_hoarder`). It **only arms triggers**
+    /// (the Hoarder's defeat event arms `pile_boss_f01_defeated` here); the
+    /// room's pin is the `F01Late` row `f01_pin_pre_pile_boss`, chosen by id,
+    /// and no pin row carries this scene.
+    PileBoss,
     /// PT-SCENE: a pin row of a late-Floor-1 room (`--scene f01_late`). It is a
     /// **label, not a scene**: such a pin is chosen by its id
     /// ([`StorySetup::for_pin`], the `pin` key of the room manifest), so
@@ -120,6 +125,10 @@ pub enum SceneKind {
 pub enum EventMatch {
     /// `CombatEvent::EnemyDefeated` of the boss enemy id.
     EnemyDefeatedBoss,
+    /// HRD-A2: `CombatEvent::EnemyDefeated` whose `target` is exactly this id
+    /// (the generic matcher that serves every slot enemy: the Hoarder's
+    /// `PILE_BOSS_ID`). JSON: `{"enemy_defeated": {"target": 20556}}`.
+    EnemyDefeated { target: u32 },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -478,6 +487,14 @@ impl StoryTable {
                 .any(|prev| prev.id == row.id && prev.scene != row.scene)
             {
                 return Err(bad(at("scene"), "rows of one pin id must share a scene"));
+            }
+            // HRD-A2: the Hoarder's room scene kind only arms triggers; its pin
+            // is an `f01_late` row chosen by id, so no pin row carries it.
+            if row.scene == SceneKind::PileBoss {
+                return Err(bad(
+                    at("scene"),
+                    "pile_boss arms triggers only: its room pin is an f01_late row",
+                ));
             }
             if !valid_id(&row.flag) {
                 return Err(bad(at("flag"), "lower snake_case ascii"));
@@ -1382,17 +1399,33 @@ mod tests {
         );
         assert_eq!(cap("primary_ranged").storage, Storage::ReadThrough);
         assert_eq!(cap("primary_ranged").hero, 1);
-        // The Juicer trigger is armed only in the boss arena, the Hoarder-defeat zone stays a placeholder.
+        // The Juicer trigger is armed only in the boss arena. HRD-A2: the
+        // Hoarder-defeat trigger is an event trigger armed only in her room, on the
+        // generic `EnemyDefeated` matcher of her target id.
         assert_eq!(
             t.trigger("brute_boss_f01_defeated").unwrap().armed_in,
             [SceneKind::Boss]
         );
-        assert!(
-            t.trigger("pile_boss_f01_defeated")
-                .unwrap()
-                .armed_in
-                .is_empty()
+        let pile = t.trigger("pile_boss_f01_defeated").unwrap();
+        assert_eq!(pile.kind, TriggerKind::Event);
+        assert!(pile.zone.is_none());
+        assert_eq!(pile.armed_in, [SceneKind::PileBoss]);
+        assert_eq!(pile.grants, ["special_thrown_charge"]);
+        assert_eq!(pile.event.as_deref(), Some("pile_boss_f01_defeated"));
+        let row = t
+            .events
+            .iter()
+            .find(|e| e.id == "pile_boss_f01_defeated")
+            .expect("the event row");
+        assert_eq!(
+            row.matcher,
+            EventMatch::EnemyDefeated {
+                target: crate::pile_boss::PILE_BOSS_ID
+            },
+            "the data target is PILE_BOSS_ID"
         );
+        // No pin row carries the Hoarder scene: it only arms triggers.
+        assert!(t.pins.iter().all(|p| p.scene != SceneKind::PileBoss));
         let boss_pins: Vec<_> = t
             .pins
             .iter()
@@ -1497,8 +1530,13 @@ mod tests {
             "triggers[1].event"
         );
         assert_eq!(
+            field(broken("\"min_x\": 1200.0", "\"min_x\": 1300.0")),
+            "triggers[2].zone"
+        );
+        // The fixture-only stub zone (HRD-A2) is validated like any zone.
+        assert_eq!(
             field(broken("\"min_x\": 600.0", "\"min_x\": 700.0")),
-            "triggers[0].zone"
+            "triggers[3].zone"
         );
         assert!(matches!(
             StoryTable::from_json("{\"schema_version\": 1, \"bogus\": 1}"),
@@ -1579,6 +1617,19 @@ mod tests {
             StoryError::Field { field, reason } => {
                 assert!(field.ends_with(".scene"), "{field}");
                 assert!(reason.contains("share a scene"), "{reason}");
+            }
+            other => panic!("expected a field error, got {other:?}"),
+        }
+        // HRD-A2: a pin row of the Hoarder scene kind (it only arms triggers) is
+        // refused, and a pin row of the committed table never carries it.
+        match edited(&|v| {
+            v["pins"][2]["scene"] = "pile_boss".into();
+        })
+        .expect_err("a pin on the trigger-only scene")
+        {
+            StoryError::Field { field, reason } => {
+                assert_eq!(field, "pins[2].scene");
+                assert!(reason.contains("arms triggers only"), "{reason}");
             }
             other => panic!("expected a field error, got {other:?}"),
         }
@@ -1944,7 +1995,7 @@ mod tests {
     fn a_trigger_whose_grants_are_all_held_at_start_is_spent_without_an_event() {
         let setup = StorySetup::NONE
             .with_hold("special_thrown_charge")
-            .with_trigger("pile_boss_f01_defeated");
+            .with_trigger("carl_prog_find_zone_stub");
         let mut runtime = StoryRuntime::new(&setup).unwrap();
         let inside = [(610.0, 0.0), (0.0, 0.0)];
         assert!(

@@ -100,6 +100,30 @@ impl CombatState {
                 }
             }
         }
+        // HRD-A2: the generic matcher, one arm after the boss arm. The event
+        // rows that name this `target` (the Hoarder's `PILE_BOSS_ID`) are seen
+        // by the armed triggers on the defeat tick.
+        if let CombatEvent::EnemyDefeated { target, .. } = event {
+            for row in story.event_rows() {
+                if row.matcher == (EventMatch::EnemyDefeated { target: *target }) {
+                    story.observe(row.id.as_str());
+                }
+            }
+        }
+    }
+
+    /// Tests only (HRD-A2): feed the story matcher a defeat of `target`, as the
+    /// event log does, without a fight.
+    #[doc(hidden)]
+    pub fn test_observe_defeat(&mut self, target: u32, tick: u64) {
+        let event = CombatEvent::enemy_defeated(
+            tick,
+            target,
+            crate::combat::DefeatCause::Melee,
+            Some(0),
+            None,
+        );
+        self.observe_story(&event);
     }
 
     /// One tick of the triggers, after everything else has moved: a zone reads

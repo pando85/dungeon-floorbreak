@@ -59,12 +59,13 @@ mod donut;
 mod env;
 mod evade;
 mod morale_cf02;
+pub mod pile_boss;
 mod slot;
 mod story;
 mod thrown;
 use self::carl_cf02::{CarlCf02, CarlCf02Plan};
 use self::companion::CompanionRuntime;
-pub use self::env::{ENV_SOURCE_ID, EnvRuntime};
+pub use self::env::{ENV_SOURCE_ID, EnvRuntime, EnvSolidKind};
 use self::morale_cf02::MoraleRuntime;
 use self::slot::SlotRuntime;
 /// Where a missile spawns relative to Donut's pivot (read by the corral reach tests).

@@ -320,6 +320,12 @@ pub fn check_story_order(order: &[OrderRow], table: &StoryTable) -> Result<(), S
         }
     }
     for trigger in &table.triggers {
+        // A trigger armed in no scene is a fixture-only stub (a fixture arms it by
+        // id: HRD-A2's `carl_prog_find_zone_stub`); no run of the story can fire it,
+        // so it has no place in the story order.
+        if trigger.armed_in.is_empty() {
+            continue;
+        }
         for cap in &trigger.grants {
             let placed = order.iter().any(|o| {
                 o.grants
@@ -680,6 +686,23 @@ mod tests {
         })
         .unwrap_err();
         assert!(err.contains("no entry of the order places"), "{err}");
+        // HRD-A2: the Hoarder's event trigger is armed in her room, so the order
+        // must place it; the fixture-only stub zone (armed nowhere) needs no place.
+        let err = mutate(|order| {
+            let at = index(order, "hoarder");
+            order[at].grants.pop();
+        })
+        .unwrap_err();
+        assert!(err.contains("pile_boss_f01_defeated"), "{err}");
+        let stub = table()
+            .trigger("carl_prog_find_zone_stub")
+            .expect("the stub");
+        assert!(stub.armed_in.is_empty());
+        assert!(manifest().story_order.iter().all(|o| {
+            o.grants
+                .iter()
+                .all(|g| g.trigger.as_deref() != Some("carl_prog_find_zone_stub"))
+        }));
         // A stored capability without a trigger.
         let err = mutate(|order| {
             let at = index(order, "hoarder");

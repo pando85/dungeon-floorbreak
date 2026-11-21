@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "provenance": "CARL-PROG-01 CP-A (docs/03-tech/carl-prog-01-floor01-combat-progression.md section 3, CP-Q01..CP-Q11, CP-Q44..CP-Q46). Generic and IP-neutral: capability ids, slots and trigger ids are engine data; the display and notice fields are the fan-layer text. Adopted defaults, not approved balance. K1 (f01 integration plan #182, adopted over CP-Q01 Revision 2): the thrown charge is granted on the Hoarder's defeat, trigger `pile_boss_f01_defeated`. Until the Hoarder exists (HRD-A) it is a PLACEHOLDER zone trigger over a stub rectangle that no scene arms (the same stub the earlier find zone was), and it becomes an event trigger later through an additive event matcher (a generic `EnemyDefeated` match with a `target`) and a Hoarder scene kind, both owned by HRD-A2; the ledger mechanism does not change. DONUT-PROG-01 DP-A (docs/03-tech/donut-prog-01-floor01-ability-progression.md, DP-Q02, DP-Q03, DP-Q06, DP-Q07, DP-Q09, DP-Q10, DP-Q12): Donut's rows (jump_reach_boost, special_short_blink) carry hero 1 and a requires list (story order as data), the zone trigger f01_safe_room_reward_found is a PLACEHOLDER zone in the story corridor run (a stand-in for the I-08 refuge reward, 640 px past the guild zone; the real refuge pickup replaces it later), special_short_blink is the second entry of the single Juicer grants list (no second trigger), and a donut_prog story flag enables hero 1 only. A trigger is armed when any entry of its grants list belongs to an enabled program; each entry is granted only if its program is enabled and its requires are held. PT-SCENE (docs/07-agents/f01-playtest-integration-plan.md section 4.7, K1, K9, KR12): the room pins of `--scene f01_late` are pin rows with scene `f01_late`, chosen by id and carrying one row per story flag. `f01_pin_pre_pile_boss` (the Hoarder room: Light on Your Feet, provisional K9, the biscuit being a read-through) and `f01_pin_post_pile_boss` (every room after the Hoarder: dynamite, K1, and Light on Your Feet) are the pins the encounter sidecars name; `f01_late_mastery` (the mastery arena) holds every capability. A room pin never holds a capability whose grant point comes later in the static story order (the order test of src/f01_late.rs).",
+  "provenance": "CARL-PROG-01 CP-A (docs/03-tech/carl-prog-01-floor01-combat-progression.md section 3, CP-Q01..CP-Q11, CP-Q44..CP-Q46). Generic and IP-neutral: capability ids, slots and trigger ids are engine data; the display and notice fields are the fan-layer text. Adopted defaults, not approved balance. K1 (f01 integration plan #182, adopted over CP-Q01 Revision 2): the thrown charge is granted on the Hoarder's defeat, trigger `pile_boss_f01_defeated`. Until the Hoarder exists (HRD-A) it is a PLACEHOLDER zone trigger over a stub rectangle that no scene arms (the same stub the earlier find zone was), and it becomes an event trigger later through an additive event matcher (a generic `EnemyDefeated` match with a `target`) and a Hoarder scene kind, both owned by HRD-A2; the ledger mechanism does not change. DONUT-PROG-01 DP-A (docs/03-tech/donut-prog-01-floor01-ability-progression.md, DP-Q02, DP-Q03, DP-Q06, DP-Q07, DP-Q09, DP-Q10, DP-Q12): Donut's rows (jump_reach_boost, special_short_blink) carry hero 1 and a requires list (story order as data), the zone trigger f01_safe_room_reward_found is a PLACEHOLDER zone in the story corridor run (a stand-in for the I-08 refuge reward, 640 px past the guild zone; the real refuge pickup replaces it later), special_short_blink is the second entry of the single Juicer grants list (no second trigger), and a donut_prog story flag enables hero 1 only. A trigger is armed when any entry of its grants list belongs to an enabled program; each entry is granted only if its program is enabled and its requires are held. PT-SCENE (docs/07-agents/f01-playtest-integration-plan.md section 4.7, K1, K9, KR12): the room pins of `--scene f01_late` are pin rows with scene `f01_late`, chosen by id and carrying one row per story flag. `f01_pin_pre_pile_boss` (the Hoarder room: Light on Your Feet, provisional K9, the biscuit being a read-through) and `f01_pin_post_pile_boss` (every room after the Hoarder: dynamite, K1, and Light on Your Feet) are the pins the encounter sidecars name; `f01_late_mastery` (the mastery arena) holds every capability. A room pin never holds a capability whose grant point comes later in the static story order (the order test of src/f01_late.rs). HRD-A2 (docs/01-design/enemy-gameplay-hoarder.md section 10, K1): `pile_boss_f01_defeated` is now an EVENT trigger. Its event row matches `CombatEvent::EnemyDefeated` with target 20556 (0x504C, `PILE_BOSS_ID` in src/pile_boss.rs; a test ties the two), through the generic `EventMatch::EnemyDefeated {target}` matcher, and it is armed in the scene kind `pile_boss` (the Hoarder room, which only arms triggers; no pin row carries that scene and the room pin stays the f01_late row `f01_pin_pre_pile_boss`). Its grants list is unchanged, so the story-order trigger tie still places it at the `hoarder` room. The old placeholder zone moves to the fixture-only stub trigger `carl_prog_find_zone_stub` (a zone over the same stub rectangle, armed in no scene, kept so the CP-A zone fixtures stay byte-identical: a fixture arms it by id); the Boiler-hall Hoarder stand-in of PT-SCENE is retired.",
   "capabilities": [
     {
       "id": "special_thrown_charge",
@@ -65,23 +65,22 @@
       "id": "brute_boss_f01_defeated",
       "match": "enemy_defeated_boss",
       "cp_q": "CP-Q02"
+    },
+    {
+      "id": "pile_boss_f01_defeated",
+      "match": { "enemy_defeated": { "target": 20556 } },
+      "cp_q": "HRD-Q31"
     }
   ],
   "triggers": [
     {
       "id": "pile_boss_f01_defeated",
-      "kind": "zone",
-      "zone": {
-        "hero": 0,
-        "min_x": 600.0,
-        "max_x": 640.0,
-        "min_y": -100000.0,
-        "max_y": 100000.0
-      },
-      "event": null,
+      "kind": "event",
+      "zone": null,
+      "event": "pile_boss_f01_defeated",
       "grants": ["special_thrown_charge"],
       "flag": "carl_prog",
-      "armed_in": [],
+      "armed_in": ["pile_boss"],
       "cp_q": "CP-Q01"
     },
     {
@@ -109,6 +108,22 @@
       "flag": "donut_prog",
       "armed_in": ["corridor"],
       "cp_q": "DP-Q02"
+    },
+    {
+      "id": "carl_prog_find_zone_stub",
+      "kind": "zone",
+      "zone": {
+        "hero": 0,
+        "min_x": 600.0,
+        "max_x": 640.0,
+        "min_y": -100000.0,
+        "max_y": 100000.0
+      },
+      "event": null,
+      "grants": ["special_thrown_charge"],
+      "flag": "carl_prog",
+      "armed_in": [],
+      "cp_q": "CP-Q01"
     }
   ],
   "pins": [
