@@ -352,7 +352,7 @@ def frame_portrait() -> Pix:
             P(x, y, "stone", 5)
     for (x, y) in ((1, 5), (2, 5), (1, 6)):                                      # crest
         P(x, y, "stone", 3)
-    for (x, y) in ((7, 8), (8, 8), (7, 9)):                                      # beak
+    for (x, y) in ((7, 8), (8, 8)):                                              # beak, 2 px
         P(x, y, "mortar", 4)
     P(5, 7, "stone", 10)                                                         # eye
     for y in range(11, 20):                                                      # coat: sloped shoulders, long robe
@@ -365,7 +365,7 @@ def frame_portrait() -> Pix:
             if (y in (8, 11)) and x in (12, 15):
                 continue
             P(x, y, "stone", 5)
-    for (x, y) in ((11, 9), (10, 10), (11, 10)):                                 # beak
+    for (x, y) in ((10, 9), (11, 9)):                                            # beak, 2 px
         P(x, y, "mortar", 4)
     P(13, 9, "stone", 10)                                                        # eye
     for y in range(12, 20):

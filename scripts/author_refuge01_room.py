@@ -204,7 +204,7 @@ def build_layout() -> dict:
     decal += [{"piece": "refuge_wall_map", "x": 164, "y": 160 + LY},
               {"piece": "refuge_frame_portrait", "x": 436, "y": 164 + LY},
               {"piece": "refuge_frame_landscape", "x": 466, "y": 168 + LY},
-              {"piece": "refuge_satchel", "x": 130, "y": 196 + LY}]
+              {"piece": "refuge_satchel", "x": 146, "y": 202 + LY}]
     base = BACK_Y - 1
     prop = [{"piece": "refuge_door_inside_closed", "x": 16, "y": base + 1 - 136},
             {"piece": "refuge_bookshelf", "x": 234 - 18, "y": base - 55},
