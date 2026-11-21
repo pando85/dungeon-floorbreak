@@ -1,0 +1,771 @@
+{
+ "format": "pixel-grid-v1",
+ "canvas": [
+  16,
+  16
+ ],
+ "pivot": [
+  0,
+  15
+ ],
+ "palette": [
+  {
+   "key": "a",
+   "name": "iron_00",
+   "rgba": "#0e0b10ff"
+  },
+  {
+   "key": "b",
+   "name": "iron_01",
+   "rgba": "#1b1519ff"
+  },
+  {
+   "key": "c",
+   "name": "iron_02",
+   "rgba": "#2b2226ff"
+  },
+  {
+   "key": "d",
+   "name": "iron_03",
+   "rgba": "#3e3133ff"
+  },
+  {
+   "key": "e",
+   "name": "iron_04",
+   "rgba": "#574340ff"
+  },
+  {
+   "key": "f",
+   "name": "iron_05",
+   "rgba": "#7a5c4eff"
+  },
+  {
+   "key": "g",
+   "name": "iron_06",
+   "rgba": "#a07a5cff",
+   "accent": true
+  },
+  {
+   "key": "h",
+   "name": "stone_cold_01",
+   "rgba": "#2a3250ff"
+  },
+  {
+   "key": "i",
+   "name": "stone_cold_02",
+   "rgba": "#38456aff"
+  },
+  {
+   "key": "l",
+   "name": "stone_cold_04",
+   "rgba": "#647ca4ff",
+   "accent": true
+  },
+  {
+   "key": "k",
+   "name": "copper_cold_01",
+   "rgba": "#4b3d5cff"
+  },
+  {
+   "key": "m",
+   "name": "gal_01",
+   "rgba": "#0b1020ff"
+  },
+  {
+   "key": "n",
+   "name": "gal_03",
+   "rgba": "#162038ff"
+  },
+  {
+   "key": "o",
+   "name": "gal_04",
+   "rgba": "#1d2a47ff"
+  },
+  {
+   "key": "p",
+   "name": "gal_05",
+   "rgba": "#253657ff"
+  },
+  {
+   "key": "q",
+   "name": "gal_06",
+   "rgba": "#2f4469ff"
+  },
+  {
+   "key": "r",
+   "name": "gal_08",
+   "rgba": "#47648fff"
+  },
+  {
+   "key": "s",
+   "name": "gal_10",
+   "rgba": "#6a8bb5ff",
+   "accent": true
+  },
+  {
+   "key": "u",
+   "name": "wood_00",
+   "rgba": "#170d0cff"
+  },
+  {
+   "key": "v",
+   "name": "wood_01",
+   "rgba": "#261612ff"
+  },
+  {
+   "key": "w",
+   "name": "wood_02",
+   "rgba": "#3a2219ff"
+  },
+  {
+   "key": "x",
+   "name": "wood_03",
+   "rgba": "#52301fff"
+  },
+  {
+   "key": "y",
+   "name": "wood_04",
+   "rgba": "#6d4127ff"
+  },
+  {
+   "key": "z",
+   "name": "wood_05",
+   "rgba": "#8d5631ff"
+  },
+  {
+   "key": "A",
+   "name": "floor_07",
+   "rgba": "#a5633bff"
+  },
+  {
+   "key": "B",
+   "name": "stone_06",
+   "rgba": "#9a684fff"
+  },
+  {
+   "key": "C",
+   "name": "stone_08",
+   "rgba": "#d0965cff",
+   "accent": true
+  },
+  {
+   "key": "D",
+   "name": "mortar_02",
+   "rgba": "#201622ff"
+  },
+  {
+   "key": "j",
+   "name": "stone_cold_00",
+   "rgba": "#1f2338ff"
+  },
+  {
+   "key": "t",
+   "name": "copper_cold_00",
+   "rgba": "#33283fff"
+  },
+  {
+   "key": "E",
+   "name": "gal_02",
+   "rgba": "#10172cff"
+  },
+  {
+   "key": "F",
+   "name": "gal_07",
+   "rgba": "#3a537cff"
+  },
+  {
+   "key": "G",
+   "name": "gal_00",
+   "rgba": "#070a14ff"
+  },
+  {
+   "key": "H",
+   "name": "floor_06",
+   "rgba": "#844f38ff"
+  },
+  {
+   "key": "I",
+   "name": "mortar_01",
+   "rgba": "#150f1bff"
+  },
+  {
+   "key": "J",
+   "name": "stone_05",
+   "rgba": "#7a5249ff"
+  },
+  {
+   "key": "K",
+   "name": "stone_cold_03",
+   "rgba": "#4b5d86ff"
+  },
+  {
+   "key": "L",
+   "name": "gal_warm_03",
+   "rgba": "#9a5735ff",
+   "accent": true
+  },
+  {
+   "key": "M",
+   "name": "gal_09",
+   "rgba": "#5676a2ff"
+  },
+  {
+   "key": "N",
+   "name": "floor_08",
+   "rgba": "#c3763cff"
+  },
+  {
+   "key": "O",
+   "name": "mortar_03",
+   "rgba": "#2d1d26ff"
+  },
+  {
+   "key": "P",
+   "name": "stone_07",
+   "rgba": "#b98256ff"
+  }
+ ],
+ "layers": [
+  "main"
+ ],
+ "frames": [
+  {
+   "duration_ms": 100,
+   "cels": {
+    "main": [
+     "fffffffffffffffa",
+     "efeddddhddddddca",
+     "eeddddhiddddddca",
+     "edegdhihddegddca",
+     "eddbaihddddbadca",
+     "eddhihddhdddddca",
+     "edhihddhddddddca",
+     "edihddhdddddddca",
+     "edhddhddddddddca",
+     "edddddddddddddca",
+     "edddddddddddddca",
+     "ecegccccccegccca",
+     "eccbaccccccbacca",
+     "ecccccccccccccca",
+     "ebbbbbbbbbbbbbba",
+     "aaaaaaaaaaaaaaaa"
+    ]
+   }
+  },
+  {
+   "duration_ms": 100,
+   "cels": {
+    "main": [
+     "fffffffffffffffa",
+     "efeddddhddddddca",
+     "eeddddhiddddddca",
+     "edegdhicddegddca",
+     "eddbaicdcddbadca",
+     "eddhicdcccddldca",
+     "edlihdcccddddlca",
+     "edilddcbbcddddca",
+     "edhddbaaabcdddca",
+     "edddkcbccdekddca",
+     "edddkdefffekddca",
+     "ecegckkeekcaccca",
+     "eccbaccccccaccca",
+     "ecccccccccccccca",
+     "ebbbbbbbbbbbbbba",
+     "aaaaaaaaaaaaaaaa"
+    ]
+   }
+  },
+  {
+   "duration_ms": 100,
+   "cels": {
+    "main": [
+     "ppooooqdbqoooppp",
+     "pooooobbbboooopp",
+     "ooooobbqqbboooop",
+     "oooodbqppqbboooo",
+     "noobbqppspqbbooo",
+     "nnbbqprsrppqbbon",
+     "ndbqppprprppqbbn",
+     "bbqopppppppooqbb",
+     "bqooopppppooooqb",
+     "bboooopppooooodb",
+     "qbboooopooooobbq",
+     "pqbboooooooobbqp",
+     "spqbbooonoodbqpp",
+     "rppqbbonnnbbqprs",
+     "prppqbbnnbbqpppr",
+     "pppooqbbdbqopppp"
+    ]
+   }
+  },
+  {
+   "duration_ms": 100,
+   "cels": {
+    "main": [
+     "ppooooqdbqoooppp",
+     "pooooobbbboooopp",
+     "ooooobbqqbborrop",
+     "oooodbqppqbbooro",
+     "noobbqppspqbbooo",
+     "nnbbqprsrrprbbon",
+     "ndbqpprrprrpqbbn",
+     "bbqoppprrspooqbb",
+     "bqooopppprooooqb",
+     "bboooopprorooodb",
+     "qbboooorroorobbq",
+     "pqbboooomorobbqp",
+     "spqbbormmmodbqpp",
+     "rppqbbommmbbqprs",
+     "prppqbbnnbbqpppr",
+     "pppooqbbdbqopppp"
+    ]
+   }
+  },
+  {
+   "duration_ms": 100,
+   "cels": {
+    "main": [
+     "bbbbbbbbbbbbbbbb",
+     "pooooobbbboooopp",
+     "ooooobbqqbboooop",
+     "oooodbrppqbboooo",
+     "noobbq.rsrrbbooo",
+     "nnbbqr..r..qbbon",
+     "ndbqp......rqbbn",
+     "bbrop.......oqbb",
+     "bq.rs.......srrb",
+     ".r..r.......r..r",
+     "................",
+     "................",
+     "................",
+     "................",
+     "................",
+     "................"
+    ]
+   }
+  },
+  {
+   "duration_ms": 100,
+   "cels": {
+    "main": [
+     "................",
+     "................",
+     "................",
+     "................",
+     "................",
+     "................",
+     "..r.............",
+     "rrq............r",
+     "bqo......r..rrrb",
+     "bbor..r..o..oodb",
+     "qbbo.ro..o..obbq",
+     "pqbbroo..orrbbqp",
+     "spqbboo.roodbqpp",
+     "rppqbbornnbbqprs",
+     "prppqbbnnbbqpppr",
+     "bbbbbbbbbbbbbbbb"
+    ]
+   }
+  },
+  {
+   "duration_ms": 100,
+   "cels": {
+    "main": [
+     "zzzzzzzzzzzuzzzz",
+     "xxxyyyyyyvyuAyvy",
+     "xxxxxxxxxvxuzxxx",
+     "wwwwwwwwwwwuwwww",
+     "uuuuuuuuuuuuuuuu",
+     "zzzzzzzzzzzzzzzz",
+     "yyxxyyyyyyyyyyvy",
+     "yxxxxxxyyyyyyyyy",
+     "yyyvyyyyyyxxxxxy",
+     "wwwwwwwwwwwwwwww",
+     "uuuuuuuuuuuuuuuu",
+     "zzzzuzzzzzzzzzzz",
+     "yyvyuAyvyyyyxxxx",
+     "xxvxuzxxxxxxxxwx",
+     "wwwwuwwwwwwwwDDw",
+     "uuuuuuuuuuuuuuuu"
+    ]
+   }
+  },
+  {
+   "duration_ms": 100,
+   "cels": {
+    "main": [
+     "zzzzzzzzzzzuyyzz",
+     "xxxyyyyyyuyuAyvy",
+     "xxxxxxxxxvxuzxxx",
+     "wwwwwwwwwwwuwwww",
+     "uuuuuuuuuuuuuuuu",
+     "zzzzzzzzzzzzzzzz",
+     "yyxxyyyyyyyywwvy",
+     "yxuuuuuuuuuuuuyy",
+     "yyyBByyBCyBBxxxy",
+     "wwwwwwwwwwwwwwww",
+     "uuuuuuuuuuuuuuuu",
+     "zzzzuzzBuuBzzzzz",
+     "yyvyuAyvyByyxxxx",
+     "xxvxuzxxxxxxxxwx",
+     "wwwwuwwwwwwwwDDw",
+     "uuuuuuuuuuuuuuuu"
+    ]
+   }
+  },
+  {
+   "duration_ms": 100,
+   "cels": {
+    "main": [
+     "zzzzzzB.........",
+     "xvxyyyyC........",
+     "xxxxxxBB........",
+     "wwwwwww.........",
+     "................",
+     "zzzB............",
+     "yvxxB...........",
+     "yuuB............",
+     "yyyBB...........",
+     "wwwB............",
+     "................",
+     "zzzzyzzBy.......",
+     "yvvyyAyvBC......",
+     "xxvxyzxxx.B.....",
+     "wwwwywwwB.......",
+     "................"
+    ]
+   }
+  },
+  {
+   "duration_ms": 100,
+   "cels": {
+    "main": [
+     "...........Bzzzz",
+     "..........BCxyAy",
+     "...........Bxxzz",
+     "............Bwww",
+     "................",
+     ".............Bzz",
+     "............BxAx",
+     "............uBzy",
+     ".............Bxz",
+     "..............Bw",
+     "................",
+     ".........Bzzzzzz",
+     "........BCyyvyAy",
+     ".........Bxxvxzx",
+     "..........Bwwwww",
+     "................"
+    ]
+   }
+  },
+  {
+   "duration_ms": 100,
+   "cels": {
+    "main": [
+     "eeeeeeeeeeeeeeea",
+     "dedccccjccccccba",
+     "ddccccjhccccccba",
+     "dcdgcjhjccdgccba",
+     "dccaahjccccaacba",
+     "dccjhjccjcccccba",
+     "dcjhjccjccccccba",
+     "dchjccjcccccccba",
+     "dcjccjccccccccba",
+     "dcccccccccccccba",
+     "dcccccccccccccba",
+     "dbdgbbbbbbdgbbba",
+     "dbbaabbbbbbaabba",
+     "dbbbbbbbbbbbbbba",
+     "daaaaaaaaaaaaaaa",
+     "aaaaaaaaaaaaaaaa"
+    ]
+   }
+  },
+  {
+   "duration_ms": 100,
+   "cels": {
+    "main": [
+     "eeeeeeeeeeeeeeea",
+     "dedccccjccccccba",
+     "ddccccjhccccccba",
+     "dcdgcjhbccdgccba",
+     "dccaahbcbccaacba",
+     "dccjhbcbbbcclcba",
+     "dclhjcbbbcccclba",
+     "dchlccbaabccccba",
+     "dcjccaaaaabcccba",
+     "dccctbabbcdtccba",
+     "dccctcdeeedtccba",
+     "dbdgbttddtbabbba",
+     "dbbaabbbbbbabbba",
+     "dbbbbbbbbbbbbbba",
+     "daaaaaaaaaaaaaaa",
+     "aaaaaaaaaaaaaaaa"
+    ]
+   }
+  },
+  {
+   "duration_ms": 100,
+   "cels": {
+    "main": [
+     "oonnnnpcapnnnooo",
+     "onnnnnaaaannnnoo",
+     "nnnnnaappaannnno",
+     "nnnncapoopaannnn",
+     "Ennaapoosopaannn",
+     "EEaapoFsFoopaanE",
+     "EcapoooFoFoopaaE",
+     "aapnooooooonnpaa",
+     "apnnnooooonnnnpa",
+     "aannnnooonnnnnca",
+     "paannnnonnnnnaap",
+     "opaannnnnnnnaapo",
+     "sopaannnEnncapoo",
+     "FoopaanEEEaapoFs",
+     "oFoopaaEEaapoooF",
+     "ooonnpaacapnoooo"
+    ]
+   }
+  },
+  {
+   "duration_ms": 100,
+   "cels": {
+    "main": [
+     "oonnnnpcapnnnooo",
+     "onnnnnaaaannnnoo",
+     "nnnnnaappaanFFno",
+     "nnnncapoopaannFn",
+     "Ennaapoosopaannn",
+     "EEaapoFsFFoFaanE",
+     "EcapooFFoFFopaaE",
+     "aapnoooFFsonnpaa",
+     "apnnnooooFnnnnpa",
+     "aannnnooFnFnnnca",
+     "paannnnFFnnFnaap",
+     "opaannnnGnFnaapo",
+     "sopaanFGGGncapoo",
+     "FoopaanGGGaapoFs",
+     "oFoopaaEEaapoooF",
+     "ooonnpaacapnoooo"
+    ]
+   }
+  },
+  {
+   "duration_ms": 100,
+   "cels": {
+    "main": [
+     "yyyyyyyyyyyuyyyy",
+     "wwwxxxxxxuxuHxux",
+     "wwwwwwwwwuwuywww",
+     "vvvvvvvvvvvuvvvv",
+     "uuuuuuuuuuuuuuuu",
+     "yyyyyyyyyyyyyyyy",
+     "xxwwxxxxxxxxxxux",
+     "xwwwwwwxxxxxxxxx",
+     "xxxuxxxxxxwwwwwx",
+     "vvvvvvvvvvvvvvvv",
+     "uuuuuuuuuuuuuuuu",
+     "yyyyuyyyyyyyyyyy",
+     "xxuxuHxuxxxxwwww",
+     "wwuwuywwwwwwwwvw",
+     "vvvvuvvvvvvvvIIv",
+     "uuuuuuuuuuuuuuuu"
+    ]
+   }
+  },
+  {
+   "duration_ms": 100,
+   "cels": {
+    "main": [
+     "yyyyyyyyyyyuxxyy",
+     "wwwxxxxxxuxuHxux",
+     "wwwwwwwwwuwuywww",
+     "vvvvvvvvvvvuvvvv",
+     "uuuuuuuuuuuuuuuu",
+     "yyyyyyyyyyyyyyyy",
+     "xxwwxxxxxxxxvvux",
+     "xwuuuuuuuuuuuuxx",
+     "xxxJJxxJCxJJwwwx",
+     "vvvvvvvvvvvvvvvv",
+     "uuuuuuuuuuuuuuuu",
+     "yyyyuyyJuuJyyyyy",
+     "xxuxuHxuxJxxwwww",
+     "wwuwuywwwwwwwwvw",
+     "vvvvuvvvvvvvvIIv",
+     "uuuuuuuuuuuuuuuu"
+    ]
+   }
+  },
+  {
+   "duration_ms": 100,
+   "cels": {
+    "main": [
+     "fffffffffffffffb",
+     "fffeeeeieeeeeedb",
+     "ffeeeeiKeeeeeedb",
+     "fefgeiKieefgeedb",
+     "feecbKieeeecbedb",
+     "feeiKieeieeeeedb",
+     "feiKieeieeeeeedb",
+     "feKieeieeeeeeedb",
+     "feieeieeeeeeeedb",
+     "feeeeeeeeeeeeedb",
+     "feeeeeeeeeeeeedb",
+     "fdfgddddddfgdddb",
+     "fddcbddddddcbddb",
+     "fddddddddddddddb",
+     "fccccccccccccccb",
+     "bbbbbbbbbbbbbbbb"
+    ]
+   }
+  },
+  {
+   "duration_ms": 100,
+   "cels": {
+    "main": [
+     "fffffffffffffffb",
+     "fffeeeeieeeeeedb",
+     "ffeeeeiKeeeeeedb",
+     "fefgeiKdeefgeedb",
+     "feecbKdedeecbedb",
+     "feeiKdedddeeledb",
+     "felKiedddeeeeldb",
+     "feKleedccdeeeedb",
+     "feieecbbbcdeeedb",
+     "feeekdcddefkeedb",
+     "feeekefffffkeedb",
+     "fdfgdkkffkdbdddb",
+     "fddcbddddddbdddb",
+     "fddddddddddddddb",
+     "fccccccccccccccb",
+     "bbbbbbbbbbbbbbbb"
+    ]
+   }
+  },
+  {
+   "duration_ms": 100,
+   "cels": {
+    "main": [
+     "qqppppFecFpppqqq",
+     "qpppppccccppppqq",
+     "pppppccFFccppppq",
+     "ppppecFqqFccpppp",
+     "oppccFqqLqFccppp",
+     "ooccFqMsMqqFccpo",
+     "oecFqqqMqMqqFcco",
+     "ccFpqqqqqqqppFcc",
+     "cFpppqqqqqppppFc",
+     "ccppppqqqpppppec",
+     "FccppppqpppppccF",
+     "qFccppppppppccFq",
+     "LqFccpppoppecFqq",
+     "MqqFccpoooccFqMs",
+     "qMqqFccooccFqqqM",
+     "qqqppFccecFpqqqq"
+    ]
+   }
+  },
+  {
+   "duration_ms": 100,
+   "cels": {
+    "main": [
+     "qqppppFecFpppqqq",
+     "qpppppccccppppqq",
+     "pppppccFFccpMMpq",
+     "ppppecFqqFccppMp",
+     "oppccFqqLqFccppp",
+     "ooccFqMsMMqMccpo",
+     "oecFqqMMqMMqFcco",
+     "ccFpqqqMMLqppFcc",
+     "cFpppqqqqMppppFc",
+     "ccppppqqMpMpppec",
+     "FccppppMMppMpccF",
+     "qFccppppEpMpccFq",
+     "LqFccpMEEEpecFqq",
+     "MqqFccpEEEccFqMs",
+     "qMqqFccooccFqqqM",
+     "qqqppFccecFpqqqq"
+    ]
+   }
+  },
+  {
+   "duration_ms": 100,
+   "cels": {
+    "main": [
+     "zzzzzzzzzzzvzzzz",
+     "yyyzzzzzzwzvNzwz",
+     "yyyyyyyyywyvzyyy",
+     "xxxxxxxxxxxvxxxx",
+     "vvvvvvvvvvvvvvvv",
+     "zzzzzzzzzzzzzzzz",
+     "zzyyzzzzzzzzzzwz",
+     "zyyyyyyzzzzzzzzz",
+     "zzzwzzzzzzyyyyyz",
+     "xxxxxxxxxxxxxxxx",
+     "vvvvvvvvvvvvvvvv",
+     "zzzzvzzzzzzzzzzz",
+     "zzwzvNzwzzzzyyyy",
+     "yywyvzyyyyyyyyxy",
+     "xxxxvxxxxxxxxOOx",
+     "vvvvvvvvvvvvvvvv"
+    ]
+   }
+  },
+  {
+   "duration_ms": 100,
+   "cels": {
+    "main": [
+     "zzzzzzzzzzzvzzzz",
+     "yyyzzzzzzvzvNzwz",
+     "yyyyyyyyywyvzyyy",
+     "xxxxxxxxxxxvxxxx",
+     "vvvvvvvvvvvvvvvv",
+     "zzzzzzzzzzzzzzzz",
+     "zzyyzzzzzzzzxxwz",
+     "zyvvvvvvvvvvvvzz",
+     "zzzPPzzPCzPPyyyz",
+     "xxxxxxxxxxxxxxxx",
+     "vvvvvvvvvvvvvvvv",
+     "zzzzvzzPvvPzzzzz",
+     "zzwzvNzwzPzzyyyy",
+     "yywyvzyyyyyyyyxy",
+     "xxxxvxxxxxxxxOOx",
+     "vvvvvvvvvvvvvvvv"
+    ]
+   }
+  }
+ ],
+ "tags": [
+  {
+   "name": "iron_plate",
+   "from": 0,
+   "to": 1,
+   "direction": "forward"
+  },
+  {
+   "name": "glass_leaded",
+   "from": 2,
+   "to": 5,
+   "direction": "forward"
+  },
+  {
+   "name": "timber_boards",
+   "from": 6,
+   "to": 9,
+   "direction": "forward"
+  },
+  {
+   "name": "tone_dim",
+   "from": 10,
+   "to": 15,
+   "direction": "forward"
+  },
+  {
+   "name": "tone_lit",
+   "from": 16,
+   "to": 21,
+   "direction": "forward"
+  }
+ ]
+}

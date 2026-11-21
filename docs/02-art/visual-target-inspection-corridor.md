@@ -132,7 +132,7 @@ book/floor/chapter before claiming canon.
 - [x] Human approval of **overall atmosphere and broad shot composition** (2026-11-15); this is not a line-by-line scene or character approval.
 - [x] Noncanonical Carl depiction explicitly identified; **approved Carl reference remains unchanged**.
 - [ ] Human approval of gameplay-scale pixel-art sample.
-- [ ] Editable Aseprite sources and reproducible atlas export.
+- [x] Editable Aseprite sources and reproducible atlas export for the terrain materials (stone: ENV-01; wood, glass, reinforced metal: `assets/source/terrain/floor01/materials.ase`, [WORK-007 evidence](../evidence/work-007/README.md)); independent review pending. Barrel, enemy and impact FX come from earlier work orders.
 - [ ] Gameplay screenshot/video from Bevy.
 - [ ] 1280×800 / 1920×1080 readability checks.
 - [ ] Franchise rights / original-IP packaging review before any game or asset-pack release (art publication in this repo is covered by `ART-PUBLICATION-ALL-V1`).
