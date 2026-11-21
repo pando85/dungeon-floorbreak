@@ -311,6 +311,8 @@ struct Args {
     /// review pose (`--reference-frame` rules) in its own room, Carl and Donut on
     /// the room's marks.
     refuge: bool,
+    /// `--refuge-empty`: the guild room without its cast (the empty-room evidence).
+    refuge_empty: bool,
     /// The launched Boiler room (`main` fills it right after parsing).
     boiler_run: Option<Box<f01_boiler::BoilerRun>>,
     /// PT-SCENE: `--scene f01_late`. It is a launcher: the room (`--f01-room`)
@@ -660,6 +662,9 @@ fn resolve_boiler_args(parsed: &mut Args) -> Result<(), String> {
 /// every run mode that picks another room or script is refused.
 fn resolve_refuge_args(parsed: &mut Args) -> Result<(), String> {
     if !parsed.refuge {
+        if parsed.refuge_empty {
+            return Err("--refuge-empty needs --scene refuge_guild".into());
+        }
         return Ok(());
     }
     if parsed.cf02.rules
@@ -1104,6 +1109,7 @@ fn parse_args_full(
         lab_run: None,
         f01_boiler: false,
         refuge: false,
+        refuge_empty: false,
         boiler_run: None,
         f01_late: false,
         f01_room: None,
@@ -1248,6 +1254,7 @@ fn parse_args_full(
             other if lab_flag(&mut parsed.lab, other, &mut iter)? => {
                 parsed.lab_variant_set |= other == "--lab-variant";
             }
+            "--refuge-empty" => parsed.refuge_empty = true,
             "--f01-room" => {
                 let value = iter.next().ok_or("--f01-room needs a room id")?;
                 parsed.f01_room = Some(value.clone());
@@ -2578,6 +2585,17 @@ struct ExitAfter(Option<u64>);
 #[derive(Resource)]
 struct LightingOn(bool);
 
+/// AREA-REFUGE-01: Mordecai in the guild room (`None` outside it, or while his mark is off).
+#[derive(Resource)]
+struct MordecaiRes(Option<(ActorSpec, refuge::Mordecai)>);
+
+/// The marker of Mordecai's sprite.
+#[derive(Component)]
+struct MordecaiVisual;
+
+/// Lighting footprint of Mordecai's contact shadow: the standing body, not the 52 px canvas.
+const MORDECAI_SHADOW_WIDTH: i32 = 34;
+
 /// Review-capture pose of the ENV-01 lit preview (`preview.actor_check` of the
 /// sample layout): fixed camera, Carl and Donut standing at fixed x, first
 /// frames, presentation tick 0. Pure presentation: the simulation is untouched.
@@ -3288,14 +3306,39 @@ fn run_window(
     let cine_settings = args.cinematic_settings();
     let camera = scene_camera_of(&kit, &args, &sim, combat.as_ref(), window_size);
     let lighting_on = !args.no_lighting && kit.lighting.is_some();
+    let mordecai = if args.refuge && !args.refuge_empty {
+        match refuge::Room::load(root).and_then(|room| room.mordecai(root)) {
+            Ok(found) => found.map(|m| {
+                let spec = ActorSpec {
+                    name: "MORDECAI",
+                    width: m.frame_w,
+                    height: m.frame_h,
+                    pivot_x: m.pivot_x,
+                    pivot_y: m.pivot_y,
+                    shadow_width: MORDECAI_SHADOW_WIDTH,
+                    shadow_pivot_x: m.pivot_x,
+                };
+                (spec, m)
+            }),
+            Err(message) => {
+                println!("FLOOR1_ASSET_FAILURE: {message}");
+                eprintln!("FLOOR1_ASSET_FAILURE: {message}");
+                std::process::exit(1);
+            }
+        }
+    } else {
+        None
+    };
     let reference = if args.refuge {
         // AREA-REFUGE-01: Carl and Donut on the room's marks (already checked by the kit load).
         match refuge::Room::load(root) {
             Ok(room) => {
                 let cast = room.cast_x();
+                // Empty room: the cast stands far outside the 640 px view.
+                let away = if args.refuge_empty { -400.0 } else { 0.0 };
                 Some(RefPose {
-                    carl_x: cast.carl,
-                    donut_x: cast.donut,
+                    carl_x: cast.carl + away,
+                    donut_x: cast.donut + away,
                 })
             }
             Err(message) => {
@@ -3422,6 +3465,7 @@ fn run_window(
     .insert_resource(ExitAfter(exit_after))
     .insert_resource(LightingOn(lighting_on))
     .insert_resource(ReferencePose(reference))
+    .insert_resource(MordecaiRes(mordecai))
     .insert_resource(LiveScenario(scenario))
     .insert_resource(Combat(combat))
     .insert_resource(BossArtRes(boss_art))
@@ -3443,6 +3487,7 @@ fn run_window(
             cine_frame,
             perf_step,
             sync_visuals,
+            sync_mordecai,
             sync_combat_visuals,
             sync_donut_visuals,
             sync_boss_visuals,
@@ -3548,6 +3593,7 @@ fn setup(
     death: Res<Death>,
     hud_atlas: Res<HudAtlas>,
     boss_art: Res<BossArtRes>,
+    mordecai: Res<MordecaiRes>,
     cam: Res<SceneCam>,
 ) {
     let kit = &setup.kit;
@@ -3691,6 +3737,32 @@ fn setup(
         true,
         kit.actor_z + CARL_Z_OFFSET,
     );
+
+    // AREA-REFUGE-01: Mordecai, behind Donut and Carl, on his mark (first idle frame).
+    let mut refuge_handles: Vec<(String, Handle<Image>)> = Vec::new();
+    if let Some((_, m)) = mordecai.0.as_ref() {
+        let texture: Handle<Image> = asset_server.load(m.atlas_asset.clone());
+        let layout = layouts.add(TextureAtlasLayout::from_grid(
+            UVec2::new(m.frame_w as u32, m.frame_h as u32),
+            m.frame_count as u32,
+            1,
+            None,
+            None,
+        ));
+        commands.spawn((
+            MordecaiVisual,
+            Sprite::from_atlas_image(
+                texture.clone(),
+                TextureAtlas {
+                    layout,
+                    index: m.idle_first,
+                },
+            ),
+            Transform::from_xyz(0.0, 0.0, kit.actor_z - 0.1),
+            layers_of("actors"),
+        ));
+        refuge_handles.push((m.atlas_asset.clone(), texture));
+    }
 
     // Combat fixture only: Carl's melee sprite, one sprite per goblin (variant A
     // or B by index parity) and the optional debug boxes.
@@ -4334,6 +4406,7 @@ fn setup(
     handles.push((actors.carl.atlas_asset.clone(), carl_texture));
     handles.push((actors.donut.atlas_asset.clone(), donut_texture));
     handles.extend(combat_handles);
+    handles.extend(refuge_handles);
     let tiles = kit.tiles.len();
     let pieces = kit.pieces.len();
     let counts = format!(
@@ -5166,6 +5239,27 @@ fn sync_visuals(
     for mut transform in &mut hero_box {
         transform.translation.x = hero.x.round();
         transform.translation.y = hero.y.round();
+    }
+}
+
+/// AREA-REFUGE-01: Mordecai on his mark, standing on the walking line of his column, mirrored
+/// about his pivot when he faces left (he is authored facing right).
+fn sync_mordecai(
+    setup: Res<Setup>,
+    mordecai: Res<MordecaiRes>,
+    mut sprites: Query<(&mut Transform, &mut Sprite), With<MordecaiVisual>>,
+) {
+    let Some((spec, m)) = mordecai.0.as_ref() else {
+        return;
+    };
+    let kit = &setup.kit;
+    let line = kit.walking_line_at(m.x).unwrap_or(kit.base_walk_line_y);
+    let flip = m.facing == refuge::Facing::Left;
+    let (cx, cy) = actor_center(*spec, m.x as f32, to_world_y(kit.height, line), flip);
+    for (mut transform, mut sprite) in &mut sprites {
+        transform.translation.x = cx;
+        transform.translation.y = cy;
+        sprite.flip_x = flip;
     }
 }
 
@@ -6741,6 +6835,7 @@ fn update_lighting(
     combat: Res<Combat>,
     death: Res<Death>,
     cam: Res<SceneCam>,
+    mordecai: Res<MordecaiRes>,
     windows: Query<&Window, With<PrimaryWindow>>,
     materials: Option<ResMut<Assets<LightingMaterial>>>,
     mut dropped_reported: Local<bool>,
@@ -6789,6 +6884,17 @@ fn update_lighting(
             shadows.push(contact_shadow(
                 profile,
                 centre_x,
+                line as f32,
+                spec.shadow_width as f32,
+                view,
+            ));
+        }
+        // AREA-REFUGE-01: Mordecai's contact shadow on the walking line of his column.
+        if let Some((spec, m)) = mordecai.0.as_ref() {
+            let line = kit.walking_line_at(m.x).unwrap_or(kit.base_walk_line_y);
+            shadows.push(contact_shadow(
+                profile,
+                shadow_center_x(*spec, m.x as f32, m.facing == refuge::Facing::Left),
                 line as f32,
                 spec.shadow_width as f32,
                 view,
@@ -9271,6 +9377,12 @@ mod tests {
             list.extend_from_slice(flags);
             assert!(args(&list).is_err(), "{flags:?}");
         }
+        assert!(
+            args(&["--scene", "refuge_guild", "--refuge-empty"])
+                .unwrap()
+                .refuge_empty
+        );
+        assert!(args(&["--refuge-empty"]).is_err());
         // The f01_late manifest is untouched: the room is not one of its rooms.
         assert!(args(&["--scene", "f01_late", "--f01-room", "refuge_guild"]).is_err());
     }

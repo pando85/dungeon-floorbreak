@@ -314,7 +314,11 @@ fn merged_contract_value(
 ) -> Result<serde_json::Value, EnvError> {
     use serde_json::Value;
     let mut ext: Value = load_json(&root.join(path))?;
-    let Some(base_ref) = ext.get("extends").and_then(Value::as_str).map(str::to_owned) else {
+    let Some(base_ref) = ext
+        .get("extends")
+        .and_then(Value::as_str)
+        .map(str::to_owned)
+    else {
         return Ok(ext);
     };
     if depth >= MAX_EXTENDS_DEPTH {

@@ -1,0 +1,13 @@
+{
+  "asset_id": "area-refuge-01-hearth",
+  "format": "pixelart-keys-v1",
+  "keys": {
+    "0": {
+      "sha256": "a0c78a638951f0af0da5263b6dcd540c18eb7777a361d626642e9a6d7f4d39aa"
+    }
+  },
+  "layers": [
+    "surround",
+    "fire"
+  ]
+}

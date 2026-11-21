@@ -19,10 +19,10 @@
     "mordecai": {
       "x": 380,
       "facing": "left",
-      "enabled": false,
-      "sprite": null,
+      "enabled": true,
+      "sprite": "assets/manifests/mordecai_h44.json",
       "height_px": 44,
-      "note": "REF-Q1: host side of the hearth. Off until MORDECAI-01's idle key exists: set 'sprite' to its manifest and 'enabled' to true (the scene refuses enabled without a sprite)"
+      "note": "REF-Q1: host side of the hearth, facing the party (authored facing right, mirrored). 'enabled': false switches him off (the loader then ignores the sprite); enabled without a sprite is refused"
     }
   },
   "clearances_view_x": {

@@ -868,6 +868,7 @@ class EnvKitTests(unittest.TestCase):
             LAYOUT,
             "assets/levels/floor01/opening_route_proposal.json",            # ENV-02 proposal
             "assets/levels/floor01/opening_route_proposal_ceiling_t.json",  # ENV-02 option T
+            "assets/levels/floor01/refuge_guild.json",                      # AREA-REFUGE-01 guild room
         ])
 
     def test_find_layouts_fails_on_unparsable_and_unknown_versions(self) -> None:

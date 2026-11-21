@@ -1,6 +1,6 @@
 # AREA-REFUGE-01: Mordecai's Tutorial Guild room kit, design spec
 
-**Status:** design spec and hearth hero key (frame 0 of `burn`) frozen; silhouette gate on the hero key pending; every other prop, the room JSON and the Bevy scene are execution work (section 12). Nothing here is wired into Bevy yet.
+**Status:** design spec and hearth hero key frozen (silhouette gate PASS); kit, room and Bevy scene executed (section 15), independent review pending. Launch: `floor01_scene --scene refuge_guild`.
 
 **Route:** difficulty score 1 (new design), class Easy, route **C + silhouette gate on the hero key** ([routing by difficulty](../07-agents/pixel-art-pipeline.md#routing-by-difficulty)). Work order row: [floor-01-area-kits-plan.md](../07-agents/floor-01-area-kits-plan.md) (`AREA-REFUGE-01`: modest hearth, bed, shelves and functional door; no combat systems, no unapproved character animations).
 
@@ -186,7 +186,7 @@ For the execution tier; no design decisions needed. Questions that are design go
 3. **Kit contract** `assets/source/terrain/floor01/floor01_refuge_kit.json`, extending the ENV-01 kit the way `floor01_opening_kit.json` does (the ENV-01 contract and grids are not modified): pieces, anchors, `lights` from section 7.
 4. **Manifests** `assets/manifests/floor01_refuge*.json` modelled on `floor01_guild.json` (decor_atlas, palette `floor01-catacomb-v2`, provenance with `generated_art: true`, `review_status: prototype_fixture_unapproved`), and SHA-256 sums; run `bash scripts/export_assets.sh` and the existing asset validators (`scripts/validate_assets.py`, `python3 -m scripts.pixelart` validators). No bespoke validators.
 5. **Room layout** `assets/levels/floor01/refuge_guild.json` in the corridor layout format (sections 3, 7, 8): tile layers, piece layers, view `refuge_640x360`, lighting profile, the `exit_guild_return` trigger and the `marks` of section 9.
-6. **Bevy room**: a separate room file (`assets/levels/floor01/refuge_guild.room.json` or the schema the Bevy room loader expects) and a launchable scene or room option (for example a `--room refuge_guild` flag or a scene id) that renders the room lit with Carl, Donut and, once MORDECAI-01 lands, Mordecai on their marks. Not in the f01_late playtest manifest; register new data in `data_pins()` only if the convention requires it, without moving existing pins.
+6. **Bevy room**: a separate room file (`assets/levels/floor01/refuge_guild.scene.json` or the schema the Bevy room loader expects) and a launchable scene or room option (for example a `--room refuge_guild` flag or a scene id) that renders the room lit with Carl, Donut and, once MORDECAI-01 lands, Mordecai on their marks. Not in the f01_late playtest manifest; register new data in `data_pins()` only if the convention requires it, without moving existing pins.
 7. **Evidence** under `docs/evidence/area-refuge-01/`: empty-room contact sheet (1x and 2x, unlit and lit), per-prop 1x/3x sheet, hearth `burn` GIF at 2x, lit 640 x 360 and 1920 x 1080 captures with the cast on marks, a real Bevy capture, the 3-image review pack (`python3 -m scripts.pixelart review`), README and `SHA256SUMS`.
 
 ## 13. Files
@@ -199,7 +199,7 @@ For the execution tier; no design decisions needed. Questions that are design go
 | `assets/source/props/floor01/refuge_*.grid.json` / `.ase` | other props (execution) |
 | `assets/source/terrain/floor01/floor01_refuge_kit.json` | kit contract (execution) |
 | `assets/manifests/floor01_refuge*.json` | manifests (execution) |
-| `assets/levels/floor01/refuge_guild.json`, `refuge_guild.room.json` | room layout and Bevy room (execution) |
+| `assets/levels/floor01/refuge_guild.json`, `refuge_guild.scene.json` | room layout and Bevy room (execution) |
 
 ## 14. Open questions and adopted defaults
 
@@ -209,3 +209,25 @@ For the execution tier; no design decisions needed. Questions that are design go
 | REF-Q2 | Does the hood end in a flue to the ceiling? | yes, `refuge_hearth_flue` repeated to the string course |
 | REF-Q3 | Door side and swing | left wall, hinge on the room's left, swings inward; corridor cold beyond |
 | REF-Q4 | One fixed screen or a short scroll? | one fixed 640 x 360 screen |
+
+## 15. Execution record (medium tier)
+
+Designed by Claude Opus (spec and hearth key), executed by Claude Sonnet; independent review pending.
+
+Delivered: [hearth frames 1-3 and the five gate fixes](../evidence/area-refuge-01/README.md), the props as three atlases (`refuge_props`, `refuge_wall`, `refuge_door`) plus the hearth and candle animations, the kit contract `floor01_refuge_kit.json`, four plus one manifests, the layout `refuge_guild.json`, the room file `refuge_guild.scene.json`, the loader `src/refuge.rs` and the scene `floor01_scene --scene refuge_guild [--deck] [--refuge-empty]` (a `--reference-frame` style review pose; not in the `f01_late` manifest, not recorded, no pin moved). Mordecai (MORDECAI-01, `mordecai_h44`) stands on his mark.
+
+Deviations and adopted values (execution tier; the designer may overrule):
+
+| ID | Item | Value and reason |
+| --- | --- | --- |
+| REF-X1 | Atlas packing | Props are packed into atlases like ENV-02 (`refuge_props`, `refuge_wall`, `refuge_door`) instead of one grid per prop; the kit contract addresses pieces by rect |
+| REF-X2 | `refuge_hearth_flue` | Four soot levels (`_s1`.. `_s3`) because one repeat tile cannot darken downwards; courses are 7 px stone plus a 1 px joint so two fill the 16 px tile |
+| REF-X3 | Desk candle | Own 3 x 2 animated piece `refuge_candle_flame` (four identical frames): the ENV-01 contract allows `flicker` only on animated pieces, and the spec wants a static sprite with a flickering light |
+| REF-X4 | Torches | Flames at view x 136 and 576 (spec 140 and 576): the kit's torch grid snap is 8 px; kit mount row 160 (flame row 158 view); no torch pool decals (the right one would leave the 640 px layout) |
+| REF-X5 | Fire core box | The frozen frame 0 has flame 4-5 pixels at x 28..51 (side tongues), outside the spec's x 33..47; frames 1-3 stay inside frame 0's box. Spec sentence and key disagree, key wins |
+| REF-X6 | Peak frames | Five tongues, four frames: the two small side tongues share a peak frame (0) |
+| REF-X7 | Alpha rule | The kit validator needs one clear pixel in every decor piece: clipped or rounded corners on the map, frames and flue tiles |
+| REF-X8 | Views | The layout carries `refuge_640x360` / `refuge_640x400` and the aliases `abc_640x360` / `abc_640x400` the scene asks for |
+| REF-X9 | Right pier | The kit has no `*_wall_r` tiles: the right side is S1 deck tiles plus `wall_end_r`, the backwall's last column is empty |
+| REF-X10 | Mordecai | On his mark (x 380, facing left) with his `idle` frame 0 (review pose, no loop in the scene); the mark can be switched off in the room file || REF-X11 | Room file name | `refuge_guild.scene.json`, not `.room.json`: that suffix is the camera-lab room schema, which `donut_prog_fixtures` scans for every file of the directory |
+

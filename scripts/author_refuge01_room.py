@@ -6,7 +6,7 @@ Reads the piece rectangles the atlas packer of ``scripts/author_refuge01_props.p
 - ``assets/source/terrain/floor01/floor01_refuge_kit.json``  env-kit-v2 extension of the ENV-01 contract
 - ``assets/manifests/floor01_refuge_{hearth,props,wall,door}.json``
 - ``assets/levels/floor01/refuge_guild.json``                 env-kit-layout-v2, 40 x 25 tiles (640 x 400)
-- ``assets/levels/floor01/refuge_guild.room.json``            the Bevy room: marks, door, exit trigger
+- ``assets/levels/floor01/refuge_guild.scene.json``            the Bevy room: marks, door, exit trigger
 
 The layout reuses the A-grammar tile columns of the ENV-02 corridor (``opening_route_proposal.json``, S1)
 and its right end wall, so the room reads as the space behind the guild door. Design:
@@ -30,7 +30,7 @@ KIT_ID = "floor01_refuge"
 CONTRACT_REL = "assets/source/terrain/floor01/floor01_refuge_kit.json"
 BASE_REL = "assets/source/terrain/floor01/floor01_catacomb_kit.json"
 LAYOUT_REL = "assets/levels/floor01/refuge_guild.json"
-ROOM_REL = "assets/levels/floor01/refuge_guild.room.json"
+ROOM_REL = "assets/levels/floor01/refuge_guild.scene.json"
 SOURCE_LAYOUT = ROOT / "assets/levels/floor01/opening_route_proposal.json"
 PALETTE_ID = "floor01-catacomb-v2"
 LY = 20                                    # layout y = view y + 20 (spec section 3)
@@ -217,14 +217,14 @@ def build_layout() -> dict:
     lighting = src["lighting"]
     layout = {
         "format": "env-kit-layout-v2", "layout_id": "floor01_refuge_guild", "kit": KIT_ID, "kit_contract": CONTRACT_REL,
-        "status": "AREA-REFUGE-01 guild room: one fixed screen, decor only; the Bevy room is refuge_guild.room.json",
+        "status": "AREA-REFUGE-01 guild room: one fixed screen, decor only; the Bevy room is refuge_guild.scene.json",
         "tile_size": [16, 16], "grid_size": [cols, 25], "pixel_size": [640, 400],
         "coordinate_system": src["coordinate_system"], "base_walk_line_y": 308,
         "requirements": {"continuous_floor": True, "max_step_tiles": 2},
         "segments": [{"id": "R1_guild_room", "grammar": "A", "beat": "A",
                       "purpose": "the guild interior: hearth focus, bed, shelf, desk, open central floor", "x": [0, 640]}],
         "markers": [{"id": "player_spawn", "kind": "spawn", "x": 258, "y": 307,
-                     "note": "Carl's mark (room marks live in refuge_guild.room.json)"},
+                     "note": "Carl's mark (room marks live in refuge_guild.scene.json)"},
                     {"id": "exit_guild_return", "kind": "exit", "x": 72, "y": 307, "rect": [40, 228 + LY, 64, 60],
                      "note": "enter the rect: refuge_door_inside closed -> open, return to the corridor's exit_guild"}],
         "views": {"refuge_640x360": [0, LY, 640, 360], "refuge_640x400": [0, 0, 640, 400],
@@ -248,11 +248,11 @@ def build_room() -> dict:
         "marks": {
             "donut": {"x": 226, "facing": "right", "note": "in front of the bookshelf"},
             "carl": {"x": 258, "facing": "right", "note": "left of the hearth, clear of the fire opening"},
-            "mordecai": {"x": 380, "facing": "left", "enabled": False, "sprite": None,
-                         "height_px": 44,
-                         "note": "REF-Q1: host side of the hearth. Off until MORDECAI-01's idle key exists: set "
-                                 "'sprite' to its manifest and 'enabled' to true (the scene refuses enabled "
-                                 "without a sprite)"},
+            "mordecai": {"x": 380, "facing": "left", "enabled": True,
+                         "sprite": "assets/manifests/mordecai_h44.json", "height_px": 44,
+                         "note": "REF-Q1: host side of the hearth, facing the party (authored facing right, "
+                                 "mirrored). 'enabled': false switches him off (the loader then ignores the "
+                                 "sprite); enabled without a sprite is refused"},
         },
         "clearances_view_x": {"hearth_opening": [302, 337], "desk": [424, 480], "free_floor": [200, 420]},
         "door": {"states": {"closed": "refuge_door_inside_closed", "open": "refuge_door_inside_open"},

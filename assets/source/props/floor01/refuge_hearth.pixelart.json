@@ -1,0 +1,85 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "area-refuge-01-hearth",
+  "title": "AREA-REFUGE-01 guild-room hearth: frozen frame-0 key and three fire frames (surround byte-identical)",
+  "grid": "assets/source/props/floor01/refuge_hearth.grid.json",
+  "manifest": "assets/manifests/floor01_refuge_hearth.json",
+  "frame_size": [
+    80,
+    80
+  ],
+  "pivot": [
+    40,
+    79
+  ],
+  "contact_row": 79,
+  "tick_hz": 60,
+  "hold_ms": 120,
+  "facing": "right",
+  "tags": {
+    "burn": {
+      "playback": "loop",
+      "contact": "grounded",
+      "frames": [
+        [
+          0,
+          null
+        ],
+        [
+          1,
+          null
+        ],
+        [
+          2,
+          null
+        ],
+        [
+          3,
+          null
+        ]
+      ]
+    }
+  },
+  "roles": {
+    "idle": "burn",
+    "move": "burn",
+    "tell": "burn"
+  },
+  "rules": {
+    "max_colors": 47,
+    "max_isolated_per_frame": 4,
+    "max_orphans_per_frame": 220,
+    "canvas_margin": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "unique_frames": true,
+    "frozen_keys": {
+      "fixture": "tests/fixtures/area-refuge-01-hearth_keys.json",
+      "frames": [
+        0
+      ],
+      "layers": [
+        "surround",
+        "fire"
+      ]
+    }
+  },
+  "scene": {
+    "actors": [
+      {
+        "frame": 0,
+        "x": 700,
+        "shadow": false
+      }
+    ]
+  },
+  "review": {
+    "strip_name": "03_burn_strip.png",
+    "strip_tags": [
+      "burn"
+    ]
+  }
+}
