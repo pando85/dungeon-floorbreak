@@ -1,0 +1,88 @@
+COMBAT_EVENT tick=102 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=104 kind=move_started move=jab instance=1
+COMBAT_EVENT tick=107 kind=hit move=jab instance=1 target=0 damage=1 health_left=1 hit_stop=3
+COMBAT_EVENT tick=107 kind=goblin_interrupted goblin=0
+COMBAT_EVENT tick=114 kind=move_started move=haymaker instance=2
+COMBAT_EVENT tick=119 kind=hit move=haymaker instance=2 target=0 damage=1 health_left=0 hit_stop=8
+COMBAT_EVENT tick=119 kind=enemy_defeated target=0
+COMBAT_EVENT tick=119 kind=goblin_reaction goblin=1 reaction=hesitate nerve=49
+COMBAT_EVENT tick=162 kind=goblin_tell goblin=1
+COMBAT_EVENT tick=164 kind=move_started move=jab instance=3
+COMBAT_EVENT tick=167 kind=hit move=jab instance=3 target=1 damage=1 health_left=1 hit_stop=3
+COMBAT_EVENT tick=167 kind=goblin_interrupted goblin=1
+COMBAT_EVENT tick=174 kind=move_started move=haymaker instance=4
+COMBAT_EVENT tick=179 kind=hit move=haymaker instance=4 target=1 damage=1 health_left=0 hit_stop=8
+COMBAT_EVENT tick=179 kind=enemy_defeated target=1
+COMBAT_EVENT tick=179 kind=goblin_reaction goblin=2 reaction=panic nerve=20
+COMBAT_EVENT tick=223 kind=llama_tell llama=0
+COMBAT_EVENT tick=259 kind=goblin_tell goblin=2
+COMBAT_EVENT tick=259 kind=llama_spit llama=0
+COMBAT_EVENT tick=260 kind=move_started move=jab instance=5
+COMBAT_EVENT tick=263 kind=hit move=jab instance=5 target=2 damage=1 health_left=1 hit_stop=3
+COMBAT_EVENT tick=263 kind=goblin_interrupted goblin=2
+COMBAT_EVENT tick=270 kind=move_started move=haymaker instance=6
+COMBAT_EVENT tick=275 kind=hit move=haymaker instance=6 target=2 damage=1 health_left=0 hit_stop=8
+COMBAT_EVENT tick=275 kind=enemy_defeated target=2
+COMBAT_EVENT tick=275 kind=goblin_reaction goblin=3 reaction=hesitate nerve=36
+COMBAT_EVENT tick=333 kind=goblin_tell goblin=3
+COMBAT_EVENT tick=336 kind=move_started move=jab instance=7
+COMBAT_EVENT tick=343 kind=move_started move=haymaker instance=8
+COMBAT_EVENT tick=359 kind=goblin_swing goblin=3
+COMBAT_EVENT tick=359 kind=hero_hurt source=3 health_left=3
+COMBAT_EVENT tick=373 kind=llama_tell llama=0
+COMBAT_EVENT tick=384 kind=move_started move=jab instance=9
+COMBAT_EVENT tick=387 kind=hit move=jab instance=9 target=5 damage=1 health_left=2 hit_stop=3
+COMBAT_EVENT tick=387 kind=llama_interrupted llama=0
+COMBAT_EVENT tick=394 kind=move_started move=haymaker instance=10
+COMBAT_EVENT tick=399 kind=hit move=haymaker instance=10 target=5 damage=1 health_left=1 hit_stop=5
+COMBAT_EVENT tick=403 kind=move_started move=pounce instance=1
+COMBAT_EVENT tick=413 kind=hit move=pounce instance=1 target=3 damage=1 health_left=1 hit_stop=4
+COMBAT_EVENT tick=421 kind=move_started move=jab instance=11
+COMBAT_EVENT tick=428 kind=move_started move=haymaker instance=12
+COMBAT_EVENT tick=436 kind=goblin_reaction goblin=3 reaction=taunt nerve=61
+COMBAT_EVENT tick=450 kind=move_started move=jab instance=13
+COMBAT_EVENT tick=452 kind=move_started move=pounce instance=2
+COMBAT_EVENT tick=452 kind=llama_tell llama=0
+COMBAT_EVENT tick=457 kind=move_started move=haymaker instance=14
+COMBAT_EVENT tick=462 kind=hit move=pounce instance=2 target=3 damage=1 health_left=0 hit_stop=7
+COMBAT_EVENT tick=462 kind=enemy_defeated target=3 instigator=1
+COMBAT_EVENT tick=462 kind=goblin_tell goblin=4
+COMBAT_EVENT tick=488 kind=llama_spit llama=0
+COMBAT_EVENT tick=488 kind=hero_hurt source=5 health_left=2
+COMBAT_EVENT tick=500 kind=hero_hurt source=4 health_left=3 hero=donut
+COMBAT_EVENT tick=512 kind=move_started move=jab instance=15
+COMBAT_EVENT tick=519 kind=move_started move=haymaker instance=16
+COMBAT_EVENT tick=523 kind=move_started move=pounce instance=3
+COMBAT_EVENT tick=541 kind=move_started move=jab instance=17
+COMBAT_EVENT tick=541 kind=hit move=pounce instance=3 target=4 damage=1 health_left=2 hit_stop=4
+COMBAT_EVENT tick=548 kind=move_started move=haymaker instance=18
+COMBAT_EVENT tick=570 kind=move_started move=jab instance=19
+COMBAT_EVENT tick=577 kind=move_started move=haymaker instance=20
+COMBAT_EVENT tick=580 kind=goblin_tell goblin=4
+COMBAT_EVENT tick=588 kind=move_started move=swat instance=4
+COMBAT_EVENT tick=592 kind=hit move=swat instance=4 target=4 damage=0 health_left=2 hit_stop=2
+COMBAT_EVENT tick=592 kind=goblin_interrupted goblin=4
+COMBAT_EVENT tick=599 kind=move_started move=jab instance=21
+COMBAT_EVENT tick=602 kind=llama_tell llama=0
+COMBAT_EVENT tick=606 kind=move_started move=haymaker instance=22
+COMBAT_EVENT tick=612 kind=move_started move=swat instance=5
+COMBAT_EVENT tick=616 kind=glance instance=5 target=4 reason=guarded
+COMBAT_EVENT tick=616 kind=hit move=swat instance=5 target=5 damage=0 health_left=1 hit_stop=2
+COMBAT_EVENT tick=616 kind=llama_interrupted llama=0
+COMBAT_EVENT tick=622 kind=goblin_tell goblin=4
+COMBAT_EVENT tick=628 kind=move_started move=jab instance=23
+COMBAT_EVENT tick=635 kind=move_started move=haymaker instance=24
+COMBAT_EVENT tick=657 kind=move_started move=jab instance=25
+COMBAT_EVENT tick=663 kind=llama_tell llama=0
+COMBAT_EVENT tick=664 kind=move_started move=haymaker instance=26
+COMBAT_EVENT tick=667 kind=move_started move=pounce instance=6
+COMBAT_EVENT tick=677 kind=hit move=pounce instance=6 target=5 damage=1 health_left=0 hit_stop=7
+COMBAT_EVENT tick=677 kind=enemy_defeated target=5 instigator=1
+COMBAT_EVENT tick=677 kind=llama_interrupted llama=0
+COMBAT_EVENT tick=704 kind=move_started move=jab instance=27
+COMBAT_EVENT tick=707 kind=hit move=jab instance=27 target=4 damage=1 health_left=1 hit_stop=3
+COMBAT_EVENT tick=714 kind=move_started move=haymaker instance=28
+COMBAT_EVENT tick=719 kind=hit move=haymaker instance=28 target=4 damage=1 health_left=0 hit_stop=8
+COMBAT_EVENT tick=719 kind=enemy_defeated target=4
+COMBAT_STATE fixture=eng_solo_assist seed=0xe46001b tick=1800 elapsed=1800 hero_hp=2 deaths=0 enemies=e0=548.800/0,e1=614.334/0,e2=723.366/0,e3=888.234/0,e4=999.665/0 hash=cf5c4768f74cf6bb shore=0/Intact/Seated block_bottom=140.00 llamas=l0=891.829/0
+PARTY_STATE fixture=eng_solo_assist mode=solo controlled=Carl carl_hp=2 donut_hp=3 deaths=0 hash=04681a94990526a1

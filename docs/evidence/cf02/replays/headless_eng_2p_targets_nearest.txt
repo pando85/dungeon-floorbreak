@@ -1,0 +1,5 @@
+COMBAT_EVENT tick=1 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=42 kind=hero_hurt source=0 health_left=3 hero=donut
+COMBAT_EVENT tick=148 kind=goblin_tell goblin=0
+COMBAT_STATE fixture=eng_2p_targets_nearest seed=0xe460019 tick=160 elapsed=160 hero_hp=4 deaths=0 enemies=e0=228.000/3 hash=5572ae0a87f797a8 shore=0/Intact/Seated block_bottom=140.00
+PARTY_STATE fixture=eng_2p_targets_nearest mode=2p controlled=Carl carl_hp=4 donut_hp=3 deaths=0 hash=bd0214303e42939e

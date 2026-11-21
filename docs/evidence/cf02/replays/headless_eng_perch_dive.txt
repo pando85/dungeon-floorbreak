@@ -1,0 +1,8 @@
+COMBAT_EVENT tick=90 kind=move_started move=dive_stomp instance=1
+COMBAT_EVENT tick=111 kind=hit move=dive_stomp instance=1 target=0 damage=1 health_left=2 hit_stop=6
+COMBAT_EVENT tick=200 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=235 kind=hero_hurt source=0 health_left=3
+COMBAT_EVENT tick=341 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=379 kind=hero_hurt source=0 health_left=2
+COMBAT_STATE fixture=eng_perch_dive seed=0xe460013 tick=400 elapsed=400 hero_hp=2 deaths=0 enemies=e0=1045.335/2 hash=0a912ad583424604 shore=0/Intact/Seated block_bottom=140.00
+PARTY_STATE fixture=eng_perch_dive mode=solo controlled=Carl carl_hp=2 donut_hp=4 deaths=0 hash=3cb42d7088a2e8ca

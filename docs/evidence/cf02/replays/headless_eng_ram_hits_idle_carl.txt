@@ -1,0 +1,7 @@
+COMBAT_EVENT tick=1 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=45 kind=hero_hurt source=0 health_left=3
+COMBAT_EVENT tick=151 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=193 kind=hero_hurt source=0 health_left=2
+COMBAT_EVENT tick=299 kind=goblin_tell goblin=0
+COMBAT_STATE fixture=eng_ram_hits_idle_carl seed=0xe460001 tick=300 elapsed=300 hero_hp=2 deaths=0 enemies=e0=272.000/3 hash=10e4613a03547419 shore=0/Intact/Seated block_bottom=140.00
+PARTY_STATE fixture=eng_ram_hits_idle_carl mode=solo controlled=Carl carl_hp=2 donut_hp=4 deaths=0 hash=b793d5b325ae049f

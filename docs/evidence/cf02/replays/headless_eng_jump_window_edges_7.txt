@@ -1,0 +1,5 @@
+COMBAT_EVENT tick=1 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=52 kind=hero_hurt source=0 health_left=3
+COMBAT_EVENT tick=158 kind=goblin_tell goblin=0
+COMBAT_STATE fixture=eng_jump_window_edges_7 seed=0xe460003 tick=160 elapsed=160 hero_hp=3 deaths=0 enemies=e0=268.000/3 hash=4e98350fede09ab6 shore=0/Intact/Seated block_bottom=140.00
+PARTY_STATE fixture=eng_jump_window_edges_7 mode=solo controlled=Carl carl_hp=3 donut_hp=4 deaths=0 hash=494f2ce14e01f3ec

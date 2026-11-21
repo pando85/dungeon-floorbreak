@@ -418,6 +418,10 @@ impl<T> Pool<T> {
 
 /// The species keys of the death profiles the presenter draws.
 const GOBLIN_SPECIES: &str = "goblin";
+/// ENEMY-GAMEPLAY-ENGINEER (ENG-G-Q21): the Goblin Engineer's species. v1 draws
+/// every defeat as the ENG-01 `down` frames (the goblin sprite adapter shows them),
+/// so each recipe maps to `engineer_down`.
+const ENGINEER_SPECIES: &str = "goblin_engineer";
 const LLAMA_SPECIES: &str = "llama";
 
 /// The Bad Llama's death art and its composed sheets for the active preset
@@ -679,7 +683,9 @@ impl Finish {
     pub fn from_id(id: &str) -> Self {
         match id {
             "goblin_crushed" | "brute_crushed" => Self::Crushed,
-            "goblin_knockback_down" | "brute_ko_timber" => Self::Knockback,
+            // ENG-G-Q21: v1 keeps the ENG-01 `down` frames (blood is added, the
+            // sprite the scene draws stays), like `llama_down`.
+            "goblin_knockback_down" | "brute_ko_timber" | "engineer_down" => Self::Knockback,
             "goblin_decapitated" => Self::Decapitated,
             // The llama: the crush plays the same pose sequence, the slam its
             // own, and `llama_down` keeps the LLAMA-01 `down` frames like the
@@ -1060,6 +1066,9 @@ pub struct DeathPresenter {
     /// The species key of the goblin targets (tests swap it to check a species
     /// without art); the llama's is [`LLAMA_SPECIES`].
     species: &'static str,
+    /// ENEMY-GAMEPLAY-ENGINEER: the target ids of the Engineers of the run (their
+    /// species is [`ENGINEER_SPECIES`]); empty for every earlier run.
+    engineers: Vec<u32>,
     preset: GorePreset,
     /// The finish id chosen for the boss' defeat (HUD-DEBT-03).
     boss_finish: Option<String>,
@@ -1123,6 +1132,7 @@ impl DeathPresenter {
             llama: None,
             profiles: DeathProfiles::builtin(),
             species: GOBLIN_SPECIES,
+            engineers: Vec::new(),
             preset,
             boss_finish: None,
             clock: 0,
@@ -1482,6 +1492,15 @@ impl DeathPresenter {
     /// One fixed tick after the simulation step: ingest the new defeat events
     /// of `combat`, then advance the presentation.
     pub fn observe(&mut self, combat: &CombatState, scene: &SceneSim) {
+        if self.engineers.is_empty() && combat.enemies.iter().any(|g| g.is_engineer()) {
+            self.engineers = combat
+                .enemies
+                .iter()
+                .enumerate()
+                .filter(|(_, g)| g.is_engineer())
+                .map(|(i, _)| i as u32)
+                .collect();
+        }
         let goblins: Vec<GoblinView> = combat
             .enemies
             .iter()
@@ -1654,7 +1673,11 @@ impl DeathPresenter {
                 g.ground_y,
                 g.facing,
                 goblin_variant(target as usize),
-                self.species,
+                if self.engineers.contains(&target) {
+                    ENGINEER_SPECIES
+                } else {
+                    self.species
+                },
             )
         } else if self.llama.is_some()
             && let Some(l) = obs.llamas.get(target as usize - goblins)

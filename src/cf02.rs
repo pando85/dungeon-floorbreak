@@ -925,7 +925,8 @@ impl Cf02Tuning {
 /// `cf02_*` fixture does; every other fixture, the story route and `--demo` do not
 /// (`--cf02` turns the rules on for a run through `CombatState::with_cf02`).
 pub fn fixture_runs_cf02(name: &str) -> bool {
-    name.starts_with("cf02_")
+    // ENEMY-GAMEPLAY-ENGINEER: the `eng_*` fixtures are CF02 room fixtures too.
+    name.starts_with("cf02_") || name.starts_with("eng_")
 }
 
 /// The pinned tuning with the master switch on: what a simulation running under
@@ -1041,6 +1042,15 @@ pub mod arena {
         checkpoints: &CHECKPOINTS,
     };
 
+    /// ENG-G-Q25: the four goblins of the Engineer variant (the yard goblin at
+    /// 940 is replaced one for one by the Engineer, so the room keeps six enemies
+    /// and the LAB-Q04 cap of four active). Q26: they take slots 0 to 3 of the same
+    /// Q58 bag, so the fifth slot is unused.
+    pub static GOBLINS_ENG: [EnemySpawn; 4] = [goblin(520), goblin(600), goblin(680), goblin(880)];
+
+    /// ENG-G-Q25: the Engineer of the llama yard (enemy index 4, after the goblins).
+    pub static ENGINEERS: [EnemySpawn; 1] = [goblin(940)];
+
     /// The live room: Carl at the spawn, five goblins, one llama, the shore.
     pub const fn fixture(
         name: &'static str,
@@ -1056,10 +1066,70 @@ pub mod arena {
             enemies: &GOBLINS,
             shore_dx: Some(SHORE_STRIKE_X - CARL_SPAWN_X),
             boss: None,
+            engineers: &[],
             llamas: &LLAMAS,
             charges: &[],
             script: &[],
             ticks,
+        }
+    }
+
+    /// ENG-G-Q25: the room of `floor01_scene --cf02 --cf02-engineer`: the same
+    /// room with the yard goblin at 940 replaced by the Goblin Engineer.
+    pub const fn fixture_eng(
+        name: &'static str,
+        summary: &'static str,
+        seed: u64,
+        ticks: u64,
+    ) -> Fixture {
+        Fixture {
+            enemies: &GOBLINS_ENG,
+            engineers: &ENGINEERS,
+            ..fixture(name, summary, seed, ticks)
+        }
+    }
+
+    /// The fixture `floor01_scene --cf02 --cf02-engineer` runs.
+    pub static LIVE_ENG: Fixture = fixture_eng(
+        "cf02_arena_eng",
+        "ENEMY-GAMEPLAY-ENGINEER: the microarena with the Goblin Engineer in the llama yard, live (floor01_scene --cf02 --cf02-engineer)",
+        0xCF02_F200,
+        3600,
+    );
+
+    /// The Engineer room from the second checkpoint.
+    pub static LIVE_ENG_CP2: Fixture = Fixture {
+        name: "cf02_arena_eng_cp2",
+        summary: "ENEMY-GAMEPLAY-ENGINEER: the Engineer room from the second checkpoint (floorbreak --cf02 --cf02-engineer --demo-beat 1)",
+        seed: 0xCF02_F201,
+        carl_x: CHECKPOINTS[1],
+        shore_dx: Some(SHORE_STRIKE_X - CHECKPOINTS[1]),
+        ..fixture_eng("", "", 0, 3600)
+    };
+
+    /// The room fixture of a run: the plain microarena, or (ENG-G-Q25) the Engineer
+    /// variant when the flag is given **and** the data kill switch `tuning` allows
+    /// it; with the switch off the flag runs the plain room (`cf02_arena`).
+    pub fn fixture_for_run(
+        beat: usize,
+        engineer_flag: bool,
+        tuning: &crate::engineer::EngineerTuning,
+    ) -> &'static Fixture {
+        if engineer_flag && tuning.enabled() {
+            if beat == 0 { &LIVE_ENG } else { &LIVE_ENG_CP2 }
+        } else {
+            fixture_for_beat(beat)
+        }
+    }
+
+    /// The room fixture a recorded `cf02_rules` demo session names: the Engineer
+    /// room by its fixture name, every earlier session by its beat. The headless
+    /// replay and the Bevy replay viewer share this match.
+    pub fn fixture_for_recorded(name: &str, beat: usize) -> &'static Fixture {
+        match name {
+            "cf02_arena_eng" => &LIVE_ENG,
+            "cf02_arena_eng_cp2" => &LIVE_ENG_CP2,
+            _ => fixture_for_beat(beat),
         }
     }
 
@@ -1091,6 +1161,7 @@ pub mod arena {
     /// corridor: the room fixtures of CF02-F.
     pub fn fixture_uses_arena(name: &str) -> bool {
         name == "cf02_arena"
+            || name.starts_with("eng_")
             || name.starts_with("cf02_arena_")
             || name.starts_with("companion_arena_")
             || name.starts_with("cf02_block_")
@@ -1322,7 +1393,7 @@ pub mod arena {
         let telling = combat.enemies.iter().find(|g| {
             g.alive()
                 && g.mode == GoblinMode::Attack
-                && crate::goblin::attack_phase(g.attack_tick) == AttackPhase::Tell
+                && g.attack_phase() == Some(AttackPhase::Tell)
                 && (g.x - body.x).abs() < 100.0
         });
         if let Some(g) = telling {

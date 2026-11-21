@@ -250,7 +250,12 @@ pub(super) fn prepare(args: &mut Args, root: &Path) -> Result<Prepared, Unsuppor
             args.demo = true;
             args.demo_beat = reset.demo_beat as usize;
             if reset.cf02_rules {
-                args.fixture = Some(cf02::arena::fixture_for_beat(args.demo_beat));
+                // ENEMY-GAMEPLAY-ENGINEER: a recorded Engineer session names its
+                // room; the plain beat match would describe `cf02_arena`.
+                args.fixture = Some(cf02::arena::fixture_for_recorded(
+                    &reset.name,
+                    args.demo_beat,
+                ));
                 load(cf02::arena::load_arena(root))?
             } else {
                 args.fixture = Some(demo::fixture_for_beat(args.demo_beat));

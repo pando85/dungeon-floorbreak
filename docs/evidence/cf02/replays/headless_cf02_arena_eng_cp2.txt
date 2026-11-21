@@ -1,0 +1,87 @@
+COMBAT_EVENT tick=1 kind=llama_tell llama=0
+COMBAT_EVENT tick=4 kind=goblin_tell goblin=2
+COMBAT_EVENT tick=9 kind=move_started move=swat instance=1
+COMBAT_EVENT tick=13 kind=hit move=swat instance=1 target=2 damage=0 health_left=2 hit_stop=2
+COMBAT_EVENT tick=13 kind=goblin_interrupted goblin=2
+COMBAT_EVENT tick=19 kind=goblin_tell goblin=1
+COMBAT_EVENT tick=33 kind=move_started move=swat instance=2
+COMBAT_EVENT tick=37 kind=hit move=swat instance=2 target=1 damage=0 health_left=2 hit_stop=2
+COMBAT_EVENT tick=37 kind=goblin_interrupted goblin=1
+COMBAT_EVENT tick=37 kind=llama_spit llama=0
+COMBAT_EVENT tick=41 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=67 kind=move_started move=pounce instance=3
+COMBAT_EVENT tick=67 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=67 kind=goblin_tell goblin=1
+COMBAT_EVENT tick=80 kind=hit move=pounce instance=3 target=0 damage=1 health_left=1 hit_stop=4
+COMBAT_EVENT tick=93 kind=goblin_swing goblin=1
+COMBAT_EVENT tick=93 kind=hero_hurt source=1 health_left=3 hero=donut
+COMBAT_EVENT tick=93 kind=goblin_reaction goblin=2 reaction=enraged nerve=86
+COMBAT_EVENT tick=106 kind=goblin_tell goblin=2
+COMBAT_EVENT tick=119 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=120 kind=move_started move=jab instance=1
+COMBAT_EVENT tick=123 kind=shore_hit instance=1 hits=1
+COMBAT_EVENT tick=132 kind=goblin_swing goblin=2
+COMBAT_EVENT tick=145 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=160 kind=move_started move=jab instance=2
+COMBAT_EVENT tick=163 kind=shore_hit instance=2 hits=2
+COMBAT_EVENT tick=200 kind=move_started move=jab instance=3
+COMBAT_EVENT tick=203 kind=shore_hit instance=3 hits=3
+COMBAT_EVENT tick=203 kind=shore_broken player=0
+COMBAT_EVENT tick=239 kind=shore_landed
+COMBAT_EVENT tick=239 kind=enemy_defeated target=0 cause=shore_block credit_player=0 instigator=1
+COMBAT_EVENT tick=239 kind=enemy_defeated target=1 cause=shore_block_edge credit_player=0 instigator=1
+COMBAT_EVENT tick=239 kind=hero_hurt source=21320 health_left=3
+COMBAT_EVENT tick=239 kind=hero_hurt source=21320 health_left=2 hero=donut
+COMBAT_EVENT tick=239 kind=goblin_reaction goblin=2 reaction=hesitate nerve=39
+COMBAT_EVENT tick=277 kind=move_started move=pounce instance=4
+COMBAT_EVENT tick=277 kind=goblin_tell goblin=2
+COMBAT_EVENT tick=280 kind=move_started move=jab instance=4
+COMBAT_EVENT tick=283 kind=hit move=jab instance=4 target=2 damage=1 health_left=1 hit_stop=3
+COMBAT_EVENT tick=283 kind=goblin_interrupted goblin=2
+COMBAT_EVENT tick=290 kind=move_started move=haymaker instance=5
+COMBAT_EVENT tick=295 kind=hit move=haymaker instance=5 target=2 damage=1 health_left=0 hit_stop=8
+COMBAT_EVENT tick=295 kind=enemy_defeated target=2
+COMBAT_EVENT tick=349 kind=llama_tell llama=0
+COMBAT_EVENT tick=385 kind=llama_spit llama=0
+COMBAT_EVENT tick=428 kind=move_started move=jab instance=6
+COMBAT_EVENT tick=428 kind=goblin_tell goblin=3
+COMBAT_EVENT tick=435 kind=move_started move=haymaker instance=7
+COMBAT_EVENT tick=454 kind=goblin_swing goblin=3
+COMBAT_EVENT tick=454 kind=hero_hurt source=3 health_left=2
+COMBAT_EVENT tick=470 kind=move_started move=pounce instance=5
+COMBAT_EVENT tick=476 kind=move_started move=jab instance=8
+COMBAT_EVENT tick=479 kind=hit move=jab instance=8 target=5 damage=1 health_left=2 hit_stop=3
+COMBAT_EVENT tick=480 kind=hit move=pounce instance=5 target=3 damage=1 health_left=1 hit_stop=4
+COMBAT_EVENT tick=486 kind=move_started move=haymaker instance=9
+COMBAT_EVENT tick=491 kind=hit move=haymaker instance=9 target=5 damage=1 health_left=1 hit_stop=5
+COMBAT_EVENT tick=513 kind=move_started move=jab instance=10
+COMBAT_EVENT tick=516 kind=hit move=jab instance=10 target=5 damage=1 health_left=0 hit_stop=6
+COMBAT_EVENT tick=516 kind=enemy_defeated target=5
+COMBAT_EVENT tick=519 kind=goblin_tell goblin=3
+COMBAT_EVENT tick=526 kind=move_started move=haymaker instance=11
+COMBAT_EVENT tick=526 kind=move_started move=swat instance=6
+COMBAT_EVENT tick=530 kind=hit move=swat instance=6 target=3 damage=0 health_left=1 hit_stop=2
+COMBAT_EVENT tick=530 kind=goblin_interrupted goblin=3
+COMBAT_EVENT tick=548 kind=move_started move=jab instance=12
+COMBAT_EVENT tick=555 kind=move_started move=haymaker instance=13
+COMBAT_EVENT tick=560 kind=goblin_tell goblin=3
+COMBAT_EVENT tick=577 kind=move_started move=jab instance=14
+COMBAT_EVENT tick=584 kind=move_started move=haymaker instance=15
+COMBAT_EVENT tick=586 kind=goblin_swing goblin=3
+COMBAT_EVENT tick=586 kind=hero_hurt source=3 health_left=1
+COMBAT_EVENT tick=595 kind=move_started move=pounce instance=7
+COMBAT_EVENT tick=605 kind=hit move=pounce instance=7 target=3 damage=1 health_left=0 hit_stop=7
+COMBAT_EVENT tick=605 kind=enemy_defeated target=3 instigator=1
+COMBAT_EVENT tick=605 kind=goblin_tell goblin=4
+COMBAT_EVENT tick=624 kind=move_started move=jab instance=16
+COMBAT_EVENT tick=631 kind=move_started move=haymaker instance=17
+COMBAT_EVENT tick=635 kind=hero_hurt source=4 health_left=1 hero=donut
+COMBAT_EVENT tick=658 kind=move_started move=pounce instance=8
+COMBAT_EVENT tick=660 kind=move_started move=jab instance=18
+COMBAT_EVENT tick=663 kind=hit move=jab instance=18 target=4 damage=1 health_left=2 hit_stop=3
+COMBAT_EVENT tick=670 kind=move_started move=haymaker instance=19
+COMBAT_EVENT tick=670 kind=hit move=pounce instance=8 target=4 damage=1 health_left=1 hit_stop=4
+COMBAT_EVENT tick=675 kind=hit move=haymaker instance=19 target=4 damage=1 health_left=0 hit_stop=8
+COMBAT_EVENT tick=675 kind=enemy_defeated target=4
+COMBAT_STATE fixture=cf02_arena_eng_cp2 seed=0xcf02f201 tick=1800 elapsed=1800 hero_hp=1 deaths=0 enemies=e0=477.634/0,e1=491.568/0,e2=569.086/0,e3=899.534/0,e4=781.248/0 hash=d9b71408398d22e7 shore=3/Broken/Landed block_bottom=0.00 llamas=l0=878.495/0
+PARTY_STATE fixture=cf02_arena_eng_cp2 mode=solo controlled=Carl carl_hp=1 donut_hp=1 deaths=0 hash=589735ac0a9ebcfd

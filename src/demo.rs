@@ -207,6 +207,7 @@ const fn beat_fixture(
         enemies: &DEMO_ENEMIES,
         shore_dx: Some(SHORE_STRIKE_X - CHECKPOINTS[beat]),
         boss: None,
+        engineers: &[],
         llamas: &DEMO01_LLAMAS,
         charges,
         script: &[],

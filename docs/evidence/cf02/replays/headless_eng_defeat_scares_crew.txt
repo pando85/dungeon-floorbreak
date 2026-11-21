@@ -1,0 +1,12 @@
+COMBAT_EVENT tick=1 kind=goblin_tell goblin=1
+COMBAT_EVENT tick=3 kind=move_started move=jab instance=1
+COMBAT_EVENT tick=6 kind=hit move=jab instance=1 target=1 damage=1 health_left=2 hit_stop=3
+COMBAT_EVENT tick=6 kind=goblin_interrupted goblin=1
+COMBAT_EVENT tick=13 kind=move_started move=haymaker instance=2
+COMBAT_EVENT tick=18 kind=hit move=haymaker instance=2 target=1 damage=1 health_left=1 hit_stop=5
+COMBAT_EVENT tick=44 kind=move_started move=jab instance=3
+COMBAT_EVENT tick=47 kind=hit move=jab instance=3 target=1 damage=1 health_left=0 hit_stop=6
+COMBAT_EVENT tick=47 kind=enemy_defeated target=1
+COMBAT_EVENT tick=47 kind=goblin_reaction goblin=0 reaction=panic nerve=8
+COMBAT_STATE fixture=eng_defeat_scares_crew seed=0xe460017 tick=120 elapsed=120 hero_hp=4 deaths=0 enemies=e0=353.566/2,e1=112.333/0 hash=998fa99fa5208493 shore=0/Intact/Seated block_bottom=140.00
+PARTY_STATE fixture=eng_defeat_scares_crew mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=40b477aeff19fd09

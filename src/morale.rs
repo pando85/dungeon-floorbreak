@@ -123,8 +123,11 @@ pub enum MoraleEvent {
         force: Force,
         cause: Option<SpectacularCause>,
     },
-    /// A `WallSlam`, `BodyContact` or shore landing without a defeat.
+    /// A `WallSlam`, `BodyContact` or shore landing without a defeat (the ram bonk
+    /// of the Engineer counts as a wall slam).
     Spectacle { pos: Pos },
+    /// ENG-G-Q19: the Engineer was defeated: always spectacular for every witness.
+    EngineerDefeated { goblin: usize, pos: Pos },
     /// This goblin was knocked down.
     OwnKnockdown { goblin: usize },
     /// A hero was hurt.
@@ -184,6 +187,11 @@ pub fn event_delta(t: &Cf02Tuning, me: usize, at: Pos, events: &[MoraleEvent]) -
                     t.q60_delta_routine_defeat
                 };
                 (d, Some(pos.x))
+            }
+            MoraleEvent::EngineerDefeated { goblin, pos }
+                if goblin != me && witnesses(t, at, pos) =>
+            {
+                (t.q60_delta_spectacular_defeat, Some(pos.x))
             }
             MoraleEvent::Spectacle { pos } if witnesses(t, at, pos) => {
                 (t.q60_delta_spectacle_no_defeat, Some(pos.x))

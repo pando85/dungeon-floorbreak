@@ -197,6 +197,7 @@ pub(crate) const fn boss_base(
         shore_dx: None,
         boss: Some(boss),
         charges: &[],
+        engineers: &[],
         llamas: &[],
         script: &[],
         ticks,

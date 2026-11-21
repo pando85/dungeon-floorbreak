@@ -1,0 +1,2 @@
+COMBAT_STATE fixture=eng_lane_blocked_parapet seed=0xe460011 tick=240 elapsed=240 hero_hp=4 deaths=0 enemies=e0=796.000/3 hash=85ff94231e7d86cd shore=0/Intact/Seated block_bottom=140.00
+PARTY_STATE fixture=eng_lane_blocked_parapet mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=c203254efc7948b3

@@ -1546,7 +1546,12 @@ pub enum CombatEvent {
     /// Separate from [`Self::GoblinContact`], whose "living contact" meaning CINE-01
     /// keeps. `instigator` is the hero (`HeroId::index`) whose move made the launch,
     /// the credit a later reward reads. At most one per (`launch`, `target`); no
-    /// damage (Q12).
+    /// damage (Q12). ENEMY-GAMEPLAY-ENGINEER reuses it for the ram bowl: the
+    /// **ramming Engineer** (`source`, not a killed body) knocked the common goblin
+    /// `target` down; its `launch` is then a ram stamp (`0x8000_0000 | ram_seq`),
+    /// disjoint from every move instance, and `instigator` is the hero he pointed at.
+    /// Every consumer applies (the audio `EnemyBodyCollision` cue and the morale
+    /// `Spectacle` for witnesses).
     BodyContact {
         tick: u64,
         launch: u32,
@@ -1585,6 +1590,15 @@ pub enum CombatEvent {
         hits: u8,
         broke: bool,
         credited: u32,
+    },
+    /// ENEMY-GAMEPLAY-ENGINEER, appended: the Engineer's pot met a solid (a wall, the
+    /// parapet) on a ram: his self-damage and the bonk follow (a defeat then is an
+    /// `EnemyDefeated`, credited to `instigator`). `instigator` is the hero
+    /// (`HeroId::index`) he pointed at. Only a run with an Engineer emits it.
+    RamBonk {
+        tick: u64,
+        goblin: u32,
+        instigator: Option<u32>,
     },
 }
 
@@ -1957,6 +1971,17 @@ impl CombatEvent {
                 mix(u64::from(broke));
                 mix(u64::from(credited));
             }
+            // ENEMY-GAMEPLAY-ENGINEER: "RBNK".
+            Self::RamBonk {
+                tick,
+                goblin,
+                instigator,
+            } => {
+                mix(0x5242_4e4b);
+                mix(tick);
+                mix(u64::from(goblin));
+                mix(instigator.map_or(0, |p| u64::from(p) + 1));
+            }
         }
     }
 }
@@ -2258,6 +2283,17 @@ impl fmt::Display for CombatEvent {
                 "COMBAT_EVENT tick={tick} kind=shore_tripped goblin={goblin} hits={hits} broke={} credited={credited}",
                 u8::from(broke)
             ),
+            Self::RamBonk {
+                tick,
+                goblin,
+                instigator,
+            } => {
+                write!(f, "COMBAT_EVENT tick={tick} kind=ram_bonk goblin={goblin}")?;
+                if let Some(player) = instigator {
+                    write!(f, " instigator={player}")?;
+                }
+                Ok(())
+            }
         }
     }
 }

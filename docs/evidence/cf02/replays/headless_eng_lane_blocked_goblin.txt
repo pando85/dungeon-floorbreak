@@ -1,0 +1,2 @@
+COMBAT_STATE fixture=eng_lane_blocked_goblin seed=0xe460010 tick=240 elapsed=240 hero_hp=4 deaths=0 enemies=e0=236.000/2,e1=200.000/3 hash=04793d5c7abf8b9d shore=0/Intact/Seated block_bottom=140.00
+PARTY_STATE fixture=eng_lane_blocked_goblin mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=7ae1ce127a3eeb43

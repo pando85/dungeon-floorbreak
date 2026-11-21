@@ -29,10 +29,11 @@ use crate::combat::{
 };
 use crate::corridor::{PartyStepCtx, SceneSim};
 use crate::donut_mana::{DonutSetup, RestartKind};
+use crate::engineer::{self, EngineerSense, EngineerTuning};
 use crate::env_kit::EnvKit;
 use crate::feel::{
     CAMERA_KICK_TICKS, GROUND_FRICTION, HERO_DEFEAT_HIT_STOP, HERO_HURT_HIT_STOP,
-    HERO_KNOCKDOWN_VX, HERO_KNOCKDOWN_VY, IMPACT_END, IMPACT_FLASH_TICKS, LETHAL_CAMERA_KICK_BONUS,
+    HERO_KNOCKDOWN_VX, HERO_KNOCKDOWN_VY, IMPACT_FLASH_TICKS, LETHAL_CAMERA_KICK_BONUS,
     TELL_SPACING,
 };
 pub use crate::feel::{HERO_HURT_TICKS, RESTART_DELAY_TICKS};
@@ -186,6 +187,11 @@ pub struct Fixture {
     /// (`enemies.len() + index`). Empty on every earlier fixture: nothing of a
     /// llama is mixed into the state hash then.
     pub llamas: &'static [LlamaSpawn],
+    /// ENEMY-GAMEPLAY-ENGINEER: Goblin Engineers, built as goblins after the
+    /// fixture's goblins (their target ids follow `enemies.len()`). Empty on every
+    /// earlier fixture, and ignored unless the run is under `cf02_rules` with the
+    /// engineer switch on (the `llamas` field is the precedent).
+    pub engineers: &'static [EnemySpawn],
     /// DEATH-D: authored QA blast charges (empty for every routine fixture).
     pub charges: &'static [ChargeSpawn],
     pub script: &'static [Hold],
@@ -253,6 +259,7 @@ pub const CP01_SINGLE_GOBLIN: Fixture = Fixture {
     }],
     shore_dx: None,
     boss: None,
+    engineers: &[],
     llamas: &[],
     charges: &[],
     script: &[attack(122, 123), attack(136, 137)],
@@ -273,6 +280,7 @@ pub const CP01_TWO_HITS: Fixture = Fixture {
     }],
     shore_dx: None,
     boss: None,
+    engineers: &[],
     llamas: &[],
     charges: &[],
     script: &[attack(10, 60), attack(70, 71)],
@@ -299,6 +307,7 @@ pub const CP02_TWO_GOBLINS: Fixture = Fixture {
     ],
     shore_dx: None,
     boss: None,
+    engineers: &[],
     llamas: &[],
     charges: &[],
     script: &[
@@ -323,6 +332,7 @@ pub const CP01_GOBLIN_ATTACKS: Fixture = Fixture {
     }],
     shore_dx: None,
     boss: None,
+    engineers: &[],
     llamas: &[],
     charges: &[],
     script: &[],
@@ -341,6 +351,7 @@ pub const CP01_INTERRUPT: Fixture = Fixture {
     }],
     shore_dx: None,
     boss: None,
+    engineers: &[],
     llamas: &[],
     charges: &[],
     script: &[attack(137, 138)],
@@ -360,6 +371,7 @@ pub const CP01_HAYMAKER_CHAIN: Fixture = Fixture {
     }],
     shore_dx: None,
     boss: None,
+    engineers: &[],
     llamas: &[],
     charges: &[],
     script: &[attack(137, 138), attack(141, 142)],
@@ -386,6 +398,7 @@ pub const CP01_RETRY: Fixture = Fixture {
     ],
     shore_dx: None,
     boss: None,
+    engineers: &[],
     llamas: &[],
     charges: &[],
     script: &[],
@@ -410,6 +423,7 @@ pub const CP01_KICK: Fixture = Fixture {
     }],
     shore_dx: None,
     boss: None,
+    engineers: &[],
     llamas: &[],
     charges: &[],
     script: &[kick(122, 123), kick(247, 248)],
@@ -437,6 +451,7 @@ pub const CP02_KICK_CONTACT: Fixture = Fixture {
     ],
     shore_dx: None,
     boss: None,
+    engineers: &[],
     llamas: &[],
     charges: &[],
     script: &[kick(20, 21)],
@@ -459,6 +474,7 @@ pub const CP03_SHORE_KILL: Fixture = Fixture {
     }],
     shore_dx: Some(19),
     boss: None,
+    engineers: &[],
     llamas: &[],
     charges: &[],
     script: &[attack(20, 21), attack(60, 61), attack(100, 101)],
@@ -478,6 +494,7 @@ pub const CP03_SHORE_MISS: Fixture = Fixture {
     }],
     shore_dx: Some(19),
     boss: None,
+    engineers: &[],
     llamas: &[],
     charges: &[],
     script: &[attack(20, 21), attack(60, 61), attack(100, 101)],
@@ -500,6 +517,7 @@ pub const CP03_KICK_BLOCK: Fixture = Fixture {
     }],
     shore_dx: Some(19),
     boss: None,
+    engineers: &[],
     llamas: &[],
     charges: &[],
     script: &[kick(20, 21), attack(100, 101), attack(140, 141)],
@@ -564,6 +582,7 @@ pub const CP03_GOBLIN_PILEUP: Fixture = Fixture {
     ],
     shore_dx: Some(19),
     boss: None,
+    engineers: &[],
     llamas: &[],
     charges: &[],
     script: &[
@@ -589,6 +608,7 @@ pub const CP05_LLAMA_SLAM: Fixture = Fixture {
     enemies: &[],
     shore_dx: None,
     boss: None,
+    engineers: &[],
     llamas: &[LlamaSpawn {
         x: 440,
         ai: EnemyAi::Chase,
@@ -614,6 +634,7 @@ pub const CP05_LLAMA_DOWN: Fixture = Fixture {
     enemies: &[],
     shore_dx: None,
     boss: None,
+    engineers: &[],
     llamas: &[LlamaSpawn {
         x: 438,
         ai: EnemyAi::Chase,
@@ -634,6 +655,7 @@ pub const CP05_LLAMA_SPIT: Fixture = Fixture {
     enemies: &[],
     shore_dx: None,
     boss: None,
+    engineers: &[],
     llamas: &[LlamaSpawn {
         x: 560,
         ai: EnemyAi::Chase,
@@ -653,6 +675,7 @@ pub const CP05_LLAMA_OFFSCREEN: Fixture = Fixture {
     enemies: &[],
     shore_dx: None,
     boss: None,
+    engineers: &[],
     llamas: &[LlamaSpawn {
         x: 1000,
         ai: EnemyAi::Chase,
@@ -673,6 +696,7 @@ pub const CP05_LLAMA_CRUSH: Fixture = Fixture {
     enemies: &[],
     shore_dx: Some(19),
     boss: None,
+    engineers: &[],
     llamas: &[LlamaSpawn {
         x: 484,
         ai: EnemyAi::Passive,
@@ -698,6 +722,7 @@ pub const CP03_BLOCK_EDGE_DECAP: Fixture = Fixture {
     }],
     shore_dx: Some(19),
     boss: None,
+    engineers: &[],
     llamas: &[],
     charges: &[],
     script: &[attack(20, 21), attack(60, 61), attack(100, 101)],
@@ -729,6 +754,7 @@ pub const QA_BLAST_BREAKUP: Fixture = Fixture {
     ],
     shore_dx: None,
     boss: None,
+    engineers: &[],
     llamas: &[],
     charges: &[ChargeSpawn {
         dx: 120,
@@ -846,6 +872,11 @@ pub struct CombatState {
     cf02_seed: Option<u64>,
     morale: Option<MoraleRuntime>,
     morale_feed: Vec<CombatEvent>,
+    /// ENEMY-GAMEPLAY-ENGINEER: the pinned engineer knobs (constant for the run).
+    /// The Engineer exists only with `cf02_rules` and `engq25_enabled`.
+    engineer: &'static EngineerTuning,
+    /// The ram stamps handed out so far (hashed only while non-zero).
+    ram_seq: u32,
     /// Which hero's defeat ended the attempt (D1: either one is the party's
     /// defeat). Meaningful while `hero_defeated`.
     pub defeated_hero: HeroId,
@@ -903,6 +934,14 @@ impl CombatState {
                 ));
             }
         }
+        for spawn in fixture.engineers {
+            if kit.walking_line_at(spawn.x) != Some(line) {
+                return Err(format!(
+                    "{}: engineer column {} is not on Carl's walking line",
+                    fixture.name, spawn.x
+                ));
+            }
+        }
         for spawn in fixture.llamas {
             if kit.walking_line_at(spawn.x) != Some(line) {
                 return Err(format!(
@@ -934,6 +973,8 @@ impl CombatState {
             cf02_seed: None,
             morale: None,
             morale_feed: Vec::new(),
+            engineer: engineer::active(),
+            ram_seq: 0,
             defeated_hero: HeroId::Carl,
             targets: Vec::new(),
             defeated_ticks: 0,
@@ -999,9 +1040,24 @@ impl CombatState {
         self
     }
 
+    /// Tests only: run this state under other engineer knobs (for example the
+    /// kill switch off) and rebuild the attempt.
+    #[doc(hidden)]
+    pub fn with_engineer_tuning_for_test(mut self, tuning: &'static EngineerTuning) -> Self {
+        self.engineer = tuning;
+        self.reset_attempt();
+        self
+    }
+
     /// The CF02 tuning this run reads (`None`: `cf02_rules` is off).
     pub fn cf02(&self) -> Option<&'static Cf02Tuning> {
         self.cf02
+    }
+
+    /// ENG-G-Q25: the Engineer exists in this run (`cf02_rules` on and the data
+    /// kill switch on). A fixture with engineers only builds them then.
+    pub fn engineer_on(&self) -> bool {
+        self.cf02.is_some() && self.engineer.enabled()
     }
 
     /// A goblin of this run at column `x` (it carries the CF02 tuning, if any).
@@ -1014,6 +1070,34 @@ impl CombatState {
             goblin.health = health;
         }
         goblin
+    }
+
+    /// The Goblin Engineer of this run at column `x` (ENG-G-Q02: his own health).
+    fn new_engineer(&self, x: f32, ai: EnemyAi) -> Goblin {
+        Goblin::new(x, self.enemy_foot_y + ENEMY_HALF_HEIGHT, ai)
+            .with_cf02(self.cf02)
+            .with_engineer(self.engineer)
+    }
+
+    /// The fixture spawn of enemy `index`: the goblins first, then the engineers.
+    fn spawn_of(&self, index: usize) -> Option<(EnemySpawn, bool)> {
+        let goblins = self.fixture.enemies;
+        goblins.get(index).map(|s| (*s, false)).or_else(|| {
+            index
+                .checked_sub(goblins.len())
+                .and_then(|k| self.fixture.engineers.get(k))
+                .map(|s| (*s, true))
+        })
+    }
+
+    /// A fresh goblin (or Engineer) for enemy `index`.
+    fn fresh_enemy(&self, index: usize) -> Option<Goblin> {
+        let (spawn, engineer) = self.spawn_of(index)?;
+        Some(if engineer {
+            self.new_engineer(spawn.x as f32, spawn.ai)
+        } else {
+            self.new_goblin(spawn.x as f32, spawn.ai)
+        })
     }
 
     /// The beat whose checkpoint is the fixture's start column (0 without
@@ -1044,9 +1128,11 @@ impl CombatState {
         };
         let checkpoint = self.checkpoint.min(demo.checkpoints.len() - 1);
         scene.respawn_at(demo.checkpoints[checkpoint] as f32);
-        for (index, spawn) in self.fixture.enemies.iter().enumerate() {
-            if self.enemies[index].health > 0 {
-                self.enemies[index] = self.new_goblin(spawn.x as f32, spawn.ai);
+        for index in 0..self.enemies.len() {
+            if self.enemies[index].health > 0
+                && let Some(goblin) = self.fresh_enemy(index)
+            {
+                self.enemies[index] = goblin;
                 self.flash_tick[index] = None;
                 self.respawn_morale_of(index);
             }
@@ -1097,6 +1183,17 @@ impl CombatState {
             .iter()
             .map(|spawn| self.new_goblin(spawn.x as f32, spawn.ai))
             .collect();
+        // ENG-G-Q25: the Engineers follow the goblins, only when the gate is open.
+        if self.engineer_on() {
+            let engineers: Vec<Goblin> = self
+                .fixture
+                .engineers
+                .iter()
+                .map(|spawn| self.new_engineer(spawn.x as f32, spawn.ai))
+                .collect();
+            self.enemies.extend(engineers);
+        }
+        self.ram_seq = 0;
         self.llamas = self
             .fixture
             .llamas
@@ -1169,7 +1266,8 @@ impl CombatState {
             return;
         };
         let start = demo.checkpoints[self.checkpoint];
-        for (goblin, spawn) in self.enemies.iter_mut().zip(self.fixture.enemies) {
+        let spawns = self.fixture.enemies.iter().chain(self.fixture.engineers);
+        for (goblin, spawn) in self.enemies.iter_mut().zip(spawns) {
             if spawn.x < start {
                 goblin.health = 0;
                 goblin.mode = GoblinMode::Corpse;
@@ -1500,7 +1598,7 @@ impl CombatState {
             let threats: Vec<Threat> = self
                 .enemies
                 .iter()
-                .filter(|g| g.mode == GoblinMode::Attack && g.attack_tick < IMPACT_END)
+                .filter(|g| g.dodge_threat())
                 .map(|g| Threat {
                     x: g.x,
                     attack_tick: g.attack_tick,
@@ -1795,6 +1893,22 @@ impl CombatState {
             if goblin.mode == GoblinMode::Attack && current.is_some() {
                 continue;
             }
+            // ENG-G-Q06: the Engineer applies the same rule to the eligible heroes
+            // only: when exactly one is eligible, it is the target.
+            if goblin.is_engineer() {
+                let eligible = |hero: HeroId| self.hero_eligible_for(scene, goblin, hero);
+                match (eligible(HeroId::Carl), eligible(HeroId::Donut)) {
+                    (true, false) => {
+                        self.targets[index] = Some(HeroId::Carl);
+                        continue;
+                    }
+                    (false, true) => {
+                        self.targets[index] = Some(HeroId::Donut);
+                        continue;
+                    }
+                    _ => {}
+                }
+            }
             let (carl, donut) = (
                 effective(goblin.x, HeroId::Carl),
                 effective(goblin.x, HeroId::Donut),
@@ -1854,6 +1968,7 @@ impl CombatState {
         // distance (a wall or a ledge between it and Carl) keeps its slot and
         // starves the goblins behind it. Fixtures stand on clean ground, so this
         // cannot happen yet; revisit with real geometry (the opening scene).
+        self.sense_engineers(scene, &target_x);
         let approved: Vec<usize> = self.approved_goblins(&target_x);
         for index in 0..self.enemies.len() {
             let may_start = self
@@ -1891,11 +2006,271 @@ impl CombatState {
                     goblin: index as u32,
                 });
             }
-            if step.impact {
+            if self.enemies[index].is_engineer() {
+                self.engineer_after_step(scene, index, tick);
+            } else if step.impact {
                 self.swing_on_hero(scene, index, tick);
                 self.goblin_swing_on_shore(index, tick);
             }
         }
+    }
+
+    /// ENG-G-Q06: whether `hero` is eligible for the Engineer's ram: alive and with
+    /// the feet within `engq06_floor_tolerance_px` of his floor line (a hero on a
+    /// perch, the parapet or in a jump is not).
+    fn hero_eligible_for(&self, scene: &SceneSim, goblin: &Goblin, hero: HeroId) -> bool {
+        let tolerance = goblin
+            .eng_tuning
+            .map_or(0.0, |t| f32::from(t.engq06_floor_tolerance_px));
+        let feet = scene.world.body(hero).y - HERO_HALF_HEIGHT;
+        !self.hero_defeated && (feet - self.enemy_foot_y).abs() <= tolerance
+    }
+
+    /// ENG-G: what every Engineer's step reads of the scene this tick: his locked
+    /// or chosen target, whether it is eligible, within the trigger, and whether
+    /// the lane to it is clear.
+    fn sense_engineers(&mut self, scene: &SceneSim, target_x: &[f32]) {
+        let live = scene.party_live();
+        for index in 0..self.enemies.len() {
+            let goblin = &self.enemies[index];
+            let Some(t) = goblin.eng_tuning.filter(|_| goblin.is_engineer()) else {
+                continue;
+            };
+            let target = if live {
+                self.target_of(index)
+            } else {
+                HeroId::Carl
+            };
+            let eligible = self.hero_eligible_for(scene, goblin, target);
+            let distance = (target_x[index] - goblin.x).abs();
+            let in_trigger = eligible && distance <= f32::from(t.engq05_trigger_px);
+            let lane_clear = !t.on(t.engq07_lane_check)
+                || engineer::lane_clear(
+                    goblin.x,
+                    goblin.y - ENEMY_HALF_HEIGHT,
+                    target_x[index],
+                    &scene.world.solids,
+                    self.enemies
+                        .iter()
+                        .enumerate()
+                        .filter(|(i, g)| *i != index && !g.is_engineer() && g.can_be_contacted())
+                        .map(|(_, g)| g.body()),
+                );
+            self.enemies[index].eng_sense = Some(EngineerSense {
+                target,
+                target_x: target_x[index],
+                eligible,
+                lane_clear,
+                in_trigger,
+            });
+        }
+    }
+
+    /// ENG-G-Q16: the Engineer is a token candidate only when he could use the
+    /// slot: in the trigger with a clear lane (he never holds a slot he cannot use).
+    pub(super) fn engineer_token_ok(&self, index: usize) -> bool {
+        let g = &self.enemies[index];
+        if !g.is_engineer() {
+            return true;
+        }
+        let lane_check = g.eng_tuning.is_some_and(|t| t.on(t.engq07_lane_check));
+        g.eng_sense
+            .is_some_and(|s| s.in_trigger && (s.lane_clear || !lane_check))
+    }
+
+    /// The Engineer's tick after his own step (`Goblin::step_with`): stamp the ram
+    /// of a launch that began, and on an active ram tick run the ordered tests of
+    /// design section 4: the shore (Q31), then **hero, solid, crew, distance**, the
+    /// first that applies ends the ram.
+    fn engineer_after_step(&mut self, scene: &mut SceneSim, index: usize, tick: u64) {
+        let st = *self.enemies[index].engineer_state();
+        if st.launch_began {
+            self.ram_seq += 1;
+            self.enemies[index].eng.ram_id = 0x8000_0000 | self.ram_seq;
+        }
+        if !st.ram_stepped {
+            return;
+        }
+        let Some(t) = self.cf02 else {
+            return;
+        };
+        // CF02-Q31 on the ram box (one shore hit per ram, `shore_counted`).
+        self.goblin_swing_on_shore(index, tick);
+        // 1. Hero: the first hero the box overlaps.
+        if self.ram_on_hero(scene, index, tick) {
+            self.enemies[index].ram_recover();
+            return;
+        }
+        // 2. Solid: the pot met a face.
+        if st.met_solid {
+            self.ram_bonk(t, index, tick);
+            return;
+        }
+        // 3. Crew: a contactable common goblin in the box is bowled.
+        if self.ram_bowl(t, index, tick) {
+            self.enemies[index].ram_recover();
+            return;
+        }
+        // 4. Distance: every active tick spent.
+        if self.enemies[index].ram_distance_spent() {
+            self.enemies[index].ram_recover();
+        }
+    }
+
+    /// Design section 4 step 2: the ram box overlaps a hero hurtbox. The first
+    /// hero overlapped is hit, whoever was pointed at (the one whose near edge is
+    /// closer to his front when both overlap, ties to Carl); an invulnerable hero
+    /// or a hero protected by the solo off-screen rule is not hit and does not
+    /// stop the ram. Returns true when a hero was hit (the ram ends).
+    fn ram_on_hero(&mut self, scene: &mut SceneSim, index: usize, tick: u64) -> bool {
+        let Some(tuning) = self.enemies[index].eng_tuning else {
+            return false;
+        };
+        let (x, dir, boxed) = {
+            let g = &self.enemies[index];
+            (g.x, g.facing, g.swing_box())
+        };
+        let drive = *scene.drive();
+        let heroes: &[HeroId] = if scene.party_live() {
+            &[HeroId::Carl, HeroId::Donut]
+        } else {
+            &[HeroId::Carl]
+        };
+        let mut best: Option<(f32, HeroId)> = None;
+        for &id in heroes {
+            let body = Self::hurtbox(scene, id);
+            let hero = scene.world.body(id);
+            let unseen = drive.is_guarded(id)
+                && drive.tuning.solo_offscreen_immunity
+                && scene.is_offscreen(hero.x, f32::from(drive.tuning.offscreen_margin_px));
+            if self.hero_defeated || hero.invulnerable_ticks > 0 || unseen || !boxed.overlaps(body)
+            {
+                continue;
+            }
+            let near = if dir >= 0 {
+                body.left - x
+            } else {
+                x - body.right()
+            };
+            if best.is_none_or(|(n, _)| near < n) {
+                best = Some((near, id));
+            }
+        }
+        let Some((_, id)) = best else {
+            return false;
+        };
+        let knock = f32::from(tuning.engq11_knock_x);
+        let landed = self.hurt_hero(
+            scene,
+            HeroBlow {
+                hero: id,
+                source: index as u32,
+                damage: tuning.engq11_damage,
+                from_x: x,
+                knock_vx: f32::from(dir) * knock,
+                knock_vy: f32::from(tuning.engq11_knock_y),
+            },
+            tick,
+        );
+        if landed {
+            let defeated = self.hero_defeated;
+            let goblin = &mut self.enemies[index];
+            goblin.hit_stop = goblin.hit_stop.max(HERO_HURT_HIT_STOP);
+            if defeated {
+                goblin.hit_stop = goblin.hit_stop.max(HERO_DEFEAT_HIT_STOP);
+            }
+        }
+        landed
+    }
+
+    /// Design section 4 step 3: the pot met a solid. He takes the self-damage, the
+    /// hero he pointed at is credited, `RamBonk` is logged and he enters the bonk;
+    /// at 0 health he is defeated in place by the wall-slam defeat path.
+    fn ram_bonk(&mut self, t: &'static Cf02Tuning, index: usize, tick: u64) {
+        let credited = self.pointed_at_index(index);
+        self.enemies[index].hit_by = Some(credited);
+        self.log(CombatEvent::RamBonk {
+            tick,
+            goblin: index as u32,
+            instigator: Some(credited),
+        });
+        if let Some(slot) = self.flash_tick.get_mut(index) {
+            *slot = Some(tick);
+        }
+        if self.enemies[index].ram_bonk(t) {
+            let spec = carl_move(MoveId::PushKick);
+            self.log(CombatEvent::enemy_defeated(
+                tick,
+                index as u32,
+                DefeatCause::Melee,
+                Some(credited),
+                spec,
+            ));
+        }
+    }
+
+    /// The pointed-at hero's index for the credits (Carl 0 unless the party is live).
+    fn pointed_at_index(&self, index: usize) -> u32 {
+        self.target_of(index).index() as u32
+    }
+
+    /// Design section 4 step 4: a contactable common goblin overlapping the ram
+    /// box (the nearest one ahead of him, ties to the lower index) gets the CF02-B
+    /// contact knockdown in the ram direction; `BodyContact` carries the ram stamp
+    /// and credits the pointed-at hero. Returns true when a goblin was bowled.
+    fn ram_bowl(&mut self, t: &'static Cf02Tuning, index: usize, tick: u64) -> bool {
+        let Some(tuning) = self.enemies[index].eng_tuning else {
+            return false;
+        };
+        if !tuning.on(tuning.engq14_bowl) {
+            return false;
+        }
+        let (x, dir, boxed, stamp) = {
+            let g = &self.enemies[index];
+            (g.x, g.facing, g.swing_box(), g.engineer_state().ram_id)
+        };
+        let target = (0..self.enemies.len())
+            .filter(|&i| {
+                i != index
+                    && !self.enemies[i].is_engineer()
+                    && self.enemies[i].can_be_contacted()
+                    && boxed.overlaps(self.enemies[i].body())
+            })
+            .min_by(|&a, &b| {
+                let near = |i: usize| (self.enemies[i].x - x) * f32::from(dir);
+                near(a).total_cmp(&near(b))
+            });
+        let Some(target) = target else {
+            return false;
+        };
+        let was_attacking = self.enemies[target].token_held();
+        if t.q09_contact_mode == crate::cf02::ContactMode::Knockdown {
+            self.enemies[target].contact_knockdown(dir, t);
+        } else {
+            self.enemies[target].contact_stagger(
+                dir,
+                t.q09_legacy_stagger,
+                f32::from(t.q09_legacy_push),
+                t.q09_flier_hit_stop,
+            );
+        }
+        self.log(CombatEvent::BodyContact {
+            tick,
+            launch: stamp,
+            source: index as u32,
+            target: target as u32,
+            instigator: Some(self.pointed_at_index(index)),
+        });
+        if was_attacking {
+            self.log(CombatEvent::GoblinInterrupted {
+                tick,
+                goblin: target as u32,
+            });
+        }
+        if let Some(slot) = self.flash_tick.get_mut(target) {
+            *slot = Some(tick);
+        }
+        true
     }
 
     /// DEMO-01 PR B: every llama in index order, after the goblins: the walk,
@@ -2567,6 +2942,11 @@ impl CombatState {
         for goblin in &self.enemies {
             goblin.mix_into(&mut put);
         }
+        // ENEMY-GAMEPLAY-ENGINEER: the ram stamps handed out, mixed only once one was.
+        if self.ram_seq != 0 {
+            put(0x5241_4d53); // "RAMS"
+            put(u64::from(self.ram_seq));
+        }
         // CF02-G: the goblins' morale, mixed only for a run with it.
         if let Some(morale) = &self.morale {
             morale.mix_into(&mut put);
@@ -2967,6 +3347,7 @@ mod tests {
                 }],
                 shore_dx: None,
                 boss: None,
+                engineers: &[],
                 llamas: &[],
                 charges: &[],
                 script: &[],
@@ -2990,6 +3371,7 @@ mod tests {
         }],
         shore_dx: None,
         boss: None,
+        engineers: &[],
         llamas: &[],
         charges: &[],
         script: &[],
@@ -3018,6 +3400,7 @@ mod tests {
         ],
         shore_dx: None,
         boss: None,
+        engineers: &[],
         llamas: &[],
         charges: &[],
         script: &[],
@@ -3036,6 +3419,7 @@ mod tests {
         }],
         shore_dx: None,
         boss: None,
+        engineers: &[],
         llamas: &[],
         charges: &[],
         script: &[Hold {
@@ -3061,6 +3445,7 @@ mod tests {
         }],
         shore_dx: None,
         boss: None,
+        engineers: &[],
         llamas: &[],
         charges: &[],
         script: &[attack(149, 150)],
@@ -3076,6 +3461,7 @@ mod tests {
         enemies: &[],
         shore_dx: None,
         boss: None,
+        engineers: &[],
         llamas: &[],
         charges: &[],
         script: &[],
@@ -3354,6 +3740,7 @@ mod tests {
             ],
             shore_dx: None,
             boss: None,
+            engineers: &[],
             llamas: &[],
             charges: &[],
             script: &[],
@@ -4333,6 +4720,7 @@ mod tests {
             }],
             shore_dx: Some(19),
             boss: None,
+            engineers: &[],
             llamas: &[],
             charges: &[],
             script: &[attack(20, 400)],
@@ -4362,6 +4750,7 @@ mod tests {
             }],
             shore_dx: Some(19),
             boss: None,
+            engineers: &[],
             llamas: &[],
             charges: &[],
             script: &[attack(20, 21), attack(60, 61), attack(100, 101)],
@@ -4633,6 +5022,7 @@ mod tests {
         }],
         shore_dx: Some(19),
         boss: None,
+        engineers: &[],
         llamas: &[],
         charges: &[],
         script: &[
@@ -4959,6 +5349,7 @@ mod tests {
         }],
         shore_dx: Some(19),
         boss: None,
+        engineers: &[],
         llamas: &[],
         charges: &[ChargeSpawn {
             dx: 84,
@@ -5018,6 +5409,7 @@ mod tests {
         ],
         shore_dx: None,
         boss: None,
+        engineers: &[],
         llamas: &[],
         charges: &[
             ChargeSpawn {
@@ -5089,6 +5481,7 @@ mod tests {
         enemies: &[],
         shore_dx: None,
         boss: None,
+        engineers: &[],
         llamas: &[],
         charges: &[ChargeSpawn {
             dx: 0,
@@ -5147,6 +5540,7 @@ mod tests {
         enemies: &[],
         shore_dx: None,
         boss: None,
+        engineers: &[],
         llamas: &[],
         charges: &[ChargeSpawn {
             dx: 120,
@@ -5166,6 +5560,7 @@ mod tests {
         enemies: &[],
         shore_dx: None,
         boss: None,
+        engineers: &[],
         llamas: &[],
         charges: &[ChargeSpawn {
             dx: 120,
@@ -5216,6 +5611,7 @@ mod tests {
             enemies: &[],
             shore_dx: None,
             boss: None,
+            engineers: &[],
             llamas: &[],
             charges: &[ChargeSpawn {
                 dx: 10,
@@ -5464,6 +5860,7 @@ mod tests {
             enemies: &[],
             shore_dx: None,
             boss: None,
+            engineers: &[],
             llamas: &[LlamaSpawn {
                 x: 1000,
                 ai: EnemyAi::Chase,
@@ -5509,6 +5906,7 @@ mod tests {
                 enemies: &[],
                 shore_dx: None,
                 boss: None,
+                engineers: &[],
                 llamas: &[LlamaSpawn {
                     x: 560,
                     ai: EnemyAi::Chase,
@@ -5561,6 +5959,7 @@ mod tests {
             enemies: &[],
             shore_dx: None,
             boss: None,
+            engineers: &[],
             llamas: &[LlamaSpawn {
                 x: 440,
                 ai: EnemyAi::Chase,
@@ -5624,6 +6023,7 @@ mod tests {
             }],
             shore_dx: None,
             boss: None,
+            engineers: &[],
             llamas: &[LlamaSpawn {
                 x: 440,
                 ai: EnemyAi::Passive,
@@ -5640,6 +6040,7 @@ mod tests {
         assert_eq!(sim.combat.llamas[0].health, crate::feel::LLAMA_HEALTH - 1);
         // The llama is part of the state hash: a different llama column differs.
         static OTHER: Fixture = Fixture {
+            engineers: &[],
             llamas: &[LlamaSpawn {
                 x: 441,
                 ai: EnemyAi::Passive,

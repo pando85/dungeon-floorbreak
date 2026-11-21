@@ -1,0 +1,8 @@
+COMBAT_EVENT tick=1 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=12 kind=move_started move=jab instance=1
+COMBAT_EVENT tick=15 kind=hit move=jab instance=1 target=0 damage=1 health_left=2 hit_stop=3
+COMBAT_EVENT tick=15 kind=goblin_interrupted goblin=0
+COMBAT_EVENT tick=49 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=84 kind=hero_hurt source=0 health_left=3
+COMBAT_STATE fixture=eng_point_interrupt_jab seed=0xe46000b tick=160 elapsed=160 hero_hp=3 deaths=0 enemies=e0=201.000/2 hash=c2ef0ebd1d40c9b2 shore=0/Intact/Seated block_bottom=140.00
+PARTY_STATE fixture=eng_point_interrupt_jab mode=solo controlled=Carl carl_hp=3 donut_hp=4 deaths=0 hash=7bf2fb7b156c1388

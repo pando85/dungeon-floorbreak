@@ -97,6 +97,27 @@ impl PartyFixture {
         self.base.name
     }
 
+    /// Whether Donut is a live hero in this fixture. Every party fixture has her,
+    /// except the Carl-only `eng_*` Engineer fixtures (ENEMY-GAMEPLAY-ENGINEER:
+    /// "Carl only, party not live"), whose rams, targets and lanes are Carl's.
+    pub fn party_live(&self) -> bool {
+        self.two_player || !crate::cf02_fixtures::carl_only(self.name())
+    }
+
+    /// The `drive` of this fixture's party ([`Self::party_live`]).
+    pub fn drive(&self, party: &PartyState) -> crate::party::PartyDrive {
+        party.drive(self.party_live())
+    }
+
+    /// Place Donut where the fixture declares she starts (the `eng_*` Engineer
+    /// fixtures); a no-op for every other fixture.
+    pub fn place_donut(&self, scene: &mut SceneSim) {
+        if let Some(x) = crate::cf02_fixtures::donut_start_x(self.name()) {
+            scene.world.donut_body.x = x;
+            scene.world.sync_donut_for_tests();
+        }
+    }
+
     /// The raw input of each slot on `tick`: every hold that covers it, merged.
     pub fn slot_inputs(&self, tick: u64) -> SlotInputs {
         let mut out = [RawInput::default(); 2];
@@ -159,6 +180,7 @@ pub(crate) const fn base(
         enemies,
         shore_dx: None,
         boss: None,
+        engineers: &[],
         llamas: &[],
         charges: &[],
         script: &[],
@@ -369,7 +391,8 @@ impl PartyFixtureSim {
             party,
             fixture,
         };
-        sim.scene.set_drive(sim.party.drive(true));
+        fixture.place_donut(&mut sim.scene);
+        sim.scene.set_drive(fixture.drive(&sim.party));
         Ok(sim)
     }
 
@@ -392,7 +415,7 @@ impl PartyFixtureSim {
             party,
             fixture,
         };
-        sim.scene.set_drive(sim.party.drive(true));
+        sim.scene.set_drive(fixture.drive(&sim.party));
         sim
     }
 
@@ -402,7 +425,7 @@ impl PartyFixtureSim {
         let hurt = self.combat.hurt_ticks_of(self.party.controlled_hero()) > 0;
         self.party.request_swap(slots[0].swap, hurt);
         let inputs = self.party.hero_inputs(slots);
-        self.scene.set_drive(self.party.drive(true));
+        self.scene.set_drive(self.fixture.drive(&self.party));
         let restarts = self.combat.restarts;
         self.combat.step_party(&mut self.scene, inputs);
         if self.combat.restarts != restarts {
