@@ -555,9 +555,10 @@ impl RosterKind {
     }
 
     /// Whether this kind supplies `CompanionView.boss` (HAZ rule 9). Appended to
-    /// by the enemy sheets: today only the slime does.
+    /// by the enemy sheets: today the slime does, and the Hoarder, the single
+    /// supplier of her room (HRD sheet section 8).
     pub const fn supplies_boss(self) -> bool {
-        matches!(self, Self::Slime)
+        matches!(self, Self::Slime | Self::Room(EnemyKind::Hoarder))
     }
 }
 

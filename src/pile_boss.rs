@@ -2426,7 +2426,7 @@ mod tests {
         assert_eq!(e.roster[0].id, "pile_boss");
         assert_eq!(
             e.roster[0].kind,
-            crate::camera_lab::room::EnemyKind::Hoarder
+            crate::encounter::RosterKind::Room(crate::camera_lab::room::EnemyKind::Hoarder)
         );
         assert_eq!(
             e.roster[0].trigger_x,

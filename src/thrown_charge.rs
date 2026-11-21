@@ -741,23 +741,31 @@ mod tests {
 
     /// The `HeroBlow` / `HeroHurt` source ids of every setpiece that hurts a
     /// hero must stay distinct (integration plan section 3). Each later step
-    /// that adds an id appends it here: the Hoarder (`0x504C`) is reserved, the
-    /// environment and slot ids follow when they land. Goblin swings use the
-    /// goblin's index as the source, below 0x100.
+    /// that adds an id appends it here. Goblin swings use the goblin's index as
+    /// the source, below 0x100. The Rot, slime and acid sources carry an index
+    /// in the high 16 bits, so the comparison is on the low 16 bits.
     #[test]
     fn every_hero_hurt_source_id_is_distinct() {
         let ids = [
             ("boss", crate::boss::BOSS_SOURCE_ID),
             ("rack", crate::boss::RACK_SOURCE_ID),
             ("shore block", crate::cf02::arena::SHORE_BLOCK_SOURCE),
-            // TODO(HRD-A1 #202 merged): use `pile_boss::PILE_BOSS_SOURCE_ID` (0x504C) here.
-            ("hoarder (reserved)", 0x504C),
+            ("hoarder", crate::pile_boss::PILE_BOSS_SOURCE_ID),
+            ("rot sticker", crate::rot_sticker::ROT_SOURCE_ID),
+            ("slime", crate::slime::SLIME_SOURCE_ID),
+            ("acid", crate::slime::ACID_SOURCE_ID),
+            ("llama rush", crate::llama_rush::LLAMA_RUSH_SOURCE_ID),
             ("thrown charge", THROWN_CHARGE_SOURCE),
         ];
+        let low = |id: u32| id & 0xFFFF;
         for (i, (name, id)) in ids.iter().enumerate() {
-            assert!(*id > 0xFF, "{name}: above the goblin index range");
+            assert!(low(*id) > 0xFF, "{name}: above the goblin index range");
             for (other, other_id) in &ids[i + 1..] {
-                assert_ne!(id, other_id, "{name} and {other} share a source id");
+                assert_ne!(
+                    low(*id),
+                    low(*other_id),
+                    "{name} and {other} share a source id"
+                );
             }
         }
     }
