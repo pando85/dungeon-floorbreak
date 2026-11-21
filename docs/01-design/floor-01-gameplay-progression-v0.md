@@ -98,6 +98,21 @@ Story unlocks should create **new decisions** instead of only increasing damage.
 
 Prefer two reliable contextually distinct uses to ten weak upgrades. Do not rush RPG class selection or later-book abilities into Floor 1.
 
+### Carl's combat progression (CARL-PROG-01)
+
+Owner request of 2026-11-21, reconciled in the [CARL-PROG-01 spec](../03-tech/carl-prog-01-floor01-combat-progression.md) (adopted defaults CP-Q01..CP-Q43) and split into PRs by the [work order](../07-agents/carl-prog-01-workorder.md). Milestones are **story events**; the percentages are pacing targets from repo chapter anchors (Hoarder Ch. 11, Juicer Ch. 23–24, exit Ch. 27) and no code reads them. How and exactly when Carl obtains dynamite and the gauntlet in the book is unverified in repo sources; the anchors below are game adaptations until the owner confirms them.
+
+| Milestone | Pacing target | Story event | Carl's kit change | Taught through (existing / later) | Acceptance test (spec section 9) |
+| --- | --- | --- | --- | --- | --- |
+| M1 base kit | 0–20 % | Entrance to the Guild (Ch. 1–7) | None: punches, kicks, aerial attacks, stomp and dive from the start; Circle/B inert | CP-01/02/03 route, CF02 microarena, DEMO-01 hall / I-05 passage | `carl_prog_special_locked`; existing `cp0*_*` and `cf02_*` fixtures byte-identical |
+| M2 positioning | 20–40 % | Bad Llamas, rats, Scatterers (Ch. 8–10) | None | Bad Llama, Goblin Engineer, CF02 perch / I-06 and I-07 lanes, Scatterer and rat enemies | Existing llama and Engineer fixtures byte-identical |
+| M3 dynamite | ~40 % | Hoarder defeated (`swarm_boss_f01_defeated`) | Circle/B throws a timed charge: 2.5 s fuse from release, 64 px radius, 7 s recharge after detonation, one live, unlimited, reduced self-damage, no friendly fire | Grant notice and socket / Hoarder encounter (later) | `carl_prog_story_event_grants_dynamite`, `carl_prog_grant_survives_respawn` |
+| M4 explosives | 40–80 % | Workshop, Bomb Bard, slimes, labyrinth, troglodytes (Ch. 12–23) | None new; traps, launches, chains and support collapses become reachable | DEMO-01 trip charge, CP-03 shore, CF02 bowling and wall slams / workshop rooms, TERRAIN-L1 | `carl_prog_dyn_*` core and interaction fixtures |
+| M5 gauntlet | ~85 % | Juicer defeated (`brute_boss_f01_defeated`) | Jab and haymaker gain stagger, pierce committed attacks and count double on supports; no new input | `--scene boss_f01` with dynamite pinned / gym approach (later) | `carl_prog_juicer_grants_fist`, `carl_prog_juicer_dynamite_clear`, `carl_prog_fist_*`, `_pierce_*` |
+| M6 mastery | 85–100 % | Ball of Swine, exit (Ch. 26–27) | **No unlock** | Ball of Swine arena (later) | Load-time check: no trigger in the final arena; clears with no `CapabilityGranted` |
+
+The Juicer is the first implemented boss (`boss_f01`), not the final one: the Ball of Swine is the mastery test (CP-Q03). Unlocks persist through defeat retries and checkpoint respawns and are restored by a fixture restart; there is no cross-session save yet (CP-Q07).
+
 ## 4. Enemy-design contract for later bestiary
 
 Each enemy entry should eventually document:
@@ -116,7 +131,7 @@ Candidate first evaluation enemies: ordinary goblin, Murder Dozer, Bad Llama. Bo
 
 **Approved:** hybrid solo architecture as target, simultaneous playable Carl + Donut from game start, local 2P as core product design, same essential content in solo and 2P, **explicit one-character gates without symmetric routes**, Donut's higher/farther movement vs Carl's physical/destructive access, story-consistent unlocks, cast native scale, shared camera intent.
 
-**Unresolved:** action timing/feel and advanced binding variants (the base mapping is approved in [MVP controller contract](mvp-controller-contract.md)), whether shoulder exists, mounted attack behavior, co-op revival/death system, difficulty adjustment, solo AI autonomy/command UX, fine-grained character acceleration, targeting assist strength, camera split/regroup rules, friendly-fire consequences, and exact progression unlock order.
+**Unresolved:** action timing/feel and advanced binding variants (the base mapping is approved in [MVP controller contract](mvp-controller-contract.md)), whether shoulder exists, mounted attack behavior, co-op revival/death system, difficulty adjustment, solo AI autonomy/command UX, fine-grained character acceleration, targeting assist strength, camera split/regroup rules, friendly-fire consequences, and exact progression unlock order. Carl's Floor 01 unlock order now has adopted defaults (see [Carl's combat progression](#carls-combat-progression-carl-prog-01)); Donut's later unlocks remain open.
 
 The test sequence and experiment evidence requirements live in [Floor 01 integrated-scene playtest plan](../07-agents/floor-01-integrated-scene-playtest.md). **Do not count automatic CI success as human game-feel approval.**
 
