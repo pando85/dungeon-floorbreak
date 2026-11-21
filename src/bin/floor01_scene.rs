@@ -363,6 +363,17 @@ impl Args {
         }
     }
 
+    /// Whether the chosen companion stays idle in this run: a scripted run (the
+    /// autopilot, a scenario, a headless or timed fixture) drives the other hero
+    /// itself. `--demo` and `--cf02` fill in a fixture, so a live human run of
+    /// them (`manual`) is not scripted and the companion runs.
+    fn companion_inactive(&self) -> bool {
+        self.autopilot
+            || self.scenario.is_some()
+            || self.party_fixture.is_some()
+            || (self.fixture.is_some() && !self.manual)
+    }
+
     /// CF02-F: this run is in the microarena (`--cf02`, or a CF02-F room fixture).
     fn arena_room(&self) -> bool {
         self.cf02.rules
@@ -1798,10 +1809,7 @@ fn main() -> ExitCode {
     if let UncontrolledHero::Companion(set) = args.uncontrolled_hero() {
         // The companion runs only in a live party run: a scripted run (the
         // autopilot, a scenario, a fixture) drives the other hero itself.
-        let inactive = args.autopilot
-            || args.scenario.is_some()
-            || args.fixture.is_some()
-            || args.party_fixture.is_some();
+        let inactive = args.companion_inactive();
         println!(
             "COMPANION_CONFIG: set={}{}",
             set.name(),
@@ -7951,6 +7959,29 @@ mod tests {
         assert_eq!(party.tuning().uncontrolled_hero, v0);
         let default = args(&[]).unwrap().live_party();
         assert_eq!(*default.tuning(), PROVISIONAL_TUNING);
+    }
+
+    /// CF02-REVIEW: the `COMPANION_CONFIG` line said `inactive` for every
+    /// `--cf02` run, because `--demo` fills in a fixture; a live human run of the
+    /// room must read as active, scripted runs as inactive.
+    #[test]
+    fn the_companion_config_line_is_active_only_in_a_live_human_run() {
+        let inactive = |list: &[&str]| args(list).unwrap().companion_inactive();
+        assert!(!inactive(&["--cf02"]), "a live human --cf02 run");
+        assert!(!inactive(&["--cf02", "--companion", "v0"]));
+        assert!(!inactive(&["--demo", "--companion", "v0"]));
+        assert!(inactive(&["--cf02", "--autopilot"]));
+        assert!(inactive(&["--cf02", "--exit-after-ticks", "900"]));
+        assert!(inactive(&[
+            "--cf02",
+            "--headless-floor01-smoke",
+            "--autopilot"
+        ]));
+        assert!(inactive(&[
+            "--party-fixture",
+            "cf02_arena_direct",
+            "--headless-floor01-smoke"
+        ]));
     }
 
     #[test]

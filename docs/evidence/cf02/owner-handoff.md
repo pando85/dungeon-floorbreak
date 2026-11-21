@@ -1,0 +1,122 @@
+# COMBAT-FUN-02 owner handoff
+
+The whole COMBAT-FUN-02 feature is merged on main and the agents re-verified it headless ([re-verification table](README.md#re-verification-on-the-final-main)). **No human has played it.** Every mechanic below is recorded as "merged, game-feel review pending"; none is accepted until you play it. This page is what to run, what to judge and what the agents did not do.
+
+## 1. Build and launch
+
+Run from the repository root of the build you want to test. One-time setup (needs Aseprite or LibreSprite):
+
+```sh
+bash scripts/export_assets.sh
+cargo build --locked --release --bin floor01_scene
+```
+
+Then pick one of the launches below. `--cf02` is the whole feature: it loads the microarena and turns every CF02 rule on. Without it you get the unchanged DEMO-01 build.
+
+| Session | Command | What you get |
+| --- | --- | --- |
+| Solo, no assistant | `cargo run --locked --release --bin floor01_scene -- --cf02 --companion off --scale 3` | You control Carl, or Donut after a swap; the other hero follows as the old bot and never attacks |
+| One player with the assistant (the reference run) | `cargo run --locked --release --bin floor01_scene -- --cf02 --scale 3` | The same, but the `cf02_assist` companion drives the other hero: swat on a tell aimed at Carl, pounce, never a killing blow |
+| Two players, two pads | `cargo run --locked --release --bin floor01_scene -- --cf02 --scale 3` and press **Start** on the second pad | P1 is Carl, P2 becomes Donut; L1/LB no longer swaps; the assistant is replaced by P2 |
+| Keyboard fallback | `cargo run --locked --release --bin floor01_scene -- --cf02 --scale 2` | Keyboard is P1 only; there is no keyboard binding for P2 |
+
+Useful flags (all optional; write the ones you use in the scorecard): `--cf02-seed N` (a repeatable temperament draw; without it every launch uses the same fixed draw per attempt, printed as `seed=fixture` on the `CF02_CONFIG` line), `--camera scroll` (the old camera, if the auto camera moves too much), `--gore-preset 1..4` (default 4), `--cinematic-finishes=off` (default on in live play), `--deck` (640x400), `--no-audio`.
+
+The console prints `CF02_ARENA_COMPLETE tick=N` when all six enemies are down and `DEMO01_RESPAWN` on a respawn. A session is recorded locally by default (`PLAYTRACE_REC` shows its id; nothing is uploaded); `--no-record` turns that off, `cargo run --locked --bin playtrace -- list` shows your sessions.
+
+## 2. Controls
+
+From [input-camera](../../03-tech/input-camera.md) and [floor01-scene](../../03-tech/floor01-scene.md#flags). There is no new mandatory button: Down is a direction.
+
+| Action | Pad | Keyboard (P1) |
+| --- | --- | --- |
+| Move | left stick or D-pad | A / D or the arrows |
+| Jump | Cross / A | Space |
+| Jab (again inside the window: haymaker) | Square / X | J |
+| Physical: Carl's kick, Donut's pounce | Triangle / Y | K |
+| **Down** (held with Physical) | D-pad down, or left stick down to 0.5 with the vertical axis dominant | S or the Down arrow |
+| Solo swap (one player only) | L1 / LB | Q |
+| Respawn at the last checkpoint (tap) / restart the room (hold 1 s) | Select | R |
+| Join as P2 (second pad) / quit | Start (second pad joins; Start on P1 quits) | Esc quits |
+
+Carl's moves in the room: **Down + Physical on the ground is the stomp**; **Physical right after a jab that hit is the follow-through kick**; **Physical alone is the push kick**; in the air **Physical is the air kick** and **Down + Physical is the dive**; **Jump in the recovery of a grounded move is the bail-out hop** (away from the facing, or toward a held direction). Donut: Square/X is a weak swat, Triangle/Y the pounce, and **Jump in the recovery of her swat or pounce is her cat hop**. There is no special or ability in the room.
+
+## 3. Play the room three times, once per approach
+
+The room is one lane, 1152 px wide: spawn at x 128, the rotten shore (block) at x 384, a left perch at x 544 to 672, five goblins in two waves, a stone parapet, the llama yard at x 1000 and a right perch. Take at least three attempts, one for each approach below, and fill one scorecard row each. Restart with a Select hold between attempts (each restart redraws the goblins' temperaments).
+
+### Attempt 1: direct
+
+Fight on the ground with jab, haymaker, kick, stomp and the follow-through. Judge:
+
+- **Basic combat fun.** Do the three ground branches (stomp on the spot, follow-through kick, ground finish) read at 1x without a new mandatory button or stun-lock? Do you want to repeat the room to vary the outcome?
+- **Enemy-to-enemy impacts.** Does a kicked goblin knock a second one down? Does a kicked body that meets the end wall slam and crumple? Is the first and second body response visible and satisfying?
+- **Enemy behaviour.** Did you notice at least two goblin reactions per attempt (hesitate, panic, taunt, enraged)? Did attempt 3 play differently from attempt 1? Can you say why a goblin fled?
+- **Evasion.** Did you use the bail-out hop voluntarily? Did it make the goblin tells irrelevant, or does it still cost you?
+- **Aerial play.** Did you use the air kick or the dive without prompting, and does it stay a spice rather than the main kill source?
+- **Death readability and gore.** Can you name three causes of death (stomp, wall slam, flung, shore) without a log? Is the gore at preset 4 about right (3 of 5)?
+- **Tone.** Does Carl look effortful, with a flinch when hit and frustration after missing? Does the assistant Donut look smug or startled (see the NOT RUN list)?
+
+### Attempt 2: environment (shore and block)
+
+Use the room: three jabs break the rotten shore at x 384 and the block falls. Lead goblins under it, let a goblin swing trip it, use the parapet and the perches against the llama. Judge:
+
+- **Could you name the shore hazard without coaching?** Is the damaged shore readable before it falls?
+- **Is the block fair?** It hurts every hero whose body is under it (1 damage, a short knock, 55 ticks of invulnerability), the partner included. Does standing under it feel like your mistake?
+- **Goblin self-own.** When a goblin's swing trips a damaged shore and the block drops on its friends, is it funny and legible, and is the slow motion absent (it must never trigger)?
+- **Llama answers.** Did you use at least two (jump the glob, duck behind the 48 px parapet, stand on a perch above the spit line, rush it during its tell, or Donut staying under the line)?
+- **Room length.** Roughly how long did it take you? (The target is 40 to 60 s, see the NOT RUN list.)
+
+### Attempt 3: perch and coop
+
+Climb a perch (a jump lands on the 80 px slab), dive onto the goblins below, swap heroes (one player) or play with a second pad (two players). Judge:
+
+- **Perch and dive.** Does the one-tile slab read as a place to stand and dive from? Does the dive feel good without becoming the only plan?
+- **Solo swap.** Is the 12-tick swap with the eased pan an improvement? Is there any abrupt camera motion, and in which moment (swap pan, impact kick, zoom)?
+- **Companion.** Does the assistant contribute (swat on a tell, pounce on a lying goblin) without taking the kills? It never lands a killing blow and should land at most a quarter of the hits.
+- **Real 2P.** If you have two pads: does P2 Donut contribute, does the block hurt the partner as designed, and is the room completable together?
+- **Checkpoint respawn.** Tap Select after a defeat: do you resume at the last checkpoint (x 128 or x 704)?
+
+## 4. Open items you decide (adopted values)
+
+Every value below was adopted by the orchestrator under the design-defaults directive, is data or a named constant, and can be changed in a follow-up PR after you play. Nothing is accepted.
+
+| ID | Adopted value | What to judge |
+| --- | --- | --- |
+| Q19 | Solo swap cooldown 12 ticks (the legacy value is 20) | Swap feels responsive but not spammy |
+| Q20 | Eased swap pan; the 40 px deadzone is kept, so a small pan is intended (ruling in #158); U1: the eased pan does not end while the new hero keeps running | Any abrupt or never-ending pan |
+| Q13, Q33, Q39 | `--cf02` defaults to the `cf02_assist` companion; the assistant never lands a killing blow (`ca19_kill_policy = never`); at most 25 % of the hits, at least 3 starts per solo run (the floor passes at exactly 3 starts, 3 of 16 hits = 18.8 %) | Does Donut feel useful and not a thief |
+| Q45 | Perch underside 68 px (slab top 80 px; Carl's 52 px clears by 16 px) | Perch climb and walking under it |
+| Q29 | End walls are the drawn 16 px wall; the room is 1152 px wide with checkpoints at 128 and 704 | Wall slams read against the wall |
+| Q30, Q42 | The landed block hurts every hero in its footprint: 1 damage, 18 hurt ticks, knock 120 / 160, 55 invulnerable ticks | Fairness of terrain that hurts |
+| Q31, Q41 | A goblin swing on a damaged shore trips it (`ShoreTripped`); kill credit goes to the last hero who hit the shore; no slow motion | Authored comedy, never a cinematic |
+| Q54, Q55 | Carl's bail-out hop 150 / 260; Donut's cat hop 170 / 300; no invulnerability (`q54_bailout_iframes` 0) | Does it keep tells meaningful |
+| Q46 | Move buffer 8 ticks (6 is the legacy input buffer; the latency table is in [cf02-h](cf02-h/README.md)) | Attacks whiff on the buffer? |
+| Q58, Q32 | Temperaments drawn from a bag (two brawlers, two cowards, one show-off) per restart; default seed `fixture` | Attempt 3 plays differently from attempt 1 |
+| Q60 to Q68 | Nerve thresholds: panic 25, hesitate 50, enrage 85; panic 60 to 90 ticks; enrage 120 ticks | Reactions noticed and explainable |
+| Q70 | Carl's frustration after 3 whiffs inside 150 ticks, pending 45 ticks from the third whiff (`FRUSTRATION_PENDING_TICKS`, adopted in #159), cooldown 600 | Frustration reads without text |
+| Q71 | Donut's smug pending 45 ticks (`SMUG_PENDING_TICKS`, adopted in #159), cooldown 300; her startle clear shot exists only in one clip | Smug and startle readable (NOT RUN) |
+| Q72 | Goblin taunt hold 6 ticks before a slammed sprite shows | Taunt then punish reads |
+| Q22, Q43, Q36 | Gore baselines at preset 4 (stomped 5 gibs, wall crumple 3 plus an arm, flung 5 plus an arm); crush is catastrophic (D-DEATH-2); five audio cues (D-AUDIO-1: new deterministic DSP, not the legacy pack) | Gore 3 of 5; each cause has a distinct cue |
+| A-1 (companion) | The assistant's follow layer does not dodge a swing aimed at the other hero | Does it ignore danger to Carl in a bad way |
+| Q41 | No room fixture or autopilot run emits a cinematic (measured, 0 per attempt) | Do you ever get one, and does it feel earned |
+
+Known limitations, so you do not mistake them for new findings (the backlog holds the follow-up rows): U1 above; the environment autopilot plan dies twice and does not finish the room (U4); a solo swap press is not seen by the acting overlay (FN3 residual), so a solo swap does not end Carl's overlay; Donut's smug was never shown readable in a scene (FU1); several 1x GIFs are hard to read because the actors are small; the AI pounce at the walking pace usually lands after the goblin's down timer and stands it up instead of holding it; a staggered goblin cannot be pounced.
+
+## NOT RUN by the agents
+
+Written without euphemism: none of this has been done, so none of it is verified.
+
+- **Human play.** Nobody has played the room, in any mode. Every game-feel question above is open.
+- **Real two-pad 2P.** The two-player room is verified headless (`cf02_arena_coop`), not with two physical pads.
+- **Frame time on real hardware.** NOT RUN. The agents ran only software rendering under Xvfb and headless replays, which say nothing about the target hardware. Use `--perf-frames N` on your machine if you want numbers; no number is claimed here.
+- **Owner audio listening.** The five CF02 cues were generated and checked by a script and a QA report, never listened to by a human.
+- **Donut's smug never shown readable in a scene.** Her startle clears in one clip; her smug has only the sheet and state lines (FU1).
+- **The 40 to 60 s room length.** Unmeasured for humans. The scripted autopilot clears the room in about 8 to 12 s (it reached `CF02_ARENA_COMPLETE` at tick 487, 8.1 s, in the re-verification), so it proves the room is completable, not that it lasts 40 to 60 s for a person.
+- **The environment autopilot plan (U4).** The scripted environment plan (break the shore, let the block fall) dies twice and does not complete the room that way. The environment route is verified by its individual fixtures (shore states, block hurts, self-own) and a headless "completable in every shore state" test, not by an end-to-end scripted clear.
+- Cinematic count for a human (Q41): only the scripted plans were measured (0 per attempt).
+- Real-pad button feel (Down on the stick or D-pad, bail-out timing) and the checkpoint respawn on a pad.
+
+## What to send back
+
+Fill in [`playtest-scorecard.md`](playtest-scorecard.md) (one header, one row per attempt, the ratings and any stop signal) and attach the `CF02_CONFIG` line of each attempt. Change any adopted value above by naming its ID; a follow-up PR will edit the data row.

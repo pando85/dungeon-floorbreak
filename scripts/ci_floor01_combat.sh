@@ -322,16 +322,22 @@ case "$mode" in
       fi
       echo "CF02_DEMO_REPLAY_OK: --cf02 replays $name identically twice"
       if [[ "$name" == demo01 ]]; then
-        # The live flag must reach the simulation: on the whole route the CF02
-        # rules change the replay. (This fails if `--cf02` stops calling
+        # The live flag must reach the simulation. `--cf02` loads its own room, so
+        # "differs from --demo" is true whatever the flag does (CF02-REVIEW, U2);
+        # the proof is a rules-only event: goblin morale (`goblin_reaction`) runs
+        # only under `cf02_rules`. (This fails if `--cf02` stops calling
         # `CombatState::with_cf02`; the fixtures enable the rules by name and
         # would not notice.)
         plain="$("$bin" --headless-floor01-smoke --demo --autopilot --demo-beat "$beat" --capture-tick 600 | party_lines)"
-        if [[ "$plain" == "$cf02_a" ]]; then
-          echo "--cf02 replays $name exactly like --demo: the flag no longer reaches the rules" >&2
+        if ! grep -q 'kind=goblin_reaction' <<<"$cf02_a"; then
+          echo "--cf02 on $name logged no goblin_reaction: the flag no longer reaches the rules" >&2
           exit 1
         fi
-        echo "CF02_FLAG_LIVE_OK: --cf02 differs from --demo on $name"
+        if grep -q 'kind=goblin_reaction' <<<"$plain"; then
+          echo "--demo on $name logged a goblin_reaction: the CF02 rules leaked into the demo" >&2
+          exit 1
+        fi
+        echo "CF02_FLAG_LIVE_OK: --cf02 runs goblin morale on $name and --demo does not"
       fi
     done
     # AUDIENCE-01 part C: the per-hero viewer observer and the viewer HUD
