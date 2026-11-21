@@ -1,0 +1,30 @@
+{
+  "schema": "floor01-demo-hall-v1",
+  "status": "HAZ-A1 greybox room (F01-SETPIECE-HAZARDS, docs/01-design/enemy-gameplay-slime-rot.md section 15): geometry only, composed at load time from approved Floor 01 kit pieces by camera_lab::layout (no new art, not an authored level). Acid patches, slimes, Rot Stickers, goblins and pockets live in f01_hazards.encounter.json, validated by src/encounter.rs.",
+  "scenarios": [
+    {
+      "id": "F01-HAZARDS",
+      "name": "The Floor Lies",
+      "subtitle": "Floor 01 hazards: a slime on a corrosive floor, then Rot Stickers on the walls and ceiling",
+      "act": 2,
+      "setting": "dry-catacomb",
+      "width": 1152,
+      "height": 660,
+      "floor": 580,
+      "spawn": { "carl": 112, "donut": 80 },
+      "camera_intro": 112,
+      "ceiling_px": 228,
+      "platforms": [
+        { "x": 160, "y": 516, "w": 48, "h": 16 },
+        { "x": 496, "y": 500, "w": 128, "h": 16 }
+      ],
+      "props": [],
+      "enemies": [],
+      "hazards": [],
+      "goal_x": 1104,
+      "purpose": "A 1152 px scrolling hall with one continuous floor lane and two optional perches: the pocket A foothold (64 px class, free-standing, clear of the pool) and the pocket B slab (80 px class, the Rot Sticker R1 hangs from its underside). The soffit of pocket C, the acid pools, the slimes, the stickers and the goblins are an encounter sidecar, not room geometry.",
+      "expected": "Spawns, props, hazards and the roster come from f01_hazards.encounter.json; this file holds geometry only.",
+      "coop": "Solo with a swap, or two players: every critical route is open to Carl's 80 px class; no Donut-only gate; the direct route needs no sticker blast."
+    }
+  ]
+}

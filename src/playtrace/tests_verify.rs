@@ -586,6 +586,8 @@ fn content_and_rules_mismatches_are_rejected() {
         "carl_prog",
         "donut_prog_tuning",
         "llama_rush_tuning",
+        crate::slime::PIN_KEY,
+        crate::rot_sticker::PIN_KEY,
     ] {
         assert!(stamped.contains(&format!("\"{key}\"")), "{key} is stamped");
     }
@@ -597,6 +599,8 @@ fn content_and_rules_mismatches_are_rejected() {
         "carl_prog",
         "donut_prog_tuning",
         "llama_rush_tuning",
+        crate::slime::PIN_KEY,
+        crate::rot_sticker::PIN_KEY,
         "party_tuning",
     ] {
         tamper_manifest(&session, |m| {
@@ -613,6 +617,8 @@ fn content_and_rules_mismatches_are_rejected() {
         "carl_prog",
         "donut_prog_tuning",
         "llama_rush_tuning",
+        crate::slime::PIN_KEY,
+        crate::rot_sticker::PIN_KEY,
     ] {
         tamper_manifest(&session, |m| {
             m.content_hashes.remove(key);
