@@ -40,6 +40,7 @@
 
 pub mod build_info;
 mod codec;
+pub mod cursor;
 mod error;
 pub mod fake;
 pub mod live;
@@ -55,6 +56,8 @@ mod live_tests;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
+mod tests_cursor;
+#[cfg(test)]
 mod tests_robust;
 #[cfg(test)]
 mod tests_verify;
@@ -64,6 +67,10 @@ pub use codec::{
     ControlSource, DiagRecord, EVENT_SCHEMA, EpisodeBoundary, EpisodeReason, EventRecord,
     OBS_ENCODING, OBS_SCHEMA_ID, QUEUE_BOUND, SESSION_SCHEMA, TICKS_PER_CHUNK, TickRecord,
     chunk_file_name, decode_obs_bits, encode_obs_bits, hex64,
+};
+pub use cursor::{
+    ReplayCounters, ReplayCursor, ReplayPolicy, ReplayResult, TickOutcome, Trust,
+    replay_result_line, state_hash_of,
 };
 pub use error::PlaytraceError;
 pub use manifest::{
