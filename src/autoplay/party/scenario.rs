@@ -227,6 +227,8 @@ fn uncontrolled_tag(value: UncontrolledHero) -> u8 {
         // scenario uses it; the tags keep the encoding total and distinct).
         UncontrolledHero::Companion(crate::companion::profile::ProfileSetId::Cf02Assist) => 2,
         UncontrolledHero::Companion(crate::companion::profile::ProfileSetId::CompanionV0) => 3,
+        // COMPANION-AI-02: the autonomy set (CA2-Q01), a new tag.
+        UncontrolledHero::Companion(crate::companion::profile::ProfileSetId::Cf02Free) => 4,
     }
 }
 

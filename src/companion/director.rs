@@ -27,6 +27,7 @@
 //! the tick before, so it is always a clean press edge.
 
 use crate::combat::{CARL_HAYMAKER, CARL_JAB, ENEMY_HALF_WIDTH, MAGIC_MISSILE, MoveId};
+use crate::companion::engage::leader_engages;
 use crate::companion::profile::{KillPolicy, ProfileSet};
 use crate::companion::view::{
     CompanionView, Control, EntityKind, HeroView, StableEntityId, TargetState, TargetView,
@@ -844,30 +845,9 @@ impl CompanionDirector {
         if target.hp > damage.saturating_add(duo.cf02_duo_a08_finisher_reserve_hp) {
             return false;
         }
-        // A12 (checked before A11, review B-1 of PR 170): a target Carl hit a
-        // moment ago stays his on either side of him. Walking through it,
-        // stepping back or turning does not hand it to her before the window
-        // ends; facing follows his velocity on the same tick.
-        let recent = target
-            .carl_hit_age
-            .is_some_and(|age| age <= duo.cf02_duo_a12_recent_hit_ticks);
-        if recent {
-            return true;
-        }
-        // A11: Carl engages only what is in front of him; an enemy exactly on
-        // him counts as in front (the conservative reading).
-        let dx = target.x - carl.x;
-        let in_front = dx == 0.0 || sign(dx) == carl.facing;
-        if duo.cf02_duo_a11_engage_facing_only && !in_front {
-            return false;
-        }
-        let combo = carl.active_move.is_some();
-        let from_his_hit = target.carl_hit
-            && matches!(
-                target.state,
-                TargetState::Staggered { .. } | TargetState::Lying { .. }
-            );
-        (combo || from_his_hit) && dx.abs() <= f32::from(duo.cf02_duo_a08_finisher_reach_px)
+        // A12, A11 and A08: the engagement predicate shared with the autonomy
+        // layer's claim set (COMPANION-AI-02, `engage::leader_engages`).
+        leader_engages(set, carl, target)
     }
 
     /// CF02-DUO-A04/A05: a Magic Missile on a standing or staggered enemy in
@@ -2284,5 +2264,89 @@ mod tests {
         let per_call = start.elapsed().as_nanos() as f64 / calls as f64;
         println!("companion director: {per_call:.0} ns per call (sink {sink})");
         assert!(per_call < 100_000.0, "{per_call} ns per call");
+    }
+    /// COMPANION-AI-02 CA2-A: extracting the engagement predicate changed no
+    /// `steals_the_finish` result. The method keeps its gates and the HP
+    /// reserve and must equal them composed with the old inline predicate, on a
+    /// grid of sets, leaders, targets and damages.
+    #[test]
+    fn steals_the_finish_is_unchanged_by_the_leader_engages_extraction() {
+        use crate::companion::engage::reference_inline;
+        let sets = [
+            set_of(ProfileSetId::Cf02Assist),
+            set_of(ProfileSetId::CompanionV0),
+            set_of(ProfileSetId::Cf02Free),
+        ];
+        let mut stolen = 0u32;
+        let mut total = 0u32;
+        for set in &sets {
+            for control in [Control::Human(0), Control::Companion] {
+                for defeated in [false, true] {
+                    for facing in [-1i8, 1] {
+                        for moving in [false, true] {
+                            let mut v = donut_ai(300.0);
+                            v.heroes[0].control = control;
+                            v.heroes[0].defeated = defeated;
+                            v.heroes[0].facing = facing;
+                            v.heroes[0].active_move = moving.then_some(ActiveMove {
+                                id: MoveId::Jab,
+                                phase: MovePhase::Active,
+                                ticks_left: 6,
+                                ai_started: false,
+                            });
+                            for state in [
+                                TargetState::Standing,
+                                TargetState::Staggered { ticks: 4 },
+                                TargetState::Lying {
+                                    down_ticks_left: 30,
+                                    hold_used: false,
+                                },
+                            ] {
+                                for hp in [1u8, 2, 3] {
+                                    for carl_hit in [false, true] {
+                                        for age in [None, Some(5), Some(31), Some(40)] {
+                                            for dx in
+                                                [-120.0f32, -30.0, 0.0, 30.0, 39.0, 41.0, 120.0]
+                                            {
+                                                let mut t = target(0, 100.0 + dx, hp, state);
+                                                t.carl_hit = carl_hit;
+                                                t.carl_hit_age = age;
+                                                for damage in [1u8, 2] {
+                                                    let duo = &set.cf02_duo;
+                                                    let carl = &v.heroes[0];
+                                                    let expected = set.ca19_kill_policy
+                                                        == KillPolicy::Factual
+                                                        && duo.cf02_duo_a08_respect_finisher
+                                                        && matches!(
+                                                            carl.control,
+                                                            Control::Human(_)
+                                                        )
+                                                        && !carl.defeated
+                                                        && t.hp <= damage.saturating_add(
+                                                            duo.cf02_duo_a08_finisher_reserve_hp,
+                                                        )
+                                                        && reference_inline(set, carl, &t);
+                                                    let got = donut()
+                                                        .steals_the_finish(&v, set, &t, damage);
+                                                    assert_eq!(got, expected);
+                                                    total += 1;
+                                                    stolen += u32::from(got);
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        assert!(stolen > 100 && stolen < total, "{stolen}/{total}");
+        // Carl's director never steals: the method is Donut's only.
+        let v = donut_ai(300.0);
+        let mut t = target(0, 120.0, 1, TargetState::Standing);
+        t.carl_hit_age = Some(3);
+        assert!(!carl().steals_the_finish(&v, &assist(), &t, 1));
     }
 }
