@@ -303,19 +303,23 @@ impl BlastCharge {
 
     /// CP-Q34: a chain reaches this charge on `now`, from a blast of `depth - 1`.
     ///
-    /// * A blown charge, or one that blows on `now`, is deduped: nothing changes
-    ///   (each charge detonates once).
-    /// * An **unlit** charge (an unarmed `Arm::CarlPast`, or a stored
-    ///   `detonate_tick` of 0 that has not detonated) is set to `now + delay`.
-    ///   An unarmed `CarlPast` is armed on `now` (`armed_tick`), so its tick is
-    ///   never read as "earlier".
-    /// * A lit charge due later than `now + delay` is pulled forward to it; one
-    ///   due inside `now < tick <= now + delay` is left alone.
+    /// **Reached** and **scheduled** are two separate things.
     ///
-    /// The owner is written **only when it is empty** (the first initiator keeps
-    /// the credit), even for a charge left alone: its blast is still the chain's.
-    /// The depth is written with the schedule (lit or pulled), never for a charge
-    /// left alone. Returns the new `detonate_tick` when the schedule changed.
+    /// * Every reached charge that has not detonated takes the chain's credit and
+    ///   depth, **first writer keeps**: `owner` only when it is `None`, `chain_depth`
+    ///   only when it is 0. This holds for a charge left alone and for one due on
+    ///   `now` (not yet stepped, possibly deferred by the per-tick cap), so its own
+    ///   blast is still the chain's and chains onward (CP-Q34: "a charge it reaches
+    ///   is depth 1 ... a chained charge chains further").
+    /// * The schedule: a blown charge is deduped (nothing at all changes; each
+    ///   charge detonates once). A charge that blows on `now` keeps its tick. An
+    ///   **unlit** charge (an unarmed `Arm::CarlPast`, or a stored `detonate_tick`
+    ///   of 0 that has not detonated) is set to `now + delay`; an unarmed
+    ///   `CarlPast` is armed on `now`, so its tick is never read as "earlier". A lit
+    ///   charge due later than `now + delay` is pulled forward to it; one due
+    ///   inside `now < tick <= now + delay` is left alone.
+    ///
+    /// Returns the new `detonate_tick` when the schedule changed.
     pub fn chain_set(
         &mut self,
         now: u64,
@@ -323,11 +327,17 @@ impl BlastCharge {
         owner: Option<u32>,
         depth: u8,
     ) -> Option<u64> {
-        if self.detonated || (self.lit() && self.detonate_tick == now) {
+        if self.detonated {
             return None;
         }
         if self.owner.is_none() {
             self.owner = owner;
+        }
+        if self.chain_depth == 0 {
+            self.chain_depth = depth;
+        }
+        if self.lit() && self.detonate_tick == now {
+            return None;
         }
         let due = now + delay;
         let unlit = match self.arm {
@@ -342,7 +352,6 @@ impl BlastCharge {
                 self.armed_tick = Some(now);
             }
             self.detonate_tick = due;
-            self.chain_depth = depth;
             return Some(due);
         }
         None
@@ -825,7 +834,9 @@ mod tests {
         for due in [101, 104, 108] {
             let mut c = lit_at(due);
             assert_eq!(c.chain_set(now, DELAY, Some(0), 1), None, "due {due}");
-            assert_eq!((c.detonate_tick, c.chain_depth), (due, 0));
+            // Reached but not rescheduled: the depth and the credit are still the
+            // chain's, so this charge's own blast chains onward (B-1).
+            assert_eq!((c.detonate_tick, c.chain_depth, c.owner), (due, 1, Some(0)));
         }
         // Due on `now + 9` and later: pulled to `now + 8`.
         for due in [109, 110, 400] {
@@ -841,10 +852,14 @@ mod tests {
         assert!(blown.detonate(60));
         assert_eq!(blown.chain_set(70, DELAY, Some(0), 1), None);
         assert_eq!(blown.owner, None, "a blown charge takes no credit");
+        assert_eq!(blown.chain_depth, 0);
         // Due on `now` itself (a higher index that is still to step this tick).
         let mut now = lit_at(70);
         assert_eq!(now.chain_set(70, DELAY, Some(0), 1), None);
         assert_eq!(now.detonate_tick, 70, "it still blows this tick");
+        // Not yet stepped this tick (a higher index, possibly cap-deferred): it is
+        // reached, so it takes the credit and the depth even though its tick is kept.
+        assert_eq!((now.chain_depth, now.owner), (1, Some(0)));
         assert!(now.step(70, 0.0));
     }
 
@@ -893,6 +908,41 @@ mod tests {
         let mut now = lit_at(100);
         assert_eq!(now.chain_set(100, DELAY, None, 1), None);
         assert_eq!(now.detonate_tick, 100);
+    }
+
+    #[test]
+    fn chain_a_reached_charge_that_is_left_alone_or_cap_deferred_keeps_the_chain_going() {
+        // Left alone (due inside the window): depth 1, credit filled, no new tick.
+        let mut alone = lit_at(104);
+        assert_eq!(alone.chain_set(100, DELAY, Some(0), 1), None);
+        assert_eq!(
+            (alone.detonate_tick, alone.chain_depth, alone.owner),
+            (104, 1, Some(0))
+        );
+        // Its own blast then chains the next charge at depth 2.
+        let mut next = lit_at(4000);
+        assert_eq!(
+            next.chain_set(104, DELAY, alone.owner, alone.chain_depth + 1),
+            Some(112)
+        );
+        assert_eq!((next.chain_depth, next.owner), (2, Some(0)));
+        // Due on `now` and then pushed to `now + 1` by the cap: it was reached on
+        // `now`, so the deferral keeps the depth and the credit.
+        let mut due_now = lit_at(100);
+        assert_eq!(due_now.chain_set(100, DELAY, Some(1), 3), None);
+        due_now.defer_one_tick();
+        assert_eq!(
+            (due_now.detonate_tick, due_now.chain_depth, due_now.owner),
+            (101, 3, Some(1))
+        );
+        // First writer keeps both: a later, shallower chain changes neither.
+        assert_eq!(due_now.chain_set(100, DELAY, Some(0), 1), None);
+        assert_eq!((due_now.chain_depth, due_now.owner), (3, Some(1)));
+        // The same for a charge that was scheduled by the first chain.
+        let mut first = lit_at(4000);
+        assert_eq!(first.chain_set(100, DELAY, Some(0), 2), Some(108));
+        assert_eq!(first.chain_set(100, DELAY, Some(1), 1), None);
+        assert_eq!((first.chain_depth, first.owner), (2, Some(0)));
     }
 
     #[test]

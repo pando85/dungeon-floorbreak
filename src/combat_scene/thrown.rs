@@ -288,8 +288,11 @@ impl CombatState {
     /// itself) whose centre lies within this blast's outer radius, with line of
     /// sight, is lit, pulled to or left at `tick + 8` ([`BlastCharge::chain_set`]).
     /// The depth is `source depth + 1`; a blast at the deepest link chains nothing
-    /// (CP-Q34: depth 4 at most). Targets are visited in charge-index order, and
-    /// the initiator's credit is inherited only by a charge with no owner.
+    /// (CP-Q34: depth 4 at most). Targets are visited in charge-index order.
+    /// Every reached charge that has not blown (also one left alone, or due on
+    /// `tick` and not yet stepped) takes the depth when it has none and the
+    /// initiator's credit when it has no owner (first writer keeps both), so its
+    /// own blast chains onward; only the schedule differs between them.
     /// Evaluated before the blast changes anything this tick (CP-Q22).
     pub(super) fn chain_from(&mut self, scene: &SceneSim, source: usize, tick: u64) {
         if !self.chains_from(source) {

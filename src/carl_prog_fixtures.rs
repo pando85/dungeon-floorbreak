@@ -468,14 +468,15 @@ pub const CARL_PROG_DYN_CHAIN_DEPTH_CAP: PartyFixture = PartyFixture {
 
 const DUE_EARLIER_BASE: Fixture = Fixture {
     charges: &[
-        charge(150, 198),
+        charge(170, 198),
         charge(158, 203),
         charge(166, 204),
         charge(174, 400),
+        charge(189, 4000),
     ],
     ..base(
         "carl_prog_dyn_chain_due_earlier",
-        "Solo, thrown charge held: the blast on tick 195 reaches four lit charges: due 198 and due 203 (inside the 8-tick delay, both edges) keep their ticks, due 204 and due 400 are pulled to tick 203",
+        "Solo, thrown charge held: the blast on tick 195 reaches charges due 198 and 203 (inside the 8-tick delay, both edges: left alone, but still reached, so depth 1) and due 204 and 400 (pulled to 203); charge 0 is out of the stick's reach for charge 4, which only charge 0's blast (depth 2, on tick 198) lights, for tick 206",
         0x0CA1_0023,
         &[],
         260,
@@ -495,6 +496,7 @@ pub const CARL_PROG_DYN_CHAIN_DUE_EARLIER: PartyFixture = PartyFixture {
 
 const DEFER_BASE: Fixture = Fixture {
     charges: &[
+        charge(56, 4000),
         charge(70, 4000),
         charge(80, 4000),
         charge(90, 4000),
@@ -503,11 +505,13 @@ const DEFER_BASE: Fixture = Fixture {
         charge(120, 4000),
         charge(130, 4000),
         charge(140, 4000),
-        charge(150, 4000),
+        // Out of the stick's reach (71 px) but lit for tick 203 on its own: only
+        // charge 0's blast on tick 203 reaches it, and the cap then defers it.
+        charge(40, 203),
     ],
     ..base(
         "carl_prog_dyn_chain_defer_over_8",
-        "Solo, thrown charge held: the blast reaches nine authored charges at once; all are due on tick 203, eight blow then and the ninth, in index order, on tick 204",
+        "Solo, thrown charge held: the blast reaches nine authored charges at once, all due on tick 203, and a tenth (out of its reach, lit for 203) is reached by charge 0's blast on 203; eight blow on tick 203 and the other two, in index order, on tick 204, keeping the chain's depth and credit",
         0x0CA1_0024,
         &[],
         260,
@@ -746,8 +750,8 @@ mod tests {
         ("carl_prog_dyn_chain_charge", 0x2c8d_2496_de05_117e),
         ("carl_prog_dyn_arms_trip_charge", 0xaa2c_b16d_4e4e_f9d7),
         ("carl_prog_dyn_chain_depth_cap", 0x0443_83ce_ef4c_2af7),
-        ("carl_prog_dyn_chain_due_earlier", 0x38d7_5af9_98dd_fd05),
-        ("carl_prog_dyn_chain_defer_over_8", 0xf778_5866_6c92_d168),
+        ("carl_prog_dyn_chain_due_earlier", 0xb4f3_086c_2445_db89),
+        ("carl_prog_dyn_chain_defer_over_8", 0xa7a0_a485_638c_c59a),
         ("carl_prog_dyn_breaks_shore", 0xbdd2_997f_3974_e813),
         ("carl_prog_dyn_bowling", 0x9edd_d9cf_fd1d_e939),
         ("carl_prog_dyn_wall_slam", 0xe7f8_1f9b_f589_ce3c),
@@ -1549,19 +1553,24 @@ mod tests {
         let sim = named("carl_prog_dyn_chain_due_earlier");
         assert_eq!(
             chained(&sim),
-            [(195, 2, 4, 203, 1), (195, 3, 4, 203, 1)],
-            "charges 0 (due 198) and 1 (due 203) are left alone"
+            [
+                (195, 2, 5, 203, 1),
+                (195, 3, 5, 203, 1),
+                (198, 4, 0, 206, 2),
+            ],
+            "charges 0 (due 198) and 1 (due 203) are left alone; charge 0's blast chains charge 4"
         );
         assert_eq!(
             blasts(&sim),
-            [(195, 4), (198, 0), (203, 1), (203, 2), (203, 3)]
+            [(195, 5), (198, 0), (203, 1), (203, 2), (203, 3), (206, 4)]
         );
-        // The charges left alone keep depth 0 (they were not chained).
-        assert_eq!(sim.combat.charges[0].chain_depth, 0);
-        assert_eq!(sim.combat.charges[1].chain_depth, 0);
-        assert_eq!(sim.combat.charges[2].chain_depth, 1);
+        // Left alone is a scheduling rule only: they were reached, so they are depth 1
+        // (B-1), and charge 0's own blast on tick 198 chains charge 4 at depth 2.
+        for (i, depth) in [(0, 1), (1, 1), (2, 1), (3, 1), (4, 2)] {
+            assert_eq!(sim.combat.charges[i].chain_depth, depth, "charge {i}");
+        }
         // The first initiator keeps the credit: left-alone charges are still filled.
-        assert!(sim.combat.charges[..4].iter().all(|c| c.owner == Some(0)));
+        assert!(sim.combat.charges[..5].iter().all(|c| c.owner == Some(0)));
     }
 
     /// CP-Q34: at most 8 detonations on one tick; the ninth, in index order, goes
@@ -1570,10 +1579,10 @@ mod tests {
     fn carl_prog_dyn_chain_defer_over_8() {
         let sim = named("carl_prog_dyn_chain_defer_over_8");
         let blasts = blasts(&sim);
-        let mut expected = vec![(195, 9)];
+        let mut expected = vec![(195, 10)];
         expected.extend((0..8).map(|c| (203, c)));
-        expected.push((204, 8));
-        assert_eq!(blasts, expected, "eight on 203, the ninth on 204");
+        expected.extend([(204, 8), (204, 9)]);
+        assert_eq!(blasts, expected, "eight on 203, the other two on 204");
         for tick in 190..210 {
             assert!(
                 blasts.iter().filter(|b| b.0 == tick).count() <= 8,
@@ -1584,13 +1593,25 @@ mod tests {
         charges.sort_unstable();
         assert_eq!(
             charges,
-            (0..10).collect::<Vec<u32>>(),
+            (0..11).collect::<Vec<u32>>(),
             "each charge blows once"
         );
-        let deferred = &sim.combat.charges[8];
-        assert_eq!((deferred.detonate_tick, deferred.chain_depth), (204, 1));
-        assert_eq!(deferred.owner, Some(0));
-        assert_eq!(chained(&sim).len(), 9, "all nine were chained on tick 195");
+        // Pulled by the stick, then deferred: depth 1, Carl's credit.
+        let pulled = &sim.combat.charges[8];
+        assert_eq!((pulled.detonate_tick, pulled.chain_depth), (204, 1));
+        assert_eq!(pulled.owner, Some(0));
+        // Due this tick on its own, reached by charge 0's blast (depth 1) on tick 203
+        // before it was stepped, then deferred by the cap: depth 2 and the credit
+        // still arrive (B-1). It has no `charge_chained` event: its tick is unchanged.
+        let late = &sim.combat.charges[9];
+        assert_eq!((late.detonate_tick, late.chain_depth), (204, 2));
+        assert_eq!(late.owner, Some(0));
+        assert_eq!(
+            chained(&sim).len(),
+            9,
+            "nine were scheduled on tick 195, none later"
+        );
+        assert!(chained(&sim).iter().all(|c| c.1 != 9));
     }
 
     /// CP-Q35: the blast breaks the untouched shore outright, credited to Carl; the
