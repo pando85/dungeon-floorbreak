@@ -17,11 +17,12 @@ Strict precondition, on main (`b3ec13dc`, same source fingerprint as `0bffd264`)
 
 All eight owner sessions: `result=PASS scope=full build=source_identical_commit_differs` (8739, 1291, 1468, 307, 1171, 1216, 1894 and 1435 ticks).
 
-Sim-pinned replay build (local, never pushed):
+Sim-pinned replay build (local, never pushed; PTR-Q16). The evidence below ran on `0bffd264` plus the R0/R1 commits, which is source-equivalent to the merged build. After the squash merge use the #167 squash commit itself (the cherry-pick onto `0bffd264` stops on the two new docs):
 
-    git worktree add --detach <tmp> 0bffd264
-    cd <tmp> && git cherry-pick <PTR-R0/R1 commits>   # the three branch commits applied with no conflicts
-    cargo run --locked --release --bin floor01_scene -- --replay-session ID --replay-compatibility checked
+    git worktree add --detach <tmp> 12e43398
+    cp -r generated <tmp>/generated        # exported art from the main checkout (gitignored)
+    cd <tmp> && cargo run --locked --release --bin floor01_scene -- --replay-session ID --replay-compatibility checked --scale 3
+    # or: scripts/replay_session_pinned.sh 12e43398 ID
 
 (the evidence ran the dev profile of the same tree). Result lines, one per owner session, all with exit code 0:
 

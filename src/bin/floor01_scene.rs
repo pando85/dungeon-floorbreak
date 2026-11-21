@@ -3021,7 +3021,12 @@ fn run_window(
                     replay_view::draw_overlay.after(replay_view::replay_hud),
                 ),
             )
-            .add_systems(Last, replay_view::replay_finish)
+            // After Bevy's window-exit systems: closing with the window X writes
+            // `AppExit` in `Last`, and the result line must see it that frame.
+            .add_systems(
+                Last,
+                replay_view::replay_finish.after(bevy::window::ExitSystems),
+            )
             .add_systems(
                 FixedUpdate,
                 (replay_view::replay_step, replay_view::replay_camera).chain(),
