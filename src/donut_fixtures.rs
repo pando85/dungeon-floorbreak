@@ -18,7 +18,7 @@ use crate::combat_scene::{EnemySpawn, Fixture, LlamaSpawn};
 use crate::donut_mana::{DonutSetup, StartState};
 use crate::input::RawInput;
 use crate::party::{PROVISIONAL_TUNING, PartyTuning};
-use crate::party_scene::{PartyFixture, SlotHold, base, run, swap};
+use crate::party_scene::{PartyFixture, SlotHold, base, jump, run, swap};
 
 /// A held Primary (Square/X) on `slot`: its press edge is on `from`.
 pub(crate) const fn primary(from: u64, to: u64, slot: usize) -> SlotHold {
@@ -408,9 +408,68 @@ pub const CF02_DONUT_SOLO_LLAMA: PartyFixture = PartyFixture {
     donut: DonutSetup::NONE,
 };
 
+// ---------------------------------------------- CF02-C2 (Q19, Q20, Q55) --
+//
+// The solo swap and Donut's bail-out. `cf02_*` names, so the combat state runs
+// them under `cf02_rules`; the committed replays live in
+// `docs/evidence/cf02/replays`.
+
+const DONUT_BAILOUT_BASE: Fixture = base(
+    "cf02_donut_bailout",
+    "Two players: P2 Donut swats and jumps in the swat recovery (tick 7): the cat hop leaves the ground at vx 170 away, no swat starts in the air or in the 2-tick landing recovery, the next swat after it does; a pounce recovery bails out the same way",
+    0x0CF0_2C06,
+    &[],
+    200,
+);
+
+/// CF02-Q55 (C6): the swat's and the pounce's recovery cancel into the cat hop.
+pub const CF02_DONUT_BAILOUT: PartyFixture = PartyFixture {
+    base: &DONUT_BAILOUT_BASE,
+    two_player: true,
+    tuning: PROVISIONAL_TUNING,
+    script: &[
+        primary(5, 6, 1),
+        jump(12, 13, 1),
+        primary(30, 31, 1),
+        primary(50, 51, 1),
+        physical(90, 91, 1),
+        jump(124, 125, 1),
+        primary(140, 141, 1),
+        primary(168, 169, 1),
+    ],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const SWAP_PAN_BASE: Fixture = llama_base(
+    "cf02_swap_eased_pan",
+    "Solo: Carl runs right, the player swaps to Donut (12-tick cooldown, eased pan) and back; a llama at the edge of the view fires only while its whole body is inside the simulation view that the eased pan moves",
+    0x0CF0_2C07,
+    &[llama(760)],
+    260,
+);
+
+/// CF02-Q19, Q20: the solo swap under `--cf02` (cooldown 12, the pan eased in
+/// and out), with a llama on the fair-fire edge (Q40: the view is the
+/// simulation's scroll camera, which the pan moves).
+pub const CF02_SWAP_EASED_PAN: PartyFixture = PartyFixture {
+    base: &SWAP_PAN_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING.with_cf02_swap(),
+    script: &[
+        run(10, 40, 0, 1.0),
+        swap(50, 51),
+        run(52, 60, 0, -1.0),
+        swap(58, 59),
+        run(70, 130, 0, 1.0),
+    ],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
 // ------------------------------------------------------------ the registry --
 
-pub const DONUT_FIXTURES: [&PartyFixture; 13] = [
+pub const DONUT_FIXTURES: [&PartyFixture; 15] = [
     &Q10_SWAT_INTERRUPT,
     &Q10_SWAT_GUARD,
     &Q10_POUNCE_HIT,
@@ -424,6 +483,8 @@ pub const DONUT_FIXTURES: [&PartyFixture; 13] = [
     &CF02_LLAMA_POUNCE,
     &CF02_LLAMA_BOLT_STOPS,
     &CF02_DONUT_SOLO_LLAMA,
+    &CF02_DONUT_BAILOUT,
+    &CF02_SWAP_EASED_PAN,
 ];
 
 #[cfg(test)]
@@ -431,6 +492,7 @@ mod tests {
     use super::*;
     use crate::boss_scene::{BOSS_FIXTURES, load_arena};
     use crate::combat::{CombatEvent, DefeatCause, EnemyAi, ForceTier, MoveId};
+    use crate::combat_scene::Fixture;
     use crate::combat_scene::LlamaSpawn;
     use crate::donut_mana::ManaEvent;
     use crate::donut_moves::{GlanceReason, MoveKind};
@@ -497,12 +559,14 @@ mod tests {
     ];
 
     /// CF02-C1: the committed final hashes of the llama fixtures.
-    const CF02_GOLDENS: [(&str, u64); 5] = [
+    const CF02_GOLDENS: [(&str, u64); 7] = [
         ("cf02_llama_swat_interrupt", 0x4af2_f493_1063_f1f6),
         ("cf02_llama_swat_guard", 0xd51a_bdc4_c4cb_5745),
         ("cf02_llama_pounce", 0x0c45_b58d_0ead_33b8),
         ("cf02_llama_bolt_stops", 0x1f46_79db_b6fc_c5b4),
         ("cf02_donut_solo_llama", 0xcf60_93b7_1f50_4c6a),
+        ("cf02_donut_bailout", 0x50c5_db02_4da0_ce67),
+        ("cf02_swap_eased_pan", 0x7352_38da_816c_1895),
     ];
 
     /// The Q10 fixtures (the DEMO-era ones) of the registry.
@@ -1365,5 +1429,345 @@ mod tests {
             e,
             CombatEvent::LlamaTell { .. } | CombatEvent::LlamaSpit { .. }
         )));
+    }
+
+    // ------------------------------------------- CF02-C2 (Q19, Q20, Q55) --
+
+    /// Swap pan trace: the forced-gap setup of the CF02-00 baseline (Donut far
+    /// behind, Carl runs 30 ticks, swap, 80 idle ticks) under `tuning`. Returns
+    /// the camera's per-tick step in px (negative: toward Donut).
+    fn swap_pan_steps(tuning: PartyTuning) -> Vec<i32> {
+        let fixture: &'static PartyFixture = Box::leak(Box::new(PartyFixture {
+            base: crate::party_scene::SOLO_SWAP_CONTINUITY.base,
+            two_player: false,
+            tuning,
+            script: &[],
+            pilot: Pilot::None,
+            donut: DonutSetup::NONE,
+        }));
+        let mut sim = PartyFixtureSim::new(&kit_of(fixture), 360, fixture).unwrap();
+        sim.scene.world.donut_body.x = 100.0;
+        sim.scene.world.sync_donut_for_tests();
+        let idle = RawInput::NONE;
+        for _ in 0..30 {
+            sim.step_slots([
+                RawInput {
+                    move_x: 1.0,
+                    ..RawInput::NONE
+                },
+                idle,
+            ]);
+        }
+        let mut last = sim.scene.camera.left();
+        let mut steps = Vec::new();
+        // Index 0 is the swap tick itself: the pan starts on it.
+        for tick in 0..81 {
+            let swap = tick == 0;
+            sim.step_slots([
+                RawInput {
+                    swap,
+                    ..RawInput::NONE
+                },
+                idle,
+            ]);
+            if swap {
+                assert_eq!(sim.party.controlled_hero(), HeroId::Donut);
+            }
+            let now = sim.scene.camera.left();
+            steps.push(now - last);
+            last = now;
+        }
+        steps
+    }
+
+    /// CF02-Q20: the pan velocity trace, legacy against eased, on the same gap.
+    /// Run with `cargo test --locked cf02_swap_pan_trace -- --nocapture` to print
+    /// the table recorded in `docs/evidence/cf02/cf02-c2f/pan_trace.md`.
+    #[test]
+    fn cf02_swap_pan_trace_eases_in_and_out_and_arrives_where_the_legacy_pan_does() {
+        let old = swap_pan_steps(PROVISIONAL_TUNING);
+        let new = swap_pan_steps(PROVISIONAL_TUNING.with_cf02_swap());
+        for tick in 0..24 {
+            println!(
+                "CF02_SWAP_PAN tick_from_swap={tick} old_dx={} new_dx={}",
+                old[tick], new[tick]
+            );
+        }
+        // Legacy (unchanged): a hard start at the 8 px cap on the swap tick, 19
+        // identical steps and a hard stop.
+        let mut expected = vec![-8; 19];
+        expected.push(-5);
+        expected.resize(81, 0);
+        assert_eq!(old, expected);
+        // Eased: no velocity step on the first tick (2 px), a ramp of 2 px per
+        // tick, a peak under the 12 px clamp, a soft arrival, no overshoot.
+        let speeds: Vec<i32> = new.iter().map(|d| d.abs()).collect();
+        assert!(new.iter().all(|d| *d <= 0), "never overshoots: {new:?}");
+        assert_eq!(speeds[0], 2, "no hard start: {speeds:?}");
+        let moving: Vec<i32> = speeds.iter().copied().take_while(|v| *v > 0).collect();
+        assert!(moving.len() >= 8, "a real ramp: {moving:?}");
+        let peak = moving.iter().copied().max().unwrap();
+        let peak_at = moving.iter().position(|v| *v == peak).unwrap();
+        assert!(
+            moving[..=peak_at].windows(2).all(|w| w[1] - w[0] <= 2),
+            "the ramp up gains at most 2 px a tick: {moving:?}"
+        );
+        assert!(
+            moving[peak_at..].windows(2).all(|w| w[1] <= w[0]),
+            "then it only slows: {moving:?}"
+        );
+        assert!((6..=12).contains(&peak), "peak {peak}");
+        assert!(
+            moving.last().is_some_and(|v| *v <= 2),
+            "a soft arrival: {moving:?}"
+        );
+        // The same arrival column as the legacy pan, and the pan ends.
+        assert_eq!(new.iter().sum::<i32>(), old.iter().sum::<i32>());
+        assert!(speeds[moving.len()..].iter().all(|v| *v == 0));
+    }
+
+    #[test]
+    fn eased_pan_step_ramps_clamps_slows_and_never_overshoots() {
+        use crate::party::eased_pan_step;
+        // Long distance: 2, 4, ... 12, then it holds at the clamp.
+        let mut v = 0;
+        let ramp: Vec<i32> = (0..8)
+            .map(|_| {
+                v = eased_pan_step(v, 448);
+                v
+            })
+            .collect();
+        assert_eq!(ramp, [2, 4, 6, 8, 10, 12, 12, 12]);
+        // Short distance: the arrival term slows it and it never exceeds what is left.
+        assert_eq!(eased_pan_step(10, 7), 2);
+        assert_eq!(eased_pan_step(12, 1), 1);
+        assert_eq!(eased_pan_step(0, 0), 0);
+        // 448 px takes about 45 ticks (legacy: 56).
+        let (mut left, mut v, mut ticks) = (448, 0, 0);
+        while left > 0 {
+            v = eased_pan_step(v, left);
+            left -= v;
+            ticks += 1;
+        }
+        assert!((40..=50).contains(&ticks), "{ticks} ticks");
+    }
+
+    /// Q19: the cooldown is 12 under `--cf02` (legacy 20): the same press that
+    /// the legacy cooldown refuses (its buffer runs out) swaps under the new one.
+    #[test]
+    fn cf02_swap_cooldown_is_12_and_a_press_the_legacy_one_refuses_swaps() {
+        use crate::party::{CF02_SWAP_COOLDOWN_TICKS, PartyState};
+        assert_eq!(CF02_SWAP_COOLDOWN_TICKS, 12);
+        assert_eq!(PROVISIONAL_TUNING.swap_cooldown_ticks, 20);
+        let swaps = |tuning: PartyTuning| {
+            let mut party = PartyState::new(tuning);
+            let mut at = Vec::new();
+            for tick in 1..=80u64 {
+                let press = tick == 10 || tick == 18;
+                if party.request_swap(press, false) {
+                    at.push(tick);
+                }
+            }
+            at
+        };
+        assert_eq!(swaps(PROVISIONAL_TUNING), [10], "its buffer runs out first");
+        assert_eq!(swaps(PROVISIONAL_TUNING.with_cf02_swap()), [10, 22]);
+        // The hurt block, the 6-tick buffer, 2P ownership and the rest are unchanged.
+        let t = PROVISIONAL_TUNING.with_cf02_swap();
+        assert_eq!(
+            (t.swap_buffer_ticks, t.swap_blocked_while_hurt),
+            (PROVISIONAL_TUNING.swap_buffer_ticks, true)
+        );
+    }
+
+    /// Q19/Q20 change nothing in two-player: a 2P fixture replays its committed
+    /// hash with the `--cf02` swap tuning (nobody swaps, nothing pans).
+    #[test]
+    fn the_cf02_swap_tuning_changes_nothing_in_two_player() {
+        for name in [
+            "duo_independent_moves",
+            "duo_separation_wall",
+            "q10_swat_interrupt",
+        ] {
+            let fixture = PartyFixture::by_name(name).unwrap();
+            assert!(fixture.two_player, "{name}");
+            let swapped: &'static PartyFixture = Box::leak(Box::new(PartyFixture {
+                base: fixture.base,
+                two_player: true,
+                tuning: fixture.tuning.with_cf02_swap(),
+                script: fixture.script,
+                pilot: fixture.pilot,
+                donut: fixture.donut,
+            }));
+            assert_eq!(
+                replay(fixture).state_hash(),
+                replay(swapped).state_hash(),
+                "{name}"
+            );
+        }
+    }
+
+    /// Q20 + Q40: a llama's fair-fire view is the simulation's scroll camera,
+    /// which the eased pan moves, so a tell starts only while its whole body is
+    /// inside the view of that very tick, in the legacy pan and in the eased one.
+    #[test]
+    fn a_llama_on_the_view_edge_fires_only_while_inside_the_pan_moved_view() {
+        let run = |tuning: PartyTuning| {
+            let fixture: &'static PartyFixture = Box::leak(Box::new(PartyFixture {
+                base: &SWAP_PAN_BASE_EDGE,
+                two_player: false,
+                tuning,
+                script: &[],
+                pilot: Pilot::None,
+                donut: DonutSetup::NONE,
+            }));
+            let mut sim = PartyFixtureSim::new(&kit_of(fixture), 360, fixture).unwrap();
+            sim.scene.world.donut_body.x = 100.0;
+            sim.scene.world.sync_donut_for_tests();
+            let idle = RawInput::NONE;
+            let mut tells = Vec::new();
+            let mut in_view_at_tell = Vec::new();
+            for tick in 0..260u64 {
+                let slots = if tick < 20 {
+                    [
+                        RawInput {
+                            move_x: 1.0,
+                            ..RawInput::NONE
+                        },
+                        idle,
+                    ]
+                } else {
+                    [
+                        RawInput {
+                            swap: tick == 20,
+                            ..RawInput::NONE
+                        },
+                        idle,
+                    ]
+                };
+                let before = sim.combat.events.len();
+                sim.step_slots(slots);
+                let left = sim.scene.camera.left() as f32;
+                for event in &sim.combat.events[before..] {
+                    if let CombatEvent::LlamaTell { tick, .. } = event {
+                        let body = sim.combat.llamas[0].body();
+                        tells.push(*tick);
+                        in_view_at_tell.push(body.left >= left && body.right() <= left + 640.0);
+                    }
+                }
+            }
+            (tells, in_view_at_tell, sim.scene.camera.left())
+        };
+        let (_, old_in_view, _) = run(PROVISIONAL_TUNING);
+        let (new_tells, new_in_view, _) = run(PROVISIONAL_TUNING.with_cf02_swap());
+        assert!(old_in_view.iter().all(|v| *v), "legacy: {old_in_view:?}");
+        assert!(!new_tells.is_empty());
+        assert!(new_in_view.iter().all(|v| *v), "eased: {new_in_view:?}");
+    }
+
+    /// The pan test's llama a few px inside the fair-fire edge of Carl's view.
+    const SWAP_PAN_BASE_EDGE: Fixture = Fixture {
+        llamas: &[LlamaSpawn {
+            x: 740,
+            ai: EnemyAi::Chase,
+        }],
+        ..SWAP_PAN_BASE
+    };
+
+    /// The tick (1-based) on which each Donut move started, from the log.
+    fn donut_starts(sim: &PartyFixtureSim) -> Vec<(u64, MoveId)> {
+        sim.combat
+            .events
+            .iter()
+            .filter_map(|e| match e {
+                CombatEvent::MoveStarted { tick, move_id, .. }
+                    if matches!(move_id, MoveId::Swat | MoveId::Pounce) =>
+                {
+                    Some((*tick, *move_id))
+                }
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// Q55 (C6): the swat's recovery (tick 7, press on 12) and the pounce's
+    /// landing recovery (from touchdown + 8) cancel into the cat hop; nothing
+    /// attacks in the air or in the 2-tick landing recovery.
+    #[test]
+    fn cf02_donut_bailout_hops_from_the_swat_and_the_pounce_recovery() {
+        let fixture = PartyFixture::by_name("cf02_donut_bailout").unwrap();
+        let mut sim = PartyFixtureSim::new(&kit_of(fixture), 360, fixture).unwrap();
+        let mut body = Vec::new();
+        for _ in 0..fixture.base.ticks {
+            sim.step_scripted();
+            let d = &sim.scene.world.donut_body;
+            body.push((d.x, d.y, d.vy, d.grounded));
+        }
+        let at = |tick: usize| body[tick - 1];
+        // The swat started on 5 and the jump on 12 (swat tick 7): the hop leaves
+        // the ground at vy 300 (one gravity step already applied) and vx -170
+        // (away from her facing, right) px/s, held until the landing.
+        assert!(at(11).3 && !at(12).3 && at(11).2 == 0.0);
+        assert!(
+            (at(12).2 - (300.0 - 1050.0 / 60.0)).abs() < 0.01,
+            "{:?}",
+            at(12)
+        );
+        assert!((at(13).0 - at(12).0 + 170.0 / 60.0).abs() < 0.01);
+        // About 33 ticks in the air, then grounded.
+        let landed = (13..=60).find(|t| at(*t).3).unwrap();
+        assert!((40..=48).contains(&landed), "landed on {landed}");
+        let apex = (12..landed).map(|t| at(t).1).fold(f32::MIN, f32::max) - 118.0;
+        assert!((40.0..=46.0).contains(&apex), "apex {apex} px");
+        // The legacy jump of a swat recovery is gone: 300 px/s, not the normal jump.
+        // Swat presses on 30 (airborne) never start; the one on 50 does.
+        let starts = donut_starts(&sim);
+        assert_eq!(starts[0], (5, MoveId::Swat));
+        assert_eq!(
+            starts[1],
+            (50, MoveId::Swat),
+            "no swat in the air: {starts:?}"
+        );
+        // The pounce (90) bails out from tick touchdown + 8 (press 124): a second hop.
+        assert_eq!(starts[2], (90, MoveId::Pounce));
+        assert!(!at(125).3 && at(125).2 > 200.0, "{:?}", at(125));
+        // A swat pressed on 140 in that hop does not start; 168 after it does.
+        assert_eq!(starts[3], (168, MoveId::Swat));
+        assert_eq!(starts.len(), 4, "{starts:?}");
+    }
+
+    /// Q55: the hop is a human Donut's tool: the AI never bails out, and with
+    /// `cf02_rules` off a recovery jump is the legacy jump.
+    #[test]
+    fn the_bailout_is_cf02_only_and_the_ai_never_bails_out() {
+        // The same script outside `cf02_*` (the Q37 gate is off): the legacy jump
+        // cancel, no 300 px/s hop.
+        let fixture = PartyFixture::by_name("cf02_donut_bailout").unwrap();
+        let legacy: &'static Fixture = Box::leak(Box::new(Fixture {
+            name: "q10_donut_bailout_legacy",
+            ..*fixture.base
+        }));
+        let legacy_fixture: &'static PartyFixture = Box::leak(Box::new(PartyFixture {
+            base: legacy,
+            two_player: true,
+            tuning: fixture.tuning,
+            script: fixture.script,
+            pilot: fixture.pilot,
+            donut: fixture.donut,
+        }));
+        let mut sim = PartyFixtureSim::new(&kit_of(legacy_fixture), 360, legacy_fixture).unwrap();
+        let before = sim.scene.world.donut_body.x;
+        for _ in 0..40 {
+            sim.step_scripted();
+        }
+        let moved = (sim.scene.world.donut_body.x - before).abs();
+        assert!(moved < 5.0, "the legacy jump has no sideways hop: {moved}");
+        // The bot's kit never records a hop: it never gets a Cancelled(Jump) from a
+        // press (the AI starts no move without the companion), so the hop is idle.
+        let mut bot = PartyFixtureSim::new(&kit_of(fixture), 360, fixture).unwrap();
+        for _ in 0..40 {
+            bot.step_slots([RawInput::NONE, RawInput::NONE]);
+        }
+        assert!(bot.combat.donut_hop_idle());
     }
 }

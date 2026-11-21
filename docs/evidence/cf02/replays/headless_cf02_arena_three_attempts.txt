@@ -1,0 +1,74 @@
+COMBAT_EVENT tick=31 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=57 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=57 kind=hero_hurt source=0 health_left=3
+COMBAT_EVENT tick=113 kind=goblin_tell goblin=1
+COMBAT_EVENT tick=126 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=139 kind=goblin_swing goblin=1
+COMBAT_EVENT tick=139 kind=hero_hurt source=1 health_left=2
+COMBAT_EVENT tick=139 kind=goblin_reaction goblin=2 reaction=enraged nerve=88
+COMBAT_EVENT tick=152 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=176 kind=goblin_tell goblin=2
+COMBAT_EVENT tick=202 kind=goblin_swing goblin=2
+COMBAT_EVENT tick=202 kind=hero_hurt source=2 health_left=1
+COMBAT_EVENT tick=208 kind=goblin_tell goblin=1
+COMBAT_EVENT tick=220 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=234 kind=goblin_swing goblin=1
+COMBAT_EVENT tick=246 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=255 kind=goblin_tell goblin=2
+COMBAT_EVENT tick=281 kind=goblin_swing goblin=2
+COMBAT_EVENT tick=281 kind=hero_hurt source=2 health_left=0
+COMBAT_EVENT tick=281 kind=hero_defeated
+COMBAT_EVENT tick=330 kind=restart deaths=1
+COMBAT_EVENT tick=36 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=62 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=62 kind=hero_hurt source=0 health_left=3
+COMBAT_EVENT tick=62 kind=goblin_reaction goblin=2 reaction=taunt nerve=78
+COMBAT_EVENT tick=111 kind=goblin_tell goblin=1
+COMBAT_EVENT tick=131 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=137 kind=goblin_swing goblin=1
+COMBAT_EVENT tick=137 kind=hero_hurt source=1 health_left=2
+COMBAT_EVENT tick=157 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=206 kind=goblin_tell goblin=1
+COMBAT_EVENT tick=222 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=232 kind=goblin_swing goblin=1
+COMBAT_EVENT tick=232 kind=hero_hurt source=1 health_left=1
+COMBAT_EVENT tick=244 kind=goblin_tell goblin=2
+COMBAT_EVENT tick=248 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=270 kind=goblin_swing goblin=2
+COMBAT_EVENT tick=301 kind=goblin_tell goblin=1
+COMBAT_EVENT tick=313 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=327 kind=goblin_swing goblin=1
+COMBAT_EVENT tick=327 kind=hero_hurt source=1 health_left=0
+COMBAT_EVENT tick=327 kind=hero_defeated
+COMBAT_EVENT tick=327 kind=goblin_reaction goblin=2 reaction=taunt nerve=100
+COMBAT_EVENT tick=339 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=376 kind=restart deaths=2
+COMBAT_EVENT tick=41 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=67 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=67 kind=hero_hurt source=0 health_left=3
+COMBAT_EVENT tick=67 kind=goblin_reaction goblin=1 reaction=enraged nerve=89
+COMBAT_EVENT tick=100 kind=goblin_tell goblin=1
+COMBAT_EVENT tick=126 kind=goblin_swing goblin=1
+COMBAT_EVENT tick=126 kind=hero_hurt source=1 health_left=2
+COMBAT_EVENT tick=126 kind=goblin_reaction goblin=0 reaction=taunt nerve=93
+COMBAT_EVENT tick=163 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=177 kind=goblin_tell goblin=2
+COMBAT_EVENT tick=189 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=189 kind=hero_hurt source=0 health_left=1
+COMBAT_EVENT tick=198 kind=goblin_tell goblin=1
+COMBAT_EVENT tick=203 kind=goblin_swing goblin=2
+COMBAT_EVENT tick=224 kind=goblin_swing goblin=1
+COMBAT_EVENT tick=258 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=270 kind=goblin_tell goblin=2
+COMBAT_EVENT tick=284 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=284 kind=hero_hurt source=0 health_left=0
+COMBAT_EVENT tick=284 kind=hero_defeated
+COMBAT_EVENT tick=296 kind=goblin_swing goblin=2
+COMBAT_EVENT tick=333 kind=restart deaths=3
+COMBAT_EVENT tick=27 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=53 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=53 kind=hero_hurt source=0 health_left=3
+COMBAT_EVENT tick=53 kind=goblin_reaction goblin=1 reaction=taunt nerve=72
+COMBAT_EVENT tick=53 kind=goblin_reaction goblin=2 reaction=enraged nerve=87
+COMBAT_STATE fixture=cf02_arena_three_attempts seed=0xcf02f103 tick=61 elapsed=1100 hero_hp=3 deaths=3 enemies=e0=499.333/2,e1=545.234/2,e2=614.434/2,e3=880.000/2,e4=940.000/2 hash=5d2a556e1c130430 shore=0/Intact/Seated block_bottom=140.00
+PARTY_STATE fixture=cf02_arena_three_attempts mode=solo controlled=Carl carl_hp=3 donut_hp=4 deaths=3 hash=f197596551d87996

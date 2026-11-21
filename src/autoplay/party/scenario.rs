@@ -15,7 +15,7 @@ use crate::donut_mana::DonutSetup;
 use crate::input::RawInput;
 use crate::party::{
     CameraFollow, DonutHurtbox, EnemyTargetRule, PROVISIONAL_TUNING, PartyTuning, PlateGlyphs,
-    UncontrolledHero,
+    SwapPanMode, UncontrolledHero,
 };
 use crate::party_scene::{PartyFixture, base};
 
@@ -279,6 +279,7 @@ fn encode_tuning(tuning: &PartyTuning, uncontrolled: Option<u8>) -> Vec<u8> {
         camera_edge_margin_px,
         camera_arrow_px,
         swap_pan_px_per_tick,
+        swap_pan_mode,
         swap_blocked_while_hurt,
         swap_cooldown_ticks,
         swap_buffer_ticks,
@@ -313,6 +314,11 @@ fn encode_tuning(tuning: &PartyTuning, uncontrolled: Option<u8>) -> Vec<u8> {
     );
     put("camera_arrow_px", &camera_arrow_px.to_le_bytes());
     put("swap_pan_px_per_tick", &[swap_pan_px_per_tick]);
+    // CF02-Q20: written only when it is not the legacy value, so every existing
+    // layout fingerprint is unchanged.
+    if swap_pan_mode != SwapPanMode::Constant {
+        put("swap_pan_mode", &[1]);
+    }
     put(
         "swap_blocked_while_hurt",
         &[u8::from(swap_blocked_while_hurt)],

@@ -1,0 +1,1 @@
+COMBAT_STATE fixture=cf02_goblin_self_own seed=0xcf02f120 tick=108 elapsed=108 hero_hp=3 deaths=0 enemies=e0=394.000/2,e1=455.000/0 hash=cf60058e53b2b366 shore=3/Broken/Landed block_bottom=0.00

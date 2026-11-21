@@ -184,6 +184,10 @@ pub struct PartyTuning {
     pub camera_arrow_px: u16,
     /// Q7. Temporary camera speed cap after a solo swap (normal cap: 4).
     pub swap_pan_px_per_tick: u8,
+    /// CF02-Q20. How the solo-swap pan moves: the legacy constant cap, or eased
+    /// in and out ([`SwapPanMode::Eased`], `--cf02` only; the cap above is then
+    /// not read).
+    pub swap_pan_mode: SwapPanMode,
     /// Q8. The solo swap is refused while the controlled hero is hurt.
     pub swap_blocked_while_hurt: bool,
     /// Q8. Ticks after a swap before the next one.
@@ -215,7 +219,53 @@ pub struct PartyTuning {
     pub plate_glyphs: PlateGlyphs,
 }
 
+/// CF02-Q20: how the solo-swap camera pan moves toward the new hero.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SwapPanMode {
+    /// The legacy pan: a constant `swap_pan_px_per_tick` (8) until it catches up.
+    Constant,
+    /// CF02-Q20: eased in and out. Each tick `v = min(clamp(min(v_prev + 2,
+    /// ceil(remaining / 4)), 2, 12), remaining)` px toward the new hero, from
+    /// `v_prev = 0` ([`eased_pan_step`]).
+    Eased,
+}
+
+/// CF02-Q19: the solo-swap cooldown under `--cf02` (legacy 20).
+pub const CF02_SWAP_COOLDOWN_TICKS: u8 = 12;
+
+/// CF02-Q20: the eased pan's velocity ramp, clamp and arrival divisor.
+pub const EASED_PAN_RAMP_PX: i32 = 2;
+pub const EASED_PAN_MIN_PX: i32 = 2;
+pub const EASED_PAN_MAX_PX: i32 = 12;
+pub const EASED_PAN_ARRIVAL_DIV: i32 = 4;
+
+/// CF02-Q20: the pan velocity of this tick, in px, given the previous tick's
+/// velocity and the pixels still to cover (`remaining > 0`). It ramps 2, 4, 6 ...
+/// up to 12, slows on arrival (`ceil(remaining / 4)`) and never overshoots.
+pub fn eased_pan_step(v_prev: i32, remaining: i32) -> i32 {
+    if remaining <= 0 {
+        return 0;
+    }
+    let arrival = (remaining + EASED_PAN_ARRIVAL_DIV - 1) / EASED_PAN_ARRIVAL_DIV;
+    let wanted = (v_prev + EASED_PAN_RAMP_PX).min(arrival);
+    wanted
+        .clamp(EASED_PAN_MIN_PX, EASED_PAN_MAX_PX)
+        .min(remaining)
+}
+
 impl PartyTuning {
+    /// CF02-Q19 and Q20: this tuning with the `--cf02` swap feel (a 12-tick
+    /// cooldown and the eased pan). The buffer, the hurt block, 2P ownership and
+    /// the party-defeat rules are unchanged.
+    #[must_use]
+    pub const fn with_cf02_swap(self) -> Self {
+        Self {
+            swap_cooldown_ticks: CF02_SWAP_COOLDOWN_TICKS,
+            swap_pan_mode: SwapPanMode::Eased,
+            ..self
+        }
+    }
+
     /// Whether a human-driven Donut plate shows ability chips: derived from
     /// [`Self::donut_moves`] (Q10 section 4), never a second knob.
     pub const fn donut_ability_chips(&self) -> bool {
@@ -243,6 +293,7 @@ pub const PROVISIONAL_TUNING: PartyTuning = PartyTuning {
     camera_edge_margin_px: 96,
     camera_arrow_px: 384,
     swap_pan_px_per_tick: 8,
+    swap_pan_mode: SwapPanMode::Constant,
     swap_blocked_while_hurt: true,
     swap_cooldown_ticks: 20,
     swap_buffer_ticks: 6,

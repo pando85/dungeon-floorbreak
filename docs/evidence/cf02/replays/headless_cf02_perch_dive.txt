@@ -1,0 +1,4 @@
+COMBAT_EVENT tick=76 kind=move_started move=dive_stomp instance=1
+COMBAT_EVENT tick=86 kind=hit move=dive_stomp instance=1 target=0 damage=1 health_left=1 hit_stop=6
+COMBAT_STATE fixture=cf02_perch_dive seed=0xcf02f142 tick=200 elapsed=200 hero_hp=4 deaths=0 enemies=e0=695.000/1 hash=dc0172bd5680ef6a shore=0/Intact/Seated block_bottom=140.00
+PARTY_STATE fixture=cf02_perch_dive mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=3b186ca816147c50

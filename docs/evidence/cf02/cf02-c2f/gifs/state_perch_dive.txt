@@ -1,0 +1,1 @@
+COMBAT_STATE fixture=cf02_perch_dive seed=0xcf02f142 tick=110 elapsed=110 hero_hp=4 deaths=0 enemies=e0=695.000/1 hash=35a42b1532988f3b shore=0/Intact/Seated block_bottom=140.00

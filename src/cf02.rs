@@ -24,7 +24,7 @@ pub const TUNING_JSON: &str = include_str!("../assets/data/gameplay/cf02_combat_
 /// The committed FNV-1a 64 content hash of [`TUNING_JSON`]. Editing the file
 /// without updating this value fails [`Cf02Tuning::pinned`] and the pin test, so
 /// a tuning edit never changes a recorded outcome silently.
-pub const TUNING_HASH: u64 = 0x8830_029a_4a39_5a40;
+pub const TUNING_HASH: u64 = 0x2da4_8577_fa64_315e;
 
 /// Question IDs that have no key in the file, and why. The completeness test
 /// requires every other ID in 1..=75 to own at least one `qNN_` key.
@@ -389,9 +389,11 @@ pub struct Cf02Tuning {
     pub q42_block_invulnerable_ticks: u8,
     /// Q45: perch slab top above the floor.
     pub q45_perch_top_px: u8,
-    /// Q45: perch slab underside above the floor.
+    /// Q45: perch slab underside above the floor (ruling: 68, the approved deck
+    /// tile's 12 px collider under a top at 80).
     pub q45_perch_underside_px: u8,
-    /// Q45: perch slab thickness.
+    /// Q45: perch slab thickness as drawn (one 16 px tile; its collider is 12 px,
+    /// so the underside is `q45_perch_top_px - 12` = 68).
     pub q45_perch_slab_px: u8,
     /// Q46: buffer window for Carl's Primary and Physical presses (legacy 6).
     pub q46_move_buffer_ticks: u8,
@@ -962,6 +964,572 @@ impl Cf02Config {
         match self.seed {
             Some(seed) => format!("CF02_CONFIG: rules={} seed={seed}", self.rules),
             None => format!("CF02_CONFIG: rules={} seed=fixture", self.rules),
+        }
+    }
+}
+
+/// CF02-F: the microarena (`floor01_scene --cf02`), CF02-Q26..Q33, Q41, Q42, Q45.
+///
+/// The room is data (`assets/levels/floor01/cf02_microarena.room.json`) composed
+/// from approved Floor 01 kit pieces by `camera_lab::layout`; the spawns, the
+/// two waves, the checkpoints and the completion rule are the constants below,
+/// which the tests pin to the adopted `q29_*` values of `cf02_combat_v0.json`.
+/// Everything here is behind `cf02_rules`: `--demo` never loads it.
+pub mod arena {
+    use std::path::Path;
+
+    use serde_json::Value;
+
+    use crate::camera_lab::layout::{BASE_LAYOUT, compose, merged_contract};
+    use crate::camera_lab::room::{IRect, TILE, parse_rooms};
+    use crate::combat::EnemyAi;
+    use crate::combat_scene::{CombatState, DemoRules, EnemySpawn, Fixture, LlamaSpawn};
+    use crate::corridor::SceneSim;
+    use crate::env_kit::{EnvKit, Layout, ViewDef};
+    use crate::input::RawInput;
+
+    /// The room geometry (camera-lab room schema, one room).
+    pub const ROOM_PATH: &str = "assets/levels/floor01/cf02_microarena.room.json";
+    pub const LAYOUT_ID: &str = "floor01_cf02_microarena";
+    /// Q29: width, floor (the walking line) and the room height of the DEMO hall.
+    pub const WIDTH: i32 = 1152;
+    pub const FLOOR_Y: i32 = 580;
+    /// Q29: the left and right end walls are the composer's drawn wall tile: one
+    /// 16 px column (0..16 and 1136..1152), full height.
+    pub const END_WALL_PX: i32 = 16;
+    /// Q29: the rotten shore's strike column; its footprint is 409..489.
+    pub const SHORE_STRIKE_X: i32 = 384;
+    /// Q29: Carl's and Donut's spawn columns, and the two checkpoints.
+    pub const CARL_SPAWN_X: i32 = 128;
+    pub const DONUT_SPAWN_X: i32 = 96;
+    pub const CHECKPOINTS: [i32; 2] = [128, 704];
+    /// Q29: the parapet (solid, 48 px tall) and the two perches (top 80 px up).
+    pub const PARAPET_X: (i32, i32) = (736, 768);
+    pub const PARAPET_HEIGHT: i32 = 48;
+    pub const LEFT_PERCH_X: (i32, i32) = (544, 672);
+    pub const RIGHT_PERCH_X: (i32, i32) = (896, 992);
+    pub const PERCH_TOP: i32 = 80;
+    /// Q29: the llama's home column and leash.
+    pub const LLAMA_HOME_X: i32 = 1000;
+
+    const fn goblin(x: i32) -> EnemySpawn {
+        EnemySpawn {
+            x,
+            ai: EnemyAi::Chase,
+        }
+    }
+
+    /// Q29, Q32: the five goblins in two waves (a chaser notices a hero within the
+    /// goblin sight of 220 px, so the waves wake by position: no scripted trigger).
+    /// Index order: 0..=2 the brawl lane, 3 and 4 the llama yard.
+    pub static GOBLINS: [EnemySpawn; 5] = [
+        goblin(520),
+        goblin(600),
+        goblin(680),
+        goblin(880),
+        goblin(940),
+    ];
+
+    /// Q29: the Bad Llama of the llama yard (index 5 of the six enemies).
+    pub static LLAMAS: [LlamaSpawn; 1] = [LlamaSpawn {
+        x: LLAMA_HOME_X,
+        ai: EnemyAi::Chase,
+    }];
+
+    /// Q29, Q32: the checkpoint rules of the room (the demo's `Respawn` machinery).
+    pub static RULES: DemoRules = DemoRules {
+        checkpoints: &CHECKPOINTS,
+    };
+
+    /// The live room: Carl at the spawn, five goblins, one llama, the shore.
+    pub const fn fixture(
+        name: &'static str,
+        summary: &'static str,
+        seed: u64,
+        ticks: u64,
+    ) -> Fixture {
+        Fixture {
+            name,
+            summary,
+            seed,
+            carl_x: CARL_SPAWN_X,
+            enemies: &GOBLINS,
+            shore_dx: Some(SHORE_STRIKE_X - CARL_SPAWN_X),
+            boss: None,
+            llamas: &LLAMAS,
+            charges: &[],
+            script: &[],
+            ticks,
+        }
+    }
+
+    /// The fixture `floor01_scene --cf02` runs (nothing scripted: the player's).
+    pub static LIVE: Fixture = fixture(
+        "cf02_arena",
+        "CF02-F: the microarena, live (floor01_scene --cf02)",
+        0xCF02_F000,
+        3600,
+    );
+
+    /// The fixture of `--demo-beat N` under `--cf02`: beat 0 starts at the spawn,
+    /// any later beat at the second checkpoint (the first wave is retired).
+    pub fn fixture_for_beat(beat: usize) -> &'static Fixture {
+        if beat == 0 { &LIVE } else { &LIVE_CP2 }
+    }
+
+    /// The run that starts at the second checkpoint.
+    pub static LIVE_CP2: Fixture = Fixture {
+        name: "cf02_arena_cp2",
+        summary: "CF02-F: the microarena from the second checkpoint (floor01_scene --cf02 --demo-beat 1)",
+        seed: 0xCF02_F001,
+        carl_x: CHECKPOINTS[1],
+        shore_dx: Some(SHORE_STRIKE_X - CHECKPOINTS[1]),
+        ..fixture("", "", 0, 3600)
+    };
+
+    /// Fixtures that run on the arena kit and geometry rather than the sample
+    /// corridor: the room fixtures of CF02-F.
+    pub fn fixture_uses_arena(name: &str) -> bool {
+        name == "cf02_arena"
+            || name.starts_with("cf02_arena_")
+            || name.starts_with("cf02_block_")
+            || matches!(
+                name,
+                "cf02_goblin_self_own"
+                    | "cf02_intact_shore_ignores_goblins"
+                    | "cf02_parapet_cover"
+                    | "cf02_perch_slab_climb"
+                    | "cf02_perch_above_spit"
+                    | "cf02_perch_dive"
+            )
+    }
+
+    /// The rotten shore's source id in `CombatEvent::HeroHurt` (the falling block).
+    pub const SHORE_BLOCK_SOURCE: u32 = 0x5348;
+
+    /// Load the room: the geometry composed by the camera-lab composer, with the
+    /// authored access steps replaced by the parapet, the two perches cut to one
+    /// tile (Q45: a 16 px slab, top 80 px up, underside 68 px up (the deck tile's solid is 12 px), so Carl walks
+    /// under it), the scene's two scroll-camera views, and no exit trigger (the
+    /// room ends when its six enemies are defeated, see [`complete`]).
+    pub fn load_arena(root: &Path) -> Result<EnvKit, String> {
+        let path = root.join(ROOM_PATH);
+        let text =
+            std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+        let mut room = parse_rooms(&text)?
+            .into_iter()
+            .next()
+            .ok_or("the arena file holds no room")?;
+        let file: Value = serde_json::from_str(&text).map_err(|e| e.to_string())?;
+        // No authored stairs: the perches are climbed by a jump (Q45), the
+        // parapet is a masonry step the heroes jump.
+        room.steps.clear();
+        for p in file["scenarios"][0]["parapet"]
+            .as_array()
+            .into_iter()
+            .flatten()
+        {
+            let x = p["x"].as_i64().ok_or("parapet x")? as i32;
+            let w = p["w"].as_i64().ok_or("parapet w")? as i32;
+            let h = p["h"].as_i64().ok_or("parapet h")? as i32;
+            room.steps.push(IRect::new(x, room.floor_y - h, w, h));
+        }
+        let base_path = root.join(BASE_LAYOUT);
+        let base: Value = serde_json::from_str(
+            &std::fs::read_to_string(&base_path)
+                .map_err(|e| format!("{}: {e}", base_path.display()))?,
+        )
+        .map_err(|e| e.to_string())?;
+        let (mut layout, _plan) = compose(&room, &base);
+        // One tile thick: drop the face row under each perch's deck row.
+        for p in &room.platforms {
+            let face_row = ((p.rect.y - 4) / TILE + 1) as usize;
+            for col in (p.rect.x / TILE)..(p.rect.right() / TILE) {
+                layout["tile_layers"]["collision"][face_row][col as usize] = Value::Null;
+            }
+        }
+        let layout: Layout = serde_json::from_value(layout).map_err(|e| e.to_string())?;
+        let contract = merged_contract(root).map_err(|e| e.to_string())?;
+        let mut kit = EnvKit::build(&contract, &layout).map_err(|e| e.to_string())?;
+        // The scene's camera takes its vertical position from a named view: the
+        // walking line 288 px below the top of the 640x360 view (308 px below the
+        // top of the 640x400 view), like the DEMO hall.
+        kit.views.insert(
+            "abc_640x360".to_owned(),
+            ViewDef {
+                x: 0,
+                y: FLOOR_Y - 288,
+                w: 640,
+                h: 360,
+            },
+        );
+        kit.views.insert(
+            "abc_640x400".to_owned(),
+            ViewDef {
+                x: 0,
+                y: FLOOR_Y - 308,
+                w: 640,
+                h: 400,
+            },
+        );
+        kit.layout_id = LAYOUT_ID.to_owned();
+        kit.exit = None;
+        Ok(kit)
+    }
+
+    /// Q32: every enemy of the room is defeated (five goblins and the llama): the
+    /// exit opens (the console line `CF02_ARENA_COMPLETE`).
+    pub fn complete(combat: &CombatState) -> bool {
+        !combat.enemies.is_empty()
+            && combat.enemies.iter().all(|g| !g.alive())
+            && combat.llamas.iter().all(|l| !l.alive())
+    }
+
+    /// The enemies of the room still alive (goblins, then the llama).
+    pub fn enemies_left(combat: &CombatState) -> usize {
+        combat.enemies.iter().filter(|g| g.alive()).count()
+            + combat.llamas.iter().filter(|l| l.alive()).count()
+    }
+
+    // -------------------------------------------------------------- autopilot --
+
+    /// Carl's reach, in px of centre distance, for a jab and a kick on a goblin,
+    /// and for a kick on the llama (its 46 px body reaches 42 px from its column).
+    const JAB_REACH: f32 = 30.0;
+    const LLAMA_KICK_REACH: f32 = 36.0;
+    /// Ticks between two presses of the autopilot (a human mashes slower).
+    const PRESS_CADENCE: u64 = 4;
+    /// The autopilot stays this far left of the shore column's footprint while
+    /// goblins are near it (the footprint starts at 409), so it never walks the
+    /// careless line that the block punishes.
+    const SHORE_KEEP_OUT: f32 = 40.0;
+
+    /// How the autopilot treats the rotten shore.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub enum Plan {
+        /// Fight straight through both waves; never hits the shore on purpose.
+        Direct,
+        /// Wait left of the column, break the shore (three jabs from the left)
+        /// and let the goblins that chase him walk under the block.
+        Environment,
+    }
+
+    /// A deterministic stand-in for the player, from the finished simulation state
+    /// only (it never reads the camera). It walks to the nearest living enemy
+    /// ahead, fights the nearest awake goblin with jabs and haymakers, kicks the
+    /// llama, and jumps the parapet. Used by the headless fixtures and the
+    /// evidence captures; the live room is driven by the keyboard or pad.
+    pub fn autopilot(combat: &CombatState, scene: &SceneSim, plan: Plan) -> RawInput {
+        let hero = &scene.world.hero;
+        let tick = scene.world.tick + 1;
+        let press = tick.is_multiple_of(PRESS_CADENCE);
+        let towards = |x: f32| {
+            let dx = x - hero.x;
+            if dx.abs() < 4.0 { 0.0 } else { dx.signum() }
+        };
+        let mut raw = RawInput::default();
+        if combat.hero_defeated {
+            return raw;
+        }
+        let shore_open = combat.shore.as_ref().is_some_and(|s| !s.landed);
+        // Environment plan: stand left of the column and break the shore first.
+        if plan == Plan::Environment
+            && shore_open
+            && combat.shore.as_ref().is_some_and(|s| s.hits < 3)
+        {
+            let stand = SHORE_STRIKE_X as f32 - 20.0;
+            let near = (hero.x - stand).abs() < 6.0;
+            raw.move_x = if near { 1.0 } else { towards(stand) };
+            if near && tick.is_multiple_of(40) {
+                raw.attack = true;
+            }
+            return raw;
+        }
+        let threat = combat
+            .enemies
+            .iter()
+            .filter(|g| g.alive() && g.ai == EnemyAi::Chase)
+            .min_by(|a, b| (a.x - hero.x).abs().total_cmp(&(b.x - hero.x).abs()));
+        if let Some(g) = threat
+            && (g.x - hero.x).abs() < 220.0
+        {
+            let dx = g.x - hero.x;
+            let dir = dx.signum();
+            if dx.abs() > JAB_REACH {
+                raw.move_x = dir;
+                // Direct: do not walk into the footprint while the block can still fall.
+                if plan == Plan::Direct
+                    && shore_open
+                    && combat.shore.as_ref().is_some_and(|s| s.hits > 0)
+                    && hero.x > SHORE_STRIKE_X as f32 - SHORE_KEEP_OUT
+                    && hero.x < SHORE_STRIKE_X as f32 + 110.0
+                    && dir > 0.0
+                {
+                    raw.move_x = 0.0;
+                }
+            } else {
+                raw.move_x = dir;
+                if press {
+                    raw.attack = true;
+                }
+            }
+            if hero.grounded && raw.move_x != 0.0 && blocked_ahead(scene, raw.move_x) {
+                raw.jump = true;
+            }
+            return raw;
+        }
+        if let Some(l) = combat.llamas.iter().find(|l| l.alive()) {
+            let dx = l.x - hero.x;
+            if dx.abs() < 320.0 {
+                raw.move_x = dx.signum();
+                if dx.abs() <= LLAMA_KICK_REACH && press {
+                    raw.physical = true;
+                }
+                if hero.grounded && blocked_ahead(scene, raw.move_x) {
+                    raw.jump = true;
+                }
+                return raw;
+            }
+        }
+        // Nothing awake: walk on to the nearest enemy that is still alive.
+        let goal = combat
+            .enemies
+            .iter()
+            .filter(|g| g.alive())
+            .map(|g| g.x)
+            .chain(combat.llamas.iter().filter(|l| l.alive()).map(|l| l.x))
+            .min_by(f32::total_cmp)
+            .map_or(WIDTH as f32 - 80.0, |x| x - 150.0);
+        raw.move_x = towards(goal);
+        if hero.grounded && raw.move_x != 0.0 && blocked_ahead(scene, raw.move_x) {
+            raw.jump = true;
+        }
+        raw
+    }
+
+    /// P2 Donut as a human would play the room: stay a step behind Carl, swat a
+    /// goblin's tell within reach (the swat interrupts it), pounce a goblin that
+    /// lies (it holds it for Carl; the pounce never kills a 2 HP goblin it has not
+    /// wounded) and otherwise follow. A pure function of the finished state.
+    pub fn donut_pilot(combat: &CombatState, scene: &SceneSim) -> RawInput {
+        use crate::goblin::{AttackPhase, GoblinMode};
+        let body = &scene.world.donut_body;
+        let carl = &scene.world.hero;
+        let tick = scene.world.tick + 1;
+        let mut raw = RawInput::default();
+        // A goblin in its tell within a swat's reach in front of Donut.
+        let telling = combat.enemies.iter().find(|g| {
+            g.alive()
+                && g.mode == GoblinMode::Attack
+                && crate::goblin::attack_phase(g.attack_tick) == AttackPhase::Tell
+                && (g.x - body.x).abs() < 100.0
+        });
+        if let Some(g) = telling {
+            let dx = g.x - body.x;
+            raw.move_x = dx.signum();
+            if dx.abs() <= 30.0 && tick.is_multiple_of(PRESS_CADENCE) {
+                raw.attack = true;
+            }
+            return raw;
+        }
+        let lying = combat.enemies.iter().find(|g| {
+            g.alive()
+                && matches!(g.mode, GoblinMode::Downed)
+                && (g.x - body.x).abs() < 90.0
+                && (g.x - body.x).abs() > 30.0
+        });
+        if let Some(g) = lying {
+            raw.move_x = (g.x - body.x).signum();
+            if tick.is_multiple_of(PRESS_CADENCE * 4) && body.grounded {
+                raw.physical = true;
+            }
+            return raw;
+        }
+        let goal = carl.x - 40.0;
+        let dx = goal - body.x;
+        raw.move_x = if dx.abs() < 14.0 { 0.0 } else { dx.signum() };
+        if body.grounded && raw.move_x != 0.0 && blocked_ahead_of(scene, body.x, body.y, raw.move_x)
+        {
+            raw.jump = true;
+        }
+        raw
+    }
+
+    /// A solid within 14 px ahead of Carl's body at ledge height.
+    fn blocked_ahead(scene: &SceneSim, dir: f32) -> bool {
+        blocked_ahead_of(scene, scene.world.hero.x, scene.world.hero.y, dir)
+    }
+
+    fn blocked_ahead_of(scene: &SceneSim, x: f32, y: f32, dir: f32) -> bool {
+        use crate::combat::solid_at;
+        use crate::prototype::{HERO_HALF_HEIGHT, HERO_HALF_WIDTH, Rect};
+        let probe = Rect {
+            left: x - HERO_HALF_WIDTH + dir * 14.0,
+            bottom: y - HERO_HALF_HEIGHT + 4.0,
+            width: HERO_HALF_WIDTH * 2.0,
+            height: 8.0,
+        };
+        solid_at(&scene.world.solids, probe)
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+        use crate::camera_lab::layout::build_kit;
+        use crate::cf02::Cf02Tuning;
+
+        fn root() -> &'static Path {
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+        }
+
+        /// The constants of this module are the adopted `q29_*` values of the data
+        /// file, so the room, the spawns and the file cannot drift apart.
+        #[test]
+        fn the_room_constants_are_the_adopted_q29_values() {
+            let t = Cf02Tuning::pinned().unwrap();
+            assert_eq!(
+                (t.q29_room_width_px, t.q29_floor_y, t.q29_room_height_px),
+                (WIDTH as u16, FLOOR_Y as u16, 660)
+            );
+            assert_eq!(i32::from(t.q29_end_wall_px), END_WALL_PX);
+            assert_eq!(i32::from(t.q29_carl_spawn_x), CARL_SPAWN_X);
+            assert_eq!(i32::from(t.q29_donut_spawn_x), DONUT_SPAWN_X);
+            assert_eq!(i32::from(t.q29_shore_strike_x), SHORE_STRIKE_X);
+            assert_eq!(i32::from(t.q29_llama_home_x), LLAMA_HOME_X);
+            let pair = |v: &[u16]| (i32::from(v[0]), i32::from(v[1]));
+            assert_eq!(pair(&t.q29_left_perch_x), LEFT_PERCH_X);
+            assert_eq!(pair(&t.q29_right_perch_x), RIGHT_PERCH_X);
+            assert_eq!(pair(&t.q29_parapet_x), PARAPET_X);
+            assert_eq!(i32::from(t.q29_parapet_height_px), PARAPET_HEIGHT);
+            assert_eq!(i32::from(t.q45_perch_top_px), PERCH_TOP);
+            let columns = |v: &[u16]| v.iter().map(|x| i32::from(*x)).collect::<Vec<_>>();
+            assert_eq!(columns(&t.q29_checkpoints_x), CHECKPOINTS);
+            let spawns: Vec<i32> = GOBLINS.iter().map(|g| g.x).collect();
+            let mut expected = columns(&t.q29_first_wave_goblins_x);
+            expected.extend(columns(&t.q29_second_wave_goblins_x));
+            assert_eq!(spawns, expected);
+            assert_eq!(GOBLINS.len() + LLAMAS.len(), 6, "five goblins and a llama");
+            assert!(GOBLINS.iter().all(|g| g.ai == EnemyAi::Chase));
+            assert_eq!(LIVE.shore_dx, Some(256));
+        }
+
+        /// Knobs the code does not read as a number are pinned to the thing they
+        /// describe, so editing one of them cannot silently do nothing.
+        #[test]
+        fn the_unread_knobs_equal_what_they_describe() {
+            let t = Cf02Tuning::pinned().unwrap();
+            assert_eq!(t.q42_block_hurt_ticks, crate::feel::HERO_HURT_TICKS);
+            assert_eq!(
+                t.q42_block_invulnerable_ticks,
+                crate::combat::HERO_INVULNERABLE_TICKS
+            );
+            assert_eq!(f32::from(t.q29_llama_leash_px), crate::feel::LLAMA_LEASH);
+            // The drawn slab is one tile; its collider is 12 px (underside = top - 12).
+            assert_eq!(i32::from(t.q45_perch_slab_px), TILE);
+            assert_eq!(t.q45_perch_top_px - t.q45_perch_underside_px, 12);
+        }
+
+        #[test]
+        fn the_room_file_is_the_q29_layout() {
+            let kit = load_arena(root()).unwrap();
+            assert_eq!(
+                (kit.width, kit.base_walk_line_y),
+                (WIDTH, FLOOR_Y),
+                "1152 wide, walking line 580"
+            );
+            // 660 high, rounded up to whole tiles for the 640x400 view (272 + 400).
+            assert_eq!(kit.height, 672);
+            let solid = |x: i32, y: i32, w: i32, h: i32| {
+                kit.solid_rects
+                    .iter()
+                    .any(|r| r.x <= x && r.y <= y && r.x + r.w >= x + w && r.y + r.h >= y + h)
+            };
+            // End walls, full height; the floor between them.
+            for x in [0, WIDTH - END_WALL_PX] {
+                assert!(solid(x, 32, END_WALL_PX, 540), "end wall tile at {x}");
+            }
+            assert!(
+                solid(END_WALL_PX, FLOOR_Y, WIDTH - 2 * END_WALL_PX, 8),
+                "floor"
+            );
+            // Parapet: 736..768, 48 px tall.
+            assert!(solid(
+                PARAPET_X.0,
+                FLOOR_Y - PARAPET_HEIGHT,
+                32,
+                PARAPET_HEIGHT - 4
+            ));
+            assert!(!solid(PARAPET_X.0, FLOOR_Y - PARAPET_HEIGHT - 4, 32, 4));
+            // Perches: a one-tile slab, top 80 px up; Carl (52 px) walks under it.
+            for (x0, x1) in [LEFT_PERCH_X, RIGHT_PERCH_X] {
+                let top = FLOOR_Y - PERCH_TOP;
+                assert!(solid(x0, top, x1 - x0, 12), "slab {x0}..{x1}");
+                assert!(!solid(x0, top + 12, x1 - x0, 8), "no face under the slab");
+                let under = kit
+                    .solid_rects
+                    .iter()
+                    .filter(|r| r.x < x1 && r.x + r.w > x0 && r.y > 32 && r.y < FLOOR_Y)
+                    .map(|r| r.y + r.h)
+                    .max()
+                    .unwrap();
+                assert!(FLOOR_Y - under >= 52 + 12, "headroom {}", FLOOR_Y - under);
+                // The built underside is the knob (the deck tile's 12 px collider).
+                let t = Cf02Tuning::pinned().unwrap();
+                assert_eq!(FLOOR_Y - under, i32::from(t.q45_perch_underside_px));
+            }
+            // No stairs: nothing else stands in the lane.
+            let lane: Vec<_> = kit
+                .solid_rects
+                .iter()
+                .filter(|r| {
+                    r.y > 32
+                        && r.y < FLOOR_Y
+                        && r.x >= END_WALL_PX
+                        && r.x + r.w <= WIDTH - END_WALL_PX
+                })
+                .collect();
+            assert_eq!(lane.len(), 3, "two perches and the parapet: {lane:?}");
+        }
+
+        /// The headline: no camera position, at any coverage, shows an undrawn cell
+        /// (the whole room, at the widest view and at 640x400).
+        #[test]
+        fn the_whole_render_bounds_is_drawn_so_no_view_shows_void() {
+            let text = std::fs::read_to_string(root().join(ROOM_PATH)).unwrap();
+            let room = parse_rooms(&text).unwrap().remove(0);
+            let (kit, _, plan) = build_kit(root(), &room).unwrap();
+            let kit2 = load_arena(root()).unwrap();
+            assert_eq!((kit.width, kit.height), (kit2.width, kit2.height));
+            let cols = (kit2.width / TILE) as usize;
+            let rows = (kit2.height / TILE) as usize;
+            let mut drawn = vec![vec![false; cols]; rows];
+            for t in &kit2.tiles {
+                drawn[t.row as usize][t.col as usize] = true;
+            }
+            let in_opening = |c: usize, r: usize| {
+                let (x, y) = (c as i32 * TILE + 8, r as i32 * TILE + 8);
+                plan.openings
+                    .iter()
+                    .any(|&(ox, oy, ow, oh)| x >= ox && x < ox + ow && y >= oy && y < oy + oh)
+            };
+            let holes: Vec<_> = (0..rows)
+                .flat_map(|r| (0..cols).map(move |c| (c, r)))
+                .filter(|&(c, r)| !drawn[r][c] && !in_opening(c, r))
+                .collect();
+            // Cells with no tile and no opening: only the strip above the ceiling row.
+            assert!(
+                holes.iter().all(|&(_, r)| r < 2) || holes.is_empty(),
+                "undrawn cells: {:?}",
+                &holes[..holes.len().min(8)]
+            );
+            // Both scroll views and the widest auto view (1.5x of 640x360, 960x540)
+            // sit inside the room.
+            for (w, h, top) in [(640, 360, FLOOR_Y - 288), (640, 400, FLOOR_Y - 308)] {
+                assert!(top >= 0 && top + h <= kit2.height, "{w}x{h}");
+            }
+            const { assert!(WIDTH >= 960) };
+            // The rig clamps a taller view into the room, so it fits (672 >= 540).
+            assert!(kit2.height >= 540);
         }
     }
 }

@@ -26,8 +26,8 @@ use crate::donut_mana::{
     DonutMana, DonutSetup, EmptyPress, ManaTuning, RestartKind, StartState, UnlockTrigger,
 };
 use crate::donut_moves::{
-    DONUT_HERO, DonutMoveTuning, DonutMoves, HitStopSplit, LightGuard, MoveEvent, MoveKind,
-    MoveView, StepInput, TargetKind, TargetState, TargetView, route_primary,
+    CancelCause, DONUT_HERO, DonutMoveTuning, DonutMoves, HitStopSplit, LightGuard, MoveEvent,
+    MoveKind, MoveView, StepInput, TargetKind, TargetState, TargetView, route_primary,
 };
 use crate::llama::{LlamaMode, LlamaTargets};
 use crate::prototype::{BodyDrive, HERO_HALF_HEIGHT, HERO_HALF_WIDTH};
@@ -78,6 +78,34 @@ impl Bolt {
     }
 }
 
+/// CF02-C2 (Q55, cancel C6): Donut's bail-out, the cat hop. A Jump during her
+/// swat recovery or her pounce landing recovery (the existing Q10-09 and Q10-13
+/// windows) cancels the move into a hop: the legacy jump cancel becomes a launch
+/// of `q55_hop_vx` px/s away from her facing (or toward the held direction) and
+/// `q55_hop_vy` px/s up, held to the landing; no attack starts until she lands,
+/// then `q55_hop_landing_recovery` ticks of landing recovery. The hop reuses the
+/// body drive CF02-H gave Carl (`BodyDrive::launch` plus a held `vx`); a human
+/// Donut only (the AI never bails out). Default (idle) state is never mixed.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+struct DonutHop {
+    /// The hop's horizontal speed bits, held until the landing (`None` after a
+    /// hurt: the drive drops, the no-attack rule stays).
+    vx_bits: Option<u32>,
+    /// Ticks since the launch (the launch tick itself is still grounded).
+    age: u8,
+    /// Set by the bail-out, cleared on landing and on restart (the same rule as
+    /// Carl's `no_attack_until_landing`).
+    no_attack_until_landing: bool,
+    /// Landing recovery ticks still to run: planted, no move starts.
+    landing_lock: u8,
+}
+
+impl DonutHop {
+    fn is_idle(&self) -> bool {
+        *self == Self::default()
+    }
+}
+
 /// Everything of Donut's abilities that the combat state owns.
 #[derive(Debug, Clone)]
 pub struct DonutKit {
@@ -103,6 +131,8 @@ pub struct DonutKit {
     /// The Donut control state of the previous tick (a swap to the AI clears
     /// the press buffer).
     was_bot: bool,
+    /// CF02-C2: the bail-out hop (idle outside `--cf02`).
+    hop: DonutHop,
     /// Presentation caches: never hashed, never read by the simulation.
     hitbox: Option<Rect>,
     dry_tick: Option<u64>,
@@ -133,6 +163,7 @@ impl DonutKit {
             next_cast: 0,
             bolts: Vec::new(),
             was_bot: true,
+            hop: DonutHop::default(),
             hitbox: None,
             dry_tick: None,
         }
@@ -153,6 +184,7 @@ impl DonutKit {
         self.cast_buffer_until = None;
         self.bolts.clear();
         self.was_bot = true;
+        self.hop = DonutHop::default();
         self.hitbox = None;
         self.dry_tick = None;
     }
@@ -167,6 +199,13 @@ impl DonutKit {
             mix(0x444f_4e42_5554_0001); // "DONBUT"
             mix(u64::from(held.attack));
             mix(u64::from(held.physical));
+        }
+        if !self.hop.is_idle() {
+            mix(0x444f_4e48_4f50_0001); // "DONHOP"
+            mix(self.hop.vx_bits.map_or(0, |bits| u64::from(bits) + 1));
+            mix(u64::from(self.hop.age));
+            mix(u64::from(self.hop.no_attack_until_landing));
+            mix(u64::from(self.hop.landing_lock));
         }
         if self.cast.is_some() || self.cast_buffer_until.is_some() || !self.bolts.is_empty() {
             mix(0x444f_4e43_4153_0001); // "DONCAS"
@@ -277,6 +316,12 @@ impl CombatState {
         self.donut_kit.restart(kind);
     }
 
+    /// CF02-C2 (tests): the bail-out hop is idle.
+    #[doc(hidden)]
+    pub fn donut_hop_idle(&self) -> bool {
+        self.donut_kit.hop.is_idle()
+    }
+
     /// The start state the fixture declared.
     pub(super) fn donut_start(&self) -> StartState {
         self.donut_kit.start
@@ -369,6 +414,34 @@ impl CombatState {
         );
         let targets = self.donut_targets();
         let wall_blocked = self.donut_wall_ahead(scene, facing);
+        // CF02-C2 (Q55): the bail-out hop's landing detection and recovery. While
+        // the hop is in flight or recovering, no move starts and no jump is read.
+        let hop_rules = self.cf02.filter(|t| t.on(t.q55_bailout_enabled));
+        let mut hop_blocks = false;
+        let mut hop_planted = false;
+        if let Some(t) = hop_rules {
+            let hop = &mut self.donut_kit.hop;
+            if hurt {
+                // A hit drops the hop's drive, not "no attack until landing".
+                hop.vx_bits = None;
+            }
+            if hop.no_attack_until_landing {
+                hop.age = hop.age.saturating_add(1);
+                if grounded && hop.age >= 2 {
+                    hop.vx_bits = None;
+                    hop.age = 0;
+                    hop.no_attack_until_landing = false;
+                    hop.landing_lock = t.q55_hop_landing_recovery;
+                }
+            }
+            if hop.no_attack_until_landing {
+                hop_blocks = true;
+            } else if hop.landing_lock > 0 {
+                hop.landing_lock -= 1;
+                hop_blocks = true;
+                hop_planted = true;
+            }
+        }
         let input = StepInput {
             tick,
             primary_pressed: frame.attack_pressed,
@@ -382,7 +455,7 @@ impl CombatState {
             facing,
             wall_blocked,
             hurt,
-            may_start: (!bot || companion_driven) && can_act,
+            may_start: (!bot || companion_driven) && can_act && !hop_blocks,
             targets: &targets,
         };
 
@@ -392,6 +465,38 @@ impl CombatState {
         let out = self.donut_kit.moves.step(&input);
         self.donut_kit.hitbox = out.hitbox;
 
+        // CF02-C2 (C6): the legacy jump cancel of the swat or pounce recovery
+        // becomes the cat hop (a human Donut only).
+        let mut hop_launch = None;
+        if let Some(t) = hop_rules
+            && !bot
+            && !hop_blocks
+            && out.events.iter().any(|event| {
+                matches!(
+                    event,
+                    MoveEvent::Cancelled {
+                        cause: CancelCause::Jump,
+                        ..
+                    }
+                )
+            })
+        {
+            let held = ungated.move_x;
+            let threshold = f32::from(t.q54_bailout_direction_threshold_milli) / 1000.0;
+            let dir = if held.abs() >= threshold {
+                held.signum()
+            } else {
+                -f32::from(facing)
+            };
+            let vx = dir * f32::from(t.q55_hop_vx);
+            let hop = &mut self.donut_kit.hop;
+            hop.vx_bits = Some(vx.to_bits());
+            hop.age = 0;
+            hop.no_attack_until_landing = true;
+            hop.landing_lock = 0;
+            hop_launch = Some((vx, f32::from(t.q55_hop_vy)));
+            hop_blocks = true;
+        }
         let mut started_move = false;
         let instance_now = self.donut_kit.moves.view().map(|v| v.instance);
         for event in &out.events {
@@ -460,7 +565,7 @@ impl CombatState {
             // costs nothing.
             self.cancel_unfired_cast();
         }
-        if out.cast_requested || self.cast_buffer_fires(tick) {
+        if !hop_blocks && (out.cast_requested || self.cast_buffer_fires(tick)) {
             let before = self.donut_kit.next_cast;
             self.request_cast(tick);
             if companion_driven && self.donut_kit.next_cast != before {
@@ -497,14 +602,23 @@ impl CombatState {
         if out.jump_blocked {
             raw.jump = false;
         }
+        // CF02-C2: the hop owns the body from the launch to the landing, and
+        // plants her for the landing recovery.
+        let hop_vx = self.donut_kit.hop.vx_bits.map(f32::from_bits);
+        if hop_blocks {
+            raw.jump = false;
+        }
+        if hop_planted || hop_vx.is_some() {
+            raw.move_x = 0.0;
+        }
         result.raw = raw;
-        result.can_move = can_act && !out.input_locked;
+        result.can_move = can_act && !out.input_locked && !hop_planted;
         result.frozen = out.frozen;
         result.drive = BodyDrive {
-            launch: out.launch,
-            vx: self.donut_kit.pounce_vx,
+            launch: out.launch.or(hop_launch),
+            vx: self.donut_kit.pounce_vx.or(hop_vx),
             vx_cap: out.vx_cap,
-            facing_locked: out.facing_locked,
+            facing_locked: out.facing_locked || hop_vx.is_some(),
             ..BodyDrive::default()
         };
         result

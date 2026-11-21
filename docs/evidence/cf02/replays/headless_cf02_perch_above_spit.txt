@@ -1,0 +1,6 @@
+COMBAT_EVENT tick=1 kind=llama_tell llama=0
+COMBAT_EVENT tick=37 kind=llama_spit llama=0
+COMBAT_EVENT tick=151 kind=llama_tell llama=0
+COMBAT_EVENT tick=187 kind=llama_spit llama=0
+COMBAT_STATE fixture=cf02_perch_above_spit seed=0xcf02f141 tick=200 elapsed=200 hero_hp=4 deaths=0 enemies= hash=3371c6dd3cc68020 shore=0/Intact/Seated block_bottom=140.00 llamas=l0=1000.000/3
+PARTY_STATE fixture=cf02_perch_above_spit mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=7334fd74933c13c6

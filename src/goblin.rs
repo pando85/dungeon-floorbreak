@@ -147,6 +147,11 @@ pub struct Goblin {
     pub hurt_cooldown: u8,
     /// The running attack already hurt Carl (one hit per attack).
     pub swing_hit: bool,
+    /// CF02-Q31: this swing already counted as a hit on the rotten shore (one per
+    /// swing, however many impact ticks overlap the strike zone). Set by the scene,
+    /// cleared when the goblin leaves the impact phase; mixed into the hash only
+    /// while set, so no legacy hash sees it.
+    pub(crate) shore_counted: bool,
     /// The move instance whose kick carries this goblin (`Launched` only).
     pub launch: Option<u32>,
     /// Ticks since the launch was released (the animation's flight age).
@@ -208,6 +213,7 @@ impl Goblin {
             attack_cooldown: 0,
             hurt_cooldown: 0,
             swing_hit: false,
+            shore_counted: false,
             launch: None,
             flight_ticks: 0,
             contact_ticks: 0,
@@ -591,6 +597,9 @@ impl Goblin {
         mix(u64::from(self.attack_cooldown));
         mix(u64::from(self.hurt_cooldown));
         mix(u64::from(self.swing_hit));
+        if self.shore_counted {
+            mix(0x5348_5357); // "SHSW"
+        }
         // CP-02 state: mixed only while it exists, so goblins that were never
         // launched keep the hashes they had before the kick launch.
         if self.launch.is_some() || self.flight_ticks != 0 || self.contact_ticks != 0 {

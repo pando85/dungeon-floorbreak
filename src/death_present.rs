@@ -6257,13 +6257,19 @@ mod tests {
     fn q21_q36_real_cf02_runs_pick_the_poses_and_keep_every_hash() {
         use crate::cf02_fixtures::CF02_FIXTURES;
         use crate::party_scene::PartyFixtureSim;
-        let kit = EnvKit::load(&root(), LAYOUT).unwrap();
+        let corridor = EnvKit::load(&root(), LAYOUT).unwrap();
+        let arena = crate::cf02::arena::load_arena(&root()).unwrap();
         let mut picked: Vec<(&str, SlamPose)> = Vec::new();
         for fixture in CF02_FIXTURES.iter().filter(|f| f.base.boss.is_none()) {
+            let kit = if crate::cf02::arena::fixture_uses_arena(fixture.name()) {
+                &arena
+            } else {
+                &corridor
+            };
             let mut reference: Option<(u64, Vec<CombatEvent>)> = None;
             for preset in GorePreset::ALL {
                 for overlay in [false, true] {
-                    let mut sim = PartyFixtureSim::new(&kit, 360, fixture).unwrap();
+                    let mut sim = PartyFixtureSim::new(kit, 360, fixture).unwrap();
                     let mut p = if overlay {
                         cf02_presenter(preset)
                     } else {

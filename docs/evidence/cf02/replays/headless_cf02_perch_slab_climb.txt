@@ -1,0 +1,2 @@
+COMBAT_STATE fixture=cf02_perch_slab_climb seed=0xcf02f140 tick=140 elapsed=140 hero_hp=4 deaths=0 enemies= hash=cb8886a44af9a326 shore=0/Intact/Seated block_bottom=140.00
+PARTY_STATE fixture=cf02_perch_slab_climb mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=a2341dcd2c754edc

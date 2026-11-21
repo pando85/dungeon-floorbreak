@@ -1,0 +1,31 @@
+{
+  "schema": "floor01-cf02-microarena-v1",
+  "status": "COMBAT-FUN-02 CF02-F greybox microarena: geometry only, composed at load time from approved Floor 01 kit pieces by camera_lab::layout (no new art, not an authored level). Values are the adopted CF02-Q29 and Q45 defaults.",
+  "scenarios": [
+    {
+      "id": "CF02-ARENA",
+      "name": "Microarena",
+      "subtitle": "CF02 room: brawl lane, rotten shore, parapet, llama yard",
+      "act": 1,
+      "setting": "dry-catacomb",
+      "width": 1152,
+      "height": 660,
+      "floor": 580,
+      "spawn": { "carl": 128, "donut": 96 },
+      "camera_intro": 128,
+      "platforms": [
+        { "x": 544, "y": 500, "w": 128, "h": 16 },
+        { "x": 896, "y": 500, "w": 96, "h": 16 }
+      ],
+      "parapet": [{ "x": 736, "w": 32, "h": 48 }],
+      "solid_backwall": [[352, 448]],
+      "props": [],
+      "enemies": [],
+      "hazards": [],
+      "goal_x": 1104,
+      "purpose": "One 40-60 s room: a brawl lane with a left end wall, a rotten shore, a left perch over the first wave, a stone parapet and a llama yard with a right perch; flat goblin lanes, two perches as solid 1-tile slabs (top 80 px, underside 68 px), no void at the widest camera view.",
+      "expected": "Spawns, waves and the exit are placed by src/cf02.rs (arena module); this file holds geometry only.",
+      "coop": "Single player or two players; Donut trails as the CF02 assistant in solo."
+    }
+  ]
+}

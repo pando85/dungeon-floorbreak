@@ -1,0 +1,10 @@
+COMBAT_EVENT tick=5 kind=move_started move=jab instance=1
+COMBAT_EVENT tick=8 kind=shore_hit instance=1 hits=1
+COMBAT_EVENT tick=30 kind=move_started move=jab instance=2
+COMBAT_EVENT tick=33 kind=shore_hit instance=2 hits=2
+COMBAT_EVENT tick=55 kind=move_started move=jab instance=3
+COMBAT_EVENT tick=58 kind=shore_hit instance=3 hits=3
+COMBAT_EVENT tick=58 kind=shore_broken player=0
+COMBAT_EVENT tick=94 kind=shore_landed
+COMBAT_STATE fixture=cf02_block_spares_left_striker seed=0xcf02f111 tick=160 elapsed=160 hero_hp=4 deaths=0 enemies= hash=39238d9e3834c91f shore=3/Broken/Landed block_bottom=0.00
+PARTY_STATE fixture=cf02_block_spares_left_striker mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=32e12c30d3466045

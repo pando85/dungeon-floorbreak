@@ -837,6 +837,49 @@ fn a_companion_driven_hero_is_labelled_recorded_and_replayed() {
     expect_failure(&session, "labels");
 }
 
+/// CF02-F: a live `--cf02` session (the microarena, its checkpoint rules, the
+/// `cf02_assist` companion and the 12-tick swap / eased pan) replays from its reset
+/// descriptor in a fresh process; the same recording is rejected when it claims the
+/// CF02 rules were off (the verifier would rebuild another room).
+#[test]
+fn a_cf02_room_session_verifies_from_its_reset_descriptor() {
+    use crate::companion::profile::ProfileSetId;
+    use crate::party::{PROVISIONAL_TUNING, PartyState, PartyTuning, UncontrolledHero};
+    let dir = TempDir::new("vfy-cf02-room");
+    let party = PartyState::new(
+        PartyTuning {
+            uncontrolled_hero: UncontrolledHero::Companion(ProfileSetId::Cf02Assist),
+            ..PROVISIONAL_TUNING
+        }
+        .with_cf02_swap(),
+    );
+    let mut rig = DemoRig::cf02(&dir.0, party);
+    for tick in 0..700_u64 {
+        match tick {
+            420 => rig.restart(),
+            560 => rig.select_tap_respawn(),
+            _ => {}
+        }
+        // Carl walks right (into the first wave); one solo swap and one swap back.
+        rig.step(RawInput {
+            move_x: if tick % 300 < 240 { 1.0 } else { 0.0 },
+            swap: tick == 120 || tick == 180,
+            attack: tick % 11 == 0,
+            ..RawInput::NONE
+        });
+    }
+    let manifest = rig.rec.finish("test").unwrap();
+    let session = dir.0.join(manifest.session_id);
+    let report = verify(&session).expect("a --cf02 room session verifies");
+    assert_eq!(report.effective_inputs, 700);
+    // The recording is bound to the CF02 rules: without them it is another game.
+    tamper_manifest(&session, |m| m.reset.cf02_rules = false);
+    assert!(
+        verify(&session).is_err(),
+        "rules off: another room, another run"
+    );
+}
+
 #[test]
 fn an_incomplete_capture_is_not_verified() {
     let (_dir, session) = recorded_solo("vfy-neg-incomplete", 200);

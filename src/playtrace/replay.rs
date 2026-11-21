@@ -174,7 +174,10 @@ fn combat_for(
     let mut combat = CombatState::new(fixture, kit, scene)
         .map_err(|e| VerifyFailure::new("content_mismatch", e))?
         .with_donut(donut_setup(reset, boss));
-    if reset.demo {
+    if reset.cf02_rules && reset.demo {
+        // CF02-F: `--cf02` is the microarena on the demo machinery.
+        combat = combat.with_demo(&crate::cf02::arena::RULES);
+    } else if reset.demo {
         combat = combat.with_demo(&crate::demo::DEMO_RULES);
     }
     if reset.cf02_rules {
@@ -202,9 +205,15 @@ fn live_tuning(manifest: &SessionManifest) -> Result<PartyTuning, VerifyFailure>
             ));
         }
     };
-    Ok(PartyTuning {
+    let tuning = PartyTuning {
         uncontrolled_hero,
         ..PartyTuning::default()
+    };
+    // CF02-Q19, Q20: the live `--cf02` party has the 12-tick swap and the eased pan.
+    Ok(if manifest.reset.cf02_rules {
+        tuning.with_cf02_swap()
+    } else {
+        tuning
     })
 }
 
@@ -215,7 +224,13 @@ fn rebuild(manifest: &SessionManifest, root: &Path) -> Result<Reset, VerifyFailu
         "party_fixture" => {
             let fixture = find_party_fixture(&reset.name)
                 .ok_or_else(|| unsupported(format!("unknown party fixture {:?}", reset.name)))?;
-            let sim = PartyFixtureSim::new(&corridor_kit(root)?, reset.view_height, fixture)
+            // CF02-F: the room fixtures run on the microarena kit.
+            let kit = if crate::cf02::arena::fixture_uses_arena(fixture.name()) {
+                crate::cf02::arena::load_arena(root).map_err(unsupported)?
+            } else {
+                corridor_kit(root)?
+            };
+            let sim = PartyFixtureSim::new(&kit, reset.view_height, fixture)
                 .map_err(|e| VerifyFailure::new("content_mismatch", e))?;
             Ok(Reset {
                 scene: sim.scene,
@@ -234,7 +249,13 @@ fn rebuild(manifest: &SessionManifest, root: &Path) -> Result<Reset, VerifyFailu
         }
         "fixture" | "boss" | "demo" => {
             let boss = reset.source == "boss";
-            let (kit, fixture) = if reset.demo || reset.source == "demo" {
+            let (kit, fixture) = if reset.cf02_rules && (reset.demo || reset.source == "demo") {
+                let kit = crate::cf02::arena::load_arena(root).map_err(unsupported)?;
+                (
+                    kit,
+                    crate::cf02::arena::fixture_for_beat(reset.demo_beat as usize),
+                )
+            } else if reset.demo || reset.source == "demo" {
                 let kit = crate::demo::load_hall(root).map_err(unsupported)?;
                 (kit, crate::demo::fixture_for_beat(reset.demo_beat as usize))
             } else if boss {

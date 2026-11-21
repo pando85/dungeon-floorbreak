@@ -988,6 +988,17 @@ impl CombatState {
         self
     }
 
+    /// Tests only: run this state under another tuning (a knob edit such as
+    /// `q42_block_damage = 0`); goblins built later carry it too.
+    #[doc(hidden)]
+    pub fn with_cf02_tuning_for_test(mut self, tuning: &'static Cf02Tuning) -> Self {
+        self.cf02 = Some(tuning);
+        for goblin in &mut self.enemies {
+            goblin.cf02 = Some(tuning);
+        }
+        self
+    }
+
     /// The CF02 tuning this run reads (`None`: `cf02_rules` is off).
     pub fn cf02(&self) -> Option<&'static Cf02Tuning> {
         self.cf02
@@ -1103,6 +1114,13 @@ impl CombatState {
             .fixture
             .shore_dx
             .map(|dx| Shore::new((self.fixture.carl_x + dx) as f32, self.enemy_foot_y));
+        // CF02-F QA hook: a room fixture whose rotten shore starts damaged.
+        if self.cf02.is_some()
+            && let Some(hits) = crate::cf02_fixtures::shore_hits(self.fixture.name)
+            && let Some(shore) = self.shore.as_mut()
+        {
+            shore.hits = hits.min(crate::shore::SHORE_HITS_TO_BREAK - 1);
+        }
         self.boss = self.fixture.boss.map(|setup| setup.boss(self.enemy_foot_y));
         self.charges = self
             .fixture
@@ -1517,7 +1535,7 @@ impl CombatState {
         self.step_llamas(scene, tick);
         self.step_globs(scene, tick);
         self.resolve_contacts(tick);
-        self.step_shore(tick);
+        self.step_shore(scene, tick);
         self.step_boss(scene, tick);
         self.step_charges(tick, scene.world.hero.x);
         // CF02-G: the morale of every goblin judges the tick's events last.
@@ -1851,6 +1869,12 @@ impl CombatState {
                 may_start,
                 &drive,
             );
+            // CF02-Q31: a goblin that left its impact phase may count on the shore again.
+            if self.enemies[index].shore_counted
+                && self.enemies[index].attack_phase() != Some(crate::goblin::AttackPhase::Impact)
+            {
+                self.enemies[index].shore_counted = false;
+            }
             self.note_flee_blocked(index, step.blocked);
             // WORK-023: one tick of the light guard (nothing while unset).
             self.enemies[index].observe_guard();
@@ -1869,6 +1893,7 @@ impl CombatState {
             }
             if step.impact {
                 self.swing_on_hero(scene, index, tick);
+                self.goblin_swing_on_shore(index, tick);
             }
         }
     }
@@ -2034,8 +2059,10 @@ impl CombatState {
     /// CP-03: one tick of the shore's block. On the landing tick the hazard
     /// footprint is evaluated once: every living goblin whose body overlaps it
     /// is defeated (index order), credited to the player who broke the shore.
-    /// Carl takes no hit from the block yet (a tuning decision, disclosed).
-    fn step_shore(&mut self, tick: u64) {
+    /// Under CF02 rules the block also hurts every hero in the footprint (Q30, Q42,
+    /// [`Self::block_hurts_heroes`]); a legacy run keeps the old behaviour (nobody
+    /// but the enemies is touched).
+    fn step_shore(&mut self, scene: &mut SceneSim, tick: u64) {
         let Some(shore) = self.shore.as_mut() else {
             return;
         };
@@ -2092,6 +2119,89 @@ impl CombatState {
                     *slot = Some(tick);
                 }
             }
+        }
+        self.block_hurts_heroes(scene, &shore, tick);
+    }
+
+    /// CF02-F (Q30, Q42): on the landing tick the block hurts every hero whose
+    /// hurtbox is in the footprint: the ordinary hurt path (1 damage, the hurt
+    /// flinch, invulnerability respected, the solo guards M1 and M4 unchanged) and
+    /// a knock away from the block's centre. In two-player it hurts the partner too
+    /// (terrain inconveniences allies; friendly fire stays off).
+    fn block_hurts_heroes(&mut self, scene: &mut SceneSim, shore: &Shore, tick: u64) {
+        let Some(t) = self.cf02.filter(|t| t.on(t.q30_block_hurts_heroes)) else {
+            return;
+        };
+        if t.q42_block_damage == 0 {
+            return;
+        }
+        let drive = *scene.drive();
+        let heroes: &[HeroId] = if scene.party_live() {
+            &[HeroId::Carl, HeroId::Donut]
+        } else {
+            &[HeroId::Carl]
+        };
+        let centre = shore.footprint_centre_x();
+        for &id in heroes {
+            let body = Self::hurtbox(scene, id);
+            if !shore.hurts_body(body) {
+                continue;
+            }
+            // D1 M4 (solo only): a guarded hero outside the view cannot be hurt.
+            let x = scene.world.body(id).x;
+            if drive.is_guarded(id)
+                && drive.tuning.solo_offscreen_immunity
+                && scene.is_offscreen(x, f32::from(drive.tuning.offscreen_margin_px))
+            {
+                continue;
+            }
+            let knock = f32::from(t.q42_block_knock_x);
+            self.hurt_hero(
+                scene,
+                HeroBlow {
+                    hero: id,
+                    source: crate::cf02::arena::SHORE_BLOCK_SOURCE,
+                    damage: t.q42_block_damage,
+                    from_x: centre,
+                    knock_vx: if x >= centre { knock } else { -knock },
+                    knock_vy: f32::from(t.q42_block_knock_y),
+                },
+                tick,
+            );
+        }
+    }
+
+    /// CF02-F (Q31, Q41): a goblin swing whose impact overlaps the strike zone of a
+    /// shore in `damaged_1` or later counts as one shore hit (once per swing). The
+    /// kill credit of the block goes to the hero who last hit the shore (stored on
+    /// the shore; only Carl's moves reach it today); the break is logged as `ShoreTripped`, never as that
+    /// hero's `ShoreBroken`, so it never feeds CINE-01. An intact shore ignores it.
+    fn goblin_swing_on_shore(&mut self, index: usize, tick: u64) {
+        let Some(t) = self.cf02.filter(|t| t.on(t.q31_goblin_self_own)) else {
+            return;
+        };
+        let min_hits = match t.q31_min_shore_state {
+            crate::cf02::ShoreState::Damaged1 => 1,
+            crate::cf02::ShoreState::Damaged2 => 2,
+        };
+        // One count per swing (the impact lasts four ticks): `shore_counted` is
+        // cleared when the goblin leaves its impact phase.
+        if self.enemies[index].shore_counted {
+            return;
+        }
+        let swing = self.enemies[index].swing_box();
+        let Some(shore) = self.shore.as_mut() else {
+            return;
+        };
+        if let Some((strike, credited)) = shore.strike_by_goblin(swing, min_hits) {
+            self.enemies[index].shore_counted = true;
+            self.log(CombatEvent::ShoreTripped {
+                tick,
+                goblin: index as u32,
+                hits: strike.hits,
+                broke: strike.broke,
+                credited,
+            });
         }
     }
 

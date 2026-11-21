@@ -1,0 +1,1 @@
+COMBAT_STATE fixture=cf02_arena_swap seed=0xcf02f104 tick=178 elapsed=178 hero_hp=4 deaths=0 enemies=e0=449.734/2,e1=503.901/2,e2=680.000/2,e3=880.000/2,e4=940.000/2 hash=225c9ebb5274de43 shore=0/Intact/Seated block_bottom=140.00 llamas=l0=881.330/3
