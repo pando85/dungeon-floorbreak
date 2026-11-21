@@ -839,3 +839,46 @@ fn haz_acid_barrier_follows_the_live_pool_and_lifts_when_it_drains() {
         g.x
     );
 }
+
+// ------------------------------------------------- PR #214 review: F2
+
+#[test]
+fn haz_slime_shares_the_attack_token_cap_with_two_goblins() {
+    // One slime and two goblins around an invulnerable Carl: the attacks in
+    // flight (goblins in a tell or swing, plus the slime rearing) never exceed
+    // MAX_ATTACKERS = 2 (HAZ-Q14, one cap, counted both ways).
+    let mut rig = Layout {
+        slimes: vec![SlimeAt {
+            x: 400,
+            facing: 1,
+            home: 400,
+        }],
+        goblins: vec![350, 520],
+        carl_x: 444,
+        ..Layout::default()
+    }
+    .sim(None);
+    let (mut max, mut slime_tells, mut max_with_slime) = (0, 0, 0);
+    for _ in 0..1500 {
+        rig.scene_mut().world.hero.invulnerable_ticks = 255;
+        rig.carl(RawInput::NONE);
+        let goblins = rig
+            .combat()
+            .enemies
+            .iter()
+            .filter(|g| g.token_held())
+            .count();
+        let slime = usize::from(rig.combat().slot_enemies()[0].holds_token());
+        max = max.max(goblins + slime);
+        if slime == 1 {
+            slime_tells += 1;
+            max_with_slime = max_with_slime.max(goblins + slime);
+        }
+    }
+    assert!(slime_tells > 0, "the slime attacked");
+    assert!(
+        max_with_slime >= 2,
+        "a goblin and the slime were in flight together"
+    );
+    assert!(max <= 2, "attacks in flight never exceed the cap: {max}");
+}

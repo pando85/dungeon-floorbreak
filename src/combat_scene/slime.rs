@@ -13,10 +13,11 @@
 //! * AD2 the slime picks its own target: the nearest eligible hero, kept until
 //!   the other is [`TARGET_SWITCH_PX`] nearer (the goblins' hysteresis, without
 //!   the solo AI bias);
-//! * AD3 it starts a tell only with a free goblin token and the tell spacing
-//!   ([`SlotStepCtx::token_free`]), and holds a token through its tell, launch
-//!   and impact; the goblins' own approval does not count a slime (the goblin
-//!   cap of two is read with slime holders added, one way);
+//! * AD3 (replaced by the HAZ-Q14 rule, PR #214 F2) it starts a tell only with a
+//!   free goblin token and the tell spacing ([`SlotStepCtx::token_free`]) and
+//!   holds a token through its tell, launch and impact; **the goblins count
+//!   that holder in their own approval** (`approved_goblins`), so goblins and
+//!   slimes share one cap of two attacks in flight;
 //! * AD4 a blast: the core and ring bands are lethal, the outer band deals the
 //!   profile's outer damage with no state change and no launch (gel);
 //! * AD5 its `boss` threat row is `Pound { x, facing, target: None }` while it
