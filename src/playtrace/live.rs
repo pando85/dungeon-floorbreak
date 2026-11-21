@@ -186,6 +186,9 @@ pub fn data_pins() -> Vec<(&'static str, u64)> {
         // stamped on every recording and required by a replay.
         (crate::slime::PIN_KEY, crate::slime::TUNING_HASH),
         (crate::rot_sticker::PIN_KEY, crate::rot_sticker::TUNING_HASH),
+        // HRD-A1: the Hoarder boss knobs, stamped on every recording and
+        // required by a replay like the other tuning pins.
+        (crate::pile_boss::PIN_KEY, crate::pile_boss::TUNING_HASH),
     ]
 }
 
