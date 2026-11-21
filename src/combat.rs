@@ -1600,6 +1600,16 @@ pub enum CombatEvent {
         goblin: u32,
         instigator: Option<u32>,
     },
+    /// CARL-PROG-01 CP-A, appended: the story-unlock ledger granted a stored
+    /// capability (`hero` is the hero index of its row, `capability` its data
+    /// id; IP-neutral, the fan layer names it). One per grant, in grant order, never
+    /// for a pin or a read-through capability. Only a run with the story flags
+    /// emits it.
+    CapabilityGranted {
+        tick: u64,
+        hero: u8,
+        capability: &'static str,
+    },
 }
 
 impl CombatEvent {
@@ -1982,6 +1992,17 @@ impl CombatEvent {
                 mix(u64::from(goblin));
                 mix(instigator.map_or(0, |p| u64::from(p) + 1));
             }
+            // CARL-PROG-01: "CAPG".
+            Self::CapabilityGranted {
+                tick,
+                hero,
+                capability,
+            } => {
+                mix(0x4341_5047);
+                mix(tick);
+                mix(u64::from(hero));
+                mix(crate::donut_mana::content_hash(capability));
+            }
         }
     }
 }
@@ -2294,6 +2315,14 @@ impl fmt::Display for CombatEvent {
                 }
                 Ok(())
             }
+            Self::CapabilityGranted {
+                tick,
+                hero,
+                capability,
+            } => write!(
+                f,
+                "COMBAT_EVENT tick={tick} kind=capability_granted hero={hero} capability={capability}"
+            ),
         }
     }
 }

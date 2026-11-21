@@ -1,2 +1,2 @@
-COMBAT_STATE fixture=duo_independent_moves seed=0xd020001 tick=160 elapsed=160 hero_hp=4 deaths=0 enemies= hash=cc1a9230ad0c0ab6
-PARTY_STATE fixture=duo_independent_moves mode=2p controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=2c58af8861d763ec
+COMBAT_STATE fixture=duo_independent_moves seed=0xd020001 tick=160 elapsed=160 hero_hp=4 deaths=0 enemies= hash=207d570b92992e3d
+PARTY_STATE fixture=duo_independent_moves mode=2p controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=81ca65ec029b6e63

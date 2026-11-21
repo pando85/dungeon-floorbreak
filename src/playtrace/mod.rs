@@ -62,6 +62,8 @@ mod tests_cursor;
 #[cfg(test)]
 mod tests_export;
 #[cfg(test)]
+mod tests_motion;
+#[cfg(test)]
 mod tests_robust;
 #[cfg(test)]
 mod tests_verify;

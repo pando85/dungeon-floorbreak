@@ -63,8 +63,8 @@ Reading: `companion_duo_no_ai` shows the 2P case (the companion never runs, bot 
 
 | fixture | controlled | companion | nav events | final | hash |
 |---|---|---|---|---|---|
-| companion_arena_nav_perch_donut | Carl | AI Donut | Begin(Jump), Arrived, tick 41 to 74 | on the slab, feet 80 px up | `5df620202ed1c92c` |
-| companion_arena_nav_perch_carl | Donut | AI Carl | Begin(Jump), Arrived, tick 44 to 85 | on the slab, feet 80 px up | `69c986158efcd9d1` |
+| companion_arena_nav_perch_donut | Carl | AI Donut | Begin(Jump), Arrived, tick 41 to 74 | on the slab, feet 80 px up | `92d45ee04a2c1aea` |
+| companion_arena_nav_perch_carl | Donut | AI Carl | Begin(Jump), Arrived, tick 44 to 85 | on the slab, feet 80 px up | `d16f2d3826906853` |
 
 Under the follow-and-jump bot (the rollback) the AI Donut walks under the slab and bumps its head (feet 2.9 px up at the end); the bot climbs for AI Carl. Test: `cargo test --locked --lib the_rollback_bot_is_unchanged_by_the_nav -- --nocapture`.
 

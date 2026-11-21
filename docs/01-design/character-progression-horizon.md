@@ -43,8 +43,8 @@ This is a **conceptual taxonomy**. It does not approve a skill tree, inventory U
 
 ### Donut — agile cat to mobile magical tactician
 
-- **Pre-biscuit Floor 01:** high/far movement and rapid positioning, only low-damage feline physical actions; entertaining in P2 without fabricated magic.
-- **Post-biscuit Floor 01:** Magic Missile becomes her primary attack; she *keeps* catlike physical movement/contact. Puddle Jumper comes only after its narrative event and requires a separate mechanical adaptation decision.
+- **Pre-biscuit Floor 01:** high/far movement and rapid positioning (DONUT-MOBILITY-01 DM-A: run 207 px/s against Carl's 185, a 500 px/s jump with a 114.92 px apex against his 88.54, from the start, human or AI), only low-damage feline physical actions; entertaining in P2 without fabricated magic.
+- **Post-biscuit Floor 01:** Magic Missile becomes her primary attack; she also gains a passive cat reflex (one evade per 12 s hurt-free, DONUT-MOBILITY-01 DM-B, adopted default, not yet implemented); she *keeps* catlike physical movement/contact. Puddle Jumper comes only after its narrative event and requires a separate mechanical adaptation decision.
 - **Early floors:** improve movement/ranged reliability, survivability through positioning, and teammate synergy. Mongo joins later; his precise abilities and join timing require source-grounded review.
 - **Mid campaign:** introduce distinct control, support, protection or summoning decisions **only as verified/unlocked**, avoiding an all-purpose invulnerable turret.
 - **Late campaign:** powerful and tactically flexible, potentially interacting with allies or temporary floor systems; still agile and fragile enough for positioning to matter.
@@ -61,7 +61,7 @@ This is a **conceptual taxonomy**. It does not approve a skill tree, inventory U
 
 | Narrative phase | Player learning focus | Carl hypothesis | Donut / team hypothesis | Revisit before commitment |
 | --- | --- | --- | --- | --- |
-| **Floor 01 — MVP** | Movement; immediate hits; knockback; first earned specials; one rewarding environmental kill | Punch -> kick -> story-earned explosive -> enhanced fist | Fragile agile cat -> biscuit / Magic Missile -> advanced mobility only when earned | Exact first-floor chapter/event, feel and co-op hands-on playtest |
+| **Floor 01 — MVP** | Movement; immediate hits; knockback; first earned specials; one rewarding environmental kill | Punch -> kick -> story-earned explosive -> enhanced fist | Fragile agile cat (faster and higher-jumping from the start) -> biscuit / Magic Missile / cat reflex -> advanced mobility only when earned | Exact first-floor chapter/event, feel and co-op hands-on playtest |
 | **Floor 02** | Mastery and a few new enemy/prop interactions, not necessarily new inputs | Build on existing impact/explosive kit | Refine magic and survival; later companion arrival | Check canonical item/companion timing |
 | **Floor 03** | More defined build identities and meaningful equipment choices | Potential sabotage emphasis | Potential floor-specific character-specialization decisions | Verify race/class lore and whether UI complexity is warranted |
 | **Floors 04–05** | Complex environmental/machinery interactions with established verbs | Prepared traps, systems and terrain exploitation | New options in support/mobility/control, if earned | Avoid designing a separate controller or per-floor engine |
@@ -102,7 +102,7 @@ For that change, the agent/designer must:
 
 1. **Read the latest guide and controlling documents** rather than rely on earlier prompts or model memory; identify which parts are accepted constraints versus proposals.
 2. **Describe the horizon fit in the design PR:** what existing action/character role it builds on, what new decision it gives the player, and whether it affects solo and 2P.
-3. **Check narrative chronology** for franchise-specific items, spells, classes and companions before describing them as canon; mark unverified claims and separate game adaptations.
+3. **Check narrative chronology** for franchise-specific items, spells, classes and companions before describing them as canon; mark unverified claims and separate game adaptations. Canon informs, fun decides: deviations are allowed and recorded as game adaptations ([fun over canon](vision.md#fun-over-canon-owner-decision-2026-11-21)).
 4. **Test or propose a focused test** for added mechanics: predictable hits, readable knockback, deterministic replay, safe routes and camera, real controller feel when implemented.
 5. **Update this guide when the horizon changes** (milestone, role, layer, contradiction, evidence or rejected idea); otherwise add one line to the PR stating that it was consulted and remains consistent. Do not edit this guide for trivial tuning or cosmetic changes that do not alter the direction.
 6. **Escalate conflicts** with approved controls, art, architecture or owner decisions for explicit review. This guide alone cannot approve a new button, production ability or story deviation.
@@ -117,6 +117,7 @@ For that change, the agent/designer must:
 | 2026-11-20 | REWARDS-01 / ADR-0010: no conventional gear/inventory; permanent story abilities, temporary combat momentum, bounded floor boon choices and future story-gated sponsor gifts | Owner-approved product direction; numeric tuning/implementation pending [roadmap](../04-production/rewards-roadmap.md) |
 | 2026-11-20 | COMBAT-FUN-02 after the first DEMO-01 playtest: Carl's Floor 01 impact set gains a Down + Physical stomp on downed foes and its aerial form (dive), a short air kick, a scrambling bail-out hop and wall/body impacts; ordinary goblins gain reactive morale (hesitate, panic, enraged, taunt) with seeded temperaments; the solo AI Donut gains a restrained, opt-in assist (interrupts and non-lethal holds, never in 2P, no magic before the biscuit). No new button, no new unlock, no new enemy type | Adopted defaults CF02-Q01..Q75, behind `--cf02`; game feel pending ([design](combat-fun-02-post-demo01-proposals.md)) |
 | 2026-11-21 | ENEMY-GAMEPLAY-ENGINEER: the Goblin Engineer becomes the first new enemy type since CF02 (a middle-range floor-lane charger that makes the jump, dive, push kick and wall impacts the right answer at the right time). No new verb, button or unlock for the heroes; Solo and 2P get the same answers | Behind `--cf02 --cf02-engineer`; fits horizon line 14; game feel pending ([design](enemy-gameplay-engineer.md)) |
+| 2026-11-21 | DONUT-MOBILITY-01: Donut's agile motion is hers everywhere from the start (run 207 px/s, jump 500 px/s, apex 114.92 px, 57 air ticks, human or AI, no off switch), and at the biscuit she also gains a passive cat reflex (one evade per 12 s without a hit; DM-B). No new button, no new unlock. Carl is unchanged | Fits "Donut: high/far movement and rapid positioning" and "avoidance from Donut's agility"; DM-A implements the motion, DM-B the reflex; game feel pending ([design](../03-tech/donut-mobility-01.md)) |
 
 ### Update note template
 

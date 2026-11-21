@@ -34,7 +34,7 @@ use crate::combat_scene::{CombatState, Fixture};
 use crate::corridor::SceneSim;
 use crate::donut_mana::{DonutSetup, StartState};
 use crate::env_kit::EnvKit;
-use crate::party::PartyTuning;
+use crate::party::{MotionProfile, PartyTuning};
 use crate::party_scene::PartyFixtureSim;
 
 use super::build_info::{BUILD_COMMIT, SOURCE_FINGERPRINT};
@@ -159,6 +159,30 @@ fn donut_setup(reset: &super::manifest::ResetDescriptor, boss: bool) -> DonutSet
     }
 }
 
+/// CARL-PROG-01: the story of a recorded live run, by the rule of `story_setup`
+/// in `floor01_scene` (a plain `fixture` source is scripted and reads no flag).
+fn story_setup(
+    reset: &super::manifest::ResetDescriptor,
+    boss: bool,
+) -> crate::story_unlock::StorySetup {
+    use crate::story_unlock::SceneKind;
+    let flags = crate::carl_prog::CarlProgFlags {
+        prog: reset.carl_prog,
+        dynamite: reset.carl_dynamite,
+        gauntlet: reset.carl_gauntlet,
+    };
+    let scene = if reset.cf02_rules && (reset.demo || reset.source == "demo") {
+        SceneKind::CfArena
+    } else if reset.demo || reset.source == "demo" {
+        SceneKind::Demo
+    } else if boss {
+        SceneKind::Boss
+    } else {
+        return crate::story_unlock::StorySetup::NONE;
+    };
+    flags.story_setup(scene)
+}
+
 fn combat_for(
     reset: &super::manifest::ResetDescriptor,
     fixture: &'static Fixture,
@@ -168,7 +192,8 @@ fn combat_for(
 ) -> Result<CombatState, VerifyFailure> {
     let mut combat = CombatState::new(fixture, kit, scene)
         .map_err(|e| VerifyFailure::new("content_mismatch", e))?
-        .with_donut(donut_setup(reset, boss));
+        .with_donut(donut_setup(reset, boss))
+        .with_story(story_setup(reset, boss));
     if reset.cf02_rules && reset.demo {
         // CF02-F: `--cf02` is the microarena on the demo machinery.
         combat = combat.with_demo(&crate::cf02::arena::RULES);
@@ -213,6 +238,17 @@ fn live_tuning(manifest: &SessionManifest) -> Result<PartyTuning, VerifyFailure>
 }
 
 pub(super) fn rebuild(manifest: &SessionManifest, root: &Path) -> Result<Reset, VerifyFailure> {
+    let mut rebuilt = rebuild_scene(manifest, root)?;
+    // DONUT-MOBILITY-01: the party steps with the motion the session recorded.
+    // The descriptor's absent field is `legacy`, so a session made before DM-A
+    // replays with the motion it was played with, whatever the fixture or the
+    // lab ships today. This is the only non-test path that builds
+    // `MotionProfile::Legacy`: replay archaeology, not play.
+    rebuilt.tuning.donut_motion = manifest.reset.donut_motion;
+    Ok(rebuilt)
+}
+
+fn rebuild_scene(manifest: &SessionManifest, root: &Path) -> Result<Reset, VerifyFailure> {
     let reset = &manifest.reset;
     let unsupported = |why: String| VerifyFailure::new("unsupported_source", why);
     match reset.source.as_str() {
@@ -442,12 +478,30 @@ pub(super) fn check_content(
         ));
     }
     check_hash(manifest, "kit", kit)?;
-    check_hash(manifest, "mana_tuning", crate::donut_mana::TUNING_HASH)?;
-    check_hash(manifest, "cf02_tuning", crate::cf02::TUNING_HASH)?;
+    for (key, hash) in super::live::data_pins() {
+        // DONUT-MOBILITY-01: a session recorded before DM-A has no agility hash
+        // (and no motion flag); one that has either must agree with this build.
+        if key == "agility_tuning"
+            && manifest.reset.donut_motion == MotionProfile::Legacy
+            && !manifest.content_hashes.contains_key(key)
+        {
+            continue;
+        }
+        check_hash(manifest, key, hash)?;
+    }
+    if let Some(flag) = manifest.feature_flags.get("donut_motion")
+        && flag != manifest.reset.donut_motion.name()
+    {
+        return Err(VerifyFailure::new(
+            "rules_mismatch",
+            "the donut_motion flag disagrees with the reset descriptor",
+        ));
+    }
+    // The tuning hash is of the shipped-motion tuning (see live.rs).
     check_hash(
         manifest,
         "party_tuning",
-        crate::autoplay::party::party_tuning_hash(tuning),
+        super::live::recorded_tuning_hash(tuning),
     )
 }
 

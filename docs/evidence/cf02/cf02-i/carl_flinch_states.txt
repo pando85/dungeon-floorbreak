@@ -7,6 +7,6 @@ COMBAT_ANIM_STATE tick=94 carl=-  l0=idle:1 l1=idle:2 acting_carl=flinch:10 acti
 COMBAT_ANIM_STATE tick=96 carl=-  l0=idle:1 l1=idle:2 acting_carl=flinch:10 acting_donut=- acting_goblins=
 COMBAT_ANIM_STATE tick=98 carl=-  l0=idle:1 l1=idle:2 acting_carl=flinch:10 acting_donut=- acting_goblins=
 COMBAT_ANIM_STATE tick=100 carl=-  l0=idle:2 l1=idle:2 acting_carl=- acting_donut=- acting_goblins=
-COMBAT_ANIM_STATE tick=102 carl=-  l0=idle:2 l1=idle:0 acting_carl=- acting_donut=- acting_goblins=
+COMBAT_ANIM_STATE tick=102 carl=-  l0=attack_tell:7 l1=idle:0 acting_carl=- acting_donut=- acting_goblins=
 COMBAT_ANIM_STATE tick=104 carl=-  l0=attack_tell:7 l1=idle:0 acting_carl=- acting_donut=- acting_goblins=
 COMBAT_ANIM_STATE tick=106 carl=-  l0=attack_tell:7 l1=idle:0 acting_carl=- acting_donut=- acting_goblins=

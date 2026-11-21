@@ -1,11 +1,11 @@
 COMBAT_EVENT tick=13 kind=move_started move=magic_missile instance=1
 COMBAT_EVENT tick=17 kind=mana_spent hero=1 left=7
-COMBAT_EVENT tick=31 kind=hit move=magic_missile instance=1 target=0 damage=1 health_left=1 hit_stop=2
+COMBAT_EVENT tick=30 kind=hit move=magic_missile instance=1 target=0 damage=1 health_left=1 hit_stop=2
 COMBAT_EVENT tick=33 kind=move_started move=magic_missile instance=2
 COMBAT_EVENT tick=37 kind=mana_spent hero=1 left=6
-COMBAT_EVENT tick=50 kind=hit move=magic_missile instance=2 target=0 damage=1 health_left=0 hit_stop=5
-COMBAT_EVENT tick=50 kind=enemy_defeated target=0 instigator=1
+COMBAT_EVENT tick=49 kind=hit move=magic_missile instance=2 target=0 damage=1 health_left=0 hit_stop=5
+COMBAT_EVENT tick=49 kind=enemy_defeated target=0 instigator=1
 COMBAT_EVENT tick=107 kind=mana_regained hero=1 now=7
 COMBAT_EVENT tick=147 kind=mana_regained hero=1 now=8
-COMBAT_STATE fixture=cf02_assist_donut_missiles_goblin seed=0xc0a1000a tick=420 elapsed=420 hero_hp=4 deaths=0 enemies=e0=598.134/0 hash=2908ec053ab53ae9
-PARTY_STATE fixture=cf02_assist_donut_missiles_goblin mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=ecf55bc53c5127ef
+COMBAT_STATE fixture=cf02_assist_donut_missiles_goblin seed=0xc0a1000a tick=420 elapsed=420 hero_hp=4 deaths=0 enemies=e0=599.167/0 hash=5285ef1393e45aa0
+PARTY_STATE fixture=cf02_assist_donut_missiles_goblin mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=95d486bbfdc4de46

@@ -1479,6 +1479,10 @@ pub fn donut_start_x(fixture: &str) -> Option<f32> {
         "eng_point_interrupt_swat" => Some(280.0),
         "eng_2p_targets_nearest" => Some(260.0),
         "eng_2p_partner_in_lane" => Some(310.0),
+        // DONUT-MOBILITY-01: the race starts both heroes in Carl's column; the
+        // jump race starts her 60 px behind him so both stay visible in the air.
+        "dm_run_race_2p" => Some(400.0),
+        "dm_jump_race_2p" => Some(340.0),
         _ => None,
     }
 }
@@ -1858,12 +1862,24 @@ pub const CF02_FIXTURES: [&PartyFixture; 61] = [
     &CF02_PERCH_DIVE,
 ];
 
-/// Looks a party fixture up in `PartyFixture::all()` and then in the CF02
-/// registry (which is not chained into `all()`).
+/// Looks a party fixture up in `PartyFixture::all()` and then in the CF02,
+/// Engineer, CARL-PROG-01 and DONUT-MOBILITY-01 registries (none is chained into `all()`).
 pub fn find_party_fixture(name: &str) -> Option<&'static PartyFixture> {
     PartyFixture::by_name(name)
         .or_else(|| CF02_FIXTURES.iter().copied().find(|f| f.name() == name))
         .or_else(|| ENGINEER_FIXTURES.iter().copied().find(|f| f.name() == name))
+        .or_else(|| {
+            crate::carl_prog_fixtures::CARL_PROG_FIXTURES
+                .iter()
+                .copied()
+                .find(|f| f.name() == name)
+        })
+        .or_else(|| {
+            crate::agility_fixtures::AGILITY_PARTY_FIXTURES
+                .iter()
+                .copied()
+                .find(|f| f.name() == name)
+        })
 }
 
 /// Every fixture name starting with `prefix`, over every registry: the legacy
@@ -1878,7 +1894,12 @@ pub fn list_fixtures(prefix: &str) -> Vec<&'static str> {
         .chain(PartyFixture::all().map(PartyFixture::name))
         .chain(CF02_FIXTURES.iter().map(|f| f.name()))
         .chain(ENGINEER_FIXTURES.iter().map(|f| f.name()))
-        .chain(COMPANION_FIXTURES.iter().map(|f| f.name()));
+        .chain(COMPANION_FIXTURES.iter().map(|f| f.name()))
+        .chain(
+            crate::carl_prog_fixtures::CARL_PROG_FIXTURES
+                .iter()
+                .map(|f| f.name()),
+        );
     for name in all {
         if name.starts_with(prefix) && !names.contains(&name) {
             names.push(name);
@@ -2091,24 +2112,24 @@ mod tests {
     /// The goldens: one FNV state hash per fixture, replayed twice. A change is a
     /// deliberate re-baseline of that fixture only.
     const GOLDENS: [(&str, u64); 61] = [
-        ("cf02_kick_then_stomp", 0xeade1505d6805381),
+        ("cf02_kick_then_stomp", 0x6a38f39b5110dc90),
         ("cf02_stomp_whiff", 0xfc5181f6b763f50b),
         ("cf02_stomp_standing", 0x46b56f9470306d5e),
-        ("cf02_stomp_no_stand_up", 0x789ca7bb0835fbaa),
+        ("cf02_stomp_no_stand_up", 0x31a7c769af4e3a5e),
         ("cf02_confirm_kick", 0x838403b03715e566),
         ("cf02_whiff_no_confirm", 0xab76e42fd4550ea2),
         ("cf02_down_physical_beats_confirm", 0x439c2ea3a5c7f26a),
-        ("cf02_jab_over_lying", 0x778f03a3fa2222fb),
+        ("cf02_jab_over_lying", 0x040f2cfb342eea76),
         ("cf02_lethal_kick_far", 0x13f5c26a5a91056c),
-        ("cf02_pounce_keeps_down", 0x633bd81017697c67),
-        ("cf02_pounce_hold", 0xaa75cd4ff812e46b),
-        ("cf02_stomp_boss", 0xc191ddce479e568b),
+        ("cf02_pounce_keeps_down", 0xb7bd1e7af250a940),
+        ("cf02_pounce_hold", 0xba3f13faa9659baa),
+        ("cf02_stomp_boss", 0x480fc8ad59b022fe),
         ("cf02_2p_same_tick", 0xda1a168a6bc17a3e),
-        ("cf02_air_kick_jump_in", 0x102430d4574559e2),
-        ("cf02_air_kick_relaunch_once", 0xff60bd8c7ad3e597),
-        ("cf02_dive_lying", 0xe464c78d1d28214e),
-        ("cf02_dive_standing_knockdown", 0xc129d7541a266920),
-        ("cf02_dive_bounce_kick", 0x8decf9ef002355ab),
+        ("cf02_air_kick_jump_in", 0xee11c7830e16f82b),
+        ("cf02_air_kick_relaunch_once", 0x0cf54de7d6c3c82e),
+        ("cf02_dive_lying", 0xfbb344ba67d525a8),
+        ("cf02_dive_standing_knockdown", 0x8b4ecb9793970774),
+        ("cf02_dive_bounce_kick", 0xc35873ca28d4ae31),
         ("cf02_dive_whiff_recovery", 0xf6e6165ea7f2b805),
         ("cf02_bailout_escapes_swing", 0xac675d2f15e777af),
         ("cf02_bailout_no_attack_until_land", 0x2d5c027bbe128174),
@@ -2116,42 +2137,42 @@ mod tests {
         ("cf02_buffer_no_early_chain", 0x027414d51818e9e7),
         ("cf02_jump_attack_same_tick", 0xd0ecfb8433d01685),
         ("cf02_landing_grace", 0x75ce9b552aea4b3c),
-        ("cf02_cancel_table", 0x2812995f9f619829),
-        ("cf02_dive_boss", 0xaca9425328074169),
+        ("cf02_cancel_table", 0x7721fbd0b323063f),
+        ("cf02_dive_boss", 0x8ec797371160639d),
         ("cf02_contact_knockdown", 0xad3e4dbdf76df04c),
         ("cf02_contact_below_threshold", 0xcb311ad6d6bbf3cc),
         ("cf02_contact_cancels_swing", 0x2a19dd6ac146207b),
         ("cf02_no_chain", 0x81bb784964470183),
         ("cf02_body_bowl", 0xbdfd16d8979ebe75),
-        ("cf02_air_relaunch_contact", 0x45769c837cbfe8f8),
+        ("cf02_air_relaunch_contact", 0x58c789f182f2ea10),
         ("cf02_wall_slam_kill", 0xe887c36e54d1848e),
         ("cf02_wall_slam_body", 0x0e6f84ebfe3f2e09),
         ("cf02_layout_edge_no_slam", 0xfc74bfc67a33e54b),
         ("cf02_morale_witness_hesitate", 0x9bea8f387364f45e),
         ("cf02_morale_spectacle_panic", 0x2a24ee538108ee29),
-        ("cf02_morale_panic_once", 0x7931e494b4664052),
+        ("cf02_morale_panic_once", 0x7b6c2b4c7a3194b0),
         ("cf02_morale_last_goblin", 0x1aaf8db3ff0b63d1),
         ("cf02_morale_cornered", 0x9cae17f3befaa95f),
         ("cf02_morale_enraged_tell_unchanged", 0x897bdf0bdb9921bd),
         ("cf02_coward_backoff_kick", 0xfc6afbe4fc6a2ab4),
         ("cf02_coward_jab_still_hits", 0x5fa5b79dab68a5f7),
-        ("cf02_showoff_taunt_punish", 0x1b204602f6c3dc63),
-        ("cf02_pincer_token", 0x2f3867df0c7c1b1a),
+        ("cf02_showoff_taunt_punish", 0x46183086d8be3179),
+        ("cf02_pincer_token", 0x811d0b6d7b322c35),
         ("cf02_restart_reshuffles", 0x4962783a758ca230),
-        ("cf02_arena_direct", 0xe3d509c81413646a),
-        ("cf02_arena_environment", 0xe0ebc6ce91df9677),
-        ("cf02_arena_swap", 0xdb7e6daea834a259),
-        ("cf02_arena_coop", 0x1eff8a4433a98473),
+        ("cf02_arena_direct", 0xf2f36d36993a9288),
+        ("cf02_arena_environment", 0x5146be1636184a36),
+        ("cf02_arena_swap", 0xcd98baad98a101ee),
+        ("cf02_arena_coop", 0x5e46d9f55d160c60),
         ("cf02_arena_three_attempts", 0xf197596551d87996),
         ("cf02_block_hurts_carl", 0xf7ab5b9fc93a510f),
         ("cf02_block_spares_left_striker", 0x32e12c30d3466045),
-        ("cf02_block_hurts_partner", 0xceaa4c2817b8f94a),
+        ("cf02_block_hurts_partner", 0x287bfca0058d730d),
         ("cf02_goblin_self_own", 0x4fe0d16b10e0ff75),
         ("cf02_intact_shore_ignores_goblins", 0x3b8dadb572c271e7),
         ("cf02_parapet_cover", 0x69bfb415a9724d06),
-        ("cf02_perch_slab_climb", 0xa2341dcd2c754edc),
-        ("cf02_perch_above_spit", 0x7334fd74933c13c6),
-        ("cf02_perch_dive", 0x3b186ca816147c50),
+        ("cf02_perch_slab_climb", 0x2e1dfe90f447b9c2),
+        ("cf02_perch_above_spit", 0x18ffe87e2a39e33d),
+        ("cf02_perch_dive", 0xe74bd1fe4fcd0ebf),
     ];
 
     /// `CF02_TRACE=<fixture>[:<from>-<to>] cargo test print_trace -- --ignored --nocapture`:
@@ -2508,7 +2529,7 @@ mod tests {
             sim.step_scripted();
         }
         assert!(
-            hits(&sim).contains(&(69, MoveId::Pounce, 1, 2)),
+            hits(&sim).contains(&(66, MoveId::Pounce, 1, 2)),
             "{:?}",
             hits(&sim)
         );

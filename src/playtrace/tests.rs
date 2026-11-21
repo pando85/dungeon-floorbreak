@@ -35,9 +35,35 @@ pub(super) fn reset() -> ResetDescriptor {
         cf02_seed: None,
         view_height: 360,
         donut_biscuit: false,
+        carl_prog: false,
+        carl_dynamite: false,
+        carl_gauntlet: false,
+        donut_motion: crate::party::PROVISIONAL_TUNING.donut_motion,
         kit_hash: 0,
         start_hash: 0xcbf2_9ce4_8422_2325,
     }
+}
+
+/// CARL-PROG-01 CP-Q09: a descriptor with the three story flags false
+/// serializes exactly as it did before they existed, an older recording without
+/// the fields loads as false, and a set flag round-trips.
+#[test]
+fn the_story_flags_are_written_only_when_set_and_old_descriptors_load_as_false() {
+    let text = serde_json::to_string(&reset()).unwrap();
+    for key in ["carl_prog", "carl_dynamite", "carl_gauntlet"] {
+        assert!(
+            !text.contains(key),
+            "{key} is not written while false: {text}"
+        );
+    }
+    let back: ResetDescriptor = serde_json::from_str(&text).unwrap();
+    assert_eq!(back, reset());
+    let mut set = reset();
+    set.carl_dynamite = true;
+    let text = serde_json::to_string(&set).unwrap();
+    assert!(text.contains("\"carl_dynamite\":true"));
+    assert!(!text.contains("carl_prog"));
+    assert_eq!(serde_json::from_str::<ResetDescriptor>(&text).unwrap(), set);
 }
 
 pub(super) fn manifest() -> SessionManifest {
@@ -578,6 +604,16 @@ fn concurrent_independent_recordings_do_not_mix() {
     assert_eq!(listed.len(), 2);
 }
 
+/// Whether `needle` occurs in `text` with no alphanumeric character on either
+/// side.
+fn contains_token(text: &str, needle: &str) -> bool {
+    text.match_indices(needle).any(|(at, _)| {
+        let before = text[..at].chars().next_back();
+        let after = text[at + needle.len()..].chars().next();
+        !before.is_some_and(char::is_alphanumeric) && !after.is_some_and(char::is_alphanumeric)
+    })
+}
+
 #[test]
 fn manifest_has_no_machine_or_user_data() {
     let dir = TempDir::new("privacy");
@@ -589,7 +625,13 @@ fn manifest_has_no_machine_or_user_data() {
         if let Ok(value) = std::env::var(key)
             && value.len() > 2
         {
-            assert!(!text.contains(&value), "{key} leaked into the manifest");
+            // A whole token, not a substring: the account name of a developer
+            // can be a prefix of fixed manifest vocabulary (for example a login `agi` is
+            // inside the motion name `agile`), which is no leak.
+            assert!(
+                !contains_token(&text, &value),
+                "{key} leaked into the manifest"
+            );
         }
     }
     assert!(!text.contains("PadId") && !text.contains("serial"));

@@ -5,5 +5,5 @@ COMBAT_EVENT tick=20 kind=move_started move=stomp instance=1
 COMBAT_EVENT tick=29 kind=boss_hurt source=0 damage=1 hp_left=35
 COMBAT_EVENT tick=52 kind=boss_strike move=pound
 COMBAT_EVENT tick=55 kind=hero_hurt source=16981 health_left=2
-COMBAT_STATE fixture=cf02_stomp_boss seed=0xcf020a0c tick=70 elapsed=70 hero_hp=2 deaths=0 enemies= hash=cf97e883e2f3ce95 boss=35/36/pound_recover/p1 boss_x=480.00
-PARTY_STATE fixture=cf02_stomp_boss mode=solo controlled=Carl carl_hp=2 donut_hp=4 deaths=0 hash=c191ddce479e568b
+COMBAT_STATE fixture=cf02_stomp_boss seed=0xcf020a0c tick=70 elapsed=70 hero_hp=2 deaths=0 enemies= hash=03839493337f4708 boss=35/36/pound_recover/p1 boss_x=480.00
+PARTY_STATE fixture=cf02_stomp_boss mode=solo controlled=Carl carl_hp=2 donut_hp=4 deaths=0 hash=480fc8ad59b022fe

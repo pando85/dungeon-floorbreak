@@ -80,9 +80,9 @@ fn run_to_end(env: &mut PartyAutoplayEnv, action: ActionV1) -> PartyStepOutcome 
 /// Literal final hashes copied from `party_scene::tests::GOLDENS`
 /// (src/party_scene.rs): the seven committed party goldens.
 const PARTY_GOLDENS: [(&str, u64); 7] = [
-    ("duo_independent_moves", 0x2c58_af88_61d7_63ec),
+    ("duo_independent_moves", 0x81ca_65ec_029b_6e63),
     ("duo_separation_wall", 0x1f40_a48b_874e_1dc9),
-    ("solo_swap_continuity", 0x2232_e842_5b3c_a7d4),
+    ("solo_swap_continuity", 0x0a3b_cbef_fb97_ab5b),
     ("donut_hurt_iframes", 0x6b13_a15a_e7fc_186c),
     ("donut_defeat_party", 0xd481_5dd6_9ec4_8fff),
     ("solo_guard_floors_at_one", 0x78d4_244f_d621_6569),
@@ -93,13 +93,13 @@ const PARTY_GOLDENS: [(&str, u64); 7] = [
 /// (src/donut_fixtures.rs): the corridor-kit `q10_*` goldens. `q10_pounce_boss`
 /// runs on the arena kit and is not part of this corridor-kit parity.
 const Q10_GOLDENS: [(&str, u64); 7] = [
-    ("q10_swat_interrupt", 0x4bc1_f1c9_2814_7e99),
-    ("q10_swat_guard", 0xc64f_48fa_8f71_2d20),
+    ("q10_swat_interrupt", 0x7151_31d0_374a_16c8),
+    ("q10_swat_guard", 0x67c2_3bf7_826f_3fab),
     ("q10_pounce_hit", 0xf7fe_d891_c0e2_f8c1),
     ("q10_pounce_miss", 0x4274_d6eb_4552_8cc1),
     ("q10_dry_press", 0x672f_2eca_b864_6492),
     ("q10_mana_regen", 0xf7c2_1bf4_376c_ab99),
-    ("q10_unlock_persists", 0xd069_6a0b_3952_ce94),
+    ("q10_unlock_persists", 0xd1d8_48a7_01a1_f50d),
 ];
 
 fn live_reference(fixture: &'static PartyFixture) -> (u64, Vec<CombatEvent>) {

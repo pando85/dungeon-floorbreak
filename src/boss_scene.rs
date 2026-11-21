@@ -859,19 +859,19 @@ mod tests {
     /// Committed goldens: the final `PARTY_STATE` hash of each boss fixture at
     /// its default length (the same headless and in the render loop).
     const GOLDENS: [(&str, u64); 13] = [
-        ("boss01_pound_punish", 0xb845_e482_48e3_cde3),
-        ("boss01_charge_jump", 0x83e8_f320_f157_fec8),
+        ("boss01_pound_punish", 0x8d59_32fb_88c0_1ad6),
+        ("boss01_charge_jump", 0x3c3a_a27f_de84_0fcb),
         ("boss01_charge_hit", 0x4e44_0a03_da30_d8ce),
-        ("boss01_hug_guard", 0xd664_75aa_b961_147f),
+        ("boss01_hug_guard", 0x8a0b_c2ad_bed6_8dfd),
         ("boss01_rack_carl", 0xe4f1_28fe_1e63_1a96),
-        ("boss01_phase_roar", 0x33ff_cc00_6166_108c),
-        ("boss01_roar_queued", 0xaf91_6aed_4194_6f0b),
-        ("boss01_2p_gate", 0xffbd_ef1f_02ef_6776),
-        ("boss01_solo_ai_guard", 0x7b6e_73ef_9cb4_2862),
+        ("boss01_phase_roar", 0x47af_5ea0_0814_a409),
+        ("boss01_roar_queued", 0x992f_8561_f59a_7b29),
+        ("boss01_2p_gate", 0x81fd_ff98_a3a1_6d3a),
+        ("boss01_solo_ai_guard", 0x91f9_6841_3670_c6f8),
         ("boss01_party_defeat_retry", 0xce08_73f7_26ce_2d06),
-        ("boss01_crush_kill", 0x2055_0962_2292_3d4d),
-        ("boss01_full_clear_solo", 0xc908_a59c_0c07_ec85),
-        ("boss01_full_clear_2p", 0x4c38_f39a_9060_42e2),
+        ("boss01_crush_kill", 0xcf36_88b2_e1a5_e881),
+        ("boss01_full_clear_solo", 0x6223_dbdb_f4c3_73b2),
+        ("boss01_full_clear_2p", 0x274c_21f9_24e3_8399),
     ];
 
     #[test]

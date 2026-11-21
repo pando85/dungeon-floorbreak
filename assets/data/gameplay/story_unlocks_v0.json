@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "provenance": "CARL-PROG-01 CP-A (docs/03-tech/carl-prog-01-floor01-combat-progression.md section 3, CP-Q01..CP-Q11, CP-Q44..CP-Q46). Generic and IP-neutral: capability ids, slots and trigger ids are engine data; the display and notice fields are the fan-layer text. Adopted defaults, not approved balance. K1 (f01 integration plan #182, adopted over CP-Q01 Revision 2): the thrown charge is granted on the Hoarder's defeat, trigger `pile_boss_f01_defeated`. Until the Hoarder exists (HRD-A) it is a PLACEHOLDER zone trigger over a stub rectangle that no scene arms (the same stub the earlier find zone was), and it becomes an event trigger later through an additive event matcher (a generic `EnemyDefeated` match with a `target`) and a Hoarder scene kind, both owned by HRD-A2; the ledger mechanism does not change. DONUT-PROG-01 DP-A adds Donut's rows (jump_reach_boost, special_short_blink), triggers and pins here without a schema change and re-pins the file hash.",
+  "capabilities": [
+    {
+      "id": "special_thrown_charge",
+      "hero": 0,
+      "slot": "special",
+      "storage": "ledger",
+      "requires": [],
+      "display": "Goblin dynamite",
+      "cp_q": "CP-Q06"
+    },
+    {
+      "id": "fist_reinforced",
+      "hero": 0,
+      "slot": "primary_mod",
+      "storage": "ledger",
+      "requires": [],
+      "display": "War gauntlet",
+      "cp_q": "CP-Q06"
+    },
+    {
+      "id": "primary_ranged",
+      "hero": 1,
+      "slot": "primary_mod",
+      "storage": "read_through",
+      "requires": [],
+      "display": "Biscuit",
+      "cp_q": "CP-Q45"
+    }
+  ],
+  "story_flags": [
+    {
+      "flag": "carl_prog",
+      "heroes": [0],
+      "cp_q": "CP-Q09"
+    }
+  ],
+  "events": [
+    {
+      "id": "brute_boss_f01_defeated",
+      "match": "enemy_defeated_boss",
+      "cp_q": "CP-Q02"
+    }
+  ],
+  "triggers": [
+    {
+      "id": "pile_boss_f01_defeated",
+      "kind": "zone",
+      "zone": {
+        "hero": 0,
+        "min_x": 600.0,
+        "max_x": 640.0,
+        "min_y": -100000.0,
+        "max_y": 100000.0
+      },
+      "event": null,
+      "grants": ["special_thrown_charge"],
+      "flag": "carl_prog",
+      "armed_in": [],
+      "cp_q": "CP-Q01"
+    },
+    {
+      "id": "brute_boss_f01_defeated",
+      "kind": "event",
+      "zone": null,
+      "event": "brute_boss_f01_defeated",
+      "grants": ["fist_reinforced"],
+      "flag": "carl_prog",
+      "armed_in": ["boss"],
+      "cp_q": "CP-Q02"
+    }
+  ],
+  "pins": [
+    {
+      "id": "f01_dynamite_held",
+      "scene": "boss",
+      "flag": "carl_prog",
+      "holds": ["special_thrown_charge"],
+      "cp_q": "CP-Q08"
+    }
+  ],
+  "start_flags": [
+    {
+      "flag": "carl_dynamite",
+      "holds": ["special_thrown_charge"],
+      "cp_q": "CP-Q09"
+    },
+    {
+      "flag": "carl_gauntlet",
+      "holds": ["fist_reinforced"],
+      "cp_q": "CP-Q09"
+    }
+  ],
+  "notices": [
+    {
+      "capability": "special_thrown_charge",
+      "text": "GOBLIN BOOM",
+      "cp_q": "CP-Q11"
+    },
+    {
+      "capability": "fist_reinforced",
+      "text": "HEAVY FIST",
+      "cp_q": "CP-Q11"
+    }
+  ]
+}

@@ -212,5 +212,5 @@ COMBAT_EVENT tick=3156 kind=move_started move=jab instance=91
 COMBAT_EVENT tick=3168 kind=move_started move=haymaker instance=92
 COMBAT_EVENT tick=3175 kind=boss_hurt source=0 damage=1 hp_left=0
 COMBAT_EVENT tick=3175 kind=enemy_defeated target=16981
-COMBAT_STATE fixture=boss01_full_clear_2p seed=0xb05000d tick=3255 elapsed=7200 hero_hp=4 deaths=0 enemies= hash=82e2f2ceae020fec boss=0/36/defeated/p3 boss_x=330.80
-PARTY_STATE fixture=boss01_full_clear_2p mode=2p controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=4c38f39a906042e2
+COMBAT_STATE fixture=boss01_full_clear_2p seed=0xb05000d tick=3255 elapsed=7200 hero_hp=4 deaths=0 enemies= hash=69a02f59e58b0b23 boss=0/36/defeated/p3 boss_x=330.80
+PARTY_STATE fixture=boss01_full_clear_2p mode=2p controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=274c21f924e38399

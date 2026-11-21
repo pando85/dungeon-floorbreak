@@ -43,6 +43,8 @@ pub mod runner;
 pub mod validate;
 
 #[cfg(test)]
+mod agility_tests;
+#[cfg(test)]
 mod room_tests;
 #[cfg(test)]
 mod tests;

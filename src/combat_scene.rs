@@ -48,12 +48,14 @@ use crate::prototype::{
     Block, BodyDrive, HERO_HALF_HEIGHT, HERO_HALF_WIDTH, Hero, Rect, TICK_SECONDS,
 };
 use crate::shore::{PLAYER_ONE, Shore};
+use crate::story_unlock::StoryRuntime;
 
 mod carl_cf02;
 mod companion;
 mod contacts_cf02;
 mod donut;
 mod morale_cf02;
+mod story;
 use self::carl_cf02::{CarlCf02, CarlCf02Plan};
 use self::companion::CompanionRuntime;
 use self::morale_cf02::MoraleRuntime;
@@ -857,6 +859,10 @@ pub struct CombatState {
     donut_kit: DonutKit,
     /// COMPANION-AI-01 runtime state (CF02-00: an empty no-op stub).
     companion: CompanionRuntime,
+    /// CARL-PROG-01 CP-A: the story-unlock ledger and its armed triggers.
+    /// `Some` only under the story flags or a fixture's declared pin; `None`
+    /// is the legacy game and every golden (nothing is hashed or evented).
+    story: Option<StoryRuntime>,
     /// COMBAT-FUN-02: the pinned tuning with `cf02_rules` on, `Some` only for a run
     /// under `--cf02` and for every `cf02_*` fixture; `None` is the legacy game
     /// and every golden. Constant for the run, so it is not part of the hash.
@@ -971,6 +977,7 @@ impl CombatState {
             donut: HeroCombat::default(),
             donut_kit: DonutKit::new(DonutSetup::NONE),
             companion: CompanionRuntime::default(),
+            story: None,
             cf02: cf02::fixture_runs_cf02(fixture.name).then(cf02::active),
             carl_cf02: CarlCf02::default(),
             morale_on: crate::cf02_fixtures::morale_fixture(fixture.name),
@@ -1163,6 +1170,7 @@ impl CombatState {
         self.last_tell_start = None;
         self.confirm = None;
         self.restart_donut(RestartKind::CheckpointRestart);
+        self.restart_story(RestartKind::CheckpointRestart);
         self.companion.reset();
         self.respawned = true;
         self.log(CombatEvent::Respawn {
@@ -1318,6 +1326,7 @@ impl CombatState {
         self.restarts += 1;
         self.reset_attempt();
         self.restart_donut(kind);
+        self.restart_story(kind);
         self.companion.reset();
         self.sync_arena(scene);
     }
@@ -1333,6 +1342,7 @@ impl CombatState {
     }
 
     fn log(&mut self, event: CombatEvent) {
+        self.observe_story(&event);
         if self.morale.is_some() {
             self.morale_feed.push(event);
         }
@@ -1648,6 +1658,8 @@ impl CombatState {
         self.step_charges(tick, scene.world.hero.x);
         // CF02-G: the morale of every goblin judges the tick's events last.
         self.step_morale(scene, tick, self.x_max - ENEMY_HALF_WIDTH);
+        // CARL-PROG-01: the story triggers judge the tick last.
+        self.step_story(scene, tick);
 
         if self.hero_defeated {
             self.defeated_ticks = self.defeated_ticks.saturating_add(1);
@@ -2984,6 +2996,10 @@ impl CombatState {
         // DEATH-D: nothing is mixed for a fixture without charges.
         for charge in &self.charges {
             charge.mix_into(&mut put);
+        }
+        // CARL-PROG-01: the ledger mixes nothing while it is empty.
+        if let Some(story) = &self.story {
+            story.hash_into(&mut put);
         }
         // Live-party combat state (B1): Donut's hit state, each goblin's
         // target and the defeated hero. Mixed only while the party is live,

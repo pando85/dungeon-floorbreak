@@ -1,0 +1,3 @@
+COMBAT_EVENT tick=69 kind=capability_granted hero=0 capability=special_thrown_charge
+COMBAT_STATE fixture=carl_prog_story_event_grants_dynamite seed=0xca10001 tick=240 elapsed=240 hero_hp=4 deaths=0 enemies= hash=ef27e014dc51a2a9
+PARTY_STATE fixture=carl_prog_story_event_grants_dynamite mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=7594ba644fd2dbaf

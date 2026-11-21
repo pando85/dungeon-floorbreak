@@ -31,6 +31,15 @@ Controller-first single-player and same-screen two-player local co-op for Linux 
 
 No pixel-perfect granular fluid/temperature simulation; no full environmental procedural generation; no simultaneous online netcode; no Steam backend requirements; no complete RPG economy; no voice acting; no franchise dialogue or cutscenes; no licensed franchise assets in the public repository.
 
+## Fun over canon (owner decision, 2026-11-21)
+
+"We have to make concessions and deviate from the canon to make the game fun." The books are a source of characters, tone and story beats, not a rulebook. When book canon and good gameplay disagree, **gameplay wins**.
+
+- Story anchors for unlocks follow the books where that works (check chronology first, as before), but timing, numbers, ranges, cooldowns and how an ability behaves are tuned for fun, readability and co-op, not for fidelity.
+- Book abilities may be simplified, split, merged, moved or invented as game adaptations (for example Puddle Jumper as a short personal blink with a 9 s cooldown instead of the book's long-cooldown group teleport).
+- Every deliberate deviation is recorded in the design doc as a **game adaptation** with a one-line reason, so canon claims stay honest. Never present an adaptation as canon.
+- This does not relax the rights guardrails, the antihero tone or the replaceable fan-concept layer.
+
 ## Inspiration, not cloning
 
 - **Broforce**: frenetic side-scrolling action, rapid combat readability, player-authored destruction paths.

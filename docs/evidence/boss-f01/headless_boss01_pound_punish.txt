@@ -28,5 +28,5 @@ COMBAT_EVENT tick=375 kind=boss_hurt source=0 damage=1 hp_left=30
 COMBAT_EVENT tick=384 kind=move_started move=haymaker instance=10
 COMBAT_EVENT tick=389 kind=boss_hurt source=0 damage=1 hp_left=29
 COMBAT_EVENT tick=396 kind=boss_tell move=pound target=carl
-COMBAT_STATE fixture=boss01_pound_punish seed=0xb050001 tick=420 elapsed=420 hero_hp=4 deaths=0 enemies= hash=4f9b70478960bdbd boss=29/36/pound_tell/p1 boss_x=466.80
-PARTY_STATE fixture=boss01_pound_punish mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=b845e48248e3cde3
+COMBAT_STATE fixture=boss01_pound_punish seed=0xb050001 tick=420 elapsed=420 hero_hp=4 deaths=0 enemies= hash=235d336369bc5470 boss=29/36/pound_tell/p1 boss_x=466.80
+PARTY_STATE fixture=boss01_pound_punish mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=8d5932fb88c01ad6

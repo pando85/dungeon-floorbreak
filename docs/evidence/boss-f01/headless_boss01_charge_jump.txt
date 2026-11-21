@@ -36,5 +36,5 @@ COMBAT_EVENT tick=471 kind=boss_hurt source=0 damage=1 hp_left=26
 COMBAT_EVENT tick=480 kind=move_started move=haymaker instance=14
 COMBAT_EVENT tick=484 kind=boss_tell move=pound target=carl
 COMBAT_EVENT tick=520 kind=boss_strike move=pound
-COMBAT_STATE fixture=boss01_charge_jump seed=0xb050002 tick=520 elapsed=520 hero_hp=4 deaths=0 enemies= hash=b81c144858900ef2 boss=26/36/pound_strike/p1 boss_x=134.80
-PARTY_STATE fixture=boss01_charge_jump mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=83e8f320f157fec8
+COMBAT_STATE fixture=boss01_charge_jump seed=0xb050002 tick=520 elapsed=520 hero_hp=4 deaths=0 enemies= hash=2ea41464df5311d5 boss=26/36/pound_strike/p1 boss_x=134.80
+PARTY_STATE fixture=boss01_charge_jump mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=3c3aa27fde840fcb

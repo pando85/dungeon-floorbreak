@@ -379,7 +379,9 @@ pub struct PartyFixtureSim {
 impl PartyFixtureSim {
     pub fn new(kit: &EnvKit, view_h: i32, fixture: &'static PartyFixture) -> Result<Self, String> {
         let scene = SceneSim::new_at(kit, view_h, fixture.base.carl_x)?;
-        let combat = CombatState::new(fixture.base, kit, &scene)?.with_donut(fixture.donut);
+        let combat = CombatState::new(fixture.base, kit, &scene)?
+            .with_donut(fixture.donut)
+            .with_story(crate::carl_prog_fixtures::story_setup(fixture.name()));
         let mut party = PartyState::new(fixture.tuning);
         if fixture.two_player {
             party.pad_connected(PadId(1));
@@ -529,9 +531,9 @@ mod tests {
     /// Committed goldens: the final state hash of each party fixture at its
     /// default length.
     const GOLDENS: [(&str, u64); 7] = [
-        ("duo_independent_moves", 0x2c58_af88_61d7_63ec),
+        ("duo_independent_moves", 0x81ca_65ec_029b_6e63),
         ("duo_separation_wall", 0x1f40_a48b_874e_1dc9),
-        ("solo_swap_continuity", 0x2232_e842_5b3c_a7d4),
+        ("solo_swap_continuity", 0x0a3b_cbef_fb97_ab5b),
         ("donut_hurt_iframes", 0x6b13_a15a_e7fc_186c),
         ("donut_defeat_party", 0xd481_5dd6_9ec4_8fff),
         ("solo_guard_floors_at_one", 0x78d4_244f_d621_6569),
@@ -727,15 +729,21 @@ mod tests {
             .collect();
         assert_eq!(flips, vec![90, 200]);
         assert_eq!(steps[89].0, HeroId::Donut);
-        // No teleport at the swap: nobody moves more than one run step a tick.
+        // No teleport at the swap: nobody moves more than one run step a tick
+        // (Carl's 185 px/s is 3.08, Donut's agile 207 px/s is 3.45).
         for pair in steps.windows(2) {
             assert!((pair[1].1 - pair[0].1).abs() <= 3.2);
-            assert!((pair[1].2 - pair[0].2).abs() <= 3.2);
+            assert!((pair[1].2 - pair[0].2).abs() <= 3.5);
         }
         // While Donut is controlled (ticks 100..200) she runs ahead and Carl
         // follows as the bot, staying within the follow band.
+        // DM-A (spec U4): the bot Carl follows at his own 185 px/s while she
+        // runs at 207, so the band of 52 px opens by at most the 22 px/s
+        // difference over the 90 ticks since the swap, and no more.
         let (carl, donut) = (steps[190].1, steps[190].2);
-        assert!(donut > carl && donut - carl <= 52.0, "{carl} {donut}");
+        let band = 52.0 + 90.0 * (207.0 - 185.0) / 60.0;
+        assert!(donut > carl && donut - carl <= band, "{carl} {donut}");
+        assert!(donut - carl > 52.0, "the agile gap is real: {carl} {donut}");
         assert!(steps[199].2 > steps[100].2 + 250.0);
         // The camera pan stays within the swap cap.
         assert!(steps.windows(2).all(|w| (w[1].3 - w[0].3).abs() <= 8));

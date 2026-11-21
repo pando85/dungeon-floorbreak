@@ -7,5 +7,5 @@ COMBAT_EVENT tick=103 kind=hit move=jab instance=1 target=0 damage=1 health_left
 COMBAT_EVENT tick=141 kind=goblin_tell goblin=0
 COMBAT_EVENT tick=167 kind=goblin_swing goblin=0
 COMBAT_EVENT tick=167 kind=hero_hurt source=0 health_left=3
-COMBAT_STATE fixture=companion_duo_no_ai seed=0xc0a20003 tick=200 elapsed=200 hero_hp=3 deaths=0 enemies=e0=429.934/1 hash=5bedc48e4cecd563
-PARTY_STATE fixture=companion_duo_no_ai mode=2p controlled=Carl carl_hp=3 donut_hp=4 deaths=0 hash=67ac6477f6d13dd9
+COMBAT_STATE fixture=companion_duo_no_ai seed=0xc0a20003 tick=200 elapsed=200 hero_hp=3 deaths=0 enemies=e0=429.934/1 hash=d9008b050f5d5f08
+PARTY_STATE fixture=companion_duo_no_ai mode=2p controlled=Carl carl_hp=3 donut_hp=4 deaths=0 hash=7bbaea9a82c73afe

@@ -36,7 +36,8 @@ use crate::combat_scene::CombatState;
 use crate::corridor::SceneSim;
 use crate::input::{RawInput, SlotInputs};
 use crate::party::{
-    HeroControl, HeroId, PartyDrive, PartyMode, PartyState, PlayerSlot, UncontrolledHero,
+    HeroControl, HeroId, PartyDrive, PartyMode, PartyState, PartyTuning, PlayerSlot,
+    UncontrolledHero,
 };
 
 use super::codec::{
@@ -163,6 +164,33 @@ pub fn companion_label(hero: UncontrolledHero) -> &'static str {
     }
 }
 
+/// The data files whose FNV-1a pins a session stamps into `content_hashes` and a
+/// replay checks (`source_fingerprint` hashes only `src/`, so a knob edit must
+/// fail a replay loudly). Later work appends its pin here and nowhere else.
+pub fn data_pins() -> Vec<(&'static str, u64)> {
+    vec![
+        ("mana_tuning", crate::donut_mana::TUNING_HASH),
+        ("cf02_tuning", crate::cf02::TUNING_HASH),
+        // CARL-PROG-01 CP-Q46.
+        ("story_unlocks", crate::story_unlock::TABLE_HASH),
+        ("carl_prog", crate::carl_prog::TUNING_HASH),
+        // DONUT-MOBILITY-01.
+        ("agility_tuning", crate::agility::TUNING_HASH),
+    ]
+}
+
+/// The `party_tuning` content hash a manifest records and a verifier compares:
+/// the tuning with Donut's motion normalized to the shipped one. The motion is
+/// pinned by the descriptor field and the `agility_tuning` hash, and a legacy
+/// rebuild of a recording made before DM-A must still match the hash it was
+/// recorded with.
+pub(super) fn recorded_tuning_hash(tuning: &PartyTuning) -> u64 {
+    crate::autoplay::party::party_tuning_hash(&PartyTuning {
+        donut_motion: crate::party::PROVISIONAL_TUNING.donut_motion,
+        ..*tuning
+    })
+}
+
 /// Fill what every manifest of this checkout shares: the build identity
 /// (embedded at build time), the ruleset and camera ids, the `cf02_rules` flag
 /// and the content hashes a verifier compares. The caller adds the run's own
@@ -185,11 +213,13 @@ pub fn stamp_manifest(manifest: &mut SessionManifest, kit_hash: u64) {
         "cf02_rules".to_owned(),
         manifest.reset.cf02_rules.to_string(),
     );
-    for (key, value) in [
-        ("kit", kit_hash),
-        ("mana_tuning", crate::donut_mana::TUNING_HASH),
-        ("cf02_tuning", crate::cf02::TUNING_HASH),
-    ] {
+    // DONUT-MOBILITY-01: the motion Donut's body stepped with, next to the
+    // descriptor field it must agree with.
+    manifest.feature_flags.insert(
+        "donut_motion".to_owned(),
+        manifest.reset.donut_motion.name().to_owned(),
+    );
+    for (key, value) in std::iter::once(("kit", kit_hash)).chain(data_pins()) {
         manifest
             .content_hashes
             .insert(key.to_owned(), format!("{value:016x}"));
@@ -214,10 +244,7 @@ impl LiveRecorder {
         // has none), so only a combat session is a full observation record.
         manifest.content_hashes.insert(
             "party_tuning".to_owned(),
-            format!(
-                "{:016x}",
-                crate::autoplay::party::party_tuning_hash(party.tuning())
-            ),
+            format!("{:016x}", recorded_tuning_hash(party.tuning())),
         );
         manifest.feature_flags.insert(
             "companion".to_owned(),

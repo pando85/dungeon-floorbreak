@@ -1,5 +1,5 @@
 COMBAT_EVENT tick=19 kind=move_started move=pounce instance=1
-COMBAT_EVENT tick=37 kind=hit move=pounce instance=1 target=0 damage=1 health_left=1 hit_stop=4
+COMBAT_EVENT tick=35 kind=hit move=pounce instance=1 target=0 damage=1 health_left=1 hit_stop=4
 COMBAT_EVENT tick=68 kind=move_started move=pounce instance=2
 COMBAT_EVENT tick=78 kind=hit move=pounce instance=2 target=0 damage=1 health_left=0 hit_stop=7
 COMBAT_EVENT tick=78 kind=enemy_defeated target=0 instigator=1
@@ -15,9 +15,9 @@ COMBAT_EVENT tick=176 kind=move_started move=jab instance=4
 COMBAT_EVENT tick=193 kind=goblin_swing goblin=1
 COMBAT_EVENT tick=193 kind=hero_hurt source=1 health_left=3
 COMBAT_EVENT tick=212 kind=move_started move=pounce instance=4
-COMBAT_EVENT tick=222 kind=hit move=pounce instance=4 target=1 damage=1 health_left=1 hit_stop=4
+COMBAT_EVENT tick=224 kind=hit move=pounce instance=4 target=1 damage=1 health_left=1 hit_stop=4
 COMBAT_EVENT tick=261 kind=move_started move=pounce instance=5
 COMBAT_EVENT tick=271 kind=hit move=pounce instance=5 target=1 damage=1 health_left=0 hit_stop=7
 COMBAT_EVENT tick=271 kind=enemy_defeated target=1 instigator=1
-COMBAT_STATE fixture=cf02_assist_camera_parity seed=0xc0a10008 tick=360 elapsed=360 hero_hp=3 deaths=0 enemies=e0=533.400/0,e1=358.468/0 hash=c6897c9c1ba1a2f7
-PARTY_STATE fixture=cf02_assist_camera_parity mode=solo controlled=Carl carl_hp=3 donut_hp=4 deaths=0 hash=ca8dc9c4baacd1cd
+COMBAT_STATE fixture=cf02_assist_camera_parity seed=0xc0a10008 tick=360 elapsed=360 hero_hp=3 deaths=0 enemies=e0=533.400/0,e1=358.468/0 hash=6fd14fb86421953a
+PARTY_STATE fixture=cf02_assist_camera_parity mode=solo controlled=Carl carl_hp=3 donut_hp=4 deaths=0 hash=994a61b9dcbec360

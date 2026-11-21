@@ -1,7 +1,7 @@
 COMBAT_EVENT tick=19 kind=move_started move=pounce instance=1
-COMBAT_EVENT tick=37 kind=hit move=pounce instance=1 target=0 damage=1 health_left=1 hit_stop=4
+COMBAT_EVENT tick=35 kind=hit move=pounce instance=1 target=0 damage=1 health_left=1 hit_stop=4
 COMBAT_EVENT tick=80 kind=move_started move=pounce instance=2
 COMBAT_EVENT tick=90 kind=hit move=pounce instance=2 target=0 damage=1 health_left=0 hit_stop=7
 COMBAT_EVENT tick=90 kind=enemy_defeated target=0 instigator=1
-COMBAT_STATE fixture=cf02_assist_swat_interrupt seed=0xc0a10001 tick=200 elapsed=200 hero_hp=4 deaths=0 enemies=e0=521.000/0 hash=67818b02d84a696b
-PARTY_STATE fixture=cf02_assist_swat_interrupt mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=fbce9a725ded23d1
+COMBAT_STATE fixture=cf02_assist_swat_interrupt seed=0xc0a10001 tick=200 elapsed=200 hero_hp=4 deaths=0 enemies=e0=521.000/0 hash=d2295df7e1fd29f3
+PARTY_STATE fixture=cf02_assist_swat_interrupt mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=ccbc3098bd4935e9

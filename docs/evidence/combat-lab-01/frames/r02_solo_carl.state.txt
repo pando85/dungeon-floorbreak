@@ -1,2 +1,2 @@
-COMBAT_STATE fixture=lab_r02_v1 seed=0x1 tick=985 elapsed=985 hero_hp=3 deaths=1 enemies=e0=588.801/0,e1=597.034/0,e2=880.467/2 hash=62a9d61af1c161ba llamas=l0=922.496/0 demo_cp=0
-COMBAT_STATE fixture=lab_r02_v1 seed=0x1 tick=1125 elapsed=1125 hero_hp=2 deaths=1 enemies=e0=588.801/0,e1=597.034/0,e2=880.467/2 hash=32fb41595826594a llamas=l0=922.496/0 demo_cp=0
+COMBAT_STATE fixture=lab_r02_v1 seed=0x1 tick=985 elapsed=985 hero_hp=3 deaths=1 enemies=e0=588.801/0,e1=597.034/0,e2=880.467/2 hash=7b31a5d6f09fe883 llamas=l0=922.496/0 demo_cp=0
+COMBAT_STATE fixture=lab_r02_v1 seed=0x1 tick=1125 elapsed=1125 hero_hp=2 deaths=1 enemies=e0=588.801/0,e1=597.034/0,e2=880.467/2 hash=85197d112c424f91 llamas=l0=922.496/0 demo_cp=0

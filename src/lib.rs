@@ -2,6 +2,10 @@
 
 pub mod acting;
 pub mod actor_sprite;
+pub mod agility;
+pub mod agility_fixtures;
+#[cfg(test)]
+pub(crate) mod agility_geometry_tests;
 pub mod anim;
 pub mod audience;
 pub mod audio;
@@ -15,6 +19,8 @@ pub mod boss_art;
 pub mod boss_scene;
 pub mod camera;
 pub mod camera_lab;
+pub mod carl_prog;
+pub mod carl_prog_fixtures;
 pub mod cf02;
 pub mod cf02_fixtures;
 pub mod cine;
@@ -66,3 +72,4 @@ pub mod scene_camera;
 pub mod scroll_camera;
 pub mod shore;
 pub mod shore_art;
+pub mod story_unlock;

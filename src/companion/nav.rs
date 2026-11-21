@@ -9,11 +9,15 @@
 //!
 //! Which speeds are real depends on the scene, so the physics come from a
 //! [`NavConfig`] preset:
-//! * [`NavConfig::integrated`] (the default) is the integrated corridor scene,
-//!   where both heroes are stepped with the same `step_hero_driven` body
-//!   (`crate::corridor` `step_bodies_driven`): jump 440, run 185, a 24x52
-//!   hitbox. Donut has no higher jump there, and a real input cannot exceed it
-//!   (only a `BodyDrive` launch can). 01B-wire runs on this preset.
+//! * [`NavConfig::agile`] is the live integrated scene since DONUT-MOBILITY-01
+//!   (DM-A): Carl keeps jump 440 and run 185, Donut's body is stepped with her
+//!   agile motion (jump 500, run 207, `hero_agility_v0.json`), the same 24x52
+//!   hitbox for both. A real input cannot exceed it (only a `BodyDrive` launch
+//!   can). 01B-wire runs on the preset that matches the party's Donut motion
+//!   ([`NavConfig::for_motion`]).
+//! * [`NavConfig::integrated`] (the default) is the legacy motion of that
+//!   scene: both heroes with jump 440 and run 185. It is the test-only legacy
+//!   preset and the one the rollback replays of old recordings use.
 //! * [`NavConfig::camera_lab`] uses the camera-lab Donut's authored jump 600
 //!   and run 205 (`crate::camera_lab::sim`). The lab's own body is 32x28, which
 //!   is not modelled: the step here uses the 24x52 hitbox, so head room is
@@ -302,6 +306,8 @@ pub struct NavConfig {
     pub donut: HeroPhysics,
 }
 
+/// The legacy preset. The live scene never uses this default: it builds its
+/// graph with [`NavConfig::for_motion`] of the party's Donut motion.
 impl Default for NavConfig {
     fn default() -> Self {
         Self::integrated()
@@ -309,13 +315,38 @@ impl Default for NavConfig {
 }
 
 impl NavConfig {
-    /// The integrated corridor scene: both heroes use the same
-    /// `step_hero_driven` body (`crate::corridor` `step_bodies_driven`), so
-    /// Donut has Carl's jump (440) and run (185). The default.
+    /// The integrated corridor scene under the legacy motion: both heroes use
+    /// the same `step_hero_driven` body (`crate::corridor` `step_bodies_driven`),
+    /// so Donut has Carl's jump (440) and run (185). The default of the type;
+    /// the live scene uses [`Self::agile`] (see [`Self::for_motion`]).
     pub fn integrated() -> Self {
         Self {
             carl: HeroPhysics::carl(),
             donut: HeroPhysics::carl(),
+        }
+    }
+
+    /// DONUT-MOBILITY-01 (DM-Q08): the integrated scene with Donut's agile
+    /// motion (jump 500, run 207, `hero_agility_v0.json`); Carl unchanged. The
+    /// preset of the live scene under the shipped tuning.
+    pub fn agile() -> Self {
+        let motion = crate::agility::agile_motion();
+        Self {
+            carl: HeroPhysics::carl(),
+            donut: HeroPhysics {
+                jump_speed: motion.jump_speed,
+                run_speed: motion.run_speed,
+            },
+        }
+    }
+
+    /// The preset that matches a party's Donut motion: the nav model must
+    /// replay the body the scene steps ([`Self::agile`] under the shipped
+    /// tuning, [`Self::integrated`] for the test-only legacy motion).
+    pub fn for_motion(profile: crate::party::MotionProfile) -> Self {
+        match profile {
+            crate::party::MotionProfile::Legacy => Self::integrated(),
+            crate::party::MotionProfile::Agile => Self::agile(),
         }
     }
 
@@ -331,6 +362,11 @@ impl NavConfig {
                 run_speed: DONUT_RUN,
             },
         }
+    }
+
+    /// `hero`'s run speed under this preset, px/s.
+    pub fn run_speed(&self, hero: HeroId) -> f32 {
+        self.physics(hero).run_speed
     }
 
     fn physics(&self, hero: HeroId) -> HeroPhysics {
@@ -2544,6 +2580,16 @@ mod tests {
     /// (`left`, `right`, `top`). `full_speed` holds the direction at full
     /// stick instead of steering to `target_x`.
     fn replay(blocks: &[Block], max_x: f32, case: &Case) -> Option<(u32, f32)> {
+        replay_with(blocks, max_x, case, crate::prototype::HeroMotion::CARL)
+    }
+
+    /// [`replay`] with the body's own motion (the agile preset's Donut).
+    fn replay_with(
+        blocks: &[Block],
+        max_x: f32,
+        case: &Case,
+        motion: crate::prototype::HeroMotion,
+    ) -> Option<(u32, f32)> {
         let Case {
             start,
             target_x,
@@ -2568,14 +2614,21 @@ mod tests {
             let move_x = if full_speed {
                 dir
             } else {
-                ((target - hero.x) / (RUN_SPEED * TICK_SECONDS)).clamp(-1.0, 1.0)
+                ((target - hero.x) / (motion.run_speed * TICK_SECONDS)).clamp(-1.0, 1.0)
             };
             frame.advance(RawInput {
                 jump: launch && tick == 1,
                 move_x,
                 ..RawInput::NONE
             });
-            step_hero(&mut hero, &frame, blocks, max_x);
+            crate::prototype::step_hero_motion(
+                &mut hero,
+                motion,
+                &frame,
+                blocks,
+                max_x,
+                &BodyDrive::default(),
+            );
             airborne |= !hero.grounded;
             let foot = hero.y - HERO_HALF_HEIGHT;
             if foot < lowest {
@@ -2594,13 +2647,19 @@ mod tests {
     /// The edge model against the real body step driven by real inputs: every
     /// open jump and drop edge lands where the graph says, in the time it says,
     /// and no capability-blocked jump lands.
-    #[test]
-    fn every_open_jump_and_drop_edge_replays_through_step_hero() {
+    fn every_open_edge_replays(config: NavConfig) {
+        let motion_of = |hero: HeroId| match hero {
+            HeroId::Carl => crate::prototype::HeroMotion::CARL,
+            HeroId::Donut => crate::prototype::HeroMotion {
+                run_speed: config.donut.run_speed,
+                jump_speed: config.donut.jump_speed,
+            },
+        };
         let (mut replayed, mut disagree) = (0usize, Vec::new());
         let (mut sampled, mut escaped) = (0usize, Vec::new());
         let mut inside = 0usize;
         for (label, level) in replay_levels() {
-            let g = NavGraph::build(&level, NavConfig::integrated()).unwrap();
+            let g = NavGraph::build(&level, config).unwrap();
             let blocks: Vec<Block> = g
                 .solids
                 .iter()
@@ -2626,7 +2685,7 @@ mod tests {
                     let dir = if tx >= x0 { 1.0 } else { -1.0 };
                     let launch = kind == EdgeKind::Jump;
                     replayed += 1;
-                    let got = replay(
+                    let got = replay_with(
                         &blocks,
                         g.max_x,
                         &Case {
@@ -2637,6 +2696,7 @@ mod tests {
                             launch,
                             full_speed: false,
                         },
+                        motion_of(hero),
                     );
                     let Some((t, land_x)) = got else {
                         disagree.push(format!(
@@ -2645,7 +2705,8 @@ mod tests {
                         ));
                         continue;
                     };
-                    let walk = |d: f32| u32::from(walk_ticks(d, RUN_SPEED));
+                    let run = motion_of(hero).run_speed;
+                    let walk = |d: f32| u32::from(walk_ticks(d, run));
                     let expect = t + walk((a.mid() - x0).abs()) + walk((land_x - b.mid()).abs());
                     if u32::from(ticks).abs_diff(expect) > 1 {
                         disagree.push(format!(
@@ -2690,7 +2751,7 @@ mod tests {
                             continue;
                         }
                         sampled += 1;
-                        let got = replay(
+                        let got = replay_with(
                             &blocks,
                             g.max_x,
                             &Case {
@@ -2701,6 +2762,7 @@ mod tests {
                                 launch: true,
                                 full_speed: true,
                             },
+                            motion_of(hero),
                         );
                         if got.is_some() {
                             escaped.push(format!(
@@ -2713,7 +2775,7 @@ mod tests {
             }
         }
         println!(
-            "NAV-REPLAY open edges replayed {replayed}, disagree {}; blocked jumps sampled {sampled} (skipped, start inside a solid: {inside}), landed {}",
+            "NAV-REPLAY {config:?} open edges replayed {replayed}, disagree {}; blocked jumps sampled {sampled} (skipped, start inside a solid: {inside}), landed {}",
             disagree.len(),
             escaped.len()
         );
@@ -2721,6 +2783,18 @@ mod tests {
         assert!(sampled > 10, "sampled only {sampled}");
         assert!(disagree.is_empty(), "{disagree:#?}");
         assert!(escaped.is_empty(), "{escaped:#?}");
+    }
+
+    #[test]
+    fn every_open_jump_and_drop_edge_replays_through_step_hero() {
+        every_open_edge_replays(NavConfig::integrated());
+    }
+
+    /// DM-A: the same replay for the agile preset, with Donut's body stepped
+    /// by her agile motion (jump 500, run 207) and Carl's unchanged.
+    #[test]
+    fn every_open_jump_and_drop_edge_replays_through_step_hero_with_the_agile_preset() {
+        every_open_edge_replays(NavConfig::agile());
     }
 
     fn real_root() -> std::path::PathBuf {
