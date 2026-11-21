@@ -8,7 +8,8 @@ Fill in one copy per session. It extends the CF02-00 [template](scorecard-templa
 Build SHA tested by the agents (main with CF02-I merged):  9dbf5f54ed36f399c91f00573438342873df2114
 Build SHA you play (git rev-parse HEAD of YOUR checkout):   <fill in; the PR head or the merge commit of CF02-REVIEW supersedes the line above>
 Pinned CF02 data hash (the CF02_CONFIG line):              tuning_hash=0x2da48577fa64315e  schema_version=1
-Flags of the reference run (what the agents verified):     --cf02            (rules on; the room; the cf02_assist companion for Donut; 12-tick swap cooldown; eased swap pan)
+Flags of the reference run (the launch the agents describe):  --cf02   (rules on; the room; the cf02_assist companion for Donut; 12-tick swap cooldown; eased swap pan)
+What the agents verified of it:                              headless (the party fixtures) and one idle live run; the live windowed party with the assistant in combat was NOT run
 Flags you may add:                                         --cf02-seed N   --companion off|cf02_assist|v0   --camera auto|scroll|1.0|1.25|1.5   --gore-preset 1..4 (default 4)   --cinematic-finishes[=on|off]   --scale 1..8 (3 = 1920x1080)   --deck (640x400)
 Defaults when a flag is absent:                            seed=fixture (the CF02_CONFIG line prints it), camera auto, gore preset 4, cinematic finishes on in live play, recording on
 ```
@@ -34,7 +35,7 @@ Release or debug build:
 
 ## Per attempt (one row per attempt of the room; at least three, one per approach)
 
-| Attempt | Approach | Deaths | Restarts (Select hold) | Cinematics seen (CINE moments, count) | Goblin reactions noticed (hesitate, panic, taunt, enraged) | Kills by kind (jab/haymaker, kick, stomp, air, dive, wall slam, shore, Donut) | Time to clear (s) | Reached `CF02_ARENA_COMPLETE`? |
+| Attempt | Approach | Deaths (hand tally, or count `kind=hero_defeated` lines; not `DEMO01_RESPAWN`) | Restarts (Select hold) | Cinematics seen (CINE moments, count) | Goblin reactions noticed (hesitate, panic, taunt, enraged) | Kills by kind (jab/haymaker, kick, stomp, air, dive, wall slam, shore, Donut) | Time to clear (s) = N / 60 from `CF02_ARENA_COMPLETE tick=N`, since the last restart | Reached `CF02_ARENA_COMPLETE`? |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 | direct | | | | | | | |
 | 2 | environment (shore and block) | | | | | | | |
@@ -58,9 +59,9 @@ The effective seed and the number of restarts give the attempt's temperament dra
 | Companion (assistant): does Donut contribute, and not steal the kills? | 2 | >= 4 | | |
 | Identity and tone (Carl effortful, Donut smug, goblins with moods) | 2 | >= 4 | | |
 | HUD | 3 | >= 4 | | |
-| Camera: any abrupt motion? Which moment (swap pan, impact kick, zoom)? | "movimientos bruscos" | none; a measured trace | | |
+| Camera: any abrupt motion? Which moment (swap pan, impact kick, zoom)? | "movimientos bruscos" (abrupt movements) | none; a measured trace | | |
 | Room length: was it about 40 to 60 s when you played it? | not rated | yes | | |
-| Checkpoint respawn (Select tap) | not tested | must be tested | | |
+| Checkpoint respawn (automatic after a defeat, and a Select tap; a tap while alive also resets the goblins) | not tested | must be tested | | |
 | Real two-pad 2P | not tested | must be tested | | |
 | Audio (the five CF02 cues on your speakers) | not heard | each cause reads | | |
 

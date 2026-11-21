@@ -11,7 +11,7 @@ bash scripts/export_assets.sh
 cargo build --locked --release --bin floor01_scene
 ```
 
-Then pick one of the launches below. `--cf02` is the whole feature: it loads the microarena and turns every CF02 rule on. Without it you get the unchanged DEMO-01 build.
+Then pick one of the launches below. If you skip `export_assets.sh` the game stops at start-up with `FLOOR1_ASSET_FAILURE ... run bash scripts/export_assets.sh`; that is the missing art, not a bug. `--cf02` is the whole feature: it loads the microarena and turns every CF02 rule on. Without it you get the unchanged DEMO-01 build.
 
 | Session | Command | What you get |
 | --- | --- | --- |
@@ -22,7 +22,13 @@ Then pick one of the launches below. `--cf02` is the whole feature: it loads the
 
 Useful flags (all optional; write the ones you use in the scorecard): `--cf02-seed N` (a repeatable temperament draw; without it every launch uses the same fixed draw per attempt, printed as `seed=fixture` on the `CF02_CONFIG` line), `--camera scroll` (the old camera, if the auto camera moves too much), `--gore-preset 1..4` (default 4), `--cinematic-finishes=off` (default on in live play), `--deck` (640x400), `--no-audio`.
 
-The console prints `CF02_ARENA_COMPLETE tick=N` when all six enemies are down and `DEMO01_RESPAWN` on a respawn. A session is recorded locally by default (`PLAYTRACE_REC` shows its id; nothing is uploaded); `--no-record` turns that off, `cargo run --locked --bin playtrace -- list` shows your sessions.
+The console prints `CF02_ARENA_COMPLETE tick=N` when all six enemies are down.
+
+- **Room length (the 40 to 60 s target):** seconds = N / 60, counted from the last restart (the Select hold), respawns included; slow motion does not add ticks. Write N and N / 60 on the scorecard.
+- **Defeats and respawns:** a defeat respawns you automatically at the last checkpoint after about 1 s (50 ticks); you press nothing. A **Select tap respawns at the checkpoint at any time, also while alive, and it resets every living goblin**, so an accidental tap changes the attempt. A Select **hold** (1 s) restarts the whole room, redraws the temperaments and starts a new attempt.
+- **Counting deaths:** `DEMO01_RESPAWN` prints for both an automatic and a tapped respawn, so do not count deaths from it. Count the console lines `COMBAT_EVENT tick=N kind=hero_defeated` (Carl; a Donut defeat carries `hero=donut`) or keep a manual tally on the scorecard.
+
+A session is recorded locally by default (`PLAYTRACE_REC` shows its id; nothing is uploaded); `--no-record` turns that off, `cargo run --locked --bin playtrace -- list` shows your sessions.
 
 ## 2. Controls
 
@@ -36,7 +42,7 @@ From [input-camera](../../03-tech/input-camera.md) and [floor01-scene](../../03-
 | Physical: Carl's kick, Donut's pounce | Triangle / Y | K |
 | **Down** (held with Physical) | D-pad down, or left stick down to 0.5 with the vertical axis dominant | S or the Down arrow |
 | Solo swap (one player only) | L1 / LB | Q |
-| Respawn at the last checkpoint (tap) / restart the room (hold 1 s) | Select | R |
+| Respawn at the last checkpoint (tap, works also while alive and resets the goblins) / restart the room (hold 1 s) | Select | R |
 | Join as P2 (second pad) / quit | Start (second pad joins; Start on P1 quits) | Esc quits |
 
 Carl's moves in the room: **Down + Physical on the ground is the stomp**; **Physical right after a jab that hit is the follow-through kick**; **Physical alone is the push kick**; in the air **Physical is the air kick** and **Down + Physical is the dive**; **Jump in the recovery of a grounded move is the bail-out hop** (away from the facing, or toward a held direction). Donut: Square/X is a weak swat, Triangle/Y the pounce, and **Jump in the recovery of her swat or pounce is her cat hop**. There is no special or ability in the room.
@@ -65,7 +71,7 @@ Use the room: three jabs break the rotten shore at x 384 and the block falls. Le
 - **Is the block fair?** It hurts every hero whose body is under it (1 damage, a short knock, 55 ticks of invulnerability), the partner included. Does standing under it feel like your mistake?
 - **Goblin self-own.** When a goblin's swing trips a damaged shore and the block drops on its friends, is it funny and legible, and is the slow motion absent (it must never trigger)?
 - **Llama answers.** Did you use at least two (jump the glob, duck behind the 48 px parapet, stand on a perch above the spit line, rush it during its tell, or Donut staying under the line)?
-- **Room length.** Roughly how long did it take you? (The target is 40 to 60 s, see the NOT RUN list.)
+- **Room length.** How long did it take you? Take N from `CF02_ARENA_COMPLETE tick=N` and divide by 60, counted from the last restart. (The target is 40 to 60 s, see the NOT RUN list.)
 
 ### Attempt 3: perch and coop
 
@@ -75,7 +81,7 @@ Climb a perch (a jump lands on the 80 px slab), dive onto the goblins below, swa
 - **Solo swap.** Is the 12-tick swap with the eased pan an improvement? Is there any abrupt camera motion, and in which moment (swap pan, impact kick, zoom)?
 - **Companion.** Does the assistant contribute (swat on a tell, pounce on a lying goblin) without taking the kills? It never lands a killing blow and should land at most a quarter of the hits.
 - **Real 2P.** If you have two pads: does P2 Donut contribute, does the block hurt the partner as designed, and is the room completable together?
-- **Checkpoint respawn.** Tap Select after a defeat: do you resume at the last checkpoint (x 128 or x 704)?
+- **Checkpoint respawn.** After a defeat (the automatic respawn after about 1 s) or a Select tap, do you resume at the last checkpoint (x 128 or x 704)? Remember that a tap while alive also resets the goblins.
 
 ## 4. Open items you decide (adopted values)
 
@@ -108,11 +114,12 @@ Known limitations, so you do not mistake them for new findings (the backlog hold
 Written without euphemism: none of this has been done, so none of it is verified.
 
 - **Human play.** Nobody has played the room, in any mode. Every game-feel question above is open.
+- **The live party with the assistant in combat.** The windowed `--cf02` run with a live party and the `cf02_assist` companion was run only idle (Carl stood still, no goblin came within sight, so no combat happened). The assistant in combat is covered only by the headless party fixtures (`cf02_arena_direct`, `_swap`, `_coop`, `_three_attempts`), which use the same party routing but not the windowed loop. The `--autopilot` run is a single-hero path with no Donut and no assistant.
 - **Real two-pad 2P.** The two-player room is verified headless (`cf02_arena_coop`), not with two physical pads.
 - **Frame time on real hardware.** NOT RUN. The agents ran only software rendering under Xvfb and headless replays, which say nothing about the target hardware. Use `--perf-frames N` on your machine if you want numbers; no number is claimed here.
 - **Owner audio listening.** The five CF02 cues were generated and checked by a script and a QA report, never listened to by a human.
 - **Donut's smug never shown readable in a scene.** Her startle clears in one clip; her smug has only the sheet and state lines (FU1).
-- **The 40 to 60 s room length.** Unmeasured for humans. The scripted autopilot clears the room in about 8 to 12 s (it reached `CF02_ARENA_COMPLETE` at tick 487, 8.1 s, in the re-verification), so it proves the room is completable, not that it lasts 40 to 60 s for a person.
+- **The 40 to 60 s room length.** Unmeasured for humans. The scripted autopilot clears the room in about 8 to 12 s (it reached `CF02_ARENA_COMPLETE` at tick 487, 8.1 s, in the re-verification), but that is Carl alone on the single-hero path, so it proves the room is completable and gives a lower bound, not that it lasts 40 to 60 s for a person.
 - **The environment autopilot plan (U4).** The scripted environment plan (break the shore, let the block fall) dies twice and does not complete the room that way. The environment route is verified by its individual fixtures (shore states, block hurts, self-own) and a headless "completable in every shore state" test, not by an end-to-end scripted clear.
 - Cinematic count for a human (Q41): only the scripted plans were measured (0 per attempt).
 - Real-pad button feel (Down on the stick or D-pad, bail-out timing) and the checkpoint respawn on a pad.
