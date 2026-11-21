@@ -701,7 +701,7 @@ impl CompanionDirector {
             && !telling
             && target.hp > 0
             && !kills(POUNCE_DAMAGE)
-            && sign(dx) == me.facing
+            && (duo.cf02_duo_a13_turn_to_target || sign(dx) == me.facing)
             && (target.foot_y - me.foot_y).abs() <= f32::from(duo.cf02_duo_a09_vertical_reach_px)
             && distance >= f32::from(duo.cf02_duo_a06_pounce_min_px)
             && distance <= f32::from(duo.cf02_duo_a06_pounce_max_px))
@@ -717,15 +717,18 @@ impl CompanionDirector {
 
     /// CF02-DUO-A08 (spec section 8, `HumanFinishWindow`): a damaging AI hit
     /// of `damage` on `target` would take the finish of an enemy the
-    /// human-controlled Carl is engaging. Carl engages a target within
-    /// `cf02_duo_a08_finisher_reach_px` of him while he has a move running
-    /// (the jab to haymaker window, whatever its phase) or while the target is
-    /// still down or staggered from his last hit (`carl_hit`); a Carl who just
-    /// stands near a goblin engages nothing, so she still protects an idle
-    /// player. The AI hit is refused while the target's HP is at most
-    /// `damage + cf02_duo_a08_finisher_reserve_hp`: Carl's pending hit is never
-    /// the one left over. Only the AI Donut under `factual`; it never changes
-    /// Carl's director or a set with the rule off.
+    /// human-controlled Carl is engaging. Carl engages (A11: only on the side
+    /// he faces) a target within `cf02_duo_a08_finisher_reach_px` of him while
+    /// he has a move running (the jab to haymaker window, whatever its phase)
+    /// or while the target is still down or staggered from his last hit
+    /// (`carl_hit`), and (A12) a target he hit within
+    /// `cf02_duo_a12_recent_hit_ticks`, at any distance (the walk-up between
+    /// two jabs); a Carl who just stands near a goblin engages nothing, so she
+    /// still protects an idle player. The AI hit is refused while the target's
+    /// HP is at most `damage + cf02_duo_a08_finisher_reserve_hp`. Known limit
+    /// (A14): a press on the tick she starts is invisible to this pre-tick
+    /// view. Only the AI Donut under `factual`; it never changes Carl's
+    /// director or a set with the rule off.
     fn steals_the_finish(
         &self,
         view: &CompanionView,
@@ -746,15 +749,31 @@ impl CompanionDirector {
         if !matches!(carl.control, Control::Human(_)) || carl.defeated {
             return false;
         }
+        // A11: Carl engages only what is in front of him; an enemy exactly on
+        // him counts as in front (the conservative reading).
+        let dx = target.x - carl.x;
+        let in_front = dx == 0.0 || sign(dx) == carl.facing;
+        if duo.cf02_duo_a11_engage_facing_only && !in_front {
+            return false;
+        }
+        if target.hp > damage.saturating_add(duo.cf02_duo_a08_finisher_reserve_hp) {
+            return false;
+        }
+        // A12: a target Carl hit a moment ago stays his across the walk-up to
+        // the next jab, whatever the distance by then.
+        let recent = target
+            .carl_hit_age
+            .is_some_and(|age| age <= duo.cf02_duo_a12_recent_hit_ticks);
+        if recent {
+            return true;
+        }
         let combo = carl.active_move.is_some();
         let from_his_hit = target.carl_hit
             && matches!(
                 target.state,
                 TargetState::Staggered { .. } | TargetState::Lying { .. }
             );
-        (combo || from_his_hit)
-            && (target.x - carl.x).abs() <= f32::from(duo.cf02_duo_a08_finisher_reach_px)
-            && target.hp <= damage.saturating_add(duo.cf02_duo_a08_finisher_reserve_hp)
+        (combo || from_his_hit) && dx.abs() <= f32::from(duo.cf02_duo_a08_finisher_reach_px)
     }
 
     /// CF02-DUO-A04/A05: a Magic Missile on a standing or staggered enemy in
@@ -780,7 +799,7 @@ impl CompanionDirector {
             && hittable
             && target.hp > 0
             && !kills(MAGIC_MISSILE.damage)
-            && sign(dx) == me.facing
+            && (duo.cf02_duo_a13_turn_to_target || sign(dx) == me.facing)
             && (target.foot_y - me.foot_y).abs() <= f32::from(duo.cf02_duo_a09_vertical_reach_px)
             && distance >= f32::from(duo.cf02_duo_a05_missile_min_px)
             && distance <= f32::from(duo.cf02_duo_a05_missile_max_px))
@@ -890,6 +909,7 @@ mod tests {
             guarded: false,
             in_view: true,
             carl_hit: false,
+            carl_hit_age: None,
         }
     }
 
@@ -1267,6 +1287,91 @@ mod tests {
         let mut last = donut_ai(60.0);
         last.targets = vec![target(0, 110.0, 1, TargetState::Standing)];
         assert!(donut().step_traced(&last, &assist()).1.action == Some(Action::Pounce));
+    }
+
+    /// CF02-DUO-A11 and A12: Carl engages only what he faces, and an enemy he
+    /// hit a moment ago stays his across the walk-up between two jabs.
+    #[test]
+    fn c11_carl_engages_the_front_and_the_enemy_he_just_hit() {
+        let set = assist();
+        let window = set.cf02_duo.cf02_duo_a12_recent_hit_ticks;
+        let wants = |v: &CompanionView, set: &ProfileSet| {
+            matches!(
+                donut().step_traced(v, set).1.action,
+                Some(Action::Pounce | Action::Missile)
+            )
+        };
+        let jab = Some(ActiveMove {
+            id: MoveId::Jab,
+            phase: MovePhase::Recovery,
+            ticks_left: 4,
+            ai_started: false,
+        });
+        // A11: Carl (x=100) jabs right; a 1 HP goblin at 110 is his, one at 90
+        // (behind him, 40 px ahead of Donut at 50) is hers.
+        let mut front = donut_ai(50.0);
+        front.heroes[0].active_move = jab;
+        front.targets = vec![target(0, 110.0, 1, TargetState::Standing)];
+        let mut back = front.clone();
+        back.targets = vec![target(0, 90.0, 1, TargetState::Standing)];
+        // Donut at 50 would have the goblin at 110 out of her band: put her at
+        // 40 for the front case so both are in her 30..80 px band.
+        front.heroes[1].x = 40.0;
+        assert!(!wants(&front, &set), "in front of Carl: his");
+        assert!(wants(&back, &set), "behind Carl: fair game for her");
+        // Carl turned left: the roles swap.
+        front.heroes[0].facing = -1;
+        back.heroes[0].facing = -1;
+        assert!(wants(&front, &set), "behind a left-facing Carl");
+        assert!(!wants(&back, &set), "in front of a left-facing Carl");
+        let mut off = set.clone();
+        off.cf02_duo.cf02_duo_a11_engage_facing_only = false;
+        assert!(!wants(&back, &off), "A11 off: any side counts");
+        // A12: a goblin Carl hit `window` ticks ago is still his with Carl idle
+        // and far from it; one tick later it is hers; behind him it never was.
+        let mut walk = donut_ai(60.0);
+        walk.heroes[0].x = 20.0;
+        walk.targets = vec![target(0, 110.0, 1, TargetState::Standing)];
+        walk.targets[0].carl_hit = true;
+        walk.targets[0].carl_hit_age = Some(window);
+        assert!(!wants(&walk, &set), "recently hit by Carl: his");
+        walk.targets[0].carl_hit_age = Some(window + 1);
+        assert!(wants(&walk, &set), "the window is over");
+        walk.targets[0].carl_hit_age = Some(window);
+        walk.heroes[0].facing = -1;
+        assert!(wants(&walk, &set), "Carl turned away from it");
+        let mut no_window = set.clone();
+        no_window.cf02_duo.cf02_duo_a12_recent_hit_ticks = 0;
+        walk.heroes[0].facing = 1;
+        walk.targets[0].carl_hit_age = Some(1);
+        assert!(wants(&walk, &no_window), "window 0: only a move or stagger");
+    }
+
+    /// CF02-DUO-A13: an enemy behind her is chosen too; she turns first (a
+    /// move step toward it, no press) and presses once she faces it.
+    #[test]
+    fn duo_a13_she_turns_to_an_enemy_behind_her_then_pounces() {
+        let set = assist();
+        // Donut at 140 faces right; the goblin stands 50 px behind her, and
+        // Carl (x=100, idle) engages nothing.
+        let mut v = donut_ai(140.0);
+        v.targets = vec![target(0, 90.0, 2, TargetState::Standing)];
+        let (raw, d) = donut().step_traced(&v, &set);
+        assert_eq!(d.action, Some(Action::Pounce), "{d:?}");
+        assert!(!d.pressed && raw.move_x < 0.0, "she turns first: {raw:?}");
+        // Facing it, she presses.
+        v.heroes[1].facing = -1;
+        let (raw, d) = donut().step_traced(&v, &set);
+        assert!(d.pressed && raw.physical, "{d:?}");
+        // Off: the first-cut rule, nothing behind her is a candidate.
+        let mut off = set.clone();
+        off.cf02_duo.cf02_duo_a13_turn_to_target = false;
+        v.heroes[1].facing = 1;
+        assert_ne!(
+            donut().step_traced(&v, &off).1.action,
+            Some(Action::Pounce),
+            "A13 off"
+        );
     }
 
     /// CF02-DUO-A08 (spec C-11 under `factual`): the AI never takes a hit that

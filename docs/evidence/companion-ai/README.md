@@ -21,9 +21,9 @@ Attribution follows AP-Q14 (the hero-index `instigator`, `Hit` `move_id` for a h
 | cf02_assist_swat_interrupt | bot | 0/0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | cf02_assist_swat_interrupt | companion | 0/2 | 2 | 0 | 0 | 1 | 0 | 0 | 2 |
 | cf02_assist_swat_trailing_gap | bot | 0/0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| cf02_assist_swat_trailing_gap | companion | 0/1 | 0 | 0 | 0 | 0 | 0 | 0 | 1 |
+| cf02_assist_swat_trailing_gap | companion | 0/3 | 2 | 0 | 0 | 1 | 0 | 0 | 1 |
 | cf02_assist_pounce_staggered | bot | 0/0 | 0 | 3 | 0 | 0 | 0 | 0 | 0 |
-| cf02_assist_pounce_staggered | companion | 0/2 | 1 | 3 | 0 | 0 | 0 | 1 | 0 |
+| cf02_assist_pounce_staggered | companion | 0/1 | 1 | 3 | 0 | 0 | 0 | 1 | 0 |
 | cf02_assist_hp_drops_midmove | bot | 0/0 | 0 | 3 | 0 | 0 | 0 | 1 | 0 |
 | cf02_assist_hp_drops_midmove | companion | 0/1 | 1 | 2 | 0 | 0 | 0 | 1 | 0 |
 | cf02_assist_cadence | bot | 0/0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
@@ -38,6 +38,8 @@ Attribution follows AP-Q14 (the hero-index `instigator`, `Hit` `move_id` for a h
 | cf02_assist_donut_defeats_goblin | companion | 0/2 | 2 | 0 | 0 | 1 | 0 | 0 | 2 |
 | cf02_assist_donut_missiles_goblin | bot | 0/0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | cf02_assist_donut_missiles_goblin | companion | 0/2 | 2 | 0 | 0 | 1 | 0 | 0 | 0 |
+| cf02_assist_donut_guards_carls_back | bot | 0/0 | 0 | 3 | 0 | 0 | 0 | 0 | 0 |
+| cf02_assist_donut_guards_carls_back | companion | 0/5 | 5 | 3 | 0 | 2 | 0 | 0 | 3 |
 | companion_carl_interrupts_for_donut | bot | 0/0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | companion_carl_interrupts_for_donut | companion | 2/0 | 1 | 0 | 1 | 0 | 0 | 0 | 2 |
 | companion_donut_supports_carl | bot | 0/0 | 0 | 2 | 0 | 0 | 0 | 1 | 0 |
@@ -51,7 +53,7 @@ Attribution follows AP-Q14 (the hero-index `instigator`, `Hit` `move_id` for a h
 | companion_arena_nav_perch_carl | bot | 0/0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | companion_arena_nav_perch_carl | companion | 0/0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 
-Reading: `companion_duo_no_ai` shows the 2P case (the companion never runs, bot and companion are the same replay). Since CF02-DUO (owner playtest feedback 2026-11-21) the `cf02_assist_*` rows run the `cf02_assist` set with `ca19_kill_policy = factual`: AI Donut engages goblins and may finish one that Carl is not engaging (the two `cf02_assist_donut_*` fixtures have no human input at all and AI Donut defeats the goblin; where Carl fights, `cf02_assist_pounce_staggered` and `cf02_assist_camera_parity`, she holds back and the kill is Carl's, CF02-DUO-A08 / spec C-11; the offensive swat was removed by A07, so her swats are interrupts of a tell: 2 in each of `cf02_assist_cadence` and `cf02_assist_camera_parity`). The `companion_*` rows (the `companion_v0` set, unchanged) keep `never`: no AI hit lands the killing blow there (`AI kills` is 0) and the AI hit share stays at most 25 % in the two goblin fights (CF02-Q39, CA-32). The `cf02_assist` hit-share ceiling is 50 % (CF02-DUO-A03) and is measured on `cf02_arena_direct`, not on these idle-Carl fixtures. Hit counts are damaging hits; the swat deals 0.
+Reading: `companion_duo_no_ai` shows the 2P case (the companion never runs, bot and companion are the same replay). Since CF02-DUO (owner playtest feedback 2026-11-21) the `cf02_assist_*` rows run the `cf02_assist` set with `ca19_kill_policy = factual`: AI Donut engages goblins and may finish one that Carl is not engaging (the two `cf02_assist_donut_*` fixtures have no human input at all and AI Donut defeats the goblin; where Carl fights, `cf02_assist_pounce_staggered` and `cf02_assist_camera_parity`, she holds back and the kill is Carl's, CF02-DUO-A08 / spec C-11; the offensive swat was removed by A07, so her swats are interrupts of a tell: 2 in each of `cf02_assist_cadence` and `cf02_assist_camera_parity`). The `companion_*` rows (the `companion_v0` set, unchanged) keep `never`: no AI hit lands the killing blow there (`AI kills` is 0) and the AI hit share stays at most 25 % in the two goblin fights (CF02-Q39, CA-32). The `cf02_assist` hit-share ceiling is 50 % (CF02-DUO-A03) and is measured on `cf02_arena_direct`, not on these idle-Carl fixtures. Hit counts are damaging hits; the swat deals 0. `cf02_assist_donut_guards_carls_back` (CF02-DUO round 2, A11 to A14) is the scene where Carl works a goblin ahead and a second one walks up behind him: she starts 5 pounces, lands 5 hits and defeats 2 goblins (the first is the one at Carl's back), with no last hit taken from the goblin Carl is hitting (kill steals 0 by the C-11 window of 30 ticks). The non-golden tests `c11_a_goblin_carl_hit_stays_his_across_a_walk_up` and `c11_known_limit_a_same_tick_press_still_lets_her_take_the_last_hit` pin the walk-up probe and the known same-tick limit.
 
 ## 01B-wire: nav-driven follow (`01b-wire/`)
 

@@ -178,6 +178,9 @@ pub struct TargetView {
     /// Carl's move was the last to hit it (`hit_by`, CF02-DUO-A08: the
     /// `HumanFinishWindow` reads it with the target's state).
     pub carl_hit: bool,
+    /// Ticks since Carl's last hit on it (`None`: no hit of his this life),
+    /// CF02-DUO-A12: the recently-hit window of the `HumanFinishWindow`.
+    pub carl_hit_age: Option<u16>,
 }
 
 /// The simulation scroll-camera view (CF02-Q40 = AP-Q07): `in_view(x)` is
@@ -376,6 +379,7 @@ mod tests {
             guarded: false,
             in_view: true,
             carl_hit: false,
+            carl_hit_age: None,
         };
         v.targets = vec![target(2), target(1)];
         assert_eq!(v.validate(), Err(ViewError::UnorderedTargets));

@@ -47,6 +47,7 @@ pub fn goblin_health(fixture: &str) -> Option<u8> {
     match fixture {
         "cf02_assist_pounce_staggered" => Some(4),
         "cf02_assist_hp_drops_midmove" => Some(3),
+        "cf02_assist_donut_guards_carls_back" => Some(4),
         _ => None,
     }
 }
@@ -294,6 +295,35 @@ pub const CF02_ASSIST_DONUT_MISSILES_GOBLIN: PartyFixture = PartyFixture {
     donut: biscuit(8),
 };
 
+const ASSIST_BEHIND_BASE: Fixture = base(
+    "cf02_assist_donut_guards_carls_back",
+    "Solo as Carl, who works a 4 HP goblin ahead of him while a second 4 HP goblin walks up from behind: the AI Donut turns to the one at his back, pounces it and defeats it, and never takes the last hit of the goblin Carl is hitting (CF02-DUO-A08, A11, A12, A13)",
+    0xC0A1_000B,
+    &[dummy(430), chase(330)],
+    400,
+);
+
+/// CF02-DUO round 2: Donut attacks what is behind Carl before the biscuit,
+/// without stealing the goblin he is working. Carl's three hits land on 8, 34
+/// and 60; his later jabs whiff (the goblin is out of reach), and after tick
+/// 80 he stands still, so the dummy is hers once the 31 tick window is over.
+pub const CF02_ASSIST_DONUT_GUARDS_CARLS_BACK: PartyFixture = PartyFixture {
+    base: &ASSIST_BEHIND_BASE,
+    two_player: false,
+    tuning: ASSIST,
+    script: &[
+        primary(5, 6, 0),
+        run(18, 27, 0, 1.0),
+        primary(31, 32, 0),
+        run(44, 53, 0, 1.0),
+        primary(57, 58, 0),
+        run(70, 76, 0, 1.0),
+        primary(80, 81, 0),
+    ],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
 // ---------------------------------------------------------- companion_v0 --
 
 const V0_CARL_BASE: Fixture = base(
@@ -432,7 +462,7 @@ pub const COMPANION_ARENA_NAV_PERCH_CARL: PartyFixture = PartyFixture {
     donut: DonutSetup::NONE,
 };
 
-pub const COMPANION_FIXTURES: [&PartyFixture; 16] = [
+pub const COMPANION_FIXTURES: [&PartyFixture; 17] = [
     &CF02_ASSIST_SWAT_INTERRUPT,
     &CF02_ASSIST_SWAT_TRAILING_GAP,
     &CF02_ASSIST_POUNCE_STAGGERED,
@@ -443,6 +473,7 @@ pub const COMPANION_FIXTURES: [&PartyFixture; 16] = [
     &CF02_ASSIST_CAMERA_PARITY,
     &CF02_ASSIST_DONUT_DEFEATS_GOBLIN,
     &CF02_ASSIST_DONUT_MISSILES_GOBLIN,
+    &CF02_ASSIST_DONUT_GUARDS_CARLS_BACK,
     &COMPANION_CARL_INTERRUPTS_FOR_DONUT,
     &COMPANION_DONUT_SUPPORTS_CARL,
     &COMPANION_DUO_NO_AI,
@@ -689,10 +720,10 @@ mod tests {
 
     /// The committed final `PARTY_STATE` hash of every fixture here (the CI
     /// replays in `docs/evidence/companion-ai` pin the same values).
-    const GOLDENS: [(&str, u64); 16] = [
+    const GOLDENS: [(&str, u64); 17] = [
         ("cf02_assist_swat_interrupt", 0xe6977fc5111eafdd),
-        ("cf02_assist_swat_trailing_gap", 0x502637e04e298934),
-        ("cf02_assist_pounce_staggered", 0x75357a1ad7beda96),
+        ("cf02_assist_swat_trailing_gap", 0x4e97396954822058),
+        ("cf02_assist_pounce_staggered", 0xb7c2bdc4efb604e9),
         ("cf02_assist_hp_drops_midmove", 0xeeef90433185c908),
         ("cf02_assist_cadence", 0xaa3703bdada42454),
         ("cf02_assist_magic_locked", 0x3fa0c4ae6aaecf92),
@@ -700,6 +731,7 @@ mod tests {
         ("cf02_assist_camera_parity", 0x65785c03a9b63fbc),
         ("cf02_assist_donut_defeats_goblin", 0xe1dae249bee2db6f),
         ("cf02_assist_donut_missiles_goblin", 0x0590b279269818e5),
+        ("cf02_assist_donut_guards_carls_back", 0x6adf604efab88cdc),
         ("companion_carl_interrupts_for_donut", 0x0e259bf6d5b3f8f4),
         ("companion_donut_supports_carl", 0xe0e93bd08a05b14c),
         ("companion_duo_no_ai", 0x67ac6477f6d13dd9),
@@ -748,8 +780,8 @@ mod tests {
                 .iter()
                 .filter(|f| f.name().starts_with("cf02_assist_"))
                 .count(),
-            10,
-            "the eight assistant fixtures moved from CF02-C2 plus the two CF02-DUO ones"
+            11,
+            "the eight assistant fixtures moved from CF02-C2 plus the three CF02-DUO ones"
         );
     }
 
@@ -1552,5 +1584,165 @@ mod tests {
             regroups[0].0, first_stand,
             "placed on the first tick Carl stands: {regroups:?}"
         );
+    }
+
+    // ------------------------------------------------ CF02-DUO-A11, A12 --
+
+    use crate::party_scene::SlotHold;
+
+    /// The `cf02_assist_pounce_staggered` room (a 4 HP dummy at 430, Carl at 400)
+    /// with another Carl script (leaked: fixtures are static).
+    fn pounce_room(script: &'static [SlotHold]) -> &'static PartyFixture {
+        Box::leak(Box::new(PartyFixture {
+            script,
+            ..CF02_ASSIST_POUNCE_STAGGERED
+        }))
+    }
+
+    /// `(tick, what)` of every move start, hit and defeat of a run.
+    fn timeline(events: &[CombatEvent]) -> Vec<String> {
+        events
+            .iter()
+            .filter_map(|e| match *e {
+                CombatEvent::MoveStarted { tick, move_id, .. } => {
+                    Some(format!("{tick} start {move_id:?}"))
+                }
+                CombatEvent::Hit {
+                    tick,
+                    move_id,
+                    target,
+                    damage,
+                    health_left,
+                    ..
+                } => Some(format!(
+                    "{tick} hit {move_id:?} g{target} dmg{damage} left{health_left}"
+                )),
+                CombatEvent::EnemyDefeated {
+                    tick, instigator, ..
+                } => Some(format!("{tick} defeated by {instigator:?}")),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// `PROBE=walkup|tick50 cargo test probe_timeline -- --ignored --nocapture`
+    #[test]
+    #[ignore]
+    fn probe_timeline() {
+        let which = std::env::var("PROBE").unwrap_or_default();
+        let f = match which.as_str() {
+            "walkup" => pounce_room(WALKUP_SCRIPT),
+            "tick50" => pounce_room(TICK50_SCRIPT),
+            name => crate::cf02_fixtures::find_party_fixture(name).unwrap(),
+        };
+        let (_, events, _) = run_events(f);
+        for line in timeline(&events) {
+            println!("{line}");
+        }
+    }
+
+    /// The first cut of `cf02_assist_pounce_staggered`: Carl's second jab on
+    /// tick 50, the tick her pounce starts.
+    const TICK50_SCRIPT: &[SlotHold] = &[
+        primary(5, 6, 0),
+        primary(50, 51, 0),
+        run(58, 70, 0, 1.0),
+        primary(72, 73, 0),
+    ];
+
+    /// The PR #165 round-2 probe (R2-1): the second jab at 46, a walk-up to
+    /// 70, a pause, the third jab only at 80 (the review's script ran to 78,
+    /// which walks Carl through the goblin and past it).
+    const WALKUP_SCRIPT: &[SlotHold] = &[
+        primary(5, 6, 0),
+        primary(46, 47, 0),
+        run(58, 70, 0, 1.0),
+        primary(80, 81, 0),
+    ];
+
+    /// What AI Donut did in a run, read from the combat log (CF02-DUO-A11):
+    /// her move starts, landed damaging hits, kills and kill steals (C-11: a
+    /// killing hit of hers within `STEAL_WINDOW` ticks of Carl's own hit on the
+    /// same enemy).
+    #[derive(Debug, Default, PartialEq, Eq)]
+    struct Offence {
+        starts: Vec<(u64, MoveId)>,
+        hits: u32,
+        kills: u32,
+        steals: u32,
+        carl_hits: u32,
+        carl_kills: u32,
+    }
+
+    const STEAL_WINDOW: u64 = 30;
+
+    fn offence(events: &[CombatEvent]) -> Offence {
+        let mut o = Offence::default();
+        let carl_hit_ticks: Vec<(u64, u32)> = events
+            .iter()
+            .filter_map(|e| match *e {
+                CombatEvent::Hit {
+                    tick,
+                    move_id,
+                    target,
+                    damage,
+                    ..
+                } if move_id.hero() == 0 && damage > 0 => Some((tick, target)),
+                _ => None,
+            })
+            .collect();
+        o.carl_hits = carl_hit_ticks.len() as u32;
+        for e in events {
+            match *e {
+                CombatEvent::MoveStarted { tick, move_id, .. } if move_id.hero() == 1 => {
+                    o.starts.push((tick, move_id));
+                }
+                CombatEvent::Hit {
+                    tick,
+                    move_id,
+                    target,
+                    damage,
+                    health_left,
+                    ..
+                } if move_id.hero() == 1 && damage > 0 => {
+                    o.hits += 1;
+                    if health_left == 0 {
+                        o.kills += 1;
+                        o.steals +=
+                            u32::from(carl_hit_ticks.iter().any(|&(t, id)| {
+                                id == target && t <= tick && tick - t <= STEAL_WINDOW
+                            }));
+                    }
+                }
+                CombatEvent::EnemyDefeated {
+                    instigator: Some(0),
+                    ..
+                } => o.carl_kills += 1,
+                _ => {}
+            }
+        }
+        o
+    }
+
+    fn arena_events(name: &str) -> Vec<CombatEvent> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let kit = crate::cf02::arena::load_arena(&root).unwrap();
+        let f = crate::cf02_fixtures::find_party_fixture(name).unwrap();
+        let mut sim = PartyFixtureSim::new(&kit, 360, f).unwrap();
+        sim.run_scripted(f.base.ticks);
+        sim.combat.events.to_vec()
+    }
+
+    /// `PROBE=<fixture> cargo test print_offence -- --ignored --nocapture`
+    #[test]
+    #[ignore]
+    fn print_offence() {
+        let name = std::env::var("PROBE").unwrap();
+        let events = if name.starts_with("cf02_arena") {
+            arena_events(&name)
+        } else {
+            run_events(crate::cf02_fixtures::find_party_fixture(&name).unwrap()).1
+        };
+        println!("{:?}", offence(&events));
     }
 }

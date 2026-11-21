@@ -1,0 +1,5 @@
+# CF02-DUO round 2 evidence
+
+[`donut_guards_carls_back_1x.gif`](donut_guards_carls_back_1x.gif): a 1x capture (640x360, 28 frames, a frame every second tick, ticks 184 to 238) of the real render loop replaying the golden fixture `cf02_assist_donut_guards_carls_back` (`floor01_scene --scale 1 --party-fixture cf02_assist_donut_guards_carls_back --capture-sequence 184:2:28`). Carl stands at the right of the frame; the AI Donut (profile `cf02_assist`, biscuit still locked) pounces the goblin that walked up behind him and defeats it on tick 205. The last state line is in [`state_donut_guards_carls_back.txt`](state_donut_guards_carls_back.txt); hashes are in `SHA256SUMS`.
+
+It shows the committed replay, not a game-feel verdict: nobody has played this build. The frames contain only the committed original Carl, Donut and goblin art under the recorded scope in the [rights register](../../../04-production/rights-and-release.md); no new art. Numbers and the A11 to A14 values are in the [companion spec](../../../03-tech/companion-ai-command-system.md#e-cf02-duo-adopted-defaults-ai-donut-as-a-fighting-partner).

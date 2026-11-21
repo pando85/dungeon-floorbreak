@@ -1,0 +1,1 @@
+COMBAT_STATE fixture=cf02_assist_donut_guards_carls_back seed=0xc0a1000b tick=238 elapsed=238 hero_hp=4 deaths=0 enemies=e0=439.000/1,e1=475.832/0 hash=98cfbda9a110078c

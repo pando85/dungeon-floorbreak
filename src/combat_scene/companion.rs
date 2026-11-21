@@ -677,7 +677,7 @@ impl CombatState {
             heroes,
             follow,
             threats: self.companion_threats(view),
-            targets: self.companion_targets(view),
+            targets: self.companion_targets(view, scene.world.tick + 1),
             boss,
         }
     }
@@ -818,9 +818,16 @@ impl CombatState {
         threats
     }
 
+    /// Ticks from Carl's last hit on target slot `slot` (goblins, then llamas)
+    /// to `now`, saturating (CF02-DUO-A12).
+    fn carl_hit_age(&self, slot: usize, now: u64) -> Option<u16> {
+        let at = (*self.carl_hit_tick.get(slot)?)?;
+        Some(now.saturating_sub(at).min(u64::from(u16::MAX)) as u16)
+    }
+
     /// The living enemies a support move could hit, goblins then llamas (Q18
     /// only), by id.
-    fn companion_targets(&self, view: ViewBounds) -> Vec<TargetView> {
+    fn companion_targets(&self, view: ViewBounds, now: u64) -> Vec<TargetView> {
         let mut targets = Vec::new();
         for (index, g) in self.enemies.iter().enumerate() {
             if !g.alive() {
@@ -852,6 +859,7 @@ impl CombatState {
                 guarded: g.guard.is_some(),
                 in_view: view.in_view(g.x),
                 carl_hit: g.hit_by == Some(HeroId::Carl.index() as u32),
+                carl_hit_age: self.carl_hit_age(index, now),
             });
         }
         if self.llama_targets_live().is_some() {
@@ -875,6 +883,7 @@ impl CombatState {
                     guarded: l.guard.is_some(),
                     in_view: view.in_view(l.x),
                     carl_hit: l.hit_by == Some(HeroId::Carl.index() as u32),
+                    carl_hit_age: self.carl_hit_age(self.enemies.len() + index, now),
                 });
             }
         }

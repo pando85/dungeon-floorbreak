@@ -18,7 +18,7 @@ pub const PROFILE_JSON: &str = include_str!("../../assets/data/gameplay/companio
 
 /// The committed FNV-1a 64 content hash of [`PROFILE_JSON`]. Editing the file
 /// without updating this value fails [`ProfileFile::pinned`] and the pin test.
-pub const PROFILE_HASH: u64 = 0xb8f7_4e91_4c7d_3626;
+pub const PROFILE_HASH: u64 = 0x05ee_4399_8642_e54c;
 
 /// The profile set id under the spec's name (CA-21, section 17): the runtime's
 /// `UncontrolledHero::Companion(CompanionProfileSet)` names it.
@@ -133,6 +133,19 @@ pub struct DuoOffense {
     /// whose feet are within this many px of her own (no swat in the air over
     /// a goblin on another level).
     pub cf02_duo_a09_vertical_reach_px: u16,
+    /// CF02-DUO-A11: Carl engages only the enemies on the side he faces; an
+    /// enemy behind him is fair game for AI Donut (she guards his back).
+    pub cf02_duo_a11_engage_facing_only: bool,
+    /// CF02-DUO-A12: an enemy Carl hit within this many ticks stays his (the
+    /// walk-up between two jabs), on the side he faces, whatever its distance
+    /// from him. 0: only a running move or a stagger counts.
+    pub cf02_duo_a12_recent_hit_ticks: u16,
+    /// CF02-DUO-A13: the offensive pounce and Magic Missile also choose an
+    /// enemy she is not facing; the director turns her to it (the existing
+    /// turn step) and presses on the next tick. Without it she only attacks
+    /// what is in front of her, which a trailing partner who walks toward
+    /// Carl almost never has (measured: 1 offensive start in the arena run).
+    pub cf02_duo_a13_turn_to_target: bool,
 }
 
 /// One profile set.
@@ -422,6 +435,15 @@ mod tests {
             ),
             (40, 1, 24)
         );
+        // CF02-DUO-A11..A13: facing-scoped engagement, the recently-hit window
+        // (31 ticks: hit at 49 to Carl's press at 80 in the walk-up probe), the
+        // turn to an enemy behind her. All off in `companion_v0`.
+        assert!(s.cf02_duo.cf02_duo_a11_engage_facing_only);
+        assert_eq!(s.cf02_duo.cf02_duo_a12_recent_hit_ticks, 31);
+        assert!(s.cf02_duo.cf02_duo_a13_turn_to_target);
+        let v0 = &f.companion_v0.cf02_duo;
+        assert!(!v0.cf02_duo_a11_engage_facing_only && !v0.cf02_duo_a13_turn_to_target);
+        assert_eq!(v0.cf02_duo_a12_recent_hit_ticks, 0);
         assert_eq!(
             (
                 s.cf02_duo.cf02_duo_a05_missile_min_px,

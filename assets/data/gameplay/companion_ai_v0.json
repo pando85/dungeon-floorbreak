@@ -35,7 +35,10 @@
       "cf02_duo_a08_respect_finisher": true,
       "cf02_duo_a08_finisher_reach_px": 40,
       "cf02_duo_a08_finisher_reserve_hp": 1,
-      "cf02_duo_a09_vertical_reach_px": 24
+      "cf02_duo_a09_vertical_reach_px": 24,
+      "cf02_duo_a11_engage_facing_only": true,
+      "cf02_duo_a12_recent_hit_ticks": 31,
+      "cf02_duo_a13_turn_to_target": true
     }
   },
   "companion_v0": {
@@ -73,7 +76,10 @@
       "cf02_duo_a08_respect_finisher": false,
       "cf02_duo_a08_finisher_reach_px": 40,
       "cf02_duo_a08_finisher_reserve_hp": 1,
-      "cf02_duo_a09_vertical_reach_px": 24
+      "cf02_duo_a09_vertical_reach_px": 24,
+      "cf02_duo_a11_engage_facing_only": false,
+      "cf02_duo_a12_recent_hit_ticks": 0,
+      "cf02_duo_a13_turn_to_target": false
     }
   }
 }
