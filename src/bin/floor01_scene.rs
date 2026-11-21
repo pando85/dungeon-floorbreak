@@ -4837,8 +4837,13 @@ fn sync_combat_visuals(
             _ => *visibility = Visibility::Hidden,
         }
     }
+    // ENEMY-GAMEPLAY-ENGINEER: in the Carl-only `eng_*` fixtures Donut is not a
+    // live hero, so her trail sprite is not drawn: it would stand over the
+    // parapet or the lane and read as the thing Carl or the Engineer hit.
+    let donut_hidden = setup.args.party_fixture.is_some_and(|pf| !pf.party_live());
     for (actor, mut visibility) in &mut actors {
-        *visibility = if actor.is_hero && carl_pose.is_some() {
+        *visibility = if (actor.is_hero && carl_pose.is_some()) || (!actor.is_hero && donut_hidden)
+        {
             Visibility::Hidden
         } else {
             Visibility::Inherited

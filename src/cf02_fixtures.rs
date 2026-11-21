@@ -1728,7 +1728,7 @@ pub const CF02_ARENA_ENG: PartyFixture = PartyFixture {
 
 const ARENA_ENG_CP2_BASE: Fixture = Fixture {
     name: "cf02_arena_eng_cp2",
-    summary: "ENG: the Engineer room from the second checkpoint, by the direct plan",
+    summary: "ENG: the Engineer room from the second checkpoint, by the environment plan (the direct plan lands inside goblin e3 at x 780 and never fights again)",
     seed: 0xCF02_F201,
     carl_x: arena::CHECKPOINTS[1],
     shore_dx: Some(arena::SHORE_STRIKE_X - arena::CHECKPOINTS[1]),
@@ -1740,7 +1740,7 @@ pub const CF02_ARENA_ENG_CP2: PartyFixture = PartyFixture {
     two_player: false,
     tuning: ARENA_SOLO,
     script: &[],
-    pilot: Pilot::ArenaDirect,
+    pilot: Pilot::ArenaEnvironment,
     donut: DonutSetup::NONE,
 };
 

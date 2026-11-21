@@ -12,7 +12,7 @@ The microarena of `--cf02` with the yard goblin at x 940 replaced by the Enginee
 
 ## Real Bevy 1x GIFs (640x360, no scaling)
 
-Made with `scripts/make_cf02_i_evidence.sh` (real render loop, lighting on, `--scale 1`, one frame every 2nd tick, full 640x360 view). The `_states.txt` file holds the `COMBAT_ANIM_STATE` line of every frame (`g0=E/...` is the ENG-01 frame the animators chose); the strip shows the same frames side by side. In both clips Donut is the non-live follower standing next to Carl (the `eng_*` fixtures are Carl only).
+Made with `scripts/make_cf02_i_evidence.sh` (real render loop, lighting on, `--scale 1`, one frame every 2nd tick, full 640x360 view). The `_states.txt` file holds the `COMBAT_ANIM_STATE` line of every frame (`g0=E/...` is the ENG-01 frame the animators chose); the strip shows the same frames side by side. The `eng_*` fixtures are Carl only: Donut is not a live hero, so her trail sprite is not drawn in these clips (her HUD card stays); otherwise she would stand over the parapet.
 
 | Clip | Fixture and ticks | What it shows |
 | --- | --- | --- |
@@ -23,7 +23,7 @@ Made with `scripts/make_cf02_i_evidence.sh` (real render loop, lighting on, `--s
 
 | Check | Result |
 | --- | --- |
-| `cargo fmt --all -- --check`, `cargo clippy --locked --all-targets -- -D warnings`, `cargo test --locked --all-targets` | clean; 1694 lib tests, every legacy golden and `cf02_*` fixture unchanged |
+| `cargo fmt --all -- --check`, `cargo clippy --locked --all-targets -- -D warnings`, `cargo test --locked --all-targets` | clean; 1718 lib tests, every legacy golden and every non-Engineer `cf02_*` fixture unchanged |
 | `bash scripts/ci_floor01_combat.sh headless` | exit 0; the 29 new replays (`docs/evidence/cf02/replays/headless_eng_*.txt`, `headless_cf02_arena_eng*.txt`) replay twice identically and equal the committed files |
 | `python3 scripts/check_docs.py` | passed |
 | Simulation cost (`engineer_room_sim_cost`, 1800 ticks, best of 5, debug-optimised build, this machine) | `cf02_arena_direct` 1.01 us per tick, `cf02_arena_eng` 1.03 us per tick |

@@ -702,9 +702,7 @@ impl CombatState {
         self.enemies
             .iter()
             .enumerate()
-            .filter(|(index, g)| {
-                g.dodge_threat() && (!active || self.target_of(*index) == id)
-            })
+            .filter(|(index, g)| g.dodge_threat() && (!active || self.target_of(*index) == id))
             .map(|(_, g)| Threat {
                 x: g.x,
                 attack_tick: g.attack_tick,

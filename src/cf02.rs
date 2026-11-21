@@ -1122,6 +1122,17 @@ pub mod arena {
         }
     }
 
+    /// The room fixture a recorded `cf02_rules` demo session names: the Engineer
+    /// room by its fixture name, every earlier session by its beat. The headless
+    /// replay and the Bevy replay viewer share this match.
+    pub fn fixture_for_recorded(name: &str, beat: usize) -> &'static Fixture {
+        match name {
+            "cf02_arena_eng" => &LIVE_ENG,
+            "cf02_arena_eng_cp2" => &LIVE_ENG_CP2,
+            _ => fixture_for_beat(beat),
+        }
+    }
+
     /// The fixture `floor01_scene --cf02` runs (nothing scripted: the player's).
     pub static LIVE: Fixture = fixture(
         "cf02_arena",

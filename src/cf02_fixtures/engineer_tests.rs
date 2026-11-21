@@ -129,9 +129,9 @@ const ENGINEER_GOLDENS: [(&str, u64); 29] = [
     ("eng_kick_launch_contact", 0xefbbcf0840e6ffdc),
     ("eng_2p_targets_nearest", 0xbd0214303e42939e),
     ("eng_2p_partner_in_lane", 0xe4dea8db73069826),
-    ("eng_solo_assist", 0x7f3624a6345d3b0d),
-    ("cf02_arena_eng", 0xdd19c973d3f9e723),
-    ("cf02_arena_eng_cp2", 0x6e29004502f96f0c),
+    ("eng_solo_assist", 0x04681a94990526a1),
+    ("cf02_arena_eng", 0x2bc39f0f88400824),
+    ("cf02_arena_eng_cp2", 0x589735ac0a9ebcfd),
 ];
 
 #[test]
@@ -545,17 +545,93 @@ fn in_two_player_he_points_at_the_nearer_hero_and_the_first_hero_overlapped_is_h
     assert!(snapped.iter().all(|s| !s));
 }
 
+/// What the assistant's Donut did to the Engineer in a run: `(swat cancels,
+/// ram hits)`. A swat cancel is a Swat hit on him that interrupted his attack on
+/// the same tick; a ram hit is a `HeroHurt` of Donut with him as the source.
+fn ai_counts(sim: &PartyFixtureSim, engineer: u32) -> (usize, usize) {
+    let swat_cancels = hits(sim)
+        .into_iter()
+        .filter(|&(tick, move_id, target)| {
+            move_id == MoveId::Swat
+                && target == engineer
+                && events(sim).iter().any(|e| {
+                    matches!(*e, CombatEvent::GoblinInterrupted { tick: t, goblin: g }
+                        if t == tick && g == engineer)
+                })
+        })
+        .count();
+    let ram_hits = hurts(sim, engineer)
+        .into_iter()
+        .filter(|h| h.1 == HeroId::Donut)
+        .count();
+    (swat_cancels, ram_hits)
+}
+
 #[test]
-fn the_solo_assist_and_live_rooms_run_without_a_softlock_and_a_restart_reshuffles() {
-    for name in ["eng_solo_assist", "cf02_arena_eng", "cf02_arena_eng_cp2"] {
+fn the_solo_assist_and_live_rooms_make_progress_and_log_the_ai_counts() {
+    // (fixture, AI swat cancels, AI Donut ram hits): the counts the fixture rows
+    // promise to log, pinned. The post-#165 director cancels at most one point and
+    // is rammed at most once per clear (the design's follow-up threshold is more
+    // than one). Every run must also finish the room, not just produce events.
+    let rows = [
+        ("eng_solo_assist", 1, 1),
+        ("cf02_arena_eng", 0, 1),
+        ("cf02_arena_eng_cp2", 0, 1),
+    ];
+    for (name, swat_cancels, ram_hits) in rows {
         let sim = replay(name);
-        assert!(sim.combat.enemies.iter().any(|g| g.is_engineer()));
+        let index = sim
+            .combat
+            .enemies
+            .iter()
+            .position(|g| g.is_engineer())
+            .unwrap() as u32;
+        assert_eq!(ai_counts(&sim, index), (swat_cancels, ram_hits), "{name}");
+        // The Engineer starts at least one ram (a tell that ends in a hit) ...
+        assert!(!tells(&sim, index).is_empty(), "{name}: he never points");
         assert!(
-            events(&sim).len() > 20,
-            "{name}: the room fights ({} events)",
-            events(&sim).len()
+            !hurts(&sim, index).is_empty() || !bonks(&sim).is_empty(),
+            "{name}: he never rams"
+        );
+        // ... and the room is cleared: he and every goblin are dead and Carl lives.
+        assert!(
+            sim.combat.enemies.iter().all(|g| !g.alive()),
+            "{name}: the room is not cleared: {:?}",
+            sim.combat
+                .enemies
+                .iter()
+                .map(|g| (g.x as i32, g.health))
+                .collect::<Vec<_>>()
+        );
+        assert!(!sim.combat.hero_defeated, "{name}: Carl is down");
+        assert!(
+            sim.scene.world.hero.x > 1000.0,
+            "{name}: Carl is past the yard"
         );
     }
+}
+
+#[test]
+fn a_recorded_demo_session_names_its_room_by_fixture_name_then_beat() {
+    use crate::cf02::arena::{LIVE, LIVE_CP2, LIVE_ENG, LIVE_ENG_CP2, fixture_for_recorded};
+    assert!(std::ptr::eq(
+        fixture_for_recorded("cf02_arena_eng", 0),
+        &LIVE_ENG
+    ));
+    assert!(std::ptr::eq(
+        fixture_for_recorded("cf02_arena_eng_cp2", 1),
+        &LIVE_ENG_CP2
+    ));
+    // Every earlier session names the plain room and picks by beat.
+    assert!(std::ptr::eq(fixture_for_recorded("cf02_arena", 0), &LIVE));
+    assert!(std::ptr::eq(
+        fixture_for_recorded("cf02_arena_cp2", 1),
+        &LIVE_CP2
+    ));
+}
+
+#[test]
+fn a_restart_reshuffles_the_engineer_room_temperaments() {
     // The Q58 bag: the four goblins draw slots 0..3 and the Engineer has no nerve,
     // so the missing temperament varies per attempt.
     let mut sim = sim_of("cf02_arena_eng");
