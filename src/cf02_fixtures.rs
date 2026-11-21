@@ -4234,6 +4234,62 @@ mod tests {
         }
     }
 
+    /// CF02-REVIEW, Q41: the cinematic moments the CINE-01 evaluator emits per
+    /// attempt of each room fixture, fed the way the live loop feeds it
+    /// (`push_driven` with the heroes the companion drove, then `flush`, one attempt
+    /// per `Restart`). The evaluator runs whatever the presentation setting is, so
+    /// this is also the count with the cinematic on. Run with `--nocapture` for the
+    /// table. Slow motion stays rare and skill-gated: no room fixture emits more
+    /// than one moment per attempt, and neither the goblin self-own nor the blocks
+    /// that land on a hero emit any.
+    #[test]
+    fn cf02_room_cinematic_count_per_attempt() {
+        use crate::cine::PresentationSettings;
+        use crate::cine_adapter::CineAdapter;
+        let mut table = Vec::new();
+        for name in list_fixtures("cf02_")
+            .into_iter()
+            .filter(|n| arena::fixture_uses_arena(n))
+        {
+            let fixture = find_party_fixture(name).unwrap();
+            let mut sim =
+                crate::party_scene::PartyFixtureSim::new(&kit_of(fixture), 360, fixture).unwrap();
+            let mut adapter = CineAdapter::new(PresentationSettings::DEFAULT);
+            let mut per_attempt: Vec<Vec<String>> = vec![Vec::new()];
+            for _ in 0..fixture.base.ticks {
+                sim.step_scripted();
+                let driven = sim.combat.companion_driven();
+                for event in sim.combat.take_new_events() {
+                    if matches!(event, CombatEvent::Restart { .. }) {
+                        per_attempt.push(Vec::new());
+                    }
+                    adapter.push_driven(event, driven);
+                }
+                for emission in adapter.flush() {
+                    per_attempt
+                        .last_mut()
+                        .unwrap()
+                        .push(format!("{:?}", emission.moment.tier));
+                }
+            }
+            let counts: Vec<usize> = per_attempt.iter().map(Vec::len).collect();
+            eprintln!("CF02_CINE_COUNT {name} per_attempt={counts:?} tiers={per_attempt:?}");
+            assert!(counts.iter().all(|c| *c <= 1), "{name}: {counts:?}");
+            table.push((name, counts));
+        }
+        assert_eq!(table.len(), 14, "{table:?}");
+        for quiet in [
+            "cf02_goblin_self_own",
+            "cf02_block_hurts_carl",
+            "cf02_block_hurts_partner",
+            "cf02_block_spares_left_striker",
+            "cf02_arena_three_attempts",
+        ] {
+            let counts = &table.iter().find(|(n, _)| *n == quiet).unwrap().1;
+            assert!(counts.iter().all(|c| *c == 0), "{quiet}: {counts:?}");
+        }
+    }
+
     /// Q37/Q58 plumbing: the room fixtures run under the CF02 rules and the arena
     /// predicate names exactly the room fixtures.
     #[test]

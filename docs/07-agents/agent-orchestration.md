@@ -36,6 +36,7 @@ Boilerplate that applies to every brief (an orchestrator may keep it in one reus
 - Work in your own worktree or branch. Push with `git push origin HEAD:refs/heads/<branch>`. Never merge. Never mark a PR ready for review unless the brief says so.
 - Before pushing, run the checks the change needs: `cargo fmt --all -- --check`, `cargo clippy --locked --all-targets -- -D warnings`, `cargo test --locked --all-targets`, and `python3 scripts/validate_assets.py` when art changes. Docs-only changes run `python3 scripts/check_docs.py`.
 - Wait for CI as described in [CI waiting](#ci-waiting).
+- Kill processes by PID only; never use a broad `pkill`/`pgrep -f` that can hit another agent's runs.
 - Do not overwrite a PR body from a shared file. Edit only your own section with `gh pr edit`.
 - Art work: record which model designed, executed and reviewed it in the PR's `Rights/Provenance` section, and update `SHA256SUMS` for evidence.
 - Long detail (findings, logs, number tables) goes into a file: the PR body, a spec, or a report path named in the brief.
