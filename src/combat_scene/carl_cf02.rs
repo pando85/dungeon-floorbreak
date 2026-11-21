@@ -160,7 +160,7 @@ pub struct CarlActingView {
     pub bail_hop: bool,
     /// Ticks of landing recovery still to run (Q56).
     pub landing_lock: u8,
-    /// Carl pressed Jab, Physical or Jump on this tick (a press edge, whether or
+    /// Carl pressed Jab, Physical, Jump, Swap or the ability on this tick (a press edge, whether or
     /// not it started anything).
     pub press_edge: bool,
 }
@@ -173,7 +173,9 @@ impl CombatState {
             landing_lock: self.carl_cf02.landing_lock,
             press_edge: self.input.attack_pressed
                 || self.input.physical_pressed
-                || self.input.jump_pressed,
+                || self.input.jump_pressed
+                || self.input.swap_pressed
+                || self.input.ability_pressed,
         }
     }
 }

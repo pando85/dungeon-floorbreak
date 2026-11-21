@@ -97,6 +97,9 @@ pub struct CarlActInput {
     pub bail_age: Option<u32>,
     /// Ticks since a dive whiff touched down (`Some` for the 10 recovery ticks).
     pub heavy_landing_age: Option<u32>,
+    /// The dive's active ticks (`q52_dive_max_active_ticks`): the plunge frame
+    /// holds for them, then the locomotion frame.
+    pub dive_plunge_ticks: u32,
 }
 
 /// Ticks of the stamp-less part of the dive: the tuck (the readable tell).
@@ -132,8 +135,8 @@ pub fn carl_move_pose(clips: &SpriteClips, input: &CarlActInput) -> Option<ArtPo
                 if tick < tuck {
                     return Some(move_tag(clips, "dive_tuck", tick));
                 }
-                // Dive plunge: held until the move ends, the 30 active ticks.
-                return (tick < tuck + DIVE_PLUNGE_TICKS)
+                // Dive plunge: held until the move ends, `q52_dive_max_active_ticks`.
+                return (tick < tuck + input.dive_plunge_ticks)
                     .then(|| move_tag(clips, "dive_plunge", tick - tuck));
             }
             _ => {}
@@ -146,9 +149,6 @@ pub fn carl_move_pose(clips: &SpriteClips, input: &CarlActInput) -> Option<ArtPo
         .heavy_landing_age
         .map(|age| move_tag(clips, "dive_land", age))
 }
-
-/// The dive's active ticks (Q52): the plunge frame holds for them.
-pub const DIVE_PLUNGE_TICKS: u32 = 30;
 
 /// A Carl overlay frame `age` ticks into it: the flinch is one frame, the
 /// frustration alternates its two frames every 6 ticks (24 ticks in all).
@@ -355,8 +355,15 @@ pub const WALL_CONTACT_COLUMN: i32 = 16;
 // -------------------------------------------------------------- tracking -----
 
 /// Ticks a smug waits for Donut to finish her move and stand idle: her hit
-/// lands inside her own swat or pounce, the reaction follows it.
-pub const SMUG_PENDING_TICKS: u8 = 90;
+/// lands inside her own swat or pounce, the reaction follows it. Adopted default
+/// under Q71 (the longest tail after a landing hit is the pounce's, at most about
+/// 34 ticks plus the landing); the owner may retune it after playing.
+pub const SMUG_PENDING_TICKS: u8 = 45;
+
+/// Ticks a frustration waits for Carl to stand idle, counted from the third
+/// whiff. Adopted default under Q70: `q70_frustration_window_ticks` bounds the run
+/// of three whiffs only, so the shake never appears long after the miss.
+pub const FRUSTRATION_PENDING_TICKS: u64 = 45;
 
 /// The Carl moves a whiff or a hit is counted for (Q70).
 fn is_carl_move(id: MoveId) -> bool {
@@ -401,7 +408,8 @@ struct GoblinActing {
     /// Ticks the taunt hold still shows (Q72) and the frame it shows.
     hold_left: u8,
     hold_frame: usize,
-    /// Presentation ticks since the defeat (stopped while a taunt hold runs).
+    /// Presentation ticks since the slammed frame may show: `None` while a Q72
+    /// taunt hold runs (the taunt frame is drawn, never the finish).
     dead_age: Option<u32>,
     /// Ticks since the dead body stopped flying.
     landed_age: Option<u32>,
@@ -791,8 +799,9 @@ impl ActingAnimators {
             )
             && last.saturating_sub(*first) <= u64::from(t.q70_frustration_window_ticks)
         {
-            // Pending until Carl stands idle, for as long as the window.
-            let fresh = tick.saturating_sub(*last) <= u64::from(t.q70_frustration_window_ticks);
+            // Pending until Carl stands idle, for `FRUSTRATION_PENDING_TICKS` from
+            // the third whiff.
+            let fresh = tick.saturating_sub(*last) <= FRUSTRATION_PENDING_TICKS;
             if !fresh {
                 self.whiffs.clear();
             } else if carl_can_show && self.frustration_cooldown == 0 {
@@ -813,6 +822,7 @@ impl ActingAnimators {
             melee: melee.map(|m| (m.spec.id, m.tick)),
             bail_age: self.bail_age,
             heavy_landing_age: heavy,
+            dive_plunge_ticks: u32::from(t.q52_dive_max_active_ticks),
         };
         let loco = |tag: Tag| match tag {
             Tag::Idle => Locomotion::Idle,
@@ -920,13 +930,12 @@ impl ActingAnimators {
                 acting.dead_age = None;
                 acting.landed_age = None;
             } else {
-                // Counted in presentation ticks; the taunt hold delays the
-                // impact (D's hold starts after it).
-                acting.dead_age = Some(match acting.dead_age {
-                    None => 0,
-                    Some(age) if acting.hold_left > 0 => age,
-                    Some(age) => age + 1,
-                });
+                // Counted in presentation ticks from the first tick the slammed
+                // frame may show: while a Q72 taunt hold runs the taunt frame is
+                // drawn and the impact has not begun (D's hold starts after it).
+                if acting.hold_left == 0 {
+                    acting.dead_age = Some(acting.dead_age.map_or(0, |age| age + 1));
+                }
                 acting.landed_age = if goblin.mode == GoblinMode::Airborne {
                     None
                 } else {
@@ -980,8 +989,9 @@ impl ActingAnimators {
         };
         let launched = matches!(goblin.mode, GoblinMode::Launched | GoblinMode::Airborne);
         let hold = self.tuning.q72_taunt_hold_ticks;
+        let overlays = crate::acting::overlays_enabled(self.tuning);
         let acting = &mut self.goblins[target];
-        if acting.reaction == ReactionTag::Taunt && !launched && hold > 0 {
+        if overlays && acting.reaction == ReactionTag::Taunt && !launched && hold > 0 {
             // The frame shown on the tick before the hit.
             let clips = &self.art.goblins[super::goblin_variant(target)];
             let cycle = clips.tag_ticks("taunt").unwrap_or(1);

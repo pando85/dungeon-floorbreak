@@ -130,6 +130,7 @@ fn carl_at(a: &ActingArt, input: CarlActInput) -> Option<String> {
 fn melee(id: MoveId, tick: u16) -> CarlActInput {
     CarlActInput {
         melee: Some((id, tick)),
+        dive_plunge_ticks: u32::from(on().q52_dive_max_active_ticks),
         ..CarlActInput::default()
     }
 }
@@ -237,6 +238,17 @@ fn the_dive_shows_the_tuck_then_the_plunge_then_the_locomotion_frame() {
             "tick {tick}"
         );
     }
+    // The art follows the knobs: the tuck is the sim's tuck, and a longer dive
+    // keeps the plunge frame for all of its active ticks.
+    assert_eq!(
+        a.carl.tag_ticks("dive_tuck").unwrap(),
+        u32::from(on().q52_dive_tuck_ticks)
+    );
+    let mut longer = melee(MoveId::DiveStomp, 6 + 40);
+    longer.dive_plunge_ticks = 45;
+    assert_eq!(carl_at(&a, longer).as_deref(), Some("dive_plunge"));
+    longer.melee = Some((MoveId::DiveStomp, 6 + 45));
+    assert_eq!(carl_at(&a, longer), None);
     // The tuck against the plunge: the tell is a visible height difference.
     let (tuck, plunge) = (a.carl.tag("dive_tuck").0, a.carl.tag("dive_plunge").0);
     let (bt, bp) = (a.carl.frame_box(tuck), a.carl.frame_box(plunge));
@@ -728,13 +740,14 @@ fn acting_overlays_on_and_off_change_no_event_hash_or_input_timing() {
 /// frustration, startle, smug or taunt hold): they are presentation inputs.
 #[test]
 fn no_simulation_module_reads_an_acting_knob() {
-    for file in [
+    let mut files: Vec<String> = [
         "src/combat.rs",
         "src/combat_scene.rs",
         "src/combat_scene/carl_cf02.rs",
         "src/combat_scene/morale_cf02.rs",
         "src/combat_scene/donut.rs",
         "src/combat_scene/contacts_cf02.rs",
+        "src/combat_scene/companion.rs",
         "src/goblin.rs",
         "src/llama.rs",
         "src/morale.rs",
@@ -745,10 +758,27 @@ fn no_simulation_module_reads_an_acting_knob() {
         "src/party.rs",
         "src/party_scene.rs",
         "src/shore.rs",
-    ] {
-        let Ok(text) = std::fs::read_to_string(root().join(file)) else {
-            continue;
-        };
+    ]
+    .iter()
+    .map(|f| (*f).to_owned())
+    .collect();
+    // Every companion module drives Donut and reads the combat state each tick.
+    let mut entries: Vec<_> = std::fs::read_dir(root().join("src/companion"))
+        .expect("src/companion exists")
+        .map(|e| e.expect("a directory entry").path())
+        .collect();
+    entries.sort();
+    for path in entries {
+        if path.extension().is_some_and(|e| e == "rs") {
+            let name = path.file_name().unwrap().to_string_lossy().into_owned();
+            files.push(format!("src/companion/{name}"));
+        }
+    }
+    assert!(files.len() > 20, "the walk found the companion modules");
+    for file in &files {
+        // A missing file fails the test: a renamed module must be re-listed.
+        let text =
+            std::fs::read_to_string(root().join(file)).unwrap_or_else(|e| panic!("{file}: {e}"));
         for knob in [
             "q69_",
             "q70_",
@@ -1542,29 +1572,37 @@ fn an_overlay_waits_for_the_actor_to_be_idle_and_never_spends_a_cooldown_unseen(
         smug += u32::from(donut(&acting).as_deref() == Some("smug"));
     }
     assert_eq!(smug, 20);
-    // It is forgotten when she never stands still for 90 ticks.
-    let (mut sim, mut acting) = rig("cf02_stomp_standing");
-    sim.combat.enemies.clear();
-    let t = sim.scene.world.tick;
-    push(
-        &mut sim,
-        CombatEvent::Hit {
-            tick: t,
-            move_id: MoveId::Swat,
-            instance: 1,
-            target: 0,
-            damage: 0,
-            health_left: 3,
-            hit_stop: 0,
-        },
-    );
-    for _ in 0..100 {
-        quiet_step(&mut sim, &mut acting, Tag::Idle, Tag::Run);
-    }
-    for _ in 0..10 {
-        quiet_step(&mut sim, &mut acting, Tag::Idle, Tag::Idle);
-        assert_eq!(donut(&acting), None, "too late");
-    }
+    // It is forgotten when she does not stand still for SMUG_PENDING_TICKS (45).
+    let after = |running: u32| {
+        let (mut sim, mut acting) = rig("cf02_stomp_standing");
+        sim.combat.enemies.clear();
+        let t = sim.scene.world.tick;
+        push(
+            &mut sim,
+            CombatEvent::Hit {
+                tick: t,
+                move_id: MoveId::Swat,
+                instance: 1,
+                target: 0,
+                damage: 0,
+                health_left: 3,
+                hit_stop: 0,
+            },
+        );
+        for _ in 0..running {
+            quiet_step(&mut sim, &mut acting, Tag::Idle, Tag::Run);
+        }
+        (0..30)
+            .filter(|_| {
+                quiet_step(&mut sim, &mut acting, Tag::Idle, Tag::Idle);
+                donut(&acting).as_deref() == Some("smug")
+            })
+            .count()
+    };
+    assert_eq!(super::SMUG_PENDING_TICKS, 45);
+    assert_eq!(after(44), 20, "idle on the last tick of the wait");
+    assert_eq!(after(45), 0, "too late");
+    assert_eq!(after(100), 0, "too late");
     // Startle: not shown while she runs, and that does not spend the cooldown.
     let (mut sim, mut acting) = rig("cf02_stomp_standing");
     sim.combat.enemies.clear();
@@ -1601,7 +1639,7 @@ fn an_overlay_waits_for_the_actor_to_be_idle_and_never_spends_a_cooldown_unseen(
 }
 
 #[test]
-fn frustration_waits_for_idle_inside_its_window() {
+fn frustration_waits_for_idle_for_at_most_the_pending_ticks() {
     let run = |idle_after: u32| {
         let (mut sim, mut acting) = rig("cf02_stomp_standing");
         sim.combat.enemies.clear();
@@ -1620,6 +1658,125 @@ fn frustration_waits_for_idle_inside_its_window() {
             })
             .count()
     };
-    assert_eq!(run(20), 24, "idle again inside the window: shown, once");
-    assert_eq!(run(200), 0, "the window has passed");
+    assert_eq!(super::FRUSTRATION_PENDING_TICKS, 45);
+    assert_eq!(
+        run(20),
+        24,
+        "idle again soon after the third whiff: shown, once"
+    );
+    assert_eq!(run(44), 24, "idle on the last tick of the wait");
+    assert_eq!(run(45), 0, "the wait has passed");
+    assert_eq!(run(100), 0, "the wait has passed");
+}
+
+/// A show-off taunting at tick 20 of `cf02_showoff_taunt_punish`, then killed by
+/// a lethal `Stomp` (a body that stays where it stands, mode `Down`): returns,
+/// for every tick from the kill on, the taunt frame drawn (if any) and the
+/// slammed frame drawn (if any).
+fn lethal_stomp_on_a_taunting_goblin(
+    tuning: &'static Cf02Tuning,
+) -> Vec<(Option<String>, Option<String>)> {
+    let mut sim = PartyFixtureSim::new(&kit(), 360, find("cf02_showoff_taunt_punish")).unwrap();
+    let mut acting = ActingAnimators::new(art(), tuning, &sim.combat);
+    let step = |sim: &mut PartyFixtureSim, acting: &mut ActingAnimators| {
+        acting.step(
+            &sim.scene,
+            &sim.combat,
+            &CarlInput::default(),
+            false,
+            Tag::Idle,
+            Tag::Idle,
+        );
+    };
+    for _ in 0..20 {
+        sim.step_scripted();
+        step(&mut sim, &mut acting);
+    }
+    assert_eq!(
+        acting.goblin_pose(0).map(|p| p.pose.tag),
+        tuning_taunt(tuning)
+    );
+    // The killing blow: a stomp leaves the body where it stands.
+    let t = sim.scene.world.tick + 1;
+    {
+        let g = &mut sim.combat.enemies[0];
+        g.health = 0;
+        g.mode = GoblinMode::Down;
+        g.down_ticks = 0;
+        g.vx = 0.0;
+        g.vy = 0.0;
+    }
+    push(
+        &mut sim,
+        CombatEvent::Hit {
+            tick: t,
+            move_id: MoveId::Stomp,
+            instance: 9,
+            target: 0,
+            damage: 2,
+            health_left: 0,
+            hit_stop: 9,
+        },
+    );
+    sim.scene.world.tick += 1;
+    let mut out = Vec::new();
+    let names = frame_names(GOBLIN_SLAMMED_MANIFESTS[0], "cf02_goblin");
+    for n in 0..40 {
+        if n > 0 {
+            sim.scene.world.tick += 1;
+        }
+        step(&mut sim, &mut acting);
+        out.push((
+            acting
+                .goblin_pose(0)
+                .filter(|p| p.pose.tag == "taunt")
+                .map(|p| p.pose.label()),
+            acting
+                .slammed_pose(0, 0, Some(SlamPose::Stomped))
+                .map(|p| names[p.frame].clone()),
+        ));
+    }
+    out
+}
+
+fn tuning_taunt(tuning: &'static Cf02Tuning) -> Option<&'static str> {
+    crate::acting::overlays_enabled(tuning).then_some("taunt")
+}
+
+#[test]
+fn a_lethal_stomp_on_a_taunting_goblin_holds_the_taunt_then_folds_then_rests() {
+    let run = lethal_stomp_on_a_taunting_goblin(on());
+    let hold = usize::from(on().q72_taunt_hold_ticks);
+    let impact = usize::from(on().q21_slammed_impact_hold_ticks);
+    for (n, (taunt, slam)) in run.iter().enumerate() {
+        match n {
+            n if n < hold => {
+                assert!(taunt.is_some(), "tick {n}: the taunt frame is held");
+                assert_eq!(slam, &None, "tick {n}: never the finish with the taunt");
+            }
+            n if n < hold + impact => {
+                assert_eq!(taunt, &None, "tick {n}");
+                assert_eq!(slam.as_deref(), Some("stomped_impact"), "tick {n}");
+            }
+            n => {
+                assert_eq!(taunt, &None, "tick {n}");
+                assert_eq!(slam.as_deref(), Some("stomped_rest"), "tick {n}");
+            }
+        }
+    }
+}
+
+#[test]
+fn with_the_overlays_off_there_is_no_hold_and_the_impact_starts_at_the_kill() {
+    let run = lethal_stomp_on_a_taunting_goblin(overlays_off());
+    let impact = usize::from(on().q21_slammed_impact_hold_ticks);
+    for (n, (taunt, slam)) in run.iter().enumerate() {
+        assert_eq!(taunt, &None, "tick {n}");
+        let want = if n < impact {
+            "stomped_impact"
+        } else {
+            "stomped_rest"
+        };
+        assert_eq!(slam.as_deref(), Some(want), "tick {n}");
+    }
 }
