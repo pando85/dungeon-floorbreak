@@ -25,3 +25,7 @@ __pycache__/
 
 # PLAYTRACE-01: recordings never enter the repository (guard for --record-dir inside the tree)
 /playtrace/
+# PT-D: exported datasets derive from recordings and never enter the repository either
+/datasets/
+/playtrace-datasets/
+dataset-*/

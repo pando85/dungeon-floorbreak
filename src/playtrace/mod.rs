@@ -48,7 +48,9 @@ mod manifest;
 pub mod obs;
 mod reader;
 pub mod replay;
+mod stats;
 mod storage;
+pub mod synthetic;
 mod writer;
 
 #[cfg(test)]
@@ -57,6 +59,8 @@ mod live_tests;
 mod tests;
 #[cfg(test)]
 mod tests_cursor;
+#[cfg(test)]
+mod tests_export;
 #[cfg(test)]
 mod tests_robust;
 #[cfg(test)]
@@ -82,6 +86,7 @@ pub use reader::{
     session_is_live,
 };
 pub use replay::{VerifyFailure, VerifyReport, VerifyScope, verify_dir, verify_loaded};
+pub use stats::{ActionHistogram, HeroStats, STICK_THRESHOLD, SessionStats, session_stats};
 pub use storage::{WARN_BYTES, default_record_dir, dir_size_bytes};
 pub use writer::{SessionWriter, WriterHealth};
 
