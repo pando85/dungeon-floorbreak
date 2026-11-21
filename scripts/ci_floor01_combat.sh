@@ -480,6 +480,17 @@ case "$mode" in
       fi
     done
     echo "CAMERA_HASH_OK: demo beat 4 on the hall (scroll, auto, 1.5)"
+    # BOIL-A wire: the Goblin Boiler room (`--scene f01_boiler`, which implies
+    # `cf02_rules`): the scripted walk loads the room and its sidecar and
+    # reaches the protected exit through the checkpoint; the smoke replays
+    # identically twice and prints its marker.
+    boiler_a="$("$bin" --headless-floor01-smoke --scene f01_boiler | grep -E '^(F01_BOILER_(ENTRY|SMOKE_OK)|COMBAT_STATE)')"
+    boiler_b="$("$bin" --headless-floor01-smoke --scene f01_boiler | grep -E '^(F01_BOILER_(ENTRY|SMOKE_OK)|COMBAT_STATE)')"
+    if [[ "$boiler_a" != "$boiler_b" ]] || ! grep -q '^F01_BOILER_SMOKE_OK' <<<"$boiler_a"; then
+      echo "--scene f01_boiler did not replay identically twice with its OK marker" >&2
+      exit 1
+    fi
+    echo "F01_BOILER_HEADLESS_OK: $(grep '^F01_BOILER_SMOKE_OK' <<<"$boiler_a")"
     ;;
   render)
     for f in "${fixtures[@]}"; do

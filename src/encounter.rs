@@ -44,7 +44,8 @@
 //!
 //! Disclosed limits: the reachability uses the height classes and flat-jump
 //! distances of the data file (an optimistic upper bound for a rising jump
-//! between perches: the physics-exact check is BOIL-A wire's), not the real
+//! between perches: `encounter_physics` replays every accepted edge with the real
+//! integrator, BOIL-A wire), not the real
 //! jump physics, and it does not trust
 //! the composer's generated access steps (a scene may clear them, as the
 //! microarena does), so it proves the jump-only case. The room parser of this
@@ -2576,18 +2577,9 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
     }
 
     // ---- reachability, in every destruction state (every lock open)
-    let changeable: Vec<usize> = props
-        .iter()
-        .enumerate()
-        .filter(|(_, p)| p.solid_intact || p.remnant.is_some() || p.kind == PropKind::Shutter)
-        .map(|(i, _)| i)
-        .collect();
+    let changeable = changeable_props(&props);
     // Static solids never change state: they are in every state's solids.
-    let static_solids: Vec<IRect> = statics
-        .iter()
-        .filter(|st| st.kind == StaticKind::Solid)
-        .map(|st| st.rect)
-        .collect();
+    let static_solids = static_solid_rects(&statics);
     let mut reach: Vec<ReachRow> = Vec::new();
     let mut effective: Vec<GateClass> = final_gates.clone();
     if props.len() <= MAX_PROPS {
@@ -2861,6 +2853,37 @@ fn shutter_cuts(props: &[Prop], changeable: &[usize], state: u16) -> Vec<IRect> 
         .collect()
 }
 
+/// The props whose state the reach matrix enumerates (`2^n` states): the ones
+/// with a solid or a remnant, and every shutter. Shared by the validation and
+/// [`route_graphs`].
+fn changeable_props(props: &[Prop]) -> Vec<usize> {
+    props
+        .iter()
+        .enumerate()
+        .filter(|(_, p)| p.solid_intact || p.remnant.is_some() || p.kind == PropKind::Shutter)
+        .map(|(i, _)| i)
+        .collect()
+}
+
+/// The sidecar's static solids (they are in every state), in file order.
+fn static_solid_rects(statics: &[StaticEntry]) -> Vec<IRect> {
+    statics
+        .iter()
+        .filter(|st| st.kind == StaticKind::Solid)
+        .map(|st| st.rect)
+        .collect()
+}
+
+/// The solids of one destruction state: the changeable props' blockers plus
+/// the sidecar's static solids (in every state). The single builder shared by
+/// the reach matrix, the closed-lock check and [`route_graphs`], so the exported
+/// graphs cannot drift from the validated ones.
+fn state_solids(props: &[Prop], changeable: &[usize], state: u16, statics: &[IRect]) -> Vec<IRect> {
+    let mut solids = blockers(props, changeable, state);
+    solids.extend_from_slice(statics);
+    solids
+}
+
 fn platform_end_free(room: &Room, drop_gap: i32, r: IRect) -> bool {
     r.x - drop_gap >= room.play_x.0 || r.right() + drop_gap <= room.play_x.1
 }
@@ -3024,8 +3047,7 @@ fn locked_unreachable(
     let mut bad = Vec::new();
     for hero in ReachHero::ALL {
         for state in 0..(1u16 << changeable.len()) {
-            let mut solids = blockers(props, changeable, state);
-            solids.extend_from_slice(statics);
+            let mut solids = state_solids(props, changeable, state, statics);
             solids.extend(locks.iter().map(|l| l.solid));
             let cut_only = shutter_cuts(props, changeable, state);
             let graph = nodes_for(room, c, hero, &solids, &cut_only);
@@ -3083,8 +3105,7 @@ fn shutter_side_failures(
             if state & mask == 0 {
                 continue;
             }
-            let mut solids = blockers(props, changeable, state);
-            solids.extend_from_slice(statics);
+            let solids = state_solids(props, changeable, state, statics);
             let cut_only = shutter_cuts(props, changeable, state);
             let graph = nodes_for(room, c, hero, &solids, &cut_only);
             let goal = floor_node_at(&graph.nodes, exit_x);
@@ -3127,8 +3148,7 @@ pub fn reach_matrix(
     let mut rows = Vec::new();
     for hero in ReachHero::ALL {
         for state in 0..(1u16 << changeable.len()) {
-            let mut solids = blockers(props, changeable, state);
-            solids.extend_from_slice(statics);
+            let solids = state_solids(props, changeable, state, statics);
             let cut_only = shutter_cuts(props, changeable, state);
             let graph = nodes_for(room, c, hero, &solids, &cut_only);
             let nodes = &graph.nodes;
@@ -3170,6 +3190,101 @@ pub fn reach_matrix(
         }
     }
     rows
+}
+
+// ------------------------------------------------------------ route export
+
+/// One surface of a route graph (layout px, y down), exported for the
+/// physics-exact check of BOIL-A wire (K8).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RouteNode {
+    pub x0: i32,
+    pub x1: i32,
+    /// Layout y of the standing surface.
+    pub top: i32,
+    /// A stretch of the walking line (a platform or a standable solid is not).
+    pub floor: bool,
+}
+
+/// The route graph of one hero class in one destruction state, exactly as the
+/// validator built it: `edges` are the moves `can_move` accepted.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RouteGraph {
+    pub hero: ReachHero,
+    /// Bit k set: the k-th changeable prop is used up.
+    pub state: u16,
+    /// Every lock closed (its solid in the graph). The reach matrix itself
+    /// opens every lock, so an exit is only required with `false`.
+    pub locks_closed: bool,
+    /// The solids of this state: intact solid props, remnants, the sidecar's
+    /// static solids (every state), closed locks.
+    pub solids: Vec<IRect>,
+    /// The closed shutters of this state (KR3): cuts of the floor for every
+    /// class, never a standable node. A real wall for the physics check.
+    pub cuts: Vec<IRect>,
+    pub nodes: Vec<RouteNode>,
+    /// Accepted moves, as `(from, to)` node indices.
+    pub edges: Vec<(usize, usize)>,
+    /// The floor node of the hero's spawn.
+    pub spawn: Option<usize>,
+    /// The floor node of the exit column.
+    pub goal: Option<usize>,
+}
+
+/// The route graphs the validation reasoned over: every class in every state
+/// of the changeable props with the locks open, and again with them closed when
+/// the room has locks. The physics-exact check replays each accepted edge.
+pub fn route_graphs(room: &Room, c: &HeightClasses, enc: &Encounter) -> Vec<RouteGraph> {
+    let changeable = changeable_props(&enc.props);
+    let static_solids = static_solid_rects(&enc.statics);
+    let exit_x = room.goal_x.min(room.exit.right() - 1);
+    let lock_variants: &[bool] = if enc.locks.is_empty() {
+        &[false]
+    } else {
+        &[false, true]
+    };
+    let mut out = Vec::new();
+    for &locks_closed in lock_variants {
+        for hero in ReachHero::ALL {
+            for state in 0..(1u16 << changeable.len()) {
+                let mut solids = state_solids(&enc.props, &changeable, state, &static_solids);
+                if locks_closed {
+                    solids.extend(enc.locks.iter().map(|l| l.solid));
+                }
+                let cuts = shutter_cuts(&enc.props, &changeable, state);
+                let graph = nodes_for(room, c, hero, &solids, &cuts);
+                let mut edges = Vec::new();
+                for (i, a) in graph.nodes.iter().enumerate() {
+                    for (j, b) in graph.nodes.iter().enumerate() {
+                        if i != j && can_move(room, c, hero, &graph, a, b) {
+                            edges.push((i, j));
+                        }
+                    }
+                }
+                out.push(RouteGraph {
+                    hero,
+                    state,
+                    locks_closed,
+                    solids,
+                    cuts,
+                    spawn: floor_node_at(&graph.nodes, hero.spawn_x(room)),
+                    goal: floor_node_at(&graph.nodes, exit_x),
+                    nodes: graph
+                        .nodes
+                        .iter()
+                        .map(|n| RouteNode {
+                            x0: n.x0,
+                            x1: n.x1,
+                            top: n.top,
+                            floor: n.floor,
+                        })
+                        .collect(),
+                    edges,
+                });
+            }
+        }
+    }
+    out
 }
 
 #[cfg(test)]
@@ -4577,6 +4692,131 @@ mod tests {
         assert_eq!(room_ceiling_px(t, "A"), None, "out of range is no ceiling");
         let t = r#"{"scenarios":[{"id":"A","ceiling_px":228}]}"#;
         assert_eq!(room_ceiling_px(t, "A"), Some(228));
+    }
+
+    /// B1: the exported route graphs are exactly the validated ones, on every
+    /// committed sidecar: every static solid is in every state, and the exit
+    /// reachability over the exported edges equals the validator's reach row.
+    #[test]
+    fn the_route_graphs_are_the_validated_graphs_on_every_sidecar() {
+        for sidecar in [
+            BOILER_ENCOUNTER_PATH,
+            HAZARDS_ENCOUNTER_PATH,
+            crate::pile_boss::ENCOUNTER_PATH,
+            crate::ring_fixtures::COURT_ENCOUNTER_PATH,
+            crate::ring_fixtures::SPLIT_ENCOUNTER_PATH,
+        ] {
+            let l = load(root(), sidecar).unwrap_or_else(|e| panic!("{sidecar}: {e:?}"));
+            let statics: Vec<IRect> = l
+                .encounter
+                .statics
+                .iter()
+                .filter(|st| st.kind == StaticKind::Solid)
+                .map(|st| st.rect)
+                .collect();
+            let graphs = route_graphs(&l.room, &l.classes, &l.encounter);
+            assert!(!graphs.is_empty(), "{sidecar}");
+            let mut open_checked = 0;
+            for g in &graphs {
+                for st in &statics {
+                    assert!(
+                        g.solids.contains(st),
+                        "{sidecar}: {:?} state {} lacks a static solid",
+                        g.hero,
+                        g.state
+                    );
+                    // The static solid is a node of the graph, as the validator saw it.
+                    assert!(
+                        g.nodes.iter().any(|n| !n.floor && n.top == st.y),
+                        "{sidecar}: no node at the top of a static solid"
+                    );
+                }
+                if g.locks_closed {
+                    for lock in &l.encounter.locks {
+                        assert!(g.solids.contains(&lock.solid), "{sidecar}: lock missing");
+                    }
+                    continue;
+                }
+                let row = l
+                    .encounter
+                    .reach
+                    .iter()
+                    .find(|r| r.hero == g.hero && r.state == g.state)
+                    .unwrap_or_else(|| panic!("{sidecar}: no reach row"));
+                let mut seen = vec![false; g.nodes.len()];
+                if let (Some(s), Some(goal)) = (g.spawn, g.goal) {
+                    let mut stack = vec![s];
+                    seen[s] = true;
+                    while let Some(i) = stack.pop() {
+                        for &(a, b) in &g.edges {
+                            if a == i && !seen[b] {
+                                seen[b] = true;
+                                stack.push(b);
+                            }
+                        }
+                    }
+                    assert_eq!(
+                        seen[goal], row.exit,
+                        "{sidecar}: {:?} state {} exit != validator",
+                        g.hero, g.state
+                    );
+                } else {
+                    assert!(!row.exit, "{sidecar}: no spawn/goal node but exit reached");
+                }
+                // `exit` is true in every state of every valid sidecar, so it
+                // cannot pin the shutter cuts; `lane` and `regroup` can (a
+                // closed shutter cuts the floor, the KR3 waiver).
+                let other_x = match g.hero {
+                    ReachHero::Carl => l.room.spawn_donut,
+                    _ => l.room.spawn_carl,
+                };
+                let other = g
+                    .nodes
+                    .iter()
+                    .position(|n| n.floor && other_x >= n.x0 && other_x < n.x1);
+                assert_eq!(
+                    row.lane,
+                    matches!((g.spawn, g.goal), (Some(s), Some(t)) if s == t),
+                    "{sidecar}: {:?} state {} lane != validator",
+                    g.hero,
+                    g.state
+                );
+                assert_eq!(
+                    row.regroup,
+                    matches!((g.spawn, other), (Some(s), Some(o)) if s == o),
+                    "{sidecar}: {:?} state {} regroup != validator",
+                    g.hero,
+                    g.state
+                );
+                open_checked += 1;
+            }
+            assert_eq!(open_checked, l.encounter.reach.len(), "{sidecar}");
+        }
+    }
+
+    /// B1 negative control: the Hoarder's bank is a static solid, and a graph
+    /// built without it (the pre-fix behaviour) would lack its node.
+    #[test]
+    fn the_hoarder_bank_is_a_node_of_every_route_graph() {
+        let l = load(root(), crate::pile_boss::ENCOUNTER_PATH).unwrap();
+        let bank = l
+            .encounter
+            .statics
+            .iter()
+            .find(|st| st.id == "bank_a")
+            .expect("bank_a");
+        assert_eq!(bank.kind, StaticKind::Solid);
+        for g in route_graphs(&l.room, &l.classes, &l.encounter) {
+            assert!(g.solids.contains(&bank.rect), "{:?}", g.hero);
+            assert!(
+                g.nodes
+                    .iter()
+                    .any(|n| !n.floor && n.top == bank.rect.y && n.x0 == bank.rect.x),
+                "{:?} state {}: no node on the bank",
+                g.hero,
+                g.state
+            );
+        }
     }
 
     #[test]
