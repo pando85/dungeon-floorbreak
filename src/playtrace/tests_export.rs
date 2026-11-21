@@ -75,6 +75,12 @@ fn synth_fixture_refuses_the_default_store_and_anything_inside_it() {
         store.join("nested/new"),
         store.join("x/../y"),
         dir.0.join("data/dungeon-floorbreak/./playtrace"),
+        // A missing folder followed by `..` lands in the store; so does a `..`
+        // that climbs out of a missing child and back into it.
+        dir.0.join("missing/../data/dungeon-floorbreak/playtrace"),
+        dir.0
+            .join("data/missing/../dungeon-floorbreak/playtrace/new"),
+        store.join("a/b/../../c"),
     ] {
         assert!(
             refuse_default_store(&base, &store).is_err(),
@@ -82,6 +88,8 @@ fn synth_fixture_refuses_the_default_store_and_anything_inside_it() {
             base.display()
         );
     }
+    // Climbing out of the store through a missing child is allowed.
+    assert!(refuse_default_store(&store.join("missing/../.."), &store).is_ok());
     // A sibling (sharing a name prefix) and an unrelated directory are fine.
     assert!(
         refuse_default_store(&dir.0.join("data/dungeon-floorbreak/playtrace-x"), &store).is_ok()

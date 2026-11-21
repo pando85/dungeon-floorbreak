@@ -273,7 +273,7 @@ fn run(args: &[String]) -> Result<(), String> {
                 }
             }
             println!(
-                "PLAYTRACE_STATS sessions={sessions} ticks={} episodes={} combat_events={} (recorded sessions only) synthetic_sessions={synthetic_sessions} synthetic_ticks={synthetic_ticks}",
+                "PLAYTRACE_STATS sessions={sessions} ticks={} episodes={} combat_events={} scope=non_synthetic synthetic_sessions={synthetic_sessions} synthetic_ticks={synthetic_ticks}",
                 total.ticks, total.episodes, total.combat_events
             );
             for line in lines {

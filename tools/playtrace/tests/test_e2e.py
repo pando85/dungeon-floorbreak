@@ -92,6 +92,7 @@ def test_stats_label_synthetic_sessions_and_keep_them_out_of_the_totals(rust_ses
     )
     lines = done.stdout.splitlines()
     assert lines[0].startswith("PLAYTRACE_STATS sessions=0 ticks=0 ")
+    assert "scope=non_synthetic" in lines[0]
     assert "synthetic_sessions=2 synthetic_ticks=700" in lines[0]
     sessions = [line for line in lines if line.startswith("PLAYTRACE_STATS_SESSION")]
     assert len(sessions) == 2 and all("synthetic=true" in line for line in sessions)
@@ -125,6 +126,46 @@ def test_synth_fixture_refuses_the_default_recording_store(tmp_path):
         cwd=repo_root(),
     )
     assert ok.returncode == 0, ok.stderr
+
+
+def test_synth_fixture_refuses_relative_paths_that_land_in_the_store(tmp_path):
+    """N-1: relative `--dir` values run from inside the store, and paths through a
+    missing folder plus `..`, resolve to where the write would land."""
+    binary = os.environ.get("PLAYTRACE_BIN")
+    if not binary or not Path(binary).is_file():
+        pytest.skip("PLAYTRACE_BIN is not set")
+    data_home = tmp_path / "xdg"
+    store = data_home / "dungeon-floorbreak" / "playtrace"
+    store.mkdir(parents=True)
+    env = {**os.environ, "XDG_DATA_HOME": str(data_home)}
+
+    def run(target, cwd):
+        return subprocess.run(
+            [binary, "synth-fixture", "--dir", str(target), "--ticks", "20", "--root", str(repo_root())],
+            capture_output=True,
+            text=True,
+            env=env,
+            cwd=cwd,
+        )
+
+    cases = [
+        (".", store),
+        ("newdir", store),
+        ("a/b", store),
+        ("missing/../newdir", store),
+        (tmp_path / "missing" / ".." / "xdg" / "dungeon-floorbreak" / "playtrace", tmp_path),
+        ("../playtrace/newdir", store),
+        ("xdg/dungeon-floorbreak/playtrace", tmp_path),
+        ("no_such/../xdg/dungeon-floorbreak/playtrace/x", tmp_path),
+    ]
+    for target, cwd in cases:
+        done = run(target, cwd)
+        assert done.returncode != 0 and "default recording store" in done.stderr, (target, done.stderr)
+    assert list(store.iterdir()) == [], "nothing may be written into the default store"
+    # a relative path that stays outside the store still works
+    ok = run("../outside", store)
+    assert ok.returncode == 0, ok.stderr
+    assert (store.parent / "outside").is_dir()
 
 
 def _reseal_with_edit(session: Path, edit) -> None:
