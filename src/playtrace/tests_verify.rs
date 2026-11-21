@@ -398,6 +398,9 @@ fn the_story_route_without_combat_replays_without_observations() {
         carl_dynamite: false,
         carl_gauntlet: false,
         donut_motion: crate::party::PROVISIONAL_TUNING.donut_motion,
+        donut_prog: false,
+        donut_light_feet: false,
+        donut_puddle: false,
         kit_hash: real_kit_hash(),
         start_hash: scene.state_hash(),
     };
@@ -578,7 +581,7 @@ fn content_and_rules_mismatches_are_rejected() {
     // CARL-PROG-01 CP-Q46: the stamped manifest carries the two data pins and a
     // mismatch of either fails the replay naming it.
     let stamped = std::fs::read_to_string(session.join("manifest.json")).unwrap();
-    for key in ["story_unlocks", "carl_prog"] {
+    for key in ["story_unlocks", "carl_prog", "donut_prog_tuning"] {
         assert!(stamped.contains(&format!("\"{key}\"")), "{key} is stamped");
     }
     for key in [
@@ -587,6 +590,7 @@ fn content_and_rules_mismatches_are_rejected() {
         "cf02_tuning",
         "story_unlocks",
         "carl_prog",
+        "donut_prog_tuning",
         "party_tuning",
     ] {
         tamper_manifest(&session, |m| {
@@ -597,11 +601,35 @@ fn content_and_rules_mismatches_are_rejected() {
         assert!(failure.message.contains(key), "{failure}");
         restore();
     }
-    for key in ["mana_tuning", "story_unlocks", "carl_prog"] {
+    for key in [
+        "mana_tuning",
+        "story_unlocks",
+        "carl_prog",
+        "donut_prog_tuning",
+    ] {
         tamper_manifest(&session, |m| {
             m.content_hashes.remove(key);
         });
         expect_failure(&session, "content_mismatch");
+        restore();
+    }
+    // DONUT-PROG-01 DP-Q46: the Donut tuning pin is required like the others,
+    // and a descriptor whose Donut start flag breaks the story order (no
+    // biscuit) is a failure, never a panic.
+    for flag in 0..2 {
+        tamper_manifest(&session, |m| {
+            // A start flag is read by the DEMO-01 hall (a plain fixture ignores it).
+            m.reset.source = "demo".to_owned();
+            m.reset.demo = true;
+            m.reset.donut_biscuit = false;
+            if flag == 0 {
+                m.reset.donut_light_feet = true;
+            } else {
+                m.reset.donut_puddle = true;
+            }
+        });
+        let failure = expect_failure(&session, "rules_mismatch");
+        assert!(failure.message.contains("start_flags["), "{failure}");
         restore();
     }
     tamper_manifest(&session, |m| m.reset.kit_hash ^= 1);

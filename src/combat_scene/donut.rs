@@ -251,6 +251,12 @@ impl CombatState {
     /// the attempt from it.
     #[must_use]
     pub fn with_donut(mut self, setup: DonutSetup) -> Self {
+        // The story-order check of `with_story` reads the biscuit: replacing the
+        // kit afterwards would bypass it.
+        debug_assert!(
+            self.story.is_none(),
+            "with_donut must come before with_story (the story order reads the biscuit)"
+        );
         self.donut_kit = DonutKit::new(setup);
         // Q37: the llama switch is derived from the one CF02 switch
         // (`CombatState::cf02()`): a `cf02_*` fixture or `--cf02` makes the

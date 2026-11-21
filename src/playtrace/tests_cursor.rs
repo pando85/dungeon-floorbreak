@@ -274,6 +274,9 @@ fn the_cursor_replays_the_story_route_without_combat() {
         carl_dynamite: false,
         carl_gauntlet: false,
         donut_motion: crate::party::PROVISIONAL_TUNING.donut_motion,
+        donut_prog: false,
+        donut_light_feet: false,
+        donut_puddle: false,
         kit_hash: super::live_tests::real_kit_hash(),
         start_hash: scene.state_hash(),
     };

@@ -166,10 +166,15 @@ fn story_setup(
     boss: bool,
 ) -> crate::story_unlock::StorySetup {
     use crate::story_unlock::SceneKind;
-    let flags = crate::carl_prog::CarlProgFlags {
+    let carl = crate::carl_prog::CarlProgFlags {
         prog: reset.carl_prog,
         dynamite: reset.carl_dynamite,
         gauntlet: reset.carl_gauntlet,
+    };
+    let donut = crate::donut_prog::DonutProgFlags {
+        prog: reset.donut_prog,
+        light_feet: reset.donut_light_feet,
+        puddle: reset.donut_puddle,
     };
     let scene = if reset.cf02_rules && (reset.demo || reset.source == "demo") {
         SceneKind::CfArena
@@ -180,7 +185,7 @@ fn story_setup(
     } else {
         return crate::story_unlock::StorySetup::NONE;
     };
-    flags.story_setup(scene)
+    crate::donut_prog::story_setup(carl, donut, scene)
 }
 
 fn combat_for(
@@ -193,7 +198,10 @@ fn combat_for(
     let mut combat = CombatState::new(fixture, kit, scene)
         .map_err(|e| VerifyFailure::new("content_mismatch", e))?
         .with_donut(donut_setup(reset, boss))
-        .with_story(story_setup(reset, boss));
+        // A descriptor whose Donut flags break the story order (a start flag
+        // without the biscuit) is a bad manifest, never a panic.
+        .try_with_story(story_setup(reset, boss))
+        .map_err(|e| VerifyFailure::new("rules_mismatch", e.to_string()))?;
     if reset.cf02_rules && reset.demo {
         // CF02-F: `--cf02` is the microarena on the demo machinery.
         combat = combat.with_demo(&crate::cf02::arena::RULES);
