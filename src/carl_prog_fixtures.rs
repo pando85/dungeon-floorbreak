@@ -444,14 +444,14 @@ mod tests {
         ("carl_prog_grant_survives_respawn", 0x8eeb_9036_87de_c95d),
         ("carl_prog_juicer_grants_fist", 0xddd6_81ab_67f5_26ac),
         ("carl_prog_special_locked", 0xc955_52f3_0a6a_9051),
-        ("carl_prog_dyn_arc_standing", 0xbca1_bfff_ffaf_4938),
-        ("carl_prog_dyn_arc_moving", 0xf311_7fc2_ea2c_2edf),
-        ("carl_prog_dyn_one_active", 0xe115_aeb7_b035_9474),
-        ("carl_prog_dyn_core_kill", 0x975a_af66_504a_c70a),
-        ("carl_prog_dyn_outer_launch", 0x9f96_e19c_f370_983a),
-        ("carl_prog_dyn_no_friendly_fire", 0x1f60_8b37_1b8c_6a75),
-        ("carl_prog_dyn_swap_keeps_stick", 0x1e08_9a36_6e77_a86f),
-        ("carl_prog_dyn_boss", 0xc674_4c0d_3f22_0ecb),
+        ("carl_prog_dyn_arc_standing", 0x5f39_bdb0_1c95_8237),
+        ("carl_prog_dyn_arc_moving", 0x9b12_5289_22e4_8d00),
+        ("carl_prog_dyn_one_active", 0x0d20_035e_4ed7_67f7),
+        ("carl_prog_dyn_core_kill", 0x7398_427c_74e7_94d9),
+        ("carl_prog_dyn_outer_launch", 0x9cb6_2929_74d4_2de5),
+        ("carl_prog_dyn_no_friendly_fire", 0xada1_8a6f_91e9_e012),
+        ("carl_prog_dyn_swap_keeps_stick", 0x1325_56e5_5531_094c),
+        ("carl_prog_dyn_boss", 0x90b2_b0d3_e323_2388),
     ];
 
     #[test]

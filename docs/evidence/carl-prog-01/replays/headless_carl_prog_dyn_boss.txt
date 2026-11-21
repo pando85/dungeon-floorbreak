@@ -12,5 +12,5 @@ COMBAT_EVENT tick=195 kind=blast charge=0
 COMBAT_EVENT tick=195 kind=boss_hurt source=0 damage=4 hp_left=6
 COMBAT_EVENT tick=210 kind=hero_hurt source=16981 health_left=3 hero=donut
 COMBAT_EVENT tick=237 kind=boss_tell move=second_pound target=carl
-COMBAT_STATE fixture=carl_prog_dyn_boss seed=0xca10018 tick=260 elapsed=260 hero_hp=2 deaths=0 enemies= hash=a59a630a1c7770d5 boss=6/36/second_tell/p3 boss_x=427.20
-PARTY_STATE fixture=carl_prog_dyn_boss mode=solo controlled=Carl carl_hp=2 donut_hp=3 deaths=0 hash=c6744c0d3f220ecb
+COMBAT_STATE fixture=carl_prog_dyn_boss seed=0xca10018 tick=260 elapsed=260 hero_hp=2 deaths=0 enemies= hash=74ebdd0b7ff1d9b2 boss=6/36/second_tell/p3 boss_x=427.20
+PARTY_STATE fixture=carl_prog_dyn_boss mode=solo controlled=Carl carl_hp=2 donut_hp=3 deaths=0 hash=90b2b0d3e3232388

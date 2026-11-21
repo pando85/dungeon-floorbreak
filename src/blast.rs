@@ -83,6 +83,10 @@ pub struct BlastProfile {
     pub hero_hp: u8,
     /// The knock `(vx, vy)` of a hurt hero in px/s, away from the centre.
     pub hero_knock: (f32, f32),
+    /// The `HeroHurt` source id this blast logs on a hero it hurts: one id per
+    /// setpiece (integration plan section 3), so a world blast routed through
+    /// this profile never logs another setpiece's id. 0 for the QA profile.
+    pub hero_source: u32,
     /// CP-C hook (CP-Q35): the blast breaks the authored supports. CP-B1 carries
     /// the flag and acts on nothing.
     pub breaks_structures: bool,
@@ -102,6 +106,7 @@ impl BlastProfile {
         hero_damage: HeroDamagePolicy::NoHeroes,
         hero_hp: 0,
         hero_knock: (0.0, 0.0),
+        hero_source: 0,
         breaks_structures: false,
     };
 
@@ -128,6 +133,7 @@ impl BlastProfile {
         mix(u64::from(self.hero_hp));
         mix(u64::from(self.hero_knock.0.to_bits()));
         mix(u64::from(self.hero_knock.1.to_bits()));
+        mix(u64::from(self.hero_source));
         mix(u64::from(self.breaks_structures));
     }
 }
@@ -456,6 +462,7 @@ mod tests {
             hero_damage: HeroDamagePolicy::OwnerReduced,
             hero_hp: 1,
             hero_knock: (120.0, 160.0),
+            hero_source: 0x5443,
             breaks_structures: true,
         }
     }
@@ -482,6 +489,10 @@ mod tests {
         let mut other = wide();
         other.outer_radius = 65.0;
         assert_ne!(words(&dynamite), words(&tick.with_profile(other)));
+        // The hero-hurt source id is part of a non-QA profile's hash.
+        let mut sourced = wide();
+        sourced.hero_source = 0x5254;
+        assert_ne!(words(&dynamite), words(&tick.with_profile(sourced)));
     }
 
     #[test]

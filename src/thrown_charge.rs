@@ -385,6 +385,7 @@ pub fn blast_profile(t: &CarlProgTuning) -> BlastProfile {
             f32::from(t.cpq23_self_knock_vx_px_s),
             f32::from(t.cpq23_self_knock_vy_px_s),
         ),
+        hero_source: THROWN_CHARGE_SOURCE,
         breaks_structures: true,
     }
 }
@@ -749,6 +750,7 @@ mod tests {
             ("boss", crate::boss::BOSS_SOURCE_ID),
             ("rack", crate::boss::RACK_SOURCE_ID),
             ("shore block", crate::cf02::arena::SHORE_BLOCK_SOURCE),
+            // TODO(HRD-A1 #202 merged): use `pile_boss::PILE_BOSS_SOURCE_ID` (0x504C) here.
             ("hoarder (reserved)", 0x504C),
             ("thrown charge", THROWN_CHARGE_SOURCE),
         ];

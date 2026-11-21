@@ -3,5 +3,5 @@ COMBAT_EVENT tick=45 kind=charge_thrown charge=0 x=416 y=138
 COMBAT_EVENT tick=83 kind=charge_landed charge=0 x=511 y=92
 COMBAT_EVENT tick=195 kind=blast charge=0
 COMBAT_EVENT tick=195 kind=enemy_defeated target=0 cause=explosion charge=0 credit_player=0 point_blank instigator=0
-COMBAT_STATE fixture=carl_prog_dyn_core_kill seed=0xca10014 tick=240 elapsed=240 hero_hp=4 deaths=0 enemies=e0=664.001/0 hash=5eeab1aefb46ac44
-PARTY_STATE fixture=carl_prog_dyn_core_kill mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=975aaf66504ac70a
+COMBAT_STATE fixture=carl_prog_dyn_core_kill seed=0xca10014 tick=240 elapsed=240 hero_hp=4 deaths=0 enemies=e0=664.001/0 hash=2a4a74f2be588c63
+PARTY_STATE fixture=carl_prog_dyn_core_kill mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=7398427c74e794d9

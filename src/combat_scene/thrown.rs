@@ -29,7 +29,7 @@ use crate::party::HeroId;
 use crate::prototype::{HERO_HALF_HEIGHT, HERO_HALF_WIDTH, Rect};
 use crate::shore::PLAYER_ONE;
 use crate::story_unlock::SPECIAL_THROWN_CHARGE;
-use crate::thrown_charge::{HurtOutcome, PressView, THROWN_CHARGE_SOURCE, Thrower, blast_profile};
+use crate::thrown_charge::{HurtOutcome, PressView, Thrower, blast_profile};
 
 /// The hero index of Carl in events (`CapabilityGranted { hero }` convention).
 const CARL: u8 = 0;
@@ -55,10 +55,32 @@ fn away(body_x: f32, charge_x: f32, facing: i8) -> i8 {
 }
 
 impl CombatState {
-    /// The index of the one reserved dynamite charge slot: after every
-    /// authored (fixture) charge (CP-Q31).
+    /// The index of the one reserved dynamite charge slot: **after every
+    /// authored charge** (the fixture's, then any sticker charges appended with
+    /// [`Self::push_authored_charge`]), CP-Q31. The only place the slot index is
+    /// computed: arming, clearing and the detonation test all use it.
     pub fn dynamite_slot(&self) -> usize {
-        self.fixture.charges.len()
+        self.authored_charges
+    }
+
+    /// Append an authored charge (a sticker's blast, a trap) after the fixture
+    /// charges, before any throw. The reserved thrown-charge slot stays after it,
+    /// so a throw never overwrites it, its blast is never taken for the stick's
+    /// and a respawn never deletes it. Called when an attempt is built; HAZ-A2 is
+    /// the first user and the one allowed editor of this function besides CP-B1.
+    ///
+    /// # Panics
+    ///
+    /// In debug builds when the thrown-charge slot already exists (an authored
+    /// charge must come first).
+    pub fn push_authored_charge(&mut self, charge: BlastCharge) {
+        debug_assert_eq!(
+            self.charges.len(),
+            self.authored_charges,
+            "an authored charge is appended before the thrown-charge slot exists"
+        );
+        self.charges.push(charge);
+        self.authored_charges = self.charges.len();
     }
 
     /// The thrower (idle unless Carl pressed the special).
@@ -210,7 +232,7 @@ impl CombatState {
     /// special is ready; the capability stays (the ledger decides that).
     pub(super) fn clear_thrower(&mut self) {
         self.thrower = Thrower::default();
-        self.charges.truncate(self.fixture.charges.len());
+        self.charges.truncate(self.dynamite_slot());
     }
 
     /// The thrown charge blew: its recharge starts on this tick.
@@ -440,7 +462,7 @@ impl CombatState {
                 scene,
                 HeroBlow {
                     hero: id,
-                    source: THROWN_CHARGE_SOURCE,
+                    source: profile.hero_source,
                     damage: profile.hero_hp,
                     from_x: charge.x,
                     knock_vx: if x >= charge.x { knock_vx } else { -knock_vx },
@@ -465,6 +487,7 @@ mod tests {
     use crate::party::PROVISIONAL_TUNING;
     use crate::party_scene::{PartyFixture, PartyFixtureSim, base};
     use crate::story_unlock::StorySetup;
+    use crate::thrown_charge::THROWN_CHARGE_SOURCE;
     use std::path::PathBuf;
 
     use super::super::{EnemySpawn, Fixture, LlamaSpawn};
@@ -692,49 +715,40 @@ mod tests {
 
     #[test]
     fn carl_prog_dyn_arc_moving() {
+        // The same run as the registered fixture: Carl runs right from tick 1 and
+        // presses on tick 5. The stick spawns on t41 (tick 46) at the pivot + 16,
+        // carries half his speed, lands on tick 84 at +169 px from the pivot it
+        // was thrown from, and blows exactly 150 ticks after the release.
         let mut s = sim(&EMPTY_SOLO, true);
-        idle(&mut s, 3);
-        // Run right from before the press through the flight.
         let run = RawInput {
             move_x: 1.0,
             ..RawInput::NONE
         };
-        s.step_slots([run, RawInput::default()]);
-        s.step_slots([
-            RawInput {
-                ability: true,
-                ..run
-            },
-            RawInput::default(),
-        ]);
-        assert_eq!(tick_of(&s), P + 1);
-        let press_tick = P + 1;
-        let release = press_tick + 41;
-        while tick_of(&s) < release + 60 {
-            s.step_slots([run, RawInput::default()]);
+        for tick in 1..=196u64 {
+            let raw = if tick == 5 {
+                RawInput {
+                    ability: true,
+                    ..run
+                }
+            } else {
+                run
+            };
+            s.step_slots([raw, RawInput::default()]);
+            if tick == 46 {
+                // Walking continued during the throw: the pivot moved on.
+                assert!(s.scene.world.hero.x > 400.0 + 100.0);
+            }
         }
-        // Walking continues during the throw (the moving variant).
-        assert!(s.scene.world.hero.x > 400.0 + 100.0);
-        let thrown = lines_of(&s, "charge_thrown");
-        assert_eq!(thrown.len(), 1);
-        assert!(thrown[0].contains(&format!("tick={release} ")));
-        let landed = lines_of(&s, "charge_landed");
-        assert_eq!(landed.len(), 1, "{landed:?}");
-        // The stick lands about 170 px ahead of the pivot where it was thrown
-        // from (Carl ran 40 ticks first): well past the standing 111.
-        let x: i32 = landed[0]
-            .split("x=")
-            .nth(1)
-            .unwrap()
-            .split(' ')
-            .next()
-            .unwrap()
-            .parse()
-            .unwrap();
-        assert!(
-            x > 511 + 40,
-            "a running throw lands farther than a standing one: {x}"
+        assert_eq!(
+            lines_of(&s, "charge_thrown"),
+            ["COMBAT_EVENT tick=46 kind=charge_thrown charge=0 x=558 y=138"]
         );
+        assert_eq!(
+            lines_of(&s, "charge_landed"),
+            ["COMBAT_EVENT tick=84 kind=charge_landed charge=0 x=711 y=92"]
+        );
+        assert_eq!(blasts(&s), [46 + 150]);
+        // 711 - (558 - 16) = 169: about 170 px ahead, well past the standing 111.
     }
 
     #[test]
@@ -926,26 +940,43 @@ mod tests {
     #[test]
     fn carl_prog_dyn_out_of_world() {
         // Thrown at the world edge: the stick clamps to the column range like a
-        // hero. With no floor it keeps falling and the recharge still starts on
-        // its fuse tick.
-        let mut s = sim(&EMPTY_SOLO, true);
-        s.scene.world.hero.x = 2040.0 - 40.0;
-        s.scene.world.hero.facing = 1;
-        idle(&mut s, 3);
-        press(&mut s);
-        let press_tick = tick_of(&s);
-        idle(&mut s, 80);
-        let x = s.combat.thrower().stick().map(|st| st.x);
-        let max = s.combat.x_max - crate::prototype::HERO_HALF_WIDTH;
-        assert!(x.unwrap() <= max, "{x:?} <= {max}");
-        for block in &mut s.scene.world.solids {
+        // hero and, on a floor, stops there.
+        let mut edge = sim(&EMPTY_SOLO, true);
+        edge.scene.world.hero.x = 2040.0 - 40.0;
+        edge.scene.world.hero.facing = 1;
+        idle(&mut edge, 3);
+        press(&mut edge);
+        idle(&mut edge, 80);
+        let max = edge.combat.x_max - crate::prototype::HERO_HALF_WIDTH;
+        let stick = edge.combat.thrower().stick().unwrap();
+        assert!(stick.x <= max, "{} <= {max}", stick.x);
+        assert!(stick.landed, "on a floor it stops at the edge");
+
+        // With no floor it keeps falling, never lands, and the recharge still
+        // starts on its fuse tick. The floors go before the release (t41), so the
+        // stick really falls.
+        let mut pit = sim(&EMPTY_SOLO, true);
+        pit.scene.world.hero.x = 2040.0 - 40.0;
+        idle(&mut pit, 3);
+        press(&mut pit);
+        let press_tick = tick_of(&pit);
+        run_to(&mut pit, press_tick + 20);
+        for block in &mut pit.scene.world.solids {
             block.intact = false;
         }
-        run_to(&mut s, press_tick + 41 + 150);
-        assert_eq!(blasts(&s), [press_tick + 41 + 150]);
-        assert!(s.combat.thrower().recharging());
-        run_to(&mut s, press_tick + 41 + 150 + 420);
-        assert_eq!(lines_of(&s, "special_ready").len(), 1);
+        run_to(&mut pit, press_tick + 41 + 100);
+        let falling = pit.combat.thrower().stick().unwrap();
+        assert!(
+            !falling.landed && falling.y < 0.0,
+            "still falling: {falling:?}"
+        );
+        assert!(falling.x <= max);
+        run_to(&mut pit, press_tick + 41 + 150);
+        assert_eq!(blasts(&pit), [press_tick + 41 + 150]);
+        assert!(lines_of(&pit, "charge_landed").is_empty());
+        assert!(pit.combat.thrower().recharging());
+        run_to(&mut pit, press_tick + 41 + 150 + 420);
+        assert_eq!(lines_of(&pit, "special_ready").len(), 1);
     }
 
     // ------------------------------------------------------- blast reach --
@@ -1540,6 +1571,9 @@ mod tests {
         assert!(!s.scene.world.hero.grounded, "the jump went off");
     }
 
+    /// A stand-in hero-hurt source id for a world blast (the Rot sticker's base).
+    const WORLD_SOURCE: u32 = 0x5254;
+
     #[test]
     fn carl_prog_dyn_hero_damage_policies_share_one_vocabulary() {
         use crate::hero_damage::HeroDamagePolicy;
@@ -1552,6 +1586,9 @@ mod tests {
             let mut profile = blast_profile(CarlProgTuning::active());
             profile.hero_damage = policy;
             profile.hero_hp = 2;
+            // A world blast routed through the profile logs the id its profile
+            // carries (the Rot sticker's, say), never the thrown charge's.
+            profile.hero_source = WORLD_SOURCE;
             let charge =
                 BlastCharge::new(x, s.scene.world.hero_foot_y(), 1, owner).with_profile(profile);
             s.combat.resolve_profile_blast(&mut s.scene, 0, charge, 3);
@@ -1571,7 +1608,12 @@ mod tests {
         // The owner (hero 1) is the one reduced under OwnerReduced.
         let own = outcome(HeroDamagePolicy::OwnerReduced, Some(1));
         assert!(donut(&own));
-        assert!(own.iter().all(|h| h.1 == THROWN_CHARGE_SOURCE));
+        assert!(own.iter().all(|h| h.1 == WORLD_SOURCE));
+        assert!(
+            outcome(HeroDamagePolicy::AllHeroes, None)
+                .iter()
+                .all(|h| h.1 == WORLD_SOURCE && h.1 != THROWN_CHARGE_SOURCE)
+        );
     }
 
     static ARMED_BASE: Fixture = base("test_dyn_armed", "an armed Donut", 7, &[], 2000);
@@ -1615,6 +1657,7 @@ mod tests {
             let x = s.scene.world.donut_body.x;
             let mut profile = blast_profile(CarlProgTuning::active());
             profile.hero_damage = policy;
+            profile.hero_source = WORLD_SOURCE;
             let charge =
                 BlastCharge::new(x, s.scene.world.hero_foot_y(), 1, None).with_profile(profile);
             let tick = tick_of(&s) + 1;
@@ -1627,8 +1670,8 @@ mod tests {
         assert!(
             hero_hurts(&hurt)
                 .iter()
-                .any(|h| h.3 == HeroId::Donut && h.1 == THROWN_CHARGE_SOURCE),
-            "an armed Donut is hurt by the blast"
+                .any(|h| h.3 == HeroId::Donut && h.1 == WORLD_SOURCE),
+            "an armed Donut is hurt by the blast, logged with the profile's source"
         );
         assert!(
             !hurt
@@ -1651,5 +1694,87 @@ mod tests {
                 .any(|e| matches!(e, CombatEvent::HeroEvaded { .. }))
         );
         assert!(spared.combat.reflex().armed(), "untouched, still armed");
+    }
+
+    /// A state of `CORE`'s shape with one extra authored (sticker-like) charge
+    /// far from everything, appended the way HAZ-A2 will.
+    fn with_sticker(held: bool) -> (PartyFixtureSim, BlastCharge) {
+        let mut s = sim(&EMPTY_SOLO, held);
+        let sticker = BlastCharge::new(1500.0, s.scene.world.hero_foot_y(), 30_000, None);
+        s.combat.push_authored_charge(sticker);
+        (s, sticker)
+    }
+
+    /// CP-Q31 / plan CP-B1 addition: the slot is after every authored charge, so
+    /// a throw never overwrites a sticker, its blast is never taken for the
+    /// stick's, and a respawn never deletes it.
+    #[test]
+    fn carl_prog_dyn_the_slot_is_after_every_authored_charge() {
+        let (mut s, sticker) = with_sticker(true);
+        assert_eq!(s.combat.dynamite_slot(), 1, "after the sticker");
+        idle(&mut s, 3);
+        press(&mut s);
+        run_to(&mut s, BLAST);
+        // The throw used index 1 and left the sticker alone.
+        assert_eq!(s.combat.charges.len(), 2);
+        assert_eq!(s.combat.charges[0], sticker);
+        let thrown = lines_of(&s, "charge_thrown");
+        assert!(thrown[0].contains("charge=1"), "{thrown:?}");
+        // The stick's blast is charge 1 and starts the recharge; the sticker did
+        // not blow and was not mistaken for the stick.
+        assert_eq!(
+            lines_of(&s, "blast"),
+            [format!("COMBAT_EVENT tick={BLAST} kind=blast charge=1")]
+        );
+        assert!(s.combat.thrower().recharging());
+        assert!(!s.combat.charges[0].detonated);
+        // A second throw reuses index 1 and the sticker is still there.
+        run_to(&mut s, BLAST + 419);
+        press(&mut s);
+        idle(&mut s, 120);
+        assert_eq!(s.combat.charges.len(), 2);
+        assert_eq!(s.combat.charges[0], sticker);
+        assert!(
+            lines_of(&s, "charge_thrown")
+                .iter()
+                .all(|l| l.contains("charge=1"))
+        );
+        // A restart rebuilds the attempt from the fixture: the thrower is clear
+        // and the slot is gone (the sticker is the next attempt's to re-add).
+        s.combat.restart(&mut s.scene);
+        assert!(s.combat.thrower().is_idle());
+        assert!(s.combat.charges.is_empty());
+        assert_eq!(s.combat.dynamite_slot(), 0);
+    }
+
+    #[test]
+    fn a_checkpoint_respawn_keeps_the_authored_charges_and_clears_only_the_stick() {
+        use crate::demo::{DEMO_RULES, fixture_for_beat, load_hall};
+        let kit = load_hall(&PathBuf::from(env!("CARGO_MANIFEST_DIR"))).unwrap();
+        let fixture = fixture_for_beat(1);
+        let mut scene = crate::corridor::SceneSim::new_at(&kit, 360, fixture.carl_x).unwrap();
+        let mut combat = CombatState::new(fixture, &kit, &scene)
+            .unwrap()
+            .with_demo(&DEMO_RULES)
+            .with_story(StorySetup::NONE.with_hold("special_thrown_charge"));
+        let own = combat.fixture.charges.len();
+        let sticker = BlastCharge::new(1500.0, scene.world.hero_foot_y(), 30_000, None);
+        combat.push_authored_charge(sticker);
+        assert_eq!(combat.dynamite_slot(), own + 1);
+        combat.step(&mut scene, RawInput::default());
+        combat.step(&mut scene, PRESS);
+        for _ in 0..60 {
+            combat.step(&mut scene, RawInput::default());
+        }
+        assert!(combat.thrower().stick().is_some());
+        assert_eq!(combat.charges.len(), own + 2);
+        combat.respawn(&mut scene);
+        assert!(combat.thrower().is_idle());
+        assert_eq!(
+            combat.charges.len(),
+            own + 1,
+            "the sticker survives the respawn"
+        );
+        assert_eq!(combat.charges[own], sticker);
     }
 }

@@ -2,5 +2,5 @@ COMBAT_EVENT tick=4 kind=special_started hero=0 capability=special_thrown_charge
 COMBAT_EVENT tick=45 kind=charge_thrown charge=0 x=416 y=138
 COMBAT_EVENT tick=83 kind=charge_landed charge=0 x=511 y=92
 COMBAT_EVENT tick=195 kind=blast charge=0
-COMBAT_STATE fixture=carl_prog_dyn_no_friendly_fire seed=0xca10016 tick=260 elapsed=260 hero_hp=4 deaths=0 enemies= hash=30d6a06dbf96c70f
-PARTY_STATE fixture=carl_prog_dyn_no_friendly_fire mode=2p controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=1f608b371b8c6a75
+COMBAT_STATE fixture=carl_prog_dyn_no_friendly_fire seed=0xca10016 tick=260 elapsed=260 hero_hp=4 deaths=0 enemies= hash=e7052d9228f1fa1c
+PARTY_STATE fixture=carl_prog_dyn_no_friendly_fire mode=2p controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=ada18a6f91e9e012

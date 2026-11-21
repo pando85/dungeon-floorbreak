@@ -843,10 +843,15 @@ pub struct CombatState {
     /// HUD-DEBT-03: the Floor 01 boss encounter (boss fixtures only; `None`
     /// everywhere else, so no earlier route, fixture or hash changes).
     pub boss: Option<Boss>,
-    /// DEATH-D: the fixture's authored blast charges (QA only), then, after the
-    /// first throw, the one reserved thrown-charge slot at index
-    /// `fixture.charges.len()` (CARL-PROG-01 CP-B1, CP-Q31).
+    /// DEATH-D: the authored blast charges (the fixture's, then any sticker
+    /// charges a later step appends through [`Self::push_authored_charge`]), then,
+    /// after the first throw, the one reserved thrown-charge slot at index
+    /// `authored_charges`, **after every authored charge** (CARL-PROG-01 CP-B1,
+    /// CP-Q31).
     pub charges: Vec<BlastCharge>,
+    /// How many of `charges` are authored: the index of the reserved thrown-charge
+    /// slot. Not hashed (a function of the attempt's build).
+    authored_charges: usize,
     /// CARL-PROG-01 CP-B1: Carl's thrown charge (the press gate, the throw clock,
     /// the stick, the recharge). Idle, and mixing nothing into the hash, unless
     /// he holds the capability and pressed the special.
@@ -989,6 +994,7 @@ impl CombatState {
             shore: None,
             boss: None,
             charges: Vec::new(),
+            authored_charges: 0,
             thrower: Thrower::default(),
             contacts: Vec::new(),
             input: InputFrame::default(),
@@ -1267,6 +1273,7 @@ impl CombatState {
             .iter()
             .map(|spawn| self.charge_of(spawn))
             .collect();
+        self.authored_charges = self.charges.len();
         // CP-Q28: a defeat retry and a fixture restart clear the thrown charge.
         self.thrower = Thrower::default();
         self.contacts.clear();
