@@ -10,6 +10,10 @@ The original dual-llama encounter could be trivialized by Donut **standing still
 
 The *first llama* can be killed by just three magic bolts; only the **M2 corral** is subject to the anti-stationary-spam acceptance gate.
 
+## Mandatory agent-owned automated playtesting
+
+[**CORRAL-AUTO-01 — executable self-test work order**](floor-01-corral-autonomous-evaluation.md) is a **hard implementation requirement**, not optional documentation. The agent must create real M1/M2 Rust party-simulation fixtures, write a legal press-edge stationary-cast policy plus mobile-Donut/Carl-melee/2P probes, execute a sweep of legal positions, analyze its own counterexample traces, tune rush/geometry, and rerun until the design gate passes or report blockers. It must deliver actual passing/failing test commands, machine-readable JSON/CSV, before/after results and replay hashes **it executed itself**. A normal scripted test that never actually casts repeatedly is not a substitute. Existing AUTOPLAY `party_solo` does not currently have a llama scenario or full party evaluate/replay commands; build the minimal scoped Rust evaluator using `PartyFixtureSim` instead of asserting tooling is already available. Automation does **not** replace the owner's real game-feel approval.
+
 ## First audit: what actually works on the branch?
 
 1. Follow `AGENTS.md`, current orchestrator/workorders and shared-file ownership. Inspect current `src/llama.rs`, `src/combat_scene.rs`, `src/combat_scene/donut.rs`, `src/party.rs`, `src/prototype.rs`, live camera, room loader, active companion/Donut mobility/CF02 branches, and story unlock integration.
