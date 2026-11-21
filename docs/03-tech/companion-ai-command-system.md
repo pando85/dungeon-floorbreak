@@ -5,6 +5,8 @@
 **Scope:** Floor 01 solo (either Carl or Donut controlled by AI) with compatibility requirements for 2P, existing party/hud rules, later narrative progression and offline policy evaluation.  
 **Primary goal:** Make the AI companion useful, intelligible, characterful and tactically interesting **without turning a combat-first platform-action game into a command-management game**.
 
+> **Follow-up design:** [COMPANION-AI-02 — Donut autonomy inside the camera](companion-ai-02-donut-autonomy.md) gives the AI Donut her own spacing, targets and goals within the camera view (profile set `cf02_free`, proposal).
+
 > This document proposes gameplay rules, control experiments, architecture and test gates. Numeric values are *starting hypotheses*, never tuned/approved facts. It does not modify the current implementation or supersede owner-approved controller/party/HUD specifications.
 
 ## 0. Evidence and binding constraints
@@ -467,6 +469,8 @@ Owner game-feel feedback after the first CF02 playtest (2026-11-21): "I expected
 Utilities: interrupt 2000 > pounce on a lying goblin 1500 > offensive missile 1300 > offensive pounce 1200 > strike 1000 (integers, minus the distance). Unchanged: Q13 AI Carl passive in `cf02_assist`, Q14 and Q17 interrupts, Q38 lying-hold, Q40 in-view, `ca26_ai_bailout`.
 
 Evidence: `cf02_assist_donut_defeats_goblin` (no human input, before the biscuit, her pounce defeats the goblin) and `cf02_assist_donut_missiles_goblin` (biscuit unlocked, her missiles defeat it and keep the reserve of 2). Seven `cf02_assist_*` and three `cf02_arena_*` goldens moved on purpose (the PR body lists old and new); `cf02_arena_environment` now runs the follow-and-jump bot because the active assistant clears the goblins before they swing and trip the shore the fixture demonstrates; the non-golden test `cf02_arena_environment_plan_runs_under_the_default_assistant` measures the same room with the default assistant (0 shore trips against 3 with the bot) and `--companion off` rehearses the plan (PR #165 review F-3). The pre-DUO scenarios of Q14, Q15, Q16, Q38 and Q39 are kept as regression tests under the `companion_v0` Donut (same numbers as the old `cf02_assist`). Known: a pounce on a standing goblin can whiff against a moving target; the vertical reach is A09 (no swat exists any more). Known limit of A08: a pounce she started before Carl's combat began lands about 10 to 16 ticks later and can still take a last hit that Carl's press, made after her start, left over (the 1 HP reserve covers only the HP seen at the start). Follow-ups from the review: a runtime hit-share cap (U-1), a line-of-fire check for the missile (U-2), gating the offence on `cf02_rules` (U-3), no offensive move while a tell aims at Carl (U-4).
+
+Owner feedback after this section (2026-11-21) asked for a Donut who moves and chooses on her own, bounded by the camera view: see [COMPANION-AI-02](companion-ai-02-donut-autonomy.md). It keeps the A08 finisher rule (and #170's A11 to A13 once merged) as its hard veto and runs behind its own profile set, so nothing in this section changes.
 
 ## 18. Horizon fit
 
