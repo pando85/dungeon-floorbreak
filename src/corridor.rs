@@ -767,6 +767,23 @@ impl SceneSim {
         self.pan_boost
     }
 
+    /// COMPANION-AI-02 (CA2-A): how many pixels the scroll camera still wants
+    /// to move toward the controlled hero (or the midpoint in two-player), the
+    /// "the camera is about to pan" signal of spec 3.2. Read-only: a zero-speed
+    /// step on a copy of the camera, the same probe the eased swap pan uses, so
+    /// no state changes and nothing is hashed.
+    pub fn camera_pan_remaining(&self) -> i32 {
+        let world = &self.world;
+        let (x, facing, deadzone) = if self.drive.two_player {
+            ((world.hero.x + world.donut_body.x) * 0.5, 0, 0)
+        } else {
+            let target = world.body(self.drive.controlled);
+            (target.x, target.facing, DEADZONE_PX)
+        };
+        let mut probe = self.camera;
+        probe.step_capped_deadzone(x, facing, 0, deadzone)
+    }
+
     /// True while the party is live (Donut is a real hero).
     pub fn party_live(&self) -> bool {
         self.drive.live
