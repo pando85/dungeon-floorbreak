@@ -26,8 +26,8 @@
 //! hero. It places the hero only on an anchor it could walk, jump or drop to on
 //! its own (so a mandatory gate or a destroyed bridge is never bypassed), from
 //! which it can still reach the leader, just outside the view on the side
-//! behind the leader (never a pop-in inside the camera), and otherwise says why
-//! it did not.
+//! behind the leader and nearest the view edge (never a pop-in inside the
+//! camera, never ahead of the leader), and otherwise says why it did not.
 //!
 //! Determinism: no randomness, no `HashMap`; the nav graph's tie breaks are
 //! stable. [`HeroNav::hash_into`] mixes only the committed transit and the jump
@@ -48,6 +48,9 @@ pub const ARRIVE_EPS_PX: f32 = 0.6;
 const LAND_EPS_PX: f32 = 0.6;
 /// Standing inset from an anchor end for a regroup placement.
 const PLACE_INSET_PX: f32 = 2.0;
+/// Regroup candidates whose distance from the view edge falls in the same
+/// bucket of this width tie, and the height closest to the leader's decides.
+const REGROUP_EDGE_BUCKET_PX: f32 = 16.0;
 /// A waiting hero stands this far from the leader's x on its own anchor (the
 /// bot's follow distance), with the bot's slack before it moves again.
 const WAIT_BAND_PX: f32 = 40.0;
@@ -55,6 +58,9 @@ const FOLLOW_SLACK_PX: f32 = 8.0;
 /// A committed transit is dropped after this many ticks beyond its ETA times
 /// three (a hero stuck behind something the model does not know).
 const TRANSIT_SLACK_TICKS: u16 = 120;
+
+/// The regroup ranking: edge bucket, height gap, exact edge gap.
+type RegroupKey = (u64, u64, u64);
 
 /// Where a body is, as the executor sees it.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -122,6 +128,9 @@ pub struct HeroNav {
     /// The anchor the hero last reported waiting at (a trace guard, not
     /// simulation state: never hashed).
     waiting: Option<NavAnchorId>,
+    /// The reason of the last `Stranded` note (the edge guard: a stranded hero
+    /// reports once per change, not once per tick; trace only, never hashed).
+    stranded: Option<Reason>,
 }
 
 impl HeroNav {
@@ -185,6 +194,10 @@ pub enum Regroup {
     /// No safe, reachable, off-screen anchor exists (the camera warning):
     /// the hero stays where it is and the reason is traced.
     Denied(Reason),
+    /// The leader is in the air over no known anchor, so whether it stays
+    /// reachable cannot be checked this tick: do nothing and ask again next
+    /// tick (the off-screen counter keeps running).
+    Defer,
 }
 
 /// The nav graph of a live level plus the executor state of both heroes.
@@ -356,10 +369,12 @@ impl NavDriver {
         let i = actor.index();
         let (Some(here), Some(lead)) = (self.anchor_of(me), self.anchor_of(leader)) else {
             self.heroes[i].waiting = None;
+            self.heroes[i].stranded = None;
             return None;
         };
         if here == lead {
             self.heroes[i].waiting = None;
+            self.heroes[i].stranded = None;
             return None;
         }
         match self
@@ -368,6 +383,7 @@ impl NavDriver {
         {
             Plan::Route(path) => {
                 self.heroes[i].waiting = None;
+                self.heroes[i].stranded = None;
                 let needs_nav = path.anchors.windows(2).any(|w| {
                     self.graph
                         .edge_plan(w[0], w[1], actor)
@@ -379,6 +395,7 @@ impl NavDriver {
                 self.begin(actor, here, path.anchors[1], me, notes)
             }
             Plan::Wait { anchor, reason } => {
+                self.heroes[i].stranded = None;
                 if self.heroes[i].waiting != Some(anchor) {
                     self.heroes[i].waiting = Some(anchor);
                     notes.push(NavNote::Waiting { anchor, reason });
@@ -393,9 +410,15 @@ impl NavDriver {
                 self.begin(actor, here, *path.anchors.get(1)?, me, notes)
             }
             Plan::Stranded(reason) => {
-                if self.heroes[i].waiting.take().is_some() || reason != Reason::Unreachable {
+                // Edge: one note per change of the stranded state, never one per
+                // tick (the event log is bounded).
+                let was_waiting = self.heroes[i].waiting.take().is_some();
+                if (was_waiting || reason != Reason::Unreachable)
+                    && self.heroes[i].stranded != Some(reason)
+                {
                     notes.push(NavNote::Stranded { reason });
                 }
+                self.heroes[i].stranded = Some(reason);
                 None
             }
         }
@@ -459,6 +482,26 @@ impl NavDriver {
         self.continue_transit(actor, me, notes)
     }
 
+    /// The highest open anchor under a body in the air (its x within the span,
+    /// the surface not above the feet).
+    fn anchor_below(&self, b: Body) -> Option<NavAnchorId> {
+        let mut best: Option<(f32, NavAnchorId)> = None;
+        for a in self.graph.anchors() {
+            let (Some((x0, x1)), Some((_, top))) =
+                (self.graph.anchor_span(a), self.graph.anchor_pos(a))
+            else {
+                continue;
+            };
+            if !self.graph.anchor_open(a) || b.x < x0 || b.x > x1 || top > b.foot_y + 4.0 {
+                continue;
+            }
+            if best.is_none_or(|(t, _)| top > t) {
+                best = Some((top, a));
+            }
+        }
+        best.map(|(_, a)| a)
+    }
+
     /// The camera-safe regroup of a hero that has been off-screen too long (see
     /// the module docs). `leader` is the other hero.
     pub fn regroup(&self, actor: HeroId, me: Body, leader: Body, view: &RegroupView) -> Regroup {
@@ -467,13 +510,24 @@ impl NavDriver {
         let Some(here) = self.graph.anchor_at(me.x, me.foot_y) else {
             return Regroup::Legacy;
         };
-        let lead = self.anchor_of(leader);
+        // The anchor the leader stands on, or, in a jump or a fall, the one
+        // under it: the "leader stays reachable" check runs in the air too, so
+        // a dead end is never picked on the tick the counter happens to expire
+        // mid-jump. Over no anchor in the air nothing can be checked: wait.
+        let lead = if leader.grounded {
+            self.graph.anchor_at(leader.x, leader.foot_y)
+        } else {
+            match self.anchor_below(leader) {
+                Some(a) => Some(a),
+                None => return Regroup::Defer,
+            }
+        };
         let edge_x = if view.behind < 0.0 {
             view.view_left - HERO_HALF_WIDTH - 2.0
         } else {
             view.view_right + HERO_HALF_WIDTH + 2.0
         };
-        let mut best: Option<((u64, u64), NavAnchorId, f32, f32)> = None;
+        let mut best: Option<(RegroupKey, NavAnchorId, f32, f32)> = None;
         for a in self.graph.anchors() {
             let (Some((x0, x1)), Some((_, top)), Some(risk)) = (
                 self.graph.anchor_span(a),
@@ -490,8 +544,15 @@ impl NavDriver {
             } else {
                 edge_x.clamp(x0 + PLACE_INSET_PX, x1 - PLACE_INSET_PX)
             };
-            // Off-screen by the legacy measure, never a pop-in.
-            if !(x < view.view_left - HERO_HALF_WIDTH || x > view.view_right + HERO_HALF_WIDTH) {
+            // Only the behind side: outside the view on the side behind the
+            // leader (never a pop-in, never ahead of the leader, so no
+            // unexplored terrain or encounter is skipped).
+            let outside_behind = if view.behind < 0.0 {
+                x < view.view_left - HERO_HALF_WIDTH
+            } else {
+                x > view.view_right + HERO_HALF_WIDTH
+            };
+            if !outside_behind || (x - leader.x) * view.behind <= 0.0 {
                 continue;
             }
             // Reachable on its own legs (no gate or bridge is bypassed), and the
@@ -505,9 +566,14 @@ impl NavDriver {
             {
                 continue;
             }
+            // Nearest to the view edge first (a coarse bucket, so a hero enters
+            // the view from where it was cut off), then the closest height to
+            // the leader, then the exact distance.
+            let edge_gap = (x - edge_x).abs() * 16.0;
             let key = (
+                (edge_gap / (REGROUP_EDGE_BUCKET_PX * 16.0)) as u64,
                 ((top - leader.foot_y).abs() * 16.0) as u64,
-                ((x - leader.x).abs() * 16.0) as u64,
+                edge_gap as u64,
             );
             if best.is_none_or(|(k, ..)| key < k) {
                 best = Some((key, a, x, top));
@@ -783,5 +849,123 @@ mod tests {
             &view(400.0),
         );
         assert_eq!(r, Regroup::Legacy);
+    }
+
+    /// The review probe of B-1: floor 0..3000, the leader on a ledge in view, a
+    /// second ledge far ahead of him at the same height. The hero (off-screen
+    /// left) must come back behind the leader, never jump ahead of him.
+    fn probe_level() -> Vec<Block> {
+        vec![
+            stone(0.0, 0.0, 3000.0, 40.0),
+            stone(1200.0, 60.0, 60.0, 16.0),
+            stone(2000.0, 60.0, 60.0, 16.0),
+        ]
+    }
+
+    #[test]
+    fn a_regroup_never_places_the_hero_ahead_of_the_leader() {
+        let blocks = probe_level();
+        let driver = NavDriver::new(&blocks).unwrap();
+        let v = RegroupView {
+            view_left: 900.0,
+            view_right: 1540.0,
+            behind: -1.0,
+        };
+        let r = driver.regroup(
+            HeroId::Donut,
+            standing(100.0, 0.0),
+            standing(1230.0, 60.0),
+            &v,
+        );
+        let Regroup::Place { x, foot_y, .. } = r else {
+            panic!("{r:?}")
+        };
+        assert!(x < 900.0 - HERO_HALF_WIDTH, "behind the leader: {x}");
+        assert_eq!(foot_y, 0.0, "the floor at the view edge, not the far ledge");
+        assert!((x - (900.0 - HERO_HALF_WIDTH - 2.0)).abs() < 0.01, "{x}");
+
+        // Mirrored: the leader faces left, behind is the right, the hero is
+        // off-screen right of everything but the far ledge ahead of the leader.
+        let v = RegroupView {
+            view_left: 1460.0,
+            view_right: 2100.0,
+            behind: 1.0,
+        };
+        let r = driver.regroup(
+            HeroId::Donut,
+            standing(2900.0, 0.0),
+            standing(1230.0, 60.0),
+            &v,
+        );
+        let Regroup::Place { x, .. } = r else {
+            panic!("{r:?}")
+        };
+        assert!(x > 2100.0 + HERO_HALF_WIDTH, "behind the leader: {x}");
+    }
+
+    /// Behind the view there is only a pit bottom the hero can drop to and never
+    /// leave (a dead end); the leader stands on the main floor.
+    fn dead_end_level() -> Vec<Block> {
+        vec![
+            stone(0.0, -200.0, 900.0, 40.0),
+            stone(900.0, 0.0, 2100.0, 40.0),
+        ]
+    }
+
+    #[test]
+    fn a_regroup_checks_the_leader_is_reachable_while_he_is_airborne() {
+        let blocks = dead_end_level();
+        let driver = NavDriver::new(&blocks).unwrap();
+        let v = RegroupView {
+            view_left: 900.0,
+            view_right: 1540.0,
+            behind: -1.0,
+        };
+        let hero = standing(2800.0, 0.0);
+        // Grounded on the main floor: the pit is a dead end, so it is refused.
+        let r = driver.regroup(HeroId::Donut, hero, standing(1400.0, 0.0), &v);
+        assert!(matches!(r, Regroup::Denied(_)), "{r:?}");
+        // The same leader in mid-jump: the anchor under him is used.
+        let jumping = Body {
+            grounded: false,
+            ..standing(1400.0, 70.0)
+        };
+        let r = driver.regroup(HeroId::Donut, hero, jumping, &v);
+        assert!(matches!(r, Regroup::Denied(_)), "{r:?}");
+        // In the air over no anchor nothing can be judged: ask again next tick.
+        let over_void = Body {
+            grounded: false,
+            ..standing(5000.0, 70.0)
+        };
+        let r = driver.regroup(HeroId::Donut, hero, over_void, &v);
+        assert_eq!(r, Regroup::Defer);
+    }
+
+    #[test]
+    fn a_stranded_hero_reports_once_not_every_tick() {
+        // The route to the leader existed as built and a destruction closed it
+        // (reason Destroyed); the camera bounds hold no safe anchor, so the hero
+        // is stranded on every tick.
+        let mut blocks = level();
+        blocks[1].material = Material::Timber;
+        let mut driver = NavDriver::new(&blocks).unwrap();
+        blocks[1].intact = false;
+        driver.sync(&blocks).unwrap();
+        let hero = Hero::at(100.0, HERO_HALF_HEIGHT);
+        let leader = standing(330.0, 120.0);
+        let count = |n: &[NavNote]| {
+            n.iter()
+                .filter(|n| matches!(n, NavNote::Stranded { .. }))
+                .count()
+        };
+        let far = Some((5000.0, 5100.0));
+        let mut stranded = 0;
+        for _ in 0..50 {
+            let (drive, n) = driver.follow(HeroId::Carl, body(&hero), leader, far);
+            assert_eq!(drive, None);
+            stranded += count(&n);
+        }
+        assert_eq!(stranded, 1, "one edge, not one note per tick");
+        assert!(driver.heroes[0].stranded.is_some());
     }
 }
