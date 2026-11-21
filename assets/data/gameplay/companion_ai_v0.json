@@ -8,6 +8,7 @@
     "cf02_q39_min_assist_starts": 2,
     "cf02_q39_max_hit_share_percent": 50,
     "carl": {
+      "autonomy_role": "none",
       "ca21_active": false,
       "ca41_strike_min_px": 6,
       "ca41_strike_max_px": 30,
@@ -15,6 +16,7 @@
       "ca40_interrupt_range_px": 96
     },
     "donut": {
+      "autonomy_role": "skirmisher",
       "ca21_active": true,
       "cf02_q14_swat_range_px": 96,
       "cf02_q14_swat_tell_tick": 4,
@@ -44,6 +46,98 @@
       "cf02_duo_a15_flank_goblin_range_px": 240,
       "cf02_duo_a15_flank_view_margin_px": 48,
       "cf02_duo_a15_fallback_behind_px": 40
+    },
+    "autonomy": {
+      "enabled": false,
+      "ca2_q03_edge_margin_px": 32,
+      "ca2_q04_leash_px": 240,
+      "ca2_q06_comfort_px": 160,
+      "ca2_q06_pull_per_px": 2,
+      "ca2_q07_travel_ticks": 12,
+      "ca2_q07_escort_bonus": 400,
+      "ca2_q07_escort_min_px": 72,
+      "ca2_q07_escort_max_px": 120,
+      "ca2_q08_view_top_margin_px": 48,
+      "ca2_q08_view_bottom_margin_px": 8,
+      "ca2_q08_max_rise_px": 176,
+      "ca2_q09_drift_slack_px": 8,
+      "ca2_q10_claim_radius_px": 64,
+      "ca2_q12_leader_low_hp": 2,
+      "ca2_q13_outnumbered_count": 2,
+      "ca2_q13_outnumbered_radius_px": 96,
+      "ca2_q16_stickiness": 150,
+      "ca2_q16_min_goal_ticks": 24,
+      "ca2_q25_bound_pad_px": 40,
+      "ca2_q29_spot_max_risk": 250,
+      "ca2_q29_ledge_inset_px": 16,
+      "ca2_q29_lane_penalty": 300,
+      "ca2_q30_respot_px": 48,
+      "ca2_q34_cause_window_ticks": 60,
+      "roles": {
+        "skirmisher": {
+          "goals": {
+            "retreat": {
+              "enabled": true,
+              "utility": 1800
+            },
+            "support_leader": {
+              "enabled": true,
+              "utility": 1400
+            },
+            "hunt": {
+              "enabled": true,
+              "utility": 1200
+            },
+            "escort": {
+              "enabled": true,
+              "utility": 800
+            },
+            "show_off": {
+              "enabled": true,
+              "utility": 700
+            },
+            "perch": {
+              "enabled": true,
+              "utility": 600
+            },
+            "idle": {
+              "enabled": true,
+              "utility": 100
+            }
+          },
+          "ca2_q11_exclude_claimed_from_hunt": true,
+          "ca2_q14_base_lying": 300,
+          "ca2_q14_base_standing": 200,
+          "ca2_q14_base_llama": 260,
+          "ca2_q14_base_engineer": 260,
+          "ca2_q14_isolation_cap_px": 192,
+          "ca2_q14_isolation_divisor": 2,
+          "ca2_q14_travel_divisor": 2,
+          "ca2_q15_back_threat_bonus": 300,
+          "ca2_q19_pounce_prefer_px": 56,
+          "ca2_q19_recoil_px": 96,
+          "ca2_q19_recoil_ticks": 30,
+          "ca2_q20_cast_spacing_px": 112,
+          "ca2_q20_backoff_px": 72,
+          "ca2_q21_hurt_window_ticks": 90,
+          "ca2_q21_hurt_enemy_px": 96,
+          "ca2_q21_low_hp": 2,
+          "ca2_q21_low_enemy_px": 128,
+          "ca2_q21_exit_ticks": 120,
+          "ca2_q21_exit_clear_px": 160,
+          "ca2_q21_cooldown_ticks": 180,
+          "ca2_q22_between_bonus": 64,
+          "ca2_q22_height_bonus_per_16px": 4,
+          "ca2_q23_quiet_ticks": 45,
+          "ca2_q23_perch_range_px": 200,
+          "ca2_q23_max_ticks": 600,
+          "ca2_q23_cooldown_ticks": 240,
+          "ca2_q24_hold_ticks": 36,
+          "ca2_q24_safe_px": 128,
+          "ca2_q24_cooldown_ticks": 360,
+          "ca2_q31_llama_hunt_needs_unlock": true
+        }
+      }
     }
   },
   "companion_v0": {
@@ -54,6 +148,7 @@
     "cf02_q39_min_assist_starts": 3,
     "cf02_q39_max_hit_share_percent": 25,
     "carl": {
+      "autonomy_role": "none",
       "ca21_active": true,
       "ca41_strike_min_px": 6,
       "ca41_strike_max_px": 30,
@@ -61,6 +156,7 @@
       "ca40_interrupt_range_px": 96
     },
     "donut": {
+      "autonomy_role": "skirmisher",
       "ca21_active": true,
       "cf02_q14_swat_range_px": 96,
       "cf02_q14_swat_tell_tick": 4,
@@ -90,6 +186,238 @@
       "cf02_duo_a15_flank_goblin_range_px": 240,
       "cf02_duo_a15_flank_view_margin_px": 48,
       "cf02_duo_a15_fallback_behind_px": 40
+    },
+    "autonomy": {
+      "enabled": false,
+      "ca2_q03_edge_margin_px": 32,
+      "ca2_q04_leash_px": 240,
+      "ca2_q06_comfort_px": 160,
+      "ca2_q06_pull_per_px": 2,
+      "ca2_q07_travel_ticks": 12,
+      "ca2_q07_escort_bonus": 400,
+      "ca2_q07_escort_min_px": 72,
+      "ca2_q07_escort_max_px": 120,
+      "ca2_q08_view_top_margin_px": 48,
+      "ca2_q08_view_bottom_margin_px": 8,
+      "ca2_q08_max_rise_px": 176,
+      "ca2_q09_drift_slack_px": 8,
+      "ca2_q10_claim_radius_px": 64,
+      "ca2_q12_leader_low_hp": 2,
+      "ca2_q13_outnumbered_count": 2,
+      "ca2_q13_outnumbered_radius_px": 96,
+      "ca2_q16_stickiness": 150,
+      "ca2_q16_min_goal_ticks": 24,
+      "ca2_q25_bound_pad_px": 40,
+      "ca2_q29_spot_max_risk": 250,
+      "ca2_q29_ledge_inset_px": 16,
+      "ca2_q29_lane_penalty": 300,
+      "ca2_q30_respot_px": 48,
+      "ca2_q34_cause_window_ticks": 60,
+      "roles": {
+        "skirmisher": {
+          "goals": {
+            "retreat": {
+              "enabled": true,
+              "utility": 1800
+            },
+            "support_leader": {
+              "enabled": true,
+              "utility": 1400
+            },
+            "hunt": {
+              "enabled": true,
+              "utility": 1200
+            },
+            "escort": {
+              "enabled": true,
+              "utility": 800
+            },
+            "show_off": {
+              "enabled": true,
+              "utility": 700
+            },
+            "perch": {
+              "enabled": true,
+              "utility": 600
+            },
+            "idle": {
+              "enabled": true,
+              "utility": 100
+            }
+          },
+          "ca2_q11_exclude_claimed_from_hunt": true,
+          "ca2_q14_base_lying": 300,
+          "ca2_q14_base_standing": 200,
+          "ca2_q14_base_llama": 260,
+          "ca2_q14_base_engineer": 260,
+          "ca2_q14_isolation_cap_px": 192,
+          "ca2_q14_isolation_divisor": 2,
+          "ca2_q14_travel_divisor": 2,
+          "ca2_q15_back_threat_bonus": 300,
+          "ca2_q19_pounce_prefer_px": 56,
+          "ca2_q19_recoil_px": 96,
+          "ca2_q19_recoil_ticks": 30,
+          "ca2_q20_cast_spacing_px": 112,
+          "ca2_q20_backoff_px": 72,
+          "ca2_q21_hurt_window_ticks": 90,
+          "ca2_q21_hurt_enemy_px": 96,
+          "ca2_q21_low_hp": 2,
+          "ca2_q21_low_enemy_px": 128,
+          "ca2_q21_exit_ticks": 120,
+          "ca2_q21_exit_clear_px": 160,
+          "ca2_q21_cooldown_ticks": 180,
+          "ca2_q22_between_bonus": 64,
+          "ca2_q22_height_bonus_per_16px": 4,
+          "ca2_q23_quiet_ticks": 45,
+          "ca2_q23_perch_range_px": 200,
+          "ca2_q23_max_ticks": 600,
+          "ca2_q23_cooldown_ticks": 240,
+          "ca2_q24_hold_ticks": 36,
+          "ca2_q24_safe_px": 128,
+          "ca2_q24_cooldown_ticks": 360,
+          "ca2_q31_llama_hunt_needs_unlock": true
+        }
+      }
+    }
+  },
+  "cf02_free": {
+    "ca19_kill_policy": "factual",
+    "ca10_decision_cadence_ticks": 6,
+    "cf02_q16_action_cadence_ticks": 20,
+    "ca26_ai_bailout": false,
+    "cf02_q39_min_assist_starts": 2,
+    "cf02_q39_max_hit_share_percent": 50,
+    "carl": {
+      "autonomy_role": "none",
+      "ca21_active": false,
+      "ca41_strike_min_px": 6,
+      "ca41_strike_max_px": 30,
+      "ca40_engage_range_px": 96,
+      "ca40_interrupt_range_px": 96
+    },
+    "donut": {
+      "autonomy_role": "skirmisher",
+      "ca21_active": true,
+      "cf02_q14_swat_range_px": 96,
+      "cf02_q14_swat_tell_tick": 4,
+      "ca41_swat_hit_min_px": 6,
+      "ca41_swat_hit_max_px": 30,
+      "cf02_q15_pounce_min_px": 30,
+      "cf02_q15_pounce_max_px": 80,
+      "cf02_q38_pounce_lying_min_ticks_left": 24,
+      "cf02_q17_missile_min_px": 97,
+      "cf02_q17_missile_max_px": 160
+    },
+    "cf02_duo": {
+      "cf02_duo_a04_offense": true,
+      "cf02_duo_a05_missile_min_px": 64,
+      "cf02_duo_a05_missile_max_px": 160,
+      "cf02_duo_a06_pounce_min_px": 30,
+      "cf02_duo_a06_pounce_max_px": 80,
+      "cf02_duo_a08_respect_finisher": true,
+      "cf02_duo_a08_finisher_reach_px": 40,
+      "cf02_duo_a08_finisher_reserve_hp": 1,
+      "cf02_duo_a09_vertical_reach_px": 24,
+      "cf02_duo_a11_engage_facing_only": true,
+      "cf02_duo_a12_recent_hit_ticks": 31,
+      "cf02_duo_a13_turn_to_target": true,
+      "cf02_duo_a15_flank": false,
+      "cf02_duo_a15_flank_ahead_px": 56,
+      "cf02_duo_a15_flank_goblin_range_px": 240,
+      "cf02_duo_a15_flank_view_margin_px": 48,
+      "cf02_duo_a15_fallback_behind_px": 40
+    },
+    "autonomy": {
+      "enabled": true,
+      "ca2_q03_edge_margin_px": 32,
+      "ca2_q04_leash_px": 240,
+      "ca2_q06_comfort_px": 160,
+      "ca2_q06_pull_per_px": 2,
+      "ca2_q07_travel_ticks": 12,
+      "ca2_q07_escort_bonus": 400,
+      "ca2_q07_escort_min_px": 72,
+      "ca2_q07_escort_max_px": 120,
+      "ca2_q08_view_top_margin_px": 48,
+      "ca2_q08_view_bottom_margin_px": 8,
+      "ca2_q08_max_rise_px": 176,
+      "ca2_q09_drift_slack_px": 8,
+      "ca2_q10_claim_radius_px": 64,
+      "ca2_q12_leader_low_hp": 2,
+      "ca2_q13_outnumbered_count": 2,
+      "ca2_q13_outnumbered_radius_px": 96,
+      "ca2_q16_stickiness": 150,
+      "ca2_q16_min_goal_ticks": 24,
+      "ca2_q25_bound_pad_px": 40,
+      "ca2_q29_spot_max_risk": 250,
+      "ca2_q29_ledge_inset_px": 16,
+      "ca2_q29_lane_penalty": 300,
+      "ca2_q30_respot_px": 48,
+      "ca2_q34_cause_window_ticks": 60,
+      "roles": {
+        "skirmisher": {
+          "goals": {
+            "retreat": {
+              "enabled": true,
+              "utility": 1800
+            },
+            "support_leader": {
+              "enabled": true,
+              "utility": 1400
+            },
+            "hunt": {
+              "enabled": true,
+              "utility": 1200
+            },
+            "escort": {
+              "enabled": true,
+              "utility": 800
+            },
+            "show_off": {
+              "enabled": true,
+              "utility": 700
+            },
+            "perch": {
+              "enabled": true,
+              "utility": 600
+            },
+            "idle": {
+              "enabled": true,
+              "utility": 100
+            }
+          },
+          "ca2_q11_exclude_claimed_from_hunt": true,
+          "ca2_q14_base_lying": 300,
+          "ca2_q14_base_standing": 200,
+          "ca2_q14_base_llama": 260,
+          "ca2_q14_base_engineer": 260,
+          "ca2_q14_isolation_cap_px": 192,
+          "ca2_q14_isolation_divisor": 2,
+          "ca2_q14_travel_divisor": 2,
+          "ca2_q15_back_threat_bonus": 300,
+          "ca2_q19_pounce_prefer_px": 56,
+          "ca2_q19_recoil_px": 96,
+          "ca2_q19_recoil_ticks": 30,
+          "ca2_q20_cast_spacing_px": 112,
+          "ca2_q20_backoff_px": 72,
+          "ca2_q21_hurt_window_ticks": 90,
+          "ca2_q21_hurt_enemy_px": 96,
+          "ca2_q21_low_hp": 2,
+          "ca2_q21_low_enemy_px": 128,
+          "ca2_q21_exit_ticks": 120,
+          "ca2_q21_exit_clear_px": 160,
+          "ca2_q21_cooldown_ticks": 180,
+          "ca2_q22_between_bonus": 64,
+          "ca2_q22_height_bonus_per_16px": 4,
+          "ca2_q23_quiet_ticks": 45,
+          "ca2_q23_perch_range_px": 200,
+          "ca2_q23_max_ticks": 600,
+          "ca2_q23_cooldown_ticks": 240,
+          "ca2_q24_hold_ticks": 36,
+          "ca2_q24_safe_px": 128,
+          "ca2_q24_cooldown_ticks": 360,
+          "ca2_q31_llama_hunt_needs_unlock": true
+        }
+      }
     }
   }
 }

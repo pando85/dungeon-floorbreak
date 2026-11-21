@@ -1,8 +1,9 @@
 //! `assets/data/gameplay/companion_ai_v0.json`: the companion profiles.
 //!
-//! Two sets (CA-21): `cf02_assist` is exactly the CF02-Q13..Q17 and Q39 assistant
-//! (AI Donut active, AI Carl passive: follow layer only) and `companion_v0`
-//! makes both roles active. Knob names that carry a CF02 value are named by
+//! Three sets (CA-21): `cf02_assist` is exactly the CF02-Q13..Q17 and Q39 assistant
+//! (AI Donut active, AI Carl passive: follow layer only), `companion_v0`
+//! makes both roles active, and `cf02_free` (COMPANION-AI-02, CA2-Q01) is
+//! `cf02_assist` with the `autonomy` block enabled and the A15 flank off. Knob names that carry a CF02 value are named by
 //! their question ID (`cf02_q14_swat_range_px`); `cf02_q16_action_cadence_ticks` is
 //! CF02-Q16. The file is validated and FNV-1a pinned like
 //! `companion_magic_v0.json` ([`crate::donut_mana::content_hash`]); a load error
@@ -18,7 +19,7 @@ pub const PROFILE_JSON: &str = include_str!("../../assets/data/gameplay/companio
 
 /// The committed FNV-1a 64 content hash of [`PROFILE_JSON`]. Editing the file
 /// without updating this value fails [`ProfileFile::pinned`] and the pin test.
-pub const PROFILE_HASH: u64 = 0x18ff_4553_49b5_fd35;
+pub const PROFILE_HASH: u64 = 0x09e6_9879_bfc0_57e5;
 
 /// The profile set id under the spec's name (CA-21, section 17): the runtime's
 /// `UncontrolledHero::Companion(CompanionProfileSet)` names it.
@@ -43,6 +44,8 @@ pub enum KillPolicy {
 pub enum ProfileSetId {
     Cf02Assist,
     CompanionV0,
+    /// COMPANION-AI-02 (CA2-Q01): `cf02_assist` plus the autonomy layer.
+    Cf02Free,
 }
 
 impl ProfileSetId {
@@ -50,6 +53,179 @@ impl ProfileSetId {
         match self {
             Self::Cf02Assist => "cf02_assist",
             Self::CompanionV0 => "companion_v0",
+            Self::Cf02Free => "cf02_free",
+        }
+    }
+}
+
+/// COMPANION-AI-02 (CA2-Q02, spec 5.3): which role goal table a hero uses when
+/// it is the companion-driven partner. Role names are IP-neutral; the fan
+/// concept names live only in the profile data and the spec.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AutonomyRole {
+    /// No autonomy table: the hero keeps today's follow layer.
+    None,
+    /// A small, proud, mobile hero who works the enemy the leader is not
+    /// working: hit and run, spacing, perches (v1's only table).
+    Skirmisher,
+}
+
+/// One goal of a role table: enable flag and base utility (CA2-Q18).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct GoalRow {
+    pub enabled: bool,
+    pub utility: u16,
+}
+
+/// The goals the skirmisher table lists (CA2-Q18). Goal kinds are code; which
+/// goals a role has and their utilities are data.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RoleGoals {
+    pub retreat: GoalRow,
+    pub support_leader: GoalRow,
+    pub hunt: GoalRow,
+    pub escort: GoalRow,
+    pub show_off: GoalRow,
+    pub perch: GoalRow,
+    pub idle: GoalRow,
+}
+
+impl RoleGoals {
+    fn rows(&self) -> [(&'static str, &GoalRow); 7] {
+        [
+            ("retreat", &self.retreat),
+            ("support_leader", &self.support_leader),
+            ("hunt", &self.hunt),
+            ("escort", &self.escort),
+            ("show_off", &self.show_off),
+            ("perch", &self.perch),
+            ("idle", &self.idle),
+        ]
+    }
+}
+
+/// COMPANION-AI-02: the `skirmisher` role goal table (spec 5.3 and section 6:
+/// CA2-Q11, Q14, Q15, Q18 to Q24, Q31). Read by the goal selector (CA2-B1) and
+/// later stages; CA2-A only loads and validates it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SkirmisherTable {
+    pub goals: RoleGoals,
+    /// CA2-Q11: an enemy in the leader's claim set is never a Hunt candidate
+    /// (a rule, not a penalty; review B-2).
+    pub ca2_q11_exclude_claimed_from_hunt: bool,
+    /// Hunt score base by enemy state (spec 4.2 table, CA2-Q14 family).
+    pub ca2_q14_base_lying: u16,
+    pub ca2_q14_base_standing: u16,
+    pub ca2_q14_base_llama: u16,
+    pub ca2_q14_base_engineer: u16,
+    /// CA2-Q14: isolation term: `min(distance to the leader, cap) / divisor`.
+    pub ca2_q14_isolation_cap_px: u16,
+    pub ca2_q14_isolation_divisor: u16,
+    /// Hunt travel term: `- distance from her / divisor`.
+    pub ca2_q14_travel_divisor: u16,
+    /// CA2-Q15: an enemy coming at the leader's back.
+    pub ca2_q15_back_threat_bonus: u16,
+    /// CA2-Q19: hit and run.
+    pub ca2_q19_pounce_prefer_px: u16,
+    pub ca2_q19_recoil_px: u16,
+    pub ca2_q19_recoil_ticks: u16,
+    /// CA2-Q20: casting spacing after the unlock.
+    pub ca2_q20_cast_spacing_px: u16,
+    pub ca2_q20_backoff_px: u16,
+    /// CA2-Q21: Retreat (a hurt is the only trigger).
+    pub ca2_q21_hurt_window_ticks: u16,
+    pub ca2_q21_hurt_enemy_px: u16,
+    pub ca2_q21_low_hp: u8,
+    pub ca2_q21_low_enemy_px: u16,
+    pub ca2_q21_exit_ticks: u16,
+    pub ca2_q21_exit_clear_px: u16,
+    pub ca2_q21_cooldown_ticks: u16,
+    /// CA2-Q22: Retreat spot terms.
+    pub ca2_q22_between_bonus: u16,
+    pub ca2_q22_height_bonus_per_16px: u16,
+    /// CA2-Q23: Perch.
+    pub ca2_q23_quiet_ticks: u16,
+    pub ca2_q23_perch_range_px: u16,
+    pub ca2_q23_max_ticks: u16,
+    pub ca2_q23_cooldown_ticks: u16,
+    /// CA2-Q24: Show-off.
+    pub ca2_q24_hold_ticks: u16,
+    pub ca2_q24_safe_px: u16,
+    pub ca2_q24_cooldown_ticks: u16,
+    /// CA2-Q31: a llama is a Hunt target only after the unlock (she has no
+    /// damaging move against it before).
+    pub ca2_q31_llama_hunt_needs_unlock: bool,
+}
+
+/// The role tables of a set (v1: `skirmisher` only).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AutonomyRoles {
+    pub skirmisher: SkirmisherTable,
+}
+
+/// COMPANION-AI-02 (spec 5.3, section 6): the autonomy layer's shared knobs
+/// (CA2-Q03 to Q10, Q12, Q13, Q16, Q25 to Q30, Q34) and its role tables. The
+/// block is present in every set; with `enabled` false (`companion_v0`,
+/// `cf02_assist`) nothing in it is read, hashed or applied.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Autonomy {
+    pub enabled: bool,
+    /// CA2-Q03: the zone stays this far inside the view edge.
+    pub ca2_q03_edge_margin_px: u16,
+    /// CA2-Q04: the roam cap around the leader (owner decision 2026-11-21).
+    pub ca2_q04_leash_px: u16,
+    /// CA2-Q06: free inside the comfort radius, a soft pull past it.
+    pub ca2_q06_comfort_px: u16,
+    pub ca2_q06_pull_per_px: u16,
+    /// CA2-Q07: the leader "travels" after this many ticks of one direction;
+    /// the escort bonus and spacing band.
+    pub ca2_q07_travel_ticks: u16,
+    pub ca2_q07_escort_bonus: u16,
+    pub ca2_q07_escort_min_px: u16,
+    pub ca2_q07_escort_max_px: u16,
+    /// CA2-Q08: vertical band margins and the rise limit above the leader's
+    /// feet.
+    pub ca2_q08_view_top_margin_px: u16,
+    pub ca2_q08_view_bottom_margin_px: u16,
+    pub ca2_q08_max_rise_px: u16,
+    /// CA2-Q09: the drift check's slack.
+    pub ca2_q09_drift_slack_px: u16,
+    /// CA2-Q10: the front claim radius of the leader's claim set.
+    pub ca2_q10_claim_radius_px: u16,
+    /// CA2-Q12: the leader is "low" at this health or less.
+    pub ca2_q12_leader_low_hp: u8,
+    /// CA2-Q13: the leader is "outnumbered" with this many enemies within the
+    /// radius.
+    pub ca2_q13_outnumbered_count: u8,
+    pub ca2_q13_outnumbered_radius_px: u16,
+    /// CA2-Q16: goal stickiness and minimum goal time.
+    pub ca2_q16_stickiness: u16,
+    pub ca2_q16_min_goal_ticks: u16,
+    /// CA2-Q25: the automatic camera's bound pad for a bound-only subject.
+    pub ca2_q25_bound_pad_px: u16,
+    /// CA2-Q29: spot safety.
+    pub ca2_q29_spot_max_risk: u16,
+    pub ca2_q29_ledge_inset_px: u16,
+    pub ca2_q29_lane_penalty: u16,
+    /// CA2-Q30: re-pick a spot only when the leader moved this far.
+    pub ca2_q30_respot_px: u16,
+    /// CA2-Q34: the M5 involuntary-cause window.
+    pub ca2_q34_cause_window_ticks: u16,
+    pub roles: AutonomyRoles,
+}
+
+impl Autonomy {
+    /// The role table for `role`; `None` for [`AutonomyRole::None`].
+    pub const fn table(&self, role: AutonomyRole) -> Option<&SkirmisherTable> {
+        match role {
+            AutonomyRole::None => None,
+            AutonomyRole::Skirmisher => Some(&self.roles.skirmisher),
         }
     }
 }
@@ -58,6 +234,10 @@ impl ProfileSetId {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CarlRole {
+    /// COMPANION-AI-02 (CA2-Q02): the autonomy role table this hero uses while
+    /// it is the companion-driven partner. `none` for AI Carl until his own
+    /// work order.
+    pub autonomy_role: AutonomyRole,
     /// `false`: AI Carl only follows (the CF02 Q13 passive Carl).
     pub ca21_active: bool,
     /// Centre distance to a target at which the jab can connect (CA-41, a
@@ -74,6 +254,9 @@ pub struct CarlRole {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DonutRole {
+    /// COMPANION-AI-02 (CA2-Q02): `skirmisher` for Donut (inert while the set's
+    /// `autonomy.enabled` is false).
+    pub autonomy_role: AutonomyRole,
     pub ca21_active: bool,
     /// Q14: a tell aimed at the controlled hero is answered within this range.
     pub cf02_q14_swat_range_px: u16,
@@ -189,6 +372,8 @@ pub struct ProfileSet {
     pub donut: DonutRole,
     /// CF02-DUO: AI Donut's offense (off in `companion_v0`).
     pub cf02_duo: DuoOffense,
+    /// COMPANION-AI-02: the autonomy layer (`enabled` only in `cf02_free`).
+    pub autonomy: Autonomy,
 }
 
 /// The whole file.
@@ -198,6 +383,7 @@ pub struct ProfileFile {
     pub schema_version: u32,
     pub cf02_assist: ProfileSet,
     pub companion_v0: ProfileSet,
+    pub cf02_free: ProfileSet,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -263,6 +449,7 @@ impl ProfileFile {
         match id {
             ProfileSetId::Cf02Assist => &self.cf02_assist,
             ProfileSetId::CompanionV0 => &self.companion_v0,
+            ProfileSetId::Cf02Free => &self.cf02_free,
         }
     }
 
@@ -272,6 +459,7 @@ impl ProfileFile {
         }
         self.cf02_assist.validate("cf02_assist")?;
         self.companion_v0.validate("companion_v0")?;
+        self.cf02_free.validate("cf02_free")?;
         // CF02-Q38 (the AI never defeats) is superseded by CF02-DUO-A01 (owner
         // playtest feedback 2026-11-21): both policies are valid data for
         // every set.
@@ -285,6 +473,20 @@ impl ProfileFile {
         if !self.cf02_assist.donut.ca21_active {
             return bad(
                 "cf02_assist.donut.ca21_active",
+                "CF02-Q13: AI Donut is the assistant",
+            );
+        }
+        // CA2-Q01: cf02_free is the assistant set (AI Carl passive, AI Donut
+        // active) with the autonomy layer on.
+        if self.cf02_free.carl.ca21_active {
+            return bad(
+                "cf02_free.carl.ca21_active",
+                "CF02-Q13: AI Carl stays passive",
+            );
+        }
+        if !self.cf02_free.donut.ca21_active {
+            return bad(
+                "cf02_free.donut.ca21_active",
                 "CF02-Q13: AI Donut is the assistant",
             );
         }
@@ -393,6 +595,108 @@ impl ProfileSet {
             return bad(
                 &f("donut.cf02_q17_missile_min_px"),
                 "must be below cf02_q17_missile_max_px",
+            );
+        }
+        self.validate_autonomy(set)
+    }
+
+    /// COMPANION-AI-02: the shared autonomy knobs and the role table. The
+    /// ranges are the ones the zone, drift and goal code divide or compare by;
+    /// the adopted values are pinned by the tests, not here.
+    fn validate_autonomy(&self, set: &str) -> Result<(), ProfileError> {
+        // A goal utility stays below the director's interrupt (2000, CA2-Q18).
+        const INTERRUPT_UTILITY: u16 = 2000;
+        let a = &self.autonomy;
+        let f = |name: &str| format!("{set}.autonomy.{name}");
+        let positive = |name: &str, value: u16| {
+            if value == 0 {
+                bad(&f(name), "must be positive")
+            } else {
+                Ok(())
+            }
+        };
+        positive("ca2_q04_leash_px", a.ca2_q04_leash_px)?;
+        positive("ca2_q06_pull_per_px", a.ca2_q06_pull_per_px)?;
+        positive("ca2_q07_travel_ticks", a.ca2_q07_travel_ticks)?;
+        positive("ca2_q08_max_rise_px", a.ca2_q08_max_rise_px)?;
+        positive("ca2_q10_claim_radius_px", a.ca2_q10_claim_radius_px)?;
+        positive(
+            "ca2_q13_outnumbered_radius_px",
+            a.ca2_q13_outnumbered_radius_px,
+        )?;
+        positive("ca2_q16_min_goal_ticks", a.ca2_q16_min_goal_ticks)?;
+        positive("ca2_q25_bound_pad_px", a.ca2_q25_bound_pad_px)?;
+        positive("ca2_q30_respot_px", a.ca2_q30_respot_px)?;
+        positive("ca2_q34_cause_window_ticks", a.ca2_q34_cause_window_ticks)?;
+        if a.ca2_q13_outnumbered_count == 0 {
+            return bad(&f("ca2_q13_outnumbered_count"), "must be positive");
+        }
+        if a.ca2_q06_comfort_px > a.ca2_q04_leash_px {
+            return bad(&f("ca2_q06_comfort_px"), "must not exceed ca2_q04_leash_px");
+        }
+        if a.ca2_q07_escort_min_px >= a.ca2_q07_escort_max_px {
+            return bad(
+                &f("ca2_q07_escort_min_px"),
+                "must be below ca2_q07_escort_max_px",
+            );
+        }
+        let sk = &a.roles.skirmisher;
+        let g = |name: &str| format!("{set}.autonomy.roles.skirmisher.{name}");
+        for (name, row) in sk.goals.rows() {
+            if row.utility >= INTERRUPT_UTILITY {
+                return bad(
+                    &g(&format!("goals.{name}.utility")),
+                    "must stay below the interrupt utility (2000)",
+                );
+            }
+        }
+        for (name, value) in [
+            ("ca2_q14_isolation_divisor", sk.ca2_q14_isolation_divisor),
+            ("ca2_q14_travel_divisor", sk.ca2_q14_travel_divisor),
+            ("ca2_q19_recoil_ticks", sk.ca2_q19_recoil_ticks),
+            ("ca2_q21_hurt_window_ticks", sk.ca2_q21_hurt_window_ticks),
+            ("ca2_q21_exit_ticks", sk.ca2_q21_exit_ticks),
+            ("ca2_q23_max_ticks", sk.ca2_q23_max_ticks),
+            ("ca2_q24_hold_ticks", sk.ca2_q24_hold_ticks),
+        ] {
+            if value == 0 {
+                return bad(&g(name), "must be positive");
+            }
+        }
+        if sk.ca2_q20_backoff_px >= sk.ca2_q20_cast_spacing_px {
+            return bad(
+                &g("ca2_q20_backoff_px"),
+                "must be below ca2_q20_cast_spacing_px",
+            );
+        }
+        if !a.enabled {
+            return Ok(());
+        }
+        // An enabled layer needs what its zone and claim rules read: a hero
+        // with a role table, and the kill-steal veto rules (A08, A11, A12) the
+        // leader's claim set is built from, under the `factual` policy.
+        if self.carl.autonomy_role == AutonomyRole::None
+            && self.donut.autonomy_role == AutonomyRole::None
+        {
+            return bad(
+                &format!("{set}.donut.autonomy_role"),
+                "an enabled autonomy layer needs a hero with a role table",
+            );
+        }
+        let duo = &self.cf02_duo;
+        if self.ca19_kill_policy != KillPolicy::Factual {
+            return bad(
+                &format!("{set}.ca19_kill_policy"),
+                "an enabled autonomy layer needs the factual kill policy",
+            );
+        }
+        if !duo.cf02_duo_a08_respect_finisher
+            || !duo.cf02_duo_a11_engage_facing_only
+            || duo.cf02_duo_a12_recent_hit_ticks == 0
+        {
+            return bad(
+                &format!("{set}.cf02_duo.cf02_duo_a08_respect_finisher"),
+                "an enabled autonomy layer needs A08, A11 and a positive A12 window (the claim set)",
             );
         }
         Ok(())
@@ -658,5 +962,269 @@ mod tests {
             .to_string()
             .contains("`x.y`")
         );
+    }
+    // ------------------------------------------- COMPANION-AI-02 (CA2-A) ----
+
+    #[test]
+    fn cf02_free_is_cf02_assist_with_autonomy_on_and_the_a15_flank_off() {
+        let f = file();
+        assert_eq!(ProfileSetId::Cf02Free.name(), "cf02_free");
+        assert_eq!(f.set(ProfileSetId::Cf02Free), &f.cf02_free);
+        // CA2-Q01 and CA2-Q28: the only differences from the assistant set.
+        let mut expected = f.cf02_assist.clone();
+        expected.autonomy.enabled = true;
+        expected.cf02_duo.cf02_duo_a15_flank = false;
+        assert_eq!(f.cf02_free, expected);
+        assert!(f.cf02_assist.cf02_duo.cf02_duo_a15_flank);
+        assert!(f.cf02_free.autonomy.enabled);
+        // Every other set ships with the layer off, so nothing reads it.
+        assert!(!f.cf02_assist.autonomy.enabled);
+        assert!(!f.companion_v0.autonomy.enabled);
+        // The kill-steal veto rules it builds the claim set from stay on.
+        let d = &f.cf02_free.cf02_duo;
+        assert!(d.cf02_duo_a08_respect_finisher && d.cf02_duo_a11_engage_facing_only);
+        assert_eq!(d.cf02_duo_a12_recent_hit_ticks, 31);
+        assert_eq!(f.cf02_free.ca19_kill_policy, KillPolicy::Factual);
+    }
+
+    #[test]
+    fn the_role_assignment_is_donut_skirmisher_and_carl_none_in_every_set() {
+        let f = file();
+        for set in [&f.cf02_assist, &f.companion_v0, &f.cf02_free] {
+            assert_eq!(set.donut.autonomy_role, AutonomyRole::Skirmisher);
+            assert_eq!(set.carl.autonomy_role, AutonomyRole::None);
+            assert!(set.autonomy.table(AutonomyRole::None).is_none());
+            assert!(set.autonomy.table(AutonomyRole::Skirmisher).is_some());
+        }
+        // The goal tables of the three sets are identical data.
+        assert_eq!(f.cf02_assist.autonomy.roles, f.cf02_free.autonomy.roles);
+        assert_eq!(f.companion_v0.autonomy.roles, f.cf02_free.autonomy.roles);
+    }
+
+    #[test]
+    fn the_autonomy_block_carries_the_adopted_ca2_defaults() {
+        let a = &file().cf02_free.autonomy;
+        assert_eq!(
+            (
+                a.ca2_q03_edge_margin_px,
+                a.ca2_q04_leash_px,
+                a.ca2_q06_comfort_px,
+                a.ca2_q06_pull_per_px
+            ),
+            (32, 240, 160, 2)
+        );
+        assert_eq!(
+            (
+                a.ca2_q07_travel_ticks,
+                a.ca2_q07_escort_bonus,
+                a.ca2_q07_escort_min_px,
+                a.ca2_q07_escort_max_px
+            ),
+            (12, 400, 72, 120)
+        );
+        assert_eq!(
+            (
+                a.ca2_q08_view_top_margin_px,
+                a.ca2_q08_view_bottom_margin_px,
+                a.ca2_q08_max_rise_px
+            ),
+            (48, 8, 176)
+        );
+        assert_eq!(
+            (a.ca2_q09_drift_slack_px, a.ca2_q10_claim_radius_px),
+            (8, 64)
+        );
+        assert_eq!(
+            (
+                a.ca2_q12_leader_low_hp,
+                a.ca2_q13_outnumbered_count,
+                a.ca2_q13_outnumbered_radius_px
+            ),
+            (2, 2, 96)
+        );
+        assert_eq!((a.ca2_q16_stickiness, a.ca2_q16_min_goal_ticks), (150, 24));
+        assert_eq!(a.ca2_q25_bound_pad_px, 40);
+        assert_eq!(
+            (
+                a.ca2_q29_spot_max_risk,
+                a.ca2_q29_ledge_inset_px,
+                a.ca2_q29_lane_penalty,
+                a.ca2_q30_respot_px,
+                a.ca2_q34_cause_window_ticks
+            ),
+            (250, 16, 300, 48, 60)
+        );
+        let sk = a.table(AutonomyRole::Skirmisher).unwrap();
+        // CA2-Q18.
+        let g = &sk.goals;
+        assert_eq!(
+            [
+                g.retreat.utility,
+                g.support_leader.utility,
+                g.hunt.utility,
+                g.escort.utility,
+                g.show_off.utility,
+                g.perch.utility,
+                g.idle.utility
+            ],
+            [1800, 1400, 1200, 800, 700, 600, 100]
+        );
+        assert!(g.rows().iter().all(|(_, row)| row.enabled));
+        assert!(sk.ca2_q11_exclude_claimed_from_hunt && sk.ca2_q31_llama_hunt_needs_unlock);
+        assert_eq!(
+            (
+                sk.ca2_q14_base_lying,
+                sk.ca2_q14_base_standing,
+                sk.ca2_q14_base_llama,
+                sk.ca2_q14_base_engineer,
+                sk.ca2_q14_isolation_cap_px,
+                sk.ca2_q14_isolation_divisor,
+                sk.ca2_q14_travel_divisor,
+                sk.ca2_q15_back_threat_bonus
+            ),
+            (300, 200, 260, 260, 192, 2, 2, 300)
+        );
+        assert_eq!(
+            (
+                sk.ca2_q19_pounce_prefer_px,
+                sk.ca2_q19_recoil_px,
+                sk.ca2_q19_recoil_ticks,
+                sk.ca2_q20_cast_spacing_px,
+                sk.ca2_q20_backoff_px
+            ),
+            (56, 96, 30, 112, 72)
+        );
+        assert_eq!(
+            (
+                sk.ca2_q21_hurt_window_ticks,
+                sk.ca2_q21_hurt_enemy_px,
+                sk.ca2_q21_low_hp,
+                sk.ca2_q21_low_enemy_px,
+                sk.ca2_q21_exit_ticks,
+                sk.ca2_q21_exit_clear_px,
+                sk.ca2_q21_cooldown_ticks
+            ),
+            (90, 96, 2, 128, 120, 160, 180)
+        );
+        assert_eq!(
+            (sk.ca2_q22_between_bonus, sk.ca2_q22_height_bonus_per_16px),
+            (64, 4)
+        );
+        assert_eq!(
+            (
+                sk.ca2_q23_quiet_ticks,
+                sk.ca2_q23_perch_range_px,
+                sk.ca2_q23_max_ticks,
+                sk.ca2_q23_cooldown_ticks,
+                sk.ca2_q24_hold_ticks,
+                sk.ca2_q24_safe_px,
+                sk.ca2_q24_cooldown_ticks
+            ),
+            (45, 200, 600, 240, 36, 128, 360)
+        );
+    }
+
+    #[test]
+    fn an_autonomy_load_error_names_the_field() {
+        // The first occurrence of each value is in `cf02_assist` (autonomy off),
+        // so the zero or inverted value is rejected there and names that set.
+        let swap = |from: &str, to: &str| PROFILE_JSON.replacen(from, to, 1);
+        assert_eq!(
+            field_of(&swap(
+                "\"ca2_q04_leash_px\": 240",
+                "\"ca2_q04_leash_px\": 0"
+            )),
+            "cf02_assist.autonomy.ca2_q04_leash_px"
+        );
+        assert_eq!(
+            field_of(&swap(
+                "\"ca2_q06_comfort_px\": 160",
+                "\"ca2_q06_comfort_px\": 241"
+            )),
+            "cf02_assist.autonomy.ca2_q06_comfort_px"
+        );
+        assert_eq!(
+            field_of(&swap(
+                "\"ca2_q07_escort_min_px\": 72",
+                "\"ca2_q07_escort_min_px\": 120"
+            )),
+            "cf02_assist.autonomy.ca2_q07_escort_min_px"
+        );
+        assert_eq!(
+            field_of(&swap("\"utility\": 1800", "\"utility\": 2000")),
+            "cf02_assist.autonomy.roles.skirmisher.goals.retreat.utility"
+        );
+        assert_eq!(
+            field_of(&swap(
+                "\"ca2_q19_recoil_ticks\": 30",
+                "\"ca2_q19_recoil_ticks\": 0"
+            )),
+            "cf02_assist.autonomy.roles.skirmisher.ca2_q19_recoil_ticks"
+        );
+        assert_eq!(
+            field_of(&swap(
+                "\"ca2_q20_backoff_px\": 72",
+                "\"ca2_q20_backoff_px\": 112"
+            )),
+            "cf02_assist.autonomy.roles.skirmisher.ca2_q20_backoff_px"
+        );
+        // Unknown and missing fields are parse errors that name them.
+        let unknown = PROFILE_JSON.replacen("\"ca2_q03_edge_margin_px\"", "\"ca2_typo\"", 1);
+        assert!(matches!(
+            ProfileFile::from_json(&unknown),
+            Err(ProfileError::Parse(_))
+        ));
+        let bad_role = PROFILE_JSON.replacen("\"skirmisher\"", "\"brawler\"", 1);
+        assert!(matches!(
+            ProfileFile::from_json(&bad_role),
+            Err(ProfileError::Parse(_))
+        ));
+    }
+
+    #[test]
+    fn an_enabled_autonomy_layer_needs_a_role_the_factual_policy_and_the_claim_rules() {
+        let mut f = file();
+        f.cf02_free.donut.autonomy_role = AutonomyRole::None;
+        match f.validate() {
+            Err(ProfileError::Field { field, .. }) => {
+                assert_eq!(field, "cf02_free.donut.autonomy_role")
+            }
+            other => panic!("expected a field error, got {other:?}"),
+        }
+        let mut f = file();
+        f.cf02_free.ca19_kill_policy = KillPolicy::Never;
+        assert!(matches!(
+            f.validate(),
+            Err(ProfileError::Field { ref field, .. }) if field == "cf02_free.ca19_kill_policy"
+        ));
+        for edit in 0..3 {
+            let mut f = file();
+            match edit {
+                0 => f.cf02_free.cf02_duo.cf02_duo_a08_respect_finisher = false,
+                1 => f.cf02_free.cf02_duo.cf02_duo_a11_engage_facing_only = false,
+                _ => f.cf02_free.cf02_duo.cf02_duo_a12_recent_hit_ticks = 0,
+            }
+            assert!(
+                matches!(
+                    f.validate(),
+                    Err(ProfileError::Field { ref field, .. })
+                        if field == "cf02_free.cf02_duo.cf02_duo_a08_respect_finisher"
+                ),
+                "edit {edit}"
+            );
+        }
+        // The same edits are fine while the layer is off (companion_v0 has
+        // them off today).
+        let mut f = file();
+        f.cf02_free.autonomy.enabled = false;
+        f.cf02_free.cf02_duo.cf02_duo_a12_recent_hit_ticks = 0;
+        assert!(f.validate().is_ok());
+        // cf02_free is the assistant set: AI Carl stays passive.
+        let mut f = file();
+        f.cf02_free.carl.ca21_active = true;
+        assert!(matches!(
+            f.validate(),
+            Err(ProfileError::Field { ref field, .. }) if field == "cf02_free.carl.ca21_active"
+        ));
     }
 }
