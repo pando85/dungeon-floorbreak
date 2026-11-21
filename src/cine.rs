@@ -349,6 +349,9 @@ fn cine_cause(cause: DefeatCause) -> CineCause {
             .map_or(CineCause::Other, |player| CineCause::DropHazard { player }),
         // A blast is never a primary feat (spec T02).
         DefeatCause::Explosion { .. } => CineCause::Other,
+        // BOIL-B wire (BOILBC-AD4): an environmental kill is not a primary feat
+        // until CINE-01 gets a recipe for it.
+        DefeatCause::Environment { .. } => CineCause::Other,
     }
 }
 

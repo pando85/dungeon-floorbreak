@@ -756,6 +756,8 @@ mod tests {
             ("acid", crate::slime::ACID_SOURCE_ID),
             ("llama rush", crate::llama_rush::LLAMA_RUSH_SOURCE_ID),
             ("thrown charge", THROWN_CHARGE_SOURCE),
+            // BOIL-B wire: the env step's falling mass and steam.
+            ("environment", crate::combat_scene::ENV_SOURCE_ID),
             // ENEMY-SLOT: the test dummy; every real slot enemy appends its own id here.
             ("slot test dummy", crate::scene_enemy::testing::DUMMY_SOURCE),
         ];

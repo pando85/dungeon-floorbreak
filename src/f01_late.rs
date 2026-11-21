@@ -454,21 +454,28 @@ pub fn entry_line(room: &RoomRow, loadout: Option<Loadout>) -> String {
 /// biscuit and a full pool (the post-Hoarder state, K1), the sidecar's story pin
 /// under the program flags, the room's checkpoint rules and the CF02 rules.
 /// The binary's scene and the PLAYTRACE verifier both call it.
+///
+/// BOIL-B/C wire: the sidecar's props and hazards are live here (the env step),
+/// and the env solids are appended to `scene` at setup (`sync_env`), so the
+/// live scene and the verifier start from the same world.
 pub fn boiler_combat(
     run: &BoilerRun,
-    scene: &SceneSim,
+    scene: &mut SceneSim,
     carl: CarlProgFlags,
     donut: DonutProgFlags,
     cf02_seed: Option<u64>,
 ) -> Result<CombatState, String> {
     let setup = f01_boiler::story_setup(&run.loaded.encounter.story_pin, carl, donut)?;
-    Ok(CombatState::new(run.fixture, &run.kit, scene)?
+    let mut combat = CombatState::new(run.fixture, &run.kit, scene)?
         .with_donut(DonutSetup::unlocked(8))
         .try_with_story(setup)
         .map_err(|e| e.to_string())?
         .with_demo(run.rules)
         .with_cf02()
-        .with_cf02_seed(cf02_seed))
+        .with_cf02_seed(cf02_seed)
+        .with_env(f01_boiler::env_runtime(run)?);
+    combat.sync_env(scene);
+    Ok(combat)
 }
 
 /// Launch the Boiler room and build its scene and combat state.
@@ -480,8 +487,8 @@ pub fn boiler_start(
     cf02_seed: Option<u64>,
 ) -> Result<(BoilerRun, SceneSim, CombatState), String> {
     let run = f01_boiler::launch(root)?;
-    let scene = SceneSim::new_at(&run.kit, view_height, run.fixture.carl_x)?;
-    let combat = boiler_combat(&run, &scene, carl, donut, cf02_seed)?;
+    let mut scene = SceneSim::new_at(&run.kit, view_height, run.fixture.carl_x)?;
+    let combat = boiler_combat(&run, &mut scene, carl, donut, cf02_seed)?;
     Ok((run, scene, combat))
 }
 

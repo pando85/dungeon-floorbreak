@@ -122,7 +122,7 @@ pub const fn credited_hero(cause: DefeatCause, instigator: Option<u32>) -> Optio
         DefeatCause::ShoreBlock { player }
         | DefeatCause::ShoreBlockEdge { player }
         | DefeatCause::DropHazard { player, .. } => Some(player),
-        DefeatCause::Explosion { player, .. } => player,
+        DefeatCause::Explosion { player, .. } | DefeatCause::Environment { player, .. } => player,
     };
     match index {
         Some(i) => hero_from_index(i),

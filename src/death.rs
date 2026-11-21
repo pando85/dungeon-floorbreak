@@ -58,6 +58,16 @@ impl CauseClass {
             DefeatCause::ShoreBlock { .. } | DefeatCause::DropHazard { .. } => &[Self::Crush],
             DefeatCause::ShoreBlockEdge { .. } => &[Self::Shear, Self::Crush],
             DefeatCause::Explosion { .. } => &[Self::Blast, Self::Blunt],
+            // BOIL-B wire (BOILBC-AD4): a falling mass crushes, a drum blasts,
+            // steam and the rest play the ordinary blunt finish.
+            DefeatCause::Environment { class, .. } => match class {
+                crate::env_hazard::HazardClass::FallingMass => &[Self::Crush, Self::Blunt],
+                crate::env_hazard::HazardClass::Blast => &[Self::Blast, Self::Blunt],
+                crate::env_hazard::HazardClass::Steam
+                | crate::env_hazard::HazardClass::Acid
+                | crate::env_hazard::HazardClass::Slide
+                | crate::env_hazard::HazardClass::Wheel => &[Self::Blunt],
+            },
         }
     }
 }

@@ -84,6 +84,16 @@ fn spectacular_cause(cause: DefeatCause) -> Option<SpectacularCause> {
         }
         DefeatCause::Explosion { .. } => Some(SpectacularCause::Explosion),
         DefeatCause::Melee | DefeatCause::DropHazard { .. } => None,
+        // BOIL-B wire (BOILBC-AD4): a falling mass is a crush like the shore
+        // block, a drum is an explosion; steam and the rest are not a spectacle.
+        DefeatCause::Environment { class, .. } => match class {
+            crate::env_hazard::HazardClass::FallingMass => Some(SpectacularCause::Shore),
+            crate::env_hazard::HazardClass::Blast => Some(SpectacularCause::Explosion),
+            crate::env_hazard::HazardClass::Steam
+            | crate::env_hazard::HazardClass::Acid
+            | crate::env_hazard::HazardClass::Slide
+            | crate::env_hazard::HazardClass::Wheel => None,
+        },
     }
 }
 
