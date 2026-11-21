@@ -612,6 +612,11 @@ pub struct FallingMassConfig {
     /// A launched body counts only from this speed (px/s). Default 160, the
     /// valve's value (BOILC-AD2).
     pub launch_min_impulse_px_s: u16,
+    /// Weight floor of one melee hit (NB-9): a melee move counts for its own
+    /// weight, at least this. Default 1 (every move counts, the Boiler rule);
+    /// 0 turns melee **off** (`Ignored::NotAccepted`), for a prop that takes no
+    /// hero melee (the Hoarder's J-A bank, HRD-Q22, or a melee-proof stop frame).
+    pub melee_weight: u8,
     /// Weight of a qualifying launched body (one hit by default: it weakens;
     /// BOILC-AD1, Boiler anchor row "can be weakened by ... launched body").
     pub launch_weight: u8,
@@ -662,6 +667,7 @@ impl FallingMassConfig {
             footprint,
             remnant,
             release_weight: 2,
+            melee_weight: 1,
             launch_min_impulse_px_s: 160,
             launch_weight: 1,
             blast_weight: 2,
@@ -692,6 +698,10 @@ impl FallingMassConfig {
         }
         if self.hanging.bottom() > self.footprint.y {
             return Err("the mass must hang clear above the footprint".into());
+        }
+        // NB-6: the mass hangs over its footprint, not beside it.
+        if self.hanging.x < self.footprint.x || self.hanging.right() > self.footprint.right() {
+            return Err("the mass must hang inside the footprint's x range".into());
         }
         let r = self.remnant;
         let f = self.footprint;
@@ -749,6 +759,12 @@ impl LandingHit {
 /// What the one landing evaluation produced.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Landing {
+    /// Bodies of **non-heroes** that overlap a remnant they cannot step over
+    /// ([`slot_enemy_ignores_remnant`] is false), in `bodies` order (PR #200
+    /// review NB-3). An enemy that survives the landing (a slot boss maps the
+    /// 255 request through its own profile) would stand inside a solid, so the
+    /// wire refuses a room that holds such a kind (see `combat_scene::env`).
+    pub embedded: Vec<Victim>,
     pub hits: Vec<LandingHit>,
     /// Heroes lifted onto the remnant (the remnant stands from this tick).
     pub lifts: Vec<RemnantLift>,
@@ -904,12 +920,26 @@ impl FallingMass {
         Some(swept_rect(before, now))
     }
 
+    /// BOILC-AD9 (PR #200 review NB-5): who is credited with the fall. The
+    /// **releasing** stimulus' initiator, except when it has none and is not an
+    /// enemy shove: then the last initiator that weakened the support keeps the
+    /// credit (Carl weakens the brace, an ownerless drum blast releases it: the
+    /// work order's "damage source must retain the initiating hero even when
+    /// the final cause is a secondary explosion"). A shove is exempt: the
+    /// Hoarder's bait rule credits a shove with `None` when no player baited it,
+    /// whatever hit the post before. The weakening initiator is kept in
+    /// `initiator`, which is hashed already.
     fn add(&mut self, weight: u8, stimulus: &Stimulus) -> Offer {
         self.progress = self.progress.saturating_add(weight);
+        let by = stimulus.initiator();
         if self.progress >= self.cfg.release_weight {
             self.state = MassState::Released;
             self.ticks_left = self.cfg.warning_ticks;
-            self.initiator = stimulus.initiator();
+            self.initiator = if stimulus.kind() == StimulusKind::Shove {
+                by
+            } else {
+                by.or(self.initiator)
+            };
             self.depth = stimulus.depth();
             Offer::Triggered {
                 initiator: self.initiator,
@@ -917,6 +947,9 @@ impl FallingMass {
             }
         } else {
             self.state = MassState::Weakened;
+            if by.is_some() {
+                self.initiator = by;
+            }
             Offer::Progress {
                 progress: self.progress,
             }
@@ -933,11 +966,14 @@ impl FallingMass {
         let cfg = self.cfg;
         match stimulus {
             Stimulus::MeleeHit { token, weight, .. } => {
+                if cfg.melee_weight == 0 {
+                    return Offer::Ignored(Ignored::NotAccepted);
+                }
                 if self.melee_tokens.contains(&token) {
                     return Offer::Ignored(Ignored::Duplicate);
                 }
                 self.melee_tokens.push(token);
-                self.add(weight.max(1), &stimulus)
+                self.add(weight.max(cfg.melee_weight), &stimulus)
             }
             Stimulus::LaunchedBody {
                 launch_id,
@@ -1075,7 +1111,17 @@ impl FallingMass {
                 initiator: self.initiator,
             });
         }
+        let embedded = if slot_enemy_ignores_remnant(cfg.remnant) {
+            Vec::new()
+        } else {
+            bodies
+                .iter()
+                .filter(|b| b.victim.team == Team::Enemy && b.cur.overlaps(cfg.remnant))
+                .map(|b| b.victim)
+                .collect()
+        };
         Landing {
+            embedded,
             hits,
             lifts: remnant_lifts(cfg.remnant, bodies),
             remnant: cfg.remnant,
@@ -1705,6 +1751,324 @@ impl Shutter {
         mix(self.spent.len() as u64);
         for id in &self.spent {
             mix(u64::from(*id));
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// BOIL-C wire: the J-A slide variant (a horizontal moving mass with a remnant).
+// ---------------------------------------------------------------------------
+
+/// A slide is at most this many ticks (1 s), like a fall: longer is a drift.
+pub const MAX_SLIDE_TICKS: u16 = 60;
+
+/// The states of a slide, `stable -> disturbed -> slid -> settled` (Hoarder
+/// sheet section 5, #178).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SlideState {
+    /// Standing: a solid with a standable top, untouched.
+    Stable,
+    /// A stimulus disturbed it; the shudder runs (the solid still stands).
+    Disturbed,
+    /// The solid is gone and a moving mass translates `dx_per_tick`.
+    Slid,
+    /// The low remnant stands for the rest of the attempt.
+    Settled,
+}
+
+impl SlideState {
+    const fn code(self) -> u64 {
+        self as u64
+    }
+}
+
+/// Tunables and geometry of one slide (layout px, y down). Defaults follow
+/// HRD-Q21..Q23 of the Hoarder sheet (the `HRD-Q*` ids are in
+/// `enemy-gameplay-hoarder.md`):
+///
+/// * `warning_ticks` 24 and `slide_ticks` 16, `dx_per_tick` -3: HRD-Q21
+///   (disturbed T..T+23, slid T+24..T+39, settled from T+40);
+/// * the stimuli that disturb it are a **launched body**, a **blast** and an
+///   enemy **shove**; **hero melee and missiles never do** (HRD-Q22, so cover
+///   is never knocked over by accident). The weights are 1: any counted
+///   stimulus disturbs it, once;
+/// * the 160 px/s thresholds are the valve's (BOILC-AD2), the Hoarder's lunge
+///   is 180.
+///
+/// The push of the moving mass (0 damage, knock 180 / 160, HRD-Q23) is an
+/// `env_hazard` persistent volume the owner of the room builds from
+/// [`Slide::mass_rect`]; this machine only moves the mass.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SlideConfig {
+    /// The bank while it stands.
+    pub stable: IRect,
+    /// The solid left after the slide: rests on the bank's floor and covers
+    /// the mass' final position.
+    pub remnant: IRect,
+    /// Signed px per slide tick, never 0.
+    pub dx_per_tick: i32,
+    pub warning_ticks: u16,
+    pub slide_ticks: u16,
+    pub launch_min_impulse_px_s: u16,
+    pub shove_min_impulse_px_s: u16,
+    /// Whether each kind disturbs it. Melee and projectiles are never accepted:
+    /// they have no switch (HRD-Q22).
+    pub accepts_launched_body: bool,
+    pub accepts_blast: bool,
+    pub accepts_shove: bool,
+}
+
+impl SlideConfig {
+    pub const fn new(stable: IRect, remnant: IRect) -> Self {
+        Self {
+            stable,
+            remnant,
+            dx_per_tick: -3,
+            warning_ticks: 24,
+            slide_ticks: 16,
+            launch_min_impulse_px_s: 160,
+            shove_min_impulse_px_s: 160,
+            accepts_launched_body: true,
+            accepts_blast: true,
+            accepts_shove: true,
+        }
+    }
+
+    /// The mass after `moved` slide ticks.
+    pub const fn mass_after(&self, moved: u16) -> IRect {
+        IRect::new(
+            self.stable.x + self.dx_per_tick * moved as i32,
+            self.stable.y,
+            self.stable.w,
+            self.stable.h,
+        )
+    }
+
+    pub fn validate(&self) -> Result<(), String> {
+        let area = |r: IRect| r.w > 0 && r.h > 0;
+        if !area(self.stable) || !area(self.remnant) {
+            return Err("stable and remnant need an area".into());
+        }
+        if self.dx_per_tick == 0 {
+            return Err("dx_per_tick must not be 0".into());
+        }
+        if self.warning_ticks < MIN_WARNING_TICKS {
+            return Err(format!(
+                "warning_ticks must be at least {MIN_WARNING_TICKS}, is {}",
+                self.warning_ticks
+            ));
+        }
+        if self.slide_ticks == 0 || self.slide_ticks > MAX_SLIDE_TICKS {
+            return Err(format!(
+                "slide_ticks must be 1..={MAX_SLIDE_TICKS}, is {}",
+                self.slide_ticks
+            ));
+        }
+        let end = self.mass_after(self.slide_ticks);
+        let r = self.remnant;
+        if r.bottom() != self.stable.bottom() || r.h > self.stable.h {
+            return Err("the remnant must rest on the bank's floor and be no taller".into());
+        }
+        if r.x > end.x || r.right() < end.right() {
+            return Err("the remnant must cover the mass' final position".into());
+        }
+        Ok(())
+    }
+}
+
+/// A state change of one tick.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SlideEdge {
+    /// The shudder ended; the solid is gone and the mass starts to move from
+    /// the next tick. Emitted in the step of the last disturbed tick (T+23).
+    SlideStarted,
+    /// The slide is over; the remnant stands from this step on (T+40).
+    Settled,
+}
+
+/// The slide: `Stable -> Disturbed -> Slid -> Settled`, once per attempt.
+///
+/// Tick contract (the wire): offer the stimuli of the tick, then
+/// [`Slide::step`] once. A disturbance on tick `T` leaves the bank a solid
+/// during `T..=T + warning - 1`, the mass moves on the steps `T + warning ..=
+/// T + warning + slide_ticks - 1` (after each of them [`Slide::mass_rect`] is
+/// the bank shifted by `dx_per_tick * k`), and the step of `T + warning +
+/// slide_ticks` settles it (HRD-Q21: with the defaults the mass moves on
+/// T+24..=T+39 and the remnant stands from T+40).
+///
+/// Integer math only; no RNG, no wall-clock time.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Slide {
+    cfg: SlideConfig,
+    state: SlideState,
+    ticks_left: u16,
+    moved: u16,
+    launches: Vec<u32>,
+    blasts: Vec<u32>,
+    shoves: Vec<u32>,
+    initiator: Option<u32>,
+    depth: u8,
+}
+
+impl Slide {
+    pub fn new(cfg: SlideConfig) -> Result<Self, String> {
+        cfg.validate()?;
+        Ok(Self {
+            cfg,
+            state: SlideState::Stable,
+            ticks_left: 0,
+            moved: 0,
+            launches: Vec::new(),
+            blasts: Vec::new(),
+            shoves: Vec::new(),
+            initiator: None,
+            depth: 0,
+        })
+    }
+
+    pub fn config(&self) -> &SlideConfig {
+        &self.cfg
+    }
+    pub fn state(&self) -> SlideState {
+        self.state
+    }
+    /// The player credited with the slide.
+    pub fn initiator(&self) -> Option<u32> {
+        self.initiator
+    }
+    pub fn trigger_depth(&self) -> u8 {
+        self.depth
+    }
+    /// Slide ticks done.
+    pub fn moved_ticks(&self) -> u16 {
+        self.moved
+    }
+    pub fn reset(&mut self) {
+        *self = Self::new(self.cfg).expect("a built slide has a valid config");
+    }
+
+    /// The standing bank: a solid while `Stable` or `Disturbed`.
+    pub fn solid_rect(&self) -> Option<IRect> {
+        matches!(self.state, SlideState::Stable | SlideState::Disturbed).then_some(self.cfg.stable)
+    }
+
+    /// The moving mass (a hazard volume, not a solid), while `Slid`. Before the
+    /// first slide step it is the bank itself.
+    pub fn mass_rect(&self) -> Option<IRect> {
+        (self.state == SlideState::Slid).then(|| self.cfg.mass_after(self.moved))
+    }
+
+    /// The remnant, once settled.
+    pub fn remnant(&self) -> Option<IRect> {
+        (self.state == SlideState::Settled).then_some(self.cfg.remnant)
+    }
+
+    /// Offer one stimulus. Only a `Stable` bank reacts; every ignored case is
+    /// named. Melee and projectiles are `NotAccepted`, always (HRD-Q22).
+    pub fn offer(&mut self, stimulus: Stimulus) -> Offer {
+        if self.state != SlideState::Stable {
+            return Offer::Ignored(Ignored::AlreadyActivated);
+        }
+        let cfg = self.cfg;
+        match stimulus {
+            Stimulus::LaunchedBody {
+                launch_id,
+                impulse_px_s,
+                ..
+            } => {
+                if !cfg.accepts_launched_body {
+                    return Offer::Ignored(Ignored::NotAccepted);
+                }
+                if impulse_px_s < cfg.launch_min_impulse_px_s {
+                    return Offer::Ignored(Ignored::TooWeak);
+                }
+                if self.launches.contains(&launch_id) {
+                    return Offer::Ignored(Ignored::Duplicate);
+                }
+                self.launches.push(launch_id);
+            }
+            Stimulus::Blast { blast_id, .. } => {
+                if !cfg.accepts_blast {
+                    return Offer::Ignored(Ignored::NotAccepted);
+                }
+                if self.blasts.contains(&blast_id) {
+                    return Offer::Ignored(Ignored::Duplicate);
+                }
+                self.blasts.push(blast_id);
+            }
+            Stimulus::Shove {
+                shove_id,
+                impulse_px_s,
+                ..
+            } => {
+                if !cfg.accepts_shove {
+                    return Offer::Ignored(Ignored::NotAccepted);
+                }
+                if impulse_px_s < cfg.shove_min_impulse_px_s {
+                    return Offer::Ignored(Ignored::ShoveTooWeak);
+                }
+                if self.shoves.contains(&shove_id) {
+                    return Offer::Ignored(Ignored::Duplicate);
+                }
+                self.shoves.push(shove_id);
+            }
+            Stimulus::MeleeHit { .. } | Stimulus::Projectile { .. } => {
+                return Offer::Ignored(Ignored::NotAccepted);
+            }
+            Stimulus::PropContact { depth, .. } => {
+                if depth >= MAX_CHAIN_DEPTH {
+                    return Offer::Ignored(Ignored::ChainTooDeep);
+                }
+                // A link into a bank is BOIL-D's decision, off by default.
+                return Offer::Ignored(Ignored::NotAccepted);
+            }
+        }
+        self.state = SlideState::Disturbed;
+        self.ticks_left = cfg.warning_ticks;
+        self.initiator = stimulus.initiator();
+        self.depth = stimulus.depth();
+        Offer::Triggered {
+            initiator: self.initiator,
+            depth: self.depth,
+        }
+    }
+
+    /// One fixed tick, after the stimuli.
+    pub fn step(&mut self) -> Option<SlideEdge> {
+        match self.state {
+            SlideState::Disturbed => {
+                self.ticks_left -= 1;
+                if self.ticks_left == 0 {
+                    self.state = SlideState::Slid;
+                    self.moved = 0;
+                    return Some(SlideEdge::SlideStarted);
+                }
+                None
+            }
+            SlideState::Slid => {
+                if self.moved < self.cfg.slide_ticks {
+                    self.moved += 1;
+                    None
+                } else {
+                    self.state = SlideState::Settled;
+                    Some(SlideEdge::Settled)
+                }
+            }
+            SlideState::Stable | SlideState::Settled => None,
+        }
+    }
+
+    pub fn mix_into(&self, mix: &mut impl FnMut(u64)) {
+        mix(self.state.code());
+        mix(u64::from(self.ticks_left));
+        mix(u64::from(self.moved));
+        mix(self.initiator.map_or(0, |p| u64::from(p) + 1));
+        mix(u64::from(self.depth));
+        for list in [&self.launches, &self.blasts, &self.shoves] {
+            mix(list.len() as u64);
+            for id in list {
+                mix(u64::from(*id));
+            }
         }
     }
 }
@@ -3662,4 +4026,412 @@ mod shutter_tests {
     }
 
     const GOLDEN_HASH: u64 = 14_285_659_963_568_459_907;
+}
+
+/// PR #200 review items NB-3, NB-5, NB-6 and NB-9, carried by BOIL-C wire.
+#[cfg(test)]
+mod boilc_review_tests {
+    use super::*;
+
+    const FLOOR: i32 = 580;
+
+    /// The Boiler weight: 64 px wide, a 32 px remnant, hanging 128 px up.
+    fn boiler() -> FallingMassConfig {
+        FallingMassConfig::new(
+            IRect::new(784, FLOOR - 128 - 32, 64, 32),
+            IRect::new(784, FLOOR - 96, 64, 96),
+            IRect::new(784, FLOOR - 32, 64, 32),
+        )
+    }
+
+    fn jab(token: u32, player: u32) -> Stimulus {
+        Stimulus::MeleeHit {
+            token,
+            player,
+            weight: 1,
+        }
+    }
+
+    fn blast(id: u32, owner: Option<u32>) -> Stimulus {
+        Stimulus::Blast {
+            blast_id: id,
+            owner,
+        }
+    }
+
+    // ---- NB-5 / BOILC-AD9
+
+    #[test]
+    fn an_ownerless_blast_that_completes_the_release_keeps_the_weakening_credit() {
+        let mut m = FallingMass::new(boiler()).unwrap();
+        assert!(matches!(
+            m.offer(jab(1, 1)),
+            Offer::Progress { progress: 1 }
+        ));
+        assert_eq!(m.initiator(), Some(1), "the weakening initiator is kept");
+        // A drum blast nobody owns releases it: Donut keeps the credit.
+        let o = m.offer(blast(9, None));
+        assert!(
+            matches!(
+                o,
+                Offer::Triggered {
+                    initiator: Some(1),
+                    ..
+                }
+            ),
+            "{o:?}"
+        );
+        assert_eq!(m.initiator(), Some(1));
+    }
+
+    #[test]
+    fn a_releasing_initiator_wins_over_the_weakening_one_and_nobody_is_not_invented() {
+        let mut m = FallingMass::new(boiler()).unwrap();
+        m.offer(jab(1, 0));
+        m.offer(jab(2, 1));
+        assert_eq!(m.initiator(), Some(1), "the hit that completed it");
+        // With no weakening hit at all, an ownerless blast has nobody to credit.
+        let mut m = FallingMass::new(boiler()).unwrap();
+        let o = m.offer(blast(9, None));
+        assert!(matches!(
+            o,
+            Offer::Triggered {
+                initiator: None,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn a_shove_release_is_exempt_the_bot_bait_credit_stays_none() {
+        let mut c = boiler();
+        c.shove_weight = c.release_weight;
+        let mut m = FallingMass::new(c).unwrap();
+        m.offer(jab(1, 0));
+        let o = m.offer(Stimulus::Shove {
+            shove_id: 1,
+            impulse_px_s: 180,
+            source: 5,
+            credit: None,
+        });
+        assert!(
+            matches!(
+                o,
+                Offer::Triggered {
+                    initiator: None,
+                    ..
+                }
+            ),
+            "{o:?}"
+        );
+        assert_eq!(m.initiator(), None);
+    }
+
+    // ---- NB-6
+
+    #[test]
+    fn the_mass_must_hang_over_its_footprint() {
+        assert!(FallingMass::new(boiler()).is_ok());
+        for (dx, w) in [(-8, 64), (8, 64), (0, 72)] {
+            let mut c = boiler();
+            c.hanging.x += dx;
+            c.hanging.w = w;
+            let err = FallingMass::new(c).expect_err("hangs beside its footprint");
+            assert!(err.contains("x range"), "{err}");
+        }
+        // Narrower and inside is fine.
+        let mut c = boiler();
+        c.hanging = IRect::new(792, c.hanging.y, 48, 32);
+        assert!(FallingMass::new(c).is_ok());
+    }
+
+    // ---- NB-9
+
+    #[test]
+    fn melee_can_be_switched_off_and_the_default_counts_every_move() {
+        let mut c = boiler();
+        c.melee_weight = 0;
+        let mut m = FallingMass::new(c).unwrap();
+        assert_eq!(m.offer(jab(1, 0)), Offer::Ignored(Ignored::NotAccepted));
+        assert_eq!(m.progress(), 0);
+        assert_eq!(m.state(), MassState::Supported);
+        // Every other stimulus still works.
+        assert!(matches!(
+            m.offer(blast(1, Some(0))),
+            Offer::Triggered { .. }
+        ));
+        // The default (1) is the old behaviour: a heavier move counts for its weight.
+        let mut m = FallingMass::new(boiler()).unwrap();
+        let heavy = Stimulus::MeleeHit {
+            token: 1,
+            player: 0,
+            weight: 2,
+        };
+        assert!(matches!(m.offer(heavy), Offer::Triggered { .. }));
+        // A floor of 2 makes a weight-1 move count for 2.
+        let mut c = boiler();
+        c.melee_weight = 2;
+        let mut m = FallingMass::new(c).unwrap();
+        assert!(matches!(m.offer(jab(1, 0)), Offer::Triggered { .. }));
+    }
+
+    // ---- NB-3
+
+    #[test]
+    fn a_non_hero_inside_a_remnant_it_cannot_step_over_is_reported_embedded() {
+        let drop = |c: FallingMassConfig| {
+            let mut m = FallingMass::new(c).unwrap();
+            m.offer(blast(1, None));
+            let bodies = [
+                MassBody::still(Victim::enemy(3), IRect::new(800, FLOOR - 52, 24, 52)),
+                MassBody::still(Victim::hero(0), IRect::new(820, FLOOR - 52, 24, 52)),
+                MassBody::still(Victim::enemy(4), IRect::new(900, FLOOR - 52, 24, 52)),
+            ];
+            for _ in 0..400 {
+                if let Some(MassEdge::Landed(l)) = m.step(&bodies) {
+                    return l;
+                }
+            }
+            panic!("never landed");
+        };
+        let tall = drop(boiler());
+        assert_eq!(
+            tall.embedded,
+            [Victim::enemy(3)],
+            "32 px: a wall to a slot enemy"
+        );
+        assert_eq!(tall.lifts.len(), 1, "the hero is lifted, the enemy is not");
+        // A 16 px remnant is stepped over: nobody is embedded.
+        let mut c = boiler();
+        c.remnant = IRect::new(784, FLOOR - 16, 64, 16);
+        assert!(drop(c).embedded.is_empty());
+    }
+}
+
+/// The J-A slide variant (BOIL-C wire, plan section 3; Hoarder sheet section 5).
+#[cfg(test)]
+mod slide_tests {
+    use super::*;
+
+    const FLOOR: i32 = 48;
+
+    /// Bank A: `[352, 416) x [0, 48)` above the floor, the remnant
+    /// `[296, 376) x [0, 16)` (HRD-Q21), layout y down with the floor at 48.
+    fn bank() -> SlideConfig {
+        SlideConfig::new(
+            IRect::new(352, FLOOR - 48, 64, 48),
+            IRect::new(296, FLOOR - 16, 80, 16),
+        )
+    }
+
+    fn shove(id: u32, speed: u16, credit: Option<u32>) -> Stimulus {
+        Stimulus::Shove {
+            shove_id: id,
+            impulse_px_s: speed,
+            source: 5,
+            credit,
+        }
+    }
+
+    #[test]
+    fn the_timeline_is_disturbed_t_to_t_plus_23_slid_t_plus_24_to_39_settled_from_t_plus_40() {
+        let mut s = Slide::new(bank()).unwrap();
+        // The disturbance on tick T = 100; the steps run every tick.
+        let t = 100u32;
+        let mut states = Vec::new();
+        let mut edges = Vec::new();
+        for tick in 90..=150u32 {
+            if tick == t {
+                assert!(matches!(
+                    s.offer(shove(1, 180, Some(0))),
+                    Offer::Triggered {
+                        initiator: Some(0),
+                        ..
+                    }
+                ));
+            }
+            // The state the tick *starts* its step in, like the sheet's table.
+            states.push((tick, s.state(), s.solid_rect().is_some(), s.mass_rect()));
+            if let Some(e) = s.step() {
+                edges.push((tick, e));
+            }
+        }
+        let at = |tick: u32| *states.iter().find(|(x, ..)| *x == tick).unwrap();
+        assert_eq!(at(99).1, SlideState::Stable);
+        assert_eq!(at(t).1, SlideState::Disturbed);
+        assert_eq!(at(t + 23).1, SlideState::Disturbed, "the last shudder tick");
+        assert!(at(t + 23).2, "still a solid on T + 23");
+        assert_eq!(at(t + 24).1, SlideState::Slid, "slid from T + 24");
+        assert!(!at(t + 24).2, "the solid is gone on the first slid tick");
+        assert_eq!(
+            at(t + 24).3,
+            Some(IRect::new(352, 0, 64, 48)),
+            "not yet moved at the read"
+        );
+        assert_eq!(
+            at(t + 40).1,
+            SlideState::Slid,
+            "the settling step is T + 40"
+        );
+        assert_eq!(at(t + 41).1, SlideState::Settled);
+        assert_eq!(
+            edges,
+            [
+                (t + 23, SlideEdge::SlideStarted),
+                (t + 40, SlideEdge::Settled)
+            ]
+        );
+        // 16 moves of 3 px: 352 -> 304 after the step of T + 39, the remnant
+        // covers it.
+        assert_eq!(s.remnant(), Some(IRect::new(296, 32, 80, 16)));
+        assert_eq!(bank().mass_after(16), IRect::new(304, 0, 64, 48));
+    }
+
+    #[test]
+    fn the_mass_moves_three_px_per_step_for_sixteen_steps() {
+        let mut s = Slide::new(bank()).unwrap();
+        s.offer(shove(1, 180, None));
+        let mut xs = Vec::new();
+        for _ in 0..60 {
+            s.step();
+            if let Some(m) = s.mass_rect() {
+                xs.push(m.x);
+            }
+        }
+        // The first Slid step moves it by 3 (the step after SlideStarted).
+        assert_eq!(
+            xs.first(),
+            Some(&352),
+            "starts on the bank (after SlideStarted)"
+        );
+        assert_eq!(xs.last(), Some(&304));
+        assert_eq!(xs.len(), 17, "16 moves plus the start");
+        assert!(xs.windows(2).all(|w| w[1] == w[0] - 3));
+    }
+
+    #[test]
+    fn melee_and_missiles_never_disturb_it_and_the_others_do_once() {
+        let mut s = Slide::new(bank()).unwrap();
+        let jab = Stimulus::MeleeHit {
+            token: 1,
+            player: 0,
+            weight: 2,
+        };
+        let missile = Stimulus::Projectile {
+            projectile_id: 1,
+            owner: Some(1),
+            weight: 2,
+        };
+        assert_eq!(s.offer(jab), Offer::Ignored(Ignored::NotAccepted));
+        assert_eq!(s.offer(missile), Offer::Ignored(Ignored::NotAccepted));
+        assert_eq!(s.state(), SlideState::Stable);
+        // A launched body counts from 160 px/s, a shove too (both edges).
+        let launch = |id, speed| Stimulus::LaunchedBody {
+            launch_id: id,
+            impulse_px_s: speed,
+            initiator: Some(0),
+        };
+        assert_eq!(s.offer(launch(1, 159)), Offer::Ignored(Ignored::TooWeak));
+        assert_eq!(
+            s.offer(shove(1, 159, None)),
+            Offer::Ignored(Ignored::ShoveTooWeak)
+        );
+        assert!(matches!(s.offer(launch(1, 160)), Offer::Triggered { .. }));
+        // One disturbance: nothing else counts.
+        assert_eq!(
+            s.offer(Stimulus::Blast {
+                blast_id: 1,
+                owner: None
+            }),
+            Offer::Ignored(Ignored::AlreadyActivated)
+        );
+    }
+
+    #[test]
+    fn each_accepted_kind_can_be_switched_off_and_a_blast_disturbs_it() {
+        let mut c = bank();
+        c.accepts_shove = false;
+        let mut s = Slide::new(c).unwrap();
+        assert_eq!(
+            s.offer(shove(1, 200, None)),
+            Offer::Ignored(Ignored::NotAccepted)
+        );
+        assert!(matches!(
+            s.offer(Stimulus::Blast {
+                blast_id: 4,
+                owner: Some(1)
+            }),
+            Offer::Triggered {
+                initiator: Some(1),
+                ..
+            }
+        ));
+        assert_eq!(s.initiator(), Some(1));
+    }
+
+    #[test]
+    fn a_duplicate_launch_and_a_deep_link_are_named() {
+        let mut s = Slide::new(bank()).unwrap();
+        assert_eq!(
+            s.offer(Stimulus::PropContact {
+                source: 0,
+                initiator: None,
+                depth: MAX_CHAIN_DEPTH
+            }),
+            Offer::Ignored(Ignored::ChainTooDeep)
+        );
+        assert_eq!(
+            s.offer(Stimulus::PropContact {
+                source: 0,
+                initiator: None,
+                depth: 1
+            }),
+            Offer::Ignored(Ignored::NotAccepted)
+        );
+    }
+
+    #[test]
+    fn the_config_rejects_bad_geometry_and_timing() {
+        assert!(Slide::new(bank()).is_ok());
+        let bad = |f: fn(&mut SlideConfig)| {
+            let mut c = bank();
+            f(&mut c);
+            Slide::new(c).is_err()
+        };
+        assert!(bad(|c| c.dx_per_tick = 0));
+        assert!(bad(|c| c.warning_ticks = MIN_WARNING_TICKS - 1));
+        assert!(bad(|c| c.slide_ticks = 0));
+        assert!(bad(|c| c.slide_ticks = MAX_SLIDE_TICKS + 1));
+        assert!(bad(|c| c.remnant.y -= 4), "the remnant rests on the floor");
+        assert!(bad(|c| c.remnant.h = 64), "no taller than the bank");
+        assert!(bad(|c| c.remnant.x = 310), "it covers the final position");
+        assert!(bad(|c| c.remnant.w = 60), "it covers the final position");
+        // A +x slide is allowed with a remnant on the right.
+        let mut c = bank();
+        c.dx_per_tick = 3;
+        c.remnant = IRect::new(392, FLOOR - 16, 80, 16);
+        assert!(Slide::new(c).is_ok());
+    }
+
+    #[test]
+    fn reset_restores_the_first_state_and_the_hash_follows_the_state() {
+        let hash = |s: &Slide| {
+            let mut h = 0xcbf2_9ce4_8422_2325_u64;
+            s.mix_into(&mut |x| {
+                h ^= x;
+                h = h.wrapping_mul(0x0000_0100_0000_01b3);
+            });
+            h
+        };
+        let fresh = Slide::new(bank()).unwrap();
+        let mut s = fresh.clone();
+        s.offer(shove(1, 180, Some(0)));
+        for _ in 0..30 {
+            s.step();
+        }
+        assert_ne!(hash(&s), hash(&fresh));
+        s.reset();
+        assert_eq!(hash(&s), hash(&fresh));
+        assert_eq!(s, fresh);
+    }
 }

@@ -601,3 +601,498 @@ mod tests {
         assert_eq!(rig.valve().state(), ValveState::Warning);
     }
 }
+
+// ---------------------------------------------------------------------------
+// BOIL-B wire and BOIL-C wire: the room's scripted scene pilots.
+// ---------------------------------------------------------------------------
+
+/// Scripted **scene pilots** of the Goblin Boiler (integration plan section 10,
+/// item 5): a deterministic function of the finished sim state plays the real
+/// room on the real combat scene with the live env step ([`crate::combat_scene`]
+/// `env`), for solo Carl, solo Donut by swap and two players, at the CF02 seeds
+/// 0..8. They are the gate's per-room fixtures that exist before the companion
+/// mode (`cf02_free`, CA2-B2): the companion-mode fixtures land in the first
+/// BOIL owner step after CA2-B2. The room has no roster of its own yet (BOIL-E),
+/// so a plan that needs a goblin brings one (a passive goblin under the weight's
+/// footprint).
+///
+/// A pilot is **not** AUTOPLAY and not an evaluator of fun: it proves the
+/// critical path (the exit is reachable and reached in every destruction state
+/// the plans produce, no hero is stuck for more than 300 ticks while walking),
+/// the exact event ordering of each plan and the replay determinism (each plan
+/// replays to the same state hash). It runs in `cargo test`; it is not
+/// registered as a CLI fixture name (the CLI route is `--scene f01_boiler`).
+pub mod scene_pilots {
+    use std::path::Path;
+
+    use crate::boss_scene::Pilot;
+    use crate::combat::{CombatEvent, DefeatCause, EnemyAi, PropPhase};
+    use crate::combat_scene::{CombatState, EnemySpawn, Fixture};
+    use crate::corridor::SceneSim;
+    use crate::donut_mana::DonutSetup;
+    use crate::env_prop::{MassState, ValveState};
+    use crate::f01_boiler;
+    use crate::input::RawInput;
+    use crate::party::{HeroId, PROVISIONAL_TUNING};
+    use crate::party_scene::{PartyFixture, PartyFixtureSim};
+
+    /// Where Carl's jab reaches the valve and the brace (the jab is 16..22 px
+    /// ahead of his column).
+    pub const VALVE_X: f32 = 460.0;
+    pub const BRACE_X: f32 = 740.0;
+    /// A passive goblin standing under the weight's footprint (784..848).
+    pub const GOBLIN_UNDER_WEIGHT: i32 = 816;
+    /// A walking hero that does not move for this many ticks is stuck. The gate
+    /// allows at most 300.
+    pub const STUCK_LIMIT: u32 = 300;
+    /// The run length of every plan (15 s of game time).
+    pub const PLAN_TICKS: u64 = 900;
+
+    /// What a plan does with the props.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub enum Plan {
+        /// BOIL-01: walk to the exit, touch nothing.
+        Direct,
+        /// BOIL-02: two jabs on the valve, wait out the steam, walk on.
+        Valve,
+        /// BOIL-05: two jabs on the brace with a goblin under the footprint.
+        Weight,
+        /// BOIL-06/07: the valve, then the brace; the room ends broken and
+        /// settled (the rubble variant).
+        Both,
+    }
+
+    /// Who plays.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub enum Who {
+        /// Solo Carl (the default start).
+        CarlSolo,
+        /// Carl plays `plan`, then swaps to Donut, who walks to the exit.
+        DonutBySwap,
+        /// P1 Carl plays `plan`, P2 Donut walks right.
+        TwoPlayer,
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq)]
+    enum Step {
+        WalkTo(f32),
+        Jab2,
+        WaitValveSpent,
+        WaitLanded,
+        Swap,
+        WalkExit,
+    }
+
+    fn steps(plan: Plan, swap_before_exit: bool) -> Vec<Step> {
+        let mut s = match plan {
+            Plan::Direct => Vec::new(),
+            Plan::Valve => vec![Step::WalkTo(VALVE_X), Step::Jab2, Step::WaitValveSpent],
+            Plan::Weight => vec![Step::WalkTo(BRACE_X), Step::Jab2, Step::WaitLanded],
+            Plan::Both => vec![
+                Step::WalkTo(VALVE_X),
+                Step::Jab2,
+                Step::WaitValveSpent,
+                Step::WalkTo(BRACE_X),
+                Step::Jab2,
+                Step::WaitLanded,
+            ],
+        };
+        if swap_before_exit {
+            s.push(Step::Swap);
+        }
+        s.push(Step::WalkExit);
+        s
+    }
+
+    /// The pilot's own counters; everything else is read from the sim.
+    #[derive(Debug, Clone)]
+    struct Driver {
+        steps: Vec<Step>,
+        at: usize,
+        timer: u32,
+    }
+
+    const WALK: RawInput = RawInput {
+        move_x: 1.0,
+        ..RawInput::NONE
+    };
+
+    impl Driver {
+        fn new(steps: Vec<Step>) -> Self {
+            Self {
+                steps,
+                at: 0,
+                timer: 0,
+            }
+        }
+
+        /// Whether the current step is a walk (the stuck metric counts only
+        /// those: a jab or a wait stands still on purpose).
+        fn walking(&self) -> bool {
+            matches!(
+                self.steps.get(self.at),
+                Some(Step::WalkTo(_) | Step::WalkExit)
+            )
+        }
+
+        fn advance(&mut self) {
+            self.at += 1;
+            self.timer = 0;
+        }
+
+        /// A jump when a solid ahead rises above the feet (the drum and the
+        /// remnant are 32 px, every class clears them).
+        fn walk(sim: &PartyFixtureSim, hero: HeroId) -> RawInput {
+            let body = sim.scene.world.body(hero);
+            let foot = body.y - crate::prototype::HERO_HALF_HEIGHT;
+            let blocked = sim.scene.world.solids.iter().any(|b| {
+                b.intact
+                    && b.rect.left > body.x + 8.0
+                    && b.rect.left < body.x + 34.0
+                    && b.rect.top() > foot + 1.0
+                    && b.rect.bottom < foot + 40.0
+            });
+            RawInput {
+                jump: blocked && body.grounded,
+                ..WALK
+            }
+        }
+
+        fn input(&mut self, sim: &PartyFixtureSim, hero: HeroId) -> RawInput {
+            let Some(step) = self.steps.get(self.at).copied() else {
+                return RawInput::NONE;
+            };
+            let x = sim.scene.world.body(hero).x;
+            let env = sim.combat.env().expect("the Boiler has props");
+            match step {
+                Step::WalkTo(target) => {
+                    if x >= target {
+                        self.advance();
+                        return self.input(sim, hero);
+                    }
+                    Self::walk(sim, hero)
+                }
+                Step::Jab2 => {
+                    self.timer += 1;
+                    match self.timer {
+                        1 | 31 => RawInput {
+                            attack: true,
+                            ..RawInput::NONE
+                        },
+                        46.. => {
+                            self.advance();
+                            RawInput::NONE
+                        }
+                        _ => RawInput::NONE,
+                    }
+                }
+                Step::WaitValveSpent => {
+                    if env.valve_state(0) == Some(ValveState::Spent) {
+                        self.advance();
+                    }
+                    RawInput::NONE
+                }
+                Step::WaitLanded => {
+                    if env.mass_state(1) == Some(MassState::Landed) {
+                        self.advance();
+                    }
+                    RawInput::NONE
+                }
+                Step::Swap => {
+                    self.advance();
+                    RawInput {
+                        swap: true,
+                        ..RawInput::NONE
+                    }
+                }
+                Step::WalkExit => Self::walk(sim, hero),
+            }
+        }
+    }
+
+    /// What a pilot run saw.
+    #[derive(Debug, Clone)]
+    pub struct Report {
+        /// The tick the exit was reached on.
+        pub exit_tick: Option<u64>,
+        /// The longest run of walking ticks without moving, per hero.
+        pub max_stuck: [u32; 2],
+        pub hash: u64,
+        pub events: Vec<CombatEvent>,
+    }
+
+    impl Report {
+        pub fn phases(&self, prop: u16, phase: PropPhase) -> usize {
+            self.events
+                .iter()
+                .filter(|e| {
+                    matches!(e, CombatEvent::PropPhase { prop: p, phase: ph, .. }
+                        if *p == prop && *ph == phase)
+                })
+                .count()
+        }
+
+        pub fn prop_hits(&self) -> usize {
+            self.events
+                .iter()
+                .filter(|e| matches!(e, CombatEvent::PropHit { .. }))
+                .count()
+        }
+
+        pub fn hero_hurts(&self) -> usize {
+            self.events
+                .iter()
+                .filter(|e| matches!(e, CombatEvent::HeroHurt { .. }))
+                .count()
+        }
+
+        pub fn environment_kills(&self) -> Vec<(u32, Option<u32>)> {
+            self.events
+                .iter()
+                .filter_map(|e| match e {
+                    CombatEvent::EnemyDefeated {
+                        target,
+                        cause: DefeatCause::Environment { player, .. },
+                        ..
+                    } => Some((*target, *player)),
+                    _ => None,
+                })
+                .collect()
+        }
+    }
+
+    /// Run one plan on the real room for [`PLAN_TICKS`] (or until the exit and
+    /// a short tail), at CF02 seed `seed`.
+    pub fn run(root: &Path, who: Who, plan: Plan, seed: u64) -> Result<Report, String> {
+        let run = f01_boiler::launch(root)?;
+        let goblins: &'static [EnemySpawn] = if plan == Plan::Weight {
+            Box::leak(Box::new([EnemySpawn {
+                x: GOBLIN_UNDER_WEIGHT,
+                ai: EnemyAi::Passive,
+            }]))
+        } else {
+            &[]
+        };
+        let base: &'static Fixture = Box::leak(Box::new(Fixture {
+            name: "boiler_pilot",
+            summary: "BOIL-B/C wire: a scripted scene pilot of the Goblin Boiler",
+            seed,
+            carl_x: run.loaded.room.spawn_carl,
+            enemies: goblins,
+            shore_dx: None,
+            boss: None,
+            engineers: &[],
+            llamas: &[],
+            charges: &[],
+            script: &[],
+            ticks: PLAN_TICKS,
+        }));
+        let mut scene = SceneSim::new_at(&run.kit, 360, base.carl_x)?;
+        let mut combat = CombatState::new(base, &run.kit, &scene)?
+            .with_donut(DonutSetup::unlocked(8))
+            .with_demo(run.rules)
+            .with_cf02()
+            .with_cf02_seed(Some(seed))
+            .with_env(f01_boiler::env_runtime(&run)?);
+        combat.sync_env(&mut scene);
+        let fixture: &'static PartyFixture = Box::leak(Box::new(PartyFixture {
+            base,
+            two_player: who == Who::TwoPlayer,
+            tuning: PROVISIONAL_TUNING,
+            script: &[],
+            pilot: Pilot::None,
+            donut: DonutSetup::unlocked(8),
+        }));
+        let mut sim = PartyFixtureSim::from_parts(scene, combat, fixture);
+        let mut carl = Driver::new(steps(plan, who == Who::DonutBySwap));
+        let mut donut = Driver::new(vec![Step::WalkExit]);
+        let mut last_x = [sim.scene.world.hero.x, sim.scene.world.donut_body.x];
+        let mut stuck = [0u32; 2];
+        let mut max_stuck = [0u32; 2];
+        let mut exit_tick = None;
+        let mut swapped = false;
+        for _ in 0..PLAN_TICKS {
+            // Who the plan's first driver steers: Carl until the swap, then
+            // Donut (solo), or Carl all the time (two players).
+            let (slots, walking) = match who {
+                Who::CarlSolo => (
+                    [carl.input(&sim, HeroId::Carl), RawInput::NONE],
+                    [carl.walking(), false],
+                ),
+                Who::DonutBySwap if !swapped => {
+                    let input = carl.input(&sim, HeroId::Carl);
+                    swapped = input.swap;
+                    ([input, RawInput::NONE], [carl.walking(), false])
+                }
+                Who::DonutBySwap => {
+                    let input = donut.input(&sim, HeroId::Donut);
+                    ([input, RawInput::NONE], [false, true])
+                }
+                Who::TwoPlayer => {
+                    // P2 follows P1 at about 90 px behind (the scroll camera
+                    // holds the lead player back when the partner lags); she
+                    // never gets ahead of him, so the exit is his to reach.
+                    let carl_x = sim.scene.world.hero.x;
+                    let donut_x = sim.scene.world.donut_body.x;
+                    let follow = donut_x < carl_x - 90.0;
+                    let p2 = if follow {
+                        Driver::walk(&sim, HeroId::Donut)
+                    } else {
+                        RawInput::NONE
+                    };
+                    (
+                        [carl.input(&sim, HeroId::Carl), p2],
+                        [carl.walking(), follow],
+                    )
+                }
+            };
+            sim.step_slots(slots);
+            for (i, id) in HeroId::ALL.into_iter().enumerate() {
+                let x = sim.scene.world.body(id).x;
+                if walking[i] && (x - last_x[i]).abs() < 0.1 {
+                    stuck[i] += 1;
+                } else {
+                    stuck[i] = 0;
+                }
+                max_stuck[i] = max_stuck[i].max(stuck[i]);
+                last_x[i] = x;
+            }
+            if exit_tick.is_none() && sim.scene.world.complete {
+                exit_tick = Some(sim.scene.world.tick);
+            }
+            // The exit is the last step of every plan.
+            if exit_tick.is_some() {
+                break;
+            }
+        }
+        Ok(Report {
+            exit_tick,
+            max_stuck,
+            hash: sim.combat.state_hash(&sim.scene),
+            events: sim.combat.events.clone(),
+        })
+    }
+}
+
+#[cfg(test)]
+mod scene_pilot_tests {
+    use super::scene_pilots::*;
+    use crate::combat::PropPhase;
+    use std::path::PathBuf;
+
+    fn root() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+    }
+
+    fn go(who: Who, plan: Plan, seed: u64) -> Report {
+        run(&root(), who, plan, seed).expect("the pilot runs")
+    }
+
+    /// BOIL-01-DIRECT: nothing touched, the exit is reached, nothing happens to
+    /// the props or the heroes, for solo Carl, Donut by swap and two players.
+    #[test]
+    fn the_direct_route_reaches_the_exit_with_every_prop_untouched() {
+        for who in [Who::CarlSolo, Who::DonutBySwap, Who::TwoPlayer] {
+            for seed in 0..8 {
+                let r = go(who, Plan::Direct, seed);
+                let tick = r
+                    .exit_tick
+                    .unwrap_or_else(|| panic!("{who:?} seed {seed}: no exit"));
+                assert!(tick < 600, "{who:?} seed {seed}: reached on {tick}");
+                assert_eq!(r.prop_hits(), 0, "{who:?}");
+                assert_eq!(r.hero_hurts(), 0, "{who:?}");
+                assert!(
+                    r.max_stuck.iter().all(|s| *s <= STUCK_LIMIT),
+                    "{who:?} seed {seed}: {:?}",
+                    r.max_stuck
+                );
+            }
+        }
+    }
+
+    /// BOIL-02-VALVE-MELEE: one warning, one vent, one spend; nobody is hurt
+    /// because the pilot waits the burst out; the exit is reached.
+    #[test]
+    fn the_valve_plan_vents_once_and_the_exit_is_reached() {
+        for seed in 0..8 {
+            let r = go(Who::CarlSolo, Plan::Valve, seed);
+            assert_eq!(r.phases(0, PropPhase::Warning), 1, "seed {seed}");
+            assert_eq!(r.phases(0, PropPhase::Venting), 1);
+            assert_eq!(r.phases(0, PropPhase::Spent), 1);
+            assert_eq!(r.hero_hurts(), 0);
+            assert!(r.exit_tick.is_some(), "seed {seed}");
+            assert!(r.max_stuck[0] <= STUCK_LIMIT);
+        }
+    }
+
+    /// BOIL-05-WEIGHT: the brace releases, the weight lands once, the goblin
+    /// under the footprint dies credited to Carl, and the exit is reached over
+    /// the rubble.
+    #[test]
+    fn the_weight_plan_kills_the_goblin_under_it_once_and_the_rubble_is_crossed() {
+        for seed in 0..8 {
+            let r = go(Who::CarlSolo, Plan::Weight, seed);
+            assert_eq!(r.phases(1, PropPhase::Released), 1);
+            assert_eq!(r.phases(1, PropPhase::Landed), 1);
+            assert_eq!(r.environment_kills(), [(0, Some(0))], "seed {seed}");
+            assert_eq!(r.hero_hurts(), 0, "the pilot never stands under it");
+            assert!(r.exit_tick.is_some(), "seed {seed}");
+            assert!(r.max_stuck[0] <= STUCK_LIMIT);
+        }
+    }
+
+    /// BOIL-06/07: both props used (broken and settled), the exit is still
+    /// reached by Carl, by Donut after a swap and with two players.
+    #[test]
+    fn the_room_stays_walkable_for_every_hero_with_both_props_used() {
+        for who in [Who::CarlSolo, Who::DonutBySwap, Who::TwoPlayer] {
+            for seed in 0..8 {
+                let r = go(who, Plan::Both, seed);
+                assert_eq!(r.phases(0, PropPhase::Spent), 1, "{who:?} seed {seed}");
+                assert_eq!(r.phases(1, PropPhase::Landed), 1, "{who:?} seed {seed}");
+                assert!(r.exit_tick.is_some(), "{who:?} seed {seed}: no exit");
+                assert!(
+                    r.max_stuck.iter().all(|s| *s <= STUCK_LIMIT),
+                    "{who:?} seed {seed}: {:?}",
+                    r.max_stuck
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn every_pilot_replays_to_the_same_hash_and_events() {
+        for (who, plan) in [
+            (Who::CarlSolo, Plan::Direct),
+            (Who::CarlSolo, Plan::Valve),
+            (Who::CarlSolo, Plan::Weight),
+            (Who::CarlSolo, Plan::Both),
+            (Who::DonutBySwap, Plan::Both),
+            (Who::TwoPlayer, Plan::Both),
+        ] {
+            let a = go(who, plan, 3);
+            let b = go(who, plan, 3);
+            assert_eq!(a.hash, b.hash, "{who:?} {plan:?}");
+            assert_eq!(a.events, b.events, "{who:?} {plan:?}");
+        }
+    }
+
+    /// The final hashes are pinned: a behaviour edit updates them on purpose.
+    #[test]
+    fn the_pilot_hashes_are_pinned() {
+        let plans = [Plan::Direct, Plan::Valve, Plan::Weight, Plan::Both];
+        let got: Vec<u64> = plans
+            .iter()
+            .map(|p| go(Who::CarlSolo, *p, 0).hash)
+            .collect();
+        assert_eq!(got, PINNED, "pins: {got:#018x?}");
+    }
+
+    /// Solo Carl at CF02 seed 0: direct, valve, weight, both.
+    const PINNED: [u64; 4] = [
+        0x66c5_27ba_bbe8_8786,
+        0x0c8c_baed_23ea_b1b6,
+        0x9270_8c31_daad_cf8a,
+        0x1634_84e0_9bdd_beaf,
+    ];
+}

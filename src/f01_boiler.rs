@@ -7,11 +7,12 @@
 //! combat fixture and the checkpoint rules from the sidecar: the spawn, the
 //! checkpoint and the protected exit.
 //!
-//! **What this is not.** The props, the hazards and the roster of the sidecar
-//! stay **inert**: the room is the validated greybox hall, a continuous lane,
-//! two optional 80 px perches, a checkpoint and the exit. BOIL-B wire adds the
-//! valve and the steam, BOIL-C wire the falling weight and the drum, ENEMY-SLOT
-//! and BOIL-E the roster. Nothing here grants a capability: the sidecar's story
+//! **What runs.** BOIL-B wire and BOIL-C wire make the sidecar's **props and
+//! hazards live** ([`env_runtime`], the env step of `combat_scene::env`): the
+//! valve and its steam, the hanging weight with its remnant and the drum's
+//! solid. The **roster stays inert** (ENEMY-SLOT and BOIL-E add it): the room
+//! has no enemies of its own yet, the scripted pilots of
+//! `boiler_fixtures` bring their own. Nothing here grants a capability: the sidecar's story
 //! pin only says what the room *holds* (K1, K9: the post-Hoarder state), and the
 //! hold applies only under the matching program flag (`--carl-prog`,
 //! `--donut-prog`), like every pin.
@@ -58,17 +59,31 @@ pub const ENCOUNTER_PIN_KEY: &str = "f01_boiler_encounter";
 pub const PIN_POST_PILE_BOSS: &str = "f01_pin_post_pile_boss";
 
 /// The script of the headless smoke: hold right for this many ticks, which
-/// carries Carl from the spawn to the exit with room to spare (the lane is
-/// empty and continuous). A live run ignores it.
+/// carries Carl from the spawn to the exit with room to spare, with one jump
+/// over the drum's solid (a 32 px solid on the lane, the validated geometry:
+/// every class clears it). A live run ignores it.
 pub const SMOKE_TICKS: u64 = 600;
-const WALK_RIGHT: &[Hold] = &[Hold {
-    from: 0,
-    to: SMOKE_TICKS,
-    input: RawInput {
-        move_x: 1.0,
-        ..RawInput::NONE
+/// The tick the smoke's jump over the drum is pressed: Carl is at x 818, 30 px
+/// before the drum's solid at 848 (the drum blocks the lane at 836).
+pub const SMOKE_JUMP_TICK: u64 = 229;
+const WALK_RIGHT: &[Hold] = &[
+    Hold {
+        from: 0,
+        to: SMOKE_TICKS,
+        input: RawInput {
+            move_x: 1.0,
+            ..RawInput::NONE
+        },
     },
-}];
+    Hold {
+        from: SMOKE_JUMP_TICK,
+        to: SMOKE_JUMP_TICK + 2,
+        input: RawInput {
+            jump: true,
+            ..RawInput::NONE
+        },
+    },
+];
 /// A fixture seed is only recorded (no rule reads it in this room).
 const FIXTURE_SEED: u64 = 0x0F01_B011;
 
@@ -147,6 +162,12 @@ fn compose_kit(root: &Path, room: &Room) -> Result<EnvKit, String> {
     Ok(kit)
 }
 
+/// The env runtime of a launched room: the sidecar's props, hazards and
+/// solids (BOIL-B wire, BOIL-C wire). `with_env` puts it on the combat state.
+pub fn env_runtime(run: &BoilerRun) -> Result<crate::combat_scene::EnvRuntime, String> {
+    crate::combat_scene::EnvRuntime::new(&run.loaded.encounter)
+}
+
 /// Load the room, compose its kit and build the fixture and rules.
 pub fn launch(root: &Path) -> Result<BoilerRun, String> {
     let loaded = encounter::load(root, BOILER_ENCOUNTER_PATH).map_err(|errors| {
@@ -212,7 +233,7 @@ pub fn launch(root: &Path) -> Result<BoilerRun, String> {
     }));
     let fixture: &'static Fixture = Box::leak(Box::new(Fixture {
         name: SCENE_NAME,
-        summary: "BOIL-A wire: the Goblin Boiler hall, spawn, checkpoint and exit (inert props)",
+        summary: "BOIL-A/B/C wire: the Goblin Boiler hall with live props (valve, steam, weight, drum solid)",
         seed: FIXTURE_SEED,
         carl_x: start,
         enemies: &[],
@@ -233,13 +254,13 @@ pub fn launch(root: &Path) -> Result<BoilerRun, String> {
 }
 
 /// The console line of a launch: identity, pin and hashes, and the fact that
-/// the props, hazards and roster are inert.
+/// the props and hazards are live and the roster is inert.
 pub fn entry_line(run: &BoilerRun) -> String {
     let e = &run.loaded.encounter;
     let room = &run.loaded.room;
     format!(
         "F01_BOILER_ENTRY room={} encounter={} pin={} spawn_carl={} spawn_donut={} \
-         checkpoints={:?} exit={},{},{},{} ceiling_px={} props={} hazards={} roster={} inert=true \
+         checkpoints={:?} exit={},{},{},{} ceiling_px={} props={} hazards={} roster={} env=live roster_inert=true \
          room_hash={:#018x} sidecar_hash={:#018x}",
         e.room_id,
         e.id,
@@ -358,9 +379,12 @@ mod tests {
     }
 
     #[test]
-    fn props_hazards_and_roster_stay_inert() {
+    fn the_roster_stays_inert_and_the_props_build() {
         let r = run();
         let sim = FixtureSim::new(&r.kit, 360, r.fixture).expect("the fixture builds");
+        let env = env_runtime(&r).expect("the sidecar's props build");
+        assert_eq!(env.props(), 3, "valve, weight, drum");
+        assert_eq!(env.solids().len(), 2, "the remnant and the drum");
         assert!(sim.combat.enemies.is_empty(), "no goblins yet (BOIL-E)");
         assert!(sim.combat.llamas.is_empty());
         assert!(r.fixture.enemies.is_empty() && r.fixture.charges.is_empty());
@@ -381,7 +405,9 @@ mod tests {
             .unwrap()
             .with_donut(DonutSetup::unlocked(8))
             .with_demo(r.rules)
-            .with_cf02();
+            .with_cf02()
+            .with_env(env_runtime(&r).unwrap());
+        combat.sync_env(&mut scene);
         let mut checkpoint_seen = 0;
         let mut reached = None;
         for tick in 1..=SMOKE_TICKS {
@@ -405,7 +431,13 @@ mod tests {
         let r = run();
         let hash = || {
             let mut sim = FixtureSim::new(&r.kit, 360, r.fixture).unwrap();
-            sim.combat = sim.combat.clone().with_demo(r.rules).with_cf02();
+            sim.combat = sim
+                .combat
+                .clone()
+                .with_demo(r.rules)
+                .with_cf02()
+                .with_env(env_runtime(&r).unwrap());
+            sim.combat.sync_env(&mut sim.scene);
             sim.run_scripted(SMOKE_TICKS);
             sim.state_hash()
         };

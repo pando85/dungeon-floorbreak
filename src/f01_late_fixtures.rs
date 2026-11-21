@@ -161,7 +161,11 @@ pub fn boiler_state(
     let (run, scene, combat) = crate::f01_late::boiler_start(root, 360, carl, donut, None)?;
     // Same state the verifier rebuilds.
     debug_assert_eq!(
-        boiler_combat(&run, &scene, carl, donut, None)?.state_hash(&scene),
+        {
+            // The env solids are already in `scene`: the sync is idempotent.
+            let mut again = scene.clone();
+            boiler_combat(&run, &mut again, carl, donut, None)?.state_hash(&again)
+        },
         combat.state_hash(&scene)
     );
     Ok((run, scene, combat))
@@ -199,8 +203,10 @@ mod tests {
     }
 
     /// The committed final hashes (the story loadout run of each room).
-    const GOLDEN_STAND_IN: u64 = 0xcf51_fd83_1c02_32a2;
-    const GOLDEN_BOILER: u64 = 0xa562_53b9_70fc_e6dd;
+    /// Re-pinned by BOIL-B/C wire: the shared Boiler walk jumps the drum at tick 229.
+    const GOLDEN_STAND_IN: u64 = 0x7502_9aea_159b_bbdd;
+    /// Re-pinned by BOIL-B/C wire: the Boiler now runs its env step and the jump.
+    const GOLDEN_BOILER: u64 = 0x6a07_7143_d03b_997e;
     const GOLDEN_JUICER: u64 = 0x60d4_470f_f8d7_4c3b;
 
     #[test]
@@ -311,9 +317,9 @@ mod tests {
     #[test]
     fn a_snapshot_the_table_does_not_know_is_refused() {
         let run = crate::f01_boiler::launch(&root()).unwrap();
-        let scene = SceneSim::new_at(&run.kit, 360, run.fixture.carl_x).unwrap();
+        let mut scene = SceneSim::new_at(&run.kit, 360, run.fixture.carl_x).unwrap();
         let (carl, donut) = Loadout::Story.flags();
-        let mut combat = boiler_combat(&run, &scene, carl, donut, None).unwrap();
+        let mut combat = boiler_combat(&run, &mut scene, carl, donut, None).unwrap();
         let bad = LedgerSnapshot {
             version: crate::story_unlock::SNAPSHOT_VERSION,
             held: vec![crate::story_unlock::SnapshotHeld {
@@ -377,11 +383,15 @@ mod tests {
                 GOLDEN_JUICER,
             ),
         ];
+        let mut wrong = Vec::new();
         for (name, run, golden) in runs {
             let first = run();
             assert_eq!(first, run(), "{name} replays identically");
-            assert_eq!(first, golden, "{name}: {first:#018x}");
+            if first != golden {
+                wrong.push(format!("{name}: {first:#018x}"));
+            }
         }
+        assert!(wrong.is_empty(), "{wrong:?}");
     }
 
     #[test]

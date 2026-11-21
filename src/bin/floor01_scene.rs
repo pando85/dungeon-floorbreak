@@ -1772,7 +1772,11 @@ fn build_scene(
             (sim, combat)
         };
         if let Some(run) = &args.boiler_run {
-            combat = combat.with_demo(run.rules);
+            // BOIL-B/C wire: the sidecar's props and hazards are live.
+            combat = combat
+                .with_demo(run.rules)
+                .with_env(f01_boiler::env_runtime(run)?);
+            combat.sync_env(&mut sim);
         } else if args.cf02.rules {
             combat = combat.with_demo(&cf02::arena::RULES);
         } else if args.demo {
@@ -7334,7 +7338,7 @@ fn headless_boiler(
         ));
     }
     println!(
-        "F01_BOILER_SMOKE_OK ticks={} checkpoint={} complete=true pin={} inert=true",
+        "F01_BOILER_SMOKE_OK ticks={} checkpoint={} complete=true pin={} env=live roster_inert=true",
         sim.world.tick, combat.checkpoint, run.loaded.encounter.story_pin
     );
     Ok(())
@@ -9000,8 +9004,8 @@ mod tests {
         // The binary's start state is the library constructor the verifier calls.
         let run = args(&["--scene", "f01_late"]).unwrap();
         let launched = f01_boiler::launch(root).unwrap();
-        let scene = SceneSim::new_at(&launched.kit, 360, launched.fixture.carl_x).unwrap();
-        let by_args = CombatState::new(launched.fixture, &launched.kit, &scene)
+        let mut scene = SceneSim::new_at(&launched.kit, 360, launched.fixture.carl_x).unwrap();
+        let mut by_args = CombatState::new(launched.fixture, &launched.kit, &scene)
             .unwrap()
             .with_donut(donut_setup(&run))
             .try_with_story(story_setup(&{
@@ -9012,9 +9016,12 @@ mod tests {
             .unwrap()
             .with_demo(launched.rules)
             .with_cf02()
-            .with_cf02_seed(run.cf02.seed);
+            .with_cf02_seed(run.cf02.seed)
+            .with_env(f01_boiler::env_runtime(&launched).unwrap());
+        by_args.sync_env(&mut scene);
         let by_lib =
-            f01_late::boiler_combat(&launched, &scene, run.carl, run.donut, run.cf02.seed).unwrap();
+            f01_late::boiler_combat(&launched, &mut scene, run.carl, run.donut, run.cf02.seed)
+                .unwrap();
         assert_eq!(by_args.state_hash(&scene), by_lib.state_hash(&scene));
     }
 

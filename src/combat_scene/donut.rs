@@ -1281,6 +1281,11 @@ impl CombatState {
             self.donut_kit.bolts.remove(index);
             return true;
         }
+        // BOIL-C wire (DV-5): a live prop target ends the bolt after the slot.
+        if self.env_missile_hit(&bolt, scene, tick) {
+            self.donut_kit.bolts.remove(index);
+            return true;
+        }
         false
     }
 

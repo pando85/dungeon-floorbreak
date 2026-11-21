@@ -769,6 +769,14 @@ pub enum EncounterError {
         prop: String,
         reason: String,
     },
+    /// PR #200 review NB-2: a hero lifted onto a landed remnant would have its
+    /// head in a slab or the lane ceiling.
+    RemnantHeadroom {
+        prop: String,
+        over: String,
+        clearance: i32,
+        need: i32,
+    },
     /// RING-B core: a shutter knob out of its bounds (KR2, KR19).
     ShutterConfig {
         prop: String,
@@ -1022,6 +1030,15 @@ impl std::fmt::Display for EncounterError {
                 "prop {prop} leaves a {px} px solid on the lane, at most {MAX_LANE_OBSTACLE_PX} px"
             ),
             ValveConfig { prop, reason } => write!(f, "prop {prop}: valve config: {reason}"),
+            RemnantHeadroom {
+                prop,
+                over,
+                clearance,
+                need,
+            } => write!(
+                f,
+                "prop {prop}: only {clearance} px between its remnant and {over}, a hero lifted onto the remnant needs {need}"
+            ),
             ShutterConfig { prop, reason } => write!(f, "prop {prop}: shutter config: {reason}"),
             ShutterNotUnderPlatform(p) => write!(
                 f,
@@ -2521,6 +2538,39 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
         });
     }
 
+    // ---- PR #200 review NB-2: the remnant-lift headroom. A hero standing in a
+    // landed remnant is lifted onto its top, so the column above every remnant
+    // must stay clear for the tallest body: the underside of every platform
+    // slab over the remnant (and the room's lane ceiling) is at least Carl's
+    // height above the remnant's top.
+    for p in props.iter().filter(|p| p.kind == PropKind::WeightRig) {
+        let Some(rem) = p.remnant else { continue };
+        let need = classes.carl_height_px;
+        let mut over: Vec<(String, i32)> = Vec::new();
+        for (i, pl) in room.platforms.iter().enumerate() {
+            let underside = pl.rect.y + raw.platform_slab_px;
+            if pl.rect.x < rem.right() && pl.rect.right() > rem.x && underside <= rem.y {
+                over.push((format!("platform {i}"), rem.y - underside));
+            }
+        }
+        if let Some(ceiling) = ctx.ceiling_px {
+            over.push((
+                "the lane ceiling".to_owned(),
+                rem.y - (room.floor_y - ceiling),
+            ));
+        }
+        for (what, clearance) in over {
+            if clearance < need {
+                errs.push(E::RemnantHeadroom {
+                    prop: p.id.clone(),
+                    over: what,
+                    clearance,
+                    need,
+                });
+            }
+        }
+    }
+
     // ---- KR3: the closed shutter's own geometry
     let slab_px = raw.platform_slab_px;
     for (pi, p) in props
@@ -3862,6 +3912,53 @@ mod tests {
             has(&errs, |e| matches!(
                 e,
                 EncounterError::PropOnProtected { zone: "exit", .. }
+            )),
+            "{errs:?}"
+        );
+    }
+
+    /// PR #200 review NB-2: a remnant under a platform slab (or too near the lane
+    /// ceiling) would lift a hero's head into it. The shipped Boiler is clear.
+    #[test]
+    fn a_remnant_needs_headroom_for_the_lifted_hero_under_slabs_and_the_ceiling() {
+        let l = loaded();
+        let need = l.classes.carl_height_px;
+        // The shipped weight: no platform over it, the ceiling far above.
+        assert!(l.ceiling_px.is_some_and(|c| 580 - c <= 548 - need));
+        // Under the left perch (slab underside 512): 548 - 512 = 36 < 52.
+        let mut v = sidecar();
+        v["props"][1]["remnant"] = json!({ "x": 320, "y": 548, "w": 64, "h": 32 });
+        v["hazards"][1]["rect"] = json!({ "x": 320, "y": 484, "w": 64, "h": 96 });
+        let errs = errors(&v);
+        assert!(
+            errs.iter().any(|e| matches!(
+                e,
+                EncounterError::RemnantHeadroom { over, clearance: 36, need: 52, .. }
+                    if over == "platform 0"
+            )),
+            "{errs:?}"
+        );
+        // A remnant whose x range misses the slab (perch 0 ends at x 448) is clear.
+        let mut v = sidecar();
+        v["props"][1]["remnant"] = json!({ "x": 448, "y": 548, "w": 32, "h": 32 });
+        v["hazards"][1]["rect"] = json!({ "x": 448, "y": 484, "w": 64, "h": 96 });
+        let errs = check(&v).err().unwrap_or_default();
+        assert!(
+            !errs
+                .iter()
+                .any(|e| matches!(e, EncounterError::RemnantHeadroom { .. })),
+            "{errs:?}"
+        );
+        // The lane ceiling counts too: at 60 px (underside y 520) only 28 px
+        // are left above the remnant top (548).
+        let mut c = ctx();
+        c.ceiling_px = Some(60);
+        let errs = parse_sidecar(&sidecar().to_string(), &c).unwrap_err();
+        assert!(
+            errs.iter().any(|e| matches!(
+                e,
+                EncounterError::RemnantHeadroom { over, clearance: 28, .. }
+                    if over == "the lane ceiling"
             )),
             "{errs:?}"
         );

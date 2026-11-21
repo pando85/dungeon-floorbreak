@@ -56,6 +56,7 @@ mod carl_cf02;
 mod companion;
 mod contacts_cf02;
 mod donut;
+mod env;
 mod evade;
 mod morale_cf02;
 mod slot;
@@ -63,6 +64,7 @@ mod story;
 mod thrown;
 use self::carl_cf02::{CarlCf02, CarlCf02Plan};
 use self::companion::CompanionRuntime;
+pub use self::env::{ENV_SOURCE_ID, EnvRuntime};
 use self::morale_cf02::MoraleRuntime;
 use self::slot::SlotRuntime;
 /// Where a missile spawns relative to Donut's pivot (read by the corral reach tests).
@@ -882,6 +884,10 @@ pub struct CombatState {
     /// ENEMY-SLOT: the new enemies of this run (`scene_enemy`), empty on every
     /// legacy fixture: nothing of it is stepped, logged or hashed then.
     slot: SlotRuntime,
+    /// BOIL-B wire and BOIL-C wire: the env props, hazards and runtime solids
+    /// of a room with a sidecar (the Goblin Boiler), `None` everywhere else:
+    /// nothing is stepped, evented or hashed then.
+    env: Option<Box<EnvRuntime>>,
     /// CARL-PROG-01 CP-A: the story-unlock ledger and its armed triggers.
     /// `Some` only under the story flags or a fixture's declared pin; `None`
     /// is the legacy game and every golden (nothing is hashed or evented).
@@ -1011,6 +1017,7 @@ impl CombatState {
             donut_kit: DonutKit::new(DonutSetup::NONE),
             companion: CompanionRuntime::default(),
             slot: SlotRuntime::default(),
+            env: None,
             story: None,
             cf02: cf02::fixture_runs_cf02(fixture.name).then(cf02::active),
             carl_cf02: CarlCf02::default(),
@@ -1212,6 +1219,9 @@ impl CombatState {
         self.restart_donut(RestartKind::CheckpointRestart);
         self.restart_story(RestartKind::CheckpointRestart);
         self.companion.reset();
+        // BOIL-B wire: a checkpoint respawn restores the props (design 6).
+        self.env_reset();
+        self.env_after_reset(scene);
         // DM-B (DM-Q13): a checkpoint respawn restarts the wait at its tick.
         self.reflex.reset(scene.world.tick);
         self.respawned = true;
@@ -1286,6 +1296,8 @@ impl CombatState {
         self.thrower = Thrower::default();
         // ENEMY-SLOT: every slot enemy is back at its spawn state.
         self.slot.reset();
+        // BOIL-B wire: every prop is back at its first state.
+        self.env_reset();
         self.contacts.clear();
         self.carl_cf02 = CarlCf02::default();
         self.input = InputFrame::default();
@@ -1379,6 +1391,7 @@ impl CombatState {
         self.restart_story(kind);
         self.companion.reset();
         self.sync_arena(scene);
+        self.env_after_reset(scene);
     }
 
     fn push_event(&mut self, event: CombatEvent) {
@@ -1637,6 +1650,8 @@ impl CombatState {
             self.strike_slot_enemies(scene, &move_tick, attacker, tick, &|spec, hp| {
                 glance.apply(spec, hp)
             });
+            // BOIL-B wire: the same strike on the env props' hit targets.
+            self.strike_env(scene, &move_tick, attacker, tick);
         }
 
         // CARL-PROG-01 CP-B1: Carl's special press and throw clock, after his
@@ -1732,6 +1747,8 @@ impl CombatState {
         self.step_shore(scene, tick);
         self.step_boss(scene, tick);
         self.step_charges(scene, tick);
+        // BOIL-B wire: the env props, hazards and runtime solids.
+        self.step_env(scene, tick);
         // CF02-G: the morale of every goblin judges the tick's events last.
         self.step_morale(scene, tick, self.x_max - ENEMY_HALF_WIDTH);
         // CARL-PROG-01: the story triggers judge the tick last.
@@ -3146,6 +3163,10 @@ impl CombatState {
         }
         // ENEMY-SLOT: nothing is mixed while the slot is empty.
         self.slot.mix_into(&mut put);
+        // BOIL-B wire: nothing is mixed in a room without env props.
+        if let Some(env) = &self.env {
+            env.mix_into(&mut put);
+        }
         // DEATH-D: nothing is mixed for a fixture without charges.
         for charge in &self.charges {
             charge.mix_into(&mut put);
@@ -3233,6 +3254,7 @@ impl CombatState {
         ) + &self.llama_trace()
             + &self.shore_token()
             + &self.boss_token()
+            + &self.env_token()
     }
 
     /// ` l<i>=<mode> ...` per llama and the globs in flight, else empty.
@@ -3300,6 +3322,7 @@ impl CombatState {
             + &self.llama_state()
             + &self.demo_token()
             + &self.boss_token()
+            + &self.env_token()
     }
 
     /// ` boss=<hp>/<max>/<mode>/p<phase>` in a boss fixture, else empty.
@@ -5186,6 +5209,9 @@ mod tests {
                             ForceTier::Heavy
                         };
                         assert_eq!(force, want, "{}", fixture.name);
+                    }
+                    DefeatCause::Environment { .. } => {
+                        assert_eq!(force, cause.default_force(), "{}", fixture.name);
                     }
                 }
             }

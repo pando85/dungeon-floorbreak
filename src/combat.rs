@@ -26,6 +26,8 @@ use crate::agility::EvadeSource;
 use crate::boss::BossMove;
 use crate::donut_mana::{ManaEvent, RejectReason, Unlock};
 use crate::donut_moves::GlanceReason;
+use crate::env_hazard::HazardClass;
+use crate::env_prop::StimulusKind;
 use crate::feel::{
     HAYMAKER_FEEL, HAYMAKER_STEP_PX, HAYMAKER_STEP_TICKS, JAB_FEEL, KICK_FEEL, MISSILE_FEEL,
     MoveFeel, POUNCE_FEEL, SWAT_FEEL,
@@ -1222,6 +1224,18 @@ pub enum DefeatCause {
         player: Option<u32>,
         point_blank: bool,
     },
+    /// BOIL-B wire: an environmental prop or hazard killed the target (a falling
+    /// mass, steam, a drum blast, a slide). `player` is the one whose stimulus
+    /// started the chain, whatever the final cause (`None` for a prop nobody
+    /// set off, or one an enemy did); `prop` is the index of the prop in the
+    /// encounter sidecar and `class` the hazard class that did the damage. The
+    /// initiator travels through chains; a **blast** kill stays
+    /// [`Self::Explosion`] (integration plan section 3).
+    Environment {
+        player: Option<u32>,
+        prop: u16,
+        class: HazardClass,
+    },
 }
 
 impl DefeatCause {
@@ -1241,6 +1255,17 @@ impl DefeatCause {
                     ForceTier::Heavy
                 }
             }
+            // BOILBC-AD4: a falling mass is catastrophic like the shore block;
+            // every other environmental cause is heavy. Every class is listed
+            // so a new one must decide.
+            Self::Environment { class, .. } => match class {
+                HazardClass::FallingMass => ForceTier::Catastrophic,
+                HazardClass::Steam
+                | HazardClass::Blast
+                | HazardClass::Acid
+                | HazardClass::Slide
+                | HazardClass::Wheel => ForceTier::Heavy,
+            },
         }
     }
 
@@ -1262,6 +1287,14 @@ impl DefeatCause {
                     &[ForceTier::Heavy]
                 }
             }
+            Self::Environment { class, .. } => match class {
+                HazardClass::FallingMass => &[ForceTier::Catastrophic],
+                HazardClass::Steam
+                | HazardClass::Blast
+                | HazardClass::Acid
+                | HazardClass::Slide
+                | HazardClass::Wheel => &[ForceTier::Heavy],
+            },
         }
     }
 
@@ -1275,7 +1308,7 @@ impl DefeatCause {
             Self::ShoreBlock { player }
             | Self::ShoreBlockEdge { player }
             | Self::DropHazard { player, .. } => Some(player),
-            Self::Melee | Self::Explosion { .. } => None,
+            Self::Melee | Self::Explosion { .. } | Self::Environment { .. } => None,
         }
     }
 
@@ -1290,6 +1323,9 @@ impl DefeatCause {
             Self::Melee => Some(0),
             Self::ShoreBlock { .. } | Self::ShoreBlockEdge { .. } | Self::Explosion { .. } => None,
             Self::DropHazard { player, .. } => Some(player),
+            // The cause carries the initiator, so the instigator is implied
+            // and mixed only where it differs (a target another player hit).
+            Self::Environment { player, .. } => player,
         }
     }
 }
@@ -1683,6 +1719,70 @@ pub enum CombatEvent {
         due: u64,
         depth: u8,
     },
+    /// BOIL-B wire, appended: an environmental prop took a **counted** stimulus
+    /// (a melee move, a missile, a launched body, a blast). `prop` is the
+    /// index in the encounter sidecar, `kind` the stimulus kind, `progress` the
+    /// hit weight counted so far (the valve or the support, which is weakened
+    /// until it reaches its trigger weight), `player` the initiator.
+    PropHit {
+        tick: u64,
+        prop: u16,
+        kind: StimulusKind,
+        progress: u8,
+        player: Option<u32>,
+    },
+    /// BOIL-B wire, appended: a prop entered a phase that matters to the
+    /// player (the design's `SteamStarted`, `BraceReleased`, `WeightLanded`).
+    /// `player` is the initiator credited with what follows.
+    PropPhase {
+        tick: u64,
+        prop: u16,
+        phase: PropPhase,
+        player: Option<u32>,
+    },
+    /// BOIL-B wire, appended: an enemy fell to a prop or a hazard. Logged on
+    /// the same tick, right after the `EnemyDefeated` it explains (its cause
+    /// is [`DefeatCause::Environment`]), so a trace reads the prop, the hazard
+    /// class and the initiator without decoding the cause.
+    EnvironmentKill {
+        tick: u64,
+        target: u32,
+        prop: u16,
+        class: HazardClass,
+        player: Option<u32>,
+    },
+}
+
+/// BOIL-B wire: the phases of an environmental prop that are logged
+/// ([`CombatEvent::PropPhase`]). The valve's are `Warning`, `Venting`, `Spent`;
+/// a falling mass's `Released`, `Falling`, `Landed`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PropPhase {
+    /// The valve was set off: the pressure tell runs.
+    Warning,
+    /// The vent opened (the steam is active).
+    Venting,
+    /// The vent closed for the attempt.
+    Spent,
+    /// The support let go: the creak and the footprint shadow run.
+    Released,
+    /// The mass is dropping.
+    Falling,
+    /// The mass landed and the remnant stands.
+    Landed,
+}
+
+impl PropPhase {
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Warning => "warning",
+            Self::Venting => "venting",
+            Self::Spent => "spent",
+            Self::Released => "released",
+            Self::Falling => "falling",
+            Self::Landed => "landed",
+        }
+    }
 }
 
 impl CombatEvent {
@@ -1775,6 +1875,17 @@ impl CombatEvent {
                         mix(u64::from(charge));
                         mix(player.map_or(0, |p| u64::from(p) + 1));
                         mix(u64::from(point_blank));
+                    }
+                    // BOIL-B wire: "ENVD".
+                    DefeatCause::Environment {
+                        player,
+                        prop,
+                        class,
+                    } => {
+                        mix(0x454e_5644);
+                        mix(player.map_or(0, |p| u64::from(p) + 1));
+                        mix(u64::from(prop));
+                        mix(class as u64);
                     }
                 }
                 if let DefeatCause::DropHazard { player, rack } = cause {
@@ -2150,6 +2261,48 @@ impl CombatEvent {
                 mix(due);
                 mix(u64::from(depth));
             }
+            // BOIL-B wire: "PRHT", "PRPH", "ENVK", in their own range; only a
+            // room with env props ever emits them.
+            Self::PropHit {
+                tick,
+                prop,
+                kind,
+                progress,
+                player,
+            } => {
+                mix(0x5052_4854);
+                mix(tick);
+                mix(u64::from(prop));
+                mix(kind as u64);
+                mix(u64::from(progress));
+                mix(player.map_or(0, |p| u64::from(p) + 1));
+            }
+            Self::PropPhase {
+                tick,
+                prop,
+                phase,
+                player,
+            } => {
+                mix(0x5052_5048);
+                mix(tick);
+                mix(u64::from(prop));
+                mix(phase as u64);
+                mix(player.map_or(0, |p| u64::from(p) + 1));
+            }
+            Self::EnvironmentKill {
+                tick,
+                target,
+                prop,
+                class,
+                player,
+            } => {
+                mix(0x454e_564b);
+                mix(tick);
+                mix(u64::from(target));
+                mix(u64::from(prop));
+                mix(class as u64);
+                mix(player.map_or(0, |p| u64::from(p) + 1));
+            }
         }
     }
 }
@@ -2209,6 +2362,16 @@ impl fmt::Display for CombatEvent {
                         }
                         if point_blank {
                             write!(f, " point_blank")?;
+                        }
+                    }
+                    DefeatCause::Environment {
+                        player,
+                        prop,
+                        class,
+                    } => {
+                        write!(f, " cause=environment prop={prop} class={}", class.name())?;
+                        if let Some(player) = player {
+                            write!(f, " credit_player={player}")?;
                         }
                     }
                 }
@@ -2528,6 +2691,55 @@ impl fmt::Display for CombatEvent {
                 f,
                 "COMBAT_EVENT tick={tick} kind=charge_chained charge={charge} source={source} due={due} depth={depth}"
             ),
+            Self::PropHit {
+                tick,
+                prop,
+                kind,
+                progress,
+                player,
+            } => {
+                write!(
+                    f,
+                    "COMBAT_EVENT tick={tick} kind=prop_hit prop={prop} stimulus={kind:?} progress={progress}"
+                )?;
+                if let Some(player) = player {
+                    write!(f, " player={player}")?;
+                }
+                Ok(())
+            }
+            Self::PropPhase {
+                tick,
+                prop,
+                phase,
+                player,
+            } => {
+                write!(
+                    f,
+                    "COMBAT_EVENT tick={tick} kind=prop_phase prop={prop} phase={}",
+                    phase.name()
+                )?;
+                if let Some(player) = player {
+                    write!(f, " player={player}")?;
+                }
+                Ok(())
+            }
+            Self::EnvironmentKill {
+                tick,
+                target,
+                prop,
+                class,
+                player,
+            } => {
+                write!(
+                    f,
+                    "COMBAT_EVENT tick={tick} kind=environment_kill target={target} prop={prop} class={}",
+                    class.name()
+                )?;
+                if let Some(player) = player {
+                    write!(f, " credit_player={player}")?;
+                }
+                Ok(())
+            }
         }
     }
 }
@@ -3254,5 +3466,93 @@ mod tests {
         instigator: Option<u32>,
     ) -> CombatEvent {
         CombatEvent::enemy_defeated(tick, target, cause, instigator, None)
+    }
+
+    /// BOIL-B wire: the environmental cause derives its force from the hazard
+    /// class, prints its prop and credit, implies its instigator and hashes
+    /// apart per prop, class and player.
+    #[test]
+    fn an_environment_defeat_derives_force_prints_its_cause_and_hashes_apart() {
+        let cause = |player, prop, class| DefeatCause::Environment {
+            player,
+            prop,
+            class,
+        };
+        let mass = cause(Some(0), 1, HazardClass::FallingMass);
+        let steam = cause(Some(0), 0, HazardClass::Steam);
+        assert_eq!(mass.default_force(), ForceTier::Catastrophic);
+        assert_eq!(steam.default_force(), ForceTier::Heavy);
+        assert_eq!(mass.derived_forces(), [ForceTier::Catastrophic]);
+        assert_eq!(mass.implied_instigator(), Some(0));
+        assert_eq!(
+            cause(None, 1, HazardClass::Blast).implied_instigator(),
+            None
+        );
+        let event = CombatEvent::enemy_defeated(10, 2, mass, Some(0), None);
+        assert_eq!(
+            event.to_string(),
+            "COMBAT_EVENT tick=10 kind=enemy_defeated target=2 cause=environment prop=1 class=falling_mass credit_player=0"
+        );
+        let kill = CombatEvent::EnvironmentKill {
+            tick: 10,
+            target: 2,
+            prop: 1,
+            class: HazardClass::FallingMass,
+            player: Some(0),
+        };
+        assert_eq!(
+            kill.to_string(),
+            "COMBAT_EVENT tick=10 kind=environment_kill target=2 prop=1 class=falling_mass credit_player=0"
+        );
+        let hash = |e: &CombatEvent| {
+            let mut v = Vec::new();
+            e.mix_into(&mut |x| v.push(x));
+            v
+        };
+        let base = hash(&event);
+        for other in [
+            cause(Some(1), 1, HazardClass::FallingMass),
+            cause(None, 1, HazardClass::FallingMass),
+            cause(Some(0), 2, HazardClass::FallingMass),
+            cause(Some(0), 1, HazardClass::Steam),
+        ] {
+            let force = other.default_force();
+            let e = CombatEvent::EnemyDefeated {
+                tick: 10,
+                target: 2,
+                cause: other,
+                force,
+                instigator: other.implied_instigator(),
+            };
+            assert_ne!(hash(&e), base, "{other:?}");
+        }
+        // A goblin another player had hit keeps that instigator in the hash.
+        let hit_before = CombatEvent::enemy_defeated(
+            10,
+            2,
+            cause(None, 1, HazardClass::FallingMass),
+            Some(1),
+            None,
+        );
+        assert_ne!(
+            hash(&hit_before),
+            hash(&CombatEvent::enemy_defeated(
+                10,
+                2,
+                cause(None, 1, HazardClass::FallingMass),
+                None,
+                None
+            ))
+        );
+        let phase = CombatEvent::PropPhase {
+            tick: 5,
+            prop: 0,
+            phase: PropPhase::Venting,
+            player: Some(0),
+        };
+        assert_eq!(
+            phase.to_string(),
+            "COMBAT_EVENT tick=5 kind=prop_phase prop=0 phase=venting player=0"
+        );
     }
 }

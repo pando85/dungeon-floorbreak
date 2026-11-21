@@ -201,6 +201,23 @@ impl SlotEnvHit {
     }
 }
 
+impl SlotEnvHit {
+    /// The defeat cause of a lethal env hit: [`DefeatCause::Environment`]
+    /// credited to the initiator. `prop` is the prop index of `source`: the
+    /// env step always names the **owning prop** (`EnvSource::Prop`), also for
+    /// the steam of a valve; a hazard no prop owns carries its hazard id.
+    pub fn cause(&self) -> crate::combat::DefeatCause {
+        let prop = match self.source {
+            EnvSource::Hazard(id) | EnvSource::Prop(id) => id,
+        };
+        crate::combat::DefeatCause::Environment {
+            player: self.initiator,
+            prop,
+            class: self.class,
+        }
+    }
+}
+
 /// What a hit did to the enemy.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SlotHitResult {
