@@ -68,6 +68,7 @@
       "ca2_q16_stickiness": 150,
       "ca2_q16_min_goal_ticks": 24,
       "ca2_q25_bound_pad_px": 40,
+      "ca2_q27_partner_ledge_hop": false,
       "ca2_q29_spot_max_risk": 250,
       "ca2_q29_ledge_inset_px": 16,
       "ca2_q29_lane_penalty": 300,
@@ -78,31 +79,38 @@
           "goals": {
             "retreat": {
               "enabled": true,
-              "utility": 1800
+              "utility": 1800,
+              "under_boss": true
             },
             "support_leader": {
               "enabled": true,
-              "utility": 1400
+              "utility": 1400,
+              "under_boss": false
             },
             "hunt": {
               "enabled": true,
-              "utility": 1200
+              "utility": 1200,
+              "under_boss": false
             },
             "escort": {
               "enabled": true,
-              "utility": 800
+              "utility": 800,
+              "under_boss": true
             },
             "show_off": {
               "enabled": true,
-              "utility": 700
+              "utility": 700,
+              "under_boss": false
             },
             "perch": {
               "enabled": true,
-              "utility": 600
+              "utility": 600,
+              "under_boss": false
             },
             "idle": {
               "enabled": true,
-              "utility": 100
+              "utility": 100,
+              "under_boss": true
             }
           },
           "ca2_q11_exclude_claimed_from_hunt": true,
@@ -208,6 +216,7 @@
       "ca2_q16_stickiness": 150,
       "ca2_q16_min_goal_ticks": 24,
       "ca2_q25_bound_pad_px": 40,
+      "ca2_q27_partner_ledge_hop": false,
       "ca2_q29_spot_max_risk": 250,
       "ca2_q29_ledge_inset_px": 16,
       "ca2_q29_lane_penalty": 300,
@@ -218,31 +227,38 @@
           "goals": {
             "retreat": {
               "enabled": true,
-              "utility": 1800
+              "utility": 1800,
+              "under_boss": true
             },
             "support_leader": {
               "enabled": true,
-              "utility": 1400
+              "utility": 1400,
+              "under_boss": false
             },
             "hunt": {
               "enabled": true,
-              "utility": 1200
+              "utility": 1200,
+              "under_boss": false
             },
             "escort": {
               "enabled": true,
-              "utility": 800
+              "utility": 800,
+              "under_boss": true
             },
             "show_off": {
               "enabled": true,
-              "utility": 700
+              "utility": 700,
+              "under_boss": false
             },
             "perch": {
               "enabled": true,
-              "utility": 600
+              "utility": 600,
+              "under_boss": false
             },
             "idle": {
               "enabled": true,
-              "utility": 100
+              "utility": 100,
+              "under_boss": true
             }
           },
           "ca2_q11_exclude_claimed_from_hunt": true,
@@ -348,6 +364,7 @@
       "ca2_q16_stickiness": 150,
       "ca2_q16_min_goal_ticks": 24,
       "ca2_q25_bound_pad_px": 40,
+      "ca2_q27_partner_ledge_hop": false,
       "ca2_q29_spot_max_risk": 250,
       "ca2_q29_ledge_inset_px": 16,
       "ca2_q29_lane_penalty": 300,
@@ -358,31 +375,38 @@
           "goals": {
             "retreat": {
               "enabled": true,
-              "utility": 1800
+              "utility": 1800,
+              "under_boss": true
             },
             "support_leader": {
               "enabled": true,
-              "utility": 1400
+              "utility": 1400,
+              "under_boss": false
             },
             "hunt": {
               "enabled": true,
-              "utility": 1200
+              "utility": 1200,
+              "under_boss": false
             },
             "escort": {
               "enabled": true,
-              "utility": 800
+              "utility": 800,
+              "under_boss": true
             },
             "show_off": {
               "enabled": true,
-              "utility": 700
+              "utility": 700,
+              "under_boss": false
             },
             "perch": {
               "enabled": true,
-              "utility": 600
+              "utility": 600,
+              "under_boss": false
             },
             "idle": {
               "enabled": true,
-              "utility": 100
+              "utility": 100,
+              "under_boss": true
             }
           },
           "ca2_q11_exclude_claimed_from_hunt": true,

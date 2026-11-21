@@ -8,7 +8,7 @@
 //! human press uses (CA-24).
 //!
 //! - [`view`]: the perception contract (`CompanionView`, `StableEntityId`).
-//! - [`profile`]: `companion_ai_v0.json` (two profile sets, FNV-1a pinned).
+//! - [`profile`]: `companion_ai_v0.json` (three profile sets, FNV-1a pinned).
 //! - [`director`]: states, legal utility candidates, safety vetoes, cadence.
 //! - [`events`]: the separate `CompanionEvent` log and the per-run counters.
 //! - [`rules`]: the kill-policy `glance` (CA-19, CA-20).

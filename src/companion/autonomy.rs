@@ -788,6 +788,9 @@ mod tests {
                 a.ca2_q25_bound_pad_px
             );
         }
+        // The validated run speed range stops below 240 px/s (`agility.rs`); the
+        // floor reaches 41 only above about 237.6 px/s, where the scroll camera's
+        // own 4 px per tick cap is the real limit (review N-1).
         // DM-A's agile run (207 px/s): the floor is 36, the adopted pad 40.
         let agile = crate::agility::agile_motion();
         assert_eq!(

@@ -19,7 +19,7 @@ pub const PROFILE_JSON: &str = include_str!("../../assets/data/gameplay/companio
 
 /// The committed FNV-1a 64 content hash of [`PROFILE_JSON`]. Editing the file
 /// without updating this value fails [`ProfileFile::pinned`] and the pin test.
-pub const PROFILE_HASH: u64 = 0x09e6_9879_bfc0_57e5;
+pub const PROFILE_HASH: u64 = 0x9cab_1de8_f9b9_d6f0;
 
 /// The profile set id under the spec's name (CA-21, section 17): the runtime's
 /// `UncontrolledHero::Companion(CompanionProfileSet)` names it.
@@ -71,12 +71,15 @@ pub enum AutonomyRole {
     Skirmisher,
 }
 
-/// One goal of a role table: enable flag and base utility (CA2-Q18).
+/// One goal of a role table: enable flag, base utility (CA2-Q18) and whether
+/// the goal is allowed while a boss is up (CA2-Q35: only Retreat, Escort and
+/// Idle, until COMPANION-AI-01E; the interrupt is the director's).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct GoalRow {
     pub enabled: bool,
     pub utility: u16,
+    pub under_boss: bool,
 }
 
 /// The goals the skirmisher table lists (CA2-Q18). Goal kinds are code; which
@@ -169,7 +172,10 @@ pub struct AutonomyRoles {
 }
 
 /// COMPANION-AI-02 (spec 5.3, section 6): the autonomy layer's shared knobs
-/// (CA2-Q03 to Q10, Q12, Q13, Q16, Q25 to Q30, Q34) and its role tables. The
+/// (CA2-Q03 to Q10, Q12, Q13, Q16, Q25, Q27, Q29, Q30, Q34) and its role tables
+/// (Q35 is the per-goal `under_boss` flag). Q17 reuses
+/// `ca10_decision_cadence_ticks`, Q26 is the existing off-screen regroup and Q28
+/// is `cf02_duo_a15_flank`, so none of the three has a knob here. The
 /// block is present in every set; with `enabled` false (`companion_v0`,
 /// `cf02_assist`) nothing in it is read, hashed or applied.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -209,6 +215,9 @@ pub struct Autonomy {
     pub ca2_q16_min_goal_ticks: u16,
     /// CA2-Q25: the automatic camera's bound pad for a bound-only subject.
     pub ca2_q25_bound_pad_px: u16,
+    /// CA2-Q27: the follow bot's ledge hop is not used under autonomy (she does
+    /// not copy the leader's jumps; real routes come from the nav graph).
+    pub ca2_q27_partner_ledge_hop: bool,
     /// CA2-Q29: spot safety.
     pub ca2_q29_spot_max_risk: u16,
     pub ca2_q29_ledge_inset_px: u16,
@@ -606,6 +615,8 @@ impl ProfileSet {
     fn validate_autonomy(&self, set: &str) -> Result<(), ProfileError> {
         // A goal utility stays below the director's interrupt (2000, CA2-Q18).
         const INTERRUPT_UTILITY: u16 = 2000;
+        // 304 (the settled leading edge) - 32 (CA2-Q03) - 12 (her half width).
+        const MAX_LEASH_PX: u16 = 260;
         let a = &self.autonomy;
         let f = |name: &str| format!("{set}.autonomy.{name}");
         let positive = |name: &str, value: u16| {
@@ -616,6 +627,14 @@ impl ProfileSet {
             }
         };
         positive("ca2_q04_leash_px", a.ca2_q04_leash_px)?;
+        // On the leading side the settled view edge is 304 px ahead of the
+        // leader; a leash above 260 would eat the 32 px edge margin there.
+        if a.ca2_q04_leash_px > MAX_LEASH_PX {
+            return bad(
+                &f("ca2_q04_leash_px"),
+                "must not exceed 260 px (the leading-side camera bound)",
+            );
+        }
         positive("ca2_q06_pull_per_px", a.ca2_q06_pull_per_px)?;
         positive("ca2_q07_travel_ticks", a.ca2_q07_travel_ticks)?;
         positive("ca2_q08_max_rise_px", a.ca2_q08_max_rise_px)?;
@@ -672,15 +691,22 @@ impl ProfileSet {
         if !a.enabled {
             return Ok(());
         }
-        // An enabled layer needs what its zone and claim rules read: a hero
-        // with a role table, and the kill-steal veto rules (A08, A11, A12) the
-        // leader's claim set is built from, under the `factual` policy.
-        if self.carl.autonomy_role == AutonomyRole::None
-            && self.donut.autonomy_role == AutonomyRole::None
-        {
+        // An enabled layer needs what its zone and claim rules read: the
+        // partner has a role table, the leader (Carl in v1) has none, because
+        // the claim set reads `carl_hit` facts that only describe Carl's hits
+        // (an AI Carl work order adds per-hero facts first), and the kill-steal
+        // veto rules (A08, A11, A12) the claim set is built from, under the
+        // `factual` policy.
+        if self.donut.autonomy_role == AutonomyRole::None {
             return bad(
                 &format!("{set}.donut.autonomy_role"),
-                "an enabled autonomy layer needs a hero with a role table",
+                "an enabled autonomy layer needs a role table for the partner",
+            );
+        }
+        if self.carl.autonomy_role != AutonomyRole::None {
+            return bad(
+                &format!("{set}.carl.autonomy_role"),
+                "v1 ships the partner's table only: AI Carl's role must be none",
             );
         }
         let duo = &self.cf02_duo;
@@ -690,13 +716,22 @@ impl ProfileSet {
                 "an enabled autonomy layer needs the factual kill policy",
             );
         }
-        if !duo.cf02_duo_a08_respect_finisher
-            || !duo.cf02_duo_a11_engage_facing_only
-            || duo.cf02_duo_a12_recent_hit_ticks == 0
-        {
+        if !duo.cf02_duo_a08_respect_finisher {
             return bad(
                 &format!("{set}.cf02_duo.cf02_duo_a08_respect_finisher"),
-                "an enabled autonomy layer needs A08, A11 and a positive A12 window (the claim set)",
+                "an enabled autonomy layer needs A08 on (the claim set)",
+            );
+        }
+        if !duo.cf02_duo_a11_engage_facing_only {
+            return bad(
+                &format!("{set}.cf02_duo.cf02_duo_a11_engage_facing_only"),
+                "an enabled autonomy layer needs A11 on (the claim set)",
+            );
+        }
+        if duo.cf02_duo_a12_recent_hit_ticks == 0 {
+            return bad(
+                &format!("{set}.cf02_duo.cf02_duo_a12_recent_hit_ticks"),
+                "an enabled autonomy layer needs a positive A12 window (the claim set)",
             );
         }
         Ok(())
@@ -1070,6 +1105,18 @@ mod tests {
             [1800, 1400, 1200, 800, 700, 600, 100]
         );
         assert!(g.rows().iter().all(|(_, row)| row.enabled));
+        // CA2-Q35: under a boss only Retreat, Escort and Idle (the interrupt is
+        // the director's).
+        assert_eq!(
+            g.rows()
+                .iter()
+                .filter(|(_, row)| row.under_boss)
+                .map(|(name, _)| *name)
+                .collect::<Vec<_>>(),
+            ["retreat", "escort", "idle"]
+        );
+        // CA2-Q27: no follow-bot ledge hop under autonomy.
+        assert!(!a.ca2_q27_partner_ledge_hop);
         assert!(sk.ca2_q11_exclude_claimed_from_hunt && sk.ca2_q31_llama_hunt_needs_unlock);
         assert_eq!(
             (
@@ -1199,20 +1246,50 @@ mod tests {
         ));
         for edit in 0..3 {
             let mut f = file();
-            match edit {
-                0 => f.cf02_free.cf02_duo.cf02_duo_a08_respect_finisher = false,
-                1 => f.cf02_free.cf02_duo.cf02_duo_a11_engage_facing_only = false,
-                _ => f.cf02_free.cf02_duo.cf02_duo_a12_recent_hit_ticks = 0,
-            }
+            let named = match edit {
+                0 => {
+                    f.cf02_free.cf02_duo.cf02_duo_a08_respect_finisher = false;
+                    "cf02_duo_a08_respect_finisher"
+                }
+                1 => {
+                    f.cf02_free.cf02_duo.cf02_duo_a11_engage_facing_only = false;
+                    "cf02_duo_a11_engage_facing_only"
+                }
+                _ => {
+                    f.cf02_free.cf02_duo.cf02_duo_a12_recent_hit_ticks = 0;
+                    "cf02_duo_a12_recent_hit_ticks"
+                }
+            };
             assert!(
                 matches!(
                     f.validate(),
                     Err(ProfileError::Field { ref field, .. })
-                        if field == "cf02_free.cf02_duo.cf02_duo_a08_respect_finisher"
+                        if *field == format!("cf02_free.cf02_duo.{named}")
                 ),
                 "edit {edit}"
             );
         }
+        // v1 ships the partner's table only (review N-2): an enabled layer
+        // refuses a role on AI Carl, whose hits the claim set does not read.
+        let mut f = file();
+        f.cf02_free.carl.autonomy_role = AutonomyRole::Skirmisher;
+        assert!(matches!(
+            f.validate(),
+            Err(ProfileError::Field { ref field, .. }) if field == "cf02_free.carl.autonomy_role"
+        ));
+        // The same assignment is inert data while the layer is off.
+        f.cf02_free.autonomy.enabled = false;
+        assert!(f.validate().is_ok());
+        // The leash is capped at the leading-side camera bound (review N-4).
+        let mut f = file();
+        f.cf02_free.autonomy.ca2_q04_leash_px = 260;
+        assert!(f.validate().is_ok());
+        f.cf02_free.autonomy.ca2_q04_leash_px = 261;
+        assert!(matches!(
+            f.validate(),
+            Err(ProfileError::Field { ref field, .. })
+                if field == "cf02_free.autonomy.ca2_q04_leash_px"
+        ));
         // The same edits are fine while the layer is off (companion_v0 has
         // them off today).
         let mut f = file();

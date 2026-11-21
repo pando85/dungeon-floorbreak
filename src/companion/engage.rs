@@ -35,7 +35,7 @@ fn side(dx: f32) -> i8 {
 ///
 /// The gates of the kill-steal veto (rule on, policy, a human leader, the HP
 /// reserve) are not here: they belong to the caller that applies the veto.
-/// Pure, integer-free of any state; a leader who merely stands near an enemy
+/// Pure and free of any state; a leader who merely stands near an enemy
 /// engages nothing.
 pub fn leader_engages(set: &ProfileSet, leader: &HeroView, target: &TargetView) -> bool {
     let duo = &set.cf02_duo;
