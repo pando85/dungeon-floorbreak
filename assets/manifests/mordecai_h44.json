@@ -1,0 +1,123 @@
+{
+  "schema_version": 1,
+  "id": "mordecai_rat_h44_candidate_v1",
+  "type": "character_animation",
+  "source_path": "assets/source/characters/mordecai/mordecai_h44.ase",
+  "grid_source": "assets/source/characters/mordecai/mordecai_h44.grid.json",
+  "output_atlas": "generated/art/mordecai_h44.png",
+  "output_metadata": "generated/art/mordecai_h44.json",
+  "palette_id": "mordecai-floor01-v0",
+  "frame_size": [
+    52,
+    48
+  ],
+  "pivot": [
+    24,
+    47
+  ],
+  "animation_tags": [
+    "idle",
+    "talk"
+  ],
+  "required_alpha": true,
+  "owner": "AI-authored NPC animation candidate (fan-concept layer: Mordecai, Floor 1 Tutorial Guild guide; runtime role IP-neutral guide NPC)",
+  "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+  "provenance": {
+    "origin": "MORDECAI-01 Mordecai at 44 px idle height: 2 frozen keys (atlas frames 0 and 4, fixture tests/fixtures/mordecai-01_keys.json) plus 3 breathing in-betweens built by scripts/author_mordecai01.py from parametric shapes, an automatic outline and literal pixel touches; layers tail, far_arm, torso, near_arm, legs, head",
+    "generator": "Spec, draft keys, gate round 1 fixes, in-betweens, atlas, validators and evidence: Claude Sonnet, composed by scripts/author_mordecai01.py. Key edit and freeze: top-tier editor. Silhouette gate: fresh top-tier agent (PASS, round 2). No image-model raster output, no tracing, no resampling",
+    "generated_art": true,
+    "input_reference_ids": [
+      "assets/concept/floor-01/mordecai/01-mordecai-selected-c.png",
+      "assets/concept/floor-01/mordecai/02-mordecai-turnaround-acting.png"
+    ]
+  },
+  "sha256": {
+    "grid_source": "e0a71b4536cc8c9ab1d32af0917bd74040619c09ad357de097fa20a0546d987a",
+    "source_path": "45c9b9b874e594d9c8b3cd9cc92e556a0d04ccd02533d8bbf9592875bbd77664",
+    "export": {
+      "atlas_png": "f891123957965342f30614b03aa0fd549302674a3bfe1a5a81ec46f0f361548e",
+      "atlas_json": "b3cec11b9da9157b5d57f889e3935a28c9d35f52a8891c27faaf6db688a12948"
+    },
+    "export_note": "LibreSprite 1.3 export (scripts/export_assets.sh), deterministic across two runs; metadata is the json-array sheet"
+  },
+  "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
+  "review_status": "prototype_fixture_unapproved",
+  "mordecai": {
+    "status": "keys frozen, silhouette gate PASS, idle in-betweens drawn; independent review pending; Bevy integration pending (room PR places him); 5 frames, 2 of them keys; not wired into any Bevy binary",
+    "spec": "docs/02-art/mordecai-01-spec.md",
+    "opaque_height_idle": 44,
+    "height_cap_px": 45,
+    "tick_hz": 60,
+    "grounded_tags": [
+      "idle",
+      "talk"
+    ],
+    "airborne_tags": [],
+    "playback": {
+      "idle": "loop",
+      "talk": "once"
+    },
+    "key_frames": [
+      0,
+      4
+    ],
+    "key_fixture": "tests/fixtures/mordecai-01_keys.json",
+    "idle_loop_ticks": 98,
+    "authored_facing": "right",
+    "boxes_px_from_pivot": {
+      "standing_footprint": {
+        "x": [
+          -12,
+          11
+        ],
+        "y": [
+          0,
+          37
+        ]
+      },
+      "hurtbox": null,
+      "attack_hitbox": null
+    },
+    "interaction_anchor_px_from_pivot": {
+      "x": 6,
+      "y_up": 45
+    },
+    "frames": [
+      {
+        "index": 0,
+        "tag": "idle",
+        "ticks": 40,
+        "duration_ms": 667,
+        "author": "key"
+      },
+      {
+        "index": 1,
+        "tag": "idle",
+        "ticks": 22,
+        "duration_ms": 367,
+        "author": "in-between"
+      },
+      {
+        "index": 2,
+        "tag": "idle",
+        "ticks": 14,
+        "duration_ms": 233,
+        "author": "in-between"
+      },
+      {
+        "index": 3,
+        "tag": "idle",
+        "ticks": 22,
+        "duration_ms": 367,
+        "author": "in-between"
+      },
+      {
+        "index": 4,
+        "tag": "talk",
+        "ticks": 60,
+        "duration_ms": 1000,
+        "author": "key"
+      }
+    ]
+  }
+}
