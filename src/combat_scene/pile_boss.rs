@@ -400,6 +400,8 @@ mod tests {
             env,
             solo,
             room: room(),
+            view_x: (0.0, 1152.0),
+            token_free: true,
         }
     }
 
