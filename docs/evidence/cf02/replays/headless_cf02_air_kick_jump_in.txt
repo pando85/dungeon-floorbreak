@@ -1,4 +1,4 @@
 COMBAT_EVENT tick=3 kind=move_started move=air_kick instance=1
 COMBAT_EVENT tick=8 kind=hit move=air_kick instance=1 target=0 damage=1 health_left=1 hit_stop=5
-COMBAT_STATE fixture=cf02_air_kick_jump_in seed=0xcf020b01 tick=60 elapsed=60 hero_hp=4 deaths=0 enemies=e0=449.167/1 hash=a11b2b8af23486ec
-PARTY_STATE fixture=cf02_air_kick_jump_in mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=102430d4574559e2
+COMBAT_STATE fixture=cf02_air_kick_jump_in seed=0xcf020b01 tick=60 elapsed=60 hero_hp=4 deaths=0 enemies=e0=449.167/1 hash=a84cb8756c8ff5b5
+PARTY_STATE fixture=cf02_air_kick_jump_in mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=ee11c7830e16f82b

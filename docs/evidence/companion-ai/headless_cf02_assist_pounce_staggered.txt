@@ -7,5 +7,5 @@ COMBAT_EVENT tick=49 kind=hit move=jab instance=2 target=0 damage=1 health_left=
 COMBAT_EVENT tick=72 kind=move_started move=jab instance=3
 COMBAT_EVENT tick=75 kind=hit move=jab instance=3 target=0 damage=1 health_left=0 hit_stop=6
 COMBAT_EVENT tick=75 kind=enemy_defeated target=0
-COMBAT_STATE fixture=cf02_assist_pounce_staggered seed=0xc0a10003 tick=160 elapsed=160 hero_hp=4 deaths=0 enemies=e0=509.333/0 hash=48719da76f963c4b
-PARTY_STATE fixture=cf02_assist_pounce_staggered mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=b6f8d15f1dcc4a31
+COMBAT_STATE fixture=cf02_assist_pounce_staggered seed=0xc0a10003 tick=160 elapsed=160 hero_hp=4 deaths=0 enemies=e0=509.333/0 hash=9febf29afdc6893f
+PARTY_STATE fixture=cf02_assist_pounce_staggered mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=13fe359d33b2ee65

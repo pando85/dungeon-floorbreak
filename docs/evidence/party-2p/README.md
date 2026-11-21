@@ -21,9 +21,9 @@ Real window captures of `floor01_scene` with the real exported atlases and the r
 
 | Fixture | Ticks | Final `PARTY_STATE` hash | Result |
 | --- | --- | --- | --- |
-| `duo_independent_moves` | 160 | `2c58af8861d763ec` | Carl runs on P1, Donut jumps twice and runs left on P2 |
+| `duo_independent_moves` | 160 | `81ca65ec029b6e63` | Carl runs on P1, Donut jumps twice and runs left on P2 |
 | `duo_separation_wall` | 420 | `1f40a48b874e1dc9` | the separation never exceeds 448 px |
-| `solo_swap_continuity` | 320 | `2232e8425b3ca7d4` | swaps at ticks 90 and 200 |
+| `solo_swap_continuity` | 320 | `0a3bcbeffb97ab5b` | swaps at ticks 90 and 200 |
 | `donut_hurt_iframes` | 140 | `6b13a15ae7fc186c` | one `hero_hurt hero=donut` at tick 64, the second swing at 76 lands in her i-frames |
 | `donut_defeat_party` | 520 | `d4815dd69ec48fff` | `hero_defeated hero=donut` at tick 349, restart at 398 (both at full HP at the restart tick; the final state shows Donut at 3 HP because a goblin hit her again afterwards) |
 | `solo_guard_floors_at_one` | 520 | `78d4244fd6216569` | `health_left` 3, 2, 1, 1, 1: no defeat |

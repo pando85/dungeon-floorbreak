@@ -7,5 +7,5 @@ COMBAT_EVENT tick=58 kind=shore_hit instance=3 hits=3
 COMBAT_EVENT tick=58 kind=shore_broken player=0
 COMBAT_EVENT tick=94 kind=shore_landed
 COMBAT_EVENT tick=94 kind=hero_hurt source=21320 health_left=3 hero=donut
-COMBAT_STATE fixture=cf02_block_hurts_partner seed=0xcf02f112 tick=160 elapsed=160 hero_hp=4 deaths=0 enemies= hash=1881be0583cf2684 shore=3/Broken/Landed block_bottom=0.00
-PARTY_STATE fixture=cf02_block_hurts_partner mode=2p controlled=Carl carl_hp=4 donut_hp=3 deaths=0 hash=ceaa4c2817b8f94a
+COMBAT_STATE fixture=cf02_block_hurts_partner seed=0xcf02f112 tick=160 elapsed=160 hero_hp=4 deaths=0 enemies= hash=edf724e4e90eee37 shore=3/Broken/Landed block_bottom=0.00
+PARTY_STATE fixture=cf02_block_hurts_partner mode=2p controlled=Carl carl_hp=4 donut_hp=3 deaths=0 hash=287bfca0058d730d

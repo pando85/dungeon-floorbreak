@@ -13,5 +13,5 @@ COMBAT_EVENT tick=165 kind=goblin_reaction goblin=2 reaction=hesitate nerve=0
 COMBAT_EVENT tick=219 kind=goblin_tell goblin=2
 COMBAT_EVENT tick=245 kind=goblin_swing goblin=2
 COMBAT_EVENT tick=245 kind=hero_hurt source=2 health_left=3
-COMBAT_STATE fixture=cf02_morale_panic_once seed=0xcf020d01 tick=260 elapsed=260 hero_hp=3 deaths=0 enemies=e0=559.000/0,e1=308.667/0,e2=370.700/2 hash=c7c53b396872ca5c
-PARTY_STATE fixture=cf02_morale_panic_once mode=solo controlled=Carl carl_hp=3 donut_hp=4 deaths=0 hash=7931e494b4664052
+COMBAT_STATE fixture=cf02_morale_panic_once seed=0xcf020d01 tick=260 elapsed=260 hero_hp=3 deaths=0 enemies=e0=559.000/0,e1=308.667/0,e2=370.700/2 hash=35f86c35e46985ca
+PARTY_STATE fixture=cf02_morale_panic_once mode=solo controlled=Carl carl_hp=3 donut_hp=4 deaths=0 hash=7b6c2b4c7a3194b0

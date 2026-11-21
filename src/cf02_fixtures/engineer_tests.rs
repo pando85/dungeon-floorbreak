@@ -114,7 +114,7 @@ const ENGINEER_GOLDENS: [(&str, u64); 29] = [
     ("eng_run_out_of_range", 0x6c8c976b2f4c0aa3),
     ("eng_snap_rush", 0xc243b052854f723d),
     ("eng_point_interrupt_jab", 0x7bf2fb7b156c1388),
-    ("eng_point_interrupt_swat", 0x67283432965557a2),
+    ("eng_point_interrupt_swat", 0x0cf9c19231fd3cab),
     ("eng_parapet_bonk", 0x7fd7a7e7f1972f21),
     ("eng_parapet_gap_whiff", 0xb15bb77399979a27),
     ("eng_end_wall_bonk_kill", 0x1217716574c175ca),
@@ -128,10 +128,10 @@ const ENGINEER_GOLDENS: [(&str, u64); 29] = [
     ("eng_defeat_scares_crew", 0x40b477aeff19fd09),
     ("eng_kick_launch_contact", 0xefbbcf0840e6ffdc),
     ("eng_2p_targets_nearest", 0xbd0214303e42939e),
-    ("eng_2p_partner_in_lane", 0xe4dea8db73069826),
-    ("eng_solo_assist", 0xe48eb2bc7f7f83c0),
-    ("cf02_arena_eng", 0xc7a1659ab4148c9d),
-    ("cf02_arena_eng_cp2", 0x5ccf01566c627904),
+    ("eng_2p_partner_in_lane", 0x475de5f61a0c5d12),
+    ("eng_solo_assist", 0xf28556f86e16a187),
+    ("cf02_arena_eng", 0x396b00cb46cfbc3b),
+    ("cf02_arena_eng_cp2", 0x9a127517724b02af),
 ];
 
 #[test]
@@ -537,7 +537,7 @@ fn in_two_player_he_points_at_the_nearer_hero_and_the_first_hero_overlapped_is_h
     assert_eq!(sim.scene.world.hero.health, 4, "Carl untouched");
     // Donut walks into the lane of a ram aimed at Carl: she is hit, no snap.
     let sim = replay("eng_2p_partner_in_lane");
-    assert_eq!(hurts(&sim, 0)[0], (40, HeroId::Donut));
+    assert_eq!(hurts(&sim, 0)[0], (38, HeroId::Donut));
     assert_eq!(sim.scene.world.hero.health, 4);
     let snapped = trace("eng_2p_partner_in_lane", 60, |s| {
         s.combat.enemies[0].engineer_state().snapped
@@ -575,10 +575,12 @@ fn the_solo_assist_and_live_rooms_make_progress_and_log_the_ai_counts() {
     // than one). Every run must also finish the room, not just produce events.
     let rows = [
         // PR #170 A15 flank: her position moved, so the Engineer does not ram
-        // her in the first two runs (was 1,1 / 0,1; cp2 is unchanged at 0,1).
+        // her in the first two runs (was 1,1 / 0,1; cp2 was 0,1). DM-A: her
+        // 207 px/s run puts her elsewhere again, and in cp2 she now cancels one
+        // point and is not rammed (was 0,1).
         ("eng_solo_assist", 0, 0),
         ("cf02_arena_eng", 0, 0),
-        ("cf02_arena_eng_cp2", 0, 1),
+        ("cf02_arena_eng_cp2", 1, 0),
     ];
     for (name, swat_cancels, ram_hits) in rows {
         let sim = replay(name);
@@ -591,8 +593,10 @@ fn the_solo_assist_and_live_rooms_make_progress_and_log_the_ai_counts() {
         assert_eq!(ai_counts(&sim, index), (swat_cancels, ram_hits), "{name}");
         // The Engineer starts at least one ram (a tell that ends in a hit) ...
         assert!(!tells(&sim, index).is_empty(), "{name}: he never points");
+        // (DM-A: in cp2 her interrupt swat now cancels the one point before
+        // the ram starts, so the ram that opens the room is the cancelled one.)
         assert!(
-            !hurts(&sim, index).is_empty() || !bonks(&sim).is_empty(),
+            !hurts(&sim, index).is_empty() || !bonks(&sim).is_empty() || swat_cancels > 0,
             "{name}: he never rams"
         );
         // ... and the room is cleared: he and every goblin are dead and Carl lives.

@@ -351,7 +351,7 @@ pub const PROVISIONAL_TUNING: PartyTuning = PartyTuning {
     offscreen_margin_px: 16,
     donut_moves: true,
     plate_glyphs: PlateGlyphs::OwnPad,
-    donut_motion: MotionProfile::Legacy,
+    donut_motion: MotionProfile::Agile,
 };
 
 impl Default for PartyTuning {

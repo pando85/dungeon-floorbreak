@@ -9,11 +9,15 @@
 //!
 //! Which speeds are real depends on the scene, so the physics come from a
 //! [`NavConfig`] preset:
-//! * [`NavConfig::integrated`] (the default) is the integrated corridor scene,
-//!   where both heroes are stepped with the same `step_hero_driven` body
-//!   (`crate::corridor` `step_bodies_driven`): jump 440, run 185, a 24x52
-//!   hitbox. Donut has no higher jump there, and a real input cannot exceed it
-//!   (only a `BodyDrive` launch can). 01B-wire runs on this preset.
+//! * [`NavConfig::agile`] is the live integrated scene since DONUT-MOBILITY-01
+//!   (DM-A): Carl keeps jump 440 and run 185, Donut's body is stepped with her
+//!   agile motion (jump 500, run 207, `hero_agility_v0.json`), the same 24x52
+//!   hitbox for both. A real input cannot exceed it (only a `BodyDrive` launch
+//!   can). 01B-wire runs on the preset that matches the party's Donut motion
+//!   ([`NavConfig::for_motion`]).
+//! * [`NavConfig::integrated`] (the default) is the legacy motion of that
+//!   scene: both heroes with jump 440 and run 185. It is the test-only legacy
+//!   preset and the one the rollback replays of old recordings use.
 //! * [`NavConfig::camera_lab`] uses the camera-lab Donut's authored jump 600
 //!   and run 205 (`crate::camera_lab::sim`). The lab's own body is 32x28, which
 //!   is not modelled: the step here uses the 24x52 hitbox, so head room is
@@ -309,9 +313,10 @@ impl Default for NavConfig {
 }
 
 impl NavConfig {
-    /// The integrated corridor scene: both heroes use the same
-    /// `step_hero_driven` body (`crate::corridor` `step_bodies_driven`), so
-    /// Donut has Carl's jump (440) and run (185). The default.
+    /// The integrated corridor scene under the legacy motion: both heroes use
+    /// the same `step_hero_driven` body (`crate::corridor` `step_bodies_driven`),
+    /// so Donut has Carl's jump (440) and run (185). The default of the type;
+    /// the live scene uses [`Self::agile`] (see [`Self::for_motion`]).
     pub fn integrated() -> Self {
         Self {
             carl: HeroPhysics::carl(),

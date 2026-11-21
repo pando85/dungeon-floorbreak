@@ -4,5 +4,5 @@ COMBAT_EVENT tick=25 kind=hit move=swat instance=1 target=0 damage=0 health_left
 COMBAT_EVENT tick=25 kind=goblin_interrupted goblin=0
 COMBAT_EVENT tick=55 kind=goblin_tell goblin=0
 COMBAT_EVENT tick=90 kind=hero_hurt source=0 health_left=3 hero=donut
-COMBAT_STATE fixture=eng_point_interrupt_swat seed=0xe46000c tick=160 elapsed=160 hero_hp=4 deaths=0 enemies=e0=202.000/3 hash=110bff0ee93704ac shore=0/Intact/Seated block_bottom=140.00
-PARTY_STATE fixture=eng_point_interrupt_swat mode=2p controlled=Carl carl_hp=4 donut_hp=3 deaths=0 hash=67283432965557a2
+COMBAT_STATE fixture=eng_point_interrupt_swat seed=0xe46000c tick=160 elapsed=160 hero_hp=4 deaths=0 enemies=e0=202.000/3 hash=edf3d58cefa18a35 shore=0/Intact/Seated block_bottom=140.00
+PARTY_STATE fixture=eng_point_interrupt_swat mode=2p controlled=Carl carl_hp=4 donut_hp=3 deaths=0 hash=0cf9c19231fd3cab

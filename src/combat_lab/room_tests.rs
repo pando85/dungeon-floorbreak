@@ -15,7 +15,7 @@ use crate::input::{InputFrame, RawInput};
 use crate::llama::{Glob, GlobFate};
 use crate::party::{HeroId, PROVISIONAL_TUNING};
 use crate::prototype::{
-    Block, BodyDrive, HERO_HALF_HEIGHT, HERO_HALF_WIDTH, Hero, Rect, step_hero_driven,
+    Block, BodyDrive, HERO_HALF_HEIGHT, HERO_HALF_WIDTH, Hero, HeroMotion, Rect, step_hero_motion,
 };
 
 use super::*;
@@ -237,6 +237,8 @@ struct Course {
     solids: Vec<Block>,
     max_x: f32,
     floor_world: f32,
+    /// The motion the hero steps with: Carl's, unless a test asks for Donut's.
+    motion: HeroMotion,
 }
 
 /// Where a scripted action ended.
@@ -256,7 +258,14 @@ impl Course {
             solids: kit.blocks(),
             max_x: kit.width as f32 - HERO_HALF_WIDTH,
             floor_world: to_world_y(kit.height, FLOOR),
+            motion: HeroMotion::CARL,
         }
+    }
+
+    /// This course for a hero with `motion` (DM-A: Donut's agile motion).
+    fn with_motion(mut self, motion: HeroMotion) -> Self {
+        self.motion = motion;
+        self
     }
 
     fn stand(&self, x: f32, height: i32) -> Hero {
@@ -284,7 +293,14 @@ impl Course {
 
     fn step(&self, hero: &mut Hero, frame: &mut InputFrame, raw: RawInput) {
         frame.advance(raw);
-        step_hero_driven(hero, frame, &self.solids, self.max_x, &BodyDrive::default());
+        step_hero_motion(
+            hero,
+            self.motion,
+            frame,
+            &self.solids,
+            self.max_x,
+            &BodyDrive::default(),
+        );
     }
 
     fn land(&self, hero: &Hero, head: f32, ticks: u32) -> Landing {
@@ -898,15 +914,21 @@ const PLAY: [(&str, &str, usize); 5] = [
     ("R02", "v1", 5),
 ];
 
-/// Assert 6 (Donut): her body steps through the same `step_hero_driven` in the
-/// live scene. The R00 hop from the floor onto the Hurdle, scripted into
-/// either slot of a two-player run, ends on the same spot as the standalone
-/// hero.
+/// Assert 6 (Donut): each hero's body steps through the same
+/// `step_hero_motion` in the live scene, with that hero's own motion
+/// (DONUT-MOBILITY-01: Carl's shared one, Donut's agile one). The R00 hop from
+/// the floor onto the Hurdle, scripted into either slot of a two-player run,
+/// ends on the same spot as the standalone hero with the same motion.
 #[test]
-fn a6_donut_steps_like_carl_in_the_scene() {
-    let course = Course::new(&kit_of(&scenario(&EXPECT[0])));
-    let landing = course.jump((200.0, 0), E, FULL);
+fn a6_each_hero_steps_with_its_own_motion_in_the_scene() {
+    let kit = kit_of(&scenario(&EXPECT[0]));
     for who in [HeroId::Carl, HeroId::Donut] {
+        let motion = match who {
+            HeroId::Carl => HeroMotion::CARL,
+            HeroId::Donut => crate::party::MotionProfile::Agile.motion(),
+        };
+        let course = Course::new(&kit).with_motion(motion);
+        let landing = course.jump((200.0, 0), E, FULL);
         let mut run = launch("R00", "v1", PlayerMode::CoopLocal);
         let other = who.other();
         *run.scene.world.body_mut(who) = course.stand(200.0, 0);
@@ -931,6 +953,12 @@ fn a6_donut_steps_like_carl_in_the_scene() {
             landing.height
         );
     }
+    // The two motions really differ: Donut's hop is longer than Carl's.
+    let carl = Course::new(&kit).jump((200.0, 0), E, FULL);
+    let donut = Course::new(&kit)
+        .with_motion(crate::party::MotionProfile::Agile.motion())
+        .jump((200.0, 0), E, FULL);
+    assert!(donut.x > carl.x + 10.0, "{} vs {}", donut.x, carl.x);
 }
 
 // ------------------------------------------------------------------ assert 8
@@ -1367,10 +1395,10 @@ fn golden(room: &str, variant: &str, index: usize, ticks: u64) -> (u64, u64) {
 /// roster, checkpoint-rule or seed drift across commits is caught. A change
 /// here is deliberate: re-pin together with the layout hash of the manifest.
 const GOLDENS: [(&str, &str, usize, u64, u64); 4] = [
-    ("R01", "v1", 1, 0xb1e3_b87b_242e_a449, 0xa323_d8f9_a618_736b),
-    ("R01", "v2", 2, 0x89c5_0b50_5d36_870f, 0x3432_4460_4da5_e3a1),
-    ("R01", "v3", 3, 0xe65b_f514_1400_dda0, 0x8939_379d_9e26_dfda),
-    ("R02", "v1", 5, 0x8b02_473f_ed85_f766, 0x6e25_2adf_5dbb_0e06),
+    ("R01", "v1", 1, 0xb1e3_b87b_242e_a449, 0x2869_55ce_1e92_1c4f),
+    ("R01", "v2", 2, 0x89c5_0b50_5d36_870f, 0x29fb_3a50_ea73_3f4f),
+    ("R01", "v3", 3, 0xe65b_f514_1400_dda0, 0x4061_d8dc_db8d_440b),
+    ("R02", "v1", 5, 0x8b02_473f_ed85_f766, 0x15a4_81dc_cfff_0572),
 ];
 
 #[test]

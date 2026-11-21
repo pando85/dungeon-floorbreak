@@ -604,6 +604,16 @@ fn concurrent_independent_recordings_do_not_mix() {
     assert_eq!(listed.len(), 2);
 }
 
+/// Whether `needle` occurs in `text` with no alphanumeric character on either
+/// side.
+fn contains_token(text: &str, needle: &str) -> bool {
+    text.match_indices(needle).any(|(at, _)| {
+        let before = text[..at].chars().next_back();
+        let after = text[at + needle.len()..].chars().next();
+        !before.is_some_and(char::is_alphanumeric) && !after.is_some_and(char::is_alphanumeric)
+    })
+}
+
 #[test]
 fn manifest_has_no_machine_or_user_data() {
     let dir = TempDir::new("privacy");
@@ -615,7 +625,13 @@ fn manifest_has_no_machine_or_user_data() {
         if let Ok(value) = std::env::var(key)
             && value.len() > 2
         {
-            assert!(!text.contains(&value), "{key} leaked into the manifest");
+            // A whole token, not a substring: the account name of a developer
+            // can be a prefix of fixed manifest vocabulary (a login `agil` is
+            // inside the motion name `agile`), which is no leak.
+            assert!(
+                !contains_token(&text, &value),
+                "{key} leaked into the manifest"
+            );
         }
     }
     assert!(!text.contains("PadId") && !text.contains("serial"));

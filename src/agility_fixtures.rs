@@ -246,6 +246,63 @@ pub const DM_2P_WALL_RUNNING_JUMP: PartyFixture = PartyFixture {
     donut: DonutSetup::NONE,
 };
 
+/// GIF 1 of the evidence: both heroes start in Carl's column and run right on
+/// the corridor for 120 ticks; she ends 44 px ahead.
+const RACE_2P: [SlotHold; 2] = [run_hold(2, 122, 0, 1.0), run_hold(2, 122, 1, 1.0)];
+
+const DM_RACE_2P_BASE: Fixture = base(
+    "dm_run_race_2p",
+    "Two players from the same column: both run right for 120 ticks; Donut ends 44 px ahead",
+    0x0D4D_0002,
+    &[],
+    130,
+);
+
+pub const DM_RUN_RACE_2P: PartyFixture = PartyFixture {
+    base: &DM_RACE_2P_BASE,
+    two_player: true,
+    tuning: PROVISIONAL_TUNING,
+    script: &RACE_2P,
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+/// GIF 2: Donut 60 px behind Carl, a standing jump at tick 10, then both run right
+/// and make a running jump at tick 80. Her apex is 114.9 px against his 88.5.
+const JUMP_2P: [SlotHold; 6] = [
+    jump(10, 11, 0),
+    jump(10, 11, 1),
+    run_hold(60, 160, 0, 1.0),
+    run_hold(60, 160, 1, 1.0),
+    jump(80, 81, 0),
+    jump(80, 81, 1),
+];
+
+const DM_JUMP_2P_BASE: Fixture = base(
+    "dm_jump_race_2p",
+    "Two players, Donut 60 px behind Carl: a standing jump, then a running jump; she jumps higher and further",
+    0x0D4D_0003,
+    &[],
+    170,
+);
+
+pub const DM_JUMP_RACE_2P: PartyFixture = PartyFixture {
+    base: &DM_JUMP_2P_BASE,
+    two_player: true,
+    tuning: PROVISIONAL_TUNING,
+    script: &JUMP_2P,
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+/// The party fixtures of this module, resolvable by name in the binary
+/// (`--party-fixture dm_run_race_2p`) through
+/// [`crate::cf02_fixtures::find_party_fixture`], like the CF02 and Engineer
+/// registries: not chained into [`PartyFixture::all`], so no registry-order
+/// test, listing or committed replay depends on them.
+pub const AGILITY_PARTY_FIXTURES: [&PartyFixture; 3] =
+    [&DM_2P_WALL_RUNNING_JUMP, &DM_RUN_RACE_2P, &DM_JUMP_RACE_2P];
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -616,6 +673,96 @@ mod tests {
         assert!(jumped, "she made running jumps");
         assert!(widest > max - 4.0, "she reached the wall: {widest}");
         assert!(widest <= max + 0.01, "{widest} vs {max}");
+    }
+
+    #[test]
+    fn the_race_fixtures_show_her_44_px_ahead_and_her_taller_jump() {
+        let mut sim = PartyFixtureSim::new(&kit(), 360, &DM_RUN_RACE_2P).unwrap();
+        assert_eq!(sim.scene.world.donut_body.x, sim.scene.world.hero.x);
+        let start = sim.scene.world.hero.x;
+        sim.run_scripted(120);
+        let (carl, donut) = (sim.scene.world.hero.x, sim.scene.world.donut_body.x);
+        // 120 ticks of input: 59 + ... the run starts on tick 2, 120 steps.
+        assert!(
+            ((donut - start) - (carl - start) - 44.0).abs() < 1.0,
+            "{carl} {donut}"
+        );
+        let mut sim = PartyFixtureSim::new(&kit(), 360, &DM_JUMP_RACE_2P).unwrap();
+        let (mut carl_apex, mut donut_apex) = (0.0_f32, 0.0_f32);
+        let floor = sim.scene.world.hero.y - HERO_HALF_HEIGHT;
+        for _ in 0..170 {
+            sim.step_scripted();
+            carl_apex = carl_apex.max(sim.scene.world.hero.y - HERO_HALF_HEIGHT - floor);
+            donut_apex = donut_apex.max(sim.scene.world.donut_body.y - HERO_HALF_HEIGHT - floor);
+        }
+        assert!((carl_apex - 88.54).abs() < 0.1, "{carl_apex}");
+        assert!((donut_apex - 114.92).abs() < 0.1, "{donut_apex}");
+    }
+
+    #[test]
+    fn the_dm_party_fixtures_replay_identically_and_match_their_goldens() {
+        const PARTY_GOLDENS: [(&str, u64); 3] = [
+            ("dm_2p_wall_running_jump", 0xa53e_1ee5_fa99_5334),
+            ("dm_run_race_2p", 0x7193_59bc_ab34_44ae),
+            ("dm_jump_race_2p", 0x0d0c_c1c7_d90b_346d),
+        ];
+        for (fixture, (name, golden)) in AGILITY_PARTY_FIXTURES.iter().zip(PARTY_GOLDENS) {
+            assert_eq!(fixture.name(), name);
+            assert!(crate::cf02_fixtures::find_party_fixture(name).is_some());
+            let run = || {
+                let mut sim = PartyFixtureSim::new(&kit(), 360, fixture).unwrap();
+                sim.run_scripted(fixture.base.ticks);
+                sim.state_hash()
+            };
+            let hash = run();
+            assert_eq!(hash, run(), "{name} twice");
+            assert_eq!(hash, golden, "{name}: {hash:#018x}");
+        }
+    }
+
+    /// Spec section 2.1 (Engineer counterplay row, goblin swing, charge): the
+    /// ticks of a standing jump with her feet above a box of a given height,
+    /// counting the press tick as tick 1 (`states[i]` is after tick `i + 1`).
+    #[test]
+    fn a_standing_jump_clears_the_ram_the_swing_and_the_charge_for_longer() {
+        const SCRIPT: [Hold; 1] = [Hold {
+            from: 0,
+            to: 1,
+            move_x: 0.0,
+            jump: true,
+        }];
+        let probe = MotionFixture {
+            name: "probe",
+            summary: "",
+            start_x: 100.0,
+            ledge: None,
+            script: &SCRIPT,
+            ticks: 80,
+        };
+        let above = |motion: HeroMotion, height: f32| {
+            let trail = run(motion, &probe);
+            let ticks: Vec<usize> = trail
+                .states
+                .iter()
+                .enumerate()
+                .filter(|(_, s)| s.1 > height)
+                .map(|(i, _)| i + 1)
+                .collect();
+            (ticks[0], *ticks.last().unwrap(), ticks.len())
+        };
+        // The Engineer's ram box is 33 px high: Donut is over it on ticks 5..51
+        // (47 ticks), Carl on 6..44 (39).
+        let (d, c) = (above(donut(), 33.0), above(CARL, 33.0));
+        assert_eq!((d.0, d.1, d.2), (5, 51, 47), "ram, Donut");
+        assert_eq!((c.0, c.1, c.2), (6, 44, 39), "ram, Carl");
+        // The goblin swing box is 30 px high (impact ticks 26..30): over it from
+        // tick 4 (Carl 5), so a tell dodged by a jump started on attack tick 0..20
+        // still clears it (`DODGE_LATEST_TELL_TICK`).
+        assert_eq!(above(donut(), 30.0).0, 4);
+        assert_eq!(above(CARL, 30.0).0, 5);
+        // The boss charge's 72 px ram: 35 ticks for Donut, 22 for Carl.
+        assert_eq!(above(donut(), 72.0).2, 35);
+        assert_eq!(above(CARL, 72.0).2, 22);
     }
 
     #[test]
