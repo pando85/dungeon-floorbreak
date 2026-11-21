@@ -409,7 +409,59 @@ impl CombatState {
             self.boss = Some(boss);
         }
 
+        // ENEMY-SLOT: the slot enemies' hurtboxes, after the boss.
+        self.blast_slot_enemies(scene, charge_index, charge, tick);
+
         self.blast_heroes(scene, charge, tick);
+    }
+
+    /// The slot enemies in slot order (ENEMY-SLOT, the victim loop of a non-QA
+    /// blast): the strongest band any hurtbox the line of sight reaches is in
+    /// (CP-Q22: squared compares, solids block when the profile says so). The
+    /// enemy decides what the band does ([`crate::scene_enemy::SlotEnemy::apply_blast`]);
+    /// a defeat is its own `EnemyDefeated`, the cause `Explosion` through
+    /// [`crate::scene_enemy::SlotBlast::cause`]. The body is thrown away from the
+    /// charge, a column tie leftward. The follow-ups apply right away, before the
+    /// heroes take the same blast.
+    fn blast_slot_enemies(
+        &mut self,
+        scene: &mut SceneSim,
+        charge_index: usize,
+        charge: BlastCharge,
+        tick: u64,
+    ) {
+        use crate::scene_enemy::{SlotBlast, SlotOut, best_reach};
+        if self.slot.is_empty() {
+            return;
+        }
+        let (cx, cy) = charge.centre();
+        for index in 0..self.slot.enemies.len() {
+            let enemy = &self.slot.enemies[index];
+            if !enemy.alive() {
+                continue;
+            }
+            let mut rects = enemy.hurt_rects();
+            rects.retain(|r| {
+                !charge.profile.los
+                    || line_of_sight(&scene.world.solids, (cx, cy), closest_point(*r, (cx, cy)))
+            });
+            let Some(reach) = best_reach(&charge, &rects) else {
+                continue;
+            };
+            let blast = SlotBlast {
+                charge_index: charge_index as u32,
+                charge,
+                reach,
+                away: away(rects[0].center().0, charge.x, 1),
+                launch: blast_launch_id(charge_index, tick),
+            };
+            let enemy = &mut self.slot.enemies[index];
+            let (id, was_alive) = (enemy.target_id(), true);
+            let mut out = SlotOut::default();
+            enemy.apply_blast(&blast, tick, &mut out);
+            Self::check_defeat_logged(id, was_alive, self.slot.enemies[index].alive(), &out);
+            self.apply_slot_out(scene, out, tick);
+        }
     }
 
     /// The heroes in hero order, by the profile's policy (K3): `OwnerReduced`

@@ -17,6 +17,7 @@ use super::CombatState;
 use crate::cf02::{Cf02Tuning, ContactMode};
 use crate::combat::{CombatEvent, DefeatCause, MoveId, carl_move};
 use crate::goblin::GoblinMode;
+use crate::scene_enemy::SlotContact;
 
 /// What kind of flier a goblin is this tick.
 struct Flier {
@@ -119,6 +120,41 @@ impl CombatState {
                     *slot = Some(tick);
                 }
             }
+            // ENEMY-SLOT: the same flier against the slot enemies' contact boxes.
+            self.contact_slot_enemies(source, &flier, speed, tick);
+        }
+    }
+
+    /// ENEMY-SLOT: a flier (a living launched goblin or a bowling body) that
+    /// overlaps a slot enemy's contact box contacts it once per launch, in slot
+    /// order. The enemy decides the reaction; nothing is evented here, so a
+    /// room without slot enemies is untouched.
+    fn contact_slot_enemies(&mut self, source: usize, flier: &Flier, speed: f32, tick: u64) {
+        for index in 0..self.slot.enemies.len() {
+            let enemy = &self.slot.enemies[index];
+            let id = enemy.target_id();
+            let Some(rect) = enemy.contact_rect().filter(|_| enemy.alive()) else {
+                continue;
+            };
+            if self.contacts.contains(&(flier.launch, id))
+                || !self.enemies[source].body().overlaps(rect)
+            {
+                continue;
+            }
+            self.contacts.push((flier.launch, id));
+            let contact = SlotContact {
+                launch: flier.launch,
+                body: flier.body,
+                source: source as u32,
+                instigator: self.enemies[source].hit_by,
+                speed,
+                push: if rect.center().0 >= self.enemies[source].x {
+                    1
+                } else {
+                    -1
+                },
+            };
+            self.slot_contact_one(index, &contact, tick);
         }
     }
 

@@ -78,6 +78,7 @@ pub mod ring_fixtures;
 pub mod rot_sticker;
 pub mod scene_anim;
 pub mod scene_camera;
+pub mod scene_enemy;
 pub mod scroll_camera;
 pub mod shore;
 pub mod shore_art;

@@ -58,11 +58,13 @@ mod contacts_cf02;
 mod donut;
 mod evade;
 mod morale_cf02;
+mod slot;
 mod story;
 mod thrown;
 use self::carl_cf02::{CarlCf02, CarlCf02Plan};
 use self::companion::CompanionRuntime;
 use self::morale_cf02::MoraleRuntime;
+use self::slot::SlotRuntime;
 /// Where a missile spawns relative to Donut's pivot (read by the corral reach tests).
 #[cfg(test)]
 pub(crate) use donut::{BOLT_SPAWN_FORWARD, BOLT_SPAWN_UP};
@@ -877,6 +879,9 @@ pub struct CombatState {
     donut_kit: DonutKit,
     /// COMPANION-AI-01 runtime state (CF02-00: an empty no-op stub).
     companion: CompanionRuntime,
+    /// ENEMY-SLOT: the new enemies of this run (`scene_enemy`), empty on every
+    /// legacy fixture: nothing of it is stepped, logged or hashed then.
+    slot: SlotRuntime,
     /// CARL-PROG-01 CP-A: the story-unlock ledger and its armed triggers.
     /// `Some` only under the story flags or a fixture's declared pin; `None`
     /// is the legacy game and every golden (nothing is hashed or evented).
@@ -1005,6 +1010,7 @@ impl CombatState {
             donut: HeroCombat::default(),
             donut_kit: DonutKit::new(DonutSetup::NONE),
             companion: CompanionRuntime::default(),
+            slot: SlotRuntime::default(),
             story: None,
             cf02: cf02::fixture_runs_cf02(fixture.name).then(cf02::active),
             carl_cf02: CarlCf02::default(),
@@ -1189,6 +1195,8 @@ impl CombatState {
         }
         // CP-Q28: a live stick is removed without a blast and the special is ready.
         self.clear_thrower();
+        // ENEMY-SLOT: a living slot enemy returns to its spawn state.
+        self.slot_respawn();
         self.carl_cf02 = CarlCf02::default();
         self.input = InputFrame::default();
         self.hurt_ticks = 0;
@@ -1276,6 +1284,8 @@ impl CombatState {
         self.authored_charges = self.charges.len();
         // CP-Q28: a defeat retry and a fixture restart clear the thrown charge.
         self.thrower = Thrower::default();
+        // ENEMY-SLOT: every slot enemy is back at its spawn state.
+        self.slot.reset();
         self.contacts.clear();
         self.carl_cf02 = CarlCf02::default();
         self.input = InputFrame::default();
@@ -1623,6 +1633,10 @@ impl CombatState {
                 });
                 scene.world.hero.melee = runner;
             }
+            // ENEMY-SLOT: the same strike on the slot enemies' hurtboxes.
+            self.strike_slot_enemies(scene, &move_tick, attacker, tick, &|spec, hp| {
+                glance.apply(spec, hp)
+            });
         }
 
         // CARL-PROG-01 CP-B1: Carl's special press and throw clock, after his
@@ -1685,7 +1699,7 @@ impl CombatState {
                 can_move: [can_act && !committed, donut_tick.can_move],
                 frozen: [hero_frozen || melee_frozen, donut_frozen],
                 threats: &threats,
-                boss: self.boss.as_ref().and_then(Boss::threat),
+                boss: self.boss_threat(),
                 drives: Default::default(),
             };
             Self::apply_donut_tick(&mut ctx, &donut_tick);
@@ -1713,6 +1727,7 @@ impl CombatState {
         self.step_goblins(scene, tick);
         self.step_llamas(scene, tick);
         self.step_globs(scene, tick);
+        self.step_slot_enemies(scene, tick);
         self.resolve_contacts(tick);
         self.step_shore(scene, tick);
         self.step_boss(scene, tick);
@@ -3115,6 +3130,8 @@ impl CombatState {
             put(0x4255_4953_4552_0001);
             boss.mix_into(&mut put);
         }
+        // ENEMY-SLOT: nothing is mixed while the slot is empty.
+        self.slot.mix_into(&mut put);
         // DEATH-D: nothing is mixed for a fixture without charges.
         for charge in &self.charges {
             charge.mix_into(&mut put);

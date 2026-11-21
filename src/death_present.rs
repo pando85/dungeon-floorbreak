@@ -1536,6 +1536,22 @@ impl DeathPresenter {
                 self.begin_boss_death(event, boss.x, boss.floor_y(), boss.facing < 0);
             }
         }
+        // ENEMY-SLOT: a slot enemy's fall goes through the same death language
+        // (the species hook); one with no death art draws nothing.
+        for event in events {
+            if let CombatEvent::EnemyDefeated { target, .. } = *event
+                && target >= crate::scene_enemy::SLOT_ID_MIN
+                && let Some(body) = combat.slot_death_body(target)
+            {
+                self.begin_species_death(
+                    event,
+                    body.species,
+                    body.x,
+                    body.ground_y,
+                    body.facing < 0,
+                );
+            }
+        }
         self.step(
             events,
             Observation {
@@ -1630,24 +1646,36 @@ impl DeathPresenter {
     /// and, at preset 4, blood and a pool) at the boss' feet; nothing here
     /// reaches the simulation. The finish chosen is kept for the trace.
     fn begin_boss_death(&mut self, event: &CombatEvent, x: f32, ground_y: f32, flip: bool) {
+        if matches!(event, CombatEvent::EnemyDefeated { target, .. } if *target == crate::boss::BOSS_ENEMY_ID)
+            && let Some(id) = self.begin_species_death(event, "brute_boss", x, ground_y, flip)
+        {
+            self.boss_finish = Some(id);
+        }
+    }
+
+    /// The finish `species` plays for a defeat event, spawned as a synthetic
+    /// death at `(x, ground_y)` (the boss' and the slot enemies' path); returns
+    /// the finish id. ENEMY-SLOT: a species with no profile draws the generic
+    /// fallback finish.
+    fn begin_species_death(
+        &mut self,
+        event: &CombatEvent,
+        species: &str,
+        x: f32,
+        ground_y: f32,
+        flip: bool,
+    ) -> Option<String> {
         let CombatEvent::EnemyDefeated {
-            tick,
-            target,
-            cause,
-            force,
-            ..
+            tick, cause, force, ..
         } = *event
         else {
-            return;
+            return None;
         };
-        if target != crate::boss::BOSS_ENEMY_ID {
-            return;
-        }
-        let selection = self.profiles.select("brute_boss", cause, force);
+        let selection = self.profiles.select(species, cause, force);
         let finish_id = selection.finish.to_owned();
         let finish = Finish::from_id(&finish_id);
-        self.boss_finish = Some(finish_id);
         self.spawn_synthetic(finish, x, ground_y, flip, tick);
+        Some(finish_id)
     }
 
     /// The finish id chosen for the boss' defeat, if it fell.
