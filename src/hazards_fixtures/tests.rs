@@ -781,3 +781,61 @@ fn haz_slime_kick_slide_pushes_it_24_px_and_the_lunge_whiffs() {
         rig.hurts(HeroId::Carl)
     );
 }
+
+// ------------------------------------------------- PR #214 review: F1
+
+#[test]
+fn haz_acid_barrier_follows_the_live_pool_and_lifts_when_it_drains() {
+    // A pool linked to slime 0; the slime is killed on tick 2. A goblin chasing
+    // Carl across it is held at the pool's edge while it is full, follows the
+    // shrinking bounds during the drain and walks past x 764 once the pool is
+    // removed (validator rule 7, HAZ-Q21). Probe of the PR #214 review: the goblin
+    // used to stop at x 687 for good.
+    let mut rig = Layout {
+        acid: vec![(POOL.0, POOL.1, Some(0))],
+        slimes: vec![SlimeAt {
+            x: POOL.0 + 32,
+            facing: -1,
+            home: POOL.0 + 32,
+        }],
+        goblins: vec![POOL.0 - 80],
+        carl_x: POOL.1 + 40,
+        ..Layout::default()
+    }
+    .sim(None);
+    let mut removed_at = None;
+    let mut held_before_drain = f32::MIN;
+    for tick in 1..=500u64 {
+        rig.carl(RawInput::NONE);
+        if tick == 2 {
+            kill_slime(&mut rig, 0);
+        }
+        let x = rig.combat().enemies[0].x;
+        match pool_bounds(&rig, 1) {
+            Some((a, b)) => {
+                if tick < 3 {
+                    held_before_drain = held_before_drain.max(x);
+                }
+                // Never overlaps the live volume (it may stand at its edge).
+                assert!(
+                    x + 12.0 <= a as f32 + 0.01 || x - 12.0 >= b as f32 - 0.01,
+                    "tick {tick}: goblin x {x} inside the live pool {a}..{b}"
+                );
+            }
+            None => {
+                removed_at.get_or_insert(tick);
+            }
+        }
+    }
+    assert!(
+        held_before_drain + 12.0 <= POOL.0 as f32 + 0.01,
+        "held while full"
+    );
+    assert!(removed_at.is_some(), "the pool was removed");
+    let g = &rig.combat().enemies[0];
+    assert!(
+        g.x > POOL.1 as f32,
+        "the goblin crossed the drained pool: x {}",
+        g.x
+    );
+}

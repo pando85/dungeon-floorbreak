@@ -2079,6 +2079,18 @@ impl CombatState {
     /// Every goblin in index order: the attack token, the tell and swing, and
     /// the blow on its target.
     fn step_goblins(&mut self, scene: &mut SceneSim, tick: u64) {
+        // HAZ-A2: the goblins' walk barriers follow the live acid bounds (a
+        // draining or removed pool stops blocking); inert without acid.
+        if let Some(env) = self.env.as_deref()
+            && env.has_acid()
+        {
+            let barriers = env.walk_barriers(self.enemy_foot_y);
+            for g in &mut self.enemies {
+                if g.walk_barriers != barriers {
+                    g.walk_barriers.clone_from(&barriers);
+                }
+            }
+        }
         let live = scene.party_live();
         if live {
             self.update_targets(scene);

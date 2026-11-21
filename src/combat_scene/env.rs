@@ -609,29 +609,34 @@ impl EnvRuntime {
         &self.acid
     }
 
-    /// HAZ-A2: the walk barriers of the acid patches (world px): one per patch,
-    /// on the walking line of its surface. Static data of the room: the goblins
-    /// are built with it ([`crate::goblin::Goblin::with_walk_barriers`]), and a
-    /// drained patch keeps its barrier (the pool is gone, the goblin may then
-    /// cross only because the barrier tracks the live bounds, see
-    /// [`Self::live_barriers`]).
+    /// HAZ-A2: the walk barriers of the acid patches (world px): one per live
+    /// patch, on the walking line of its surface, **following the live bounds**
+    /// (the drain shrinks them every tick and a removed pool has none), so a
+    /// drained pool stops blocking (validator rule 7, HAZ-Q21). The scene gives
+    /// the goblins this list before it steps them every tick
+    /// ([`crate::goblin::Goblin::with_walk_barriers`]).
     pub fn walk_barriers(&self, foot_y: f32) -> Vec<WalkBarrier> {
         let Some(floor) = self.floor_layout else {
             return Vec::new();
         };
         self.acid
             .patches()
-            .map(|p| {
-                let spec = p.spec();
-                WalkBarrier {
-                    x0: spec.x0 as f32,
-                    x1: spec.x1 as f32,
-                    line: foot_y + (floor - spec.floor_y) as f32,
-                }
+            .filter_map(|p| {
+                let (x0, x1) = p.bounds()?;
+                Some(WalkBarrier {
+                    x0: x0 as f32,
+                    x1: x1 as f32,
+                    line: foot_y + (floor - p.spec().floor_y) as f32,
+                })
             })
             .collect()
     }
 
+    /// Whether the room has acid patches at all (a room without them never
+    /// refreshes a goblin's barrier list).
+    pub fn has_acid(&self) -> bool {
+        self.acid.patches().next().is_some()
+    }
 
     /// Back to the first state of the attempt (the solids stay appended).
     pub fn reset(&mut self) {
