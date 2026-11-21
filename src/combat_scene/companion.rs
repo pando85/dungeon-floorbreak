@@ -160,13 +160,18 @@ impl Default for CompanionRuntime {
 impl CompanionRuntime {
     /// Attempt restart: the decision state, the marks and the drive flags start
     /// again (the cadence is measured in attempt-local ticks). The run's
-    /// counters and event log are kept.
+    /// counters (the autonomy layer's M16 counters included) and event log are
+    /// kept.
     pub(crate) fn reset(&mut self) {
         let stats = self.stats;
         let events = std::mem::take(&mut self.events);
+        let autonomy_stats = [self.autonomy[0].stats(), self.autonomy[1].stats()];
         *self = Self::default();
         self.stats = stats;
         self.events = events;
+        for (state, kept) in self.autonomy.iter_mut().zip(autonomy_stats) {
+            state.carry_stats(kept);
+        }
     }
 
     /// Writes nothing while no hero is companion-driven, so every hash is

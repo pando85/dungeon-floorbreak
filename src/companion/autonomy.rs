@@ -1153,6 +1153,11 @@ impl AutonomyState {
         self.stats
     }
 
+    /// Restore a run's counters into a fresh state (the scene's restart).
+    pub fn carry_stats(&mut self, stats: AutonomyStats) {
+        self.stats = stats;
+    }
+
     /// Fold the director's decision of this tick into the M16 counters: the scene
     /// calls it after `step_briefed`.
     pub fn record_decision(&mut self, decision: &Decision) {
@@ -1184,9 +1189,13 @@ impl AutonomyState {
         ) = keep;
     }
 
-    /// A respawn, a defeat retry or a restart: everything back to default.
+    /// A respawn, a defeat retry or a restart: everything back to default except
+    /// the M16 counters, which are a run's report and never hashed (PR #213
+    /// review F-1: a restart must not wipe them).
     pub fn reset(&mut self) {
+        let stats = self.stats;
         *self = Self::default();
+        self.stats = stats;
     }
 
     /// Mix the state (the scene folds it into its hash only while the partner
@@ -3814,7 +3823,12 @@ mod tests {
         assert!(a.step().is_none());
         assert!(a.st.spot().is_none());
         // A respawn, a defeat retry or a restart resets everything, cooldowns too.
+        let kept = a.st.stats();
+        assert!(kept.decisions > 0, "the run counted decisions");
         a.st.reset();
+        // The M16 counters are the run's report: a restart keeps them (review F-1).
+        assert_eq!(a.st.stats(), kept);
+        a.st.carry_stats(AutonomyStats::default());
         assert_eq!(a.st, AutonomyState::default());
         assert_eq!(a.st.state_hash(), AutonomyState::new().state_hash());
     }

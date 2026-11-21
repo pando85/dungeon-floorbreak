@@ -1151,6 +1151,20 @@ mod tests {
         assert!(m.travelling_ticks > 0);
     }
 
+    /// PR #213 review F-1: the autonomy counters (M16, N-e) survive a restart.
+    #[test]
+    fn the_autonomy_counters_survive_a_restart() {
+        let f = &CF02_FREE_SPLIT_TWO_GOBLINS;
+        let mut sim = sim_of(f);
+        sim.run_scripted(200);
+        let before = sim.combat.autonomy_state(HeroId::Donut).stats();
+        assert!(before.decisions > 0 && before.hunt_evaluations > 0);
+        sim.combat.restart(&mut sim.scene);
+        assert_eq!(sim.combat.autonomy_state(HeroId::Donut).stats(), before);
+        sim.run_scripted(10);
+        assert!(sim.combat.autonomy_state(HeroId::Donut).stats().decisions > before.decisions);
+    }
+
     /// M9: no fixture here has a hero-hurting hazard (the hazard feed is CA2-C);
     /// the planner reports no stranded or waiting nav note for her.
     #[test]
