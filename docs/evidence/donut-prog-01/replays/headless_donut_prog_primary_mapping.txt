@@ -1,0 +1,26 @@
+COMBAT_EVENT tick=8 kind=move_started move=swat instance=1
+COMBAT_EVENT tick=59 kind=unlock_granted hero=1 unlock=primary_ranged
+COMBAT_EVENT tick=70 kind=move_started move=magic_missile instance=1
+COMBAT_EVENT tick=74 kind=mana_spent hero=1 left=7
+COMBAT_EVENT tick=90 kind=move_started move=magic_missile instance=2
+COMBAT_EVENT tick=94 kind=mana_spent hero=1 left=6
+COMBAT_EVENT tick=110 kind=move_started move=magic_missile instance=3
+COMBAT_EVENT tick=114 kind=mana_spent hero=1 left=5
+COMBAT_EVENT tick=130 kind=move_started move=magic_missile instance=4
+COMBAT_EVENT tick=134 kind=mana_spent hero=1 left=4
+COMBAT_EVENT tick=150 kind=move_started move=magic_missile instance=5
+COMBAT_EVENT tick=154 kind=mana_spent hero=1 left=3
+COMBAT_EVENT tick=170 kind=move_started move=magic_missile instance=6
+COMBAT_EVENT tick=174 kind=mana_spent hero=1 left=2
+COMBAT_EVENT tick=190 kind=move_started move=magic_missile instance=7
+COMBAT_EVENT tick=194 kind=mana_spent hero=1 left=1
+COMBAT_EVENT tick=210 kind=move_started move=magic_missile instance=8
+COMBAT_EVENT tick=214 kind=mana_spent hero=1 left=0
+COMBAT_EVENT tick=230 kind=cast_rejected hero=1 reason=dry
+COMBAT_EVENT tick=250 kind=cast_rejected hero=1 reason=dry
+COMBAT_EVENT tick=284 kind=mana_regained hero=1 now=1
+COMBAT_EVENT tick=324 kind=mana_regained hero=1 now=2
+COMBAT_EVENT tick=364 kind=mana_regained hero=1 now=3
+COMBAT_EVENT tick=404 kind=mana_regained hero=1 now=4
+COMBAT_STATE fixture=donut_prog_primary_mapping seed=0xd900003 tick=420 elapsed=420 hero_hp=4 deaths=0 enemies= hash=84f3f5e4c650df7b
+PARTY_STATE fixture=donut_prog_primary_mapping mode=2p controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=cd026290cfd5d561

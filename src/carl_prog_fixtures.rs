@@ -51,7 +51,8 @@ pub fn story_setup(fixture: &str) -> StorySetup {
             ..CarlProgFlags::OFF
         }
         .story_setup(SceneKind::Boss),
-        _ => StorySetup::NONE,
+        // The second hero's registry (DONUT-PROG-01) declares its own pins the same way.
+        other => crate::donut_prog_fixtures::story_setup(other),
     }
 }
 
@@ -235,7 +236,7 @@ mod tests {
     #[test]
     fn no_other_registry_holds_a_carl_prog_name_and_the_boss_fixtures_stay_unpinned() {
         for name in crate::cf02_fixtures::list_fixtures("") {
-            if !name.starts_with("carl_prog_") {
+            if !name.starts_with("carl_prog_") && !name.starts_with("donut_prog_") {
                 assert!(
                     story_setup(name).is_inert(),
                     "{name} is a legacy fixture: no pin, no trigger"

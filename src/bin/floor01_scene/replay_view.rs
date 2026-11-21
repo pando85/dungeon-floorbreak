@@ -242,6 +242,11 @@ pub(super) fn prepare(args: &mut Args, root: &Path) -> Result<Prepared, Unsuppor
         dynamite: reset.carl_dynamite,
         gauntlet: reset.carl_gauntlet,
     };
+    args.donut = dungeon_floorbreak::donut_prog::DonutProgFlags {
+        prog: reset.donut_prog,
+        light_feet: reset.donut_light_feet,
+        puddle: reset.donut_puddle,
+    };
     let load = |result: Result<EnvKit, String>| {
         result.map_err(|e| {
             unsupported(
@@ -1027,7 +1032,7 @@ mod tests {
 
     #[test]
     fn every_gameplay_and_record_flag_is_a_parse_error_with_replay() {
-        let rejected: [&[&str]; 25] = [
+        let rejected: [&[&str]; 28] = [
             &["--cf02"],
             &["--cf02-seed", "3"],
             &["--demo"],
@@ -1036,6 +1041,9 @@ mod tests {
             &["--carl-prog"],
             &["--carl-dynamite"],
             &["--carl-gauntlet"],
+            &["--donut-prog"],
+            &["--donut-light-feet"],
+            &["--donut-puddle"],
             &["--fixture", "cp01_single_goblin"],
             &["--party-fixture", "solo_swap_continuity"],
             &["--companion", "off"],

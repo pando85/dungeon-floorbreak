@@ -42,6 +42,8 @@ pub mod donut_fixtures;
 pub mod donut_hud;
 pub mod donut_mana;
 pub mod donut_moves;
+pub mod donut_prog;
+pub mod donut_prog_fixtures;
 pub mod encounter;
 pub mod engineer;
 pub mod env_hazard;

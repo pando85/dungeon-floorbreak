@@ -125,6 +125,9 @@ pub fn record_synthetic_fixture(
         carl_dynamite: false,
         carl_gauntlet: false,
         donut_motion: fixture.tuning.donut_motion,
+        donut_prog: false,
+        donut_light_feet: false,
+        donut_puddle: false,
         kit_hash,
         start_hash: sim.combat.state_hash(&sim.scene),
     };

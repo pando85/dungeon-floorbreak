@@ -30,7 +30,7 @@ pub const TABLE_JSON: &str = include_str!("../assets/data/gameplay/story_unlocks
 
 /// The committed FNV-1a 64 content hash of [`TABLE_JSON`]. Editing the file
 /// without updating this value fails [`StoryTable::pinned`] and the pin test.
-pub const TABLE_HASH: u64 = 0x28d0_302f_b11b_7778;
+pub const TABLE_HASH: u64 = 0x0dbc_75b8_c3e3_6664;
 
 /// The schema version [`StoryTable`] accepts.
 pub const SCHEMA_VERSION: u32 = 1;
@@ -448,6 +448,7 @@ impl StoryTable {
                 return Err(bad(at("flag"), "undeclared story flag"));
             }
             self.check_grant_list(&at("holds"), &row.holds)?;
+            self.check_pin_closed(&at("holds"), &row.holds)?;
         }
         for (i, row) in self.start_flags.iter().enumerate() {
             let at = |name: &str| format!("start_flags[{i}].{name}");
@@ -514,22 +515,67 @@ impl StoryTable {
         Ok(())
     }
 
+    /// NB-2: a depth-first walk with a visited set, so a dense acyclic graph is
+    /// never reported as a cycle and the walk visits each row once per start
+    /// (linear in the rows and edges, no bound on the path length).
     fn check_requires_acyclic(&self) -> Result<(), StoryError> {
-        // A capability can reach at most `len` others without repeating, so a
-        // walk longer than that is a cycle.
         for (i, row) in self.capabilities.iter().enumerate() {
+            let mut visited: Vec<&str> = Vec::new();
             let mut frontier: Vec<&str> = row.requires.iter().map(String::as_str).collect();
-            let mut steps = 0;
             while let Some(id) = frontier.pop() {
-                steps += 1;
-                if id == row.id || steps > self.capabilities.len() * self.capabilities.len() {
+                if id == row.id {
                     return Err(bad(
                         format!("capabilities[{i}].requires"),
                         "a requires cycle",
                     ));
                 }
+                if visited.contains(&id) {
+                    continue;
+                }
+                visited.push(id);
                 if let Some(next) = self.capability(id) {
                     frontier.extend(next.requires.iter().map(String::as_str));
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Every row `id` needs, directly or not, `id` itself excluded, each once
+    /// (a visited-set walk; the table is validated acyclic).
+    pub fn requires_closure(&self, id: &str) -> Vec<&CapabilityRow> {
+        let mut seen: Vec<&CapabilityRow> = Vec::new();
+        let mut frontier: Vec<&str> = self
+            .capability(id)
+            .map(|row| row.requires.iter().map(String::as_str).collect())
+            .unwrap_or_default();
+        while let Some(next) = frontier.pop() {
+            if next == id || seen.iter().any(|row| row.id == next) {
+                continue;
+            }
+            if let Some(row) = self.capability(next) {
+                seen.push(row);
+                frontier.extend(row.requires.iter().map(String::as_str));
+            }
+        }
+        seen
+    }
+
+    /// DP-Q06: a pin is closed under `requires`: every stored capability a held
+    /// row needs, directly or not, is held by the same pin. A read-through
+    /// requirement (the biscuit) is not checked here: it is checked at scene
+    /// setup against its source ([`StorySetup::check_read_through`]).
+    fn check_pin_closed(&self, field: &str, holds: &[String]) -> Result<(), StoryError> {
+        for id in holds {
+            for needed in self.requires_closure(id) {
+                if needed.storage == Storage::Ledger && !holds.contains(&needed.id) {
+                    return Err(bad(
+                        field,
+                        format!(
+                            "{id} requires {} (story order): the pin must hold it too",
+                            needed.id
+                        ),
+                    ));
                 }
             }
         }
@@ -834,6 +880,10 @@ pub struct StorySetup {
     /// enabled story flags' heroes. `None` (a fixture arming a trigger by id)
     /// grants every row of the list.
     heroes: Option<Vec<u8>>,
+    /// Where each hold came from, for the setup-time read-through check:
+    /// `(field, held ids)` (`pins[<id>].holds`, `start_flags[<flag>].holds`,
+    /// `with_hold`).
+    sources: Vec<(String, Vec<String>)>,
 }
 
 impl StorySetup {
@@ -842,12 +892,18 @@ impl StorySetup {
         holds: Vec::new(),
         triggers: Vec::new(),
         heroes: None,
+        sources: Vec::new(),
     };
 
-    /// The setup the enabled story `flags` (`carl_prog`) and debug `starts`
-    /// (`carl_dynamite`, `carl_gauntlet`) give `scene`: the pins of the scene,
-    /// the capabilities the debug flags grant at start and the triggers armed
-    /// in the scene. With no flag it is [`Self::NONE`].
+    /// The setup the enabled story `flags` (`carl_prog`, `donut_prog`) and
+    /// debug `starts` (`carl_dynamite`, `carl_gauntlet`, `donut_light_feet`,
+    /// `donut_puddle`) give `scene`: the pins of the scene, the capabilities the
+    /// debug flags grant at start (with everything they require, DP-Q06) and the
+    /// triggers armed in the scene. **One call serves every program**: pass all
+    /// enabled flags here, never build a second setup. A trigger is armed when
+    /// the scene arms it and at least one entry of its `grants` list belongs to
+    /// an enabled program (the hero of the row), so a trigger shared by two
+    /// programs is armed by either flag. With no flag it is [`Self::NONE`].
     pub fn for_scene(
         table: &'static StoryTable,
         flags: &[&str],
@@ -867,32 +923,84 @@ impl StorySetup {
             holds: Vec::new(),
             triggers: Vec::new(),
             heroes: Some(heroes),
+            sources: Vec::new(),
         };
         for pin in &table.pins {
             if pin.scene == scene && flags.contains(&pin.flag.as_str()) {
-                setup.hold_all(table, &pin.holds);
+                setup.hold_all(table, &format!("pins[{}].holds", pin.id), &pin.holds);
             }
         }
         for start in &table.start_flags {
             if starts.contains(&start.flag.as_str()) {
-                setup.hold_all(table, &start.holds);
+                setup.hold_all(
+                    table,
+                    &format!("start_flags[{}].holds", start.flag),
+                    &start.holds,
+                );
             }
         }
+        let enabled = setup.heroes.clone().unwrap_or_default();
         for trigger in &table.triggers {
-            if trigger.armed_in.contains(&scene) && flags.contains(&trigger.flag.as_str()) {
+            let program_on = trigger.grants.iter().any(|id| {
+                table
+                    .capability(id)
+                    .is_some_and(|row| enabled.contains(&row.hero))
+            });
+            if trigger.armed_in.contains(&scene) && program_on {
                 setup.triggers.push(trigger);
             }
         }
         setup
     }
 
-    fn hold_all(&mut self, table: &'static StoryTable, ids: &[String]) {
+    /// Hold `ids` and everything they require that the ledger stores (DP-Q06:
+    /// a flag or a pin grants the `requires` closure of what it names).
+    fn hold_all(&mut self, table: &'static StoryTable, source: &str, ids: &[String]) {
+        let mut all: Vec<&'static str> = Vec::new();
         for id in ids {
-            let id = CapabilityId(static_id(table, id));
+            all.push(static_id(table, id));
+            for needed in table.requires_closure(id) {
+                if needed.storage == Storage::Ledger {
+                    all.push(static_id(table, &needed.id));
+                }
+            }
+        }
+        for id in &all {
+            let id = CapabilityId(id);
             if !self.holds.contains(&id) {
                 self.holds.push(id);
             }
         }
+        self.sources
+            .push((source.to_owned(), ids.iter().map(String::clone).collect()));
+    }
+
+    /// Setup-time check of the read-through requirements (DP-Q06): every
+    /// read-through capability a held row needs, directly or not, must read as
+    /// held in `view` (the biscuit is `DonutMana::unlocked()`). The error names
+    /// the pin, start flag or hold that breaks the story order.
+    pub fn check_read_through(&self, view: &ReadThrough) -> Result<(), StoryError> {
+        let Some(table) = self.table else {
+            return Ok(());
+        };
+        for (field, ids) in &self.sources {
+            for id in ids {
+                for needed in table.requires_closure(id) {
+                    if needed.storage == Storage::ReadThrough
+                        && !view.read(CapabilityId(static_id(table, &needed.id)))
+                    {
+                        return Err(bad(
+                            field.clone(),
+                            format!(
+                                "{id} requires {}, which this scene does not hold (story order)",
+                                needed.id
+                            ),
+                        ));
+                    }
+                }
+            }
+        }
+        Ok(())
     }
 
     /// A fixture declares a capability held from tick 0.
@@ -900,7 +1008,7 @@ impl StorySetup {
     pub fn with_hold(mut self, id: &str) -> Self {
         let table = self.table.unwrap_or_else(StoryTable::active);
         self.table = Some(table);
-        self.hold_all(table, &[id.to_owned()]);
+        self.hold_all(table, "with_hold", &[id.to_owned()]);
         self
     }
 
@@ -957,6 +1065,9 @@ pub struct StoryRuntime {
     pending: Vec<&'static str>,
     /// See [`StorySetup`]: the heroes whose rows a trigger may grant.
     heroes: Option<Vec<u8>>,
+    /// One line per skipped grant entry (a filtered hero or an unmet
+    /// `requires`). Debug only: never hashed, never an event.
+    debug_log: Vec<String>,
 }
 
 impl StoryRuntime {
@@ -977,6 +1088,7 @@ impl StoryRuntime {
                 .collect(),
             pending: Vec::new(),
             heroes: setup.heroes.clone(),
+            debug_log: Vec::new(),
         };
         runtime.rearm();
         Some(runtime)
@@ -984,6 +1096,11 @@ impl StoryRuntime {
 
     pub fn ledger(&self) -> &UnlockLedger {
         &self.ledger
+    }
+
+    /// The skipped grant entries, one line each (debug only).
+    pub fn debug_log(&self) -> &[String] {
+        &self.debug_log
     }
 
     /// A trigger is spent when every capability it grants is already held
@@ -1025,7 +1142,20 @@ impl StoryRuntime {
     /// table order, each at most once, each granting its list in order; the
     /// returned receipts are in grant order. A grant of something already held
     /// returns no receipt.
-    pub fn step(&mut self, tick: u64, pivots: [(f32, f32); 2], defeated: bool) -> Vec<Receipt> {
+    ///
+    /// **Per-entry guards (DP spec section 3, rule 3):** an entry is granted
+    /// only if its hero's program is enabled (the setup's heroes) and every
+    /// capability in its `requires` is held at that moment (an entry earlier
+    /// in the same list counts; a read-through one asks `view`). An entry that
+    /// fails a guard is skipped: no receipt, no event, no hash, one debug line;
+    /// the trigger is consumed all the same.
+    pub fn step(
+        &mut self,
+        tick: u64,
+        pivots: [(f32, f32); 2],
+        defeated: bool,
+        view: &ReadThrough,
+    ) -> Vec<Receipt> {
         let mut out = Vec::new();
         for state in &mut self.triggers {
             if state.fired {
@@ -1045,6 +1175,25 @@ impl StoryRuntime {
             state.fired = true;
             for id in &state.row.grants {
                 if !grants_row(self.ledger.table, self.heroes.as_deref(), id) {
+                    self.debug_log.push(format!(
+                        "tick {tick}: trigger {} skipped {id}: its program is not enabled",
+                        state.row.id
+                    ));
+                    continue;
+                }
+                let table = self.ledger.table;
+                let unmet = table.capability(id).and_then(|row| {
+                    row.requires.iter().find(|needed| {
+                        !self
+                            .ledger
+                            .holds(CapabilityId(static_id(table, needed)), view)
+                    })
+                });
+                if let Some(needed) = unmet {
+                    self.debug_log.push(format!(
+                        "tick {tick}: trigger {} skipped {id}: requires {needed}, not held",
+                        state.row.id
+                    ));
                     continue;
                 }
                 let id = CapabilityId(static_id(self.ledger.table, id));
@@ -1063,6 +1212,7 @@ impl StoryRuntime {
     pub fn restart(&mut self, kind: StoryRestart) {
         self.ledger.restart(kind);
         if kind == StoryRestart::Fixture {
+            self.debug_log.clear();
             self.rearm();
         } else {
             self.pending.clear();
@@ -1146,8 +1296,41 @@ mod tests {
                 .armed_in
                 .is_empty()
         );
-        assert_eq!(t.pins.len(), 1);
-        assert_eq!(t.pins[0].scene, SceneKind::Boss);
+        assert_eq!(t.pins.len(), 2, "Carl's dynamite pin and Donut's boost pin");
+        assert!(t.pins.iter().all(|pin| pin.scene == SceneKind::Boss));
+        // DONUT-PROG-01 DP-A (DP-Q06, DP-Q07): Donut's rows, story order as data.
+        let boost = cap("jump_reach_boost");
+        assert_eq!((boost.hero, boost.slot), (1, Slot::Passive));
+        assert_eq!(boost.requires, ["primary_ranged"]);
+        let blink = cap("special_short_blink");
+        assert_eq!((blink.hero, blink.slot), (1, Slot::Special));
+        assert_eq!(blink.requires, ["jump_reach_boost"]);
+        // One Juicer trigger, two entries in list order (no second trigger on the event).
+        assert_eq!(
+            t.trigger("brute_boss_f01_defeated").unwrap().grants,
+            ["fist_reinforced", "special_short_blink"]
+        );
+        assert_eq!(
+            t.triggers
+                .iter()
+                .filter(|row| row.event.as_deref() == Some("brute_boss_f01_defeated"))
+                .count(),
+            1
+        );
+        let safe = t.trigger("f01_safe_room_reward_found").unwrap();
+        assert_eq!(safe.grants, ["jump_reach_boost"]);
+        assert_eq!(safe.armed_in, [SceneKind::Corridor]);
+        let zone = safe.zone.unwrap();
+        assert_eq!(zone.hero, 1);
+        assert!(
+            zone.min_x >= 520.0 + 640.0,
+            "at least 640 px past the guild zone"
+        );
+        assert!(
+            t.story_flags
+                .iter()
+                .any(|f| f.flag == "donut_prog" && f.heroes == [1])
+        );
     }
 
     #[test]
@@ -1177,14 +1360,14 @@ mod tests {
         );
         assert_eq!(
             field(broken(
-                "\"grants\": [\"fist_reinforced\"]",
+                "\"grants\": [\"fist_reinforced\", \"special_short_blink\"]",
                 "\"grants\": [\"nothing_here\"]"
             )),
             "triggers[1].grants"
         );
         assert_eq!(
             field(broken(
-                "\"grants\": [\"fist_reinforced\"]",
+                "\"grants\": [\"fist_reinforced\", \"special_short_blink\"]",
                 "\"grants\": [\"primary_ranged\"]"
             )),
             "triggers[1].grants"
@@ -1204,6 +1387,74 @@ mod tests {
             StoryTable::from_json("{\"schema_version\": 1, \"bogus\": 1}"),
             Err(StoryError::Parse(_))
         ));
+    }
+
+    /// DP-Q06 (spec M0): the generic `requires` validator rejects an unknown
+    /// id, a cycle and a pin that holds a row without what it requires, naming
+    /// the field.
+    #[test]
+    fn the_requires_validator_names_the_field() {
+        let broken = |from: &str, to: &str| {
+            let text = TABLE_JSON.replacen(from, to, 1);
+            assert_ne!(text, TABLE_JSON, "{from}");
+            match StoryTable::from_json(&text).expect_err(to) {
+                StoryError::Field { field, .. } => field,
+                other => panic!("expected a field error, got {other:?}"),
+            }
+        };
+        assert_eq!(
+            broken(
+                "\"requires\": [\"jump_reach_boost\"]",
+                "\"requires\": [\"no_such_row\"]"
+            ),
+            "capabilities[4].requires"
+        );
+        // A cycle: the boost now requires the blink, which requires the boost.
+        assert_eq!(
+            broken(
+                "\"requires\": [\"primary_ranged\"]",
+                "\"requires\": [\"special_short_blink\"]"
+            ),
+            "capabilities[3].requires"
+        );
+        // A pin holding the blink without the boost breaks the story order.
+        assert_eq!(
+            broken(
+                "\"holds\": [\"jump_reach_boost\"],\n      \"cp_q\": \"DP-Q09\"",
+                "\"holds\": [\"special_short_blink\"],\n      \"cp_q\": \"DP-Q09\""
+            ),
+            "pins[1].holds"
+        );
+    }
+
+    /// NB-2: a dense acyclic graph (every row requires every earlier row) is
+    /// not a cycle, a real cycle still is, and the walk is linear (a visited
+    /// set), so a long chain loads at once.
+    #[test]
+    fn the_cycle_check_walks_each_row_once() {
+        let rows = |n: usize, cyclic: bool| {
+            let mut caps = Vec::new();
+            for i in 0..n {
+                let mut requires: Vec<String> = (0..i).map(|j| format!("\"cap_{j}\"")).collect();
+                if cyclic && i == 0 {
+                    requires.push(format!("\"cap_{}\"", n - 1));
+                }
+                caps.push(format!(
+                    "{{\"id\": \"cap_{i}\", \"hero\": 0, \"slot\": \"passive\", \"storage\": \"ledger\", \"requires\": [{}], \"display\": \"D\", \"cp_q\": \"T\"}}",
+                    requires.join(", ")
+                ));
+            }
+            format!(
+                "{{\"schema_version\": 1, \"provenance\": \"stub\", \"capabilities\": [{}]}}",
+                caps.join(", ")
+            )
+        };
+        // 40 rows, 780 edges: far past the old bounded walk's limit of a dense graph.
+        StoryTable::from_json(&rows(40, false)).expect("a dense acyclic graph");
+        match StoryTable::from_json(&rows(40, true)) {
+            Err(StoryError::Field { field, .. }) => assert_eq!(field, "capabilities[0].requires"),
+            other => panic!("a cycle must be rejected, got {other:?}"),
+        }
     }
 
     /// A stub table with two heroes: one trigger grants both of them something.
@@ -1240,7 +1491,7 @@ mod tests {
         assert_eq!(setup.holds(), [CapabilityId("alpha_special")]);
         let mut runtime = StoryRuntime::new(&setup).expect("not inert");
         runtime.observe("boss_down");
-        let receipts = runtime.step(77, [(0.0, 0.0); 2], false);
+        let receipts = runtime.step(77, [(0.0, 0.0); 2], false, &ReadThrough::default());
         assert_eq!(receipts.len(), 1);
         assert_eq!(
             (
@@ -1257,7 +1508,7 @@ mod tests {
         let mut runtime =
             StoryRuntime::new(&bare_table.with_trigger("both_on_boss")).expect("armed");
         runtime.observe("boss_down");
-        let receipts = runtime.step(90, [(0.0, 0.0); 2], false);
+        let receipts = runtime.step(90, [(0.0, 0.0); 2], false, &ReadThrough::default());
         let granted: Vec<_> = receipts
             .iter()
             .map(|r| (r.hero, r.capability.as_str(), r.tick))
@@ -1266,7 +1517,11 @@ mod tests {
         assert_eq!(receipts[0].source, "both_on_boss");
         // Once only: the same event again grants and logs nothing.
         runtime.observe("boss_down");
-        assert!(runtime.step(91, [(0.0, 0.0); 2], false).is_empty());
+        assert!(
+            runtime
+                .step(91, [(0.0, 0.0); 2], false, &ReadThrough::default())
+                .is_empty()
+        );
     }
 
     /// A flag applies only its own heroes' rows of a shared trigger; a trigger
@@ -1280,7 +1535,7 @@ mod tests {
             let mut runtime = StoryRuntime::new(&setup).expect("armed");
             runtime.observe("boss_down");
             runtime
-                .step(5, [(0.0, 0.0); 2], false)
+                .step(5, [(0.0, 0.0); 2], false, &ReadThrough::default())
                 .iter()
                 .map(|r| (r.hero, r.capability.as_str()))
                 .collect::<Vec<_>>()
@@ -1301,13 +1556,14 @@ mod tests {
             holds: Vec::new(),
             triggers: vec![t.trigger("both_on_boss").unwrap()],
             heroes: None,
+            sources: Vec::new(),
         };
         assert_eq!(fire(&fixture), [(0, "alpha_special"), (1, "beta_passive")]);
         // A trigger whose only remaining rows belong to other heroes is spent
         // once its own heroes' rows are held.
         let mut runtime = StoryRuntime::new(&carl_only).unwrap();
         runtime.observe("boss_down");
-        let first = runtime.step(9, [(0.0, 0.0); 2], false);
+        let first = runtime.step(9, [(0.0, 0.0); 2], false, &ReadThrough::default());
         assert!(
             first.is_empty(),
             "alpha is pinned, beta is not this flag's: nothing to grant"
@@ -1465,28 +1721,47 @@ mod tests {
             holds: Vec::new(),
             triggers: vec![t.trigger("alpha_zone").unwrap()],
             heroes: None,
+            sources: Vec::new(),
         };
         let mut runtime = StoryRuntime::new(&stub).unwrap();
         let outside = [(5.0, 0.0), (15.0, 0.0)];
         let inside = [(15.0, 0.0), (5.0, 0.0)];
         assert!(
-            runtime.step(1, outside, false).is_empty(),
+            runtime
+                .step(1, outside, false, &ReadThrough::default())
+                .is_empty(),
             "Donut inside does not fire a Carl zone"
         );
         assert!(
-            runtime.step(2, inside, true).is_empty(),
+            runtime
+                .step(2, inside, true, &ReadThrough::default())
+                .is_empty(),
             "never while defeated"
         );
-        let receipts = runtime.step(3, inside, false);
+        let receipts = runtime.step(3, inside, false, &ReadThrough::default());
         assert_eq!(receipts.len(), 1);
         assert_eq!(receipts[0].tick, 3);
-        assert!(runtime.step(4, inside, false).is_empty(), "once only");
+        assert!(
+            runtime
+                .step(4, inside, false, &ReadThrough::default())
+                .is_empty(),
+            "once only"
+        );
         // A retry keeps it spent; a fixture restart re-arms it.
         runtime.restart(StoryRestart::DefeatRetry);
-        assert!(runtime.step(5, inside, false).is_empty());
+        assert!(
+            runtime
+                .step(5, inside, false, &ReadThrough::default())
+                .is_empty()
+        );
         runtime.restart(StoryRestart::Fixture);
         assert!(runtime.ledger().is_empty());
-        assert_eq!(runtime.step(6, inside, false).len(), 1);
+        assert_eq!(
+            runtime
+                .step(6, inside, false, &ReadThrough::default())
+                .len(),
+            1
+        );
     }
 
     #[test]
@@ -1496,7 +1771,11 @@ mod tests {
             .with_trigger("pile_boss_f01_defeated");
         let mut runtime = StoryRuntime::new(&setup).unwrap();
         let inside = [(610.0, 0.0), (0.0, 0.0)];
-        assert!(runtime.step(1, inside, false).is_empty());
+        assert!(
+            runtime
+                .step(1, inside, false, &ReadThrough::default())
+                .is_empty()
+        );
         assert!(runtime.ledger().receipts().is_empty());
     }
 
