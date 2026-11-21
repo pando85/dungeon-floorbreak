@@ -16,10 +16,11 @@
 //! hold applies only under the matching program flag (`--carl-prog`,
 //! `--donut-prog`), like every pin.
 //!
-//! The scene is **not recorded** by the PLAYTRACE recorder yet: a session needs
-//! a replay source for this room (PT-SCENE). The content is pinned anyway
-//! ([`ROOM_PIN_KEY`], [`ENCOUNTER_PIN_KEY`] in `playtrace::live::data_pins`), so
-//! an edit of the room or the sidecar fails a replay that names it.
+//! The scene is recorded by PLAYTRACE since PT-SCENE: the replay source is
+//! `crate::f01_late::boiler_combat`, the one constructor the binary's room and
+//! the verifier share. The content is pinned ([`ROOM_PIN_KEY`],
+//! [`ENCOUNTER_PIN_KEY`] in `playtrace::live::data_pins`), so an edit of the
+//! room or the sidecar fails a replay that names it.
 
 use std::path::Path;
 
@@ -81,62 +82,28 @@ pub struct BoilerRun {
     pub loaded: Loaded,
 }
 
-/// Which hero a pinned capability belongs to (the program flag that enables it).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Program {
-    Carl,
-    Donut,
-}
-
-/// One capability a pin holds, and the program flag that must be on for it.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct PinHold {
-    pub program: Program,
-    pub capability: &'static str,
-}
-
-/// What a room story pin holds. `None` for a pin this scene does not know: the
-/// launch rejects it, so a sidecar cannot name a pin that holds nothing.
-pub fn pin_holds(pin: &str) -> Option<&'static [PinHold]> {
-    match pin {
-        // K1 (the Hoarder's dynamite) and K9 (Light on Your Feet, provisional).
-        PIN_POST_PILE_BOSS => Some(&[
-            PinHold {
-                program: Program::Carl,
-                capability: "special_thrown_charge",
-            },
-            PinHold {
-                program: Program::Donut,
-                capability: "jump_reach_boost",
-            },
-        ]),
-        _ => None,
-    }
-}
-
-/// The story setup of a run of this room: the debug start flags, then the pin's
-/// holds for each enabled program. With no flag it is [`StorySetup::NONE`], so a
-/// run without them is unchanged (the flag gating of every program).
+/// The story setup of a run of this room: the debug start flags, then the
+/// rows of the pin the sidecar names, each under its own program flag
+/// (`--carl-prog`, `--donut-prog`). The pin is a row of the story table
+/// (`story_unlocks_v0.json`, PT-SCENE), the same table the other room pins and
+/// the KR12 order test read. With no flag it is [`StorySetup::NONE`], so a run
+/// without them is unchanged (the flag gating of every program).
 pub fn story_setup(
     pin: &str,
     carl: CarlProgFlags,
     donut: DonutProgFlags,
 ) -> Result<StorySetup, String> {
-    let holds = pin_holds(pin).ok_or_else(|| format!("unknown story pin {pin:?}"))?;
-    // No scene pin row exists in the table for this room: the table's own pins
-    // are per `SceneKind` (the hall's scene kind arms nothing), and this room's
-    // pin is applied here as holds.
-    let mut setup = crate::donut_prog::story_setup(carl, donut, SceneKind::CfArena);
-    for hold in holds {
-        let enabled = match hold.program {
-            Program::Carl => carl.prog,
-            Program::Donut => donut.prog,
-        };
-        if enabled {
-            setup = setup.with_hold(hold.capability);
-        }
+    if !crate::story_unlock::StoryTable::active().has_room_pin(pin) {
+        return Err(format!("unknown or non-room story pin {pin:?}"));
     }
-    Ok(setup)
+    // The room runs on the CF02 scene kind (it arms no trigger in the table),
+    // and its pin is chosen by id.
+    Ok(crate::donut_prog::story_setup_pin(
+        carl,
+        donut,
+        SceneKind::CfArena,
+        pin,
+    ))
 }
 
 /// Compose the room's kit the way the CF02 microarena does (CF02-Q45): **no
@@ -199,7 +166,7 @@ pub fn launch(root: &Path) -> Result<BoilerRun, String> {
             loaded.room_hash, loaded.sidecar_hash
         ));
     }
-    if pin_holds(&loaded.encounter.story_pin).is_none() {
+    if !crate::story_unlock::StoryTable::active().has_room_pin(&loaded.encounter.story_pin) {
         return Err(format!(
             "{BOILER_ENCOUNTER_PATH}: unknown story pin {:?}",
             loaded.encounter.story_pin
@@ -472,7 +439,29 @@ mod tests {
         let err = story_setup("f01_pin_nope", CarlProgFlags::OFF, DonutProgFlags::OFF)
             .expect_err("unknown pin");
         assert!(err.contains("f01_pin_nope"), "{err}");
-        assert!(pin_holds("f01_pin_nope").is_none());
+        assert!(!crate::story_unlock::StoryTable::active().has_room_pin("f01_pin_nope"));
+    }
+
+    /// A sidecar names a room pin: the boss arena's pins are refused (they would
+    /// give Carl's half only), at the launch check and in `story_setup`.
+    #[test]
+    fn a_scene_pin_is_not_a_sidecar_pin() {
+        for pin in ["f01_dynamite_held", "f01_donut_boss_held"] {
+            assert!(crate::story_unlock::StoryTable::active().has_pin(pin));
+            let err = story_setup(pin, CarlProgFlags::OFF, DonutProgFlags::OFF)
+                .expect_err("a scene pin is not a room pin");
+            assert!(err.contains(pin), "{err}");
+        }
+        for pin in [
+            "f01_pin_pre_pile_boss",
+            "f01_pin_post_pile_boss",
+            "f01_late_mastery",
+        ] {
+            assert!(
+                story_setup(pin, CarlProgFlags::OFF, DonutProgFlags::OFF).is_ok(),
+                "{pin}"
+            );
+        }
     }
 
     #[test]

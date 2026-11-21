@@ -30,7 +30,7 @@ pub const TABLE_JSON: &str = include_str!("../assets/data/gameplay/story_unlocks
 
 /// The committed FNV-1a 64 content hash of [`TABLE_JSON`]. Editing the file
 /// without updating this value fails [`StoryTable::pinned`] and the pin test.
-pub const TABLE_HASH: u64 = 0x0dbc_75b8_c3e3_6664;
+pub const TABLE_HASH: u64 = 0xf994_370a_a583_527d;
 
 /// The schema version [`StoryTable`] accepts.
 pub const SCHEMA_VERSION: u32 = 1;
@@ -107,6 +107,11 @@ pub enum SceneKind {
     CfArena,
     /// The Floor 01 boss arena.
     Boss,
+    /// PT-SCENE: a pin row of a late-Floor-1 room (`--scene f01_late`). It is a
+    /// **label, not a scene**: such a pin is chosen by its id
+    /// ([`StorySetup::for_pin`], the `pin` key of the room manifest), so
+    /// [`StorySetup::for_scene`] never holds it, and no trigger is armed in it.
+    F01Late,
 }
 
 /// How a data event id is matched against the combat events.
@@ -249,7 +254,7 @@ impl core::fmt::Display for StoryError {
 
 impl std::error::Error for StoryError {}
 
-fn bad(field: impl Into<String>, reason: impl Into<String>) -> StoryError {
+pub(crate) fn bad(field: impl Into<String>, reason: impl Into<String>) -> StoryError {
     StoryError::Field {
         field: field.into(),
         reason: reason.into(),
@@ -314,6 +319,19 @@ impl StoryTable {
 
     pub fn capability(&self, id: &str) -> Option<&CapabilityRow> {
         self.capabilities.iter().find(|row| row.id == id)
+    }
+
+    /// Whether some pin row carries the id (PT-SCENE room pins).
+    pub fn has_pin(&self, id: &str) -> bool {
+        self.pins.iter().any(|row| row.id == id)
+    }
+
+    /// Whether the id is a **room** pin (scene `f01_late`): the only kind an
+    /// encounter sidecar may name. A scene pin (the boss arena's) is not.
+    pub fn has_room_pin(&self, id: &str) -> bool {
+        self.pins
+            .iter()
+            .any(|row| row.id == id && row.scene == SceneKind::F01Late)
     }
 
     pub fn trigger(&self, id: &str) -> Option<&TriggerRow> {
@@ -429,6 +447,13 @@ impl StoryTable {
                 }
             }
             self.check_grant_list(&at("grants"), &row.grants)?;
+            // `f01_late` labels the room pins; no trigger is armed in it.
+            if row.armed_in.contains(&SceneKind::F01Late) {
+                return Err(bad(
+                    at("armed_in"),
+                    "f01_late labels room pins and arms no trigger",
+                ));
+            }
             if row.cp_q.is_empty() {
                 return Err(bad(at("cp_q"), "empty"));
             }
@@ -438,8 +463,21 @@ impl StoryTable {
             if !valid_id(&row.id) {
                 return Err(bad(at("id"), "lower snake_case ascii"));
             }
-            if self.pins[..i].iter().any(|prev| prev.id == row.id) {
-                return Err(bad(at("id"), "duplicate id"));
+            // PT-SCENE: one pin id may carry a row per story flag (the room
+            // pins hold Carl's and Donut's capabilities, and each program
+            // applies its own row); the pair is unique.
+            if self.pins[..i]
+                .iter()
+                .any(|prev| prev.id == row.id && prev.flag == row.flag)
+            {
+                return Err(bad(at("id"), "duplicate id for this flag"));
+            }
+            // One pin id, one scene: `for_pin` and the order test select by id.
+            if self.pins[..i]
+                .iter()
+                .any(|prev| prev.id == row.id && prev.scene != row.scene)
+            {
+                return Err(bad(at("scene"), "rows of one pin id must share a scene"));
             }
             if !valid_id(&row.flag) {
                 return Err(bad(at("flag"), "lower snake_case ascii"));
@@ -823,6 +861,25 @@ impl UnlockLedger {
         Ok(())
     }
 
+    /// PT-SCENE ledger carry (CP-Q07): a room relaunch starts from the
+    /// snapshot of the previous room's ledger, plus the new room's own pin
+    /// (the declared start state), which is never lost; the union becomes the new
+    /// room's start state. The snapshot's receipts
+    /// come along, so a grant is never made a second time.
+    pub fn carry_in(&mut self, snapshot: &LedgerSnapshot) -> Result<(), StoryError> {
+        self.restore(snapshot)?;
+        for entry in &self.start {
+            if let Err(at) = self.held.binary_search(entry) {
+                self.held.insert(at, *entry);
+            }
+        }
+        // What the room was launched with is its declared start state, so a
+        // fixture restart (R / Select held) restores the carried ledger, not
+        // only the pin.
+        self.start = self.held.clone();
+        Ok(())
+    }
+
     fn stored_row(&self, field: &str, id: &str) -> Result<&'static CapabilityRow, StoryError> {
         match self.table.capability(id) {
             None => Err(bad(field, format!("unknown capability {id}"))),
@@ -910,6 +967,32 @@ impl StorySetup {
         starts: &[&str],
         scene: SceneKind,
     ) -> Self {
+        Self::build(table, flags, starts, scene, None)
+    }
+
+    /// [`Self::for_scene`] for a room pin chosen **by id** (PT-SCENE): the
+    /// triggers armed in `scene` and the debug starts are as for the scene, but
+    /// the pin rows held are those named `pin` (one row per story flag, each
+    /// applied under its own flag) instead of those of the scene's kind. A pin
+    /// the table does not carry holds nothing here; [`StoryTable::has_pin`]
+    /// tells a launch to refuse it first.
+    pub fn for_pin(
+        table: &'static StoryTable,
+        flags: &[&str],
+        starts: &[&str],
+        scene: SceneKind,
+        pin: &str,
+    ) -> Self {
+        Self::build(table, flags, starts, scene, Some(pin))
+    }
+
+    fn build(
+        table: &'static StoryTable,
+        flags: &[&str],
+        starts: &[&str],
+        scene: SceneKind,
+        pin_id: Option<&str>,
+    ) -> Self {
         let mut heroes: Vec<u8> = Vec::new();
         for row in &table.story_flags {
             if flags.contains(&row.flag.as_str()) {
@@ -926,7 +1009,12 @@ impl StorySetup {
             sources: Vec::new(),
         };
         for pin in &table.pins {
-            if pin.scene == scene && flags.contains(&pin.flag.as_str()) {
+            let chosen = match pin_id {
+                Some(id) => pin.id == id,
+                // A room pin (`F01Late`) is only ever chosen by id.
+                None => pin.scene == scene && pin.scene != SceneKind::F01Late,
+            };
+            if chosen && flags.contains(&pin.flag.as_str()) {
                 setup.hold_all(table, &format!("pins[{}].holds", pin.id), &pin.holds);
             }
         }
@@ -1096,6 +1184,15 @@ impl StoryRuntime {
 
     pub fn ledger(&self) -> &UnlockLedger {
         &self.ledger
+    }
+
+    /// PT-SCENE: start this runtime from the ledger of the previous room
+    /// ([`UnlockLedger::carry_in`]), then re-arm: a trigger whose grants are
+    /// already held is spent.
+    pub fn carry_ledger(&mut self, snapshot: &LedgerSnapshot) -> Result<(), StoryError> {
+        self.ledger.carry_in(snapshot)?;
+        self.rearm();
+        Ok(())
     }
 
     /// The skipped grant entries, one line each (debug only).
@@ -1296,8 +1393,28 @@ mod tests {
                 .armed_in
                 .is_empty()
         );
-        assert_eq!(t.pins.len(), 2, "Carl's dynamite pin and Donut's boost pin");
-        assert!(t.pins.iter().all(|pin| pin.scene == SceneKind::Boss));
+        let boss_pins: Vec<_> = t
+            .pins
+            .iter()
+            .filter(|p| p.scene == SceneKind::Boss)
+            .collect();
+        assert_eq!(
+            boss_pins.len(),
+            2,
+            "Carl's dynamite pin and Donut's boost pin"
+        );
+        // PT-SCENE: the room pins (one row per story flag, chosen by id).
+        let room_pins: Vec<_> = t
+            .pins
+            .iter()
+            .filter(|p| p.scene == SceneKind::F01Late)
+            .collect();
+        assert_eq!(room_pins.len(), 5);
+        assert_eq!(t.pins.len(), 7);
+        let ids = |id: &str| room_pins.iter().filter(|p| p.id == id).count();
+        assert_eq!(ids("f01_pin_pre_pile_boss"), 1, "Donut's boost only");
+        assert_eq!(ids("f01_pin_post_pile_boss"), 2, "dynamite and the boost");
+        assert_eq!(ids("f01_late_mastery"), 2, "every capability");
         // DONUT-PROG-01 DP-A (DP-Q06, DP-Q07): Donut's rows, story order as data.
         let boost = cap("jump_reach_boost");
         assert_eq!((boost.hero, boost.slot), (1, Slot::Passive));
@@ -1425,6 +1542,65 @@ mod tests {
             ),
             "pins[1].holds"
         );
+    }
+
+    /// PT-SCENE (review F3): one scene per pin id, `f01_late` arms no trigger, and
+    /// only a room pin (scene `f01_late`) is a sidecar's pin.
+    #[test]
+    fn the_room_pin_rules_are_enforced_by_the_validator() {
+        let edited = |edit: &dyn Fn(&mut serde_json::Value)| {
+            let mut value: serde_json::Value = serde_json::from_str(TABLE_JSON).unwrap();
+            edit(&mut value);
+            StoryTable::from_json(&value.to_string())
+        };
+        // The committed table passes, and the room pins are room pins.
+        let table = StoryTable::pinned().unwrap();
+        for id in [
+            "f01_pin_pre_pile_boss",
+            "f01_pin_post_pile_boss",
+            "f01_late_mastery",
+        ] {
+            assert!(table.has_room_pin(id), "{id}");
+        }
+        // A scene pin is a pin and not a room pin; an unknown id is neither.
+        assert!(table.has_pin("f01_dynamite_held") && !table.has_room_pin("f01_dynamite_held"));
+        assert!(!table.has_pin("f01_pin_nope") && !table.has_room_pin("f01_pin_nope"));
+        // Rows of one id in two scenes mix at `for_pin`: refused.
+        let mixed = edited(&|v| {
+            let pins = v["pins"].as_array_mut().unwrap();
+            let row = pins
+                .iter_mut()
+                .rev()
+                .find(|p| p["id"] == "f01_pin_post_pile_boss")
+                .unwrap();
+            row["scene"] = "boss".into();
+        });
+        match mixed.expect_err("two scenes under one id") {
+            StoryError::Field { field, reason } => {
+                assert!(field.ends_with(".scene"), "{field}");
+                assert!(reason.contains("share a scene"), "{reason}");
+            }
+            other => panic!("expected a field error, got {other:?}"),
+        }
+        // The same (id, flag) twice is still a duplicate.
+        let duplicate = edited(&|v| {
+            let pins = v["pins"].as_array_mut().unwrap();
+            let row = pins[pins.len() - 1].clone();
+            pins.push(row);
+        });
+        assert!(matches!(duplicate, Err(StoryError::Field { .. })));
+        // A trigger armed in `f01_late` would never fire: refused.
+        match edited(&|v| {
+            v["triggers"][1]["armed_in"] = serde_json::json!(["boss", "f01_late"]);
+        })
+        .expect_err("armed in the label")
+        {
+            StoryError::Field { field, reason } => {
+                assert!(field.ends_with(".armed_in"), "{field}");
+                assert!(reason.contains("arms no trigger"), "{reason}");
+            }
+            other => panic!("expected a field error, got {other:?}"),
+        }
     }
 
     /// NB-2: a dense acyclic graph (every row requires every earlier row) is

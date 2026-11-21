@@ -491,6 +491,28 @@ case "$mode" in
       exit 1
     fi
     echo "F01_BOILER_HEADLESS_OK: $(grep '^F01_BOILER_SMOKE_OK' <<<"$boiler_a")"
+    # PT-SCENE: `--scene f01_late` launches each listed room under a loadout. The
+    # headless smoke of each room and loadout replays identically twice and names
+    # its room; the story loadout of the Boiler differs from the plain room (the
+    # pin holds dynamite and Light on Your Feet), and the plain room is unchanged.
+    late_lines() { "$bin" --headless-floor01-smoke --scene f01_late "$@" | grep -E '^(F01_LATE_ENTRY|F01_BOILER_(ENTRY|SMOKE_OK)|COMBAT_STATE)'; }
+    for late_args in "--f01-room boiler" "--f01-room boiler --f01-loadout all" "--f01-room juicer" "--f01-room juicer --f01-loadout all"; do
+      # shellcheck disable=SC2086
+      late_a="$(late_lines $late_args)"
+      # shellcheck disable=SC2086
+      late_b="$(late_lines $late_args)"
+      room="${late_args#--f01-room }"; room="${room%% *}"
+      if [[ -z "$late_a" || "$late_a" != "$late_b" ]] || ! grep -q "^F01_LATE_ENTRY room=$room " <<<"$late_a"; then
+        echo "--scene f01_late $late_args did not replay identically twice with its entry line" >&2
+        exit 1
+      fi
+    done
+    late_story="$(late_lines --f01-room boiler | grep '^COMBAT_STATE')"
+    if [[ "$late_story" == "$(grep '^COMBAT_STATE' <<<"$boiler_a")" ]]; then
+      echo "the f01_late story loadout did not change the Boiler's state" >&2
+      exit 1
+    fi
+    echo "F01_LATE_HEADLESS_OK: boiler and juicer, story and all, each twice identical"
     ;;
   render)
     for f in "${fixtures[@]}"; do

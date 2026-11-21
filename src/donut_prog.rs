@@ -82,6 +82,27 @@ impl DonutProgFlags {
 /// shared trigger, `--donut-prog` alone never grants Carl's, and both together
 /// grant both in list order). With no flag it is [`StorySetup::NONE`].
 pub fn story_setup(carl: CarlProgFlags, donut: DonutProgFlags, scene: SceneKind) -> StorySetup {
+    story_setup_for(carl, donut, scene, None)
+}
+
+/// [`story_setup`] for a late-Floor-1 room (PT-SCENE): the pin rows held are
+/// the ones named `pin` in the table (a room pin carries one row per story
+/// flag), the triggers armed are those of `scene` (the kind the room runs on).
+pub fn story_setup_pin(
+    carl: CarlProgFlags,
+    donut: DonutProgFlags,
+    scene: SceneKind,
+    pin: &str,
+) -> StorySetup {
+    story_setup_for(carl, donut, scene, Some(pin))
+}
+
+fn story_setup_for(
+    carl: CarlProgFlags,
+    donut: DonutProgFlags,
+    scene: SceneKind,
+    pin: Option<&str>,
+) -> StorySetup {
     if !carl.any() && !donut.any() {
         return StorySetup::NONE;
     }
@@ -105,7 +126,10 @@ pub fn story_setup(carl: CarlProgFlags, donut: DonutProgFlags, scene: SceneKind)
     if donut.puddle {
         starts.push("donut_puddle");
     }
-    StorySetup::for_scene(StoryTable::active(), &flags, &starts, scene)
+    match pin {
+        Some(pin) => StorySetup::for_pin(StoryTable::active(), &flags, &starts, scene, pin),
+        None => StorySetup::for_scene(StoryTable::active(), &flags, &starts, scene),
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

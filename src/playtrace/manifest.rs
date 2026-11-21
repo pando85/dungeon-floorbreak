@@ -86,6 +86,14 @@ pub struct ResetDescriptor {
     pub donut_light_feet: bool,
     #[serde(default, skip_serializing_if = "is_false")]
     pub donut_puddle: bool,
+    /// PT-SCENE: the late-Floor-1 room of the run (`--scene f01_late
+    /// --f01-room <id>`, or `--scene f01_boiler`) and its loadout label
+    /// (`story` or `all`). Absent in every older recording and written only
+    /// when set, so a descriptor of any earlier run serializes exactly as before.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub f01_room: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub f01_loadout: Option<String>,
     /// FNV-1a-64 of the layout and kit contract (0 when not computed).
     #[serde(with = "hex64")]
     pub kit_hash: u64,
