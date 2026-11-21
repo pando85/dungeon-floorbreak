@@ -127,6 +127,11 @@ impl SceneAnimators {
             // CF02-I: the acting frames need the heroes' locomotion tags (the
             // planted-feet overlays show in idle only).
             art.step_acting(scene, combat, self.carl.tag(), self.donut.tag());
+            // CP-B2: the dynamite throw's frame (the moving variant reads the run
+            // frame the locomotion animator shows).
+            let run_frame =
+                (self.carl.tag() == crate::anim::Tag::Run).then(|| self.carl.frame_in_clip());
+            art.step_throw(scene, combat, run_frame);
         }
     }
 

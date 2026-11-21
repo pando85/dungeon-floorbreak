@@ -1,0 +1,25 @@
+COMBAT_EVENT tick=4 kind=special_started hero=0 capability=special_thrown_charge
+COMBAT_EVENT tick=45 kind=charge_thrown charge=10 x=416 y=138
+COMBAT_EVENT tick=83 kind=charge_landed charge=10 x=511 y=92
+COMBAT_EVENT tick=195 kind=blast charge=10
+COMBAT_EVENT tick=195 kind=charge_chained charge=0 source=10 due=203 depth=1
+COMBAT_EVENT tick=195 kind=charge_chained charge=1 source=10 due=203 depth=1
+COMBAT_EVENT tick=195 kind=charge_chained charge=2 source=10 due=203 depth=1
+COMBAT_EVENT tick=195 kind=charge_chained charge=3 source=10 due=203 depth=1
+COMBAT_EVENT tick=195 kind=charge_chained charge=4 source=10 due=203 depth=1
+COMBAT_EVENT tick=195 kind=charge_chained charge=5 source=10 due=203 depth=1
+COMBAT_EVENT tick=195 kind=charge_chained charge=6 source=10 due=203 depth=1
+COMBAT_EVENT tick=195 kind=charge_chained charge=7 source=10 due=203 depth=1
+COMBAT_EVENT tick=195 kind=charge_chained charge=8 source=10 due=203 depth=1
+COMBAT_EVENT tick=203 kind=blast charge=0
+COMBAT_EVENT tick=203 kind=blast charge=1
+COMBAT_EVENT tick=203 kind=blast charge=2
+COMBAT_EVENT tick=203 kind=blast charge=3
+COMBAT_EVENT tick=203 kind=blast charge=4
+COMBAT_EVENT tick=203 kind=blast charge=5
+COMBAT_EVENT tick=203 kind=blast charge=6
+COMBAT_EVENT tick=203 kind=blast charge=7
+COMBAT_EVENT tick=204 kind=blast charge=8
+COMBAT_EVENT tick=204 kind=blast charge=9
+COMBAT_STATE fixture=carl_prog_dyn_chain_defer_over_8 seed=0xca10024 tick=260 elapsed=260 hero_hp=4 deaths=0 enemies= hash=f7febbe89c965514
+PARTY_STATE fixture=carl_prog_dyn_chain_defer_over_8 mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=a7a0a485638cc59a

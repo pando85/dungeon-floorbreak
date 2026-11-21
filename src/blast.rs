@@ -17,9 +17,10 @@
 //! Carl or Donut. CARL-PROG-01 CP-B1 generalizes the charge with a
 //! [`BlastProfile`]: the QA profile reproduces DEATH-D exactly, the thrown
 //! charge's profile adds the outer ring, line of sight and self-damage (its
-//! resolution lives in `combat_scene/thrown.rs`). The chain reaction and the
-//! structure breaking that the profile's `breaks_structures` flag announces are
-//! CP-C; CP-B1 only carries the flag.
+//! resolution lives in `combat_scene/thrown.rs`). CP-C adds the chain reaction
+//! ([`BlastCharge::chain_set`], CP-Q34) and the structure hook ([`BlastTarget`],
+//! [`blast_break`], CP-Q35): a blast whose profile has `breaks_structures` breaks
+//! what implements the hook, never an env solid by index range (KC17).
 
 use crate::hero_damage::HeroDamagePolicy;
 use crate::prototype::{Block, Rect};
@@ -200,6 +201,10 @@ pub struct BlastCharge {
     pub armed_tick: Option<u64>,
     /// CP-B1: the blast's data. [`BlastProfile::QA`] for every fixture charge.
     pub profile: BlastProfile,
+    /// CP-C (CP-Q34): how many chain links lie between the dynamite's own blast
+    /// (depth 0) and this charge. 0 for every charge that no chain has set
+    /// (hashed only while non-zero, so every older hash is unchanged).
+    pub chain_depth: u8,
 }
 
 impl BlastCharge {
@@ -213,6 +218,7 @@ impl BlastCharge {
             arm: Arm::Tick,
             armed_tick: None,
             profile: BlastProfile::QA,
+            chain_depth: 0,
         }
     }
 
@@ -282,6 +288,75 @@ impl BlastCharge {
         true
     }
 
+    /// CP-Q34: whether this charge detonates on `tick` (lit, not yet blown, due
+    /// exactly then). The per-tick cap defers on this test.
+    pub fn due_on(&self, tick: u64) -> bool {
+        !self.detonated && self.lit() && self.detonate_tick == tick
+    }
+
+    /// CP-Q34 (the per-tick cap): push a charge that is due on `tick` to the next
+    /// tick. It keeps its depth and its owner; stable index order decides which
+    /// charges the cap defers.
+    pub fn defer_one_tick(&mut self) {
+        self.detonate_tick += 1;
+    }
+
+    /// CP-Q34: a chain reaches this charge on `now`, from a blast of `depth - 1`.
+    ///
+    /// **Reached** and **scheduled** are two separate things.
+    ///
+    /// * Every reached charge that has not detonated takes the chain's credit and
+    ///   depth, **first writer keeps**: `owner` only when it is `None`, `chain_depth`
+    ///   only when it is 0. This holds for a charge left alone and for one due on
+    ///   `now` (not yet stepped, possibly deferred by the per-tick cap), so its own
+    ///   blast is still the chain's and chains onward (CP-Q34: "a charge it reaches
+    ///   is depth 1 ... a chained charge chains further").
+    /// * The schedule: a blown charge is deduped (nothing at all changes; each
+    ///   charge detonates once). A charge that blows on `now` keeps its tick. An
+    ///   **unlit** charge (an unarmed `Arm::CarlPast`, or a stored `detonate_tick`
+    ///   of 0 that has not detonated) is set to `now + delay`; an unarmed
+    ///   `CarlPast` is armed on `now`, so its tick is never read as "earlier". A lit
+    ///   charge due later than `now + delay` is pulled forward to it; one due
+    ///   inside `now < tick <= now + delay` is left alone.
+    ///
+    /// Returns the new `detonate_tick` when the schedule changed.
+    pub fn chain_set(
+        &mut self,
+        now: u64,
+        delay: u64,
+        owner: Option<u32>,
+        depth: u8,
+    ) -> Option<u64> {
+        if self.detonated {
+            return None;
+        }
+        if self.owner.is_none() {
+            self.owner = owner;
+        }
+        if self.chain_depth == 0 {
+            self.chain_depth = depth;
+        }
+        if self.lit() && self.detonate_tick == now {
+            return None;
+        }
+        let due = now + delay;
+        let unlit = match self.arm {
+            Arm::Tick => self.detonate_tick == 0,
+            Arm::CarlPast { .. } => self.armed_tick.is_none(),
+        };
+        // A stored tick at or before `now` is never a future detonation: it is
+        // read as unlit (`detonate_tick <= now` gives `now + delay`).
+        let stale = self.detonate_tick < now;
+        if unlit || stale || self.detonate_tick > due {
+            if matches!(self.arm, Arm::CarlPast { .. }) && self.armed_tick.is_none() {
+                self.armed_tick = Some(now);
+            }
+            self.detonate_tick = due;
+            return Some(due);
+        }
+        None
+    }
+
     /// How the blast reaches `body`, if it does (squared compares, exact
     /// boundaries). The core band exists only when `core_radius > 0`: with no
     /// core a body that contains the centre gets the outer result, never point
@@ -321,7 +396,85 @@ impl BlastCharge {
         // A non-QA profile adds its words after everything above (a QA charge
         // mixes nothing more, so every older hash is unchanged).
         self.profile.mix_into(mix);
+        // CP-C: the chain depth, only while a chain has set it.
+        if self.chain_depth > 0 {
+            mix(0x4348_4e44); // "CHND"
+            mix(u64::from(self.chain_depth));
+        }
     }
+}
+
+/// CP-C (CP-Q34): the chain rule's knobs, read from `carl_prog_v0.json`
+/// (`cpq34_*`) by the caller; this module stays free of the tuning file.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ChainRule {
+    /// Ticks between the reaching blast and the chained detonation (8).
+    pub delay: u64,
+    /// The deepest link: a blast at this depth chains nothing (4).
+    pub max_depth: u8,
+    /// Detonations allowed on one tick; the excess is deferred (8).
+    pub max_per_tick: usize,
+}
+
+/// What a blast hands to a structure it breaks (CP-Q35, K-plan section 3's
+/// generic hook). It carries only what a blast has, never a state of the
+/// target: `blast_id` is the one id of this blast (for a target's dedupe),
+/// `owner` the credit and `depth` the chain depth of the blast (NB-4 of #200:
+/// a prop's link graph can continue the count).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct BlastBreak {
+    pub blast_id: u32,
+    pub owner: Option<u32>,
+    pub depth: u8,
+}
+
+/// CP-C: the generic structure hook (integration plan section 3, KC17). A thing
+/// a blast can break, as a box and a break call: the CP-03 shore and the boss
+/// rack strut implement it here; BOIL-D's props implement it by forwarding to
+/// `env_prop::Mass::break_by_blast`. A blast reaches it only through
+/// [`blast_break`] (`breaks_structures`, the outer circle, line of sight).
+pub trait BlastTarget {
+    /// The box the blast must reach, or `None` when there is nothing left to
+    /// break (already broken, not armed, not enabled).
+    fn blast_footprint(&self) -> Option<Rect>;
+    /// Break it. Returns true when it broke on this call.
+    fn break_by_blast(&mut self, blast: BlastBreak) -> bool;
+}
+
+impl BlastCharge {
+    /// Whether this blast reaches a structure box: the profile breaks structures,
+    /// the box lies within the outer circle (squared compare, touching counts)
+    /// and the segment from the centre to its closest point is free of solids
+    /// (CP-Q22; evaluated before any break of the tick).
+    pub fn reaches_structure(&self, solids: &[Block], footprint: Rect) -> bool {
+        if !self.profile.breaks_structures {
+            return false;
+        }
+        let (cx, cy) = self.centre();
+        let outer = self.profile.outer_radius;
+        footprint.squared_distance_to(cx, cy) <= outer * outer
+            && line_of_sight(solids, (cx, cy), closest_point(footprint, (cx, cy)))
+    }
+}
+
+/// CP-Q35: break `target` with `charge`'s blast when it reaches it. Returns true
+/// when the target broke. The blast never reads the env-solid index range: a
+/// prop is a [`BlastTarget`] of its own (KC17).
+pub fn blast_break(
+    charge: &BlastCharge,
+    blast_id: u32,
+    solids: &[Block],
+    target: &mut dyn BlastTarget,
+) -> bool {
+    let Some(footprint) = target.blast_footprint() else {
+        return false;
+    };
+    charge.reaches_structure(solids, footprint)
+        && target.break_by_blast(BlastBreak {
+            blast_id,
+            owner: charge.owner,
+            depth: charge.chain_depth,
+        })
 }
 
 #[cfg(test)]
@@ -624,5 +777,311 @@ mod tests {
         let owned = BlastCharge::new(500.0, 100.0, 60, Some(0));
         assert_ne!(words(&base), words(&owned));
         assert_eq!(words(&base)[0], 0x4348_5247);
+    }
+
+    // ------------------------------------------------ CP-C (CP-Q34, CP-Q35) --
+
+    const DELAY: u64 = 8;
+
+    fn lit_at(tick: u64) -> BlastCharge {
+        BlastCharge::new(500.0, 100.0, tick, None)
+    }
+
+    #[test]
+    fn chain_an_unlit_charge_is_set_to_now_plus_8_and_a_stored_tick_of_0_is_never_earlier() {
+        // An unlit tick charge keeps `detonate_tick` 0 (it never fires on its own).
+        let mut c = lit_at(0);
+        assert_eq!(c.chain_set(50, DELAY, Some(0), 1), Some(58));
+        assert_eq!((c.detonate_tick, c.chain_depth, c.owner), (58, 1, Some(0)));
+        assert!(!c.step(57, 0.0));
+        assert!(c.step(58, 0.0), "blows exactly 8 ticks later");
+        // The same on the very first ticks: 0 <= now gives now + 8.
+        let mut early = lit_at(0);
+        assert_eq!(early.chain_set(1, DELAY, None, 1), Some(9));
+    }
+
+    #[test]
+    fn chain_a_carl_past_charge_that_is_unarmed_is_armed_not_read_as_due() {
+        let rule = Arm::CarlPast {
+            x: 480.0,
+            fuse_ticks: 75,
+        };
+        let mut c = BlastCharge::new(500.0, 100.0, 0, None).with_arm(rule);
+        assert!(!c.lit());
+        assert_eq!(c.chain_set(120, DELAY, None, 2), Some(128));
+        assert!(c.lit() && c.armed_tick == Some(120));
+        // Carl far behind its column: the chain still blows it on tick 128.
+        for tick in 121..128 {
+            assert!(!c.step(tick, 0.0), "tick {tick}");
+        }
+        assert!(c.step(128, 0.0));
+        // An armed one keeps its own rule (due inside the delay: left alone).
+        let mut armed = BlastCharge::new(500.0, 100.0, 0, None).with_arm(rule);
+        armed.step(10, 600.0);
+        assert_eq!(armed.detonate_tick, 85);
+        assert_eq!(
+            armed.chain_set(80, DELAY, None, 1),
+            None,
+            "85 is inside 80..=88"
+        );
+        assert_eq!(armed.detonate_tick, 85);
+    }
+
+    #[test]
+    fn chain_a_lit_charge_due_inside_the_delay_is_left_and_one_due_later_is_pulled() {
+        let now = 100;
+        // Due exactly on `now + 1` .. `now + 8` (both edges): left alone.
+        for due in [101, 104, 108] {
+            let mut c = lit_at(due);
+            assert_eq!(c.chain_set(now, DELAY, Some(0), 1), None, "due {due}");
+            // Reached but not rescheduled: the depth and the credit are still the
+            // chain's, so this charge's own blast chains onward (B-1).
+            assert_eq!((c.detonate_tick, c.chain_depth, c.owner), (due, 1, Some(0)));
+        }
+        // Due on `now + 9` and later: pulled to `now + 8`.
+        for due in [109, 110, 400] {
+            let mut c = lit_at(due);
+            assert_eq!(c.chain_set(now, DELAY, Some(0), 1), Some(108), "due {due}");
+            assert_eq!((c.detonate_tick, c.chain_depth), (108, 1));
+        }
+    }
+
+    #[test]
+    fn chain_dedupes_a_charge_that_blew_or_blows_this_tick() {
+        let mut blown = lit_at(60);
+        assert!(blown.detonate(60));
+        assert_eq!(blown.chain_set(70, DELAY, Some(0), 1), None);
+        assert_eq!(blown.owner, None, "a blown charge takes no credit");
+        assert_eq!(blown.chain_depth, 0);
+        // Due on `now` itself (a higher index that is still to step this tick).
+        let mut now = lit_at(70);
+        assert_eq!(now.chain_set(70, DELAY, Some(0), 1), None);
+        assert_eq!(now.detonate_tick, 70, "it still blows this tick");
+        // Not yet stepped this tick (a higher index, possibly cap-deferred): it is
+        // reached, so it takes the credit and the depth even though its tick is kept.
+        assert_eq!((now.chain_depth, now.owner), (1, Some(0)));
+        assert!(now.step(70, 0.0));
+    }
+
+    #[test]
+    fn chain_writes_the_owner_only_when_it_is_empty() {
+        let mut free = lit_at(0);
+        free.chain_set(10, DELAY, Some(1), 1);
+        assert_eq!(free.owner, Some(1));
+        // The first initiator keeps the credit, scheduled or left alone.
+        let mut owned = BlastCharge::new(500.0, 100.0, 0, Some(0));
+        owned.chain_set(10, DELAY, Some(1), 1);
+        assert_eq!(owned.owner, Some(0));
+        let mut sooner = BlastCharge::new(500.0, 100.0, 14, Some(0));
+        assert_eq!(sooner.chain_set(10, DELAY, Some(1), 1), None);
+        assert_eq!(sooner.owner, Some(0));
+        let mut unowned_sooner = lit_at(14);
+        assert_eq!(unowned_sooner.chain_set(10, DELAY, Some(1), 1), None);
+        assert_eq!(unowned_sooner.owner, Some(1), "an empty owner is filled");
+        // `None` never overwrites.
+        let mut keep = BlastCharge::new(500.0, 100.0, 0, Some(1));
+        keep.chain_set(10, DELAY, None, 1);
+        assert_eq!(keep.owner, Some(1));
+    }
+
+    #[test]
+    fn chain_leaves_a_cap_deferred_charge_to_the_cap_and_reschedules_a_stale_one() {
+        // A charge the per-tick cap pushed to `now + 1` is inside the window: the
+        // chain leaves it (its depth and owner were set when it was first chained).
+        let mut deferred = lit_at(0);
+        assert_eq!(deferred.chain_set(100, DELAY, Some(0), 2), Some(108));
+        deferred.detonate_tick = 108;
+        deferred.defer_one_tick();
+        assert_eq!(deferred.detonate_tick, 109);
+        assert_eq!(deferred.chain_set(108, DELAY, Some(1), 3), None);
+        assert_eq!((deferred.detonate_tick, deferred.chain_depth), (109, 2));
+        assert_eq!(
+            deferred.owner,
+            Some(0),
+            "the first initiator keeps the credit"
+        );
+        // A stored tick that is in the past and never blew (it cannot arise in a
+        // stepped run) is read as unlit, never as "earlier".
+        let mut stale = lit_at(40);
+        assert_eq!(stale.chain_set(100, DELAY, None, 1), Some(108));
+        // A stored tick of exactly `now` blows this tick: nothing changes.
+        let mut now = lit_at(100);
+        assert_eq!(now.chain_set(100, DELAY, None, 1), None);
+        assert_eq!(now.detonate_tick, 100);
+    }
+
+    #[test]
+    fn chain_a_reached_charge_that_is_left_alone_or_cap_deferred_keeps_the_chain_going() {
+        // Left alone (due inside the window): depth 1, credit filled, no new tick.
+        let mut alone = lit_at(104);
+        assert_eq!(alone.chain_set(100, DELAY, Some(0), 1), None);
+        assert_eq!(
+            (alone.detonate_tick, alone.chain_depth, alone.owner),
+            (104, 1, Some(0))
+        );
+        // Its own blast then chains the next charge at depth 2.
+        let mut next = lit_at(4000);
+        assert_eq!(
+            next.chain_set(104, DELAY, alone.owner, alone.chain_depth + 1),
+            Some(112)
+        );
+        assert_eq!((next.chain_depth, next.owner), (2, Some(0)));
+        // Due on `now` and then pushed to `now + 1` by the cap: it was reached on
+        // `now`, so the deferral keeps the depth and the credit.
+        let mut due_now = lit_at(100);
+        assert_eq!(due_now.chain_set(100, DELAY, Some(1), 3), None);
+        due_now.defer_one_tick();
+        assert_eq!(
+            (due_now.detonate_tick, due_now.chain_depth, due_now.owner),
+            (101, 3, Some(1))
+        );
+        // First writer keeps both: a later, shallower chain changes neither.
+        assert_eq!(due_now.chain_set(100, DELAY, Some(0), 1), None);
+        assert_eq!((due_now.chain_depth, due_now.owner), (3, Some(1)));
+        // The same for a charge that was scheduled by the first chain.
+        let mut first = lit_at(4000);
+        assert_eq!(first.chain_set(100, DELAY, Some(0), 2), Some(108));
+        assert_eq!(first.chain_set(100, DELAY, Some(1), 1), None);
+        assert_eq!((first.chain_depth, first.owner), (2, Some(0)));
+    }
+
+    #[test]
+    fn the_chain_depth_is_hashed_only_while_non_zero() {
+        let words = |c: &BlastCharge| {
+            let mut out = Vec::new();
+            c.mix_into(&mut |w| out.push(w));
+            out
+        };
+        let plain = lit_at(60);
+        assert_eq!(words(&plain).len(), 6, "a depth-0 charge hashes as before");
+        let mut deep = plain;
+        deep.chain_depth = 2;
+        assert_eq!(words(&deep).len(), 8);
+        assert_ne!(words(&deep), words(&plain));
+    }
+
+    #[test]
+    fn the_cap_helpers_defer_exactly_the_due_charge() {
+        let mut c = lit_at(30);
+        assert!(c.due_on(30) && !c.due_on(29) && !c.due_on(31));
+        c.defer_one_tick();
+        assert!(c.due_on(31) && !c.due_on(30));
+        let mut blown = lit_at(30);
+        blown.detonate(30);
+        assert!(!blown.due_on(30));
+        let unarmed = BlastCharge::new(500.0, 100.0, 0, None).with_arm(Arm::CarlPast {
+            x: 1.0,
+            fuse_ticks: 3,
+        });
+        assert!(!unarmed.due_on(0), "an unlit charge is never due");
+    }
+
+    // The structure hook.
+
+    struct Wall {
+        footprint: Option<Rect>,
+        broken_by: Vec<BlastBreak>,
+    }
+
+    impl BlastTarget for Wall {
+        fn blast_footprint(&self) -> Option<Rect> {
+            self.footprint
+        }
+
+        fn break_by_blast(&mut self, blast: BlastBreak) -> bool {
+            self.broken_by.push(blast);
+            true
+        }
+    }
+
+    fn structure_profile() -> BlastProfile {
+        BlastProfile {
+            core_radius: 20.0,
+            outer_radius: 64.0,
+            los: true,
+            breaks_structures: true,
+            ..BlastProfile::QA
+        }
+    }
+
+    fn box_at(x: f32) -> Rect {
+        Rect {
+            left: x,
+            bottom: 108.0,
+            width: 16.0,
+            height: 16.0,
+        }
+    }
+
+    #[test]
+    fn a_blast_breaks_a_structure_only_with_the_flag_inside_64_px_and_with_sight() {
+        // Centre (500, 108).
+        let c = charge().with_profile(structure_profile());
+        let mut wall = Wall {
+            footprint: Some(box_at(564.0)),
+            broken_by: Vec::new(),
+        };
+        assert!(blast_break(&c, 7, &[], &mut wall), "exactly 64 px reaches");
+        assert_eq!(
+            wall.broken_by,
+            vec![BlastBreak {
+                blast_id: 7,
+                owner: None,
+                depth: 0
+            }]
+        );
+        let mut far = Wall {
+            footprint: Some(box_at(564.01)),
+            broken_by: Vec::new(),
+        };
+        assert!(!blast_break(&c, 7, &[], &mut far), "64.01 px does not");
+        assert!(far.broken_by.is_empty());
+        // Nothing left to break: the hook is not called.
+        let mut gone = Wall {
+            footprint: None,
+            broken_by: Vec::new(),
+        };
+        assert!(!blast_break(&c, 7, &[], &mut gone));
+        // The QA profile never breaks a structure, however close.
+        let qa = charge();
+        let mut near = Wall {
+            footprint: Some(box_at(500.0)),
+            broken_by: Vec::new(),
+        };
+        assert!(!blast_break(&qa, 7, &[], &mut near));
+        assert!(near.broken_by.is_empty());
+        // A solid between the centre and the box blocks it; touching does not.
+        let pillar = |left: f32, width: f32| Block {
+            rect: Rect {
+                left,
+                bottom: 90.0,
+                width,
+                height: 60.0,
+            },
+            material: crate::prototype::Material::Stone,
+            intact: true,
+        };
+        let mut behind = Wall {
+            footprint: Some(box_at(540.0)),
+            broken_by: Vec::new(),
+        };
+        assert!(!blast_break(&c, 7, &[pillar(520.0, 10.0)], &mut behind));
+        // A solid that only touches the segment's end (the box's near edge) lets
+        // it through (the interior rule, CP-Q22).
+        assert!(blast_break(&c, 7, &[pillar(540.0, 10.0)], &mut behind));
+    }
+
+    #[test]
+    fn a_chained_blast_hands_its_owner_and_depth_to_the_hook() {
+        let mut c = charge().with_profile(structure_profile());
+        c.owner = Some(1);
+        c.chain_depth = 3;
+        let mut wall = Wall {
+            footprint: Some(box_at(520.0)),
+            broken_by: Vec::new(),
+        };
+        assert!(blast_break(&c, 9, &[], &mut wall));
+        assert_eq!(wall.broken_by[0].owner, Some(1));
+        assert_eq!(wall.broken_by[0].depth, 3);
     }
 }

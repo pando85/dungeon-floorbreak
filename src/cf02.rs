@@ -926,7 +926,10 @@ impl Cf02Tuning {
 /// (`--cf02` turns the rules on for a run through `CombatState::with_cf02`).
 pub fn fixture_runs_cf02(name: &str) -> bool {
     // ENEMY-GAMEPLAY-ENGINEER: the `eng_*` fixtures are CF02 room fixtures too.
-    name.starts_with("cf02_") || name.starts_with("eng_")
+    // CARL-PROG-01 CP-C: the two dynamite fixtures that prove the CF02-B launch rules.
+    name.starts_with("cf02_")
+        || name.starts_with("eng_")
+        || crate::carl_prog_fixtures::runs_cf02(name)
 }
 
 /// The pinned tuning with the master switch on: what a simulation running under

@@ -1,0 +1,16 @@
+COMBAT_EVENT tick=4 kind=special_started hero=0 capability=special_thrown_charge
+COMBAT_EVENT tick=9 kind=boss_engaged
+COMBAT_EVENT tick=9 kind=rack_armed rack=0
+COMBAT_EVENT tick=10 kind=boss_tell move=charge target=carl
+COMBAT_EVENT tick=45 kind=charge_thrown charge=0 x=116 y=138
+COMBAT_EVENT tick=50 kind=boss_strike move=charge
+COMBAT_EVENT tick=83 kind=charge_landed charge=0 x=211 y=92
+COMBAT_EVENT tick=108 kind=hero_hurt source=16981 health_left=3
+COMBAT_EVENT tick=124 kind=boss_crash wall=left
+COMBAT_EVENT tick=195 kind=blast charge=0
+COMBAT_EVENT tick=195 kind=rack_dropped rack=0 player=0
+COMBAT_EVENT tick=195 kind=boss_hurt source=0 damage=4 hp_left=32
+COMBAT_EVENT tick=232 kind=rack_landed rack=0 crushed=1
+COMBAT_EVENT tick=232 kind=boss_hurt source=0 damage=4 hp_left=28
+COMBAT_STATE fixture=carl_prog_dyn_rack_strut seed=0xca10028 tick=300 elapsed=300 hero_hp=3 deaths=0 enemies= hash=5cdc4e6c548cebf8 boss=28/36/pinned/p1 boss_x=116.80
+PARTY_STATE fixture=carl_prog_dyn_rack_strut mode=solo controlled=Carl carl_hp=3 donut_hp=4 deaths=0 hash=4ea9be5943b09a2e

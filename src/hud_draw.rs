@@ -674,15 +674,56 @@ fn abilities_row(o: &mut Out, s: &HudSnapshot, view: &PlateView, x: i32, y: i32)
         AbilityRow::Chips { a, b, special } => {
             chip(o, s, view.glyphs, a, x + 40, y);
             chip(o, s, view.glyphs, b, x + 93, y);
-            special_socket(o, special, x, y);
+            special_socket(o, s, view.glyphs, special, x, y);
         }
-        AbilityRow::NoActions { special } => special_socket(o, special, x, y),
+        AbilityRow::NoActions { special } => special_socket(o, s, view.glyphs, special, x, y),
     }
 }
 
-fn special_socket(o: &mut Out, special: SpecialSlot, x: i32, y: i32) {
+/// CP-Q32: where the equipped special's label sits. The socket is 11 px wide
+/// and the row ends at +157, so the label has no room beside the glyph; it is
+/// right-aligned to the row end on the free row above it (+28, caps top +28,
+/// the mana row's height: only Donut's plate has a mana bar, and it ends at
+/// +146, left of any label that fits).
+const SPECIAL_LABEL_RIGHT: i32 = 157;
+const SPECIAL_LABEL_Y: i32 = 28;
+
+fn special_socket(
+    o: &mut Out,
+    s: &HudSnapshot,
+    glyphs: crate::hud::GlyphSet,
+    special: SpecialSlot,
+    x: i32,
+    y: i32,
+) {
     match special {
         SpecialSlot::Locked => o.frame(Z_ICON, FrameId::SocketLocked, x + 147, y + 34),
+        SpecialSlot::Equipped(chip) => {
+            // The glyph in the socket cell; muted dims it, with the zig-zag.
+            let glyph = FrameId::of_glyph(glyphs.glyph(chip.action));
+            let (w, h) = glyph.size();
+            let tint = chip.muted.then_some(p::AMBER_DIM);
+            o.frame_sized(Z_ICON, glyph, x + 147, y + 34, w, h, tint);
+            let color = match (chip.muted, s.high_contrast) {
+                (true, false) => p::AMBER_DIM,
+                _ => p::AMBER,
+            };
+            let text = chip.label.text();
+            let tw = text_width_px(HudFont::SilkRegular, text);
+            o.text(
+                Z_TEXT,
+                HudFont::SilkRegular,
+                text,
+                x + SPECIAL_LABEL_RIGHT - tw,
+                y + SPECIAL_LABEL_Y,
+                color,
+            );
+            if chip.muted {
+                for i in 0..6 {
+                    o.rect(Z_FLASH, x + 147 + i * 2, y + 44 - (i % 2), 2, 1, color);
+                }
+            }
+        }
     }
 }
 
@@ -1231,6 +1272,136 @@ mod tests {
         let t = texts(&list);
         assert!(!t.contains(&"PUNCH") && !t.contains(&"KICK"));
         assert!(t.contains(&"COMPANION") && t.contains(&"CARL"));
+    }
+
+    /// The draw items of Carl's plate with the given special socket.
+    fn carl_with_special(
+        special: SpecialSlot,
+        glyphs: GlyphSet,
+        high_contrast: bool,
+        melee_live: bool,
+    ) -> Vec<DrawItem> {
+        let mut real = crate::hud::test_inputs(4, 4);
+        real.carl_special = special;
+        real.carl_glyphs = glyphs;
+        real.high_contrast = high_contrast;
+        real.melee_live = melee_live;
+        let mut list = Vec::new();
+        build_draw_list(
+            &build_snapshot(&real, None, 0),
+            &HudLayout::new(360, 288),
+            &mut list,
+        );
+        list
+    }
+
+    fn equipped_chip(muted: bool) -> SpecialSlot {
+        SpecialSlot::Equipped(crate::hud::Chip {
+            action: crate::hud::LogicalAction::Special,
+            label: crate::hud::LabelId::Boom,
+            muted,
+        })
+    }
+
+    /// CP-Q32: an equipped special is the Circle/B glyph in the socket cell (no
+    /// padlock) with its label on the free row above it, right-aligned to the row
+    /// end; the other chips stay.
+    #[test]
+    fn an_equipped_special_draws_its_glyph_in_the_socket_cell_and_its_label() {
+        let locked = carl_with_special(SpecialSlot::Locked, GlyphSet::Xbox, false, true);
+        let socket = locked
+            .iter()
+            .find(|i| {
+                matches!(
+                    i.kind,
+                    DrawKind::Frame {
+                        frame: FrameId::SocketLocked,
+                        ..
+                    }
+                )
+            })
+            .expect("the padlock");
+        let (sx, sy) = (socket.x, socket.y);
+        for (glyphs, want) in [
+            (GlyphSet::Xbox, FrameId::GlyphB),
+            (GlyphSet::DualSense, FrameId::GlyphCircle),
+        ] {
+            for melee_live in [true, false] {
+                let list = carl_with_special(equipped_chip(false), glyphs, false, melee_live);
+                let f = frames(&list);
+                assert!(
+                    !f.contains(&FrameId::SocketLocked),
+                    "no padlock once equipped"
+                );
+                let glyph = list
+                    .iter()
+                    .find(|i| matches!(i.kind, DrawKind::Frame { frame, .. } if frame == want))
+                    .unwrap_or_else(|| panic!("{want:?} is drawn ({glyphs:?})"));
+                assert_eq!((glyph.x, glyph.y), (sx, sy), "in the socket cell");
+                let label = list
+                    .iter()
+                    .find(|i| matches!(&i.kind, DrawKind::Text { text, .. } if text == "BOOM"))
+                    .expect("the label");
+                let width = text_width_px(HudFont::SilkRegular, "BOOM");
+                // Right-aligned to the row end (+157), on the row above the chips.
+                assert_eq!(label.x + width, sx - 147 + 157);
+                assert_eq!(label.y, sy - 34 + 28);
+                assert!(label.y + 5 < sy, "the label stays above the glyph row");
+                // The chips (when melee is live) are untouched.
+                let t = texts(&list);
+                assert_eq!(t.contains(&"PUNCH") && t.contains(&"KICK"), melee_live);
+            }
+        }
+    }
+
+    /// CP-Q32: muted dims the glyph and the label and adds the zig-zag underline
+    /// (not hue alone); high contrast keeps the label at full amber; ready has none.
+    #[test]
+    fn a_muted_special_dims_and_underlines_and_a_ready_one_does_not() {
+        let rects = |list: &[DrawItem]| {
+            list.iter()
+                .filter(|i| matches!(i.kind, DrawKind::Rect { w: 2, h: 1, .. }))
+                .count()
+        };
+        let ready = carl_with_special(equipped_chip(false), GlyphSet::Xbox, false, true);
+        let muted = carl_with_special(equipped_chip(true), GlyphSet::Xbox, false, true);
+        let label_color = |list: &[DrawItem]| {
+            list.iter().find_map(|i| match &i.kind {
+                DrawKind::Text { text, color, .. } if text == "BOOM" => Some(*color),
+                _ => None,
+            })
+        };
+        let glyph_tint = |list: &[DrawItem]| {
+            list.iter().find_map(|i| match i.kind {
+                DrawKind::Frame {
+                    frame: FrameId::GlyphB,
+                    tint,
+                    ..
+                } => Some(tint),
+                _ => None,
+            })
+        };
+        assert_eq!(label_color(&ready), Some(p::AMBER));
+        assert_eq!(glyph_tint(&ready), Some(None));
+        assert_eq!(label_color(&muted), Some(p::AMBER_DIM));
+        assert_eq!(glyph_tint(&muted), Some(Some(p::AMBER_DIM)));
+        assert_eq!(
+            rects(&muted),
+            rects(&ready) + 6,
+            "the zig-zag is six 2 px cells"
+        );
+        let high = carl_with_special(equipped_chip(true), GlyphSet::Xbox, true, true);
+        assert_eq!(
+            label_color(&high),
+            Some(p::AMBER),
+            "high contrast lifts the label"
+        );
+        assert_eq!(glyph_tint(&high), Some(Some(p::AMBER_DIM)));
+        assert_eq!(
+            rects(&high),
+            rects(&ready) + 6,
+            "and keeps the non-hue underline"
+        );
     }
 
     #[test]

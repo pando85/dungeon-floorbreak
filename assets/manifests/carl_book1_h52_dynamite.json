@@ -38,7 +38,7 @@
   "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
   "review_status": "prototype_fixture_unapproved",
   "dynamite": {
-    "status": "keys frozen, 5 standing in-betweens drawn, moving variant baked, independent review pending; 45 frames, 4 of them frozen keys; not wired into any Bevy binary",
+    "status": "keys frozen, 5 standing in-betweens drawn, moving variant baked, independent review pending; 45 frames, 4 of them frozen keys; wired into floor01_scene by CARL-PROG-01 CP-B2 behind the thrown-charge flags only (--carl-prog, --carl-dynamite, carl_prog_* fixtures), still prototype_fixture_unapproved",
     "spec": "docs/02-art/carl-dynamite-anim-03-spec.md",
     "master": "assets/manifests/carl_book1_h52.json",
     "locomotion": "assets/manifests/carl_book1_h52_locomotion.json",

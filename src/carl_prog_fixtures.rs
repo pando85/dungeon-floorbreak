@@ -13,10 +13,11 @@
 //! Tick numbering is the one of [`crate::combat_scene`]: a hold over
 //! `from..to` covers the steps that produce `tick = from .. to - 1`.
 
-use crate::boss_scene::{Pilot, boss_base, hp};
+use crate::blast::Arm;
+use crate::boss_scene::{FULL, FULL_NO_RACKS, Pilot, boss_base, hp};
 use crate::carl_prog::CarlProgFlags;
 use crate::combat::EnemyAi;
-use crate::combat_scene::{EnemySpawn, Fixture};
+use crate::combat_scene::{ChargeSpawn, EnemySpawn, Fixture};
 use crate::donut_mana::DonutSetup;
 use crate::party::PROVISIONAL_TUNING;
 use crate::party_scene::{PartyFixture, SlotHold, base, run, swap};
@@ -28,6 +29,13 @@ use crate::story_unlock::{SceneKind, StorySetup};
 /// thrown charge. Read from `story_unlocks_v0.json`, repeated here only so the
 /// scripts below can be read next to it.
 pub const FIND_STUB_ZONE_X: (f32, f32) = (600.0, 640.0);
+
+/// Whether a fixture runs under `cf02_rules` (CP-Q36: the body contacts and wall
+/// slams are CF02-B rules, so the two fixtures that prove them switch it on by
+/// name, like every `cf02_*` fixture). Read by [`crate::cf02::fixture_runs_cf02`].
+pub fn runs_cf02(name: &str) -> bool {
+    matches!(name, "carl_prog_dyn_bowling" | "carl_prog_dyn_wall_slam")
+}
 
 const fn chase(x: i32) -> EnemySpawn {
     EnemySpawn {
@@ -47,6 +55,13 @@ pub fn story_setup(fixture: &str) -> StorySetup {
         }
         // The boss pin and the Juicer trigger, as `--carl-prog` gives the arena.
         "carl_prog_juicer_grants_fist" => CarlProgFlags {
+            prog: true,
+            ..CarlProgFlags::OFF
+        }
+        .story_setup(SceneKind::Boss),
+        // CP-C: the dynamite clear runs under the boss pin (`--carl-prog` on the arena:
+        // the thrown charge is held, the Juicer's defeat grants the fist).
+        "carl_prog_juicer_dynamite_clear" => CarlProgFlags {
             prog: true,
             ..CarlProgFlags::OFF
         }
@@ -354,8 +369,273 @@ pub const CARL_PROG_DYN_BOSS: PartyFixture = PartyFixture {
     donut: DonutSetup::NONE,
 };
 
+// ------------------------------------------------------------------ CP-C ----
+//
+// The standing throw of Carl at tick 4 on `carl_x` 400 spawns the stick on t41
+// (tick 45), lands it at x 511 on tick 83 and blows it on tick 195 (CP-B1). The
+// blast centre is (511, walking line + 8); every column below is read against it.
+
+/// An authored QA charge `dx` px right of Carl's start column, due on `tick`
+/// (0 is not allowed for an `Arm::Tick` charge: a far tick is "lit, due later").
+const fn charge(dx: i32, tick: u64) -> ChargeSpawn {
+    ChargeSpawn {
+        dx,
+        tick,
+        owner: None,
+        arm: Arm::Tick,
+    }
+}
+
+const CHAIN_CHARGE_BASE: Fixture = Fixture {
+    charges: &[charge(165, 900)],
+    ..base(
+        "carl_prog_dyn_chain_charge",
+        "Solo, thrown charge held: the blast reaches an authored charge 54 px away (lit, due on tick 900) and sets it to blow exactly 8 ticks later; it kills the goblin beside it, credited to Carl",
+        0x0CA1_0020,
+        &[passive(590)],
+        260,
+    )
+};
+
+/// CP-Q34: a chain sets an authored charge in reach to `now + 8`; the initiator
+/// is inherited by a charge with no owner.
+pub const CARL_PROG_DYN_CHAIN_CHARGE: PartyFixture = PartyFixture {
+    base: &CHAIN_CHARGE_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[special(4, 0)],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const ARMS_TRIP_BASE: Fixture = Fixture {
+    charges: &[ChargeSpawn {
+        dx: 165,
+        tick: 0,
+        owner: None,
+        arm: Arm::CarlPast {
+            x: 1900.0,
+            fuse_ticks: 75,
+        },
+    }],
+    ..base(
+        "carl_prog_dyn_arms_trip_charge",
+        "Solo, thrown charge held: an unlit trip charge (armed only when Carl passes x 1900, which he never does) is armed by the blast on tick 195 and blows on tick 203, never read as already due",
+        0x0CA1_0021,
+        &[passive(590)],
+        260,
+    )
+};
+
+/// CP-Q34: an unlit `CarlPast` charge counts as armed; its stored tick of 0 is
+/// never read as "earlier".
+pub const CARL_PROG_DYN_ARMS_TRIP_CHARGE: PartyFixture = PartyFixture {
+    base: &ARMS_TRIP_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[special(4, 0)],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const DEPTH_CAP_BASE: Fixture = Fixture {
+    charges: &[
+        charge(165, 4000),
+        charge(183, 4000),
+        charge(201, 4000),
+        charge(219, 4000),
+        charge(237, 4000),
+    ],
+    ..base(
+        "carl_prog_dyn_chain_depth_cap",
+        "Solo, thrown charge held: five authored charges 18 px apart; the chain runs dynamite (0), then depths 1 to 4 on ticks 203, 211, 219 and 227, and the fifth (a depth-4 blast reaches it) never blows",
+        0x0CA1_0022,
+        &[],
+        300,
+    )
+};
+
+/// CP-Q34: depth 4 at most; a depth-4 blast chains nothing. Each QA charge chains
+/// from its own 20 px radius, so only its neighbour is reached.
+pub const CARL_PROG_DYN_CHAIN_DEPTH_CAP: PartyFixture = PartyFixture {
+    base: &DEPTH_CAP_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[special(4, 0)],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const DUE_EARLIER_BASE: Fixture = Fixture {
+    charges: &[
+        charge(170, 198),
+        charge(158, 203),
+        charge(166, 204),
+        charge(174, 400),
+        charge(189, 4000),
+    ],
+    ..base(
+        "carl_prog_dyn_chain_due_earlier",
+        "Solo, thrown charge held: the blast on tick 195 reaches charges due 198 and 203 (inside the 8-tick delay, both edges: left alone, but still reached, so depth 1) and due 204 and 400 (pulled to 203); charge 0 is out of the stick's reach for charge 4, which only charge 0's blast (depth 2, on tick 198) lights, for tick 206",
+        0x0CA1_0023,
+        &[],
+        260,
+    )
+};
+
+/// CP-Q34: a lit charge due inside `now < tick <= now + 8` is left alone; one due
+/// later is pulled forward to `now + 8`.
+pub const CARL_PROG_DYN_CHAIN_DUE_EARLIER: PartyFixture = PartyFixture {
+    base: &DUE_EARLIER_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[special(4, 0)],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const DEFER_BASE: Fixture = Fixture {
+    charges: &[
+        charge(56, 4000),
+        charge(70, 4000),
+        charge(80, 4000),
+        charge(90, 4000),
+        charge(100, 4000),
+        charge(110, 4000),
+        charge(120, 4000),
+        charge(130, 4000),
+        charge(140, 4000),
+        // Out of the stick's reach (71 px) but lit for tick 203 on its own: only
+        // charge 0's blast on tick 203 reaches it, and the cap then defers it.
+        charge(40, 203),
+    ],
+    ..base(
+        "carl_prog_dyn_chain_defer_over_8",
+        "Solo, thrown charge held: the blast reaches nine authored charges at once, all due on tick 203, and a tenth (out of its reach, lit for 203) is reached by charge 0's blast on 203; eight blow on tick 203 and the other two, in index order, on tick 204, keeping the chain's depth and credit",
+        0x0CA1_0024,
+        &[],
+        260,
+    )
+};
+
+/// CP-Q34: at most 8 detonations per tick; the excess is deferred in index order.
+pub const CARL_PROG_DYN_CHAIN_DEFER_OVER_8: PartyFixture = PartyFixture {
+    base: &DEFER_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[special(4, 0)],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const BREAKS_SHORE_BASE: Fixture = Fixture {
+    shore_dx: Some(140),
+    ..base(
+        "carl_prog_dyn_breaks_shore",
+        "Solo, thrown charge held: the blast on tick 195 reaches the untouched rotten shore (29 px away) and breaks it outright; the block falls and crushes the goblin under it, credited to Carl",
+        0x0CA1_0025,
+        &[passive(600)],
+        330,
+    )
+};
+
+/// CP-Q35: the shore breaks outright by blast; the fall, crush and credit are
+/// CP-03's, credited to the thrower.
+pub const CARL_PROG_DYN_BREAKS_SHORE: PartyFixture = PartyFixture {
+    base: &BREAKS_SHORE_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[special(4, 0)],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const BOWLING_BASE: Fixture = base(
+    "carl_prog_dyn_bowling",
+    "CF02 rules, thrown charge held: the blast launches goblin 0 (about 40 px away) alive; it flies into goblin 1 (beyond the ring) and knocks it down (GoblinContact), the contact rules of a normal launched body",
+    0x0CA1_0026,
+    &[passive(553), passive(600)],
+    330,
+);
+
+/// CP-Q36: an outer-ring launch is a normal launched body, so the CF02-B body
+/// contact applies. Bodies launched by one blast share one launch id (N9 of the
+/// CP-B1 review), so one blast can bowl a given third goblin once.
+pub const CARL_PROG_DYN_BOWLING: PartyFixture = PartyFixture {
+    base: &BOWLING_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[special(4, 0)],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+/// Carl stands at x 1219 so the stick lands at 1330, 31 px left of a goblin that
+/// stands 22 px short of the raised block at x 1392 on the corridor sample.
+const WALL_SLAM_BASE: Fixture = Fixture {
+    carl_x: 1219,
+    ..base(
+        "carl_prog_dyn_wall_slam",
+        "CF02 rules, thrown charge held: the blast launches a goblin toward the raised block 10 px away; it meets the wall at speed and is slammed (WallSlam, 1 damage), the launch credited to Carl",
+        0x0CA1_0027,
+        &[passive(1370)],
+        330,
+    )
+};
+
+/// CP-Q36: a launched body meets a solid at speed: the CF02-B wall slam.
+pub const CARL_PROG_DYN_WALL_SLAM: PartyFixture = PartyFixture {
+    base: &WALL_SLAM_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[special(4, 0)],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const RACK_STRUT_BASE: Fixture = boss_base(
+    "carl_prog_dyn_rack_strut",
+    "The boss arena with the left rack on, thrown charge held: the stick lands at the strut and the blast on tick 195 drops the rack outright (no strut hit was thrown), credited to Carl",
+    0x0CA1_0028,
+    100,
+    FULL,
+    300,
+);
+
+/// CP-Q35: the rack strut breaks outright by blast; the fall and the crush are
+/// the boss module's, credited to the thrower.
+pub const CARL_PROG_DYN_RACK_STRUT: PartyFixture = PartyFixture {
+    base: &RACK_STRUT_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[special(4, 0)],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const JUICER_CLEAR_BASE: Fixture = boss_base(
+    "carl_prog_juicer_dynamite_clear",
+    "Solo, boss pin (the thrown charge held): the thrower pilot plays the base kit and throws the charge at the Juicer when it is ready; the Juicer falls inside 2400..7200 ticks and the defeat grants the fist",
+    0x0CA1_0030,
+    56,
+    FULL_NO_RACKS,
+    7200,
+);
+
+/// CP-C, the Juicer with dynamite: a scripted solo clear under the boss pin. It
+/// is the only user of `Pilot::ThrownCharge`; `boss01_full_clear_solo` (no flags,
+/// no capability) is unchanged.
+pub const CARL_PROG_JUICER_DYNAMITE_CLEAR: PartyFixture = PartyFixture {
+    base: &JUICER_CLEAR_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[],
+    pilot: Pilot::ThrownCharge,
+    donut: DonutSetup::NONE,
+};
+
 /// Every `carl_prog_*` replay fixture, in committed order.
-pub const CARL_PROG_FIXTURES: [&PartyFixture; 12] = [
+pub const CARL_PROG_FIXTURES: [&PartyFixture; 22] = [
     &CARL_PROG_STORY_EVENT_GRANTS_DYNAMITE,
     &CARL_PROG_GRANT_SURVIVES_RESPAWN,
     &CARL_PROG_JUICER_GRANTS_FIST,
@@ -368,6 +648,16 @@ pub const CARL_PROG_FIXTURES: [&PartyFixture; 12] = [
     &CARL_PROG_DYN_NO_FRIENDLY_FIRE,
     &CARL_PROG_DYN_SWAP_KEEPS_STICK,
     &CARL_PROG_DYN_BOSS,
+    &CARL_PROG_DYN_CHAIN_CHARGE,
+    &CARL_PROG_DYN_ARMS_TRIP_CHARGE,
+    &CARL_PROG_DYN_CHAIN_DEPTH_CAP,
+    &CARL_PROG_DYN_CHAIN_DUE_EARLIER,
+    &CARL_PROG_DYN_CHAIN_DEFER_OVER_8,
+    &CARL_PROG_DYN_BREAKS_SHORE,
+    &CARL_PROG_DYN_BOWLING,
+    &CARL_PROG_DYN_WALL_SLAM,
+    &CARL_PROG_DYN_RACK_STRUT,
+    &CARL_PROG_JUICER_DYNAMITE_CLEAR,
 ];
 
 #[cfg(test)]
@@ -375,12 +665,17 @@ mod tests {
     use super::*;
     use crate::boss::BOSS_ENEMY_ID;
     use crate::boss_scene::{BOSS_FIXTURES, load_arena};
+    use crate::carl_prog::CarlProgTuning;
     use crate::cf02_fixtures::{find_party_fixture, list_fixtures};
     use crate::combat::CombatEvent;
     use crate::combat_scene::{CombatState, FixtureSim};
     use crate::corridor::SceneSim;
     use crate::demo::{DEMO_RULES, autopilot, fixture_for_beat, load_hall};
     use crate::env_kit::EnvKit;
+    use crate::hud::{
+        AbilityRow, Chip, HudConfig, HudRuntime, LabelId, LogicalAction, NoticeView, SpecialPhase,
+        SpecialSlot,
+    };
     use crate::party_scene::PartyFixtureSim;
     use crate::story_unlock::{
         CapabilityId, FIST_REINFORCED, PRIMARY_RANGED, SPECIAL_THROWN_CHARGE, StoryTable,
@@ -436,7 +731,7 @@ mod tests {
     }
 
     /// The committed final hashes of the `carl_prog_*` fixtures.
-    const GOLDENS: [(&str, u64); 12] = [
+    const GOLDENS: [(&str, u64); 22] = [
         (
             "carl_prog_story_event_grants_dynamite",
             0x7594_ba64_4fd2_dbaf,
@@ -452,6 +747,16 @@ mod tests {
         ("carl_prog_dyn_no_friendly_fire", 0xada1_8a6f_91e9_e012),
         ("carl_prog_dyn_swap_keeps_stick", 0x1325_56e5_5531_094c),
         ("carl_prog_dyn_boss", 0x90b2_b0d3_e323_2388),
+        ("carl_prog_dyn_chain_charge", 0x2c8d_2496_de05_117e),
+        ("carl_prog_dyn_arms_trip_charge", 0xaa2c_b16d_4e4e_f9d7),
+        ("carl_prog_dyn_chain_depth_cap", 0x0443_83ce_ef4c_2af7),
+        ("carl_prog_dyn_chain_due_earlier", 0xb4f3_086c_2445_db89),
+        ("carl_prog_dyn_chain_defer_over_8", 0xa7a0_a485_638c_c59a),
+        ("carl_prog_dyn_breaks_shore", 0xbdd2_997f_3974_e813),
+        ("carl_prog_dyn_bowling", 0x9edd_d9cf_fd1d_e939),
+        ("carl_prog_dyn_wall_slam", 0xe7f8_1f9b_f589_ce3c),
+        ("carl_prog_dyn_rack_strut", 0x4ea9_be59_43b0_9a2e),
+        ("carl_prog_juicer_dynamite_clear", 0xaa48_5ad2_e95f_cbe8),
     ];
 
     #[test]
@@ -963,5 +1268,524 @@ mod tests {
         );
         assert!(kinds(&sim, "hero_hurt").is_empty() && kinds(&sim, "hero_defeated").is_empty());
         assert_eq!(sim.combat.donut.hurt_ticks, 0);
+    }
+
+    // ----------------------------------------------------------- CP-B2: HUD --
+
+    /// The socket of Carl's plate and the notice after every tick of `ticks` ticks of
+    /// `fixture`, as the scene's `step_hud` feeds a [`HudRuntime`]. Index 0 is the
+    /// state before the first step.
+    fn socket_trace(
+        fixture: &'static PartyFixture,
+        ticks: u64,
+    ) -> (PartyFixtureSim, Vec<(SpecialSlot, Option<NoticeView>)>) {
+        let mut sim = PartyFixtureSim::new(&kit_of(fixture), 360, fixture).unwrap();
+        let mut hud = HudRuntime::new(HudConfig::default());
+        hud.set_melee_live(true);
+        hud.set_special_label(&CarlProgTuning::active().cpq32_socket_label);
+        let read = |hud: &HudRuntime| match hud.snapshot().plates[0].abilities {
+            AbilityRow::Chips { special, .. } => (special, hud.snapshot().notice),
+            other => panic!("Carl's plate shows chips: {other:?}"),
+        };
+        let mut trace = vec![read(&hud)];
+        for _ in 0..ticks {
+            sim.step_scripted();
+            hud.set_special(SpecialPhase::of(&sim.combat));
+            hud.step(
+                sim.scene.world.hero.health,
+                sim.scene.world.donut.health,
+                &sim.combat.events,
+                sim.combat.dropped_events,
+            );
+            trace.push(read(&hud));
+        }
+        (sim, trace)
+    }
+
+    fn equipped(muted: bool) -> SpecialSlot {
+        SpecialSlot::Equipped(Chip {
+            action: LogicalAction::Special,
+            label: LabelId::Boom,
+            muted,
+        })
+    }
+
+    /// CP-Q11: the socket turns from padlock to equipped, and the grant notice
+    /// appears, on the grant tick itself.
+    #[test]
+    fn carl_prog_hud_grant_socket() {
+        let fixture = &CARL_PROG_STORY_EVENT_GRANTS_DYNAMITE;
+        let (sim, trace) = socket_trace(fixture, fixture.base.ticks);
+        let tick = grants(&sim)[0].0 as usize;
+        for (before, (slot, notice)) in trace[..tick].iter().enumerate() {
+            assert_eq!(*slot, SpecialSlot::Locked, "tick {before}");
+            assert_eq!(*notice, None, "no notice on tick {before}");
+        }
+        assert_eq!(trace[tick].0, equipped(false), "equipped on the grant tick");
+        let notice = trace[tick].1.expect("the notice starts on the grant tick");
+        assert_eq!(
+            (notice.headline, notice.age_ticks),
+            (LabelId::GoblinBoom, 0)
+        );
+        // The label is the data row's text, so the two cannot drift.
+        let row = StoryTable::active()
+            .notice("special_thrown_charge")
+            .unwrap();
+        assert_eq!(
+            LabelId::for_notice_text(&row.text),
+            Some(LabelId::GoblinBoom)
+        );
+        assert_eq!(LabelId::GoblinBoom.text(), row.text);
+        // It stays equipped for the rest of the run, ready (no stick was thrown).
+        assert!(
+            trace[tick..]
+                .iter()
+                .all(|(slot, _)| *slot == equipped(false))
+        );
+    }
+
+    /// CP-Q11: before any grant the socket stays a padlock, whatever the presses.
+    #[test]
+    fn carl_prog_hud_socket_locked() {
+        let fixture = &CARL_PROG_SPECIAL_LOCKED;
+        let (_, trace) = socket_trace(fixture, fixture.base.ticks);
+        assert!(
+            trace
+                .iter()
+                .all(|(slot, notice)| *slot == SpecialSlot::Locked && notice.is_none())
+        );
+    }
+
+    /// CP-Q32: ready, live (the press to the detonation) and recharging (the
+    /// detonation to the ready tick), exact on both edges; live and recharging are
+    /// muted.
+    #[test]
+    fn carl_prog_hud_socket_ready_live_and_recharging() {
+        let fixture = &CARL_PROG_DYN_ARC_STANDING;
+        let (sim, trace) = socket_trace(fixture, 700);
+        let tick_of = |kind: &str| -> usize {
+            sim.combat
+                .events
+                .iter()
+                .find(|e| e.to_string().contains(&format!("kind={kind} ")))
+                .map(|e| e.to_string())
+                .and_then(|l| l.split("tick=").nth(1).map(str::to_owned))
+                .and_then(|l| l.split(' ').next().map(str::to_owned))
+                .and_then(|n| n.parse().ok())
+                .unwrap_or_else(|| panic!("no {kind} event"))
+        };
+        let (press, blast, ready) = (
+            tick_of("special_started"),
+            tick_of("blast"),
+            tick_of("special_ready"),
+        );
+        assert_eq!((press, blast, ready), (4, 195, 615));
+        // Held from tick 0 (a declared start): equipped, ready, no notice (index 0 is
+        // the HUD before its first step).
+        assert!(
+            trace[1..press]
+                .iter()
+                .all(|(s, n)| *s == equipped(false) && n.is_none())
+        );
+        // Live from the press tick to the tick before the blast.
+        assert!(
+            trace[press..blast]
+                .iter()
+                .all(|(s, _)| *s == equipped(true))
+        );
+        assert_eq!(trace[press - 1].0, equipped(false), "last ready tick");
+        // Recharging from the blast tick to the tick before the ready tick.
+        assert!(
+            trace[blast..ready]
+                .iter()
+                .all(|(s, _)| *s == equipped(true))
+        );
+        // Ready again exactly on the ready tick.
+        assert_eq!(trace[ready - 1].0, equipped(true), "last muted tick");
+        assert!(trace[ready..].iter().all(|(s, _)| *s == equipped(false)));
+        // The phases themselves, on the same edges.
+        assert_eq!(SpecialPhase::Live.slot(LabelId::Boom), equipped(true));
+        assert_eq!(SpecialPhase::Recharging.slot(LabelId::Boom), equipped(true));
+        assert_eq!(SpecialPhase::Ready.slot(LabelId::Boom), equipped(false));
+        assert_eq!(
+            SpecialPhase::Locked.slot(LabelId::Boom),
+            SpecialSlot::Locked
+        );
+    }
+
+    /// CP-Q32: the data label drives the socket; a text with no HUD label keeps `BOOM`.
+    #[test]
+    fn the_socket_label_comes_from_the_data_row() {
+        let label = &CarlProgTuning::active().cpq32_socket_label;
+        assert_eq!(LabelId::for_socket_text(label), Some(LabelId::Boom));
+        assert_eq!(LabelId::Boom.text(), label.as_str());
+        assert_eq!(LabelId::for_socket_text("KABOOM"), None);
+        let mut hud = HudRuntime::new(HudConfig::default());
+        hud.set_special(SpecialPhase::Ready);
+        hud.set_special_label("KABOOM");
+        let AbilityRow::NoActions { special } = hud.snapshot().plates[0].abilities else {
+            panic!("melee is not live: no chips, the socket stays");
+        };
+        assert_eq!(special, equipped(false), "an unknown label keeps BOOM");
+    }
+
+    // ------------------------------------------------------ CP-C: interactions --
+
+    /// `(tick, charge)` of every `blast` event.
+    fn blasts(sim: &PartyFixtureSim) -> Vec<(u64, u32)> {
+        sim.combat
+            .events
+            .iter()
+            .filter_map(|e| match *e {
+                CombatEvent::Blast { tick, charge } => Some((tick, charge)),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// `(tick, charge, source, due, depth)` of every `charge_chained` event.
+    fn chained(sim: &PartyFixtureSim) -> Vec<(u64, u32, u32, u64, u8)> {
+        sim.combat
+            .events
+            .iter()
+            .filter_map(|e| match *e {
+                CombatEvent::ChargeChained {
+                    tick,
+                    charge,
+                    source,
+                    due,
+                    depth,
+                } => Some((tick, charge, source, due, depth)),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// CP-Q34: the stick (the reserved slot, index 1 here) blows on tick 195, the
+    /// charge it reaches is lit for exactly 8 ticks later and not a tick before,
+    /// and it inherits the thrower's credit.
+    #[test]
+    fn carl_prog_dyn_chain_charge() {
+        let sim = named("carl_prog_dyn_chain_charge");
+        assert_eq!(
+            blasts(&sim),
+            [(195, 1), (203, 0)],
+            "195 + 8, not 202 or 204"
+        );
+        assert_eq!(chained(&sim), [(195, 0, 1, 203, 1)]);
+        // The chained charge hit the goblin beside it, credited to Carl by inheritance.
+        assert_eq!(
+            sim.combat.charges[0].owner,
+            Some(0),
+            "the empty owner is filled"
+        );
+        assert_eq!(sim.combat.charges[0].chain_depth, 1);
+        let kills = kinds(&sim, "enemy_defeated");
+        assert_eq!(kills.len(), 1);
+        assert!(kills[0].contains("tick=203") && kills[0].contains("charge=0"));
+        assert!(kills[0].contains("credit_player=0"), "{}", kills[0]);
+    }
+
+    /// CP-Q34 (unlit rule): an unarmed trip charge (a stored tick of 0, Carl never
+    /// passes its column) counts as armed: the chain sets it to now + 8, it is never
+    /// read as already due, and it blows on tick 203 and not on 195 or 202.
+    #[test]
+    fn carl_prog_dyn_arms_trip_charge() {
+        let fixture = &CARL_PROG_DYN_ARMS_TRIP_CHARGE;
+        let mut sim = PartyFixtureSim::new(&kit_of(fixture), 360, fixture).unwrap();
+        for _ in 0..194 {
+            sim.step_scripted();
+        }
+        let before = sim.combat.charges[0];
+        assert!(
+            !before.lit() && before.armed_tick.is_none(),
+            "unlit on tick 194"
+        );
+        assert_eq!(before.detonate_tick, 0, "a stored tick of 0");
+        sim.step_scripted(); // tick 195: the stick blows
+        let armed = sim.combat.charges[0];
+        assert_eq!((armed.armed_tick, armed.detonate_tick), (Some(195), 203));
+        assert_eq!((armed.chain_depth, armed.owner), (1, Some(0)));
+        while sim.scene.world.tick < fixture.base.ticks {
+            sim.step_scripted();
+        }
+        assert_eq!(blasts(&sim), [(195, 1), (203, 0)]);
+        assert_eq!(chained(&sim), [(195, 0, 1, 203, 1)]);
+    }
+
+    /// CP-Q34: depth 4 at most. The stick is depth 0; the charges it reaches are
+    /// depths 1 to 4 on ticks 203, 211, 219 and 227, a depth-4 blast chains nothing,
+    /// and no charge is chained twice (the neighbour behind each one already blew).
+    #[test]
+    fn carl_prog_dyn_chain_depth_cap() {
+        let sim = named("carl_prog_dyn_chain_depth_cap");
+        assert_eq!(
+            blasts(&sim),
+            [(195, 5), (203, 0), (211, 1), (219, 2), (227, 3)],
+            "charge 4 never blows"
+        );
+        assert_eq!(
+            chained(&sim),
+            [
+                (195, 0, 5, 203, 1),
+                (203, 1, 0, 211, 2),
+                (211, 2, 1, 219, 3),
+                (219, 3, 2, 227, 4),
+            ],
+            "each charge is chained once, in order; the depth-4 blast reaches charge 4 \
+             at 18 px and chains nothing"
+        );
+        assert!(!sim.combat.charges[4].detonated);
+        assert_eq!(sim.combat.charges[4].chain_depth, 0);
+        assert_eq!(sim.combat.charges[3].chain_depth, 4);
+        // Dedupe: no charge was chained twice, though each blast reaches both neighbours.
+        let mut targets: Vec<u32> = chained(&sim).iter().map(|c| c.1).collect();
+        targets.sort_unstable();
+        targets.dedup();
+        assert_eq!(targets.len(), 4);
+    }
+
+    /// CP-Q34: "due earlier" means lit and `now < tick <= now + 8`: due 198 and
+    /// due 203 (the last tick in) are left alone, due 204 (the first tick out) and
+    /// due 400 are pulled to 203.
+    #[test]
+    fn carl_prog_dyn_chain_due_earlier() {
+        let sim = named("carl_prog_dyn_chain_due_earlier");
+        assert_eq!(
+            chained(&sim),
+            [
+                (195, 2, 5, 203, 1),
+                (195, 3, 5, 203, 1),
+                (198, 4, 0, 206, 2),
+            ],
+            "charges 0 (due 198) and 1 (due 203) are left alone; charge 0's blast chains charge 4"
+        );
+        assert_eq!(
+            blasts(&sim),
+            [(195, 5), (198, 0), (203, 1), (203, 2), (203, 3), (206, 4)]
+        );
+        // Left alone is a scheduling rule only: they were reached, so they are depth 1
+        // (B-1), and charge 0's own blast on tick 198 chains charge 4 at depth 2.
+        for (i, depth) in [(0, 1), (1, 1), (2, 1), (3, 1), (4, 2)] {
+            assert_eq!(sim.combat.charges[i].chain_depth, depth, "charge {i}");
+        }
+        // The first initiator keeps the credit: left-alone charges are still filled.
+        assert!(sim.combat.charges[..5].iter().all(|c| c.owner == Some(0)));
+    }
+
+    /// CP-Q34: at most 8 detonations on one tick; the ninth, in index order, goes
+    /// to the next tick and keeps its depth and owner; each charge blows once.
+    #[test]
+    fn carl_prog_dyn_chain_defer_over_8() {
+        let sim = named("carl_prog_dyn_chain_defer_over_8");
+        let blasts = blasts(&sim);
+        let mut expected = vec![(195, 10)];
+        expected.extend((0..8).map(|c| (203, c)));
+        expected.extend([(204, 8), (204, 9)]);
+        assert_eq!(blasts, expected, "eight on 203, the other two on 204");
+        for tick in 190..210 {
+            assert!(
+                blasts.iter().filter(|b| b.0 == tick).count() <= 8,
+                "tick {tick}"
+            );
+        }
+        let mut charges: Vec<u32> = blasts.iter().map(|b| b.1).collect();
+        charges.sort_unstable();
+        assert_eq!(
+            charges,
+            (0..11).collect::<Vec<u32>>(),
+            "each charge blows once"
+        );
+        // Pulled by the stick, then deferred: depth 1, Carl's credit.
+        let pulled = &sim.combat.charges[8];
+        assert_eq!((pulled.detonate_tick, pulled.chain_depth), (204, 1));
+        assert_eq!(pulled.owner, Some(0));
+        // Due this tick on its own, reached by charge 0's blast (depth 1) on tick 203
+        // before it was stepped, then deferred by the cap: depth 2 and the credit
+        // still arrive (B-1). It has no `charge_chained` event: its tick is unchanged.
+        let late = &sim.combat.charges[9];
+        assert_eq!((late.detonate_tick, late.chain_depth), (204, 2));
+        assert_eq!(late.owner, Some(0));
+        assert_eq!(
+            chained(&sim).len(),
+            9,
+            "nine were scheduled on tick 195, none later"
+        );
+        assert!(chained(&sim).iter().all(|c| c.1 != 9));
+    }
+
+    /// CP-Q35: the blast breaks the untouched shore outright, credited to Carl; the
+    /// fall, the crush and the credit are the CP-03 rules.
+    #[test]
+    fn carl_prog_dyn_breaks_shore() {
+        let sim = named("carl_prog_dyn_breaks_shore");
+        assert_eq!(
+            kinds(&sim, "shore_broken"),
+            ["COMBAT_EVENT tick=195 kind=shore_broken player=0"]
+        );
+        assert_eq!(kinds(&sim, "shore_landed").len(), 1);
+        let kills = kinds(&sim, "enemy_defeated");
+        assert_eq!(kills.len(), 1);
+        assert!(kills[0].contains("cause=shore_block") && kills[0].contains("credit_player=0"));
+        // No melee hit was thrown: the shore had taken none.
+        assert!(kinds(&sim, "shore_hit").is_empty());
+    }
+
+    /// CP-Q35: a shore out of the 64 px reach stands.
+    #[test]
+    fn a_shore_out_of_reach_stands_and_a_qa_blast_never_breaks_it() {
+        static FAR: Fixture = Fixture {
+            shore_dx: Some(260),
+            ..base(
+                "carl_prog_dyn_test_far_shore",
+                "test only",
+                0x0CA1_00F0,
+                &[],
+                260,
+            )
+        };
+        static FAR_FIXTURE: PartyFixture = PartyFixture {
+            base: &FAR,
+            two_player: false,
+            tuning: PROVISIONAL_TUNING,
+            script: &[special(4, 0)],
+            pilot: Pilot::None,
+            donut: DonutSetup::NONE,
+        };
+        let mut sim = PartyFixtureSim::new(&kit_of(&FAR_FIXTURE), 360, &FAR_FIXTURE).unwrap();
+        sim.run_scripted(260);
+        assert_eq!(blasts(&sim).len(), 1, "the stick blew");
+        assert!(kinds(&sim, "shore_broken").is_empty());
+        // A fixture (QA) charge beside an untouched shore does not break it either.
+        static QA: Fixture = Fixture {
+            shore_dx: Some(140),
+            charges: &[charge(140, 60)],
+            ..base(
+                "carl_prog_dyn_test_qa_shore",
+                "test only",
+                0x0CA1_00F1,
+                &[],
+                120,
+            )
+        };
+        static QA_FIXTURE: PartyFixture = PartyFixture {
+            base: &QA,
+            two_player: false,
+            tuning: PROVISIONAL_TUNING,
+            script: &[],
+            pilot: Pilot::None,
+            donut: DonutSetup::NONE,
+        };
+        let mut sim = PartyFixtureSim::new(&kit_of(&QA_FIXTURE), 360, &QA_FIXTURE).unwrap();
+        sim.run_scripted(120);
+        assert_eq!(blasts(&sim), [(60, 0)]);
+        assert!(
+            kinds(&sim, "shore_broken").is_empty(),
+            "profile QA: breaks_structures off"
+        );
+    }
+
+    /// CP-Q35: the blast drops the left rack outright, credited to Carl; the crush
+    /// is the boss module's.
+    #[test]
+    fn carl_prog_dyn_rack_strut() {
+        let sim = named("carl_prog_dyn_rack_strut");
+        assert_eq!(
+            kinds(&sim, "rack_dropped"),
+            ["COMBAT_EVENT tick=195 kind=rack_dropped rack=0 player=0"]
+        );
+        let landed = kinds(&sim, "rack_landed");
+        assert_eq!(landed.len(), 1);
+        assert!(landed[0].contains("crushed=1"), "{}", landed[0]);
+        // 4 damage from the blast (CP-Q25) and 4 from the crush, no strut hit.
+        let hurt = kinds(&sim, "boss_hurt");
+        assert_eq!(hurt.len(), 2, "{hurt:?}");
+        assert!(hurt.iter().all(|l| l.contains("damage=4")));
+    }
+
+    /// CP-Q35: a boss plan without the rack has no strut to break.
+    #[test]
+    fn no_rack_plan_has_no_strut_for_the_blast() {
+        static BASE: Fixture = boss_base(
+            "carl_prog_dyn_test_no_rack",
+            "test only",
+            0x0CA1_00F2,
+            100,
+            FULL_NO_RACKS,
+            300,
+        );
+        static FIXTURE: PartyFixture = PartyFixture {
+            base: &BASE,
+            two_player: false,
+            tuning: PROVISIONAL_TUNING,
+            script: &[special(4, 0)],
+            pilot: Pilot::None,
+            donut: DonutSetup::NONE,
+        };
+        let mut sim = PartyFixtureSim::new(&kit_of(&FIXTURE), 360, &FIXTURE).unwrap();
+        sim.run_scripted(300);
+        assert_eq!(blasts(&sim).len(), 1);
+        assert!(kinds(&sim, "rack_dropped").is_empty());
+    }
+
+    /// CP-Q36: an outer-ring launch is a normal launched body: it flies into the
+    /// goblin beyond the ring and the CF02-B body contact knocks it down (the
+    /// contact is deduped per launch, so one blast bowls a given goblin once, N9).
+    #[test]
+    fn carl_prog_dyn_bowling() {
+        let sim = named("carl_prog_dyn_bowling");
+        let contacts = kinds(&sim, "goblin_contact");
+        assert_eq!(contacts.len(), 1, "{contacts:?}");
+        assert!(contacts[0].contains("source=0 target=1"), "{}", contacts[0]);
+        assert!(
+            kinds(&sim, "enemy_defeated").is_empty(),
+            "both goblins live"
+        );
+        assert!(sim.combat.enemies[0].alive() && sim.combat.enemies[1].alive());
+    }
+
+    /// CP-Q36: a launched goblin meets the raised block at speed: the CF02-B wall
+    /// slam, with the launch credited to Carl.
+    #[test]
+    fn carl_prog_dyn_wall_slam() {
+        let sim = named("carl_prog_dyn_wall_slam");
+        let slams = kinds(&sim, "wall_slam");
+        assert_eq!(slams.len(), 1, "{slams:?}");
+        assert!(slams[0].contains("goblin=0") && slams[0].contains("instigator=0"));
+        assert_eq!(kinds(&sim, "enemy_defeated").len(), 1);
+    }
+
+    /// The Juicer with dynamite, solo: the thrower pilot throws the charge, the boss
+    /// falls inside the 2400..7200 tick window and the defeat grants the fist.
+    #[test]
+    fn carl_prog_juicer_dynamite_clear() {
+        let fixture = &CARL_PROG_JUICER_DYNAMITE_CLEAR;
+        let sim = named("carl_prog_juicer_dynamite_clear");
+        let defeat = sim
+            .combat
+            .events
+            .iter()
+            .find_map(|e| match *e {
+                CombatEvent::EnemyDefeated { tick, target, .. } if target == BOSS_ENEMY_ID => {
+                    Some(tick)
+                }
+                _ => None,
+            })
+            .expect("the Juicer falls");
+        assert!((2400..=7200).contains(&defeat), "cleared on tick {defeat}");
+        assert!(fixture.base.ticks >= 7200);
+        assert!(
+            !kinds(&sim, "charge_thrown").is_empty(),
+            "the pilot threw the charge"
+        );
+        let boss_blasts = kinds(&sim, "boss_hurt")
+            .into_iter()
+            .filter(|l| l.contains("damage=4"))
+            .count();
+        assert!(boss_blasts >= 1, "a stick reached the boss ({boss_blasts})");
+        let grants = grants(&sim);
+        assert_eq!(grants.len(), 1);
+        assert_eq!(grants[0].2, "fist_reinforced");
+        assert!(grants[0].0 >= defeat, "granted on the defeat");
     }
 }

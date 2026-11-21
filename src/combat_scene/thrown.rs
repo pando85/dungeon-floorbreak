@@ -18,8 +18,11 @@
 //! charges in index order (fixture charges first, then the one reserved slot).
 
 use super::CombatState;
-use crate::blast::{BlastCharge, BlastReach, closest_point, line_of_sight};
-use crate::boss::{BOSS_ENEMY_ID, BossHit, HeroBlow};
+use crate::blast::{
+    BlastBreak, BlastCharge, BlastReach, BlastTarget, ChainRule, blast_break, closest_point,
+    line_of_sight,
+};
+use crate::boss::{BOSS_ENEMY_ID, Boss, BossHit, HeroBlow};
 use crate::carl_prog::CarlProgTuning;
 use crate::combat::{CombatEvent, DefeatCause};
 use crate::corridor::SceneSim;
@@ -30,6 +33,35 @@ use crate::prototype::{HERO_HALF_HEIGHT, HERO_HALF_WIDTH, Rect};
 use crate::shore::PLAYER_ONE;
 use crate::story_unlock::SPECIAL_THROWN_CHARGE;
 use crate::thrown_charge::{HurtOutcome, PressView, Thrower, blast_profile};
+
+/// CP-Q34: the chain rule's knobs from `carl_prog_v0.json`.
+pub fn chain_rule(t: &CarlProgTuning) -> ChainRule {
+    ChainRule {
+        delay: u64::from(t.cpq34_chain_delay_ticks),
+        max_depth: t.cpq34_chain_max_depth,
+        max_per_tick: usize::from(t.cpq34_chain_max_per_tick),
+    }
+}
+
+/// CP-Q35: the boss rack strut as a [`BlastTarget`] for one blast: the drop is
+/// credited to the blast's owner and its event is collected for the caller.
+struct RackStrut<'a> {
+    boss: &'a mut Boss,
+    tick: u64,
+    events: Vec<CombatEvent>,
+}
+
+impl BlastTarget for RackStrut<'_> {
+    fn blast_footprint(&self) -> Option<Rect> {
+        self.boss.strut_blast_footprint()
+    }
+
+    fn break_by_blast(&mut self, blast: BlastBreak) -> bool {
+        let player = blast.owner.unwrap_or(PLAYER_ONE);
+        self.boss
+            .blast_drop_strut(player, self.tick, &mut self.events)
+    }
+}
 
 /// The hero index of Carl in events (`CapabilityGranted { hero }` convention).
 const CARL: u8 = 0;
@@ -239,6 +271,104 @@ impl CombatState {
     pub(super) fn thrower_detonated(&mut self, charge_index: usize, tick: u64) {
         if charge_index == self.dynamite_slot() {
             self.thrower.detonated(tick);
+        }
+    }
+
+    /// Whether this charge's blast chains onward (CP-Q34): the dynamite's own
+    /// blast (the reserved slot) and any blast a chain has reached
+    /// (`chain_depth > 0`). A QA or world charge that no dynamite has reached
+    /// keeps its own rule and chains nothing. BOIL-D's drum is reached by a chain
+    /// (depth >= 1) like any other charge, so it needs no flag of its own.
+    fn chains_from(&self, index: usize) -> bool {
+        self.charges[index].chain_depth > 0 || index == self.dynamite_slot()
+    }
+
+    /// CP-Q34: the chain reaction of the blast of charge `source` on `tick`: every
+    /// **authored** charge (fixture and sticker charges; never the thrown stick
+    /// itself) whose centre lies within this blast's outer radius, with line of
+    /// sight, is lit, pulled to or left at `tick + 8` ([`BlastCharge::chain_set`]).
+    /// The depth is `source depth + 1`; a blast at the deepest link chains nothing
+    /// (CP-Q34: depth 4 at most). Targets are visited in charge-index order.
+    /// Every reached charge that has not blown (also one left alone, or due on
+    /// `tick` and not yet stepped) takes the depth when it has none and the
+    /// initiator's credit when it has no owner (first writer keeps both), so its
+    /// own blast chains onward; only the schedule differs between them.
+    /// Evaluated before the blast changes anything this tick (CP-Q22).
+    pub(super) fn chain_from(&mut self, scene: &SceneSim, source: usize, tick: u64) {
+        if !self.chains_from(source) {
+            return;
+        }
+        let rule = chain_rule(CarlProgTuning::active());
+        let origin = self.charges[source];
+        if origin.chain_depth >= rule.max_depth {
+            return;
+        }
+        let depth = origin.chain_depth + 1;
+        let (cx, cy) = origin.centre();
+        let reach = origin.profile.outer_radius;
+        for target in 0..self.authored_charges {
+            if target == source || self.charges[target].detonated {
+                continue;
+            }
+            let (tx, ty) = self.charges[target].centre();
+            let (dx, dy) = (tx - cx, ty - cy);
+            if dx * dx + dy * dy > reach * reach
+                || !line_of_sight(&scene.world.solids, (cx, cy), (tx, ty))
+            {
+                continue;
+            }
+            if let Some(due) = self.charges[target].chain_set(tick, rule.delay, origin.owner, depth)
+            {
+                self.log(CombatEvent::ChargeChained {
+                    tick,
+                    charge: target as u32,
+                    source: source as u32,
+                    due,
+                    depth,
+                });
+            }
+        }
+    }
+
+    /// CP-Q35: a blast with `breaks_structures` breaks the CP-03 shore strike
+    /// zone and the boss rack strut it reaches (outer circle, line of sight),
+    /// outright, credited to the blast's owner (player one for an owner-less
+    /// blast). Each is a [`BlastTarget`]; the env-solid index range is never
+    /// targeted (KC17: a prop is its own target, BOIL-D).
+    pub(super) fn blast_structures(
+        &mut self,
+        scene: &SceneSim,
+        index: usize,
+        charge: &BlastCharge,
+        tick: u64,
+    ) {
+        if !charge.profile.breaks_structures {
+            return;
+        }
+        let id = blast_launch_id(index, tick);
+        let solids = &scene.world.solids;
+        let broke = self
+            .shore
+            .as_mut()
+            .is_some_and(|shore| blast_break(charge, id, solids, shore));
+        if broke {
+            self.log(CombatEvent::ShoreBroken {
+                tick,
+                player: charge.owner.unwrap_or(PLAYER_ONE),
+            });
+        }
+        if let Some(mut boss) = self.boss.take() {
+            let mut strut = RackStrut {
+                boss: &mut boss,
+                tick,
+                events: Vec::new(),
+            };
+            blast_break(charge, id, solids, &mut strut);
+            let events = strut.events;
+            self.boss = Some(boss);
+            for event in events {
+                self.log(event);
+            }
         }
     }
 

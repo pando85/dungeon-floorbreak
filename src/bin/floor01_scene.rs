@@ -52,7 +52,7 @@ use dungeon_floorbreak::{
     boss_art::{self, BossArt, FxCtx, Gait, Layer, SheetId},
     boss_scene,
     camera_lab::camera_op::{Aspect, Bounds, View},
-    carl_prog::CarlProgFlags,
+    carl_prog::{CarlProgFlags, CarlProgTuning},
     carl_prog_fixtures,
     cf02::{self, Cf02Config, Cf02Tuning},
     cf02_fixtures::{find_party_fixture, list_fixtures},
@@ -60,7 +60,9 @@ use dungeon_floorbreak::{
     cine_adapter::CineAdapter,
     combat::{Attacker, ENEMY_HALF_HEIGHT, ENEMY_HALF_WIDTH, Phase, hit_box},
     combat_anim::{
-        CombatAnimators, GOBLIN_VARIANTS, SpriteClips, carl_above_goblin, cf02::ActingArt,
+        CombatAnimators, GOBLIN_VARIANTS, SpriteClips, carl_above_goblin,
+        cf02::ActingArt,
+        dynamite::{ring_points, stick_frame},
         goblin_variant,
     },
     combat_lab::{
@@ -91,7 +93,7 @@ use dungeon_floorbreak::{
     },
     goblin::{AttackPhase, GoblinMode},
     gore::{DEATH_VARIANTS, DeathArt, GorePreset, LLAMA_VARIANT, Sheet},
-    hud::{EventCursor, GlyphSet, HudConfig, HudLayout, HudPreview, HudRuntime},
+    hud::{EventCursor, GlyphSet, HudConfig, HudLayout, HudPreview, HudRuntime, SpecialPhase},
     hud_adapter::{HudPlugin, HudState},
     hud_settings::HudSettings,
     input::RawInput,
@@ -1576,6 +1578,18 @@ fn story_setup(args: &Args) -> StorySetup {
     donut_prog::story_setup(args.carl, args.donut, scene)
 }
 
+/// CARL-PROG-01 CP-B2: whether the run can hold Carl's thrown charge, so its
+/// presentation (the ANIM-CARL-03 sheet, the stick and burst sprites, the debug
+/// ring) is loaded: a `carl_prog_*` fixture, `--carl-prog` or `--carl-dynamite`.
+/// Presentation only; a run that cannot hold it reads no extra atlas.
+fn presents_dynamite(args: &Args) -> bool {
+    args.carl.prog
+        || args.carl.dynamite
+        || args
+            .party_fixture
+            .is_some_and(|pf| pf.name().starts_with("carl_prog_"))
+}
+
 /// One HUD step after a finished simulation tick: the real health values and
 /// the newest combat events. Read-only on the simulation.
 fn step_hud(hud: &mut HudRuntime, sim: &SceneSim, combat: Option<&CombatState>) {
@@ -1584,6 +1598,10 @@ fn step_hud(hud: &mut HudRuntime, sim: &SceneSim, combat: Option<&CombatState>) 
     // Melee input is live exactly when the combat state exists (see the
     // manual input gate in `fixed_step`).
     hud.set_melee_live(combat.is_some());
+    // CARL-PROG-01 CP-Q32: Carl's special socket (padlock, ready, live, recharging)
+    // and its data label; read-only on the simulation.
+    hud.set_special_label(&CarlProgTuning::active().cpq32_socket_label);
+    hud.set_special(combat.map_or(SpecialPhase::Locked, SpecialPhase::of));
     // AUDIENCE-01: the heroes' columns, for authored anticipation cues (read
     // only; the observer is inert while the audience is locked).
     hud.set_hero_x(sim.world.hero.x as i32, sim.world.donut.x as i32);
@@ -2093,7 +2111,9 @@ fn main() -> ExitCode {
     };
     // The blast atlases are exported art: only a rendered fixture with charges
     // needs them (the headless replay draws nothing).
-    let draws_blast = !args.headless && args.fixture.is_some_and(|f| !f.charges.is_empty());
+    let presents_dynamite = presents_dynamite(&args);
+    let draws_blast = !args.headless
+        && (args.fixture.is_some_and(|f| !f.charges.is_empty()) || presents_dynamite);
     // CF02-I: the CF02 sheets are read only by a run under `cf02_rules`.
     let runs_cf02 = args.cf02.rules
         || args
@@ -2105,6 +2125,7 @@ fn main() -> ExitCode {
         args.fixture.is_some(),
         draws_blast,
         runs_cf02,
+        presents_dynamite,
     ) {
         Ok(actors) => actors,
         Err(error) => {
@@ -2232,6 +2253,9 @@ struct CombatArt {
     /// ENEMY-GAMEPLAY-ENGINEER: the ENG-01 atlas, loaded for a `cf02_rules` run
     /// (the only runs that can have an Engineer).
     engineer: Option<SpriteClips>,
+    /// CARL-PROG-01 CP-B2: the ANIM-CARL-03 sheet, loaded for a run that can hold
+    /// the thrown charge (`None` everywhere else: no atlas is read or drawn).
+    dynamite: Option<SpriteClips>,
 }
 
 impl Actors {
@@ -2241,6 +2265,7 @@ impl Actors {
         combat: bool,
         blast: bool,
         cf02: bool,
+        dynamite: bool,
     ) -> Result<Self, String> {
         let blast = if blast {
             Some(BlastArt::load(root)?)
@@ -2262,6 +2287,11 @@ impl Actors {
                 llama: SpriteClips::load_llama(root, source)?,
                 engineer: if cf02 {
                     Some(SpriteClips::load_engineer(root, source)?)
+                } else {
+                    None
+                },
+                dynamite: if dynamite {
+                    Some(SpriteClips::load_carl_dynamite(root, source)?)
                 } else {
                     None
                 },
@@ -2292,6 +2322,9 @@ impl Actors {
                 .with_llama(art.llama.clone(), combat);
             if let Some(engineer) = art.engineer.as_ref() {
                 animators = animators.with_engineer(engineer.clone(), combat);
+            }
+            if let Some(dynamite) = art.dynamite.as_ref() {
+                animators = animators.with_dynamite(dynamite.clone());
             }
             match (self.cf02.as_ref(), combat.cf02()) {
                 (Some(acting), Some(tuning)) => {
@@ -2548,6 +2581,16 @@ struct GlobSprite {
 #[derive(Component)]
 struct CarlMelee;
 
+/// CARL-PROG-01 CP-B2: Carl's dynamite throw sprite (the ANIM-CARL-03 atlas:
+/// the standing throw and the moving overlay frames). It replaces the locomotion
+/// sprite while a throw frame is drawn. Presentation only.
+#[derive(Component)]
+struct CarlThrowSprite;
+
+/// Points of the `--debug-combat` blast ring (CP-B2): a 64 px circle, one every
+/// 9 degrees.
+const BLAST_RING_POINTS: usize = 40;
+
 /// CF02-I: Carl's CF02 sprite (the ART-CARL-CF02 atlas): the stomp, air kick,
 /// dive, bail-out, heavy landing, flinch and frustration. It replaces the
 /// locomotion sprite while a CF02 frame is drawn. Presentation only.
@@ -2678,6 +2721,9 @@ struct DeathLook {
 /// outside the art).
 #[derive(Component)]
 enum CombatDebugBox {
+    /// CP-B2: point `n` of the blast radius ring (drawn by
+    /// [`sync_blast_ring`]).
+    BlastRing(usize),
     /// Carl's active hit box.
     HitBox,
     /// A goblin's 24 x 38 hurt box.
@@ -3218,6 +3264,8 @@ fn run_window(
             sync_blast_visuals,
             sync_death_visuals,
             sync_cf02_acting_visuals,
+            sync_carl_throw_visual,
+            sync_blast_ring,
             update_lighting,
             watchdog,
             perf_probe,
@@ -3486,6 +3534,25 @@ fn setup(
         ));
         combat_handles.push((art.carl.atlas_asset.clone(), carl_melee_texture));
         combat_entities += 1;
+        // CP-B2: Carl's dynamite throw (hidden until a throw frame is drawn).
+        if let Some(clips) = art.dynamite.as_ref() {
+            let texture: Handle<Image> = asset_server.load(clips.atlas_asset.clone());
+            commands.spawn((
+                CarlThrowSprite,
+                Sprite::from_atlas_image(
+                    texture.clone(),
+                    TextureAtlas {
+                        layout: layout_of(clips),
+                        index: clips.tag("dynamite_throw").0,
+                    },
+                ),
+                Transform::from_xyz(0.0, 0.0, kit.actor_z + CARL_Z_OFFSET),
+                Visibility::Hidden,
+                layers_of("actors"),
+            ));
+            combat_handles.push((clips.atlas_asset.clone(), texture));
+            combat_entities += 1;
+        }
         let goblin_textures: Vec<(Handle<Image>, Handle<TextureAtlasLayout>)> = art
             .goblins
             .iter()
@@ -3656,6 +3723,17 @@ fn setup(
                 ));
                 combat_entities += 1;
             };
+            // CP-B2 (CP-Q33): the blast radius ring of a live thrown charge, a
+            // pool of small amber points (the 64 px reach is wider than its art).
+            if presents_dynamite(args) {
+                for point in 0..BLAST_RING_POINTS {
+                    overlay(
+                        CombatDebugBox::BlastRing(point),
+                        Color::srgba(1.0, 0.75, 0.1, 0.9),
+                        Vec2::new(2.0, 2.0),
+                    );
+                }
+            }
             overlay(
                 CombatDebugBox::HitBox,
                 Color::srgba(1.0, 0.1, 0.1, 0.55),
@@ -3837,7 +3915,10 @@ fn setup(
         let burst: Handle<Image> = asset_server.load(BURST_IMAGE);
         combat_handles.push((DYNAMITE_IMAGE.to_owned(), dynamite.clone()));
         combat_handles.push((BURST_IMAGE.to_owned(), burst.clone()));
-        for index in 0..state.charges.len() {
+        // CP-B2: one more pair for the reserved thrown-charge slot (it is created
+        // on the first throw, after the authored charges).
+        let pairs = state.charges.len() + usize::from(presents_dynamite(args));
+        for index in 0..pairs {
             for (kind, image) in [
                 (BlastPiece::Charge(index), &dynamite),
                 (BlastPiece::Burst(index), &burst),
@@ -5080,8 +5161,9 @@ fn sync_combat_visuals(
                     *visibility = Visibility::Hidden;
                 }
             }
-            // Donut's own boxes belong to `sync_donut_visuals`.
-            CombatDebugBox::DonutHit | CombatDebugBox::Bolt(_) => {}
+            // Donut's own boxes belong to `sync_donut_visuals`, the ring to
+            // `sync_blast_ring`.
+            CombatDebugBox::DonutHit | CombatDebugBox::Bolt(_) | CombatDebugBox::BlastRing(_) => {}
         }
     }
 }
@@ -5790,6 +5872,84 @@ fn sync_shore_visuals(
     }
 }
 
+/// CP-B2 (CP-Q33): the `--debug-combat` blast ring around the thrown charge while
+/// it is live, at its profile's outer radius: the real reach, wider than the
+/// burst art. Reads the simulation only.
+fn sync_blast_ring(
+    combat: Res<Combat>,
+    mut points: Query<(&CombatDebugBox, &mut Transform, &mut Visibility)>,
+) {
+    let Some(state) = combat.0.as_ref() else {
+        return;
+    };
+    let live = state.charges.get(state.dynamite_slot()).filter(|c| {
+        !c.detonated && c.profile.outer_radius > 0.0 && state.thrower().stick().is_some()
+    });
+    for (kind, mut transform, mut visibility) in &mut points {
+        let CombatDebugBox::BlastRing(point) = kind else {
+            continue;
+        };
+        match live {
+            Some(charge) => {
+                let (cx, cy) = charge.centre();
+                let ring = ring_points(charge.profile.outer_radius, BLAST_RING_POINTS);
+                let (dx, dy) = ring[*point];
+                transform.translation.x = cx.round() + dx as f32;
+                transform.translation.y = cy.round() + dy as f32;
+                *visibility = Visibility::Inherited;
+            }
+            None => *visibility = Visibility::Hidden,
+        }
+    }
+}
+
+/// CP-B2: draw Carl's dynamite throw (ANIM-CARL-03) over his locomotion sprite:
+/// the standing frames, or the moving overlay frames while he runs. Where a throw
+/// frame is drawn the locomotion sprite is hidden; a moving draw, brace or settle
+/// (no throw frame) leaves the plain run frame. Reads the animators only.
+#[allow(clippy::type_complexity)]
+fn sync_carl_throw_visual(
+    sim: Res<Sim>,
+    anim: Res<Anim>,
+    mut throw: Query<
+        (&mut Transform, &mut Sprite, &mut Visibility),
+        (With<CarlThrowSprite>, Without<ActorVisual>),
+    >,
+    mut actors: Query<(&ActorVisual, &mut Visibility), Without<CarlThrowSprite>>,
+) {
+    let Some(art) = anim.0.art.as_ref() else {
+        return;
+    };
+    let Some(clips) = art.dynamite_clips() else {
+        return;
+    };
+    let hero = &sim.0.world.hero;
+    let pose = art.carl_throw_pose();
+    for (mut transform, mut sprite, mut visibility) in &mut throw {
+        match pose {
+            Some(pose) => {
+                let flip = hero.facing < 0;
+                let (cx, cy) = actor_center(clips.spec, hero.x, hero.y - HERO_HALF_HEIGHT, flip);
+                transform.translation.x = cx;
+                transform.translation.y = cy;
+                sprite.flip_x = flip;
+                if let Some(atlas) = sprite.texture_atlas.as_mut() {
+                    atlas.index = pose.frame;
+                }
+                *visibility = Visibility::Inherited;
+            }
+            None => *visibility = Visibility::Hidden,
+        }
+    }
+    if pose.is_some() {
+        for (actor, mut visibility) in &mut actors {
+            if actor.is_hero {
+                *visibility = Visibility::Hidden;
+            }
+        }
+    }
+}
+
 /// DEATH-D: the QA charge as the `dynamite_fizzle` loop from the first tick of
 /// the attempt until it detonates, then the VFX-01 `burst` once, centred on the
 /// blast centre. Both sit on the blast layer (`actor_z - 0.45`: over the floor
@@ -5888,9 +6048,24 @@ fn sync_blast_visuals(
             // A Carl-armed charge lies still until he passes; its fizzle loop
             // counts from the arming.
             let lit_for = tick.saturating_sub(charge.armed_tick.unwrap_or(0));
-            sprite.rect = Some(to_rect(
-                art.dynamite_rect(charge_draw_frame(charge.lit(), lit_for)),
-            ));
+            // CP-B2: the thrown stick tumbles in flight (`dynamite_flight`, from the
+            // release) and lies burning once it landed (`dynamite_fizzle`).
+            let frame = match state.thrower().stick() {
+                Some(stick) if index == state.dynamite_slot() => {
+                    let fuse = u64::from(CarlProgTuning::active().cpq18_fuse_ticks);
+                    let released = stick.detonate_tick.saturating_sub(fuse);
+                    stick_frame(
+                        stick.landed,
+                        if stick.landed {
+                            tick
+                        } else {
+                            tick.saturating_sub(released)
+                        },
+                    )
+                }
+                _ => charge_draw_frame(charge.lit(), lit_for),
+            };
+            sprite.rect = Some(to_rect(art.dynamite_rect(frame)));
             *visibility = Visibility::Inherited;
         }
     }
@@ -7298,7 +7473,8 @@ mod tests {
         const TICKS: u64 = 260;
         let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
         let kit = EnvKit::load(root, LAYOUT_PATH).unwrap();
-        let actors = Actors::load(root, FrameSource::GridSource, true, false, false).unwrap();
+        let actors =
+            Actors::load(root, FrameSource::GridSource, true, false, false, false).unwrap();
         let base = [
             "--headless-floor01-smoke",
             "--fixture",

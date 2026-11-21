@@ -18,11 +18,15 @@
 //!   nothing is defeated.
 //! * The landed block is **non-collidable** (spec): this module never touches
 //!   the solids, so the route stays walkable in every event order.
+//! * CP-C (CP-Q35): a blast that reaches the strike zone breaks it outright
+//!   (all remaining hits) through the generic [`BlastTarget`] hook; the fall,
+//!   the crush and the credit are the ones above, credited to the blast's owner.
 //!
 //! Positions are relative to the strike column, so the same rules run on the
 //! opening route (strike x 2975) and on the fixtures' clean ground. A unit test
 //! pins the constants to the marker rects of the route layout.
 
+use crate::blast::{BlastBreak, BlastTarget};
 use crate::prototype::Rect;
 
 /// Melee hits that break the shore.
@@ -242,6 +246,24 @@ impl Shore {
         })
     }
 
+    /// CP-C (CP-Q35): a blast breaks the shore outright, whatever its hits so
+    /// far: the remaining hits are all taken, the pre-fall delay starts and the
+    /// breaking player is `player`. A shore that is already broken (or falling or
+    /// landed) takes nothing. Never touches the melee dedupe `last_instance`.
+    pub fn blast_break(&mut self, player: u32) -> Option<ShoreStrike> {
+        if self.hits >= SHORE_HITS_TO_BREAK {
+            return None;
+        }
+        self.hits = SHORE_HITS_TO_BREAK;
+        self.delay = BLOCK_FALL_DELAY_TICKS;
+        self.breaker = Some(player);
+        self.last_hitter = Some(player);
+        Some(ShoreStrike {
+            hits: self.hits,
+            broke: true,
+        })
+    }
+
     /// One fixed tick of the block: the pre-fall delay, then the fall. Reports
     /// the landing exactly once.
     pub fn step(&mut self) -> ShoreStep {
@@ -273,6 +295,18 @@ impl Shore {
         mix(u64::from(self.block_vy.to_bits()));
         mix(u64::from(self.landed));
         mix(self.breaker.map_or(0, |p| u64::from(p) + 1));
+    }
+}
+
+/// CP-C: the shore is a blast target by its strike zone while it stands.
+impl BlastTarget for Shore {
+    fn blast_footprint(&self) -> Option<Rect> {
+        (self.hits < SHORE_HITS_TO_BREAK).then(|| self.strike_zone())
+    }
+
+    fn break_by_blast(&mut self, blast: BlastBreak) -> bool {
+        self.blast_break(blast.owner.unwrap_or(PLAYER_ONE))
+            .is_some()
     }
 }
 
@@ -318,6 +352,59 @@ mod tests {
         assert_eq!(line - num(&band[0]), STRIKE_Y_MAX);
         // Land y of the falling block is the walking line.
         assert_eq!(num(&marker("falling_block")["land_y"]), line);
+    }
+
+    #[test]
+    fn cp_c_a_blast_breaks_it_outright_from_any_state_and_credits_the_player() {
+        for hits_before in 0..SHORE_HITS_TO_BREAK {
+            let mut shore = Shore::new(100.0, 50.0);
+            shore.hits = hits_before;
+            let out = shore.blast_break(1).expect("a standing shore breaks");
+            assert_eq!((out.hits, out.broke), (SHORE_HITS_TO_BREAK, true));
+            assert_eq!(shore.state(), ShoreState::Broken);
+            assert_eq!(shore.breaker, Some(1));
+            assert_eq!(shore.block_state(), BlockState::Slipped, "the delay runs");
+            // The pre-fall delay, then the fall, then exactly one landing.
+            let mut landed = 0;
+            for _ in 0..200 {
+                landed += u32::from(shore.step().landed);
+            }
+            assert_eq!(landed, 1, "from {hits_before} hits");
+        }
+        // Already broken (or falling or landed): nothing more.
+        let mut broken = Shore::new(100.0, 50.0);
+        broken.hits = SHORE_HITS_TO_BREAK;
+        assert!(broken.blast_break(0).is_none());
+        assert_eq!(broken.breaker, None);
+    }
+
+    #[test]
+    fn cp_c_the_shore_is_a_blast_target_by_its_strike_zone_until_it_breaks() {
+        let mut shore = Shore::new(100.0, 50.0);
+        assert_eq!(shore.blast_footprint(), Some(shore.strike_zone()));
+        assert!(BlastTarget::break_by_blast(
+            &mut shore,
+            BlastBreak {
+                blast_id: 1,
+                owner: None,
+                depth: 0
+            }
+        ));
+        assert_eq!(
+            shore.breaker,
+            Some(PLAYER_ONE),
+            "an owner-less blast credits player one"
+        );
+        assert_eq!(shore.blast_footprint(), None);
+        assert!(!BlastTarget::break_by_blast(
+            &mut shore,
+            BlastBreak {
+                blast_id: 2,
+                owner: Some(1),
+                depth: 0
+            }
+        ));
+        assert_eq!(shore.breaker, Some(PLAYER_ONE));
     }
 
     #[test]
