@@ -1880,6 +1880,12 @@ pub fn find_party_fixture(name: &str) -> Option<&'static PartyFixture> {
                 .copied()
                 .find(|f| f.name() == name)
         })
+        .or_else(|| {
+            crate::donut_prog_fixtures::DONUT_PROG_FIXTURES
+                .iter()
+                .copied()
+                .find(|f| f.name() == name)
+        })
 }
 
 /// Every fixture name starting with `prefix`, over every registry: the legacy
@@ -1897,6 +1903,11 @@ pub fn list_fixtures(prefix: &str) -> Vec<&'static str> {
         .chain(COMPANION_FIXTURES.iter().map(|f| f.name()))
         .chain(
             crate::carl_prog_fixtures::CARL_PROG_FIXTURES
+                .iter()
+                .map(|f| f.name()),
+        )
+        .chain(
+            crate::donut_prog_fixtures::DONUT_PROG_FIXTURES
                 .iter()
                 .map(|f| f.name()),
         );

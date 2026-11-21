@@ -13,7 +13,7 @@
 use serde::Deserialize;
 
 use crate::donut_mana::content_hash;
-use crate::story_unlock::{SceneKind, StorySetup, StoryTable};
+use crate::story_unlock::{SceneKind, StorySetup};
 
 /// The tuning file, embedded so the binary and the tests read the same bytes.
 pub const TUNING_JSON: &str = include_str!("../assets/data/gameplay/carl_prog_v0.json");
@@ -53,20 +53,10 @@ impl CarlProgFlags {
     }
 
     /// The story setup these flags give `scene`. With no flag it is
-    /// [`StorySetup::NONE`], so a run without them is unchanged.
+    /// [`StorySetup::NONE`], so a run without them is unchanged. It is the
+    /// shared entry point with the Donut program off ([`crate::donut_prog::story_setup`]).
     pub fn story_setup(self, scene: SceneKind) -> StorySetup {
-        if !self.any() {
-            return StorySetup::NONE;
-        }
-        let mut starts: Vec<&str> = Vec::new();
-        if self.dynamite {
-            starts.push("carl_dynamite");
-        }
-        if self.gauntlet {
-            starts.push("carl_gauntlet");
-        }
-        let flags: &[&str] = if self.prog { &[STORY_FLAG] } else { &[] };
-        StorySetup::for_scene(StoryTable::active(), flags, &starts, scene)
+        crate::donut_prog::story_setup(self, crate::donut_prog::DonutProgFlags::OFF, scene)
     }
 }
 

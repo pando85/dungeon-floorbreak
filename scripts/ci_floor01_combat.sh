@@ -311,6 +311,9 @@ case "$mode" in
     # CARL-PROG-01: the `carl_prog_*` registry, enumerated by the binary (later
     # PRs add fixtures without editing this script); replays in docs/evidence/carl-prog-01.
     for f in $(list_names carl_prog_); do { "$bin" --headless-floor01-smoke --party-fixture "$f" | party_lines > "$out/carl_prog_${f}.txt"; "$bin" --headless-floor01-smoke --party-fixture "$f" | party_lines | cmp -s - "$out/carl_prog_${f}.txt" && diff docs/evidence/carl-prog-01/replays/headless_${f}.txt "$out/carl_prog_${f}.txt"; } || { echo "carl_prog fixture $f is not deterministic or differs from the committed replay" >&2; exit 1; }; echo "CARL_PROG_HEADLESS_OK: $(grep '^PARTY_STATE' "$out/carl_prog_${f}.txt")"; done
+    # DONUT-PROG-01: the `donut_prog_*` registry, enumerated by the binary (later
+    # PRs add fixtures without editing this script); replays in docs/evidence/donut-prog-01.
+    for f in $(list_names donut_prog_); do { "$bin" --headless-floor01-smoke --party-fixture "$f" | party_lines > "$out/donut_prog_${f}.txt"; "$bin" --headless-floor01-smoke --party-fixture "$f" | party_lines | cmp -s - "$out/donut_prog_${f}.txt" && diff docs/evidence/donut-prog-01/replays/headless_${f}.txt "$out/donut_prog_${f}.txt"; } || { echo "donut_prog fixture $f is not deterministic or differs from the committed replay" >&2; exit 1; }; echo "DONUT_PROG_HEADLESS_OK: $(grep '^PARTY_STATE' "$out/donut_prog_${f}.txt")"; done
     # CF02-Q40 / COMPANION-AI-01 01A-wire: "in view" is the simulation scroll
     # camera, so the assistant's decisions and hashes cannot depend on the
     # presentation camera. The camera-parity fixture replays the plain run's
