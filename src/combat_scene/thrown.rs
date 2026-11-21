@@ -370,6 +370,9 @@ impl CombatState {
                 self.log(event);
             }
         }
+        // BOIL-D: the props the blast reaches (the valve, the brace, an armed
+        // drum), each a `BlastTarget` of its own (env.rs).
+        self.blast_props(scene, charge, id, tick);
     }
 
     /// One blast with a non-QA profile (CP-Q20..CP-Q26): the goblins (and

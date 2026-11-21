@@ -64,6 +64,10 @@ pub enum Stimulus {
     Blast {
         blast_id: u32,
         owner: Option<u32>,
+        /// BOIL-D (PR #200 review NB-4): the chain depth of the blast (0 for the
+        /// dynamite's own blast and any blast no chain reached). A prop this
+        /// blast sets off carries it, so a link out of it continues the count.
+        depth: u8,
     },
     /// A projectile (Magic Missile) hit the prop. Counted once per id.
     Projectile {
@@ -126,10 +130,11 @@ impl Stimulus {
         }
     }
 
-    /// Chain depth: 0 for a stimulus that is not a link.
+    /// Chain depth: 0 for a stimulus that is not part of a chain (a blast
+    /// carries the depth of the charge chain that reached it).
     pub const fn depth(&self) -> u8 {
         match self {
-            Self::PropContact { depth, .. } => *depth,
+            Self::PropContact { depth, .. } | Self::Blast { depth, .. } => *depth,
             _ => 0,
         }
     }
@@ -1047,10 +1052,15 @@ impl FallingMass {
 
     /// The structure-break entry point for a blast: the one call a generic
     /// `BlastTarget` hook (CP-C) forwards to. It takes only what a blast
-    /// carries (its id and its owner), never a state of this prop, so the hook
-    /// stays independent of the machine behind it.
-    pub fn break_by_blast(&mut self, blast_id: u32, owner: Option<u32>) -> Offer {
-        self.offer(Stimulus::Blast { blast_id, owner })
+    /// carries (its id, its owner and its chain depth), never a state of this
+    /// prop, so the hook stays independent of the machine behind it. A prop this
+    /// blast sets off carries `depth`; its link out is `depth + 1` (NB-4).
+    pub fn break_by_blast(&mut self, blast_id: u32, owner: Option<u32>, depth: u8) -> Offer {
+        self.offer(Stimulus::Blast {
+            blast_id,
+            owner,
+            depth,
+        })
     }
 
     /// One fixed tick, after the stimuli. `bodies` are the victims the landing
@@ -2073,6 +2083,330 @@ impl Slide {
     }
 }
 
+// ---------------------------------------------------------------------------
+// BOIL-D: the fuel drum and the prop link graph.
+// ---------------------------------------------------------------------------
+
+/// The drum's tunables. The telegraph comes from the encounter data (the owned
+/// blast hazard's `telegraph_ticks`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DrumConfig {
+    /// A launched body counts only from this speed (px/s). Default 160, the
+    /// valve's and the brace's value (BOILC-AD2): a kicked goblin (170) counts.
+    pub launch_min_impulse_px_s: u16,
+    /// Ticks between the trigger and the blast, at least
+    /// [`MIN_WARNING_TICKS`] (a hero-hurting blast shows its tell first).
+    pub telegraph_ticks: u16,
+}
+
+impl DrumConfig {
+    pub const DEFAULT: Self = Self {
+        launch_min_impulse_px_s: 160,
+        telegraph_ticks: 24,
+    };
+
+    pub fn validate(&self) -> Result<(), String> {
+        if self.telegraph_ticks < MIN_WARNING_TICKS {
+            return Err(format!(
+                "the drum's telegraph must be at least {MIN_WARNING_TICKS} ticks, is {}",
+                self.telegraph_ticks
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl Default for DrumConfig {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
+/// The states of a fuel drum, `armed -> telegraph -> detonated`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DrumState {
+    /// Standing, untouched: a solid on the lane.
+    Armed,
+    /// Set off: the area tell runs, the drum still stands.
+    Telegraph,
+    /// The blast went off: the drum is gone for the attempt.
+    Detonated,
+}
+
+impl DrumState {
+    const fn code(self) -> u64 {
+        self as u64
+    }
+}
+
+/// The fuel drum's acceptance machine (Boiler P3). It decides **whether** a
+/// stimulus sets the drum off; **when** it blows is the clock of its
+/// `BlastCharge` (the scene arms the charge with the trigger tick plus
+/// [`DrumConfig::telegraph_ticks`], and reports the blast back through
+/// [`Drum::detonated`]), so a chain-reaction blast (CP-Q34) and a prop link share
+/// one detonation clock.
+///
+/// Accepted: a **launched body** from the threshold up (once per launch), a
+/// **blast** (once per blast id) and a **prop contact** (a link, depth below
+/// [`MAX_CHAIN_DEPTH`]). Hero melee, a projectile and a shove are
+/// `NotAccepted` (BOILD-AD3): punching a fuel drum is not a blast, and the
+/// drum is no hit target of the missile either. One activation per attempt.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Drum {
+    cfg: DrumConfig,
+    state: DrumState,
+    launches: Vec<u32>,
+    blasts: Vec<u32>,
+    initiator: Option<u32>,
+    depth: u8,
+}
+
+impl Drum {
+    pub fn new(cfg: DrumConfig) -> Result<Self, String> {
+        cfg.validate()?;
+        Ok(Self {
+            cfg,
+            state: DrumState::Armed,
+            launches: Vec::new(),
+            blasts: Vec::new(),
+            initiator: None,
+            depth: 0,
+        })
+    }
+
+    pub fn config(&self) -> &DrumConfig {
+        &self.cfg
+    }
+    pub fn state(&self) -> DrumState {
+        self.state
+    }
+    /// The player credited with the blast.
+    pub fn initiator(&self) -> Option<u32> {
+        self.initiator
+    }
+    /// Chain depth of what set the drum off; a link out of its blast carries
+    /// `depth + 1`.
+    pub fn trigger_depth(&self) -> u8 {
+        self.depth
+    }
+    /// Whether a blast can still set it off (the blast hook's footprint).
+    pub fn is_armed(&self) -> bool {
+        self.state == DrumState::Armed
+    }
+    pub fn reset(&mut self) {
+        *self = Self::new(self.cfg).expect("a built drum has a valid config");
+    }
+
+    fn trigger(&mut self, stimulus: &Stimulus) -> Offer {
+        self.state = DrumState::Telegraph;
+        self.initiator = stimulus.initiator();
+        self.depth = stimulus.depth();
+        Offer::Triggered {
+            initiator: self.initiator,
+            depth: self.depth,
+        }
+    }
+
+    /// Offer one stimulus. Only an armed drum reacts; every ignored case is
+    /// named. `Triggered` means the scene must arm the drum's charge.
+    pub fn offer(&mut self, stimulus: Stimulus) -> Offer {
+        if self.state != DrumState::Armed {
+            return Offer::Ignored(Ignored::AlreadyActivated);
+        }
+        match stimulus {
+            Stimulus::MeleeHit { .. } | Stimulus::Projectile { .. } | Stimulus::Shove { .. } => {
+                Offer::Ignored(Ignored::NotAccepted)
+            }
+            Stimulus::LaunchedBody {
+                launch_id,
+                impulse_px_s,
+                ..
+            } => {
+                if impulse_px_s < self.cfg.launch_min_impulse_px_s {
+                    return Offer::Ignored(Ignored::TooWeak);
+                }
+                if self.launches.contains(&launch_id) {
+                    return Offer::Ignored(Ignored::Duplicate);
+                }
+                self.launches.push(launch_id);
+                self.trigger(&stimulus)
+            }
+            Stimulus::Blast { blast_id, .. } => {
+                if self.blasts.contains(&blast_id) {
+                    return Offer::Ignored(Ignored::Duplicate);
+                }
+                self.blasts.push(blast_id);
+                self.trigger(&stimulus)
+            }
+            Stimulus::PropContact { depth, .. } => {
+                if depth >= MAX_CHAIN_DEPTH {
+                    return Offer::Ignored(Ignored::ChainTooDeep);
+                }
+                self.trigger(&stimulus)
+            }
+        }
+    }
+
+    /// The drum's charge was lit by a chain reaction (CP-Q34) instead of an
+    /// offer: the machine follows it into the telegraph with the credit and
+    /// depth the charge took. Returns whether it changed (an armed drum only).
+    pub fn adopt_chain(&mut self, initiator: Option<u32>, depth: u8) -> bool {
+        if self.state != DrumState::Armed {
+            return false;
+        }
+        self.state = DrumState::Telegraph;
+        self.initiator = initiator;
+        self.depth = depth;
+        true
+    }
+
+    /// The charge blew: the drum is gone for the attempt.
+    pub fn detonated(&mut self) {
+        self.state = DrumState::Detonated;
+    }
+
+    pub fn mix_into(&self, mix: &mut impl FnMut(u64)) {
+        mix(self.state.code());
+        mix(self.initiator.map_or(0, |p| u64::from(p) + 1));
+        mix(u64::from(self.depth));
+        for list in [&self.launches, &self.blasts] {
+            mix(list.len() as u64);
+            for id in list {
+                mix(u64::from(*id));
+            }
+        }
+    }
+}
+
+/// What a prop does that an authored link can carry (the `LinkKind` of the
+/// sidecar, without the parser): the steam of a vent, the footprint of a
+/// landing, the radius of a blast.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LinkEmit {
+    /// The valve's steam reaches the linked prop when the vent opens.
+    Steam,
+    /// The mass' landing footprint reaches the linked prop on the landing.
+    Landing,
+    /// The drum's blast radius reaches the linked prop when it blows.
+    Blast,
+}
+
+/// The authored prop-to-prop links (K2): at most [`MAX_AUTHORED_LINKS`], acyclic,
+/// one per ordered pair. A link carries the **chain depth**: a contact out of a
+/// prop that was set off at depth `d` is depth `d + 1`, and the machines refuse
+/// a contact at [`MAX_CHAIN_DEPTH`] or more ([`Ignored::ChainTooDeep`]), the
+/// same counter as the charge chains (CP-Q34). The graph holds no prop state:
+/// it only answers who a source reaches.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct LinkGraph {
+    /// `(from, to, emit)` in sidecar order.
+    links: Vec<(u16, u16, LinkEmit)>,
+}
+
+/// K2 / #176: at most this many authored links (the encounter validator
+/// enforces it as well; the runtime graph refuses more).
+pub const MAX_LINKS: usize = 3;
+
+impl LinkGraph {
+    pub fn new(links: Vec<(u16, u16, LinkEmit)>) -> Result<Self, String> {
+        if links.len() > MAX_LINKS {
+            return Err(format!("{} links, at most {MAX_LINKS}", links.len()));
+        }
+        for (i, (from, to, _)) in links.iter().enumerate() {
+            if from == to {
+                return Err(format!("prop {from} links to itself"));
+            }
+            if links[..i].iter().any(|(f, t, _)| f == from && t == to) {
+                return Err(format!("duplicate link {from} -> {to}"));
+            }
+        }
+        let graph = Self { links };
+        if graph.has_cycle() {
+            return Err("the links form a cycle".into());
+        }
+        Ok(graph)
+    }
+
+    fn has_cycle(&self) -> bool {
+        // Kahn's algorithm over the props the links name.
+        let mut nodes: Vec<u16> = self.links.iter().flat_map(|(f, t, _)| [*f, *t]).collect();
+        nodes.sort_unstable();
+        nodes.dedup();
+        let mut indegree: Vec<usize> = nodes
+            .iter()
+            .map(|n| self.links.iter().filter(|(_, t, _)| t == n).count())
+            .collect();
+        let mut stack: Vec<usize> = (0..nodes.len()).filter(|i| indegree[*i] == 0).collect();
+        let mut seen = 0;
+        while let Some(i) = stack.pop() {
+            seen += 1;
+            for (f, t, _) in &self.links {
+                if *f == nodes[i] {
+                    let j = nodes.binary_search(t).expect("a named node");
+                    indegree[j] -= 1;
+                    if indegree[j] == 0 {
+                        stack.push(j);
+                    }
+                }
+            }
+        }
+        seen != nodes.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.links.is_empty()
+    }
+
+    pub fn links(&self) -> &[(u16, u16, LinkEmit)] {
+        &self.links
+    }
+
+    /// The props `from` reaches with `emit`, in sidecar order.
+    pub fn targets(&self, from: u16, emit: LinkEmit) -> Vec<u16> {
+        self.links
+            .iter()
+            .filter(|(f, _, e)| *f == from && *e == emit)
+            .map(|(_, t, _)| *t)
+            .collect()
+    }
+
+    /// The links that end in `to`.
+    pub fn incoming(&self, to: u16) -> Vec<(u16, LinkEmit)> {
+        self.links
+            .iter()
+            .filter(|(_, t, _)| *t == to)
+            .map(|(f, _, e)| (*f, *e))
+            .collect()
+    }
+
+    /// The contact a prop `from`, set off at `trigger_depth` by `initiator`,
+    /// hands to a linked prop: one link deeper (saturating).
+    pub const fn contact(from: u16, initiator: Option<u32>, trigger_depth: u8) -> Stimulus {
+        Stimulus::PropContact {
+            source: from,
+            initiator,
+            depth: trigger_depth.saturating_add(1),
+        }
+    }
+
+    /// The longest path of the graph in links (at most [`MAX_LINKS`]).
+    pub fn longest_chain(&self) -> usize {
+        fn from(links: &[(u16, u16, LinkEmit)], node: u16) -> usize {
+            links
+                .iter()
+                .filter(|(f, _, _)| *f == node)
+                .map(|(_, t, _)| 1 + from(links, *t))
+                .max()
+                .unwrap_or(0)
+        }
+        self.links
+            .iter()
+            .map(|(f, _, _)| from(&self.links, *f))
+            .max()
+            .unwrap_or(0)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2176,6 +2510,7 @@ mod tests {
         let blast = Stimulus::Blast {
             blast_id: 3,
             owner: Some(0),
+            depth: 0,
         };
         assert_eq!(
             v.offer(blast),
@@ -2189,6 +2524,7 @@ mod tests {
         let drum = Stimulus::Blast {
             blast_id: 9,
             owner: None,
+            depth: 0,
         };
         assert_eq!(
             v.offer(drum),
@@ -2439,6 +2775,7 @@ mod tests {
             Stimulus::Blast {
                 blast_id: 1,
                 owner: None,
+                depth: 0,
             },
         ] {
             assert_eq!(v.offer(stimulus), Offer::Ignored(Ignored::AlreadyActivated));
@@ -2516,7 +2853,8 @@ mod tests {
         assert_eq!(
             Stimulus::Blast {
                 blast_id: 1,
-                owner: Some(1)
+                owner: Some(1),
+                depth: 0
             }
             .kind(),
             StimulusKind::Blast
@@ -2695,7 +3033,7 @@ mod falling_mass_tests {
     fn a_blast_releases_it_alone_through_the_blast_entry_point_and_keeps_its_owner() {
         let mut m = mass();
         assert_eq!(
-            m.break_by_blast(3, Some(0)),
+            m.break_by_blast(3, Some(0), 0),
             Offer::Triggered {
                 initiator: Some(0),
                 depth: 0
@@ -2711,15 +3049,15 @@ mod falling_mass_tests {
         };
         let mut half = FallingMass::new(one).unwrap();
         assert_eq!(
-            half.break_by_blast(4, None),
+            half.break_by_blast(4, None, 0),
             Offer::Progress { progress: 1 }
         );
         assert_eq!(
-            half.break_by_blast(4, None),
+            half.break_by_blast(4, None, 0),
             Offer::Ignored(Ignored::Duplicate)
         );
         assert_eq!(
-            m.break_by_blast(9, None),
+            m.break_by_blast(9, None, 0),
             Offer::Triggered {
                 initiator: None,
                 depth: 0
@@ -2728,10 +3066,11 @@ mod falling_mass_tests {
         // The entry point is the Blast stimulus, nothing more.
         let mut a = mass();
         let mut b = mass();
-        a.break_by_blast(5, Some(1));
+        a.break_by_blast(5, Some(1), 0);
         b.offer(Stimulus::Blast {
             blast_id: 5,
             owner: Some(1),
+            depth: 0,
         });
         assert_eq!(a, b);
         // A mass that takes no blasts says so.
@@ -2741,7 +3080,7 @@ mod falling_mass_tests {
         })
         .unwrap();
         assert_eq!(
-            deaf.break_by_blast(1, None),
+            deaf.break_by_blast(1, None, 0),
             Offer::Ignored(Ignored::NotAccepted)
         );
     }
@@ -2869,13 +3208,14 @@ mod falling_mass_tests {
     #[test]
     fn a_released_falling_or_landed_mass_ignores_everything() {
         let mut m = mass();
-        m.break_by_blast(1, None);
+        m.break_by_blast(1, None, 0);
         let all = [
             jab(9, 0),
             launch(2, 400),
             Stimulus::Blast {
                 blast_id: 7,
                 owner: None,
+                depth: 0,
             },
         ];
         for s in all {
@@ -2937,7 +3277,7 @@ mod falling_mass_tests {
         let hang = jb().hanging;
         assert_eq!(m.mass_rect(), Some(hang));
         assert_eq!(m.swept_mass_rect(), None);
-        m.break_by_blast(1, None);
+        m.break_by_blast(1, None, 0);
         for _ in 0..24 {
             m.step(&[]);
         }
@@ -2979,7 +3319,7 @@ mod falling_mass_tests {
             IRect::new(0, FLOOR - 16, 64, 16),
         );
         let mut m = FallingMass::new(tall).unwrap();
-        m.break_by_blast(1, None);
+        m.break_by_blast(1, None, 0);
         for _ in 0..24 {
             m.step(&[]);
         }
@@ -3057,7 +3397,7 @@ mod falling_mass_tests {
             // The end positions alone miss it.
             assert!(!prev.overlaps(footprint) && !cur.overlaps(footprint));
             let mut m = mass();
-            m.break_by_blast(1, None);
+            m.break_by_blast(1, None, 0);
             let (_, l) = run_to_landing(&mut m, &[body]);
             assert_eq!(l.hits.len(), 1, "speed {speed} tunnelled");
         }
@@ -3074,7 +3414,7 @@ mod falling_mass_tests {
             cur: IRect::new(720, FLOOR - 56, 28, 56),
         };
         let mut m = mass();
-        m.break_by_blast(1, None);
+        m.break_by_blast(1, None, 0);
         let (_, l) = run_to_landing(&mut m, &[above, beside]);
         assert!(l.hits.is_empty());
     }
@@ -3089,7 +3429,7 @@ mod falling_mass_tests {
             cur: IRect::new(footprint.right() + 10, FLOOR - 56, 28, 56),
         };
         let mut m = mass();
-        m.break_by_blast(1, None);
+        m.break_by_blast(1, None, 0);
         let (_, l) = run_to_landing(&mut m, &[leaving]);
         assert_eq!(l.hits.len(), 1);
         // A teleport across the footprint passes prev == cur: no hit.
@@ -3098,7 +3438,7 @@ mod falling_mass_tests {
             IRect::new(footprint.right() + 10, FLOOR - 56, 28, 56),
         );
         let mut m = mass();
-        m.break_by_blast(1, None);
+        m.break_by_blast(1, None, 0);
         let (_, l) = run_to_landing(&mut m, &[warped]);
         assert!(l.hits.is_empty());
     }
@@ -3122,7 +3462,7 @@ mod falling_mass_tests {
             let mut cfg = jb();
             cfg.hero_damage = policy;
             let mut m = FallingMass::new(cfg).unwrap();
-            m.break_by_blast(1, Some(0));
+            m.break_by_blast(1, Some(0), 0);
             let (_, l) = run_to_landing(&mut m, &bodies);
             assert_eq!(l.hits.len(), if hurts { 2 } else { 0 }, "{policy:?}");
             // The owner of the blast is hurt in full, not spared: the initiator
@@ -3136,7 +3476,7 @@ mod falling_mass_tests {
         let mut cfg = jb();
         cfg.hurts_enemies = false;
         let mut m = FallingMass::new(cfg).unwrap();
-        m.break_by_blast(1, None);
+        m.break_by_blast(1, None, 0);
         let (_, l) = run_to_landing(&mut m, &[goblin_at(3, 800), hero_at(0, 800)]);
         assert_eq!(
             l.hits.iter().map(|h| h.victim).collect::<Vec<_>>(),
@@ -3148,7 +3488,7 @@ mod falling_mass_tests {
         cfg.knock_x_px_s = 200;
         cfg.knock_up_px_s = 90;
         let mut m = FallingMass::new(cfg).unwrap();
-        m.break_by_blast(1, None);
+        m.break_by_blast(1, None, 0);
         let (_, l) = run_to_landing(&mut m, &[hero_at(0, 900 - 80)]);
         assert_eq!(
             (
@@ -3164,7 +3504,7 @@ mod falling_mass_tests {
     fn knock_goes_away_from_the_footprint_centre_and_a_body_on_it_goes_to_plus_x() {
         // The footprint centre is x = 816.
         let mut m = mass();
-        m.break_by_blast(1, None);
+        m.break_by_blast(1, None, 0);
         let bodies = [hero_at(0, 790), hero_at(1, 840), hero_at(2, 816)];
         let (_, l) = run_to_landing(&mut m, &bodies);
         let knocks: Vec<i16> = l.hits.iter().map(|h| h.knock_x_px_s).collect();
@@ -3175,7 +3515,7 @@ mod falling_mass_tests {
     #[test]
     fn one_outcome_per_victim_even_when_a_body_is_listed_twice() {
         let mut m = mass();
-        m.break_by_blast(1, None);
+        m.break_by_blast(1, None, 0);
         let b = hero_at(0, 800);
         let (_, l) = run_to_landing(&mut m, &[b, b, goblin_at(4, 820), goblin_at(4, 820)]);
         assert_eq!(l.hits.len(), 2);
@@ -3224,7 +3564,7 @@ mod falling_mass_tests {
     #[test]
     fn the_landing_lifts_a_hero_on_the_landing_tick_and_not_an_enemy() {
         let mut m = mass();
-        m.break_by_blast(1, Some(0));
+        m.break_by_blast(1, Some(0), 0);
         let (tick, l) = run_to_landing(&mut m, &[hero_at(0, 800), goblin_at(5, 840)]);
         assert_eq!(tick, 31);
         assert_eq!(
@@ -3242,7 +3582,7 @@ mod falling_mass_tests {
     #[test]
     fn a_hero_hurt_by_the_landing_is_also_lifted_so_nobody_ends_inside_the_solid() {
         let mut m = mass();
-        m.break_by_blast(1, None);
+        m.break_by_blast(1, None, 0);
         let (_, l) = run_to_landing(&mut m, &[hero_at(0, 800)]);
         assert_eq!(l.hits.len(), 1);
         assert_eq!(l.lifts.len(), 1);
@@ -3269,7 +3609,7 @@ mod falling_mass_tests {
         let mut cfg = jb();
         cfg.remnant = IRect::new(752, FLOOR - 32, 128, 32);
         let mut m = FallingMass::new(cfg).unwrap();
-        m.break_by_blast(1, None);
+        m.break_by_blast(1, None, 0);
         let (_, l) = run_to_landing(&mut m, &[hero_at(0, 800)]);
         assert_eq!(l.lifts[0].up_px, 32);
     }
@@ -3286,8 +3626,8 @@ mod falling_mass_tests {
         assert_eq!(hash(&a), hash(&c));
         let mut d = mass();
         let mut e = mass();
-        d.break_by_blast(1, None);
-        e.break_by_blast(1, None);
+        d.break_by_blast(1, None, 0);
+        e.break_by_blast(1, None, 0);
         run_to_landing(&mut d, &[hero_at(0, 800)]);
         run_to_landing(&mut e, &[]);
         assert_ne!(hash(&d), hash(&e), "who was hit is state");
@@ -3298,7 +3638,7 @@ mod falling_mass_tests {
         let fresh = hash(&mass());
         let mut m = mass();
         m.offer(jab(1, 0));
-        m.break_by_blast(2, Some(1));
+        m.break_by_blast(2, Some(1), 0);
         run_to_landing(&mut m, &[hero_at(0, 800)]);
         assert_ne!(hash(&m), fresh);
         m.reset();
@@ -3308,10 +3648,10 @@ mod falling_mass_tests {
         assert_eq!(m.telegraph_rect(), None);
         // A second attempt is identical to the first.
         let mut a = mass();
-        a.break_by_blast(2, Some(1));
+        a.break_by_blast(2, Some(1), 0);
         let (t1, l1) = run_to_landing(&mut a, &[hero_at(0, 800)]);
         a.reset();
-        a.break_by_blast(2, Some(1));
+        a.break_by_blast(2, Some(1), 0);
         let (t2, l2) = run_to_landing(&mut a, &[hero_at(0, 800)]);
         assert_eq!((t1, l1), (t2, l2));
     }
@@ -3341,7 +3681,7 @@ mod falling_mass_tests {
             ..jb()
         };
         let mut m = FallingMass::new(cfg).unwrap();
-        m.break_by_blast(1, None);
+        m.break_by_blast(1, None, 0);
         let (tick, _) = run_to_landing(&mut m, &[]);
         assert_eq!(tick, 30 + 12 - 1);
     }
@@ -4056,6 +4396,7 @@ mod boilc_review_tests {
         Stimulus::Blast {
             blast_id: id,
             owner,
+            depth: 0,
         }
     }
 
@@ -4341,7 +4682,8 @@ mod slide_tests {
         assert_eq!(
             s.offer(Stimulus::Blast {
                 blast_id: 1,
-                owner: None
+                owner: None,
+                depth: 0
             }),
             Offer::Ignored(Ignored::AlreadyActivated)
         );
@@ -4359,7 +4701,8 @@ mod slide_tests {
         assert!(matches!(
             s.offer(Stimulus::Blast {
                 blast_id: 4,
-                owner: Some(1)
+                owner: Some(1),
+                depth: 0
             }),
             Offer::Triggered {
                 initiator: Some(1),
@@ -4433,5 +4776,236 @@ mod slide_tests {
         s.reset();
         assert_eq!(hash(&s), hash(&fresh));
         assert_eq!(s, fresh);
+    }
+}
+
+#[cfg(test)]
+mod drum_link_tests {
+    use super::*;
+
+    fn drum() -> Drum {
+        Drum::new(DrumConfig::DEFAULT).unwrap()
+    }
+
+    fn launched(id: u32, speed: u16) -> Stimulus {
+        Stimulus::LaunchedBody {
+            launch_id: id,
+            impulse_px_s: speed,
+            initiator: Some(1),
+        }
+    }
+
+    #[test]
+    fn a_drum_takes_a_launch_at_the_threshold_and_not_below_it() {
+        let mut d = drum();
+        assert_eq!(d.offer(launched(1, 159)), Offer::Ignored(Ignored::TooWeak));
+        assert_eq!(d.state(), DrumState::Armed);
+        assert_eq!(
+            d.offer(launched(1, 160)),
+            Offer::Triggered {
+                initiator: Some(1),
+                depth: 0
+            }
+        );
+        assert_eq!(d.state(), DrumState::Telegraph);
+        // A used drum counts nothing more: one activation.
+        assert_eq!(
+            d.offer(launched(2, 400)),
+            Offer::Ignored(Ignored::AlreadyActivated)
+        );
+    }
+
+    #[test]
+    fn a_drum_refuses_melee_projectiles_and_shoves_and_stays_armed() {
+        for stimulus in [
+            Stimulus::MeleeHit {
+                token: 1,
+                player: 0,
+                weight: 3,
+            },
+            Stimulus::Projectile {
+                projectile_id: 1,
+                owner: Some(1),
+                weight: 3,
+            },
+            Stimulus::Shove {
+                shove_id: 1,
+                impulse_px_s: 400,
+                source: 0,
+                credit: Some(0),
+            },
+        ] {
+            let mut d = drum();
+            assert_eq!(d.offer(stimulus), Offer::Ignored(Ignored::NotAccepted));
+            assert_eq!(d.state(), DrumState::Armed, "{stimulus:?}");
+        }
+    }
+
+    #[test]
+    fn a_blast_and_a_prop_contact_set_a_drum_off_and_carry_their_depth() {
+        let mut d = drum();
+        assert_eq!(
+            d.offer(Stimulus::Blast {
+                blast_id: 7,
+                owner: Some(0),
+                depth: 3,
+            }),
+            Offer::Triggered {
+                initiator: Some(0),
+                depth: 3
+            }
+        );
+        assert_eq!(d.trigger_depth(), 3);
+        let mut c = drum();
+        assert_eq!(
+            c.offer(LinkGraph::contact(1, Some(1), 1)),
+            Offer::Triggered {
+                initiator: Some(1),
+                depth: 2
+            }
+        );
+    }
+
+    #[test]
+    fn a_contact_at_the_depth_cap_is_refused_and_one_below_it_counts() {
+        let at = |depth| Stimulus::PropContact {
+            source: 0,
+            initiator: None,
+            depth,
+        };
+        let mut d = drum();
+        assert_eq!(
+            d.offer(at(MAX_CHAIN_DEPTH)),
+            Offer::Ignored(Ignored::ChainTooDeep)
+        );
+        assert_eq!(d.state(), DrumState::Armed);
+        assert!(matches!(
+            d.offer(at(MAX_CHAIN_DEPTH - 1)),
+            Offer::Triggered { depth: 3, .. }
+        ));
+    }
+
+    #[test]
+    fn a_drum_follows_a_chain_lit_charge_once_and_reset_arms_it_again() {
+        let mut d = drum();
+        assert!(d.adopt_chain(Some(0), 1));
+        assert_eq!(
+            (d.state(), d.initiator(), d.trigger_depth()),
+            (DrumState::Telegraph, Some(0), 1)
+        );
+        assert!(!d.adopt_chain(Some(1), 3), "the first writer keeps");
+        assert_eq!(d.initiator(), Some(0));
+        d.detonated();
+        assert_eq!(d.state(), DrumState::Detonated);
+        assert!(!d.adopt_chain(None, 0));
+        d.reset();
+        assert_eq!(d, drum(), "reset equals new");
+    }
+
+    #[test]
+    fn the_drum_state_and_tokens_are_hashed() {
+        let words = |d: &Drum| {
+            let mut out = Vec::new();
+            d.mix_into(&mut |w| out.push(w));
+            out
+        };
+        let mut a = drum();
+        let before = words(&a);
+        a.offer(launched(5, 200));
+        assert_ne!(words(&a), before);
+        let mut b = drum();
+        b.offer(launched(6, 200));
+        assert_ne!(words(&a), words(&b), "the launch id is part of the state");
+    }
+
+    #[test]
+    fn a_drum_telegraph_under_the_floor_is_rejected() {
+        let short = DrumConfig {
+            telegraph_ticks: MIN_WARNING_TICKS - 1,
+            ..DrumConfig::DEFAULT
+        };
+        assert!(Drum::new(short).is_err());
+        let exact = DrumConfig {
+            telegraph_ticks: MIN_WARNING_TICKS,
+            ..DrumConfig::DEFAULT
+        };
+        assert!(Drum::new(exact).is_ok());
+    }
+
+    #[test]
+    fn a_blast_depth_reaches_a_brace_and_its_link_is_one_deeper() {
+        let hanging = IRect::new(784, 452, 64, 32);
+        let footprint = IRect::new(784, 484, 64, 96);
+        let remnant = IRect::new(784, 548, 64, 32);
+        let mut m = FallingMass::new(FallingMassConfig::new(hanging, footprint, remnant)).unwrap();
+        assert!(matches!(
+            m.break_by_blast(1, Some(0), 2),
+            Offer::Triggered { depth: 2, .. }
+        ));
+        assert_eq!(m.trigger_depth(), 2);
+        let contact = LinkGraph::contact(1, m.initiator(), m.trigger_depth());
+        assert_eq!(contact.depth(), 3, "NB-4: the link continues the count");
+    }
+
+    fn graph(links: &[(u16, u16)]) -> Result<LinkGraph, String> {
+        LinkGraph::new(
+            links
+                .iter()
+                .map(|(f, t)| (*f, *t, LinkEmit::Landing))
+                .collect(),
+        )
+    }
+
+    #[test]
+    fn the_link_graph_rejects_a_cycle_a_self_link_a_duplicate_and_a_fourth_link() {
+        assert!(graph(&[(0, 1), (1, 2)]).is_ok());
+        assert!(graph(&[(0, 1), (1, 0)]).unwrap_err().contains("cycle"));
+        assert!(
+            graph(&[(0, 1), (1, 2), (2, 0)])
+                .unwrap_err()
+                .contains("cycle")
+        );
+        assert!(graph(&[(1, 1)]).unwrap_err().contains("itself"));
+        assert!(graph(&[(0, 1), (0, 1)]).unwrap_err().contains("duplicate"));
+        assert!(
+            graph(&[(0, 1), (1, 2), (2, 3), (3, 4)])
+                .unwrap_err()
+                .contains("at most")
+        );
+    }
+
+    #[test]
+    fn the_link_graph_answers_by_source_and_emit_and_measures_its_chain() {
+        let g = LinkGraph::new(vec![
+            (0, 1, LinkEmit::Steam),
+            (1, 2, LinkEmit::Landing),
+            (1, 3, LinkEmit::Blast),
+        ])
+        .unwrap();
+        assert_eq!(g.targets(0, LinkEmit::Steam), [1]);
+        assert!(
+            g.targets(0, LinkEmit::Landing).is_empty(),
+            "the emit matters"
+        );
+        assert_eq!(g.targets(1, LinkEmit::Landing), [2]);
+        assert_eq!(g.targets(1, LinkEmit::Blast), [3]);
+        assert_eq!(g.incoming(1), [(0, LinkEmit::Steam)]);
+        assert_eq!(g.longest_chain(), 2);
+        assert_eq!(LinkGraph::default().longest_chain(), 0);
+        assert!(LinkGraph::default().is_empty());
+    }
+
+    #[test]
+    fn a_contact_depth_saturates_and_the_machines_refuse_it() {
+        assert_eq!(LinkGraph::contact(0, None, u8::MAX).depth(), u8::MAX);
+        let mut v = Valve::new(ValveConfig {
+            contact_weight: 2,
+            ..ValveConfig::DEFAULT
+        })
+        .unwrap();
+        assert_eq!(
+            v.offer(LinkGraph::contact(0, None, MAX_CHAIN_DEPTH - 1)),
+            Offer::Ignored(Ignored::ChainTooDeep)
+        );
     }
 }

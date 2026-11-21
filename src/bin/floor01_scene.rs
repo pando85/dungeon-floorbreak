@@ -6160,7 +6160,9 @@ fn sync_blast_visuals(
                 }
                 None => *visibility = Visibility::Hidden,
             }
-        } else if charge.detonated {
+        } else if charge.detonated || state.env_owns_charge(index) {
+            // A prop's blast (the Boiler's drum) draws no stick: the prop is
+            // its own art (BOIL-E); its burst is the one above.
             *visibility = Visibility::Hidden;
         } else {
             // The lit charge: above the goblins, below Carl (it was under every

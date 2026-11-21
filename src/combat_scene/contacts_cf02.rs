@@ -14,8 +14,10 @@
 //! deals contact damage (Q12); the only damage is the wall's (Q11).
 
 use super::CombatState;
+use super::env::LaunchedBody;
 use crate::cf02::{Cf02Tuning, ContactMode};
 use crate::combat::{CombatEvent, DefeatCause, MoveId, carl_move};
+use crate::corridor::SceneSim;
 use crate::goblin::GoblinMode;
 use crate::scene_enemy::SlotContact;
 
@@ -44,7 +46,12 @@ impl CombatState {
     }
 
     /// CF02-Q09..Q12: the contacts and wall slams of this tick.
-    pub(super) fn resolve_contacts_cf02(&mut self, t: &'static Cf02Tuning, tick: u64) {
+    pub(super) fn resolve_contacts_cf02(
+        &mut self,
+        t: &'static Cf02Tuning,
+        scene: &SceneSim,
+        tick: u64,
+    ) {
         let min_vx = f32::from(t.q09_contact_min_vx);
         for source in 0..self.enemies.len() {
             let Some(flier) = self.flier_of(source) else {
@@ -55,6 +62,9 @@ impl CombatState {
                     .wall_stop
                     .is_some_and(|speed| speed >= min_vx)
             {
+                // BOIL-D: the solid that stopped the flier may be a prop (the
+                // drum): judged before the slam changes the goblin.
+                self.contact_env_props(scene, source, &flier, self.enemies[source].vx.abs(), tick);
                 self.wall_slam(t, tick, source, &flier);
                 continue;
             }
@@ -122,7 +132,37 @@ impl CombatState {
             }
             // ENEMY-SLOT: the same flier against the slot enemies' contact boxes.
             self.contact_slot_enemies(source, &flier, speed, tick);
+            // BOIL-D: and against the env props, after the enemies.
+            self.contact_env_props(scene, source, &flier, speed, tick);
         }
+    }
+
+    /// BOIL-D: the prop contact target (after ENEMY-SLOT's enemy target). The
+    /// flier's box, launch and credit go to the env step's target, which
+    /// identifies the live hit targets and **every** env solid of the runtime
+    /// sync by its index range (KR7). `speed` is the flier's speed when this
+    /// tick's contacts began (the enemy contacts slow it afterwards). A room
+    /// without props returns at once.
+    fn contact_env_props(
+        &mut self,
+        scene: &SceneSim,
+        source: usize,
+        flier: &Flier,
+        speed: f32,
+        tick: u64,
+    ) {
+        if self.env().is_none() {
+            return;
+        }
+        let g = &self.enemies[source];
+        let body = LaunchedBody {
+            body: g.body(),
+            launch: flier.launch,
+            initiator: g.hit_by,
+            speed,
+            stop: g.wall_stop,
+        };
+        self.env_launched_contacts(scene, &body, tick);
     }
 
     /// ENEMY-SLOT: a flier (a living launched goblin or a bowling body) that

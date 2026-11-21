@@ -206,7 +206,9 @@ mod tests {
     /// Re-pinned by BOIL-B/C wire: the shared Boiler walk jumps the drum at tick 229.
     const GOLDEN_STAND_IN: u64 = 0x7502_9aea_159b_bbdd;
     /// Re-pinned by BOIL-B/C wire: the Boiler now runs its env step and the jump.
-    const GOLDEN_BOILER: u64 = 0x6a07_7143_d03b_997e;
+    /// Re-pinned by BOIL-D: the drum's blast charge joins the Boiler's state hash
+    /// (the walk touches no prop, so nothing else moved).
+    const GOLDEN_BOILER: u64 = 0xd76e_2a86_49e8_48be;
     const GOLDEN_JUICER: u64 = 0x60d4_470f_f8d7_4c3b;
 
     #[test]

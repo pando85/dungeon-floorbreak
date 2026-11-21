@@ -589,6 +589,7 @@ fn hit_stimuli_provoke_with_the_right_cause_and_credit() {
             Stimulus::Blast {
                 blast_id: 1,
                 owner: Some(0),
+                depth: 0,
             },
             None,
             None,
