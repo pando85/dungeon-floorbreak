@@ -1,0 +1,30 @@
+{
+  "schema": "floor01-demo-hall-v1",
+  "status": "BOIL-A core greybox room (FLOOR01-BOILER-01): geometry only, composed at load time from approved Floor 01 kit pieces by camera_lab::layout (no new art, not an authored level). Props, hazards, roster and links live in f01_boiler.encounter.json, validated by src/encounter.rs.",
+  "scenarios": [
+    {
+      "id": "F01-BOILER",
+      "name": "Goblin Boiler",
+      "subtitle": "Floor 01 goblin boiler works: one valve, one brace, one weight",
+      "act": 2,
+      "setting": "workshop",
+      "width": 1152,
+      "height": 660,
+      "floor": 580,
+      "spawn": { "carl": 112, "donut": 80 },
+      "camera_intro": 112,
+      "ceiling_px": 228,
+      "platforms": [
+        { "x": 304, "y": 500, "w": 144, "h": 16 },
+        { "x": 928, "y": 500, "w": 128, "h": 16 }
+      ],
+      "props": [],
+      "enemies": [],
+      "hazards": [],
+      "goal_x": 1104,
+      "purpose": "A 1152 px scrolling hall with one continuous protected ground lane and two optional 80 px perches (Carl's class, CF02-Q45 convention: one tile slabs, underside 68 px, so the lane stays walkable underneath). The boiler works are an encounter sidecar, not room geometry.",
+      "expected": "Spawns, props, hazards and the roster come from f01_boiler.encounter.json; this file holds geometry only.",
+      "coop": "Solo with a swap, or two players: every critical route is open to Carl's 80 px class; no Donut-only gate."
+    }
+  ]
+}
