@@ -261,4 +261,6 @@ Use actual, currently supported script flags. Supply replay hashes, ordered even
 
 Each stage PR includes: **Why**, **Change**, **Acceptance Criteria** (checked only when verified), **Commands & Results**, **Visual Evidence**, **Performance Data**, **Rights/Provenance**, **Risks**, **Next PR**. An independent gameplay/architecture reviewer checks the final head; subsequent merged mechanics stay **game-feel review pending** until the owner plays. The coordinator updates the backlog status per stage; do not silently mark all COMPANION-AI-01 work complete after 01A.
 
+**Follow-up work order:** [COMPANION-AI-02 — Donut autonomy](companion-ai-02-workorder.md) (proposal; needs DONUT-MOBILITY-01 stage DM-A merged; #170 is merged).
+
 **Next agent task:** 01A-core, 01B-core, 01C and 01A-wire (#151) are merged; 01B-wire is in review (draft PR); COMBAT-LAB-03 (both heroes traversing tiers with AI) builds on it.
