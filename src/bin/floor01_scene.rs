@@ -86,7 +86,7 @@ use dungeon_floorbreak::{
     env_kit::{
         EnvKit, IRect, PieceDraw, animation_frame, parallax_copies, parallax_start, to_world_y,
     },
-    f01_boiler,
+    f01_boiler, f01_late,
     feel::{
         HERO_HURT_TICKS, IMPACT_FLASH_TICKS, LLAMA_GLOB_MOUTH_DX, LLAMA_GLOB_MOUTH_DY,
         LLAMA_GLOB_SPEED,
@@ -308,6 +308,17 @@ struct Args {
     f01_boiler: bool,
     /// The launched Boiler room (`main` fills it right after parsing).
     boiler_run: Option<Box<f01_boiler::BoilerRun>>,
+    /// PT-SCENE: `--scene f01_late`. It is a launcher: the room (`--f01-room`)
+    /// and the loadout (`--f01-loadout`) resolve, once the arguments are read,
+    /// to the scene that runs the room (`f01_boiler` or the boss arena) and the
+    /// program flags of the loadout.
+    f01_late: bool,
+    /// The late-Floor-1 room of the run: the `--f01-room` argument, resolved to
+    /// the listed room (the Boiler also names itself under `--scene f01_boiler`).
+    /// It is the descriptor's `f01_room`.
+    f01_room: Option<String>,
+    /// The `--f01-loadout` argument, resolved (the descriptor's `f01_loadout`).
+    f01_loadout: Option<f01_late::Loadout>,
     /// PLAYTRACE-RENDER-01 PTR-R1: `--replay-session ID`: the offline replay
     /// viewer. It takes the simulation from the recording alone, so every
     /// gameplay flag and every `--record*` flag is a parse error with it.
@@ -380,7 +391,7 @@ impl Args {
         match self.record {
             RecordMode::On => true,
             RecordMode::Off => false,
-            RecordMode::Auto => RECORD_DEFAULT_ON && self.live_input() && !self.f01_boiler,
+            RecordMode::Auto => RECORD_DEFAULT_ON && self.live_input(),
         }
     }
 
@@ -590,8 +601,8 @@ fn resolve_lab_args(parsed: &mut Args) -> Result<(), String> {
 /// implies `cf02_rules` (the run configuration of every Floor 01 setpiece) and
 /// is its own room, so the run modes that pick another room or script are
 /// refused. It starts with the biscuit (the post-Hoarder state, K1), the story
-/// pin applies under `--carl-prog` and `--donut-prog`, and the scene is not
-/// recorded yet.
+/// pin applies under `--carl-prog` and `--donut-prog`, and the scene is recorded
+/// by PLAYTRACE since PT-SCENE.
 fn resolve_boiler_args(parsed: &mut Args) -> Result<(), String> {
     if !parsed.f01_boiler {
         return Ok(());
@@ -614,9 +625,9 @@ fn resolve_boiler_args(parsed: &mut Args) -> Result<(), String> {
     {
         return Err("--scene f01_boiler replaces --demo, --cf02, --cf02-engineer, --autopilot, --demo-beat, --fixture, --party-fixture, --scenario, --camera-test-room and --reference-frame (it is its own room)".into());
     }
-    if parsed.record == RecordMode::On {
-        return Err("--record is refused with --scene f01_boiler: the room has no replay source yet (PT-SCENE adds it), so a session could not be verified".into());
-    }
+    // PT-SCENE: the room has a replay source (`f01_late::boiler_start`), so it
+    // records like every live room.
+    parsed.f01_room.get_or_insert_with(|| "boiler".to_owned());
     parsed.cf02.rules = true;
     // The launch builds the real fixture; a placeholder keeps the generic
     // argument rules (`driven`) honest until then, like the lab.
@@ -630,6 +641,74 @@ fn resolve_boiler_args(parsed: &mut Args) -> Result<(), String> {
         || parsed.exit_after_ticks.is_some()
         || parsed.freeze
         || parsed.perf_frames.is_some());
+    Ok(())
+}
+
+/// PT-SCENE: `--scene f01_late [--f01-room ID] [--f01-loadout story|all]`.
+/// The scene is a launcher: it resolves the room against the manifest (an
+/// unknown or unlisted room is refused with the listed rooms), applies the
+/// loadout's program flags and selects the scene that runs the room, so the rest
+/// of the argument rules and the run are those of that scene. The run
+/// configuration, the story pin and the loadout come from the scene and the
+/// loadout, never from the flags that would set them by hand.
+fn resolve_f01_late_args(parsed: &mut Args) -> Result<(), String> {
+    if !parsed.f01_late {
+        if parsed.f01_room.is_some() || parsed.f01_loadout.is_some() {
+            return Err("--f01-room and --f01-loadout need --scene f01_late".into());
+        }
+        return Ok(());
+    }
+    if parsed.cf02.rules {
+        return Err(
+            "--scene f01_late sets its own run rules per room: drop --cf02 (it selects the microarena)"
+                .into(),
+        );
+    }
+    if parsed.cf02_engineer
+        || parsed.demo
+        || parsed.autopilot
+        || parsed.demo_beat != 0
+        || parsed.fixture.is_some()
+        || parsed.party_fixture.is_some()
+        || parsed.scenario.is_some()
+        || parsed.camera_test_room.is_some()
+        || parsed.reference_frame
+    {
+        return Err("--scene f01_late replaces --demo, --cf02, --cf02-engineer, --autopilot, --demo-beat, --fixture, --party-fixture, --scenario, --camera-test-room and --reference-frame (a room is its own scene)".into());
+    }
+    if parsed.carl.dynamite
+        || parsed.carl.gauntlet
+        || parsed.donut.light_feet
+        || parsed.donut.puddle
+    {
+        return Err("--scene f01_late refuses --carl-dynamite, --carl-gauntlet, --donut-light-feet and --donut-puddle: the loadout sets them (--f01-loadout all)".into());
+    }
+    let loadout = parsed.f01_loadout.unwrap_or(f01_late::Loadout::Story);
+    if loadout == f01_late::Loadout::All && (parsed.carl.prog || parsed.donut.prog) {
+        return Err("--f01-loadout all is a TEST LOADOUT with the story triggers off: drop --carl-prog and --donut-prog".into());
+    }
+    let root = std::env::current_dir().map_err(|e| format!("no working directory: {e}"))?;
+    let manifest = f01_late::Manifest::load(&root)?;
+    let row = match parsed.f01_room.as_deref() {
+        Some(id) => manifest.room(id).map_err(|e| format!("--f01-room: {e}"))?,
+        None => manifest.default_room(),
+    };
+    parsed.f01_room = Some(row.id.clone());
+    parsed.f01_loadout = Some(loadout);
+    let (carl, donut) = loadout.flags();
+    parsed.carl.prog |= carl.prog;
+    parsed.carl.dynamite |= carl.dynamite;
+    parsed.carl.gauntlet |= carl.gauntlet;
+    parsed.donut.prog |= donut.prog;
+    parsed.donut.puddle |= donut.puddle;
+    parsed.donut_biscuit |= parsed.donut.implies_biscuit();
+    match row.scene {
+        f01_late::RoomScene::Boiler => parsed.f01_boiler = true,
+        f01_late::RoomScene::Boss => {
+            parsed.boss = true;
+            parsed.fixture = Some(boss_scene::BOSS01_SCENE);
+        }
+    }
     Ok(())
 }
 
@@ -983,6 +1062,9 @@ fn parse_args_full(
         lab_run: None,
         f01_boiler: false,
         boiler_run: None,
+        f01_late: false,
+        f01_room: None,
+        f01_loadout: None,
         replay: None,
     };
     let mut iter = args.iter().skip(1);
@@ -1087,10 +1169,10 @@ fn parse_args_full(
             "--scene" => {
                 let value = iter
                     .next()
-                    .ok_or("--scene needs a name (boss_f01, combat_lab, f01_boiler)")?;
-                if parsed.boss || parsed.lab_scene || parsed.f01_boiler {
+                    .ok_or("--scene needs a name (boss_f01, combat_lab, f01_boiler, f01_late)")?;
+                if parsed.boss || parsed.lab_scene || parsed.f01_boiler || parsed.f01_late {
                     return Err(
-                        "--scene takes one scene: boss_f01, combat_lab and f01_boiler are exclusive"
+                        "--scene takes one scene: boss_f01, combat_lab, f01_boiler and f01_late are exclusive"
                             .into(),
                     );
                 }
@@ -1106,15 +1188,27 @@ fn parse_args_full(
                     }
                     "combat_lab" => parsed.lab_scene = true,
                     f01_boiler::SCENE_NAME => parsed.f01_boiler = true,
+                    f01_late::SCENE_NAME => parsed.f01_late = true,
                     _ => {
                         return Err(format!(
-                            "unknown scene {value:?} (expected boss_f01, combat_lab, f01_boiler)"
+                            "unknown scene {value:?} (expected boss_f01, combat_lab, f01_boiler, f01_late)"
                         ));
                     }
                 }
             }
             other if lab_flag(&mut parsed.lab, other, &mut iter)? => {
                 parsed.lab_variant_set |= other == "--lab-variant";
+            }
+            "--f01-room" => {
+                let value = iter.next().ok_or("--f01-room needs a room id")?;
+                parsed.f01_room = Some(value.clone());
+            }
+            "--f01-loadout" => {
+                let value = iter.next().ok_or("--f01-loadout needs story or all")?;
+                parsed.f01_loadout =
+                    Some(f01_late::Loadout::parse(value).ok_or_else(|| {
+                        format!("unknown loadout {value:?} (expected story or all)")
+                    })?);
             }
             "--lab-autopilot" => parsed.lab_autopilot = true,
             "--autopilot" => parsed.autopilot = true,
@@ -1258,6 +1352,7 @@ fn parse_args_full(
         }
     }
     resolve_lab_args(&mut parsed)?;
+    resolve_f01_late_args(&mut parsed)?;
     resolve_boiler_args(&mut parsed)?;
     if parsed.cf02.seed.is_some() && !parsed.cf02.rules && !parsed.lab_scene {
         return Err("--cf02-seed needs --cf02 (or --scene combat_lab)".into());
@@ -2003,6 +2098,17 @@ fn main() -> ExitCode {
             println!("{name}");
         }
         return ExitCode::SUCCESS;
+    }
+    // PT-SCENE: the launcher names its room, the scene it runs on and the loadout.
+    if args.f01_late
+        && let Ok(root) = std::env::current_dir()
+        && let Ok(manifest) = f01_late::Manifest::load(&root)
+        && let Some(room) = args
+            .f01_room
+            .as_deref()
+            .and_then(|id| manifest.room(id).ok())
+    {
+        println!("{}", f01_late::entry_line(room, args.f01_loadout));
     }
     if args.cf02.rules {
         match Cf02Tuning::pinned() {
@@ -2847,6 +2953,9 @@ fn recording_manifest(
             lab_flow::SESSION_SOURCE,
             args.fixture.map_or("", |f| f.name),
         )
+    } else if args.f01_boiler {
+        // PT-SCENE: the Boiler has its own replay source.
+        (f01_late::SESSION_SOURCE, f01_boiler::SCENE_NAME)
     } else if args.demo {
         ("demo", args.fixture.map_or("", |f| f.name))
     } else if args.boss {
@@ -2874,6 +2983,8 @@ fn recording_manifest(
         donut_prog: args.donut.prog,
         donut_light_feet: args.donut.light_feet,
         donut_puddle: args.donut.puddle,
+        f01_room: args.f01_room.clone(),
+        f01_loadout: args.f01_loadout.map(|l| l.name().to_owned()),
         kit_hash,
         start_hash,
     };
@@ -2938,6 +3049,17 @@ fn recording_manifest(
                 .insert(key.to_owned(), "true".to_owned());
         }
     }
+    // PT-SCENE: the room and the loadout, next to the descriptor fields.
+    if let Some(room) = &args.f01_room {
+        manifest
+            .feature_flags
+            .insert("f01_room".to_owned(), room.clone());
+    }
+    if let Some(loadout) = args.f01_loadout {
+        manifest
+            .feature_flags
+            .insert("f01_loadout".to_owned(), loadout.name().to_owned());
+    }
     manifest
 }
 
@@ -2962,13 +3084,6 @@ fn start_recording(
             if !(RECORD_DEFAULT_ON && args.live_input()) {
                 // Scripted, headless and capture paths print nothing.
                 return None;
-            }
-            if args.f01_boiler {
-                // BOIL-A wire: no replay source for this room yet (PT-SCENE).
-                println!(
-                    "PLAYTRACE_DISABLED reason=f01_boiler this room has no replay source yet, so the session is not recorded"
-                );
-                return refuse_if_strict(args, "f01_boiler");
             }
             if let Some(reason) = record_env_off() {
                 println!(
@@ -8674,25 +8789,233 @@ mod tests {
         assert!(!args(&["--cf02"]).unwrap().f01_boiler);
     }
 
+    /// PT-SCENE: the Boiler has a replay source now, so it records like every
+    /// live room (`--record` is accepted) and its descriptor names the room.
     #[test]
-    fn the_boiler_scene_is_never_recorded_yet() {
-        // No replay source exists for the room (PT-SCENE): neither the default
-        // nor `--record` records it.
+    fn the_boiler_scene_is_recorded_since_pt_scene() {
         assert!(
-            !args(&["--scene", "f01_boiler"])
+            args(&["--scene", "f01_boiler"])
                 .unwrap()
                 .recording_enabled()
         );
-        let error = args(&["--scene", "f01_boiler", "--record"]).expect_err("--record");
-        assert!(error.contains("no replay source"), "{error}");
-        // `--no-record` is fine and still off.
+        assert!(
+            args(&["--scene", "f01_boiler", "--record"])
+                .unwrap()
+                .recording_enabled()
+        );
         assert!(
             !args(&["--scene", "f01_boiler", "--no-record"])
                 .unwrap()
                 .recording_enabled()
         );
-        // Every other live run still records by default.
+        // A scripted run records nothing by default.
+        assert!(
+            !args(&["--scene", "f01_boiler", "--headless-floor01-smoke"])
+                .unwrap()
+                .recording_enabled()
+        );
+        assert_eq!(
+            args(&["--scene", "f01_boiler"])
+                .unwrap()
+                .f01_room
+                .as_deref(),
+            Some("boiler")
+        );
+        // Every other live run records by default, and names no room.
         assert!(args(&["--cf02"]).unwrap().recording_enabled());
+        assert!(args(&["--cf02"]).unwrap().f01_room.is_none());
+        assert!(args(&["--scene", "boss_f01"]).unwrap().f01_room.is_none());
+    }
+
+    /// PT-SCENE: `--scene f01_late` resolves a room and a loadout into the scene
+    /// that runs the room and the loadout's flags.
+    #[test]
+    fn the_f01_late_scene_resolves_rooms_and_loadouts() {
+        // The default room is the first listed one, under the story loadout.
+        let late = args(&["--scene", "f01_late"]).unwrap();
+        assert!(late.f01_late && late.f01_boiler && late.cf02.rules && !late.demo);
+        assert_eq!(late.f01_room.as_deref(), Some("boiler"));
+        assert_eq!(late.f01_loadout, Some(f01_late::Loadout::Story));
+        assert!(
+            late.carl.prog && late.donut.prog,
+            "story implies both programs"
+        );
+        assert!(!late.carl.dynamite && !late.donut.puddle);
+        assert!(late.manual, "a live run is the player's");
+        // The same room by name equals the default.
+        let boiler = args(&["--scene", "f01_late", "--f01-room", "boiler"]).unwrap();
+        assert!(boiler.f01_boiler && boiler.carl.prog);
+        // The Juicer is the boss scene under the loadout.
+        let juicer = args(&["--scene", "f01_late", "--f01-room", "juicer"]).unwrap();
+        assert!(juicer.boss && !juicer.f01_boiler && !juicer.cf02.rules);
+        assert_eq!(juicer.fixture, Some(boss_scene::BOSS01_SCENE));
+        assert_eq!(juicer.f01_room.as_deref(), Some("juicer"));
+        assert!(juicer.carl.prog && juicer.donut.prog);
+        // `all`: the debug start flags, the story programs off.
+        let all = args(&["--scene", "f01_late", "--f01-loadout", "all"]).unwrap();
+        assert!(all.carl.dynamite && all.carl.gauntlet && all.donut.puddle);
+        assert!(!all.carl.prog && !all.donut.prog, "story triggers off");
+        assert!(all.donut_biscuit, "the puddle implies the biscuit");
+        let all_juicer = args(&[
+            "--scene",
+            "f01_late",
+            "--f01-room",
+            "juicer",
+            "--f01-loadout",
+            "all",
+        ])
+        .unwrap();
+        assert!(all_juicer.boss && !all_juicer.carl.prog);
+        // A scripted run is not the player's.
+        assert!(
+            !args(&["--scene", "f01_late", "--headless-floor01-smoke"])
+                .unwrap()
+                .manual
+        );
+        // The story setup is each room's own pin.
+        assert_eq!(
+            story_setup(&juicer).holds().len(),
+            2,
+            "the Juicer's two pins"
+        );
+        assert_eq!(
+            story_setup(&juicer).trigger_ids(),
+            ["brute_boss_f01_defeated"]
+        );
+        assert!(story_setup(&all_juicer).trigger_ids().is_empty());
+        assert_eq!(story_setup(&all_juicer).holds().len(), 4);
+    }
+
+    /// PT-SCENE acceptance: each refusal has a test.
+    #[test]
+    fn the_f01_late_scene_refuses_what_it_replaces() {
+        let refused = |extra: &[&str]| {
+            let mut list = vec!["--scene", "f01_late"];
+            list.extend_from_slice(extra);
+            args(&list).expect_err(&format!("{list:?}"))
+        };
+        for extra in [
+            &["--cf02"][..],
+            &["--cf02-engineer"],
+            &["--demo"],
+            &["--scenario", "walk_right"],
+            &["--fixture", "cp01_kick"],
+            &["--party-fixture", "duo_independent_moves"],
+            &["--reference-frame"],
+            &["--carl-dynamite"],
+            &["--carl-gauntlet"],
+            &["--donut-light-feet"],
+            &["--donut-puddle"],
+            &["--autopilot"],
+            &["--demo-beat", "2"],
+            &["--camera-test-room", "1"],
+        ] {
+            refused(extra);
+        }
+        // `--cf02` first is refused too, and the scenes are exclusive.
+        assert!(args(&["--cf02", "--scene", "f01_late"]).is_err());
+        for other in ["boss_f01", "combat_lab", "f01_boiler"] {
+            assert!(args(&["--scene", "f01_late", "--scene", other]).is_err());
+            assert!(args(&["--scene", other, "--scene", "f01_late"]).is_err());
+        }
+        // The story programs are the loadout's: `all` refuses them.
+        for extra in [&["--carl-prog"][..], &["--donut-prog"]] {
+            let mut list = vec!["--scene", "f01_late", "--f01-loadout", "all"];
+            list.extend_from_slice(extra);
+            assert!(args(&list).is_err(), "{list:?}");
+        }
+        // The room and loadout flags need the scene.
+        for list in [
+            &["--f01-room", "boiler"][..],
+            &["--f01-loadout", "story"],
+            &["--scene", "boss_f01", "--f01-room", "juicer"],
+            &["--scene", "f01_boiler", "--f01-loadout", "all"],
+            &["--cf02", "--f01-room", "boiler"],
+        ] {
+            let error = args(list).expect_err(&format!("{list:?}"));
+            assert!(error.contains("need --scene f01_late"), "{error}");
+        }
+        // An unknown or unlisted room names the listed rooms; a bad loadout fails.
+        let error = refused(&["--f01-room", "cellar"]);
+        assert!(
+            error.contains("unknown room") && error.contains("boiler, juicer"),
+            "{error}"
+        );
+        for unlisted in ["corral", "hoarder", "hazards", "dozer", "mastery"] {
+            let error = refused(&["--f01-room", unlisted]);
+            assert!(
+                error.contains("unlisted room") && error.contains("boiler, juicer"),
+                "{error}"
+            );
+        }
+        assert!(refused(&["--f01-loadout", "everything"]).contains("unknown loadout"));
+        assert!(refused(&["--f01-room"]).contains("needs a room id"));
+        // Other scenes are unchanged: no room label on the legacy runs.
+        assert!(!args(&["--scene", "boss_f01"]).unwrap().f01_late);
+    }
+
+    /// PT-SCENE: the recorded descriptor names the room and the loadout, the
+    /// Boiler has its own replay source, and the Juicer records as `boss`.
+    #[test]
+    fn the_f01_late_descriptor_names_the_room_and_the_loadout() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let manifest_of = |list: &[&str]| {
+            let run = args(list).unwrap();
+            let kit = if run.f01_boiler {
+                f01_boiler::launch(root).unwrap().kit
+            } else {
+                boss_scene::load_arena(root).unwrap()
+            };
+            let sim = SceneSim::new_at(&kit, 360, 112).unwrap();
+            let party = run.live_party();
+            recording_manifest(&run, &sim, None, &party, root)
+        };
+        let boiler = manifest_of(&["--scene", "f01_late", "--f01-room", "boiler"]);
+        assert_eq!(boiler.reset.source, f01_late::SESSION_SOURCE);
+        assert_eq!(boiler.reset.f01_room.as_deref(), Some("boiler"));
+        assert_eq!(boiler.reset.f01_loadout.as_deref(), Some("story"));
+        assert!(boiler.reset.carl_prog && boiler.reset.donut_prog && boiler.reset.cf02_rules);
+        assert_eq!(
+            boiler.feature_flags.get("f01_room").map(String::as_str),
+            Some("boiler")
+        );
+        let juicer = manifest_of(&[
+            "--scene",
+            "f01_late",
+            "--f01-room",
+            "juicer",
+            "--f01-loadout",
+            "all",
+        ]);
+        assert_eq!(juicer.reset.source, "boss");
+        assert_eq!(juicer.reset.f01_room.as_deref(), Some("juicer"));
+        assert_eq!(juicer.reset.f01_loadout.as_deref(), Some("all"));
+        assert!(juicer.reset.carl_dynamite && juicer.reset.donut_puddle && !juicer.reset.carl_prog);
+        // A direct Boiler launch names the room and no loadout; a legacy run neither.
+        let direct = manifest_of(&["--scene", "f01_boiler", "--carl-prog"]);
+        assert_eq!(direct.reset.f01_room.as_deref(), Some("boiler"));
+        assert_eq!(direct.reset.f01_loadout, None);
+        let boss = manifest_of(&["--scene", "boss_f01"]);
+        assert_eq!((boss.reset.f01_room, boss.reset.f01_loadout), (None, None));
+        // The binary's start state is the library constructor the verifier calls.
+        let run = args(&["--scene", "f01_late"]).unwrap();
+        let launched = f01_boiler::launch(root).unwrap();
+        let scene = SceneSim::new_at(&launched.kit, 360, launched.fixture.carl_x).unwrap();
+        let by_args = CombatState::new(launched.fixture, &launched.kit, &scene)
+            .unwrap()
+            .with_donut(donut_setup(&run))
+            .try_with_story(story_setup(&{
+                let mut with_run = run.clone();
+                with_run.boiler_run = Some(Box::new(launched.clone()));
+                with_run
+            }))
+            .unwrap()
+            .with_demo(launched.rules)
+            .with_cf02()
+            .with_cf02_seed(run.cf02.seed);
+        let by_lib =
+            f01_late::boiler_combat(&launched, &scene, run.carl, run.donut, run.cf02.seed).unwrap();
+        assert_eq!(by_args.state_hash(&scene), by_lib.state_hash(&scene));
     }
 
     #[test]

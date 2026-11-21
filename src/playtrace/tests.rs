@@ -42,6 +42,8 @@ pub(super) fn reset() -> ResetDescriptor {
         donut_prog: false,
         donut_light_feet: false,
         donut_puddle: false,
+        f01_room: None,
+        f01_loadout: None,
         kit_hash: 0,
         start_hash: 0xcbf2_9ce4_8422_2325,
     }

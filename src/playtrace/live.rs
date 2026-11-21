@@ -200,6 +200,14 @@ pub fn data_pins() -> Vec<(&'static str, u64)> {
             crate::f01_boiler::ENCOUNTER_PIN_KEY,
             crate::f01_boiler::ENCOUNTER_HASH,
         ),
+        // PT-SCENE: the manifest of the rooms `--scene f01_late` launches. The
+        // three room pins above and this one are scoped: a recording that names
+        // no room (`reset.f01_room`) and records none of them still verifies
+        // (`f01_late::pin_is_scoped_out`).
+        (
+            crate::f01_late::MANIFEST_PIN_KEY,
+            crate::f01_late::MANIFEST_HASH,
+        ),
     ]
 }
 

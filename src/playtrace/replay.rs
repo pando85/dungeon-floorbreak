@@ -288,6 +288,17 @@ fn rebuild_scene(manifest: &SessionManifest, root: &Path) -> Result<Reset, Verif
         }
         "fixture" | "boss" | "demo" => {
             let boss = reset.source == "boss";
+            check_f01_label(reset, root)?;
+            if boss
+                && reset
+                    .f01_room
+                    .as_deref()
+                    .is_some_and(|room| room != "juicer")
+            {
+                return Err(unsupported(
+                    "a boss-arena session names the juicer room".to_owned(),
+                ));
+            }
             let (kit, fixture) = if reset.cf02_rules && (reset.demo || reset.source == "demo") {
                 let kit = crate::cf02::arena::load_arena(root).map_err(unsupported)?;
                 // ENEMY-GAMEPLAY-ENGINEER: a session of the Engineer room names its
@@ -316,8 +327,77 @@ fn rebuild_scene(manifest: &SessionManifest, root: &Path) -> Result<Reset, Verif
             })
         }
         "combat_lab" => rebuild_lab(manifest, root),
+        // PT-SCENE: a late-Floor-1 room with its own scene (the Boiler).
+        crate::f01_late::SESSION_SOURCE => rebuild_f01_room(manifest, root),
         other => Err(unsupported(format!("source {other:?} is not replayable"))),
     }
+}
+
+/// PT-SCENE: a recording that names a late-Floor-1 room must name a listed room
+/// and a loadout that agrees with its flags (a relabelled run is another run).
+fn check_f01_label(
+    reset: &super::manifest::ResetDescriptor,
+    root: &Path,
+) -> Result<(), VerifyFailure> {
+    let Some(room) = reset.f01_room.as_deref() else {
+        if reset.f01_loadout.is_some() {
+            return Err(VerifyFailure::new(
+                "rules_mismatch",
+                "the descriptor has a loadout and no room",
+            ));
+        }
+        return Ok(());
+    };
+    let (carl, donut) = (
+        crate::carl_prog::CarlProgFlags {
+            prog: reset.carl_prog,
+            dynamite: reset.carl_dynamite,
+            gauntlet: reset.carl_gauntlet,
+        },
+        crate::donut_prog::DonutProgFlags {
+            prog: reset.donut_prog,
+            light_feet: reset.donut_light_feet,
+            puddle: reset.donut_puddle,
+        },
+    );
+    let manifest = crate::f01_late::Manifest::load(root)
+        .map_err(|e| VerifyFailure::new("content_mismatch", e))?;
+    crate::f01_late::check_descriptor(&manifest, room, reset.f01_loadout.as_deref(), carl, donut)
+        .map_err(|e| VerifyFailure::new("rules_mismatch", e))
+}
+
+/// PT-SCENE: rebuild tick 0 of the Boiler from its descriptor, through the one
+/// constructor the scene uses (`f01_late::boiler_start`).
+fn rebuild_f01_room(manifest: &SessionManifest, root: &Path) -> Result<Reset, VerifyFailure> {
+    let reset = &manifest.reset;
+    check_f01_label(reset, root)?;
+    if reset.f01_room.as_deref() != Some("boiler") || !reset.cf02_rules || reset.demo {
+        return Err(VerifyFailure::new(
+            "unsupported_source",
+            format!(
+                "the {} source replays the Boiler room under the CF02 rules",
+                crate::f01_late::SESSION_SOURCE
+            ),
+        ));
+    }
+    let carl = crate::carl_prog::CarlProgFlags {
+        prog: reset.carl_prog,
+        dynamite: reset.carl_dynamite,
+        gauntlet: reset.carl_gauntlet,
+    };
+    let donut = crate::donut_prog::DonutProgFlags {
+        prog: reset.donut_prog,
+        light_feet: reset.donut_light_feet,
+        puddle: reset.donut_puddle,
+    };
+    let (_run, scene, combat) =
+        crate::f01_late::boiler_start(root, reset.view_height, carl, donut, reset.cf02_seed)
+            .map_err(|e| VerifyFailure::new("content_mismatch", e))?;
+    Ok(Reset {
+        scene,
+        combat: Some(combat),
+        tuning: live_tuning(manifest)?,
+    })
 }
 
 fn rebuild_lab(manifest: &SessionManifest, root: &Path) -> Result<Reset, VerifyFailure> {
@@ -493,6 +573,15 @@ pub(super) fn check_content(
             && manifest.reset.donut_motion == MotionProfile::Legacy
             && !manifest.content_hashes.contains_key(key)
         {
+            continue;
+        }
+        // PT-SCENE (U5 of the #207 review): the room pins are required only of
+        // a recording that names a late-Floor-1 room.
+        if crate::f01_late::pin_is_scoped_out(
+            key,
+            manifest.content_hashes.contains_key(key),
+            manifest.reset.f01_room.is_some(),
+        ) {
             continue;
         }
         check_hash(manifest, key, hash)?;

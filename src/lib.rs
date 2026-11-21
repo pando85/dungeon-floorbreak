@@ -55,6 +55,8 @@ pub mod env_hazard;
 pub mod env_kit;
 pub mod env_prop;
 pub mod f01_boiler;
+pub mod f01_late;
+pub mod f01_late_fixtures;
 pub mod feel;
 pub mod follower;
 pub mod goblin;

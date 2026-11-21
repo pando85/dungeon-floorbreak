@@ -111,6 +111,29 @@ impl CombatState {
         }
     }
 
+    /// PT-SCENE: the ledger to carry into the next room's launch (CP-Q07).
+    /// `None` for a run without a story runtime.
+    pub fn story_snapshot(&self) -> Option<crate::story_unlock::LedgerSnapshot> {
+        self.story.as_ref().map(|story| story.ledger().snapshot())
+    }
+
+    /// PT-SCENE: start this room from the previous room's ledger. Call it
+    /// right after [`Self::with_story`], before the first tick. A run with no
+    /// story runtime holds nothing, so only an empty snapshot is accepted.
+    pub fn carry_story(
+        &mut self,
+        snapshot: &crate::story_unlock::LedgerSnapshot,
+    ) -> Result<(), StoryError> {
+        match self.story.as_mut() {
+            Some(story) => story.carry_ledger(snapshot),
+            None if snapshot.held.is_empty() && snapshot.receipts.is_empty() => Ok(()),
+            None => Err(crate::story_unlock::bad(
+                "carry",
+                "this room runs without the story flags, so it cannot hold a carried ledger",
+            )),
+        }
+    }
+
     /// A retry or a checkpoint respawn keeps the grants; a fixture restart
     /// restores the declared start state (CP-Q07).
     pub(super) fn restart_story(&mut self, kind: RestartKind) {

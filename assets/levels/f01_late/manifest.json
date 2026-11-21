@@ -1,0 +1,34 @@
+{
+  "schema": "f01-late-manifest-v1",
+  "status": "PT-SCENE (docs/07-agents/f01-playtest-integration-plan.md section 4.7, section 8, KR12). The rooms of the late-Floor-1 playtest slice that can be launched with `--scene f01_late --f01-room <id>`. A room is listed only once it has landed; later steps append their rows (CORRAL-WIRE: corral, RING-A wire: ring_court and ring_split, HRD-A2: hoarder, HAZ-A2: hazards, PT-MASTERY: mastery) and re-pin the manifest hash in src/f01_late.rs. `story_order` is the static order of every slice room and grant point, listed or not, that the KR12 pin test reads: no room pin holds a capability whose grant point comes later.",
+  "rooms": [
+    {
+      "id": "boiler",
+      "title": "Goblin Boiler",
+      "scene": "f01_boiler",
+      "rules": "cf02_rules",
+      "milestone": "greybox"
+    },
+    {
+      "id": "juicer",
+      "title": "The Juicer",
+      "scene": "boss_f01",
+      "rules": "boss",
+      "milestone": "boss"
+    }
+  ],
+  "story_order": [
+    { "id": "guild_biscuit", "kind": "point", "pins": [], "grants": [{ "capability": "primary_ranged", "trigger": null }] },
+    { "id": "corral", "kind": "room", "pins": [], "grants": [] },
+    { "id": "refuge_light_feet", "kind": "point", "pins": [], "grants": [{ "capability": "jump_reach_boost", "trigger": "f01_safe_room_reward_found" }] },
+    { "id": "hoarder", "kind": "room", "pins": ["f01_pin_pre_pile_boss"], "grants": [{ "capability": "special_thrown_charge", "trigger": "pile_boss_f01_defeated" }] },
+    { "id": "boiler", "kind": "room", "pins": ["f01_pin_post_pile_boss"], "grants": [] },
+    { "id": "dozer", "kind": "room", "pins": ["f01_pin_post_pile_boss"], "grants": [] },
+    { "id": "hazards", "kind": "room", "pins": ["f01_pin_post_pile_boss"], "grants": [] },
+    { "id": "juicer", "kind": "room", "pins": ["f01_dynamite_held", "f01_donut_boss_held"], "grants": [
+      { "capability": "fist_reinforced", "trigger": "brute_boss_f01_defeated" },
+      { "capability": "special_short_blink", "trigger": "brute_boss_f01_defeated" }
+    ] },
+    { "id": "mastery", "kind": "room", "pins": ["f01_late_mastery"], "grants": [] }
+  ]
+}
