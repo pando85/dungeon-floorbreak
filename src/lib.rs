@@ -64,6 +64,7 @@ pub mod input_buffer;
 pub mod light_pass;
 pub mod lighting;
 pub mod llama;
+pub mod llama_rush;
 pub mod morale;
 pub mod pad_slots;
 pub mod party;

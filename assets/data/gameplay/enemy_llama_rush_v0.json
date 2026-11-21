@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "crlq04_walk_px_s": 40,
+  "crlq04_rush_approach_px": 112,
+  "crlq04_spit_standoff_px": 200,
+  "crlq05_trigger_px": 128,
+  "crlq06_tell_ticks": 32,
+  "crlq07_speed_px_s": 240,
+  "crlq07_active_ticks": 24,
+  "crlq08_box": {
+    "x0": 0,
+    "x1": 28,
+    "y0": 2,
+    "y1": 30
+  },
+  "crlq09_recover_ticks": 40,
+  "crlq10_bonk_ticks": 60,
+  "crlq10_self_damage": 0,
+  "crlq11_spit_height_check": true,
+  "crlq12_rush_cooldown": 150,
+  "crlq12_spit_gap": 30,
+  "crlq13_interrupt_cooldown": 30,
+  "crlq14_damage": 1,
+  "crlq14_knock_x": 120,
+  "crlq14_knock_y": 160,
+  "crlq15_target_range_px": 320,
+  "crlq16_floor_tolerance_px": 8,
+  "crlq18_rush_evadable": false,
+  "crlq24_wake_px": 320,
+  "crlq26_exit_gate": true,
+  "crlq40_enabled": true
+}

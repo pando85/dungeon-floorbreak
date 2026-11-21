@@ -244,7 +244,7 @@ Room 0 is the Act I prefix of the `f01_late` scene (KC8): I-05 to I-07 plus the 
 
 **Lane ceiling** `ceiling_px` **228** (CRL-Q31). Every base hero jumps a 39 px llama on its own level (the floor or the dock) without a DM-Q27 bonk (KC10):
 - Donut's highest such jumps reach 214.92 from the partition top (48 + 114.92 + 52) and 198.92 from the dock.
-- Carl reaches 188.54 from the dock.
+- Carl reaches 172.54 from the dock (32 + 88.54 + 52).
 
 Two jumps do bonk, both harmlessly:
 - A base Donut jumping from the bumper top bonks at 228 (246.92 unclamped), with her feet still 96 px above the bumper.
@@ -261,7 +261,7 @@ No llama has to be cleared from either surface. Carl from the bumper reaches 220
 | B's rush box, 2..30 | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ |
 | A's rush box, 34..62 | ✗ | ✗ | ✓ on the dock | ✓ on the dock | ✗ out of lane (A cannot leave the dock) | ✗ above it |
 | **Donut's bolt** → B (body 0..39) | ✓ standing and on low jump-casts (release feet below 23) | | ✗ (bottom 48 or more passes over) | | ✗ | ✗ |
-| **Donut's bolt** → A (body 32..71) | **✗ at every release height**: below 56, the bumper stops it; from 56 up, it passes over A | | ✓ from the dock; ✗ from the shelf (668 px away and blocked) | | ✗ (476 px away and blocked) | ✗ (bottom 96 or more passes over) |
+| **Donut's bolt** → A (body 32..71) | **✗ at every release height**: below 64 the bumper stops it (A is touchable only below 55); from 64 up it passes over the bumper and over A | | ✓ from the dock; ✗ from the shelf (668 px away and blocked) | | ✗ (476 px away and blocked) | ✗ (bottom 96 or more passes over) |
 | Carl's melee → A | ✗ (his farthest box ends at about 1866; A's body starts at 1894 or later, behind the bumper) | | | ✓ on the dock | | |
 
 **B1 proof (f32, main's physics).** A script replicates the hero step from `prototype.rs` (`step_hero_driven`: semi-implicit, with the landing rule) and the bolt from `donut.rs`: spawn at `pivot ± 27`, `feet + 19`; tested at spawn, then every 6 px step; removed when `travelled ≥ 240`; solids tested before targets; strict `Rect::overlaps`. It sweeps every pivot on each surface on a 0.25 px grid, both facings, and every feet height at release that a jump in place gives with launches 440, 500 and 547, from tick 0 to landing (166 or 167 heights). It runs with the partition absent, intact and broken (the 16 px remnant), and from the remnant top as a surface (NB1). The targets are every body each llama can take inside its leash, in both facings.
@@ -325,7 +325,7 @@ This is the invariant the gate asserts ([section 11](#11-stationary-donut-gate-c
 ### Starts (Donut pivot at tick 0, set at setup, never moved later)
 
 The evaluator runs in solo mode with Donut controlled, so the sim camera follows her (`CameraFollow::ControlledSoloMidpointTwoPlayer`). Its corral-owned constructor wraps `PartyFixtureSim::from_parts` and sets Donut's x, y and facing through `donut_body` and `sync_donut_for_tests()` (N2). The two companion variants:
-- **Decisive (`isolated`), F3:** Carl is **parked** at x **880**, through the solo drive `PartyDrive { two_player: false, controlled: Donut, bots: [false, false] }` with a neutral input on Carl's seat on every tick (NB2). A `two_player` drive would move the sim camera to the midpoint and engage the 448 px separation wall, and a bot drive would run `follow_input`, so neither is used. He has no companion AI and no `FollowAndJumpBot`, and stands on the floor for every M2 start. That is 368 px or more from every position B can take, and the corral llamas never target a hero farther than 320 px (CRL-Q15). So he draws no attack, absorbs no rush and is never in a lane. The `corral_m2` fixture has no M1 llama.
+- **Decisive (`isolated`), F3:** Carl is **parked** at x **880**, through the solo drive `PartyDrive { live: true, two_player: false, controlled: Donut, bots: [false, false], tuning: PROVISIONAL_TUNING }` (without `live: true`, Donut replays Carl's trail and the gate is invalid) with a neutral input on Carl's seat on every tick (NB2). A `two_player` drive would move the sim camera to the midpoint and engage the 448 px separation wall, and a bot drive would run `follow_input`, so neither is used. He has no companion AI and no `FollowAndJumpBot`, and stands on the floor for every M2 start. That is 368 px or more from every position B can take, and the corral llamas never target a hero farther than 320 px (CRL-Q15). So he draws no attack, absorbs no rush and is never in a lane. The `corral_m2` fixture has no M1 llama.
 - **M1 starts:** Carl is parked at x **300**.
 
 Each start runs **both facings**; the listed facing is the natural one.
@@ -371,7 +371,7 @@ Each start runs **both facings**; the listed facing is the natural one.
 Machine (CI):
 
 1. `enemy_llama_rush_v0.json` loads, validates (a load error names the field) and matches its FNV-1a pin; a completeness test proves every CRL-Q has a knob or a recorded no-knob reason. Validation: speed a positive multiple of 60 and at most 240; approach ≤ trigger; trigger < standing reach (`active × speed / 60 + box x1`); box non-empty with `y1 ≤ 39`; tell, active, recover, bonk ticks > 0.
-2. The section 6 tables are reproduced by a domain unit test in `llama_rush.rs` (standing contact tick per `d`, jump-window edges for both heroes at `d` 64, 96 and 112, bonk tick per face distance, the run-away edge at `d` 96). The section 10 B1 sweep is reproduced by a unit test (`corral_fixtures.rs`, CORRAL-C, with the room's real solids and leashes). Across every surface pivot on a 1 px grid, both facings, and every release height of launches 440, 500 and 547, the reachable-llama set must be {B} on the floor, {A} on the dock, and empty on the entry shelf, the partition top and the bumper top. A change to the bumper, the dock, a leash or the bolt geometry that breaks this fails CI.
+2. The section 6 tables are reproduced by a domain unit test in `llama_rush.rs` (standing contact tick per `d`, jump-window edges for both heroes at `d` 64, 96 and 112, bonk tick per face distance, the run-away edge at `d` 96). The section 10 B1 sweep is reproduced by a unit test (`corral_fixtures.rs`, CORRAL-C, with the room's real solids and leashes). Across every surface pivot on a 1 px grid, both facings, and every release height of launches 440, 500 and 547, the reachable-llama set must be {B} on the floor, {B} on the 16 px remnant top (partition broken), {A} on the dock, and empty on the entry shelf, the intact partition top and the bumper top. A change to the bumper, the dock, a leash or the bolt geometry that breaks this fails CI.
 3. Every fixture in [section 15](#fixtures-and-tests-per-step) passes and replays identically twice; pinned fixtures are pinned after DM-B (KC13).
 4. **Unchanged goldens:** the 5 llama `EXPECTED_HASHES`, every `cf02_llama_*`, `cf02_donut_solo_llama`, the arena and Engineer goldens, and every other existing replay are byte-identical (no llama outside the corral has a profile or party targeting).
 5. The section 11 gate passes on the final head (CORRAL-C onward).
