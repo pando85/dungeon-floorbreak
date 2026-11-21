@@ -2,7 +2,9 @@
 //! the report-only measurement of the M2 gate. Run with
 //! `cargo test --locked corral_auto -- --nocapture` to print the report.
 
-use super::report::{Gate, Outcome, is_low_risk_stationary_clear, report_md, runs_csv};
+use super::report::{
+    Gate, LOW_RISK_HP_LOSS, Outcome, is_low_risk_stationary_clear, report_md, runs_csv,
+};
 use super::*;
 use std::path::PathBuf;
 
@@ -39,16 +41,14 @@ fn corral_auto_m1_positive_control_a_stationary_donut_wins_m1() {
     assert_eq!(r.bolt_hits, 3);
     assert_eq!(r.carl_hits + r.donut_melee_hits, 0);
     assert!(!r.companion_assisted());
-    assert!(r.donut_hp_lost() <= LOW_RISK_HP_LOSS_FOR_TESTS);
-    assert!(r.stationary_position_valid(), "she never moved");
+    assert!(r.donut_hp_lost() <= LOW_RISK_HP_LOSS);
+    assert_eq!(r.donut_move_inputs, 0, "the policy sent no move input");
     assert!(is_low_risk_stationary_clear(&r));
     // The gate agrees on a whole quick sweep.
     let records = sweep(&kit, &SweepConfig::quick());
     let gate = Gate::evaluate(&records);
     assert_eq!(gate.m1_control, Outcome::Pass, "{:?}", gate.m1_control_best);
 }
-
-const LOW_RISK_HP_LOSS_FOR_TESTS: u8 = 1;
 
 #[test]
 fn corral_auto_press_edges_and_mana_accounting_close_on_every_run() {
@@ -69,7 +69,10 @@ fn corral_auto_press_edges_and_mana_accounting_close_on_every_run() {
                 assert!(r.presses >= r.bolts_released, "{}", r.run_id);
                 assert!(r.presses - r.bolts_released <= 1, "{}", r.run_id);
                 assert_eq!(r.dry_presses, 0, "{}", r.run_id);
-                assert!(r.stationary_position_valid(), "{}: she moved", r.run_id);
+                // The policy sent no move or jump (an input-level check: an
+                // outcome check on displacement would break on knockback once
+                // llamas target her). Displacement stays a reported column.
+                assert_eq!(r.donut_move_inputs, 0, "{}: she was told to move", r.run_id);
             }
             PolicyId::HoldAttackTrivial => {
                 // 1,800 held ticks are one press, not 1,800 spells.
@@ -240,4 +243,29 @@ fn corral_auto_outputs_are_written() {
     assert_eq!(json["gates"]["m1_positive_control"], "pass");
     assert!(json["gates"]["m2_stationary_kc19_report_only"].is_string());
     let _ = std::fs::remove_dir_all(&out);
+}
+
+/// F1: the reported best counterexample is the minimum over every clearing run
+/// of every failing group, not the first failing group.
+#[test]
+fn corral_auto_best_counterexample_is_the_global_minimum() {
+    let records = sweep(&kit(), &SweepConfig::quick());
+    let gate = Gate::evaluate(&records);
+    let best = gate
+        .m2_best_counterexample
+        .expect("today's llamas fail KC19");
+    let failing: Vec<&str> = gate
+        .m2_failing_groups
+        .iter()
+        .map(|g| g.group_id.as_str())
+        .collect();
+    let min = records
+        .iter()
+        .filter(|r| {
+            is_low_risk_stationary_clear(r) && failing.contains(&r.spec.group_id().as_str())
+        })
+        .map(|r| (r.ticks, r.donut_hp_lost(), r.run_id.clone()))
+        .min()
+        .unwrap();
+    assert_eq!((best.ticks, best.donut_hp_lost, best.run_id), min);
 }

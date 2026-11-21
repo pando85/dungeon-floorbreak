@@ -26,6 +26,8 @@ fn main() -> ExitCode {
             "--out" => out = args.next().map(PathBuf::from).unwrap_or(out),
             "--assets-root" => root = args.next().map(PathBuf::from).unwrap_or(root),
             "--quick" => quick = true,
+            // The KC19 clear limit stays 1,800 ticks: a longer horizon never
+            // widens what counts as a clear (see `is_low_risk_stationary_clear`).
             "--horizon" => horizon = args.next().and_then(|v| v.parse::<u64>().ok()),
             other => {
                 eprintln!(

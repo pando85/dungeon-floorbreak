@@ -41,6 +41,9 @@ pub const LOW_RISK_HP_LOSS: u8 = 1;
 /// A stationary run that clears the stage at low risk by Donut alone: the
 /// decisive KC19 event. A run in which Carl's AI dealt any damage is
 /// companion-assisted and never counts as proof.
+///
+/// The 1,800-tick limit is the KC19 definition, not the sweep's `--horizon`:
+/// a longer horizon never widens what counts as a clear.
 pub fn is_low_risk_stationary_clear(r: &RunRecord) -> bool {
     r.spec.policy.is_stationary_gate()
         && r.spec.seat == Seat::SoloDonutBot
@@ -60,6 +63,8 @@ pub struct GroupVerdict {
     pub fails: bool,
     /// The clearing run with the fewest ticks and then the least HP lost.
     pub best_counterexample: Option<String>,
+    /// Its `(ticks, Donut HP lost)`, for ranking across groups.
+    pub best_key: Option<(u64, u8)>,
 }
 
 /// Group the records of `stages` (evasion `evasion`, the decisive Donut-bot
@@ -69,7 +74,16 @@ pub fn stationary_groups(
     stages: &[Stage],
     evasion: Evasion,
 ) -> Vec<GroupVerdict> {
-    let mut groups: BTreeMap<String, Vec<&RunRecord>> = BTreeMap::new();
+    // Keyed with the column as a number, so `x1000` sorts after `x240`.
+    type Key = (
+        &'static str,
+        &'static str,
+        &'static str,
+        &'static str,
+        i32,
+        i8,
+    );
+    let mut groups: BTreeMap<Key, Vec<&RunRecord>> = BTreeMap::new();
     for r in records {
         if stages.contains(&r.spec.stage)
             && r.spec.evasion == evasion
@@ -77,29 +91,46 @@ pub fn stationary_groups(
             && r.spec.policy.is_stationary_gate()
             && !matches!(r.terminal, Terminal::Blocked | Terminal::InvalidSetup)
         {
-            groups.entry(r.spec.group_id()).or_default().push(r);
+            let key = (
+                r.spec.stage.name(),
+                r.spec.seat.name(),
+                r.spec.policy.name(),
+                r.spec.evasion.name(),
+                r.spec.donut_x,
+                r.spec.facing,
+            );
+            groups.entry(key).or_default().push(r);
         }
     }
     groups
-        .into_iter()
-        .map(|(group_id, runs)| {
+        .into_values()
+        .map(|runs| {
+            let group_id = runs[0].spec.group_id();
             let clears: Vec<&&RunRecord> = runs
                 .iter()
                 .filter(|r| is_low_risk_stationary_clear(r))
                 .collect();
             let best = clears
                 .iter()
-                .min_by_key(|r| (r.ticks, r.donut_hp_lost()))
-                .map(|r| r.run_id.clone());
+                .min_by_key(|r| (r.ticks, r.donut_hp_lost(), r.run_id.as_str()));
             GroupVerdict {
                 group_id,
                 runs: runs.len(),
                 clears: clears.len(),
                 fails: !clears.is_empty() && clears.len() * 2 >= runs.len(),
-                best_counterexample: best,
+                best_counterexample: best.map(|r| r.run_id.clone()),
+                best_key: best.map(|r| (r.ticks, r.donut_hp_lost())),
             }
         })
         .collect()
+}
+
+/// A run that defeats the gate, with the numbers it is ranked by.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Counterexample {
+    pub run_id: String,
+    pub ticks: u64,
+    pub donut_hp_lost: u8,
 }
 
 /// The gates of one sweep.
@@ -113,6 +144,9 @@ pub struct Gate {
     pub m2_stationary: Outcome,
     pub m2_failing_groups: Vec<GroupVerdict>,
     pub m2_groups: usize,
+    /// The best counterexample over all failing groups: the clearing run
+    /// with the fewest ticks, then the least Donut HP lost (then run id).
+    pub m2_best_counterexample: Option<Counterexample>,
     /// The same gate with the reflex on: blocked until DM-B.
     pub m2_stationary_reflex: Outcome,
     /// A mobile Donut / Carl melee / 2P victory exists on an M2 stage
@@ -175,7 +209,10 @@ impl Gate {
         let reflex_listed = records.iter().any(|r| r.spec.evasion == Evasion::Reflex);
         let m2_stationary_reflex = if reflex_ran {
             let g = stationary_groups(records, &m2, Evasion::Reflex);
-            if g.iter().any(|x| x.fails) {
+            if g.is_empty() {
+                // Runs exist but no stationary group formed: not a pass.
+                Outcome::NotRun
+            } else if g.iter().any(|x| x.fails) {
                 Outcome::Fail
             } else {
                 Outcome::Pass
@@ -207,12 +244,22 @@ impl Gate {
         } else {
             Outcome::Fail
         };
+        let best = failing
+            .iter()
+            .filter_map(|g| Some((g.best_key?, g.best_counterexample.as_ref()?)))
+            .min_by(|a, b| (a.0, a.1).cmp(&(b.0, b.1)))
+            .map(|((ticks, hp), id)| Counterexample {
+                run_id: id.clone(),
+                ticks,
+                donut_hp_lost: hp,
+            });
         Self {
             m1_control,
             m1_control_best: m1_best,
             m2_stationary,
             m2_failing_groups: failing,
             m2_groups: groups.len(),
+            m2_best_counterexample: best,
             m2_stationary_reflex,
             mobile_win: any_win(records, &m2, Seat::SoloDonutBot, PolicyId::MobileCast),
             carl_melee_win: any_win(records, &m2, Seat::SoloCarl, PolicyId::CarlMelee),
@@ -230,7 +277,7 @@ pub fn runs_csv(records: &[RunRecord]) -> String {
         "run_id,stage,seat,policy,policy_version,evasion,donut_x,facing,phase_a,phase_b,terminal,ticks,\
 donut_hp_start,donut_hp_final,carl_hp_start,carl_hp_final,mana_start,mana_final,mana_min,presses,\
 bolts_released,dry_presses,bolt_hits,donut_melee_hits,carl_hits,llamas,llamas_defeated,kill_tick_a,\
-kill_tick_b,tells,spits,tells_interrupted,donut_hurt_events,carl_hurt_events,donut_displacement_px,\
+kill_tick_b,tells,spits,tells_interrupted,donut_hurt_events,carl_hurt_events,donut_move_inputs,donut_displacement_px,\
 stationary_position_valid,no_damage_clear,no_movement_clear,both_llamas_defeated,companion_assisted,\
 low_risk_stationary_clear,state_hash\n",
     );
@@ -242,7 +289,7 @@ low_risk_stationary_clear,state_hash\n",
         let s = &r.spec;
         let _ = writeln!(
             out,
-            "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{:016x}",
+            "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{:016x}",
             r.run_id,
             s.stage.name(),
             s.seat.name(),
@@ -277,6 +324,7 @@ low_risk_stationary_clear,state_hash\n",
             r.tells_interrupted,
             r.donut_hurt_events,
             r.carl_hurt_events,
+            r.donut_move_inputs,
             r.donut_displacement_px,
             r.stationary_position_valid(),
             r.no_damage_clear(),
@@ -334,7 +382,7 @@ pub fn tallies(records: &[RunRecord]) -> Vec<Tally> {
             Terminal::Timeout => t.timeouts += 1,
             Terminal::Blocked => t.blocked += 1,
             Terminal::InvalidSetup => t.invalid += 1,
-            Terminal::Softlock => t.timeouts += 1,
+            Terminal::Softlock => t.softlocks += 1,
         }
         if r.companion_assisted() {
             t.companion_assisted += 1;
@@ -357,6 +405,7 @@ pub struct Tally {
     pub no_damage_victories: usize,
     pub defeats: usize,
     pub timeouts: usize,
+    pub softlocks: usize,
     pub blocked: usize,
     pub invalid: usize,
     pub companion_assisted: usize,
@@ -388,7 +437,7 @@ pub fn summary_json(records: &[RunRecord], config: &SweepConfig, targeting: Opti
                 "runs": t.runs, "victories": t.victories,
                 "low_risk_victories": t.low_risk_victories,
                 "no_damage_victories": t.no_damage_victories,
-                "defeats": t.defeats, "timeouts": t.timeouts,
+                "defeats": t.defeats, "timeouts": t.timeouts, "softlocks": t.softlocks,
                 "blocked": t.blocked, "invalid_setup": t.invalid,
                 "companion_assisted": t.companion_assisted,
                 "donut_hp_lost_total": t.donut_hp_lost,
@@ -410,6 +459,10 @@ pub fn summary_json(records: &[RunRecord], config: &SweepConfig, targeting: Opti
             "m1_positive_control_best": gate.m1_control_best,
             "m2_stationary_kc19_report_only": gate.m2_stationary.name(),
             "m2_stationary_groups": gate.m2_groups,
+            "m2_stationary_best_counterexample": gate.m2_best_counterexample.as_ref().map(|c| json!({
+                "run_id": c.run_id, "ticks": c.ticks, "donut_hp_lost": c.donut_hp_lost,
+                "rank": "fewest ticks, then least Donut HP lost, over all failing groups",
+            })),
             "m2_stationary_failing_groups": gate.m2_failing_groups.iter().map(group_json).collect::<Vec<_>>(),
             "m2_stationary_reflex_report_only": gate.m2_stationary_reflex.name(),
             "mobile_donut_win_report_only": gate.mobile_win.name(),
@@ -426,7 +479,7 @@ pub fn summary_json(records: &[RunRecord], config: &SweepConfig, targeting: Opti
 pub fn report_md(records: &[RunRecord], config: &SweepConfig, targeting: Option<bool>) -> String {
     let gate = Gate::evaluate(records);
     let mut out = String::new();
-    let _ = writeln!(out, "# CORRAL-EVAL baseline report\n");
+    let _ = writeln!(out, "# CORRAL-EVAL baseline report (reflex absent)\n");
     let _ = writeln!(
         out,
         "Policy version {POLICY_VERSION}, horizon {} ticks, {} runs. The unit is a fixture (start x facing x attack phase), never a seed: seeds do not vary gameplay. Stages are baselines on the corridor kit with today's llamas (no rush, no party targeting, no cover), not the Infernal Corral. The reflex variant is `{}`.\n",
@@ -496,21 +549,17 @@ pub fn report_md(records: &[RunRecord], config: &SweepConfig, targeting: Option<
         gate.m2_groups,
         gate.m2_failing_groups.len()
     );
-    if let Some(best) = gate
-        .m2_failing_groups
-        .iter()
-        .filter_map(|g| g.best_counterexample.as_ref())
-        .next()
-    {
+    if let Some(c) = &gate.m2_best_counterexample {
         let _ = writeln!(
             out,
-            "Best counterexample (first failing group): `{best}`.\n"
+            "Best counterexample (fewest ticks, then least Donut HP lost, over all failing groups): `{}` ({} ticks, Donut lost {} HP).\n",
+            c.run_id, c.ticks, c.donut_hp_lost
         );
     }
     let _ = writeln!(out, "## Tallies\n");
     let _ = writeln!(
         out,
-        "| Stage | Seat | Policy | Evasion | Runs | Victory | Low-risk | No-damage | Defeat | Timeout | Blocked | Invalid | Companion-assisted | Win ticks |\n| --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |"
+        "| Stage | Seat | Policy | Evasion | Runs | Victory | Low-risk | No-damage | Defeat | Timeout | Softlock | Blocked | Invalid | Companion-assisted | Win ticks |\n| --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |"
     );
     let all = tallies(records);
     let blocked_runs: usize = all
@@ -521,7 +570,7 @@ pub fn report_md(records: &[RunRecord], config: &SweepConfig, targeting: Option<
     for t in all.iter().filter(|t| t.blocked != t.runs) {
         let _ = writeln!(
             out,
-            "| {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |",
+            "| {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |",
             t.stage,
             t.seat,
             t.policy,
@@ -532,6 +581,7 @@ pub fn report_md(records: &[RunRecord], config: &SweepConfig, targeting: Option<
             t.no_damage_victories,
             t.defeats,
             t.timeouts,
+            t.softlocks,
             t.blocked,
             t.invalid,
             t.companion_assisted,

@@ -30,10 +30,12 @@
 //!
 //! Gate status (F13): the assertions that hold against today's llamas are the
 //! `corral_auto_*` tests (press edges and mana accounting, setup-only writes,
-//! double-run equality, the M1 positive control). The M2 gate ([`gate`],
-//! KC19) depends on the rush and on party targeting; it is **report-only**
-//! until CORRAL-C. Donut's reflex variant ([`Evasion`]) is a parameter; its
-//! `Reflex` arm is `blocked` until DM-A/DM-B land.
+//! double-run equality, the M1 positive control). The M2 gate
+//! ([`report::Gate`], KC19) depends on the rush and on party targeting; it is
+//! **report-only** until CORRAL-C. Donut's reflex variant ([`Evasion`]) is a
+//! parameter; its `Reflex` arm is `blocked` until DM-B lands (DM-A declares
+//! `dm_q11_evasion_mode`, but nothing reads it yet). The committed baseline is
+//! therefore labelled "reflex absent".
 
 pub mod policy;
 pub mod report;
@@ -62,6 +64,9 @@ pub const LAYOUT: &str = "assets/levels/floor01/corridor_abc_sample.json";
 pub const VIEW_H: i32 = 360;
 /// Carl's start column on every stage.
 pub const CARL_X: i32 = 400;
+/// A start closer than this to a llama's column is not a natural one (the
+/// llama body half-width is 23 px).
+pub const START_CLEARANCE_PX: i32 = 48;
 /// Donut's biscuit pool at the start of every run (the corral's M0 grants it).
 pub const START_MANA: u8 = 8;
 
@@ -237,10 +242,13 @@ fn fixture_for(stage: Stage, seat: Seat) -> &'static PartyFixture {
 /// DM-Q11 reflex evasion mode of the sweep (F6, #181 section 7 and MAG-16).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Evasion {
-    /// No reflex: what is on main today.
+    /// No reflex. **DM-B wiring trap:** once the reflex reads
+    /// `dm_q11_evasion_mode` (the shipped default is `reflex`), [`build`] must
+    /// force `off` for this variant, or the `off` rows silently gain the
+    /// reflex. Add a test that the two variants differ when that lands.
     Off,
-    /// Donut's 12 s post-biscuit reflex (DM-B). **Pending**: DM-A (#186) and
-    /// DM-B are not on main, so a run with this variant is `blocked`.
+    /// Donut's 12 s post-biscuit reflex (DM-B, PR #199). **Pending**: the
+    /// reflex reads nothing yet, so a run with this variant is `blocked`.
     Reflex,
 }
 
@@ -258,9 +266,9 @@ impl Evasion {
     pub const fn pending(self) -> Option<&'static str> {
         match self {
             Evasion::Off => None,
-            Evasion::Reflex => {
-                Some("DM-B reflex is not on main (DM-A #186 open); variant is a parameter only")
-            }
+            Evasion::Reflex => Some(
+                "DM-B reflex is not on main (PR #199); DM-A declares dm_q11_evasion_mode but nothing reads it; variant is a parameter only",
+            ),
         }
     }
 }
@@ -383,6 +391,8 @@ pub struct RunRecord {
     /// Spit hits on Donut / on Carl (`HeroHurt` events).
     pub donut_hurt_events: u32,
     pub carl_hurt_events: u32,
+    /// Ticks on which the policy sent Donut a move or jump input.
+    pub donut_move_inputs: u32,
     pub donut_displacement_px: f32,
     pub donut_start: (f32, f32),
     pub donut_final: (f32, f32),
@@ -411,7 +421,9 @@ impl RunRecord {
     pub fn no_movement_clear(&self) -> bool {
         self.both_llamas_defeated() && self.donut_displacement_px == 0.0
     }
-    /// Donut never moved from her column (the start is a valid stationary one).
+    /// Donut never moved from her column (an outcome: knockback would move a
+    /// stationary Donut once llamas target her; see `donut_move_inputs` for
+    /// what the policy itself sent).
     pub fn stationary_position_valid(&self) -> bool {
         self.donut_displacement_px == 0.0
     }
@@ -448,6 +460,8 @@ pub fn build(kit: &EnvKit, spec: &RunSpec) -> Result<PartyFixtureSim, String> {
     sim.scene.world.donut_body.x = spec.donut_x as f32;
     sim.scene.world.donut_body.facing = spec.facing;
     sim.scene.world.sync_donut_for_tests();
+    // DM-B wiring point: force `dm_q11_evasion_mode` to `off` here for
+    // `Evasion::Off` once the reflex reads it (see [`Evasion::Off`]).
     // Setup (tick 0): the attack-phase variant. `reset_attempt()` rebuilds the
     // llamas from the fixture, so the delay is written once, here.
     for (llama, delay) in sim.combat.llamas.iter_mut().zip(spec.phase) {
@@ -542,6 +556,7 @@ pub fn run(kit: &EnvKit, spec: &RunSpec) -> RunRecord {
         tells_interrupted: 0,
         donut_hurt_events: 0,
         carl_hurt_events: 0,
+        donut_move_inputs: 0,
         donut_displacement_px: 0.0,
         donut_start: (0.0, 0.0),
         donut_final: (0.0, 0.0),
@@ -579,6 +594,9 @@ pub fn run(kit: &EnvKit, spec: &RunSpec) -> RunRecord {
         let obs = observe(&sim);
         let tick = obs.tick;
         let inputs = policy.act(&obs);
+        if inputs.donut.move_x != 0.0 || inputs.donut.jump {
+            record.donut_move_inputs += 1;
+        }
         sim.step_slots(route(spec.seat, tick, inputs));
         record.ticks = tick;
 
@@ -710,6 +728,14 @@ impl SweepConfig {
             };
             for &evasion in &self.evasions {
                 for &x in &self.xs {
+                    // Not a natural start: Donut's column on top of a llama.
+                    if stage
+                        .llama_xs()
+                        .iter()
+                        .any(|&lx| (lx - x).abs() < START_CLEARANCE_PX)
+                    {
+                        continue;
+                    }
                     for &facing in &self.facings {
                         for &phase in &phases {
                             let mut push = |seat, policy| {
@@ -776,7 +802,9 @@ pub fn carl_only_targeting(kit: &EnvKit) -> Option<bool> {
     let donut_nearer =
         (sim.scene.world.donut_body.x - llama.x).abs() < (sim.scene.world.hero.x - llama.x).abs();
     let faces_donut = (sim.scene.world.donut_body.x > llama.x) == (llama.facing > 0);
-    Some(donut_nearer && !faces_donut)
+    // Inconclusive when Donut is not nearer (a llama that walked toward Carl,
+    // or party targeting that moved it): never read as "targeting absent".
+    donut_nearer.then_some(!faces_donut)
 }
 
 /// Run a sweep and write `summary.json`, `runs.csv` and `report.md` into
