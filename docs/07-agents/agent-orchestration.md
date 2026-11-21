@@ -70,7 +70,7 @@ Rules:
 
 - The top-tier weekly quota is exhausted until 2026-11-25.
 - Until then, independent reviews are done by a separate medium-tier agent, never by the PR's author.
-- PRs merge on green CI on the final head.
+- PRs merge on green CI on the final head (superseded by the local-validation merge in [Speed mode](#speed-mode), 2026-11-21).
 - Every PR merged under this gate owes a top-tier re-review after the reset. Defects found then are fixed in follow-up PRs.
 - The PRs that owe a re-review are listed in [the backlog](../04-production/backlog.md#top-tier-re-review-owed-temporary-gate).
 
@@ -82,11 +82,22 @@ Owner directive, 2026-11-20: optimize the work, merge what you are almost sure w
 - **Review stays, re-review shrinks.** An independent top-tier review is still required before merge. Non-blocking findings may be fixed forward in a follow-up PR. After a fix list, a medium-tier fix check is enough to merge; a top-tier re-review is needed only when the review found a design or logic defect.
 - **Group related stages.** Related stages of one work order may ship as one PR when their dependencies allow it (for example CF02-A+H in [the COMBAT-FUN-02 work order](combat-fun-02-workorder.md#parallel-groups)). The grouped PR keeps the acceptance criteria and fixtures of every stage it contains.
 
-- **What does not change.** Speed mode does not relax the legal, rights and provenance guardrails, green CI on the final head, byte-identical goldens (unless a PR explicitly changes them), flag gating of new behavior, or the owner's game-feel review.
+- **Local-validation merge (owner decision 2026-11-21).** Speed beats main-branch stability: "we don't need stability, we need speed". Once a PR's independent review has passed (plus its fix check, or the narrow re-review after a design or logic defect), it may merge as soon as the full local check list passes on its **final head**, without waiting for GitHub CI. The check list is `cargo fmt --all -- --check`, `cargo clippy --locked --all-targets -- -D warnings`, `cargo test --locked --all-targets --no-fail-fast`, `python3 scripts/check_docs.py`, and `bash scripts/ci_floor01_combat.sh headless` for anything touching combat or a CI line. The implementer reports the exact results and the head SHA they ran on; the orchestrator merges with `--match-head-commit` on that SHA. CI still runs on the PR and on `main`. If it turns red on `main`, the fix-forward PR is the next priority; other merges continue unless the break blocks them. Push once per fix round, not per commit, so the CI queue stays short.
+- **Group to cut CI overhead.** Prefer one PR per group of related stages whenever the plan's dependencies allow it (for example BOIL-B+C wire, BOIL-E+F, CA2-B2 with DP-B). A grouped PR still keeps every stage's acceptance criteria and fixtures.
+- **What does not change.** Speed mode does not relax the legal, rights and provenance guardrails, byte-identical goldens (unless a PR explicitly changes them), flag gating of new behavior, the independent review, or the owner's game-feel review.
 
 Rationale: serial rebases of the shared backlog file and CI queueing were the bottleneck, not the implementation work. Every PR that edited the backlog conflicted with the previous one and had to rebase and re-run CI; fewer, larger-but-related PRs and no shared hot file remove those cycles. CI-SPEED-01 cuts the other half: documentation-only PRs skip the heavy workflows and the Floor 1 scene workflow compiles its binary once. Game feel is still reviewed by the owner after merge.
 
 **Autonomy (owner, 2026-11-20):** the orchestrator runs every work order already defined in the repo (backlog, work orders, PR sequences) to completion without asking the owner for a go-ahead. When it hits a blocker that is not very big (a design ambiguity, a small scope or sequencing choice, a reversible technical decision), it picks its own recommendation, records it as an adopted default in the PR body (and as data with an ID where the design-defaults rule applies) and continues. It escalates to the owner only for large blockers, legal/rights/provenance questions, contradictions with an accepted ADR, and the owner's game-feel review.
+
+## Local storage for parallel agents
+
+Owner request, 2026-11-21, after the disk filled up: parallel agents must not multiply full debug build directories.
+
+- **One lean target directory per stage, outside the worktree.** Every cargo command in an agent worktree is prefixed with `CARGO_TARGET_DIR=<session scratch>/targets/<stage> CARGO_INCREMENTAL=0 CARGO_PROFILE_DEV_DEBUG=line-tables-only`. None of these settings changes gameplay; `sccache` as the rustc wrapper shares compiled dependencies between stages. Rust 1.90 and later already link with `rust-lld` by default on x86_64 Linux, so no linker setting is needed.
+- **At most four Rust-building agents at once** on a 62 GB machine. Reviews run targeted tests only.
+- **Cleanup on report and after merge.** An agent removes its own worktree (with `git worktree remove <absolute path>`) and its own `targets/<stage>` directory when CI or the local check list is green, unless a fix round follows. After a merge the orchestrator removes what is left.
+- **Deletion safety.** Delete only literal, absolute paths inside the session scratch directory or the agent worktree directory, through a guarded script that runs a dry run first, rejects globs, `..`, symlinks and anything outside those two prefixes, and removes registered worktrees only through `git worktree remove`. Never delete anything elsewhere in the user's home directory.
 
 ## Reading discipline
 
