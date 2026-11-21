@@ -38,12 +38,26 @@ use crate::companion::nav::{
     EdgeKind, EdgePlan, NavAnchorId, NavConfig, NavError, NavGraph, NavLevel, Plan, Reason,
     SolidId, UNSAFE_RISK, Unlocks,
 };
+use crate::input::STICK_DEADZONE;
 use crate::party::HeroId;
 use crate::prototype::{Block, HERO_HALF_WIDTH, RUN_SPEED, TICK_SECONDS};
 
-/// The closest a hero can steer to a target x: the stick dead zone leaves up
-/// to `STICK_DEADZONE * RUN_SPEED * TICK_SECONDS` (0.55 px) unspent.
+/// Carl's arrive tolerance, the floor of [`arrive_eps_px`]. The closest a hero
+/// can steer to a target x: the stick dead zone leaves up to
+/// `STICK_DEADZONE * run * TICK_SECONDS` unspent (0.555 px at Carl's 185 px/s),
+/// and this value keeps 0.045 px of headroom over it.
 pub const ARRIVE_EPS_PX: f32 = 0.6;
+
+/// The arrive tolerance of a body that runs `run` px/s (DM-A, N1). It must stay
+/// above what the stick dead zone can leave unspent, `STICK_DEADZONE * run *
+/// TICK_SECONDS`, or a residual just above it is zeroed by [`approach`], the
+/// hero stands still and the transit stalls in a deterministic loop. The
+/// headroom of Carl's value is kept (0.045 px): Carl's tolerance is exactly
+/// [`ARRIVE_EPS_PX`] (bit-identical), Donut's 207 px/s gives 0.666 px against a
+/// 0.621 px leftover.
+pub fn arrive_eps_px(run: f32) -> f32 {
+    ARRIVE_EPS_PX + (run - RUN_SPEED).max(0.0) * STICK_DEADZONE * TICK_SECONDS
+}
 /// A hero standing this close to an edge's takeoff x counts as at rest on it.
 const LAND_EPS_PX: f32 = 0.6;
 /// Standing inset from an anchor end for a regroup placement.
@@ -208,18 +222,19 @@ pub enum Regroup {
 #[derive(Debug, Clone)]
 pub struct NavDriver {
     graph: NavGraph,
+    /// The physics the graph is built under (rebuilds keep it).
+    config: NavConfig,
     pub heroes: [HeroNav; 2],
 }
 
 impl NavDriver {
-    /// Build the graph from the scene's solids under the integrated physics
-    /// (`NavConfig::integrated`, the config 01B-wire uses).
-    pub fn new(solids: &[Block]) -> Result<Self, NavError> {
+    /// Build the graph from the scene's solids under `config`: the preset that
+    /// matches the party's Donut motion (`NavConfig::for_motion`, which is
+    /// `NavConfig::agile()` under the shipped tuning).
+    pub fn new(solids: &[Block], config: NavConfig) -> Result<Self, NavError> {
         Ok(Self {
-            graph: NavGraph::build(
-                &NavLevel::from_blocks(solids, Vec::new()),
-                NavConfig::integrated(),
-            )?,
+            graph: NavGraph::build(&NavLevel::from_blocks(solids, Vec::new()), config)?,
+            config,
             heroes: [HeroNav::default(); 2],
         })
     }
@@ -246,10 +261,7 @@ impl NavDriver {
             }
         }
         if rebuild {
-            self.graph = NavGraph::build(
-                &NavLevel::from_blocks(solids, Vec::new()),
-                NavConfig::integrated(),
-            )?;
+            self.graph = NavGraph::build(&NavLevel::from_blocks(solids, Vec::new()), self.config)?;
         }
         Ok(())
     }
@@ -297,6 +309,7 @@ impl NavDriver {
     ) -> Option<Drive> {
         let i = actor.index();
         let mut t = self.heroes[i].transit?;
+        let run = self.config.run_speed(actor);
         t.age = t.age.saturating_add(1);
         let here = self.anchor_of(me);
         if me.grounded && here == Some(t.to) {
@@ -316,12 +329,12 @@ impl NavDriver {
         let drive = if !me.grounded {
             t.air = true;
             Drive {
-                move_x: steer(me, &t),
+                move_x: steer(me, &t, run),
                 jump: false,
             }
         } else if t.kind == EdgeKind::Walk {
             Drive {
-                move_x: steer(me, &t),
+                move_x: steer(me, &t, run),
                 jump: false,
             }
         } else {
@@ -333,12 +346,12 @@ impl NavDriver {
             }
             if t.go {
                 Drive {
-                    move_x: steer(me, &t),
+                    move_x: steer(me, &t, run),
                     jump: false,
                 }
-            } else if (t.launch_x - me.x).abs() > ARRIVE_EPS_PX {
+            } else if (t.launch_x - me.x).abs() > arrive_eps_px(run) {
                 Drive {
-                    move_x: approach(me.x, t.launch_x),
+                    move_x: approach(me.x, t.launch_x, run),
                     jump: false,
                 }
             } else if t.kind == EdgeKind::Jump && self.pressed(i) {
@@ -348,7 +361,7 @@ impl NavDriver {
                 t.go = true;
                 jump = t.kind == EdgeKind::Jump;
                 Drive {
-                    move_x: steer(me, &t),
+                    move_x: steer(me, &t, run),
                     jump,
                 }
             }
@@ -405,7 +418,7 @@ impl NavDriver {
                     notes.push(NavNote::Waiting { anchor, reason });
                 }
                 if anchor == here {
-                    return Some(self.hold_near(here, me, leader));
+                    return Some(self.hold_near(actor, here, me, leader));
                 }
                 let path = self
                     .graph
@@ -431,7 +444,7 @@ impl NavDriver {
     /// Waiting on `here` for a route that does not exist: close in on the
     /// leader's x as far as the anchor goes (the follow band of the bot), and
     /// never leave the anchor.
-    fn hold_near(&self, here: NavAnchorId, me: Body, leader: Body) -> Drive {
+    fn hold_near(&self, actor: HeroId, here: NavAnchorId, me: Body, leader: Body) -> Drive {
         let Some((x0, x1)) = self.graph.anchor_span(here) else {
             return Drive::default();
         };
@@ -441,7 +454,11 @@ impl NavDriver {
             return Drive::default();
         }
         Drive {
-            move_x: approach(me.x, goal - gap.signum() * WAIT_BAND_PX),
+            move_x: approach(
+                me.x,
+                goal - gap.signum() * WAIT_BAND_PX,
+                self.config.run_speed(actor),
+            ),
             jump: false,
         }
     }
@@ -566,15 +583,16 @@ impl NavDriver {
 }
 
 /// Steering toward `target_x`, the analog stick of the nav replay: full stick
-/// far away, the exact remaining step near it.
-fn approach(x: f32, target_x: f32) -> f32 {
-    ((target_x - x) / (RUN_SPEED * TICK_SECONDS)).clamp(-1.0, 1.0)
+/// far away, the exact remaining step near it. `run` is the body's own run
+/// speed (px/s): Donut's is not Carl's.
+fn approach(x: f32, target_x: f32, run: f32) -> f32 {
+    ((target_x - x) / (run * TICK_SECONDS)).clamp(-1.0, 1.0)
 }
 
 /// The transit's steering: toward its `target_x`, but beside the destination
 /// ledge while the feet are below its top (moving under the underside would
 /// bump the head), exactly as the nav model replays a transit.
-fn steer(me: Body, t: &Transit) -> f32 {
+fn steer(me: Body, t: &Transit, run: f32) -> f32 {
     let mut target = t.target_x;
     if t.kind != EdgeKind::Walk && me.foot_y < t.dst.2 - LAND_EPS_PX {
         target = if t.target_x >= t.launch_x {
@@ -583,7 +601,7 @@ fn steer(me: Body, t: &Transit) -> f32 {
             target.max(t.dst.1 + HERO_HALF_WIDTH)
         };
     }
-    approach(me.x, target)
+    approach(me.x, target, run)
 }
 
 #[cfg(test)]
@@ -663,10 +681,105 @@ mod tests {
         (hero, notes, highest)
     }
 
+    /// N1 (DM-A): the arrive tolerance must exceed what the stick dead zone can
+    /// leave unspent at the body's run speed, or a residual just above the old
+    /// 0.6 px tolerance is zeroed by [`approach`] and the transit stalls.
+    #[test]
+    fn the_arrive_tolerance_covers_the_deadzone_leftover_at_both_speeds() {
+        use crate::input::Actions;
+        // Carl's tolerance is exactly the historic constant (bit-identical).
+        assert_eq!(arrive_eps_px(RUN_SPEED).to_bits(), ARRIVE_EPS_PX.to_bits());
+        assert_eq!(ARRIVE_EPS_PX, 0.6);
+        let donut = crate::agility::agile_motion().run_speed;
+        let eps = arrive_eps_px(donut);
+        assert!((eps - 0.666).abs() < 0.001, "{eps}");
+        assert!(eps > STICK_DEADZONE * donut * TICK_SECONDS);
+        // The bug the fix prevents: at 207 px/s a 0.61 px residual is above the
+        // old tolerance and below the dead-zone leftover (0.621 px).
+        let stuck = Actions::from(crate::input::RawInput {
+            move_x: approach(0.0, 0.61, donut),
+            ..crate::input::RawInput::NONE
+        })
+        .move_x;
+        assert_eq!(stuck, 0.0, "the stall the old tolerance allowed");
+        // Sweep residuals 0..=3.45 px in 0.01 steps, both signs, at both speeds:
+        // outside the tolerance the stick always moves the hero, a step never
+        // overshoots the target, and the hero is inside the tolerance within a
+        // few ticks.
+        for run in [RUN_SPEED, donut] {
+            let eps = arrive_eps_px(run);
+            for n in 0..=345 {
+                for sign in [1.0_f32, -1.0] {
+                    let mut residual = sign * (n as f32) * 0.01;
+                    let mut ticks = 0;
+                    while residual.abs() > eps {
+                        let stick = Actions::from(crate::input::RawInput {
+                            move_x: approach(0.0, residual, run),
+                            ..crate::input::RawInput::NONE
+                        })
+                        .move_x;
+                        assert_ne!(stick, 0.0, "stalled at {residual} px, {run} px/s");
+                        let step = stick * run * TICK_SECONDS;
+                        assert!(
+                            step.abs() <= residual.abs() + 1e-4,
+                            "overshoot {step} of {residual}"
+                        );
+                        residual -= step;
+                        ticks += 1;
+                        assert!(ticks <= 3, "no arrival from {n}");
+                    }
+                    assert!(residual.abs() <= eps);
+                }
+            }
+        }
+    }
+
+    /// DM-A: the executor on the agile preset climbs a 104 px ledge with
+    /// Donut's agile body (the boss rack's height) where Carl's cannot.
+    #[test]
+    fn the_agile_preset_climbs_a_104_px_ledge_with_her_agile_body() {
+        let blocks = vec![
+            stone(0.0, 0.0, 2000.0, 40.0),
+            stone(300.0, 104.0, 300.0, 144.0),
+        ];
+        let motion = crate::agility::agile_motion();
+        let leader = standing(450.0, 104.0);
+        let mut driver = NavDriver::new(&blocks, NavConfig::agile()).unwrap();
+        let mut hero = Hero::at(100.0, HERO_HALF_HEIGHT);
+        let mut frame = InputFrame::default();
+        let mut arrived = false;
+        for _ in 0..400 {
+            let (drive, notes) = driver.follow(HeroId::Donut, body(&hero), leader, None);
+            arrived |= notes.iter().any(|n| matches!(n, NavNote::Arrived { .. }));
+            let d = drive.unwrap_or_default();
+            frame.advance(RawInput {
+                move_x: d.move_x,
+                jump: d.jump,
+                ..RawInput::NONE
+            });
+            crate::prototype::step_hero_motion(
+                &mut hero,
+                motion,
+                &frame,
+                &blocks,
+                2000.0,
+                &crate::prototype::BodyDrive::default(),
+            );
+        }
+        assert!(arrived, "{hero:?}");
+        assert!((hero.y - HERO_HALF_HEIGHT - 104.0).abs() < 0.01, "{hero:?}");
+        // Carl, on the integrated preset, has no route: the ledge is out of reach.
+        let mut carl = NavDriver::new(&blocks, NavConfig::agile()).unwrap();
+        let (hero, notes, highest) = run(&mut carl, &blocks, 100.0, leader, 300);
+        assert!(highest < 0.01, "Carl never jumped: {highest}");
+        assert!(hero.y - HERO_HALF_HEIGHT < 0.01);
+        assert!(notes.iter().any(|n| matches!(n, NavNote::Waiting { .. })));
+    }
+
     #[test]
     fn a_two_hop_route_is_climbed_through_the_real_body_step() {
         let blocks = level();
-        let mut driver = NavDriver::new(&blocks).unwrap();
+        let mut driver = NavDriver::new(&blocks, NavConfig::integrated()).unwrap();
         let (hero, notes, _) = run(&mut driver, &blocks, 100.0, standing(330.0, 120.0), 400);
         assert!((hero.y - HERO_HALF_HEIGHT - 120.0).abs() < 0.01, "{hero:?}");
         assert!(hero.x >= 300.0 && hero.x <= 360.0, "{hero:?}");
@@ -695,7 +808,7 @@ mod tests {
             stone(0.0, 0.0, 2000.0, 40.0),
             stone(700.0, 200.0, 60.0, 200.0),
         ];
-        let mut driver = NavDriver::new(&blocks).unwrap();
+        let mut driver = NavDriver::new(&blocks, NavConfig::integrated()).unwrap();
         let (hero, notes, highest) = run(&mut driver, &blocks, 100.0, standing(730.0, 200.0), 300);
         assert!(highest < 0.01, "it never jumped: {highest}");
         assert!(hero.y - HERO_HALF_HEIGHT < 0.01);
@@ -717,7 +830,7 @@ mod tests {
     fn a_destroyed_step_closes_the_route_and_a_restored_one_reopens_it() {
         let mut blocks = level();
         blocks[1].material = Material::Timber;
-        let mut driver = NavDriver::new(&blocks).unwrap();
+        let mut driver = NavDriver::new(&blocks, NavConfig::integrated()).unwrap();
         blocks[1].intact = false;
         driver.sync(&blocks).unwrap();
         let leader = standing(330.0, 120.0);
@@ -734,7 +847,7 @@ mod tests {
     fn a_transit_in_progress_is_dropped_when_its_edge_closes() {
         let mut blocks = level();
         blocks[1].material = Material::Timber;
-        let mut driver = NavDriver::new(&blocks).unwrap();
+        let mut driver = NavDriver::new(&blocks, NavConfig::integrated()).unwrap();
         let mut hero = Hero::at(100.0, HERO_HALF_HEIGHT);
         let mut frame = InputFrame::default();
         let leader = standing(330.0, 120.0);
@@ -764,7 +877,7 @@ mod tests {
     #[test]
     fn flat_ground_leaves_the_follow_layer_to_the_bot() {
         let blocks = level();
-        let mut driver = NavDriver::new(&blocks).unwrap();
+        let mut driver = NavDriver::new(&blocks, NavConfig::integrated()).unwrap();
         let hero = Hero::at(900.0, HERO_HALF_HEIGHT);
         let (drive, notes) = driver.follow(HeroId::Carl, body(&hero), standing(1200.0, 0.0), None);
         assert_eq!((drive, notes.len()), (None, 0));
@@ -787,7 +900,7 @@ mod tests {
     #[test]
     fn a_regroup_places_the_hero_on_a_reachable_anchor_outside_the_view() {
         let blocks = level();
-        let driver = NavDriver::new(&blocks).unwrap();
+        let driver = NavDriver::new(&blocks, NavConfig::integrated()).unwrap();
         // Off-screen far to the right of a view at 900.
         let r = driver.regroup(
             HeroId::Donut,
@@ -809,7 +922,7 @@ mod tests {
         // wrong side of the wall for the hero.
         let mut blocks = level();
         blocks.push(stone(1000.0, 200.0, 20.0, 200.0));
-        let driver = NavDriver::new(&blocks).unwrap();
+        let driver = NavDriver::new(&blocks, NavConfig::integrated()).unwrap();
         let r = driver.regroup(
             HeroId::Donut,
             standing(1500.0, 0.0),
@@ -844,7 +957,7 @@ mod tests {
     #[test]
     fn a_regroup_never_places_the_hero_ahead_of_the_leader() {
         let blocks = probe_level();
-        let driver = NavDriver::new(&blocks).unwrap();
+        let driver = NavDriver::new(&blocks, NavConfig::integrated()).unwrap();
         let v = RegroupView {
             view_left: 900.0,
             view_right: 1540.0,
@@ -906,7 +1019,7 @@ mod tests {
             stone(1060.0, 0.0, 140.0, 16.0),
             stone(1240.0, 0.0, 1700.0, 16.0),
         ];
-        let driver = NavDriver::new(&blocks).unwrap();
+        let driver = NavDriver::new(&blocks, NavConfig::integrated()).unwrap();
         let v = RegroupView {
             view_left: 900.0,
             view_right: 1540.0,
@@ -942,7 +1055,7 @@ mod tests {
     #[test]
     fn a_regroup_checks_the_leader_is_reachable_once_he_stands() {
         let blocks = dead_end_level();
-        let driver = NavDriver::new(&blocks).unwrap();
+        let driver = NavDriver::new(&blocks, NavConfig::integrated()).unwrap();
         let v = RegroupView {
             view_left: 900.0,
             view_right: 1540.0,
@@ -965,7 +1078,7 @@ mod tests {
         // is stranded on every tick.
         let mut blocks = level();
         blocks[1].material = Material::Timber;
-        let mut driver = NavDriver::new(&blocks).unwrap();
+        let mut driver = NavDriver::new(&blocks, NavConfig::integrated()).unwrap();
         blocks[1].intact = false;
         driver.sync(&blocks).unwrap();
         let hero = Hero::at(100.0, HERO_HALF_HEIGHT);

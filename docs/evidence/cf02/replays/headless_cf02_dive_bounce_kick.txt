@@ -2,5 +2,5 @@ COMBAT_EVENT tick=20 kind=move_started move=dive_stomp instance=1
 COMBAT_EVENT tick=29 kind=hit move=dive_stomp instance=1 target=0 damage=1 health_left=3 hit_stop=6
 COMBAT_EVENT tick=57 kind=move_started move=air_kick instance=2
 COMBAT_EVENT tick=65 kind=hit move=air_kick instance=2 target=0 damage=1 health_left=2 hit_stop=5
-COMBAT_STATE fixture=cf02_dive_bounce_kick seed=0xcf020b05 tick=90 elapsed=90 hero_hp=4 deaths=0 enemies=e0=455.000/2 hash=5b334261a5284335
-PARTY_STATE fixture=cf02_dive_bounce_kick mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=8decf9ef002355ab
+COMBAT_STATE fixture=cf02_dive_bounce_kick seed=0xcf020b05 tick=90 elapsed=90 hero_hp=4 deaths=0 enemies=e0=455.000/2 hash=326161708e21204b
+PARTY_STATE fixture=cf02_dive_bounce_kick mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=c35873ca28d4ae31

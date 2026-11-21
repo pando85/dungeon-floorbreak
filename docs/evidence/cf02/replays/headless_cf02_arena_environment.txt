@@ -97,5 +97,5 @@ COMBAT_EVENT tick=363 kind=hit move=jab instance=2 target=0 damage=1 health_left
 COMBAT_EVENT tick=363 kind=enemy_defeated target=0
 COMBAT_EVENT tick=363 kind=shore_hit instance=2 hits=3
 COMBAT_EVENT tick=363 kind=shore_broken player=0
-COMBAT_STATE fixture=cf02_arena_environment seed=0xcf02f101 tick=381 elapsed=1800 hero_hp=2 deaths=2 enemies=e0=433.068/0,e1=600.000/2,e2=680.000/2,e3=880.000/2,e4=940.000/2 hash=0e025cb1f723cee1 shore=3/Broken/Falling block_bottom=113.46 llamas=l0=840.662/3
-PARTY_STATE fixture=cf02_arena_environment mode=solo controlled=Carl carl_hp=2 donut_hp=4 deaths=2 hash=e0ebc6ce91df9677
+COMBAT_STATE fixture=cf02_arena_environment seed=0xcf02f101 tick=381 elapsed=1800 hero_hp=2 deaths=2 enemies=e0=433.068/0,e1=600.000/2,e2=680.000/2,e3=880.000/2,e4=940.000/2 hash=425e03ce8e62e8d0 shore=3/Broken/Falling block_bottom=113.46 llamas=l0=840.662/3
+PARTY_STATE fixture=cf02_arena_environment mode=solo controlled=Carl carl_hp=2 donut_hp=4 deaths=2 hash=5146be1636184a36

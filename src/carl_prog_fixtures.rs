@@ -189,10 +189,10 @@ mod tests {
     const GOLDENS: [(&str, u64); 3] = [
         (
             "carl_prog_story_event_grants_dynamite",
-            0xfcce_3cba_94bd_81af,
+            0x7594_ba64_4fd2_dbaf,
         ),
-        ("carl_prog_grant_survives_respawn", 0x4aea_b69b_4200_603b),
-        ("carl_prog_juicer_grants_fist", 0x3f28_9ce1_18dc_a4b8),
+        ("carl_prog_grant_survives_respawn", 0x8eeb_9036_87de_c95d),
+        ("carl_prog_juicer_grants_fist", 0xddd6_81ab_67f5_26ac),
     ];
 
     #[test]

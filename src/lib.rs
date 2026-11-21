@@ -2,6 +2,10 @@
 
 pub mod acting;
 pub mod actor_sprite;
+pub mod agility;
+pub mod agility_fixtures;
+#[cfg(test)]
+pub(crate) mod agility_geometry_tests;
 pub mod anim;
 pub mod audience;
 pub mod audio;

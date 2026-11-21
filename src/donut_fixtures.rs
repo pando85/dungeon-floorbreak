@@ -355,8 +355,10 @@ pub const CF02_LLAMA_POUNCE: PartyFixture = PartyFixture {
     base: &LLAMA_POUNCE_BASE,
     two_player: true,
     tuning: PROVISIONAL_TUNING,
+    // DM-A: she runs 207 px/s, so 49 ticks cover the 169 px that 55 ticks of
+    // 185 px/s did and she still arrives at the llama's near face.
     script: &[
-        run(5, 60, 1, 1.0),
+        run(5, 54, 1, 1.0),
         physical(70, 71, 1),
         physical(140, 141, 1),
         physical(210, 211, 1),
@@ -548,25 +550,25 @@ mod tests {
     }
 
     const GOLDENS: [(&str, u64); 8] = [
-        ("q10_swat_interrupt", 0x4bc1_f1c9_2814_7e99),
-        ("q10_swat_guard", 0xc64f_48fa_8f71_2d20),
+        ("q10_swat_interrupt", 0x7151_31d0_374a_16c8),
+        ("q10_swat_guard", 0x67c2_3bf7_826f_3fab),
         ("q10_pounce_hit", 0xf7fe_d891_c0e2_f8c1),
         ("q10_pounce_miss", 0x4274_d6eb_4552_8cc1),
         ("q10_dry_press", 0x672f_2eca_b864_6492),
         ("q10_mana_regen", 0xf7c2_1bf4_376c_ab99),
-        ("q10_unlock_persists", 0xd069_6a0b_3952_ce94),
+        ("q10_unlock_persists", 0xd1d8_48a7_01a1_f50d),
         ("q10_pounce_boss", 0xe2de_0452_dc5d_ede4),
     ];
 
     /// CF02-C1: the committed final hashes of the llama fixtures.
     const CF02_GOLDENS: [(&str, u64); 7] = [
-        ("cf02_llama_swat_interrupt", 0x4af2_f493_1063_f1f6),
-        ("cf02_llama_swat_guard", 0xd51a_bdc4_c4cb_5745),
-        ("cf02_llama_pounce", 0x0c45_b58d_0ead_33b8),
-        ("cf02_llama_bolt_stops", 0x1f46_79db_b6fc_c5b4),
-        ("cf02_donut_solo_llama", 0xcf60_93b7_1f50_4c6a),
+        ("cf02_llama_swat_interrupt", 0xbd69_2a6b_647a_2a41),
+        ("cf02_llama_swat_guard", 0x764d_bd2f_4024_0d1e),
+        ("cf02_llama_pounce", 0xb463_4446_27b7_960e),
+        ("cf02_llama_bolt_stops", 0x2c8a_c75e_7472_7a0e),
+        ("cf02_donut_solo_llama", 0xe1ea_e0ff_ae9b_c431),
         ("cf02_donut_bailout", 0x50c5_db02_4da0_ce67),
-        ("cf02_swap_eased_pan", 0x7352_38da_816c_1895),
+        ("cf02_swap_eased_pan", 0xcb19_d498_fcbc_aee8),
     ];
 
     /// The Q10 fixtures (the DEMO-era ones) of the registry.
@@ -931,7 +933,7 @@ mod tests {
             CombatEvent::Mana(ManaEvent::UnlockGranted { tick, .. }) => Some(tick),
             _ => None,
         });
-        assert_eq!(granted, vec![55], "once, on the first tick inside the zone");
+        assert_eq!(granted, vec![50], "once, on the first tick inside the zone");
         let restart_at = sim
             .combat
             .events
@@ -1283,7 +1285,7 @@ mod tests {
     #[test]
     fn cf02_llama_bolt_stops_ends_on_the_first_llama_instead_of_flying_through() {
         let sim = named("cf02_llama_bolt_stops");
-        assert_eq!(hits(&sim, MoveId::MagicMissile), vec![(53, 0, 1, 2)]);
+        assert_eq!(hits(&sim, MoveId::MagicMissile), vec![(52, 0, 1, 2)]);
         assert_eq!(
             sim.combat.llamas[1].health, 3,
             "the llama behind is untouched"

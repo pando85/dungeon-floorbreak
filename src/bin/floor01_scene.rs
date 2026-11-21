@@ -2720,6 +2720,7 @@ fn recording_manifest(
         carl_prog: args.carl.prog,
         carl_dynamite: args.carl.dynamite,
         carl_gauntlet: args.carl.gauntlet,
+        donut_motion: party.tuning().donut_motion,
         kit_hash,
         start_hash,
     };

@@ -1,5 +1,5 @@
 COMBAT_EVENT tick=6 kind=move_started move=air_kick instance=1
 COMBAT_EVENT tick=11 kind=hit move=air_kick instance=1 target=0 damage=1 health_left=1 hit_stop=5
 COMBAT_EVENT tick=31 kind=goblin_contact launch=1 source=0 target=1
-COMBAT_STATE fixture=cf02_air_relaunch_contact seed=0xcf020c06 tick=90 elapsed=90 hero_hp=4 deaths=0 enemies=e0=481.333/1,e1=494.167/2 hash=e4a47bd82ff446a2
-PARTY_STATE fixture=cf02_air_relaunch_contact mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=45769c837cbfe8f8
+COMBAT_STATE fixture=cf02_air_relaunch_contact seed=0xcf020c06 tick=90 elapsed=90 hero_hp=4 deaths=0 enemies=e0=481.333/1,e1=494.167/2 hash=47a50a3cac5f8c2a
+PARTY_STATE fixture=cf02_air_relaunch_contact mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=58c789f182f2ea10

@@ -48,27 +48,27 @@ COMBAT_EVENT tick=565 kind=move_started move=haymaker instance=18
 COMBAT_EVENT tick=565 kind=boss_tell move=pound target=carl
 COMBAT_EVENT tick=570 kind=boss_hurt source=0 damage=1 hp_left=20
 COMBAT_EVENT tick=606 kind=boss_strike move=pound
-COMBAT_EVENT tick=620 kind=hero_hurt source=16981 health_left=3 hero=donut
+COMBAT_EVENT tick=619 kind=hero_hurt source=16981 health_left=3 hero=donut
 COMBAT_EVENT tick=624 kind=move_started move=jab instance=19
 COMBAT_EVENT tick=636 kind=move_started move=haymaker instance=20
 COMBAT_EVENT tick=640 kind=boss_tell move=pound target=carl
 COMBAT_EVENT tick=643 kind=boss_hurt source=0 damage=1 hp_left=19
 COMBAT_EVENT tick=681 kind=boss_strike move=pound
-COMBAT_EVENT tick=695 kind=hero_hurt source=16981 health_left=2 hero=donut
+COMBAT_EVENT tick=694 kind=hero_hurt source=16981 health_left=2 hero=donut
 COMBAT_EVENT tick=696 kind=move_started move=jab instance=21
 COMBAT_EVENT tick=708 kind=move_started move=haymaker instance=22
 COMBAT_EVENT tick=715 kind=boss_tell move=pound target=carl
 COMBAT_EVENT tick=751 kind=boss_strike move=pound
-COMBAT_EVENT tick=765 kind=hero_hurt source=16981 health_left=1 hero=donut
+COMBAT_EVENT tick=764 kind=hero_hurt source=16981 health_left=1 hero=donut
 COMBAT_EVENT tick=768 kind=move_started move=jab instance=23
 COMBAT_EVENT tick=780 kind=move_started move=haymaker instance=24
 COMBAT_EVENT tick=785 kind=boss_tell move=pound target=carl
 COMBAT_EVENT tick=821 kind=boss_strike move=pound
-COMBAT_EVENT tick=835 kind=hero_hurt source=16981 health_left=1 hero=donut
+COMBAT_EVENT tick=834 kind=hero_hurt source=16981 health_left=1 hero=donut
 COMBAT_EVENT tick=840 kind=move_started move=jab instance=25
 COMBAT_EVENT tick=852 kind=move_started move=haymaker instance=26
 COMBAT_EVENT tick=855 kind=boss_tell move=pound target=carl
 COMBAT_EVENT tick=858 kind=boss_hurt source=0 damage=1 hp_left=18
 COMBAT_EVENT tick=896 kind=boss_strike move=pound
-COMBAT_STATE fixture=boss01_solo_ai_guard seed=0xb050009 tick=900 elapsed=900 hero_hp=4 deaths=0 enemies= hash=80941cf1fadee56c boss=18/36/pound_strike/p2 boss_x=133.60
-PARTY_STATE fixture=boss01_solo_ai_guard mode=solo controlled=Carl carl_hp=4 donut_hp=1 deaths=0 hash=7b6e73ef9cb42862
+COMBAT_STATE fixture=boss01_solo_ai_guard seed=0xb050009 tick=900 elapsed=900 hero_hp=4 deaths=0 enemies= hash=f4b70240719de4a2 boss=18/36/pound_strike/p2 boss_x=133.60
+PARTY_STATE fixture=boss01_solo_ai_guard mode=solo controlled=Carl carl_hp=4 donut_hp=1 deaths=0 hash=91f968413670c6f8

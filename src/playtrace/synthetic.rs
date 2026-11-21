@@ -95,6 +95,17 @@ pub fn record_synthetic(
 ) -> Result<SessionManifest, String> {
     let fixture = find_party_fixture(fixture_name)
         .ok_or_else(|| format!("unknown party fixture {fixture_name:?}"))?;
+    record_synthetic_fixture(base, root, fixture, ticks)
+}
+
+/// [`record_synthetic`] for a fixture the caller holds (a test can record a
+/// fixture with an edited tuning, for example the test-only legacy motion).
+pub fn record_synthetic_fixture(
+    base: &Path,
+    root: &Path,
+    fixture: &'static crate::party_scene::PartyFixture,
+    ticks: u64,
+) -> Result<SessionManifest, String> {
     if crate::cf02::arena::fixture_uses_arena(fixture.name()) {
         return Err("arena fixtures are not supported by the synthetic recorder".to_owned());
     }
@@ -113,6 +124,7 @@ pub fn record_synthetic(
         carl_prog: false,
         carl_dynamite: false,
         carl_gauntlet: false,
+        donut_motion: fixture.tuning.donut_motion,
         kit_hash,
         start_hash: sim.combat.state_hash(&sim.scene),
     };

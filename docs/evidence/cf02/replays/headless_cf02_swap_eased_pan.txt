@@ -1,8 +1,8 @@
 COMBAT_EVENT tick=30 kind=llama_tell llama=0
 COMBAT_EVENT tick=66 kind=llama_spit llama=0
-COMBAT_EVENT tick=105 kind=hero_hurt source=0 health_left=3
+COMBAT_EVENT tick=106 kind=hero_hurt source=0 health_left=3
 COMBAT_EVENT tick=180 kind=llama_tell llama=0
 COMBAT_EVENT tick=216 kind=llama_spit llama=0
-COMBAT_EVENT tick=251 kind=hero_hurt source=0 health_left=2
-COMBAT_STATE fixture=cf02_swap_eased_pan seed=0xcf02c07 tick=260 elapsed=260 hero_hp=2 deaths=0 enemies= hash=6cbbdda9a2edd0af llamas=l0=739.333/3
-PARTY_STATE fixture=cf02_swap_eased_pan mode=solo controlled=Carl carl_hp=2 donut_hp=4 deaths=0 hash=735238da816c1895
+COMBAT_EVENT tick=252 kind=hero_hurt source=0 health_left=2
+COMBAT_STATE fixture=cf02_swap_eased_pan seed=0xcf02c07 tick=260 elapsed=260 hero_hp=2 deaths=0 enemies= hash=2aadced6cde42812 llamas=l0=738.666/3
+PARTY_STATE fixture=cf02_swap_eased_pan mode=solo controlled=Carl carl_hp=2 donut_hp=4 deaths=0 hash=cb19d498fcbcaee8

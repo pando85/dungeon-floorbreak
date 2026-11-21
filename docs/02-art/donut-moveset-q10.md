@@ -194,7 +194,7 @@ The pounce's fixed `MoveSpec` (10 / 16 / 18) is the flat-floor nominal. The scen
 2. Does the guard read as a rule ("it won't fall for that twice") or as a random failure?
 3. Boss #115 owns whether light hits keep counting toward poise.
 4. Pounce flanking and the contract's pounce-bounce remain candidates.
-5. Donut's faster scamper and higher jump are separate work. The boss rack depends on that jump.
+5. Donut's faster scamper and higher jump were separate work; they are closed by [DONUT-MOBILITY-01](../03-tech/donut-mobility-01.md) DM-A (207 px/s and 500 px/s). The boss rack depends on that jump and stays off until DM-RACK.
 
 ## Horizon fit
 

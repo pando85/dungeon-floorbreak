@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "dm_q01_run_speed": 207.0,
+  "dm_q02_jump_speed": 500.0,
+  "dm_q08_ai_jump_margin_px": 4.0,
+  "dm_q11_evasion_mode": "reflex",
+  "dm_q12_reflex_rearm_ticks": 720
+}

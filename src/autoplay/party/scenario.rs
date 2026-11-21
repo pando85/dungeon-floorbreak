@@ -14,8 +14,8 @@ use crate::combat_scene::{EnemySpawn, FIXTURES, Fixture};
 use crate::donut_mana::DonutSetup;
 use crate::input::RawInput;
 use crate::party::{
-    CameraFollow, DonutHurtbox, EnemyTargetRule, PROVISIONAL_TUNING, PartyTuning, PlateGlyphs,
-    SwapPanMode, UncontrolledHero,
+    CameraFollow, DonutHurtbox, EnemyTargetRule, MotionProfile, PROVISIONAL_TUNING, PartyTuning,
+    PlateGlyphs, SwapPanMode, UncontrolledHero,
 };
 use crate::party_scene::{PartyFixture, base};
 
@@ -257,6 +257,13 @@ fn glyph_tag(value: PlateGlyphs) -> u8 {
     }
 }
 
+fn motion_tag(value: MotionProfile) -> u8 {
+    match value {
+        MotionProfile::Legacy => 0,
+        MotionProfile::Agile => 1,
+    }
+}
+
 /// Fixed placeholder for the `uncontrolled_hero` slot of the layout
 /// fingerprint, so one layout shares a fingerprint across companions.
 const UNCONTROLLED_PLACEHOLDER: u8 = 0xFF;
@@ -292,6 +299,7 @@ fn encode_tuning(tuning: &PartyTuning, uncontrolled: Option<u8>) -> Vec<u8> {
         offscreen_margin_px,
         donut_moves,
         plate_glyphs,
+        donut_motion,
     } = *tuning;
     let mut out = Vec::new();
     let mut put = |name: &str, bytes: &[u8]| {
@@ -340,6 +348,12 @@ fn encode_tuning(tuning: &PartyTuning, uncontrolled: Option<u8>) -> Vec<u8> {
     put("offscreen_margin_px", &offscreen_margin_px.to_le_bytes());
     put("donut_moves", &[u8::from(donut_moves)]);
     put("plate_glyphs", &[glyph_tag(plate_glyphs)]);
+    // DONUT-MOBILITY-01: written only when it is not the shipped motion
+    // (`PROVISIONAL_TUNING`, agile), so every existing layout fingerprint and
+    // tuning hash is unchanged.
+    if donut_motion != crate::party::PROVISIONAL_TUNING.donut_motion {
+        put("donut_motion", &[motion_tag(donut_motion)]);
+    }
     out
 }
 

@@ -23,7 +23,7 @@ use crate::boss::Boss;
 use crate::combat::{ENEMY_HALF_HEIGHT, MoveSpec};
 use crate::companion::director::{Action, CompanionDirector, Decision, Mode};
 use crate::companion::events::{CompanionEvent, CompanionStats, EVENT_CAP, RegroupOutcome};
-use crate::companion::nav::Reason;
+use crate::companion::nav::{NavConfig, Reason};
 use crate::companion::navfollow::{Body, NavDriver, NavNote, Regroup, RegroupView};
 use crate::companion::profile::{KillPolicy, ProfileFile, ProfileSetId};
 use crate::companion::rules;
@@ -455,7 +455,10 @@ impl CombatState {
         let solids = &scene.world.solids;
         let ok = match &mut self.companion.nav {
             Some(nav) => nav.sync(solids).is_ok(),
-            None => match NavDriver::new(solids) {
+            None => match NavDriver::new(
+                solids,
+                NavConfig::for_motion(scene.drive().tuning.donut_motion),
+            ) {
                 Ok(nav) => {
                     self.companion.nav = Some(nav);
                     true

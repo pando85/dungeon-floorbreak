@@ -12,9 +12,9 @@ presentation.
 
 | Fixture | Final `PARTY_STATE` hash | What it shows |
 | --- | --- | --- |
-| `carl_prog_story_event_grants_dynamite` | `fcce3cba94bd81af` | one `capability_granted` (tick 69, hero 0, `special_thrown_charge`) on the first tick Carl's pivot is inside the placeholder zone of `pile_boss_f01_defeated` |
-| `carl_prog_grant_survives_respawn` | `4aeab69b4200603b` | the grant at tick 69, a defeat at tick 495 and a party retry at tick 544 (twice): the capability stays held and is never granted a second time |
-| `carl_prog_juicer_grants_fist` | `3f289ce118dca4b8` | under the boss pin the boss defeat (tick 311) and one `capability_granted` (`fist_reinforced`) share a tick; the pinned `special_thrown_charge` emits nothing |
+| `carl_prog_story_event_grants_dynamite` | `7594ba644fd2dbaf` | one `capability_granted` (tick 69, hero 0, `special_thrown_charge`) on the first tick Carl's pivot is inside the placeholder zone of `pile_boss_f01_defeated` |
+| `carl_prog_grant_survives_respawn` | `8eeb903687dec95d` | the grant at tick 69, a defeat at tick 495 and a party retry at tick 544 (twice): the capability stays held and is never granted a second time |
+| `carl_prog_juicer_grants_fist` | `ddd681ab67f526ac` | under the boss pin the boss defeat (tick 311) and one `capability_granted` (`fist_reinforced`) share a tick; the pinned `special_thrown_charge` emits nothing |
 
 Event log of a grant and a defeat retry (`carl_prog_grant_survives_respawn`):
 

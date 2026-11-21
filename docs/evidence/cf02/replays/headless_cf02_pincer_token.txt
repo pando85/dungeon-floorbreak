@@ -10,5 +10,5 @@ COMBAT_EVENT tick=95 kind=goblin_swing goblin=0
 COMBAT_EVENT tick=95 kind=hero_hurt source=0 health_left=2
 COMBAT_EVENT tick=96 kind=goblin_tell goblin=1
 COMBAT_EVENT tick=108 kind=goblin_tell goblin=2
-COMBAT_STATE fixture=cf02_pincer_token seed=0xcf020d03 tick=120 elapsed=120 hero_hp=2 deaths=0 enemies=e0=570.167/2,e1=575.000/2,e2=629.167/2 hash=0974b6abc3249a94
-PARTY_STATE fixture=cf02_pincer_token mode=solo controlled=Carl carl_hp=2 donut_hp=4 deaths=0 hash=2f3867df0c7c1b1a
+COMBAT_STATE fixture=cf02_pincer_token seed=0xcf020d03 tick=120 elapsed=120 hero_hp=2 deaths=0 enemies=e0=570.167/2,e1=575.000/2,e2=629.167/2 hash=d5bb68b0f64570cf
+PARTY_STATE fixture=cf02_pincer_token mode=solo controlled=Carl carl_hp=2 donut_hp=4 deaths=0 hash=811d0b6d7b322c35

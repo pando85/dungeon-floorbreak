@@ -83,7 +83,7 @@ const ASSIST_GAP_BASE: Fixture = base(
     "cf02_assist_swat_trailing_gap",
     "Solo as Carl, who runs at a goblin: Donut trails him and starts a swat only if it can still land inside the tell (CF02-Q14, Q39)",
     0xC0A1_0002,
-    &[chase(640)],
+    &[chase(660)],
     240,
 );
 
@@ -150,9 +150,9 @@ pub const CF02_ASSIST_HP_DROPS_MIDMOVE: PartyFixture = PartyFixture {
 
 const ASSIST_CADENCE_BASE: Fixture = base(
     "cf02_assist_cadence",
-    "Solo as Carl, who stands: two goblins tell one after the other and the AI Donut starts at most one move per 20 ticks (CF02-DUO-A02, was 60 under CF02-Q16), never while a move runs",
+    "Solo as Carl, who stands: two goblins tell one after the other (a goblin at 440 and one at 500, asserted) and the AI Donut starts at most one move per 20 ticks (CF02-DUO-A02, was 60 under CF02-Q16), never while a move runs",
     0xC0A1_0005,
-    &[chase(500), chase(520)],
+    &[chase(440), chase(500)],
     320,
 );
 
@@ -748,24 +748,24 @@ mod tests {
     /// The committed final `PARTY_STATE` hash of every fixture here (the CI
     /// replays in `docs/evidence/companion-ai` pin the same values).
     const GOLDENS: [(&str, u64); 18] = [
-        ("cf02_assist_swat_interrupt", 0xfbce9a725ded23d1),
-        ("cf02_assist_swat_trailing_gap", 0x4e35b097c459d7ce),
-        ("cf02_assist_pounce_staggered", 0xb6f8d15f1dcc4a31),
+        ("cf02_assist_swat_interrupt", 0xccbc3098bd4935e9),
+        ("cf02_assist_swat_trailing_gap", 0x04841f57c5c450c5),
+        ("cf02_assist_pounce_staggered", 0x13fe359d33b2ee65),
         ("cf02_assist_hp_drops_midmove", 0xeeef90433185c908),
-        ("cf02_assist_cadence", 0x7891b53f23e69ddc),
+        ("cf02_assist_cadence", 0xb6639df01f0b99a9),
         ("cf02_assist_magic_locked", 0x3fa0c4ae6aaecf92),
         ("cf02_assist_missile_reserve", 0x89506924a8836b1c),
-        ("cf02_assist_camera_parity", 0xca8dc9c4baacd1cd),
-        ("cf02_assist_donut_defeats_goblin", 0xb9d8705a123e2b94),
-        ("cf02_assist_donut_missiles_goblin", 0xecf55bc53c5127ef),
-        ("cf02_assist_donut_guards_carls_back", 0x81d14a5e66a2a3e6),
-        ("cf02_assist_donut_flanks_two_goblins", 0xb65feb7d4a504e7d),
-        ("companion_carl_interrupts_for_donut", 0x0e259bf6d5b3f8f4),
-        ("companion_donut_supports_carl", 0xe0e93bd08a05b14c),
-        ("companion_duo_no_ai", 0x67ac6477f6d13dd9),
-        ("companion_swap_mid_move", 0x0854974ce60919a9),
-        ("companion_arena_nav_perch_donut", 0x5df620202ed1c92c),
-        ("companion_arena_nav_perch_carl", 0x69c986158efcd9d1),
+        ("cf02_assist_camera_parity", 0x994a61b9dcbec360),
+        ("cf02_assist_donut_defeats_goblin", 0xb7c51b95ae363569),
+        ("cf02_assist_donut_missiles_goblin", 0x95d486bbfdc4de46),
+        ("cf02_assist_donut_guards_carls_back", 0x31dba7f55a0bc61a),
+        ("cf02_assist_donut_flanks_two_goblins", 0xe567e5c22d30484b),
+        ("companion_carl_interrupts_for_donut", 0x932624152d49df54),
+        ("companion_donut_supports_carl", 0x2d03dbced1ed5647),
+        ("companion_duo_no_ai", 0x7bbaea9a82c73afe),
+        ("companion_swap_mid_move", 0xec01b32eeb394f8f),
+        ("companion_arena_nav_perch_donut", 0x92d45ee04a2c1aea),
+        ("companion_arena_nav_perch_carl", 0xd16f2d3826906853),
     ];
 
     #[test]
@@ -952,6 +952,19 @@ mod tests {
                 })
                 .count();
             assert_eq!(swat_interrupts, interrupts, "{}: {events:?}", f.name());
+            // Both goblins tell in the run, so the one interrupt swat breaks a
+            // tell while another goblin is alive (a guard against the fixture
+            // drifting back to a run where she kills goblin 0 before it tells).
+            let both = f.name() == "cf02_assist_cadence";
+            for goblin in (0..f.base.enemies.len() as u32).filter(|_| both) {
+                assert!(
+                    events.iter().any(
+                        |e| matches!(e, CombatEvent::GoblinTell { goblin: g, .. } if *g == goblin)
+                    ),
+                    "{}: goblin {goblin} never tells",
+                    f.name()
+                );
+            }
             // Every swat hit interrupts a tell: no swat landed on a goblin that
             // was not telling (that would set the guard against her own interrupt).
             for tick in &swat_hit_ticks {
@@ -1583,12 +1596,16 @@ mod tests {
         for tick in 0..300 {
             // Carl is held a little above the floor for 130 ticks (past the 120
             // regroup_ticks, while the AI Donut is still off-screen),
-            // then falls and lands.
+            // then falls and lands. DM-A: her 207 px/s run would carry her into
+            // the view before Carl lands (she walks in at x about 484 by tick
+            // 137), so the setup holds her at x 40 too: the case under test is
+            // a regroup that is due while the leader is in the air.
             if tick < 130 {
                 let h = &mut sim.scene.world.hero;
                 h.y = carl_floor + 24.0;
                 h.vy = 0.0;
                 h.grounded = false;
+                sim.scene.world.donut_body.x = 40.0;
             } else if release.is_none() {
                 release = Some(tick);
             }
@@ -1955,7 +1972,7 @@ mod tests {
         // Her first pounce starts before Carl's first press (110).
         assert_eq!(
             o.starts,
-            vec![(67, MoveId::Pounce), (116, MoveId::Pounce)],
+            vec![(61, MoveId::Pounce), (110, MoveId::Pounce)],
             "{o:?}"
         );
         assert_eq!(

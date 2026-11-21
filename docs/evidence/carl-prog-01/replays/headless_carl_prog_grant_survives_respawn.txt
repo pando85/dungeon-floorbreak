@@ -70,5 +70,5 @@ COMBAT_EVENT tick=386 kind=goblin_tell goblin=0
 COMBAT_EVENT tick=400 kind=goblin_swing goblin=1
 COMBAT_EVENT tick=400 kind=hero_hurt source=1 health_left=1
 COMBAT_EVENT tick=412 kind=goblin_swing goblin=0
-COMBAT_STATE fixture=carl_prog_grant_survives_respawn seed=0xca10002 tick=412 elapsed=1500 hero_hp=1 deaths=2 enemies=e0=693.800/2,e1=694.534/2 hash=26a520330ba74345
-PARTY_STATE fixture=carl_prog_grant_survives_respawn mode=solo controlled=Carl carl_hp=1 donut_hp=4 deaths=2 hash=4aeab69b4200603b
+COMBAT_STATE fixture=carl_prog_grant_survives_respawn seed=0xca10002 tick=412 elapsed=1500 hero_hp=1 deaths=2 enemies=e0=693.800/2,e1=694.534/2 hash=66cd621495164b47
+PARTY_STATE fixture=carl_prog_grant_survives_respawn mode=solo controlled=Carl carl_hp=1 donut_hp=4 deaths=2 hash=8eeb903687dec95d

@@ -33,7 +33,7 @@ Microarena clips (CF02-F, stacked on `feat/cf02-c2f`; the room fixtures run on t
 | [`arena_carl_frustration.gif`](arena_carl_frustration.gif) | `cf02_block_hurts_carl`, 62..98 | Carl's frustration (the muttered shake and flap, 24 ticks) after three whiffs, then the shore block falling |
 | [`arena_goblin_panic.gif`](arena_goblin_panic.gif) | `cf02_arena_direct`, 116..156 | a panicking goblin in the room |
 | [`arena_goblin_taunt.gif`](arena_goblin_taunt.gif) | `cf02_arena_direct`, 366..410 | a show-off's taunt among the crowd and the llama |
-| [`arena_donut_smug.gif`](arena_donut_smug.gif) | `cf02_arena_direct`, 374..402 | Donut's smug after the assistant's hit (she stands among the goblins, so it is hard to read at 1x) |
+| [`arena_donut_smug.gif`](arena_donut_smug.gif) | `cf02_arena_direct`, 378..406 (DM-A: re-timed from 374..402, her swat hit moved from tick 370 to 374) | Donut's smug after the assistant's hit (she stands among the goblins, so it is hard to read at 1x) |
 | [`arena_goblin_hesitate.gif`](arena_goblin_hesitate.gif) | `cf02_arena_coop`, 116..142 | a hesitating goblin in the 2P room |
 | [`arena_slammed_flung.gif`](arena_slammed_flung.gif) | `cf02_goblin_self_own`, 88..120 | the flung finish of a goblin that tripped the shore itself |
 

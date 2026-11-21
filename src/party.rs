@@ -23,6 +23,7 @@ use crate::combat::{HERO_HEALTH, HERO_INVULNERABLE_TICKS};
 use crate::companion::profile::CompanionProfileSet;
 use crate::feel::HERO_HURT_TICKS;
 use crate::input::{RawInput, SlotInputs};
+use crate::prototype::HeroMotion;
 
 /// An opaque pad identity supplied by the adapter (for example the Bevy
 /// gamepad entity bits). Never interpreted here.
@@ -156,6 +157,38 @@ pub enum PlateGlyphs {
     OwnPad,
 }
 
+/// DONUT-MOBILITY-01 (DM-Q10): which ordinary motion Donut's body steps with.
+/// There is no CLI flag or data switch: [`PROVISIONAL_TUNING`] ships the agile
+/// motion, so every tuning built from it is agile. [`MotionProfile::Legacy`] is
+/// constructed only by tests and by the playtrace rebuild of a recording made
+/// before DM-A (the absent descriptor field means legacy).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MotionProfile {
+    /// Carl's motion (`RUN_SPEED`, `JUMP_SPEED`): every body before DM-A.
+    Legacy,
+    /// Donut's agile motion from `hero_agility_v0.json` (DM-Q01, DM-Q02).
+    Agile,
+}
+
+impl MotionProfile {
+    /// The motion this profile steps Donut's body with.
+    pub fn motion(self) -> HeroMotion {
+        match self {
+            Self::Legacy => HeroMotion::CARL,
+            Self::Agile => crate::agility::agile_motion(),
+        }
+    }
+
+    /// The name written to the playtrace (`feature_flags["donut_motion"]`).
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Legacy => "legacy",
+            Self::Agile => "agile",
+        }
+    }
+}
+
 /// The party knobs. Every field names the owner question (`Qn`) it answers;
 /// change the value here, not at a call site. Status of every value: adopted
 /// (orchestrator, owner directive 2026-11-19), game-feel pending.
@@ -217,6 +250,9 @@ pub struct PartyTuning {
     pub donut_moves: bool,
     /// Q11.
     pub plate_glyphs: PlateGlyphs,
+    /// DONUT-MOBILITY-01 (DM-Q10). The motion Donut's body steps with, applied
+    /// every tick (never stored on the body). Carl is never affected.
+    pub donut_motion: MotionProfile,
 }
 
 /// CF02-Q20: how the solo-swap camera pan moves toward the new hero.
@@ -306,6 +342,7 @@ pub const PROVISIONAL_TUNING: PartyTuning = PartyTuning {
     offscreen_margin_px: 16,
     donut_moves: true,
     plate_glyphs: PlateGlyphs::OwnPad,
+    donut_motion: MotionProfile::Agile,
 };
 
 impl Default for PartyTuning {

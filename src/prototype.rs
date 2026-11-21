@@ -418,9 +418,42 @@ pub fn step_hero(hero: &mut Hero, input: &InputFrame, blocks: &[Block], max_x: f
     step_hero_driven(hero, input, blocks, max_x, &BodyDrive::default());
 }
 
+/// DONUT-MOBILITY-01 (DM-A): the two numbers of a hero's ordinary movement, a
+/// value passed to the step and never stored on [`Hero`]. [`HeroMotion::CARL`]
+/// is the shared greybox motion (`RUN_SPEED`, `JUMP_SPEED`); Donut's agile
+/// motion comes from `agility.rs`. Gravity stays shared (DM-Q03).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct HeroMotion {
+    /// Horizontal speed at full stick, px/s.
+    pub run_speed: f32,
+    /// Launch speed of an ordinary jump, px/s.
+    pub jump_speed: f32,
+}
+
+impl HeroMotion {
+    /// Carl's motion (and the legacy motion of every hero).
+    pub const CARL: Self = Self {
+        run_speed: RUN_SPEED,
+        jump_speed: JUMP_SPEED,
+    };
+}
+
 /// [`step_hero`] with the overrides of a running combat move.
 pub fn step_hero_driven(
     hero: &mut Hero,
+    input: &InputFrame,
+    blocks: &[Block],
+    max_x: f32,
+    drive: &BodyDrive,
+) {
+    step_hero_motion(hero, HeroMotion::CARL, input, blocks, max_x, drive);
+}
+
+/// [`step_hero_driven`] with an explicit [`HeroMotion`]. With
+/// [`HeroMotion::CARL`] it runs the same `f32` operations as before.
+pub fn step_hero_motion(
+    hero: &mut Hero,
+    motion: HeroMotion,
     input: &InputFrame,
     blocks: &[Block],
     max_x: f32,
@@ -437,7 +470,7 @@ pub fn step_hero_driven(
         hero.coyote_ticks = hero.coyote_ticks.saturating_sub(1);
     }
     if hero.jump_buffer_ticks > 0 && hero.coyote_ticks > 0 {
-        hero.vy = JUMP_SPEED;
+        hero.vy = motion.jump_speed;
         hero.grounded = false;
         hero.jump_buffer_ticks = 0;
         hero.coyote_ticks = 0;
@@ -449,7 +482,7 @@ pub fn step_hero_driven(
         hero.jump_buffer_ticks = 0;
         hero.coyote_ticks = 0;
     }
-    hero.vx = input.held.move_x * RUN_SPEED;
+    hero.vx = input.held.move_x * motion.run_speed;
     if let Some(vx) = drive.vx {
         hero.vx = vx;
     }

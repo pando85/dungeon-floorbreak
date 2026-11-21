@@ -10,5 +10,5 @@ COMBAT_EVENT tick=210 kind=move_started move=pounce instance=3
 COMBAT_EVENT tick=220 kind=hit move=pounce instance=3 target=0 damage=1 health_left=0 hit_stop=7
 COMBAT_EVENT tick=220 kind=enemy_defeated target=0 instigator=1
 COMBAT_EVENT tick=220 kind=llama_interrupted llama=0
-COMBAT_STATE fixture=cf02_llama_pounce seed=0xcf02c03 tick=300 elapsed=300 hero_hp=3 deaths=0 enemies= hash=b65ff34ac9338262 llamas=l0=591.500/0
-PARTY_STATE fixture=cf02_llama_pounce mode=2p controlled=Carl carl_hp=3 donut_hp=4 deaths=0 hash=0c45b58d0ead33b8
+COMBAT_STATE fixture=cf02_llama_pounce seed=0xcf02c03 tick=300 elapsed=300 hero_hp=3 deaths=0 enemies= hash=b789d603859bd658 llamas=l0=591.500/0
+PARTY_STATE fixture=cf02_llama_pounce mode=2p controlled=Carl carl_hp=3 donut_hp=4 deaths=0 hash=b463444627b7960e
