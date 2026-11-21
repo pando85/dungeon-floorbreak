@@ -12,7 +12,9 @@
 //! - [`director`]: states, legal utility candidates, safety vetoes, cadence.
 //! - [`events`]: the separate `CompanionEvent` log and the per-run counters.
 //! - [`rules`]: the kill-policy `glance` (CA-19, CA-20).
-//! - `nav`, `command_input`: CF02-00 stubs, filled by 01B-core and 01C.
+//! - [`nav`]: the platform graph (01B-core); [`navfollow`]: the nav-driven
+//!   follow executor and the camera-safe regroup (01B-wire).
+//! - `command_input`: the pure command grammar (01C).
 //!
 //! `docs/03-tech/companion-ai-command-system.md` and
 //! `docs/07-agents/companion-ai-01-workorder.md` describe the stages.
@@ -25,6 +27,7 @@ pub mod command_input;
 pub mod director;
 pub mod events;
 pub mod nav;
+pub mod navfollow;
 pub mod profile;
 pub mod rules;
 pub mod view;

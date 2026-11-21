@@ -1,0 +1,2 @@
+COMBAT_STATE fixture=companion_arena_nav_perch_carl seed=0xc0a30002 tick=260 elapsed=260 hero_hp=4 deaths=0 enemies= hash=cbe915272ab1df6b
+PARTY_STATE fixture=companion_arena_nav_perch_carl mode=solo controlled=Donut carl_hp=4 donut_hp=4 deaths=0 hash=69c986158efcd9d1

@@ -7,6 +7,8 @@
 //! aid and never hashed.
 
 use crate::companion::director::{Action, Mode};
+use crate::companion::nav::{NavAnchorId, Reason};
+use crate::companion::navfollow::NavNote;
 use crate::companion::view::StableEntityId;
 use crate::party::HeroId;
 
@@ -31,6 +33,30 @@ pub enum CompanionEvent {
         action: Option<Action>,
         target: Option<StableEntityId>,
     },
+    /// The nav-driven follow's trace (01B-wire): a transit began or ended, or the
+    /// hero waits because no route to the leader exists.
+    Nav {
+        tick: u64,
+        hero: HeroId,
+        note: NavNote,
+    },
+    /// An off-screen regroup of a companion-driven hero (01B-wire).
+    Regroup {
+        tick: u64,
+        hero: HeroId,
+        outcome: RegroupOutcome,
+    },
+}
+
+/// What the nav-safe regroup did (the debug trace and the camera warning).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RegroupOutcome {
+    /// Placed on `anchor` at `x` (rounded px), just outside the view.
+    Placed { anchor: NavAnchorId, x: i32 },
+    /// No safe, reachable, off-screen anchor: the hero stays where it is.
+    Denied(Reason),
+    /// The hero stood on no known anchor: the legacy placement ran.
+    Legacy,
 }
 
 /// Per-run companion counters, per hero (index 0 Carl, 1 Donut). Never
@@ -49,6 +75,16 @@ pub struct CompanionStats {
     pub chain_presses: [u32; 2],
     /// Ticks the director chose a non-follow mode.
     pub active_ticks: [u32; 2],
+    /// Nav transits committed (01B-wire).
+    pub nav_transits: [u32; 2],
+    /// Nav transits that ended on their destination.
+    pub nav_arrivals: [u32; 2],
+    /// Times the hero began waiting because no route to the leader exists.
+    pub nav_waits: [u32; 2],
+    /// Nav regroups that placed the hero.
+    pub regroups: [u32; 2],
+    /// Nav regroups refused (no safe, reachable, off-screen anchor).
+    pub regroups_denied: [u32; 2],
 }
 
 /// The cap of the bounded event buffer (oldest dropped first).
