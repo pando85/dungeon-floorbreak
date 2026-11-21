@@ -564,58 +564,97 @@ fn rule_3_the_dome_stays_in_the_camera_band_and_under_the_lane_ceiling() {
     );
 }
 
-#[test]
-fn a_wall_sticker_lies_on_the_face_of_its_wall() {
-    let mut v = sidecar();
-    // Pocket b, the room's left boundary wall (face +x at x 16), dome 32 up.
-    v["props"][1] = json!({
+/// A wall sticker prop `r2` on `surface`, its face at `face_x`, dome 32 px up.
+fn wall_sticker(orientation: &str, surface: Value, face_x: i32) -> Value {
+    let (tx, y) = if orientation == "wall_left" {
+        (face_x, 548)
+    } else {
+        (face_x - 14, 548)
+    };
+    json!({
         "id": "r2",
         "kind": "rot_sticker",
         "optional": true,
-        "target": { "x": 16, "y": 538, "w": 14, "h": 20 },
+        "target": { "x": tx, "y": y - 10, "w": 14, "h": 20 },
         "track": {
-            "orientation": "wall_left",
-            "surface": { "x": 0, "y": 448, "w": 16, "h": 132 },
-            "a": { "x": 16, "y": 548 },
-            "b": { "x": 16, "y": 548 },
-            "start": { "x": 16, "y": 548 }
+            "orientation": orientation,
+            "surface": surface,
+            "a": { "x": face_x, "y": y },
+            "b": { "x": face_x, "y": y },
+            "start": { "x": face_x, "y": y }
         }
-    });
-    let errs = check(&v).err().unwrap_or_default();
-    // The shape of this track is valid; only the pockets of this edit may fail.
+    })
+}
+
+#[test]
+fn a_wall_sticker_lies_on_the_face_of_a_room_solid() {
+    let l = loaded();
+    let step = *l.room.steps.first().expect("the room has access steps");
+    let surf = json!({ "x": step.x, "y": step.y, "w": step.w, "h": step.h });
+    // On a room step: wall_left on its right face, wall_right on its left face.
+    // Only pockets and bounds of the edit may fail, never the surface rules.
+    for (o, face) in [("wall_left", step.right()), ("wall_right", step.x)] {
+        let mut v = sidecar();
+        v["props"][1] = wall_sticker(o, surf.clone(), face);
+        let errs = check(&v).err().unwrap_or_default();
+        assert!(
+            rule(&errs, 3)
+                .iter()
+                .all(|e| !e.to_string().contains("matches no room")
+                    && !e.to_string().contains("face of its surface")),
+            "{o}: {}",
+            text(&errs)
+        );
+    }
+    // The wrong orientation for the same face does not lie on it.
+    let mut v = sidecar();
+    v["props"][1] = wall_sticker("wall_right", surf, step.right());
     assert!(
-        rule(&errs, 3)
+        rule(&errors(&v), 3)
             .iter()
-            .all(|e| !e.to_string().contains("face of its surface")
-                && !e.to_string().contains("matches no room")),
-        "{}",
-        text(&errs)
+            .any(|e| e.to_string().contains("face of its surface")),
     );
-    // The same wall with the wrong orientation does not lie on it.
-    v["props"][1]["track"]["orientation"] = json!("wall_right");
+}
+
+#[test]
+fn rule_3_an_invented_wall_is_rejected_left_and_right_re_review_fix_now_1() {
+    // wall_left: a "boundary" surface of any width puts the face mid-air.
+    let mut v = sidecar();
+    v["props"][1] = wall_sticker(
+        "wall_left",
+        json!({ "x": 16, "y": 448, "w": 684, "h": 132 }),
+        700,
+    );
     let errs = errors(&v);
     assert!(
         rule(&errs, 3)
             .iter()
-            .any(|e| e.to_string().contains("face of its surface")),
+            .any(|e| e.to_string().contains("matches no room")),
         "{}",
         text(&errs)
     );
-    // A wall that is no room solid and not the boundary is rejected.
+    // wall_right: the mirror, the surface reaching the right boundary 1136.
     let mut v = sidecar();
-    v["props"][1] = json!({
-        "id": "r2",
-        "kind": "rot_sticker",
-        "optional": true,
-        "target": { "x": 700, "y": 538, "w": 14, "h": 20 },
-        "track": {
-            "orientation": "wall_left",
-            "surface": { "x": 684, "y": 448, "w": 16, "h": 132 },
-            "a": { "x": 700, "y": 548 },
-            "b": { "x": 700, "y": 548 },
-            "start": { "x": 700, "y": 548 }
-        }
-    });
+    v["props"][1] = wall_sticker(
+        "wall_right",
+        json!({ "x": 700, "y": 448, "w": 436, "h": 132 }),
+        700,
+    );
+    let errs = errors(&v);
+    assert!(
+        rule(&errs, 3)
+            .iter()
+            .any(|e| e.to_string().contains("matches no room")),
+        "{}",
+        text(&errs)
+    );
+    // The true boundary wall is not a HAZ-A1 surface either (no boundary branch).
+    let mut v = sidecar();
+    v["props"][1] = wall_sticker(
+        "wall_left",
+        json!({ "x": 0, "y": 448, "w": 16, "h": 132 }),
+        16,
+    );
     assert!(
         rule(&errors(&v), 3)
             .iter()

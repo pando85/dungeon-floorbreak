@@ -520,7 +520,10 @@ pub(super) fn check(
         // F2 (PR #204 review): the declared surface must be real geometry. A
         // ceiling surface is a room platform's slab, or an authored soffit whose
         // top reaches the lane ceiling (a full-height solid, no standable top);
-        // a wall surface is a room step or platform, or the room boundary.
+        // a wall surface must equal a room step or platform (HAZ-A1 has no
+        // boundary-wall sticker: a boundary branch would accept an invented
+        // wall of any width, re-review FIX-NOW 1; follow-up when a room needs
+        // one).
         let solid_match = |r: &IRect| *r == surface;
         let real_surface = match lay.orientation {
             Orientation::Ceiling => {
@@ -532,22 +535,11 @@ pub(super) fn check(
                         .ceiling_px
                         .is_some_and(|c| floor - surface.y >= c && surface.y >= 0)
             }
-            Orientation::WallLeft => {
-                surface.x <= room.play_x.0
-                    || room
-                        .steps
-                        .iter()
-                        .chain(room.platforms.iter().map(|pl| &pl.rect))
-                        .any(solid_match)
-            }
-            Orientation::WallRight => {
-                surface.right() >= room.play_x.1
-                    || room
-                        .steps
-                        .iter()
-                        .chain(room.platforms.iter().map(|pl| &pl.rect))
-                        .any(solid_match)
-            }
+            Orientation::WallLeft | Orientation::WallRight => room
+                .steps
+                .iter()
+                .chain(room.platforms.iter().map(|pl| &pl.rect))
+                .any(solid_match),
         };
         if !real_surface {
             errs.push(haz(
