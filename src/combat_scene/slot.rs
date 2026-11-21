@@ -16,8 +16,11 @@
 //! the boss' hits; the slot's own step runs **after** the goblins, llamas and
 //! globs and **before** the contacts, the shore, the boss and the charges
 //! (`step_slot_enemies`). A hit's follow-up outputs that need the scene (a
-//! blow, a shift) wait in `deferred` and apply at the start of the same tick's
-//! slot step.
+//! blow, a shift) wait in `deferred` and apply at the start of the slot step.
+//! Carl's and Donut's hits land before that step, so theirs apply on the same
+//! tick. A contact reaction (`slot_contact_one`) resolves **after** the slot
+//! step (`resolve_contacts`), so its follow-ups apply on the **next** tick's
+//! slot step; the state hash folds the pending queue, so it covers them.
 //!
 //! **Env hook for BOIL-B wire and BOIL-C wire.** `combat_scene/env.rs` (the env
 //! step, after the charges and before the morale) does not exist on this base.
@@ -99,6 +102,34 @@ impl SlotRuntime {
         for e in &self.enemies {
             mix(u64::from(e.target_id()));
             e.mix_into(mix);
+        }
+        // The follow-ups still waiting for the next slot step (a contact
+        // reaction resolves after the step), so the hash covers them. Folded
+        // only while something is pending: a quiet tick hashes as before.
+        if !self.deferred.is_empty() {
+            mix(0x534c_4f54_0002); // "SLOT" pending
+            mix(self.deferred.len() as u64);
+            for out in &self.deferred {
+                mix(out.blows.len() as u64);
+                for b in &out.blows {
+                    mix(b.hero as u64);
+                    mix(u64::from(b.source));
+                    mix(u64::from(b.damage));
+                    mix(u64::from(b.from_x.to_bits()));
+                    mix(u64::from(b.knock_vx.to_bits()));
+                    mix(u64::from(b.knock_vy.to_bits()));
+                }
+                mix(out.shifts.len() as u64);
+                for (hero, x) in &out.shifts {
+                    mix(*hero as u64);
+                    mix(u64::from(x.to_bits()));
+                }
+                mix(out.regroup.len() as u64);
+                for (hero, x) in &out.regroup {
+                    mix(*hero as u64);
+                    mix(u64::from(x.to_bits()));
+                }
+            }
         }
     }
 }
@@ -352,8 +383,8 @@ impl CombatState {
     }
 
     /// A launched body touched slot enemy `index`: its reaction, with the
-    /// scene-bound follow-ups deferred to this tick's slot step (the contacts
-    /// resolve without the scene).
+    /// scene-bound follow-ups deferred to the **next** tick's slot step (the
+    /// contacts resolve after this tick's slot step and without the scene).
     pub(super) fn slot_contact_one(&mut self, index: usize, contact: &SlotContact, tick: u64) {
         let enemy = &mut self.slot.enemies[index];
         let (id, was_alive) = (enemy.target_id(), enemy.alive());
@@ -1192,6 +1223,32 @@ mod tests {
         let contacts = log.lock().unwrap().contacts.clone();
         assert_eq!(contacts.len(), 2);
         assert_eq!(contacts[1].1.launch, 10);
+    }
+
+    #[test]
+    fn a_contact_follow_up_applies_next_tick_and_is_hashed_while_pending() {
+        let (mut d, log) = dummy_at(0.0);
+        d.x = 520.0;
+        d.contact_blow = true;
+        let mut s = sim(&GOBLIN_SOLO, vec![d]);
+        s.combat = s.combat.clone().with_cf02();
+        launched_goblin(&mut s, 9);
+        idle(&mut s, 1);
+        // The contact resolved after this tick's slot step: the blow waits.
+        assert_eq!(log.lock().unwrap().contacts.len(), 1);
+        assert!(hurts(&s).is_empty(), "{:?}", hurts(&s));
+        assert_eq!(s.combat.slot.deferred.len(), 1);
+        // The pending queue is part of the hash.
+        let pending = s.combat.state_hash(&s.scene);
+        let mut cleared = s.combat.clone();
+        cleared.slot.deferred.clear();
+        assert_ne!(cleared.state_hash(&s.scene), pending);
+        // Next tick's slot step applies it.
+        idle(&mut s, 1);
+        let hurt = hurts(&s);
+        assert_eq!(hurt.len(), 1, "{hurt:?}");
+        assert_eq!((hurt[0].1, hurt[0].3), (DUMMY_SOURCE, HeroId::Carl));
+        assert!(s.combat.slot.deferred.is_empty());
     }
 
     #[test]

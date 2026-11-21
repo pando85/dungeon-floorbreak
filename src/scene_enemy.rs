@@ -370,7 +370,10 @@ pub trait SlotEnemy: fmt::Debug + Send + Sync {
         None
     }
 
-    /// A launched body touched it. `None` (the default): no reaction.
+    /// A launched body touched it. `None` (the default): no reaction. The
+    /// output's scene-bound follow-ups (blows, shifts, regroups) apply on the
+    /// **next** tick's slot step (the contacts resolve after the slot step);
+    /// its events log at once.
     fn apply_contact(
         &mut self,
         _contact: &SlotContact,
@@ -411,7 +414,8 @@ pub struct SlotDeathBody {
     pub ground_y: f32,
     pub facing: i8,
     /// The death-profile species key (`DeathProfiles::species`); an unknown key
-    /// draws the generic fallback finish.
+    /// (or a species whose finish has no art yet) draws nothing, and the
+    /// simulation is untouched.
     pub species: &'static str,
 }
 
@@ -446,8 +450,14 @@ pub struct SlotKindDef {
     pub build: fn(&SlotBuild<'_>) -> Result<Box<dyn SlotEnemy>, SlotError>,
 }
 
-/// The registered slot kinds. A new enemy appends **one row** here (HRD-A2:
-/// `pile_boss`, HAZ-A2: `slime`, `rot_sticker`, DOZER-CORE: `dozer`). A kind
+/// The registered slot kinds. A new enemy appends **one row** here. The row's
+/// `name` is the roster kind string ([`entry_kind_name`]): `hoarder` for the
+/// Hoarder (HRD-A2) and `slime` for the slime (HAZ-A2); a `pile_boss` row would
+/// never match. A kind with no [`RosterKind`] variant yet (the Rot Sticker, the
+/// Dozer) first appends a variant in `encounter.rs` and an arm in
+/// [`entry_kind_name`]. The built enemy must report the row's name from
+/// `kind()` and the roster kind's own `supplies_boss` flag from
+/// `supplies_boss()`, or the spawn refuses it ([`SlotError::Build`]). A kind
 /// that is in no row is rejected by the roster spawn, never silently dropped.
 pub static SLOT_KINDS: &[SlotKindDef] = &[];
 
@@ -661,11 +671,35 @@ pub fn spawn_with(
             trigger_x: r.trigger_x,
             delay_ticks: r.delay_ticks,
         };
-        enemies.push((def.build)(&SlotBuild {
+        let built = (def.build)(&SlotBuild {
             entry: &entry,
             room,
             encounter: Some(encounter),
-        })?);
+        })?;
+        // The row and the roster must agree with what the builder made, so the
+        // roster-level and the set-level supplier checks can never disagree.
+        if built.kind() != def.name {
+            return Err(SlotError::Build {
+                kind: def.name,
+                reason: format!(
+                    "roster {}: the built enemy reports kind {:?}, not the registered name",
+                    r.id,
+                    built.kind()
+                ),
+            });
+        }
+        if built.supplies_boss() != r.kind.supplies_boss() {
+            return Err(SlotError::Build {
+                kind: def.name,
+                reason: format!(
+                    "roster {}: the built enemy's supplies_boss is {}, the roster kind's is {}",
+                    r.id,
+                    built.supplies_boss(),
+                    r.kind.supplies_boss()
+                ),
+            });
+        }
+        enemies.push(built);
     }
     Ok(RosterSpawn {
         slot: SlotSet::new(enemies, fixture_boss)?,
@@ -742,6 +776,8 @@ pub(crate) mod testing {
         pub silent_death: bool,
         /// The death presenter's species (`None`: nothing is drawn).
         pub death_species: Option<&'static str>,
+        /// A contact reaction asks for a blow on Carl (a scene-bound follow-up).
+        pub contact_blow: bool,
         pub log: Arc<Mutex<DummyLog>>,
     }
 
@@ -766,6 +802,7 @@ pub(crate) mod testing {
                 target_state: TargetState::Neutral,
                 silent_death: false,
                 death_species: None,
+                contact_blow: false,
                 log: Arc::default(),
             }
         }
@@ -925,12 +962,22 @@ pub(crate) mod testing {
             &mut self,
             contact: &SlotContact,
             tick: u64,
-            _out: &mut SlotOut,
+            out: &mut SlotOut,
         ) -> Option<SlotHitResult> {
             if !self.alive() || !self.victim {
                 return None;
             }
             self.log.lock().unwrap().contacts.push((tick, *contact));
+            if self.contact_blow {
+                out.blows.push(HeroBlow {
+                    hero: HeroId::Carl,
+                    source: DUMMY_SOURCE,
+                    damage: 1,
+                    from_x: self.x,
+                    knock_vx: 0.0,
+                    knock_vy: 0.0,
+                });
+            }
             Some(self.take(0))
         }
         fn apply_env(
@@ -978,7 +1025,7 @@ pub(crate) mod testing {
         )
     }
 
-    fn from_entry(b: &SlotBuild<'_>, kind: &'static str, supplies: bool) -> Box<dyn SlotEnemy> {
+    pub fn from_entry(b: &SlotBuild<'_>, kind: &'static str, supplies: bool) -> Box<dyn SlotEnemy> {
         let mut d = Dummy::new(
             SLOT_ID_MIN + b.entry.index as u32,
             b.entry.x,
@@ -989,8 +1036,9 @@ pub(crate) mod testing {
         d.boxed()
     }
 
-    /// A kind table for the roster-spawn tests: `trog` is quiet, `scatterer` and
-    /// `juicer` supply the boss threat (names are only registry keys here).
+    /// A kind table for the roster-spawn tests, consistent with the roster
+    /// kinds' own `supplies_boss` flags: `trog` is quiet, `hoarder` and `slime`
+    /// supply the boss threat.
     pub fn table() -> [SlotKindDef; 3] {
         [
             SlotKindDef {
@@ -998,12 +1046,12 @@ pub(crate) mod testing {
                 build: |b| Ok(from_entry(b, "trog", false)),
             },
             SlotKindDef {
-                name: "scatterer",
-                build: |b| Ok(from_entry(b, "scatterer", true)),
+                name: "hoarder",
+                build: |b| Ok(from_entry(b, "hoarder", true)),
             },
             SlotKindDef {
-                name: "juicer",
-                build: |b| Ok(from_entry(b, "juicer", true)),
+                name: "slime",
+                build: |b| Ok(from_entry(b, "slime", true)),
             },
         ]
     }
@@ -1252,10 +1300,11 @@ mod tests {
             }
         );
         assert_eq!(spawn_from_roster(&enc, ROOM, false).unwrap_err(), err);
-        // The slime is a roster kind of its own, and an unregistered one too.
+        // The slime is a roster kind of its own, and an unregistered one too
+        // (the quiet `trog` row alone does not register it).
         enc.roster[2].kind = RosterKind::Slime;
         assert_eq!(
-            spawn_with(&table(), &enc, ROOM, false).unwrap_err(),
+            spawn_with(&table()[..1], &enc, ROOM, false).unwrap_err(),
             SlotError::UnknownKind {
                 entry: "g3".into(),
                 kind: "slime".into()
@@ -1293,26 +1342,96 @@ mod tests {
             spawn_with(&[], &enc, ROOM, true).unwrap_err(),
             SlotError::FixtureBossConflict { kind: "hoarder" }
         );
-        // The built set checks the rule again: two supplier kinds a builder made
-        // out of quiet-looking roster entries are still refused.
-        let mut enc = boiler();
-        enc.roster[0].kind = RosterKind::Room(EnemyKind::Scatterer);
-        enc.roster[1].kind = RosterKind::Room(EnemyKind::Juicer);
-        assert_eq!(
-            spawn_with(&table(), &enc, ROOM, false).unwrap_err(),
-            SlotError::SupplierConflict {
-                kinds: vec!["scatterer", "juicer"]
-            }
-        );
         // One built supplier kind passes, even with two enemies of it.
-        enc.roster[1].kind = RosterKind::Room(EnemyKind::Scatterer);
+        let mut enc = boiler();
+        enc.roster[0].kind = RosterKind::Room(EnemyKind::Hoarder);
+        enc.roster[1].kind = RosterKind::Room(EnemyKind::Hoarder);
         enc.roster[2].kind = RosterKind::Room(EnemyKind::Trog);
         let ok = spawn_with(&table(), &enc, ROOM, false).unwrap();
         assert_eq!(ok.slot.len(), 3);
         assert_eq!(
             spawn_with(&table(), &enc, ROOM, true).unwrap_err(),
-            SlotError::FixtureBossConflict { kind: "scatterer" }
+            SlotError::FixtureBossConflict { kind: "hoarder" }
         );
+    }
+
+    #[test]
+    fn the_built_set_checks_the_supplier_rule_again() {
+        // Two supplier kinds built directly (not through a roster) are refused,
+        // and so is a supplier beside a fixture boss.
+        let supplier = |id: u32, kind: &'static str| {
+            let mut d = Dummy::new(id, 100.0, 0.0);
+            d.kind = kind;
+            d.supplies = true;
+            d.boxed()
+        };
+        let err = SlotSet::new(
+            vec![
+                supplier(SLOT_ID_MIN, "hoarder"),
+                supplier(SLOT_ID_MIN + 1, "slime"),
+            ],
+            false,
+        )
+        .unwrap_err();
+        assert_eq!(
+            err,
+            SlotError::SupplierConflict {
+                kinds: vec!["hoarder", "slime"]
+            }
+        );
+        assert_eq!(
+            SlotSet::new(vec![supplier(SLOT_ID_MIN, "hoarder")], true).unwrap_err(),
+            SlotError::FixtureBossConflict { kind: "hoarder" }
+        );
+    }
+
+    #[test]
+    fn a_built_enemy_must_match_its_registry_row_and_roster_kind() {
+        let table = [
+            // A quiet roster kind whose builder made a supplier.
+            SlotKindDef {
+                name: "trog",
+                build: |b| Ok(from_entry(b, "trog", true)),
+            },
+            // A row whose builder reports another kind name.
+            SlotKindDef {
+                name: "hoarder",
+                build: |b| Ok(from_entry(b, "pile_boss", true)),
+            },
+            // A supplier roster kind whose builder made a quiet enemy.
+            SlotKindDef {
+                name: "slime",
+                build: |b| Ok(from_entry(b, "slime", false)),
+            },
+        ];
+        let mut enc = boiler();
+        enc.roster[0].kind = RosterKind::Room(EnemyKind::Trog);
+        let err = spawn_with(&table, &enc, ROOM, false).unwrap_err();
+        assert!(
+            matches!(&err, SlotError::Build { kind: "trog", reason } if reason.contains("supplies_boss")),
+            "{err:?}"
+        );
+        enc.roster[0].kind = RosterKind::Room(EnemyKind::Hoarder);
+        let err = spawn_with(&table, &enc, ROOM, false).unwrap_err();
+        assert!(
+            matches!(&err, SlotError::Build { kind: "hoarder", reason } if reason.contains("pile_boss")),
+            "{err:?}"
+        );
+        enc.roster[0].kind = RosterKind::Slime;
+        let err = spawn_with(&table, &enc, ROOM, false).unwrap_err();
+        assert!(
+            matches!(&err, SlotError::Build { kind: "slime", reason } if reason.contains("supplies_boss")),
+            "{err:?}"
+        );
+        // The consistent table builds all three.
+        for kind in [
+            RosterKind::Room(EnemyKind::Trog),
+            RosterKind::Room(EnemyKind::Hoarder),
+            RosterKind::Slime,
+        ] {
+            enc.roster[0].kind = kind;
+            assert!(spawn_with(&super::testing::table(), &enc, ROOM, false).is_ok());
+        }
     }
 
     #[test]

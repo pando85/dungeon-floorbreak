@@ -1655,8 +1655,8 @@ impl DeathPresenter {
 
     /// The finish `species` plays for a defeat event, spawned as a synthetic
     /// death at `(x, ground_y)` (the boss' and the slot enemies' path); returns
-    /// the finish id. ENEMY-SLOT: a species with no profile draws the generic
-    /// fallback finish.
+    /// the finish id. ENEMY-SLOT: a species with no profile, or whose finish
+    /// has no art yet, draws nothing (`None`); the simulation is untouched.
     fn begin_species_death(
         &mut self,
         event: &CombatEvent,
