@@ -159,6 +159,30 @@ fn donut_setup(reset: &super::manifest::ResetDescriptor, boss: bool) -> DonutSet
     }
 }
 
+/// CARL-PROG-01: the story of a recorded live run, by the rule of `story_setup`
+/// in `floor01_scene` (a plain `fixture` source is scripted and reads no flag).
+fn story_setup(
+    reset: &super::manifest::ResetDescriptor,
+    boss: bool,
+) -> crate::story_unlock::StorySetup {
+    use crate::story_unlock::SceneKind;
+    let flags = crate::carl_prog::CarlProgFlags {
+        prog: reset.carl_prog,
+        dynamite: reset.carl_dynamite,
+        gauntlet: reset.carl_gauntlet,
+    };
+    let scene = if reset.cf02_rules && (reset.demo || reset.source == "demo") {
+        SceneKind::CfArena
+    } else if reset.demo || reset.source == "demo" {
+        SceneKind::Demo
+    } else if boss {
+        SceneKind::Boss
+    } else {
+        return crate::story_unlock::StorySetup::NONE;
+    };
+    flags.story_setup(scene)
+}
+
 fn combat_for(
     reset: &super::manifest::ResetDescriptor,
     fixture: &'static Fixture,
@@ -168,7 +192,8 @@ fn combat_for(
 ) -> Result<CombatState, VerifyFailure> {
     let mut combat = CombatState::new(fixture, kit, scene)
         .map_err(|e| VerifyFailure::new("content_mismatch", e))?
-        .with_donut(donut_setup(reset, boss));
+        .with_donut(donut_setup(reset, boss))
+        .with_story(story_setup(reset, boss));
     if reset.cf02_rules && reset.demo {
         // CF02-F: `--cf02` is the microarena on the demo machinery.
         combat = combat.with_demo(&crate::cf02::arena::RULES);
@@ -442,8 +467,9 @@ pub(super) fn check_content(
         ));
     }
     check_hash(manifest, "kit", kit)?;
-    check_hash(manifest, "mana_tuning", crate::donut_mana::TUNING_HASH)?;
-    check_hash(manifest, "cf02_tuning", crate::cf02::TUNING_HASH)?;
+    for (key, hash) in super::live::data_pins() {
+        check_hash(manifest, key, hash)?;
+    }
     check_hash(
         manifest,
         "party_tuning",

@@ -52,6 +52,8 @@ use dungeon_floorbreak::{
     boss_art::{self, BossArt, FxCtx, Gait, Layer, SheetId},
     boss_scene,
     camera_lab::camera_op::{Aspect, Bounds, View},
+    carl_prog::CarlProgFlags,
+    carl_prog_fixtures,
     cf02::{self, Cf02Config, Cf02Tuning},
     cf02_fixtures::{find_party_fixture, list_fixtures},
     cine::{ENV_CINEMATIC_FINISHES, FrameContext, PlannerState, PresentationSettings},
@@ -108,6 +110,7 @@ use dungeon_floorbreak::{
         synthetic_interest, test_room_kit,
     },
     shore_art::{ShoreArt, ShoreSlot, landed_age},
+    story_unlock::{SceneKind, StorySetup},
 };
 
 // PTR-R1. A crate-root file looks for child modules beside itself, so the path is explicit.
@@ -239,6 +242,11 @@ struct Args {
     /// WORK-023: Donut starts with the biscuit and a full pool (live play and
     /// captures). Without it she gets it at the placeholder Guild zone.
     donut_biscuit: bool,
+    /// CARL-PROG-01 CP-A (`--carl-prog`, `--carl-dynamite`, `--carl-gauntlet`,
+    /// CP-Q09): the story pins and triggers, and the debug grants at start. They
+    /// do nothing to a scripted fixture (it declares its own pin) and are
+    /// refused with `--scene combat_lab`.
+    carl: CarlProgFlags,
     /// AUDIENCE-01 QA probe (`--audience-probe`): unlock the per-hero viewer
     /// counts at step 1 (both heroes at the baseline) with one authored test
     /// cue at `audience_cue_x`, and print the `AUDIENCE_STATE` digest line.
@@ -507,6 +515,9 @@ fn resolve_lab_args(parsed: &mut Args) -> Result<(), String> {
             return Err("--lab-room, --lab-variant, --lab-mode, --lab-next and --lab-confirmed need --scene combat_lab".into());
         }
         return Ok(());
+    }
+    if parsed.carl.any() {
+        return Err("--carl-prog, --carl-dynamite and --carl-gauntlet are refused with --scene combat_lab (the lab profile pins the dynamite and the gauntlet off, LAB-Q01)".into());
     }
     if parsed.cf02.rules
         || parsed.demo
@@ -888,6 +899,7 @@ fn parse_args_full(
         autopilot: false,
         boss: false,
         donut_biscuit: false,
+        carl: CarlProgFlags::OFF,
         audience_probe: false,
         audience_cue_x: AUDIENCE_PROBE_CUE_X,
         cf02: Cf02Config::OFF,
@@ -942,6 +954,9 @@ fn parse_args_full(
             "--debug-collision" => parsed.debug_collision = true,
             "--manual" => parsed.manual = true,
             "--donut-biscuit" => parsed.donut_biscuit = true,
+            "--carl-prog" => parsed.carl.prog = true,
+            "--carl-dynamite" => parsed.carl.dynamite = true,
+            "--carl-gauntlet" => parsed.carl.gauntlet = true,
             "--audience-probe" => parsed.audience_probe = true,
             "--audience-cue-x" => {
                 let value = iter.next().ok_or("--audience-cue-x needs a scene x")?;
@@ -1452,6 +1467,30 @@ fn donut_setup(args: &Args) -> DonutSetup {
     }
 }
 
+/// CARL-PROG-01 CP-A: the story a combat run starts under. A scripted fixture
+/// (`--party-fixture`, `--fixture`) declares its own pin and never reads the
+/// flags; the DEMO-01 hall, the CF02 microarena and the boss arena read them
+/// (`--carl-prog` holds and arms nothing in the first two). The scene kinds
+/// match the recording replay (`playtrace::replay::story_scene`).
+fn story_setup(args: &Args) -> StorySetup {
+    if let Some(pf) = args.party_fixture {
+        return carl_prog_fixtures::story_setup(pf.name());
+    }
+    let Some(fixture) = args.fixture else {
+        return StorySetup::NONE;
+    };
+    let scene = if args.demo && args.cf02.rules {
+        SceneKind::CfArena
+    } else if args.demo {
+        SceneKind::Demo
+    } else if fixture == boss_scene::BOSS01_SCENE {
+        SceneKind::Boss
+    } else {
+        return carl_prog_fixtures::story_setup(fixture.name);
+    };
+    args.carl.story_setup(scene)
+}
+
 /// One HUD step after a finished simulation tick: the real health values and
 /// the newest combat events. Read-only on the simulation.
 fn step_hud(hud: &mut HudRuntime, sim: &SceneSim, combat: Option<&CombatState>) {
@@ -1528,7 +1567,9 @@ fn build_scene(
             (run.scene.clone(), run.combat.clone())
         } else {
             let sim = SceneSim::new_at(kit, view_height(args.deck), fixture.carl_x)?;
-            let combat = CombatState::new(fixture, kit, &sim)?.with_donut(donut_setup(args));
+            let combat = CombatState::new(fixture, kit, &sim)?
+                .with_donut(donut_setup(args))
+                .with_story(story_setup(args));
             (sim, combat)
         };
         if args.cf02.rules {
@@ -2676,6 +2717,9 @@ fn recording_manifest(
         cf02_seed: args.cf02.seed,
         view_height: view_height(args.deck),
         donut_biscuit: args.donut_biscuit,
+        carl_prog: args.carl.prog,
+        carl_dynamite: args.carl.dynamite,
+        carl_gauntlet: args.carl.gauntlet,
         kit_hash,
         start_hash,
     };
@@ -2723,6 +2767,19 @@ fn recording_manifest(
         manifest
             .feature_flags
             .insert(key.to_owned(), value.to_string());
+    }
+    // CARL-PROG-01: only a set flag is written, so a run without them records
+    // exactly what it recorded before.
+    for (key, value) in [
+        ("carl_prog", args.carl.prog),
+        ("carl_dynamite", args.carl.dynamite),
+        ("carl_gauntlet", args.carl.gauntlet),
+    ] {
+        if value {
+            manifest
+                .feature_flags
+                .insert(key.to_owned(), "true".to_owned());
+        }
     }
     manifest
 }
@@ -8169,6 +8226,58 @@ mod tests {
         ]));
     }
 
+    /// CARL-PROG-01 CP-A (CP-Q09): the three flags parse, are refused with the lab,
+    /// and pick the story by scene; a scripted fixture never reads them.
+    #[test]
+    fn the_carl_flags_parse_are_refused_with_the_lab_and_pick_the_story_by_scene() {
+        let plain = args(&["--cf02"]).unwrap();
+        assert!(!plain.carl.any());
+        assert!(story_setup(&plain).is_inert());
+        let prog = args(&["--carl-prog", "--scene", "boss_f01"]).unwrap();
+        assert!(prog.carl.prog && !prog.carl.dynamite && !prog.carl.gauntlet);
+        assert_eq!(story_setup(&prog).holds().len(), 1, "the boss pin");
+        assert_eq!(
+            story_setup(&prog).trigger_ids(),
+            ["brute_boss_f01_defeated"]
+        );
+        // `--carl-prog` alone holds and arms nothing on the demo hall or the arena.
+        for extra in [&["--demo"][..], &["--cf02"][..]] {
+            let mut list = vec!["--carl-prog"];
+            list.extend_from_slice(extra);
+            let run = args(&list).unwrap();
+            assert!(story_setup(&run).is_inert(), "{list:?}");
+        }
+        let both = args(&["--cf02", "--carl-dynamite", "--carl-gauntlet"]).unwrap();
+        assert_eq!(story_setup(&both).holds().len(), 2);
+        // A scripted fixture declares its own pin and ignores every flag.
+        let fixture = args(&["--fixture", "cp01_kick", "--carl-dynamite", "--carl-prog"]).unwrap();
+        assert!(story_setup(&fixture).is_inert());
+        let party = args(&[
+            "--headless-floor01-smoke",
+            "--party-fixture",
+            "carl_prog_juicer_grants_fist",
+            "--carl-gauntlet",
+        ])
+        .unwrap();
+        assert_eq!(
+            story_setup(&party).holds().len(),
+            1,
+            "its own pin, not the flag"
+        );
+        assert_eq!(
+            story_setup(&party).holds()[0],
+            dungeon_floorbreak::story_unlock::SPECIAL_THROWN_CHARGE
+        );
+        for flag in ["--carl-prog", "--carl-dynamite", "--carl-gauntlet"] {
+            let error = args(&["--scene", "combat_lab", flag]).expect_err(flag);
+            assert!(
+                error.contains("refused with --scene combat_lab"),
+                "{flag}: {error}"
+            );
+        }
+        assert!(args(&["--scene", "combat_lab"]).is_ok());
+    }
+
     #[test]
     fn list_fixtures_is_parsed_without_starting_a_scene() {
         let a = args(&["--list-fixtures", "cf02_"]).unwrap();
@@ -8180,6 +8289,7 @@ mod tests {
         assert!(list_fixtures("companion_").contains(&"companion_duo_no_ai"));
         assert!(list_fixtures("cf02_assist_").contains(&"cf02_assist_swat_interrupt"));
         assert!(list_fixtures("cp01_").contains(&"cp01_kick"));
+        assert!(list_fixtures("carl_prog_").contains(&"carl_prog_juicer_grants_fist"));
     }
 
     /// CF02-Q01: Down is the D-pad down, or the left stick down to 0.5 with the

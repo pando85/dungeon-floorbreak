@@ -394,6 +394,9 @@ fn the_story_route_without_combat_replays_without_observations() {
         cf02_seed: None,
         view_height: 360,
         donut_biscuit: false,
+        carl_prog: false,
+        carl_dynamite: false,
+        carl_gauntlet: false,
         kit_hash: real_kit_hash(),
         start_hash: scene.state_hash(),
     };
@@ -571,7 +574,20 @@ fn content_and_rules_mismatches_are_rejected() {
     let (_dir, session) = recorded_solo("vfy-neg-content", 120);
     let baseline = std::fs::read_to_string(session.join("manifest.json")).unwrap();
     let restore = || std::fs::write(session.join("manifest.json"), &baseline).unwrap();
-    for key in ["kit", "mana_tuning", "cf02_tuning", "party_tuning"] {
+    // CARL-PROG-01 CP-Q46: the stamped manifest carries the two data pins and a
+    // mismatch of either fails the replay naming it.
+    let stamped = std::fs::read_to_string(session.join("manifest.json")).unwrap();
+    for key in ["story_unlocks", "carl_prog"] {
+        assert!(stamped.contains(&format!("\"{key}\"")), "{key} is stamped");
+    }
+    for key in [
+        "kit",
+        "mana_tuning",
+        "cf02_tuning",
+        "story_unlocks",
+        "carl_prog",
+        "party_tuning",
+    ] {
         tamper_manifest(&session, |m| {
             m.content_hashes
                 .insert(key.to_owned(), "00000000000000aa".to_owned());
@@ -580,11 +596,13 @@ fn content_and_rules_mismatches_are_rejected() {
         assert!(failure.message.contains(key), "{failure}");
         restore();
     }
-    tamper_manifest(&session, |m| {
-        m.content_hashes.remove("mana_tuning");
-    });
-    expect_failure(&session, "content_mismatch");
-    restore();
+    for key in ["mana_tuning", "story_unlocks", "carl_prog"] {
+        tamper_manifest(&session, |m| {
+            m.content_hashes.remove(key);
+        });
+        expect_failure(&session, "content_mismatch");
+        restore();
+    }
     tamper_manifest(&session, |m| m.reset.kit_hash ^= 1);
     expect_failure(&session, "content_mismatch");
     restore();

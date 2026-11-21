@@ -57,6 +57,9 @@ fn manifest_for(fixture: &PartyFixture, scene: &SceneSim, combat: &CombatState) 
         cf02_seed: None,
         view_height: 360,
         donut_biscuit: false,
+        carl_prog: false,
+        carl_dynamite: false,
+        carl_gauntlet: false,
         kit_hash: real_kit_hash(),
         start_hash: combat.state_hash(scene),
     };
@@ -323,6 +326,9 @@ impl DemoRig {
             cf02_seed: None,
             view_height: 360,
             donut_biscuit: false,
+            carl_prog: false,
+            carl_dynamite: false,
+            carl_gauntlet: false,
             kit_hash: real_kit_hash(),
             start_hash: combat.state_hash(&scene),
         };
@@ -359,6 +365,9 @@ impl DemoRig {
             cf02_seed: None,
             view_height: 360,
             donut_biscuit: false,
+            carl_prog: false,
+            carl_dynamite: false,
+            carl_gauntlet: false,
             kit_hash: real_kit_hash(),
             start_hash: combat.state_hash(&scene),
         };

@@ -35,9 +35,34 @@ pub(super) fn reset() -> ResetDescriptor {
         cf02_seed: None,
         view_height: 360,
         donut_biscuit: false,
+        carl_prog: false,
+        carl_dynamite: false,
+        carl_gauntlet: false,
         kit_hash: 0,
         start_hash: 0xcbf2_9ce4_8422_2325,
     }
+}
+
+/// CARL-PROG-01 CP-Q09: a descriptor with the three story flags false
+/// serializes exactly as it did before they existed, an older recording without
+/// the fields loads as false, and a set flag round-trips.
+#[test]
+fn the_story_flags_are_written_only_when_set_and_old_descriptors_load_as_false() {
+    let text = serde_json::to_string(&reset()).unwrap();
+    for key in ["carl_prog", "carl_dynamite", "carl_gauntlet"] {
+        assert!(
+            !text.contains(key),
+            "{key} is not written while false: {text}"
+        );
+    }
+    let back: ResetDescriptor = serde_json::from_str(&text).unwrap();
+    assert_eq!(back, reset());
+    let mut set = reset();
+    set.carl_dynamite = true;
+    let text = serde_json::to_string(&set).unwrap();
+    assert!(text.contains("\"carl_dynamite\":true"));
+    assert!(!text.contains("carl_prog"));
+    assert_eq!(serde_json::from_str::<ResetDescriptor>(&text).unwrap(), set);
 }
 
 pub(super) fn manifest() -> SessionManifest {
