@@ -72,6 +72,8 @@ pub struct Layout {
     pub carl_x: i32,
     /// Carl holds the thrown charge from tick 0 (the story ledger holds it).
     pub dynamite: bool,
+    /// The CF02 morale seed (a fixture that needs a Coward draws one).
+    pub seed: Option<u64>,
 }
 
 /// The floor line of the kit in layout px.
@@ -247,6 +249,7 @@ impl Layout {
             .with_story(story)
             .with_demo(run.rules)
             .with_cf02()
+            .with_cf02_seed(self.seed)
             .with_env(env)
             .with_slot_enemies(spawn.slot)
             .expect("the slot");

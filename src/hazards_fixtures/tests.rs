@@ -882,3 +882,389 @@ fn haz_slime_shares_the_attack_token_cap_with_two_goblins() {
     );
     assert!(max <= 2, "attacks in flight never exceed the cap: {max}");
 }
+
+// -------------------------------------------- PR #214 review: F3 and F4
+
+/// A morale seed under which goblin 0 draws the Coward temperament in attempt 0
+/// (the draw is deterministic: seed, attempt and goblin index).
+fn coward_seed() -> u64 {
+    (1..500u64)
+        .find(|seed| {
+            crate::morale::draw_goblin(crate::cf02::active(), *seed, 0, 0).temperament
+                == crate::cf02::Temperament::Coward
+        })
+        .expect("some seed draws a Coward first")
+}
+
+#[test]
+fn haz_acid_coward_no_entry() {
+    // A tough Coward 60 px left of the pool with Carl behind it: Carl's jabs shake
+    // its nerve (flee, back-off hop) while it is far from the edge, then he only
+    // walks after it. It flees and hops toward the pool and is held at the edge:
+    // its own motion never enters the live volume (knockback may: Carl's hits are
+    // kept off the edge so this fixture asserts only the walk barrier).
+    let mut rig = Layout {
+        acid: vec![(POOL.0, POOL.1, None)],
+        goblins: vec![POOL.0 - 70],
+        carl_x: POOL.0 - 120,
+        seed: Some(coward_seed()),
+        ..Layout::default()
+    }
+    .sim(None);
+    let mut nearest = f32::MIN;
+    for tick in 0..500u64 {
+        rig.scene_mut().world.hero.invulnerable_ticks = 255;
+        rig.combat_mut().enemies[0].health = 200;
+        let gx = rig.combat().enemies[0].x;
+        let press = tick % 15 == 5 && gx + 12.0 < POOL.0 as f32 - 25.0;
+        rig.carl(RawInput {
+            move_x: 1.0,
+            attack: press,
+            ..RawInput::NONE
+        });
+        let x = rig.combat().enemies[0].x;
+        nearest = nearest.max(x + 12.0);
+        if let Some((a, b)) = pool_bounds(&rig, 1) {
+            assert!(
+                x + 12.0 <= a as f32 + 0.01 || x - 12.0 >= b as f32 - 0.01,
+                "tick {tick}: the Coward is inside the pool at x {x}"
+            );
+        }
+    }
+    let reactions = rig
+        .events()
+        .iter()
+        .filter(|e| matches!(e, CombatEvent::GoblinReaction { .. }))
+        .count();
+    assert!(reactions > 0, "the Coward reacted (flee or hop)");
+    assert!(
+        nearest > POOL.0 as f32 - 3.0,
+        "it was held at the pool's edge: {nearest}"
+    );
+}
+
+#[test]
+fn haz_rot_wake_requires_view() {
+    // A ceiling sticker on a soffit at the room's right end: its 32 px frame
+    // overhangs the camera's right edge, so it neither wakes nor triggers while
+    // the hero stands beside it; the same sticker 40 px left is in view and
+    // does (SlotStepCtx/StickerCtx view_x wiring).
+    let at = |x: i32| {
+        let mut rig = Layout {
+            stickers: vec![StickerAt {
+                orientation: Orientation::Ceiling,
+                surface: IRect::new(x - 40, 500, 80, 12),
+                a: (x, FLOOR - 68),
+                b: (x, FLOOR - 68),
+                start: (x, FLOOR - 68),
+            }],
+            solids: vec![IRect::new(x - 40, 500, 80, 12)],
+            carl_x: x - 30,
+            ..Layout::default()
+        }
+        .sim(None);
+        let view = rig.scene().world.layout_height();
+        let _ = view;
+        for _ in 0..60 {
+            rig.carl(RawInput::NONE);
+        }
+        (rig.provokes().len(), rig.scene().view_x())
+    };
+    let (out, view) = at(1140);
+    assert_eq!(
+        out, 0,
+        "an out-of-view sticker never triggers (view {view:?})"
+    );
+    let (inside, _) = at(1096);
+    assert_eq!(inside, 1, "the same sticker in view triggers");
+}
+
+#[test]
+fn haz_rot_hit_path_through_a_pane_gives_hit_jab_and_no_hit_stop() {
+    // A pane (a 4 px solid) between Carl and a wall sticker blocks the trigger
+    // circle's line of sight, so proximity is off while the jab still reaches the
+    // shell: the provoke is `Hit(Jab)`, and the attacker gets no hit-stop from
+    // the sticker (the same jab on a goblin freezes him). PR #214 F4.
+    let mut rig = Layout {
+        stickers: vec![Layout::on_pillar(32)],
+        solids: vec![Layout::pillar(), IRect::new(940, FLOOR - 60, 4, 60)],
+        carl_x: 928,
+        ..Layout::default()
+    }
+    .sim(None);
+    let mut max_stop = 0;
+    rig.carl(JAB);
+    for _ in 0..30 {
+        rig.carl(RawInput::NONE);
+        max_stop = max_stop.max(rig.scene().world.hero.melee.hit_stop_left());
+    }
+    let p = rig.provokes();
+    assert_eq!(p.len(), 1, "{p:?}");
+    assert!(
+        matches!(
+            p[0],
+            CombatEvent::RotProvoked {
+                cause: RotCause::Hit,
+                hit: Some(crate::combat::MoveId::Jab),
+                player: Some(0),
+                ..
+            }
+        ),
+        "{p:?}"
+    );
+    assert_eq!(max_stop, 0, "no attacker hit-stop from a sticker");
+    // Control: the same jab on a goblin does freeze the attacker.
+    let mut rig = Layout {
+        goblins: vec![950],
+        carl_x: 928,
+        ..Layout::default()
+    }
+    .sim(None);
+    rig.carl(JAB);
+    let mut stop = 0;
+    for _ in 0..30 {
+        rig.carl(RawInput::NONE);
+        stop = stop.max(rig.scene().world.hero.melee.hit_stop_left());
+    }
+    assert!(stop > 0, "a goblin hit freezes the attacker");
+}
+
+#[test]
+fn haz_acid_pop_from_centre_80_lands_outside_for_both_heroes() {
+    // An 80 px pool 700..780, a hero 1 px left of the centre (739): popped -x, the
+    // hurtbox lands outside the patch, no second hurt.
+    let pool80 = (700, 780);
+    for donut in [false, true] {
+        let mut rig = Layout {
+            acid: vec![(pool80.0, pool80.1, None)],
+            carl_x: if donut { 300 } else { 739 },
+            ..Layout::default()
+        }
+        .sim(if donut { Some(true) } else { None });
+        let hero = if donut { HeroId::Donut } else { HeroId::Carl };
+        if donut {
+            rig.scene_mut().world.donut_body.x = 739.0;
+        }
+        let half = if donut { 10.0 } else { 12.0 };
+        let mut landed = None;
+        let mut since = 0u32;
+        for _ in 0..200 {
+            // Hold toward the centre for 20 ticks after landing (still protected by
+            // the hurt invulnerability), the sheet's window for "no second hurt".
+            if landed.is_some() {
+                since += 1;
+                if since > 20 {
+                    break;
+                }
+            }
+            let toward = if landed.is_some() { 1.0 } else { 0.0 };
+            let input = RawInput {
+                move_x: toward,
+                ..RawInput::NONE
+            };
+            if donut {
+                rig.step(RawInput::NONE, input);
+            } else {
+                rig.carl(input);
+            }
+            // From the first tick after the hurt lock ends: hold toward the centre.
+            if landed.is_none()
+                && !rig.hurts(hero).is_empty()
+                && rig.combat().hurt_ticks_of(hero) == 0
+            {
+                landed = Some(rig.x_of(hero));
+            }
+        }
+        let hurts: Vec<_> = rig
+            .hurts(hero)
+            .into_iter()
+            .filter(|h| h.1 & 0xFFFF == crate::slime::ACID_SOURCE_ID)
+            .collect();
+        assert_eq!(hurts.len(), 1, "donut {donut}: {hurts:?}");
+        let x = landed.expect("the hurt lock ended");
+        assert!(
+            x + half <= pool80.0 as f32 + 0.5,
+            "donut {donut}: landed at {x}"
+        );
+    }
+}
+
+#[test]
+fn haz_rot_donut_run_through_is_hit_in_the_scene() {
+    // Donut runs +x under a still sticker (track fixed at 600 under the B slab)
+    // with Carl parked out of range: her collider provokes it (once). HAZA2-D4: the
+    // sheet predicts she barely escapes (about 1 px of margin at 207 px/s); the
+    // scene's Donut is hit once by the blast, so the margin does not reproduce.
+    // Pinned as measured, not retuned (an open question for the owner's review).
+    let mut rig = Layout {
+        stickers: vec![Layout::under_slab(600, 600, 600)],
+        carl_x: 150,
+        ..Layout::default()
+    }
+    .sim(Some(true));
+    rig.scene_mut().world.donut_body.x = 450.0;
+    for _ in 0..160 {
+        rig.step(RawInput::NONE, walk(1.0));
+    }
+    assert_eq!(rig.provokes().len(), 1, "{:?}", rig.provokes());
+    assert_eq!(rig.blasts().len(), 1);
+    let hurts = rig.hurts(HeroId::Donut);
+    assert_eq!(hurts.len(), 1, "{hurts:?}");
+    assert_eq!(hurts[0].1, crate::rot_sticker::rot_source(0));
+}
+
+#[test]
+fn haz_slime_backstep_whiff() {
+    // Slime 400 facing +x, Carl 444. He steps away (+x) on attack ticks 10..12 so
+    // the lunge box (418..439) misses his hurtbox, then closes in again from tick
+    // 38 and jabs (and chains the haymaker) in the recover: both land, no state
+    // change, no hurt.
+    let mut rig = one_slime(444);
+    let tell = until_tell(&mut rig, RawInput::NONE, 10);
+    let mut health_at_38 = 3;
+    for k in 1..=70u64 {
+        if k == 38 {
+            health_at_38 = slime_of(&rig, 0).slime().health();
+        }
+        let input = if (10..=12).contains(&k) {
+            walk(1.0)
+        } else if (38..=40).contains(&k) {
+            RawInput {
+                move_x: -1.0,
+                attack: k == 40,
+                ..RawInput::NONE
+            }
+        } else if k > 40 {
+            RawInput {
+                attack: k % 2 == 0,
+                ..RawInput::NONE
+            }
+        } else {
+            RawInput::NONE
+        };
+        rig.carl(input);
+        let _ = tell;
+    }
+    assert!(
+        rig.hurts(HeroId::Carl).is_empty(),
+        "{:?}",
+        rig.hurts(HeroId::Carl)
+    );
+    assert_eq!(health_at_38, 3, "no hit before the recover");
+    let s = slime_of(&rig, 0).slime();
+    assert!(
+        s.health() < 3,
+        "the jab (and haymaker) landed in the recover: {}",
+        s.health()
+    );
+}
+
+#[test]
+fn haz_slime_jump_over() {
+    // Carl jumps over the slime during the tell with -x held and lands behind it
+    // (x < 360): the lunge whiffs +x, the slime turns to -x at the cooldown, and
+    // a jab then lands in the cooldown.
+    let mut rig = one_slime(444);
+    let tell = until_tell(&mut rig, RawInput::NONE, 10);
+    let mut min_x = f32::MAX;
+    let mut turned = false;
+    for k in 1..=110u64 {
+        let grounded = rig.scene().world.hero.grounded;
+        let behind = rig.x_of(HeroId::Carl) < 400.0;
+        let input = if k < 12 {
+            RawInput::NONE
+        } else if k == 12 {
+            RawInput {
+                move_x: -1.0,
+                jump: true,
+                ..RawInput::NONE
+            }
+        } else if !behind || !grounded {
+            walk(-1.0)
+        } else if slime_of(&rig, 0).slime().health() < 3 {
+            // The jab landed: back off before the slime creeps into contact.
+            walk(-1.0)
+        } else {
+            // Close in to jab range (< 50), then stand and jab: walking on would
+            // meet the corrosive body.
+            let d = (400.0 - rig.x_of(HeroId::Carl)).abs();
+            RawInput {
+                move_x: if d < 50.0 { 0.0 } else { 1.0 },
+                attack: d < 50.0 && k % 2 == 0,
+                ..RawInput::NONE
+            }
+        };
+        rig.carl(input);
+        min_x = min_x.min(rig.x_of(HeroId::Carl));
+        if k >= 60 && slime_of(&rig, 0).slime().facing == -1 {
+            turned = true;
+        }
+    }
+    let _ = tell;
+    assert!(
+        rig.hurts(HeroId::Carl).is_empty(),
+        "{:?}",
+        rig.hurts(HeroId::Carl)
+    );
+    assert!(min_x < 360.0, "he landed behind the slime: {min_x}");
+    assert!(turned, "the slime turned to -x in the cooldown");
+    assert!(
+        slime_of(&rig, 0).slime().health() < 3,
+        "a jab landed in the cooldown"
+    );
+}
+
+#[test]
+fn haz_slime_dive_trade() {
+    // Carl dives onto an asleep slime from a 64 px box beside it: the slime takes
+    // the dive's damage and keeps its state; the corrosive body hurts Carl for 1.
+    // The executor scans the dive press by up to the sheet's 3 ticks.
+    let mut best = None;
+    for press in 0..40u64 {
+        let mut rig = Layout {
+            slimes: vec![SlimeAt {
+                x: 420,
+                facing: 1,
+                home: 420,
+            }],
+            solids: vec![IRect::new(470, FLOOR - 64, 64, 64)],
+            carl_x: 480,
+            ..Layout::default()
+        }
+        .sim(None);
+        // Stand on the box top.
+        rig.scene_mut().world.hero.y += 64.0;
+        for k in 1..=120u64 {
+            let input = if k == 1 {
+                RawInput {
+                    move_x: -1.0,
+                    jump: true,
+                    ..RawInput::NONE
+                }
+            } else if k < press {
+                walk(-1.0)
+            } else if k == press {
+                RawInput {
+                    down: true,
+                    physical: true,
+                    ..RawInput::NONE
+                }
+            } else {
+                RawInput::NONE
+            };
+            rig.carl(input);
+        }
+        let s = slime_of(&rig, 0).slime();
+        let body_hurt = rig
+            .hurts(HeroId::Carl)
+            .iter()
+            .any(|h| h.1 == slime_source(0));
+        if s.health() < 3 && body_hurt {
+            best = Some((press, s.health(), rig.hurts(HeroId::Carl).len()));
+            break;
+        }
+    }
+    let (press, health, hurts) = best.expect("some dive press lands on the slime");
+    assert_eq!(health, 2, "one dive hit, no state change (press {press})");
+    assert!(hurts >= 1);
+}
