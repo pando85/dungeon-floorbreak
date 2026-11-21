@@ -1,0 +1,45 @@
+{
+  "format": "pixelart-keys-v1",
+  "asset_id": "work-007-materials",
+  "layers": [
+    "main"
+  ],
+  "keys": {
+    "0": {
+      "sha256": "6d7b62ac29db79e5790d0f5009ceca8c3aac3e4c2769a6e058585d0cd796d7bc",
+      "tile": "iron_plate_intact"
+    },
+    "1": {
+      "sha256": "0c1f2fb12e8099f1b39b83c55d5d9cecf8e8e9110c684d206cb569c932f050bc",
+      "tile": "iron_plate_damaged"
+    },
+    "2": {
+      "sha256": "260d995828e6b4d9cef2176560dee39d7b570eb255fe0b742bb02a9707ccad3b",
+      "tile": "glass_leaded_intact"
+    },
+    "3": {
+      "sha256": "bed1bf3cd1f7cf0926adda0b4e45bb11733f94440b058a2419dffccf6050cc7c",
+      "tile": "glass_leaded_cracked"
+    },
+    "4": {
+      "sha256": "f4861a5a0537774eb6b694927018fefed8b87b8ca980ffb2b217ca569868e846",
+      "tile": "glass_leaded_broken_top"
+    },
+    "5": {
+      "sha256": "eace2f5747f450a1bf578dbb778c677a3b7f01331dbd840809341e1ffa923cb4",
+      "tile": "glass_leaded_broken_sill"
+    },
+    "6": {
+      "sha256": "a9fd9d71bb3e54d5ebe42d00e0f5c0c071d786ec654d47fee7eee660990d787a",
+      "tile": "timber_boards_intact"
+    },
+    "7": {
+      "sha256": "4b6321717f54290e8eef7970d7a7f3a053a8d7828a3cc0d6052903499f4ac666",
+      "tile": "timber_boards_cracked"
+    },
+    "8": {
+      "sha256": "214ac4f04866858da3d4b926bb06996215522f8b8456da2ce1fe33615ee1fb1e",
+      "tile": "timber_boards_broken_l"
+    }
+  }
+}
