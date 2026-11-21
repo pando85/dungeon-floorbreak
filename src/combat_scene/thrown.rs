@@ -1573,4 +1573,83 @@ mod tests {
         assert!(donut(&own));
         assert!(own.iter().all(|h| h.1 == THROWN_CHARGE_SOURCE));
     }
+
+    static ARMED_BASE: Fixture = base("test_dyn_armed", "an armed Donut", 7, &[], 2000);
+    static ARMED_DUO: PartyFixture = PartyFixture {
+        donut: DonutSetup::unlocked(8),
+        ..party(&ARMED_BASE, true)
+    };
+
+    /// DM-B review item F2: a blast is never evadable. The allow-list is the
+    /// `EvadeSource` enum (a goblin swing, the Engineer's ram, a llama glob) and
+    /// the blast path calls `hurt_hero` directly, never `evade_check`, so an
+    /// armed Donut caught in a non-QA blast that hurts her is hurt, logs no
+    /// `HeroEvaded` and is rattled (her wait restarts).
+    #[test]
+    fn carl_prog_dyn_an_armed_donut_never_evades_a_blast() {
+        use crate::agility::EvadeSource;
+        use crate::hero_damage::HeroDamagePolicy;
+        // The allow-list has no blast or charge variant.
+        for source in EvadeSource::ALL {
+            let name = source.name();
+            assert!(
+                !name.contains("blast") && !name.contains("charge"),
+                "{name}"
+            );
+        }
+        assert_eq!(
+            EvadeSource::ALL.len(),
+            3,
+            "a new variant needs its own design"
+        );
+        let caught = |policy: HeroDamagePolicy| {
+            let kit = kit();
+            let scene = crate::corridor::SceneSim::new_at(&kit, 360, 400).unwrap();
+            let combat = CombatState::new(ARMED_DUO.base, &kit, &scene)
+                .unwrap()
+                .with_donut(ARMED_DUO.donut)
+                .with_story(StorySetup::NONE.with_hold("special_thrown_charge"));
+            let mut s = PartyFixtureSim::from_parts(scene, combat, &ARMED_DUO);
+            idle(&mut s, 800);
+            assert!(s.combat.reflex().armed(), "Donut's reflex is armed");
+            let x = s.scene.world.donut_body.x;
+            let mut profile = blast_profile(CarlProgTuning::active());
+            profile.hero_damage = policy;
+            let charge =
+                BlastCharge::new(x, s.scene.world.hero_foot_y(), 1, None).with_profile(profile);
+            let tick = tick_of(&s) + 1;
+            s.combat
+                .resolve_profile_blast(&mut s.scene, 0, charge, tick);
+            s
+        };
+        // A world blast that hurts every hero (AllHeroes, no owner): she is hurt.
+        let hurt = caught(HeroDamagePolicy::AllHeroes);
+        assert!(
+            hero_hurts(&hurt)
+                .iter()
+                .any(|h| h.3 == HeroId::Donut && h.1 == THROWN_CHARGE_SOURCE),
+            "an armed Donut is hurt by the blast"
+        );
+        assert!(
+            !hurt
+                .combat
+                .events
+                .iter()
+                .any(|e| matches!(e, CombatEvent::HeroEvaded { .. })),
+            "never evaded"
+        );
+        assert!(!hurt.combat.reflex().armed(), "the hurt rattles her");
+        // The thrown profile (OwnerReduced, owner Carl) spares her: no hurt, and
+        // still no evade event (nothing reached the reflex).
+        let spared = caught(HeroDamagePolicy::OwnerReduced);
+        assert!(hero_hurts(&spared).iter().all(|h| h.3 != HeroId::Donut));
+        assert!(
+            !spared
+                .combat
+                .events
+                .iter()
+                .any(|e| matches!(e, CombatEvent::HeroEvaded { .. }))
+        );
+        assert!(spared.combat.reflex().armed(), "untouched, still armed");
+    }
 }
