@@ -29,15 +29,23 @@
 //! behind the leader and nearest the view edge (never a pop-in inside the
 //! camera, never ahead of the leader), and otherwise says why it did not.
 //!
+//! [`NavDriver::go_to`] (COMPANION-AI-02, CA2-B1) is the same executor steered
+//! to a *spot* instead of to the leader: the same committed transits, closure
+//! handling and holds, but a hold closes on the spot itself (no 40 px follow
+//! band). [`NavSpots`] gives the autonomy layer the graph's standing surfaces
+//! and the cost of a route ([`crate::companion::autonomy::SpotWorld`]).
+//!
 //! Determinism: no randomness, no `HashMap`; the nav graph's tie breaks are
 //! stable. [`HeroNav::hash_into`] mixes only the committed transit and the jump
 //! press, which are state of the simulation (the graph itself is derived from
 //! the solids, which are hashed already).
 
+use crate::companion::autonomy::{SpotWorld, Surface};
 use crate::companion::nav::{
     EdgeKind, EdgePlan, NavAnchorId, NavConfig, NavError, NavGraph, NavLevel, Plan, Reason,
     SolidId, UNSAFE_RISK, Unlocks,
 };
+use crate::companion::view::HeroView;
 use crate::input::STICK_DEADZONE;
 use crate::party::HeroId;
 use crate::prototype::{Block, HERO_HALF_WIDTH, RUN_SPEED, TICK_SECONDS};
@@ -72,6 +80,13 @@ const FOLLOW_SLACK_PX: f32 = 8.0;
 /// A committed transit is dropped after this many ticks beyond its ETA times
 /// three (a hero stuck behind something the model does not know).
 const TRANSIT_SLACK_TICKS: u16 = 120;
+
+/// What a hold waits for: the leader (with the follow band) or a spot (on it).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Wait {
+    Follow,
+    Spot,
+}
 
 /// The regroup ranking: edge bucket, height gap, exact edge gap.
 type RegroupKey = (u64, u64, u64);
@@ -282,6 +297,32 @@ impl NavDriver {
         leader: Body,
         bounds: Option<(f32, f32)>,
     ) -> (Option<Drive>, Vec<NavNote>) {
+        self.drive_toward(actor, me, leader, bounds, Wait::Follow)
+    }
+
+    /// The executor's tick toward a spot (CA2-B1): `follow` with the goal body
+    /// being where she wants to stand. `None`: the spot is on her own anchor or
+    /// the whole route is walking, so the caller steers flat (the `approach`
+    /// helper); a [`Drive`] is a committed transit or a hold that closes on the
+    /// spot, with no wait band.
+    pub fn go_to(
+        &mut self,
+        actor: HeroId,
+        me: Body,
+        spot: Body,
+        bounds: Option<(f32, f32)>,
+    ) -> (Option<Drive>, Vec<NavNote>) {
+        self.drive_toward(actor, me, spot, bounds, Wait::Spot)
+    }
+
+    fn drive_toward(
+        &mut self,
+        actor: HeroId,
+        me: Body,
+        goal: Body,
+        bounds: Option<(f32, f32)>,
+        wait: Wait,
+    ) -> (Option<Drive>, Vec<NavNote>) {
         let i = actor.index();
         let mut notes = Vec::new();
         if let Some(t) = self.heroes[i].transit
@@ -295,7 +336,7 @@ impl NavDriver {
         if let Some(drive) = self.continue_transit(actor, me, &mut notes) {
             return (Some(drive), notes);
         }
-        let drive = self.plan(actor, me, leader, bounds, &mut notes);
+        let drive = self.plan(actor, me, goal, bounds, wait, &mut notes);
         (drive, notes)
     }
 
@@ -381,6 +422,7 @@ impl NavDriver {
         me: Body,
         leader: Body,
         bounds: Option<(f32, f32)>,
+        wait: Wait,
         notes: &mut Vec<NavNote>,
     ) -> Option<Drive> {
         let i = actor.index();
@@ -418,7 +460,7 @@ impl NavDriver {
                     notes.push(NavNote::Waiting { anchor, reason });
                 }
                 if anchor == here {
-                    return Some(self.hold_near(actor, here, me, leader));
+                    return Some(self.hold_near(actor, here, me, leader, wait));
                 }
                 let path = self
                     .graph
@@ -444,12 +486,31 @@ impl NavDriver {
     /// Waiting on `here` for a route that does not exist: close in on the
     /// leader's x as far as the anchor goes (the follow band of the bot), and
     /// never leave the anchor.
-    fn hold_near(&self, actor: HeroId, here: NavAnchorId, me: Body, leader: Body) -> Drive {
+    fn hold_near(
+        &self,
+        actor: HeroId,
+        here: NavAnchorId,
+        me: Body,
+        leader: Body,
+        wait: Wait,
+    ) -> Drive {
         let Some((x0, x1)) = self.graph.anchor_span(here) else {
             return Drive::default();
         };
         let goal = leader.x.clamp(x0 + PLACE_INSET_PX, x1 - PLACE_INSET_PX);
         let gap = goal - me.x;
+        if wait == Wait::Spot {
+            // A spot is a place to stand on: close on it, no wait band.
+            let run = self.config.run_speed(actor);
+            return if gap.abs() <= arrive_eps_px(run) {
+                Drive::default()
+            } else {
+                Drive {
+                    move_x: approach(me.x, goal, run),
+                    jump: false,
+                }
+            };
+        }
         if gap.abs() <= WAIT_BAND_PX + FOLLOW_SLACK_PX {
             return Drive::default();
         }
@@ -579,6 +640,111 @@ impl NavDriver {
             Some((_, anchor, x, foot_y)) => Regroup::Place { anchor, x, foot_y },
             None => Regroup::Denied(Reason::Unreachable),
         }
+    }
+}
+
+/// The nav graph as the autonomy layer's [`SpotWorld`]: every open anchor is a
+/// standing surface, its span inset by the body half width plus the ledge inset
+/// (spec 3.5), and a route's cost is the summed duration of its jump and drop
+/// edges for `actor`.
+pub struct NavSpots<'a> {
+    driver: &'a NavDriver,
+    actor: HeroId,
+    ledge_inset_px: f32,
+}
+
+impl<'a> NavSpots<'a> {
+    /// `ledge_inset_px` is `ca2_q29_ledge_inset_px`.
+    pub fn new(driver: &'a NavDriver, actor: HeroId, ledge_inset_px: f32) -> Self {
+        Self {
+            driver,
+            actor,
+            ledge_inset_px,
+        }
+    }
+
+    fn key(id: NavAnchorId) -> u64 {
+        (u64::from(id.solid.0) << 16) | u64::from(id.slot)
+    }
+
+    /// The open anchor directly under `x`: the highest top at or just below
+    /// `foot_y` (ties by the lowest id, the graph's order).
+    fn anchor_below(graph: &NavGraph, x: f32, foot_y: f32) -> Option<NavAnchorId> {
+        let mut best: Option<(f32, NavAnchorId)> = None;
+        for a in graph.anchors() {
+            let (Some((x0, x1)), Some((_, top))) = (graph.anchor_span(a), graph.anchor_pos(a))
+            else {
+                continue;
+            };
+            if graph.anchor_open(a)
+                && x >= x0
+                && x <= x1
+                && top <= foot_y + 4.0
+                && best.is_none_or(|(t, _)| top > t)
+            {
+                best = Some((top, a));
+            }
+        }
+        best.map(|(_, a)| a)
+    }
+
+    fn anchor_of_key(key: u64) -> NavAnchorId {
+        NavAnchorId {
+            solid: SolidId((key >> 16) as u32),
+            slot: (key & 0xffff) as u16,
+        }
+    }
+}
+
+impl SpotWorld for NavSpots<'_> {
+    fn surfaces(&self, out: &mut Vec<Surface>) {
+        let graph = self.driver.graph();
+        let inset = HERO_HALF_WIDTH + self.ledge_inset_px;
+        // `anchors()` is in stable id order, and so is the key.
+        for a in graph.anchors() {
+            let (Some((x0, x1)), Some((_, top)), Some(risk)) = (
+                graph.anchor_span(a),
+                graph.anchor_pos(a),
+                graph.anchor_risk(a),
+            ) else {
+                continue;
+            };
+            if !graph.anchor_open(a) || x1 - x0 < 2.0 * inset {
+                continue;
+            }
+            out.push(Surface {
+                key: Self::key(a),
+                left: x0 + inset,
+                right: x1 - inset,
+                y: top,
+                risk,
+            });
+        }
+    }
+
+    fn route_ticks(&self, partner: &HeroView, _x: f32, surface: &Surface) -> Option<u16> {
+        let graph = self.driver.graph();
+        // In the air (a pounce, a jump) no anchor is within 4 px of her feet: use
+        // the open anchor under her (review F-1), so a decision taken in flight
+        // can still price its routes.
+        let here = graph
+            .anchor_at(partner.x, partner.foot_y)
+            .or_else(|| Self::anchor_below(graph, partner.x, partner.foot_y))?;
+        let dest = Self::anchor_of_key(surface.key);
+        if here == dest {
+            return Some(0);
+        }
+        let path = graph
+            .path_or_reason(self.actor, here, dest, Unlocks::NONE)
+            .ok()?;
+        let mut ticks = 0u16;
+        for w in path.anchors.windows(2) {
+            let plan = graph.edge_plan(w[0], w[1], self.actor)?;
+            if plan.kind != EdgeKind::Walk {
+                ticks = ticks.saturating_add(plan.ticks);
+            }
+        }
+        Some(ticks)
     }
 }
 
@@ -774,6 +940,129 @@ mod tests {
         assert!(highest < 0.01, "Carl never jumped: {highest}");
         assert!(hero.y - HERO_HALF_HEIGHT < 0.01);
         assert!(notes.iter().any(|n| matches!(n, NavNote::Waiting { .. })));
+    }
+
+    /// CA2-B1: `go_to` is the follow executor toward a spot. On her own anchor it
+    /// says nothing (the caller steers flat); to a spot on a ledge her agile jump
+    /// reaches it commits a transit and arrives through the real body step.
+    #[test]
+    fn go_to_commits_the_same_transits_toward_a_spot() {
+        let blocks = vec![
+            stone(0.0, 0.0, 2000.0, 40.0),
+            stone(300.0, 104.0, 300.0, 144.0),
+        ];
+        let motion = crate::agility::agile_motion();
+        let mut driver = NavDriver::new(&blocks, NavConfig::agile()).unwrap();
+        // Same anchor: nothing to add.
+        let flat = driver.go_to(
+            HeroId::Donut,
+            standing(100.0, 0.0),
+            standing(250.0, 0.0),
+            None,
+        );
+        assert_eq!(flat.0, None);
+        // A spot on the ledge: a transit, then arrival on the ledge.
+        let spot = standing(450.0, 104.0);
+        let mut hero = Hero::at(100.0, HERO_HALF_HEIGHT);
+        let mut frame = InputFrame::default();
+        let (mut begun, mut arrived) = (false, false);
+        for _ in 0..400 {
+            let (drive, notes) = driver.go_to(HeroId::Donut, body(&hero), spot, None);
+            begun |= notes.iter().any(|n| matches!(n, NavNote::Begin { .. }));
+            arrived |= notes.iter().any(|n| matches!(n, NavNote::Arrived { .. }));
+            let d = drive.unwrap_or_default();
+            frame.advance(RawInput {
+                move_x: d.move_x,
+                jump: d.jump,
+                ..RawInput::NONE
+            });
+            crate::prototype::step_hero_motion(
+                &mut hero,
+                motion,
+                &frame,
+                &blocks,
+                2000.0,
+                &crate::prototype::BodyDrive::default(),
+            );
+        }
+        assert!(begun && arrived, "{hero:?}");
+        assert!((hero.y - HERO_HALF_HEIGHT - 104.0).abs() < 0.01, "{hero:?}");
+    }
+
+    /// CA2-B1: with no route a hold on a spot closes on the spot itself, where the
+    /// follow hold stops short of the leader (its 40 px band and 8 px slack).
+    #[test]
+    fn a_hold_toward_a_spot_has_no_wait_band() {
+        // A 200 px tower nobody climbs, the floor only: the spot on top has no
+        // route and the nearest safe anchor is the floor she stands on.
+        let blocks = vec![
+            stone(0.0, 0.0, 2000.0, 40.0),
+            stone(700.0, 200.0, 60.0, 200.0),
+        ];
+        let me = standing(690.0, 0.0);
+        let target = standing(730.0, 200.0);
+        let mut follow = NavDriver::new(&blocks, NavConfig::integrated()).unwrap();
+        let (drive, notes) = follow.follow(HeroId::Carl, me, target, None);
+        assert!(notes.iter().any(|n| matches!(n, NavNote::Waiting { .. })));
+        assert_eq!(drive.unwrap().move_x, 0.0, "within the 48 px follow band");
+        let mut goto = NavDriver::new(&blocks, NavConfig::integrated()).unwrap();
+        let (drive, notes) = goto.go_to(HeroId::Carl, me, target, None);
+        assert!(notes.iter().any(|n| matches!(n, NavNote::Waiting { .. })));
+        assert!(drive.unwrap().move_x > 0.0, "a go-to closes on the spot");
+    }
+
+    #[test]
+    fn nav_spots_list_open_anchors_inset_and_price_a_route_in_transit_ticks() {
+        use crate::companion::autonomy::{SpotWorld, Surface};
+        use crate::companion::view::{Control, fixtures};
+        let blocks = vec![
+            stone(0.0, 0.0, 2000.0, 40.0),
+            stone(300.0, 104.0, 300.0, 144.0),
+            stone(1200.0, 20.0, 40.0, 20.0), // narrower than 2 x (12 + 16): no spot
+        ];
+        let driver = NavDriver::new(&blocks, NavConfig::agile()).unwrap();
+        let spots = NavSpots::new(&driver, HeroId::Donut, 16.0);
+        let mut out = Vec::new();
+        spots.surfaces(&mut out);
+        assert!(
+            out.windows(2).all(|w| w[0].key < w[1].key),
+            "ascending keys"
+        );
+        let floor = out.iter().find(|s| s.y == 0.0).copied().unwrap();
+        // The anchor span inset by 12 + 16 on each end.
+        assert!(floor.left > 0.0 && floor.left <= 28.0 + 1.0, "{floor:?}");
+        let ledge = out.iter().find(|s| s.y == 104.0).copied().unwrap();
+        assert!((ledge.left - 328.0).abs() < 1.0 && (ledge.right - 572.0).abs() < 1.0);
+        assert!(out.iter().all(|s: &Surface| s.right >= s.left));
+        // She stands on the floor: a walk is free, the ledge costs its transit.
+        let mut me = fixtures::hero(HeroId::Donut, 100.0, Control::Companion);
+        me.foot_y = 0.0;
+        assert_eq!(spots.route_ticks(&me, 150.0, &floor), Some(0));
+        let ticks = spots
+            .route_ticks(&me, 450.0, &ledge)
+            .expect("agile reaches it");
+        assert!(ticks > 0);
+        // In the air over the floor (a pounce: feet 12 px up, no anchor within 4 px)
+        // she is priced from the anchor under her, and over the ledge from the ledge.
+        let mut flying = me;
+        flying.foot_y = 12.0;
+        flying.grounded = false;
+        assert_eq!(spots.route_ticks(&flying, 150.0, &floor), Some(0));
+        assert_eq!(spots.route_ticks(&flying, 450.0, &ledge), Some(ticks));
+        let mut over_ledge = flying;
+        over_ledge.x = 450.0;
+        over_ledge.foot_y = 120.0;
+        assert_eq!(spots.route_ticks(&over_ledge, 450.0, &ledge), Some(0));
+        // Below every surface there is nothing to price from.
+        let mut under = flying;
+        under.foot_y = -50.0;
+        assert_eq!(spots.route_ticks(&under, 150.0, &floor), None);
+        let integrated = NavDriver::new(&blocks, NavConfig::integrated()).unwrap();
+        let cs = NavSpots::new(&integrated, HeroId::Carl, 16.0);
+        let mut out2 = Vec::new();
+        cs.surfaces(&mut out2);
+        let ledge2 = out2.iter().find(|s| s.y == 104.0).copied().unwrap();
+        assert_eq!(cs.route_ticks(&me, 450.0, &ledge2), None);
     }
 
     #[test]

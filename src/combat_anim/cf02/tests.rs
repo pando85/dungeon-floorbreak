@@ -1601,6 +1601,12 @@ fn an_overlay_waits_for_the_actor_to_be_idle_and_never_spends_a_cooldown_unseen(
             .count()
     };
     assert_eq!(super::SMUG_PENDING_TICKS, 45);
+    // COMPANION-AI-02 AD-B3: the autonomy layer's Show-off window is this window
+    // (the companion modules may not read acting knobs, so the pin lives here).
+    assert_eq!(
+        u64::from(super::SMUG_PENDING_TICKS),
+        crate::companion::autonomy::SHOW_OFF_HIT_WINDOW_TICKS
+    );
     assert_eq!(after(44), 20, "idle on the last tick of the wait");
     assert_eq!(after(45), 0, "too late");
     assert_eq!(after(100), 0, "too late");

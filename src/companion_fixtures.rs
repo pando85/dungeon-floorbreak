@@ -1305,6 +1305,7 @@ mod tests {
             CompanionEvent::Press { hero, .. } => *hero == HeroId::Carl,
             CompanionEvent::Decision { .. }
             | CompanionEvent::Nav { .. }
+            | CompanionEvent::GoalChanged { .. }
             | CompanionEvent::Regroup { .. } => true,
         }));
     }

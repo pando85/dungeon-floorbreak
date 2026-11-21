@@ -15,11 +15,12 @@
 //! - [`nav`]: the platform graph (01B-core); [`navfollow`]: the nav-driven
 //!   follow executor and the camera-safe regroup (01B-wire).
 //! - `command_input`: the pure command grammar (01C).
-//! - [`engage`] and [`autonomy`]: COMPANION-AI-02 (CA2-A), the leader's
-//!   engagement predicate, the camera-bounded free zone, the drift check and
-//!   the leader's claim set. Pure and not wired: nothing reads them until
-//!   CA2-B1/B2, and the `autonomy` profile block is off in every shipped set
-//!   but `cf02_free`.
+//! - [`engage`] and [`autonomy`]: COMPANION-AI-02, the leader's engagement
+//!   predicate, the camera-bounded free zone, the drift check, the leader's
+//!   claim set (CA2-A) and the goal selector with its brief for the director
+//!   (CA2-B1). Pure and not wired: nothing in a scene reads them until CA2-B2,
+//!   and the `autonomy` profile block is off in every shipped set but
+//!   `cf02_free`.
 //!
 //! `docs/03-tech/companion-ai-command-system.md` and
 //! `docs/07-agents/companion-ai-01-workorder.md` describe the stages.
