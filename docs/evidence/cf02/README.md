@@ -88,7 +88,7 @@ Reading: the scripted plans never produce the skill-gated chain CINE-01 asks for
 | `cf02_assist_swat_trailing_gap` | `04841f57c5c450c5` | companion-ai | match |
 | `cf02_assist_pounce_staggered` | `13fe359d33b2ee65` | companion-ai | match |
 | `cf02_assist_hp_drops_midmove` | `59fd86eb22c57e86` | companion-ai | match |
-| `cf02_assist_cadence` | `a315d0be02061daf` | companion-ai | match |
+| `cf02_assist_cadence` | `b6639df01f0b99a9` | companion-ai | match |
 | `cf02_assist_magic_locked` | `3fa0c4ae6aaecf92` | companion-ai | match |
 | `cf02_assist_missile_reserve` | `fa241a206ba24e8e` | companion-ai | match |
 | `cf02_assist_camera_parity` | `e3b30a855b7fe5b0` | companion-ai | match |

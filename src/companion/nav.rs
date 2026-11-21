@@ -306,6 +306,8 @@ pub struct NavConfig {
     pub donut: HeroPhysics,
 }
 
+/// The legacy preset. The live scene never uses this default: it builds its
+/// graph with [`NavConfig::for_motion`] of the party's Donut motion.
 impl Default for NavConfig {
     fn default() -> Self {
         Self::integrated()

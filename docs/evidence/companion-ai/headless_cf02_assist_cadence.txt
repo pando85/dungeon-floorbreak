@@ -1,21 +1,25 @@
-COMBAT_EVENT tick=25 kind=move_started move=pounce instance=1
-COMBAT_EVENT tick=37 kind=hit move=pounce instance=1 target=0 damage=1 health_left=1 hit_stop=4
-COMBAT_EVENT tick=86 kind=move_started move=pounce instance=2
-COMBAT_EVENT tick=96 kind=hit move=pounce instance=2 target=0 damage=1 health_left=0 hit_stop=7
-COMBAT_EVENT tick=96 kind=enemy_defeated target=0 instigator=1
-COMBAT_EVENT tick=118 kind=goblin_tell goblin=1
-COMBAT_EVENT tick=138 kind=move_started move=swat instance=3
-COMBAT_EVENT tick=142 kind=hit move=swat instance=3 target=1 damage=0 health_left=2 hit_stop=2
-COMBAT_EVENT tick=142 kind=goblin_interrupted goblin=1
-COMBAT_EVENT tick=174 kind=goblin_tell goblin=1
-COMBAT_EVENT tick=200 kind=goblin_swing goblin=1
-COMBAT_EVENT tick=200 kind=hero_hurt source=1 health_left=3
-COMBAT_EVENT tick=206 kind=move_started move=pounce instance=4
-COMBAT_EVENT tick=225 kind=hit move=pounce instance=4 target=1 damage=1 health_left=1 hit_stop=4
-COMBAT_EVENT tick=255 kind=move_started move=pounce instance=5
-COMBAT_EVENT tick=264 kind=goblin_tell goblin=1
-COMBAT_EVENT tick=265 kind=hit move=pounce instance=5 target=1 damage=1 health_left=0 hit_stop=7
-COMBAT_EVENT tick=265 kind=enemy_defeated target=1 instigator=1
-COMBAT_EVENT tick=265 kind=goblin_interrupted goblin=1
-COMBAT_STATE fixture=cf02_assist_cadence seed=0xc0a10005 tick=320 elapsed=320 hero_hp=3 deaths=0 enemies=e0=524.800/0,e1=502.367/0 hash=b109d0fb34ac8509
-PARTY_STATE fixture=cf02_assist_cadence mode=solo controlled=Carl carl_hp=3 donut_hp=4 deaths=0 hash=07c5541581af580f
+COMBAT_EVENT tick=1 kind=move_started move=pounce instance=1
+COMBAT_EVENT tick=11 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=20 kind=hit move=pounce instance=1 target=0 damage=1 health_left=1 hit_stop=4
+COMBAT_EVENT tick=20 kind=goblin_interrupted goblin=0
+COMBAT_EVENT tick=50 kind=move_started move=pounce instance=2
+COMBAT_EVENT tick=59 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=60 kind=hit move=pounce instance=2 target=0 damage=1 health_left=0 hit_stop=7
+COMBAT_EVENT tick=60 kind=enemy_defeated target=0 instigator=1
+COMBAT_EVENT tick=60 kind=goblin_interrupted goblin=0
+COMBAT_EVENT tick=71 kind=goblin_tell goblin=1
+COMBAT_EVENT tick=91 kind=move_started move=swat instance=3
+COMBAT_EVENT tick=95 kind=hit move=swat instance=3 target=1 damage=0 health_left=2 hit_stop=2
+COMBAT_EVENT tick=95 kind=goblin_interrupted goblin=1
+COMBAT_EVENT tick=127 kind=goblin_tell goblin=1
+COMBAT_EVENT tick=153 kind=goblin_swing goblin=1
+COMBAT_EVENT tick=153 kind=hero_hurt source=1 health_left=3
+COMBAT_EVENT tick=158 kind=move_started move=pounce instance=4
+COMBAT_EVENT tick=177 kind=hit move=pounce instance=4 target=1 damage=1 health_left=1 hit_stop=4
+COMBAT_EVENT tick=207 kind=move_started move=pounce instance=5
+COMBAT_EVENT tick=216 kind=goblin_tell goblin=1
+COMBAT_EVENT tick=217 kind=hit move=pounce instance=5 target=1 damage=1 health_left=0 hit_stop=7
+COMBAT_EVENT tick=217 kind=enemy_defeated target=1 instigator=1
+COMBAT_EVENT tick=217 kind=goblin_interrupted goblin=1
+COMBAT_STATE fixture=cf02_assist_cadence seed=0xc0a10005 tick=320 elapsed=320 hero_hp=3 deaths=0 enemies=e0=503.000/0,e1=503.000/0 hash=c41e2a179bdf8cb3
+PARTY_STATE fixture=cf02_assist_cadence mode=solo controlled=Carl carl_hp=3 donut_hp=4 deaths=0 hash=b6639df01f0b99a9

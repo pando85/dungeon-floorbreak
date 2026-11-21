@@ -187,15 +187,6 @@ impl MotionProfile {
             Self::Agile => "agile",
         }
     }
-
-    /// The profile of a [`Self::name`].
-    pub fn from_name(name: &str) -> Option<Self> {
-        match name {
-            "legacy" => Some(Self::Legacy),
-            "agile" => Some(Self::Agile),
-            _ => None,
-        }
-    }
 }
 
 /// The party knobs. Every field names the owner question (`Qn`) it answers;

@@ -423,6 +423,40 @@ mod tests {
         assert!(!lands_on(CARL, &DM_JUMP_LEDGE_96));
     }
 
+    /// Spec test 3, nav part: the agile nav graph agrees with the body on the
+    /// same ledges. Donut's floor-to-ledge jump edge is open at 96, 104 and 112
+    /// and blocked at 116; Carl's is open at 80 and blocked at 96.
+    #[test]
+    fn the_agile_nav_graph_agrees_with_the_body_on_the_ledges() {
+        use crate::companion::nav::{EdgeState, NavConfig, NavGraph, NavLevel};
+        let edge_open = |fixture: &MotionFixture, hero: HeroId| {
+            let (_, _, height) = fixture.ledge.unwrap();
+            // The nav model needs x >= 0: shift the fixture's blocks right.
+            let blocks: Vec<Block> = blocks_of(fixture)
+                .into_iter()
+                .map(|mut b| {
+                    b.rect.left += 100.0;
+                    b
+                })
+                .collect();
+            let level = NavLevel::from_blocks(&blocks, Vec::new());
+            let graph = NavGraph::build(&level, NavConfig::agile()).unwrap();
+            let top = |id| graph.anchor_pos(id).unwrap().1;
+            let views = graph.edge_views();
+            let edge = views
+                .iter()
+                .find(|e| top(e.from) == 0.0 && (top(e.to) - height).abs() < 0.01)
+                .unwrap_or_else(|| panic!("no floor to {height} px ledge edge"));
+            matches!(edge.state[hero.index()], EdgeState::Open { .. })
+        };
+        assert!(edge_open(&DM_JUMP_LEDGE_96, HeroId::Donut));
+        assert!(edge_open(&DM_JUMP_LEDGE_104, HeroId::Donut));
+        assert!(edge_open(&DM_JUMP_LEDGE_112, HeroId::Donut));
+        assert!(!edge_open(&DM_JUMP_LEDGE_116_FAILS, HeroId::Donut));
+        assert!(edge_open(&DM_JUMP_LEDGE_80, HeroId::Carl));
+        assert!(!edge_open(&DM_JUMP_LEDGE_96, HeroId::Carl));
+    }
+
     #[test]
     fn the_ledge_margins_and_the_ai_reach_follow_the_spec() {
         let apex = agility::discrete_apex_px(500.0);

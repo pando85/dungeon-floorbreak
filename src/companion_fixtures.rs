@@ -150,9 +150,9 @@ pub const CF02_ASSIST_HP_DROPS_MIDMOVE: PartyFixture = PartyFixture {
 
 const ASSIST_CADENCE_BASE: Fixture = base(
     "cf02_assist_cadence",
-    "Solo as Carl, who stands: two goblins tell one after the other and the AI Donut starts at most one move per 20 ticks (CF02-DUO-A02, was 60 under CF02-Q16), never while a move runs",
+    "Solo as Carl, who stands: two goblins tell one after the other (a goblin at 440 and one at 500, asserted) and the AI Donut starts at most one move per 20 ticks (CF02-DUO-A02, was 60 under CF02-Q16), never while a move runs",
     0xC0A1_0005,
-    &[chase(530), chase(550)],
+    &[chase(440), chase(500)],
     320,
 );
 
@@ -752,7 +752,7 @@ mod tests {
         ("cf02_assist_swat_trailing_gap", 0x04841f57c5c450c5),
         ("cf02_assist_pounce_staggered", 0x13fe359d33b2ee65),
         ("cf02_assist_hp_drops_midmove", 0xeeef90433185c908),
-        ("cf02_assist_cadence", 0x07c5541581af580f),
+        ("cf02_assist_cadence", 0xb6639df01f0b99a9),
         ("cf02_assist_magic_locked", 0x3fa0c4ae6aaecf92),
         ("cf02_assist_missile_reserve", 0x89506924a8836b1c),
         ("cf02_assist_camera_parity", 0x994a61b9dcbec360),
@@ -952,6 +952,19 @@ mod tests {
                 })
                 .count();
             assert_eq!(swat_interrupts, interrupts, "{}: {events:?}", f.name());
+            // Both goblins tell in the run, so the one interrupt swat breaks a
+            // tell while another goblin is alive (a guard against the fixture
+            // drifting back to a run where she kills goblin 0 before it tells).
+            let both = f.name() == "cf02_assist_cadence";
+            for goblin in (0..f.base.enemies.len() as u32).filter(|_| both) {
+                assert!(
+                    events.iter().any(
+                        |e| matches!(e, CombatEvent::GoblinTell { goblin: g, .. } if *g == goblin)
+                    ),
+                    "{}: goblin {goblin} never tells",
+                    f.name()
+                );
+            }
             // Every swat hit interrupts a tell: no swat landed on a goblin that
             // was not telling (that would set the guard against her own interrupt).
             for tick in &swat_hit_ticks {

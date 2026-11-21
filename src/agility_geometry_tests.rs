@@ -121,16 +121,14 @@ fn a_perch_jump_bonks_donut_at_228_and_never_touches_carl() {
     }
     assert_eq!(hash, DM_MICROARENA_PERCH_CEILING, "{hash:#018x}");
     let (donut_free, _) = jump_from_perch(donut(), false);
-    assert_eq!(
-        donut_head,
-        228.0 - 0.0,
-        "collider top capped at the ceiling"
-    );
+    assert_eq!(donut_head, 228.0, "collider top capped at the ceiling");
     assert!(
         donut_free > 228.0 + 10.0,
         "without it she would rise to {donut_free}"
     );
-    assert!((donut_head - 44.0 - (176.0 + 8.0)).abs() < 0.01 || donut_head == 228.0);
+    // The bonk is at feet 176 (collider top 228), drawn top 220.
+    assert_eq!(donut_head - 52.0, 176.0, "bonk at feet 176");
+    assert_eq!(donut_head - 52.0 + 44.0, 220.0, "drawn top 220");
     let (carl_head, carl_with) = jump_from_perch(CARL, true);
     let (_, carl_without) = jump_from_perch(CARL, false);
     assert!((carl_head - 220.54).abs() < 0.05, "{carl_head}");
@@ -436,7 +434,7 @@ fn the_agile_preset_changes_no_carl_edge_and_lists_donuts() {
 /// Spec section 6, U4: a human Donut runs and jumps right for 600 ticks on the
 /// corridor kit while the bot Carl follows at his 185 px/s. The measurement
 /// (Carl's off-screen ticks and regroup placements) is printed for the PR and
-/// pinned so a change shows.
+/// pinned to (0, 0), so a change shows.
 #[test]
 fn a_running_human_donut_with_the_bot_carl_behind_her_is_measured() {
     use crate::party_scene::{PartyFixture, SlotHold, base, jump, run, swap};
@@ -500,6 +498,11 @@ fn a_running_human_donut_with_the_bot_carl_behind_her_is_measured() {
     }
     let (offscreen, regroups, donut_x, carl_x) = measure();
     assert_eq!(measure().0, offscreen, "deterministic");
+    assert_eq!(
+        (offscreen, regroups),
+        (0, 0),
+        "the values reported in the PR: Carl never leaves the view and is never re-placed"
+    );
     println!(
         "U4 corridor, 600 ticks: Carl off-screen {offscreen} ticks, {regroups} regroup placements, Donut x {donut_x:.1}, Carl x {carl_x:.1}"
     );

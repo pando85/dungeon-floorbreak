@@ -231,14 +231,10 @@ impl CorridorWorld {
     }
 
     /// One tick of the live party's bodies: the tick counter advances, every
-    /// hero that is not frozen (hit-stop) runs the shared `step_hero`, and
-    /// Donut's drawn position follows her body. No trail is recorded.
-    pub fn step_bodies(&mut self, frames: [&InputFrame; 2], frozen: [bool; 2]) {
-        self.step_bodies_driven(frames, frozen, [BodyDrive::default(); 2], HeroMotion::CARL);
-    }
-
-    /// [`Self::step_bodies`] with the overrides of a running combat move per
-    /// hero (Donut's pounce and swat). Default drives change nothing.
+    /// hero that is not frozen (hit-stop) runs the shared step with the
+    /// overrides of a running combat move per hero (Donut's pounce and swat;
+    /// default drives change nothing), and Donut's drawn position follows her
+    /// body. No trail is recorded.
     /// `donut_motion` is Donut's ordinary motion (DM-A): applied every tick,
     /// never stored, so no rebuild site has anything to reset. Carl always
     /// steps with [`HeroMotion::CARL`].

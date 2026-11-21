@@ -593,12 +593,32 @@ fn the_solo_assist_and_live_rooms_make_progress_and_log_the_ai_counts() {
         assert_eq!(ai_counts(&sim, index), (swat_cancels, ram_hits), "{name}");
         // The Engineer starts at least one ram (a tell that ends in a hit) ...
         assert!(!tells(&sim, index).is_empty(), "{name}: he never points");
-        // (DM-A: in cp2 her interrupt swat now cancels the one point before
-        // the ram starts, so the ram that opens the room is the cancelled one.)
-        assert!(
-            !hurts(&sim, index).is_empty() || !bonks(&sim).is_empty() || swat_cancels > 0,
-            "{name}: he never rams"
-        );
+        if name == "cf02_arena_eng_cp2" {
+            // DM-A: in cp2 her AI swat cancels the one point before the ram
+            // starts, so the ram that opens the room is the cancelled one: a
+            // tell, then her swat cancel on him, and no ram strike on anybody.
+            let tell = tells(&sim, index)[0];
+            let cancel = hits(&sim)
+                .into_iter()
+                .find(|&(tick, move_id, target)| {
+                    move_id == MoveId::Swat
+                        && target == index
+                        && events(&sim).iter().any(|e| {
+                            matches!(*e, CombatEvent::GoblinInterrupted { tick: t, goblin: g }
+                                if t == tick && g == index)
+                        })
+                })
+                .map(|h| h.0)
+                .expect("her swat cancels his point");
+            assert!(cancel >= tell, "{name}: the cancel follows the tell");
+            assert!(hurts(&sim, index).is_empty(), "{name}: no ram hit");
+            assert!(bonks(&sim).is_empty(), "{name}: no ram bonk");
+        } else {
+            assert!(
+                !hurts(&sim, index).is_empty() || !bonks(&sim).is_empty(),
+                "{name}: he never rams"
+            );
+        }
         // ... and the room is cleared: he and every goblin are dead and Carl lives.
         assert!(
             sim.combat.enemies.iter().all(|g| !g.alive()),
