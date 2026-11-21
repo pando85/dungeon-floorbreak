@@ -1,6 +1,6 @@
 # MORDECAI-01: Mordecai (Rat Hooligan guide) native sprite, design spec (keys frozen)
 
-**Status:** keys **frozen** by the top-tier editor (route B). Two keys: frame 0 idle, frame 1 talk gesture, pinned by SHA-256 in `tests/fixtures/mordecai-01_keys.json` (validator V09). No in-betweens and no manifest yet. Validator PASS. Silhouette gate and independent review pending.
+**Status:** keys **frozen** (frame 0 idle key, frame 4 talk key, `tests/fixtures/mordecai-01_keys.json`, validator V09); silhouette gate PASS (round 2); idle in-betweens 1 to 3 drawn; atlas exported and manifest written (`assets/manifests/mordecai_h44.json`). Validator PASS. Independent review pending; not wired into Bevy.
 
 **Decision record (adopted by the editor):** idle opaque height **44 px** (rows 4 to 47, MORD-Q1), frame **52 x 48**, pivot **(24, 47)**, hands-in-pockets rest pose (MORD-Q2), authored facing right with runtime mirroring around the pivot column (MORD-Q3), 4-frame idle loop, one talk-gesture key, 19 palette keys.
 
@@ -45,7 +45,7 @@ Decision (adopted, MORD-Q1): **B, 44 px** (rows 4 to 47 inclusive, outline inclu
 - **Authored facing right**; runtime mirrors around the pivot column (x 24). In the guild room the runtime mirrors him to face the party.
 - **Boxes:** none. He is a non-combatant: no hurtbox, no hitbox. Proposal for the integrator, not a requirement: an interaction anchor at pivot offset (+6, -45) (above the head, near the muzzle) and a 24 x 38 standing footprint equal to the enemy AABB, frame x 12 to 35, rows 10 to 47.
 - **Layers (bottom to top):** `tail`, `far_arm`, `torso`, `near_arm`, `legs`, `head`. The torso sits under the near arm and the near arm under the trousers, which is what puts the idle hand "in the pocket"; `head` is on top so the beard clears the vest. Layers are not required to be disjoint.
-- **One atlas**, frames 0 to 1 now (keys); frames 2 to 4 are in-betweens added after the keys are frozen.
+- **One atlas**, 5 frames: idle loop 0 to 3 (key plus 3 breathing in-betweens), talk key 4. Exported to `generated/art/mordecai_h44.png` and `.json` (LibreSprite json-array, rows) from `assets/manifests/mordecai_h44.json`.
 
 ## 4. Animation list
 
@@ -53,20 +53,20 @@ At 60 Hz. Draft config: `assets/source/characters/mordecai/mordecai_h44.pixelart
 
 | Role | Tag | Frames | Playback | Ticks | Total |
 | --- | --- | --- | --- | --- | --- |
-| idle | `idle` | 0, 2, 3, 4 | loop | 40 + 22 + 14 + 22 | 98 (about 1.6 s) |
-| talk | `talk` | 1 | once, then back to `idle` | 60 hold, state-driven | about 60 |
+| idle | `idle` | 0, 1, 2, 3 | loop | 40 + 22 + 14 + 22 | 98 (about 1.6 s) |
+| talk | `talk` | 4 | once, then back to `idle` | 60 hold, state-driven | about 60 |
 
 Frame table (K = key drawn now, I = in-between, section 8):
 
 | # | Tag | Pose | Ticks | Type |
 | --- | --- | --- | --- | --- |
 | 0 | `idle` | rest: slumped stoop, both hands in the pockets, closed mouth, one fang peeking | 40 | K |
-| 1 | `talk` | one-handed explanatory gesture: near forearm out, palm up, mouth open, brow raised | 60 | K |
-| 2 | `idle` | inhale: head, torso and near arm (rows 4 to 30) up 1 px, legs and tail fixed | 22 | I |
-| 3 | `idle` | inhale hold: as 2 plus the ear tip 1 px lower (twitch), eyelid row 1 px lower | 14 | I |
-| 4 | `idle` | exhale: head rows 4 to 22 down 1 px from key 0, body as key 0, tail tip rows 44 to 46 shifted 1 px | 22 | I |
+| 1 | `idle` | inhale: head, torso and near arm (rows 4 to 30) up 1 px (top row 3), legs and tail fixed | 22 | I |
+| 2 | `idle` | inhale hold: as 1 plus the ear tip 1 px lower (twitch) and a half-closed lid | 14 | I |
+| 3 | `idle` | exhale: head 1 px down from key 0 (top row 5), body as key 0, tail tip rows 44 to 46 shifted 1 px | 22 | I |
+| 4 | `talk` | one-handed explanatory gesture: near forearm out, palm up, mouth open, brow raised | 60 | K |
 
-Idle returns to frame 0 after 4, so the loop reads 0, 2, 3, 4, 0. Breathing is deliberately slow and shallow (tired, not bored); no foot moves, so there is no foot drift. The talk key is a single state-driven pose; a talk loop (mouth and hand cycle) is out of scope until a dialogue work order exists.
+Idle returns to frame 0 after 3, so the loop reads 0, 1, 2, 3, 0. The talk key was renumbered from 1 to 4 so each atlas tag is a contiguous frame range (the Bevy atlas loader reads `from`/`to` of each frame tag); its pixels are unchanged apart from gate round 2. Breathing is deliberately slow and shallow (tired, not bored); no foot moves, so there is no foot drift. The talk key is a single state-driven pose; a talk loop (mouth and hand cycle) is out of scope until a dialogue work order exists.
 
 ## 5. State diagram
 
@@ -86,7 +86,7 @@ Compatible with the in-use character palettes and with the Floor 1 kit (`floor01
 | Key | Name | Hex | Role |
 | --- | --- | --- | --- |
 | K | outline_plum | `#1b1124` | outline (shared) |
-| a / c / f / g | fur deep / shade / mid / light | `#42343b` `#735f64` `#9b8678` `#cbb9a5` | warm ashen gray-brown fur with a mauve tint (gate round 1); g also beard and whiskers |
+| a / c / f / g | fur deep / shade / mid / light | `#42343b` `#735f64` `#9b827a` `#cbb4a8` | warm ashen gray-brown fur with a mauve tint (gate round 1); g also beard and whiskers |
 | p / q / r | skin dark / mid / light | `#8a4a5a` `#c77f8a` `#eaa9a9` | ears, nose, tail, palm pad |
 | v / V / u | vest dark / mid / light | `#28222c` `#382f38` `#52474f` | charcoal vest and belt, every step darker than the darkest fur `a`; u is the worn collar and front edge |
 | h | amber_rim | `#d9a04a` | 1 px hearth-facing (back and top) rim on the vest and shoulder cap (gate round 1) |
@@ -134,9 +134,17 @@ The re-freeze rewrote `tests/fixtures/mordecai-01_keys.json` for frames 0 and 1;
 
 **Height measurement.** The measurement rule of section 3 and MORD-Q1 is opaque rows including the plum outline, from the highest opaque row to the sole row 47. Measured on the regenerated keys: frames 0 and 1 both span rows 4 to 47 = **44 px** (rows 5 to 47 = 43 px without the outline row). The gate's "about 41 px" is therefore not a shortfall: it is consistent with a measurement that starts at the skull fill (row 7, 41 px) instead of the ear and crown tufts, which rise 2 px above it; the stooped head sits low, so he also reads shorter than his opaque height. The spec's measurement rule is unchanged, so the height stays 44 px (MORD-Q1).
 
+### Gate round 2 notes (applied)
+
+The re-gate passed and listed two optional notes, both applied to both keys: the beard checkerboard became a short pale band with three 2 px hanging strands (the middle one longest) and a jagged lower edge, and the fur mid and light steps moved about 7 degrees toward the concept's mauve gray-brown (`f` `#9b827a`, `g` `#cbb4a8`, values kept). Silhouette and 44 px height unchanged; keys re-frozen.
+
+### In-betweens, atlas and export
+
+In-betweens 1 to 3 are drawn by `scripts/author_mordecai01.py` as transforms of key 0 (shifted upper-body layers, ear and lid edit, head drop and tail-tip shift); the legs layer is identical in all four idle frames, so V16 foot drift is 0 px including the loop seam. Orphan pixels are at most 4 per frame. Export: `libresprite -b --list-tags` on the `.ase`, the same command `scripts/export_assets.sh` runs for every manifest; two runs give identical PNG and JSON bytes. The manifest `assets/manifests/mordecai_h44.json` carries pivot (24, 47), frame size (52, 48), the tags `idle` (frames 0 to 3, loop) and `talk` (frame 4, once), per-frame ticks, SHA-256 of the grid, the `.ase` and the exported atlas and metadata, and the provenance. Nothing is wired into Bevy; the room PR places him through the existing atlas pattern (manifest `frame_size` and `pivot`, atlas JSON frames and `frameTags`, duration 667, 367, 233, 367 and 1000 ms read as ticks at 60 Hz).
+
 ### Freeze
 
-Frames 0 and 1 are **frozen**: `python3 -m scripts.pixelart freeze` wrote `tests/fixtures/mordecai-01_keys.json` (SHA-256 per frame over all six layers) and V09 checks it. Key counts (V14) pin the yellow eye (at least 2 px in both keys), a closed mouth in the idle key and an open mouth in the talk key. Any change to a key needs `freeze --force` and a new review.
+Frames 0 and 4 (idle key and talk key, formerly 0 and 1) are **frozen**: `python3 -m scripts.pixelart freeze` wrote `tests/fixtures/mordecai-01_keys.json` (SHA-256 per frame over all six layers) and V09 checks it. Key counts (V14) pin the yellow eye (at least 2 px in both keys), a closed mouth in the idle key and an open mouth in the talk key. Any change to a key needs `freeze --force` and a new review.
 
 The idle-loop plan of sections 4 and 8 is still valid on the frozen key 0: rows 4 to 30 still hold head, torso, both arms and the vest; the trousers start at row 31 (the vest hem flap on rows 31 and 32 sits on the `legs` layer and stays fixed); the eyelid row is still row 9 and the ear tip row 4; no foot or tail-root pixel moves. The only refinement: the 1 px inhale lift in frame 2 also lifts the whiskers, which are part of the head.
 
@@ -146,9 +154,9 @@ For the execution tier; no design decisions needed. Shifts are relative to key 0
 
 | # | Pose notes |
 | --- | --- |
-| 2 | Rows 4 to 30 (head, torso, near arm, far arm, vest) move up 1 px; trousers, legs, sandals and tail unchanged. The neck join (rows 17 to 19) is redrawn so the outline stays continuous. |
-| 3 | Frame 2 with the ear tip row lowered 1 px and the eyelid row (row 9 in key 0) lowered 1 px (a slower blink, eye row shrinks to 1 px high); nothing else. |
-| 4 | Key 0 with head rows 4 to 22 moved down 1 px (exhale, the head drops into the stoop) and the tail tip (rows 44 to 46) shifted 1 px forward. Body, arms and legs exactly key 0. |
+| 1 | Rows 4 to 30 (head, torso, near arm, far arm, vest) move up 1 px; trousers, legs, sandals and tail unchanged. The neck join (rows 17 to 19) is redrawn so the outline stays continuous. |
+| 2 | Frame 1 with the ear tip row lowered 1 px and the eyelid row lowered 1 px over the eye (a slow half blink); nothing else. |
+| 3 | Key 0 with the head moved down 1 px (exhale, the head drops into the stoop) and the tail tip (rows 44 to 46) shifted 1 px forward. Body, arms and legs exactly key 0. |
 
 No in-between moves a foot or the tail root, so the loop has zero foot drift. The tail tip change is the only tail motion.
 

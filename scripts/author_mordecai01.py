@@ -34,8 +34,8 @@ PALETTE = [
     ("K", "outline_plum", "#1b1124ff", False),
     ("a", "fur_deep", "#42343bff", False),
     ("c", "fur_shade", "#735f64ff", False),
-    ("f", "fur_mid", "#9b8678ff", False),
-    ("g", "fur_light", "#cbb9a5ff", False),
+    ("f", "fur_mid", "#9b827aff", False),
+    ("g", "fur_light", "#cbb4a8ff", False),
     ("p", "skin_dark", "#8a4a5aff", False),
     ("q", "skin_mid", "#c77f8aff", False),
     ("r", "skin_light", "#eaa9a9ff", False),
@@ -53,7 +53,7 @@ PALETTE = [
     ("h", "amber_rim", "#d9a04aff", False),
 ]
 KEYS = [p[0] for p in PALETTE]
-TAGS = [("idle", 0, 0), ("talk", 1, 1)]
+TAGS = [("idle", 0, 3), ("talk", 4, 4)]
 
 # ------------------------------------------------------------------ rasteriser
 def poly(pts):
@@ -153,7 +153,7 @@ class Canvas:
                     continue
                 cand = [n for n in nb if n and n != "K"] or [n for n in nb if n]
                 if cand:
-                    fix[(x, y)] = max(set(cand), key=cand.count)
+                    fix[(x, y)] = max(sorted(set(cand)), key=cand.count)
             self.px.update(fix)
 
     def cels(self):
@@ -251,13 +251,14 @@ def draw(pose: str) -> Canvas:
         c.add("head", poly([(34, 17), (40, 17), (39, 20), (35, 20)]), "f", None, "c", name="jaw")
         c.put("head", [(36, 16), (37, 16), (38, 16), (39, 16), (40, 16), (36, 17), (37, 17), (38, 17), (39, 17)], "o")
         c.put("head", [(37, 15), (39, 15), (38, 18)], "w")
-    # shaggy chin beard: grey-white strands with shaded partings and a ragged, uneven tip line
-    c.add("head", poly([(29, 17 + dy), (37, 17 + dy), (36.5, 19 + dy), (35, 22 + dy), (32, 23 + dy), (29.5, 20 + dy)]), "g", None, "f", name="beard")
-    c.put("head", [(31, 19 + dy), (34, 19 + dy)], "f")
-    c.put("head", [(30, 21 + dy), (32, 23 + dy), (33, 23 + dy), (35, 22 + dy), (36, 21 + dy)], "g")
-    c.put("head", [(32, 24 + dy), (34, 22 + dy)], "f")
-    c.put("head", [(30, 23 + dy), (31, 25 + dy), (33, 25 + dy), (34, 24 + dy), (36, 23 + dy), (35, 25 + dy)], "g")        # jagged tips, 4 px below the jaw
-    c.put("head", [(32, 20 + dy), (33, 21 + dy), (34, 21 + dy), (32, 21 + dy), (35, 22 + dy), (33, 22 + dy)], "w")                       # pale strands
+    # chin beard: a short pale band under the jaw and three 2 px strands hanging 3 to 6 px below it; the
+    # strands end in a jagged lower edge (two points, the middle strand longest), 1 px gaps become outline
+    c.add("head", poly([(29, 17 + dy), (38, 17 + dy), (37.5, 19.5 + dy), (29.5, 19.5 + dy)]), "g", None, "f", name="beard")
+    c.add("head", rect(30, 19 + dy, 31, 22 + dy), "g", None, "f", name="beard")
+    c.add("head", rect(33, 19 + dy, 34, 25 + dy), "g", None, "f", name="beard")
+    c.add("head", rect(36, 19 + dy, 37, 23 + dy), "g", None, "f", name="beard")
+    c.erase([(31, 22 + dy), (34, 25 + dy)])                                                                # jagged tips
+    c.put("head", [(30, 20 + dy), (33, 21 + dy), (33, 23 + dy), (36, 21 + dy)], "w")                       # pale highlights
     # scruffy crown and cheek fringe
     c.put("head", [(22, 10), (22, 12), (23, 14), (22, 15), (24, 17), (30, 5), (32, 6)], "f")
     c.put("head", [(30, 6), (32, 5), (28, 6)], "f")                                                        # stray crown fur
@@ -287,10 +288,60 @@ def draw(pose: str) -> Canvas:
     return c
 
 
+TICKS = [40, 22, 14, 22, 60]          # 60 Hz; idle loop 0, 1, 2, 3 (98 ticks), talk 4
+KEY_FRAMES = (0, 4)
+EAR = (20, 31)                         # x range of the ear (twitch frame)
+
+
+def _blank():
+    return ["." * W for _ in range(H)]
+
+
+def up(cels):
+    """Inhale: rows 0 to 30 of the upper-body layers move up 1 px (row 30 stays, so the waist does not open a gap)."""
+    out = {l: list(r) for l, r in cels.items()}
+    for l in ("far_arm", "torso", "near_arm", "head"):
+        rows = cels[l]
+        out[l] = [rows[y + 1] if y < 30 else rows[y] for y in range(H)]
+    return out
+
+
+def twitch(cels):
+    """Inhale hold: ear tip 1 px lower (top ear row dropped, the next row becomes the outline) and a half-closed lid."""
+    out = {l: list(r) for l, r in cels.items()}
+    head = [list(r) for r in cels["head"]]
+    top = min(y for y, r in enumerate(head) for x in range(*EAR) if r[x] != ".")
+    for x in range(*EAR):
+        if head[top][x] == "K":
+            head[top][x] = "."
+            if head[top + 1][x] not in (".", "K"):
+                head[top + 1][x] = "K"
+    # lid: the two left eye pixels (row 9 below the head shift) become eyelid fur
+    for y, r in enumerate(head):
+        if "e" in r[33:35] and y > top + 4:
+            for x in (33, 34):
+                head[y][x] = "a"
+    out["head"] = ["".join(r) for r in head]
+    return out
+
+
+def exhale(cels):
+    """Exhale: the head layer drops 1 px into the stoop and the tail tip (rows 44 to 46) shifts 1 px forward."""
+    out = {l: list(r) for l, r in cels.items()}
+    out["head"] = [_blank()[0]] + list(cels["head"][:-1])
+    tail = [list(r) for r in cels["tail"]]
+    for y in range(44, 47):
+        row = tail[y]
+        tail[y] = ["."] + row[:-1]
+    out["tail"] = ["".join(r) for r in tail]
+    return out
+
+
 def build() -> dict:
-    frames = []
-    for pose, ms in (("idle", 667), ("talk", 1000)):          # 40 and 60 ticks at 60 Hz
-        frames.append({"duration_ms": ms, "cels": draw(pose).cels()})
+    idle, talk = draw("idle").cels(), draw("talk").cels()
+    inhale = up(idle)
+    cels = [idle, inhale, twitch(inhale), exhale(idle), talk]
+    frames = [{"duration_ms": round(t * 1000 / 60), "cels": c} for c, t in zip(cels, TICKS)]
     return {
         "format": "pixel-grid-v1", "canvas": [W, H], "pivot": list(PIVOT),
         "palette": [{"key": k, "name": n, "rgba": h, **({"accent": True} if a else {})} for k, n, h, a in PALETTE],
@@ -346,14 +397,93 @@ def lineup(out: Path):
     return floor, entries, imgs
 
 
+MANIFEST = ROOT / "assets/manifests/mordecai_h44.json"
+PLAYBACK = {"idle": "loop", "talk": "once"}
+TAG_OF = {n: name for name, a, b in TAGS for n in range(a, b + 1)}
+
+
+def _sha(path: Path) -> str:
+    import hashlib
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _atlas_hashes(refresh: bool = False) -> dict:
+    """SHA-256 of the exported atlas and metadata: re-read from ``generated/art`` only on ``manifest`` (refresh), else kept from the
+    committed manifest, so the reproducibility test does not depend on the exporter build."""
+    atlas, meta = ROOT / "generated/art/mordecai_h44.png", ROOT / "generated/art/mordecai_h44.json"
+    if refresh and atlas.exists() and meta.exists():
+        return {"atlas_png": _sha(atlas), "atlas_json": _sha(meta)}
+    return json.loads(MANIFEST.read_text())["sha256"]["export"]
+
+
+def manifest(refresh: bool = False) -> dict:
+    frames = [{"index": n, "tag": TAG_OF[n], "ticks": TICKS[n], "duration_ms": round(TICKS[n] * 1000 / 60),
+               "author": "key" if n in KEY_FRAMES else "in-between"} for n in range(len(TICKS))]
+    return {
+        "schema_version": 1,
+        "id": "mordecai_rat_h44_candidate_v1",
+        "type": "character_animation",
+        "source_path": "assets/source/characters/mordecai/mordecai_h44.ase",
+        "grid_source": "assets/source/characters/mordecai/mordecai_h44.grid.json",
+        "output_atlas": "generated/art/mordecai_h44.png",
+        "output_metadata": "generated/art/mordecai_h44.json",
+        "palette_id": "mordecai-floor01-v0",
+        "frame_size": [W, H],
+        "pivot": list(PIVOT),
+        "animation_tags": [name for name, _a, _b in TAGS],
+        "required_alpha": True,
+        "owner": "AI-authored NPC animation candidate (fan-concept layer: Mordecai, Floor 1 Tutorial Guild guide; runtime role IP-neutral guide NPC)",
+        "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+        "provenance": {
+            "origin": ("MORDECAI-01 Mordecai at 44 px idle height: 2 frozen keys (atlas frames 0 and 4, fixture tests/fixtures/mordecai-01_keys.json) "
+                       "plus 3 breathing in-betweens built by scripts/author_mordecai01.py from parametric shapes, an automatic outline and "
+                       "literal pixel touches; layers tail, far_arm, torso, near_arm, legs, head"),
+            "generator": ("Spec, draft keys, gate round 1 fixes, in-betweens, atlas, validators and evidence: Claude Sonnet, composed by "
+                          "scripts/author_mordecai01.py. Key edit and freeze: top-tier editor. Silhouette gate: fresh top-tier agent (PASS, round 2). "
+                          "No image-model raster output, no tracing, no resampling"),
+            "generated_art": True,
+            "input_reference_ids": ["assets/concept/floor-01/mordecai/01-mordecai-selected-c.png",
+                                    "assets/concept/floor-01/mordecai/02-mordecai-turnaround-acting.png"],
+        },
+        "sha256": {"grid_source": _sha(GRID), "source_path": _sha(ASE), "export": _atlas_hashes(refresh),
+                   "export_note": "LibreSprite 1.3 export (scripts/export_assets.sh), deterministic across two runs; metadata is the json-array sheet"},
+        "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
+        "review_status": "prototype_fixture_unapproved",
+        "mordecai": {
+            "status": "keys frozen, silhouette gate PASS, idle in-betweens drawn; independent review pending; Bevy integration pending (room PR places him); 5 frames, 2 of them keys; not wired into any Bevy binary",
+            "spec": "docs/02-art/mordecai-01-spec.md",
+            "opaque_height_idle": 44,
+            "height_cap_px": 45,
+            "tick_hz": 60,
+            "grounded_tags": [name for name, _a, _b in TAGS],
+            "airborne_tags": [],
+            "playback": PLAYBACK,
+            "key_frames": sorted(KEY_FRAMES),
+            "key_fixture": "tests/fixtures/mordecai-01_keys.json",
+            "idle_loop_ticks": sum(TICKS[0:4]),
+            "authored_facing": "right",
+            "boxes_px_from_pivot": {"standing_footprint": {"x": [-12, 11], "y": [0, 37]}, "hurtbox": None, "attack_hitbox": None},
+            "interaction_anchor_px_from_pivot": {"x": 6, "y_up": 45},
+            "frames": frames,
+        },
+    }
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="cmd", required=True)
     s = sub.add_parser("keys"); s.add_argument("--check", action="store_true"); s.add_argument("--preview")
     s = sub.add_parser("lineup"); s.add_argument("out")
+    s = sub.add_parser("manifest"); s.add_argument("--check", action="store_true")
     a = ap.parse_args(argv)
     if a.cmd == "lineup":
         lineup(Path(a.out)); return 0
+    if a.cmd == "manifest":
+        text = json.dumps(manifest(refresh=not a.check), indent=2) + "\n"
+        if a.check:
+            return 0 if MANIFEST.exists() and MANIFEST.read_text() == text else 1
+        MANIFEST.write_text(text)
+        return 0
     grid = build()
     text = json.dumps(grid, indent=1) + "\n"
     if a.preview:
