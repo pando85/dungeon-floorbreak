@@ -364,12 +364,12 @@ mod tests {
 
     /// Final state hashes, pinned. A change here is a change of behaviour.
     const GOLDENS: [(Fixture, u64); 6] = [
-        (Fixture::ValveUntouched, 0xfbb1_1746_af7c_827f),
-        (Fixture::ValveMeleeTwoStrikes, 0x5950_fe14_6654_1093),
-        (Fixture::ValveLaunchedBody, 0x44f4_b72b_c8ab_6ac7),
-        (Fixture::ValveAuthoredBlast, 0xa323_6361_6dc6_0806),
-        (Fixture::ValveRepeatAfterSpent, 0xba27_4e94_c3dc_153c),
-        (Fixture::ValveWalkInIsNothing, 0x6f6c_fa9c_9f70_f991),
+        (Fixture::ValveUntouched, 0x2950_c3bb_7328_5f55),
+        (Fixture::ValveMeleeTwoStrikes, 0x153a_6684_e909_6401),
+        (Fixture::ValveLaunchedBody, 0xeed7_249c_356e_8e01),
+        (Fixture::ValveAuthoredBlast, 0xa814_3d0a_d157_16b4),
+        (Fixture::ValveRepeatAfterSpent, 0xd23b_4504_a7ec_7c72),
+        (Fixture::ValveWalkInIsNothing, 0x72e2_0910_16e2_f673),
     ];
 
     #[test]
@@ -483,6 +483,7 @@ mod tests {
             let feed = rig.nav_feed();
             assert_eq!(feed.len(), 1);
             assert_eq!(feed[0].phase, crate::env_hazard::NavPhase::Telegraph);
+            assert!(feed[0].ticks_left.is_some_and(|t| (1..=23).contains(&t)));
             assert!(feed[0].hurts_heroes);
         }
         rig.run_tick(&[], &lane);

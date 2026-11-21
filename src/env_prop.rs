@@ -15,10 +15,11 @@
 //! * a **blast** (dynamite, a drum): a blast id, counted once;
 //! * a **projectile** (Donut's Magic Missile): one projectile id, counted once,
 //!   credited to its owner;
-//! * an enemy **shove** (a displacement attack such as the Hoarder's): one
-//!   shove id with an impulse. It has no player initiator, so nobody is
-//!   credited. Whether a prop accepts it is the prop's data (the valve's
-//!   default is no);
+//! * an enemy **shove** (a displacement attack such as the Hoarder's; the
+//!   Hoarder sheet calls it `EnemyImpact`): one shove id with an impulse and an
+//!   optional `credit` (the player of the hero the shove baited, `None` when the
+//!   target was a bot or the shove was not baited). Whether a prop accepts it is
+//!   the prop's data (the valve's default is no);
 //! * a **prop contact**: another prop reached this one through an authored
 //!   link. It carries the **chain depth**, so links obey the same depth cap as
 //!   the charge chains (K2, CP-Q34: [`MAX_CHAIN_DEPTH`]).
@@ -35,8 +36,9 @@
 /// CP-Q34: a charge chain is at most 4 deep. Prop-to-prop links carry the same
 /// counter.
 pub const MAX_CHAIN_DEPTH: u8 = 4;
-/// The valve's warning is at least this long (an audible and visible tell).
-pub const MIN_WARNING_TICKS: u16 = 18;
+/// The valve's warning is at least this long (an audible and visible tell; the
+/// same floor as a hero-hurting hazard telegraph).
+pub const MIN_WARNING_TICKS: u16 = 24;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Stimulus {
@@ -73,6 +75,8 @@ pub enum Stimulus {
         impulse_px_s: u16,
         /// The enemy instance that shoved.
         source: u32,
+        /// The player credited with what the shove causes, if any.
+        credit: Option<u32>,
     },
     /// Another prop (`source`, its index in the encounter) reached this one.
     PropContact {
@@ -113,7 +117,7 @@ impl Stimulus {
                 *initiator
             }
             Self::Blast { owner, .. } | Self::Projectile { owner, .. } => *owner,
-            Self::Shove { .. } => None,
+            Self::Shove { credit, .. } => *credit,
         }
     }
 
@@ -133,9 +137,10 @@ pub struct ValveConfig {
     /// Total hit weight that sets the valve off: 2 distinct light strikes or
     /// one strong impact (design default).
     pub trigger_weight: u8,
-    /// A launched body counts only from this speed (px/s). Default 200 = the
-    /// lethal launch speed of CF02 (`q51_lethal_launch_x`); the 150 px/s
-    /// relaunch is below it.
+    /// A launched body counts only from this speed (px/s). Default 160: a
+    /// living kicked goblin (170, `KICK_LAUNCH_VX`) and every lethal launch
+    /// (160 melee, 200 air kick, 240 kick) open the valve; the 150 px/s
+    /// relaunch and the 90 px/s air-kick knock do not (BOIL-03).
     pub launch_min_impulse_px_s: u16,
     /// Weight of a qualifying launched body (the full trigger by default).
     pub launch_weight: u8,
@@ -149,7 +154,8 @@ pub struct ValveConfig {
     /// Weight of an enemy shove; 0 (default): the valve ignores shoves (the
     /// Hoarder sheet decides which props take them).
     pub shove_weight: u8,
-    /// A shove counts only from this speed (px/s).
+    /// A shove counts only from this speed (px/s). Default 160, so the
+    /// Hoarder's 180 px/s lunge counts; 0 removes the threshold.
     pub shove_min_impulse_px_s: u16,
     pub warning_ticks: u16,
     pub vent_ticks: u16,
@@ -159,13 +165,13 @@ impl ValveConfig {
     /// The design defaults: 2 light strikes, 24 warning ticks, 72 vent ticks.
     pub const DEFAULT: Self = Self {
         trigger_weight: 2,
-        launch_min_impulse_px_s: 200,
+        launch_min_impulse_px_s: 160,
         launch_weight: 2,
         blast_weight: 2,
         contact_weight: 0,
         projectile_weight: 1,
         shove_weight: 0,
-        shove_min_impulse_px_s: 200,
+        shove_min_impulse_px_s: 160,
         warning_ticks: 24,
         vent_ticks: 72,
     };
@@ -530,9 +536,9 @@ mod tests {
     fn a_launched_body_needs_the_impulse_and_counts_once_per_launch() {
         let mut v = valve();
         assert_eq!(v.offer(launch(1, 150)), Offer::Ignored(Ignored::TooWeak));
-        assert_eq!(v.offer(launch(1, 199)), Offer::Ignored(Ignored::TooWeak));
+        assert_eq!(v.offer(launch(1, 159)), Offer::Ignored(Ignored::TooWeak));
         assert_eq!(v.state(), ValveState::Intact);
-        assert!(matches!(v.offer(launch(1, 200)), Offer::Triggered { .. }));
+        assert!(matches!(v.offer(launch(1, 160)), Offer::Triggered { .. }));
         assert_eq!(v.state(), ValveState::Warning);
 
         // With a weaker launch weight the same launch id still counts once.
@@ -583,11 +589,12 @@ mod tests {
         }
     }
 
-    fn shove(id: u32, speed: u16) -> Stimulus {
+    fn shove(id: u32, speed: u16, credit: Option<u32>) -> Stimulus {
         Stimulus::Shove {
             shove_id: id,
             impulse_px_s: speed,
             source: 5,
+            credit,
         }
     }
 
@@ -648,9 +655,12 @@ mod tests {
     }
 
     #[test]
-    fn a_shove_is_not_accepted_by_default_and_never_credits_a_player() {
+    fn a_shove_is_not_accepted_by_default_and_credits_only_who_the_data_says() {
         let mut v = valve();
-        assert_eq!(v.offer(shove(1, 400)), Offer::Ignored(Ignored::NotAccepted));
+        assert_eq!(
+            v.offer(shove(1, 400, None)),
+            Offer::Ignored(Ignored::NotAccepted)
+        );
         assert_eq!(v.state(), ValveState::Intact);
         let cfg = ValveConfig {
             shove_weight: 2,
@@ -658,11 +668,23 @@ mod tests {
         };
         let mut v = Valve::new(cfg).unwrap();
         assert_eq!(
-            v.offer(shove(1, 199)),
+            v.offer(shove(1, 159, None)),
             Offer::Ignored(Ignored::ShoveTooWeak)
         );
+        // The Hoarder's 180 px/s lunge counts at the default threshold, and a
+        // baited shove credits the baited hero's player.
         assert_eq!(
-            v.offer(shove(1, 200)),
+            v.offer(shove(1, 180, Some(1))),
+            Offer::Triggered {
+                initiator: Some(1),
+                depth: 0
+            }
+        );
+        assert_eq!(v.initiator(), Some(1));
+        // A shove with no credit (a bot hero, an unbaited shove) credits nobody.
+        let mut v = Valve::new(cfg).unwrap();
+        assert_eq!(
+            v.offer(shove(2, 180, None)),
             Offer::Triggered {
                 initiator: None,
                 depth: 0
@@ -675,8 +697,63 @@ mod tests {
             ..ValveConfig::DEFAULT
         };
         let mut v = Valve::new(cfg).unwrap();
-        assert_eq!(v.offer(shove(4, 300)), Offer::Progress { progress: 1 });
-        assert_eq!(v.offer(shove(4, 300)), Offer::Ignored(Ignored::Duplicate));
+        assert_eq!(
+            v.offer(shove(4, 300, None)),
+            Offer::Progress { progress: 1 }
+        );
+        assert_eq!(
+            v.offer(shove(4, 300, None)),
+            Offer::Ignored(Ignored::Duplicate)
+        );
+        // A zero threshold accepts any shove.
+        let cfg = ValveConfig {
+            shove_weight: 2,
+            shove_min_impulse_px_s: 0,
+            ..ValveConfig::DEFAULT
+        };
+        let mut v = Valve::new(cfg).unwrap();
+        assert!(matches!(
+            v.offer(shove(5, 1, None)),
+            Offer::Triggered { .. }
+        ));
+    }
+
+    /// BOIL-03: "kick a living goblin into the valve". The threshold is checked
+    /// against the real launch constants, so a retune cannot silently break it.
+    #[test]
+    fn the_living_kick_and_every_lethal_launch_open_the_valve_and_the_relaunch_does_not() {
+        use crate::cf02::Cf02Tuning;
+        use crate::feel::{KICK_LAUNCH_VX, LETHAL_KNOCK_VX};
+        let t = Cf02Tuning::pinned().expect("the pinned CF02 tuning");
+        let opens = |speed: f32| {
+            let mut v = valve();
+            let r = v.offer(Stimulus::LaunchedBody {
+                launch_id: 1,
+                impulse_px_s: speed.round() as u16,
+                initiator: Some(0),
+            });
+            matches!(r, Offer::Triggered { .. })
+        };
+        // Opens: the living goblin's kick launch, the legacy lethal knock and
+        // every CF02 lethal launch.
+        for (name, speed) in [
+            ("living kick", KICK_LAUNCH_VX),
+            ("legacy lethal knock", LETHAL_KNOCK_VX),
+            ("lethal kick", f32::from(t.q06_lethal_kick_knock_x)),
+            ("lethal melee", f32::from(t.q06_lethal_melee_knock_x)),
+            ("lethal air kick", f32::from(t.q51_lethal_launch_x)),
+        ] {
+            assert!(opens(speed), "{name} ({speed} px/s) must open the valve");
+        }
+        // Does not open: the relaunch of a downed goblin and the air-kick knock.
+        for (name, speed) in [
+            ("relaunch", f32::from(t.q51_relaunch_x)),
+            ("air-kick knock", f32::from(t.q50_air_kick_knock_x)),
+        ] {
+            assert!(!opens(speed), "{name} ({speed} px/s) must not open it");
+        }
+        // The sidecar and the default agree on the number.
+        assert_eq!(ValveConfig::DEFAULT.launch_min_impulse_px_s, 160);
     }
 
     #[test]
@@ -812,8 +889,12 @@ mod tests {
         assert_eq!(contact.kind(), StimulusKind::PropContact);
         assert_eq!(missile(1, Some(2)).kind(), StimulusKind::Projectile);
         assert_eq!(missile(1, Some(2)).initiator(), Some(2));
-        assert_eq!(shove(1, 1).kind(), StimulusKind::Shove);
-        assert_eq!((shove(1, 1).initiator(), shove(1, 1).depth()), (None, 0));
+        assert_eq!(shove(1, 1, None).kind(), StimulusKind::Shove);
+        assert_eq!(
+            (shove(1, 1, None).initiator(), shove(1, 1, None).depth()),
+            (None, 0)
+        );
+        assert_eq!(shove(1, 1, Some(3)).initiator(), Some(3));
         assert_eq!(
             Stimulus::Blast {
                 blast_id: 1,

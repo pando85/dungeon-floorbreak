@@ -1,11 +1,13 @@
 {
   "schema": "floor01-height-classes-v1",
-  "status": "Height classes read as DATA by src/encounter.rs (BOIL-A core). They are level-authoring classes, not physics: the actual jump arcs live in src/prototype.rs and are owned by DONUT-MOBILITY-01 (DM-A, not merged when this file was written), so a value that moves there moves here in one data edit. Sources: Carl 80 px (CF02-Q45 perches, apex 88.54 px); base Donut 112 px (DM-Q02 apex 114.92 px, a narrow human route; the AI attempts 104 px at most); boosted Donut 128 px (DP-Q14 / DP-Q18 apex 137.95 px). reach_x_px is a conservative flat-jump distance (below the running-jump distances of the same specs). ceiling_rule is DP-Q45.",
+  "status": "Height classes read as DATA by src/encounter.rs (BOIL-A core). They are level-authoring classes, not physics: the actual jump arcs live in src/prototype.rs and are owned by DONUT-MOBILITY-01 (DM-A, not merged when this file was written), so a value that moves there moves here in one data edit. Sources: Carl 80 px (CF02-Q45 perches, apex 88.54 px); base Donut 104 px (DP-Q18 and K8: 96 and 104 px are her reliable classes; 112 px, DM-Q02 apex 114.92 px with a 2.9 px margin, is a narrow human-only route the AI never attempts, so it is recorded as donut_base_human_only_px and feeds no rule); boosted Donut 128 px (DP-Q14 / DP-Q18 apex 137.95 px). reach_x_px is a conservative flat-jump distance (below the running-jump distances of the same specs). enemy_melee_reach_px is the goblin swing box (0..30 px). ceiling_rule is DP-Q45.",
   "classes": {
     "carl": { "max_rise_px": 80, "reach_x_px": 146 },
-    "donut_base": { "max_rise_px": 112, "reach_x_px": 188 },
+    "donut_base": { "max_rise_px": 104, "reach_x_px": 188 },
     "donut_boosted": { "max_rise_px": 128, "reach_x_px": 205 }
   },
+  "donut_base_human_only_px": 112,
+  "enemy_melee_reach_px": 30,
   "drop_gap_px": 48,
   "carl_height_px": 52,
   "ceiling_rule": { "free_surface_px": 42, "ceiling_max_px": 228 }

@@ -45,6 +45,7 @@ pub mod feel;
 pub mod follower;
 pub mod goblin;
 pub mod gore;
+pub mod hero_damage;
 pub mod hud;
 pub mod hud_adapter;
 pub mod hud_draw;

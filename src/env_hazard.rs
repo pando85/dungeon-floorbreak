@@ -1,18 +1,31 @@
 //! BOIL-B core: environmental hazard volumes. Pure, Bevy-free, integer math.
 //!
-//! A hazard volume is a **time-windowed contact area**: it is triggered once,
-//! shows its telegraph for a fixed number of ticks, is active for a fixed
-//! number of ticks and then ends. While it is active a victim is hurt **at most
-//! once per activation** (the activation token). Which team it hurts is a
-//! policy of the volume, never of the actor that triggered it: a world hazard
-//! hurts every hero by its own data (integration plan K3), and the hero who set
-//! it off only receives the kill credit (`initiator`).
+//! A hazard volume is a **contact area with a window**:
+//!
+//! * a **timed** volume is triggered, shows its telegraph for a fixed number of
+//!   ticks, is active for a fixed number of ticks and then ends (steam, a
+//!   falling mass, a drum blast). While active a victim is hurt **at most once
+//!   per activation** (the activation token);
+//! * a **persistent** volume is active from the start and stays active (an
+//!   acid patch, a wheel, a slide). It has no telegraph and no trigger, its
+//!   rectangle may change every tick ([`HazardVolume::set_rect`]), and its
+//!   tokens are re-armed by the caller ([`HazardVolume::rearm`]). Persistent
+//!   and moving volumes are **exempt from the timed fairness rules** below;
+//!   each sheet that appends one (HAZ, HRD, DOZER-CORE) brings its own cooldown
+//!   and fairness rules on top of this core.
+//!
+//! Who is hurt is the volume's data, never the initiator's: a
+//! [`HeroDamagePolicy`] for heroes plus a `hurts_enemies` flag. A world hazard
+//! hurts every hero by its own data (integration plan K3, [`HeroDamagePolicy::
+//! AllHeroes`]); the hero who set it off only receives the kill credit
+//! (`initiator`). [`HeroDamagePolicy::OwnerReduced`] is rejected: a world
+//! hazard has no owner.
 //!
 //! Tick order (the contract for the future wire step): triggers and stimuli of
 //! the tick, then [`HazardVolume::step`], then [`HazardSet::resolve`]. After
-//! `trigger` a volume is telegraphed for exactly `telegraph_ticks` calls of
-//! `step`, is then active for exactly `active_ticks` evaluation ticks and the
-//! `step` after the last of them ends it. So `active_ticks = 1` is a single
+//! `trigger` a timed volume is telegraphed for exactly `telegraph_ticks` calls
+//! of `step`, is then active for exactly `active_ticks` evaluation ticks and
+//! the `step` after the last of them ends it. So `active_ticks = 1` is a single
 //! evaluation (a falling mass, a blast).
 //!
 //! Every [`HazardClass`] is **never evadable** (DM-Q18: hazards, falling
@@ -22,20 +35,23 @@
 //!
 //! Each volume exports its telegraphed and active rectangles per tick
 //! ([`HazardVolume::nav_rect`], [`HazardSet::nav_feed`]) as plain data in the
-//! room's layout pixels (y down). That is the input CA2-C needs for the nav
-//! graph (K13); this module does not depend on the companion code.
+//! room's layout pixels (y down), with the ticks left in the phase. That is the
+//! input CA2-C needs for the nav graph (K13); this module does not depend on
+//! the companion code.
 //!
 //! No wall-clock time, no RNG, no floats.
 
 use std::collections::BTreeSet;
 
 use crate::camera_lab::room::IRect;
+use crate::hero_damage::HeroDamagePolicy;
 
-/// A hero-hurting volume must show its telegraph at least this long (the Rot
-/// tell range proposal is 18..=24 ticks, the boiler's own are 24).
-pub const MIN_HERO_TELEGRAPH_TICKS: u16 = 18;
-/// A volume that can hurt a hero stays active at most this long (2 s), so no
-/// volume can seal the ground lane for long.
+/// A timed volume that can hurt a hero shows its telegraph at least this long
+/// (HAZ-0's fairness analysis: 12 ticks of reaction is unfair from a standing
+/// start; every known hero hazard is at 24 or more).
+pub const MIN_HERO_TELEGRAPH_TICKS: u16 = 24;
+/// A timed volume that can hurt a hero stays active at most this long (2 s),
+/// so no timed volume can seal the ground lane for long.
 pub const MAX_HERO_ACTIVE_TICKS: u16 = 120;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -118,37 +134,6 @@ impl HazardClass {
     }
 }
 
-/// Which teams a volume hurts. The initiator never changes it.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum TeamPolicy {
-    /// Heroes and enemies (steam, a falling mass, a drum).
-    All,
-    HeroesOnly,
-    EnemiesOnly,
-}
-
-impl TeamPolicy {
-    pub const fn hurts(self, team: Team) -> bool {
-        matches!(
-            (self, team),
-            (Self::All, _) | (Self::HeroesOnly, Team::Hero) | (Self::EnemiesOnly, Team::Enemy)
-        )
-    }
-
-    pub fn parse(name: &str) -> Option<Self> {
-        Some(match name {
-            "all" => Self::All,
-            "heroes" => Self::HeroesOnly,
-            "enemies" => Self::EnemiesOnly,
-            _ => return None,
-        })
-    }
-
-    const fn code(self) -> u64 {
-        self as u64
-    }
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Phase {
     /// Waiting for a trigger (an activation is left).
@@ -165,25 +150,40 @@ impl Phase {
     }
 }
 
+/// How a volume's window runs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HazardWindow {
+    /// Triggered, telegraphed, active for a while, then idle or spent.
+    Timed {
+        telegraph_ticks: u16,
+        active_ticks: u16,
+        /// Activations per attempt (1 for every boiler volume).
+        max_activations: u8,
+    },
+    /// Active from the start and for ever; no telegraph, no trigger.
+    Persistent,
+}
+
 /// Authored data of one volume.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HazardSpec {
     pub id: u16,
     pub class: HazardClass,
-    /// The contact area while active (layout px, y down).
+    /// The contact area while active (layout px, y down). The initial area of
+    /// a persistent volume, whose area may then change per tick.
     pub rect: IRect,
     /// The area drawn and exported while telegraphed (a floor shadow, a
     /// footprint). The same as `rect` unless the data says otherwise.
     pub telegraph_rect: IRect,
-    pub telegraph_ticks: u16,
-    pub active_ticks: u16,
-    /// Activations per attempt (1 for every boiler volume).
-    pub max_activations: u8,
+    pub window: HazardWindow,
     /// Damage of the one hit per victim and activation.
     pub damage: u8,
     /// Horizontal push of the hit in px/s (signed, 0 for none).
     pub push_x: i16,
-    pub policy: TeamPolicy,
+    /// What the volume does to heroes (never `OwnerReduced`).
+    pub hero_damage: HeroDamagePolicy,
+    /// Whether enemies are hurt too.
+    pub hurts_enemies: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -191,14 +191,18 @@ pub enum HazardSpecError {
     EmptyRect(&'static str),
     NoActiveTicks,
     NoActivations,
-    /// A hero-hurting volume with a telegraph shorter than the minimum.
+    /// A timed, hero-hurting volume with a telegraph shorter than the minimum.
     TelegraphTooShort {
         ticks: u16,
     },
-    /// A hero-hurting volume that stays active too long.
+    /// A timed, hero-hurting volume that stays active too long.
     ActiveTooLong {
         ticks: u16,
     },
+    /// A world hazard has no owner to reduce the damage for.
+    OwnerReducedWorldHazard,
+    /// It hurts neither heroes nor enemies.
+    HurtsNobody,
 }
 
 impl std::fmt::Display for HazardSpecError {
@@ -209,12 +213,19 @@ impl std::fmt::Display for HazardSpecError {
             Self::NoActivations => write!(f, "max_activations must be at least 1"),
             Self::TelegraphTooShort { ticks } => write!(
                 f,
-                "a hero-hurting volume needs at least {MIN_HERO_TELEGRAPH_TICKS} telegraph ticks, has {ticks}"
+                "a timed hero-hurting volume needs at least {MIN_HERO_TELEGRAPH_TICKS} telegraph ticks, has {ticks}"
             ),
             Self::ActiveTooLong { ticks } => write!(
                 f,
-                "a hero-hurting volume may stay active at most {MAX_HERO_ACTIVE_TICKS} ticks, has {ticks}"
+                "a timed hero-hurting volume may stay active at most {MAX_HERO_ACTIVE_TICKS} ticks, has {ticks}"
             ),
+            Self::OwnerReducedWorldHazard => {
+                write!(
+                    f,
+                    "owner_reduced is for hero-thrown sources, not a world hazard"
+                )
+            }
+            Self::HurtsNobody => write!(f, "the volume hurts neither heroes nor enemies"),
         }
     }
 }
@@ -227,29 +238,81 @@ impl HazardSpec {
         if self.telegraph_rect.w <= 0 || self.telegraph_rect.h <= 0 {
             return Err(HazardSpecError::EmptyRect("telegraph_rect"));
         }
-        if self.active_ticks == 0 {
-            return Err(HazardSpecError::NoActiveTicks);
+        if self.hero_damage == HeroDamagePolicy::OwnerReduced {
+            return Err(HazardSpecError::OwnerReducedWorldHazard);
         }
-        if self.max_activations == 0 {
-            return Err(HazardSpecError::NoActivations);
+        if !self.hurts_heroes() && !self.hurts_enemies {
+            return Err(HazardSpecError::HurtsNobody);
         }
-        if self.hurts_heroes() {
-            if self.telegraph_ticks < MIN_HERO_TELEGRAPH_TICKS {
-                return Err(HazardSpecError::TelegraphTooShort {
-                    ticks: self.telegraph_ticks,
-                });
+        if let HazardWindow::Timed {
+            telegraph_ticks,
+            active_ticks,
+            max_activations,
+        } = self.window
+        {
+            if active_ticks == 0 {
+                return Err(HazardSpecError::NoActiveTicks);
             }
-            if self.active_ticks > MAX_HERO_ACTIVE_TICKS {
-                return Err(HazardSpecError::ActiveTooLong {
-                    ticks: self.active_ticks,
-                });
+            if max_activations == 0 {
+                return Err(HazardSpecError::NoActivations);
+            }
+            if self.hurts_heroes() {
+                if telegraph_ticks < MIN_HERO_TELEGRAPH_TICKS {
+                    return Err(HazardSpecError::TelegraphTooShort {
+                        ticks: telegraph_ticks,
+                    });
+                }
+                if active_ticks > MAX_HERO_ACTIVE_TICKS {
+                    return Err(HazardSpecError::ActiveTooLong {
+                        ticks: active_ticks,
+                    });
+                }
             }
         }
         Ok(())
     }
 
     pub const fn hurts_heroes(&self) -> bool {
-        self.policy.hurts(Team::Hero)
+        self.hero_damage.hurts_any_hero()
+    }
+
+    pub const fn hurts(&self, team: Team) -> bool {
+        match team {
+            Team::Hero => self.hero_damage.hurts_any_hero(),
+            Team::Enemy => self.hurts_enemies,
+        }
+    }
+
+    pub const fn is_persistent(&self) -> bool {
+        matches!(self.window, HazardWindow::Persistent)
+    }
+
+    /// Telegraph ticks of a timed volume, 0 for a persistent one.
+    pub const fn telegraph_ticks(&self) -> u16 {
+        match self.window {
+            HazardWindow::Timed {
+                telegraph_ticks, ..
+            } => telegraph_ticks,
+            HazardWindow::Persistent => 0,
+        }
+    }
+
+    /// Active ticks of a timed volume, 0 for a persistent one.
+    pub const fn active_ticks(&self) -> u16 {
+        match self.window {
+            HazardWindow::Timed { active_ticks, .. } => active_ticks,
+            HazardWindow::Persistent => 0,
+        }
+    }
+
+    /// Activations of a timed volume, 0 for a persistent one.
+    pub const fn max_activations(&self) -> u8 {
+        match self.window {
+            HazardWindow::Timed {
+                max_activations, ..
+            } => max_activations,
+            HazardWindow::Persistent => 0,
+        }
     }
 }
 
@@ -259,7 +322,8 @@ pub struct HazardHit {
     pub hazard: u16,
     pub class: HazardClass,
     pub victim: Victim,
-    /// 1-based activation number (the token of this hit).
+    /// 1-based activation number (the token of this hit); the epoch of a
+    /// persistent volume.
     pub activation: u8,
     pub damage: u8,
     pub push_x: i16,
@@ -297,6 +361,10 @@ pub struct NavRect {
     pub class: HazardClass,
     pub rect: IRect,
     pub phase: NavPhase,
+    /// Ticks until the phase ends: until the volume turns active while
+    /// telegraphed, until it ends while active. `None` for a persistent
+    /// volume.
+    pub ticks_left: Option<u16>,
     pub hurts_heroes: bool,
     pub hurts_enemies: bool,
 }
@@ -304,6 +372,8 @@ pub struct NavRect {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HazardVolume {
     spec: HazardSpec,
+    /// The contact rectangle now (the spec's, unless a caller moved it).
+    rect: IRect,
     phase: Phase,
     ticks_left: u16,
     activations: u8,
@@ -315,13 +385,20 @@ pub struct HazardVolume {
 impl HazardVolume {
     pub fn new(spec: HazardSpec) -> Result<Self, HazardSpecError> {
         spec.validate()?;
+        let persistent = spec.is_persistent();
         Ok(Self {
-            spec,
-            phase: Phase::Idle,
+            rect: spec.rect,
+            phase: if persistent {
+                Phase::Active
+            } else {
+                Phase::Idle
+            },
             ticks_left: 0,
-            activations: 0,
+            // A persistent volume starts in its first epoch.
+            activations: u8::from(persistent),
             initiator: None,
             applied: BTreeSet::new(),
+            spec,
         })
     }
 
@@ -340,37 +417,77 @@ impl HazardVolume {
     pub fn initiator(&self) -> Option<u32> {
         self.initiator
     }
+    /// The contact rectangle now.
+    pub fn rect(&self) -> IRect {
+        self.rect
+    }
     /// DM-Q18, always `false`.
     pub const fn evadable(&self) -> bool {
         self.spec.class.evadable()
     }
 
-    /// Set the volume off. Only an idle volume with an activation left starts.
-    /// Returns whether it started.
+    /// Move or reshape the contact rectangle (a moving mass, a shrinking
+    /// patch). `false` for an empty rectangle.
+    pub fn set_rect(&mut self, rect: IRect) -> bool {
+        if rect.w <= 0 || rect.h <= 0 {
+            return false;
+        }
+        self.rect = rect;
+        true
+    }
+
+    /// Persistent volumes only: start a new epoch, so every victim may be hit
+    /// again. `false` for a timed volume.
+    pub fn rearm(&mut self) -> bool {
+        if !self.spec.is_persistent() {
+            return false;
+        }
+        self.activations = self.activations.saturating_add(1);
+        true
+    }
+
+    /// Set a timed volume off. Only an idle volume with an activation left
+    /// starts. Returns whether it started.
     pub fn trigger(&mut self, initiator: Option<u32>) -> bool {
-        if self.phase != Phase::Idle || self.activations >= self.spec.max_activations {
+        let HazardWindow::Timed {
+            telegraph_ticks,
+            active_ticks,
+            max_activations,
+        } = self.spec.window
+        else {
+            return false;
+        };
+        if self.phase != Phase::Idle || self.activations >= max_activations {
             return false;
         }
         self.activations += 1;
         self.initiator = initiator;
-        if self.spec.telegraph_ticks == 0 {
+        if telegraph_ticks == 0 {
             self.phase = Phase::Active;
-            self.ticks_left = self.spec.active_ticks;
+            self.ticks_left = active_ticks;
         } else {
             self.phase = Phase::Telegraph;
-            self.ticks_left = self.spec.telegraph_ticks;
+            self.ticks_left = telegraph_ticks;
         }
         true
     }
 
     /// One fixed tick.
     pub fn step(&mut self) -> Option<HazardEdge> {
+        let HazardWindow::Timed {
+            active_ticks,
+            max_activations,
+            ..
+        } = self.spec.window
+        else {
+            return None;
+        };
         match self.phase {
             Phase::Telegraph => {
                 self.ticks_left -= 1;
                 if self.ticks_left == 0 {
                     self.phase = Phase::Active;
-                    self.ticks_left = self.spec.active_ticks;
+                    self.ticks_left = active_ticks;
                     return Some(HazardEdge::ActiveStarted);
                 }
                 None
@@ -378,7 +495,7 @@ impl HazardVolume {
             Phase::Active => {
                 self.ticks_left -= 1;
                 if self.ticks_left == 0 {
-                    self.phase = if self.activations >= self.spec.max_activations {
+                    self.phase = if self.activations >= max_activations {
                         Phase::Spent
                     } else {
                         Phase::Idle
@@ -393,7 +510,7 @@ impl HazardVolume {
 
     /// The rectangle the victims are tested against right now, if active.
     pub fn active_rect(&self) -> Option<IRect> {
-        (self.phase == Phase::Active).then_some(self.spec.rect)
+        (self.phase == Phase::Active).then_some(self.rect)
     }
 
     /// The rectangle of the warning, if telegraphed.
@@ -406,7 +523,7 @@ impl HazardVolume {
     pub fn nav_rect(&self) -> Option<NavRect> {
         let (rect, phase) = match self.phase {
             Phase::Telegraph => (self.spec.telegraph_rect, NavPhase::Telegraph),
-            Phase::Active => (self.spec.rect, NavPhase::Active),
+            Phase::Active => (self.rect, NavPhase::Active),
             Phase::Idle | Phase::Spent => return None,
         };
         Some(NavRect {
@@ -414,17 +531,16 @@ impl HazardVolume {
             class: self.spec.class,
             rect,
             phase,
-            hurts_heroes: self.spec.policy.hurts(Team::Hero),
-            hurts_enemies: self.spec.policy.hurts(Team::Enemy),
+            ticks_left: (!self.spec.is_persistent()).then_some(self.ticks_left),
+            hurts_heroes: self.spec.hurts(Team::Hero),
+            hurts_enemies: self.spec.hurts(Team::Enemy),
         })
     }
 
-    /// Test one victim body. Hurts only while active, only a team the policy
-    /// names, and only once per victim and activation.
+    /// Test one victim body. Hurts only while active, only a team the spec
+    /// names, and only once per victim and activation (or epoch).
     pub fn contact(&mut self, victim: Victim, body: IRect) -> Option<HazardHit> {
-        if self.phase != Phase::Active
-            || !self.spec.policy.hurts(victim.team)
-            || !body.overlaps(self.spec.rect)
+        if self.phase != Phase::Active || !self.spec.hurts(victim.team) || !body.overlaps(self.rect)
         {
             return None;
         }
@@ -446,7 +562,12 @@ impl HazardVolume {
     pub fn mix_into(&self, mix: &mut impl FnMut(u64)) {
         mix(u64::from(self.spec.id));
         mix(self.spec.class.code());
-        mix(self.spec.policy.code());
+        mix(self.spec.hero_damage.code());
+        mix(u64::from(self.spec.hurts_enemies));
+        mix(u64::from(self.spec.is_persistent()));
+        for v in [self.rect.x, self.rect.y, self.rect.w, self.rect.h] {
+            mix(v as u32 as u64);
+        }
         mix(self.phase.code());
         mix(u64::from(self.ticks_left));
         mix(u64::from(self.activations));
@@ -507,13 +628,14 @@ impl HazardSet {
         self.volumes.iter().find(|v| v.id() == id)
     }
 
+    pub fn get_mut(&mut self, id: u16) -> Option<&mut HazardVolume> {
+        self.volumes.iter_mut().find(|v| v.id() == id)
+    }
+
     /// Trigger a volume by id. `false` for an unknown id or a volume that
     /// cannot start.
     pub fn trigger(&mut self, id: u16, initiator: Option<u32>) -> bool {
-        self.volumes
-            .iter_mut()
-            .find(|v| v.id() == id)
-            .is_some_and(|v| v.trigger(initiator))
+        self.get_mut(id).is_some_and(|v| v.trigger(initiator))
     }
 
     /// One tick of every volume, in id order.
@@ -567,12 +689,31 @@ mod tests {
             class: HazardClass::Steam,
             rect: IRect::new(100, 0, 40, 60),
             telegraph_rect: IRect::new(100, 0, 40, 60),
-            telegraph_ticks: 24,
-            active_ticks: 72,
-            max_activations: 1,
+            window: HazardWindow::Timed {
+                telegraph_ticks: 24,
+                active_ticks: 72,
+                max_activations: 1,
+            },
             damage: 1,
             push_x: 120,
-            policy: TeamPolicy::All,
+            hero_damage: HeroDamagePolicy::AllHeroes,
+            hurts_enemies: true,
+        }
+    }
+
+    fn timed(s: &mut HazardSpec, telegraph: u16, active: u16, max: u16) {
+        s.window = HazardWindow::Timed {
+            telegraph_ticks: telegraph,
+            active_ticks: active,
+            max_activations: max as u8,
+        };
+    }
+
+    fn persistent(id: u16) -> HazardSpec {
+        HazardSpec {
+            window: HazardWindow::Persistent,
+            class: HazardClass::Acid,
+            ..spec(id)
         }
     }
 
@@ -627,7 +768,7 @@ mod tests {
     #[test]
     fn a_single_tick_volume_evaluates_exactly_one_tick() {
         let mut s = spec(1);
-        s.active_ticks = 1;
+        timed(&mut s, 24, 1, 1);
         s.class = HazardClass::FallingMass;
         let mut v = HazardVolume::new(s).unwrap();
         v.trigger(None);
@@ -667,9 +808,7 @@ mod tests {
     #[test]
     fn a_second_activation_gives_new_tokens() {
         let mut s = spec(1);
-        s.max_activations = 2;
-        s.telegraph_ticks = 18;
-        s.active_ticks = 3;
+        timed(&mut s, 24, 3, 2);
         let mut v = HazardVolume::new(s).unwrap();
         for round in 1..=2u8 {
             assert!(v.trigger(None));
@@ -701,16 +840,17 @@ mod tests {
     }
 
     #[test]
-    fn the_team_policy_is_the_volume_not_the_initiator() {
-        for (policy, hero, enemy) in [
-            (TeamPolicy::All, true, true),
-            (TeamPolicy::HeroesOnly, true, false),
-            (TeamPolicy::EnemiesOnly, false, true),
+    fn the_hero_policy_is_the_volume_not_the_initiator() {
+        for (policy, enemies, hero, enemy) in [
+            (HeroDamagePolicy::AllHeroes, true, true, true),
+            (HeroDamagePolicy::AllHeroes, false, true, false),
+            (HeroDamagePolicy::NoHeroes, true, false, true),
         ] {
             let mut s = spec(1);
-            s.policy = policy;
+            s.hero_damage = policy;
+            s.hurts_enemies = enemies;
             if !s.hurts_heroes() {
-                s.telegraph_ticks = 0;
+                timed(&mut s, 0, 72, 1);
             }
             let mut v = HazardVolume::new(s).unwrap();
             // A hero set it off; the world hazard still hurts that hero by its data.
@@ -726,25 +866,25 @@ mod tests {
     #[test]
     fn spec_validation_rejects_unfair_or_empty_volumes() {
         let mut s = spec(1);
-        s.telegraph_ticks = 17;
+        timed(&mut s, 23, 72, 1);
         assert_eq!(
             HazardVolume::new(s).unwrap_err(),
-            HazardSpecError::TelegraphTooShort { ticks: 17 }
+            HazardSpecError::TelegraphTooShort { ticks: 23 }
         );
         let mut s = spec(1);
-        s.active_ticks = 121;
+        timed(&mut s, 24, 121, 1);
         assert_eq!(
             HazardVolume::new(s).unwrap_err(),
             HazardSpecError::ActiveTooLong { ticks: 121 }
         );
         let mut s = spec(1);
-        s.active_ticks = 0;
+        timed(&mut s, 24, 0, 1);
         assert_eq!(
             HazardVolume::new(s).unwrap_err(),
             HazardSpecError::NoActiveTicks
         );
         let mut s = spec(1);
-        s.max_activations = 0;
+        timed(&mut s, 24, 72, 0);
         assert_eq!(
             HazardVolume::new(s).unwrap_err(),
             HazardSpecError::NoActivations
@@ -757,10 +897,82 @@ mod tests {
         );
         // An enemies-only volume may be quick: the hero rules do not apply.
         let mut s = spec(1);
-        s.policy = TeamPolicy::EnemiesOnly;
-        s.telegraph_ticks = 0;
-        s.active_ticks = 300;
+        s.hero_damage = HeroDamagePolicy::NoHeroes;
+        timed(&mut s, 0, 255, 1);
         assert!(HazardVolume::new(s).is_ok());
+    }
+
+    #[test]
+    fn a_world_hazard_has_no_owner_to_reduce_and_must_hurt_someone() {
+        let mut s = spec(1);
+        s.hero_damage = HeroDamagePolicy::OwnerReduced;
+        assert_eq!(
+            HazardVolume::new(s).unwrap_err(),
+            HazardSpecError::OwnerReducedWorldHazard
+        );
+        let mut s = spec(1);
+        s.hero_damage = HeroDamagePolicy::NoHeroes;
+        s.hurts_enemies = false;
+        assert_eq!(
+            HazardVolume::new(s).unwrap_err(),
+            HazardSpecError::HurtsNobody
+        );
+    }
+
+    #[test]
+    fn a_persistent_volume_is_always_on_with_no_trigger_and_no_telegraph() {
+        let mut v = HazardVolume::new(persistent(5)).unwrap();
+        assert_eq!(v.phase(), Phase::Active);
+        assert!(!v.trigger(Some(0)), "nothing to trigger");
+        assert_eq!(v.step(), None);
+        assert_eq!(v.phase(), Phase::Active);
+        // Exempt from the timed rules: hero-hurting, no telegraph at all.
+        let feed = v.nav_rect().unwrap();
+        assert_eq!(feed.phase, NavPhase::Active);
+        assert_eq!(feed.ticks_left, None);
+        assert!(feed.hurts_heroes);
+        // One hit per victim per epoch; a re-arm gives new tokens.
+        assert!(v.contact(Victim::hero(0), inside()).is_some());
+        assert!(v.contact(Victim::hero(0), inside()).is_none());
+        assert!(v.rearm());
+        let again = v.contact(Victim::hero(0), inside()).unwrap();
+        assert_eq!(again.activation, 2);
+        // A timed volume has no epochs to re-arm.
+        let mut t = HazardVolume::new(spec(1)).unwrap();
+        assert!(!t.rearm());
+    }
+
+    #[test]
+    fn a_volume_rect_can_move_or_shrink_per_tick() {
+        let mut v = HazardVolume::new(persistent(5)).unwrap();
+        assert!(v.contact(Victim::enemy(1), outside()).is_none());
+        // The patch grows over the victim: now it is inside.
+        assert!(v.set_rect(IRect::new(290, 0, 60, 60)));
+        assert_eq!(v.nav_rect().unwrap().rect, IRect::new(290, 0, 60, 60));
+        assert!(v.contact(Victim::enemy(1), outside()).is_some());
+        // An empty rectangle is refused and changes nothing.
+        assert!(!v.set_rect(IRect::new(0, 0, 0, 5)));
+        assert_eq!(v.rect(), IRect::new(290, 0, 60, 60));
+        // The rectangle is state.
+        fn hash(v: &HazardVolume) -> u64 {
+            let mut h = 0xcbf2_9ce4_8422_2325_u64;
+            v.mix_into(&mut |x| {
+                h ^= x;
+                h = h.wrapping_mul(0x0000_0100_0000_01b3);
+            });
+            h
+        }
+        let before = hash(&v);
+        v.set_rect(IRect::new(290, 0, 59, 60));
+        assert_ne!(hash(&v), before);
+        // A timed volume's active rectangle moves too (a sliding mass).
+        let mut t = HazardVolume::new(spec(2)).unwrap();
+        t.trigger(None);
+        for _ in 0..24 {
+            t.step();
+        }
+        assert!(t.set_rect(IRect::new(290, 0, 60, 60)));
+        assert_eq!(t.active_rect(), Some(IRect::new(290, 0, 60, 60)));
     }
 
     #[test]
@@ -773,6 +985,7 @@ mod tests {
         let feed = set.nav_feed();
         assert_eq!(feed.len(), 1);
         assert_eq!(feed[0].phase, NavPhase::Telegraph);
+        assert_eq!(feed[0].ticks_left, Some(24));
         assert_eq!(feed[0].rect, IRect::new(100, 52, 40, 8));
         assert!(feed[0].hurts_heroes && feed[0].hurts_enemies);
         for _ in 0..24 {
@@ -780,6 +993,7 @@ mod tests {
         }
         let feed = set.nav_feed();
         assert_eq!(feed[0].phase, NavPhase::Active);
+        assert_eq!(feed[0].ticks_left, Some(72));
         assert_eq!(feed[0].rect, IRect::new(100, 0, 40, 60));
         assert_eq!(feed[0].class, HazardClass::Steam);
         for _ in 0..72 {
@@ -833,7 +1047,7 @@ mod tests {
             HazardSetError::DuplicateId(1)
         );
         let mut bad = spec(4);
-        bad.active_ticks = 0;
+        timed(&mut bad, 24, 0, 1);
         assert_eq!(
             HazardSet::new(vec![bad]).unwrap_err(),
             HazardSetError::Spec {

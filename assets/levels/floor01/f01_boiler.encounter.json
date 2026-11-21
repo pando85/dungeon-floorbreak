@@ -4,10 +4,11 @@
   "id": "F01-BOILER-ENC",
   "room_file": "f01_boiler.room.json",
   "room_id": "F01-BOILER",
-  "story_pin": "f01_pin_post_hoarder",
+  "story_pin": "f01_pin_post_pile_boss",
   "goal": "reach_exit",
   "grants": [],
   "max_living": 4,
+  "locks": [],
   "platform_slab_px": 12,
   "protected_spawn": { "x": 16, "y": 484, "w": 208, "h": 96 },
   "checkpoint": { "x": 176, "y": 484, "w": 48, "h": 96 },
@@ -17,7 +18,7 @@
       "id": "valve",
       "kind": "valve",
       "target": { "x": 464, "y": 540, "w": 32, "h": 40 },
-      "valve": { "trigger_weight": 2, "launch_min_impulse_px_s": 200 }
+      "valve": { "trigger_weight": 2, "launch_min_impulse_px_s": 160 }
     },
     {
       "id": "weight",
@@ -47,7 +48,8 @@
       "max_activations": 1,
       "damage": 1,
       "push_x": 120,
-      "policy": "all"
+      "hero_damage": "all_heroes",
+      "hurts_enemies": true
     },
     {
       "id": 2,
@@ -61,7 +63,8 @@
       "max_activations": 1,
       "damage": 1,
       "push_x": 0,
-      "policy": "all"
+      "hero_damage": "all_heroes",
+      "hurts_enemies": true
     },
     {
       "id": 3,
@@ -74,7 +77,8 @@
       "max_activations": 1,
       "damage": 1,
       "push_x": 0,
-      "policy": "all"
+      "hero_damage": "all_heroes",
+      "hurts_enemies": true
     }
   ],
   "links": [
