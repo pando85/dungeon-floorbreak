@@ -466,9 +466,10 @@ impl Valve {
 
 /// A remnant this high or lower is stepped over: slot enemies ignore it for
 /// body collision, and it is the rise a hero is lifted by when a remnant
-/// appears under it (Hoarder re-review P3).
+/// appears under it (Hoarder re-review P3; the J-B remnant is 16 px, HRD-Q25).
 pub const STEP_OVER_PX: i32 = 16;
 /// A fall is at most this many ticks (1 s): longer is a drift, not a drop.
+/// Adopted default BOILC-AD5.
 pub const MAX_FALL_TICKS: u16 = 60;
 
 /// The smallest rectangle that holds both: the **swept** volume of something
@@ -495,6 +496,11 @@ pub const fn slot_enemy_ignores_remnant(remnant: IRect) -> bool {
 
 /// A body the landing tests: where it stood on the previous tick and where it
 /// stands now (layout px, y down). `prev == cur` for a body that did not move.
+///
+/// `prev` is last tick's rectangle for **continuous motion only**. A teleport,
+/// blink, warp or respawn must pass `prev == cur`: the swept volume is the
+/// union of the two rectangles, so a discontinuous move would otherwise count
+/// as a pass through every footprint on the line between them.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MassBody {
     pub victim: Victim,
@@ -526,6 +532,14 @@ pub struct RemnantLift {
 /// (a slot enemy ignores a low remnant, see [`slot_enemy_ignores_remnant`]).
 /// A hero that is hurt or invulnerable is lifted all the same, so no hero is
 /// left inside a solid. Order follows `bodies`.
+///
+/// Precondition (the core cannot see solids): the column above the remnant is
+/// clear for the remnant's height plus the tallest hero body, so the lift
+/// never ends inside a ceiling or slab. The wire applies the lift as a
+/// position write **in the same step** that makes the remnant solid (the
+/// remnant is an intact solid from the landing step on), so a lifted hero
+/// never spends a tick on a remnant that is not yet solid, where a party
+/// push-out could snap it sideways.
 pub fn remnant_lifts(remnant: IRect, bodies: &[MassBody]) -> Vec<RemnantLift> {
     let mut out: Vec<RemnantLift> = Vec::new();
     for b in bodies {
@@ -566,9 +580,23 @@ impl MassState {
 
 /// Tunables and geometry of one falling mass (layout px, y down).
 ///
-/// Defaults follow the Boiler design (two distinct light strikes, or one
-/// blast, release it; 24-tick warning) and the Hoarder J-B sheet (8 falling
-/// ticks, 1 damage, knock 120 px/s away and 140 up).
+/// Defaults follow the Hoarder J-B sheet and the Boiler design (the sheet IDs
+/// are in `enemy-gameplay-hoarder.md`, the Boiler lines in
+/// `floor-01-goblin-boiler-encounter.md` P2):
+///
+/// * `release_weight` 2, `projectile_weight` 1, a blast releases at once, a
+///   shove releases at once when its data sets `shove_weight` to the release
+///   weight: HRD-Q26 (Boiler P2: "2 distinct melee hits or 1 actual dynamite
+///   blast");
+/// * `warning_ticks` 24 and `fall_ticks` 8, landing on R+31: HRD-Q27 (Boiler
+///   P2: "24-tick falling-warning");
+/// * `damage` 1, knock 120 px/s away from the centre and 140 up, every hero,
+///   credited to the initiator: HRD-Q28 (Boiler P2: "player loses at most 1
+///   HP");
+/// * the 16 px remnant and the footprint geometry of the tests: HRD-Q25;
+/// * genuinely new defaults: `launch_weight` 1 (BOILC-AD1), the 160 px/s
+///   launch and shove thresholds (BOILC-AD2), `enemy_damage` 255 (BOILC-AD3),
+///   `contact_weight` 0 (BOILC-AD4).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct FallingMassConfig {
     /// The mass while it hangs. It lands `footprint.bottom() - hanging.bottom()`
@@ -579,39 +607,51 @@ pub struct FallingMassConfig {
     /// The solid that stays after the landing. It rests on the footprint's
     /// bottom edge and lies inside its x range.
     pub remnant: IRect,
-    /// Total hit weight that releases the support.
+    /// Total hit weight that releases the support (default 2, HRD-Q26).
     pub release_weight: u8,
-    /// A launched body counts only from this speed (px/s).
+    /// A launched body counts only from this speed (px/s). Default 160, the
+    /// valve's value (BOILC-AD2).
     pub launch_min_impulse_px_s: u16,
-    /// Weight of a qualifying launched body (one hit by default: it weakens).
+    /// Weight of a qualifying launched body (one hit by default: it weakens;
+    /// BOILC-AD1, Boiler anchor row "can be weakened by ... launched body").
     pub launch_weight: u8,
-    /// Weight of a blast (the full release by default).
+    /// Weight of a blast (the full release by default, HRD-Q26). It must be at
+    /// least `release_weight` for "one blast releases it" to hold: raising
+    /// `release_weight` alone does not raise this.
     pub blast_weight: u8,
-    /// Weight of a prop contact; 0 (default): the support ignores them.
+    /// Weight of a prop contact; 0 (default): the support ignores them until
+    /// the BOIL-D link graph exists (BOILC-AD4).
     pub contact_weight: u8,
-    /// Weight of one projectile (a distinct light strike); 0: ignored.
+    /// Weight of one projectile (a distinct light strike, HRD-Q26); 0: ignored.
     pub projectile_weight: u8,
     /// Weight of an enemy shove; 0 (default): ignored. The Hoarder's pile
     /// sets it to the release weight ("released at once").
     pub shove_weight: u8,
     /// A shove counts only from this speed (px/s); 0 removes the threshold.
+    /// Default 160, the valve's value; the Hoarder lunge is 180 (BOILC-AD2).
     pub shove_min_impulse_px_s: u16,
-    /// Released ticks before the drop (the tell), at least [`MIN_WARNING_TICKS`].
+    /// Released ticks before the drop (the tell), at least
+    /// [`MIN_WARNING_TICKS`]. Default 24 (HRD-Q27).
     pub warning_ticks: u16,
-    /// Falling ticks, `1..=`[`MAX_FALL_TICKS`].
+    /// Falling ticks, `1..=`[`MAX_FALL_TICKS`]. Default 8 (HRD-Q27).
     pub fall_ticks: u16,
     /// What the landing does to heroes. Never `OwnerReduced`: a world hazard
     /// has no owner.
     pub hero_damage: HeroDamagePolicy,
     /// Damage to each overlapped hero (when `hero_damage` hurts heroes).
+    /// Default 1 (HRD-Q28).
     pub damage: u8,
     /// Whether overlapped enemies are hurt.
     pub hurts_enemies: bool,
-    /// Damage to each overlapped enemy (255: lethal to any ordinary body).
+    /// Damage requested of each overlapped enemy (255: lethal to any ordinary
+    /// body, BOILC-AD3). It is a request: the enemy's own profile maps the hit
+    /// (an ordinary goblin dies, a slot boss runs its own reaction, as the
+    /// Hoarder's crush does).
     pub enemy_damage: u8,
-    /// Horizontal knock of a hit, px/s, away from the footprint's centre.
+    /// Horizontal knock of a hit, px/s, away from the footprint's centre
+    /// (default 120, HRD-Q28).
     pub knock_x_px_s: i16,
-    /// Upward knock of a hit, px/s.
+    /// Upward knock of a hit, px/s (default 140, HRD-Q28).
     pub knock_up_px_s: i16,
 }
 
@@ -719,7 +759,8 @@ pub struct Landing {
 /// A state change of one tick.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MassEdge {
-    /// The warning ended; the drop starts.
+    /// The warning ended; the drop starts. Emitted in the step of the last
+    /// released tick (R+23); the state is `Falling` from R+24.
     FallStarted,
     /// The last falling tick: the one landing evaluation ran.
     Landed(Landing),
@@ -734,6 +775,22 @@ pub enum MassEdge {
 /// step of the last of them (`R + warning + fall_ticks - 1`; with the defaults
 /// R + 31); the mass is `Landed` from the following tick, and the remnant is
 /// a solid from that same step on.
+///
+/// **Damage authority.** [`FallingMass::step`] (its landing evaluation) is the
+/// only damage source of a weight. The `env_hazard` falling-mass volume and
+/// the sidecar `weight_fall` hazard entry are **data sources only**: they are
+/// never triggered as a damage volume, or a hero would be hurt twice and the
+/// volume would evaluate on R+24 instead of R+31. BOIL-C wire maps the
+/// volume's `rect` to `footprint`, `telegraph_ticks` to `warning_ticks`, and
+/// `damage`, `hero_damage` and `hurts_enemies` to the config. Its `push_x` is
+/// 0 in the Boiler sidecar while the core default knock is 120 / 140 (the data
+/// wins per room), `fall_ticks` and the upward knock have no sidecar field
+/// yet (defaults 8 and 140).
+///
+/// Adopted defaults of the mechanics: a tied centre knocks toward +x
+/// (BOILC-AD6); the sweep is a bounding-box union, conservative, which also
+/// hits a hero that leaves the footprint on the landing tick (BOILC-AD7); the
+/// mass follows `drop * k^2 / n^2`, not the repo's gravity constant (BOILC-AD8).
 ///
 /// Integer math only; no RNG, no wall-clock time.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1940,9 +1997,16 @@ mod falling_mass_tests {
         m.step(&[]);
         assert_eq!(m.mass_rect(), None);
         assert_eq!(m.remnant(), Some(jb().remnant));
-        // Before the last step the mass bottom was 96 * 49 / 64 above... the
-        // last step ends exactly at the footprint floor.
-        assert_eq!(hang.bottom() + jb().drop_px(), FLOOR);
+        // After the 7th falling step the mass bottom is 96 * 49 / 64 = 73 px
+        // below its hanging bottom, and its last swept path starts at the
+        // 6th step's position (96 * 36 / 64 = 54 px).
+        assert_eq!(bottoms[7], hang.bottom() + 73);
+        assert_eq!(
+            bottoms,
+            [0, 1, 4, 9, 16, 25, 36, 49]
+                .map(|k| hang.bottom() + 96 * k / 64)
+                .to_vec()
+        );
     }
 
     #[test]
@@ -2050,6 +2114,30 @@ mod falling_mass_tests {
         let mut m = mass();
         m.break_by_blast(1, None);
         let (_, l) = run_to_landing(&mut m, &[above, beside]);
+        assert!(l.hits.is_empty());
+    }
+
+    #[test]
+    fn a_hero_that_leaves_the_footprint_on_the_landing_tick_is_still_hit_and_a_teleport_is_not() {
+        let footprint = jb().footprint;
+        // Inside last tick, outside now (one-tick widening, BOILC-AD7).
+        let leaving = MassBody {
+            victim: Victim::hero(0),
+            prev: IRect::new(800, FLOOR - 56, 28, 56),
+            cur: IRect::new(footprint.right() + 10, FLOOR - 56, 28, 56),
+        };
+        let mut m = mass();
+        m.break_by_blast(1, None);
+        let (_, l) = run_to_landing(&mut m, &[leaving]);
+        assert_eq!(l.hits.len(), 1);
+        // A teleport across the footprint passes prev == cur: no hit.
+        let warped = MassBody::still(
+            Victim::hero(0),
+            IRect::new(footprint.right() + 10, FLOOR - 56, 28, 56),
+        );
+        let mut m = mass();
+        m.break_by_blast(1, None);
+        let (_, l) = run_to_landing(&mut m, &[warped]);
         assert!(l.hits.is_empty());
     }
 
