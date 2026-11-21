@@ -2338,10 +2338,16 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
         .filter(|(_, p)| p.solid_intact || p.remnant.is_some())
         .map(|(i, _)| i)
         .collect();
+    // Static solids never change state: they are in every state's solids.
+    let static_solids: Vec<IRect> = statics
+        .iter()
+        .filter(|st| st.kind == StaticKind::Solid)
+        .map(|st| st.rect)
+        .collect();
     let mut reach: Vec<ReachRow> = Vec::new();
     let mut effective: Vec<GateClass> = final_gates.clone();
     if props.len() <= MAX_PROPS {
-        reach = reach_matrix(room, classes, &props, &changeable);
+        reach = reach_matrix(room, classes, &props, &changeable, &static_solids);
         for row in &reach {
             let hero = row.hero;
             let state = row.state;
@@ -2409,7 +2415,7 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
                 })
                 .collect();
             for (lock, hero, state, why) in
-                locked_unreachable(room, classes, &props, &changeable, &checks)
+                locked_unreachable(room, classes, &props, &changeable, &static_solids, &checks)
             {
                 let lock = locks[lock].id.clone();
                 errs.push(match why {
@@ -2705,12 +2711,14 @@ fn locked_unreachable(
     c: &HeightClasses,
     props: &[Prop],
     changeable: &[usize],
+    statics: &[IRect],
     locks: &[LockCheck],
 ) -> Vec<(usize, ReachHero, u16, LockFailure)> {
     let mut bad = Vec::new();
     for hero in ReachHero::ALL {
         for state in 0..(1u16 << changeable.len()) {
             let mut solids = blockers(props, changeable, state);
+            solids.extend_from_slice(statics);
             solids.extend(locks.iter().map(|l| l.solid));
             let graph = nodes_for(room, c, hero, &solids);
             let Some(start) = floor_node_at(&graph.nodes, hero.spawn_x(room)) else {
@@ -2738,18 +2746,21 @@ fn locked_unreachable(
 }
 
 /// The reach matrix: every hero class in every destruction state of the
-/// changeable props (`2^n` states).
+/// changeable props (`2^n` states). `statics` are the solids of the sidecar's
+/// static entries: they are in every state.
 pub fn reach_matrix(
     room: &Room,
     c: &HeightClasses,
     props: &[Prop],
     changeable: &[usize],
+    statics: &[IRect],
 ) -> Vec<ReachRow> {
     let exit_x = room.goal_x.min(room.exit.right() - 1);
     let mut rows = Vec::new();
     for hero in ReachHero::ALL {
         for state in 0..(1u16 << changeable.len()) {
-            let solids = blockers(props, changeable, state);
+            let mut solids = blockers(props, changeable, state);
+            solids.extend_from_slice(statics);
             let graph = nodes_for(room, c, hero, &solids);
             let nodes = &graph.nodes;
             let spawn = floor_node_at(nodes, hero.spawn_x(room));

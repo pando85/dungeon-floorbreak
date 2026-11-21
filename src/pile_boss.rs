@@ -36,9 +36,11 @@
 //!
 //! # Adopted readings (recorded, not new design)
 //!
-//! * The shove's own 180-tick cooldown (HRD-Q14) starts when the shove's
-//!   Recover or Jammed state ends (the shove has ended), and runs through the
-//!   30-tick Cooldown.
+//! * The shove's own 180-tick cooldown (HRD-Q14) starts on the tick the lunge
+//!   ends (HRD-Q13: "shove ends" is the end of the lunge, Recover or Jammed
+//!   follows it), and runs through Recover or Jammed and the 30-tick Cooldown.
+//!   A whiff cycle is tell 40 + lunge 48 + 180 = 268 ticks: the next shove tell
+//!   starts 268 ticks after the previous one.
 //! * The 60 ticks without poise after a Flinch (HRD-Q16) count from the tick
 //!   the Flinch starts.
 //! * A NestPush resets the nest timer on its first tick (a static bank A would
@@ -780,6 +782,8 @@ pub struct PileBoss {
     unreachable_ticks: u32,
     away_ticks: u32,
     disengage_pending: bool,
+    /// The leash edge she was stuck at when the disengage was set (-1, +1).
+    disengage_edge: i8,
     home: Home,
     /// Transient: the step began in the lunge, so her body pushes nobody yet.
     suppress_push: bool,
@@ -836,6 +840,7 @@ impl PileBoss {
             unreachable_ticks: 0,
             away_ticks: 0,
             disengage_pending: false,
+            disengage_edge: -1,
             home: Home::None,
             suppress_push: false,
         }
@@ -859,6 +864,13 @@ impl PileBoss {
         let (tun, setup) = (self.tun, self.setup);
         *self = Self::new(tun, setup);
         self.retry = true;
+    }
+
+    /// HRD-Q14: the shove may be chosen again 180 full ticks after the tick the
+    /// lunge ended. The step decrements at its start, so the end tick itself is
+    /// armed one higher and does not count.
+    fn shove_cooldown_after_lunge(tun: &PileBossTuning) -> u32 {
+        u32::from(tun.hrdq14_cooldown_ticks) + 1
     }
 
     /// Fixture hook: preset the shove's own cooldown.
@@ -1073,6 +1085,9 @@ impl PileBoss {
                 self.poise.clear();
                 self.poise_immune_until = now + u64::from(self.tun.hrdq16_immune_ticks);
                 self.enter(PileMode::Flinch);
+                // A hit lands before her step, which counts the tick first:
+                // the next step is the Flinch's tick 1, so it lasts 12 ticks.
+                self.mode_tick = 0;
                 self.nest_push = false;
                 flinched = true;
                 out.pile_events.push((tick, PileEvent::Flinch));
@@ -1262,13 +1277,9 @@ impl PileBoss {
                 (PileMode::Lunge, false)
             }
             PileMode::ShoveRecover if tick > u32::from(t.hrdq13_recover_ticks) => {
-                self.shove_cd = u32::from(t.hrdq14_cooldown_ticks);
                 (PileMode::Cooldown, false)
             }
-            PileMode::Jammed if tick > u32::from(t.hrdq13_jam_ticks) => {
-                self.shove_cd = u32::from(t.hrdq14_cooldown_ticks);
-                (PileMode::Cooldown, false)
-            }
+            PileMode::Jammed if tick > u32::from(t.hrdq13_jam_ticks) => (PileMode::Cooldown, false),
             PileMode::Flinch if tick > u32::from(t.hrdq16_flinch_ticks) => {
                 (PileMode::Cooldown, false)
             }
@@ -1689,8 +1700,9 @@ impl PileBoss {
                 self.disengage_pending = false;
                 self.unreachable_ticks = 0;
                 self.poise.clear();
-                let edge = self.at_leash_edge().unwrap_or(-1);
-                self.home = Home::Disengage { edge };
+                self.home = Home::Disengage {
+                    edge: self.disengage_edge,
+                };
                 out.pile_events.push((ctx.tick, PileEvent::Disengage));
             } else if self.away_ticks >= u32::from(tun.hrdq19_return_ticks) {
                 self.away_ticks = 0;
@@ -1759,6 +1771,9 @@ impl PileBoss {
             && self.home == Home::None
         {
             self.disengage_pending = true;
+            if let Some(edge) = self.at_leash_edge() {
+                self.disengage_edge = edge;
+            }
         }
         self.away_ticks = if self.any_hero_within(ctx, f32::from(tun.hrdq19_return_px)) {
             0
@@ -1901,8 +1916,10 @@ impl PileBoss {
                 obstacle: kind,
                 credit: self.credit,
             });
+            self.shove_cd = Self::shove_cooldown_after_lunge(tun);
             self.enter(PileMode::Jammed);
         } else if at_leash || k >= u32::from(tun.hrdq11_max_ticks) {
+            self.shove_cd = Self::shove_cooldown_after_lunge(tun);
             self.enter(PileMode::ShoveRecover);
         }
     }
@@ -2011,6 +2028,7 @@ impl PileBoss {
         mix(u64::from(self.unreachable_ticks));
         mix(u64::from(self.away_ticks));
         mix(u64::from(self.disengage_pending));
+        mix(i64::from(self.disengage_edge) as u64);
         match self.home {
             Home::None => mix(0),
             Home::Disengage { edge } => {
@@ -2536,6 +2554,27 @@ mod tests {
             errs.iter()
                 .any(|e| matches!(e, crate::encounter::EncounterError::StaticInvalid { .. }))
         );
+        // A static solid is in every reachability state: one wider than a
+        // class can jump cuts the lane for it (it is not a perch to step over).
+        let errs = check(&|v| {
+            v["statics"][0]["rect"] = serde_json::json!({"x":352,"y":532,"w":480,"h":48});
+        });
+        assert!(
+            errs.iter().any(|e| matches!(
+                e,
+                crate::encounter::EncounterError::LaneCut { .. }
+                    | crate::encounter::EncounterError::ExitUnreachable { .. }
+            )),
+            "{errs:?}"
+        );
+        // A hit target is never a solid: the same rectangle as a post is fine.
+        let ok = {
+            let mut v: Value = serde_json::from_str(&text).unwrap();
+            v["statics"][0]["kind"] = "hit_target".into();
+            v["statics"][0]["rect"] = serde_json::json!({"x":352,"y":532,"w":480,"h":48});
+            crate::encounter::parse_sidecar(&v.to_string(), &ctx)
+        };
+        assert!(ok.is_ok(), "{ok:?}");
         // Unknown kind.
         let errs = check(&|v| v["statics"][0]["kind"] = "ghost".into());
         assert!(
@@ -2782,6 +2821,167 @@ mod tests {
         }
     }
 
+    /// The three hero columns of the section 4 reach tables, on the real
+    /// hero integrator: Carl (jump by the press edge, 185 px/s run), the base
+    /// Donut (launch 500 px/s) and the boosted Donut (547 px/s), both running
+    /// at 207 px/s with the forgiving 20 x 24 hurtbox.
+    #[derive(Clone, Copy, Debug)]
+    enum Kind {
+        Carl,
+        DonutBase,
+        DonutBoosted,
+    }
+
+    #[derive(Clone, Copy, Debug)]
+    enum Act {
+        Jump,
+        /// Run away from her (toward -x here) from this tick on.
+        RunAway,
+    }
+
+    struct ReachSim {
+        hero: Hero,
+        kind: Kind,
+        blocks: Vec<crate::prototype::Block>,
+        running: bool,
+    }
+
+    impl ReachSim {
+        fn new(kind: Kind, x: f32) -> Self {
+            let sim = CarlSim::new(x);
+            Self {
+                hero: sim.hero,
+                kind,
+                blocks: sim.blocks,
+                running: false,
+            }
+        }
+
+        fn step(&mut self, act: Option<Act>) {
+            let mut input = InputFrame::default();
+            let mut drive = BodyDrive::default();
+            match (act, self.kind) {
+                (Some(Act::Jump), Kind::Carl) => input.jump_pressed = true,
+                (Some(Act::Jump), Kind::DonutBase) => drive.launch = Some((0.0, 500.0)),
+                (Some(Act::Jump), Kind::DonutBoosted) => drive.launch = Some((0.0, 547.0)),
+                (Some(Act::RunAway), _) => self.running = true,
+                (None, _) => {}
+            }
+            if self.running {
+                match self.kind {
+                    Kind::Carl => input.held.move_x = -1.0,
+                    _ => drive.vx = Some(-207.0),
+                }
+            }
+            crate::prototype::step_hero_driven(
+                &mut self.hero,
+                &input,
+                &self.blocks,
+                4000.0,
+                &drive,
+            );
+        }
+
+        fn view(&self) -> HeroView {
+            let foot = self.hero.y - HERO_HALF_HEIGHT;
+            match self.kind {
+                Kind::Carl => view(HeroId::Carl, self.hero.x, foot, 12.0, 52.0),
+                _ => view(HeroId::Donut, self.hero.x, foot, 10.0, 24.0),
+            }
+        }
+    }
+
+    /// One natural attack from scene tick 1 at pivot distance `d`; the action
+    /// is taken on the hero step of attack tick `at`. Whether any blow landed.
+    fn reach_run(kind: Kind, d: f32, at: usize, act: Act, ticks: usize) -> bool {
+        let mut boss = awake(E);
+        let mut sim = ReachSim::new(kind, E - d);
+        let mut landed = false;
+        for s in 1..=ticks {
+            sim.step((s - 1 == at).then_some(act));
+            let view = sim.view();
+            let heroes = match kind {
+                Kind::Carl => [view, absent(HeroId::Donut)],
+                _ => [absent(HeroId::Carl), view],
+            };
+            let out = boss.step(&ctx(heroes, &[], s as u64));
+            landed |= !out.blows.is_empty();
+            for (_, x) in out.shifts {
+                sim.hero.x = x;
+            }
+        }
+        landed
+    }
+
+    /// Assert the edge pairs of one table row: the action is clear on
+    /// `first..=last` and hits one tick outside on each side.
+    fn assert_window(kind: Kind, d: f32, act: Act, first: usize, last: usize, ticks: usize) {
+        for at in [first.saturating_sub(1), first, last, last + 1] {
+            let clear = at >= first && at <= last;
+            assert_eq!(
+                !reach_run(kind, d, at, act, ticks),
+                clear,
+                "{kind:?} d {d} {act:?} on attack tick {at}: window {first}..={last}"
+            );
+        }
+        if first > 0 {
+            assert!(
+                reach_run(kind, d, first - 1, act, ticks),
+                "{kind:?} d {d}: one tick before {first} hits"
+            );
+        }
+    }
+
+    #[test]
+    fn the_swipe_reach_table_jump_windows_for_all_three_columns() {
+        // Jump in place at d 44 and d 60: Carl 1..30, Donut base 0..31,
+        // boosted 0..32. 100 ticks: her second swipe (after the Cooldown)
+        // would otherwise hit the landed hero and mask the window.
+        for d in [44.0, 60.0] {
+            assert_window(Kind::Carl, d, Act::Jump, 1, 30, 100);
+            assert_window(Kind::DonutBase, d, Act::Jump, 0, 31, 100);
+            assert_window(Kind::DonutBoosted, d, Act::Jump, 0, 32, 100);
+        }
+    }
+
+    #[test]
+    fn the_swipe_reach_table_step_back_rows() {
+        // Running away from d 44 must start by attack tick 22 (Carl, 185 px/s)
+        // or 24 (Donut, 207 px/s); one tick later the slam still lands.
+        for (kind, last) in [
+            (Kind::Carl, 22),
+            (Kind::DonutBase, 24),
+            (Kind::DonutBoosted, 24),
+        ] {
+            assert!(
+                !reach_run(kind, 44.0, last, Act::RunAway, 100),
+                "{kind:?} clears on tick {last}"
+            );
+            assert!(
+                reach_run(kind, 44.0, last + 1, Act::RunAway, 100),
+                "{kind:?} is hit on tick {}",
+                last + 1
+            );
+        }
+    }
+
+    #[test]
+    fn the_shove_reach_table_jump_windows_for_all_three_columns() {
+        // (d, Carl, Donut base, Donut boosted) first..=last clearing press.
+        type Window = (usize, usize);
+        let rows: [(f32, Window, Window, Window); 4] = [
+            (96.0, (28, 45), (19, 46), (13, 47)),
+            (128.0, (38, 55), (30, 57), (24, 58)),
+            (160.0, (47, 66), (39, 68), (33, 69)),
+            (176.0, (47, 71), (39, 73), (33, 74)),
+        ];
+        for (d, carl, base, boosted) in rows {
+            assert_window(Kind::Carl, d, Act::Jump, carl.0, carl.1, 130);
+            assert_window(Kind::DonutBase, d, Act::Jump, base.0, base.1, 130);
+            assert_window(Kind::DonutBoosted, d, Act::Jump, boosted.0, boosted.1, 130);
+        }
+    }
+
     #[test]
     fn hrd_shove_jump_lands_behind_her_and_she_turns() {
         let (landed, x, boss) = jump_run(128.0, Some(45), false, 130);
@@ -2894,7 +3094,8 @@ mod tests {
         }
         assert_eq!(ticks_jammed, 72);
         assert_eq!(boss.mode(), PileMode::Cooldown);
-        assert_eq!(boss.shove_cooldown(), 180);
+        // Armed on the jam tick (181), 72 Jammed ticks and the first Cooldown tick later.
+        assert_eq!(boss.shove_cooldown(), 181 - 72);
     }
 
     #[test]
@@ -3090,22 +3291,25 @@ mod tests {
         let mut boss = awake(E);
         let heroes = heroes_donut(E - 300.0);
         boss.step(&ctx(heroes, &[], 1));
+        // Scene order of one tick T: the hits land, then her step runs.
+        let flinch_tick = 2u64;
         let mut out = PileOut::default();
         for _ in 0..4 {
-            boss.apply_hit(hit(1, 1), None, 1, &mut out);
+            boss.apply_hit(hit(1, 1), None, flinch_tick, &mut out);
         }
-        assert_eq!(boss.mode(), PileMode::Flinch);
         assert!(out.pile_events.iter().any(|(_, e)| *e == PileEvent::Flinch));
-        let mut flinch_ticks = 1;
-        loop {
-            boss.step(&ctx(heroes, &[], 2));
-            if boss.mode() != PileMode::Flinch {
-                break;
-            }
-            flinch_ticks += 1;
+        let mut modes = Vec::new();
+        for t in flinch_tick..flinch_tick + 14 {
+            boss.step(&ctx(heroes, &[], t));
+            modes.push(boss.mode());
         }
-        assert_eq!(flinch_ticks, 12);
-        assert_eq!(boss.mode(), PileMode::Cooldown);
+        // Flinch on exactly T..T+11 (12 ticks), Cooldown from T+12.
+        assert!(
+            modes[..12].iter().all(|m| *m == PileMode::Flinch),
+            "{modes:?}"
+        );
+        assert_eq!(modes[12], PileMode::Cooldown);
+        assert_eq!(modes[13], PileMode::Cooldown);
     }
 
     #[test]
@@ -4281,6 +4485,76 @@ mod tests {
         }
         assert!(tells.is_empty(), "the cooldown holds the shove back");
         assert_eq!(boss.shove_cooldown(), 140);
+    }
+
+    #[test]
+    fn the_shove_cycle_is_268_ticks_counted_from_the_end_of_the_lunge() {
+        // HRD-Q14: 180 ticks after the shove ends (the lunge), so a whiff
+        // cycle is tell 40 + lunge 48 + 180 = 268 ticks. The target stays 128 px
+        // ahead of her so she answers with a shove every time it is allowed.
+        let mut boss = awake(E);
+        let mut tells = Vec::new();
+        let mut cd_at_lunge_end = None;
+        let mut prev = PileMode::Neutral;
+        for t in 1..=600u64 {
+            let x = boss.x() - 128.0;
+            let heroes = [
+                HeroView {
+                    vulnerable: false,
+                    ..carl(x)
+                },
+                absent(HeroId::Donut),
+            ];
+            let out = boss.step(&ctx(heroes, &[], t));
+            if out.pile_events.iter().any(|(_, e)| {
+                matches!(
+                    e,
+                    PileEvent::Tell {
+                        attack: PileAttack::Shove,
+                        ..
+                    }
+                )
+            }) {
+                tells.push(t);
+            }
+            if prev == PileMode::Lunge && boss.mode() == PileMode::ShoveRecover {
+                cd_at_lunge_end.get_or_insert((t, boss.shove_cooldown()));
+            }
+            if boss.mode() == PileMode::ShoveRecover && cd_at_lunge_end.is_none() {
+                cd_at_lunge_end = Some((t, boss.shove_cooldown()));
+            }
+            prev = boss.mode();
+        }
+        assert_eq!(&tells[..2], [1, 1 + 268], "tells: {tells:?}");
+        // The cooldown was armed on the lunge's last tick (scene tick 88).
+        assert_eq!(cd_at_lunge_end, Some((88, 181)));
+        // After a jam the same count runs from the jam tick.
+        let bank = [bank_a()];
+        let mut boss = awake(470.0);
+        let heroes = heroes_carl(330.0);
+        let mut jam = None;
+        let mut second_tell = None;
+        for t in 1..=700u64 {
+            let out = boss.step(&ctx(heroes, &bank, t));
+            if jam.is_none() && !out.jams.is_empty() {
+                jam = Some(t);
+            }
+            if jam.is_some_and(|j| t > j)
+                && out.pile_events.iter().any(|(_, e)| {
+                    matches!(
+                        e,
+                        PileEvent::Tell {
+                            attack: PileAttack::Shove,
+                            ..
+                        }
+                    )
+                })
+            {
+                second_tell = Some(t);
+                break;
+            }
+        }
+        assert_eq!(second_tell, jam.map(|j| j + 181), "jam {jam:?}");
     }
 
     // ------------------------------------------------------ the AI feed ---
