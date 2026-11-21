@@ -15,8 +15,8 @@ Then pick one of the launches below. If you skip `export_assets.sh` the game sto
 
 | Session | Command | What you get |
 | --- | --- | --- |
-| Solo, no assistant | `cargo run --locked --release --bin floor01_scene -- --cf02 --companion off --scale 3` | You control Carl, or Donut after a swap; the other hero follows as the old bot and never attacks |
-| One player with the assistant (the reference run) | `cargo run --locked --release --bin floor01_scene -- --cf02 --scale 3` | The same, but the `cf02_assist` companion drives the other hero: swat on a tell aimed at Carl, pounce, never a killing blow |
+| Solo, old follow-and-jump bot (assistant off, Donut still in the party) | `cargo run --locked --release --bin floor01_scene -- --cf02 --companion off --scale 3` | `--companion off` does **not** remove Donut and there is no Carl-only mode in the party game: it swaps the assistant for the old follow-and-jump bot. You control Carl, or Donut after a swap; the other hero follows you and jumps but never attacks |
+| One player with the assistant (the reference run) | `cargo run --locked --release --bin floor01_scene -- --cf02 --scale 3` | The same party, but the `cf02_assist` companion drives the other hero as a fighting partner (CF02-DUO, 2026-11-21): she engages goblins and the llama on her own, swats a tell aimed at Carl, swats and pounces what stands, may land the killing blow, about one action per 20 ticks. The room starts with Donut's biscuit locked, so by default she has no Magic Missile (swat and pounce only); `--donut-biscuit` unlocks it and she then casts at enemies in range within the mana rules (headless-tested only, not run windowed with `--cf02`) |
 | Two players, two pads | `cargo run --locked --release --bin floor01_scene -- --cf02 --scale 3` and press **Start** on the second pad | P1 is Carl, P2 becomes Donut; L1/LB no longer swaps; the assistant is replaced by P2 |
 | Keyboard fallback | `cargo run --locked --release --bin floor01_scene -- --cf02 --scale 2` | Keyboard is P1 only; there is no keyboard binding for P2 |
 
@@ -79,7 +79,7 @@ Climb a perch (a jump lands on the 80 px slab), dive onto the goblins below, swa
 
 - **Perch and dive.** Does the one-tile slab read as a place to stand and dive from? Does the dive feel good without becoming the only plan?
 - **Solo swap.** Is the 12-tick swap with the eased pan an improvement? Is there any abrupt camera motion, and in which moment (swap pan, impact kick, zoom)?
-- **Companion.** Does the assistant contribute (swat on a tell, pounce on a lying goblin) without taking the kills? It never lands a killing blow and should land at most a quarter of the hits.
+- **Companion.** Does Donut act as a fighting partner (she engages goblins and the llama on her own, swats a tell, pounces, can finish an enemy) without making you redundant? Since CF02-DUO she may land the killing blow; the hit-share ceiling is 50 %, measured on the scripted `cf02_arena_direct` run, and one action takes at least 20 ticks.
 - **Real 2P.** If you have two pads: does P2 Donut contribute, does the block hurt the partner as designed, and is the room completable together?
 - **Checkpoint respawn.** After a defeat (the automatic respawn after about 1 s) or a Select tap, do you resume at the last checkpoint (x 128 or x 704)? Remember that a tap while alive also resets the goblins.
 
@@ -91,7 +91,8 @@ Every value below was adopted by the orchestrator under the design-defaults dire
 | --- | --- | --- |
 | Q19 | Solo swap cooldown 12 ticks (the legacy value is 20) | Swap feels responsive but not spammy |
 | Q20 | Eased swap pan; the 40 px deadzone is kept, so a small pan is intended (ruling in #158); U1: the eased pan does not end while the new hero keeps running | Any abrupt or never-ending pan |
-| Q13, Q33, Q39 | `--cf02` defaults to the `cf02_assist` companion; the assistant never lands a killing blow (`ca19_kill_policy = never`); at most 25 % of the hits, at least 3 starts per solo run (the floor passes at exactly 3 starts, 3 of 16 hits = 18.8 %) | Does Donut feel useful and not a thief |
+| Q13, Q33, Q39 | `--cf02` defaults to the `cf02_assist` companion; at least 3 starts per solo run (the arena run has 6) | Does Donut feel useful and not a thief |
+| CF02-DUO-A01 to A06 | Owner feedback 2026-11-21 ("I expected Donut attacking") overrides the restrained assistant: kill policy `factual` (was `never`), one action per 20 ticks (was 60), hit-share ceiling 50 % (was 25 %), swat, pounce and (after the biscuit) Magic Missile on her own initiative, the missile still behind the mana reserve of 2 | Does she now fight with you, and does she take too many kills. Values are in [the companion spec](../../03-tech/companion-ai-command-system.md#e-cf02-duo-adopted-defaults-ai-donut-as-a-fighting-partner) and `companion_ai_v0.json` |
 | Q45 | Perch underside 68 px (slab top 80 px; Carl's 52 px clears by 16 px) | Perch climb and walking under it |
 | Q29 | End walls are the drawn 16 px wall; the room is 1152 px wide with checkpoints at 128 and 704 | Wall slams read against the wall |
 | Q30, Q42 | The landed block hurts every hero in its footprint: 1 damage, 18 hurt ticks, knock 120 / 160, 55 invulnerable ticks | Fairness of terrain that hurts |

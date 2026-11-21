@@ -2,6 +2,7 @@ COMBAT_EVENT tick=102 kind=goblin_tell goblin=0
 COMBAT_EVENT tick=104 kind=move_started move=jab instance=1
 COMBAT_EVENT tick=107 kind=hit move=jab instance=1 target=0 damage=1 health_left=1 hit_stop=3
 COMBAT_EVENT tick=107 kind=goblin_interrupted goblin=0
+COMBAT_EVENT tick=109 kind=move_started move=pounce instance=1
 COMBAT_EVENT tick=114 kind=move_started move=haymaker instance=2
 COMBAT_EVENT tick=119 kind=hit move=haymaker instance=2 target=0 damage=1 health_left=0 hit_stop=8
 COMBAT_EVENT tick=119 kind=enemy_defeated target=0
@@ -12,6 +13,7 @@ COMBAT_EVENT tick=196 kind=move_started move=jab instance=3
 COMBAT_EVENT tick=199 kind=hit move=jab instance=3 target=1 damage=1 health_left=1 hit_stop=3
 COMBAT_EVENT tick=199 kind=hit move=jab instance=3 target=2 damage=1 health_left=1 hit_stop=3
 COMBAT_EVENT tick=199 kind=goblin_interrupted goblin=2
+COMBAT_EVENT tick=200 kind=move_started move=pounce instance=2
 COMBAT_EVENT tick=206 kind=move_started move=haymaker instance=4
 COMBAT_EVENT tick=211 kind=hit move=haymaker instance=4 target=1 damage=1 health_left=0 hit_stop=8
 COMBAT_EVENT tick=211 kind=enemy_defeated target=1
@@ -25,57 +27,34 @@ COMBAT_EVENT tick=327 kind=goblin_swing goblin=3
 COMBAT_EVENT tick=327 kind=hero_hurt source=3 health_left=3
 COMBAT_EVENT tick=327 kind=goblin_reaction goblin=4 reaction=enraged nerve=89
 COMBAT_EVENT tick=341 kind=llama_tell llama=0
+COMBAT_EVENT tick=342 kind=move_started move=pounce instance=3
 COMBAT_EVENT tick=345 kind=goblin_tell goblin=4
 COMBAT_EVENT tick=352 kind=move_started move=jab instance=7
+COMBAT_EVENT tick=352 kind=hit move=pounce instance=3 target=3 damage=1 health_left=1 hit_stop=4
 COMBAT_EVENT tick=355 kind=hit move=jab instance=7 target=4 damage=1 health_left=1 hit_stop=3
 COMBAT_EVENT tick=355 kind=goblin_interrupted goblin=4
 COMBAT_EVENT tick=362 kind=move_started move=haymaker instance=8
-COMBAT_EVENT tick=362 kind=move_started move=swat instance=1
-COMBAT_EVENT tick=366 kind=glance instance=1 target=4 reason=staggered
-COMBAT_EVENT tick=366 kind=hit move=swat instance=1 target=5 damage=0 health_left=3 hit_stop=2
-COMBAT_EVENT tick=366 kind=llama_interrupted llama=0
 COMBAT_EVENT tick=370 kind=goblin_reaction goblin=3 reaction=taunt nerve=82
+COMBAT_EVENT tick=377 kind=llama_spit llama=0
 COMBAT_EVENT tick=384 kind=move_started move=jab instance=9
 COMBAT_EVENT tick=391 kind=move_started move=haymaker instance=10
+COMBAT_EVENT tick=391 kind=move_started move=pounce instance=4
 COMBAT_EVENT tick=394 kind=goblin_tell goblin=4
 COMBAT_EVENT tick=396 kind=hit move=haymaker instance=10 target=4 damage=1 health_left=0 hit_stop=8
 COMBAT_EVENT tick=396 kind=enemy_defeated target=4
 COMBAT_EVENT tick=396 kind=goblin_interrupted goblin=4
-COMBAT_EVENT tick=407 kind=goblin_tell goblin=3
-COMBAT_EVENT tick=413 kind=llama_tell llama=0
-COMBAT_EVENT tick=421 kind=move_started move=jab instance=11
-COMBAT_EVENT tick=422 kind=move_started move=swat instance=2
-COMBAT_EVENT tick=426 kind=hit move=swat instance=2 target=3 damage=0 health_left=2 hit_stop=2
-COMBAT_EVENT tick=426 kind=goblin_interrupted goblin=3
-COMBAT_EVENT tick=428 kind=move_started move=haymaker instance=12
-COMBAT_EVENT tick=449 kind=llama_spit llama=0
-COMBAT_EVENT tick=449 kind=hero_hurt source=5 health_left=2
-COMBAT_EVENT tick=456 kind=goblin_tell goblin=3
-COMBAT_EVENT tick=472 kind=move_started move=jab instance=13
-COMBAT_EVENT tick=479 kind=move_started move=haymaker instance=14
-COMBAT_EVENT tick=482 kind=goblin_swing goblin=3
-COMBAT_EVENT tick=501 kind=move_started move=jab instance=15
-COMBAT_EVENT tick=508 kind=move_started move=haymaker instance=16
-COMBAT_EVENT tick=530 kind=move_started move=jab instance=17
-COMBAT_EVENT tick=537 kind=move_started move=haymaker instance=18
-COMBAT_EVENT tick=547 kind=goblin_tell goblin=3
-COMBAT_EVENT tick=552 kind=move_started move=swat instance=3
-COMBAT_EVENT tick=556 kind=hit move=swat instance=3 target=3 damage=0 health_left=2 hit_stop=2
-COMBAT_EVENT tick=556 kind=goblin_interrupted goblin=3
-COMBAT_EVENT tick=559 kind=move_started move=jab instance=19
-COMBAT_EVENT tick=562 kind=hit move=jab instance=19 target=3 damage=1 health_left=1 hit_stop=3
-COMBAT_EVENT tick=563 kind=llama_tell llama=0
-COMBAT_EVENT tick=569 kind=move_started move=haymaker instance=20
-COMBAT_EVENT tick=574 kind=hit move=haymaker instance=20 target=3 damage=1 health_left=0 hit_stop=8
-COMBAT_EVENT tick=574 kind=enemy_defeated target=3
-COMBAT_EVENT tick=599 kind=llama_spit llama=0
-COMBAT_EVENT tick=599 kind=hero_hurt source=5 health_left=1
-COMBAT_EVENT tick=624 kind=move_started move=push_kick instance=21
-COMBAT_EVENT tick=637 kind=hit move=push_kick instance=21 target=5 damage=1 health_left=2 hit_stop=8
-COMBAT_EVENT tick=680 kind=move_started move=push_kick instance=22
-COMBAT_EVENT tick=693 kind=hit move=push_kick instance=22 target=5 damage=1 health_left=1 hit_stop=8
-COMBAT_EVENT tick=732 kind=move_started move=push_kick instance=23
-COMBAT_EVENT tick=745 kind=hit move=push_kick instance=23 target=5 damage=1 health_left=0 hit_stop=11
-COMBAT_EVENT tick=745 kind=enemy_defeated target=5 force=heavy
-COMBAT_STATE fixture=cf02_arena_direct seed=0xcf02f100 tick=1800 elapsed=1800 hero_hp=1 deaths=0 enemies=e0=548.800/0,e1=709.933/0,e2=708.801/0,e3=781.333/0,e4=927.735/0 hash=ef98917742c965fc shore=0/Intact/Seated block_bottom=140.00 llamas=l0=967.829/0
-PARTY_STATE fixture=cf02_arena_direct mode=solo controlled=Carl carl_hp=1 donut_hp=4 deaths=0 hash=548d09b66979ddf2
+COMBAT_EVENT tick=401 kind=hit move=pounce instance=4 target=3 damage=1 health_left=0 hit_stop=7
+COMBAT_EVENT tick=401 kind=enemy_defeated target=3 instigator=1
+COMBAT_EVENT tick=428 kind=move_started move=push_kick instance=11
+COMBAT_EVENT tick=441 kind=hit move=push_kick instance=11 target=5 damage=1 health_left=2 hit_stop=8
+COMBAT_EVENT tick=480 kind=move_started move=push_kick instance=12
+COMBAT_EVENT tick=481 kind=move_started move=swat instance=5
+COMBAT_EVENT tick=485 kind=glance instance=5 target=5 reason=llama
+COMBAT_EVENT tick=493 kind=hit move=push_kick instance=12 target=5 damage=1 health_left=1 hit_stop=8
+COMBAT_EVENT tick=533 kind=move_started move=swat instance=6
+COMBAT_EVENT tick=536 kind=move_started move=push_kick instance=13
+COMBAT_EVENT tick=537 kind=glance instance=6 target=5 reason=llama
+COMBAT_EVENT tick=549 kind=hit move=push_kick instance=13 target=5 damage=1 health_left=0 hit_stop=11
+COMBAT_EVENT tick=549 kind=enemy_defeated target=5 force=heavy
+COMBAT_STATE fixture=cf02_arena_direct seed=0xcf02f100 tick=1800 elapsed=1800 hero_hp=3 deaths=0 enemies=e0=548.800/0,e1=709.933/0,e2=708.801/0,e3=901.668/0,e4=927.735/0 hash=a5b6b489f758ac45 shore=0/Intact/Seated block_bottom=140.00 llamas=l0=965.829/0
+PARTY_STATE fixture=cf02_arena_direct mode=solo controlled=Carl carl_hp=3 donut_hp=4 deaths=0 hash=75083843cb33293b

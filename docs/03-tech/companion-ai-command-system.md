@@ -96,7 +96,7 @@ Five semantic verbs; **only four fixed face-button slots** in the proposed L1 la
 
 **Carl combo:** Donut can extend a launch or interrupt the next attacker. During a player-finisher opportunity, prefer protect/extend instead of stealing the same target unless `Focus` was explicitly commanded. Under the default `ca19_kill_policy = never` an AI-started hit cannot kill at all; this preference matters for the `factual` policy.
 
-**After biscuit:** Magic Missile only if `mana >= missile_cost + ai_mana_reserve` (`DonutMana::ai_can_cast`: 1 + 2 = 3 charges before release), suitable target/line-of-fire and a compelling tactical advantage. No invented free casts. Avoid sniping every weakened goblin Carl is winding up to finish. Profile `cf02_assist` adds CF02-Q17's limits: only to interrupt a tell aimed at the controlled hero, 97..160 px away.
+**After biscuit:** Magic Missile only if `mana >= missile_cost + ai_mana_reserve` (`DonutMana::ai_can_cast`: 1 + 2 = 3 charges before release), suitable target/line-of-fire and a compelling tactical advantage. No invented free casts. Avoid sniping every weakened goblin Carl is winding up to finish. Profile `cf02_assist` adds CF02-Q17's limits: only to interrupt a tell aimed at the controlled hero, 97..160 px away (since CF02-DUO-A04/A05 the profile also casts offensively within the same mana rules, section 17 (e)).
 
 ### Donut controlled, Carl AI
 
@@ -108,7 +108,7 @@ Five semantic verbs; **only four fixed face-button slots** in the proposed L1 la
 
 ### Both directions
 
-**No orders:** both characters should independently acquire useful positions, avoid tells, and perform limited support actions. Whether routine AI kills are allowed is the `ca19_kill_policy` knob (CA-19); credit is always the real actor's, and the CF02-Q39 ceiling (AI lands at most 25 % of hits) applies.
+**No orders:** both characters should independently acquire useful positions, avoid tells, and perform limited support actions. Whether routine AI kills are allowed is the `ca19_kill_policy` knob (CA-19); credit is always the real actor's, and the CF02-Q39 ceiling (AI lands at most 25 % of hits; 50 % for `cf02_assist` since CF02-DUO-A03) applies.
 
 **Character personality:** personality changes initiative/tactical preferences, barks and idles—not the semantics or reliability of `Regroup` and `Focus`. Donut may make a grandiose comment; Carl may respond dryly; neither may refuse a valid order for a joke. Avoid incessant voice feedback; text-only subtitles toggle required if audio barks are used. No voice barks in 01A-01D (CA-38).
 
@@ -446,6 +446,23 @@ No second harness. 01A-01D prove behaviour with fixtures and per-fixture event t
 - Companion-only diagnostics (glances, `ai_indirect_kills`, orders, stuck ticks) still come from draining `CompanionEvent`s, offered to 02a as an extra diagnostics source.
 - AUTOPLAY-02a is **no-orders only** (its action space has no command input; the held L1 command modifier is the reserved, stripped swap index), so it cannot serve 01E's ordered half or order metrics; see [AUTOPLAY spec section 11](autoplay-01-automated-gameplay-evaluation.md#11-autoplay-02a--solo-party-env-one-policy-seat-companion-active), conflicts 2 to 5. The seat is serialized by hero name (AP-Q22). All 01E arms run under one `cf02_rules` value, `false` until CF02 exposes the switch on the party fixture path, so 02a runs `cf02_assist` with `cf02_rules` off, a combination the flag table in (c) does not list.
 - 01E then plays `FollowAndJumpBot`, `cf02_assist`, `companion_v0` with `never` and `companion_v0` with `factual` on the same seeds; the owner decides D-KILL (O2a) and D-AUTO (O2b) from that plus play.
+
+### (e) CF02-DUO adopted defaults: AI Donut as a fighting partner
+
+Owner game-feel feedback after the first CF02 playtest (2026-11-21): "I expected Donut attacking". The `cf02_assist` set had been tuned to a restrained assistant (never defeats, one action per second, 25 % hit ceiling, missile only to interrupt). That restraint was an adopted default, not an owner decision; the feedback overrides it. All values are data in `companion_ai_v0.json`; the owner may change any of them in a follow-up PR. The `companion_v0` set is unchanged (`never`, 60 ticks, 25 %, no offense), so every `companion_*` fixture hash is byte-identical. Game feel is pending the owner's play.
+
+| ID | Knob (`cf02_assist`) | Old | New | Reason |
+| --- | --- | --- | --- | --- |
+| CF02-DUO-A01 | `ca19_kill_policy` (supersedes CF02-Q38's AI part; the profile validator no longer pins `cf02_assist` to `never`) | `never` | `factual` | owner playtest feedback 2026-11-21: AI Donut's hits are real and can finish an enemy; credit stays factual |
+| CF02-DUO-A02 | `cf02_q16_action_cadence_ticks` (CF02-Q16) | 60 | 20 | owner playtest feedback 2026-11-21: about three actions per second, still one at a time and never during a running move |
+| CF02-DUO-A03 | `cf02_q39_max_hit_share_percent` (CF02-Q39) | 25 | 50 | owner playtest feedback 2026-11-21: she carries up to half of the landed hits. The ceiling is a test assertion (`cf02_arena_direct`), not runtime behaviour |
+| CF02-DUO-A04 | new `cf02_duo.cf02_duo_a04_offense` | (absent: interrupt and lying/staggered pounce only) | `true` | owner playtest feedback 2026-11-21: she also starts a swat (before the biscuit, on a standing enemy in swat reach), a pounce (on a standing goblin that is not in a tell) or a Magic Missile (after the biscuit) on her own. Off in `companion_v0` |
+| CF02-DUO-A05 | new `cf02_duo.cf02_duo_a05_missile_min_px` / `_max_px` | (Q17: 97..160, interrupts only) | 64..160 | owner playtest feedback 2026-11-21: the offensive missile on a standing or staggered enemy. Never a free cast: only after the unlock and only if `DonutMana::ai_can_cast` (the reserve of 2 is kept), at the AI action cadence; the Q17 interrupt rule is unchanged |
+| CF02-DUO-A06 | new `cf02_duo.cf02_duo_a06_pounce_min_px` / `_max_px` | (Q15: 30..80, lying or staggered goblin only) | 30..80 on a standing goblin too | owner playtest feedback 2026-11-21: the pounce is her damaging move before the biscuit |
+
+Utilities: interrupt 2000 > pounce on a lying goblin 1500 > offensive missile 1300 > offensive pounce 1200 > strike 1000 > offensive swat 900 (integers, minus the distance). The offensive swat only starts on a standing enemy (a swat on a staggered enemy does nothing). Unchanged: Q13 AI Carl passive in `cf02_assist`, Q14 and Q17 interrupts, Q38 lying-hold, Q40 in-view, `ca26_ai_bailout`.
+
+Evidence: `cf02_assist_donut_defeats_goblin` (no human input, before the biscuit, her pounce defeats the goblin) and `cf02_assist_donut_missiles_goblin` (biscuit unlocked, her missiles defeat it and keep the reserve of 2). Seven `cf02_assist_*` and three `cf02_arena_*` goldens moved on purpose (the PR body lists old and new); `cf02_arena_environment` now runs the follow-and-jump bot because the active assistant clears the goblins before they swing and trip the shore the fixture demonstrates. The pre-DUO scenarios of Q14, Q15, Q16, Q38 and Q39 are kept as regression tests under the `companion_v0` Donut (same numbers as the old `cf02_assist`). Known: a pounce on a standing goblin can whiff against a moving target; there is no vertical-reach check yet, so she can try to swat or cast at an enemy on another level.
 
 ## 18. Horizon fit
 

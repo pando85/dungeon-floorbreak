@@ -137,6 +137,11 @@ struct Candidate {
 const INTERRUPT_UTILITY: i32 = 2000;
 const POUNCE_UTILITY: i32 = 1500;
 const STRIKE_UTILITY: i32 = 1000;
+/// CF02-DUO offense: the missile beats the pounce on a standing goblin beats
+/// the swat; all stay below the Q15 pounce on a goblin that lies.
+const DUO_MISSILE_UTILITY: i32 = 1300;
+const DUO_POUNCE_UTILITY: i32 = 1200;
+const DUO_SWAT_UTILITY: i32 = 900;
 
 impl Candidate {
     /// Higher utility first, then the lower stable id, then the lower action.
@@ -574,7 +579,7 @@ impl CompanionDirector {
         }
         let mut best = None;
         for target in &view.targets {
-            for action in [Action::Pounce, Action::Jab] {
+            for action in [Action::Pounce, Action::Jab, Action::Swat, Action::Missile] {
                 better(
                     &mut best,
                     self.support_candidate(view, set, me, target, action),
@@ -623,7 +628,8 @@ impl CompanionDirector {
                     TargetState::Staggered { .. } => true,
                     _ => false,
                 };
-                // Q15: ahead of her, 30..80 px, and a pounce that cannot kill.
+                // Q15: ahead of her, 30..80 px, and a pounce that cannot kill
+                // (under `never`; CF02-DUO-A01 lets it finish).
                 (target.id.kind == EntityKind::Goblin // Q15: only on a goblin
                     && down
                     && target.hp > 0
@@ -639,6 +645,13 @@ impl CompanionDirector {
                     reach_min: f32::from(d.cf02_q15_pounce_min_px),
                     reach_max: f32::from(d.cf02_q15_pounce_max_px),
                 })
+                .or_else(|| self.duo_pounce_standing(view, set, me, target, &kills))
+            }
+            (HeroId::Donut, Action::Swat) if set.cf02_duo.cf02_duo_a04_offense => {
+                self.duo_swat(set, me, target)
+            }
+            (HeroId::Donut, Action::Missile) if set.cf02_duo.cf02_duo_a04_offense => {
+                self.duo_missile(set, me, target, &kills)
             }
             (HeroId::Carl, Action::Jab | Action::Haymaker) => {
                 let c = &set.carl;
@@ -665,6 +678,99 @@ impl CompanionDirector {
             }
             _ => None,
         }
+    }
+
+    /// CF02-DUO-A04/A06: a pounce on a goblin that stands (not in a tell), the
+    /// AI Donut's own attack on an enemy nobody has put down yet.
+    fn duo_pounce_standing(
+        &self,
+        view: &CompanionView,
+        set: &ProfileSet,
+        me: &HeroView,
+        target: &TargetView,
+        kills: &dyn Fn(u8) -> bool,
+    ) -> Option<Candidate> {
+        let duo = &set.cf02_duo;
+        let dx = target.x - me.x;
+        let distance = dx.abs();
+        let telling = view.threats.iter().any(|t| t.id == target.id);
+        (duo.cf02_duo_a04_offense
+            && target.id.kind == EntityKind::Goblin
+            && target.state == TargetState::Standing
+            && !telling
+            && target.hp > 0
+            && !kills(POUNCE_DAMAGE)
+            && sign(dx) == me.facing
+            && distance >= f32::from(duo.cf02_duo_a06_pounce_min_px)
+            && distance <= f32::from(duo.cf02_duo_a06_pounce_max_px))
+        .then_some(Candidate {
+            action: Action::Pounce,
+            target: target.id,
+            utility: DUO_POUNCE_UTILITY - px(distance),
+            dx,
+            reach_min: f32::from(duo.cf02_duo_a06_pounce_min_px),
+            reach_max: f32::from(duo.cf02_duo_a06_pounce_max_px),
+        })
+    }
+
+    /// CF02-DUO-A04: a swat on a standing enemy in swat reach
+    /// (before the unlock: the same Primary press is the missile after it).
+    fn duo_swat(&self, set: &ProfileSet, me: &HeroView, target: &TargetView) -> Option<Candidate> {
+        let d = &set.donut;
+        let mana = me.mana?;
+        let dx = target.x - me.x;
+        let distance = dx.abs();
+        // Standing only: a swat on an enemy that is already staggered does
+        // nothing (it is the pounce's and the human's moment).
+        let hittable = matches!(target.state, TargetState::Standing);
+        (!mana.unlocked
+            && hittable
+            && target.hp > 0
+            && distance <= f32::from(d.cf02_q14_swat_range_px))
+        .then_some(Candidate {
+            action: Action::Swat,
+            target: target.id,
+            utility: DUO_SWAT_UTILITY - px(distance),
+            dx,
+            reach_min: f32::from(d.ca41_swat_hit_min_px),
+            reach_max: f32::from(d.ca41_swat_hit_max_px),
+        })
+    }
+
+    /// CF02-DUO-A04/A05: a Magic Missile on a standing or staggered enemy in
+    /// the offensive band. Only after the unlock and only with the AI reserve
+    /// left after the cast (`ai_can_cast`): never a free cast.
+    fn duo_missile(
+        &self,
+        set: &ProfileSet,
+        me: &HeroView,
+        target: &TargetView,
+        kills: &dyn Fn(u8) -> bool,
+    ) -> Option<Candidate> {
+        let duo = &set.cf02_duo;
+        let mana = me.mana?;
+        let dx = target.x - me.x;
+        let distance = dx.abs();
+        let hittable = matches!(
+            target.state,
+            TargetState::Standing | TargetState::Staggered { .. }
+        );
+        (mana.unlocked
+            && mana.ai_can_cast
+            && hittable
+            && target.hp > 0
+            && !kills(MAGIC_MISSILE.damage)
+            && sign(dx) == me.facing
+            && distance >= f32::from(duo.cf02_duo_a05_missile_min_px)
+            && distance <= f32::from(duo.cf02_duo_a05_missile_max_px))
+        .then_some(Candidate {
+            action: Action::Missile,
+            target: target.id,
+            utility: DUO_MISSILE_UTILITY - px(distance),
+            dx,
+            reach_min: f32::from(duo.cf02_duo_a05_missile_min_px),
+            reach_max: f32::from(duo.cf02_duo_a05_missile_max_px),
+        })
     }
 
     /// Mix the director's own state (to be folded into the scene hash by
@@ -722,6 +828,16 @@ mod tests {
 
     fn assist() -> ProfileSet {
         set_of(ProfileSetId::Cf02Assist)
+    }
+
+    /// `cf02_assist` as it was before CF02-DUO (never kills, one action per 60
+    /// ticks, no offense): isolates the Q14..Q17 rules these tests pin.
+    fn restrained() -> ProfileSet {
+        let mut set = assist();
+        set.ca19_kill_policy = KillPolicy::Never;
+        set.cf02_q16_action_cadence_ticks = 60;
+        set.cf02_duo.cf02_duo_a04_offense = false;
+        set
     }
 
     fn v0() -> ProfileSet {
@@ -1038,7 +1154,7 @@ mod tests {
         };
         // Q38 hold (review F-2): a lying goblin that gets up before the pounce
         // lands (fewer ticks left than startup plus flight) is not pounced.
-        let min = assist().donut.cf02_q38_pounce_lying_min_ticks_left;
+        let min = restrained().donut.cf02_q38_pounce_lying_min_ticks_left;
         assert_eq!(
             min,
             crate::donut_moves::POUNCE_STARTUP + crate::donut_moves::POUNCE_FLIGHT_NOMINAL
@@ -1047,27 +1163,36 @@ mod tests {
             down_ticks_left,
             hold_used: false,
         };
-        assert!(pounce(110.0, 2, lying_for(min), 1, &assist()).0);
-        assert!(!pounce(110.0, 2, lying_for(min - 1), 1, &assist()).0);
-        let (pressed, dec) = pounce(110.0, 2, lying, 1, &assist());
+        assert!(pounce(110.0, 2, lying_for(min), 1, &restrained()).0);
+        assert!(!pounce(110.0, 2, lying_for(min - 1), 1, &restrained()).0);
+        let (pressed, dec) = pounce(110.0, 2, lying, 1, &restrained());
         assert!(pressed);
         assert_eq!(
             (dec.mode, dec.action),
             (Mode::SupportAttack, Some(Action::Pounce))
         );
-        assert!(pounce(110.0, 2, TargetState::Staggered { ticks: 5 }, 1, &assist()).0);
+        assert!(
+            pounce(
+                110.0,
+                2,
+                TargetState::Staggered { ticks: 5 },
+                1,
+                &restrained()
+            )
+            .0
+        );
         // Range 30..80 ahead of her (Q15).
-        assert!(pounce(90.0, 2, lying, 1, &assist()).0, "exactly 30 px");
-        assert!(pounce(140.0, 2, lying, 1, &assist()).0, "exactly 80 px");
-        assert!(!pounce(89.0, 2, lying, 1, &assist()).0);
-        assert!(!pounce(141.0, 2, lying, 1, &assist()).0);
+        assert!(pounce(90.0, 2, lying, 1, &restrained()).0, "exactly 30 px");
+        assert!(pounce(140.0, 2, lying, 1, &restrained()).0, "exactly 80 px");
+        assert!(!pounce(89.0, 2, lying, 1, &restrained()).0);
+        assert!(!pounce(141.0, 2, lying, 1, &restrained()).0);
         // Behind her, standing, airborne: no.
-        assert!(!pounce(110.0, 2, lying, -1, &assist()).0);
-        assert!(!pounce(110.0, 2, TargetState::Standing, 1, &assist()).0);
-        assert!(!pounce(110.0, 2, TargetState::Airborne, 1, &assist()).0);
+        assert!(!pounce(110.0, 2, lying, -1, &restrained()).0);
+        assert!(!pounce(110.0, 2, TargetState::Standing, 1, &restrained()).0);
+        assert!(!pounce(110.0, 2, TargetState::Airborne, 1, &restrained()).0);
         // Never lethal under `never`; unchanged under `factual`.
-        assert!(!pounce(110.0, 1, lying, 1, &assist()).0);
-        let mut factual = assist();
+        assert!(!pounce(110.0, 1, lying, 1, &restrained()).0);
+        let mut factual = restrained();
         factual.ca19_kill_policy = KillPolicy::Factual;
         assert!(pounce(110.0, 1, lying, 1, &factual).0);
     }
@@ -1078,10 +1203,87 @@ mod tests {
         let mut llama = target(0, 110.0, 2, TargetState::Staggered { ticks: 5 });
         llama.id.kind = EntityKind::Llama;
         v.targets = vec![llama];
-        let (raw, d) = donut().step_traced(&v, &assist());
+        let (raw, d) = donut().step_traced(&v, &restrained());
         assert!(!raw.physical && !d.pressed && d.mode == Mode::Follow);
         v.targets[0].id.kind = EntityKind::Goblin;
-        assert!(donut().step(&v, &assist()).physical);
+        assert!(donut().step(&v, &restrained()).physical);
+    }
+
+    // ------------------------------------------------------------ duo offense --
+
+    #[test]
+    fn duo_offense_is_data_and_off_in_v0_and_the_restrained_set() {
+        let mut v = donut_ai(60.0);
+        v.targets = vec![target(0, 80.0, 2, TargetState::Standing)];
+        for set in [v0(), restrained()] {
+            let (raw, d) = donut().step_traced(&v, &set);
+            assert!(only_follow(&raw) && d.mode == Mode::Follow, "{d:?}");
+        }
+        let (raw, d) = donut().step_traced(&v, &assist());
+        assert!(raw.attack && d.action == Some(Action::Swat), "{d:?}");
+    }
+
+    #[test]
+    fn duo_donut_pounces_a_standing_goblin_and_may_finish_it() {
+        let mut v = donut_ai(60.0);
+        v.targets = vec![target(0, 110.0, 2, TargetState::Standing)];
+        let (raw, d) = donut().step_traced(&v, &assist());
+        assert!(raw.physical && d.action == Some(Action::Pounce), "{d:?}");
+        // Not a goblin that is telling, not one out of the band.
+        let mut telling = v.clone();
+        telling.threats = vec![threat(0, 110.0, 3, Some(HeroId::Donut))];
+        let (_, d) = donut().step_traced(&telling, &assist());
+        assert_ne!(d.action, Some(Action::Pounce), "{d:?}");
+        v.targets[0].x = 150.0;
+        let (_, d) = donut().step_traced(&v, &assist());
+        assert_ne!(d.action, Some(Action::Pounce), "{d:?}");
+        // Factual: a 1 HP goblin is pounced too.
+        let mut last = donut_ai(60.0);
+        last.targets = vec![target(0, 110.0, 1, TargetState::Standing)];
+        assert!(donut().step_traced(&last, &assist()).1.action == Some(Action::Pounce));
+    }
+
+    #[test]
+    fn duo_donut_casts_the_missile_only_within_the_mana_rules() {
+        let mut v = donut_ai(60.0);
+        v.targets = vec![target(0, 190.0, 2, TargetState::Standing)]; // 130 px
+        unlock(&mut v, 8, true);
+        let (raw, d) = donut().step_traced(&v, &assist());
+        assert!(raw.attack && d.action == Some(Action::Missile), "{d:?}");
+        // Below the AI reserve (`ai_can_cast` false): no cast, no free one.
+        unlock(&mut v, 2, false);
+        let (raw, d) = donut().step_traced(&v, &assist());
+        assert!(!raw.attack && d.action != Some(Action::Missile), "{d:?}");
+        // Out of the band (200 px): not engaged, no cast.
+        unlock(&mut v, 8, true);
+        v.targets[0].x = 260.0;
+        let (raw, d) = donut().step_traced(&v, &assist());
+        assert!(!raw.attack && d.mode == Mode::Follow, "{d:?}");
+        // Before the unlock the Primary press is the swat, never a cast.
+        let mut locked = donut_ai(60.0);
+        locked.targets = vec![target(0, 80.0, 2, TargetState::Standing)];
+        let (_, d) = donut().step_traced(&locked, &assist());
+        assert_eq!(d.action, Some(Action::Swat));
+    }
+
+    #[test]
+    fn duo_offense_keeps_the_action_cadence() {
+        let mut dir = donut();
+        let set = assist();
+        assert_eq!(set.cf02_q16_action_cadence_ticks, 20);
+        let mut presses = Vec::new();
+        for tick in 100..180u64 {
+            let mut v = donut_ai(60.0);
+            v.tick = tick;
+            v.targets = vec![target(0, 80.0, 2, TargetState::Standing)];
+            if dir.step(&v, &set).attack {
+                presses.push(tick);
+            }
+        }
+        assert!(presses.len() >= 3, "{presses:?}");
+        for pair in presses.windows(2) {
+            assert!(pair[1] - pair[0] >= 20, "{presses:?}");
+        }
     }
 
     // ------------------------------------------------------------- carl rules --
@@ -1337,7 +1539,7 @@ mod tests {
     #[test]
     fn q16_at_most_one_ai_move_per_action_cadence() {
         let mut dir = donut();
-        let set = assist();
+        let set = restrained();
         let mut presses = Vec::new();
         for tick in 100..240u64 {
             let mut v = donut_ai(60.0);
