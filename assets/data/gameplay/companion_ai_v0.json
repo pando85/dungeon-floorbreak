@@ -5,7 +5,7 @@
     "ca10_decision_cadence_ticks": 6,
     "cf02_q16_action_cadence_ticks": 20,
     "ca26_ai_bailout": false,
-    "cf02_q39_min_assist_starts": 3,
+    "cf02_q39_min_assist_starts": 2,
     "cf02_q39_max_hit_share_percent": 50,
     "carl": {
       "ca21_active": false,
@@ -31,7 +31,11 @@
       "cf02_duo_a05_missile_min_px": 64,
       "cf02_duo_a05_missile_max_px": 160,
       "cf02_duo_a06_pounce_min_px": 30,
-      "cf02_duo_a06_pounce_max_px": 80
+      "cf02_duo_a06_pounce_max_px": 80,
+      "cf02_duo_a08_respect_finisher": true,
+      "cf02_duo_a08_finisher_reach_px": 40,
+      "cf02_duo_a08_finisher_reserve_hp": 1,
+      "cf02_duo_a09_vertical_reach_px": 24
     }
   },
   "companion_v0": {
@@ -65,7 +69,11 @@
       "cf02_duo_a05_missile_min_px": 64,
       "cf02_duo_a05_missile_max_px": 160,
       "cf02_duo_a06_pounce_min_px": 30,
-      "cf02_duo_a06_pounce_max_px": 80
+      "cf02_duo_a06_pounce_max_px": 80,
+      "cf02_duo_a08_respect_finisher": false,
+      "cf02_duo_a08_finisher_reach_px": 40,
+      "cf02_duo_a08_finisher_reserve_hp": 1,
+      "cf02_duo_a09_vertical_reach_px": 24
     }
   }
 }

@@ -97,22 +97,25 @@ pub const CF02_ASSIST_SWAT_TRAILING_GAP: PartyFixture = PartyFixture {
 
 const ASSIST_POUNCE_BASE: Fixture = base(
     "cf02_assist_pounce_staggered",
-    "Solo as Carl: he jabs a 4 HP goblin and the AI Donut pounces it (CF02-Q15); since CF02-DUO her pounce may take the last hit (the pre-DUO never-kill scenario runs as a regression test under `companion_v0`)",
+    "Solo as Carl: he jabs a 4 HP goblin the AI Donut pounces, then jabs it again and finishes it; the AI never takes the last hit of the enemy Carl is engaging (CF02-DUO-A08, spec C-11), the pre-DUO never-kill scenario runs as a regression test under `companion_v0`",
     0xC0A1_0003,
     &[dummy(430)],
     160,
 );
 
-/// CF02-Q15 and Q38: a non-lethal assist pounce, Carl finishes. (The pounce
-/// starts on a staggered goblin but lands after the stagger: a pounce that
-/// lands on a staggered goblin is a design follow-up.)
+/// CF02-Q15, Q38 and CF02-DUO-A08: a non-lethal assist pounce, Carl finishes.
+/// (The pounce starts on a staggered goblin but lands after the stagger: a
+/// pounce that lands on a staggered goblin is a design follow-up.) Carl's second
+/// jab leaves the goblin at 1 HP while its combo window runs, and the AI Donut
+/// holds back (the first cut had her pounce start in the same tick and take
+/// the kill); Carl's third jab is the finisher.
 pub const CF02_ASSIST_POUNCE_STAGGERED: PartyFixture = PartyFixture {
     base: &ASSIST_POUNCE_BASE,
     two_player: false,
     tuning: ASSIST,
     script: &[
         primary(5, 6, 0),
-        primary(50, 51, 0),
+        primary(46, 47, 0),
         run(58, 70, 0, 1.0),
         primary(72, 73, 0),
     ],
@@ -255,7 +258,7 @@ pub const CF02_ASSIST_CAMERA_PARITY: PartyFixture = PartyFixture {
 
 const ASSIST_DEFEATS_BASE: Fixture = base(
     "cf02_assist_donut_defeats_goblin",
-    "Solo as Carl, who stands and never presses a button: the AI Donut engages the goblin on her own, swats and pounces it, and her own pounce defeats it (CF02-DUO-A01, A02, A04, A06)",
+    "Solo as Carl, who stands and never presses a button: the AI Donut engages the goblin on her own, pounces it, and her own pounce defeats it (CF02-DUO-A01, A02, A04, A06; she finishes it because Carl engages nothing, A08)",
     0xC0A1_0009,
     &[chase(520)],
     420,
@@ -619,15 +622,15 @@ mod tests {
     /// The committed final `PARTY_STATE` hash of every fixture here (the CI
     /// replays in `docs/evidence/companion-ai` pin the same values).
     const GOLDENS: [(&str, u64); 14] = [
-        ("cf02_assist_swat_interrupt", 0xbb06df808169c47a),
-        ("cf02_assist_swat_trailing_gap", 0x241c47e14ac1dded),
-        ("cf02_assist_pounce_staggered", 0xf6108c3e07bea65b),
+        ("cf02_assist_swat_interrupt", 0xe6977fc5111eafdd),
+        ("cf02_assist_swat_trailing_gap", 0x502637e04e298934),
+        ("cf02_assist_pounce_staggered", 0x75357a1ad7beda96),
         ("cf02_assist_hp_drops_midmove", 0xeeef90433185c908),
-        ("cf02_assist_cadence", 0xf317455959f32de3),
+        ("cf02_assist_cadence", 0xaa3703bdada42454),
         ("cf02_assist_magic_locked", 0x3fa0c4ae6aaecf92),
         ("cf02_assist_missile_reserve", 0x89506924a8836b1c),
-        ("cf02_assist_camera_parity", 0x4d1fadc9c26e005d),
-        ("cf02_assist_donut_defeats_goblin", 0x5583d22db576496d),
+        ("cf02_assist_camera_parity", 0x65785c03a9b63fbc),
+        ("cf02_assist_donut_defeats_goblin", 0xe1dae249bee2db6f),
         ("cf02_assist_donut_missiles_goblin", 0x0590b279269818e5),
         ("companion_carl_interrupts_for_donut", 0x0e259bf6d5b3f8f4),
         ("companion_donut_supports_carl", 0xe0e93bd08a05b14c),
@@ -782,6 +785,95 @@ mod tests {
         assert_eq!((t.glances, t.ai_kills, t.human_kills), (1, 0, 1));
     }
 
+    /// CF02-DUO-A07 (PR #165 review B-1): the offensive swat is gone, so the AI
+    /// Donut's swats are only interrupts of a tell, each one lands (no glance:
+    /// a glance would be a 0 damage swat at a goblin in its swing or at a
+    /// llama) and sets no guard on a goblin that is not telling. Her interrupt
+    /// swat still breaks the tells aimed at Carl in the two reference fights
+    /// (2 each, as before CF02-DUO), none of them blocked by a self-set guard.
+    #[test]
+    fn duo_a07_no_offensive_swat_and_the_interrupt_swat_still_breaks_tells() {
+        for (f, interrupts) in [(&CF02_ASSIST_CADENCE, 2), (&CF02_ASSIST_CAMERA_PARITY, 2)] {
+            let (_, events, _) = run_events(f);
+            assert!(
+                !events
+                    .iter()
+                    .any(|e| matches!(e, CombatEvent::DonutGlance { .. })),
+                "{}: an AI swat glanced",
+                f.name()
+            );
+            let swat_hit_ticks: Vec<u64> = events
+                .iter()
+                .filter_map(|e| match *e {
+                    CombatEvent::Hit {
+                        tick,
+                        move_id: MoveId::Swat,
+                        ..
+                    } => Some(tick),
+                    _ => None,
+                })
+                .collect();
+            let swat_interrupts = events
+                .iter()
+                .filter(|e| {
+                    matches!(e, CombatEvent::GoblinInterrupted { tick, .. }
+                        if swat_hit_ticks.contains(tick))
+                })
+                .count();
+            assert_eq!(swat_interrupts, interrupts, "{}: {events:?}", f.name());
+            // Every swat hit interrupts a tell: no swat landed on a goblin that
+            // was not telling (that would set the guard against her own interrupt).
+            for tick in &swat_hit_ticks {
+                assert!(
+                    events.iter().any(|e| matches!(
+                        e,
+                        CombatEvent::GoblinInterrupted { tick: t, .. } if t == tick
+                    )),
+                    "{}: a swat at {tick} broke no tell",
+                    f.name()
+                );
+            }
+        }
+    }
+
+    /// CF02-DUO-A08 (PR #165 review B-2, spec C-11): in the staggered-pounce
+    /// room Carl's second jab leaves the goblin at 1 HP and the AI Donut does
+    /// not take the last hit: the kill is Carl's.
+    #[test]
+    fn c11_the_ai_leaves_the_last_hit_to_carl_inside_his_combo() {
+        let t = tally_of(&CF02_ASSIST_POUNCE_STAGGERED);
+        let (_, events, _) = run_events(&CF02_ASSIST_POUNCE_STAGGERED);
+        assert_eq!((t.ai_kills, t.human_kills), (0, 1), "{t:?}");
+        assert!(
+            !events.iter().any(|e| matches!(
+                e,
+                CombatEvent::EnemyDefeated {
+                    instigator: Some(1),
+                    ..
+                }
+            )),
+            "{events:?}"
+        );
+        // No Donut hit lands after Carl's hit that left the goblin at 1 HP.
+        let carl_left_one = events.iter().find_map(|e| match *e {
+            CombatEvent::Hit {
+                tick,
+                move_id: MoveId::Jab,
+                health_left: 1,
+                ..
+            } => Some(tick),
+            _ => None,
+        });
+        let at = carl_left_one.expect("Carl's jab leaves the goblin at 1 HP");
+        assert!(
+            !events.iter().any(|e| matches!(
+                e,
+                CombatEvent::Hit { tick, move_id: MoveId::Pounce, .. } if *tick >= at
+            )),
+            "the AI hit the goblin at 1 HP"
+        );
+    }
+
     /// CF02-Q16: at most one AI-started move per 60 ticks, none while one runs.
     #[test]
     fn q16_one_ai_started_move_per_sixty_ticks() {
@@ -903,7 +995,7 @@ mod tests {
 
     /// CF02-Q39 (CA-32): the ceiling on the AI's hit share holds on the two
     /// goblin fights, with a smoke floor of two assist starts. The real floor
-    /// (`cf02_q39_min_assist_starts`, 3) is measured on the CF02-F
+    /// (`cf02_q39_min_assist_starts`, 3 for `companion_v0`, 2 for `cf02_assist` since CF02-DUO-A10) is measured on the CF02-F
     /// `cf02_arena_direct` run. `cf02_assist` now carries the CF02-DUO-A03
     /// ceiling (50 %) and its measurement is `cf02_arena_direct`; here the
     /// camera-parity fight runs under the restrained rules (`legacy`, same

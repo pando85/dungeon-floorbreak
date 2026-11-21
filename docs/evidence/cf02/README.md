@@ -139,7 +139,7 @@ Reading: the scripted plans never produce the skill-gated chain CINE-01 asks for
 | `cf02_showoff_taunt_punish` | `1b204602f6c3dc63` | cf02/replays | match |
 | `cf02_pincer_token` | `2f3867df0c7c1b1a` | cf02/replays | match |
 | `cf02_restart_reshuffles` | `4962783a758ca230` | cf02/replays | match |
-| `cf02_arena_direct` | `75083843cb33293b` | cf02/replays | match |
+| `cf02_arena_direct` | `5e6b3fc17a089096` | cf02/replays | match |
 | `cf02_arena_environment` | `e0ebc6ce91df9677` | cf02/replays | match |
 | `cf02_arena_swap` | `db7e6daea834a259` | cf02/replays | match |
 | `cf02_arena_coop` | `1eff8a4433a98473` | cf02/replays | match |

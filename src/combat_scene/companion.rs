@@ -612,6 +612,7 @@ impl CombatState {
                 state,
                 guarded: g.guard.is_some(),
                 in_view: view.in_view(g.x),
+                carl_hit: g.hit_by == Some(HeroId::Carl.index() as u32),
             });
         }
         if self.llama_targets_live().is_some() {
@@ -634,6 +635,7 @@ impl CombatState {
                     state,
                     guarded: l.guard.is_some(),
                     in_view: view.in_view(l.x),
+                    carl_hit: l.hit_by == Some(HeroId::Carl.index() as u32),
                 });
             }
         }

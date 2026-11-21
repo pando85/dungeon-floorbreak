@@ -18,7 +18,7 @@ pub const PROFILE_JSON: &str = include_str!("../../assets/data/gameplay/companio
 
 /// The committed FNV-1a 64 content hash of [`PROFILE_JSON`]. Editing the file
 /// without updating this value fails [`ProfileFile::pinned`] and the pin test.
-pub const PROFILE_HASH: u64 = 0x9d3e_bafc_5fa5_9c50;
+pub const PROFILE_HASH: u64 = 0xb8f7_4e91_4c7d_3626;
 
 /// The profile set id under the spec's name (CA-21, section 17): the runtime's
 /// `UncontrolledHero::Companion(CompanionProfileSet)` names it.
@@ -101,9 +101,11 @@ pub struct DonutRole {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DuoOffense {
-    /// CF02-DUO-A04: AI Donut also starts a swat, a pounce or a Magic Missile
-    /// on her own at a standing or staggered enemy, not only as an interrupt
-    /// or on a lying goblin.
+    /// CF02-DUO-A04: AI Donut also starts a pounce or a Magic Missile on her
+    /// own at a standing or staggered enemy, not only as an interrupt or on a
+    /// lying goblin. (The offensive swat of the first cut was removed by
+    /// CF02-DUO-A07: it dealt no damage and set the guard that blocks her own
+    /// interrupt.)
     pub cf02_duo_a04_offense: bool,
     /// CF02-DUO-A05: the band the offensive Magic Missile starts from (after
     /// the unlock, above the AI mana reserve, never a free cast).
@@ -113,6 +115,24 @@ pub struct DuoOffense {
     /// goblin (the lying/staggered pounce keeps the Q15 band).
     pub cf02_duo_a06_pounce_min_px: u16,
     pub cf02_duo_a06_pounce_max_px: u16,
+    /// CF02-DUO-A08 (spec section 8, `HumanFinishWindow`): the AI Donut never
+    /// starts a damaging move that would take the last hit on an enemy the
+    /// human-controlled Carl is engaging. Needs `ca19_kill_policy = factual`
+    /// to matter (under `never` no AI hit kills).
+    pub cf02_duo_a08_respect_finisher: bool,
+    /// CF02-DUO-A08: Carl engages an enemy within this many px of him while he
+    /// has a move running or the enemy is down from his hit: the jab strike
+    /// band (30), the knockback drift a jab leaves (6, measured 430 to 436 in
+    /// `cf02_assist_pounce_staggered`) and the haymaker's 4 px step, so the
+    /// window covers jab to haymaker.
+    pub cf02_duo_a08_finisher_reach_px: u16,
+    /// CF02-DUO-A08: hit points kept for Carl's pending hit: an engaged enemy
+    /// whose HP is at most the AI hit's damage plus this is not hit by her.
+    pub cf02_duo_a08_finisher_reserve_hp: u8,
+    /// CF02-DUO-A09: the offensive pounce and missile start only at an enemy
+    /// whose feet are within this many px of her own (no swat in the air over
+    /// a goblin on another level).
+    pub cf02_duo_a09_vertical_reach_px: u16,
 }
 
 /// One profile set.
@@ -291,6 +311,18 @@ impl ProfileSet {
                 "must be below cf02_duo_a05_missile_max_px",
             );
         }
+        if duo.cf02_duo_a08_respect_finisher && duo.cf02_duo_a08_finisher_reach_px == 0 {
+            return bad(
+                &f("cf02_duo.cf02_duo_a08_finisher_reach_px"),
+                "must be positive while cf02_duo_a08_respect_finisher is on",
+            );
+        }
+        if duo.cf02_duo_a09_vertical_reach_px == 0 {
+            return bad(
+                &f("cf02_duo.cf02_duo_a09_vertical_reach_px"),
+                "must be positive",
+            );
+        }
         if duo.cf02_duo_a06_pounce_min_px >= duo.cf02_duo_a06_pounce_max_px {
             return bad(
                 &f("cf02_duo.cf02_duo_a06_pounce_min_px"),
@@ -379,8 +411,17 @@ mod tests {
             ),
             (6, 20)
         );
-        // CF02-DUO-A04..A06: AI Donut's offense.
+        // CF02-DUO-A04..A06, A08, A09: AI Donut's offense.
         assert!(s.cf02_duo.cf02_duo_a04_offense);
+        assert!(s.cf02_duo.cf02_duo_a08_respect_finisher);
+        assert_eq!(
+            (
+                s.cf02_duo.cf02_duo_a08_finisher_reach_px,
+                s.cf02_duo.cf02_duo_a08_finisher_reserve_hp,
+                s.cf02_duo.cf02_duo_a09_vertical_reach_px
+            ),
+            (40, 1, 24)
+        );
         assert_eq!(
             (
                 s.cf02_duo.cf02_duo_a05_missile_min_px,
@@ -418,7 +459,7 @@ mod tests {
                 s.cf02_q39_min_assist_starts,
                 s.cf02_q39_max_hit_share_percent
             ),
-            (3, 50)
+            (2, 50)
         );
     }
 

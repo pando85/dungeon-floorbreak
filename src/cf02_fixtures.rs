@@ -1770,7 +1770,7 @@ mod tests {
         ("cf02_showoff_taunt_punish", 0x1b204602f6c3dc63),
         ("cf02_pincer_token", 0x2f3867df0c7c1b1a),
         ("cf02_restart_reshuffles", 0x4962783a758ca230),
-        ("cf02_arena_direct", 0x75083843cb33293b),
+        ("cf02_arena_direct", 0x5e6b3fc17a089096),
         ("cf02_arena_environment", 0xe0ebc6ce91df9677),
         ("cf02_arena_swap", 0xdb7e6daea834a259),
         ("cf02_arena_coop", 0x1eff8a4433a98473),
@@ -3989,7 +3989,7 @@ mod tests {
         assert_eq!(sim.combat.deaths, 0);
         let ai_starts = starts(&sim)
             .iter()
-            .filter(|s| matches!(s.1, MoveId::Swat | MoveId::Pounce))
+            .filter(|s| matches!(s.1, MoveId::Swat | MoveId::Pounce | MoveId::MagicMissile))
             .count();
         assert!(
             ai_starts >= usize::from(set.cf02_q39_min_assist_starts),
@@ -3998,25 +3998,49 @@ mod tests {
         let all = hits(&sim);
         let ai_hits = all
             .iter()
-            .filter(|h| matches!(h.1, MoveId::Swat | MoveId::Pounce))
+            .filter(|h| matches!(h.1, MoveId::Swat | MoveId::Pounce | MoveId::MagicMissile))
             .count();
         assert!(
             ai_hits * 100 <= all.len() * usize::from(set.cf02_q39_max_hit_share_percent),
             "the AI lands {ai_hits} of {} hits",
             all.len()
         );
-        // CF02-DUO-A01: the kill policy is `factual`; the AI is allowed to defeat,
-        // and the one defeat credited to Donut here is her own pounce's.
-        assert!(
-            sim.combat.events.iter().any(|e| matches!(
-                e,
-                CombatEvent::EnemyDefeated {
-                    instigator: Some(1),
+        // CF02-DUO-A01 and A08 (spec C-11): the kill policy is `factual`, so the
+        // AI may defeat, but never an enemy Carl is engaging: no AI move takes a
+        // last hit within the finisher window of Carl's own hit on that enemy.
+        // The id of the target is the event's `target` (the arena has no respawn).
+        let window = 30;
+        let carl_hits: Vec<(u64, u32)> = sim
+            .combat
+            .events
+            .iter()
+            .filter_map(|e| match *e {
+                CombatEvent::Hit {
+                    tick,
+                    move_id: MoveId::Jab | MoveId::Haymaker | MoveId::PushKick,
+                    target,
                     ..
-                }
-            )),
-            "an AI Donut finishes an enemy in the room"
-        );
+                } => Some((tick, target)),
+                _ => None,
+            })
+            .collect();
+        for e in &sim.combat.events {
+            if let CombatEvent::Hit {
+                tick,
+                move_id: MoveId::Pounce | MoveId::MagicMissile,
+                target,
+                health_left: 0,
+                ..
+            } = *e
+            {
+                assert!(
+                    !carl_hits
+                        .iter()
+                        .any(|&(t, id)| id == target && t <= tick && tick - t <= window),
+                    "an AI hit at {tick} took the last HP of enemy {target} inside Carl's window"
+                );
+            }
+        }
         // About 8 to 60 s of play.
         let last = sim
             .combat
@@ -4044,6 +4068,58 @@ mod tests {
         assert!(count_events(&sim, |e| matches!(e, CombatEvent::ShoreHit { .. })) >= 2);
         assert!(count_events(&sim, |e| matches!(e, CombatEvent::ShoreBroken { .. })) >= 1);
         assert!(count_events(&sim, |e| matches!(e, CombatEvent::ShoreLanded { .. })) >= 1);
+    }
+
+    /// F-3 of the PR #165 review: the environmental plan under the assistant the
+    /// owner plays by default (`--cf02`, profile `cf02_assist`). The golden
+    /// `cf02_arena_environment` runs the follow-and-jump bot (`ARENA_COOP`), so
+    /// this is the non-golden measurement of what the active Donut does to the
+    /// plan. Measured: with the assistant no goblin swings into the shore (0
+    /// trips; the bot run trips it at least twice), because she engages the
+    /// goblins that chase Carl before they swing, and the stand-in pilot does
+    /// not finish the room by this route either way (follow-up U4 of the PR #158
+    /// review). The test pins that finding (so a change in it is noticed and the
+    /// owner handoff line is updated), that Donut really acts, and that the run
+    /// is deterministic and deathless. `--companion off` rehearses the plan.
+    #[test]
+    fn cf02_arena_environment_plan_runs_under_the_default_assistant() {
+        let assisted: &'static PartyFixture = &PartyFixture {
+            base: &ARENA_ENVIRONMENT_BASE,
+            two_player: false,
+            tuning: ARENA_SOLO,
+            script: &[],
+            pilot: Pilot::ArenaEnvironment,
+            donut: DonutSetup::NONE,
+        };
+        let run = |fixture: &'static PartyFixture| {
+            let mut sim =
+                crate::party_scene::PartyFixtureSim::new(&kit_of(fixture), 360, fixture).unwrap();
+            sim.run_scripted(fixture.base.ticks);
+            sim
+        };
+        let trips_of = |sim: &crate::party_scene::PartyFixtureSim| {
+            count_events(sim, |e| matches!(e, CombatEvent::ShoreTripped { .. }))
+        };
+        let sim = run(assisted);
+        let bot = run(&CF02_ARENA_ENVIRONMENT);
+        let (with_donut, with_bot) = (trips_of(&sim), trips_of(&bot));
+        println!("environment plan, shore trips: assistant {with_donut}, bot {with_bot}");
+        assert_eq!(sim.combat.deaths, 0);
+        assert!(
+            starts(&sim)
+                .iter()
+                .any(|s| matches!(s.1, MoveId::Pounce | MoveId::Swat | MoveId::MagicMissile)),
+            "the assistant acts in this room"
+        );
+        assert!(
+            with_donut < with_bot,
+            "the assistant pre-empts the shore plan ({with_donut} vs {with_bot} trips)"
+        );
+        assert_eq!(
+            sim.state_hash(),
+            run(assisted).state_hash(),
+            "deterministic"
+        );
     }
 
     /// Q19 in the room: the solo swap happens twice (the second press is the one
