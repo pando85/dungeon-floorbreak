@@ -1,0 +1,18 @@
+# PLAYTRACE-01 PT-D: optional offline tooling. The game never depends on it:
+# the shipped binary and the root `cargo test --locked --all-targets` build no
+# Python and no NumPy.
+[project]
+name = "dungeon-floorbreak-playtrace-tools"
+version = "0.1.0"
+description = "Offline exporter, dataset checks and a behaviour-cloning smoke for PLAYTRACE-01 sessions"
+requires-python = ">=3.12"
+dependencies = [
+  "numpy==2.5.4",
+]
+
+[project.optional-dependencies]
+test = ["pytest==9.2.0"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-p no:cacheprovider"

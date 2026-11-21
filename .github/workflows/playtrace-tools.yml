@@ -1,0 +1,60 @@
+# PLAYTRACE-01 PT-D opt-in tooling job. Not a required check.
+# Builds the Rust `playtrace` binary, writes SYNTHETIC fixture sessions with it
+# (no human data, none is ever committed), verifies them with the real
+# fresh-process verifier and runs the Python exporter, dataset-check and
+# behaviour-cloning-smoke tests against them.
+name: playtrace-tools
+on:
+  pull_request:
+    paths:
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'build.rs'
+      - 'src/playtrace/**'
+      - 'src/bin/playtrace.rs'
+      - 'tools/playtrace/**'
+      - '.github/workflows/playtrace-tools.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: playtrace-tools-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  exporter:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: bevy-linux-dev
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            pkg-config libasound2-dev libudev-dev \
+            libx11-dev libxi-dev libxrandr-dev libxcursor-dev libxkbcommon-dev libxkbcommon-x11-0 \
+            libwayland-dev libvulkan-dev
+      - name: Build the playtrace binary (the verifier and the synthetic fixture writer)
+        run: cargo build --locked --bin playtrace
+      - name: Root dependency isolation (no NumPy or Python bridge in the game's cargo tree)
+        run: |
+          if cargo tree --locked | grep -Ei 'pyo3|numpy|ndarray'; then
+            echo "Python tooling leaked into the root dependency tree" >&2
+            exit 1
+          fi
+      - name: Install the pinned test dependencies
+        run: python -m pip install --disable-pip-version-check numpy==2.5.4 pytest==9.2.0
+      - name: Exporter tests (synthetic journals with a stub verifier, then the real verifier end to end)
+        working-directory: tools/playtrace
+        env:
+          PLAYTRACE_BIN: ${{ github.workspace }}/target/debug/playtrace
+          PLAYTRACE_REQUIRE_E2E: '1'
+        run: python -m pytest -q

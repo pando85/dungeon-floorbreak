@@ -1,5 +1,6 @@
-//! PLAYTRACE-01 session tool: `list`, `inspect`, `verify`, `recover` and
-//! `delete`.
+//! PLAYTRACE-01 session tool: `list`, `stats`, `inspect`, `verify`, `recover`,
+//! `delete` and `synth-fixture` (a synthetic fixture session for the exporter's
+//! tests).
 //!
 //! `verify` replays a session from its reset descriptor in this (fresh)
 //! process and compares hashes, events, effective inputs and observations. It
@@ -10,12 +11,16 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 
 use dungeon_floorbreak::playtrace::{
-    self, ControlEvent, SessionStatus, dir_size_bytes, list_sessions, read_session, recover_session,
+    self, ControlEvent, SessionStats, SessionStatus, dir_size_bytes, list_sessions, read_session,
+    recover_session, session_stats, synthetic,
 };
 
 const USAGE: &str =
-    "usage: playtrace <list|inspect ID|verify ID|recover ID|delete ID --yes> [--dir DIR] [--root REPO]
+    "usage: playtrace <list|stats [ID]|inspect ID|verify ID|recover ID|delete ID --yes> [--dir DIR] [--root REPO]
+       playtrace synth-fixture --dir DIR [--fixture NAME] [--ticks N] [--root REPO]
   list              every recorded session (id, status, ticks, day, commit)
+  stats [ID]        read-only aggregate counts: ticks, episodes, per-hero human and AI action histograms
+  synth-fixture     write a SYNTHETIC fixture-scripted session (test data, never a human demonstration)
   inspect ID        manifest summary, episodes, control events and integrity of one session
   recover ID        seal a crashed session to its valid complete prefix
   delete ID --yes   remove one session directory (local deletion; nothing is uploaded)
@@ -194,6 +199,100 @@ fn run(args: &[String]) -> Result<(), String> {
                 m.session_id,
                 status_name(m.status),
                 m.tick_count
+            );
+            Ok(())
+        }
+        "stats" => {
+            let base = base_dir(args)?;
+            let mut paths: Vec<PathBuf> = match id {
+                Some(id) => vec![resolve(&base, id)?],
+                None => list_sessions(&base).into_iter().map(|(p, _)| p).collect(),
+            };
+            paths.sort();
+            let mut total = SessionStats::default();
+            let mut sessions = 0_u64;
+            let mut lines = Vec::new();
+            for path in &paths {
+                let name = path
+                    .file_name()
+                    .map_or(String::new(), |n| n.to_string_lossy().into_owned());
+                match read_session(path, true) {
+                    Ok(loaded) => {
+                        let stats = session_stats(&loaded);
+                        sessions += 1;
+                        total.ticks += stats.ticks;
+                        total.episodes += stats.episodes;
+                        total.combat_events += stats.combat_events;
+                        lines.push(format!(
+                            "PLAYTRACE_STATS_SESSION session={name} status={} ticks={} episodes={} combat_events={}",
+                            status_name(loaded.manifest.status),
+                            stats.ticks,
+                            stats.episodes,
+                            stats.combat_events
+                        ));
+                        for (hero, name_of) in ["carl", "donut"].iter().enumerate() {
+                            let h = &stats.heroes[hero];
+                            for (class, hist) in [("human", &h.human), ("ai", &h.ai)] {
+                                lines.push(format!(
+                                    "  hero={name_of} class={class} ticks={} left={} neutral={} right={} jump={} attack={} physical={} ability={} down={} swap={}",
+                                    hist.ticks,
+                                    hist.left,
+                                    hist.neutral,
+                                    hist.right,
+                                    hist.jump,
+                                    hist.attack,
+                                    hist.physical,
+                                    hist.ability,
+                                    hist.down,
+                                    hist.swap
+                                ));
+                            }
+                            lines.push(format!(
+                                "  hero={name_of} undriven_ticks={} human_intent_differs_effective={}",
+                                h.undriven_ticks, h.human_intent_differs_effective
+                            ));
+                        }
+                    }
+                    Err(e) => lines.push(format!(
+                        "PLAYTRACE_STATS_SESSION session={name} INVALID: {e}"
+                    )),
+                }
+            }
+            println!(
+                "PLAYTRACE_STATS sessions={sessions} ticks={} episodes={} combat_events={}",
+                total.ticks, total.episodes, total.combat_events
+            );
+            for line in lines {
+                println!("{line}");
+            }
+            Ok(())
+        }
+        "synth-fixture" => {
+            // A synthetic, fixture-scripted session for the exporter's tests. It
+            // never goes into the default recording store: --dir is required.
+            let Some(at) = args.iter().position(|a| a == "--dir") else {
+                return Err("synth-fixture needs an explicit --dir (it never writes to the default recording store)".to_owned());
+            };
+            let base = PathBuf::from(args.get(at + 1).ok_or("--dir needs a directory")?);
+            let value = |flag: &str| {
+                args.iter()
+                    .position(|a| a == flag)
+                    .and_then(|at| args.get(at + 1))
+            };
+            let fixture = value("--fixture").map_or(synthetic::DEFAULT_FIXTURE, String::as_str);
+            let ticks: u64 = match value("--ticks") {
+                Some(text) => text.parse().map_err(|_| "--ticks needs a number")?,
+                None => 400,
+            };
+            let root = match value("--root") {
+                Some(root) => PathBuf::from(root),
+                None => std::env::current_dir()
+                    .map_err(|e| format!("no working directory: {:?}", e.kind()))?,
+            };
+            let manifest = synthetic::record_synthetic(&base, &root, fixture, ticks)?;
+            println!(
+                "PLAYTRACE_SYNTHETIC session={} fixture={fixture} ticks={} (synthetic: not a human demonstration)",
+                manifest.session_id, manifest.tick_count
             );
             Ok(())
         }
