@@ -453,6 +453,7 @@ The order is a **default, not a gate**: first come, first rebased. Each step onl
 | `src/env_prop_art.rs` **(new)** | BOIL-E → RING-D (append) |
 | `src/boss.rs` | CP-B1 → CP-C → CP-D. BOIL-B wire and the slot enemies do **not** edit it (their `HeroBlow` sources are constants in their own modules) |
 | `src/blast.rs` | CP-B1 → CP-C (no other step edits it) |
+| `src/combat_scene/thrown.rs` (new, CP-B1) | CP-B1 → CP-C → CP-D (append). ENEMY-SLOT appends its blast-victim hook (the slot enemies' victims of a non-QA `BlastProfile`) here, and HAZ-A2 may use `push_authored_charge` (the one authored-charge count, so the thrown-charge slot stays after every sticker charge). The file holds the blast victim loop, the press gate hooks and the reserved charge slot |
 | `src/goblin.rs` | CP-B1 → CP-D → HAZ-A2 (append-only; HAZ-A2 adds the walk barrier list: walk, approach, flee and the Coward hop obey it; knockback ignores it) |
 | `src/shore.rs` | CP-C → CP-D (setpieces never edit it; K18) |
 | `src/boss_scene.rs` | DM-A (re-pin) → CP-C (pilot) → DP-F (pilot) |

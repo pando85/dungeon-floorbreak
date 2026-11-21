@@ -17,9 +17,10 @@
 /// What a source does to heroes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum HeroDamagePolicy {
-    /// The owner is spared or reduced and every other hero is hurt in full:
-    /// the hero-thrown dynamite profile (CP-Q24). Never valid for a world
-    /// hazard, which has no owner.
+    /// Only the owner hero is hurt, and reduced; every other hero is spared (no
+    /// friendly fire, CP-Q24): the hero-thrown dynamite profile. The owner is
+    /// the hero whose player index is `BlastCharge.owner`. Never valid for a
+    /// world hazard, which has no owner.
     OwnerReduced,
     /// Every hero is hurt in full, whoever caused the source.
     AllHeroes,

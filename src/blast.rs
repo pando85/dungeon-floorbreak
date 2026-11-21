@@ -12,11 +12,17 @@
 //! distance from the blast centre to a body box is compared with the squared
 //! radius (never a square root), so the boundaries are exact.
 //!
-//! Disclosed limits (the dynamite PR must add them before any player-facing
-//! explosive): no line of sight, no terrain damage, no friendly fire, no
-//! damage to Carl or Donut.
+//! Disclosed limits of the **QA profile** ([`BlastProfile::QA`], every fixture
+//! charge): no line of sight, no terrain damage, no friendly fire, no damage to
+//! Carl or Donut. CARL-PROG-01 CP-B1 generalizes the charge with a
+//! [`BlastProfile`]: the QA profile reproduces DEATH-D exactly, the thrown
+//! charge's profile adds the outer ring, line of sight and self-damage (its
+//! resolution lives in `combat_scene/thrown.rs`). The chain reaction and the
+//! structure breaking that the profile's `breaks_structures` flag announces are
+//! CP-C; CP-B1 only carries the flag.
 
-use crate::prototype::Rect;
+use crate::hero_damage::HeroDamagePolicy;
+use crate::prototype::{Block, Rect};
 
 /// A body box within this distance of the blast centre is killed (thrown).
 pub const BLAST_RADIUS: f32 = 20.0;
@@ -41,8 +47,140 @@ pub enum Arm {
 pub enum BlastReach {
     /// The centre is inside the body box: the burst (catastrophic).
     PointBlank,
-    /// Within [`BLAST_RADIUS`] but not inside: thrown dead (heavy).
+    /// Within the core radius ([`BLAST_RADIUS`] for the QA profile) but not
+    /// inside: thrown dead (heavy).
     Ring,
+    /// CP-B1: beyond the core and within the outer radius (CP-Q20, CP-Q21): one
+    /// damage and a living launch. Only a profile with an outer band returns it.
+    Outer,
+}
+
+/// CP-B1: the data of one blast (CARL-PROG-01 CP-Q20..CP-Q26, integration plan
+/// K3). Every charge carries one; [`Self::QA`] is the DEATH-D rule. IP-neutral:
+/// the thrown charge's profile is built from `carl_prog_v0.json`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct BlastProfile {
+    /// Core radius in px: inside the body is point blank, up to it is a heavy
+    /// ring kill. **0 means "no core band"**: nothing is point blank or a core
+    /// ring kill, the outer result applies everywhere (a body that contains the
+    /// centre under a coreless profile gets the outer result).
+    pub core_radius: f32,
+    /// Outer radius in px (the QA profile: equal to the core, so no outer band).
+    pub outer_radius: f32,
+    /// Damage of the outer ring to a goblin (a lethal one is a ring kill).
+    pub outer_damage: u8,
+    /// Damage of the outer ring to a llama (CP-Q26).
+    pub llama_outer_damage: u8,
+    /// Damage to a boss, anywhere in reach (CP-Q25).
+    pub boss_damage: u8,
+    /// The outer ring's living launch `(vx, vy)` in px/s, away from the centre.
+    pub launch: (f32, f32),
+    /// Whether solids block the blast (CP-Q22).
+    pub los: bool,
+    /// What the blast does to heroes (K3). The shared enum.
+    pub hero_damage: HeroDamagePolicy,
+    /// Damage a hurt hero takes (reduced for the owner under `OwnerReduced`).
+    pub hero_hp: u8,
+    /// The knock `(vx, vy)` of a hurt hero in px/s, away from the centre.
+    pub hero_knock: (f32, f32),
+    /// The `HeroHurt` source id this blast logs on a hero it hurts: one id per
+    /// setpiece (integration plan section 3), so a world blast routed through
+    /// this profile never logs another setpiece's id. 0 for the QA profile.
+    pub hero_source: u32,
+    /// CP-C hook (CP-Q35): the blast breaks the authored supports. CP-B1 carries
+    /// the flag and acts on nothing.
+    pub breaks_structures: bool,
+}
+
+impl BlastProfile {
+    /// The DEATH-D rule: a 20 px lethal ring, nothing else (the QA fixtures and
+    /// DEMO-01's trip charge). Never mixed into a hash.
+    pub const QA: Self = Self {
+        core_radius: BLAST_RADIUS,
+        outer_radius: BLAST_RADIUS,
+        outer_damage: 0,
+        llama_outer_damage: 0,
+        boss_damage: 0,
+        launch: (0.0, 0.0),
+        los: false,
+        hero_damage: HeroDamagePolicy::NoHeroes,
+        hero_hp: 0,
+        hero_knock: (0.0, 0.0),
+        hero_source: 0,
+        breaks_structures: false,
+    };
+
+    pub fn is_qa(&self) -> bool {
+        *self == Self::QA
+    }
+
+    /// Fold the profile into a state hash: nothing for the QA profile, so a
+    /// fixture charge hashes exactly as before.
+    pub fn mix_into(&self, mix: &mut impl FnMut(u64)) {
+        if self.is_qa() {
+            return;
+        }
+        mix(0x5052_4f46); // "PROF"
+        mix(u64::from(self.core_radius.to_bits()));
+        mix(u64::from(self.outer_radius.to_bits()));
+        mix(u64::from(self.outer_damage));
+        mix(u64::from(self.llama_outer_damage));
+        mix(u64::from(self.boss_damage));
+        mix(u64::from(self.launch.0.to_bits()));
+        mix(u64::from(self.launch.1.to_bits()));
+        mix(u64::from(self.los));
+        mix(self.hero_damage.code());
+        mix(u64::from(self.hero_hp));
+        mix(u64::from(self.hero_knock.0.to_bits()));
+        mix(u64::from(self.hero_knock.1.to_bits()));
+        mix(u64::from(self.hero_source));
+        mix(u64::from(self.breaks_structures));
+    }
+}
+
+/// The point of `body` (a closed box) closest to `(x, y)`: the target end of the
+/// line-of-sight segment (CP-Q22). A point inside the box is its own closest.
+pub fn closest_point(body: Rect, (x, y): (f32, f32)) -> (f32, f32) {
+    (
+        x.clamp(body.left, body.right()),
+        y.clamp(body.bottom, body.top()),
+    )
+}
+
+/// CP-Q22: whether the segment `from -> to` is free of every intact solid: it
+/// is blocked only by the **interior** of a block (a segment that merely
+/// touches an edge or corner passes). Exact `f32` arithmetic, no square root.
+pub fn line_of_sight(solids: &[Block], from: (f32, f32), to: (f32, f32)) -> bool {
+    solids
+        .iter()
+        .filter(|block| block.intact)
+        .all(|block| !segment_crosses_interior(from, to, block.rect))
+}
+
+/// The open interval of `t` (in `0..=1` parametrization of the segment) where
+/// one coordinate lies strictly inside `(lo, hi)`: `None` is "never",
+/// `Some((-inf, inf))` "always" (the segment is parallel to the slab and inside).
+fn slab(a: f32, d: f32, lo: f32, hi: f32) -> Option<(f32, f32)> {
+    if d == 0.0 {
+        return (a > lo && a < hi).then_some((f32::NEG_INFINITY, f32::INFINITY));
+    }
+    let (t0, t1) = ((lo - a) / d, (hi - a) / d);
+    Some(if t0 < t1 { (t0, t1) } else { (t1, t0) })
+}
+
+fn segment_crosses_interior(from: (f32, f32), to: (f32, f32), rect: Rect) -> bool {
+    let (dx, dy) = (to.0 - from.0, to.1 - from.1);
+    let (Some(sx), Some(sy)) = (
+        slab(from.0, dx, rect.left, rect.right()),
+        slab(from.1, dy, rect.bottom, rect.top()),
+    ) else {
+        return false;
+    };
+    // The open parameter interval inside both slabs meets the closed segment
+    // `[0, 1]` iff it is non-empty, starts before 1 and ends after 0.
+    let open_lo = sx.0.max(sy.0);
+    let open_hi = sx.1.min(sy.1);
+    open_lo < open_hi && open_lo < 1.0 && open_hi > 0.0
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -60,6 +198,8 @@ pub struct BlastCharge {
     pub arm: Arm,
     /// The tick a `CarlPast` charge was armed on (`None` until then).
     pub armed_tick: Option<u64>,
+    /// CP-B1: the blast's data. [`BlastProfile::QA`] for every fixture charge.
+    pub profile: BlastProfile,
 }
 
 impl BlastCharge {
@@ -72,7 +212,15 @@ impl BlastCharge {
             detonated: false,
             arm: Arm::Tick,
             armed_tick: None,
+            profile: BlastProfile::QA,
         }
+    }
+
+    /// The same charge with another blast profile (CP-B1).
+    #[must_use]
+    pub fn with_profile(mut self, profile: BlastProfile) -> Self {
+        self.profile = profile;
+        self
     }
 
     /// The same charge with another arming rule (the detonation tick is then
@@ -134,14 +282,21 @@ impl BlastCharge {
         true
     }
 
-    /// How the blast reaches `body`, if it does.
+    /// How the blast reaches `body`, if it does (squared compares, exact
+    /// boundaries). The core band exists only when `core_radius > 0`: with no
+    /// core a body that contains the centre gets the outer result, never point
+    /// blank (CP-B1, `core_zero_never_point_blank`).
     pub fn reach(&self, body: Rect) -> Option<BlastReach> {
         let (cx, cy) = self.centre();
         let sq = body.squared_distance_to(cx, cy);
-        if sq == 0.0 {
+        let core = self.profile.core_radius;
+        let outer = self.profile.outer_radius;
+        if core > 0.0 && sq == 0.0 {
             Some(BlastReach::PointBlank)
-        } else if sq <= BLAST_RADIUS * BLAST_RADIUS {
+        } else if core > 0.0 && sq <= core * core {
             Some(BlastReach::Ring)
+        } else if sq <= outer * outer {
+            Some(BlastReach::Outer)
         } else {
             None
         }
@@ -163,6 +318,9 @@ impl BlastCharge {
             mix(fuse_ticks);
             mix(self.armed_tick.map_or(0, |t| t + 1));
         }
+        // A non-QA profile adds its words after everything above (a QA charge
+        // mixes nothing more, so every older hash is unchanged).
+        self.profile.mix_into(mix);
     }
 }
 
@@ -288,6 +446,168 @@ mod tests {
             ..high
         };
         assert_eq!(c.reach(higher), None);
+    }
+
+    /// A dynamite-like profile for the unit tests (the real one is built from
+    /// the knob file in `thrown_charge`).
+    fn wide() -> BlastProfile {
+        BlastProfile {
+            core_radius: 20.0,
+            outer_radius: 64.0,
+            outer_damage: 1,
+            llama_outer_damage: 1,
+            boss_damage: 4,
+            launch: (200.0, 220.0),
+            los: true,
+            hero_damage: HeroDamagePolicy::OwnerReduced,
+            hero_hp: 1,
+            hero_knock: (120.0, 160.0),
+            hero_source: 0x5443,
+            breaks_structures: true,
+        }
+    }
+
+    #[test]
+    fn the_qa_profile_hashes_byte_identically_to_a_charge_with_no_profile() {
+        let words = |c: &BlastCharge| {
+            let mut out = Vec::new();
+            c.mix_into(&mut |w| out.push(w));
+            out
+        };
+        // The QA profile is what `new` gives: six words for a Tick charge, ten
+        // for a CarlPast one, exactly as before CP-B1.
+        let tick = charge();
+        assert!(tick.profile.is_qa());
+        assert_eq!(words(&tick).len(), 6);
+        let mut nothing = Vec::new();
+        BlastProfile::QA.mix_into(&mut |w| nothing.push(w));
+        assert!(nothing.is_empty(), "the QA profile mixes nothing");
+        // Any other profile adds words after them and changes the hash.
+        let dynamite = tick.with_profile(wide());
+        assert!(words(&dynamite).len() > 6);
+        assert_eq!(words(&dynamite)[..6], words(&tick)[..]);
+        let mut other = wide();
+        other.outer_radius = 65.0;
+        assert_ne!(words(&dynamite), words(&tick.with_profile(other)));
+        // The hero-hurt source id is part of a non-QA profile's hash.
+        let mut sourced = wide();
+        sourced.hero_source = 0x5254;
+        assert_ne!(words(&dynamite), words(&tick.with_profile(sourced)));
+    }
+
+    #[test]
+    fn core_zero_never_point_blank() {
+        // A coreless profile: the body that contains the centre gets the outer
+        // result, never point blank, and there is no core ring either.
+        let coreless = charge().with_profile(BlastProfile {
+            core_radius: 0.0,
+            ..wide()
+        });
+        assert_eq!(coreless.reach(body(500.0, 100.0)), Some(BlastReach::Outer));
+        assert_eq!(coreless.reach(body(472.0, 100.0)), Some(BlastReach::Outer));
+        assert_eq!(coreless.reach(body(467.99, 100.0)), Some(BlastReach::Outer));
+        // Beyond the outer radius it is still untouched.
+        assert_eq!(coreless.reach(body(500.0 - 12.0 - 64.01, 100.0)), None);
+    }
+
+    #[test]
+    fn a_wide_profile_has_a_core_an_outer_band_and_exact_edges() {
+        let c = charge().with_profile(wide());
+        assert_eq!(c.reach(body(500.0, 100.0)), Some(BlastReach::PointBlank));
+        assert_eq!(
+            c.reach(body(468.0, 100.0)),
+            Some(BlastReach::Ring),
+            "exactly 20 px"
+        );
+        assert_eq!(c.reach(body(467.99, 100.0)), Some(BlastReach::Outer));
+        // Exactly 64 px from the body edge is reached, beyond is not.
+        assert_eq!(
+            c.reach(body(500.0 - 12.0 - 64.0, 100.0)),
+            Some(BlastReach::Outer)
+        );
+        assert_eq!(c.reach(body(500.0 - 12.0 - 64.01, 100.0)), None);
+        assert_eq!(
+            c.reach(body(500.0 + 12.0 + 64.0, 100.0)),
+            Some(BlastReach::Outer)
+        );
+        assert_eq!(c.reach(body(500.0 + 12.0 + 64.01, 100.0)), None);
+        // The QA charge still has no outer band at 40 px.
+        assert_eq!(charge().reach(body(500.0 - 12.0 - 40.0, 100.0)), None);
+    }
+
+    fn wall(left: f32, bottom: f32, width: f32, height: f32) -> Block {
+        Block {
+            rect: Rect {
+                left,
+                bottom,
+                width,
+                height,
+            },
+            material: crate::prototype::Material::Stone,
+            intact: true,
+        }
+    }
+
+    #[test]
+    fn line_of_sight_is_blocked_only_by_the_interior_of_an_intact_solid() {
+        let from = (100.0, 108.0);
+        let to = (200.0, 108.0);
+        // Nothing in the way.
+        assert!(line_of_sight(&[], from, to));
+        // A wall across the segment blocks it, a broken one does not.
+        let mut across = wall(140.0, 100.0, 20.0, 60.0);
+        assert!(!line_of_sight(&[across.clone()], from, to));
+        across.intact = false;
+        assert!(line_of_sight(&[across], from, to));
+        // Touching edges do not block: along the top of a floor, and along a
+        // wall's face or past its corner.
+        assert!(
+            line_of_sight(&[wall(0.0, 0.0, 400.0, 108.0)], from, to),
+            "along a top"
+        );
+        assert!(
+            line_of_sight(&[wall(150.0, 0.0, 20.0, 108.0)], from, to),
+            "grazing a top corner"
+        );
+        assert!(
+            line_of_sight(&[wall(100.0, 108.0, 100.0, 20.0)], from, to),
+            "along an underside"
+        );
+        assert!(
+            line_of_sight(&[wall(150.0, 108.0, 20.0, 50.0)], from, to),
+            "touching a wall's bottom edge"
+        );
+        // A segment that ends exactly on a wall face is not blocked...
+        assert!(line_of_sight(&[wall(200.0, 90.0, 20.0, 40.0)], from, to));
+        // ...one that ends a hair inside is.
+        assert!(!line_of_sight(&[wall(199.5, 90.0, 20.0, 40.0)], from, to));
+        // A diagonal that clips a corner interior is blocked, one that only
+        // touches the corner point is not.
+        assert!(!line_of_sight(
+            &[wall(140.0, 100.0, 20.0, 20.0)],
+            (100.0, 90.0),
+            (200.0, 130.0)
+        ));
+        assert!(line_of_sight(
+            &[wall(140.0, 100.0, 20.0, 20.0)],
+            (100.0, 80.0),
+            (140.0, 100.0)
+        ));
+        // A degenerate segment (the centre inside the target) inside a solid is blocked.
+        assert!(!line_of_sight(&[wall(0.0, 0.0, 400.0, 400.0)], from, from));
+        assert!(line_of_sight(&[wall(0.0, 0.0, 400.0, 100.0)], from, from));
+    }
+
+    #[test]
+    fn the_closest_point_clamps_into_the_box() {
+        let b = body(500.0, 100.0);
+        assert_eq!(closest_point(b, (400.0, 108.0)), (488.0, 108.0));
+        assert_eq!(closest_point(b, (500.0, 300.0)), (500.0, 138.0));
+        assert_eq!(
+            closest_point(b, (500.0, 108.0)),
+            (500.0, 108.0),
+            "inside: itself"
+        );
     }
 
     #[test]

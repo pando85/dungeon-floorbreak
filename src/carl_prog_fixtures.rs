@@ -19,7 +19,7 @@ use crate::combat::EnemyAi;
 use crate::combat_scene::{EnemySpawn, Fixture};
 use crate::donut_mana::DonutSetup;
 use crate::party::PROVISIONAL_TUNING;
-use crate::party_scene::{PartyFixture, base, run};
+use crate::party_scene::{PartyFixture, SlotHold, base, run, swap};
 use crate::story_unlock::{SceneKind, StorySetup};
 
 /// The placeholder zone of `pile_boss_f01_defeated` (K1, f01 integration plan
@@ -51,6 +51,12 @@ pub fn story_setup(fixture: &str) -> StorySetup {
             ..CarlProgFlags::OFF
         }
         .story_setup(SceneKind::Boss),
+        // CP-B1: before the grant (the ledger exists, nothing is held): a press is inert.
+        "carl_prog_special_locked" => StorySetup::NONE.with_trigger("pile_boss_f01_defeated"),
+        // CP-B1: the thrown charge is held from tick 0 (a declared start, not a grant).
+        name if name.starts_with("carl_prog_dyn_") => {
+            StorySetup::NONE.with_hold("special_thrown_charge")
+        }
         // The second hero's registry (DONUT-PROG-01) declares its own pins the same way.
         other => crate::donut_prog_fixtures::story_setup(other),
     }
@@ -114,11 +120,254 @@ pub const CARL_PROG_JUICER_GRANTS_FIST: PartyFixture = PartyFixture {
     donut: DonutSetup::NONE,
 };
 
+/// A Circle/B press edge on `slot` at `tick` (CP-B1: held for one tick).
+const fn special(tick: u64, slot: usize) -> SlotHold {
+    SlotHold {
+        from: tick,
+        to: tick + 1,
+        slot,
+        input: crate::input::RawInput {
+            ability: true,
+            ..crate::input::RawInput::NONE
+        },
+    }
+}
+
+const fn passive(x: i32) -> EnemySpawn {
+    EnemySpawn {
+        x,
+        ai: EnemyAi::Passive,
+    }
+}
+
+const LOCKED_BASE: Fixture = base(
+    "carl_prog_special_locked",
+    "Solo: 40 Circle/B presses before any grant; nothing happens and nothing is logged (the ledger exists and holds nothing)",
+    0x0CA1_0010,
+    &[],
+    90,
+);
+
+/// CP-B1: before the dynamite grant the special is inert.
+pub const CARL_PROG_SPECIAL_LOCKED: PartyFixture = PartyFixture {
+    base: &LOCKED_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[
+        special(2, 0),
+        special(4, 0),
+        special(6, 0),
+        special(8, 0),
+        special(10, 0),
+        special(12, 0),
+        special(14, 0),
+        special(16, 0),
+        special(18, 0),
+        special(20, 0),
+        special(22, 0),
+        special(24, 0),
+        special(26, 0),
+        special(28, 0),
+        special(30, 0),
+        special(32, 0),
+        special(34, 0),
+        special(36, 0),
+        special(38, 0),
+        special(40, 0),
+        special(42, 0),
+        special(44, 0),
+        special(46, 0),
+        special(48, 0),
+        special(50, 0),
+        special(52, 0),
+        special(54, 0),
+        special(56, 0),
+        special(58, 0),
+        special(60, 0),
+        special(62, 0),
+        special(64, 0),
+        special(66, 0),
+        special(68, 0),
+        special(70, 0),
+        special(72, 0),
+        special(74, 0),
+        special(76, 0),
+        special(78, 0),
+        special(80, 0),
+    ],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const ARC_STANDING_BASE: Fixture = base(
+    "carl_prog_dyn_arc_standing",
+    "Solo, thrown charge held: a standing throw on tick 4, the stick spawns on t41, lands about 111 px ahead and blows 150 ticks after the release",
+    0x0CA1_0011,
+    &[],
+    260,
+);
+
+/// CP-Q14..CP-Q18: the standing arc, spawn, landing and fuse.
+pub const CARL_PROG_DYN_ARC_STANDING: PartyFixture = PartyFixture {
+    base: &ARC_STANDING_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[special(4, 0)],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const ARC_MOVING_BASE: Fixture = base(
+    "carl_prog_dyn_arc_moving",
+    "Solo, thrown charge held: Carl runs right and throws on tick 5; the stick carries half his speed and lands about 170 px ahead",
+    0x0CA1_0012,
+    &[],
+    260,
+);
+
+/// CP-Q15, CP-Q17: the moving throw.
+pub const CARL_PROG_DYN_ARC_MOVING: PartyFixture = PartyFixture {
+    base: &ARC_MOVING_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[run(1, 120, 0, 1.0), special(5, 0)],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const ONE_ACTIVE_BASE: Fixture = base(
+    "carl_prog_dyn_one_active",
+    "Solo, thrown charge held: presses during the throw, the flight and the fuse are rejected as busy, during the recharge as cooldown; the press on detonation + 420 starts a second throw",
+    0x0CA1_0013,
+    &[],
+    700,
+);
+
+/// CP-Q13, CP-Q19: one stick at a time, the 420-tick recharge.
+pub const CARL_PROG_DYN_ONE_ACTIVE: PartyFixture = PartyFixture {
+    base: &ONE_ACTIVE_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[
+        special(4, 0),
+        special(15, 0),
+        special(50, 0),
+        special(120, 0),
+        special(194, 0),
+        special(196, 0),
+        special(400, 0),
+        special(613, 0),
+        special(615, 0),
+    ],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const CORE_KILL_BASE: Fixture = base(
+    "carl_prog_dyn_core_kill",
+    "Solo, thrown charge held: a goblin stands where the stick lands; the core bursts it on the detonation tick, credited to Carl",
+    0x0CA1_0014,
+    &[passive(511)],
+    240,
+);
+
+/// CP-Q20: the 20 px core (point blank).
+pub const CARL_PROG_DYN_CORE_KILL: PartyFixture = PartyFixture {
+    base: &CORE_KILL_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[special(4, 0)],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const OUTER_LAUNCH_BASE: Fixture = base(
+    "carl_prog_dyn_outer_launch",
+    "Solo, thrown charge held: a goblin about 40 px from the landing is launched alive with 1 of 2 HP, credited to Carl",
+    0x0CA1_0015,
+    &[passive(563)],
+    330,
+);
+
+/// CP-Q21: the 64 px outer ring (1 damage, a living launch).
+pub const CARL_PROG_DYN_OUTER_LAUNCH: PartyFixture = PartyFixture {
+    base: &OUTER_LAUNCH_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[special(4, 0)],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const NO_FRIENDLY_FIRE_BASE: Fixture = base(
+    "carl_prog_dyn_no_friendly_fire",
+    "Two players, thrown charge held: Donut walks into the blast and stands in its core; she is not damaged, launched or logged (Carl stands clear)",
+    0x0CA1_0016,
+    &[],
+    260,
+);
+
+/// CP-Q24: no friendly fire (the `OwnerReduced` profile spares every other hero).
+pub const CARL_PROG_DYN_NO_FRIENDLY_FIRE: PartyFixture = PartyFixture {
+    base: &NO_FRIENDLY_FIRE_BASE,
+    two_player: true,
+    tuning: PROVISIONAL_TUNING,
+    script: &[special(4, 0), run(100, 142, 1, 1.0)],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const SWAP_KEEPS_STICK_BASE: Fixture = base(
+    "carl_prog_dyn_swap_keeps_stick",
+    "Solo, thrown charge held: the player swaps to Donut while the fuse burns; the stick, its fuse and the kill credit stay Carl's",
+    0x0CA1_0017,
+    &[passive(511)],
+    240,
+);
+
+/// CP-Q29: a solo swap mid-fuse changes nothing.
+pub const CARL_PROG_DYN_SWAP_KEEPS_STICK: PartyFixture = PartyFixture {
+    base: &SWAP_KEEPS_STICK_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[special(4, 0), swap(100, 101)],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const BOSS_BASE: Fixture = boss_base(
+    "carl_prog_dyn_boss",
+    "The boss arena, thrown charge held: the stick lands at the boss and blows on tick 195 for 4 damage; his pound in progress is not interrupted",
+    0x0CA1_0018,
+    380,
+    hp(10),
+    260,
+);
+
+/// CP-Q25: 4 damage on the boss, super armour holds, no launch.
+pub const CARL_PROG_DYN_BOSS: PartyFixture = PartyFixture {
+    base: &BOSS_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[special(4, 0)],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
 /// Every `carl_prog_*` replay fixture, in committed order.
-pub const CARL_PROG_FIXTURES: [&PartyFixture; 3] = [
+pub const CARL_PROG_FIXTURES: [&PartyFixture; 12] = [
     &CARL_PROG_STORY_EVENT_GRANTS_DYNAMITE,
     &CARL_PROG_GRANT_SURVIVES_RESPAWN,
     &CARL_PROG_JUICER_GRANTS_FIST,
+    &CARL_PROG_SPECIAL_LOCKED,
+    &CARL_PROG_DYN_ARC_STANDING,
+    &CARL_PROG_DYN_ARC_MOVING,
+    &CARL_PROG_DYN_ONE_ACTIVE,
+    &CARL_PROG_DYN_CORE_KILL,
+    &CARL_PROG_DYN_OUTER_LAUNCH,
+    &CARL_PROG_DYN_NO_FRIENDLY_FIRE,
+    &CARL_PROG_DYN_SWAP_KEEPS_STICK,
+    &CARL_PROG_DYN_BOSS,
 ];
 
 #[cfg(test)]
@@ -187,13 +436,22 @@ mod tests {
     }
 
     /// The committed final hashes of the `carl_prog_*` fixtures.
-    const GOLDENS: [(&str, u64); 3] = [
+    const GOLDENS: [(&str, u64); 12] = [
         (
             "carl_prog_story_event_grants_dynamite",
             0x7594_ba64_4fd2_dbaf,
         ),
         ("carl_prog_grant_survives_respawn", 0x8eeb_9036_87de_c95d),
         ("carl_prog_juicer_grants_fist", 0xddd6_81ab_67f5_26ac),
+        ("carl_prog_special_locked", 0xc955_52f3_0a6a_9051),
+        ("carl_prog_dyn_arc_standing", 0x5f39_bdb0_1c95_8237),
+        ("carl_prog_dyn_arc_moving", 0x9b12_5289_22e4_8d00),
+        ("carl_prog_dyn_one_active", 0x0d20_035e_4ed7_67f7),
+        ("carl_prog_dyn_core_kill", 0x7398_427c_74e7_94d9),
+        ("carl_prog_dyn_outer_launch", 0x9cb6_2929_74d4_2de5),
+        ("carl_prog_dyn_no_friendly_fire", 0xada1_8a6f_91e9_e012),
+        ("carl_prog_dyn_swap_keeps_stick", 0x1325_56e5_5531_094c),
+        ("carl_prog_dyn_boss", 0x90b2_b0d3_e323_2388),
     ];
 
     #[test]
@@ -622,5 +880,88 @@ mod tests {
             }
             run.state_hash()
         }
+    }
+
+    fn kinds(sim: &PartyFixtureSim, kind: &str) -> Vec<String> {
+        sim.combat
+            .events
+            .iter()
+            .map(ToString::to_string)
+            .filter(|l| l.contains(&format!("kind={kind}")))
+            .collect()
+    }
+
+    /// CP-B1: what each registered dynamite fixture shows, in words (the
+    /// goldens pin the bytes).
+    #[test]
+    fn the_dynamite_fixtures_show_what_their_summaries_say() {
+        // Locked: forty presses, nothing logged, nothing mixed by the thrower.
+        let locked = named("carl_prog_special_locked");
+        assert!(locked.combat.events.is_empty());
+        assert!(locked.combat.thrower().is_idle() && locked.combat.charges.is_empty());
+        // The moving throw lands farther than the standing one.
+        let landing = |name: &str| -> i32 {
+            let sim = named(name);
+            let line = &kinds(&sim, "charge_landed")[0];
+            line.split("x=")
+                .nth(1)
+                .unwrap()
+                .split(' ')
+                .next()
+                .unwrap()
+                .parse()
+                .unwrap()
+        };
+        assert_eq!(landing("carl_prog_dyn_arc_standing"), 511);
+        assert!(landing("carl_prog_dyn_arc_moving") > 560);
+        // Core kill: point blank, credited to Carl; outer launch: alive, 1 HP.
+        let core = named("carl_prog_dyn_core_kill");
+        assert!(kinds(&core, "enemy_defeated")[0].contains("point_blank"));
+        let outer = named("carl_prog_dyn_outer_launch");
+        assert_eq!(outer.combat.enemies[0].health, 1);
+        assert!(kinds(&outer, "enemy_defeated").is_empty());
+        // One active: five busy rejections... then a second throw on detonation + 420.
+        let one = named("carl_prog_dyn_one_active");
+        assert_eq!(kinds(&one, "special_started").len(), 2);
+        assert_eq!(kinds(&one, "special_rejected").len(), 7);
+        // The swap changes nothing about the blast or its credit.
+        let swap = named("carl_prog_dyn_swap_keeps_stick");
+        assert_eq!(swap.party.controlled_hero(), crate::party::HeroId::Donut);
+        assert_eq!(
+            kinds(&swap, "enemy_defeated"),
+            kinds(&core, "enemy_defeated"),
+            "the same kill, the same credit"
+        );
+        // Boss: 4 damage on tick 195.
+        let boss = named("carl_prog_dyn_boss");
+        assert_eq!(
+            kinds(&boss, "boss_hurt"),
+            ["COMBAT_EVENT tick=195 kind=boss_hurt source=0 damage=4 hp_left=6"]
+        );
+    }
+
+    /// CP-Q24 in 2P: Donut stands inside the 20 px core when the stick blows
+    /// and nothing happens to her.
+    #[test]
+    fn donut_stands_in_the_blast_and_is_not_touched() {
+        let fixture = &CARL_PROG_DYN_NO_FRIENDLY_FIRE;
+        let mut sim = PartyFixtureSim::new(&kit_of(fixture), 360, fixture).unwrap();
+        for _ in 0..194 {
+            sim.step_scripted();
+        }
+        let stick = sim.combat.thrower().stick().expect("the stick burns").x;
+        let donut = sim.scene.world.donut_body.x;
+        assert!(
+            (donut - stick).abs() < 20.0,
+            "Donut stands in the core: donut {donut} stick {stick}"
+        );
+        sim.step_scripted();
+        assert_eq!(kinds(&sim, "blast").len(), 1);
+        assert_eq!(
+            sim.scene.world.donut_body.health,
+            sim.scene.world.hero.health
+        );
+        assert!(kinds(&sim, "hero_hurt").is_empty() && kinds(&sim, "hero_defeated").is_empty());
+        assert_eq!(sim.combat.donut.hurt_ticks, 0);
     }
 }

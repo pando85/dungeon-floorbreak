@@ -79,3 +79,4 @@ pub mod scroll_camera;
 pub mod shore;
 pub mod shore_art;
 pub mod story_unlock;
+pub mod thrown_charge;
