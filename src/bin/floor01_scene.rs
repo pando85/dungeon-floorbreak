@@ -58,7 +58,8 @@ use dungeon_floorbreak::{
     cine_adapter::CineAdapter,
     combat::{Attacker, ENEMY_HALF_HEIGHT, ENEMY_HALF_WIDTH, Phase, hit_box},
     combat_anim::{
-        CombatAnimators, GOBLIN_VARIANTS, SpriteClips, carl_above_goblin, goblin_variant,
+        CombatAnimators, GOBLIN_VARIANTS, SpriteClips, carl_above_goblin, cf02::ActingArt,
+        goblin_variant,
     },
     combat_lab::{
         self, EntryPoint, LabCatalog, LabConfig, LabRun,
@@ -1863,7 +1864,18 @@ fn main() -> ExitCode {
     // The blast atlases are exported art: only a rendered fixture with charges
     // needs them (the headless replay draws nothing).
     let draws_blast = !args.headless && args.fixture.is_some_and(|f| !f.charges.is_empty());
-    let actors = match Actors::load(&root, source, args.fixture.is_some(), draws_blast) {
+    // CF02-I: the CF02 sheets are read only by a run under `cf02_rules`.
+    let runs_cf02 = args.cf02.rules
+        || args
+            .fixture
+            .is_some_and(|f| dungeon_floorbreak::cf02::fixture_runs_cf02(f.name));
+    let actors = match Actors::load(
+        &root,
+        source,
+        args.fixture.is_some(),
+        draws_blast,
+        runs_cf02,
+    ) {
         Ok(actors) => actors,
         Err(error) => {
             return failure(&format!(
@@ -1966,6 +1978,9 @@ struct Actors {
     /// DEATH-D: the QA charge and blast frames of a fixture with charges
     /// (unreviewed prototype art, drawn in the QA fixtures only).
     blast: Option<BlastArt>,
+    /// CF02-I: the ART-CARL, ART-DONUT and ART-GOB CF02 sheets of a run under
+    /// `cf02_rules` (`None` everywhere else: no atlas is read or drawn).
+    cf02: Option<ActingArt>,
 }
 
 #[derive(Clone)]
@@ -1977,7 +1992,13 @@ struct CombatArt {
 }
 
 impl Actors {
-    fn load(root: &Path, source: FrameSource, combat: bool, blast: bool) -> Result<Self, String> {
+    fn load(
+        root: &Path,
+        source: FrameSource,
+        combat: bool,
+        blast: bool,
+        cf02: bool,
+    ) -> Result<Self, String> {
         let blast = if blast {
             Some(BlastArt::load(root)?)
         } else {
@@ -2000,20 +2021,33 @@ impl Actors {
         } else {
             None
         };
+        let cf02 = if combat && cf02 {
+            Some(ActingArt::load(root, source)?)
+        } else {
+            None
+        };
         Ok(Self {
             carl: load_carl(root, source)?,
             donut: load_donut(root, source)?,
             art,
             shore,
             blast,
+            cf02,
         })
     }
 
-    /// The melee and goblin animators of a combat fixture.
+    /// The melee and goblin animators of a combat fixture, with the CF02 acting
+    /// frames and overlays when the run is under `cf02_rules`.
     fn combat_art(&self, combat: &CombatState) -> Option<CombatAnimators> {
         self.art.as_ref().map(|art| {
-            CombatAnimators::new(art.carl.clone(), art.goblins.clone(), combat)
-                .with_llama(art.llama.clone(), combat)
+            let animators = CombatAnimators::new(art.carl.clone(), art.goblins.clone(), combat)
+                .with_llama(art.llama.clone(), combat);
+            match (self.cf02.as_ref(), combat.cf02()) {
+                (Some(acting), Some(tuning)) => {
+                    animators.with_acting(acting.clone(), tuning, combat)
+                }
+                _ => animators,
+            }
         })
     }
 
@@ -2262,6 +2296,29 @@ struct GlobSprite {
 /// replaces the locomotion sprite while a melee pose is drawn.
 #[derive(Component)]
 struct CarlMelee;
+
+/// CF02-I: Carl's CF02 sprite (the ART-CARL-CF02 atlas): the stomp, air kick,
+/// dive, bail-out, heavy landing, flinch and frustration. It replaces the
+/// locomotion sprite while a CF02 frame is drawn. Presentation only.
+#[derive(Component)]
+struct CarlCf02Sprite;
+
+/// CF02-I: Donut's startle and smug sprite (the ART-DONUT-CF02 atlas).
+#[derive(Component)]
+struct DonutCf02Sprite;
+
+/// CF02-I: one goblin's acting sprite (hesitate, panic, taunt) from its
+/// variant's ART-GOB-CF02 sheet; it replaces the GOB-01 sprite while shown.
+#[derive(Component)]
+struct GoblinActingSprite {
+    index: usize,
+}
+
+/// CF02-I: one goblin's slammed finish sprite (stomped, wall crumple, flung).
+#[derive(Component)]
+struct GoblinSlammedSprite {
+    index: usize,
+}
 
 /// Donut's melee sprite (the ANIM-DONUT-02 atlas): shown instead of her
 /// locomotion sprite while a swat or pounce runs. Presentation only.
@@ -2876,6 +2933,7 @@ fn run_window(
             sync_shore_visuals,
             sync_blast_visuals,
             sync_death_visuals,
+            sync_cf02_acting_visuals,
             update_lighting,
             watchdog,
             perf_probe,
@@ -3139,6 +3197,71 @@ fn setup(
                 layers_of("actors"),
             ));
             combat_entities += 1;
+        }
+        // CF02-I: the CF02 sprites (hidden until a CF02 frame is drawn).
+        if let (Some(acting), Some(_)) = (actors.cf02.as_ref(), state.cf02()) {
+            let mut sprite = |clips: &SpriteClips, texture: &Handle<Image>, first: &str| {
+                Sprite::from_atlas_image(
+                    texture.clone(),
+                    TextureAtlas {
+                        layout: layout_of(clips),
+                        index: clips.tag(first).0,
+                    },
+                )
+            };
+            let mut load = |clips: &SpriteClips| -> Handle<Image> {
+                let texture: Handle<Image> = asset_server.load(clips.atlas_asset.clone());
+                combat_handles.push((clips.atlas_asset.clone(), texture.clone()));
+                texture
+            };
+            let carl_texture = load(&acting.carl);
+            commands.spawn((
+                CarlCf02Sprite,
+                sprite(&acting.carl, &carl_texture, "stomp"),
+                Transform::from_xyz(0.0, 0.0, kit.actor_z + CARL_Z_OFFSET),
+                Visibility::Hidden,
+                layers_of("actors"),
+            ));
+            let donut_texture = load(&acting.donut);
+            commands.spawn((
+                DonutCf02Sprite,
+                sprite(&acting.donut, &donut_texture, "startle"),
+                Transform::from_xyz(0.0, 0.0, kit.actor_z),
+                Visibility::Hidden,
+                layers_of("actors"),
+            ));
+            let acting_textures: Vec<Handle<Image>> =
+                acting.goblins.iter().map(&mut load).collect();
+            let slammed_textures: Vec<Handle<Image>> =
+                acting.slammed.iter().map(&mut load).collect();
+            for index in 0..state.enemies.len() {
+                let variant = goblin_variant(index);
+                let z = kit.actor_z + GOBLIN_Z_OFFSET - index as f32 * GOBLIN_Z_STEP;
+                commands.spawn((
+                    GoblinActingSprite { index },
+                    sprite(
+                        &acting.goblins[variant],
+                        &acting_textures[variant],
+                        "hesitate",
+                    ),
+                    Transform::from_xyz(0.0, 0.0, z),
+                    Visibility::Hidden,
+                    layers_of("actors"),
+                ));
+                commands.spawn((
+                    GoblinSlammedSprite { index },
+                    sprite(
+                        &acting.slammed[variant],
+                        &slammed_textures[variant],
+                        "slammed_stomped",
+                    ),
+                    Transform::from_xyz(0.0, 0.0, z),
+                    Visibility::Hidden,
+                    layers_of("actors"),
+                ));
+                combat_entities += 2;
+            }
+            combat_entities += 2;
         }
         // The Bad Llamas (DEMO-01 PR B) and their pooled glob sprites.
         if !state.llamas.is_empty() {
@@ -5433,6 +5556,243 @@ fn sync_blast_visuals(
     }
 }
 
+/// CF02-I: draw the CF02 frames (ART-CARL-CF02, ART-DONUT-CF02, ART-GOB-CF02 and
+/// the slammed sheets) over the sprites the other systems placed. Runs last of the
+/// actor systems: where a CF02 frame is drawn it hides the sprite it replaces and
+/// copies the base sprite's z, tint and (for a goblin) alpha, so the hit flash and
+/// the corpse fade follow. Reads the animators and the death presenter only;
+/// nothing flows back to the simulation.
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
+fn sync_cf02_acting_visuals(
+    sim: Res<Sim>,
+    combat: Res<Combat>,
+    anim: Res<Anim>,
+    death: Res<Death>,
+    mut carl: Query<
+        (&mut Transform, &mut Sprite, &mut Visibility),
+        (
+            With<CarlCf02Sprite>,
+            Without<DonutCf02Sprite>,
+            Without<GoblinActingSprite>,
+            Without<GoblinSlammedSprite>,
+            Without<ActorVisual>,
+            Without<GoblinSprite>,
+        ),
+    >,
+    mut donut: Query<
+        (&mut Transform, &mut Sprite, &mut Visibility),
+        (
+            With<DonutCf02Sprite>,
+            Without<CarlCf02Sprite>,
+            Without<GoblinActingSprite>,
+            Without<GoblinSlammedSprite>,
+            Without<ActorVisual>,
+            Without<GoblinSprite>,
+        ),
+    >,
+    mut actors: Query<
+        (&ActorVisual, &mut Visibility),
+        (
+            Without<CarlCf02Sprite>,
+            Without<DonutCf02Sprite>,
+            Without<GoblinActingSprite>,
+            Without<GoblinSlammedSprite>,
+            Without<GoblinSprite>,
+        ),
+    >,
+    mut acting: Query<
+        (
+            &GoblinActingSprite,
+            &mut Transform,
+            &mut Sprite,
+            &mut Visibility,
+        ),
+        (
+            Without<CarlCf02Sprite>,
+            Without<DonutCf02Sprite>,
+            Without<GoblinSlammedSprite>,
+            Without<ActorVisual>,
+            Without<GoblinSprite>,
+        ),
+    >,
+    mut slammed: Query<
+        (
+            &GoblinSlammedSprite,
+            &mut Transform,
+            &mut Sprite,
+            &mut Visibility,
+        ),
+        (
+            Without<CarlCf02Sprite>,
+            Without<DonutCf02Sprite>,
+            Without<GoblinActingSprite>,
+            Without<ActorVisual>,
+            Without<GoblinSprite>,
+        ),
+    >,
+    mut base: Query<
+        (&GoblinSprite, &Transform, &Sprite, &mut Visibility),
+        (
+            Without<CarlCf02Sprite>,
+            Without<DonutCf02Sprite>,
+            Without<GoblinActingSprite>,
+            Without<GoblinSlammedSprite>,
+            Without<ActorVisual>,
+        ),
+    >,
+) {
+    let (Some(state), Some(art)) = (combat.0.as_ref(), anim.0.art.as_ref()) else {
+        return;
+    };
+    let Some(cf02) = art.acting() else {
+        return;
+    };
+    let hero = &sim.0.world.hero;
+
+    // Carl.
+    let carl_pose = art.carl_cf02_pose();
+    for (mut transform, mut sprite, mut visibility) in &mut carl {
+        match carl_pose {
+            Some(pose) => {
+                let flip = hero.facing < 0;
+                let (cx, cy) =
+                    actor_center(cf02.art.carl.spec, hero.x, hero.y - HERO_HALF_HEIGHT, flip);
+                transform.translation.x = cx;
+                transform.translation.y = cy;
+                sprite.flip_x = flip;
+                if let Some(atlas) = sprite.texture_atlas.as_mut() {
+                    atlas.index = pose.frame;
+                }
+                *visibility = Visibility::Inherited;
+            }
+            None => *visibility = Visibility::Hidden,
+        }
+    }
+    // Donut's overlay (her locomotion sprite stays hidden while it shows).
+    let donut_pose = art.donut_cf02_pose();
+    let donut_world = &sim.0.world.donut;
+    for (mut transform, mut sprite, mut visibility) in &mut donut {
+        match donut_pose {
+            Some(pose) => {
+                let flip = donut_world.facing < 0;
+                let (cx, cy) =
+                    actor_center(cf02.art.donut.spec, donut_world.x, donut_world.foot_y, flip);
+                transform.translation.x = cx;
+                transform.translation.y = cy;
+                sprite.flip_x = flip;
+                sprite.color = donut_tint(&sim.0, Some(state));
+                if let Some(atlas) = sprite.texture_atlas.as_mut() {
+                    atlas.index = pose.frame;
+                }
+                *visibility = Visibility::Inherited;
+            }
+            None => *visibility = Visibility::Hidden,
+        }
+    }
+    for (actor, mut visibility) in &mut actors {
+        let replaced = if actor.is_hero {
+            carl_pose.is_some()
+        } else {
+            donut_pose.is_some()
+        };
+        if replaced {
+            *visibility = Visibility::Hidden;
+        }
+    }
+
+    // Goblins: an acting frame or a slammed finish replaces the GOB-01 sprite.
+    let slam_of = |index: usize| {
+        death
+            .0
+            .as_ref()
+            .and_then(|presenter| presenter.slam_pose_of(index as u32))
+    };
+    let mut hide: Vec<usize> = Vec::new();
+    for (goblin, mut transform, mut sprite, mut visibility) in &mut acting {
+        let index = goblin.index;
+        let (Some(pose), Some(g)) = (art.goblin_cf02_pose(index), state.enemies.get(index)) else {
+            *visibility = Visibility::Hidden;
+            continue;
+        };
+        let variant = goblin_variant(index);
+        let flip = pose.flip.unwrap_or(g.facing < 0);
+        let (cx, cy) = actor_center(
+            cf02.art.goblins[variant].spec,
+            g.x + art.goblin_draw_dx(index) as f32,
+            g.y - ENEMY_HALF_HEIGHT,
+            flip,
+        );
+        transform.translation.x = cx;
+        transform.translation.y = cy;
+        sprite.flip_x = flip;
+        if let Some(atlas) = sprite.texture_atlas.as_mut() {
+            atlas.index = pose.pose.frame;
+        }
+        *visibility = Visibility::Inherited;
+        hide.push(index);
+    }
+    let mut hide_slammed: Vec<usize> = Vec::new();
+    for (goblin, mut transform, mut sprite, mut visibility) in &mut slammed {
+        let index = goblin.index;
+        let (Some(pose), Some(g)) = (
+            art.goblin_slammed_pose(index, slam_of(index)),
+            state.enemies.get(index),
+        ) else {
+            *visibility = Visibility::Hidden;
+            continue;
+        };
+        let variant = goblin_variant(index);
+        let flip = g.facing < 0;
+        let (cx, cy) = actor_center(
+            cf02.art.slammed[variant].spec,
+            g.x + art.goblin_draw_dx(index) as f32,
+            g.y - ENEMY_HALF_HEIGHT,
+            flip,
+        );
+        transform.translation.x = cx;
+        transform.translation.y = cy;
+        sprite.flip_x = flip;
+        if let Some(atlas) = sprite.texture_atlas.as_mut() {
+            atlas.index = pose.frame;
+        }
+        *visibility = Visibility::Inherited;
+        hide_slammed.push(index);
+    }
+    // Copy the base sprite's z and tint (flash, corpse fade); a goblin the death
+    // presenter hides (retired, exploded) stays hidden, so its replacement does.
+    let mut keep: Vec<(usize, Transform, Color, bool)> = Vec::new();
+    for (goblin, transform, sprite, mut visibility) in &mut base {
+        let index = goblin.index;
+        let hidden_by_presenter = *visibility == Visibility::Hidden;
+        keep.push((index, *transform, sprite.color, hidden_by_presenter));
+        if !hidden_by_presenter && (hide.contains(&index) || hide_slammed.contains(&index)) {
+            *visibility = Visibility::Hidden;
+        }
+    }
+    for (goblin, mut transform, mut sprite, mut visibility) in &mut acting {
+        if let Some((_, base_transform, colour, hidden)) =
+            keep.iter().find(|(i, ..)| *i == goblin.index)
+        {
+            transform.translation.z = base_transform.translation.z;
+            sprite.color = *colour;
+            if *hidden {
+                *visibility = Visibility::Hidden;
+            }
+        }
+    }
+    for (goblin, mut transform, mut sprite, mut visibility) in &mut slammed {
+        if let Some((_, base_transform, colour, hidden)) =
+            keep.iter().find(|(i, ..)| *i == goblin.index)
+        {
+            transform.translation.z = base_transform.translation.z;
+            sprite.color = *colour;
+            if *hidden {
+                *visibility = Visibility::Hidden;
+            }
+        }
+    }
+}
+
 /// DEATH-C: draw the presenter's state. Reads the presenter only; the death
 /// pose replaces the goblin's GOB-01 sprite, and every piece sits under the
 /// actors (`draw_z`), so nothing is ever drawn over Carl or Donut.
@@ -6557,7 +6917,7 @@ mod tests {
         const TICKS: u64 = 260;
         let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
         let kit = EnvKit::load(root, LAYOUT_PATH).unwrap();
-        let actors = Actors::load(root, FrameSource::GridSource, true, false).unwrap();
+        let actors = Actors::load(root, FrameSource::GridSource, true, false, false).unwrap();
         let base = [
             "--headless-floor01-smoke",
             "--fixture",

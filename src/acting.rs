@@ -103,6 +103,11 @@ impl<K: Copy> Acting<K> {
         true
     }
 
+    /// Whether an overlay is running.
+    pub fn is_running(&self) -> bool {
+        self.running.is_some()
+    }
+
     /// The running overlay's kind and the ticks left, if any.
     pub fn running(&self) -> Option<(K, u8)> {
         self.running

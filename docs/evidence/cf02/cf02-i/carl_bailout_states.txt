@@ -1,0 +1,22 @@
+# carl_bailout: fixture cf02_bailout_escapes_swing, ticks 26..66 step 2
+COMBAT_ANIM_STATE tick=26 carl=punch_a:0 g0=A/attack_tell:11 acting_carl=- acting_donut=- acting_goblins=-
+COMBAT_ANIM_STATE tick=28 carl=punch_a:1 g0=A/attack_tell:11 acting_carl=- acting_donut=- acting_goblins=-
+COMBAT_ANIM_STATE tick=30 carl=punch_a:1 g0=A/attack_tell:11 acting_carl=- acting_donut=- acting_goblins=-
+COMBAT_ANIM_STATE tick=32 carl=- g0=A/attack_tell:11 acting_carl=bailout:8 acting_donut=- acting_goblins=-
+COMBAT_ANIM_STATE tick=34 carl=- g0=A/attack_tell:11 acting_carl=bailout:9 acting_donut=- acting_goblins=-
+COMBAT_ANIM_STATE tick=36 carl=- g0=A/attack_swing:12 acting_carl=bailout:9 acting_donut=- acting_goblins=-
+COMBAT_ANIM_STATE tick=38 carl=- g0=A/attack_swing:13 acting_carl=bailout:9 acting_donut=- acting_goblins=-
+COMBAT_ANIM_STATE tick=40 carl=- g0=A/attack_swing:13 acting_carl=bailout:9 acting_donut=- acting_goblins=-
+COMBAT_ANIM_STATE tick=42 carl=- g0=A/attack_recover:14 acting_carl=bailout:9 acting_donut=- acting_goblins=-
+COMBAT_ANIM_STATE tick=44 carl=- g0=A/attack_recover:14 acting_carl=bailout:9 acting_donut=- acting_goblins=-
+COMBAT_ANIM_STATE tick=46 carl=- g0=A/attack_recover:14 acting_carl=bailout:9 acting_donut=- acting_goblins=-
+COMBAT_ANIM_STATE tick=48 carl=- g0=A/attack_recover:14 acting_carl=bailout:9 acting_donut=- acting_goblins=-
+COMBAT_ANIM_STATE tick=50 carl=- g0=A/attack_recover:14 acting_carl=bailout:9 acting_donut=- acting_goblins=-
+COMBAT_ANIM_STATE tick=52 carl=- g0=A/attack_recover:14 acting_carl=bailout:9 acting_donut=- acting_goblins=-
+COMBAT_ANIM_STATE tick=54 carl=- g0=A/attack_recover:15 acting_carl=bailout:9 acting_donut=- acting_goblins=-
+COMBAT_ANIM_STATE tick=56 carl=- g0=A/attack_recover:15 acting_carl=bailout:9 acting_donut=- acting_goblins=-
+COMBAT_ANIM_STATE tick=58 carl=- g0=A/attack_recover:15 acting_carl=bailout:9 acting_donut=- acting_goblins=-
+COMBAT_ANIM_STATE tick=60 carl=- g0=A/attack_recover:15 acting_carl=- acting_donut=- acting_goblins=-
+COMBAT_ANIM_STATE tick=62 carl=- g0=A/walk:4 acting_carl=- acting_donut=- acting_goblins=-
+COMBAT_ANIM_STATE tick=64 carl=- g0=A/walk:4 acting_carl=- acting_donut=- acting_goblins=-
+COMBAT_ANIM_STATE tick=66 carl=- g0=A/walk:5 acting_carl=- acting_donut=- acting_goblins=-

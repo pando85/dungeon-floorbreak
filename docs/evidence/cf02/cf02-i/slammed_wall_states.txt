@@ -1,0 +1,19 @@
+# slammed_wall: fixture cf02_wall_slam_kill, ticks 24..58 step 2
+COMBAT_ANIM_STATE tick=24 carl=kick:11 g0=A/hurt:16 acting_carl=- acting_donut=- acting_goblins=-
+COMBAT_ANIM_STATE tick=26 carl=kick:11 g0=A/hurt:16 acting_carl=- acting_donut=- acting_goblins=-
+COMBAT_ANIM_STATE tick=28 carl=kick:11 g0=A/knockback:18 acting_carl=- acting_donut=- acting_goblins=-
+COMBAT_ANIM_STATE tick=30 carl=kick:11 g0=A/knockback:18 acting_carl=- acting_donut=- acting_goblins=-
+COMBAT_ANIM_STATE tick=32 carl=kick:12 g0=A/knockback:19 acting_carl=- acting_donut=- acting_goblins=-
+COMBAT_ANIM_STATE tick=34 carl=kick:12 g0=A/hurt:16 acting_carl=- acting_donut=startle:0 acting_goblins=-
+COMBAT_ANIM_STATE tick=36 carl=kick:12 g0=A/hurt:16 acting_carl=- acting_donut=startle:0 acting_goblins=-
+COMBAT_ANIM_STATE tick=38 carl=kick:13 g0=A/hurt:16 acting_carl=- acting_donut=startle:0 acting_goblins=-
+COMBAT_ANIM_STATE tick=40 carl=kick:13 g0=A/knockback:19 acting_carl=- acting_donut=startle:1 acting_goblins=-
+COMBAT_ANIM_STATE tick=42 carl=kick:13 g0=A/knockback:19 acting_carl=- acting_donut=startle:1 acting_goblins=-
+COMBAT_ANIM_STATE tick=44 carl=kick:14 g0=A/knockback:19 acting_carl=- acting_donut=startle:1 acting_goblins=-
+COMBAT_ANIM_STATE tick=46 carl=kick:14 g0=A/down:20 acting_carl=- acting_donut=- acting_goblins=-
+COMBAT_ANIM_STATE tick=48 carl=kick:14 g0=A/down:20 acting_carl=- acting_donut=- acting_goblins=-
+COMBAT_ANIM_STATE tick=50 carl=- g0=A/down:21 acting_carl=- acting_donut=- acting_goblins=-
+COMBAT_ANIM_STATE tick=52 carl=- g0=A/down:21 acting_carl=- acting_donut=- acting_goblins=-
+COMBAT_ANIM_STATE tick=54 carl=- g0=A/down:21 acting_carl=- acting_donut=- acting_goblins=-
+COMBAT_ANIM_STATE tick=56 carl=- g0=A/down:21 acting_carl=- acting_donut=- acting_goblins=-
+COMBAT_ANIM_STATE tick=58 carl=- g0=A/down:22 acting_carl=- acting_donut=- acting_goblins=-

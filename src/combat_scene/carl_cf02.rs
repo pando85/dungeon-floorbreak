@@ -151,6 +151,35 @@ fn ground_spec(t: &Cf02Tuning, press: &BufferedPress) -> Option<&'static MoveSpe
     }
 }
 
+/// What the CF02-I presentation may read of Carl's CF02 state: a copy of a few
+/// bookkeeping values, never a handle to the simulation. Presentation only; the
+/// sim never reads it back.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct CarlActingView {
+    /// A bail-out hop (Q54) is in flight.
+    pub bail_hop: bool,
+    /// Ticks of landing recovery still to run (Q56).
+    pub landing_lock: u8,
+    /// Carl pressed Jab, Physical, Jump, Swap or the ability on this tick (a press edge, whether or
+    /// not it started anything).
+    pub press_edge: bool,
+}
+
+impl CombatState {
+    /// Carl's CF02 state for the acting presentation (CF02-I).
+    pub fn carl_acting_view(&self) -> CarlActingView {
+        CarlActingView {
+            bail_hop: self.carl_cf02.bail_hop.is_some(),
+            landing_lock: self.carl_cf02.landing_lock,
+            press_edge: self.input.attack_pressed
+                || self.input.physical_pressed
+                || self.input.jump_pressed
+                || self.input.swap_pressed
+                || self.input.ability_pressed,
+        }
+    }
+}
+
 impl CarlCf02 {
     /// The move that is running on this tick's press, as the cancel table sees it.
     fn running_of(&self, melee: &MoveRunner) -> Option<RunningMove> {

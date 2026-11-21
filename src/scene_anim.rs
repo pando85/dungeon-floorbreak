@@ -124,6 +124,9 @@ impl SceneAnimators {
     pub fn step_art(&mut self, scene: &SceneSim, combat: &CombatState) {
         if let Some(art) = self.art.as_mut() {
             art.step(scene, combat);
+            // CF02-I: the acting frames need the heroes' locomotion tags (the
+            // planted-feet overlays show in idle only).
+            art.step_acting(scene, combat, self.carl.tag(), self.donut.tag());
         }
     }
 
