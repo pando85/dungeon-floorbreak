@@ -15,8 +15,7 @@
 
 use crate::boss::BossThreat;
 use crate::input::{InputFrame, RawInput};
-use crate::party::HeroId;
-use crate::party::PartyTuning;
+use crate::party::{HeroId, MotionProfile, PartyTuning};
 use crate::prototype::{Block, GRAVITY, HERO_HALF_HEIGHT, HERO_HALF_WIDTH, Hero, JUMP_SPEED, Rect};
 
 /// Distance band of the "behind the leader" spot: closer than this the bot
@@ -27,6 +26,17 @@ const FOLLOW_SLACK_PX: f32 = 8.0;
 /// The tallest obstacle (above the bot's feet) its jump clears: the apex of
 /// `JUMP_SPEED` under `GRAVITY` (about 92 px) less a safety margin.
 const JUMP_REACH_PX: f32 = JUMP_SPEED * JUMP_SPEED / (2.0 * GRAVITY) - 4.0;
+
+/// DM-Q08: the tallest obstacle the bot's jump clears, per hero. Carl keeps
+/// [`JUMP_REACH_PX`] exactly (88.19 px). Donut's is her discrete apex less the
+/// margin of `hero_agility_v0.json` (110.92 px) under the agile motion, and
+/// [`JUMP_REACH_PX`] under the legacy one.
+pub fn jump_reach_px(hero: HeroId, tuning: &PartyTuning) -> f32 {
+    match (hero, tuning.donut_motion) {
+        (HeroId::Donut, MotionProfile::Agile) => crate::agility::tuning().ai_jump_reach_px(),
+        _ => JUMP_REACH_PX,
+    }
+}
 /// A tell is dodged only while the swing is still far enough away for the
 /// jump to be above the 30 px swing box on its active ticks (26..30): a jump
 /// started on attack tick 0..=20 is above it on every one of them.
@@ -50,13 +60,14 @@ pub struct Threat {
 /// The follower's input for one tick. `frame` is the bot hero's own input
 /// frame: a held jump never repeats, so the bot releases it first.
 pub fn follower_input(
-    me: &Hero,
+    (me_id, me): (HeroId, &Hero),
     frame: &InputFrame,
     leader: &Hero,
     solids: &[Block],
     threats: &[Threat],
     tuning: &PartyTuning,
 ) -> RawInput {
+    let reach = jump_reach_px(me_id, tuning);
     let mut raw = RawInput::default();
     let foot_y = me.y - HERO_HALF_HEIGHT;
 
@@ -73,7 +84,7 @@ pub fn follower_input(
     if raw.move_x != 0.0
         && let Some(top) = obstacle_top(me, raw.move_x, solids)
     {
-        if top - foot_y <= JUMP_REACH_PX {
+        if top - foot_y <= reach {
             raw.jump = me.grounded;
         } else {
             raw.move_x = 0.0;
@@ -85,7 +96,7 @@ pub fn follower_input(
     if me.grounded
         && leader.grounded
         && leader_foot > foot_y + LEDGE_STEP_PX
-        && leader_foot - foot_y <= JUMP_REACH_PX
+        && leader_foot - foot_y <= reach
         && distance <= LEDGE_NEAR_PX
     {
         raw.jump = true;
@@ -123,7 +134,7 @@ pub fn follower_input_boss(
     boss: Option<&BossThreat>,
     tuning: &PartyTuning,
 ) -> RawInput {
-    let mut raw = follower_input(me, frame, leader, solids, threats, tuning);
+    let mut raw = follower_input((me_id, me), frame, leader, solids, threats, tuning);
     let Some(boss) = boss else {
         return raw;
     };
@@ -222,7 +233,7 @@ mod tests {
 
     fn input(me: &Hero, leader: &Hero, solids: &[Block], threats: &[Threat]) -> RawInput {
         follower_input(
-            me,
+            (HeroId::Carl, me),
             &InputFrame::default(),
             leader,
             solids,
@@ -259,6 +270,49 @@ mod tests {
         let high = [floor(), wall(me.x + 12.0, 120.0)];
         let raw = input(&me, &leader, &high, &[]);
         assert!(!raw.jump && raw.move_x == 0.0, "a 120 px wall is waited at");
+    }
+
+    /// DM-Q08: under the agile motion the bot Donut attempts 96 and 104 px
+    /// walls and waits at 112 (her reach is 110.92); Carl's bot keeps 88.19 and
+    /// waits at both 96 and 104, whatever the party's Donut motion.
+    #[test]
+    fn the_reach_is_per_hero_and_carl_keeps_his_constant() {
+        let agile = PartyTuning {
+            donut_motion: MotionProfile::Agile,
+            ..PROVISIONAL_TUNING
+        };
+        let step = |id: HeroId, height: f32, tuning: &PartyTuning| {
+            let me = hero(100.0);
+            let solids = [floor(), wall(me.x + 12.0, height)];
+            follower_input(
+                (id, &me),
+                &InputFrame::default(),
+                &hero(400.0),
+                &solids,
+                &[],
+                tuning,
+            )
+        };
+        for (height, donut_jumps) in [(96.0, true), (104.0, true), (112.0, false)] {
+            assert_eq!(
+                step(HeroId::Donut, height, &agile).jump,
+                donut_jumps,
+                "{height}"
+            );
+            assert!(!step(HeroId::Carl, height, &agile).jump, "{height}");
+        }
+        assert!(
+            step(HeroId::Carl, 84.0, &agile).jump,
+            "88.19 holds for Carl"
+        );
+        assert!(!step(HeroId::Carl, 90.0, &agile).jump);
+        // The test-only legacy motion gives Donut Carl's reach.
+        let legacy = PartyTuning {
+            donut_motion: MotionProfile::Legacy,
+            ..PROVISIONAL_TUNING
+        };
+        assert!(!step(HeroId::Donut, 96.0, &legacy).jump);
+        assert!(step(HeroId::Donut, 84.0, &legacy).jump);
     }
 
     #[test]
@@ -308,7 +362,14 @@ mod tests {
         });
         let me = hero(300.0);
         let leader = hero(300.0);
-        let raw = follower_input(&me, &frame, &leader, &solids, &[near], &PROVISIONAL_TUNING);
+        let raw = follower_input(
+            (HeroId::Carl, &me),
+            &frame,
+            &leader,
+            &solids,
+            &[near],
+            &PROVISIONAL_TUNING,
+        );
         assert!(!raw.jump);
         let mut air = hero(300.0);
         air.grounded = false;

@@ -36,7 +36,8 @@ use crate::combat_scene::CombatState;
 use crate::corridor::SceneSim;
 use crate::input::{RawInput, SlotInputs};
 use crate::party::{
-    HeroControl, HeroId, PartyDrive, PartyMode, PartyState, PlayerSlot, UncontrolledHero,
+    HeroControl, HeroId, PartyDrive, PartyMode, PartyState, PartyTuning, PlayerSlot,
+    UncontrolledHero,
 };
 
 use super::codec::{
@@ -173,7 +174,21 @@ pub fn data_pins() -> Vec<(&'static str, u64)> {
         // CARL-PROG-01 CP-Q46.
         ("story_unlocks", crate::story_unlock::TABLE_HASH),
         ("carl_prog", crate::carl_prog::TUNING_HASH),
+        // DONUT-MOBILITY-01.
+        ("agility_tuning", crate::agility::TUNING_HASH),
     ]
+}
+
+/// The `party_tuning` content hash a manifest records and a verifier compares:
+/// the tuning with Donut's motion normalized to the shipped one. The motion is
+/// pinned by the descriptor field and the `agility_tuning` hash, and a legacy
+/// rebuild of a recording made before DM-A must still match the hash it was
+/// recorded with.
+pub(super) fn recorded_tuning_hash(tuning: &PartyTuning) -> u64 {
+    crate::autoplay::party::party_tuning_hash(&PartyTuning {
+        donut_motion: crate::party::PROVISIONAL_TUNING.donut_motion,
+        ..*tuning
+    })
 }
 
 /// Fill what every manifest of this checkout shares: the build identity
@@ -197,6 +212,12 @@ pub fn stamp_manifest(manifest: &mut SessionManifest, kit_hash: u64) {
     manifest.feature_flags.insert(
         "cf02_rules".to_owned(),
         manifest.reset.cf02_rules.to_string(),
+    );
+    // DONUT-MOBILITY-01: the motion Donut's body stepped with, next to the
+    // descriptor field it must agree with.
+    manifest.feature_flags.insert(
+        "donut_motion".to_owned(),
+        manifest.reset.donut_motion.name().to_owned(),
     );
     for (key, value) in std::iter::once(("kit", kit_hash)).chain(data_pins()) {
         manifest
@@ -223,10 +244,7 @@ impl LiveRecorder {
         // has none), so only a combat session is a full observation record.
         manifest.content_hashes.insert(
             "party_tuning".to_owned(),
-            format!(
-                "{:016x}",
-                crate::autoplay::party::party_tuning_hash(party.tuning())
-            ),
+            format!("{:016x}", recorded_tuning_hash(party.tuning())),
         );
         manifest.feature_flags.insert(
             "companion".to_owned(),

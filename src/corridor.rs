@@ -16,8 +16,8 @@ use crate::follower::{Threat, follower_input_boss};
 use crate::input::{Actions, InputFrame, RawInput};
 use crate::party::{HeroId, PartyDrive, SwapPanMode, eased_pan_step};
 use crate::prototype::{
-    Block, BodyDrive, HERO_HALF_HEIGHT, HERO_HALF_WIDTH, Hero, RUN_SPEED, Rect, TICK_SECONDS,
-    step_hero_driven,
+    Block, BodyDrive, HERO_HALF_HEIGHT, HERO_HALF_WIDTH, Hero, HeroMotion, RUN_SPEED, Rect,
+    TICK_SECONDS, step_hero_driven, step_hero_motion,
 };
 use crate::scroll_camera::{CameraConfig, DEADZONE_PX, MAX_SPEED_PX, ScrollCamera};
 
@@ -234,16 +234,20 @@ impl CorridorWorld {
     /// hero that is not frozen (hit-stop) runs the shared `step_hero`, and
     /// Donut's drawn position follows her body. No trail is recorded.
     pub fn step_bodies(&mut self, frames: [&InputFrame; 2], frozen: [bool; 2]) {
-        self.step_bodies_driven(frames, frozen, [BodyDrive::default(); 2]);
+        self.step_bodies_driven(frames, frozen, [BodyDrive::default(); 2], HeroMotion::CARL);
     }
 
     /// [`Self::step_bodies`] with the overrides of a running combat move per
     /// hero (Donut's pounce and swat). Default drives change nothing.
+    /// `donut_motion` is Donut's ordinary motion (DM-A): applied every tick,
+    /// never stored, so no rebuild site has anything to reset. Carl always
+    /// steps with [`HeroMotion::CARL`].
     pub fn step_bodies_driven(
         &mut self,
         frames: [&InputFrame; 2],
         frozen: [bool; 2],
         drives: [BodyDrive; 2],
+        donut_motion: HeroMotion,
     ) {
         if self.complete {
             return;
@@ -259,8 +263,9 @@ impl CorridorWorld {
             );
         }
         if !frozen[1] {
-            step_hero_driven(
+            step_hero_motion(
                 &mut self.donut_body,
+                donut_motion,
                 frames[1],
                 &self.solids,
                 self.max_x,
@@ -853,8 +858,12 @@ impl SceneSim {
         self.last_effective = raws;
         self.input.advance(raws[0]);
         self.donut_input.advance(raws[1]);
-        self.world
-            .step_bodies_driven([&self.input, &self.donut_input], ctx.frozen, ctx.drives);
+        self.world.step_bodies_driven(
+            [&self.input, &self.donut_input],
+            ctx.frozen,
+            ctx.drives,
+            drive.tuning.donut_motion.motion(),
+        );
         self.step_camera();
     }
 
@@ -1023,11 +1032,13 @@ impl SceneSim {
     /// (a swap, a join) may only move closer.
     fn apply_separation_wall(&self, raws: &mut [RawInput; 2]) {
         let max = self.drive.tuning.max_separation_px(self.camera_cfg.view_w) as f32;
-        let step = |raw: &RawInput| Actions::from(*raw).move_x * RUN_SPEED * TICK_SECONDS;
+        // DM-Q09: each hero's own run speed (Carl's is the shared constant).
+        let speeds = [RUN_SPEED, self.drive.tuning.donut_motion.motion().run_speed];
+        let step = |raw: &RawInput, i: usize| Actions::from(*raw).move_x * speeds[i] * TICK_SECONDS;
         let mut next = [self.world.hero.x, self.world.donut_body.x];
         let before = next;
         for i in 0..2 {
-            let planned = before[i] + step(&raws[i]);
+            let planned = before[i] + step(&raws[i], i);
             let other = next[1 - i];
             let (now, then) = ((before[i] - other).abs(), (planned - other).abs());
             if then > max && then > now {

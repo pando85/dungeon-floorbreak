@@ -6,6 +6,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
 
 use super::codec::{ACTION_SCHEMA, EVENT_SCHEMA, SESSION_SCHEMA, hex64};
+use crate::party::MotionProfile;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -37,6 +38,16 @@ pub enum SessionStatus {
     Corrupt,
 }
 
+/// The serde default of [`ResetDescriptor::donut_motion`]: a descriptor without
+/// the field was recorded before the agile motion existed.
+fn legacy_motion() -> MotionProfile {
+    MotionProfile::Legacy
+}
+
+fn is_legacy_motion(motion: &MotionProfile) -> bool {
+    *motion == MotionProfile::Legacy
+}
+
 /// What a fresh process needs to rebuild tick 0 (the `PartyFixtureSim` style:
 /// replay is from this descriptor plus the input tape; v1 has no snapshots).
 /// No path: only repo-relative names and hashes.
@@ -61,6 +72,12 @@ pub struct ResetDescriptor {
     pub carl_dynamite: bool,
     #[serde(default, skip_serializing_if = "is_false")]
     pub carl_gauntlet: bool,
+    /// DONUT-MOBILITY-01: the motion Donut's body stepped with. **Absent means
+    /// `legacy`** (every recording made before DM-A), through an explicit
+    /// default function, never `Default`, so a rebuild of an old recording can
+    /// not silently become agile. Written only when it is not `legacy`.
+    #[serde(default = "legacy_motion", skip_serializing_if = "is_legacy_motion")]
+    pub donut_motion: MotionProfile,
     /// FNV-1a-64 of the layout and kit contract (0 when not computed).
     #[serde(with = "hex64")]
     pub kit_hash: u64,

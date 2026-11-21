@@ -196,6 +196,11 @@ pub struct Room {
     /// every lab room.
     pub solid_backwall: Vec<(i32, i32)>,
     pub goal_x: i32,
+    /// DM-Q27: a collision-only lane ceiling whose underside is this many px
+    /// above the walking line (the HUD clearance of the room). `None` (the
+    /// field is absent) means no ceiling. Read by the room's loader, never by
+    /// the composer: nothing is drawn.
+    pub ceiling_px: Option<i32>,
     /// The protected exit: a walk-in region at the end of the floor.
     pub exit: IRect,
     /// How far everything of the scenario moved in y to meet the tile grid.
@@ -368,6 +373,13 @@ fn parse_room(s: &serde_json::Value) -> Result<Room, String> {
         solid_backwall.push((x0 as i32, x1 as i32));
     }
 
+    let ceiling_px = match s.get("ceiling_px") {
+        None => None,
+        Some(v) => match v.as_i64() {
+            Some(n) if n > 0 => Some(n as i32),
+            _ => return Err(ctx("ceiling_px must be a positive integer".into())),
+        },
+    };
     let goal_x = int(s, "goal_x").map_err(ctx)?;
     let mut room = Room {
         id: id.clone(),
@@ -387,6 +399,7 @@ fn parse_room(s: &serde_json::Value) -> Result<Room, String> {
         hazards,
         solid_backwall,
         goal_x,
+        ceiling_px,
         exit: IRect::new(goal_x - 24, floor_y - 96, 64, 96),
         snap_dy: dy,
         purpose: text(s, "purpose").map_err(ctx)?,

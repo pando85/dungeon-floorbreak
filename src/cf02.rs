@@ -1244,6 +1244,17 @@ pub mod arena {
                 h: 400,
             },
         );
+        // DM-Q27: the optional lane ceiling, the boss room's pattern: a solid
+        // slab whose underside is `ceiling_px` above the walking line, so a
+        // jump from a perch stays below the HUD band. Absent = none.
+        if let Some(ceiling) = room.ceiling_px {
+            kit.solid_rects.push(crate::env_kit::IRect {
+                x: 0,
+                y: FLOOR_Y - ceiling - 16,
+                w: kit.width,
+                h: 16,
+            });
+        }
         kit.layout_id = LAYOUT_ID.to_owned();
         kit.exit = None;
         Ok(kit)
@@ -1602,6 +1613,37 @@ pub mod arena {
             const { assert!(WIDTH >= 960) };
             // The rig clamps a taller view into the room, so it fits (672 >= 540).
             assert!(kit2.height >= 540);
+        }
+
+        /// DM-Q27: `ceiling_px` is an optional room field. Absent is none; a
+        /// positive integer is the underside of a lane ceiling; anything else is
+        /// a load error that names the room.
+        #[test]
+        fn the_ceiling_field_is_optional_and_validated() {
+            let text = std::fs::read_to_string(root().join(ROOM_PATH)).unwrap();
+            let mut value: Value = serde_json::from_str(&text).unwrap();
+            let with = |value: &mut Value, ceiling: Value| {
+                value["scenarios"][0]["ceiling_px"] = ceiling;
+                parse_rooms(&value.to_string())
+            };
+            value["scenarios"][0]
+                .as_object_mut()
+                .unwrap()
+                .remove("ceiling_px");
+            assert_eq!(parse_rooms(&value.to_string()).unwrap()[0].ceiling_px, None);
+            let rooms = with(&mut value, serde_json::json!(228)).unwrap();
+            assert_eq!(rooms[0].ceiling_px, Some(228));
+            for bad in [
+                serde_json::json!(0),
+                serde_json::json!(-4),
+                serde_json::json!("x"),
+            ] {
+                let err = with(&mut value, bad).unwrap_err();
+                assert!(
+                    err.contains("CF02-ARENA") && err.contains("ceiling_px"),
+                    "{err}"
+                );
+            }
         }
     }
 }

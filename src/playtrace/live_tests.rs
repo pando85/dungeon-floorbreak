@@ -60,6 +60,7 @@ fn manifest_for(fixture: &PartyFixture, scene: &SceneSim, combat: &CombatState) 
         carl_prog: false,
         carl_dynamite: false,
         carl_gauntlet: false,
+        donut_motion: crate::party::PROVISIONAL_TUNING.donut_motion,
         kit_hash: real_kit_hash(),
         start_hash: combat.state_hash(scene),
     };
@@ -329,6 +330,7 @@ impl DemoRig {
             carl_prog: false,
             carl_dynamite: false,
             carl_gauntlet: false,
+            donut_motion: crate::party::PROVISIONAL_TUNING.donut_motion,
             kit_hash: real_kit_hash(),
             start_hash: combat.state_hash(&scene),
         };
@@ -368,6 +370,7 @@ impl DemoRig {
             carl_prog: false,
             carl_dynamite: false,
             carl_gauntlet: false,
+            donut_motion: crate::party::PROVISIONAL_TUNING.donut_motion,
             kit_hash: real_kit_hash(),
             start_hash: combat.state_hash(&scene),
         };

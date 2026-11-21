@@ -2,6 +2,8 @@
 
 pub mod acting;
 pub mod actor_sprite;
+pub mod agility;
+pub mod agility_fixtures;
 pub mod anim;
 pub mod audience;
 pub mod audio;

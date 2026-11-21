@@ -38,6 +38,7 @@ pub(super) fn reset() -> ResetDescriptor {
         carl_prog: false,
         carl_dynamite: false,
         carl_gauntlet: false,
+        donut_motion: crate::party::PROVISIONAL_TUNING.donut_motion,
         kit_hash: 0,
         start_hash: 0xcbf2_9ce4_8422_2325,
     }
