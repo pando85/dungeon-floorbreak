@@ -22,7 +22,7 @@
 //! the gate a slot gate that closes on `Engaged` (`hrd_gate_physical`,
 //! `hrd_exit_door_physical`).
 //!
-//! **Not here (deferred, listed in the PR):** `hrd_gate_no_band`,
+//! **Not here (deferred to HRD-A2b, listed in the PR):** `hrd_gate_no_band`,
 //! `hrd_disengage_follow_punished`, `hrd_leash_kite_probe` (reporting only),
 //! `hrd_direct_clear_companion` (waits for CA2-B2) and `hrd_room_validator` (the
 //! validator side is BOIL-A's and HRD-A1's tests).
@@ -508,6 +508,111 @@ pub fn hrd_swipe_jump_edges(root: &Path) -> Result<Outcome, String> {
         [0, 1, 30, 31],
         100,
     )
+}
+
+/// `hrd_armour_tell`: Carl at d 44 jabs on attack tick 5: `Hurt` 1 lands (HP 29)
+/// and the swipe continues: no flinch, the strike still comes (the hit-stop only freezes her a few ticks).
+pub fn hrd_armour_tell(root: &Path) -> Result<Outcome, String> {
+    let plan = Plan::carl_at(44.0);
+    let t0 = probe_t0(root, plan, PileAttack::Swipe)?;
+    let mut rig = Rig::new(root, plan)?;
+    rig.run(t0 + 60, &|tick| {
+        if tick == t0 + 5 {
+            carl_input(attack_input())
+        } else {
+            IDLE
+        }
+    });
+    let piles = rig.piles();
+    let hurt = piles
+        .iter()
+        .find(|(_, e)| {
+            matches!(
+                e,
+                PileEvent::Hurt {
+                    damage: 1,
+                    hp_left: 29,
+                    ..
+                }
+            )
+        })
+        .ok_or_else(|| format!("no Hurt 1 (hp 29): {piles:?}"))?;
+    ensure!(
+        hurt.0 <= t0 + 5 + 12,
+        "the jab lands on tick {}",
+        hurt.0 - t0
+    );
+    ensure!(
+        !piles.iter().any(|(_, e)| matches!(e, PileEvent::Flinch)),
+        "armour: no flinch"
+    );
+    ensure!(
+        piles
+            .iter()
+            .any(|(t, e)| (t0 + 37..=t0 + 37 + 8).contains(t)
+                && matches!(
+                    e,
+                    PileEvent::Strike {
+                        attack: PileAttack::Swipe
+                    }
+                )),
+        "the swipe continues to its strike on attack tick 37 (plus the jab's hit-stop)"
+    );
+    done(&rig, format!("jab lands on attack tick {}", hurt.0 - t0))
+}
+
+/// `hrd_swipe_punish`: Carl at d 44 jumps on attack tick 20 and jabs on the tick
+/// after he lands: the jab lands inside her Recover, as free damage with no flinch.
+pub fn hrd_swipe_punish(root: &Path) -> Result<Outcome, String> {
+    let plan = Plan::carl_at(44.0);
+    let t0 = probe_t0(root, plan, PileAttack::Swipe)?;
+    let mut rig = Rig::new(root, plan)?;
+    let mut airborne = false;
+    let mut landed_at = None;
+    let mut jab_tick = None;
+    for _ in 0..(t0 + 100) {
+        let tick = rig.next_tick();
+        let input = if tick == t0 + 20 {
+            carl_input(jump_input())
+        } else if let Some(l) = landed_at
+            && tick == l + 1
+        {
+            jab_tick = Some(tick);
+            carl_input(attack_input())
+        } else {
+            IDLE
+        };
+        rig.step(input);
+        let grounded = rig.scene.world.hero.grounded;
+        if !grounded {
+            airborne = true;
+        } else if airborne && landed_at.is_none() {
+            landed_at = Some(rig.next_tick() - 1);
+        }
+    }
+    let jab = jab_tick.ok_or("Carl never landed")?;
+    ensure!(
+        (t0 + 43..=t0 + 90).contains(&jab),
+        "the jab is inside Recover: attack tick {}",
+        jab - t0
+    );
+    let piles = rig.piles();
+    ensure!(
+        piles
+            .iter()
+            .any(|(t, e)| *t >= jab && matches!(e, PileEvent::Hurt { .. })),
+        "the jab lands: {piles:?}"
+    );
+    ensure!(
+        !piles.iter().any(|(_, e)| matches!(e, PileEvent::Flinch)),
+        "free damage: no flinch"
+    );
+    ensure!(
+        rig.hurts().is_empty(),
+        "the jump cleared the swipe: {:?}",
+        rig.hurts()
+    );
+    done(&rig, format!("jab on attack tick {}", jab - t0))
 }
 
 /// `hrd_shove_hits_idle_carl`: Carl idle at d 128. One blow of 1 on attack tick 62
@@ -1118,41 +1223,60 @@ pub fn hrd_ai_steps_out_of_swipe(root: &Path) -> Result<Outcome, String> {
     done(&rig, "the follower stepped out")
 }
 
-/// `hrd_ai_steps_out_untargeted`: P1 Carl at d 44 is her target; the plain bot
-/// Donut at d 84. The Pound carries `target: None`, so the untargeted bot steps
-/// out as well. **Measured, not the sheet's strict result:** the sheet expects
-/// no blow on Donut; the follower's step-out (stops at 85 px from the anchor)
-/// and its follow step (3.45 px back toward Carl) dither at x 665.6 / 669.1, and
-/// on the impact tick it stands 0.1 px inside the swipe box. The fixture asserts
-/// the step-out and reports the blow; the gap is an open question (the follower is
-/// outside HRD-A2: no AI change).
+/// `hrd_ai_steps_out_untargeted`: P1 at d 44 is her target; the plain bot at d 84
+/// is not, but the Pound carries `target: None`, so it steps out as well and takes
+/// **no blow**. Both ways: P1 Carl with the bot Donut, and P1 Donut with the bot
+/// Carl. The anchor is 13 px (HRD-Q33, reviewer ruling on #215): the sheet's 9
+/// ignored the follower's 3.45 px follow pull-back, and the bot stood 0.1 px inside
+/// the swipe box on the impact tick.
 pub fn hrd_ai_steps_out_untargeted(root: &Path) -> Result<Outcome, String> {
-    let plan = Plan {
-        donut_x: (E - 84.0) as i32,
-        gate_off: true,
-        ..Plan::carl_at(44.0)
+    use crate::party::HeroId;
+    let mut hash = 0u64;
+    let mut notes = Vec::new();
+    for (control, bot) in [
+        (Control::SoloCarl, HeroId::Donut),
+        (Control::SoloDonut, HeroId::Carl),
+    ] {
+        let (bot_x, p1_x) = (E - 84.0, E - 44.0);
+        let plan = Plan {
+            carl_x: if bot == HeroId::Carl { bot_x } else { p1_x } as i32,
+            donut_x: if bot == HeroId::Donut { bot_x } else { p1_x } as i32,
+            gate_off: true,
+            ..Plan::carl_at(44.0)
+        }
+        .with_control(control);
+        let mut rig = Rig::new(root, plan)?;
+        let mut min_x = f32::MAX;
+        for _ in 0..120 {
+            rig.step(IDLE);
+            min_x = min_x.min(rig.scene.world.body(bot).x);
+        }
+        ensure!(
+            min_x < bot_x - 8.0,
+            "{bot:?} bot steps out of the tell (min x {min_x})"
+        );
+        let p1 = 1 - bot.index();
+        ensure!(
+            rig.hurts().iter().any(|h| h.3 == p1),
+            "the swipe still hits P1: {:?}",
+            rig.hurts()
+        );
+        let bot_blows: Vec<_> = rig
+            .hurts()
+            .into_iter()
+            .filter(|h| h.3 == bot.index())
+            .collect();
+        ensure!(
+            bot_blows.is_empty(),
+            "no blow on the {bot:?} bot: {bot_blows:?}"
+        );
+        notes.push(format!("{bot:?} bot min x {min_x:.1}"));
+        hash = hash.rotate_left(9) ^ rig.hash();
     }
-    .with_control(Control::SoloCarl);
-    let mut rig = Rig::new(root, plan)?;
-    let mut min_x = f32::MAX;
-    for _ in 0..120 {
-        rig.step(IDLE);
-        min_x = min_x.min(rig.scene.world.body(crate::party::HeroId::Donut).x);
-    }
-    ensure!(
-        min_x < (E - 84.0) - 8.0,
-        "the untargeted bot steps out of the tell (min x {min_x})"
-    );
-    ensure!(
-        rig.hurts().iter().any(|h| h.3 == 0),
-        "the swipe still hits Carl: {:?}",
-        rig.hurts()
-    );
-    let donut_blows = rig.hurts().iter().filter(|h| h.3 == 1).count();
-    done(
-        &rig,
-        format!("min x {min_x:.1}, blows on the bot {donut_blows} (sheet: 0, open)"),
-    )
+    Ok(Outcome {
+        hash,
+        note: notes.join("; "),
+    })
 }
 
 /// The entry gate is a physical solid while it is closed: Carl outside (x 190)
@@ -1667,6 +1791,8 @@ pub fn defeat_run(root: &Path, loadout: Loadout) -> Result<(SceneSim, CombatStat
 pub const FIXTURES: &[(&str, FixtureFn)] = &[
     ("hrd_swipe_hits_idle_carl", hrd_swipe_hits_idle_carl),
     ("hrd_swipe_jump_edges", hrd_swipe_jump_edges),
+    ("hrd_swipe_punish", hrd_swipe_punish),
+    ("hrd_armour_tell", hrd_armour_tell),
     ("hrd_shove_hits_idle_carl", hrd_shove_hits_idle_carl),
     ("hrd_shove_jump_edges", hrd_shove_jump_edges),
     ("hrd_shove_jump_lands_behind", hrd_shove_jump_lands_behind),
@@ -1706,6 +1832,8 @@ mod tests {
     const GOLDENS: &[(&str, u64)] = &[
         ("hrd_swipe_hits_idle_carl", 0x50ba_b59f_4c54_fd89),
         ("hrd_swipe_jump_edges", 0x2cc6_0f06_d9b1_9790),
+        ("hrd_swipe_punish", 0x53d2_786c_97de_addd),
+        ("hrd_armour_tell", 0x6672_dcbe_b8ab_8cb7),
         ("hrd_shove_hits_idle_carl", 0x143d_05ee_5fb9_0bf9),
         ("hrd_shove_jump_edges", 0x7afe_603b_77d6_b696),
         ("hrd_shove_jump_lands_behind", 0xeb83_fcbe_474d_086e),
@@ -1720,15 +1848,15 @@ mod tests {
         ("hrd_retry_short_reveal", 0x78c3_48ed_4a39_8b74),
         ("hrd_restart_mid_reveal", 0xd8f5_13a1_c3f9_f43d),
         ("hrd_leash_return", 0xf1cf_09bf_157d_538f),
-        ("hrd_ai_steps_out_of_swipe", 0xa075_622d_21e1_67e8),
-        ("hrd_ai_steps_out_untargeted", 0xba94_dcc2_74c6_abe3),
+        ("hrd_ai_steps_out_of_swipe", 0x979c_02f9_ccc8_c8b6),
+        ("hrd_ai_steps_out_untargeted", 0x7e2e_1bbb_586f_1e6b),
         ("hrd_exit_door_physical", 0x8334_e001_0139_8372),
         ("hrd_gate_physical", 0x23ae_425d_f63b_f99b),
         ("hrd_poise_flinch", 0xcb4e_2e10_7972_5980),
         ("hrd_disengage_trigger_band", 0xd614_2e9c_fd84_90a9),
         ("hrd_no_safe_snipe", 0x77e1_3929_b017_e303),
         ("hrd_direct_clear_solo", 0x8218_afff_e4ac_43ef),
-        ("hrd_direct_clear_donut", 0x1f02_6056_dfa1_4e35),
+        ("hrd_direct_clear_donut", 0xba74_d709_ad6b_192b),
     ];
 
     #[test]
@@ -1761,14 +1889,49 @@ mod tests {
     /// The sheet's names: every fixture the brief lists is present.
     #[test]
     fn the_required_fixtures_exist() {
+        // The sheet's HRD-A2 table, minus the disclosed deferrals (the module docs).
         for name in [
-            "hrd_defeat_grants_dynamite",
+            "hrd_reveal_no_hits",
+            "hrd_gate_2p_waits",
+            "hrd_gate_solo_regroup",
+            "hrd_retry_short_reveal",
+            "hrd_restart_mid_reveal",
+            "hrd_swipe_hits_idle_carl",
+            "hrd_swipe_jump_edges",
+            "hrd_swipe_punish",
+            "hrd_armour_tell",
+            "hrd_poise_flinch",
+            "hrd_shove_hits_idle_carl",
+            "hrd_shove_jump_edges",
+            "hrd_shove_jump_lands_behind",
+            "hrd_shove_2p_both",
+            "hrd_shove_jams_on_solid",
+            "hrd_turn_flank",
+            "hrd_leash_return",
+            "hrd_disengage_trigger_band",
+            "hrd_no_safe_snipe",
+            "hrd_ai_steps_out_of_swipe",
+            "hrd_ai_steps_out_untargeted",
             "hrd_not_evadable",
+            "hrd_defeat_grants_dynamite",
             "hrd_direct_clear_solo",
             "hrd_direct_clear_donut",
         ] {
             assert!(FIXTURES.iter().any(|(n, _)| *n == name), "{name}");
         }
+    }
+
+    /// `solid_intact` on her door and gate (a room with no props) answers `false`
+    /// without indexing props: the slot enemy decides them.
+    #[test]
+    fn solid_intact_on_the_door_and_gate_of_a_propless_room_does_not_panic() {
+        let rig = Rig::new(&root(), Plan::carl_at(60.0)).unwrap();
+        let env = rig.combat.env().unwrap();
+        assert_eq!(env.props(), 0);
+        for i in 0..env.solids().len() {
+            assert!(!env.solid_intact(i));
+        }
+        assert!(!env.solid_intact(99));
     }
 
     /// The door and the gate are runtime env solids of one sync: the door a lock

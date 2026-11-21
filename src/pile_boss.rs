@@ -79,7 +79,7 @@ pub const EVADE_CLASS: &str = "never";
 /// The tuning file, embedded so the binary and the tests read the same bytes.
 pub const TUNING_JSON: &str = include_str!("../assets/data/gameplay/enemy_pile_boss_v0.json");
 /// The committed FNV-1a 64 content hash of [`TUNING_JSON`].
-pub const TUNING_HASH: u64 = 0xd715_fd34_1550_75b4;
+pub const TUNING_HASH: u64 = 0x73fe_ce44_acbc_b645;
 /// The `content_hashes` key of the tuning pin.
 pub const PIN_KEY: &str = "pile_boss_tuning";
 /// The schema version [`PileBossTuning`] accepts.
@@ -4650,12 +4650,12 @@ mod tests {
     // ------------------------------------------------------ the AI feed ---
 
     #[test]
-    fn the_pound_dodge_anchor_is_nine_px_ahead_with_no_target() {
+    fn the_pound_dodge_anchor_is_thirteen_px_ahead_with_no_target() {
         let mut boss = awake(E);
         boss.step(&ctx(heroes_carl(E - 44.0), &[], 1));
         match boss.threat() {
             Some(BossThreat::Pound { x, facing, target }) => {
-                assert_eq!(x, E - 9.0, "pivot + facing * 9");
+                assert_eq!(x, E - 13.0, "pivot + facing * 13");
                 assert_eq!(facing, -1);
                 assert_eq!(target, None, "her swipe hits every hero in the box");
             }
@@ -4672,15 +4672,18 @@ mod tests {
         boss.step(&ctx(heroes_carl(E - 44.0), &[], 44));
         assert_eq!(boss.mode(), PileMode::SwipeRecover);
         assert!(boss.threat().is_none());
-        // The follower's 84 px step-out clears her 92 px reach: 9 = 92 - 84 + 1.
+        // The follower's 84 px step-out plus its 3.45 px follow pull-back (207 px/s
+        // at 60 Hz) must stay clear of her 92 px reach: 13 >= 92 - 84 + 1 + 3.45
+        // (reviewer ruling on #215, HRD-Q33; the sheet's 9 ignored the pull-back).
         let anchor = f32::from(tun().hrdq33_pound_anchor_px);
-        assert_eq!(anchor, 92.0 - 84.0 + 1.0);
+        assert_eq!(anchor, 13.0);
+        assert!(anchor >= 92.0 - 84.0 + 1.0 + 3.45);
         // Facing +x mirrors it.
         let mut east = PileBoss::awake_at(tun(), setup(), E, 1);
         east.step(&ctx(heroes_carl(E + 44.0), &[], 1));
         match east.threat() {
             Some(BossThreat::Pound { x, facing, .. }) => {
-                assert_eq!((x, facing), (E + 9.0, 1));
+                assert_eq!((x, facing), (E + 13.0, 1));
             }
             other => panic!("{other:?}"),
         }

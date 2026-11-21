@@ -1615,8 +1615,9 @@ impl CombatState {
             let solid = env.solids()[i - range.start];
             match solid.kind {
                 EnvSolidKind::Drum => struck.push(solid.prop),
-                // The landed weight is a wall, not a trigger.
-                EnvSolidKind::Remnant => {}
+                // The landed weight is a wall, not a trigger; a lock and a gate are
+                // her solids, never a prop to strike.
+                EnvSolidKind::Remnant | EnvSolidKind::Lock { .. } | EnvSolidKind::Gate { .. } => {}
             }
         }
         struck.sort_unstable();
