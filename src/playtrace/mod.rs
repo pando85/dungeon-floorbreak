@@ -70,7 +70,7 @@ pub use codec::{
 };
 pub use cursor::{
     ReplayCounters, ReplayCursor, ReplayPolicy, ReplayResult, TickOutcome, Trust,
-    replay_result_line, state_hash_of,
+    replay_result_line, resolve_session, state_hash_of,
 };
 pub use error::PlaytraceError;
 pub use manifest::{

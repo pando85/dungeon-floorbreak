@@ -110,6 +110,10 @@ use dungeon_floorbreak::{
     shore_art::{ShoreArt, ShoreSlot, landed_age},
 };
 
+// PTR-R1. A crate-root file looks for child modules beside itself, so the path is explicit.
+#[path = "floor01_scene/replay_view.rs"]
+mod replay_view;
+
 /// Draw order above the actor plane. Carl is drawn above every goblin, except
 /// that a goblin in its smear or impact is drawn over him (its club lands on
 /// him) while he is not in his own active window; during Carl's active frames he
@@ -277,6 +281,10 @@ struct Args {
     lab_variant_set: bool,
     /// The launched room (`main` fills it right after parsing).
     lab_run: Option<Box<LabRun>>,
+    /// PLAYTRACE-RENDER-01 PTR-R1: `--replay-session ID`: the offline replay
+    /// viewer. It takes the simulation from the recording alone, so every
+    /// gameplay flag and every `--record*` flag is a parse error with it.
+    replay: Option<replay_view::ReplayArgs>,
 }
 
 /// The PLAYTRACE-01 recording switch of a run.
@@ -319,6 +327,7 @@ impl Args {
     /// path, which are reproducible from their flags and goldens.
     fn live_input(&self) -> bool {
         !self.headless
+            && self.replay.is_none()
             && !self.freeze
             && self.scenario.is_none()
             && self.party_fixture.is_none()
@@ -888,6 +897,7 @@ fn parse_args_full(
         lab_autopilot: false,
         lab_variant_set: false,
         lab_run: None,
+        replay: None,
     };
     let mut iter = args.iter().skip(1);
     while let Some(arg) = iter.next() {
@@ -972,6 +982,7 @@ fn parse_args_full(
             }
             other if parsed.hud_settings.apply_flag(other)? => {}
             other if parsed.cinematic.apply_flag(other)? => parsed.cinematic_set = true,
+            other if replay_view::replay_flag(&mut parsed.replay, other, &mut iter)? => {}
             "--no-lighting" => parsed.no_lighting = true,
             "--demo" => parsed.demo = true,
             "--scene" => {
@@ -1120,6 +1131,11 @@ fn parse_args_full(
             }
             other => return Err(format!("unknown argument {other:?}")),
         }
+    }
+    replay_view::check_args(args, &parsed.replay)?;
+    if parsed.replay.is_some() {
+        // A replay takes its room, rules and deck from the recording.
+        return Ok(parsed);
     }
     resolve_lab_args(&mut parsed)?;
     if parsed.cf02.seed.is_some() && !parsed.cf02.rules && !parsed.lab_scene {
@@ -1443,6 +1459,29 @@ fn step_hud(hud: &mut HudRuntime, sim: &SceneSim, combat: Option<&CombatState>) 
     );
 }
 
+/// The presentation half of the combat branch of [`build_scene`]: the animators
+/// with the melee and CF02 art, the cosmetic death presenter and the HUD's
+/// melee flag. It builds no simulation (PTR-R1 calls it with the replay
+/// cursor's own state); presentation only.
+fn combat_presentation(
+    actors: &Actors,
+    root: &Path,
+    args: &Args,
+    sim: &SceneSim,
+    combat: &CombatState,
+    hud: &mut HudRuntime,
+) -> Result<(SceneAnimators, DeathPresenter), String> {
+    let mut anim = actors.animators(&sim.world);
+    anim.art = actors.combat_art(combat);
+    let mut death = death_presenter(root, args)?;
+    // CF02-D (Q36): the death overlay and the gore budget under cf02_rules.
+    if let Some(tuning) = combat.cf02() {
+        death = death.with_cf02(tuning);
+    }
+    hud.set_melee_live(true);
+    Ok((anim, death))
+}
+
 fn build_scene(
     kit: &EnvKit,
     args: &Args,
@@ -1472,14 +1511,7 @@ fn build_scene(
         if args.cf02.rules {
             combat = combat.with_cf02().with_cf02_seed(args.cf02.seed);
         }
-        let mut anim = actors.animators(&sim.world);
-        anim.art = actors.combat_art(&combat);
-        let mut death = death_presenter(root, args)?;
-        // CF02-D (Q36): the death overlay and the gore budget under cf02_rules.
-        if let Some(tuning) = combat.cf02() {
-            death = death.with_cf02(tuning);
-        }
-        hud.set_melee_live(true);
+        let (mut anim, mut death) = combat_presentation(actors, root, args, &sim, &combat, hud)?;
         // A party fixture runs the live party exactly like the interactive
         // scene (slot inputs, solo swap, drive); a plain fixture stays legacy.
         let mut party = if let Some(run) = &args.lab_run {
@@ -1845,7 +1877,19 @@ fn main() -> ExitCode {
             }
         }
     }
-    let kit = if let Some(run) = &args.lab_run {
+    // PTR-R1: open the recording before anything else; a recording the viewer
+    // cannot show opens no window.
+    let prepared = if args.replay.is_some() {
+        match replay_view::prepare(&mut args, &root) {
+            Ok(prepared) => Some(prepared),
+            Err(unsupported) => return unsupported.report(),
+        }
+    } else {
+        None
+    };
+    let kit = if let Some(prepared) = &prepared {
+        Ok(prepared.kit.clone())
+    } else if let Some(run) = &args.lab_run {
         Ok(run.kit.clone())
     } else if args.arena_room() {
         cf02::arena::load_arena(&root)
@@ -1901,14 +1945,24 @@ fn main() -> ExitCode {
         };
     }
     let mut hud = new_hud(&args, &kit, &actors);
-    let (sim, anim, combat, death, party) = match build_scene(&kit, &args, &actors, &root, &mut hud)
-    {
+    let scene = match prepared {
+        Some(prepared) => replay_view::scene_of(prepared, &args, &actors, &root, &mut hud).map(
+            |(sim, anim, combat, death, party, view)| (sim, anim, combat, death, party, Some(view)),
+        ),
+        None => build_scene(&kit, &args, &actors, &root, &mut hud)
+            .map(|(sim, anim, combat, death, party)| (sim, anim, combat, death, party, None)),
+    };
+    let (sim, anim, combat, death, party, replay) = match scene {
         Ok(scene) => scene,
         Err(message) => return failure(&message),
     };
-    run_window(
-        kit, sim, anim, combat, death, party, actors, hud, args, &root,
+    let is_replay = replay.is_some();
+    let exit = run_window(
+        kit, sim, anim, combat, death, party, actors, hud, args, &root, replay,
     );
+    if is_replay {
+        return replay_view::exit_code(&exit);
+    }
     ExitCode::SUCCESS
 }
 
@@ -2747,7 +2801,8 @@ fn run_window(
     hud: HudRuntime,
     args: Args,
     root: &Path,
-) {
+    replay: Option<replay_view::ReplayView>,
+) -> AppExit {
     // HUD-DEBT-03: the boss atlas when its manifest and export exist; the
     // scene draws spec-size placeholder rects otherwise. Wrong art is fatal.
     let boss_art = match BossArt::load(root) {
@@ -2768,14 +2823,19 @@ fn run_window(
         .capture_sequence
         .zip(args.capture_dir.clone())
         .map(|((first, step, count), dir)| CaptureSequence::new(first, step, count, dir));
-    let recorder = start_recording(&args, &sim, combat.as_ref(), &party, root);
+    // A replay never records: the recorder is forced off.
+    let recorder = if replay.is_some() {
+        None
+    } else {
+        start_recording(&args, &sim, combat.as_ref(), &party, root)
+    };
     let freeze = args.freeze
         || args.capture_tick.is_some()
         || args.reference_frame
         || capture.is_some()
         || args.perf_from_tick.is_some();
     let scenario = if freeze { None } else { args.scenario };
-    let live_fixture = if freeze || args.manual {
+    let live_fixture = if freeze || args.manual || replay.is_some() {
         None
     } else {
         args.fixture
@@ -2927,10 +2987,7 @@ fn run_window(
     .add_systems(
         Update,
         (
-            pad_connections,
-            capture_input,
             cine_frame,
-            sync_party_hud,
             perf_step,
             sync_visuals,
             sync_combat_visuals,
@@ -2948,8 +3005,37 @@ fn run_window(
             capture_sequence,
         )
             .chain(),
-    )
-    .add_systems(FixedUpdate, (fixed_step, update_scene_camera).chain());
+    );
+    if let Some(view) = replay {
+        // PTR-R1: the replay viewer. No pad, no keyboard gameplay, no live
+        // `fixed_step`, no `sync_party_hud`: the cursor drives the tick, the
+        // recorded drive drives the HUD, and only the viewer's own keys are read.
+        app.insert_resource(view)
+            .add_systems(Startup, replay_view::spawn_overlay)
+            .add_systems(
+                Update,
+                (
+                    replay_view::replay_keys.before(cine_frame),
+                    replay_view::replay_hud.after(cine_frame).before(perf_step),
+                    replay_view::replay_capture.after(sync_visuals),
+                    replay_view::draw_overlay.after(replay_view::replay_hud),
+                ),
+            )
+            .add_systems(Last, replay_view::replay_finish)
+            .add_systems(
+                FixedUpdate,
+                (replay_view::replay_step, replay_view::replay_camera).chain(),
+            );
+    } else {
+        // The live input systems keep their order: pads, input, CINE, party HUD,
+        // then the rest of the chain above.
+        app.add_systems(
+            Update,
+            (pad_connections, capture_input).chain().before(cine_frame),
+        )
+        .add_systems(Update, sync_party_hud.after(cine_frame).before(perf_step))
+        .add_systems(FixedUpdate, (fixed_step, update_scene_camera).chain());
+    }
     if lighting_on {
         app.add_plugins(LightPassPlugin);
     }
@@ -2965,7 +3051,7 @@ fn run_window(
     if let Some(capture) = capture {
         app.insert_resource(capture);
     }
-    app.run();
+    app.run()
 }
 
 // ---------------------------------------------------------------------- setup

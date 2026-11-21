@@ -142,7 +142,8 @@ fn the_cursor_replays_a_party_session_with_restart_p2_join_and_a_d6_pause() {
 #[test]
 fn the_cursor_replays_one_carl_a_solo_swap_ai_donut_and_two_players() {
     let dir = TempDir::new("cur-modes");
-    let cases: [(&str, fn(&mut Rig)); 3] = [
+    type Script = fn(&mut Rig);
+    let cases: [(&str, Script); 3] = [
         ("carl", |rig| solo_swap_script(rig, 600, &[])),
         ("swap", |rig| solo_swap_script(rig, 700, &[40, 400])),
         ("coop", |rig| coop_script(rig, 700)),

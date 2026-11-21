@@ -776,3 +776,26 @@ pub fn replay_result_line(
     let post = post.map_or_else(|| "none".to_owned(), |p| format!("{p:016x}"));
     format!("PLAYTRACE_REPLAY session={session} result={word} ticks={ticks} post={post}{tail}")
 }
+
+/// The session directory a user-given id names: an existing session directory
+/// (a path with a manifest), or a session id or unique prefix of one inside
+/// `base` (the same rule as `playtrace list` and `playtrace verify`).
+pub fn resolve_session(base: &Path, id: &str) -> Result<std::path::PathBuf, String> {
+    let direct = Path::new(id);
+    if direct.join("manifest.json").is_file() {
+        return Ok(direct.to_path_buf());
+    }
+    let matches: Vec<std::path::PathBuf> = super::reader::list_sessions(base)
+        .into_iter()
+        .filter(|(_, m)| m.session_id.starts_with(id))
+        .map(|(path, _)| path)
+        .collect();
+    match matches.as_slice() {
+        [one] => Ok(one.clone()),
+        [] => Err(format!("no session matches {id:?}")),
+        _ => Err(format!(
+            "{id:?} matches {} sessions: use more digits",
+            matches.len()
+        )),
+    }
+}

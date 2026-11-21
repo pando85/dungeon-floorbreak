@@ -130,6 +130,8 @@ jobs:
         run: xvfb-run -a -s '-screen 0 1920x1080x24' bash scripts/ci_floor01_combat.sh demo-render
       - name: CINE-01 skill-gated slow motion, real Bevy loop on and off at gore presets 1 and 4 (authoritative lines must be identical; the moment must return to 1.0x at both framings and scales)
         run: xvfb-run -a -s '-screen 0 1920x1200x24' bash scripts/ci_floor01_combat.sh cine
+      - name: PLAYTRACE-RENDER-01 replay viewer on a synthetic CF02 recording (verify PASS, then STRICT with the recorded ticks and post hash, a tick-300 window capture, cross-build UNSUPPORTED and CHECKED, a resealed tamper DIVERGED)
+        run: xvfb-run -a -s '-screen 0 1920x1080x24' bash scripts/ci_floor01_combat.sh replay
       - name: Frame-interval probe, lighting on (software Vulkan, report only)
         continue-on-error: true
         run: xvfb-run -a -s '-screen 0 1280x720x24' bash scripts/ci_floor01_render_smoke.sh perf-lit
