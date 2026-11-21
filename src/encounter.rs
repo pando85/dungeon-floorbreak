@@ -4702,6 +4702,8 @@ mod tests {
             BOILER_ENCOUNTER_PATH,
             HAZARDS_ENCOUNTER_PATH,
             crate::pile_boss::ENCOUNTER_PATH,
+            crate::ring_fixtures::COURT_ENCOUNTER_PATH,
+            crate::ring_fixtures::SPLIT_ENCOUNTER_PATH,
         ] {
             let l = load(root(), sidecar).unwrap_or_else(|e| panic!("{sidecar}: {e:?}"));
             let statics: Vec<IRect> = l
