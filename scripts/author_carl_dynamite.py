@@ -695,7 +695,7 @@ def carl_manifest() -> dict:
         "license": LICENSE,
         "review_status": "prototype_fixture_unapproved",
         "dynamite": {
-            "status": "keys frozen, 5 standing in-betweens drawn, moving variant baked, independent review pending; 45 frames, 4 of them frozen keys; not wired into any Bevy binary",
+            "status": "keys frozen, 5 standing in-betweens drawn, moving variant baked, independent review pending; 45 frames, 4 of them frozen keys; wired into floor01_scene by CARL-PROG-01 CP-B2 behind the thrown-charge flags only (--carl-prog, --carl-dynamite, carl_prog_* fixtures), still prototype_fixture_unapproved",
             "spec": "docs/02-art/carl-dynamite-anim-03-spec.md",
             "master": "assets/manifests/carl_book1_h52.json",
             "locomotion": "assets/manifests/carl_book1_h52_locomotion.json",
@@ -775,7 +775,7 @@ def vfx_manifest() -> dict:
         "license": LICENSE,
         "review_status": "prototype_fixture_unapproved",
         "vfx": {
-            "status": "Keys frozen; in-betweens drawn; independent review pending; drawn in the floor01_scene QA fixtures only (DEATH-D); review pending",
+            "status": "Keys frozen; in-betweens drawn; independent review pending; drawn in the floor01_scene DEATH-D QA fixtures and, since CARL-PROG-01 CP-B2, as the thrown stick (flight, then fizzle) behind the thrown-charge flags; review pending",
             "spec": "docs/02-art/carl-dynamite-anim-03-spec.md",
             "tick_hz": TICK_HZ,
             "free_tags": ["dynamite_flight", "dynamite_fizzle"],
