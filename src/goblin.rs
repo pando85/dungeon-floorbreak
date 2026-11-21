@@ -216,6 +216,30 @@ pub struct Goblin {
     pub(crate) eng_sense: Option<EngineerSense>,
     /// The Engineer's pinned knobs (`Some` only for an Engineer).
     pub(crate) eng_tuning: Option<&'static EngineerTuning>,
+    /// HAZ-A2: the x-intervals this goblin's grounded walk, approach, flee and
+    /// hop never enter (an acid patch). Static room data the scene sets when it
+    /// builds the goblin: never hashed, empty (no allocation) outside a room
+    /// that has barriers. Knockback, launches and wall slams never read it.
+    pub(crate) walk_barriers: Vec<WalkBarrier>,
+}
+
+/// HAZ-A2 (HAZ-Q48): a walk barrier, an x-interval `[x0, x1)` that a goblin on
+/// its walking line `line` (the foot height of the surface the interval lies
+/// on) never moves its body into by its own grounded motion. It is **not** a
+/// solid: it is never in `solids`, so a kicked or launched goblin flies through
+/// it and lands in it.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct WalkBarrier {
+    pub x0: f32,
+    pub x1: f32,
+    /// World y of the feet on the surface the interval lies on.
+    pub line: f32,
+}
+
+impl WalkBarrier {
+    fn centre(&self) -> f32 {
+        (self.x0 + self.x1) * 0.5
+    }
 }
 
 impl Goblin {
@@ -253,7 +277,32 @@ impl Goblin {
             eng: EngineerState::IDLE,
             eng_sense: None,
             eng_tuning: None,
+            walk_barriers: Vec::new(),
         }
+    }
+
+    /// The same goblin with walk barriers (HAZ-A2).
+    #[must_use]
+    pub fn with_walk_barriers(mut self, barriers: &[WalkBarrier]) -> Self {
+        self.walk_barriers = barriers.to_vec();
+        self
+    }
+
+    /// Whether a grounded step from `self.x` to `candidate` would move the body
+    /// **deeper into** a walk barrier on this goblin's walking line. A goblin
+    /// already inside (it landed there) may still walk out: only a step toward
+    /// the interval's centre is refused.
+    fn barred(&self, candidate: f32) -> bool {
+        if self.walk_barriers.is_empty() {
+            return false;
+        }
+        let foot = self.floor_y - ENEMY_HALF_HEIGHT;
+        self.walk_barriers.iter().any(|b| {
+            (foot - b.line).abs() < 0.5
+                && candidate - ENEMY_HALF_WIDTH < b.x1
+                && candidate + ENEMY_HALF_WIDTH > b.x0
+                && (candidate - b.centre()).abs() < (self.x - b.centre()).abs()
+        })
     }
 
     /// Make this goblin the Engineer: his health and every rule of his own come
@@ -786,7 +835,7 @@ impl Goblin {
         if distance > stop_at {
             self.facing = toward;
             let candidate = self.x + f32::from(toward) * walk_speed * TICK_SECONDS;
-            if !solid_at(solids, body_rect(candidate, self.y)) {
+            if !solid_at(solids, body_rect(candidate, self.y)) && !self.barred(candidate) {
                 self.x = candidate;
             }
         }
@@ -800,7 +849,10 @@ impl Goblin {
         self.facing = dir;
         let wanted = self.x + f32::from(dir) * speed * TICK_SECONDS;
         let candidate = wanted.clamp(ENEMY_HALF_WIDTH, max_x);
-        if candidate == self.x || solid_at(solids, body_rect(candidate, self.y)) {
+        if candidate == self.x
+            || solid_at(solids, body_rect(candidate, self.y))
+            || self.barred(candidate)
+        {
             return false;
         }
         self.x = candidate;
@@ -810,10 +862,36 @@ impl Goblin {
     /// CF02-Q64: a hop of `px` px in `dir` (the Coward's back-off), stopped by a
     /// solid or the layout edge. The goblin keeps facing the hero.
     pub(crate) fn hop(&mut self, dir: i8, px: f32, solids: &[Block], max_x: f32) {
-        let candidate = (self.x + f32::from(dir) * px).clamp(ENEMY_HALF_WIDTH, max_x);
+        let mut candidate = (self.x + f32::from(dir) * px).clamp(ENEMY_HALF_WIDTH, max_x);
+        // HAZ-A2: a hop that would land inside a walk barrier is cut short at
+        // the edge (never into the acid).
+        if self.barred(candidate) {
+            let edge = self.walk_barriers.iter().find_map(|b| {
+                let foot = self.floor_y - ENEMY_HALF_HEIGHT;
+                ((foot - b.line).abs() < 0.5 && self.barred_by(b, candidate)).then_some(
+                    if dir > 0 {
+                        b.x0 - ENEMY_HALF_WIDTH
+                    } else {
+                        b.x1 + ENEMY_HALF_WIDTH
+                    },
+                )
+            });
+            if let Some(edge) = edge {
+                candidate = edge;
+            }
+            if (candidate - self.x) * f32::from(dir) <= 0.0 {
+                return;
+            }
+        }
         if !solid_at(solids, body_rect(candidate, self.y)) {
             self.x = candidate;
         }
+    }
+
+    fn barred_by(&self, b: &WalkBarrier, candidate: f32) -> bool {
+        candidate - ENEMY_HALF_WIDTH < b.x1
+            && candidate + ENEMY_HALF_WIDTH > b.x0
+            && (candidate - b.centre()).abs() < (self.x - b.centre()).abs()
     }
 
     /// Move by the knockback velocity: stopped by walls and the layout edge,
@@ -2290,5 +2368,95 @@ mod tests {
         goblin_at(200.0).mix_into(&mut |v| a.push(v));
         engineer_at(200.0).mix_into(&mut |v| b.push(v));
         assert_eq!(b.len(), a.len() + 1);
+    }
+
+    // ---- HAZ-A2: the walk barrier list
+
+    /// The goblin stands on `FLOOR` (centre height), its feet at `FLOOR - 19`.
+    fn barrier(x0: f32, x1: f32) -> WalkBarrier {
+        WalkBarrier {
+            x0,
+            x1,
+            line: FLOOR - ENEMY_HALF_HEIGHT,
+        }
+    }
+
+    #[test]
+    fn a_walking_goblin_stops_at_a_barrier_edge_and_never_overlaps_it() {
+        let mut g = goblin_at(120.0).with_walk_barriers(&[barrier(200.0, 264.0)]);
+        for _ in 0..400 {
+            g.step(330.0, true, &[], EDGE, false, false);
+            assert!(g.x + ENEMY_HALF_WIDTH <= 200.0 + 0.001, "x {}", g.x);
+        }
+        assert!(g.x + ENEMY_HALF_WIDTH > 195.0, "it walked up to the edge");
+        // The same goblin without the barrier walks through.
+        let mut free = goblin_at(120.0);
+        for _ in 0..400 {
+            free.step(330.0, true, &[], EDGE, false, false);
+        }
+        assert!(free.x > 264.0, "{}", free.x);
+    }
+
+    #[test]
+    fn a_flee_and_a_hop_stop_at_the_edge_both_ways() {
+        let mut g = goblin_at(180.0).with_walk_barriers(&[barrier(200.0, 264.0)]);
+        // Fleeing +x from just left of the pool: the step is refused.
+        let before = g.x;
+        for _ in 0..10 {
+            g.flee(1, 120.0, &[], EDGE);
+        }
+        assert!(g.x + ENEMY_HALF_WIDTH <= 200.0 + 0.001 && g.x >= before);
+        // A hop that would land inside is cut short at the edge.
+        let mut h = goblin_at(185.0).with_walk_barriers(&[barrier(200.0, 264.0)]);
+        h.hop(1, 40.0, &[], EDGE);
+        assert_eq!(h.x, 200.0 - ENEMY_HALF_WIDTH);
+        // From the right side the mirror holds.
+        let mut r = goblin_at(280.0).with_walk_barriers(&[barrier(200.0, 264.0)]);
+        r.hop(-1, 40.0, &[], EDGE);
+        assert_eq!(r.x, 264.0 + ENEMY_HALF_WIDTH);
+        // A hop that stays outside is untouched.
+        let mut free = goblin_at(100.0).with_walk_barriers(&[barrier(200.0, 264.0)]);
+        free.hop(1, 40.0, &[], EDGE);
+        assert_eq!(free.x, 140.0);
+    }
+
+    #[test]
+    fn a_barrier_is_on_one_walking_line_and_never_a_solid() {
+        // Another line: no effect.
+        let other = WalkBarrier {
+            line: 500.0,
+            ..barrier(200.0, 264.0)
+        };
+        let mut g = goblin_at(120.0).with_walk_barriers(&[other]);
+        for _ in 0..400 {
+            g.step(330.0, true, &[], EDGE, false, false);
+        }
+        assert!(g.x > 264.0, "{}", g.x);
+        // Knockback never reads it: a launched goblin flies in and lands inside.
+        let mut k = goblin_at(190.0).with_walk_barriers(&[barrier(200.0, 264.0)]);
+        k.mode = GoblinMode::Launched;
+        k.launch = Some(1);
+        k.vx = 170.0;
+        k.vy = 150.0;
+        k.y = FLOOR + 1.0;
+        for _ in 0..60 {
+            k.step(0.0, true, &[], EDGE, false, false);
+        }
+        assert!(
+            k.x - ENEMY_HALF_WIDTH > 200.0,
+            "it landed in the pool: {}",
+            k.x
+        );
+        // A goblin already inside may walk out, never deeper.
+        let mut inside = goblin_at(215.0).with_walk_barriers(&[barrier(200.0, 264.0)]);
+        inside.step(120.0, true, &[], EDGE, false, false);
+        assert!(inside.x < 215.0, "toward the exit");
+        let mut deeper = goblin_at(215.0).with_walk_barriers(&[barrier(200.0, 264.0)]);
+        deeper.step(330.0, true, &[], EDGE, false, false);
+        assert!(
+            deeper.x >= 215.0 - 0.001 && deeper.x <= 215.0 + 0.001,
+            "never deeper: {}",
+            deeper.x
+        );
     }
 }

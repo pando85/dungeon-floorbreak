@@ -220,7 +220,11 @@ impl CombatState {
         let active: Vec<usize> = (0..self.enemies.len())
             .filter(|&i| self.enemies[i].token_held())
             .collect();
-        let slots = MAX_ATTACKERS.saturating_sub(active.len());
+        // HAZ-Q14 (PR #214 F2): one cap of attacks in flight, counted both ways:
+        // a slot enemy that holds a token (the slime rearing) takes a slot from
+        // the goblins, as the goblins take one from it. Inert without slot enemies.
+        let slot_holders = self.slot.enemies.iter().filter(|e| e.holds_token()).count();
+        let slots = MAX_ATTACKERS.saturating_sub(active.len() + slot_holders);
         let mut ranked: Vec<(f32, usize)> = self
             .enemies
             .iter()

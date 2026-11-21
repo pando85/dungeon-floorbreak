@@ -1760,6 +1760,17 @@ pub enum CombatEvent {
         tick: u64,
         event: crate::pile_boss::PileEvent,
     },
+    /// HAZ-A2, appended: a Rot Sticker was provoked (once per sticker per
+    /// attempt, the HAZ-0 sheet section 11). `sticker` is the prop index in the
+    /// encounter sidecar, `hit` the move of a melee provoke, `player` the
+    /// initiator credited with the blast.
+    RotProvoked {
+        tick: u64,
+        sticker: u16,
+        cause: crate::rot_sticker::RotCause,
+        hit: Option<MoveId>,
+        player: Option<u32>,
+    },
 }
 
 /// BOIL-B wire: the phases of an environmental prop that are logged
@@ -2322,6 +2333,22 @@ impl CombatEvent {
                 mix(tick);
                 event.mix_into(mix);
             }
+            // HAZ-A2: "ROTP", in its own range; only a room with stickers
+            // ever emits it.
+            Self::RotProvoked {
+                tick,
+                sticker,
+                cause,
+                hit,
+                player,
+            } => {
+                mix(0x524f_5450);
+                mix(tick);
+                mix(u64::from(sticker));
+                mix(cause.code());
+                mix(hit.map_or(0, |m| m as u64 + 1));
+                mix(player.map_or(0, |p| u64::from(p) + 1));
+            }
         }
     }
 }
@@ -2793,6 +2820,25 @@ impl fmt::Display for CombatEvent {
                     }
                     _ => Ok(()),
                 }
+            }
+            Self::RotProvoked {
+                tick,
+                sticker,
+                cause,
+                hit,
+                player,
+            } => {
+                write!(
+                    f,
+                    "COMBAT_EVENT tick={tick} kind=rot_provoked sticker={sticker} cause={cause:?}"
+                )?;
+                if let Some(hit) = hit {
+                    write!(f, " move={}", hit.name())?;
+                }
+                if let Some(player) = player {
+                    write!(f, " player={player}")?;
+                }
+                Ok(())
             }
         }
     }

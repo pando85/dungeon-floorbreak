@@ -1,5 +1,4 @@
 use super::*;
-use crate::blast::BlastCharge;
 use serde_json::Value;
 
 fn tuning() -> RotTuning {
@@ -1025,14 +1024,10 @@ fn retreat_is_hit(speed: f32, reaction: u64, hurt_half: f32, hurt_h: f32) -> boo
         width: hurt_half * 2.0,
         height: hurt_h,
     };
-    let mut blast = RotBlast::new(s.dome(&t), t.blast_profile(), s.owner(), 0);
-    let targets = [BlastTarget {
-        id: 0,
-        kind: TargetKind::Hero(HeroId::Carl),
-        body: hero.hurt,
-        x,
-    }];
-    !blast.evaluate(&targets, &[]).is_empty()
+    let (cx, cy) = s.charge_xy(&t);
+    let charge = crate::blast::BlastCharge::new(cx, cy, 5, None)
+        .with_profile(t.world_profile(rot_source(0)));
+    charge.reach(hero.hurt).is_some()
 }
 
 #[test]
@@ -1105,351 +1100,31 @@ fn the_blast_reach_tables() {
 
 // ------------------------------------------------------------ the blast
 
-fn blast_at(dome: (f32, f32), owner: Option<u32>) -> RotBlast {
-    RotBlast::new(dome, tuning().blast_profile(), owner, 3)
-}
-
-fn body_at(x: f32, w: f32, h: f32) -> Rect {
-    Rect {
-        left: x - w / 2.0,
+/// HAZ-A2: the Rot blast is the engine's `BlastProfile` (no second
+/// evaluator); the scene tests in `combat_scene/env.rs` and `hazards_fixtures`
+/// run the real charge. Here: the data row maps onto the profile.
+#[test]
+fn the_rot_blast_is_a_blast_profile_with_no_core_and_all_heroes() {
+    let t = tuning();
+    let p = t.world_profile(rot_source(1));
+    assert_eq!(p.core_radius, 0.0, "no core band (HAZ-Q30)");
+    assert_eq!(p.outer_radius, 48.0);
+    assert_eq!((p.outer_damage, p.llama_outer_damage, p.hero_hp), (1, 1, 1));
+    assert_eq!(p.launch, (160.0, 180.0));
+    assert_eq!(p.hero_knock, (120.0, 160.0));
+    assert!(p.los && !p.breaks_structures && p.boss_damage == 0);
+    assert_eq!(p.hero_damage, HeroDamagePolicy::AllHeroes);
+    assert_eq!(p.hero_source, rot_source(1));
+    assert!(!p.is_qa());
+    // The core band never exists, also at sq == 0 (CP-B1).
+    let charge = crate::blast::BlastCharge::new(0.0, 0.0, 5, None).with_profile(p);
+    let around = Rect {
+        left: -5.0,
         bottom: 0.0,
-        width: w,
-        height: h,
-    }
-}
-
-#[test]
-fn both_heroes_are_hurt_once_each_by_one_blast_and_nothing_is_evadable() {
-    let mut b = blast_at((100.0, 62.0), Some(0));
-    let targets = [
-        BlastTarget {
-            id: 0,
-            kind: TargetKind::Hero(HeroId::Carl),
-            body: body_at(90.0, 24.0, 52.0),
-            x: 90.0,
-        },
-        BlastTarget {
-            id: 1,
-            kind: TargetKind::Hero(HeroId::Donut),
-            body: body_at(105.0, 20.0, 24.0),
-            x: 105.0,
-        },
-    ];
-    let out = b.evaluate(&targets, &[]);
-    let hurts: Vec<&HeroBlow> = out
-        .iter()
-        .filter_map(|e| match e {
-            BlastEffect::HeroHurt(h) => Some(h),
-            _ => None,
-        })
-        .collect();
-    assert_eq!(hurts.len(), 2, "K3: every hero in range is hurt");
-    assert_eq!(hurts[0].hero, HeroId::Carl);
-    assert_eq!(hurts[1].hero, HeroId::Donut);
-    for h in &hurts {
-        assert_eq!((h.damage, h.knock_vy, h.from_x), (1, 160.0, 100.0));
-        assert_eq!(h.source, rot_source(3));
-    }
-    assert_eq!(hurts[0].knock_vx, -120.0, "signed away from the centre");
-    assert_eq!(hurts[1].knock_vx, 120.0);
-    // One evaluation per victim per blast: the same blast hurts nobody twice.
-    assert!(b.evaluate(&targets, &[]).is_empty());
-    assert_eq!(b.evaluated(), 2);
-    // The evaluation set grows only with victims inside the radius.
-    let outside = [BlastTarget {
-        id: 5,
-        kind: TargetKind::Goblin,
-        body: body_at(300.0, 24.0, 38.0),
-        x: 300.0,
-    }];
-    assert!(b.evaluate(&outside, &[]).is_empty());
-    assert_eq!(b.evaluated(), 2);
-}
-
-#[test]
-fn the_world_blast_policy_decides_who_is_hurt_not_the_initiator() {
-    let t = tuning();
-    let mut p = t.blast_profile();
-    p.hero_damage = HeroDamagePolicy::NoHeroes;
-    let mut b = RotBlast::new((0.0, 30.0), p, Some(0), 0);
-    let targets = [BlastTarget {
-        id: 0,
-        kind: TargetKind::Hero(HeroId::Carl),
-        body: body_at(0.0, 24.0, 52.0),
-        x: 0.0,
-    }];
-    assert!(
-        b.evaluate(&targets, &[]).is_empty(),
-        "no_heroes spares every hero"
-    );
-    // The hero who set it off is hurt like anyone else under all_heroes.
-    let mut b = blast_at((0.0, 30.0), Some(0));
-    assert_eq!(
-        b.evaluate(&targets, &[]).len(),
-        1,
-        "credit never spares the initiator"
-    );
-}
-
-#[test]
-fn a_blast_selects_by_radius_and_launches_goblins() {
-    // HAZ-05: goblins at 40 and 60 px from the dome centre: only the inner one.
-    let mut b = blast_at((0.0, 19.0), Some(1));
-    let goblin = |id: u32, x: f32| BlastTarget {
-        id,
-        kind: TargetKind::Goblin,
-        body: Rect {
-            left: x - 12.0,
-            bottom: 0.0,
-            width: 24.0,
-            height: 38.0,
-        },
-        x,
+        width: 10.0,
+        height: 20.0,
     };
-    // Centres 52 and 72 px away: the near edges are 40 and 60.
-    let out = b.evaluate(&[goblin(1, 52.0), goblin(2, 72.0)], &[]);
-    assert_eq!(out.len(), 1);
-    match out[0] {
-        BlastEffect::EnemyHit {
-            id,
-            damage,
-            reaction,
-            credit,
-            kind,
-        } => {
-            assert_eq!(
-                (id, damage, credit, kind),
-                (1, 1, Some(1), TargetKind::Goblin)
-            );
-            assert_eq!(
-                reaction,
-                EnemyReaction::Launch {
-                    vx: 160.0,
-                    vy: 180.0
-                }
-            );
-        }
-        other => panic!("{other:?}"),
-    }
-    // Launched away from the centre on the other side.
-    let mut b = blast_at((0.0, 19.0), None);
-    let out = b.evaluate(&[goblin(1, -40.0)], &[]);
-    match out[0] {
-        BlastEffect::EnemyHit {
-            reaction, credit, ..
-        } => {
-            assert_eq!(
-                reaction,
-                EnemyReaction::Launch {
-                    vx: -160.0,
-                    vy: 180.0
-                }
-            );
-            assert_eq!(credit, None, "no initiator: no credit");
-        }
-        other => panic!("{other:?}"),
-    }
-}
-
-#[test]
-fn every_victim_kind_has_its_effect() {
-    let mut b = blast_at((0.0, 19.0), Some(0));
-    let near = |kind, id| BlastTarget {
-        id,
-        kind,
-        body: body_at(10.0, 24.0, 38.0),
-        x: 10.0,
-    };
-    let out = b.evaluate(
-        &[
-            near(TargetKind::Engineer, 1),
-            near(TargetKind::Llama, 2),
-            near(TargetKind::Slime, 3),
-            near(TargetKind::Sticker, 4),
-        ],
-        &[],
-    );
-    assert_eq!(out.len(), 3, "another sticker is unaffected");
-    let reactions: Vec<EnemyReaction> = out
-        .iter()
-        .map(|e| match e {
-            BlastEffect::EnemyHit {
-                reaction, damage, ..
-            } => {
-                assert_eq!(*damage, 1);
-                *reaction
-            }
-            other => panic!("{other:?}"),
-        })
-        .collect();
-    assert!(matches!(reactions[0], EnemyReaction::Launch { .. }));
-    assert_eq!(reactions[1], EnemyReaction::Kick);
-    assert_eq!(reactions[2], EnemyReaction::None, "gel: no state change");
-    // The sticker was still evaluated (once) but takes nothing.
-    assert_eq!(b.evaluated(), 4);
-}
-
-#[test]
-fn core_zero_never_point_blank() {
-    // A goblin whose body contains the dome centre (sq == 0) takes the outer
-    // result: 1 damage and a launch, never a point-blank kill.
-    let mut b = blast_at((10.0, 19.0), None);
-    let hugging = BlastTarget {
-        id: 1,
-        kind: TargetKind::Goblin,
-        body: body_at(10.0, 24.0, 38.0),
-        x: 10.0,
-    };
-    assert!(hugging.body.squared_distance_to(10.0, 19.0) == 0.0);
-    let out = b.evaluate(&[hugging], &[]);
-    match out[0] {
-        BlastEffect::EnemyHit {
-            damage, reaction, ..
-        } => {
-            assert_eq!(damage, 1);
-            assert!(matches!(reaction, EnemyReaction::Launch { .. }));
-        }
-        other => panic!("{other:?}"),
-    }
-    // And the effect type has no point-blank flag to set.
-    assert_eq!(tuning().hazq30_core_radius_px, 0);
-}
-
-#[test]
-fn line_of_sight_shields_a_victim_from_the_blast() {
-    let wall = Rect {
-        left: 20.0,
-        bottom: 0.0,
-        width: 8.0,
-        height: 200.0,
-    };
-    let mut b = blast_at((0.0, 30.0), None);
-    let behind = BlastTarget {
-        id: 1,
-        kind: TargetKind::Hero(HeroId::Carl),
-        body: body_at(40.0, 24.0, 52.0),
-        x: 40.0,
-    };
-    assert!(b.evaluate(&[behind], &[wall]).is_empty());
-    let mut b = blast_at((0.0, 30.0), None);
-    assert_eq!(b.evaluate(&[behind], &[]).len(), 1);
-}
-
-#[test]
-fn the_charge_position_puts_the_blast_centre_on_the_dome() {
-    let t = tuning();
-    let s = RotSticker::new(ceiling(84, 760, 824, 760));
-    let (x, foot_y) = s.charge_xy(&t);
-    let charge = BlastCharge::new(x, foot_y, 0, None);
-    assert_eq!(charge.centre(), s.dome(&t));
-    assert_eq!(s.dome(&t), (760.0, 78.0));
-}
-
-#[test]
-fn the_feed_rows_are_the_circles_bounding_boxes() {
-    let t = tuning();
-    let s = RotSticker::new(ceiling(84, 760, 824, 760));
-    let trig = s.trigger_bounds(&t);
-    assert_eq!(
-        (trig.left, trig.bottom, trig.width, trig.height),
-        (728.0, 46.0, 64.0, 64.0)
-    );
-    let blast = s.blast_bounds(&t);
-    assert_eq!((blast.width, blast.height), (96.0, 96.0));
-    let frame = s.frame(&t);
-    assert_eq!(frame.center(), s.dome(&t));
-}
-
-// ------------------------------------------------- respawn and determinism
-
-#[test]
-fn a_defeat_respawn_keeps_spent_spent_and_latches_the_rest() {
-    let t = tuning();
-    // Warning: back to latched at its start with the charge written back.
-    let mut s = RotSticker::new(ceiling(84, 0, 60, 0));
-    stepped(&mut s, 5, &[carl_left_of_dome(10.0)]);
-    assert_eq!(s.state(), StickerState::Warning);
-    s.defeat_respawn();
-    assert_eq!(s.state(), StickerState::Latched);
-    assert_eq!((s.detonate_tick(), s.owner(), s.s()), (0, None, 0));
-    // Scuttling: back to latched at the start point.
-    let mut s = RotSticker::new(ceiling(112, 0, 60, 60));
-    stepped(&mut s, 1, &[carl_at(20.0)]);
-    for tick in 2..20 {
-        stepped(&mut s, tick, &[carl_at(20.0)]);
-    }
-    assert!(s.s() < 60);
-    s.defeat_respawn();
-    assert_eq!((s.state(), s.s()), (StickerState::Latched, 60));
-    // Spent stays spent.
-    let mut s = RotSticker::new(ceiling(84, 0, 60, 0));
-    s.chain(1, Some(0));
-    stepped(&mut s, 9, &[]);
-    assert!(s.is_spent());
-    s.defeat_respawn();
-    assert!(s.is_spent());
-    // A full restart restores even a spent sticker: the hash equals a fresh one.
-    s.reset();
-    assert_eq!(
-        hash_of(&s),
-        hash_of(&RotSticker::new(ceiling(84, 0, 60, 0)))
-    );
-    assert!(s.hurtbox(&t).is_some());
-}
-
-fn hash_of(s: &RotSticker) -> u64 {
-    let mut h = 0xcbf2_9ce4_8422_2325_u64;
-    s.mix_into(&mut |v| h = (h ^ v).wrapping_mul(0x0000_0100_0000_01b3));
-    h
-}
-
-#[test]
-fn the_same_inputs_give_the_same_hashes_tick_by_tick() {
-    let run = || {
-        let mut s = RotSticker::new(ceiling(84, 700, 860, 760));
-        let mut out = Vec::new();
-        for tick in 1..160u64 {
-            let x = 900.0 - tick as f32 * 2.0;
-            let heroes = [carl_at(x), donut_at(x - 80.0)];
-            if tick == 90 {
-                s.chain(tick, Some(1));
-            }
-            stepped(&mut s, tick, &heroes);
-            out.push(hash_of(&s));
-        }
-        out
-    };
-    let a = run();
-    assert_eq!(a, run());
-    let unique: std::collections::BTreeSet<u64> = a.iter().copied().collect();
-    assert!(
-        unique.len() >= 6,
-        "the hash follows the state: {}",
-        unique.len()
-    );
-}
-
-#[test]
-fn the_blast_hash_follows_its_evaluations() {
-    let hash = |b: &RotBlast| {
-        let mut h = 0xcbf2_9ce4_8422_2325_u64;
-        b.mix_into(&mut |v| h = (h ^ v).wrapping_mul(0x0000_0100_0000_01b3));
-        h
-    };
-    let mut b = blast_at((0.0, 30.0), Some(0));
-    let before = hash(&b);
-    b.evaluate(
-        &[BlastTarget {
-            id: 1,
-            kind: TargetKind::Goblin,
-            body: body_at(10.0, 24.0, 38.0),
-            x: 10.0,
-        }],
-        &[],
-    );
-    assert_ne!(before, hash(&b));
-    assert_eq!(b.dome(), (0.0, 30.0));
-    assert_eq!(b.owner(), Some(0));
+    assert_eq!(charge.reach(around), Some(crate::blast::BlastReach::Outer));
 }
 
 #[test]

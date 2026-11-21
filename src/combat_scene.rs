@@ -60,6 +60,7 @@ mod env;
 mod evade;
 mod morale_cf02;
 pub mod pile_boss;
+pub mod slime;
 mod slot;
 mod story;
 mod thrown;
@@ -1120,6 +1121,10 @@ impl CombatState {
     fn new_goblin(&self, x: f32, ai: EnemyAi) -> Goblin {
         let mut goblin =
             Goblin::new(x, self.enemy_foot_y + ENEMY_HALF_HEIGHT, ai).with_cf02(self.cf02);
+        // HAZ-A2: a goblin never walks into an acid patch (empty elsewhere).
+        if let Some(env) = self.env.as_deref() {
+            goblin = goblin.with_walk_barriers(&env.walk_barriers(self.enemy_foot_y));
+        }
         if self.cf02.is_some()
             && let Some(health) = crate::cf02_fixtures::goblin_health(self.fixture.name)
         {
@@ -1222,6 +1227,8 @@ impl CombatState {
         self.companion.reset();
         // BOIL-B wire: a checkpoint respawn restores the props (design 6).
         self.env_reset();
+        // HAZ-A2: a spent sticker stays spent, the others latch again.
+        self.env_respawn_hazards();
         self.env_after_reset(scene);
         // DM-B (DM-Q13): a checkpoint respawn restarts the wait at its tick.
         self.reflex.reset(scene.world.tick);
@@ -1333,6 +1340,9 @@ impl CombatState {
         self.retire_goblins_behind_start();
         // CF02-G (Q57, Q58): every goblin draws its temperament for this attempt.
         self.spawn_morale();
+        // HAZ-A2: the Rot Stickers' charges follow the fixture's, then the
+        // dynamite slot (CP-Q31).
+        self.env_append_charges();
     }
 
     /// DEMO-01, a run that starts at a later beat: the goblins of the beats
@@ -2069,6 +2079,18 @@ impl CombatState {
     /// Every goblin in index order: the attack token, the tell and swing, and
     /// the blow on its target.
     fn step_goblins(&mut self, scene: &mut SceneSim, tick: u64) {
+        // HAZ-A2: the goblins' walk barriers follow the live acid bounds (a
+        // draining or removed pool stops blocking); inert without acid.
+        if let Some(env) = self.env.as_deref()
+            && env.has_acid()
+        {
+            let barriers = env.walk_barriers(self.enemy_foot_y);
+            for g in &mut self.enemies {
+                if g.walk_barriers != barriers {
+                    g.walk_barriers.clone_from(&barriers);
+                }
+            }
+        }
         let live = scene.party_live();
         if live {
             self.update_targets(scene);
