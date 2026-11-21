@@ -196,11 +196,11 @@ flowchart LR
 | Gate | Automated and live condition | Hard stop |
 | --- | --- | --- |
 | **P0 — F01-LATE** | Current #182 PT-GATE with specified minimum rooms, post-Juicer mastery, actual 1P+2P camera, replay and owner packet | Called floor completion despite no entrance/Ball |
-| **P1 — connected greybox** | All required S01–S08 beats traversable from a fresh story start to valid Ball defeat and protected floor exit; correct 3 grant moments (biscuit, safe-room boost, Hoarder dynamite, Juicer two specials), all one-time and correctly ordered; preserved checkpoint/relaunch states | Debug-room hopping, fabricated story flags, no actual Ball direct win |
+| **P1 — connected greybox** | All required S01–S08 beats traversable from a fresh story start to valid Ball defeat and protected floor exit; correct **four** grant moments (biscuit, safe-room boost, Hoarder dynamite, Juicer two specials), all one-time and correctly ordered; preserved checkpoint/relaunch states | Debug-room hopping, fabricated story flags, no actual Ball direct win |
 | **P2 — game-feel beta** | No softlocks across authored prop states, direct/gimmick-independent clears and optional skilled environmental success, enemy variety and action roles, at-speed solo/2P human proof | Static Donut spam is dominant, ball has no escape, untelegraphed damage, boss sponge |
 | **P3 — reviewable alpha** | Native original art/visual provenance, soundtrack/FX clues, stable frametimes, owner-reviewed scorecard after whole-floor session, clear rights note | Claim commercial/release approval because fans saw art |
 
-**Story grant note:** there are **five individual events/abilities across four moments**: biscuit→Magic Missile/reflex, restaurant→Light on Your Feet, Hoarder→dynamite, Juicer→Carl gauntlet **and** Donut Puddle Jumper. Use actual approved ledger IDs, not guessed labels or a redundant score economy.
+**Story grant note:** there are **four story-grant moments affecting six capabilities**: biscuit→Magic Missile and reflex, restaurant→Light on Your Feet, Hoarder→dynamite, Juicer→Carl gauntlet **and** Donut Puddle Jumper. Use actual approved ledger IDs, not guessed labels or a redundant score economy.
 
 ## 10. Concrete next implementation work orders (no duplicate merge queues)
 
