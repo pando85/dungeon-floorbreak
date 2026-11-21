@@ -59,6 +59,9 @@ mod story;
 use self::carl_cf02::{CarlCf02, CarlCf02Plan};
 use self::companion::CompanionRuntime;
 use self::morale_cf02::MoraleRuntime;
+/// Where a missile spawns relative to Donut's pivot (read by the corral reach tests).
+#[cfg(test)]
+pub(crate) use donut::{BOLT_SPAWN_FORWARD, BOLT_SPAWN_UP};
 pub use donut::{Bolt, Cast, DonutKit};
 
 /// Centre-to-centre distance at which Carl's body touches a goblin's (the two

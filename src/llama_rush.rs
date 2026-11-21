@@ -75,10 +75,12 @@ pub const RUSH_HIT_STOP: u8 = 4;
 /// llama (the slot-enemy rule). Heroes keep the remnant-lift rule.
 pub const REMNANT_MAX_PX: f32 = 16.0;
 
-/// The hero hurtbox half-widths of the fairness proof (section 6): Carl 12,
-/// Donut 10. The narrowest one bounds the standing reach.
-pub const CARL_HALF_WIDTH: f32 = 12.0;
-pub const DONUT_HALF_WIDTH: f32 = 10.0;
+/// The hero hurtbox half-widths of the fairness proof (section 6), read from
+/// their sources: Carl's hurtbox is his 24 x 52 collider (12), Donut's is the
+/// shipped `PROVISIONAL_TUNING` hurtbox (20 x 24, so 10). The narrowest one
+/// bounds the standing reach (CRL-Q05).
+pub const CARL_HALF_WIDTH: f32 = crate::prototype::HERO_HALF_WIDTH;
+pub const DONUT_HALF_WIDTH: f32 = crate::party::PROVISIONAL_TUNING.donut_hurtbox.size().0 / 2.0;
 
 /// The llama's body height, the ceiling of the rush box (`y1 <= 39`).
 pub const LLAMA_BODY_HEIGHT: f32 = LLAMA_HALF_HEIGHT * 2.0;
@@ -267,6 +269,9 @@ impl RushProfile {
             }
             Ok(())
         }
+        if self.schema_version != 1 {
+            return bad("schema_version", "must be 1");
+        }
         positive("crlq04_walk_px_s", u32::from(self.crlq04_walk_px_s))?;
         positive(
             "crlq04_rush_approach_px",
@@ -450,7 +455,9 @@ pub struct RushOut {
 }
 
 /// The rush attack's state, meaningful while the llama is in `Attack` with the
-/// rush kind. `None` outside it, so a llama's rush costs nothing while idle.
+/// rush kind. `None` outside it, so a llama's rush costs nothing while idle. A
+/// live `RushState` always means the llama is busy (one `Attack` at a time, so
+/// no spit can start); the exclusion itself is wire work.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct RushState {
     pub phase: RushPhase,
@@ -484,12 +491,6 @@ impl RushState {
             start_x: x,
             seq,
         }
-    }
-
-    /// The machine owns the llama while it lives: no spit may start (the real
-    /// exclusion is wire work, one `Attack` at a time).
-    pub fn busy(&self) -> bool {
-        true
     }
 
     /// In the tell: a hit cancels the rush (the legacy `Hurt` path).
@@ -600,8 +601,9 @@ impl RushState {
 }
 
 /// The first hero whose hurtbox the box overlaps. When both overlap on one
-/// tick, the one whose near edge is closer to the box front takes the blow,
-/// ties to Carl (the lower index).
+/// tick, the hero the box front passed first takes the blow: the one nearest
+/// the llama, that is the largest penetration `dir * (front - near edge)`.
+/// Exact ties go to Carl (the lower index). CRL-Q14 ruling.
 fn first_hero_in_box(boxed: Rect, dir: i8, heroes: &[RushHero]) -> Option<HeroId> {
     let front = if dir >= 0 { boxed.right() } else { boxed.left };
     let mut best: Option<(f32, HeroId)> = None;
@@ -614,13 +616,13 @@ fn first_hero_in_box(boxed: Rect, dir: i8, heroes: &[RushHero]) -> Option<HeroId
         } else {
             hero.hurtbox.right()
         };
-        let gap = (front - near).abs();
+        let depth = f32::from(dir) * (front - near);
         let better = match best {
             None => true,
-            Some((g, id)) => gap < g || (gap == g && hero.id.index() < id.index()),
+            Some((d, id)) => depth > d || (depth == d && hero.id.index() < id.index()),
         };
         if better {
-            best = Some((gap, hero.id));
+            best = Some((depth, hero.id));
         }
     }
     best.map(|(_, id)| id)

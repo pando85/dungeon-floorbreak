@@ -40,8 +40,8 @@ pub const CAST_TOTAL_TICKS: u16 = 16;
 const CAST_BUFFER_TICKS: u64 = 6;
 /// Where the bolt appears relative to Donut's pivot: 27 px ahead, 19 px up
 /// (ANIM-DONUT-03 section 3, on the idle base).
-const BOLT_SPAWN_FORWARD: f32 = 27.0;
-const BOLT_SPAWN_UP: f32 = 19.0;
+pub(crate) const BOLT_SPAWN_FORWARD: f32 = 27.0;
+pub(crate) const BOLT_SPAWN_UP: f32 = 19.0;
 /// The bolt's hit box is 8 x 6, centred 4 px ahead of its pivot.
 const BOLT_BOX_W: f32 = 8.0;
 const BOLT_BOX_H: f32 = 6.0;

@@ -6,21 +6,38 @@
 //! turns this sweep into the machine-item-2 test over the real
 //! `f01_corral.room.json` (the 16 px collision tile layer). This test already
 //! uses main's real physics: `step_hero_motion` for the jump arc and
-//! `combat_scene::Bolt::rect` for the bolt box; the bolt spawn (27 px ahead,
-//! 19 px up), its 6 px step and its 240 px range are the constants of
-//! `combat_scene/donut.rs`.
+//! `combat_scene::Bolt::rect` for the bolt box; the bolt spawn offsets, step and
+//! range, the hero launches and gravity are read from their sources, and a test
+//! in `tests.rs` pins them to the numbers the sheet's tables were computed from.
 
-use super::tests::profile;
+use super::tests::{motion_of, profile};
 use super::*;
 use crate::combat::solid_at;
 use crate::combat_scene::Bolt;
 use crate::input::InputFrame;
 use crate::prototype::{BodyDrive, HERO_HALF_HEIGHT, Hero, HeroMotion, Material, step_hero_motion};
 
-const BOLT_FORWARD: f32 = 27.0;
-const BOLT_UP: f32 = 19.0;
-const BOLT_STEP: f32 = 6.0;
-const BOLT_RANGE: f32 = 240.0;
+/// The bolt spawn offsets, step and range come from their sources (the
+/// `combat_scene` constants and the pinned mana tuning); the tests in `tests.rs`
+/// pin them to the sheet's 27, 19, 6 and 240.
+use crate::combat_scene::{BOLT_SPAWN_FORWARD as BOLT_FORWARD, BOLT_SPAWN_UP as BOLT_UP};
+
+fn bolt_step_and_range() -> (f32, f32) {
+    let mana = crate::donut_mana::ManaTuning::pinned(true).expect("pinned mana tuning loads");
+    (
+        f32::from(mana.projectile_speed_px_per_tick),
+        f32::from(mana.projectile_range_px),
+    )
+}
+
+/// Every launch of the proof: Carl's, Donut's, and Donut's with Light on Your Feet.
+fn launches() -> [f32; 3] {
+    [
+        motion_of(HeroId::Carl, false).jump_speed,
+        motion_of(HeroId::Donut, false).jump_speed,
+        motion_of(HeroId::Donut, true).jump_speed,
+    ]
+}
 
 const BUMPER_LEFT: f32 = 1856.0;
 const BUMPER_WIDTH: f32 = 32.0;
@@ -84,8 +101,8 @@ fn corral(partition: Partition, bumper: bool) -> Vec<Block> {
 fn release_heights(solids: &[Block], pivot: f32, top: f32, launch: f32) -> Vec<f32> {
     let mut hero = Hero::at(pivot, top + HERO_HALF_HEIGHT);
     let motion = HeroMotion {
-        run_speed: 207.0,
         jump_speed: launch,
+        ..motion_of(HeroId::Donut, false)
     };
     let mut heights = vec![top];
     let mut input = InputFrame {
@@ -121,6 +138,7 @@ fn bolt_path(solids: &[Block], pivot: f32, facing: i8, feet: f32) -> Vec<Rect> {
         dir: facing,
         travelled: 0.0,
     };
+    let (step, range) = bolt_step_and_range();
     let mut path = Vec::new();
     loop {
         let rect = bolt.rect();
@@ -128,9 +146,9 @@ fn bolt_path(solids: &[Block], pivot: f32, facing: i8, feet: f32) -> Vec<Rect> {
             return path;
         }
         path.push(rect);
-        bolt.x += f32::from(facing) * BOLT_STEP;
-        bolt.travelled += BOLT_STEP;
-        if bolt.travelled >= BOLT_RANGE {
+        bolt.x += f32::from(facing) * step;
+        bolt.travelled += step;
+        if bolt.travelled >= range {
             return path;
         }
     }
@@ -165,7 +183,7 @@ fn sweep(solids: &[Block], top: f32, pivots: core::ops::RangeInclusive<i32>) -> 
     let a = reach_box(A_LEASH, DOCK_FEET);
     let b = reach_box(B_LEASH, 0.0);
     let mut reach = Reach::default();
-    for launch in [440.0_f32, 500.0, 547.0] {
+    for launch in launches() {
         for pivot in pivots.clone() {
             let pivot = pivot as f32;
             let heights = release_heights(solids, pivot, top, launch);
@@ -368,11 +386,15 @@ fn a_boosted_donut_caught_in_a_dock_hop_never_lands_on_the_bumper() {
     // and knocked up by 160 px/s peaks under the 80 px top.
     // Feet at the contact tick below 30 above the dock, then knock_vy 160.
     let mut worst = 0.0_f32;
-    for launch in [440.0_f32, 500.0, 547.0] {
+    for launch in launches() {
         let heights = release_heights(&corral(Partition::Absent, true), 1960.0, DOCK_FEET, launch);
-        for &feet in heights.iter().filter(|f| **f < DOCK_FEET + 30.0) {
+        for &feet in heights
+            .iter()
+            .filter(|f| **f < DOCK_FEET + f32::from(profile().crlq08_box.y1))
+        {
             // The knock replaces vy with 160 px/s: the further rise is v^2 / 2g.
-            let rise = 160.0_f32 * 160.0 / (2.0 * 1050.0);
+            let knock = f32::from(profile().crlq14_knock_y);
+            let rise = knock * knock / (2.0 * crate::prototype::GRAVITY);
             worst = worst.max(feet + rise);
         }
     }

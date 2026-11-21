@@ -101,7 +101,7 @@ Attack tick 0 is the tick the tell starts (the existing `attack_tick` convention
 **One active tick, in this order (step first, then test; the Engineer order):**
 
 1. **Step:** move 4 px. If the rush box would pass the face of an intact solid, clamp so the box front rests on the face and mark `met_solid`. If the step would cross the llama's authored leash bound, clamp to the bound and mark `leash_stop`. Remnants of 16 px or less are not solids for a llama (CRL-Q32).
-2. **Hero:** the first hero whose hurtbox the box overlaps (heroes stepped earlier this tick; if both overlap on one tick, the one whose near edge is closer to the box front, ties to Carl) takes the blow. An invulnerable hero, or a guarded off-screen hero (D1 M4), is not hit and does not stop the rush. The blow goes through `hurt_hero` with `HeroBlow { source: LLAMA_RUSH_SOURCE_ID, damage 1, from_x: llama x, knock_vx: 120 in the rush direction, knock_vy: 160 }` (CRL-Q14), so that path's invulnerability (55 ticks), hurt ticks, hit-stop 4 and the solo last-HP guard apply. The llama takes hit-stop 4 (`HERO_DEFEAT_HIT_STOP` when the blow defeats the hero). One hero per rush; the rush ends → Recover; `LlamaRushEnd { end: Contact(hero) }`.
+2. **Hero:** the first hero whose hurtbox the box overlaps (heroes stepped earlier this tick; if both overlap on one tick, the one the box front reached first, that is the one nearest the llama with the largest penetration `dir × (front − near edge)`, exact ties to Carl; CRL-Q14) takes the blow. An invulnerable hero, or a guarded off-screen hero (D1 M4), is not hit and does not stop the rush. The blow goes through `hurt_hero` with `HeroBlow { source: LLAMA_RUSH_SOURCE_ID, damage 1, from_x: llama x, knock_vx: 120 in the rush direction, knock_vy: 160 }` (CRL-Q14), so that path's invulnerability (55 ticks), hurt ticks, hit-stop 4 and the solo last-HP guard apply. The llama takes hit-stop 4 (`HERO_DEFEAT_HIT_STOP` when the blow defeats the hero). One hero per rush; the rush ends → Recover; `LlamaRushEnd { end: Contact(hero) }`.
 3. **Solid:** `met_solid` → Bonk; `LlamaRushEnd { end: Blocked }`. If the solid is the breakable partition, the same tick sends it the rush stimulus ([section 10](#10-the-partition-optional-corral-d)) and logs `LlamaRushEnd { end: Partition }`.
 4. **Leash:** `leash_stop` → Recover; `LlamaRushEnd { end: Miss }`.
 5. **Distance:** 24 active ticks elapsed → Recover; `LlamaRushEnd { end: Miss }`.
@@ -219,7 +219,7 @@ This is a review result, not an escalation. The owner can set the knob to `true`
   The CA2 step that holds the companion files after CORRAL-B wire merges (CA2-B2 or CA2-C) appends the named change "CA2 rush lane". The lane joins `lane_clear`. The AI hero **jumps** when all of these hold:
   - its hurtbox column is in `[x_from, x_to]`;
   - its feet are below `y_to`;
-  - `ticks_until_box_reaches` is **3..40 for Donut** or **4..31 for Carl** (F4: the box overlaps a hero column for up to 11 ticks for Donut and 12 for Carl, and these bounds are safe for both counting conventions).
+  - `ticks_until_box_reaches` is **3..40 for Donut** or **4..31 for Carl** (F4, corrected: the box overlaps a hero column for **11 or 12 ticks for Donut and 12 or 13 for Carl**, depending on `x mod 4`). The bounds are exact, with no slack, only for the 0-based count of `ticks_until_box_reaches` (0 = the next llama step; the AI acts on this tick's hero step). They fail under a 1-based count. **CA2 must use the helper's value as returned, without adding 1.** The core test `the_ai_jump_bounds_hold_against_the_helper_counted_from_zero` pins this contract with the real hero physics.
 
   The preferred form is equivalent and more general: jump when the airborne span, during which the feet stay at 30 px or more above the lane, covers `[reaches, clears]`. Otherwise it steps onto a shelf or holds, and it never walks into a committed lane. Until that append, the AI's rush dodge is a reported gap, covered by the D1 last-HP guard. The companion-mode (`cf02_free`) corral fixtures land in the first corral owner step after CA2-B2.
 
@@ -244,7 +244,7 @@ Room 0 is the Act I prefix of the `f01_late` scene (KC8): I-05 to I-07 plus the 
 
 **Lane ceiling** `ceiling_px` **228** (CRL-Q31). Every base hero jumps a 39 px llama on its own level (the floor or the dock) without a DM-Q27 bonk (KC10):
 - Donut's highest such jumps reach 214.92 from the partition top (48 + 114.92 + 52) and 198.92 from the dock.
-- Carl reaches 172.54 from the dock (32 + 88.54 + 52).
+- Carl reaches 188.54 from the partition top (48 + 88.54 + 52) and 172.54 from the dock (32 + 88.54 + 52).
 
 Two jumps do bonk, both harmlessly:
 - A base Donut jumping from the bumper top bonks at 228 (246.92 unclamped), with her feet still 96 px above the bumper.
@@ -370,7 +370,7 @@ Each start runs **both facings**; the listed facing is the natural one.
 
 Machine (CI):
 
-1. `enemy_llama_rush_v0.json` loads, validates (a load error names the field) and matches its FNV-1a pin; a completeness test proves every CRL-Q has a knob or a recorded no-knob reason. Validation: speed a positive multiple of 60 and at most 240; approach ≤ trigger; trigger < standing reach (`active × speed / 60 + box x1`); box non-empty with `y1 ≤ 39`; tell, active, recover, bonk ticks > 0.
+1. `enemy_llama_rush_v0.json` loads, validates (a load error names the field) and matches its FNV-1a pin; a completeness test proves every CRL-Q has a knob or a recorded no-knob reason. Validation: speed a positive multiple of 60 and at most 240; approach ≤ trigger; trigger < standing reach (`active × speed / 60 + box x1 + the narrowest hero half-width`, Donut's 10, read from her hurtbox: 96 + 28 + 10 = 134; the bare `active × speed / 60 + box x1` is 124 and would reject the adopted trigger of 128; CRL-Q05); box non-empty with `y1 ≤ 39`; tell, active, recover, bonk ticks > 0.
 2. The section 6 tables are reproduced by a domain unit test in `llama_rush.rs` (standing contact tick per `d`, jump-window edges for both heroes at `d` 64, 96 and 112, bonk tick per face distance, the run-away edge at `d` 96). The section 10 B1 sweep is reproduced by a unit test (`corral_fixtures.rs`, CORRAL-C, with the room's real solids and leashes). Across every surface pivot on a 1 px grid, both facings, and every release height of launches 440, 500 and 547, the reachable-llama set must be {B} on the floor, {B} on the 16 px remnant top (partition broken), {A} on the dock, and empty on the entry shelf, the intact partition top and the bumper top. A change to the bumper, the dock, a leash or the bolt geometry that breaks this fails CI.
 3. Every fixture in [section 15](#fixtures-and-tests-per-step) passes and replays identically twice; pinned fixtures are pinned after DM-B (KC13).
 4. **Unchanged goldens:** the 5 llama `EXPECTED_HASHES`, every `cf02_llama_*`, `cf02_donut_solo_llama`, the arena and Engineer goldens, and every other existing replay are byte-identical (no llama outside the corral has a profile or party targeting).
@@ -403,7 +403,7 @@ Knob names start with the question ID (`crlq05_trigger_px`). Profile knobs live 
 | CRL-Q11 | Corral spit rule | Spit only if the glob band overlaps the target's hurtbox at her **support height** (section 5) and the glob path is clear | DV-4, F6 | `crlq11_spit_height_check` (switch) |
 | CRL-Q12 | Cooldowns after a rush | `rush_cooldown` **150**; spit `cooldown ≥ 30` | #181's 2–3 s; no instant spit after a rush | `crlq12_rush_cooldown`, `crlq12_spit_gap` |
 | CRL-Q13 | Interrupted tell | Legacy `Hurt` path; `rush_cooldown ≥ 30` | Pressure resumes after the stagger | `crlq13_interrupt_cooldown` |
-| CRL-Q14 | Contact | `hurt_hero`, damage **1**, knock **120 / 160**, one hero per rush, llama hit-stop 4 | Engineer Q11 precedent | `crlq14_damage`, `crlq14_knock_x`, `crlq14_knock_y` |
+| CRL-Q14 | Contact | `hurt_hero`, damage **1**, knock **120 / 160**, one hero per rush, llama hit-stop 4. When both heroes enter the box on one tick, the hero the box front passed first (nearest the llama, the largest penetration) takes the blow; exact ties go to Carl (review ruling of #201) | Engineer Q11 precedent | `crlq14_damage`, `crlq14_knock_x`, `crlq14_knock_y` |
 | CRL-Q15 | Target order | Only heroes within **320** px are candidates. The hysteresis rule picks among the rushable ones, else the spittable ones, else all candidates (for facing only); with no candidate, the llama holds. The target locks at the tell start | ENG-G-Q06 precedent; F3 (a far hero draws nothing) | `crlq15_target_range_px` |
 | CRL-Q16 | Rushable tolerance | Support height within **8** px of the llama's floor line, airborne or not. A tell starts only against a grounded target | ENG-G-Q06; F6 | `crlq16_floor_tolerance_px` |
 | CRL-Q17 | Fair-rush view rule | Body, whole swept lane and target inside the simulation view at the tell start | F7, #181 gate (f) | none (rule) |

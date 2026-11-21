@@ -135,6 +135,11 @@ fn every_question_has_a_knob_or_a_recorded_reason() {
 fn a_bad_value_names_its_field() {
     let cases = [
         (
+            "\"schema_version\": 1",
+            "\"schema_version\": 2",
+            "schema_version",
+        ),
+        (
             "\"crlq07_speed_px_s\": 240",
             "\"crlq07_speed_px_s\": 300",
             "crlq07_speed_px_s",
@@ -276,11 +281,61 @@ fn run_fixed(
     run
 }
 
+/// A hero's hurtbox `(half width, height)`, read from its sources: Carl's is
+/// his 24 x 52 collider, Donut's the shipped party tuning's hurtbox.
+pub(super) fn hurtbox_of(id: HeroId) -> (f32, f32) {
+    match id {
+        HeroId::Carl => (CARL_HALF_WIDTH, 2.0 * HERO_HALF_HEIGHT),
+        HeroId::Donut => {
+            let (w, h) = crate::party::PROVISIONAL_TUNING.donut_hurtbox.size();
+            (w / 2.0, h)
+        }
+    }
+}
+
+/// A hero's motion, read from its sources: Carl's `HeroMotion::CARL`, Donut's
+/// agile motion, and with `boost` the DP-A Light on Your Feet launch.
+pub(super) fn motion_of(id: HeroId, boost: bool) -> HeroMotion {
+    match id {
+        HeroId::Carl => HeroMotion::CARL,
+        HeroId::Donut => {
+            let mut motion = crate::agility::agile_motion();
+            if boost {
+                motion.jump_speed =
+                    f32::from(crate::donut_prog::DonutProgTuning::active().dpq14_boost_launch_px_s);
+            }
+            motion
+        }
+    }
+}
+
+/// The sheet's section 6 and 10 tables are computed from these numbers. If a
+/// source is retuned, the tables (and this test) must be revisited on purpose.
+#[test]
+fn the_physics_behind_the_sheets_tables_is_still_the_sheets() {
+    use crate::prototype::GRAVITY;
+    let (carl, donut, boosted) = (
+        motion_of(HeroId::Carl, false),
+        motion_of(HeroId::Donut, false),
+        motion_of(HeroId::Donut, true),
+    );
+    assert_eq!((carl.run_speed, carl.jump_speed), (185.0, 440.0));
+    assert_eq!((donut.run_speed, donut.jump_speed), (207.0, 500.0));
+    assert_eq!(boosted.jump_speed, 547.0);
+    assert_eq!(GRAVITY, 1050.0);
+    assert_eq!(hurtbox_of(HeroId::Carl), (12.0, 52.0));
+    assert_eq!(hurtbox_of(HeroId::Donut), (10.0, 24.0));
+    assert_eq!((CARL_HALF_WIDTH, DONUT_HALF_WIDTH), (12.0, 10.0));
+    // The bolt: 6 px a tick, 240 px of range, spawned 27 px ahead and 19 up.
+    let mana = crate::donut_mana::ManaTuning::pinned(true).unwrap();
+    assert_eq!(mana.projectile_speed_px_per_tick, 6);
+    assert_eq!(mana.projectile_range_px, 240);
+    assert_eq!(crate::combat_scene::BOLT_SPAWN_FORWARD, 27.0);
+    assert_eq!(crate::combat_scene::BOLT_SPAWN_UP, 19.0);
+}
+
 fn hero_at(id: HeroId, x: f32) -> RushHero {
-    let (half, height) = match id {
-        HeroId::Carl => (CARL_HALF_WIDTH, 52.0),
-        HeroId::Donut => (DONUT_HALF_WIDTH, 24.0),
-    };
+    let (half, height) = hurtbox_of(id);
     RushHero {
         id,
         hurtbox: Rect {
@@ -351,9 +406,9 @@ fn the_phase_mapping_is_the_one_kind_aware_function() {
     assert!(!RushPhase::Tell.has_box() && !RushPhase::Recover.has_box());
     // Only the tell is a tell: a hit during it cancels the rush.
     let mut s = RushState::start(0.0, 1, HeroId::Carl, 1);
-    assert!(s.telling() && s.busy());
+    assert!(s.telling());
     s.phase = RushPhase::Committed;
-    assert!(!s.telling() && s.busy());
+    assert!(!s.telling());
 }
 
 #[test]
@@ -456,48 +511,70 @@ fn an_invulnerable_hero_is_passed_through_and_the_next_one_is_hit() {
 }
 
 #[test]
-fn on_a_simultaneous_overlap_the_nearer_edge_to_the_front_takes_it_ties_to_carl() {
+fn on_a_simultaneous_overlap_the_hero_the_front_passed_first_takes_it_ties_to_carl() {
     let p = profile();
-    // Two heroes overlapping the same box on one tick. Facing +1, the box front
-    // at active tick k is x + 4k + 28.
-    // Carl near edge 36 px, Donut near edge 40 px ahead of the pivot: on active
-    // tick 3 the front is at 40, so Carl's gap is 4 and Donut's 0.
-    let boxed = rush_box(&p, 12.0, 1, 0.0); // front at 40
-    let carl = RushHero {
-        id: HeroId::Carl,
+    // CRL-Q14 ruling: of two heroes in the box on one tick, the one the box
+    // front passed first (the one nearest the llama, the largest penetration)
+    // takes the blow; exact ties go to Carl.
+    let boxed = rush_box(&p, 12.0, 1, 0.0); // x 12..40, front at 40
+    let hero = |id, left: f32, width, height| RushHero {
+        id,
         hurtbox: Rect {
-            left: 36.0,
+            left,
             bottom: 0.0,
-            width: 24.0,
-            height: 52.0,
+            width,
+            height,
         },
         hittable: true,
     };
-    let donut = RushHero {
-        id: HeroId::Donut,
-        hurtbox: Rect {
-            left: 39.0,
-            bottom: 0.0,
-            width: 20.0,
-            height: 24.0,
-        },
-        hittable: true,
-    };
+    // Carl's near edge 36 (penetration 4), Donut's 39 (penetration 1): Carl was
+    // reached first, whatever the slice order.
+    let carl = hero(HeroId::Carl, 36.0, 24.0, 52.0);
+    let donut = hero(HeroId::Donut, 39.0, 20.0, 24.0);
     assert_eq!(
         first_hero_in_box(boxed, 1, &[carl, donut]),
+        Some(HeroId::Carl)
+    );
+    assert_eq!(
+        first_hero_in_box(boxed, 1, &[donut, carl]),
+        Some(HeroId::Carl)
+    );
+    // The other way round: Donut deeper (near edge 30) than Carl (38): Donut.
+    let deep_donut = hero(HeroId::Donut, 30.0, 20.0, 24.0);
+    let shallow_carl = hero(HeroId::Carl, 38.0, 24.0, 52.0);
+    assert_eq!(
+        first_hero_in_box(boxed, 1, &[shallow_carl, deep_donut]),
         Some(HeroId::Donut)
     );
-    // Equal gaps: Carl.
-    let donut_same = RushHero {
-        hurtbox: Rect {
-            left: 36.0,
-            ..donut.hurtbox
-        },
-        ..donut
-    };
+    // A hero standing deep inside the box does not lose to one just inside the
+    // front (the literal `abs` gap would have picked the shallow one).
+    let deepest = hero(HeroId::Donut, 14.0, 20.0, 24.0);
+    assert_eq!(
+        first_hero_in_box(boxed, 1, &[carl, deepest]),
+        Some(HeroId::Donut)
+    );
+    // Equal penetration: Carl.
+    let donut_same = hero(HeroId::Donut, 36.0, 20.0, 24.0);
     assert_eq!(
         first_hero_in_box(boxed, 1, &[donut_same, carl]),
         Some(HeroId::Carl)
+    );
+    // Facing left mirrors: the box x -12..-40, front at -40; "near edge" is the
+    // hurtbox's right edge. Carl's right edge -36 (penetration 4), Donut's -39.
+    let boxed_left = rush_box(&p, -12.0, -1, 0.0);
+    let carl_l = hero(HeroId::Carl, -60.0, 24.0, 52.0);
+    let donut_l = hero(HeroId::Donut, -59.0, 20.0, 24.0);
+    assert_eq!(carl_l.hurtbox.right(), -36.0);
+    assert_eq!(
+        first_hero_in_box(boxed_left, -1, &[donut_l, carl_l]),
+        Some(HeroId::Carl)
+    );
+    // An unhittable hero never takes it, and nobody in the box is `None`.
+    let mut ghost = carl;
+    ghost.hittable = false;
+    assert_eq!(
+        first_hero_in_box(boxed, 1, &[ghost, donut]),
+        Some(HeroId::Donut)
     );
     assert_eq!(first_hero_in_box(boxed, 1, &[]), None);
 }
@@ -662,21 +739,76 @@ fn the_partition_is_named_and_stimulated_but_a_remnant_is_not_a_solid() {
 }
 
 #[test]
-fn a_solid_hit_beats_a_leash_stop_and_the_hero_beats_both() {
+fn a_leash_stop_short_of_a_face_is_a_miss_and_never_breaks_the_partition() {
     let p = profile();
-    // Wall face 84 ahead and a leash bound 40 ahead: the leash stops first.
-    let wall = faced(284.0);
     let leash = Leash {
         min: 0.0,
         max: 240.0,
     };
-    let run = run_fixed(&p, 200.0, 1, &wall, None, leash, &[], 300);
+    // The face is well past the bound plus the box front: a plain leash stop.
+    let run = run_fixed(&p, 200.0, 1, &faced(284.0), None, leash, &[], 300);
     assert_eq!(run.end.unwrap().1, RushEnd::Miss);
     assert_eq!(run.x, 240.0);
+    // F1: the leash clamp lands 1 px short of the face (llama at 238, bound 240,
+    // face at 269: the box front at the bound is 268). The step's own solid
+    // clamp would have called it a contact; the leash wins: Miss, Recover, and
+    // the partition stays intact (sheet section 10, "Near miss").
+    let partition = [solid(269.0, 16.0, 48.0)];
+    let run = run_fixed(&p, 238.0, 1, &partition, Some(0), leash, &[], 300);
+    assert_eq!(run.end.unwrap().1, RushEnd::Miss);
+    assert_eq!(run.x, 240.0);
+    assert_eq!(run.state.phase, RushPhase::Recover);
+    let mut state = RushState::start(238.0, 1, HeroId::Carl, 1);
+    let mut x = 238.0;
+    for _ in 0..80 {
+        let world = RushWorld {
+            feet: 0.0,
+            solids: &partition,
+            partition: Some(0),
+            leash,
+            max_x: EDGE,
+            heroes: &[],
+        };
+        let out = state.step(&p, x, &world);
+        x = out.x;
+        assert!(!out.partition_hit, "a near miss never breaks the partition");
+        assert_ne!(out.end, Some(RushEnd::Partition));
+        assert_eq!(out.self_damage, 0);
+    }
+    // The motion itself reports it: leash stop, not met, no block named.
+    let m = rush_motion(&p, 238.0, 1, 0.0, &partition, leash, EDGE);
+    assert!(m.leash_stop && !m.met && m.met_block.is_none());
+    assert_eq!(m.x, 240.0);
+    // Front exactly on the face at the bound: that is a real contact. Bonk, and
+    // the partition breaks.
+    let flush = [solid(268.0, 16.0, 48.0)];
+    let run = run_fixed(&p, 200.0, 1, &flush, Some(0), leash, &[], 300);
+    assert_eq!(run.end.unwrap().1, RushEnd::Partition);
+    assert_eq!(run.x, 240.0);
+    let run = run_fixed(&p, 200.0, 1, &flush, None, leash, &[], 300);
+    assert_eq!(run.end.unwrap().1, RushEnd::Blocked);
+}
+
+#[test]
+fn a_hero_in_the_box_beats_the_leash_stop_and_is_hit_before_a_wall_is_reached() {
+    let p = profile();
+    let leash = Leash {
+        min: 0.0,
+        max: 240.0,
+    };
     // A hero in the box on the very tick the leash would stop it takes the blow.
     let heroes = [hero_at(HeroId::Carl, 240.0 + 30.0)];
     let run = run_fixed(&p, 200.0, 1, &[], None, leash, &heroes, 300);
     assert!(matches!(run.end.unwrap().1, RushEnd::Contact(HeroId::Carl)));
+    // A hero standing in front of a wall is hit before the box reaches it (the
+    // box front meets the hero at active tick 11, the wall at 15): contact, no bonk.
+    let wall = faced(284.0);
+    let heroes = [hero_at(HeroId::Donut, 284.0 - 6.0)];
+    let run = run_fixed(&p, 200.0, 1, &wall, None, WIDE, &heroes, 300);
+    assert!(matches!(
+        run.end.unwrap().1,
+        RushEnd::Contact(HeroId::Donut)
+    ));
 }
 
 #[test]
@@ -964,10 +1096,7 @@ fn a_dormant_llama_wakes_when_in_view_with_a_hero_near_and_stays_awake() {
 // ----------------------------------------------------------------- the brain --
 
 fn hero_facts(id: HeroId, x: f32, support: f32) -> HeroFacts {
-    let (half, height) = match id {
-        HeroId::Carl => (CARL_HALF_WIDTH, 52.0),
-        HeroId::Donut => (DONUT_HALF_WIDTH, 24.0),
-    };
+    let (half, height) = hurtbox_of(id);
     HeroFacts {
         id,
         x,
@@ -1475,21 +1604,10 @@ struct Hero1 {
 
 impl Hero1 {
     fn new(id: HeroId, x: f32, boost: bool) -> Self {
-        let (run, jump, half_w, height) = match id {
-            HeroId::Carl => (185.0, 440.0, CARL_HALF_WIDTH, 52.0),
-            HeroId::Donut => (
-                207.0,
-                if boost { 547.0 } else { 500.0 },
-                DONUT_HALF_WIDTH,
-                24.0,
-            ),
-        };
+        let (half_w, height) = hurtbox_of(id);
         Self {
             hero: Hero::at(x, HERO_HALF_HEIGHT),
-            motion: HeroMotion {
-                run_speed: run,
-                jump_speed: jump,
-            },
+            motion: motion_of(id, boost),
             half_w,
             height,
             input: InputFrame::default(),
@@ -1804,12 +1922,10 @@ fn the_rush_lane_reports_the_swept_extent_and_the_tick_counts() {
 }
 
 #[test]
-fn the_box_overlaps_a_hero_column_for_up_to_11_ticks_donut_and_12_carl() {
+fn the_box_overlaps_a_hero_column_for_11_or_12_ticks_donut_and_12_or_13_carl() {
     let p = profile();
     let state = RushState::start(1000.0, 1, HeroId::Donut, 1);
     let lane = rush_lane(&p, &state, 1000.0, 0.0, &[], WIDE, EDGE).unwrap();
-    // The partner's jump bounds: 3..40 for Donut and 4..31 for Carl cover the
-    // overlap span when the AI starts on `ticks_until_box_reaches`.
     let span = |half: f32, x: f32| {
         let reach = ticks_until_box_reaches(&lane, x, half).unwrap();
         let clear = ticks_until_box_clears(&lane, x, half).unwrap();
@@ -1823,11 +1939,99 @@ fn the_box_overlaps_a_hero_column_for_up_to_11_ticks_donut_and_12_carl() {
     };
     // The box (28 px) sweeps 4 px a tick: a column of width 2h is overlapped on
     // 11 or 12 ticks (Donut) and 12 or 13 (Carl), depending on the sub-step
-    // alignment of the hero's x. The sheet's "up to 11 and 12" (F4) is the
-    // grid-aligned count; a hero on a fractional x gets one more tick. The
-    // partner's bounds (3..40 and 4..31) were chosen for both conventions.
-    assert_eq!(counts(10.0), vec![11, 12]);
-    assert_eq!(counts(12.0), vec![12, 13]);
+    // alignment of the hero's x. The sheet's earlier "up to 11 and 12" was the
+    // grid-aligned count only (erratum recorded in section 9).
+    assert_eq!(counts(DONUT_HALF_WIDTH), vec![11, 12]);
+    assert_eq!(counts(CARL_HALF_WIDTH), vec![12, 13]);
+}
+
+/// A partner AI that reads `ticks_until_box_reaches` at its decision (before
+/// its own step, each tick) and presses jump once, on the first tick where
+/// `press_when(n)` holds. Hero steps come before the llama's in a tick, so the
+/// helper's 0 (the next llama step) is the llama step of the same tick.
+/// Returns `(pressed, hit)` for a hero at pivot distance `d`.
+fn ai_jump_run(id: HeroId, d: f32, press_when: impl Fn(u16) -> bool) -> (bool, bool) {
+    let p = profile();
+    let half = match id {
+        HeroId::Carl => CARL_HALF_WIDTH,
+        HeroId::Donut => DONUT_HALF_WIDTH,
+    };
+    let mut hero = Hero1::new(id, 1000.0 + d, false);
+    let mut state = RushState::start(1000.0, 1, id, 1);
+    let mut x = 1000.0;
+    let mut pressed = false;
+    for t in 0..=60u16 {
+        let mut jump = false;
+        // Tick 0 is the tell start tick: the llama starts after the hero's step,
+        // so nobody can have read the lane yet, and it has no llama step.
+        if t == 0 {
+            hero.step(false, false);
+            continue;
+        }
+        if !pressed
+            && let Some(lane) = rush_lane(&p, &state, x, 0.0, &[], WIDE, EDGE)
+            && let Some(n) = ticks_until_box_reaches(&lane, hero.hero.x, half)
+            && press_when(n)
+        {
+            jump = true;
+            pressed = true;
+        }
+        hero.step(jump, false);
+        let heroes = [hero.rush_hero(id)];
+        let world = RushWorld {
+            feet: 0.0,
+            solids: &[],
+            partition: None,
+            leash: WIDE,
+            max_x: EDGE,
+            heroes: &heroes,
+        };
+        let out = state.step(&p, x, &world);
+        x = out.x;
+        if out.blow.is_some() {
+            return (pressed, true);
+        }
+        if state.phase == RushPhase::Recover {
+            break;
+        }
+    }
+    (pressed, false)
+}
+
+/// The partner's jump bounds (sheet section 9): Donut jumps when
+/// `ticks_until_box_reaches` is 3..40, Carl when it is 4..31. The helper counts
+/// from 0 (0 = the next llama step) and CA2 must use the value as returned,
+/// without adding 1. This pins the contract with the real hero physics: a hero
+/// who presses when the helper first reads a value inside the bound is never
+/// hit, at any sub-step alignment, and the bounds have no slack (one tick
+/// earlier or later is a hit for some alignment).
+#[test]
+fn the_ai_jump_bounds_hold_against_the_helper_counted_from_zero() {
+    for (id, lo, hi) in [(HeroId::Donut, 3u16, 40u16), (HeroId::Carl, 4, 31)] {
+        let grid: Vec<f32> = (4..=512).map(|q| q as f32 * 0.25).collect();
+        let mut fired = 0;
+        let mut early_hits = 0;
+        let mut late_hits = 0;
+        for &d in &grid {
+            // Inside the bound: the AI presses on the first tick with n <= hi
+            // (n >= lo holds on that tick or the press is not made: the AI
+            // acts only while n is in range).
+            let (pressed, hit) = ai_jump_run(id, d, |n| (lo..=hi).contains(&n));
+            if pressed {
+                fired += 1;
+                assert!(!hit, "{id:?} d {d}: hit inside the bound");
+            }
+            // The AI that presses one tick too early / too late is hit for some
+            // alignments: the bounds have no slack.
+            let (p_early, hit_early) = ai_jump_run(id, d, |n| n == lo - 1);
+            early_hits += usize::from(p_early && hit_early);
+            let (p_late, hit_late) = ai_jump_run(id, d, |n| n == hi + 1);
+            late_hits += usize::from(p_late && hit_late);
+        }
+        assert!(fired > 300, "{id:?}: the AI fired on {fired} starts");
+        assert!(early_hits > 0, "{id:?}: lo - 1 is never a hit");
+        assert!(late_hits > 0, "{id:?}: hi + 1 is never a hit");
+    }
 }
 
 #[test]

@@ -82,7 +82,8 @@ pub struct RushMotion {
 /// the box front would pass the face of an intact solid, it is clamped so the
 /// front rests on the face (never backward) and the tick is `met`; a body
 /// meeting a high solid stops it too. Then the step is clamped to the leash and
-/// the layout edge (`leash_stop`, CRL-Q43). Remnants of 16 px or less are not
+/// the layout edge (`leash_stop`, CRL-Q43); when that clamp stops the llama
+/// short of the face, the leash wins and the tick is not `met`. Remnants of 16 px or less are not
 /// solids for a llama (CRL-Q32).
 pub fn rush_motion(
     p: &RushProfile,
@@ -138,11 +139,15 @@ pub fn rush_motion(
     let lo = leash.min.max(LLAMA_HALF_WIDTH);
     let hi = leash.max.min(max_x);
     let limited = clamp_step(x, reached, lo, hi);
+    // The leash wins: a rush that is stopped short of a face (by the leash or
+    // the layout edge) never met it, so it never bonks and never breaks the
+    // partition (sheet section 10, "Near miss").
+    let leash_stop = limited != reached;
     RushMotion {
         x: limited,
-        met,
-        met_block,
-        leash_stop: limited != reached,
+        met: met && !leash_stop,
+        met_block: if leash_stop { None } else { met_block },
+        leash_stop,
     }
 }
 
