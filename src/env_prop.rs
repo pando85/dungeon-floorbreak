@@ -1371,7 +1371,9 @@ impl ShutterPhase {
 
 /// What a body is for the shutter. The core cannot see goblin modes, so the
 /// wire maps them (KR4): `Neutral` and `Attack` are `Free`; `Launched`,
-/// `Downed` and `Airborne` are `Busy`; `Down` and `Corpse` are `Gone`.
+/// `Downed`, `Airborne` and `Hurt` (a staggered or pinned goblin: it holds the
+/// edge, but a pin never re-pins it) are `Busy`; `Down` and `Corpse` are
+/// `Gone`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ShutterBodyState {
     /// Alive and standing: holds the shutter, and a goblin can be pinned.
@@ -1459,10 +1461,13 @@ pub enum FaceHit {
 ///
 /// **Hold rule (KR4).** A slice turns intact once the lower edge has passed
 /// its bottom. If any **living** body (hero or enemy, [`ShutterBodyState::Gone`]
-/// excluded) overlaps a slice that this step would turn intact (its swept
-/// volume, [`swept_rect`]), the edge does not move: nobody is squeezed, shoved
-/// or hurt, and no slice turns intact over a body. The hold has no time bound
-/// (a body under the edge holds it below its own height). Opening never holds.
+/// excluded) overlaps the band the edge would occupy this step (from the
+/// current edge down to the slice boundary the next position lands in, using
+/// the body's swept volume, [`swept_rect`]), the edge does not move: nobody is
+/// squeezed, shoved or hurt, no slice turns intact over a body, and the drawn
+/// lower edge never sinks into one, for any legal `slice_px`. The hold has no
+/// time bound (a body under the edge holds it above its own head). Opening
+/// never holds.
 ///
 /// **Pins (KR4).** A `Free` enemy that holds the edge is pinned once per
 /// closure ([`ShutterPin`]); a launched enemy that hits the face spends its
@@ -1520,6 +1525,11 @@ impl Shutter {
     /// The y of the lower edge (layout px, y down).
     pub fn lower_edge_y(&self) -> i32 {
         self.rect.y + self.edge_px
+    }
+    /// Whether this enemy's pin token of the current closure is spent (by a
+    /// walk-in pin or a face hit). Heroes never carry one.
+    pub fn token_spent(&self, victim: Victim) -> bool {
+        victim.team == Team::Enemy && self.spent.contains(&victim.id)
     }
     /// Closures armed so far this attempt.
     pub fn closures(&self) -> u8 {
@@ -1640,15 +1650,24 @@ impl Shutter {
         let height = self.rect.h;
         let next = (self.edge_px + i32::from(self.cfg.speed_px_per_tick)).min(height);
         let slice = i32::from(self.cfg.slice_px);
-        // The slices this step would turn intact.
-        let (from, to) = ((self.edge_px / slice) as usize, (next / slice) as usize);
+        // The band the edge would occupy: from where it is now down to the slice
+        // boundary the next step lands in. A body in it holds the edge, so the
+        // drawn lower edge never sinks into a body and no slice turns intact
+        // over one (KR4), whatever `slice_px` is.
+        let band_bottom = ((next + slice - 1) / slice * slice).min(height);
+        let band = IRect::new(
+            self.rect.x,
+            self.rect.y + self.edge_px,
+            self.rect.w,
+            band_bottom - self.edge_px,
+        );
         let mut held = false;
         for b in bodies {
             if b.state == ShutterBodyState::Gone {
                 continue;
             }
             let swept = swept_rect(b.body.prev, b.body.cur);
-            if !(from..to).any(|k| swept.overlaps(self.slice_rect(k))) {
+            if !swept.overlaps(band) {
                 continue;
             }
             held = true;
@@ -3323,6 +3342,95 @@ mod shutter_tests {
             );
         }
         assert_eq!(s.phase(), ShutterPhase::Closing);
+    }
+
+    /// Close `s` against one still body for 200 closing steps; return the edge
+    /// it settled at. The drawn lower edge must never be below the body's top.
+    fn settle_edge(s: &mut Shutter, h: i32) -> i32 {
+        s.arm();
+        run_until(s, &[], |s| s.phase() == ShutterPhase::Closing);
+        let b = [body(Victim::hero(0), 1216, h, ShutterBodyState::Free)];
+        let top = FLOOR - h;
+        for _ in 0..200 {
+            s.step(&b);
+            assert!(
+                s.lower_edge_y() <= top,
+                "edge {} sank into a body whose top is {top}",
+                s.lower_edge_y()
+            );
+        }
+        assert_eq!(s.phase(), ShutterPhase::Closing, "the body holds it");
+        s.edge_px()
+    }
+
+    #[test]
+    fn the_drawn_edge_holds_above_the_head_at_the_exact_pixel_both_sides() {
+        // Defaults: 4 px slices at 2 px per tick, arch top at FLOOR - 68 = 512.
+        // Head 32 px below the arch top: the band [28, 32) does not touch it, so
+        // the edge comes down to exactly the head and holds there.
+        let mut s = shutter();
+        assert_eq!(settle_edge(&mut s, 36), 32);
+        assert_eq!(s.lower_edge_y(), FLOOR - 36);
+        // One pixel higher head (31 below the arch top): the band [28, 32)
+        // overlaps it, so the edge holds at the boundary before, 28.
+        let mut s = shutter();
+        assert_eq!(settle_edge(&mut s, 37), 28);
+        // Two pixels lower head (30): same band, same hold at 28 (the old
+        // in-slice step would have sunk the edge to 30).
+        let mut s = shutter();
+        assert_eq!(settle_edge(&mut s, 38), 28);
+        // A head 33 below the arch top: the edge may reach 32 (band [32, 36)
+        // overlaps the head, so it holds there), a pixel above the head.
+        let mut s = shutter();
+        assert_eq!(settle_edge(&mut s, 35), 32);
+    }
+
+    #[test]
+    fn a_wide_slice_holds_the_edge_above_a_body_in_it() {
+        // 17 px slices: a body whose head is 8 px below the arch top sits in the
+        // first slice, so the edge never leaves the top (the old rule let it
+        // descend 15 px into the body).
+        let wide = ShutterConfig {
+            slice_px: 17,
+            ..cfg()
+        };
+        let mut s = Shutter::new(wide, ARCH).unwrap();
+        assert_eq!(settle_edge(&mut s, 60), 0);
+        assert_eq!(s.intact_slices(), 0);
+        // A head 30 below the top (second slice): the edge holds at the 17 px
+        // boundary before the band that touches it.
+        let mut s = Shutter::new(wide, ARCH).unwrap();
+        assert_eq!(settle_edge(&mut s, 38), 16);
+        // One slice for the whole arch (68): any body holds from the start.
+        let one = ShutterConfig {
+            slice_px: 68,
+            ..cfg()
+        };
+        let mut s = Shutter::new(one, ARCH).unwrap();
+        assert_eq!(settle_edge(&mut s, 38), 0);
+    }
+
+    #[test]
+    fn the_pin_token_is_readable() {
+        let mut s = shutter();
+        assert!(!s.token_spent(Victim::enemy(1)));
+        s.arm();
+        run_until(&mut s, &[], |s| s.phase() == ShutterPhase::Closing);
+        let pins: Vec<_> = (0..60).flat_map(|_| s.step(&[goblin(1)]).pins).collect();
+        assert_eq!(pins.len(), 1);
+        assert!(s.token_spent(Victim::enemy(1)));
+        assert!(!s.token_spent(Victim::enemy(2)));
+        assert!(!s.token_spent(Victim::hero(1)), "heroes carry none");
+        let mut two = Shutter::new(ShutterConfig { cycles: 2, ..cfg() }, ARCH).unwrap();
+        two.arm();
+        run_until(&mut two, &[], |s| s.phase() == ShutterPhase::Closing);
+        for _ in 0..60 {
+            two.step(&[goblin(1)]);
+        }
+        assert!(two.token_spent(Victim::enemy(1)));
+        run_until(&mut two, &[], |s| s.phase() == ShutterPhase::Open);
+        assert!(two.arm());
+        assert!(!two.token_spent(Victim::enemy(1)), "arm clears the tokens");
     }
 
     #[test]
