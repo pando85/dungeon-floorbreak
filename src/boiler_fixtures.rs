@@ -1096,10 +1096,19 @@ mod scene_pilot_tests {
         assert_eq!(got, PINNED, "pins: {got:#018x?}");
     }
 
-    /// Solo Carl at CF02 seed 0: direct, valve, weight, both. BOIL-D re-pin:
-    /// the drum's blast charge (an authored `BlastCharge`) is now part of the
-    /// Boiler's state hash, so every plan moves, and the weight's landing now
-    /// lights the drum (the weight and both plans).
+    /// Solo Carl at CF02 seed 0: direct, valve, weight, both. BOIL-D re-pin,
+    /// three causes (a probe that restored the old drum hash words and skipped
+    /// the drum charge in the state hash brought `direct` and `GOLDEN_BOILER`
+    /// back to their old values, and left the other three moved):
+    ///
+    /// * the drum's blast charge (an authored `BlastCharge`) joins the Boiler's
+    ///   state hash, and the drum machine mixes its state, credit, depth and
+    ///   token lists instead of one word: this alone moves `direct` (and the
+    ///   `f01_late` Boiler golden);
+    /// * `valve`: the steam link now offers a weight-1 contact to the brace when
+    ///   the vent opens (`linked_weight`, BOILD-AD1), so the brace ends weakened;
+    /// * `weight` and `both`: the landing now lights the drum through its link
+    ///   and the drum blows 24 ticks later.
     const PINNED: [u64; 4] = [
         0x3291_ef26_99b7_44ee,
         0x3e9d_1060_55f0_9304,

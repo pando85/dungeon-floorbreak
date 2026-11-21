@@ -2935,6 +2935,7 @@ mod tests {
         assert!(matches!(stimulus(&mut s), Offer::Triggered { .. }));
         let due = s.combat.charges[drum].detonate_tick;
         assert_eq!(due, tick(&s) + 1 + 24);
+        let health_before = s.combat.enemies[1].health;
         put_carl(&mut s, 820.0);
         s.scene.world.donut_body.x = 908.0;
         while tick(&s) + 1 < due {
@@ -2979,12 +2980,12 @@ mod tests {
         assert_eq!(hurts_donut[0].1, ENV_SOURCE_ID);
         let range = s.combat.env().unwrap().solid_range();
         assert!(!s.scene.world.solids[range.start + 1].intact);
-        // The outer-band goblin (index 1, 66 px away) is outside 48 px: unhurt.
+        // The outer-band goblin (index 1, 66 px away) is outside 48 px: it keeps
+        // the health it had before the blast and is not launched.
         assert!(s.combat.enemies[1].alive());
-        assert_eq!(
-            s.combat.enemies[1].health,
-            s.combat.enemies[1].health.max(1)
-        );
+        assert_eq!(s.combat.enemies[1].health, health_before);
+        assert_ne!(s.combat.enemies[1].mode, GoblinMode::Launched);
+        assert!(s.combat.enemies[1].launch.is_none());
     }
 
     /// A drum is set off once: a second stimulus after the telegraph or after
@@ -3262,5 +3263,16 @@ mod tests {
         let (a, _) = play(true);
         let (b, _) = play(false);
         assert_ne!(a, b, "the drum and the brace states are hashed");
+    }
+
+    /// Props and charges share one chain counter (K2, CP-Q34): the prop link
+    /// cap and the data file's chain depth are the same number, so an edit of
+    /// either cannot split them silently.
+    #[test]
+    fn the_prop_chain_depth_cap_equals_the_charge_chain_depth_cap() {
+        assert_eq!(
+            crate::env_prop::MAX_CHAIN_DEPTH,
+            crate::carl_prog::CarlProgTuning::active().cpq34_chain_max_depth
+        );
     }
 }
