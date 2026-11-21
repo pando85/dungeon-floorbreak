@@ -12,13 +12,14 @@
 //! `from..to` covers the steps that produce `tick = from .. to - 1`.
 
 use crate::boss_scene::Pilot;
+use crate::cf02::arena;
 use crate::combat::EnemyAi;
 use crate::combat_scene::{EnemySpawn, Fixture, LlamaSpawn};
 use crate::companion::profile::ProfileSetId;
 use crate::donut_fixtures::primary;
 use crate::donut_mana::{DonutSetup, StartState};
 use crate::party::{PROVISIONAL_TUNING, PartyTuning, UncontrolledHero};
-use crate::party_scene::{PartyFixture, base, run, swap};
+use crate::party_scene::{PartyFixture, base, jump, run, swap};
 
 const fn chase(x: i32) -> EnemySpawn {
     EnemySpawn {
@@ -377,7 +378,61 @@ pub const COMPANION_SWAP_MID_MOVE: PartyFixture = PartyFixture {
     donut: DonutSetup::NONE,
 };
 
-pub const COMPANION_FIXTURES: [&PartyFixture; 14] = [
+// ------------------------------------------------------ 01B-wire (nav) --
+//
+// Room fixtures in the CF02 microarena (named `companion_arena_*`, which the
+// arena predicate `cf02::arena::fixture_uses_arena` maps to the arena kit and
+// the CF02 rules): no enemies, the one thing under test is the companion
+// reaching the leader's tier by the nav graph. Columns are the arena's Q29
+// layout: the left perch slab is 544..672 with its top 80 px up and an underside
+// 68 px up, so a hero can walk under it.
+
+/// The arena room with nothing in it but the two heroes.
+const fn nav_room(name: &'static str, summary: &'static str, seed: u64, ticks: u64) -> Fixture {
+    Fixture {
+        carl_x: 470,
+        enemies: &[],
+        llamas: &[],
+        shore_dx: None,
+        ..arena::fixture(name, summary, seed, ticks)
+    }
+}
+
+const NAV_DONUT_BASE: Fixture = nav_room(
+    "companion_arena_nav_perch_donut",
+    "01B-wire, solo as Carl: Carl jumps onto the left perch slab and walks to its right half; the AI Donut, on the floor, is routed by the nav graph to the slab's takeoff x, stops on it, jumps and lands on the slab beside him",
+    0xC0A3_0001,
+    260,
+);
+
+/// 01B-wire: AI Donut reaches a higher tier by the nav graph.
+pub const COMPANION_ARENA_NAV_PERCH_DONUT: PartyFixture = PartyFixture {
+    base: &NAV_DONUT_BASE,
+    two_player: false,
+    tuning: V0,
+    script: &[run(3, 52, 0, 1.0), jump(8, 9, 0)],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const NAV_CARL_BASE: Fixture = nav_room(
+    "companion_arena_nav_perch_carl",
+    "01B-wire, solo as Donut: the player swaps to Donut, who jumps onto the left perch slab and walks to its right half; the AI Carl is routed by the nav graph up onto the slab",
+    0xC0A3_0002,
+    260,
+);
+
+/// 01B-wire: AI Carl reaches a higher tier by the nav graph.
+pub const COMPANION_ARENA_NAV_PERCH_CARL: PartyFixture = PartyFixture {
+    base: &NAV_CARL_BASE,
+    two_player: false,
+    tuning: V0,
+    script: &[swap(3, 4), run(6, 56, 0, 1.0), jump(11, 12, 0)],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+pub const COMPANION_FIXTURES: [&PartyFixture; 16] = [
     &CF02_ASSIST_SWAT_INTERRUPT,
     &CF02_ASSIST_SWAT_TRAILING_GAP,
     &CF02_ASSIST_POUNCE_STAGGERED,
@@ -392,6 +447,8 @@ pub const COMPANION_FIXTURES: [&PartyFixture; 14] = [
     &COMPANION_DONUT_SUPPORTS_CARL,
     &COMPANION_DUO_NO_AI,
     &COMPANION_SWAP_MID_MOVE,
+    &COMPANION_ARENA_NAV_PERCH_DONUT,
+    &COMPANION_ARENA_NAV_PERCH_CARL,
 ];
 
 // ---------------------------------------------------------------- tally --
@@ -516,8 +573,17 @@ mod tests {
         .unwrap()
     }
 
+    fn arena_kit() -> EnvKit {
+        arena::load_arena(&PathBuf::from(env!("CARGO_MANIFEST_DIR"))).unwrap()
+    }
+
     fn sim_of(fixture: &'static PartyFixture) -> PartyFixtureSim {
-        PartyFixtureSim::new(&kit(), 360, fixture).unwrap()
+        let kit = if arena::fixture_uses_arena(fixture.name()) {
+            arena_kit()
+        } else {
+            kit()
+        };
+        PartyFixtureSim::new(&kit, 360, fixture).unwrap()
     }
 
     /// The same scenario under another tuning (leaked: fixtures are static).
@@ -586,7 +652,7 @@ mod tests {
             .and_then(|v| v.parse().ok())
             .unwrap_or(400);
         let fixture = crate::cf02_fixtures::find_party_fixture(&name).unwrap();
-        let mut sim = PartyFixtureSim::new(&kit(), 360, fixture).unwrap();
+        let mut sim = sim_of(fixture);
         for _ in 0..to {
             sim.step_scripted();
             let t = sim.scene.world.tick;
@@ -610,9 +676,11 @@ mod tests {
                 .map(|g| format!("{:.0}/{:?}/{}/hp{}", g.x, g.mode, g.attack_tick, g.health))
                 .collect();
             println!(
-                "t={t} carl={:.0} donut={:.0} dmove={:?} gob={gob:?} llama={llamas:?} driven={:?}",
+                "t={t} carl={:.1},{:.1} donut={:.1},{:.1} dmove={:?} gob={gob:?} llama={llamas:?} driven={:?}",
                 sim.scene.world.body(HeroId::Carl).x,
+                sim.scene.world.body(HeroId::Carl).y,
                 sim.scene.world.body(HeroId::Donut).x,
+                sim.scene.world.body(HeroId::Donut).y,
                 sim.combat.donut_move_view().map(|v| (v.mv, v.tick)),
                 c.companion_driven(),
             );
@@ -621,7 +689,7 @@ mod tests {
 
     /// The committed final `PARTY_STATE` hash of every fixture here (the CI
     /// replays in `docs/evidence/companion-ai` pin the same values).
-    const GOLDENS: [(&str, u64); 14] = [
+    const GOLDENS: [(&str, u64); 16] = [
         ("cf02_assist_swat_interrupt", 0xe6977fc5111eafdd),
         ("cf02_assist_swat_trailing_gap", 0x502637e04e298934),
         ("cf02_assist_pounce_staggered", 0x75357a1ad7beda96),
@@ -636,6 +704,8 @@ mod tests {
         ("companion_donut_supports_carl", 0xe0e93bd08a05b14c),
         ("companion_duo_no_ai", 0x67ac6477f6d13dd9),
         ("companion_swap_mid_move", 0x0854974ce60919a9),
+        ("companion_arena_nav_perch_donut", 0x5df620202ed1c92c),
+        ("companion_arena_nav_perch_carl", 0x69c986158efcd9d1),
     ];
 
     #[test]
@@ -1159,7 +1229,9 @@ mod tests {
         );
         assert!(companion.iter().all(|e| match e {
             CompanionEvent::Press { hero, .. } => *hero == HeroId::Carl,
-            CompanionEvent::Decision { .. } => true,
+            CompanionEvent::Decision { .. }
+            | CompanionEvent::Nav { .. }
+            | CompanionEvent::Regroup { .. } => true,
         }));
     }
 
@@ -1291,5 +1363,194 @@ mod tests {
         }
         assert!(held, "the pounce held the lying goblin");
         assert!(sim.combat.enemies[0].health >= 1, "and never killed it");
+    }
+
+    // ------------------------------------------------------ 01B-wire (nav) --
+
+    use crate::companion::events::RegroupOutcome;
+    use crate::companion::nav::EdgeKind;
+    use crate::companion::navfollow::NavNote;
+    use crate::prototype::{HERO_HALF_HEIGHT, HERO_HALF_WIDTH};
+
+    /// The foot y of the hero `id` in a sim.
+    fn foot(sim: &PartyFixtureSim, id: HeroId) -> f32 {
+        sim.scene.world.body(id).y - HERO_HALF_HEIGHT
+    }
+
+    /// 01B acceptance: a companion-driven hero reaches the leader's tier through
+    /// the nav graph: one committed jump transit onto the 80 px perch slab, one
+    /// arrival, and it ends standing on the slab (feet 80 px above the floor).
+    fn assert_climbs(fixture: &'static PartyFixture, companion: HeroId) {
+        let floor = foot(&sim_of(fixture), companion);
+        let (sim, _, events) = run_events(fixture);
+        let x = sim.scene.world.body(companion).x;
+        assert!(
+            (foot(&sim, companion) - floor - 80.0).abs() < 0.01 && (544.0..=672.0).contains(&x),
+            "{}: {companion:?} stands at x {x}, feet {}",
+            fixture.name(),
+            foot(&sim, companion) - floor
+        );
+        let nav: Vec<_> = events
+            .iter()
+            .filter_map(|e| match *e {
+                CompanionEvent::Nav { hero, note, .. } if hero == companion => Some(note),
+                _ => None,
+            })
+            .collect();
+        assert!(
+            matches!(
+                nav.first(),
+                Some(NavNote::Begin {
+                    kind: EdgeKind::Jump,
+                    ..
+                })
+            ),
+            "{nav:?}"
+        );
+        assert!(
+            matches!(nav.last(), Some(NavNote::Arrived { .. })),
+            "{nav:?}"
+        );
+        let stats = sim.combat.companion_stats();
+        assert_eq!(
+            (
+                stats.nav_transits[companion.index()],
+                stats.nav_arrivals[companion.index()]
+            ),
+            (1, 1)
+        );
+        // The companion never presses anything but movement and jump here.
+        assert_eq!(stats.assist_starts, [0, 0]);
+    }
+
+    #[test]
+    fn nav_ai_donut_reaches_the_perch_slab() {
+        assert_climbs(&COMPANION_ARENA_NAV_PERCH_DONUT, HeroId::Donut);
+    }
+
+    #[test]
+    fn nav_ai_carl_reaches_the_perch_slab_when_donut_is_controlled() {
+        assert_climbs(&COMPANION_ARENA_NAV_PERCH_CARL, HeroId::Carl);
+    }
+
+    /// The same two scenarios under the follow-and-jump bot (the rollback, CA-22):
+    /// the legacy follower, which the nav never touches. AI Donut under the bot
+    /// stays under the slab; the bot happens to climb for Carl (his jump just
+    /// reaches), which is logged for comparison.
+    #[test]
+    fn the_rollback_bot_is_unchanged_by_the_nav() {
+        for (f, who) in [
+            (&COMPANION_ARENA_NAV_PERCH_DONUT, HeroId::Donut),
+            (&COMPANION_ARENA_NAV_PERCH_CARL, HeroId::Carl),
+        ] {
+            let bot = with_tuning(f, PROVISIONAL_TUNING);
+            let (sim, _, events) = run_events(bot);
+            assert!(
+                events.iter().all(|e| !matches!(
+                    e,
+                    CompanionEvent::Nav { .. } | CompanionEvent::Regroup { .. }
+                )),
+                "{}: the bot logs no nav events",
+                f.name()
+            );
+            let floor = foot(&sim_of(bot), who);
+            if who == HeroId::Donut {
+                // The legacy follower walks under the slab (its underside is 68 px
+                // up) and bumps its head there: it never climbs. This is the case
+                // the nav graph exists for.
+                assert!(foot(&sim, who) - floor < 10.0, "{}", f.name());
+            }
+            eprintln!(
+                "NAV_BASELINE {} bot {who:?}: feet {} above the floor, x {}",
+                f.name(),
+                foot(&sim, who) - floor,
+                sim.scene.world.body(who).x
+            );
+        }
+    }
+
+    /// 01B-wire, the camera-safe regroup in the live scene: the leader runs far
+    /// ahead, the AI Donut is left off-screen and, after `regroup_ticks`, is
+    /// placed on the floor anchor just outside the view behind Carl (on the
+    /// floor, not on the leader's foot line, not inside the camera), once.
+    #[test]
+    fn nav_regroup_places_an_offscreen_companion_just_outside_the_view() {
+        let f = &COMPANION_ARENA_NAV_PERCH_DONUT;
+        let mut sim = sim_of(f);
+        let floor = foot(&sim, HeroId::Donut);
+        sim.scene.world.hero.x = 1000.0;
+        sim.scene.world.donut_body.x = 40.0;
+        let mut events = Vec::new();
+        let mut left_at_regroup = None;
+        for _ in 0..260 {
+            let before = sim.scene.camera.left();
+            sim.step_slots([crate::input::RawInput::NONE; 2]);
+            for e in sim.combat.take_companion_events() {
+                if let CompanionEvent::Regroup { outcome, .. } = e {
+                    left_at_regroup = Some((before, sim.scene.world.body(HeroId::Donut).x));
+                    events.push(outcome);
+                }
+            }
+        }
+        let placed: Vec<_> = events
+            .iter()
+            .filter(|o| matches!(o, RegroupOutcome::Placed { .. }))
+            .collect();
+        assert_eq!(placed.len(), 1, "{events:?}");
+        let (left, x) = left_at_regroup.unwrap();
+        assert!(
+            (x - (left as f32 - HERO_HALF_WIDTH - 2.0)).abs() < 4.0,
+            "placed {x} against a view starting at {left}"
+        );
+        assert_eq!(foot(&sim, HeroId::Donut), floor, "on the floor, at rest");
+        assert_eq!(sim.combat.companion_stats().regroups, [0, 1]);
+    }
+
+    /// 01B-wire, N-2: a regroup deferred because the leader is in the air is
+    /// asked again on the very next tick, so the hero is placed on the first
+    /// tick the leader stands, not `regroup_ticks` later.
+    #[test]
+    fn a_deferred_regroup_is_placed_on_the_first_tick_the_leader_stands() {
+        let f = &COMPANION_ARENA_NAV_PERCH_DONUT;
+        let mut sim = sim_of(f);
+        let carl_floor = foot(&sim, HeroId::Carl);
+        sim.scene.world.hero.x = 1000.0;
+        sim.scene.world.donut_body.x = 40.0;
+        let mut regroups = Vec::new();
+        let mut release = None;
+        let mut first_stand = None;
+        for tick in 0..300 {
+            // Carl is held a little above the floor for 130 ticks (past the 120
+            // regroup_ticks, while the AI Donut is still off-screen),
+            // then falls and lands.
+            if tick < 130 {
+                let h = &mut sim.scene.world.hero;
+                h.y = carl_floor + 24.0;
+                h.vy = 0.0;
+                h.grounded = false;
+            } else if release.is_none() {
+                release = Some(tick);
+            }
+            let standing_before = sim.scene.world.hero.grounded;
+            if release.is_some() && standing_before && first_stand.is_none() {
+                first_stand = Some(tick);
+            }
+            sim.step_slots([crate::input::RawInput::NONE; 2]);
+            for e in sim.combat.take_companion_events() {
+                if let CompanionEvent::Regroup { outcome, .. } = e {
+                    regroups.push((tick, outcome));
+                }
+            }
+        }
+        let first_stand = first_stand.expect("Carl landed");
+        assert_eq!(regroups.len(), 1, "{regroups:?}");
+        assert!(
+            matches!(regroups[0].1, RegroupOutcome::Placed { .. }),
+            "{regroups:?}"
+        );
+        assert_eq!(
+            regroups[0].0, first_stand,
+            "placed on the first tick Carl stands: {regroups:?}"
+        );
     }
 }

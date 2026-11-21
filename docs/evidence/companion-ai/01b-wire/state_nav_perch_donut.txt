@@ -1,0 +1,1 @@
+COMBAT_STATE fixture=companion_arena_nav_perch_donut seed=0xc0a30001 tick=100 elapsed=100 hero_hp=4 deaths=0 enemies= hash=cbff82c82ba901de

@@ -1092,6 +1092,7 @@ pub mod arena {
     pub fn fixture_uses_arena(name: &str) -> bool {
         name == "cf02_arena"
             || name.starts_with("cf02_arena_")
+            || name.starts_with("companion_arena_")
             || name.starts_with("cf02_block_")
             || matches!(
                 name,

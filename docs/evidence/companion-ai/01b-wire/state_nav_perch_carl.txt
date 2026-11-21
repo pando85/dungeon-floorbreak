@@ -1,0 +1,1 @@
+COMBAT_STATE fixture=companion_arena_nav_perch_carl seed=0xc0a30002 tick=108 elapsed=108 hero_hp=4 deaths=0 enemies= hash=c6d2040098426dc8

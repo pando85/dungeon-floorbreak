@@ -1,6 +1,6 @@
 # COMPANION-AI-01 — Local agent implementation work order
 
-**Status:** Design reconciled with COMBAT-FUN-02 and main; defaults CA-01..CA-41 adopted by the orchestrator (owner design-defaults directive, 2026-11-19). **Merged on main (2026-11-20), unwired core modules only:** 01A-core #129 (`e6c8c3b9`), 01B-core #131 (`811dc9b4`) and 01C #130 (`5b343867`); none is wired into a scene, so no behaviour changed and every golden is unchanged. **01A-wire merged via #151 (`78333e3f`, 2026-11-20), game-feel review pending;** its follow-ups, including the staggered-pounce design question for the top tier, are in the [backlog row](../04-production/backlog.md). 01B-wire, 01D and 01E are not started. Merged, game-feel review pending: game feel and controller UX are pending the owner's play.
+**Status:** Design reconciled with COMBAT-FUN-02 and main; defaults CA-01..CA-41 adopted by the orchestrator (owner design-defaults directive, 2026-11-19). **Merged on main (2026-11-20), unwired core modules only:** 01A-core #129 (`e6c8c3b9`), 01B-core #131 (`811dc9b4`) and 01C #130 (`5b343867`); none is wired into a scene, so no behaviour changed and every golden is unchanged. **01A-wire merged via #151 (`78333e3f`, 2026-11-20), game-feel review pending;** its follow-ups, including the staggered-pounce design question for the top tier, are in the [backlog row](../04-production/backlog.md). **01B-wire (nav-driven follow and camera-safe regroup) is in review as a draft PR on `feat/companion-01b-wire`** (see [01B-wire result](#01b-wire-result)); 01D and 01E are not started. Merged, game-feel review pending: game feel and controller UX are pending the owner's play.
 
 **Read:** [Companion autonomy/commands spec](../03-tech/companion-ai-command-system.md), [ADR-0009](../05-decisions/ADR-0009-companion-ai-authority.md), [AGENTS.md](../../AGENTS.md), [local agent protocol](workorders.md), [orchestration](agent-orchestration.md).
 
@@ -108,7 +108,7 @@ A PR that finds it must touch a file another running PR owns stops and reports i
 | **01A-core — view, profiles, director, rules** | Bevy-free `CompanionView`, profile sets, director, glance rule, unit tests | **Merged**, #129 (`e6c8c3b9`), after CF02-00 | `src/companion/**`, `assets/data/gameplay/companion_ai_v0.json`; unit tests, no behaviour change |
 | **01A-wire — autonomy foundation** | One real legal combat/support action by AI **Carl and Donut**, preserving follower and safeguard defaults; hooks per CA-24, `UncontrolledHero::Companion`, `--companion`, the CA-29 CINE filter, both-role and `cf02_assist_*` fixtures | After CF02-00, CF02-A, CF02-C1 and 01A-core; runs beside CF02-H | Director/perception/role profiles, both-role headless fixtures, real-event hash parity, rollback flag |
 | **01B-core — platform graph** | Pure platform graph, actor-aware path/reachability, danger anchors, destruction invalidation | **Merged**, #131 (`811dc9b4`) | Nav/level metadata over existing solids and camera-lab `donut_only` platforms, blocked-path fixtures |
-| **01B-wire — nav-driven follow** | Nav-driven follow and camera-safe regroup in `corridor.rs` | After CF02-C2 and 01B-core | Gate coverage once a gate fixture exists, visual capture |
+| **01B-wire — nav-driven follow** | Nav-driven follow and camera-safe regroup in `corridor.rs` | **In review** (draft PR, `feat/companion-01b-wire`); after CF02-C2 and 01B-core, both merged | Gate coverage once a gate fixture exists, visual capture (done, see [01B-wire result](#01b-wire-result)) |
 | **01C — controller UX spike** | Tap/hold/chord experiments, alternative binding and input-state-machine tests without production rebinding (pure grammar and traces) | **Merged**, #130 (`5b343867`) | Isolated experimental input harness; real-pad comparison requested |
 | **01D — commands + feedback** | Focus, Hold, Regroup, Assist/Act, validator/status, target preview and minimal native HUD | After 01A-wire, the 01B API, owner D-CTRL and CF02-I | One integration owner for input/party/HUD, gamepad + replay + 640 captures |
 | **01E — combat synergy + evaluation** | Better positioning, realistic finisher support, individual kill/viewer attribution and metrics; `never` vs `factual` comparison | After 01D, AUTOPLAY stage B and AUTOPLAY-02a | Both-role no-orders/ordered comparison (02a serves the no-orders half only, see the 02a dependency section), CPU profiling, human-playtest packet |
@@ -165,6 +165,28 @@ Recorded from the independent reviews of the 01A-core (#129) and 01B-core (#131)
 
 1. The nav model and its replay start every transit from rest at the launch x (`EdgeView::launch_x`). The executor must reach that x and stop before it presses jump, or replay the transit arriving at run speed.
 2. `NavConfig::integrated()` is the default and the config 01B-wire uses (`JUMP_SPEED`/`RUN_SPEED`); `NavConfig::camera_lab()` is for lab tests only and is not replay-validated (the lab body is not `step_hero`).
+
+### 01B-wire result
+
+Both obligations above are met. Code: `src/companion/navfollow.rs` (pure executor and regroup chooser, `NavConfig::integrated()`), `src/combat_scene/companion.rs` (graph sync, regroup before the view, the nav-driven follow layer), `src/corridor.rs` (`regroup_due`, `regroup_place`, `regroup_skip`, `dodge_input`, the `nav_regroup` control flag), `src/companion/nav.rs` (`edge_plan`, `solid_count`). Nothing changes without `UncontrolledHero::Companion`.
+
+- **Executor (obligation 1).** A hero on one anchor whose route to the leader's anchor contains a jump or a drop commits to the first edge: it steers (analog, the nav replay's steering) to the edge's `launch_x` and presses jump only once it is within 0.6 px of it (the stick dead zone leaves up to 0.55 px), then steers to the edge's target x, staying beside the ledge until its feet are above it. A press that does not take is retried after a release tick; a transit is abandoned when its edge closes (a destruction) or after three times its ETA plus 120 ticks.
+- **No route (wait safely).** `plan_bounded` names a safe anchor inside the camera (24 px margin); the hero stands there, closing in on the leader's x within the bot's 40 px band without leaving the anchor, and reports the reason once.
+- **Regroup.** After the legacy `regroup_ticks` off-screen, a companion-driven hero is placed on an anchor it could reach by itself, from which the leader is still reachable, just outside the view on the side behind the leader, feet on the anchor (not on the leader's foot line). Otherwise it stays and a `Regroup(Denied)` event is the camera warning; a hero standing on no known anchor falls back to the legacy placement (`Regroup(Legacy)`). The placement happens before the follow layer is read, which closes the 01A one-tick lag after a regroup teleport. The remaining difference to the bot is a goblin tell that Carl's same-tick strike interrupts: the companion dodges it for that one tick (documented at the `step_live` companion branch).
+- **Evidence.** `companion_arena_nav_perch_donut` (AI Donut under the left perch slab, whose underside is 68 px up, reaches the slab by one committed jump; the follow-and-jump bot walks under it and bumps its head, feet 2.9 px up at the end) and `companion_arena_nav_perch_carl` (the same with Donut controlled and AI Carl). Replays: `docs/evidence/companion-ai/headless_companion_arena_nav_perch_*.txt`; images: [`docs/evidence/companion-ai/01b-wire/`](../evidence/companion-ai/01b-wire/).
+- **Not done.** No gate fixture exists (CA-33), so no Carl-only barrier assertion; the nav level has no hazards and no unlock data (`Unlocks::NONE`); the camera-lab physics are not used.
+
+**Adopted defaults (01B-wire; the owner can change any in a follow-up PR):**
+
+| ID | Default |
+|---|---|
+| NW-01 | The nav replaces the bot's follow input only when the route needs a jump or a drop, or no route exists; on one anchor, a walking route, an airborne leader or a hero on no anchor the bot's follow stays (flat ground replays are unchanged) |
+| NW-02 | The bot's goblin and boss dodges win over the nav's movement (the bot is asked with itself as the leader) |
+| NW-03 | Wait anchors must lie 24 px inside the camera; the waiting hero keeps the bot's 40 px follow band and 8 px slack |
+| NW-04 | The regroup keeps the legacy trigger (`regroup_ticks` off-screen) and the off-screen test; a candidate lies only on the behind side (outside the view on the side behind the leader, never ahead of him), must be reachable by the hero and must keep the leader reachable (checked against the anchor he stands on; while he is airborne the regroup is deferred, with the off-screen counter held at its due value so it is asked again on the next tick and placed on the first tick he stands); the nearest to the view edge wins (16 px buckets), then the height closest to the leader's, then the exact distance (review fix of B-1/F-1) |
+| NW-05 | A refused regroup is a camera warning (`CompanionEvent::Regroup`, `regroups_denied`), not a teleport; a hero on no anchor uses the legacy rule so nobody is stranded |
+| NW-06 | The graph is built per attempt from the scene's solids and synced every tick; only a live transit is hashed (a run that never leaves its anchor hashes as before) |
+| NW-07 | Arena room fixtures of COMPANION are named `companion_arena_*`; `cf02::arena::fixture_uses_arena` gets that one prefix (a one-line edit of a CF02 file) |
 
 ### 01C — acceptance
 
@@ -239,4 +261,4 @@ Use actual, currently supported script flags. Supply replay hashes, ordered even
 
 Each stage PR includes: **Why**, **Change**, **Acceptance Criteria** (checked only when verified), **Commands & Results**, **Visual Evidence**, **Performance Data**, **Rights/Provenance**, **Risks**, **Next PR**. An independent gameplay/architecture reviewer checks the final head; subsequent merged mechanics stay **game-feel review pending** until the owner plays. The coordinator updates the backlog status per stage; do not silently mark all COMPANION-AI-01 work complete after 01A.
 
-**Next agent task:** 01A-core, 01B-core and 01C are merged (unwired); 01A-wire has merged (#151), and 01B-wire follows after CF02-C2.
+**Next agent task:** 01A-core, 01B-core, 01C and 01A-wire (#151) are merged; 01B-wire is in review (draft PR); COMBAT-LAB-03 (both heroes traversing tiers with AI) builds on it.

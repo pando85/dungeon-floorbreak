@@ -561,6 +561,18 @@ pub struct SceneSim {
     /// wall). A passive log: written in [`Self::step_live`], **never read by
     /// the simulation, never hashed** and not part of any golden.
     last_effective: [RawInput; 2],
+    /// COMPANION-AI-01 01B-wire: the heroes whose off-screen regroup the
+    /// companion's nav owns this tick (set by `combat_scene/companion.rs` before
+    /// each step, `[false; 2]` otherwise). A passive control flag: **never
+    /// hashed**, and with the companion off it is never set, so the legacy rule
+    /// of [`SceneSim::regroup_bots`] runs unchanged.
+    nav_regroup: [bool; 2],
+    /// COMPANION-AI-01 01B-wire: the heroes whose due regroup was deferred this
+    /// tick (the leader is in the air): their off-screen counter is held at its
+    /// due value so the regroup is asked again next tick. Set before each step
+    /// by `combat_scene/companion.rs`, cleared by the step, `[false; 2]` with
+    /// the companion off. Control flag, never hashed (the counter it holds is).
+    nav_hold: [bool; 2],
 }
 
 /// What the combat layer tells a live party step about each hero.
@@ -634,6 +646,8 @@ impl SceneSim {
             bot_offscreen: [0, 0],
             arena_locked: kit.width <= view.w,
             last_effective: [RawInput::NONE; 2],
+            nav_regroup: [false; 2],
+            nav_hold: [false; 2],
         })
     }
 
@@ -804,6 +818,8 @@ impl SceneSim {
     fn step_live(&mut self, humans: [RawInput; 2], ctx: &PartyStepCtx) {
         let drive = self.drive;
         self.regroup_bots();
+        self.nav_regroup = [false; 2];
+        self.nav_hold = [false; 2];
         // Bots decide from the state before this tick; humans arrive gated.
         let mut raws = humans;
         for id in HeroId::ALL {
@@ -816,8 +832,14 @@ impl SceneSim {
             } else if drive.companion_set(id).is_some() {
                 // COMPANION-AI-01 (CA-24): the director's input arrives in
                 // `humans[i]`, already gated like a human's, and it started
-                // from this same follow layer (`follow_input`). So the
-                // companion keeps `humans[i]` instead of calling the bot.
+                // from the follow layer (`follow_input`, nav-driven where a
+                // route needs a jump, 01B-wire). The follow layer is decided
+                // before Carl's strike and the goblins' state of this tick; the
+                // bot's is decided here, after them. What differed in 01A (a
+                // regroup teleport) is now done before the layer is read
+                // (`regroup_due`, `regroup_place`); what remains is a threat
+                // that Carl's same-tick strike interrupts: the companion may
+                // dodge it for that one tick, the bot does not.
                 humans[i]
             } else {
                 self.follow_input(id, ctx.threats, ctx.boss.as_ref())
@@ -863,6 +885,81 @@ impl SceneSim {
         )
     }
 
+    /// The dodge and boss-dodge reactions of the follow-and-jump bot for `id`
+    /// with nothing to follow: the bot is asked with itself as the leader, so
+    /// no steering, obstacle hop or ledge hop is left, only the M3 jump over a
+    /// goblin tell and the boss pound and charge dodges. The nav-driven follow
+    /// (01B-wire) lets these win over its own movement.
+    pub(crate) fn dodge_input(
+        &self,
+        id: HeroId,
+        threats: &[Threat],
+        boss: Option<&BossThreat>,
+    ) -> RawInput {
+        let frame = if id == HeroId::Carl {
+            &self.input
+        } else {
+            &self.donut_input
+        };
+        let me = self.world.body(id);
+        follower_input_boss(
+            (id, me),
+            frame,
+            me,
+            &self.world.solids,
+            threats,
+            boss,
+            &self.drive.tuning,
+        )
+    }
+
+    /// 01B-wire: would [`Self::regroup_bots`] place bot `id` on this tick (it has
+    /// been off-screen for `regroup_ticks - 1` ticks and still is)? The
+    /// companion asks before the tick so it can place the hero (or refuse)
+    /// before it reads the follow layer.
+    pub(crate) fn regroup_due(&self, id: HeroId) -> bool {
+        let body = self.world.body(id);
+        self.drive.is_bot(id)
+            && self.is_offscreen(body.x, HERO_HALF_WIDTH)
+            && !self.world.complete
+            && self.bot_offscreen[id.index()].saturating_add(1) >= self.drive.tuning.regroup_ticks
+    }
+
+    /// 01B-wire: the regroup of `id` was handled elsewhere without a placement
+    /// (refused): start counting again.
+    pub(crate) fn regroup_skip(&mut self, id: HeroId) {
+        self.bot_offscreen[id.index()] = 0;
+    }
+
+    /// 01B-wire: place `id` standing on a surface (`x`, `foot_y`), at rest, when
+    /// a body fits there. Returns whether it was placed.
+    pub(crate) fn regroup_place(&mut self, id: HeroId, x: f32, foot_y: f32) -> bool {
+        let y = foot_y + HERO_HALF_HEIGHT;
+        let Some(x) = self.free_spot_x(x, y) else {
+            return false;
+        };
+        let body = self.world.body_mut(id);
+        body.x = x;
+        body.y = y;
+        body.vx = 0.0;
+        body.vy = 0.0;
+        body.grounded = false;
+        self.bot_offscreen[id.index()] = 0;
+        true
+    }
+
+    /// 01B-wire: the regroup of `id` could not be judged this tick (deferred):
+    /// keep its off-screen counter at the due value, so [`Self::regroup_due`]
+    /// holds again on the next tick.
+    pub(crate) fn regroup_hold(&mut self, id: HeroId) {
+        self.nav_hold[id.index()] = true;
+    }
+
+    /// 01B-wire: which heroes' regroup the companion's nav owns this tick.
+    pub(crate) fn set_nav_regroup(&mut self, owned: [bool; 2]) {
+        self.nav_regroup = owned;
+    }
+
     /// Q9: a bot that has been off-screen for `regroup_ticks` is placed just
     /// outside the view on the side behind the leader (so it walks back in),
     /// on the leader's foot line, or beside the leader when that spot is solid.
@@ -882,7 +979,19 @@ impl SceneSim {
             if self.bot_offscreen[i] < drive.tuning.regroup_ticks {
                 continue;
             }
+            if self.nav_hold[i] {
+                // Deferred by the companion: stay due (see `regroup_hold`).
+                self.bot_offscreen[i] = drive.tuning.regroup_ticks.saturating_sub(1);
+                continue;
+            }
             self.bot_offscreen[i] = 0;
+            if self.nav_regroup[i] {
+                // 01B-wire: the companion's nav owns this hero's regroup (it
+                // places it only where it could get on its own, or says why
+                // not); the legacy placement on the leader's foot line, which
+                // could cross a gate, does not run.
+                continue;
+            }
             let leader = self.world.body(id.other());
             let (leader_x, leader_y, leader_facing) = (leader.x, leader.y, leader.facing);
             let behind = if leader_facing >= 0 { -1.0 } else { 1.0 };

@@ -470,6 +470,16 @@ pub struct EdgeView {
     pub launch_x: [Option<(f32, f32)>; 2],
 }
 
+/// What an executor needs of one open edge for one hero (01B-wire): the
+/// transit kind, its ETA and, for a simulated jump or drop, the takeoff and
+/// target x (see [`EdgeView::launch_x`]).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct EdgePlan {
+    pub kind: EdgeKind,
+    pub ticks: u16,
+    pub launch_x: Option<(f32, f32)>,
+}
+
 // ----------------------------------------------------------------- graph ---
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -669,6 +679,29 @@ impl NavGraph {
                 launch_x: e.launch_x,
             })
             .collect()
+    }
+
+    /// The open edge `from -> to` for `hero` with what an executor needs, or
+    /// `None` when there is no such edge or it is closed for that hero.
+    pub fn edge_plan(&self, from: NavAnchorId, to: NavAnchorId, hero: HeroId) -> Option<EdgePlan> {
+        let (a, b) = (self.node_index(from)?, self.node_index(to)?);
+        let edge = self.out[a as usize]
+            .iter()
+            .map(|&k| &self.edges[k as usize])
+            .find(|e| e.to == b)?;
+        match edge.state[hero.index()] {
+            EdgeState::Open { kind, ticks, .. } => Some(EdgePlan {
+                kind,
+                ticks,
+                launch_x: edge.launch_x[hero.index()],
+            }),
+            EdgeState::Blocked(_) => None,
+        }
+    }
+
+    /// How many solids the graph was built from.
+    pub fn solid_count(&self) -> usize {
+        self.solids.len()
     }
 
     /// The state of one edge for one hero.

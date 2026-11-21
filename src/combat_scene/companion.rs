@@ -22,7 +22,9 @@ use super::CombatState;
 use crate::boss::Boss;
 use crate::combat::{ENEMY_HALF_HEIGHT, MoveSpec};
 use crate::companion::director::{Action, CompanionDirector, Decision, Mode};
-use crate::companion::events::{CompanionEvent, CompanionStats, EVENT_CAP};
+use crate::companion::events::{CompanionEvent, CompanionStats, EVENT_CAP, RegroupOutcome};
+use crate::companion::nav::Reason;
+use crate::companion::navfollow::{Body, NavDriver, NavNote, Regroup, RegroupView};
 use crate::companion::profile::{KillPolicy, ProfileFile, ProfileSetId};
 use crate::companion::rules;
 use crate::companion::view::{
@@ -68,6 +70,12 @@ const PRESS_WINDOW: u64 = 8;
 /// written only while a hero is companion-driven.
 const HASH_MARK: u64 = 0x434f_4d50_414e_0001;
 
+/// A wait anchor must lie this many px inside the camera (01B-wire).
+const NAV_BOUNDS_MARGIN: f32 = 24.0;
+
+/// A marker word of a live nav transit in the companion block ("NAV").
+const NAV_MARK: u64 = 0x4e41_5600_0000_0001;
+
 /// The mode, action and target of a traced decision.
 type Trace = (Mode, Option<Action>, Option<StableEntityId>);
 
@@ -96,6 +104,14 @@ pub(crate) struct CompanionRuntime {
     events: Vec<CompanionEvent>,
     /// The last traced decision per hero, to log only changes.
     last_trace: [Option<Trace>; 2],
+    /// 01B-wire: the nav graph of the level and the executor state of both
+    /// heroes, built on the first companion-driven tick of an attempt from the
+    /// scene's solids (derived state, so it is not hashed; the committed
+    /// transits are, while live).
+    nav: Option<NavDriver>,
+    /// The graph could not be built for this level: the follow-and-jump bot
+    /// stays in charge of movement (tried once per attempt).
+    nav_failed: bool,
 }
 
 impl Default for CompanionRuntime {
@@ -114,6 +130,8 @@ impl Default for CompanionRuntime {
             stats: CompanionStats::default(),
             events: Vec::new(),
             last_trace: [None; 2],
+            nav: None,
+            nav_failed: false,
         }
     }
 }
@@ -152,6 +170,17 @@ impl CompanionRuntime {
         for &(kind, instance) in &self.marks {
             mix(kind as u64);
             mix(u64::from(instance));
+        }
+        // 01B-wire: a committed nav transit is state of the run; with none live
+        // nothing is written, so a run that never leaves its anchor hashes as
+        // before.
+        if let Some(nav) = &self.nav {
+            for (i, hero) in nav.heroes.iter().enumerate() {
+                if hero.is_active() {
+                    mix(NAV_MARK ^ i as u64);
+                    hero.hash_into(mix);
+                }
+            }
         }
     }
 
@@ -349,7 +378,7 @@ impl CombatState {
     /// in `step_party`. The identity while no hero is companion-driven.
     pub(crate) fn companion_inputs(
         &mut self,
-        scene: &SceneSim,
+        scene: &mut SceneSim,
         inputs: [RawInput; 2],
     ) -> [RawInput; 2] {
         let drive = *scene.drive();
@@ -360,9 +389,13 @@ impl CombatState {
         ];
         self.companion.driven = [sets[0].is_some(), sets[1].is_some()];
         let Some(set_id) = sets[0].or(sets[1]) else {
-            // Off (or two players): nothing runs, the plans are forgotten.
+            // Off (or two players): nothing runs, the plans are forgotten and
+            // the scene's legacy regroup rule is in charge again.
             self.companion.set = None;
             self.companion.pending_press = [None; 2];
+            self.companion.nav = None;
+            self.companion.nav_failed = false;
+            scene.set_nav_regroup([false; 2]);
             for director in &mut self.companion.directors {
                 director.clear_plan();
             }
@@ -370,7 +403,14 @@ impl CombatState {
         };
         self.companion.set = Some(set_id);
         let set = profiles().set(set_id);
-        let view = self.companion_view(scene, set_id);
+        // 01B-wire: the nav graph follows the solids, the off-screen regroup is
+        // decided before the follow layer is read (it moves the hero), then the
+        // view and the nav-driven follow are built from the placed bodies.
+        self.companion_nav_sync(scene);
+        let owned = self.companion_regroup(scene);
+        scene.set_nav_regroup(owned);
+        let mut view = self.companion_view(scene, set_id);
+        self.companion_nav_follow(scene, &mut view);
         let mut out = inputs;
         for hero in HeroId::ALL {
             let i = hero.index();
@@ -379,6 +419,9 @@ impl CombatState {
                 // A press the director made but no move consumed does not
                 // outlive its control.
                 self.companion.pending_press[i] = None;
+                if let Some(nav) = &mut self.companion.nav {
+                    nav.heroes[i] = Default::default();
+                }
                 continue;
             }
             let (raw, decision) = self.companion.directors[i].step_traced(&view, set);
@@ -398,6 +441,189 @@ impl CombatState {
             self.companion.record(view.tick, hero, &decision);
         }
         out
+    }
+
+    /// 01B-wire: build the nav graph from the scene's solids on the first
+    /// companion-driven tick of an attempt, and bring it in line with a
+    /// destruction or restoration since.
+    fn companion_nav_sync(&mut self, scene: &SceneSim) {
+        if self.companion.nav_failed {
+            return;
+        }
+        let solids = &scene.world.solids;
+        let ok = match &mut self.companion.nav {
+            Some(nav) => nav.sync(solids).is_ok(),
+            None => match NavDriver::new(solids) {
+                Ok(nav) => {
+                    self.companion.nav = Some(nav);
+                    true
+                }
+                Err(_) => false,
+            },
+        };
+        if !ok {
+            self.companion.nav = None;
+            self.companion.nav_failed = true;
+        }
+    }
+
+    /// The scene's body of `id` as the nav executor sees it.
+    fn nav_body(scene: &SceneSim, id: HeroId) -> Body {
+        let body = scene.world.body(id);
+        Body {
+            x: body.x,
+            foot_y: body.y - HERO_HALF_HEIGHT,
+            grounded: body.grounded,
+        }
+    }
+
+    /// 01B-wire: the camera-safe regroup of every companion-driven hero that has
+    /// been off-screen long enough (the legacy `regroup_ticks` rule), before the
+    /// follow layer is read. Returns the heroes whose regroup the nav owns this
+    /// tick (all driven ones, except a hero standing on no known anchor, where
+    /// the legacy rule stays the escape hatch).
+    fn companion_regroup(&mut self, scene: &mut SceneSim) -> [bool; 2] {
+        let mut owned = [false; 2];
+        let Some(nav) = self.companion.nav.as_ref() else {
+            return owned;
+        };
+        let left = scene.camera.left() as f32;
+        let right = left + scene.camera.config().view_w as f32;
+        let mut outcomes = Vec::new();
+        for hero in HeroId::ALL {
+            let i = hero.index();
+            if !self.companion.driven[i] {
+                continue;
+            }
+            owned[i] = true;
+            if !scene.regroup_due(hero) {
+                continue;
+            }
+            let leader = hero.other();
+            let behind = if scene.world.body(leader).facing >= 0 {
+                -1.0
+            } else {
+                1.0
+            };
+            let view = RegroupView {
+                view_left: left,
+                view_right: right,
+                behind,
+            };
+            outcomes.push((
+                hero,
+                nav.regroup(
+                    hero,
+                    Self::nav_body(scene, hero),
+                    Self::nav_body(scene, leader),
+                    &view,
+                ),
+            ));
+        }
+        let tick = self.companion.tick;
+        for (hero, regroup) in outcomes {
+            let i = hero.index();
+            let outcome = match regroup {
+                Regroup::Place { anchor, x, foot_y } => {
+                    if scene.regroup_place(hero, x, foot_y) {
+                        if let Some(nav) = &mut self.companion.nav {
+                            nav.heroes[i] = Default::default();
+                        }
+                        self.companion.stats.regroups[i] += 1;
+                        RegroupOutcome::Placed {
+                            anchor,
+                            x: x.round() as i32,
+                        }
+                    } else {
+                        // A body does not fit there: stay, count again.
+                        scene.regroup_skip(hero);
+                        self.companion.stats.regroups_denied[i] += 1;
+                        RegroupOutcome::Denied(Reason::Obstructed { by: anchor.solid })
+                    }
+                }
+                Regroup::Legacy => {
+                    owned[i] = false;
+                    RegroupOutcome::Legacy
+                }
+                Regroup::Denied(reason) => {
+                    scene.regroup_skip(hero);
+                    self.companion.stats.regroups_denied[i] += 1;
+                    RegroupOutcome::Denied(reason)
+                }
+                // Cannot be judged while the leader is in the air: no event,
+                // no placement, and the off-screen counter is held at its due
+                // value, so the regroup is asked again on the very next tick.
+                Regroup::Defer => {
+                    scene.regroup_hold(hero);
+                    continue;
+                }
+            };
+            self.companion.push_event(CompanionEvent::Regroup {
+                tick,
+                hero,
+                outcome,
+            });
+        }
+        owned
+    }
+
+    /// 01B-wire: replace the follow layer of a free companion-driven hero by the
+    /// nav-driven one where the nav has something to add (a route that needs a
+    /// jump or a drop, or no route at all). The follow-and-jump bot's dodges
+    /// stay on top (a goblin tell, a boss pound or charge).
+    fn companion_nav_follow(&mut self, scene: &SceneSim, view: &mut CompanionView) {
+        let Some(mut nav) = self.companion.nav.take() else {
+            return;
+        };
+        let profile = profiles().set(view.profile_set);
+        let bounds = Some((
+            view.view.left + NAV_BOUNDS_MARGIN,
+            view.view.right - NAV_BOUNDS_MARGIN,
+        ));
+        let mut notes: Vec<(HeroId, NavNote)> = Vec::new();
+        for hero in HeroId::ALL {
+            let i = hero.index();
+            if !self.companion.driven[i]
+                || !Self::follow_free_view(&view.heroes[i], &self.hero_state(hero))
+            {
+                continue;
+            }
+            let me = Self::nav_body(scene, hero);
+            let leader = Self::nav_body(scene, hero.other());
+            let (drive, tick_notes) = nav.follow(hero, me, leader, bounds);
+            notes.extend(tick_notes.into_iter().map(|n| (hero, n)));
+            let Some(drive) = drive else { continue };
+            let active = match hero {
+                HeroId::Carl => profile.carl.ca21_active,
+                HeroId::Donut => profile.donut.ca21_active,
+            };
+            let threats = self.follow_threats(hero, active);
+            let dodge = scene.dodge_input(hero, &threats, view.boss.as_ref());
+            view.follow[i] = if dodge.jump || dodge.move_x != 0.0 {
+                FollowInput {
+                    move_x: dodge.move_x,
+                    jump: dodge.jump,
+                }
+            } else {
+                FollowInput {
+                    move_x: drive.move_x,
+                    jump: drive.jump,
+                }
+            };
+        }
+        self.companion.nav = Some(nav);
+        let tick = self.companion.tick;
+        for (hero, note) in notes {
+            let i = hero.index();
+            match note {
+                NavNote::Begin { .. } => self.companion.stats.nav_transits[i] += 1,
+                NavNote::Arrived { .. } => self.companion.stats.nav_arrivals[i] += 1,
+                NavNote::Waiting { .. } => self.companion.stats.nav_waits[i] += 1,
+                NavNote::Abandoned | NavNote::Stranded { .. } => {}
+            }
+            self.companion
+                .push_event(CompanionEvent::Nav { tick, hero, note });
+        }
     }
 
     /// The perception contract of the tick about to run (CA-23): built from
@@ -431,26 +657,9 @@ impl CombatState {
                 HeroId::Carl => profile.carl.ca21_active,
                 HeroId::Donut => profile.donut.ca21_active,
             };
-            let free = h.control == Control::Companion
-                && !h.defeated
-                && h.hurt_ticks == 0
-                && h.active_move.is_none()
-                && self.hero_state(id).hit_stop == 0;
+            let free = Self::follow_free_view(h, &self.hero_state(id));
             if free {
-                let threats: Vec<Threat> = self
-                    .enemies
-                    .iter()
-                    .enumerate()
-                    .filter(|(index, g)| {
-                        g.mode == GoblinMode::Attack
-                            && g.attack_tick < IMPACT_END
-                            && (!active || self.target_of(*index) == id)
-                    })
-                    .map(|(_, g)| Threat {
-                        x: g.x,
-                        attack_tick: g.attack_tick,
-                    })
-                    .collect();
+                let threats = self.follow_threats(id, active);
                 let raw = scene.follow_input(id, &threats, boss.as_ref());
                 follow[i] = FollowInput {
                     move_x: raw.move_x,
@@ -471,6 +680,38 @@ impl CombatState {
             targets: self.companion_targets(view),
             boss,
         }
+    }
+
+    /// May the follow layer (the bot's input, or the nav-driven one) act for
+    /// this hero this tick? Mirrors the bot's `can_move` gate.
+    fn follow_free_view(h: &HeroView, state: &super::HeroCombat) -> bool {
+        h.control == Control::Companion
+            && !h.defeated
+            && h.hurt_ticks == 0
+            && h.active_move.is_none()
+            && state.hit_stop == 0
+    }
+
+    /// The goblin tells the follow layer of `id` dodges. An ACTIVE companion
+    /// dodges only the swings aimed at itself: a tell aimed at the other hero is
+    /// the one it may interrupt, and the bot's dodge jump would take it off the
+    /// ground (and out of reach of its own swat) before the swat can start. A
+    /// role that cannot act (the passive Carl of `cf02_assist`, CF02-Q13) keeps
+    /// the plain bot's dodge of every threat.
+    fn follow_threats(&self, id: HeroId, active: bool) -> Vec<Threat> {
+        self.enemies
+            .iter()
+            .enumerate()
+            .filter(|(index, g)| {
+                g.mode == GoblinMode::Attack
+                    && g.attack_tick < IMPACT_END
+                    && (!active || self.target_of(*index) == id)
+            })
+            .map(|(_, g)| Threat {
+                x: g.x,
+                attack_tick: g.attack_tick,
+            })
+            .collect()
     }
 
     fn companion_hero(&self, scene: &SceneSim, id: HeroId) -> HeroView {
@@ -731,7 +972,7 @@ mod tests {
             ],
         ];
         for inputs in samples {
-            assert_eq!(sim.combat.companion_inputs(&sim.scene, inputs), inputs);
+            assert_eq!(sim.combat.companion_inputs(&mut sim.scene, inputs), inputs);
         }
         // Restarting calls the stub reset and leaves the state hash alone.
         let before = sim.combat.state_hash(&sim.scene);
@@ -781,7 +1022,7 @@ mod tests {
             place(&mut sim, right + 3.0);
             let inputs = sim
                 .combat
-                .companion_inputs(&sim.scene, [crate::input::RawInput::NONE; 2]);
+                .companion_inputs(&mut sim.scene, [crate::input::RawInput::NONE; 2]);
             pressed_out |= inputs[1].attack;
             sim.combat.take_companion_events();
         }
@@ -791,7 +1032,7 @@ mod tests {
             place(&mut sim, right - 28.0);
             let inputs = sim
                 .combat
-                .companion_inputs(&sim.scene, [crate::input::RawInput::NONE; 2]);
+                .companion_inputs(&mut sim.scene, [crate::input::RawInput::NONE; 2]);
             pressed_in |= inputs[1].attack;
         }
         assert!(pressed_in, "inside the view: the swat starts");
