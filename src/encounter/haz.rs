@@ -168,6 +168,22 @@ pub(super) fn distinct_suppliers<K: PartialEq + Copy>(
     seen.len()
 }
 
+/// HAZ rule 9: the failure when more than one kind supplies the companion
+/// `boss` input.
+pub(super) fn supplier_conflict<K: PartialEq + Copy>(
+    kinds: impl IntoIterator<Item = K>,
+    supplies: impl Fn(K) -> bool,
+) -> Option<EncounterError> {
+    let n = distinct_suppliers(kinds, supplies);
+    (n > 1).then(|| {
+        haz(
+            9,
+            &[],
+            format!("{n} kinds supply the companion `boss` input, at most 1"),
+        )
+    })
+}
+
 pub(super) struct HazInput<'a> {
     pub raw: &'a RawEncounter,
     pub ctx: &'a Context,
@@ -501,6 +517,45 @@ pub(super) fn check(
                 surface.x == lay.a.0 && floor - hi >= surface.y && floor - lo <= surface.bottom()
             }
         };
+        // F2 (PR #204 review): the declared surface must be real geometry. A
+        // ceiling surface is a room platform's slab, or an authored soffit whose
+        // top reaches the lane ceiling (a full-height solid, no standable top);
+        // a wall surface is a room step or platform, or the room boundary.
+        let solid_match = |r: &IRect| *r == surface;
+        let real_surface = match lay.orientation {
+            Orientation::Ceiling => {
+                room.platforms
+                    .iter()
+                    .any(|pl| surface == IRect::new(pl.rect.x, pl.rect.y, pl.rect.w, slab))
+                    || inp
+                        .ctx
+                        .ceiling_px
+                        .is_some_and(|c| floor - surface.y >= c && surface.y >= 0)
+            }
+            Orientation::WallLeft => {
+                surface.x <= room.play_x.0
+                    || room
+                        .steps
+                        .iter()
+                        .chain(room.platforms.iter().map(|pl| &pl.rect))
+                        .any(solid_match)
+            }
+            Orientation::WallRight => {
+                surface.right() >= room.play_x.1
+                    || room
+                        .steps
+                        .iter()
+                        .chain(room.platforms.iter().map(|pl| &pl.rect))
+                        .any(solid_match)
+            }
+        };
+        if !real_surface {
+            errs.push(haz(
+                3,
+                &[id],
+                "the surface matches no room platform slab, step or boundary and is not a full-height soffit reaching ceiling_px",
+            ));
+        }
         if !on_surface {
             errs.push(haz(
                 3,
@@ -656,7 +711,37 @@ pub(super) fn check(
     }
 
     // --------------------------------------------------- rule 5: counts
+    let has_hazard_entities =
+        !stickers.is_empty() || !specs.is_empty() || inp.roster.iter().any(|e| e.kind.is_slime());
+    if has_hazard_entities && pockets.is_empty() {
+        errs.push(haz(
+            5,
+            &[],
+            "hazard entities (stickers, slimes, acid patches) require declared pockets",
+        ));
+    }
+    for (i, a) in pockets.iter().enumerate() {
+        for b in &pockets[i + 1..] {
+            if a.x0 < b.x1 && b.x0 < a.x1 {
+                errs.push(haz(5, &[&a.id, &b.id], "pockets overlap"));
+            }
+        }
+    }
     if !pockets.is_empty() {
+        for p in &specs {
+            if !pockets.iter().any(|pk| p.x0 >= pk.x0 && p.x1 <= pk.x1) {
+                errs.push(haz(
+                    5,
+                    &[&p.id.to_string()],
+                    "an acid patch lies in no pocket",
+                ));
+            }
+        }
+        for e in inp.roster.iter().filter(|e| e.kind.is_slime()) {
+            if !pockets.iter().any(|pk| e.home >= pk.x0 && e.home < pk.x1) {
+                errs.push(haz(5, &[&e.id], "a slime's home lies in no pocket"));
+            }
+        }
         for pk in &pockets {
             let stickers_in = stickers
                 .iter()
@@ -749,15 +834,10 @@ pub(super) fn check(
     }
 
     // -------------------------------------- rule 9: one boss supplier
-    let suppliers =
-        distinct_suppliers(inp.roster.iter().map(|e| e.kind), RosterKind::supplies_boss);
-    if suppliers > 1 {
-        errs.push(haz(
-            9,
-            &[],
-            format!("{suppliers} kinds supply the companion `boss` input, at most 1"),
-        ));
-    }
+    errs.extend(supplier_conflict(
+        inp.roster.iter().map(|e| e.kind),
+        RosterKind::supplies_boss,
+    ));
 
     // -------------------------------------------- rule 10: direct route
     if inp.goal == Goal::DefeatRoster && inp.roster.is_empty() {

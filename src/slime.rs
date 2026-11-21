@@ -529,6 +529,9 @@ pub struct Slime {
     pub facing: i8,
     /// The column the leash is measured from (its pool's centre or its spawn).
     pub home_x: f32,
+    /// The instance index (roster order); the high half of the blow source.
+    /// A provisional scheme: HAZ-A2 replaces it with ENEMY-SLOT's slot target id.
+    pub index: u8,
     health: u8,
     defeated: bool,
     /// Attack tick, `None` while idle. Attack tick 0 = the tell starts.
@@ -552,6 +555,7 @@ impl Slime {
             foot_y,
             facing: if facing >= 0 { 1 } else { -1 },
             home_x,
+            index: 0,
             health: t.hazq04_slime_health,
             defeated: false,
             attack: None,
@@ -563,6 +567,12 @@ impl Slime {
             flash_left: 0,
             hurt_frame_left: 0,
         }
+    }
+
+    /// The same slime with instance index `index`.
+    pub fn with_index(mut self, index: u8) -> Self {
+        self.index = index;
+        self
     }
 
     pub fn health(&self) -> u8 {
@@ -947,7 +957,7 @@ impl Slime {
     pub fn lunge_blow(&self, t: &SlimeTuning, hero: &HeroView) -> HeroBlow {
         HeroBlow {
             hero: hero.id,
-            source: slime_source(0),
+            source: slime_source(self.index),
             damage: t.hazq10_damage,
             from_x: self.x,
             knock_vx: signed_away(hero.x, self.x, f32::from(t.hazq10_knock_x)),
@@ -959,7 +969,7 @@ impl Slime {
     pub fn body_blow(&self, t: &SlimeTuning, hero: &HeroView) -> HeroBlow {
         HeroBlow {
             hero: hero.id,
-            source: slime_source(0),
+            source: slime_source(self.index),
             damage: t.hazq19_damage,
             from_x: self.x,
             knock_vx: signed_away(hero.x, self.x, f32::from(t.hazq19_pop_x)),
@@ -969,7 +979,7 @@ impl Slime {
 
     /// Back to the authored start of an attempt (a full restart).
     pub fn reset(&mut self, t: &SlimeTuning, x: f32, facing: i8) {
-        *self = Slime::new(t, x, self.foot_y, facing, self.home_x);
+        *self = Slime::new(t, x, self.foot_y, facing, self.home_x).with_index(self.index);
     }
 
     /// Fold the full state into a state hash.
@@ -978,6 +988,7 @@ impl Slime {
         mix(u64::from(self.foot_y.to_bits()));
         mix(self.facing as u8 as u64);
         mix(u64::from(self.home_x.to_bits()));
+        mix(u64::from(self.index));
         mix(u64::from(self.health));
         mix(u64::from(self.defeated));
         mix(self.attack.map_or(0, |a| u64::from(a) + 1));

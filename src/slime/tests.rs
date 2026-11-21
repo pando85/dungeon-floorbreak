@@ -1517,3 +1517,15 @@ fn the_acid_volume_is_never_among_the_room_hazards() {
     assert!(spec.hurts_enemies && spec.is_persistent());
     assert_eq!(spec.class, HazardClass::Acid);
 }
+
+#[test]
+fn the_blow_source_carries_the_instance_index() {
+    let t = tuning();
+    let s = Slime::new(&t, 400.0, 0.0, 1, 400.0).with_index(3);
+    assert_eq!(s.lunge_blow(&t, &carl(430.0)).source, slime_source(3));
+    assert_eq!(s.body_blow(&t, &carl(430.0)).source, slime_source(3));
+    let mut r = s.clone();
+    r.reset(&t, 400.0, 1);
+    assert_eq!(r.index, 3, "a restart keeps the instance index");
+    assert_ne!(hash_of(&s), hash_of(&slime_at(400.0, 1)));
+}

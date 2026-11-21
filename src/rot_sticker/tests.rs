@@ -1467,10 +1467,10 @@ fn the_kill_switch_stops_a_sticker_from_provoking() {
 /// Donut at x 708 jumps on tick 0 (launch 500, the DM-A arc) and presses the
 /// cast on jump tick `press`; the bolt (8 x 6) spawns 27 px ahead of her on the
 /// release tick `press + 4`, 16 px above her feet, and flies 6 px per tick
-/// toward R2 (track 760..816 under the 84 px soffit that ends the pocket C
-/// slab: 744..824, heights 84..96). Returns the tick on which the bolt provokes
-/// R2 by rule B, `None` when it meets the soffit's side face, passes under or
-/// over, or misses.
+/// toward R2 (track 760..816 under the pocket C soffit: a full-height solid
+/// 744..824, heights 84..228, with no standable top, PR #204 review F1).
+/// Returns the tick on which the bolt provokes R2 by rule B, `None` when it
+/// meets the soffit's side face, passes under it, or misses.
 fn q9_provoke_tick(press: u32) -> Option<u64> {
     let t = tuning();
     let mut s = RotSticker::new(ceiling(84, 760, 816, 760));
@@ -1478,7 +1478,7 @@ fn q9_provoke_tick(press: u32) -> Option<u64> {
         left: 744.0,
         bottom: 84.0,
         width: 80.0,
-        height: 12.0,
+        height: 144.0,
     };
     let feet = |tick: u32| {
         let (mut y, mut vy) = (0.0_f32, 500.0_f32);

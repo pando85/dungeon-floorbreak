@@ -454,6 +454,12 @@ pub struct Prop {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct StickerLayout {
     pub orientation: Orientation,
+    /// The solid the track clings to (layout px). HAZ rule 3 requires real
+    /// geometry: a ceiling surface equals a room platform's slab, or its top
+    /// reaches the room's `ceiling_px`, in which case it is an authored
+    /// **full-height soffit solid with no standable top** that HAZ-A2
+    /// materialises (PR #204 review F1/F2). A wall surface is a room step,
+    /// platform or the room boundary.
     pub surface: IRect,
     pub a: (i32, i32),
     pub b: (i32, i32),

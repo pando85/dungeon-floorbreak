@@ -53,7 +53,7 @@ fn has_rule(errs: &[EncounterError], n: u8, ids: &[&str]) -> bool {
 
 // FNV-1a 64 of the two files: a data edit must update them on purpose.
 const ROOM_HASH: u64 = 4352694897781657650;
-const SIDECAR_HASH: u64 = 3234431503444109183;
+const SIDECAR_HASH: u64 = 8047922853202382699;
 
 // ------------------------------------------------------------ the shipped room
 
@@ -567,27 +567,27 @@ fn rule_3_the_dome_stays_in_the_camera_band_and_under_the_lane_ceiling() {
 #[test]
 fn a_wall_sticker_lies_on_the_face_of_its_wall() {
     let mut v = sidecar();
-    // Pocket b, a wall to the sticker's left at x 700 (face +x), dome 32 up.
+    // Pocket b, the room's left boundary wall (face +x at x 16), dome 32 up.
     v["props"][1] = json!({
         "id": "r2",
         "kind": "rot_sticker",
         "optional": true,
-        "target": { "x": 700, "y": 538, "w": 14, "h": 20 },
+        "target": { "x": 16, "y": 538, "w": 14, "h": 20 },
         "track": {
             "orientation": "wall_left",
-            "surface": { "x": 684, "y": 448, "w": 16, "h": 132 },
-            "a": { "x": 700, "y": 548 },
-            "b": { "x": 700, "y": 548 },
-            "start": { "x": 700, "y": 548 }
+            "surface": { "x": 0, "y": 448, "w": 16, "h": 132 },
+            "a": { "x": 16, "y": 548 },
+            "b": { "x": 16, "y": 548 },
+            "start": { "x": 16, "y": 548 }
         }
     });
-    let ok = check(&v);
-    let errs = ok.err().unwrap_or_default();
+    let errs = check(&v).err().unwrap_or_default();
     // The shape of this track is valid; only the pockets of this edit may fail.
     assert!(
         rule(&errs, 3)
             .iter()
-            .all(|e| !e.to_string().contains("face of its surface")),
+            .all(|e| !e.to_string().contains("face of its surface")
+                && !e.to_string().contains("matches no room")),
         "{}",
         text(&errs)
     );
@@ -601,6 +601,70 @@ fn a_wall_sticker_lies_on_the_face_of_its_wall() {
         "{}",
         text(&errs)
     );
+    // A wall that is no room solid and not the boundary is rejected.
+    let mut v = sidecar();
+    v["props"][1] = json!({
+        "id": "r2",
+        "kind": "rot_sticker",
+        "optional": true,
+        "target": { "x": 700, "y": 538, "w": 14, "h": 20 },
+        "track": {
+            "orientation": "wall_left",
+            "surface": { "x": 684, "y": 448, "w": 16, "h": 132 },
+            "a": { "x": 700, "y": 548 },
+            "b": { "x": 700, "y": 548 },
+            "start": { "x": 700, "y": 548 }
+        }
+    });
+    assert!(
+        rule(&errors(&v), 3)
+            .iter()
+            .any(|e| e.to_string().contains("matches no room")),
+    );
+}
+
+#[test]
+fn rule_3_the_surface_is_real_room_geometry_f2() {
+    // R1 with its surface shifted 16 px: no platform slab is there.
+    let mut v = sidecar();
+    v["props"][0]["track"]["surface"]["x"] = json!(512);
+    assert!(has_rule(&errors(&v), 3, &["r1"]));
+    let errs = errors(&v);
+    assert!(
+        rule(&errs, 3)
+            .iter()
+            .any(|e| e.to_string().contains("matches no room")),
+        "{}",
+        text(&errs)
+    );
+    // A sticker floating in free air under an invented slab.
+    let mut v = sidecar();
+    v["props"][0]["track"]["surface"] = json!({ "x": 496, "y": 400, "w": 128, "h": 12 });
+    for k in ["a", "b", "start"] {
+        v["props"][0]["track"][k]["y"] = json!(412);
+    }
+    v["props"][0]["target"]["y"] = json!(412);
+    let errs = errors(&v);
+    assert!(
+        rule(&errs, 3)
+            .iter()
+            .any(|e| e.to_string().contains("matches no room")),
+        "{}",
+        text(&errs)
+    );
+    // A soffit that stops short of the lane ceiling (top 220, not 228) is not
+    // an authored full-height solid.
+    let mut v = sidecar();
+    v["props"][1]["track"]["surface"] = json!({ "x": 744, "y": 360, "w": 80, "h": 136 });
+    assert!(has_rule(&errors(&v), 3, &["r2"]));
+    // The shipped soffit: bottom at 496 (underside 84), top at the ceiling.
+    let l = loaded();
+    let r2 = l.encounter.props.iter().find(|p| p.id == "r2").unwrap();
+    let sf = r2.track.unwrap().surface;
+    assert_eq!(sf, IRect::new(744, 352, 80, 144));
+    assert_eq!(l.room.floor_y - sf.y, 228, "the top reaches ceiling_px");
+    assert_eq!(l.room.floor_y - sf.bottom(), 84);
+    assert!(check(&sidecar()).is_ok());
 }
 
 // ------------------------------------------------------------------- rule 4
@@ -850,4 +914,76 @@ fn the_boiler_room_is_unaffected_by_the_hazard_rules() {
     let l = load(root(), BOILER_ENCOUNTER_PATH).unwrap();
     assert!(l.encounter.acid_patches.is_empty() && l.encounter.pockets.is_empty());
     assert!(l.encounter.roster.iter().all(|r| !r.kind.is_slime()));
+}
+
+#[test]
+fn rule_5_hazard_entities_require_declared_pockets_f3() {
+    // The shipped sidecar with `pockets` removed.
+    let mut v = sidecar();
+    v.as_object_mut().unwrap().remove("pockets");
+    let errs = errors(&v);
+    assert!(
+        rule(&errs, 5)
+            .iter()
+            .any(|e| e.to_string().contains("require declared pockets")),
+        "{}",
+        text(&errs)
+    );
+    let mut v = sidecar();
+    v["pockets"] = json!([]);
+    assert!(has_rule(&errors(&v), 5, &[]));
+    // A slime whose home is outside every pocket.
+    let mut v = sidecar();
+    v["pockets"][0]["x0"] = json!(300);
+    let errs = errors(&v);
+    assert!(has_rule(&errs, 5, &["s1"]), "{}", text(&errs));
+    assert!(
+        rule(&errs, 5)
+            .iter()
+            .any(|e| e.to_string().contains("home lies in no pocket")),
+        "{}",
+        text(&errs)
+    );
+    // An acid patch outside every pocket.
+    let mut v = sidecar();
+    v["pockets"][0]["x0"] = json!(260);
+    let errs = errors(&v);
+    assert!(
+        rule(&errs, 5)
+            .iter()
+            .any(|e| e.to_string().contains("acid patch lies in no pocket")),
+        "{}",
+        text(&errs)
+    );
+    // Overlapping pockets.
+    let mut v = sidecar();
+    v["pockets"][1]["x0"] = json!(380);
+    assert!(has_rule(&errors(&v), 5, &["a", "b"]));
+    // A room with no hazard entities needs no pockets.
+    let mut v = sidecar();
+    v["props"] = json!([]);
+    v["acid_patches"] = json!([]);
+    v["pockets"] = json!([]);
+    v["roster"] =
+        json!([{ "id": "g_a", "kind": "goblin", "x": 380, "beat": "A", "delay_ticks": 60 }]);
+    let r = check(&v);
+    assert!(
+        r.is_ok(),
+        "{}",
+        r.err().map(|e| text(&e)).unwrap_or_default()
+    );
+}
+
+#[test]
+fn rule_9_fails_with_a_second_supplier_kind() {
+    // Only the slime supplies today; a synthetic second supplier kind (a goblin
+    // that also supplies the input) must be rejected.
+    let l = loaded();
+    let kinds: Vec<RosterKind> = l.encounter.roster.iter().map(|e| e.kind).collect();
+    let both = |k: RosterKind| k.is_slime() || k == RosterKind::Room(EnemyKind::Goblin);
+    match supplier_conflict(kinds.iter().copied(), both) {
+        Some(EncounterError::Haz { rule, .. }) => assert_eq!(rule, 9),
+        other => panic!("{other:?}"),
+    }
+    assert!(supplier_conflict(kinds.iter().copied(), RosterKind::supplies_boss).is_none());
 }
