@@ -95,6 +95,7 @@ pub mod playtrace;
 pub mod prototype;
 pub mod refuge;
 pub mod ring_fixtures;
+pub mod room_pilots;
 pub mod rot_sticker;
 pub mod scene_anim;
 pub mod scene_camera;

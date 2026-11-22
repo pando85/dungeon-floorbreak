@@ -108,7 +108,7 @@ use dungeon_floorbreak::{
     party_scene::{self, PartyFixture},
     playtrace::{self, RECORD_DEFAULT_ON, ResetDescriptor, SessionManifest, live::LiveRecorder},
     prototype::{HERO_HALF_HEIGHT, HERO_HALF_WIDTH, Hero, TICK_SECONDS},
-    refuge,
+    refuge, room_pilots,
     scene_anim::SceneAnimators,
     scene_camera::{
         CameraChoice, CameraInterest, RigConfig, SceneCameraRig, llama_interest,
@@ -130,6 +130,8 @@ mod donut_cues;
 mod env_prop_art;
 #[path = "floor01_scene/hazards_art.rs"]
 mod hazards_art;
+#[path = "floor01_scene/pierce_spark.rs"]
+mod pierce_spark;
 
 /// Draw order above the actor plane. Carl is drawn above every goblin, except
 /// that a goblin in its smear or impact is drawn over him (its club lands on
@@ -351,6 +353,11 @@ struct Args {
     f01_room: Option<String>,
     /// The `--f01-loadout` argument, resolved (the descriptor's `f01_loadout`).
     f01_loadout: Option<f01_late::Loadout>,
+    /// EVID-ROOM: `--room-pilot PLAN[:2p]`, the scripted input of a room scene
+    /// (a deterministic function of the sim state): the capture path of the
+    /// `f01_late` rooms. It needs a scripted run (`--capture-sequence`,
+    /// `--capture-tick`, `--headless-floor01-smoke` or `--exit-after-ticks`).
+    room_pilot: Option<room_pilots::RoomPilot>,
     /// PLAYTRACE-RENDER-01 PTR-R1: `--replay-session ID`: the offline replay
     /// viewer. It takes the simulation from the recording alone, so every
     /// gameplay flag and every `--record*` flag is a parse error with it.
@@ -1161,6 +1168,7 @@ fn parse_args_full(
         refuge: false,
         refuge_empty: false,
         boiler_run: None,
+        room_pilot: None,
         f01_hoarder: false,
         hoarder_run: None,
         f01_hazards: false,
@@ -1317,6 +1325,12 @@ fn parse_args_full(
                 let value = iter.next().ok_or("--f01-room needs a room id")?;
                 parsed.f01_room = Some(value.clone());
             }
+            "--room-pilot" => {
+                let value = iter
+                    .next()
+                    .ok_or("--room-pilot needs direct, valve or chain")?;
+                parsed.room_pilot = Some(room_pilots::RoomPilot::parse(value)?);
+            }
             "--f01-loadout" => {
                 let value = iter.next().ok_or("--f01-loadout needs story or all")?;
                 parsed.f01_loadout =
@@ -1469,6 +1483,18 @@ fn parse_args_full(
     resolve_f01_late_args(&mut parsed)?;
     resolve_boiler_args(&mut parsed)?;
     resolve_refuge_args(&mut parsed)?;
+    if parsed.room_pilot.is_some() {
+        if !(parsed.f01_boiler || parsed.f01_hoarder || parsed.f01_hazards) {
+            return Err("--room-pilot needs a room scene: --scene f01_late with --f01-room boiler, hoarder or hazards (or --scene f01_boiler, f01_hoarder, f01_hazards)".into());
+        }
+        if !(parsed.headless
+            || parsed.capture_tick.is_some()
+            || parsed.capture_sequence.is_some()
+            || parsed.exit_after_ticks.is_some())
+        {
+            return Err("--room-pilot needs a scripted run: --capture-sequence, --capture-tick, --headless-floor01-smoke or --exit-after-ticks".into());
+        }
+    }
     if parsed.cf02.seed.is_some() && !parsed.cf02.rules && !parsed.lab_scene {
         return Err("--cf02-seed needs --cf02 (or --scene combat_lab)".into());
     }
@@ -1953,6 +1979,12 @@ fn build_scene(
                 },
             )
         };
+        if args.room_pilot.is_some_and(|p| p.two_player) {
+            // EVID-ROOM: two local players, so the pilot's second slot plays Donut.
+            party.pad_connected(PadId(1));
+            party.pad_start_pressed(PadId(2));
+            sim.set_drive(party.drive(true));
+        }
         if let Some(pf) = args.party_fixture {
             pf.place_donut(&mut sim);
             sim.set_drive(pf.drive(&party));
@@ -1975,6 +2007,8 @@ fn build_scene(
                 party.request_swap(false, hurt);
                 sim.set_drive(party.drive(true));
                 party.hero_inputs(slots)
+            } else if args.room_pilot.is_some() {
+                scripted_inputs(args, fixture, &sim, &combat)
             } else {
                 [
                     scripted_input(args, fixture, &sim, &combat),
@@ -2056,7 +2090,10 @@ fn scripted_input(
     sim: &SceneSim,
     combat: &CombatState,
 ) -> RawInput {
-    if args.lab_autopilot
+    if let Some(pilot) = args.room_pilot {
+        // EVID-ROOM: the scripted pilot of a room scene (slot 0; slot 1 below).
+        pilot.inputs(combat, sim, room_exit_x(args))[0]
+    } else if args.lab_autopilot
         && let Some(run) = &args.lab_run
     {
         combat_lab::autopilot::clear_and_exit(combat, sim, run.info.exit.x as f32 + 32.0)
@@ -2069,6 +2106,21 @@ fn scripted_input(
     }
 }
 
+/// EVID-ROOM: the column a room pilot walks to once nothing is left alive: the
+/// middle of the room's protected exit.
+fn room_exit_x(args: &Args) -> f32 {
+    let exit = if let Some(run) = &args.boiler_run {
+        run.loaded.encounter.exit
+    } else if let Some(run) = &args.hoarder_run {
+        run.loaded.encounter.exit
+    } else if let Some(run) = &args.hazards_run {
+        run.loaded.encounter.exit
+    } else {
+        return 0.0;
+    };
+    (exit.x + exit.w / 2) as f32
+}
+
 /// The slot inputs of a scripted run: the fixture's or autopilot's first slot,
 /// and the lab autopilot's follower in a two-player lab run.
 fn scripted_inputs(
@@ -2077,6 +2129,10 @@ fn scripted_inputs(
     sim: &SceneSim,
     combat: &CombatState,
 ) -> [RawInput; 2] {
+    if let Some(pilot) = args.room_pilot {
+        // EVID-ROOM: Donut's slot is the CF02 pilot's in a two-player run.
+        return pilot.inputs(combat, sim, room_exit_x(args));
+    }
     let second = if args.lab_autopilot && sim.drive().two_player {
         combat_lab::autopilot::follow(sim)
     } else {
@@ -3654,6 +3710,7 @@ fn run_window(
             (
                 donut_cues::sync_donut_cues,
                 blink_cues::sync_blink_cues,
+                pierce_spark::sync_pierce_spark,
                 env_prop_art::sync_prop_art,
                 hazards_art::sync_hazard_art,
                 hazards_art::sync_hazard_debug,
@@ -4404,6 +4461,14 @@ fn setup(
             }
         }
         commands.insert_resource(BlastImages { dynamite, burst });
+        // CP-Q42: the pierce spark (one pre-spawned sprite).
+        pierce_spark::spawn(
+            &mut commands,
+            &asset_server,
+            &mut combat_handles,
+            layers_of("actors"),
+            kit.actor_z,
+        );
     }
 
     // DEATH-C: the death presenter's sprites, pre-spawned hidden and recycled
@@ -8383,6 +8448,58 @@ mod tests {
             .is_err()
         );
         assert!(args(&["--scenario", "idle", "--freeze", "--exit-after-ticks", "9"]).is_err());
+    }
+
+    /// EVID-ROOM: `--room-pilot` is a room scene's scripted input: it needs a room
+    /// and a scripted run, parses the plan and `:2p`, and is refused elsewhere.
+    #[test]
+    fn the_room_pilot_flag_needs_a_room_scene_and_a_scripted_run() {
+        let room = ["--scene", "f01_late", "--f01-room", "boiler"];
+        let with = |extra: &[&str]| {
+            let mut list: Vec<&str> = room.to_vec();
+            list.extend_from_slice(extra);
+            args(&list)
+        };
+        let a = with(&["--room-pilot", "chain:2p", "--headless-floor01-smoke"]).unwrap();
+        let pilot = a.room_pilot.unwrap();
+        assert_eq!(pilot.label(), "chain:2p");
+        assert!(
+            with(&[
+                "--room-pilot",
+                "direct",
+                "--capture-sequence",
+                "0:6:3",
+                "--capture-dir",
+                "f"
+            ])
+            .is_ok()
+        );
+        // A live (unscripted) room run, an unknown plan and a missing value.
+        assert!(with(&["--room-pilot", "direct"]).is_err());
+        assert!(with(&["--room-pilot", "sprint", "--headless-floor01-smoke"]).is_err());
+        assert!(with(&["--room-pilot"]).is_err());
+        // Every other scene refuses it.
+        assert!(
+            args(&[
+                "--demo",
+                "--room-pilot",
+                "direct",
+                "--headless-floor01-smoke"
+            ])
+            .is_err()
+        );
+        assert!(
+            args(&[
+                "--scene",
+                "f01_late",
+                "--f01-room",
+                "juicer",
+                "--room-pilot",
+                "direct",
+                "--headless-floor01-smoke"
+            ])
+            .is_err()
+        );
     }
 
     #[test]

@@ -14,7 +14,7 @@
       "title": "Goblin Boiler",
       "scene": "f01_boiler",
       "rules": "cf02_rules",
-      "milestone": "greybox"
+      "milestone": "setpiece"
     },
     {
       "id": "hazards",

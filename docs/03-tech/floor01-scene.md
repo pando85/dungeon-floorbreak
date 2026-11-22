@@ -943,3 +943,21 @@ cargo run --release --bin floor01_scene -- --scene f01_late --scale 2
 - **Prop stand-ins.** `src/env_prop_art.rs` (pure) returns the rectangles of the boiler landmark, the valve in four states with its steam warning and plume, the brace and hanging weight (cracked, swaying, falling, the low remnant) with the footprint shadow, and the drum with its area tell and scorch; `src/bin/floor01_scene/env_prop_art.rs` draws them with a sprite pool. They are code-drawn **labelled stand-ins** (K10) read from a shared reference: a run with them drawn has the same state hash tick for tick. Warnings sit on the top layer, above the foreground. The drum's blast is not drawn here: its `BlastCharge` already plays the shared blast presentation.
 - **Cues are reused.** A prop hit clanks (`EnemyBodyCollision`), a valve warning, the brace letting go and the drum's fuse play the siren (`Warning`), the pipe's rupture the wall break, the weight's landing the heavy crash. No new sound id.
 - **Death presentation.** A body an env hazard defeated is flung away from the hazard's volume (`EnvRuntime::hazard_origins`), not from the hero.
+
+### Room capture path (EVID-ROOM, the first deliverable of HAZ-C)
+
+The deterministic, scripted capture of an `f01_late` room, reused by every room evidence stage (BOIL-F first, then HAZ-C, HRD-D). No synthetic input is ever sent into a window: a **room pilot** (`src/room_pilots.rs`, Bevy-free) is a pure function of the finished simulation state, so the run is a function of the command line alone.
+
+```text
+floor01_scene --scene f01_late --f01-room boiler|hoarder|hazards --room-pilot PLAN[:2p] \
+    (--capture-sequence FIRST:STEP:COUNT --capture-dir DIR | --capture-tick N --headless-floor01-smoke | --exit-after-ticks N)
+bash scripts/room_capture.sh ROOM PLAN FIRST:STEP:COUNT OUTDIR      # window frames + headless replay + hash check
+python3 scripts/room_gif.py OUTDIR OUT.gif --step-ticks STEP        # game-speed GIF (optional crop + zoom)
+python3 scripts/room_pilot_hashes.py ROOM                           # final state of every plan, twice identical
+```
+
+- **Plans.** `direct` fights straight through (the CF02 fight, a step back from a goblin that stands on Carl, a dive on a goblin after a hop over a prop) and walks to the exit; `valve` jabs the untouched valve twice at its reach column and waits out the steam; `chain` (Boiler) lures a goblin, kicks it into the valve, then jabs the brace so the weight lands on the drum. `:2p` makes Donut a second local player played by the CF02 Donut pilot (the default is the follower bot of every scripted solo run). `valve` and `chain` name the Boiler's props; in a room without them they fall back to `direct`, so `direct` is the plan of the Hoarder's room and the hazard room until their stages add their own.
+- **Where it plugs in.** `scripted_input`/`scripted_inputs` take the pilot before the fixture script, so the headless smoke, the presim of a capture, `--capture-sequence` and a timed run all use the same input. The flag is refused outside a room scene and outside a scripted run.
+- **Read-only proof.** `scripts/room_capture.sh` runs the window and a headless replay to the same tick and requires the final `COMBAT_STATE` hashes to be equal (`ROOM_CAPTURE ... match=yes`). The window needs a display (`xvfb-run`, as the earlier evidence stages used) and the exported atlases.
+- **What a pilot is not.** It is not AUTOPLAY, not a player and not an evaluator of fun. It plays one fixed plan so a room can be filmed and its hashes pinned. The CI line of `scripts/ci_floor01_combat.sh headless` replays every plan twice and compares the final state with `docs/evidence/f01-boiler/pilot_hashes.txt`.
+- **Not done here.** The replay viewer (`--replay-session`) still reports `unsupported_source` for `f01_room` sessions; the pilot path is what films a room. A human-played room recording remains a pad session.
