@@ -22,6 +22,10 @@
 
 **Game adaptation guard:** fixed story case prop instead of inventory/crafting, visible environmental effects instead of compulsory equipment stripping, short authored scene-lane escapes instead of long RPG preparation, real two-hero co-op and one unique final Floor04 exit. These proposals are not approved implementations.
 
+## Cross-floor story/ability contract
+
+[CAMPAIGN-BRIDGE-01](../03-tech/floor-03-campaign-bridge-acceptance.md) defines floor transitions, real party/companion story carry, one-time event semantics and **20 test vectors**, including forbidden early stair and pulse order states. Its event names are candidates, not currently compiled Rust APIs. Implement it through shared engine routing only after the accepted Floor01 baseline and current Floor02 integration audit. This floor's story must not be declared CONNECTED solely because isolated rooms run.
+
 ## 0. Artistic thesis — welcome to a city built as a stage and a prison
 
 The player leaves the pale enclosed Floor02 industrial structure and steps into a huge, false outdoor sky. The Over City is not a generic medieval town. It is a **decaying city-sized television set**: a night sky that never quite looks natural, crooked timber villages and impossible masonry ruins sitting above a volcanic scar, high-hanging propaganda and gleaming administrative wards, a carnival whose monstrous performances will not end. Fantasy elements are dressed with **1980s/90s action-film staging, grotesque game-show production and industrial backstage mechanics**.
