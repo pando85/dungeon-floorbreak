@@ -34,6 +34,13 @@ A linear **Metal Slug-like** floor must not feel like a menu of ten unrelated mi
 
 **Rev-Up canon-sensitive actor correction:** the "foreman / pitchman" mechanical role is preferably represented by a **Laminak Rev-Up Consultant Elite**, a fairy supervisor of the Clurichauns, rather than introducing an unrelated invented foreman species. Implement one supervisory role, not two independent waves. This is a proposed adaptation pending primary-text editorial verification.
 
+## Encounter balance and automated-evaluation authority
+
+- [F02-COMPOSE-01 — Enemy roles, pairing matrix, five-chapter pressure curve and player-authored spectacle](floor-02-encounter-composition-and-difficulty.md)
+- [F02-QA-01 — AUTOPLAY/PLAYTRACE fairness experiments, counterfactuals, anti-overfitting and negative tests](../03-tech/floor-02-automated-encounter-evaluation.md)
+
+**Important:** Proposed qualitative pressure targets are **not measured difficulty**, and scripted/bot results can never replace owner human enjoyment or real two-controller evidence. Pair two readable roles before escalating to three simultaneous demands; preserve Floor 01 live-roster budget. Do not increase enemy HP merely to stretch an encounter. A story-critical route must always work without optional props/spells.
+
 ## 1. Identity and pillars
 
 Working floor title: **THE LAST LESSON**. Visual world: **CONCRETE HELL**.
