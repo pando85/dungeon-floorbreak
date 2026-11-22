@@ -4,6 +4,19 @@
 
 **Sources:** [F02 game bible](../01-design/floor-02-last-lesson-design-bible.md), [visual bible](../02-art/floor-02-concrete-hell-visual-direction.md), [F02 roadmap](../04-production/floor-02-production-roadmap.md). Read and obey AGENTS.md, agent-orchestration.md, ADR-0001, ADR-0009, ADR-0010, ADR-0011, local-validation/speed-mode merge policy, the current Floor 01 end-to-end PR and current test/backlog state. **Never assume a design-only Floor 01 PR is implemented.**
 
+
+## Second-level briefs: REQUIRED reading before assigning executable tasks
+
+**The ten beat IDs S00–S09 are five contiguous player-facing arcade chapters, not ten separate result-screen levels.** Reuse the stage boundary and chapter checkpoint semantics in the design bible. The agent must not implement ten disconnected launchable fixtures and declare Floor 02 complete.
+
+| Workstream | Mandatory dedicated specification | Stop gate |
+| --- | --- | --- |
+| Rev-Up + Krakaren | [F02-RK-01](../01-design/floor-02-revup-krakaren-setpieces.md) | direct and spectacle S02, then direct and prop S03, real 1x evidence |
+| Meadow + Rage | [F02-MR-01](../01-design/floor-02-meadow-rage-setpieces.md) | deterministic convoy, verified sanctuary, no-cart escape, then optional Bomb Chicken |
+| Kennel + Ralph + Mongo | [F02-RALPH-01](../01-design/floor-02-ralph-kennel-finale.md) | tiny boss physical hit/read test FIRST, direct victory, then optional dog and original art |
+
+**Delegation boundary:** these design documents specify the *what*, the candidate gameplay hypotheses and acceptance. The orchestrator may choose implementation approach based on inspected current code, documenting every deviation and baseline effect. Owner's Floor 01 human feel is the shared-core gate; pure state machines and authored data do not wait for an invented approval.
+
 ## 0. Preconditions and explicit HOLD points
 
 1. **Record repository head**, open PRs and actual implementation state (not titles), then identify shared hot files and ongoing Floor 01 orchestration. Avoid competing with its file queue.
