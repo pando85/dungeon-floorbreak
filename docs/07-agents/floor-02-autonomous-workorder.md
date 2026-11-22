@@ -25,6 +25,17 @@
 
 **P0 implementation trap:** Rage-only S07 stairwell expulsion **must not advance the playable party to Floor 03**. Make separate level-data / event IDs for Exile(Rage) and ExitFloor02(party after S09), and add a deterministic test before integrating the chase. If "foreman" appears in any Rev-Up document, cast it as the **Laminak elite consultant gameplay role**, not a new unrelated species.
 
+## Encounter balance and evaluation workstream — mandatory
+
+Read [F02-COMPOSE-01](../01-design/floor-02-encounter-composition-and-difficulty.md) and [F02-QA-01](../03-tech/floor-02-automated-encounter-evaluation.md) before balancing ANY mixed wave or labeling a stage test-passed.
+
+- **CMP lane:** author role mixes with data, max simultaneous offensive roles and hazard warnings; do not raise PT-TUNE's existing max_living / wave-roster limits or add HP padding to make waves appear difficult.
+- **QA lane:** audit live AUTOPLAY and PLAYTRACE interfaces, reuse current native Rust authoritative scene/party, define baseline policies and genuine scenario variants, direct/prop/missed chain comparisons, no-false-causality, negative fixtures and exact evidence.
+- **P0 invalid success claims:** static fixture seeds are not gameplay randomness unless verified; a trained bot with hidden info is not a fair challenge benchmark; a headless clear is not proof of player fun; a two-slot scripted driver is not a real two-pad test; an explosion VFX is not damage causality.
+- **First real acceptance slice:** isolated Horror -> Horror+Rusher, Rep+Laminak + optional jug chain, then direct Krakaren. Stop if this slice is not replayable, fair and independently reviewable.
+- **Critical negative control:** S07 Rage-only exile must NOT transition Carl or Donut to Floor 3; there is a dedicated trace.
+- **Report statuses:** DESIGNED, PURE SIM, INTEGRATED, AUTOPLAY, STRICT REPLAY, RENDER, REAL HUMAN PLAY. Never collapse statuses into one green badge.
+
 ## 0. Preconditions and explicit HOLD points
 
 1. **Record repository head**, open PRs and actual implementation state (not titles), then identify shared hot files and ongoing Floor 01 orchestration. Avoid competing with its file queue.
