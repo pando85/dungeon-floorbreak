@@ -36,6 +36,12 @@ Read [F02-COMPOSE-01](../01-design/floor-02-encounter-composition-and-difficulty
 - **Critical negative control:** S07 Rage-only exile must NOT transition Carl or Donut to Floor 3; there is a dedicated trace.
 - **Report statuses:** DESIGNED, PURE SIM, INTEGRATED, AUTOPLAY, STRICT REPLAY, RENDER, REAL HUMAN PLAY. Never collapse statuses into one green badge.
 
+## Vacation implementation packet — definitive queue and integration seam
+
+**For the local orchestrator, start at [F02-EXEC-01](floor-02-vacation-execution-packet.md)**: this is the executable dependency/ownership queue W00–W16, first S00–S03 demo acceptance, parallel-art/QA fallbacks and return packet. Read [F02-ARCH-01](../03-tech/floor-02-engine-reuse-and-route-contract.md) for **actual observed** Rust/JSON seams and the floor-neutral transition proposal, not a presumed existing engine API. The [owner pretrip gameplay baseline template](../04-production/floor-02-pretrip-gameplay-baseline-template.md) is **UNFILLED**; it becomes a gameplay gate only after the owner tests and explicitly accepts it.
+
+**Blocker rule:** PR #194 is currently a Floor01 E2E *design* draft; do not represent its proposed bridge as implemented. F02 stage-only and local route work may advance, but full Floor01-to-Floor02 campaign integration needs the actual Floor01 story route.
+
 ## 0. Preconditions and explicit HOLD points
 
 1. **Record repository head**, open PRs and actual implementation state (not titles), then identify shared hot files and ongoing Floor 01 orchestration. Avoid competing with its file queue.
