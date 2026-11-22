@@ -2,6 +2,19 @@
 
 **Status:** proposal 2026-11-22; game-feel owner playtest of Floor 01 is planned **before travel**. This document is not evidence of delivered Floor 02 gameplay. See [design](../01-design/floor-02-last-lesson-design-bible.md), [visual direction](../02-art/floor-02-concrete-hell-visual-direction.md), [autonomous local-agent work order](../07-agents/floor-02-autonomous-workorder.md).
 
+
+## Production unit and chapter boundaries
+
+**Player-facing release structure = five connected arcade chapters (A–E), made from ten internally named S00–S09 encounter beats.** These are not ten mandatory stage-clear panels. A chapter's checkpoint and story-grant boundary must be explicit; a beat may have an internal retry checkpoint for failed boss attempts.
+
+- **Chapter A:** S00/S01 (arrival and first Mind Horror).
+- **Chapter B:** S02/S03 (Rev-Up and Krakaren; physical setpiece).
+- **Chapter C:** S04/S05 (corpse ecology and Meadow Lark convoy).
+- **Chapter D:** S06/S07 (Rage refuge and stairwell run).
+- **Chapter E:** S08/S09 (kennel, Ralph, Mongo and exit).
+
+The targeted high-risk implementation specs are [F02-RK-01](../01-design/floor-02-revup-krakaren-setpieces.md), [F02-MR-01](../01-design/floor-02-meadow-rage-setpieces.md), and [F02-RALPH-01](../01-design/floor-02-ralph-kennel-finale.md). **Preserve a seamless linear experience**, with no forced pause while danger is active. Pacing and individual chapter count can be revised after real playtesting.
+
 ## Product objective
 
 A **linear arcade-combat** Floor 02 that feels visually independent from Floor 01, stays replayable, uses physical collisions and authored destructible props, has two direct-combat bosses (Krakaren Clone and Ralph), one **unbeatable rule-based flight** (Rage Elemental), a protective Meadow Lark setpiece and a quiet Mongo introduction. All floor-specific work should be usable as isolated probes before connecting the complete route.
