@@ -5061,6 +5061,14 @@ fn fixed_step(
     }
     let slot_inputs = if let Some(scenario) = scenario.0 {
         [scenario.input(&sim.0.world), RawInput::default()]
+    } else if let (Some(fixture), Some(combat), true) = (
+        fixture.0,
+        combat.0.as_ref(),
+        setup.args.room_pilot.is_some(),
+    ) {
+        // EVID-ROOM: both slots come from the room pilot (Donut's in a 2P run),
+        // the same call as the presim, the capture sequence and the headless run.
+        scripted_inputs(&setup.args, fixture, &sim.0, combat)
     } else if let Some(fixture) = fixture.0 {
         let raw = match combat.0.as_ref() {
             Some(combat) => scripted_input(&setup.args, fixture, &sim.0, combat),
@@ -5084,7 +5092,10 @@ fn fixed_step(
     // A live party (Donut is a real hero, a bot or P2) exists only in
     // interactive play; scripted scenario and fixture runs keep the legacy
     // single-hero simulation, so every recorded hash is unchanged.
-    let live_party = scenario.0.is_none() && fixture.0.is_none();
+    // EVID-ROOM: a two-player room pilot plays Donut as a real hero (the drive the
+    // presim and the headless run set once), so the window must keep it.
+    let live_party = (scenario.0.is_none() && fixture.0.is_none())
+        || setup.args.room_pilot.is_some_and(|p| p.two_player);
     sim.0.set_drive(pads.0.party().drive(live_party));
     if let Some(rec) = sinks.rec.0.as_mut() {
         // The presentation rig's view before this tick: a diagnostic field of

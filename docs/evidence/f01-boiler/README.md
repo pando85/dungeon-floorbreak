@@ -21,7 +21,7 @@ python3 scripts/check_docs.py                 # verifies SHA256SUMS
 | `boiler-chain-solo.gif`, `boiler-chain-2p.gif`, `boiler-chain-solo-640x400.gif` | `chain` / `chain:2p` (and `--deck`), ticks 440 to 794 | The full chain: Carl lures a goblin and kicks it (push kick, 477); the launched body sets the valve off (489, `LaunchedBody`); venting at 512, the steam weakens the brace; spent at 584; a jab at 724 releases the brace, it falls (747), lands on the drum (755, drum warning), the drum blasts at 779 and defeats a goblin credited to Carl (`cause=explosion`). Exit at 949 (950 in 2P). |
 | `boiler-b3-wake-chain-solo.gif` | `chain`, ticks 690 to 735, 3 ticks per frame | The owner game-feel note below. |
 
-`capture_lines.txt` holds one `ROOM_CAPTURE ... match=yes` line per clip. `pilot_hashes.txt` is the final state of every plan (headless), also compared by `bash scripts/ci_floor01_combat.sh headless` (`F01_BOILER_PILOTS_OK`).
+`capture_lines.txt` holds one `ROOM_CAPTURE ... match=yes` line per clip. `boiler-chain-solo-640x400.gif` ends on a different hash from `boiler-chain-solo.gif` (`85a73c50...` against `a5c94195...`) for the same plan and ticks: the view height (360 or 400) is an input of the simulation, so it is a different run, not nondeterminism; each clip matches its own headless replay. The 2P clips are also run once more in the live (timed) window loop and must end on the same hash (`timed_hash` in `capture_lines.txt`). GIFs with a 3 or 6 tick step play at game speed; the CP-E 2 tick clips round to 30 ms and play about 10 % fast. `pilot_hashes.txt` is the final state of every plan (headless), also compared by `bash scripts/ci_floor01_combat.sh headless` (`F01_BOILER_PILOTS_OK`).
 
 ## Read-only presentation
 
@@ -30,14 +30,14 @@ Each clip is run twice: in a window under `xvfb-run` and headless to the same la
 ## What the frames show (looked at by the author, not an art or feel verdict)
 
 - The room is readable at 640 x 360: the lit brick lane, the exit portcullis on the right, goblins and the Engineer as small figures about 230 px apart.
-- The valve warning is a gold outline on the valve box; the steam is a translucent white and blue block on the lane (688 to 768); an orange block marks the weight's footprint and its fall; the drum blast is a red and orange fireball with the System notice `LAUNCHED!` in the 2P clip.
+- The valve warning is a gold outline on the valve box; the steam is a near-opaque cream and pale blue block on the lane (688 to 768), low in contrast against the lit wall; an orange block marks the weight's footprint and its fall; the drum blast is a red and orange fireball with the System notice `LAUNCHED!` in the 2P clip.
 - The boiler landmark is a large flat brown rectangle (the code-drawn stand-in): it dominates the middle of the frame and carries no detail. This is the BOIL-E stand-in, not final art.
 - In solo, Donut (the follower bot) stays beside Carl. In 2P the HUD shows P2 on Donut's plate (Missile and Pounce) and she follows Carl; the pilot gives her no job in the chain.
 - The kick, the flying goblin and the valve's warning are readable in the chain clip; the goblin is a small figure while it flies, so the launch is easy to miss at 1x.
 
 ## Owner game-feel note: "B3 wakes in the steam" (recorded observation, not changed)
 
-Recorded as the owner's note, verbatim: "B3 wakes in the steam". What the pilots show, from `--combat-trace` and the clips:
+A recorded owner game-feel note, from the orchestrator handoff (no other source in the repository; the wording is the handoff's, not a quote of the owner): "B3 wakes in the steam". What the pilots show, from `--combat-trace` and the clips:
 
 - B3 is the goblin at x 944 and the Engineer at x 1000. They stand still and wake by **sight** (220 px, BOIL-E staging); the sidecar's `trigger_x` (560) and `delay_ticks` (0 and 90) are not read. The goblin wake hook stays a follow-up and is **not touched** here.
 - B3's goblin first moves when Carl reaches x about 725 (944 minus 220): tick 277 in `direct`, 383 in `valve`, 699 in `chain`; the Engineer 18 to 71 ticks later. Carl's column 725 is **inside the steam lane** (x 688 to 768). The wake and the steam lane coincide in space: a hero who walks into the lane while the valve vents wakes B3 while standing in the steam.
@@ -46,6 +46,7 @@ Recorded as the owner's note, verbatim: "B3 wakes in the steam". What the pilots
 
 ## NOT RUN and limits
 
+- **Solo Donut, checkpoint and respawn, and camera: NOT RUN.** The work order names solo Donut (a swap run), the checkpoint and respawn in the room, replays and the camera. No solo-Donut clip was captured, no pilot dies and respawns in the Boiler, and the camera is only what the clips show. BOIL-F is therefore not complete against the work order.
 - **Human pad evaluation: NOT RUN.** Nothing here was played on a pad; the owner's gamepad pass of the Boiler is still pending.
 - **Real GPU frame time and gore preset 4 cost: NOT RUN.** The captures use the xvfb software rasterizer; no frame-time number is claimed.
 - The pilots are not players: they never miss a prompt and never drop a block, and the chain plan lures one particular goblin. The `valve` and `direct` plans leave the weight and drum untouched or the chain unused by design.

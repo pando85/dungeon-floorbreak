@@ -1,1 +1,1 @@
-ROOM_CAPTURE room=hazards plan=direct frames=70 first_tick=0 step=6 last_tick=414 window_hash=0f73f545a4878d69 headless_hash=0f73f545a4878d69 match=yes
+ROOM_CAPTURE room=hazards plan=direct frames=70 first_tick=0 step=6 last_tick=414 window_hash=0f73f545a4878d69 headless_hash=0f73f545a4878d69 timed_hash=skipped match=yes
