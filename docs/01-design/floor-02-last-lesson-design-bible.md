@@ -4,6 +4,26 @@
 
 **Companion documents:** [visual bible](../02-art/floor-02-concrete-hell-visual-direction.md), [production roadmap](../04-production/floor-02-production-roadmap.md), [local-agent work order](../07-agents/floor-02-autonomous-workorder.md).
 
+
+## IMPORTANT: five playable chapters, ten internal beats — not ten stop-and-start levels
+
+A linear **Metal Slug-like** floor must not feel like a menu of ten unrelated micro-stages. The S00–S09 IDs below are *internal encounter/scene beats* and authoring checkpoints. Present them to the player as **five contiguous authored chapters** with seamless or short transitions; never show ten stage-clear result screens.
+
+| Player-facing chapter | Internal beats | Arc and signature image | Reward boundary |
+| --- | --- | --- | --- |
+| A — The New Rules | S00 + S01 | cold concrete / complaints desk / Mind Horror | short checkpoint; no forced new mechanics |
+| B — Rev-Up Goes Wrong | S02 + S03 | sales-pyramid physics -> tentacled Krakaren Clone | substantial boss clear and safe checkpoint |
+| C — People, Not Points | S04 + S05 | cleanup factory -> Meadow Lark wheelchair convoy | brief refuge and narrative pause |
+| D — The Impossible Enemy | S06 + S07 | Rage warning/refuge -> Bomb Chicken / stairwell expulsion | major earned end-of-chapter relief |
+| E — Tiny Terror | S08 + S09 | black-metal kennel -> Ralph -> Mongo | Floor 02 clear and Floor 03 descent |
+
+**Arcade pacing:** 5–15 minute chunks to play or restart; brief in-room transitions and no forced result panels in the middle of a dangerous setup. The overall first clear 25–40 minutes is only a design hypothesis. If playtesting shows padding, merge/cut *beats*, not combat agency. Floor modifiers and individual viewer score, if later implemented, may resolve at safe chapter boundaries only, never mid-Rage telegraph.
+
+**Detailed production specs (read before implementing the respective chapters):**
+- [Rev-Up and rooted Krakaren combat choreography, prop state machines and test matrix](floor-02-revup-krakaren-setpieces.md)
+- [Meadow Lark convoy, Rage refuge and Bomb Chicken flight choreography and safety tests](floor-02-meadow-rage-setpieces.md)
+- [Kobold kennel, tiny Ralph state machine and quiet Mongo epilogue](floor-02-ralph-kennel-finale.md)
+
 ## 1. Identity and pillars
 
 Working floor title: **THE LAST LESSON**. Visual world: **CONCRETE HELL**.
