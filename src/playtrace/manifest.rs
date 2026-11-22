@@ -92,6 +92,11 @@ pub struct ResetDescriptor {
     /// when set, so a descriptor of any earlier run serializes exactly as before.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub f01_room: Option<String>,
+    /// BOIL-E contract: the label's **presence** selects the Boiler's live roster
+    /// ([`crate::f01_boiler::Roster::for_loadout`]); only the `--scene f01_late`
+    /// launcher writes it. A story recording made before BOIL-E (labelled, inert
+    /// roster) rebuilds with enemies now and fails strict verify as a state
+    /// mismatch; a plain `--scene f01_boiler` recording has no label and stays inert.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub f01_loadout: Option<String>,
     /// FNV-1a-64 of the layout and kit contract (0 when not computed).

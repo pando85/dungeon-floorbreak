@@ -18,7 +18,7 @@ use std::path::Path;
 use serde::Deserialize;
 
 use crate::cf02::Cf02Tuning;
-use crate::combat::{CombatEvent, ForceTier, MoveId};
+use crate::combat::{CombatEvent, ForceTier, MoveId, PropPhase};
 
 /// Directory of the Floor 01 pack, relative to the repository root.
 pub const PACK_DIR: &str = "assets/audio/floor01";
@@ -243,6 +243,17 @@ pub fn cues_from_combat_event(event: &CombatEvent) -> Vec<CueId> {
         CombatEvent::BossCrash { .. } => vec![CueId::WallBreak],
         CombatEvent::RackLanded { .. } => vec![CueId::HeavyPropCrash],
         CombatEvent::BossHurt { .. } => vec![CueId::EnemyHitReaction],
+        // BOIL-E (cue reuse, no new sound): a struck prop clanks, a prop's tell
+        // (the valve's pressure, the brace letting go, the drum's fuse) is the
+        // siren, the pipe's rupture the wall break, the landing the heavy crash.
+        // The drum's blast already plays `BlastDetonation` through its `Blast`.
+        CombatEvent::PropHit { .. } => vec![CueId::EnemyBodyCollision],
+        CombatEvent::PropPhase { phase, .. } => match phase {
+            PropPhase::Warning | PropPhase::Released => vec![CueId::Warning],
+            PropPhase::Venting => vec![CueId::WallBreak],
+            PropPhase::Landed => vec![CueId::HeavyPropCrash],
+            PropPhase::Spent | PropPhase::Falling | PropPhase::Detonated => Vec::new(),
+        },
         _ => Vec::new(),
     }
 }
@@ -1251,6 +1262,42 @@ mod tests {
             CombatEvent::ShoreBroken { tick: 1, player: 0 },
             CombatEvent::GoblinTell { tick: 1, goblin: 0 },
         ]
+    }
+
+    /// BOIL-E: the props reuse the existing cues (no new sound id), under the
+    /// legacy map and the cf02 overlay alike; the phases that need no sound of
+    /// their own (the vent closing, the fall in flight, the drum's blast, which
+    /// its `Blast` event plays) stay silent.
+    #[test]
+    fn boil_e_the_props_reuse_the_existing_cues() {
+        use crate::env_prop::StimulusKind;
+        let phase = |phase| CombatEvent::PropPhase {
+            tick: 1,
+            prop: 0,
+            phase,
+            player: Some(0),
+        };
+        let hit = CombatEvent::PropHit {
+            tick: 1,
+            prop: 0,
+            kind: StimulusKind::MeleeHit,
+            progress: 1,
+            player: Some(0),
+        };
+        let on = crate::cf02::Cf02Tuning::pinned().unwrap();
+        for map in [
+            |e: &CombatEvent, _: &crate::cf02::Cf02Tuning| cues_from_combat_event(e),
+            |e: &CombatEvent, t: &crate::cf02::Cf02Tuning| cues_from_combat_event_cf02(e, t),
+        ] {
+            assert_eq!(map(&hit, &on), [CueId::EnemyBodyCollision]);
+            assert_eq!(map(&phase(PropPhase::Warning), &on), [CueId::Warning]);
+            assert_eq!(map(&phase(PropPhase::Released), &on), [CueId::Warning]);
+            assert_eq!(map(&phase(PropPhase::Venting), &on), [CueId::WallBreak]);
+            assert_eq!(map(&phase(PropPhase::Landed), &on), [CueId::HeavyPropCrash]);
+            for silent in [PropPhase::Spent, PropPhase::Falling, PropPhase::Detonated] {
+                assert!(map(&phase(silent), &on).is_empty(), "{silent:?}");
+            }
+        }
     }
 
     /// Overlay off (the default for every run but `--cf02`): the cue map is the

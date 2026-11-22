@@ -221,6 +221,10 @@ PT-D ships the offline exporter and the behaviour-cloning smoke as Python under 
 | PTD-19 | `check-dataset` also proves `next_kind`, `terminal`, `truncated` and `outcome` from the source (next tick or `episode_end`), and compares the `mask`, `split`, `terminal`, `next_valid` and `context` arrays with their rows. A `LeakageError` during export prints `PLAYTRACE_EXPORT result=FAIL` instead of a traceback. | Review F-2/F-6: the check must catch an exporter regression in the arrays BC actually reads. |
 | PTD-20 | Review follow-ups U-1..U-8 (pseudonym split unused by real manifests, unverified `outcome`, no real `post_reset` coverage, no segment-end marker, AI ticks without `eff` in `stats`, absolute paths in error detail, `repo_root()` for installed packages, small cleanups) are recorded in the PR body and not fixed here. | Non-blocking; fix forward. |
 
+### 7.3 The `f01_loadout` label is a roster contract (BOIL-E)
+
+The descriptor's `f01_loadout` label (written only by `--scene f01_late`) selects the Goblin Boiler's roster: present means the live sidecar roster (goblins and the Engineer), absent (a plain `--scene f01_boiler`) means the inert greybox. The binary and the verifier share one rule, `f01_boiler::Roster::for_loadout`. A story recording made before BOIL-E (labelled, empty room) now rebuilds with enemies and fails strict verify as a state mismatch, not a clear refusal; no committed recording carries the label. BOIL-F may fold the roster into the room pin when it re-pins the manifest.
+
 ## 8. Explicit non-goals
 
 No video/voice capture requirement; no live neural companion; no personal analytics service; no training cloud; no generic save-game replacement; no inventory/progression rewrite; no new physics or per-frame indiscriminate full-world dumps; no IP-uncleared asset releases. This document provides implementation requirements, not a statement that recording works already.

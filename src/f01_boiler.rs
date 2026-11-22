@@ -10,9 +10,11 @@
 //! **What runs.** BOIL-B wire and BOIL-C wire make the sidecar's **props and
 //! hazards live** ([`env_runtime`], the env step of `combat_scene::env`): the
 //! valve and its steam, the hanging weight with its remnant and the drum's
-//! solid. The **roster stays inert** (ENEMY-SLOT and BOIL-E add it): the room
-//! has no enemies of its own yet, the scripted pilots of
-//! `boiler_fixtures` bring their own. Nothing here grants a capability: the sidecar's story
+//! solid. The **roster** is [`Roster::Inert`] under `--scene f01_boiler` (the
+//! greybox: no enemies, the scripted pilots of `boiler_fixtures` bring their
+//! own) and [`Roster::Live`] under `--scene f01_late --f01-room boiler` (BOIL-E,
+//! K16): the sidecar's goblin, Engineer and llama entries become the fixture's
+//! enemies. Nothing here grants a capability: the sidecar's story
 //! pin only says what the room *holds* (K1, K9: the post-Hoarder state), and the
 //! hold applies only under the matching program flag (`--carl-prog`,
 //! `--donut-prog`), like every pin.
@@ -29,12 +31,15 @@ use crate::carl_prog::CarlProgFlags;
 use serde_json::Value;
 
 use crate::camera_lab::layout::{BASE_LAYOUT, compose, merged_contract};
+use crate::camera_lab::room::EnemyKind;
 use crate::camera_lab::room::{Room, TILE};
-use crate::combat_scene::{DemoRules, Fixture, Hold};
+use crate::combat::EnemyAi;
+use crate::combat_scene::{DemoRules, EnemySpawn, Fixture, Hold, LlamaSpawn};
 use crate::donut_prog::DonutProgFlags;
-use crate::encounter::{self, BOILER_ENCOUNTER_PATH, Loaded};
+use crate::encounter::{self, BOILER_ENCOUNTER_PATH, Encounter, Loaded, RosterKind};
 use crate::env_kit::{EnvKit, IRect, Layout, ViewDef};
 use crate::input::RawInput;
+use crate::scene_enemy::{SlotRoom, spawn_from_roster};
 use crate::story_unlock::{SceneKind, StorySetup};
 
 /// The `--scene` name.
@@ -87,9 +92,48 @@ const WALK_RIGHT: &[Hold] = &[
 /// A fixture seed is only recorded (no rule reads it in this room).
 const FIXTURE_SEED: u64 = 0x0F01_B011;
 
+/// BOIL-E (K16): how the room's sidecar roster loads.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Roster {
+    /// No enemies: the BOIL-A/B/C greybox (`--scene f01_boiler`), the room the
+    /// scripted pilots and the story-ledger fixtures walk.
+    Inert,
+    /// The sidecar's goblin, Engineer and llama entries are the fixture's enemies
+    /// (`--scene f01_late --f01-room boiler`, the story run).
+    Live,
+}
+
+impl Roster {
+    /// The roster a recorded or launched run uses: the story launcher
+    /// (`--scene f01_late`) writes an `f01_loadout` label into its descriptor,
+    /// the plain `--scene f01_boiler` does not. The one rule the binary and the
+    /// PLAYTRACE verifier share, so a recording rebuilds the world it was made in.
+    pub fn for_loadout(label: Option<&str>) -> Self {
+        if label.is_some() {
+            Self::Live
+        } else {
+            Self::Inert
+        }
+    }
+
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Inert => "inert",
+            Self::Live => "live",
+        }
+    }
+}
+
+/// The data gate the sidecar's Engineer entry names (K16): the Engineer is built
+/// only while his data kill switch (ENG-G-Q25's `engq25_enabled`) is on, and
+/// stands in as the entry's fallback kind otherwise.
+pub const ENGINEER_GATE: &str = "cf02_engineer";
+
 /// A launched Boiler room: everything the scene arm needs.
 #[derive(Debug, Clone)]
 pub struct BoilerRun {
+    /// How the roster was loaded.
+    pub roster: Roster,
     pub kit: EnvKit,
     pub fixture: &'static Fixture,
     /// Respawn columns: the start column, then the checkpoint's.
@@ -168,8 +212,92 @@ pub fn env_runtime(run: &BoilerRun) -> Result<crate::combat_scene::EnvRuntime, S
     crate::combat_scene::EnvRuntime::new(&run.loaded.encounter)
 }
 
-/// Load the room, compose its kit and build the fixture and rules.
+/// The enemies a sidecar roster puts in the fixture (BOIL-E, K16), in roster
+/// order within each list: the goblins (with an Engineer's fallback when his
+/// data gate is off), the Engineers and the llamas.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct RosterEnemies {
+    pub goblins: Vec<EnemySpawn>,
+    pub engineers: Vec<EnemySpawn>,
+    pub llamas: Vec<LlamaSpawn>,
+}
+
+/// Build the fixture's enemies from the sidecar roster. The slot spawn
+/// ([`spawn_from_roster`]) returns the roster indices of the **existing kinds**
+/// (goblin, Engineer, llama); a slot kind in the Boiler is an error (the room
+/// has none). The Engineer entry is the K16 relaxation of ENG-G-Q25 for a
+/// sidecar roster: it needs the data kill switch (`engineer_enabled`), and
+/// without it the entry's `fallback_kind` stands in. `trigger_x` and
+/// `delay_ticks` are read by slot kinds only: an existing kind stands at its
+/// column from tick 0 and wakes by sight (BOILE-AD2).
+pub fn roster_enemies(
+    encounter: &Encounter,
+    room: SlotRoom,
+    engineer_enabled: bool,
+) -> Result<RosterEnemies, String> {
+    let spawn = spawn_from_roster(encounter, room, false).map_err(|e| e.to_string())?;
+    if !spawn.slot.is_empty() {
+        return Err("the Boiler's roster holds a slot kind (the room has none)".to_owned());
+    }
+    let mut out = RosterEnemies::default();
+    for index in spawn.existing {
+        let entry = &encounter.roster[index];
+        if entry.perch.is_some() {
+            return Err(format!(
+                "roster {}: an existing kind stands on the walking line, not a perch",
+                entry.id
+            ));
+        }
+        let RosterKind::Room(kind) = entry.kind else {
+            return Err(format!("roster {}: not a room enemy kind", entry.id));
+        };
+        let at = EnemySpawn {
+            x: entry.x,
+            ai: EnemyAi::Chase,
+        };
+        match kind {
+            EnemyKind::Goblin => out.goblins.push(at),
+            EnemyKind::Llama => out.llamas.push(LlamaSpawn {
+                x: entry.x,
+                ai: EnemyAi::Chase,
+            }),
+            EnemyKind::Engineer => {
+                match entry.gate.as_deref() {
+                    None | Some(ENGINEER_GATE) => {}
+                    Some(other) => {
+                        return Err(format!("roster {}: unknown gate {other:?}", entry.id));
+                    }
+                }
+                if engineer_enabled {
+                    out.engineers.push(at);
+                } else if entry.fallback == Some(EnemyKind::Goblin) {
+                    out.goblins.push(at);
+                } else {
+                    return Err(format!(
+                        "roster {}: the Engineer is off and the entry has no goblin fallback",
+                        entry.id
+                    ));
+                }
+            }
+            other => {
+                return Err(format!(
+                    "roster {}: {other:?} is not an existing kind",
+                    entry.id
+                ));
+            }
+        }
+    }
+    Ok(out)
+}
+
+/// Load the room with its **inert** roster (the greybox): see [`launch_with`].
 pub fn launch(root: &Path) -> Result<BoilerRun, String> {
+    launch_with(root, Roster::Inert)
+}
+
+/// Load the room, compose its kit and build the fixture and rules. With
+/// [`Roster::Live`] the fixture carries the sidecar's enemies (BOIL-E).
+pub fn launch_with(root: &Path, roster: Roster) -> Result<BoilerRun, String> {
     let loaded = encounter::load(root, BOILER_ENCOUNTER_PATH).map_err(|errors| {
         format!(
             "{BOILER_ENCOUNTER_PATH}: {}",
@@ -233,21 +361,40 @@ pub fn launch(root: &Path) -> Result<BoilerRun, String> {
     let rules: &'static DemoRules = Box::leak(Box::new(DemoRules {
         checkpoints: Box::leak(columns.into_boxed_slice()),
     }));
+    let enemies = match roster {
+        Roster::Inert => RosterEnemies::default(),
+        Roster::Live => roster_enemies(
+            &loaded.encounter,
+            SlotRoom {
+                floor_y: loaded.room.floor_y as f32,
+                walls: (0.0, kit.width as f32),
+            },
+            crate::engineer::active().enabled(),
+        )?,
+    };
     let fixture: &'static Fixture = Box::leak(Box::new(Fixture {
         name: SCENE_NAME,
-        summary: "BOIL-A/B/C wire: the Goblin Boiler hall with live props (valve, steam, weight, drum solid)",
+        summary: match roster {
+            Roster::Inert => {
+                "BOIL-A/B/C wire: the Goblin Boiler hall with live props (valve, steam, weight, drum solid)"
+            }
+            Roster::Live => {
+                "BOIL-E: the Goblin Boiler with live props and the sidecar's goblins, Engineer and llamas"
+            }
+        },
         seed: FIXTURE_SEED,
         carl_x: start,
-        enemies: &[],
+        enemies: Box::leak(enemies.goblins.into_boxed_slice()),
         shore_dx: None,
         boss: None,
-        llamas: &[],
-        engineers: &[],
+        llamas: Box::leak(enemies.llamas.into_boxed_slice()),
+        engineers: Box::leak(enemies.engineers.into_boxed_slice()),
         charges: &[],
         script: WALK_RIGHT,
         ticks: SMOKE_TICKS,
     }));
     Ok(BoilerRun {
+        roster,
         kit,
         fixture,
         rules,
@@ -256,13 +403,13 @@ pub fn launch(root: &Path) -> Result<BoilerRun, String> {
 }
 
 /// The console line of a launch: identity, pin and hashes, and the fact that
-/// the props and hazards are live and the roster is inert.
+/// the props and hazards are live, and whether the roster is inert or live.
 pub fn entry_line(run: &BoilerRun) -> String {
     let e = &run.loaded.encounter;
     let room = &run.loaded.room;
     format!(
         "F01_BOILER_ENTRY room={} encounter={} pin={} spawn_carl={} spawn_donut={} \
-         checkpoints={:?} exit={},{},{},{} ceiling_px={} props={} hazards={} roster={} env=live roster_inert=true \
+         checkpoints={:?} exit={},{},{},{} ceiling_px={} props={} hazards={} roster={} env=live roster_inert={} roster_mode={} \
          room_hash={:#018x} sidecar_hash={:#018x}",
         e.room_id,
         e.id,
@@ -278,6 +425,8 @@ pub fn entry_line(run: &BoilerRun) -> String {
         e.props.len(),
         e.hazards.len(),
         e.roster.len(),
+        run.roster == Roster::Inert,
+        run.roster.name(),
         run.loaded.room_hash,
         run.loaded.sidecar_hash,
     )
@@ -394,6 +543,196 @@ mod tests {
         assert_eq!(r.loaded.encounter.props.len(), 3);
         assert_eq!(r.loaded.encounter.hazards.len(), 3);
         assert!(!r.loaded.encounter.roster.is_empty());
+    }
+
+    // ---- BOIL-E: the live roster (K16)
+
+    fn live() -> BoilerRun {
+        launch_with(&root(), Roster::Live).expect("the live Boiler launches")
+    }
+
+    fn slot_room(r: &BoilerRun) -> SlotRoom {
+        SlotRoom {
+            floor_y: r.loaded.room.floor_y as f32,
+            walls: (0.0, r.kit.width as f32),
+        }
+    }
+
+    #[test]
+    fn the_loadout_label_picks_the_roster() {
+        assert_eq!(Roster::for_loadout(None), Roster::Inert);
+        assert_eq!(Roster::for_loadout(Some("story")), Roster::Live);
+        assert_eq!(Roster::for_loadout(Some("all")), Roster::Live);
+        assert_eq!(run().roster, Roster::Inert, "launch() is the greybox");
+    }
+
+    /// BOILE-AD1: the sidecar's roster is the fixture's enemies, in roster order,
+    /// the goblins first and the Engineer after them (his target id follows).
+    #[test]
+    fn a_live_roster_builds_the_sidecar_goblins_and_the_engineer_as_b3() {
+        let r = live();
+        let xs = |s: &[EnemySpawn]| s.iter().map(|e| e.x).collect::<Vec<_>>();
+        assert_eq!(xs(r.fixture.enemies), [344, 640, 944], "g1, g2, g3");
+        assert_eq!(xs(r.fixture.engineers), [1000], "e1 is the B3 Engineer");
+        assert!(r.fixture.llamas.is_empty());
+        assert!(
+            r.fixture
+                .enemies
+                .iter()
+                .chain(r.fixture.engineers)
+                .all(|e| e.ai == EnemyAi::Chase)
+        );
+        // Under the CF02 rules (the room runs them) four enemies stand at their
+        // columns and exactly the last one is the Engineer.
+        let scene = SceneSim::new_at(&r.kit, 360, r.fixture.carl_x).unwrap();
+        let combat = CombatState::new(r.fixture, &r.kit, &scene)
+            .unwrap()
+            .with_cf02();
+        assert_eq!(combat.enemies.len(), 4);
+        let engineers: Vec<usize> = (0..4)
+            .filter(|i| combat.enemies[*i].is_engineer())
+            .collect();
+        assert_eq!(engineers, [3], "the Engineer follows the goblins");
+        assert!(combat.engineer_on());
+        // The wire state is the one the PLAYTRACE verifier rebuilds.
+        assert!(r.fixture.ticks == SMOKE_TICKS && r.fixture.charges.is_empty());
+    }
+
+    /// The staging: nobody is awake at the spawn (the nearest enemy is beyond the
+    /// goblin sight of 220 px from both spawns), so the room opens on a readable
+    /// vista (B0) and the enemies wake in order as Carl advances (BOILE-AD2).
+    #[test]
+    fn the_enemies_are_staged_beyond_sight_of_the_spawns_and_in_order() {
+        let r = live();
+        let sight = crate::feel::GOBLIN_SIGHT as i32;
+        let columns: Vec<i32> = r
+            .fixture
+            .enemies
+            .iter()
+            .chain(r.fixture.engineers)
+            .map(|e| e.x)
+            .collect();
+        let near = columns.iter().copied().min().unwrap();
+        for spawn in [r.loaded.room.spawn_carl, r.loaded.room.spawn_donut] {
+            assert!(near - spawn >= sight, "{near} is inside sight of {spawn}");
+        }
+        let mut sorted = columns.clone();
+        sorted.sort_unstable();
+        // The wake columns (the enemy's column minus the sight) are strictly
+        // increasing in roster order: one enters sight at a time.
+        let wake: Vec<i32> = r
+            .loaded
+            .encounter
+            .roster
+            .iter()
+            .map(|e| e.x - sight)
+            .collect();
+        assert!(wake.windows(2).all(|w| w[0] < w[1]), "{wake:?}");
+        // No more than `max_living` enemies at once (the design's initial probe).
+        assert!(columns.len() <= usize::from(r.loaded.encounter.max_living));
+    }
+
+    /// BOILE-AD2 in a simulation, not only in columns: with Carl idle at his spawn
+    /// nobody wakes, so every enemy holds its column for 300 ticks.
+    #[test]
+    fn nobody_wakes_while_the_heroes_idle_at_the_spawn() {
+        let r = live();
+        let mut scene = SceneSim::new_at(&r.kit, 360, r.fixture.carl_x).unwrap();
+        let mut combat = CombatState::new(r.fixture, &r.kit, &scene)
+            .unwrap()
+            .with_cf02();
+        let at: Vec<f32> = combat.enemies.iter().map(|g| g.x).collect();
+        for _ in 0..300 {
+            combat.step_party(&mut scene, [RawInput::default(), RawInput::default()]);
+        }
+        let after: Vec<f32> = combat.enemies.iter().map(|g| g.x).collect();
+        assert_eq!(at, after);
+    }
+
+    /// ENG-G-Q25 kill switch: with the Engineer off, his entry stands in as its
+    /// goblin fallback and no Engineer exists.
+    #[test]
+    fn the_engineer_entry_falls_back_to_a_goblin_when_his_data_gate_is_off() {
+        let r = run();
+        let room = slot_room(&r);
+        let on = roster_enemies(&r.loaded.encounter, room, true).unwrap();
+        assert_eq!((on.goblins.len(), on.engineers.len()), (3, 1));
+        let off = roster_enemies(&r.loaded.encounter, room, false).unwrap();
+        assert_eq!((off.goblins.len(), off.engineers.len()), (4, 0));
+        assert_eq!(
+            off.goblins.last().map(|g| g.x),
+            Some(1000),
+            "e1 as a goblin"
+        );
+    }
+
+    #[test]
+    fn a_bad_roster_entry_is_an_error_never_silently_dropped() {
+        let r = run();
+        let room = slot_room(&r);
+        let engineer = |e: &Encounter| {
+            e.roster
+                .iter()
+                .position(|x| x.id == "e1")
+                .expect("the sidecar's Engineer")
+        };
+        let mut unknown_gate = r.loaded.encounter.clone();
+        let i = engineer(&unknown_gate);
+        unknown_gate.roster[i].gate = Some("nope".to_owned());
+        let err = roster_enemies(&unknown_gate, room, true).unwrap_err();
+        assert!(err.contains("unknown gate"), "{err}");
+        let mut no_fallback = r.loaded.encounter.clone();
+        no_fallback.roster[i].fallback = None;
+        let err = roster_enemies(&no_fallback, room, false).unwrap_err();
+        assert!(err.contains("no goblin fallback"), "{err}");
+        assert!(roster_enemies(&no_fallback, room, true).is_ok(), "gate on");
+        let mut perched = r.loaded.encounter.clone();
+        perched.roster[0].perch = Some(0);
+        let err = roster_enemies(&perched, room, true).unwrap_err();
+        assert!(err.contains("perch"), "{err}");
+        let mut llama = r.loaded.encounter.clone();
+        llama.roster[0].kind = RosterKind::Room(EnemyKind::Llama);
+        let got = roster_enemies(&llama, room, true).unwrap();
+        assert_eq!(got.llamas.len(), 1, "a llama entry builds a llama");
+        let mut slime = r.loaded.encounter.clone();
+        slime.roster[0].kind = RosterKind::Slime;
+        assert!(roster_enemies(&slime, room, true).is_err(), "a slot kind");
+    }
+
+    /// K16: the relaxation is the sidecar's alone. The same live fixture on a run
+    /// without the CF02 rules builds no Engineer (`engineer_on` needs them), and
+    /// the inert greybox has no enemy at all.
+    #[test]
+    fn the_engineer_needs_the_cf02_rules_and_the_inert_room_has_none() {
+        let r = live();
+        let scene = SceneSim::new_at(&r.kit, 360, r.fixture.carl_x).unwrap();
+        let plain = CombatState::new(r.fixture, &r.kit, &scene).unwrap();
+        assert!(!plain.engineer_on());
+        assert!(plain.enemies.iter().all(|g| !g.is_engineer()));
+        let inert = run();
+        let scene = SceneSim::new_at(&inert.kit, 360, inert.fixture.carl_x).unwrap();
+        let combat = CombatState::new(inert.fixture, &inert.kit, &scene)
+            .unwrap()
+            .with_cf02();
+        assert!(combat.enemies.is_empty() && combat.llamas.is_empty());
+    }
+
+    #[test]
+    fn a_live_run_is_deterministic_and_differs_from_the_greybox() {
+        let hash = |r: &BoilerRun| {
+            let mut sim = FixtureSim::new(&r.kit, 360, r.fixture).unwrap();
+            sim.combat = sim
+                .combat
+                .clone()
+                .with_demo(r.rules)
+                .with_cf02()
+                .with_env(env_runtime(r).unwrap());
+            sim.combat.sync_env(&mut sim.scene);
+            sim.run_scripted(SMOKE_TICKS);
+            sim.state_hash()
+        };
+        assert_eq!(hash(&live()), hash(&live()));
+        assert_ne!(hash(&live()), hash(&run()));
     }
 
     /// The headless smoke in the library: the scripted walk carries Carl from
