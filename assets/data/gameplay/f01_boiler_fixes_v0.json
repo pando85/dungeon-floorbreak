@@ -1,0 +1,5 @@
+{
+  "schema_version": 1,
+  "fa_q20_wake_gates": true,
+  "fa_q20_delay_after_sight": false
+}

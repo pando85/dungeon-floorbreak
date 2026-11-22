@@ -112,12 +112,12 @@ PT-TUNE game-feel questions for room 6 (none blocks anything):
 | 2 Boiler greybox, no roster, DonutBySwap, direct | 9 of 9 | 0 / 0 | 0 / 0 | 286 / 286 | base kit: 0 | 1 |
 | 2 Boiler greybox, no roster, CarlSolo, valve then brace | 9 of 9 | 0 / 0 | 0 / 0 | 485 / 485 | base kit: 0 | 1 |
 | 2 Boiler greybox, no roster, DonutBySwap, valve then brace | 9 of 9 | 0 / 0 | 0 / 0 | 496 / 496 | base kit: 0 | 7 |
-| 2 Boiler **live roster** (`Roster::Live`: goblins and the Engineer), CarlSolo, direct | 9 of 9 | 0 / 0 | 1 / 1 | 510 / 510 | base kit: 0 | 25 |
-| 2 Boiler live roster, DonutBySwap, direct | 9 of 9 | 0 / 0 | 1 / 1 | 504 / 504 | base kit: 0 | 25 |
-| 2 Boiler live roster, Companion (`cf02_free`), direct | 9 of 9 | 0 / 0 | 1 / 1 | 529 / 529 | base kit: 0 | 25 |
-| 2 Boiler live roster, CarlSolo, valve then brace | 9 of 9 | 0 / 0 | 2 / 2 | 548 / 578 | base kit: 0 | 43 |
-| 2 Boiler live roster, DonutBySwap, valve then brace | 9 of 9 | 0 / 0 | 2 / 2 | 535 / 566 | base kit: 0 | 43 |
-| 2 Boiler live roster, Companion (`cf02_free`), valve then brace | 9 of 9 | 0 / 0 | 1 / 1 | 578 / 578 | base kit: 0 | 30 |
+| 2 Boiler **live roster** (`Roster::Live`: goblins and the Engineer), CarlSolo, direct | 9 of 9 | 0 / 0 | 2 / 2 | 478 / 478 | base kit: 0 | 40 |
+| 2 Boiler live roster, DonutBySwap, direct | 9 of 9 | 0 / 0 | 2 / 2 | 463 / 463 | base kit: 0 | 40 |
+| 2 Boiler live roster, Companion (`cf02_free`), direct | 9 of 9 | 0 / 0 | 1 / 1 | 611 / 611 | base kit: 0 | 83 |
+| 2 Boiler live roster, CarlSolo, valve then brace | 9 of 9 | 0 / 0 | 1 / 1 | 565 / 565 | base kit: 0 | 22 |
+| 2 Boiler live roster, DonutBySwap, valve then brace | 9 of 9 | 0 / 0 | 1 / 1 | 558 / 558 | base kit: 0 | 22 |
+| 2 Boiler live roster, Companion (`cf02_free`), valve then brace | 9 of 9 | 0 / 0 | 1 / 1 | 568 / 568 | base kit: 0 | 28 |
 | 4 Hazards, CarlSolo, the direct route (HAZ-06, HAZ-09; melee only) | 9 of 9 | 0 / 0 | 4 / 4 | 739 / 739 | base kit: 0 | 20 |
 | 4 Hazards, the same route with the Rot kind removed (HAZ-06) | 9 of 9 | 0 / 0 | 2 / 2 | 636 / 636 | base kit: 0 | 17 |
 | 4 Hazards, DonutBySwap | 9 of 9 | 0 / 0 | 4 / 4 | 749 / 749 | base kit: 0 | 17 |
@@ -306,8 +306,8 @@ From the backlog's owner game-feel notes, the PT-TUNE follow-ups, #237, the revi
 - **The assist partner walks into the Rot in room 4** (9 of 9 seeds of the Carl-solo and Donut-by-swap runs; the `cf02_free` companion never does): a game-feel note for the partner that rooms 2, 4 and 6 do not default to.
 
 **Room 2, the Boiler**
-- **The assist partner hits the valve in the live `Direct` runs.** `Direct` is defined and asserted as "the pilot touches no prop", and the partner's hits are reported, but the live runs no longer show that the live roster can be cleared with the props intact (only the greybox, `Roster::Inert`, tests do). Add a live variant with the partner held passive, or record it as a game-feel note: "the assist Donut vents the valve on her own in every direct run".
-- B3 can wake inside the steam lane; the goblin wake hook is a follow-up (`BOIL-FU`).
+- **The assist partner hits the valve in the live `Direct` runs.** `Direct` is defined and asserted as "the pilot touches no prop", and the partner's hits are reported, but the live runs no longer show that the live roster can be cleared with the props intact (only the greybox, `Roster::Inert`, tests do). Add a live variant with the partner held passive, or record it as a game-feel note: "the assist Donut vents the valve on her own in every direct run". PR-C adds the isolating variant: with a passive partner (`Who::PassivePartner`, the follow-and-jump bot) the live `Direct` route has 0 prop hits by any hero on 9 of 9 seeds, and a `partner_prop_hits` counter in the live report. The active-partner assertion is an `#[ignore = "needs PR-A FA-Q16"]` test that PR-A un-ignores.
+- B3 no longer wakes inside the steam lane: since PR-C (FA-Q20) it wakes at x 560 (`trigger_x`), 128 px before the lane (`boil_b3_wakes_before_the_lane`). The drum's solid keeps it out of the lane until the drum blows. The owner has not played it.
 
 **Rooms and presentation**
 - **Room 5 partner (#241 follow-up 1):** the Juicer's boss scene keeps the follow-and-jump bot and refuses `--companion` (`user_fixture()` counts the boss scene's own fixture as a user fixture). The opt-in (default unchanged) is a follow-up: treat the fixture set by `--f01-room juicer` as a room placeholder, add an arg test and an owner-commands `ok` line. The aligned `juicer:companion:N` pilots already prove that the boss scene runs `cf02_free` deterministically.

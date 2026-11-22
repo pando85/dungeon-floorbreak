@@ -223,7 +223,7 @@ PT-D ships the offline exporter and the behaviour-cloning smoke as Python under 
 
 ### 7.3 The `f01_loadout` label is a roster contract (BOIL-E)
 
-The descriptor's `f01_loadout` label (written only by `--scene f01_late`) selects the Goblin Boiler's roster: present means the live sidecar roster (goblins and the Engineer), absent (a plain `--scene f01_boiler`) means the inert greybox. The binary and the verifier share one rule, `f01_boiler::Roster::for_loadout`. A story recording made before BOIL-E (labelled, empty room) now rebuilds with enemies and fails strict verify as a state mismatch, not a clear refusal; no committed recording carries the label. BOIL-F may fold the roster into the room pin when it re-pins the manifest.
+The descriptor's `f01_roster` field (PR-C, BOIL-FU; `live` or `inert`, written by every recording of the Goblin Boiler room) selects the Boiler's roster: `live` is the sidecar roster (goblins and the Engineer), `inert` the empty greybox. The verifier reads it through `f01_boiler::Roster::from_descriptor`; an unknown value fails as `content_mismatch`. A recording without the field (made before PR-C) falls back to the old rule: the `f01_loadout` label (written only by `--scene f01_late`) present means live, absent (a plain `--scene f01_boiler`) means inert. A story recording made before BOIL-E (labelled, empty room) rebuilds with enemies and fails strict verify as a state mismatch; no committed recording carries the label or the field.
 
 ## 8. Explicit non-goals
 

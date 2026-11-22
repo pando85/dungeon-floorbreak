@@ -75,9 +75,10 @@ pub const fn data_pins() -> [(&'static str, u64); 1] {
 /// stamps nor needs them, so a later edit of the manifest (every room step) or of
 /// the Boiler files (BOIL-B/C wire) fails only the recordings it can change; a
 /// Juicer recording needs the manifest hash and not the Boiler's.
-pub const SCOPED_PIN_KEYS: [&str; 9] = [
+pub const SCOPED_PIN_KEYS: [&str; 10] = [
     f01_boiler::ROOM_PIN_KEY,
     f01_boiler::ENCOUNTER_PIN_KEY,
+    f01_boiler::fixes::PIN_KEY,
     f01_hoarder::ROOM_PIN_KEY,
     f01_hoarder::ENCOUNTER_PIN_KEY,
     f01_hazards::ROOM_PIN_KEY,
@@ -92,7 +93,9 @@ pub const SCOPED_PIN_KEYS: [&str; 9] = [
 /// exactly when it covers the room.
 pub fn pin_applies(key: &str, room: Option<&str>) -> bool {
     match key {
-        f01_boiler::ROOM_PIN_KEY | f01_boiler::ENCOUNTER_PIN_KEY => room == Some("boiler"),
+        f01_boiler::ROOM_PIN_KEY | f01_boiler::ENCOUNTER_PIN_KEY | f01_boiler::fixes::PIN_KEY => {
+            room == Some("boiler")
+        }
         f01_hoarder::ROOM_PIN_KEY | f01_hoarder::ENCOUNTER_PIN_KEY => room == Some("hoarder"),
         f01_hazards::ROOM_PIN_KEY | f01_hazards::ENCOUNTER_PIN_KEY => room == Some("hazards"),
         f01_mastery::ROOM_PIN_KEY | f01_mastery::ENCOUNTER_PIN_KEY => room == Some("mastery"),
@@ -1065,6 +1068,9 @@ mod tests {
         // Each room's pins cover that room's recordings only; the manifest pin
         // covers a recording of any room.
         let owner = |key: &str| -> Option<&'static str> {
+            if key == f01_boiler::fixes::PIN_KEY {
+                return Some("boiler");
+            }
             [
                 (
                     "boiler",

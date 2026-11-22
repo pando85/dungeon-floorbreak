@@ -44,6 +44,7 @@ pub(super) fn reset() -> ResetDescriptor {
         donut_puddle: false,
         f01_room: None,
         f01_loadout: None,
+        f01_roster: None,
         kit_hash: 0,
         start_hash: 0xcbf2_9ce4_8422_2325,
     }

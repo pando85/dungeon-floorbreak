@@ -1,8 +1,8 @@
-ROOM_CAPTURE room=boiler plan=direct frames=60 first_tick=180 step=6 last_tick=534 window_hash=262c25202ec84698 headless_hash=262c25202ec84698 timed_hash=skipped match=yes clip=direct-solo
-ROOM_CAPTURE room=boiler plan=direct:2p frames=50 first_tick=180 step=6 last_tick=474 window_hash=a1461f72869f4b28 headless_hash=a1461f72869f4b28 timed_hash=a1461f72869f4b28 match=yes clip=direct-2p
-ROOM_CAPTURE room=boiler plan=valve frames=45 first_tick=160 step=6 last_tick=424 window_hash=2ffb1c4c5d483134 headless_hash=2ffb1c4c5d483134 timed_hash=skipped match=yes clip=valve-solo
-ROOM_CAPTURE room=boiler plan=valve:2p frames=45 first_tick=160 step=6 last_tick=424 window_hash=367336e16850b64b headless_hash=367336e16850b64b timed_hash=367336e16850b64b match=yes clip=valve-2p
-ROOM_CAPTURE room=boiler plan=chain frames=60 first_tick=440 step=6 last_tick=794 window_hash=a5c94195ac591c54 headless_hash=a5c94195ac591c54 timed_hash=skipped match=yes clip=chain-solo
-ROOM_CAPTURE room=boiler plan=chain:2p frames=60 first_tick=440 step=6 last_tick=794 window_hash=ca3bfeb924bc7dda headless_hash=ca3bfeb924bc7dda timed_hash=ca3bfeb924bc7dda match=yes clip=chain-2p
-ROOM_CAPTURE room=boiler plan=chain frames=60 first_tick=440 step=6 last_tick=794 window_hash=85a73c505fe967d3 headless_hash=85a73c505fe967d3 timed_hash=skipped match=yes clip=chain-solo-640x400
-ROOM_CAPTURE room=boiler plan=chain frames=16 first_tick=690 step=3 last_tick=735 window_hash=12396447f70b956f headless_hash=12396447f70b956f timed_hash=skipped match=yes clip=b3-wake-chain-solo
+ROOM_CAPTURE room=boiler plan=direct frames=60 first_tick=180 step=6 last_tick=534 window_hash=8e3aaaef87732549 headless_hash=8e3aaaef87732549 timed_hash=skipped match=yes clip=direct-solo
+ROOM_CAPTURE room=boiler plan=direct:2p frames=50 first_tick=180 step=6 last_tick=474 window_hash=8dd47086e1bdf663 headless_hash=8dd47086e1bdf663 timed_hash=8dd47086e1bdf663 match=yes clip=direct-2p
+ROOM_CAPTURE room=boiler plan=valve frames=45 first_tick=160 step=6 last_tick=424 window_hash=5defe37c67004446 headless_hash=5defe37c67004446 timed_hash=skipped match=yes clip=valve-solo
+ROOM_CAPTURE room=boiler plan=valve:2p frames=45 first_tick=160 step=6 last_tick=424 window_hash=cc83c01539d96b19 headless_hash=cc83c01539d96b19 timed_hash=cc83c01539d96b19 match=yes clip=valve-2p
+ROOM_CAPTURE room=boiler plan=chain frames=60 first_tick=440 step=6 last_tick=794 window_hash=e1f261e9f1c8ad11 headless_hash=e1f261e9f1c8ad11 timed_hash=skipped match=yes clip=chain-solo
+ROOM_CAPTURE room=boiler plan=chain:2p frames=60 first_tick=440 step=6 last_tick=794 window_hash=32a2ed525584560d headless_hash=32a2ed525584560d timed_hash=32a2ed525584560d match=yes clip=chain-2p
+ROOM_CAPTURE room=boiler plan=chain frames=60 first_tick=440 step=6 last_tick=794 window_hash=fbc0b9da72338fda headless_hash=fbc0b9da72338fda timed_hash=skipped match=yes clip=chain-solo-640x400
+ROOM_CAPTURE room=boiler plan=chain frames=16 first_tick=630 step=3 last_tick=675 window_hash=ab9336a0499a5b8a headless_hash=ab9336a0499a5b8a timed_hash=skipped match=yes clip=b3-wake-chain-solo

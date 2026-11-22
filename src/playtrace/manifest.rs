@@ -92,13 +92,18 @@ pub struct ResetDescriptor {
     /// when set, so a descriptor of any earlier run serializes exactly as before.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub f01_room: Option<String>,
-    /// BOIL-E contract: the label's **presence** selects the Boiler's live roster
-    /// ([`crate::f01_boiler::Roster::for_loadout`]); only the `--scene f01_late`
-    /// launcher writes it. A story recording made before BOIL-E (labelled, inert
-    /// roster) rebuilds with enemies now and fails strict verify as a state
-    /// mismatch; a plain `--scene f01_boiler` recording has no label and stays inert.
+    /// The loadout label (`story` or `all`) of a `--scene f01_late` run. It does
+    /// not choose the Boiler's roster when [`Self::f01_roster`] is present; without
+    /// that field the legacy rule applies ([`crate::f01_boiler::Roster::from_descriptor`]:
+    /// a label means the live roster, none the inert greybox).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub f01_loadout: Option<String>,
+    /// PR-C (BOIL-FU): the Boiler's roster, written explicitly (`live` or `inert`,
+    /// [`crate::f01_boiler::Roster::name`]) by every recording of the Boiler room, so a
+    /// verifier no longer infers it from the loadout label. Absent in every older
+    /// recording and in every other room (the legacy label rule then applies).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub f01_roster: Option<String>,
     /// FNV-1a-64 of the layout and kit contract (0 when not computed).
     #[serde(with = "hex64")]
     pub kit_hash: u64,

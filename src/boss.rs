@@ -886,6 +886,18 @@ impl Boss {
 
     // --------------------------------------------------------------- hits --
 
+    /// CP-FU-D: the poise counted toward the next flinch right now (the hits inside
+    /// the poise window, at the boss clock). A reinforced punch adds twice the poise of
+    /// a plain one (CP-Q40, CP-Q42), so the state line shows the doubling. Read only.
+    pub fn poise_now(&self) -> u16 {
+        let window = u64::from(self.data.poise_window);
+        self.poise
+            .iter()
+            .filter(|(at, _)| self.clock.saturating_sub(*at) < window)
+            .map(|(_, p)| *p)
+            .sum()
+    }
+
     /// A hero's melee hit. Hits deal damage and hit-stop but never interrupt a
     /// tell, strike, charge or roar. Neutral hits add to poise; four damage in
     /// the window flinches him. Returns `None` when he has no hurtbox.
@@ -2226,10 +2238,14 @@ mod tests {
         assert!(!punch(&mut plain, u16::from(CARL_JAB.damage)).flinched);
         assert!(!punch(&mut plain, u16::from(CARL_HAYMAKER.damage)).flinched);
         assert_eq!(plain.mode, BossMode::Neutral, "a plain pair adds 2 of 4");
+        // CP-FU-D: the state line's poise number shows the doubling.
+        assert_eq!(plain.poise_now(), 2, "a plain pair counts 1 + 1");
         let mut boss = engaged(300.0, 1);
         assert!(!punch(&mut boss, t.boss_poise(&CARL_JAB)).flinched);
+        assert_eq!(boss.poise_now(), 2, "a reinforced jab counts 2");
         assert!(punch(&mut boss, t.boss_poise(&CARL_HAYMAKER)).flinched);
         assert_eq!(boss.mode, BossMode::Flinch, "one combo is four poise");
+        assert_eq!(boss.poise_now(), 0, "the flinch spends it");
         let mut tell = engaged(300.0, 1);
         tell.enter(BossMode::PoundTell);
         for _ in 0..3 {

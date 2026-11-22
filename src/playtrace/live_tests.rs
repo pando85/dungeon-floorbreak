@@ -66,6 +66,7 @@ fn manifest_for(fixture: &PartyFixture, scene: &SceneSim, combat: &CombatState) 
         donut_puddle: false,
         f01_room: None,
         f01_loadout: None,
+        f01_roster: None,
         kit_hash: real_kit_hash(),
         start_hash: combat.state_hash(scene),
     };
@@ -341,6 +342,7 @@ impl DemoRig {
             donut_puddle: false,
             f01_room: None,
             f01_loadout: None,
+            f01_roster: None,
             kit_hash: real_kit_hash(),
             start_hash: combat.state_hash(&scene),
         };
@@ -386,6 +388,7 @@ impl DemoRig {
             donut_puddle: false,
             f01_room: None,
             f01_loadout: None,
+            f01_roster: None,
             kit_hash: real_kit_hash(),
             start_hash: combat.state_hash(&scene),
         };
