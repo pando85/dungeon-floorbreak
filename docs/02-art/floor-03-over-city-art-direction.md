@@ -2,6 +2,10 @@
 
 **Status:** original art direction for proposed Floor03, not sprite masters or an owner-approved final look. 2026-11-22. Read [Floor03 design bible](../01-design/floor-03-over-city-design-bible.md), [global art direction](art-direction.md), [antihero tone](../01-design/antihero-tone.md), [Carl bible](carl-character-bible.md), [Donut bible](donut-character-bible.md), [Mongo bible](mongo-character-bible.md), and [pixel-art pipeline](../07-agents/pixel-art-pipeline.md).
 
+## Circus scene keys and canonical silhouette refinement
+
+The specific [F03-CIRCUS-ART-01](floor-03-circus-visual-storytelling.md) governs circus keys: awning collapse, Heather's roller-skating infected bear attack, Grimaldi the **rooted Pestiferous Vine**, and Mongo's emotional recovery beat. [F03-CIRCUS-01](../01-design/floor-03-circus-encounters-and-stagecraft.md) owns truthful physical contact/camera, and [F03-GRIM-01](../01-design/floor-03-grimaldi-resolution-and-coop.md) the nonlethal story resolution. **Do not treat a generated high-res clown-like human Grimaldi mood image as the final monster design**; final master must read primarily as an immense transformed vine. All exact pixel art requires native source masters and independently-reviewed silhouettes.
+
 ## Art thesis
 
 **A counterfeit world of infinite depth.** Floor02's cramped pale concrete suddenly opens onto the vast, suspicious night sky of a ruined volcanic city. Backdrops show collapsed stone aqueducts, timber pueblos, theatre trusses hidden at the horizon, a dark slumbering volcano, skyfowl eagle-statue fortifications, and an illuminated red/cream circus. This is an urban action movie made from a predatory TV set, **not** a generic medieval castle fantasy.
