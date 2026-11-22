@@ -24,6 +24,16 @@ A linear **Metal Slug-like** floor must not feel like a menu of ten unrelated mi
 - [Meadow Lark convoy, Rage refuge and Bomb Chicken flight choreography and safety tests](floor-02-meadow-rage-setpieces.md)
 - [Kobold kennel, tiny Ralph state machine and quiet Mongo epilogue](floor-02-ralph-kennel-finale.md)
 
+## Additional required encounter and director briefs
+
+- [F02-FOUNDATIONS-01 — Arrival, Mind Horror service desk and cleanup conveyor](floor-02-arrival-cleanup-encounters.md)
+- [F02-ACT-01 — Enemy silhouette, personality, tells, hit reactions and original animation keys](floor-02-enemy-acting-bible.md)
+- [F02-DIRECTOR-01 — Five-chapter continuity, staging, score and true floor exit](floor-02-director-and-continuity.md)
+
+**Critical cross-stage continuity:** the Rage stairwell is a **Rage-only expulsion trigger** in S07, with a protected Floor 02 side path for Carl and Donut. It must **not** activate the true Floor 03 descent. The actual player exit is **after Ralph and Mongo in S09**. This takes precedence over ambiguous phrases such as "enter the stair region" elsewhere in the draft.
+
+**Rev-Up canon-sensitive actor correction:** the "foreman / pitchman" mechanical role is preferably represented by a **Laminak Rev-Up Consultant Elite**, a fairy supervisor of the Clurichauns, rather than introducing an unrelated invented foreman species. Implement one supervisory role, not two independent waves. This is a proposed adaptation pending primary-text editorial verification.
+
 ## 1. Identity and pillars
 
 Working floor title: **THE LAST LESSON**. Visual world: **CONCRETE HELL**.
