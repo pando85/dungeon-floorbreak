@@ -984,13 +984,13 @@ mod tests {
             ("dm_run_race_2p", 0x7193_59bc_ab34_44ae),
             ("dm_jump_race_2p", 0x0d0c_c1c7_d90b_346d),
             // DM-B: pinned again by `agility_reflex_tests` with their events.
-            ("dm_reflex_evades_swing", 0x4aca_1b4e_e7b3_9bbe),
-            ("dm_reflex_not_armed", 0x8281_2a44_46dd_6c78),
+            ("dm_reflex_evades_swing", 0xfb81_5781_70ca_99cf),
+            ("dm_reflex_not_armed", 0x41b0_a515_d067_73db),
             ("dm_evasion_locked_before_biscuit", 0x5a19_8a6c_5553_6f0d),
             ("dm_evasion_unlocks_at_guild", 0x1f1c_3dfb_5495_417e),
             // DM-C: pinned from its first run; the events are asserted in
             // `donut_cues::tests`.
-            ("cf02_dm_reflex_cues", 0xff5e_7ce8_007f_28ac),
+            ("cf02_dm_reflex_cues", 0x2100_5b2c_efad_0248),
             ("cf02_arena_dm_perch_jump", 0x4fa9_bab3_c208_d618),
         ];
         assert_eq!(PARTY_GOLDENS.len(), AGILITY_PARTY_FIXTURES.len());

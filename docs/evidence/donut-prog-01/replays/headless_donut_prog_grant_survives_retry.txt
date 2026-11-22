@@ -13,6 +13,7 @@ COMBAT_EVENT tick=440 kind=goblin_swing goblin=0
 COMBAT_EVENT tick=440 kind=hero_hurt source=0 health_left=0 hero=donut
 COMBAT_EVENT tick=440 kind=hero_defeated hero=donut
 COMBAT_EVENT tick=489 kind=restart deaths=1
+COMBAT_EVENT tick=1 kind=evade_armed hero=donut
 COMBAT_EVENT tick=253 kind=goblin_tell goblin=0
 COMBAT_EVENT tick=265 kind=goblin_tell goblin=1
 COMBAT_EVENT tick=279 kind=goblin_swing goblin=0
@@ -23,8 +24,15 @@ COMBAT_EVENT tick=414 kind=goblin_tell goblin=0
 COMBAT_EVENT tick=414 kind=goblin_swing goblin=1
 COMBAT_EVENT tick=414 kind=hero_hurt source=1 health_left=2
 COMBAT_EVENT tick=440 kind=goblin_swing goblin=0
-COMBAT_EVENT tick=440 kind=hero_hurt source=0 health_left=0 hero=donut
-COMBAT_EVENT tick=440 kind=hero_defeated hero=donut
-COMBAT_EVENT tick=489 kind=restart deaths=2
-COMBAT_STATE fixture=donut_prog_grant_survives_retry seed=0xd900002 tick=222 elapsed=1200 hero_hp=4 deaths=2 enemies=e0=1287.600/2,e1=1338.967/2 hash=0a4acb41851eada2
-PARTY_STATE fixture=donut_prog_grant_survives_retry mode=2p controlled=Carl carl_hp=4 donut_hp=4 deaths=2 hash=b3e9f4b4c2f6eff8
+COMBAT_EVENT tick=440 kind=hero_evaded hero=donut source=0 attack=goblin_swing
+COMBAT_EVENT tick=483 kind=goblin_tell goblin=1
+COMBAT_EVENT tick=505 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=509 kind=goblin_swing goblin=1
+COMBAT_EVENT tick=509 kind=hero_hurt source=1 health_left=1
+COMBAT_EVENT tick=531 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=531 kind=hero_hurt source=0 health_left=0 hero=donut
+COMBAT_EVENT tick=531 kind=hero_defeated hero=donut
+COMBAT_EVENT tick=580 kind=restart deaths=2
+COMBAT_EVENT tick=1 kind=evade_armed hero=donut
+COMBAT_STATE fixture=donut_prog_grant_survives_retry seed=0xd900002 tick=131 elapsed=1200 hero_hp=4 deaths=2 enemies=e0=1300.000/2,e1=1340.000/2 hash=382c211b1816067d
+PARTY_STATE fixture=donut_prog_grant_survives_retry mode=2p controlled=Carl carl_hp=4 donut_hp=4 deaths=2 hash=4fe3164adcb229a3

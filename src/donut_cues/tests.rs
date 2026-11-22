@@ -3,11 +3,12 @@
 //! changes a state hash.
 
 use super::*;
+use crate::agility::ReflexProfile;
 use crate::agility_fixtures::{DM_EVASION_UNLOCKS_AT_GUILD, DM_REFLEX_EVADES_SWING};
 use crate::boss_scene::Pilot;
 use crate::donut_mana::DonutSetup;
 use crate::env_kit::EnvKit;
-use crate::party::PROVISIONAL_TUNING;
+use crate::party::{PROVISIONAL_TUNING, PartyTuning};
 use crate::party_scene::{PartyFixture, PartyFixtureSim, base};
 
 fn corridor() -> EnvKit {
@@ -22,7 +23,12 @@ fn empty_sim() -> PartyFixtureSim {
     let fixture: &'static PartyFixture = Box::leak(Box::new(PartyFixture {
         base: &BASE,
         two_player: true,
-        tuning: PROVISIONAL_TUNING,
+        // The glint timing is read from the arm tick: the profile without the
+        // FA-Q19 armed start arms at 720 in this room.
+        tuning: PartyTuning {
+            donut_reflex: ReflexProfile::ShippedNoOpener,
+            ..PROVISIONAL_TUNING
+        },
         script: &[],
         pilot: Pilot::None,
         donut: DonutSetup::unlocked(8),
@@ -110,10 +116,20 @@ fn the_glint_goes_with_the_evade() {
             lit.push(t);
         }
     }
+    // FA-Q19: the fixture starts with the biscuit, so it is armed from tick 1.
+    // The evade on 729 spends the arm: lit 4 on and 26 off from tick 1 to the last
+    // window 721..=724, then dark until the hurt restarts the attempt, which
+    // starts armed again on its tick 1 (every restart is a new attempt).
+    let first: Vec<u64> = (1..=729).filter(|t| (t - 1) % 30 < 4).collect();
     assert_eq!(
-        lit,
-        [720, 721, 722, 723],
+        lit[..first.len()],
+        first[..],
         "lit while armed (4 on), gone after"
+    );
+    assert_eq!(
+        lit[first.len()..first.len() + 4],
+        [1, 2, 3, 4],
+        "re-armed by the restart"
     );
 }
 
@@ -314,7 +330,7 @@ fn the_cue_room_arms_evades_and_arms_again() {
             CombatEvent::EvadeArmed { tick, .. } => Some(tick),
             _ => None,
         }),
-        [720, 1449]
+        [1, 1449]
     );
     assert_eq!(
         ticks_of(|e| match *e {
@@ -331,7 +347,12 @@ fn the_cue_room_arms_evades_and_arms_again() {
         "nobody is hurt and nothing restarts"
     );
     assert!(!sim.combat.enemies[0].alive(), "Carl put the goblin down");
-    // Dark from the evade to the second arming, then blinking 4 on and 26 off again.
-    assert_eq!(lit[..8], [720, 721, 722, 723, 1449, 1450, 1451, 1452]);
-    assert_eq!(lit[8..12], [1479, 1480, 1481, 1482]);
+    // FA-Q19: armed from tick 1, so the glint blinks 4 on and 26 off (1..=4, 31..=34
+    // and so on, the last window 721..=724) until the evade on 729 spends it; dark
+    // to the second arming on 1449, then blinking again.
+    let first: Vec<u64> = (1..=729).filter(|t| (t - 1) % 30 < 4).collect();
+    assert_eq!(lit[..first.len()], first[..], "{lit:?}");
+    let rest = &lit[first.len()..];
+    assert_eq!(rest[..4], [1449, 1450, 1451, 1452]);
+    assert_eq!(rest[4..8], [1479, 1480, 1481, 1482]);
 }

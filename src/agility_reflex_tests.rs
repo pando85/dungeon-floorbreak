@@ -70,8 +70,8 @@ fn armed(sim: &PartyFixtureSim) -> Vec<u64> {
 /// The goldens of the DM-B party fixtures, pinned from their first run; the
 /// event assertions below are the independent check of what each hash means.
 const GOLDENS: [(&str, u64); 4] = [
-    ("dm_reflex_evades_swing", 0x4aca_1b4e_e7b3_9bbe),
-    ("dm_reflex_not_armed", 0x8281_2a44_46dd_6c78),
+    ("dm_reflex_evades_swing", 0xfb81_5781_70ca_99cf),
+    ("dm_reflex_not_armed", 0x41b0_a515_d067_73db),
     ("dm_evasion_locked_before_biscuit", 0x5a19_8a6c_5553_6f0d),
     ("dm_evasion_unlocks_at_guild", 0x1f1c_3dfb_5495_417e),
 ];
@@ -99,7 +99,8 @@ fn the_reflex_fixtures_replay_identically_and_match_their_goldens() {
 #[test]
 fn an_armed_donut_evades_one_swing_and_the_next_lands() {
     let sim = run(&DM_REFLEX_EVADES_SWING);
-    assert_eq!(armed(&sim), vec![720], "armed at exactly 720");
+    // FA-Q19: the fixture starts with the biscuit held, so the attempt starts armed.
+    assert_eq!(armed(&sim), vec![1], "armed at the attempt start (FA-Q19)");
     assert_eq!(evades(&sim), vec![729], "one evade, on the first swing");
     let hurts = donut_hurts(&sim);
     assert_eq!(
@@ -148,8 +149,13 @@ fn the_reflex_evades_exactly_from_tick_720() {
                 1,
                 1.0,
             )]));
+        // The DM-Q12 wait itself: the profile without the FA-Q19 armed start.
         let fixture: &'static PartyFixture = Box::leak(Box::new(PartyFixture {
             script,
+            tuning: PartyTuning {
+                donut_reflex: ReflexProfile::ShippedNoOpener,
+                ..DM_REFLEX_EVADES_SWING.tuning
+            },
             ..clone_of(&DM_REFLEX_EVADES_SWING)
         }));
         let mut sim = PartyFixtureSim::new(&corridor(), 360, fixture).unwrap();
@@ -220,8 +226,17 @@ fn the_reflex_is_a_biscuit_unlock_and_nothing_else() {
     assert_eq!(armed(&guild), vec![unlock + 720]);
     assert_eq!(evades(&guild), vec![741]);
     assert!(donut_hurts(&guild).first().is_some_and(|h| h.0 > 741));
-    // A fixture that starts unlocked arms at 720 (the unlock tick is 0).
-    assert_eq!(armed(&run(&DM_REFLEX_EVADES_SWING)), vec![720]);
+    // A fixture that starts unlocked starts armed (FA-Q19); with the knob off it
+    // arms at 720 (the unlock tick is 0).
+    assert_eq!(armed(&run(&DM_REFLEX_EVADES_SWING)), vec![1]);
+    let no_opener: &'static PartyFixture = Box::leak(Box::new(PartyFixture {
+        tuning: PartyTuning {
+            donut_reflex: ReflexProfile::ShippedNoOpener,
+            ..DM_REFLEX_EVADES_SWING.tuning
+        },
+        ..clone_of(&DM_REFLEX_EVADES_SWING)
+    }));
+    assert_eq!(armed(&run(no_opener)), vec![720]);
     // Mobility: the same run script moves her identically locked and unlocked
     // (the reflex touches no body).
     let trail = |fixture: &'static PartyFixture| {
@@ -256,8 +271,8 @@ fn clone_of(f: &'static PartyFixture) -> PartyFixture {
 }
 
 /// DM-C F2: the pinned `state_hash()` of the two parity sims below.
-const DM_PARITY_HUMAN_HASH: u64 = 0xd78f_99e0_b01d_cdb9;
-const DM_PARITY_AI_HASH: u64 = 0x831f_3727_988f_62b3;
+const DM_PARITY_HUMAN_HASH: u64 = 0x21a6_ce48_910f_7a37;
+const DM_PARITY_AI_HASH: u64 = 0xe110_e3da_32f7_3581;
 
 /// Spec test 11: the reflex decides on the attack instance and her state only.
 /// The same room with Donut human-driven and AI-driven, at identical body

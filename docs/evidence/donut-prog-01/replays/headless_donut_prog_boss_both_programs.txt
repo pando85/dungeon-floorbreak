@@ -1,3 +1,4 @@
+COMBAT_EVENT tick=1 kind=evade_armed hero=donut
 COMBAT_EVENT tick=9 kind=boss_engaged
 COMBAT_EVENT tick=9 kind=rack_armed rack=0
 COMBAT_EVENT tick=10 kind=boss_phase phase=2
@@ -17,5 +18,5 @@ COMBAT_EVENT tick=311 kind=boss_hurt source=0 damage=4 hp_left=0
 COMBAT_EVENT tick=311 kind=enemy_defeated target=16981 cause=drop_hazard credit_player=0 rack=0
 COMBAT_EVENT tick=311 kind=capability_granted hero=0 capability=fist_reinforced
 COMBAT_EVENT tick=311 kind=capability_granted hero=1 capability=special_short_blink
-COMBAT_STATE fixture=donut_prog_boss_both_programs seed=0xd900005 tick=420 elapsed=420 hero_hp=4 deaths=0 enemies= hash=d4a2eaab9381b2e7 boss=0/36/defeated/p3 boss_x=130.00
-PARTY_STATE fixture=donut_prog_boss_both_programs mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=befb7d69bbe94cfd
+COMBAT_STATE fixture=donut_prog_boss_both_programs seed=0xd900005 tick=420 elapsed=420 hero_hp=4 deaths=0 enemies= hash=6bf19fdee6a18da6 boss=0/36/defeated/p3 boss_x=130.00
+PARTY_STATE fixture=donut_prog_boss_both_programs mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=cc0c9ac951ee295c

@@ -77,6 +77,13 @@ impl Rig {
         self
     }
 
+    /// FA-Q19 (T26): the profile without the armed attempt start, so a control
+    /// that must be hit is not saved by the opener's armed reflex.
+    fn unarmed(mut self) -> Self {
+        self.tuning.donut_reflex = crate::agility::ReflexProfile::ShippedNoOpener;
+        self
+    }
+
     fn charges(mut self, charges: u8) -> Self {
         self.charges = charges;
         self
@@ -279,7 +286,8 @@ fn escape_control() -> PartyFixtureSim {
     run(
         &Rig::new("cf02_free_blink_escape", &ONE_PASSIVE)
             .no_dodge()
-            .control(),
+            .control()
+            .unarmed(),
         &[SWING_CLOSE],
         None,
         90,
@@ -356,10 +364,10 @@ const FIXTURES: [Fixture0; 4] = [
 
 /// The committed final hashes (`PartyFixtureSim::state_hash`).
 const GOLDENS: [u64; 4] = [
-    0xe84d048582c0dcff,
-    0xe76e543a244e5e9d,
-    0x335ee563df6987c7,
-    0x0bbe8ab8f53d7ae5,
+    0xe0c6ba28a040bf88,
+    0x532db55c2b81aaa2,
+    0xd8f21303ceefa993,
+    0x8253563539477545,
 ];
 
 #[test]

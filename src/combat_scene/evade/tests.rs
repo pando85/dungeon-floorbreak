@@ -5,13 +5,21 @@
 use std::path::PathBuf;
 
 use super::super::*;
+use crate::agility::ReflexProfile;
 use crate::agility::{EvadeSource, Reflex};
 use crate::boss_scene::Pilot;
 use crate::cf02::arena;
 use crate::combat::EnemyAi;
 use crate::donut_mana::DonutSetup;
 use crate::env_kit::EnvKit;
-use crate::party::{HeroId, PROVISIONAL_TUNING};
+use crate::party::{HeroId, PROVISIONAL_TUNING, PartyTuning};
+
+/// The DM-Q13 reset rules count the wait from the attempt start: the profile
+/// without the FA-Q19 armed start (`opener_*` tests below run the shipped one).
+const NO_OPENER: PartyTuning = PartyTuning {
+    donut_reflex: ReflexProfile::ShippedNoOpener,
+    ..PROVISIONAL_TUNING
+};
 use crate::party_scene::{PartyFixture, PartyFixtureSim, SlotHold, base, jump, swap};
 
 fn root() -> PathBuf {
@@ -57,7 +65,7 @@ fn empty_fixture(two_player: bool, script: &'static [SlotHold]) -> &'static Part
     Box::leak(Box::new(PartyFixture {
         base: &EMPTY_BASE,
         two_player,
-        tuning: PROVISIONAL_TUNING,
+        tuning: NO_OPENER,
         script,
         pilot: Pilot::None,
         donut: DonutSetup::unlocked(8),
@@ -217,6 +225,77 @@ fn a_restart_and_a_respawn_restart_the_wait() {
     assert_eq!(sim.combat.reflex().last_reset_tick(), respawn);
     sim.run_scripted(730);
     assert_eq!(armed_ticks(&sim), vec![720, respawn + 720]);
+}
+
+// ------------------------------------------------- FA-Q19: the armed start --
+
+/// The same empty room under the shipped profile (the FA-Q19 knob on).
+fn opener_sim(two_player: bool, script: &'static [SlotHold], shipped: bool) -> PartyFixtureSim {
+    let tuning = if shipped {
+        PROVISIONAL_TUNING
+    } else {
+        NO_OPENER
+    };
+    let fixture: &'static PartyFixture = Box::leak(Box::new(PartyFixture {
+        base: &EMPTY_BASE,
+        two_player,
+        tuning,
+        script,
+        pilot: Pilot::None,
+        donut: DonutSetup::unlocked(8),
+    }));
+    PartyFixtureSim::new(&corridor(), 360, fixture).unwrap()
+}
+
+/// FA-Q19 (T26): an attempt that begins with the biscuit starts armed, a restart
+/// starts armed again, a hurt still costs the full 720-tick wait, and the knob
+/// off is the earlier behaviour (armed at 720).
+#[test]
+fn an_attempt_that_begins_with_the_biscuit_starts_armed() {
+    let mut sim = opener_sim(true, &[], true);
+    sim.run_scripted(5);
+    assert_eq!(armed_ticks(&sim), vec![1], "armed on the first tick");
+    assert!(sim.combat.reflex().armed());
+    assert!(blow(&mut sim), "the first blow lands (it is not evadable)");
+    assert!(!sim.combat.reflex().armed(), "a hurt disarms");
+    let last = sim.scene.world.tick;
+    sim.run_scripted(719);
+    assert_eq!(
+        armed_ticks(&sim),
+        vec![1],
+        "not armed 719 ticks after the hurt"
+    );
+    sim.run_scripted(1);
+    assert_eq!(armed_ticks(&sim), vec![1, last + 720], "armed 720 after it");
+    // A restart is a new attempt: armed from its first tick again.
+    sim.combat.restart(&mut sim.scene);
+    sim.run_scripted(3);
+    assert!(armed_ticks(&sim).ends_with(&[1]), "{:?}", armed_ticks(&sim));
+    assert!(sim.combat.reflex().armed());
+    // Knob off: nothing before 720.
+    let mut off = opener_sim(true, &[], false);
+    off.run_scripted(719);
+    assert!(armed_ticks(&off).is_empty());
+    off.run_scripted(1);
+    assert_eq!(armed_ticks(&off), vec![720]);
+}
+
+/// FA-Q19: a mid-attempt unlock still resets the wait (DM-Q13): a run that
+/// begins locked does not start armed.
+#[test]
+fn a_run_that_begins_locked_does_not_start_armed() {
+    let fixture: &'static PartyFixture = Box::leak(Box::new(PartyFixture {
+        base: &EMPTY_BASE,
+        two_player: true,
+        tuning: PROVISIONAL_TUNING,
+        script: &[],
+        pilot: Pilot::None,
+        donut: DonutSetup::NONE,
+    }));
+    let mut sim = PartyFixtureSim::new(&corridor(), 360, fixture).unwrap();
+    sim.run_scripted(900);
+    assert!(armed_ticks(&sim).is_empty());
+    assert!(!sim.combat.reflex().ever_armed());
 }
 
 // ----------------------------------------------------------- the guards --
@@ -420,13 +499,25 @@ fn no_play_path_constructs_a_non_shipped_reflex_profile() {
             // whole; every other file, `agility_fixtures.rs` included (the binary
             // resolves its fixtures by name), is scanned up to its `#[cfg(test)]`
             // module.
-            let allowed = ["agility.rs", "agility_reflex_tests.rs", "tests.rs"];
+            // `pilot_fixtures.rs` and `ai_blink_fixtures.rs` are `#[cfg(test)]` modules of
+            // `donut_prog_fixtures` (FA-Q19: their blink rows run the unarmed profile).
+            let allowed = [
+                "agility.rs",
+                "agility_reflex_tests.rs",
+                "tests.rs",
+                "pilot_fixtures.rs",
+                "ai_blink_fixtures.rs",
+            ];
             if allowed.contains(&name.as_str()) {
                 continue;
             }
             let text = std::fs::read_to_string(&path).unwrap();
             let code = play_code(&name, &text);
-            for needle in ["ReflexProfile::Off", "ReflexProfile::Rearm"] {
+            for needle in [
+                "ReflexProfile::Off",
+                "ReflexProfile::Rearm",
+                "ReflexProfile::ShippedNoOpener",
+            ] {
                 assert!(
                     !code.contains(needle),
                     "{} builds {needle} outside tests",
@@ -450,7 +541,7 @@ fn arena_sim(
     let fixture: &'static PartyFixture = Box::leak(Box::new(PartyFixture {
         base,
         two_player: true,
-        tuning: PROVISIONAL_TUNING,
+        tuning: NO_OPENER,
         script,
         pilot: Pilot::None,
         donut: DonutSetup::unlocked(8),

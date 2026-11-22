@@ -1,3 +1,4 @@
+COMBAT_EVENT tick=1 kind=evade_armed hero=donut
 COMBAT_EVENT tick=40 kind=special_started hero=1 capability=special_short_blink
 COMBAT_EVENT tick=46 kind=mana_spent hero=1 left=6
 COMBAT_EVENT tick=46 kind=blink_resolved hero=1 from_x=340 to_x=452
@@ -9,6 +10,5 @@ COMBAT_EVENT tick=606 kind=mana_spent hero=1 left=6
 COMBAT_EVENT tick=606 kind=blink_resolved hero=1 from_x=656 to_x=724
 COMBAT_EVENT tick=676 kind=mana_regained hero=1 now=7
 COMBAT_EVENT tick=716 kind=mana_regained hero=1 now=8
-COMBAT_EVENT tick=720 kind=evade_armed hero=donut
-COMBAT_STATE fixture=donut_prog_arena_blink_tour seed=0xd900008 tick=720 elapsed=720 hero_hp=4 deaths=0 enemies= hash=c30f008b2dac6dc8
-PARTY_STATE fixture=donut_prog_arena_blink_tour mode=2p controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=90775214f5ef5cbe
+COMBAT_STATE fixture=donut_prog_arena_blink_tour seed=0xd900008 tick=720 elapsed=720 hero_hp=4 deaths=0 enemies= hash=52c7867f43575fed
+PARTY_STATE fixture=donut_prog_arena_blink_tour mode=2p controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=90998a5d28e8da53

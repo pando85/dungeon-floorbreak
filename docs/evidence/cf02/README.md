@@ -80,7 +80,7 @@ Reading: the scripted plans never produce the skill-gated chain CINE-01 asks for
 | `cf02_llama_swat_interrupt` | `bd692a6b647a2a41` | cf02/replays | match |
 | `cf02_llama_swat_guard` | `764dbd2f40240d1e` | cf02/replays | match |
 | `cf02_llama_pounce` | `b463444627b7960e` | cf02/replays | match |
-| `cf02_llama_bolt_stops` | `2c8ac75e74727a0e` | cf02/replays | match |
+| `cf02_llama_bolt_stops` | `579f344f68263c67` | cf02/replays | match |
 | `cf02_donut_solo_llama` | `e1eae0ffae9bc431` | cf02/replays | match |
 | `cf02_donut_bailout` | `50c5db024da0ce67` | cf02/replays | match |
 | `cf02_swap_eased_pan` | `cb19d498fcbcaee8` | cf02/replays | match |

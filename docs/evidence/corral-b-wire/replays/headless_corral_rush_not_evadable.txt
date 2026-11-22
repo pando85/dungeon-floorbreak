@@ -1,6 +1,7 @@
+COMBAT_EVENT tick=1 kind=evade_armed hero=donut
 COMBAT_EVENT tick=1 kind=llama_rush_tell llama=0
 COMBAT_EVENT tick=33 kind=llama_rush_commit llama=0
 COMBAT_EVENT tick=47 kind=hero_hurt source=19538 health_left=3 hero=donut
 COMBAT_EVENT tick=47 kind=llama_rush_end llama=0 end=contact_donut
-COMBAT_STATE fixture=corral_rush_not_evadable seed=0xc0da001a tick=220 elapsed=220 hero_hp=4 deaths=0 enemies= hash=af87c6c6347e39dd llamas=l0=540.000/3
-PARTY_STATE fixture=corral_rush_not_evadable mode=2p controlled=Carl carl_hp=4 donut_hp=3 deaths=0 hash=8a5150638e230583
+COMBAT_STATE fixture=corral_rush_not_evadable seed=0xc0da001a tick=220 elapsed=220 hero_hp=4 deaths=0 enemies= hash=ccfb164e99c49b53 llamas=l0=540.000/3
+PARTY_STATE fixture=corral_rush_not_evadable mode=2p controlled=Carl carl_hp=4 donut_hp=3 deaths=0 hash=2f01029a1cdf33c9
