@@ -41,6 +41,10 @@ A linear **Metal Slug-like** floor must not feel like a menu of ten unrelated mi
 
 **Important:** Proposed qualitative pressure targets are **not measured difficulty**, and scripted/bot results can never replace owner human enjoyment or real two-controller evidence. Pair two readable roles before escalating to three simultaneous demands; preserve Floor 01 live-roster budget. Do not increase enemy HP merely to stretch an encounter. A story-critical route must always work without optional props/spells.
 
+## Production handoff, not just a pitch
+
+The complete agent-ready [implementation task queue](../07-agents/floor-02-vacation-execution-packet.md) defines W00–W16 across integrator, pure gameplay, art and QA. Its [current-code architecture reuse map](../03-tech/floor-02-engine-reuse-and-route-contract.md) is more specific than any speculative new floor engine. The [pretrip owner game-feel baseline template](../04-production/floor-02-pretrip-gameplay-baseline-template.md) must be filled and accepted by a human after real Floor01 tests; its existence is **not owner acceptance**. Implementation agents must preserve the existing story and controller invariants, not rewrite Floor01 to make Floor02 run.
+
 ## 1. Identity and pillars
 
 Working floor title: **THE LAST LESSON**. Visual world: **CONCRETE HELL**.
