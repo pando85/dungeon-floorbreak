@@ -1212,6 +1212,18 @@ impl StoryRuntime {
         Ok(())
     }
 
+    /// DONUT-PROG-01 DP-Q27 rule 4c: the zones of every zone trigger that has
+    /// not fired yet and that reads `hero`'s pivot, in table order. A blink may
+    /// end inside one but never jump across it.
+    pub fn unfired_zones(&self, hero: u8) -> Vec<ZoneRow> {
+        self.triggers
+            .iter()
+            .filter(|state| !state.fired)
+            .filter_map(|state| state.row.zone)
+            .filter(|zone| zone.hero == hero)
+            .collect()
+    }
+
     /// The skipped grant entries, one line each (debug only).
     pub fn debug_log(&self) -> &[String] {
         &self.debug_log

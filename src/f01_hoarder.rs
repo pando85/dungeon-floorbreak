@@ -114,6 +114,8 @@ pub fn launch(root: &Path) -> Result<HoarderRun, String> {
             h: 16,
         });
     }
+    // DP-Q35: the room's optional blink barriers (search only, never collision).
+    kit.blink_barriers = loaded.room.kit_blink_barriers();
     let start = loaded.room.spawn_carl;
     let checkpoint = loaded.encounter.checkpoint;
     let checkpoint_x = checkpoint.x + checkpoint.w / 2;

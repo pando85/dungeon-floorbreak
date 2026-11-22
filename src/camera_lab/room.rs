@@ -201,6 +201,11 @@ pub struct Room {
     /// field is absent) means no ceiling. Read by the room's loader, never by
     /// the composer: nothing is drawn.
     pub ceiling_px: Option<i32>,
+    /// DONUT-PROG-01 DP-Q35: optional rectangles (absent = none) that a blink may
+    /// not cross: a protected gap or a gate whose intended solution is not a
+    /// blink. Room px like a hazard (`y` is the top, so the box stands
+    /// `bottom` px above the floor and `h` tall). Collision never reads them.
+    pub blink_barriers: Vec<IRect>,
     /// The protected exit: a walk-in region at the end of the floor.
     pub exit: IRect,
     /// How far everything of the scenario moved in y to meet the tile grid.
@@ -380,6 +385,31 @@ fn parse_room(s: &serde_json::Value) -> Result<Room, String> {
             _ => return Err(ctx("ceiling_px must be a positive integer".into())),
         },
     };
+    let mut blink_barriers = Vec::new();
+    if let Some(list) = s.get("blink_barriers") {
+        let list = list
+            .as_array()
+            .ok_or_else(|| ctx("blink_barriers must be an array".into()))?;
+        for (index, b) in list.iter().enumerate() {
+            let at = |why: &str| ctx(format!("blink_barriers[{index}]: {why}"));
+            let (x, w, h) = (
+                int(b, "x").map_err(|e| at(&e))?,
+                int(b, "w").map_err(|e| at(&e))?,
+                int(b, "h").map_err(|e| at(&e))?,
+            );
+            let bottom = match b.get("bottom") {
+                None => 0,
+                Some(v) => v
+                    .as_i64()
+                    .map(|n| n as i32)
+                    .ok_or_else(|| at("bottom must be an integer"))?,
+            };
+            if w <= 0 || h <= 0 {
+                return Err(at("w and h must be positive"));
+            }
+            blink_barriers.push(IRect::new(x, floor_y - bottom - h, w, h));
+        }
+    }
     let goal_x = int(s, "goal_x").map_err(ctx)?;
     let mut room = Room {
         id: id.clone(),
@@ -400,6 +430,7 @@ fn parse_room(s: &serde_json::Value) -> Result<Room, String> {
         solid_backwall,
         goal_x,
         ceiling_px,
+        blink_barriers,
         exit: IRect::new(goal_x - 24, floor_y - 96, 64, 96),
         snap_dy: dy,
         purpose: text(s, "purpose").map_err(ctx)?,
@@ -499,6 +530,20 @@ pub enum PropState {
 }
 
 impl Room {
+    /// DP-Q35: the room's `blink_barriers` as the kit carries them (layout px,
+    /// y down), for the loader that builds the scene's `EnvKit`.
+    pub fn kit_blink_barriers(&self) -> Vec<crate::env_kit::IRect> {
+        self.blink_barriers
+            .iter()
+            .map(|r| crate::env_kit::IRect {
+                x: r.x,
+                y: r.y,
+                w: r.w,
+                h: r.h,
+            })
+            .collect()
+    }
+
     pub fn render_w(&self) -> i32 {
         self.render.0
     }

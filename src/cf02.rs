@@ -1260,6 +1260,7 @@ pub mod arena {
                 h: 16,
             });
         }
+        kit.blink_barriers = room.kit_blink_barriers();
         kit.layout_id = LAYOUT_ID.to_owned();
         kit.exit = None;
         Ok(kit)

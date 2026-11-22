@@ -396,10 +396,19 @@ impl DonutMana {
     /// restart the regen timer, discarding partial progress. `None` and no
     /// change when the pool cannot pay.
     pub fn release(&mut self, tuning: &ManaTuning, tick: u64) -> Option<ManaEvent> {
-        if !self.can_start_cast(tuning) {
+        self.spend(tuning.missile_cost, tick)
+    }
+
+    /// DONUT-PROG-01 DP-Q23, appended: pay `cost` charges and restart the regen
+    /// timer exactly as a missile release does (30 ticks of delay, then one per
+    /// 40), discarding partial progress. `None` and no change while locked or
+    /// when the pool cannot pay. [`Self::release`] is this with the missile's
+    /// cost, so mana keeps one rule.
+    pub fn spend(&mut self, cost: u8, tick: u64) -> Option<ManaEvent> {
+        if !self.unlocked || self.mana < cost {
             return None;
         }
-        self.mana -= tuning.missile_cost;
+        self.mana -= cost;
         self.since_release = 0;
         self.regained = 0;
         Some(ManaEvent::ManaSpent {
