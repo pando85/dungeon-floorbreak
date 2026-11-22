@@ -1124,6 +1124,14 @@ mod tests {
             )),
             "neither blast reaches Carl"
         );
+        // The committed final hash of this new fixture, as this test drives the room (the
+        // inputs of slot 0 only; the binary's run, with the room scene's follower bot, ends on
+        // the scorecard's `f1156c1548e7008a` instead): a drift is a deliberate re-pin.
+        assert_eq!(
+            combat.state_hash(&scene),
+            0x4b32_c6da_d3be_c5f2,
+            "the committed final hash"
+        );
         let (again, combat_again) = play();
         assert_eq!(
             combat.state_hash(&scene),

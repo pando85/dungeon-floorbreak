@@ -121,4 +121,4 @@ The per-seed live rows are in the "live room" table above.
 | direct (solo Carl, plus the follower bot) | 3 | 3 | 15 | 2 | 2 | 2 | hp 1, deaths 3, hash 9466c18097e5e14a |
 | haz_spectacular (dynamite lights the latched sticker; solo Carl, plus the follower bot) | 0 | 0 | 2 | 3 | 2 | 2 | hp 2, deaths 0, hash f1156c1548e7008a |
 
-The `direct` room pilot walks into the pockets and is defeated and retries; it does not dodge hazards (it is a filming pilot, not a player). `haz_spectacular` is the PT-TUNE pilot plus one dynamite throw (PT-GATE-D). The tactical route (a latched Rot baited over a goblin) is NOT RUN: see the packet's known gaps.
+The `direct` room pilot walks into the pockets and is defeated and retries; it does not dodge hazards (it is a filming pilot, not a player). `haz_spectacular` is the PT-TUNE pilot plus one dynamite throw (PT-GATE-D). The tactical route (HAZ-07 pattern 2: R2 baited over S2) and the direct-route clip are NOT RUN: see the packet's known gaps.

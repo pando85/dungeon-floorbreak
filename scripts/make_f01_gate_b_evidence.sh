@@ -126,7 +126,7 @@ count() { grep -c "kind=$1" <<<"$hz" || true; }
   sleft="$(grep '^F01_HAZARDS_SMOKE_OK ' <<<"$sp" | sed -E 's/.* enemies=([0-9]+) .*/\1/')"
   echo "| haz_spectacular (dynamite lights the latched sticker; solo Carl, plus the follower bot) | $(scount hero_defeated) | $(scount respawn) | $(scount hero_hurt) | $(scount blast) | $(scount rot_provoked) | ${sleft:-NOT RUN} | $sstate |"
   echo
-  echo "The \`direct\` room pilot walks into the pockets and is defeated and retries; it does not dodge hazards (it is a filming pilot, not a player). \`haz_spectacular\` is the PT-TUNE pilot plus one dynamite throw (PT-GATE-D). The tactical route (a latched Rot baited over a goblin) is NOT RUN: see the packet's known gaps."
+  echo "The \`direct\` room pilot walks into the pockets and is defeated and retries; it does not dodge hazards (it is a filming pilot, not a player). \`haz_spectacular\` is the PT-TUNE pilot plus one dynamite throw (PT-GATE-D). The tactical route (HAZ-07 pattern 2: R2 baited over S2) and the direct-route clip are NOT RUN: see the packet's known gaps."
 } >> "$out/scorecard.md"
 
 (cd "$out" && sha256sum ./*.gif ./*.png ./*.txt ./*.md | grep -v ' ./README.md$' | sed 's# \./# #' > SHA256SUMS)
