@@ -4,6 +4,14 @@
 
 **References and hierarchy:** AGENTS.md; [gameplay/combat first](combat-first-encounter-design.md); [owner-approved control contract](mvp-controller-contract.md); [character progression horizon](character-progression-horizon.md); [no-inventory ADR](../05-decisions/ADR-0010-combat-first-progression.md); [visual bible](../02-art/floor-03-over-city-art-direction.md); [agent work order](../07-agents/floor-03-design-to-production-roadmap.md). Floor 02 has its own [design PR #239](https://github.com/pando85/dungeon-floorbreak/pull/239), currently a separate unmerged design branch. Do not import new hypothetical Floor02 APIs as if they already existed.
 
+## Deep circus design and production references — required for chapters B/C
+
+- [F03-CIRCUS-01 — complete S02–S06 playable choreography, fair physical setpieces and direct/optional victory paths](floor-03-circus-encounters-and-stagecraft.md).
+- [F03-GRIM-01 — Grimaldi nonlethal boss state machine, Signet reunion, original story action and 1P/2P authority](floor-03-grimaldi-resolution-and-coop.md).
+- [F03-CIRCUS-ART-01 — four original scene keys, tragic Heather and rooted *Pestiferous Vine* visual/readability gate](../02-art/floor-03-circus-visual-storytelling.md).
+
+**Canon-to-gameplay decisions that remain PROPOSALS:** In Book 2 Carl destroys three Big Top poles and achieves Grimaldi's resolution using poison, healing, parasite communication and a producer bargain. Our combat adaptation makes those supports **optional tactical advantages** rather than three mandatory switches, and keeps Donut playable during Heather/Grimaldi despite the Water Lily curse in the source. These deviations must be reviewed by the owner, not silently treated as the novel's chronology.
+
 ## 0. Artistic thesis — welcome to a city built as a stage and a prison
 
 The player leaves the pale enclosed Floor02 industrial structure and steps into a huge, false outdoor sky. The Over City is not a generic medieval town. It is a **decaying city-sized television set**: a night sky that never quite looks natural, crooked timber villages and impossible masonry ruins sitting above a volcanic scar, high-hanging propaganda and gleaming administrative wards, a carnival whose monstrous performances will not end. Fantasy elements are dressed with **1980s/90s action-film staging, grotesque game-show production and industrial backstage mechanics**.
