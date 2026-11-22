@@ -345,6 +345,20 @@ fn the_allow_list_has_three_call_sites_and_the_guards_come_first() {
         calls, 3,
         "swing, ram and glob: a new source must opt in here"
     );
+    // HAZ-B: the slime's lunge is the one opt-in that reaches the reflex through
+    // the lent gate (`SlotStepCtx::evade`) instead of `evade_check`: exactly one
+    // call site, in the slime's slot adapter, and no other slot module asks.
+    let slot_modules = ["slime.rs", "slot.rs", "pile_boss.rs", "env.rs"];
+    for name in slot_modules {
+        let text = std::fs::read_to_string(root().join("src/combat_scene").join(name)).unwrap();
+        let code = text.split("#[cfg(test)]\nmod ").next().unwrap_or("");
+        let gate_calls = code.matches("EvadeSource::").count();
+        assert_eq!(
+            gate_calls,
+            usize::from(name == "slime.rs"),
+            "{name}: only the slime's adapter names an evadable source"
+        );
+    }
 }
 
 /// The part of a source file a play path can reach: everything before its

@@ -14,6 +14,7 @@ use super::live::{self, LiveRecorder};
 use super::live_tests::{DemoRig, TempDir, real_kit_hash, root};
 use super::tests_verify::tamper_manifest;
 use super::*;
+use crate::combat::CombatEvent;
 use crate::combat_scene::CombatState;
 use crate::companion::profile::ProfileSetId;
 use crate::corridor::SceneSim;
@@ -671,4 +672,41 @@ fn only_the_listed_rooms_sessions_may_carry_their_own_room() {
         Some("boiler"),
         None
     )));
+}
+
+/// HAZ-B evidence, not a check: record the scripted hazard-room route into the
+/// directory named by `HAZB_SESSION_DIR` (so the replay viewer can draw it and
+/// capture window frames), and print the ticks of the events worth a frame.
+/// `cargo test -- --ignored write_the_hazard_evidence_session`.
+#[test]
+#[ignore = "evidence generator: needs HAZB_SESSION_DIR"]
+fn write_the_hazard_evidence_session() {
+    let base = std::env::var("HAZB_SESSION_DIR").expect("HAZB_SESSION_DIR");
+    let mut rig = RoomRig::start(Path::new(&base), "hazards", Loadout::Story);
+    // A steady walk right with a jab now and then and a hop over the pool: it
+    // reaches the slime, both pockets' stickers and the acid.
+    for tick in 0..1500u64 {
+        rig.step(RawInput {
+            move_x: 1.0,
+            attack: tick % 23 == 0,
+            jump: tick % 97 == 40,
+            ..RawInput::NONE
+        });
+    }
+    for e in &rig.combat.events {
+        match e {
+            CombatEvent::RotProvoked { tick, sticker, .. } => {
+                println!("HAZB_EVENT rot_provoked tick={tick} sticker={sticker}");
+            }
+            CombatEvent::HeroHurt { tick, source, .. } => {
+                println!("HAZB_EVENT hero_hurt tick={tick} source={source:#x}");
+            }
+            CombatEvent::EnemyDefeated { tick, target, .. } => {
+                println!("HAZB_EVENT defeated tick={tick} target={target:#x}");
+            }
+            _ => {}
+        }
+    }
+    let manifest = rig.rec.finish("test").expect("finished");
+    println!("HAZB_SESSION {}", manifest.session_id);
 }

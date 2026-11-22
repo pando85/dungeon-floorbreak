@@ -68,16 +68,13 @@ impl CombatState {
             })
             .unwrap_or_default();
         // The same hero-hurting set the companion's nav graph is fed (CA2-C).
-        let hazards: Vec<Rect> = self
-            .env
-            .as_ref()
-            .map(|env| {
-                hazards_from_feed(&env.nav_feed(), scene.world.layout_height())
-                    .into_iter()
-                    .map(|hazard| hazard.rect)
-                    .collect()
-            })
-            .unwrap_or_default();
+        let hazards: Vec<Rect> = hazards_from_feed(
+            &self.hazard_feed(scene.world.layout_height(), scene.world.tick),
+            scene.world.layout_height(),
+        )
+        .into_iter()
+        .map(|hazard| hazard.rect)
+        .collect();
         let view = scene.view_x();
         let drive = scene.drive();
         let partner = drive.two_player.then(|| {

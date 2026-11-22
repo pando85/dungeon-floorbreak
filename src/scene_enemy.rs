@@ -318,6 +318,10 @@ pub struct SlotStepCtx<'a> {
     /// spacing allows a new tell this tick (`MAX_ATTACKERS`, `TELL_SPACING`).
     /// An enemy that starts a tell sets [`SlotOut::tell_started`].
     pub token_free: bool,
+    /// HAZ-B: Donut's cat reflex, lent for this step to an enemy whose attack
+    /// DM-Q17 lists as evadable (the slime's lunge). `None` in a step that has
+    /// no reflex to lend (the pile boss' own tests, fixtures of other kinds).
+    pub evade: Option<&'a std::cell::RefCell<crate::agility::EvadeGate>>,
 }
 
 // ------------------------------------------------------------- the trait

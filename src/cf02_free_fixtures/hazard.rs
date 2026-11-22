@@ -588,8 +588,8 @@ mod acid {
     /// The drain: the slime falls on tick 2, the patch shrinks over 60 ticks and is
     /// removed on the 61st. She is not hurt, never enters the live patch and does
     /// not stall: once it is gone and Carl steps on, she crosses to him. The feed
-    /// rounds outward to 8 px (CA2-Q29), so the graph is rebuilt 6 times across the
-    /// drain, not about 48 (the rectangle moves about 1 px every 1.25 ticks).
+    /// rounds outward to 8 px (CA2-Q29), so the graph is rebuilt 7 times across the
+    /// drain (6 for the pool, one for the slime's row leaving the feed), not about 48 (the rectangle moves about 1 px every 1.25 ticks).
     #[test]
     fn a_draining_patch_is_avoided_and_costs_a_handful_of_rebuilds() {
         let r = run(Some(0), 400);
@@ -604,5 +604,8 @@ mod acid {
         assert_eq!((again.hash, again.feed_changes), (r.hash, r.feed_changes));
     }
 
-    const REBUILDS: u32 = 6;
+    /// HAZ-B re-pin, 6 to 7: the slime's contact box is a feed row now (spec section
+    /// 13, item 4), so the feed also changes when the slime that dies on tick 2
+    /// leaves it (one more list change, not one more per pixel of drain).
+    const REBUILDS: u32 = 7;
 }

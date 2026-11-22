@@ -186,6 +186,14 @@ fn attacker_side(
             combat.enemies.get(source as usize).map(|g| g.x)
         }
         EvadeSource::LlamaGlob => combat.globs.iter().find(|g| g.owner == source).map(|g| g.x),
+        // HAZ-B: the slime's lunge; `source` is its slot target id.
+        EvadeSource::SlimeLunge => combat
+            .slot_enemies()
+            .iter()
+            .find(|e| e.target_id() == source)
+            .and_then(|e| e.as_any())
+            .and_then(|a| a.downcast_ref::<crate::combat_scene::slime::SlimeEnemy>())
+            .map(|s| s.slime().x),
     };
     match x {
         Some(x) if x < donut_x => -1,

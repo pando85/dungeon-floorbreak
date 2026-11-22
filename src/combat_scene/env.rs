@@ -604,6 +604,21 @@ impl EnvRuntime {
             .and_then(|s| s.sticker.as_ref())
     }
 
+    /// HAZ-B: charge `charge` is a Rot Sticker's authored charge (the presenter
+    /// draws the sticker's own art, never a dynamite stick, on its slot).
+    pub fn sticker_owns_charge(&self, charge: usize) -> bool {
+        self.stickers.iter().any(|s| s.charge == charge)
+    }
+
+    /// HAZ-B: the stickers in prop order, each with its sidecar prop index and its
+    /// authored charge's index in `CombatState.charges` (the hazard feed and the
+    /// presenter read them).
+    pub fn stickers(&self) -> impl Iterator<Item = (u16, &RotSticker, usize)> {
+        self.stickers
+            .iter()
+            .filter_map(|s| s.sticker.as_ref().map(|st| (s.prop, st, s.charge)))
+    }
+
     /// The acid patches.
     pub fn acid(&self) -> &AcidSet {
         &self.acid
@@ -1404,7 +1419,7 @@ impl CombatState {
     pub fn env_owns_charge(&self, charge: usize) -> bool {
         self.env
             .as_ref()
-            .is_some_and(|e| e.drum_of_charge(charge).is_some())
+            .is_some_and(|e| e.drum_of_charge(charge).is_some() || e.sticker_owns_charge(charge))
     }
 
     /// After a restart or a respawn: the solids follow the props at once, not
