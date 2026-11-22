@@ -1052,9 +1052,10 @@ pub mod scene_pilots {
     /// go and the weight lands, then fight what is left and walk to the exit;
     /// whenever an awake goblin is within 70 px the `direct` fight takes over,
     /// and the step machine resumes afterwards. [`Plan::Weight`] has no live
-    /// counterpart. (The `room_pilots` `chain` plan is not used: with a CF02
-    /// seed and a party it stalls at x 556, 4 px short of the B3 goblins' wake
-    /// trigger at 560, and waits forever.) The partner is the library
+    /// counterpart. (The `room_pilots` `chain` plan is not used here: with a CF02
+    /// seed and a party it parked Carl at x 556 and waited forever; PT-GATE-C1 fixed
+    /// that in `room_pilots` and pins it with its own live-roster test, but the
+    /// live pins below are the `direct` and `both` plans.) The partner is the library
     /// fixtures' (`f01_mastery_fixtures::tuning`): `cf02_assist` with the 12-tick
     /// swap for [`Who::CarlSolo`] and [`Who::DonutBySwap`], the autonomous
     /// `cf02_free` partner for [`Who::Companion`] (Donut is the AI hero and
@@ -1109,6 +1110,7 @@ pub mod scene_pilots {
         let fight_or_walk = RoomPilot {
             plan: RoomPlan::Direct,
             two_player: false,
+            aligned: None,
         };
         let mut steps = Driver::new(live_steps);
         let mut last_x = [sim.scene.world.hero.x, sim.scene.world.donut_body.x];

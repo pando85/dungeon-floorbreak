@@ -35,7 +35,9 @@ const KICK_STAND_X: f32 = 380.0;
 /// Where the chain pilot walks to wake the goblins that are still asleep, and
 /// how close (px) a goblin must be to count as following him.
 const LURE_X: f32 = 560.0;
-/// The overshoot past the wake trigger (px): `walk_to` stops within 4 px of its target.
+/// `walk_to` stops within this many px of its target.
+const WALK_DEADZONE: f32 = 4.0;
+/// How far inside `LURE_RANGE` the lure walks (px): past the dead zone of `walk_to`.
 const LURE_MARGIN: f32 = 6.0;
 const LURE_RANGE: f32 = 200.0;
 /// Carl backs off while the follower is nearer than this (px).
@@ -347,7 +349,11 @@ fn blocked_ahead(sim: &SceneSim, dir: f32) -> bool {
 fn walk_to(sim: &SceneSim, x: f32) -> RawInput {
     let hero = &sim.world.hero;
     let dx = x - hero.x;
-    let dir = if dx.abs() < 4.0 { 0.0 } else { dx.signum() };
+    let dir = if dx.abs() < WALK_DEADZONE {
+        0.0
+    } else {
+        dx.signum()
+    };
     RawInput {
         move_x: dir,
         jump: hero.grounded && dir != 0.0 && blocked_ahead(sim, dir),
@@ -535,14 +541,34 @@ fn chain(combat: &CombatState, sim: &SceneSim, exit_x: f32) -> RawInput {
                 })
                 .map(|g| g.x - hero.x)
                 .min_by(f32::total_cmp);
+            // A live party with an AI hero (not two players): the partner takes part.
+            let ai_partner = sim.drive().live && !sim.drive().two_player;
+            // The nearest live goblin ahead that no follower rule has claimed yet.
+            let sleeper_ahead = combat
+                .enemies
+                .iter()
+                .filter(|g| g.alive() && g.ai == crate::combat::EnemyAi::Chase && g.x > hero.x)
+                .map(|g| g.x)
+                .min_by(f32::total_cmp);
             match follower {
                 Some(gap) if gap < KITE_GAP && hero.x > KICK_STAND_X => walk_to(sim, KICK_STAND_X),
+                // With an AI partner on the field a goblin may target her and never come:
+                // close in until it is a kite gap away. (An unaccompanied run, and the
+                // two-player run, are unchanged: their committed pilot hashes pin them.)
+                Some(gap) if ai_partner && gap > KITE_GAP + 10.0 => walk_to(sim, hero.x + 20.0),
                 Some(_) => RawInput::NONE,
                 // PTG fix (the chain wake step overshoot): `walk_to` stops within 4 px of its
-                // target, so aiming at the trigger itself parked Carl on x 556..560, short of
-                // the room data's wake trigger, forever. Walk on past it.
-                None if hero.x < LURE_X + LURE_MARGIN => walk_to(sim, LURE_X + 2.0 * LURE_MARGIN),
-                None => RawInput::NONE,
+                // target, so the old `hero.x < LURE_X` arm parked Carl on x 556..560 and held
+                // him there forever. This arm ends where `walk_to` does; Carl then walks on
+                // until a sleeper is within `LURE_RANGE` (a goblin wakes on a hero within 220
+                // px, so a trigger column of the room data is not what wakes it).
+                None if hero.x < LURE_X - WALK_DEADZONE => walk_to(sim, LURE_X),
+                None => match sleeper_ahead {
+                    Some(gx) if ai_partner && hero.x < gx - LURE_RANGE + LURE_MARGIN => {
+                        walk_to(sim, gx - LURE_RANGE + 2.0 * LURE_MARGIN)
+                    }
+                    _ => RawInput::NONE,
+                },
             }
         }
         // The steam runs: whoever comes is fought, nothing else.
@@ -638,13 +664,12 @@ mod tests {
 
     /// PTG fix (the chain wake step overshoot): with a live party the chain plan used to
     /// park Carl on x 556..560, short of the room data's 560 wake trigger, and never
-    /// reached the exit. On the live Boiler roster at seeds 0..=8, with the follow-and-jump
-    /// bot and with the autonomous partner, the plan reaches the exit within 3000 ticks and
+    /// reached the exit. On the live Boiler roster at seeds 0..=8, with the `cf02_assist`
+    /// partner and with the autonomous one, the plan reaches the exit within 3000 ticks and
     /// Carl is never told to walk and stays still for more than 300 ticks.
     #[test]
     fn the_chain_plan_with_a_party_reaches_the_exit_on_the_live_boiler_at_every_seed() {
-        use crate::companion::profile::ProfileSetId;
-        use crate::party::{PROVISIONAL_TUNING, UncontrolledHero};
+        use crate::f01_mastery_fixtures::{Who, tuning};
         use crate::party_scene::{PartyFixture, PartyFixtureSim};
         let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         let (carl, donut) = Loadout::Story.flags();
@@ -653,14 +678,9 @@ mod tests {
             two_player: false,
             aligned: None,
         };
-        for tuning in [
-            PROVISIONAL_TUNING.with_cf02_swap(),
-            PartyTuning {
-                uncontrolled_hero: UncontrolledHero::Companion(ProfileSetId::Cf02Free),
-                ..PROVISIONAL_TUNING
-            }
-            .with_cf02_swap(),
-        ] {
+        // The live room's partners, as the `boiler_fixtures` live pilots run them:
+        // the `cf02_assist` partner and the autonomous `cf02_free` one.
+        for tuning in [tuning(Who::CarlSolo), tuning(Who::Companion)] {
             for seed in 0..=8u64 {
                 let (run, scene, combat) =
                     boiler_start_with(&root, 360, carl, donut, Some(seed), Roster::Live).unwrap();
