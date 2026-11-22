@@ -524,3 +524,5 @@ Every rule is a `fix_all` flag with its numbers as data; flags off reproduce the
 
 FA-Q30 record: M2 shadowing 60 / 31 / 31 / 52 / 34 / 60 / 52 / 52 / 52 % before and 60 / 31 / 31 / 54 / 34 / 50 / 54 / 54 / 54 % after (target at most 20 %): two iterations (the re-pick also for Hunt, threshold 12 then 6) moved only some seeds, up on others, and were dropped. She shadows him mostly while hunting the goblin he walks to.
 
+FA-Q08 (room 5): `--scene f01_late --f01-room juicer` accepts `--companion` like rooms 2, 4 and 6; its boss fixture is the scene's own placeholder (`user_fixture()` no longer counts it), and with FA-Q07 met the room defaults to `cf02_free`. `--companion off` restores the follow-and-jump bot (the plan wrote `v0`, which is the `companion_v0` profile set, so it is a distinct choice here).
+

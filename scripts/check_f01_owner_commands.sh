@@ -38,6 +38,9 @@ try ok $S --f01-room mastery --companion cf02_free
 try ok $S --f01-room boiler --companion cf02_assist
 try ok $S --f01-room hazards --companion cf02_free
 try ok $S --f01-room hazards --companion off
+# FA-Q08: room 5 (the Juicer) takes --companion like rooms 2, 4 and 6; off restores the follow bot.
+try ok $S --f01-room juicer --companion cf02_free
+try ok $S --f01-room juicer --companion off
 try refuse $S --f01-room mastery --fixture cp01_kick --companion cf02_free
 try ok $S --f01-room boiler --debug-combat
 try ok --cf02 --cf02-engineer --donut-biscuit --scale 2
