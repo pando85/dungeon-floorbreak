@@ -452,7 +452,7 @@ fn a_rush_never_spits_and_telling_is_false_from_attack_tick_32() {
 }
 
 #[test]
-fn a_floor_donut_is_never_spat_at_the_llama_walks_to_112_and_rushes() {
+fn a_floor_donut_is_never_spat_at_the_llama_walks_into_the_128_trigger_and_rushes() {
     let sim = run("corral_spit_height_rule", 200);
     assert!(
         all(&sim, |e| matches!(e, CombatEvent::LlamaSpit { .. })

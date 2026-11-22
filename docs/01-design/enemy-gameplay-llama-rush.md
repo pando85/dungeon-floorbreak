@@ -175,7 +175,7 @@ Physics: `RUN_SPEED` 185 (Carl), DM-Q01 207 (Donut); launches 440 and 500; gravi
 
 ### Interrupt windows
 
-Latest attack tick on which Donut, already facing the llama, can press Primary so the bolt lands before the commit (attack tick 32): 27 at 0..36 px, 25 at 64 px, 20 at 96 px, 17 at 112 px, 14 at 128 px. Carl's jab (startup 3, reach 34 px) interrupts only from point-blank.
+Latest attack tick on which Donut, already facing the llama, can press Primary so the bolt lands on or before attack tick 32 (a strike resolves before the llama's own step of that tick, so tick 32 still meets the Tell; the wire stage corrected this table by one tick): 28 at 0..36 px, 26 at 64 px, 21 at 96 px, 18 at 112 px, 15 at 128 px. Carl's jab (startup 3, reach 34 px) interrupts only from point-blank.
 
 ### Punish after a clean jump
 
