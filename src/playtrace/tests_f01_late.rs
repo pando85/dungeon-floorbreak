@@ -265,7 +265,8 @@ fn assert_scoped_stamps(loaded: &LoadedSession, room: &str) {
 #[test]
 fn a_recorded_hoarder_session_verifies_strict() {
     // PTG-AD1: her direct scene has no loadout label (the rig ignores the loadout for her).
-    for loadout in [Loadout::Story] {
+    {
+        let loadout = Loadout::Story;
         let dir = TempDir::new("f01-hoarder");
         let mut rig = RoomRig::start(&dir.0, "hoarder", loadout);
         assert_eq!(
