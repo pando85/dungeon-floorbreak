@@ -19,6 +19,26 @@ Read [F03-CIRCUS-01](../01-design/floor-03-circus-encounters-and-stagecraft.md),
 
 **Current priority stays Floor02 S00–S03 gameplay**, not rushing a second floor before the first is playable. The first coherent Floor03 slice remains S00/S01/S02; art keys and pure isolated bosses for later scenes may proceed without touching shared F01/F02 files. Sourcebook chronology verification is the responsibility of F03-00 SOURCE, not a blanket approval from secondary recaps.
 
+## Skyfowl/Remex production addendum — second half of the campaign
+
+Read [F03-CITY-01](../01-design/floor-03-skyfowl-city-and-quill-encounters.md), [F03-DOOMSDAY-01](../01-design/floor-03-doomsday-scenario-final-act.md) and [F03-CITY-ART-01](../02-art/floor-03-skyfowl-and-doomsday-art-direction.md) before implementing S07–S12.
+
+| Work ID | Safe independently-progressing task | Exact stop condition |
+| --- | --- | --- |
+| F03-CITY-A | original skyfowl facade, alley, Apito, Quill and Remex concept keys + 1x readability masks | no actor art/rights approval inferred from concept PNG; original source provenance required |
+| F03-CITY-B | pure Krasue + city elf tells/real hitbox and recovery state tests | no floating unreachable enemy / cosmetic self-damage |
+| F03-CITY-C | S07 public guard / civilian safe-lane scenes and S08 GumGum death aftermath | no secret guard instant-death, no living GumGum escort or viewer victim farm |
+| F03-CITY-D | S09 two-role Apito battle + optional real platform fall | direct combat and all optional supports destroyed keep exit viable |
+| F03-CITY-E | S10 Quill office/story state + legitimate blast/source event and Burgundy reveal | **Miss Quill dead before Remex**; Featherfall never a live boss; no actual physical explosive tutorial |
+| F03-DOOM-A | pure S11 Remex story/crystal case states and separate second countdown | Remex no lich HP, first blast contained, later Remex hazard remains |
+| F03-DOOM-B | four ordered precursor states and actual stage-source hazard data | no inventory/skill removal, no early/duplicated pulse or inescapable hit |
+| F03-DOOM-C | S11/S12 real 1P/2-slot party/story run + Katia relay and final Floor04 event | Floor02 Rage exit / Floor03 early revealed stairs cannot transport players; strict replay + real render evidence |
+| F03-CITY-Q | per-scene AUTOPLAY/PLAYTRACE probes and negative fixtures on final integration head | actual output evidence; real two-gamepad enjoyment remains NOT RUN |
+
+**Source gate:** source-book events here are established by secondary fan summaries, not a primary licensed read. GumGum's murder precedes the Krasue investigation; Miss Quill dies from Carl's earlier office demolition and is **not** a second final physical boss; Remex's body is a separate wild-magic danger **after** the case contains the crystal. Escalating four magical precursor pulses precede Floor04 descent. Story and game adaptation deviations must remain documented.
+
+**Priority:** Floor02 connected first, then Floor03 opening/circus playable slice; City/Remex preproduction art and isolated state tests may run in parallel without touching shared F01/F02 hot files. No agent can mark Floor03 complete from a coherent art storyboard alone.
+
 ## 1. Hierarchy of work
 
 **P0:** Floor01 owner game-feel/accepted core, Floor02 S00–S03 actual connected combat, camera/input and replay.
