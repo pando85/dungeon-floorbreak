@@ -281,10 +281,18 @@ fn steam_she_holds_short_of_the_lane_while_it_is_telegraphed_and_active_and_cros
 
 #[test]
 fn steam_the_assist_partner_without_the_feed_walks_into_it_so_the_fixture_guards_the_case() {
-    let r = steam(assist());
+    // FA-Q15 off: the same run under cf02_assist (no hazard feed) enters the lane.
+    let r = assist_knob_off(|| steam(assist()));
     assert!(
         r.entered.is_some() || !r.hurts.is_empty(),
         "the same run under cf02_assist (no hazard feed) enters the lane: {:?}",
+        r.entered
+    );
+    // FA-Q15 on (the shipped value): the assistant's follow steps are fenced.
+    let r = steam(assist());
+    assert!(
+        r.entered.is_none() && r.hurts.is_empty(),
+        "FA-Q15: the assistant holds at the fence: {:?}",
         r.entered
     );
 }
@@ -371,21 +379,41 @@ fn footprint_she_does_not_wait_under_it_with_carl_beyond() {
     assert!(donut_hurts(&s).is_empty());
 }
 
-/// Only the set with the goal layer is fed: under the assist set no event, no
-/// rebuild, the graph is the hazard-free one it always was.
+/// The assist set with FA-Q15 off (`fa_q15_assist_rot_avoidance`): the old set.
+fn assist_knob_off<R>(run: impl FnOnce() -> R) -> R {
+    crate::combat_scene::with_profile_override(
+        |f| f.cf02_assist.fix_all = crate::companion::profile::FixAll::default(),
+        run,
+    )
+}
+
+/// Only a set with the goal layer or FA-Q15 is fed: under the assist set with the
+/// knob off no event, no rebuild, the graph is the hazard-free one it always
+/// was; with it on (the shipped value) the assistant is fed too.
 #[test]
 fn only_the_autonomous_partners_set_is_fed() {
-    let mut s = rig_with(assist(), Vec::new());
-    trigger(&mut s, VALVE_X, VALVE);
+    assist_knob_off(|| {
+        let mut s = rig_with(assist(), Vec::new());
+        trigger(&mut s, VALVE_X, VALVE);
+        for _ in 0..40 {
+            step(&mut s);
+        }
+        assert_eq!(s.combat.companion_stats().hazard_feed_changes, 0);
+        let events = s.combat.take_companion_events();
+        assert!(
+            !events
+                .iter()
+                .any(|e| matches!(e, CompanionEvent::HazardFeed { .. }))
+        );
+    });
+    let mut a = rig_with(assist(), Vec::new());
+    trigger(&mut a, VALVE_X, VALVE);
     for _ in 0..40 {
-        step(&mut s);
+        step(&mut a);
     }
-    assert_eq!(s.combat.companion_stats().hazard_feed_changes, 0);
-    let events = s.combat.take_companion_events();
     assert!(
-        !events
-            .iter()
-            .any(|e| matches!(e, CompanionEvent::HazardFeed { .. }))
+        a.combat.companion_stats().hazard_feed_changes > 0,
+        "FA-Q15: the assistant is fed"
     );
     let mut f = rig();
     trigger(&mut f, VALVE_X, VALVE);

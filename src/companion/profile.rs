@@ -19,7 +19,7 @@ pub const PROFILE_JSON: &str = include_str!("../../assets/data/gameplay/companio
 
 /// The committed FNV-1a 64 content hash of [`PROFILE_JSON`]. Editing the file
 /// without updating this value fails [`ProfileFile::pinned`] and the pin test.
-pub const PROFILE_HASH: u64 = 0xa1f3_8af9_4ee2_fdf0;
+pub const PROFILE_HASH: u64 = 0x21ec_f2a4_b285_9f85;
 
 /// The profile set id under the spec's name (CA-21, section 17): the runtime's
 /// `UncontrolledHero::Companion(CompanionProfileSet)` names it.
@@ -423,6 +423,39 @@ pub struct FixAll {
     /// its hitbox widened by `fa_q10_reach_margin_px`.
     pub fa_q10_blink_reach_gate: bool,
     pub fa_q10_reach_margin_px: u16,
+    /// FA-Q15: the follow layer of a driven partner without the goal layer
+    /// (`cf02_assist`) reads the hazard feed and its ground steps are fenced
+    /// from hazard rectangles, the same feed and fence `cf02_free` uses.
+    pub fa_q15_assist_rot_avoidance: bool,
+    /// FA-Q16: the AI never releases a missile, swat or pounce whose hitbox path
+    /// crosses a live setpiece prop's hit target (valve, brace): no AI profile has
+    /// a prop as its goal.
+    pub fa_q16_prop_safe_fire: bool,
+    /// FA-Q25 (M2 shadowing): when both heroes travel the same way within
+    /// `fa_q25_shadow_px` for more than `fa_q25_shadow_ticks` ticks, she re-picks
+    /// her escort spot at least `fa_q25_respot_px` from the leader.
+    pub fa_q25_shadow_respot: bool,
+    pub fa_q25_shadow_px: u16,
+    pub fa_q25_shadow_ticks: u16,
+    pub fa_q25_respot_px: u16,
+    /// FA-Q26 (M4 steals): a lethal AI hit on an enemy the leader hit within the
+    /// A12 window (`cf02_duo_a12_recent_hit_ticks`), or that is within the A08
+    /// finisher reach of the leader, is a glance.
+    pub fa_q26_steal_glance: bool,
+    /// FA-Q27 (M10 retreat distance): the retreat spot is at least this far from
+    /// the nearest standing enemy; with none, the highest anchor.
+    pub fa_q27_retreat_clear: bool,
+    pub fa_q27_retreat_clear_px: u16,
+    /// FA-Q28 (M13 her hits): the Escort travel bonus drops to
+    /// `fa_q28_escort_bonus` while an unclaimed Hunt candidate is within
+    /// `fa_q28_hunt_near_px` of her.
+    pub fa_q28_hunt_escort_bonus: bool,
+    pub fa_q28_escort_bonus: u16,
+    pub fa_q28_hunt_near_px: u16,
+    /// FA-Q29 (CF02-FU-B): the AI pounces only if its predicted landing comes
+    /// `fa_q29_slack_ticks` or more before the target's next impact tick.
+    pub fa_q29_pounce_timing: bool,
+    pub fa_q29_slack_ticks: u16,
 }
 
 /// One profile set.
@@ -753,6 +786,36 @@ impl ProfileSet {
             }
         }
         for (on, name, value) in [
+            (
+                self.fix_all.fa_q25_shadow_respot,
+                "fa_q25_shadow_px",
+                self.fix_all.fa_q25_shadow_px,
+            ),
+            (
+                self.fix_all.fa_q25_shadow_respot,
+                "fa_q25_shadow_ticks",
+                self.fix_all.fa_q25_shadow_ticks,
+            ),
+            (
+                self.fix_all.fa_q25_shadow_respot,
+                "fa_q25_respot_px",
+                self.fix_all.fa_q25_respot_px,
+            ),
+            (
+                self.fix_all.fa_q27_retreat_clear,
+                "fa_q27_retreat_clear_px",
+                self.fix_all.fa_q27_retreat_clear_px,
+            ),
+            (
+                self.fix_all.fa_q28_hunt_escort_bonus,
+                "fa_q28_hunt_near_px",
+                self.fix_all.fa_q28_hunt_near_px,
+            ),
+            (
+                self.fix_all.fa_q29_pounce_timing,
+                "fa_q29_slack_ticks",
+                self.fix_all.fa_q29_slack_ticks,
+            ),
             (
                 self.fix_all.fa_q09_blink_charge_window,
                 "fa_q09_window_extra_ticks",

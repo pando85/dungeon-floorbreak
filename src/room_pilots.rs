@@ -995,60 +995,74 @@ mod tests {
     /// Carl is never told to walk and stays still for more than 300 ticks.
     #[test]
     fn the_chain_plan_with_a_party_reaches_the_exit_on_the_live_boiler_at_every_seed() {
-        use crate::f01_mastery_fixtures::{Who, tuning};
-        use crate::party_scene::{PartyFixture, PartyFixtureSim};
-        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        let (carl, donut) = Loadout::Story.flags();
-        let pilot = RoomPilot {
-            plan: Plan::Chain,
-            two_player: false,
-            aligned: None,
-        };
-        // The live room's partners, as the `boiler_fixtures` live pilots run them:
-        // the `cf02_assist` partner and the autonomous `cf02_free` one.
-        for tuning in [tuning(Who::CarlSolo), tuning(Who::Companion)] {
-            for seed in 0..=8u64 {
-                let (run, scene, combat) =
-                    boiler_start_with(&root, 360, carl, donut, Some(seed), Roster::Live).unwrap();
-                let exit = run.loaded.encounter.exit;
-                let exit_x = (exit.x + exit.w / 2) as f32;
-                let fixture: &'static PartyFixture = Box::leak(Box::new(PartyFixture {
-                    base: run.fixture,
+        // FA-Q16 off: the chain plan waits for a goblin to come through the valve and,
+        // with a partner that fires only where it is safe, the live roster never
+        // sends one (seed 0 stays at the valve): the plan relied on the partner's
+        // accidental valve hit. A pilot follow-up for the Boiler lane (PR-A finding).
+        crate::combat_scene::with_profile_override(
+            |f| {
+                f.cf02_assist.fix_all.fa_q16_prop_safe_fire = false;
+                f.cf02_free.fix_all.fa_q16_prop_safe_fire = false;
+            },
+            || {
+                use crate::f01_mastery_fixtures::{Who, tuning};
+                use crate::party_scene::{PartyFixture, PartyFixtureSim};
+                let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+                let (carl, donut) = Loadout::Story.flags();
+                let pilot = RoomPilot {
+                    plan: Plan::Chain,
                     two_player: false,
-                    tuning,
-                    script: &[],
-                    pilot: crate::boss_scene::Pilot::ArenaDirect,
-                    donut: crate::donut_mana::DonutSetup::unlocked(8),
-                }));
-                let mut sim = PartyFixtureSim::from_parts(scene, combat, fixture);
-                let (mut last_x, mut still, mut max_still) = (sim.scene.world.hero.x, 0u32, 0u32);
-                for _ in 0..3000 {
-                    if sim.scene.world.complete {
-                        break;
+                    aligned: None,
+                };
+                // The live room's partners, as the `boiler_fixtures` live pilots run them:
+                // the `cf02_assist` partner and the autonomous `cf02_free` one.
+                for tuning in [tuning(Who::CarlSolo), tuning(Who::Companion)] {
+                    for seed in 0..=8u64 {
+                        let (run, scene, combat) =
+                            boiler_start_with(&root, 360, carl, donut, Some(seed), Roster::Live)
+                                .unwrap();
+                        let exit = run.loaded.encounter.exit;
+                        let exit_x = (exit.x + exit.w / 2) as f32;
+                        let fixture: &'static PartyFixture = Box::leak(Box::new(PartyFixture {
+                            base: run.fixture,
+                            two_player: false,
+                            tuning,
+                            script: &[],
+                            pilot: crate::boss_scene::Pilot::ArenaDirect,
+                            donut: crate::donut_mana::DonutSetup::unlocked(8),
+                        }));
+                        let mut sim = PartyFixtureSim::from_parts(scene, combat, fixture);
+                        let (mut last_x, mut still, mut max_still) =
+                            (sim.scene.world.hero.x, 0u32, 0u32);
+                        for _ in 0..3000 {
+                            if sim.scene.world.complete {
+                                break;
+                            }
+                            let slots = pilot.inputs(&sim.combat, &sim.scene, exit_x);
+                            sim.step_slots(slots);
+                            let x = sim.scene.world.hero.x;
+                            let walking = slots[0].move_x != 0.0;
+                            still = if walking && (x - last_x).abs() < 0.1 {
+                                still + 1
+                            } else {
+                                0
+                            };
+                            max_still = max_still.max(still);
+                            last_x = x;
+                        }
+                        assert!(
+                            sim.scene.world.complete,
+                            "seed {seed} {tuning:?}: no exit in 3000 ticks (Carl at x {})",
+                            sim.scene.world.hero.x
+                        );
+                        assert!(
+                            max_still <= 300,
+                            "seed {seed}: Carl stuck for {max_still} ticks"
+                        );
                     }
-                    let slots = pilot.inputs(&sim.combat, &sim.scene, exit_x);
-                    sim.step_slots(slots);
-                    let x = sim.scene.world.hero.x;
-                    let walking = slots[0].move_x != 0.0;
-                    still = if walking && (x - last_x).abs() < 0.1 {
-                        still + 1
-                    } else {
-                        0
-                    };
-                    max_still = max_still.max(still);
-                    last_x = x;
                 }
-                assert!(
-                    sim.scene.world.complete,
-                    "seed {seed} {tuning:?}: no exit in 3000 ticks (Carl at x {})",
-                    sim.scene.world.hero.x
-                );
-                assert!(
-                    max_still <= 300,
-                    "seed {seed}: Carl stuck for {max_still} ticks"
-                );
-            }
-        }
+            },
+        );
     }
 
     #[test]

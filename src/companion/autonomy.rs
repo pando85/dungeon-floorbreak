@@ -515,6 +515,9 @@ pub enum GoalReason {
     /// FA-Q05: she stands closer to the boss than the standoff band, between
     /// the boss and the leader, or in the charge lane: immediate.
     BossStandoff,
+    /// FA-Q25: she shadows the leader (the same way within the radius for more
+    /// than the threshold): immediate.
+    Shadow,
 }
 
 /// One standing surface a spot may be taken from: a flat interval already
@@ -711,6 +714,11 @@ pub struct AutonomyState {
     /// follow layer's dodge jump stays silent for that charge. Cleared when no
     /// charge is up. Mixed into the hash only while set.
     charge_latch: bool,
+    /// FA-Q25: consecutive ticks both heroes travelled the same way within the
+    /// shadow radius, and her x on the previous tick. Mixed into the hash only
+    /// while the count is above zero (the knob off never counts).
+    shadow_ticks: u16,
+    prev_me_x: Option<f32>,
     stats: AutonomyStats,
 }
 
@@ -735,6 +743,8 @@ impl Default for AutonomyState {
             seen: Vec::new(),
             last_blink: None,
             charge_latch: false,
+            shadow_ticks: 0,
+            prev_me_x: None,
             stats: AutonomyStats::default(),
         }
     }
@@ -771,6 +781,9 @@ struct Ctx<'a> {
     /// FA-Q02: the boss as the goal layer sees it, `Some` only with
     /// `fa_q02_boss_play` on and the boss engaged (it has a body).
     bv: Option<BossView>,
+    /// FA-Q25: she has shadowed the leader for more than the threshold: the escort
+    /// spot is re-picked at least `fa_q25_respot_px` from him.
+    shadowing: bool,
     travelling: bool,
     travel_dir: i8,
     /// She is in a move or in the air: committed, so no routine re-decision.
@@ -1119,6 +1132,10 @@ impl<'a> Ctx<'a> {
         // FA-Q03: the farthest legal anchor from the boss, when the strict rules
         // leave none.
         let mut fallback = BestSpot { best: None };
+        // FA-Q27: the best spot of the old rule, when no spot is clear of every
+        // standing enemy (the plan's "highest anchor" measured worse: a perch beside
+        // the enemy, 39 px away in `cf02_free_retreat_when_hurt`).
+        let mut unclear = BestSpot { best: None };
         let boss = self.bv.filter(|_| self.fa().fa_q02_boss_play);
         for surface in surfaces {
             if surface.risk >= self.a.ca2_q29_spot_max_risk {
@@ -1187,10 +1204,20 @@ impl<'a> Ctx<'a> {
                         return;
                     }
                 }
+                // FA-Q27: at least `fa_q27_retreat_clear_px` from the nearest standing
+                // enemy; one that is closer only competes when none is.
+                if self.fa().fa_q27_retreat_clear
+                    && enemy_x.is_some_and(|ex| {
+                        (ex - x).abs() < f32::from(self.fa().fa_q27_retreat_clear_px)
+                    })
+                {
+                    unclear.offer(score, spot);
+                    return;
+                }
                 best.offer(score, spot);
             });
         }
-        best.best.or(fallback.best).map(|(_, s)| s)
+        best.best.or(fallback.best).or(unclear.best).map(|(_, s)| s)
     }
 
     /// The escort spot: 72 to 120 px behind the leader while he travels, on
@@ -1225,6 +1252,10 @@ impl<'a> Ctx<'a> {
                     return;
                 }
                 let from_leader = (x - self.leader.x).abs();
+                // FA-Q25: out of the shadow radius.
+                if self.shadowing && from_leader < f32::from(self.fa().fa_q25_respot_px) {
+                    return;
+                }
                 let wrong_side = (x - self.leader.x) * f32::from(side) < 0.0;
                 let score = -ipx((from_leader - mid).abs())
                     - if wrong_side { 1000 } else { 0 }
@@ -1438,6 +1469,11 @@ impl AutonomyState {
         if self.charge_latch {
             mix(CHARGE_LATCH_MARK);
         }
+        // FA-Q25: nothing unless she is counting a shadow run.
+        if self.shadow_ticks > 0 {
+            mix(SHADOW_HASH_MARK);
+            mix(u64::from(self.shadow_ticks));
+        }
     }
 
     /// FNV-1a 64 over [`Self::hash_into`].
@@ -1509,6 +1545,24 @@ impl AutonomyState {
                 self.recoil_until = tick + u64::from(t.ca2_q19_recoil_ticks);
             }
         }
+        // FA-Q25: she shadows the leader while both walk the same way within the
+        // radius.
+        if inp.set.fix_all.fa_q25_shadow_respot {
+            let fa = &inp.set.fix_all;
+            let me_dx = self.prev_me_x.filter(|_| consecutive).map(|x| me.x - x);
+            let leader_dx = self
+                .prev
+                .filter(|_| consecutive)
+                .map(|p| leader.x - p.leader_x);
+            let same_way = matches!((me_dx, leader_dx), (Some(a), Some(b))
+                if a.abs() > 0.01 && b.abs() > 0.01 && (a > 0.0) == (b > 0.0));
+            if same_way && (me.x - leader.x).abs() <= f32::from(fa.fa_q25_shadow_px) {
+                self.shadow_ticks = self.shadow_ticks.saturating_add(1);
+            } else {
+                self.shadow_ticks = 0;
+            }
+        }
+        self.prev_me_x = Some(me.x);
         if inp.partner_hit_landed {
             self.last_landed = Some(tick);
         }
@@ -1677,6 +1731,8 @@ impl AutonomyState {
             // FA-Q05: a boss standoff spot goes stale when the boss closes in.
             (Goal::Escort, SpotPurpose::Escort) => {
                 c.bv.is_none_or(|b| !c.standoff_violated(&b, spot.x))
+                    && !(c.shadowing
+                        && (spot.x - c.leader.x).abs() < f32::from(c.fa().fa_q25_respot_px))
             }
             _ => false,
         }
@@ -1719,6 +1775,7 @@ impl AutonomyState {
         let travelling = walking || inp.pan_remaining > 0;
         self.stats.travelling_ticks += u32::from(travelling);
         self.stats.pan_only_travelling_ticks += u32::from(travelling && !walking);
+        let a_fix = &inp.set.fix_all;
         // FA-Q02: the boss, only with the knob on and a body to speak of.
         let bv = view
             .boss_view
@@ -1733,6 +1790,7 @@ impl AutonomyState {
             cast_ok: mana_cast,
             boss: view.boss.is_some() || bv.is_some(),
             bv,
+            shadowing: a_fix.fa_q25_shadow_respot && self.shadow_ticks > a_fix.fa_q25_shadow_ticks,
             travelling,
             travel_dir: self.travel_dir,
             committed: me.active_move.is_some() || !me.grounded,
@@ -1798,6 +1856,10 @@ impl AutonomyState {
         {
             // FA-Q05: the boss closed in (or she stands between it and Carl).
             cause = Some(GoalReason::BossStandoff);
+        } else if due && ctx.shadowing && matches!(self.goal, Goal::Idle | Goal::Escort) {
+            // FA-Q25: she has shadowed him past the threshold: re-pick the escort
+            // spot past the radius (immediate, at the cadence).
+            cause = Some(GoalReason::Shadow);
         } else if matches!(self.goal, Goal::Hunt | Goal::SupportLeader) && !self.target_valid(&ctx)
         {
             cause = Some(GoalReason::TargetLost);
@@ -2090,7 +2152,20 @@ impl AutonomyState {
         if allowed(Goal::Escort) && (!hold || settling) {
             // FA-Q05: the travel bonus is suspended under a boss.
             let bonus = if c.travelling && c.bv.is_none() {
-                i32::from(c.a.ca2_q07_escort_bonus)
+                // FA-Q28: a smaller bonus while an unclaimed Hunt candidate is near
+                // her, so the hunt can win over the escort.
+                let near = c.fa().fa_q28_hunt_escort_bonus
+                    && c.inp.view.targets.iter().any(|t| {
+                        t.hp > 0
+                            && !c.claims.contains(t.id)
+                            && (t.x - c.me.x).abs() <= f32::from(c.fa().fa_q28_hunt_near_px)
+                            && c.mode_for(t).is_some()
+                    });
+                if near {
+                    i32::from(c.fa().fa_q28_escort_bonus)
+                } else {
+                    i32::from(c.a.ca2_q07_escort_bonus)
+                }
             } else {
                 0
             };
@@ -2404,6 +2479,9 @@ impl Ctx<'_> {
 
 /// Marker word of the blink decision in the autonomy hash ("BLNK-AI").
 const BLINK_HASH_MARK: u64 = 0x424c_4e4b_4149_0001;
+
+/// Marker word of the shadow counter in the autonomy hash (FA-Q25).
+const SHADOW_HASH_MARK: u64 = 0x5348_4144_4f57_0001;
 
 /// Marker word of the per-charge dodge latch in the autonomy hash (FA-Q09).
 const CHARGE_LATCH_MARK: u64 = 0x4c41_5443_4800_0001;
@@ -3852,7 +3930,9 @@ mod tests {
         );
         // While he travels Escort is 800 + 400 = 1200: a tie with a new Hunt,
         // and the tie goes to Escort (AD-B2: she comes along).
+        // (FA-Q28 off: with it on the bonus is 200 while a hunt candidate is near.)
         let mut rig = Rig::new();
+        rig.set.fix_all.fa_q28_hunt_escort_bonus = false;
         rig.pan = 40;
         rig.goblin(1, 230.0, standing());
         let b = rig.step().unwrap();
@@ -6026,6 +6106,79 @@ mod tests {
         let (changed, spot) = seen.expect("she leaves Idle");
         assert_eq!(changed, Some(GoalReason::BossStandoff));
         assert!((410.0 - spot.expect("a spot").x) >= 112.0);
+    }
+
+    // ----------------------------------------- FA-Q25 to FA-Q28: the CA2 metrics ----
+
+    /// FA-Q27: a retreat spot is at least 112 px from the nearest standing enemy
+    /// when any ground allows it (knob on).
+    #[test]
+    fn fa_q27_the_retreat_spot_is_at_least_112_px_from_the_nearest_standing_enemy() {
+        let mut rig = Rig::new();
+        rig.goblin(1, 300.0, standing());
+        rig.run(2);
+        hurt(&mut rig);
+        let b = rig.step().unwrap();
+        assert_eq!(b.goal, Goal::Retreat);
+        let spot = b.spot.unwrap();
+        assert!((spot.x - 300.0).abs() >= 112.0, "{}", spot.x);
+        // With no ground that clear (a goblin in the middle of a narrow floor) the
+        // old rule's best spot still stands: a Retreat is never lost to the rule.
+        let mut rig = Rig::new();
+        rig.world.surfaces[0].left = 250.0;
+        rig.world.surfaces[0].right = 350.0;
+        rig.goblin(1, 300.0, standing());
+        rig.run(2);
+        hurt(&mut rig);
+        assert!(rig.step().unwrap().spot.is_some());
+    }
+
+    /// FA-Q28: while he travels and an unclaimed Hunt candidate is within 160 px of
+    /// her, the Escort bonus is 200, so the hunt (1200) beats Escort (1000); with
+    /// the knob off it is the old 400 and Escort wins the tie.
+    #[test]
+    fn fa_q28_a_near_unclaimed_enemy_lets_the_hunt_win_over_a_travelling_escort() {
+        let hunts = |on: bool| {
+            let mut rig = Rig::new();
+            rig.set.fix_all.fa_q28_hunt_escort_bonus = on;
+            rig.pan = 40;
+            rig.goblin(1, 230.0, standing());
+            rig.step().unwrap().goal
+        };
+        assert_eq!(hunts(true), Goal::Hunt);
+        assert_eq!(hunts(false), Goal::Escort);
+        // Beyond 160 px of her the bonus stays 400.
+        let mut rig = Rig::new();
+        rig.pan = 40;
+        rig.goblin(1, 405.0, standing());
+        assert_ne!(rig.step().unwrap().goal, Goal::Hunt);
+    }
+
+    /// FA-Q25: both heroes walking the same way within 64 px for more than 12
+    /// ticks makes her re-pick her escort spot at least 80 px from him.
+    #[test]
+    fn fa_q25_a_shadowing_partner_re_picks_the_escort_spot_80_px_from_him() {
+        let run = |on: bool| {
+            let mut rig = Rig::new();
+            rig.set.fix_all.fa_q25_shadow_respot = on;
+            rig.pan = 40;
+            rig.carl().x = 200.0;
+            rig.donut().x = 160.0;
+            let mut last = None;
+            for _ in 0..30 {
+                rig.carl().x += 2.0;
+                rig.donut().x += 2.0;
+                last = rig.step();
+            }
+            (rig.st.shadow_ticks, last.unwrap())
+        };
+        let (ticks, b) = run(true);
+        assert!(ticks > 12, "{ticks}");
+        assert_eq!(b.goal, Goal::Escort);
+        let spot = b.spot.expect("an escort spot");
+        // Carl has walked to x 260.
+        assert!((spot.x - 260.0).abs() >= 80.0, "{}", spot.x);
+        assert_eq!(run(false).0, 0, "knob off never counts");
     }
 
     #[test]

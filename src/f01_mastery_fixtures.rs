@@ -1930,73 +1930,80 @@ mod tests {
     /// stand right of the pool until it is gone, and the sticker wakes.
     #[test]
     fn the_hazards_run_in_the_clear_the_slime_dies_and_its_pool_drains() {
-        let (mut sim, _) = start(&root(), Who::CarlSolo, 0).unwrap();
-        assert_eq!(
-            sim.combat.slot_enemies().len(),
-            1,
-            "the slime is a slot enemy"
-        );
-        assert!(sim.combat.env().unwrap().has_acid(), "the pool is live");
-        let (mut slime_dead_at, mut pool_gone_at) = (None, None);
-        let mut walker_in_live_pool = false;
-        for _ in 0..RUN_TICKS {
-            let input = arena_pilot(&sim.combat, &sim.scene, HeroId::Carl);
-            sim.step_slots([input, RawInput::NONE]);
-            let t = sim.scene.world.tick;
-            let live = sim
-                .combat
-                .env()
-                .unwrap()
-                .acid()
-                .patches()
-                .any(|p| p.bounds().is_some());
-            if slime_dead_at.is_none() && sim.combat.slot_enemies().iter().all(|e| !e.alive()) {
-                slime_dead_at = Some(t);
-            }
-            if live {
-                // Walkers (goblins) never stand inside the live pool's current span.
-                let span = sim
+        // FA-Q15 off: this composition needs the assistant to walk under the sticker
+        // and wake it (the fenced assistant does not).
+        crate::combat_scene::with_profile_override(
+            |f| f.cf02_assist.fix_all = crate::companion::profile::FixAll::default(),
+            || {
+            let (mut sim, _) = start(&root(), Who::CarlSolo, 0).unwrap();
+            assert_eq!(
+                sim.combat.slot_enemies().len(),
+                1,
+                "the slime is a slot enemy"
+            );
+            assert!(sim.combat.env().unwrap().has_acid(), "the pool is live");
+            let (mut slime_dead_at, mut pool_gone_at) = (None, None);
+            let mut walker_in_live_pool = false;
+            for _ in 0..RUN_TICKS {
+                let input = arena_pilot(&sim.combat, &sim.scene, HeroId::Carl);
+                sim.step_slots([input, RawInput::NONE]);
+                let t = sim.scene.world.tick;
+                let live = sim
                     .combat
                     .env()
                     .unwrap()
                     .acid()
                     .patches()
-                    .find_map(|p| p.bounds());
-                if let Some((x0, x1)) = span {
-                    walker_in_live_pool |= sim.combat.enemies.iter().any(|g| {
-                        g.alive()
-                            && g.mode == crate::goblin::GoblinMode::Neutral
-                            && g.x > x0 as f32 + 2.0
-                            && g.x < x1 as f32 - 2.0
-                    });
+                    .any(|p| p.bounds().is_some());
+                if slime_dead_at.is_none() && sim.combat.slot_enemies().iter().all(|e| !e.alive()) {
+                    slime_dead_at = Some(t);
                 }
-            } else if pool_gone_at.is_none() && slime_dead_at.is_some() {
-                pool_gone_at = Some(t);
+                if live {
+                    // Walkers (goblins) never stand inside the live pool's current span.
+                    let span = sim
+                        .combat
+                        .env()
+                        .unwrap()
+                        .acid()
+                        .patches()
+                        .find_map(|p| p.bounds());
+                    if let Some((x0, x1)) = span {
+                        walker_in_live_pool |= sim.combat.enemies.iter().any(|g| {
+                            g.alive()
+                                && g.mode == crate::goblin::GoblinMode::Neutral
+                                && g.x > x0 as f32 + 2.0
+                                && g.x < x1 as f32 - 2.0
+                        });
+                    }
+                } else if pool_gone_at.is_none() && slime_dead_at.is_some() {
+                    pool_gone_at = Some(t);
+                }
+                // To the exit, not to the clear: since FA-Q17 the seed-0 fight can end
+                // before the sticker is walked under, and its blast is the walk's.
+                if sim.combat.roster_cleared() && sim.scene.world.hero.x >= EXIT_X {
+                    break;
+                }
             }
-            // To the exit, not to the clear: since FA-Q17 the seed-0 fight can end
-            // before the sticker is walked under, and its blast is the walk's.
-            if sim.combat.roster_cleared() && sim.scene.world.hero.x >= EXIT_X {
-                break;
-            }
-        }
-        // The sticker woke on proximity and its blast went off (the yard's
-        // environmental answer and its hazard to a hero who walks under it).
-        let rot = |e: &&CombatEvent| matches!(e, CombatEvent::RotProvoked { .. });
-        let blast = |e: &&CombatEvent| matches!(e, CombatEvent::Blast { .. });
-        assert!(
-            sim.combat.events.iter().any(|e| rot(&e)),
-            "the sticker wakes"
+            // The sticker woke on proximity and its blast went off (the yard's
+            // environmental answer and its hazard to a hero who walks under it).
+            let rot = |e: &&CombatEvent| matches!(e, CombatEvent::RotProvoked { .. });
+            let blast = |e: &&CombatEvent| matches!(e, CombatEvent::Blast { .. });
+            assert!(
+                sim.combat.events.iter().any(|e| rot(&e)),
+                "the sticker wakes"
+            );
+            assert!(
+                sim.combat.events.iter().any(|e| blast(&e)),
+                "the sticker blasts"
+            );
+            let (dead, gone) = (slime_dead_at.unwrap(), pool_gone_at.unwrap());
+            assert!(
+                gone >= dead + 55,
+                "the pool drains over about 60 ticks: {dead} {gone}"
+            );
+            assert!(!walker_in_live_pool, "walkers stop at the pool (HAZ-Q48)");
+            },
         );
-        assert!(
-            sim.combat.events.iter().any(|e| blast(&e)),
-            "the sticker blasts"
-        );
-        let (dead, gone) = (slime_dead_at.unwrap(), pool_gone_at.unwrap());
-        assert!(
-            gone >= dead + 55,
-            "the pool drains over about 60 ticks: {dead} {gone}"
-        );
-        assert!(!walker_in_live_pool, "walkers stop at the pool (HAZ-Q48)");
     }
 
     /// CA2 M1 to M16 in the closing arena. The hard targets of the spec hold at

@@ -754,7 +754,12 @@ fn haz_free_partner_is_not_hurt_by_the_hazards_the_feed_names() {
         ..crate::party::PROVISIONAL_TUNING
     }
     .with_cf02_swap();
-    let (a_hurts, a_provokes) = partner_run(layout(), assist, 600);
+    // FA-Q15 off: the assistant of the shipped set is fenced from the awake
+    // sticker, so the contrast is the old set.
+    let (a_hurts, a_provokes) = crate::combat_scene::with_profile_override(
+        |f| f.cf02_assist.fix_all = crate::companion::profile::FixAll::default(),
+        || partner_run(layout(), assist, 600),
+    );
     assert_eq!(
         a_provokes, 1,
         "the assist partner wakes it (hurts {a_hurts})"

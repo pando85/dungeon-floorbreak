@@ -1475,6 +1475,20 @@ impl CombatState {
         self.env.as_deref()
     }
 
+    /// FA-Q16: the world rectangles of the live prop hit targets (valve, brace;
+    /// a drum is no hit target), for the AI's prop-safe fire.
+    pub(super) fn prop_target_rects(&self, layout_h: i32) -> Vec<Rect> {
+        self.env
+            .as_deref()
+            .map(|env| {
+                env.live_targets()
+                    .into_iter()
+                    .map(|(_, t)| world_rect(layout_h, t))
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
     /// A new attempt: every prop back to its first state, and every drum's
     /// charge back to unlit (BOIL-D).
     pub(super) fn env_reset(&mut self) {

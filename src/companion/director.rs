@@ -47,7 +47,7 @@ use crate::companion::view::{
     BOSS_ID, CompanionView, Control, EntityKind, HeroView, StableEntityId, TargetState, TargetView,
     ThreatView,
 };
-use crate::donut_moves::{POUNCE_DAMAGE, SWAT_STARTUP};
+use crate::donut_moves::{POUNCE_DAMAGE, POUNCE_FLIGHT_NOMINAL, POUNCE_STARTUP, SWAT_STARTUP};
 use crate::input::RawInput;
 use crate::party::HeroId;
 
@@ -272,6 +272,15 @@ const FLANK_DEADZONE_PX: f32 = 4.0;
 /// Integer distance score: whole pixels, rounded down.
 fn px(distance: f32) -> i32 {
     distance as i32
+}
+
+/// FA-Q29 (CF02-FU-B): a pounce whose predicted landing is `landing_ticks` from
+/// now is launched only if it lands at least `slack` ticks before the target's
+/// next impact, `impact_in` ticks from now. The plan's sample (a swing in 6 ticks:
+/// landing 3 accepted) contradicts its own 4 tick slack, so the edge is exact:
+/// landing at most `impact_in - slack`.
+pub fn pounce_lands_in_time(landing_ticks: u16, impact_in: u16, slack: u16) -> bool {
+    landing_ticks.saturating_add(slack) <= impact_in
 }
 
 /// The director of one hero.
@@ -840,6 +849,18 @@ impl CompanionDirector {
         };
         match (self.hero, action) {
             (HeroId::Donut, Action::Pounce) => {
+                // FA-Q29: no pounce that would land too close to (or after) the
+                // target's next swing: hold, and ask again next tick.
+                if let Some(t) = view.threats.iter().find(|t| t.id == target.id)
+                    && set.fix_all.fa_q29_pounce_timing
+                    && !pounce_lands_in_time(
+                        POUNCE_STARTUP + POUNCE_FLIGHT_NOMINAL,
+                        t.impact_tick.saturating_sub(t.tell_tick),
+                        set.fix_all.fa_q29_slack_ticks,
+                    )
+                {
+                    return None;
+                }
                 let d = &set.donut;
                 // A lying goblin must still lie when the pounce lands (Q38).
                 let down = match target.state {
@@ -2669,5 +2690,34 @@ mod tests {
         v.boss_view = None;
         let (_, next) = d.step_briefed(&v, &set, Some(&boss_brief()));
         assert_eq!(next.action, None, "{next:?}");
+    }
+
+    // ------------------------------------------------ FA-Q29: pounce timing ----
+
+    #[test]
+    fn fa_q29_a_pounce_lands_four_ticks_before_the_swing_or_is_held() {
+        // The swing in 6 ticks: landing in 8 is refused, 3 is refused (slack 3),
+        // 2 is accepted (slack 4); exact on both sides of the edge.
+        assert!(!pounce_lands_in_time(8, 6, 4));
+        assert!(!pounce_lands_in_time(3, 6, 4));
+        assert!(pounce_lands_in_time(2, 6, 4));
+        assert!(pounce_lands_in_time(24, 28, 4));
+        assert!(!pounce_lands_in_time(24, 27, 4));
+    }
+
+    #[test]
+    fn fa_q29_a_pounce_on_a_goblin_with_a_swing_pending_is_held_and_the_knob_lifts_it() {
+        // A staggered goblin that is also in a tell with 20 ticks to impact: the
+        // pounce (landing in 24) would land after the blow.
+        let mut set = set_of(ProfileSetId::Cf02Free);
+        let mut v = donut_ai(100.0);
+        v.targets = vec![target(1, 150.0, 2, TargetState::Staggered { ticks: 8 })];
+        v.threats = vec![threat(1, 150.0, 6, Some(HeroId::Donut))];
+        let brief = GoalBrief::targeting(StableEntityId::goblin(1), 30.0, 80.0);
+        let (_, d) = donut().step_briefed(&v, &set, Some(&brief));
+        assert_eq!(d.action, None, "{d:?}");
+        set.fix_all.fa_q29_pounce_timing = false;
+        let (_, d) = donut().step_briefed(&v, &set, Some(&brief));
+        assert_eq!(d.action, Some(Action::Pounce), "{d:?}");
     }
 }

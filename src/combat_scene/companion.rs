@@ -148,6 +148,9 @@ pub(crate) struct CompanionRuntime {
     last_carl_instance: u32,
     /// The tick about to run (set by `companion_inputs`).
     tick: u64,
+    /// The leader's x on the tick about to run (FA-Q26, unhashed: derived from the
+    /// scene).
+    leader_x: f32,
     /// Unhashed counters and event log (CA-25, CA-31).
     stats: CompanionStats,
     events: Vec<CompanionEvent>,
@@ -184,6 +187,7 @@ impl Default for CompanionRuntime {
             pending_press: [None; 2],
             last_carl_instance: 0,
             tick: 0,
+            leader_x: 0.0,
             stats: CompanionStats::default(),
             events: Vec::new(),
             last_trace: [None; 2],
@@ -309,6 +313,19 @@ impl CompanionRuntime {
         }
     }
 
+    /// FA-Q26: the leader (Carl) is working an enemy at `target_x` that he last hit
+    /// `hit_age` ticks ago: within the A12 window, or within his A08 finisher reach.
+    /// Always `false` without the knob (or without a companion set).
+    pub(crate) fn leader_claims(&self, hit_age: Option<u16>, target_x: f32) -> bool {
+        let Some(set) = self.set.map(|s| profiles().set(s)) else {
+            return false;
+        };
+        set.fix_all.fa_q26_steal_glance
+            && (hit_age.is_some_and(|a| a <= set.cf02_duo.cf02_duo_a12_recent_hit_ticks)
+                || (target_x - self.leader_x).abs()
+                    <= f32::from(set.cf02_duo.cf02_duo_a08_finisher_reach_px))
+    }
+
     /// The glance for a move instance of `kind`.
     pub(crate) fn glance_for(&self, kind: MarkKind, instance: u32) -> Glance {
         Glance {
@@ -317,6 +334,7 @@ impl CompanionRuntime {
             boss_kill_is_carls: self
                 .set
                 .is_some_and(|s| profiles().set(s).fix_all.fa_q02_boss_play),
+            target_claimed: false,
         }
     }
 
@@ -377,6 +395,9 @@ pub(crate) struct Glance {
     /// (`fa_q02_boss_play`): the boss' kill is Carl's, so a companion-credited
     /// defeat never triggers a cinematic finisher.
     boss_kill_is_carls: bool,
+    /// FA-Q26: the target is the leader's (he hit it within the A12 window, or it
+    /// is within his A08 reach): a lethal AI hit on it is a glance.
+    target_claimed: bool,
 }
 
 impl Default for Glance {
@@ -386,6 +407,7 @@ impl Default for Glance {
             ai_started: false,
             policy: KillPolicy::Never,
             boss_kill_is_carls: false,
+            target_claimed: false,
         }
     }
 }
@@ -393,7 +415,17 @@ impl Default for Glance {
 impl Glance {
     /// The move as it lands on a target with `target_hp` on the hit tick.
     pub(crate) fn apply(&self, spec: &MoveSpec, target_hp: u8) -> MoveSpec {
+        // FA-Q26: a lethal AI hit on an enemy the leader is working is a glance.
+        if self.target_claimed && self.ai_started && spec.damage > 0 && spec.damage >= target_hp {
+            return MoveSpec { damage: 0, ..*spec };
+        }
         glance_hook(spec, target_hp, self.ai_started, self.policy)
+    }
+
+    /// FA-Q26: the same glance for a target `claimed` by the leader.
+    pub(crate) fn with_claim(mut self, claimed: bool) -> Self {
+        self.target_claimed = claimed;
+        self
     }
 
     /// The damage a boss hit lands: 0 when the rule glances it, else `damage`.
@@ -560,6 +592,7 @@ impl CombatState {
     ) -> [RawInput; 2] {
         let drive = *scene.drive();
         self.companion.tick = scene.world.tick + 1;
+        self.companion.leader_x = scene.world.hero.x;
         let sets = [
             drive.companion_set(HeroId::Carl),
             drive.companion_set(HeroId::Donut),
@@ -587,7 +620,10 @@ impl CombatState {
         self.companion_nav_sync(scene);
         // CA2-C (K13): the hero-hurting hazards of this tick, for the sets whose
         // partner the goal layer steers.
-        self.companion_hazard_feed(scene, set.autonomy.enabled);
+        self.companion_hazard_feed(
+            scene,
+            set.autonomy.enabled || set.fix_all.fa_q15_assist_rot_avoidance,
+        );
         let owned = self.companion_regroup(scene);
         scene.set_nav_regroup(owned);
         let mut view = self.companion_view(scene, set_id);
@@ -636,6 +672,15 @@ impl CombatState {
                 let run = self.run_px_per_tick(scene, hero);
                 move_x = fence_step(nav.hazards(), Self::nav_body(scene, hero), move_x, run);
             }
+            if brief.is_none()
+                && set.fix_all.fa_q15_assist_rot_avoidance
+                && let Some(nav) = &self.companion.nav
+            {
+                // FA-Q15: the assistant's follow steps never walk into a hazard
+                // (a sticker's blast or trigger span, acid): she holds at the fence.
+                let run = self.run_px_per_tick(scene, hero);
+                move_x = fence_step(nav.hazards(), Self::nav_body(scene, hero), move_x, run);
+            }
             if brief.is_some() && !exempt[i] {
                 // Goal steering and the interrupt approach stay inside `Z`; a dodge
                 // and a committed transit are exempt (spec 5.2, review F-9).
@@ -667,16 +712,36 @@ impl CombatState {
                     ability: true,
                     ..RawInput::NONE
                 };
-                self.companion.record(view.tick, hero, &decision);
+                // DP-FU: the director's press is withheld on a blink tick, so it is
+                // not counted (stats only; nothing hashed).
+                let withheld = Decision {
+                    pressed: false,
+                    ..decision
+                };
+                self.companion.record(view.tick, hero, &withheld);
                 continue;
             }
             if brief.is_some() && self.companion_blink_windup(set, hero) {
                 out[i] = RawInput::NONE;
-                self.companion.record(view.tick, hero, &decision);
+                let withheld = Decision {
+                    pressed: false,
+                    ..decision
+                };
+                self.companion.record(view.tick, hero, &withheld);
                 continue;
             }
             // A press tick stands still: a direction held with a press would
             // turn the hero first (the Carl rule), maybe away from its target.
+            let (mut raw, mut decision) = (raw, decision);
+            if decision.pressed
+                && set.fix_all.fa_q16_prop_safe_fire
+                && self.press_crosses_prop(scene, &view, hero, &decision)
+            {
+                // FA-Q16: the press would hit a prop that is no goal of hers.
+                decision.pressed = false;
+                raw.attack = false;
+                raw.physical = false;
+            }
             let move_x = if decision.pressed { 0.0 } else { move_x };
             out[i] = RawInput {
                 move_x,
@@ -1483,9 +1548,38 @@ impl CombatState {
 
     /// Ticks from Carl's last hit on target slot `slot` (goblins, then llamas)
     /// to `now`, saturating (CF02-DUO-A12).
-    fn carl_hit_age(&self, slot: usize, now: u64) -> Option<u16> {
+    pub(super) fn carl_hit_age(&self, slot: usize, now: u64) -> Option<u16> {
         let at = (*self.carl_hit_tick.get(slot)?)?;
         Some(now.saturating_sub(at).min(u64::from(u16::MAX)) as u16)
+    }
+
+    /// FA-Q16: the hitbox path of the press `decision` (a swat's box ahead of her, a
+    /// pounce's hop to its target, a missile's line from its spawn to its target or
+    /// its range) crosses a live prop hit target at her height.
+    fn press_crosses_prop(
+        &self,
+        scene: &SceneSim,
+        view: &CompanionView,
+        hero: HeroId,
+        decision: &Decision,
+    ) -> bool {
+        let rects = self.prop_target_rects(scene.world.layout_height());
+        if rects.is_empty() {
+            return false;
+        }
+        let me = view.hero(hero);
+        let dir = f32::from(me.facing);
+        let target_x = decision
+            .target
+            .and_then(|id| view.find_target(id))
+            .map(|t| t.x);
+        let (a, b) = match decision.action {
+            Some(Action::Swat) => (me.x, me.x + dir * 30.0),
+            Some(Action::Pounce) => (me.x, target_x.unwrap_or(me.x + dir * 80.0)),
+            Some(Action::Missile) => (me.x + dir * 27.0, target_x.unwrap_or(me.x + dir * 160.0)),
+            _ => return false,
+        };
+        path_crosses(&rects, (a.min(b), a.max(b)), me.foot_y)
     }
 
     /// FA-Q05: a shockwave ripple of the boss is within `lead` px of `hero` and
@@ -1571,6 +1665,17 @@ impl CombatState {
         }
         targets
     }
+}
+
+/// FA-Q16: whether the x interval `span` at her feet `foot_y` overlaps any of the
+/// prop target `rects` (her body band: from just under her feet to her height).
+pub(crate) fn path_crosses(rects: &[Rect], span: (f32, f32), foot_y: f32) -> bool {
+    rects.iter().any(|r| {
+        r.right() > span.0
+            && r.left < span.1
+            && r.top() > foot_y - 8.0
+            && r.bottom < foot_y + 2.0 * HERO_HALF_HEIGHT
+    })
 }
 
 /// A llama's stable id (serial 0: no respawn in 01A fixtures, CA-28).
@@ -1682,6 +1787,52 @@ mod tests {
         // A runtime with no set (the companion off) is the identity.
         let off = CompanionRuntime::default();
         assert_eq!(off.glance_for(MarkKind::DonutMove, 5).boss_lands(1, 1), 1);
+    }
+
+    /// FA-Q26: a lethal AI hit on an enemy the leader hit within the A12 window (31
+    /// ticks, inclusive) or that stands within his A08 reach (40 px, inclusive) is a
+    /// glance; a hit he did not claim, a non-lethal one and a human-started one are
+    /// unchanged, and the knob off claims nothing.
+    #[test]
+    fn fa_q26_a_lethal_ai_hit_on_an_enemy_the_leader_is_working_is_a_glance() {
+        let mut runtime = CompanionRuntime {
+            set: Some(ProfileSetId::Cf02Free),
+            leader_x: 100.0,
+            ..CompanionRuntime::default()
+        };
+        runtime.marks.push((MarkKind::DonutMove, 5));
+        // The A12 window, inclusive; far from him.
+        assert!(runtime.leader_claims(Some(31), 500.0));
+        assert!(!runtime.leader_claims(Some(32), 500.0));
+        assert!(!runtime.leader_claims(None, 500.0));
+        // The A08 reach, inclusive; never hit by him.
+        assert!(runtime.leader_claims(None, 140.0));
+        assert!(!runtime.leader_claims(None, 140.5));
+        assert!(runtime.leader_claims(None, 60.0));
+        let g = runtime.glance_for(MarkKind::DonutMove, 5);
+        use crate::combat::DONUT_POUNCE;
+        let lethal = |g: Glance, hp: u8| g.apply(&DONUT_POUNCE, hp).damage;
+        assert_eq!(lethal(g.with_claim(true), DONUT_POUNCE.damage), 0, "glance");
+        assert_eq!(
+            lethal(g.with_claim(true), DONUT_POUNCE.damage + 1),
+            DONUT_POUNCE.damage
+        );
+        assert_eq!(
+            lethal(g.with_claim(false), DONUT_POUNCE.damage),
+            DONUT_POUNCE.damage
+        );
+        let human = runtime.glance_for(MarkKind::DonutMove, 99).with_claim(true);
+        assert_eq!(lethal(human, DONUT_POUNCE.damage), DONUT_POUNCE.damage);
+        with_profile_override(
+            |f| f.cf02_free.fix_all = crate::companion::profile::FixAll::default(),
+            || {
+                assert!(!runtime.leader_claims(Some(0), 100.0), "knob off");
+            },
+        );
+        assert!(
+            !CompanionRuntime::default().leader_claims(Some(0), 0.0),
+            "off"
+        );
     }
 
     #[test]

@@ -915,7 +915,16 @@ impl CombatState {
         // CA-20 / CF02-Q38: an AI-started pounce re-checks lethality on its hit
         // tick, on the HP the goblin has now (a human may have lowered it
         // mid-move); a lethal one lands as a glance (damage 0, same reaction).
-        let glance = self.companion.glance_for(MarkKind::DonutMove, instance);
+        let Some(gx) = self.enemies.get(target as usize).map(|g| g.x) else {
+            return;
+        };
+        let glance = self
+            .companion
+            .glance_for(MarkKind::DonutMove, instance)
+            .with_claim(
+                self.companion
+                    .leader_claims(self.carl_hit_age(target as usize, tick), gx),
+            );
         let Some(goblin) = self.enemies.get_mut(target as usize) else {
             return;
         };
@@ -1024,7 +1033,13 @@ impl CombatState {
             damage: self.llama_knobs().pounce_damage,
             ..DONUT_POUNCE
         };
-        let glance = self.companion.glance_for(MarkKind::DonutMove, instance);
+        let glance = self
+            .companion
+            .glance_for(MarkKind::DonutMove, instance)
+            .with_claim(self.companion.leader_claims(
+                self.carl_hit_age(self.enemies.len() + index, tick),
+                self.llamas[index].x,
+            ));
         let id = (self.enemies.len() + index) as u32;
         let llama = &mut self.llamas[index];
         let landed = glance.apply(&spec, llama.health);
@@ -1065,7 +1080,11 @@ impl CombatState {
         };
         let glance = self
             .companion
-            .glance_for(MarkKind::DonutCast, bolt.instance);
+            .glance_for(MarkKind::DonutCast, bolt.instance)
+            .with_claim(self.companion.leader_claims(
+                self.carl_hit_age(self.enemies.len() + index, tick),
+                self.llamas[index].x,
+            ));
         let id = (self.enemies.len() + index) as u32;
         let llama = &mut self.llamas[index];
         let landed = glance.apply(&spec, llama.health);
@@ -1393,7 +1412,11 @@ impl CombatState {
         // tick, like the pounce.
         let glance = self
             .companion
-            .glance_for(MarkKind::DonutCast, bolt.instance);
+            .glance_for(MarkKind::DonutCast, bolt.instance)
+            .with_claim(
+                self.companion
+                    .leader_claims(self.carl_hit_age(target, tick), self.enemies[target].x),
+            );
         let goblin: &mut Goblin = &mut self.enemies[target];
         let landed = glance.apply(&MAGIC_MISSILE, goblin.health);
         let was_attacking = goblin.token_held();
