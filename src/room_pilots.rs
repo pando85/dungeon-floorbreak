@@ -24,6 +24,7 @@ use crate::goblin::GoblinMode;
 use crate::input::RawInput;
 use crate::party::{HeroId, PartyTuning};
 use crate::prototype::{HERO_HALF_HEIGHT, HERO_HALF_WIDTH, Rect};
+use crate::rot_sticker::StickerState;
 
 /// Ticks between the two distinct jabs a prop needs (the scene pilots use 1 and 31).
 const JAB_PERIOD: u64 = 30;
@@ -50,6 +51,13 @@ const KICK_MAX_GAP: f32 = 60.0;
 /// The brace (prop 1) of the Boiler and its trigger weight.
 const BRACE_PROP: u16 = 1;
 
+/// Room 4's spectacular route: where Carl stands to throw (the lob lands about 46 px ahead
+/// of him, within the 64 px chain reach of the sticker once it has crept toward Carl), how far he backs off during the fuse, and the column pocket A
+/// ends at.
+const HAZ_THROW_X: f32 = 450.0;
+const HAZ_POCKET_A_END: f32 = 400.0;
+const HAZ_BACK_OFF: f32 = 90.0;
+
 /// What a room pilot does.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Plan {
@@ -69,6 +77,10 @@ pub enum Plan {
     /// pilot ([`crate::boss_scene::pilot_inputs`] with [`Pilot::Carl`], jab phase 0)
     /// fights the boss and walks out. Only valid in the Juicer's room.
     Juicer,
+    /// PT-GATE-D (room 4, the spectacular route): the mastery pilot clears pocket A, then
+    /// throws dynamite so that its blast lights the latched Rot Sticker of pocket B
+    /// ([`haz_spectacular`]). Only valid in the hazards room.
+    HazSpectacular,
 }
 
 impl Plan {
@@ -79,6 +91,7 @@ impl Plan {
             Self::Chain => "chain",
             Self::Mastery => "mastery",
             Self::Juicer => "juicer",
+            Self::HazSpectacular => "haz_spectacular",
         }
     }
 }
@@ -184,9 +197,10 @@ impl RoomPilot {
             "chain" => Plan::Chain,
             "mastery" => Plan::Mastery,
             "juicer" => Plan::Juicer,
+            "haz_spectacular" => Plan::HazSpectacular,
             other => {
                 return Err(format!(
-                    "unknown --room-pilot plan {other:?} (expected direct, valve, chain, mastery or juicer, optionally :2p, or mastery|juicer:WHO:SEED)"
+                    "unknown --room-pilot plan {other:?} (expected direct, valve, chain, mastery, juicer or haz_spectacular, optionally :2p, or mastery|juicer:WHO:SEED)"
                 ));
             }
         };
@@ -239,6 +253,7 @@ impl RoomPilot {
                 combat,
                 sim,
             )[0],
+            Plan::HazSpectacular => haz_spectacular(combat, sim),
         };
         let donut = if self.two_player {
             arena::donut_pilot(combat, sim)
@@ -594,6 +609,63 @@ fn chain(combat: &CombatState, sim: &SceneSim, exit_x: f32) -> RawInput {
     }
 }
 
+// ---------------------------------------------------------------- room 4 routes (PT-GATE-D)
+
+/// The Rot Sticker of pocket B (sidecar prop 0, `r1`): its state and its dome column.
+fn haz_sticker(combat: &CombatState) -> Option<(StickerState, f32)> {
+    let sticker = combat.env()?.sticker(0)?;
+    Some((
+        sticker.state(),
+        sticker.dome(crate::rot_sticker::active()).0,
+    ))
+}
+
+/// Whether a slime of pocket A is alive (the second slime sleeps in pocket C).
+fn haz_slime_alive(combat: &CombatState) -> bool {
+    combat.slot_enemies().iter().any(|e| {
+        e.kind() == crate::combat_scene::slime::KIND
+            && e.alive()
+            && e.as_any()
+                .and_then(|a| a.downcast_ref::<crate::combat_scene::slime::SlimeEnemy>())
+                .is_some_and(|s| s.slime().x < HAZ_POCKET_A_END)
+    })
+}
+
+/// Spectacular route (room 4): the PT-TUNE pilot clears pocket A, then Carl walks to
+/// [`HAZ_THROW_X`] and throws his one dynamite at the latched Rot Sticker of pocket B:
+/// the blast lights it (the CP-Q34 chain, 8 ticks later) and both go off. Carl backs
+/// off down the lane while the 150-tick fuse runs, and hands over to the PT-TUNE
+/// pilot (which finishes the room) once the dynamite has gone off.
+fn haz_spectacular(combat: &CombatState, sim: &SceneSim) -> RawInput {
+    let pilot = || crate::f01_mastery_fixtures::pilot(combat, sim, HeroId::Carl);
+    let Some((state, _dome)) = haz_sticker(combat) else {
+        return pilot();
+    };
+    let hero = &sim.world.hero;
+    let pocket_a_clear = !haz_slime_alive(combat)
+        && combat
+            .enemies
+            .iter()
+            .filter(|g| g.x < HAZ_POCKET_A_END)
+            .all(|g| !g.alive());
+    if !pocket_a_clear || state == StickerState::Spent {
+        return pilot();
+    }
+    if let Some(stick) = combat.charges.get(combat.dynamite_slot()) {
+        if stick.detonated {
+            return pilot();
+        }
+        return walk_to(sim, HAZ_THROW_X - HAZ_BACK_OFF);
+    }
+    if hero.x < HAZ_THROW_X - WALK_DEADZONE {
+        return walk_to(sim, HAZ_THROW_X);
+    }
+    RawInput {
+        ability: true,
+        ..RawInput::NONE
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -906,6 +978,166 @@ mod tests {
             }
         }
         assert_eq!(equal, 63, "27 Juicer runs and 36 arena runs");
+    }
+
+    /// PT-GATE-D: the library side of the render-loop replay
+    /// (`scripts/make_f01_gate_d_replay.sh`): one `ALIGNED_LIBRARY` line for each of
+    /// the 63 aligned runs with the tick it ends on, the library fixture's final hash
+    /// (the value `ROOM_PILOT_STATE` prints) and the combat hash of the same state
+    /// (the value `COMBAT_STATE` prints, in the headless run and in the window run).
+    /// The aligned pilot is replayed here and asserted equal to the library hash.
+    /// Ignored: it only prints.
+    #[test]
+    #[ignore = "prints the library hashes for scripts/make_f01_gate_d_replay.sh"]
+    fn prints_the_aligned_library_hashes() {
+        use crate::f01_late_fixtures::{
+            JUICER_COMPANION_PARTY, JUICER_ROOM_PARTY, JUICER_SEEDS, JuicerWho, juicer_pilot,
+            juicer_room_for,
+        };
+        use crate::f01_mastery_fixtures as mastery;
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        println!("ALIGNED_LIBRARY_BEGIN");
+        for (who, library_who) in [
+            (AlignedWho::CarlSolo, JuicerWho::CarlSolo),
+            (AlignedWho::DonutBySwap, JuicerWho::DonutBySwap),
+            (AlignedWho::Companion, JuicerWho::Companion),
+        ] {
+            for seed in JUICER_SEEDS {
+                let report = juicer_pilot(&root, library_who, seed).unwrap();
+                let pilot = RoomPilot::parse(&format!("juicer:{}:{seed}", who.token())).unwrap();
+                let party = if who == AlignedWho::Companion {
+                    &JUICER_COMPANION_PARTY
+                } else {
+                    &JUICER_ROOM_PARTY
+                };
+                let mut sim = juicer_room_for(&root, party).unwrap();
+                let mut sent = false;
+                for _ in 0..report.ticks {
+                    let controlled = sim.party.controlled_hero();
+                    let slots =
+                        pilot.aligned_inputs(&sim.combat, &sim.scene, controlled, &mut sent);
+                    sim.step_slots(slots);
+                }
+                assert_eq!(sim.state_hash(), report.hash, "juicer {who:?} seed {seed}");
+                println!(
+                    "ALIGNED_LIBRARY room=juicer who={} seed={seed} ticks={} hash={:016x} combat_hash={:016x}",
+                    who.token(),
+                    report.ticks,
+                    report.hash,
+                    sim.combat.state_hash(&sim.scene)
+                );
+            }
+        }
+        for who in [
+            AlignedWho::CarlSolo,
+            AlignedWho::DonutBySwap,
+            AlignedWho::DonutFights,
+            AlignedWho::Companion,
+        ] {
+            for seed in mastery::SEEDS {
+                let report = mastery::run(&root, who.mastery(), seed).unwrap();
+                let pilot = RoomPilot::parse(&format!("mastery:{}:{seed}", who.token())).unwrap();
+                let (mut sim, _) = mastery::start(&root, who.mastery(), seed).unwrap();
+                let mut sent = false;
+                for _ in 0..report.ticks {
+                    let controlled = sim.party.controlled_hero();
+                    let slots =
+                        pilot.aligned_inputs(&sim.combat, &sim.scene, controlled, &mut sent);
+                    sim.step_slots(slots);
+                }
+                assert_eq!(sim.state_hash(), report.hash, "mastery {who:?} seed {seed}");
+                println!(
+                    "ALIGNED_LIBRARY room=mastery who={} seed={seed} ticks={} hash={:016x} combat_hash={:016x}",
+                    who.token(),
+                    report.ticks,
+                    report.hash,
+                    sim.combat.state_hash(&sim.scene)
+                );
+            }
+        }
+        println!("ALIGNED_LIBRARY_END");
+    }
+
+    /// PT-GATE-D (room 4, the spectacular route): `haz_spectacular` clears pocket A,
+    /// throws one dynamite from column 450 and backs off: the thrown blast lights the
+    /// latched Rot Sticker (a `Chain` provoke on the blast tick, the sticker's own blast
+    /// 8 ticks later, CP-Q34), neither blast hurts Carl, and the pilot then finishes the
+    /// room: the exit is reached with no defeat. The run replays to the same hash.
+    #[test]
+    fn the_haz_spectacular_plan_chains_the_dynamite_into_the_latched_sticker() {
+        use crate::f01_late::hazards_start;
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let pilot = RoomPilot::parse("haz_spectacular").unwrap();
+        assert_eq!(pilot.label(), "haz_spectacular");
+        assert!(pilot.aligned.is_none() && !pilot.two_player);
+        let play = || {
+            let (carl, donut) = Loadout::Story.flags();
+            let (run, mut scene, mut combat) =
+                hazards_start(&root, 360, carl, donut, None).unwrap();
+            let exit = run.loaded.encounter.exit;
+            let exit_x = (exit.x + exit.w / 2) as f32;
+            for _ in 0..2500 {
+                if scene.world.complete {
+                    break;
+                }
+                let inputs = pilot.inputs(&combat, &scene, exit_x);
+                combat.step_party(&mut scene, inputs);
+            }
+            (scene, combat)
+        };
+        let (scene, combat) = play();
+        assert!(
+            scene.world.complete,
+            "the room is cleared and its exit reached"
+        );
+        assert_eq!(combat.deaths, 0);
+        let blasts: Vec<(u64, u32)> = combat
+            .events
+            .iter()
+            .filter_map(|e| match e {
+                CombatEvent::Blast { tick, charge } => Some((*tick, *charge)),
+                _ => None,
+            })
+            .collect();
+        let slot = combat.dynamite_slot() as u32;
+        let dynamite = blasts
+            .iter()
+            .find(|b| b.1 == slot)
+            .expect("the dynamite goes off");
+        let sticker = blasts
+            .iter()
+            .find(|b| b.1 == 0)
+            .expect("sticker 0 goes off");
+        assert_eq!(sticker.0, dynamite.0 + 8, "the chain is +8 ticks (CP-Q34)");
+        assert!(
+            combat.events.iter().any(|e| matches!(
+                e,
+                CombatEvent::RotProvoked { tick, sticker: 0, cause: crate::rot_sticker::RotCause::Chain, .. }
+                    if *tick == dynamite.0
+            )),
+            "sticker 0 is lit by the chain on the dynamite's blast tick"
+        );
+        assert!(
+            !combat.events.iter().any(|e| matches!(
+                e,
+                CombatEvent::HeroHurt { tick, .. } if (dynamite.0..=sticker.0).contains(tick)
+            )),
+            "neither blast reaches Carl"
+        );
+        // The committed final hash of this new fixture, as this test drives the room (the
+        // inputs of slot 0 only; the binary's run, with the room scene's follower bot, ends on
+        // the scorecard's `f1156c1548e7008a` instead): a drift is a deliberate re-pin.
+        assert_eq!(
+            combat.state_hash(&scene),
+            0x4b32_c6da_d3be_c5f2,
+            "the committed final hash"
+        );
+        let (again, combat_again) = play();
+        assert_eq!(
+            combat.state_hash(&scene),
+            combat_again.state_hash(&again),
+            "the route replays to the same hash"
+        );
     }
 
     #[test]

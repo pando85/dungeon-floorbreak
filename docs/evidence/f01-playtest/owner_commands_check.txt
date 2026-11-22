@@ -13,6 +13,8 @@
 [ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room boiler --f01-loadout story
 [ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room mastery --companion cf02_free
 [ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room boiler --companion cf02_assist
+[ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room hazards --companion cf02_free
+[ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room hazards --companion off
 [refuse] refused (exit 2): floor01_scene: --scene f01_late replaces --demo, --cf02, --cf02-engineer, --autopilot, --demo-beat, --fixture, --party-fixture, --scenario, --camera-test-room a :: floor01_scene --scene f01_late --scale 2 --f01-room mastery --fixture cp01_kick --companion cf02_free
 [ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room boiler --debug-combat
 [ok] ok :: floor01_scene --cf02 --cf02-engineer --donut-biscuit --scale 2

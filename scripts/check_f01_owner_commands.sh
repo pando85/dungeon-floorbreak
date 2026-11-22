@@ -36,6 +36,8 @@ try ok $S --f01-room boiler --f01-loadout story
 # (PT-GATE-C1); the placeholder fixture a room scene sets is not a user fixture.
 try ok $S --f01-room mastery --companion cf02_free
 try ok $S --f01-room boiler --companion cf02_assist
+try ok $S --f01-room hazards --companion cf02_free
+try ok $S --f01-room hazards --companion off
 try refuse $S --f01-room mastery --fixture cp01_kick --companion cf02_free
 try ok $S --f01-room boiler --debug-combat
 try ok --cf02 --cf02-engineer --donut-biscuit --scale 2

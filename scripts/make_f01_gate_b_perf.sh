@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
 # PT-GATE-B: the mastery arena's frame time (gate item 7) into docs/evidence/f01-playtest/perf_mastery.txt:
 # three runs at 640x360 and three at 640x400 (--deck), gore preset 4, the real Bevy window under xvfb.
-# FRAMES is the room pilot's exit tick plus one: the pilot clears the tuned arena and reaches the exit
-# on tick 1190 (the README), after being defeated once on tick 908, so 1191 frames end on the exit and no frame measures a finished, static room.
+# FRAMES is the room pilot's exit tick plus one: the aligned pilot (`--room-pilot mastery` = `mastery:carl_solo:0`, PT-GATE-C1)
+# clears the arena and reaches the exit on tick 737 (the pre-C1 follower-bot pilot was defeated on tick 908 and exited on
+# tick 1190), so 738 frames end on the exit and no frame measures a finished, static room.
 # Run it on a quiet machine: the interval is wall-clock and every ROOM_PERF line carries the load average.
 # See scripts/room_perf.sh for what is measured and what it is not (xvfb, not real hardware).
 #   BIN=<floor01_scene> (default ./target/debug/floor01_scene)
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 out=docs/evidence/f01-playtest
-frames=1191
+frames=738
 mkdir -p "$out"
 : > "$out/perf_mastery.txt"
 for view in 640x360 640x400; do
