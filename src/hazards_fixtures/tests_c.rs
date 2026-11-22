@@ -193,7 +193,7 @@ const DIRECT_PINNED: [u64; 18] = [
     0x2f28_ffc0_fdfd_5394,
     0x0cfe_8b1b_d9df_8f31,
 ];
-const SOLO_CARL_PINNED: [u64; 9] = [
+pub(crate) const SOLO_CARL_PINNED: [u64; 9] = [
     0x351c_7088_ae6a_9532,
     0x0a65_afb3_d15b_270c,
     0x04cb_fbe1_d29d_8ebd,

@@ -594,8 +594,10 @@ case "$mode" in
     echo "F01_MASTERY_PILOT_OK: $mastery_pilot"
     # PT-GATE-C1: the aligned room pilots (`mastery|juicer:WHO:SEED`) run the library fixture's party and seed
     # through the live party: each replays identically twice and prints its ROOM_PILOT_STATE (the fixture hash,
-    # asserted equal to the library's for every (who, seed) by the unit tests).
-    for aligned in mastery:donut_by_swap:3 mastery:companion:5 juicer:carl_solo:0 juicer:companion:2; do
+    # asserted equal to the library's for every (who, seed) by the unit tests). PT-GATE-E adds the hazards
+    # (`hazards:WHO:SEED`) and the Boiler's live room (`boiler:WHO:direct|both:SEED`).
+    for aligned in mastery:donut_by_swap:3 mastery:companion:5 juicer:carl_solo:0 juicer:companion:2 \
+      hazards:carl_solo:0 hazards:donut_by_swap:4 boiler:carl_solo:direct:0 boiler:companion:both:5; do
       aligned_room="${aligned%%:*}"
       aligned_a="$("$bin" --headless-floor01-smoke --scene f01_late --f01-room "$aligned_room" --room-pilot "$aligned" --capture-tick 1500 | grep '^ROOM_PILOT_STATE')"
       aligned_b="$("$bin" --headless-floor01-smoke --scene f01_late --f01-room "$aligned_room" --room-pilot "$aligned" --capture-tick 1500 | grep '^ROOM_PILOT_STATE')"
@@ -604,7 +606,7 @@ case "$mode" in
         exit 1
       fi
     done
-    echo "F01_ALIGNED_PILOTS_OK: 4 aligned room pilots, each twice identical"
+    echo "F01_ALIGNED_PILOTS_OK: 8 aligned room pilots, each twice identical"
     # PT-GATE-D: room 4's spectacular route: the dynamite lights the latched sticker (a Chain provoke), the
     # exit is reached (the scene stops before tick 1500) and the run replays identically twice.
     spectacular_a="$("$bin" --headless-floor01-smoke --scene f01_late --f01-room hazards --room-pilot haz_spectacular --capture-tick 1500)"
@@ -617,6 +619,22 @@ case "$mode" in
       exit 1
     fi
     echo "F01_HAZ_SPECTACULAR_OK: dynamite chain into the latched sticker, room cleared, twice identical"
+    # PT-GATE-E: room 4's tactical route (HAZ-07 pattern 2): R1 is spent by bait and retreat, R2 is provoked by proximity
+    # and its blast goes off (provoke + 24, the sheet's warning), no Rot blast hurts Carl, the exit is reached (the
+    # scene stops before tick 1500) and the run replays identically twice.
+    tactical_a="$("$bin" --headless-floor01-smoke --scene f01_late --f01-room hazards --room-pilot haz_tactical --capture-tick 1500)"
+    tactical_b="$("$bin" --headless-floor01-smoke --scene f01_late --f01-room hazards --room-pilot haz_tactical --capture-tick 1500)"
+    tactical_ticks="$(sed -n 's/^F01_HAZARDS_SMOKE_OK ticks=\([0-9]*\) .*/\1/p' <<<"$tactical_a")"
+    rot_hurts="$(awk '/kind=hero_hurt source=/ { split($3, a, "="); if (a[2] % 65536 == 21076) n++ } END { print n + 0 }' <<<"$tactical_a")"
+    if [[ "$tactical_a" != "$tactical_b" ]] \
+      || ! grep -q 'kind=rot_provoked sticker=1 cause=Proximity' <<<"$tactical_a" \
+      || ! grep -q 'kind=blast charge=1' <<<"$tactical_a" \
+      || [[ "$rot_hurts" -ne 0 ]] \
+      || [[ -z "$tactical_ticks" || "$tactical_ticks" -ge 1500 ]]; then
+      echo "--room-pilot haz_tactical did not bait the second sticker, clear the room without a Rot hurt and replay identically twice" >&2
+      exit 1
+    fi
+    echo "F01_HAZ_TACTICAL_OK: second sticker baited over the slime, no Rot hurt, room cleared, twice identical"
     echo "F01_LATE_HEADLESS_OK: boiler, hazards, juicer and mastery, story and all, each twice identical"
     ;;
   render)

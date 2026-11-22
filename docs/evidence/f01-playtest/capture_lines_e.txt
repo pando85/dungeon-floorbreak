@@ -1,0 +1,5 @@
+GATE_E_ROUTE route=tactical view=640x360 room=hazards plan=haz_tactical frames=61 first_tick=340 step=6 last_tick=700 window_hash=65fae69ae25dcd1b headless_hash=65fae69ae25dcd1b timed_hash=65fae69ae25dcd1b match=yes
+GATE_E_ROUTE route=direct view=640x360 room=hazards plan=hazards:carl_solo:0 frames=56 first_tick=320 step=6 last_tick=650 window_hash=4ce504985e1d87d4 headless_hash=4ce504985e1d87d4 timed_hash=4ce504985e1d87d4 match=yes
+GATE_E_ROUTE route=tactical view=640x400 room=hazards plan=haz_tactical frames=61 first_tick=340 step=6 last_tick=700 window_hash=7242dfae76c1bd3d headless_hash=7242dfae76c1bd3d timed_hash=7242dfae76c1bd3d match=yes
+GATE_E_ROUTE route=direct view=640x400 room=hazards plan=hazards:carl_solo:0 frames=56 first_tick=320 step=6 last_tick=650 window_hash=0e44ff436636cc79 headless_hash=0e44ff436636cc79 timed_hash=0e44ff436636cc79 match=yes
+GATE_E_BYTE_STABLE gifs=4 routes=room4-tactical,room4-direct views=640x360,640x400 passes=2 result=identical

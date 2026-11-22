@@ -756,10 +756,10 @@ pub mod scene_pilots {
 
         /// A jump when a solid ahead rises above the feet (the drum and the
         /// remnant are 32 px, every class clears them).
-        fn walk(sim: &PartyFixtureSim, hero: HeroId) -> RawInput {
-            let body = sim.scene.world.body(hero);
+        fn walk(scene: &SceneSim, hero: HeroId) -> RawInput {
+            let body = scene.world.body(hero);
             let foot = body.y - crate::prototype::HERO_HALF_HEIGHT;
-            let blocked = sim.scene.world.solids.iter().any(|b| {
+            let blocked = scene.world.solids.iter().any(|b| {
                 b.intact
                     && b.rect.left > body.x + 8.0
                     && b.rect.left < body.x + 34.0
@@ -772,19 +772,19 @@ pub mod scene_pilots {
             }
         }
 
-        fn input(&mut self, sim: &PartyFixtureSim, hero: HeroId) -> RawInput {
+        fn input(&mut self, scene: &SceneSim, combat: &CombatState, hero: HeroId) -> RawInput {
             let Some(step) = self.steps.get(self.at).copied() else {
                 return RawInput::NONE;
             };
-            let x = sim.scene.world.body(hero).x;
-            let env = sim.combat.env().expect("the Boiler has props");
+            let x = scene.world.body(hero).x;
+            let env = combat.env().expect("the Boiler has props");
             match step {
                 Step::WalkTo(target) => {
                     if x >= target {
                         self.advance();
-                        return self.input(sim, hero);
+                        return self.input(scene, combat, hero);
                     }
-                    Self::walk(sim, hero)
+                    Self::walk(scene, hero)
                 }
                 Step::Jab2 => {
                     self.timer += 1;
@@ -809,7 +809,7 @@ pub mod scene_pilots {
                         }
                     } else {
                         self.advance();
-                        self.input(sim, hero)
+                        self.input(scene, combat, hero)
                     }
                 }
                 Step::JabBrace => {
@@ -824,7 +824,7 @@ pub mod scene_pilots {
                         }
                     } else {
                         self.advance();
-                        self.input(sim, hero)
+                        self.input(scene, combat, hero)
                     }
                 }
                 Step::WaitValveSpent => {
@@ -846,7 +846,7 @@ pub mod scene_pilots {
                         ..RawInput::NONE
                     }
                 }
-                Step::WalkExit => Self::walk(sim, hero),
+                Step::WalkExit => Self::walk(scene, hero),
             }
         }
     }
@@ -978,16 +978,19 @@ pub mod scene_pilots {
             // Donut (solo), or Carl all the time (two players).
             let (slots, walking) = match who {
                 Who::CarlSolo => (
-                    [carl.input(&sim, HeroId::Carl), RawInput::NONE],
+                    [
+                        carl.input(&sim.scene, &sim.combat, HeroId::Carl),
+                        RawInput::NONE,
+                    ],
                     [carl.walking(), false],
                 ),
                 Who::DonutBySwap if !swapped => {
-                    let input = carl.input(&sim, HeroId::Carl);
+                    let input = carl.input(&sim.scene, &sim.combat, HeroId::Carl);
                     swapped = input.swap;
                     ([input, RawInput::NONE], [carl.walking(), false])
                 }
                 Who::DonutBySwap => {
-                    let input = donut.input(&sim, HeroId::Donut);
+                    let input = donut.input(&sim.scene, &sim.combat, HeroId::Donut);
                     ([input, RawInput::NONE], [false, true])
                 }
                 Who::Companion => unreachable!("refused above"),
@@ -999,12 +1002,12 @@ pub mod scene_pilots {
                     let donut_x = sim.scene.world.donut_body.x;
                     let follow = donut_x < carl_x - 90.0;
                     let p2 = if follow {
-                        Driver::walk(&sim, HeroId::Donut)
+                        Driver::walk(&sim.scene, HeroId::Donut)
                     } else {
                         RawInput::NONE
                     };
                     (
-                        [carl.input(&sim, HeroId::Carl), p2],
+                        [carl.input(&sim.scene, &sim.combat, HeroId::Carl), p2],
                         [carl.walking(), follow],
                     )
                 }
@@ -1034,6 +1037,146 @@ pub mod scene_pilots {
             hash: sim.combat.state_hash(&sim.scene),
             events: sim.combat.events.clone(),
         })
+    }
+
+    /// PT-GATE-E: the per-tick input of a live-roster pilot ([`run_live`]), lifted out of
+    /// its loop so that the render-loop room pilot (`boiler:<who>:<plan>:<seed>`,
+    /// `room_pilots`) plays the very same inputs. A pure function of the finished state
+    /// and its own step counters; it never reads the party.
+    #[derive(Debug, Clone)]
+    pub struct LiveDriver {
+        steps: Driver,
+        plan: Plan,
+        who: Who,
+    }
+
+    impl LiveDriver {
+        /// The driver of `plan` for `who`; [`Plan::Weight`] and [`Who::TwoPlayer`] have no
+        /// live counterpart.
+        pub fn new(who: Who, plan: Plan) -> Result<Self, String> {
+            let steps = match plan {
+                Plan::Direct => Vec::new(),
+                Plan::Valve => vec![Step::WalkTo(VALVE_X), Step::JabValve, Step::WaitValveSpent],
+                Plan::Both => vec![
+                    Step::WalkTo(VALVE_X),
+                    Step::JabValve,
+                    Step::WaitValveSpent,
+                    Step::WalkTo(BRACE_X),
+                    Step::JabBrace,
+                    Step::WaitLanded,
+                ],
+                Plan::Weight => return Err("the live room has no weight-only plan".into()),
+            };
+            if who == Who::TwoPlayer {
+                return Err("the live pilots have no two-player mode".into());
+            }
+            Ok(Self {
+                steps: Driver::new(steps),
+                plan,
+                who,
+            })
+        }
+
+        /// The two slot inputs of the next tick for the hero the party `controlled`, and
+        /// which heroes the pilot holds a walk input for (the stuck metric's input).
+        /// `exit_x` is the column the room's pilot walks to once nothing is left.
+        pub fn next(
+            &mut self,
+            combat: &CombatState,
+            scene: &SceneSim,
+            controlled: HeroId,
+            exit_x: f32,
+        ) -> ([RawInput; 2], [bool; 2]) {
+            use crate::goblin::GoblinMode;
+            use crate::room_pilots::{Plan as RoomPlan, RoomPilot};
+
+            let fight_or_walk = RoomPilot {
+                plan: RoomPlan::Direct,
+                two_player: false,
+                aligned: None,
+            };
+            // The roster is clear and the plan has used its props.
+            let done = {
+                let env = combat.env().expect("the Boiler has props");
+                let props = match self.plan {
+                    Plan::Direct => true,
+                    Plan::Valve => env.valve_state(0) == Some(ValveState::Spent),
+                    _ => {
+                        env.valve_state(0) == Some(ValveState::Spent)
+                            && env.mass_state(1) == Some(MassState::Landed)
+                    }
+                };
+                combat.roster_cleared() && props
+            };
+            let direct = fight_or_walk.inputs(combat, scene, exit_x)[0];
+            let carl_x_now = scene.world.hero.x;
+            let threatened = combat.enemies.iter().any(|g| {
+                g.alive()
+                    && g.ai == EnemyAi::Chase
+                    && !matches!(g.mode, GoblinMode::Down | GoblinMode::Corpse)
+                    && (g.x - carl_x_now).abs() < 70.0
+            });
+            let carl_input = if self.plan == Plan::Direct
+                || threatened
+                || self.steps.at >= self.steps.steps.len()
+            {
+                direct
+            } else {
+                self.steps.input(scene, combat, HeroId::Carl)
+            };
+            match self.who {
+                Who::DonutBySwap if controlled == HeroId::Donut => {
+                    let input = Driver::walk(scene, HeroId::Donut);
+                    ([input, RawInput::NONE], [false, true])
+                }
+                Who::DonutBySwap => {
+                    // Carl swaps (and is held still) until the party takes it.
+                    let input = if done {
+                        RawInput {
+                            swap: true,
+                            ..RawInput::NONE
+                        }
+                    } else {
+                        carl_input
+                    };
+                    ([input, RawInput::NONE], [input.move_x != 0.0, false])
+                }
+                _ => (
+                    [carl_input, RawInput::NONE],
+                    [carl_input.move_x != 0.0, false],
+                ),
+            }
+        }
+    }
+
+    /// PT-GATE-E: the live room as [`run_live`] builds it, under the party of `who`
+    /// (`f01_mastery_fixtures::tuning`), at CF02 seed `seed`: the sim and the column the
+    /// pilot walks to once nothing is left (the room's exit).
+    pub fn live_start(root: &Path, who: Who, seed: u64) -> Result<(PartyFixtureSim, f32), String> {
+        use crate::f01_boiler::Roster;
+        use crate::f01_late::{Loadout, boiler_start_with};
+        use crate::f01_mastery_fixtures::{Who as MWho, tuning};
+
+        let mastery_who = match who {
+            Who::CarlSolo => MWho::CarlSolo,
+            Who::DonutBySwap => MWho::DonutBySwap,
+            Who::Companion => MWho::Companion,
+            Who::TwoPlayer => return Err("the live pilots have no two-player mode".into()),
+        };
+        let (carl_flags, donut_flags) = Loadout::Story.flags();
+        let (run, scene, combat) =
+            boiler_start_with(root, 360, carl_flags, donut_flags, Some(seed), Roster::Live)?;
+        let exit = run.loaded.encounter.exit;
+        let exit_x = (exit.x + exit.w / 2) as f32;
+        let fixture: &'static PartyFixture = Box::leak(Box::new(PartyFixture {
+            base: run.fixture,
+            two_player: false,
+            tuning: tuning(mastery_who),
+            script: &[],
+            pilot: Pilot::None,
+            donut: DonutSetup::unlocked(8),
+        }));
+        Ok((PartyFixtureSim::from_parts(scene, combat, fixture), exit_x))
     }
 
     /// The run length of a live-roster pilot: the room fights back, so the
@@ -1068,106 +1211,17 @@ pub mod scene_pilots {
     /// holds a walk input and the body does not move; the autonomous Donut is
     /// stuck while she stands still, [`APART_PX`] from Carl, while he walks on.
     pub fn run_live(root: &Path, who: Who, plan: Plan, seed: u64) -> Result<Report, String> {
-        use crate::f01_boiler::Roster;
-        use crate::f01_late::{Loadout, boiler_start_with};
-        use crate::f01_mastery_fixtures::{APART_PX, Who as MWho, tuning};
-        use crate::goblin::GoblinMode;
-        use crate::room_pilots::{Plan as RoomPlan, RoomPilot};
+        use crate::f01_mastery_fixtures::APART_PX;
 
-        let live_steps = match plan {
-            Plan::Direct => Vec::new(),
-            Plan::Valve => vec![Step::WalkTo(VALVE_X), Step::JabValve, Step::WaitValveSpent],
-            Plan::Both => vec![
-                Step::WalkTo(VALVE_X),
-                Step::JabValve,
-                Step::WaitValveSpent,
-                Step::WalkTo(BRACE_X),
-                Step::JabBrace,
-                Step::WaitLanded,
-            ],
-            Plan::Weight => return Err("the live room has no weight-only plan".into()),
-        };
-        let mastery_who = match who {
-            Who::CarlSolo => MWho::CarlSolo,
-            Who::DonutBySwap => MWho::DonutBySwap,
-            Who::Companion => MWho::Companion,
-            Who::TwoPlayer => return Err("the live pilots have no two-player mode".into()),
-        };
-        let (carl_flags, donut_flags) = Loadout::Story.flags();
-        let (run, scene, combat) =
-            boiler_start_with(root, 360, carl_flags, donut_flags, Some(seed), Roster::Live)?;
-        let exit = run.loaded.encounter.exit;
-        let exit_x = (exit.x + exit.w / 2) as f32;
-        let fixture: &'static PartyFixture = Box::leak(Box::new(PartyFixture {
-            base: run.fixture,
-            two_player: false,
-            tuning: tuning(mastery_who),
-            script: &[],
-            pilot: Pilot::None,
-            donut: DonutSetup::unlocked(8),
-        }));
-        let mut sim = PartyFixtureSim::from_parts(scene, combat, fixture);
-        let fight_or_walk = RoomPilot {
-            plan: RoomPlan::Direct,
-            two_player: false,
-            aligned: None,
-        };
-        let mut steps = Driver::new(live_steps);
+        let mut driver = LiveDriver::new(who, plan)?;
+        let (mut sim, exit_x) = live_start(root, who, seed)?;
         let mut last_x = [sim.scene.world.hero.x, sim.scene.world.donut_body.x];
         let mut stuck = [0u32; 2];
         let mut max_stuck = [0u32; 2];
         let mut exit_tick = None;
         for _ in 0..LIVE_TICKS {
             let controlled = sim.party.controlled_hero();
-            // The roster is clear and the plan has used its props.
-            let done = {
-                let env = sim.combat.env().expect("the Boiler has props");
-                let props = match plan {
-                    Plan::Direct => true,
-                    Plan::Valve => env.valve_state(0) == Some(ValveState::Spent),
-                    _ => {
-                        env.valve_state(0) == Some(ValveState::Spent)
-                            && env.mass_state(1) == Some(MassState::Landed)
-                    }
-                };
-                sim.combat.roster_cleared() && props
-            };
-            let direct = fight_or_walk.inputs(&sim.combat, &sim.scene, exit_x)[0];
-            let carl_x_now = sim.scene.world.hero.x;
-            let threatened = sim.combat.enemies.iter().any(|g| {
-                g.alive()
-                    && g.ai == EnemyAi::Chase
-                    && !matches!(g.mode, GoblinMode::Down | GoblinMode::Corpse)
-                    && (g.x - carl_x_now).abs() < 70.0
-            });
-            let carl_input = if plan == Plan::Direct || threatened || steps.at >= steps.steps.len()
-            {
-                direct
-            } else {
-                steps.input(&sim, HeroId::Carl)
-            };
-            let (slots, walking) = match who {
-                Who::DonutBySwap if controlled == HeroId::Donut => {
-                    let input = Driver::walk(&sim, HeroId::Donut);
-                    ([input, RawInput::NONE], [false, true])
-                }
-                Who::DonutBySwap => {
-                    // Carl swaps (and is held still) until the party takes it.
-                    let input = if done {
-                        RawInput {
-                            swap: true,
-                            ..RawInput::NONE
-                        }
-                    } else {
-                        carl_input
-                    };
-                    ([input, RawInput::NONE], [input.move_x != 0.0, false])
-                }
-                _ => (
-                    [carl_input, RawInput::NONE],
-                    [carl_input.move_x != 0.0, false],
-                ),
-            };
+            let (slots, walking) = driver.next(&sim.combat, &sim.scene, controlled, exit_x);
             sim.step_slots(slots);
             let carl_x = sim.scene.world.hero.x;
             let carl_moved = (carl_x - last_x[0]).abs() >= 0.1;
