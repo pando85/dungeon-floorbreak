@@ -615,11 +615,12 @@ mod tests {
 /// item 5): a deterministic function of the finished sim state plays the real
 /// room on the real combat scene with the live env step ([`crate::combat_scene`]
 /// `env`), for solo Carl, solo Donut by swap and two players, at the CF02 seeds
-/// 0..8. They are the gate's per-room fixtures that exist before the companion
-/// mode (`cf02_free`, CA2-B2): the companion-mode fixtures land in the first
-/// BOIL owner step after CA2-B2. The room has no roster of its own yet (BOIL-E),
-/// so a plan that needs a goblin brings one (a passive goblin under the weight's
-/// footprint).
+/// 0..=8. These greybox pilots ([`run`]) play the room with **no roster**
+/// ([`Roster::Inert`](crate::f01_boiler::Roster)): a plan that needs a goblin
+/// brings one (a passive goblin under the weight's footprint). The room the owner
+/// plays, [`Roster::Live`](crate::f01_boiler::Roster), has its own pilots,
+/// [`run_live`] (PT-GATE-C2): solo Carl, Donut by swap and the `cf02_free`
+/// companion, `direct` and `both`, at every seed.
 ///
 /// A pilot is **not** AUTOPLAY and not an evaluator of fun: it proves the
 /// critical path (the exit is reachable and reached in every destruction state
@@ -676,6 +677,9 @@ pub mod scene_pilots {
         DonutBySwap,
         /// P1 Carl plays `plan`, P2 Donut walks right.
         TwoPlayer,
+        /// PT-GATE-C2: Carl plays `plan`; Donut is the autonomous partner
+        /// (`--companion cf02_free`). Live roster only ([`run_live`]).
+        Companion,
     }
 
     #[derive(Debug, Clone, Copy, PartialEq)]
@@ -684,6 +688,11 @@ pub mod scene_pilots {
         Jab2,
         WaitValveSpent,
         WaitLanded,
+        /// PT-GATE-C2 (live pilots): jab the valve every 30 ticks until it is
+        /// set off (a fight in between does not lose the count).
+        JabValve,
+        /// PT-GATE-C2 (live pilots): jab the brace every 30 ticks until it lets go.
+        JabBrace,
         Swap,
         WalkExit,
     }
@@ -791,6 +800,33 @@ pub mod scene_pilots {
                         _ => RawInput::NONE,
                     }
                 }
+                Step::JabValve => {
+                    if env.valve_state(0) == Some(ValveState::Intact) {
+                        self.timer += 1;
+                        RawInput {
+                            attack: self.timer % 30 == 1,
+                            ..RawInput::NONE
+                        }
+                    } else {
+                        self.advance();
+                        self.input(sim, hero)
+                    }
+                }
+                Step::JabBrace => {
+                    if matches!(
+                        env.mass_state(1),
+                        Some(MassState::Supported | MassState::Weakened)
+                    ) {
+                        self.timer += 1;
+                        RawInput {
+                            attack: self.timer % 30 == 1,
+                            ..RawInput::NONE
+                        }
+                    } else {
+                        self.advance();
+                        self.input(sim, hero)
+                    }
+                }
                 Step::WaitValveSpent => {
                     if env.valve_state(0) == Some(ValveState::Spent) {
                         self.advance();
@@ -837,10 +873,28 @@ pub mod scene_pilots {
                 .count()
         }
 
+        /// Prop hits credited to player `player` (0 is Carl's slot, 1 is Donut's).
+        pub fn prop_hits_by(&self, player: u32) -> usize {
+            self.events
+                .iter()
+                .filter(
+                    |e| matches!(e, CombatEvent::PropHit { player: Some(p), .. } if *p == player),
+                )
+                .count()
+        }
+
         pub fn prop_hits(&self) -> usize {
             self.events
                 .iter()
                 .filter(|e| matches!(e, CombatEvent::PropHit { .. }))
+                .count()
+        }
+
+        /// Checkpoint restarts (a defeat of the controlled hero).
+        pub fn restarts(&self) -> usize {
+            self.events
+                .iter()
+                .filter(|e| matches!(e, CombatEvent::Restart { .. }))
                 .count()
         }
 
@@ -869,6 +923,9 @@ pub mod scene_pilots {
     /// Run one plan on the real room for [`PLAN_TICKS`] (or until the exit and
     /// a short tail), at CF02 seed `seed`.
     pub fn run(root: &Path, who: Who, plan: Plan, seed: u64) -> Result<Report, String> {
+        if who == Who::Companion {
+            return Err("the greybox pilots have no companion mode: use run_live".into());
+        }
         let run = f01_boiler::launch(root)?;
         let goblins: &'static [EnemySpawn] = if plan == Plan::Weight {
             Box::leak(Box::new([EnemySpawn {
@@ -933,6 +990,7 @@ pub mod scene_pilots {
                     let input = donut.input(&sim, HeroId::Donut);
                     ([input, RawInput::NONE], [false, true])
                 }
+                Who::Companion => unreachable!("refused above"),
                 Who::TwoPlayer => {
                     // P2 follows P1 at about 90 px behind (the scroll camera
                     // holds the lead player back when the partner lags); she
@@ -977,6 +1035,164 @@ pub mod scene_pilots {
             events: sim.combat.events.clone(),
         })
     }
+
+    /// The run length of a live-roster pilot: the room fights back, so the
+    /// plans of `room_pilots` need more than [`PLAN_TICKS`] (the longest chain
+    /// run clears on about tick 1300).
+    pub const LIVE_TICKS: u64 = 3000;
+
+    /// PT-GATE-C2 (plan section 10, item 5): one plan on the **live room**
+    /// (`--scene f01_late --f01-room boiler`: [`Roster::Live`], the story
+    /// loadout, its goblins), at CF02 seed `seed`.
+    ///
+    /// Carl's plan: [`Plan::Direct`] is the `room_pilots` `direct` plan (fight
+    /// whatever is awake, walk to the exit, touch no prop). [`Plan::Valve`] and
+    /// [`Plan::Both`] walk to the valve and jab it until it is set off, wait
+    /// the steam out and (for `Both`) walk to the brace and jab it until it lets
+    /// go and the weight lands, then fight what is left and walk to the exit;
+    /// whenever an awake goblin is within 70 px the `direct` fight takes over,
+    /// and the step machine resumes afterwards. [`Plan::Weight`] has no live
+    /// counterpart. (The `room_pilots` `chain` plan is not used: with a CF02
+    /// seed and a party it stalls at x 556, 4 px short of the B3 goblins' wake
+    /// trigger at 560, and waits forever.) The partner is the library
+    /// fixtures' (`f01_mastery_fixtures::tuning`): `cf02_assist` with the 12-tick
+    /// swap for [`Who::CarlSolo`] and [`Who::DonutBySwap`], the autonomous
+    /// `cf02_free` partner for [`Who::Companion`] (Donut is the AI hero and
+    /// never gets a pilot input). [`Who::DonutBySwap`] swaps to Donut once the
+    /// roster is clear and the plan's props are used; she then walks to the
+    /// exit. A restart returns control to Carl (the party's rule), who then
+    /// plays the plan to the end.
+    ///
+    /// The stuck metric is the CF02 one: a hero counts as stuck while the pilot
+    /// holds a walk input and the body does not move; the autonomous Donut is
+    /// stuck while she stands still, [`APART_PX`] from Carl, while he walks on.
+    pub fn run_live(root: &Path, who: Who, plan: Plan, seed: u64) -> Result<Report, String> {
+        use crate::f01_boiler::Roster;
+        use crate::f01_late::{Loadout, boiler_start_with};
+        use crate::f01_mastery_fixtures::{APART_PX, Who as MWho, tuning};
+        use crate::goblin::GoblinMode;
+        use crate::room_pilots::{Plan as RoomPlan, RoomPilot};
+
+        let live_steps = match plan {
+            Plan::Direct => Vec::new(),
+            Plan::Valve => vec![Step::WalkTo(VALVE_X), Step::JabValve, Step::WaitValveSpent],
+            Plan::Both => vec![
+                Step::WalkTo(VALVE_X),
+                Step::JabValve,
+                Step::WaitValveSpent,
+                Step::WalkTo(BRACE_X),
+                Step::JabBrace,
+                Step::WaitLanded,
+            ],
+            Plan::Weight => return Err("the live room has no weight-only plan".into()),
+        };
+        let mastery_who = match who {
+            Who::CarlSolo => MWho::CarlSolo,
+            Who::DonutBySwap => MWho::DonutBySwap,
+            Who::Companion => MWho::Companion,
+            Who::TwoPlayer => return Err("the live pilots have no two-player mode".into()),
+        };
+        let (carl_flags, donut_flags) = Loadout::Story.flags();
+        let (run, scene, combat) =
+            boiler_start_with(root, 360, carl_flags, donut_flags, Some(seed), Roster::Live)?;
+        let exit = run.loaded.encounter.exit;
+        let exit_x = (exit.x + exit.w / 2) as f32;
+        let fixture: &'static PartyFixture = Box::leak(Box::new(PartyFixture {
+            base: run.fixture,
+            two_player: false,
+            tuning: tuning(mastery_who),
+            script: &[],
+            pilot: Pilot::None,
+            donut: DonutSetup::unlocked(8),
+        }));
+        let mut sim = PartyFixtureSim::from_parts(scene, combat, fixture);
+        let fight_or_walk = RoomPilot {
+            plan: RoomPlan::Direct,
+            two_player: false,
+        };
+        let mut steps = Driver::new(live_steps);
+        let mut last_x = [sim.scene.world.hero.x, sim.scene.world.donut_body.x];
+        let mut stuck = [0u32; 2];
+        let mut max_stuck = [0u32; 2];
+        let mut exit_tick = None;
+        for _ in 0..LIVE_TICKS {
+            let controlled = sim.party.controlled_hero();
+            // The roster is clear and the plan has used its props.
+            let done = {
+                let env = sim.combat.env().expect("the Boiler has props");
+                let props = match plan {
+                    Plan::Direct => true,
+                    Plan::Valve => env.valve_state(0) == Some(ValveState::Spent),
+                    _ => {
+                        env.valve_state(0) == Some(ValveState::Spent)
+                            && env.mass_state(1) == Some(MassState::Landed)
+                    }
+                };
+                sim.combat.roster_cleared() && props
+            };
+            let direct = fight_or_walk.inputs(&sim.combat, &sim.scene, exit_x)[0];
+            let carl_x_now = sim.scene.world.hero.x;
+            let threatened = sim.combat.enemies.iter().any(|g| {
+                g.alive()
+                    && g.ai == EnemyAi::Chase
+                    && !matches!(g.mode, GoblinMode::Down | GoblinMode::Corpse)
+                    && (g.x - carl_x_now).abs() < 70.0
+            });
+            let carl_input = if plan == Plan::Direct || threatened || steps.at >= steps.steps.len()
+            {
+                direct
+            } else {
+                steps.input(&sim, HeroId::Carl)
+            };
+            let (slots, walking) = match who {
+                Who::DonutBySwap if controlled == HeroId::Donut => {
+                    let input = Driver::walk(&sim, HeroId::Donut);
+                    ([input, RawInput::NONE], [false, true])
+                }
+                Who::DonutBySwap => {
+                    // Carl swaps (and is held still) until the party takes it.
+                    let input = if done {
+                        RawInput {
+                            swap: true,
+                            ..RawInput::NONE
+                        }
+                    } else {
+                        carl_input
+                    };
+                    ([input, RawInput::NONE], [input.move_x != 0.0, false])
+                }
+                _ => (
+                    [carl_input, RawInput::NONE],
+                    [carl_input.move_x != 0.0, false],
+                ),
+            };
+            sim.step_slots(slots);
+            let carl_x = sim.scene.world.hero.x;
+            let carl_moved = (carl_x - last_x[0]).abs() >= 0.1;
+            for (i, id) in HeroId::ALL.into_iter().enumerate() {
+                let x = sim.scene.world.body(id).x;
+                let still = (x - last_x[i]).abs() < 0.1;
+                let counts = if who == Who::Companion && id == HeroId::Donut {
+                    still && (x - carl_x).abs() > APART_PX && carl_moved
+                } else {
+                    walking[i] && still
+                };
+                stuck[i] = if counts { stuck[i] + 1 } else { 0 };
+                max_stuck[i] = max_stuck[i].max(stuck[i]);
+                last_x[i] = x;
+            }
+            if exit_tick.is_none() && sim.scene.world.complete {
+                exit_tick = Some(sim.scene.world.tick);
+                break;
+            }
+        }
+        Ok(Report {
+            exit_tick,
+            max_stuck,
+            hash: sim.state_hash(),
+            events: sim.combat.events.clone(),
+        })
+    }
 }
 
 #[cfg(test)]
@@ -998,7 +1214,7 @@ mod scene_pilot_tests {
     #[test]
     fn the_direct_route_reaches_the_exit_with_every_prop_untouched() {
         for who in [Who::CarlSolo, Who::DonutBySwap, Who::TwoPlayer] {
-            for seed in 0..8 {
+            for seed in 0..=8 {
                 let r = go(who, Plan::Direct, seed);
                 let tick = r
                     .exit_tick
@@ -1019,7 +1235,7 @@ mod scene_pilot_tests {
     /// because the pilot waits the burst out; the exit is reached.
     #[test]
     fn the_valve_plan_vents_once_and_the_exit_is_reached() {
-        for seed in 0..8 {
+        for seed in 0..=8 {
             let r = go(Who::CarlSolo, Plan::Valve, seed);
             assert_eq!(r.phases(0, PropPhase::Warning), 1, "seed {seed}");
             assert_eq!(r.phases(0, PropPhase::Venting), 1);
@@ -1035,7 +1251,7 @@ mod scene_pilot_tests {
     /// the rubble.
     #[test]
     fn the_weight_plan_kills_the_goblin_under_it_once_and_the_rubble_is_crossed() {
-        for seed in 0..8 {
+        for seed in 0..=8 {
             let r = go(Who::CarlSolo, Plan::Weight, seed);
             assert_eq!(r.phases(1, PropPhase::Released), 1);
             assert_eq!(r.phases(1, PropPhase::Landed), 1);
@@ -1053,7 +1269,7 @@ mod scene_pilot_tests {
     #[test]
     fn the_room_stays_walkable_for_every_hero_with_both_props_used() {
         for who in [Who::CarlSolo, Who::DonutBySwap, Who::TwoPlayer] {
-            for seed in 0..8 {
+            for seed in 0..=8 {
                 let r = go(who, Plan::Both, seed);
                 assert_eq!(r.phases(0, PropPhase::Spent), 1, "{who:?} seed {seed}");
                 assert_eq!(r.phases(1, PropPhase::Landed), 1, "{who:?} seed {seed}");
@@ -1095,6 +1311,145 @@ mod scene_pilot_tests {
             .collect();
         assert_eq!(got, PINNED, "pins: {got:#018x?}");
     }
+
+    // ---- PT-GATE-C2: the live roster ----
+
+    const LIVE_WHO: [Who; 3] = [Who::CarlSolo, Who::DonutBySwap, Who::Companion];
+    const LIVE_PLANS: [Plan; 2] = [Plan::Direct, Plan::Both];
+
+    /// One live run, twice: `(who, plan, seed, first, second)`.
+    type LiveRun = (Who, Plan, u64, Report, Report);
+
+    /// Every live run, twice.
+    fn live_matrix() -> &'static Vec<LiveRun> {
+        static MATRIX: std::sync::OnceLock<Vec<LiveRun>> = std::sync::OnceLock::new();
+        MATRIX.get_or_init(|| {
+            let mut out = Vec::new();
+            for who in LIVE_WHO {
+                for plan in LIVE_PLANS {
+                    for seed in 0..=8 {
+                        let a = run_live(&root(), who, plan, seed).expect("the live pilot runs");
+                        let b = run_live(&root(), who, plan, seed).expect("the live pilot runs");
+                        out.push((who, plan, seed, a, b));
+                    }
+                }
+            }
+            out
+        })
+    }
+
+    /// PT-GATE-C2 item 5: on the live room (its goblins and the story loadout) every
+    /// hero mode clears with the direct and the both-props plans at all nine
+    /// seeds: the exit is reached, no hero is stuck for more than 300 ticks.
+    /// `cargo test live_boiler_table -- --nocapture` prints the PR table.
+    #[test]
+    fn every_live_boiler_run_reaches_the_exit_with_no_hero_stuck() {
+        for (who, plan, seed, r, _) in live_matrix() {
+            eprintln!(
+                "LIVE_BOILER {who:?} {plan:?} seed={seed} exit={:?} stuck={:?} hurts={} partner_prop_hits={} restarts={} hash={:#018x}",
+                r.exit_tick,
+                r.max_stuck,
+                r.hero_hurts(),
+                r.prop_hits_by(1),
+                r.restarts(),
+                r.hash
+            );
+            assert!(
+                r.exit_tick.is_some(),
+                "{who:?} {plan:?} seed {seed}: no exit"
+            );
+            assert!(
+                r.max_stuck.iter().all(|s| *s <= STUCK_LIMIT),
+                "{who:?} {plan:?} seed {seed}: {:?}",
+                r.max_stuck
+            );
+            // The plans do what they say: `direct` touches no prop, `both` sets
+            // the valve off (spent once) and lets the weight land (once).
+            match plan {
+                // The pilot touches no prop; the AI partner's bolts may (reported).
+                Plan::Direct => assert_eq!(r.prop_hits_by(0), 0, "{who:?} seed {seed}"),
+                _ => {
+                    assert_eq!(r.phases(0, PropPhase::Spent), 1, "{who:?} seed {seed}");
+                    assert_eq!(r.phases(1, PropPhase::Landed), 1, "{who:?} seed {seed}");
+                }
+            }
+        }
+    }
+
+    /// Each live run replays twice to the same state hash and the same events.
+    #[test]
+    fn every_live_boiler_run_replays_twice_to_the_same_hash() {
+        for (who, plan, seed, a, b) in live_matrix() {
+            assert_eq!(a.hash, b.hash, "{who:?} {plan:?} seed {seed}");
+            assert_eq!(a.events, b.events, "{who:?} {plan:?} seed {seed}");
+        }
+    }
+
+    /// The live runs' final hashes (`PartyFixtureSim::state_hash`), in the
+    /// order of [`LIVE_WHO`] x [`LIVE_PLANS`] x seeds 0..=8. New fixtures: a
+    /// behaviour edit updates them on purpose.
+    #[test]
+    fn the_live_boiler_hashes_are_pinned() {
+        let got: Vec<u64> = live_matrix().iter().map(|(.., r, _)| r.hash).collect();
+        assert_eq!(got, LIVE_PINNED, "pins: {got:#018x?}");
+    }
+
+    const LIVE_PINNED: [u64; 54] = [
+        0xa955_a3b8_c0b9_847c,
+        0xf46f_5621_9354_685b,
+        0x6292_1fb3_f4b5_5275,
+        0x37f6_c956_601a_8320,
+        0x745e_addc_f193_2941,
+        0x79cc_ba1f_ac15_1891,
+        0xecdd_0647_58b3_74c7,
+        0x0532_bc1d_aa65_f2bd,
+        0xe3b1_33fb_34fa_2ea7,
+        0xbf51_a83a_24bb_ff96,
+        0xf0d2_f4b1_f215_6d74,
+        0x45d4_d5f4_a02c_16e2,
+        0x5245_fb5a_234a_3c01,
+        0x5487_8004_17bd_f79f,
+        0xb952_fedb_3c10_d753,
+        0xb9b6_02d7_4d8d_d78a,
+        0xb3de_7d92_9582_2ea2,
+        0x4c90_5a9d_230c_34b0,
+        0x2bc1_db6b_086f_1132,
+        0xe550_6880_c6df_cc85,
+        0x691f_0a21_5fe0_bf9b,
+        0x18e1_61d8_1e7b_ced6,
+        0xad4b_6964_cdd9_6dff,
+        0xd7e9_a104_4459_863f,
+        0xcb43_990a_7b86_2c41,
+        0x0646_1308_aa9f_cc6b,
+        0x4bcc_4efa_d769_1111,
+        0x9d3e_cb1e_48ea_7a66,
+        0xa0d0_642b_b987_b874,
+        0xcdc4_c470_5486_31da,
+        0x848c_617e_d290_2752,
+        0xf7f3_aee2_b402_a357,
+        0x5d1c_96c9_587d_abad,
+        0x7080_64b3_82be_ea3e,
+        0xb2bb_7906_6825_e88a,
+        0x42f7_c757_21fc_a928,
+        0xd55d_54ef_e9f1_7679,
+        0xee8f_431f_e569_4f45,
+        0x9da6_d5cc_4274_5398,
+        0xdefe_de91_c1dc_6916,
+        0x0ee6_0a48_6ba4_97fb,
+        0xadc7_c5d8_6be1_501f,
+        0x92dd_e6e8_1fa9_4006,
+        0xd54d_5a9b_7c28_264c,
+        0x8846_95a8_440d_bd16,
+        0x12aa_ed2c_d232_eb22,
+        0x72ad_5388_2899_0c8d,
+        0xf067_04b7_f87d_489b,
+        0xb1ad_6a75_dc0d_fc42,
+        0xc4f2_8df7_9a5f_0e27,
+        0x7423_61da_f1d0_23b3,
+        0x3799_9f68_dda8_add4,
+        0x1521_e281_1399_fcb3,
+        0xcc1b_ec6b_f876_9c2d,
+    ];
 
     /// Solo Carl at CF02 seed 0: direct, valve, weight, both. BOIL-D re-pin,
     /// three causes (a probe that restored the old drum hash words and skipped
