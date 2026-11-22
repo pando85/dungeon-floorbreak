@@ -155,6 +155,8 @@ impl PartyFixture {
             .chain(DONUT_FIXTURES.iter())
             .chain(COMPANION_FIXTURES.iter())
             .copied()
+            // CORRAL-B wire (KC15): the isolated corral fixtures, last.
+            .chain(crate::corral_fixtures::replayable())
     }
 
     pub fn by_name(name: &str) -> Option<&'static PartyFixture> {

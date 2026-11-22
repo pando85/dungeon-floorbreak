@@ -1,0 +1,13 @@
+COMBAT_EVENT tick=1 kind=llama_rush_tell llama=0
+COMBAT_EVENT tick=33 kind=move_started move=jab instance=1
+COMBAT_EVENT tick=33 kind=llama_rush_commit llama=0
+COMBAT_EVENT tick=40 kind=move_started move=haymaker instance=2
+COMBAT_EVENT tick=46 kind=hit move=haymaker instance=2 target=0 damage=1 health_left=2 hit_stop=6
+COMBAT_EVENT tick=46 kind=llama_interrupted llama=0
+COMBAT_EVENT tick=100 kind=llama_rush_tell llama=0
+COMBAT_EVENT tick=132 kind=llama_rush_commit llama=0
+COMBAT_EVENT tick=132 kind=hero_hurt source=19538 health_left=3
+COMBAT_EVENT tick=132 kind=llama_rush_end llama=0 end=contact_carl
+COMBAT_EVENT tick=206 kind=llama_tell llama=0
+COMBAT_STATE fixture=corral_rush_pierce_haymaker seed=0xc0da0018 tick=220 elapsed=220 hero_hp=3 deaths=0 enemies= hash=47038495644678e5 llamas=l0=547.333/2
+PARTY_STATE fixture=corral_rush_pierce_haymaker mode=2p controlled=Carl carl_hp=3 donut_hp=4 deaths=0 hash=b82c045e8e5f905b

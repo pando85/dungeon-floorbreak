@@ -1,0 +1,5 @@
+COMBAT_EVENT tick=1 kind=llama_rush_tell llama=0
+COMBAT_EVENT tick=33 kind=llama_rush_commit llama=0
+COMBAT_EVENT tick=47 kind=llama_rush_end llama=0 end=blocked
+COMBAT_STATE fixture=corral_rush_bonk_wall seed=0xc0da000a tick=220 elapsed=220 hero_hp=4 deaths=0 enemies= hash=c85bd7b0c2bc2dea llamas=l0=544.000/3
+PARTY_STATE fixture=corral_rush_bonk_wall mode=2p controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=5bc836c362282ad0

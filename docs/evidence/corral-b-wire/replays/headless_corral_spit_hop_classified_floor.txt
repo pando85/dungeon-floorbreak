@@ -1,0 +1,5 @@
+COMBAT_EVENT tick=58 kind=llama_rush_tell llama=0
+COMBAT_EVENT tick=90 kind=llama_rush_commit llama=0
+COMBAT_EVENT tick=113 kind=llama_rush_end llama=0 end=miss
+COMBAT_STATE fixture=corral_spit_hop_classified_floor seed=0xc0da0012 tick=300 elapsed=300 hero_hp=4 deaths=0 enemies= hash=275a15df64322577 llamas=l0=465.999/3
+PARTY_STATE fixture=corral_spit_hop_classified_floor mode=2p controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=efcf63b55737444d

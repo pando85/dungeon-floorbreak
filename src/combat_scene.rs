@@ -41,9 +41,7 @@ pub use crate::feel::{HERO_HURT_TICKS, RESTART_DELAY_TICKS};
 use crate::follower::Threat;
 use crate::goblin::{Goblin, GoblinMode};
 use crate::input::{InputFrame, RawInput};
-use crate::llama::{
-    FireView, Glob, GlobFate, LLAMA_HALF_HEIGHT, LLAMA_HALF_WIDTH, Llama, LlamaMode,
-};
+use crate::llama::{FireView, Glob, GlobFate, LLAMA_HALF_WIDTH, Llama, LlamaMode, LlamaOptIn};
 use crate::party::{EnemyTargetRule, HeroId};
 use crate::prototype::{
     Block, BodyDrive, HERO_HALF_HEIGHT, HERO_HALF_WIDTH, Hero, Rect, TICK_SECONDS,
@@ -56,6 +54,7 @@ mod blink;
 mod carl_cf02;
 mod companion;
 mod contacts_cf02;
+pub mod corral;
 mod donut;
 mod env;
 mod evade;
@@ -929,6 +928,18 @@ pub struct CombatState {
     engineer: &'static EngineerTuning,
     /// The ram stamps handed out so far (hashed only while non-zero).
     ram_seq: u32,
+    /// CORRAL-B wire (KC1): every llama picks its hero with the party's target
+    /// rule instead of aiming at Carl. Off on every legacy run (hashed only
+    /// while on).
+    llama_party_target: bool,
+    /// CORRAL-B wire (R1, R2): the per-llama opt-ins, by llama index. They live
+    /// here because `reset_attempt` rebuilds the llamas from the fixture.
+    llama_opt_ins: Vec<LlamaOptIn>,
+    /// The rush attack instances handed out so far (starts at 1; hashed only
+    /// while non-zero, the Engineer's `ram_seq` precedent).
+    rush_seq: u32,
+    /// The fixture's authored solids were appended to the scene.
+    corral_solids_synced: bool,
     /// Which hero's defeat ended the attempt (D1: either one is the party's
     /// defeat). Meaningful while `hero_defeated`.
     pub defeated_hero: HeroId,
@@ -1050,6 +1061,10 @@ impl CombatState {
             morale_feed: Vec::new(),
             engineer: engineer::active(),
             ram_seq: 0,
+            llama_party_target: false,
+            llama_opt_ins: Vec::new(),
+            rush_seq: 0,
+            corral_solids_synced: false,
             defeated_hero: HeroId::Carl,
             targets: Vec::new(),
             defeated_ticks: 0,
@@ -1084,6 +1099,11 @@ impl CombatState {
             flash_tick: Vec::new(),
             respawned: false,
         };
+        // CORRAL-B wire (KC15): a `corral_*` fixture's opt-ins are checked once
+        // here, where the scene's solids are known; `reset_attempt` reapplies them.
+        if let Some(set) = crate::corral_fixtures::llama_opt_ins(fixture.name) {
+            state.validate_llama_opt_ins(&scene.world.solids, &set.opt_ins)?;
+        }
         state.reset_attempt();
         Ok(state)
     }
@@ -1303,16 +1323,22 @@ impl CombatState {
             self.enemies.extend(engineers);
         }
         self.ram_seq = 0;
+        self.rush_seq = 0;
+        // CORRAL-B wire (KC15, R2): a `corral_*` fixture replayed by name gets
+        // its party targeting and per-llama opt-ins here, the `shore_hits`
+        // precedent, so a retry restores the rush.
+        if let Some(set) = crate::corral_fixtures::llama_opt_ins(self.fixture.name) {
+            self.llama_party_target = set.party_target;
+            self.llama_opt_ins = set.opt_ins;
+        }
         self.llamas = self
             .fixture
             .llamas
             .iter()
-            .map(|spawn| {
-                Llama::new(
-                    spawn.x as f32,
-                    self.enemy_foot_y + LLAMA_HALF_HEIGHT,
-                    spawn.ai,
-                )
+            .enumerate()
+            .map(|(index, spawn)| {
+                let opt = self.llama_opt_ins.iter().find(|o| o.index == index);
+                self.new_llama(spawn, opt)
             })
             .collect();
         self.globs.clear();
@@ -1599,6 +1625,8 @@ impl CombatState {
                 Vec::new()
             };
             let telling: Vec<bool> = self.llamas.iter().map(Llama::telling).collect();
+            // KC12: which rushes were committed (a pierce cancels one).
+            let committed: Vec<bool> = self.llamas.iter().map(Llama::rush_committed).collect();
             let mut hits = Vec::new();
             let glance = self
                 .companion
@@ -1677,6 +1705,18 @@ impl CombatState {
                     {
                         self.note_pierce(tick, (goblin.x, goblin.y), attacker, t);
                     }
+                    // KC12: the same for a llama's committed rush, which the
+                    // piercing hit staggered (`Hurt`) instead of letting it run on.
+                    if let Some(t) = gauntlet
+                        && health_left > 0
+                        && let Some(index) = (target as usize).checked_sub(self.enemies.len())
+                        && committed.get(index).copied().unwrap_or(false)
+                        && t.reinforce(move_tick.spec).pierces_commit
+                        && let Some(llama) = self.llamas.get(index)
+                        && llama.mode == LlamaMode::Hurt
+                    {
+                        self.note_pierce(tick, (llama.x, llama.y), attacker, t);
+                    }
                 }
                 self.log(event);
             }
@@ -1689,7 +1729,11 @@ impl CombatState {
                 }
             }
             for (index, was_telling) in telling.into_iter().enumerate() {
-                if was_telling && self.llamas[index].mode != LlamaMode::Attack {
+                // A committed rush is cancelled only by a piercing hit, which
+                // staggers it (`Hurt`); a lethal hit or a damage-only hit is not
+                // an interruption.
+                let pierced = committed[index] && self.llamas[index].mode == LlamaMode::Hurt;
+                if (was_telling || pierced) && self.llamas[index].mode != LlamaMode::Attack {
                     self.log(CombatEvent::LlamaInterrupted {
                         tick,
                         llama: index as u32,
@@ -2118,27 +2162,14 @@ impl CombatState {
                     _ => {}
                 }
             }
-            let (carl, donut) = (
+            // KC1, N-a: the one rule the llamas share (`llama_rush::pick_two`).
+            self.targets[index] = Some(crate::llama_rush::pick_two(
                 effective(goblin.x, HeroId::Carl),
                 effective(goblin.x, HeroId::Donut),
-            );
-            let nearest = if donut < carl {
-                HeroId::Donut
-            } else {
-                HeroId::Carl
-            };
-            self.targets[index] = Some(match (tuning.enemy_target, current) {
-                (EnemyTargetRule::HysteresisControlledBias, Some(held)) => {
-                    let (kept, other) =
-                        (effective(goblin.x, held), effective(goblin.x, held.other()));
-                    if other + f32::from(tuning.target_switch_px) <= kept {
-                        held.other()
-                    } else {
-                        held
-                    }
-                }
-                _ => nearest,
-            });
+                current,
+                (tuning.enemy_target == EnemyTargetRule::HysteresisControlledBias)
+                    .then(|| f32::from(tuning.target_switch_px)),
+            ));
         }
     }
 
@@ -2522,24 +2553,40 @@ impl CombatState {
     /// the fair-fire tell and the release of the glob. The fair-fire view is
     /// the simulation's scroll camera (simulation state), never the
     /// presentation view.
-    fn step_llamas(&mut self, scene: &SceneSim, tick: u64) {
+    fn step_llamas(&mut self, scene: &mut SceneSim, tick: u64) {
         if self.llamas.is_empty() {
             return;
         }
-        let hero_x = scene.world.hero.x;
+        self.sync_corral_solids(scene);
         let left = scene.camera.left();
         let view = FireView {
             left: left as f32,
             right: (left + scene.camera.config().view_w) as f32,
         };
         for index in 0..self.llamas.len() {
-            let step = self.llamas[index].step(
-                hero_x,
-                !self.hero_defeated,
-                &scene.world.solids,
-                self.x_max - LLAMA_HALF_WIDTH,
-                view,
-            );
+            // CORRAL-B wire (KC1): the hero this llama points at. Carl on every
+            // legacy run; the party rule while party targeting is on.
+            let target = if self.llama_party_target {
+                self.llama_hero(scene, index)
+            } else {
+                HeroId::Carl
+            };
+            let step = if self.llamas[index].corral.is_some() {
+                // A corral llama reads both heroes itself (the brain, the rush).
+                let step =
+                    self.step_corral_llama(scene, index, view, self.x_max - LLAMA_HALF_WIDTH);
+                self.apply_llama_step(scene, index, &step, tick);
+                step
+            } else {
+                let hero_x = scene.world.body(target).x;
+                self.llamas[index].step(
+                    hero_x,
+                    !self.hero_defeated,
+                    &scene.world.solids,
+                    self.x_max - LLAMA_HALF_WIDTH,
+                    view,
+                )
+            };
             if step.started_tell {
                 self.log(CombatEvent::LlamaTell {
                     tick,
@@ -2553,11 +2600,17 @@ impl CombatState {
                 // the glob would spawn behind him and never hit. The segment
                 // from the llama's centre to the mouth is tested against his
                 // body; on a hit the glob starts on his near face.
-                let hero = &scene.world.hero;
-                let near = hero.x - f32::from(glob.dir) * HERO_HALF_WIDTH;
+                let hero = scene.world.body(target);
+                // Carl's box is the legacy one; Donut's is her own hurtbox.
+                let half_w = if target == HeroId::Carl {
+                    HERO_HALF_WIDTH
+                } else {
+                    Self::hurtbox(scene, target).width * 0.5
+                };
+                let near = hero.x - f32::from(glob.dir) * half_w;
                 let llama_x = self.llamas[index].x;
                 let (lo, hi) = (llama_x.min(glob.x), llama_x.max(glob.x));
-                let reaches = hero.x + HERO_HALF_WIDTH > lo && hero.x - HERO_HALF_WIDTH < hi;
+                let reaches = hero.x + half_w > lo && hero.x - half_w < hi;
                 let low = hero.y - HERO_HALF_HEIGHT;
                 let high = hero.y + HERO_HALF_HEIGHT;
                 if reaches && (low..high).contains(&glob.y) {
@@ -3292,6 +3345,11 @@ impl CombatState {
             put(0x5241_4d53); // "RAMS"
             put(u64::from(self.ram_seq));
         }
+        // CORRAL-B wire: the rush instances handed out, mixed only once one was.
+        if self.rush_seq != 0 {
+            put(0x5255_5348); // "RUSH"
+            put(u64::from(self.rush_seq));
+        }
         // CF02-G: the goblins' morale, mixed only for a run with it.
         if let Some(morale) = &self.morale {
             morale.mix_into(&mut put);
@@ -3302,6 +3360,13 @@ impl CombatState {
             put(0x4c4c_414d);
             for llama in &self.llamas {
                 llama.mix_into(&mut put);
+            }
+            // CORRAL-B wire (KC1): the held hero, only while party targeting is on.
+            if self.llama_party_target {
+                put(0x4c50_5447); // "LPTG"
+                for llama in &self.llamas {
+                    put(llama.held.map_or(2, |h| h.index() as u64));
+                }
             }
             put(self.globs.len() as u64);
             for glob in &self.globs {

@@ -314,6 +314,16 @@ case "$mode" in
     # DONUT-PROG-01: the `donut_prog_*` registry, enumerated by the binary (later
     # PRs add fixtures without editing this script); replays in docs/evidence/donut-prog-01.
     for f in $(list_names donut_prog_); do { "$bin" --headless-floor01-smoke --party-fixture "$f" | party_lines > "$out/donut_prog_${f}.txt"; "$bin" --headless-floor01-smoke --party-fixture "$f" | party_lines | cmp -s - "$out/donut_prog_${f}.txt" && diff docs/evidence/donut-prog-01/replays/headless_${f}.txt "$out/donut_prog_${f}.txt"; } || { echo "donut_prog fixture $f is not deterministic or differs from the committed replay" >&2; exit 1; }; echo "DONUT_PROG_HEADLESS_OK: $(grep '^PARTY_STATE' "$out/donut_prog_${f}.txt")"; done
+    # CORRAL-B wire: the isolated `corral_*` llama rush and party-target fixtures,
+    # enumerated by the binary (CORRAL-C and CORRAL-D append fixtures without
+    # editing this script); replays in docs/evidence/corral-b-wire/replays. The
+    # canary proves the listing works: an empty registry must not pass.
+    corral_all="$(list_names corral_)"
+    if [[ "$(wc -l <<<"$corral_all")" -lt 20 ]]; then
+      echo "--list-fixtures corral_ returned too few names" >&2
+      exit 1
+    fi
+    for f in $corral_all; do { "$bin" --headless-floor01-smoke --party-fixture "$f" | party_lines > "$out/corral_${f}.txt"; "$bin" --headless-floor01-smoke --party-fixture "$f" | party_lines | cmp -s - "$out/corral_${f}.txt" && diff docs/evidence/corral-b-wire/replays/headless_${f}.txt "$out/corral_${f}.txt"; } || { echo "corral fixture $f is not deterministic or differs from the committed replay" >&2; exit 1; }; echo "CORRAL_HEADLESS_OK: $(grep '^PARTY_STATE' "$out/corral_${f}.txt")"; done
     # DONUT-MOBILITY-01 DM-B: the reflex fixtures that run without `cf02_rules`
     # (an armed evade, the not-armed hit, the locked hit, the guild unlock);
     # replays in docs/evidence/donut-mobility-01/replays. The ram and the glob

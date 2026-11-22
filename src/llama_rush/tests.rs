@@ -2010,8 +2010,8 @@ fn the_ai_jump_bounds_hold_against_the_helper_counted_from_zero() {
     for (id, lo, hi) in [(HeroId::Donut, 3u16, 40u16), (HeroId::Carl, 4, 31)] {
         let grid: Vec<f32> = (4..=512).map(|q| q as f32 * 0.25).collect();
         let mut fired = 0;
-        let mut early_hits = 0;
         let mut late_hits = 0;
+        let mut early_hits = 0;
         for &d in &grid {
             // Inside the bound: the AI presses on the first tick with n <= hi
             // (n >= lo holds on that tick or the press is not made: the AI
@@ -2021,16 +2021,45 @@ fn the_ai_jump_bounds_hold_against_the_helper_counted_from_zero() {
                 fired += 1;
                 assert!(!hit, "{id:?} d {d}: hit inside the bound");
             }
-            // The AI that presses one tick too early / too late is hit for some
-            // alignments: the bounds have no slack.
-            let (p_early, hit_early) = ai_jump_run(id, d, |n| n == lo - 1);
-            early_hits += usize::from(p_early && hit_early);
-            let (p_late, hit_late) = ai_jump_run(id, d, |n| n == hi + 1);
+            // The AI that presses one tick too late / too early is hit for some
+            // alignments: the bounds have no slack. A smaller `n` is closer to
+            // contact, so `lo - 1` is a late press and `hi + 1` an early one.
+            let (p_late, hit_late) = ai_jump_run(id, d, |n| n == lo - 1);
             late_hits += usize::from(p_late && hit_late);
+            let (p_early, hit_early) = ai_jump_run(id, d, |n| n == hi + 1);
+            early_hits += usize::from(p_early && hit_early);
         }
         assert!(fired > 300, "{id:?}: the AI fired on {fired} starts");
-        assert!(early_hits > 0, "{id:?}: lo - 1 is never a hit");
-        assert!(late_hits > 0, "{id:?}: hi + 1 is never a hit");
+        assert!(
+            late_hits > 0,
+            "{id:?}: a press at lo - 1 (late) is never a hit"
+        );
+        assert!(
+            early_hits > 0,
+            "{id:?}: a press at hi + 1 (early) is never a hit"
+        );
+    }
+}
+
+/// #201 fix-forward (re-review note 1): every exact helper value `n` in
+/// `lo..=hi` is a safe press, at every sub-step alignment of the hero's x, not
+/// only the first in-range value the loop above presses on. CA2 may engage
+/// late, so the whole window is a permanent contract.
+#[test]
+fn every_press_value_in_the_jump_window_is_safe_at_every_alignment() {
+    for (id, lo, hi) in [(HeroId::Donut, 3u16, 40u16), (HeroId::Carl, 4, 31)] {
+        let grid: Vec<f32> = (4..=512).map(|q| q as f32 * 0.25).collect();
+        for k in lo..=hi {
+            let mut pressed_runs = 0;
+            for &d in &grid {
+                let (pressed, hit) = ai_jump_run(id, d, |n| n == k);
+                if pressed {
+                    pressed_runs += 1;
+                    assert!(!hit, "{id:?} d {d}: a press at n = {k} was hit");
+                }
+            }
+            assert!(pressed_runs > 0, "{id:?}: n = {k} was never reached");
+        }
     }
 }
 
@@ -2072,4 +2101,59 @@ fn the_lane_follows_solids_and_the_leash_and_vanishes_in_recover() {
     let lane = rush_lane(&p, &s, x, 0.0, &[], WIDE, EDGE).unwrap();
     assert_eq!(lane.ticks_to_motion, 0);
     assert_eq!(lane.active_left, 24 - 9);
+}
+
+/// N-a (#201 review): the llama brain's target rule and the goblins' shared
+/// `pick_two` are one rule. Every position pair, bias, held hero and switch.
+#[test]
+fn pick_target_and_pick_two_are_the_same_rule() {
+    let hero = |id: HeroId, x: f32, bias: f32| HeroFacts {
+        id,
+        x,
+        hurtbox: Rect {
+            left: x - 10.0,
+            bottom: 0.0,
+            width: 20.0,
+            height: 24.0,
+        },
+        support: 0.0,
+        grounded: true,
+        alive: true,
+        bias_px: bias,
+    };
+    let class = HeroClass {
+        rushable: true,
+        spittable: true,
+    };
+    let llama_x = 1000.0;
+    for carl_x in (880..=1000).step_by(8) {
+        for donut_x in (880..=1000).step_by(8) {
+            for bias in [0.0f32, 40.0] {
+                for (carl_bias, donut_bias) in [(0.0, bias), (bias, 0.0), (0.0, 0.0)] {
+                    let carl = hero(HeroId::Carl, carl_x as f32, carl_bias);
+                    let donut = hero(HeroId::Donut, donut_x as f32, donut_bias);
+                    let candidates = [(&carl, class), (&donut, class)];
+                    for held in [None, Some(HeroId::Carl), Some(HeroId::Donut)] {
+                        let eff = |h: &HeroFacts| (h.x - llama_x).abs() + h.bias_px;
+                        let expected = pick_two(eff(&carl), eff(&donut), held, Some(24.0));
+                        let got = pick_target(llama_x, &candidates, &[0, 1], held, 24.0)
+                            .map(|i| candidates[i].0.id);
+                        assert_eq!(got, Some(expected), "{carl_x} {donut_x} {held:?}");
+                    }
+                    // No hysteresis (the nearest rule): `None` switch and no held.
+                    let nearest = pick_two(
+                        (carl.x - llama_x).abs() + carl.bias_px,
+                        (donut.x - llama_x).abs() + donut.bias_px,
+                        None,
+                        None,
+                    );
+                    let got = pick_target(llama_x, &candidates, &[0, 1], None, 24.0)
+                        .map(|i| candidates[i].0.id);
+                    assert_eq!(got, Some(nearest));
+                }
+            }
+        }
+    }
+    // The goblins' tie goes to Carl.
+    assert_eq!(pick_two(50.0, 50.0, None, Some(24.0)), HeroId::Carl);
 }

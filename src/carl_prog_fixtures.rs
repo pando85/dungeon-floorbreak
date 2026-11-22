@@ -77,7 +77,10 @@ pub fn story_setup(fixture: &str) -> StorySetup {
         | "carl_prog_boss_poise"
         | "carl_prog_shore_combo"
         | "carl_prog_kick_unchanged"
-        | "carl_prog_pierce_goblin_jab" => StorySetup::NONE.with_hold("fist_reinforced"),
+        | "carl_prog_pierce_goblin_jab"
+        // CORRAL-B wire, KC12: the haymaker against the llama's committed rush.
+        // Its control (`corral_rush_pierce_control`) is the same room without it.
+        | "corral_rush_pierce_haymaker" => StorySetup::NONE.with_hold("fist_reinforced"),
         // CP-B1: the thrown charge is held from tick 0 (a declared start, not a grant).
         name if name.starts_with("carl_prog_dyn_") => {
             StorySetup::NONE.with_hold("special_thrown_charge")
@@ -1071,7 +1074,11 @@ mod tests {
     #[test]
     fn no_other_registry_holds_a_carl_prog_name_and_the_boss_fixtures_stay_unpinned() {
         for name in crate::cf02_fixtures::list_fixtures("") {
-            if !name.starts_with("carl_prog_") && !name.starts_with("donut_prog_") {
+            // CORRAL-B wire (KC12): the one corral fixture that holds the fist.
+            if !name.starts_with("carl_prog_")
+                && !name.starts_with("donut_prog_")
+                && name != "corral_rush_pierce_haymaker"
+            {
                 assert!(
                     story_setup(name).is_inert(),
                     "{name} is a legacy fixture: no pin, no trigger"

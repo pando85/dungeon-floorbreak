@@ -1,0 +1,6 @@
+COMBAT_EVENT tick=1 kind=llama_rush_tell llama=0
+COMBAT_EVENT tick=33 kind=llama_rush_commit llama=0
+COMBAT_EVENT tick=39 kind=hero_hurt source=19538 health_left=3
+COMBAT_EVENT tick=39 kind=llama_rush_end llama=0 end=contact_carl
+COMBAT_STATE fixture=corral_party_target_solo_donut seed=0xc0da0014 tick=60 elapsed=60 hero_hp=3 deaths=0 enemies= hash=5a1b785beca9cdab llamas=l0=572.000/3
+PARTY_STATE fixture=corral_party_target_solo_donut mode=solo controlled=Donut carl_hp=3 donut_hp=4 deaths=0 hash=e4199572ac373c11

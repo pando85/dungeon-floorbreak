@@ -1,0 +1,9 @@
+COMBAT_EVENT tick=1 kind=llama_rush_tell llama=0
+COMBAT_EVENT tick=33 kind=llama_rush_commit llama=0
+COMBAT_EVENT tick=47 kind=hero_hurt source=19538 health_left=3
+COMBAT_EVENT tick=47 kind=llama_rush_end llama=0 end=contact_carl
+COMBAT_EVENT tick=121 kind=llama_tell llama=0
+COMBAT_EVENT tick=157 kind=llama_spit llama=0
+COMBAT_EVENT tick=160 kind=hero_hurt source=0 health_left=2
+COMBAT_STATE fixture=corral_rush_hits_idle_carl seed=0xc0da0002 tick=220 elapsed=220 hero_hp=2 deaths=0 enemies= hash=caff005b7df3b5d0 llamas=l0=540.000/3
+PARTY_STATE fixture=corral_rush_hits_idle_carl mode=2p controlled=Carl carl_hp=2 donut_hp=4 deaths=0 hash=687fab346c57f736
