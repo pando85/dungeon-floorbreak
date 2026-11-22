@@ -102,6 +102,12 @@ pub const POCKET_MAX_GOBLINS: u8 = 1;
 pub const MAX_AUTHORED_LINKS: usize = 3;
 /// #176 B3: at most this many living enemies in the first probe.
 pub const MAX_LIVING_FIRST_PROBE: u8 = 4;
+/// PT-MASTERY (PTM-AD6): a sidecar that opts in with `"waves": true` may hold
+/// more than `max_living` roster entries in total, as long as every beat (a
+/// wave) holds at most `max_living` of them and the whole roster at most this
+/// many. Without the opt-in the whole roster is bounded by `max_living`, as
+/// before (HAZ rule 5's cap of four stays for every other room).
+pub const MAX_ROSTER_WAVES: usize = 8;
 /// At most this many props (the validator enumerates their destruction states).
 pub const MAX_PROPS: usize = 8;
 /// A landed remnant or a solid prop on the lane is at most this high.
@@ -1459,6 +1465,10 @@ struct RawEncounter {
     /// HRD-A1, optional: absent means none (every earlier sidecar).
     #[serde(default)]
     statics: Vec<RawStatic>,
+    /// PT-MASTERY, optional: absent means false (every earlier sidecar). A wave
+    /// room bounds its roster per beat ([`MAX_ROSTER_WAVES`]).
+    #[serde(default)]
+    waves: bool,
 }
 
 // ------------------------------------------------------------------ loading
@@ -2130,11 +2140,33 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
     }
 
     // ---- roster
-    if raw.roster.len() > usize::from(raw.max_living.min(MAX_LIVING_FIRST_PROBE)) {
+    let living_cap = usize::from(raw.max_living.min(MAX_LIVING_FIRST_PROBE));
+    if raw.roster.len() > living_cap && !raw.waves {
         errs.push(E::TooManyLiving {
             roster: raw.roster.len(),
             max: raw.max_living.min(MAX_LIVING_FIRST_PROBE),
         });
+    } else if raw.roster.len() > living_cap {
+        // PTM-AD6: a wave room's roster is bounded per beat, and in total.
+        let mut beats: Vec<(&str, usize)> = Vec::new();
+        for r in &raw.roster {
+            match beats.iter_mut().find(|(b, _)| *b == r.beat.as_str()) {
+                Some((_, n)) => *n += 1,
+                None => beats.push((r.beat.as_str(), 1)),
+            }
+        }
+        let widest = beats.iter().map(|(_, n)| *n).max().unwrap_or(0);
+        if widest > living_cap {
+            errs.push(E::TooManyLiving {
+                roster: widest,
+                max: raw.max_living.min(MAX_LIVING_FIRST_PROBE),
+            });
+        } else if raw.roster.len() > MAX_ROSTER_WAVES {
+            errs.push(E::TooManyLiving {
+                roster: raw.roster.len(),
+                max: MAX_ROSTER_WAVES as u8,
+            });
+        }
     }
     let platform_count = room.platforms.len();
     let mut roster: Vec<RosterEntry> = Vec::new();
@@ -2148,7 +2180,7 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
         let allowed = |k: EnemyKind| {
             matches!(
                 k,
-                EnemyKind::Goblin | EnemyKind::Engineer | EnemyKind::Hoarder
+                EnemyKind::Goblin | EnemyKind::Engineer | EnemyKind::Llama | EnemyKind::Hoarder
             )
         };
         let kind = if r.kind == "slime" {
@@ -3835,8 +3867,18 @@ mod tests {
             e,
             EncounterError::SynchronizedSpawn { .. }
         )));
+        // PT-MASTERY: the llama is a roster kind (an existing kind, K16); a kind
+        // no step has registered still is not.
         let mut v = sidecar();
         v["roster"][0]["kind"] = json!("llama");
+        assert!(
+            check(&v)
+                .err()
+                .is_none_or(|errs| !has(&errs, |e| matches!(e, EncounterError::RosterKind { .. }))),
+            "a llama is an allowed roster kind"
+        );
+        let mut v = sidecar();
+        v["roster"][0]["kind"] = json!("juicer");
         assert!(has(&errors(&v), |e| matches!(
             e,
             EncounterError::RosterKind { .. }
@@ -3853,6 +3895,8 @@ mod tests {
             e,
             EncounterError::MaxLivingOverCap(5)
         )));
+        // A roster of five in one or two beats is over the cap without the wave
+        // opt-in.
         let mut v = sidecar();
         v["roster"].as_array_mut().unwrap().push(
             json!({ "id": "g9", "kind": "goblin", "x": 400, "beat": "B3", "delay_ticks": 500 }),
@@ -3860,6 +3904,46 @@ mod tests {
         assert!(has(&errors(&v), |e| matches!(
             e,
             EncounterError::TooManyLiving { roster: 5, max: 4 }
+        )));
+        // PTM-AD6: with `"waves": true` a roster is bounded per beat (at most
+        // `max_living` each) and in total (at most `MAX_ROSTER_WAVES`).
+        let extra = |n: u32, beat: &str| json!({ "id": format!("g{}", 10 + n), "kind": "goblin", "x": 400, "beat": beat, "delay_ticks": 500 + n });
+        let two_waves = || {
+            let mut v = sidecar();
+            v["waves"] = json!(true);
+            for r in v["roster"].as_array_mut().unwrap() {
+                r["beat"] = json!("W1");
+            }
+            for n in 0..4 {
+                v["roster"].as_array_mut().unwrap().push(extra(n, "W2"));
+            }
+            v
+        };
+        let too_many = |v: &serde_json::Value| {
+            check(v).err().is_some_and(|errs| {
+                has(&errs, |e| matches!(e, EncounterError::TooManyLiving { .. }))
+            })
+        };
+        assert!(!too_many(&two_waves()), "{:?}", check(&two_waves()).err());
+        // The same roster without the opt-in is over the cap.
+        let mut v = two_waves();
+        v["waves"] = json!(false);
+        assert!(has(&errors(&v), |e| matches!(
+            e,
+            EncounterError::TooManyLiving { roster: 8, max: 4 }
+        )));
+        // A fifth entry in one wave, and a ninth entry in all, are refused.
+        let mut v = two_waves();
+        v["roster"].as_array_mut().unwrap().push(extra(8, "W1"));
+        assert!(has(&errors(&v), |e| matches!(
+            e,
+            EncounterError::TooManyLiving { roster: 5, max: 4 }
+        )));
+        let mut v = two_waves();
+        v["roster"].as_array_mut().unwrap().push(extra(9, "W3"));
+        assert!(has(&errors(&v), |e| matches!(
+            e,
+            EncounterError::TooManyLiving { roster: 9, max: 8 }
         )));
         // A gated entry needs the goblin fallback.
         let mut v = sidecar();
@@ -4800,6 +4884,7 @@ mod tests {
             BOILER_ENCOUNTER_PATH,
             HAZARDS_ENCOUNTER_PATH,
             crate::pile_boss::ENCOUNTER_PATH,
+            crate::f01_mastery::ENCOUNTER_PATH,
             crate::ring_fixtures::COURT_ENCOUNTER_PATH,
             crate::ring_fixtures::SPLIT_ENCOUNTER_PATH,
         ] {

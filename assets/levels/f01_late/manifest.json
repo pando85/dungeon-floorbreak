@@ -1,6 +1,6 @@
 {
   "schema": "f01-late-manifest-v1",
-  "status": "PT-SCENE (docs/07-agents/f01-playtest-integration-plan.md section 4.7, section 8, KR12). The rooms of the late-Floor-1 playtest slice that can be launched with `--scene f01_late --f01-room <id>`. A room is listed only once it has landed; later steps append their rows (CORRAL-WIRE: corral, RING-A wire: ring_court and ring_split, PT-MASTERY: mastery; HRD-A2b listed hoarder and HAZ-A2b listed hazards) and re-pin the manifest hash in src/f01_late.rs. `story_order` is the static order of every slice room and grant point, listed or not, that the KR12 pin test reads: no room pin holds a capability whose grant point comes later.",
+  "status": "PT-SCENE (docs/07-agents/f01-playtest-integration-plan.md section 4.7, section 8, KR12). The rooms of the late-Floor-1 playtest slice that can be launched with `--scene f01_late --f01-room <id>`. A room is listed only once it has landed; later steps append their rows (CORRAL-WIRE: corral, RING-A wire: ring_court and ring_split, PT-MASTERY: mastery, now listed; HRD-A2b listed hoarder and HAZ-A2b listed hazards) and re-pin the manifest hash in src/f01_late.rs. `story_order` is the static order of every slice room and grant point, listed or not, that the KR12 pin test reads: no room pin holds a capability whose grant point comes later.",
   "rooms": [
     {
       "id": "hoarder",
@@ -29,6 +29,13 @@
       "scene": "boss_f01",
       "rules": "boss",
       "milestone": "boss"
+    },
+    {
+      "id": "mastery",
+      "title": "The Mastery Arena",
+      "scene": "f01_mastery",
+      "rules": "cf02_rules",
+      "milestone": "greybox"
     }
   ],
   "story_order": [
