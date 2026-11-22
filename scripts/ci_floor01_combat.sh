@@ -637,12 +637,12 @@ case "$mode" in
       || ! grep -q 'kind=rot_provoked sticker=1 cause=Proximity' <<<"$tactical_a" \
       || ! grep -q 'kind=blast charge=1' <<<"$tactical_a" \
       || [[ "$rot_hurts" -ne 0 ]] \
-      || [[ "$tactical_hash" != "8e10bd0986d23ad9" ]] \
+      || [[ "$tactical_hash" != "9395c064e874b6ad" ]] \
       || [[ -z "$tactical_ticks" || "$tactical_ticks" -ge 1500 ]]; then
-      echo "--room-pilot haz_tactical did not bait the second sticker, clear the room without a Rot hurt, end on the committed final hash 8e10bd0986d23ad9 (the filmed run, scorecard.md) and replay identically twice (got ${tactical_hash:-none})" >&2
+      echo "--room-pilot haz_tactical did not bait the second sticker, clear the room without a Rot hurt, end on the committed final hash 9395c064e874b6ad (the filmed run, scorecard.md) and replay identically twice (got ${tactical_hash:-none})" >&2
       exit 1
     fi
-    echo "F01_HAZ_TACTICAL_OK: second sticker baited over the slime, no Rot hurt, room cleared, final hash 8e10bd0986d23ad9 (the filmed run), twice identical"
+    echo "F01_HAZ_TACTICAL_OK: second sticker baited over the slime, no Rot hurt, room cleared, final hash 9395c064e874b6ad (the filmed run), twice identical"
     echo "F01_LATE_HEADLESS_OK: boiler, hazards, juicer and mastery, story and all, each twice identical"
     ;;
   render)

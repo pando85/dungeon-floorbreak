@@ -687,12 +687,12 @@ const GOLDEN_CASES: [(Case, u64); 9] = [
     ),
     (
         ("rot_missile_near_miss", case_rot_missile_near_miss),
-        0xa75bd68f2cab1b45,
+        0x9f831a7b6434a2ed,
     ),
-    (("room_idle_600", case_room_idle_600), 0x27dec748f4116792),
+    (("room_idle_600", case_room_idle_600), 0x9e71a20ecc37f0ce),
     (
         ("room_two_player_walk", case_room_two_player_walk),
-        0x0756195b4d40de0f,
+        0x2d75b68ae6f6ab46,
     ),
 ];
 

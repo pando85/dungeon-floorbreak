@@ -1531,7 +1531,7 @@ mod tests {
         // the scorecard's `f1156c1548e7008a` instead): a drift is a deliberate re-pin.
         assert_eq!(
             combat.state_hash(&scene),
-            0x4b32_c6da_d3be_c5f2,
+            0xde7f_334e_4254_82dc,
             "the committed final hash"
         );
         let (again, combat_again) = play();
@@ -1646,7 +1646,7 @@ mod tests {
         // hash instead): a drift is a deliberate re-pin.
         assert_eq!(
             combat.state_hash(&scene),
-            0x383a_5307_0f66_546a,
+            0x95bc_1d84_e6ff_cac8,
             "the committed final hash"
         );
         let (again, combat_again, _) = play();

@@ -104,3 +104,25 @@ Seed coverage (a known gap): carl_solo: 9 distinct final hashes, 7 distinct outc
 Seeds that miss the spec target, per metric (of 9): M1 0, M2 9, M3 0, M4 1, M5 0, M6 0, M10 0, M12 0, M13 8, M14 0, M15 0.
 
 M9 (hazard hurts to her): `HeroHurt` carries a source id, not a hazard class, so the per-cause count is NOT RUN. All hurts to Donut in the `companion_cf02_free` pilot run to the exit, per seed 0..8: [0, 0, 0, 0, 0, 0, 0, 0, 0].
+
+
+## Room 2, the live room (`Roster::Live`): the three solo-Carl room pilots, one seed (committed in docs/evidence/f01-boiler/pilot_hashes.txt)
+
+| Plan | Final tick (exit) | Hero hp | Deaths | Completed | Final hash |
+| --- | --- | --- | --- | --- | --- |
+| direct | 536 | 4 | 0 | true | 6c3bb7a02f8c6f60 |
+| valve | 641 | 4 | 0 | true | 65876c4cdfc2a977 |
+| chain | 949 | 3 | 0 | true | 90b3fbcbae614f4f |
+
+The per-seed live rows are in the "live room" table above.
+
+## Room 4, the hazards room: the filming room pilots (one run each; the per-seed table is above)
+
+| Pilot | Hero defeats | Respawns | Hurts | Blasts | Rot stickers woken | Enemy entries (dead and alive) | Final state |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| direct (solo Carl, plus the follower bot) | 3 | 3 | 15 | 2 | 2 | 2 | hp 1, deaths 3, hash 9466c18097e5e14a |
+| haz_spectacular (dynamite lights the latched sticker; solo Carl, plus the follower bot) | 0 | 0 | 2 | 3 | 2 | 2 | hp 2, deaths 0, hash 6f6538f2eb26661c |
+| haz_tactical (HAZ-07 pattern 2: R2 baited over the slime S2; solo Carl, plus the follower bot) | 0 | 0 | 1 | 2 | 2 | 2 | hp 3, deaths 0, hash 9395c064e874b6ad |
+| hazards:carl_solo:0 (the aligned HAZ-06 direct route, library fixture seed 0; the cf02_assist partner) | 0 | 0 | 4 (Carl 3, Donut 1) | 2 | 2 | 2 | hp 1, deaths 0, hash 5230ba65d27c10d1 |
+
+The `direct` room pilot walks into the pockets and is defeated and retries; it does not dodge hazards (it is a filming pilot, not a player). `haz_spectacular` is the PT-TUNE pilot plus one dynamite throw (PT-GATE-D). `haz_tactical` is the PT-TUNE pilot plus bait and retreat on both Rot Stickers (PT-GATE-E): R2 goes off over the slime S2, and no Rot blast hurts Carl (its one hurt is the pocket A pool). `hazards:carl_solo:0` is the PT-TUNE pilot of the library fixture `haz_room_solo_carl` at seed 0 (the aligned direct route): it does not dodge the Rot blasts, so Carl is hurt by them and ends on 1 hp, undefeated. The Hurts column counts the hurt events of both heroes; in this row they are Carl's three (the pocket A pool, R1, R2) and one of Donut's (R1).
