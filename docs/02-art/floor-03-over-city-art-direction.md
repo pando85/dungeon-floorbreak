@@ -6,6 +6,14 @@
 
 The specific [F03-CIRCUS-ART-01](floor-03-circus-visual-storytelling.md) governs circus keys: awning collapse, Heather's roller-skating infected bear attack, Grimaldi the **rooted Pestiferous Vine**, and Mongo's emotional recovery beat. [F03-CIRCUS-01](../01-design/floor-03-circus-encounters-and-stagecraft.md) owns truthful physical contact/camera, and [F03-GRIM-01](../01-design/floor-03-grimaldi-resolution-and-coop.md) the nonlethal story resolution. **Do not treat a generated high-res clown-like human Grimaldi mood image as the final monster design**; final master must read primarily as an immense transformed vine. All exact pixel art requires native source masters and independently-reviewed silhouettes.
 
+## Skyfowl city and finale — new linked art authority
+
+- [F03-CITY-ART-01](floor-03-skyfowl-and-doomsday-art-direction.md): six original environmental master keys, physically legible city-elf/Krasue/Remex silhouettes and four distinct precursor-wave states.
+- [F03-CITY-01](../01-design/floor-03-skyfowl-city-and-quill-encounters.md): GumGum **already dead**, Krasue alley, Apito fight, Miss Quill office demolition, Burgundy/Featherfall reveal.
+- [F03-DOOMSDAY-01](../01-design/floor-03-doomsday-scenario-final-act.md): **contained soul-crystal blast** vs **later Remex wild magic**, environmental pulse adaptation.
+
+**Preserve original visual identity:** huge skyfowl wing sculptures and false star field from an independently generated mood sketch are not native sprites; source-matched approved Carl/Donut/Mongo take precedence. Remex is a **bound victim**, not a generic lich; GumGum is not a grotesque prop. The four precursor pulses must never flood the whole playable frame with white during active warnings.
+
 ## Art thesis
 
 **A counterfeit world of infinite depth.** Floor02's cramped pale concrete suddenly opens onto the vast, suspicious night sky of a ruined volcanic city. Backdrops show collapsed stone aqueducts, timber pueblos, theatre trusses hidden at the horizon, a dark slumbering volcano, skyfowl eagle-statue fortifications, and an illuminated red/cream circus. This is an urban action movie made from a predatory TV set, **not** a generic medieval castle fantasy.
