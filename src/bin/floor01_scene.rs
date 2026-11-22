@@ -358,11 +358,11 @@ struct Args {
     /// `f01_late` rooms. It needs a scripted run (`--capture-sequence`,
     /// `--capture-tick`, `--headless-floor01-smoke` or `--exit-after-ticks`).
     room_pilot: Option<room_pilots::RoomPilot>,
-    /// PT-GATE-C1: an aligned room pilot's "the swap was pressed once" flag (the
-    /// library fixtures' `swap_pressed`). Shared by the clones of the arguments,
-    /// so the presim, the capture sequence and the window loop continue one run;
-    /// `build_scene` resets it.
-    aligned_swap: Arc<std::sync::atomic::AtomicBool>,
+    /// PT-GATE-C1: an aligned room pilot's own state: the "swap was pressed once" flag (the
+    /// library fixtures' `swap_pressed`) and, since PT-GATE-E, the Boiler pilot's step
+    /// machine. Shared by the clones of the arguments, so the presim, the capture sequence
+    /// and the window loop continue one run; `build_scene` resets it.
+    aligned_swap: Arc<std::sync::Mutex<room_pilots::AlignedMemory>>,
     /// PLAYTRACE-RENDER-01 PTR-R1: `--replay-session ID`: the offline replay
     /// viewer. It takes the simulation from the recording alone, so every
     /// gameplay flag and every `--record*` flag is a parse error with it.
@@ -1524,6 +1524,15 @@ fn parse_args_full(
         {
             return Err("--room-pilot needs a room scene: --scene f01_late with --f01-room boiler, hoarder, hazards, mastery or juicer (or --scene f01_boiler, f01_hoarder, f01_hazards)".into());
         }
+        // PT-GATE-E: the hazards library pilot plays the hazards room, the Boiler's the Boiler.
+        if (pilot.plan == room_pilots::Plan::Hazards && !parsed.f01_hazards)
+            || (pilot.plan == room_pilots::Plan::Boiler && !parsed.f01_boiler)
+        {
+            return Err(format!(
+                "--room-pilot {} needs its own room (hazards: --f01-room hazards, boiler: --f01-room boiler)",
+                pilot.plan.name()
+            ));
+        }
         // PT-GATE-A: the mastery and juicer plans play their own room and nothing else.
         if (pilot.plan == room_pilots::Plan::Mastery) != parsed.f01_mastery
             || (pilot.plan == room_pilots::Plan::Juicer) != juicer
@@ -1531,10 +1540,15 @@ fn parse_args_full(
             return Err("--room-pilot mastery needs --f01-room mastery and --room-pilot juicer needs --f01-room juicer, and each of those rooms takes only its own plan".into());
         }
         // PT-GATE-D: the room 4 route plays the hazards room and nothing else.
-        if pilot.plan == room_pilots::Plan::HazSpectacular && !parsed.f01_hazards {
-            return Err(
-                "--room-pilot haz_spectacular needs the hazards room (--f01-room hazards)".into(),
-            );
+        if matches!(
+            pilot.plan,
+            room_pilots::Plan::HazSpectacular | room_pilots::Plan::HazTactical
+        ) && !parsed.f01_hazards
+        {
+            return Err(format!(
+                "--room-pilot {} needs the hazards room (--f01-room hazards)",
+                pilot.plan.name()
+            ));
         }
         if !(parsed.headless
             || parsed.capture_tick.is_some()
@@ -1552,10 +1566,11 @@ fn parse_args_full(
                 room_pilots::Plan::Mastery
                     | room_pilots::Plan::Juicer
                     | room_pilots::Plan::HazSpectacular
+                    | room_pilots::Plan::HazTactical
             )
         {
             return Err(
-                "--room-pilot mastery, juicer and haz_spectacular are solo plans (no :2p)".into(),
+                "--room-pilot mastery, juicer, haz_spectacular and haz_tactical are solo plans (no :2p)".into(),
             );
         }
         // PT-GATE-C1: an aligned pilot is the library fixture's run: its seed is the
@@ -1568,7 +1583,12 @@ fn parse_args_full(
                     pilot.label()
                 ));
             }
-            if pilot.plan == room_pilots::Plan::Mastery {
+            // The mastery, hazards and Boiler rooms draw their goblins' temperaments from the
+            // seed (`--cf02-seed`); the Juicer's seed is its swing offset.
+            if matches!(
+                pilot.plan,
+                room_pilots::Plan::Mastery | room_pilots::Plan::Hazards | room_pilots::Plan::Boiler
+            ) {
                 match parsed.cf02.seed {
                     Some(seed) if seed != aligned.seed => {
                         return Err(format!(
@@ -2077,8 +2097,8 @@ fn build_scene(
             // PT-GATE-C1: the library fixture's party (Donut is a real hero, the swap
             // and the partner are the party's; each tick sets the drive before it
             // steps, so the tick-0 state stays the legacy-drive one a recording hashes).
-            args.aligned_swap
-                .store(false, std::sync::atomic::Ordering::Relaxed);
+            *args.aligned_swap.lock().expect("the aligned memory") =
+                room_pilots::AlignedMemory::default();
         }
         if args.room_pilot.is_some_and(|p| p.two_player) {
             // EVID-ROOM: two local players, so the pilot's second slot plays Donut.
@@ -2234,11 +2254,14 @@ fn aligned_slots(
     sim: &SceneSim,
     party: &PartyState,
 ) -> [RawInput; 2] {
-    use std::sync::atomic::Ordering::Relaxed;
-    let mut sent = args.aligned_swap.load(Relaxed);
-    let slots = pilot.aligned_inputs(combat, sim, party.controlled_hero(), &mut sent);
-    args.aligned_swap.store(sent, Relaxed);
-    slots
+    let mut memory = args.aligned_swap.lock().expect("the aligned memory");
+    pilot.aligned_inputs(
+        combat,
+        sim,
+        party.controlled_hero(),
+        room_exit_x(args),
+        &mut memory,
+    )
 }
 
 /// [`aligned_slots`] routed through the party like `PartyFixtureSim::step_slots`:
@@ -7988,12 +8011,14 @@ fn headless_boiler(
     let mut args = args.clone();
     args.capture_tick.get_or_insert(run.fixture.ticks);
     let mut hud = new_hud(&args, kit, actors);
-    let (sim, anim, combat, _death, _party) = build_scene(kit, &args, actors, root, &mut hud)?;
+    let (sim, anim, combat, _death, party) = build_scene(kit, &args, actors, root, &mut hud)?;
     let mut combat = combat.ok_or("the Boiler fixture has no combat state")?;
     print_combat_events(&mut combat, None, None);
     println!("{}", sim.state_line());
     println!("{}", anim.state_line(sim.world.tick));
     print_combat_state(&sim, &anim, &combat);
+    // PT-GATE-E: an aligned `boiler:` pilot prints the library fixture's hash.
+    print_room_pilot_state(&args, &combat, &sim, &party);
     if run.roster == f01_boiler::Roster::Live {
         // BOIL-E: the scripted walk is no fighter, so it need not reach the exit
         // through live goblins. The smoke proves the roster loaded and the run is
@@ -8742,6 +8767,59 @@ mod tests {
             ])
             .is_err()
         );
+        // PT-GATE-E: haz_tactical is the same solo hazards-room plan; the aligned
+        // `hazards:` and `boiler:` library pilots play their own room, take the seed as the
+        // room's seed and fix their partner.
+        assert!(args(&[&hazards[..], &["--room-pilot", "haz_tactical"]].concat()).is_ok());
+        assert!(args(&[&hazards[..], &["--room-pilot", "haz_tactical:2p"]].concat()).is_err());
+        assert!(on_mastery(&["--room-pilot", "haz_tactical", "--headless-floor01-smoke"]).is_err());
+        let aligned_hazards =
+            args(&[&hazards[..], &["--room-pilot", "hazards:donut_by_swap:4"]].concat()).unwrap();
+        assert_eq!(aligned_hazards.cf02.seed, Some(4));
+        assert!(
+            args(
+                &[
+                    &hazards[..],
+                    &["--room-pilot", "hazards:carl_solo:2", "--cf02-seed", "3"]
+                ]
+                .concat()
+            )
+            .is_err()
+        );
+        assert!(
+            args(
+                &[
+                    &hazards[..],
+                    &["--room-pilot", "hazards:carl_solo:2", "--companion", "off"]
+                ]
+                .concat()
+            )
+            .is_err()
+        );
+        assert!(
+            args(&[&hazards[..], &["--room-pilot", "boiler:carl_solo:both:2"]].concat()).is_err()
+        );
+        assert!(
+            on_mastery(&[
+                "--room-pilot",
+                "hazards:carl_solo:2",
+                "--headless-floor01-smoke"
+            ])
+            .is_err()
+        );
+        let boiler = [
+            "--scene",
+            "f01_late",
+            "--f01-room",
+            "boiler",
+            "--headless-floor01-smoke",
+        ];
+        let aligned_boiler =
+            args(&[&boiler[..], &["--room-pilot", "boiler:companion:both:6"]].concat()).unwrap();
+        assert_eq!(aligned_boiler.cf02.seed, Some(6));
+        assert!(args(&[&boiler[..], &["--room-pilot", "hazards:carl_solo:6"]].concat()).is_err());
+        assert!(args(&[&boiler[..], &["--room-pilot", "haz_tactical"]].concat()).is_err());
+        assert!(args(&[&boiler[..], &["--room-pilot", "boiler"]].concat()).is_err());
         // :2p is refused for the two solo plans.
         assert!(on_mastery(&["--room-pilot", "mastery:2p", "--headless-floor01-smoke"]).is_err());
         assert!(args(&[&juicer[..], &["--room-pilot", "juicer:2p"]].concat()).is_err());
@@ -10252,7 +10330,7 @@ mod tests {
         let root = Path::new(env!("CARGO_MANIFEST_DIR"));
         let actors =
             Actors::load(root, FrameSource::GridSource, true, false, false, false).unwrap();
-        let cases: [(&str, &str, u64); 9] = [
+        let cases: [(&str, &str, u64); 15] = [
             ("mastery", "carl_solo", 0),
             ("mastery", "donut_by_swap", 3),
             ("mastery", "donut_fights", 1),
@@ -10262,9 +10340,41 @@ mod tests {
             ("juicer", "donut_by_swap", 1),
             ("juicer", "companion", 2),
             ("juicer", "carl_solo", 7),
+            // PT-GATE-E: the live room 4 and room 2 library pilots (the Boiler's token carries
+            // its plan).
+            ("hazards", "carl_solo", 0),
+            ("hazards", "donut_by_swap", 4),
+            ("hazards", "companion", 7),
+            ("boiler", "carl_solo:direct", 0),
+            ("boiler", "donut_by_swap:both", 3),
+            ("boiler", "companion:both", 8),
         ];
         for (plan, who, seed) in cases {
-            let (library_hash, ticks) = if plan == "mastery" {
+            let (library_hash, ticks) = if plan == "hazards" {
+                use dungeon_floorbreak::hazards_fixtures::pilots as hazards;
+                let who = match who {
+                    "donut_by_swap" => hazards::Who::DonutBySwap,
+                    "companion" => hazards::Who::Companion,
+                    _ => hazards::Who::CarlSolo,
+                };
+                let report = hazards::run(root, who, seed, true).unwrap();
+                (report.hash, report.ticks)
+            } else if plan == "boiler" {
+                use dungeon_floorbreak::boiler_fixtures::scene_pilots as boiler;
+                let (who, route) = who.split_once(':').unwrap();
+                let who = match who {
+                    "donut_by_swap" => boiler::Who::DonutBySwap,
+                    "companion" => boiler::Who::Companion,
+                    _ => boiler::Who::CarlSolo,
+                };
+                let route = if route == "direct" {
+                    boiler::Plan::Direct
+                } else {
+                    boiler::Plan::Both
+                };
+                let report = boiler::run_live(root, who, route, seed).unwrap();
+                (report.hash, report.exit_tick.unwrap())
+            } else if plan == "mastery" {
                 let who = match who {
                     "donut_by_swap" => Who::DonutBySwap,
                     "donut_fights" => Who::DonutFights,
@@ -10306,6 +10416,18 @@ mod tests {
                 run.fixture = Some(launched.fixture);
                 let kit = launched.kit.clone();
                 run.mastery_run = Some(Box::new(launched));
+                kit
+            } else if plan == "hazards" {
+                let launched = f01_hazards::launch(root).unwrap();
+                run.fixture = Some(launched.fixture);
+                let kit = launched.kit.clone();
+                run.hazards_run = Some(Box::new(launched));
+                kit
+            } else if plan == "boiler" {
+                let launched = f01_boiler::launch_with(root, f01_boiler::Roster::Live).unwrap();
+                run.fixture = Some(launched.fixture);
+                let kit = launched.kit.clone();
+                run.boiler_run = Some(Box::new(launched));
                 kit
             } else {
                 boss_scene::load_arena(root).unwrap()

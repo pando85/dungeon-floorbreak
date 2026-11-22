@@ -25,7 +25,7 @@ done
 out=docs/evidence/f01-playtest
 rm -rf "$caps"
 mkdir -p "$caps" "$out"
-rm -f "$out"/deck-*.gif "$out"/route-room4-*.gif "$out/capture_lines_d.txt"
+rm -f "$out"/deck-*.gif "$out"/route-room4-spectacular*.gif "$out/capture_lines_d.txt"
 xvfb() { xvfb-run -a -s '-screen 0 1280x720x24' "$@"; }
 last_state() { grep '^COMBAT_STATE ' "$1" | tail -n 1 | sed -E 's/.* hash=([0-9a-f]+).*/\1/'; }
 : > "$out/capture_lines_d.txt"

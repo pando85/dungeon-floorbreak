@@ -756,7 +756,7 @@ pub mod pilots {
     /// where the jab cannot reach, and Donut, whose approach ends closer, is hit
     /// until she is defeated; stepping back opens the jab's reach again. The step
     /// is never into a live acid patch.
-    fn route_pilot(combat: &CombatState, scene: &SceneSim, hero: HeroId) -> RawInput {
+    pub fn route_pilot(combat: &CombatState, scene: &SceneSim, hero: HeroId) -> RawInput {
         let body = scene.world.body(hero);
         let on_top = combat
             .enemies
@@ -1003,4 +1003,4 @@ mod tests;
 #[cfg(test)]
 mod tests_b;
 #[cfg(test)]
-mod tests_c;
+pub(crate) mod tests_c;

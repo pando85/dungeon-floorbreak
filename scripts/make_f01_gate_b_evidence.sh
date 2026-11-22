@@ -125,8 +125,18 @@ count() { grep -c "kind=$1" <<<"$hz" || true; }
   sstate="$(grep '^COMBAT_STATE ' <<<"$sp" | tail -n 1 | sed -E 's/.* hero_hp=([0-9]+) deaths=([0-9]+) enemies=.* hash=([0-9a-f]+) .*/hp \1, deaths \2, hash \3/')"
   sleft="$(grep '^F01_HAZARDS_SMOKE_OK ' <<<"$sp" | sed -E 's/.* enemies=([0-9]+) .*/\1/')"
   echo "| haz_spectacular (dynamite lights the latched sticker; solo Carl, plus the follower bot) | $(scount hero_defeated) | $(scount respawn) | $(scount hero_hurt) | $(scount blast) | $(scount rot_provoked) | ${sleft:-NOT RUN} | $sstate |"
+  # PT-GATE-E: the tactical route and the aligned direct route (the library's HAZ-06 melee route).
+  for row in "haz_tactical|haz_tactical (HAZ-07 pattern 2: R2 baited over the slime S2; solo Carl, plus the follower bot)" \
+             "hazards:carl_solo:0|hazards:carl_solo:0 (the aligned HAZ-06 direct route, library fixture seed 0; the cf02_assist partner)"; do
+    plan="${row%%|*}"
+    run="$("$BIN" --headless-floor01-smoke --scene f01_late --f01-room hazards --room-pilot "$plan" --capture-tick 1500 2>&1)"
+    rcount() { grep -c "kind=$1" <<<"$run" || true; }
+    rstate="$(grep '^COMBAT_STATE ' <<<"$run" | tail -n 1 | sed -E 's/.* hero_hp=([0-9]+) deaths=([0-9]+) enemies=.* hash=([0-9a-f]+) .*/hp \1, deaths \2, hash \3/')"
+    rleft="$(grep '^F01_HAZARDS_SMOKE_OK ' <<<"$run" | sed -E 's/.* enemies=([0-9]+) .*/\1/')"
+    echo "| ${row#*|} | $(rcount hero_defeated) | $(rcount respawn) | $(rcount hero_hurt) | $(rcount blast) | $(rcount rot_provoked) | ${rleft:-NOT RUN} | $rstate |"
+  done
   echo
-  echo "The \`direct\` room pilot walks into the pockets and is defeated and retries; it does not dodge hazards (it is a filming pilot, not a player). \`haz_spectacular\` is the PT-TUNE pilot plus one dynamite throw (PT-GATE-D). The tactical route (HAZ-07 pattern 2: R2 baited over S2) and the direct-route clip are NOT RUN: see the packet's known gaps."
+  echo "The \`direct\` room pilot walks into the pockets and is defeated and retries; it does not dodge hazards (it is a filming pilot, not a player). \`haz_spectacular\` is the PT-TUNE pilot plus one dynamite throw (PT-GATE-D). \`haz_tactical\` is the PT-TUNE pilot plus bait and retreat on both Rot Stickers (PT-GATE-E): R2 goes off over the slime S2, and no Rot blast hurts Carl. \`hazards:carl_solo:0\` is the PT-TUNE pilot of the library fixture \`haz_room_solo_carl\` at seed 0 (the aligned direct route): it does not dodge the Rot blasts, so Carl is hurt by them and ends on 1 hp, undefeated."
 } >> "$out/scorecard.md"
 
 (cd "$out" && sha256sum ./*.gif ./*.png ./*.txt ./*.md | grep -v ' ./README.md$' | sed 's# \./# #' > SHA256SUMS)

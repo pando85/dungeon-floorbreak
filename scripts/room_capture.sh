@@ -5,8 +5,10 @@
 #   scripts/room_capture.sh ROOM PLAN FIRST:STEP:COUNT OUTDIR [more floor01_scene flags]
 #
 #   ROOM   boiler | hazards | mastery | juicer   (--scene f01_late --f01-room ROOM)
-#   PLAN   direct | valve | chain | mastery | juicer, optionally ":2p"   (--room-pilot, src/room_pilots.rs;
-#          mastery and juicer are valid only in their own room)
+#   PLAN   direct | valve | chain | mastery | juicer | haz_spectacular | haz_tactical, optionally ":2p",
+#          or an aligned library pilot WHO:SEED (mastery:, juicer:, hazards:) or WHO:direct|both:SEED
+#          (boiler:)   (--room-pilot, src/room_pilots.rs; mastery, juicer and the haz_ plans are valid
+#          only in their own room)
 #
 # The pilot plays the room from the finished simulation state alone (no
 # synthetic input into any window, no clock, no RNG), so the run is a pure
@@ -32,9 +34,16 @@ last=$((first + step * (count - 1)))
 rm -rf "$out"
 mkdir -p "$out"
 common=(--scene f01_late --f01-room "$room" --room-pilot "$plan" "$@")
+# `xvfb-run` can exit non-zero from its own cleanup (`kill: No such process`) after the
+# program it ran succeeded, notably when several windows run at once (PT-GATE-D review,
+# follow-up 4). Its status is therefore not the result: the window run is checked below
+# by the capture-done marker, and by its final COMBAT_STATE hash for the timed run.
+xvfb() { xvfb-run -a -s '-screen 0 1280x720x24' "$@" || true; }
 # The window run (Bevy presentation, frames).
-xvfb-run -a -s '-screen 0 1280x720x24' "$bin" --scale 1 "${common[@]}" \
+xvfb "$bin" --scale 1 "${common[@]}" \
   --capture-sequence "$seq" --capture-dir "$out" > "$out/run.log" 2>&1
+grep -q '^FLOOR1_CAPTURE_SEQUENCE_DONE' "$out/run.log" \
+  || { echo "the window run did not finish its capture sequence: see $out/run.log" >&2; exit 1; }
 # The headless run to the same tick (no presentation).
 "$bin" --headless-floor01-smoke "${common[@]}" --capture-tick "$last" > "$out/headless.log" 2>&1
 # The last COMBAT_STATE of each log: the state after the final captured tick (a
@@ -47,7 +56,7 @@ headless_hash="$(state "$out/headless.log")"
 # whenever CHECK_TIMED=1. It must end on the same hash as the headless replay.
 timed_hash=skipped
 if [[ "$plan" == *:2p || "${CHECK_TIMED:-0}" == 1 ]]; then
-  xvfb-run -a -s '-screen 0 1280x720x24' "$bin" --scale 1 "${common[@]}" \
+  xvfb "$bin" --scale 1 "${common[@]}" \
     --exit-after-ticks "$last" > "$out/timed.log" 2>&1
   timed_hash="$(state "$out/timed.log")"
 fi

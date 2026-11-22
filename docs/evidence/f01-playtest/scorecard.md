@@ -120,5 +120,7 @@ The per-seed live rows are in the "live room" table above.
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | direct (solo Carl, plus the follower bot) | 3 | 3 | 15 | 2 | 2 | 2 | hp 1, deaths 3, hash 9466c18097e5e14a |
 | haz_spectacular (dynamite lights the latched sticker; solo Carl, plus the follower bot) | 0 | 0 | 2 | 3 | 2 | 2 | hp 2, deaths 0, hash f1156c1548e7008a |
+| haz_tactical (HAZ-07 pattern 2: R2 baited over the slime S2; solo Carl, plus the follower bot) | 0 | 0 | 1 | 2 | 2 | 2 | hp 3, deaths 0, hash 8e10bd0986d23ad9 |
+| hazards:carl_solo:0 (the aligned HAZ-06 direct route, library fixture seed 0; the cf02_assist partner) | 0 | 0 | 4 | 2 | 2 | 2 | hp 1, deaths 0, hash 01c71378a27883e9 |
 
-The `direct` room pilot walks into the pockets and is defeated and retries; it does not dodge hazards (it is a filming pilot, not a player). `haz_spectacular` is the PT-TUNE pilot plus one dynamite throw (PT-GATE-D). The tactical route (HAZ-07 pattern 2: R2 baited over S2) and the direct-route clip are NOT RUN: see the packet's known gaps.
+The `direct` room pilot walks into the pockets and is defeated and retries; it does not dodge hazards (it is a filming pilot, not a player). `haz_spectacular` is the PT-TUNE pilot plus one dynamite throw (PT-GATE-D). `haz_tactical` is the PT-TUNE pilot plus bait and retreat on both Rot Stickers (PT-GATE-E): R2 goes off over the slime S2, and no Rot blast hurts Carl (its one hurt is the pocket A pool). `hazards:carl_solo:0` is the PT-TUNE pilot of the library fixture `haz_room_solo_carl` at seed 0 (the aligned direct route): it does not dodge the Rot blasts, so Carl is hurt by them and ends on 1 hp, undefeated.

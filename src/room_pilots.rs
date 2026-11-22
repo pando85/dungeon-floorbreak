@@ -81,6 +81,19 @@ pub enum Plan {
     /// throws dynamite so that its blast lights the latched Rot Sticker of pocket B
     /// ([`haz_spectacular`]). Only valid in the hazards room.
     HazSpectacular,
+    /// PT-GATE-E (room 4, the tactical route, HAZ-07 pattern 2): the mastery pilot clears
+    /// pocket A, spends the Rot Sticker of pocket B by bait and retreat, then baits the
+    /// Rot Sticker R2 of pocket C so that its blast hits the slime S2 under it
+    /// ([`haz_tactical`]). Only valid in the hazards room.
+    HazTactical,
+    /// PT-GATE-E (item 4b): the hazards room's library pilot
+    /// ([`crate::hazards_fixtures::pilots::run`], `hazards:<who>:<seed>`). Only valid
+    /// in the hazards room, and only aligned.
+    Hazards,
+    /// PT-GATE-E (item 4b): the Boiler's live-roster library pilot
+    /// ([`crate::boiler_fixtures::scene_pilots::run_live`],
+    /// `boiler:<who>:<direct|both>:<seed>`). Only valid in the Boiler's room, and only aligned.
+    Boiler,
 }
 
 impl Plan {
@@ -92,6 +105,9 @@ impl Plan {
             Self::Mastery => "mastery",
             Self::Juicer => "juicer",
             Self::HazSpectacular => "haz_spectacular",
+            Self::HazTactical => "haz_tactical",
+            Self::Hazards => "hazards",
+            Self::Boiler => "boiler",
         }
     }
 }
@@ -151,6 +167,27 @@ impl AlignedWho {
 pub struct Aligned {
     pub who: AlignedWho,
     pub seed: u64,
+    /// The Boiler's plan (`boiler:<who>:<direct|both>:<seed>`); `None` for every other room.
+    pub route: Option<BoilerRoute>,
+}
+
+/// PT-GATE-E: which of the two live Boiler plans an aligned `boiler` pilot plays.
+pub type BoilerRoute = crate::boiler_fixtures::scene_pilots::Plan;
+
+/// The token of a [`BoilerRoute`] (`direct` or `both`), `None` for the plans the live room has no pilot for.
+fn route_token(route: BoilerRoute) -> &'static str {
+    match route {
+        BoilerRoute::Direct => "direct",
+        _ => "both",
+    }
+}
+
+/// What an aligned run carries from tick to tick: the "swap was pressed once" flag of
+/// the mastery and Juicer pilots, and the Boiler's step machine (created on its first tick).
+#[derive(Debug, Clone, Default)]
+pub struct AlignedMemory {
+    swap_sent: bool,
+    boiler: Option<crate::boiler_fixtures::scene_pilots::LiveDriver>,
 }
 
 /// A parsed `--room-pilot` value: `PLAN`, `PLAN:2p`, or `mastery|juicer:WHO:SEED`.
@@ -169,26 +206,54 @@ pub struct RoomPilot {
 impl RoomPilot {
     pub fn parse(value: &str) -> Result<Self, String> {
         let (plan, rest) = value.split_once(':').map_or((value, ""), |(a, b)| (a, b));
-        if let Some((who, seed)) = rest.split_once(':')
-            && matches!(plan, "mastery" | "juicer")
-        {
-            // PT-GATE-C1: `mastery:<who>:<seed>` and `juicer:<who>:<seed>`.
-            let juicer = plan == "juicer";
+        if rest.contains(':') && matches!(plan, "mastery" | "juicer" | "hazards" | "boiler") {
+            // PT-GATE-C1: `mastery:<who>:<seed>` and `juicer:<who>:<seed>`; PT-GATE-E:
+            // `hazards:<who>:<seed>` and `boiler:<who>:<direct|both>:<seed>`.
+            let parts: Vec<&str> = rest.split(':').collect();
+            let (who, route, seed) = match (plan, parts.as_slice()) {
+                ("boiler", [who, route, seed]) => (*who, Some(*route), *seed),
+                ("boiler", _) => {
+                    return Err(format!(
+                        "bad --room-pilot {value:?} (expected boiler:WHO:direct|both:SEED)"
+                    ));
+                }
+                (_, [who, seed]) => (*who, None, *seed),
+                _ => {
+                    return Err(format!(
+                        "bad --room-pilot {value:?} (expected {plan}:WHO:SEED)"
+                    ));
+                }
+            };
+            let fights = plan == "mastery";
             let who = AlignedWho::parse(who)
-                .filter(|who| !(juicer && *who == AlignedWho::DonutFights))
+                .filter(|who| fights || *who != AlignedWho::DonutFights)
                 .ok_or_else(|| {
                     format!(
                         "bad --room-pilot who {who:?} (expected carl_solo, donut_by_swap, {}companion)",
-                        if juicer { "" } else { "donut_fights, " }
+                        if fights { "donut_fights, " } else { "" }
                     )
                 })?;
+            let route = route
+                .map(|token| match token {
+                    "direct" => Ok(BoilerRoute::Direct),
+                    "both" => Ok(BoilerRoute::Both),
+                    other => Err(format!(
+                        "bad --room-pilot boiler plan {other:?} (expected direct or both)"
+                    )),
+                })
+                .transpose()?;
             let seed = seed
                 .parse::<u64>()
                 .map_err(|_| format!("bad --room-pilot seed {seed:?} (an integer)"))?;
             return Ok(Self {
-                plan: if juicer { Plan::Juicer } else { Plan::Mastery },
+                plan: match plan {
+                    "juicer" => Plan::Juicer,
+                    "hazards" => Plan::Hazards,
+                    "boiler" => Plan::Boiler,
+                    _ => Plan::Mastery,
+                },
                 two_player: false,
-                aligned: Some(Aligned { who, seed }),
+                aligned: Some(Aligned { who, seed, route }),
             });
         }
         let plan = match plan {
@@ -198,9 +263,16 @@ impl RoomPilot {
             "mastery" => Plan::Mastery,
             "juicer" => Plan::Juicer,
             "haz_spectacular" => Plan::HazSpectacular,
+            "haz_tactical" => Plan::HazTactical,
+            "hazards" | "boiler" => {
+                return Err(format!(
+                    "--room-pilot {plan} is an aligned plan: {plan}:WHO:{}SEED",
+                    if plan == "boiler" { "direct|both:" } else { "" }
+                ));
+            }
             other => {
                 return Err(format!(
-                    "unknown --room-pilot plan {other:?} (expected direct, valve, chain, mastery, juicer or haz_spectacular, optionally :2p, or mastery|juicer:WHO:SEED)"
+                    "unknown --room-pilot plan {other:?} (expected direct, valve, chain, mastery, juicer, haz_spectacular or haz_tactical, optionally :2p, or mastery|juicer|hazards:WHO:SEED, or boiler:WHO:direct|both:SEED)"
                 ));
             }
         };
@@ -217,6 +289,7 @@ impl RoomPilot {
         let aligned = (plan == Plan::Mastery && !two_player).then_some(Aligned {
             who: AlignedWho::CarlSolo,
             seed: 0,
+            route: None,
         });
         Ok(Self {
             plan,
@@ -230,7 +303,16 @@ impl RoomPilot {
         if let Some(a) = self.aligned
             && !(self.plan == Plan::Mastery && a.who == AlignedWho::CarlSolo && a.seed == 0)
         {
-            format!("{}:{}:{}", self.plan.name(), a.who.token(), a.seed)
+            match a.route {
+                Some(route) => format!(
+                    "{}:{}:{}:{}",
+                    self.plan.name(),
+                    a.who.token(),
+                    route_token(route),
+                    a.seed
+                ),
+                None => format!("{}:{}:{}", self.plan.name(), a.who.token(), a.seed),
+            }
         } else if self.two_player {
             format!("{}:2p", self.plan.name())
         } else {
@@ -254,6 +336,11 @@ impl RoomPilot {
                 sim,
             )[0],
             Plan::HazSpectacular => haz_spectacular(combat, sim),
+            Plan::HazTactical => haz_tactical(combat, sim),
+            Plan::Hazards => {
+                crate::hazards_fixtures::pilots::route_pilot(combat, sim, HeroId::Carl)
+            }
+            Plan::Boiler => unreachable!("the live Boiler pilot is aligned only (aligned_inputs)"),
         };
         let donut = if self.two_player {
             arena::donut_pilot(combat, sim)
@@ -288,19 +375,44 @@ impl RoomPilot {
     }
 
     /// The slot inputs of an aligned run at the next tick: exactly the library
-    /// fixture's (`f01_mastery_fixtures::run_for`, `f01_late_fixtures::juicer_run`),
-    /// for the hero `controlled` by the party. `swap_sent` is the run's "the swap
-    /// was pressed once" flag. Panics on an unaligned pilot.
+    /// fixture's (`f01_mastery_fixtures::run_for`, `f01_late_fixtures::juicer_run`,
+    /// `hazards_fixtures::pilots::run`, `boiler_fixtures::scene_pilots::run_live`),
+    /// for the hero `controlled` by the party. `memory` is the run's own state (the
+    /// "swap was pressed once" flag, the Boiler's step machine); `exit_x` is the column
+    /// the Boiler's pilot walks to (the other plans never read it). Panics on an
+    /// unaligned pilot.
     pub fn aligned_inputs(
         self,
         combat: &CombatState,
         sim: &SceneSim,
         controlled: HeroId,
-        swap_sent: &mut bool,
+        exit_x: f32,
+        memory: &mut AlignedMemory,
     ) -> [RawInput; 2] {
         use crate::f01_mastery_fixtures as mastery;
-        let Aligned { who, seed } = self.aligned.expect("an aligned room pilot");
+        let Aligned { who, seed, route } = self.aligned.expect("an aligned room pilot");
         let tick = sim.world.tick + 1;
+        if self.plan == Plan::Boiler {
+            use crate::boiler_fixtures::scene_pilots::{LiveDriver, Who as BoilerWho};
+            let boiler_who = match who {
+                AlignedWho::DonutBySwap => BoilerWho::DonutBySwap,
+                AlignedWho::Companion => BoilerWho::Companion,
+                _ => BoilerWho::CarlSolo,
+            };
+            let driver = memory.boiler.get_or_insert_with(|| {
+                LiveDriver::new(boiler_who, route.expect("a boiler route"))
+                    .expect("a live boiler plan")
+            });
+            return driver.next(combat, sim, controlled, exit_x).0;
+        }
+        let swap_sent = &mut memory.swap_sent;
+        let hero_pilot = |hero: HeroId| {
+            if self.plan == Plan::Hazards {
+                crate::hazards_fixtures::pilots::route_pilot(combat, sim, hero)
+            } else {
+                mastery::pilot(combat, sim, hero)
+            }
+        };
         let mut input = if self.plan == Plan::Juicer {
             if controlled == HeroId::Carl {
                 crate::boss_scene::pilot_inputs(
@@ -319,12 +431,8 @@ impl RoomPilot {
             }
         } else {
             match who {
-                AlignedWho::CarlSolo | AlignedWho::Companion => {
-                    mastery::pilot(combat, sim, HeroId::Carl)
-                }
-                AlignedWho::DonutBySwap | AlignedWho::DonutFights => {
-                    mastery::pilot(combat, sim, controlled)
-                }
+                AlignedWho::CarlSolo | AlignedWho::Companion => hero_pilot(HeroId::Carl),
+                AlignedWho::DonutBySwap | AlignedWho::DonutFights => hero_pilot(controlled),
             }
         };
         let due = if self.plan == Plan::Juicer {
@@ -666,6 +774,60 @@ fn haz_spectacular(combat: &CombatState, sim: &SceneSim) -> RawInput {
     }
 }
 
+/// Room 4's tactical route (HAZ-07 pattern 2): where Carl waits out a lit Rot Sticker
+/// (the sheet's latest safe reversal is 19 ticks after the provoke; from the provoke
+/// column the retreat is 40 px, about 13 ticks) and how far from the dome.
+const HAZ_RETREAT_PX: f32 = 70.0;
+
+/// The Rot Sticker `index` of the hazards room: its state and its dome column.
+fn haz_sticker_at(combat: &CombatState, index: u16) -> Option<(StickerState, f32)> {
+    let sticker = combat.env()?.sticker(index)?;
+    Some((
+        sticker.state(),
+        sticker.dome(crate::rot_sticker::active()).0,
+    ))
+}
+
+/// Tactical route (room 4, HAZ-07 pattern 2: bait R2 over the slime S2). The PT-TUNE
+/// pilot clears pocket A; then, for each Rot Sticker in lane order (R1 of pocket B, R2
+/// of pocket C), while it is not spent: walk right until it is provoked by proximity
+/// (the 32 px trigger circle), and the moment it is `Warning` walk back left to
+/// [`HAZ_RETREAT_PX`] from its dome and hold there until it blows. R2's blast then hits
+/// S2 at home (47.5 px from the dome, inside the 48 px circle; the sheet has no goblin
+/// collateral, Revision 4). Carl never jabs S2 before the blast. Once R2 is spent the
+/// PT-TUNE pilot punishes the damaged slime, fights the C goblin and exits. A pure
+/// function of the state.
+fn haz_tactical(combat: &CombatState, sim: &SceneSim) -> RawInput {
+    let pilot = || crate::f01_mastery_fixtures::pilot(combat, sim, HeroId::Carl);
+    let hero = &sim.world.hero;
+    let pocket_a_clear = !haz_slime_alive(combat)
+        && combat
+            .enemies
+            .iter()
+            .filter(|g| g.x < HAZ_POCKET_A_END)
+            .all(|g| !g.alive());
+    if !pocket_a_clear {
+        return pilot();
+    }
+    for index in 0..2u16 {
+        let Some((state, dome)) = haz_sticker_at(combat, index) else {
+            continue;
+        };
+        match state {
+            StickerState::Spent => continue,
+            StickerState::Warning => return walk_to(sim, dome - HAZ_RETREAT_PX),
+            StickerState::Latched | StickerState::Scuttling => {
+                return RawInput {
+                    move_x: 1.0,
+                    jump: hero.grounded && blocked_ahead(sim, 1.0),
+                    ..RawInput::NONE
+                };
+            }
+        }
+    }
+    pilot()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -673,7 +835,7 @@ mod tests {
     use crate::combat::{CombatEvent, DefeatCause, PropPhase};
     use crate::f01_boiler::Roster;
     use crate::f01_late::{Loadout, boiler_start_with};
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
 
     /// The Boiler under the story loadout with its live roster, played by `plan`
     /// until the exit or 1500 ticks: the scene, the combat state and the exit column.
@@ -944,11 +1106,11 @@ mod tests {
                 };
                 assert_eq!(pilot.tuning(), Some(party.tuning));
                 let mut sim = juicer_room_for(&root, party).unwrap();
-                let mut sent = false;
+                let mut sent = AlignedMemory::default();
                 for _ in 0..report.ticks {
                     let controlled = sim.party.controlled_hero();
                     let slots =
-                        pilot.aligned_inputs(&sim.combat, &sim.scene, controlled, &mut sent);
+                        pilot.aligned_inputs(&sim.combat, &sim.scene, controlled, 0.0, &mut sent);
                     sim.step_slots(slots);
                 }
                 assert_eq!(sim.state_hash(), report.hash, "juicer {who:?} seed {seed}");
@@ -966,11 +1128,11 @@ mod tests {
                 let pilot = RoomPilot::parse(&format!("mastery:{}:{seed}", who.token())).unwrap();
                 assert_eq!(pilot.tuning(), Some(mastery::tuning(who.mastery())));
                 let (mut sim, _) = mastery::start(&root, who.mastery(), seed).unwrap();
-                let mut sent = false;
+                let mut sent = AlignedMemory::default();
                 for _ in 0..report.ticks {
                     let controlled = sim.party.controlled_hero();
                     let slots =
-                        pilot.aligned_inputs(&sim.combat, &sim.scene, controlled, &mut sent);
+                        pilot.aligned_inputs(&sim.combat, &sim.scene, controlled, 0.0, &mut sent);
                     sim.step_slots(slots);
                 }
                 assert_eq!(sim.state_hash(), report.hash, "mastery {who:?} seed {seed}");
@@ -978,6 +1140,123 @@ mod tests {
             }
         }
         assert_eq!(equal, 63, "27 Juicer runs and 36 arena runs");
+    }
+
+    /// PT-GATE-E: the three heroes' modes the hazards and Boiler library pilots play.
+    const LIVE_WHO: [(AlignedWho, crate::hazards_fixtures::pilots::Who); 3] = [
+        (
+            AlignedWho::CarlSolo,
+            crate::hazards_fixtures::pilots::Who::CarlSolo,
+        ),
+        (
+            AlignedWho::DonutBySwap,
+            crate::hazards_fixtures::pilots::Who::DonutBySwap,
+        ),
+        (
+            AlignedWho::Companion,
+            crate::hazards_fixtures::pilots::Who::Companion,
+        ),
+    ];
+
+    fn boiler_who(who: AlignedWho) -> crate::boiler_fixtures::scene_pilots::Who {
+        use crate::boiler_fixtures::scene_pilots::Who;
+        match who {
+            AlignedWho::DonutBySwap => Who::DonutBySwap,
+            AlignedWho::Companion => Who::Companion,
+            _ => Who::CarlSolo,
+        }
+    }
+
+    /// The hazards room played by the aligned room pilot `hazards:<who>:<seed>` for
+    /// `ticks` ticks, the way the scene steps it: (the party hash the library reports,
+    /// the combat hash the window prints).
+    fn replay_hazards(root: &Path, who: AlignedWho, seed: u64, ticks: u64) -> (u64, u64) {
+        use crate::hazards_fixtures::pilots;
+        let library_who = LIVE_WHO.iter().find(|(w, _)| *w == who).unwrap().1;
+        let pilot = RoomPilot::parse(&format!("hazards:{}:{seed}", who.token())).unwrap();
+        assert_eq!(
+            pilot.tuning(),
+            Some(crate::f01_mastery_fixtures::tuning(who.mastery()))
+        );
+        let (mut sim, _) = pilots::start(root, library_who, seed, true).unwrap();
+        let mut memory = AlignedMemory::default();
+        for _ in 0..ticks {
+            let controlled = sim.party.controlled_hero();
+            let slots = pilot.aligned_inputs(&sim.combat, &sim.scene, controlled, 0.0, &mut memory);
+            sim.step_slots(slots);
+        }
+        (sim.state_hash(), sim.combat.state_hash(&sim.scene))
+    }
+
+    /// The Boiler's live room played by `boiler:<who>:<route>:<seed>` for `ticks` ticks.
+    fn replay_boiler(
+        root: &Path,
+        who: AlignedWho,
+        route: BoilerRoute,
+        seed: u64,
+        ticks: u64,
+    ) -> (u64, u64) {
+        use crate::boiler_fixtures::scene_pilots::live_start;
+        let pilot = RoomPilot::parse(&format!(
+            "boiler:{}:{}:{seed}",
+            who.token(),
+            route_token(route)
+        ))
+        .unwrap();
+        let (mut sim, exit_x) = live_start(root, boiler_who(who), seed).unwrap();
+        let mut memory = AlignedMemory::default();
+        for _ in 0..ticks {
+            let controlled = sim.party.controlled_hero();
+            let slots =
+                pilot.aligned_inputs(&sim.combat, &sim.scene, controlled, exit_x, &mut memory);
+            sim.step_slots(slots);
+        }
+        (sim.state_hash(), sim.combat.state_hash(&sim.scene))
+    }
+
+    /// PT-GATE-E (item 4b): the room-pilot hash equals the library fixture's for the 27
+    /// live room 4 runs (`hazards_fixtures::pilots::run`, which also equals `SOLO_CARL_PINNED`
+    /// and `DIRECT_PINNED` for solo Carl) and for the 54 live room 2 runs
+    /// (`boiler_fixtures::scene_pilots::run_live`).
+    #[test]
+    fn the_aligned_hazards_and_boiler_pilots_equal_their_library_fixtures() {
+        use crate::boiler_fixtures::scene_pilots::run_live;
+        use crate::hazards_fixtures::pilots;
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let mut equal = 0;
+        for (who, library_who) in LIVE_WHO {
+            for seed in pilots::SEEDS {
+                let report = pilots::run(&root, library_who, seed, true).unwrap();
+                let (hash, _) = replay_hazards(&root, who, seed, report.ticks);
+                assert_eq!(hash, report.hash, "hazards {who:?} seed {seed}");
+                if who == AlignedWho::CarlSolo {
+                    // The aligned direct route (HAZ-06) is the pinned `haz_room_direct_route`.
+                    assert_eq!(
+                        hash,
+                        crate::hazards_fixtures::tests_c::SOLO_CARL_PINNED[seed as usize],
+                        "hazards:carl_solo:{seed} equals the pinned direct route"
+                    );
+                }
+                equal += 1;
+            }
+        }
+        assert_eq!(equal, 27, "3 modes x 9 seeds on room 4");
+        for who in [
+            AlignedWho::CarlSolo,
+            AlignedWho::DonutBySwap,
+            AlignedWho::Companion,
+        ] {
+            for route in [BoilerRoute::Direct, BoilerRoute::Both] {
+                for seed in 0..=8 {
+                    let report = run_live(&root, boiler_who(who), route, seed).unwrap();
+                    let ticks = report.exit_tick.expect("a live run reaches the exit");
+                    let (hash, _) = replay_boiler(&root, who, route, seed, ticks);
+                    assert_eq!(hash, report.hash, "boiler {who:?} {route:?} seed {seed}");
+                    equal += 1;
+                }
+            }
+        }
+        assert_eq!(equal, 81, "27 room 4 runs and 54 room 2 runs");
     }
 
     /// PT-GATE-D: the library side of the render-loop replay
@@ -1011,11 +1290,11 @@ mod tests {
                     &JUICER_ROOM_PARTY
                 };
                 let mut sim = juicer_room_for(&root, party).unwrap();
-                let mut sent = false;
+                let mut sent = AlignedMemory::default();
                 for _ in 0..report.ticks {
                     let controlled = sim.party.controlled_hero();
                     let slots =
-                        pilot.aligned_inputs(&sim.combat, &sim.scene, controlled, &mut sent);
+                        pilot.aligned_inputs(&sim.combat, &sim.scene, controlled, 0.0, &mut sent);
                     sim.step_slots(slots);
                 }
                 assert_eq!(sim.state_hash(), report.hash, "juicer {who:?} seed {seed}");
@@ -1038,11 +1317,11 @@ mod tests {
                 let report = mastery::run(&root, who.mastery(), seed).unwrap();
                 let pilot = RoomPilot::parse(&format!("mastery:{}:{seed}", who.token())).unwrap();
                 let (mut sim, _) = mastery::start(&root, who.mastery(), seed).unwrap();
-                let mut sent = false;
+                let mut sent = AlignedMemory::default();
                 for _ in 0..report.ticks {
                     let controlled = sim.party.controlled_hero();
                     let slots =
-                        pilot.aligned_inputs(&sim.combat, &sim.scene, controlled, &mut sent);
+                        pilot.aligned_inputs(&sim.combat, &sim.scene, controlled, 0.0, &mut sent);
                     sim.step_slots(slots);
                 }
                 assert_eq!(sim.state_hash(), report.hash, "mastery {who:?} seed {seed}");
@@ -1053,6 +1332,45 @@ mod tests {
                     report.hash,
                     sim.combat.state_hash(&sim.scene)
                 );
+            }
+        }
+        // PT-GATE-E: the live room 4 and room 2 runs of #240.
+        for (who, library_who) in LIVE_WHO {
+            for seed in crate::hazards_fixtures::pilots::SEEDS {
+                let report =
+                    crate::hazards_fixtures::pilots::run(&root, library_who, seed, true).unwrap();
+                let (hash, combat_hash) = replay_hazards(&root, who, seed, report.ticks);
+                assert_eq!(hash, report.hash, "hazards {who:?} seed {seed}");
+                println!(
+                    "ALIGNED_LIBRARY room=hazards who={} seed={seed} ticks={} hash={hash:016x} combat_hash={combat_hash:016x}",
+                    who.token(),
+                    report.ticks,
+                );
+            }
+        }
+        for who in [
+            AlignedWho::CarlSolo,
+            AlignedWho::DonutBySwap,
+            AlignedWho::Companion,
+        ] {
+            for route in [BoilerRoute::Direct, BoilerRoute::Both] {
+                for seed in 0..=8 {
+                    let report = crate::boiler_fixtures::scene_pilots::run_live(
+                        &root,
+                        boiler_who(who),
+                        route,
+                        seed,
+                    )
+                    .unwrap();
+                    let ticks = report.exit_tick.expect("a live run reaches the exit");
+                    let (hash, combat_hash) = replay_boiler(&root, who, route, seed, ticks);
+                    assert_eq!(hash, report.hash, "boiler {who:?} {route:?} seed {seed}");
+                    println!(
+                        "ALIGNED_LIBRARY room=boiler who={} route={} seed={seed} ticks={ticks} hash={hash:016x} combat_hash={combat_hash:016x}",
+                        who.token(),
+                        route_token(route),
+                    );
+                }
             }
         }
         println!("ALIGNED_LIBRARY_END");
@@ -1140,6 +1458,121 @@ mod tests {
         );
     }
 
+    /// PT-GATE-E (room 4, the tactical route, HAZ-07 pattern 2): `haz_tactical` clears
+    /// pocket A, spends R1 by bait and retreat, then walks right until R2 is provoked by
+    /// proximity (`RotProvoked { sticker: 1, Proximity }`), walks back left and holds while
+    /// the 24-tick warning runs: R2's blast (`Blast { charge: 1 }`, provoke + 24) takes
+    /// exactly 1 hit point off the slime S2 at home (full health the tick before, one less
+    /// the tick after: Carl never jabbed it) and no Rot blast hurts Carl. The room is then
+    /// cleared to its exit with no defeat. The final hash is pinned and replays twice.
+    #[test]
+    fn the_haz_tactical_plan_baits_r2_over_the_slime_and_the_blast_hits_s2() {
+        use crate::f01_late::hazards_start;
+        use crate::rot_sticker::{ROT_SOURCE_ID, RotCause};
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let pilot = RoomPilot::parse("haz_tactical").unwrap();
+        assert_eq!(pilot.label(), "haz_tactical");
+        assert!(pilot.aligned.is_none() && !pilot.two_player);
+        assert!(RoomPilot::parse("haz_tactical:2p").unwrap().two_player);
+        let slime_hp = |combat: &CombatState, roster: usize| {
+            combat.slot_enemies()[roster]
+                .as_any()
+                .and_then(|a| a.downcast_ref::<crate::combat_scene::slime::SlimeEnemy>())
+                .map(|s| s.slime().health())
+        };
+        let play = || {
+            let (carl, donut) = Loadout::Story.flags();
+            let (run, mut scene, mut combat) =
+                hazards_start(&root, 360, carl, donut, None).unwrap();
+            let exit = run.loaded.encounter.exit;
+            let exit_x = (exit.x + exit.w / 2) as f32;
+            // S2's health the tick before and the tick after R2's blast.
+            let mut s2_around_blast = None;
+            for _ in 0..2500 {
+                if scene.world.complete {
+                    break;
+                }
+                let before = slime_hp(&combat, 1);
+                let inputs = pilot.inputs(&combat, &scene, exit_x);
+                combat.step_party(&mut scene, inputs);
+                if combat
+                    .events
+                    .iter()
+                    .any(|e| matches!(e, CombatEvent::Blast { charge: 1, .. }))
+                    && s2_around_blast.is_none()
+                {
+                    s2_around_blast = Some((before, slime_hp(&combat, 1)));
+                }
+            }
+            (scene, combat, s2_around_blast)
+        };
+        let (scene, combat, s2_around_blast) = play();
+        assert!(
+            scene.world.complete,
+            "the room is cleared and its exit reached"
+        );
+        assert_eq!(combat.deaths, 0);
+        let provoke = |sticker: u16| {
+            combat.events.iter().find_map(|e| match e {
+                CombatEvent::RotProvoked {
+                    tick,
+                    sticker: s,
+                    cause: RotCause::Proximity,
+                    ..
+                } if *s == sticker => Some(*tick),
+                _ => None,
+            })
+        };
+        let blast = |charge: u32| {
+            combat.events.iter().find_map(|e| match e {
+                CombatEvent::Blast { tick, charge: c } if *c == charge => Some(*tick),
+                _ => None,
+            })
+        };
+        // R1 (pocket B) and R2 (pocket C) are both spent by proximity: bait and retreat.
+        for (sticker, charge) in [(0u16, 0u32), (1, 1)] {
+            let provoked = provoke(sticker).expect("provoked by proximity");
+            assert_eq!(
+                blast(charge),
+                Some(provoked + 24),
+                "the warning is 24 ticks"
+            );
+        }
+        assert!(provoke(0) < provoke(1), "R1 first, then R2");
+        assert!(
+            !combat.events.iter().any(|e| matches!(
+                e,
+                CombatEvent::RotProvoked { cause, .. } if *cause != RotCause::Proximity
+            )),
+            "no dynamite, no bolt: only the bait"
+        );
+        // R2's blast hits S2 for exactly 1 (HAZ `haz_rot_hits_slime`: 1 damage), the
+        // tick it goes off, with S2 untouched before it.
+        assert_eq!(s2_around_blast, Some((Some(3), Some(2))));
+        // No Rot blast hurts Carl (a hurt from the pool or the slime is reported, not asserted).
+        assert!(
+            !combat.events.iter().any(|e| matches!(
+                e,
+                CombatEvent::HeroHurt { source, .. } if source & 0xffff == ROT_SOURCE_ID
+            )),
+            "no Rot hurt"
+        );
+        // The committed final hash of this new fixture, as this test drives the room (slot 0
+        // only; the binary's run, with the room scene's follower bot, ends on the scorecard's
+        // hash instead): a drift is a deliberate re-pin.
+        assert_eq!(
+            combat.state_hash(&scene),
+            0x383a_5307_0f66_546a,
+            "the committed final hash"
+        );
+        let (again, combat_again, _) = play();
+        assert_eq!(
+            combat.state_hash(&scene),
+            combat_again.state_hash(&again),
+            "the route replays to the same hash"
+        );
+    }
+
     #[test]
     fn the_plain_mastery_plan_is_carl_solo_at_seed_zero() {
         let plain = RoomPilot::parse("mastery").unwrap();
@@ -1150,7 +1583,8 @@ mod tests {
             plain.aligned,
             Some(Aligned {
                 who: AlignedWho::CarlSolo,
-                seed: 0
+                seed: 0,
+                route: None
             })
         );
         // The plain Juicer plan stays the unaligned PT-GATE-A pilot; the rest of the
@@ -1168,8 +1602,81 @@ mod tests {
             "juicer:donut_fights:1",
             "mastery:carl_solo:1:2p",
             "direct:carl_solo:1",
+            // PT-GATE-E: the hazards and Boiler library pilots are aligned only.
+            "hazards",
+            "boiler",
+            "hazards:carl_solo",
+            "hazards:donut_fights:1",
+            "hazards:carl_solo:1:2p",
+            "boiler:carl_solo:0",
+            "boiler:carl_solo:weight:0",
+            "boiler:carl_solo:valve:0",
+            "boiler:donut_fights:direct:0",
+            "boiler:carl_solo:both:x",
+            "boiler:carl_solo:both:1:2p",
         ] {
             assert!(RoomPilot::parse(bad).is_err(), "{bad}");
+        }
+    }
+
+    /// PT-GATE-E: `hazards:<who>:<seed>` and `boiler:<who>:<direct|both>:<seed>` parse,
+    /// round-trip through the label and carry the library fixture's party.
+    #[test]
+    fn the_aligned_hazards_and_boiler_flags_parse_and_round_trip() {
+        for (text, plan, who, seed, route) in [
+            (
+                "hazards:carl_solo:0",
+                Plan::Hazards,
+                AlignedWho::CarlSolo,
+                0,
+                None,
+            ),
+            (
+                "hazards:donut_by_swap:8",
+                Plan::Hazards,
+                AlignedWho::DonutBySwap,
+                8,
+                None,
+            ),
+            (
+                "hazards:companion:3",
+                Plan::Hazards,
+                AlignedWho::Companion,
+                3,
+                None,
+            ),
+            (
+                "boiler:carl_solo:direct:0",
+                Plan::Boiler,
+                AlignedWho::CarlSolo,
+                0,
+                Some(BoilerRoute::Direct),
+            ),
+            (
+                "boiler:donut_by_swap:both:5",
+                Plan::Boiler,
+                AlignedWho::DonutBySwap,
+                5,
+                Some(BoilerRoute::Both),
+            ),
+            (
+                "boiler:companion:both:8",
+                Plan::Boiler,
+                AlignedWho::Companion,
+                8,
+                Some(BoilerRoute::Both),
+            ),
+        ] {
+            let pilot = RoomPilot::parse(text).unwrap();
+            assert_eq!(pilot.plan, plan, "{text}");
+            assert!(!pilot.two_player, "{text}");
+            assert_eq!(pilot.aligned, Some(Aligned { who, seed, route }), "{text}");
+            assert_eq!(pilot.label(), text);
+            assert_eq!(
+                pilot.tuning(),
+                Some(crate::f01_mastery_fixtures::tuning(who.mastery())),
+                "{text}: the library fixture's party"
+            );
         }
     }
 
