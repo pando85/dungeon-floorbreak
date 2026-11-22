@@ -52,3 +52,74 @@ Real windowed Bevy captures (`floor01_scene`, 640 x 360 virtual frame, lit Floor
 
 The solo and 2P Juicer dynamite recordings (`carl_prog_juicer_dynamite_clear`) are a follow-up. The replays of
 the ten new fixtures are in `replays/`.
+
+## CP-E evidence: pierce, one-combo shore, the 64 px reading, the Juicer, and the 640 x 400 view
+
+Real windowed captures (`floor01_scene`, `--party-fixture`, 640 x 360 and, with `--deck`, 640 x 400) built by
+`bash scripts/make_cp_e_evidence.sh` (a debug binary, the exported atlases, `xvfb-run`, Pillow) into `cp-e/`. GIFs play at
+game speed (the frame delay is the capture step in ticks at 60 Hz); `-3x` is a nearest-neighbour enlargement of a crop.
+Every sequence is also replayed headless to its last tick and the two final `COMBAT_STATE` hashes are equal
+(`cp-e/capture_lines.txt`, `match=yes`): the presentation is read-only. Art stays `prototype_fixture_unapproved`; nothing
+here approves it and no game-feel claim is made.
+
+**Pierce spark (the CP-D carry-over, new here).** The reinforced fist's pierce of a committed attack
+(`CombatState::pierce_cue`, CP-Q42) now draws the shared `vfx_hit_spark_metal` atlas (3 frames, 2 ticks each) once at the
+contact face of the pierced goblin or llama (`src/bin/floor01_scene/pierce_spark.rs`, one pre-spawned sprite; pure frame
+rule `blast_art::spark_frame`). It reads the cue only: nothing is hashed, no replay or golden changed.
+
+| File | Shows |
+| --- | --- |
+| `cp-e/pierce-goblin-{1x,3x}.gif`, `pierce-goblin-640x400-{1x,3x}.gif` | `carl_prog_pierce_goblin` (the fixture holds the gauntlet): the goblin raises its club (tick 40 tell); the haymaker lands on attack tick 24 (tick 65), the swing is cancelled and the goblin staggers. A small white star shows at the goblin's face on ticks 65 to 70 (three frames of two ticks: star, burst, fade); it is faint and easy to miss at 1x. |
+| `cp-e/pierce-goblin-control-{1x,3x}.gif` | `carl_prog_pierce_goblin_control`: the same input without the gauntlet; the swing runs on and no spark is drawn. |
+| `cp-e/shore-one-combo-{1x,3x}.gif` | `carl_prog_shore_combo`: a jab (tick 23, one hit) then the reinforced haymaker (which counts two) break the shore in one combo (tick 32); the block falls and crushes the goblin (tick 68). |
+| `cp-e/reach-ring-outer-launch-{1x,3x}.gif`, `reach-ring-wall-slam-{1x,3x}.gif` | The **64 px reading** (below): `--debug-combat` draws the dotted outer-radius ring and the hurtboxes while the stick is lit, then the burst. `carl_prog_dyn_outer_launch` (a goblin 40 px from the blast is launched alive with 1 HP) and `carl_prog_dyn_wall_slam` (CF02 room, the launched goblin meets the wall, tick 198). |
+| `cp-e/throw-standing-640x400-{1x,3x}.gif` | The standing throw in the 640 x 400 deck view. |
+| `cp-e/juicer-dynamite-{1x,3x}.gif` | `carl_prog_juicer_dynamite_clear` (solo): Carl throws at the Juicer, the stick lands (tick 212) and blows at 324 while the Juicer pounds Donut. |
+
+Already in `cp-b2-c/` and not repeated: the standing and moving throws (the moving throw also shows the self-damage:
+`carl_prog_dyn_arc_moving`, `hero_hurt` on the blast tick 196), the chain into an authored charge, the shore broken by a
+blast, the wall slam, the grant notice and the HUD socket.
+
+**Owner handoff (game feel, nothing here decides it).**
+
+- **64 px reading.** The owner's "64 px radius" is a 20 px lethal core plus a 64 px ring that deals 1 damage and a launch
+  (CP-Q20, CP-Q21): against goblins the dynamite mostly launches and kills only within 20 px. The VFX-01 burst is a roughly
+  20 px fireball (48 px frame); in `reach-ring-*` the dotted ring is visibly wider than the burst. Is the reach readable
+  without the debug ring, or does it need `burst_large` or a player-visible ring (CP-Q33)?
+- **Run-persistence.** "Permanently" is run-persistent (CP-Q07): a fixture restart (R, or Select on a pad) restores the pin
+  and removes a grant earned in play.
+- **Running throw.** A running stick lands about 170 px ahead and Carl, still running, passes it near tick 55, about 95
+  ticks before it blows: a forward throw on the run buys no space (`throw-moving` in `cp-b2-c`).
+- **Pierce scope (F-12).** The shipped default pierces on the haymaker only; the jab pierce is one data row (`cpq40_jab_pierces_commit`, shown by `carl_prog_pierce_goblin_jab`). Whether the jab should pierce too is the owner's call. The spark is drawn for whichever punch pierces.
+
+**Timing and state lines** (from the committed replays and the capture logs; ticks are scene ticks):
+
+```text
+pierce        goblin tell 40 -> Carl jab 53, haymaker 60 -> haymaker hit 65 (pierce, spark 65-70, 2 px camera kick) -> goblin_interrupted 65 -> stagger
+control       goblin tell 40 -> haymaker 60 (no gauntlet) -> swing runs on, the impact lands tick 72, no spark
+shore combo   jab hit 23 (shore hits 1) -> haymaker hit 32 (hits 3, shore_broken) -> block lands 68 -> goblin defeated (shore_block)
+dyn standing  special 4 -> charge_thrown 45 -> charge_landed 83 -> fuse -> blast 195
+dyn moving    special 5 -> thrown 46 -> landed 84 -> blast 196 -> hero_hurt (self-hit, 1 damage and a knock)
+juicer        boss_engaged 21 -> charge_thrown 174 -> landed 212 -> blast 324 (Donut hurt by the pound at 318)
+```
+
+**Owner scorecard (blank, to fill in when the owner plays; the build SHA is the head of the merged PR).** One row per attempt.
+
+| Build SHA | Flags | Pad | Resolution | Deaths and restarts | Throws | Self-hits | Chains | Pierces |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+|  | `--party-fixture carl_prog_dyn_arc_standing` |  | 640 x 360 |  |  |  |  |  |
+|  | `--party-fixture carl_prog_dyn_arc_moving` |  | 640 x 360 |  |  |  |  |  |
+|  | `--party-fixture carl_prog_dyn_chain_depth_cap` |  | 640 x 360 |  |  |  |  |  |
+|  | `--party-fixture carl_prog_pierce_goblin` |  | 640 x 360 and 640 x 400 (`--deck`) |  |  |  |  | (`CombatState::pierce_count`) |
+|  | `--party-fixture carl_prog_shore_combo` |  | 640 x 360 |  |  |  |  |  |
+|  | `--party-fixture carl_prog_juicer_dynamite_clear` |  | 640 x 360 |  |  |  |  |  |
+|  | `--scene f01_late --f01-room boiler --f01-loadout story` (live play) |  | 640 x 360 |  |  |  |  |  |
+
+Diagrams: the state lines above are the timing and state diagrams of this stage; drawn diagrams (a timeline image per fixture) are **NOT RUN**.
+
+**NOT RUN.**
+
+- **2P Juicer with dynamite: NOT CAPTURED.** No two-player Juicer dynamite fixture exists (`carl_prog_dyn_no_friendly_fire` is the only 2P `carl_prog_*` fixture, in the arena). The solo Juicer clip above is the recording.
+- **Frame time at gore preset 4: NOT RUN.** The captures use the xvfb software rasterizer, so no frame-time number is claimed.
+- **A real two-pad check: NOT RUN.** No pad was used.
+- The 3x crops were chosen by hand for the arena camera; a different camera setting moves the action out of them.

@@ -16,14 +16,38 @@ pub const DYNAMITE_IMAGE: &str = "vfx_dynamite.png";
 /// Asset name of the VFX-01 atlas below `generated/art/`.
 pub const BURST_IMAGE: &str = "vfx-01.png";
 
+/// Asset name of the shared metal hit-spark atlas below `generated/art/`
+/// (CP-Q42: the spark of a piercing punch).
+pub const SPARK_IMAGE: &str = "vfx_hit_spark_metal.png";
+
 const DYNAMITE_JSON: &str = "generated/art/vfx_dynamite.json";
 const BURST_JSON: &str = "generated/art/vfx-01.json";
+const SPARK_JSON: &str = "generated/art/vfx_hit_spark_metal.json";
+
+/// Ticks each frame of the metal hit-spark is shown (the manifest's `ticks`:
+/// star, burst, fade at 2 ticks each, 60 Hz).
+pub const SPARK_FRAME_TICKS: [u64; 3] = [2, 2, 2];
+
+/// The spark frame of a pierce that happened `age` ticks ago (0 on the tick of
+/// the hit): `None` once the last frame is over. Pure, presentation only.
+pub fn spark_frame(age: u64) -> Option<usize> {
+    let mut left = age;
+    for (frame, ticks) in SPARK_FRAME_TICKS.into_iter().enumerate() {
+        if left < ticks {
+            return Some(frame);
+        }
+        left -= ticks;
+    }
+    None
+}
 
 /// Pixel rects (x, y, w, h) of every frame of the two atlases, in frame order.
 #[derive(Debug, Clone, PartialEq)]
 pub struct BlastArt {
     pub dynamite: Vec<[i32; 4]>,
     pub burst: Vec<[i32; 4]>,
+    /// The `vfx_hit_spark_metal` frames (16 x 16, pivot 8, 8).
+    pub spark: Vec<[i32; 4]>,
 }
 
 fn read_rects(root: &Path, path: &str) -> Result<Vec<[i32; 4]>, String> {
@@ -61,12 +85,29 @@ impl BlastArt {
                 burst.len()
             ));
         }
-        Ok(Self { dynamite, burst })
+        let spark = read_rects(root, SPARK_JSON)?;
+        if spark.len() < SPARK_FRAME_TICKS.len() {
+            return Err(format!(
+                "blast art: {} spark frames (expected at least {})",
+                spark.len(),
+                SPARK_FRAME_TICKS.len()
+            ));
+        }
+        Ok(Self {
+            dynamite,
+            burst,
+            spark,
+        })
     }
 
     /// The rect of dynamite frame `frame`.
     pub fn dynamite_rect(&self, frame: usize) -> [i32; 4] {
         self.dynamite[frame.min(self.dynamite.len() - 1)]
+    }
+
+    /// The rect of the metal hit-spark frame `frame`.
+    pub fn spark_rect(&self, frame: usize) -> [i32; 4] {
+        self.spark[frame.min(self.spark.len() - 1)]
     }
 
     /// The rect of VFX-01 frame `frame`.
@@ -92,6 +133,26 @@ mod tests {
         assert_eq!(art.burst.len(), 12);
         assert!(art.dynamite.iter().all(|r| r[2] == 24 && r[3] == 24));
         assert!(art.burst.iter().all(|r| r[2] == 48 && r[3] == 48));
+        assert_eq!(art.spark.len(), 3);
+        assert!(art.spark.iter().all(|r| r[2] == 16 && r[3] == 16));
+    }
+
+    #[test]
+    fn the_spark_runs_three_frames_of_two_ticks_and_is_over_on_the_seventh() {
+        let frames: Vec<Option<usize>> = (0..8).map(spark_frame).collect();
+        assert_eq!(
+            frames,
+            [
+                Some(0),
+                Some(0),
+                Some(1),
+                Some(1),
+                Some(2),
+                Some(2),
+                None,
+                None
+            ]
+        );
     }
 
     #[test]

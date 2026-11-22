@@ -1,0 +1,8 @@
+CP_E_CAPTURE name=pierce-goblin fixture=carl_prog_pierce_goblin first_tick=50 step=2 last_tick=104 window_hash=9b0ebb49134d2268 headless_hash=9b0ebb49134d2268 match=yes
+CP_E_CAPTURE name=pierce-goblin-control fixture=carl_prog_pierce_goblin_control first_tick=50 step=2 last_tick=104 window_hash=11ecba4b67ce9f3a headless_hash=11ecba4b67ce9f3a match=yes
+CP_E_CAPTURE name=pierce-goblin-640x400 fixture=carl_prog_pierce_goblin first_tick=50 step=2 last_tick=104 window_hash=d18b17f7478078b7 headless_hash=d18b17f7478078b7 match=yes
+CP_E_CAPTURE name=shore-one-combo fixture=carl_prog_shore_combo first_tick=12 step=3 last_tick=93 window_hash=6f8fe08aa20fe7fb headless_hash=6f8fe08aa20fe7fb match=yes
+CP_E_CAPTURE name=reach-ring-outer-launch fixture=carl_prog_dyn_outer_launch first_tick=188 step=3 last_tick=251 window_hash=ed277d92dbf11d26 headless_hash=ed277d92dbf11d26 match=yes
+CP_E_CAPTURE name=reach-ring-wall-slam fixture=carl_prog_dyn_wall_slam first_tick=186 step=2 last_tick=236 window_hash=545377cc91661921 headless_hash=545377cc91661921 match=yes
+CP_E_CAPTURE name=throw-standing-640x400 fixture=carl_prog_dyn_arc_standing first_tick=4 step=6 last_tick=214 window_hash=1ddf009e80fd92c0 headless_hash=1ddf009e80fd92c0 match=yes
+CP_E_CAPTURE name=juicer-dynamite fixture=carl_prog_juicer_dynamite_clear first_tick=100 step=6 last_tick=334 window_hash=40391b3aa1e74eeb headless_hash=40391b3aa1e74eeb match=yes

@@ -568,6 +568,17 @@ case "$mode" in
         exit 1
       fi
     done
+    # EVID-ROOM (BOIL-F): every scripted room pilot (src/room_pilots.rs) clears the
+    # live Boiler solo and in two-player without a defeat, replays identically twice
+    # (the helper exits non-zero otherwise) and equals the committed final states.
+    pilots="$(BIN="$bin" python3 scripts/room_pilot_hashes.py boiler)"
+    if [[ "$pilots" != "$(cat docs/evidence/f01-boiler/pilot_hashes.txt)" ]] \
+      || grep -qv ' deaths=0 complete=true ' <<<"$pilots"; then
+      echo "the Boiler room pilots differ from docs/evidence/f01-boiler/pilot_hashes.txt, or one was defeated or did not finish" >&2
+      echo "$pilots" >&2
+      exit 1
+    fi
+    echo "F01_BOILER_PILOTS_OK: $(wc -l <<<"$pilots") plans, each twice identical and equal to the committed hashes"
     echo "F01_LATE_HEADLESS_OK: boiler, hoarder, hazards, juicer and mastery, story and all, each twice identical"
     ;;
   render)

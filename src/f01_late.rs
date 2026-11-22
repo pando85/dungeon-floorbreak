@@ -48,7 +48,7 @@ pub const MANIFEST_PATH: &str = "assets/levels/f01_late/manifest.json";
 /// hash is a constant, pinned to the file by a test and compared by every
 /// replay of a recorded room. A step that lists a room (CORRAL-WIRE, RING-A
 /// wire, HRD-A2, ...) re-pins it on purpose.
-pub const MANIFEST_HASH: u64 = 0x956c_44a8_bbd1_41c3;
+pub const MANIFEST_HASH: u64 = 0x3273_fc11_fa08_a1f3;
 /// The fixture-only stub trigger the story-order tie skips by name.
 pub const STUB_TRIGGER: &str = "carl_prog_find_zone_stub";
 /// The `data_pins()` key.
@@ -145,7 +145,7 @@ pub struct RoomRow {
     pub title: String,
     pub scene: RoomScene,
     pub rules: RoomRules,
-    /// The honest milestone the room is at (`greybox`, `boss`, ...).
+    /// The honest milestone the room is at (`greybox`, `setpiece`, `boss`, ...).
     pub milestone: String,
 }
 
