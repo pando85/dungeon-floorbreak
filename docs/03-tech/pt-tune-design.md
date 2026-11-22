@@ -1,6 +1,6 @@
 # PT-TUNE: the "powerful enemies" pass (design note)
 
-**Status:** top-tier design note for the medium-tier execution of PT-TUNE ([plan row](../07-agents/f01-playtest-integration-plan.md), backlog `PT-TUNE` and follow-ups `PT-FU-B7`). It has **not been implemented**. Every number here is a greybox hypothesis and an adopted default (`PTT-Qn`), and game feel is the owner's call after merge. The one validation result quoted below comes from a local probe and is labelled as one. Every other figure is a target, not a measurement.
+**Status:** top-tier design note for the medium-tier execution of PT-TUNE ([plan row](../07-agents/f01-playtest-integration-plan.md), backlog `PT-TUNE` and follow-ups `PT-FU-B7`). It was **executed in the same PR** (see "Execution notes" at the end for the deviations and the measured misses). Every number here is a greybox hypothesis and an adopted default (`PTT-Qn`), and game feel is the owner's call after merge. The one validation result quoted below comes from a local probe and is labelled as one. Every other figure is a target, not a measurement.
 
 **Scope.** This is a data pass. The closing arena (`f01_mastery`, room 6) gets the slime, the acid pool and a Rot Sticker; both waves get overlapping threats; and PTM-Q1 lands as ruling (c). Code changes are limited to four things:
 
@@ -285,3 +285,12 @@ This fits [the progression horizon](../01-design/character-progression-horizon.m
 - **Line 17:** enemies still die in a few hits, because no HP changes.
 
 No new verb, button, unlock or enemy type is added, and the guide needs no update.
+
+## Execution notes (PT-TUNE execution, same PR)
+
+Implemented as written, with these recorded deviations. The measured numbers are in the PR body; every one is a greybox measurement, not a game-feel verdict.
+
+- **PTT-Q14 (composition iterations, PTT-Q10).** Iteration 1 narrowed the acid patch to 272..312 and moved l2 to 616 (its leash floor 456 stays out of the spawn's 320 px fire range), g1 to 440 and g2 to 500. Iteration 2 moved g1 to 380 and g2 to 460 so the goblins reach the pool edge during the slime fight. The result is the shipped data. A third, exploratory run (slime home 352, pool 320..360, pocket a 224..400, g1 430, g2 490) measured W1 overlap 37 to 38 % but was not adopted, because it exceeded the two-iteration cap.
+- **Measured misses (shipped as measured, PTT-Q10).** D1 in W1 (median 24 to 26 % against 40 %), D2 in W1 (two kinds, not three: a goblin held at the pool edge is more than 96 px from a hero baiting the slime) and D3 (median clear tick about 700 against 900..3000). `the_mastery_waves_meet_the_difficulty_targets` pins that exact miss list.
+- **PTT-Q15 (pilot).** The slime rule is one window of punishing jabs until it falls, not exactly two, and the pilot stays at its bait spot instead of retreating inside the bait range; on a ledge above an enemy it hops and dives (Down plus Physical). The base pilots otherwise keep their rules.
+- **PTT-Q16 (CA2 harness).** The CA2 metrics test now drives Carl with the room's pilot (`cf02_free_fixtures::autonomy_metrics_with`, a behaviour-identical refactor), because the arena autopilot cannot bait the slime. M2 (shadowing) and M4 (steals) miss their spec targets in the new room and are bounded and listed as design notes.

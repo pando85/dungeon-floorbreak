@@ -778,9 +778,38 @@ pub(super) fn check(
                 ));
             }
         }
-        for e in inp.roster {
-            if !pockets.iter().any(|pk| e.x >= pk.x0 && e.x < pk.x1) {
-                errs.push(haz(5, &[&e.id], "an enemy spawns in no pocket"));
+        if inp.raw.waves {
+            // PT-TUNE, PTM-Q1 ruling (c) (PTT-Q7): a wave room is a crowd room, so
+            // its enemies do not spawn in pockets. Every other rule-5 clause above
+            // still holds. Instead, no non-slime body overlaps a pocket or a
+            // sticker's blast sweep (half-open ranges). Slimes are exempt: their
+            // home must lie in a pocket (clause above).
+            for e in inp.roster.iter().filter(|e| !e.kind.is_slime()) {
+                let (b0, b1) = body_x(e);
+                for pk in &pockets {
+                    if b0 < pk.x1 && b1 > pk.x0 {
+                        errs.push(haz(
+                            5,
+                            &[&e.id, &pk.id],
+                            "a wave enemy spawns in a pocket or a blast sweep",
+                        ));
+                    }
+                }
+                for s in &stickers {
+                    if b0 < s.sweep_x.1 && b1 > s.sweep_x.0 {
+                        errs.push(haz(
+                            5,
+                            &[&e.id, s.prop.id.as_str()],
+                            "a wave enemy spawns in a pocket or a blast sweep",
+                        ));
+                    }
+                }
+            }
+        } else {
+            for e in inp.roster {
+                if !pockets.iter().any(|pk| e.x >= pk.x0 && e.x < pk.x1) {
+                    errs.push(haz(5, &[&e.id], "an enemy spawns in no pocket"));
+                }
             }
         }
     }

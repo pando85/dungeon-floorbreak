@@ -1,6 +1,6 @@
 {
   "schema": "floor01-encounter-v1",
-  "status": "PT-MASTERY data (docs/07-agents/f01-playtest-integration-plan.md section 4.7 and row 6 of the room table): the closing arena of the late-Floor-1 playtest slice. It reuses ONLY the cf02_microarena geometry (the room file is the CF02-F microarena: floor 580, left perch 544..672, parapet 736..768, right perch 896..992, rotten shore at strike 384, set by the fixture) and the CF02-F wave contract (two waves, checkpoints 128 and 704, no unseen instant damage, the exit opens when the roster is clear). Wave W1 is the brawl lane (three goblins at the CF02-F columns 520, 600 and 680, with the seeded temperament draw); wave W2 is the llama yard (a goblin, the Goblin Engineer and TWO llamas). The slime and the Rot Stickers are NOT in this file yet: the HAZ rule 5 pocket validator (HAZ-A1) allows one non-slime enemy per hazard pocket and requires every enemy to spawn in a pocket, which a crowd room cannot meet (PTM-Q1, open). The sidecar opts in to the wave roster rule (waves: true, PTM-AD6): seven entries in two beats of at most four. The existing kinds (goblin, Engineer, llama) stand at their column from tick 0 and wake by sight, so trigger_x and delay_ticks are authoring order only; the delays are distinct because the validator forbids synchronised spawns. Greybox hypotheses, every number a tuning knob that PT-TUNE may change: difficulty comes from composition, not HP (#178). The Juicer is not part of this arena. Coordinates are layout pixels, y down, like the room file.",
+  "status": "PT-MASTERY data, composed by PT-TUNE (docs/03-tech/pt-tune-design.md): the closing arena of the late-Floor-1 playtest slice. It reuses ONLY the cf02_microarena geometry (floor 580, left perch 544..672, parapet 736..768, right perch 896..992, rotten shore at strike 384, set by the fixture) and the CF02-F wave contract (two waves, checkpoints 128 and 704, no unseen instant damage, the exit opens when the roster is clear). Wave W1 is the brawl lane: a slime with its acid pool in pocket a (176..352), a llama behind the pool and two goblins; it walls off wave W2 behind the parapet. Wave W2 is the llama yard: two goblins in the matador lane, a llama at its home, the Goblin Engineer, and a Rot Sticker under the right perch (pocket b, optional, HAZ rule 10). The sidecar opts in to the wave roster rule (waves: true, PTM-AD6): eight entries in two beats of four, the slime counted in W1. PTM-Q1 landed as ruling (c) in PT-TUNE (PTT-Q7): in a wave room HAZ rule 5 no longer requires every enemy to spawn in a pocket; instead no non-slime enemy body may overlap a pocket or a sticker blast sweep. The existing kinds (goblin, Engineer, llama) stand at their column from tick 0 and wake by sight, so trigger_x and delay_ticks are authoring order only; the delays are distinct because the validator forbids synchronised spawns. Greybox hypotheses, every number a tuning knob: difficulty comes from composition, not HP (#178). The Juicer is not part of this arena. Coordinates are layout pixels, y down, like the room file.",
   "id": "F01-MASTERY-ENC",
   "room_file": "../floor01/cf02_microarena.room.json",
   "room_id": "CF02-ARENA",
@@ -10,7 +10,7 @@
   "max_living": 4,
   "waves": true,
   "locks": [],
-  "platform_slab_px": 16,
+  "platform_slab_px": 12,
   "protected_spawn": {
     "x": 48,
     "y": 484,
@@ -29,60 +29,128 @@
     "w": 64,
     "h": 96
   },
-  "props": [],
+  "props": [
+    {
+      "id": "r1",
+      "kind": "rot_sticker",
+      "optional": true,
+      "target": {
+        "x": 902,
+        "y": 512,
+        "w": 20,
+        "h": 14
+      },
+      "track": {
+        "orientation": "ceiling",
+        "surface": {
+          "x": 896,
+          "y": 500,
+          "w": 96,
+          "h": 12
+        },
+        "a": {
+          "x": 912,
+          "y": 512
+        },
+        "b": {
+          "x": 928,
+          "y": 512
+        },
+        "start": {
+          "x": 912,
+          "y": 512
+        }
+      }
+    }
+  ],
   "hazards": [],
   "links": [],
-  "acid_patches": [],
-  "pockets": [],
+  "acid_patches": [
+    {
+      "id": 1,
+      "x0": 272,
+      "x1": 312,
+      "floor_y": 580,
+      "linked_slime": "s1"
+    }
+  ],
+  "pockets": [
+    {
+      "id": "a",
+      "x0": 176,
+      "x1": 352,
+      "max_stickers": 0,
+      "max_slimes": 1,
+      "max_goblins": 0
+    },
+    {
+      "id": "b",
+      "x0": 880,
+      "x1": 944,
+      "max_stickers": 1,
+      "max_slimes": 0,
+      "max_goblins": 0
+    }
+  ],
   "roster": [
     {
-      "id": "g1",
-      "kind": "goblin",
-      "x": 520,
+      "id": "s1",
+      "kind": "slime",
+      "x": 304,
+      "facing": -1,
+      "home": 304,
+      "linked_pool": "1",
       "beat": "W1",
-      "delay_ticks": 30
-    },
-    {
-      "id": "g2",
-      "kind": "goblin",
-      "x": 600,
-      "beat": "W1",
-      "delay_ticks": 60
-    },
-    {
-      "id": "g3",
-      "kind": "goblin",
-      "x": 680,
-      "beat": "W1",
-      "delay_ticks": 90
+      "delay_ticks": 0
     },
     {
       "id": "l2",
       "kind": "llama",
-      "x": 820,
+      "x": 616,
+      "beat": "W1",
+      "delay_ticks": 30
+    },
+    {
+      "id": "g1",
+      "kind": "goblin",
+      "x": 380,
+      "beat": "W1",
+      "delay_ticks": 60
+    },
+    {
+      "id": "g2",
+      "kind": "goblin",
+      "x": 460,
+      "beat": "W1",
+      "delay_ticks": 90
+    },
+    {
+      "id": "g3",
+      "kind": "goblin",
+      "x": 784,
       "beat": "W2",
       "delay_ticks": 120
     },
     {
       "id": "g4",
       "kind": "goblin",
-      "x": 880,
+      "x": 832,
       "beat": "W2",
       "delay_ticks": 150
+    },
+    {
+      "id": "l1",
+      "kind": "llama",
+      "x": 1000,
+      "beat": "W2",
+      "delay_ticks": 180
     },
     {
       "id": "e1",
       "kind": "engineer",
       "gate": "cf02_engineer",
       "fallback_kind": "goblin",
-      "x": 940,
-      "beat": "W2",
-      "delay_ticks": 180
-    },
-    {
-      "id": "l1",
-      "kind": "llama",
-      "x": 1000,
+      "x": 1036,
       "beat": "W2",
       "delay_ticks": 210
     }

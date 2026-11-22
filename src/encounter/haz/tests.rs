@@ -1061,3 +1061,247 @@ fn rule_9_fails_with_a_second_supplier_kind() {
     }
     assert!(supplier_conflict(kinds.iter().copied(), RosterKind::supplies_boss).is_none());
 }
+
+// ------------------------------------------- PT-TUNE: the wave-room rule 5 (PTT-Q7)
+
+const MASTERY_PATH: &str = "assets/levels/f01_late/mastery.encounter.json";
+
+/// The mastery room's context (the CF02 microarena geometry).
+fn wctx() -> Context {
+    let l = load(root(), MASTERY_PATH).unwrap_or_else(|e| panic!("{}", text(&e)));
+    Context {
+        room: l.room,
+        classes: l.classes,
+        ceiling_px: l.ceiling_px,
+    }
+}
+
+fn wsidecar() -> Value {
+    let t = std::fs::read_to_string(root().join(MASTERY_PATH)).unwrap();
+    serde_json::from_str(&t).unwrap()
+}
+
+fn wcheck(v: &Value) -> Result<Encounter, Vec<EncounterError>> {
+    parse_sidecar(&v.to_string(), &wctx())
+}
+
+/// The minimal waves fixture: the shipped room's slime pocket (a, 176..352,
+/// acid 272..336), its Rot pocket (b, 880..944, sweep 864..976), the slime and
+/// two goblins on dry floor outside both.
+fn minimal_waves() -> Value {
+    let mut v = wsidecar();
+    v["roster"] = json!([
+        { "id": "s1", "kind": "slime", "x": 304, "facing": -1, "home": 304,
+          "linked_pool": "1", "beat": "W1", "delay_ticks": 0 },
+        { "id": "g1", "kind": "goblin", "x": 520, "beat": "W1", "delay_ticks": 60 },
+        { "id": "g3", "kind": "goblin", "x": 784, "beat": "W2", "delay_ticks": 120 }
+    ]);
+    v
+}
+
+fn with_goblin(x: i64, kind: &str) -> Value {
+    let mut v = minimal_waves();
+    v["roster"][1] = json!({ "id": "g1", "kind": kind, "x": x, "beat": "W1", "delay_ticks": 60 });
+    v
+}
+
+fn wave_rule5(errs: &[EncounterError]) -> Vec<String> {
+    rule(errs, 5)
+        .into_iter()
+        .map(ToString::to_string)
+        .filter(|t| t.contains("pocket or a blast sweep"))
+        .collect()
+}
+
+#[test]
+fn p1_the_minimal_waves_fixture_is_valid() {
+    let r = wcheck(&minimal_waves());
+    assert!(
+        r.is_ok(),
+        "{}",
+        r.err().map(|e| text(&e)).unwrap_or_default()
+    );
+}
+
+#[test]
+fn n1_a_wave_goblin_in_a_pocket_is_refused() {
+    let errs = wcheck(&with_goblin(900, "goblin")).expect_err("a goblin in pocket b");
+    assert!(has_rule(&errs, 5, &["g1", "b"]), "{}", text(&errs));
+    assert!(!wave_rule5(&errs).is_empty());
+}
+
+#[test]
+fn n2_a_wave_goblin_in_a_blast_sweep_only_is_refused_naming_the_sticker() {
+    // x 855: body 843..867 overlaps the sweep 864..976 but not pocket b (880..).
+    let errs = wcheck(&with_goblin(855, "goblin")).expect_err("a goblin in the sweep");
+    assert!(has_rule(&errs, 5, &["g1", "r1"]), "{}", text(&errs));
+    assert!(
+        !has_rule(&errs, 5, &["g1", "b"]),
+        "it is not in the pocket: {}",
+        text(&errs)
+    );
+    // The sweep is half-open: a body ending at 864 passes (x 852).
+    assert!(wcheck(&with_goblin(852, "goblin")).is_ok());
+}
+
+#[test]
+fn n3_the_pocket_edge_is_half_open_for_a_llama() {
+    // Pocket a is 176..352; a body is 24 wide: x 363 covers 351..375.
+    let errs = wcheck(&with_goblin(363, "llama")).expect_err("one pixel inside");
+    assert!(has_rule(&errs, 5, &["g1", "a"]), "{}", text(&errs));
+    // x 364 covers 352..376: it touches the edge and passes.
+    let r = wcheck(&with_goblin(364, "llama"));
+    assert!(
+        r.is_ok(),
+        "{}",
+        r.err().map(|e| text(&e)).unwrap_or_default()
+    );
+    // The left edge: x 164 covers 152..176 (touching) passes; x 165 fails.
+    assert!(wave_rule5(&wcheck(&with_goblin(164, "llama")).err().unwrap_or_default()).is_empty());
+    let errs = wcheck(&with_goblin(165, "llama")).expect_err("one pixel inside");
+    assert!(has_rule(&errs, 5, &["g1", "a"]), "{}", text(&errs));
+}
+
+#[test]
+fn n4_a_slime_counts_toward_the_wave_cap() {
+    // The shipped W1 holds four (the slime, l2, g1, g2): a second slime (its own
+    // pocket and patch) is a fifth.
+    let mut v = wsidecar();
+    v["pockets"].as_array_mut().unwrap().push(
+        json!({ "id": "c", "x0": 392, "x1": 456, "max_stickers": 0, "max_slimes": 1,
+                      "max_goblins": 0 }),
+    );
+    v["acid_patches"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!({ "id": 2, "x0": 400, "x1": 440, "floor_y": 580, "linked_slime": "s2" }));
+    v["roster"].as_array_mut().unwrap().push(json!({
+        "id": "s2", "kind": "slime", "x": 420, "facing": -1, "home": 420,
+        "linked_pool": "2", "beat": "W1", "delay_ticks": 240 }));
+    let errs = wcheck(&v).expect_err("a fifth W1 entry");
+    assert!(
+        errs.iter()
+            .any(|e| matches!(e, EncounterError::TooManyLiving { roster: 5, .. })),
+        "{}",
+        text(&errs)
+    );
+}
+
+#[test]
+fn n5_the_per_pocket_counts_still_fire_in_a_wave_room() {
+    // Two goblins homed (by x) inside pocket a, which allows none.
+    let mut v = minimal_waves();
+    v["roster"][1] =
+        json!({ "id": "g1", "kind": "goblin", "x": 200, "beat": "W1", "delay_ticks": 60 });
+    v["roster"][2] =
+        json!({ "id": "g3", "kind": "goblin", "x": 230, "beat": "W1", "delay_ticks": 120 });
+    let errs = wcheck(&v).expect_err("goblins in the slime pocket");
+    assert!(
+        rule(&errs, 5)
+            .iter()
+            .any(|e| e.to_string().contains("2 goblins, at most 0")),
+        "{}",
+        text(&errs)
+    );
+}
+
+#[test]
+fn n6_without_waves_a_goblin_outside_every_pocket_is_still_refused() {
+    let mut v = sidecar();
+    v["roster"][1]["x"] = json!(1040); // g_a: dry floor right of every pocket
+    let errs = errors(&v);
+    assert!(has_rule(&errs, 5, &["g_a"]), "{}", text(&errs));
+    assert!(
+        rule(&errs, 5)
+            .iter()
+            .any(|e| e.to_string().contains("an enemy spawns in no pocket")),
+        "{}",
+        text(&errs)
+    );
+    assert!(wave_rule5(&errs).is_empty());
+}
+
+#[test]
+fn n7_without_waves_a_goblin_in_a_sweep_adds_no_new_error() {
+    // g_c homed inside pocket c and inside r2's blast sweep: the new clause does
+    // not run for a non-wave sidecar.
+    let mut v = sidecar();
+    v["roster"][3]["x"] = json!(780);
+    let r = check(&v);
+    let errs = r.err().unwrap_or_default();
+    assert!(wave_rule5(&errs).is_empty(), "{}", text(&errs));
+}
+
+/// A wave room must still declare its pockets for its hazard entities (the
+/// lifted loop was the only clause removed).
+#[test]
+fn a_wave_room_with_a_slime_and_no_pocket_is_still_refused() {
+    let mut v = minimal_waves();
+    v["pockets"] = json!([]);
+    let errs = wcheck(&v).expect_err("hazard entities need pockets");
+    assert!(has_rule(&errs, 5, &[]), "{}", text(&errs));
+}
+
+/// Every committed sidecar other than the mastery arena takes the unchanged
+/// (non-wave) branch of rule 5: it loads with no error, `waves` is false and its
+/// hash is its pin. The existing negative tests above pass unedited.
+#[test]
+fn non_wave_sidecars_validate_identically() {
+    let pins: [(&str, u64); 5] = [
+        (BOILER_ENCOUNTER_PATH, crate::f01_boiler::ENCOUNTER_HASH),
+        (HAZARDS_ENCOUNTER_PATH, crate::f01_hazards::ENCOUNTER_HASH),
+        (
+            "assets/levels/floor01/f01_hoarder.encounter.json",
+            crate::f01_hoarder::ENCOUNTER_HASH,
+        ),
+        // The ring rooms carry no module pin: the values are the files' FNV-1a 64
+        // on main before PT-TUNE.
+        (
+            "assets/levels/floor01/f01_ring_court.encounter.json",
+            0x2116_822f_a330_5c78,
+        ),
+        (
+            "assets/levels/floor01/f01_ring_split.encounter.json",
+            0xaad1_8176_8567_1219,
+        ),
+    ];
+    let mut seen = 0;
+    for entry in walk(&root().join("assets/levels")) {
+        let rel = entry
+            .strip_prefix(root())
+            .unwrap()
+            .to_string_lossy()
+            .to_string();
+        if !rel.ends_with(".encounter.json") || rel == MASTERY_PATH {
+            continue;
+        }
+        let raw: Value = serde_json::from_str(&std::fs::read_to_string(&entry).unwrap()).unwrap();
+        assert!(
+            raw.get("waves").is_none_or(|w| w == &json!(false)),
+            "{rel}: only the mastery arena sets waves"
+        );
+        let hash = pins
+            .iter()
+            .find(|(p, _)| *p == rel)
+            .unwrap_or_else(|| panic!("{rel}: add its pin to this test"))
+            .1;
+        let loaded = load(root(), &rel).unwrap_or_else(|e| panic!("{rel}: {}", text(&e)));
+        assert_eq!(loaded.sidecar_hash, hash, "{rel}");
+        seen += 1;
+    }
+    assert_eq!(seen, pins.len());
+}
+
+fn walk(dir: &Path) -> Vec<std::path::PathBuf> {
+    let mut out = Vec::new();
+    for e in std::fs::read_dir(dir).unwrap() {
+        let p = e.unwrap().path();
+        if p.is_dir() {
+            out.extend(walk(&p));
+        } else {
+            out.push(p);
+        }
+    }
+    out.sort();
+    out
+}

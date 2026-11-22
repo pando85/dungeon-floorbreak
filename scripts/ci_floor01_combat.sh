@@ -547,14 +547,15 @@ case "$mode" in
       fi
     done
     # PT-MASTERY: the closing arena loads its sidecar roster (four goblins, the
-    # Engineer, two llamas, no slot enemy) under both loadouts. Its story pin
+    # Engineer, two llamas and, since PT-TUNE, the slime as its one slot enemy)
+    # under both loadouts. Its story pin
     # holds every capability, so the story run and the TEST LOADOUT start from
     # the same kits (the loadout label is the recording's, not the state's).
     for mastery_loadout in "" "--f01-loadout all"; do
       # shellcheck disable=SC2086
       mastery_state="$(late_lines --f01-room mastery $mastery_loadout)"
-      if ! grep -q '^F01_MASTERY_SMOKE_OK .* env=live slot_enemies=0 enemies=5 ' <<<"$mastery_state" \
-        || ! grep -q '^F01_MASTERY_ENTRY .* goblins=4 engineers=1 llamas=2 slot=0 ' <<<"$mastery_state"; then
+      if ! grep -q '^F01_MASTERY_SMOKE_OK .* env=live slot_enemies=1 enemies=5 ' <<<"$mastery_state" \
+        || ! grep -q '^F01_MASTERY_ENTRY .* goblins=4 engineers=1 llamas=2 slot=1 ' <<<"$mastery_state"; then
         echo "the f01_late mastery room did not load its sidecar roster ($mastery_loadout)" >&2
         exit 1
       fi

@@ -12,8 +12,8 @@
 //! [`crate::encounter::load`] and spawned through ENEMY-SLOT's roster path: the
 //! goblins, the Goblin Engineer and the two llamas are the fixture's enemies
 //! ([`crate::f01_boiler::existing_enemies`], in roster order), and
-//! [`crate::scene_enemy::spawn_from_roster`] builds any slot kind the roster
-//! names (none yet, PTM-AD7).
+//! [`crate::scene_enemy::spawn_from_roster`] builds the slime, the one slot
+//! kind the roster names (since PT-TUNE).
 //!
 //! Adopted defaults of this step (`PTM-AD*`, listed in the PR):
 //!
@@ -26,15 +26,19 @@
 //!   is defeated (`goal: defeat_roster`, HAZ-Q39), the CF02-F "the exit opens on
 //!   clear" contract, and stays a solid until then;
 //! * AD4 the Juicer is not part of the arena (the plan, row 6);
-//! * AD5 wave 2 puts the second llama at 820 and keeps the arena's llama home
-//!   (CF02-Q29, 1000): the exit gate occupies 1072..1136, so a llama at 1050 would
-//!   stand in it;
+//! * AD5 wave 1 puts a llama (l2) at 640, behind the goblins and under the left
+//!   perch (PTT-Q5), and wave 2 keeps the arena's llama home (CF02-Q29, 1000): the
+//!   exit gate occupies 1072..1136, so a llama at 1050 would stand in it;
 //! * AD6 the roster validator bounds a sidecar that opts in (`"waves": true`) per
 //!   beat and in total ([`crate::encounter::MAX_ROSTER_WAVES`]; every other room
 //!   keeps HAZ rule 5's cap of four), and accepts the llama as a roster kind (an
 //!   existing kind, K16);
-//! * AD7 the slime and the Rot Stickers are not in the sidecar yet: the HAZ
-//!   pocket rule (rule 5) cannot hold in a crowd room (open question PTM-Q1).
+//! * AD7 (retired by PT-TUNE) the slime and the Rot Sticker were not in the
+//!   sidecar: the HAZ pocket rule (rule 5) could not hold in a crowd room
+//!   (PTM-Q1). Ruling (c) landed in PT-TUNE (PTT-Q7): a wave room's enemies do not
+//!   spawn in pockets, and no non-slime body may overlap a pocket or a sticker
+//!   sweep. The slime (W1) and the Rot Sticker (W2) are in the data now;
+//!   `docs/03-tech/pt-tune-design.md` holds the composition.
 //!
 //! The room's content is pinned ([`ROOM_HASH`], [`ENCOUNTER_HASH`]): [`launch`]
 //! refuses an edited file, a test pins each constant to its file, and an edit
@@ -63,7 +67,7 @@ pub const ENCOUNTER_PATH: &str = "assets/levels/f01_late/mastery.encounter.json"
 /// FNV-1a 64 of the room file (the CF02-F microarena's geometry) and of the
 /// sidecar. The files live under `assets/levels`, so the hashes are constants.
 pub const ROOM_HASH: u64 = 0x4991_e0c7_5078_4c18;
-pub const ENCOUNTER_HASH: u64 = 0xd5ef_f132_19c0_020a;
+pub const ENCOUNTER_HASH: u64 = 0x4b1e_be27_bb0f_951b;
 /// The `data_pins()` keys.
 pub const ROOM_PIN_KEY: &str = "f01_mastery_room";
 pub const ENCOUNTER_PIN_KEY: &str = "f01_mastery_encounter";
@@ -90,15 +94,20 @@ pub struct MasteryRun {
     /// Respawn columns: the arena's checkpoints (128 and 704).
     pub rules: &'static DemoRules,
     pub loaded: Loaded,
-    /// The roster indices of the slot enemies (none yet), for the tests.
+    /// The roster indices of the slot enemies (the slime), for the tests.
     pub slot_indices: Vec<usize>,
 }
 
-/// The env runtime of a launched room: the sidecar's exit gate (and the props it
-/// would hold, none yet).
+/// The env runtime of a launched room: the sidecar's exit gate, its Rot Sticker
+/// and its acid pool, with the soffit solids of the data (PTT-Q12: none for this
+/// sidecar, because the sticker's surface is the right perch's slab).
 pub fn env_runtime(run: &MasteryRun) -> Result<EnvRuntime, String> {
     let enc = &run.loaded.encounter;
-    Ok(EnvRuntime::new(enc)?.in_room(run.loaded.room.floor_y, &[], Some(enc.exit)))
+    Ok(EnvRuntime::new(enc)?.in_room(
+        run.loaded.room.floor_y,
+        &crate::f01_hazards::soffits(&run.loaded),
+        Some(enc.exit),
+    ))
 }
 
 /// Load the arena and its sidecar, compose its kit and build the fixture.
@@ -221,6 +230,9 @@ pub fn combat_for(
         // PTM-AD-temperament: the four goblins show all three temperaments.
         .with_temperament_cover(run.fixture.enemies.len())
         .with_env(env_runtime(run)?)
+        // PTT-Q6 (KC1, #181 gate b): the llamas pick their hero with the party's
+        // target rule, so the solo partner is spat at too.
+        .with_llama_party_target()
         .with_slot_enemies(spawn.slot)
         .map_err(|e| e.to_string())?;
     combat.sync_env(scene);
@@ -310,7 +322,7 @@ mod tests {
         let text = std::fs::read_to_string(root().join(ENCOUNTER_PATH)).unwrap();
         std::fs::write(
             dir.join(ENCOUNTER_PATH),
-            text.replace("\"x\": 520", "\"x\": 524"),
+            text.replace("\"x\": 380", "\"x\": 384"),
         )
         .unwrap();
         for rel in [arena::ROOM_PATH, crate::encounter::HEIGHT_CLASSES_PATH] {
@@ -334,12 +346,11 @@ mod tests {
             Some(arena::SHORE_STRIKE_X - arena::CARL_SPAWN_X),
             "PTM-AD1: the shore"
         );
-        // The wave contract: wave 1 is the arena's three brawl-lane columns,
-        // wave 2 the yard: a goblin, the Engineer and two llamas, the arena's
-        // llama home among them.
+        // The wave contract (PTT-Q1): wave 1 is the brawl lane (the slime, a
+        // llama and two goblins), wave 2 the yard (two goblins, the arena's llama
+        // home and the Engineer, with the Rot Sticker under the right perch).
         let goblins: Vec<i32> = run.fixture.enemies.iter().map(|e| e.x).collect();
-        assert_eq!(goblins, [520, 600, 680, 880]);
-        assert_eq!(&goblins[..3], &[520, 600, 680], "CF02-Q29 wave 1");
+        assert_eq!(goblins, [380, 460, 784, 832]);
         assert!(run.fixture.enemies.iter().all(|e| e.ai == EnemyAi::Chase));
         assert_eq!(
             run.fixture
@@ -347,10 +358,10 @@ mod tests {
                 .iter()
                 .map(|e| e.x)
                 .collect::<Vec<_>>(),
-            [940]
+            [1036]
         );
         let llamas: Vec<i32> = run.fixture.llamas.iter().map(|l| l.x).collect();
-        assert_eq!(llamas, [820, 1000]);
+        assert_eq!(llamas, [616, 1000]);
         assert!(llamas.contains(&arena::LLAMA_HOME_X), "CF02-Q29 llama home");
         // PTM-AD5: nothing stands in the exit gate, and the exit is the arena's
         // goal column.
@@ -380,11 +391,15 @@ mod tests {
             1,
             "the exit gate is the one runtime solid"
         );
-        // Four goblins (one of them the Engineer is counted apart), two llamas.
+        // Four goblins and the Engineer, two llamas and the slime (a slot enemy).
         assert_eq!(combat.enemies.len(), 5, "four goblins and the Engineer");
         assert_eq!(combat.enemies.iter().filter(|g| g.is_engineer()).count(), 1);
         assert_eq!(combat.llamas.len(), 2);
-        assert_eq!(combat.slot_enemies().len(), 0, "PTM-AD7: no slot enemy yet");
+        assert_eq!(
+            combat.slot_enemies().len(),
+            1,
+            "PT-TUNE: the slime is the one slot enemy (PTM-AD7 retired)"
+        );
     }
 
     /// The four goblins of the room (the Engineer is a goblin-class enemy in
@@ -476,6 +491,59 @@ mod tests {
         );
     }
 
+    /// The slime of the sidecar (PTT-Q4): its pivot and attack tick.
+    fn slime_of(combat: &CombatState) -> (f32, Option<u16>, u8) {
+        let e = &combat.slot_enemies()[0];
+        let sl = e
+            .as_any()
+            .and_then(|a| a.downcast_ref::<crate::combat_scene::slime::SlimeEnemy>())
+            .expect("the one slot enemy is the slime")
+            .slime();
+        (sl.x, sl.attack_tick(), sl.health())
+    }
+
+    /// PTT-Q4: with both heroes idle the slime never wakes on tick 0 (home 304,
+    /// 164 px from the right edge of Carl's spawn hurtbox, sight 160): it has not
+    /// moved and has not started a tell after the first tick.
+    #[test]
+    fn the_slime_is_dormant_on_tick_0() {
+        let run = launch(&root()).unwrap();
+        let mut scene = SceneSim::new_at(&run.kit, 360, run.fixture.carl_x).unwrap();
+        let mut combat = combat_of(&run, &mut scene).unwrap();
+        let before = slime_of(&combat);
+        assert_eq!(before.0, 304.0);
+        combat.step(&mut scene, run.fixture.input(0));
+        let after = slime_of(&combat);
+        assert_eq!((after.0, after.1), (304.0, None), "dormant on tick 0");
+    }
+
+    /// D6, the HP guard (#178: difficulty comes from composition, not HP): every
+    /// enemy of the room starts with its base kind's hit points.
+    #[test]
+    fn mastery_enemy_hp_equals_base_kinds() {
+        use crate::combat::EnemyAi;
+        let run = launch(&root()).unwrap();
+        let mut scene = SceneSim::new_at(&run.kit, 360, run.fixture.carl_x).unwrap();
+        let combat = combat_of(&run, &mut scene).unwrap();
+        let goblin = crate::goblin::Goblin::new(0.0, 0.0, EnemyAi::Chase).health;
+        let engineer = crate::engineer::active().engq02_health;
+        let llama = crate::llama::Llama::new(0.0, 0.0, EnemyAi::Chase).health;
+        let slime = crate::slime::active().hazq04_slime_health;
+        assert_eq!(
+            (goblin, engineer, llama, slime),
+            (2, 3, 3, 3),
+            "the base kinds"
+        );
+        for g in &combat.enemies {
+            let want = if g.is_engineer() { engineer } else { goblin };
+            assert_eq!(g.health, want, "enemy at {}", g.x);
+        }
+        for l in &combat.llamas {
+            assert_eq!(l.health, llama, "llama at {}", l.x);
+        }
+        assert_eq!(slime_of(&combat).2, slime);
+    }
+
     #[test]
     fn the_entry_line_names_the_roster_and_the_pins() {
         let run = launch(&root()).unwrap();
@@ -483,7 +551,7 @@ mod tests {
         for part in [
             "F01_MASTERY_ENTRY",
             "pin=f01_late_mastery",
-            "goblins=4 engineers=1 llamas=2 slot=0",
+            "goblins=4 engineers=1 llamas=2 slot=1",
             "env=live",
         ] {
             assert!(line.contains(part), "{line}");
