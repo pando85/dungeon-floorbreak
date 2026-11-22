@@ -26,6 +26,7 @@
 //! [`AutonomyBrief`], including the [`GoalBrief`] that gates the director. It is
 //! still unwired (CA2-B2 calls it).
 
+use crate::boss::BossThreat;
 use crate::combat::{MAGIC_MISSILE, MoveId};
 use crate::companion::director::{Decision, GoalBrief, Veto};
 use crate::companion::engage::leader_engages;
@@ -2096,7 +2097,11 @@ pub struct BlinkInput<'a> {
 ///   than the windup away (the arrival comes first) and at most the windup plus
 ///   [`BLINK_IMPACT_LEAD_TICKS`] away, while the follow layer's jump dodge does
 ///   not fire and she is not already above the swing box (a dodge jump under
-///   way clears it).
+///   way clears it);
+/// - (b) likewise the boss's committed charge (`view.boss`, DP-F): the ram's
+///   leading edge within `threat_px`, its arrival (the rest of the tell plus
+///   the run to her) in the same window, she is grounded and the jump dodge is
+///   silent.
 ///
 /// Direction is away from the threat (toward the leader when level with it). The
 /// predicted destination must add at least `min_gain_px` of distance from the
@@ -2134,6 +2139,35 @@ pub fn choose_blink(
         let left = threat.impact_tick.saturating_sub(threat.tell_tick);
         if left > k.windup_ticks && left <= k.windup_ticks + BLINK_IMPACT_LEAD_TICKS {
             consider(threat.x, BlinkReason::Committed);
+        }
+    }
+    // DP-F (DP-Q39 b, CA2-Q35): the boss's committed charge. The ram's leading
+    // edge stands in for the threat's position, and its arrival is read the way
+    // the follow layer's boss dodge reads it (`follower_input_boss`): the rest of
+    // the tell plus the run to her. Never from the air (a jump under way clears
+    // the ram box) and never while the follow layer's jump dodge fires.
+    if me.grounded
+        && !input.dodge_jumps
+        && let Some(BossThreat::Charge {
+            tell_left,
+            x,
+            dir,
+            front,
+            depth,
+            speed,
+            ..
+        }) = view.boss
+        && speed > 0.0
+    {
+        let lead = x + f32::from(dir) * front;
+        let gap = (me.x - lead) * f32::from(dir) - HERO_HALF_WIDTH;
+        if gap > -(depth + 2.0 * HERO_HALF_WIDTH) {
+            let arrival = f32::from(tell_left) + (gap.max(0.0) / speed).ceil();
+            if arrival > f32::from(k.windup_ticks)
+                && arrival <= f32::from(k.windup_ticks + BLINK_IMPACT_LEAD_TICKS)
+            {
+                consider(lead, BlinkReason::Committed);
+            }
         }
     }
     if input.goal == Goal::Retreat {
@@ -4731,6 +4765,9 @@ mod tests {
         facing: i8,
         /// The camera-geometry bound the drift check reads on both sides.
         safe: f32,
+        /// DP-F: the boss's tell or run, if any.
+        boss: Option<BossThreat>,
+        grounded: bool,
     }
 
     impl Case {
@@ -4745,6 +4782,8 @@ mod tests {
                 foot_y: 0.0,
                 facing: 1,
                 safe: 292.0,
+                boss: None,
+                grounded: true,
             }
         }
 
@@ -4755,6 +4794,8 @@ mod tests {
             );
             v.heroes[1].foot_y = self.foot_y;
             v.heroes[1].facing = self.facing;
+            v.heroes[1].grounded = self.grounded;
+            v.boss = self.boss;
             v.threats = self.threats.clone();
             v.targets = self.targets.clone();
             let a = knobs();
@@ -4812,6 +4853,124 @@ mod tests {
         assert!(c.choose(lands(440.0, 70.0)).is_some());
         c.threats = vec![threat_at(440.0 - 48.5, 16, Some(HeroId::Donut))];
         assert!(c.choose(lands(440.0, 70.0)).is_none());
+    }
+
+    // ------------------------------------------- DP-F: the boss's charge --
+
+    /// The brute's ram numbers (`brute_boss_f01`: box x 36..82, 300 px/s).
+    const RAM_FRONT: f32 = 82.0;
+    const RAM_DEPTH: f32 = 46.0;
+    const RAM_SPEED: f32 = 5.0;
+
+    /// A charge with its leading edge `lead_dx` px from her (she stands at 440)
+    /// that reaches her `left` ticks from now: the boss at the right (dir -1) or
+    /// the left (dir +1) of her.
+    fn charge(dir: i8, lead_dx: f32, left: u16) -> BossThreat {
+        let lead = 440.0 - f32::from(dir) * lead_dx;
+        let gap = lead_dx - HERO_HALF_WIDTH;
+        let run = (gap.max(0.0) / RAM_SPEED).ceil() as u16;
+        BossThreat::Charge {
+            tell_left: left.saturating_sub(run),
+            x: lead - f32::from(dir) * RAM_FRONT,
+            dir,
+            running: false,
+            front: RAM_FRONT,
+            depth: RAM_DEPTH,
+            speed: RAM_SPEED,
+            lead_ticks: 18,
+        }
+    }
+
+    fn boss_case(boss: BossThreat) -> Case {
+        let mut c = Case::new();
+        c.threats = Vec::new();
+        c.boss = Some(boss);
+        c
+    }
+
+    #[test]
+    fn a_committed_boss_charge_makes_her_blink_away_from_the_ram() {
+        // The ram comes from the right (dir -1), its leading edge 38 px off: away
+        // is left, onto Carl's side, as the swing's rule has it.
+        let pick = boss_case(charge(-1, 38.0, 9))
+            .choose(lands(440.0, 100.0))
+            .expect("blinks");
+        assert_eq!(pick.reason, BlinkReason::Committed);
+        assert_eq!((pick.dir, pick.to_x, pick.threat_x), (-1, 340.0, 478.0));
+        // From the left (dir +1): away is right (Carl at 480, so the hull holds).
+        let mut c = boss_case(charge(1, 38.0, 9));
+        c.carl_x = 480.0;
+        let pick = c.choose(lands(440.0, 100.0)).expect("blinks");
+        assert_eq!((pick.dir, pick.to_x, pick.threat_x), (1, 540.0, 402.0));
+    }
+
+    #[test]
+    fn the_charge_window_and_range_are_exact_on_both_sides() {
+        let fires = |left: u16| {
+            boss_case(charge(-1, 38.0, left))
+                .choose(lands(440.0, 100.0))
+                .is_some()
+        };
+        assert!(!fires(6), "arrival on t6 is the impact tick: too late");
+        assert!(fires(7));
+        assert!(fires(12), "windup + 6");
+        assert!(!fires(13), "not yet due");
+        // The 48 px range is read at the ram's leading edge, inclusive.
+        let near = |dx: f32| {
+            boss_case(charge(-1, dx, 9))
+                .choose(lands(440.0, 100.0))
+                .is_some()
+        };
+        assert!(near(48.0));
+        assert!(!near(48.5));
+    }
+
+    #[test]
+    fn the_boss_charge_is_vetoed_by_the_dodge_the_air_a_pound_and_a_ram_going_away() {
+        let mut c = boss_case(charge(-1, 38.0, 9));
+        c.dodge_jumps = true;
+        assert!(c.choose(lands(440.0, 100.0)).is_none(), "the jump dodge");
+        let mut c = boss_case(charge(-1, 38.0, 9));
+        c.grounded = false;
+        assert!(c.choose(lands(440.0, 100.0)).is_none(), "in the air");
+        let pound = BossThreat::Pound {
+            x: 470.0,
+            facing: -1,
+            target: Some(HeroId::Donut),
+        };
+        assert!(
+            boss_case(pound).choose(lands(440.0, 100.0)).is_none(),
+            "a pound is the step-out's, not the blink's"
+        );
+        // A ram that runs away from her: its box never reaches her.
+        assert!(
+            boss_case(charge(-1, 38.0, 9))
+                .choose(lands(440.0, 100.0))
+                .is_some()
+        );
+        let away = BossThreat::Charge {
+            tell_left: 9,
+            x: 560.0,
+            dir: 1,
+            running: false,
+            front: RAM_FRONT,
+            depth: RAM_DEPTH,
+            speed: RAM_SPEED,
+            lead_ticks: 18,
+        };
+        assert!(boss_case(away).choose(lands(440.0, 100.0)).is_none());
+    }
+
+    #[test]
+    fn the_boss_charge_blink_keeps_the_gain_zone_hull_and_drift_rules() {
+        let c = || boss_case(charge(-1, 38.0, 9));
+        // Gain: 100 px away from a ram edge 38 px off is a 100 px gain; 63 is not.
+        assert!(c().choose(lands(440.0, 64.0)).is_some());
+        assert!(c().choose(lands(440.0, 63.0)).is_none());
+        // The hull of Carl (400) less 63 is 337: a landing at 330 is outside it.
+        assert!(c().choose(lands(440.0, 110.0)).is_none());
+        // No destination: no press.
+        assert!(c().choose(|_| None).is_none());
     }
 
     #[test]

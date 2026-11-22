@@ -184,6 +184,11 @@ pub enum Pilot {
     /// Used only by `carl_prog_juicer_dynamite_clear`; the 13 boss fixtures never
     /// select it. The name is neutral (it presses whatever special Carl holds).
     ThrownCharge,
+    /// DONUT-PROG-01 DP-F (appended): [`Pilot::ArenaDuo`] whose P2 Donut also
+    /// presses the blink (`crate::cf02::arena::donut_blink_pilot`). Used only by
+    /// the `donut_prog_pilot_arena_blink` harness; no committed fixture selects
+    /// it.
+    ArenaDuoBlink,
 }
 
 pub(crate) const fn boss_base(
@@ -523,13 +528,23 @@ pub fn pilot_inputs(
             slots[1] = crate::cf02::arena::donut_pilot(combat, scene);
             return slots;
         }
+        Pilot::ArenaDuoBlink => {
+            slots[0] =
+                crate::cf02::arena::autopilot(combat, scene, crate::cf02::arena::Plan::Direct);
+            slots[1] = crate::cf02::arena::donut_blink_pilot(combat, scene);
+            return slots;
+        }
         _ => {}
     }
     let Some(boss) = combat.boss.as_ref() else {
         return slots;
     };
     match pilot {
-        Pilot::None | Pilot::ArenaDirect | Pilot::ArenaEnvironment | Pilot::ArenaDuo => {}
+        Pilot::None
+        | Pilot::ArenaDirect
+        | Pilot::ArenaEnvironment
+        | Pilot::ArenaDuo
+        | Pilot::ArenaDuoBlink => {}
         Pilot::ThrownCharge => slots[0] = thrower_pilot(tick, combat, scene, boss),
         Pilot::Carl => slots[0] = carl_pilot(tick, combat, scene, boss, false),
         Pilot::CarlRack => slots[0] = carl_pilot(tick, combat, scene, boss, true),

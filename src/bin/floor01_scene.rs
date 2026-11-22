@@ -2270,7 +2270,8 @@ fn main() -> ExitCode {
     } else if args.refuge {
         refuge::load(&root).map(|(kit, _)| kit)
     } else if args.arena_room() {
-        cf02::arena::load_arena(&root)
+        // DP-F: a `donut_prog_arena_ledge_*` capture fixture adds its 128 px step.
+        cf02::arena::load_arena_for(&root, args.fixture.map_or("", |f| f.name))
     } else if args.demo {
         demo::load_hall(&root)
     } else if args.boss {

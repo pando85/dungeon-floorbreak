@@ -1,0 +1,2 @@
+COMBAT_STATE fixture=donut_prog_arena_ledge_base seed=0xd90000b tick=150 elapsed=150 hero_hp=4 deaths=0 enemies= hash=271885f204ae4602
+PARTY_STATE fixture=donut_prog_arena_ledge_base mode=2p controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=970a169e812a4bd8
