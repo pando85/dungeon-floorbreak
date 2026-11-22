@@ -23,6 +23,13 @@ The targeted high-risk implementation specs are [F02-RK-01](../01-design/floor-0
 
 **New P0 story-graph invariant:** S07 Rage exile remains on Floor 02; only S09 grants player Floor 03 descent (DIR-03). **New adaptation:** generic Rev-Up foreman role is visually cast as the lore-sourced Laminak executive; do not implement redundant bossy enemy types. Visual and audio direction do not imply an approved shipping asset.
 
+## Difficulty composition and QA additions
+
+- [F02-COMPOSE-01 — tactical pairings and authored pressure curve](../01-design/floor-02-encounter-composition-and-difficulty.md) is authoritative for scene roster choices, not a green light for automatic difficulty tuning.
+- [F02-QA-01 — native AUTOPLAY and PLAYTRACE evidence plan](../03-tech/floor-02-automated-encounter-evaluation.md) defines direct/prop/failure comparisons, meaningful baselines, false-confidence/negative tests and human-vs-automation boundaries.
+
+**P0 release checks:** no unreachable direct path, no unavoidable overlapping attack with no legal counter, no ability leak, no weak/damaged env duplication, no camera/party softlock, no S07 floor advance. **P1 investigations:** stationary Donut trivializes mixed waves; companion passive; environmental chain causes no genuine distinct gameplay result; Ralph too small to hit fairly. **Human gate:** game-feel and real two-pad play remain unmeasured until owner session. Preserve current Floor 01 caps and baseline before making cross-cutting changes.
+
 ## Product objective
 
 A **linear arcade-combat** Floor 02 that feels visually independent from Floor 01, stays replayable, uses physical collisions and authored destructible props, has two direct-combat bosses (Krakaren Clone and Ralph), one **unbeatable rule-based flight** (Rage Elemental), a protective Meadow Lark setpiece and a quiet Mongo introduction. All floor-specific work should be usable as isolated probes before connecting the complete route.
