@@ -353,23 +353,44 @@ fn every_piece_of_every_state_is_inside_the_room_and_a_pure_function_of_state_an
 }
 
 /// Presentation only: the pieces are read from a shared reference, so drawing
-/// them every tick cannot change the state hash (and a run that never draws
-/// has the same hash tick for tick).
+/// them every tick cannot change the state hash. Compared on the inert room and
+/// on the live roster, through the valve, the weight and the drum chain.
 #[test]
 fn drawing_the_pieces_never_changes_the_state_hash() {
-    let (run, mut scene, mut combat) = rig();
-    let (_run2, mut scene2, mut combat2) = rig();
-    two_hits(&mut combat, VALVE);
-    two_hits(&mut combat2, VALVE);
-    for t in 0..200u64 {
-        let _ = view(&run, &combat, t);
-        step(&mut scene, &mut combat);
-        step(&mut scene2, &mut combat2);
-        assert_eq!(
-            combat.state_hash(&scene),
-            combat2.state_hash(&scene2),
-            "tick {t}"
-        );
+    for roster in [
+        crate::f01_boiler::Roster::Inert,
+        crate::f01_boiler::Roster::Live,
+    ] {
+        let make = || {
+            let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+            crate::f01_late::boiler_start_with(
+                &root,
+                360,
+                crate::carl_prog::CarlProgFlags::OFF,
+                crate::donut_prog::DonutProgFlags::OFF,
+                None,
+                roster,
+            )
+            .unwrap()
+        };
+        let (run, mut scene, mut combat) = make();
+        let (_r2, mut scene2, mut combat2) = make();
+        for c in [&mut combat, &mut combat2] {
+            two_hits(c, VALVE);
+            two_hits(c, WEIGHT);
+        }
+        light_drum(&mut scene, &mut combat);
+        light_drum(&mut scene2, &mut combat2);
+        for t in 0..300u64 {
+            let _ = view(&run, &combat, t);
+            step(&mut scene, &mut combat);
+            step(&mut scene2, &mut combat2);
+            assert_eq!(
+                combat.state_hash(&scene),
+                combat2.state_hash(&scene2),
+                "{roster:?} tick {t}"
+            );
+        }
     }
 }
 

@@ -514,6 +514,13 @@ case "$mode" in
       echo "the f01_late story loadout did not change the Boiler's state" >&2
       exit 1
     fi
+    # BOIL-E (K16): the story launcher loads the sidecar's live roster, the
+    # Engineer as B3 among four enemies; the plain room stays inert.
+    if ! late_lines --f01-room boiler | grep -q '^F01_BOILER_SMOKE_OK .* enemies=4 engineers=1$' \
+      || ! grep -q 'roster_inert=true' <<<"$boiler_a"; then
+      echo "the f01_late Boiler did not load enemies=4 engineers=1, or the plain room is not inert" >&2
+      exit 1
+    fi
     echo "F01_LATE_HEADLESS_OK: boiler and juicer, story and all, each twice identical"
     ;;
   render)

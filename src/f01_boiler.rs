@@ -632,6 +632,23 @@ mod tests {
         assert!(columns.len() <= usize::from(r.loaded.encounter.max_living));
     }
 
+    /// BOILE-AD2 in a simulation, not only in columns: with Carl idle at his spawn
+    /// nobody wakes, so every enemy holds its column for 300 ticks.
+    #[test]
+    fn nobody_wakes_while_the_heroes_idle_at_the_spawn() {
+        let r = live();
+        let mut scene = SceneSim::new_at(&r.kit, 360, r.fixture.carl_x).unwrap();
+        let mut combat = CombatState::new(r.fixture, &r.kit, &scene)
+            .unwrap()
+            .with_cf02();
+        let at: Vec<f32> = combat.enemies.iter().map(|g| g.x).collect();
+        for _ in 0..300 {
+            combat.step_party(&mut scene, [RawInput::default(), RawInput::default()]);
+        }
+        let after: Vec<f32> = combat.enemies.iter().map(|g| g.x).collect();
+        assert_eq!(at, after);
+    }
+
     /// ENG-G-Q25 kill switch: with the Engineer off, his entry stands in as its
     /// goblin fallback and no Engineer exists.
     #[test]

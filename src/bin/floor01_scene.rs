@@ -8470,7 +8470,10 @@ mod tests {
 
     /// K16 (BOIL-E): the Engineer outside the microarena. The story route,
     /// `--demo`, plain `--cf02`, the lab (every room, every mode), the boss arena
-    /// and every registered fixture never load him; only a **sidecar roster**
+    /// and every `combat_scene::FIXTURES` entry never load him (the party,
+    /// boss and room-owned fixture lists are not iterated: only the two
+    /// `Roster::Live` callers, both through `Roster::for_loadout`, build an
+    /// Engineer outside the microarena); only a **sidecar roster**
     /// does, and only the Boiler's story launch (`--scene f01_late`, a live
     /// roster) names one. The plain `--scene f01_boiler` greybox has no enemy.
     #[test]
@@ -9346,28 +9349,41 @@ mod tests {
         assert_eq!(direct.reset.f01_loadout, None);
         let boss = manifest_of(&["--scene", "boss_f01"]);
         assert_eq!((boss.reset.f01_room, boss.reset.f01_loadout), (None, None));
-        // The binary's start state is the library constructor the verifier calls.
+        // The binary's start state is the library constructor the verifier calls,
+        // for the story launcher's **live** roster and in the binary's own order
+        // (the env first, the CF02 rules after it, as `build_scene` does; the
+        // library applies the rules before the env), so the order is pinned too.
         let run = args(&["--scene", "f01_late"]).unwrap();
-        let launched = f01_boiler::launch(root).unwrap();
+        let roster = f01_boiler::Roster::for_loadout(run.f01_loadout.map(|l| l.name()));
+        assert_eq!(roster, f01_boiler::Roster::Live);
+        let launched = f01_boiler::launch_with(root, roster).unwrap();
         let mut scene = SceneSim::new_at(&launched.kit, 360, launched.fixture.carl_x).unwrap();
+        let mut with_run = run.clone();
+        with_run.boiler_run = Some(Box::new(launched.clone()));
         let mut by_args = CombatState::new(launched.fixture, &launched.kit, &scene)
             .unwrap()
-            .with_donut(donut_setup(&run))
-            .try_with_story(story_setup(&{
-                let mut with_run = run.clone();
-                with_run.boiler_run = Some(Box::new(launched.clone()));
-                with_run
-            }))
+            .with_donut(donut_setup(&with_run))
+            .try_with_story(story_setup(&with_run))
             .unwrap()
             .with_demo(launched.rules)
-            .with_cf02()
-            .with_cf02_seed(run.cf02.seed)
             .with_env(f01_boiler::env_runtime(&launched).unwrap());
         by_args.sync_env(&mut scene);
+        let by_args = by_args.with_cf02().with_cf02_seed(run.cf02.seed);
         let by_lib =
             f01_late::boiler_combat(&launched, &mut scene, run.carl, run.donut, run.cf02.seed)
                 .unwrap();
+        assert_eq!(by_args.enemies.len(), 4, "the live roster is in the state");
+        assert_eq!(by_args.enemies.len(), by_lib.enemies.len());
         assert_eq!(by_args.state_hash(&scene), by_lib.state_hash(&scene));
+        // And through a stepped run, so a later divergence of the order shows.
+        let (mut a, mut b) = (by_args, by_lib);
+        let (mut sa, mut sb) = (scene.clone(), scene);
+        for tick in 1..=120u64 {
+            let raw = launched.fixture.input(tick);
+            a.step_party(&mut sa, [raw, RawInput::default()]);
+            b.step_party(&mut sb, [raw, RawInput::default()]);
+        }
+        assert_eq!(a.state_hash(&sa), b.state_hash(&sb));
     }
 
     #[test]
