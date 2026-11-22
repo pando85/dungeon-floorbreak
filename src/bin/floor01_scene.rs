@@ -419,7 +419,7 @@ impl Args {
             && self.party_fixture.is_none()
             && (self.fixture.is_none() || self.manual)
             && !self.autopilot
-            && self.exit_after_ticks.is_none()
+            && (self.exit_after_ticks.is_none() || self.live_room_exit())
             && self.capture_tick.is_none()
             && self.capture_sequence.is_none()
             && !self.reference_frame
@@ -431,6 +431,18 @@ impl Args {
             && !self.death_stress
             && !self.audience_probe
             && self.list_fixtures.is_none()
+    }
+
+    /// FIX-TOOL: a live room run (an `f01_late` room, the Juicer included) with a scripted
+    /// exit and no room pilot: `--exit-after-ticks N` only ends the window after N ticks, the
+    /// run keeps its live input source (the keyboard and the pads, and the room's live
+    /// partner), so it is still a live-input session and records as one. With a room pilot
+    /// the exit belongs to the scripted run, as before.
+    fn live_room_exit(&self) -> bool {
+        self.exit_after_ticks.is_some()
+            && self.manual
+            && self.room_pilot.is_none()
+            && (self.f01_room_scene() || (self.boss && self.f01_room.as_deref() == Some("juicer")))
     }
 
     /// Whether this run records a PLAYTRACE-01 session by default (tests).
@@ -484,9 +496,13 @@ impl Args {
     /// Whether the run holds a fixture the user (or another scene such as the
     /// boss arena or the lab) supplied, as opposed to the placeholder fixture a
     /// room scene sets for itself (PT-GATE-C1): only the former refuses
-    /// `--companion`. Inferred, not tracked: sound because every room scene refuses a
-    /// user `--fixture` or `--party-fixture` up front, so a fixture inside a room scene
-    /// is always the scene's own.
+    /// `--companion`. Inferred, not tracked. **Invariant:** every room scene refuses a user
+    /// `--fixture` or `--party-fixture` up front (`resolve_f01_late_args` and
+    /// `resolve_boiler_args`: "--scene ... replaces ... --fixture, --party-fixture"), before
+    /// this method is ever asked, so a fixture inside a room scene is always the scene's own
+    /// placeholder. The test `every_room_scene_refuses_a_user_fixture_up_front` asserts the
+    /// refusal text; a room scene that ever accepted a user fixture would have to track the
+    /// fixture's origin instead of inferring it here.
     fn user_fixture(&self) -> bool {
         self.party_fixture.is_some() || (self.fixture.is_some() && !self.f01_room_scene())
     }
@@ -538,7 +554,7 @@ impl Args {
             && self.capture_tick.is_none()
             && self.capture_sequence.is_none()
             && self.perf_frames.is_none()
-            && self.exit_after_ticks.is_none();
+            && (self.exit_after_ticks.is_none() || self.live_room_exit());
         if self.cinematic_set {
             self.cinematic
         } else if live {
@@ -730,11 +746,12 @@ fn resolve_boiler_args(parsed: &mut Args) -> Result<(), String> {
     // The post-Hoarder state: Donut holds the biscuit with a full pool (the
     // Hoarder's room is the post-corral state, with the biscuit held too).
     parsed.donut_biscuit = true;
-    // A live run without a script is the player's.
+    // A live run without a script is the player's. FIX-TOOL: `--exit-after-ticks` alone (no
+    // room pilot) is a scripted exit, not a script: the run stays the player's.
     parsed.manual = !(parsed.headless
         || parsed.capture_tick.is_some()
         || parsed.capture_sequence.is_some()
-        || parsed.exit_after_ticks.is_some()
+        || (parsed.exit_after_ticks.is_some() && parsed.room_pilot.is_some())
         || parsed.freeze
         || parsed.perf_frames.is_some());
     Ok(())
@@ -1628,11 +1645,13 @@ fn parse_args_full(
         return Err("the boss arena replaces --demo, --scenario and --reference-frame".into());
     }
     if parsed.boss && parsed.fixture == Some(boss_scene::BOSS01_SCENE) {
-        // A live run without a script is the player's.
+        // A live run without a script is the player's. FIX-TOOL: `--exit-after-ticks` alone
+        // on the Juicer's room scene (no room pilot) is a scripted exit, not a script.
+        let room_exit = parsed.f01_room.as_deref() == Some("juicer") && parsed.room_pilot.is_none();
         parsed.manual = !(parsed.headless
             || parsed.capture_tick.is_some()
             || parsed.capture_sequence.is_some()
-            || parsed.exit_after_ticks.is_some()
+            || (parsed.exit_after_ticks.is_some() && !room_exit)
             || parsed.freeze
             || parsed.perf_frames.is_some());
     }
@@ -1703,7 +1722,7 @@ fn parse_args_full(
         && (parsed.headless
             || parsed.capture_tick.is_some()
             || parsed.capture_sequence.is_some()
-            || parsed.exit_after_ticks.is_some()
+            || (parsed.exit_after_ticks.is_some() && !parsed.live_room_exit())
             || parsed.freeze)
     {
         return Err("--manual is a live keyboard run: drop the scripted-run flags".into());
@@ -3624,6 +3643,7 @@ fn run_window(
     root: &Path,
     replay: Option<replay_view::ReplayView>,
 ) -> AppExit {
+    shutdown_signal::install();
     // HUD-DEBT-03: the boss atlas when its manifest and export exist; the
     // scene draws spec-size placeholder rects otherwise. Wrong art is fatal.
     let boss_art = match BossArt::load(root) {
@@ -3847,7 +3867,9 @@ fn run_window(
     .insert_resource(Recorder(recorder))
     .init_resource::<AfterExitTicks>()
     .add_systems(Startup, setup)
-    .add_systems(Last, finish_recording)
+    // After Bevy's window-exit systems: closing the window with its X writes `AppExit` in
+    // `Last`, and the session must be finished in the same frame (FIX-TOOL).
+    .add_systems(Last, finish_recording.after(bevy::window::ExitSystems))
     .add_systems(
         Update,
         (
@@ -3882,6 +3904,9 @@ fn run_window(
         )
             .chain(),
     );
+    // Every window kind honours SIGINT and SIGTERM (the replay viewer included): the handler
+    // is installed for all of them in `run_window` (FIX-TOOL).
+    app.add_systems(Update, shutdown_on_signal);
     if let Some(view) = replay {
         // PTR-R1: the replay viewer. No pad, no keyboard gameplay, no live
         // `fixed_step`, no `sync_party_hud`: the cursor drives the tick, the
@@ -5366,6 +5391,67 @@ fn fixed_step(
         if let Some(death) = death.0.as_ref() {
             println!("{}", death.state_line());
         }
+        exit.write(AppExit::Success);
+    }
+}
+
+/// FIX-TOOL: a clean exit on SIGINT or SIGTERM. The handler only sets a flag (an atomic
+/// store, async-signal-safe); [`shutdown_on_signal`] turns the flag into an `AppExit` on the
+/// next frame, so the window closes through the ordinary exit path and a PLAYTRACE session
+/// is closed with its final chunk and trailer (`scope=full`) instead of being killed and
+/// crash-recovered (`scope=prefix`).
+mod shutdown_signal {
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    static REQUESTED: AtomicBool = AtomicBool::new(false);
+
+    #[cfg(unix)]
+    extern "C" fn on_signal(_signal: libc::c_int) {
+        REQUESTED.store(true, Ordering::SeqCst);
+    }
+
+    /// Route SIGINT and SIGTERM to the flag, **once**: `SA_RESETHAND` (with `SA_RESTART`, like glibc `signal`) puts the default
+    /// disposition back as the handler starts, so the first signal asks for a clean exit
+    /// and a second one (a stuck frame loop, a slow shutdown, `timeout` without `-k`)
+    /// kills the process as before. A no-op off Unix.
+    pub fn install() {
+        #[cfg(unix)]
+        for signal in [libc::SIGINT, libc::SIGTERM] {
+            // SAFETY: a zeroed `sigaction` is valid; the handler does one atomic store and
+            // touches no other memory.
+            unsafe {
+                let mut action: libc::sigaction = std::mem::zeroed();
+                action.sa_sigaction = on_signal as *const () as libc::sighandler_t;
+                action.sa_flags = libc::SA_RESETHAND | libc::SA_RESTART;
+                libc::sigemptyset(&mut action.sa_mask);
+                libc::sigaction(signal, &action, std::ptr::null_mut());
+            }
+        }
+    }
+
+    /// Back to the default disposition (tests; the handler resets itself when it fires).
+    #[cfg(test)]
+    pub fn restore_default() {
+        #[cfg(unix)]
+        for signal in [libc::SIGINT, libc::SIGTERM] {
+            // SAFETY: restores the default disposition.
+            unsafe {
+                libc::signal(signal, libc::SIG_DFL);
+            }
+        }
+        REQUESTED.store(false, Ordering::SeqCst);
+    }
+
+    /// Whether a signal arrived since the last call.
+    pub fn take() -> bool {
+        REQUESTED.swap(false, Ordering::SeqCst)
+    }
+}
+
+/// FIX-TOOL: end the window on SIGINT or SIGTERM (see [`shutdown_signal`]).
+fn shutdown_on_signal(mut exit: MessageWriter<AppExit>) {
+    if shutdown_signal::take() {
+        println!("FLOOR1_SIGNAL_EXIT the window ends on a signal");
         exit.write(AppExit::Success);
     }
 }
@@ -8676,6 +8762,102 @@ mod tests {
         assert!(hud.cinematic_settings().cinematic_finishes);
     }
 
+    /// FIX-TOOL: `--exit-after-ticks N` on a live room run with no room pilot is a scripted exit
+    /// that keeps the live input source: the run stays the player's (`manual`, `live_input`,
+    /// the default recording and the live presentation); with a room pilot, or on any other
+    /// run, nothing changes; a pilot-less exit without a room is still refused.
+    #[test]
+    fn a_live_room_takes_a_scripted_exit_without_a_pilot() {
+        for room in ["boiler", "hoarder", "hazards", "mastery", "juicer"] {
+            let list = [
+                "--scene",
+                "f01_late",
+                "--f01-room",
+                room,
+                "--exit-after-ticks",
+                "300",
+            ];
+            let live = args(&list);
+            if room == "hoarder" {
+                // PTG-AD1: the Hoarder is unlisted in `f01_late`; its own scene takes the flag.
+                assert!(live.is_err());
+                let own = args(&["--scene", "f01_hoarder", "--exit-after-ticks", "300"]).unwrap();
+                assert!(own.manual && own.live_input() && own.recording_enabled());
+                continue;
+            }
+            let live = live.unwrap_or_else(|e| panic!("{room}: {e}"));
+            assert_eq!(live.exit_after_ticks, Some(300));
+            assert!(live.manual, "{room}: the run stays the player's");
+            assert!(live.live_input() && live.recording_enabled(), "{room}");
+            assert!(live.live_room_exit(), "{room}");
+            // A room pilot owns the exit: scripted, not live, not recorded by default.
+            let plan = match room {
+                "boiler" => "direct",
+                "hazards" => "direct",
+                other => other,
+            };
+            let mut scripted = list.to_vec();
+            scripted.extend_from_slice(&["--room-pilot", plan]);
+            let scripted = args(&scripted).unwrap_or_else(|e| panic!("{room}: {e}"));
+            assert!(!scripted.manual && !scripted.live_input(), "{room}");
+            assert!(!scripted.live_room_exit(), "{room}");
+        }
+        // The scene entry point `--scene f01_boiler` takes the flag too.
+        let boiler = args(&["--scene", "f01_boiler", "--exit-after-ticks", "300"]).unwrap();
+        assert!(boiler.manual && boiler.live_input());
+        // Any other run: a pilot-less exit needs a scenario or fixture, as before, and does
+        // not become a live-input run.
+        assert!(args(&["--exit-after-ticks", "300"]).is_err());
+        let scenario = args(&["--scenario", "walk_right", "--exit-after-ticks", "60"]).unwrap();
+        assert!(!scenario.live_input() && !scenario.live_room_exit());
+        // Headless and captured room runs are still scripted.
+        let headless = args(&[
+            "--scene",
+            "f01_late",
+            "--f01-room",
+            "mastery",
+            "--headless-floor01-smoke",
+            "--exit-after-ticks",
+            "300",
+        ])
+        .unwrap();
+        assert!(!headless.manual && !headless.live_input());
+    }
+
+    /// FIX-TOOL: SIGINT and SIGTERM only set the flag [`shutdown_signal`] hands to the exit
+    /// system; one signal is seen once, and the handler is one-shot (the disposition is the
+    /// default again after it fires, so a second signal would kill). The test puts the
+    /// default back before it ends, so nothing is left installed in the test binary.
+    #[cfg(unix)]
+    #[test]
+    fn a_shutdown_signal_sets_the_exit_flag_once() {
+        let disposition = |signal: libc::c_int| {
+            // SAFETY: reads the current disposition (and puts it straight back).
+            unsafe {
+                let mut old: libc::sigaction = std::mem::zeroed();
+                libc::sigaction(signal, std::ptr::null(), &mut old);
+                old.sa_sigaction
+            }
+        };
+        for signal in [libc::SIGINT, libc::SIGTERM] {
+            shutdown_signal::install();
+            assert!(!shutdown_signal::take());
+            // SAFETY: raises a signal whose handler was just installed (one atomic store).
+            assert_eq!(unsafe { libc::raise(signal) }, 0);
+            assert!(shutdown_signal::take(), "signal {signal}");
+            assert!(!shutdown_signal::take(), "signal {signal} is taken once");
+            assert_eq!(
+                disposition(signal),
+                libc::SIG_DFL,
+                "signal {signal}: one-shot, the default is back after the first"
+            );
+        }
+        shutdown_signal::restore_default();
+        for signal in [libc::SIGINT, libc::SIGTERM] {
+            assert_eq!(disposition(signal), libc::SIG_DFL);
+        }
+    }
+
     #[test]
     fn exit_after_ticks_needs_a_live_scenario() {
         let a = args(&["--scenario", "walk_right", "--exit-after-ticks", "250"]).unwrap();
@@ -9676,6 +9858,83 @@ mod tests {
         }
     }
 
+    /// FIX-TOOL (PT-FU-B8 item 3): `user_fixture()` is inferred from "a fixture inside a room
+    /// scene is the scene's own", which holds only while every room scene refuses a user
+    /// `--fixture` or `--party-fixture` up front. Assert the refusal and its text for every
+    /// room scene, including `--fixture cp01_kick --companion cf02_free`, which is refused
+    /// by the room rule ("replaces ... --fixture"), not by the companion rule.
+    #[test]
+    fn every_room_scene_refuses_a_user_fixture_up_front() {
+        let rooms: [&[&str]; 7] = [
+            &["--scene", "f01_boiler"],
+            &["--scene", "f01_hoarder"],
+            &["--scene", "f01_hazards"],
+            &["--scene", "f01_late", "--f01-room", "boiler"],
+            &["--scene", "f01_late", "--f01-room", "hazards"],
+            &["--scene", "f01_late", "--f01-room", "mastery"],
+            &["--scene", "f01_late", "--f01-room", "juicer"],
+        ];
+        let late = "--scene f01_late replaces --demo, --cf02, --cf02-engineer, --autopilot, --demo-beat, --fixture, --party-fixture, --scenario, --camera-test-room and --reference-frame (a room is its own scene)";
+        for room in rooms {
+            let scene = room[1];
+            let expected = if scene == "f01_late" {
+                late.to_owned()
+            } else {
+                format!(
+                    "--scene {scene} replaces --demo, --cf02, --cf02-engineer, --autopilot, --demo-beat, --fixture, --party-fixture, --scenario, --camera-test-room and --reference-frame (it is its own room)"
+                )
+            };
+            for extra in [
+                &["--fixture", "cp01_kick"][..],
+                &["--fixture", "cp01_kick", "--companion", "cf02_free"][..],
+                &["--party-fixture", "companion_duo_no_ai"][..],
+                &[
+                    "--party-fixture",
+                    "companion_duo_no_ai",
+                    "--headless-floor01-smoke",
+                ][..],
+            ] {
+                // The user's flags come before and after the scene: both orders are refused.
+                for before in [false, true] {
+                    let mut list: Vec<&str> = Vec::new();
+                    if before {
+                        list.extend_from_slice(extra);
+                        list.extend_from_slice(room);
+                    } else {
+                        list.extend_from_slice(room);
+                        list.extend_from_slice(extra);
+                    }
+                    let refusal = args(&list).expect_err(&format!("{list:?} must be refused"));
+                    assert_eq!(refusal, expected, "{list:?}");
+                    assert!(
+                        !refusal.contains("--companion cannot be combined"),
+                        "the room rule refuses first, not the companion rule: {list:?}"
+                    );
+                }
+            }
+            // The scene's own placeholder is not a user fixture; a real `--fixture` is.
+            // The Juicer's room is the boss scene, whose own fixture still counts as a user
+            // fixture (the known room 5 `--companion` gap, PT-FU-B8 item 2, out of this test).
+            let own = args(room).unwrap();
+            if room.last() != Some(&"juicer") {
+                assert!(
+                    !own.user_fixture(),
+                    "{room:?}: the placeholder is the scene's own"
+                );
+            }
+        }
+        assert!(args(&["--fixture", "cp01_kick"]).unwrap().user_fixture());
+        assert!(
+            args(&[
+                "--party-fixture",
+                "companion_duo_no_ai",
+                "--headless-floor01-smoke"
+            ])
+            .unwrap()
+            .user_fixture()
+        );
+    }
+
     /// CA-22: `--companion off|cf02_assist|v0`; `--cf02` implies `cf02_assist`
     /// unless `--companion` is given; the default is the rollback bot.
     #[test]
@@ -9893,16 +10152,23 @@ mod tests {
         assert!(args(&["--scene", "f01_boiler", "--scene", "boss_f01"]).is_err());
         assert!(args(&["--scene", "combat_lab", "--scene", "f01_boiler"]).is_err());
         assert!(args(&["--scene", "boss_f01", "--scene", "f01_boiler"]).is_err());
-        // A scripted run is not the player's.
+        // A scripted run is not the player's. (`--exit-after-ticks` alone is not a script
+        // since FIX-TOOL: it only ends a live run, see
+        // `a_live_room_takes_a_scripted_exit_without_a_pilot`; with a room pilot it is.)
         for scripted in [
             &["--headless-floor01-smoke"][..],
             &["--capture-tick", "300"],
-            &["--exit-after-ticks", "300"],
+            &["--exit-after-ticks", "300", "--room-pilot", "direct"],
         ] {
             let mut list = vec!["--scene", "f01_boiler"];
             list.extend_from_slice(scripted);
             assert!(!args(&list).unwrap().manual, "{list:?}");
         }
+        assert!(
+            args(&["--scene", "f01_boiler", "--exit-after-ticks", "300"])
+                .unwrap()
+                .manual
+        );
         // The other scenes are unchanged: `--cf02` still forces the DEMO machinery.
         assert!(args(&["--cf02"]).unwrap().demo);
         assert!(!args(&["--cf02"]).unwrap().f01_boiler);

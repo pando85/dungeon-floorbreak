@@ -529,18 +529,18 @@ pub mod pilots {
     use std::path::Path;
 
     use crate::combat::CombatEvent;
-    use crate::combat_scene::{CombatState, EnvRuntime};
+    use crate::combat_scene::CombatState;
     use crate::corridor::SceneSim;
     use crate::donut_mana::DonutSetup;
-    use crate::encounter::PropKind;
     use crate::f01_hazards;
     use crate::f01_late::{Loadout, hazards_start};
-    use crate::f01_mastery_fixtures::{APART_PX, RUN_TICKS, SWAP_TICK, Who as MWho, pilot, tuning};
+    use crate::f01_mastery_fixtures::{
+        APART_PX, LeftBehind, RUN_TICKS, SWAP_TICK, Who as MWho, pilot, tuning,
+    };
     use crate::input::RawInput;
     use crate::party::HeroId;
     use crate::party_scene::{PartyFixture, PartyFixtureSim};
     use crate::rot_sticker::{ROT_SOURCE_ID, RotCause};
-    use crate::scene_enemy::{SlotRoom, spawn_from_roster};
     use crate::slime::{ACID_SOURCE_ID, SLIME_SOURCE_ID, SlimePhase};
 
     /// A walking hero that does not move for this many ticks is stuck: the gate
@@ -642,6 +642,12 @@ pub mod pilots {
         pub hurts: Vec<Hurt>,
         pub provokes: Vec<Provoke>,
         pub events: Vec<CombatEvent>,
+        /// FIX-TOOL (PT-FU-B8 item 10): the longest run of ticks the hero the pilot does not
+        /// steer stood still, more than [`APART_PX`] from the steered hero, while that hero
+        /// moved ([`crate::f01_mastery_fixtures::LeftBehind`]): the `cf02_assist` partner of
+        /// the solo runs and Carl after the swap are covered, which `max_stuck` (a walking
+        /// input held without motion) cannot see. A measure, never a rule.
+        pub partner_left_behind: u32,
     }
 
     impl Report {
@@ -703,47 +709,6 @@ pub mod pilots {
                 self.hash
             )
         }
-    }
-
-    /// The combat state of the room with the Rot kind **removed**, the way the
-    /// kill switch `hazq02_rot_enabled` false builds it: no sticker exists, the
-    /// soffits stay. (The switch is read from one process-wide static
-    /// ([`crate::rot_sticker::active`]), so a fixture cannot flip it; this
-    /// builds the same env: the sidecar without its sticker props, the soffit
-    /// solids of the full sidecar.) Everything else is
-    /// [`f01_hazards::combat_for`] under the story flags.
-    fn combat_without_stickers(
-        run: &f01_hazards::HazardsRun,
-        scene: &mut SceneSim,
-        seed: u64,
-    ) -> Result<CombatState, String> {
-        let (carl, donut) = Loadout::Story.flags();
-        let room = SlotRoom {
-            floor_y: scene.world.hero_foot_y(),
-            walls: (0.0, run.kit.width as f32),
-        };
-        let spawn =
-            spawn_from_roster(&run.loaded.encounter, room, false).map_err(|e| e.to_string())?;
-        let setup = crate::f01_boiler::story_setup(&run.loaded.encounter.story_pin, carl, donut)?;
-        let mut enc = run.loaded.encounter.clone();
-        enc.props.retain(|p| p.kind != PropKind::RotSticker);
-        let env = EnvRuntime::new(&enc)?.in_room(
-            run.loaded.room.floor_y,
-            &f01_hazards::soffits(&run.loaded),
-            Some(enc.exit),
-        );
-        let mut combat = CombatState::new(run.fixture, &run.kit, scene)?
-            .with_donut(DonutSetup::unlocked(8))
-            .try_with_story(setup)
-            .map_err(|e| e.to_string())?
-            .with_demo(run.rules)
-            .with_cf02()
-            .with_cf02_seed(Some(seed))
-            .with_env(env)
-            .with_slot_enemies(spawn.slot)
-            .map_err(|e| e.to_string())?;
-        combat.sync_env(scene);
-        Ok(combat)
     }
 
     /// A goblin whose centre is this close (px) to a hero's is inside the jab's
@@ -822,12 +787,17 @@ pub mod pilots {
         rot_enabled: bool,
     ) -> Result<(PartyFixtureSim, usize), String> {
         let (carl, donut) = Loadout::Story.flags();
+        // The Rot-off runs build the room through the same code with the real kill switch
+        // (`hazq02_rot_enabled` false): the sticker props stay in the sidecar as
+        // `Machine::Rot` without a sticker state (FIX-TOOL, PT-FU-B8 item 9).
         let (run, scene, combat) = if rot_enabled {
             hazards_start(root, 360, carl, donut, Some(seed))?
         } else {
             let run = f01_hazards::launch(root)?;
             let mut scene = SceneSim::new_at(&run.kit, 360, run.fixture.carl_x)?;
-            let combat = combat_without_stickers(&run, &mut scene, seed)?;
+            let env = f01_hazards::env_runtime_with_rot(&run, false)?;
+            let combat =
+                f01_hazards::combat_with_env(&run, &mut scene, carl, donut, Some(seed), env)?;
             (run, scene, combat)
         };
         let stickers = combat.env().map_or(0, |e| e.sticker_count());
@@ -852,6 +822,7 @@ pub mod pilots {
         let mut last_x = [sim.scene.world.hero.x, sim.scene.world.donut_body.x];
         let mut stuck = [0u32; 2];
         let mut max_stuck = [0u32; 2];
+        let mut left_behind = LeftBehind::default();
         let mut cleared_tick = None;
         let mut exit_tick = None;
         let mut deaths = 0u32;
@@ -952,9 +923,13 @@ pub mod pilots {
             }
             seen = sim.combat.events.len();
             let carl_moved = (carl_x - last_x[0]).abs() >= 0.1;
+            let mut moved = [false; 2];
+            let mut xs = [0.0f32; 2];
             for (i, id) in HeroId::ALL.into_iter().enumerate() {
                 let x = sim.scene.world.body(id).x;
                 let still = (x - last_x[i]).abs() < 0.1;
+                moved[i] = !still;
+                xs[i] = x;
                 let counts = if who == Who::Companion && id == HeroId::Donut {
                     // Left behind: she stands still, apart from Carl, while he walks on.
                     still && (x - carl_x).abs() > APART_PX && carl_moved
@@ -965,6 +940,13 @@ pub mod pilots {
                 max_stuck[i] = max_stuck[i].max(stuck[i]);
                 last_x[i] = x;
             }
+            // The same "left behind" measure for the hero nobody steers, in every mode.
+            let (s_i, p_i) = if controlled_after == HeroId::Carl {
+                (0, 1)
+            } else {
+                (1, 0)
+            };
+            left_behind.observe(!moved[p_i], (xs[p_i] - xs[s_i]).abs(), moved[s_i]);
             if sim.combat.restarts != last_restarts {
                 deaths += 1;
                 last_restarts = sim.combat.restarts;
@@ -994,6 +976,7 @@ pub mod pilots {
             hurts,
             provokes,
             events: sim.combat.events.clone(),
+            partner_left_behind: left_behind.max(),
         })
     }
 }

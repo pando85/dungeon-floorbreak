@@ -13,7 +13,10 @@ import hashlib
 import sys
 from pathlib import Path
 
-from PIL import Image
+try:
+    from PIL import Image
+except ImportError:  # the guard below is testable without Pillow
+    Image = None
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "docs/evidence/carl-prog-01/cp-b2-c"
@@ -39,6 +42,37 @@ STILLS = {
 }
 
 
+MARKER = ".capture-dir"
+GRANT_KEY = "carl_prog_story_event_grants_dynamite_70"
+
+
+def check_captures(caps: Path) -> list[Path]:
+    """Validate the capture directory before anything is read or written (CP-B2-FU-EVID-RM).
+
+    It must resolve to a directory strictly below <repo>/artifacts that holds the marker
+    scripts/make_cp_b2_evidence.sh writes, and every folder in it must be a sequence this
+    script knows, with frames. Returns the folders. Raises SystemExit otherwise, with the
+    evidence directory untouched.
+    """
+    resolved = Path(caps).resolve()
+    allowed = (ROOT / "artifacts").resolve()
+    if allowed not in resolved.parents:
+        raise SystemExit(f"refusing captures directory '{caps}': it must be a directory below {allowed.name}/ of this repository")
+    if not resolved.is_dir() or not (resolved / MARKER).is_file():
+        raise SystemExit(f"refusing captures directory '{caps}': no {MARKER} marker (it is not a capture directory made by scripts/make_cp_b2_evidence.sh)")
+    folders = sorted(p for p in resolved.iterdir() if p.is_dir())
+    if not folders:
+        raise SystemExit(f"captures directory '{caps}' holds no capture folder")
+    known = set(NAMES) | set(STILLS) | {GRANT_KEY}
+    for folder in folders:
+        key = folder.name.split("_", 1)[-1]
+        if key not in known:
+            raise SystemExit(f"captures directory '{caps}': unknown capture folder '{folder.name}'")
+        if not any(folder.glob("frame_*.png")):
+            raise SystemExit(f"captures directory '{caps}': '{folder.name}' has no frame_*.png")
+    return folders
+
+
 def frames(folder: Path) -> list[Image.Image]:
     return [Image.open(p).convert("RGB") for p in sorted(folder.glob("frame_*.png"))]
 
@@ -50,8 +84,11 @@ def gif(images: list[Image.Image], path: Path, ms: int) -> None:
 
 
 def main(caps: Path) -> None:
+    folders = check_captures(caps)
+    if Image is None:
+        raise SystemExit("Pillow is required")
     OUT.mkdir(parents=True, exist_ok=True)
-    for folder in sorted(p for p in caps.iterdir() if p.is_dir()):
+    for folder in folders:
         key = folder.name.split("_", 1)[1]
         images = frames(folder)
         if key in NAMES:
@@ -62,7 +99,7 @@ def main(caps: Path) -> None:
                                         Image.NEAREST)
                     for im in images]
             gif(crop, OUT / f"{name}-3x.gif", 100)
-        elif key == "carl_prog_story_event_grants_dynamite_70":
+        elif key == GRANT_KEY:
             # The whole frame: the plate (socket equipped) and the System notice.
             images[0].save(OUT / "hud-grant-notice.png", optimize=True)
         elif key in STILLS:

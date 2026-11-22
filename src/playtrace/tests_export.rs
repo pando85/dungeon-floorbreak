@@ -121,3 +121,26 @@ fn stats_label_a_synthetic_session_as_synthetic_not_human() {
     m.mode = "human".to_owned();
     assert!(!is_synthetic(&m));
 }
+
+/// FIX-TOOL: `inspect` calls a Human session honestly input-free only when no tick of either
+/// slot carries any input; one pressed button, or an empty session, is not input-free.
+#[test]
+fn input_free_needs_every_slot_of_every_tick_to_be_empty() {
+    let dir = TempDir::new("pt-d-input-free");
+    let manifest = record_synthetic(&dir.0, &root(), "solo_swap_continuity", 60).expect("recorded");
+    let mut loaded = read_session(&dir.0.join(&manifest.session_id), false).unwrap();
+    assert!(
+        !input_free(&loaded),
+        "the synthetic fixture presses buttons or sticks"
+    );
+    for tick in &mut loaded.ticks {
+        tick.slots = [ActionBits::NONE; 2];
+    }
+    assert!(input_free(&loaded));
+    // One button in the last tick of slot 1 (P2) breaks it.
+    let last = loaded.ticks.len() - 1;
+    loaded.ticks[last].slots[1] = ActionBits(0, 1);
+    assert!(!input_free(&loaded));
+    loaded.ticks.clear();
+    assert!(!input_free(&loaded), "an empty session says nothing");
+}

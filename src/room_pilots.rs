@@ -686,8 +686,11 @@ fn chain(combat: &CombatState, sim: &SceneSim, exit_x: f32) -> RawInput {
                 // until a sleeper is within `LURE_RANGE` (a goblin wakes on a hero within 220
                 // px, so a trigger column of the room data is not what wakes it).
                 None if hero.x < LURE_X - WALK_DEADZONE => walk_to(sim, LURE_X),
+                // FIX-TOOL: the walk-on is not gated on a live one-player party any more; with no
+                // AI partner (the unaccompanied run, two players) it never fires in the
+                // committed runs (their hashes did not move) and only guards the dead band.
                 None => match sleeper_ahead {
-                    Some(gx) if ai_partner && hero.x < gx - LURE_RANGE + LURE_MARGIN => {
+                    Some(gx) if hero.x < gx - LURE_RANGE + LURE_MARGIN => {
                         walk_to(sim, gx - LURE_RANGE + 2.0 * LURE_MARGIN)
                     }
                     _ => RawInput::NONE,
@@ -893,6 +896,87 @@ mod tests {
                 combat_again.state_hash(&again),
                 "{plan:?} replays to the same hash"
             );
+        }
+    }
+
+    /// FIX-TOOL (PT-FU-B8 item 10): the chain plan's walk-on arm is no longer gated on a live
+    /// one-player party. On the live Boiler with no AI partner on the field (the unaccompanied
+    /// legacy run, and two players) at seeds 0..=8, the plan reaches the exit within 3000
+    /// ticks, Carl never stands still for more than 300 ticks, and never parks in the old
+    /// dead band (x 556 to 560, short of the room data's 560 trigger) for more than 30 ticks.
+    /// Ungating moved no pin: the 18 runs hash as before (the committed `pilot_hashes.txt`).
+    #[test]
+    fn the_chain_plan_without_an_ai_partner_never_parks_in_the_dead_band() {
+        use crate::party::PROVISIONAL_TUNING;
+        use crate::party_scene::{PartyFixture, PartyFixtureSim};
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let (carl, donut) = Loadout::Story.flags();
+        for two_player in [false, true] {
+            for seed in 0..=8u64 {
+                let (run, mut scene, mut combat) =
+                    boiler_start_with(&root, 360, carl, donut, Some(seed), Roster::Live).unwrap();
+                let exit = run.loaded.encounter.exit;
+                let exit_x = (exit.x + exit.w / 2) as f32;
+                let pilot = RoomPilot {
+                    plan: Plan::Chain,
+                    two_player,
+                    aligned: None,
+                };
+                let (mut last, mut still, mut max_still, mut band) =
+                    (scene.world.hero.x, 0u32, 0u32, 0u32);
+                let mut max_band = 0u32;
+                let mut watch = |x: f32| {
+                    still = if (x - last).abs() < 0.1 { still + 1 } else { 0 };
+                    band = if still > 0 && (LURE_X - 4.0..=LURE_X).contains(&x) {
+                        band + 1
+                    } else {
+                        0
+                    };
+                    max_still = max_still.max(still);
+                    max_band = max_band.max(band);
+                    last = x;
+                };
+                let complete = if two_player {
+                    let fixture: &'static PartyFixture = Box::leak(Box::new(PartyFixture {
+                        base: run.fixture,
+                        two_player: true,
+                        tuning: PROVISIONAL_TUNING,
+                        script: &[],
+                        pilot: crate::boss_scene::Pilot::ArenaDirect,
+                        donut: crate::donut_mana::DonutSetup::unlocked(8),
+                    }));
+                    let mut sim = PartyFixtureSim::from_parts(scene, combat, fixture);
+                    for _ in 0..3000 {
+                        if sim.scene.world.complete {
+                            break;
+                        }
+                        let slots = pilot.inputs(&sim.combat, &sim.scene, exit_x);
+                        sim.step_slots(slots);
+                        watch(sim.scene.world.hero.x);
+                    }
+                    sim.scene.world.complete
+                } else {
+                    for _ in 0..3000 {
+                        if scene.world.complete {
+                            break;
+                        }
+                        let inputs = pilot.inputs(&combat, &scene, exit_x);
+                        combat.step_party(&mut scene, inputs);
+                        watch(scene.world.hero.x);
+                    }
+                    scene.world.complete
+                };
+                let who = format!("two_player={two_player} seed {seed}");
+                assert!(complete, "{who}: no exit in 3000 ticks");
+                assert!(
+                    max_still <= 300,
+                    "{who}: Carl stood still {max_still} ticks"
+                );
+                assert!(
+                    max_band <= 30,
+                    "{who}: parked {max_band} ticks in the dead band"
+                );
+            }
         }
     }
 

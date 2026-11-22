@@ -754,6 +754,12 @@ pub mod scene_pilots {
             self.timer = 0;
         }
 
+        /// Back to the first step (a checkpoint restart rebuilt the room).
+        fn restart(&mut self) {
+            self.at = 0;
+            self.timer = 0;
+        }
+
         /// A jump when a solid ahead rises above the feet (the drum and the
         /// remnant are 32 px, every class clears them).
         fn walk(scene: &SceneSim, hero: HeroId) -> RawInput {
@@ -860,6 +866,12 @@ pub mod scene_pilots {
         pub max_stuck: [u32; 2],
         pub hash: u64,
         pub events: Vec<CombatEvent>,
+        /// FIX-TOOL (PT-FU-B8 item 10): the longest run of ticks the hero the pilot does not
+        /// steer (the `cf02_assist` or `cf02_free` partner, or Carl after the swap) stood
+        /// still, more than [`crate::f01_mastery_fixtures::APART_PX`] from the steered
+        /// hero, while that hero moved. Measured by [`run_live`] only (0 in the greybox
+        /// [`run`]); a measure, never a rule.
+        pub partner_left_behind: u32,
     }
 
     impl Report {
@@ -1036,6 +1048,7 @@ pub mod scene_pilots {
             max_stuck,
             hash: sim.combat.state_hash(&sim.scene),
             events: sim.combat.events.clone(),
+            partner_left_behind: 0,
         })
     }
 
@@ -1048,6 +1061,11 @@ pub mod scene_pilots {
         steps: Driver,
         plan: Plan,
         who: Who,
+        /// The attempt the step machine is on: `CombatState::restarts` as of the last call.
+        /// A checkpoint restart rebuilds the room (props and goblins), so the plan starts
+        /// again from its first step; without this the step state of the finished attempt
+        /// (`at`, the jab timer) would carry over (FIX-TOOL, PT-FU-B8 item 10).
+        attempt: u32,
     }
 
     impl LiveDriver {
@@ -1074,6 +1092,7 @@ pub mod scene_pilots {
                 steps: Driver::new(steps),
                 plan,
                 who,
+                attempt: 0,
             })
         }
 
@@ -1090,6 +1109,11 @@ pub mod scene_pilots {
             use crate::goblin::GoblinMode;
             use crate::room_pilots::{Plan as RoomPlan, RoomPilot};
 
+            if combat.restarts != self.attempt {
+                // A restart: the room is back to its first state, so are the plan's steps.
+                self.attempt = combat.restarts;
+                self.steps.restart();
+            }
             let fight_or_walk = RoomPilot {
                 plan: RoomPlan::Direct,
                 two_player: false,
@@ -1211,23 +1235,48 @@ pub mod scene_pilots {
     /// holds a walk input and the body does not move; the autonomous Donut is
     /// stuck while she stands still, [`APART_PX`] from Carl, while he walks on.
     pub fn run_live(root: &Path, who: Who, plan: Plan, seed: u64) -> Result<Report, String> {
-        use crate::f01_mastery_fixtures::APART_PX;
+        run_live_forcing(root, who, plan, seed, None)
+    }
+
+    /// [`run_live`], optionally forcing one checkpoint restart (`CombatState::restart`, what
+    /// a party defeat does) on the tick the sim reaches `force_restart_at`. The pilots never
+    /// lose a fight, so this is how a test proves that the driver survives a restart.
+    pub fn run_live_forcing(
+        root: &Path,
+        who: Who,
+        plan: Plan,
+        seed: u64,
+        force_restart_at: Option<u64>,
+    ) -> Result<Report, String> {
+        use crate::f01_mastery_fixtures::{APART_PX, LeftBehind};
 
         let mut driver = LiveDriver::new(who, plan)?;
         let (mut sim, exit_x) = live_start(root, who, seed)?;
         let mut last_x = [sim.scene.world.hero.x, sim.scene.world.donut_body.x];
         let mut stuck = [0u32; 2];
         let mut max_stuck = [0u32; 2];
+        let mut left_behind = LeftBehind::default();
         let mut exit_tick = None;
+        let mut forced = false;
         for _ in 0..LIVE_TICKS {
             let controlled = sim.party.controlled_hero();
             let (slots, walking) = driver.next(&sim.combat, &sim.scene, controlled, exit_x);
             sim.step_slots(slots);
+            // Once: the attempt that follows counts its ticks from 1 again.
+            if !forced && force_restart_at == Some(sim.scene.world.tick) {
+                forced = true;
+                sim.combat.restart(&mut sim.scene);
+            }
             let carl_x = sim.scene.world.hero.x;
             let carl_moved = (carl_x - last_x[0]).abs() >= 0.1;
+            let steered = sim.party.controlled_hero();
+            let mut moved = [false; 2];
+            let mut xs = [0.0f32; 2];
             for (i, id) in HeroId::ALL.into_iter().enumerate() {
                 let x = sim.scene.world.body(id).x;
                 let still = (x - last_x[i]).abs() < 0.1;
+                moved[i] = !still;
+                xs[i] = x;
                 let counts = if who == Who::Companion && id == HeroId::Donut {
                     still && (x - carl_x).abs() > APART_PX && carl_moved
                 } else {
@@ -1237,6 +1286,13 @@ pub mod scene_pilots {
                 max_stuck[i] = max_stuck[i].max(stuck[i]);
                 last_x[i] = x;
             }
+            // The same "left behind" measure for the hero nobody steers, in every mode.
+            let (s_i, p_i) = if steered == HeroId::Carl {
+                (0, 1)
+            } else {
+                (1, 0)
+            };
+            left_behind.observe(!moved[p_i], (xs[p_i] - xs[s_i]).abs(), moved[s_i]);
             if exit_tick.is_none() && sim.scene.world.complete {
                 exit_tick = Some(sim.scene.world.tick);
                 break;
@@ -1247,6 +1303,7 @@ pub mod scene_pilots {
             max_stuck,
             hash: sim.state_hash(),
             events: sim.combat.events.clone(),
+            partner_left_behind: left_behind.max(),
         })
     }
 }
@@ -1254,7 +1311,7 @@ pub mod scene_pilots {
 #[cfg(test)]
 mod scene_pilot_tests {
     use super::scene_pilots::*;
-    use crate::combat::PropPhase;
+    use crate::combat::{CombatEvent, PropPhase};
     use std::path::PathBuf;
 
     fn root() -> PathBuf {
@@ -1335,6 +1392,91 @@ mod scene_pilot_tests {
                     r.max_stuck.iter().all(|s| *s <= STUCK_LIMIT),
                     "{who:?} seed {seed}: {:?}",
                     r.max_stuck
+                );
+            }
+        }
+    }
+
+    /// FIX-TOOL (PT-FU-B8 item 10): a checkpoint restart rebuilds the room, so the live
+    /// driver starts its plan again. One restart is forced after the valve is spent and
+    /// before the weight lands; the second attempt must jab the valve and the brace again
+    /// (each phase happens once per attempt) and still reach the exit. With the step
+    /// state carried over from the first attempt the second would skip both props.
+    #[test]
+    fn a_restart_returns_the_live_driver_to_its_first_step() {
+        let plain = run_live(&root(), Who::CarlSolo, Plan::Both, 0).unwrap();
+        assert_eq!(plain.restarts(), 0);
+        let spent_at = plain
+            .events
+            .iter()
+            .find_map(|e| match e {
+                CombatEvent::PropPhase {
+                    prop: 0,
+                    phase: PropPhase::Spent,
+                    tick,
+                    ..
+                } => Some(*tick),
+                _ => None,
+            })
+            .expect("the valve is spent in the plain run");
+        let landed_at = plain
+            .events
+            .iter()
+            .find_map(|e| match e {
+                CombatEvent::PropPhase {
+                    prop: 1,
+                    phase: PropPhase::Landed,
+                    tick,
+                    ..
+                } => Some(*tick),
+                _ => None,
+            })
+            .expect("the weight lands in the plain run");
+        assert!(
+            spent_at + 10 < landed_at,
+            "the restart comes before the weight lands"
+        );
+        let forced = run_live_forcing(&root(), Who::CarlSolo, Plan::Both, 0, Some(spent_at + 10))
+            .expect("the forced run");
+        assert_eq!(forced.restarts(), 1, "exactly one restart");
+        assert!(
+            forced.exit_tick.is_some(),
+            "the plan finishes after a restart"
+        );
+        assert_eq!(forced.phases(0, PropPhase::Spent), 2, "the valve again");
+        assert_eq!(
+            forced.phases(1, PropPhase::Landed),
+            1,
+            "the weight once, after it"
+        );
+        assert!(forced.max_stuck.iter().all(|s| *s <= STUCK_LIMIT));
+        // The forced run is itself deterministic.
+        let again = run_live_forcing(&root(), Who::CarlSolo, Plan::Both, 0, Some(spent_at + 10))
+            .expect("the forced run");
+        assert_eq!((forced.hash, &forced.events), (again.hash, &again.events));
+    }
+
+    /// FIX-TOOL (PT-FU-B8 item 10): the companion's "left behind" measure applied to the hero
+    /// the pilot does not steer, in every live mode (the `cf02_assist` partner of solo Carl and
+    /// of Donut by swap, Carl after the swap, the `cf02_free` companion), `direct` and `both`,
+    /// seeds 0..=8: no partner is left behind for more than the stuck limit. Measured: at most
+    /// 7 ticks for the assist partner and 30 for `cf02_free`. `cargo test partner_left_behind
+    /// -- --nocapture` prints the table. The partner's AI is not tuned from it.
+    #[test]
+    fn the_uncontrolled_hero_is_never_left_behind_in_the_live_boiler() {
+        for who in LIVE_WHO {
+            for plan in LIVE_PLANS {
+                let v: Vec<u32> = (0..=8)
+                    .map(|seed| {
+                        run_live(&root(), who, plan, seed)
+                            .unwrap()
+                            .partner_left_behind
+                    })
+                    .collect();
+                eprintln!("PARTNER_LB boiler {who:?} {plan:?} {v:?}");
+                assert!(
+                    v.iter().all(|n| *n <= STUCK_LIMIT),
+                    "{who:?} {plan:?}: the partner was left behind: {v:?}"
                 );
             }
         }

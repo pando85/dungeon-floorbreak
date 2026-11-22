@@ -11,8 +11,8 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 
 use dungeon_floorbreak::playtrace::{
-    self, ControlEvent, SessionStats, SessionStatus, dir_size_bytes, list_sessions, read_session,
-    recover_session, session_stats, synthetic,
+    self, ControlEvent, RunKind, SessionStats, SessionStatus, dir_size_bytes, input_free,
+    list_sessions, read_session, recover_session, session_stats, synthetic,
 };
 
 const USAGE: &str =
@@ -108,9 +108,17 @@ fn run(args: &[String]) -> Result<(), String> {
                 status_name(m.status),
                 m.capture_complete
             );
+            // FIX-TOOL: a Human session in which no tick carries any input is an untouched
+            // window (a scripted exit on a live room), not a person playing: say so.
+            let run_kind = if m.run_kind == RunKind::Human && input_free(&loaded) {
+                "Human (input-free: no input in any tick, the partner AI only; not a human play session)"
+                    .to_owned()
+            } else {
+                format!("{:?}", m.run_kind)
+            };
             println!(
-                "  schema {} participants {:?} run_kind {:?} mode {}",
-                m.schema, m.participants, m.run_kind, m.mode
+                "  schema {} participants {:?} run_kind {run_kind} mode {}",
+                m.schema, m.participants, m.mode
             );
             println!(
                 "  build {} dirty={} profile {}",

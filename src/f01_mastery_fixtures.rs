@@ -55,6 +55,37 @@ pub const RUN_TICKS: u64 = 6000;
 pub const SWAP_TICK: u64 = 90;
 /// The companion is counted left behind only while this far from Carl.
 pub const APART_PX: f32 = 96.0;
+
+/// FIX-TOOL (PT-FU-B8 item 10): the companion's "left behind" measure, applied to **the
+/// hero the pilot does not steer** in every mode (the `cf02_assist` partner of the solo
+/// runs included, which the walking-input stuck rule cannot see, since no input is held
+/// for it). A tick counts while the partner stands still (its column changed by less than
+/// 0.1 px), is more than [`APART_PX`] from the steered hero, and the steered hero moved
+/// that tick; the longest run of consecutive counted ticks is [`Self::max`]. A measure,
+/// not a rule: it never changes a run, and the partner's AI is not tuned from it.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct LeftBehind {
+    run: u32,
+    max: u32,
+}
+
+impl LeftBehind {
+    /// One tick: whether the partner stood still, its distance from the steered hero and
+    /// whether the steered hero moved.
+    pub fn observe(&mut self, partner_still: bool, apart: f32, steered_moved: bool) {
+        if partner_still && apart > APART_PX && steered_moved {
+            self.run += 1;
+            self.max = self.max.max(self.run);
+        } else {
+            self.run = 0;
+        }
+    }
+
+    /// The longest run of counted ticks.
+    pub fn max(&self) -> u32 {
+        self.max
+    }
+}
 /// The column a hero walks to once the roster is clear: inside the exit gate
 /// (1072..1136), and the column that counts as reaching it.
 pub const EXIT_GOAL_X: f32 = 1110.0;
@@ -857,6 +888,32 @@ mod tests {
     use super::*;
     use crate::combat::MoveId;
     use std::path::PathBuf;
+
+    /// FIX-TOOL: the left-behind measure counts only a still partner, strictly farther than
+    /// `APART_PX`, while the steered hero moves; any other tick resets the run, and the
+    /// maximum keeps the longest run.
+    #[test]
+    fn left_behind_counts_a_still_distant_partner_while_the_steered_hero_moves() {
+        let mut m = LeftBehind::default();
+        // On the bound (96 px) is not apart; just past it is.
+        m.observe(true, APART_PX, true);
+        assert_eq!(m.max(), 0, "exactly APART_PX is not apart");
+        m.observe(true, APART_PX + 0.5, true);
+        m.observe(true, APART_PX + 0.5, true);
+        assert_eq!(m.max(), 2);
+        // A moving partner, a standing steered hero and a near partner each reset the run.
+        m.observe(false, 200.0, true);
+        m.observe(true, 200.0, true);
+        assert_eq!(m.max(), 2, "the run restarted at one");
+        m.observe(true, 200.0, false);
+        m.observe(true, 10.0, true);
+        m.observe(true, 200.0, true);
+        m.observe(true, 200.0, true);
+        m.observe(true, 200.0, true);
+        assert_eq!(m.max(), 3, "a longer run replaces the maximum");
+        m.observe(true, 200.0, true);
+        assert_eq!(m.max(), 4);
+    }
 
     fn root() -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))

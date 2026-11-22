@@ -119,8 +119,15 @@ fn goblins_and_slimes_only(roster: &[encounter::RosterEntry]) -> Result<(), Stri
 /// The env runtime of a launched room: the sidecar's stickers and acid patches
 /// placed on the room's walking line, with the soffit solids and the exit gate.
 pub fn env_runtime(run: &HazardsRun) -> Result<EnvRuntime, String> {
+    env_runtime_with_rot(run, crate::rot_sticker::active().enabled())
+}
+
+/// [`env_runtime`] with the Rot kind's kill switch given (`hazq02_rot_enabled`): the
+/// Rot-off fixtures of `hazards_fixtures` build the real switch, not a room with the
+/// sticker props removed (FIX-TOOL). The scene always uses [`env_runtime`].
+pub fn env_runtime_with_rot(run: &HazardsRun, rot_enabled: bool) -> Result<EnvRuntime, String> {
     let enc = &run.loaded.encounter;
-    Ok(EnvRuntime::new(enc)?.in_room(
+    Ok(EnvRuntime::new_with_rot(enc, rot_enabled)?.in_room(
         run.loaded.room.floor_y,
         &soffits(&run.loaded),
         Some(enc.exit),
@@ -250,6 +257,19 @@ pub fn combat_for(
     donut: DonutProgFlags,
     cf02_seed: Option<u64>,
 ) -> Result<CombatState, String> {
+    combat_with_env(run, scene, carl, donut, cf02_seed, env_runtime(run)?)
+}
+
+/// [`combat_for`] with the room's env runtime given (the Rot-off fixtures pass
+/// [`env_runtime_with_rot`] with the switch off); everything else is identical.
+pub fn combat_with_env(
+    run: &HazardsRun,
+    scene: &mut SceneSim,
+    carl: CarlProgFlags,
+    donut: DonutProgFlags,
+    cf02_seed: Option<u64>,
+    env: EnvRuntime,
+) -> Result<CombatState, String> {
     let room = SlotRoom {
         floor_y: scene.world.hero_foot_y(),
         walls: (0.0, run.kit.width as f32),
@@ -263,7 +283,7 @@ pub fn combat_for(
         .with_demo(run.rules)
         .with_cf02()
         .with_cf02_seed(cf02_seed)
-        .with_env(env_runtime(run)?)
+        .with_env(env)
         .with_slot_enemies(spawn.slot)
         .map_err(|e| e.to_string())?;
     combat.sync_env(scene);

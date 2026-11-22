@@ -5,13 +5,17 @@
 # --bin floor01_scene), the exported atlases (bash scripts/export_assets.sh),
 # xvfb-run and Pillow. The README is hand-written.
 #   BIN=<path to floor01_scene> (default ./target/debug/floor01_scene)
-#   CAPTURES=<scratch dir> (default artifacts/cp-b2-captures)
+#   CAPTURES=<scratch dir below ./artifacts> (default artifacts/cp-b2-captures; deleted first, and refused unless it
+#     is a directory this script made before or does not exist)
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 bin="${BIN:-./target/debug/floor01_scene}"
 caps="${CAPTURES:-artifacts/cp-b2-captures}"
-rm -rf "$caps"
-mkdir -p "$caps"
+# The scratch directory is deleted first: refuse anything that is not a dedicated capture directory below
+# ./artifacts (CP-B2-FU-EVID-RM; the guard is scripts/evidence_captures_guard.sh).
+# shellcheck source=scripts/evidence_captures_guard.sh
+source scripts/evidence_captures_guard.sh
+prepare_captures_dir "$caps"
 # fixture : first tick : step : count : extra flags
 sequences=(
   "carl_prog_dyn_arc_standing:4:6:36:--debug-combat"
