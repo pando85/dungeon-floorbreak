@@ -15,6 +15,14 @@
 
 The targeted high-risk implementation specs are [F02-RK-01](../01-design/floor-02-revup-krakaren-setpieces.md), [F02-MR-01](../01-design/floor-02-meadow-rage-setpieces.md), and [F02-RALPH-01](../01-design/floor-02-ralph-kennel-finale.md). **Preserve a seamless linear experience**, with no forced pause while danger is active. Pacing and individual chapter count can be revised after real playtesting.
 
+## Design briefs added to the delivery contract
+
+- [Arrival / Psychic / Cleanup greybox](../01-design/floor-02-arrival-cleanup-encounters.md)
+- [Enemy acting and animation bibles](../01-design/floor-02-enemy-acting-bible.md)
+- [Chapter director, score, checkpoint and stairwell continuity](../01-design/floor-02-director-and-continuity.md)
+
+**New P0 story-graph invariant:** S07 Rage exile remains on Floor 02; only S09 grants player Floor 03 descent (DIR-03). **New adaptation:** generic Rev-Up foreman role is visually cast as the lore-sourced Laminak executive; do not implement redundant bossy enemy types. Visual and audio direction do not imply an approved shipping asset.
+
 ## Product objective
 
 A **linear arcade-combat** Floor 02 that feels visually independent from Floor 01, stays replayable, uses physical collisions and authored destructible props, has two direct-combat bosses (Krakaren Clone and Ralph), one **unbeatable rule-based flight** (Rage Elemental), a protective Meadow Lark setpiece and a quiet Mongo introduction. All floor-specific work should be usable as isolated probes before connecting the complete route.
