@@ -10,6 +10,7 @@
 //! `special_short_blink` (a press without it is inert and silent), so every run
 //! without a Donut program is untouched.
 
+use super::companion::hull_capped_tuning;
 use super::{CombatEvent, CombatState, HeroId, InputFrame, SceneSim};
 use crate::companion::navfollow::hazards_from_feed;
 use crate::donut_prog::{DonutProgTuning, SPECIAL_SHORT_BLINK};
@@ -39,6 +40,22 @@ impl CombatState {
     /// camera, the partner) and runs the pure search; only a press or an
     /// arrival calls it.
     fn blink_search(&self, scene: &SceneSim, x: f32, y: f32, dir: i8) -> Option<f32> {
+        // DP-E (DP-Q46): a blink the autonomous partner pressed keeps only the
+        // candidates inside the hull (`None` for every other blink).
+        let hull = self.ai_blink_hull_if_started(scene, x);
+        self.blink_search_in(scene, x, y, dir, hull)
+    }
+
+    /// [`Self::blink_search`] with an explicit AI hull (DP-E): the companion's
+    /// read-only prediction asks with the hull it will be held to.
+    pub(super) fn blink_search_in(
+        &self,
+        scene: &SceneSim,
+        x: f32,
+        y: f32,
+        dir: i8,
+        hull: Option<(f32, f32)>,
+    ) -> Option<f32> {
         let zones: Vec<(f32, f32)> = self
             .story
             .as_ref()
@@ -79,7 +96,13 @@ impl CombatState {
             view,
             partner,
         };
-        search(&world, x, y, dir, DonutProgTuning::active())
+        match hull {
+            None => search(&world, x, y, dir, DonutProgTuning::active()),
+            Some(hull) => {
+                let t = hull_capped_tuning(DonutProgTuning::active(), x, dir, hull)?;
+                search(&world, x, y, dir, &t)
+            }
+        }
     }
 
     /// One tick of Donut's blink (DP-Q20 to DP-Q32). `can_act` is the legacy

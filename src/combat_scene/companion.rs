@@ -21,7 +21,8 @@ use std::sync::OnceLock;
 use super::CombatState;
 use crate::combat::{CombatEvent, ENEMY_HALF_HEIGHT, MoveSpec};
 use crate::companion::autonomy::{
-    AutonomyBrief, AutonomyInput, AutonomyState, DriftCheck, FreeZone, ViewRows, ZoneInput,
+    AutonomyBrief, AutonomyInput, AutonomyState, BlinkChoice, BlinkInput, BlinkKnobs, DriftCheck,
+    FreeZone, ViewRows, ZoneInput, choose_blink,
 };
 use crate::companion::director::{Action, CompanionDirector, Decision, Mode};
 use crate::companion::events::{CompanionEvent, CompanionStats, EVENT_CAP, RegroupOutcome};
@@ -38,6 +39,7 @@ use crate::companion::view::{
     StableEntityId, TargetState, TargetView, ThreatView, ViewBounds,
 };
 use crate::corridor::SceneSim;
+use crate::donut_prog::{DonutProgTuning, SPECIAL_SHORT_BLINK};
 use crate::feel::LLAMA_TELL_TICKS;
 use crate::follower::Threat;
 use crate::goblin::GoblinMode;
@@ -378,6 +380,40 @@ pub(crate) fn glance_hook(
     rules::glance(*spec, target_hp, ai_started, policy)
 }
 
+/// DP-Q46 (DP-E): the tuning with the search's farthest candidate cut to the
+/// last grid distance (`max - k * step`) that still reaches the hull edge from
+/// `x` in direction `dir`, so "the farthest valid candidate inside the hull"
+/// is the same pure search on the same candidate grid. `None` when even the
+/// nearest candidate is outside the hull.
+pub(super) fn hull_capped_tuning(
+    t: &DonutProgTuning,
+    x: f32,
+    dir: i8,
+    (lo, hi): (f32, f32),
+) -> Option<DonutProgTuning> {
+    let reach = if dir > 0 { hi - x } else { x - lo };
+    if reach < f32::from(t.dpq22_range_min_px) {
+        return None;
+    }
+    let (max, min, step) = (
+        i32::from(t.dpq22_range_max_px),
+        i32::from(t.dpq22_range_min_px),
+        i32::from(t.dpq22_range_step_px).max(1),
+    );
+    let reach = reach.floor() as i32;
+    let cap = if reach >= max {
+        max
+    } else {
+        max - (max - reach + step - 1) / step * step
+    };
+    if cap < min {
+        return None;
+    }
+    let mut capped = t.clone();
+    capped.dpq22_range_max_px = cap as u16;
+    Some(capped)
+}
+
 impl CombatState {
     /// Which heroes the companion drove on the last stepped tick (the CINE feed
     /// of CA-29 reads it; `[false; 2]` while the companion is off).
@@ -418,6 +454,29 @@ impl CombatState {
     pub fn companion_probe_view(&self, scene: &SceneSim) -> Option<CompanionView> {
         let set = self.companion.set?;
         Some(self.companion_view(scene, set))
+    }
+
+    /// Tests only: aim goblin `index`'s next blow at `hero` and put it in the
+    /// swing at `attack_tick` of its tell, at `x` facing `facing` (the DP-E
+    /// fixtures stage a committed attack at a chosen distance and tick).
+    #[doc(hidden)]
+    pub fn test_stage_goblin_swing(
+        &mut self,
+        index: usize,
+        hero: HeroId,
+        x: f32,
+        facing: i8,
+        attack_tick: u16,
+    ) {
+        if self.targets.len() <= index {
+            self.targets.resize(index + 1, None);
+        }
+        self.targets[index] = Some(hero);
+        let g = &mut self.enemies[index];
+        g.x = x;
+        g.facing = facing;
+        g.mode = GoblinMode::Attack;
+        g.attack_tick = attack_tick;
     }
 
     /// The autonomy layer's state of `hero` (counters for the M16 report).
@@ -488,10 +547,12 @@ impl CombatState {
         self.companion_nav_follow(scene, &mut view);
         let mut briefs: [Option<AutonomyBrief>; 2] = [None, None];
         let mut exempt = [false; 2];
+        let mut dodge_jumps = [false; 2];
         for hero in HeroId::ALL {
             let i = hero.index();
             if self.companion.autonomous[i] {
-                (briefs[i], exempt[i]) = self.companion_autonomy(scene, &mut view, set, hero);
+                (briefs[i], exempt[i], dodge_jumps[i]) =
+                    self.companion_autonomy(scene, &mut view, set, hero);
             }
         }
         let mut out = inputs;
@@ -531,6 +592,30 @@ impl CombatState {
                 // M16: the director's drift skips (CA2-B1 review: a caller owes this).
                 self.companion.autonomy[i].record_decision(&decision);
             }
+            // DONUT-PROG-01 DP-E: the escape-only blink. The press replaces the
+            // director's input of this tick (the same Circle/B press path a human
+            // uses, DP-Q31) and any press while the windup runs is withheld: a
+            // primary, physical or jump press edge in the windup cancels it
+            // (DP-Q25). Both paths need `blink_enabled`, so every other set is
+            // untouched.
+            if let Some(brief) = brief
+                && let Some(choice) =
+                    self.companion_blink(scene, &view, set, brief, hero, dodge_jumps[i])
+            {
+                self.companion.autonomy[i].note_blink(self.companion.tick, choice.reason);
+                out[i] = RawInput {
+                    move_x: f32::from(choice.dir),
+                    ability: true,
+                    ..RawInput::NONE
+                };
+                self.companion.record(view.tick, hero, &decision);
+                continue;
+            }
+            if brief.is_some() && self.companion_blink_windup(set, hero) {
+                out[i] = RawInput::NONE;
+                self.companion.record(view.tick, hero, &decision);
+                continue;
+            }
             // A press tick stands still: a direction held with a press would
             // turn the hero first (the Carl rule), maybe away from its target.
             let move_x = if decision.pressed { 0.0 } else { move_x };
@@ -547,6 +632,88 @@ impl CombatState {
             self.companion.record(view.tick, hero, &decision);
         }
         out
+    }
+
+    /// DP-E (DP-Q39): the blink the goal layer presses for `hero` this tick, if
+    /// any. Only Donut's skirmisher table (`blink_enabled`, `cf02_free` only), only
+    /// while she holds `special_short_blink` and the press would be accepted now:
+    /// nothing running, no hit-stop, the cooldown over and the mana paid for (the
+    /// reserve may be spent, DP-Q40). The prediction is the scene's own search,
+    /// read-only, so hazards, `blink_barriers`, walls, zones and the camera are
+    /// the human blink's.
+    fn companion_blink(
+        &self,
+        scene: &SceneSim,
+        view: &CompanionView,
+        set: &ProfileSet,
+        brief: &AutonomyBrief,
+        hero: HeroId,
+        dodge_jumps: bool,
+    ) -> Option<BlinkChoice> {
+        let table = &set.autonomy.roles.skirmisher;
+        if hero != HeroId::Donut || !table.blink_enabled || !self.story_holds(SPECIAL_SHORT_BLINK) {
+            return None;
+        }
+        let t = DonutProgTuning::active();
+        let tick = self.companion.tick;
+        let kit = &self.donut_kit;
+        if kit.blink.windup().is_some()
+            || kit.blink.recovering(tick)
+            || kit.blink.cooling(tick)
+            || self.hero_state(hero).hit_stop > 0
+            || kit.mana.mana() < t.dpq23_cost_charges
+        {
+            return None;
+        }
+        let (x, y) = {
+            let body = scene.world.body(hero);
+            (body.x, body.y)
+        };
+        let windup = u16::from(t.dpq25_windup_ticks);
+        let hull = self.ai_blink_hull(scene, x);
+        choose_blink(
+            &BlinkInput {
+                view,
+                partner: hero,
+                goal: brief.goal,
+                zone: &Self::zone_of(scene, view, set, hero),
+                drift: &DriftCheck::new(Self::motion_of(scene, hero.other()), &set.autonomy),
+                knobs: BlinkKnobs {
+                    threat_px: f32::from(table.blink_threat_px),
+                    min_gain_px: f32::from(table.blink_min_gain_px),
+                    hull_px: f32::from(t.dpq46_ai_hull_px),
+                    windup_ticks: windup,
+                    commit_ticks: windup + u16::from(t.dpq25_recovery_ticks),
+                },
+                dodge_jumps,
+            },
+            |dir| self.blink_search_in(scene, x, y, dir, Some(hull)),
+        )
+    }
+
+    /// DP-Q46: the hull an AI blink from `x` is held to, `[min(x, carl.x - H),
+    /// max(x, carl.x + H)]` with `H` = `dpq46_ai_hull_px`. Reads sim state only.
+    fn ai_blink_hull(&self, scene: &SceneSim, x: f32) -> (f32, f32) {
+        let h = f32::from(DonutProgTuning::active().dpq46_ai_hull_px);
+        let carl = scene.world.body(HeroId::Carl).x;
+        (x.min(carl - h), x.max(carl + h))
+    }
+
+    /// The hull of the blink running now, only if the goal layer pressed it
+    /// (its press tick is the windup's t0), else `None`: a human's blink, and a
+    /// swap or a restart that dropped the layer's record, are unconstrained.
+    pub(super) fn ai_blink_hull_if_started(&self, scene: &SceneSim, x: f32) -> Option<(f32, f32)> {
+        let (start, _) = self.donut_kit.blink.windup()?;
+        (self.companion.autonomy[HeroId::Donut.index()].last_blink() == Some(start))
+            .then(|| self.ai_blink_hull(scene, x))
+    }
+
+    /// DP-E: her blink windup is running under an AI that may blink, so the
+    /// director's presses are withheld this tick (a press would cancel it).
+    fn companion_blink_windup(&self, set: &ProfileSet, hero: HeroId) -> bool {
+        hero == HeroId::Donut
+            && set.autonomy.roles.skirmisher.blink_enabled
+            && self.donut_kit.blink.windup().is_some()
     }
 
     /// Her run speed per tick (the body's own motion; the jump boost does not
@@ -595,17 +762,18 @@ impl CombatState {
     /// the flat walk otherwise, the dodge on top) and write the result as the
     /// director's follow input. Returns the brief (`None`: no steering this tick,
     /// the director runs without one) and whether this tick's movement is exempt
-    /// from the zone clamp (a dodge or a committed transit).
+    /// from the zone clamp (a dodge or a committed transit), and whether the follow
+    /// layer's jump dodge fires this tick (DP-E reads it).
     fn companion_autonomy(
         &mut self,
         scene: &SceneSim,
         view: &mut CompanionView,
         set: &ProfileSet,
         hero: HeroId,
-    ) -> (Option<AutonomyBrief>, bool) {
+    ) -> (Option<AutonomyBrief>, bool, bool) {
         let i = hero.index();
         let Some(mut nav) = self.companion.nav.take() else {
-            return (None, false);
+            return (None, false, false);
         };
         let a = &set.autonomy;
         // CA2 Revision 3, DP-Q38: no jump or hop edge from a surface above the
@@ -636,7 +804,7 @@ impl CombatState {
         };
         let Some(brief) = brief else {
             self.companion.nav = Some(nav);
-            return (None, false);
+            return (None, false, false);
         };
         let tick = self.companion.tick;
         if let Some(reason) = brief.changed {
@@ -648,6 +816,8 @@ impl CombatState {
             });
         }
         let mut exempt = false;
+        // DP-E: the follow layer's jump dodge fires this tick (set below).
+        let mut dodge_jumps = false;
         if Self::follow_free_view(&view.heroes[i], &self.hero_state(hero)) {
             let me = Self::nav_body(scene, hero);
             let bounds = Some((
@@ -702,6 +872,7 @@ impl CombatState {
                     jump: dodge.jump,
                 };
                 exempt = true;
+                dodge_jumps = dodge.jump;
             }
             view.follow[i] = input;
             self.push_nav_notes(hero, notes);
@@ -709,7 +880,7 @@ impl CombatState {
             view.follow[i] = FollowInput::default();
         }
         self.companion.nav = Some(nav);
-        (Some(brief), exempt)
+        (Some(brief), exempt, dodge_jumps)
     }
 
     /// 01B-wire: build the nav graph from the scene's solids on the first
@@ -1488,5 +1659,27 @@ mod tests {
             "{lo} {hi}"
         );
         assert!(hi - lo >= 80.0, "most of the slab: {lo} {hi}");
+    }
+
+    /// DP-Q46 (DP-E): the hull cuts the search's farthest candidate to the last
+    /// grid distance (112, 108, ... 16) that reaches the hull edge, so "the
+    /// farthest valid candidate inside the hull" is the same pure search.
+    #[test]
+    fn the_hull_cap_keeps_the_candidate_grid() {
+        let t = DonutProgTuning::active();
+        let cap = |x: f32, dir: i8, hull: (f32, f32)| {
+            hull_capped_tuning(t, x, dir, hull).map(|c| c.dpq22_range_max_px)
+        };
+        // Reach beyond the range: unchanged.
+        assert_eq!(cap(440.0, -1, (300.0, 503.0)), Some(112));
+        assert_eq!(cap(440.0, -1, (328.0, 503.0)), Some(112), "exactly 112");
+        // 103 px of reach: 112, 108, 104, 100: the farthest grid point <= 103.
+        assert_eq!(cap(440.0, -1, (337.0, 503.0)), Some(100));
+        assert_eq!(cap(440.0, -1, (336.0, 503.0)), Some(104), "104 reaches 336");
+        assert_eq!(cap(440.0, 1, (377.0, 543.0)), Some(100), "103 to the right");
+        // The nearest candidate (16) is the floor.
+        assert_eq!(cap(440.0, -1, (424.0, 503.0)), Some(16));
+        assert_eq!(cap(440.0, -1, (424.5, 503.0)), None, "15.5 px: none");
+        assert_eq!(cap(440.0, 1, (400.0, 440.0)), None, "no reach at all");
     }
 }
