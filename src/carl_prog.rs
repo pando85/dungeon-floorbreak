@@ -12,6 +12,7 @@
 
 use serde::Deserialize;
 
+use crate::combat::{MoveId, MoveSpec};
 use crate::donut_mana::content_hash;
 use crate::story_unlock::{SceneKind, StorySetup};
 
@@ -184,6 +185,66 @@ impl CarlProgTuning {
         ACTIVE.get_or_init(|| {
             Self::pinned().expect("the embedded Carl progression data is pinned and valid")
         })
+    }
+
+    /// CP-Q38 to CP-Q42: the move as it lands while the reinforced fist is held.
+    /// Only the jab and the haymaker change (CP-Q38; the kicks, the stomp, the air
+    /// kick and the dive stomp come back as they are); damage never changes.
+    /// The stagger is lengthened (CP-Q39), the haymaker freezes one tick longer
+    /// (CP-Q42) and the punch pierces a committed attack (CP-Q40), each by its
+    /// own data row. Pure; the caller applies it only while the capability is held.
+    pub fn reinforce(&self, spec: &MoveSpec) -> MoveSpec {
+        let (reinforced, stagger, pierces, hit_stop_bonus) = match spec.id {
+            MoveId::Jab => (
+                self.cpq38_jab_reinforced,
+                self.cpq39_jab_stagger_ticks,
+                self.cpq40_jab_pierces_commit,
+                0,
+            ),
+            MoveId::Haymaker => (
+                self.cpq38_haymaker_reinforced,
+                self.cpq39_haymaker_stagger_ticks,
+                self.cpq40_haymaker_pierces_commit,
+                self.cpq42_haymaker_hit_stop_bonus_ticks,
+            ),
+            _ => return *spec,
+        };
+        if !reinforced {
+            return *spec;
+        }
+        let mut landed = *spec;
+        landed.reaction.stagger_ticks = u8::try_from(stagger).unwrap_or(u8::MAX);
+        landed.reaction.hit_stop = landed.reaction.hit_stop.saturating_add(hit_stop_bonus);
+        landed.pierces_commit = pierces;
+        landed
+    }
+
+    /// CP-Q41: how many hits `id` counts on an authored support (the shore, the
+    /// rack strut, a prop's brace) while the reinforced fist is held: the haymaker
+    /// 2, the jab 1, every other move 1.
+    pub fn support_hit_weight(&self, id: MoveId) -> u8 {
+        match id {
+            MoveId::Jab if self.cpq38_jab_reinforced => self.cpq41_jab_support_hits,
+            MoveId::Haymaker if self.cpq38_haymaker_reinforced => self.cpq41_haymaker_support_hits,
+            _ => 1,
+        }
+    }
+
+    /// CP-Q40: the poise a landed move adds to a boss-class target that holds
+    /// super armour through a committed phase: its damage, times the data
+    /// multiplier for a reinforced punch (the Juicer's armour is never pierced).
+    pub fn boss_poise(&self, spec: &MoveSpec) -> u16 {
+        let reinforced = match spec.id {
+            MoveId::Jab => self.cpq38_jab_reinforced,
+            MoveId::Haymaker => self.cpq38_haymaker_reinforced,
+            _ => false,
+        };
+        let multiplier = if reinforced {
+            u16::from(self.cpq40_boss_poise_multiplier)
+        } else {
+            1
+        };
+        u16::from(spec.damage) * multiplier
     }
 
     pub fn validate(&self) -> Result<(), TuningError> {
@@ -410,6 +471,75 @@ mod tests {
                 assert!(!key.contains(word), "knob key {key} says {word}");
             }
         }
+    }
+
+    /// CP-Q38 to CP-Q42: the reinforcement is the data's, applied to the jab and
+    /// the haymaker only; damage, shape, chain and every other move are untouched.
+    #[test]
+    fn reinforce_maps_the_two_punches_by_data_and_nothing_else() {
+        use crate::combat::{CARL_HAYMAKER, CARL_JAB, CARL_PUSH_KICK, cf02_moves};
+        let t = CarlProgTuning::active();
+        let jab = t.reinforce(&CARL_JAB);
+        assert_eq!((jab.reaction.stagger_ticks, jab.pierces_commit), (16, true));
+        assert_eq!(
+            jab.reaction.hit_stop, CARL_JAB.reaction.hit_stop,
+            "no jab stop bonus"
+        );
+        let hay = t.reinforce(&CARL_HAYMAKER);
+        assert_eq!((hay.reaction.stagger_ticks, hay.pierces_commit), (28, true));
+        assert_eq!(hay.reaction.hit_stop, CARL_HAYMAKER.reaction.hit_stop + 1);
+        for (plain, landed) in [(CARL_JAB, jab), (CARL_HAYMAKER, hay)] {
+            let restored = MoveSpec {
+                reaction: plain.reaction,
+                pierces_commit: false,
+                ..landed
+            };
+            assert_eq!(restored, plain, "damage, shape, timing and chain unchanged");
+            assert_eq!(landed.damage, plain.damage);
+            assert_eq!(landed.reaction.knock_vx, plain.reaction.knock_vx);
+            assert_eq!(
+                landed.reaction.camera_kick_px,
+                plain.reaction.camera_kick_px
+            );
+        }
+        // Everything else is returned as it is (the kicks, the stomp, the air kick,
+        // the dive stomp; Donut's moves).
+        for spec in [&CARL_PUSH_KICK]
+            .into_iter()
+            .chain(cf02_moves().all())
+            .chain(crate::combat::DONUT_MOVES)
+        {
+            assert_eq!(t.reinforce(spec), *spec, "{:?}", spec.id);
+            assert!(!t.reinforce(spec).pierces_commit);
+        }
+        // The data decides: a punch the data leaves plain is returned plain.
+        let mut off = t.clone();
+        off.cpq38_haymaker_reinforced = false;
+        assert_eq!(off.reinforce(&CARL_HAYMAKER), CARL_HAYMAKER);
+        assert_eq!(off.support_hit_weight(MoveId::Haymaker), 1);
+        assert_eq!(off.boss_poise(&CARL_HAYMAKER), 1);
+    }
+
+    /// CP-Q40, CP-Q41: the support weight (haymaker 2, jab 1, everything else 1)
+    /// and the boss poise (a reinforced punch 2x its damage, other moves 1x).
+    #[test]
+    fn support_weight_and_boss_poise_follow_the_data() {
+        use crate::combat::{CARL_HAYMAKER, CARL_JAB, CARL_PUSH_KICK};
+        let t = CarlProgTuning::active();
+        assert_eq!(t.support_hit_weight(MoveId::Jab), 1);
+        assert_eq!(t.support_hit_weight(MoveId::Haymaker), 2);
+        for id in [
+            MoveId::PushKick,
+            MoveId::Stomp,
+            MoveId::AirKick,
+            MoveId::DiveStomp,
+            MoveId::Swat,
+        ] {
+            assert_eq!(t.support_hit_weight(id), 1, "{id:?}");
+        }
+        assert_eq!(t.boss_poise(&CARL_JAB), 2);
+        assert_eq!(t.boss_poise(&CARL_HAYMAKER), 2);
+        assert_eq!(t.boss_poise(&CARL_PUSH_KICK), 1);
     }
 
     #[test]

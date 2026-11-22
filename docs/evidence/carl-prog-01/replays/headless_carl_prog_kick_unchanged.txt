@@ -1,0 +1,4 @@
+COMBAT_EVENT tick=10 kind=move_started move=push_kick instance=1
+COMBAT_EVENT tick=23 kind=hit move=push_kick instance=1 target=0 damage=1 health_left=1 hit_stop=8
+COMBAT_STATE fixture=carl_prog_kick_unchanged seed=0xca10046 tick=100 elapsed=100 hero_hp=4 deaths=0 enemies=e0=491.667/1 hash=4bbf466930d4b6aa
+PARTY_STATE fixture=carl_prog_kick_unchanged mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=075527d1bab10490

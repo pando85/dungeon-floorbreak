@@ -1641,6 +1641,8 @@ impl CombatState {
             return;
         };
         let layout_h = scene.world.layout_height();
+        // CP-Q41: the per-move support-hit weight (the reinforced haymaker 2).
+        let weight = self.support_hit_weight(move_tick.spec.id);
         let targets = self
             .env
             .as_deref()
@@ -1661,7 +1663,7 @@ impl CombatState {
             let stimulus = Stimulus::MeleeHit {
                 token: move_tick.instance,
                 player: attacker.player,
-                weight: 1,
+                weight,
             };
             let counted = matches!(
                 self.env_stimulate(usize::from(prop), stimulus, tick),
@@ -2809,9 +2811,54 @@ mod tests {
 
     // ---- the hanging weight (BOIL-C wire)
 
+    /// CP-Q41: the per-move support-hit weight reaches the prop. Carl stands 24 px
+    /// short of the brace: the jab whiffs and the string's haymaker (which steps 4
+    /// px) lands on it alone. With the reinforced fist the one haymaker counts 2
+    /// and lets the brace go; without it the same input only weakens it.
+    #[test]
+    fn a_reinforced_haymaker_counts_two_on_a_prop_and_the_plain_one_counts_one() {
+        use crate::story_unlock::StorySetup;
+        let play = |fist: bool| {
+            let mut s = sim(&[]);
+            if fist {
+                s.combat = s
+                    .combat
+                    .clone()
+                    .with_story(StorySetup::NONE.with_hold("fist_reinforced"));
+            }
+            put_carl(&mut s, BRACE_X - 20.0);
+            for t in 0..60 {
+                let press = t == 0 || t == 5;
+                step(&mut s, if press { ATTACK } else { RawInput::NONE });
+            }
+            s
+        };
+        let (with, without) = (play(true), play(false));
+        let released = |s: &PartyFixtureSim| phase_tick(s, WEIGHT as u16, PropPhase::Released);
+        assert_eq!(released(&with), Some(13), "one haymaker, weight 2");
+        assert_eq!(released(&without), None, "weight 1 only weakens");
+        let progress = |s: &PartyFixtureSim| -> Vec<String> {
+            s.combat
+                .events
+                .iter()
+                .map(ToString::to_string)
+                .filter(|l| l.contains("kind=prop_hit"))
+                .collect()
+        };
+        assert!(
+            progress(&with)[0].contains("progress=2"),
+            "{:?}",
+            progress(&with)
+        );
+        assert!(
+            progress(&without)[0].contains("progress=1"),
+            "{:?}",
+            progress(&without)
+        );
+    }
+
     /// Carl's jab reaches 16..22 px ahead of his column, 29..35 px up: the column
     /// 20 px left of the target's left edge hits it.
-
     #[test]
     fn the_brace_releases_on_two_jabs_and_lands_on_r_plus_31() {
         let mut s = sim(&[]);

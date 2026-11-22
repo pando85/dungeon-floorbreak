@@ -171,6 +171,8 @@ pub enum LabelId {
     LightFeet,
     /// DP-Q12: the grant notice of the short blink (the `notices` row).
     PuddleJumper,
+    /// CP-Q43: the grant notice of Carl's reinforced fist (the `notices` row).
+    HeavyFist,
 }
 
 impl LabelId {
@@ -195,6 +197,7 @@ impl LabelId {
             Self::Blink => "BLINK",
             Self::LightFeet => "LIGHT FEET",
             Self::PuddleJumper => "PUDDLE JUMPER",
+            Self::HeavyFist => "HEAVY FIST",
         }
     }
 
@@ -213,9 +216,14 @@ impl LabelId {
     /// Donut's two grants have a HUD label; the other grants add theirs with their
     /// stage.
     pub fn for_notice_text(text: &str) -> Option<Self> {
-        [Self::GoblinBoom, Self::LightFeet, Self::PuddleJumper]
-            .into_iter()
-            .find(|label| text == label.text())
+        [
+            Self::GoblinBoom,
+            Self::HeavyFist,
+            Self::LightFeet,
+            Self::PuddleJumper,
+        ]
+        .into_iter()
+        .find(|label| text == label.text())
     }
 }
 
@@ -248,6 +256,14 @@ pub fn notice_for_event(event: &CombatEvent) -> Option<LabelId> {
             ..
         } if *capability == crate::story_unlock::SPECIAL_THROWN_CHARGE.as_str() => {
             Some(LabelId::GoblinBoom)
+        }
+        // CP-Q43: Carl's reinforced fist, from the same event.
+        CombatEvent::CapabilityGranted {
+            hero: 0,
+            capability,
+            ..
+        } if *capability == crate::story_unlock::FIST_REINFORCED.as_str() => {
+            Some(LabelId::HeavyFist)
         }
         // DP-Q12: Donut's two grants, from the same event.
         CombatEvent::CapabilityGranted {
@@ -3397,6 +3413,29 @@ mod tests {
             hero,
             capability,
         }
+    }
+
+    /// CP-Q43: Carl's reinforced-fist grant raises its notice from the same event,
+    /// by the data row's text, at most 13 characters and inside the notice frame;
+    /// Donut's grant of the same id is not Carl's notice.
+    #[test]
+    fn the_reinforced_fist_grant_raises_its_notice_from_the_data_row() {
+        let row = crate::story_unlock::StoryTable::active()
+            .notice("fist_reinforced")
+            .unwrap();
+        assert_eq!(
+            notice_for_event(&granted(0, "fist_reinforced")),
+            Some(LabelId::HeavyFist)
+        );
+        assert_eq!(
+            LabelId::for_notice_text(&row.text),
+            Some(LabelId::HeavyFist)
+        );
+        assert_eq!(LabelId::HeavyFist.text(), row.text);
+        assert!(LabelId::HeavyFist.text().len() <= 13);
+        let layout = HudLayout::new(360, 288);
+        assert!(text_width_px(HudFont::Jersey, LabelId::HeavyFist.text()) <= layout.notice.w - 14);
+        assert_eq!(notice_for_event(&granted(1, "fist_reinforced")), None);
     }
 
     /// DP-Q12: Donut's two grants raise their notices, from the same event, and the

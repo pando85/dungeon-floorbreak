@@ -215,6 +215,11 @@ pub struct MoveSpec {
     pub chain: Option<Chain>,
     /// A forward step during the move, if any.
     pub root_step: Option<RootStep>,
+    /// CARL-PROG-01 CP-Q40: a hit by this move cancels the committed phase of
+    /// the target's attack (the goblin's smear and impact, the Engineer's launch
+    /// and ram) instead of only damaging it. Appended, `false` for every move of
+    /// the table; only Carl's reinforced fist sets it ([`crate::carl_prog`]).
+    pub pierces_commit: bool,
 }
 
 impl MoveSpec {
@@ -239,6 +244,7 @@ pub const GREYBOX_STRIKE: MoveSpec = MoveSpec {
     reaction: Reaction::NONE,
     chain: None,
     root_step: None,
+    pierces_commit: false,
 };
 
 /// Carl's jab (`punch_a` of the melee art): startup 3, active 2, recovery 9.
@@ -267,6 +273,7 @@ pub const CARL_JAB: MoveSpec = MoveSpec {
         earliest: 7,
     }),
     root_step: None,
+    pierces_commit: false,
 };
 
 /// Carl's haymaker (`punch_b`, an overhand chop): startup 5, active 3, recovery
@@ -293,6 +300,7 @@ pub const CARL_HAYMAKER: MoveSpec = MoveSpec {
         to_tick: HAYMAKER_STEP_TICKS,
         px_per_tick: HAYMAKER_STEP_PX / HAYMAKER_STEP_TICKS as f32,
     }),
+    pierces_commit: false,
 };
 
 /// Carl's push kick (`kick` of the melee art): startup 13, active 4,
@@ -317,6 +325,7 @@ pub const CARL_PUSH_KICK: MoveSpec = MoveSpec {
     },
     chain: None,
     root_step: None,
+    pierces_commit: false,
 };
 
 /// Donut's swat (Q10-02..05): startup 4, active 3, recovery 7; the box
@@ -345,6 +354,7 @@ pub const DONUT_SWAT: MoveSpec = MoveSpec {
         earliest: 10,
     }),
     root_step: None,
+    pierces_commit: false,
 };
 
 /// Donut's pounce (Q10-10, 11, 13, 14): crouch 10, flight, a pin and a recovery
@@ -365,6 +375,7 @@ pub const DONUT_POUNCE: MoveSpec = MoveSpec {
     reaction: Reaction::from_feel(POUNCE_FEEL),
     chain: None,
     root_step: None,
+    pierces_commit: false,
 };
 
 /// Donut's Magic Missile (mana v0): release on cast tick 4 (the bolt spawns),
@@ -384,6 +395,7 @@ pub const MAGIC_MISSILE: MoveSpec = MoveSpec {
     reaction: Reaction::from_feel(MISSILE_FEEL),
     chain: None,
     root_step: None,
+    pierces_commit: false,
 };
 
 /// Donut's move table (the hit data of the swat, the pounce and the missile).
@@ -451,6 +463,7 @@ impl Cf02Moves {
                     to_tick: u16::from(steps),
                     px_per_tick: f32::from(t.q02_stomp_step_px) / f32::from(steps),
                 }),
+                pierces_commit: false,
             },
             follow_kick: MoveSpec {
                 id: MoveId::FollowKick,
@@ -476,6 +489,7 @@ impl Cf02Moves {
                 },
                 chain: None,
                 root_step: None,
+                pierces_commit: false,
             },
             dive_stomp: MoveSpec {
                 id: MoveId::DiveStomp,
@@ -494,6 +508,7 @@ impl Cf02Moves {
                 },
                 chain: None,
                 root_step: None,
+                pierces_commit: false,
             },
         }
     }

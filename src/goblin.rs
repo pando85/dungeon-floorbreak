@@ -377,6 +377,15 @@ impl Goblin {
         self.y <= self.floor_y && self.vy <= 0.0
     }
 
+    /// In the committed part of an attack: the common goblin's smear and impact,
+    /// the Engineer's launch and ram (CP-Q40: what a piercing hit interrupts).
+    pub fn committed_swing(&self) -> bool {
+        matches!(
+            self.attack_phase(),
+            Some(AttackPhase::Smear | AttackPhase::Impact)
+        )
+    }
+
     /// In a tell or a swing: holds one of the attack tokens. The token goes
     /// back when the swing ends (recovery) or the attack is cancelled.
     pub fn token_held(&self) -> bool {
@@ -1348,10 +1357,13 @@ impl Goblin {
             }
             HitOutcome::Defeated
         } else {
-            let committed = matches!(
-                self.attack_phase(),
-                Some(AttackPhase::Smear | AttackPhase::Impact)
-            );
+            // CP-Q40: a move that pierces a commitment treats the swing (and the
+            // Engineer's launch and ram) as an interruptible phase.
+            let committed = !spec.pierces_commit
+                && matches!(
+                    self.attack_phase(),
+                    Some(AttackPhase::Smear | AttackPhase::Impact)
+                );
             // ENG-G-Q13: a hit on the dazed Engineer deals its damage and hit-stop
             // only (the timer is unchanged); a launch, a knockdown (the dive, the
             // stomp) or a lethal hit overrides it.
@@ -1614,6 +1626,85 @@ mod tests {
         assert_eq!(outcome, HitOutcome::Defeated);
         assert_eq!(g.mode, GoblinMode::Airborne);
         assert!(!g.token_held());
+    }
+
+    /// CP-Q40: a hit by a move with `pierces_commit` takes a common goblin out of
+    /// its smear and impact (attack ticks 24..=29, the committed phases) and
+    /// changes nothing on any other tick; the same hit without the field is the
+    /// old armoured damage. Both edges of the window, both facings, and both
+    /// punches.
+    #[test]
+    fn a_piercing_hit_cancels_exactly_the_committed_phases() {
+        for punch in [CARL_JAB, CARL_HAYMAKER] {
+            let pierce = MoveSpec {
+                pierces_commit: true,
+                ..punch
+            };
+            for facing in [1i8, -1] {
+                for tick in 0..IMPACT_END + 8 {
+                    let mk = || {
+                        let mut g = goblin_at(428.0);
+                        g.mode = GoblinMode::Attack;
+                        g.attack_tick = tick;
+                        g
+                    };
+                    let committed = (TELL_TICKS..IMPACT_END).contains(&tick);
+                    let (mut plain, mut pierced) = (mk(), mk());
+                    let (out_a, stop_a) = plain.take_hit(&punch, facing);
+                    let (out_b, stop_b) = pierced.take_hit(&pierce, facing);
+                    assert_eq!(out_a, out_b, "damage is the same, tick {tick}");
+                    assert_eq!(stop_a, stop_b);
+                    assert_eq!(
+                        plain.mode == GoblinMode::Attack,
+                        committed,
+                        "the old rule, tick {tick}"
+                    );
+                    assert_eq!(pierced.mode, GoblinMode::Hurt, "pierced, tick {tick}");
+                    assert_eq!(pierced.stagger_left, punch.reaction.stagger_ticks);
+                    assert_eq!(pierced.vx, f32::from(facing) * punch.reaction.knock_vx);
+                    assert!(!pierced.token_held(), "the token goes back");
+                    if !committed {
+                        // Outside the committed phases the move changes nothing.
+                        assert_eq!(
+                            (plain.mode, plain.stagger_left, plain.vx, plain.vy),
+                            (pierced.mode, pierced.stagger_left, pierced.vx, pierced.vy),
+                            "tick {tick}"
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    /// CP-Q40: the Engineer's committed phases are his launch (smear) and ram
+    /// (impact); rear and point are the tell and recover and bonk are the
+    /// recovery. A piercing hit interrupts the launch and the ram and is the old
+    /// hit on the tell.
+    #[test]
+    fn a_piercing_hit_cancels_the_engineers_launch_and_ram() {
+        let pierce = MoveSpec {
+            pierces_commit: true,
+            ..CARL_JAB
+        };
+        for phase in [
+            EngineerPhase::Rear,
+            EngineerPhase::Point,
+            EngineerPhase::Launch,
+            EngineerPhase::Ram,
+        ] {
+            let committed = matches!(phase, EngineerPhase::Launch | EngineerPhase::Ram);
+            let mut plain = engineer_in(phase, 272.0);
+            let mut pierced = plain.clone();
+            assert_eq!(plain.committed_swing(), committed, "{phase:?}");
+            plain.hit_stop = 0;
+            pierced.hit_stop = 0;
+            plain.take_hit(&CARL_JAB, 1);
+            pierced.take_hit(&pierce, 1);
+            assert_eq!(plain.mode == GoblinMode::Attack, committed, "{phase:?}");
+            assert_eq!(pierced.mode, GoblinMode::Hurt, "{phase:?}");
+            assert!(!pierced.token_held(), "{phase:?}");
+            assert_eq!(pierced.health, plain.health, "damage unchanged, {phase:?}");
+        }
     }
 
     /// Hit-stop: no timer, no motion and no swing progress of the frozen

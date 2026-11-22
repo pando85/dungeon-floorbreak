@@ -1,0 +1,9 @@
+COMBAT_EVENT tick=20 kind=move_started move=jab instance=1
+COMBAT_EVENT tick=23 kind=shore_hit instance=1 hits=1
+COMBAT_EVENT tick=27 kind=move_started move=haymaker instance=2
+COMBAT_EVENT tick=32 kind=shore_hit instance=2 hits=3
+COMBAT_EVENT tick=32 kind=shore_broken player=0
+COMBAT_EVENT tick=68 kind=shore_landed
+COMBAT_EVENT tick=68 kind=enemy_defeated target=0 cause=shore_block credit_player=0
+COMBAT_STATE fixture=carl_prog_shore_combo seed=0xca10045 tick=200 elapsed=200 hero_hp=4 deaths=0 enemies=e0=484.000/0 hash=7d1125f0a4cb6bb9 shore=3/Broken/Landed block_bottom=0.00
+PARTY_STATE fixture=carl_prog_shore_combo mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=c1559befceb067bf
