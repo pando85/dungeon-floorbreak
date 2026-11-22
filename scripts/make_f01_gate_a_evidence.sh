@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # PT-GATE-A evidence (plan section 10, items 3, 4 and 7), into docs/evidence/f01-playtest/:
-#   1. frame time with gore preset 4 in the Boiler's full chain (scripts/room_perf.sh), three
-#      runs, plus one NON-FINAL run of the mastery arena (PT-TUNE will change its waves);
+#   1. (frame time: scripts/make_f01_gate_a_perf.sh, run on its own on a quiet machine);
 #   2. the two grant moments: the Juicer's defeat (the gauntlet and the blink) played by the
 #      PT-SCENE-B pilot, and the dynamite grant by the PLACEHOLDER-ZONE fixture (room 1, the
 #      Hoarder, is not at HRD-B);
@@ -24,18 +23,9 @@ sessions="${SESSIONS:-artifacts/f01-playtest-sessions}"
 out=docs/evidence/f01-playtest
 rm -rf "$caps" "$sessions"
 mkdir -p "$caps" "$sessions" "$out"
-rm -f "$out"/*.gif "$out"/*.png "$out"/*.txt "$out"/SHA256SUMS
+rm -f "$out"/*.gif "$out"/*.png "$out"/grant_lines.txt "$out"/playtrace_sessions.txt
 xvfb() { xvfb-run -a -s '-screen 0 1280x720x24' "$@"; }
 last_state() { grep '^COMBAT_STATE ' "$1" | tail -n 1 | sed -E 's/.* hash=([0-9a-f]+).*/\1/'; }
-
-# 1. Frame time (three Boiler runs: the interval is wall-clock, so it varies run to run).
-: > "$out/perf.txt"
-for run in 1 2 3; do
-  echo "# boiler chain, run $run" >> "$out/perf.txt"
-  bash scripts/room_perf.sh boiler chain 950 | grep -v '^log=' >> "$out/perf.txt"
-done
-echo "# mastery arena, NON-FINAL (PT-TUNE changes the waves; re-run after it)" >> "$out/perf.txt"
-bash scripts/room_perf.sh mastery mastery 3000 | grep -v '^log=' >> "$out/perf.txt"
 
 # 2. The grant moments. The Juicer: 76 frames from tick 3150, 6 ticks (100 ms) a frame; the defeat and
 # both grants are tick 3175, the pilot reaches the exit on tick 3255 and the room's sim stops there, so

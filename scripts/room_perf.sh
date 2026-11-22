@@ -11,13 +11,14 @@
 #
 # Examples (the committed numbers are in docs/evidence/f01-playtest/):
 #   bash scripts/room_perf.sh boiler chain 950      # the Boiler's full chain
-#   bash scripts/room_perf.sh mastery mastery 3000  # the mastery arena (re-run after PT-TUNE)
+#   bash scripts/room_perf.sh mastery mastery 3000  # the mastery arena (PT-GATE-B runs it on the tuned room)
 #
 # The run is a real Bevy window under xvfb-run at 640x360, 1x, gore preset 4, lighting on,
 # AutoNoVsync, no audio. Under xvfb the swapchain is a virtual X display (the frame is
 # copied by the X server), so the frame interval is bounded by that path: it is NOT a
 # real-display or handheld frame time. `gpu_ms_*` (summed timed render passes) and
-# `tick_us_*` (the room pilot's simulation tick on the CPU) are reported next to it.
+# `tick_us_*` (the room pilot's simulation tick on the CPU) are reported next to it. The interval
+# is wall-clock: `loadavg_after` is printed so a run on a busy machine is not mistaken for a clean one.
 #
 #   BIN=<floor01_scene> (default ./target/debug/floor01_scene), the exported atlases
 #   (bash scripts/export_assets.sh) and xvfb-run. Prints one ROOM_PERF line (and writes the
@@ -40,7 +41,8 @@ adapter="$(grep -o 'AdapterInfo { name: "[^"]*"[^}]*device_type: [A-Za-z]*' "$lo
   | sed -E 's/AdapterInfo \{ name: "([^"]*)".*device_type: ([A-Za-z]*)/\1 (\2)/')"
 cpu="$(grep -m1 'model name' /proc/cpuinfo | sed -E 's/.*: //')"
 last_tick="$(grep '^FLOOR1_PERF_TICK ' "$log" | tail -n 1 | sed -E 's/.*tick=([0-9]+).*/\1/')"
-echo "ROOM_PERF room=$room plan=$plan last_tick=$last_tick cpu=\"$cpu\" adapter=\"${adapter:-unknown}\" display=xvfb profile=debug"
+load="$(cut -d' ' -f1-3 /proc/loadavg)"
+echo "ROOM_PERF room=$room plan=$plan last_tick=$last_tick cpu=\"$cpu\" adapter=\"${adapter:-unknown}\" display=xvfb profile=debug loadavg_after=\"$load\""
 echo "$perf"
 echo "$cpu_gpu"
 echo "$(grep '^FLOOR1_PERF_MEM ' "$log" | tail -n 1)"

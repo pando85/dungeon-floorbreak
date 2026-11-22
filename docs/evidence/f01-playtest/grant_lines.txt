@@ -1,0 +1,5 @@
+GATE_A_GRANT juicer ROOM_CAPTURE room=juicer plan=juicer frames=76 first_tick=3150 step=6 last_tick=3600 window_hash=b9ae1ec12ccb1f8d headless_hash=b9ae1ec12ccb1f8d timed_hash=skipped match=yes
+GATE_A_JUICER_EVENT COMBAT_EVENT tick=3175 kind=capability_granted hero=0 capability=fist_reinforced
+GATE_A_JUICER_EVENT COMBAT_EVENT tick=3175 kind=capability_granted hero=1 capability=special_short_blink
+GATE_A_GRANT dynamite (placeholder-zone fixture) fixture=carl_prog_story_event_grants_dynamite first_tick=36 step=3 last_tick=105 window_hash=479d1cec3cfff4c6 headless_hash=479d1cec3cfff4c6 match=yes
+GATE_A_DYNAMITE_EVENT COMBAT_EVENT tick=69 kind=capability_granted hero=0 capability=special_thrown_charge
