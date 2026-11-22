@@ -39,6 +39,10 @@ Read [F03-CITY-01](../01-design/floor-03-skyfowl-city-and-quill-encounters.md), 
 
 **Priority:** Floor02 connected first, then Floor03 opening/circus playable slice; City/Remex preproduction art and isolated state tests may run in parallel without touching shared F01/F02 hot files. No agent can mark Floor03 complete from a coherent art storyboard alone.
 
+## Cross-floor continuity: one integrator, not two campaign routers
+
+[CAMPAIGN-BRIDGE-01](../03-tech/floor-03-campaign-bridge-acceptance.md) is the authoritative **proposal and acceptance test matrix** for Floor01→02→03→04 story/ability carry, nonlethal Grimaldi, false early stairs, true party exits, Quill-before-Remex and two separate explosive crises. Read it before implementing scene route, checkpoint, plot flags or Floor03 class identity. Existing Rust `UnlockLedger` owns abilities but does not automatically constitute a generic narrative flag system; the bridge contract explicitly calls for an API audit and minimal tested extension. **Do not build a second, incompatible F03-only route manager while Floor02 integrator is working.**
+
 ## 1. Hierarchy of work
 
 **P0:** Floor01 owner game-feel/accepted core, Floor02 S00–S03 actual connected combat, camera/input and replay.
