@@ -30,6 +30,14 @@ The targeted high-risk implementation specs are [F02-RK-01](../01-design/floor-0
 
 **P0 release checks:** no unreachable direct path, no unavoidable overlapping attack with no legal counter, no ability leak, no weak/damaged env duplication, no camera/party softlock, no S07 floor advance. **P1 investigations:** stationary Donut trivializes mixed waves; companion passive; environmental chain causes no genuine distinct gameplay result; Ralph too small to hit fairly. **Human gate:** game-feel and real two-pad play remain unmeasured until owner session. Preserve current Floor 01 caps and baseline before making cross-cutting changes.
 
+## Week-away implementation/owner entry packet
+
+- [F02-ARCH-01 — verified current Rust and JSON seam audit and floor-neutral route approach](../03-tech/floor-02-engine-reuse-and-route-contract.md).
+- [F02-EXEC-01 — W00–W16 execution DAG, PR sequencing, parallel lane ownership, fallback work and return packet](../07-agents/floor-02-vacation-execution-packet.md).
+- [GAMEPLAY-BASELINE-V1 — unfilled pretrip owner test template](floor-02-pretrip-gameplay-baseline-template.md), **not proof of any owner pass**.
+
+**Decision:** prioritize a real, connected S00–S03 vertical slice (intro + Mind Horror + Rev-Up + Krakaren) and its direct/environment counterfactuals before mass-producing content. If Floor01 E2E is not implemented, this may be an F02 story-safe isolated entry, **not** a falsely claimed full campaign transition. Pure logic, original art and authored tests may progress during a known shared-core blocker. Every scene carries separate source, bot, renderer and owner statuses.
+
 ## Product objective
 
 A **linear arcade-combat** Floor 02 that feels visually independent from Floor 01, stays replayable, uses physical collisions and authored destructible props, has two direct-combat bosses (Krakaren Clone and Ralph), one **unbeatable rule-based flight** (Rage Elemental), a protective Meadow Lark setpiece and a quiet Mongo introduction. All floor-specific work should be usable as isolated probes before connecting the complete route.
