@@ -2,11 +2,12 @@
 # PT-GATE-A evidence (plan section 10, items 3, 4 and 7), into docs/evidence/f01-playtest/:
 #   1. (frame time: scripts/make_f01_gate_a_perf.sh, run on its own on a quiet machine);
 #   2. the two grant moments: the Juicer's defeat (the gauntlet and the blink) played by the
-#      PT-SCENE-B pilot, and the dynamite grant by the PLACEHOLDER-ZONE fixture (room 1, the
-#      Hoarder, is not at HRD-B);
-#   3. one recorded session per listed room (2 Boiler, 4 hazards, 5 Juicer) played by the
-#      scripted pilots in the real window, verified with `playtrace verify` (PASS, scope full),
-#      and the journal's CapabilityGranted lines counted. Room 6 (mastery) waits for PT-TUNE.
+#      PT-SCENE-B pilot, and the dynamite grant by the PLACEHOLDER-ZONE fixture (gate item 3 allows
+#      the placeholder ONLY IF room 1, the Hoarder, is NOT LISTED; if PT-GATE-B lists room 1, a live
+#      journal grant at her defeat is required instead, and no pilot defeats her yet);
+#   3. one recorded session per room (2 Boiler, 4 hazards, 5 Juicer) played by the scripted pilots
+#      in the real window, verified with `playtrace verify` (PASS, scope full), and the journal's
+#      CapabilityGranted lines counted. Room 6 (mastery) is PT-GATE-B's, on the tuned room.
 # Needs the debug binaries (cargo build --locked --bin floor01_scene --bin playtrace), the
 # exported atlases (bash scripts/export_assets.sh), xvfb-run and Pillow. The README is hand-written.
 # Never records a human: every session is a scripted pilot (run_kind ScriptedBot).
@@ -14,13 +15,24 @@
 #   PT=<playtrace>           (default ./target/debug/playtrace)
 #   CAPTURES=<scratch dir>   (default artifacts/f01-playtest-captures)
 #   SESSIONS=<scratch dir>   (default artifacts/f01-playtest-sessions; never inside docs/)
+# Both are deleted and recreated, so each must resolve to a folder strictly inside the repo's
+# artifacts/ directory; anything else (empty, /, ., .., docs, src, outside the repo) is refused.
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 export BIN="${BIN:-./target/debug/floor01_scene}"
 pt="${PT:-./target/debug/playtrace}"
-caps="${CAPTURES:-artifacts/f01-playtest-captures}"
-sessions="${SESSIONS:-artifacts/f01-playtest-sessions}"
+caps="${CAPTURES-artifacts/f01-playtest-captures}"
+sessions="${SESSIONS-artifacts/f01-playtest-sessions}"
 out=docs/evidence/f01-playtest
+repo="$(pwd -P)"
+safe_scratch() { # name value: refuse anything that is not a folder strictly inside artifacts/
+  local resolved
+  [[ -n "$2" ]] || { echo "$1 is empty" >&2; exit 2; }
+  resolved="$(realpath -m -- "$2")"
+  [[ "$resolved" == "$repo"/artifacts/?* ]] || { echo "$1=$2 must be inside $repo/artifacts/" >&2; exit 2; }
+}
+safe_scratch CAPTURES "$caps"
+safe_scratch SESSIONS "$sessions"
 rm -rf "$caps" "$sessions"
 mkdir -p "$caps" "$sessions" "$out"
 rm -f "$out"/*.gif "$out"/*.png "$out"/grant_lines.txt "$out"/playtrace_sessions.txt

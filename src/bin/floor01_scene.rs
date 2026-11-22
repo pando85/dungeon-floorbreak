@@ -1507,6 +1507,16 @@ fn parse_args_full(
         {
             return Err("--room-pilot needs a scripted run: --capture-sequence, --capture-tick, --headless-floor01-smoke, --exit-after-ticks or --perf-from-tick".into());
         }
+        // The mastery and juicer plans are solo: slot 1 would play the CF02 Donut pilot, which is
+        // neither the PT-MASTERY nor the PT-SCENE-B pilot, and the run would pass for theirs.
+        if pilot.two_player
+            && matches!(
+                pilot.plan,
+                room_pilots::Plan::Mastery | room_pilots::Plan::Juicer
+            )
+        {
+            return Err("--room-pilot mastery and juicer are solo plans (no :2p)".into());
+        }
         // The perf probe steps one slot-0 pilot tick per frame outside the live
         // party, so a two-player pilot (Donut's slot) is not measured.
         if parsed.perf_from_tick.is_some() && pilot.two_player {
@@ -8548,6 +8558,9 @@ mod tests {
         assert!(args(&[&juicer[..], &["--room-pilot", "juicer"]].concat()).is_ok());
         assert!(args(&[&juicer[..], &["--room-pilot", "direct"]].concat()).is_err());
         assert!(with(&["--room-pilot", "juicer", "--headless-floor01-smoke"]).is_err());
+        // :2p is refused for the two solo plans.
+        assert!(on_mastery(&["--room-pilot", "mastery:2p", "--headless-floor01-smoke"]).is_err());
+        assert!(args(&[&juicer[..], &["--room-pilot", "juicer:2p"]].concat()).is_err());
         let perf = ["--perf-frames", "50", "--perf-from-tick", "0"];
         let solo: Vec<&str> = ["--room-pilot", "chain"].into_iter().chain(perf).collect();
         assert!(with(&solo).is_ok());

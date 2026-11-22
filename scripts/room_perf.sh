@@ -11,13 +11,16 @@
 #
 # Examples (the committed numbers are in docs/evidence/f01-playtest/):
 #   bash scripts/room_perf.sh boiler chain 950      # the Boiler's full chain
-#   bash scripts/room_perf.sh mastery mastery 3000  # the mastery arena (PT-GATE-B runs it on the tuned room)
+#   bash scripts/room_perf.sh mastery mastery 1191  # the mastery arena: FRAMES = the pilot's exit tick + 1
 #
 # The run is a real Bevy window under xvfb-run at 640x360, 1x, gore preset 4, lighting on,
 # AutoNoVsync, no audio. Under xvfb the swapchain is a virtual X display (the frame is
-# copied by the X server), so the frame interval is bounded by that path: it is NOT a
-# real-display or handheld frame time. `gpu_ms_*` (summed timed render passes) and
-# `tick_us_*` (the room pilot's simulation tick on the CPU) are reported next to it. The interval
+# copied by the X server): the interval is NOT a real-display or handheld frame time. That
+# the X copy paces it near 16.6 ms is a hypothesis (a median of 16.2 to 16.6 ms under
+# AutoNoVsync), not measured. `gpu_ms_*` (summed timed render passes) and
+# `tick_us_*` (the room pilot's simulation tick on the CPU) are reported next to it; together they
+# are a LOWER BOUND of the frame cost (main-thread presentation, extract and prepare are not
+# measured). Size FRAMES to the pilot's exit tick + 1 so no frame measures a finished, static room. The interval
 # is wall-clock: `loadavg_after` is printed so a run on a busy machine is not mistaken for a clean one.
 #
 #   BIN=<floor01_scene> (default ./target/debug/floor01_scene), the exported atlases
