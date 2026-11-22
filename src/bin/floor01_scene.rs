@@ -1530,6 +1530,12 @@ fn parse_args_full(
         {
             return Err("--room-pilot mastery needs --f01-room mastery and --room-pilot juicer needs --f01-room juicer, and each of those rooms takes only its own plan".into());
         }
+        // PT-GATE-D: the room 4 route plays the hazards room and nothing else.
+        if pilot.plan == room_pilots::Plan::HazSpectacular && !parsed.f01_hazards {
+            return Err(
+                "--room-pilot haz_spectacular needs the hazards room (--f01-room hazards)".into(),
+            );
+        }
         if !(parsed.headless
             || parsed.capture_tick.is_some()
             || parsed.capture_sequence.is_some()
@@ -1543,10 +1549,14 @@ fn parse_args_full(
         if pilot.two_player
             && matches!(
                 pilot.plan,
-                room_pilots::Plan::Mastery | room_pilots::Plan::Juicer
+                room_pilots::Plan::Mastery
+                    | room_pilots::Plan::Juicer
+                    | room_pilots::Plan::HazSpectacular
             )
         {
-            return Err("--room-pilot mastery and juicer are solo plans (no :2p)".into());
+            return Err(
+                "--room-pilot mastery, juicer and haz_spectacular are solo plans (no :2p)".into(),
+            );
         }
         // PT-GATE-C1: an aligned pilot is the library fixture's run: its seed is the
         // room's seed (the mastery room draws temperaments from it), and its partner
@@ -8706,6 +8716,32 @@ mod tests {
         assert!(args(&[&juicer[..], &["--room-pilot", "juicer"]].concat()).is_ok());
         assert!(args(&[&juicer[..], &["--room-pilot", "direct"]].concat()).is_err());
         assert!(with(&["--room-pilot", "juicer", "--headless-floor01-smoke"]).is_err());
+        // PT-GATE-D: the room 4 route plays the hazards room only, and solo.
+        let hazards = [
+            "--scene",
+            "f01_late",
+            "--f01-room",
+            "hazards",
+            "--headless-floor01-smoke",
+        ];
+        assert!(args(&[&hazards[..], &["--room-pilot", "haz_spectacular"]].concat()).is_ok());
+        assert!(args(&[&hazards[..], &["--room-pilot", "haz_spectacular:2p"]].concat()).is_err());
+        assert!(
+            with(&[
+                "--room-pilot",
+                "haz_spectacular",
+                "--headless-floor01-smoke"
+            ])
+            .is_err()
+        );
+        assert!(
+            on_mastery(&[
+                "--room-pilot",
+                "haz_spectacular",
+                "--headless-floor01-smoke"
+            ])
+            .is_err()
+        );
         // :2p is refused for the two solo plans.
         assert!(on_mastery(&["--room-pilot", "mastery:2p", "--headless-floor01-smoke"]).is_err());
         assert!(args(&[&juicer[..], &["--room-pilot", "juicer:2p"]].concat()).is_err());

@@ -6,7 +6,8 @@
 #   3. five at-speed ability GIFs for the abilities whose committed GIFs are slowed down or faster than
 #      game speed (chain, reflex, Magic Missile, Light on Your Feet, Puddle Jumper), each checked
 #      window against headless, each generated twice and compared;
-#   4. one PLAYTRACE session of room 6 (scripted pilot, real window), verified strict;
+#   4. one PLAYTRACE session of room 6 (scripted pilot `--room-pilot mastery` = `mastery:carl_solo:0`, real window,
+#      ticks 0 to 760: the exit is reached on tick 737), verified strict;
 #   5. the scorecard (scorecard.md): the committed scripted pilots at seeds 0..8, the PT-TUNE D1 to D6
 #      figures and the CA2 metrics M1 to M16 of the arena, plus room 4's single room-pilot run.
 # Perf is scripts/make_f01_gate_b_perf.sh (run on its own on a quiet machine).
@@ -58,12 +59,14 @@ fixture_gif() { # pass name fixture first:step:count step_ticks
 }
 for pass in a b; do
   mkdir -p "$caps/$pass"
-  # The mastery arena's second wave, W2 (the llama yard): ticks 560 to 854, 6 ticks a frame.
-  bash scripts/room_capture.sh mastery mastery 560:6:50 "$caps/$pass/wave-w2" \
+  # The mastery arena's second wave, W2 (the llama yard): ticks 440 to 734, 6 ticks a frame. The room pilot is the
+  # aligned `carl_solo` seed 0 run (PT-GATE-C1), which reaches the exit on tick 737 (the pre-C1 follower-bot pilot
+  # was in this wave from tick 560 to 854).
+  bash scripts/room_capture.sh mastery mastery 440:6:50 "$caps/$pass/wave-w2" \
     | { [[ "$pass" == a ]] && sed 's/^/GATE_B_WAVE /' >> "$out/capture_lines_b.txt" || cat > /dev/null; }
   python3 scripts/room_gif.py "$caps/$pass/wave-w2" "$caps/$pass/wave-mastery-w2.gif" --step-ticks 6
   # The same wave in the 640x400 deck view.
-  bash scripts/room_capture.sh mastery mastery 560:6:50 "$caps/$pass/wave-w2-deck" --deck \
+  bash scripts/room_capture.sh mastery mastery 440:6:50 "$caps/$pass/wave-w2-deck" --deck \
     | { [[ "$pass" == a ]] && sed 's/^/GATE_B_WAVE_640x400 /' >> "$out/capture_lines_b.txt" || cat > /dev/null; }
   python3 scripts/room_gif.py "$caps/$pass/wave-w2-deck" "$caps/$pass/wave-mastery-w2-640x400.gif" --step-ticks 6
   fixture_gif "$pass" ability-chain carl_prog_dyn_chain_depth_cap 188:3:20 3
@@ -81,10 +84,10 @@ echo "GATE_B_BYTE_STABLE gifs=7 passes=2 result=identical" >> "$out/capture_line
 # 4. One recorded session of room 6, scripted pilot, real window, verified with the same source.
 dir="$sessions/mastery"; log="$sessions/mastery.log"; mkdir -p "$dir"
 xvfb "$BIN" --scale 1 --no-audio --scene f01_late --f01-room mastery --room-pilot mastery \
-  --record --record-dir "$dir" --exit-after-ticks 1300 > "$log" 2>&1
+  --record --record-dir "$dir" --exit-after-ticks 760 > "$log" 2>&1
 id="$(ls "$dir")"
 {
-  echo "== room=mastery plan=mastery label=mastery exit_after_ticks=1300"
+  echo "== room=mastery plan=mastery label=mastery exit_after_ticks=760"
   grep '^PLAYTRACE_SAVED ' "$log" | sed -E 's/^(PLAYTRACE_SAVED) session=[0-9a-f]+ (.*)/\1 \2/'
   "$pt" verify "$id" --dir "$dir" --root . | grep -E '^PLAYTRACE_VERIFY(_CHECKS)? ' | sed -E 's/session=[0-9a-f]+ //'
   "$pt" inspect "$id" --dir "$dir" | grep -E '^  (schema|reset|ticks|episodes)' | sed 's/^/inspect:/'
@@ -106,19 +109,24 @@ count() { grep -c "kind=$1" <<<"$hz" || true; }
   echo "| --- | --- | --- | --- | --- | --- |"
   grep -E '^(direct|valve|chain) ' docs/evidence/f01-boiler/pilot_hashes.txt | sed -E 's/^([a-z]+) tick=([0-9]+) hp=([0-9]+) deaths=([0-9]+) complete=([a-z]+) hash=([0-9a-f]+)$/| \1 | \2 | \3 | \4 | \5 | \6 |/'
   echo
-  echo "Donut by swap and the companion on the live room, at seeds 0..8: NOT RUN (no such pilot exists)."
+  echo "The per-seed live rows are in the \"live room\" table above."
 } >> "$out/scorecard.md"
 {
   echo
-  echo "## Room 4, the hazards room (the \`direct\` room pilot, one run to tick 1500; no per-seed pilots exist)"
+  echo "## Room 4, the hazards room: the filming room pilots (one run each; the per-seed table is above)"
   echo
-  echo "| Pilot | Hero defeats | Respawns | Hurts | Blasts | Rot stickers woken | Enemies left | Final state |"
+  echo "| Pilot | Hero defeats | Respawns | Hurts | Blasts | Rot stickers woken | Enemy entries (dead and alive) | Final state |"
   echo "| --- | --- | --- | --- | --- | --- | --- | --- |"
   state="$(grep '^COMBAT_STATE ' <<<"$hz" | tail -n 1 | sed -E 's/.* hero_hp=([0-9]+) deaths=([0-9]+) enemies=.* hash=([0-9a-f]+) .*/hp \1, deaths \2, hash \3/')"
   left="$(grep '^F01_HAZARDS_SMOKE_OK ' <<<"$hz" | sed -E 's/.* enemies=([0-9]+) .*/\1/')"
   echo "| direct (solo Carl, plus the follower bot) | $(count hero_defeated) | $(count respawn) | $(count hero_hurt) | $(count blast) | $(count rot_provoked) | ${left:-NOT RUN} | $state |"
+  sp="$("$BIN" --headless-floor01-smoke --scene f01_late --f01-room hazards --room-pilot haz_spectacular --capture-tick 1500 2>&1)"
+  scount() { grep -c "kind=$1" <<<"$sp" || true; }
+  sstate="$(grep '^COMBAT_STATE ' <<<"$sp" | tail -n 1 | sed -E 's/.* hero_hp=([0-9]+) deaths=([0-9]+) enemies=.* hash=([0-9a-f]+) .*/hp \1, deaths \2, hash \3/')"
+  sleft="$(grep '^F01_HAZARDS_SMOKE_OK ' <<<"$sp" | sed -E 's/.* enemies=([0-9]+) .*/\1/')"
+  echo "| haz_spectacular (dynamite lights the latched sticker; solo Carl, plus the follower bot) | $(scount hero_defeated) | $(scount respawn) | $(scount hero_hurt) | $(scount blast) | $(scount rot_provoked) | ${sleft:-NOT RUN} | $sstate |"
   echo
-  echo "The room pilot walks into the pockets and is defeated and retries; it does not dodge hazards (it is a filming pilot, not a player). Solo Donut by swap and the companion have no per-seed pilot in this room: NOT RUN."
+  echo "The \`direct\` room pilot walks into the pockets and is defeated and retries; it does not dodge hazards (it is a filming pilot, not a player). \`haz_spectacular\` is the PT-TUNE pilot plus one dynamite throw (PT-GATE-D). The tactical route (a latched Rot baited over a goblin) is NOT RUN: see the packet's known gaps."
 } >> "$out/scorecard.md"
 
 (cd "$out" && sha256sum ./*.gif ./*.png ./*.txt ./*.md | grep -v ' ./README.md$' | sed 's# \./# #' > SHA256SUMS)

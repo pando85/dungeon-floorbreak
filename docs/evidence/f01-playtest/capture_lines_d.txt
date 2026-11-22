@@ -1,0 +1,12 @@
+GATE_D_CAPTURE name=ability-chain fixture=carl_prog_dyn_chain_depth_cap view=640x400 first_tick=188 step=3 last_tick=245 window_hash=fc95d08402dd2500 headless_hash=fc95d08402dd2500 match=yes
+GATE_D_CAPTURE name=ability-reflex fixture=cf02_dm_reflex_cues view=640x400 first_tick=712 step=3 last_tick=799 window_hash=1a1efd7d6b7f49e7 headless_hash=1a1efd7d6b7f49e7 match=yes
+GATE_D_CAPTURE name=ability-magic-missile fixture=cf02_assist_donut_missiles_goblin view=640x400 first_tick=8 step=2 last_tick=70 window_hash=3bacdb3af5f24f67 headless_hash=3bacdb3af5f24f67 match=yes
+GATE_D_CAPTURE name=ability-light-on-your-feet fixture=donut_prog_arena_ledge_boost view=640x400 first_tick=28 step=2 last_tick=100 window_hash=b1d1521f4d9f479a headless_hash=b1d1521f4d9f479a match=yes
+GATE_D_CAPTURE name=ability-puddle-jumper fixture=donut_prog_arena_blink_tour view=640x400 first_tick=30 step=2 last_tick=108 window_hash=594ba96c8048247f headless_hash=594ba96c8048247f match=yes
+GATE_D_CAPTURE name=agile-run-race fixture=dm_run_race_2p view=640x400 first_tick=4 step=2 last_tick=124 window_hash=bd83dba55de9d1cd headless_hash=bd83dba55de9d1cd match=yes
+GATE_D_CAPTURE name=agile-jump-race fixture=dm_jump_race_2p view=640x400 first_tick=6 step=2 last_tick=168 window_hash=1fa6655cbec592d5 headless_hash=1fa6655cbec592d5 match=yes
+GATE_D_CAPTURE name=ring-outer-launch fixture=carl_prog_dyn_outer_launch view=640x400 first_tick=188 step=3 last_tick=251 window_hash=0dae5dc42b38188a headless_hash=0dae5dc42b38188a match=yes
+GATE_D_BYTE_STABLE gifs=8 view=640x400 passes=2 result=identical
+GATE_D_ROUTE view=640x360 room=hazards plan=haz_spectacular frames=41 first_tick=340 step=6 last_tick=580 window_hash=0ef81a96e60f1cfd headless_hash=0ef81a96e60f1cfd timed_hash=0ef81a96e60f1cfd match=yes
+GATE_D_ROUTE view=640x400 room=hazards plan=haz_spectacular frames=41 first_tick=340 step=6 last_tick=580 window_hash=199c5912c4d22e93 headless_hash=199c5912c4d22e93 timed_hash=199c5912c4d22e93 match=yes
+GATE_D_BYTE_STABLE gifs=2 route=room4-spectacular passes=2 result=identical

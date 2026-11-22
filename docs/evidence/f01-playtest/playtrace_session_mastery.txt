@@ -1,9 +1,9 @@
-== room=mastery plan=mastery label=mastery exit_after_ticks=1300
-PLAYTRACE_SAVED ticks=1300 status=Completed complete=true
-PLAYTRACE_VERIFY result=PASS scope=full ticks=1300 episodes=2 combat_events=77 control_events=8 build=identical
-PLAYTRACE_VERIFY_CHECKS state_hashes=1300 event_hashes=1300 effective_inputs=0 observations=2600 final_observations=4 diagnostics=1300 slot_routing=1300 labels=1300
+== room=mastery plan=mastery label=mastery exit_after_ticks=760
+PLAYTRACE_SAVED ticks=760 status=Completed complete=true
+PLAYTRACE_VERIFY result=PASS scope=full ticks=760 episodes=1 combat_events=85 control_events=6 build=identical
+PLAYTRACE_VERIFY_CHECKS state_hashes=760 event_hashes=760 effective_inputs=760 observations=1520 final_observations=2 diagnostics=760 slot_routing=760 labels=760
 inspect:  schema playtrace-session/1 participants OwnerOnly run_kind ScriptedBot mode solo_human
 inspect:  reset f01_room:f01_mastery demo_beat=0 cf02=true
-inspect:  ticks 1300 chunks 3 (closed 3) gaps 0 dropped_ticks 0 write_errors 0
-inspect:  episodes 2 combat_events 77 control_events 8
+inspect:  ticks 760 chunks 2 (closed 2) gaps 0 dropped_ticks 0 write_errors 0
+inspect:  episodes 1 combat_events 85 control_events 6
 journal_capability_granted_count=0

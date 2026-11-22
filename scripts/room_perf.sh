@@ -11,7 +11,7 @@
 #
 # Examples (the committed numbers are in docs/evidence/f01-playtest/):
 #   bash scripts/room_perf.sh boiler chain 950      # the Boiler's full chain
-#   bash scripts/room_perf.sh mastery mastery 1191  # the mastery arena: FRAMES = the pilot's exit tick + 1
+#   bash scripts/room_perf.sh mastery mastery 738   # the mastery arena: FRAMES = the pilot's exit tick (737) + 1
 #
 # The run is a real Bevy window under xvfb-run at 640x360, 1x, gore preset 4, lighting on,
 # AutoNoVsync, no audio. Under xvfb the swapchain is a virtual X display (the frame is

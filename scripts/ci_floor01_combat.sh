@@ -605,6 +605,18 @@ case "$mode" in
       fi
     done
     echo "F01_ALIGNED_PILOTS_OK: 4 aligned room pilots, each twice identical"
+    # PT-GATE-D: room 4's spectacular route: the dynamite lights the latched sticker (a Chain provoke), the
+    # exit is reached (the scene stops before tick 1500) and the run replays identically twice.
+    spectacular_a="$("$bin" --headless-floor01-smoke --scene f01_late --f01-room hazards --room-pilot haz_spectacular --capture-tick 1500)"
+    spectacular_b="$("$bin" --headless-floor01-smoke --scene f01_late --f01-room hazards --room-pilot haz_spectacular --capture-tick 1500)"
+    spectacular_ticks="$(sed -n 's/^F01_HAZARDS_SMOKE_OK ticks=\([0-9]*\) .*/\1/p' <<<"$spectacular_a")"
+    if [[ "$spectacular_a" != "$spectacular_b" ]] \
+      || ! grep -q 'kind=rot_provoked sticker=0 cause=Chain' <<<"$spectacular_a" \
+      || [[ -z "$spectacular_ticks" || "$spectacular_ticks" -ge 1500 ]]; then
+      echo "--room-pilot haz_spectacular did not light the latched sticker, clear the room and replay identically twice" >&2
+      exit 1
+    fi
+    echo "F01_HAZ_SPECTACULAR_OK: dynamite chain into the latched sticker, room cleared, twice identical"
     echo "F01_LATE_HEADLESS_OK: boiler, hazards, juicer and mastery, story and all, each twice identical"
     ;;
   render)
