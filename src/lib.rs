@@ -70,6 +70,7 @@ pub mod feel;
 pub mod follower;
 pub mod goblin;
 pub mod gore;
+pub mod hazards_art;
 pub mod hazards_fixtures;
 pub mod hero_damage;
 pub mod hoarder_fixtures;

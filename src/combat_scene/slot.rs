@@ -174,7 +174,7 @@ impl CombatState {
     /// `CompanionView.boss` plus its follow layer (`companion_view`) call it, so
     /// the two never disagree. Setup guarantees at most one supplier kind per
     /// room, and a fixture boss has none beside it.
-    pub(super) fn boss_threat(&self) -> Option<BossThreat> {
+    pub fn boss_threat(&self) -> Option<BossThreat> {
         self.boss
             .as_ref()
             .and_then(crate::boss::Boss::threat)
@@ -363,6 +363,9 @@ impl CombatState {
                     .is_none_or(|start| tick - start >= crate::feel::TELL_SPACING);
             let heroes = self.slot_hero_views(scene);
             let mut out = SlotOut::default();
+            // HAZ-B: the reflex is lent for the step and settled after it; with no
+            // evasion in the run the gate is not live and changes nothing.
+            let gate = std::cell::RefCell::new(self.evade_gate(scene));
             let ctx = SlotStepCtx {
                 tick,
                 heroes,
@@ -372,10 +375,12 @@ impl CombatState {
                 room,
                 view_x,
                 token_free,
+                evade: Some(&gate),
             };
             let enemy = &mut self.slot.enemies[index];
             let (id, was_alive) = (enemy.target_id(), enemy.alive());
             enemy.step(&ctx, &mut out);
+            self.settle_evade_gate(gate.into_inner());
             Self::check_defeat_logged(id, was_alive, self.slot.enemies[index].alive(), &out);
             if out.tell_started {
                 self.last_tell_start = Some(tick);

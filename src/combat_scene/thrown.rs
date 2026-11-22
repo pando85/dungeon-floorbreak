@@ -1808,7 +1808,8 @@ mod tests {
     };
 
     /// DM-B review item F2: a blast is never evadable. The allow-list is the
-    /// `EvadeSource` enum (a goblin swing, the Engineer's ram, a llama glob) and
+    /// `EvadeSource` enum (a goblin swing, the Engineer's ram, a llama glob, the
+    /// slime's lunge) and
     /// the blast path calls `hurt_hero` directly, never `evade_check`, so an
     /// armed Donut caught in a non-QA blast that hurts her is hurt, logs no
     /// `HeroEvaded` and is rattled (her wait restarts).
@@ -1826,7 +1827,7 @@ mod tests {
         }
         assert_eq!(
             EvadeSource::ALL.len(),
-            3,
+            4,
             "a new variant needs its own design"
         );
         let caught = |policy: HeroDamagePolicy| {

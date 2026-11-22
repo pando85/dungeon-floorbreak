@@ -918,10 +918,12 @@ impl CombatState {
 
     /// COMPANION-AI-02 CA2-C (K13): feed the live nav graph the hazard
     /// rectangles that can hurt a hero this tick, so the partner's routes, spots
-    /// and holds avoid them. Today the Boiler's env step is the only producer
-    /// ([`super::EnvRuntime::nav_feed`]: telegraphed and active volumes, in the
-    /// hazard core's order); a later hazard wire (slime, acid, the wheel) adds its
-    /// own `NavRect`s here and nothing in the companion changes. Only a set whose
+    /// and holds avoid them. Producers: the Boiler's env step and the acid
+    /// patches ([`super::EnvRuntime::nav_feed`]) and, since HAZ-B, the slimes' contact
+    /// boxes and the stickers' trigger and blast boxes
+    /// ([`super::CombatState::hazard_feed`], one stable order); a later hazard wire
+    /// (the wheel) adds its own `NavRect`s there and nothing in the companion
+    /// changes. Only a set whose
     /// partner the goal layer steers is fed (`autonomy.enabled`), so every other
     /// set and every room without hazards builds and hashes as before; a feed
     /// equal to the last one is a no-op.
@@ -930,7 +932,7 @@ impl CombatState {
             return;
         }
         let hazards = if enabled {
-            let feed = self.env.as_ref().map(|e| e.nav_feed()).unwrap_or_default();
+            let feed = self.hazard_feed(scene.world.layout_height(), scene.world.tick);
             hazards_from_feed(&feed, scene.world.layout_height())
         } else {
             Vec::new()

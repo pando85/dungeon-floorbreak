@@ -398,6 +398,24 @@ impl Rig {
         body.x = x;
     }
 
+    /// Defeat the slime of roster index `roster` through the env-hit path (the
+    /// real defeat: its linked pool starts to drain).
+    pub fn kill_slime(&mut self, roster: usize) {
+        use crate::scene_enemy::{EnvSource, SlotEnvHit};
+        let hit = SlotEnvHit {
+            victim: crate::combat_scene::slime::target_id(roster),
+            source: EnvSource::Prop(0),
+            class: crate::env_hazard::HazardClass::FallingMass,
+            damage: 9,
+            push_x: 0,
+            initiator: Some(0),
+            activation: 1,
+        };
+        let tick = self.tick();
+        let (scene, combat) = self.parts();
+        combat.slot_env_hits(scene, &[hit], tick);
+    }
+
     pub fn x_of(&self, hero: HeroId) -> f32 {
         self.scene().world.body(hero).x
     }
@@ -487,3 +505,5 @@ pub const JAB: RawInput = RawInput {
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_b;

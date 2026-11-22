@@ -24,13 +24,21 @@
 //!   rears (tell, launch, impact), the HAZ-Q44 value;
 //! * AD6 with `hazq02_slime_enabled` false the slime is built defeated: no
 //!   hurtbox, no step, no event, counted as cleared by the room goal;
-//! * AD7 the lunge is never evaded here (the reflex callback is HAZ-B).
+//! * AD7 (replaced by HAZ-B, HAZ-Q15) Donut's reflex may evade the lunge: the
+//!   candidate loop asks [`SlotStepCtx::evade`] for her, with the key
+//!   `(SlimeLunge, slot target id, tell start tick)`; Carl is never asked, and
+//!   the body contact, the acid patch and the Rot blast never reach the reflex
+//!   (DM-Q18).
 
+use crate::agility::{EvadeKey, EvadeSource, Verdict};
 use crate::blast::BlastReach;
 use crate::boss::{BossThreat, HeroView};
+use crate::camera_lab::room::IRect;
 use crate::combat::{CombatEvent, MoveId};
+use crate::env_hazard::{HazardClass, NavPhase, NavRect};
 use crate::party::HeroId;
 use crate::prototype::Rect;
+use crate::rot_sticker::StickerState;
 use crate::scene_enemy::{
     EnvSource, SLOT_ID_MIN, SlotBlast, SlotBuild, SlotDeathBody, SlotEnemy, SlotEnvHit, SlotError,
     SlotHit, SlotHitResult, SlotOut, SlotStepCtx,
@@ -213,7 +221,29 @@ impl SlotEnemy for SlimeEnemy {
             target: self.target,
             solids: ctx.solids,
         };
-        let step = self.slime.step(t, &sctx, ctx.token_free, |_| false);
+        // HAZ-B: the instance key's stamp is the tick the tell started. The
+        // attack clock advances before the impact tick inside the step, so on an
+        // impact tick it reads one more than it did here (a tell cannot begin on
+        // an impact tick).
+        let stamp = ctx
+            .tick
+            .saturating_sub(self.slime.attack_tick().map_or(0, |a| u64::from(a) + 1));
+        let id = self.id;
+        let evade = |hero: HeroId| {
+            hero == HeroId::Donut
+                && ctx.evade.is_some_and(|gate| {
+                    gate.borrow_mut().check(
+                        EvadeKey {
+                            source: EvadeSource::SlimeLunge,
+                            enemy: id,
+                            stamp,
+                        },
+                        id,
+                        ctx.tick,
+                    ) != Verdict::Hit
+                })
+        };
+        let step = self.slime.step(t, &sctx, ctx.token_free, evade);
         out.tell_started |= step.tell_started;
         for hit in step.hits {
             out.blows.push(hit.blow);
@@ -305,6 +335,87 @@ impl SlotEnemy for SlimeEnemy {
 
     fn as_any(&self) -> Option<&dyn std::any::Any> {
         Some(self)
+    }
+}
+
+/// HAZ-B: the hazard-feed ids of the slime and sticker rows. The hazard core's
+/// own ids (a Boiler volume, an acid patch) are small, so these bases keep the
+/// three families apart in the one sorted feed.
+pub const FEED_ID_SLIME: u16 = 0x0200;
+pub const FEED_ID_STICKER: u16 = 0x0300;
+
+/// A world rectangle (y up) as the feed's layout rectangle (y down), rounded
+/// outward to whole pixels.
+fn layout_rect(r: Rect, layout_h: i32) -> IRect {
+    let (x0, x1) = (r.left.floor() as i32, r.right().ceil() as i32);
+    let (y0, y1) = (r.bottom.floor() as i32, (r.bottom + r.height).ceil() as i32);
+    IRect {
+        x: x0,
+        y: layout_h - y1,
+        w: x1 - x0,
+        h: y1 - y0,
+    }
+}
+
+impl crate::combat_scene::CombatState {
+    /// HAZ-B (`docs/01-design/enemy-gameplay-slime-rot.md` section 13, item 4):
+    /// every rectangle that can hurt a hero this tick, for the partner's nav
+    /// graph and the blink's landing check, in a fixed order: the hazard core's
+    /// and the acid patches' rows ([`crate::combat_scene::EnvRuntime::nav_feed`]),
+    /// then each living slime's contact box (**active**, class `Acid`), then each
+    /// sticker in prop order: an awake (scuttling) sticker's trigger box, a
+    /// warning sticker's blast box with its ticks left (**telegraphed**, class
+    /// `Blast`). A latched or spent sticker has no row. **Feed only**: no sticker
+    /// has a damage-dealing hazard volume, its damage is its `BlastCharge`.
+    pub fn hazard_feed(&self, layout_h: i32, tick: u64) -> Vec<NavRect> {
+        let mut feed = self.env.as_ref().map(|e| e.nav_feed()).unwrap_or_default();
+        for e in self.slot.enemies.iter() {
+            let Some(slime) = e
+                .as_any()
+                .and_then(|a| a.downcast_ref::<SlimeEnemy>())
+                .filter(|s| s.alive())
+            else {
+                continue;
+            };
+            let Some(rect) = slime.slime().contact_box(slime.tuning) else {
+                continue;
+            };
+            feed.push(NavRect {
+                hazard: FEED_ID_SLIME + (slime.id - SLIME_ID_BASE) as u16,
+                class: HazardClass::Acid,
+                rect: layout_rect(rect, layout_h),
+                phase: NavPhase::Active,
+                ticks_left: None,
+                hurts_heroes: true,
+                hurts_enemies: false,
+            });
+        }
+        let Some(env) = self.env.as_ref() else {
+            return feed;
+        };
+        let t = crate::rot_sticker::active();
+        for (prop, sticker, _) in env.stickers() {
+            let (rect, ticks_left) = match sticker.state() {
+                StickerState::Scuttling => (sticker.trigger_bounds(t), None),
+                StickerState::Warning => (
+                    sticker.blast_bounds(t),
+                    sticker
+                        .remaining(tick)
+                        .map(|r| u16::try_from(r).unwrap_or(u16::MAX)),
+                ),
+                StickerState::Latched | StickerState::Spent => continue,
+            };
+            feed.push(NavRect {
+                hazard: FEED_ID_STICKER + prop,
+                class: HazardClass::Blast,
+                rect: layout_rect(rect, layout_h),
+                phase: NavPhase::Telegraph,
+                ticks_left,
+                hurts_heroes: true,
+                hurts_enemies: true,
+            });
+        }
+        feed
     }
 }
 

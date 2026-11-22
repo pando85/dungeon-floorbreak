@@ -595,6 +595,19 @@ No design decision is left to the executor. A fixture whose outcome contradicts 
 - **Hashing:** slime and sticker state is mixed only when the fixture has them; the unused kinds mix nothing, so every existing golden stays byte-identical.
 - **Not targets:** stickers are excluded from `update_targets`, `CompanionView`, morale, audience, CINE and the AUTOPLAY enemy rows. Slimes are included in `update_targets`, morale, audience and the AUTOPLAY enemy rows, but not in CINE eligibility (no slime finisher in v1).
 
+## HAZ-B status (PR body mirrors it; speed mode: no backlog edit)
+
+Delivered: the slime's lunge in the evadable allow-list (`EvadeSource::SlimeLunge`, HAZ-Q15 and DM-Q17; Carl is never asked, and the body, the acid and the Rot blast stay unlisted, DM-Q18), the hazard-feed rows (section 13, item 4), the stand-in presentation ([floor01-scene.md](../03-tech/floor01-scene.md#the-hazard-rooms-stand-in-presentation-haz-b)), the HAZ-B fixtures (`src/hazards_fixtures/tests_b.rs`, `src/hazards_art/tests.rs`) and the first golden pins of the hazard fixtures (`the_hazard_fixtures_replay_identically_and_match_their_goldens`). The `boss` row (HAZA2-AD5) was already in HAZ-A2.
+
+Deviations and adopted values (HAZB-D*):
+
+- **HAZB-D1.** The sheet's evade fixture says Donut at `d` 12 from the slime's pivot. Her 20 px hurtbox reaches the gathered body (to +4 px) at `d` 13 and nearer, so there the body burns her on the first tick, before any lunge (pinned). `d` 14 is the nearest column where the lunge is the first thing that reaches her; the fixture uses 14.
+- **HAZB-D2.** The `haz_rot_missile_near_miss` bolt window is asserted geometrically (the bolt lane under the shell and within 32 px of the dome), because the bolt is consumed on the tick it comes within reach and is never seen closer.
+- **HAZB-D3.** Feed ids: slime rows `0x200 + roster index`, sticker rows `0x300 + prop index`, so the three families never collide in the sorted feed.
+- **HAZB-D4.** The sticker's ring is 40 three-pixel dots at the 48 px radius (a code-drawn stand-in, HAZ-Q38).
+
+Carried game-feel notes (recorded, not changed; they need the sheet or the owner): (1) the Pocket C relayout of Revision 4 (S2 not in its own pool, the C goblin outside the R2 blast); (2) the missile window in the scene is 7 press ticks on the rise and 8 on the fall (HAZA2-D2), one tick wider on the rise than the sheet's "6 plus 8".
+
 ## 20. Horizon fit, rights and provenance
 
 - **Horizon:** consulted the [character progression horizon](character-progression-horizon.md). **Still consistent, no guide change needed:** it adds no player verb, button or unlock. It makes existing Floor 01 verbs the right answer at the right time (the hop and jump over low attacks, the push kick as a spacing tool, Magic Missile and dynamite as remote triggers) and adds one rewarding environmental interaction, which the horizon's Floor 01 row asks for ("one rewarding environmental kill"; "floor-specific rules ... hazards ... different terrain and telegraphs reward familiar skills in new ways"). Solo and 2P get the same answers. The engine contract is IP-neutral: `slime`, `rot_sticker`, hazard volumes, env props and blast profiles are generic data kinds; the fan-concept layer is only the names and the art.

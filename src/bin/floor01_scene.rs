@@ -128,6 +128,8 @@ mod blink_cues;
 mod donut_cues;
 #[path = "floor01_scene/env_prop_art.rs"]
 mod env_prop_art;
+#[path = "floor01_scene/hazards_art.rs"]
+mod hazards_art;
 
 /// Draw order above the actor plane. Carl is drawn above every goblin, except
 /// that a goblin in its smear or impact is drawn over him (its club lands on
@@ -3614,6 +3616,8 @@ fn run_window(
                 donut_cues::sync_donut_cues,
                 blink_cues::sync_blink_cues,
                 env_prop_art::sync_prop_art,
+                hazards_art::sync_hazard_art,
+                hazards_art::sync_hazard_debug,
             )
                 .chain(),
             update_lighting,
@@ -4183,6 +4187,29 @@ fn setup(
             layers_of("actors"),
             kit.actor_z,
             kit.foreground_z,
+        );
+    }
+
+    // HAZ-B: the slimes, the Rot Stickers, the acid strip, the warning ring and the
+    // spent drip, only in a room that has them (presentation only).
+    if let Some(state) = combat.0.as_ref() {
+        let debug_layers = args.debug_combat.then(|| {
+            if lighting.is_some() {
+                RenderLayers::layer(LAYER_DEBUG)
+            } else {
+                RenderLayers::default()
+            }
+        });
+        hazards_art::spawn(
+            &mut commands,
+            &asset_server,
+            &mut layouts,
+            state,
+            layers_of("actors"),
+            debug_layers,
+            kit,
+            &mut combat_handles,
+            &mut combat_entities,
         );
     }
 

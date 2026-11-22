@@ -238,11 +238,19 @@ pub enum EvadeSource {
     EngineerRam,
     /// The llama's spit glob.
     LlamaGlob,
+    /// HAZ-B (DM-Q17 list, HAZ-Q15): the slime's lunge. Its body contact, the
+    /// acid patch and the Rot blast stay unlisted and never evaded (DM-Q18).
+    SlimeLunge,
 }
 
 impl EvadeSource {
     /// Every evadable source, in tag order.
-    pub const ALL: [Self; 3] = [Self::GoblinSwing, Self::EngineerRam, Self::LlamaGlob];
+    pub const ALL: [Self; 4] = [
+        Self::GoblinSwing,
+        Self::EngineerRam,
+        Self::LlamaGlob,
+        Self::SlimeLunge,
+    ];
 
     /// The stable name written to logs.
     pub const fn name(self) -> &'static str {
@@ -250,6 +258,7 @@ impl EvadeSource {
             Self::GoblinSwing => "goblin_swing",
             Self::EngineerRam => "engineer_ram",
             Self::LlamaGlob => "llama_glob",
+            Self::SlimeLunge => "slime_lunge",
         }
     }
 
@@ -258,13 +267,57 @@ impl EvadeSource {
             Self::GoblinSwing => 1,
             Self::EngineerRam => 2,
             Self::LlamaGlob => 3,
+            Self::SlimeLunge => 4,
         }
+    }
+}
+
+/// HAZ-B: Donut's reflex as a slot enemy's step sees it. The combat state
+/// copies its [`Reflex`] and its `live` condition (an evasion tuning on, a live
+/// Donut, the biscuit unlocked) into a gate, lends it to the step, and settles
+/// it afterwards ([`Self::into_parts`]): the reflex goes back and each evade
+/// becomes one `HeroEvaded`. [`Self::check`] is the same decision as
+/// `CombatState::evade_check`, which is built on it.
+#[derive(Debug, Clone)]
+pub struct EvadeGate {
+    live: bool,
+    reflex: Reflex,
+    /// `(tick, hurt source, evadable source)` of each evade this gate made.
+    evaded: Vec<(u64, u32, EvadeSource)>,
+}
+
+impl EvadeGate {
+    pub fn new(live: bool, reflex: Reflex) -> Self {
+        Self {
+            live,
+            reflex,
+            evaded: Vec::new(),
+        }
+    }
+
+    /// DM-Q20: an instance that already passed every guard and overlaps her.
+    /// `hurt_source` is the attacker's target id for the event.
+    pub fn check(&mut self, key: EvadeKey, hurt_source: u32, tick: u64) -> Verdict {
+        if !self.live {
+            return Verdict::Hit;
+        }
+        let verdict = self.reflex.check(key, tick);
+        if verdict == Verdict::Evaded {
+            self.evaded.push((tick, hurt_source, key.source));
+        }
+        verdict
+    }
+
+    /// The reflex to put back and the evades to log, in order.
+    pub fn into_parts(self) -> (Reflex, Vec<(u64, u32, EvadeSource)>) {
+        (self.reflex, self.evaded)
     }
 }
 
 /// DM-Q19: the identity of one attack instance. A goblin swing or an Engineer
 /// ram is `(enemy index, attack start tick)` (the tick its tell started, which
-/// no hit-stop moves); a glob is `(owner, spawn tick)`.
+/// no hit-stop moves); a glob is `(owner, spawn tick)`; a slime lunge is
+/// `(slot target id, tell start tick)`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct EvadeKey {
     pub source: EvadeSource,
@@ -686,11 +739,14 @@ mod tests {
     }
 
     #[test]
-    fn the_allow_list_is_exactly_three_sources_with_distinct_names() {
-        assert_eq!(EvadeSource::ALL.len(), 3);
+    fn the_allow_list_is_exactly_four_sources_with_distinct_names() {
+        assert_eq!(EvadeSource::ALL.len(), 4);
         let names: Vec<_> = EvadeSource::ALL.iter().map(|s| s.name()).collect();
-        assert_eq!(names, ["goblin_swing", "engineer_ram", "llama_glob"]);
+        assert_eq!(
+            names,
+            ["goblin_swing", "engineer_ram", "llama_glob", "slime_lunge"]
+        );
         let tags: Vec<_> = EvadeSource::ALL.iter().map(|s| s.tag()).collect();
-        assert_eq!(tags, [1, 2, 3]);
+        assert_eq!(tags, [1, 2, 3, 4]);
     }
 }

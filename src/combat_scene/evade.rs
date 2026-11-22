@@ -7,7 +7,7 @@
 //! arms, so none of this costs a hash word or an event.
 
 use super::CombatState;
-use crate::agility::{EvadeKey, EvadeSource, Reflex, Verdict};
+use crate::agility::{EvadeGate, EvadeKey, EvadeSource, Reflex, Verdict};
 use crate::combat::CombatEvent;
 use crate::corridor::SceneSim;
 use crate::party::HeroId;
@@ -86,27 +86,41 @@ impl CombatState {
         hurt_source: u32,
         tick: u64,
     ) -> Verdict {
-        let live = Self::reflex_rearm(scene).is_some() && self.donut_kit.mana.unlocked();
-        if !live {
-            return Verdict::Hit;
-        }
-        let verdict = self.reflex.check(
+        let mut gate = self.evade_gate(scene);
+        let verdict = gate.check(
             EvadeKey {
                 source,
                 enemy,
                 stamp,
             },
+            hurt_source,
             tick,
         );
-        if verdict == Verdict::Evaded {
+        self.settle_evade_gate(gate);
+        verdict
+    }
+
+    /// HAZ-B: the reflex lent to a slot enemy's step (the slime's lunge). Same
+    /// condition as [`Self::evade_check`]: evasion on, a live Donut, the biscuit.
+    pub(super) fn evade_gate(&self, scene: &SceneSim) -> EvadeGate {
+        EvadeGate::new(
+            Self::reflex_rearm(scene).is_some() && self.donut_kit.mana.unlocked(),
+            self.reflex,
+        )
+    }
+
+    /// HAZ-B: take the reflex back from a gate and log its evades, in order.
+    pub(super) fn settle_evade_gate(&mut self, gate: EvadeGate) {
+        let (reflex, evaded) = gate.into_parts();
+        self.reflex = reflex;
+        for (tick, source, kind) in evaded {
             self.log(CombatEvent::HeroEvaded {
                 tick,
                 hero: HeroId::Donut,
-                source: hurt_source,
-                kind: source,
+                source,
+                kind,
             });
         }
-        verdict
     }
 }
 
