@@ -10,6 +10,10 @@ S05 makes the player protect *people*, not loot. S06 shows that the dungeon can 
 
 **Novel reference boundary:** floor 2's Rage Elemental is level 93 and emerges following a rule violation; Carl uses a bomb-launcher and stairwell exploit, while no normal XP is awarded. We preserve that *idea* but choose short reproducible 2D arcade behaviors. References include https://progressiontime.com/primers/dungeon-crawler-carl/book-01/ , https://www.dccdatabase.com/wiki/rage_elemental/ and https://mapaverse.com/dungeon-crawler-carl/world/second-floor . No copied prose, soundtrack, visual or book dialogue.
 
+## REQUIRED continuity guard — Rage stairwell is not the Floor 03 exit
+
+The S07 pit is a **Rage-only expulsion volume**. Carl and Donut stay on Floor 02 after it vanishes, leaving via a protected adjacent corridor to the S08 kobold kennel. The normal Floor 03 descent trigger remains locked/absent here and activates only after S09 Ralph and Mongo. Any phrase below about "entering the protected stairwell" refers to reaching the **safe adjacent rim**, not the player descending. This is checked by DIR-03 in the [director bible](floor-02-director-and-continuity.md). Never set floor_02_exited in S07. Always distinguish Rage Exiled from a normal kill.
+
 ## 1. Stage S05 — MEADOW LARK EXPRESS
 
 **Provisional width ~2048–2304 world px.** Three regions and two bounded convoy defense stops, no procedural cart AI.
