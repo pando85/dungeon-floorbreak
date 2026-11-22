@@ -864,12 +864,14 @@ mod tests {
         }
     }
 
-    /// The boundary of the companion runs (PTB-AD7): under a boss `cf02_free`
-    /// hunts nothing (CA2-Q35, until COMPANION-AI-01E), so Donut escorts and
-    /// idles while Carl's fight is tick-identical to solo Carl's. When 01E gives
-    /// her boss behaviour, this test is the named, deliberate change.
+    /// FA-Q01, the passive boundary of the companion runs (PTB-AD7, CA2-FU-BOSS):
+    /// under a boss `cf02_free` hunts nothing (CA2-Q35), so Donut escorts and
+    /// idles while Carl's fight is tick-identical to solo Carl's. She takes the
+    /// hurts and never retreats, blinks, starts a move or lands a hit. This test
+    /// is the named, deliberate boundary the boss-play change (FA-Q02..Q07, knob
+    /// `fa_q02_boss_play`) flips, instead of nine opaque hash re-pins.
     #[test]
-    fn the_companion_escorts_but_takes_no_part_in_the_juicer_fight() {
+    fn fa_q01_the_companion_escorts_but_takes_no_part_in_the_juicer_fight() {
         for seed in JUICER_SEEDS {
             let (solo, _) = juicer_run(&root(), JuicerWho::CarlSolo, seed).unwrap();
             let (comp, sim) = juicer_run(&root(), JuicerWho::Companion, seed).unwrap();
@@ -884,12 +886,19 @@ mod tests {
             assert!(donut.decisions > 0, "seed {seed}: her autonomy runs");
             assert!(comp.donut_x_span > 100.0, "seed {seed}: she walks");
             assert_ne!(comp.hash, solo.hash, "her block is part of the state");
-            // ...but starts no move, lands no hit and hunts nothing.
+            // ...but starts no move, lands no hit, hunts nothing, never retreats
+            // and never blinks.
             let stats = sim.combat.companion_stats();
             assert_eq!(stats.assist_starts[1], 0, "seed {seed}");
             assert_eq!(stats.interrupt_starts[1], 0, "seed {seed}");
             assert_eq!(stats.chain_presses[1], 0, "seed {seed}");
             assert_eq!(donut.hunt_evaluations, 0, "seed {seed}");
+            assert_eq!(donut.retreat_entries, 0, "seed {seed}: never retreats");
+            assert_eq!(
+                (donut.blink_presses_retreat, donut.blink_presses_committed),
+                (0, 0),
+                "seed {seed}: never blinks"
+            );
             assert!(
                 !sim.combat
                     .events
@@ -897,6 +906,15 @@ mod tests {
                     .any(|e| matches!(e, CombatEvent::DonutGlance { .. })),
                 "seed {seed}: no Donut hit on the boss"
             );
+            // The boss lands blows on her (CA2-FU-BOSS: nearly every hurt of the
+            // run is hers) and she never answers.
+            let hers = sim
+                .combat
+                .events
+                .iter()
+                .filter(|e| matches!(e, CombatEvent::HeroHurt { hero: HeroId::Donut, .. }))
+                .count();
+            assert!(hers > 0, "seed {seed}: she is hurt and never retreats");
         }
     }
 

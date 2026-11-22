@@ -621,6 +621,10 @@ pub struct AutonomyStats {
     /// cancelled), which the fixtures count.
     pub blink_presses_retreat: u32,
     pub blink_presses_committed: u32,
+    /// FA-Q01 (CA2-FU-BOSS): how many times the goal changed into Retreat. A
+    /// plain counter (never hashed) so a run can prove she did, or did not,
+    /// retreat without reading the capped event log.
+    pub retreat_entries: u32,
 }
 
 /// Everything one tick's step reads.
@@ -1361,6 +1365,9 @@ impl AutonomyState {
                 self.show_off_ready_at = tick + u64::from(a.ca2_q24_cooldown_ticks);
             }
             _ => {}
+        }
+        if goal == Goal::Retreat && self.goal != Goal::Retreat {
+            self.stats.retreat_entries += 1;
         }
         self.goal = goal;
         self.goal_since = tick;
