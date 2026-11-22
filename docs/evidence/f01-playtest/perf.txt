@@ -1,20 +1,15 @@
 # boiler chain, run 1
-ROOM_PERF room=boiler plan=chain last_tick=949 cpu="AMD Ryzen 9 5950X 16-Core Processor" adapter="NVIDIA GeForce RTX 4060 Ti (DiscreteGpu)" display=xvfb profile=debug
-FLOOR1_PERF frames=950 median_ms=16.62 p95_ms=21.08 p99_ms=24.57 mean_ms=17.14 max_ms=64.09 lighting=on window=640x360 present=AutoNoVsync warmup_frames=120
-FLOOR1_PERF_CPU_GPU gpu_ms_mean=1.269 gpu_ms_p95=1.666 gpu_ms_max=2.504 tick_us_mean=49.1 tick_us_p95=83.3 tick_us_max=781.5 death_sync_us_mean=29.8 death_sync_us_p95=46.0 death_sync_us_max=117.7 gpu_passes=4
-FLOOR1_PERF_MEM rss_mib=496.0 peak_rss_mib=496.0 entities=5629 death_sprites_spawned=844 peak_visible_death_sprites=69
+ROOM_PERF room=boiler plan=chain last_tick=949 cpu="AMD Ryzen 9 5950X 16-Core Processor" adapter="NVIDIA GeForce RTX 4060 Ti (DiscreteGpu)" display=xvfb profile=debug loadavg_after="4.39 1.51 0.83"
+FLOOR1_PERF frames=950 median_ms=16.24 p95_ms=31.32 p99_ms=38.49 mean_ms=17.87 max_ms=48.54 lighting=on window=640x360 present=AutoNoVsync warmup_frames=120
+FLOOR1_PERF_CPU_GPU gpu_ms_mean=1.226 gpu_ms_p95=1.622 gpu_ms_max=10.470 tick_us_mean=42.3 tick_us_p95=94.5 tick_us_max=262.1 death_sync_us_mean=30.3 death_sync_us_p95=50.2 death_sync_us_max=526.9 gpu_passes=4
+FLOOR1_PERF_MEM rss_mib=502.0 peak_rss_mib=502.0 entities=5629 death_sprites_spawned=844 peak_visible_death_sprites=69
 # boiler chain, run 2
-ROOM_PERF room=boiler plan=chain last_tick=949 cpu="AMD Ryzen 9 5950X 16-Core Processor" adapter="NVIDIA GeForce RTX 4060 Ti (DiscreteGpu)" display=xvfb profile=debug
-FLOOR1_PERF frames=950 median_ms=20.61 p95_ms=46.02 p99_ms=83.81 mean_ms=24.70 max_ms=250.52 lighting=on window=640x360 present=AutoNoVsync warmup_frames=120
-FLOOR1_PERF_CPU_GPU gpu_ms_mean=1.321 gpu_ms_p95=1.711 gpu_ms_max=2.298 tick_us_mean=69.4 tick_us_p95=113.5 tick_us_max=590.5 death_sync_us_mean=41.2 death_sync_us_p95=62.8 death_sync_us_max=2448.1 gpu_passes=4
-FLOOR1_PERF_MEM rss_mib=505.4 peak_rss_mib=505.4 entities=5629 death_sprites_spawned=844 peak_visible_death_sprites=69
+ROOM_PERF room=boiler plan=chain last_tick=949 cpu="AMD Ryzen 9 5950X 16-Core Processor" adapter="NVIDIA GeForce RTX 4060 Ti (DiscreteGpu)" display=xvfb profile=debug loadavg_after="4.10 1.62 0.88"
+FLOOR1_PERF frames=950 median_ms=16.57 p95_ms=19.09 p99_ms=21.30 mean_ms=16.69 max_ms=61.88 lighting=on window=640x360 present=AutoNoVsync warmup_frames=120
+FLOOR1_PERF_CPU_GPU gpu_ms_mean=1.243 gpu_ms_p95=1.647 gpu_ms_max=2.557 tick_us_mean=35.4 tick_us_p95=52.3 tick_us_max=146.3 death_sync_us_mean=27.7 death_sync_us_p95=36.3 death_sync_us_max=51.1 gpu_passes=4
+FLOOR1_PERF_MEM rss_mib=519.4 peak_rss_mib=519.4 entities=5629 death_sprites_spawned=844 peak_visible_death_sprites=69
 # boiler chain, run 3
-ROOM_PERF room=boiler plan=chain last_tick=949 cpu="AMD Ryzen 9 5950X 16-Core Processor" adapter="NVIDIA GeForce RTX 4060 Ti (DiscreteGpu)" display=xvfb profile=debug
-FLOOR1_PERF frames=950 median_ms=34.08 p95_ms=81.82 p99_ms=154.92 mean_ms=39.66 max_ms=269.17 lighting=on window=640x360 present=AutoNoVsync warmup_frames=120
-FLOOR1_PERF_CPU_GPU gpu_ms_mean=1.583 gpu_ms_p95=1.711 gpu_ms_max=15.366 tick_us_mean=86.5 tick_us_p95=144.2 tick_us_max=1279.2 death_sync_us_mean=51.2 death_sync_us_p95=72.5 death_sync_us_max=2354.7 gpu_passes=4
-FLOOR1_PERF_MEM rss_mib=506.9 peak_rss_mib=506.9 entities=5629 death_sprites_spawned=844 peak_visible_death_sprites=69
-# mastery arena, NON-FINAL (PT-TUNE changes the waves; re-run after it)
-ROOM_PERF room=mastery plan=mastery last_tick=3000 cpu="AMD Ryzen 9 5950X 16-Core Processor" adapter="NVIDIA GeForce RTX 4060 Ti (DiscreteGpu)" display=xvfb profile=debug
-FLOOR1_PERF frames=3000 median_ms=22.66 p95_ms=46.19 p99_ms=89.04 mean_ms=26.50 max_ms=250.04 lighting=on window=640x360 present=AutoNoVsync warmup_frames=120
-FLOOR1_PERF_CPU_GPU gpu_ms_mean=1.494 gpu_ms_p95=1.569 gpu_ms_max=8.345 tick_us_mean=68.6 tick_us_p95=103.5 tick_us_max=6660.9 death_sync_us_mean=45.2 death_sync_us_p95=69.2 death_sync_us_max=1032.8 gpu_passes=4
-FLOOR1_PERF_MEM rss_mib=528.1 peak_rss_mib=528.1 entities=5484 death_sprites_spawned=847 peak_visible_death_sprites=103
+ROOM_PERF room=boiler plan=chain last_tick=949 cpu="AMD Ryzen 9 5950X 16-Core Processor" adapter="NVIDIA GeForce RTX 4060 Ti (DiscreteGpu)" display=xvfb profile=debug loadavg_after="4.75 1.94 1.01"
+FLOOR1_PERF frames=950 median_ms=16.42 p95_ms=20.41 p99_ms=26.25 mean_ms=16.74 max_ms=38.36 lighting=on window=640x360 present=AutoNoVsync warmup_frames=120
+FLOOR1_PERF_CPU_GPU gpu_ms_mean=1.034 gpu_ms_p95=1.638 gpu_ms_max=3.641 tick_us_mean=42.6 tick_us_p95=67.4 tick_us_max=200.7 death_sync_us_mean=29.1 death_sync_us_p95=40.6 death_sync_us_max=125.2 gpu_passes=4
+FLOOR1_PERF_MEM rss_mib=516.6 peak_rss_mib=516.6 entities=5629 death_sprites_spawned=844 peak_visible_death_sprites=69
