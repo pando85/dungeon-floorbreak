@@ -99,3 +99,15 @@ pub fn session_stats(session: &LoadedSession) -> SessionStats {
     }
     out
 }
+
+/// FIX-TOOL: no tick of the session carries any raw input in either slot (P1 and P2): the
+/// window was never touched (a scripted exit on a live room, a harness run), so the session
+/// shows the partner AI and the room, not a person playing. An empty session is not
+/// "input-free" (there is nothing to say). `inspect` labels such a `Human` session honestly.
+pub fn input_free(session: &LoadedSession) -> bool {
+    !session.ticks.is_empty()
+        && session
+            .ticks
+            .iter()
+            .all(|tick| tick.slots.iter().all(|slot| *slot == ActionBits::NONE))
+}

@@ -321,6 +321,16 @@ impl EnvRuntime {
     /// inert. A room with a remnant taller than the step-over height must not
     /// hold a roster kind that a landing may leave alive (NB-3).
     pub fn new(enc: &Encounter) -> Result<Self, String> {
+        Self::new_with_rot(enc, rot_sticker::active().enabled())
+    }
+
+    /// [`Self::new`] with the Rot kind's kill switch (`hazq02_rot_enabled`) given
+    /// instead of read from the process-wide pinned tuning, so a fixture can build the
+    /// room both ways through the one real code path (FIX-TOOL, PT-FU-B8 item 9): with
+    /// the switch off every sticker prop stays a [`Machine::Rot`] and gets no
+    /// [`StickerRt`], exactly what the shipped build does when the data turns the kind
+    /// off. The scene and the CLI always call [`Self::new`].
+    pub fn new_with_rot(enc: &Encounter, rot_enabled: bool) -> Result<Self, String> {
         let mut props = Vec::new();
         let mut solids = Vec::new();
         // BOIL-D: the authored links, then what each linked prop must accept.
@@ -428,7 +438,7 @@ impl EnvRuntime {
                 }
                 PropKind::RotSticker => {
                     // HAZ-Q02: the data kill switch removes the kind.
-                    if rot_sticker::active().enabled() {
+                    if rot_enabled {
                         let layout = p
                             .track
                             .ok_or_else(|| format!("prop {}: a sticker needs its track", p.id))?;

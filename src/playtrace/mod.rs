@@ -90,7 +90,9 @@ pub use reader::{
     session_is_live,
 };
 pub use replay::{VerifyFailure, VerifyReport, VerifyScope, verify_dir, verify_loaded};
-pub use stats::{ActionHistogram, HeroStats, STICK_THRESHOLD, SessionStats, session_stats};
+pub use stats::{
+    ActionHistogram, HeroStats, STICK_THRESHOLD, SessionStats, input_free, session_stats,
+};
 pub use storage::{WARN_BYTES, default_record_dir, dir_size_bytes};
 pub use writer::{SessionWriter, WriterHealth};
 

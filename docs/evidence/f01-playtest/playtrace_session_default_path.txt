@@ -1,11 +1,11 @@
-== room=mastery scene=f01_late no --room-pilot, no input (an idle P1, the live partner), ended by one SIGTERM after 20 s (crash-recovered: prefix scope)
+== room=mastery scene=f01_late no --room-pilot, no input (an idle P1, the live partner), ended by --exit-after-ticks 1200 (a clean close: full scope)
 F01_LATE_ENTRY room=mastery loadout=story
 COMPANION_CONFIG: set=cf02_free
-PLAYTRACE_SAVED: none (the app was killed; the session was crash-recovered)
-PLAYTRACE_VERIFY result=PASS scope=prefix ticks=1182 episodes=1 combat_events=56 control_events=2 build=identical
-PLAYTRACE_VERIFY_CHECKS state_hashes=1182 event_hashes=1182 effective_inputs=1182 observations=2364 final_observations=0 diagnostics=1139 slot_routing=1182 labels=1182
-inspect:status CrashedRecovered (capture_complete=false)
-inspect:schema playtrace-session/1 participants OwnerOnly run_kind Human mode solo_human
+PLAYTRACE_SAVED ticks=1200 status=Completed complete=true
+PLAYTRACE_VERIFY result=PASS scope=full ticks=1200 episodes=1 combat_events=56 control_events=5 build=identical
+PLAYTRACE_VERIFY_CHECKS state_hashes=1200 event_hashes=1200 effective_inputs=1200 observations=2400 final_observations=2 diagnostics=1200 slot_routing=1200 labels=1200
+inspect:status Completed (capture_complete=true)
+inspect:schema playtrace-session/1 participants OwnerOnly run_kind Human (input-free: no input in any tick, the partner AI only; not a human play session) mode solo_human
 inspect:reset f01_room:f01_mastery demo_beat=0 cf02=true
-inspect:ticks 1182 chunks 2 (closed 1) gaps 0 dropped_ticks 0 write_errors 0
-inspect:episodes 1 combat_events 56 control_events 2
+inspect:ticks 1200 chunks 2 (closed 2) gaps 0 dropped_ticks 0 write_errors 0
+inspect:episodes 1 combat_events 56 control_events 5

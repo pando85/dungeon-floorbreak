@@ -51,7 +51,11 @@
 #                                   at tick 300, report a cross-build session as
 #                                   UNSUPPORTED (strict) and CHECKED (checked)
 #                                   and a tampered one as DIVERGED (exit 1). No
-#                                   human recording is read or written.
+#                                   human recording is read or written. Also
+#                                   (FIX-TOOL) a live room session (room 6, no
+#                                   pilot) closed by --exit-after-ticks, SIGTERM
+#                                   and SIGINT each verifies as scope=full and
+#                                   `inspect` labels it input-free.
 set -euo pipefail
 # PLAYTRACE-01: CI runs never write a gameplay recording (PT-Q12).
 export FLOORBREAK_RECORD=off
@@ -560,12 +564,14 @@ case "$mode" in
         exit 1
       fi
     done
-    # The direct scenes name the same room and replay identically twice.
-    for direct in f01_hoarder:F01_HOARDER f01_hazards:F01_HAZARDS; do
-      direct_a="$("$bin" --headless-floor01-smoke --scene "${direct%%:*}" | grep -E "^(${direct##*:}_(ENTRY|SMOKE_OK)|COMBAT_STATE)")"
-      direct_b="$("$bin" --headless-floor01-smoke --scene "${direct%%:*}" | grep -E "^(${direct##*:}_(ENTRY|SMOKE_OK)|COMBAT_STATE)")"
-      if [[ -z "$direct_a" || "$direct_a" != "$direct_b" ]] || ! grep -q "^${direct##*:}_SMOKE_OK" <<<"$direct_a"; then
-        echo "--scene ${direct%%:*} did not replay identically twice with its OK marker" >&2
+    # The direct scenes name the same room, load their slot roster (the Hoarder's one slot enemy, the hazard room's
+    # two slimes) and replay identically twice.
+    for direct in f01_hoarder:F01_HOARDER:slot_enemies=1 f01_hazards:F01_HAZARDS:slot_enemies=2; do
+      IFS=: read -r direct_scene direct_marker direct_slots <<<"$direct"
+      direct_a="$("$bin" --headless-floor01-smoke --scene "$direct_scene" | grep -E "^(${direct_marker}_(ENTRY|SMOKE_OK)|COMBAT_STATE)")"
+      direct_b="$("$bin" --headless-floor01-smoke --scene "$direct_scene" | grep -E "^(${direct_marker}_(ENTRY|SMOKE_OK)|COMBAT_STATE)")"
+      if [[ -z "$direct_a" || "$direct_a" != "$direct_b" ]] || ! grep -q "^${direct_marker}_SMOKE_OK .* env=live ${direct_slots} " <<<"$direct_a"; then
+        echo "--scene $direct_scene did not replay identically twice with its OK marker and ${direct_slots}" >&2
         exit 1
       fi
     done
@@ -625,16 +631,18 @@ case "$mode" in
     tactical_a="$("$bin" --headless-floor01-smoke --scene f01_late --f01-room hazards --room-pilot haz_tactical --capture-tick 1500)"
     tactical_b="$("$bin" --headless-floor01-smoke --scene f01_late --f01-room hazards --room-pilot haz_tactical --capture-tick 1500)"
     tactical_ticks="$(sed -n 's/^F01_HAZARDS_SMOKE_OK ticks=\([0-9]*\) .*/\1/p' <<<"$tactical_a")"
+    tactical_hash="$(grep '^COMBAT_STATE ' <<<"$tactical_a" | tail -n 1 | sed -E 's/.* hash=([0-9a-f]+) .*/\1/')"
     rot_hurts="$(awk '/kind=hero_hurt source=/ { split($3, a, "="); if (a[2] % 65536 == 21076) n++ } END { print n + 0 }' <<<"$tactical_a")"
     if [[ "$tactical_a" != "$tactical_b" ]] \
       || ! grep -q 'kind=rot_provoked sticker=1 cause=Proximity' <<<"$tactical_a" \
       || ! grep -q 'kind=blast charge=1' <<<"$tactical_a" \
       || [[ "$rot_hurts" -ne 0 ]] \
+      || [[ "$tactical_hash" != "8e10bd0986d23ad9" ]] \
       || [[ -z "$tactical_ticks" || "$tactical_ticks" -ge 1500 ]]; then
-      echo "--room-pilot haz_tactical did not bait the second sticker, clear the room without a Rot hurt and replay identically twice" >&2
+      echo "--room-pilot haz_tactical did not bait the second sticker, clear the room without a Rot hurt, end on the committed final hash 8e10bd0986d23ad9 (the filmed run, scorecard.md) and replay identically twice (got ${tactical_hash:-none})" >&2
       exit 1
     fi
-    echo "F01_HAZ_TACTICAL_OK: second sticker baited over the slime, no Rot hurt, room cleared, twice identical"
+    echo "F01_HAZ_TACTICAL_OK: second sticker baited over the slime, no Rot hurt, room cleared, final hash 8e10bd0986d23ad9 (the filmed run), twice identical"
     echo "F01_LATE_HEADLESS_OK: boiler, hazards, juicer and mastery, story and all, each twice identical"
     ;;
   render)
@@ -853,6 +861,35 @@ case "$mode" in
     id="$(ls "$rdir")"
     "$pt" verify "$id" --dir "$rdir" > "$out/replay_verify.log"
     grep -q '^PLAYTRACE_VERIFY .*result=PASS scope=full' "$out/replay_verify.log" || { cat "$out/replay_verify.log"; echo "the synthetic session does not verify" >&2; exit 1; }
+    # FIX-TOOL: a live room (room 6, the human default path, no pilot) ends itself with --exit-after-ticks, on SIGTERM
+    # and on SIGINT, and each way closes its session cleanly: `playtrace verify` PASS scope=full, and `inspect` calls
+    # the input-free P1 run what it is (not a plain Human session).
+    ldir="$out/replay_live_room_sessions"
+    rm -rf "$ldir"; mkdir -p "$ldir"
+    live_room="--no-audio --scale 1 --scene f01_late --f01-room mastery --record"
+    # shellcheck disable=SC2086
+    timeout 300 "$bin" $live_room --record-dir "$ldir/exit" --exit-after-ticks 120 > "$out/replay_live_exit.log" 2>&1
+    grep -q '^PLAYTRACE_SAVED .* ticks=120 status=Completed complete=true' "$out/replay_live_exit.log" || { tail -n 20 "$out/replay_live_exit.log"; echo "the live room scripted exit did not close its session" >&2; exit 1; }
+    for sig in TERM INT; do
+      sdir="$ldir/$sig"; mkdir -p "$sdir"
+      # shellcheck disable=SC2086
+      "$bin" $live_room --record-dir "$sdir" > "$out/replay_live_$sig.log" 2>&1 &
+      app=$!
+      for _ in $(seq 1 120); do
+        [[ -n "$(find "$sdir" -name 'ticks-*.jsonl' -size +0 2>/dev/null | head -n 1)" ]] && break
+        sleep 0.5
+      done
+      kill -"$sig" "$app"
+      code=0; wait "$app" || code=$?
+      [[ "$code" -eq 0 ]] || { tail -n 20 "$out/replay_live_$sig.log"; echo "the live room did not exit cleanly on SIG$sig (exit $code)" >&2; exit 1; }
+      grep -q '^PLAYTRACE_SAVED .* status=Completed complete=true' "$out/replay_live_$sig.log" || { tail -n 20 "$out/replay_live_$sig.log"; echo "SIG$sig did not close the live room session" >&2; exit 1; }
+    done
+    for run in exit TERM INT; do
+      lid="$(ls "$ldir/$run")"
+      "$pt" verify "$lid" --dir "$ldir/$run" --root . | grep -q '^PLAYTRACE_VERIFY .*result=PASS scope=full' || { echo "the live room '$run' session does not verify as scope=full" >&2; exit 1; }
+      "$pt" inspect "$lid" --dir "$ldir/$run" | grep -q 'run_kind Human (input-free' || { echo "the live room '$run' session is not labelled input-free" >&2; exit 1; }
+    done
+    echo "F01_LIVE_ROOM_EXIT_OK: --exit-after-ticks, SIGTERM and SIGINT each close the room 6 session (scope=full, input-free)"
     last_post="$(python3 -I scripts/ptr_session_tool.py last-post "$rdir/$id")"
     replay_run() { # log, then the flags; returns the viewer's exit code
       local log="$1"; shift

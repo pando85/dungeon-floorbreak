@@ -78,6 +78,28 @@ fn haz_room_direct_route() {
     assert_eq!(pins, DIRECT_PINNED, "pins: {pins:#018x?}");
 }
 
+/// FIX-TOOL: the Rot-off fixtures use the real switch. The sticker props stay in the env as
+/// `Machine::Rot` (the prop count and every prop index are the Rot-on room's), and only
+/// the sticker state is gone; the pilot, the room and the env solids are the same.
+#[test]
+fn the_rot_off_room_keeps_its_sticker_props_and_drops_only_their_state() {
+    let (on, on_stickers) = pilots::start(&root(), Who::CarlSolo, 0, true).unwrap();
+    let (off, off_stickers) = pilots::start(&root(), Who::CarlSolo, 0, false).unwrap();
+    assert_eq!((on_stickers, off_stickers), (2, 0));
+    let (on_env, off_env) = (on.combat.env().unwrap(), off.combat.env().unwrap());
+    assert_eq!(on_env.props(), off_env.props(), "no prop is removed");
+    assert_eq!(on_env.solids().len(), off_env.solids().len());
+    assert!(off_env.stickers().next().is_none());
+    assert!(off_env.sticker(0).is_none() && off_env.sticker(1).is_none());
+    // The shipped room with the switch on is untouched by the injection.
+    let shipped = crate::f01_hazards::env_runtime_with_rot(
+        &crate::f01_hazards::launch(&root()).unwrap(),
+        crate::rot_sticker::active().enabled(),
+    )
+    .unwrap();
+    assert_eq!(shipped.sticker_count(), 2);
+}
+
 fn solo_table(who: Who, pinned: [u64; 9]) {
     let mut pins = Vec::new();
     for seed in SEEDS {
@@ -172,7 +194,11 @@ fn haz_room_reach_matrix_catches_a_wall_across_the_lane() {
 }
 
 /// Final state hashes (`PartyFixtureSim::state_hash`) of the direct route: the
-/// Rot kind present, then removed, seeds 0..=8. First pins of new fixtures.
+/// Rot kind present, then switched off, seeds 0..=8. First pins of new fixtures. FIX-TOOL
+/// re-pinned the nine Rot-off hashes (the second nine) when the fixture moved from a room
+/// with the sticker props removed to the real kill switch (`EnvRuntime::new_with_rot`:
+/// the props stay as `Machine::Rot` without a sticker state); the outcomes are unchanged,
+/// and the nine Rot-on hashes did not move. The old and new values are listed in the PR that moved them.)
 const DIRECT_PINNED: [u64; 18] = [
     0x351c_7088_ae6a_9532,
     0x0a65_afb3_d15b_270c,
@@ -183,15 +209,15 @@ const DIRECT_PINNED: [u64; 18] = [
     0xec9a_e285_4574_801a,
     0xc798_d96c_bf28_6a16,
     0x763f_37d7_44d3_a9e7,
-    0x5dcb_9c41_3133_a968,
-    0x2e0c_9353_d4d2_6b28,
-    0x12ef_2dda_6c40_e708,
-    0x8486_7806_671e_188e,
-    0x845e_f4de_21d2_a573,
-    0x2c95_3f40_1460_9539,
-    0x055d_702d_5a8f_584a,
-    0x2f28_ffc0_fdfd_5394,
-    0x0cfe_8b1b_d9df_8f31,
+    0x8f65_7f17_97ed_7bdb,
+    0x298d_7634_e4a2_3e9b,
+    0x0a22_c8b3_6735_629b,
+    0x9e1b_d409_f470_be75,
+    0x5a1d_fc03_099b_9eb0,
+    0x96d1_f24c_217d_f802,
+    0xb5dd_8620_af7a_13f1,
+    0x52a2_8e2a_d359_3ca7,
+    0x2061_960f_66bf_2732,
 ];
 pub(crate) const SOLO_CARL_PINNED: [u64; 9] = [
     0x351c_7088_ae6a_9532,
@@ -226,3 +252,24 @@ const COMPANION_PINNED: [u64; 9] = [
     0xb59b_bb7f_f9a3_78c3,
     0x20b6_ac88_ad41_7f27,
 ];
+
+/// FIX-TOOL (PT-FU-B8 item 10): the companion's "left behind" measure applied to the hero the
+/// pilot does not steer, in every mode of the hazards room (the `cf02_assist` partner of the
+/// solo runs, Carl after the swap, the `cf02_free` companion), seeds 0..=8: no partner is left
+/// behind for more than the stuck limit. Measured: at most 5 ticks for the assist partner (solo
+/// Carl and Donut by swap) and 29 for `cf02_free`. `cargo test partner_left_behind --
+/// --nocapture` prints the table. The partner's AI is not tuned from it.
+#[test]
+fn the_uncontrolled_hero_is_never_left_behind_in_the_hazards_room() {
+    for who in [Who::CarlSolo, Who::DonutBySwap, Who::Companion] {
+        let v: Vec<u32> = SEEDS
+            .map(|seed| run(&root(), who, seed, true).unwrap().partner_left_behind)
+            .collect();
+        eprintln!("PARTNER_LB hazards {} {v:?}", who.name());
+        assert!(
+            v.iter().all(|n| *n <= STUCK_LIMIT),
+            "{}: the partner was left behind: {v:?}",
+            who.name()
+        );
+    }
+}

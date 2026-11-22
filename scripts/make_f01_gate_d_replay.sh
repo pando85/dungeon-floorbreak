@@ -10,8 +10,8 @@
 # ignored test `room_pilots::tests::prints_the_aligned_library_hashes`) and, from the headless
 # ROOM_PILOT_STATE line, the library fixture's final hash itself. Output: render_replay_lines.txt,
 # one RENDER_REPLAY line per run and a closing RENDER_REPLAY_TOTAL line. The script fails unless
-# all 144 match. (The 9 Rot-off hazards runs of #240 are a model that removes the Rot props, not the scene's
-# `hazq02_rot_enabled` switch: they have no scene counterpart to replay and are not in this set.)
+# all 144 match. (The 9 Rot-off hazards runs of #240 build the real `hazq02_rot_enabled` switch since FIX-TOOL,
+# but the shipped scene has no flag that turns it off: they have no scene route to replay and are not in this set.)
 #
 # Needs the debug binary (cargo build --locked --bin floor01_scene), the exported atlases
 # (bash scripts/export_assets.sh), xvfb-run and cargo (the library test; use the same
@@ -43,19 +43,26 @@ total=0 matched=0
 while read -r line; do
   room="$(field room "$line")" who="$(field who "$line")" seed="$(field seed "$line")"
   ticks="$(field ticks "$line")" lib="$(field hash "$line")" libc="$(field combat_hash "$line")"
-  if [[ -n "${ROOMS:-}" && " $ROOMS " != *" $room "* ]]; then
-    kept="$(grep -F "RENDER_REPLAY room=$room who=$who seed=$seed " "$out" | head -n 1 || true)"
-    [[ -n "$kept" ]] || { echo "no committed line to keep for $room $who $seed" >&2; exit 1; }
-    echo "$kept" >> "$out.tmp"
-    total=$((total + 1))
-    [[ "$kept" == *" match=yes" ]] && matched=$((matched + 1))
-    continue
-  fi
   route=""
   case "$room" in
     boiler) route="$(field route "$line")"; plan="$room:$who:$route:$seed"; tag="$room-$who-$route-$seed" ;;
     *) plan="$room:$who:$seed"; tag="$room-$who-$seed" ;;
   esac
+  if [[ -n "${ROOMS:-}" && " $ROOMS " != *" $room "* ]]; then
+    # A kept line is looked up by its full key (the Boiler's `route=` sits between `who=` and `seed=`) and must
+    # still agree with the fresh library line: same tick, library hash and combat hash, and a `match=yes` result.
+    kept="$(grep -F "RENDER_REPLAY room=$room who=$who${route:+ route=$route} seed=$seed " "$out" | head -n 1 || true)"
+    [[ -n "$kept" ]] || { echo "no committed line to keep for $plan" >&2; exit 1; }
+    if [[ "$(field tick "$kept")" != "$ticks" || "$(field library_hash "$kept")" != "$lib" \
+      || "$(field library_combat_hash "$kept")" != "$libc" || "$kept" != *" match=yes" ]]; then
+      echo "the kept line for $plan is stale against the fresh library (tick, library_hash, library_combat_hash or match): re-run its room" >&2
+      exit 1
+    fi
+    echo "$kept" >> "$out.tmp"
+    total=$((total + 1))
+    matched=$((matched + 1))
+    continue
+  fi
   window=() headless=() pilot_hash="" pilot_tick="" ok=yes
   for run in 1 2; do
     dir="$caps/$tag-run$run"
