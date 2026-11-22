@@ -27,7 +27,7 @@ mod tests {
     }
 
     /// What one scripted run did, counted from the combat log.
-    #[derive(Debug, Clone, Copy, Default)]
+    #[derive(Debug, Clone, Default)]
     struct Row {
         cleared: Option<u64>,
         exit: Option<u64>,
@@ -39,12 +39,18 @@ mod tests {
         blinks: u32,
         evades: u32,
         max_stuck: u32,
+        /// FA-Q13: only the room 6 pilots measure the stall; the rest print NOT RUN.
+        max_stall: Option<u32>,
+        /// FA-Q17: the run's outcome (clear tick, hurts, kill order).
+        outcome: Option<mastery::Outcome>,
     }
 
     fn count(events: &[CombatEvent]) -> Row {
         let mut row = Row::default();
+        let mut order = Vec::new();
         for e in events {
             match e {
+                CombatEvent::EnemyDefeated { target, .. } => order.push(*target),
                 CombatEvent::HeroDefeated { .. } => row.defeats += 1,
                 CombatEvent::Restart { .. } => row.restarts += 1,
                 CombatEvent::HeroHurt { .. } => row.hurts += 1,
@@ -55,6 +61,7 @@ mod tests {
                 _ => {}
             }
         }
+        row.outcome = Some((None, row.hurts as usize, order));
         row
     }
 
@@ -93,9 +100,34 @@ mod tests {
         let b = col(|r| r.blinks);
         let e = col(|r| r.evades);
         let s = col(|r| r.max_stuck);
+        // FA-Q13: the stall, measured by the room 6 pilots only.
+        let stall = if rows.iter().all(|r| r.max_stall.is_some()) {
+            let v: Vec<u64> = rows
+                .iter()
+                .filter_map(|r| r.max_stall)
+                .map(u64::from)
+                .collect();
+            format!(
+                "{} / {}",
+                median(v.clone()).unwrap_or(0),
+                v.iter().copied().max().unwrap_or(0)
+            )
+        } else {
+            "NOT RUN".to_owned()
+        };
+        // FA-Q17: the distinct (clear tick, hurts, kill order) tuples over the seeds.
+        let mut seen: Vec<(Option<u64>, u32, Vec<u32>)> = Vec::new();
+        for r in rows {
+            let order = r.outcome.as_ref().map(|o| o.2.clone()).unwrap_or_default();
+            let tuple = (r.cleared, r.hurts, order);
+            if !seen.contains(&tuple) {
+                seen.push(tuple);
+            }
+        }
+        let distinct = seen.len();
         let _ = writeln!(
             out,
-            "| {label} | {clears} of {n} | {} | {} / {worst_time} | {} / {} | {} / {} | {} / {} | {} / {} | {} / {} | NOT RUN | {} / {} | {} / {} | {} / {} |",
+            "| {label} | {clears} of {n} | {} | {} / {worst_time} | {} / {} | {} / {} | {} / {} | {} / {} | {} / {} | NOT RUN | {} / {} | {} / {} | {} / {} | {stall} | {distinct} of {n} |",
             fmt_opt(cleared),
             fmt_opt(median(times)),
             d.0,
@@ -117,7 +149,7 @@ mod tests {
         );
     }
 
-    const HEAD: &str = "| Pilot | Clears | Roster or boss cleared tick (median) | Exit tick (median / worst) | Deaths (med / worst) | Restart events | Hurts | Throws | Chains | Pierces | Blinks | Evades | Max stuck ticks |\n| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |\n";
+    const HEAD: &str = "| Pilot | Clears | Roster or boss cleared tick (median) | Exit tick (median / worst) | Deaths (med / worst) | Restart events | Hurts | Throws | Chains | Pierces | Blinks | Evades | Max stuck ticks | Max stall ticks (med / worst) | Distinct outcomes |\n| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |\n";
 
     fn boiler_rows(who: boiler::Who, plan: boiler::Plan) -> Vec<Row> {
         SEEDS
@@ -234,6 +266,7 @@ mod tests {
                 exit: r.exit_tick,
                 cleared: r.cleared_tick,
                 max_stuck: r.max_stuck.into_iter().max().unwrap_or(0),
+                max_stall: Some(r.max_stall_ticks),
                 ..count(&r.events)
             })
             .collect();
@@ -413,10 +446,23 @@ mod tests {
             "\n## Room 5, the Juicer (`f01_late_fixtures` pilots, seeds 0..8; the seed shifts the pilot's jab phase only)\n"
         );
         out.push_str(HEAD);
+        let mut juicer_coverage = Vec::new();
         for who in JuicerWho::ALL {
             let rows = juicer_rows(who);
             summary(&mut out, who.name(), &rows);
+            juicer_coverage.push(format!(
+                "{}: {} distinct (defeat, exit) tick pairs over {} seeds",
+                who.name(),
+                distinct(&rows.iter().map(|r| (r.cleared, r.exit)).collect::<Vec<_>>()),
+                JUICER_SEEDS.end
+            ));
         }
+        // PT-FU-B7 (#234): the room 5 seed coverage, listed in the owner packet.
+        let _ = writeln!(
+            out,
+            "\nSeed coverage (a known gap): the room reads no seed (no roster, and the boss draws nothing), so the seed shifts the base-kit pilot's jab phase only. {}.",
+            juicer_coverage.join("; ")
+        );
         let _ = writeln!(
             out,
             "\nThe Juicer's `Exit tick` is the tick the scene's exit was reached; the boss falls earlier (the cleared column)."
@@ -433,9 +479,10 @@ mod tests {
             let (rows, reports) = mastery_rows(who);
             summary(&mut out, who.name(), &rows);
             distinct_lines.push(format!(
-                "{}: {} distinct final hashes, {} distinct (clear, exit) tick pairs over {} seeds",
+                "{}: {} distinct final hashes, {} distinct outcomes (clear tick, hurts, kill order; FA-Q17), {} distinct (clear, exit) tick pairs over {} seeds",
                 who.name(),
                 distinct(&reports.iter().map(|r| r.hash).collect::<Vec<_>>()),
+                mastery::distinct_outcomes(&reports),
                 distinct(
                     &reports
                         .iter()
@@ -485,8 +532,9 @@ mod tests {
         let clears: Vec<u64> = carl_reports.iter().filter_map(|r| r.cleared_tick).collect();
         let _ = writeln!(
             out,
-            "\nD3 bot median clear: {} ticks (main 517; target at least 647, every seed at most 4800; the human band 900..3000 is the owner's, OQ4). Clear ticks: min {}, max {}.",
+            "\nD3 bot median clear: {} ticks (main 517; target at least 647, every seed at most 4800; margin over 647: {} ticks, FA-Q18 asks for at least 30; the human band 900..3000 is the owner's, OQ4). Clear ticks: min {}, max {}.",
             fmt_opt(median(clears.clone())),
+            median(clears.clone()).map_or("-".to_owned(), |m| (m as i64 - 647).to_string()),
             clears.iter().min().unwrap_or(&0),
             clears.iter().max().unwrap_or(&0)
         );

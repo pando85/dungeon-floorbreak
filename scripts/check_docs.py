@@ -10,6 +10,8 @@ from pathlib import Path
 from urllib.parse import unquote
 
 ROOT = Path(__file__).resolve().parent.parent
+GIF_MAX_BYTES = 3_670_016  # 3.5 MiB, one evidence GIF (scripts/room_gif.py refuses more)
+GIF_TOTAL_MAX_BYTES = 33_554_432  # 32 MiB, the playtest packet's GIFs together
 MD_LINK = re.compile(r"(?<!!)\[[^]]+\]\(([^)]+)\)")
 REQUIRED = [
     "README.md", "AGENTS.md", "NOTICE.md",
@@ -85,6 +87,18 @@ def main() -> int:
     if len(available_hashes) > 1 and len(set(available_hashes.values())) < len(available_hashes):
         failures.append("Duplicate mood reference binaries: expected distinct images")
 
+    # PT-FU-B8 (18): the evidence GIF budget. One GIF is at most 3.5 MiB and the
+    # playtest packet's GIFs together at most 32 MiB (28.5 MB when this was set),
+    # so more route GIFs cannot land without a decision (a smaller capture, or LFS).
+    gif_budget = ROOT / "docs/evidence/f01-playtest"
+    gif_total = 0
+    for gif in sorted(gif_budget.glob("*.gif")):
+        size = gif.stat().st_size
+        gif_total += size
+        if size > GIF_MAX_BYTES:
+            failures.append(f"GIF over the {GIF_MAX_BYTES} byte budget: {gif.relative_to(ROOT)} ({size})")
+    if gif_total > GIF_TOTAL_MAX_BYTES:
+        failures.append(f"Playtest GIFs total {gif_total} bytes, over the {GIF_TOTAL_MAX_BYTES} byte budget")
     for file in json_files:
         try:
             json.loads(file.read_text(encoding="utf-8"))

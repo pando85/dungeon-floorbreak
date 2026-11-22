@@ -47,6 +47,11 @@ use crate::prototype::{HERO_HALF_HEIGHT, HERO_HALF_WIDTH, Rect};
 /// A walking hero that does not move for this many ticks is stuck: the gate
 /// allows at most 300 (plan section 10, item 5).
 pub const STUCK_LIMIT: u32 = 300;
+/// FA-Q13: the stall measure reads hurts to the controlled hero this far back.
+pub const STALL_HURT_WINDOW: u64 = 300;
+/// FA-Q13: the most a room 6 pilot may stall (asserted for the pilots that
+/// clear the room).
+pub const STALL_LIMIT: u32 = 120;
 /// The seeds every fixture covers (`--cf02-seed`, plan section 10, item 5).
 pub const SEEDS: std::ops::Range<u64> = 0..9;
 /// The run length of every pilot (100 s of game time).
@@ -158,6 +163,18 @@ fn blocked_ahead(scene: &SceneSim, x: f32, y: f32, dir: f32) -> bool {
     crate::combat::solid_at(&scene.world.solids, probe)
 }
 
+/// Whether a solid stands between `x` and `target_x` at the height Donut's bolt
+/// flies (19 px above the feet, the bolt box 6 px tall): a cast would end on it.
+fn bolt_blocked(scene: &SceneSim, x: f32, y: f32, target_x: f32) -> bool {
+    let probe = Rect {
+        left: x.min(target_x),
+        bottom: y - HERO_HALF_HEIGHT + 16.0,
+        width: (target_x - x).abs(),
+        height: 6.0,
+    };
+    crate::combat::solid_at(&scene.world.solids, probe)
+}
+
 /// The slime's bait range (PTT-Q13): the pilot stands this far from an idle
 /// slime so that the creeping slime enters its trigger distance (44 px) and
 /// starts its tell, while a lunge (reach 39 px plus the hero's half width) falls
@@ -182,6 +199,59 @@ const ELEVATED_PX: f32 = 20.0;
 const FLOOR_CENTRE_DELTA: f32 = 7.0;
 /// A held ability is pressed at most once in this many ticks (D7).
 const KIT_CADENCE: u64 = 150;
+
+/// FA-Q12: Donut's cast stand-off. She casts only at least this far from her
+/// target (the bolt spawns 27 px ahead); inside it she steps back when the step
+/// back is legal.
+const DONUT_STANDOFF_PX: f32 = 40.0;
+/// FA-Q12: a target this near, or a dry pool, is the pounce's (Physical).
+const DONUT_POINT_BLANK_PX: f32 = 32.0;
+/// FA-Q12 detail adopted here: with no mana she pounces only inside this reach
+/// (the pounce box ends 25 px ahead and she leaps forward), else she walks on.
+const DONUT_POUNCE_REACH_PX: f32 = 60.0;
+/// FA-Q12: a live wave entry beyond this is not in cast reach (the bolt flies
+/// 240 px); she walks toward the nearest one.
+const DONUT_CAST_REACH_PX: f32 = 160.0;
+/// FA-Q12 (kit pilot only): a gap above this to the nearest wave entry is
+/// closed with the blink.
+const DONUT_BLINK_GAP_PX: f32 = 160.0;
+/// FA-Q12 (kit pilot only): this many hurts within [`DONUT_ESCAPE_WINDOW`] ticks
+/// is an escape blink.
+const DONUT_ESCAPE_HURTS: usize = 2;
+const DONUT_ESCAPE_WINDOW: u64 = 120;
+/// The blink's mana cost (DP-Q23), pressed only with this many charges.
+const BLINK_COST: u8 = 2;
+/// After a back step toward away facing, she keeps going until this far (the
+/// stand-off plus a turn tick's step), so the turn does not undo it.
+const DONUT_TURN_MARGIN_PX: f32 = 8.0;
+
+/// The pilot's rules, each behaviour change behind a knob (the fix-all plan's
+/// flag-gating rule: `EARLIER` reproduces the hashes recorded before it).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PilotRules {
+    /// FA-Q12: the Donut rules (stand-off, pounce at point-blank or dry,
+    /// approach, the kit pilot's blink). Carl's branch never reads it.
+    pub donut_rules: bool,
+    /// FA-Q17: the jab phase is offset by `seed % 4` ticks and by one more tick
+    /// at each new engagement (one per roster entry already defeated), as the
+    /// Juicer pilot offsets its phase. (The first form tried, `seed % 4` times
+    /// the engagement count, gave 4 distinct outcomes at seeds 0..8; this
+    /// additive form gives 7. FA-Q30 iteration 2 of 2.)
+    pub jab_phase_by_seed: bool,
+}
+
+impl PilotRules {
+    /// What every play path runs.
+    pub const SHIPPED: Self = Self {
+        donut_rules: true,
+        jab_phase_by_seed: true,
+    };
+    /// The pilot before FA-Q12 and FA-Q17.
+    pub const EARLIER: Self = Self {
+        donut_rules: false,
+        jab_phase_by_seed: false,
+    };
+}
 
 /// What the room's hazards look like to the pilot this tick.
 struct Hazards {
@@ -235,13 +305,33 @@ pub fn pilot(combat: &CombatState, scene: &SceneSim, hero: HeroId) -> RawInput {
 /// Donut's blink) on the `ability` press edge, the input the progression
 /// fixtures use.
 pub fn pilot_with(combat: &CombatState, scene: &SceneSim, hero: HeroId, kit: bool) -> RawInput {
+    pilot_rules(combat, scene, hero, kit, PilotRules::SHIPPED)
+}
+
+/// [`pilot_with`] under explicit [`PilotRules`].
+pub fn pilot_rules(
+    combat: &CombatState,
+    scene: &SceneSim,
+    hero: HeroId,
+    kit: bool,
+    rules: PilotRules,
+) -> RawInput {
     let body = scene.world.body(hero);
     let tick = scene.world.tick + 1;
-    let press = tick.is_multiple_of(PRESS_CADENCE);
+    let defeated = combat.enemies.iter().filter(|g| !g.alive()).count()
+        + combat.llamas.iter().filter(|l| !l.alive()).count();
+    // FA-Q17: the jab phase of this engagement (one per entry already down).
+    let phase = if rules.jab_phase_by_seed {
+        (combat.cf02_seed().unwrap_or(0) % PRESS_CADENCE + defeated as u64) % PRESS_CADENCE
+    } else {
+        0
+    };
+    let press = (tick + phase).is_multiple_of(PRESS_CADENCE);
     let mut raw = RawInput::default();
     if combat.hero_defeated {
         return raw;
     }
+    let donut = hero == HeroId::Donut && rules.donut_rules;
     let hz = hazards(combat);
     let enemies_left = combat.enemies.iter().any(|g| g.alive())
         || combat.llamas.iter().any(|l| l.alive())
@@ -282,11 +372,13 @@ pub fn pilot_with(combat: &CombatState, scene: &SceneSim, hero: HeroId, kit: boo
         }
     };
     // A llama in kick reach is kicked first, whatever else is awake: it stands
-    // in the lane and blocks the walk.
-    if let Some(l) = combat
-        .llamas
-        .iter()
-        .find(|l| l.alive() && (l.x - body.x).abs() <= KICK_REACH)
+    // in the lane and blocks the walk. (Donut's point-blank answer is the
+    // pounce of her own rules below.)
+    if !donut
+        && let Some(l) = combat
+            .llamas
+            .iter()
+            .find(|l| l.alive() && (l.x - body.x).abs() <= KICK_REACH)
     {
         walk(&mut raw, (l.x - body.x).signum());
         if press {
@@ -324,6 +416,9 @@ pub fn pilot_with(combat: &CombatState, scene: &SceneSim, hero: HeroId, kit: boo
             }
         }
         return raw;
+    }
+    if donut && let Some(input) = donut_rules(combat, scene, kit, tick, press, &walk, &refused) {
+        return input;
     }
     let threat = combat
         .enemies
@@ -383,6 +478,148 @@ pub fn pilot_with(combat: &CombatState, scene: &SceneSim, hero: HeroId, kit: boo
     raw
 }
 
+/// FA-Q12: Donut's rules in the shared pilot, for the hero Donut only. `None`
+/// when no wave entry lives (the pilot walks on to the exit). The pilot holds
+/// the stand-off, answers point-blank or a dry pool with the pounce, walks to
+/// the nearest wave entry that is out of cast reach (the llama at 616), and (the
+/// kit pilot) blinks to close a long gap or to escape after two hurts.
+fn donut_rules(
+    combat: &CombatState,
+    scene: &SceneSim,
+    kit: bool,
+    tick: u64,
+    press: bool,
+    walk: &dyn Fn(&mut RawInput, f32),
+    refused: &dyn Fn(f32) -> bool,
+) -> Option<RawInput> {
+    let body = scene.world.body(HeroId::Donut);
+    let mut raw = RawInput::default();
+    let target = combat
+        .enemies
+        .iter()
+        .filter(|g| g.alive())
+        .map(|g| g.x)
+        .chain(combat.llamas.iter().filter(|l| l.alive()).map(|l| l.x))
+        .min_by(|a, b| (a - body.x).abs().total_cmp(&(b - body.x).abs()))?;
+    let blink = combat.donut_blink();
+    // A blink in its windup is cancelled by any press: stand still through it.
+    if blink.windup().is_some() {
+        return Some(raw);
+    }
+    let d = target - body.x;
+    let dist = d.abs();
+    let toward = d.signum();
+    // In the air (a hop over the parapet, a pounce): steer on, press nothing.
+    if !body.grounded {
+        walk(&mut raw, toward);
+        return Some(raw);
+    }
+    let mana = combat.donut_mana_view().map_or(0, |(m, _)| m);
+    // A hurt, a cast or a swat running ignores the press (a busy hero cannot
+    // start the blink), so the kit presses only on a free tick.
+    let free = combat.hurt_ticks_of(HeroId::Donut) == 0
+        && combat.donut_cast().is_none()
+        && combat.donut_move_view().is_none();
+    if kit && free && mana >= BLINK_COST && !blink.cooling(tick) && !blink.recovering(tick) {
+        let recent_hurts = combat
+            .events
+            .iter()
+            .rev()
+            .take_while(|e| match e {
+                CombatEvent::HeroHurt { tick: t, .. } => {
+                    tick.saturating_sub(*t) <= DONUT_ESCAPE_WINDOW
+                }
+                _ => true,
+            })
+            .filter(|e| {
+                matches!(
+                    e,
+                    CombatEvent::HeroHurt {
+                        hero: HeroId::Donut,
+                        tick: t,
+                        ..
+                    } if tick.saturating_sub(*t) <= DONUT_ESCAPE_WINDOW
+                )
+            })
+            .count();
+        let escape = recent_hurts >= DONUT_ESCAPE_HURTS;
+        let close = dist > DONUT_BLINK_GAP_PX && tick.is_multiple_of(KIT_CADENCE);
+        if escape || close {
+            // The blink goes the way she holds (facing when none): away from the
+            // target to escape, toward it to close the gap. One press, nothing
+            // else on the tick (a press in the windup would cancel it).
+            let dir = if escape { -toward } else { toward };
+            if !refused(dir) {
+                raw.move_x = dir;
+                raw.ability = true;
+                return Some(raw);
+            }
+        }
+    }
+    let facing = f32::from(body.facing);
+    let facing_target = facing * toward > 0.0;
+    let step_back = |raw: &mut RawInput| -> bool {
+        let away = -toward;
+        if refused(away) || blocked_ahead(scene, body.x, body.y, away) {
+            return false;
+        }
+        raw.move_x = away;
+        true
+    };
+    // Point-blank or dry: the pounce (Physical), from its reach.
+    let walled = bolt_blocked(scene, body.x, body.y, target);
+    if !walled && (dist <= DONUT_POINT_BLANK_PX || (mana == 0 && dist <= DONUT_POUNCE_REACH_PX)) {
+        if !facing_target {
+            raw.move_x = toward;
+        } else if press {
+            raw.physical = true;
+        }
+        return Some(raw);
+    }
+    if mana == 0 || walled {
+        walk(&mut raw, toward);
+        return Some(raw);
+    }
+    // Facing away after a back step: keep going until the turn tick's step
+    // cannot undo it.
+    if !facing_target {
+        if dist < DONUT_STANDOFF_PX + DONUT_TURN_MARGIN_PX && step_back(&mut raw) {
+            return Some(raw);
+        }
+        raw.move_x = toward;
+        return Some(raw);
+    }
+    if dist < DONUT_STANDOFF_PX {
+        if !step_back(&mut raw) && press {
+            // No legal back step: pounce rather than cast inside the stand-off.
+            raw.physical = true;
+        }
+        return Some(raw);
+    }
+    // Out of cast reach, or a wall between (the parapet): walk on, and jump what
+    // stands in the way.
+    if dist > DONUT_CAST_REACH_PX || walled {
+        walk(&mut raw, toward);
+        return Some(raw);
+    }
+    if press {
+        raw.attack = true;
+    }
+    Some(raw)
+}
+
+/// FA-Q17: the number of distinct [`Outcome`]s of `reports` (one per seed).
+pub fn distinct_outcomes(reports: &[Report]) -> usize {
+    let mut seen: Vec<Outcome> = Vec::new();
+    for r in reports {
+        let o = r.outcome();
+        if !seen.contains(&o) {
+            seen.push(o);
+        }
+    }
+    seen.len()
+}
+
 /// What a pilot run saw.
 #[derive(Debug, Clone)]
 pub struct Report {
@@ -394,6 +631,10 @@ pub struct Report {
     pub exit_tick: Option<u64>,
     /// The longest stuck run per hero (see the module docs).
     pub max_stuck: [u32; 2],
+    /// FA-Q13: the longest run of ticks with no movement input (a walk or a
+    /// jump) by the controlled hero while a wave entry lives and a hurt to that
+    /// hero lies in the trailing [`STALL_HURT_WINDOW`] ticks.
+    pub max_stall_ticks: u32,
     pub deaths: u32,
     pub hero_hurts: usize,
     pub hash: u64,
@@ -403,16 +644,62 @@ pub struct Report {
     pub difficulty: Difficulty,
 }
 
+/// FA-Q13's measure: the longest run of ticks with no movement input by the
+/// controlled hero while a wave entry lives and a hurt to that hero lies in the
+/// trailing [`STALL_HURT_WINDOW`] ticks.
+#[derive(Debug, Default)]
+struct Stall {
+    run: u32,
+    max: u32,
+    last_hurt: [Option<u64>; 2],
+}
+
+impl Stall {
+    fn hurt(&mut self, hero: HeroId, tick: u64) {
+        self.last_hurt[hero.index()] = Some(tick);
+    }
+
+    /// One tick, after the step: `tick` is the tick just run.
+    fn step(&mut self, tick: u64, hero: HeroId, wave_lives: bool, moving: bool) {
+        let hurt_lately = self.last_hurt[hero.index()]
+            .is_some_and(|t| tick.saturating_sub(t) <= STALL_HURT_WINDOW);
+        self.run = if wave_lives && hurt_lately && !moving {
+            self.run + 1
+        } else {
+            0
+        };
+        self.max = self.max.max(self.run);
+    }
+}
+
+/// One seed's outcome for the distinct-outcome count (FA-Q17): the clear tick,
+/// the hero hurts and the order the roster fell in.
+pub type Outcome = (Option<u64>, usize, Vec<u32>);
+
 impl Report {
+    /// This run's [`Outcome`].
+    pub fn outcome(&self) -> Outcome {
+        let order = self
+            .events
+            .iter()
+            .filter_map(|e| match e {
+                CombatEvent::EnemyDefeated { target, .. } => Some(*target),
+                _ => None,
+            })
+            .collect();
+        (self.cleared_tick, self.hero_hurts, order)
+    }
+
     /// The one line a table prints.
     pub fn line(&self) -> String {
         format!(
-            "{} seed={} cleared={:?} exit={:?} stuck={:?} deaths={} hurts={} {} hash={:#018x}",
+            "{} seed={} cleared={:?} exit={:?} stuck={:?} stall={} deaths={} hurts={} {} hash={:#018x}",
             self.who.name(),
             self.seed,
             self.cleared_tick,
             self.exit_tick,
             self.max_stuck,
+            self.max_stall_ticks,
             self.deaths,
             self.hero_hurts,
             self.difficulty.line(),
@@ -690,12 +977,22 @@ pub fn start(
     who: Who,
     seed: u64,
 ) -> Result<(PartyFixtureSim, &'static PartyFixture), String> {
+    start_with(root, seed, tuning(who))
+}
+
+/// [`start`] under an explicit party tuning (a test reproduces the earlier
+/// reflex profile through it).
+fn start_with(
+    root: &Path,
+    seed: u64,
+    party: PartyTuning,
+) -> Result<(PartyFixtureSim, &'static PartyFixture), String> {
     let (carl, donut) = Loadout::Story.flags();
     let (run, scene, combat) = mastery_start(root, 360, carl, donut, Some(seed))?;
     let fixture: &'static PartyFixture = Box::leak(Box::new(PartyFixture {
         base: run.fixture,
         two_player: false,
-        tuning: tuning(who),
+        tuning: party,
         script: &[],
         pilot: Pilot::ArenaDirect,
         donut: DonutSetup::unlocked(8),
@@ -710,7 +1007,19 @@ pub fn run(root: &Path, who: Who, seed: u64) -> Result<Report, String> {
 }
 
 pub fn run_for(root: &Path, who: Who, seed: u64, ticks: u64) -> Result<Report, String> {
-    let (mut sim, _fixture) = start(root, who, seed)?;
+    let (sim, _fixture) = start(root, who, seed)?;
+    run_sim(root, who, seed, ticks, PilotRules::SHIPPED, sim)
+}
+
+/// [`run_for`] on a started `sim` under explicit [`PilotRules`].
+fn run_sim(
+    root: &Path,
+    who: Who,
+    seed: u64,
+    ticks: u64,
+    rules: PilotRules,
+    mut sim: PartyFixtureSim,
+) -> Result<Report, String> {
     let mut meter = Meter::new(root)?;
     let kit = matches!(who, Who::CarlKit | Who::DonutKit);
     let mut last_x = [sim.scene.world.hero.x, sim.scene.world.donut_body.x];
@@ -721,12 +1030,15 @@ pub fn run_for(root: &Path, who: Who, seed: u64, ticks: u64) -> Result<Report, S
     let mut deaths = 0u32;
     let mut last_restarts = sim.combat.restarts;
     let mut swap_pressed = false;
+    // FA-Q13: the stall run of the controlled hero.
+    let mut stall = Stall::default();
+    let mut events_seen = 0usize;
     for _ in 0..ticks {
         let tick = sim.scene.world.tick + 1;
         let controlled = sim.party.controlled_hero();
         let (slots, walking) = match who {
             Who::CarlSolo | Who::CarlKit => {
-                let input = pilot_with(&sim.combat, &sim.scene, HeroId::Carl, kit);
+                let input = pilot_rules(&sim.combat, &sim.scene, HeroId::Carl, kit, rules);
                 ([input, RawInput::NONE], [input.move_x != 0.0, false])
             }
             Who::DonutBySwap | Who::DonutFights | Who::DonutKit => {
@@ -737,7 +1049,7 @@ pub fn run_for(root: &Path, who: Who, seed: u64, ticks: u64) -> Result<Report, S
                     Who::DonutFights | Who::DonutKit => tick >= SWAP_TICK,
                     _ => sim.combat.roster_cleared(),
                 };
-                let mut input = pilot_with(&sim.combat, &sim.scene, controlled, kit);
+                let mut input = pilot_rules(&sim.combat, &sim.scene, controlled, kit, rules);
                 if due && !swap_pressed && controlled == HeroId::Carl {
                     input.swap = true;
                     swap_pressed = true;
@@ -749,12 +1061,27 @@ pub fn run_for(root: &Path, who: Who, seed: u64, ticks: u64) -> Result<Report, S
             }
             Who::Companion => {
                 // Carl is the pilot's; Donut is the autonomous partner's.
-                let input = pilot(&sim.combat, &sim.scene, HeroId::Carl);
+                let input = pilot_rules(&sim.combat, &sim.scene, HeroId::Carl, false, rules);
                 ([input, RawInput::NONE], [input.move_x != 0.0, false])
             }
         };
         sim.step_slots(slots);
         meter.observe(&sim.combat, &sim.scene);
+        for e in &sim.combat.events[events_seen..] {
+            if let CombatEvent::HeroHurt { hero, tick, .. } = e {
+                stall.hurt(*hero, *tick);
+            }
+        }
+        events_seen = sim.combat.events.len();
+        let wave_lives = sim.combat.enemies.iter().any(|g| g.alive())
+            || sim.combat.llamas.iter().any(|l| l.alive())
+            || sim.combat.slot_enemies().iter().any(|e| e.alive());
+        stall.step(
+            sim.scene.world.tick,
+            controlled,
+            wave_lives,
+            slots[0].move_x != 0.0 || slots[0].jump,
+        );
         let carl_x = sim.scene.world.hero.x;
         let carl_moved = (carl_x - last_x[0]).abs() >= 0.1;
         for (i, id) in HeroId::ALL.into_iter().enumerate() {
@@ -801,6 +1128,7 @@ pub fn run_for(root: &Path, who: Who, seed: u64, ticks: u64) -> Result<Report, S
         cleared_tick,
         exit_tick,
         max_stuck,
+        max_stall_ticks: stall.max,
         deaths,
         hero_hurts,
         hash: sim.state_hash(),
@@ -881,6 +1209,208 @@ pub fn metrics_line(
         m.goblins_targeted_her,
         m.hunt_drift_rejected,
     )
+}
+
+/// T15: the CA2 metrics the closing arena had not measured (spec 7.1: M7, M8,
+/// the M9 cause split, M11, and M14's cost), on the same run as [`metrics`]
+/// (`cf02_free`, Carl on the room pilot, [`METRICS_TICKS`]).
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct ArenaExtras {
+    /// M7, for her position shifted by -200 and +200 px: the automatic camera's
+    /// rest-width series, its zoom changes and its per-tick width are equal to
+    /// the unperturbed run's.
+    pub m7_rest_equal: [bool; 2],
+    pub m7_zoom_equal: [bool; 2],
+    pub m7_width_equal: [bool; 2],
+    /// M8: per configuration of [`CAMERA_CONFIGS`], the ticks her body (12 px
+    /// either side of her centre) is not inside the automatic camera's view,
+    /// and the first such tick and her column.
+    pub m8_misses: [u32; 4],
+    pub m8_first: Option<(usize, u64, f32)>,
+    /// M9: the hurts to her by cause (`HeroHurt` carries a source id).
+    pub m9: HurtSplit,
+    /// M11: show-off holds started, those started with a standing enemy within
+    /// 128 px of her, and those started while a goblin's tell was running.
+    pub m11_starts: u32,
+    pub m11_enemy_near_starts: u32,
+    pub m11_tell_starts: u32,
+}
+
+/// M9's hurts to Donut by cause.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct HurtSplit {
+    pub acid: u32,
+    pub rot: u32,
+    pub shore: u32,
+    pub slime: u32,
+    /// Goblin, Engineer and llama (every other source).
+    pub enemy: u32,
+}
+
+impl HurtSplit {
+    /// M9 counts the hazards (acid, Rot, the shore block), not the slime or the
+    /// enemies, whose attacks the other metrics cover.
+    pub fn hazard(&self) -> u32 {
+        self.acid + self.rot + self.shore
+    }
+}
+
+/// M14: the wall time of one fixed step of the whole simulation, median and
+/// worst, in nanoseconds. Autonomy planning is not separable from the step, so
+/// the figure is an upper bound; the same inputs under the `cf02_assist`
+/// partner give the cost without the autonomy layer. No budget is claimed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct StepCost {
+    pub median_ns: u64,
+    pub max_ns: u64,
+}
+
+impl StepCost {
+    fn of(mut samples: Vec<u64>) -> Self {
+        samples.sort_unstable();
+        Self {
+            median_ns: samples.get(samples.len() / 2).copied().unwrap_or(0),
+            max_ns: samples.last().copied().unwrap_or(0),
+        }
+    }
+}
+
+/// The M8 configurations (aspect, output width), as the camera tests run them.
+pub const CAMERA_CONFIGS: [(crate::camera_lab::camera_op::Aspect, u32); 4] = [
+    (crate::camera_lab::camera_op::Aspect::Wide16x9, 1280),
+    (crate::camera_lab::camera_op::Aspect::Wide16x9, 1920),
+    (crate::camera_lab::camera_op::Aspect::Deck16x10, 1280),
+    (crate::camera_lab::camera_op::Aspect::Deck16x10, 1920),
+];
+
+/// M11's radius: a show-off starts only with no standing enemy this near.
+const SHOW_OFF_QUIET_PX: f32 = 128.0;
+
+/// Measure [`ArenaExtras`] at `seed`, and the step cost with the autonomous
+/// partner and with the assist partner (M14).
+pub fn arena_extras(root: &Path, seed: u64) -> Result<(ArenaExtras, [StepCost; 2]), String> {
+    use crate::camera_lab::camera_op::Bounds;
+    use crate::companion::autonomy::Goal;
+    use crate::scene_camera::{
+        CameraChoice, CameraInterest, RigConfig, SceneCameraRig, llama_interest,
+    };
+    let run = crate::f01_mastery::launch(root)?;
+    let bounds = Bounds {
+        w: run.kit.width,
+        h: run.kit.height,
+    };
+    let (mut sim, _) = start(root, Who::Companion, seed)?;
+    let rig_cfg = |(aspect, out_w): (crate::camera_lab::camera_op::Aspect, u32)| RigConfig {
+        choice: CameraChoice::Auto,
+        aspect,
+        out_w,
+        bounds,
+    };
+    let mut interest = CameraInterest::default();
+    // The M8 rigs, then the M7 base rig (wide, 1920) and its two shifts.
+    let mut rigs: Vec<SceneCameraRig> = CAMERA_CONFIGS
+        .into_iter()
+        .map(|c| SceneCameraRig::new(rig_cfg(c), &sim.scene, Some(&sim.combat), &interest, 0))
+        .collect::<Option<_>>()
+        .ok_or("the automatic camera has no rig")?;
+    let shifts = [0.0_f32, -200.0, 200.0];
+    let mut m7: Vec<SceneCameraRig> = shifts
+        .iter()
+        .map(|_| {
+            SceneCameraRig::new(
+                rig_cfg(CAMERA_CONFIGS[1]),
+                &sim.scene,
+                Some(&sim.combat),
+                &interest,
+                0,
+            )
+        })
+        .collect::<Option<_>>()
+        .ok_or("the automatic camera has no rig")?;
+    let mut series: Vec<(Vec<i32>, Vec<i32>)> = vec![(Vec::new(), Vec::new()); 3];
+    let mut out = ArenaExtras::default();
+    let mut costs = Vec::new();
+    let mut goal = Goal::Idle;
+    for _ in 0..METRICS_TICKS {
+        let input = pilot(&sim.combat, &sim.scene, HeroId::Carl);
+        let t0 = std::time::Instant::now();
+        sim.step_slots([input, RawInput::NONE]);
+        costs.push(t0.elapsed().as_nanos() as u64);
+        let tick = sim.scene.world.tick;
+        interest.clear();
+        llama_interest(&sim.scene, &sim.combat, &mut interest);
+        let elapsed = sim.combat.elapsed;
+        let body = sim.scene.world.donut_body.x;
+        for (i, rig) in rigs.iter_mut().enumerate() {
+            let v = rig.sync(&sim.scene, Some(&sim.combat), &interest, elapsed);
+            let inside = body - HERO_HALF_WIDTH >= v.left as f32
+                && body + HERO_HALF_WIDTH <= v.right() as f32;
+            if !inside {
+                out.m8_misses[i] += 1;
+                out.m8_first.get_or_insert((i, tick, body));
+            }
+        }
+        for (i, shift) in shifts.iter().enumerate() {
+            let real = sim.scene.world.donut.x;
+            sim.scene.world.donut.x += shift;
+            let v = m7[i].sync(&sim.scene, Some(&sim.combat), &interest, elapsed);
+            sim.scene.world.donut.x = real;
+            series[i].0.push(m7[i].operator().rest_target());
+            series[i].1.push(v.w);
+        }
+        // M11: a show-off hold starts.
+        let now = sim.combat.autonomy_state(HeroId::Donut).goal();
+        if now == Goal::ShowOff && goal != Goal::ShowOff {
+            out.m11_starts += 1;
+            let near = sim
+                .combat
+                .enemies
+                .iter()
+                .filter(|g| g.alive() && g.mode != crate::goblin::GoblinMode::Hurt)
+                .any(|g| (g.x - body).abs() <= SHOW_OFF_QUIET_PX);
+            out.m11_enemy_near_starts += u32::from(near);
+            let tell = sim
+                .combat
+                .enemies
+                .iter()
+                .any(|g| g.alive() && g.mode == crate::goblin::GoblinMode::Attack);
+            out.m11_tell_starts += u32::from(tell);
+        }
+        goal = now;
+    }
+    for (k, sign) in [(1usize, 0usize), (2, 1)] {
+        out.m7_rest_equal[sign] = series[k].0 == series[0].0;
+        out.m7_zoom_equal[sign] = m7[k].operator().zoom_changes == m7[0].operator().zoom_changes;
+        out.m7_width_equal[sign] = series[k].1 == series[0].1;
+    }
+    for e in &sim.combat.events {
+        let CombatEvent::HeroHurt {
+            hero: HeroId::Donut,
+            source,
+            ..
+        } = e
+        else {
+            continue;
+        };
+        let h = &mut out.m9;
+        match source & 0xffff {
+            crate::slime::ACID_SOURCE_ID => h.acid += 1,
+            crate::rot_sticker::ROT_SOURCE_ID => h.rot += 1,
+            crate::slime::SLIME_SOURCE_ID => h.slime += 1,
+            _ if *source == crate::cf02::arena::SHORE_BLOCK_SOURCE => h.shore += 1,
+            _ => h.enemy += 1,
+        }
+    }
+    // M14's baseline: the same inputs under the assist partner.
+    let (mut assist, _) = start(root, Who::CarlSolo, seed)?;
+    let mut base = Vec::new();
+    for _ in 0..METRICS_TICKS {
+        let input = pilot(&assist.combat, &assist.scene, HeroId::Carl);
+        let t0 = std::time::Instant::now();
+        assist.step_slots([input, RawInput::NONE]);
+        base.push(t0.elapsed().as_nanos() as u64);
+    }
+    Ok((out, [StepCost::of(costs), StepCost::of(base)]))
 }
 
 #[cfg(test)]
@@ -1033,48 +1563,48 @@ mod tests {
     /// rules is a deliberate re-pin.
     const GOLDEN: [[u64; 9]; 4] = [
         [
-            0x8a0f_e792_7530_65f6,
-            0xd369_6e2d_8ad6_f931,
-            0x3255_f01a_be82_377d,
-            0x08bf_ca31_3a9a_fbae,
-            0xf0e1_f76d_ca31_d6c0,
-            0x6b5a_006a_3151_66b6,
-            0x77c5_25ab_8ad7_d7d5,
-            0xeb99_a639_92dd_edc2,
-            0x9459_94ed_88c5_1e8e,
+            0x7777_7d11_2fa1_50d7,
+            0xe399_d734_d95d_df83,
+            0x5dcf_f6b2_8acc_9637,
+            0x7386_55ae_e984_ec68,
+            0x6315_1d85_712a_a683,
+            0x14d8_c509_81c9_652b,
+            0x8404_727c_6e86_fbf0,
+            0x8855_c693_08a7_6f8e,
+            0x15bf_6232_1dbb_4493,
         ],
         [
-            0x092e_6c68_72bf_f5e2,
-            0xe2a8_d38c_d740_a939,
-            0x641a_b773_c6c2_b1f5,
-            0xddb4_3193_1232_92e2,
-            0x2788_47e6_c416_9f90,
-            0x87f6_4c80_7d80_b1fa,
-            0xc596_9f07_c816_c160,
-            0xede9_ef3a_b365_88d7,
-            0x289a_343e_b3c3_841a,
+            0x2ed1_ac22_7c23_b29b,
+            0xe399_d734_d95d_df83,
+            0x5538_fdae_9809_2d9b,
+            0x7386_55ae_e984_ec68,
+            0x0eca_b49b_cc7d_2391,
+            0x14d8_c509_81c9_652b,
+            0x8404_727c_6e86_fbf0,
+            0x671b_aee5_42ee_e287,
+            0x8981_410b_b330_e5c8,
         ],
         [
-            0x5490_1a93_b6dc_4969,
-            0x7bed_a1ce_1223_3403,
-            0x8749_e3b8_ba19_fc61,
-            0xf2c9_b4bf_4cfe_68fa,
-            0xe2bc_b4a5_7a4d_296c,
-            0xf622_c21d_d0b2_246c,
-            0xb013_875c_2336_62eb,
-            0x2b5d_1a21_1c37_707c,
-            0x9e56_aa65_4c1a_be67,
+            0x547e_100f_2177_132a,
+            0x4920_f6b5_1938_85ce,
+            0x87d0_859f_2a34_f608,
+            0xdbad_e59f_8112_9802,
+            0xdf70_d738_d5c5_d82e,
+            0xc47a_3ee5_5ba3_1139,
+            0x04b8_6487_4dbf_af24,
+            0x78be_daf5_31a1_9119,
+            0x4529_2875_1db3_18a8,
         ],
         [
-            0x5d4b_d23c_4866_23ac,
-            0x594e_3503_067b_8480,
-            0x9c73_45ca_fed8_467d,
-            0xed30_d09b_b00f_bf1a,
-            0x91dc_e607_19a8_c68e,
-            0x6e7a_d5b5_7362_f147,
-            0xebfd_ae24_95a6_68d4,
-            0x3af1_8c36_ed1f_b3c6,
-            0x011c_f171_1af0_ee18,
+            0xfaa2_a0ee_3dca_42ae,
+            0x27e9_7530_db5a_88ec,
+            0x7827_ae2f_afb7_8b93,
+            0xd8f9_794a_597d_2062,
+            0xed76_07ce_0ac9_2ea0,
+            0xc288_461a_bc42_bdf8,
+            0xaebe_9b55_7f9f_f9c2,
+            0x360b_78f2_e5e4_1630,
+            0x83a2_685d_3cac_ff08,
         ],
     ];
 
@@ -1171,8 +1701,9 @@ mod tests {
     }
 
     /// Solo Donut with the base-kit pilot fights the whole room from the swap:
-    /// it is deterministic and never stuck, and it is **not** claimed to clear
-    /// the room (the pilot presses the base kit only; her kit is PT-TUNE's).
+    /// it is deterministic and never stuck. Since FA-Q12 the pilot plays her
+    /// rules (stand-off, pounce at point-blank or dry, approach) and clears the
+    /// room (see `the_donut_pilots_clear_the_room_and_never_stall`).
     #[test]
     fn solo_donut_fighting_is_replayable_and_never_stuck() {
         for seed in SEEDS {
@@ -1200,26 +1731,26 @@ mod tests {
     /// [`Who::KITS`] and [`SEEDS`] order (PT-TUNE, new in this PR).
     const KIT_GOLDEN: [[u64; 9]; 2] = [
         [
-            0x6128_69e3_8c0f_303f,
-            0x7a23_03d9_b970_80fb,
-            0x9389_d184_ae0d_b4b3,
-            0x6081_9ff8_75e5_abc9,
-            0xa70f_bfb1_eb99_3b90,
-            0x727f_db11_11dd_2157,
-            0x784c_852c_57cc_1112,
-            0x4091_049c_70bb_a430,
-            0xe546_e3c1_8304_a72d,
+            0xad8b_a142_0f6e_8987,
+            0xacf4_df38_b21f_4115,
+            0xd957_db31_0ef1_267d,
+            0x86e5_13b5_cb3f_fe9f,
+            0x1c16_30e8_54ff_7583,
+            0xe663_82f8_6ac9_c60d,
+            0x72b6_f402_d8fc_6ef6,
+            0xea58_d0b6_782d_45b3,
+            0x5e8c_ac54_545b_3c9f,
         ],
         [
-            0x741c_c2a2_6dd8_84c3,
-            0xc6cd_3a28_525b_0950,
-            0x01e4_c343_9326_ea33,
-            0xa94f_6a76_9bdc_3f7d,
-            0xad02_3663_cac7_cdae,
-            0x362f_b655_a5da_99d3,
-            0xd2b3_9d2d_9f58_15e9,
-            0x2091_ad21_0804_b4e0,
-            0x81d6_457e_a0a8_e98c,
+            0x099f_72e1_86ea_a24c,
+            0x96e2_973e_98df_63d6,
+            0x87d0_859f_2a34_f608,
+            0x69e4_aa03_2621_572b,
+            0x4e61_0f87_0ce9_5b92,
+            0xc47a_3ee5_5ba3_1139,
+            0xf747_f7e1_4d73_92b9,
+            0xd39e_5523_a080_41c8,
+            0x9a7a_8e48_186c_0619,
         ],
     ];
 
@@ -1429,7 +1960,9 @@ mod tests {
             } else if pool_gone_at.is_none() && slime_dead_at.is_some() {
                 pool_gone_at = Some(t);
             }
-            if sim.combat.roster_cleared() {
+            // To the exit, not to the clear: since FA-Q17 the seed-0 fight can end
+            // before the sticker is walked under, and its blast is the walk's.
+            if sim.combat.roster_cleared() && sim.scene.world.hero.x >= EXIT_X {
                 break;
             }
         }
@@ -1506,6 +2039,218 @@ mod tests {
             // pool for about 100 ticks. Measured 31 % to 60 % over seeds 0..8; the bound
             // is a regression pin (the measured maximum rounded up to 5 %).
             assert!(m.shadow_percent() <= 65, "M2 seed {seed}");
+            // T15: M7, M8, M9 (cause split), M11 and M14, measured on the same run.
+            let (x, cost) = arena_extras(&root(), seed).unwrap();
+            println!(
+                "seed={seed} M7 rest/zoom/width equal at -200/+200: {:?}/{:?}/{:?} M8 outside-view ticks per config {:?} M9 hurts to her {:?} (hazard {}) M11 show-offs {} (enemy within 128 px at the start {}, a tell running {}) M14 step median/max ns: autonomy {}/{}, assist {}/{}",
+                x.m7_rest_equal,
+                x.m7_zoom_equal,
+                x.m7_width_equal,
+                x.m8_misses,
+                x.m9,
+                x.m9.hazard(),
+                x.m11_starts,
+                x.m11_enemy_near_starts,
+                x.m11_tell_starts,
+                cost[0].median_ns,
+                cost[0].max_ns,
+                cost[1].median_ns,
+                cost[1].max_ns,
+            );
+            let (again, _) = arena_extras(&root(), seed).unwrap();
+            assert_eq!(x, again, "M14 determinism, seed {seed}");
+            // M7: she never moves the camera's rest width or zoom (measured equal
+            // under a 200 px shift of her position at every seed).
+            assert!(
+                x.m7_rest_equal
+                    .iter()
+                    .chain(&x.m7_zoom_equal)
+                    .chain(&x.m7_width_equal)
+                    .all(|e| *e),
+                "M7 seed {seed}: {x:?}"
+            );
+            // M8: her body is inside the automatic view on every tick, at both
+            // aspects and both output widths.
+            assert_eq!(
+                x.m8_misses, [0; 4],
+                "M8 seed {seed}: first {:?}",
+                x.m8_first
+            );
+            // M9: no hazard hurt (acid, Rot, shore) reaches her.
+            assert_eq!(x.m9.hazard(), 0, "M9 seed {seed}: {:?}", x.m9);
+            // M11: a show-off hold never starts beside a standing enemy or under
+            // a tell.
+            assert_eq!(
+                (x.m11_enemy_near_starts, x.m11_tell_starts),
+                (0, 0),
+                "M11 seed {seed}"
+            );
         }
+    }
+
+    /// The hashes of the pilot runs recorded before FA-Q12, FA-Q14, FA-Q17 and
+    /// FA-Q19: `(who, seed, hash)`, three samples of Carl, two of the swapped
+    /// Donut, two of the companion pair and one of the kit pilot. Every knob of
+    /// the plan off reproduces them (the one-line revert).
+    const EARLIER_HASHES: [(Who, u64, u64); 8] = [
+        (Who::CarlSolo, 0, 0x8a0f_e792_7530_65f6),
+        (Who::CarlSolo, 1, 0xd369_6e2d_8ad6_f931),
+        (Who::CarlSolo, 2, 0x3255_f01a_be82_377d),
+        (Who::DonutFights, 0, 0x5490_1a93_b6dc_4969),
+        (Who::DonutFights, 1, 0x7bed_a1ce_1223_3403),
+        (Who::Companion, 0, 0x5d4b_d23c_4866_23ac),
+        (Who::Companion, 1, 0x594e_3503_067b_8480),
+        (Who::DonutKit, 0, 0x741c_c2a2_6dd8_84c3),
+    ];
+
+    /// One run with every knob of this PR off: the pilot rules (FA-Q12, FA-Q17),
+    /// the missile spawn sweep (FA-Q14) and the armed attempt start (FA-Q19).
+    fn run_earlier(who: Who, seed: u64) -> Report {
+        let mut party = tuning(who);
+        party.donut_reflex = crate::agility::ReflexProfile::ShippedNoOpener;
+        let (mut sim, _) = start_with(&root(), seed, party).unwrap();
+        sim.combat.set_missile_spawn_sweep_for_test(false);
+        run_sim(&root(), who, seed, RUN_TICKS, PilotRules::EARLIER, sim).unwrap()
+    }
+
+    #[test]
+    fn every_knob_off_reproduces_the_recorded_hashes() {
+        for (who, seed, hash) in EARLIER_HASHES {
+            let r = run_earlier(who, seed);
+            assert_eq!(r.hash, hash, "{}", r.line());
+        }
+    }
+
+    /// Each knob moves the run on its own: the shipped pilot differs from the
+    /// earlier one (so the knobs above are not vacuous).
+    #[test]
+    fn the_shipped_rules_change_the_runs_the_knobs_guard() {
+        let carl = run(&root(), Who::CarlSolo, 2).unwrap();
+        assert_ne!(carl.hash, EARLIER_HASHES[2].2);
+        let donut = run(&root(), Who::DonutFights, 0).unwrap();
+        assert_ne!(donut.hash, EARLIER_HASHES[3].2);
+        // The pilot rules alone (Carl's branch reads only the jab phase).
+        let (sim, _) = start(&root(), Who::CarlSolo, 2).unwrap();
+        let no_phase = run_sim(
+            &root(),
+            Who::CarlSolo,
+            2,
+            RUN_TICKS,
+            PilotRules {
+                jab_phase_by_seed: false,
+                ..PilotRules::SHIPPED
+            },
+            sim,
+        )
+        .unwrap();
+        assert_ne!(no_phase.hash, carl.hash, "the jab phase moves Carl's run");
+    }
+
+    /// FA-Q12, FA-Q13 (T18): the base-kit and the kit Donut pilots clear at least
+    /// 7 of 9 seeds (the D7 target of PTT-Q21, met: asserted), and no room 6
+    /// pilot stalls for more than [`STALL_LIMIT`] ticks.
+    #[test]
+    fn the_donut_pilots_clear_the_room_and_never_stall() {
+        for who in [Who::DonutFights, Who::DonutKit] {
+            let reports: Vec<Report> = SEEDS.map(|seed| run(&root(), who, seed).unwrap()).collect();
+            let clears = reports.iter().filter(|r| r.cleared_tick.is_some()).count();
+            println!("D7 {} cleared {clears} of {}", who.name(), SEEDS.end);
+            assert!(clears >= 7, "{}: {clears} of 9", who.name());
+        }
+        for who in [Who::CarlSolo, Who::DonutFights, Who::DonutKit] {
+            for seed in SEEDS {
+                let r = run(&root(), who, seed).unwrap();
+                println!("stall {}", r.line());
+                assert!(r.max_stall_ticks <= STALL_LIMIT, "{}", r.line());
+            }
+        }
+    }
+
+    /// FA-Q13: the stall run counts ticks with no walk and no jump while a wave
+    /// entry lives and the controlled hero was hurt in the trailing 300 ticks;
+    /// checked at both edges of each condition.
+    #[test]
+    fn the_stall_run_counts_exactly_its_conditions() {
+        let mut s = Stall::default();
+        s.hurt(HeroId::Carl, 10);
+        // Ticks 11..=310 are inside the window (310 - 10 = 300), 311 is out.
+        for tick in 11..=310 {
+            s.step(tick, HeroId::Carl, true, false);
+        }
+        assert_eq!((s.run, s.max), (300, 300));
+        s.step(311, HeroId::Carl, true, false);
+        assert_eq!(
+            (s.run, s.max),
+            (0, 300),
+            "the 301st tick is out of the window"
+        );
+        // A hurt to the other hero does not count for this one.
+        let mut s = Stall::default();
+        s.hurt(HeroId::Donut, 10);
+        s.step(11, HeroId::Carl, true, false);
+        assert_eq!(s.max, 0);
+        s.step(12, HeroId::Donut, true, false);
+        assert_eq!(s.max, 1);
+        // No live wave entry, or any movement input, ends the run.
+        s.step(13, HeroId::Donut, false, false);
+        assert_eq!(s.run, 0);
+        s.step(14, HeroId::Donut, true, false);
+        s.step(15, HeroId::Donut, true, true);
+        assert_eq!((s.run, s.max), (0, 1));
+        // No hurt at all: nothing counts.
+        let mut s = Stall::default();
+        s.step(5, HeroId::Carl, true, false);
+        assert_eq!(s.max, 0);
+    }
+
+    /// FA-Q17: the jab phase varies the fights; carl_solo has at least 5 distinct
+    /// outcomes (clear tick, hurts, kill order) over seeds 0..8 (7 measured).
+    #[test]
+    fn the_arena_seeds_give_at_least_five_distinct_outcomes() {
+        let reports: Vec<Report> = SEEDS
+            .map(|seed| run(&root(), Who::CarlSolo, seed).unwrap())
+            .collect();
+        let n = distinct_outcomes(&reports);
+        println!("carl_solo distinct outcomes: {n}");
+        assert!(n >= 5, "{n}");
+        // The count is the number of distinct tuples, not of hashes.
+        assert!(n <= reports.len());
+    }
+
+    /// T06 (DM-FU-C): the test-only `attempts` counter reads the same number the
+    /// event tally gives on a real run (the agreement is asserted in
+    /// `agility_reflex_tests`), and never takes part in the reflex's equality.
+    #[test]
+    fn the_reflex_attempts_counter_is_asserted_on_a_real_run() {
+        let (mut sim, _) = start(&root(), Who::DonutFights, 0).unwrap();
+        for _ in 0..600 {
+            let controlled = sim.party.controlled_hero();
+            let mut input = pilot(&sim.combat, &sim.scene, controlled);
+            input.swap = controlled == HeroId::Carl;
+            sim.step_slots([input, RawInput::NONE]);
+        }
+        let reflex = *sim.combat.reflex();
+        let counted = reflex.attempts_for_test();
+        let evadable = sim
+            .combat
+            .events
+            .iter()
+            .filter(|e| {
+                matches!(
+                    e,
+                    CombatEvent::HeroEvaded { .. }
+                        | CombatEvent::HeroHurt {
+                            hero: HeroId::Donut,
+                            ..
+                        }
+                )
+            })
+            .count() as u32;
+        // Every evade and every evadable hurt reached the check; hazard hurts
+        // (acid, Rot) did not, so the counter is at most the log's tally.
+        assert!(counted <= evadable, "{counted} against {evadable}");
+        let mut other = reflex;
+        other.restart();
+        assert_eq!(other.attempts_for_test(), counted, "restart keeps it");
     }
 }
