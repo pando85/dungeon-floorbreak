@@ -189,6 +189,10 @@ pub enum Pilot {
     /// the `donut_prog_pilot_arena_blink` harness; no committed fixture selects
     /// it.
     ArenaDuoBlink,
+    /// DP-F (appended): the control of [`Pilot::ArenaDuoBlink`], the same stance
+    /// (P2 Donut a step ahead of Carl) with no blink rule and no withheld presses
+    /// (`crate::cf02::arena::donut_pilot_ahead`). Harness only.
+    ArenaDuoAhead,
 }
 
 pub(crate) const fn boss_base(
@@ -528,6 +532,12 @@ pub fn pilot_inputs(
             slots[1] = crate::cf02::arena::donut_pilot(combat, scene);
             return slots;
         }
+        Pilot::ArenaDuoAhead => {
+            slots[0] =
+                crate::cf02::arena::autopilot(combat, scene, crate::cf02::arena::Plan::Direct);
+            slots[1] = crate::cf02::arena::donut_pilot_ahead(combat, scene);
+            return slots;
+        }
         Pilot::ArenaDuoBlink => {
             slots[0] =
                 crate::cf02::arena::autopilot(combat, scene, crate::cf02::arena::Plan::Direct);
@@ -544,7 +554,8 @@ pub fn pilot_inputs(
         | Pilot::ArenaDirect
         | Pilot::ArenaEnvironment
         | Pilot::ArenaDuo
-        | Pilot::ArenaDuoBlink => {}
+        | Pilot::ArenaDuoBlink
+        | Pilot::ArenaDuoAhead => {}
         Pilot::ThrownCharge => slots[0] = thrower_pilot(tick, combat, scene, boss),
         Pilot::Carl => slots[0] = carl_pilot(tick, combat, scene, boss, false),
         Pilot::CarlRack => slots[0] = carl_pilot(tick, combat, scene, boss, true),

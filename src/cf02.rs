@@ -1539,6 +1539,13 @@ pub mod arena {
         }
     }
 
+    /// DP-F: the control of [`donut_blink_pilot`]: [`donut_pilot`] at the same
+    /// stance ([`BLINK_PILOT_GOAL_DX`], a step ahead of Carl), with no blink rule
+    /// and nothing withheld, so a comparison varies the blink alone.
+    pub fn donut_pilot_ahead(combat: &CombatState, scene: &SceneSim) -> RawInput {
+        donut_pilot_at(combat, scene, BLINK_PILOT_GOAL_DX)
+    }
+
     /// The reach of the scripted blink rule (DP-Q39: `dpq39_ai_threat_px`).
     const BLINK_THREAT_PX: f32 = 48.0;
 
@@ -1546,8 +1553,9 @@ pub mod arena {
     /// pilot trails him at -40). In the shipped room the goblins pick the nearer
     /// hero, and a P2 who trails Carl is never the target (0 swings aimed at her
     /// in 16 seeded runs), so the rule would be dead code; a Donut a step ahead
-    /// draws the swings the blink is for. 32 is the one value of a 16..48 sweep
-    /// where every seed 0..8 presses the blink and 7 of 8 clear the room.
+    /// draws the swings the blink is for. 32 is a value of a 16..48 sweep
+    /// where every seed 0..8 presses the blink. Its control is
+    /// [`donut_pilot_ahead`], the same stance.
     const BLINK_PILOT_GOAL_DX: f32 = 32.0;
 
     /// A solid within 14 px ahead of Carl's body at ledge height.

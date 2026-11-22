@@ -33,7 +33,16 @@ cf02_arena_coop seed=4 done_at=509 ticks=1800 deaths=0 restarts=0 blinks=1 start
 cf02_arena_coop seed=5 done_at=never ticks=484 deaths=2 restarts=2 blinks=3 started=3 cancels=0 fizzles=0 blink_spends=3 missile_spends=20 dry=3 stuck=[132, 48] hash=1cff35280c9929ae
 cf02_arena_coop seed=6 done_at=439 ticks=1800 deaths=0 restarts=0 blinks=1 started=1 cancels=0 fizzles=0 blink_spends=1 missile_spends=1 dry=0 stuck=[54, 37] hash=dcbce9f3388ce306
 cf02_arena_coop seed=7 done_at=597 ticks=1129 deaths=1 restarts=1 blinks=2 started=2 cancels=0 fizzles=0 blink_spends=2 missile_spends=11 dry=13 stuck=[94, 66] hash=c5d59384e13efa29
-# control: the same room and caps with the shipped ArenaDuo pilot
+# control: the same stance (+32) with no blink rule (ArenaDuoAhead): the blink is the only difference
+cf02_arena_coop seed=0 done_at=406 ticks=1800 deaths=0 restarts=0 blinks=0 started=0 cancels=0 fizzles=0 blink_spends=0 missile_spends=6 dry=0 stuck=[37, 57] hash=5a61606e79cf6bc5
+cf02_arena_coop seed=1 done_at=491 ticks=1800 deaths=0 restarts=0 blinks=0 started=0 cancels=0 fizzles=0 blink_spends=0 missile_spends=7 dry=0 stuck=[48, 37] hash=27e915347ac4e329
+cf02_arena_coop seed=2 done_at=623 ticks=1800 deaths=0 restarts=0 blinks=0 started=0 cancels=0 fizzles=0 blink_spends=0 missile_spends=11 dry=7 stuck=[135, 40] hash=908e187f8b41f536
+cf02_arena_coop seed=3 done_at=535 ticks=1800 deaths=0 restarts=0 blinks=0 started=0 cancels=0 fizzles=0 blink_spends=0 missile_spends=10 dry=0 stuck=[93, 41] hash=01d38b3115d75de6
+cf02_arena_coop seed=4 done_at=535 ticks=1800 deaths=0 restarts=0 blinks=0 started=0 cancels=0 fizzles=0 blink_spends=0 missile_spends=10 dry=0 stuck=[168, 43] hash=d09f7dd4f2b82ad7
+cf02_arena_coop seed=5 done_at=406 ticks=1800 deaths=0 restarts=0 blinks=0 started=0 cancels=0 fizzles=0 blink_spends=0 missile_spends=6 dry=0 stuck=[37, 57] hash=c1442117838dd08f
+cf02_arena_coop seed=6 done_at=623 ticks=1800 deaths=0 restarts=0 blinks=0 started=0 cancels=0 fizzles=0 blink_spends=0 missile_spends=11 dry=7 stuck=[135, 40] hash=ecf09cc6aadad3cb
+cf02_arena_coop seed=7 done_at=521 ticks=1800 deaths=0 restarts=0 blinks=0 started=0 cancels=0 fizzles=0 blink_spends=0 missile_spends=7 dry=0 stuck=[72, 53] hash=d3692f3bcac4d1aa
+# reference only: the shipped trailing ArenaDuo pilot (stance -40, no blink): differs in stance as well
 cf02_arena_coop seed=0 done_at=never ticks=370 deaths=2 restarts=2 blinks=0 started=0 cancels=0 fizzles=0 blink_spends=0 missile_spends=17 dry=0 stuck=[160, 78] hash=c538c96b6b001a3e
 cf02_arena_coop seed=1 done_at=503 ticks=1800 deaths=0 restarts=0 blinks=0 started=0 cancels=0 fizzles=0 blink_spends=0 missile_spends=2 dry=0 stuck=[94, 39] hash=cdcd6c9700f43df6
 cf02_arena_coop seed=2 done_at=never ticks=404 deaths=2 restarts=2 blinks=0 started=0 cancels=0 fizzles=0 blink_spends=0 missile_spends=15 dry=0 stuck=[173, 64] hash=561c304ed6796026

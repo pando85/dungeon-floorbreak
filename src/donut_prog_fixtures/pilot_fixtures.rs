@@ -330,9 +330,23 @@ fn arena_blink_reports() -> Vec<Report> {
         .collect()
 }
 
-/// The control of the blink pilot: the same room, seeds and Donut capabilities
-/// with the shipped pilot (no blink rule).
+/// The control of the blink pilot: the same room, seeds, capabilities **and
+/// stance** (a step ahead of Carl) with no blink rule and nothing withheld
+/// (`Pilot::ArenaDuoAhead`), so the two differ by the blink alone.
 fn arena_blink_control() -> Vec<Report> {
+    let control = overlay(
+        find_party_fixture("cf02_arena_coop").unwrap(),
+        Pilot::ArenaDuoAhead,
+    );
+    (0..SEEDS)
+        .map(|seed| arena_run(control, seed, true).1)
+        .collect()
+}
+
+/// The shipped trailing pilot (`Pilot::ArenaDuo`, 40 px behind Carl) with the
+/// same capabilities, recorded for reference only: it differs from the blink
+/// pilot in stance as well as in the blink.
+fn arena_blink_trailing() -> Vec<Report> {
     let control = overlay(
         find_party_fixture("cf02_arena_coop").unwrap(),
         Pilot::ArenaDuo,
@@ -364,8 +378,16 @@ fn print_the_pilot_reports() {
     for r in arena_blink_reports() {
         emit(&mut out, &r);
     }
-    out.push_str("# control: the same room and caps with the shipped ArenaDuo pilot\n");
+    out.push_str(
+        "# control: the same stance (+32) with no blink rule (ArenaDuoAhead): the blink is the only difference\n",
+    );
     for r in arena_blink_control() {
+        emit(&mut out, &r);
+    }
+    out.push_str(
+        "# reference only: the shipped trailing ArenaDuo pilot (stance -40, no blink): differs in stance as well\n",
+    );
+    for r in arena_blink_trailing() {
         emit(&mut out, &r);
     }
     out.push_str("# donut_prog_pilot_boss_boost (--donut-prog boss pin)\n");
@@ -386,6 +408,7 @@ fn print_the_pilot_reports() {
 /// `print_the_pilot_folds`).
 const GOLDEN_ARENA_BOOST: u64 = 0x05d0_b2a6_249c_7a79;
 const GOLDEN_ARENA_BLINK: u64 = 0xeaa0_b3de_c512_9ef4;
+const GOLDEN_ARENA_AHEAD: u64 = 0x3005_1e53_1003_e214;
 const GOLDEN_BOSS_BOOST: u64 = 0x7ad2_938f_0dbb_9a77;
 const GOLDEN_BOSS_ARENA: u64 = 0x3b07_4c06_659a_5879;
 
@@ -393,6 +416,7 @@ const GOLDEN_BOSS_ARENA: u64 = 0x3b07_4c06_659a_5879;
 fn print_the_pilot_folds() {
     println!("FOLD arena_boost {:#018x}", fold(&arena_boost_reports()));
     println!("FOLD arena_blink {:#018x}", fold(&arena_blink_reports()));
+    println!("FOLD arena_ahead {:#018x}", fold(&arena_blink_control()));
     println!("FOLD boss_boost {:#018x}", fold(&boss_reports()));
     println!("FOLD boss_arena {:#018x}", fold(&[boss_free_run().1]));
 }
@@ -431,11 +455,14 @@ fn donut_prog_pilot_arena_boost() {
 }
 
 /// DP-Q47: the scripted blink pilot (`Pilot::ArenaDuoBlink`) in the two-player
-/// room with all three Donut capabilities, seeds 0..8. The blink is pressed in
+/// room with all three Donut capabilities, seeds 0..8. It proves the human-style
+/// blink is pressed, resolves and pays in a live room: the blink is pressed in
 /// every seed, every press resolves (no cancel, no fizzle: the pilot withholds
-/// its own presses during the windup), each arrival pays once, nobody stands
-/// still for more than 300 ticks, and the room is cleared at least as often as
-/// the shipped pilot manages with the same capabilities (the control).
+/// its own presses during the windup), each arrival pays once and nobody stands
+/// still for more than 300 ticks. It does **not** assert that the blink helps:
+/// the control at the same stance (`Pilot::ArenaDuoAhead`, no blink rule) is
+/// recorded beside it, and the measured numbers (the blink pilot has more deaths
+/// than that control) are an owner game-feel note, see the evidence README.
 #[test]
 fn donut_prog_pilot_arena_blink() {
     let reports = arena_blink_reports();
@@ -447,23 +474,28 @@ fn donut_prog_pilot_arena_blink() {
         assert_eq!(r.blink_spends, r.blinks, "one payment each: {}", line(r));
         assert!(r.stuck.iter().all(|s| *s <= STUCK_LIMIT), "{}", line(r));
     }
-    let cleared = |rs: &[Report]| rs.iter().filter(|r| r.done_at.is_some()).count();
-    assert!(
-        cleared(&reports) >= cleared(&control),
-        "{} against the control's {}",
-        cleared(&reports),
-        cleared(&control)
-    );
-    // Measured (see the evidence README): 7 of 8 seeds clear, against 3 of 8 for
-    // the shipped pilot with the same capabilities; seed 5 never does.
-    assert_eq!(cleared(&reports), 7);
-    assert_eq!(cleared(&control), 3);
+    for r in &control {
+        assert_eq!(
+            r.blinks + r.started,
+            0,
+            "the control never blinks: {}",
+            line(r)
+        );
+        assert!(r.stuck.iter().all(|s| *s <= STUCK_LIMIT), "{}", line(r));
+    }
     assert_eq!(reports, arena_blink_reports());
+    assert_eq!(control, arena_blink_control());
     assert_eq!(
         fold(&reports),
         GOLDEN_ARENA_BLINK,
         "{:#018x}",
         fold(&reports)
+    );
+    assert_eq!(
+        fold(&control),
+        GOLDEN_ARENA_AHEAD,
+        "{:#018x}",
+        fold(&control)
     );
 }
 

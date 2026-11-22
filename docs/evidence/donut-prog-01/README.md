@@ -113,11 +113,12 @@ Real windowed Bevy captures at 640 x 360 (1x source), from `scripts/make_dp_f_ev
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `donut_prog_pilot_arena_boost` (direct, swap, `eng_solo_assist`, seeds 0..8; boost held) | 24 | 16 (the 8 `cf02_arena_swap` runs are a 300 tick script, not a clearing pilot) | 0 | 0 | 173 | 0 | 108 |
 | `donut_prog_pilot_arena_blink` (`Pilot::ArenaDuoBlink`, all three capabilities) | 8 | 7 (seed 5 never) | 7 | 15 (15) | 81 | 16 | 173 |
-| control: the shipped `ArenaDuo` pilot, same capabilities | 8 | 3 | 11 | 0 | 96 | 6 | 228 |
+| control at the same stance: `Pilot::ArenaDuoAhead` (+32, no blink rule) | 8 | 8 | 0 | 0 | 68 | 14 | 168 |
+| reference only: the shipped trailing `ArenaDuo` (-40, no blink; differs in stance too) | 8 | 3 | 11 | 0 | 96 | 6 | 228 |
 | `donut_prog_pilot_boss_boost` (solo and 2P full clear under the boss pin) | 2 | 2, both on tick 3175 with the Puddle Jumper grant on it | 0 | 0 | 0 | 0 | 788 (the parked P2, the same unpinned) |
 | `cf02_free_blink_boss_arena` (AI Donut, boss pin and blink) | 1 | 1 (3175) | 0 | 0 | 0 | 0 | 376 |
 
-No blink was cancelled or fizzled in any run. The blink pilot stands 32 px ahead of Carl (a recorded deviation: a trailing P2 is never the goblins' target). The Juicer's charge never makes the AI Donut blink in the boss arena: the jump dodge starts 18 ticks before the ram and the blink window opens at 12 (spec section 18).
+No blink was cancelled or fizzled in any run. The blink pilot stands 32 px ahead of Carl (a recorded deviation: a trailing P2 is never the goblins' target), so its control is the same stance with no blink rule; the trailing row mixes stance with the blink and is reference only. The pilot proves the blink is pressed, resolves and pays; it does not show that the blink helps: against the same-stance control it has 7 deaths to 0 and one failed seed. Likely cause, not separated from where the blink lands: the swat and pounce are held back whenever a swing aims at her, even outside the 7 to 12 tick window. Owner game-feel note: blinking out of swings instead of swatting cost deaths in the scripted coop pilot. The Juicer's charge never makes the AI Donut blink in the boss arena: the jump dodge starts 18 ticks before the ram and the blink window opens at 12 (spec section 18).
 
 ### PLAYTRACE and the two-pad check
 

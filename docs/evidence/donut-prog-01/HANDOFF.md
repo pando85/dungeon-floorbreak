@@ -48,8 +48,8 @@ Destination search (DP-Q27, DP-Q28): candidates 112, 108, ..., 16 px along the s
 | Flags | `--donut-prog`, `--donut-light-feet`, `--donut-puddle`; AI blink only under `cf02_free` |
 | Pad | none (headless pilots); the real pad check is **NOT RUN** |
 | Resolution | 640 x 360 captures; the 640 x 400 view is covered by the drawn-view tests |
-| Deaths and restarts | arena boost pilots 0 / 0; blink pilot 7 / 7 (control 11 / 11); boss pilots 0 / 0 |
+| Deaths and restarts | arena boost pilots 0 / 0; blink pilot 7 / 7 (same-stance control without the blink 0 / 0; the shipped trailing pilot 11 / 11, reference only); boss pilots 0 / 0 |
 | Blinks and fizzles | blink pilot 15 resolved, 0 fizzled, 0 cancelled |
 | Mana spent | blink pilot: 15 blink payments (2 charges each) and 81 missile spends |
-| Dry presses | blink pilot 16 (control 6): missiles refused at 0 mana or blinks rejected |
-| Open questions | see the PR body: the boss charge blink cannot fire behind the jump dodge; the blink pilot's 32 px lead; the coop pilot's deaths with the biscuit |
+| Dry presses | blink pilot 16 (same-stance control 14): missiles refused at 0 mana or blinks rejected |
+| Open questions | the boss charge blink is kept as a guard behind the jump dodge (owner may want a boss window); the blink pilot's 32 px lead; owner game-feel note: blinking out of swings instead of swatting cost deaths in the scripted coop pilot (the swat and pounce are held back whenever a swing aims at her) |
