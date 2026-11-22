@@ -2,6 +2,10 @@
 
 **Status:** detailed design proposal only. No implementation, tested balance or owner game-feel acceptance. This refines S02 and S03 of the [Floor 02 bible](floor-02-last-lesson-design-bible.md). Follow AGENTS.md, existing combat-first/physical contracts, accepted MVP controller and existing Floor 01 boss/prop work orders.
 
+## Casting and arts continuity
+
+The **foreman/pitchman is a combat role**, not the proposed name of a new canon species. First visual/acting choice is the lore-supported **Laminak Rev-Up Consultant Elite** (a fairy superior to the Clurichaun reps) with the existing alarm/interruption mechanic. Preserve one supervisory slot and one reinforcement budget. [Enemy acting bible](floor-02-enemy-acting-bible.md) specifies silhouette and attack poses. If the real primary-book depiction conflicts, update its visual, not the functional level contract.
+
 ## 1. The emotional and mechanical pitch
 
 The wrong version is "Donut stands still, fires Magic Missile at a barrel, the entire room explodes for free." The right version is a lying sales expo that turns into a physical domino machine **because of a player decision**, then a grotesque tentacle boss that tears the facade down. Combat is satisfying before any clever prop trick.
