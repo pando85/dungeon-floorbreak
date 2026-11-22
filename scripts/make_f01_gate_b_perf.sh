@@ -20,4 +20,4 @@ for view in 640x360 640x400; do
     bash scripts/room_perf.sh mastery mastery "$frames" "${extra[@]}" | grep -v '^log=' >> "$out/perf_mastery.txt"
   done
 done
-(cd "$out" && sha256sum ./*.gif ./*.png ./*.txt | sed 's# \./# #' > SHA256SUMS)
+(cd "$out" && sha256sum ./*.gif ./*.png ./*.txt ./*.md | grep -v ' ./README.md$' | sed 's# \./# #' > SHA256SUMS)

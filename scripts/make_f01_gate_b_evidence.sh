@@ -100,6 +100,16 @@ hz="$("$BIN" --headless-floor01-smoke --scene f01_late --f01-room hazards --room
 count() { grep -c "kind=$1" <<<"$hz" || true; }
 {
   echo
+  echo "## Room 2, the live room (\`Roster::Live\`): the three solo-Carl room pilots, one seed (committed in docs/evidence/f01-boiler/pilot_hashes.txt)"
+  echo
+  echo "| Plan | Final tick (exit) | Hero hp | Deaths | Completed | Final hash |"
+  echo "| --- | --- | --- | --- | --- | --- |"
+  grep -E '^(direct|valve|chain) ' docs/evidence/f01-boiler/pilot_hashes.txt | sed -E 's/^([a-z]+) tick=([0-9]+) hp=([0-9]+) deaths=([0-9]+) complete=([a-z]+) hash=([0-9a-f]+)$/| \1 | \2 | \3 | \4 | \5 | \6 |/'
+  echo
+  echo "Donut by swap and the companion on the live room, at seeds 0..8: NOT RUN (no such pilot exists)."
+} >> "$out/scorecard.md"
+{
+  echo
   echo "## Room 4, the hazards room (the \`direct\` room pilot, one run to tick 1500; no per-seed pilots exist)"
   echo
   echo "| Pilot | Hero defeats | Respawns | Hurts | Blasts | Rot stickers woken | Enemies left | Final state |"

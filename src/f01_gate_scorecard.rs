@@ -281,7 +281,7 @@ mod tests {
         );
         let _ = writeln!(
             out,
-            "## Room 2, the Goblin Boiler (scene pilots, `boiler_fixtures::scene_pilots`, CF02 seeds 0..8)\n"
+            "## Room 2, the Goblin Boiler: the EMPTY GREYBOX, not the live room (scene pilots, `boiler_fixtures::scene_pilots`, CF02 seeds 0..8; `f01_boiler::launch` is `Roster::Inert`: no goblins and no Engineer, so 0 hurts and 0 deaths say nothing about the live room)\n"
         );
         out.push_str(HEAD);
         for (plan, name) in [
@@ -294,14 +294,14 @@ mod tests {
             ] {
                 summary(
                     &mut out,
-                    &format!("{who_name}, {name}"),
+                    &format!("greybox, no roster: {who_name}, {name}"),
                     &boiler_rows(who, plan),
                 );
             }
         }
         let _ = writeln!(
             out,
-            "| Companion (cf02_free) | NOT RUN | | | | | | | | | | | |"
+            "| Companion (cf02_free), and every pilot on the live `Roster::Live` room at seeds 0..8 | NOT RUN (no such pilot exists) | | | | | | | | | | | |"
         );
 
         let _ = writeln!(
