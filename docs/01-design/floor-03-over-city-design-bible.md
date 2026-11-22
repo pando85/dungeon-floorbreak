@@ -12,6 +12,16 @@
 
 **Canon-to-gameplay decisions that remain PROPOSALS:** In Book 2 Carl destroys three Big Top poles and achieves Grimaldi's resolution using poison, healing, parasite communication and a producer bargain. Our combat adaptation makes those supports **optional tactical advantages** rather than three mandatory switches, and keeps Donut playable during Heather/Grimaldi despite the Water Lily curse in the source. These deviations must be reviewed by the owner, not silently treated as the novel's chronology.
 
+## Final city-act design authority and canon-sensitive continuity
+
+- [F03-CITY-01 — S07–S10 city, GumGum aftermath, Krasue, Apito and magistrate demolition](floor-03-skyfowl-city-and-quill-encounters.md).
+- [F03-DOOMSDAY-01 — S11/S12 Remex, soul-crystal containment, four precursor pulses and the final stair](floor-03-doomsday-scenario-final-act.md).
+- [F03-CITY-ART-01 — six master environment keys and 1x gameplay art requirements](../02-art/floor-03-skyfowl-and-doomsday-art-direction.md).
+
+**Canon/sequence guard (based on secondary Book 2 summaries; primary audit pending):** GumGum is **already dead** when Krasue are discovered in the alley. Miss Quill is killed in a booby-trapped magistrate-office demolition **before** Remex tells his story; Magistrate Featherfall is **long dead** already. Remex is **not a lich or a boss**, but a trapped Soul Leech Capacitor. The end has **two distinct crises**: Carl traps the exploding soul crystal inside a Sheol Glass case, forming the Doomsday Scenario, but **Remex's separate growing wild-magic explosion remains**, preceded by **four** precursor bursts and an escape with Katia's depot relay. Do not combine the crystal and Remex into one magical "defeat final boss" explosion.
+
+**Game adaptation guard:** fixed story case prop instead of inventory/crafting, visible environmental effects instead of compulsory equipment stripping, short authored scene-lane escapes instead of long RPG preparation, real two-hero co-op and one unique final Floor04 exit. These proposals are not approved implementations.
+
 ## 0. Artistic thesis — welcome to a city built as a stage and a prison
 
 The player leaves the pale enclosed Floor02 industrial structure and steps into a huge, false outdoor sky. The Over City is not a generic medieval town. It is a **decaying city-sized television set**: a night sky that never quite looks natural, crooked timber villages and impossible masonry ruins sitting above a volcanic scar, high-hanging propaganda and gleaming administrative wards, a carnival whose monstrous performances will not end. Fantasy elements are dressed with **1980s/90s action-film staging, grotesque game-show production and industrial backstage mechanics**.
@@ -129,9 +139,9 @@ The living engine of the conspiracy is not a conventional killable lich. Reveal 
 
 Floor climax: a **very wide false-sky night city** suddenly washes from violet to impossible white, with escalating warned shock-fronts. In a giant side-scrolling sequence, Carl, Donut and narrative allies cross three carefully authored *short combat escape segments*; the player may kick obstacles, interrupt pursuers, or trigger an existing real blast to open an **optional** shortcut. The mission does **not** become 90 seconds of constant full-speed platforming.
 
-A first authored "precursor wave" teaches the pulse rule while all heroes see cover. Subsequent waves pressure decisions but **never strip controller controls, skills, equipment or assets from the party**: book's stripping of stats and items is translated into light/audio and a short temporary limitation if approved later. No permanent inventory exists in this game. The final protected stairwell is the **only** true party Floor04 transition. **Rage stair from Floor02, circus stair reveal from Floor03 and final escape stair are all distinct story events** — test their ordering. No fake global camera shake/white flash that hides active attack warnings.
+There are **four explicitly separate, ordered precursor pulses** after the **earlier** soul-crystal explosion has been contained; the pulses arise from Remex's **second** pending catastrophe. Each pulse changes a **visible, authored world hazard or stage prop**, not the player's learned controls, skills or required equipment. The book's magical stripping is translated into environmental states, warning sound/lighting and safe-lane decisions; no compulsory inventory or "unequip" screen exists. One precursor teaches, two create distinct spatial decisions, and the fourth leads toward the true final door. The final protected stairwell is the **only** true party Floor04 transition; the Floor02 Rage-only exile and Floor03 circus early revealed stairs are separate events. No global white-out may hide active warnings.
 
-**Story outcome:** escape is earned through combat decisions, not an "extra 1 HP survival runner"; the growing glass-case threat is contained in the story, and the heroes reach the stairs alongside visible survivors. Transition promises the Iron Tangle in Floor04, it does NOT render a playable train network as Floor03's epilogue.
+**Story outcome:** the **first** glass-case soul-crystal explosion is contained before the flight, but the **later** Remex wild-magic countdown still endangers the city. Katia's once-only depot detonation is an authored distant relay, not an unapproved third-controller mechanic. Escape is earned through legible environmental combat and route decisions, not an "extra 1 HP survival runner". The true final stair takes the duo into Floor04 alongside visible survivors. The transition foreshadows the Iron Tangle, without rendering Floor04's trains as playable Floor03 content.
 
 ## 2. Combat composition and identity
 
