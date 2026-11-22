@@ -39,7 +39,7 @@ use crate::donut_mana::DonutSetup;
 use crate::donut_prog::DonutProgFlags;
 use crate::f01_boiler::{self, BoilerRun, Roster};
 use crate::story_unlock::{Storage, StoryTable};
-use crate::{f01_hazards, f01_hoarder};
+use crate::{f01_hazards, f01_hoarder, f01_mastery};
 
 /// The manifest of the listed rooms.
 pub const MANIFEST_PATH: &str = "assets/levels/f01_late/manifest.json";
@@ -48,7 +48,7 @@ pub const MANIFEST_PATH: &str = "assets/levels/f01_late/manifest.json";
 /// hash is a constant, pinned to the file by a test and compared by every
 /// replay of a recorded room. A step that lists a room (CORRAL-WIRE, RING-A
 /// wire, HRD-A2, ...) re-pins it on purpose.
-pub const MANIFEST_HASH: u64 = 0x495a_114d_01db_d9d4;
+pub const MANIFEST_HASH: u64 = 0x956c_44a8_bbd1_41c3;
 /// The fixture-only stub trigger the story-order tie skips by name.
 pub const STUB_TRIGGER: &str = "carl_prog_find_zone_stub";
 /// The `data_pins()` key.
@@ -75,13 +75,15 @@ pub const fn data_pins() -> [(&'static str, u64); 1] {
 /// stamps nor needs them, so a later edit of the manifest (every room step) or of
 /// the Boiler files (BOIL-B/C wire) fails only the recordings it can change; a
 /// Juicer recording needs the manifest hash and not the Boiler's.
-pub const SCOPED_PIN_KEYS: [&str; 7] = [
+pub const SCOPED_PIN_KEYS: [&str; 9] = [
     f01_boiler::ROOM_PIN_KEY,
     f01_boiler::ENCOUNTER_PIN_KEY,
     f01_hoarder::ROOM_PIN_KEY,
     f01_hoarder::ENCOUNTER_PIN_KEY,
     f01_hazards::ROOM_PIN_KEY,
     f01_hazards::ENCOUNTER_PIN_KEY,
+    f01_mastery::ROOM_PIN_KEY,
+    f01_mastery::ENCOUNTER_PIN_KEY,
     MANIFEST_PIN_KEY,
 ];
 
@@ -93,6 +95,7 @@ pub fn pin_applies(key: &str, room: Option<&str>) -> bool {
         f01_boiler::ROOM_PIN_KEY | f01_boiler::ENCOUNTER_PIN_KEY => room == Some("boiler"),
         f01_hoarder::ROOM_PIN_KEY | f01_hoarder::ENCOUNTER_PIN_KEY => room == Some("hoarder"),
         f01_hazards::ROOM_PIN_KEY | f01_hazards::ENCOUNTER_PIN_KEY => room == Some("hazards"),
+        f01_mastery::ROOM_PIN_KEY | f01_mastery::ENCOUNTER_PIN_KEY => room == Some("mastery"),
         MANIFEST_PIN_KEY => room.is_some(),
         _ => true,
     }
@@ -120,6 +123,9 @@ pub enum RoomScene {
     /// `--scene f01_hazards` (HAZ-A2b).
     #[serde(rename = "f01_hazards")]
     Hazards,
+    /// `--scene f01_mastery` (PT-MASTERY): launched through `--scene f01_late`.
+    #[serde(rename = "f01_mastery")]
+    Mastery,
 }
 
 /// The run rules of a room (K17).
@@ -260,9 +266,10 @@ impl Manifest {
             }
             last = Some(at);
             let rules_ok = match row.scene {
-                RoomScene::Boiler | RoomScene::Hoarder | RoomScene::Hazards => {
-                    row.rules == RoomRules::Cf02
-                }
+                RoomScene::Boiler
+                | RoomScene::Hoarder
+                | RoomScene::Hazards
+                | RoomScene::Mastery => row.rules == RoomRules::Cf02,
                 RoomScene::Boss => row.rules == RoomRules::Boss,
             };
             if !rules_ok {
@@ -477,6 +484,7 @@ pub fn entry_line(room: &RoomRow, loadout: Option<Loadout>) -> String {
             RoomScene::Boss => "boss_f01",
             RoomScene::Hoarder => "f01_hoarder",
             RoomScene::Hazards => "f01_hazards",
+            RoomScene::Mastery => "f01_mastery",
         },
         room.milestone,
         loadout.map_or("flags", Loadout::name),
@@ -569,6 +577,22 @@ pub fn hazards_start(
     Ok((run, scene, combat))
 }
 
+/// Launch the closing arena and build its scene and combat state (PT-MASTERY),
+/// the shared constructor of the binary and the verifier. Its goblins draw their
+/// temperaments from `--cf02-seed`.
+pub fn mastery_start(
+    root: &Path,
+    view_height: i32,
+    carl: CarlProgFlags,
+    donut: DonutProgFlags,
+    cf02_seed: Option<u64>,
+) -> Result<(f01_mastery::MasteryRun, SceneSim, CombatState), String> {
+    let run = f01_mastery::launch(root)?;
+    let mut scene = SceneSim::new_at(&run.kit, view_height, run.fixture.carl_x)?;
+    let combat = f01_mastery::combat_for(&run, &mut scene, carl, donut, cf02_seed)?;
+    Ok((run, scene, combat))
+}
+
 /// Whether a recorded descriptor's room label is consistent with this build:
 /// the room is listed, a loadout label is known and agrees with the flags.
 pub fn check_descriptor(
@@ -618,14 +642,18 @@ mod tests {
     #[test]
     fn the_manifest_lists_the_landed_rooms_in_story_order() {
         let m = manifest();
-        assert_eq!(m.listed(), ["hoarder", "boiler", "hazards", "juicer"]);
+        assert_eq!(
+            m.listed(),
+            ["hoarder", "boiler", "hazards", "juicer", "mastery"]
+        );
         // HRDA2B-AD1: the Hoarder is listed first in the story, and the default
         // room stays the Boiler.
         assert_eq!(m.default_room().id, "boiler");
         assert_eq!(m.room("boiler").unwrap().scene, RoomScene::Boiler);
         assert_eq!(m.room("hoarder").unwrap().scene, RoomScene::Hoarder);
         assert_eq!(m.room("hazards").unwrap().scene, RoomScene::Hazards);
-        for id in ["hoarder", "hazards"] {
+        assert_eq!(m.room("mastery").unwrap().scene, RoomScene::Mastery);
+        for id in ["hoarder", "hazards", "mastery"] {
             assert_eq!(m.room(id).unwrap().rules, RoomRules::Cf02, "{id}");
         }
         assert_eq!(m.room("juicer").unwrap().rules, RoomRules::Boss);
@@ -637,15 +665,15 @@ mod tests {
         let unknown = m.room("cellar").unwrap_err();
         assert!(unknown.starts_with("unknown room"), "{unknown}");
         assert!(
-            unknown.contains("hoarder, boiler, hazards, juicer"),
+            unknown.contains("hoarder, boiler, hazards, juicer, mastery"),
             "{unknown}"
         );
         // Known to the story order but not landed yet.
-        for id in ["corral", "dozer", "mastery"] {
+        for id in ["corral", "dozer"] {
             let unlisted = m.room(id).unwrap_err();
             assert!(unlisted.starts_with("unlisted room"), "{unlisted}");
             assert!(
-                unlisted.contains("hoarder, boiler, hazards, juicer"),
+                unlisted.contains("hoarder, boiler, hazards, juicer, mastery"),
                 "{unlisted}"
             );
         }
@@ -947,9 +975,29 @@ mod tests {
             held_of(&combat),
             ["jump_reach_boost", "special_thrown_charge"]
         );
+        // PT-MASTERY: the closing arena holds every capability and arms nothing
+        // (the final-boss rule): its manifest row grants nothing.
+        let (mastery, _, combat) = mastery_start(&root(), 360, story.0, story.1, None).unwrap();
+        assert_eq!(
+            m.pins_of("mastery"),
+            std::slice::from_ref(&mastery.loaded.encounter.story_pin)
+        );
+        assert_eq!(mastery.loaded.encounter.story_pin, "f01_late_mastery");
+        assert_eq!(
+            held_of(&combat),
+            [
+                "fist_reinforced",
+                "jump_reach_boost",
+                "special_short_blink",
+                "special_thrown_charge"
+            ]
+        );
+        assert!(combat.story_ledger().unwrap().receipts().is_empty());
+        let order = |id: &str| m.story_order.iter().find(|o| o.id == id).unwrap();
+        assert!(order("mastery").grants.is_empty(), "no story trigger");
         for row in m.rooms.iter().filter(|r| r.rules == RoomRules::Cf02) {
             assert!(
-                ["boiler", "hoarder", "hazards"].contains(&row.id.as_str()),
+                ["boiler", "hoarder", "hazards", "mastery"].contains(&row.id.as_str()),
                 "{}: add its sidecar-pin tie above",
                 row.id
             );
@@ -1014,6 +1062,10 @@ mod tests {
                     "hazards",
                     [f01_hazards::ROOM_PIN_KEY, f01_hazards::ENCOUNTER_PIN_KEY],
                 ),
+                (
+                    "mastery",
+                    [f01_mastery::ROOM_PIN_KEY, f01_mastery::ENCOUNTER_PIN_KEY],
+                ),
             ]
             .into_iter()
             .find(|(_, keys)| keys.contains(&key))
@@ -1025,6 +1077,7 @@ mod tests {
             Some("boiler"),
             Some("hoarder"),
             Some("hazards"),
+            Some("mastery"),
         ] {
             for key in SCOPED_PIN_KEYS {
                 let covered = match owner(key) {

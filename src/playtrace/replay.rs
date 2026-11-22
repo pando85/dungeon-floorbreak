@@ -342,9 +342,11 @@ pub(super) fn check_f01_source(
         (crate::f01_late::SESSION_SOURCE, Some("boiler")) if reset.name == "f01_boiler" => Ok(()),
         (crate::f01_late::SESSION_SOURCE, Some("hoarder")) if reset.name == "f01_hoarder" => Ok(()),
         (crate::f01_late::SESSION_SOURCE, Some("hazards")) if reset.name == "f01_hazards" => Ok(()),
+        (crate::f01_late::SESSION_SOURCE, Some("mastery")) if reset.name == "f01_mastery" => Ok(()),
         ("boss", Some("juicer")) if reset.name == crate::boss_scene::BOSS01_SCENE.name => Ok(()),
         (crate::f01_late::SESSION_SOURCE, _) => Err(bad(
-            "the f01_room source replays the boiler, hoarder and hazards rooms only".to_owned(),
+            "the f01_room source replays the boiler, hoarder, hazards and mastery rooms only"
+                .to_owned(),
         )),
         (source, _) if labelled => Err(bad(format!(
             "a {source:?} session named {:?} cannot carry the room label {room:?}",
@@ -395,11 +397,14 @@ fn rebuild_f01_room(manifest: &SessionManifest, root: &Path) -> Result<Reset, Ve
     let reset = &manifest.reset;
     check_f01_label(reset, root)?;
     let room = reset.f01_room.as_deref();
-    if !matches!(room, Some("boiler" | "hoarder" | "hazards")) || !reset.cf02_rules || reset.demo {
+    if !matches!(room, Some("boiler" | "hoarder" | "hazards" | "mastery"))
+        || !reset.cf02_rules
+        || reset.demo
+    {
         return Err(VerifyFailure::new(
             "unsupported_source",
             format!(
-                "the {} source replays the Boiler, Hoarder and hazard rooms under the CF02 rules",
+                "the {} source replays the Boiler, Hoarder, hazard and mastery rooms under the CF02 rules",
                 crate::f01_late::SESSION_SOURCE
             ),
         ));
@@ -426,6 +431,10 @@ fn rebuild_f01_room(manifest: &SessionManifest, root: &Path) -> Result<Reset, Ve
             .map(|(_, scene, combat)| (scene, combat)),
         Some("hazards") => {
             crate::f01_late::hazards_start(root, reset.view_height, carl, donut, reset.cf02_seed)
+                .map(|(_, scene, combat)| (scene, combat))
+        }
+        Some("mastery") => {
+            crate::f01_late::mastery_start(root, reset.view_height, carl, donut, reset.cf02_seed)
                 .map(|(_, scene, combat)| (scene, combat))
         }
         _ => crate::f01_late::boiler_start_with(

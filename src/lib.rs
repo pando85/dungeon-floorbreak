@@ -66,6 +66,8 @@ pub mod f01_hazards;
 pub mod f01_hoarder;
 pub mod f01_late;
 pub mod f01_late_fixtures;
+pub mod f01_mastery;
+pub mod f01_mastery_fixtures;
 pub mod feel;
 pub mod follower;
 pub mod goblin;

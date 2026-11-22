@@ -921,6 +921,10 @@ pub struct CombatState {
     /// is `Some` only under `cf02_rules` with the switch on, and is hashed only then.
     morale_on: bool,
     cf02_seed: Option<u64>,
+    /// PTM-AD-temperament: the number of leading goblins whose temperaments must
+    /// cover the whole bag (0: the plain Q58 draw, every other room). Not hashed:
+    /// its effect is in the drawn temperaments, which are.
+    temperament_cover: usize,
     morale: Option<MoraleRuntime>,
     morale_feed: Vec<CombatEvent>,
     /// ENEMY-GAMEPLAY-ENGINEER: the pinned engineer knobs (constant for the run).
@@ -1057,6 +1061,7 @@ impl CombatState {
             carl_cf02: CarlCf02::default(),
             morale_on: crate::cf02_fixtures::morale_fixture(fixture.name),
             cf02_seed: None,
+            temperament_cover: 0,
             morale: None,
             morale_feed: Vec::new(),
             engineer: engineer::active(),
@@ -1135,6 +1140,15 @@ impl CombatState {
     #[must_use]
     pub fn with_cf02_seed(mut self, seed: Option<u64>) -> Self {
         self.cf02_seed = seed;
+        self.reset_attempt();
+        self
+    }
+
+    /// PTM-AD-temperament: the first `cover` goblins draw all of the bag's
+    /// temperaments ([`crate::morale::covering_bag`]). Rebuilds the attempt's morale.
+    #[must_use]
+    pub fn with_temperament_cover(mut self, cover: usize) -> Self {
+        self.temperament_cover = cover;
         self.reset_attempt();
         self
     }

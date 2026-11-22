@@ -507,8 +507,8 @@ case "$mode" in
     # headless smoke of each room and loadout replays identically twice and names
     # its room; the story loadout of the Boiler differs from the plain room (the
     # pin holds dynamite and Light on Your Feet), and the plain room is unchanged.
-    late_lines() { "$bin" --headless-floor01-smoke --scene f01_late "$@" | grep -E '^(F01_LATE_ENTRY|F01_(BOILER|HOARDER|HAZARDS)_(ENTRY|SMOKE_OK)|COMBAT_STATE)'; }
-    for late_args in "--f01-room boiler" "--f01-room boiler --f01-loadout all" "--f01-room juicer" "--f01-room juicer --f01-loadout all" "--f01-room hoarder" "--f01-room hoarder --f01-loadout all" "--f01-room hazards" "--f01-room hazards --f01-loadout all"; do
+    late_lines() { "$bin" --headless-floor01-smoke --scene f01_late "$@" | grep -E '^(F01_LATE_ENTRY|F01_(BOILER|HOARDER|HAZARDS|MASTERY)_(ENTRY|SMOKE_OK)|COMBAT_STATE)'; }
+    for late_args in "--f01-room boiler" "--f01-room boiler --f01-loadout all" "--f01-room juicer" "--f01-room juicer --f01-loadout all" "--f01-room hoarder" "--f01-room hoarder --f01-loadout all" "--f01-room hazards" "--f01-room hazards --f01-loadout all" "--f01-room mastery" "--f01-room mastery --f01-loadout all" "--f01-room mastery --cf02-seed 7"; do
       # shellcheck disable=SC2086
       late_a="$(late_lines $late_args)"
       # shellcheck disable=SC2086
@@ -546,6 +546,19 @@ case "$mode" in
         exit 1
       fi
     done
+    # PT-MASTERY: the closing arena loads its sidecar roster (four goblins, the
+    # Engineer, two llamas, no slot enemy) under both loadouts. Its story pin
+    # holds every capability, so the story run and the TEST LOADOUT start from
+    # the same kits (the loadout label is the recording's, not the state's).
+    for mastery_loadout in "" "--f01-loadout all"; do
+      # shellcheck disable=SC2086
+      mastery_state="$(late_lines --f01-room mastery $mastery_loadout)"
+      if ! grep -q '^F01_MASTERY_SMOKE_OK .* env=live slot_enemies=0 enemies=5 ' <<<"$mastery_state" \
+        || ! grep -q '^F01_MASTERY_ENTRY .* goblins=4 engineers=1 llamas=2 slot=0 ' <<<"$mastery_state"; then
+        echo "the f01_late mastery room did not load its sidecar roster ($mastery_loadout)" >&2
+        exit 1
+      fi
+    done
     # The direct scenes name the same room and replay identically twice.
     for direct in f01_hoarder:F01_HOARDER f01_hazards:F01_HAZARDS; do
       direct_a="$("$bin" --headless-floor01-smoke --scene "${direct%%:*}" | grep -E "^(${direct##*:}_(ENTRY|SMOKE_OK)|COMBAT_STATE)")"
@@ -555,7 +568,7 @@ case "$mode" in
         exit 1
       fi
     done
-    echo "F01_LATE_HEADLESS_OK: boiler, hoarder, hazards and juicer, story and all, each twice identical"
+    echo "F01_LATE_HEADLESS_OK: boiler, hoarder, hazards, juicer and mastery, story and all, each twice identical"
     ;;
   render)
     for f in "${fixtures[@]}"; do

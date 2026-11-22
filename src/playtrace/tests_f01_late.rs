@@ -96,6 +96,18 @@ impl RoomRig {
                 combat,
                 room_party(),
             )
+        } else if room == "mastery" {
+            // PT-MASTERY: the closing arena, the same way.
+            let (run, scene, combat) = f01_late::mastery_start(&root(), 360, carl, donut, seed)
+                .expect("the mastery arena launches");
+            (
+                f01_late::SESSION_SOURCE,
+                run.fixture.name,
+                true,
+                scene,
+                combat,
+                room_party(),
+            )
         } else {
             let kit = crate::boss_scene::load_arena(&root()).expect("the boss arena");
             let fixture = crate::boss_scene::BOSS01_SCENE;
@@ -331,11 +343,69 @@ fn a_seeded_hazard_session_verifies_strict() {
     verify(&session).expect("restored");
 }
 
+/// PT-MASTERY: a recorded session of the closing arena verifies strict under
+/// both loadouts and a seed, stamps its room pins and the manifest's and not
+/// another room's, and the roster, the loadout label and the seed are part of
+/// the run. The recorded run is driven by the autopilot's fight (the arena's
+/// Carl pilot), so it holds hits, hurts and deaths, not only a walk.
+#[test]
+fn a_recorded_mastery_session_verifies_strict() {
+    for (loadout, seed) in [
+        (Loadout::Story, None),
+        (Loadout::Story, Some(5)),
+        (Loadout::All, Some(7)),
+    ] {
+        let dir = TempDir::new("f01-mastery");
+        let mut rig = RoomRig::start_seeded(&dir.0, "mastery", loadout, seed);
+        assert_eq!(rig.combat.enemies.len(), 5, "four goblins and the Engineer");
+        assert_eq!(rig.combat.llamas.len(), 2, "two llamas");
+        for _ in 0..1500 {
+            let input = crate::cf02::arena::autopilot(
+                &rig.combat,
+                &rig.scene,
+                crate::cf02::arena::Plan::Direct,
+            );
+            rig.step(input);
+        }
+        assert!(
+            rig.combat
+                .events
+                .iter()
+                .any(|e| matches!(e, crate::combat::CombatEvent::EnemyDefeated { .. })),
+            "the recorded run fights"
+        );
+        let manifest = rig.rec.finish("test").expect("finished");
+        let session = dir.0.join(manifest.session_id);
+        let report = verify(&session).unwrap_or_else(|e| panic!("{}: {e}", loadout.name()));
+        assert_eq!((report.ticks, report.scope), (1500, VerifyScope::Full));
+        let loaded = read_session(&session, false).unwrap();
+        assert_eq!(loaded.manifest.reset.name, "f01_mastery");
+        assert_eq!(loaded.manifest.reset.f01_room.as_deref(), Some("mastery"));
+        assert_scoped_stamps(&loaded, "mastery");
+        // The seed and the loadout label are part of the run.
+        let other_seed = seed.map_or(Some(1), |s| Some(s + 1));
+        tamper_manifest(&session, |m| m.reset.cf02_seed = other_seed);
+        assert!(verify(&session).is_err(), "another seed is another run");
+        tamper_manifest(&session, |m| m.reset.cf02_seed = seed);
+        verify(&session).expect("restored");
+        let other = if loadout == Loadout::Story {
+            "all"
+        } else {
+            "story"
+        };
+        tamper_manifest(&session, |m| m.reset.f01_loadout = Some(other.into()));
+        assert_eq!(
+            verify(&session).expect_err("relabelled").code,
+            "rules_mismatch"
+        );
+    }
+}
+
 /// A room's own pin is required of its recordings: removing one of the room's
 /// pins, or editing its value, fails, and another room's pin never does.
 #[test]
 fn a_hoarder_or_hazard_recording_needs_its_room_pins_and_no_other() {
-    for room in ["hoarder", "hazards"] {
+    for room in ["hoarder", "hazards", "mastery"] {
         let (_dir, session) = record("f01-room-pins", room, Loadout::Story, 200);
         for key in f01_late::SCOPED_PIN_KEYS {
             let covers = f01_late::pin_applies(key, Some(room));
@@ -425,6 +495,7 @@ fn a_relabelled_room_is_rejected() {
         Some("juicer"),
         Some("hoarder"),
         Some("hazards"),
+        Some("mastery"),
         Some("corral"),
         None,
     ] {
@@ -559,6 +630,7 @@ fn a_session_of_another_source_cannot_claim_a_room() {
         (Some("boiler"), None),
         (Some("hoarder"), None),
         (Some("hazards"), None),
+        (Some("mastery"), None),
         (Some("juicer"), None),
         (Some("boiler"), Some("story")),
         (Some("juicer"), Some("all")),
@@ -602,7 +674,11 @@ fn only_the_listed_rooms_sessions_may_carry_their_own_room() {
     )));
     assert!(ok(&reset("boss", boss_name, Some("juicer"), None)));
     // HRD-A2b and HAZ-A2b: the two rooms on their own fixtures only.
-    for (room, name) in [("hoarder", "f01_hoarder"), ("hazards", "f01_hazards")] {
+    for (room, name) in [
+        ("hoarder", "f01_hoarder"),
+        ("hazards", "f01_hazards"),
+        ("mastery", "f01_mastery"),
+    ] {
         assert!(ok(&reset(
             f01_late::SESSION_SOURCE,
             name,
@@ -629,7 +705,7 @@ fn only_the_listed_rooms_sessions_may_carry_their_own_room() {
     }
     // `demo` and `fixture` (and the rest) claiming either room, or only a loadout.
     for source in ["demo", "fixture", "story", "party_fixture"] {
-        for room in ["boiler", "hoarder", "hazards", "juicer"] {
+        for room in ["boiler", "hoarder", "hazards", "mastery", "juicer"] {
             assert!(
                 !ok(&reset(source, "x", Some(room), None)),
                 "{source} {room}"

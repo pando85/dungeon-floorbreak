@@ -1,0 +1,101 @@
+{
+  "schema": "floor01-encounter-v1",
+  "status": "PT-MASTERY data (docs/07-agents/f01-playtest-integration-plan.md section 4.7 and row 6 of the room table): the closing arena of the late-Floor-1 playtest slice. It reuses ONLY the cf02_microarena geometry (the room file is the CF02-F microarena: floor 580, left perch 544..672, parapet 736..768, right perch 896..992, rotten shore at strike 384, set by the fixture) and the CF02-F wave contract (two waves, checkpoints 128 and 704, no unseen instant damage, the exit opens when the roster is clear). Wave W1 is the brawl lane (three goblins at the CF02-F columns 520, 600 and 680, with the seeded temperament draw); wave W2 is the llama yard (a goblin, the Goblin Engineer and TWO llamas). The slime and the Rot Stickers are NOT in this file yet: the HAZ rule 5 pocket validator (HAZ-A1) allows one non-slime enemy per hazard pocket and requires every enemy to spawn in a pocket, which a crowd room cannot meet (PTM-Q1, open). The sidecar opts in to the wave roster rule (waves: true, PTM-AD6): seven entries in two beats of at most four. The existing kinds (goblin, Engineer, llama) stand at their column from tick 0 and wake by sight, so trigger_x and delay_ticks are authoring order only; the delays are distinct because the validator forbids synchronised spawns. Greybox hypotheses, every number a tuning knob that PT-TUNE may change: difficulty comes from composition, not HP (#178). The Juicer is not part of this arena. Coordinates are layout pixels, y down, like the room file.",
+  "id": "F01-MASTERY-ENC",
+  "room_file": "../floor01/cf02_microarena.room.json",
+  "room_id": "CF02-ARENA",
+  "story_pin": "f01_late_mastery",
+  "goal": "defeat_roster",
+  "grants": [],
+  "max_living": 4,
+  "waves": true,
+  "locks": [],
+  "platform_slab_px": 16,
+  "protected_spawn": {
+    "x": 48,
+    "y": 484,
+    "w": 112,
+    "h": 96
+  },
+  "checkpoint": {
+    "x": 680,
+    "y": 484,
+    "w": 48,
+    "h": 96
+  },
+  "exit": {
+    "x": 1072,
+    "y": 484,
+    "w": 64,
+    "h": 96
+  },
+  "props": [],
+  "hazards": [],
+  "links": [],
+  "acid_patches": [],
+  "pockets": [],
+  "roster": [
+    {
+      "id": "g1",
+      "kind": "goblin",
+      "x": 520,
+      "beat": "W1",
+      "delay_ticks": 30
+    },
+    {
+      "id": "g2",
+      "kind": "goblin",
+      "x": 600,
+      "beat": "W1",
+      "delay_ticks": 60
+    },
+    {
+      "id": "g3",
+      "kind": "goblin",
+      "x": 680,
+      "beat": "W1",
+      "delay_ticks": 90
+    },
+    {
+      "id": "l2",
+      "kind": "llama",
+      "x": 820,
+      "beat": "W2",
+      "delay_ticks": 120
+    },
+    {
+      "id": "g4",
+      "kind": "goblin",
+      "x": 880,
+      "beat": "W2",
+      "delay_ticks": 150
+    },
+    {
+      "id": "e1",
+      "kind": "engineer",
+      "gate": "cf02_engineer",
+      "fallback_kind": "goblin",
+      "x": 940,
+      "beat": "W2",
+      "delay_ticks": 180
+    },
+    {
+      "id": "l1",
+      "kind": "llama",
+      "x": 1000,
+      "beat": "W2",
+      "delay_ticks": 210
+    }
+  ],
+  "gates": [
+    {
+      "surface": 0,
+      "class": "carl"
+    },
+    {
+      "surface": 1,
+      "class": "carl"
+    }
+  ],
+  "vantages": []
+}

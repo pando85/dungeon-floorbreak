@@ -239,8 +239,20 @@ pub fn roster_enemies(
     if !spawn.slot.is_empty() {
         return Err("the Boiler's roster holds a slot kind (the room has none)".to_owned());
     }
+    existing_enemies(encounter, &spawn.existing, engineer_enabled)
+}
+
+/// The existing-kind half of [`roster_enemies`] (PT-MASTERY): the enemies of the
+/// roster entries at `indices` (the `existing` list of a [`spawn_from_roster`]
+/// result), for a room whose roster also holds slot kinds. Same rules, same
+/// order, same errors.
+pub fn existing_enemies(
+    encounter: &Encounter,
+    indices: &[usize],
+    engineer_enabled: bool,
+) -> Result<RosterEnemies, String> {
     let mut out = RosterEnemies::default();
-    for index in spawn.existing {
+    for &index in indices {
         let entry = &encounter.roster[index];
         if entry.perch.is_some() {
             return Err(format!(

@@ -86,7 +86,7 @@ use dungeon_floorbreak::{
     env_kit::{
         EnvKit, IRect, PieceDraw, animation_frame, parallax_copies, parallax_start, to_world_y,
     },
-    f01_boiler, f01_hazards, f01_hoarder, f01_late,
+    f01_boiler, f01_hazards, f01_hoarder, f01_late, f01_mastery,
     feel::{
         HERO_HURT_TICKS, IMPACT_FLASH_TICKS, LLAMA_GLOB_MOUTH_DX, LLAMA_GLOB_MOUTH_DY,
         LLAMA_GLOB_SPEED,
@@ -335,6 +335,11 @@ struct Args {
     f01_hazards: bool,
     /// The launched hazard room (`main` fills it right after parsing).
     hazards_run: Option<Box<f01_hazards::HazardsRun>>,
+    /// PT-MASTERY: `--scene f01_late --f01-room mastery`, the closing arena (the
+    /// CF02-F geometry, the sidecar roster, full kits). Under the room rules.
+    f01_mastery: bool,
+    /// The launched mastery arena (`main` fills it right after parsing).
+    mastery_run: Option<Box<f01_mastery::MasteryRun>>,
     /// PT-SCENE: `--scene f01_late`. It is a launcher: the room (`--f01-room`)
     /// and the loadout (`--f01-loadout`) resolve, once the arguments are read,
     /// to the scene that runs the room (`f01_boiler` or the boss arena) and the
@@ -457,7 +462,7 @@ impl Args {
     /// (the Boiler, the Hoarder or the hazard room): each implies `cf02_rules`
     /// without the microarena.
     fn f01_room_scene(&self) -> bool {
-        self.f01_boiler || self.f01_hoarder || self.f01_hazards
+        self.f01_boiler || self.f01_hoarder || self.f01_hazards || self.f01_mastery
     }
 
     /// CF02-F: this run is in the microarena (`--cf02`, or a CF02-F room fixture).
@@ -651,6 +656,8 @@ fn resolve_boiler_args(parsed: &mut Args) -> Result<(), String> {
         (f01_hoarder::SCENE_NAME, "hoarder")
     } else if parsed.f01_hazards {
         (f01_hazards::SCENE_NAME, "hazards")
+    } else if parsed.f01_mastery {
+        (f01_mastery::SCENE_NAME, f01_mastery::ROOM_NAME)
     } else {
         return Ok(());
     };
@@ -793,6 +800,7 @@ fn resolve_f01_late_args(parsed: &mut Args) -> Result<(), String> {
         f01_late::RoomScene::Boiler => parsed.f01_boiler = true,
         f01_late::RoomScene::Hoarder => parsed.f01_hoarder = true,
         f01_late::RoomScene::Hazards => parsed.f01_hazards = true,
+        f01_late::RoomScene::Mastery => parsed.f01_mastery = true,
         f01_late::RoomScene::Boss => {
             parsed.boss = true;
             parsed.fixture = Some(boss_scene::BOSS01_SCENE);
@@ -1157,6 +1165,8 @@ fn parse_args_full(
         hoarder_run: None,
         f01_hazards: false,
         hazards_run: None,
+        f01_mastery: false,
+        mastery_run: None,
         f01_late: false,
         f01_room: None,
         f01_loadout: None,
@@ -1888,6 +1898,12 @@ fn build_scene(
             let combat =
                 f01_hazards::combat_for(run, &mut sim, args.carl, args.donut, args.cf02.seed)?;
             (sim, combat)
+        } else if let Some(run) = &args.mastery_run {
+            // PT-MASTERY: the closing arena, the verifier's constructor.
+            let mut sim = SceneSim::new_at(kit, view_height(args.deck), fixture.carl_x)?;
+            let combat =
+                f01_mastery::combat_for(run, &mut sim, args.carl, args.donut, args.cf02.seed)?;
+            (sim, combat)
         } else {
             let sim = SceneSim::new_at(kit, view_height(args.deck), fixture.carl_x)?;
             let combat = CombatState::new(fixture, kit, &sim)?
@@ -1896,8 +1912,8 @@ fn build_scene(
                 .map_err(|e| e.to_string())?;
             (sim, combat)
         };
-        if args.hoarder_run.is_some() || args.hazards_run.is_some() {
-            // HRD-A2b and HAZ-A2b: the library built the state with its rules,
+        if args.hoarder_run.is_some() || args.hazards_run.is_some() || args.mastery_run.is_some() {
+            // HRD-A2b, HAZ-A2b and PT-MASTERY: the library built the state with its rules,
             // env and slot. A builder run after the slot would reset the attempt.
         } else if let Some(run) = &args.boiler_run {
             // BOIL-B/C wire: the sidecar's props and hazards are live.
@@ -1912,7 +1928,11 @@ fn build_scene(
         }
         // COMBAT-FUN-02: `--cf02` runs the CF02 rules, llama targets (C1)
         // included (every `cf02_*` fixture already does, by its name).
-        if args.cf02.rules && args.hoarder_run.is_none() && args.hazards_run.is_none() {
+        if args.cf02.rules
+            && args.hoarder_run.is_none()
+            && args.hazards_run.is_none()
+            && args.mastery_run.is_none()
+        {
             combat = combat.with_cf02().with_cf02_seed(args.cf02.seed);
         }
         let (mut anim, mut death) = combat_presentation(actors, root, args, &sim, &combat, hud)?;
@@ -2340,6 +2360,20 @@ fn main() -> ExitCode {
             }
         }
     }
+    // PT-MASTERY: load the closing arena and its sidecar.
+    if args.f01_mastery {
+        match f01_mastery::launch(&root) {
+            Ok(run) => {
+                println!("{}", f01_mastery::entry_line(&run));
+                args.fixture = Some(run.fixture);
+                args.mastery_run = Some(Box::new(run));
+            }
+            Err(error) => {
+                eprintln!("floor01_scene: {error}");
+                return ExitCode::from(2);
+            }
+        }
+    }
     // PTR-R1: open the recording before anything else; a recording the viewer
     // cannot show opens no window.
     let prepared = if args.replay.is_some() {
@@ -2359,6 +2393,8 @@ fn main() -> ExitCode {
     } else if let Some(run) = &args.hoarder_run {
         Ok(run.kit.clone())
     } else if let Some(run) = &args.hazards_run {
+        Ok(run.kit.clone())
+    } else if let Some(run) = &args.mastery_run {
         Ok(run.kit.clone())
     } else if args.refuge {
         refuge::load(&root).map(|(kit, _)| kit)
@@ -3143,6 +3179,9 @@ fn recording_manifest(
     } else if args.f01_hazards {
         // HAZ-A2b: so does the hazard room.
         (f01_late::SESSION_SOURCE, f01_hazards::SCENE_NAME)
+    } else if args.f01_mastery {
+        // PT-MASTERY: and the closing arena.
+        (f01_late::SESSION_SOURCE, f01_mastery::SCENE_NAME)
     } else if args.demo {
         ("demo", args.fixture.map_or("", |f| f.name))
     } else if args.boss {
@@ -7609,7 +7648,7 @@ fn headless_smoke(kit: &EnvKit, args: &Args, actors: &Actors, root: &Path) -> Re
     if let Some(run) = &args.boiler_run {
         return headless_boiler(kit, args, actors, root, run);
     }
-    if args.hoarder_run.is_some() || args.hazards_run.is_some() {
+    if args.hoarder_run.is_some() || args.hazards_run.is_some() || args.mastery_run.is_some() {
         return headless_slot_room(kit, args, actors, root);
     }
     if args.demo || args.arena_room() {
@@ -7745,6 +7784,13 @@ fn headless_slot_room(
             "F01_HAZARDS_SMOKE_OK",
             run.loaded.encounter.story_pin.clone(),
             f01_hazards::SMOKE_TICKS,
+        )
+    } else if let Some(run) = &args.mastery_run {
+        (
+            "mastery",
+            "F01_MASTERY_SMOKE_OK",
+            run.loaded.encounter.story_pin.clone(),
+            f01_mastery::SMOKE_TICKS,
         )
     } else {
         return Err("no room".into());
@@ -9438,12 +9484,113 @@ mod tests {
         // Unlisted rooms stay refused with the listed ones named.
         let error = args(&["--scene", "f01_late", "--f01-room", "dozer"]).expect_err("unlisted");
         assert!(
-            error.contains("hoarder, boiler, hazards, juicer"),
+            error.contains("hoarder, boiler, hazards, juicer, mastery"),
             "{error}"
         );
         // No other run sets either scene.
         assert!(!args(&["--cf02"]).unwrap().f01_room_scene());
         assert!(!args(&["--scene", "boss_f01"]).unwrap().f01_room_scene());
+    }
+
+    /// PT-MASTERY: the closing arena is a listed room of `--scene f01_late` only
+    /// (no scene of its own). It implies `cf02_rules` like the other rooms, takes
+    /// a seed (its goblins draw temperaments), records under the late-Floor-1
+    /// source with its own fixture name, stamps its own room pins, and its tick-0
+    /// state in the binary is the verifier's constructor.
+    #[test]
+    fn the_mastery_arena_resolves_through_the_late_launcher() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let late = args(&["--scene", "f01_late", "--f01-room", "mastery"]).unwrap();
+        assert!(late.f01_late && late.f01_mastery && late.cf02.rules && !late.demo);
+        assert!(!late.f01_boiler && !late.f01_hoarder && !late.f01_hazards);
+        assert!(late.f01_room_scene() && !late.arena_room(), "its own room");
+        assert_eq!(late.f01_room.as_deref(), Some("mastery"));
+        assert_eq!(late.f01_loadout, Some(f01_late::Loadout::Story));
+        assert!(late.carl.prog && late.donut.prog && late.donut_biscuit);
+        assert!(late.recording_enabled());
+        let all = args(&[
+            "--scene",
+            "f01_late",
+            "--f01-room",
+            "mastery",
+            "--f01-loadout",
+            "all",
+        ])
+        .unwrap();
+        assert!(all.carl.dynamite && all.donut.puddle && !all.carl.prog);
+        // The goblins draw temperaments, so the seed is accepted; what the room
+        // replaces is refused; there is no scene of that name.
+        let seeded = args(&[
+            "--scene",
+            "f01_late",
+            "--f01-room",
+            "mastery",
+            "--cf02-seed",
+            "7",
+        ])
+        .unwrap();
+        assert_eq!(seeded.cf02.seed, Some(7));
+        for flag in ["--cf02", "--demo", "--autopilot", "--cf02-engineer"] {
+            assert!(
+                args(&["--scene", "f01_late", "--f01-room", "mastery", flag]).is_err(),
+                "{flag}"
+            );
+        }
+        assert!(args(&["--scene", "f01_mastery"]).is_err());
+        // The descriptor and the tick-0 state.
+        let actors =
+            Actors::load(root, FrameSource::GridSource, true, false, false, false).unwrap();
+        for list in [
+            &["--scene", "f01_late", "--f01-room", "mastery"][..],
+            &[
+                "--scene",
+                "f01_late",
+                "--f01-room",
+                "mastery",
+                "--f01-loadout",
+                "all",
+            ][..],
+            &[
+                "--scene",
+                "f01_late",
+                "--f01-room",
+                "mastery",
+                "--cf02-seed",
+                "7",
+            ][..],
+        ] {
+            let mut run = args(list).unwrap();
+            let launched = f01_mastery::launch(root).unwrap();
+            run.fixture = Some(launched.fixture);
+            let kit = launched.kit.clone();
+            run.mastery_run = Some(Box::new(launched));
+            let (_, scene, library) =
+                f01_late::mastery_start(root, 360, run.carl, run.donut, run.cf02.seed).unwrap();
+            let mut hud = new_hud(&run, &kit, &actors);
+            let (sim, _, combat, _, _) = build_scene(&kit, &run, &actors, root, &mut hud).unwrap();
+            let combat = combat.expect("a combat state");
+            assert_eq!(
+                combat.state_hash(&sim),
+                library.state_hash(&scene),
+                "{list:?}"
+            );
+            assert_eq!(sim.world.state_hash(), scene.world.state_hash(), "{list:?}");
+            let party = run.live_party();
+            let manifest = recording_manifest(&run, &sim, Some(&combat), &party, root);
+            assert_eq!(manifest.reset.source, f01_late::SESSION_SOURCE);
+            assert_eq!(manifest.reset.name, "f01_mastery");
+            assert_eq!(manifest.reset.f01_room.as_deref(), Some("mastery"));
+            assert_eq!(manifest.reset.cf02_seed, run.cf02.seed);
+            assert!(manifest.reset.cf02_rules && manifest.reset.donut_biscuit);
+            for key in f01_late::SCOPED_PIN_KEYS {
+                assert_eq!(
+                    manifest.content_hashes.contains_key(key),
+                    f01_late::pin_applies(key, Some("mastery")),
+                    "{key}"
+                );
+            }
+            assert_eq!(manifest.reset.start_hash, library.state_hash(&scene));
+        }
     }
 
     /// The binary's start state of each slot room is the one the verifier's
@@ -9608,14 +9755,15 @@ mod tests {
         // An unknown or unlisted room names the listed rooms; a bad loadout fails.
         let error = refused(&["--f01-room", "cellar"]);
         assert!(
-            error.contains("unknown room") && error.contains("hoarder, boiler, hazards, juicer"),
+            error.contains("unknown room")
+                && error.contains("hoarder, boiler, hazards, juicer, mastery"),
             "{error}"
         );
-        for unlisted in ["corral", "dozer", "mastery"] {
+        for unlisted in ["corral", "dozer"] {
             let error = refused(&["--f01-room", unlisted]);
             assert!(
                 error.contains("unlisted room")
-                    && error.contains("hoarder, boiler, hazards, juicer"),
+                    && error.contains("hoarder, boiler, hazards, juicer, mastery"),
                 "{error}"
             );
         }
