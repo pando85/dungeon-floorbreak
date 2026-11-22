@@ -62,6 +62,7 @@ pub mod env_kit;
 pub mod env_prop;
 pub mod env_prop_art;
 pub mod f01_boiler;
+pub mod f01_gate_scorecard;
 pub mod f01_hazards;
 pub mod f01_hoarder;
 pub mod f01_late;

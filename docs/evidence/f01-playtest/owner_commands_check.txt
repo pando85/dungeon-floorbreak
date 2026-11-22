@@ -1,0 +1,23 @@
+[ok] ok :: floor01_scene --scene f01_late --scale 2
+[ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room boiler
+[ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room hoarder
+[ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room hazards
+[ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room juicer
+[ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room mastery
+[refuse] refused (exit 2): floor01_scene: --f01-room: unlisted room "corral" (listed rooms: hoarder, boiler, hazards, juicer, mastery) :: floor01_scene --scene f01_late --scale 2 --f01-room corral
+[refuse] refused (exit 2): floor01_scene: --f01-room: unlisted room "dozer" (listed rooms: hoarder, boiler, hazards, juicer, mastery) :: floor01_scene --scene f01_late --scale 2 --f01-room dozer
+[refuse] refused (exit 2): floor01_scene: --f01-room: unknown room "ring_court" (listed rooms: hoarder, boiler, hazards, juicer, mastery) :: floor01_scene --scene f01_late --scale 2 --f01-room ring_court
+[refuse] refused (exit 2): floor01_scene: --f01-room: unknown room "ring_split" (listed rooms: hoarder, boiler, hazards, juicer, mastery) :: floor01_scene --scene f01_late --scale 2 --f01-room ring_split
+[ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room mastery --f01-loadout all
+[ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room boiler --f01-loadout story
+[refuse] refused (exit 2): floor01_scene: --companion cannot be combined with --fixture or --party-fixture :: floor01_scene --scene f01_late --scale 2 --f01-room mastery --companion cf02_free
+[refuse] refused (exit 2): floor01_scene: --companion cannot be combined with --fixture or --party-fixture :: floor01_scene --scene f01_late --scale 2 --f01-room boiler --companion cf02_assist
+[ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room boiler --debug-combat
+[ok] ok :: floor01_scene --cf02 --cf02-engineer --donut-biscuit --scale 2
+[ok] ok :: floor01_scene --cf02 --cf02-engineer --donut-biscuit --carl-dynamite --scale 2
+[ok] ok :: floor01_scene --cf02 --cf02-engineer --donut-biscuit --carl-dynamite --companion cf02_free --scale 2
+[ok] ok :: floor01_scene --cf02 --cf02-engineer --carl-dynamite --carl-gauntlet --donut-puddle --scale 2
+[ok] ok :: floor01_scene --scene boss_f01 --carl-prog --donut-prog --scale 2
+[ok] ok :: floor01_scene --scene f01_boiler --scale 2
+[ok] ok :: corral_eval --out DIR
+[exists] tools/record-run.sh is executable (the window recording itself was NOT RUN: needs a display, xdotool, ffmpeg and a human)

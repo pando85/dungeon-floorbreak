@@ -35,7 +35,7 @@ safe_scratch CAPTURES "$caps"
 safe_scratch SESSIONS "$sessions"
 rm -rf "$caps" "$sessions"
 mkdir -p "$caps" "$sessions" "$out"
-rm -f "$out"/*.gif "$out"/*.png "$out"/grant_lines.txt "$out"/playtrace_sessions.txt
+rm -f "$out"/grant-*.gif "$out"/still-*.png "$out"/grant_lines.txt "$out"/playtrace_sessions.txt
 xvfb() { xvfb-run -a -s '-screen 0 1280x720x24' "$@"; }
 last_state() { grep '^COMBAT_STATE ' "$1" | tail -n 1 | sed -E 's/.* hash=([0-9a-f]+).*/\1/'; }
 
@@ -100,4 +100,4 @@ record juicer juicer juicer 3300
 [[ "$(grep -c 'journal: CapabilityGranted tick: 3175, hero: 0, capability: "fist_reinforced"' "$out/playtrace_sessions.txt")" == 1 ]]
 [[ "$(grep -c 'journal: CapabilityGranted tick: 3175, hero: 1, capability: "special_short_blink"' "$out/playtrace_sessions.txt")" == 1 ]]
 
-(cd "$out" && sha256sum ./*.gif ./*.png ./*.txt | sed 's# \./# #' > SHA256SUMS)
+(cd "$out" && sha256sum ./*.gif ./*.png ./*.txt ./*.md | grep -v ' ./README.md$' | sed 's# \./# #' > SHA256SUMS)
