@@ -503,7 +503,504 @@ pub const JAB: RawInput = RawInput {
     ..RawInput::NONE
 };
 
+// ---------------------------------------------------------------------------
+// PT-GATE-C2: the HAZ-C gate fixtures of the live room (HAZ-06, HAZ-09).
+// ---------------------------------------------------------------------------
+
+/// Scripted **room pilots** of the hazard room (`docs/01-design/enemy-gameplay-slime-rot.md`
+/// section 18, "HAZ-C fixtures": `haz_room_direct_route` (HAZ-06) and
+/// `haz_room_solo_carl`, `haz_room_solo_donut`, `haz_room_companion` (HAZ-09)).
+///
+/// They play the **shipped room** (`--scene f01_late --f01-room hazards`: the
+/// story loadout, the sidecar's two slimes, two goblins and two Rot Stickers, its
+/// exit gate) with the PT-TUNE pilot ([`crate::f01_mastery_fixtures::pilot`]),
+/// which baits and punishes the slime, fights goblins with jabs and the dive,
+/// hops solids, never walks into live acid and keeps out of an armed sticker's
+/// column while a wave enemy is left. It is melee only: it never presses the
+/// ability or the cast. The party is the library fixtures' (`cf02_assist` for
+/// the solo runs, `cf02_free` for the companion run).
+///
+/// A pilot is **not** AUTOPLAY and not an evaluator of fun: it proves that a
+/// reasonable scripted route clears the room (every slime and goblin defeated,
+/// the exit reached), that no hero is stuck for more than 300 ticks, and that each
+/// run replays to the same state hash. HAZ-Q45 is **report-only**: the AI hero's
+/// hurts are counted by source ([`HurtSource`]) and its Rot provokes by cause.
+pub mod pilots {
+    use std::path::Path;
+
+    use crate::combat::CombatEvent;
+    use crate::combat_scene::{CombatState, EnvRuntime};
+    use crate::corridor::SceneSim;
+    use crate::donut_mana::DonutSetup;
+    use crate::encounter::PropKind;
+    use crate::f01_hazards;
+    use crate::f01_late::{Loadout, hazards_start};
+    use crate::f01_mastery_fixtures::{APART_PX, RUN_TICKS, SWAP_TICK, Who as MWho, pilot, tuning};
+    use crate::input::RawInput;
+    use crate::party::HeroId;
+    use crate::party_scene::{PartyFixture, PartyFixtureSim};
+    use crate::rot_sticker::{ROT_SOURCE_ID, RotCause};
+    use crate::scene_enemy::{SlotRoom, spawn_from_roster};
+    use crate::slime::{ACID_SOURCE_ID, SLIME_SOURCE_ID, SlimePhase};
+
+    /// A walking hero that does not move for this many ticks is stuck: the gate
+    /// allows at most 300 (plan section 10, item 5).
+    pub const STUCK_LIMIT: u32 = 300;
+    /// The seeds every fixture covers (`--cf02-seed`).
+    pub const SEEDS: std::ops::RangeInclusive<u64> = 0..=8;
+
+    /// Who plays.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub enum Who {
+        /// Solo Carl; Donut is the `cf02_assist` partner.
+        CarlSolo,
+        /// Solo Donut **by swap** (the mode of BOIL-09 and HAZ-09): Carl clears
+        /// the roster, the pilot swaps on the tick after the clear, and Donut
+        /// walks to the exit.
+        DonutBySwap,
+        /// The harder probe: the swap on [`SWAP_TICK`], then Donut plays the
+        /// whole room (see the PR's finding).
+        DonutFights,
+        /// Carl is the pilot's; Donut is the autonomous `cf02_free` partner.
+        Companion,
+    }
+
+    impl Who {
+        /// The three HAZ-09 modes (`haz_room_solo_carl`, `haz_room_solo_donut`,
+        /// `haz_room_companion`).
+        pub const ALL: [Who; 3] = [Who::CarlSolo, Who::DonutBySwap, Who::Companion];
+
+        pub const fn name(self) -> &'static str {
+            match self {
+                Self::CarlSolo => "haz_room_solo_carl",
+                Self::DonutBySwap => "haz_room_solo_donut",
+                Self::DonutFights => "haz_room_donut_fights",
+                Self::Companion => "haz_room_companion",
+            }
+        }
+
+        fn mastery(self) -> MWho {
+            match self {
+                Self::CarlSolo => MWho::CarlSolo,
+                Self::DonutBySwap => MWho::DonutBySwap,
+                Self::DonutFights => MWho::DonutFights,
+                Self::Companion => MWho::Companion,
+            }
+        }
+    }
+
+    /// What hurt a hero (HAZ-Q45's four sources, plus anything else).
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub enum HurtSource {
+        Acid,
+        /// The slime's lunge: a hit on an impact tick of its attack.
+        SlimeLunge,
+        /// The slime's corrosive body outside the lunge's impact.
+        SlimeBody,
+        Rot,
+        /// A goblin (every other source).
+        Goblin,
+    }
+
+    /// One hero hurt, classified.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub struct Hurt {
+        pub tick: u64,
+        pub hero: HeroId,
+        pub source: HurtSource,
+        /// The hurt hero was the AI's (not the controlled one) on that tick.
+        pub ai: bool,
+    }
+
+    /// One Rot provoke, with the hero nearer to the sticker's dome on that tick
+    /// (a solo run credits every provoke to player 0, so the event alone cannot
+    /// tell the AI hero's from the pilot's).
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub struct Provoke {
+        pub tick: u64,
+        pub cause: RotCause,
+        pub nearer: HeroId,
+        /// The nearer hero was the AI's on that tick.
+        pub ai: bool,
+    }
+
+    /// What a pilot run saw.
+    #[derive(Debug, Clone)]
+    pub struct Report {
+        pub who: Who,
+        pub seed: u64,
+        pub rot_enabled: bool,
+        /// The tick the last slime and goblin were defeated on (the exit opens).
+        pub cleared_tick: Option<u64>,
+        /// The tick the scene completed (a hero reached the exit) after the clear.
+        pub exit_tick: Option<u64>,
+        pub max_stuck: [u32; 2],
+        /// Checkpoint restarts (a defeat of the controlled hero).
+        pub deaths: u32,
+        pub hash: u64,
+        pub ticks: u64,
+        pub hurts: Vec<Hurt>,
+        pub provokes: Vec<Provoke>,
+        pub events: Vec<CombatEvent>,
+    }
+
+    impl Report {
+        /// Hurts of the AI hero (the one the pilot does not steer on that tick).
+        pub fn ai_hurts(&self) -> Vec<Hurt> {
+            self.hurts.iter().copied().filter(|h| h.ai).collect()
+        }
+
+        /// The AI hero's hurts by `source`.
+        pub fn ai_hurts_by(&self, source: HurtSource) -> usize {
+            self.ai_hurts()
+                .iter()
+                .filter(|h| h.source == source)
+                .count()
+        }
+
+        /// HAZ-Q45's measure: the AI hero's acid, slime and Rot hurts (not a
+        /// goblin's), per clear.
+        pub fn ai_hazard_hurts(&self) -> usize {
+            self.ai_hurts()
+                .iter()
+                .filter(|h| h.source != HurtSource::Goblin)
+                .count()
+        }
+
+        /// The Rot provokes whose nearer hero is the AI hero.
+        pub fn ai_provokes(&self) -> usize {
+            self.provokes.iter().filter(|p| p.ai).count()
+        }
+
+        pub fn rot_blasts_hurting_anyone(&self) -> usize {
+            self.hurts
+                .iter()
+                .filter(|h| h.source == HurtSource::Rot)
+                .count()
+        }
+
+        /// The table line of the PR.
+        pub fn line(&self) -> String {
+            let by = |s| self.ai_hurts_by(s);
+            format!(
+                "{} rot={} seed={} cleared={:?} exit={:?} stuck={:?} deaths={} hurts={} \
+                 ai_hurts(acid={} lunge={} body={} rot={} goblin={}) provokes={} ai_provokes={} hash={:#018x}",
+                self.who.name(),
+                self.rot_enabled,
+                self.seed,
+                self.cleared_tick,
+                self.exit_tick,
+                self.max_stuck,
+                self.deaths,
+                self.hurts.len(),
+                by(HurtSource::Acid),
+                by(HurtSource::SlimeLunge),
+                by(HurtSource::SlimeBody),
+                by(HurtSource::Rot),
+                by(HurtSource::Goblin),
+                self.provokes.len(),
+                self.ai_provokes(),
+                self.hash
+            )
+        }
+    }
+
+    /// The combat state of the room with the Rot kind **removed**, the way the
+    /// kill switch `hazq02_rot_enabled` false builds it: no sticker exists, the
+    /// soffits stay. (The switch is read from one process-wide static
+    /// ([`crate::rot_sticker::active`]), so a fixture cannot flip it; this
+    /// builds the same env: the sidecar without its sticker props, the soffit
+    /// solids of the full sidecar.) Everything else is
+    /// [`f01_hazards::combat_for`] under the story flags.
+    fn combat_without_stickers(
+        run: &f01_hazards::HazardsRun,
+        scene: &mut SceneSim,
+        seed: u64,
+    ) -> Result<CombatState, String> {
+        let (carl, donut) = Loadout::Story.flags();
+        let room = SlotRoom {
+            floor_y: scene.world.hero_foot_y(),
+            walls: (0.0, run.kit.width as f32),
+        };
+        let spawn =
+            spawn_from_roster(&run.loaded.encounter, room, false).map_err(|e| e.to_string())?;
+        let setup = crate::f01_boiler::story_setup(&run.loaded.encounter.story_pin, carl, donut)?;
+        let mut enc = run.loaded.encounter.clone();
+        enc.props.retain(|p| p.kind != PropKind::RotSticker);
+        let env = EnvRuntime::new(&enc)?.in_room(
+            run.loaded.room.floor_y,
+            &f01_hazards::soffits(&run.loaded),
+            Some(enc.exit),
+        );
+        let mut combat = CombatState::new(run.fixture, &run.kit, scene)?
+            .with_donut(DonutSetup::unlocked(8))
+            .try_with_story(setup)
+            .map_err(|e| e.to_string())?
+            .with_demo(run.rules)
+            .with_cf02()
+            .with_cf02_seed(Some(seed))
+            .with_env(env)
+            .with_slot_enemies(spawn.slot)
+            .map_err(|e| e.to_string())?;
+        combat.sync_env(scene);
+        Ok(combat)
+    }
+
+    /// A goblin whose centre is this close (px) to a hero's is inside the jab's
+    /// dead zone (the jab starts 16 px ahead of the body): the hero steps back
+    /// from it instead of swinging at nothing (the `room_pilots` rule).
+    const TOO_CLOSE: f32 = 10.0;
+
+    /// The PT-TUNE pilot plus the step back from a goblin that stands on the
+    /// hero. The PT-TUNE pilot (written for the closing arena) swings at it from
+    /// where the jab cannot reach, and Donut, whose approach ends closer, is hit
+    /// until she is defeated; stepping back opens the jab's reach again. The step
+    /// is never into a live acid patch.
+    fn route_pilot(combat: &CombatState, scene: &SceneSim, hero: HeroId) -> RawInput {
+        let body = scene.world.body(hero);
+        let on_top = combat
+            .enemies
+            .iter()
+            .filter(|g| {
+                g.alive()
+                    && g.ai == crate::combat::EnemyAi::Chase
+                    && !matches!(
+                        g.mode,
+                        crate::goblin::GoblinMode::Down | crate::goblin::GoblinMode::Corpse
+                    )
+                    && (g.x - body.x).abs() < TOO_CLOSE
+                    && (g.y - body.y).abs() < 30.0
+            })
+            .min_by(|a, b| (a.x - body.x).abs().total_cmp(&(b.x - body.x).abs()));
+        if let Some(g) = on_top
+            && body.grounded
+            && !combat.hero_defeated
+        {
+            let away = if g.x >= body.x { -1.0 } else { 1.0 };
+            let next = body.x + away * 2.0;
+            let into_acid = combat.env().is_some_and(|env| {
+                env.acid().patches().any(|p| {
+                    p.bounds().is_some_and(|(x0, x1)| {
+                        let inside = |x: f32| {
+                            x > x0 as f32 - crate::prototype::HERO_HALF_WIDTH
+                                && x < x1 as f32 + crate::prototype::HERO_HALF_WIDTH
+                        };
+                        inside(next) && !inside(body.x)
+                    })
+                })
+            });
+            if !into_acid {
+                return RawInput {
+                    move_x: away,
+                    ..RawInput::NONE
+                };
+            }
+        }
+        pilot(combat, scene, hero)
+    }
+
+    /// The slimes' attack phases, by roster index.
+    fn slime_phases(combat: &CombatState) -> Vec<(u8, SlimePhase)> {
+        let t = crate::slime::active();
+        combat
+            .slot_enemies()
+            .iter()
+            .filter_map(|e| {
+                e.as_any()
+                    .and_then(|a| a.downcast_ref::<crate::combat_scene::slime::SlimeEnemy>())
+            })
+            .map(|s| (s.slime().index, s.slime().phase(t)))
+            .collect()
+    }
+
+    /// The room built the way the scene builds it, under the party of `who`:
+    /// the sim, and the number of Rot Stickers in its env.
+    pub fn start(
+        root: &Path,
+        who: Who,
+        seed: u64,
+        rot_enabled: bool,
+    ) -> Result<(PartyFixtureSim, usize), String> {
+        let (carl, donut) = Loadout::Story.flags();
+        let (run, scene, combat) = if rot_enabled {
+            hazards_start(root, 360, carl, donut, Some(seed))?
+        } else {
+            let run = f01_hazards::launch(root)?;
+            let mut scene = SceneSim::new_at(&run.kit, 360, run.fixture.carl_x)?;
+            let combat = combat_without_stickers(&run, &mut scene, seed)?;
+            (run, scene, combat)
+        };
+        let stickers = combat.env().map_or(0, |e| e.sticker_count());
+        let fixture: &'static PartyFixture = Box::leak(Box::new(PartyFixture {
+            base: run.fixture,
+            two_player: false,
+            tuning: tuning(who.mastery()),
+            script: &[],
+            pilot: crate::boss_scene::Pilot::None,
+            donut: DonutSetup::unlocked(8),
+        }));
+        Ok((
+            PartyFixtureSim::from_parts(scene, combat, fixture),
+            stickers,
+        ))
+    }
+
+    /// Run one pilot for [`RUN_TICKS`] (or until the exit is reached).
+    pub fn run(root: &Path, who: Who, seed: u64, rot_enabled: bool) -> Result<Report, String> {
+        let (mut sim, _) = start(root, who, seed, rot_enabled)?;
+        let rt = crate::rot_sticker::active();
+        let mut last_x = [sim.scene.world.hero.x, sim.scene.world.donut_body.x];
+        let mut stuck = [0u32; 2];
+        let mut max_stuck = [0u32; 2];
+        let mut cleared_tick = None;
+        let mut exit_tick = None;
+        let mut deaths = 0u32;
+        let mut last_restarts = sim.combat.restarts;
+        let mut swap_pressed = false;
+        let mut seen = 0usize;
+        let mut hurts = Vec::new();
+        let mut provokes = Vec::new();
+        for _ in 0..RUN_TICKS {
+            let tick = sim.scene.world.tick + 1;
+            let controlled = sim.party.controlled_hero();
+            let (slots, walking) = match who {
+                Who::CarlSolo | Who::Companion => {
+                    let input = route_pilot(&sim.combat, &sim.scene, HeroId::Carl);
+                    ([input, RawInput::NONE], [input.move_x != 0.0, false])
+                }
+                Who::DonutBySwap | Who::DonutFights => {
+                    // The swap is pressed once: on `SWAP_TICK` for the fighter,
+                    // the tick after the clear for the walker. The pilot then
+                    // plays whoever is controlled (a restart returns control to
+                    // Carl).
+                    let due = if who == Who::DonutFights {
+                        tick >= SWAP_TICK
+                    } else {
+                        sim.combat.roster_cleared()
+                    };
+                    let mut input = route_pilot(&sim.combat, &sim.scene, controlled);
+                    if due && !swap_pressed && controlled == HeroId::Carl {
+                        input.swap = true;
+                        swap_pressed = true;
+                    }
+                    let mut walking = [false; 2];
+                    let at = HeroId::ALL.iter().position(|h| *h == controlled);
+                    walking[at.unwrap_or(0)] = input.move_x != 0.0;
+                    ([input, RawInput::NONE], walking)
+                }
+            };
+            let before = slime_phases(&sim.combat);
+            sim.step_slots(slots);
+            let after = slime_phases(&sim.combat);
+            let controlled_after = sim.party.controlled_hero();
+            let carl_x = sim.scene.world.hero.x;
+            let donut_x = sim.scene.world.donut_body.x;
+            for e in &sim.combat.events[seen..] {
+                match *e {
+                    CombatEvent::HeroHurt {
+                        tick, source, hero, ..
+                    } => {
+                        let source = match source & 0xffff {
+                            SLIME_SOURCE_ID => {
+                                let index = (source >> 16) as u8;
+                                let impact = |v: &[(u8, SlimePhase)]| {
+                                    v.iter()
+                                        .any(|(i, p)| *i == index && *p == SlimePhase::Impact)
+                                };
+                                if impact(&before) || impact(&after) {
+                                    HurtSource::SlimeLunge
+                                } else {
+                                    HurtSource::SlimeBody
+                                }
+                            }
+                            ACID_SOURCE_ID => HurtSource::Acid,
+                            ROT_SOURCE_ID => HurtSource::Rot,
+                            _ => HurtSource::Goblin,
+                        };
+                        hurts.push(Hurt {
+                            tick,
+                            hero,
+                            source,
+                            ai: hero != controlled_after,
+                        });
+                    }
+                    CombatEvent::RotProvoked {
+                        tick,
+                        sticker,
+                        cause,
+                        ..
+                    } => {
+                        let dome = sim
+                            .combat
+                            .env()
+                            .and_then(|env| env.sticker(sticker))
+                            .map_or(carl_x, |s| s.dome(rt).0);
+                        let nearer = if (donut_x - dome).abs() < (carl_x - dome).abs() {
+                            HeroId::Donut
+                        } else {
+                            HeroId::Carl
+                        };
+                        provokes.push(Provoke {
+                            tick,
+                            cause,
+                            nearer,
+                            ai: nearer != controlled_after,
+                        });
+                    }
+                    _ => {}
+                }
+            }
+            seen = sim.combat.events.len();
+            let carl_moved = (carl_x - last_x[0]).abs() >= 0.1;
+            for (i, id) in HeroId::ALL.into_iter().enumerate() {
+                let x = sim.scene.world.body(id).x;
+                let still = (x - last_x[i]).abs() < 0.1;
+                let counts = if who == Who::Companion && id == HeroId::Donut {
+                    // Left behind: she stands still, apart from Carl, while he walks on.
+                    still && (x - carl_x).abs() > APART_PX && carl_moved
+                } else {
+                    walking[i] && still
+                };
+                stuck[i] = if counts { stuck[i] + 1 } else { 0 };
+                max_stuck[i] = max_stuck[i].max(stuck[i]);
+                last_x[i] = x;
+            }
+            if sim.combat.restarts != last_restarts {
+                deaths += 1;
+                last_restarts = sim.combat.restarts;
+            }
+            if cleared_tick.is_none() && sim.combat.roster_cleared() {
+                cleared_tick = Some(sim.scene.world.tick);
+            }
+            // The scene completes when a hero reaches the exit gate's goal column,
+            // which freezes its tick: that is the exit, once the roster is clear.
+            if cleared_tick.is_some() && exit_tick.is_none() && sim.scene.world.complete {
+                exit_tick = Some(sim.scene.world.tick);
+            }
+            if exit_tick.is_some() {
+                break;
+            }
+        }
+        Ok(Report {
+            who,
+            seed,
+            rot_enabled,
+            cleared_tick,
+            exit_tick,
+            max_stuck,
+            deaths,
+            hash: sim.state_hash(),
+            ticks: sim.scene.world.tick,
+            hurts,
+            provokes,
+            events: sim.combat.events.clone(),
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
 mod tests_b;
+#[cfg(test)]
+mod tests_c;
