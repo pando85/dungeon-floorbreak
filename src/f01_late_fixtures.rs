@@ -12,7 +12,7 @@
 //! | [`hoarder_defeat`] | the Hoarder's room (HRD-A2): her defeat by the real slot enemy | the pre-Hoarder pin and the ledger's event trigger `pile_boss_f01_defeated`: exactly one dynamite grant, K1 |
 //! | [`boiler_relaunch`] | the Boiler, carried | the carried ledger, no second grant |
 //! | [`juicer_relaunch`] | the Juicer, carried | the gauntlet and the blink exactly once at the defeat, and nothing under `all` |
-//! | [`juicer_pilot`] | the Juicer's room, played (PT-SCENE-B) | solo Carl and solo Donut by swap at seeds 0..8, the stuck limit, the double replay |
+//! | [`juicer_pilot`] | the Juicer's room, played (PT-SCENE-B) | solo Carl, solo Donut by swap and the `cf02_free` companion at seeds 0..8, the stuck limit, the double replay |
 
 use std::path::Path;
 
@@ -258,6 +258,10 @@ pub struct JuicerReport {
     pub hash: u64,
     pub ticks: u64,
     pub grants: Vec<(u64, u8, &'static str)>,
+    /// Carl's column after every tick of the run.
+    pub carl_trace: Vec<f32>,
+    /// The width of Donut's column range over the run (px).
+    pub donut_x_span: f32,
 }
 
 impl JuicerReport {
@@ -304,6 +308,16 @@ pub fn juicer_room_for(
 /// no roster and the boss draws nothing), so the seed shifts the base-kit
 /// pilot's jab phase: nine seeds are nine different fights (PTB-AD2).
 pub fn juicer_pilot(root: &Path, who: JuicerWho, seed: u64) -> Result<JuicerReport, String> {
+    juicer_run(root, who, seed).map(|(report, _)| report)
+}
+
+/// [`juicer_pilot`] and the finished sim (at the exit tick), for a test that
+/// reads the end state without re-driving the room.
+pub fn juicer_run(
+    root: &Path,
+    who: JuicerWho,
+    seed: u64,
+) -> Result<(JuicerReport, PartyFixtureSim), String> {
     let mut sim = juicer_room_for(
         root,
         match who {
@@ -312,6 +326,8 @@ pub fn juicer_pilot(root: &Path, who: JuicerWho, seed: u64) -> Result<JuicerRepo
         },
     )?;
     let mut carl_x = sim.scene.world.hero.x;
+    let mut carl_trace = Vec::new();
+    let mut donut_span = (sim.scene.world.donut_body.x, sim.scene.world.donut_body.x);
     let phase = seed % SWING_PERIOD;
     let mut stuck = [
         StuckRun::new(sim.scene.world.hero.x),
@@ -353,6 +369,9 @@ pub fn juicer_pilot(root: &Path, who: JuicerWho, seed: u64) -> Result<JuicerRepo
         let new_carl_x = sim.scene.world.hero.x;
         let carl_moved = (new_carl_x - carl_x).abs() >= 0.1;
         carl_x = new_carl_x;
+        carl_trace.push(new_carl_x);
+        let donut_x = sim.scene.world.donut_body.x;
+        donut_span = (donut_span.0.min(donut_x), donut_span.1.max(donut_x));
         for (i, id) in HeroId::ALL.into_iter().enumerate() {
             let x = sim.scene.world.body(id).x;
             if who == JuicerWho::Companion && id == HeroId::Donut {
@@ -386,7 +405,7 @@ pub fn juicer_pilot(root: &Path, who: JuicerWho, seed: u64) -> Result<JuicerRepo
         .iter()
         .filter(|e| matches!(e, CombatEvent::HeroHurt { .. }))
         .count();
-    Ok(JuicerReport {
+    let report = JuicerReport {
         who,
         seed,
         defeated_tick,
@@ -397,7 +416,10 @@ pub fn juicer_pilot(root: &Path, who: JuicerWho, seed: u64) -> Result<JuicerRepo
         hash: sim.state_hash(),
         ticks: sim.scene.world.tick,
         grants: combat_grants(&sim.combat),
-    })
+        carl_trace,
+        donut_x_span: donut_span.1 - donut_span.0,
+    };
+    Ok((report, sim))
 }
 
 /// The Boiler's own combat constructor, for a test that drives it by hand.
@@ -724,7 +746,7 @@ mod tests {
     }
 
     #[test]
-    fn the_juicer_falls_and_the_exit_is_reached_for_both_pilots_at_every_seed() {
+    fn the_juicer_falls_and_the_exit_is_reached_for_every_pilot_at_every_seed() {
         for r in juicer_reports() {
             let defeated = r.defeated_tick.unwrap_or_else(|| panic!("{}", r.line()));
             let exit = r.exit_tick.unwrap_or_else(|| panic!("{}", r.line()));
@@ -753,41 +775,50 @@ mod tests {
     fn the_swapped_donut_is_the_hero_who_reaches_the_exit() {
         let exit_x = load_arena(&root()).unwrap().exit.unwrap().x as f32;
         for seed in JUICER_SEEDS {
-            let r = juicer_pilot(&root(), JuicerWho::DonutBySwap, seed).unwrap();
-            let exit = r.exit_tick.expect("exit reached");
-            assert!(exit > r.defeated_tick.unwrap());
-            // Carl never walked after the swap: his stuck run is the fight's.
+            let (r, sim) = juicer_run(&root(), JuicerWho::DonutBySwap, seed).unwrap();
+            assert!(r.exit_tick.expect("exit reached") > r.defeated_tick.unwrap());
+            // Donut is the walker after the swap: her stuck run is the bounded one.
             assert!(r.max_stuck[1] <= STUCK_LIMIT, "{}", r.line());
-            // Replay to the exit and read who stands in it.
-            let mut sim = juicer_room(&root()).unwrap();
-            let phase = seed % SWING_PERIOD;
-            let mut swapped = false;
-            while !sim.scene.world.complete {
-                let tick = sim.scene.world.tick + 1;
-                let released = sim.combat.boss.as_ref().is_some_and(|b| b.released());
-                let mut input = if sim.party.controlled_hero() == HeroId::Carl {
-                    crate::boss_scene::pilot_inputs(
-                        Pilot::Carl,
-                        [RawInput::NONE; 2],
-                        tick + phase,
-                        &sim.combat,
-                        &sim.scene,
-                    )[0]
-                } else {
-                    RawInput {
-                        move_x: 1.0,
-                        ..RawInput::NONE
-                    }
-                };
-                if released && !swapped && sim.party.controlled_hero() == HeroId::Carl {
-                    input.swap = true;
-                    swapped = true;
-                }
-                sim.step_slots([input, RawInput::NONE]);
-                assert!(sim.scene.world.tick <= exit, "stops at the exit tick");
-            }
+            // The run stops on the exit tick: read who stands in it.
+            assert!(sim.scene.world.complete);
             assert_eq!(sim.party.controlled_hero(), HeroId::Donut);
             assert!(sim.scene.world.donut_body.x + HERO_HALF_WIDTH > exit_x);
+        }
+    }
+
+    /// The boundary of the companion runs (PTB-AD7): under a boss `cf02_free`
+    /// hunts nothing (CA2-Q35, until COMPANION-AI-01E), so Donut escorts and
+    /// idles while Carl's fight is tick-identical to solo Carl's. When 01E gives
+    /// her boss behaviour, this test is the named, deliberate change.
+    #[test]
+    fn the_companion_escorts_but_takes_no_part_in_the_juicer_fight() {
+        for seed in JUICER_SEEDS {
+            let (solo, _) = juicer_run(&root(), JuicerWho::CarlSolo, seed).unwrap();
+            let (comp, sim) = juicer_run(&root(), JuicerWho::Companion, seed).unwrap();
+            assert_eq!(comp.defeated_tick, solo.defeated_tick, "seed {seed}");
+            assert_eq!(comp.exit_tick, solo.exit_tick, "seed {seed}");
+            assert_eq!(
+                comp.carl_trace, solo.carl_trace,
+                "Carl's run is solo Carl's"
+            );
+            // She is present and decides and walks...
+            let donut = sim.combat.autonomy_state(HeroId::Donut).stats();
+            assert!(donut.decisions > 0, "seed {seed}: her autonomy runs");
+            assert!(comp.donut_x_span > 100.0, "seed {seed}: she walks");
+            assert_ne!(comp.hash, solo.hash, "her block is part of the state");
+            // ...but starts no move, lands no hit and hunts nothing.
+            let stats = sim.combat.companion_stats();
+            assert_eq!(stats.assist_starts[1], 0, "seed {seed}");
+            assert_eq!(stats.interrupt_starts[1], 0, "seed {seed}");
+            assert_eq!(stats.chain_presses[1], 0, "seed {seed}");
+            assert_eq!(donut.hunt_evaluations, 0, "seed {seed}");
+            assert!(
+                !sim.combat
+                    .events
+                    .iter()
+                    .any(|e| matches!(e, CombatEvent::DonutGlance { .. })),
+                "seed {seed}: no Donut hit on the boss"
+            );
         }
     }
 
