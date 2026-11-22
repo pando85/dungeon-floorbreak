@@ -35,7 +35,7 @@ use crate::companion::profile::{AutonomyRole, KillPolicy, ProfileFile, ProfileSe
 use crate::companion::rules;
 use crate::companion::steer;
 use crate::companion::view::{
-    ActiveMove, CompanionView, Control, EntityKind, FollowInput, HeroView, MovePhase,
+    ActiveMove, BossView, CompanionView, Control, EntityKind, FollowInput, HeroView, MovePhase,
     StableEntityId, TargetState, TargetView, ThreatView, ViewBounds,
 };
 use crate::corridor::SceneSim;
@@ -50,10 +50,44 @@ use crate::prototype::{HERO_HALF_HEIGHT, HERO_HALF_WIDTH, HeroMotion, Rect, TICK
 
 /// The profile file, parsed and hash-pinned once per process (CA-39).
 fn profiles() -> &'static ProfileFile {
+    #[cfg(test)]
+    if let Some(file) = PROFILE_OVERRIDE.with(std::cell::Cell::get) {
+        return file;
+    }
     static PROFILES: OnceLock<ProfileFile> = OnceLock::new();
     PROFILES.get_or_init(|| {
         ProfileFile::pinned().expect("the embedded companion_ai_v0.json is valid and pinned")
     })
+}
+
+#[cfg(test)]
+thread_local! {
+    /// The knob-off tests (FA-Q "knob off reproduces the old hashes"): an edited
+    /// copy of the profile file that this thread's simulations read instead.
+    static PROFILE_OVERRIDE: std::cell::Cell<Option<&'static ProfileFile>> =
+        const { std::cell::Cell::new(None) };
+}
+
+/// Run `run` with the pinned profile file after `edit` (the fix-all knobs off,
+/// say) as the only profile this thread reads. The copy is leaked (a test's
+/// lifetime) and the override is cleared on exit, a panic included.
+#[cfg(test)]
+pub(crate) fn with_profile_override<R>(
+    edit: impl FnOnce(&mut ProfileFile),
+    run: impl FnOnce() -> R,
+) -> R {
+    struct Clear;
+    impl Drop for Clear {
+        fn drop(&mut self) {
+            PROFILE_OVERRIDE.with(|o| o.set(None));
+        }
+    }
+    let mut file = ProfileFile::pinned().expect("the embedded profile file is pinned");
+    edit(&mut file);
+    let file: &'static ProfileFile = Box::leak(Box::new(file));
+    PROFILE_OVERRIDE.with(|o| o.set(Some(file)));
+    let _clear = Clear;
+    run()
 }
 
 /// Which counter a move instance number belongs to: Carl's melee runner, Donut's
@@ -279,6 +313,9 @@ impl CompanionRuntime {
         Glance {
             ai_started: self.marked(kind, instance),
             policy: self.policy(),
+            boss_kill_is_carls: self
+                .set
+                .is_some_and(|s| profiles().set(s).fix_all.fa_q02_boss_play),
         }
     }
 
@@ -335,6 +372,10 @@ pub(crate) struct Glance {
     /// The move was started by an injected press.
     ai_started: bool,
     policy: KillPolicy,
+    /// FA-Q06: a lethal AI hit on the boss is a glance whatever the policy says
+    /// (`fa_q02_boss_play`): the boss' kill is Carl's, so a companion-credited
+    /// defeat never triggers a cinematic finisher.
+    boss_kill_is_carls: bool,
 }
 
 impl Default for Glance {
@@ -343,6 +384,7 @@ impl Default for Glance {
         Self {
             ai_started: false,
             policy: KillPolicy::Never,
+            boss_kill_is_carls: false,
         }
     }
 }
@@ -366,6 +408,18 @@ impl Glance {
         } else {
             damage
         }
+    }
+}
+
+impl Glance {
+    /// The damage a hit on **the Juicer** lands (FA-Q06): [`Self::lands`], and a
+    /// lethal AI hit is a glance whatever the kill policy says (the boss' kill is
+    /// Carl's). Only the boss' hit site calls it: slot enemies keep [`Self::lands`].
+    pub(crate) fn boss_lands(&self, damage: u16, target_hp: u16) -> u16 {
+        if self.boss_kill_is_carls && self.ai_started && damage > 0 && damage >= target_hp {
+            return 0;
+        }
+        self.lands(damage, target_hp)
     }
 }
 
@@ -873,6 +927,16 @@ impl CombatState {
                 };
                 exempt = true;
                 dodge_jumps = dodge.jump;
+            } // FA-Q05 (recorded deviation): hop a shockwave ripple that is coming at
+            // her on the ground (the follow layer has no ripple dodge).
+            if set.fix_all.fa_q02_boss_play
+                && !dodge_jumps
+                && dodge.move_x == 0.0
+                && view.heroes[i].grounded
+                && self.ripple_coming(scene, hero, f32::from(set.fix_all.fa_q05_ripple_hop_px))
+            {
+                input.jump = true;
+                dodge_jumps = true;
             }
             view.follow[i] = input;
             self.push_nav_notes(hero, notes);
@@ -1193,6 +1257,11 @@ impl CombatState {
             threats: self.companion_threats(view),
             targets: self.companion_targets(view, scene.world.tick + 1),
             boss,
+            boss_view: profile
+                .fix_all
+                .fa_q02_boss_play
+                .then(|| self.companion_boss_view())
+                .flatten(),
             flank_span,
         }
     }
@@ -1391,6 +1460,25 @@ impl CombatState {
         Some(now.saturating_sub(at).min(u64::from(u16::MAX)) as u16)
     }
 
+    /// FA-Q05: a shockwave ripple of the boss is within `lead` px of `hero` and
+    /// moving toward her (it has not passed her yet).
+    fn ripple_coming(&self, scene: &SceneSim, hero: HeroId, lead: f32) -> bool {
+        let x = scene.world.body(hero).x;
+        self.boss.as_ref().is_some_and(|b| {
+            b.ripples().any(|(rx, dir)| {
+                let ahead = (x - rx) * f32::from(dir);
+                ahead > 0.0 && ahead <= lead
+            })
+        })
+    }
+
+    /// FA-Q02: the boss as the goal layer sees it, whenever one is alive in the
+    /// room (not only during a tell).
+    fn companion_boss_view(&self) -> Option<BossView> {
+        let boss = self.boss.as_ref().filter(|b| b.alive())?;
+        Some(BossView::from_facts(&boss.facts(), boss.floor_y()))
+    }
+
     /// The living enemies a support move could hit, goblins then llamas (Q18
     /// only), by id.
     fn companion_targets(&self, view: ViewBounds, now: u64) -> Vec<TargetView> {
@@ -1521,6 +1609,51 @@ mod tests {
             },
             CARL_JAB
         );
+    }
+
+    /// FA-Q06: the boss' kill is Carl's. A lethal AI hit on the boss lands as a
+    /// glance whatever the kill policy says (the boss site only), a non-lethal
+    /// one and a human-started one are unchanged, and the rule is the knob's.
+    #[test]
+    fn fa_q06_a_lethal_companion_hit_on_the_boss_is_a_glance_whatever_the_policy() {
+        let mut runtime = CompanionRuntime {
+            set: Some(ProfileSetId::Cf02Free),
+            ..CompanionRuntime::default()
+        };
+        runtime.marks.push((MarkKind::DonutMove, 5));
+        runtime.marks.push((MarkKind::DonutCast, 6));
+        // `cf02_free` is `factual`: the policy alone never glances.
+        assert_eq!(runtime.glance_for(MarkKind::DonutMove, 5).lands(1, 1), 1);
+        for (kind, instance) in [(MarkKind::DonutMove, 5), (MarkKind::DonutCast, 6)] {
+            let g = runtime.glance_for(kind, instance);
+            // Lethal (damage at least the boss' HP) is a glance, exactly at the edge
+            // and beyond it, and with an HP above a byte.
+            assert_eq!(g.boss_lands(1, 1), 0, "damage = hp");
+            assert_eq!(g.boss_lands(2, 1), 0, "damage > hp");
+            assert_eq!(g.boss_lands(1, 300), 1, "far from lethal");
+            assert_eq!(g.boss_lands(3, 300), 3);
+            assert_eq!(g.boss_lands(1, 2), 1, "one above the edge lands");
+            // The slot enemies keep the policy-only rule.
+            assert_eq!(g.lands(1, 1), 1);
+            // A zero-damage hit stays zero (poise only).
+            assert_eq!(g.boss_lands(0, 1), 0);
+        }
+        // A move the human started is never a glance.
+        assert_eq!(
+            runtime.glance_for(MarkKind::DonutMove, 99).boss_lands(1, 1),
+            1
+        );
+        // The knob off (a set without boss play): the rule is the old one.
+        with_profile_override(
+            |f| f.cf02_free.fix_all = crate::companion::profile::FixAll::default(),
+            || {
+                let g = runtime.glance_for(MarkKind::DonutMove, 5);
+                assert_eq!(g.boss_lands(1, 1), 1, "knob off: not a glance");
+            },
+        );
+        // A runtime with no set (the companion off) is the identity.
+        let off = CompanionRuntime::default();
+        assert_eq!(off.glance_for(MarkKind::DonutMove, 5).boss_lands(1, 1), 1);
     }
 
     #[test]

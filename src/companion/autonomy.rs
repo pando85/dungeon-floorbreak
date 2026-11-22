@@ -30,10 +30,10 @@ use crate::boss::BossThreat;
 use crate::combat::{MAGIC_MISSILE, MoveId};
 use crate::companion::director::{Decision, GoalBrief, Veto};
 use crate::companion::engage::leader_engages;
-use crate::companion::profile::{Autonomy, GoalRow, ProfileSet, SkirmisherTable};
+use crate::companion::profile::{Autonomy, FixAll, GoalRow, ProfileSet, SkirmisherTable};
 use crate::companion::view::{
-    CompanionView, Control, EntityKind, HeroView, StableEntityId, TargetState, TargetView,
-    ViewBounds,
+    BOSS_ID, BossModeClass, BossView, CompanionView, Control, EntityKind, HeroView, StableEntityId,
+    TargetState, TargetView, ViewBounds,
 };
 use crate::donut_moves::{
     DonutMoveTuning, POUNCE_CONTACT_PX, POUNCE_HIT_STOP, POUNCE_PIN, POUNCE_RECOVERY,
@@ -442,6 +442,10 @@ pub enum Goal {
     /// Selected from CA2-C; B1 never picks it.
     Perch,
     Idle,
+    /// FA-Q04: punish a vulnerable boss (Stun, Pinned, a recovery) with a cast,
+    /// or a pounce when she is dry. Appended last so the other goals keep their
+    /// index in the metrics arrays and the state hash.
+    BossPunish,
 }
 
 impl Goal {
@@ -454,6 +458,7 @@ impl Goal {
             Self::ShowOff => "show_off",
             Self::Perch => "perch",
             Self::Idle => "idle",
+            Self::BossPunish => "boss_punish",
         }
     }
 
@@ -469,6 +474,7 @@ impl Goal {
             Self::ShowOff => 4,
             Self::Perch => 5,
             Self::Idle => 6,
+            Self::BossPunish => 7,
         }
     }
 
@@ -482,6 +488,7 @@ impl Goal {
             Self::ShowOff => &goals.show_off,
             Self::Perch => &goals.perch,
             Self::Idle => &goals.idle,
+            Self::BossPunish => &goals.boss_punish,
         }
     }
 }
@@ -502,6 +509,12 @@ pub enum GoalReason {
     TargetLost,
     /// An ordinary utility decision.
     Utility,
+    /// FA-Q04: a vulnerable boss window opened (or its goal ended): immediate,
+    /// so the minimum goal time does not hold her back.
+    BossWindow,
+    /// FA-Q05: she stands closer to the boss than the standoff band, between
+    /// the boss and the leader, or in the charge lane: immediate.
+    BossStandoff,
 }
 
 /// One standing surface a spot may be taken from: a flat interval already
@@ -750,6 +763,9 @@ struct Ctx<'a> {
     claims: LeaderClaims,
     cast_ok: bool,
     boss: bool,
+    /// FA-Q02: the boss as the goal layer sees it, `Some` only with
+    /// `fa_q02_boss_play` on and the boss engaged (it has a body).
+    bv: Option<BossView>,
     travelling: bool,
     travel_dir: i8,
     /// She is in a move or in the air: committed, so no routine re-decision.
@@ -817,7 +833,16 @@ impl<'a> Ctx<'a> {
             TargetState::Standing | TargetState::Staggered { .. }
         );
         match t.id.kind {
-            EntityKind::Boss => None,
+            // FA-Q04: the boss is hunted only as BossPunish, while it is
+            // vulnerable (a cast with mana, a pounce when she is dry).
+            EntityKind::Boss => self
+                .bv
+                .is_some_and(|b| b.mode_class == BossModeClass::Vulnerable)
+                .then_some(if self.cast_ok {
+                    HuntMode::Cast
+                } else {
+                    HuntMode::Pounce
+                }),
             EntityKind::Llama => (self.cast_ok && standing_or_staggered).then_some(HuntMode::Cast),
             EntityKind::Goblin => {
                 if self.cast_ok && standing_or_staggered {
@@ -859,11 +884,24 @@ impl<'a> Ctx<'a> {
     }
 
     fn standing_within(&self, from_x: f32, radius: f32) -> bool {
-        self.inp
-            .view
-            .targets
-            .iter()
-            .any(|t| t.hp > 0 && t.state == TargetState::Standing && (t.x - from_x).abs() <= radius)
+        // FA-Q03: the boss counts as a standing enemy except in Stun, Pinned and
+        // Defeated (and before it has a body).
+        self.bv
+            .is_some_and(|b| !b.inert && (b.x - from_x).abs() <= radius)
+            || self.inp.view.targets.iter().any(|t| {
+                t.hp > 0 && t.state == TargetState::Standing && (t.x - from_x).abs() <= radius
+            })
+    }
+
+    /// A target of the goal layer by id: a goblin or llama of the view, or the
+    /// boss (FA-Q04), which is never in `targets`.
+    fn target_of(&self, id: StableEntityId) -> Option<TargetView> {
+        if id == BOSS_ID {
+            return self
+                .bv
+                .map(|b| b.as_target(self.inp.view.view.in_view(b.x)));
+        }
+        self.inp.view.target(id).copied()
     }
 
     fn leader_low(&self) -> bool {
@@ -1065,10 +1103,18 @@ impl<'a> Ctx<'a> {
     }
 
     /// Retreat spot terms (CA2-Q22): far from the nearest enemy, the leader
-    /// between her and it, higher is better.
+    /// between her and it, higher is better. Under boss play (FA-Q03) the boss
+    /// is an enemy too, and a spot must be on her own side of it (she cannot
+    /// cross its body), at least `fa_q03_retreat_boss_clear_px` from it, outside
+    /// the charge lane and not across a Committed hitbox; with none, the spot
+    /// farthest from the boss that is still on her side and path-safe.
     fn retreat_spot(&self, surfaces: &[Surface]) -> Option<Spot> {
         let zone = self.zone();
         let mut best = BestSpot { best: None };
+        // FA-Q03: the farthest legal anchor from the boss, when the strict rules
+        // leave none.
+        let mut fallback = BestSpot { best: None };
+        let boss = self.bv.filter(|_| self.fa().fa_q02_boss_play);
         for surface in surfaces {
             if surface.risk >= self.a.ca2_q29_spot_max_risk {
                 continue;
@@ -1091,12 +1137,19 @@ impl<'a> Ctx<'a> {
                             .total_cmp(&(q.x - x).abs())
                             .then(p.id.cmp(&q.id))
                     });
-                let (away, between) = match nearest {
-                    Some(e) => {
-                        let lo = x.min(e.x);
-                        let hi = x.max(e.x);
+                // FA-Q03: a standing boss is an enemy; a goblin wins a tie.
+                let enemy_x = match (nearest.map(|e| e.x), boss.filter(|b| !b.inert)) {
+                    (Some(g), Some(b)) if (b.x - x).abs() < (g - x).abs() => Some(b.x),
+                    (Some(g), _) => Some(g),
+                    (None, Some(b)) => Some(b.x),
+                    (None, None) => None,
+                };
+                let (away, between) = match enemy_x {
+                    Some(ex) => {
+                        let lo = x.min(ex);
+                        let hi = x.max(ex);
                         (
-                            ipx((e.x - x).abs()),
+                            ipx((ex - x).abs()),
                             if self.leader.x > lo && self.leader.x < hi {
                                 i32::from(self.t.ca2_q22_between_bonus)
                             } else {
@@ -1110,24 +1163,40 @@ impl<'a> Ctx<'a> {
                 let height = (rise / 16.0) as i32 * i32::from(self.t.ca2_q22_height_bonus_per_16px);
                 let score = away + between + height
                     - FreeZone::pull_penalty(self.a, (x - self.leader.x).abs());
-                best.offer(
-                    score,
-                    Spot {
-                        x,
-                        surface_y: surface.y,
-                        key: surface.key,
-                        leader_ref_x: self.leader.x,
-                        purpose: SpotPurpose::Retreat,
-                    },
-                );
+                let spot = Spot {
+                    x,
+                    surface_y: surface.y,
+                    key: surface.key,
+                    leader_ref_x: self.leader.x,
+                    purpose: SpotPurpose::Retreat,
+                };
+                if let Some(b) = boss {
+                    // Never across the boss body, never across a live hitbox.
+                    if (x - b.x) * (self.me.x - b.x) < 0.0 || self.path_crosses_committed(&b, x) {
+                        return;
+                    }
+                    fallback.offer(ipx((x - b.x).abs()), spot);
+                    if (x - b.x).abs() < f32::from(self.fa().fa_q03_retreat_boss_clear_px)
+                        || self.in_lane(&b, x)
+                    {
+                        return;
+                    }
+                }
+                best.offer(score, spot);
             });
         }
-        best.best.map(|(_, s)| s)
+        best.best.or(fallback.best).map(|(_, s)| s)
     }
 
     /// The escort spot: 72 to 120 px behind the leader while he travels, on
     /// her own side of him otherwise, on his level and flat ground.
     fn escort_spot(&self, surfaces: &[Surface]) -> Option<Spot> {
+        // While a charge is up the escort is the ordinary one (the dodge is the
+        // answer to a ram, and the standoff would walk her to the wrong side of
+        // the crash).
+        if let Some(b) = self.bv.filter(|b| !b.charging) {
+            return self.boss_escort_spot(surfaces, &b);
+        }
         let zone = self.zone();
         let min = f32::from(self.a.ca2_q07_escort_min_px);
         let max = f32::from(self.a.ca2_q07_escort_max_px);
@@ -1440,13 +1509,26 @@ impl AutonomyState {
     /// the shared cooldown over (spec 5.1, review F-7).
     fn retreat_trigger(&self, c: &Ctx<'_>) -> bool {
         let tick = c.inp.view.tick;
-        let Some(hurt) = self.last_hurt else {
-            return false;
-        };
         let radius = if c.me.health <= c.t.ca2_q21_low_hp {
             c.t.ca2_q21_low_enemy_px
         } else {
             c.t.ca2_q21_hurt_enemy_px
+        };
+        // FA-Q03 (FA-Q07 tuning iteration 1, recorded): the boss' moves are
+        // telegraphed, so she also answers a tell or a committed boss move that is
+        // within the hurt radius of her, without waiting for the hurt (the hurt
+        // trigger alone leaves Retreat unreachable once she no longer gets hit).
+        if c.fa().fa_q03_retreat_on_boss_tell
+            && let Some(b) = c.bv
+            && !b.charging
+            && matches!(b.mode_class, BossModeClass::Tell | BossModeClass::Committed)
+            && (b.x - c.me.x).abs() <= f32::from(radius)
+            && tick >= self.retreat_ready_at
+        {
+            return true;
+        }
+        let Some(hurt) = self.last_hurt else {
+            return false;
         };
         tick.saturating_sub(hurt) <= u64::from(c.t.ca2_q21_hurt_window_ticks)
             && tick >= self.retreat_ready_at
@@ -1486,9 +1568,10 @@ impl AutonomyState {
         let Some(id) = self.target else {
             return false;
         };
-        let Some(t) = c.inp.view.target(id) else {
+        let Some(t) = c.target_of(id) else {
             return false;
         };
+        let t = &t;
         if c.mode_for(t).is_none() {
             return false;
         }
@@ -1526,13 +1609,29 @@ impl AutonomyState {
         }
         let recoil = self.recoil_active(c.inp.view.tick);
         match (self.goal, spot.purpose) {
+            (Goal::BossPunish, SpotPurpose::Attack) => {
+                // FA-Q04: in the union of the cast and pounce bands, and the
+                // commitment of the mode that distance gives still passes the
+                // drift check.
+                let Some(t) = c.target_of(BOSS_ID) else {
+                    return false;
+                };
+                let d = (spot.x - t.x).abs();
+                let (cast_lo, cast_hi) = c.band(HuntMode::Cast);
+                let (pounce_lo, pounce_hi) = c.band(HuntMode::Pounce);
+                let mode = c.punish_mode_at(spot.x, t.x);
+                (cast_lo.min(pounce_lo)..=cast_hi.max(pounce_hi)).contains(&d)
+                    && (spot.x - t.x) * (c.me.x - t.x) >= 0.0
+                    && c.drift_ok(spot.x, &t, mode)
+            }
             (Goal::Hunt | Goal::SupportLeader, SpotPurpose::Attack | SpotPurpose::Recoil) => {
                 if (spot.purpose == SpotPurpose::Recoil) != (self.goal == Goal::Hunt && recoil) {
                     return false;
                 }
-                let Some(t) = self.target.and_then(|id| c.inp.view.target(id)) else {
+                let Some(t) = self.target.and_then(|id| c.target_of(id)) else {
                     return false;
                 };
+                let t = &t;
                 let Some(mode) = c.mode_for(t) else {
                     return false;
                 };
@@ -1546,7 +1645,11 @@ impl AutonomyState {
                     && c.drift_ok(spot.x, t, mode)
                     && !c.hazard_blocks(spot.x, spot.surface_y, t, mode)
             }
-            (Goal::Retreat, SpotPurpose::Retreat) | (Goal::Escort, SpotPurpose::Escort) => true,
+            (Goal::Retreat, SpotPurpose::Retreat) => true,
+            // FA-Q05: a boss standoff spot goes stale when the boss closes in.
+            (Goal::Escort, SpotPurpose::Escort) => {
+                c.bv.is_none_or(|b| !c.standoff_violated(&b, spot.x))
+            }
             _ => false,
         }
     }
@@ -1588,6 +1691,10 @@ impl AutonomyState {
         let travelling = walking || inp.pan_remaining > 0;
         self.stats.travelling_ticks += u32::from(travelling);
         self.stats.pan_only_travelling_ticks += u32::from(travelling && !walking);
+        // FA-Q02: the boss, only with the knob on and a body to speak of.
+        let bv = view
+            .boss_view
+            .filter(|b| inp.set.fix_all.fa_q02_boss_play && b.hurtbox.is_some());
         let ctx = Ctx {
             inp,
             a,
@@ -1596,7 +1703,8 @@ impl AutonomyState {
             leader,
             claims: LeaderClaims::compute(view, inp.set, leader),
             cast_ok: mana_cast,
-            boss: view.boss.is_some(),
+            boss: view.boss.is_some() || bv.is_some(),
+            bv,
             travelling,
             travel_dir: self.travel_dir,
             committed: me.active_move.is_some() || !me.grounded,
@@ -1642,6 +1750,26 @@ impl AutonomyState {
             && Goal::Retreat.row(table).enabled
         {
             cause = Some(GoalReason::Hurt);
+        } else if self.goal == Goal::BossPunish && !ctx.punish_window(true) {
+            // FA-Q04: it drops out the moment the boss leaves its vulnerable
+            // modes; the 24-tick floor is waived for this exit.
+            cause = Some(GoalReason::BossWindow);
+        } else if due
+            && !ctx.committed
+            && ctx.bv.is_some()
+            && !matches!(self.goal, Goal::Retreat | Goal::BossPunish)
+            && ctx.punish_window(false)
+        {
+            // FA-Q04: a vulnerable window opened: decide now, past the minimum
+            // goal time (only at the cadence, so a window she cannot use costs
+            // one decision per cadence, not one per tick).
+            cause = Some(GoalReason::BossWindow);
+        } else if due
+            && ctx.bv.is_some_and(|b| ctx.standoff_violated(&b, me.x))
+            && matches!(self.goal, Goal::Idle | Goal::Escort)
+        {
+            // FA-Q05: the boss closed in (or she stands between it and Carl).
+            cause = Some(GoalReason::BossStandoff);
         } else if matches!(self.goal, Goal::Hunt | Goal::SupportLeader) && !self.target_valid(&ctx)
         {
             cause = Some(GoalReason::TargetLost);
@@ -1785,6 +1913,27 @@ impl AutonomyState {
             }
         }
 
+        // FA-Q04: punish a vulnerable boss (the knob's goal; `bv` is `None` with
+        // it off).
+        if c.bv.is_some() && allowed(Goal::BossPunish) {
+            let running = self.goal == Goal::BossPunish;
+            if c.punish_window(running) {
+                let spot = if running && self.spot.is_some() && self.spot_valid(c) {
+                    self.spot
+                } else {
+                    c.punish_spot(surfaces)
+                };
+                if let Some(spot) = spot {
+                    out.push(Cand {
+                        goal: Goal::BossPunish,
+                        utility: stick(Goal::BossPunish, util(Goal::BossPunish), self.goal),
+                        target: Some(BOSS_ID),
+                        spot: Some(spot),
+                    });
+                }
+            }
+        }
+
         // Support-leader (spec 4.3): the enemy nearest the leader that she may
         // take, with an attack spot.
         if allowed(Goal::SupportLeader) {
@@ -1902,13 +2051,17 @@ impl AutonomyState {
         } else {
             f32::from(c.a.ca2_q06_comfort_px)
         };
-        let hold = !c.travelling && (c.me.x - c.leader.x).abs() <= hold_radius;
+        // FA-Q05: under a boss she holds only on ground the standoff allows.
+        let hold = !c.travelling
+            && (c.me.x - c.leader.x).abs() <= hold_radius
+            && c.bv.is_none_or(|b| !c.standoff_violated(&b, c.me.x));
         // A running Escort that has just arrived keeps its minimum time (CA2-Q16)
         // as a hold, so it does not flip to Idle the tick she enters the band.
         let settling = escorting
             && tick.saturating_sub(self.goal_since) < u64::from(c.a.ca2_q16_min_goal_ticks);
         if allowed(Goal::Escort) && (!hold || settling) {
-            let bonus = if c.travelling {
+            // FA-Q05: the travel bonus is suspended under a boss.
+            let bonus = if c.travelling && c.bv.is_none() {
                 i32::from(c.a.ca2_q07_escort_bonus)
             } else {
                 0
@@ -1958,7 +2111,8 @@ impl AutonomyState {
     fn brief(&mut self, c: &Ctx<'_>, changed: Option<GoalReason>) -> AutonomyBrief {
         let tick = c.inp.view.tick;
         let recoil = self.recoil_active(tick) && self.target.is_some();
-        let target = self.target.and_then(|id| c.inp.view.target(id));
+        let target = self.target.and_then(|id| c.target_of(id));
+        let target = target.as_ref();
         let mut director = match (self.goal, target) {
             (Goal::Hunt, Some(t)) if !recoil => c
                 .mode_for(t)
@@ -1974,6 +2128,13 @@ impl AutonomyState {
                     GoalBrief::targeting(t.id, lo, hi)
                 })
                 .unwrap_or_else(GoalBrief::interrupts_only),
+            // FA-Q04: the union of the cast and pounce bands; the director's own
+            // per-action reach picks the legal action at her distance.
+            (Goal::BossPunish, Some(t)) => {
+                let (cast_lo, cast_hi) = c.band(HuntMode::Cast);
+                let (pounce_lo, pounce_hi) = c.band(HuntMode::Pounce);
+                GoalBrief::targeting(t.id, cast_lo.min(pounce_lo), cast_hi.max(pounce_hi))
+            }
             (Goal::ShowOff, _) => GoalBrief::silent(),
             _ => GoalBrief::interrupts_only(),
         };
@@ -1983,7 +2144,7 @@ impl AutonomyState {
         // brief allows interrupts only (the goal, target and spot are kept).
         if !director.allowed.is_empty()
             && let Some(t) = target
-            && let Some(mode) = c.mode_for(t)
+            && let Some(mode) = c.mode_in_brief(t)
             && !c.drift_ok(c.me.x, t, mode)
         {
             director = GoalBrief::interrupts_only();
@@ -1995,7 +2156,7 @@ impl AutonomyState {
         // began between her and the target keeps her from pouncing across it.
         if !director.allowed.is_empty()
             && let Some(t) = target
-            && let Some(mode) = c.mode_for(t)
+            && let Some(mode) = c.mode_in_brief(t)
             && c.hazard_blocks(c.me.x, c.me.foot_y, t, mode)
         {
             director = GoalBrief::interrupts_only();
@@ -2005,7 +2166,7 @@ impl AutonomyState {
         }
         director.commit_x = Some(c.interrupt_commit_x());
         let face_x = match self.goal {
-            Goal::Hunt | Goal::SupportLeader => target.map(|t| t.x),
+            Goal::Hunt | Goal::SupportLeader | Goal::BossPunish => target.map(|t| t.x),
             Goal::ShowOff => Some(c.leader.x),
             _ => None,
         };
@@ -2025,8 +2186,187 @@ impl AutonomyState {
 impl Ctx<'_> {
     /// Under a boss only the goals with `under_boss` are eligible (CA2-Q35,
     /// applied in `candidates`); Retreat is one of them, so the trigger stays.
+    /// With boss play (FA-Q03) the "path crosses a Committed hitbox" check lives
+    /// in [`Self::retreat_spot`] (such a spot is no spot), so the gate itself
+    /// never blocks.
     fn boss_blocks_retreat(&self) -> bool {
+        if self.bv.is_some() {
+            return false;
+        }
         self.boss && !Goal::Retreat.row(self.t).under_boss
+    }
+
+    fn fa(&self) -> &FixAll {
+        &self.inp.set.fix_all
+    }
+
+    /// FA-Q05: the near edge of the standoff band from the boss: the plan's
+    /// 112 px, and from phase 2 also clear of the shockwave ripples' reach
+    /// (the recorded deviation).
+    fn standoff_min(&self, b: &BossView) -> f32 {
+        let fa = self.fa();
+        let base = f32::from(fa.fa_q05_escort_boss_min_px);
+        if b.ripple_reach_px > 0.0 {
+            base.max(b.ripple_reach_px + HERO_HALF_WIDTH + f32::from(fa.fa_q05_ripple_margin_px))
+        } else {
+            base
+        }
+    }
+
+    /// FA-Q05: the far edge of the standoff band (the band keeps the plan's
+    /// 112..160 width).
+    fn standoff_max(&self, b: &BossView) -> f32 {
+        let fa = self.fa();
+        self.standoff_min(b)
+            + f32::from(fa.fa_q05_escort_boss_max_px - fa.fa_q05_escort_boss_min_px)
+    }
+
+    /// `x` lies strictly between the boss and the leader.
+    fn between_boss_and_leader(&self, b: &BossView, x: f32) -> bool {
+        x > b.x.min(self.leader.x) && x < b.x.max(self.leader.x)
+    }
+
+    /// A body at `x` overlaps the charge lane: the ram box (x 36..82) projected
+    /// ahead of the boss (FA-Q03).
+    fn in_lane(&self, b: &BossView, x: f32) -> bool {
+        let (lo, hi) = b.ram_box;
+        x + HERO_HALF_WIDTH > lo && x - HERO_HALF_WIDTH < hi
+    }
+
+    /// FA-Q03: a walk from her feet to `x` crosses a Committed boss hitbox.
+    fn path_crosses_committed(&self, b: &BossView, x: f32) -> bool {
+        b.committed_box.is_some_and(|(lo, hi)| {
+            let (a, z) = (self.me.x.min(x), self.me.x.max(x));
+            z + HERO_HALF_WIDTH > lo && a - HERO_HALF_WIDTH < hi
+        })
+    }
+
+    /// FA-Q05: she stands where the standoff forbids: closer than the band, or
+    /// between the boss and the leader. (The charge lane is the spot search's
+    /// business: from inside it a dodge, not a walk, is the answer.)
+    fn standoff_violated(&self, b: &BossView, x: f32) -> bool {
+        // While a charge is up she holds and dodges (the follow layer's jump):
+        // walking away from a ram only leaves her on the wrong side of the crash.
+        !b.charging
+            && ((x - b.x).abs() < self.standoff_min(b) || self.between_boss_and_leader(b, x))
+    }
+
+    /// FA-Q05: the boss escort (Standoff) spot. 112..160 px from the boss (from
+    /// phase 2 beyond the ripples), never between the boss and the leader, on her
+    /// own side of the boss, out of the charge lane while a tell or a committed
+    /// move is up, and near the leader.
+    fn boss_escort_spot(&self, surfaces: &[Surface], b: &BossView) -> Option<Spot> {
+        let zone = self.zone();
+        let (min, max) = (self.standoff_min(b), self.standoff_max(b));
+        let mid = (min + max) / 2.0;
+        let lane_matters = matches!(b.mode_class, BossModeClass::Tell | BossModeClass::Committed);
+        let mut best = BestSpot { best: None };
+        for surface in surfaces {
+            if surface.risk >= self.a.ca2_q29_spot_max_risk
+                || (surface.y - self.leader.foot_y).abs() > self.vertical()
+            {
+                continue;
+            }
+            sample_xs(surface, |x| {
+                if !zone.contains_spot(x, surface.y) || !self.commit_ok(x, surface, None).0 {
+                    return;
+                }
+                let from_boss = (x - b.x).abs();
+                if self.between_boss_and_leader(b, x)
+                    || (x - b.x) * (self.me.x - b.x) < 0.0
+                    || (lane_matters && self.in_lane(b, x))
+                {
+                    return;
+                }
+                let from_leader = (x - self.leader.x).abs();
+                // Inside the band is best; beyond it she is merely farther; closer
+                // than the band costs four times its shortfall, so with no ground
+                // in the band (a corner) she takes the farthest she can reach.
+                let outside = (from_boss - mid).abs() - (max - min) / 2.0;
+                let shortfall = (min - from_boss).max(0.0);
+                let score = -ipx(outside.max(0.0))
+                    - 4 * ipx(shortfall)
+                    - FreeZone::pull_penalty(self.a, from_leader);
+                best.offer(
+                    score,
+                    Spot {
+                        x,
+                        surface_y: surface.y,
+                        key: surface.key,
+                        leader_ref_x: self.leader.x,
+                        purpose: SpotPurpose::Escort,
+                    },
+                );
+            });
+        }
+        best.best.map(|(_, s)| s)
+    }
+
+    /// FA-Q04: BossPunish may start: the boss is vulnerable with at least
+    /// `fa_q04_punish_min_ticks` left; once running it lasts while the boss stays
+    /// vulnerable (the floor is waived for the exit).
+    fn punish_window(&self, running: bool) -> bool {
+        self.bv.is_some_and(|b| {
+            b.mode_class == BossModeClass::Vulnerable
+                // A pound recovery with ripples on their way (phase 2 on) is no
+                // window: walking to a spot would cross them (recorded deviation).
+                && !(b.pound_recovery && b.ripple_reach_px > 0.0)
+                && b.vulnerable_ticks_left
+                    >= if running {
+                        1
+                    } else {
+                        self.fa().fa_q04_punish_min_ticks
+                    }
+        })
+    }
+
+    /// The BossPunish attack spot on her own side of the boss (she cannot cross its
+    /// body): the cast spacing (112 px) when she can cast, else, or when no ground
+    /// on her side holds that spacing (a corner), the pounce band (FA-Q04: "or the
+    /// pounce band of 56 when she is dry").
+    fn punish_spot(&self, surfaces: &[Surface]) -> Option<Spot> {
+        let b = self.bv?;
+        let t = self.target_of(BOSS_ID)?;
+        let side: Vec<Surface> = surfaces
+            .iter()
+            .filter_map(|s| {
+                let (left, right) = if self.me.x < b.x {
+                    (s.left, s.right.min(b.x))
+                } else {
+                    (s.left.max(b.x), s.right)
+                };
+                (right >= left).then_some(Surface { left, right, ..*s })
+            })
+            .collect();
+        if self.cast_ok
+            && let Some(spot) = self.attack_spot(&side, &t, HuntMode::Cast, false).spot
+        {
+            return Some(spot);
+        }
+        self.attack_spot(&side, &t, HuntMode::Pounce, false).spot
+    }
+
+    /// [`Self::mode_for`], except that the boss (BossPunish) is hit in the mode her
+    /// distance from it gives.
+    fn mode_in_brief(&self, t: &TargetView) -> Option<HuntMode> {
+        if t.id == BOSS_ID {
+            self.mode_for(t)
+                .map(|_| self.punish_mode_at(self.me.x, t.x))
+        } else {
+            self.mode_for(t)
+        }
+    }
+
+    /// How she would hit the boss from `x`: a cast when she can and the cast band
+    /// holds, else the pounce (BossPunish is not tied to one mode: the director
+    /// presses whichever legal action the distance allows).
+    fn punish_mode_at(&self, x: f32, boss_x: f32) -> HuntMode {
+        let (lo, hi) = self.band(HuntMode::Cast);
+        if self.cast_ok && (lo..=hi).contains(&(x - boss_x).abs()) {
+            HuntMode::Cast
+        } else {
+            HuntMode::Pounce
+        }
     }
 }
 
@@ -5175,5 +5515,343 @@ mod tests {
         state.reset();
         assert_eq!(state.last_blink(), None);
         assert_eq!(state.stats().blink_presses_committed, 1, "counters survive");
+    }
+
+    // ------------------------------------- FA-Q02..Q07: boss play (PR-A) ----
+
+    use crate::companion::view::ManaView;
+
+    /// A boss at `x` facing `facing` in `class`, the way `BossView::from_facts`
+    /// would build it (a view of its own so the goal layer is tested without the
+    /// scene).
+    fn boss_at(x: f32, facing: i8, class: BossModeClass) -> BossView {
+        let ahead = |a: f32, b: f32| {
+            let (p, q) = (x + f32::from(facing) * a, x + f32::from(facing) * b);
+            (p.min(q), p.max(q))
+        };
+        BossView {
+            x,
+            foot_y: 0.0,
+            facing,
+            hp: 30,
+            phase: 1,
+            hurtbox: Some(Rect {
+                left: x - 40.0,
+                bottom: 0.0,
+                width: 80.0,
+                height: 64.0,
+            }),
+            mode_class: class,
+            vulnerable_ticks_left: if class == BossModeClass::Vulnerable {
+                60
+            } else {
+                0
+            },
+            target: Some(HeroId::Carl),
+            charging: false,
+            pound_recovery: false,
+            inert: false,
+            ram_box: ahead(36.0, 82.0),
+            committed_box: None,
+            ripple_reach_px: 0.0,
+        }
+    }
+
+    fn stunned(x: f32, facing: i8) -> BossView {
+        BossView {
+            inert: true,
+            ..boss_at(x, facing, BossModeClass::Vulnerable)
+        }
+    }
+
+    /// A rig with a boss in the view and Donut able to cast (full mana).
+    fn boss_rig(boss: BossView) -> Rig {
+        let mut rig = Rig::new();
+        rig.v.boss_view = Some(boss);
+        rig.donut().mana = Some(ManaView {
+            mana: 8,
+            max: 8,
+            unlocked: true,
+            ai_can_cast: true,
+            projectile_speed_px_per_tick: 6,
+            bolt_lead_px: 35,
+        });
+        rig
+    }
+
+    #[test]
+    fn boss_play_is_off_without_its_knob_and_the_boss_view_is_ignored() {
+        let mut rig = boss_rig(stunned(420.0, -1));
+        rig.set.fix_all.fa_q02_boss_play = false;
+        for _ in 0..40 {
+            let b = rig.step().unwrap();
+            assert_ne!(b.goal, Goal::BossPunish);
+        }
+        assert_eq!(rig.st.stats().retreat_entries, 0);
+    }
+
+    #[test]
+    fn a_stunned_boss_with_24_ticks_left_is_a_window_and_with_23_it_is_not() {
+        for (left, expect) in [(24u16, true), (23, false)] {
+            let mut boss = stunned(420.0, -1);
+            boss.vulnerable_ticks_left = left;
+            let mut rig = boss_rig(boss);
+            let b = rig.step().unwrap();
+            assert_eq!(b.goal == Goal::BossPunish, expect, "{left} ticks left");
+            if expect {
+                // The cast spacing, on her own side of the boss, facing it.
+                let spot = b.spot.expect("an attack spot");
+                let d = (420.0 - spot.x).abs();
+                assert!((72.0..=160.0).contains(&d), "cast band {d}");
+                assert!(spot.x < 420.0, "her side");
+                assert_eq!(b.face_x, Some(420.0));
+                assert_eq!(b.director.allowed, vec![BOSS_ID]);
+                assert_eq!(b.changed, Some(GoalReason::Start));
+            }
+        }
+    }
+
+    #[test]
+    fn a_window_opening_mid_goal_is_taken_past_the_24_tick_minimum() {
+        let mut rig = boss_rig(boss_at(420.0, -1, BossModeClass::Neutral));
+        rig.run(3);
+        rig.v.boss_view = Some(stunned(420.0, -1));
+        // At most one cadence (6 ticks) later she has switched, with the reason.
+        let mut changed = None;
+        for _ in 0..7 {
+            let b = rig.step().unwrap();
+            if b.goal == Goal::BossPunish {
+                changed = b.changed;
+                break;
+            }
+        }
+        assert_eq!(changed, Some(GoalReason::BossWindow));
+    }
+
+    #[test]
+    fn boss_punish_ends_the_tick_the_boss_leaves_its_vulnerable_modes() {
+        let mut rig = boss_rig(stunned(420.0, -1));
+        assert_eq!(rig.step().unwrap().goal, Goal::BossPunish);
+        rig.run(2);
+        // 3 ticks old, far inside the 24-tick floor: the exit is immediate.
+        rig.v.boss_view = Some(boss_at(420.0, -1, BossModeClass::Neutral));
+        let b = rig.step().unwrap();
+        assert_ne!(b.goal, Goal::BossPunish);
+        assert_eq!(b.changed, Some(GoalReason::BossWindow));
+        assert!(b.director.allowed.is_empty());
+    }
+
+    #[test]
+    fn a_dry_partner_punishes_from_the_pounce_band() {
+        let mut rig = boss_rig(stunned(420.0, -1));
+        rig.donut().mana = Some(ManaView {
+            mana: 0,
+            max: 8,
+            unlocked: true,
+            ai_can_cast: false,
+            projectile_speed_px_per_tick: 6,
+            bolt_lead_px: 35,
+        });
+        let b = rig.step().unwrap();
+        assert_eq!(b.goal, Goal::BossPunish);
+        let d = (420.0 - b.spot.unwrap().x).abs();
+        assert!((30.0..=80.0).contains(&d), "pounce band {d}");
+    }
+
+    #[test]
+    fn a_pound_recovery_with_ripples_on_the_way_is_no_window() {
+        let mut boss = boss_at(420.0, -1, BossModeClass::Vulnerable);
+        boss.pound_recovery = true;
+        boss.vulnerable_ticks_left = 24;
+        // Phase 1 (no ripples): the recovery is a window...
+        assert_eq!(boss_rig(boss).step().unwrap().goal, Goal::BossPunish);
+        // ...from phase 2 it is not (walking to a spot would cross the ripples).
+        boss.ripple_reach_px = 176.0;
+        assert_ne!(boss_rig(boss).step().unwrap().goal, Goal::BossPunish);
+    }
+
+    #[test]
+    fn the_boss_is_a_standing_enemy_for_a_retreat_except_in_stun_and_pinned() {
+        // A hurt with the boss 60 px away.
+        for (boss, retreats) in [
+            (boss_at(300.0, -1, BossModeClass::Neutral), true),
+            (boss_at(300.0, -1, BossModeClass::Tell), true),
+            (stunned(300.0, -1), false),
+        ] {
+            let mut rig = boss_rig(boss);
+            rig.donut().x = 240.0;
+            rig.run(2);
+            hurt(&mut rig);
+            let b = rig.step().unwrap();
+            assert_eq!(b.goal == Goal::Retreat, retreats, "{:?}", boss.mode_class);
+        }
+    }
+
+    #[test]
+    fn a_boss_retreat_spot_is_clear_of_the_boss_on_her_side_and_out_of_its_lane() {
+        // Boss at 420 facing left, a ram box 338..384 ahead of it; she is at 300.
+        let mut rig = boss_rig(boss_at(420.0, -1, BossModeClass::Neutral));
+        rig.donut().x = 300.0;
+        rig.run(2);
+        hurt(&mut rig);
+        let b = rig.step().unwrap();
+        assert_eq!(b.goal, Goal::Retreat);
+        let spot = b.spot.unwrap();
+        assert!(spot.x < 420.0, "her side of the boss");
+        assert!((420.0 - spot.x) >= 128.0, "128 px clear: {}", spot.x);
+        // Not in the lane (338..384 each way by her half width).
+        assert!(spot.x + HERO_HALF_WIDTH <= 338.0 || spot.x - HERO_HALF_WIDTH >= 384.0);
+    }
+
+    #[test]
+    fn with_no_clear_ground_the_retreat_takes_the_farthest_anchor_on_her_side() {
+        // Boss at 150 facing right, she is in the corner at 60: 128 px clear is
+        // impossible on her side (the surface starts at 30).
+        let mut rig = boss_rig(boss_at(150.0, 1, BossModeClass::Neutral));
+        rig.donut().x = 60.0;
+        rig.carl().x = 90.0;
+        rig.run(2);
+        hurt(&mut rig);
+        let b = rig.step().unwrap();
+        assert_eq!(b.goal, Goal::Retreat);
+        let spot = b.spot.unwrap();
+        assert!(spot.x <= 60.0, "the corner side of the boss: {}", spot.x);
+    }
+
+    #[test]
+    fn a_retreat_path_across_a_committed_boss_hitbox_is_no_spot() {
+        // The pound hit box of a boss at 300 facing left covers 233..268. She is at
+        // 240 inside it and the only clear ground is across it (to 150): no spot is
+        // reached through the live box, so there is no Retreat.
+        let mut boss = boss_at(300.0, -1, BossModeClass::Committed);
+        boss.committed_box = Some((233.0, 268.0));
+        let mut rig = boss_rig(boss);
+        rig.donut().x = 240.0;
+        rig.carl().x = 120.0;
+        rig.run(2);
+        hurt(&mut rig);
+        let b = rig.step().unwrap();
+        assert_ne!(b.goal, Goal::Retreat);
+    }
+
+    #[test]
+    fn a_boss_tell_within_the_hurt_radius_starts_a_retreat_without_a_hurt() {
+        let mut rig = boss_rig(boss_at(300.0, -1, BossModeClass::Tell));
+        rig.donut().x = 240.0;
+        let b = rig.run(3).unwrap();
+        assert_eq!(b.goal, Goal::Retreat);
+        assert_eq!(rig.st.stats().retreat_entries, 1);
+        // ...but not for a charge (the dodge is the answer), nor beyond the radius.
+        for boss in [
+            BossView {
+                charging: true,
+                ..boss_at(300.0, -1, BossModeClass::Tell)
+            },
+            boss_at(420.0, -1, BossModeClass::Tell),
+        ] {
+            let mut rig = boss_rig(boss);
+            rig.donut().x = 240.0;
+            assert_ne!(rig.run(3).unwrap().goal, Goal::Retreat);
+        }
+        // And not with the knob off.
+        let mut rig = boss_rig(boss_at(300.0, -1, BossModeClass::Tell));
+        rig.set.fix_all.fa_q03_retreat_on_boss_tell = false;
+        rig.donut().x = 240.0;
+        assert_ne!(rig.run(3).unwrap().goal, Goal::Retreat);
+    }
+
+    #[test]
+    fn the_boss_escort_stands_off_between_112_and_160_and_never_between_the_boss_and_carl() {
+        // Carl at 320, boss at 520 facing left: the band is x 360..408, which lies
+        // between the two, so the spot falls back to Carl's far side.
+        let mut rig = boss_rig(boss_at(520.0, -1, BossModeClass::Neutral));
+        rig.donut().x = 100.0;
+        let b = rig.run(2).unwrap();
+        assert_eq!(b.goal, Goal::Escort);
+        let spot = b.spot.expect("an escort spot");
+        assert!(spot.x <= 320.0, "not between the boss and Carl: {}", spot.x);
+        assert!((520.0 - spot.x) >= 112.0);
+        // Boss behind Carl (left of him) and she stands between them, 50 px from
+        // the boss: the standoff pulls her out of the gap to Carl's far side.
+        let mut rig = boss_rig(boss_at(200.0, 1, BossModeClass::Neutral));
+        rig.donut().x = 250.0;
+        let b = rig.run(2).unwrap();
+        assert_eq!(b.goal, Goal::Escort);
+        let spot = b.spot.expect("an escort spot");
+        assert!(spot.x >= 320.0 && (spot.x - 200.0) >= 112.0, "{}", spot.x);
+    }
+
+    #[test]
+    fn from_phase_2_the_standoff_clears_the_ripples_reach() {
+        let mut boss = boss_at(200.0, 1, BossModeClass::Neutral);
+        boss.phase = 2;
+        boss.ripple_reach_px = 176.0;
+        let mut rig = boss_rig(boss);
+        rig.donut().x = 400.0;
+        let spot = rig.run(2).unwrap().spot.expect("an escort spot");
+        // 176 + 12 (her half width) + 16 (the margin) = 204.
+        assert!((spot.x - 200.0) >= 204.0, "{}", spot.x);
+    }
+
+    #[test]
+    fn the_boss_escort_goes_out_of_the_ram_box_under_a_tell_and_has_no_travel_bonus() {
+        // A pound tell: the lane is the ram box ahead of the boss; spots in it are
+        // out. (The ordinary 72..120 band behind Carl would be inside it.)
+        let mut rig = boss_rig(boss_at(520.0, -1, BossModeClass::Tell));
+        rig.donut().x = 100.0;
+        let b = rig.run(2).unwrap();
+        let spot = b.spot.expect("a spot");
+        assert!(!(spot.x + HERO_HALF_WIDTH > 438.0 && spot.x - HERO_HALF_WIDTH < 484.0));
+        // No travel bonus: while Carl walks (the leader travels) the Escort keeps
+        // its 800 and a Retreat or BossPunish at 1500 still outranks it.
+        let mut rig = boss_rig(stunned(520.0, -1));
+        rig.pan = 50;
+        assert_eq!(rig.step().unwrap().goal, Goal::BossPunish);
+    }
+
+    #[test]
+    fn while_a_charge_is_up_the_escort_is_the_ordinary_one_and_holds_the_dodge() {
+        let mut boss = boss_at(520.0, -1, BossModeClass::Tell);
+        boss.charging = true;
+        let mut rig = boss_rig(boss);
+        rig.donut().x = 100.0;
+        let b = rig.run(2).unwrap();
+        // The standoff would hold her 112+ from the boss and out of the box; the
+        // ordinary escort walks her up to Carl (72..120 behind him).
+        assert_eq!(b.goal, Goal::Escort);
+        let d = (b.spot.expect("a spot").x - 320.0).abs();
+        assert!((72.0..=120.0).contains(&d), "{d}");
+    }
+
+    #[test]
+    fn a_boss_closing_in_on_a_holding_partner_breaks_the_hold_past_the_minimum_goal_time() {
+        // She holds 120 px from a boss that is 240 away (Idle, minimum goal time
+        // running); the boss walks to 90 px from her, inside the standoff band: she
+        // re-decides within one cadence, with the reason, and walks out.
+        let mut rig = boss_rig(boss_at(560.0, -1, BossModeClass::Neutral));
+        rig.donut().x = 320.0;
+        rig.carl().x = 320.0;
+        assert_eq!(rig.run(8).unwrap().goal, Goal::Idle);
+        rig.v.boss_view = Some(boss_at(410.0, -1, BossModeClass::Neutral));
+        let mut seen = None;
+        for _ in 0..7 {
+            let b = rig.step().unwrap();
+            if b.goal == Goal::Escort {
+                seen = Some((b.changed, b.spot));
+                break;
+            }
+        }
+        let (changed, spot) = seen.expect("she leaves Idle");
+        assert_eq!(changed, Some(GoalReason::BossStandoff));
+        assert!((410.0 - spot.expect("a spot").x) >= 112.0);
+    }
+
+    #[test]
+    fn a_goal_utility_table_has_boss_punish_between_support_and_retreat() {
+        let g = &free_set().autonomy.roles.skirmisher.goals;
+        assert!(g.retreat.utility > g.boss_punish.utility);
+        assert!(g.boss_punish.utility > g.support_leader.utility);
+        assert!(g.boss_punish.under_boss && g.boss_punish.enabled);
+        assert_eq!(Goal::BossPunish.name(), "boss_punish");
     }
 }

@@ -44,7 +44,7 @@ use crate::combat::{CARL_HAYMAKER, CARL_JAB, ENEMY_HALF_WIDTH, MAGIC_MISSILE, Mo
 use crate::companion::engage::leader_engages;
 use crate::companion::profile::{KillPolicy, ProfileSet};
 use crate::companion::view::{
-    CompanionView, Control, EntityKind, HeroView, StableEntityId, TargetState, TargetView,
+    BOSS_ID, CompanionView, Control, EntityKind, HeroView, StableEntityId, TargetState, TargetView,
     ThreatView,
 };
 use crate::donut_moves::{POUNCE_DAMAGE, SWAT_STARTUP};
@@ -728,6 +728,15 @@ impl CompanionDirector {
                 );
             }
         }
+        // FA-Q04: the boss, only when the brief names it (BossPunish): never in
+        // `targets`, so a set without the brief never plans on it.
+        if brief.is_some_and(|b| b.allows(BOSS_ID))
+            && let Some(boss) = view.find_target(BOSS_ID)
+        {
+            for action in [Action::Pounce, Action::Missile] {
+                better(&mut best, self.boss_candidate(set, me, &boss, action));
+            }
+        }
         best
     }
 
@@ -747,8 +756,67 @@ impl CompanionDirector {
         if brief.is_some_and(|b| !b.allows(plan.target)) {
             return None;
         }
-        let target = view.target(plan.target)?; // gone or a new spawn serial
-        self.support_candidate(view, set, me, target, plan.action)
+        let target = view.find_target(plan.target)?; // gone or a new spawn serial
+        if target.id == BOSS_ID {
+            return self.boss_candidate(set, me, &target, plan.action);
+        }
+        self.support_candidate(view, set, me, &target, plan.action)
+    }
+
+    /// FA-Q04: a cast or a pounce on the boss, the AI Donut's BossPunish. The
+    /// same band and facing rules as a goblin's (CF02-DUO-A05, A06, A09, A13); the
+    /// pounce needs no lying target (the boss takes free damage while it is
+    /// vulnerable, and the goal layer gates the window). A lethal hit is a glance
+    /// at the strike site (FA-Q06), so no kill veto is needed under `factual`.
+    fn boss_candidate(
+        &self,
+        set: &ProfileSet,
+        me: &HeroView,
+        target: &TargetView,
+        action: Action,
+    ) -> Option<Candidate> {
+        if self.hero != HeroId::Donut || !target.in_view || target.hp == 0 {
+            return None;
+        }
+        let duo = &set.cf02_duo;
+        let dx = target.x - me.x;
+        let distance = dx.abs();
+        if (target.foot_y - me.foot_y).abs() > f32::from(duo.cf02_duo_a09_vertical_reach_px)
+            || !(duo.cf02_duo_a13_turn_to_target || sign(dx) == me.facing)
+        {
+            return None;
+        }
+        let never = set.ca19_kill_policy == KillPolicy::Never;
+        match action {
+            Action::Missile => {
+                let mana = me.mana?;
+                (mana.unlocked
+                    && mana.ai_can_cast
+                    && !(never && target.hp <= MAGIC_MISSILE.damage)
+                    && distance >= f32::from(duo.cf02_duo_a05_missile_min_px)
+                    && distance <= f32::from(duo.cf02_duo_a05_missile_max_px))
+                .then_some(Candidate {
+                    action,
+                    target: target.id,
+                    utility: DUO_MISSILE_UTILITY - px(distance),
+                    dx,
+                    reach_min: f32::from(duo.cf02_duo_a05_missile_min_px),
+                    reach_max: f32::from(duo.cf02_duo_a05_missile_max_px),
+                })
+            }
+            Action::Pounce => (!(never && target.hp <= POUNCE_DAMAGE)
+                && distance >= f32::from(duo.cf02_duo_a06_pounce_min_px)
+                && distance <= f32::from(duo.cf02_duo_a06_pounce_max_px))
+            .then_some(Candidate {
+                action,
+                target: target.id,
+                utility: DUO_POUNCE_UTILITY - px(distance),
+                dx,
+                reach_min: f32::from(duo.cf02_duo_a06_pounce_min_px),
+                reach_max: f32::from(duo.cf02_duo_a06_pounce_max_px),
+            }),
+            _ => None,
+        }
     }
 
     fn support_candidate(
@@ -2516,5 +2584,89 @@ mod tests {
         let mut t = target(0, 120.0, 1, TargetState::Standing);
         t.carl_hit_age = Some(3);
         assert!(!carl().steals_the_finish(&v, &assist(), &t, 1));
+    }
+
+    // ------------------------------------------- FA-Q04: the boss as a target ----
+
+    fn boss_view_at(x: f32) -> crate::companion::view::BossView {
+        use crate::companion::view::{BossModeClass, BossView};
+        BossView {
+            x,
+            foot_y: 0.0,
+            facing: -1,
+            hp: 30,
+            phase: 1,
+            hurtbox: None,
+            mode_class: BossModeClass::Vulnerable,
+            vulnerable_ticks_left: 60,
+            target: None,
+            charging: false,
+            pound_recovery: false,
+            inert: true,
+            ram_box: (0.0, 0.0),
+            committed_box: None,
+            ripple_reach_px: 0.0,
+        }
+    }
+
+    fn boss_brief() -> GoalBrief {
+        GoalBrief::targeting(BOSS_ID, 30.0, 160.0)
+    }
+
+    #[test]
+    fn a_boss_punish_brief_casts_at_the_boss_inside_the_missile_band() {
+        let set = set_of(ProfileSetId::Cf02Free);
+        let mut v = donut_ai(100.0);
+        v.heroes[0].x = 50.0;
+        unlock(&mut v, 8, true);
+        v.boss_view = Some(boss_view_at(212.0));
+        let (raw, d) = donut().step_briefed(&v, &set, Some(&boss_brief()));
+        assert_eq!(d.action, Some(Action::Missile), "{d:?}");
+        assert_eq!(d.target, Some(BOSS_ID));
+        assert!(d.pressed && raw.attack, "{d:?}");
+    }
+
+    #[test]
+    fn a_boss_punish_brief_pounces_when_dry_and_only_inside_the_pounce_band() {
+        let set = set_of(ProfileSetId::Cf02Free);
+        let mut v = donut_ai(100.0);
+        unlock(&mut v, 0, false);
+        v.boss_view = Some(boss_view_at(156.0));
+        let (raw, d) = donut().step_briefed(&v, &set, Some(&boss_brief()));
+        assert_eq!(d.action, Some(Action::Pounce), "{d:?}");
+        assert!(d.pressed && raw.physical);
+        // 100 px away is neither the pounce band (30..80) nor a cast (dry).
+        v.boss_view = Some(boss_view_at(200.0));
+        let (_, d) = donut().step_briefed(&v, &set, Some(&boss_brief()));
+        assert_eq!(d.action, None, "{d:?}");
+    }
+
+    #[test]
+    fn the_boss_is_never_planned_on_without_a_brief_that_names_it() {
+        let set = set_of(ProfileSetId::Cf02Free);
+        let mut v = donut_ai(100.0);
+        unlock(&mut v, 8, true);
+        v.boss_view = Some(boss_view_at(212.0));
+        // No brief: today's director, which never looks at the boss view.
+        let (_, d) = donut().step_briefed(&v, &set, None);
+        assert_eq!(d.action, None);
+        // A brief for something else: the filter keeps it off the boss.
+        let (_, d) = donut().step_briefed(&v, &set, Some(&GoalBrief::interrupts_only()));
+        assert_eq!(d.action, None);
+    }
+
+    #[test]
+    fn a_boss_plan_dies_with_its_target_and_needs_the_view() {
+        let set = set_of(ProfileSetId::Cf02Free);
+        let mut v = donut_ai(100.0);
+        unlock(&mut v, 8, true);
+        v.boss_view = Some(boss_view_at(212.0));
+        let mut d = donut();
+        let (_, first) = d.step_briefed(&v, &set, Some(&boss_brief()));
+        assert_eq!(first.target, Some(BOSS_ID));
+        // The boss is gone from the view: the plan is dropped at once.
+        v.boss_view = None;
+        let (_, next) = d.step_briefed(&v, &set, Some(&boss_brief()));
+        assert_eq!(next.action, None, "{next:?}");
     }
 }

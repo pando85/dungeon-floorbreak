@@ -19,7 +19,7 @@ pub const PROFILE_JSON: &str = include_str!("../../assets/data/gameplay/companio
 
 /// The committed FNV-1a 64 content hash of [`PROFILE_JSON`]. Editing the file
 /// without updating this value fails [`ProfileFile::pinned`] and the pin test.
-pub const PROFILE_HASH: u64 = 0xb021_753f_1fde_9563;
+pub const PROFILE_HASH: u64 = 0x44cb_fbca_5f27_fb73;
 
 /// The profile set id under the spec's name (CA-21, section 17): the runtime's
 /// `UncontrolledHero::Companion(CompanionProfileSet)` names it.
@@ -88,6 +88,9 @@ pub struct GoalRow {
 #[serde(deny_unknown_fields)]
 pub struct RoleGoals {
     pub retreat: GoalRow,
+    /// FA-Q04: punish a vulnerable boss (utility 1500, between Support-leader
+    /// and Retreat). Read only while `fix_all.fa_q02_boss_play` is on.
+    pub boss_punish: GoalRow,
     pub support_leader: GoalRow,
     pub hunt: GoalRow,
     pub escort: GoalRow,
@@ -97,9 +100,10 @@ pub struct RoleGoals {
 }
 
 impl RoleGoals {
-    fn rows(&self) -> [(&'static str, &GoalRow); 7] {
+    fn rows(&self) -> [(&'static str, &GoalRow); 8] {
         [
             ("retreat", &self.retreat),
+            ("boss_punish", &self.boss_punish),
             ("support_leader", &self.support_leader),
             ("hunt", &self.hunt),
             ("escort", &self.escort),
@@ -379,6 +383,39 @@ pub struct DuoOffense {
     pub cf02_duo_a15_fallback_behind_px: u16,
 }
 
+/// The fix-all knobs (PR-A of the Floor 1 fix-all plan). Every behaviour change
+/// ships behind a flag whose shipped value is the new behaviour; a set without
+/// the `fix_all` block (or with a flag false) keeps the pre-fix behaviour
+/// byte for byte (the knob-off hash identity). Every number cites its FA-Q id.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct FixAll {
+    /// FA-Q02..Q06: the boss as a target and a threat. Feeds `BossView`,
+    /// counts the boss in `standing_within`, gives Retreat and Escort their
+    /// boss variants, adds the BossPunish goal and makes a lethal AI hit on the
+    /// boss a glance (the kill is Carl's, FA-Q06).
+    pub fa_q02_boss_play: bool,
+    /// FA-Q03: a retreat spot under a boss is at least this far from the boss.
+    pub fa_q03_retreat_boss_clear_px: u16,
+    /// FA-Q03 (FA-Q07 tuning iteration 1, recorded in the PR): Retreat also
+    /// triggers on a boss tell or committed move within the hurt radius, not only
+    /// on a hurt.
+    pub fa_q03_retreat_on_boss_tell: bool,
+    /// FA-Q04: BossPunish needs this many vulnerable ticks left to start.
+    pub fa_q04_punish_min_ticks: u16,
+    /// FA-Q05: the boss escort (Standoff) distance band from the boss.
+    pub fa_q05_escort_boss_min_px: u16,
+    pub fa_q05_escort_boss_max_px: u16,
+    /// FA-Q05 deviation (recorded in the PR): from phase 2 the standoff also
+    /// clears the shockwave ripples' reach by this margin, because the ripples
+    /// hurt a grounded hero out to 176 px either side of the boss.
+    pub fa_q05_ripple_margin_px: u16,
+    /// FA-Q05 deviation (recorded in the PR): a grounded partner hops a shockwave
+    /// ripple that is this many px from her and coming at her (the follow layer
+    /// has no ripple dodge, and in a corner the standoff cannot clear the reach).
+    pub fa_q05_ripple_hop_px: u16,
+}
+
 /// One profile set.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -401,6 +438,9 @@ pub struct ProfileSet {
     pub cf02_duo: DuoOffense,
     /// COMPANION-AI-02: the autonomy layer (`enabled` only in `cf02_free`).
     pub autonomy: Autonomy,
+    /// The fix-all knobs (absent: every flag off).
+    #[serde(default)]
+    pub fix_all: FixAll,
 }
 
 /// The whole file.
@@ -676,6 +716,32 @@ impl ProfileSet {
                 &f("ca2_q07_escort_min_px"),
                 "must be below ca2_q07_escort_max_px",
             );
+        }
+        if self.fix_all.fa_q02_boss_play {
+            let fa = &self.fix_all;
+            for (name, value) in [
+                (
+                    "fa_q03_retreat_boss_clear_px",
+                    fa.fa_q03_retreat_boss_clear_px,
+                ),
+                ("fa_q04_punish_min_ticks", fa.fa_q04_punish_min_ticks),
+                ("fa_q05_escort_boss_min_px", fa.fa_q05_escort_boss_min_px),
+                ("fa_q05_escort_boss_max_px", fa.fa_q05_escort_boss_max_px),
+                ("fa_q05_ripple_hop_px", fa.fa_q05_ripple_hop_px),
+            ] {
+                if value == 0 {
+                    return bad(
+                        &format!("{set}.fix_all.{name}"),
+                        "must be positive while fa_q02_boss_play",
+                    );
+                }
+            }
+            if fa.fa_q05_escort_boss_min_px >= fa.fa_q05_escort_boss_max_px {
+                return bad(
+                    &format!("{set}.fix_all.fa_q05_escort_boss_min_px"),
+                    "must be below fa_q05_escort_boss_max_px",
+                );
+            }
         }
         let sk = &a.roles.skirmisher;
         let g = |name: &str| format!("{set}.autonomy.roles.skirmisher.{name}");
@@ -1045,6 +1111,9 @@ mod tests {
         let mut expected = f.cf02_assist.clone();
         expected.autonomy.enabled = true;
         expected.cf02_duo.cf02_duo_a15_flank = false;
+        // FA-Q02..Q05 (PR-A): and the fix-all knobs, `cf02_free` only (the
+        // layer they steer is off in the other sets).
+        expected.fix_all = f.cf02_free.fix_all.clone();
         // DP-Q41 (DP-E): and the AI blink knobs, `cf02_free` only.
         let free_sk = &f.cf02_free.autonomy.roles.skirmisher;
         expected.autonomy.roles.skirmisher.blink_enabled = free_sk.blink_enabled;
@@ -1142,6 +1211,7 @@ mod tests {
         assert_eq!(
             [
                 g.retreat.utility,
+                g.boss_punish.utility,
                 g.support_leader.utility,
                 g.hunt.utility,
                 g.escort.utility,
@@ -1149,18 +1219,18 @@ mod tests {
                 g.perch.utility,
                 g.idle.utility
             ],
-            [1800, 1400, 1200, 800, 700, 600, 100]
+            [1800, 1500, 1400, 1200, 800, 700, 600, 100]
         );
         assert!(g.rows().iter().all(|(_, row)| row.enabled));
-        // CA2-Q35: under a boss only Retreat, Escort and Idle (the interrupt is
-        // the director's).
+        // CA2-Q35 and FA-Q04: under a boss only Retreat, BossPunish, Escort and
+        // Idle (the interrupt is the director's).
         assert_eq!(
             g.rows()
                 .iter()
                 .filter(|(_, row)| row.under_boss)
                 .map(|(name, _)| *name)
                 .collect::<Vec<_>>(),
-            ["retreat", "escort", "idle"]
+            ["retreat", "boss_punish", "escort", "idle"]
         );
         // CA2-Q27: no follow-bot ledge hop under autonomy.
         assert!(!a.ca2_q27_partner_ledge_hop);

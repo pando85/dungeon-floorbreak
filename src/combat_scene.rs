@@ -53,6 +53,8 @@ use crate::thrown_charge::Thrower;
 mod blink;
 mod carl_cf02;
 mod companion;
+#[cfg(test)]
+pub(crate) use companion::with_profile_override;
 mod contacts_cf02;
 pub mod corral;
 mod donut;

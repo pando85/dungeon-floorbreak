@@ -1115,7 +1115,7 @@ impl CombatState {
         };
         // CA-20: the kill policy reads the boss' HP on the hit tick (clamped,
         // so a boss with more than 255 HP never glances).
-        let damage = glance.lands(damage, boss.hp);
+        let damage = glance.boss_lands(damage, boss.hp);
         let mut events = Vec::new();
         if let Some(result) = boss.apply_hit(
             BossHit {

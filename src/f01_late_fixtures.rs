@@ -262,6 +262,11 @@ pub struct JuicerReport {
     pub carl_trace: Vec<f32>,
     /// The width of Donut's column range over the run (px).
     pub donut_x_span: f32,
+    /// FA-Q07: how many times the boss' ram began (the first tick of its
+    /// charge) with Donut's body in the ram box (x 36..82 projected ahead of the
+    /// boss) and how many rams began in all.
+    pub ram_lane_hits: u32,
+    pub rams: u32,
 }
 
 impl JuicerReport {
@@ -336,6 +341,8 @@ pub fn juicer_run(
     let mut defeated_tick = None;
     let mut exit_tick = None;
     let mut deaths = 0u32;
+    let (mut ram_lane_hits, mut rams) = (0u32, 0u32);
+    let mut last_mode = None;
     let mut last_restarts = sim.combat.restarts;
     let mut swap_pressed = false;
     for _ in 0..JUICER_RUN_TICKS {
@@ -386,6 +393,23 @@ pub fn juicer_run(
             deaths += 1;
             last_restarts = sim.combat.restarts;
         }
+        // FA-Q07: the ram tick, the first tick of the charge.
+        if let Some(boss) = sim.combat.boss.as_ref() {
+            if boss.mode == crate::boss::BossMode::Charge
+                && last_mode != Some(crate::boss::BossMode::Charge)
+            {
+                rams += 1;
+                let view =
+                    crate::companion::view::BossView::from_facts(&boss.facts(), boss.floor_y());
+                let (lo, hi) = view.ram_box;
+                let x = sim.scene.world.donut_body.x;
+                ram_lane_hits += u32::from(
+                    x + crate::prototype::HERO_HALF_WIDTH > lo
+                        && x - crate::prototype::HERO_HALF_WIDTH < hi,
+                );
+            }
+            last_mode = Some(boss.mode);
+        }
         let now_released = sim.combat.boss.as_ref().is_some_and(|b| b.released());
         if defeated_tick.is_none() && now_released {
             defeated_tick = Some(sim.scene.world.tick);
@@ -418,6 +442,8 @@ pub fn juicer_run(
         grants: combat_grants(&sim.combat),
         carl_trace,
         donut_x_span: donut_span.1 - donut_span.0,
+        ram_lane_hits,
+        rams,
     };
     Ok((report, sim))
 }
@@ -796,6 +822,20 @@ mod tests {
         ],
     ];
 
+    /// The Companion row of [`GOLDEN_JUICER_PILOTS`] as it was before PR-A: what
+    /// the knob-off check (every fix-all flag off) must reproduce byte for byte.
+    const GOLDEN_JUICER_COMPANION_KNOBS_OFF: [u64; 9] = [
+        0xc3fa_1e52_5b9a_c89f,
+        0xddc2_cb43_beab_800c,
+        0x0b36_9bec_87fa_d147,
+        0xf96f_5c4e_bb37_faba,
+        0xc6ec_844c_3f87_6372,
+        0xccff_08ab_1e64_e2ac,
+        0x51ad_2163_d8d3_47e7,
+        0xb98d_c029_31e8_14bc,
+        0x6864_b594_d7db_dbe6,
+    ];
+
     fn juicer_reports() -> Vec<JuicerReport> {
         let mut all = Vec::new();
         for who in JuicerWho::ALL {
@@ -864,58 +904,142 @@ mod tests {
         }
     }
 
+    /// The fix-all knobs all off: `cf02_free` as it shipped before PR-A.
+    fn knobs_off(f: &mut crate::companion::profile::ProfileFile) {
+        f.cf02_free.fix_all = crate::companion::profile::FixAll::default();
+    }
+
     /// FA-Q01, the passive boundary of the companion runs (PTB-AD7, CA2-FU-BOSS):
-    /// under a boss `cf02_free` hunts nothing (CA2-Q35), so Donut escorts and
-    /// idles while Carl's fight is tick-identical to solo Carl's. She takes the
-    /// hurts and never retreats, blinks, starts a move or lands a hit. This test
-    /// is the named, deliberate boundary the boss-play change (FA-Q02..Q07, knob
-    /// `fa_q02_boss_play`) flips, instead of nine opaque hash re-pins.
+    /// with boss play off (`fa_q02_boss_play`) `cf02_free` hunts nothing under a
+    /// boss (CA2-Q35), so Donut escorts and idles while Carl's fight is
+    /// tick-identical to solo Carl's. She takes the hurts and never retreats,
+    /// blinks, starts a move or lands a hit. This is the knob-off identity of
+    /// FA-Q02..Q07 as well: the final state hash equals the pre-PR-A golden.
     #[test]
     fn fa_q01_the_companion_escorts_but_takes_no_part_in_the_juicer_fight() {
+        crate::combat_scene::with_profile_override(knobs_off, || {
+            for seed in JUICER_SEEDS {
+                let (solo, _) = juicer_run(&root(), JuicerWho::CarlSolo, seed).unwrap();
+                let (comp, sim) = juicer_run(&root(), JuicerWho::Companion, seed).unwrap();
+                assert_eq!(
+                    comp.hash, GOLDEN_JUICER_COMPANION_KNOBS_OFF[seed as usize],
+                    "knob off reproduces the old hash, seed {seed}"
+                );
+                assert_eq!(comp.defeated_tick, solo.defeated_tick, "seed {seed}");
+                assert_eq!(comp.exit_tick, solo.exit_tick, "seed {seed}");
+                assert_eq!(
+                    comp.carl_trace, solo.carl_trace,
+                    "Carl's run is solo Carl's"
+                );
+                // She is present and decides and walks...
+                let donut = sim.combat.autonomy_state(HeroId::Donut).stats();
+                assert!(donut.decisions > 0, "seed {seed}: her autonomy runs");
+                assert!(comp.donut_x_span > 100.0, "seed {seed}: she walks");
+                assert_ne!(comp.hash, solo.hash, "her block is part of the state");
+                // ...but starts no move, lands no hit, hunts nothing, never retreats
+                // and never blinks.
+                let stats = sim.combat.companion_stats();
+                assert_eq!(stats.assist_starts[1], 0, "seed {seed}");
+                assert_eq!(stats.interrupt_starts[1], 0, "seed {seed}");
+                assert_eq!(stats.chain_presses[1], 0, "seed {seed}");
+                assert_eq!(donut.hunt_evaluations, 0, "seed {seed}");
+                assert_eq!(donut.retreat_entries, 0, "seed {seed}: never retreats");
+                assert_eq!(
+                    (donut.blink_presses_retreat, donut.blink_presses_committed),
+                    (0, 0),
+                    "seed {seed}: never blinks"
+                );
+                assert!(
+                    !sim.combat
+                        .events
+                        .iter()
+                        .any(|e| matches!(e, CombatEvent::DonutGlance { .. })),
+                    "seed {seed}: no Donut hit on the boss"
+                );
+                // The boss lands blows on her (CA2-FU-BOSS: nearly every hurt of the
+                // run is hers) and she never answers.
+                assert!(hurts_of(&sim, HeroId::Donut) > 0, "seed {seed}");
+            }
+        });
+    }
+
+    /// `HeroHurt` events of `hero` in a finished run.
+    fn hurts_of(sim: &PartyFixtureSim, hero: HeroId) -> usize {
+        sim.combat
+            .events
+            .iter()
+            .filter(|e| matches!(e, CombatEvent::HeroHurt { hero: h, .. } if *h == hero))
+            .count()
+    }
+
+    /// Landed boss hits of hero slot `player` (0 Carl, 1 Donut): `BossHurt`
+    /// events with damage.
+    fn boss_hits_of(sim: &PartyFixtureSim, player: u32) -> usize {
+        sim.combat
+            .events
+            .iter()
+            .filter(|e| matches!(e, CombatEvent::BossHurt { source, .. } if *source == player))
+            .count()
+    }
+
+    fn median(mut v: Vec<usize>) -> usize {
+        v.sort_unstable();
+        v[v.len() / 2]
+    }
+
+    /// FA-Q07, the acceptance of the boss play (Juicer, `cf02_free` partner, the
+    /// Carl pilot, seeds 0..8): Carl is credited with the defeat and the room
+    /// clears on 9/9; her median landed hits on the boss are at least 3; her
+    /// median hurts are no more than Carl's; she retreats at least once per run
+    /// on at least 7 of 9; she is never in the ram box at the ram tick. The
+    /// determinism replay (twice, identical) is mandatory. The numeric rows are
+    /// FA-Q30 targets (two tuning iterations, recorded in the PR); the measured
+    /// values print.
+    #[test]
+    fn fa_q07_the_companion_fights_the_juicer_and_carl_takes_the_kill() {
+        let (mut her_hits, mut her_hurts, mut carl_hurts) = (Vec::new(), Vec::new(), Vec::new());
+        let (mut retreating, mut lane) = (0, 0);
         for seed in JUICER_SEEDS {
-            let (solo, _) = juicer_run(&root(), JuicerWho::CarlSolo, seed).unwrap();
-            let (comp, sim) = juicer_run(&root(), JuicerWho::Companion, seed).unwrap();
-            assert_eq!(comp.defeated_tick, solo.defeated_tick, "seed {seed}");
-            assert_eq!(comp.exit_tick, solo.exit_tick, "seed {seed}");
-            assert_eq!(
-                comp.carl_trace, solo.carl_trace,
-                "Carl's run is solo Carl's"
+            let (r, sim) = juicer_run(&root(), JuicerWho::Companion, seed).unwrap();
+            let (again, _) = juicer_run(&root(), JuicerWho::Companion, seed).unwrap();
+            assert_eq!(r.hash, again.hash, "determinism replay, seed {seed}");
+            // The invariants: the room clears and the defeat is Carl's.
+            let defeated = r.defeated_tick.unwrap_or_else(|| panic!("{}", r.line()));
+            assert!(r.exit_tick.unwrap_or_else(|| panic!("{}", r.line())) > defeated);
+            let credit = sim.combat.events.iter().find_map(|e| match *e {
+                CombatEvent::EnemyDefeated {
+                    target, instigator, ..
+                } if target == crate::boss::BOSS_ENEMY_ID => Some(instigator),
+                _ => None,
+            });
+            assert_eq!(credit, Some(Some(0)), "Carl is credited, seed {seed}");
+            assert_eq!(r.deaths, 0, "{}", r.line());
+            let stats = sim.combat.autonomy_state(HeroId::Donut).stats();
+            her_hits.push(boss_hits_of(&sim, 1));
+            her_hurts.push(hurts_of(&sim, HeroId::Donut));
+            carl_hurts.push(hurts_of(&sim, HeroId::Carl));
+            retreating += usize::from(stats.retreat_entries >= 1);
+            lane += usize::from(r.ram_lane_hits > 0);
+            println!(
+                "FA-Q07 seed {seed}: defeated {defeated} her_hits {} her_hurts {} carl_hurts {} \
+                 retreats {} rams {} in_lane {}",
+                boss_hits_of(&sim, 1),
+                hurts_of(&sim, HeroId::Donut),
+                hurts_of(&sim, HeroId::Carl),
+                stats.retreat_entries,
+                r.rams,
+                r.ram_lane_hits
             );
-            // She is present and decides and walks...
-            let donut = sim.combat.autonomy_state(HeroId::Donut).stats();
-            assert!(donut.decisions > 0, "seed {seed}: her autonomy runs");
-            assert!(comp.donut_x_span > 100.0, "seed {seed}: she walks");
-            assert_ne!(comp.hash, solo.hash, "her block is part of the state");
-            // ...but starts no move, lands no hit, hunts nothing, never retreats
-            // and never blinks.
-            let stats = sim.combat.companion_stats();
-            assert_eq!(stats.assist_starts[1], 0, "seed {seed}");
-            assert_eq!(stats.interrupt_starts[1], 0, "seed {seed}");
-            assert_eq!(stats.chain_presses[1], 0, "seed {seed}");
-            assert_eq!(donut.hunt_evaluations, 0, "seed {seed}");
-            assert_eq!(donut.retreat_entries, 0, "seed {seed}: never retreats");
-            assert_eq!(
-                (donut.blink_presses_retreat, donut.blink_presses_committed),
-                (0, 0),
-                "seed {seed}: never blinks"
-            );
-            assert!(
-                !sim.combat
-                    .events
-                    .iter()
-                    .any(|e| matches!(e, CombatEvent::DonutGlance { .. })),
-                "seed {seed}: no Donut hit on the boss"
-            );
-            // The boss lands blows on her (CA2-FU-BOSS: nearly every hurt of the
-            // run is hers) and she never answers.
-            let hers = sim
-                .combat
-                .events
-                .iter()
-                .filter(|e| matches!(e, CombatEvent::HeroHurt { hero: HeroId::Donut, .. }))
-                .count();
-            assert!(hers > 0, "seed {seed}: she is hurt and never retreats");
+            assert!(r.rams > 0, "the boss rams at least once, seed {seed}");
         }
+        let (mh, mu, mc) = (median(her_hits), median(her_hurts), median(carl_hurts));
+        println!(
+            "FA-Q07: median her hits {mh}, her hurts {mu}, Carl hurts {mc}, retreating {retreating}/9, in the lane {lane}/9"
+        );
+        assert!(mh >= 3, "her median landed hits on the boss: {mh}");
+        assert!(mu <= mc, "her median hurts {mu} vs Carl's {mc}");
+        assert!(retreating >= 7, "retreat entered on {retreating}/9");
+        assert_eq!(lane, 0, "never in the ram box at the ram tick");
     }
 
     #[test]

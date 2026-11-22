@@ -83,6 +83,11 @@
               "utility": 1800,
               "under_boss": true
             },
+            "boss_punish": {
+              "enabled": true,
+              "utility": 1500,
+              "under_boss": true
+            },
             "support_leader": {
               "enabled": true,
               "utility": 1400,
@@ -232,6 +237,11 @@
               "utility": 1800,
               "under_boss": true
             },
+            "boss_punish": {
+              "enabled": true,
+              "utility": 1500,
+              "under_boss": true
+            },
             "support_leader": {
               "enabled": true,
               "utility": 1400,
@@ -345,6 +355,16 @@
       "cf02_duo_a15_flank_view_margin_px": 48,
       "cf02_duo_a15_fallback_behind_px": 40
     },
+    "fix_all": {
+      "fa_q02_boss_play": true,
+      "fa_q03_retreat_boss_clear_px": 128,
+      "fa_q03_retreat_on_boss_tell": true,
+      "fa_q04_punish_min_ticks": 24,
+      "fa_q05_escort_boss_min_px": 112,
+      "fa_q05_escort_boss_max_px": 160,
+      "fa_q05_ripple_margin_px": 16,
+      "fa_q05_ripple_hop_px": 30
+    },
     "autonomy": {
       "enabled": true,
       "ca2_q03_edge_margin_px": 32,
@@ -379,6 +399,11 @@
             "retreat": {
               "enabled": true,
               "utility": 1800,
+              "under_boss": true
+            },
+            "boss_punish": {
+              "enabled": true,
+              "utility": 1500,
               "under_boss": true
             },
             "support_leader": {

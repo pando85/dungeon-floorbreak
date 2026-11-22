@@ -592,6 +592,23 @@ fn donut_prog_pilot_boss_boost() {
     );
 }
 
+/// The boss-arena fold as it was before PR-A (FA-Q02..Q07 boss play): what the
+/// knob-off run must reproduce.
+const GOLDEN_BOSS_ARENA_KNOBS_OFF: u64 = 0x3b07_4c06_659a_5879;
+
+/// FA-Q02..Q07 knob off: with every fix-all flag off the DP-F boss-arena run is
+/// byte-identical to its pre-PR-A golden (the boss play moved it).
+#[test]
+fn the_boss_arena_run_with_the_fix_all_knobs_off_keeps_its_old_golden() {
+    crate::combat_scene::with_profile_override(
+        |f| f.cf02_free.fix_all = crate::companion::profile::FixAll::default(),
+        || {
+            let (_, r) = boss_free_run();
+            assert_eq!(fold(&[r]), GOLDEN_BOSS_ARENA_KNOBS_OFF);
+        },
+    );
+}
+
 /// DP-F (deferral 1): the AI Donut under `cf02_free` in the boss arena with the
 /// blink held. The Juicer's charge never makes her blink: the follow layer's
 /// boss dodge jumps at 18 ticks and the blink window opens at 12, so the jump
