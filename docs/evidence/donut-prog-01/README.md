@@ -84,3 +84,42 @@ Measured for the PR: `donut_prog_blink_drawn_view_human` (human-controlled Donut
 960 rest widths, 16:9 and 16:10, both blink directions, with and without a far threat) found **0**
 ticks outside the drawn view after any arrival (grace 12). The existing `something_outside` path
 already keeps a framing subject's safety region in view, so `scene_camera.rs` needed no change.
+
+## DP-F: pilots, the two deferred captures and the handoff
+
+Last DONUT-PROG stage. It moves no golden and no earlier replay; the `donut_prog_*` registry grows from nine to twelve fixtures (three render fixtures with committed replays below), and the owner handoff and scorecard are in [HANDOFF.md](HANDOFF.md).
+
+### Render fixtures and captures (the DP-B and DP-E deferrals)
+
+| Fixture | Final `PARTY_STATE` hash | What it shows |
+| --- | --- | --- |
+| `donut_prog_arena_ledge_base` | `970a169e812a4bd8` | the microarena with a 128 px ledge; P2 Donut (biscuit, no boost) runs into it and jumps on tick 40: she peaks under the top and falls back to the floor |
+| `donut_prog_arena_ledge_boost` | `98b7c723c72f71bc` | the same script and seed with `jump_reach_boost` (`--donut-light-feet`): she lands on the ledge (grounded on it at tick 80) |
+| `donut_prog_arena_blink_cornered` | `a375733d805c1725` | the AI Donut (jump dodge radius 0, target bias 0, exactly the 2 charge reserve) with a goblin 28 px away: `goblin_tell` 5, `special_started` 20, `mana_spent` (left 0) and `blink_resolved` 88 to 180 on 26, `goblin_swing` 31 finds no one |
+
+Real windowed Bevy captures at 640 x 360 (1x source), from `scripts/make_dp_f_evidence.sh` (debug build, `generated/art`, xvfb, ffmpeg, ImageMagick; driver dependent, not reproduced bit for bit by CI). Checksums in `SHA256SUMS`.
+
+| File | Shows |
+| --- | --- |
+| `dp_f_gif1_ledge_128_side_by_side.gif` (2x crops, ticks 30..100, every 2nd) | left: no boost, right: `jump_reach_boost`; same ledge, same script |
+| `dp_f_gif2_ai_escape_3x.gif` (3x crop, ticks 2..47) | the AI Donut blinking out of the goblin's swing |
+| `dp_f_escape_sheet.png` (2x, ticks 18..30) | the crouch, ripple, destination ripple and dotted streak around the press (20) and the arrival (26) |
+
+### Encounter-completion pilots (DP-Q47, harness tests)
+
+`pilot_reports.txt` is the per-run report (`DP_F_PILOT_OUT=<file> cargo test --locked --lib print_the_pilot_reports`). Totals:
+
+| Group | Runs | Cleared | Deaths | Blinks (spends) | Missile spends | Dry presses | Longest standstill |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `donut_prog_pilot_arena_boost` (direct, swap, `eng_solo_assist`, seeds 0..8; boost held) | 24 | 16 (the 8 `cf02_arena_swap` runs are a 300 tick script, not a clearing pilot) | 0 | 0 | 173 | 0 | 108 |
+| `donut_prog_pilot_arena_blink` (`Pilot::ArenaDuoBlink`, all three capabilities) | 8 | 7 (seed 5 never) | 7 | 15 (15) | 81 | 16 | 173 |
+| control at the same stance: `Pilot::ArenaDuoAhead` (+32, no blink rule) | 8 | 8 | 0 | 0 | 68 | 14 | 168 |
+| reference only: the shipped trailing `ArenaDuo` (-40, no blink; differs in stance too) | 8 | 3 | 11 | 0 | 96 | 6 | 228 |
+| `donut_prog_pilot_boss_boost` (solo and 2P full clear under the boss pin) | 2 | 2, both on tick 3175 with the Puddle Jumper grant on it | 0 | 0 | 0 | 0 | 788 (the parked P2, the same unpinned) |
+| `cf02_free_blink_boss_arena` (AI Donut, boss pin and blink) | 1 | 1 (3175) | 0 | 0 | 0 | 0 | 376 |
+
+No blink was cancelled or fizzled in any run. The blink pilot stands 32 px ahead of Carl (a recorded deviation: a trailing P2 is never the goblins' target), so its control is the same stance with no blink rule; the trailing row mixes stance with the blink and is reference only. The pilot proves the blink is pressed, resolves and pays; it does not show that the blink helps: against the same-stance control it has 7 deaths to 0 and one failed seed. Likely cause, not separated from where the blink lands: the swat and pounce are held back whenever a swing aims at her, even outside the 7 to 12 tick window. Owner game-feel note: blinking out of swings instead of swatting cost deaths in the scripted coop pilot. The Juicer's charge never makes the AI Donut blink in the boss arena: the jump dodge starts 18 ticks before the ram and the blink window opens at 12 (spec section 18).
+
+### PLAYTRACE and the two-pad check
+
+A `--cf02 --donut-puddle --autopilot --record` session (1500 ticks) records and verifies strict on the build that recorded it; its manifest carries the descriptor flags and `donut_prog_tuning`, but the autopilot drives Carl only, so its journal holds no blink event. The recordings of the story-run grants and of a session with blinks need a human on the pads: **NOT RUN**. The real two-pad check is **NOT RUN** (no second controller on the build machine). Recordings are not committed (size). The verify line of that session on the final head: `PLAYTRACE_VERIFY result=PASS scope=full ticks=1500 episodes=1 combat_events=54 control_events=6 build=identical`.

@@ -930,6 +930,9 @@ pub fn fixture_runs_cf02(name: &str) -> bool {
     name.starts_with("cf02_")
         || name.starts_with("eng_")
         || crate::carl_prog_fixtures::runs_cf02(name)
+        // DONUT-PROG-01 DP-F: the AI Donut's escape capture (the autonomy layer and
+        // the 40 HP goblin are `cf02_rules` features).
+        || name == "donut_prog_arena_blink_cornered"
 }
 
 /// The pinned tuning with the master switch on: what a simulation running under
@@ -1192,6 +1195,26 @@ pub mod arena {
     /// under it), the scene's two scroll-camera views, and no exit trigger (the
     /// room ends when its six enemies are defeated, see [`complete`]).
     pub fn load_arena(root: &Path) -> Result<EnvKit, String> {
+        load_arena_with(root, &[])
+    }
+
+    /// DP-F: the 128 px ledge of the `donut_prog_arena_ledge_*` capture fixtures
+    /// (`x`, `w`, height above the walking line), a masonry step like the
+    /// parapet. The shipped room is untouched: only these fixture names add it.
+    pub const LEDGE_128: (i32, i32, i32) = (136, 128, 128);
+
+    /// [`load_arena`] for the room of fixture `name`: the shipped room, plus the
+    /// [`LEDGE_128`] step for a `donut_prog_arena_ledge_*` capture fixture.
+    pub fn load_arena_for(root: &Path, name: &str) -> Result<EnvKit, String> {
+        if name.starts_with("donut_prog_arena_ledge_") {
+            let (x, w, h) = LEDGE_128;
+            load_arena_with(root, &[IRect::new(x, FLOOR_Y - h, w, h)])
+        } else {
+            load_arena(root)
+        }
+    }
+
+    fn load_arena_with(root: &Path, extra_steps: &[IRect]) -> Result<EnvKit, String> {
         let path = root.join(ROOM_PATH);
         let text =
             std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
@@ -1213,6 +1236,7 @@ pub mod arena {
             let h = p["h"].as_i64().ok_or("parapet h")? as i32;
             room.steps.push(IRect::new(x, room.floor_y - h, w, h));
         }
+        room.steps.extend_from_slice(extra_steps);
         let base_path = root.join(BASE_LAYOUT);
         let base: Value = serde_json::from_str(
             &std::fs::read_to_string(&base_path)
@@ -1403,6 +1427,12 @@ pub mod arena {
     /// lies (it holds it for Carl; the pounce never kills a 2 HP goblin it has not
     /// wounded) and otherwise follow. A pure function of the finished state.
     pub fn donut_pilot(combat: &CombatState, scene: &SceneSim) -> RawInput {
+        donut_pilot_at(combat, scene, -40.0)
+    }
+
+    /// [`donut_pilot`] with the follow goal `goal_dx` px from Carl (negative:
+    /// behind him, the shipped pilot's -40).
+    fn donut_pilot_at(combat: &CombatState, scene: &SceneSim, goal_dx: f32) -> RawInput {
         use crate::goblin::{AttackPhase, GoblinMode};
         let body = &scene.world.donut_body;
         let carl = &scene.world.hero;
@@ -1436,7 +1466,7 @@ pub mod arena {
             }
             return raw;
         }
-        let goal = carl.x - 40.0;
+        let goal = carl.x + goal_dx;
         let dx = goal - body.x;
         raw.move_x = if dx.abs() < 14.0 { 0.0 } else { dx.signum() };
         if body.grounded && raw.move_x != 0.0 && blocked_ahead_of(scene, body.x, body.y, raw.move_x)
@@ -1445,6 +1475,88 @@ pub mod arena {
         }
         raw
     }
+
+    /// DP-F (DP-Q47): [`donut_pilot`] with one scripted rule, the human's blink. A
+    /// goblin's swing aimed at her within [`BLINK_THREAT_PX`] whose impact is
+    /// due 7 to 12 ticks from now (more than the windup, at most the windup plus
+    /// 6: the DP-Q39 (b) window, read from [`crate::goblin::Goblin::tell_view`])
+    /// makes her press Circle/B with the stick pushed away from it (toward Carl
+    /// when level), while the blink is ready and paid for. Nothing else is
+    /// pressed on the press tick or during the windup (a primary, physical or
+    /// jump press on t0..t5 cancels the blink, DP-Q25), and while the blink is
+    /// ready and a swing aimed at her is up, her swat, pounce and jump are
+    /// withheld (a busy hero cannot start it). The script presses the
+    /// blink; the AI's own blink is measured by the `cf02_free_blink_*` fixtures.
+    /// A pure function of the finished state.
+    pub fn donut_blink_pilot(combat: &CombatState, scene: &SceneSim) -> RawInput {
+        let mut raw = donut_pilot_at(combat, scene, BLINK_PILOT_GOAL_DX);
+        let blink = combat.donut_blink();
+        let tick = scene.world.tick + 1;
+        if blink.windup().is_some() {
+            raw.attack = false;
+            raw.physical = false;
+            raw.jump = false;
+            return raw;
+        }
+        let t = crate::donut_prog::DonutProgTuning::active();
+        let charges = combat.donut_mana_view().map_or(0, |m| m.0);
+        if blink.recovering(tick) || blink.cooling(tick) || charges < t.dpq23_cost_charges {
+            return raw;
+        }
+        let body = &scene.world.donut_body;
+        let windup = u16::from(t.dpq25_windup_ticks);
+        // The swings aimed at her within reach, as (x, ticks to impact).
+        let mut aimed = combat.enemies.iter().enumerate().filter_map(|(i, g)| {
+            let (tell, _, impact) = g.tell_view()?;
+            (combat.target_of(i) == crate::party::HeroId::Donut
+                && (g.x - body.x).abs() <= BLINK_THREAT_PX)
+                .then(|| (g.x, impact.saturating_sub(tell)))
+        });
+        // A blink that is ready frees her hands for it: no swat, pounce or jump
+        // while a swing aimed at her is up (a busy hero cannot start the blink).
+        let Some(first) = aimed.next() else {
+            return raw;
+        };
+        raw.attack = false;
+        raw.physical = false;
+        raw.jump = false;
+        let threat = std::iter::once(first)
+            .chain(aimed)
+            .find_map(|(x, left)| (left > windup && left <= windup + 6).then_some(x));
+        let Some(threat_x) = threat else {
+            return raw;
+        };
+        let carl = scene.world.hero.x;
+        let away = if (body.x - threat_x).abs() < 0.5 {
+            carl - body.x
+        } else {
+            body.x - threat_x
+        };
+        RawInput {
+            move_x: if away < 0.0 { -1.0 } else { 1.0 },
+            ability: true,
+            ..RawInput::default()
+        }
+    }
+
+    /// DP-F: the control of [`donut_blink_pilot`]: [`donut_pilot`] at the same
+    /// stance ([`BLINK_PILOT_GOAL_DX`], a step ahead of Carl), with no blink rule
+    /// and nothing withheld, so a comparison varies the blink alone.
+    pub fn donut_pilot_ahead(combat: &CombatState, scene: &SceneSim) -> RawInput {
+        donut_pilot_at(combat, scene, BLINK_PILOT_GOAL_DX)
+    }
+
+    /// The reach of the scripted blink rule (DP-Q39: `dpq39_ai_threat_px`).
+    const BLINK_THREAT_PX: f32 = 48.0;
+
+    /// Where the blink pilot stands, px from Carl: **ahead** of him (the shipped
+    /// pilot trails him at -40). In the shipped room the goblins pick the nearer
+    /// hero, and a P2 who trails Carl is never the target (0 swings aimed at her
+    /// in 16 seeded runs), so the rule would be dead code; a Donut a step ahead
+    /// draws the swings the blink is for. 32 is a value of a 16..48 sweep
+    /// where every seed 0..8 presses the blink. Its control is
+    /// [`donut_pilot_ahead`], the same stance.
+    const BLINK_PILOT_GOAL_DX: f32 = 32.0;
 
     /// A solid within 14 px ahead of Carl's body at ledge height.
     fn blocked_ahead(scene: &SceneSim, dir: f32) -> bool {

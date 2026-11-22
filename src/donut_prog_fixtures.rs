@@ -78,9 +78,21 @@ pub fn story_setup(fixture: &str) -> StorySetup {
         // DP-D: the short blink held from tick 0 (`--donut-puddle`'s pin), in the
         // corridor and in the microarena.
         "donut_prog_blink_fizzle" => program_setup(CarlProgFlags::OFF, PUDDLE, SceneKind::Corridor),
-        "donut_prog_arena_blink_tour" | "donut_prog_arena_blink_edge" => {
+        "donut_prog_arena_blink_tour"
+        | "donut_prog_arena_blink_edge"
+        | "donut_prog_arena_blink_cornered" => {
             program_setup(CarlProgFlags::OFF, PUDDLE, SceneKind::CfArena)
         }
+        // DP-F: the boost alone (`--donut-light-feet`) at the 128 px ledge; the
+        // base run holds the biscuit only.
+        "donut_prog_arena_ledge_boost" => program_setup(
+            CarlProgFlags::OFF,
+            DonutProgFlags {
+                light_feet: true,
+                ..DonutProgFlags::OFF
+            },
+            SceneKind::CfArena,
+        ),
         _ => StorySetup::NONE,
     }
 }
@@ -365,8 +377,107 @@ pub const DONUT_PROG_ARENA_BLINK_EDGE: PartyFixture = PartyFixture {
     donut: DonutSetup::unlocked(8),
 };
 
+/// The shared script of the two ledge captures: P2 Donut runs right into the
+/// 128 px ledge (`cf02::arena::LEDGE_128`), jumps once at the face on tick 40
+/// and keeps pushing right (DM-A's climb script, in the room).
+const LEDGE_SCRIPT: [SlotHold; 2] = [run(10, 140, 1, 1.0), jump(40, 41, 1)];
+
+/// A jump press on `slot`: its edge is on `from`.
+const fn jump(from: u64, to: u64, slot: usize) -> SlotHold {
+    SlotHold {
+        from,
+        to,
+        slot,
+        input: RawInput {
+            jump: true,
+            ..RawInput::NONE
+        },
+    }
+}
+
+const LEDGE_BASE_BASE: Fixture = Fixture {
+    carl_x: 100,
+    enemies: &[],
+    engineers: &[],
+    shore_dx: None,
+    llamas: &[],
+    ..crate::cf02::arena::fixture(
+        "donut_prog_arena_ledge_base",
+        "DP-F evidence: the microarena with a 128 px ledge; P2 Donut (the biscuit, no jump boost) runs into it and jumps: she falls short of the top",
+        0x0D90_000B,
+        150,
+    )
+};
+
+/// DP-Q18: Donut at the base launch cannot land a 128 px ledge (the left half of
+/// the side-by-side capture).
+pub const DONUT_PROG_ARENA_LEDGE_BASE: PartyFixture = PartyFixture {
+    base: &LEDGE_BASE_BASE,
+    two_player: true,
+    tuning: PROVISIONAL_TUNING,
+    script: &LEDGE_SCRIPT,
+    pilot: Pilot::None,
+    donut: DonutSetup::unlocked(8),
+};
+
+const LEDGE_BOOST_BASE: Fixture = Fixture {
+    carl_x: 100,
+    enemies: &[],
+    engineers: &[],
+    shore_dx: None,
+    llamas: &[],
+    ..crate::cf02::arena::fixture(
+        "donut_prog_arena_ledge_boost",
+        "DP-F evidence: the same 128 px ledge and script with `jump_reach_boost` held (`--donut-light-feet`): she lands on top",
+        0x0D90_000B,
+        150,
+    )
+};
+
+/// DP-Q14, DP-Q18: with Light on Your Feet she lands the 128 px ledge (the right
+/// half of the side-by-side capture; same seed and script as the base run).
+pub const DONUT_PROG_ARENA_LEDGE_BOOST: PartyFixture = PartyFixture {
+    base: &LEDGE_BOOST_BASE,
+    two_player: true,
+    tuning: PROVISIONAL_TUNING,
+    script: &LEDGE_SCRIPT,
+    pilot: Pilot::None,
+    donut: DonutSetup::unlocked(8),
+};
+
+const CORNERED_BASE: Fixture = Fixture {
+    carl_x: 120,
+    enemies: &[chase(60)],
+    engineers: &[],
+    shore_dx: None,
+    llamas: &[],
+    ..crate::cf02::arena::fixture(
+        "donut_prog_arena_blink_cornered",
+        "DP-F evidence: Carl stands still at 120; one goblin (40 HP) starts at 60, 28 px from the AI Donut (88) with the end wall behind it; she holds the blink and exactly the reserve (2 charges), her follow-layer jump dodge is switched off (radius 0) and the AI target bias is 0, so its swing is aimed at her: she blinks out of it toward Carl (press 20, arrival 26, hull-capped at Carl + 63)",
+        0x0D90_000A,
+        120,
+    )
+};
+
+/// DP-Q39 (b): the AI Donut escapes a committed swing with the blink (the GIF of
+/// DP-E's deferral). The dodge radius 0 is the same staging as
+/// `cf02_free_blink_escape`: with the dodge on, the jump wins and she never
+/// blinks (`cf02_free_blink_jump_dodge_wins`).
+pub const DONUT_PROG_ARENA_BLINK_CORNERED: PartyFixture = PartyFixture {
+    base: &CORNERED_BASE,
+    two_player: false,
+    tuning: PartyTuning {
+        dodge_radius_px: 0,
+        target_ai_bias_px: 0,
+        ..crate::cf02_free_fixtures::FREE
+    },
+    script: &[],
+    pilot: Pilot::None,
+    donut: DonutSetup::unlocked(2),
+};
+
 /// Every `donut_prog_*` replay fixture, in committed order.
-pub const DONUT_PROG_FIXTURES: [&PartyFixture; 9] = [
+pub const DONUT_PROG_FIXTURES: [&PartyFixture; 12] = [
     &DONUT_PROG_STORY_UNLOCKS,
     &DONUT_PROG_GRANT_SURVIVES_RETRY,
     &DONUT_PROG_PRIMARY_MAPPING,
@@ -377,6 +488,10 @@ pub const DONUT_PROG_FIXTURES: [&PartyFixture; 9] = [
     &DONUT_PROG_BLINK_FIZZLE,
     &DONUT_PROG_ARENA_BLINK_TOUR,
     &DONUT_PROG_ARENA_BLINK_EDGE,
+    // DP-F (the evidence captures: the 128 px ledge pair and the AI's escape).
+    &DONUT_PROG_ARENA_LEDGE_BASE,
+    &DONUT_PROG_ARENA_LEDGE_BOOST,
+    &DONUT_PROG_ARENA_BLINK_CORNERED,
 ];
 
 #[cfg(test)]
@@ -405,7 +520,7 @@ mod tests {
 
     fn kit_of(fixture: &PartyFixture) -> EnvKit {
         if crate::cf02::arena::fixture_uses_arena(fixture.name()) {
-            crate::cf02::arena::load_arena(&root()).unwrap()
+            crate::cf02::arena::load_arena_for(&root(), fixture.name()).unwrap()
         } else if fixture.base.boss.is_some() {
             load_arena(&root()).unwrap()
         } else {
@@ -456,7 +571,7 @@ mod tests {
     }
 
     /// The committed final hashes of the `donut_prog_*` fixtures.
-    const GOLDENS: [(&str, u64); 9] = [
+    const GOLDENS: [(&str, u64); 12] = [
         ("donut_prog_story_unlocks", 0xf7eb_5539_2e6c_5a98),
         ("donut_prog_grant_survives_retry", 0xb3e9_f4b4_c2f6_eff8),
         ("donut_prog_primary_mapping", 0xcd02_6290_cfd5_d561),
@@ -467,6 +582,10 @@ mod tests {
         ("donut_prog_blink_fizzle", 0x6e52_421a_4f95_bf63),
         ("donut_prog_arena_blink_tour", 0x9077_5214_f5ef_5cbe),
         ("donut_prog_arena_blink_edge", 0x6ae2_cb2e_ce51_3533),
+        // DP-F (pinned from their first run; the events are asserted below).
+        ("donut_prog_arena_ledge_base", 0x970a_169e_812a_4bd8),
+        ("donut_prog_arena_ledge_boost", 0x98b7_c723_c72f_71bc),
+        ("donut_prog_arena_blink_cornered", 0xa375_733d_805c_1725),
     ];
 
     #[test]
@@ -546,6 +665,60 @@ mod tests {
             [
                 "tick=270 kind=special_rejected hero=1 reason=no_mana",
                 "tick=420 kind=special_rejected hero=1 reason=no_destination",
+            ]
+        );
+    }
+
+    /// DP-F: what the three capture fixtures show. The ledge pair differs only in
+    /// the boost: the base run peaks under the 128 px top and falls back to the
+    /// floor; the boosted run stands on the ledge. The AI escape is the exact
+    /// press, arrival and swing ticks of the picture.
+    #[test]
+    fn the_dp_f_fixtures_show_what_their_captures_claim() {
+        // The ledge top in sim y (the floor stand is 118, the ledge adds 128).
+        let (floor_y, top_y) = (118.0_f32, 118.0_f32 + 128.0);
+        let climb = |name: &str| {
+            let f = find_party_fixture(name).unwrap();
+            let mut sim = PartyFixtureSim::new(&kit_of(f), 360, f).unwrap();
+            let (mut peak, mut on_top) = (0.0_f32, 0_u64);
+            for _ in 0..f.base.ticks {
+                sim.step_scripted();
+                let body = &sim.scene.world.donut_body;
+                peak = peak.max(body.y);
+                if body.grounded && (body.y - top_y).abs() < 0.01 {
+                    on_top += 1;
+                }
+            }
+            (peak, on_top, sim.scene.world.donut_body.y)
+        };
+        let (peak, on_top, end_y) = climb("donut_prog_arena_ledge_base");
+        assert!(peak < top_y, "the base jump peaks at {peak}, under {top_y}");
+        assert_eq!((on_top, end_y), (0, floor_y), "she never stands on it");
+        let (peak, on_top, _) = climb("donut_prog_arena_ledge_boost");
+        assert!(peak > top_y, "the boosted jump clears the top: {peak}");
+        assert!(on_top > 20, "and she stands on it for {on_top} ticks");
+        // The AI escape: the swing is aimed at her, she presses on tick 20, arrives
+        // on 26 (88 to 180, capped at Carl + 63) and the swing on 31 finds no one.
+        let events = lines(&named("donut_prog_arena_blink_cornered"));
+        let picked: Vec<&str> = events
+            .iter()
+            .map(String::as_str)
+            .filter(|l| l.starts_with("COMBAT_EVENT"))
+            .filter(|l| {
+                l.contains("goblin_tell")
+                    || l.contains("goblin_swing")
+                    || l.contains("special_")
+                    || l.contains("blink_")
+                    || l.contains("hero_hurt")
+            })
+            .collect();
+        assert_eq!(
+            picked,
+            [
+                "COMBAT_EVENT tick=5 kind=goblin_tell goblin=0",
+                "COMBAT_EVENT tick=20 kind=special_started hero=1 capability=special_short_blink",
+                "COMBAT_EVENT tick=26 kind=blink_resolved hero=1 from_x=88 to_x=180",
+                "COMBAT_EVENT tick=31 kind=goblin_swing goblin=0",
             ]
         );
     }
@@ -1640,3 +1813,7 @@ mod ai_blink_fixtures;
 // DP-D: the presentation of the blink over the DP-C rig (spec section 17).
 #[cfg(test)]
 mod presentation_tests;
+
+// DONUT-PROG-01 DP-F: encounter completion with deterministic pilots.
+#[cfg(test)]
+mod pilot_fixtures;
