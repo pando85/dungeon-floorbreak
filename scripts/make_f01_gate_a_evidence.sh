@@ -36,14 +36,19 @@ done
 echo "# mastery arena, NON-FINAL (PT-TUNE changes the waves; re-run after it)" >> "$out/perf.txt"
 bash scripts/room_perf.sh mastery mastery 3000 | grep -v '^log=' >> "$out/perf.txt"
 
-# 2. The grant moments. The Juicer: ticks 3150 to 3249, 3 ticks (50 ms) a frame; the defeat is tick 3175.
+# 2. The grant moments. The Juicer: 76 frames from tick 3150, 6 ticks (100 ms) a frame; the defeat and
+# both grants are tick 3175, the pilot reaches the exit on tick 3255 and the room's sim stops there, so
+# the frames after that are presentation (HUD) ticks only: the notice queue shows KNOCKOUT!, then the
+# grant notices HEAVY FIST (the gauntlet) and PUDDLE JUMPER (the blink), 136 ticks each.
 : > "$out/grant_lines.txt"
-bash scripts/room_capture.sh juicer juicer 3150:3:34 "$caps/grant-juicer" \
+bash scripts/room_capture.sh juicer juicer 3150:6:76 "$caps/grant-juicer" \
   | sed 's/^/GATE_A_GRANT juicer /' >> "$out/grant_lines.txt"
-python3 scripts/room_gif.py "$caps/grant-juicer" "$out/grant-juicer-gauntlet-blink.gif" --step-ticks 3 \
-  --still 10 "$out/still-juicer-grant-tick3180.png"
+python3 scripts/room_gif.py "$caps/grant-juicer" "$out/grant-juicer-gauntlet-blink.gif" --step-ticks 6 \
+  --still 9 "$out/still-juicer-notice-knockout-frame09.png" \
+  --still 30 "$out/still-juicer-notice-heavy-fist-frame30.png" \
+  --still 56 "$out/still-juicer-notice-puddle-jumper-frame56.png"
 "$BIN" --headless-floor01-smoke --scene f01_late --f01-room juicer --room-pilot juicer \
-  --capture-tick 3249 2>&1 | grep 'kind=capability_granted' | sed 's/^/GATE_A_JUICER_EVENT /' >> "$out/grant_lines.txt"
+  --capture-tick 3255 2>&1 | grep 'kind=capability_granted' | sed 's/^/GATE_A_JUICER_EVENT /' >> "$out/grant_lines.txt"
 # The dynamite: the placeholder-zone fixture (NOT the Hoarder's room), ticks 36 to 105 (the grant is tick 69).
 fx=carl_prog_story_event_grants_dynamite
 mkdir -p "$caps/grant-dynamite"
@@ -82,8 +87,14 @@ record() { # label room plan ticks
 }
 record boiler-chain boiler chain 960
 record hazards-direct hazards direct 1500
-record juicer juicer 3300
+record juicer juicer juicer 3300
 # Every session must have passed (a FAIL line has no `result=PASS`).
 [[ "$(grep -c 'result=PASS scope=full' "$out/playtrace_sessions.txt")" == 3 ]]
+
+# The story loadout grants nothing in the Boiler and the hazard room, and exactly one gauntlet and one
+# blink grant at the Juicer's defeat (one CapabilityGranted per grant in the journal).
+[[ "$(grep '^journal_capability_granted_count=' "$out/playtrace_sessions.txt" | sed 's/.*=//' | tr '\n' ' ')" == "0 0 2 " ]]
+[[ "$(grep -c 'journal: CapabilityGranted tick: 3175, hero: 0, capability: "fist_reinforced"' "$out/playtrace_sessions.txt")" == 1 ]]
+[[ "$(grep -c 'journal: CapabilityGranted tick: 3175, hero: 1, capability: "special_short_blink"' "$out/playtrace_sessions.txt")" == 1 ]]
 
 (cd "$out" && sha256sum ./*.gif ./*.png ./*.txt | sed 's# \./# #' > SHA256SUMS)
