@@ -20,6 +20,20 @@ def load(folder: Path) -> list[Image.Image]:
     return [Image.open(p).convert("RGB") for p in sorted(folder.glob("frame_*.png"))]
 
 
+def check_first_frame(images: list[Image.Image], folder: Path) -> None:
+    """Refuse a capture whose first frame is an unrendered (near-black) frame: the
+    palette is sampled from it, so such a GIF is neither right nor byte-stable (the
+    capture waits for the first real render, `CAPTURE_FIRST_SETTLE_FRAMES`)."""
+    def lit(im: Image.Image) -> float:
+        hist = im.convert("L").histogram()
+        return sum(hist[25:]) / sum(hist)
+    first, rest = lit(images[0]), [lit(im) for im in images[1:]] or [lit(images[0])]
+    median = sorted(rest)[len(rest) // 2]
+    if first < 0.25 * median:
+        raise SystemExit(f"{folder}: frame 0 is mostly black ({first:.3f} lit against a median "
+                         f"{median:.3f}): the first screenshot was taken before the scene rendered")
+
+
 def save_gif(images: list[Image.Image], path: Path, ms: int) -> None:
     """One global 96-colour palette (median cut over every sixth frame) and no
     dither: far smaller than a palette per frame, and the same on every run."""
@@ -48,6 +62,7 @@ def main() -> None:
     images = load(args.frames)
     if not images:
         raise SystemExit(f"no frames in {args.frames}")
+    check_first_frame(images, args.frames)
     if args.crop:
         box = tuple(int(v) for v in args.crop.split(","))
         images = [im.crop(box).resize(((box[2] - box[0]) * args.zoom,

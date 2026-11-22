@@ -15,12 +15,14 @@
 //! and the Boiler's prop reach columns (`boiler_fixtures::scene_pilots`).
 
 use crate::boiler_fixtures::scene_pilots::{BRACE_X, VALVE_X};
+use crate::boss_scene::Pilot;
 use crate::cf02::arena::{self, Plan as FightPlan};
 use crate::combat_scene::CombatState;
 use crate::corridor::SceneSim;
 use crate::env_prop::{MassState, ValveState};
 use crate::goblin::GoblinMode;
 use crate::input::RawInput;
+use crate::party::HeroId;
 use crate::prototype::{HERO_HALF_HEIGHT, HERO_HALF_WIDTH, Rect};
 
 /// Ticks between the two distinct jabs a prop needs (the scene pilots use 1 and 31).
@@ -55,6 +57,14 @@ pub enum Plan {
     /// The Boiler's chain: jab the brace once, walk back left of the valve and
     /// kick the goblin that follows into the valve (steam, brace, landing, drum).
     Chain,
+    /// PT-GATE-A: the closing arena (`--f01-room mastery`): the PT-MASTERY pilot
+    /// ([`crate::f01_mastery_fixtures::pilot`]) fights the roster with the base
+    /// kit and walks to the exit. Only valid in the mastery room.
+    Mastery,
+    /// PT-GATE-A: the Juicer's room (`--f01-room juicer`): the PT-SCENE-B solo-Carl
+    /// pilot ([`crate::boss_scene::pilot_inputs`] with [`Pilot::Carl`], jab phase 0)
+    /// fights the boss and walks out. Only valid in the Juicer's room.
+    Juicer,
 }
 
 impl Plan {
@@ -63,6 +73,8 @@ impl Plan {
             Self::Direct => "direct",
             Self::Valve => "valve",
             Self::Chain => "chain",
+            Self::Mastery => "mastery",
+            Self::Juicer => "juicer",
         }
     }
 }
@@ -83,9 +95,11 @@ impl RoomPilot {
             "direct" => Plan::Direct,
             "valve" => Plan::Valve,
             "chain" => Plan::Chain,
+            "mastery" => Plan::Mastery,
+            "juicer" => Plan::Juicer,
             other => {
                 return Err(format!(
-                    "unknown --room-pilot plan {other:?} (expected direct, valve or chain, optionally :2p)"
+                    "unknown --room-pilot plan {other:?} (expected direct, valve, chain, mastery or juicer, optionally :2p)"
                 ));
             }
         };
@@ -117,6 +131,14 @@ impl RoomPilot {
             Plan::Direct => fight_or_walk(combat, sim, exit_x),
             Plan::Valve => valve(combat, sim, exit_x),
             Plan::Chain => chain(combat, sim, exit_x),
+            Plan::Mastery => crate::f01_mastery_fixtures::pilot(combat, sim, HeroId::Carl),
+            Plan::Juicer => crate::boss_scene::pilot_inputs(
+                Pilot::Carl,
+                [RawInput::NONE; 2],
+                sim.world.tick + 1,
+                combat,
+                sim,
+            )[0],
         };
         let donut = if self.two_player {
             arena::donut_pilot(combat, sim)
@@ -487,12 +509,74 @@ mod tests {
         assert_eq!(blast_kills, 1, "the drum defeats exactly one goblin");
     }
 
+    /// PT-GATE-A: the juicer plan is the PT-SCENE-B solo-Carl pilot (seed 0): the
+    /// same inputs, so the same final state as `juicer_pilot`, the gauntlet and the
+    /// blink granted once each at the defeat.
+    #[test]
+    fn the_juicer_plan_is_the_pt_scene_b_solo_carl_pilot() {
+        use crate::f01_late_fixtures::{JuicerWho, juicer_pilot, juicer_room};
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let report = juicer_pilot(&root, JuicerWho::CarlSolo, 0).unwrap();
+        let pilot = RoomPilot {
+            plan: Plan::Juicer,
+            two_player: false,
+        };
+        let mut sim = juicer_room(&root).unwrap();
+        for _ in 0..report.ticks {
+            let inputs = pilot.inputs(&sim.combat, &sim.scene, 0.0);
+            sim.step_slots(inputs);
+        }
+        assert_eq!(sim.state_hash(), report.hash);
+        assert!(report.defeated_tick.is_some() && report.exit_tick.is_some());
+        assert_eq!(
+            report.grants.len(),
+            2,
+            "the gauntlet and the blink: {:?}",
+            report.grants
+        );
+    }
+
+    /// PT-GATE-A: the mastery plan is the PT-MASTERY Carl pilot, so a scene run by
+    /// it clears the roster, reaches the exit and replays to the same hash.
+    #[test]
+    fn the_mastery_plan_is_the_pt_mastery_carl_pilot_and_replays_identically() {
+        use crate::f01_late::mastery_start;
+        use crate::f01_mastery_fixtures::{EXIT_X, RUN_TICKS};
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let play = || {
+            let (carl, donut) = Loadout::Story.flags();
+            let (_run, mut scene, mut combat) =
+                mastery_start(&root, 360, carl, donut, Some(0)).unwrap();
+            let pilot = RoomPilot {
+                plan: Plan::Mastery,
+                two_player: false,
+            };
+            for _ in 0..RUN_TICKS {
+                if combat.roster_cleared() && scene.world.hero.x >= EXIT_X {
+                    break;
+                }
+                let inputs = pilot.inputs(&combat, &scene, 0.0);
+                combat.step_party(&mut scene, inputs);
+            }
+            (
+                combat.roster_cleared(),
+                scene.world.hero.x,
+                combat.state_hash(&scene),
+            )
+        };
+        let (cleared, x, hash) = play();
+        assert!(cleared && x >= EXIT_X, "cleared={cleared} x={x}");
+        assert_eq!(play().2, hash);
+    }
+
     #[test]
     fn the_flag_parses_and_round_trips() {
         for (text, plan, two) in [
             ("direct", Plan::Direct, false),
             ("valve:2p", Plan::Valve, true),
             ("chain", Plan::Chain, false),
+            ("mastery", Plan::Mastery, false),
+            ("juicer", Plan::Juicer, false),
         ] {
             let pilot = RoomPilot::parse(text).unwrap();
             assert_eq!((pilot.plan, pilot.two_player), (plan, two));

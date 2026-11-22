@@ -1,0 +1,29 @@
+== room=boiler plan=chain label=boiler-chain exit_after_ticks=960
+PLAYTRACE_SAVED ticks=960 status=Completed complete=true
+PLAYTRACE_VERIFY result=PASS scope=full ticks=960 episodes=1 combat_events=40 control_events=6 build=identical
+PLAYTRACE_VERIFY_CHECKS state_hashes=960 event_hashes=960 effective_inputs=0 observations=1920 final_observations=2 diagnostics=960 slot_routing=960 labels=960
+inspect: schema playtrace-session/1 participants OwnerOnly run_kind ScriptedBot mode solo_human
+inspect: reset f01_room:f01_boiler demo_beat=0 cf02=true
+inspect: ticks 960 chunks 2 (closed 2) gaps 0 dropped_ticks 0 write_errors 0
+inspect: episodes 1 combat_events 40 control_events 6
+journal_capability_granted_count=0
+== room=hazards plan=direct label=hazards-direct exit_after_ticks=1500
+PLAYTRACE_SAVED ticks=1500 status=Completed complete=true
+PLAYTRACE_VERIFY result=PASS scope=full ticks=1500 episodes=4 combat_events=44 control_events=11 build=identical
+PLAYTRACE_VERIFY_CHECKS state_hashes=1500 event_hashes=1500 effective_inputs=0 observations=3000 final_observations=8 diagnostics=1500 slot_routing=1500 labels=1500
+inspect: schema playtrace-session/1 participants OwnerOnly run_kind ScriptedBot mode solo_human
+inspect: reset f01_room:f01_hazards demo_beat=0 cf02=true
+inspect: ticks 1500 chunks 3 (closed 3) gaps 0 dropped_ticks 0 write_errors 0
+inspect: episodes 4 combat_events 44 control_events 11
+journal_capability_granted_count=0
+== room=juicer plan=juicer label=juicer exit_after_ticks=3300
+PLAYTRACE_SAVED ticks=3300 status=Completed complete=true
+PLAYTRACE_VERIFY result=PASS scope=full ticks=3300 episodes=1 combat_events=216 control_events=5 build=identical
+PLAYTRACE_VERIFY_CHECKS state_hashes=3300 event_hashes=3300 effective_inputs=0 observations=6600 final_observations=2 diagnostics=3300 slot_routing=3300 labels=3300
+inspect: schema playtrace-session/1 participants OwnerOnly run_kind ScriptedBot mode solo_human
+inspect: reset boss:boss01_scene demo_beat=0 cf02=false
+inspect: ticks 3300 chunks 6 (closed 6) gaps 0 dropped_ticks 0 write_errors 0
+inspect: episodes 1 combat_events 216 control_events 5
+journal: CapabilityGranted tick: 3175, hero: 0, capability: "fist_reinforced"
+journal: CapabilityGranted tick: 3175, hero: 1, capability: "special_short_blink"
+journal_capability_granted_count=2

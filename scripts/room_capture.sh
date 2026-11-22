@@ -4,8 +4,9 @@
 #
 #   scripts/room_capture.sh ROOM PLAN FIRST:STEP:COUNT OUTDIR [more floor01_scene flags]
 #
-#   ROOM   boiler | hoarder | hazards   (--scene f01_late --f01-room ROOM)
-#   PLAN   direct | valve | chain, optionally ":2p"   (--room-pilot, src/room_pilots.rs)
+#   ROOM   boiler | hoarder | hazards | mastery | juicer   (--scene f01_late --f01-room ROOM)
+#   PLAN   direct | valve | chain | mastery | juicer, optionally ":2p"   (--room-pilot, src/room_pilots.rs;
+#          mastery and juicer are valid only in their own room)
 #
 # The pilot plays the room from the finished simulation state alone (no
 # synthetic input into any window, no clock, no RNG), so the run is a pure
