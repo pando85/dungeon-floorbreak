@@ -1,0 +1,8 @@
+COMBAT_EVENT tick=1 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=23 kind=move_started move=jab instance=1
+COMBAT_EVENT tick=30 kind=move_started move=haymaker instance=2
+COMBAT_EVENT tick=35 kind=hit move=haymaker instance=2 target=0 damage=1 health_left=2 hit_stop=6
+COMBAT_EVENT tick=35 kind=goblin_interrupted goblin=0
+COMBAT_EVENT tick=90 kind=goblin_tell goblin=0
+COMBAT_STATE fixture=carl_prog_pierce_engineer seed=0xca10043 tick=100 elapsed=100 hero_hp=4 deaths=0 enemies=e0=188.667/2 hash=116d4c428fca73fd shore=0/Intact/Seated block_bottom=140.00
+PARTY_STATE fixture=carl_prog_pierce_engineer mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=2af58e028da6a723

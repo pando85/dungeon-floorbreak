@@ -822,6 +822,20 @@ struct Confirm {
     direction: i8,
 }
 
+/// CP-Q42 presentation cache: where and when the reinforced fist last pierced
+/// a committed attack (the metal spark and the 2 px camera kick). Written by the
+/// sim, never read by it and not part of the state hash.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct PierceCue {
+    /// The scene tick of the piercing hit.
+    pub tick: u64,
+    /// The pierced goblin's centre (world px) on that tick.
+    pub x: f32,
+    pub y: f32,
+    /// +1 / -1: the way Carl punched.
+    pub direction: i8,
+}
+
 /// One hero's hit-reaction state (Donut's; Carl keeps the original fields of
 /// [`CombatState`] so every legacy hash and test is unchanged).
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
@@ -960,6 +974,9 @@ pub struct CombatState {
     attack_started: Vec<u64>,
     // Presentation cache (not hashed, never read by the sim).
     confirm: Option<Confirm>,
+    /// CP-Q42: the last pierce of a committed attack, and how many this attempt.
+    pierce: Option<PierceCue>,
+    pierce_count: u32,
     flash_tick: Vec<Option<u64>>,
     respawned: bool,
 }
@@ -1059,6 +1076,8 @@ impl CombatState {
             demo: None,
             checkpoint: 0,
             confirm: None,
+            pierce: None,
+            pierce_count: 0,
             carl_hit_tick: Vec::new(),
             reflex: Reflex::default(),
             attack_started: Vec::new(),
@@ -1236,6 +1255,8 @@ impl CombatState {
         self.defeated_ticks = 0;
         self.last_tell_start = None;
         self.confirm = None;
+        self.pierce = None;
+        self.pierce_count = 0;
         self.restart_donut(scene.world.tick, RestartKind::CheckpointRestart);
         self.restart_story(RestartKind::CheckpointRestart);
         self.companion.reset();
@@ -1334,6 +1355,8 @@ impl CombatState {
         self.last_tell_start = None;
         self.event_hash = EVENT_HASH_SEED;
         self.confirm = None;
+        self.pierce = None;
+        self.pierce_count = 0;
         self.checkpoint = self.start_checkpoint();
         self.flash_tick = vec![None; self.enemies.len() + self.llamas.len()];
         self.carl_hit_tick = vec![None; self.enemies.len() + self.llamas.len()];
@@ -1567,11 +1590,25 @@ impl CombatState {
                 player: PLAYER_ONE,
             };
             let attacking: Vec<bool> = self.enemies.iter().map(Goblin::token_held).collect();
+            // CP-Q38..Q42: the reinforced fist, read once per strike from the
+            // ledger (never stored), and which goblins were in a committed phase.
+            let gauntlet = self.gauntlet_now();
+            let was_committed: Vec<bool> = if gauntlet.is_some() {
+                self.enemies.iter().map(Goblin::committed_swing).collect()
+            } else {
+                Vec::new()
+            };
             let telling: Vec<bool> = self.llamas.iter().map(Llama::telling).collect();
             let mut hits = Vec::new();
             let glance = self
                 .companion
                 .strike_glance(HeroId::Carl, move_tick.instance);
+            // The kill-policy glance first, then the reinforcement (CP-Q38): the
+            // identity without the capability.
+            let landed_of = |spec: &MoveSpec, hp: u8| {
+                let landed = glance.apply(spec, hp);
+                gauntlet.map_or(landed, |t| t.reinforce(&landed))
+            };
             // One move over every kind of target: the goblins (ids from 0),
             // then the llamas (ids after them). The attacker's hit-stop is the
             // longest of the hits, started once.
@@ -1583,7 +1620,7 @@ impl CombatState {
                 0,
                 tick,
                 &mut hits,
-                &|spec, hp| glance.apply(spec, hp),
+                &landed_of,
             );
             if !self.llamas.is_empty() {
                 stop = stop.max(strike_group(
@@ -1594,7 +1631,7 @@ impl CombatState {
                     self.enemies.len() as u32,
                     tick,
                     &mut hits,
-                    &|spec, hp| glance.apply(spec, hp),
+                    &landed_of,
                 ));
             }
             scene.world.hero.melee.begin_hit_stop(stop);
@@ -1629,6 +1666,17 @@ impl CombatState {
                         }
                     }
                     self.note_confirm(tick, move_id, target as usize, health_left == 0, attacker);
+                    // CP-Q40/Q42: a reinforced punch that took a goblin out of its
+                    // committed phase without defeating it is a pierce.
+                    if let Some(t) = gauntlet
+                        && health_left > 0
+                        && was_committed.get(target as usize).copied().unwrap_or(false)
+                        && t.reinforce(move_tick.spec).pierces_commit
+                        && let Some(goblin) = self.enemies.get(target as usize)
+                        && goblin.mode != GoblinMode::Attack
+                    {
+                        self.note_pierce(tick, (goblin.x, goblin.y), attacker, t);
+                    }
                 }
                 self.log(event);
             }
@@ -1654,7 +1702,12 @@ impl CombatState {
                 && !move_tick.frozen
                 && let Some(shore) = self.shore.as_mut()
                 && let Some(boxed) = hit_box(&move_tick.spec.shape, &attacker)
-                && let Some(strike) = shore.strike(move_tick.instance, boxed, PLAYER_ONE)
+                && let Some(strike) = shore.strike_weighted(
+                    move_tick.instance,
+                    boxed,
+                    PLAYER_ONE,
+                    gauntlet.map_or(1, |t| t.support_hit_weight(move_tick.spec.id)),
+                )
             {
                 self.log(CombatEvent::ShoreHit {
                     tick,
@@ -1671,15 +1724,18 @@ impl CombatState {
             if self.boss.is_some() {
                 // Hero move on the boss (the runner is on the scene's hero).
                 let mut runner = std::mem::take(&mut scene.world.hero.melee);
-                self.strike_boss(&mut runner, &move_tick, attacker, tick, &|spec, hp| {
-                    glance.apply(spec, hp)
-                });
+                self.strike_boss(
+                    &mut runner,
+                    &move_tick,
+                    attacker,
+                    tick,
+                    gauntlet,
+                    &landed_of,
+                );
                 scene.world.hero.melee = runner;
             }
             // ENEMY-SLOT: the same strike on the slot enemies' hurtboxes.
-            self.strike_slot_enemies(scene, &move_tick, attacker, tick, &|spec, hp| {
-                glance.apply(spec, hp)
-            });
+            self.strike_slot_enemies(scene, &move_tick, attacker, tick, &landed_of);
             // BOIL-B wire: the same strike on the env props' hit targets.
             self.strike_env(scene, &move_tick, attacker, tick);
         }
@@ -1811,6 +1867,7 @@ impl CombatState {
         move_tick: &MoveTick,
         attacker: Attacker,
         tick: u64,
+        gauntlet: Option<&crate::carl_prog::CarlProgTuning>,
         glance: &dyn Fn(&MoveSpec, u8) -> MoveSpec,
     ) {
         let Some(mut boss) = self.boss.take() else {
@@ -1821,11 +1878,12 @@ impl CombatState {
             && let Some(boxed) = hit_box(&move_tick.spec.shape, &attacker)
         {
             let mut events = Vec::new();
-            boss.strike_strut(
+            boss.strike_strut_weighted(
                 move_tick.instance,
                 boxed,
                 attacker.player,
                 tick,
+                gauntlet.map_or(1, |t| t.support_hit_weight(move_tick.spec.id)),
                 &mut events,
             );
             let reaches = boss.hurtbox().is_some_and(|b| b.overlaps(boxed));
@@ -1835,15 +1893,17 @@ impl CombatState {
                 && let Some(result) = boss.apply_hit(
                     BossHit {
                         damage: u16::from(landed.damage),
-                        poise: u16::from(move_tick.spec.damage),
+                        poise: gauntlet.map_or(u16::from(move_tick.spec.damage), |t| {
+                            t.boss_poise(move_tick.spec)
+                        }),
                         player: attacker.player,
-                        hit_stop: move_tick.spec.reaction.hit_stop,
+                        hit_stop: landed.reaction.hit_stop,
                     },
                     &mut events,
                     tick,
                 )
             {
-                runner.begin_hit_stop(move_tick.spec.reaction.hit_stop);
+                runner.begin_hit_stop(landed.reaction.hit_stop);
                 let bonus = if result.defeated {
                     LETHAL_CAMERA_KICK_BONUS
                 } else {
@@ -3086,6 +3146,55 @@ impl CombatState {
             self.x_max,
         );
         self.donut.vx = vx;
+    }
+
+    /// CP-Q38: the reinforced-fist tuning while Carl holds the capability, `None`
+    /// otherwise. Read from the ledger on every strike and never stored, so a
+    /// retry, a respawn and a restart always see the ledger's truth.
+    pub(crate) fn gauntlet_now(&self) -> Option<&'static crate::carl_prog::CarlProgTuning> {
+        self.story_holds(crate::story_unlock::FIST_REINFORCED)
+            .then(crate::carl_prog::CarlProgTuning::active)
+    }
+
+    /// CP-Q41: how many hits Carl's move `id` counts on an authored support
+    /// right now (1 without the reinforced fist). Read by the shore, the rack
+    /// strut and the env props.
+    pub(crate) fn support_hit_weight(&self, id: MoveId) -> u8 {
+        self.gauntlet_now().map_or(1, |t| t.support_hit_weight(id))
+    }
+
+    /// CP-Q42: a punch pierced a committed attack. Presentation only (the cue
+    /// and the counter are never hashed or read by the sim): the camera kick is
+    /// at least the data's `cpq42_pierce_camera_kick_px`.
+    fn note_pierce(
+        &mut self,
+        tick: u64,
+        at: (f32, f32),
+        attacker: Attacker,
+        t: &crate::carl_prog::CarlProgTuning,
+    ) {
+        self.pierce = Some(PierceCue {
+            tick,
+            x: at.0,
+            y: at.1,
+            direction: attacker.facing,
+        });
+        self.pierce_count += 1;
+        if let Some(confirm) = self.confirm.as_mut() {
+            confirm.kick_px = confirm.kick_px.max(t.cpq42_pierce_camera_kick_px);
+        }
+    }
+
+    /// CP-Q42: the last pierce of a committed attack this attempt (the spark is
+    /// drawn at it), for the presentation.
+    pub fn pierce_cue(&self) -> Option<PierceCue> {
+        self.pierce
+    }
+
+    /// CP-Q42: pierces of a committed attack this attempt (presentation and the
+    /// handoff scorecard; not hashed).
+    pub fn pierce_count(&self) -> u32 {
+        self.pierce_count
     }
 
     /// Remember a confirmed hit for the presentation (flash and camera kick).

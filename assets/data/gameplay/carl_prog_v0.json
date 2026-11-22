@@ -47,7 +47,7 @@
   "cpq38_haymaker_reinforced": true,
   "cpq39_jab_stagger_ticks": 16,
   "cpq39_haymaker_stagger_ticks": 28,
-  "cpq40_jab_pierces_commit": true,
+  "cpq40_jab_pierces_commit": false,
   "cpq40_haymaker_pierces_commit": true,
   "cpq40_boss_poise_multiplier": 2,
   "cpq41_jab_support_hits": 1,

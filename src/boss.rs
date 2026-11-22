@@ -953,6 +953,21 @@ impl Boss {
         tick: u64,
         events: &mut Vec<CombatEvent>,
     ) {
+        self.strike_strut_weighted(instance, melee, player, tick, 1, events);
+    }
+
+    /// [`Self::strike_strut`] with the move's hit weight (CP-Q41: the reinforced
+    /// haymaker counts 2). The count never exceeds the hits the strut needs;
+    /// a weight of 1 is exactly `strike_strut`.
+    pub fn strike_strut_weighted(
+        &mut self,
+        instance: u32,
+        melee: Rect,
+        player: u32,
+        tick: u64,
+        weight: u8,
+        events: &mut Vec<CombatEvent>,
+    ) {
         let needed = self.data.rack.strut_hits;
         let strut = self.strut_rect();
         let rack = &mut self.racks[0];
@@ -970,7 +985,7 @@ impl Boss {
             return;
         }
         rack.last_instance = instance;
-        let hits = hits + 1;
+        let hits = hits.saturating_add(weight.max(1)).min(needed);
         events.push(CombatEvent::RackHit {
             tick,
             rack: 0,
@@ -2183,6 +2198,84 @@ mod tests {
         }
         run(&mut boss, &ctx(600.0, 580.0), 125);
         assert!(!hit(&mut boss, 1).unwrap().flinched);
+    }
+
+    /// CP-Q40: a reinforced punch adds twice the poise (jab + haymaker = 4 of the
+    /// 4 the flinch needs); the plain pair adds 2 and flinches nothing. The armour
+    /// itself is never pierced: in a tell the same four poise change nothing.
+    #[test]
+    fn a_reinforced_combo_flinches_a_neutral_boss_and_never_an_armoured_one() {
+        use crate::carl_prog::CarlProgTuning;
+        use crate::combat::{CARL_HAYMAKER, CARL_JAB};
+        let t = CarlProgTuning::active();
+        let punch = |boss: &mut Boss, poise: u16| {
+            let mut events = Vec::new();
+            boss.apply_hit(
+                BossHit {
+                    damage: 1,
+                    poise,
+                    player: 0,
+                    hit_stop: 0,
+                },
+                &mut events,
+                1,
+            )
+            .unwrap()
+        };
+        let mut plain = engaged(300.0, 1);
+        assert!(!punch(&mut plain, u16::from(CARL_JAB.damage)).flinched);
+        assert!(!punch(&mut plain, u16::from(CARL_HAYMAKER.damage)).flinched);
+        assert_eq!(plain.mode, BossMode::Neutral, "a plain pair adds 2 of 4");
+        let mut boss = engaged(300.0, 1);
+        assert!(!punch(&mut boss, t.boss_poise(&CARL_JAB)).flinched);
+        assert!(punch(&mut boss, t.boss_poise(&CARL_HAYMAKER)).flinched);
+        assert_eq!(boss.mode, BossMode::Flinch, "one combo is four poise");
+        let mut tell = engaged(300.0, 1);
+        tell.enter(BossMode::PoundTell);
+        for _ in 0..3 {
+            punch(&mut tell, t.boss_poise(&CARL_HAYMAKER));
+        }
+        assert_eq!(tell.mode, BossMode::PoundTell, "the armour holds");
+    }
+
+    /// CP-Q41: a weighted strut hit counts its weight (the reinforced haymaker 2),
+    /// a jab and a haymaker drop a fresh rack in one combo, and the count never
+    /// passes the hits the strut needs.
+    #[test]
+    fn a_weighted_strut_hit_counts_its_weight() {
+        let fist = Rect {
+            left: 194.0,
+            bottom: FLOOR + 29.0,
+            width: 6.0,
+            height: 6.0,
+        };
+        let needed = data().rack.strut_hits;
+        let mut boss = Boss::new(data(), FLOOR);
+        boss.gate = Gate::Closed;
+        let mut events = Vec::new();
+        boss.strike_strut_weighted(1, fist, 0, 5, 1, &mut events);
+        assert_eq!(boss.racks[0].state, RackState::Idle { hits: 1 });
+        boss.strike_strut_weighted(2, fist, 0, 6, 2, &mut events);
+        assert!(
+            matches!(boss.racks[0].state, RackState::Falling { .. }),
+            "{needed} hits"
+        );
+        let mut over = Boss::new(data(), FLOOR);
+        over.gate = Gate::Closed;
+        let mut events = Vec::new();
+        over.strike_strut_weighted(1, fist, 0, 5, 9, &mut events);
+        assert!(
+            events
+                .iter()
+                .any(|e| matches!(e, CombatEvent::RackHit { hits, .. } if *hits == needed))
+        );
+        // A weight of 1 is exactly strike_strut.
+        let (mut a, mut b) = (Boss::new(data(), FLOOR), Boss::new(data(), FLOOR));
+        (a.gate, b.gate) = (Gate::Closed, Gate::Closed);
+        let (mut ea, mut eb) = (Vec::new(), Vec::new());
+        a.strike_strut(1, fist, 0, 5, &mut ea);
+        b.strike_strut_weighted(1, fist, 0, 5, 1, &mut eb);
+        assert_eq!((a.racks[0].state, ea), (b.racks[0].state, eb));
     }
 
     #[test]

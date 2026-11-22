@@ -1,0 +1,8 @@
+COMBAT_EVENT tick=40 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=53 kind=move_started move=jab instance=1
+COMBAT_EVENT tick=60 kind=move_started move=haymaker instance=2
+COMBAT_EVENT tick=65 kind=hit move=haymaker instance=2 target=0 damage=1 health_left=1 hit_stop=5
+COMBAT_EVENT tick=72 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=72 kind=hero_hurt source=0 health_left=3
+COMBAT_STATE fixture=carl_prog_pierce_goblin_control seed=0xca10042 tick=125 elapsed=125 hero_hp=3 deaths=0 enemies=e0=429.700/1 hash=d989d3fbb9f8f7cf
+PARTY_STATE fixture=carl_prog_pierce_goblin_control mode=solo controlled=Carl carl_hp=3 donut_hp=4 deaths=0 hash=840af5f11a9e5335

@@ -1,0 +1,7 @@
+COMBAT_EVENT tick=10 kind=move_started move=jab instance=1
+COMBAT_EVENT tick=17 kind=move_started move=haymaker instance=2
+COMBAT_EVENT tick=22 kind=hit move=haymaker instance=2 target=0 damage=1 health_left=1 hit_stop=6
+COMBAT_EVENT tick=110 kind=move_started move=jab instance=3
+COMBAT_EVENT tick=113 kind=hit move=jab instance=3 target=1 damage=1 health_left=1 hit_stop=3
+COMBAT_STATE fixture=carl_prog_fist_stagger seed=0xca10040 tick=160 elapsed=160 hero_hp=4 deaths=0 enemies=e0=447.333/1,e1=563.000/1 hash=c5a8f43988530131
+PARTY_STATE fixture=carl_prog_fist_stagger mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=adb414afd6251b47

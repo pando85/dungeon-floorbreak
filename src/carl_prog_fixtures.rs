@@ -35,6 +35,7 @@ pub const FIND_STUB_ZONE_X: (f32, f32) = (600.0, 640.0);
 /// name, like every `cf02_*` fixture). Read by [`crate::cf02::fixture_runs_cf02`].
 pub fn runs_cf02(name: &str) -> bool {
     matches!(name, "carl_prog_dyn_bowling" | "carl_prog_dyn_wall_slam")
+        || name.starts_with("carl_prog_pierce_engineer")
 }
 
 const fn chase(x: i32) -> EnemySpawn {
@@ -68,6 +69,15 @@ pub fn story_setup(fixture: &str) -> StorySetup {
         .story_setup(SceneKind::Boss),
         // CP-B1: before the grant (the ledger exists, nothing is held): a press is inert.
         "carl_prog_special_locked" => StorySetup::NONE.with_trigger("carl_prog_find_zone_stub"),
+        // CP-D: the reinforced fist is held from tick 0 (a declared start, not a grant).
+        // The pierce control and the kick control are the same rooms without it.
+        "carl_prog_fist_stagger"
+        | "carl_prog_pierce_goblin"
+        | "carl_prog_pierce_engineer"
+        | "carl_prog_boss_poise"
+        | "carl_prog_shore_combo"
+        | "carl_prog_kick_unchanged"
+        | "carl_prog_pierce_goblin_jab" => StorySetup::NONE.with_hold("fist_reinforced"),
         // CP-B1: the thrown charge is held from tick 0 (a declared start, not a grant).
         name if name.starts_with("carl_prog_dyn_") => {
             StorySetup::NONE.with_hold("special_thrown_charge")
@@ -634,8 +644,250 @@ pub const CARL_PROG_JUICER_DYNAMITE_CLEAR: PartyFixture = PartyFixture {
     donut: DonutSetup::NONE,
 };
 
+/// A one-tick attack press on Carl (CP-D): the jab; a second press inside the
+/// jab's chain window (move ticks 3..=13) starts the haymaker.
+const fn punch(tick: u64) -> SlotHold {
+    SlotHold {
+        from: tick,
+        to: tick + 1,
+        slot: 0,
+        input: crate::input::RawInput {
+            attack: true,
+            ..crate::input::RawInput::NONE
+        },
+    }
+}
+
+/// A one-tick physical (kick) press on Carl (CP-D).
+const fn kick(tick: u64) -> SlotHold {
+    SlotHold {
+        from: tick,
+        to: tick + 1,
+        slot: 0,
+        input: crate::input::RawInput {
+            physical: true,
+            ..crate::input::RawInput::NONE
+        },
+    }
+}
+
+const FIST_STAGGER_BASE: Fixture = base(
+    "carl_prog_fist_stagger",
+    "Solo, reinforced fist held: a whiffed jab chains into a haymaker that lands on the goblin at 436 (stagger 28 ticks, 18 without the fist); Carl then walks up to the goblin at 560 and a single jab staggers it 16 ticks (10 without); damage unchanged",
+    0x0CA1_0040,
+    &[passive(436), passive(560)],
+    160,
+);
+
+/// CP-Q39: the reinforced punches stagger longer (jab 16, haymaker 28). The
+/// first goblin stands just beyond the jab's reach and inside the haymaker's
+/// step, so the string's second blow is the one that lands.
+pub const CARL_PROG_FIST_STAGGER: PartyFixture = PartyFixture {
+    base: &FIST_STAGGER_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[punch(10), punch(15), run(40, 85, 0, 1.0), punch(110)],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+/// A one-tick attack press that turns Carl right (CP-D).
+const fn punch_right(tick: u64) -> SlotHold {
+    SlotHold {
+        from: tick,
+        to: tick + 1,
+        slot: 0,
+        input: crate::input::RawInput {
+            attack: true,
+            move_x: 1.0,
+            ..crate::input::RawInput::NONE
+        },
+    }
+}
+
+const PIERCE_GOBLIN_BASE: Fixture = base(
+    "carl_prog_pierce_goblin",
+    "Solo, reinforced fist held: a chasing goblin tells on tick 40, its swing is committed from attack tick 24. Carl steps back 6 px so the jab (pressed on tick 53) whiffs, the chained haymaker (pressed on 58) hits on tick 65 (attack tick 24, the smear) and cancels the swing before the impact would land on tick 66: Carl is not hurt before the goblin's next attack",
+    0x0CA1_0041,
+    &[chase(470)],
+    125,
+);
+
+/// CP-Q40, F-12: the haymaker pierces the goblin's committed smear. Its controls
+/// are [`CARL_PROG_PIERCE_GOBLIN_CONTROL`] (no fist) and
+/// [`CARL_PROG_PIERCE_GOBLIN_JAB`] (the fist, the jab).
+pub const CARL_PROG_PIERCE_GOBLIN: PartyFixture = PartyFixture {
+    base: &PIERCE_GOBLIN_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[run(41, 43, 0, -1.0), punch_right(53), punch(58)],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const PIERCE_GOBLIN_CONTROL_BASE: Fixture = base(
+    "carl_prog_pierce_goblin_control",
+    "The control of carl_prog_pierce_goblin without the reinforced fist: the same string lands its haymaker on tick 65 but only damages the goblin, and the swing's impact lands on Carl on tick 72 (the hit's stop froze the goblin)",
+    0x0CA1_0042,
+    &[chase(470)],
+    125,
+);
+
+/// CP-Q40 control: the same input without the capability lets the impact land.
+pub const CARL_PROG_PIERCE_GOBLIN_CONTROL: PartyFixture = PartyFixture {
+    base: &PIERCE_GOBLIN_CONTROL_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[run(41, 43, 0, -1.0), punch_right(53), punch(58)],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const PIERCE_GOBLIN_JAB_BASE: Fixture = base(
+    "carl_prog_pierce_goblin_jab",
+    "Solo, reinforced fist held: the jab pressed on tick 62 hits the goblin on tick 65 (the smear) but does not pierce (F-12: the haymaker only): it is only hurt and the impact lands on Carl on tick 70",
+    0x0CA1_0047,
+    &[chase(470)],
+    125,
+);
+
+/// F-12 control: with the fist held the jab no longer pierces (`cpq40_jab_pierces_commit`
+/// is false); flipping that one row would make this the pierce fixture.
+pub const CARL_PROG_PIERCE_GOBLIN_JAB: PartyFixture = PartyFixture {
+    base: &PIERCE_GOBLIN_JAB_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[punch(62)],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+/// A one-tick attack press that turns Carl left (the Engineer stands to his left).
+const fn punch_left(tick: u64) -> SlotHold {
+    SlotHold {
+        from: tick,
+        to: tick + 1,
+        slot: 0,
+        input: crate::input::RawInput {
+            attack: true,
+            move_x: -1.0,
+            ..crate::input::RawInput::NONE
+        },
+    }
+}
+
+const PIERCE_ENGINEER_BASE: Fixture = Fixture {
+    carl_x: 236,
+    enemies: &[],
+    engineers: &[chase(200)],
+    shore_dx: Some(crate::cf02::arena::SHORE_STRIKE_X - 236),
+    llamas: &[],
+    ..crate::cf02::arena::fixture(
+        "carl_prog_pierce_engineer",
+        "CF02 rules with the Goblin Engineer, reinforced fist held: Carl stands 36 px from him; the committed launch begins on tick 33 and the ram would hit Carl on tick 36. Carl's jab (pressed on tick 23) whiffs and the chained haymaker (pressed on 28) hits on tick 35 (his launch) and cancels the ram, so Carl is not hurt until the Engineer's next attack",
+        0x0CA1_0043,
+        100,
+    )
+};
+
+/// CP-Q40, F-12: the haymaker pierces the Engineer's committed launch (the phases
+/// `take_hit` treats as committed: his launch and ram). Its control is
+/// [`CARL_PROG_PIERCE_ENGINEER_CONTROL`].
+pub const CARL_PROG_PIERCE_ENGINEER: PartyFixture = PartyFixture {
+    base: &PIERCE_ENGINEER_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[punch_left(23), punch(28)],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const PIERCE_ENGINEER_CONTROL_BASE: Fixture = Fixture {
+    carl_x: 236,
+    enemies: &[],
+    engineers: &[chase(200)],
+    shore_dx: Some(crate::cf02::arena::SHORE_STRIKE_X - 236),
+    llamas: &[],
+    ..crate::cf02::arena::fixture(
+        "carl_prog_pierce_engineer_control",
+        "The control of carl_prog_pierce_engineer without the reinforced fist: the same string lands its haymaker on tick 35 inside the launch but only damages him, and the ram, delayed by the hit's stop, hits Carl on tick 42 (without any press it hits on tick 36)",
+        0x0CA1_0048,
+        100,
+    )
+};
+
+/// CP-Q40 control: the same input without the capability lets the ram land.
+pub const CARL_PROG_PIERCE_ENGINEER_CONTROL: PartyFixture = PartyFixture {
+    base: &PIERCE_ENGINEER_CONTROL_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[punch_left(23), punch(28)],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const BOSS_POISE_BASE: Fixture = boss_base(
+    "carl_prog_boss_poise",
+    "The boss arena, reinforced fist held: Carl walks up and lands a jab and a haymaker on the Juicer during its pound tell; its super armour holds (no flinch, the tell runs on) and the haymaker freezes Carl one tick longer",
+    0x0CA1_0044,
+    380,
+    FULL,
+    120,
+);
+
+/// CP-Q40, CP-Q42: the Juicer's armour is never pierced; the poise a reinforced
+/// punch adds is doubled (observable only in Neutral or Turn, unit-tested in
+/// `boss.rs`).
+pub const CARL_PROG_BOSS_POISE: PartyFixture = PartyFixture {
+    base: &BOSS_POISE_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[run(10, 30, 0, 1.0), punch(22), punch(27)],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const SHORE_COMBO_BASE: Fixture = Fixture {
+    shore_dx: Some(19),
+    ..base(
+        "carl_prog_shore_combo",
+        "Solo, reinforced fist held: a jab (1 hit) and its haymaker (2 hits) break the fresh rotten shore in one combo; the block falls and crushes the goblin under it, credited to Carl (cp03_shore_kill needs three jabs)",
+        0x0CA1_0045,
+        &[passive(484)],
+        200,
+    )
+};
+
+/// CP-Q41: jab + haymaker break a fresh support.
+pub const CARL_PROG_SHORE_COMBO: PartyFixture = PartyFixture {
+    base: &SHORE_COMBO_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[punch(20), punch(25)],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const KICK_UNCHANGED_BASE: Fixture = base(
+    "carl_prog_kick_unchanged",
+    "Solo, reinforced fist held: the push kick launches the goblin at 430 exactly as it does without the fist (damage, hit-stop, launch and the whole event log are the control's)",
+    0x0CA1_0046,
+    &[passive(430)],
+    100,
+);
+
+/// CP-Q38: the push kick is not a punch; the capability leaves it alone.
+pub const CARL_PROG_KICK_UNCHANGED: PartyFixture = PartyFixture {
+    base: &KICK_UNCHANGED_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[kick(10)],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
 /// Every `carl_prog_*` replay fixture, in committed order.
-pub const CARL_PROG_FIXTURES: [&PartyFixture; 22] = [
+pub const CARL_PROG_FIXTURES: [&PartyFixture; 31] = [
     &CARL_PROG_STORY_EVENT_GRANTS_DYNAMITE,
     &CARL_PROG_GRANT_SURVIVES_RESPAWN,
     &CARL_PROG_JUICER_GRANTS_FIST,
@@ -658,6 +910,15 @@ pub const CARL_PROG_FIXTURES: [&PartyFixture; 22] = [
     &CARL_PROG_DYN_WALL_SLAM,
     &CARL_PROG_DYN_RACK_STRUT,
     &CARL_PROG_JUICER_DYNAMITE_CLEAR,
+    &CARL_PROG_FIST_STAGGER,
+    &CARL_PROG_PIERCE_GOBLIN,
+    &CARL_PROG_PIERCE_GOBLIN_CONTROL,
+    &CARL_PROG_PIERCE_GOBLIN_JAB,
+    &CARL_PROG_PIERCE_ENGINEER,
+    &CARL_PROG_PIERCE_ENGINEER_CONTROL,
+    &CARL_PROG_BOSS_POISE,
+    &CARL_PROG_SHORE_COMBO,
+    &CARL_PROG_KICK_UNCHANGED,
 ];
 
 #[cfg(test)]
@@ -691,6 +952,8 @@ mod tests {
     fn kit_of(fixture: &PartyFixture) -> EnvKit {
         if fixture.base.boss.is_some() {
             load_arena(&root()).unwrap()
+        } else if crate::cf02::arena::fixture_uses_arena(fixture.name()) {
+            crate::cf02::arena::load_arena(&root()).unwrap()
         } else {
             EnvKit::load(&root(), LAYOUT).unwrap()
         }
@@ -731,7 +994,7 @@ mod tests {
     }
 
     /// The committed final hashes of the `carl_prog_*` fixtures.
-    const GOLDENS: [(&str, u64); 22] = [
+    const GOLDENS: [(&str, u64); 31] = [
         (
             "carl_prog_story_event_grants_dynamite",
             0x7594_ba64_4fd2_dbaf,
@@ -757,6 +1020,15 @@ mod tests {
         ("carl_prog_dyn_wall_slam", 0xe7f8_1f9b_f589_ce3c),
         ("carl_prog_dyn_rack_strut", 0x4ea9_be59_43b0_9a2e),
         ("carl_prog_juicer_dynamite_clear", 0xaa48_5ad2_e95f_cbe8),
+        ("carl_prog_fist_stagger", 0xadb4_14af_d625_1b47),
+        ("carl_prog_pierce_goblin", 0x6090_fad0_7bfc_6ac7),
+        ("carl_prog_pierce_goblin_control", 0x840a_f5f1_1a9e_5335),
+        ("carl_prog_pierce_goblin_jab", 0x04ab_e489_69b7_ccd9),
+        ("carl_prog_pierce_engineer", 0x2af5_8e02_8da6_a723),
+        ("carl_prog_pierce_engineer_control", 0x6d91_cbe8_4a15_208a),
+        ("carl_prog_boss_poise", 0x7ce8_2d1e_f101_63c1),
+        ("carl_prog_shore_combo", 0xc155_9bef_ceb0_67bf),
+        ("carl_prog_kick_unchanged", 0x0755_27d1_bab1_0490),
     ];
 
     #[test]
@@ -1787,5 +2059,319 @@ mod tests {
         assert_eq!(grants.len(), 1);
         assert_eq!(grants[0].2, "fist_reinforced");
         assert!(grants[0].0 >= defeat, "granted on the defeat");
+    }
+
+    /// The same fixture under another name, so it has no story: the no-gauntlet
+    /// control of a CP-D fixture (the story is chosen by name).
+    fn control_of(of: &PartyFixture, name: &'static str) -> &'static PartyFixture {
+        let base: &'static Fixture = Box::leak(Box::new(Fixture { name, ..*of.base }));
+        Box::leak(Box::new(PartyFixture {
+            base,
+            two_player: of.two_player,
+            tuning: of.tuning,
+            script: of.script,
+            pilot: of.pilot,
+            donut: of.donut,
+        }))
+    }
+
+    /// Steps to the end of tick `tick` and returns the sim.
+    fn at_tick(fixture: &'static PartyFixture, tick: u64) -> PartyFixtureSim {
+        let mut sim = PartyFixtureSim::new(&kit_of(fixture), 360, fixture).unwrap();
+        sim.run_scripted(tick);
+        sim
+    }
+
+    fn hurts(sim: &PartyFixtureSim) -> Vec<u64> {
+        sim.combat
+            .events
+            .iter()
+            .filter_map(|e| match *e {
+                CombatEvent::HeroHurt { tick, .. } => Some(tick),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// CP-Q39: jab 16 ticks and haymaker 28 (10 and 18 without the fist), read on
+    /// the tick of each hit; damage, hit tick and the string are the control's.
+    #[test]
+    fn carl_prog_fist_stagger() {
+        let fixture = find_party_fixture("carl_prog_fist_stagger").unwrap();
+        let control = control_of(fixture, "carl_prog_fist_stagger_control");
+        // The haymaker lands on goblin 0 on tick 22 and the jab on goblin 1 on 113.
+        for (sim_fixture, haymaker, jab, extra_stop) in [(fixture, 28, 16, 1), (control, 18, 10, 0)]
+        {
+            let hay = at_tick(sim_fixture, 22);
+            assert_eq!(
+                hay.combat.enemies[0].stagger_left,
+                haymaker,
+                "{}",
+                sim_fixture.name()
+            );
+            let jab_sim = at_tick(sim_fixture, 113);
+            assert_eq!(
+                jab_sim.combat.enemies[1].stagger_left,
+                jab,
+                "{}",
+                sim_fixture.name()
+            );
+            let sim = replay(sim_fixture);
+            let hits = kinds(&sim, "hit");
+            assert_eq!(hits.len(), 2, "{hits:?}");
+            // Damage 1 each; the haymaker's stop is 5 (+1 with the fist), the jab's 3.
+            assert!(
+                hits[0].contains("tick=22") && hits[0].contains("damage=1"),
+                "{hits:?}"
+            );
+            assert!(
+                hits[0].contains(&format!("hit_stop={}", 5 + extra_stop)),
+                "{hits:?}"
+            );
+            assert!(
+                hits[1].contains("tick=113") && hits[1].contains("hit_stop=3"),
+                "{hits:?}"
+            );
+        }
+    }
+
+    /// CP-Q40, F-12: the haymaker on attack tick 24 (the smear) cancels the swing;
+    /// the same input without the capability lets the impact land, and with the
+    /// fist held the jab on the same tick no longer pierces.
+    #[test]
+    fn carl_prog_pierce_goblin() {
+        let sim = named("carl_prog_pierce_goblin");
+        let hit = &kinds(&sim, "hit")[0];
+        assert!(
+            hit.contains("tick=65") && hit.contains("move=haymaker"),
+            "{hit}"
+        );
+        assert_eq!(kinds(&sim, "goblin_interrupted").len(), 1);
+        assert!(
+            kinds(&sim, "goblin_swing").is_empty(),
+            "the swing never lands"
+        );
+        assert_eq!(hurts(&sim), Vec::<u64>::new());
+        assert_eq!(sim.scene.world.hero.health, 4);
+        // The presentation cache: one pierce, on the hit tick (not hashed).
+        assert_eq!(sim.combat.pierce_count(), 1);
+        let cue = sim.combat.pierce_cue().expect("a pierce cue");
+        assert_eq!((cue.tick, cue.direction), (65, 1));
+        // Control: the haymaker hits, the goblin is not interrupted and the impact lands.
+        let control = named("carl_prog_pierce_goblin_control");
+        let hit = &kinds(&control, "hit")[0];
+        assert!(
+            hit.contains("tick=65") && hit.contains("move=haymaker"),
+            "{hit}"
+        );
+        assert!(kinds(&control, "goblin_interrupted").is_empty());
+        assert_eq!(hurts(&control), vec![72]);
+        assert_eq!(control.combat.pierce_count(), 0);
+        assert!(control.combat.pierce_cue().is_none());
+        // F-12 control: the fist is held but the jab on the same smear only damages.
+        let jab = named("carl_prog_pierce_goblin_jab");
+        let hit = &kinds(&jab, "hit")[0];
+        assert!(hit.contains("tick=65") && hit.contains("move=jab"), "{hit}");
+        assert!(kinds(&jab, "goblin_interrupted").is_empty());
+        assert_eq!(hurts(&jab), vec![70]);
+        assert_eq!(jab.combat.pierce_count(), 0);
+        assert!(jab.combat.pierce_cue().is_none());
+    }
+
+    /// CP-Q40: the Engineer's committed launch is pierced the same way (the
+    /// ram, which would hit on tick 36, never starts).
+    #[test]
+    fn carl_prog_pierce_engineer() {
+        let sim = named("carl_prog_pierce_engineer");
+        let hit = &kinds(&sim, "hit")[0];
+        assert!(
+            hit.contains("tick=35") && hit.contains("move=haymaker"),
+            "{hit}"
+        );
+        assert_eq!(kinds(&sim, "goblin_interrupted").len(), 1);
+        assert_eq!(hurts(&sim), Vec::<u64>::new(), "the first ram is cancelled");
+        assert_eq!(sim.combat.pierce_count(), 1);
+        // Control, no fist: the same haymaker on tick 35 only damages him, he is not
+        // interrupted and the ram hits Carl on tick 36.
+        let control = named("carl_prog_pierce_engineer_control");
+        let hit = &kinds(&control, "hit")[0];
+        assert!(
+            hit.contains("tick=35") && hit.contains("move=haymaker"),
+            "{hit}"
+        );
+        assert!(kinds(&control, "goblin_interrupted").is_empty());
+        assert_eq!(hurts(&control)[0], 42, "the ram, held by the hit's stop");
+        // And with no press at all the ram hits Carl on tick 36, the tick the
+        // fist's haymaker beat.
+        let idle: &'static PartyFixture = Box::leak(Box::new(PartyFixture {
+            script: &[],
+            ..*control_of(
+                &CARL_PROG_PIERCE_ENGINEER_CONTROL,
+                "carl_prog_pierce_engineer_control_idle",
+            )
+        }));
+        assert_eq!(hurts(&replay(idle))[0], 36);
+        assert_eq!(control.combat.pierce_count(), 0);
+    }
+
+    /// CP-Q40, CP-Q42: the Juicer's super armour is never pierced (no flinch, the
+    /// pound tell runs on to its strike) and the reinforced haymaker freezes
+    /// Carl one tick longer, so the strike lands one tick later than the control's.
+    #[test]
+    fn carl_prog_boss_poise() {
+        let sim = named("carl_prog_boss_poise");
+        let control = named_control(&CARL_PROG_BOSS_POISE, "carl_prog_boss_poise_control");
+        for s in [&sim, &control] {
+            assert_eq!(kinds(s, "boss_hurt").len(), 2, "both punches hurt it");
+            assert!(kinds(s, "boss_flinch").is_empty(), "the armour holds");
+            assert_eq!(kinds(s, "boss_tell").len(), 1);
+        }
+        let strike = |s: &PartyFixtureSim| -> String {
+            kinds(s, "boss_strike")[0]
+                .split_whitespace()
+                .nth(1)
+                .unwrap()
+                .to_owned()
+        };
+        assert_eq!(strike(&control), "tick=60");
+        assert_eq!(strike(&sim), "tick=61", "haymaker hit-stop +1");
+        assert_eq!(sim.combat.pierce_count(), 0, "a boss is not a pierce");
+    }
+
+    fn named_control(of: &PartyFixture, name: &'static str) -> PartyFixtureSim {
+        replay(control_of(of, name))
+    }
+
+    /// CP-Q41: jab (1) + haymaker (2) break a fresh shore in one combo; without
+    /// the fist the same two blows leave it at 2 of 3.
+    #[test]
+    fn carl_prog_shore_combo() {
+        let sim = named("carl_prog_shore_combo");
+        let hits = kinds(&sim, "shore_hit");
+        assert_eq!(hits.len(), 2, "{hits:?}");
+        assert!(
+            hits[0].contains("tick=23") && hits[0].contains("hits=1"),
+            "{hits:?}"
+        );
+        assert!(
+            hits[1].contains("tick=32") && hits[1].contains("hits=3"),
+            "{hits:?}"
+        );
+        let broken = kinds(&sim, "shore_broken");
+        assert!(broken[0].contains("tick=32") && broken[0].contains("player=0"));
+        let defeat = kinds(&sim, "enemy_defeated");
+        assert!(
+            defeat[0].contains("cause=shore_block") && defeat[0].contains("credit_player=0"),
+            "{defeat:?}"
+        );
+        let control = named_control(&CARL_PROG_SHORE_COMBO, "carl_prog_shore_combo_control");
+        let hits = kinds(&control, "shore_hit");
+        assert!(hits[1].contains("hits=2"), "{hits:?}");
+        assert!(kinds(&control, "shore_broken").is_empty());
+    }
+
+    /// CP-Q38: the push kick is untouched by the capability: the same events,
+    /// damage, hit-stop and launch as the control.
+    #[test]
+    fn carl_prog_kick_unchanged() {
+        let sim = named("carl_prog_kick_unchanged");
+        let control = named_control(
+            &CARL_PROG_KICK_UNCHANGED,
+            "carl_prog_kick_unchanged_control",
+        );
+        let events = |s: &PartyFixtureSim| -> Vec<String> {
+            s.combat.events.iter().map(ToString::to_string).collect()
+        };
+        assert_eq!(events(&sim), events(&control));
+        assert!(kinds(&sim, "hit")[0].contains("hit_stop=8"));
+        assert_eq!(
+            sim.combat.enemies[0].x, control.combat.enemies[0].x,
+            "the same launch"
+        );
+        assert_eq!(sim.combat.pierce_count(), 0);
+    }
+
+    /// The registry's gauntlet fixtures hold the fist from tick 0 and the controls
+    /// do not (a hold is a declared start, never a grant: no CapabilityGranted).
+    #[test]
+    fn the_gauntlet_fixtures_declare_the_hold_and_the_controls_do_not() {
+        use crate::story_unlock::FIST_REINFORCED;
+        for name in [
+            "carl_prog_fist_stagger",
+            "carl_prog_pierce_goblin",
+            "carl_prog_pierce_goblin_jab",
+            "carl_prog_pierce_engineer",
+            "carl_prog_boss_poise",
+            "carl_prog_shore_combo",
+            "carl_prog_kick_unchanged",
+        ] {
+            let sim = named(name);
+            assert!(sim.combat.story_holds(FIST_REINFORCED), "{name}");
+            assert!(grants(&sim).is_empty(), "{name}");
+        }
+        for control in [
+            "carl_prog_pierce_goblin_control",
+            "carl_prog_pierce_engineer_control",
+        ] {
+            assert!(
+                !named(control).combat.story_holds(FIST_REINFORCED),
+                "{control}"
+            );
+        }
+    }
+
+    /// The notices a fixture's HUD shows, fed as the scene feeds it: `(step, label)`
+    /// on the first tick of each.
+    fn notices_of(name: &str) -> Vec<(u64, crate::hud::LabelId)> {
+        use crate::hud::{HudConfig, HudRuntime};
+        let fixture = find_party_fixture(name).unwrap();
+        let mut sim = PartyFixtureSim::new(&kit_of(fixture), 360, fixture).unwrap();
+        let mut hud = HudRuntime::new(HudConfig::default());
+        hud.set_melee_live(true);
+        let mut notices = Vec::new();
+        // Past the end of the script, so a queued notice can come up.
+        for tick in 1..=fixture.base.ticks + 240 {
+            sim.step_scripted();
+            hud.step(
+                sim.scene.world.hero.health,
+                sim.scene.world.donut.health,
+                &sim.combat.events,
+                sim.combat.dropped_events,
+            );
+            if let Some(n) = hud.snapshot().notice
+                && n.age_ticks == 0
+            {
+                notices.push((tick, n.headline));
+            }
+        }
+        notices
+    }
+
+    /// CP-Q43, DP-Q12 end to end: the Juicer's defeat grants the fist and the HUD
+    /// shows HEAVY FIST. With both programs the defeat tick raises four notices
+    /// (the rack crush, the knockout, Carl's grant, Donut's grant); the two grants
+    /// are never replaced and show in grants-list order, HEAVY FIST then PUDDLE
+    /// JUMPER, one queue step (136 + 30 ticks) apart.
+    #[test]
+    fn the_juicer_defeat_shows_the_grant_notices_in_order() {
+        use crate::hud::LabelId;
+        let carl = notices_of("carl_prog_juicer_grants_fist");
+        assert_eq!(
+            carl.last().map(|n| n.1),
+            Some(LabelId::HeavyFist),
+            "{carl:?}"
+        );
+        assert!(
+            !carl.iter().any(|n| n.1 == LabelId::PuddleJumper),
+            "{carl:?}"
+        );
+        let both = notices_of("donut_prog_boss_both_programs");
+        let n = both.len();
+        assert_eq!(
+            [both[n - 2].1, both[n - 1].1],
+            [LabelId::HeavyFist, LabelId::PuddleJumper],
+            "{both:?}"
+        );
+        assert_eq!(both[n - 1].0 - both[n - 2].0, 136 + 30, "{both:?}");
     }
 }

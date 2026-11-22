@@ -226,6 +226,19 @@ impl Shore {
     /// most once per instance, never after the break. `None` when nothing
     /// changed.
     pub fn strike(&mut self, instance: u32, hit_box: Rect, player: u32) -> Option<ShoreStrike> {
+        self.strike_weighted(instance, hit_box, player, 1)
+    }
+
+    /// [`Self::strike`] with the move's hit weight (CP-Q41: the reinforced
+    /// haymaker counts 2): the shore takes `weight` hits at once, never more than
+    /// it needs to break. A weight of 1 is exactly `strike`.
+    pub fn strike_weighted(
+        &mut self,
+        instance: u32,
+        hit_box: Rect,
+        player: u32,
+        weight: u8,
+    ) -> Option<ShoreStrike> {
         if self.hits >= SHORE_HITS_TO_BREAK
             || self.last_instance == Some(instance)
             || !hit_box.overlaps(self.strike_zone())
@@ -234,7 +247,10 @@ impl Shore {
         }
         self.last_instance = Some(instance);
         self.last_hitter = Some(player);
-        self.hits += 1;
+        self.hits = self
+            .hits
+            .saturating_add(weight.max(1))
+            .min(SHORE_HITS_TO_BREAK);
         let broke = self.hits >= SHORE_HITS_TO_BREAK;
         if broke {
             self.delay = BLOCK_FALL_DELAY_TICKS;
@@ -405,6 +421,48 @@ mod tests {
             }
         ));
         assert_eq!(shore.breaker, Some(PLAYER_ONE));
+    }
+
+    /// CP-Q41: a move's hit weight counts at once (the reinforced haymaker 2);
+    /// jab + haymaker break a fresh shore, a weight never overshoots the break,
+    /// weight 1 is exactly `strike` and the per-instance dedupe still holds.
+    #[test]
+    fn a_weighted_strike_counts_its_weight_and_breaks_a_fresh_shore_in_one_combo() {
+        let mut shore = Shore::new(100.0, 50.0);
+        let hit = jab_box(&shore);
+        assert_eq!(shore.strike_weighted(1, hit, 0, 1).map(|s| s.hits), Some(1));
+        assert_eq!(
+            shore.strike_weighted(1, hit, 0, 2),
+            None,
+            "one count per instance"
+        );
+        let broke = shore.strike_weighted(2, hit, 0, 2).unwrap();
+        assert_eq!((broke.hits, broke.broke), (3, true));
+        assert_eq!(shore.breaker, Some(0));
+        // Alone, the weight-2 blow leaves a fresh shore at 2 of 3.
+        let mut alone = Shore::new(100.0, 50.0);
+        assert_eq!(
+            alone
+                .strike_weighted(1, hit, 0, 2)
+                .map(|s| (s.hits, s.broke)),
+            Some((2, false))
+        );
+        // Never past the break: weight 2 on a shore with 2 hits is a break at 3.
+        assert_eq!(
+            alone
+                .strike_weighted(2, hit, 0, 2)
+                .map(|s| (s.hits, s.broke)),
+            Some((3, true))
+        );
+        // Weight 1 (and a stray 0) is `strike`.
+        let (mut a, mut b, mut c) = (
+            Shore::new(100.0, 50.0),
+            Shore::new(100.0, 50.0),
+            Shore::new(100.0, 50.0),
+        );
+        assert_eq!(a.strike(1, hit, 0), b.strike_weighted(1, hit, 0, 1));
+        assert_eq!(c.strike_weighted(1, hit, 0, 0).map(|s| s.hits), Some(1));
+        assert_eq!(a, b);
     }
 
     #[test]
