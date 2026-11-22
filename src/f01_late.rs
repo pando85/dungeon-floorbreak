@@ -912,6 +912,48 @@ mod tests {
         assert_eq!(held_ids, ["special_thrown_charge", "jump_reach_boost"]);
         assert!(ledger.receipts().is_empty(), "a pin is not a grant");
         drop(scene);
+        // KR12 tie (review of #229): every listed CF02-rules room launches with
+        // the pin its manifest row names in `story_order`, so a drifting sidecar
+        // pin cannot break the order the KR12 test reads.
+        let story = Loadout::Story.flags();
+        let held_of = |combat: &CombatState| {
+            let ledger = combat.story_ledger().expect("a story runtime");
+            let mut ids: Vec<String> = ledger
+                .held()
+                .iter()
+                .map(|(_, c)| c.as_str().to_owned())
+                .collect();
+            ids.sort();
+            ids
+        };
+        let (hoarder, _, combat) = hoarder_start(&root(), 360, story.0, story.1).unwrap();
+        assert_eq!(
+            m.pins_of("hoarder"),
+            std::slice::from_ref(&hoarder.loaded.encounter.story_pin)
+        );
+        assert_eq!(hoarder.loaded.encounter.story_pin, "f01_pin_pre_pile_boss");
+        assert_eq!(
+            held_of(&combat),
+            ["jump_reach_boost"],
+            "before her defeat: Light on Your Feet, not the dynamite"
+        );
+        let (hazards, _, combat) = hazards_start(&root(), 360, story.0, story.1, None).unwrap();
+        assert_eq!(
+            m.pins_of("hazards"),
+            std::slice::from_ref(&hazards.loaded.encounter.story_pin)
+        );
+        assert_eq!(hazards.loaded.encounter.story_pin, "f01_pin_post_pile_boss");
+        assert_eq!(
+            held_of(&combat),
+            ["jump_reach_boost", "special_thrown_charge"]
+        );
+        for row in m.rooms.iter().filter(|r| r.rules == RoomRules::Cf02) {
+            assert!(
+                ["boiler", "hoarder", "hazards"].contains(&row.id.as_str()),
+                "{}: add its sidecar-pin tie above",
+                row.id
+            );
+        }
         // Under `all` the start flags hold everything and no trigger is armed.
         let (carl, donut) = Loadout::All.flags();
         let (_, _, combat) = boiler_start(&root(), 360, carl, donut, None).unwrap();

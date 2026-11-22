@@ -9419,8 +9419,8 @@ mod tests {
         assert!(!args(&["--scene", "boss_f01"]).unwrap().f01_room_scene());
     }
 
-    /// The binary's start state of each slot room is the library constructor the
-    /// verifier calls: `build_scene` builds nothing of its own for them and runs
+    /// The binary's start state of each slot room is the one the verifier's
+    /// constructors build (the same library builders): `build_scene` builds nothing of its own for them and runs
     /// no builder after the slot (a reset after the slot would mark the Hoarder
     /// as retried), so the smoke's tick-0 hash is the verifier's.
     #[test]
@@ -9428,8 +9428,18 @@ mod tests {
         let root = Path::new(env!("CARGO_MANIFEST_DIR"));
         let actors =
             Actors::load(root, FrameSource::GridSource, true, false, false, false).unwrap();
-        for room in ["hoarder", "hazards"] {
-            let mut run = args(&["--scene", "f01_late", "--f01-room", room]).unwrap();
+        // The Story loadout, the TEST LOADOUT and (hazard room) a seed (review of #229).
+        let cases: [(&str, &[&str]); 5] = [
+            ("hoarder", &[]),
+            ("hoarder", &["--f01-loadout", "all"]),
+            ("hazards", &[]),
+            ("hazards", &["--f01-loadout", "all"]),
+            ("hazards", &["--cf02-seed", "7"]),
+        ];
+        for (room, extra) in cases {
+            let mut list = vec!["--scene", "f01_late", "--f01-room", room];
+            list.extend_from_slice(extra);
+            let mut run = args(&list).unwrap();
             let (library, scene_hash) = if room == "hoarder" {
                 let launched = f01_hoarder::launch(root).unwrap();
                 run.fixture = Some(launched.fixture);
@@ -9454,9 +9464,9 @@ mod tests {
             let mut hud = new_hud(&run, &kit, &actors);
             let (sim, _, combat, _, _) = build_scene(&kit, &run, &actors, root, &mut hud).unwrap();
             let combat = combat.expect("a combat state");
-            assert_eq!(combat.state_hash(&sim), library, "{room}");
-            assert_eq!(sim.world.state_hash(), scene_hash, "{room}");
-            assert!(!combat.slot_enemies().is_empty(), "{room}");
+            assert_eq!(combat.state_hash(&sim), library, "{room} {extra:?}");
+            assert_eq!(sim.world.state_hash(), scene_hash, "{room} {extra:?}");
+            assert!(!combat.slot_enemies().is_empty(), "{room} {extra:?}");
         }
     }
 

@@ -35,6 +35,11 @@ struct RoomRig {
 
 impl RoomRig {
     fn start(base: &Path, room: &str, loadout: Loadout) -> Self {
+        Self::start_seeded(base, room, loadout, None)
+    }
+
+    /// `seed` is `--cf02-seed` (the hazard room and the Boiler take one).
+    fn start_seeded(base: &Path, room: &str, loadout: Loadout, seed: Option<u64>) -> Self {
         let (carl, donut) = loadout.flags();
         // The live party of a CF02-rules room: `cf02_assist` and the 12-tick swap.
         let room_party = || {
@@ -54,7 +59,7 @@ impl RoomRig {
                 360,
                 carl,
                 donut,
-                None,
+                seed,
                 crate::f01_boiler::Roster::for_loadout(Some(loadout.name())),
             )
             .expect("the Boiler launches");
@@ -80,7 +85,7 @@ impl RoomRig {
             )
         } else if room == "hazards" {
             // HAZ-A2b: the same for the hazard room.
-            let (run, scene, combat) = f01_late::hazards_start(&root(), 360, carl, donut, None)
+            let (run, scene, combat) = f01_late::hazards_start(&root(), 360, carl, donut, seed)
                 .expect("the hazard room launches");
             (
                 f01_late::SESSION_SOURCE,
@@ -118,7 +123,7 @@ impl RoomRig {
             demo: false,
             demo_beat: 0,
             cf02_rules: cf02,
-            cf02_seed: None,
+            cf02_seed: seed,
             view_height: 360,
             donut_biscuit: room != "juicer" || donut.implies_biscuit(),
             carl_prog: carl.prog,
@@ -300,6 +305,29 @@ fn a_recorded_hazard_session_verifies_strict() {
         tamper_manifest(&session, |m| m.reset.cf02_seed = Some(7));
         assert!(verify(&session).is_err(), "a seed is another run");
     }
+}
+
+/// Review of #229: `--cf02-seed` is an accepted input of the hazard room on both
+/// sides, so a seeded recording verifies strict, and the seed is part of the run
+/// (dropping or changing it fails).
+#[test]
+fn a_seeded_hazard_session_verifies_strict() {
+    let dir = TempDir::new("f01-hazards-seeded");
+    let mut rig = RoomRig::start_seeded(&dir.0, "hazards", Loadout::Story, Some(7));
+    rig.walk(900);
+    let manifest = rig.rec.finish("test").expect("finished");
+    let session = dir.0.join(manifest.session_id);
+    let report = verify(&session).expect("the seeded session verifies");
+    assert_eq!((report.ticks, report.scope), (900, VerifyScope::Full));
+    let loaded = read_session(&session, false).unwrap();
+    assert_eq!(loaded.manifest.reset.cf02_seed, Some(7));
+    assert_scoped_stamps(&loaded, "hazards");
+    for seed in [None, Some(8)] {
+        tamper_manifest(&session, |m| m.reset.cf02_seed = seed);
+        assert!(verify(&session).is_err(), "seed {seed:?} is another run");
+    }
+    tamper_manifest(&session, |m| m.reset.cf02_seed = Some(7));
+    verify(&session).expect("restored");
 }
 
 /// A room's own pin is required of its recordings: removing one of the room's
