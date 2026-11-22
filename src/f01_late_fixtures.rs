@@ -19,12 +19,13 @@ use std::path::Path;
 use crate::boss_scene::{Pilot, boss_base, hp, load_arena};
 use crate::combat::CombatEvent;
 use crate::combat_scene::{CombatState, Fixture};
+use crate::companion::profile::ProfileSetId;
 use crate::corridor::SceneSim;
 use crate::donut_mana::DonutSetup;
 use crate::donut_prog;
 use crate::f01_late::{Loadout, boiler_combat};
 use crate::input::RawInput;
-use crate::party::{HeroId, PROVISIONAL_TUNING};
+use crate::party::{HeroId, PROVISIONAL_TUNING, PartyTuning, UncontrolledHero};
 use crate::party_scene::{PartyFixture, PartyFixtureSim};
 use crate::story_unlock::{LedgerSnapshot, SceneKind};
 
@@ -157,8 +158,8 @@ pub const JUICER_RUN_TICKS: u64 = 9600;
 /// seed shifts the pilot's phase inside it (PTB-AD2).
 const SWING_PERIOD: u64 = 12;
 
-/// Who plays the Juicer's room (solo variants only; the `cf02_free` companion
-/// variants wait for CA2-B2, plan section 10 item 5 and PTB-AD1).
+/// Who plays the Juicer's room: solo Carl, solo Donut by swap and the
+/// autonomous companion (`--companion cf02_free`), gate item 5 (PTB-AD1).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum JuicerWho {
     /// Solo Carl fights and walks out (the other hero is the live party's
@@ -167,15 +168,23 @@ pub enum JuicerWho {
     /// Carl clears the room, then the swap, then Donut (solo) walks to the
     /// exit (the PT-MASTERY shape, PTM-AD8; PTB-AD3).
     DonutBySwap,
+    /// Carl is the pilot's, Donut is the autonomous `cf02_free` partner (her
+    /// stuck run is counted as ticks left behind, as in PT-MASTERY).
+    Companion,
 }
 
 impl JuicerWho {
-    pub const ALL: [JuicerWho; 2] = [JuicerWho::CarlSolo, JuicerWho::DonutBySwap];
+    pub const ALL: [JuicerWho; 3] = [
+        JuicerWho::CarlSolo,
+        JuicerWho::DonutBySwap,
+        JuicerWho::Companion,
+    ];
 
     pub const fn name(self) -> &'static str {
         match self {
             Self::CarlSolo => "juicer_carl_solo",
             Self::DonutBySwap => "juicer_donut_by_swap",
+            Self::Companion => "juicer_companion_cf02_free",
         }
     }
 }
@@ -190,6 +199,21 @@ pub const JUICER_ROOM_PARTY: PartyFixture = PartyFixture {
     pilot: Pilot::Carl,
     donut: DonutSetup::unlocked(8),
 };
+
+/// The live Juicer room under `--companion cf02_free` (PTB-AD6): the same
+/// party as [`JUICER_ROOM_PARTY`] with the autonomous partner. The room is not
+/// a `cf02_rules` room (K17), so the 12-tick swap cooldown is not applied.
+pub const JUICER_COMPANION_PARTY: PartyFixture = PartyFixture {
+    tuning: PartyTuning {
+        uncontrolled_hero: UncontrolledHero::Companion(ProfileSetId::Cf02Free),
+        ..PROVISIONAL_TUNING
+    },
+    ..JUICER_ROOM_PARTY
+};
+
+/// The companion is counted left behind only while this far from Carl (the
+/// PT-MASTERY value).
+pub const APART_PX: f32 = 96.0;
 
 /// The stuck rule of the gate: a hero told to walk whose column does not move
 /// (less than 0.1 px) counts one tick; any other tick resets the run.
@@ -256,26 +280,38 @@ impl JuicerReport {
 /// The Juicer room launched the way `--scene f01_late` launches it (the boss
 /// scene under the story loadout, [`SceneKind::Boss`]), at full HP.
 pub fn juicer_room(root: &Path) -> Result<PartyFixtureSim, String> {
+    juicer_room_for(root, &JUICER_ROOM_PARTY)
+}
+
+/// [`juicer_room`] under a given party ([`JUICER_ROOM_PARTY`] or
+/// [`JUICER_COMPANION_PARTY`]).
+pub fn juicer_room_for(
+    root: &Path,
+    party: &'static PartyFixture,
+) -> Result<PartyFixtureSim, String> {
     let (carl, donut) = Loadout::Story.flags();
     let kit = load_arena(root)?;
-    let base = JUICER_ROOM_PARTY.base;
+    let base = party.base;
     let scene = SceneSim::new_at(&kit, 360, base.carl_x)?;
     let combat = CombatState::new(base, &kit, &scene)?
         .with_donut(DonutSetup::unlocked(8))
         .try_with_story(donut_prog::story_setup(carl, donut, SceneKind::Boss))
         .map_err(|e| e.to_string())?;
-    Ok(PartyFixtureSim::from_parts(
-        scene,
-        combat,
-        &JUICER_ROOM_PARTY,
-    ))
+    Ok(PartyFixtureSim::from_parts(scene, combat, party))
 }
 
 /// Play the Juicer's room for `who` at `seed`. The room reads no seed (it has
 /// no roster and the boss draws nothing), so the seed shifts the base-kit
 /// pilot's jab phase: nine seeds are nine different fights (PTB-AD2).
 pub fn juicer_pilot(root: &Path, who: JuicerWho, seed: u64) -> Result<JuicerReport, String> {
-    let mut sim = juicer_room(root)?;
+    let mut sim = juicer_room_for(
+        root,
+        match who {
+            JuicerWho::Companion => &JUICER_COMPANION_PARTY,
+            _ => &JUICER_ROOM_PARTY,
+        },
+    )?;
+    let mut carl_x = sim.scene.world.hero.x;
     let phase = seed % SWING_PERIOD;
     let mut stuck = [
         StuckRun::new(sim.scene.world.hero.x),
@@ -314,8 +350,18 @@ pub fn juicer_pilot(root: &Path, who: JuicerWho, seed: u64) -> Result<JuicerRepo
         let at = HeroId::ALL.iter().position(|h| *h == controlled);
         walking[at.unwrap_or(0)] = input.move_x != 0.0;
         sim.step_slots([input, RawInput::NONE]);
+        let new_carl_x = sim.scene.world.hero.x;
+        let carl_moved = (new_carl_x - carl_x).abs() >= 0.1;
+        carl_x = new_carl_x;
         for (i, id) in HeroId::ALL.into_iter().enumerate() {
-            stuck[i].tick(walking[i], sim.scene.world.body(id).x);
+            let x = sim.scene.world.body(id).x;
+            if who == JuicerWho::Companion && id == HeroId::Donut {
+                // Left behind: she stands apart from Carl while he walks on
+                // (her own walking is not the pilot's, as in PT-MASTERY).
+                stuck[i].tick(carl_moved && (x - carl_x).abs() > APART_PX, x);
+            } else {
+                stuck[i].tick(walking[i], x);
+            }
         }
         if sim.combat.restarts != last_restarts {
             deaths += 1;
@@ -614,7 +660,7 @@ mod tests {
     /// [`JuicerWho::ALL`] and [`JUICER_SEEDS`] order (PT-SCENE-B, new pins). A
     /// change to the room, the boss, the pilot or the story pin is a
     /// deliberate re-pin.
-    const GOLDEN_JUICER_PILOTS: [[u64; 9]; 2] = [
+    const GOLDEN_JUICER_PILOTS: [[u64; 9]; 3] = [
         [
             0xbb42_7d22_87b2_7d30,
             0x7a95_75a6_324b_77aa,
@@ -636,6 +682,17 @@ mod tests {
             0xb154_9621_d1f2_f52d,
             0x2519_4eb7_7492_d5bd,
             0x0797_9362_3de8_7c42,
+        ],
+        [
+            0xc3fa_1e52_5b9a_c89f,
+            0xddc2_cb43_beab_800c,
+            0x0b36_9bec_87fa_d147,
+            0xf96f_5c4e_bb37_faba,
+            0xc6ec_844c_3f87_6372,
+            0xccff_08ab_1e64_e2ac,
+            0x51ad_2163_d8d3_47e7,
+            0xb98d_c029_31e8_14bc,
+            0x6864_b594_d7db_dbe6,
         ],
     ];
 
