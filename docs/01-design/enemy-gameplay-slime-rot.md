@@ -601,7 +601,7 @@ Delivered: the slime's lunge in the evadable allow-list (`EvadeSource::SlimeLung
 
 Deviations and adopted values (HAZB-D*):
 
-- **HAZB-D1.** The sheet's evade fixture says Donut at `d` 12 from the slime's pivot. Her 20 px hurtbox reaches the gathered body (to +4 px) at `d` 13 and nearer, so there the body burns her on the first tick, before any lunge (pinned). `d` 14 is the nearest column where the lunge is the first thing that reaches her; the fixture uses 14.
+- **HAZB-D1.** The sheet's evade fixture says Donut at `d` 12 from the slime's pivot. Her 20 px hurtbox reaches the gathered body (to +4 px) at `d` 13 and nearer, so there the body burns her on the first tick, before any lunge (pinned). `d` 14 is the nearest column where the lunge is the first thing that reaches her, so the fixture starts her at 14 and places her at `d` 12 on the tick before the impact, where the lunge and the gathered body both reach her; it fails with the body exemption disabled (probed, review of #231 F1).
 - **HAZB-D2.** The `haz_rot_missile_near_miss` bolt window is asserted geometrically (the bolt lane under the shell and within 32 px of the dome), because the bolt is consumed on the tick it comes within reach and is never seen closer.
 - **HAZB-D3.** Feed ids: slime rows `0x200 + roster index`, sticker rows `0x300 + prop index`, so the three families never collide in the sorted feed.
 - **HAZB-D4.** The sticker's ring is 40 three-pixel dots at the 48 px radius (a code-drawn stand-in, HAZ-Q38).

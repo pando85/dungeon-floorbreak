@@ -101,32 +101,47 @@ fn haz_slime_lunge_evaded() {
 
 #[test]
 fn haz_slime_evade_no_body_burn() {
-    // An armed Donut close to the slime's pivot: inside its lunge box and beside
-    // its gathered body. She evades the lunge; she takes no body-contact
-    // `HeroHurt` on any impact tick of that lunge (33 to 38 from the tell).
+    // An armed Donut at `d` 12 from the slime's pivot on the impact tick: inside
+    // its lunge box **and** inside its gathered body. She evades the lunge and
+    // takes no body-contact `HeroHurt` on any impact tick of that lunge (33 to 38
+    // from the tell): the evading hero is exempt from the body for the lunge's
+    // impact ticks (HAZ-Q15).
     //
-    // HAZB-D1 (a deviation from the sheet's `d` 12): her 20 px hurtbox reaches the
-    // gathered body (to +4 px) at `d` 13 and nearer, so from there the body burns
-    // her on the first tick, before any lunge (pinned below). `d` 14 is the
-    // nearest column where the lunge is the first thing that reaches her.
+    // HAZB-D1: a Donut standing at `d` 13 or nearer is burned on the first tick
+    // (her 20 px hurtbox reaches the gathered body, to +4 px), before any lunge
+    // (pinned below), so she starts at `d` 14 and is placed at `d` 12 on the tick
+    // before the impact (review of #231, F1: standing at 14 never overlapped the
+    // body and proved nothing).
     let mut near = armed_party(112.0, 413.0);
     near.step(RawInput::NONE, RawInput::NONE);
     assert_eq!(near.hurts(HeroId::Donut).len(), 1, "d 13 is burned at once");
     let mut rig = armed_party(112.0, 414.0);
     let tell = until_tell(&mut rig, 20);
+    let impact = tell + 32;
+    while rig.tick() < impact - 1 {
+        rig.step(RawInput::NONE, RawInput::NONE);
+    }
+    assert!(
+        rig.hurts(HeroId::Donut).is_empty(),
+        "nothing before the lunge"
+    );
+    rig.place(HeroId::Donut, 412.0);
     for _ in 0..70 {
         rig.step(RawInput::NONE, RawInput::NONE);
     }
-    let impact = tell + 32;
     assert_eq!(evades(&rig).len(), 1, "{:?}", rig.events());
     assert_eq!(evades(&rig)[0].0, impact);
-    for (tick, source, _) in rig.hurts(HeroId::Donut) {
-        assert_eq!(source, slime_source(0));
+    let hurts = rig.hurts(HeroId::Donut);
+    for (tick, source, _) in &hurts {
+        assert_eq!(*source, slime_source(0));
         assert!(
-            !(impact..=impact + 5).contains(&tick),
+            !(impact..=impact + 5).contains(tick),
             "a body burn on impact tick {tick}"
         );
     }
+    // The body does reach her once the lunge is over (the exemption is the lunge's
+    // own, not a standing immunity).
+    assert!(hurts.iter().any(|h| h.0 > impact + 5), "{hurts:?}");
 }
 
 /// DM-Q18: an armed Donut takes this hurt: no `HeroEvaded`, no arm spent, and
