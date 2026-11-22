@@ -205,6 +205,7 @@ impl CombatState {
                     } else {
                         self.donut_kit.blink.begin(tick, dir);
                         out.clear_buffer = true;
+                        self.donut_kit.clear_press_buffers();
                     }
                 }
                 Err(reason) => self.log(CombatEvent::SpecialRejected {

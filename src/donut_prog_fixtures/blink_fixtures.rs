@@ -561,6 +561,23 @@ fn buffer_run(with_blink: bool) -> (PartyFixtureSim, u64) {
     (sim, land)
 }
 
+/// `donut_prog_blink_move_buffer_cleared`: a Triangle pressed in the air before
+/// the blink is buffered by her moves; t0 forgets it, so no pounce starts
+/// inside the windup. `with_blink` false is the control: the buffered pounce
+/// starts on landing.
+fn move_buffer_run(with_blink: bool) -> (PartyFixtureSim, u64) {
+    let rig = Rig::new();
+    let jump = 5;
+    let land = landing_of_jump(&rig, jump);
+    let mut holds = vec![at(jump, cross()), at(land - 4, pad(|r| r.physical = true))];
+    if with_blink {
+        holds.push(at(land - 2, circle()));
+    }
+    let mut sim = rig.build();
+    run_to(&mut sim, land + 12, &holds, &Vec::new());
+    (sim, land)
+}
+
 /// `donut_prog_blink_airborne_keeps_vy`: a blink pressed mid-jump changes only
 /// `x`: the height and vertical speed follow the plain jump tick for tick.
 fn airborne_run(with_blink: bool) -> Vec<(f32, f32, f32)> {
@@ -723,7 +740,7 @@ fn locked_run(press: bool) -> PartyFixtureSim {
 type Fixture0 = (&'static str, fn() -> PartyFixtureSim);
 
 /// Every fixture with its name, in the committed order.
-const FIXTURES: [Fixture0; 28] = [
+const FIXTURES: [Fixture0; 29] = [
     ("donut_prog_blink_flat", flat),
     ("donut_prog_blink_facing_no_stick", facing_no_stick),
     ("donut_prog_blink_stick_left", stick_left),
@@ -765,12 +782,15 @@ const FIXTURES: [Fixture0; 28] = [
         "donut_prog_blink_carl_circle_unchanged",
         carl_circle_unchanged,
     ),
+    ("donut_prog_blink_move_buffer_cleared", || {
+        move_buffer_run(true).0
+    }),
     ("donut_prog_blink_locked_pressed", || locked_run(true)),
     ("donut_prog_blink_locked_idle", || locked_run(false)),
 ];
 
 /// The committed final hashes (`PartyFixtureSim::state_hash`).
-const GOLDENS: [u64; 28] = [
+const GOLDENS: [u64; 29] = [
     0x85caa3c6b41c4c17,
     0x3a7e14e8d8d78ddb,
     0x8bec19b31ba37682,
@@ -797,6 +817,7 @@ const GOLDENS: [u64; 28] = [
     0xc9115ed2fc0dbc5b,
     0xff10a23cd76ebdd7,
     0xc7377374063369f1,
+    0x6af71ef89930ea64,
     0x0235059d6b773964,
     0x0235059d6b773964,
 ];
@@ -935,8 +956,6 @@ fn donut_prog_blink_barrier_rect() {
     // The barrier is no collider: she can walk through it.
     let mut rig = Rig::new();
     rig.barrier = Some((720, 8, 40, 0));
-    let mut walker = rig.build();
-    run_to(&mut walker, 80, &Vec::new(), &Vec::new());
     let holds = vec![(1, 80, stick(1.0))];
     let mut walker = rig.build();
     run_to(&mut walker, 80, &holds, &Vec::new());
@@ -1137,6 +1156,47 @@ fn donut_prog_blink_buffer_cleared() {
             .any(|e| matches!(e, CombatEvent::BlinkResolved { .. }))
     );
     assert!(blink_events(&control).is_empty());
+}
+
+#[test]
+fn donut_prog_blink_move_buffer_cleared() {
+    let (sim, land) = move_buffer_run(true);
+    let (control, control_land) = move_buffer_run(false);
+    assert_eq!(land, control_land);
+    let pounce_starts = |sim: &PartyFixtureSim| -> Vec<u64> {
+        sim.combat
+            .events
+            .iter()
+            .filter_map(|e| match *e {
+                CombatEvent::MoveStarted { tick, .. } => Some(tick),
+                _ => None,
+            })
+            .collect()
+    };
+    // Control: the buffered Triangle starts a pounce once she lands.
+    assert!(
+        pounce_starts(&control).iter().any(|t| *t > land),
+        "the control's buffered pounce starts on landing: {:?}",
+        pounce_starts(&control)
+    );
+    // Blink: Circle on `land - 2` is t0; no move starts at all, and the blink
+    // runs to its arrival on t6 untouched.
+    assert!(
+        pounce_starts(&sim).is_empty(),
+        "no pounce inside the blink: {:?}",
+        pounce_starts(&sim)
+    );
+    let events = blink_events(&sim);
+    assert_eq!(events[0], started(land - 2));
+    assert!(matches!(
+        events[1],
+        CombatEvent::BlinkResolved { tick, .. } if tick == land + 4
+    ));
+    assert!(
+        events
+            .iter()
+            .all(|e| !matches!(e, CombatEvent::BlinkCancelled { .. }))
+    );
 }
 
 #[test]

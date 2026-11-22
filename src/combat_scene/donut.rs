@@ -142,6 +142,14 @@ pub struct DonutKit {
 }
 
 impl DonutKit {
+    /// DP-Q25: the blink's t0 forgets every press made before it (a buffered
+    /// swat or pounce, a buffered cast), so nothing pressed earlier can start
+    /// inside the windup without a press edge.
+    pub(super) fn clear_press_buffers(&mut self) {
+        self.moves.clear_buffer();
+        self.cast_buffer_until = None;
+    }
+
     pub fn new(setup: DonutSetup) -> Self {
         let tuning = ManaTuning::pinned(true).expect("the committed mana tuning is valid");
         let mana = DonutMana::from_start(&tuning, setup.start);
