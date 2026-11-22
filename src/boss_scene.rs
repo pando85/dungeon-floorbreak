@@ -193,6 +193,12 @@ pub enum Pilot {
     /// (P2 Donut a step ahead of Carl) with no blink rule and no withheld presses
     /// (`crate::cf02::arena::donut_pilot_ahead`). Harness only.
     ArenaDuoAhead,
+    /// FA-Q11 (appended): [`Pilot::ArenaDuoBlink`] whose swat, pounce and jump are
+    /// withheld only while a swing aimed at her is in the blink window (impact 7
+    /// to 12 ticks away), not for any swing aimed at her
+    /// (`crate::cf02::arena::donut_blink_pilot_window`). The separation run reports
+    /// it beside the held rule and the no-blink control. Harness only.
+    ArenaDuoBlinkWindow,
 }
 
 pub(crate) const fn boss_base(
@@ -544,6 +550,12 @@ pub fn pilot_inputs(
             slots[1] = crate::cf02::arena::donut_blink_pilot(combat, scene);
             return slots;
         }
+        Pilot::ArenaDuoBlinkWindow => {
+            slots[0] =
+                crate::cf02::arena::autopilot(combat, scene, crate::cf02::arena::Plan::Direct);
+            slots[1] = crate::cf02::arena::donut_blink_pilot_window(combat, scene);
+            return slots;
+        }
         _ => {}
     }
     let Some(boss) = combat.boss.as_ref() else {
@@ -555,6 +567,7 @@ pub fn pilot_inputs(
         | Pilot::ArenaEnvironment
         | Pilot::ArenaDuo
         | Pilot::ArenaDuoBlink
+        | Pilot::ArenaDuoBlinkWindow
         | Pilot::ArenaDuoAhead => {}
         Pilot::ThrownCharge => slots[0] = thrower_pilot(tick, combat, scene, boss),
         Pilot::Carl => slots[0] = carl_pilot(tick, combat, scene, boss, false),

@@ -19,7 +19,7 @@ pub const PROFILE_JSON: &str = include_str!("../../assets/data/gameplay/companio
 
 /// The committed FNV-1a 64 content hash of [`PROFILE_JSON`]. Editing the file
 /// without updating this value fails [`ProfileFile::pinned`] and the pin test.
-pub const PROFILE_HASH: u64 = 0x44cb_fbca_5f27_fb73;
+pub const PROFILE_HASH: u64 = 0xa1f3_8af9_4ee2_fdf0;
 
 /// The profile set id under the spec's name (CA-21, section 17): the runtime's
 /// `UncontrolledHero::Companion(CompanionProfileSet)` names it.
@@ -414,6 +414,15 @@ pub struct FixAll {
     /// ripple that is this many px from her and coming at her (the follow layer
     /// has no ripple dodge, and in a corner the standoff cannot clear the reach).
     pub fa_q05_ripple_hop_px: u16,
+    /// FA-Q09: the boss-charge blink window opens at the follow layer's jump lead
+    /// (`ai_charge_jump_lead`, 18) plus `fa_q09_window_extra_ticks`, and a blink
+    /// press for a charge silences the follow layer's dodge jump for that charge.
+    pub fa_q09_blink_charge_window: bool,
+    pub fa_q09_window_extra_ticks: u16,
+    /// FA-Q10: a goblin's swing triggers the blink only if her hurtbox overlaps
+    /// its hitbox widened by `fa_q10_reach_margin_px`.
+    pub fa_q10_blink_reach_gate: bool,
+    pub fa_q10_reach_margin_px: u16,
 }
 
 /// One profile set.
@@ -740,6 +749,25 @@ impl ProfileSet {
                 return bad(
                     &format!("{set}.fix_all.fa_q05_escort_boss_min_px"),
                     "must be below fa_q05_escort_boss_max_px",
+                );
+            }
+        }
+        for (on, name, value) in [
+            (
+                self.fix_all.fa_q09_blink_charge_window,
+                "fa_q09_window_extra_ticks",
+                self.fix_all.fa_q09_window_extra_ticks,
+            ),
+            (
+                self.fix_all.fa_q10_blink_reach_gate,
+                "fa_q10_reach_margin_px",
+                self.fix_all.fa_q10_reach_margin_px,
+            ),
+        ] {
+            if on && value == 0 {
+                return bad(
+                    &format!("{set}.fix_all.{name}"),
+                    "must be positive while its flag is on",
                 );
             }
         }

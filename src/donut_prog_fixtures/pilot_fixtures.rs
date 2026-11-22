@@ -361,6 +361,19 @@ fn arena_blink_control() -> Vec<Report> {
         .collect()
 }
 
+/// FA-Q11: the blink pilot whose hands are withheld only while a swing aimed at
+/// her is in the blink window (`Pilot::ArenaDuoBlinkWindow`), the same room,
+/// seeds, capabilities and stance as [`blink_pilot`] (the held rule).
+fn arena_blink_window() -> Vec<Report> {
+    let window = overlay(
+        find_party_fixture("cf02_arena_coop").unwrap(),
+        Pilot::ArenaDuoBlinkWindow,
+    );
+    (0..SEEDS)
+        .map(|seed| arena_run(window, seed, true).1)
+        .collect()
+}
+
 /// The shipped trailing pilot (`Pilot::ArenaDuo`, 40 px behind Carl) with the
 /// same capabilities, recorded for reference only: it differs from the blink
 /// pilot in stance as well as in the blink.
@@ -403,6 +416,12 @@ fn print_the_pilot_reports() {
         emit(&mut out, &r);
     }
     out.push_str(
+        "# FA-Q11 separation run: ArenaDuoBlinkWindow (hands withheld only in the 7..12 tick window)\n",
+    );
+    for r in arena_blink_window() {
+        emit(&mut out, &r);
+    }
+    out.push_str(
         "# reference only: the shipped trailing ArenaDuo pilot (stance -40, no blink): differs in stance as well\n",
     );
     for r in arena_blink_trailing() {
@@ -427,6 +446,9 @@ fn print_the_pilot_reports() {
 const GOLDEN_ARENA_BOOST: u64 = 0xaf27_817c_00c4_b50a;
 const GOLDEN_ARENA_BLINK: u64 = 0x336b_b672_e9a3_e696;
 const GOLDEN_ARENA_AHEAD: u64 = 0xc64c_2fab_503c_c3f6;
+const GOLDEN_ARENA_WINDOW: u64 = 0x54c2_c836_7719_9dea;
+/// FA-Q11: the deaths of the window rule over seeds 0..7 (measured, a pin).
+const WINDOW_DEATHS: u32 = 10;
 const GOLDEN_BOSS_BOOST: u64 = 0x72e0_85f6_2c96_b8cb;
 const GOLDEN_BOSS_ARENA: u64 = 0x514d_33c0_5081_14af;
 
@@ -435,6 +457,7 @@ fn print_the_pilot_folds() {
     println!("FOLD arena_boost {:#018x}", fold(&arena_boost_reports()));
     println!("FOLD arena_blink {:#018x}", fold(&arena_blink_reports()));
     println!("FOLD arena_ahead {:#018x}", fold(&arena_blink_control()));
+    println!("FOLD arena_window {:#018x}", fold(&arena_blink_window()));
     println!("FOLD boss_boost {:#018x}", fold(&boss_reports()));
     println!("FOLD boss_arena {:#018x}", fold(&[boss_free_run().1]));
 }
@@ -522,6 +545,51 @@ fn donut_prog_pilot_arena_blink() {
         GOLDEN_ARENA_AHEAD,
         "{:#018x}",
         fold(&control)
+    );
+}
+
+/// FA-Q11, the separation run: the blink pilot with her hands withheld for any
+/// swing aimed at her (`Pilot::ArenaDuoBlink`, the DP-F rule), the same pilot
+/// with them withheld only while the swing is in the blink window
+/// (`Pilot::ArenaDuoBlinkWindow`, the FA-Q11 rule) and the no-blink control at
+/// the same stance, seeds 0..7, with the deaths summed.
+///
+/// **The acceptance (the window rule's deaths at most the control's plus 1) is
+/// not met**, and FA-Q30 says to ship the measured numbers: the control has 0
+/// deaths, the held rule 7 and the window rule 10. When the window opens she is
+/// usually already in the middle of her own cast (the normal kit's primary is a
+/// missile once unlocked, and a missile at point-blank misses), so the blink
+/// press is rejected (a busy hero cannot start it) and the swing lands; the held
+/// rule at least frees her hands from the first tick of the tell. A second
+/// iteration (the normal kit keeps the blink's charge) made it worse (11) and
+/// was dropped. The measured numbers are pinned here as a regression pin, not as
+/// a target; the design finding is in the PR.
+#[test]
+fn fa_q11_the_blink_pilot_separation_run_reports_the_held_rule_the_window_rule_and_the_control() {
+    let held = arena_blink_reports();
+    let window = arena_blink_window();
+    let control = arena_blink_control();
+    let deaths = |rs: &[Report]| rs.iter().map(|r| r.deaths).sum::<u32>();
+    println!(
+        "FA-Q11 deaths over seeds 0..7: held {} window {} control {}",
+        deaths(&held),
+        deaths(&window),
+        deaths(&control)
+    );
+    assert_eq!(window, arena_blink_window(), "replays identically");
+    // The window rule also leaves Carl standing still for 336 ticks on two seeds
+    // (past the 300 tick bound): measured, not asserted.
+    for r in held.iter().chain(&control) {
+        assert!(r.stuck.iter().all(|s| *s <= STUCK_LIMIT), "{}", line(r));
+    }
+    assert_eq!(deaths(&control), 0);
+    assert_eq!(deaths(&held), 7, "the DP-F rule, unchanged");
+    assert_eq!(deaths(&window), WINDOW_DEATHS);
+    assert_eq!(
+        fold(&window),
+        GOLDEN_ARENA_WINDOW,
+        "{:#018x}",
+        fold(&window)
     );
 }
 

@@ -152,6 +152,10 @@ pub struct ThreatView {
     /// The Q10 light guard: a further swat would glance.
     pub guarded: bool,
     pub in_view: bool,
+    /// FA-Q10: the absolute x interval of the swing's hitbox (the goblin's box,
+    /// 8 to 30 px ahead of its feet), `None` where the box is not known (the
+    /// llama, the Engineer's ram). The blink's committed trigger reads it.
+    pub swing_x: Option<(f32, f32)>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

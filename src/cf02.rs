@@ -1505,6 +1505,23 @@ pub mod arena {
     /// blink; the AI's own blink is measured by the `cf02_free_blink_*` fixtures.
     /// A pure function of the finished state.
     pub fn donut_blink_pilot(combat: &CombatState, scene: &SceneSim) -> RawInput {
+        blink_pilot(combat, scene, true)
+    }
+
+    /// FA-Q11: [`donut_blink_pilot`] with her swat, pounce and jump withheld only
+    /// while a swing aimed at her is in the blink window (impact 7 to 12 ticks
+    /// away); outside it she plays the normal kit (`Pilot::ArenaDuoBlinkWindow`).
+    /// Measured against the held rule and the no-blink control by the separation
+    /// run: a swing is usually in the middle of her own cast when the window
+    /// opens (the press is then rejected: a busy hero cannot start the blink), so
+    /// the rule as written does not cut the deaths (see the PR).
+    pub fn donut_blink_pilot_window(combat: &CombatState, scene: &SceneSim) -> RawInput {
+        blink_pilot(combat, scene, false)
+    }
+
+    /// `hold_any`: hands withheld for any swing aimed at her (the DP-F rule), else
+    /// only for one in the blink window (FA-Q11).
+    fn blink_pilot(combat: &CombatState, scene: &SceneSim, hold_any: bool) -> RawInput {
         let mut raw = donut_pilot_at(combat, scene, BLINK_PILOT_GOAL_DX);
         let blink = combat.donut_blink();
         let tick = scene.world.tick + 1;
@@ -1528,17 +1545,20 @@ pub mod arena {
                 && (g.x - body.x).abs() <= BLINK_THREAT_PX)
                 .then(|| (g.x, impact.saturating_sub(tell)))
         });
-        // A blink that is ready frees her hands for it: no swat, pounce or jump
-        // while a swing aimed at her is up (a busy hero cannot start the blink).
         let Some(first) = aimed.next() else {
             return raw;
         };
-        raw.attack = false;
-        raw.physical = false;
-        raw.jump = false;
         let threat = std::iter::once(first)
             .chain(aimed)
             .find_map(|(x, left)| (left > windup && left <= windup + 6).then_some(x));
+        // A blink that is ready frees her hands for it: no swat, pounce or jump
+        // while any swing aimed at her is up (a busy hero cannot start the
+        // blink), or, under the FA-Q11 rule, only while one is in the window.
+        if hold_any || threat.is_some() {
+            raw.attack = false;
+            raw.physical = false;
+            raw.jump = false;
+        }
         let Some(threat_x) = threat else {
             return raw;
         };

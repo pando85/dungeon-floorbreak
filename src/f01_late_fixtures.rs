@@ -298,7 +298,17 @@ pub fn juicer_room_for(
     root: &Path,
     party: &'static PartyFixture,
 ) -> Result<PartyFixtureSim, String> {
-    let (carl, donut) = Loadout::Story.flags();
+    juicer_room_loadout(root, party, Loadout::Story)
+}
+
+/// [`juicer_room_for`] under a given loadout (`--f01-loadout all` holds every
+/// capability from the first tick, the blink included).
+pub fn juicer_room_loadout(
+    root: &Path,
+    party: &'static PartyFixture,
+    loadout: Loadout,
+) -> Result<PartyFixtureSim, String> {
+    let (carl, donut) = loadout.flags();
     let kit = load_arena(root)?;
     let base = party.base;
     let scene = SceneSim::new_at(&kit, 360, base.carl_x)?;
@@ -323,12 +333,23 @@ pub fn juicer_run(
     who: JuicerWho,
     seed: u64,
 ) -> Result<(JuicerReport, PartyFixtureSim), String> {
-    let mut sim = juicer_room_for(
+    juicer_run_loadout(root, who, seed, Loadout::Story)
+}
+
+/// [`juicer_run`] under a given loadout.
+pub fn juicer_run_loadout(
+    root: &Path,
+    who: JuicerWho,
+    seed: u64,
+    loadout: Loadout,
+) -> Result<(JuicerReport, PartyFixtureSim), String> {
+    let mut sim = juicer_room_loadout(
         root,
         match who {
             JuicerWho::Companion => &JUICER_COMPANION_PARTY,
             _ => &JUICER_ROOM_PARTY,
         },
+        loadout,
     )?;
     let mut carl_x = sim.scene.world.hero.x;
     let mut carl_trace = Vec::new();
@@ -1040,6 +1061,90 @@ mod tests {
         assert!(mu <= mc, "her median hurts {mu} vs Carl's {mc}");
         assert!(retreating >= 7, "retreat entered on {retreating}/9");
         assert_eq!(lane, 0, "never in the ram box at the ram tick");
+    }
+
+    /// The Juicer room under `--f01-loadout all` (the blink held from the first
+    /// tick) with the autonomous partner, played by the Carl pilot until the boss'
+    /// charge tell has 25 ticks left; then Donut is stood 40 px in front of the
+    /// ram's leading edge (the charge aimed at her) and Carl 60 px behind her. Runs
+    /// to the end of the charge. Returns what the run saw.
+    struct StagedCharge {
+        /// Blink presses for the charge.
+        blinks: u32,
+        /// Donut left the ground at some tick before the ram hurt anyone.
+        jumped: bool,
+        /// The per-charge latch after the charge (released).
+        latched_after: bool,
+        /// The tick of the staging and of her blink press (if any).
+        hash: u64,
+    }
+
+    fn stage_charge(seed: u64) -> StagedCharge {
+        use crate::boss::BossMode;
+        let mut sim = juicer_room_loadout(&root(), &JUICER_COMPANION_PARTY, Loadout::All).unwrap();
+        let phase = seed % SWING_PERIOD;
+        let mut staged = false;
+        let mut jumped = false;
+        let mut hurt = false;
+        for _ in 0..400u64 {
+            let tick = sim.scene.world.tick + 1;
+            let input = crate::boss_scene::pilot_inputs(
+                Pilot::Carl,
+                [RawInput::NONE; 2],
+                tick + phase,
+                &sim.combat,
+                &sim.scene,
+            )[0];
+            if !staged {
+                let b = sim.combat.boss.as_ref().unwrap();
+                if b.mode == BossMode::ChargeTell && b.mode_tick >= 14 {
+                    let dir = f32::from(b.facing);
+                    let lead = b.x + dir * 82.0;
+                    sim.scene.world.donut_body.x = lead - dir * 40.0;
+                    sim.scene.world.hero.x = sim.scene.world.donut_body.x - 60.0 * dir;
+                    staged = true;
+                }
+            }
+            sim.step_slots([input, RawInput::NONE]);
+            if staged {
+                hurt |= hurts_of(&sim, HeroId::Donut) > 0;
+                jumped |= !hurt && !sim.scene.world.donut_body.grounded;
+                if sim.combat.boss.as_ref().unwrap().mode == BossMode::Stun {
+                    break;
+                }
+            }
+        }
+        assert!(staged, "the boss charged, seed {seed}");
+        let st = sim.combat.autonomy_state(HeroId::Donut);
+        StagedCharge {
+            blinks: st.stats().blink_presses_committed,
+            jumped,
+            latched_after: st.charge_latched(),
+            hash: sim.state_hash(),
+        }
+    }
+
+    /// FA-Q09: with the blink held and a charge aimed at her, the AI blinks (the
+    /// window opens at the follow layer's jump lead plus 2) and the follow layer's
+    /// dodge jump stays silent for that charge, on every seed; the latch is
+    /// released when the charge is over. Knob off (the shipped window of windup
+    /// plus 6, the jump at 18): no blink, and she jumps.
+    #[test]
+    fn fa_q09_a_charge_aimed_at_her_is_answered_by_a_blink_and_no_dodge_jump() {
+        for seed in 0..9u64 {
+            let on = stage_charge(seed);
+            assert!(on.blinks >= 1, "the blink fires, seed {seed}");
+            assert!(!on.jumped, "no dodge jump on that charge, seed {seed}");
+            assert!(!on.latched_after, "the latch is per charge, seed {seed}");
+            assert_eq!(on.hash, stage_charge(seed).hash, "replays, seed {seed}");
+            let off = crate::combat_scene::with_profile_override(
+                |f| f.cf02_free.fix_all.fa_q09_blink_charge_window = false,
+                || stage_charge(seed),
+            );
+            assert_eq!(off.blinks, 0, "the shipped window is dead, seed {seed}");
+            assert!(off.jumped, "the follow layer's dodge jumps, seed {seed}");
+            assert_ne!(on.hash, off.hash);
+        }
     }
 
     #[test]

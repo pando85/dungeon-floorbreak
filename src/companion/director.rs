@@ -1165,6 +1165,7 @@ mod tests {
             aimed_at,
             guarded: false,
             in_view: true,
+            swing_x: None,
         }
     }
 

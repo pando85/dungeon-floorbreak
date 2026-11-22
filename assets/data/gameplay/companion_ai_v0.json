@@ -363,7 +363,11 @@
       "fa_q05_escort_boss_min_px": 112,
       "fa_q05_escort_boss_max_px": 160,
       "fa_q05_ripple_margin_px": 16,
-      "fa_q05_ripple_hop_px": 30
+      "fa_q05_ripple_hop_px": 30,
+      "fa_q09_blink_charge_window": true,
+      "fa_q09_window_extra_ticks": 2,
+      "fa_q10_blink_reach_gate": true,
+      "fa_q10_reach_margin_px": 4
     },
     "autonomy": {
       "enabled": true,

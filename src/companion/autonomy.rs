@@ -707,6 +707,10 @@ pub struct AutonomyState {
     /// the hashed decision state, but mixed only once a press exists, so a run
     /// that never blinks hashes exactly as before.
     last_blink: Option<u64>,
+    /// FA-Q09: a blink was pressed for the boss' charge that is still up: the
+    /// follow layer's dodge jump stays silent for that charge. Cleared when no
+    /// charge is up. Mixed into the hash only while set.
+    charge_latch: bool,
     stats: AutonomyStats,
 }
 
@@ -730,6 +734,7 @@ impl Default for AutonomyState {
             prev: None,
             seen: Vec::new(),
             last_blink: None,
+            charge_latch: false,
             stats: AutonomyStats::default(),
         }
     }
@@ -1308,6 +1313,23 @@ impl AutonomyState {
         self.last_blink
     }
 
+    /// FA-Q09: the press at `tick` answered the boss' charge: the follow layer's
+    /// dodge jump stays silent until that charge is over.
+    pub fn latch_charge_blink(&mut self) {
+        self.charge_latch = true;
+    }
+
+    /// FA-Q09: the dodge jump for the boss' charge is silenced (a blink answered
+    /// it).
+    pub fn charge_latched(&self) -> bool {
+        self.charge_latch
+    }
+
+    /// FA-Q09: no boss charge is up any more (the latch is per charge).
+    pub fn release_charge_latch(&mut self) {
+        self.charge_latch = false;
+    }
+
     /// Forget the plan (a swap, the partner is defeated, the hero stops being
     /// companion-driven). Cooldowns and the hurt and landed-hit ticks survive
     /// (spec 5.4: they are absolute ticks, so they cannot go stale).
@@ -1319,6 +1341,7 @@ impl AutonomyState {
             self.last_hurt,
             self.last_landed,
             self.last_blink,
+            self.charge_latch,
             self.stats,
         );
         *self = Self::default();
@@ -1329,6 +1352,7 @@ impl AutonomyState {
             self.last_hurt,
             self.last_landed,
             self.last_blink,
+            self.charge_latch,
             self.stats,
         ) = keep;
     }
@@ -1409,6 +1433,10 @@ impl AutonomyState {
         if let Some(tick) = self.last_blink {
             mix(BLINK_HASH_MARK);
             mix(tick);
+        }
+        // FA-Q09: nothing unless a charge blink is latched.
+        if self.charge_latch {
+            mix(CHARGE_LATCH_MARK);
         }
     }
 
@@ -2377,6 +2405,9 @@ impl Ctx<'_> {
 /// Marker word of the blink decision in the autonomy hash ("BLNK-AI").
 const BLINK_HASH_MARK: u64 = 0x424c_4e4b_4149_0001;
 
+/// Marker word of the per-charge dodge latch in the autonomy hash (FA-Q09).
+const CHARGE_LATCH_MARK: u64 = 0x4c41_5443_4800_0001;
+
 /// How many ticks past the windup a committed attack may still be from its
 /// impact for the blink to be eligible (DP-Q39: "impact due within the windup
 /// plus 6 ticks").
@@ -2406,11 +2437,21 @@ pub struct BlinkKnobs {
     pub windup_ticks: u16,
     /// Windup plus recovery: the commitment the drift check reads (DP-Q39: 12).
     pub commit_ticks: u16,
+    /// FA-Q09: the boss-charge window opens at `ai_charge_jump_lead` plus this
+    /// many ticks (the follow layer's dodge jump fires at the lead, so the
+    /// shipped window of windup plus 6 was dead). `None`: the shipped window.
+    pub charge_window_extra: Option<u16>,
+    /// FA-Q10: a goblin's swing triggers the blink only if her hurtbox overlaps
+    /// its hitbox, widened by this margin (px). `None`: distance alone.
+    pub reach_margin_px: Option<f32>,
 }
 
 /// The blink the goal layer wants to press this tick.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct BlinkChoice {
+    /// The nearest eligible threat was the boss' charge (FA-Q09: the press sets
+    /// the per-charge latch that silences the follow layer's dodge jump).
+    pub boss_charge: bool,
     /// -1 left, +1 right: away from the threat.
     pub dir: i8,
     /// Where the pure search says she lands (read-only prediction).
@@ -2467,12 +2508,12 @@ pub fn choose_blink(
         return None;
     }
     let k = &input.knobs;
-    // The nearest eligible threat: (distance, x, reason).
-    let mut best: Option<(f32, f32, BlinkReason)> = None;
-    let mut consider = |x: f32, reason: BlinkReason| {
+    // The nearest eligible threat: (distance, x, reason, is the boss' charge).
+    let mut best: Option<(f32, f32, BlinkReason, bool)> = None;
+    let mut consider = |x: f32, reason: BlinkReason, boss: bool| {
         let d = (x - me.x).abs();
-        if d <= k.threat_px && best.is_none_or(|(bd, _, _)| d < bd) {
-            best = Some((d, x, reason));
+        if d <= k.threat_px && best.is_none_or(|(bd, ..)| d < bd) {
+            best = Some((d, x, reason, boss));
         }
     };
     for threat in &view.threats {
@@ -2483,9 +2524,18 @@ pub fn choose_blink(
         if threat.aimed_at != Some(input.partner) || input.dodge_jumps || above {
             continue;
         }
+        // FA-Q10: a swing that cannot reach her does not spend the charge: her
+        // hurtbox must overlap the swing's hitbox (static for a goblin, so the
+        // sweep over the remaining active ticks is the box itself) widened by the
+        // margin.
+        if let (Some(margin), Some((lo, hi))) = (k.reach_margin_px, threat.swing_x)
+            && (me.x + HERO_HALF_WIDTH < lo - margin || me.x - HERO_HALF_WIDTH > hi + margin)
+        {
+            continue;
+        }
         let left = threat.impact_tick.saturating_sub(threat.tell_tick);
         if left > k.windup_ticks && left <= k.windup_ticks + BLINK_IMPACT_LEAD_TICKS {
-            consider(threat.x, BlinkReason::Committed);
+            consider(threat.x, BlinkReason::Committed, false);
         }
     }
     // DP-F (DP-Q39 b, CA2-Q35): the boss's committed charge. The ram's leading
@@ -2502,6 +2552,7 @@ pub fn choose_blink(
             front,
             depth,
             speed,
+            lead_ticks,
             ..
         }) = view.boss
         && speed > 0.0
@@ -2510,21 +2561,27 @@ pub fn choose_blink(
         let gap = (me.x - lead) * f32::from(dir) - HERO_HALF_WIDTH;
         if gap > -(depth + 2.0 * HERO_HALF_WIDTH) {
             let arrival = f32::from(tell_left) + (gap.max(0.0) / speed).ceil();
-            if arrival > f32::from(k.windup_ticks)
-                && arrival <= f32::from(k.windup_ticks + BLINK_IMPACT_LEAD_TICKS)
-            {
-                consider(lead, BlinkReason::Committed);
+            // FA-Q09: the window closes at the follow layer's jump lead plus a
+            // margin (20), not at windup plus 6 (12): the dodge jumps at 18, so
+            // the shipped window never opened.
+            let latest = k
+                .charge_window_extra
+                .map_or(k.windup_ticks + BLINK_IMPACT_LEAD_TICKS, |extra| {
+                    lead_ticks + extra
+                });
+            if arrival > f32::from(k.windup_ticks) && arrival <= f32::from(latest) {
+                consider(lead, BlinkReason::Committed, true);
             }
         }
     }
     if input.goal == Goal::Retreat {
         for target in &view.targets {
             if target.state == TargetState::Standing {
-                consider(target.x, BlinkReason::Retreat);
+                consider(target.x, BlinkReason::Retreat, false);
             }
         }
     }
-    let (_, threat_x, reason) = best?;
+    let (_, threat_x, reason, boss_charge) = best?;
     let dir: i8 = if (me.x - threat_x).abs() < 0.5 {
         // Level with it: toward the leader, else against her facing.
         if (leader.x - me.x).abs() < 0.5 {
@@ -2550,6 +2607,7 @@ pub fn choose_blink(
         return None;
     }
     Some(BlinkChoice {
+        boss_charge,
         dir,
         to_x,
         threat_x,
@@ -4067,6 +4125,7 @@ mod tests {
             aimed_at: Some(HeroId::Carl),
             guarded: false,
             in_view: true,
+            swing_x: None,
         }];
         rig.v.follow[1] = FollowInput {
             move_x: -0.5,
@@ -4260,6 +4319,7 @@ mod tests {
             aimed_at: Some(aim),
             guarded: false,
             in_view: true,
+            swing_x: None,
         };
         rig.v.threats = vec![tell(HeroId::Donut)];
         rig.run(30);
@@ -4792,6 +4852,7 @@ mod tests {
             aimed_at: Some(HeroId::Carl),
             guarded: false,
             in_view: true,
+            swing_x: None,
         };
         let mut rig = Rig::new();
         rig.donut().x = 90.0;
@@ -5064,6 +5125,8 @@ mod tests {
         hull_px: 63.0,
         windup_ticks: 6,
         commit_ticks: 12,
+        charge_window_extra: None,
+        reach_margin_px: None,
     };
 
     fn wide_zone(leader_x: f32) -> FreeZone {
@@ -5096,6 +5159,7 @@ mod tests {
             aimed_at,
             guarded: false,
             in_view: true,
+            swing_x: None,
         }
     }
 
@@ -5115,6 +5179,8 @@ mod tests {
         /// DP-F: the boss's tell or run, if any.
         boss: Option<BossThreat>,
         grounded: bool,
+        /// The blink's numbers (the shipped ones by default).
+        knobs: BlinkKnobs,
     }
 
     impl Case {
@@ -5131,6 +5197,7 @@ mod tests {
                 safe: 292.0,
                 boss: None,
                 grounded: true,
+                knobs: KNOBS,
             }
         }
 
@@ -5158,7 +5225,7 @@ mod tests {
                     goal: self.goal,
                     zone: &zone,
                     drift: &DriftCheck::new(HeroMotion::CARL, &a),
-                    knobs: KNOBS,
+                    knobs: self.knobs,
                     dodge_jumps: self.dodge_jumps,
                 },
                 predict,
@@ -5169,6 +5236,121 @@ mod tests {
     /// A destination `d` px from her in the asked direction.
     fn lands(x: f32, d: f32) -> impl Fn(i8) -> Option<f32> {
         move |dir| Some(x + f32::from(dir) * d)
+    }
+
+    // ------------------------------------------------ FA-Q09, FA-Q10: the blink ----
+
+    /// FA-Q09: with the knob the boss-charge window opens at the follow layer's
+    /// jump lead (18) plus 2, so a blink can start before the dodge jump does; the
+    /// lower edge (the windup) and the 48 px range are unchanged.
+    #[test]
+    fn fa_q09_the_charge_window_opens_at_the_jump_lead_plus_two_ticks() {
+        let on = BlinkKnobs {
+            charge_window_extra: Some(2),
+            ..KNOBS
+        };
+        let fires = |knobs: BlinkKnobs, left: u16| {
+            let mut c = boss_case(charge(-1, 38.0, left));
+            c.knobs = knobs;
+            c.choose(lands(440.0, 100.0)).is_some()
+        };
+        for left in 7..=20 {
+            assert!(fires(on, left), "{left} ticks, knob on");
+        }
+        assert!(
+            !fires(on, 6),
+            "arrival on t6 is the impact tick: still too late"
+        );
+        assert!(!fires(on, 21), "one past the lead + 2");
+        // Knob off: the shipped window (windup + 6 = 12).
+        assert!(fires(KNOBS, 12) && !fires(KNOBS, 13) && !fires(KNOBS, 20));
+        // The range is read at the ram's leading edge, as before.
+        let mut c = boss_case(charge(-1, 48.5, 15));
+        c.knobs = on;
+        assert!(c.choose(lands(440.0, 100.0)).is_none());
+        // The choice names the boss' charge (the latch's cue); a goblin's swing
+        // does not.
+        let mut c = boss_case(charge(-1, 38.0, 15));
+        c.knobs = on;
+        assert!(c.choose(lands(440.0, 100.0)).unwrap().boss_charge);
+        assert!(!Case::new().choose(lands(440.0, 100.0)).unwrap().boss_charge);
+        // A dodge jump that fires this tick still wins over the blink.
+        let mut c = boss_case(charge(-1, 38.0, 15));
+        c.knobs = on;
+        c.dodge_jumps = true;
+        assert!(c.choose(lands(440.0, 100.0)).is_none());
+    }
+
+    /// FA-Q10: a goblin's swing triggers the blink only if her hurtbox (half
+    /// width 12) overlaps the swing's hitbox (8..30 px ahead of its feet) widened
+    /// by 4 px: a swing 46 px away (centre to centre) reaches her, 47 does not;
+    /// 30 blinks and 48 does not. Distance alone (knob off) blinks up to 48.
+    #[test]
+    fn fa_q10_a_swing_that_cannot_reach_her_does_not_spend_the_blink() {
+        let gated = BlinkKnobs {
+            reach_margin_px: Some(4.0),
+            ..KNOBS
+        };
+        // A goblin at `x` facing left: its box is x-30..x-8.
+        let swing_at = |knobs: BlinkKnobs, d: f32, facing: i8| {
+            let x = 440.0 + f32::from(-facing) * d;
+            let box_x = if facing < 0 {
+                (x - 30.0, x - 8.0)
+            } else {
+                (x + 8.0, x + 30.0)
+            };
+            let mut c = Case::new();
+            c.knobs = knobs;
+            c.carl_x = 440.0 - 100.0 * f32::from(-facing);
+            let mut t = threat_at(x, 16, Some(HeroId::Donut));
+            t.facing = facing;
+            t.swing_x = Some(box_x);
+            c.threats = vec![t];
+            c.choose(lands(440.0, 100.0)).is_some()
+        };
+        for facing in [-1i8, 1] {
+            assert!(
+                swing_at(gated, 30.0, facing),
+                "30 px blinks (facing {facing})"
+            );
+            assert!(
+                swing_at(gated, 46.0, facing),
+                "46 px: the margin edge is inclusive"
+            );
+            assert!(!swing_at(gated, 47.0, facing), "47 px cannot reach her");
+            assert!(!swing_at(gated, 48.0, facing), "48 px cannot reach her");
+            // Knob off: distance alone, the 48 px range inclusive.
+            assert!(swing_at(KNOBS, 47.0, facing) && swing_at(KNOBS, 48.0, facing));
+        }
+        // A threat with no known box (the llama, the Engineer's ram) is not gated.
+        let mut c = Case::new();
+        c.knobs = gated;
+        c.threats = vec![threat_at(487.0, 16, Some(HeroId::Donut))];
+        assert!(c.choose(lands(440.0, 100.0)).is_some());
+    }
+
+    /// FA-Q09: the per-charge latch is decision state that hashes only while set,
+    /// survives a plan clear (a swap) and not a restart.
+    #[test]
+    fn fa_q09_the_charge_latch_hashes_only_while_set() {
+        let mut state = AutonomyState::new();
+        let mut before = Vec::new();
+        state.hash_into(&mut |w| before.push(w));
+        state.latch_charge_blink();
+        assert!(state.charge_latched());
+        let mut after = Vec::new();
+        state.hash_into(&mut |w| after.push(w));
+        assert_eq!(&after[..before.len()], &before[..]);
+        assert_eq!(after.len(), before.len() + 1);
+        state.clear_plan();
+        assert!(state.charge_latched(), "a swap keeps it");
+        state.release_charge_latch();
+        let mut released = Vec::new();
+        state.hash_into(&mut |w| released.push(w));
+        assert_eq!(released, before, "released: hashes as before");
+        state.latch_charge_blink();
+        state.reset();
+        assert!(!state.charge_latched(), "a restart forgets it");
     }
 
     #[test]

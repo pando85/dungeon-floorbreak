@@ -19,6 +19,7 @@
 use std::sync::OnceLock;
 
 use super::CombatState;
+use crate::boss::BossThreat;
 use crate::combat::{CombatEvent, ENEMY_HALF_HEIGHT, MoveSpec};
 use crate::companion::autonomy::{
     AutonomyBrief, AutonomyInput, AutonomyState, BlinkChoice, BlinkInput, BlinkKnobs, DriftCheck,
@@ -657,6 +658,10 @@ impl CombatState {
                     self.companion_blink(scene, &view, set, brief, hero, dodge_jumps[i])
             {
                 self.companion.autonomy[i].note_blink(self.companion.tick, choice.reason);
+                if choice.boss_charge && set.fix_all.fa_q09_blink_charge_window {
+                    // FA-Q09: the dodge jump stays silent for this charge.
+                    self.companion.autonomy[i].latch_charge_blink();
+                }
                 out[i] = RawInput {
                     move_x: f32::from(choice.dir),
                     ability: true,
@@ -738,6 +743,15 @@ impl CombatState {
                     hull_px: f32::from(t.dpq46_ai_hull_px),
                     windup_ticks: windup,
                     commit_ticks: windup + u16::from(t.dpq25_recovery_ticks),
+                    // FA-Q09, FA-Q10: the boss-charge window and the reach gate.
+                    charge_window_extra: set
+                        .fix_all
+                        .fa_q09_blink_charge_window
+                        .then_some(set.fix_all.fa_q09_window_extra_ticks),
+                    reach_margin_px: set
+                        .fix_all
+                        .fa_q10_blink_reach_gate
+                        .then_some(f32::from(set.fix_all.fa_q10_reach_margin_px)),
                 },
                 dodge_jumps,
             },
@@ -919,7 +933,15 @@ impl CombatState {
                 HeroId::Donut => set.donut.ca21_active,
             };
             let threats = self.follow_threats(hero, active);
-            let dodge = scene.dodge_input(hero, &threats, view.boss.as_ref());
+            // FA-Q09: a blink pressed for the boss' charge silences the follow
+            // layer's boss dodge for that charge (the latch is released with it).
+            let mut latched = self.companion.autonomy[i].charge_latched();
+            if latched && !matches!(view.boss, Some(BossThreat::Charge { .. })) {
+                self.companion.autonomy[i].release_charge_latch();
+                latched = false;
+            }
+            let dodge_boss = view.boss.filter(|_| !latched);
+            let dodge = scene.dodge_input(hero, &threats, dodge_boss.as_ref());
             if dodge.jump || dodge.move_x != 0.0 {
                 input = FollowInput {
                     move_x: dodge.move_x,
@@ -1428,6 +1450,11 @@ impl CombatState {
                 aimed_at: Some(self.target_of(index)),
                 guarded: g.guard.is_some(),
                 in_view: view.in_view(g.x),
+                // FA-Q10: a goblin's swing box (the Engineer's is a ram, unknown).
+                swing_x: (g.kind == crate::goblin::GoblinKind::Common).then(|| {
+                    let b = g.swing_box();
+                    (b.left, b.right())
+                }),
             });
         }
         if self.llama_targets_live().is_some() {
@@ -1447,6 +1474,7 @@ impl CombatState {
                     aimed_at: Some(HeroId::Carl),
                     guarded: l.guard.is_some(),
                     in_view: view.in_view(l.x),
+                    swing_x: None,
                 });
             }
         }
