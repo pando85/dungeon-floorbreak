@@ -602,7 +602,11 @@ pub fn check_descriptor(
     carl: CarlProgFlags,
     donut: DonutProgFlags,
 ) -> Result<(), String> {
-    manifest.room(room)?;
+    // PTG-AD1: the Hoarder is unlisted (no `--f01-room hoarder`), but `--scene f01_hoarder` still
+    // launches and records it (no loadout label), so such a session must keep verifying.
+    if !(room == "hoarder" && loadout.is_none()) {
+        manifest.room(room)?;
+    }
     if let Some(label) = loadout {
         let known = Loadout::parse(label).ok_or_else(|| format!("unknown loadout {label:?}"))?;
         if !known.matches(carl, donut) {
@@ -676,6 +680,19 @@ mod tests {
                 "{unlisted}"
             );
         }
+    }
+
+    /// PTG-AD1: a recorded `--scene f01_hoarder` session (no loadout label) still
+    /// has a consistent descriptor; the unlisted room under a loadout label does not.
+    #[test]
+    fn the_unlisted_hoarders_direct_descriptor_is_consistent_and_a_loadout_label_is_not() {
+        let m = manifest();
+        let flags = (CarlProgFlags::default(), DonutProgFlags::default());
+        assert!(check_descriptor(&m, "hoarder", None, flags.0, flags.1).is_ok());
+        let error = check_descriptor(&m, "hoarder", Some("story"), flags.0, flags.1)
+            .expect_err("a loadout on the unlisted room");
+        assert!(error.starts_with("unlisted room"), "{error}");
+        assert!(check_descriptor(&m, "corral", None, flags.0, flags.1).is_err());
     }
 
     // ---- KR12: the story-order pin test

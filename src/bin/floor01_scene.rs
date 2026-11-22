@@ -10181,15 +10181,14 @@ mod tests {
         // An unknown or unlisted room names the listed rooms; a bad loadout fails.
         let error = refused(&["--f01-room", "cellar"]);
         assert!(
-            error.contains("unknown room")
-                && error.contains("hoarder, boiler, hazards, juicer, mastery"),
+            error.contains("unknown room") && error.contains("boiler, hazards, juicer, mastery"),
             "{error}"
         );
         for unlisted in ["corral", "dozer"] {
             let error = refused(&["--f01-room", unlisted]);
             assert!(
                 error.contains("unlisted room")
-                    && error.contains("hoarder, boiler, hazards, juicer, mastery"),
+                    && error.contains("boiler, hazards, juicer, mastery"),
                 "{error}"
             );
         }
