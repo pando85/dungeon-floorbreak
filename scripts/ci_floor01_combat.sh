@@ -497,8 +497,8 @@ case "$mode" in
     # headless smoke of each room and loadout replays identically twice and names
     # its room; the story loadout of the Boiler differs from the plain room (the
     # pin holds dynamite and Light on Your Feet), and the plain room is unchanged.
-    late_lines() { "$bin" --headless-floor01-smoke --scene f01_late "$@" | grep -E '^(F01_LATE_ENTRY|F01_BOILER_(ENTRY|SMOKE_OK)|COMBAT_STATE)'; }
-    for late_args in "--f01-room boiler" "--f01-room boiler --f01-loadout all" "--f01-room juicer" "--f01-room juicer --f01-loadout all"; do
+    late_lines() { "$bin" --headless-floor01-smoke --scene f01_late "$@" | grep -E '^(F01_LATE_ENTRY|F01_(BOILER|HOARDER|HAZARDS)_(ENTRY|SMOKE_OK)|COMBAT_STATE)'; }
+    for late_args in "--f01-room boiler" "--f01-room boiler --f01-loadout all" "--f01-room juicer" "--f01-room juicer --f01-loadout all" "--f01-room hoarder" "--f01-room hoarder --f01-loadout all" "--f01-room hazards" "--f01-room hazards --f01-loadout all"; do
       # shellcheck disable=SC2086
       late_a="$(late_lines $late_args)"
       # shellcheck disable=SC2086
@@ -521,7 +521,31 @@ case "$mode" in
       echo "the f01_late Boiler did not load enemies=4 engineers=1, or the plain room is not inert" >&2
       exit 1
     fi
-    echo "F01_LATE_HEADLESS_OK: boiler and juicer, story and all, each twice identical"
+    # HRD-A2b and HAZ-A2b: the Hoarder's room (her slot enemy loaded from the
+    # sidecar roster) and the hazard room (two slot slimes, two stickers, two
+    # acid patches) launch from the f01_late story loadout and replay identically
+    # twice; the story loadout differs from the TEST LOADOUT (the pin holds
+    # abilities), and each room's marker names its pin and roster.
+    for room_marker in "hoarder F01_HOARDER_SMOKE_OK slot_enemies=1" "hazards F01_HAZARDS_SMOKE_OK slot_enemies=2"; do
+      read -r slot_room slot_marker slot_count <<<"$room_marker"
+      story_state="$(late_lines --f01-room "$slot_room")"
+      all_state="$(late_lines --f01-room "$slot_room" --f01-loadout all)"
+      if ! grep -q "^$slot_marker .* env=live $slot_count " <<<"$story_state" \
+        || [[ "$(grep '^COMBAT_STATE' <<<"$story_state")" == "$(grep '^COMBAT_STATE' <<<"$all_state")" ]]; then
+        echo "the f01_late $slot_room room did not load its slot roster, or its loadouts are the same run" >&2
+        exit 1
+      fi
+    done
+    # The direct scenes name the same room and replay identically twice.
+    for direct in f01_hoarder:F01_HOARDER f01_hazards:F01_HAZARDS; do
+      direct_a="$("$bin" --headless-floor01-smoke --scene "${direct%%:*}" | grep -E "^(${direct##*:}_(ENTRY|SMOKE_OK)|COMBAT_STATE)")"
+      direct_b="$("$bin" --headless-floor01-smoke --scene "${direct%%:*}" | grep -E "^(${direct##*:}_(ENTRY|SMOKE_OK)|COMBAT_STATE)")"
+      if [[ -z "$direct_a" || "$direct_a" != "$direct_b" ]] || ! grep -q "^${direct##*:}_SMOKE_OK" <<<"$direct_a"; then
+        echo "--scene ${direct%%:*} did not replay identically twice with its OK marker" >&2
+        exit 1
+      fi
+    done
+    echo "F01_LATE_HEADLESS_OK: boiler, hoarder, hazards and juicer, story and all, each twice identical"
     ;;
   render)
     for f in "${fixtures[@]}"; do

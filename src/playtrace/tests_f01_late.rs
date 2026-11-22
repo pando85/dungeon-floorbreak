@@ -1,6 +1,7 @@
 //! PT-SCENE proofs: the descriptor's `f01_room` and `f01_loadout` round-trip
 //! and stay out of every older descriptor, a recorded session of each listed
-//! room (the Boiler and the Juicer, under both loadouts) verifies strict from
+//! room (the Boiler, the Hoarder, the hazard room and the Juicer, under both
+//! loadouts) verifies strict from
 //! its reset descriptor, a relabelled room or loadout is rejected, and the room
 //! pins are scoped to a recording that names a room (U5 of the #207 review).
 //!
@@ -34,7 +35,22 @@ struct RoomRig {
 
 impl RoomRig {
     fn start(base: &Path, room: &str, loadout: Loadout) -> Self {
+        Self::start_seeded(base, room, loadout, None)
+    }
+
+    /// `seed` is `--cf02-seed` (the hazard room and the Boiler take one).
+    fn start_seeded(base: &Path, room: &str, loadout: Loadout, seed: Option<u64>) -> Self {
         let (carl, donut) = loadout.flags();
+        // The live party of a CF02-rules room: `cf02_assist` and the 12-tick swap.
+        let room_party = || {
+            PartyState::new(
+                PartyTuning {
+                    uncontrolled_hero: UncontrolledHero::Companion(ProfileSetId::Cf02Assist),
+                    ..PROVISIONAL_TUNING
+                }
+                .with_cf02_swap(),
+            )
+        };
         let (source, name, cf02, scene, combat, party) = if room == "boiler" {
             // BOIL-E: the story launcher's label means the live roster, the
             // rule the binary and the verifier share.
@@ -43,25 +59,41 @@ impl RoomRig {
                 360,
                 carl,
                 donut,
-                None,
+                seed,
                 crate::f01_boiler::Roster::for_loadout(Some(loadout.name())),
             )
             .expect("the Boiler launches");
-            // The live Boiler party: `cf02_assist` and the 12-tick swap.
-            let party = PartyState::new(
-                PartyTuning {
-                    uncontrolled_hero: UncontrolledHero::Companion(ProfileSetId::Cf02Assist),
-                    ..PROVISIONAL_TUNING
-                }
-                .with_cf02_swap(),
-            );
             (
                 f01_late::SESSION_SOURCE,
                 run.fixture.name,
                 true,
                 scene,
                 combat,
-                party,
+                room_party(),
+            )
+        } else if room == "hoarder" {
+            // HRD-A2b: the one constructor the binary and the verifier share.
+            let (run, scene, combat) = f01_late::hoarder_start(&root(), 360, carl, donut)
+                .expect("the Hoarder's room launches");
+            (
+                f01_late::SESSION_SOURCE,
+                run.fixture.name,
+                true,
+                scene,
+                combat,
+                room_party(),
+            )
+        } else if room == "hazards" {
+            // HAZ-A2b: the same for the hazard room.
+            let (run, scene, combat) = f01_late::hazards_start(&root(), 360, carl, donut, seed)
+                .expect("the hazard room launches");
+            (
+                f01_late::SESSION_SOURCE,
+                run.fixture.name,
+                true,
+                scene,
+                combat,
+                room_party(),
             )
         } else {
             let kit = crate::boss_scene::load_arena(&root()).expect("the boss arena");
@@ -91,9 +123,9 @@ impl RoomRig {
             demo: false,
             demo_beat: 0,
             cf02_rules: cf02,
-            cf02_seed: None,
+            cf02_seed: seed,
             view_height: 360,
-            donut_biscuit: room == "boiler" || donut.implies_biscuit(),
+            donut_biscuit: room != "juicer" || donut.implies_biscuit(),
             carl_prog: carl.prog,
             carl_dynamite: carl.dynamite,
             carl_gauntlet: carl.gauntlet,
@@ -192,11 +224,149 @@ fn a_recorded_boiler_session_verifies_strict() {
     assert_eq!(report.build, "identical");
     let loaded = read_session(&session, false).unwrap();
     assert_eq!(loaded.manifest.reset.f01_room.as_deref(), Some("boiler"));
+    assert_scoped_stamps(&loaded, "boiler");
+}
+
+/// A recording of `room` stamps exactly the room pins that cover it (and the
+/// manifest pin), and none of another room's.
+fn assert_scoped_stamps(loaded: &LoadedSession, room: &str) {
     for key in f01_late::SCOPED_PIN_KEYS {
-        assert!(
+        assert_eq!(
             loaded.manifest.content_hashes.contains_key(key),
-            "{key} is stamped"
+            f01_late::pin_applies(key, Some(room)),
+            "{room}: {key}"
         );
+    }
+}
+
+/// HRD-A2b: a recorded Hoarder session (her slot enemy in the run) verifies
+/// strict under both loadouts, stamps her room pins and the manifest's and not
+/// another room's, and a relabelled room, loadout or seed is another run.
+#[test]
+fn a_recorded_hoarder_session_verifies_strict() {
+    for loadout in [Loadout::Story, Loadout::All] {
+        let dir = TempDir::new("f01-hoarder");
+        let mut rig = RoomRig::start(&dir.0, "hoarder", loadout);
+        assert_eq!(
+            rig.combat.slot_enemies().len(),
+            1,
+            "she spawns from the roster"
+        );
+        rig.walk(900);
+        let manifest = rig.rec.finish("test").expect("finished");
+        let session = dir.0.join(manifest.session_id);
+        let report = verify(&session).unwrap_or_else(|e| panic!("{}: {e}", loadout.name()));
+        assert_eq!(report.ticks, 900);
+        assert_eq!(report.scope, VerifyScope::Full);
+        let loaded = read_session(&session, false).unwrap();
+        assert_eq!(loaded.manifest.reset.name, "f01_hoarder");
+        assert_scoped_stamps(&loaded, "hoarder");
+        // The loadout label is bound to the flags, and the room has no seed.
+        let other = if loadout == Loadout::Story {
+            "all"
+        } else {
+            "story"
+        };
+        tamper_manifest(&session, |m| m.reset.f01_loadout = Some(other.into()));
+        assert_eq!(
+            verify(&session).expect_err("relabelled").code,
+            "rules_mismatch"
+        );
+        tamper_manifest(&session, |m| {
+            m.reset.f01_loadout = Some(loadout.name().into())
+        });
+        verify(&session).expect("restored");
+        tamper_manifest(&session, |m| m.reset.cf02_seed = Some(7));
+        assert_eq!(verify(&session).expect_err("a seed").code, "rules_mismatch");
+    }
+}
+
+/// HAZ-A2b: the same for the hazard room (its goblins take `--cf02-seed`).
+#[test]
+fn a_recorded_hazard_session_verifies_strict() {
+    for loadout in [Loadout::Story, Loadout::All] {
+        let dir = TempDir::new("f01-hazards");
+        let mut rig = RoomRig::start(&dir.0, "hazards", loadout);
+        assert_eq!(
+            rig.combat.slot_enemies().len(),
+            2,
+            "S1 and S2 from the roster"
+        );
+        rig.walk(900);
+        let manifest = rig.rec.finish("test").expect("finished");
+        let session = dir.0.join(manifest.session_id);
+        let report = verify(&session).unwrap_or_else(|e| panic!("{}: {e}", loadout.name()));
+        assert_eq!(report.ticks, 900);
+        let loaded = read_session(&session, false).unwrap();
+        assert_eq!(loaded.manifest.reset.name, "f01_hazards");
+        assert_scoped_stamps(&loaded, "hazards");
+        // The seed is part of the run: a recording made without one does not
+        // verify as seed 7.
+        tamper_manifest(&session, |m| m.reset.cf02_seed = Some(7));
+        assert!(verify(&session).is_err(), "a seed is another run");
+    }
+}
+
+/// Review of #229: `--cf02-seed` is an accepted input of the hazard room on both
+/// sides, so a seeded recording verifies strict, and the seed is part of the run
+/// (dropping or changing it fails).
+#[test]
+fn a_seeded_hazard_session_verifies_strict() {
+    let dir = TempDir::new("f01-hazards-seeded");
+    let mut rig = RoomRig::start_seeded(&dir.0, "hazards", Loadout::Story, Some(7));
+    rig.walk(900);
+    let manifest = rig.rec.finish("test").expect("finished");
+    let session = dir.0.join(manifest.session_id);
+    let report = verify(&session).expect("the seeded session verifies");
+    assert_eq!((report.ticks, report.scope), (900, VerifyScope::Full));
+    let loaded = read_session(&session, false).unwrap();
+    assert_eq!(loaded.manifest.reset.cf02_seed, Some(7));
+    assert_scoped_stamps(&loaded, "hazards");
+    for seed in [None, Some(8)] {
+        tamper_manifest(&session, |m| m.reset.cf02_seed = seed);
+        assert!(verify(&session).is_err(), "seed {seed:?} is another run");
+    }
+    tamper_manifest(&session, |m| m.reset.cf02_seed = Some(7));
+    verify(&session).expect("restored");
+}
+
+/// A room's own pin is required of its recordings: removing one of the room's
+/// pins, or editing its value, fails, and another room's pin never does.
+#[test]
+fn a_hoarder_or_hazard_recording_needs_its_room_pins_and_no_other() {
+    for room in ["hoarder", "hazards"] {
+        let (_dir, session) = record("f01-room-pins", room, Loadout::Story, 200);
+        for key in f01_late::SCOPED_PIN_KEYS {
+            let covers = f01_late::pin_applies(key, Some(room));
+            // A wrong value fails exactly the pins that cover the room.
+            tamper_manifest(&session, |m| {
+                m.content_hashes
+                    .insert(key.to_owned(), "00000000000000ff".into());
+            });
+            let result = verify(&session);
+            assert_eq!(result.is_err(), covers, "{room}: {key}");
+            if let Err(failure) = result {
+                assert_eq!(failure.code, "content_mismatch", "{room} {key}: {failure}");
+                assert!(failure.message.contains(key), "{room} {key}: {failure}");
+            }
+            // Restore the right value.
+            let (_dir2, other) = record("f01-room-pins-restore", room, Loadout::Story, 200);
+            let stamped = read_session(&other, false)
+                .unwrap()
+                .manifest
+                .content_hashes
+                .get(key)
+                .cloned();
+            tamper_manifest(&session, |m| match &stamped {
+                Some(value) => {
+                    m.content_hashes.insert(key.to_owned(), value.clone());
+                }
+                None => {
+                    m.content_hashes.remove(key);
+                }
+            });
+        }
+        verify(&session).expect("restored");
     }
 }
 
@@ -250,7 +420,13 @@ fn a_boiler_session_under_the_all_loadout_verifies() {
 fn a_relabelled_room_is_rejected() {
     let (_dir, session) = record("f01-relabel", "boiler", Loadout::Story, 300);
     // Another listed room, an unlisted one, and no room at all.
-    for room in [Some("juicer"), Some("corral"), None] {
+    for room in [
+        Some("juicer"),
+        Some("hoarder"),
+        Some("hazards"),
+        Some("corral"),
+        None,
+    ] {
         tamper_manifest(&session, |m| m.reset.f01_room = room.map(str::to_owned));
         assert!(verify(&session).is_err(), "{room:?}");
     }
@@ -264,7 +440,10 @@ fn a_relabelled_room_is_rejected() {
 #[test]
 fn a_recording_that_names_a_room_needs_every_room_pin() {
     let (_dir, session) = record("f01-pins", "boiler", Loadout::Story, 300);
-    for key in f01_late::SCOPED_PIN_KEYS {
+    for key in f01_late::SCOPED_PIN_KEYS
+        .into_iter()
+        .filter(|key| f01_late::pin_applies(key, Some("boiler")))
+    {
         tamper_manifest(&session, |m| {
             m.content_hashes.remove(key);
         });
@@ -377,6 +556,8 @@ fn a_session_of_another_source_cannot_claim_a_room() {
     let (_dir, session) = demo_session("f01-claim");
     for (room, loadout) in [
         (Some("boiler"), None),
+        (Some("hoarder"), None),
+        (Some("hazards"), None),
         (Some("juicer"), None),
         (Some("boiler"), Some("story")),
         (Some("juicer"), Some("all")),
@@ -400,7 +581,7 @@ fn a_session_of_another_source_cannot_claim_a_room() {
 }
 
 #[test]
-fn only_the_boiler_and_the_juicer_sessions_may_carry_their_own_room() {
+fn only_the_listed_rooms_sessions_may_carry_their_own_room() {
     let reset = |source: &str, name: &str, room: Option<&str>, loadout: Option<&str>| {
         let mut r = super::tests::reset();
         r.source = source.to_owned();
@@ -419,12 +600,35 @@ fn only_the_boiler_and_the_juicer_sessions_may_carry_their_own_room() {
         Some("story")
     )));
     assert!(ok(&reset("boss", boss_name, Some("juicer"), None)));
+    // HRD-A2b and HAZ-A2b: the two rooms on their own fixtures only.
+    for (room, name) in [("hoarder", "f01_hoarder"), ("hazards", "f01_hazards")] {
+        assert!(ok(&reset(
+            f01_late::SESSION_SOURCE,
+            name,
+            Some(room),
+            Some("story")
+        )));
+        assert!(!ok(&reset(
+            f01_late::SESSION_SOURCE,
+            "f01_boiler",
+            Some(room),
+            None
+        )));
+        assert!(!ok(&reset(
+            f01_late::SESSION_SOURCE,
+            name,
+            Some("boiler"),
+            None
+        )));
+        assert!(!ok(&reset("demo", name, Some(room), None)));
+        assert!(!ok(&reset("boss", boss_name, Some(room), None)));
+    }
     for source in ["demo", "fixture", "boss", "story", "party_fixture"] {
         assert!(ok(&reset(source, "x", None, None)), "{source} unlabelled");
     }
     // `demo` and `fixture` (and the rest) claiming either room, or only a loadout.
     for source in ["demo", "fixture", "story", "party_fixture"] {
-        for room in ["boiler", "juicer"] {
+        for room in ["boiler", "hoarder", "hazards", "juicer"] {
             assert!(
                 !ok(&reset(source, "x", Some(room), None)),
                 "{source} {room}"

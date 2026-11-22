@@ -86,7 +86,7 @@ use dungeon_floorbreak::{
     env_kit::{
         EnvKit, IRect, PieceDraw, animation_frame, parallax_copies, parallax_start, to_world_y,
     },
-    f01_boiler, f01_late,
+    f01_boiler, f01_hazards, f01_hoarder, f01_late,
     feel::{
         HERO_HURT_TICKS, IMPACT_FLASH_TICKS, LLAMA_GLOB_MOUTH_DX, LLAMA_GLOB_MOUTH_DY,
         LLAMA_GLOB_SPEED,
@@ -322,6 +322,17 @@ struct Args {
     refuge_empty: bool,
     /// The launched Boiler room (`main` fills it right after parsing).
     boiler_run: Option<Box<f01_boiler::BoilerRun>>,
+    /// HRD-A2b: `--scene f01_hoarder` (or `--scene f01_late --f01-room hoarder`):
+    /// the Hoarder's room. Like the Boiler it implies `cf02_rules` and is its own
+    /// room, and its boss is a slot enemy loaded from the sidecar roster.
+    f01_hoarder: bool,
+    /// The launched Hoarder room (`main` fills it right after parsing).
+    hoarder_run: Option<Box<f01_hoarder::HoarderRun>>,
+    /// HAZ-A2b: `--scene f01_hazards` (or `--scene f01_late --f01-room hazards`):
+    /// the slime, acid and Rot Sticker pockets, under the same room rules.
+    f01_hazards: bool,
+    /// The launched hazard room (`main` fills it right after parsing).
+    hazards_run: Option<Box<f01_hazards::HazardsRun>>,
     /// PT-SCENE: `--scene f01_late`. It is a launcher: the room (`--f01-room`)
     /// and the loadout (`--f01-loadout`) resolve, once the arguments are read,
     /// to the scene that runs the room (`f01_boiler` or the boss arena) and the
@@ -440,9 +451,16 @@ impl Args {
             || (self.fixture.is_some() && !self.manual)
     }
 
+    /// Whether this run is one of the `f01_late` room scenes with its own room
+    /// (the Boiler, the Hoarder or the hazard room): each implies `cf02_rules`
+    /// without the microarena.
+    fn f01_room_scene(&self) -> bool {
+        self.f01_boiler || self.f01_hoarder || self.f01_hazards
+    }
+
     /// CF02-F: this run is in the microarena (`--cf02`, or a CF02-F room fixture).
     fn arena_room(&self) -> bool {
-        (self.cf02.rules && !self.f01_boiler)
+        (self.cf02.rules && !self.f01_room_scene())
             || self
                 .fixture
                 .is_some_and(|f| cf02::arena::fixture_uses_arena(f.name))
@@ -501,7 +519,7 @@ impl Args {
             return CameraChoice::Scroll;
         }
         self.camera.unwrap_or_else(|| {
-            CameraChoice::default_for(self.demo || self.lab_scene || self.f01_boiler)
+            CameraChoice::default_for(self.demo || self.lab_scene || self.f01_room_scene())
         })
     }
 }
@@ -623,14 +641,21 @@ fn resolve_lab_args(parsed: &mut Args) -> Result<(), String> {
 /// pin applies under `--carl-prog` and `--donut-prog`, and the scene is recorded
 /// by PLAYTRACE since PT-SCENE.
 fn resolve_boiler_args(parsed: &mut Args) -> Result<(), String> {
-    if !parsed.f01_boiler {
+    // HRD-A2b and HAZ-A2b: the Hoarder's and the hazard room's scenes take the
+    // Boiler's argument rules, under their own scene name and room id.
+    let (scene, room) = if parsed.f01_boiler {
+        (f01_boiler::SCENE_NAME, "boiler")
+    } else if parsed.f01_hoarder {
+        (f01_hoarder::SCENE_NAME, "hoarder")
+    } else if parsed.f01_hazards {
+        (f01_hazards::SCENE_NAME, "hazards")
+    } else {
         return Ok(());
-    }
+    };
     if parsed.cf02.rules {
-        return Err(
-            "--scene f01_boiler already implies cf02_rules: drop --cf02 (it selects the microarena)"
-                .into(),
-        );
+        return Err(format!(
+            "--scene {scene} already implies cf02_rules: drop --cf02 (it selects the microarena)"
+        ));
     }
     if parsed.cf02_engineer
         || parsed.demo
@@ -642,16 +667,22 @@ fn resolve_boiler_args(parsed: &mut Args) -> Result<(), String> {
         || parsed.camera_test_room.is_some()
         || parsed.reference_frame
     {
-        return Err("--scene f01_boiler replaces --demo, --cf02, --cf02-engineer, --autopilot, --demo-beat, --fixture, --party-fixture, --scenario, --camera-test-room and --reference-frame (it is its own room)".into());
+        return Err(format!(
+            "--scene {scene} replaces --demo, --cf02, --cf02-engineer, --autopilot, --demo-beat, --fixture, --party-fixture, --scenario, --camera-test-room and --reference-frame (it is its own room)"
+        ));
     }
-    // PT-SCENE: the room has a replay source (`f01_late::boiler_start`), so it
-    // records like every live room.
-    parsed.f01_room.get_or_insert_with(|| "boiler".to_owned());
+    if parsed.f01_hoarder && parsed.cf02.seed.is_some() {
+        return Err("--scene f01_hoarder takes no --cf02-seed: the room has no goblin to draw a temperament for".into());
+    }
+    // PT-SCENE: the room has a replay source (`f01_late::boiler_start`,
+    // `hoarder_start`, `hazards_start`), so it records like every live room.
+    parsed.f01_room.get_or_insert_with(|| room.to_owned());
     parsed.cf02.rules = true;
     // The launch builds the real fixture; a placeholder keeps the generic
     // argument rules (`driven`) honest until then, like the lab.
     parsed.fixture = Some(&PENDING_FIXTURE);
-    // The post-Hoarder state: Donut holds the biscuit with a full pool.
+    // The post-Hoarder state: Donut holds the biscuit with a full pool (the
+    // Hoarder's room is the post-corral state, with the biscuit held too).
     parsed.donut_biscuit = true;
     // A live run without a script is the player's.
     parsed.manual = !(parsed.headless
@@ -758,6 +789,8 @@ fn resolve_f01_late_args(parsed: &mut Args) -> Result<(), String> {
     parsed.donut_biscuit |= parsed.donut.implies_biscuit();
     match row.scene {
         f01_late::RoomScene::Boiler => parsed.f01_boiler = true,
+        f01_late::RoomScene::Hoarder => parsed.f01_hoarder = true,
+        f01_late::RoomScene::Hazards => parsed.f01_hazards = true,
         f01_late::RoomScene::Boss => {
             parsed.boss = true;
             parsed.fixture = Some(boss_scene::BOSS01_SCENE);
@@ -1118,6 +1151,10 @@ fn parse_args_full(
         refuge: false,
         refuge_empty: false,
         boiler_run: None,
+        f01_hoarder: false,
+        hoarder_run: None,
+        f01_hazards: false,
+        hazards_run: None,
         f01_late: false,
         f01_room: None,
         f01_loadout: None,
@@ -1225,15 +1262,15 @@ fn parse_args_full(
             "--scene" => {
                 let value = iter
                     .next()
-                    .ok_or("--scene needs a name (boss_f01, combat_lab, f01_boiler, f01_late, refuge_guild)")?;
+                    .ok_or("--scene needs a name (boss_f01, combat_lab, f01_boiler, f01_hoarder, f01_hazards, f01_late, refuge_guild)")?;
                 if parsed.boss
                     || parsed.lab_scene
-                    || parsed.f01_boiler
+                    || parsed.f01_room_scene()
                     || parsed.f01_late
                     || parsed.refuge
                 {
                     return Err(
-                        "--scene takes one scene: boss_f01, combat_lab, f01_boiler, f01_late and refuge_guild are exclusive"
+                        "--scene takes one scene: boss_f01, combat_lab, f01_boiler, f01_hoarder, f01_hazards, f01_late and refuge_guild are exclusive"
                             .into(),
                     );
                 }
@@ -1249,11 +1286,13 @@ fn parse_args_full(
                     }
                     "combat_lab" => parsed.lab_scene = true,
                     f01_boiler::SCENE_NAME => parsed.f01_boiler = true,
+                    f01_hoarder::SCENE_NAME => parsed.f01_hoarder = true,
+                    f01_hazards::SCENE_NAME => parsed.f01_hazards = true,
                     f01_late::SCENE_NAME => parsed.f01_late = true,
                     refuge::SCENE_NAME => parsed.refuge = true,
                     _ => {
                         return Err(format!(
-                            "unknown scene {value:?} (expected boss_f01, combat_lab, f01_boiler, f01_late, refuge_guild)"
+                            "unknown scene {value:?} (expected boss_f01, combat_lab, f01_boiler, f01_hoarder, f01_hazards, f01_late, refuge_guild)"
                         ));
                     }
                 }
@@ -1421,7 +1460,7 @@ fn parse_args_full(
     if parsed.cf02.seed.is_some() && !parsed.cf02.rules && !parsed.lab_scene {
         return Err("--cf02-seed needs --cf02 (or --scene combat_lab)".into());
     }
-    if parsed.cf02.rules && !parsed.f01_boiler {
+    if parsed.cf02.rules && !parsed.f01_room_scene() {
         // CF02-F: `--cf02` is the microarena. It runs on the DEMO machinery (the
         // checkpoint respawn, the Select tap and hold, the autopilot flag), with
         // the arena's own room, fixture and rules. `--scene f01_boiler` implies
@@ -1835,6 +1874,18 @@ fn build_scene(
         // the post-biscuit Donut, the legacy rules); nothing of it is rebuilt.
         let (mut sim, mut combat) = if let Some(run) = &args.lab_run {
             (run.scene.clone(), run.combat.clone())
+        } else if let Some(run) = &args.hoarder_run {
+            // HRD-A2b: the Hoarder spawns from the sidecar roster (ENEMY-SLOT);
+            // the library builds the whole state, the verifier's constructor.
+            let mut sim = SceneSim::new_at(kit, view_height(args.deck), fixture.carl_x)?;
+            let combat = f01_hoarder::combat(run, &mut sim, args.carl, args.donut)?;
+            (sim, combat)
+        } else if let Some(run) = &args.hazards_run {
+            // HAZ-A2b: the slimes, stickers and acid, the same way.
+            let mut sim = SceneSim::new_at(kit, view_height(args.deck), fixture.carl_x)?;
+            let combat =
+                f01_hazards::combat_for(run, &mut sim, args.carl, args.donut, args.cf02.seed)?;
+            (sim, combat)
         } else {
             let sim = SceneSim::new_at(kit, view_height(args.deck), fixture.carl_x)?;
             let combat = CombatState::new(fixture, kit, &sim)?
@@ -1843,7 +1894,10 @@ fn build_scene(
                 .map_err(|e| e.to_string())?;
             (sim, combat)
         };
-        if let Some(run) = &args.boiler_run {
+        if args.hoarder_run.is_some() || args.hazards_run.is_some() {
+            // HRD-A2b and HAZ-A2b: the library built the state with its rules,
+            // env and slot. A builder run after the slot would reset the attempt.
+        } else if let Some(run) = &args.boiler_run {
             // BOIL-B/C wire: the sidecar's props and hazards are live.
             combat = combat
                 .with_demo(run.rules)
@@ -1856,7 +1910,7 @@ fn build_scene(
         }
         // COMBAT-FUN-02: `--cf02` runs the CF02 rules, llama targets (C1)
         // included (every `cf02_*` fixture already does, by its name).
-        if args.cf02.rules {
+        if args.cf02.rules && args.hoarder_run.is_none() && args.hazards_run.is_none() {
             combat = combat.with_cf02().with_cf02_seed(args.cf02.seed);
         }
         let (mut anim, mut death) = combat_presentation(actors, root, args, &sim, &combat, hud)?;
@@ -2256,6 +2310,34 @@ fn main() -> ExitCode {
             }
         }
     }
+    // HRD-A2b: load the Hoarder's room and its sidecar.
+    if args.f01_hoarder {
+        match f01_hoarder::launch(&root) {
+            Ok(run) => {
+                println!("{}", f01_hoarder::entry_line(&run));
+                args.fixture = Some(run.fixture);
+                args.hoarder_run = Some(Box::new(run));
+            }
+            Err(error) => {
+                eprintln!("floor01_scene: {error}");
+                return ExitCode::from(2);
+            }
+        }
+    }
+    // HAZ-A2b: load the hazard room and its sidecar.
+    if args.f01_hazards {
+        match f01_hazards::launch(&root) {
+            Ok(run) => {
+                println!("{}", f01_hazards::entry_line(&run));
+                args.fixture = Some(run.fixture);
+                args.hazards_run = Some(Box::new(run));
+            }
+            Err(error) => {
+                eprintln!("floor01_scene: {error}");
+                return ExitCode::from(2);
+            }
+        }
+    }
     // PTR-R1: open the recording before anything else; a recording the viewer
     // cannot show opens no window.
     let prepared = if args.replay.is_some() {
@@ -2271,6 +2353,10 @@ fn main() -> ExitCode {
     } else if let Some(run) = &args.lab_run {
         Ok(run.kit.clone())
     } else if let Some(run) = &args.boiler_run {
+        Ok(run.kit.clone())
+    } else if let Some(run) = &args.hoarder_run {
+        Ok(run.kit.clone())
+    } else if let Some(run) = &args.hazards_run {
         Ok(run.kit.clone())
     } else if args.refuge {
         refuge::load(&root).map(|(kit, _)| kit)
@@ -3049,6 +3135,12 @@ fn recording_manifest(
     } else if args.f01_boiler {
         // PT-SCENE: the Boiler has its own replay source.
         (f01_late::SESSION_SOURCE, f01_boiler::SCENE_NAME)
+    } else if args.f01_hoarder {
+        // HRD-A2b: the Hoarder's room records under the same source.
+        (f01_late::SESSION_SOURCE, f01_hoarder::SCENE_NAME)
+    } else if args.f01_hazards {
+        // HAZ-A2b: so does the hazard room.
+        (f01_late::SESSION_SOURCE, f01_hazards::SCENE_NAME)
     } else if args.demo {
         ("demo", args.fixture.map_or("", |f| f.name))
     } else if args.boss {
@@ -4774,7 +4866,8 @@ fn fixed_step(
     // DEMO-01 live run: Select tap respawns, Select held for a second restarts
     // the demo (R on the keyboard is the same button).
     let mut respawn = false;
-    if (setup.args.demo || setup.args.lab_scene || setup.args.f01_boiler) && setup.args.manual {
+    if (setup.args.demo || setup.args.lab_scene || setup.args.f01_room_scene()) && setup.args.manual
+    {
         restart = false;
         let down = keys.pressed(KeyCode::KeyR) || controls.select_held || select_tap;
         match controls.select.tick(down) {
@@ -4908,7 +5001,7 @@ fn fixed_step(
         if respawned {
             println!("DEMO01_RESPAWN checkpoint={}", combat.checkpoint);
         }
-        if setup.args.f01_boiler {
+        if setup.args.f01_room_scene() {
             // BOIL-A wire: nothing to announce yet (the exit is the room's own).
         } else if setup.args.cf02.rules {
             // CF02-F: the room is one beat; the exit opens when all six enemies
@@ -7489,6 +7582,9 @@ fn headless_smoke(kit: &EnvKit, args: &Args, actors: &Actors, root: &Path) -> Re
     if let Some(run) = &args.boiler_run {
         return headless_boiler(kit, args, actors, root, run);
     }
+    if args.hoarder_run.is_some() || args.hazards_run.is_some() {
+        return headless_slot_room(kit, args, actors, root);
+    }
     if args.demo || args.arena_room() {
         // The demo hall and the CF02 microarena have no exit and a different
         // spawn: the story-run checks below do not apply. Replay the fixture.
@@ -7593,6 +7689,61 @@ fn headless_boiler(
     println!(
         "F01_BOILER_SMOKE_OK ticks={} checkpoint={} complete=true pin={} env=live roster_inert=true",
         sim.world.tick, combat.checkpoint, run.loaded.encounter.story_pin
+    );
+    Ok(())
+}
+
+/// HRD-A2b and HAZ-A2b: the smoke of the Hoarder's room and the hazard room. The
+/// scene is built through the library constructor (the verifier's) and run for
+/// the room's smoke ticks on the real scene and combat state under `cf02_rules`;
+/// it prints `F01_HOARDER_SMOKE_OK` or `F01_HAZARDS_SMOKE_OK` with the pin, the
+/// slot roster and the state hash, and the CI line replays it twice. Neither
+/// scripted walk is a fighter, so neither smoke claims the room is cleared.
+fn headless_slot_room(
+    kit: &EnvKit,
+    args: &Args,
+    actors: &Actors,
+    root: &Path,
+) -> Result<(), String> {
+    let (label, marker, pin, ticks) = if let Some(run) = &args.hoarder_run {
+        (
+            "hoarder",
+            "F01_HOARDER_SMOKE_OK",
+            run.loaded.encounter.story_pin.clone(),
+            f01_hoarder::SMOKE_TICKS,
+        )
+    } else if let Some(run) = &args.hazards_run {
+        (
+            "hazards",
+            "F01_HAZARDS_SMOKE_OK",
+            run.loaded.encounter.story_pin.clone(),
+            f01_hazards::SMOKE_TICKS,
+        )
+    } else {
+        return Err("no room".into());
+    };
+    println!(
+        "FLOOR1_HEADLESS_OK: {label} room {} tiles, {} pieces, {} merged solids",
+        kit.tiles.len(),
+        kit.pieces.len(),
+        kit.solid_rects.len()
+    );
+    let mut args = args.clone();
+    args.capture_tick.get_or_insert(ticks);
+    let mut hud = new_hud(&args, kit, actors);
+    let (sim, anim, combat, _death, _party) = build_scene(kit, &args, actors, root, &mut hud)?;
+    let mut combat = combat.ok_or("the room fixture has no combat state")?;
+    print_combat_events(&mut combat, None, None);
+    println!("{}", sim.state_line());
+    println!("{}", anim.state_line(sim.world.tick));
+    print_combat_state(&sim, &anim, &combat);
+    println!(
+        "{marker} ticks={} checkpoint={} pin={pin} env=live slot_enemies={} enemies={} state_hash={:#018x}",
+        sim.world.tick,
+        combat.checkpoint,
+        combat.slot_enemies().len(),
+        combat.enemies.len(),
+        combat.state_hash(&sim),
     );
     Ok(())
 }
@@ -9179,6 +9330,146 @@ mod tests {
         assert!(args(&["--scene", "boss_f01"]).unwrap().f01_room.is_none());
     }
 
+    /// HRD-A2b and HAZ-A2b: the Hoarder's room and the hazard room are listed
+    /// rooms of `--scene f01_late` and scenes of their own. Each implies
+    /// `cf02_rules` like the Boiler (no microarena, no demo), names its room,
+    /// records by default, and refuses what replaces it.
+    #[test]
+    fn the_slot_room_scenes_resolve_like_the_boiler() {
+        for (room, direct) in [("hoarder", "f01_hoarder"), ("hazards", "f01_hazards")] {
+            let late = args(&["--scene", "f01_late", "--f01-room", room]).unwrap();
+            assert!(late.f01_late && late.cf02.rules && !late.demo && !late.f01_boiler);
+            assert_eq!(late.f01_hoarder, room == "hoarder");
+            assert_eq!(late.f01_hazards, room == "hazards");
+            assert_eq!(late.f01_room.as_deref(), Some(room));
+            assert_eq!(late.f01_loadout, Some(f01_late::Loadout::Story));
+            assert!(late.carl.prog && late.donut.prog && late.donut_biscuit);
+            assert!(late.recording_enabled());
+            assert!(!late.arena_room(), "no microarena");
+            // The TEST LOADOUT holds no program flag.
+            let all = args(&[
+                "--scene",
+                "f01_late",
+                "--f01-room",
+                room,
+                "--f01-loadout",
+                "all",
+            ])
+            .unwrap();
+            assert!(all.carl.dynamite && all.donut.puddle && !all.carl.prog);
+            // The direct scene names the room and no loadout.
+            let direct_args = args(&["--scene", direct]).unwrap();
+            assert_eq!(direct_args.f01_room.as_deref(), Some(room));
+            assert!(direct_args.f01_loadout.is_none() && direct_args.cf02.rules);
+            assert!(direct_args.recording_enabled());
+            assert!(
+                !args(&["--scene", direct, "--no-record"])
+                    .unwrap()
+                    .recording_enabled()
+            );
+            // What the scene replaces is refused, with its own scene name.
+            let error = args(&["--scene", direct, "--cf02"]).expect_err("--cf02");
+            assert!(
+                error.contains(direct) && error.contains("drop --cf02"),
+                "{error}"
+            );
+            for flag in ["--demo", "--autopilot", "--cf02-engineer"] {
+                assert!(args(&["--scene", direct, flag]).is_err(), "{direct} {flag}");
+            }
+            for other in ["boss_f01", "combat_lab", "f01_boiler", "f01_late"] {
+                assert!(args(&["--scene", direct, "--scene", other]).is_err());
+                assert!(args(&["--scene", other, "--scene", direct]).is_err());
+            }
+        }
+        // The two scenes are exclusive of each other.
+        assert!(args(&["--scene", "f01_hoarder", "--scene", "f01_hazards"]).is_err());
+        // The Hoarder's room has no goblin, so no seed; the hazard room's goblins
+        // take one.
+        for list in [
+            &["--scene", "f01_hoarder", "--cf02-seed", "7"][..],
+            &[
+                "--scene",
+                "f01_late",
+                "--f01-room",
+                "hoarder",
+                "--cf02-seed",
+                "7",
+            ][..],
+        ] {
+            assert!(args(list).expect_err("a seed").contains("no --cf02-seed"));
+        }
+        assert_eq!(
+            args(&["--scene", "f01_hazards", "--cf02-seed", "7"])
+                .unwrap()
+                .cf02
+                .seed,
+            Some(7)
+        );
+        // A bare `--scene f01_late` still launches the Boiler (HRDA2B-AD1).
+        let bare = args(&["--scene", "f01_late"]).unwrap();
+        assert!(bare.f01_boiler && !bare.f01_hoarder && !bare.f01_hazards);
+        // Unlisted rooms stay refused with the listed ones named.
+        let error = args(&["--scene", "f01_late", "--f01-room", "dozer"]).expect_err("unlisted");
+        assert!(
+            error.contains("hoarder, boiler, hazards, juicer"),
+            "{error}"
+        );
+        // No other run sets either scene.
+        assert!(!args(&["--cf02"]).unwrap().f01_room_scene());
+        assert!(!args(&["--scene", "boss_f01"]).unwrap().f01_room_scene());
+    }
+
+    /// The binary's start state of each slot room is the one the verifier's
+    /// constructors build (the same library builders): `build_scene` builds nothing of its own for them and runs
+    /// no builder after the slot (a reset after the slot would mark the Hoarder
+    /// as retried), so the smoke's tick-0 hash is the verifier's.
+    #[test]
+    fn the_slot_rooms_binary_state_is_the_verifiers_constructor() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let actors =
+            Actors::load(root, FrameSource::GridSource, true, false, false, false).unwrap();
+        // The Story loadout, the TEST LOADOUT and (hazard room) a seed (review of #229).
+        let cases: [(&str, &[&str]); 5] = [
+            ("hoarder", &[]),
+            ("hoarder", &["--f01-loadout", "all"]),
+            ("hazards", &[]),
+            ("hazards", &["--f01-loadout", "all"]),
+            ("hazards", &["--cf02-seed", "7"]),
+        ];
+        for (room, extra) in cases {
+            let mut list = vec!["--scene", "f01_late", "--f01-room", room];
+            list.extend_from_slice(extra);
+            let mut run = args(&list).unwrap();
+            let (library, scene_hash) = if room == "hoarder" {
+                let launched = f01_hoarder::launch(root).unwrap();
+                run.fixture = Some(launched.fixture);
+                run.hoarder_run = Some(Box::new(launched));
+                let (_, scene, combat) =
+                    f01_late::hoarder_start(root, 360, run.carl, run.donut).unwrap();
+                (combat.state_hash(&scene), scene.world.state_hash())
+            } else {
+                let launched = f01_hazards::launch(root).unwrap();
+                run.fixture = Some(launched.fixture);
+                run.hazards_run = Some(Box::new(launched));
+                let (_, scene, combat) =
+                    f01_late::hazards_start(root, 360, run.carl, run.donut, run.cf02.seed).unwrap();
+                (combat.state_hash(&scene), scene.world.state_hash())
+            };
+            let kit = run
+                .hoarder_run
+                .as_ref()
+                .map(|r| r.kit.clone())
+                .or_else(|| run.hazards_run.as_ref().map(|r| r.kit.clone()))
+                .unwrap();
+            let mut hud = new_hud(&run, &kit, &actors);
+            let (sim, _, combat, _, _) = build_scene(&kit, &run, &actors, root, &mut hud).unwrap();
+            let combat = combat.expect("a combat state");
+            assert_eq!(combat.state_hash(&sim), library, "{room} {extra:?}");
+            assert_eq!(sim.world.state_hash(), scene_hash, "{room} {extra:?}");
+            assert!(!combat.slot_enemies().is_empty(), "{room} {extra:?}");
+        }
+    }
+
     /// PT-SCENE: `--scene f01_late` resolves a room and a loadout into the scene
     /// that runs the room and the loadout's flags.
     #[test]
@@ -9290,13 +9581,14 @@ mod tests {
         // An unknown or unlisted room names the listed rooms; a bad loadout fails.
         let error = refused(&["--f01-room", "cellar"]);
         assert!(
-            error.contains("unknown room") && error.contains("boiler, juicer"),
+            error.contains("unknown room") && error.contains("hoarder, boiler, hazards, juicer"),
             "{error}"
         );
-        for unlisted in ["corral", "hoarder", "hazards", "dozer", "mastery"] {
+        for unlisted in ["corral", "dozer", "mastery"] {
             let error = refused(&["--f01-room", unlisted]);
             assert!(
-                error.contains("unlisted room") && error.contains("boiler, juicer"),
+                error.contains("unlisted room")
+                    && error.contains("hoarder, boiler, hazards, juicer"),
                 "{error}"
             );
         }
@@ -9315,6 +9607,10 @@ mod tests {
             let run = args(list).unwrap();
             let kit = if run.f01_boiler {
                 f01_boiler::launch(root).unwrap().kit
+            } else if run.f01_hoarder {
+                f01_hoarder::launch(root).unwrap().kit
+            } else if run.f01_hazards {
+                f01_hazards::launch(root).unwrap().kit
             } else {
                 boss_scene::load_arena(root).unwrap()
             };
@@ -9343,6 +9639,28 @@ mod tests {
         assert_eq!(juicer.reset.f01_room.as_deref(), Some("juicer"));
         assert_eq!(juicer.reset.f01_loadout.as_deref(), Some("all"));
         assert!(juicer.reset.carl_dynamite && juicer.reset.donut_puddle && !juicer.reset.carl_prog);
+        // HRD-A2b and HAZ-A2b: the two rooms record under the Boiler's source with
+        // their own fixture names (the names the verifier's source rule binds).
+        for (room, name) in [("hoarder", "f01_hoarder"), ("hazards", "f01_hazards")] {
+            let m = manifest_of(&["--scene", "f01_late", "--f01-room", room]);
+            assert_eq!(m.reset.source, f01_late::SESSION_SOURCE, "{room}");
+            assert_eq!(m.reset.name, name, "{room}");
+            assert_eq!(m.reset.f01_room.as_deref(), Some(room));
+            assert_eq!(m.reset.f01_loadout.as_deref(), Some("story"));
+            assert!(m.reset.carl_prog && m.reset.donut_prog && m.reset.cf02_rules);
+            assert!(m.reset.donut_biscuit && m.reset.cf02_seed.is_none());
+            assert_eq!(
+                m.feature_flags.get("f01_room").map(String::as_str),
+                Some(room)
+            );
+            // Her room pins are stamped, the Boiler's are not (scoped by room).
+            assert!(m.content_hashes.contains_key(if room == "hoarder" {
+                f01_hoarder::ROOM_PIN_KEY
+            } else {
+                f01_hazards::ROOM_PIN_KEY
+            }));
+            assert!(!m.content_hashes.contains_key(f01_boiler::ROOM_PIN_KEY));
+        }
         // A direct Boiler launch names the room and no loadout; a legacy run neither.
         let direct = manifest_of(&["--scene", "f01_boiler", "--carl-prog"]);
         assert_eq!(direct.reset.f01_room.as_deref(), Some("boiler"));

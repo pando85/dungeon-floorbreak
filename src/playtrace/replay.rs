@@ -325,10 +325,11 @@ fn rebuild_scene(manifest: &SessionManifest, root: &Path) -> Result<Reset, Verif
     }
 }
 
-/// PT-SCENE: the room label is bound to the session source. Only a Boiler
-/// session (source `f01_room`, room `boiler`, fixture `f01_boiler`) and a Juicer
-/// session (source `boss`, room `juicer`, the boss scene's fixture) may carry a
-/// room, and the `f01_room` source needs one. A `--cf02`, `demo`, `fixture`,
+/// PT-SCENE: the room label is bound to the session source. Only a Boiler,
+/// Hoarder or hazard-room session (source `f01_room`, the room and its own
+/// fixture name: `boiler` / `f01_boiler`, `hoarder` / `f01_hoarder`, `hazards` /
+/// `f01_hazards`) and a Juicer session (source `boss`, room `juicer`, the boss
+/// scene's fixture) may carry a room, and the `f01_room` source needs one. A `--cf02`, `demo`, `fixture`,
 /// party-fixture, story or lab session that claims a room is another run
 /// wearing a label.
 pub(super) fn check_f01_source(
@@ -339,9 +340,11 @@ pub(super) fn check_f01_source(
     let labelled = room.is_some() || reset.f01_loadout.is_some();
     match (reset.source.as_str(), room) {
         (crate::f01_late::SESSION_SOURCE, Some("boiler")) if reset.name == "f01_boiler" => Ok(()),
+        (crate::f01_late::SESSION_SOURCE, Some("hoarder")) if reset.name == "f01_hoarder" => Ok(()),
+        (crate::f01_late::SESSION_SOURCE, Some("hazards")) if reset.name == "f01_hazards" => Ok(()),
         ("boss", Some("juicer")) if reset.name == crate::boss_scene::BOSS01_SCENE.name => Ok(()),
         (crate::f01_late::SESSION_SOURCE, _) => Err(bad(
-            "the f01_room source replays the boiler room only".to_owned(),
+            "the f01_room source replays the boiler, hoarder and hazards rooms only".to_owned(),
         )),
         (source, _) if labelled => Err(bad(format!(
             "a {source:?} session named {:?} cannot carry the room label {room:?}",
@@ -384,16 +387,19 @@ fn check_f01_label(
         .map_err(|e| VerifyFailure::new("rules_mismatch", e))
 }
 
-/// PT-SCENE: rebuild tick 0 of the Boiler from its descriptor, through the one
-/// constructor the scene uses (`f01_late::boiler_start`).
+/// PT-SCENE: rebuild tick 0 of a late-Floor-1 room (the Boiler; HRD-A2b the
+/// Hoarder; HAZ-A2b the hazard room) from its descriptor, through the one
+/// constructor the scene uses (`f01_late::boiler_start_with`, `hoarder_start`,
+/// `hazards_start`).
 fn rebuild_f01_room(manifest: &SessionManifest, root: &Path) -> Result<Reset, VerifyFailure> {
     let reset = &manifest.reset;
     check_f01_label(reset, root)?;
-    if reset.f01_room.as_deref() != Some("boiler") || !reset.cf02_rules || reset.demo {
+    let room = reset.f01_room.as_deref();
+    if !matches!(room, Some("boiler" | "hoarder" | "hazards")) || !reset.cf02_rules || reset.demo {
         return Err(VerifyFailure::new(
             "unsupported_source",
             format!(
-                "the {} source replays the Boiler room under the CF02 rules",
+                "the {} source replays the Boiler, Hoarder and hazard rooms under the CF02 rules",
                 crate::f01_late::SESSION_SOURCE
             ),
         ));
@@ -408,16 +414,32 @@ fn rebuild_f01_room(manifest: &SessionManifest, root: &Path) -> Result<Reset, Ve
         light_feet: reset.donut_light_feet,
         puddle: reset.donut_puddle,
     };
-    let (_run, scene, combat) = crate::f01_late::boiler_start_with(
-        root,
-        reset.view_height,
-        carl,
-        donut,
-        reset.cf02_seed,
-        // BOIL-E: the story launcher's label means the live roster.
-        crate::f01_boiler::Roster::for_loadout(reset.f01_loadout.as_deref()),
-    )
-    .map_err(|e| VerifyFailure::new("content_mismatch", e))?;
+    if room == Some("hoarder") && reset.cf02_seed.is_some() {
+        // The Hoarder's room has no goblin, so no temperament draw to seed.
+        return Err(VerifyFailure::new(
+            "rules_mismatch",
+            "the hoarder room takes no cf02 seed",
+        ));
+    }
+    let built = match room {
+        Some("hoarder") => crate::f01_late::hoarder_start(root, reset.view_height, carl, donut)
+            .map(|(_, scene, combat)| (scene, combat)),
+        Some("hazards") => {
+            crate::f01_late::hazards_start(root, reset.view_height, carl, donut, reset.cf02_seed)
+                .map(|(_, scene, combat)| (scene, combat))
+        }
+        _ => crate::f01_late::boiler_start_with(
+            root,
+            reset.view_height,
+            carl,
+            donut,
+            reset.cf02_seed,
+            // BOIL-E: the story launcher's label means the live roster.
+            crate::f01_boiler::Roster::for_loadout(reset.f01_loadout.as_deref()),
+        )
+        .map(|(_, scene, combat)| (scene, combat)),
+    };
+    let (scene, combat) = built.map_err(|e| VerifyFailure::new("content_mismatch", e))?;
     Ok(Reset {
         scene,
         combat: Some(combat),
