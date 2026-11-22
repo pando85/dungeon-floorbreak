@@ -52,10 +52,10 @@ At 640x360 a player must see **which object can be hit, where danger will land, 
 ## 4. Visual signatures and animation keys
 
 ### A. Mind Horror — psychological threat without visual obstruction
-Silhouette: unsettling elongated mass, clearly unlike goblins. Keys: idle -> recognizable attack inhale -> directional psychic cone cue -> recover exposed -> stagger/defeat. Communicate Carl's pressure via small character-side stagger cues, not 50% full-screen distortion. Donut stays visible above/behind it.
+Silhouette: clearly readable floating brain/cranial folds with trailing tentacles, unlike every humanoid or Vespa flyer. Keys: inward tentacle-coil warning -> committed psychic lane -> sagging exposed recovery -> real physical stagger/defeat. Communicate Carl's pressure via small character-side stagger cues, not 50% full-screen distortion. Donut stays visible above/behind it.
 
 ### B. Clurichaun marketing army
-Comedic class contrast: tiny overconfident seller with cheap promotional pennant, armored foreman with bureaucratic badge, slingshot projectile with visible flight. Distinct 2-stage attack tells. Never depict recognizable product trademarks or copy real MLM corporate iconography.
+Comedic class contrast: tiny overconfident Clurichaun salesman with cheap promotional pennant, versus the small hovering, officious Laminak consultant elite (foreman gameplay role) with a bureaucratic badge and interruptible alarm; a slingshot projectile has clearly visible flight. Distinct 2-stage attack tells. Never depict recognizable product trademarks or copy real MLM corporate iconography.
 
 ### C. Krakaren Clone
 A very large *occluded* shape behind a ridiculous small corporate dais. Three thick readable limbs, distinct left/center attack silhouettes, a real core and vulnerable recovery. Attacks can span the arena but never disappear against gray-white stone. On defeat, the stage collapses with limited original art fragments and a separate visual swarm.
