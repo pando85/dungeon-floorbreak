@@ -15,4 +15,4 @@ for run in 1 2 3; do
   bash scripts/room_perf.sh boiler chain 950 | grep -v '^log=' >> "$out/perf.txt"
 done
 
-(cd "$out" && sha256sum ./*.gif ./*.png ./*.txt | sed 's# \./# #' > SHA256SUMS)
+(cd "$out" && sha256sum ./*.gif ./*.png ./*.txt ./*.md | grep -v ' ./README.md$' | sed 's# \./# #' > SHA256SUMS)

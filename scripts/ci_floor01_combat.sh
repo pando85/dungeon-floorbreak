@@ -580,6 +580,17 @@ case "$mode" in
       exit 1
     fi
     echo "F01_BOILER_PILOTS_OK: $(wc -l <<<"$pilots") plans, each twice identical and equal to the committed hashes"
+    # PT-GATE-B: the mastery room pilot (src/room_pilots.rs, `mastery`) replays identically twice
+    # (the helper exits non-zero otherwise) and equals the committed final state. Unlike the Boiler
+    # plans it is defeated once on the way (deaths=1) at the room's own seed: that is pinned, not hidden.
+    mastery_pilot="$(BIN="$bin" python3 scripts/room_pilot_hashes.py mastery mastery)"
+    if [[ "$mastery_pilot" != "$(cat docs/evidence/f01-playtest/pilot_hashes_mastery.txt)" ]] \
+      || ! grep -q ' complete=' <<<"$mastery_pilot"; then
+      echo "the mastery room pilot differs from docs/evidence/f01-playtest/pilot_hashes_mastery.txt" >&2
+      echo "$mastery_pilot" >&2
+      exit 1
+    fi
+    echo "F01_MASTERY_PILOT_OK: $mastery_pilot"
     echo "F01_LATE_HEADLESS_OK: boiler, hoarder, hazards, juicer and mastery, story and all, each twice identical"
     ;;
   render)
