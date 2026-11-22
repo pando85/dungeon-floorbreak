@@ -126,6 +126,8 @@ mod replay_view;
 mod blink_cues;
 #[path = "floor01_scene/donut_cues.rs"]
 mod donut_cues;
+#[path = "floor01_scene/env_prop_art.rs"]
+mod env_prop_art;
 
 /// Draw order above the actor plane. Carl is drawn above every goblin, except
 /// that a goblin in its smear or impact is drawn over him (its club lands on
@@ -2239,7 +2241,10 @@ fn main() -> ExitCode {
     }
     // BOIL-A wire: load the Goblin Boiler room and its sidecar, with the pin.
     if args.f01_boiler {
-        match f01_boiler::launch(&root) {
+        // BOIL-E (K16): the story launcher runs the sidecar's roster live; the
+        // plain `--scene f01_boiler` stays the inert greybox.
+        let roster = f01_boiler::Roster::for_loadout(args.f01_loadout.map(|l| l.name()));
+        match f01_boiler::launch_with(&root, roster) {
             Ok(run) => {
                 println!("{}", f01_boiler::entry_line(&run));
                 args.fixture = Some(run.fixture);
@@ -3513,7 +3518,12 @@ fn run_window(
             sync_cf02_acting_visuals,
             sync_carl_throw_visual,
             sync_blast_ring,
-            (donut_cues::sync_donut_cues, blink_cues::sync_blink_cues).chain(),
+            (
+                donut_cues::sync_donut_cues,
+                blink_cues::sync_blink_cues,
+                env_prop_art::sync_prop_art,
+            )
+                .chain(),
             update_lighting,
             watchdog,
             perf_probe,
@@ -4070,6 +4080,18 @@ fn setup(
         // DP-D (DP-Q34): the Puddle Jumper ripples and streak, only where the
         // blink can exist (the same condition as the cues' pool).
         blink_cues::spawn(&mut commands, layers_of("actors"), kit.actor_z + 0.025);
+    }
+
+    // BOIL-E (K10): the Boiler's code-drawn prop stand-ins (valve, steam, brace,
+    // weight, drum, the boiler landmark), only in the room that has props.
+    if let Some(run) = &args.boiler_run {
+        env_prop_art::spawn(
+            &mut commands,
+            run.loaded.encounter.clone(),
+            layers_of("actors"),
+            kit.actor_z,
+            kit.foreground_z,
+        );
     }
 
     // HUD-DEBT-03: the boss, its racks, strut, gate and ripples. Placeholder
@@ -7546,6 +7568,22 @@ fn headless_boiler(
     println!("{}", sim.state_line());
     println!("{}", anim.state_line(sim.world.tick));
     print_combat_state(&sim, &anim, &combat);
+    if run.roster == f01_boiler::Roster::Live {
+        // BOIL-E: the scripted walk is no fighter, so it need not reach the exit
+        // through live goblins. The smoke proves the roster loaded and the run is
+        // deterministic (the CI line replays it twice).
+        let engineers = combat.enemies.iter().filter(|g| g.is_engineer()).count();
+        println!(
+            "F01_BOILER_SMOKE_OK ticks={} checkpoint={} complete={} pin={} env=live roster_inert=false \
+             enemies={} engineers={engineers}",
+            sim.world.tick,
+            combat.checkpoint,
+            sim.world.complete,
+            run.loaded.encounter.story_pin,
+            combat.enemies.len(),
+        );
+        return Ok(());
+    }
     if !sim.world.complete {
         return Err(format!(
             "the scripted walk did not reach the protected exit in {} ticks",
@@ -8428,6 +8466,94 @@ mod tests {
         }
         // The story route never loads him (it has no flag to).
         assert!(!args(&[]).unwrap().cf02_engineer);
+    }
+
+    /// K16 (BOIL-E): the Engineer outside the microarena. The story route,
+    /// `--demo`, plain `--cf02`, the lab (every room, every mode), the boss arena
+    /// and every registered fixture never load him; only a **sidecar roster**
+    /// does, and only the Boiler's story launch (`--scene f01_late`, a live
+    /// roster) names one. The plain `--scene f01_boiler` greybox has no enemy.
+    #[test]
+    fn the_engineer_loads_only_from_a_sidecar_roster_and_the_old_routes_never_load_him() {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let none = |fixture: Option<&dungeon_floorbreak::combat_scene::Fixture>| {
+            fixture.is_none_or(|f| f.engineers.is_empty())
+        };
+        for list in [
+            &[][..],
+            &["--demo"][..],
+            &["--cf02"][..],
+            &["--cf02", "--demo-beat", "1"][..],
+            &["--scene", "boss_f01"][..],
+            &["--scene", "combat_lab"][..],
+            &["--scene", "f01_boiler"][..],
+        ] {
+            let parsed = args(list).unwrap();
+            assert!(
+                none(parsed.fixture),
+                "{list:?} resolved an Engineer fixture"
+            );
+            assert!(!parsed.cf02_engineer, "{list:?}");
+        }
+        for fixture in dungeon_floorbreak::combat_scene::FIXTURES {
+            assert!(fixture.engineers.is_empty(), "{}", fixture.name);
+        }
+        for beat in 0..6 {
+            assert!(demo::fixture_for_beat(beat).engineers.is_empty());
+            assert!(
+                dungeon_floorbreak::cf02::arena::fixture_for_run(
+                    beat,
+                    false,
+                    dungeon_floorbreak::engineer::active()
+                )
+                .engineers
+                .is_empty()
+            );
+        }
+        assert!(boss_scene::BOSS01_SCENE.engineers.is_empty());
+        // The lab: every listed room under every player mode.
+        let catalog = LabCatalog::load(&root).unwrap();
+        let mut launched = 0;
+        for room in catalog.rooms() {
+            for mode in [
+                combat_lab::PlayerMode::SoloCarl,
+                combat_lab::PlayerMode::SoloDonut,
+                combat_lab::PlayerMode::CoopLocal,
+            ] {
+                // A room linked to the boss arena (R06) refuses to launch in the
+                // lab; it has no lab fixture to load an Engineer into.
+                let Ok(run) =
+                    catalog.launch(EntryPoint::CombatLab, &LabConfig::new(&room.id, mode))
+                else {
+                    continue;
+                };
+                launched += 1;
+                assert!(
+                    run.info.fixture.engineers.is_empty(),
+                    "{} {mode:?}",
+                    room.id
+                );
+            }
+        }
+        assert!(
+            launched >= 18,
+            "the lab launched {launched} room and mode runs"
+        );
+        // The only Engineer outside the microarena is the Boiler's live roster.
+        let greybox = f01_boiler::launch(&root).unwrap();
+        assert!(greybox.fixture.engineers.is_empty() && greybox.fixture.enemies.is_empty());
+        let story = f01_boiler::launch_with(&root, f01_boiler::Roster::Live).unwrap();
+        assert_eq!(story.fixture.engineers.len(), 1);
+        let late = args(&["--scene", "f01_late", "--f01-room", "boiler"]).unwrap();
+        assert!(late.f01_boiler && late.f01_loadout.is_some());
+        assert_eq!(
+            f01_boiler::Roster::for_loadout(late.f01_loadout.map(|l| l.name())),
+            f01_boiler::Roster::Live
+        );
+        assert!(
+            !late.cf02_engineer,
+            "--cf02-engineer stays the microarena's"
+        );
     }
 
     /// COMBAT-LAB-01 LAB-00-wire: the lab entry is its own run mode. Story,

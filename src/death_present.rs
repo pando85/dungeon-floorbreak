@@ -1012,6 +1012,11 @@ pub struct Observation<'a> {
     /// DEATH-D: the fixture's QA blast charges (the impact point of an
     /// explosion is read from the one that defeated the goblin).
     pub charges: &'a [BlastCharge],
+    /// BOIL-E: where each env hazard's blow comes from: `(prop, class, x)` with
+    /// x the centre of the hazard's volume (a falling weight's footprint, the
+    /// steam's area, the drum's ring). A body the env defeated is flung away from
+    /// this point, not from the hero. Empty outside a room with props.
+    pub env_origins: &'a [(u16, crate::env_hazard::HazardClass, f32)],
 }
 
 /// Counters for evidence and tests.
@@ -1525,6 +1530,7 @@ impl DeathPresenter {
             let f = s.footprint();
             f.left + f.width / 2.0
         });
+        let env_origins = combat.env().map(|e| e.hazard_origins()).unwrap_or_default();
         let total = combat.dropped_events + combat.events.len();
         let fresh = total
             .saturating_sub(self.seen_events)
@@ -1561,6 +1567,7 @@ impl DeathPresenter {
                 block_x,
                 back_wall: true,
                 charges: &combat.charges,
+                env_origins: &env_origins,
             },
         );
     }
@@ -1744,6 +1751,12 @@ impl DeathPresenter {
             (DefeatCause::ShoreBlock { .. } | DefeatCause::ShoreBlockEdge { .. }, Some(block)) => {
                 block
             }
+            // BOIL-E: a prop's blow comes from its volume, not from the hero.
+            (DefeatCause::Environment { prop, class, .. }, _) => obs
+                .env_origins
+                .iter()
+                .find(|(p, c, _)| *p == prop && *c == class)
+                .map_or(obs.hero_x, |(_, _, x)| *x),
             _ => charge.map_or(obs.hero_x, |c| c.x),
         };
         let away = if (x - from_x).abs() < 0.5 {
@@ -3202,7 +3215,43 @@ mod tests {
             block_x: Some(484.0),
             back_wall: true,
             charges: &[],
+            env_origins: &[],
         }
+    }
+
+    /// BOIL-E (the #212 follow-up): a body the env defeated is flung away from the
+    /// prop's volume, not from the hero. The goblin stands at 600 and the hero at
+    /// 400: with no origin the old rule throws it right (away from the hero), with
+    /// the weight's footprint centre at 816 it goes left, away from the weight, and
+    /// the lookup is keyed on the prop and the class, so another prop's origin is
+    /// not used.
+    #[test]
+    fn boil_e_an_env_death_is_flung_from_the_prop_not_the_hero() {
+        use crate::env_hazard::HazardClass::{FallingMass, Steam};
+        let cause = DefeatCause::Environment {
+            player: Some(0),
+            prop: 1,
+            class: FallingMass,
+        };
+        let away = |origins: &[(u16, crate::env_hazard::HazardClass, f32)]| {
+            let mut p = presenter(GorePreset::Full);
+            let goblins = [goblin_at(600.0)];
+            let ob = Observation {
+                env_origins: origins,
+                ..obs(&goblins)
+            };
+            p.step(&[defeat(1, 0, cause, ForceTier::Heavy)], ob);
+            p.deaths.first().map(|d| d.away)
+        };
+        assert_eq!(away(&[]), Some(1.0), "no origin: from the hero");
+        assert_eq!(away(&[(1, FallingMass, 816.0)]), Some(-1.0));
+        assert_eq!(
+            away(&[(1, FallingMass, 500.0)]),
+            Some(1.0),
+            "the other side"
+        );
+        assert_eq!(away(&[(0, FallingMass, 816.0)]), Some(1.0), "another prop");
+        assert_eq!(away(&[(1, Steam, 816.0)]), Some(1.0), "another class");
     }
 
     /// Run a crush for `ticks` ticks; returns the presenter.
@@ -3971,6 +4020,7 @@ mod tests {
                 block_x: Some(484.0),
                 back_wall: false,
                 charges: &[],
+                env_origins: &[],
             }
         }
         let goblins = [goblin_at(484.0)];
@@ -4569,6 +4619,7 @@ mod tests {
             block_x: Some(484.0),
             back_wall: true,
             charges: &[],
+            env_origins: &[],
         }
     }
 
@@ -5045,6 +5096,7 @@ mod tests {
         let charges = charge_484();
         let ob = Observation {
             charges: &charges,
+            env_origins: &[],
             ..obs(&goblins)
         };
         p.step(&[defeat(60, 0, BLAST_PB, ForceTier::Catastrophic)], ob);
@@ -5307,6 +5359,7 @@ mod tests {
             let charges = charge_484();
             let ob = Observation {
                 charges: &charges,
+                env_origins: &[],
                 ..obs(&goblins)
             };
             // Age 1: the medium splat under the impact (presets 3 and 4).
@@ -5347,6 +5400,7 @@ mod tests {
             let charges = charge_484();
             let ob = Observation {
                 charges: &charges,
+                env_origins: &[],
                 ..obs(&goblins)
             };
             for tick in 0..420 {
@@ -5421,6 +5475,7 @@ mod tests {
         let charges = charge_484();
         let ob = Observation {
             charges: &charges,
+            env_origins: &[],
             ..obs(&goblins)
         };
         let torso = [
@@ -5551,6 +5606,7 @@ mod tests {
             let charges = charge_484();
             let ob = Observation {
                 charges: &charges,
+                env_origins: &[],
                 ..obs(&goblins)
             };
             assert!(!p.hides(0), "before the death");
@@ -5586,6 +5642,7 @@ mod tests {
                 let charges = charge_484();
                 let ob = Observation {
                     charges: &charges,
+                    env_origins: &[],
                     ..obs(&goblins)
                 };
                 p.step(&[defeat(60, 0, cause, force)], ob);
@@ -5608,6 +5665,7 @@ mod tests {
         let charges = charge_484();
         let ob = Observation {
             charges: &charges,
+            env_origins: &[],
             ..obs(&goblins)
         };
         p.step(&[defeat(60, 0, BLAST_RING, ForceTier::Heavy)], ob);
@@ -5726,6 +5784,7 @@ mod tests {
         let charges = charge_484();
         let ob = Observation {
             charges: &charges,
+            env_origins: &[],
             ..obs(&goblins)
         };
         p.step(&[defeat(139, 0, EDGE, ForceTier::Catastrophic)], ob);
@@ -5825,6 +5884,7 @@ mod tests {
             let charges = charge_484();
             let ob = Observation {
                 charges: &charges,
+                env_origins: &[],
                 ..obs(&goblins)
             };
             for _ in 0..420 {
@@ -5854,6 +5914,7 @@ mod tests {
             let charges = charge_484();
             let ob = Observation {
                 charges: &charges,
+                env_origins: &[],
                 ..obs(&goblins)
             };
             assert!(p.draws_goblin(0) && p.draws_goblin(1));
@@ -5904,6 +5965,7 @@ mod tests {
         let charges = charge_484();
         let ob = Observation {
             charges: &charges,
+            env_origins: &[],
             ..obs(&goblins)
         };
         for _ in 0..420 {
@@ -6265,6 +6327,7 @@ mod tests {
             let charges = charge_484();
             let ob = Observation {
                 charges: &charges,
+                env_origins: &[],
                 ..obs(&ob_goblins)
             };
             p.step(&[defeat(60, 0, BLAST_PB, ForceTier::Catastrophic)], ob);

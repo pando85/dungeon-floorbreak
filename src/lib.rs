@@ -59,6 +59,7 @@ pub mod engineer;
 pub mod env_hazard;
 pub mod env_kit;
 pub mod env_prop;
+pub mod env_prop_art;
 pub mod f01_boiler;
 pub mod f01_hazards;
 pub mod f01_hoarder;

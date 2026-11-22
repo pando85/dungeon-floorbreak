@@ -707,6 +707,21 @@ impl EnvRuntime {
         &self.hazards
     }
 
+    /// BOIL-E (presentation): where each prop hazard's blow comes from,
+    /// `(owning prop, class, x)` with x the centre of the volume's rectangle
+    /// (layout px, which equals world x). Read-only: the death presenter flings
+    /// a body the env defeated away from this point.
+    pub fn hazard_origins(&self) -> Vec<(u16, HazardClass, f32)> {
+        self.owners
+            .iter()
+            .filter_map(|(hazard, prop)| {
+                let v = self.hazards.get(*hazard)?;
+                let r = v.rect();
+                Some((*prop, v.spec().class, r.x as f32 + r.w as f32 / 2.0))
+            })
+            .collect()
+    }
+
     /// The CA2-C feed: the telegraphed and active volumes of this tick, plus the
     /// footprint of every falling mass that has been released (the shadow, from
     /// the release to the drop: telegraph; the drop's last ticks: active). The

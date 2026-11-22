@@ -36,8 +36,17 @@ impl RoomRig {
     fn start(base: &Path, room: &str, loadout: Loadout) -> Self {
         let (carl, donut) = loadout.flags();
         let (source, name, cf02, scene, combat, party) = if room == "boiler" {
-            let (run, scene, combat) = f01_late::boiler_start(&root(), 360, carl, donut, None)
-                .expect("the Boiler launches");
+            // BOIL-E: the story launcher's label means the live roster, the
+            // rule the binary and the verifier share.
+            let (run, scene, combat) = f01_late::boiler_start_with(
+                &root(),
+                360,
+                carl,
+                donut,
+                None,
+                crate::f01_boiler::Roster::for_loadout(Some(loadout.name())),
+            )
+            .expect("the Boiler launches");
             // The live Boiler party: `cf02_assist` and the 12-tick swap.
             let party = PartyState::new(
                 PartyTuning {
@@ -189,6 +198,28 @@ fn a_recorded_boiler_session_verifies_strict() {
             "{key} is stamped"
         );
     }
+}
+
+/// BOIL-E: the recorded story run holds the sidecar's four enemies (the Engineer
+/// among them) and still verifies strict, so the live roster is part of the run
+/// the verifier rebuilds.
+#[test]
+fn a_recorded_boiler_session_holds_the_live_roster_and_verifies() {
+    let dir = TempDir::new("f01-boiler-roster");
+    let mut rig = RoomRig::start(&dir.0, "boiler", Loadout::Story);
+    assert_eq!(rig.combat.enemies.len(), 4);
+    assert_eq!(
+        rig.combat
+            .enemies
+            .iter()
+            .filter(|g| g.is_engineer())
+            .count(),
+        1
+    );
+    rig.walk(600);
+    let manifest = rig.rec.finish("test").expect("finished");
+    let session = dir.0.join(manifest.session_id);
+    assert_eq!(verify(&session).expect("verifies").ticks, 600);
 }
 
 #[test]

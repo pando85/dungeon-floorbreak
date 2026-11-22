@@ -408,9 +408,16 @@ fn rebuild_f01_room(manifest: &SessionManifest, root: &Path) -> Result<Reset, Ve
         light_feet: reset.donut_light_feet,
         puddle: reset.donut_puddle,
     };
-    let (_run, scene, combat) =
-        crate::f01_late::boiler_start(root, reset.view_height, carl, donut, reset.cf02_seed)
-            .map_err(|e| VerifyFailure::new("content_mismatch", e))?;
+    let (_run, scene, combat) = crate::f01_late::boiler_start_with(
+        root,
+        reset.view_height,
+        carl,
+        donut,
+        reset.cf02_seed,
+        // BOIL-E: the story launcher's label means the live roster.
+        crate::f01_boiler::Roster::for_loadout(reset.f01_loadout.as_deref()),
+    )
+    .map_err(|e| VerifyFailure::new("content_mismatch", e))?;
     Ok(Reset {
         scene,
         combat: Some(combat),

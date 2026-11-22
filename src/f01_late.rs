@@ -37,7 +37,7 @@ use crate::combat_scene::CombatState;
 use crate::corridor::SceneSim;
 use crate::donut_mana::DonutSetup;
 use crate::donut_prog::DonutProgFlags;
-use crate::f01_boiler::{self, BoilerRun};
+use crate::f01_boiler::{self, BoilerRun, Roster};
 use crate::story_unlock::{Storage, StoryTable};
 
 /// The manifest of the listed rooms.
@@ -494,7 +494,21 @@ pub fn boiler_start(
     donut: DonutProgFlags,
     cf02_seed: Option<u64>,
 ) -> Result<(BoilerRun, SceneSim, CombatState), String> {
-    let run = f01_boiler::launch(root)?;
+    boiler_start_with(root, view_height, carl, donut, cf02_seed, Roster::Inert)
+}
+
+/// [`boiler_start`] with an explicit roster (BOIL-E): the binary's story run and
+/// the PLAYTRACE verifier call it with [`Roster::for_loadout`], so a recording
+/// rebuilds the world it was made in.
+pub fn boiler_start_with(
+    root: &Path,
+    view_height: i32,
+    carl: CarlProgFlags,
+    donut: DonutProgFlags,
+    cf02_seed: Option<u64>,
+    roster: Roster,
+) -> Result<(BoilerRun, SceneSim, CombatState), String> {
+    let run = f01_boiler::launch_with(root, roster)?;
     let mut scene = SceneSim::new_at(&run.kit, view_height, run.fixture.carl_x)?;
     let combat = boiler_combat(&run, &mut scene, carl, donut, cf02_seed)?;
     Ok((run, scene, combat))
