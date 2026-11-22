@@ -88,14 +88,17 @@ fn solo_table(who: Who, pinned: [u64; 9]) {
     assert_eq!(pins, pinned, "{} pins: {pins:#018x?}", who.name());
 }
 
-/// HAZ-09: solo Carl (`cf02_assist` partner) clears at every seed.
+/// HAZ-09: solo Carl (`cf02_assist` partner) clears at every seed. It is the same
+/// route as `haz_room_direct_route` with the Rot kind present, so its nine hashes
+/// equal the first nine of `DIRECT_PINNED`.
 #[test]
 fn haz_room_solo_carl() {
     solo_table(Who::CarlSolo, SOLO_CARL_PINNED);
 }
 
-/// HAZ-09: solo Donut (the swap on tick 90, Carl the AI partner) plays the same
-/// route and clears; no human P2 is needed.
+/// HAZ-09: solo Donut by swap: Carl clears the roster, the pilot swaps on the tick
+/// after the clear and Donut walks to the exit (Carl the AI partner); no human P2
+/// is needed.
 #[test]
 fn haz_room_solo_donut() {
     solo_table(Who::DonutBySwap, SOLO_DONUT_PINNED);
