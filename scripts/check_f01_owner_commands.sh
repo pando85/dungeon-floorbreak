@@ -26,15 +26,17 @@ try() { # expectation(ok|refuse) args...
 }
 S="--scene f01_late --scale 2"
 try ok $S
-for room in boiler hoarder hazards juicer mastery; do try ok $S --f01-room "$room"; done
-for room in corral dozer ring_court ring_split; do try refuse $S --f01-room "$room"; done
+for room in boiler hazards juicer mastery; do try ok $S --f01-room "$room"; done
+# PTG-AD1: the Hoarder is unlisted; its own scene still launches it.
+for room in hoarder corral dozer ring_court ring_split; do try refuse $S --f01-room "$room"; done
+try ok --scene f01_hoarder --scale 2
 try ok $S --f01-room mastery --f01-loadout all
 try ok $S --f01-room boiler --f01-loadout story
-# Plan section 9 lists `--companion cf02_free|cf02_assist` for f01_late, but a room scene is a fixture
-# internally and the launcher refuses the flag with a fixture (CA-22): expected to be refused on this
-# head (a known gap in the README), so the AI partner's free profile is reached through the arena line.
-try refuse $S --f01-room mastery --companion cf02_free
-try refuse $S --f01-room boiler --companion cf02_assist
+# Plan sections 8 and 9: a room scene defaults the AI partner to cf02_free and --companion overrides it
+# (PT-GATE-C1); the placeholder fixture a room scene sets is not a user fixture.
+try ok $S --f01-room mastery --companion cf02_free
+try ok $S --f01-room boiler --companion cf02_assist
+try refuse $S --f01-room mastery --fixture cp01_kick --companion cf02_free
 try ok $S --f01-room boiler --debug-combat
 try ok --cf02 --cf02-engineer --donut-biscuit --scale 2
 try ok --cf02 --cf02-engineer --donut-biscuit --carl-dynamite --scale 2

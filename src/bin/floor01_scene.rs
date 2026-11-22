@@ -326,7 +326,7 @@ struct Args {
     refuge_empty: bool,
     /// The launched Boiler room (`main` fills it right after parsing).
     boiler_run: Option<Box<f01_boiler::BoilerRun>>,
-    /// HRD-A2b: `--scene f01_hoarder` (or `--scene f01_late --f01-room hoarder`):
+    /// HRD-A2b: `--scene f01_hoarder` (PTG-AD1: no longer a listed `--f01-room`):
     /// the Hoarder's room. Like the Boiler it implies `cf02_rules` and is its own
     /// room, and its boss is a slot enemy loaded from the sidecar roster.
     f01_hoarder: bool,
@@ -358,6 +358,11 @@ struct Args {
     /// `f01_late` rooms. It needs a scripted run (`--capture-sequence`,
     /// `--capture-tick`, `--headless-floor01-smoke` or `--exit-after-ticks`).
     room_pilot: Option<room_pilots::RoomPilot>,
+    /// PT-GATE-C1: an aligned room pilot's "the swap was pressed once" flag (the
+    /// library fixtures' `swap_pressed`). Shared by the clones of the arguments,
+    /// so the presim, the capture sequence and the window loop continue one run;
+    /// `build_scene` resets it.
+    aligned_swap: Arc<std::sync::atomic::AtomicBool>,
     /// PLAYTRACE-RENDER-01 PTR-R1: `--replay-session ID`: the offline replay
     /// viewer. It takes the simulation from the recording alone, so every
     /// gameplay flag and every `--record*` flag is a parse error with it.
@@ -439,10 +444,17 @@ impl Args {
     }
 
     /// Who drives the uncontrolled hero of a live run (CA-22): the explicit
-    /// `--companion`, else `cf02_assist` under `--cf02` (Q13, Q33), else the
-    /// follow-and-jump bot, so every default run is as before.
+    /// `--companion`, else `cf02_free` in an `f01_late` room scene (PT-GATE-C1,
+    /// plan sections 8 and 9), else `cf02_assist` under `--cf02` (Q13, Q33),
+    /// else the follow-and-jump bot, so every other default run is as before.
     fn uncontrolled_hero(&self) -> UncontrolledHero {
-        match self.companion.unwrap_or(if self.cf02.rules {
+        // PT-GATE-C1: an aligned room pilot runs the library fixture's party.
+        if let Some(tuning) = self.room_pilot.and_then(|p| p.tuning()) {
+            return tuning.uncontrolled_hero;
+        }
+        match self.companion.unwrap_or(if self.f01_room_scene() {
+            CompanionChoice::Cf02Free
+        } else if self.cf02.rules {
             CompanionChoice::Cf02Assist
         } else {
             CompanionChoice::Off
@@ -459,10 +471,24 @@ impl Args {
     /// itself. `--demo` and `--cf02` fill in a fixture, so a live human run of
     /// them (`manual`) is not scripted and the companion runs.
     fn companion_inactive(&self) -> bool {
+        // An aligned room pilot plays through the live party: its partner runs.
+        if self.room_pilot.is_some_and(|p| p.aligned.is_some()) {
+            return false;
+        }
         self.autopilot
             || self.scenario.is_some()
             || self.party_fixture.is_some()
             || (self.fixture.is_some() && !self.manual)
+    }
+
+    /// Whether the run holds a fixture the user (or another scene such as the
+    /// boss arena or the lab) supplied, as opposed to the placeholder fixture a
+    /// room scene sets for itself (PT-GATE-C1): only the former refuses
+    /// `--companion`. Inferred, not tracked: sound because every room scene refuses a
+    /// user `--fixture` or `--party-fixture` up front, so a fixture inside a room scene
+    /// is always the scene's own.
+    fn user_fixture(&self) -> bool {
+        self.party_fixture.is_some() || (self.fixture.is_some() && !self.f01_room_scene())
     }
 
     /// Whether this run is one of the `f01_late` room scenes with its own room
@@ -482,6 +508,10 @@ impl Args {
 
     /// The party of a live run without a party fixture.
     fn live_party(&self) -> PartyState {
+        // PT-GATE-C1: the library fixture's own tuning (the 12-tick swap included).
+        if let Some(tuning) = self.room_pilot.and_then(|p| p.tuning()) {
+            return PartyState::new(tuning);
+        }
         let tuning = PartyTuning {
             uncontrolled_hero: self.uncontrolled_hero(),
             ..PROVISIONAL_TUNING
@@ -1169,6 +1199,7 @@ fn parse_args_full(
         refuge_empty: false,
         boiler_run: None,
         room_pilot: None,
+        aligned_swap: Arc::default(),
         f01_hoarder: false,
         hoarder_run: None,
         f01_hazards: false,
@@ -1517,6 +1548,29 @@ fn parse_args_full(
         {
             return Err("--room-pilot mastery and juicer are solo plans (no :2p)".into());
         }
+        // PT-GATE-C1: an aligned pilot is the library fixture's run: its seed is the
+        // room's seed (the mastery room draws temperaments from it), and its partner
+        // is the fixture's, so `--companion` and a different `--cf02-seed` are refused.
+        if let Some(aligned) = pilot.aligned {
+            if parsed.companion.is_some() {
+                return Err(format!(
+                    "--room-pilot {} fixes its partner (the library fixture's): drop --companion",
+                    pilot.label()
+                ));
+            }
+            if pilot.plan == room_pilots::Plan::Mastery {
+                match parsed.cf02.seed {
+                    Some(seed) if seed != aligned.seed => {
+                        return Err(format!(
+                            "--room-pilot {} plays seed {}, not --cf02-seed {seed}",
+                            pilot.label(),
+                            aligned.seed
+                        ));
+                    }
+                    _ => parsed.cf02.seed = Some(aligned.seed),
+                }
+            }
+        }
         // The perf probe steps one slot-0 pilot tick per frame outside the live
         // party, so a two-player pilot (Donut's slot) is not measured.
         if parsed.perf_from_tick.is_some() && pilot.two_player {
@@ -1533,9 +1587,10 @@ fn parse_args_full(
         // `cf02_rules` but is its own room (BOIL-A wire): no DEMO forcing.
         parsed.demo = true;
     }
-    if parsed.companion.is_some() && (parsed.fixture.is_some() || parsed.party_fixture.is_some()) {
-        // A fixture declares its own tuning (and so its own companion mode);
-        // the flag is for the live scene only (CA-22).
+    if parsed.companion.is_some() && parsed.user_fixture() {
+        // A fixture the user supplied declares its own tuning (and so its own
+        // companion mode); the flag is for the live scene only (CA-22). The
+        // placeholder a room scene sets is not the user's fixture (PT-GATE-C1).
         return Err("--companion cannot be combined with --fixture or --party-fixture".into());
     }
     parsed.boss |= parsed.fixture.is_some_and(|f| f.boss.is_some());
@@ -2007,6 +2062,14 @@ fn build_scene(
                 },
             )
         };
+        let aligned_pilot = args.room_pilot.filter(|p| p.aligned.is_some());
+        if aligned_pilot.is_some() {
+            // PT-GATE-C1: the library fixture's party (Donut is a real hero, the swap
+            // and the partner are the party's; each tick sets the drive before it
+            // steps, so the tick-0 state stays the legacy-drive one a recording hashes).
+            args.aligned_swap
+                .store(false, std::sync::atomic::Ordering::Relaxed);
+        }
         if args.room_pilot.is_some_and(|p| p.two_player) {
             // EVID-ROOM: two local players, so the pilot's second slot plays Donut.
             party.pad_connected(PadId(1));
@@ -2035,6 +2098,8 @@ fn build_scene(
                 party.request_swap(false, hurt);
                 sim.set_drive(party.drive(true));
                 party.hero_inputs(slots)
+            } else if let Some(pilot) = aligned_pilot {
+                aligned_routed(args, pilot, &combat, &mut sim, &mut party)
             } else if args.room_pilot.is_some() {
                 scripted_inputs(args, fixture, &sim, &combat)
             } else {
@@ -2147,6 +2212,39 @@ fn room_exit_x(args: &Args) -> f32 {
         return 0.0;
     };
     (exit.x + exit.w / 2) as f32
+}
+
+/// PT-GATE-C1: the slot inputs of an aligned room pilot at the next tick (the
+/// library fixture's pilot for the hero the party controls), advancing the run's
+/// swap flag.
+fn aligned_slots(
+    args: &Args,
+    pilot: room_pilots::RoomPilot,
+    combat: &CombatState,
+    sim: &SceneSim,
+    party: &PartyState,
+) -> [RawInput; 2] {
+    use std::sync::atomic::Ordering::Relaxed;
+    let mut sent = args.aligned_swap.load(Relaxed);
+    let slots = pilot.aligned_inputs(combat, sim, party.controlled_hero(), &mut sent);
+    args.aligned_swap.store(sent, Relaxed);
+    slots
+}
+
+/// [`aligned_slots`] routed through the party like `PartyFixtureSim::step_slots`:
+/// the swap, the scene drive and the slot to hero routing. The hero inputs of the tick.
+fn aligned_routed(
+    args: &Args,
+    pilot: room_pilots::RoomPilot,
+    combat: &CombatState,
+    sim: &mut SceneSim,
+    party: &mut PartyState,
+) -> [RawInput; 2] {
+    let slots = aligned_slots(args, pilot, combat, sim, party);
+    let hurt = combat.hurt_ticks_of(party.controlled_hero()) > 0;
+    party.request_swap(slots[0].swap, hurt);
+    sim.set_drive(party.drive(true));
+    party.hero_inputs(slots)
 }
 
 /// The slot inputs of a scripted run: the fixture's or autopilot's first slot,
@@ -5096,7 +5194,11 @@ fn fixed_step(
     ) {
         // EVID-ROOM: both slots come from the room pilot (Donut's in a 2P run),
         // the same call as the presim, the capture sequence and the headless run.
-        scripted_inputs(&setup.args, fixture, &sim.0, combat)
+        // PT-GATE-C1: an aligned pilot plays the hero the party controls.
+        match setup.args.room_pilot.filter(|p| p.aligned.is_some()) {
+            Some(pilot) => aligned_slots(&setup.args, pilot, combat, &sim.0, pads.0.party()),
+            None => scripted_inputs(&setup.args, fixture, &sim.0, combat),
+        }
     } else if let Some(fixture) = fixture.0 {
         let raw = match combat.0.as_ref() {
             Some(combat) => scripted_input(&setup.args, fixture, &sim.0, combat),
@@ -5123,7 +5225,10 @@ fn fixed_step(
     // EVID-ROOM: a two-player room pilot plays Donut as a real hero (the drive the
     // presim and the headless run set once), so the window must keep it.
     let live_party = (scenario.0.is_none() && fixture.0.is_none())
-        || setup.args.room_pilot.is_some_and(|p| p.two_player);
+        || setup
+            .args
+            .room_pilot
+            .is_some_and(|p| p.two_player || p.aligned.is_some());
     sim.0.set_drive(pads.0.party().drive(live_party));
     if let Some(rec) = sinks.rec.0.as_mut() {
         // The presentation rig's view before this tick: a diagnostic field of
@@ -7352,6 +7457,7 @@ fn perf_step(
     mut cam: ResMut<SceneCam>,
     mut interest: ResMut<Interest>,
     mut hud: ResMut<HudState>,
+    mut pads: ResMut<Pads>,
 ) {
     let Some(mut perf) = perf else { return };
     if !perf.step_ticks || loading.is_some_and(|l| !l.reported) || perf.seen < perf.warmup {
@@ -7363,7 +7469,11 @@ fn perf_step(
     let started = std::time::Instant::now();
     // PT-GATE-A: a room scene is driven by its room pilot (solo, slot 0 only, as the
     // headless run and the presim do), with the HUD stepped as in the live loop.
-    let inputs = if setup.args.room_pilot.is_some() {
+    let aligned = setup.args.room_pilot.filter(|p| p.aligned.is_some());
+    let inputs = if let Some(pilot) = aligned {
+        // PT-GATE-C1: an aligned room pilot plays through the live party.
+        aligned_routed(&setup.args, pilot, combat, &mut sim.0, pads.0.party_mut())
+    } else if setup.args.room_pilot.is_some() {
         scripted_inputs(&setup.args, fixture, &sim.0, combat)
     } else {
         [
@@ -7376,6 +7486,9 @@ fn perf_step(
     if setup.args.room_pilot.is_some() {
         if combat.restarts != restarts {
             hud.0.restart();
+            if aligned.is_some() {
+                pads.0.party_mut().restart();
+            }
         }
         step_hud(&mut hud.0, &sim.0, Some(&*combat));
     }
@@ -7726,6 +7839,19 @@ fn capture_sequence(
                     if combat.restarts != restarts {
                         party.restart();
                     }
+                } else if let (Some(pilot), Some(combat)) = (
+                    setup.args.room_pilot.filter(|p| p.aligned.is_some()),
+                    combat.0.as_mut(),
+                ) {
+                    // PT-GATE-C1: an aligned room pilot plays through the live
+                    // party, like the presim of `build_scene`.
+                    let party = pads.0.party_mut();
+                    let inputs = aligned_routed(&setup.args, pilot, combat, &mut sim.0, party);
+                    let restarts = combat.restarts;
+                    let _ = step_combat(&mut sim.0, combat, &mut anim.0, death.0.as_mut(), inputs);
+                    if combat.restarts != restarts {
+                        party.restart();
+                    }
                 } else if let (Some(fixture), Some(combat)) = (fixture, combat.0.as_mut()) {
                     let inputs = scripted_inputs(&setup.args, fixture, &sim.0, combat);
                     let _ = step_combat(&mut sim.0, combat, &mut anim.0, death.0.as_mut(), inputs);
@@ -7932,12 +8058,13 @@ fn headless_slot_room(
     let mut args = args.clone();
     args.capture_tick.get_or_insert(ticks);
     let mut hud = new_hud(&args, kit, actors);
-    let (sim, anim, combat, _death, _party) = build_scene(kit, &args, actors, root, &mut hud)?;
+    let (sim, anim, combat, _death, party) = build_scene(kit, &args, actors, root, &mut hud)?;
     let mut combat = combat.ok_or("the room fixture has no combat state")?;
     print_combat_events(&mut combat, None, None);
     println!("{}", sim.state_line());
     println!("{}", anim.state_line(sim.world.tick));
     print_combat_state(&sim, &anim, &combat);
+    print_room_pilot_state(&args, &combat, &sim, &party);
     println!(
         "{marker} ticks={} checkpoint={} pin={pin} env=live slot_enemies={} enemies={} state_hash={:#018x}",
         sim.world.tick,
@@ -7947,6 +8074,26 @@ fn headless_slot_room(
         combat.state_hash(&sim),
     );
     Ok(())
+}
+
+/// PT-GATE-C1: the final state of an aligned room pilot, one line. The hash is
+/// the library fixture's (`party_hash`: the combat hash and the party's swap
+/// timers), so a scene run and a library run compare directly.
+fn print_room_pilot_state(args: &Args, combat: &CombatState, sim: &SceneSim, party: &PartyState) {
+    if let Some(pilot) = args.room_pilot
+        && let Some(aligned) = pilot.aligned
+    {
+        println!(
+            "ROOM_PILOT_STATE pilot={} who={} seed={} tick={} controlled={:?} deaths={} hash={:016x}",
+            pilot.label(),
+            aligned.who.token(),
+            aligned.seed,
+            sim.world.tick,
+            party.controlled_hero(),
+            combat.deaths,
+            party_scene::party_hash(combat, sim, party)
+        );
+    }
 }
 
 fn headless_fixture(kit: &EnvKit, args: &Args, actors: &Actors, root: &Path) -> Result<(), String> {
@@ -7966,6 +8113,7 @@ fn headless_fixture(kit: &EnvKit, args: &Args, actors: &Actors, root: &Path) -> 
                 party_scene::party_state_line(party_fixture, &combat, &sim, &party)
             );
         }
+        print_room_pilot_state(&args, &combat, &sim, &party);
         print_audience_state(&hud);
         if args.death_trace
             && let Some(death) = death
@@ -9436,8 +9584,12 @@ mod tests {
         assert_eq!(hero(&["--cf02", "--companion", "v0"]), v0);
         assert!(args(&["--companion"]).is_err());
         assert!(args(&["--companion", "fast"]).is_err());
-        // A fixture declares its own tuning.
-        assert!(args(&["--fixture", "cp01_kick", "--companion", "v0"]).is_err());
+        // A fixture declares its own tuning: the companion rule itself refuses it.
+        let refusal = args(&["--fixture", "cp01_kick", "--companion", "v0"]).unwrap_err();
+        assert!(
+            refusal.contains("--companion cannot be combined"),
+            "{refusal}"
+        );
         assert!(
             args(&[
                 "--party-fixture",
@@ -9447,6 +9599,59 @@ mod tests {
                 "v0"
             ])
             .is_err()
+        );
+        // PT-GATE-C1: an `f01_late` room scene defaults the partner to
+        // `cf02_free` and `--companion` overrides it; the placeholder fixture the
+        // room scene sets is not a user fixture. The `--cf02` arena stays `cf02_assist`.
+        let room = |extra: &[&str]| {
+            let mut list = vec!["--scene", "f01_late", "--f01-room", "mastery"];
+            list.extend_from_slice(extra);
+            args(&list).unwrap()
+        };
+        for name in ["boiler", "hazards", "mastery"] {
+            let parsed = args(&["--scene", "f01_late", "--f01-room", name]).unwrap();
+            assert_eq!(
+                parsed.uncontrolled_hero(),
+                free,
+                "{name} defaults to cf02_free"
+            );
+            let parsed = args(&[
+                "--scene",
+                "f01_late",
+                "--f01-room",
+                name,
+                "--companion",
+                "cf02_assist",
+            ])
+            .unwrap();
+            assert_eq!(parsed.uncontrolled_hero(), assist, "{name} override");
+        }
+        assert_eq!(room(&["--companion", "off"]).uncontrolled_hero(), bot);
+        assert_eq!(
+            args(&["--scene", "f01_hoarder"])
+                .unwrap()
+                .uncontrolled_hero(),
+            free,
+            "the direct room scene flags default alike"
+        );
+        // A user fixture is still refused next to --companion, in a room scene too.
+        assert!(
+            args(&[
+                "--scene",
+                "f01_late",
+                "--f01-room",
+                "mastery",
+                "--fixture",
+                "cp01_kick",
+                "--companion",
+                "cf02_free"
+            ])
+            .is_err(),
+            "refused by the room scene's own fixture rule"
+        );
+        assert!(
+            args(&["--scene", "boss_f01", "--companion", "cf02_free"]).is_err(),
+            "the boss arena's fixture is not a room placeholder"
         );
         // The live party takes the choice into its tuning (and nothing else).
         let party = args(&["--demo", "--companion", "v0"]).unwrap().live_party();
@@ -9633,27 +9838,35 @@ mod tests {
     /// records by default, and refuses what replaces it.
     #[test]
     fn the_slot_room_scenes_resolve_like_the_boiler() {
+        // PTG-AD1: the Hoarder is not a listed `f01_late` room; only its own scene
+        // launches it.
+        let unlisted = args(&["--scene", "f01_late", "--f01-room", "hoarder"])
+            .expect_err("the Hoarder is unlisted");
+        assert!(unlisted.contains("unlisted room"), "{unlisted}");
+        let hoarder = args(&["--scene", "f01_hoarder"]).unwrap();
+        assert!(hoarder.f01_hoarder && !hoarder.f01_late && hoarder.cf02.rules);
         for (room, direct) in [("hoarder", "f01_hoarder"), ("hazards", "f01_hazards")] {
-            let late = args(&["--scene", "f01_late", "--f01-room", room]).unwrap();
-            assert!(late.f01_late && late.cf02.rules && !late.demo && !late.f01_boiler);
-            assert_eq!(late.f01_hoarder, room == "hoarder");
-            assert_eq!(late.f01_hazards, room == "hazards");
-            assert_eq!(late.f01_room.as_deref(), Some(room));
-            assert_eq!(late.f01_loadout, Some(f01_late::Loadout::Story));
-            assert!(late.carl.prog && late.donut.prog && late.donut_biscuit);
-            assert!(late.recording_enabled());
-            assert!(!late.arena_room(), "no microarena");
-            // The TEST LOADOUT holds no program flag.
-            let all = args(&[
-                "--scene",
-                "f01_late",
-                "--f01-room",
-                room,
-                "--f01-loadout",
-                "all",
-            ])
-            .unwrap();
-            assert!(all.carl.dynamite && all.donut.puddle && !all.carl.prog);
+            if room == "hazards" {
+                let late = args(&["--scene", "f01_late", "--f01-room", room]).unwrap();
+                assert!(late.f01_late && late.cf02.rules && !late.demo && !late.f01_boiler);
+                assert!(!late.f01_hoarder && late.f01_hazards);
+                assert_eq!(late.f01_room.as_deref(), Some(room));
+                assert_eq!(late.f01_loadout, Some(f01_late::Loadout::Story));
+                assert!(late.carl.prog && late.donut.prog && late.donut_biscuit);
+                assert!(late.recording_enabled());
+                assert!(!late.arena_room(), "no microarena");
+                // The TEST LOADOUT holds no program flag.
+                let all = args(&[
+                    "--scene",
+                    "f01_late",
+                    "--f01-room",
+                    room,
+                    "--f01-loadout",
+                    "all",
+                ])
+                .unwrap();
+                assert!(all.carl.dynamite && all.donut.puddle && !all.carl.prog);
+            }
             // The direct scene names the room and no loadout.
             let direct_args = args(&["--scene", direct]).unwrap();
             assert_eq!(direct_args.f01_room.as_deref(), Some(room));
@@ -9682,19 +9895,11 @@ mod tests {
         assert!(args(&["--scene", "f01_hoarder", "--scene", "f01_hazards"]).is_err());
         // The Hoarder's room has no goblin, so no seed; the hazard room's goblins
         // take one.
-        for list in [
-            &["--scene", "f01_hoarder", "--cf02-seed", "7"][..],
-            &[
-                "--scene",
-                "f01_late",
-                "--f01-room",
-                "hoarder",
-                "--cf02-seed",
-                "7",
-            ][..],
-        ] {
-            assert!(args(list).expect_err("a seed").contains("no --cf02-seed"));
-        }
+        assert!(
+            args(&["--scene", "f01_hoarder", "--cf02-seed", "7"])
+                .expect_err("a seed")
+                .contains("no --cf02-seed")
+        );
         assert_eq!(
             args(&["--scene", "f01_hazards", "--cf02-seed", "7"])
                 .unwrap()
@@ -9708,7 +9913,7 @@ mod tests {
         // Unlisted rooms stay refused with the listed ones named.
         let error = args(&["--scene", "f01_late", "--f01-room", "dozer"]).expect_err("unlisted");
         assert!(
-            error.contains("hoarder, boiler, hazards, juicer, mastery"),
+            error.contains("boiler, hazards, juicer, mastery"),
             "{error}"
         );
         // No other run sets either scene.
@@ -9827,15 +10032,19 @@ mod tests {
         let actors =
             Actors::load(root, FrameSource::GridSource, true, false, false, false).unwrap();
         // The Story loadout, the TEST LOADOUT and (hazard room) a seed (review of #229).
-        let cases: [(&str, &[&str]); 5] = [
+        let cases: [(&str, &[&str]); 4] = [
             ("hoarder", &[]),
-            ("hoarder", &["--f01-loadout", "all"]),
             ("hazards", &[]),
             ("hazards", &["--f01-loadout", "all"]),
             ("hazards", &["--cf02-seed", "7"]),
         ];
         for (room, extra) in cases {
-            let mut list = vec!["--scene", "f01_late", "--f01-room", room];
+            // PTG-AD1: the Hoarder launches through its own scene, not `f01_late`.
+            let mut list = if room == "hoarder" {
+                vec!["--scene", "f01_hoarder"]
+            } else {
+                vec!["--scene", "f01_late", "--f01-room", room]
+            };
             list.extend_from_slice(extra);
             let mut run = args(&list).unwrap();
             let (library, scene_hash) = if room == "hoarder" {
@@ -9979,15 +10188,14 @@ mod tests {
         // An unknown or unlisted room names the listed rooms; a bad loadout fails.
         let error = refused(&["--f01-room", "cellar"]);
         assert!(
-            error.contains("unknown room")
-                && error.contains("hoarder, boiler, hazards, juicer, mastery"),
+            error.contains("unknown room") && error.contains("boiler, hazards, juicer, mastery"),
             "{error}"
         );
         for unlisted in ["corral", "dozer"] {
             let error = refused(&["--f01-room", unlisted]);
             assert!(
                 error.contains("unlisted room")
-                    && error.contains("hoarder, boiler, hazards, juicer, mastery"),
+                    && error.contains("boiler, hazards, juicer, mastery"),
                 "{error}"
             );
         }
@@ -9995,6 +10203,87 @@ mod tests {
         assert!(refused(&["--f01-room"]).contains("needs a room id"));
         // Other scenes are unchanged: no room label on the legacy runs.
         assert!(!args(&["--scene", "boss_f01"]).unwrap().f01_late);
+    }
+
+    /// PT-GATE-C1: an aligned room pilot (`mastery|juicer:WHO:SEED`) run through
+    /// `build_scene` (the presim of every headless smoke, capture and window run)
+    /// ends on the library fixture's final hash: the same party, seed and inputs.
+    /// The plain `mastery` plan is `carl_solo` at seed 0.
+    #[test]
+    fn an_aligned_room_pilot_in_the_scene_ends_on_the_library_fixture_hash() {
+        use dungeon_floorbreak::f01_late_fixtures::{JuicerWho, juicer_pilot};
+        use dungeon_floorbreak::f01_mastery_fixtures::{self as mastery, Who};
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let actors =
+            Actors::load(root, FrameSource::GridSource, true, false, false, false).unwrap();
+        let cases: [(&str, &str, u64); 9] = [
+            ("mastery", "carl_solo", 0),
+            ("mastery", "donut_by_swap", 3),
+            ("mastery", "donut_fights", 1),
+            ("mastery", "companion", 5),
+            ("mastery", "plain", 0),
+            ("juicer", "carl_solo", 0),
+            ("juicer", "donut_by_swap", 1),
+            ("juicer", "companion", 2),
+            ("juicer", "carl_solo", 7),
+        ];
+        for (plan, who, seed) in cases {
+            let (library_hash, ticks) = if plan == "mastery" {
+                let who = match who {
+                    "donut_by_swap" => Who::DonutBySwap,
+                    "donut_fights" => Who::DonutFights,
+                    "companion" => Who::Companion,
+                    _ => Who::CarlSolo,
+                };
+                let report = mastery::run(root, who, seed).unwrap();
+                (report.hash, report.ticks)
+            } else {
+                let who = match who {
+                    "donut_by_swap" => JuicerWho::DonutBySwap,
+                    "companion" => JuicerWho::Companion,
+                    _ => JuicerWho::CarlSolo,
+                };
+                let report = juicer_pilot(root, who, seed).unwrap();
+                (report.hash, report.ticks)
+            };
+            let pilot = if who == "plain" {
+                plan.to_owned()
+            } else {
+                format!("{plan}:{who}:{seed}")
+            };
+            let ticks = ticks.to_string();
+            let mut run = args(&[
+                "--scene",
+                "f01_late",
+                "--f01-room",
+                plan,
+                "--room-pilot",
+                &pilot,
+                "--headless-floor01-smoke",
+                "--capture-tick",
+                &ticks,
+            ])
+            .unwrap();
+            let label = format!("{plan} {who} {seed}");
+            let kit = if plan == "mastery" {
+                let launched = f01_mastery::launch(root).unwrap();
+                run.fixture = Some(launched.fixture);
+                let kit = launched.kit.clone();
+                run.mastery_run = Some(Box::new(launched));
+                kit
+            } else {
+                boss_scene::load_arena(root).unwrap()
+            };
+            let mut hud = new_hud(&run, &kit, &actors);
+            let (sim, _, combat, _, party) =
+                build_scene(&kit, &run, &actors, root, &mut hud).unwrap();
+            let combat = combat.expect("a combat state");
+            assert_eq!(
+                party_scene::party_hash(&combat, &sim, &party),
+                library_hash,
+                "{label}"
+            );
+        }
     }
 
     /// PT-SCENE: the recorded descriptor names the room and the loadout, the
@@ -10041,12 +10330,23 @@ mod tests {
         // HRD-A2b and HAZ-A2b: the two rooms record under the Boiler's source with
         // their own fixture names (the names the verifier's source rule binds).
         for (room, name) in [("hoarder", "f01_hoarder"), ("hazards", "f01_hazards")] {
-            let m = manifest_of(&["--scene", "f01_late", "--f01-room", room]);
+            // PTG-AD1: the Hoarder is not a listed late room; it records from its own
+            // scene (no loadout, no story programs).
+            let m = if room == "hoarder" {
+                manifest_of(&["--scene", "f01_hoarder"])
+            } else {
+                manifest_of(&["--scene", "f01_late", "--f01-room", room])
+            };
             assert_eq!(m.reset.source, f01_late::SESSION_SOURCE, "{room}");
             assert_eq!(m.reset.name, name, "{room}");
             assert_eq!(m.reset.f01_room.as_deref(), Some(room));
-            assert_eq!(m.reset.f01_loadout.as_deref(), Some("story"));
-            assert!(m.reset.carl_prog && m.reset.donut_prog && m.reset.cf02_rules);
+            if room == "hoarder" {
+                assert_eq!(m.reset.f01_loadout, None);
+                assert!(m.reset.cf02_rules);
+            } else {
+                assert_eq!(m.reset.f01_loadout.as_deref(), Some("story"));
+                assert!(m.reset.carl_prog && m.reset.donut_prog && m.reset.cf02_rules);
+            }
             assert!(m.reset.donut_biscuit && m.reset.cf02_seed.is_none());
             assert_eq!(
                 m.feature_flags.get("f01_room").map(String::as_str),

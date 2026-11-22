@@ -41,7 +41,14 @@ impl RoomRig {
 
     /// `seed` is `--cf02-seed` (the hazard room and the Boiler take one).
     fn start_seeded(base: &Path, room: &str, loadout: Loadout, seed: Option<u64>) -> Self {
-        let (carl, donut) = loadout.flags();
+        // PTG-AD1: the Hoarder is not a listed `f01_late` room; her direct scene
+        // (`--scene f01_hoarder`) has no loadout label and no story programs.
+        let direct = room == "hoarder";
+        let (carl, donut) = if direct {
+            (Default::default(), Default::default())
+        } else {
+            loadout.flags()
+        };
         // The live party of a CF02-rules room: `cf02_assist` and the 12-tick swap.
         let room_party = || {
             PartyState::new(
@@ -147,7 +154,7 @@ impl RoomRig {
             donut_light_feet: donut.light_feet,
             donut_puddle: donut.puddle,
             f01_room: Some(room.to_owned()),
-            f01_loadout: Some(loadout.name().to_owned()),
+            f01_loadout: (!direct).then(|| loadout.name().to_owned()),
             kit_hash: real_kit_hash(),
             start_hash: combat.state_hash(&scene),
         };
@@ -257,7 +264,9 @@ fn assert_scoped_stamps(loaded: &LoadedSession, room: &str) {
 /// another room's, and a relabelled room, loadout or seed is another run.
 #[test]
 fn a_recorded_hoarder_session_verifies_strict() {
-    for loadout in [Loadout::Story, Loadout::All] {
+    // PTG-AD1: her direct scene has no loadout label (the rig ignores the loadout for her).
+    {
+        let loadout = Loadout::Story;
         let dir = TempDir::new("f01-hoarder");
         let mut rig = RoomRig::start(&dir.0, "hoarder", loadout);
         assert_eq!(
@@ -274,7 +283,7 @@ fn a_recorded_hoarder_session_verifies_strict() {
         let loaded = read_session(&session, false).unwrap();
         assert_eq!(loaded.manifest.reset.name, "f01_hoarder");
         assert_scoped_stamps(&loaded, "hoarder");
-        // The loadout label is bound to the flags, and the room has no seed.
+        // A loadout label on the unlisted room is refused, and the room has no seed.
         let other = if loadout == Loadout::Story {
             "all"
         } else {
@@ -285,9 +294,7 @@ fn a_recorded_hoarder_session_verifies_strict() {
             verify(&session).expect_err("relabelled").code,
             "rules_mismatch"
         );
-        tamper_manifest(&session, |m| {
-            m.reset.f01_loadout = Some(loadout.name().into())
-        });
+        tamper_manifest(&session, |m| m.reset.f01_loadout = None);
         verify(&session).expect("restored");
         tamper_manifest(&session, |m| m.reset.cf02_seed = Some(7));
         assert_eq!(verify(&session).expect_err("a seed").code, "rules_mismatch");
