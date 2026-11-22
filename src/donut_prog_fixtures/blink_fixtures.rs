@@ -44,7 +44,7 @@ fn pad(f: impl FnOnce(&mut RawInput)) -> RawInput {
     raw
 }
 
-fn circle() -> RawInput {
+pub(super) fn circle() -> RawInput {
     pad(|r| r.ability = true)
 }
 
@@ -56,7 +56,7 @@ fn cross() -> RawInput {
     pad(|r| r.jump = true)
 }
 
-fn stick(x: f32) -> RawInput {
+pub(super) fn stick(x: f32) -> RawInput {
     pad(|r| r.move_x = x)
 }
 
@@ -73,9 +73,9 @@ fn merge(a: RawInput, b: RawInput) -> RawInput {
 }
 
 /// Donut's inputs: `(from, to, input)` holds, merged on each tick they cover.
-type Holds = Vec<(u64, u64, RawInput)>;
+pub(super) type Holds = Vec<(u64, u64, RawInput)>;
 
-fn input_at(holds: &Holds, tick: u64) -> RawInput {
+pub(super) fn input_at(holds: &Holds, tick: u64) -> RawInput {
     holds
         .iter()
         .filter(|(from, to, _)| (*from..*to).contains(&tick))
@@ -83,12 +83,12 @@ fn input_at(holds: &Holds, tick: u64) -> RawInput {
 }
 
 /// One tick of Donut's press: `(tick, tick + 1, input)`.
-fn at(tick: u64, raw: RawInput) -> (u64, u64, RawInput) {
+pub(super) fn at(tick: u64, raw: RawInput) -> (u64, u64, RawInput) {
     (tick, tick + 1, raw)
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum Story {
+pub(super) enum Story {
     /// `--donut-puddle`: the blink (and the boost it requires) held from tick 0.
     Puddle,
     /// The blink held and the safe-room placeholder zone (1200..1240, Donut's
@@ -101,7 +101,7 @@ enum Story {
 }
 
 #[derive(Clone)]
-struct Rig {
+pub(super) struct Rig {
     /// `(x, w, h)` walls standing on the floor.
     walls: Vec<(i32, i32, i32)>,
     /// A gap `[x0, x1)` in the floor.
@@ -119,7 +119,7 @@ struct Rig {
 
 impl Rig {
     /// Carl at 560 (view 240..880), Donut at 640, a flat floor, 8 charges.
-    fn new() -> Self {
+    pub(super) fn new() -> Self {
         Self {
             walls: Vec::new(),
             pit: None,
@@ -134,32 +134,32 @@ impl Rig {
         }
     }
 
-    fn walls(mut self, walls: &[(i32, i32, i32)]) -> Self {
+    pub(super) fn walls(mut self, walls: &[(i32, i32, i32)]) -> Self {
         self.walls = walls.to_vec();
         self
     }
 
-    fn story(mut self, story: Story) -> Self {
+    pub(super) fn story(mut self, story: Story) -> Self {
         self.story = story;
         self
     }
 
-    fn charges(mut self, charges: u8) -> Self {
+    pub(super) fn charges(mut self, charges: u8) -> Self {
         self.charges = charges;
         self
     }
 
-    fn donut_x(mut self, x: f32) -> Self {
+    pub(super) fn donut_x(mut self, x: f32) -> Self {
         self.donut_x = x;
         self
     }
 
-    fn carl_x(mut self, x: i32) -> Self {
+    pub(super) fn carl_x(mut self, x: i32) -> Self {
         self.carl_x = x;
         self
     }
 
-    fn kit(&self) -> EnvKit {
+    pub(super) fn kit(&self) -> EnvKit {
         let mut kit = EnvKit::load(&root(), LAYOUT).unwrap();
         let floor = kit.base_walk_line_y;
         let below = kit.height - floor;
@@ -197,7 +197,7 @@ impl Rig {
         kit
     }
 
-    fn setup(&self) -> StorySetup {
+    pub(super) fn setup(&self) -> StorySetup {
         let puddle = DonutProgFlags {
             puddle: true,
             ..DonutProgFlags::OFF
@@ -236,7 +236,7 @@ impl Rig {
         }
     }
 
-    fn build(&self) -> PartyFixtureSim {
+    pub(super) fn build(&self) -> PartyFixtureSim {
         let kit = self.kit();
         let fixture_base: &'static Fixture = Box::leak(Box::new(Fixture {
             carl_x: self.carl_x,
@@ -264,7 +264,7 @@ impl Rig {
 
 /// Step `sim` to tick `to` (inclusive) with Donut's holds on slot 1 and Carl's
 /// on slot 0.
-fn run_to(sim: &mut PartyFixtureSim, to: u64, donut: &Holds, carl: &Holds) {
+pub(super) fn run_to(sim: &mut PartyFixtureSim, to: u64, donut: &Holds, carl: &Holds) {
     while sim.scene.world.tick < to {
         let tick = sim.scene.world.tick + 1;
         sim.step_slots([input_at(carl, tick), input_at(donut, tick)]);
@@ -272,7 +272,7 @@ fn run_to(sim: &mut PartyFixtureSim, to: u64, donut: &Holds, carl: &Holds) {
     }
 }
 
-fn donut_x(sim: &PartyFixtureSim) -> f32 {
+pub(super) fn donut_x(sim: &PartyFixtureSim) -> f32 {
     sim.scene.world.donut_body.x
 }
 
@@ -352,7 +352,7 @@ fn spends(sim: &PartyFixtureSim) -> Vec<(u64, u8)> {
 }
 
 /// The press tick used by most fixtures.
-const P: u64 = 10;
+pub(super) const P: u64 = 10;
 
 #[allow(non_upper_case_globals)]
 const CauseInput: CancelCause = CancelCause::Input;

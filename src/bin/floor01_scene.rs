@@ -82,7 +82,7 @@ use dungeon_floorbreak::{
     demo::{self, SelectAction, SelectControl},
     donut_art, donut_fixtures,
     donut_mana::{DonutSetup, StartState},
-    donut_prog::{self, DonutProgFlags},
+    donut_prog::{self, DonutProgFlags, DonutProgTuning},
     env_kit::{
         EnvKit, IRect, PieceDraw, animation_frame, parallax_copies, parallax_start, to_world_y,
     },
@@ -122,6 +122,8 @@ use dungeon_floorbreak::{
 #[path = "floor01_scene/replay_view.rs"]
 mod replay_view;
 // DONUT-MOBILITY-01 DM-C: Donut's reflex cues (presentation only, no new art).
+#[path = "floor01_scene/blink_cues.rs"]
+mod blink_cues;
 #[path = "floor01_scene/donut_cues.rs"]
 mod donut_cues;
 
@@ -1757,6 +1759,14 @@ fn step_hud(hud: &mut HudRuntime, sim: &SceneSim, combat: Option<&CombatState>) 
     // and its data label; read-only on the simulation.
     hud.set_special_label(&CarlProgTuning::active().cpq32_socket_label);
     hud.set_special(combat.map_or(SpecialPhase::Locked, SpecialPhase::of));
+    // DONUT-PROG-01 DP-Q33: Donut's blink socket (padlock, equipped, cooling with
+    // its underline, ready); the same read-only rule. Her flash comes from the
+    // event log inside `step`.
+    hud.set_donut_special(
+        combat.map_or(dungeon_floorbreak::hud::SpecialSlot::Locked, |c| {
+            dungeon_floorbreak::donut_hud::blink_socket_of(c, sim.world.tick)
+        }),
+    );
     // AUDIENCE-01: the heroes' columns, for authored anticipation cues (read
     // only; the observer is inert while the audience is locked).
     hud.set_hero_x(sim.world.hero.x as i32, sim.world.donut.x as i32);
@@ -3502,7 +3512,7 @@ fn run_window(
             sync_cf02_acting_visuals,
             sync_carl_throw_visual,
             sync_blast_ring,
-            donut_cues::sync_donut_cues,
+            (donut_cues::sync_donut_cues, blink_cues::sync_blink_cues).chain(),
             update_lighting,
             watchdog,
             perf_probe,
@@ -4056,6 +4066,9 @@ fn setup(
             layers_of("actors"),
             kit.actor_z,
         );
+        // DP-D (DP-Q34): the Puddle Jumper ripples and streak, only where the
+        // blink can exist (the same condition as the cues' pool).
+        blink_cues::spawn(&mut commands, layers_of("actors"), kit.actor_z + 0.025);
     }
 
     // HUD-DEBT-03: the boss, its racks, strut, gate and ripples. Placeholder
@@ -5649,7 +5662,14 @@ fn sync_donut_visuals(
     let melee_frame = state
         .donut_move_view()
         .filter(|_| party)
-        .map(|view| donut_art::melee_frame(&view));
+        .map(|view| donut_art::melee_frame(&view))
+        // DP-Q34: the blink's windup crouches on the pounce crouch frame.
+        .or_else(|| {
+            donut_art::blink_crouch_frame(
+                state.donut_blink().windup_age(tick).filter(|_| party),
+                DonutProgTuning::active().dpq34_crouch_ticks,
+            )
+        });
     // Melee wins over a cast; a real cast over the dry cue.
     let cast_frame = if melee_frame.is_some() || !party {
         None
@@ -7306,6 +7326,7 @@ fn capture_sequence(
     mut cam: ResMut<SceneCam>,
     mut interest: ResMut<Interest>,
     mut pads: ResMut<Pads>,
+    mut hud: ResMut<HudState>,
     mut exit: MessageWriter<AppExit>,
 ) {
     let Some(mut seq) = seq else { return };
@@ -7403,6 +7424,10 @@ fn capture_sequence(
                     sim.0.step(raw);
                     anim.0.step(&sim.0.world);
                 }
+                // One HUD step per simulated tick, as in the live loop (DP-D: the
+                // captured HUD no longer stays on the state of the first frame, so
+                // the socket, its flash and the notices are real in the evidence).
+                step_hud(&mut hud.0, &sim.0, combat.0.as_ref());
                 // One camera step per simulated tick, as in the live loop.
                 camera_tick(
                     &mut cam,

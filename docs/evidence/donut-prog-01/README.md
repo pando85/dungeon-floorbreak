@@ -44,3 +44,43 @@ The checkpoint respawn and the fixture restart are unit tests in `src/donut_prog
 (`a_checkpoint_respawn_keeps_a_donut_grant_and_a_fixture_restart_removes_it`,
 `donut_prog_grant_survives_retry`). Every earlier fixture, golden and replay is unchanged,
 the `carl_prog_*` replays included.
+
+## DP-D: the presentation of the blink (HUD, cues, drawn camera)
+
+DP-D draws what DP-C simulates; it changes no outcome, so every earlier fixture, golden and
+replay is unchanged. The four new render fixtures below are in the `donut_prog_*` registry (so
+the CI `headless` loop replays each twice and diffs it against `replays/`); the three that run in
+the microarena or on the corridor are scripted P2-Donut runs, `donut_prog_grants_2p` uses an
+evidence-only table variant (see its doc comment: the shipped table grants the blink on the
+Juicer's defeat, which the render loop cannot run because the boss pilot is a headless script).
+
+| Fixture | Final `PARTY_STATE` hash | What it shows |
+| --- | --- | --- |
+| `donut_prog_grants_2p` | `ab6921d3eba4608d` | tick 246: `jump_reach_boost` then `special_short_blink` (hero 1) on one tick; the notices `LIGHT FEET` (246) and `PUDDLE JUMPER` (412, after 136 + 30 ticks) queue; her socket turns from the padlock to the equipped chip on the grant tick |
+| `donut_prog_blink_fizzle` | `6e52421a4f95bf63` | `special_started` 136, `blink_fizzled reason=no_destination` 142: the destination was valid at the press, then Carl ran on and the scroll camera moved the 24 px inset past it; nothing spent, no cooldown, one shrinking ring |
+| `donut_prog_arena_blink_tour` | `90775214f5ef5cbe` | flat blink 340 -> 452 (press 40, arrival 46); `special_ready` 586 (arrival + 540); the second blink from 656 stops at 724, in front of the 32 px parapet at 736 (arrival 606) |
+| `donut_prog_arena_blink_edge` | `6ae2cb2ece513533` | `special_rejected reason=no_mana` 270 (pool cast down to one charge) and `reason=no_destination` 420 (no destination inside the view): each flashes the socket |
+
+Real windowed Bevy captures at 640 x 360 (1x), from `scripts/make_dp_d_evidence.sh` (needs a debug
+build, `scripts/export_assets.sh`, xvfb, ffmpeg and ImageMagick; the renders are driver dependent and
+are not reproduced bit for bit by CI; the deterministic half is the replays and the tests). Checksums
+in `SHA256SUMS`.
+
+| File | Shows |
+| --- | --- |
+| `dp_d_gif1_grants.gif` (1x, ticks 240..534, every 6th) | the two grant notices queued at the bottom of the screen and the socket turning equipped |
+| `dp_d_gif2_cycle_1x.gif` (1x, ticks 6..720, every 6th) | the flat blink, the socket muted with its underline shrinking over 9 s, the ready flash, the wall blink |
+| `dp_d_gif3_flat_3x.gif` (3x crop, ticks 36..55) | crouch, ripple at her feet, the dotted streak, the destination ripple |
+| `dp_d_gif4_wall_3x.gif` (3x crop, ticks 596..615) | the blink stopping in front of the parapet |
+| `dp_d_gif5_fizzle_1x.gif` (1x, ticks 132..155) | the arrival fizzle and the single shrinking ring |
+| `dp_d_gif6_refusals_3x.gif` (3x of her plate) | the no-mana (266..279) and no-destination (416..429) refusals and the socket flash |
+| `dp_d_cues_sheet.png` (3x, ticks 39..49) | the blink one tick at a time |
+
+The HUD of a captured sequence is now stepped once per simulated tick (a presentation-only fix in
+`capture_sequence`): before it, a capture kept the HUD of its first frame, so the socket, its flash
+and the notices could not show.
+
+Measured for the PR: `donut_prog_blink_drawn_view_human` (human-controlled Donut, 216 runs: 640, 768 and
+960 rest widths, 16:9 and 16:10, both blink directions, with and without a far threat) found **0**
+ticks outside the drawn view after any arrival (grace 12). The existing `something_outside` path
+already keeps a framing subject's safety region in view, so `scene_camera.rs` needed no change.

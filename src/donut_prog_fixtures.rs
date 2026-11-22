@@ -73,9 +73,24 @@ pub fn story_setup(fixture: &str) -> StorySetup {
             DONUT_PROG,
             SceneKind::Boss,
         ),
+        // DP-D: the grants of both Donut rows at the safe-room zone, for the render loop.
+        "donut_prog_grants_2p" => grants_2p_setup(),
+        // DP-D: the short blink held from tick 0 (`--donut-puddle`'s pin), in the
+        // corridor and in the microarena.
+        "donut_prog_blink_fizzle" => program_setup(CarlProgFlags::OFF, PUDDLE, SceneKind::Corridor),
+        "donut_prog_arena_blink_tour" | "donut_prog_arena_blink_edge" => {
+            program_setup(CarlProgFlags::OFF, PUDDLE, SceneKind::CfArena)
+        }
         _ => StorySetup::NONE,
     }
 }
+
+/// `--donut-puddle`: the blink (and the boost and biscuit it requires) held from
+/// tick 0.
+const PUDDLE: DonutProgFlags = DonutProgFlags {
+    puddle: true,
+    ..DonutProgFlags::OFF
+};
 
 /// The biscuit starts locked and the placeholder guild zone grants it.
 const GUILD: DonutSetup = DonutSetup {
@@ -211,13 +226,157 @@ pub const DONUT_PROG_BOSS_BOTH_PROGRAMS: PartyFixture = PartyFixture {
     donut: DonutSetup::unlocked(8),
 };
 
+const GRANTS_BASE: Fixture = base(
+    "donut_prog_grants_2p",
+    "DP-D evidence: both players walk the corridor under the Donut program; at the safe-room placeholder zone Donut is granted Light on Your Feet and the blink on one tick (an evidence-only table puts the blink on that zone): the two notices queue, LIGHT FEET then PUDDLE JUMPER, and her socket turns from the padlock to the equipped chip",
+    0x0D90_0006,
+    &[],
+    520,
+);
+
+/// DP-Q12 (the grant presentation) in the render loop. The shipped table grants
+/// the blink on the Juicer's defeat, which the render loop cannot run (the boss
+/// pilot is a headless script), so this fixture swaps in a table variant whose
+/// safe-room zone also grants the blink: the same event path, the same order
+/// (the boost first, then the blink) and the same HUD code. The Juicer grant
+/// itself is `donut_prog_boss_both_programs` and its HUD test.
+pub const DONUT_PROG_GRANTS_2P: PartyFixture = PartyFixture {
+    base: &GRANTS_BASE,
+    two_player: true,
+    tuning: PROVISIONAL_TUNING,
+    script: &[run(5, 520, 0, 1.0), run(5, 520, 1, 1.0)],
+    pilot: Pilot::None,
+    donut: GUILD,
+};
+
+/// The evidence table of [`DONUT_PROG_GRANTS_2P`]: the safe-room zone's grants
+/// list also names `special_short_blink` (its `requires` is met by the boost
+/// granted just before it). Built once and leaked, like the table of the DP-C rig.
+fn grants_2p_setup() -> StorySetup {
+    static TABLE: std::sync::OnceLock<&'static crate::story_unlock::StoryTable> =
+        std::sync::OnceLock::new();
+    let table = TABLE.get_or_init(|| {
+        let text = crate::story_unlock::TABLE_JSON.replacen(
+            "\"grants\": [\"jump_reach_boost\"]",
+            "\"grants\": [\"jump_reach_boost\", \"special_short_blink\"]",
+            1,
+        );
+        assert_ne!(text, crate::story_unlock::TABLE_JSON);
+        crate::story_unlock::StoryTable::from_json(&text)
+            .expect("the evidence table parses")
+            .leak()
+    });
+    StorySetup::for_scene(table, &["donut_prog"], &[], SceneKind::Corridor)
+}
+
+const FIZZLE_BASE: Fixture = Fixture {
+    carl_x: 300,
+    ..base(
+        "donut_prog_blink_fizzle",
+        "DP-D evidence: Carl runs right and the scroll camera follows; P2 Donut, left behind at the view's edge, presses the blink to the left: the destination is valid at the press and not at the arrival, so the blink fizzles (no mana, no cooldown) and the single shrinking ring shows",
+        0x0D90_0007,
+        &[],
+        260,
+    )
+};
+
+/// DP-Q28 (the arrival check) and DP-Q34 (the fizzle ring): found by a search
+/// over the press tick on the rig of the DP-C fixtures, then pinned.
+pub const DONUT_PROG_BLINK_FIZZLE: PartyFixture = PartyFixture {
+    base: &FIZZLE_BASE,
+    two_player: true,
+    tuning: PROVISIONAL_TUNING,
+    script: &[
+        run(1, 400, 0, 1.0),
+        special(136, 137, 1),
+        run(136, 144, 1, -1.0),
+    ],
+    pilot: Pilot::None,
+    donut: DonutSetup::unlocked(8),
+};
+
+const TOUR_BASE: Fixture = Fixture {
+    carl_x: 300,
+    enemies: &[],
+    engineers: &[],
+    shore_dx: None,
+    llamas: &[],
+    ..crate::cf02::arena::fixture(
+        "donut_prog_arena_blink_tour",
+        "DP-D evidence: the empty microarena, P2 Donut with the blink: a flat 112 px blink, the socket cooling over 9 s (the underline shrinks), the ready flash, then a blink toward the parapet that stops short in front of it",
+        0x0D90_0008,
+        720,
+    )
+};
+
+/// DP-Q27 (flat and wall), DP-Q33 (the cooldown underline and the ready flash),
+/// DP-Q34 (the ripples and the streak). The arena kit comes from the name
+/// ([`crate::cf02::arena::fixture_uses_arena`]).
+pub const DONUT_PROG_ARENA_BLINK_TOUR: PartyFixture = PartyFixture {
+    base: &TOUR_BASE,
+    two_player: true,
+    tuning: PROVISIONAL_TUNING,
+    script: &[
+        special(40, 41, 1),
+        run(40, 48, 1, 1.0),
+        run(60, 118, 1, 1.0),
+        special(600, 601, 1),
+        run(600, 608, 1, 1.0),
+    ],
+    pilot: Pilot::None,
+    donut: DonutSetup::unlocked(8),
+};
+
+const EDGE_BASE: Fixture = Fixture {
+    carl_x: 100,
+    enemies: &[],
+    engineers: &[],
+    shore_dx: None,
+    llamas: &[],
+    ..crate::cf02::arena::fixture(
+        "donut_prog_arena_blink_edge",
+        "DP-D evidence: Carl waits at the left; P2 Donut walks to the farthest she can go, casts her pool down to one charge and presses the blink (no mana: refused, the socket flashes), later, with the charges back, presses it toward the view's edge: no destination lies inside the view (the 24 px inset), so that press is refused too and the socket flashes again",
+        0x0D90_0009,
+        520,
+    )
+};
+
+/// DP-Q27 rule 5 (the view inset) and DP-Q26: the no-mana and the no-destination
+/// refusals, and DP-Q33 (the flash both raise).
+pub const DONUT_PROG_ARENA_BLINK_EDGE: PartyFixture = PartyFixture {
+    base: &EDGE_BASE,
+    two_player: true,
+    tuning: PROVISIONAL_TUNING,
+    script: &[
+        run(1, 110, 1, 1.0),
+        primary(130, 131, 1),
+        primary(150, 151, 1),
+        primary(170, 171, 1),
+        primary(190, 191, 1),
+        primary(210, 211, 1),
+        primary(230, 231, 1),
+        primary(250, 251, 1),
+        special(270, 271, 1),
+        run(270, 278, 1, 1.0),
+        special(420, 421, 1),
+        run(420, 428, 1, 1.0),
+    ],
+    pilot: Pilot::None,
+    donut: DonutSetup::unlocked(8),
+};
+
 /// Every `donut_prog_*` replay fixture, in committed order.
-pub const DONUT_PROG_FIXTURES: [&PartyFixture; 5] = [
+pub const DONUT_PROG_FIXTURES: [&PartyFixture; 9] = [
     &DONUT_PROG_STORY_UNLOCKS,
     &DONUT_PROG_GRANT_SURVIVES_RETRY,
     &DONUT_PROG_PRIMARY_MAPPING,
     &DONUT_PROG_BOSS_PINS,
     &DONUT_PROG_BOSS_BOTH_PROGRAMS,
+    // DP-D (the render-loop evidence of the blink).
+    &DONUT_PROG_GRANTS_2P,
+    &DONUT_PROG_BLINK_FIZZLE,
+    &DONUT_PROG_ARENA_BLINK_TOUR,
+    &DONUT_PROG_ARENA_BLINK_EDGE,
 ];
 
 #[cfg(test)]
@@ -245,7 +404,9 @@ mod tests {
     }
 
     fn kit_of(fixture: &PartyFixture) -> EnvKit {
-        if fixture.base.boss.is_some() {
+        if crate::cf02::arena::fixture_uses_arena(fixture.name()) {
+            crate::cf02::arena::load_arena(&root()).unwrap()
+        } else if fixture.base.boss.is_some() {
             load_arena(&root()).unwrap()
         } else {
             EnvKit::load(&root(), LAYOUT).unwrap()
@@ -295,12 +456,17 @@ mod tests {
     }
 
     /// The committed final hashes of the `donut_prog_*` fixtures.
-    const GOLDENS: [(&str, u64); 5] = [
+    const GOLDENS: [(&str, u64); 9] = [
         ("donut_prog_story_unlocks", 0xf7eb_5539_2e6c_5a98),
         ("donut_prog_grant_survives_retry", 0xb3e9_f4b4_c2f6_eff8),
         ("donut_prog_primary_mapping", 0xcd02_6290_cfd5_d561),
         ("donut_prog_boss_pins", 0x0a03_af02_5ce9_5b25),
         ("donut_prog_boss_both_programs", 0xbefb_7d69_bbe9_4cfd),
+        // DP-D (pinned from their first run; the events are asserted below).
+        ("donut_prog_grants_2p", 0xab69_21d3_eba4_608d),
+        ("donut_prog_blink_fizzle", 0x6e52_421a_4f95_bf63),
+        ("donut_prog_arena_blink_tour", 0x9077_5214_f5ef_5cbe),
+        ("donut_prog_arena_blink_edge", 0x6ae2_cb2e_ce51_3533),
     ];
 
     #[test]
@@ -325,6 +491,63 @@ mod tests {
         hashes.sort_unstable();
         hashes.dedup();
         assert_eq!(hashes.len(), GOLDENS.len(), "every fixture is distinct");
+    }
+
+    /// DP-D: the ticks of the evidence fixtures' blink events, from the real
+    /// simulation (the render-loop replays show these pictures).
+    #[test]
+    fn the_dp_d_fixtures_raise_the_events_their_pictures_show() {
+        let events = |name: &str| -> Vec<String> {
+            let f = find_party_fixture(name).unwrap();
+            lines(&replay(f))
+                .into_iter()
+                .filter(|l| {
+                    l.starts_with("COMBAT_EVENT")
+                        && (l.contains("blink") || l.contains("special_") || l.contains("capab"))
+                })
+                .map(|l| l.trim_start_matches("COMBAT_EVENT ").to_string())
+                .collect()
+        };
+        let grants = events("donut_prog_grants_2p");
+        assert_eq!(grants.len(), 2, "{grants:?}");
+        assert!(
+            grants[0].ends_with("hero=1 capability=jump_reach_boost"),
+            "{grants:?}"
+        );
+        assert!(
+            grants[1].ends_with("hero=1 capability=special_short_blink"),
+            "{grants:?}"
+        );
+        assert_eq!(
+            grants[0].split(' ').next(),
+            grants[1].split(' ').next(),
+            "one tick, list order"
+        );
+        assert_eq!(
+            events("donut_prog_blink_fizzle"),
+            [
+                "tick=136 kind=special_started hero=1 capability=special_short_blink",
+                "tick=142 kind=blink_fizzled hero=1 reason=no_destination",
+            ]
+        );
+        assert_eq!(
+            events("donut_prog_arena_blink_tour"),
+            [
+                "tick=40 kind=special_started hero=1 capability=special_short_blink",
+                "tick=46 kind=blink_resolved hero=1 from_x=340 to_x=452",
+                "tick=586 kind=special_ready hero=1",
+                "tick=600 kind=special_started hero=1 capability=special_short_blink",
+                "tick=606 kind=blink_resolved hero=1 from_x=656 to_x=724",
+            ],
+            "flat, ready 540 ticks after the arrival, then the parapet stops her at 724"
+        );
+        assert_eq!(
+            events("donut_prog_arena_blink_edge"),
+            [
+                "tick=270 kind=special_rejected hero=1 reason=no_mana",
+                "tick=420 kind=special_rejected hero=1 reason=no_destination",
+            ]
+        );
     }
 
     #[test]
@@ -1413,3 +1636,7 @@ mod blink_fixtures;
 // DP-E: the autonomous Donut's blink fixtures (spec section 9).
 #[cfg(test)]
 mod ai_blink_fixtures;
+
+// DP-D: the presentation of the blink over the DP-C rig (spec section 17).
+#[cfg(test)]
+mod presentation_tests;

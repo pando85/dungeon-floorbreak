@@ -17,6 +17,7 @@ pub mod audio_adapter;
 pub mod autoplay;
 pub mod blast;
 pub mod blast_art;
+pub mod blink_cues;
 pub mod boiler_fixtures;
 pub mod boss;
 pub mod boss_art;

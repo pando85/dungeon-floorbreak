@@ -12,8 +12,8 @@ use crate::env_kit::IRect;
 use crate::hud::{
     AbilityRow, BOSS_BAR_INNER_W, Chip, Control, FaceFrame, Glyph, HP_BAR_INNER_W,
     HP_FLASH_STEP_TICKS, HP_FLASH_TICKS, HpFlash, HudFont, HudLayout, HudSnapshot,
-    MANA_BAR_INNER_W, MANA_FLASH_TICKS, ManaView, PORTRAIT_CARL, PlateView, Rgb, SpecialSlot,
-    notice_dx, palette as p, text_width_px,
+    MANA_BAR_INNER_W, MANA_FLASH_TICKS, ManaView, PORTRAIT_CARL, PlateView, Rgb, SOCKET_W,
+    SocketFlashKind, SpecialSlot, notice_dx, palette as p, text_width_px,
 };
 use crate::party::HeroId;
 
@@ -674,9 +674,9 @@ fn abilities_row(o: &mut Out, s: &HudSnapshot, view: &PlateView, x: i32, y: i32)
         AbilityRow::Chips { a, b, special } => {
             chip(o, s, view.glyphs, a, x + 40, y);
             chip(o, s, view.glyphs, b, x + 93, y);
-            special_socket(o, s, view.glyphs, special, x, y);
+            special_socket(o, s, view, special, x, y);
         }
-        AbilityRow::NoActions { special } => special_socket(o, s, view.glyphs, special, x, y),
+        AbilityRow::NoActions { special } => special_socket(o, s, view, special, x, y),
     }
 }
 
@@ -687,44 +687,87 @@ fn abilities_row(o: &mut Out, s: &HudSnapshot, view: &PlateView, x: i32, y: i32)
 /// +146, left of any label that fits).
 const SPECIAL_LABEL_RIGHT: i32 = 157;
 const SPECIAL_LABEL_Y: i32 = 28;
+/// The right edge of Donut's mana track outline (`x + 50 + 96`).
+const MANA_TRACK_RIGHT: i32 = 146;
 
 fn special_socket(
     o: &mut Out,
     s: &HudSnapshot,
-    glyphs: crate::hud::GlyphSet,
+    view: &PlateView,
     special: SpecialSlot,
     x: i32,
     y: i32,
 ) {
-    match special {
-        SpecialSlot::Locked => o.frame(Z_ICON, FrameId::SocketLocked, x + 147, y + 34),
-        SpecialSlot::Equipped(chip) => {
-            // The glyph in the socket cell; muted dims it, with the zig-zag.
-            let glyph = FrameId::of_glyph(glyphs.glyph(chip.action));
-            let (w, h) = glyph.size();
-            let tint = chip.muted.then_some(p::AMBER_DIM);
-            o.frame_sized(Z_ICON, glyph, x + 147, y + 34, w, h, tint);
-            let color = match (chip.muted, s.high_contrast) {
-                (true, false) => p::AMBER_DIM,
-                _ => p::AMBER,
-            };
-            let text = chip.label.text();
-            let tw = text_width_px(HudFont::SilkRegular, text);
-            o.text(
-                Z_TEXT,
-                HudFont::SilkRegular,
-                text,
-                x + SPECIAL_LABEL_RIGHT - tw,
-                y + SPECIAL_LABEL_Y,
-                color,
-            );
-            if chip.muted {
-                for i in 0..6 {
-                    o.rect(Z_FLASH, x + 147 + i * 2, y + 44 - (i % 2), 2, 1, color);
-                }
+    let glyphs = view.glyphs;
+    // DP-Q33: a socket that cools down is the muted chip with the underline in
+    // place of the zig-zag.
+    let (chip, bar_px) = match special {
+        SpecialSlot::Locked => {
+            o.frame(Z_ICON, FrameId::SocketLocked, x + 147, y + 34);
+            socket_flash(o, s, view, x, y);
+            return;
+        }
+        SpecialSlot::Equipped(chip) => (chip, None),
+        SpecialSlot::Cooling { chip, bar_px } => (chip, Some(bar_px)),
+    };
+    // The glyph in the socket cell; muted dims it, with the zig-zag.
+    let glyph = FrameId::of_glyph(glyphs.glyph(chip.action));
+    let (w, h) = glyph.size();
+    let tint = chip.muted.then_some(p::AMBER_DIM);
+    o.frame_sized(Z_ICON, glyph, x + 147, y + 34, w, h, tint);
+    let color = match (chip.muted, s.high_contrast) {
+        (true, false) => p::AMBER_DIM,
+        _ => p::AMBER,
+    };
+    let text = chip.label.text();
+    let tw = text_width_px(HudFont::SilkRegular, text);
+    // The label sits on the row above the socket. Donut's plate has her mana
+    // track there (it ends at +146): a label that would reach it is not drawn
+    // and the glyph and the underline carry the state (DP-D, recorded).
+    if view.mana.is_none() || SPECIAL_LABEL_RIGHT - tw > MANA_TRACK_RIGHT {
+        o.text(
+            Z_TEXT,
+            HudFont::SilkRegular,
+            text,
+            x + SPECIAL_LABEL_RIGHT - tw,
+            y + SPECIAL_LABEL_Y,
+            color,
+        );
+    }
+    match (chip.muted, bar_px) {
+        (true, Some(px)) => {
+            o.rect(Z_FLASH, x + 147, y + 44, i32::from(px), 1, color);
+        }
+        (true, None) => {
+            for i in 0..6 {
+                o.rect(Z_FLASH, x + 147 + i * 2, y + 44 - (i % 2), 2, 1, color);
             }
         }
+        _ => {}
     }
+    socket_flash(o, s, view, x, y);
+}
+
+/// DP-Q33: the socket's one-shot flash, an outline around the cell for
+/// `MANA_FLASH_TICKS`: brass when the special is ready again, magenta for a
+/// refusal or a fizzle (the dry-press cue). Skipped under reduced motion, like
+/// the mana outline flash.
+fn socket_flash(o: &mut Out, s: &HudSnapshot, view: &PlateView, x: i32, y: i32) {
+    let Some(flash) = view.socket_flash else {
+        return;
+    };
+    if s.reduced_motion || flash.age_ticks >= MANA_FLASH_TICKS {
+        return;
+    }
+    let color = match flash.kind {
+        SocketFlashKind::Ready => p::BRASS_HI,
+        SocketFlashKind::Refused => p::MAGENTA_HI,
+    };
+    let (l, t, w, h) = (x + 146, y + 33, SOCKET_W + 2, SOCKET_W + 2);
+    o.rect(Z_FLASH, l, t, w, 1, color);
+    o.rect(Z_FLASH, l, t + h - 1, w, 1, color);
+    o.rect(Z_FLASH, l, t + 1, 1, h - 2, color);
+    o.rect(Z_FLASH, l + w - 1, t + 1, 1, h - 2, color);
 }
 
 fn chip(o: &mut Out, s: &HudSnapshot, glyphs: crate::hud::GlyphSet, chip: Chip, x0: i32, y: i32) {
@@ -1352,6 +1395,129 @@ mod tests {
                 assert_eq!(t.contains(&"PUNCH") && t.contains(&"KICK"), melee_live);
             }
         }
+    }
+
+    /// The draw items of Donut's plate (human-driven, her mana unlocked at
+    /// `fill_px`) with the given special socket and flash.
+    fn donut_with_special(
+        special: SpecialSlot,
+        socket_flash: Option<crate::hud::SocketFlash>,
+        reduced_motion: bool,
+        fill_px: u8,
+    ) -> (Vec<DrawItem>, HudLayout) {
+        let mut real = crate::hud::test_inputs(4, 4);
+        real.donut_control = Control::Player(2);
+        real.donut_chips = true;
+        real.donut_magic = crate::hud::DonutMagic::Unlocked(ManaView {
+            fill_px,
+            depleted_age: None,
+        });
+        real.donut_special = special;
+        real.donut_socket_flash = socket_flash;
+        real.reduced_motion = reduced_motion;
+        let layout = HudLayout::new(360, 288);
+        let mut list = Vec::new();
+        build_draw_list(&build_snapshot(&real, None, 0), &layout, &mut list);
+        (list, layout)
+    }
+
+    fn blink_chip(muted: bool) -> crate::hud::Chip {
+        crate::hud::Chip {
+            action: crate::hud::LogicalAction::Special,
+            label: crate::hud::LabelId::Blink,
+            muted,
+        }
+    }
+
+    /// The `(x offset, width)` of the solid 1 px rects on the socket's underline row.
+    fn underline(list: &[DrawItem], layout: &HudLayout) -> Vec<(i32, i32)> {
+        let (sx, sy) = (layout.donut_plate.x + 147, layout.donut_plate.y + 44);
+        list.iter()
+            .filter_map(|i| match i.kind {
+                DrawKind::Rect { w, h: 1, .. } if i.y == sy && i.x >= sx && i.x < sx + 11 => {
+                    Some((i.x - sx, w))
+                }
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// DP-Q33: a cooling socket is the muted glyph with a solid 1 px underline of
+    /// the cooldown width (no zig-zag), a ready one has neither, and a muted one
+    /// for want of mana keeps the zig-zag. The `BLINK` label does not fit beside
+    /// the mana track (27 px against the 11 px the row leaves), so the glyph and
+    /// the underline carry the state.
+    #[test]
+    fn a_cooling_donut_socket_draws_the_underline_and_not_the_label() {
+        let cooling = |px| SpecialSlot::Cooling {
+            chip: blink_chip(true),
+            bar_px: px,
+        };
+        for px in [1u8, 6, 11] {
+            let (list, layout) = donut_with_special(cooling(px), None, false, 94);
+            assert_eq!(underline(&list, &layout), vec![(0, i32::from(px))], "{px}");
+            assert!(!texts(&list).contains(&"BLINK"));
+            assert!(frames(&list).contains(&FrameId::GlyphB));
+        }
+        let (ready, layout) =
+            donut_with_special(SpecialSlot::Equipped(blink_chip(false)), None, false, 94);
+        assert!(underline(&ready, &layout).is_empty(), "ready: no underline");
+        let (dry, layout) =
+            donut_with_special(SpecialSlot::Equipped(blink_chip(true)), None, false, 12);
+        // The zig-zag alternates rows: three of its six 2 px steps are on this one.
+        assert_eq!(underline(&dry, &layout).len(), 3);
+        let (locked, _) = donut_with_special(SpecialSlot::Locked, None, false, 94);
+        assert!(frames(&locked).contains(&FrameId::SocketLocked));
+        // The label would reach the track; Carl's plate (no track) still draws his.
+        assert!(
+            SPECIAL_LABEL_RIGHT - text_width_px(HudFont::SilkRegular, "BLINK") <= MANA_TRACK_RIGHT
+        );
+        assert!(
+            texts(&carl_with_special(
+                equipped_chip(false),
+                GlyphSet::Xbox,
+                false,
+                true
+            ))
+            .contains(&"BOOM")
+        );
+    }
+
+    /// DP-Q33: the flash is a 1 px outline around the socket cell for the first
+    /// six ticks, brass for ready and magenta for a refusal; reduced motion and
+    /// the age past `MANA_FLASH_TICKS` draw none.
+    #[test]
+    fn the_donut_socket_flash_is_an_outline_that_reduced_motion_skips() {
+        use crate::hud::{SocketFlash, SocketFlashKind};
+        let slot = SpecialSlot::Equipped(blink_chip(false));
+        let outline = |flash, reduced| {
+            let (list, layout) = donut_with_special(slot, flash, reduced, 94);
+            let (cx, cy) = (layout.donut_plate.x + 146, layout.donut_plate.y + 33);
+            list.iter()
+                .filter_map(|i| match i.kind {
+                    DrawKind::Rect { color, .. }
+                        if (cx..cx + 13).contains(&i.x)
+                            && (cy..cy + 13).contains(&i.y)
+                            && (color == p::BRASS_HI || color == p::MAGENTA_HI) =>
+                    {
+                        Some(color)
+                    }
+                    _ => None,
+                })
+                .collect::<Vec<_>>()
+        };
+        let flash = |kind, age_ticks| Some(SocketFlash { kind, age_ticks });
+        assert_eq!(
+            outline(flash(SocketFlashKind::Ready, 0), false),
+            vec![p::BRASS_HI; 4]
+        );
+        assert_eq!(
+            outline(flash(SocketFlashKind::Refused, 5), false),
+            vec![p::MAGENTA_HI; 4]
+        );
+        assert!(outline(flash(SocketFlashKind::Refused, 6), false).is_empty());
+        assert!(outline(flash(SocketFlashKind::Ready, 0), true).is_empty());
+        assert!(outline(None, false).is_empty());
     }
 
     /// CP-Q32: muted dims the glyph and the label and adds the zig-zag underline

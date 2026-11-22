@@ -25,6 +25,8 @@ pub const VFX_SIZE: u32 = 32;
 /// The dry-press cue lasts this many ticks (presentation only).
 pub const DRY_CUE_TICKS: u64 = 8;
 
+/// Melee atlas frame of the pounce crouch (`p0`).
+const POUNCE_CROUCH_FRAME: usize = 4;
 /// Melee atlas frame of the pounce flight (`p1`).
 const POUNCE_FLIGHT_FRAME: usize = 5;
 /// Ticks the pin frame (`p2`) is shown from touchdown; `p3` follows
@@ -56,7 +58,7 @@ pub fn melee_frame(view: &MoveView) -> usize {
     match view.mv {
         MoveKind::Swat => swat_frame(view.tick),
         MoveKind::Pounce => match (view.phase, view.touchdown) {
-            (MovePhase::Crouch, _) => 4,
+            (MovePhase::Crouch, _) => POUNCE_CROUCH_FRAME,
             (_, Some(td)) => {
                 if view.tick.saturating_sub(td) < PIN_TICKS {
                     6
@@ -69,6 +71,16 @@ pub fn melee_frame(view: &MoveView) -> usize {
             _ => POUNCE_FLIGHT_FRAME,
         },
     }
+}
+
+/// DP-Q34 (stand-in): the melee atlas frame of the blink's crouch, the existing
+/// pounce crouch frame `p0`, for the first `crouch_ticks` ticks of the windup
+/// (`windup_age` is `0` on the press tick, `None` outside a windup). Presentation
+/// only; the arrival tick is not a crouch tick (she has moved by then).
+pub fn blink_crouch_frame(windup_age: Option<u64>, crouch_ticks: u8) -> Option<usize> {
+    windup_age
+        .filter(|age| *age < u64::from(crouch_ticks))
+        .map(|_| POUNCE_CROUCH_FRAME)
 }
 
 /// How far the drawn pivot drops below the body's foot for a melee frame.
@@ -184,5 +196,17 @@ mod tests {
         let loop_frames: Vec<usize> = (1..=13).map(f).collect();
         assert_eq!(loop_frames, [2, 2, 2, 2, 3, 3, 3, 3, 0, 0, 0, 0, 2]);
         assert_eq!(bolt_frame(5.0, 0.0), 1);
+    }
+
+    /// DP-Q34: the crouch is the pounce crouch frame for the first 6 ticks of the
+    /// windup (ages 0..=5) and nothing on the arrival tick (age 6) or outside one.
+    #[test]
+    fn the_blink_crouch_is_the_pounce_crouch_for_six_ticks() {
+        for age in 0..6 {
+            assert_eq!(blink_crouch_frame(Some(age), 6), Some(4), "age {age}");
+        }
+        assert_eq!(blink_crouch_frame(Some(6), 6), None);
+        assert_eq!(blink_crouch_frame(None, 6), None);
+        assert_eq!(blink_crouch_frame(Some(0), 0), None);
     }
 }

@@ -1485,6 +1485,10 @@ pub fn donut_start_x(fixture: &str) -> Option<f32> {
         // jump race starts her 60 px behind him so both stay visible in the air.
         "dm_run_race_2p" => Some(400.0),
         "dm_jump_race_2p" => Some(340.0),
+        // DONUT-PROG-01 DP-D: the blink evidence fixtures place her explicitly.
+        "donut_prog_blink_fizzle" => Some(300.0),
+        "donut_prog_arena_blink_tour" => Some(340.0),
+        "donut_prog_arena_blink_edge" => Some(140.0),
         _ => None,
     }
 }

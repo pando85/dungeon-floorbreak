@@ -733,6 +733,19 @@ mod tests {
                                     label: crate::hud::LabelId::Boom,
                                     muted: true,
                                 });
+                            // DP-Q33: Donut's cooling socket and a flash.
+                            real.donut_special = crate::hud::SpecialSlot::Cooling {
+                                chip: crate::hud::Chip {
+                                    action: crate::hud::LogicalAction::Special,
+                                    label: crate::hud::LabelId::Blink,
+                                    muted: true,
+                                },
+                                bar_px: 6,
+                            };
+                            real.donut_socket_flash = Some(crate::hud::SocketFlash {
+                                kind: crate::hud::SocketFlashKind::Refused,
+                                age_ticks: 0,
+                            });
                             let mut out = Vec::new();
                             build_draw_list(
                                 &build_snapshot(&real, preview, 239),

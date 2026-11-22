@@ -165,6 +165,12 @@ pub enum LabelId {
     /// CP-Q11: the grant notice of the thrown charge (the `notices` row of
     /// `story_unlocks_v0.json`).
     GoblinBoom,
+    /// DP-Q33: Donut's blink socket label (`dpq33_socket_label`, `BLINK`).
+    Blink,
+    /// DP-Q12: the grant notice of the jump boost (the `notices` row).
+    LightFeet,
+    /// DP-Q12: the grant notice of the short blink (the `notices` row).
+    PuddleJumper,
 }
 
 impl LabelId {
@@ -186,6 +192,9 @@ impl LabelId {
             Self::Knockout => "KNOCKOUT!",
             Self::Boom => "BOOM",
             Self::GoblinBoom => "GOBLIN BOOM",
+            Self::Blink => "BLINK",
+            Self::LightFeet => "LIGHT FEET",
+            Self::PuddleJumper => "PUDDLE JUMPER",
         }
     }
 
@@ -194,14 +203,19 @@ impl LabelId {
     /// entry), the choice is data; a text the HUD has no entry for is `None`
     /// and the caller keeps the default.
     pub fn for_socket_text(text: &str) -> Option<Self> {
-        (text == Self::Boom.text()).then_some(Self::Boom)
+        [Self::Boom, Self::Blink]
+            .into_iter()
+            .find(|label| text == label.text())
     }
 
-    /// CP-Q11: the grant notice of a capability by the data's notice text (the
-    /// `notices` rows of `story_unlocks_v0.json`). Only the thrown charge has a
-    /// HUD label here; the other grants add theirs with their stage.
+    /// CP-Q11, DP-Q12: the grant notice of a capability by the data's notice text
+    /// (the `notices` rows of `story_unlocks_v0.json`). The thrown charge and
+    /// Donut's two grants have a HUD label; the other grants add theirs with their
+    /// stage.
     pub fn for_notice_text(text: &str) -> Option<Self> {
-        (text == Self::GoblinBoom.text()).then_some(Self::GoblinBoom)
+        [Self::GoblinBoom, Self::LightFeet, Self::PuddleJumper]
+            .into_iter()
+            .find(|label| text == label.text())
     }
 }
 
@@ -234,6 +248,21 @@ pub fn notice_for_event(event: &CombatEvent) -> Option<LabelId> {
             ..
         } if *capability == crate::story_unlock::SPECIAL_THROWN_CHARGE.as_str() => {
             Some(LabelId::GoblinBoom)
+        }
+        // DP-Q12: Donut's two grants, from the same event.
+        CombatEvent::CapabilityGranted {
+            hero: 1,
+            capability,
+            ..
+        } if *capability == crate::donut_prog::JUMP_REACH_BOOST.as_str() => {
+            Some(LabelId::LightFeet)
+        }
+        CombatEvent::CapabilityGranted {
+            hero: 1,
+            capability,
+            ..
+        } if *capability == crate::donut_prog::SPECIAL_SHORT_BLINK.as_str() => {
+            Some(LabelId::PuddleJumper)
         }
         CombatEvent::EnemyDefeated { force, .. } => NOTICE_TRIGGERS
             .iter()
@@ -377,6 +406,34 @@ pub struct Chip {
 pub enum SpecialSlot {
     Locked,
     Equipped(Chip),
+    /// DP-Q33: an equipped special that is cooling down: the muted chip and the
+    /// 1 px cooldown underline of `bar_px` pixels (`1..=SOCKET_W`) in place of
+    /// the muted zig-zag.
+    Cooling {
+        chip: Chip,
+        bar_px: u8,
+    },
+}
+
+/// The socket cell's width in virtual pixels (the glyph and the padlock).
+pub const SOCKET_W: i32 = 11;
+
+/// DP-Q33: which cue flashes the socket once.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SocketFlashKind {
+    /// The special is ready again (`SpecialReady`).
+    Ready,
+    /// A press was refused or the blink fizzled (`NoMana`, `NoDestination`),
+    /// the dry-press cue.
+    Refused,
+}
+
+/// DP-Q33: a socket flash, aged in HUD ticks. Presentation only, like the mana
+/// outline flash: `MANA_FLASH_TICKS` long.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SocketFlash {
+    pub kind: SocketFlashKind,
+    pub age_ticks: u8,
 }
 
 /// What Carl's special is doing, as the socket shows it (CP-Q32). Fed by the
@@ -456,6 +513,8 @@ pub struct PlateView {
     /// `None` = no mana resource (Carl always; Donut before the biscuit).
     pub mana: Option<ManaView>,
     pub abilities: AbilityRow,
+    /// DP-Q33: the one-shot flash of this plate's special socket (Donut's only).
+    pub socket_flash: Option<SocketFlash>,
     /// AUDIENCE-01: this hero's live viewer count. `None` while the feature is
     /// locked (the Floor 01 default: no eye, no number, no placeholder), so a
     /// locked plate draws exactly what it drew before. Owned per hero (indexed
@@ -616,6 +675,10 @@ pub struct RealHudInputs {
     pub melee_live: bool,
     /// CP-Q32: Carl's special socket (`Locked` unless the scene feeds a phase).
     pub carl_special: SpecialSlot,
+    /// DP-Q33: Donut's special socket (`Locked` unless the scene feeds the blink
+    /// state) and its one-shot flash.
+    pub donut_special: SpecialSlot,
+    pub donut_socket_flash: Option<SocketFlash>,
     pub donut_magic: DonutMagic,
     /// What Primary does at 0 mana (the loaded mana tuning, Q10-16).
     pub empty_press: EmptyPress,
@@ -656,6 +719,8 @@ impl RealHudInputs {
             donut_control: Control::Ai,
             melee_live: true,
             carl_special: SpecialSlot::Locked,
+            donut_special: SpecialSlot::Locked,
+            donut_socket_flash: None,
             donut_magic: DonutMagic::PreBiscuit,
             empty_press: EmptyPress::Dry,
             hp_flash: None,
@@ -741,6 +806,7 @@ fn plate(
         hp_flash: None,
         mana: None,
         abilities,
+        socket_flash: None,
         audience: None,
     }
 }
@@ -786,8 +852,10 @@ pub fn build_snapshot(real: &RealHudInputs, preview: Option<HudPreview>, tick: u
             real.empty_press,
             real.donut_chips,
             real.melee_live,
+            real.donut_special,
         ),
     );
+    donut.socket_flash = real.donut_socket_flash;
     // Mana exists only for Donut, and only once her magic is unlocked.
     if let DonutMagic::Unlocked(mana) = real.donut_magic {
         donut.mana = Some(mana);
@@ -1126,7 +1194,7 @@ type VisualKey = (
     Option<BossView>,
     DonutMagic,
     [Option<AudienceView>; 2],
-    SpecialSlot,
+    (SpecialSlot, SpecialSlot, Option<SocketFlash>),
 );
 
 /// The party facts the HUD draws (real ownership, never a fixture): who drives
@@ -1182,6 +1250,10 @@ pub struct HudRuntime {
     /// CP-Q32: what Carl's special is doing, and the label its socket shows.
     special: SpecialPhase,
     special_label: LabelId,
+    /// DP-Q33: Donut's special socket and its one-shot flash (presentation only,
+    /// fed by the scene from the blink state and the event log).
+    donut_special: SpecialSlot,
+    donut_flash: Option<SocketFlash>,
     carl_name: String,
     donut_name: String,
     location: Option<String>,
@@ -1246,6 +1318,8 @@ impl HudRuntime {
             melee_live: false,
             special: SpecialPhase::Locked,
             special_label: LabelId::Boom,
+            donut_special: SpecialSlot::Locked,
+            donut_flash: None,
             carl_name: FALLBACK_NAME_LEFT.to_string(),
             donut_name: FALLBACK_NAME_RIGHT.to_string(),
             location: None,
@@ -1452,6 +1526,15 @@ impl HudRuntime {
         }
     }
 
+    /// DP-Q33: record Donut's special socket (read from the blink state by the
+    /// scene, presentation only). Bumps the revision only on a change.
+    pub fn set_donut_special(&mut self, slot: SpecialSlot) {
+        if self.donut_special != slot {
+            self.donut_special = slot;
+            self.revision += 1;
+        }
+    }
+
     pub fn set_melee_live(&mut self, live: bool) {
         if self.melee_live != live {
             self.melee_live = live;
@@ -1492,7 +1575,11 @@ impl HudRuntime {
             self.boss_view(),
             self.donut_magic(),
             self.audience_views(),
-            self.special.slot(self.special_label),
+            (
+                self.special.slot(self.special_label),
+                self.donut_special,
+                self.donut_flash,
+            ),
         )
     }
 
@@ -1529,6 +1616,7 @@ impl HudRuntime {
         self.boss = None;
         self.notices.clear();
         self.flash = [None, None];
+        self.donut_flash = None;
         self.carl_health = HERO_HEALTH;
         self.donut_health = DONUT_HEALTH;
         self.revision += 1;
@@ -1553,6 +1641,14 @@ impl HudRuntime {
             }
             None => self.depleted = donut_hud::DepletedFlash::default(),
         }
+        // DP-Q33: the socket flash ages with the mana outline flash.
+        self.donut_flash = self
+            .donut_flash
+            .map(|f| SocketFlash {
+                age_ticks: f.age_ticks.saturating_add(1),
+                ..f
+            })
+            .filter(|f| f.age_ticks < MANA_FLASH_TICKS);
         for slot in &mut self.flash {
             if let Some(flash) = slot.as_mut() {
                 flash.age_ticks += 1;
@@ -1595,6 +1691,28 @@ impl HudRuntime {
                 CombatEvent::Restart { .. } => {
                     self.notices.clear();
                     self.flash = [None, None];
+                    self.donut_flash = None;
+                }
+                // DP-Q33: the socket flashes once on ready, and on a refusal or
+                // a fizzle for want of mana or a destination (the dry-press cue).
+                CombatEvent::SpecialReady { hero: 1, .. } => {
+                    self.donut_flash = Some(SocketFlash {
+                        kind: SocketFlashKind::Ready,
+                        age_ticks: 0,
+                    });
+                }
+                CombatEvent::SpecialRejected {
+                    hero: 1,
+                    reason:
+                        crate::thrown_charge::SpecialReject::NoMana
+                        | crate::thrown_charge::SpecialReject::NoDestination,
+                    ..
+                }
+                | CombatEvent::BlinkFizzled { hero: 1, .. } => {
+                    self.donut_flash = Some(SocketFlash {
+                        kind: SocketFlashKind::Refused,
+                        age_ticks: 0,
+                    });
                 }
                 other => {
                     if let Some(headline) = notice_for_event(&other) {
@@ -1639,6 +1757,8 @@ impl HudRuntime {
         let mut real = RealHudInputs::normal(self.carl_health, self.donut_health);
         real.melee_live = self.melee_live;
         real.carl_special = self.special.slot(self.special_label);
+        real.donut_special = self.donut_special;
+        real.donut_socket_flash = self.donut_flash;
         real.carl_name.clone_from(&self.carl_name);
         real.donut_name.clone_from(&self.donut_name);
         real.location.clone_from(&self.location);
@@ -3267,5 +3387,168 @@ mod tests {
             assert_eq!(plate, a.plates[i], "plate {i}");
         }
         assert_eq!((a.notice, a.face), (b.notice, b.face));
+    }
+
+    // ---------------------------------------------- DONUT-PROG-01 DP-D: HUD --
+
+    fn granted(hero: u8, capability: &'static str) -> CombatEvent {
+        CombatEvent::CapabilityGranted {
+            tick: 1,
+            hero,
+            capability,
+        }
+    }
+
+    /// DP-Q12: Donut's two grants raise their notices, from the same event, and the
+    /// labels are the data rows' text (so the two cannot drift); at most 13
+    /// characters, and wide enough for the notice frame.
+    #[test]
+    fn donut_grants_raise_their_notices_from_the_data_rows() {
+        let table = crate::story_unlock::StoryTable::active();
+        for (capability, label) in [
+            ("jump_reach_boost", LabelId::LightFeet),
+            ("special_short_blink", LabelId::PuddleJumper),
+        ] {
+            assert_eq!(notice_for_event(&granted(1, capability)), Some(label));
+            let row = table.notice(capability).unwrap();
+            assert_eq!(LabelId::for_notice_text(&row.text), Some(label));
+            assert_eq!(label.text(), row.text);
+            assert!(label.text().len() <= 13);
+            let layout = HudLayout::new(360, 288);
+            assert!(text_width_px(HudFont::Jersey, label.text()) <= layout.notice.w - 14);
+            // Another hero's grant of the same id is not Donut's notice.
+            assert_eq!(notice_for_event(&granted(0, capability)), None);
+        }
+        assert_eq!(
+            LabelId::for_socket_text("BLINK"),
+            Some(LabelId::Blink),
+            "the socket label is by data text"
+        );
+        assert_eq!(LabelId::for_socket_text("BOOM"), Some(LabelId::Boom));
+        assert_eq!(LabelId::for_socket_text("ZOOM"), None);
+    }
+
+    /// DP-Q12: on the Juicer tick with both programs on, the two notices queue in
+    /// the grants-list order (Carl's first), each for its normal duration with the
+    /// normal gap; the second never replaces the first.
+    #[test]
+    fn two_grants_on_one_tick_queue_in_grant_list_order() {
+        let mut hud = HudRuntime::new(HudConfig::default());
+        let log = vec![
+            granted(0, "special_thrown_charge"),
+            granted(1, "special_short_blink"),
+        ];
+        hud.step(4, 4, &log, 0);
+        let first = hud.snapshot().notice.expect("Carl's notice starts at once");
+        assert_eq!((first.headline, first.age_ticks), (LabelId::GoblinBoom, 0));
+        assert!(hud.notices.has_pending());
+        let mut start_of_second = None;
+        for tick in 1..400u16 {
+            hud.step(4, 4, &log, 0);
+            match hud.snapshot().notice {
+                Some(n) if n.headline == LabelId::PuddleJumper => {
+                    start_of_second = Some((tick, n.age_ticks));
+                    break;
+                }
+                Some(n) => assert_eq!(n.headline, LabelId::GoblinBoom, "tick {tick}"),
+                None => {}
+            }
+        }
+        // The first lives NOTICE_TOTAL_TICKS, then the gap, then the second starts.
+        assert_eq!(
+            start_of_second,
+            Some((NOTICE_TOTAL_TICKS + NOTICE_MIN_GAP_TICKS, 0))
+        );
+    }
+
+    /// DP-Q33: the socket flashes for `MANA_FLASH_TICKS` on ready, and on a refusal
+    /// or fizzle for want of mana or a destination; a busy or cooling press and
+    /// Carl's special never flash Donut's socket.
+    #[test]
+    fn the_donut_socket_flashes_once_on_ready_and_on_a_dry_press() {
+        use crate::thrown_charge::SpecialReject;
+        let flash = |hud: &HudRuntime| hud.snapshot().plates[1].socket_flash;
+        let run = |event: CombatEvent| -> Vec<Option<SocketFlash>> {
+            let mut hud = HudRuntime::new(HudConfig::default());
+            let mut out = Vec::new();
+            hud.step(4, 4, &[event], 0);
+            out.push(flash(&hud));
+            for _ in 0..8 {
+                hud.step(4, 4, &[event], 0);
+                out.push(flash(&hud));
+            }
+            out
+        };
+        let on = |kind, age_ticks| Some(SocketFlash { kind, age_ticks });
+        let ready = run(CombatEvent::SpecialReady { tick: 1, hero: 1 });
+        // The cursor shows the event once: age 0 on its tick, 5 on the last, then none.
+        assert_eq!(ready[0], on(SocketFlashKind::Ready, 0));
+        assert_eq!(ready[5], on(SocketFlashKind::Ready, 5));
+        assert_eq!(ready[6], None, "gone after {MANA_FLASH_TICKS} ticks");
+        assert_eq!(MANA_FLASH_TICKS, 6);
+        for reason in [SpecialReject::NoMana, SpecialReject::NoDestination] {
+            let seq = run(CombatEvent::SpecialRejected {
+                tick: 1,
+                hero: 1,
+                reason,
+            });
+            assert_eq!(seq[0], on(SocketFlashKind::Refused, 0), "{reason:?}");
+        }
+        let fizzle = run(CombatEvent::BlinkFizzled {
+            tick: 1,
+            hero: 1,
+            reason: crate::short_blink::FizzleReason::NoDestination,
+        });
+        assert_eq!(fizzle[0], on(SocketFlashKind::Refused, 0));
+        for quiet in [
+            CombatEvent::SpecialRejected {
+                tick: 1,
+                hero: 1,
+                reason: SpecialReject::Busy,
+            },
+            CombatEvent::SpecialRejected {
+                tick: 1,
+                hero: 1,
+                reason: SpecialReject::Cooldown,
+            },
+            CombatEvent::SpecialReady { tick: 1, hero: 0 },
+            CombatEvent::SpecialRejected {
+                tick: 1,
+                hero: 0,
+                reason: SpecialReject::NoMana,
+            },
+        ] {
+            assert!(run(quiet).iter().all(Option::is_none), "{quiet:?}");
+        }
+        // A restart clears it; the flash is on Donut's plate only.
+        let mut hud = HudRuntime::new(HudConfig::default());
+        hud.step(4, 4, &[CombatEvent::SpecialReady { tick: 1, hero: 1 }], 0);
+        assert_eq!(hud.snapshot().plates[0].socket_flash, None);
+        hud.restart();
+        assert_eq!(flash(&hud), None);
+    }
+
+    /// The socket is part of the visual key: a new cooldown width or a flash
+    /// bumps the revision, a steady one does not.
+    #[test]
+    fn the_donut_socket_bumps_the_revision_only_when_it_changes() {
+        let mut hud = HudRuntime::new(HudConfig::default());
+        let chip = Chip {
+            action: LogicalAction::Special,
+            label: LabelId::Blink,
+            muted: true,
+        };
+        let slot = SpecialSlot::Cooling { chip, bar_px: 6 };
+        let r0 = hud.revision;
+        hud.set_donut_special(slot);
+        assert_eq!(hud.revision, r0 + 1);
+        hud.set_donut_special(slot);
+        assert_eq!(hud.revision, r0 + 1, "unchanged");
+        hud.set_donut_special(SpecialSlot::Cooling { chip, bar_px: 5 });
+        assert_eq!(hud.revision, r0 + 2);
+        assert_eq!(
+            hud.real_inputs().donut_special,
+            SpecialSlot::Cooling { chip, bar_px: 5 }
+        );
     }
 }

@@ -1,0 +1,23 @@
+COMBAT_EVENT tick=130 kind=move_started move=magic_missile instance=1
+COMBAT_EVENT tick=134 kind=mana_spent hero=1 left=7
+COMBAT_EVENT tick=150 kind=move_started move=magic_missile instance=2
+COMBAT_EVENT tick=154 kind=mana_spent hero=1 left=6
+COMBAT_EVENT tick=170 kind=move_started move=magic_missile instance=3
+COMBAT_EVENT tick=174 kind=mana_spent hero=1 left=5
+COMBAT_EVENT tick=190 kind=move_started move=magic_missile instance=4
+COMBAT_EVENT tick=194 kind=mana_spent hero=1 left=4
+COMBAT_EVENT tick=210 kind=move_started move=magic_missile instance=5
+COMBAT_EVENT tick=214 kind=mana_spent hero=1 left=3
+COMBAT_EVENT tick=230 kind=move_started move=magic_missile instance=6
+COMBAT_EVENT tick=234 kind=mana_spent hero=1 left=2
+COMBAT_EVENT tick=250 kind=move_started move=magic_missile instance=7
+COMBAT_EVENT tick=254 kind=mana_spent hero=1 left=1
+COMBAT_EVENT tick=270 kind=special_rejected hero=1 reason=no_mana
+COMBAT_EVENT tick=324 kind=mana_regained hero=1 now=2
+COMBAT_EVENT tick=364 kind=mana_regained hero=1 now=3
+COMBAT_EVENT tick=404 kind=mana_regained hero=1 now=4
+COMBAT_EVENT tick=420 kind=special_rejected hero=1 reason=no_destination
+COMBAT_EVENT tick=444 kind=mana_regained hero=1 now=5
+COMBAT_EVENT tick=484 kind=mana_regained hero=1 now=6
+COMBAT_STATE fixture=donut_prog_arena_blink_edge seed=0xd900009 tick=520 elapsed=520 hero_hp=4 deaths=0 enemies= hash=089eb574f4f1c34d
+PARTY_STATE fixture=donut_prog_arena_blink_edge mode=2p controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=6ae2cb2ece513533

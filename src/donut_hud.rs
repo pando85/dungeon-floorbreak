@@ -18,11 +18,15 @@
 //!   `MISSILE` muted at 0 mana. With the playtest `empty_press: "swat"` the
 //!   0-mana chip is an unmuted `SWAT`. `POUNCE` is never muted.
 //! - An AI-controlled plate shows `COMPANION`.
+//!
+//! DONUT-PROG-01 DP-D adds her special socket (DP-Q12, DP-Q33): [`blink_socket`]
+//! maps the blink state to the padlock, the equipped chip, the cooling chip with
+//! its cooldown underline, or the ready chip. Presentation only; it reads state.
 
 use crate::donut_mana::{DonutMana, EmptyPress, ManaTuning};
 use crate::hud::{
     AbilityRow, Chip, Control, DonutMagic, LabelId, LogicalAction, MANA_BAR_INNER_W,
-    MANA_FLASH_TICKS, ManaView, SpecialSlot,
+    MANA_FLASH_TICKS, ManaView, SOCKET_W, SpecialSlot,
 };
 
 /// `round(mana / mana_max * 94)` in integers: no float ties at 2 and 6.
@@ -101,12 +105,13 @@ pub fn donut_ability_row(
     empty_press: EmptyPress,
     donut_moves: bool,
     melee_live: bool,
+    special: SpecialSlot,
 ) -> AbilityRow {
     match control {
         Control::Ai => AbilityRow::AiCompanion,
-        Control::Player(_) if !chips_live(donut_moves, melee_live) => AbilityRow::NoActions {
-            special: SpecialSlot::Locked,
-        },
+        Control::Player(_) if !chips_live(donut_moves, melee_live) => {
+            AbilityRow::NoActions { special }
+        }
         Control::Player(_) => {
             let (label, muted) = match magic {
                 DonutMagic::PreBiscuit => (LabelId::Swat, false),
@@ -127,10 +132,81 @@ pub fn donut_ability_row(
                     label: LabelId::Pounce,
                     muted: false,
                 },
-                special: SpecialSlot::Locked,
+                special,
             }
         }
     }
+}
+
+/// DP-Q33: the width of the cooldown underline, `ceil(remaining / cooldown *
+/// socket_w)` in integers, `0` when nothing remains (the special is ready).
+pub fn cooldown_bar_px(remaining: u64, cooldown: u16) -> u8 {
+    if remaining == 0 || cooldown == 0 {
+        return 0;
+    }
+    let w = SOCKET_W as u64;
+    let px = (remaining * w).div_ceil(u64::from(cooldown));
+    px.min(w) as u8
+}
+
+/// The blink state a socket is drawn from (DP-Q33), plain data.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct BlinkSocketInputs {
+    /// She holds `special_short_blink`.
+    pub holds: bool,
+    /// The windup is running (the press to the arrival).
+    pub winding_up: bool,
+    /// Ticks of cooldown left after this tick (`ready_tick - tick`), 0 when none.
+    pub cooling_left: u64,
+    /// Her mana and the blink's cost, in charges.
+    pub charges: u8,
+    pub cost: u8,
+    /// The cooldown's full length (`dpq24_cooldown_ticks`).
+    pub cooldown_ticks: u16,
+}
+
+/// DP-Q33: the socket of Donut's plate. A padlock until she holds the blink; then
+/// the Circle chip with the data label, muted while the windup runs, while it
+/// cools down (with the underline) or while she holds fewer charges than the cost
+/// (the zig-zag), and live otherwise.
+pub fn blink_socket(i: &BlinkSocketInputs, label: LabelId) -> SpecialSlot {
+    if !i.holds {
+        return SpecialSlot::Locked;
+    }
+    let chip = |muted| Chip {
+        action: LogicalAction::Special,
+        label,
+        muted,
+    };
+    let bar_px = cooldown_bar_px(i.cooling_left, i.cooldown_ticks);
+    if bar_px > 0 {
+        SpecialSlot::Cooling {
+            chip: chip(true),
+            bar_px,
+        }
+    } else {
+        SpecialSlot::Equipped(chip(i.winding_up || i.charges < i.cost))
+    }
+}
+
+/// [`blink_socket`] read from the combat state after the tick `tick` was stepped.
+pub fn blink_socket_of(combat: &crate::combat_scene::CombatState, tick: u64) -> SpecialSlot {
+    let tuning = crate::donut_prog::DonutProgTuning::active();
+    let blink = combat.donut_blink();
+    let inputs = BlinkSocketInputs {
+        holds: combat.story_holds(crate::donut_prog::SPECIAL_SHORT_BLINK),
+        winding_up: blink.windup().is_some(),
+        cooling_left: blink
+            .ready_tick()
+            .map_or(0, |ready| ready.saturating_sub(tick)),
+        charges: combat.donut_mana_view().map_or(0, |(mana, _)| mana),
+        cost: tuning.dpq23_cost_charges,
+        cooldown_ticks: tuning.dpq24_cooldown_ticks,
+    };
+    blink_socket(
+        &inputs,
+        LabelId::for_socket_text(&tuning.dpq33_socket_label).unwrap_or(LabelId::Blink),
+    )
 }
 
 #[cfg(test)]
@@ -238,6 +314,7 @@ mod tests {
             EmptyPress::Dry,
             true,
             true,
+            SpecialSlot::Locked,
         ));
         assert_eq!((a.label, a.muted), (LabelId::Swat, false));
         assert_eq!(
@@ -252,6 +329,7 @@ mod tests {
             EmptyPress::Dry,
             true,
             true,
+            SpecialSlot::Locked,
         ));
         assert_eq!((a.label, a.muted), (LabelId::Missile, false));
         assert_eq!((b.label, b.muted), (LabelId::Pounce, false));
@@ -262,6 +340,7 @@ mod tests {
             EmptyPress::Dry,
             true,
             true,
+            SpecialSlot::Locked,
         ));
         assert_eq!(
             (a.label, a.muted),
@@ -279,6 +358,7 @@ mod tests {
             EmptyPress::Swat,
             true,
             true,
+            SpecialSlot::Locked,
         ));
         assert_eq!((a.label, a.muted), (LabelId::Swat, false));
         // With mana left it is still the missile.
@@ -288,6 +368,7 @@ mod tests {
             EmptyPress::Swat,
             true,
             true,
+            SpecialSlot::Locked,
         ));
         assert_eq!(a.label, LabelId::Missile);
     }
@@ -299,25 +380,161 @@ mod tests {
         };
         for magic in [DonutMagic::PreBiscuit, mana_view(0), mana_view(94)] {
             assert_eq!(
-                donut_ability_row(Control::Player(2), magic, EmptyPress::Dry, false, true),
+                donut_ability_row(
+                    Control::Player(2),
+                    magic,
+                    EmptyPress::Dry,
+                    false,
+                    true,
+                    SpecialSlot::Locked
+                ),
                 no_actions,
                 "donut_moves off (no POUNCE chip while the move is not live)"
             );
             assert_eq!(
-                donut_ability_row(Control::Player(2), magic, EmptyPress::Dry, true, false),
+                donut_ability_row(
+                    Control::Player(2),
+                    magic,
+                    EmptyPress::Dry,
+                    true,
+                    false,
+                    SpecialSlot::Locked
+                ),
                 no_actions,
                 "the story corridor ignores melee"
             );
             assert_eq!(
-                donut_ability_row(Control::Ai, magic, EmptyPress::Dry, true, true),
+                donut_ability_row(
+                    Control::Ai,
+                    magic,
+                    EmptyPress::Dry,
+                    true,
+                    true,
+                    SpecialSlot::Locked
+                ),
                 AbilityRow::AiCompanion
             );
             assert_eq!(
-                donut_ability_row(Control::Ai, magic, EmptyPress::Dry, false, false),
+                donut_ability_row(
+                    Control::Ai,
+                    magic,
+                    EmptyPress::Dry,
+                    false,
+                    false,
+                    SpecialSlot::Locked
+                ),
                 AbilityRow::AiCompanion
             );
         }
         assert!(chips_live(true, true));
         assert!(!chips_live(true, false) && !chips_live(false, true) && !chips_live(false, false));
+    }
+
+    fn socket(winding_up: bool, cooling_left: u64, charges: u8) -> SpecialSlot {
+        blink_socket(
+            &BlinkSocketInputs {
+                holds: true,
+                winding_up,
+                cooling_left,
+                charges,
+                cost: 2,
+                cooldown_ticks: 540,
+            },
+            LabelId::Blink,
+        )
+    }
+
+    fn chip(muted: bool) -> Chip {
+        Chip {
+            action: LogicalAction::Special,
+            label: LabelId::Blink,
+            muted,
+        }
+    }
+
+    /// DP-Q33: the underline is `ceil(remaining / 540 * 11)`, exact on both edges.
+    #[test]
+    fn the_cooldown_underline_widths_are_pinned() {
+        let table: Vec<(u64, u8)> = [0u64, 1, 49, 50, 270, 490, 491, 539, 540]
+            .into_iter()
+            .map(|left| (left, cooldown_bar_px(left, 540)))
+            .collect();
+        assert_eq!(
+            table,
+            [
+                (0, 0),
+                (1, 1),
+                (49, 1),
+                (50, 2),
+                (270, 6),
+                (490, 10),
+                (491, 11),
+                (539, 11),
+                (540, 11)
+            ]
+        );
+        // Never wider than the socket, and a zero cooldown draws nothing.
+        assert_eq!(cooldown_bar_px(5000, 540), 11);
+        assert_eq!(cooldown_bar_px(3, 0), 0);
+    }
+
+    /// DP-Q33: locked, equipped, cooling at 0, 270 and 539 ticks left, and ready.
+    #[test]
+    fn the_blink_socket_is_locked_equipped_cooling_or_ready() {
+        let locked = BlinkSocketInputs {
+            holds: false,
+            winding_up: false,
+            cooling_left: 0,
+            charges: 8,
+            cost: 2,
+            cooldown_ticks: 540,
+        };
+        assert_eq!(blink_socket(&locked, LabelId::Blink), SpecialSlot::Locked);
+        // Ready: equipped and live, 2 charges are enough (the cost).
+        assert_eq!(socket(false, 0, 8), SpecialSlot::Equipped(chip(false)));
+        assert_eq!(socket(false, 0, 2), SpecialSlot::Equipped(chip(false)));
+        // Below the cost: muted, no underline (the zig-zag draws).
+        assert_eq!(socket(false, 0, 1), SpecialSlot::Equipped(chip(true)));
+        // The windup: muted, no underline yet (the cooldown starts at the arrival).
+        assert_eq!(socket(true, 0, 8), SpecialSlot::Equipped(chip(true)));
+        // Cooling at 539, 270 and 1 ticks left, then ready at 0.
+        for (left, bar_px) in [(539, 11), (270, 6), (1, 1)] {
+            assert_eq!(
+                socket(false, left, 8),
+                SpecialSlot::Cooling {
+                    chip: chip(true),
+                    bar_px
+                },
+                "{left} ticks left"
+            );
+        }
+        assert_eq!(socket(false, 0, 8), SpecialSlot::Equipped(chip(false)));
+    }
+
+    /// The socket rides on the chips and on the no-actions row, never on the AI
+    /// plate.
+    #[test]
+    fn the_special_rides_on_both_player_rows() {
+        let magic = mana_view(47);
+        let slot = socket(false, 270, 8);
+        match donut_ability_row(Control::Player(2), magic, EmptyPress::Dry, true, true, slot) {
+            AbilityRow::Chips { special, .. } => assert_eq!(special, slot),
+            other => panic!("{other:?}"),
+        }
+        assert_eq!(
+            donut_ability_row(
+                Control::Player(2),
+                magic,
+                EmptyPress::Dry,
+                true,
+                false,
+                slot
+            ),
+            AbilityRow::NoActions { special: slot }
+        );
+        assert_eq!(
+            donut_ability_row(Control::Ai, magic, EmptyPress::Dry, true, true, slot),
+            AbilityRow::AiCompanion
+        );
     }
 }

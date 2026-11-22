@@ -209,3 +209,53 @@ fn the_perch_fixture_bonks_her_under_the_ceiling_at_176() {
         rel[250]
     );
 }
+
+/// DONUT-PROG-01 DP-D (the jump-phase check of the work order): with
+/// `jump_reach_boost` held the launch is `dpq14_boost_launch_px_s` (547 px/s). The
+/// phases key on the sign of `vy`, so they sequence exactly as at 500: once each,
+/// in order, no flicker, and the rise lasts longer (a higher arc), never shorter.
+#[test]
+fn the_jump_phases_sequence_at_the_boosted_launch() {
+    let boosted = HeroMotion {
+        jump_speed: f32::from(crate::donut_prog::DonutProgTuning::active().dpq14_boost_launch_px_s),
+        ..agility::agile_motion()
+    };
+    let rise_ticks = |motion| {
+        let trail = run(motion, &DM_JUMP_LEDGE_96);
+        let first = trail.states.iter().position(|s| !s.3).expect("a jump");
+        let end = trail.states[first..]
+            .iter()
+            .position(|s| s.3)
+            .map(|i| first + i + 1)
+            .expect("she lands");
+        let rising = trail.states[first..end]
+            .iter()
+            .filter(|s| s.2 > 0.0)
+            .count();
+        let mut slice = vec![(0.0, 0.0, 0.0, true)];
+        slice.extend_from_slice(&trail.states[first..end]);
+        slice.extend([(0.0, 0.0, 0.0, true); 20]);
+        (trail.states[first].2, rising, phases(&slice))
+    };
+    let (launch, rising, seq) = rise_ticks(boosted);
+    // The first airborne tick has taken one gravity step from 547.
+    assert!((520.0..=547.0).contains(&launch), "launch {launch}");
+    assert_eq!(
+        seq,
+        [
+            Tag::Idle,
+            Tag::JumpStart,
+            Tag::JumpRise,
+            Tag::JumpFall,
+            Tag::Land,
+            Tag::Idle
+        ],
+        "{seq:?}"
+    );
+    let (_, base_rising, base_seq) = rise_ticks(agility::agile_motion());
+    assert_eq!(seq, base_seq, "the same phases as the unboosted jump");
+    assert!(
+        rising > base_rising,
+        "the boosted rise ({rising} ticks) outlasts the 500 rise ({base_rising})"
+    );
+}
