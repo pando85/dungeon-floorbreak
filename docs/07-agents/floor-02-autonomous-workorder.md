@@ -17,6 +17,14 @@
 
 **Delegation boundary:** these design documents specify the *what*, the candidate gameplay hypotheses and acceptance. The orchestrator may choose implementation approach based on inspected current code, documenting every deviation and baseline effect. Owner's Floor 01 human feel is the shared-core gate; pure state machines and authored data do not wait for an invented approval.
 
+## Additional design briefs are prerequisites to implementing the associated work
+
+- [F02-FOUNDATIONS-01](../01-design/floor-02-arrival-cleanup-encounters.md): S00/S01/S04 greybox, Mind Horror, capped grubs and conveyor.
+- [F02-ACT-01](../01-design/floor-02-enemy-acting-bible.md): personalities/poses and production art/animation acceptance.
+- [F02-DIRECTOR-01](../01-design/floor-02-director-and-continuity.md): chapter staging, checkpoints, viewer attribution and **true Floor 03 transition only AFTER S09**.
+
+**P0 implementation trap:** Rage-only S07 stairwell expulsion **must not advance the playable party to Floor 03**. Make separate level-data / event IDs for Exile(Rage) and ExitFloor02(party after S09), and add a deterministic test before integrating the chase. If "foreman" appears in any Rev-Up document, cast it as the **Laminak elite consultant gameplay role**, not a new unrelated species.
+
 ## 0. Preconditions and explicit HOLD points
 
 1. **Record repository head**, open PRs and actual implementation state (not titles), then identify shared hot files and ongoing Floor 01 orchestration. Avoid competing with its file queue.
