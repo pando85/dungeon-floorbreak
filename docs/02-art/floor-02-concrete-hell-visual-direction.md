@@ -4,6 +4,10 @@
 
 **Read:** [game bible](../01-design/floor-02-last-lesson-design-bible.md), [global art direction](art-direction.md), [antihero tone](../01-design/antihero-tone.md), [pixel-art pipeline](../07-agents/pixel-art-pipeline.md), [agent production plan](../07-agents/floor-02-autonomous-workorder.md). Approved Carl/Donut identity sizes, silhouettes and palettes win over this new environment guide. No copying game screenshots, book cover illustrations, logos, logos of real bands, music or recognizable third-party artwork.
 
+## Casting/readability revision (2026-11-22)
+
+The Mind Horror must read as a **floating cranial/brain mass with tentacles**, per secondary Floor 02 creature descriptions, not a generic elongated monster or humanoid mage. Update the A-signature wording below accordingly. The Rev-Up combat supervisor is visually a **Laminak elite fairy executive**, separate from the ground-level Clurichaun salesman; "foreman" is a role alias. See [enemy acting and animation bible](../01-design/floor-02-enemy-acting-bible.md) for expressive keys and the actual source-art gate. No produced concept sheet automatically replaces owner-approved protagonists or becomes a production sprite.
+
 ## 1. Art thesis: clean concrete, filthy intentions
 
 The First Floor feels warm, organic, medieval-industrial and claustrophobic. The Second Floor begins **sterile and pale**: great expanses of pale floor and white cinderblocks, orange glowing lichen in wall seams, fluorescent light, emergency signage, abandoned desks, ugly pipes and modular security doors. The horror comes from things that have appropriated this clinical infrastructure. Keep it a darker, 1980s–1990s action-film-industrial aesthetic; avoid generic medieval tavern/castle.
