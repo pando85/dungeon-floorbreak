@@ -1,0 +1,7 @@
+COMBAT_EVENT tick=60 kind=llama_rush_tell llama=0
+COMBAT_EVENT tick=92 kind=llama_rush_commit llama=0
+COMBAT_EVENT tick=97 kind=hero_hurt source=19538 health_left=3 hero=donut
+COMBAT_EVENT tick=97 kind=llama_rush_end llama=0 end=contact_donut
+COMBAT_EVENT tick=291 kind=llama_rush_tell llama=0
+COMBAT_STATE fixture=corral_wake_dormant seed=0xc0da0017 tick=300 elapsed=300 hero_hp=4 deaths=0 enemies= hash=e15ef55571ee8c4e llamas=l0=544.666/3
+PARTY_STATE fixture=corral_wake_dormant mode=2p controlled=Carl carl_hp=4 donut_hp=3 deaths=0 hash=14c351272ad93ef4

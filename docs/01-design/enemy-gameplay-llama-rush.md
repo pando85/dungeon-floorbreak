@@ -175,7 +175,7 @@ Physics: `RUN_SPEED` 185 (Carl), DM-Q01 207 (Donut); launches 440 and 500; gravi
 
 ### Interrupt windows
 
-Latest attack tick on which Donut, already facing the llama, can press Primary so the bolt lands before the commit (attack tick 32): 27 at 0..36 px, 25 at 64 px, 20 at 96 px, 17 at 112 px, 14 at 128 px. Carl's jab (startup 3, reach 34 px) interrupts only from point-blank.
+Latest attack tick on which Donut, already facing the llama, can press Primary so the bolt lands on or before attack tick 32 (a strike resolves before the llama's own step of that tick, so tick 32 still meets the Tell; the wire stage corrected this table by one tick): 28 at 0..36 px, 26 at 64 px, 21 at 96 px, 18 at 112 px, 15 at 128 px. Carl's jab (startup 3, reach 34 px) interrupts only from point-blank.
 
 ### Punish after a clean jump
 
@@ -433,6 +433,12 @@ Knob names start with the question ID (`crlq05_trigger_px`). Profile knobs live 
 | CRL-Q41 | B1 fix (adopted option) | **Dock bumper**: one step or parapet-style solid at x 1856..1888 from the floor to **80** (5 collision tiles), on the dock edge. Its top must be at least the dock llama's top (71), and every floor-to-A bolt path must cross it. 72 is not buildable in the 16 px tile layer | Section 10 proof. Rejected: a dock about 300 px deeper (lengthens the room, and the dock llama could not threaten the dock's near half); a pincer (`stationary_turret` turns, so it fails) | room data |
 | CRL-Q42 | What "stationary" means for the gate | Zero net horizontal displacement (at most 8 px for turns). **Jumping in place and casting in the air count as stationary** | B1; #181 gate (a): a hop is not repositioning. The owner may narrow it (awareness note, section 14) | none (evaluator rule) |
 | CRL-Q43 | Slide clamp | Every slide and every rush step of a corral-profile llama is clamped to its leash interval, in every mode, `Down` and `Corpse` included | F5: a kick or death slide would otherwise put A's body over the floor | none (rule) |
+| WIRE-D1 | A hit that staggers a Recover | Counts as the Recover having ended: `rush_cooldown` is set to the post-rush value (150) and the spit cooldown raised to at least 30, as at the end of a Recover (CRL-Q12) | Otherwise a staggered Recover would leave the llama able to rush again at once | none |
+| WIRE-D2 | A pierced committed rush (KC12, CP-Q40) | Treated as an interrupted tell: the llama is staggered (`Hurt` 18, the hit's knock), `rush_cooldown` is raised to at least 30 (CRL-Q13) and `LlamaInterrupted` is logged. A bonk is not a committed phase (the Engineer's bonk rule): a piercing hit on a bonk is damage only | The goblin and Engineer precedent: the cancelled swing can no longer hit | none |
+| WIRE-D3 | Knobs the wire does not implement | `crlq18_rush_evadable: true` and `crlq10_self_damage > 0` are **refused at load** (the opt-in load check), never silently ignored. The rush is not evadable because it has no `EvadeSource` (DM-Q18) | A data edit must fail loudly; flipping the knobs is a later, deliberate step | the two knobs |
+| WIRE-D4 | When `rush_cooldown` counts down (review N-c) | On `Neutral` ticks only, like the spit `cooldown` | One rule for both cooldowns | none |
+| WIRE-D5 | Where a llama's opt-in lives | On `CombatState` as a list by llama index (`LlamaOptIn`: surface, facing, activation, health, rush profile and leash), not as new `LlamaSpawn` fields; the `corral_fixtures::llama_opt_ins(name)` hook fills it in `reset_attempt` | `LlamaSpawn` is built in some 25 places and the sheet allows "a fixture index list"; CORRAL-WIRE can add the sidecar roster path to the same list | none |
+| WIRE-D6 | Party targeting for a llama with no profile (the M1 llama) | The party's rule over both heroes (`pick_two`, shared with the goblins' `update_targets`), no range limit; the chosen hero drives the walk, the facing, `may_fire` and the point-blank fix-up | KC1 | none |
 
 ## 14. Genuinely open questions
 
@@ -474,8 +480,8 @@ Isolated fixtures (CORRAL-B wire) run headless on the corridor kit under CF02 ru
 | `corral_rush_jump_clears_donut` | Donut `d` 96 | jump on 4, on 43; and on 3, on 44 | 4 and 43 clear (llama ends at 504, `LlamaRushEnd Miss`); 3 and 44 are hit |
 | `corral_rush_jump_clears_carl` | Carl `d` 96 | jump on 12, on 42; and on 11, on 43 | 12 and 42 clear; 11 and 43 are hit |
 | `corral_rush_run_away` | Donut `d` 96 | run −x from 44; from 45 | 44 clears; 45 is hit |
-| `corral_rush_missile_interrupt` | Donut `d` 96, biscuit, full mana | Primary on 20; on 21 | 20: `LlamaInterrupted`, no commit; 21: the bolt lands during the commit, 1 damage, rush continues |
-| `corral_rush_commit_lethal` | llama at 1 HP, Donut `d` 96 | Primary on 21 | `Down` mid-rush, no contact |
+| `corral_rush_missile_interrupt` | Donut `d` 96, biscuit, full mana | Primary on 20; on 21 | 20 **and 21**: `LlamaInterrupted`, no commit (the bolt flies 11 ticks, so a press on 21 lands on attack tick 32, and a strike resolves before the llama's own step of that tick: it still meets the Tell, the hero-first order of section 6); **22**: the bolt lands during the commit, 1 damage, rush continues. *Wire erratum (CORRAL-B wire): the earlier text had the boundary at 21.* |
+| `corral_rush_commit_lethal` | llama at 1 HP, Donut `d` 96 | Primary on **22** (not 21: see the row above) | `Down` mid-rush, no contact |
 | `corral_rush_bonk_wall` | wall face `F` 84 ahead | Donut jumps on 20 | Bonk on active 15, pivot at 56, 60 ticks, `LlamaRushEnd Blocked`, no self-damage |
 | `corral_rush_leash_stop` | leash bound 40 px ahead | Donut jumps on 20 | Stops at the bound, `Miss`, Recover 40 |
 | `corral_rush_no_tracking` | Donut `d` 64 | jumps on 20 and lands behind | Direction unchanged; the llama never turns during the commit |
@@ -483,8 +489,8 @@ Isolated fixtures (CORRAL-B wire) run headless on the corridor kit under CF02 ru
 | `corral_rush_invulnerable_pass` | Carl invulnerable at `d` 60, Donut `d` 96 | none | Passes Carl, hits Donut |
 | `corral_rush_offscreen_no_tell` | lane end outside the view | none | No tell; the llama walks or holds |
 | `corral_rush_no_glob` | any rush | none | No `LlamaSpit` during a rush; `telling()` false from attack 32 |
-| `corral_spit_height_rule` | Donut on the floor at `d` 160; Donut on a 32 px block; Carl on the floor | none | Floor Donut: never spit at (walk to 112, rush); Donut on 32: spit; Carl: spit |
-| `corral_party_target_solo_donut` | solo, Donut controlled, Carl 40 px nearer | none | Target Donut (bias 40 against switch 24) |
+| `corral_spit_height_rule` | Donut on the floor at `d` 160; Donut on a 32 px block; Carl on the floor | none | Floor Donut: never spit at (walk to the 128 trigger and rush: the tell starts on tick 49, since the rush trigger of step 4 fires before the walk reaches 112); Donut on 32: spit (core `classify` tests only, the wire has no block fixture); Carl: spit |
+| `corral_party_target_solo_donut` | solo, Donut controlled, Carl **32** px nearer | none | Target Donut (bias 40 against switch 24). *Wire erratum: exactly 40 px nearer is the tie (96 against 56 + 40), and the tie goes to Carl by the shared rule; the fixture's control asserts that.* |
 | `corral_m1_llama_never_rushes` | the M1 llama, no profile, Donut at `d` 96 for 600 ticks | none | Zero `LlamaRushTell` |
 | `corral_rush_not_evadable` (after DM-B) | reflex armed | none | The rush hits, with no `HeroEvaded` from it; `last_reset_tick` is reset to the contact tick (DM-Q13), so the reflex is disarmed for 720 ticks |
 | `corral_rush_does_not_consume_reflex` (after DM-B) | reflex armed; a glob arrives first, then a rush | none | The glob is evaded (one `HeroEvaded`); the rush then hits (`HeroHurt`), with no second `HeroEvaded` |

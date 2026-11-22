@@ -1515,6 +1515,24 @@ pub enum CombatEvent {
         tick: u64,
         llama: u32,
     },
+    /// CORRAL-B wire: a corral llama started its rush tell (attack tick 0), in
+    /// place of `LlamaTell`. `llama` is the index among the llamas.
+    LlamaRushTell {
+        tick: u64,
+        llama: u32,
+    },
+    /// The rush became committed (attack tick = the tell length).
+    LlamaRushCommit {
+        tick: u64,
+        llama: u32,
+    },
+    /// The rush ended: it met a hero (`Contact`), ran out or hit its leash
+    /// (`Miss`), or met a solid (`Blocked`, `Partition`).
+    LlamaRushEnd {
+        tick: u64,
+        llama: u32,
+        end: crate::llama_rush::RushEnd,
+    },
     /// DEATH-D: a blast charge detonated (once, on its fixture tick); the
     /// defeats it caused follow as `EnemyDefeated` events.
     Blast {
@@ -2056,6 +2074,23 @@ impl CombatEvent {
                 mix(tick);
                 mix(u64::from(llama));
             }
+            // CORRAL-B wire: the rush events, tags in their own range ("LR").
+            Self::LlamaRushTell { tick, llama } => {
+                mix(0x4c52_0001);
+                mix(tick);
+                mix(u64::from(llama));
+            }
+            Self::LlamaRushCommit { tick, llama } => {
+                mix(0x4c52_0002);
+                mix(tick);
+                mix(u64::from(llama));
+            }
+            Self::LlamaRushEnd { tick, llama, end } => {
+                mix(0x4c52_0003);
+                mix(tick);
+                mix(u64::from(llama));
+                mix(end.code());
+            }
             Self::Blast { tick, charge } => {
                 mix(14);
                 mix(tick);
@@ -2576,6 +2611,19 @@ impl fmt::Display for CombatEvent {
             Self::LlamaInterrupted { tick, llama } => write!(
                 f,
                 "COMBAT_EVENT tick={tick} kind=llama_interrupted llama={llama}"
+            ),
+            Self::LlamaRushTell { tick, llama } => write!(
+                f,
+                "COMBAT_EVENT tick={tick} kind=llama_rush_tell llama={llama}"
+            ),
+            Self::LlamaRushCommit { tick, llama } => write!(
+                f,
+                "COMBAT_EVENT tick={tick} kind=llama_rush_commit llama={llama}"
+            ),
+            Self::LlamaRushEnd { tick, llama, end } => write!(
+                f,
+                "COMBAT_EVENT tick={tick} kind=llama_rush_end llama={llama} end={}",
+                end.name()
             ),
             Self::Blast { tick, charge } => {
                 write!(f, "COMBAT_EVENT tick={tick} kind=blast charge={charge}")

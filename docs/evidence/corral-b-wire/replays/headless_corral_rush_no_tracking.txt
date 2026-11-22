@@ -1,0 +1,5 @@
+COMBAT_EVENT tick=1 kind=llama_rush_tell llama=0
+COMBAT_EVENT tick=33 kind=llama_rush_commit llama=0
+COMBAT_EVENT tick=56 kind=llama_rush_end llama=0 end=miss
+COMBAT_STATE fixture=corral_rush_no_tracking seed=0xc0da000c tick=220 elapsed=220 hero_hp=4 deaths=0 enemies= hash=c6d6860f4e5137fa llamas=l0=576.002/3
+PARTY_STATE fixture=corral_rush_no_tracking mode=2p controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=b82cfc425e3a6120

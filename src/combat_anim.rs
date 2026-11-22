@@ -1297,6 +1297,10 @@ pub fn goblin_pose(clips: &SpriteClips, input: &GoblinInput) -> ArtPose {
 pub struct LlamaInput {
     pub mode: LlamaMode,
     pub attack_tick: u16,
+    /// CORRAL-B wire: the attack is the corral rush. A rush never shows the
+    /// throat glow or the spit swing (idle frames; the stand-in is CORRAL-E's,
+    /// the art LLAMA-03's).
+    pub rush: bool,
     pub down_ticks: u16,
     /// Walking this tick (neutral, x changed).
     pub walking: bool,
@@ -1324,6 +1328,10 @@ pub fn llama_pose(clips: &SpriteClips, input: &LlamaInput) -> ArtPose {
             tag: "hurt",
             frame: clips.frame_in("hurt", 0),
         },
+        LlamaMode::Attack if input.rush => {
+            let cycle = u64::from(clips.tag_ticks("idle").expect("idle frames are timed"));
+            at("idle", (input.idle_tick % cycle) as u32)
+        }
         LlamaMode::Attack => {
             let tick = input.attack_tick;
             if tick < LLAMA_TELL_TICKS {
@@ -1729,6 +1737,7 @@ impl CombatAnimators {
                 input: LlamaInput {
                     mode: l.mode,
                     attack_tick: l.attack_tick,
+                    rush: l.attack_kind() == crate::llama::AttackKind::Rush,
                     down_ticks: l.down_ticks,
                     walking: false,
                     walk_milli_px: 0,
@@ -1843,6 +1852,7 @@ impl CombatAnimators {
             track.input = LlamaInput {
                 mode: llama.mode,
                 attack_tick: llama.attack_tick,
+                rush: llama.attack_kind() == crate::llama::AttackKind::Rush,
                 down_ticks: llama.down_ticks,
                 walking,
                 walk_milli_px: track.walk_milli_px,

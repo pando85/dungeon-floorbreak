@@ -1248,6 +1248,28 @@ fn the_llama_atlas_loads_wide_frames_with_the_llama_01_tags_and_ticks() {
     assert_eq!(clips.frame_box(0).lowest, 71);
 }
 
+/// CORRAL-B wire: a rush never shows the throat glow or the spit swing; every
+/// attack tick of a rush reads the idle clip.
+#[test]
+fn a_rush_attack_shows_idle_frames_never_the_throat_glow() {
+    let clips = llama_clips();
+    for tick in [0u16, 10, 31, 32, 36, 45, 80, 120] {
+        let pose = llama_pose(
+            &clips,
+            &LlamaInput {
+                mode: LlamaMode::Attack,
+                attack_tick: tick,
+                rush: true,
+                down_ticks: 0,
+                walking: false,
+                walk_milli_px: 0,
+                idle_tick: 7,
+            },
+        );
+        assert_eq!(pose.tag, "idle", "attack tick {tick}");
+    }
+}
+
 #[test]
 fn the_llama_pose_follows_the_attack_tick_the_release_frame_on_tick_36() {
     let clips = llama_clips();
@@ -1257,6 +1279,7 @@ fn the_llama_pose_follows_the_attack_tick_the_release_frame_on_tick_36() {
             &LlamaInput {
                 mode,
                 attack_tick,
+                rush: false,
                 down_ticks,
                 walking: false,
                 walk_milli_px: 0,

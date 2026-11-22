@@ -1492,6 +1492,10 @@ pub fn donut_start_x(fixture: &str) -> Option<f32> {
         "donut_prog_blink_fizzle" => Some(300.0),
         "donut_prog_arena_blink_tour" => Some(340.0),
         "donut_prog_arena_blink_edge" => Some(140.0),
+        // CORRAL-B wire (KC15): the isolated corral fixtures place her explicitly.
+        name if crate::corral_fixtures::runs_cf02(name) => {
+            crate::corral_fixtures::donut_start_x(name)
+        }
         _ => None,
     }
 }

@@ -933,6 +933,9 @@ pub fn fixture_runs_cf02(name: &str) -> bool {
         // DONUT-PROG-01 DP-F: the AI Donut's escape capture (the autonomy layer and
         // the 40 HP goblin are `cf02_rules` features).
         || name == "donut_prog_arena_blink_cornered"
+        // CORRAL-B wire (KC2): the isolated `corral_*` fixtures, by exact name, so
+        // the evaluator's `corral_eval_*` stages and every other name are untouched.
+        || crate::corral_fixtures::runs_cf02(name)
 }
 
 /// The pinned tuning with the master switch on: what a simulation running under

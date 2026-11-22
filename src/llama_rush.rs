@@ -398,6 +398,29 @@ pub enum RushEnd {
     Partition,
 }
 
+impl RushEnd {
+    /// Mixed into the event hash: the end kind, and the hero for a contact.
+    pub fn code(self) -> u64 {
+        match self {
+            Self::Contact(hero) => 0x10 | hero.index() as u64,
+            Self::Miss => 1,
+            Self::Blocked => 2,
+            Self::Partition => 3,
+        }
+    }
+
+    /// The log word of the event line.
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Contact(crate::party::HeroId::Carl) => "contact_carl",
+            Self::Contact(crate::party::HeroId::Donut) => "contact_donut",
+            Self::Miss => "miss",
+            Self::Blocked => "blocked",
+            Self::Partition => "partition",
+        }
+    }
+}
+
 /// A hero the rush may hit, as the caller sees her after this tick's hero step.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct RushHero {
@@ -661,6 +684,22 @@ pub enum HitReaction {
     /// legacy death slide (clamped by CRL-Q43). The rush ends with no end
     /// event and the box is gone that tick.
     DownInPlace,
+}
+
+/// The F10 table with the gauntlet's pierce (CP-Q40, KC12): a non-lethal hit by
+/// a move that `pierces_commit` takes a rush out of its committed phase like an
+/// interrupted tell (`Interrupt`: the stagger, the rush cooldown floor and
+/// `LlamaInterrupted`). A bonk is not a committed phase (the Engineer's bonk
+/// rule), and every other state is the plain table.
+pub fn hit_reaction_pierced(
+    rush: Option<&RushState>,
+    lethal: bool,
+    pierces_commit: bool,
+) -> HitReaction {
+    if pierces_commit && !lethal && rush.is_some_and(|r| r.phase == RushPhase::Committed) {
+        return HitReaction::Interrupt;
+    }
+    hit_reaction(rush, lethal)
 }
 
 /// The F10 table. `rush` is the llama's rush state if it is in a rush attack
@@ -962,6 +1001,39 @@ fn pick_target(
     match other {
         Some(o) if effective(o) + switch_px <= effective(kept) => Some(o),
         _ => Some(kept),
+    }
+}
+
+/// The party's enemy-target rule over the two heroes (KC1, N-a): the nearest by
+/// effective distance (pivot distance plus the solo AI bias), ties to Carl; with
+/// `switch_px` (the hysteresis rule) a held hero is kept unless the other is
+/// `switch_px` closer. The goblins' `update_targets` and the llamas share this
+/// one function, and a test pins [`pick_target`] to it.
+pub fn pick_two(
+    carl_effective: f32,
+    donut_effective: f32,
+    held: Option<HeroId>,
+    switch_px: Option<f32>,
+) -> HeroId {
+    let nearest = if donut_effective < carl_effective {
+        HeroId::Donut
+    } else {
+        HeroId::Carl
+    };
+    let effective = |hero: HeroId| match hero {
+        HeroId::Carl => carl_effective,
+        HeroId::Donut => donut_effective,
+    };
+    match (switch_px, held) {
+        (Some(switch), Some(held)) => {
+            let (kept, other) = (effective(held), effective(held.other()));
+            if other + switch <= kept {
+                held.other()
+            } else {
+                held
+            }
+        }
+        _ => nearest,
     }
 }
 
