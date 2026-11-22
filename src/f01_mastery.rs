@@ -385,38 +385,58 @@ mod tests {
         assert_eq!(combat.slot_enemies().len(), 0, "PTM-AD7: no slot enemy yet");
     }
 
+    /// The four goblins of the room (the Engineer is a goblin-class enemy in
+    /// `combat.enemies` but not one of them) draw their temperaments from
+    /// `--cf02-seed`. The seeds whose four goblins miss a temperament are listed
+    /// in the PR for PT-TUNE; none is retuned here.
+    fn goblin_temperaments(run: &MasteryRun, seed: u64) -> Vec<String> {
+        let mut scene = SceneSim::new_at(&run.kit, 360, run.fixture.carl_x).unwrap();
+        let combat = combat_for(
+            run,
+            &mut scene,
+            CarlProgFlags::default(),
+            DonutProgFlags::default(),
+            Some(seed),
+        )
+        .unwrap();
+        (0..combat.enemies.len())
+            .filter(|g| !combat.enemies[*g].is_engineer())
+            .map(|g| format!("{:?}", combat.goblin_morale(g).unwrap().temperament()))
+            .collect()
+    }
+
+    /// The seeds of 0..9 whose four goblins draw **fewer than three**
+    /// temperaments (the Show-off slot of the CF02-Q58 bag went to the Engineer).
+    /// Measured, pinned, and a PT-TUNE note: nothing is retuned here.
+    const SEEDS_MISSING_A_TEMPERAMENT: [u64; 2] = [1, 4];
+
     #[test]
-    fn the_seed_draws_three_goblin_temperaments() {
+    fn the_four_goblins_draw_their_temperaments_per_seed() {
         let run = launch(&root()).unwrap();
-        let temperaments = |seed: u64| {
-            let mut scene = SceneSim::new_at(&run.kit, 360, run.fixture.carl_x).unwrap();
-            let combat = combat_for(
-                &run,
-                &mut scene,
-                CarlProgFlags::default(),
-                DonutProgFlags::default(),
-                Some(seed),
-            )
-            .unwrap();
-            (0..combat.enemies.len())
-                .map(|g| format!("{:?}", combat.goblin_morale(g).unwrap().temperament()))
-                .collect::<Vec<_>>()
-        };
-        let mut distinct_seen = 0;
+        let mut missing = Vec::new();
+        let mut full = 0;
         for seed in 0..9 {
-            let drawn = temperaments(seed);
-            assert_eq!(drawn, temperaments(seed), "seed {seed} replays");
-            let mut kinds = drawn.clone();
+            let drawn = goblin_temperaments(&run, seed);
+            assert_eq!(drawn.len(), 4, "the Engineer is not counted");
+            assert_eq!(
+                drawn,
+                goblin_temperaments(&run, seed),
+                "seed {seed} replays"
+            );
+            let mut kinds = drawn;
             kinds.sort_unstable();
             kinds.dedup();
-            if kinds.len() >= 3 {
-                distinct_seen += 1;
+            if kinds.len() == 3 {
+                full += 1;
+            } else {
+                missing.push(seed);
             }
         }
-        assert!(
-            distinct_seen > 0,
-            "some seed of 0..9 draws all three temperaments"
+        assert_eq!(
+            missing, SEEDS_MISSING_A_TEMPERAMENT,
+            "the seeds that miss one"
         );
+        assert!(full > 0, "some seed draws all three on the four goblins");
     }
 
     #[test]
