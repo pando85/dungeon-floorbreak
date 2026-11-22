@@ -24,6 +24,7 @@ sessions="${SESSIONS:-artifacts/f01-playtest-sessions}"
 out=docs/evidence/f01-playtest
 rm -rf "$caps" "$sessions"
 mkdir -p "$caps" "$sessions" "$out"
+rm -f "$out"/*.gif "$out"/*.png "$out"/*.txt "$out"/SHA256SUMS
 xvfb() { xvfb-run -a -s '-screen 0 1280x720x24' "$@"; }
 last_state() { grep '^COMBAT_STATE ' "$1" | tail -n 1 | sed -E 's/.* hash=([0-9a-f]+).*/\1/'; }
 
@@ -44,9 +45,9 @@ bash scripts/room_perf.sh mastery mastery 3000 | grep -v '^log=' >> "$out/perf.t
 bash scripts/room_capture.sh juicer juicer 3150:6:76 "$caps/grant-juicer" \
   | sed 's/^/GATE_A_GRANT juicer /' >> "$out/grant_lines.txt"
 python3 scripts/room_gif.py "$caps/grant-juicer" "$out/grant-juicer-gauntlet-blink.gif" --step-ticks 6 \
-  --still 9 "$out/still-juicer-notice-knockout-frame09.png" \
-  --still 30 "$out/still-juicer-notice-heavy-fist-frame30.png" \
-  --still 56 "$out/still-juicer-notice-puddle-jumper-frame56.png"
+  --still 24 "$out/still-juicer-notice-knockout-frame24.png" \
+  --still 40 "$out/still-juicer-notice-heavy-fist-frame40.png" \
+  --still 65 "$out/still-juicer-notice-puddle-jumper-frame65.png"
 "$BIN" --headless-floor01-smoke --scene f01_late --f01-room juicer --room-pilot juicer \
   --capture-tick 3255 2>&1 | grep 'kind=capability_granted' | sed 's/^/GATE_A_JUICER_EVENT /' >> "$out/grant_lines.txt"
 # The dynamite: the placeholder-zone fixture (NOT the Hoarder's room), ticks 36 to 105 (the grant is tick 69).
