@@ -1,0 +1,5 @@
+COMBAT_EVENT tick=50 kind=unlock_granted hero=1 unlock=primary_ranged
+COMBAT_EVENT tick=246 kind=capability_granted hero=1 capability=jump_reach_boost
+COMBAT_EVENT tick=246 kind=capability_granted hero=1 capability=special_short_blink
+COMBAT_STATE fixture=donut_prog_grants_2p seed=0xd900006 tick=520 elapsed=520 hero_hp=4 deaths=0 enemies= hash=a5f38ec5365bcbb7
+PARTY_STATE fixture=donut_prog_grants_2p mode=2p controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=ab6921d3eba4608d

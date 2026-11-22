@@ -1,0 +1,4 @@
+COMBAT_EVENT tick=136 kind=special_started hero=1 capability=special_short_blink
+COMBAT_EVENT tick=142 kind=blink_fizzled hero=1 reason=no_destination
+COMBAT_STATE fixture=donut_prog_blink_fizzle seed=0xd900007 tick=260 elapsed=260 hero_hp=4 deaths=0 enemies= hash=ad0e09ddac0f1f3d
+PARTY_STATE fixture=donut_prog_blink_fizzle mode=2p controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=6e52421a4f95bf63
