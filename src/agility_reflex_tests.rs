@@ -255,6 +255,10 @@ fn clone_of(f: &'static PartyFixture) -> PartyFixture {
     }
 }
 
+/// DM-C F2: the pinned `state_hash()` of the two parity sims below.
+const DM_PARITY_HUMAN_HASH: u64 = 0xd78f_99e0_b01d_cdb9;
+const DM_PARITY_AI_HASH: u64 = 0x831f_3727_988f_62b3;
+
 /// Spec test 11: the reflex decides on the attack instance and her state only.
 /// The same room with Donut human-driven and AI-driven, at identical body
 /// columns, gives the same evade and hurt events, tick for tick.
@@ -300,6 +304,20 @@ fn a_human_donut_and_an_ai_donut_get_the_same_evade_decisions() {
             .map(ToString::to_string)
             .collect()
     };
+    // DM-C F2: both hand-driven sims are deterministic, so their hashes are pinned
+    // (they differ: the party state differs, the decisions do not).
+    assert_eq!(
+        human.state_hash(),
+        DM_PARITY_HUMAN_HASH,
+        "{:#018x}",
+        human.state_hash()
+    );
+    assert_eq!(
+        ai.state_hash(),
+        DM_PARITY_AI_HASH,
+        "{:#018x}",
+        ai.state_hash()
+    );
     let (human_events, ai_events) = (evade_events(&human), evade_events(&ai));
     assert_eq!(human_events, ai_events);
     assert!(
@@ -327,9 +345,16 @@ fn kit_of(fixture: &PartyFixture) -> EnvKit {
 /// and the reflex at `rearm` ticks, the `with_tuning` overlay of
 /// `donut_fixtures.rs`.
 fn overlay(f: &'static PartyFixture, rearm: u32) -> &'static PartyFixture {
+    overlay_with_bias(f, rearm, f.tuning.target_ai_bias_px)
+}
+
+/// [`overlay`] with the AI target bias set (DM-C F6: 0 makes an AI Donut draw
+/// attacks like a human one, the owner's `--cf02 --donut-biscuit` line).
+fn overlay_with_bias(f: &'static PartyFixture, rearm: u32, bias_px: u16) -> &'static PartyFixture {
     Box::leak(Box::new(PartyFixture {
         tuning: PartyTuning {
             donut_reflex: ReflexProfile::Rearm(rearm),
+            target_ai_bias_px: bias_px,
             ..f.tuning
         },
         donut: crate::donut_mana::DonutSetup::unlocked(8),
@@ -364,7 +389,8 @@ fn play(fixture: &'static PartyFixture, seed: Option<u64>, prearmed: bool) -> Pa
 
 /// The microarena's waves by enemy target id: goblins 0..=2 are the brawl lane
 /// (wave 1); goblins 3 and 4, the Engineer that replaces the yard goblin and the
-/// llama are the yard (wave 2).
+/// llama are the yard (wave 2). **Meaningful only for the three microarena
+/// pilots** (the split is the arena's); the other rows use the totals.
 fn wave_of(source: u32) -> usize {
     usize::from(source >= 3)
 }
@@ -413,9 +439,20 @@ impl Tally {
     }
 }
 
+/// DM-C F5: whether a hurt's `source` is an evadable instance. Evadable sources
+/// are the enemy ids (goblin swings and Engineer rams: the enemy index; globs:
+/// the goblin count plus the llama index); every other id (the shore block, a
+/// boss blow, a later rush, contact or hazard) is excluded.
+fn is_evadable_source(sim: &PartyFixtureSim, source: u32) -> bool {
+    source != SHORE_BLOCK_SOURCE
+        && source != crate::boss::BOSS_SOURCE_ID
+        && (source as usize) < sim.combat.enemies.len() + sim.combat.llamas.len()
+}
+
 /// Count the evadable attempts on Donut from the event log: a `HeroEvaded`, or a
-/// `HeroHurt` on her from any source but the shore block (the only
-/// non-evadable source in these rooms).
+/// `HeroHurt` on her from an evadable source ([`is_evadable_source`]). The
+/// test-only counter of `Reflex::check` (the spec's definition: instances that
+/// reach the evasion check) must agree.
 fn tally(sim: &PartyFixtureSim) -> Tally {
     let mut t = Tally {
         segments: 1,
@@ -432,7 +469,7 @@ fn tally(sim: &PartyFixtureSim) -> Tally {
                 source,
                 tick,
                 ..
-            } if source != SHORE_BLOCK_SOURCE => (source, false, tick),
+            } if is_evadable_source(sim, source) => (source, false, tick),
             CombatEvent::Restart { .. } => {
                 t.attempts_with_evade += u32::from(evaded_this_attempt);
                 t.segments += 1;
@@ -463,6 +500,11 @@ fn tally(sim: &PartyFixtureSim) -> Tally {
         }
     }
     t.attempts_with_evade += u32::from(evaded_this_attempt);
+    assert_eq!(
+        t.attempts,
+        sim.combat.reflex().attempts_for_test(),
+        "the event tally and the counter at the check agree"
+    );
     t
 }
 
@@ -482,7 +524,7 @@ fn the_evade_share_is_measured_not_tuned() {
         &ENG_SOLO_ASSIST,
     ];
     let mut out = String::new();
-    out.push_str("DM-B reflex share (spec 3.3): evades / attempts\n");
+    out.push_str("DM-B reflex share (spec 3.3, extended by DM-C F6): evades / attempts\n");
     out.push_str(
         "attempt = an evadable instance that reached the check on Donut (evaded or hurt)\n",
     );
@@ -491,7 +533,13 @@ fn the_evade_share_is_measured_not_tuned() {
     );
     out.push_str("B = biscuit held and 12 s or more hurt-free before the room (armed at tick 0)\n");
     out.push_str(
-        "population = every cf02_* and companion party fixture; pilots = three solo pilots, 48 seeds each\n",
+        "population = every cf02_* and companion party fixture; AI-Donut pilots = three solo pilots, 48 seeds each\n",
+    );
+    out.push_str(
+        "human-style Donut (DM-C F6) = cf02_arena_coop only (P2 played as a human would). The three solo pilots with target_ai_bias_px 0 are still AI-Donut data (bias 0 changes nothing in these rooms: the rows equal the AI-Donut rows), so the combined total below is mostly AI-Donut data; read the coop row as the human-style number\n",
+    );
+    out.push_str(
+        "the AI-Donut rows measure the AI Donut, which the shipped rooms almost never attack; with a 12 s rearm the reflex is either not yet ready or swallows the opener of the next wave\n",
     );
     out.push_str("regenerate: DM_B_SHARE_OUT=<file> cargo test --locked --lib the_evade_share\n\n");
     let mut shares = Vec::new();
@@ -511,6 +559,28 @@ fn the_evade_share_is_measured_not_tuned() {
                 pilots_all.add(&row);
                 pilot_rows.push((pilot.name(), row));
             }
+            // DM-C F6: a human-driven Donut. `cf02_arena_coop` is the two-player
+            // room with P2 Donut played as a human would (a step behind Carl,
+            // swatting tells); the three solo pilots again with `target_ai_bias_px`
+            // 0, so the AI Donut draws attacks as a human Donut does.
+            let mut human_rows = Vec::new();
+            let mut human_all = Tally::default();
+            let coop = crate::cf02_fixtures::find_party_fixture("cf02_arena_coop").unwrap();
+            let mut row = Tally::default();
+            for seed in 0..SEEDS {
+                row.add(&tally(&play(overlay(coop, rearm), Some(seed), prearmed)));
+            }
+            human_all.add(&row);
+            human_rows.push(("cf02_arena_coop (P2 human-style Donut)".to_owned(), row));
+            for pilot in pilots {
+                let mut row = Tally::default();
+                for seed in 0..SEEDS {
+                    let fixture = overlay_with_bias(pilot, rearm, 0);
+                    row.add(&tally(&play(fixture, Some(seed), prearmed)));
+                }
+                human_all.add(&row);
+                human_rows.push((format!("{} (unbiased targeting)", pilot.name()), row));
+            }
             let share = |t: &Tally| {
                 if t.attempts == 0 {
                     0.0
@@ -526,12 +596,17 @@ fn the_evade_share_is_measured_not_tuned() {
                 population.evades,
                 share(&population)
             ));
-            for (name, row) in &pilot_rows {
-                out.push_str(&format!(
-                    "pilot {name} ({SEEDS} seeds): attempts {} evades {} share {:.1}% | wave1 {}/{} wave2 {}/{} | openers {}/{} evaded | attempts-with-evade {} of {} attempts | first attempt on her at ticks {}..{}\n",
+            let row_line = |kind: &str, name: &str, row: &Tally| {
+                format!(
+                    "{kind} {name} ({SEEDS} seeds): attempts {} evades {} share {:.1}%{} | wave1 {}/{} wave2 {}/{} | openers {}/{} evaded | attempts-with-evade {} of {} attempts | first attempt on her at ticks {}..{}\n",
                     row.attempts,
                     row.evades,
                     share(row),
+                    if row.attempts < 40 {
+                        " (insufficient sample)"
+                    } else {
+                        ""
+                    },
                     row.wave_evades[0],
                     row.wave_attempts[0],
                     row.wave_evades[1],
@@ -542,19 +617,39 @@ fn the_evade_share_is_measured_not_tuned() {
                     row.segments,
                     row.first_tick_min.map_or("-".to_owned(), |t| t.to_string()),
                     row.first_tick_max.map_or("-".to_owned(), |t| t.to_string())
-                ));
+                )
+            };
+            for (name, row) in &pilot_rows {
+                out.push_str(&row_line("AI-Donut pilot", name, row));
             }
             out.push_str(&format!(
-                "pilots all: attempts {} evades {} share {:.1}% | openers {}/{} evaded\n\n",
+                "AI-Donut pilots all: attempts {} evades {} share {:.1}% | openers {}/{} evaded\n",
                 pilots_all.attempts,
                 pilots_all.evades,
                 share(&pilots_all),
                 pilots_all.opener_evades,
                 pilots_all.openers
             ));
+            for (name, row) in &human_rows {
+                let kind = if name.starts_with("cf02_arena_coop") {
+                    "human-style Donut"
+                } else {
+                    "AI-Donut pilot, bias 0 (equals the AI rows)"
+                };
+                out.push_str(&row_line(kind, name, row));
+            }
+            out.push_str(&format!(
+                "coop plus bias-0 pilots (mostly AI-Donut data, not a human-style total): attempts {} evades {} share {:.1}% | openers {}/{} evaded\n\n",
+                human_all.attempts,
+                human_all.evades,
+                share(&human_all),
+                human_all.opener_evades,
+                human_all.openers
+            ));
+            assert!(human_all.evades <= human_all.attempts);
             assert!(population.evades <= population.attempts);
             assert!(pilots_all.evades <= pilots_all.attempts);
-            shares.push((label, rearm, population, pilots_all));
+            shares.push((label, rearm, population, pilots_all, human_all));
         }
     }
     println!("{out}");
@@ -563,10 +658,10 @@ fn the_evade_share_is_measured_not_tuned() {
     }
     // The sample rule of spec 3.3: at least 40 attempts per row, or the PR says
     // "insufficient sample" and adds seeds.
-    for (label, rearm, population, pilots_all) in &shares {
+    for (label, rearm, population, pilots_all, human_all) in &shares {
         println!(
-            "{label} rearm {rearm}: population attempts {} pilots attempts {}",
-            population.attempts, pilots_all.attempts
+            "{label} rearm {rearm}: population attempts {} AI pilots attempts {} human-style attempts {}",
+            population.attempts, pilots_all.attempts, human_all.attempts
         );
     }
 }

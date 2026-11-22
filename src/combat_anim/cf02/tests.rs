@@ -1818,3 +1818,42 @@ fn list_donut_clearance() {
         }
     }
 }
+
+/// DM-C (DM-Q21): Donut's evade response runs 12 ticks, then the existing smug
+/// overlay plays its 20 ticks once she is idle. Never during the response, and
+/// never for Carl's evade (he has none) or a run that evades nothing.
+#[test]
+fn an_evade_is_followed_by_the_smug_overlay_after_the_response() {
+    let names = frame_names(DONUT_CF02_MANIFEST, "cf02");
+    let donut = |acting: &ActingAnimators| acting.donut_pose().map(|p| names[p.frame].clone());
+    let run = |hero: HeroId, donut_loco: Tag| {
+        let (mut sim, mut acting) = rig("cf02_stomp_standing");
+        sim.combat.enemies.clear();
+        let t = sim.scene.world.tick;
+        push(
+            &mut sim,
+            CombatEvent::HeroEvaded {
+                tick: t,
+                hero,
+                source: 0,
+                kind: crate::agility::EvadeSource::GoblinSwing,
+            },
+        );
+        (1..=40)
+            .map(|step| {
+                quiet_step(&mut sim, &mut acting, Tag::Idle, donut_loco);
+                (step, donut(&acting).as_deref() == Some("smug"))
+            })
+            .filter(|(_, smug)| *smug)
+            .map(|(step, _)| step)
+            .collect::<Vec<u32>>()
+    };
+    // Steps 1..=11 are the response (ticks t+1..t+11 of its ages 1..11); the smug
+    // is the 12th step on: 12..=31, then it is over (the 20 ticks of Q71).
+    assert_eq!(run(HeroId::Donut, Tag::Idle), (12..=31).collect::<Vec<_>>());
+    assert!(run(HeroId::Carl, Tag::Idle).is_empty(), "Carl has no evade");
+    assert!(
+        run(HeroId::Donut, Tag::Run).is_empty(),
+        "never while she runs (the pending wait is spent running)"
+    );
+}

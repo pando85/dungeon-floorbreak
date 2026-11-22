@@ -121,6 +121,9 @@ use dungeon_floorbreak::{
 // PTR-R1. A crate-root file looks for child modules beside itself, so the path is explicit.
 #[path = "floor01_scene/replay_view.rs"]
 mod replay_view;
+// DONUT-MOBILITY-01 DM-C: Donut's reflex cues (presentation only, no new art).
+#[path = "floor01_scene/donut_cues.rs"]
+mod donut_cues;
 
 /// Draw order above the actor plane. Carl is drawn above every goblin, except
 /// that a goblin in its smear or impact is drawn over him (its club lands on
@@ -3499,6 +3502,7 @@ fn run_window(
             sync_cf02_acting_visuals,
             sync_carl_throw_visual,
             sync_blast_ring,
+            donut_cues::sync_donut_cues,
             update_lighting,
             watchdog,
             perf_probe,
@@ -4044,6 +4048,14 @@ fn setup(
             kit.foreground_z + 1.0,
             args.debug_combat,
         ));
+        donut_cues::spawn(
+            &mut commands,
+            &actors,
+            donut_texture.clone(),
+            &mut layouts,
+            layers_of("actors"),
+            kit.actor_z,
+        );
     }
 
     // HUD-DEBT-03: the boss, its racks, strut, gate and ripples. Placeholder

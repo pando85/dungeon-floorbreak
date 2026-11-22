@@ -438,12 +438,102 @@ pub const DM_AI_REFLEX_SAME_AS_HUMAN: PartyFixture = PartyFixture {
     donut: DonutSetup::unlocked(8),
 };
 
+// ---------------------------------------------------------------- DM-C --
+
+/// A single `attack` press on `slot` at `tick`.
+const fn press(tick: u64, slot: usize) -> SlotHold {
+    SlotHold {
+        from: tick,
+        to: tick + 1,
+        slot,
+        input: crate::input::RawInput {
+            attack: true,
+            ..crate::input::RawInput::NONE
+        },
+    }
+}
+
+/// The reflex cues in one room (DM-C evidence): under `cf02_rules` (the smug
+/// overlay is a CF02-I acting overlay), biscuit from the start. P2 Donut walks
+/// up to the sleeping goblin and takes its first swing on the armed reflex
+/// (armed 720, evaded 729), steps back out of its reach, and the smug follows
+/// the evade response; Carl walks up and jabs the goblin down; nothing hurts
+/// her, so the reflex arms again 720 ticks after the evade (1449). The name
+/// carries the `cf02_` prefix because that prefix is what runs a fixture under
+/// `cf02_rules`.
+const DM_CUES_BASE: Fixture = goblin_base(
+    "cf02_dm_reflex_cues",
+    "DM-C evidence: the biscuit from the start; Donut's armed reflex evades the first swing (tick 729), she steps back and is smug, Carl kills the goblin, and the reflex arms again on tick 1449",
+    0x0D4D_00C1,
+    1800,
+);
+
+const DM_CUES_SCRIPT: [SlotHold; 13] = [
+    run_hold(620, 700, 1, 1.0),
+    run_hold(736, 756, 1, -1.0),
+    run_hold(740, 806, 0, 1.0),
+    press(812, 0),
+    press(826, 0),
+    press(840, 0),
+    press(854, 0),
+    press(868, 0),
+    press(882, 0),
+    press(896, 0),
+    press(910, 0),
+    press(924, 0),
+    press(938, 0),
+];
+
+pub const CF02_DM_REFLEX_CUES: PartyFixture = PartyFixture {
+    base: &DM_CUES_BASE,
+    two_player: true,
+    tuning: PROVISIONAL_TUNING,
+    script: &DM_CUES_SCRIPT,
+    pilot: Pilot::None,
+    donut: DonutSetup::unlocked(8),
+};
+
+/// DM-C evidence (GIF 4): the microarena with nobody in it. P2 Donut runs to the
+/// left perch, makes a running jump onto it (80 px up; her apex is 114.92), then
+/// a standing jump from the perch: she bonks under the DM-Q27 lane ceiling at
+/// feet 176, her drawn top stays under the HUD band. The name carries the
+/// `cf02_arena_` prefix, which selects the arena kit and `cf02_rules`.
+const DM_PERCH_BASE: Fixture = Fixture {
+    carl_x: 300,
+    enemies: &[],
+    engineers: &[],
+    shore_dx: None,
+    llamas: &[],
+    ..crate::cf02::arena::fixture(
+        "cf02_arena_dm_perch_jump",
+        "DM-C evidence: the empty microarena; Donut jumps onto the left perch and jumps again under the lane ceiling (DM-Q27)",
+        0x0D4D_00C2,
+        260,
+    )
+};
+
+const DM_PERCH_SCRIPT: [SlotHold; 4] = [
+    run_hold(1, 74, 1, 1.0),
+    jump(74, 75, 1),
+    run_hold(75, 100, 1, 1.0),
+    jump(150, 151, 1),
+];
+
+pub const CF02_ARENA_DM_PERCH_JUMP: PartyFixture = PartyFixture {
+    base: &DM_PERCH_BASE,
+    two_player: true,
+    tuning: PROVISIONAL_TUNING,
+    script: &DM_PERCH_SCRIPT,
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
 /// The party fixtures of this module, resolvable by name in the binary
 /// (`--party-fixture dm_run_race_2p`) through
 /// [`crate::cf02_fixtures::find_party_fixture`], like the CF02 and Engineer
 /// registries: not chained into [`PartyFixture::all`], so no registry-order
 /// test, listing or committed replay depends on them.
-pub const AGILITY_PARTY_FIXTURES: [&PartyFixture; 7] = [
+pub const AGILITY_PARTY_FIXTURES: [&PartyFixture; 9] = [
     &DM_2P_WALL_RUNNING_JUMP,
     &DM_RUN_RACE_2P,
     &DM_JUMP_RACE_2P,
@@ -452,6 +542,9 @@ pub const AGILITY_PARTY_FIXTURES: [&PartyFixture; 7] = [
     &DM_REFLEX_NOT_ARMED,
     &DM_EVASION_LOCKED_BEFORE_BISCUIT,
     &DM_EVASION_UNLOCKS_AT_GUILD,
+    // DM-C: the cue evidence room, under `cf02_rules`.
+    &CF02_DM_REFLEX_CUES,
+    &CF02_ARENA_DM_PERCH_JUMP,
 ];
 
 #[cfg(test)]
@@ -886,7 +979,7 @@ mod tests {
 
     #[test]
     fn the_dm_party_fixtures_replay_identically_and_match_their_goldens() {
-        const PARTY_GOLDENS: [(&str, u64); 7] = [
+        const PARTY_GOLDENS: [(&str, u64); 9] = [
             ("dm_2p_wall_running_jump", 0xa53e_1ee5_fa99_5334),
             ("dm_run_race_2p", 0x7193_59bc_ab34_44ae),
             ("dm_jump_race_2p", 0x0d0c_c1c7_d90b_346d),
@@ -895,13 +988,22 @@ mod tests {
             ("dm_reflex_not_armed", 0x8281_2a44_46dd_6c78),
             ("dm_evasion_locked_before_biscuit", 0x5a19_8a6c_5553_6f0d),
             ("dm_evasion_unlocks_at_guild", 0x1f1c_3dfb_5495_417e),
+            // DM-C: pinned from its first run; the events are asserted in
+            // `donut_cues::tests`.
+            ("cf02_dm_reflex_cues", 0xff5e_7ce8_007f_28ac),
+            ("cf02_arena_dm_perch_jump", 0x4fa9_bab3_c208_d618),
         ];
         assert_eq!(PARTY_GOLDENS.len(), AGILITY_PARTY_FIXTURES.len());
         for (fixture, (name, golden)) in AGILITY_PARTY_FIXTURES.iter().zip(PARTY_GOLDENS) {
             assert_eq!(fixture.name(), name);
             assert!(crate::cf02_fixtures::find_party_fixture(name).is_some());
             let run = || {
-                let mut sim = PartyFixtureSim::new(&kit(), 360, fixture).unwrap();
+                let kit = if crate::cf02::arena::fixture_uses_arena(name) {
+                    crate::cf02::arena::load_arena(&root()).unwrap()
+                } else {
+                    kit()
+                };
+                let mut sim = PartyFixtureSim::new(&kit, 360, fixture).unwrap();
                 sim.run_scripted(fixture.base.ticks);
                 sim.state_hash()
             };

@@ -247,6 +247,51 @@ fn a_guard_consumes_no_arm() {
     assert!(evades[0].0 > 300);
 }
 
+/// DM-Q20 and D1 M4: the off-screen guard consumes no arm either. In solo the AI
+/// Donut is guarded; a swing aimed at her beyond the view margin is not a hit,
+/// is not evaded, and leaves her armed. The same swing on screen reaches the
+/// check and is evaded (the control).
+#[test]
+fn an_offscreen_guard_consumes_no_arm() {
+    use crate::goblin::GoblinMode;
+    use crate::party_scene::SOLO_GUARD_FLOORS_AT_ONE;
+    let fixture: &'static PartyFixture = Box::leak(Box::new(PartyFixture {
+        donut: DonutSetup::unlocked(8),
+        base: SOLO_GUARD_FLOORS_AT_ONE.base,
+        two_player: false,
+        tuning: SOLO_GUARD_FLOORS_AT_ONE.tuning,
+        script: &[],
+        pilot: Pilot::None,
+    }));
+    for (donut_x, on_screen) in [(40.0, false), (250.0, true)] {
+        let mut sim = PartyFixtureSim::new(&corridor(), 360, fixture).unwrap();
+        sim.combat.arm_reflex_for_test();
+        sim.scene.world.donut_body.x = donut_x;
+        sim.scene.world.sync_donut_for_tests();
+        let g = &mut sim.combat.enemies[0];
+        g.x = donut_x - 24.0;
+        g.facing = 1;
+        g.mode = GoblinMode::Attack;
+        g.attack_tick = 24;
+        assert_eq!(sim.scene.is_offscreen(donut_x, 16.0), !on_screen);
+        sim.run_scripted(6);
+        assert!(
+            hurts(&sim).iter().all(|h| h.1 != HeroId::Donut),
+            "donut at {donut_x}: never hurt"
+        );
+        assert_eq!(
+            !evaded(&sim).is_empty(),
+            on_screen,
+            "donut at {donut_x}: the check is reached only on screen"
+        );
+        assert_eq!(
+            sim.combat.reflex().armed(),
+            !on_screen,
+            "donut at {donut_x}: the guard spends no arm, the evade does"
+        );
+    }
+}
+
 /// The guards sit before the evasion check in the three evadable sources
 /// (DM-Q20), and the check has exactly those three call sites (DM-Q17, DM-Q18).
 #[test]
@@ -302,6 +347,42 @@ fn the_allow_list_has_three_call_sites_and_the_guards_come_first() {
     );
 }
 
+/// The part of a source file a play path can reach: everything before its
+/// `#[cfg(test)]` module, minus `encode_tuning` of `scenario.rs`, the one
+/// non-test reader of the profile (it matches on the profile, it never builds
+/// one).
+fn play_code(name: &str, text: &str) -> String {
+    let mut code = text
+        .split("#[cfg(test)]\nmod ")
+        .next()
+        .unwrap_or("")
+        .to_owned();
+    if name == "scenario.rs"
+        && let Some(start) = code.find("fn encode_tuning(")
+    {
+        let end = code[start..]
+            .find("\nfn ")
+            .map_or(code.len(), |i| start + i);
+        code.replace_range(start..end, "");
+    }
+    code
+}
+
+/// DM-C F4, the negative test of the scan above: a profile built in a non-test
+/// fixture file or outside `encode_tuning` is seen; one inside a test module,
+/// or in `encode_tuning`, is not.
+#[test]
+fn the_profile_scan_sees_a_play_path_leak() {
+    let leak = "pub const F: u8 = 1;\nfn make() { let _ = ReflexProfile::Rearm(1); }\n";
+    assert!(play_code("agility_fixtures.rs", leak).contains("ReflexProfile::Rearm"));
+    let in_tests = "fn ok() {}\n#[cfg(test)]\nmod tests {\n fn t() { ReflexProfile::Off; }\n}\n";
+    assert!(!play_code("agility_fixtures.rs", in_tests).contains("ReflexProfile::Off"));
+    let scenario = "fn encode_tuning(t: u8) {\n match p { ReflexProfile::Off => {} }\n}\n\nfn other() { ReflexProfile::Off; }\n";
+    let code = play_code("scenario.rs", scenario);
+    assert_eq!(code.matches("ReflexProfile::Off").count(), 1, "{code}");
+    assert!(code.contains("fn other"), "{code}");
+}
+
 /// The test-only profiles are never built by a play path: `ReflexProfile::Off`
 /// and `Rearm` appear only in tests (and the profile's own definition).
 #[test]
@@ -321,18 +402,16 @@ fn no_play_path_constructs_a_non_shipped_reflex_profile() {
                 continue;
             }
             let name = path.file_name().unwrap().to_string_lossy().into_owned();
-            let allowed = [
-                "agility.rs",
-                "agility_reflex_tests.rs",
-                "agility_fixtures.rs",
-                "tests.rs",
-                "scenario.rs",
-            ];
+            // DM-C F4: only the definition and the test files are exempt as a
+            // whole; every other file, `agility_fixtures.rs` included (the binary
+            // resolves its fixtures by name), is scanned up to its `#[cfg(test)]`
+            // module.
+            let allowed = ["agility.rs", "agility_reflex_tests.rs", "tests.rs"];
             if allowed.contains(&name.as_str()) {
                 continue;
             }
             let text = std::fs::read_to_string(&path).unwrap();
-            let code = text.split("#[cfg(test)]\nmod ").next().unwrap_or("");
+            let code = play_code(&name, &text);
             for needle in ["ReflexProfile::Off", "ReflexProfile::Rearm"] {
                 assert!(
                     !code.contains(needle),
@@ -398,6 +477,10 @@ static RAM_BASE: Fixture = Fixture {
     )
 };
 
+/// DM-C F2: the pinned `state_hash()` of the hand-built ram and glob sims.
+const DM_RAM_PASSES_HASH: u64 = 0xd3b1_c849_50a8_6a45;
+const DM_GLOB_PASSES_HASH: u64 = 0xd528_4158_593d_f315;
+
 /// DM-Q19, U3: the evasion check runs inside the ram's candidate loop. An
 /// evaded Donut is skipped like an invulnerable one, so Carl behind her is
 /// chosen on the same tick, and the ram goes on.
@@ -417,6 +500,13 @@ fn the_ram_passes_an_armed_donut_and_hits_carl_behind_her_on_the_same_tick() {
     );
     assert_eq!(sim.scene.world.donut.health, 4, "Donut is untouched");
     assert!(!sim.combat.reflex().armed());
+    // DM-C F2: the hand-built sim is deterministic, so its hash is pinned.
+    assert_eq!(
+        sim.state_hash(),
+        DM_RAM_PASSES_HASH,
+        "{:#018x}",
+        sim.state_hash()
+    );
 }
 
 /// The same ram on an unarmed Donut hits her (the ordinary path).
@@ -490,6 +580,13 @@ fn the_glob_passes_through_an_armed_donut_and_flies_on_to_carl() {
     );
     assert_eq!(sim.scene.world.donut.health, 4);
     assert_eq!(sim.combat.globs.first().map(|g| g.spawn_tick), None);
+    // DM-C F2: the hand-built sim is deterministic, so its hash is pinned.
+    assert_eq!(
+        sim.state_hash(),
+        DM_GLOB_PASSES_HASH,
+        "{:#018x}",
+        sim.state_hash()
+    );
 }
 
 /// The glob's spawn tick is set at spawn and is not hashed.

@@ -1,0 +1,2 @@
+COMBAT_STATE fixture=cf02_arena_dm_perch_jump seed=0xd4d00c2 tick=260 elapsed=260 hero_hp=4 deaths=0 enemies= hash=f840f6bf102e1042
+PARTY_STATE fixture=cf02_arena_dm_perch_jump mode=2p controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=4fa9bab3c208d618

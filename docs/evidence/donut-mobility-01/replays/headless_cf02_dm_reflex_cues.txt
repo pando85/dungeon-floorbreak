@@ -1,0 +1,20 @@
+COMBAT_EVENT tick=703 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=720 kind=evade_armed hero=donut
+COMBAT_EVENT tick=729 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=729 kind=hero_evaded hero=donut source=0 attack=goblin_swing
+COMBAT_EVENT tick=804 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=812 kind=move_started move=jab instance=1
+COMBAT_EVENT tick=815 kind=hit move=jab instance=1 target=0 damage=1 health_left=1 hit_stop=3
+COMBAT_EVENT tick=815 kind=goblin_interrupted goblin=0
+COMBAT_EVENT tick=826 kind=move_started move=haymaker instance=2
+COMBAT_EVENT tick=831 kind=hit move=haymaker instance=2 target=0 damage=1 health_left=0 hit_stop=8
+COMBAT_EVENT tick=831 kind=enemy_defeated target=0
+COMBAT_EVENT tick=856 kind=move_started move=jab instance=3
+COMBAT_EVENT tick=868 kind=move_started move=haymaker instance=4
+COMBAT_EVENT tick=890 kind=move_started move=jab instance=5
+COMBAT_EVENT tick=897 kind=move_started move=haymaker instance=6
+COMBAT_EVENT tick=924 kind=move_started move=jab instance=7
+COMBAT_EVENT tick=938 kind=move_started move=jab instance=8
+COMBAT_EVENT tick=1449 kind=evade_armed hero=donut
+COMBAT_STATE fixture=cf02_dm_reflex_cues seed=0xd4d00c1 tick=1800 elapsed=1800 hero_hp=4 deaths=0 enemies=e0=700.235/0 hash=523cb34ba6804676
+PARTY_STATE fixture=cf02_dm_reflex_cues mode=2p controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=ff5e7ce8007f28ac

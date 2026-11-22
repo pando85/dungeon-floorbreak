@@ -464,6 +464,9 @@ pub struct ActingAnimators {
     smug_cooldown: u16,
     /// A smug waiting for Donut to be idle (ticks left), set by her hit.
     smug_pending: Option<u8>,
+    /// DM-C (DM-Q21): the tick her evade response ends, after which the smug
+    /// follows (the cat is cute first, smug as the payoff).
+    evade_smug_at: Option<u64>,
     frustration_cooldown: u16,
     /// Ticks (scene tick) of the last whiffs in a row, oldest first.
     whiffs: Vec<u64>,
@@ -496,6 +499,7 @@ impl ActingAnimators {
             startle_cooldown: 0,
             smug_cooldown: 0,
             smug_pending: None,
+            evade_smug_at: None,
             frustration_cooldown: 0,
             whiffs: Vec::new(),
             watch: None,
@@ -532,6 +536,7 @@ impl ActingAnimators {
         self.startle_cooldown = 0;
         self.smug_cooldown = 0;
         self.smug_pending = None;
+        self.evade_smug_at = None;
         self.frustration_cooldown = 0;
         self.whiffs.clear();
         self.watch = None;
@@ -657,6 +662,14 @@ impl ActingAnimators {
                         self.smug_pending = Some(SMUG_PENDING_TICKS);
                     }
                     self.note_hit_on_goblin(target as usize, combat);
+                }
+                CombatEvent::HeroEvaded {
+                    hero: HeroId::Donut,
+                    tick: evaded_at,
+                    ..
+                } => {
+                    // DM-C: the evade response runs `EVADE_TICKS`, then the smug.
+                    self.evade_smug_at = Some(evaded_at + crate::donut_cues::EVADE_TICKS);
                 }
                 CombatEvent::HeroHurt {
                     hero: HeroId::Carl, ..
@@ -865,6 +878,12 @@ impl ActingAnimators {
             && !combat.hero_defeated;
         if want_startle && donut_can_show && self.startle_cooldown == 0 {
             self.start_donut(DonutOverlay::Startle);
+        }
+        if let Some(at) = self.evade_smug_at
+            && tick >= at
+        {
+            self.evade_smug_at = None;
+            self.smug_pending = Some(SMUG_PENDING_TICKS);
         }
         if let Some(left) = self.smug_pending {
             if donut_can_show && self.smug_cooldown == 0 && !self.donut_overlay.is_running() {
