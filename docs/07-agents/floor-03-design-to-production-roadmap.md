@@ -2,7 +2,7 @@
 
 **Status:** Floor03 concept design / agent workorder, NOT implemented gameplay, not approval to rework F01/F02, 2026-11-22. Intent: seed **parallel preproduction** while local agents continue the much higher-priority Floor02 PR #239 and owner Floor01 game-feel tests. Do not compete for shared hot files or trip resources that should be spent on the first connected playable Floor02.
 
-Read [F03 game bible](../01-design/floor-03-over-city-design-bible.md), [F03 art](../02-art/floor-03-over-city-art-direction.md), [F02 architecture audit](../03-tech/floor-02-engine-reuse-and-route-contract.md) (currently draft PR #239), [F02 autonomous workorder](floor-02-vacation-execution-packet.md) (on another branch until merged), AGENTS.md and current repo ADRs. If F02 docs are unmerged, read PR files directly; do not assume the references already exist on main.
+Read [F03 game bible](../01-design/floor-03-over-city-design-bible.md), [F03 art](../02-art/floor-03-over-city-art-direction.md), [F02 architecture audit (PR #239, unmerged)](https://github.com/pando85/dungeon-floorbreak/blob/design/f02-last-lesson-bible/docs/03-tech/floor-02-engine-reuse-and-route-contract.md) (currently draft PR #239), [F02 autonomous workorder (PR #239, unmerged)](https://github.com/pando85/dungeon-floorbreak/blob/design/f02-last-lesson-bible/docs/07-agents/floor-02-vacation-execution-packet.md) (on another branch until merged), AGENTS.md and current repo ADRs. If F02 docs are unmerged, read PR files directly; do not assume the references already exist on main.
 
 ## Circus implementation addendum — workstreams that can proceed separately
 
