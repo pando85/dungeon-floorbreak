@@ -1,6 +1,6 @@
 # GAMEPLAY-BASELINE-V1 — Before-vacation owner playtest and safe change contract
 
-**Status:** owner fill-in template ONLY, not a completed playtest. Written 2026-11-22. Target: before 2026-11-25. The owner will conduct real gamepad tests before travel; an agent must not fill PASS fields from bot scripts or claim these observations are measured. Read [F01 PT-GATE-B owner packet](../evidence/f01-playtest/README.md) when present on current main, [F02 execution work queue](../07-agents/floor-02-vacation-execution-packet.md) and [Floor01 production plan](floor-01-end-to-end-production-plan.md) if present or still in PR #194.
+**Status:** owner fill-in template ONLY, not a completed playtest. Written 2026-11-22. Target: before 2026-11-25. The owner will conduct real gamepad tests before travel; an agent must not fill PASS fields from bot scripts or claim these observations are measured. Read [F01 PT-GATE-B owner packet](../evidence/f01-playtest/README.md) when present on current main, [F02 execution work queue](../07-agents/floor-02-vacation-execution-packet.md) and [Floor01 production plan (PR #194)](https://github.com/pando85/dungeon-floorbreak/pull/194) while still in draft.
 
 ## 1. Record identity and version
 
