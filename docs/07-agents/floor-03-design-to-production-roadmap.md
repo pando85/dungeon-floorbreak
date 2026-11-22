@@ -4,6 +4,21 @@
 
 Read [F03 game bible](../01-design/floor-03-over-city-design-bible.md), [F03 art](../02-art/floor-03-over-city-art-direction.md), [F02 architecture audit](../03-tech/floor-02-engine-reuse-and-route-contract.md) (currently draft PR #239), [F02 autonomous workorder](floor-02-vacation-execution-packet.md) (on another branch until merged), AGENTS.md and current repo ADRs. If F02 docs are unmerged, read PR files directly; do not assume the references already exist on main.
 
+## Circus implementation addendum — workstreams that can proceed separately
+
+Read [F03-CIRCUS-01](../01-design/floor-03-circus-encounters-and-stagecraft.md), [F03-GRIM-01](../01-design/floor-03-grimaldi-resolution-and-coop.md), [F03-CIRCUS-ART-01](../02-art/floor-03-circus-visual-storytelling.md) before delegating the S02–S06 work. These are **proposals, not existing source code**.
+
+| Workstream ID | Deliverable | Parallelization | Hard stop |
+| --- | --- | --- | --- |
+| F03-CIR-A | pure lemur/clown/lion attack tells + truthful hit/collision tests | can run isolated from Floor02 runtime with independent new modules | must not alter shared combat/party/hero kit before owner-approved F01 baseline |
+| F03-CIR-B | real S02 awning support + original greybox geometry | authored stage data and existing `env_prop` adaptation | direct/no-prop route works, no fake hit or destroyed main path |
+| F03-CIR-C | Heather rooted/rolling AI and 2-hero reachability | pure boss before Bevy hookup | somber mercy ending, no human Donut loss of controls |
+| F03-CIR-D | Grimaldi 3-ring defense and nonlethal `communication_open`/`grimaldi_resolved` states | independent story director and scene data; integrator alone touches critical router | no boss HP kill; all supports optional; no 3-pole fixed-order puzzle |
+| F03-CIR-E | four native pixel art master keys + original acting frames | may run immediately after independent silhouette gate | not a downscaled AI concept; rooted vine silhouette, approved heroes |
+| F03-CIR-F | actual party/renderer/replay and source-level evidence | depends on Floor02 generic route + owner baseline | strict real game evidence, no false 2P or owner-fun claim |
+
+**Current priority stays Floor02 S00–S03 gameplay**, not rushing a second floor before the first is playable. The first coherent Floor03 slice remains S00/S01/S02; art keys and pure isolated bosses for later scenes may proceed without touching shared F01/F02 files. Sourcebook chronology verification is the responsibility of F03-00 SOURCE, not a blanket approval from secondary recaps.
+
 ## 1. Hierarchy of work
 
 **P0:** Floor01 owner game-feel/accepted core, Floor02 S00–S03 actual connected combat, camera/input and replay.
