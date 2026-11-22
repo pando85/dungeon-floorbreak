@@ -218,6 +218,8 @@ pub fn combat_for(
         .with_demo(run.rules)
         .with_cf02()
         .with_cf02_seed(cf02_seed)
+        // PTM-AD-temperament: the four goblins show all three temperaments.
+        .with_temperament_cover(run.fixture.enemies.len())
         .with_env(env_runtime(run)?)
         .with_slot_enemies(spawn.slot)
         .map_err(|e| e.to_string())?;
@@ -387,8 +389,7 @@ mod tests {
 
     /// The four goblins of the room (the Engineer is a goblin-class enemy in
     /// `combat.enemies` but not one of them) draw their temperaments from
-    /// `--cf02-seed`. The seeds whose four goblins miss a temperament are listed
-    /// in the PR for PT-TUNE; none is retuned here.
+    /// `--cf02-seed`.
     fn goblin_temperaments(run: &MasteryRun, seed: u64) -> Vec<String> {
         let mut scene = SceneSim::new_at(&run.kit, 360, run.fixture.carl_x).unwrap();
         let combat = combat_for(
@@ -405,16 +406,12 @@ mod tests {
             .collect()
     }
 
-    /// The seeds of 0..9 whose four goblins draw **fewer than three**
-    /// temperaments (the Show-off slot of the CF02-Q58 bag went to the Engineer).
-    /// Measured, pinned, and a PT-TUNE note: nothing is retuned here.
-    const SEEDS_MISSING_A_TEMPERAMENT: [u64; 2] = [1, 4];
-
+    /// PTM-AD-temperament: every seed of 0..9 draws all three temperaments among
+    /// the four goblins (the plain Q58 bag lost the Show-off to the Engineer's
+    /// slot on seeds 1 and 4), and the draw replays.
     #[test]
-    fn the_four_goblins_draw_their_temperaments_per_seed() {
+    fn the_four_goblins_draw_three_temperaments_at_every_seed() {
         let run = launch(&root()).unwrap();
-        let mut missing = Vec::new();
-        let mut full = 0;
         for seed in 0..9 {
             let drawn = goblin_temperaments(&run, seed);
             assert_eq!(drawn.len(), 4, "the Engineer is not counted");
@@ -423,20 +420,11 @@ mod tests {
                 goblin_temperaments(&run, seed),
                 "seed {seed} replays"
             );
-            let mut kinds = drawn;
+            let mut kinds = drawn.clone();
             kinds.sort_unstable();
             kinds.dedup();
-            if kinds.len() == 3 {
-                full += 1;
-            } else {
-                missing.push(seed);
-            }
+            assert_eq!(kinds.len(), 3, "seed {seed}: the goblins drew {drawn:?}");
         }
-        assert_eq!(
-            missing, SEEDS_MISSING_A_TEMPERAMENT,
-            "the seeds that miss one"
-        );
-        assert!(full > 0, "some seed draws all three on the four goblins");
     }
 
     #[test]

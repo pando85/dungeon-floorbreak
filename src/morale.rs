@@ -77,10 +77,47 @@ pub struct Draw {
     pub approach_delay: u8,
 }
 
+/// PTM-AD-temperament: the shuffled bag with the first `cover` slots guaranteed
+/// to hold every temperament of the bag (`cover` goblins of a room that must
+/// show all three). When a temperament landed beyond slot `cover` (the Engineer's
+/// slot), it is swapped into the first slot whose temperament repeats among the
+/// first `cover`. Deterministic, a function of the shuffle only; `cover` of 0
+/// (or a bag the first slots already cover) is the plain shuffle.
+pub fn covering_bag(t: &Cf02Tuning, seed: u64, restarts: u32, cover: usize) -> Vec<Temperament> {
+    let mut bag = shuffled_bag(t, seed, restarts);
+    let cover = cover.min(bag.len());
+    for out in cover..bag.len() {
+        let missing = bag[out];
+        if bag[..cover].contains(&missing) {
+            continue;
+        }
+        let dup = (0..cover).find(|i| bag[..cover].iter().filter(|x| **x == bag[*i]).count() > 1);
+        if let Some(i) = dup {
+            bag.swap(i, out);
+        }
+    }
+    bag
+}
+
 /// All draws of goblin `goblin` for `(seed, restarts)`; rooms with more goblins
 /// than the bag repeat the bag.
 pub fn draw_goblin(t: &Cf02Tuning, seed: u64, restarts: u32, goblin: u32) -> Draw {
-    let bag = shuffled_bag(t, seed, restarts);
+    draw_goblin_covering(t, seed, restarts, goblin, 0)
+}
+
+/// [`draw_goblin`] over the [`covering_bag`] of `cover` goblins (0: the plain bag).
+pub fn draw_goblin_covering(
+    t: &Cf02Tuning,
+    seed: u64,
+    restarts: u32,
+    goblin: u32,
+    cover: usize,
+) -> Draw {
+    let bag = if cover == 0 {
+        shuffled_bag(t, seed, restarts)
+    } else {
+        covering_bag(t, seed, restarts, cover)
+    };
     let temperament = bag[goblin as usize % bag.len()];
     let pick = |draw: u32, lo: i32, hi: i32| ranged(lo, hi, mix(seed, restarts, goblin, draw));
     Draw {
@@ -833,6 +870,48 @@ mod tests {
             .filter(|s| shuffled_bag(&t, *s, 0) == shuffled_bag(&t, s + 1, 0))
             .count();
         assert!(same < 2048 / 10, "{same} adjacent seeds share a bag");
+    }
+
+    /// PTM-AD-temperament: the covering bag keeps the bag's contents, is the
+    /// plain shuffle when the first slots already cover it (and for `cover` 0),
+    /// and otherwise covers every temperament in the first `cover` slots.
+    #[test]
+    fn the_covering_bag_covers_the_first_slots_and_is_the_plain_bag_when_it_already_does() {
+        let t = Cf02Tuning::pinned().unwrap();
+        let kinds = |b: &[Temperament]| {
+            let mut k: Vec<String> = b.iter().map(|x| format!("{x:?}")).collect();
+            k.sort();
+            k.dedup();
+            k.len()
+        };
+        let mut changed = 0;
+        for seed in 0..512u64 {
+            for restarts in 0..3 {
+                let plain = shuffled_bag(&t, seed, restarts);
+                assert_eq!(covering_bag(&t, seed, restarts, 0), plain);
+                let cover = covering_bag(&t, seed, restarts, 4);
+                let mut a: Vec<String> = plain.iter().map(|x| format!("{x:?}")).collect();
+                let mut b: Vec<String> = cover.iter().map(|x| format!("{x:?}")).collect();
+                a.sort();
+                b.sort();
+                assert_eq!(a, b, "a swap keeps the bag's contents");
+                assert_eq!(kinds(&cover[..4]), 3, "seed {seed} restart {restarts}");
+                if kinds(&plain[..4]) == 3 {
+                    assert_eq!(cover, plain, "already covering: untouched");
+                } else {
+                    changed += 1;
+                }
+            }
+        }
+        assert!(
+            changed > 0,
+            "the plain bag misses a temperament on some draws"
+        );
+        // The plain draw is untouched for every caller that asks for no cover.
+        assert_eq!(
+            draw_goblin(&t, 4, 0, 0),
+            draw_goblin_covering(&t, 4, 0, 0, 0)
+        );
     }
 
     #[test]

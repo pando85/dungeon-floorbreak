@@ -129,7 +129,15 @@ impl CombatState {
         };
         let seed = self.morale_seed();
         let draws: Vec<Draw> = (0..self.enemies.len())
-            .map(|i| morale::draw_goblin(t, seed, self.restarts, i as u32))
+            .map(|i| {
+                morale::draw_goblin_covering(
+                    t,
+                    seed,
+                    self.restarts,
+                    i as u32,
+                    self.temperament_cover,
+                )
+            })
             .collect();
         self.morale = Some(MoraleRuntime {
             seed,
@@ -159,7 +167,13 @@ impl CombatState {
         let Some(t) = self.cf02.filter(|_| self.morale.is_some()) else {
             return;
         };
-        let draw = morale::draw_goblin(t, self.morale_seed(), self.restarts, index as u32);
+        let draw = morale::draw_goblin_covering(
+            t,
+            self.morale_seed(),
+            self.restarts,
+            index as u32,
+            self.temperament_cover,
+        );
         let goblin_health = self.enemies[index].health;
         let is_engineer = self.enemies[index].is_engineer();
         if let Some(m) = self.morale.as_mut() {
