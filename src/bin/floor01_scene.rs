@@ -484,7 +484,9 @@ impl Args {
     /// Whether the run holds a fixture the user (or another scene such as the
     /// boss arena or the lab) supplied, as opposed to the placeholder fixture a
     /// room scene sets for itself (PT-GATE-C1): only the former refuses
-    /// `--companion`.
+    /// `--companion`. Inferred, not tracked: sound because every room scene refuses a
+    /// user `--fixture` or `--party-fixture` up front, so a fixture inside a room scene
+    /// is always the scene's own.
     fn user_fixture(&self) -> bool {
         self.party_fixture.is_some() || (self.fixture.is_some() && !self.f01_room_scene())
     }
@@ -9582,8 +9584,12 @@ mod tests {
         assert_eq!(hero(&["--cf02", "--companion", "v0"]), v0);
         assert!(args(&["--companion"]).is_err());
         assert!(args(&["--companion", "fast"]).is_err());
-        // A fixture declares its own tuning.
-        assert!(args(&["--fixture", "cp01_kick", "--companion", "v0"]).is_err());
+        // A fixture declares its own tuning: the companion rule itself refuses it.
+        let refusal = args(&["--fixture", "cp01_kick", "--companion", "v0"]).unwrap_err();
+        assert!(
+            refusal.contains("--companion cannot be combined"),
+            "{refusal}"
+        );
         assert!(
             args(&[
                 "--party-fixture",
@@ -9640,7 +9646,8 @@ mod tests {
                 "--companion",
                 "cf02_free"
             ])
-            .is_err()
+            .is_err(),
+            "refused by the room scene's own fixture rule"
         );
         assert!(
             args(&["--scene", "boss_f01", "--companion", "cf02_free"]).is_err(),
