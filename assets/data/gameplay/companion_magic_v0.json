@@ -9,5 +9,6 @@
   "empty_press": "dry",
   "projectile_speed_px_per_tick": 6,
   "projectile_range_px": 240,
-  "refire_ticks": 16
+  "refire_ticks": 16,
+  "missile_spawn_sweep": true
 }

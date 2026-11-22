@@ -42,7 +42,12 @@ impl CombatState {
     /// `EvadeArmed` once. Before the unlock nothing advances.
     pub(super) fn step_reflex(&mut self, scene: &SceneSim, tick: u64) {
         let unlocked = self.donut_kit.mana.unlocked();
-        if self.reflex.step(Self::reflex_rearm(scene), unlocked, tick) {
+        let opener =
+            scene.party_live() && scene.drive().tuning.donut_reflex.armed_at_attempt_start();
+        if self
+            .reflex
+            .step_with_opener(Self::reflex_rearm(scene), unlocked, opener, tick)
+        {
             self.log(CombatEvent::EvadeArmed {
                 tick,
                 hero: HeroId::Donut,

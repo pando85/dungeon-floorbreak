@@ -47,6 +47,24 @@ const BOLT_BOX_W: f32 = 8.0;
 const BOLT_BOX_H: f32 = 6.0;
 const BOLT_BOX_AHEAD: f32 = 4.0;
 
+/// FA-Q14: the box swept on a bolt's spawn tick, from `front` (Donut's front
+/// edge) to the near edge of the spawn box; `None` when the spawn box already
+/// starts at or before it.
+fn spawn_sweep_rect(front: f32, bolt: &Bolt) -> Option<Rect> {
+    let spawn = bolt.rect();
+    let (near, far) = if bolt.dir >= 0 {
+        (front, spawn.left)
+    } else {
+        (spawn.right(), front)
+    };
+    (far > near).then_some(Rect {
+        left: near,
+        bottom: spawn.bottom,
+        width: far - near,
+        height: spawn.height,
+    })
+}
+
 /// A cast in progress.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Cast {
@@ -311,6 +329,13 @@ impl CombatState {
     /// The cast in progress, if any.
     pub fn donut_cast(&self) -> Option<Cast> {
         self.donut_kit.cast
+    }
+
+    /// Tests only (FA-Q14): the `missile_spawn_sweep` knob of this run, so a test
+    /// can reproduce the hashes recorded before it existed.
+    #[doc(hidden)]
+    pub fn set_missile_spawn_sweep_for_test(&mut self, on: bool) {
+        self.donut_kit.tuning.missile_spawn_sweep = on;
     }
 
     /// The Magic Missile bolts in flight.
@@ -1233,8 +1258,19 @@ impl CombatState {
             travelled: 0.0,
         };
         self.donut_kit.bolts.push(bolt);
+        let index = self.donut_kit.bolts.len() - 1;
+        // FA-Q14: the segment between Donut's front edge and the spawn box is
+        // swept first, so a body closer than the spawn offset is hit.
+        if self.donut_kit.tuning.missile_spawn_sweep {
+            let front = pivot_x + f32::from(facing) * HERO_HALF_WIDTH;
+            if let Some(sweep) = spawn_sweep_rect(front, &bolt)
+                && self.test_bolt_rect(index, sweep, scene, tick, true)
+            {
+                return;
+            }
+        }
         // The new bolt is tested on its spawn tick (before it moves).
-        self.test_bolt(self.donut_kit.bolts.len() - 1, scene, tick);
+        self.test_bolt(index, scene, tick);
     }
 
     /// Move every older bolt and test it; a bolt that hit, ran into a wall or
@@ -1272,8 +1308,23 @@ impl CombatState {
     /// Test bolt `index` against the walls, the goblins and the boss. Returns
     /// true when the bolt was consumed (and removed).
     fn test_bolt(&mut self, index: usize, scene: &SceneSim, tick: u64) -> bool {
+        let rect = self.donut_kit.bolts[index].rect();
+        self.test_bolt_rect(index, rect, scene, tick, false)
+    }
+
+    /// [`Self::test_bolt`] against `rect` (the bolt's own box, or the FA-Q14
+    /// spawn sweep, `sweep: true`, which tests bodies, the boss and slot
+    /// enemies and the walls but not props or stickers: those keep their spawn
+    /// box test).
+    fn test_bolt_rect(
+        &mut self,
+        index: usize,
+        rect: Rect,
+        scene: &SceneSim,
+        tick: u64,
+        sweep: bool,
+    ) -> bool {
         let bolt = self.donut_kit.bolts[index];
-        let rect = bolt.rect();
         if solid_at(&scene.world.solids, rect) {
             self.donut_kit.bolts.remove(index);
             return true;
@@ -1325,12 +1376,12 @@ impl CombatState {
             return true;
         }
         // ENEMY-SLOT: a slot enemy's hurtbox ends the bolt after the boss.
-        if self.slot_missile_hit(&bolt, tick) {
+        if self.slot_missile_hit(&bolt, rect, tick) {
             self.donut_kit.bolts.remove(index);
             return true;
         }
         // BOIL-C wire (DV-5): a live prop target ends the bolt after the slot.
-        if self.env_missile_hit(&bolt, scene, tick) {
+        if !sweep && self.env_missile_hit(&bolt, scene, tick) {
             self.donut_kit.bolts.remove(index);
             return true;
         }
@@ -1604,6 +1655,85 @@ mod tests {
         assert_eq!(s.combat.donut_mana_view(), Some((7, 8)), "one charge spent");
     }
 
+    /// FA-Q14: the missiles of the hits landed on cast tick 4 (the release tick)
+    /// of the cast started at tick 10 by a goblin standing `dx` px from Donut.
+    fn point_blank_hits(dx: f32, sweep: bool) -> usize {
+        static SCRIPT: [SlotHold; 1] = [primary(10, 11, 1)];
+        static ENEMY: [EnemySpawn; 1] = [EnemySpawn {
+            x: 600,
+            ai: EnemyAi::Passive,
+        }];
+        let f = fixture(
+            "t_bolt_point_blank",
+            &ENEMY,
+            &SCRIPT,
+            DonutSetup::unlocked(8),
+            true,
+            60,
+        );
+        let mut s = sim(f);
+        s.combat.donut_kit.tuning.missile_spawn_sweep = sweep;
+        s.run_scripted(13);
+        let donut = s.scene.world.donut_body.x;
+        s.combat.enemies[0].x = donut + dx;
+        s.run_scripted(1);
+        assert!(s.combat.donut_cast().is_some(), "the release tick");
+        s.combat
+            .events
+            .iter()
+            .filter(|e| {
+                matches!(
+                    e,
+                    CombatEvent::Hit {
+                        move_id: MoveId::MagicMissile,
+                        ..
+                    }
+                )
+            })
+            .count()
+    }
+
+    /// FA-Q14: an enemy 12 px in front of her is hit on the release tick (the
+    /// cast's tick 4, the bolt's first tick); behind her, or off, nothing is.
+    #[test]
+    fn a_point_blank_enemy_is_hit_on_the_release_tick() {
+        // A goblin is 24 px wide and the spawn box starts 27 px ahead, so the old
+        // test missed a body centred 15 px ahead or nearer (the edges: 15 is
+        // missed, 16 is caught).
+        assert_eq!(point_blank_hits(12.0, true), 1, "12 px ahead");
+        assert_eq!(point_blank_hits(15.0, true), 1, "15 px ahead");
+        assert_eq!(point_blank_hits(-12.0, true), 0, "12 px behind: not hit");
+        // Knob off (a one-line revert): the bolt spawns past the body, as before.
+        assert_eq!(point_blank_hits(12.0, false), 0);
+        assert_eq!(point_blank_hits(15.0, false), 0);
+        assert_eq!(point_blank_hits(16.0, false), 1, "the old reach");
+        assert_eq!(point_blank_hits(16.0, true), 1);
+        assert_eq!(point_blank_hits(30.0, true), 1);
+        assert_eq!(point_blank_hits(30.0, false), 1);
+    }
+
+    #[test]
+    fn the_spawn_sweep_spans_the_front_edge_to_the_spawn_box_on_both_facings() {
+        let ahead = Bolt {
+            instance: 1,
+            x: 127.0,
+            y: 20.0,
+            dir: 1,
+            travelled: 0.0,
+        };
+        let r = spawn_sweep_rect(112.0, &ahead).unwrap();
+        assert_eq!((r.left, r.right()), (112.0, 127.0));
+        let behind = Bolt {
+            x: 73.0,
+            dir: -1,
+            ..ahead
+        };
+        let r = spawn_sweep_rect(88.0, &behind).unwrap();
+        assert_eq!((r.left, r.right()), (73.0, 88.0));
+        // The spawn box already starts at the front edge: nothing to sweep.
+        assert!(spawn_sweep_rect(130.0, &ahead).is_none());
+    }
+
     #[test]
     fn a_missile_that_kills_credits_donut_and_is_a_routine_melee_defeat() {
         static SCRIPT: [SlotHold; 2] = [primary(10, 11, 1), primary(26, 27, 1)];
@@ -1773,6 +1903,7 @@ mod tests {
         let f: &'static PartyFixture = Box::leak(Box::new(PartyFixture {
             tuning: PartyTuning {
                 donut_moves: false,
+                donut_reflex: crate::agility::ReflexProfile::ShippedNoOpener,
                 ..PROVISIONAL_TUNING
             },
             ..PartyFixture {

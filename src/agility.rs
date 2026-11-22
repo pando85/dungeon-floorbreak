@@ -21,7 +21,7 @@ use serde::{Deserialize, Serialize};
 pub const TUNING_JSON: &str = include_str!("../assets/data/gameplay/hero_agility_v0.json");
 
 /// The committed FNV-1a 64 content hash of [`TUNING_JSON`].
-pub const TUNING_HASH: u64 = 0xad4b_7f26_bea9_8c8f;
+pub const TUNING_HASH: u64 = 0xb12a_465a_83f5_2c08;
 
 /// The reflex rearm range of DM-Q12, in ticks (inclusive).
 pub const REARM_RANGE: core::ops::RangeInclusive<u32> = 600..=900;
@@ -122,6 +122,11 @@ pub struct AgilityTuning {
     pub dm_q11_evasion_mode: EvasionMode,
     /// DM-Q12 (DM-B): ticks without a hurt before the reflex arms.
     pub dm_q12_reflex_rearm_ticks: u32,
+    /// FA-Q19 (the fix-all plan, T26; amends DM-Q13): a new attempt that begins
+    /// with the biscuit already held starts with the reflex armed. A
+    /// mid-attempt unlock, a hurt, an evade and a respawn still reset the wait.
+    /// Default on; off reproduces the earlier hashes (a one-line revert).
+    pub dm_reflex_armed_at_attempt_start: bool,
 }
 
 impl AgilityTuning {
@@ -209,6 +214,9 @@ pub enum ReflexProfile {
     Off,
     /// The reflex with this rearm, in ticks (the loader's range is 600..=900).
     Rearm(u32),
+    /// Test only (FA-Q19): the shipped rearm without the armed attempt start,
+    /// so a test can reproduce the hashes recorded before the knob existed.
+    ShippedNoOpener,
 }
 
 impl ReflexProfile {
@@ -221,6 +229,16 @@ impl ReflexProfile {
             },
             Self::Off => None,
             Self::Rearm(ticks) => Some(ticks),
+            Self::ShippedNoOpener => Self::Shipped.rearm(),
+        }
+    }
+
+    /// FA-Q19: whether a new attempt that begins with the biscuit held starts
+    /// armed (the `dm_reflex_armed_at_attempt_start` knob of the shipped file).
+    pub fn armed_at_attempt_start(self) -> bool {
+        match self {
+            Self::Shipped | Self::Rearm(_) => tuning().dm_reflex_armed_at_attempt_start,
+            Self::Off | Self::ShippedNoOpener => false,
         }
     }
 }
@@ -340,17 +358,31 @@ pub enum Verdict {
 /// The reflex state (DM-Q12, DM-Q13, DM-Q19). Armed iff `tick - last_reset_tick
 /// >= rearm`; there is no per-tick countdown. Attempt-local: a fixture or
 /// defeat restart calls [`Self::restart`], a checkpoint respawn [`Self::reset`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, Eq, Default)]
 pub struct Reflex {
     last_reset_tick: u64,
     armed: bool,
     ever_armed: bool,
+    /// FA-Q19: the attempt's first step has run (cleared by [`Self::restart`]).
+    started: bool,
     evaded: Option<EvadeKey>,
     /// Tests only (DM-C F5): the evadable instances that reached [`Self::check`],
     /// the spec's definition of an attempt (section 3.3), summed over restarts.
     /// Never read, hashed or compared by play code.
     #[cfg(test)]
     attempts: u32,
+}
+
+/// Equality is the play state. The test-only `attempts` counter (DM-FU-C F5,
+/// T06) is a measurement and never takes part.
+impl PartialEq for Reflex {
+    fn eq(&self, other: &Self) -> bool {
+        self.last_reset_tick == other.last_reset_tick
+            && self.armed == other.armed
+            && self.ever_armed == other.ever_armed
+            && self.started == other.started
+            && self.evaded == other.evaded
+    }
 }
 
 impl Reflex {
@@ -413,6 +445,32 @@ impl Reflex {
         self.armed = true;
         self.ever_armed = true;
         true
+    }
+
+    /// [`Self::step`] with the FA-Q19 opener: on the attempt's first step, with
+    /// the biscuit held and `opener` on, the reflex starts armed (as if
+    /// `rearm` ticks had passed since a reset) and the arm is announced on that
+    /// tick. Every later step is [`Self::step`]; a mid-attempt unlock still
+    /// waits the full rearm because the first step already ran without it.
+    pub fn step_with_opener(
+        &mut self,
+        rearm: Option<u32>,
+        unlocked: bool,
+        opener: bool,
+        tick: u64,
+    ) -> bool {
+        let Some(wait) = rearm else {
+            return false;
+        };
+        let first = !self.started;
+        self.started = true;
+        if first && opener && unlocked && !self.armed {
+            self.last_reset_tick = tick.saturating_sub(u64::from(wait));
+            self.armed = true;
+            self.ever_armed = true;
+            return true;
+        }
+        self.step(rearm, unlocked, tick)
     }
 
     /// DM-Q19, DM-Q20: the check for an instance that already passed every
@@ -526,6 +584,7 @@ mod tests {
         assert_eq!(t.dm_q08_ai_jump_margin_px, 4.0);
         assert_eq!(t.dm_q11_evasion_mode, EvasionMode::Reflex);
         assert_eq!(t.dm_q12_reflex_rearm_ticks, 720);
+        assert!(t.dm_reflex_armed_at_attempt_start, "FA-Q19");
     }
 
     #[test]
@@ -731,11 +790,83 @@ mod tests {
             1,
             "the one check survives a restart"
         );
-        let fresh = Reflex {
-            attempts: reflex.attempts,
-            ..Reflex::default()
+        // T06 (DM-FU-C): the counter takes no part in equality, so a restarted
+        // reflex equals a fresh one whatever it counted.
+        assert_eq!(reflex, Reflex::default());
+        let mut counted = Reflex::default();
+        let _ = counted.check(key(9), 1);
+        assert_eq!(counted.attempts_for_test(), 1);
+        assert_eq!(counted, Reflex::default());
+        counted.restart();
+        assert_eq!(counted.attempts_for_test(), 1, "and it survives a restart");
+    }
+
+    /// The shipped file arms a new attempt that begins with the biscuit held.
+    fn open_at(reflex: &mut Reflex, unlocked: bool, tick: u64) -> bool {
+        reflex.step_with_opener(
+            ReflexProfile::Shipped.rearm(),
+            unlocked,
+            ReflexProfile::Shipped.armed_at_attempt_start(),
+            tick,
+        )
+    }
+
+    /// FA-Q19 (amends DM-Q13): an attempt that begins with the biscuit held
+    /// starts armed and announces it once; the wait after a hurt or an evade is
+    /// the full rearm again.
+    #[test]
+    fn an_attempt_that_starts_with_the_biscuit_starts_armed() {
+        assert!(tuning().dm_reflex_armed_at_attempt_start);
+        let mut reflex = Reflex::default();
+        assert!(open_at(&mut reflex, true, 0), "armed and announced at once");
+        assert!(reflex.armed() && reflex.ever_armed());
+        assert!(!open_at(&mut reflex, true, 1), "announced once");
+        assert_eq!(reflex.check(key(1), 40), Verdict::Evaded);
+        assert!(!reflex.armed(), "an evade resets the wait");
+        assert!(!open_at(&mut reflex, true, 40 + 719));
+        assert!(open_at(&mut reflex, true, 40 + 720), "the full rearm again");
+        // A hurt resets it too.
+        reflex.reset(2000);
+        assert!(!open_at(&mut reflex, true, 2000 + 719));
+        assert!(open_at(&mut reflex, true, 2000 + 720));
+        // A restart is a new attempt: it starts armed once more.
+        reflex.restart();
+        assert!(open_at(&mut reflex, true, 3000));
+        assert_eq!(reflex.last_reset_tick(), 3000_u64.saturating_sub(720));
+    }
+
+    /// FA-Q19: a mid-attempt unlock still resets the wait (DM-Q13); the first
+    /// step ran locked, so the attempt did not begin with the biscuit.
+    #[test]
+    fn a_mid_attempt_unlock_waits_the_full_rearm() {
+        let mut reflex = Reflex::default();
+        assert!(!open_at(&mut reflex, false, 0));
+        assert!(!open_at(&mut reflex, false, 100));
+        reflex.reset(200); // the unlock tick (DM-Q13)
+        assert!(!open_at(&mut reflex, true, 200 + 719));
+        assert!(open_at(&mut reflex, true, 200 + 720));
+    }
+
+    /// FA-Q19 knob off (the profile with no opener, or a locked biscuit) and the
+    /// evasion off are the earlier behaviour: nothing arms before the rearm.
+    #[test]
+    fn the_opener_knob_off_arms_only_after_the_rearm() {
+        let mut reflex = Reflex::default();
+        let step = |r: &mut Reflex, tick| {
+            r.step_with_opener(
+                ReflexProfile::ShippedNoOpener.rearm(),
+                true,
+                ReflexProfile::ShippedNoOpener.armed_at_attempt_start(),
+                tick,
+            )
         };
-        assert_eq!(reflex, fresh);
+        assert!(!step(&mut reflex, 0));
+        assert!(!step(&mut reflex, 719));
+        assert!(step(&mut reflex, 720));
+        // And evasion off never arms, opener or not.
+        let mut off = Reflex::default();
+        assert!(!off.step_with_opener(ReflexProfile::Off.rearm(), true, true, 0));
+        assert!(!off.armed());
     }
 
     #[test]

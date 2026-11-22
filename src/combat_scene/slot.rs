@@ -518,11 +518,15 @@ impl CombatState {
     /// A Magic Missile bolt that overlaps a slot hurtbox ends there (the first
     /// enemy in slot order), after the goblins, llamas and boss of `test_bolt`.
     /// Returns whether the bolt was consumed.
-    pub(super) fn slot_missile_hit(&mut self, bolt: &super::Bolt, tick: u64) -> bool {
+    pub(super) fn slot_missile_hit(
+        &mut self,
+        bolt: &super::Bolt,
+        rect: crate::prototype::Rect,
+        tick: u64,
+    ) -> bool {
         if self.slot.is_empty() {
             return false;
         }
-        let rect = bolt.rect();
         let Some(target) = self
             .slot
             .enemies
