@@ -68,8 +68,8 @@
   "acid_patches": [
     {
       "id": 1,
-      "x0": 272,
-      "x1": 312,
+      "x0": 320,
+      "x1": 360,
       "floor_y": 580,
       "linked_slime": "s1"
     }
@@ -77,8 +77,8 @@
   "pockets": [
     {
       "id": "a",
-      "x0": 176,
-      "x1": 352,
+      "x0": 224,
+      "x1": 400,
       "max_stickers": 0,
       "max_slimes": 1,
       "max_goblins": 0
@@ -96,9 +96,9 @@
     {
       "id": "s1",
       "kind": "slime",
-      "x": 304,
+      "x": 352,
       "facing": -1,
-      "home": 304,
+      "home": 352,
       "linked_pool": "1",
       "beat": "W1",
       "delay_ticks": 0
@@ -113,14 +113,14 @@
     {
       "id": "g1",
       "kind": "goblin",
-      "x": 380,
+      "x": 430,
       "beat": "W1",
       "delay_ticks": 60
     },
     {
       "id": "g2",
       "kind": "goblin",
-      "x": 460,
+      "x": 490,
       "beat": "W1",
       "delay_ticks": 90
     },

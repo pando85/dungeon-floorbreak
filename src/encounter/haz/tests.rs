@@ -1076,9 +1076,33 @@ fn wctx() -> Context {
     }
 }
 
+/// The shipped mastery sidecar with its composition FROZEN: the pockets, the
+/// acid patch and the roster below are fixture values, so a composition retune of
+/// the shipped data (PT-TUNE iterations) never moves these validator tests. Only
+/// the room, the spawn, the checkpoint, the exit and the Rot Sticker prop come
+/// from the file.
 fn wsidecar() -> Value {
     let t = std::fs::read_to_string(root().join(MASTERY_PATH)).unwrap();
-    serde_json::from_str(&t).unwrap()
+    let mut v: Value = serde_json::from_str(&t).unwrap();
+    v["pockets"] = json!([
+        { "id": "a", "x0": 176, "x1": 352, "max_stickers": 0, "max_slimes": 1, "max_goblins": 0 },
+        { "id": "b", "x0": 880, "x1": 944, "max_stickers": 1, "max_slimes": 0, "max_goblins": 0 }
+    ]);
+    v["acid_patches"] =
+        json!([{ "id": 1, "x0": 272, "x1": 336, "floor_y": 580, "linked_slime": "s1" }]);
+    v["roster"] = json!([
+        { "id": "s1", "kind": "slime", "x": 304, "facing": -1, "home": 304,
+          "linked_pool": "1", "beat": "W1", "delay_ticks": 0 },
+        { "id": "l2", "kind": "llama", "x": 616, "beat": "W1", "delay_ticks": 30 },
+        { "id": "g1", "kind": "goblin", "x": 380, "beat": "W1", "delay_ticks": 60 },
+        { "id": "g2", "kind": "goblin", "x": 460, "beat": "W1", "delay_ticks": 90 },
+        { "id": "g3", "kind": "goblin", "x": 784, "beat": "W2", "delay_ticks": 120 },
+        { "id": "g4", "kind": "goblin", "x": 832, "beat": "W2", "delay_ticks": 150 },
+        { "id": "l1", "kind": "llama", "x": 1000, "beat": "W2", "delay_ticks": 180 },
+        { "id": "e1", "kind": "engineer", "gate": "cf02_engineer", "fallback_kind": "goblin",
+          "x": 1036, "beat": "W2", "delay_ticks": 210 }
+    ]);
+    v
 }
 
 fn wcheck(v: &Value) -> Result<Encounter, Vec<EncounterError>> {

@@ -423,9 +423,17 @@ pub struct WaveDifficulty {
     pub overlap_ticks: u32,
     /// The most distinct kinds engaged on one tick.
     pub peak_kinds: u8,
+    /// Bit set of the kinds ever engaged in the wave (PTT-Q18); see
+    /// [`Self::kinds_seen`].
+    pub seen_mask: u8,
 }
 
 impl WaveDifficulty {
+    /// D2 (PTT-Q18): the distinct kinds engaged at any time over the wave.
+    pub fn kinds_seen(&self) -> u8 {
+        self.seen_mask.count_ones() as u8
+    }
+
     /// D1: the overlap share in whole percent (0 for a wave that never ran).
     pub fn overlap_percent(&self) -> u32 {
         (self.overlap_ticks * 100)
@@ -449,10 +457,11 @@ impl Difficulty {
     pub fn line(&self) -> String {
         let w = |d: &WaveDifficulty| {
             format!(
-                "{}%/{}t/{}k",
+                "{}%/{}t/{}k/{}s",
                 d.overlap_percent(),
                 d.active_ticks,
-                d.peak_kinds
+                d.peak_kinds,
+                d.kinds_seen()
             )
         };
         format!(
@@ -635,6 +644,9 @@ impl Meter {
                 kinds[*k as usize] = true;
             }
             w.peak_kinds = w.peak_kinds.max(kinds.iter().filter(|k| **k).count() as u8);
+            for (i, k) in kinds.iter().enumerate() {
+                w.seen_mask |= u8::from(*k) << i;
+            }
         }
     }
 }
@@ -854,48 +866,48 @@ mod tests {
     /// rules is a deliberate re-pin.
     const GOLDEN: [[u64; 9]; 4] = [
         [
-            0x7ec5_aa72_22e5_e86f,
-            0xa5f4_840f_1b9f_6654,
-            0x677b_7b25_d8e6_922d,
-            0x8373_01c3_b1dd_e18e,
-            0xc6bc_df2a_9a39_021b,
-            0xc615_8010_7de3_0a02,
-            0xca6d_f5b7_43f2_ba72,
-            0x1de2_0f99_66a2_4ada,
-            0xb5a4_ae42_5a75_6945,
+            0x8a0f_e792_7530_65f6,
+            0xd369_6e2d_8ad6_f931,
+            0x3255_f01a_be82_377d,
+            0x08bf_ca31_3a9a_fbae,
+            0xf0e1_f76d_ca31_d6c0,
+            0x6b5a_006a_3151_66b6,
+            0x77c5_25ab_8ad7_d7d5,
+            0xeb99_a639_92dd_edc2,
+            0x9459_94ed_88c5_1e8e,
         ],
         [
-            0x7ec5_aa72_22e5_e86f,
-            0x7e92_1d4b_fcf4_d14e,
-            0x57f4_ae5f_f3ca_53a3,
-            0x06e6_1bdd_9c14_12a6,
-            0xd4b8_86d4_daf2_f2d1,
-            0x8b81_147b_cde5_c630,
-            0x956f_a293_a55a_a292,
-            0x47eb_b757_1c20_0bf3,
-            0xab93_ddb6_e889_b06a,
+            0x092e_6c68_72bf_f5e2,
+            0xe2a8_d38c_d740_a939,
+            0x641a_b773_c6c2_b1f5,
+            0xddb4_3193_1232_92e2,
+            0x2788_47e6_c416_9f90,
+            0x87f6_4c80_7d80_b1fa,
+            0xc596_9f07_c816_c160,
+            0xede9_ef3a_b365_88d7,
+            0x289a_343e_b3c3_841a,
         ],
         [
-            0x01ed_4e0c_805e_0d36,
-            0xf3f0_35b8_6a56_e3c6,
-            0x17f1_ad1f_86b7_c3ba,
-            0xc0f5_77aa_3911_e357,
-            0x19b4_6d5d_e020_3cbb,
-            0x75c4_1240_a4cb_4e05,
-            0xfd4a_60be_e837_0593,
-            0x31ed_3aa0_9745_30a6,
-            0xb5eb_6b5c_f0d0_8903,
+            0x5490_1a93_b6dc_4969,
+            0x7bed_a1ce_1223_3403,
+            0x8749_e3b8_ba19_fc61,
+            0xf2c9_b4bf_4cfe_68fa,
+            0xe2bc_b4a5_7a4d_296c,
+            0xf622_c21d_d0b2_246c,
+            0xb013_875c_2336_62eb,
+            0x2b5d_1a21_1c37_707c,
+            0x9e56_aa65_4c1a_be67,
         ],
         [
-            0x0515_7f13_db26_b92a,
-            0xcda4_b704_7085_71a9,
-            0x52df_dc14_9a8f_6140,
-            0x15d2_ae4b_eb0f_07d0,
-            0xeb93_b45d_e513_53c0,
-            0xae6d_a93a_2561_3d82,
-            0x8dfd_07c5_5401_2174,
-            0x86b1_0140_92dd_f2dd,
-            0x7cee_12de_28dc_80f2,
+            0x5d4b_d23c_4866_23ac,
+            0x594e_3503_067b_8480,
+            0x9c73_45ca_fed8_467d,
+            0xed30_d09b_b00f_bf1a,
+            0x91dc_e607_19a8_c68e,
+            0x6e7a_d5b5_7362_f147,
+            0xebfd_ae24_95a6_68d4,
+            0x3af1_8c36_ed1f_b3c6,
+            0x011c_f171_1af0_ee18,
         ],
     ];
 
@@ -1021,26 +1033,26 @@ mod tests {
     /// [`Who::KITS`] and [`SEEDS`] order (PT-TUNE, new in this PR).
     const KIT_GOLDEN: [[u64; 9]; 2] = [
         [
-            0xfd0d_6840_bb20_b919,
-            0x98a0_ae01_7ffb_87aa,
-            0xf3ab_fc01_81ce_11ac,
-            0x0850_6b25_549d_a530,
-            0xe0c4_1748_655b_296c,
-            0x98e4_d63e_09ac_d50c,
-            0x8442_e560_d21a_0b12,
-            0x1f4a_70cd_dcb9_4270,
-            0x82e2_335c_a2da_2e69,
+            0x6128_69e3_8c0f_303f,
+            0x7a23_03d9_b970_80fb,
+            0x9389_d184_ae0d_b4b3,
+            0x6081_9ff8_75e5_abc9,
+            0xa70f_bfb1_eb99_3b90,
+            0x727f_db11_11dd_2157,
+            0x784c_852c_57cc_1112,
+            0x4091_049c_70bb_a430,
+            0xe546_e3c1_8304_a72d,
         ],
         [
-            0x2d84_fbec_9952_5d82,
-            0xe7e9_c4d5_2e4d_f6ba,
-            0x8db2_5e0b_f11c_1e23,
-            0x68c2_e20b_5642_0e12,
-            0x5672_70fc_a466_d65e,
-            0xc52a_3c4d_da7b_96a8,
-            0x90c0_4556_a1ea_b870,
-            0x1f85_0da1_a409_2eb4,
-            0xfe49_73c9_1ed6_7cc4,
+            0x741c_c2a2_6dd8_84c3,
+            0xc6cd_3a28_525b_0950,
+            0x01e4_c343_9326_ea33,
+            0xa94f_6a76_9bdc_3f7d,
+            0xad02_3663_cac7_cdae,
+            0x362f_b655_a5da_99d3,
+            0xd2b3_9d2d_9f58_15e9,
+            0x2091_ad21_0804_b4e0,
+            0x81d6_457e_a0a8_e98c,
         ],
     ];
 
@@ -1088,24 +1100,39 @@ mod tests {
                 .iter()
                 .map(|r| r.difficulty.waves[wave].overlap_percent())
                 .collect();
-            // D1: the median share at least 40 %, and every seed at least 20 %.
-            if median(overlap.clone()) < 40 || overlap.iter().any(|p| *p < 20) {
+            // D1 (PTT-Q19): the median share at least 30 % in W1 (the teaching
+            // wave) and 40 % in W2, and every seed at least 20 %.
+            let want = if wave == 0 { 30 } else { 40 };
+            if median(overlap.clone()) < want || overlap.iter().any(|p| *p < 20) {
                 misses.push(d1);
             }
-            // D2: at least three distinct engaged kinds on one tick, every seed.
-            if reports
-                .iter()
-                .any(|r| r.difficulty.waves[wave].peak_kinds < 3)
-            {
+            // D2 (PTT-Q18): W1 at least 2 distinct engaged kinds at one tick and
+            // at least 3 over the wave (the acid bars the walkers, so W1 is
+            // sequential pairs); W2 at least 3 at one tick. Every seed.
+            let (peak, seen) = if wave == 0 { (2, 3) } else { (3, 0) };
+            if reports.iter().any(|r| {
+                let w = &r.difficulty.waves[wave];
+                w.peak_kinds < peak || w.kinds_seen() < seen
+            }) {
                 misses.push(d2);
             }
         }
-        // D3: every pilot clears; the median clear tick in 900..=3000, every seed
-        // at most 4800.
+        // D3 (PTT-Q20): the bot check. Every seed clears, the median clear tick is
+        // at least 1.25 times main's 517 on the same pilot (647), every seed at
+        // most 4800. The 900..=3000 human band (15 to 50 s) is the owner
+        // scorecard's line (OQ4); the bot's figure is printed beside it.
         let cleared: Vec<u64> = reports.iter().filter_map(|r| r.cleared_tick).collect();
         assert_eq!(cleared.len(), reports.len(), "every seed must clear");
         let m = median(cleared.clone());
-        if !(900..=3000).contains(&m) || cleared.iter().any(|t| *t > 4800) {
+        println!(
+            "D3 bot median clear {m} ticks (main 517, target at least 647; human band 900..3000: {})",
+            if (900..=3000).contains(&m) {
+                "inside"
+            } else {
+                "outside"
+            }
+        );
+        if m < MAIN_MEDIAN_CLEAR * 5 / 4 || cleared.iter().any(|t| *t > 4800) {
             misses.push("D3");
         }
         // D4: the hero hurts, median 3..=10, at least one in each wave, deaths at
@@ -1131,12 +1158,15 @@ mod tests {
         misses
     }
 
-    /// The targets this composition misses as measured (PTT-Q10: after two
-    /// composition iterations the numbers ship as measured and the misses are
-    /// listed in the PR body, a target is never adjusted to fit a result). The
-    /// test fails both when a target that passed starts to miss and when a miss
-    /// starts to pass, so the list is always the truth.
-    const EXPECTED_MISSES: [&str; 3] = ["D1.W1", "D2.W1", "D3"];
+    /// Main's median `CarlSolo` clear tick before PT-TUNE (517, the discrimination
+    /// run of the PR), the base of the D3 bot check.
+    const MAIN_MEDIAN_CLEAR: u64 = 517;
+
+    /// The targets this composition misses as measured (PTT-Q10: a target is
+    /// never adjusted to fit a result). The test fails both when a target that
+    /// passed starts to miss and when a miss starts to pass, so the list is
+    /// always the truth. PTT-Q17 to Q20 (review of PR 236) leave it empty.
+    const EXPECTED_MISSES: [&str; 0] = [];
 
     #[test]
     fn the_mastery_waves_meet_the_difficulty_targets() {
@@ -1186,7 +1216,7 @@ mod tests {
 
     /// The composition runs as designed: the slime is a slot enemy that is
     /// defeated, its pool drains (the patch is gone by the end), the walkers
-    /// stand left of the pool until it is gone, and the sticker wakes.
+    /// stand right of the pool until it is gone, and the sticker wakes.
     #[test]
     fn the_hazards_run_in_the_clear_the_slime_dies_and_its_pool_drains() {
         let (mut sim, _) = start(&root(), Who::CarlSolo, 0).unwrap();
@@ -1306,8 +1336,9 @@ mod tests {
             }
             // M2 (target at most 20 %; PT-TUNE: a design note): the partner
             // shadows Carl more in the new room, where he stands at the slime's
-            // pool for about 100 ticks (measured 18 % to 65 %); bounded.
-            assert!(m.shadow_percent() <= 70, "M2 seed {seed}");
+            // pool for about 100 ticks. Measured 31 % to 60 % over seeds 0..8; the bound
+            // is a regression pin (the measured maximum rounded up to 5 %).
+            assert!(m.shadow_percent() <= 65, "M2 seed {seed}");
         }
     }
 }

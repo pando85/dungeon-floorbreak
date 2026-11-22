@@ -67,7 +67,7 @@ pub const ENCOUNTER_PATH: &str = "assets/levels/f01_late/mastery.encounter.json"
 /// FNV-1a 64 of the room file (the CF02-F microarena's geometry) and of the
 /// sidecar. The files live under `assets/levels`, so the hashes are constants.
 pub const ROOM_HASH: u64 = 0x4991_e0c7_5078_4c18;
-pub const ENCOUNTER_HASH: u64 = 0x4b1e_be27_bb0f_951b;
+pub const ENCOUNTER_HASH: u64 = 0xf3f6_6fc3_9a90_27d1;
 /// The `data_pins()` keys.
 pub const ROOM_PIN_KEY: &str = "f01_mastery_room";
 pub const ENCOUNTER_PIN_KEY: &str = "f01_mastery_encounter";
@@ -322,7 +322,7 @@ mod tests {
         let text = std::fs::read_to_string(root().join(ENCOUNTER_PATH)).unwrap();
         std::fs::write(
             dir.join(ENCOUNTER_PATH),
-            text.replace("\"x\": 380", "\"x\": 384"),
+            text.replace("\"x\": 430", "\"x\": 434"),
         )
         .unwrap();
         for rel in [arena::ROOM_PATH, crate::encounter::HEIGHT_CLASSES_PATH] {
@@ -350,7 +350,7 @@ mod tests {
         // llama and two goblins), wave 2 the yard (two goblins, the arena's llama
         // home and the Engineer, with the Rot Sticker under the right perch).
         let goblins: Vec<i32> = run.fixture.enemies.iter().map(|e| e.x).collect();
-        assert_eq!(goblins, [380, 460, 784, 832]);
+        assert_eq!(goblins, [430, 490, 784, 832]);
         assert!(run.fixture.enemies.iter().all(|e| e.ai == EnemyAi::Chase));
         assert_eq!(
             run.fixture
@@ -502,8 +502,8 @@ mod tests {
         (sl.x, sl.attack_tick(), sl.health())
     }
 
-    /// PTT-Q4: with both heroes idle the slime never wakes on tick 0 (home 304,
-    /// 164 px from the right edge of Carl's spawn hurtbox, sight 160): it has not
+    /// PTT-Q4: with both heroes idle the slime never wakes on tick 0 (home 352,
+    /// 212 px from the right edge of Carl's spawn hurtbox, sight 160): it has not
     /// moved and has not started a tell after the first tick.
     #[test]
     fn the_slime_is_dormant_on_tick_0() {
@@ -511,10 +511,10 @@ mod tests {
         let mut scene = SceneSim::new_at(&run.kit, 360, run.fixture.carl_x).unwrap();
         let mut combat = combat_of(&run, &mut scene).unwrap();
         let before = slime_of(&combat);
-        assert_eq!(before.0, 304.0);
+        assert_eq!(before.0, 352.0);
         combat.step(&mut scene, run.fixture.input(0));
         let after = slime_of(&combat);
-        assert_eq!((after.0, after.1), (304.0, None), "dormant on tick 0");
+        assert_eq!((after.0, after.1), (352.0, None), "dormant on tick 0");
     }
 
     /// D6, the HP guard (#178: difficulty comes from composition, not HP): every
