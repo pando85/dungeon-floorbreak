@@ -617,6 +617,84 @@ mod tests {
         );
     }
 
+    // ---- PT-TUNE section 4: the Juicer is a full-kit fight only under
+    // `--f01-loadout all` or after its own defeat, never in the story. No code
+    // changed: these tests pin the rule that already holds.
+
+    /// The Juicer room as launched (nothing stepped), under `loadout`.
+    fn juicer_launch(loadout: Loadout, carry: Option<&LedgerSnapshot>) -> (SceneSim, CombatState) {
+        let (carl, donut) = loadout.flags();
+        let kit = load_arena(&root()).unwrap();
+        let scene = SceneSim::new_at(&kit, 360, JUICER_BASE.carl_x).unwrap();
+        let mut combat = CombatState::new(&JUICER_BASE, &kit, &scene)
+            .unwrap()
+            .with_donut(DonutSetup::unlocked(8))
+            .try_with_story(donut_prog::story_setup(carl, donut, SceneKind::Boss))
+            .unwrap();
+        if let Some(snapshot) = carry {
+            combat.carry_story(snapshot).unwrap();
+        }
+        (scene, combat)
+    }
+
+    fn late_kit(combat: &CombatState) -> (bool, bool) {
+        (
+            combat.story_holds(FIST_REINFORCED),
+            combat.story_holds(crate::story_unlock::CapabilityId::new(
+                "special_short_blink",
+            )),
+        )
+    }
+
+    /// Pin 1: a story Juicer start with no carried ledger holds neither late
+    /// grant on tick 0 (the dynamite and the boost are its pin).
+    #[test]
+    fn a_story_juicer_start_with_no_carried_ledger_holds_neither_late_grant() {
+        let (_scene, combat) = juicer_launch(Loadout::Story, None);
+        assert_eq!(late_kit(&combat), (false, false));
+        assert!(
+            combat.story_holds(SPECIAL_THROWN_CHARGE),
+            "the pin's dynamite"
+        );
+        assert!(combat.events.is_empty(), "tick 0: no grant has fired");
+    }
+
+    /// Pin 2: after a hero defeat and a fixture restart the boss is present
+    /// again and neither grant is held (a restart restores the declared pin).
+    #[test]
+    fn a_fixture_restart_after_the_defeat_brings_the_boss_back_without_the_grants() {
+        let mut sim = juicer_relaunch(&root(), Loadout::Story, None).unwrap();
+        assert!(!sim.combat.boss.as_ref().unwrap().alive(), "defeated");
+        assert_eq!(late_kit(&sim.combat), (true, true), "granted at the defeat");
+        sim.combat.restart(&mut sim.scene);
+        assert!(
+            sim.combat.boss.as_ref().unwrap().alive(),
+            "the boss is back"
+        );
+        assert_eq!(late_kit(&sim.combat), (false, false));
+    }
+
+    /// Pin 3: the only story state that holds the full kit is the carried
+    /// post-defeat ledger, and in that state the Juicer is already defeated (its
+    /// defeat is the grant), so no story run fights a full-kit Juicer.
+    #[test]
+    fn the_only_full_kit_story_state_is_the_post_defeat_ledger() {
+        let defeated = juicer_relaunch(&root(), Loadout::Story, None).unwrap();
+        let ledger = defeated.combat.story_snapshot().expect("a ledger");
+        assert_eq!(late_kit(&defeated.combat), (true, true));
+        assert!(!defeated.combat.boss.as_ref().unwrap().alive());
+        // Carrying that ledger into a fresh Juicer launch gives the full kit...
+        let (_scene, carried) = juicer_launch(Loadout::Story, Some(&ledger));
+        assert_eq!(late_kit(&carried), (true, true));
+        // ...but a launch without it never does, and no launch under the story
+        // loadout holds the late grants before the defeat event.
+        let (_scene, fresh) = juicer_launch(Loadout::Story, None);
+        assert_eq!(late_kit(&fresh), (false, false));
+        // The all loadout is the test loadout: held from tick 0, story triggers off.
+        let (_scene, all) = juicer_launch(Loadout::All, None);
+        assert_eq!(late_kit(&all), (true, true));
+    }
+
     #[test]
     fn no_grant_fires_under_the_all_loadout() {
         let sim = juicer_relaunch(&root(), Loadout::All, None).unwrap();

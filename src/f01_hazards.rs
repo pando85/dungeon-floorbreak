@@ -100,6 +100,22 @@ pub fn soffits(loaded: &Loaded) -> Vec<IRect> {
     out
 }
 
+/// PT-TUNE (PT-FU-B7 (6)): the hazard room's fixture builds goblins and the slot
+/// slimes only, so any other roster kind is refused instead of silently dropped
+/// (the way the Hoarder room and [`crate::f01_boiler::existing_enemies`] refuse).
+fn goblins_and_slimes_only(roster: &[encounter::RosterEntry]) -> Result<(), String> {
+    match roster
+        .iter()
+        .find(|e| !e.kind.is_slime() && e.kind != RosterKind::Room(EnemyKind::Goblin))
+    {
+        Some(e) => Err(format!(
+            "roster {}: {:?} is not a hazard-room kind (goblins and slimes only)",
+            e.id, e.kind
+        )),
+        None => Ok(()),
+    }
+}
+
 /// The env runtime of a launched room: the sidecar's stickers and acid patches
 /// placed on the room's walking line, with the soffit solids and the exit gate.
 pub fn env_runtime(run: &HazardsRun) -> Result<EnvRuntime, String> {
@@ -167,6 +183,7 @@ pub fn launch(root: &Path) -> Result<HazardsRun, String> {
             return Err(format!("column {x} is not on the walking line"));
         }
     }
+    goblins_and_slimes_only(&loaded.encounter.roster)?;
     // HAZA2-AD8: the roster's goblins (an existing kind) are the fixture's
     // goblins, chasing, in roster order; `trigger_x` and `delay_ticks` are not
     // read (a goblin that is far from the heroes is dormant by its sight range).
@@ -312,6 +329,22 @@ mod tests {
         for (key, value) in data_pins() {
             assert_ne!(value, 0, "{key}");
         }
+    }
+
+    #[test]
+    fn a_llama_in_the_hazard_roster_is_refused_not_dropped() {
+        let run = launch(&root()).unwrap();
+        // The shipped roster (goblins and slimes) passes.
+        assert!(goblins_and_slimes_only(&run.loaded.encounter.roster).is_ok());
+        let mut roster = run.loaded.encounter.roster.clone();
+        let g = roster
+            .iter()
+            .position(|e| e.kind == RosterKind::Room(EnemyKind::Goblin))
+            .unwrap();
+        roster[g].kind = RosterKind::Room(EnemyKind::Llama);
+        let error = goblins_and_slimes_only(&roster).expect_err("a llama is refused");
+        assert!(error.contains("goblins and slimes only"), "{error}");
+        assert!(error.contains(&roster[g].id), "{error}");
     }
 
     #[test]

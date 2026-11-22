@@ -432,6 +432,17 @@ impl AutonomyMetrics {
 /// Run `ticks` scripted ticks of `sim` and measure it (spec 7.1). The simulation
 /// is the real one, stepped exactly as the golden is; the harness only reads.
 pub fn autonomy_metrics(sim: &mut PartyFixtureSim, ticks: u64) -> AutonomyMetrics {
+    autonomy_metrics_with(sim, ticks, PartyFixtureSim::step_scripted)
+}
+
+/// [`autonomy_metrics`] with the caller's per-tick step (PT-TUNE: the closing
+/// arena's Carl is the room's pilot, not the arena autopilot, which cannot bait
+/// the slime). The measurement is identical; only the stepping differs.
+pub fn autonomy_metrics_with(
+    sim: &mut PartyFixtureSim,
+    ticks: u64,
+    mut step: impl FnMut(&mut PartyFixtureSim),
+) -> AutonomyMetrics {
     let profiles = ProfileFile::pinned().expect("the embedded profile file is pinned");
     let a12 = u64::from(
         profiles
@@ -466,7 +477,7 @@ pub fn autonomy_metrics(sim: &mut PartyFixtureSim, ticks: u64) -> AutonomyMetric
             let set = profiles.set(ProfileSetId::Cf02Free);
             LeaderClaims::compute(v, set, v.hero(HeroId::Carl))
         });
-        sim.step_scripted();
+        step(sim);
         m.ticks += 1;
         let tick = sim.scene.world.tick;
         let events: Vec<CombatEvent> = sim.combat.take_new_events().to_vec();
