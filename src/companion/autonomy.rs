@@ -615,6 +615,11 @@ pub struct AutonomyStats {
     /// point; reported with M13 and M15, never tuned here).
     pub travelling_ticks: u32,
     pub pan_only_travelling_ticks: u32,
+    /// DP-E: blink presses the goal layer made (DP-Q39), by trigger. Whether a
+    /// press became an arrival is in the combat events (resolved, fizzled,
+    /// cancelled), which the fixtures count.
+    pub blink_presses_retreat: u32,
+    pub blink_presses_committed: u32,
 }
 
 /// Everything one tick's step reads.
@@ -680,6 +685,10 @@ pub struct AutonomyState {
     prev: Option<Seen>,
     /// Each target's x at the previous tick, in view (id) order.
     seen: Vec<(StableEntityId, f32)>,
+    /// DP-E (DP-Q41): the tick of the last blink press this layer made. Part of
+    /// the hashed decision state, but mixed only once a press exists, so a run
+    /// that never blinks hashes exactly as before.
+    last_blink: Option<u64>,
     stats: AutonomyStats,
 }
 
@@ -702,6 +711,7 @@ impl Default for AutonomyState {
             travel_ticks: 0,
             prev: None,
             seen: Vec::new(),
+            last_blink: None,
             stats: AutonomyStats::default(),
         }
     }
@@ -1209,6 +1219,21 @@ impl AutonomyState {
         }
     }
 
+    /// DP-E: the goal layer pressed the blink on `tick` for `reason` (DP-Q41:
+    /// the decision is hashed state; the counter is the M16 report).
+    pub fn note_blink(&mut self, tick: u64, reason: BlinkReason) {
+        self.last_blink = Some(tick);
+        match reason {
+            BlinkReason::Retreat => self.stats.blink_presses_retreat += 1,
+            BlinkReason::Committed => self.stats.blink_presses_committed += 1,
+        }
+    }
+
+    /// The tick of the last blink press (DP-E).
+    pub fn last_blink(&self) -> Option<u64> {
+        self.last_blink
+    }
+
     /// Forget the plan (a swap, the partner is defeated, the hero stops being
     /// companion-driven). Cooldowns and the hurt and landed-hit ticks survive
     /// (spec 5.4: they are absolute ticks, so they cannot go stale).
@@ -1219,6 +1244,7 @@ impl AutonomyState {
             self.perch_ready_at,
             self.last_hurt,
             self.last_landed,
+            self.last_blink,
             self.stats,
         );
         *self = Self::default();
@@ -1228,6 +1254,7 @@ impl AutonomyState {
             self.perch_ready_at,
             self.last_hurt,
             self.last_landed,
+            self.last_blink,
             self.stats,
         ) = keep;
     }
@@ -1303,6 +1330,11 @@ impl AutonomyState {
         for (id, x) in &self.seen {
             id.hash_into(mix);
             mix(u64::from(x.to_bits()));
+        }
+        // DP-E: nothing until she has blinked once.
+        if let Some(tick) = self.last_blink {
+            mix(BLINK_HASH_MARK);
+            mix(tick);
         }
     }
 
@@ -1988,6 +2020,160 @@ impl Ctx<'_> {
     fn boss_blocks_retreat(&self) -> bool {
         self.boss && !Goal::Retreat.row(self.t).under_boss
     }
+}
+
+// ---------------------------------------------------------------------------
+// DONUT-PROG-01 DP-E: the escape-only blink (DP-Q39, DP-Q40, DP-Q41, DP-Q46).
+// ---------------------------------------------------------------------------
+
+/// Marker word of the blink decision in the autonomy hash ("BLNK-AI").
+const BLINK_HASH_MARK: u64 = 0x424c_4e4b_4149_0001;
+
+/// How many ticks past the windup a committed attack may still be from its
+/// impact for the blink to be eligible (DP-Q39: "impact due within the windup
+/// plus 6 ticks").
+pub const BLINK_IMPACT_LEAD_TICKS: u16 = 6;
+
+/// What made the goal layer press the blink (DP-Q39).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BlinkReason {
+    /// (a) The Retreat goal is active and a standing enemy is on top of her.
+    Retreat,
+    /// (b) A committed attack is aimed at her and its impact is due inside the
+    /// window, and the follow layer's jump dodge would not clear it.
+    Committed,
+}
+
+/// The numbers of the AI blink decision: the profile's three knobs (DP-Q41),
+/// the hull of DP-Q46 and the blink's own timeline (DP-Q25), all data.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct BlinkKnobs {
+    /// `blink_threat_px` (DP-Q39: 48).
+    pub threat_px: f32,
+    /// `blink_min_gain_px` (DP-Q39: 64).
+    pub min_gain_px: f32,
+    /// `dpq46_ai_hull_px` (63).
+    pub hull_px: f32,
+    /// `dpq25_windup_ticks` (6): the arrival is this many ticks after the press.
+    pub windup_ticks: u16,
+    /// Windup plus recovery: the commitment the drift check reads (DP-Q39: 12).
+    pub commit_ticks: u16,
+}
+
+/// The blink the goal layer wants to press this tick.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct BlinkChoice {
+    /// -1 left, +1 right: away from the threat.
+    pub dir: i8,
+    /// Where the pure search says she lands (read-only prediction).
+    pub to_x: f32,
+    pub threat_x: f32,
+    pub reason: BlinkReason,
+}
+
+/// Everything [`choose_blink`] reads.
+pub struct BlinkInput<'a> {
+    pub view: &'a CompanionView,
+    pub partner: HeroId,
+    pub goal: Goal,
+    pub zone: &'a FreeZone,
+    pub drift: &'a DriftCheck,
+    pub knobs: BlinkKnobs,
+    /// The follow layer's jump dodge fires this tick (it would clear a swing
+    /// that is still far enough off, `follower`'s tell rule).
+    pub dodge_jumps: bool,
+}
+
+/// DP-Q39 / DP-Q40 / DP-Q46: should she blink out of this? A pure function of
+/// the view; `predict(dir)` is the scene's read-only destination search that
+/// also answers whether the press would be accepted now (capability, cooldown,
+/// mana, busy, destination), so a candidate the press gate would refuse is never
+/// chosen.
+///
+/// Eligible threats, nearest first (ties by id order):
+/// - (a) with Retreat active, a **standing** enemy within `threat_px`;
+/// - (b) a committed attack aimed at her within `threat_px` whose impact is more
+///   than the windup away (the arrival comes first) and at most the windup plus
+///   [`BLINK_IMPACT_LEAD_TICKS`] away, while the follow layer's jump dodge does
+///   not fire and she is not already above the swing box (a dodge jump under
+///   way clears it).
+///
+/// Direction is away from the threat (toward the leader when level with it). The
+/// predicted destination must add at least `min_gain_px` of distance from the
+/// threat, lie inside the free zone `Z`, lie in the hull of her position and
+/// the leader's `hull_px` region (DP-Q46), and pass the drift check with the
+/// 12-tick commitment. Never for offence, as a route, to chase or in 2P (the
+/// scene only calls this for the autonomous partner of a solo run).
+pub fn choose_blink(
+    input: &BlinkInput<'_>,
+    predict: impl Fn(i8) -> Option<f32>,
+) -> Option<BlinkChoice> {
+    let view = input.view;
+    let me = view.hero(input.partner);
+    let leader = view.hero(input.partner.other());
+    if me.defeated || me.hurt_ticks > 0 || me.active_move.is_some() {
+        return None;
+    }
+    let k = &input.knobs;
+    // The nearest eligible threat: (distance, x, reason).
+    let mut best: Option<(f32, f32, BlinkReason)> = None;
+    let mut consider = |x: f32, reason: BlinkReason| {
+        let d = (x - me.x).abs();
+        if d <= k.threat_px && best.is_none_or(|(bd, _, _)| d < bd) {
+            best = Some((d, x, reason));
+        }
+    };
+    for threat in &view.threats {
+        // A jump already under way that is above the swing box clears it (the
+        // follow layer's M3 dodge, started on tell ticks 0 to 20): the blink
+        // would only waste the mana and the cooldown.
+        let above = me.foot_y > threat.foot_y + crate::feel::SWING_Y_MAX;
+        if threat.aimed_at != Some(input.partner) || input.dodge_jumps || above {
+            continue;
+        }
+        let left = threat.impact_tick.saturating_sub(threat.tell_tick);
+        if left > k.windup_ticks && left <= k.windup_ticks + BLINK_IMPACT_LEAD_TICKS {
+            consider(threat.x, BlinkReason::Committed);
+        }
+    }
+    if input.goal == Goal::Retreat {
+        for target in &view.targets {
+            if target.state == TargetState::Standing {
+                consider(target.x, BlinkReason::Retreat);
+            }
+        }
+    }
+    let (_, threat_x, reason) = best?;
+    let dir: i8 = if (me.x - threat_x).abs() < 0.5 {
+        // Level with it: toward the leader, else against her facing.
+        if (leader.x - me.x).abs() < 0.5 {
+            if me.facing >= 0 { -1 } else { 1 }
+        } else {
+            sign(leader.x - me.x)
+        }
+    } else {
+        sign(me.x - threat_x)
+    };
+    let to_x = predict(dir)?;
+    let gain = (to_x - threat_x).abs() - (me.x - threat_x).abs();
+    if gain < k.min_gain_px || !input.zone.contains_x(to_x) {
+        return None;
+    }
+    // DP-Q46: the hull of her position and the leader's guaranteed region.
+    let lo = me.x.min(leader.x - k.hull_px);
+    let hi = me.x.max(leader.x + k.hull_px);
+    if to_x < lo || to_x > hi {
+        return None;
+    }
+    if !input.drift.allows(input.zone, to_x, k.commit_ticks) {
+        return None;
+    }
+    Some(BlinkChoice {
+        dir,
+        to_x,
+        threat_x,
+        reason,
+    })
 }
 
 #[cfg(test)]
@@ -4487,5 +4673,341 @@ mod tests {
         let w = FlatWorld::floor();
         assert!(!w.hazard_at(100.0, 0.0));
         assert!(!w.hazard_between(0.0, 600.0, 0.0));
+    }
+
+    // ------------------------------------------------ DP-E: the escape blink --
+
+    const KNOBS: BlinkKnobs = BlinkKnobs {
+        threat_px: 48.0,
+        min_gain_px: 64.0,
+        hull_px: 63.0,
+        windup_ticks: 6,
+        commit_ticks: 12,
+    };
+
+    fn wide_zone(leader_x: f32) -> FreeZone {
+        FreeZone {
+            leader_x,
+            left: leader_x - 240.0,
+            right: leader_x + 240.0,
+            reach_left: 240.0,
+            reach_right: 240.0,
+            safe_left: 292.0,
+            safe_right: 292.0,
+            surface_min_y: -100.0,
+            surface_max_y: 300.0,
+        }
+    }
+
+    fn threat_at(
+        x: f32,
+        tell_tick: u16,
+        aimed_at: Option<HeroId>,
+    ) -> crate::companion::view::ThreatView {
+        crate::companion::view::ThreatView {
+            id: StableEntityId::goblin(0),
+            x,
+            foot_y: 0.0,
+            facing: -1,
+            tell_tick,
+            tell_len: 24,
+            impact_tick: 26,
+            aimed_at,
+            guarded: false,
+            in_view: true,
+        }
+    }
+
+    /// Donut at `x`, Carl at `carl_x`; `choose` with the given threats, targets,
+    /// goal and a prediction that lands `dist` px from her in `dir`.
+    struct Case {
+        x: f32,
+        carl_x: f32,
+        threats: Vec<crate::companion::view::ThreatView>,
+        targets: Vec<TargetView>,
+        goal: Goal,
+        dodge_jumps: bool,
+        foot_y: f32,
+        facing: i8,
+        /// The camera-geometry bound the drift check reads on both sides.
+        safe: f32,
+    }
+
+    impl Case {
+        fn new() -> Self {
+            Self {
+                x: 440.0,
+                carl_x: 400.0,
+                threats: vec![threat_at(470.0, 16, Some(HeroId::Donut))],
+                targets: Vec::new(),
+                goal: Goal::Hunt,
+                dodge_jumps: false,
+                foot_y: 0.0,
+                facing: 1,
+                safe: 292.0,
+            }
+        }
+
+        fn choose(&self, predict: impl Fn(i8) -> Option<f32>) -> Option<BlinkChoice> {
+            let mut v = fixtures::view(
+                leader(self.carl_x, 1),
+                fixtures::hero(HeroId::Donut, self.x, Control::Companion),
+            );
+            v.heroes[1].foot_y = self.foot_y;
+            v.heroes[1].facing = self.facing;
+            v.threats = self.threats.clone();
+            v.targets = self.targets.clone();
+            let a = knobs();
+            let zone = FreeZone {
+                safe_left: self.safe,
+                safe_right: self.safe,
+                ..wide_zone(self.carl_x)
+            };
+            choose_blink(
+                &BlinkInput {
+                    view: &v,
+                    partner: HeroId::Donut,
+                    goal: self.goal,
+                    zone: &zone,
+                    drift: &DriftCheck::new(HeroMotion::CARL, &a),
+                    knobs: KNOBS,
+                    dodge_jumps: self.dodge_jumps,
+                },
+                predict,
+            )
+        }
+    }
+
+    /// A destination `d` px from her in the asked direction.
+    fn lands(x: f32, d: f32) -> impl Fn(i8) -> Option<f32> {
+        move |dir| Some(x + f32::from(dir) * d)
+    }
+
+    #[test]
+    fn a_committed_attack_in_range_makes_her_blink_away_from_it() {
+        let c = Case::new();
+        let pick = c.choose(lands(440.0, 100.0)).expect("blinks");
+        assert_eq!(pick.reason, BlinkReason::Committed);
+        // The threat is at 470 (right of her): away is left.
+        assert_eq!((pick.dir, pick.to_x, pick.threat_x), (-1, 340.0, 470.0));
+        // The same threat on her left: away is right (hull: Carl 400 + 63 = 463
+        // is the far edge, so the prediction must stay inside it).
+        let mut c = Case::new();
+        c.carl_x = 480.0;
+        c.threats = vec![threat_at(410.0, 16, Some(HeroId::Donut))];
+        let pick = c.choose(lands(440.0, 100.0)).expect("blinks");
+        assert_eq!((pick.dir, pick.to_x), (1, 540.0));
+    }
+
+    #[test]
+    fn the_threat_range_is_48_px_inclusive() {
+        let mut c = Case::new();
+        c.threats = vec![threat_at(440.0 + 48.0, 16, Some(HeroId::Donut))];
+        assert!(c.choose(lands(440.0, 100.0)).is_some());
+        c.threats = vec![threat_at(440.0 + 48.5, 16, Some(HeroId::Donut))];
+        assert!(c.choose(lands(440.0, 100.0)).is_none());
+        // The same on her left (Carl at 480, so the hull holds the blink right).
+        c.carl_x = 480.0;
+        c.threats = vec![threat_at(440.0 - 48.0, 16, Some(HeroId::Donut))];
+        assert!(c.choose(lands(440.0, 70.0)).is_some());
+        c.threats = vec![threat_at(440.0 - 48.5, 16, Some(HeroId::Donut))];
+        assert!(c.choose(lands(440.0, 70.0)).is_none());
+    }
+
+    #[test]
+    fn the_impact_window_is_more_than_the_windup_and_at_most_windup_plus_six() {
+        // impact 26: tell tick t leaves 26 - t ticks.
+        let ticks_left = |left: u16| {
+            let mut c = Case::new();
+            c.threats = vec![threat_at(470.0, 26 - left, Some(HeroId::Donut))];
+            c.choose(lands(440.0, 100.0)).is_some()
+        };
+        assert!(!ticks_left(5), "the arrival would come after the impact");
+        assert!(!ticks_left(6), "arrival on t6 is the impact tick: too late");
+        assert!(ticks_left(7), "the arrival comes first");
+        assert!(ticks_left(12), "windup + 6");
+        assert!(!ticks_left(13), "not yet due");
+    }
+
+    #[test]
+    fn a_jump_dodge_a_swing_above_her_or_another_target_all_veto_the_committed_blink() {
+        let mut c = Case::new();
+        c.dodge_jumps = true;
+        assert!(c.choose(lands(440.0, 100.0)).is_none(), "the dodge fires");
+        let mut c = Case::new();
+        c.foot_y = 31.0;
+        assert!(
+            c.choose(lands(440.0, 100.0)).is_none(),
+            "above the swing box"
+        );
+        c.foot_y = 30.0;
+        assert!(c.choose(lands(440.0, 100.0)).is_some(), "at the box top");
+        let mut c = Case::new();
+        c.threats = vec![threat_at(470.0, 16, Some(HeroId::Carl))];
+        assert!(c.choose(lands(440.0, 100.0)).is_none(), "aimed at Carl");
+        c.threats = vec![threat_at(470.0, 16, None)];
+        assert!(c.choose(lands(440.0, 100.0)).is_none(), "aimed at no one");
+    }
+
+    #[test]
+    fn retreat_blinks_from_a_standing_enemy_on_top_of_her_and_only_in_retreat() {
+        let mut c = Case::new();
+        c.threats = Vec::new();
+        c.targets = vec![enemy(0, 470.0, TargetState::Standing)];
+        // Not Retreat: never (DP-Q40: not to chase, not offence).
+        for goal in [Goal::Hunt, Goal::Escort, Goal::SupportLeader, Goal::Idle] {
+            c.goal = goal;
+            assert!(c.choose(lands(440.0, 100.0)).is_none(), "{goal:?}");
+        }
+        c.goal = Goal::Retreat;
+        let pick = c.choose(lands(440.0, 100.0)).expect("retreat blinks");
+        assert_eq!(pick.reason, BlinkReason::Retreat);
+        // A staggered or lying enemy cannot hurt her this tick.
+        c.targets = vec![enemy(0, 470.0, TargetState::Staggered { ticks: 8 })];
+        assert!(c.choose(lands(440.0, 100.0)).is_none());
+        // Out of range.
+        c.targets = vec![enemy(0, 500.0, TargetState::Standing)];
+        assert!(c.choose(lands(440.0, 100.0)).is_none());
+    }
+
+    #[test]
+    fn the_nearest_threat_decides_the_direction() {
+        let mut c = Case::new();
+        c.threats = vec![
+            threat_at(440.0 - 40.0, 16, Some(HeroId::Donut)),
+            threat_at(440.0 + 20.0, 16, Some(HeroId::Donut)),
+        ];
+        let pick = c.choose(lands(440.0, 100.0)).unwrap();
+        assert_eq!((pick.threat_x, pick.dir), (460.0, -1));
+        // Level with it: toward the leader, else against her facing (the asked
+        // direction is read off the prediction, whatever it answers).
+        let asked = |carl_x: f32, facing: i8| {
+            let mut c = Case::new();
+            c.threats = vec![threat_at(440.0, 16, Some(HeroId::Donut))];
+            c.carl_x = carl_x;
+            c.facing = facing;
+            let dir = std::cell::Cell::new(0);
+            let _ = c.choose(|d| {
+                dir.set(d);
+                None
+            });
+            dir.get()
+        };
+        assert_eq!(asked(300.0, 1), -1, "Carl on the left");
+        assert_eq!(asked(600.0, -1), 1, "Carl on the right");
+        assert_eq!(asked(440.0, 1), -1, "level with both: against her facing");
+        assert_eq!(asked(440.0, -1), 1);
+    }
+
+    #[test]
+    fn the_destination_must_gain_64_px_from_the_threat() {
+        // Threat 30 px away: a 94 px blink gains 94 - 0 ... measured as the new
+        // distance less the old one.
+        let mut c = Case::new();
+        c.threats = vec![threat_at(470.0, 16, Some(HeroId::Donut))];
+        // Old distance 30: new distance must be at least 94, a 64 px blink.
+        assert!(c.choose(lands(440.0, 64.0)).is_some());
+        assert!(c.choose(lands(440.0, 63.0)).is_none());
+        // No destination at all: nothing.
+        assert!(c.choose(|_| None).is_none());
+    }
+
+    #[test]
+    fn the_destination_must_be_inside_the_zone_the_hull_and_the_drift_check() {
+        // Hull: [min(440, 400 - 63), max(440, 400 + 63)] = [337, 463].
+        let c = Case::new();
+        assert!(
+            c.choose(lands(440.0, 103.0)).is_some(),
+            "337 is on the edge"
+        );
+        assert!(
+            c.choose(lands(440.0, 103.5)).is_none(),
+            "just outside the hull"
+        );
+        // The hull's far side: a destination between her and Carl is inside.
+        let mut c = Case::new();
+        c.carl_x = 480.0;
+        c.threats = vec![threat_at(410.0, 16, Some(HeroId::Donut))];
+        assert!(c.choose(lands(440.0, 103.0)).is_some(), "543 = 480 + 63");
+        assert!(c.choose(lands(440.0, 104.0)).is_none());
+        // The zone: 240 px each side of Carl (a leader at 400: 160..640).
+        let mut c = Case::new();
+        c.x = 200.0;
+        c.carl_x = 400.0;
+        c.threats = vec![threat_at(230.0, 16, Some(HeroId::Donut))];
+        // Away is left: 200 - 64 = 136 is outside the zone (160) and the hull.
+        assert!(c.choose(lands(200.0, 64.0)).is_none());
+        // Drift: 12 ticks of Carl at 3.08 px + 8 slack = 45 px, so an end point
+        // is at most `safe - 45` px from him: the 340 landing is 60 px from Carl.
+        let mut c = Case::new();
+        c.safe = 106.0;
+        assert!(c.choose(lands(440.0, 100.0)).is_some());
+        c.safe = 104.0;
+        assert!(c.choose(lands(440.0, 100.0)).is_none());
+    }
+
+    #[test]
+    fn a_hurt_busy_or_defeated_partner_never_blinks() {
+        let mut v = fixtures::view(
+            leader(400.0, 1),
+            fixtures::hero(HeroId::Donut, 440.0, Control::Companion),
+        );
+        v.threats = vec![threat_at(470.0, 16, Some(HeroId::Donut))];
+        let a = knobs();
+        let run = |v: &CompanionView| {
+            choose_blink(
+                &BlinkInput {
+                    view: v,
+                    partner: HeroId::Donut,
+                    goal: Goal::Hunt,
+                    zone: &wide_zone(400.0),
+                    drift: &DriftCheck::new(HeroMotion::CARL, &a),
+                    knobs: KNOBS,
+                    dodge_jumps: false,
+                },
+                lands(440.0, 100.0),
+            )
+        };
+        assert!(run(&v).is_some());
+        let mut hurt = v.clone();
+        hurt.heroes[1].hurt_ticks = 3;
+        assert!(run(&hurt).is_none());
+        let mut dead = v.clone();
+        dead.heroes[1].defeated = true;
+        assert!(run(&dead).is_none());
+        let mut busy = v;
+        busy.heroes[1].active_move = Some(crate::companion::view::ActiveMove {
+            id: MoveId::Swat,
+            phase: crate::companion::view::MovePhase::Startup,
+            ticks_left: 10,
+            ai_started: true,
+        });
+        assert!(run(&busy).is_none());
+    }
+
+    #[test]
+    fn a_blink_press_is_hashed_decision_state_and_an_unpressed_layer_hashes_as_before() {
+        let mut state = AutonomyState::new();
+        let mut before = Vec::new();
+        state.hash_into(&mut |w| before.push(w));
+        state.note_blink(25, BlinkReason::Committed);
+        let mut after = Vec::new();
+        state.hash_into(&mut |w| after.push(w));
+        assert_eq!(
+            &after[..before.len()],
+            &before[..],
+            "a prefix: nothing moved"
+        );
+        assert_eq!(after.len(), before.len() + 2);
+        assert_eq!(after[after.len() - 1], 25);
+        assert_eq!(state.last_blink(), Some(25));
+        assert_eq!(state.stats().blink_presses_committed, 1);
+        // A plan clear keeps it (a swap must not forget a running blink); a
+        // restart does not.
+        state.clear_plan();
+        assert_eq!(state.last_blink(), Some(25));
+        state.reset();
+        assert_eq!(state.last_blink(), None);
+        assert_eq!(state.stats().blink_presses_committed, 1, "counters survive");
     }
 }

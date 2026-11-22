@@ -1409,3 +1409,7 @@ mod tests {
 // DP-C: the blink's fixtures (spec section 10, M3), test harness only.
 #[cfg(test)]
 mod blink_fixtures;
+
+// DP-E: the autonomous Donut's blink fixtures (spec section 9).
+#[cfg(test)]
+mod ai_blink_fixtures;

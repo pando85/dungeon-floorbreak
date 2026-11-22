@@ -442,7 +442,10 @@
           "ca2_q24_hold_ticks": 36,
           "ca2_q24_safe_px": 128,
           "ca2_q24_cooldown_ticks": 360,
-          "ca2_q31_llama_hunt_needs_unlock": true
+          "ca2_q31_llama_hunt_needs_unlock": true,
+          "blink_enabled": true,
+          "blink_threat_px": 48,
+          "blink_min_gain_px": 64
         }
       }
     }

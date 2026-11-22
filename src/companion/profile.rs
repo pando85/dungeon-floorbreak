@@ -19,7 +19,7 @@ pub const PROFILE_JSON: &str = include_str!("../../assets/data/gameplay/companio
 
 /// The committed FNV-1a 64 content hash of [`PROFILE_JSON`]. Editing the file
 /// without updating this value fails [`ProfileFile::pinned`] and the pin test.
-pub const PROFILE_HASH: u64 = 0x30cc_e662_92c4_2e6b;
+pub const PROFILE_HASH: u64 = 0xb021_753f_1fde_9563;
 
 /// The profile set id under the spec's name (CA-21, section 17): the runtime's
 /// `UncontrolledHero::Companion(CompanionProfileSet)` names it.
@@ -162,6 +162,18 @@ pub struct SkirmisherTable {
     /// CA2-Q31: a llama is a Hunt target only after the unlock (she has no
     /// damaging move against it before).
     pub ca2_q31_llama_hunt_needs_unlock: bool,
+    /// DONUT-PROG-01 DP-Q41 (DP-E): the AI short blink. A **recorded schema
+    /// extension** of CA2-A's file: optional fields, absent = off. Only
+    /// `cf02_free` sets them. `blink_enabled` lets the goal layer press her
+    /// special as an escape (DP-Q39); `blink_threat_px` is how near a committed
+    /// attack (or, inside Retreat, a standing enemy) must be; `blink_min_gain_px`
+    /// the distance the destination must add from it.
+    #[serde(default)]
+    pub blink_enabled: bool,
+    #[serde(default)]
+    pub blink_threat_px: u16,
+    #[serde(default)]
+    pub blink_min_gain_px: u16,
 }
 
 /// The role tables of a set (v1: `skirmisher` only).
@@ -688,6 +700,24 @@ impl ProfileSet {
                 return bad(&g(name), "must be positive");
             }
         }
+        if sk.blink_enabled {
+            // DP-Q41: an enabled blink needs its two knobs, and only the goal layer
+            // presses it (DP-Q40: never for a set without autonomy).
+            if !a.enabled {
+                return bad(
+                    &g("blink_enabled"),
+                    "the AI blink needs an enabled autonomy layer (DP-Q40)",
+                );
+            }
+            for (name, value) in [
+                ("blink_threat_px", sk.blink_threat_px),
+                ("blink_min_gain_px", sk.blink_min_gain_px),
+            ] {
+                if value == 0 {
+                    return bad(&g(name), "must be positive while blink_enabled");
+                }
+            }
+        }
         if sk.ca2_q20_backoff_px >= sk.ca2_q20_cast_spacing_px {
             return bad(
                 &g("ca2_q20_backoff_px"),
@@ -1015,6 +1045,11 @@ mod tests {
         let mut expected = f.cf02_assist.clone();
         expected.autonomy.enabled = true;
         expected.cf02_duo.cf02_duo_a15_flank = false;
+        // DP-Q41 (DP-E): and the AI blink knobs, `cf02_free` only.
+        let free_sk = &f.cf02_free.autonomy.roles.skirmisher;
+        expected.autonomy.roles.skirmisher.blink_enabled = free_sk.blink_enabled;
+        expected.autonomy.roles.skirmisher.blink_threat_px = free_sk.blink_threat_px;
+        expected.autonomy.roles.skirmisher.blink_min_gain_px = free_sk.blink_min_gain_px;
         assert_eq!(f.cf02_free, expected);
         assert!(f.cf02_assist.cf02_duo.cf02_duo_a15_flank);
         assert!(f.cf02_free.autonomy.enabled);
@@ -1037,9 +1072,14 @@ mod tests {
             assert!(set.autonomy.table(AutonomyRole::None).is_none());
             assert!(set.autonomy.table(AutonomyRole::Skirmisher).is_some());
         }
-        // The goal tables of the three sets are identical data.
-        assert_eq!(f.cf02_assist.autonomy.roles, f.cf02_free.autonomy.roles);
-        assert_eq!(f.companion_v0.autonomy.roles, f.cf02_free.autonomy.roles);
+        // The goal tables of the three sets are identical data (the DP-E blink
+        // knobs, `cf02_free` only, aside).
+        let mut free = f.cf02_free.autonomy.roles.clone();
+        free.skirmisher.blink_enabled = false;
+        free.skirmisher.blink_threat_px = 0;
+        free.skirmisher.blink_min_gain_px = 0;
+        assert_eq!(f.cf02_assist.autonomy.roles, free);
+        assert_eq!(f.companion_v0.autonomy.roles, free);
     }
 
     #[test]
@@ -1284,7 +1324,9 @@ mod tests {
             f.validate(),
             Err(ProfileError::Field { ref field, .. }) if field == "cf02_free.carl.autonomy_role"
         ));
-        // The same assignment is inert data while the layer is off.
+        // The same assignment is inert data while the layer is off (the AI blink
+        // is not: DP-Q40 refuses it without the layer).
+        f.cf02_free.autonomy.roles.skirmisher.blink_enabled = false;
         f.cf02_free.autonomy.enabled = false;
         assert!(f.validate().is_ok());
         // The leash is capped at the leading-side camera bound (review N-4).
@@ -1300,6 +1342,7 @@ mod tests {
         // The same edits are fine while the layer is off (companion_v0 has
         // them off today).
         let mut f = file();
+        f.cf02_free.autonomy.roles.skirmisher.blink_enabled = false;
         f.cf02_free.autonomy.enabled = false;
         f.cf02_free.cf02_duo.cf02_duo_a12_recent_hit_ticks = 0;
         assert!(f.validate().is_ok());
@@ -1310,5 +1353,66 @@ mod tests {
             f.validate(),
             Err(ProfileError::Field { ref field, .. }) if field == "cf02_free.carl.ca21_active"
         ));
+    }
+
+    /// DP-Q41 (DP-E): the blink knobs are a recorded schema extension: optional,
+    /// absent = off, `cf02_free` only, 48 and 64 px (DP-Q39).
+    #[test]
+    fn the_ai_blink_knobs_are_on_in_cf02_free_only() {
+        let file = file();
+        for id in [
+            ProfileSetId::Cf02Assist,
+            ProfileSetId::CompanionV0,
+            ProfileSetId::Cf02Free,
+        ] {
+            let sk = &file.set(id).autonomy.roles.skirmisher;
+            if id == ProfileSetId::Cf02Free {
+                assert!(sk.blink_enabled, "{id:?}");
+                assert_eq!((sk.blink_threat_px, sk.blink_min_gain_px), (48, 64));
+            } else {
+                assert!(!sk.blink_enabled, "{id:?}: absent means off");
+                assert_eq!((sk.blink_threat_px, sk.blink_min_gain_px), (0, 0));
+            }
+        }
+        // Absent fields load as off: the file without any of the three parses.
+        let stripped = PROFILE_JSON
+            .replace(",\n          \"blink_enabled\": true", "")
+            .replace(",\n          \"blink_threat_px\": 48", "")
+            .replace(",\n          \"blink_min_gain_px\": 64", "");
+        assert_ne!(stripped, PROFILE_JSON);
+        let loaded = ProfileFile::from_json(&stripped).expect("optional fields");
+        assert!(
+            !loaded
+                .set(ProfileSetId::Cf02Free)
+                .autonomy
+                .roles
+                .skirmisher
+                .blink_enabled
+        );
+    }
+
+    #[test]
+    fn an_enabled_ai_blink_needs_its_knobs_and_an_enabled_autonomy_layer() {
+        let swap = |from: &str, to: &str| PROFILE_JSON.replacen(from, to, 1);
+        assert_eq!(
+            field_of(&swap("\"blink_threat_px\": 48", "\"blink_threat_px\": 0")),
+            "cf02_free.autonomy.roles.skirmisher.blink_threat_px"
+        );
+        assert_eq!(
+            field_of(&swap(
+                "\"blink_min_gain_px\": 64",
+                "\"blink_min_gain_px\": 0"
+            )),
+            "cf02_free.autonomy.roles.skirmisher.blink_min_gain_px"
+        );
+        // DP-Q40: never for a set without an enabled autonomy layer (the first
+        // `"ca2_q31_llama_hunt_needs_unlock": true` belongs to `cf02_assist`).
+        assert_eq!(
+            field_of(&swap(
+                "\"ca2_q31_llama_hunt_needs_unlock\": true",
+                "\"ca2_q31_llama_hunt_needs_unlock\": true, \"blink_enabled\": true, \"blink_threat_px\": 48, \"blink_min_gain_px\": 64"
+            )),
+            "cf02_assist.autonomy.roles.skirmisher.blink_enabled"
+        );
     }
 }
