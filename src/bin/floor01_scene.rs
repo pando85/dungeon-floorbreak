@@ -3904,6 +3904,9 @@ fn run_window(
         )
             .chain(),
     );
+    // Every window kind honours SIGINT and SIGTERM (the replay viewer included): the handler
+    // is installed for all of them in `run_window` (FIX-TOOL).
+    app.add_systems(Update, shutdown_on_signal);
     if let Some(view) = replay {
         // PTR-R1: the replay viewer. No pad, no keyboard gameplay, no live
         // `fixed_step`, no `sync_party_hud`: the cursor drives the tick, the
@@ -3936,7 +3939,6 @@ fn run_window(
             Update,
             (pad_connections, capture_input).chain().before(cine_frame),
         )
-        .add_systems(Update, shutdown_on_signal)
         .add_systems(Update, sync_party_hud.after(cine_frame).before(perf_step))
         .add_systems(FixedUpdate, (fixed_step, update_scene_camera).chain());
     }
@@ -5408,16 +5410,36 @@ mod shutdown_signal {
         REQUESTED.store(true, Ordering::SeqCst);
     }
 
-    /// Route SIGINT and SIGTERM to the flag. A no-op off Unix.
+    /// Route SIGINT and SIGTERM to the flag, **once**: `SA_RESETHAND` (with `SA_RESTART`, like glibc `signal`) puts the default
+    /// disposition back as the handler starts, so the first signal asks for a clean exit
+    /// and a second one (a stuck frame loop, a slow shutdown, `timeout` without `-k`)
+    /// kills the process as before. A no-op off Unix.
     pub fn install() {
         #[cfg(unix)]
         for signal in [libc::SIGINT, libc::SIGTERM] {
-            // SAFETY: `signal` registers a handler that does one atomic store and
+            // SAFETY: a zeroed `sigaction` is valid; the handler does one atomic store and
             // touches no other memory.
             unsafe {
-                libc::signal(signal, on_signal as *const () as libc::sighandler_t);
+                let mut action: libc::sigaction = std::mem::zeroed();
+                action.sa_sigaction = on_signal as *const () as libc::sighandler_t;
+                action.sa_flags = libc::SA_RESETHAND | libc::SA_RESTART;
+                libc::sigemptyset(&mut action.sa_mask);
+                libc::sigaction(signal, &action, std::ptr::null_mut());
             }
         }
+    }
+
+    /// Back to the default disposition (tests; the handler resets itself when it fires).
+    #[cfg(test)]
+    pub fn restore_default() {
+        #[cfg(unix)]
+        for signal in [libc::SIGINT, libc::SIGTERM] {
+            // SAFETY: restores the default disposition.
+            unsafe {
+                libc::signal(signal, libc::SIG_DFL);
+            }
+        }
+        REQUESTED.store(false, Ordering::SeqCst);
     }
 
     /// Whether a signal arrived since the last call.
@@ -8803,17 +8825,36 @@ mod tests {
     }
 
     /// FIX-TOOL: SIGINT and SIGTERM only set the flag [`shutdown_signal`] hands to the exit
-    /// system; one signal is seen once.
+    /// system; one signal is seen once, and the handler is one-shot (the disposition is the
+    /// default again after it fires, so a second signal would kill). The test puts the
+    /// default back before it ends, so nothing is left installed in the test binary.
     #[cfg(unix)]
     #[test]
     fn a_shutdown_signal_sets_the_exit_flag_once() {
-        shutdown_signal::install();
-        assert!(!shutdown_signal::take());
+        let disposition = |signal: libc::c_int| {
+            // SAFETY: reads the current disposition (and puts it straight back).
+            unsafe {
+                let mut old: libc::sigaction = std::mem::zeroed();
+                libc::sigaction(signal, std::ptr::null(), &mut old);
+                old.sa_sigaction
+            }
+        };
         for signal in [libc::SIGINT, libc::SIGTERM] {
+            shutdown_signal::install();
+            assert!(!shutdown_signal::take());
             // SAFETY: raises a signal whose handler was just installed (one atomic store).
             assert_eq!(unsafe { libc::raise(signal) }, 0);
             assert!(shutdown_signal::take(), "signal {signal}");
             assert!(!shutdown_signal::take(), "signal {signal} is taken once");
+            assert_eq!(
+                disposition(signal),
+                libc::SIG_DFL,
+                "signal {signal}: one-shot, the default is back after the first"
+            );
+        }
+        shutdown_signal::restore_default();
+        for signal in [libc::SIGINT, libc::SIGTERM] {
+            assert_eq!(disposition(signal), libc::SIG_DFL);
         }
     }
 

@@ -870,6 +870,17 @@ case "$mode" in
     # shellcheck disable=SC2086
     timeout 300 "$bin" $live_room --record-dir "$ldir/exit" --exit-after-ticks 120 > "$out/replay_live_exit.log" 2>&1
     grep -q '^PLAYTRACE_SAVED .* ticks=120 status=Completed complete=true' "$out/replay_live_exit.log" || { tail -n 20 "$out/replay_live_exit.log"; echo "the live room scripted exit did not close its session" >&2; exit 1; }
+    # Wait (at most 30 s) for the background process $1 to exit; a window that ignores the signal fails the check
+    # here (and is killed) instead of hanging the job. No `timeout` wrapper: a background job of a non-interactive
+    # shell starts with SIGINT ignored, and `timeout` keeps an ignored SIGINT ignored.
+    wait_gone() {
+      local pid="$1"
+      for _ in $(seq 1 60); do
+        kill -0 "$pid" 2>/dev/null || return 0
+        sleep 0.5
+      done
+      return 1
+    }
     for sig in TERM INT; do
       sdir="$ldir/$sig"; mkdir -p "$sdir"
       # shellcheck disable=SC2086
@@ -879,17 +890,32 @@ case "$mode" in
         [[ -n "$(find "$sdir" -name 'ticks-*.jsonl' -size +0 2>/dev/null | head -n 1)" ]] && break
         sleep 0.5
       done
+      # A few seconds of running first: quitting in the first frames (any exit path, `--exit-after-ticks 10`
+      # included) can crash the engine's own teardown (SIGSEGV after the session is saved), which is not what
+      # this check is about.
+      sleep 4
       kill -"$sig" "$app"
+      wait_gone "$app" || { kill -KILL "$app" 2>/dev/null || true; echo "the live room ignored SIG$sig" >&2; exit 1; }
       code=0; wait "$app" || code=$?
       [[ "$code" -eq 0 ]] || { tail -n 20 "$out/replay_live_$sig.log"; echo "the live room did not exit cleanly on SIG$sig (exit $code)" >&2; exit 1; }
       grep -q '^PLAYTRACE_SAVED .* status=Completed complete=true' "$out/replay_live_$sig.log" || { tail -n 20 "$out/replay_live_$sig.log"; echo "SIG$sig did not close the live room session" >&2; exit 1; }
+    done
+    # The replay viewer (a window kind of its own) ends on SIGTERM and SIGINT too, and prints its result line.
+    for sig in TERM INT; do
+      "$bin" --no-audio --scale 1 --replay-session "$id" --record-dir "$rdir" > "$out/replay_viewer_$sig.log" 2>&1 &
+      app=$!
+      sleep 6
+      kill -"$sig" "$app"
+      wait_gone "$app" || { kill -KILL "$app" 2>/dev/null || true; echo "the replay viewer ignored SIG$sig" >&2; exit 1; }
+      wait "$app" || true
+      grep -q '^PLAYTRACE_REPLAY ' "$out/replay_viewer_$sig.log" || { tail -n 20 "$out/replay_viewer_$sig.log"; echo "the replay viewer printed no result after SIG$sig" >&2; exit 1; }
     done
     for run in exit TERM INT; do
       lid="$(ls "$ldir/$run")"
       "$pt" verify "$lid" --dir "$ldir/$run" --root . | grep -q '^PLAYTRACE_VERIFY .*result=PASS scope=full' || { echo "the live room '$run' session does not verify as scope=full" >&2; exit 1; }
       "$pt" inspect "$lid" --dir "$ldir/$run" | grep -q 'run_kind Human (input-free' || { echo "the live room '$run' session is not labelled input-free" >&2; exit 1; }
     done
-    echo "F01_LIVE_ROOM_EXIT_OK: --exit-after-ticks, SIGTERM and SIGINT each close the room 6 session (scope=full, input-free)"
+    echo "F01_LIVE_ROOM_EXIT_OK: --exit-after-ticks, SIGTERM and SIGINT each close the room 6 session (scope=full, input-free); the replay viewer ends on SIGTERM and SIGINT"
     last_post="$(python3 -I scripts/ptr_session_tool.py last-post "$rdir/$id")"
     replay_run() { # log, then the flags; returns the viewer's exit code
       local log="$1"; shift

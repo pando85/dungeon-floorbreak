@@ -198,7 +198,7 @@ fn haz_room_reach_matrix_catches_a_wall_across_the_lane() {
 /// re-pinned the nine Rot-off hashes (the second nine) when the fixture moved from a room
 /// with the sticker props removed to the real kill switch (`EnvRuntime::new_with_rot`:
 /// the props stay as `Machine::Rot` without a sticker state); the outcomes are unchanged,
-/// and the nine Rot-on hashes did not move. The old and new values are listed in the PR that moved them.)
+/// and the nine Rot-on hashes did not move. The old and new values are listed in the PR that moved them.
 const DIRECT_PINNED: [u64; 18] = [
     0x351c_7088_ae6a_9532,
     0x0a65_afb3_d15b_270c,
