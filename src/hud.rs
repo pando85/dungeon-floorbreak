@@ -211,6 +211,16 @@ impl LabelId {
             .find(|label| text == label.text())
     }
 
+    /// A capability grant notice (the `notices` rows): the queue never lets a
+    /// later headline replace one, and a second grant waits behind the first
+    /// (DP-Q12: with both programs Carl's notice shows first, then Donut's).
+    pub const fn is_grant(self) -> bool {
+        matches!(
+            self,
+            Self::GoblinBoom | Self::HeavyFist | Self::LightFeet | Self::PuddleJumper
+        )
+    }
+
     /// CP-Q11, DP-Q12: the grant notice of a capability by the data's notice text
     /// (the `notices` rows of `story_unlocks_v0.json`). The thrown charge and
     /// Donut's two grants have a HUD label; the other grants add theirs with their
@@ -1075,10 +1085,14 @@ pub fn notice_dx(age: u16, reduced_motion: bool) -> i32 {
 }
 
 /// The System notice queue: at most one pending, a minimum gap, no repeats.
+/// Grant notices ([`LabelId::is_grant`]) are never replaced: they wait in their
+/// own FIFO (two deep, in the order raised) and start before any other pending
+/// headline; a grant replaces a pending non-grant headline.
 #[derive(Debug, Clone, Default)]
 pub struct NoticeQueue {
     active: Option<NoticeView>,
     pending: Option<LabelId>,
+    pending_grants: Vec<LabelId>,
     /// Ticks still to wait after the last notice ended before the next starts.
     gap_left: u16,
     tick: u64,
@@ -1100,7 +1114,7 @@ impl NoticeQueue {
     }
 
     pub fn has_pending(&self) -> bool {
-        self.pending.is_some()
+        self.pending.is_some() || !self.pending_grants.is_empty()
     }
 
     fn lifetime(&self) -> u16 {
@@ -1115,6 +1129,7 @@ impl NoticeQueue {
     pub fn clear(&mut self) {
         self.active = None;
         self.pending = None;
+        self.pending_grants.clear();
         self.gap_left = 0;
         self.last_start.clear();
     }
@@ -1124,11 +1139,17 @@ impl NoticeQueue {
         let repeated = self.last_start.iter().any(|(label, at)| {
             *label == headline && self.tick.saturating_sub(*at) < NOTICE_REPEAT_TICKS
         });
-        if repeated || self.pending == Some(headline) {
+        if repeated || self.pending == Some(headline) || self.pending_grants.contains(&headline) {
             return;
         }
         if self.active.is_none() && self.gap_left == 0 {
             self.start(headline);
+        } else if headline.is_grant() {
+            // A grant never replaces a grant; it replaces a pending non-grant.
+            if self.pending_grants.len() < 2 {
+                self.pending_grants.push(headline);
+                self.pending = None;
+            }
         } else {
             // A newer event replaces the pending one.
             self.pending = Some(headline);
@@ -1164,7 +1185,9 @@ impl NoticeQueue {
         }
         if self.active.is_none()
             && self.gap_left == 0
-            && let Some(headline) = self.pending.take()
+            && let Some(headline) = (!self.pending_grants.is_empty())
+                .then(|| self.pending_grants.remove(0))
+                .or_else(|| self.pending.take())
         {
             self.start(headline);
         }
@@ -2405,6 +2428,41 @@ mod tests {
         queue.advance();
         queue.offer(LabelId::Launched);
         assert!(queue.has_pending() || queue.active().is_some());
+    }
+
+    /// DP-Q12: a grant notice is never replaced by a later headline of the same
+    /// tick, and a second grant waits behind the first in the order raised; a
+    /// grant replaces a pending non-grant.
+    #[test]
+    fn a_grant_notice_is_never_replaced_and_a_second_grant_waits_its_turn() {
+        let shown = |offers: &[LabelId]| {
+            let mut queue = NoticeQueue::new(false);
+            queue.offer(LabelId::MainEvent);
+            for o in offers {
+                queue.offer(*o);
+            }
+            let mut order = Vec::new();
+            for _ in 0..900 {
+                queue.advance();
+                if let Some(n) = queue.active()
+                    && n.age_ticks == 0
+                {
+                    order.push(n.headline);
+                }
+            }
+            order
+        };
+        use LabelId::{Flattened, HeavyFist, Knockout, PuddleJumper};
+        // Both grants after a busy tick: Carl's first, then Donut's.
+        assert_eq!(
+            shown(&[Flattened, Knockout, HeavyFist, PuddleJumper]),
+            [HeavyFist, PuddleJumper]
+        );
+        // A later non-grant of the same tick never replaces a pending grant.
+        assert_eq!(shown(&[HeavyFist, Knockout]), [HeavyFist, Knockout]);
+        // Single grants are unchanged (the newest non-grant before it is replaced).
+        assert_eq!(shown(&[Knockout, HeavyFist]), [HeavyFist]);
+        assert_eq!(shown(&[PuddleJumper]), [PuddleJumper]);
     }
 
     #[test]

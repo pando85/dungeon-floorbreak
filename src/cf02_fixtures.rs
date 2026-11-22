@@ -1500,7 +1500,7 @@ pub fn donut_start_x(fixture: &str) -> Option<f32> {
 pub fn carl_only(fixture: &str) -> bool {
     (fixture.starts_with("eng_") && fixture != "eng_solo_assist")
         // CARL-PROG-01 CP-D: Carl alone against the Engineer.
-        || fixture == "carl_prog_pierce_engineer"
+        || fixture.starts_with("carl_prog_pierce_engineer")
 }
 
 const E: i32 = 200;

@@ -1,0 +1,7 @@
+COMBAT_EVENT tick=40 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=62 kind=move_started move=jab instance=1
+COMBAT_EVENT tick=65 kind=hit move=jab instance=1 target=0 damage=1 health_left=1 hit_stop=3
+COMBAT_EVENT tick=70 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=70 kind=hero_hurt source=0 health_left=3
+COMBAT_STATE fixture=carl_prog_pierce_goblin_jab seed=0xca10047 tick=125 elapsed=125 hero_hp=3 deaths=0 enemies=e0=429.700/1 hash=793254ca71c3c463
+PARTY_STATE fixture=carl_prog_pierce_goblin_jab mode=solo controlled=Carl carl_hp=3 donut_hp=4 deaths=0 hash=04abe48969b7ccd9

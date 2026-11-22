@@ -1176,7 +1176,7 @@ pub mod arena {
             // DONUT-PROG-01 DP-D: the blink evidence fixtures that run in the room.
             || name.starts_with("donut_prog_arena_")
             // CARL-PROG-01 CP-D: the Engineer pierce room.
-            || name == "carl_prog_pierce_engineer"
+            || name.starts_with("carl_prog_pierce_engineer")
             || matches!(
                 name,
                 "cf02_goblin_self_own"

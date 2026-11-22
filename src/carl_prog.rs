@@ -22,7 +22,7 @@ pub const TUNING_JSON: &str = include_str!("../assets/data/gameplay/carl_prog_v0
 /// The committed FNV-1a 64 content hash of [`TUNING_JSON`]. Editing the file
 /// without updating this value fails [`CarlProgTuning::pinned`] and the pin
 /// test, so a knob edit never changes a recorded outcome silently.
-pub const TUNING_HASH: u64 = 0x6be9_3e74_a0b7_d544;
+pub const TUNING_HASH: u64 = 0x371a_22a2_c9b5_240d;
 
 /// The schema version [`CarlProgTuning`] accepts.
 pub const SCHEMA_VERSION: u32 = 1;
@@ -480,7 +480,10 @@ mod tests {
         use crate::combat::{CARL_HAYMAKER, CARL_JAB, CARL_PUSH_KICK, cf02_moves};
         let t = CarlProgTuning::active();
         let jab = t.reinforce(&CARL_JAB);
-        assert_eq!((jab.reaction.stagger_ticks, jab.pierces_commit), (16, true));
+        assert_eq!(
+            (jab.reaction.stagger_ticks, jab.pierces_commit),
+            (16, false)
+        );
         assert_eq!(
             jab.reaction.hit_stop, CARL_JAB.reaction.hit_stop,
             "no jab stop bonus"
@@ -518,6 +521,12 @@ mod tests {
         assert_eq!(off.reinforce(&CARL_HAYMAKER), CARL_HAYMAKER);
         assert_eq!(off.support_hit_weight(MoveId::Haymaker), 1);
         assert_eq!(off.boss_poise(&CARL_HAYMAKER), 1);
+        // F-12: the jab pierce is one data row away.
+        let mut jab_pierces = t.clone();
+        jab_pierces.cpq40_jab_pierces_commit = true;
+        assert!(jab_pierces.reinforce(&CARL_JAB).pierces_commit);
+        assert!(!t.reinforce(&CARL_JAB).pierces_commit);
+        assert!(t.reinforce(&CARL_HAYMAKER).pierces_commit);
     }
 
     /// CP-Q40, CP-Q41: the support weight (haymaker 2, jab 1, everything else 1)

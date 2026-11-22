@@ -1682,23 +1682,26 @@ mod tests {
     /// hit on the tell.
     #[test]
     fn a_piercing_hit_cancels_the_engineers_launch_and_ram() {
-        let pierce = MoveSpec {
-            pierces_commit: true,
-            ..CARL_JAB
-        };
-        for phase in [
-            EngineerPhase::Rear,
-            EngineerPhase::Point,
-            EngineerPhase::Launch,
-            EngineerPhase::Ram,
-        ] {
+        for (punch, phase) in [CARL_JAB, CARL_HAYMAKER].into_iter().flat_map(|p| {
+            [
+                EngineerPhase::Rear,
+                EngineerPhase::Point,
+                EngineerPhase::Launch,
+                EngineerPhase::Ram,
+            ]
+            .map(move |phase| (p, phase))
+        }) {
+            let pierce = MoveSpec {
+                pierces_commit: true,
+                ..punch
+            };
             let committed = matches!(phase, EngineerPhase::Launch | EngineerPhase::Ram);
             let mut plain = engineer_in(phase, 272.0);
             let mut pierced = plain.clone();
             assert_eq!(plain.committed_swing(), committed, "{phase:?}");
             plain.hit_stop = 0;
             pierced.hit_stop = 0;
-            plain.take_hit(&CARL_JAB, 1);
+            plain.take_hit(&punch, 1);
             pierced.take_hit(&pierce, 1);
             assert_eq!(plain.mode == GoblinMode::Attack, committed, "{phase:?}");
             assert_eq!(pierced.mode, GoblinMode::Hurt, "{phase:?}");
