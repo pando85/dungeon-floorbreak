@@ -28,10 +28,12 @@ use std::path::Path;
 
 use crate::camera_lab::room::EnemyKind;
 use crate::camera_lab::room::IRect;
+use crate::carl_prog::CarlProgFlags;
 use crate::combat::EnemyAi;
 use crate::combat_scene::{CombatState, DemoRules, EnemySpawn, EnvRuntime, Fixture, Hold};
 use crate::corridor::SceneSim;
 use crate::donut_mana::DonutSetup;
+use crate::donut_prog::DonutProgFlags;
 use crate::encounter::{self, HAZARDS_ENCOUNTER_PATH, Loaded, PropKind, RosterKind};
 use crate::env_kit::{EnvKit, IRect as KitRect};
 use crate::input::RawInput;
@@ -206,17 +208,44 @@ pub fn launch(root: &Path) -> Result<HazardsRun, String> {
 }
 
 /// The combat state of a launched room, with the CF02 rules, the slot slimes and
-/// the env step.
+/// the env step, under no story flag (the fixtures' state).
 pub fn combat_of(run: &HazardsRun, scene: &mut SceneSim) -> Result<CombatState, String> {
+    combat_for(
+        run,
+        scene,
+        CarlProgFlags::default(),
+        DonutProgFlags::default(),
+        None,
+    )
+}
+
+/// [`combat_of`] under a run's story flags and `--cf02-seed` (HAZ-A2b): the
+/// sidecar's story pin applies under the program flags (the post-Hoarder state,
+/// the same pin the Boiler holds), and the seed is the temperament draw of the
+/// roster's goblins. The binary's scene and the PLAYTRACE verifier both call it
+/// through [`crate::f01_late::hazards_start`]. The seed is applied **before** the
+/// slot: a builder that resets the attempt after the slot would mark a slime as
+/// retried.
+pub fn combat_for(
+    run: &HazardsRun,
+    scene: &mut SceneSim,
+    carl: CarlProgFlags,
+    donut: DonutProgFlags,
+    cf02_seed: Option<u64>,
+) -> Result<CombatState, String> {
     let room = SlotRoom {
         floor_y: scene.world.hero_foot_y(),
         walls: (0.0, run.kit.width as f32),
     };
     let spawn = spawn_from_roster(&run.loaded.encounter, room, false).map_err(|e| e.to_string())?;
+    let setup = crate::f01_boiler::story_setup(&run.loaded.encounter.story_pin, carl, donut)?;
     let mut combat = CombatState::new(run.fixture, &run.kit, scene)?
         .with_donut(DonutSetup::unlocked(8))
+        .try_with_story(setup)
+        .map_err(|e| e.to_string())?
         .with_demo(run.rules)
         .with_cf02()
+        .with_cf02_seed(cf02_seed)
         .with_env(env_runtime(run)?)
         .with_slot_enemies(spawn.slot)
         .map_err(|e| e.to_string())?;
@@ -330,6 +359,51 @@ mod tests {
         };
         assert_eq!(run_once(), run_once());
         let _ = RawInput::NONE;
+    }
+
+    /// HAZ-A2b: the room holds the sidecar's story pin (the post-Hoarder state,
+    /// dynamite among it) under the program flags and nothing without them, and
+    /// the fixtures' state (`combat_of`) is the unflagged one.
+    #[test]
+    fn the_story_flags_apply_the_post_hoarder_pin_and_the_fixtures_stay_unflagged() {
+        use crate::story_unlock::SPECIAL_THROWN_CHARGE;
+        let run = launch(&root()).unwrap();
+        let state = |carl: CarlProgFlags, donut: DonutProgFlags| {
+            let mut scene = SceneSim::new_at(&run.kit, 360, run.fixture.carl_x).unwrap();
+            let combat = combat_for(&run, &mut scene, carl, donut, None).unwrap();
+            (
+                combat.story_holds(SPECIAL_THROWN_CHARGE),
+                combat.state_hash(&scene),
+            )
+        };
+        let (story_carl, story_donut) = crate::f01_late::Loadout::Story.flags();
+        let (plain_holds, plain_hash) = state(CarlProgFlags::default(), DonutProgFlags::default());
+        let (story_holds, story_hash) = state(story_carl, story_donut);
+        assert!(!plain_holds && story_holds, "the pin holds the dynamite");
+        assert_ne!(plain_hash, story_hash);
+        let mut scene = SceneSim::new_at(&run.kit, 360, run.fixture.carl_x).unwrap();
+        let fixtures = combat_of(&run, &mut scene).unwrap();
+        assert_eq!(fixtures.state_hash(&scene), plain_hash);
+        // A seed is part of the state (the roster's goblins draw temperaments).
+        let seeded = |seed| {
+            let mut scene = SceneSim::new_at(&run.kit, 360, run.fixture.carl_x).unwrap();
+            let combat = combat_for(
+                &run,
+                &mut scene,
+                CarlProgFlags::default(),
+                DonutProgFlags::default(),
+                seed,
+            )
+            .unwrap();
+            assert_eq!(
+                combat.slot_enemies().len(),
+                2,
+                "the slimes survive the seed"
+            );
+            combat.state_hash(&scene)
+        };
+        assert_eq!(seeded(None), plain_hash);
+        assert_eq!(seeded(Some(7)), seeded(Some(7)));
     }
 
     #[test]

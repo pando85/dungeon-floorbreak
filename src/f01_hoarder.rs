@@ -50,9 +50,16 @@ pub const ROOM_ID: &str = "F01-HOARDER";
 /// is a constant ([`crate::f01_boiler::ROOM_HASH`] is the precedent).
 pub const ROOM_HASH: u64 = 0x5b52_cfe9_96a9_0679;
 pub const ENCOUNTER_HASH: u64 = 0x05fc_ad32_3772_d2d8;
+/// The `data_pins()` keys of the room and its sidecar, scoped by room on both
+/// sides of a recording (`f01_late::pin_applies`, HRD-A2b).
+pub const ROOM_PIN_KEY: &str = "f01_hoarder_room";
+pub const ENCOUNTER_PIN_KEY: &str = "f01_hoarder_encounter";
 /// The pin the sidecar names: the room holds Light on Your Feet, not the
 /// dynamite (K1, K9); the dynamite is her defeat's grant.
 pub const PIN_PRE_PILE_BOSS: &str = "f01_pin_pre_pile_boss";
+/// Ticks of the headless smoke (`F01_HOARDER_SMOKE_OK`, HRD-A2b): the room has
+/// no fixture script, so the smoke is an idle run of this length.
+pub const SMOKE_TICKS: u64 = 600;
 /// A fixture seed is only recorded (no rule reads it in this room).
 const FIXTURE_SEED: u64 = 0x0F01_4D0A;
 
@@ -259,6 +266,35 @@ pub fn start(
     Ok((run, scene, state))
 }
 
+/// The pins `playtrace::live::data_pins` stamps (HRD-A2b).
+pub const fn data_pins() -> [(&'static str, u64); 2] {
+    [
+        (ROOM_PIN_KEY, ROOM_HASH),
+        (ENCOUNTER_PIN_KEY, ENCOUNTER_HASH),
+    ]
+}
+
+/// The console line of a launch (HRD-A2b): identity, pin, spawn columns and
+/// hashes.
+pub fn entry_line(run: &HoarderRun) -> String {
+    let e = &run.loaded.encounter;
+    let room = &run.loaded.room;
+    format!(
+        "F01_HOARDER_ENTRY room={} encounter={} pin={} spawn_carl={} spawn_donut={} \
+         checkpoints={:?} goal={:?} roster={} env=live room_hash={:#018x} sidecar_hash={:#018x}",
+        e.room_id,
+        e.id,
+        e.story_pin,
+        room.spawn_carl,
+        room.spawn_donut,
+        run.rules.checkpoints,
+        e.goal,
+        e.roster.len(),
+        run.loaded.room_hash,
+        run.loaded.sidecar_hash,
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -279,5 +315,34 @@ mod tests {
         let sidecar = hash_of(ENCOUNTER_PATH);
         assert_eq!(room, ROOM_HASH, "{room:#018x}");
         assert_eq!(sidecar, ENCOUNTER_HASH, "{sidecar:#018x}");
+    }
+
+    #[test]
+    fn the_pins_and_the_entry_line_name_the_room() {
+        for (key, value) in data_pins() {
+            assert_ne!(value, 0, "{key}");
+        }
+        assert_eq!(data_pins()[0], (ROOM_PIN_KEY, ROOM_HASH));
+        assert_eq!(data_pins()[1], (ENCOUNTER_PIN_KEY, ENCOUNTER_HASH));
+        let run = launch(&root()).unwrap();
+        let line = entry_line(&run);
+        assert!(
+            line.starts_with("F01_HOARDER_ENTRY room=F01-HOARDER "),
+            "{line}"
+        );
+        assert!(
+            line.contains(PIN_PRE_PILE_BOSS) && line.contains("roster=1"),
+            "{line}"
+        );
+        // The room's own start: her slot enemy is in the state at tick 0.
+        let (_, scene, combat) = start(
+            &root(),
+            360,
+            CarlProgFlags::default(),
+            DonutProgFlags::default(),
+        )
+        .unwrap();
+        assert_eq!(combat.slot_enemies().len(), 1);
+        assert_eq!(scene.world.tick, 0);
     }
 }

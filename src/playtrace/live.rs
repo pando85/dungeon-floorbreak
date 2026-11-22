@@ -200,6 +200,25 @@ pub fn data_pins() -> Vec<(&'static str, u64)> {
             crate::f01_boiler::ENCOUNTER_PIN_KEY,
             crate::f01_boiler::ENCOUNTER_HASH,
         ),
+        // HRD-A2b and HAZ-A2b: the Hoarder's and the hazard room's room and
+        // sidecar pins, scoped by room like the Boiler's (a recording of
+        // another room neither stamps nor needs them).
+        (
+            crate::f01_hoarder::ROOM_PIN_KEY,
+            crate::f01_hoarder::ROOM_HASH,
+        ),
+        (
+            crate::f01_hoarder::ENCOUNTER_PIN_KEY,
+            crate::f01_hoarder::ENCOUNTER_HASH,
+        ),
+        (
+            crate::f01_hazards::ROOM_PIN_KEY,
+            crate::f01_hazards::ROOM_HASH,
+        ),
+        (
+            crate::f01_hazards::ENCOUNTER_PIN_KEY,
+            crate::f01_hazards::ENCOUNTER_HASH,
+        ),
         // PT-SCENE: the manifest of the rooms `--scene f01_late` launches. The
         // Boiler's two pins above and this one are scoped by room, on both sides
         // (`f01_late::pin_applies`): stamped into and required of a recording
