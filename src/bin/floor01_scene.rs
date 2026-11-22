@@ -1483,16 +1483,34 @@ fn parse_args_full(
     resolve_f01_late_args(&mut parsed)?;
     resolve_boiler_args(&mut parsed)?;
     resolve_refuge_args(&mut parsed)?;
-    if parsed.room_pilot.is_some() {
-        if !(parsed.f01_boiler || parsed.f01_hoarder || parsed.f01_hazards) {
-            return Err("--room-pilot needs a room scene: --scene f01_late with --f01-room boiler, hoarder or hazards (or --scene f01_boiler, f01_hoarder, f01_hazards)".into());
+    if let Some(pilot) = parsed.room_pilot {
+        let juicer = parsed.boss && parsed.f01_room.as_deref() == Some("juicer");
+        if !(parsed.f01_boiler
+            || parsed.f01_hoarder
+            || parsed.f01_hazards
+            || parsed.f01_mastery
+            || juicer)
+        {
+            return Err("--room-pilot needs a room scene: --scene f01_late with --f01-room boiler, hoarder, hazards, mastery or juicer (or --scene f01_boiler, f01_hoarder, f01_hazards)".into());
+        }
+        // PT-GATE-A: the mastery and juicer plans play their own room and nothing else.
+        if (pilot.plan == room_pilots::Plan::Mastery) != parsed.f01_mastery
+            || (pilot.plan == room_pilots::Plan::Juicer) != juicer
+        {
+            return Err("--room-pilot mastery needs --f01-room mastery and --room-pilot juicer needs --f01-room juicer, and each of those rooms takes only its own plan".into());
         }
         if !(parsed.headless
             || parsed.capture_tick.is_some()
             || parsed.capture_sequence.is_some()
-            || parsed.exit_after_ticks.is_some())
+            || parsed.exit_after_ticks.is_some()
+            || parsed.perf_from_tick.is_some())
         {
-            return Err("--room-pilot needs a scripted run: --capture-sequence, --capture-tick, --headless-floor01-smoke or --exit-after-ticks".into());
+            return Err("--room-pilot needs a scripted run: --capture-sequence, --capture-tick, --headless-floor01-smoke, --exit-after-ticks or --perf-from-tick".into());
+        }
+        // The perf probe steps one slot-0 pilot tick per frame outside the live
+        // party, so a two-player pilot (Donut's slot) is not measured.
+        if parsed.perf_from_tick.is_some() && pilot.two_player {
+            return Err("--perf-from-tick takes a solo --room-pilot (no :2p)".into());
         }
     }
     if parsed.cf02.seed.is_some() && !parsed.cf02.rules && !parsed.lab_scene {
@@ -7265,6 +7283,7 @@ struct FrameStats {
     frames: usize,
     median_ms: f32,
     p95_ms: f32,
+    p99_ms: f32,
     mean_ms: f32,
     max_ms: f32,
 }
@@ -7282,6 +7301,7 @@ fn frame_stats(intervals_ms: &[f32]) -> Option<FrameStats> {
         frames: n,
         median_ms: rank(0.5),
         p95_ms: rank(0.95),
+        p99_ms: rank(0.99),
         mean_ms: sorted.iter().sum::<f32>() / n as f32,
         max_ms: sorted[n - 1],
     })
@@ -7321,6 +7341,7 @@ fn perf_step(
     mut death: ResMut<Death>,
     mut cam: ResMut<SceneCam>,
     mut interest: ResMut<Interest>,
+    mut hud: ResMut<HudState>,
 ) {
     let Some(mut perf) = perf else { return };
     if !perf.step_ticks || loading.is_some_and(|l| !l.reported) || perf.seen < perf.warmup {
@@ -7330,14 +7351,24 @@ fn perf_step(
         return;
     };
     let started = std::time::Instant::now();
-    let raw = scripted_input(&setup.args, fixture, &sim.0, combat);
-    let _ = step_combat(
-        &mut sim.0,
-        combat,
-        &mut anim.0,
-        death.0.as_mut(),
-        [raw, RawInput::default()],
-    );
+    // PT-GATE-A: a room scene is driven by its room pilot (solo, slot 0 only, as the
+    // headless run and the presim do), with the HUD stepped as in the live loop.
+    let inputs = if setup.args.room_pilot.is_some() {
+        scripted_inputs(&setup.args, fixture, &sim.0, combat)
+    } else {
+        [
+            scripted_input(&setup.args, fixture, &sim.0, combat),
+            RawInput::default(),
+        ]
+    };
+    let restarts = combat.restarts;
+    let _ = step_combat(&mut sim.0, combat, &mut anim.0, death.0.as_mut(), inputs);
+    if setup.args.room_pilot.is_some() {
+        if combat.restarts != restarts {
+            hud.0.restart();
+        }
+        step_hud(&mut hud.0, &sim.0, Some(&*combat));
+    }
     if setup.args.death_stress
         && let Some(death) = death.0.as_mut()
     {
@@ -7448,10 +7479,11 @@ fn perf_probe(
                 .map(|w| format!("{}x{}", w.physical_width(), w.physical_height()))
                 .unwrap_or_default();
             println!(
-                "FLOOR1_PERF frames={} median_ms={:.2} p95_ms={:.2} mean_ms={:.2} max_ms={:.2} lighting={} window={size} present=AutoNoVsync warmup_frames={}",
+                "FLOOR1_PERF frames={} median_ms={:.2} p95_ms={:.2} p99_ms={:.2} mean_ms={:.2} max_ms={:.2} lighting={} window={size} present=AutoNoVsync warmup_frames={}",
                 stats.frames,
                 stats.median_ms,
                 stats.p95_ms,
+                stats.p99_ms,
                 stats.mean_ms,
                 stats.max_ms,
                 if lighting_on.0 { "on" } else { "off" },
@@ -7527,6 +7559,14 @@ fn watchdog(
 /// Render frames to wait after a state change before the screenshot request,
 /// and the most frames to wait for the file to appear.
 const CAPTURE_SETTLE_FRAMES: u32 = 4;
+/// Frames to wait before the **first** screenshot of a sequence. Textures are
+/// loaded when the loading report comes out, but the scene is not drawn yet: with
+/// the usual 4-frame settle the first screenshot came out near-black (the HUD text
+/// over a dark frame, 102 colours) in five of six xvfb runs and fully rendered in
+/// the sixth (5252 colours), so the palette a GIF samples from frame 0, and with it
+/// every byte of the GIF, changed from run to run. Measured: 10, 30 and 60 frames
+/// all gave the rendered frame in 6 of 6 runs; 60 leaves a margin (about 1 s).
+const CAPTURE_FIRST_SETTLE_FRAMES: u32 = 60;
 const CAPTURE_TIMEOUT_FRAMES: u32 = 900;
 /// Frames the saved file must keep its size before the next step.
 const CAPTURE_STABLE_FRAMES: u32 = 2;
@@ -7599,7 +7639,9 @@ fn capture_sequence(
     let phase = std::mem::replace(&mut seq.phase, CapturePhase::WaitReady);
     seq.phase = match phase {
         CapturePhase::WaitReady if loading.is_some_and(|l| l.reported) => {
-            CapturePhase::Settle(CAPTURE_SETTLE_FRAMES)
+            // PT-GATE-A: the first screenshot waits for the first real render (see
+            // `CAPTURE_FIRST_SETTLE_FRAMES`); later ones settle for a few frames.
+            CapturePhase::Settle(CAPTURE_FIRST_SETTLE_FRAMES)
         }
         CapturePhase::WaitReady => CapturePhase::WaitReady,
         CapturePhase::Settle(frames) if frames > 0 => CapturePhase::Settle(frames - 1),
@@ -8485,6 +8527,46 @@ mod tests {
             ])
             .is_ok()
         );
+        // PT-GATE-A: the mastery plan plays the closing arena only, and the perf
+        // probe (`--perf-from-tick`) takes a solo room pilot.
+        let mastery = ["--scene", "f01_late", "--f01-room", "mastery"];
+        let on_mastery = |extra: &[&str]| {
+            let mut list: Vec<&str> = mastery.to_vec();
+            list.extend_from_slice(extra);
+            args(&list)
+        };
+        assert!(on_mastery(&["--room-pilot", "mastery", "--headless-floor01-smoke"]).is_ok());
+        assert!(on_mastery(&["--room-pilot", "direct", "--headless-floor01-smoke"]).is_err());
+        assert!(with(&["--room-pilot", "mastery", "--headless-floor01-smoke"]).is_err());
+        let juicer = [
+            "--scene",
+            "f01_late",
+            "--f01-room",
+            "juicer",
+            "--headless-floor01-smoke",
+        ];
+        assert!(args(&[&juicer[..], &["--room-pilot", "juicer"]].concat()).is_ok());
+        assert!(args(&[&juicer[..], &["--room-pilot", "direct"]].concat()).is_err());
+        assert!(with(&["--room-pilot", "juicer", "--headless-floor01-smoke"]).is_err());
+        let perf = ["--perf-frames", "50", "--perf-from-tick", "0"];
+        let solo: Vec<&str> = ["--room-pilot", "chain"].into_iter().chain(perf).collect();
+        assert!(with(&solo).is_ok());
+        let duo: Vec<&str> = ["--room-pilot", "chain:2p"]
+            .into_iter()
+            .chain(perf)
+            .collect();
+        assert!(with(&duo).is_err());
+        assert!(
+            on_mastery(&[
+                "--room-pilot",
+                "mastery",
+                "--perf-frames",
+                "50",
+                "--perf-from-tick",
+                "0"
+            ])
+            .is_ok()
+        );
         // A live (unscripted) room run, an unknown plan and a missing value.
         assert!(with(&["--room-pilot", "direct"]).is_err());
         assert!(with(&["--room-pilot", "sprint", "--headless-floor01-smoke"]).is_err());
@@ -8666,6 +8748,7 @@ mod tests {
             (s.frames, s.median_ms, s.p95_ms, s.max_ms),
             (100, 50.0, 95.0, 100.0)
         );
+        assert_eq!(s.p99_ms, 99.0);
         assert_eq!(s.mean_ms, 50.5);
     }
 
