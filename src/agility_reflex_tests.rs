@@ -536,7 +536,7 @@ fn the_evade_share_is_measured_not_tuned() {
         "population = every cf02_* and companion party fixture; AI-Donut pilots = three solo pilots, 48 seeds each\n",
     );
     out.push_str(
-        "human-style Donut (DM-C F6) = cf02_arena_coop (P2 played as a human would) and the three solo pilots with target_ai_bias_px 0, 48 seeds each\n",
+        "human-style Donut (DM-C F6) = cf02_arena_coop only (P2 played as a human would). The three solo pilots with target_ai_bias_px 0 are still AI-Donut data (bias 0 changes nothing in these rooms: the rows equal the AI-Donut rows), so the combined total below is mostly AI-Donut data; read the coop row as the human-style number\n",
     );
     out.push_str(
         "the AI-Donut rows measure the AI Donut, which the shipped rooms almost never attack; with a 12 s rearm the reflex is either not yet ready or swallows the opener of the next wave\n",
@@ -631,10 +631,15 @@ fn the_evade_share_is_measured_not_tuned() {
                 pilots_all.openers
             ));
             for (name, row) in &human_rows {
-                out.push_str(&row_line("human-style Donut", name, row));
+                let kind = if name.starts_with("cf02_arena_coop") {
+                    "human-style Donut"
+                } else {
+                    "AI-Donut pilot, bias 0 (equals the AI rows)"
+                };
+                out.push_str(&row_line(kind, name, row));
             }
             out.push_str(&format!(
-                "human-style Donut all: attempts {} evades {} share {:.1}% | openers {}/{} evaded\n\n",
+                "coop plus bias-0 pilots (mostly AI-Donut data, not a human-style total): attempts {} evades {} share {:.1}% | openers {}/{} evaded\n\n",
                 human_all.attempts,
                 human_all.evades,
                 share(&human_all),

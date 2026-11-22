@@ -50,16 +50,19 @@ decision: no share target, 720 ticks stays the default whatever it shows):
 
 **DM-C update (F5, F6).** The tally now classifies a hurt by its source id and a test-only counter at
 `Reflex::check` (the spec's definition of an attempt) must agree with it. A **human-style Donut**
-population is added: `cf02_arena_coop` (P2 played as a human would) and the three solo pilots with
-`target_ai_bias_px` 0, 48 seeds each. Reading it, on top of the AI-Donut rows below:
+population is added: `cf02_arena_coop` (P2 played as a human would), 48 seeds. The three solo pilots are
+also run with `target_ai_bias_px` 0, but bias 0 changes nothing in these rooms: those rows equal the AI-Donut
+rows, so they are labelled AI-Donut data and the combined line is not a human-style total. **The human-style
+number is the coop row** (a small sample, 23 to 29 attempts). A swap-to-Donut pilot is a follow-up. Reading it,
+on top of the AI-Donut rows below:
 
-- **The AI-Donut rows measure the AI Donut, which the shipped rooms almost never attack.** With a
-  human-style Donut the first attack on her arrives on tick 371 to 603 of an attempt, always before the
-  720-tick arm. So in A (biscuit from tick 0) it is **0 of 23 evaded at 720 and 900 (1 of 24 at 600)**:
+- **The AI-Donut rows measure the AI Donut, which the shipped rooms almost never attack.** With the
+  human-style Donut (the coop row) the first attack on her arrives on tick 371 to 603 of an attempt, always
+  before the 720-tick arm. So in A (biscuit from tick 0) it is **0 of 23 evaded at 720 and 900 (1 of 24 at 600)**:
   the reflex is not yet ready for the opener, and each attempt then restarts the wait.
-- Pre-armed (B, the reflex ready when the room starts) the coop row evades **10 of 29** and the human-style
-  total **52 of 71 (73.2 %)**, openers 52 of 66; the other attempts land while she re-arms (12 s after a
-  hurt or an evade). Rearm 600, 720 and 900 still give the same B table.
+- Pre-armed (B, the reflex ready when the room starts) the coop row, the human-style number, evades **10 of 29**
+  (openers 10 of 24); the other attempts land while she re-arms (12 s after a hurt or an evade). The
+  combined line (52 of 71) is mostly the AI Donut's Engineer ram, 42 of 42, and is not a human-style total. Rearm 600, 720 and 900 still give the same B table.
 - So with a 12 s rearm the reflex is either not yet ready or swallows the opener of the next wave
   (spec U1). This is a measurement for the owner's playtest (`--cf02 --donut-biscuit`), not a tuning:
   720 stays the default.
@@ -85,7 +88,7 @@ dependent). The deterministic half is pinned by the tests and the headless repla
 | File | What it shows |
 | --- | --- |
 | [`dm_a_run_race_1x.gif`](dm_a_run_race_1x.gif) | GIF 1 (DM-A, unchanged: no biscuit, so no cue): both run 120 ticks, she ends 44 px ahead |
-| [`dm_a_jump_race_1x.gif`](dm_a_jump_race_1x.gif) | GIF 2 (DM-A, unchanged): a standing and a running jump at a 96 px ledge, she lands, he does not |
+| [`dm_a_jump_race_1x.gif`](dm_a_jump_race_1x.gif) | GIF 2 (DM-A, unchanged, 1x crop): the jump-height race in the open hall, a standing and a running jump side by side (apex and distance). There is no 96 px ledge in it; the ledge landings are proven by the DM-A geometry tests. GIFs 1 and 2 are 1x crops, not the 2x of spec section 7 |
 | [`dm_c_gif3_reflex.gif`](dm_c_gif3_reflex.gif) | GIF 3, `cf02_dm_reflex_cues`, 2x, half speed: the glint blinks while she is armed (arms 720), the goblin swings (729), the evade (arc, two afterimages, the white streak), she steps back, smug (756..775), the glint is gone; then "12 s later", ticks 1446 to 1486, armed again (1449) and the glint is back |
 | [`dm_c_gif4_perch_jump_hud.gif`](dm_c_gif4_perch_jump_hud.gif) | GIF 4, `cf02_arena_dm_perch_jump`, 2x, the HUD drawn: a running jump onto the left perch, then a standing jump under the DM-Q27 lane ceiling (bonk at feet 176); her drawn top stays under the HUD band |
 | [`dm_c_cues_sheet.png`](dm_c_cues_sheet.png) | The contact sheet: one panel per cue tick at 3x (not armed, glint and flick, glint off, the evade at ages 0, 3, 6 and 11, smug, spent, armed again) |
