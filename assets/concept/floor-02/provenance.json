@@ -1,0 +1,124 @@
+{
+  "schema": "floor02-concept-provenance/1",
+  "project": "THE CRAWL — NO PANTS. NO MERCY.",
+  "created_date": "2026-11-22",
+  "source": "ChatGPT project conversation, existing rendered concept outputs and original offline HTML storyboard",
+  "tool_credits": {
+    "concept_images": "OpenAI image generation (exact model version not retained)",
+    "storyboard": "ChatGPT-authored standalone HTML Canvas source",
+    "panel_crops": "Pillow lossless cropping; no interpolation"
+  },
+  "source_prompt_retained": false,
+  "licensed_external_media_used_in_pack": "none supplied or copied into this zip; image-generation input history is not fully preserved",
+  "reference_basis": "User-established Floor 02 design, fan-concept characters and industrial pixel-art visual direction",
+  "scope": "public-repo conceptual art reference only; not game distribution or standalone reuse license",
+  "repo_rights_policy": "docs/04-production/rights-and-release.md",
+  "target_pr": "https://github.com/pando85/dungeon-floorbreak/pull/239",
+  "approved_production_art": false,
+  "owner_review": "pending",
+  "independent_pixel_art_review": "pending",
+  "files": [
+    {
+      "file": "README.md",
+      "sha256": "8a3f1d480e1b39750e0517385e304a3a3ca2bc0ef9e23e9000708a53c83a04cc",
+      "kind": "documentation",
+      "image": null,
+      "approval_status": "exploratory_not_approved"
+    },
+    {
+      "file": "crops/clurichaun-reference.png",
+      "sha256": "55bb9568b0ea57a519b55131d6c0fd9dadf0d05b9df301ba483f7c251834ee93",
+      "kind": "png_cropped_reference",
+      "image": {
+        "width": 563,
+        "height": 367,
+        "mode": "RGB"
+      },
+      "approval_status": "exploratory_not_approved"
+    },
+    {
+      "file": "crops/grub-vespa-reference.png",
+      "sha256": "92efb2282c66c5d8db46a25152b4a876c4269ff28fc203bb123c68c3dd75dbc5",
+      "kind": "png_cropped_reference",
+      "image": {
+        "width": 544,
+        "height": 364,
+        "mode": "RGB"
+      },
+      "approval_status": "exploratory_not_approved"
+    },
+    {
+      "file": "crops/kobold-dingo-reference.png",
+      "sha256": "faf89d70007519aab2e4cfd6064529e20d619413cf77d02b7acbd406dbccd7bd",
+      "kind": "png_cropped_reference",
+      "image": {
+        "width": 563,
+        "height": 364,
+        "mode": "RGB"
+      },
+      "approval_status": "exploratory_not_approved"
+    },
+    {
+      "file": "crops/laminak-reference.png",
+      "sha256": "9b4fce20cb32903564888b47547c1e26f82f27b87b9e4d5dc0c3338bfd046130",
+      "kind": "png_cropped_reference",
+      "image": {
+        "width": 554,
+        "height": 367,
+        "mode": "RGB"
+      },
+      "approval_status": "exploratory_not_approved"
+    },
+    {
+      "file": "crops/mind-horror-reference.png",
+      "sha256": "ccbacf9e47d60502d224f4ea8fbc4d56a9f48ab1c090f8b809b5823e2ce75933",
+      "kind": "png_cropped_reference",
+      "image": {
+        "width": 544,
+        "height": 367,
+        "mode": "RGB"
+      },
+      "approval_status": "exploratory_not_approved"
+    },
+    {
+      "file": "crops/ralph-reference.png",
+      "sha256": "efa7212f342eeb38fb483f15fc581afadec112eb77218cdc813894d7d7a2a8fb",
+      "kind": "png_cropped_reference",
+      "image": {
+        "width": 554,
+        "height": 364,
+        "mode": "RGB"
+      },
+      "approval_status": "exploratory_not_approved"
+    },
+    {
+      "file": "floor-02-enemy-acting-concept-sheet.png",
+      "sha256": "6c772fe5d10a100dd2861bc622f2339e5760fcb1b283f6d08aca741cb7452a5e",
+      "kind": "generated_concept_png",
+      "image": {
+        "width": 1672,
+        "height": 941,
+        "mode": "RGB"
+      },
+      "approval_status": "exploratory_not_approved"
+    },
+    {
+      "file": "floor-02-storyboard.html",
+      "sha256": "455b247793f56e5b532cc502e7b9dcb59fe129ce6dea675d4b0d315b3891aab9",
+      "kind": "offline_storyboard",
+      "image": null,
+      "approval_status": "exploratory_not_approved"
+    },
+    {
+      "file": "revup-krakaren-key-art.png",
+      "sha256": "ae95470a233399debf75aa0a4efbbebd7c7df7bf8952794a2c8a1f1e0ad04fe0",
+      "kind": "generated_concept_png",
+      "image": {
+        "width": 1672,
+        "height": 941,
+        "mode": "RGB"
+      },
+      "approval_status": "exploratory_not_approved"
+    }
+  ]
+}
