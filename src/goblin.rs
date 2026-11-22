@@ -301,6 +301,8 @@ impl Wake {
                     WakePhase::Counting { left, alert }
                 };
             }
+            // A hit during the delay ends it: the enemy is awake and alert at once.
+            WakePhase::Counting { .. } if touched => self.phase = WakePhase::Awake { alert: true },
             WakePhase::Counting { left, alert } => {
                 let left = left - 1;
                 self.phase = if left == 0 {
@@ -2875,6 +2877,33 @@ mod tests {
         let first = by_trigger.x;
         wake_tick(&mut by_trigger, 560.0);
         assert!(by_trigger.x < first, "alert: it keeps coming at 380 px");
+    }
+
+    /// A hit during the delay ends it: the enemy is awake and alert on that tick (e1 waits
+    /// 90 ticks; a hit must not leave him inert). Under the FA-Q20 knob: the gate, and so
+    /// this rule, exists only with `fa_q20_wake_gates` on.
+    #[test]
+    fn a_hit_during_the_delay_wakes_it_at_once() {
+        let mut g = goblin_at(1000.0).with_wake(WakeGate {
+            delay_ticks: 90,
+            ..GATE
+        });
+        wake_tick(&mut g, 560.0);
+        wake_tick(&mut g, 560.0);
+        assert!(g.wake_holds(), "counting the delay");
+        g.take_hit(&CARL_JAB, 1);
+        g.observe_wake(&[560.0]);
+        assert!(!g.wake_holds(), "the hit ended the delay");
+        assert!(g.wake.unwrap().alert());
+        // Without a hit the same enemy is still held a tick later.
+        let mut quiet = goblin_at(1000.0).with_wake(WakeGate {
+            delay_ticks: 90,
+            ..GATE
+        });
+        for _ in 0..3 {
+            wake_tick(&mut quiet, 560.0);
+        }
+        assert!(quiet.wake_holds());
     }
 
     /// A hit wakes it at once, alert, whatever the delay.

@@ -1014,11 +1014,13 @@ mod tests {
     }
 
     /// FA-Q20 (T27): g3 is the third enemy; once Carl reaches the trigger column it
-    /// wakes (Carl is far from the lane then) and, with the drum out of the way, walks
-    /// to him through the steam lane (688..768). Carl, back at the valve, sets it off
-    /// while g3 is in the lane and the steam scalds it; without the vent the same run
-    /// leaves it unhurt. Scripted by position, with everyone but g3 taken out of the
-    /// room.
+    /// wakes (Carl is far from the lane then). The drum is blown first by a goblin
+    /// launched into it (through the runtime, as in play), which opens the way and
+    /// leaves g3, out of the blast's reach, at full health; g3 then walks to Carl
+    /// through the steam lane (688..768). Carl, back at the valve, sets it off while g3
+    /// is on its way and the steam scalds it (1 of its 2 health); without the vent the
+    /// same run leaves it untouched. Scripted by position; g1 and e1 are taken out of
+    /// the room and g2 (1 health) is the launched body.
     #[test]
     fn boil_b3_vented_in_the_lane() {
         const G3: usize = 2;
@@ -1032,10 +1034,11 @@ mod tests {
                 .with_cf02()
                 .with_env(env_runtime(&r).unwrap());
             combat.sync_env(&mut scene);
-            for g in [0, 1, 3] {
+            for g in [0, 3] {
                 combat.enemies[g].health = 0;
                 combat.enemies[g].mode = crate::goblin::GoblinMode::Corpse;
             }
+            combat.enemies[1].health = 1;
             let walk = |dir: f32| RawInput {
                 move_x: dir,
                 ..RawInput::NONE
@@ -1044,8 +1047,18 @@ mod tests {
             // valve's reach (facing it); 3: stand and jab.
             let mut phase = 0;
             let mut jabs: Vec<u64> = Vec::new();
-            let (mut woke, mut in_lane, mut stood) = (None, false, false);
-            for t in 0..700u64 {
+            let (mut woke, mut in_lane) = (None, false);
+            for t in 0..800u64 {
+                if t == 5 {
+                    // A fast rising arc into the drum's face (the `wall_stop` cases):
+                    // the drum is set off by the launched body and blows 24 ticks later.
+                    let g2 = &mut combat.enemies[1];
+                    g2.x = 800.0;
+                    g2.mode = crate::goblin::GoblinMode::Launched;
+                    g2.vx = 250.0;
+                    g2.vy = 150.0;
+                    g2.launch = Some(9);
+                }
                 let x = scene.world.hero.x;
                 match phase {
                     0 if x >= 562.0 => phase = 1,
@@ -1074,21 +1087,17 @@ mod tests {
                 if woke.is_none() && !combat.enemies[G3].wake_holds() {
                     woke = Some(t);
                 }
-                if phase == 3 && jabs.is_empty() && !stood {
-                    // The drum's solid (848..880) walls g3 off the lane while it stands
-                    // (see `the_drum_walls_g3_off_the_lane_until_it_blows`); this setup
-                    // stands g3 where it would be once the drum has blown, as Carl
-                    // reaches the valve.
-                    stood = true;
-                    combat.enemies[G3].x = 780.0;
-                }
                 in_lane |= (688.0..768.0).contains(&combat.enemies[G3].x);
             }
+            let drum_blown =
+                combat.env().unwrap().drum_state(2) == Some(crate::env_prop::DrumState::Detonated);
             let g3 = &combat.enemies[G3];
+            assert!(drum_blown, "the launched body blew the drum");
+            assert!(g3.alive(), "g3 survives with 1 of 2 health at most");
             (
                 woke,
                 in_lane,
-                g3.health < crate::combat::ENEMY_HEALTH || !g3.alive(),
+                g3.health < crate::combat::ENEMY_HEALTH,
                 jabs.len(),
             )
         };

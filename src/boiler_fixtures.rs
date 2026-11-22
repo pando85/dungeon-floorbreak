@@ -1703,13 +1703,13 @@ mod scene_pilot_tests {
     }
 
     /// FA-Q16 (PR-C), the active partner: after PR-A's prop-safe fire rule the AI partner
-    /// (`cf02_assist` under Carl solo, `cf02_free` as the companion) hits no prop on the
+    /// (`cf02_assist` under Carl solo and under the swap, where Carl is the AI partner after it, `cf02_free` as the companion) hits no prop on the
     /// direct route. PR-A removes the ignore (the declared one-line exception to file
     /// ownership); until then the test documents the open target.
     #[test]
     #[ignore = "needs PR-A FA-Q16"]
     fn the_active_partner_hits_no_prop_on_the_direct_route() {
-        for who in [Who::CarlSolo, Who::Companion] {
+        for who in [Who::CarlSolo, Who::DonutBySwap, Who::Companion] {
             for seed in 0..=8 {
                 let r = run_live(&root(), who, Plan::Direct, seed).unwrap();
                 assert_eq!(r.partner_prop_hits, 0, "{who:?} seed {seed}");

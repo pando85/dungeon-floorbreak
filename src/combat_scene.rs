@@ -78,6 +78,19 @@ pub use donut::{Bolt, Cast, DonutKit};
 /// half widths): the haymaker's step stops here.
 const BODY_CONTACT: f32 = HERO_HALF_WIDTH + crate::combat::ENEMY_HALF_WIDTH;
 
+/// FA-Q20: the columns of the heroes that can wake a gated enemy: those with health
+/// left, and none while the party is defeated (a downed hero trips no trigger).
+fn wake_columns(party_defeated: bool, bodies: &[(f32, u8)]) -> Vec<f32> {
+    if party_defeated {
+        return Vec::new();
+    }
+    bodies
+        .iter()
+        .filter(|(_, health)| *health > 0)
+        .map(|(x, _)| *x)
+        .collect()
+}
+
 /// One goblin spawn: its centre column and behaviour. It stands on the same
 /// walking line as Carl (checked on load).
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -2243,10 +2256,11 @@ impl CombatState {
         }
         // FA-Q20: the wake gates of the roster (nothing without a gated entry).
         if self.wake_gates.iter().any(Option::is_some) {
-            let mut heroes = vec![scene.world.hero.x];
+            let mut bodies = vec![(scene.world.hero.x, scene.world.hero.health)];
             if live {
-                heroes.push(scene.world.donut_body.x);
+                bodies.push((scene.world.donut_body.x, scene.world.donut_body.health));
             }
+            let heroes = wake_columns(self.hero_defeated, &bodies);
             for g in &mut self.enemies {
                 g.observe_wake(&heroes);
             }
@@ -4446,6 +4460,19 @@ mod tests {
         assert!(!sim.combat.hero_defeated);
         assert_eq!(sim.scene.world.hero.health, HERO_HEALTH);
         assert_eq!(sim.scene.world.hero.x, 400.0);
+    }
+
+    /// FA-Q20: only heroes with health left trip a wake trigger, and none while the party
+    /// is defeated.
+    #[test]
+    fn a_downed_hero_trips_no_wake_trigger() {
+        assert_eq!(
+            wake_columns(false, &[(600.0, 3), (100.0, 4)]),
+            [600.0, 100.0]
+        );
+        assert_eq!(wake_columns(false, &[(600.0, 0), (100.0, 4)]), [100.0]);
+        assert_eq!(wake_columns(false, &[(600.0, 0)]), Vec::<f32>::new());
+        assert!(wake_columns(true, &[(600.0, 3), (100.0, 4)]).is_empty());
     }
 
     #[test]
