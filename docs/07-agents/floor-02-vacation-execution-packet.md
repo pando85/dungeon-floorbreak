@@ -4,6 +4,10 @@
 
 **Authority/read order for this packet:** owner-accepted Floor 01 GAMEPLAY-BASELINE-V1 (when available) -> repository architecture/ADRs -> [verified engine mapping](../03-tech/floor-02-engine-reuse-and-route-contract.md) -> [Floor02 game bible](../01-design/floor-02-last-lesson-design-bible.md) -> [six encounter/acting/director briefs](../01-design/floor-02-encounter-composition-and-difficulty.md) -> [QA guide](../03-tech/floor-02-automated-encounter-evaluation.md). Follow source references named in each work item rather than reading 10 large docs for every small issue.
 
+## Shared campaign integration reference (F03 PR #246)
+
+**One cross-floor story owner:** the [CAMPAIGN-BRIDGE-01 test matrix](https://github.com/pando85/dungeon-floorbreak/blob/design/f03-over-city-bible/docs/03-tech/floor-03-campaign-bridge-acceptance.md) in the separate **draft PR #246** defines the expected Floor01→02→03→04 capability carry, F02 S07 Rage-only stair, true post-Ralph/Mongo Floor03 entry, Floor03 Guild class narrative, early circus stair and final Remex/Floor04 exit. This is a **proposal and 20 test vectors, not an implemented engine API**. The Floor02 integrator must coordinate one route/story authority with the future Floor03 author and should not create incompatible floor-specific plot ledgers. Floor02's playable S00–S03 slice remains first in priority.
+
 ## 0. Product goal and anti-rework agreement
 
 Deliver **as much real, coherent Floor 02 gameplay as the actual current architecture safely supports**, keeping Floor 01 tests and user-approved game feel stable. Five player-facing continuous chapters A–E from ten internal encounter beats S00–S09. The Floor 02 should have satisfying direct physical combat; spectacle routes are optional and physical; the Rage Elemental escape is a specifically marked exception to normal HP combat; Ralph is genuinely tiny and still fair; only after Ralph/Mongo does the party descend to Floor 3.
