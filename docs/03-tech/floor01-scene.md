@@ -904,7 +904,7 @@ Part C of [AUDIENCE-01](../02-art/individual-viewers-hud-v1.md): each hero plate
 
 ```text
 cargo run --release --bin floor01_scene -- --scene f01_late --scale 2
-    [--f01-room hoarder|boiler|hazards|juicer|mastery]   # default: boiler
+    [--f01-room boiler|hazards|juicer|mastery]   # default: boiler (the Hoarder is `--scene f01_hoarder`, PTG-AD1)
     [--f01-loadout story|all]             # default: story
 ```
 
@@ -949,7 +949,7 @@ cargo run --release --bin floor01_scene -- --scene f01_late --scale 2
 The deterministic, scripted capture of an `f01_late` room, reused by every room evidence stage (BOIL-F first, then HAZ-C, HRD-D). No synthetic input is ever sent into a window: a **room pilot** (`src/room_pilots.rs`, Bevy-free) is a pure function of the finished simulation state, so the run is a function of the command line alone.
 
 ```text
-floor01_scene --scene f01_late --f01-room boiler|hoarder|hazards|mastery|juicer --room-pilot PLAN[:2p] \
+floor01_scene --scene f01_late --f01-room boiler|hazards|mastery|juicer --room-pilot PLAN[:2p] | mastery|juicer:WHO:SEED \
     (--capture-sequence FIRST:STEP:COUNT --capture-dir DIR | --capture-tick N --headless-floor01-smoke | --exit-after-ticks N
      | --perf-frames F --perf-from-tick 0)
 bash scripts/room_capture.sh ROOM PLAN FIRST:STEP:COUNT OUTDIR      # window frames + headless replay + hash check

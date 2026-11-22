@@ -1,14 +1,7 @@
 {
   "schema": "f01-late-manifest-v1",
-  "status": "PT-SCENE (docs/07-agents/f01-playtest-integration-plan.md section 4.7, section 8, KR12). The rooms of the late-Floor-1 playtest slice that can be launched with `--scene f01_late --f01-room <id>`. A room is listed only once it has landed; later steps append their rows (CORRAL-WIRE: corral, RING-A wire: ring_court and ring_split, PT-MASTERY: mastery, now listed; HRD-A2b listed hoarder and HAZ-A2b listed hazards) and re-pin the manifest hash in src/f01_late.rs. `story_order` is the static order of every slice room and grant point, listed or not, that the KR12 pin test reads: no room pin holds a capability whose grant point comes later.",
+  "status": "PT-SCENE (docs/07-agents/f01-playtest-integration-plan.md section 4.7, section 8, KR12). The rooms of the late-Floor-1 playtest slice that can be launched with `--scene f01_late --f01-room <id>`. A room is listed only once it has landed; later steps append their rows (CORRAL-WIRE: corral, RING-A wire: ring_court and ring_split, PT-MASTERY: mastery, now listed; HAZ-A2b listed hazards; PTG-AD1 unlisted hoarder again, its room stays reachable as `--scene f01_hoarder` and in `story_order`) and re-pin the manifest hash in src/f01_late.rs. `story_order` is the static order of every slice room and grant point, listed or not, that the KR12 pin test reads: no room pin holds a capability whose grant point comes later.",
   "rooms": [
-    {
-      "id": "hoarder",
-      "title": "The Hoarder",
-      "scene": "f01_hoarder",
-      "rules": "cf02_rules",
-      "milestone": "boss"
-    },
     {
       "id": "boiler",
       "title": "Goblin Boiler",

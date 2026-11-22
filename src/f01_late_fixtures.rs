@@ -156,7 +156,7 @@ pub const JUICER_SEEDS: std::ops::Range<u64> = 0..9;
 pub const JUICER_RUN_TICKS: u64 = 9600;
 /// The jab string period the base-kit pilot swings on (`boss_scene`); the
 /// seed shifts the pilot's phase inside it (PTB-AD2).
-const SWING_PERIOD: u64 = 12;
+pub const SWING_PERIOD: u64 = 12;
 
 /// Who plays the Juicer's room: solo Carl, solo Donut by swap and the
 /// autonomous companion (`--companion cf02_free`), gate item 5 (PTB-AD1).

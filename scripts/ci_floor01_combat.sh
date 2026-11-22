@@ -508,7 +508,7 @@ case "$mode" in
     # its room; the story loadout of the Boiler differs from the plain room (the
     # pin holds dynamite and Light on Your Feet), and the plain room is unchanged.
     late_lines() { "$bin" --headless-floor01-smoke --scene f01_late "$@" | grep -E '^(F01_LATE_ENTRY|F01_(BOILER|HOARDER|HAZARDS|MASTERY)_(ENTRY|SMOKE_OK)|COMBAT_STATE)'; }
-    for late_args in "--f01-room boiler" "--f01-room boiler --f01-loadout all" "--f01-room juicer" "--f01-room juicer --f01-loadout all" "--f01-room hoarder" "--f01-room hoarder --f01-loadout all" "--f01-room hazards" "--f01-room hazards --f01-loadout all" "--f01-room mastery" "--f01-room mastery --f01-loadout all" "--f01-room mastery --cf02-seed 7"; do
+    for late_args in "--f01-room boiler" "--f01-room boiler --f01-loadout all" "--f01-room juicer" "--f01-room juicer --f01-loadout all" "--f01-room hazards" "--f01-room hazards --f01-loadout all" "--f01-room mastery" "--f01-room mastery --f01-loadout all" "--f01-room mastery --cf02-seed 7"; do
       # shellcheck disable=SC2086
       late_a="$(late_lines $late_args)"
       # shellcheck disable=SC2086
@@ -536,7 +536,7 @@ case "$mode" in
     # acid patches) launch from the f01_late story loadout and replay identically
     # twice; the story loadout differs from the TEST LOADOUT (the pin holds
     # abilities), and each room's marker names its pin and roster.
-    for room_marker in "hoarder F01_HOARDER_SMOKE_OK slot_enemies=1" "hazards F01_HAZARDS_SMOKE_OK slot_enemies=2"; do
+    for room_marker in "hazards F01_HAZARDS_SMOKE_OK slot_enemies=2"; do
       read -r slot_room slot_marker slot_count <<<"$room_marker"
       story_state="$(late_lines --f01-room "$slot_room")"
       all_state="$(late_lines --f01-room "$slot_room" --f01-loadout all)"
@@ -581,8 +581,9 @@ case "$mode" in
     fi
     echo "F01_BOILER_PILOTS_OK: $(wc -l <<<"$pilots") plans, each twice identical and equal to the committed hashes"
     # PT-GATE-B: the mastery room pilot (src/room_pilots.rs, `mastery`) replays identically twice
-    # (the helper exits non-zero otherwise) and equals the committed final state. Unlike the Boiler
-    # plans it is defeated once on the way (deaths=1) at the room's own seed: that is pinned, not hidden.
+    # (the helper exits non-zero otherwise) and equals the committed final state. Since PT-GATE-C1 the plain
+    # `mastery` plan is the PT-TUNE `carl_solo` fixture at seed 0 (the live party and its assist partner), so
+    # it is not defeated (deaths=0), unlike the follower-bot run it replaced.
     mastery_pilot="$(BIN="$bin" python3 scripts/room_pilot_hashes.py mastery mastery)"
     if [[ "$mastery_pilot" != "$(cat docs/evidence/f01-playtest/pilot_hashes_mastery.txt)" ]] \
       || ! grep -q ' complete=' <<<"$mastery_pilot"; then
@@ -591,7 +592,20 @@ case "$mode" in
       exit 1
     fi
     echo "F01_MASTERY_PILOT_OK: $mastery_pilot"
-    echo "F01_LATE_HEADLESS_OK: boiler, hoarder, hazards, juicer and mastery, story and all, each twice identical"
+    # PT-GATE-C1: the aligned room pilots (`mastery|juicer:WHO:SEED`) run the library fixture's party and seed
+    # through the live party: each replays identically twice and prints its ROOM_PILOT_STATE (the fixture hash,
+    # asserted equal to the library's for every (who, seed) by the unit tests).
+    for aligned in mastery:donut_by_swap:3 mastery:companion:5 juicer:carl_solo:0 juicer:companion:2; do
+      aligned_room="${aligned%%:*}"
+      aligned_a="$("$bin" --headless-floor01-smoke --scene f01_late --f01-room "$aligned_room" --room-pilot "$aligned" --capture-tick 1500 | grep '^ROOM_PILOT_STATE')"
+      aligned_b="$("$bin" --headless-floor01-smoke --scene f01_late --f01-room "$aligned_room" --room-pilot "$aligned" --capture-tick 1500 | grep '^ROOM_PILOT_STATE')"
+      if [[ -z "$aligned_a" || "$aligned_a" != "$aligned_b" ]]; then
+        echo "--room-pilot $aligned did not replay identically twice with its ROOM_PILOT_STATE" >&2
+        exit 1
+      fi
+    done
+    echo "F01_ALIGNED_PILOTS_OK: 4 aligned room pilots, each twice identical"
+    echo "F01_LATE_HEADLESS_OK: boiler, hazards, juicer and mastery, story and all, each twice identical"
     ;;
   render)
     for f in "${fixtures[@]}"; do

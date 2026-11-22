@@ -22,7 +22,7 @@ use crate::corridor::SceneSim;
 use crate::env_prop::{MassState, ValveState};
 use crate::goblin::GoblinMode;
 use crate::input::RawInput;
-use crate::party::HeroId;
+use crate::party::{HeroId, PartyTuning};
 use crate::prototype::{HERO_HALF_HEIGHT, HERO_HALF_WIDTH, Rect};
 
 /// Ticks between the two distinct jabs a prop needs (the scene pilots use 1 and 31).
@@ -35,6 +35,8 @@ const KICK_STAND_X: f32 = 380.0;
 /// Where the chain pilot walks to wake the goblins that are still asleep, and
 /// how close (px) a goblin must be to count as following him.
 const LURE_X: f32 = 560.0;
+/// The overshoot past the wake trigger (px): `walk_to` stops within 4 px of its target.
+const LURE_MARGIN: f32 = 6.0;
 const LURE_RANGE: f32 = 200.0;
 /// Carl backs off while the follower is nearer than this (px).
 const KITE_GAP: f32 = 110.0;
@@ -79,18 +81,101 @@ impl Plan {
     }
 }
 
-/// A parsed `--room-pilot` value: `PLAN` or `PLAN:2p`.
+/// PT-GATE-C1: who plays an aligned room pilot (`mastery:<who>:<seed>`,
+/// `juicer:<who>:<seed>`): the same four pilots as the library fixtures
+/// ([`crate::f01_mastery_fixtures::Who`] and [`crate::f01_late_fixtures::JuicerWho`]),
+/// so a scene run and a library run play the same fight.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AlignedWho {
+    /// Solo Carl; the other hero is the party's `cf02_assist` partner (mastery) or the
+    /// follow-and-jump bot (Juicer).
+    CarlSolo,
+    /// Carl clears the room, then the swap, then Donut (solo) walks to the exit.
+    DonutBySwap,
+    /// Mastery only: the swap on tick 90, Donut (solo) fights the room.
+    DonutFights,
+    /// Carl is the pilot's, Donut is the autonomous `cf02_free` partner.
+    Companion,
+}
+
+impl AlignedWho {
+    pub const fn token(self) -> &'static str {
+        match self {
+            Self::CarlSolo => "carl_solo",
+            Self::DonutBySwap => "donut_by_swap",
+            Self::DonutFights => "donut_fights",
+            Self::Companion => "companion",
+        }
+    }
+
+    fn parse(value: &str) -> Option<Self> {
+        [
+            Self::CarlSolo,
+            Self::DonutBySwap,
+            Self::DonutFights,
+            Self::Companion,
+        ]
+        .into_iter()
+        .find(|who| who.token() == value)
+    }
+
+    /// The library fixture's `Who` of the mastery room.
+    pub const fn mastery(self) -> crate::f01_mastery_fixtures::Who {
+        use crate::f01_mastery_fixtures::Who;
+        match self {
+            Self::CarlSolo => Who::CarlSolo,
+            Self::DonutBySwap => Who::DonutBySwap,
+            Self::DonutFights => Who::DonutFights,
+            Self::Companion => Who::Companion,
+        }
+    }
+}
+
+/// An aligned room pilot: the library fixture's pilot, party and seed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Aligned {
+    pub who: AlignedWho,
+    pub seed: u64,
+}
+
+/// A parsed `--room-pilot` value: `PLAN`, `PLAN:2p`, or `mastery|juicer:WHO:SEED`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RoomPilot {
     pub plan: Plan,
     /// P2 plays Donut with the CF02 pilot (two local players); otherwise the
     /// follower bot drives her, as in every scripted solo run.
     pub two_player: bool,
+    /// PT-GATE-C1: the run is the library fixture's (same party, same seed, same
+    /// inputs). The plain `mastery` plan is `mastery:carl_solo:0`; the plain
+    /// `juicer` plan stays the unaligned PT-GATE-A pilot.
+    pub aligned: Option<Aligned>,
 }
 
 impl RoomPilot {
     pub fn parse(value: &str) -> Result<Self, String> {
         let (plan, rest) = value.split_once(':').map_or((value, ""), |(a, b)| (a, b));
+        if let Some((who, seed)) = rest.split_once(':')
+            && matches!(plan, "mastery" | "juicer")
+        {
+            // PT-GATE-C1: `mastery:<who>:<seed>` and `juicer:<who>:<seed>`.
+            let juicer = plan == "juicer";
+            let who = AlignedWho::parse(who)
+                .filter(|who| !(juicer && *who == AlignedWho::DonutFights))
+                .ok_or_else(|| {
+                    format!(
+                        "bad --room-pilot who {who:?} (expected carl_solo, donut_by_swap, {}companion)",
+                        if juicer { "" } else { "donut_fights, " }
+                    )
+                })?;
+            let seed = seed
+                .parse::<u64>()
+                .map_err(|_| format!("bad --room-pilot seed {seed:?} (an integer)"))?;
+            return Ok(Self {
+                plan: if juicer { Plan::Juicer } else { Plan::Mastery },
+                two_player: false,
+                aligned: Some(Aligned { who, seed }),
+            });
+        }
         let plan = match plan {
             "direct" => Plan::Direct,
             "valve" => Plan::Valve,
@@ -99,7 +184,7 @@ impl RoomPilot {
             "juicer" => Plan::Juicer,
             other => {
                 return Err(format!(
-                    "unknown --room-pilot plan {other:?} (expected direct, valve, chain, mastery or juicer, optionally :2p)"
+                    "unknown --room-pilot plan {other:?} (expected direct, valve, chain, mastery or juicer, optionally :2p, or mastery|juicer:WHO:SEED)"
                 ));
             }
         };
@@ -112,12 +197,25 @@ impl RoomPilot {
                 ));
             }
         };
-        Ok(Self { plan, two_player })
+        // The plain mastery plan is the library's `carl_solo` at seed 0 (PT-GATE-C1).
+        let aligned = (plan == Plan::Mastery && !two_player).then_some(Aligned {
+            who: AlignedWho::CarlSolo,
+            seed: 0,
+        });
+        Ok(Self {
+            plan,
+            two_player,
+            aligned,
+        })
     }
 
     /// The value that parses back to this pilot.
     pub fn label(self) -> String {
-        if self.two_player {
+        if let Some(a) = self.aligned
+            && !(self.plan == Plan::Mastery && a.who == AlignedWho::CarlSolo && a.seed == 0)
+        {
+            format!("{}:{}:{}", self.plan.name(), a.who.token(), a.seed)
+        } else if self.two_player {
             format!("{}:2p", self.plan.name())
         } else {
             self.plan.name().to_owned()
@@ -146,6 +244,86 @@ impl RoomPilot {
             RawInput::NONE
         };
         [carl, donut]
+    }
+}
+
+/// PT-GATE-C1: the party tuning of an aligned run, the library fixture's own
+/// ([`crate::f01_mastery_fixtures::tuning`]; the Juicer's room party, or its
+/// `cf02_free` partner under [`AlignedWho::Companion`]).
+pub fn aligned_tuning(plan: Plan, who: AlignedWho) -> PartyTuning {
+    use crate::f01_late_fixtures::{JUICER_COMPANION_PARTY, JUICER_ROOM_PARTY};
+    match plan {
+        Plan::Juicer => {
+            if who == AlignedWho::Companion {
+                JUICER_COMPANION_PARTY.tuning
+            } else {
+                JUICER_ROOM_PARTY.tuning
+            }
+        }
+        _ => crate::f01_mastery_fixtures::tuning(who.mastery()),
+    }
+}
+
+impl RoomPilot {
+    /// The party tuning of an aligned run, or `None` for an unaligned pilot.
+    pub fn tuning(self) -> Option<PartyTuning> {
+        self.aligned.map(|a| aligned_tuning(self.plan, a.who))
+    }
+
+    /// The slot inputs of an aligned run at the next tick: exactly the library
+    /// fixture's (`f01_mastery_fixtures::run_for`, `f01_late_fixtures::juicer_run`),
+    /// for the hero `controlled` by the party. `swap_sent` is the run's "the swap
+    /// was pressed once" flag. Panics on an unaligned pilot.
+    pub fn aligned_inputs(
+        self,
+        combat: &CombatState,
+        sim: &SceneSim,
+        controlled: HeroId,
+        swap_sent: &mut bool,
+    ) -> [RawInput; 2] {
+        use crate::f01_mastery_fixtures as mastery;
+        let Aligned { who, seed } = self.aligned.expect("an aligned room pilot");
+        let tick = sim.world.tick + 1;
+        let mut input = if self.plan == Plan::Juicer {
+            if controlled == HeroId::Carl {
+                crate::boss_scene::pilot_inputs(
+                    Pilot::Carl,
+                    [RawInput::NONE; 2],
+                    tick + seed % crate::f01_late_fixtures::SWING_PERIOD,
+                    combat,
+                    sim,
+                )[0]
+            } else {
+                // Donut (swapped in after the defeat) walks to the exit.
+                RawInput {
+                    move_x: 1.0,
+                    ..RawInput::NONE
+                }
+            }
+        } else {
+            match who {
+                AlignedWho::CarlSolo | AlignedWho::Companion => {
+                    mastery::pilot(combat, sim, HeroId::Carl)
+                }
+                AlignedWho::DonutBySwap | AlignedWho::DonutFights => {
+                    mastery::pilot(combat, sim, controlled)
+                }
+            }
+        };
+        let due = if self.plan == Plan::Juicer {
+            who == AlignedWho::DonutBySwap && combat.boss.as_ref().is_some_and(|b| b.released())
+        } else {
+            match who {
+                AlignedWho::DonutFights => tick >= mastery::SWAP_TICK,
+                AlignedWho::DonutBySwap => combat.roster_cleared(),
+                _ => false,
+            }
+        };
+        if due && !*swap_sent && controlled == HeroId::Carl {
+            input.swap = true;
+            *swap_sent = true;
+        }
+        [input, RawInput::NONE]
     }
 }
 
@@ -360,7 +538,10 @@ fn chain(combat: &CombatState, sim: &SceneSim, exit_x: f32) -> RawInput {
             match follower {
                 Some(gap) if gap < KITE_GAP && hero.x > KICK_STAND_X => walk_to(sim, KICK_STAND_X),
                 Some(_) => RawInput::NONE,
-                None if hero.x < LURE_X => walk_to(sim, LURE_X),
+                // PTG fix (the chain wake step overshoot): `walk_to` stops within 4 px of its
+                // target, so aiming at the trigger itself parked Carl on x 556..560, short of
+                // the room data's wake trigger, forever. Walk on past it.
+                None if hero.x < LURE_X + LURE_MARGIN => walk_to(sim, LURE_X + 2.0 * LURE_MARGIN),
                 None => RawInput::NONE,
             }
         }
@@ -408,6 +589,7 @@ mod tests {
         let pilot = RoomPilot {
             plan,
             two_player: false,
+            aligned: None,
         };
         for _ in 0..1500 {
             if scene.world.complete {
@@ -451,6 +633,75 @@ mod tests {
                 combat_again.state_hash(&again),
                 "{plan:?} replays to the same hash"
             );
+        }
+    }
+
+    /// PTG fix (the chain wake step overshoot): with a live party the chain plan used to
+    /// park Carl on x 556..560, short of the room data's 560 wake trigger, and never
+    /// reached the exit. On the live Boiler roster at seeds 0..=8, with the follow-and-jump
+    /// bot and with the autonomous partner, the plan reaches the exit within 3000 ticks and
+    /// Carl is never told to walk and stays still for more than 300 ticks.
+    #[test]
+    fn the_chain_plan_with_a_party_reaches_the_exit_on_the_live_boiler_at_every_seed() {
+        use crate::companion::profile::ProfileSetId;
+        use crate::party::{PROVISIONAL_TUNING, UncontrolledHero};
+        use crate::party_scene::{PartyFixture, PartyFixtureSim};
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let (carl, donut) = Loadout::Story.flags();
+        let pilot = RoomPilot {
+            plan: Plan::Chain,
+            two_player: false,
+            aligned: None,
+        };
+        for tuning in [
+            PROVISIONAL_TUNING.with_cf02_swap(),
+            PartyTuning {
+                uncontrolled_hero: UncontrolledHero::Companion(ProfileSetId::Cf02Free),
+                ..PROVISIONAL_TUNING
+            }
+            .with_cf02_swap(),
+        ] {
+            for seed in 0..=8u64 {
+                let (run, scene, combat) =
+                    boiler_start_with(&root, 360, carl, donut, Some(seed), Roster::Live).unwrap();
+                let exit = run.loaded.encounter.exit;
+                let exit_x = (exit.x + exit.w / 2) as f32;
+                let fixture: &'static PartyFixture = Box::leak(Box::new(PartyFixture {
+                    base: run.fixture,
+                    two_player: false,
+                    tuning,
+                    script: &[],
+                    pilot: crate::boss_scene::Pilot::ArenaDirect,
+                    donut: crate::donut_mana::DonutSetup::unlocked(8),
+                }));
+                let mut sim = PartyFixtureSim::from_parts(scene, combat, fixture);
+                let (mut last_x, mut still, mut max_still) = (sim.scene.world.hero.x, 0u32, 0u32);
+                for _ in 0..3000 {
+                    if sim.scene.world.complete {
+                        break;
+                    }
+                    let slots = pilot.inputs(&sim.combat, &sim.scene, exit_x);
+                    sim.step_slots(slots);
+                    let x = sim.scene.world.hero.x;
+                    let walking = slots[0].move_x != 0.0;
+                    still = if walking && (x - last_x).abs() < 0.1 {
+                        still + 1
+                    } else {
+                        0
+                    };
+                    max_still = max_still.max(still);
+                    last_x = x;
+                }
+                assert!(
+                    sim.scene.world.complete,
+                    "seed {seed} {tuning:?}: no exit in 3000 ticks (Carl at x {})",
+                    sim.scene.world.hero.x
+                );
+                assert!(
+                    max_still <= 300,
+                    "seed {seed}: Carl stuck for {max_still} ticks"
+                );
+            }
         }
     }
 
@@ -520,6 +771,7 @@ mod tests {
         let pilot = RoomPilot {
             plan: Plan::Juicer,
             two_player: false,
+            aligned: None,
         };
         let mut sim = juicer_room(&root).unwrap();
         for _ in 0..report.ticks {
@@ -550,6 +802,7 @@ mod tests {
             let pilot = RoomPilot {
                 plan: Plan::Mastery,
                 two_player: false,
+                aligned: None,
             };
             for _ in 0..RUN_TICKS {
                 if combat.roster_cleared() && scene.world.hero.x >= EXIT_X {
@@ -567,6 +820,105 @@ mod tests {
         let (cleared, x, hash) = play();
         assert!(cleared && x >= EXIT_X, "cleared={cleared} x={x}");
         assert_eq!(play().2, hash);
+    }
+
+    /// PT-GATE-C1: an aligned room pilot plays the library fixture's fight: for
+    /// every (who, seed) of the Juicer the room pilot's final state hash equals
+    /// the PT-SCENE-B fixture's (27 runs), and for every (who, seed) of the
+    /// closing arena it equals the PT-TUNE fixture's (36 runs). The room pilot
+    /// reads the party's controlled hero and its own swap flag, nothing else.
+    #[test]
+    fn an_aligned_room_pilot_equals_the_library_fixture_for_every_who_and_seed() {
+        use crate::f01_late_fixtures::{
+            JUICER_COMPANION_PARTY, JUICER_ROOM_PARTY, JUICER_SEEDS, JuicerWho, juicer_pilot,
+            juicer_room_for,
+        };
+        use crate::f01_mastery_fixtures as mastery;
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let mut equal = 0;
+        for (who, library_who) in [
+            (AlignedWho::CarlSolo, JuicerWho::CarlSolo),
+            (AlignedWho::DonutBySwap, JuicerWho::DonutBySwap),
+            (AlignedWho::Companion, JuicerWho::Companion),
+        ] {
+            for seed in JUICER_SEEDS {
+                let report = juicer_pilot(&root, library_who, seed).unwrap();
+                let pilot = RoomPilot::parse(&format!("juicer:{}:{seed}", who.token())).unwrap();
+                assert_eq!(pilot.label(), format!("juicer:{}:{seed}", who.token()));
+                let party = if who == AlignedWho::Companion {
+                    &JUICER_COMPANION_PARTY
+                } else {
+                    &JUICER_ROOM_PARTY
+                };
+                assert_eq!(pilot.tuning(), Some(party.tuning));
+                let mut sim = juicer_room_for(&root, party).unwrap();
+                let mut sent = false;
+                for _ in 0..report.ticks {
+                    let controlled = sim.party.controlled_hero();
+                    let slots =
+                        pilot.aligned_inputs(&sim.combat, &sim.scene, controlled, &mut sent);
+                    sim.step_slots(slots);
+                }
+                assert_eq!(sim.state_hash(), report.hash, "juicer {who:?} seed {seed}");
+                equal += 1;
+            }
+        }
+        for who in [
+            AlignedWho::CarlSolo,
+            AlignedWho::DonutBySwap,
+            AlignedWho::DonutFights,
+            AlignedWho::Companion,
+        ] {
+            for seed in mastery::SEEDS {
+                let report = mastery::run(&root, who.mastery(), seed).unwrap();
+                let pilot = RoomPilot::parse(&format!("mastery:{}:{seed}", who.token())).unwrap();
+                assert_eq!(pilot.tuning(), Some(mastery::tuning(who.mastery())));
+                let (mut sim, _) = mastery::start(&root, who.mastery(), seed).unwrap();
+                let mut sent = false;
+                for _ in 0..report.ticks {
+                    let controlled = sim.party.controlled_hero();
+                    let slots =
+                        pilot.aligned_inputs(&sim.combat, &sim.scene, controlled, &mut sent);
+                    sim.step_slots(slots);
+                }
+                assert_eq!(sim.state_hash(), report.hash, "mastery {who:?} seed {seed}");
+                equal += 1;
+            }
+        }
+        assert_eq!(equal, 63, "27 Juicer runs and 36 arena runs");
+    }
+
+    #[test]
+    fn the_plain_mastery_plan_is_carl_solo_at_seed_zero() {
+        let plain = RoomPilot::parse("mastery").unwrap();
+        let named = RoomPilot::parse("mastery:carl_solo:0").unwrap();
+        assert_eq!(plain, named);
+        assert_eq!(plain.label(), "mastery");
+        assert_eq!(
+            plain.aligned,
+            Some(Aligned {
+                who: AlignedWho::CarlSolo,
+                seed: 0
+            })
+        );
+        // The plain Juicer plan stays the unaligned PT-GATE-A pilot; the rest of the
+        // plans are unaligned too.
+        for text in ["juicer", "direct", "valve", "chain:2p"] {
+            assert_eq!(RoomPilot::parse(text).unwrap().aligned, None, "{text}");
+        }
+        // A two-player mastery plan is not the library's solo pilot (the `:2p` refusal stays).
+        assert!(RoomPilot::parse("mastery:2p").unwrap().two_player);
+        assert_eq!(RoomPilot::parse("mastery:2p").unwrap().aligned, None);
+        for bad in [
+            "mastery:carl_solo",
+            "mastery:carl_solo:x",
+            "mastery:nobody:1",
+            "juicer:donut_fights:1",
+            "mastery:carl_solo:1:2p",
+            "direct:carl_solo:1",
+        ] {
+            assert!(RoomPilot::parse(bad).is_err(), "{bad}");
+        }
     }
 
     #[test]

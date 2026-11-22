@@ -855,10 +855,120 @@ pub fn metrics_line(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::combat::MoveId;
     use std::path::PathBuf;
 
     fn root() -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+    }
+
+    /// The room as `--scene f01_late --f01-room mastery` builds it under the story
+    /// loadout (seed 0), with the follow-and-jump bot as the other hero so that only
+    /// Carl's script fights.
+    fn story_room_with_a_bot_partner() -> PartyFixtureSim {
+        let (carl, donut) = Loadout::Story.flags();
+        let (run, scene, combat) = mastery_start(&root(), 360, carl, donut, Some(0)).unwrap();
+        let fixture: &'static PartyFixture = Box::leak(Box::new(PartyFixture {
+            base: run.fixture,
+            two_player: false,
+            tuning: PROVISIONAL_TUNING.with_cf02_swap(),
+            script: &[],
+            pilot: Pilot::ArenaDirect,
+            donut: DonutSetup::unlocked(8),
+        }));
+        PartyFixtureSim::from_parts(scene, combat, fixture)
+    }
+
+    /// PT-GATE-C1 (gate item 1, the gauntlet in `f01_late`): under the mastery
+    /// room's story pin the reinforced fist is held, and Carl's haymaker on a
+    /// goblin that is telling produces the CP-D stagger and pierce events: the
+    /// 6-tick hit stop (CP-Q39: 5, +1 with the fist), the 28-tick stagger (18
+    /// without it), `goblin_interrupted` on the same tick and one pierce
+    /// (CP-Q40, CP-Q42). The script is a staged duel: goblin 0 is awake and its
+    /// neighbour (goblin 1) is already telling when Carl is stood 40 px right of
+    /// goblin 0 on tick 160; he jabs on tick 173 and chains the haymaker on 185
+    /// (the same string as the `carl_prog_pierce_goblin` fixture, pressed from
+    /// that spot), and it lands on tick 190.
+    #[test]
+    fn the_gauntlet_staggers_and_pierces_in_the_mastery_room_under_the_story_pin() {
+        const STAGE: u64 = 160;
+        const JAB: u64 = 13;
+        const HAYMAKER: u64 = 25;
+        let mut sim = story_room_with_a_bot_partner();
+        let held = |sim: &PartyFixtureSim| -> Vec<(u8, &'static str)> {
+            sim.combat
+                .story_ledger()
+                .expect("a story runtime")
+                .held()
+                .iter()
+                .map(|(hero, id)| (*hero, id.as_str()))
+                .collect()
+        };
+        assert!(
+            held(&sim).contains(&(0, "fist_reinforced")),
+            "the f01_late_mastery pin holds the reinforced fist: {:?}",
+            held(&sim)
+        );
+        let mut stagger_after_hit = None;
+        for _ in 0..(STAGE + 40) {
+            let tick = sim.scene.world.tick + 1;
+            let at = tick.saturating_sub(STAGE);
+            let mut input = RawInput::NONE;
+            if tick >= STAGE && at < HAYMAKER {
+                let gx = sim.combat.enemies[0].x;
+                sim.scene.world.hero.x = gx + 40.0;
+                sim.scene.world.hero.y = 118.0;
+            }
+            if tick == STAGE + 1 {
+                // Face the goblin (a one-tick step toward it).
+                input.move_x = -1.0;
+            }
+            if tick > STAGE + 1 && (at == JAB || at == HAYMAKER) {
+                input.attack = true;
+            }
+            sim.step_slots([input, RawInput::NONE]);
+            if tick == STAGE + HAYMAKER + 5 {
+                stagger_after_hit = Some(sim.combat.enemies[0].stagger_left);
+            }
+        }
+        let hits: Vec<_> = sim
+            .combat
+            .events
+            .iter()
+            .filter_map(|e| match *e {
+                CombatEvent::Hit {
+                    tick,
+                    move_id: MoveId::Haymaker,
+                    target,
+                    hit_stop,
+                    health_left,
+                    ..
+                } => Some((tick, target, hit_stop, health_left)),
+                _ => None,
+            })
+            .collect();
+        // The haymaker lands on tick 190 on both goblins in reach, with the fist's
+        // extra stop frame (CP-Q39) and without defeating either.
+        assert_eq!(hits, vec![(190, 0, 6, 1), (190, 1, 6, 1)], "{hits:?}");
+        // The stagger read on the hit tick is the fist's 28 (18 without it, CP-Q39).
+        assert_eq!(stagger_after_hit, Some(28));
+        // CP-Q40: the telling goblin's committed swing is cancelled on the hit tick.
+        assert!(
+            sim.combat.events.iter().any(|e| matches!(
+                e,
+                CombatEvent::GoblinInterrupted {
+                    tick: 190,
+                    goblin: 1
+                }
+            )),
+            "goblin 1's swing is cancelled by the haymaker"
+        );
+        assert_eq!(sim.combat.pierce_count(), 1, "one pierce (CP-Q42)");
+        assert_eq!(sim.combat.pierce_cue().map(|c| c.tick), Some(190));
+        assert!(
+            held(&sim).contains(&(0, "fist_reinforced")),
+            "the pin still holds"
+        );
     }
 
     /// The final state hash of every pilot run, `[who][seed]`, in [`Who::ALL`]

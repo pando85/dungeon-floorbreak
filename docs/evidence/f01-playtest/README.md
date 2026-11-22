@@ -12,17 +12,17 @@ Release build, from the repository root, after `bash scripts/export_assets.sh`:
 
 ```text
 cargo run --release --bin floor01_scene -- --scene f01_late --scale 2
-    [--f01-room hoarder|boiler|hazards|juicer|mastery]    # jump to a room with its story pin (default: boiler)
+    [--f01-room boiler|hazards|juicer|mastery]    # jump to a room with its story pin (default: boiler); room 1 is `--scene f01_hoarder` (PTG-AD1)
     [--f01-loadout story|all]                              # story implies --carl-prog --donut-prog; all = TEST LOADOUT
     [--debug-combat] [--no-record]                         # recording is on by default (PLAYTRACE)
 tools/record-run.sh floor01_scene --scene f01_late --scale 2    # window video plus audio
 ```
 
-**`--companion` does not work with `--scene f01_late` on this head.** Plan section 9 lists `[--companion cf02_free|cf02_assist]` for `f01_late`, but a room scene is a fixture internally and the launcher refuses the flag together with a fixture (`--companion cannot be combined with --fixture or --party-fixture`, a CA-22 guard). So the autonomous `cf02_free` partner cannot be selected in rooms 1 to 6. To judge the autonomous partner use the arena line `--cf02 --cf02-engineer --carl-dynamite --companion cf02_free` (table below). **Which AI partner you actually get today:** in rooms 2, 4 and 6 (cf02 rules) the other hero is the **`cf02_assist`** companion (the `--cf02` default, `floor01_scene.rs` `uncontrolled_hero()`), not the CA2 autonomous partner, so the CA2 hazard feed never reaches you there (the assist partner walks into a live steam lane in the feed's own control fixture). In **room 5** (`boss_f01`, cf02 rules off) the other hero is the **follow-and-jump bot**, not CA2 at all. Plan sections 8 and 9 make `cf02_free` the default in these rooms. This is a gate failure (item 2), not changed here; PT-GATE-C closes it (known gaps, section 9).
+**The AI partner (PT-GATE-C1).** In the `f01_late` room scenes of rooms 2, 4 and 6 (`--f01-room boiler|hazards|mastery`) the other hero is the autonomous **`cf02_free`** partner by default (plan sections 8 and 9), and `--companion off|cf02_assist|cf02_free|v0` overrides it (the launcher now tells a fixture the user supplied from the placeholder fixture a room scene sets; `--fixture X --companion Y` is still refused). A scripted run (a room pilot, a capture, a headless smoke) never runs the live partner. **Still open:** room 5 (`--f01-room juicer`, the boss scene) keeps the follow-and-jump bot and still refuses `--companion`; the arena line `--cf02 --cf02-engineer --carl-dynamite --companion cf02_free` keeps the `cf02_assist` default.
 
 To play two players, connect a second pad and press Start: P1 plays Carl and P2 plays Donut. Select restarts the room. Start on P1 quits.
 
-**Listed rooms.** The manifest `assets/levels/f01_late/manifest.json` lists `hoarder, boiler, hazards, juicer, mastery`, and the game prints that list. **Room 1 (the Hoarder) is currently listed.** A follow-up, **PT-GATE-C**, removes the `hoarder` row from the manifest and re-pins `MANIFEST_HASH` (`--scene f01_hoarder` stays); until it lands, gate item 3b is UNMET (section 8) and the placeholder dynamite fixture is not valid gate evidence:
+**Listed rooms.** The manifest `assets/levels/f01_late/manifest.json` lists `boiler, hazards, juicer, mastery`, and the game prints that list. **Room 1 (the Hoarder) is unlisted (adopted default PTG-AD1, PT-GATE-C1: the smaller option).** `--f01-room hoarder` is refused as `unlisted room`; `--scene f01_hoarder` still launches it, and `story_order` still names it. `MANIFEST_HASH` is re-pinned (`0x3273fc11fa08a1f3` to `0x24bc1268822f41f7`, reason: the `hoarder` row left the manifest). The placeholder dynamite fixture `carl_prog_story_event_grants_dynamite` is therefore the item 3b evidence for the Hoarder's grant. The alternative (list the room again with a defeating `hoarder` room pilot and a strict session with exactly one `CapabilityGranted`) is a larger work order the owner can ask for:
 
 | Room | Command suffix | Gate status |
 | --- | --- | --- |
@@ -30,7 +30,7 @@ To play two players, connect a second pad and press Start: P1 plays Carl and P2 
 | 4, slimes and Rot Stickers | `--f01-room hazards` | listed |
 | 5, the Juicer | `--f01-room juicer` (also `--scene boss_f01 --carl-prog --donut-prog`) | listed |
 | 6, the mastery arena | `--f01-room mastery` | listed |
-| 1, the Hoarder | `--f01-room hoarder` | **listed today** (manifest); no presentation, no defeating pilot; to be unlisted by PT-GATE-C |
+| 1, the Hoarder | `--scene f01_hoarder` | unlisted (PTG-AD1); no presentation, no defeating pilot; `--f01-room hoarder` is refused |
 | 0 the corral, 3 the Dozer, 4a and 4b the Ring | `corral`, `dozer`, `ring_court`, `ring_split` | not landed in the manifest: the game refuses them (`unlisted room` or `unknown room`) |
 
 **Interim and diagnostic builds** (plan section 9, still valid on this head):
@@ -45,7 +45,7 @@ To play two players, connect a second pad and press Start: P1 plays Carl and P2 
 | `--scene f01_boiler` | the Boiler setpiece |
 | `cargo run --release --locked --bin corral_eval -- --out target/corral-eval` | a machine report, not game feel |
 
-**Verified on the final head.** [`owner_commands_check.txt`](owner_commands_check.txt) holds one line per command above (and the refused `--companion` lines), run by `scripts/check_f01_owner_commands.sh` in the real window under xvfb for 30 ticks (the debug binary, no audio, no recording; the release build takes the same arguments). `ok` means the process started and exited 0; `refused` is an expected refusal: an unlisted room, or `--companion` on `f01_late`. **NOT RUN:** the commands in a release build, `tools/record-run.sh` (needs a display, `xdotool`, ffmpeg), a second pad.
+**Verified on the final head.** [`owner_commands_check.txt`](owner_commands_check.txt) holds one line per command above (and the refused lines), run by `scripts/check_f01_owner_commands.sh` in the real window under xvfb for 30 ticks (the debug binary, no audio, no recording; the release build takes the same arguments). `ok` means the process started and exited 0; `refused` is an expected refusal: an unlisted room (`hoarder`, PTG-AD1), or `--companion` next to a fixture the user supplied. **NOT RUN:** the commands in a release build, `tools/record-run.sh` (needs a display, `xdotool`, ffmpeg), a second pad.
 
 ## 2. What to look for, per room
 
@@ -53,7 +53,7 @@ To play two players, connect a second pad and press Start: P1 plays Carl and P2 
 - **Room 4, slimes and Rot Stickers (greybox).** Three isolated pockets: a slime with an acid pool, a Rot Sticker overhead, a crossover. Look for: the slime tell and its punish window, that acid bars walkers, the Rot Sticker's 30-tick warning and its blast on both heroes, and that nothing here can be reflex-evaded (K6). The scripted pilot does not dodge hazards and is defeated (section 6); a human should clear it.
 - **Room 5, the Juicer (boss).** Carl holds dynamite and Donut the boost (the story pin). After the defeat two notices grant the gauntlet (HEAVY FIST) and the blink (PUDDLE JUMPER). Look for: dynamite on the boss, whether the grants read, and the partner: on the live `--f01-room juicer` the other hero is the follow-and-jump bot, not an autonomous Donut (the passive-escort figures of section 9 come from the `JuicerWho::Companion` fixture, which uses `cf02_free`, not from the live launch).
 - **Room 6, the mastery arena (greybox, no presentation of its own).** Everything is held (the `f01_late_mastery` pin, no grant, no trigger). Wave 1 is the brawl lane: goblins, a slime with its acid pool and a spitting llama. Wave 2 is the llama yard: goblins in the matador lane, the Engineer with a llama, a second llama, and a Rot Sticker under the right perch. The exit gate opens when the roster is defeated. Look for the "powerful enemies" feel (overlap, the slime beat, the Engineer with a llama, clear time) against the questions of section 4.
-- **Room 1, the Hoarder (listed in the manifest today; PT-GATE-C unlists it).** Wired and launchable; nothing is drawn for her, her door or her gate until HRD-B, so game feel cannot be judged. Launch it only to check it starts.
+- **Room 1, the Hoarder (unlisted: `--scene f01_hoarder` only).** Wired and launchable; nothing is drawn for her, her door or her gate until HRD-B, so game feel cannot be judged. Launch it only to check it starts.
 
 ## 3. Adopted defaults K1 to K19
 
@@ -149,7 +149,7 @@ The Juicer rows are library fixtures (the `Companion` row uses `cf02_free`; the 
 
 ## 6. Room 6: why the room pilot is defeated and the fixture pilot is not
 
-The live room pilot (`--room-pilot mastery`, used for the perf, the wave GIF and the PLAYTRACE session) is defeated once, on tick 908, and exits on tick 1190. The PT-TUNE `carl_solo` fixture at seeds 0..8 has 0 deaths and clears on tick 667 to 684. **Cause, reproduced: a different partner, not a different seed or plan.** A scripted window run drives the other hero with the follower bot (`companion_inactive`), while the fixture run's partner is the active `cf02_assist` companion, which attacks and kills the slime on tick 101 where the follower-bot fight takes it on tick 180. With the same Carl pilot the first seven defeats of the follower fight are ticks 180, 239, 311, 529, 683, 683 and 786 (equal to the committed window capture) and Carl is then defeated once; with the assist partner he is never defeated. A pinned test, `f01_gate_scorecard::room_pilot_discrepancy`, holds both facts. It is not a seed effect (the room pilot is defeated at every seed 0 to 8 through `--cf02-seed`, once, on ticks 900 to 915, and twice at seed 4), and not a plan effect (the plan is the same function). A **6-tick residual** is not explained: the replica defeats on tick 914 where the window run does on 908. Nothing was changed to hide it. It is in the known gaps.
+The room pilot is aligned with the library fixtures since PT-GATE-C1: `--room-pilot mastery` is `mastery:carl_solo:0`, and `mastery:<who>:<seed>` and `juicer:<who>:<seed>` (`who` = `carl_solo`, `donut_by_swap`, `companion`, and `donut_fights` in the arena) run the library fixture's party (`f01_mastery_fixtures::tuning`, the Juicer room parties), seed and inputs, through the live party; `ROOM_PILOT_STATE` prints the fixture hash (`party_hash`). A unit test asserts that the room-pilot hash equals the library fixture hash for every (who, seed): 63 of 63 (27 Juicer and 36 arena), and a binary test does the same through `build_scene`. **Why the old plain `mastery` pilot was defeated once (tick 908) while the fixture never was:** it ran the follower-bot partner (`companion_inactive`), whose fight takes the slime on tick 180, where the fixture's active `cf02_assist` partner takes it on tick 101. That unaligned run, and the 6-tick residual measured against a replica, no longer exist (`f01_gate_scorecard::room_pilot_discrepancy` is retired). `pilot_hashes_mastery.txt` is re-pinned (deaths 1 to 0, hash `a5b4af7b118f517e` to `9ce777b82eb734ef`) because the plain pilot now plays the `carl_solo` seed 0 fight. The perf, the wave GIF and the session recorded before PT-GATE-C1 used the old pilot; PT-GATE-D regenerates them.
 
 ## 7. CA2 metrics M1 to M16 for the mastery arena
 
@@ -254,14 +254,14 @@ From the backlog's owner game-feel notes, the PT-TUNE follow-ups and #237:
 - **The Donut kit pilot stands still under fire.** `donut_fights` and `donut_kit` clear 0 of 9 (7 and 8 defeats): she is idle from about tick 500, takes a hurt every 95 ticks, and the stuck rule counts only walking input without motion, so it does not see it (PTT-Q21). Follow-up: a stall measure. A Donut-led clear is **unproven**.
 - **The companion Donut is idle against the Juicer** (the `cf02_free` fixture; the live room launches the follow-and-jump bot instead) and takes most of the run's hurts, never attacking, blinking or retreating (CA2-Q35, `CA2-FU-BOSS`, COMPANION-AI-01E).
 - **CA2 misses:** M2 (shadowing), M4 (steals on 2 seeds) and M13's comparison with the assist partner; M7, M8, M9's cause split, M11 and the M14 planning time are not measured in the arena.
-- **The room pilot differs from the fixture pilot** (section 6): the live scripted run fights with the follower-bot partner and is defeated once; a 6-tick residual is unexplained.
+- ~~The room pilot differs from the fixture pilot~~ Closed by PT-GATE-C1 (section 6): the room pilots are the fixtures' runs; the committed mastery perf, wave GIF and session still show the old follower-partner run until PT-GATE-D regenerates them.
 - The arena reuses the stand-in art and has no presentation of its own; no human has played it.
 
 **Rooms and presentation**
-- **Gate failure (item 2): the owner gets the wrong partner.** `--scene f01_late --companion ...` is refused, and cf02 rules default to `cf02_assist`: rooms 2, 4 and 6 give the `cf02_assist` companion and room 5 the follow-and-jump bot, never the CA2 partner or its hazard feed. Plan sections 8 and 9 make `cf02_free` the room default. Closing work: PT-GATE-C (track a user-supplied fixture separately, default `cf02_free` in room scenes).
+- ~~Gate failure (item 2): the owner gets the wrong partner~~ Closed for rooms 2, 4 and 6 by PT-GATE-C1 (`cf02_free` default, `--companion` accepted); **open for room 5** (the Juicer's boss scene keeps the follow-and-jump bot and refuses `--companion`).
 - Boiler: B3 can wake inside the steam lane; the goblin wake hook is a follow-up (`BOIL-FU`).
 - Hazards: the Pocket C relayout, the missile window of 7 press ticks on the rise and 8 on the fall, Donut's run-through of a still `H` 68 sticker is hit once; **no HAZ-06 direct-route fixture was found**; no per-seed pilots; no tactical or spectacular route GIFs.
-- The Hoarder's room has no presentation (nothing drawn for her, her door or her gate until HRD-B). **It is listed in the manifest today**; PT-GATE-C unlists it (gate item 3b).
+- The Hoarder's room has no presentation (nothing drawn for her, her door or her gate until HRD-B). It is unlisted (PTG-AD1): `--scene f01_hoarder` only.
 - Production art is stand-in (K10); the Ring, the corral and the Dozer are not in the slice.
 
 **Mechanics notes**

@@ -48,7 +48,7 @@ pub const MANIFEST_PATH: &str = "assets/levels/f01_late/manifest.json";
 /// hash is a constant, pinned to the file by a test and compared by every
 /// replay of a recorded room. A step that lists a room (CORRAL-WIRE, RING-A
 /// wire, HRD-A2, ...) re-pins it on purpose.
-pub const MANIFEST_HASH: u64 = 0x3273_fc11_fa08_a1f3;
+pub const MANIFEST_HASH: u64 = 0x24bc_1268_822f_41f7;
 /// The fixture-only stub trigger the story-order tie skips by name.
 pub const STUB_TRIGGER: &str = "carl_prog_find_zone_stub";
 /// The `data_pins()` key.
@@ -642,18 +642,16 @@ mod tests {
     #[test]
     fn the_manifest_lists_the_landed_rooms_in_story_order() {
         let m = manifest();
-        assert_eq!(
-            m.listed(),
-            ["hoarder", "boiler", "hazards", "juicer", "mastery"]
-        );
-        // HRDA2B-AD1: the Hoarder is listed first in the story, and the default
+        assert_eq!(m.listed(), ["boiler", "hazards", "juicer", "mastery"]);
+        // PTG-AD1: the Hoarder is unlisted (the smaller option); its room stays
+        // reachable as `--scene f01_hoarder` and in `story_order`. The default
         // room stays the Boiler.
         assert_eq!(m.default_room().id, "boiler");
         assert_eq!(m.room("boiler").unwrap().scene, RoomScene::Boiler);
-        assert_eq!(m.room("hoarder").unwrap().scene, RoomScene::Hoarder);
         assert_eq!(m.room("hazards").unwrap().scene, RoomScene::Hazards);
         assert_eq!(m.room("mastery").unwrap().scene, RoomScene::Mastery);
-        for id in ["hoarder", "hazards", "mastery"] {
+        assert!(m.story_order.iter().any(|o| o.id == "hoarder"));
+        for id in ["hazards", "mastery"] {
             assert_eq!(m.room(id).unwrap().rules, RoomRules::Cf02, "{id}");
         }
         assert_eq!(m.room("juicer").unwrap().rules, RoomRules::Boss);
@@ -665,15 +663,16 @@ mod tests {
         let unknown = m.room("cellar").unwrap_err();
         assert!(unknown.starts_with("unknown room"), "{unknown}");
         assert!(
-            unknown.contains("hoarder, boiler, hazards, juicer, mastery"),
+            unknown.contains("boiler, hazards, juicer, mastery"),
             "{unknown}"
         );
         // Known to the story order but not landed yet.
-        for id in ["corral", "dozer"] {
+        // (PTG-AD1: the Hoarder is in the story order and unlisted.)
+        for id in ["corral", "dozer", "hoarder"] {
             let unlisted = m.room(id).unwrap_err();
             assert!(unlisted.starts_with("unlisted room"), "{unlisted}");
             assert!(
-                unlisted.contains("hoarder, boiler, hazards, juicer, mastery"),
+                unlisted.contains("boiler, hazards, juicer, mastery"),
                 "{unlisted}"
             );
         }
