@@ -133,12 +133,23 @@ pub struct DonutKit {
     was_bot: bool,
     /// CF02-C2: the bail-out hop (idle outside `--cf02`).
     hop: DonutHop,
+    /// DONUT-PROG-01 DP-C: the blink's windup, recovery and cooldown (idle, and
+    /// never mixed, without the capability).
+    pub(super) blink: crate::short_blink::Blink,
     /// Presentation caches: never hashed, never read by the simulation.
     hitbox: Option<Rect>,
     dry_tick: Option<u64>,
 }
 
 impl DonutKit {
+    /// DP-Q25: the blink's t0 forgets every press made before it (a buffered
+    /// swat or pounce, a buffered cast), so nothing pressed earlier can start
+    /// inside the windup without a press edge.
+    pub(super) fn clear_press_buffers(&mut self) {
+        self.moves.clear_buffer();
+        self.cast_buffer_until = None;
+    }
+
     pub fn new(setup: DonutSetup) -> Self {
         let tuning = ManaTuning::pinned(true).expect("the committed mana tuning is valid");
         let mana = DonutMana::from_start(&tuning, setup.start);
@@ -164,6 +175,7 @@ impl DonutKit {
             bolts: Vec::new(),
             was_bot: true,
             hop: DonutHop::default(),
+            blink: crate::short_blink::Blink::default(),
             hitbox: None,
             dry_tick: None,
         }
@@ -185,6 +197,8 @@ impl DonutKit {
         self.bolts.clear();
         self.was_bot = true;
         self.hop = DonutHop::default();
+        // DP-Q11: a restart cancels a windup and makes the special ready.
+        self.blink = crate::short_blink::Blink::default();
         self.hitbox = None;
         self.dry_tick = None;
     }
@@ -207,6 +221,8 @@ impl DonutKit {
             mix(u64::from(self.hop.no_attack_until_landing));
             mix(u64::from(self.hop.landing_lock));
         }
+        // DP-C: nothing while the blink is idle.
+        self.blink.mix_into(mix);
         if self.cast.is_some() || self.cast_buffer_until.is_some() || !self.bolts.is_empty() {
             mix(0x444f_4e43_4153_0001); // "DONCAS"
             match self.cast {
@@ -318,7 +334,16 @@ impl CombatState {
     }
 
     /// Restart kinds of the attempt reset (see [`DonutKit::restart`]).
-    pub(super) fn restart_donut(&mut self, kind: RestartKind) {
+    pub(super) fn restart_donut(&mut self, tick: u64, kind: RestartKind) {
+        // DP-Q29, DP-Q11: a restart cancels a running windup at no cost. Like
+        // the `Restart` event it is logged but not folded into the attempt hash.
+        if self.donut_kit.blink.windup().is_some() {
+            self.push_event(CombatEvent::BlinkCancelled {
+                tick,
+                hero: crate::short_blink::BLINK_HERO,
+                cause: crate::short_blink::CancelCause::Restart,
+            });
+        }
         self.donut_kit.restart(kind);
     }
 
@@ -448,11 +473,23 @@ impl CombatState {
                 hop_planted = true;
             }
         }
+        // DONUT-PROG-01 DP-C: Donut's blink (nothing without the capability).
+        let busy =
+            self.donut_kit.moves.view().is_some() || self.donut_kit.cast.is_some() || hop_blocks;
+        let blink = self.step_blink(
+            scene,
+            &frame,
+            can_act,
+            hurt,
+            busy,
+            !bot || companion_driven,
+            tick,
+        );
         let input = StepInput {
             tick,
-            primary_pressed: frame.attack_pressed,
+            primary_pressed: frame.attack_pressed && !blink.mask_presses,
             primary_route: route,
-            physical_pressed: frame.physical_pressed,
+            physical_pressed: frame.physical_pressed && !blink.mask_presses,
             jump_pressed: frame.jump_pressed,
             move_pressed: frame.held.move_x != 0.0,
             grounded,
@@ -618,14 +655,25 @@ impl CombatState {
         if hop_planted || hop_vx.is_some() {
             raw.move_x = 0.0;
         }
+        // DP-Q25: the blink's windup and arrival ignore horizontal input.
+        if blink.windup {
+            raw.move_x = 0.0;
+            raw.jump = false;
+        }
         result.raw = raw;
         result.can_move = can_act && !out.input_locked && !hop_planted;
         result.frozen = out.frozen;
         result.drive = BodyDrive {
             launch: out.launch.or(hop_launch),
-            vx: self.donut_kit.pounce_vx.or(hop_vx),
+            vx: if blink.windup {
+                Some(0.0)
+            } else {
+                self.donut_kit.pounce_vx.or(hop_vx)
+            },
             vx_cap: out.vx_cap,
             facing_locked: out.facing_locked || hop_vx.is_some(),
+            warp_x: blink.warp,
+            clear_jump_buffer: blink.clear_buffer,
             ..BodyDrive::default()
         };
         result

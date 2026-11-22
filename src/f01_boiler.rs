@@ -211,6 +211,8 @@ pub fn launch(root: &Path) -> Result<BoilerRun, String> {
             h: 16,
         });
     }
+    // DP-Q35: the room's optional blink barriers (search only, never collision).
+    kit.blink_barriers = loaded.room.kit_blink_barriers();
     // The checkpoint's column is the middle of its rectangle; the start column
     // is Carl's spawn (a checkpoint at or left of it adds none).
     let start = loaded.room.spawn_carl;

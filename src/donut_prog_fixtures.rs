@@ -1405,3 +1405,7 @@ mod tests {
         }
     }
 }
+
+// DP-C: the blink's fixtures (spec section 10, M3), test harness only.
+#[cfg(test)]
+mod blink_fixtures;

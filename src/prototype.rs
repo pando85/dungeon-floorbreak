@@ -396,6 +396,13 @@ pub struct BodyDrive {
     /// gravity (the dive's tuck holds 0, its plunge falls at a constant -480).
     /// `None` is the legacy step.
     pub fly_vy: Option<f32>,
+    /// DONUT-PROG-01 DP-Q30: the blink's arrival. The body's `x` is set to this
+    /// column (and its facing to the direction of the warp) before the
+    /// horizontal step of this tick. `None` is the legacy step.
+    pub warp_x: Option<f32>,
+    /// DP-Q25: the blink's t0 clears the hero's jump buffer, so a Cross pressed
+    /// before it can never fire inside the windup. `false` is the legacy step.
+    pub clear_jump_buffer: bool,
 }
 
 /// CF02-H (Q48, Q52): how far the hero's feet are above the highest solid top
@@ -469,6 +476,9 @@ pub fn step_hero_motion(
     } else {
         hero.coyote_ticks = hero.coyote_ticks.saturating_sub(1);
     }
+    if drive.clear_jump_buffer {
+        hero.jump_buffer_ticks = 0;
+    }
     if hero.jump_buffer_ticks > 0 && hero.coyote_ticks > 0 {
         hero.vy = motion.jump_speed;
         hero.grounded = false;
@@ -481,6 +491,10 @@ pub fn step_hero_motion(
         hero.grounded = false;
         hero.jump_buffer_ticks = 0;
         hero.coyote_ticks = 0;
+    }
+    if let Some(warp) = drive.warp_x {
+        hero.facing = if warp >= hero.x { 1 } else { -1 };
+        hero.x = warp;
     }
     hero.vx = input.held.move_x * motion.run_speed;
     if let Some(vx) = drive.vx {

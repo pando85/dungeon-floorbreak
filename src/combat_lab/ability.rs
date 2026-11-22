@@ -34,7 +34,10 @@ const UNIMPLEMENTED: [(&str, &str); 9] = [
         "explosive",
         "waits for a story-earned explosive and TERRAIN-L3",
     ),
-    ("puddle_jumper", "not fabricated (Q10 section 3)"),
+    (
+        "puddle_jumper",
+        "special_short_blink exists behind --donut-puddle and the Juicer grant (DONUT-PROG-01 DP-C); the combat lab profile has no story ledger",
+    ),
     ("advanced_donut_spells", "not fabricated (Q10 section 3)"),
     ("grab", "Carl does not grab enemies"),
     ("dodge", "no new dodge button"),

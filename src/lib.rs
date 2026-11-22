@@ -96,6 +96,7 @@ pub mod scene_enemy;
 pub mod scroll_camera;
 pub mod shore;
 pub mod shore_art;
+pub mod short_blink;
 pub mod slime;
 pub mod story_unlock;
 pub mod thrown_charge;

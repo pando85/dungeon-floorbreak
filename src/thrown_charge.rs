@@ -42,10 +42,22 @@ pub enum SpecialReject {
     Cooldown,
     /// The hero is not on the ground (checked at the press only, CP-Q13).
     Airborne,
+    /// DONUT-PROG-01 DP-Q26, appended: the hero holds fewer charges than the
+    /// special costs (Donut's blink).
+    NoMana,
+    /// DP-Q26, appended: the destination search finds no valid candidate.
+    NoDestination,
 }
 
 impl SpecialReject {
-    pub const ALL: [Self; 4] = [Self::Locked, Self::Busy, Self::Cooldown, Self::Airborne];
+    pub const ALL: [Self; 6] = [
+        Self::Locked,
+        Self::Busy,
+        Self::Cooldown,
+        Self::Airborne,
+        Self::NoMana,
+        Self::NoDestination,
+    ];
 
     pub const fn name(self) -> &'static str {
         match self {
@@ -53,6 +65,8 @@ impl SpecialReject {
             Self::Busy => "busy",
             Self::Cooldown => "cooldown",
             Self::Airborne => "airborne",
+            Self::NoMana => "no_mana",
+            Self::NoDestination => "no_destination",
         }
     }
 
@@ -779,10 +793,14 @@ mod tests {
         let mut names: Vec<&str> = SpecialReject::ALL.iter().map(|r| r.name()).collect();
         names.sort_unstable();
         names.dedup();
-        assert_eq!(names.len(), 4);
+        assert_eq!(names.len(), SpecialReject::ALL.len());
         let mut codes: Vec<u64> = SpecialReject::ALL.iter().map(|r| r.code()).collect();
         codes.sort_unstable();
         codes.dedup();
-        assert_eq!(codes.len(), 4);
+        assert_eq!(codes.len(), SpecialReject::ALL.len());
+        // DP-C appended NoMana and NoDestination: the earlier codes did not move.
+        assert_eq!(SpecialReject::Airborne.code(), 3);
+        assert_eq!(SpecialReject::NoMana.code(), 4);
+        assert_eq!(SpecialReject::NoDestination.code(), 5);
     }
 }

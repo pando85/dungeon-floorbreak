@@ -1684,6 +1684,29 @@ pub enum CombatEvent {
         tick: u64,
         hero: u8,
     },
+    /// DONUT-PROG-01 DP-C, appended (DP-Q32): the blink arrived. `from_x` and
+    /// `to_x` are her pivot columns before and after, in whole px. Emitted only
+    /// while the capability is held.
+    BlinkResolved {
+        tick: u64,
+        hero: u8,
+        from_x: i32,
+        to_x: i32,
+    },
+    /// DP-C, appended (DP-Q28): the accepted blink aborted on its arrival tick.
+    /// Nothing was spent and no cooldown started.
+    BlinkFizzled {
+        tick: u64,
+        hero: u8,
+        reason: crate::short_blink::FizzleReason,
+    },
+    /// DP-C, appended (DP-Q25, DP-Q29, DP-Q11): a windup was cancelled at no
+    /// cost.
+    BlinkCancelled {
+        tick: u64,
+        hero: u8,
+        cause: crate::short_blink::CancelCause,
+    },
     /// CP-B1, appended: the stick left the hand (t41), or dropped at the hero's
     /// feet after a hit. `charge` is the reserved charge slot (the same index on
     /// every throw), `(x, y)` the stick's column and foot height in whole px.
@@ -2254,6 +2277,31 @@ impl CombatEvent {
                 mix(tick);
                 mix(u64::from(hero));
             }
+            // DONUT-PROG-01 DP-C: "BLRS", "BLFZ", "BLCN".
+            Self::BlinkResolved {
+                tick,
+                hero,
+                from_x,
+                to_x,
+            } => {
+                mix(0x424c_5253);
+                mix(tick);
+                mix(u64::from(hero));
+                mix(i64::from(from_x) as u64);
+                mix(i64::from(to_x) as u64);
+            }
+            Self::BlinkFizzled { tick, hero, reason } => {
+                mix(0x424c_465a);
+                mix(tick);
+                mix(u64::from(hero));
+                mix(reason.code());
+            }
+            Self::BlinkCancelled { tick, hero, cause } => {
+                mix(0x424c_434e);
+                mix(tick);
+                mix(u64::from(hero));
+                mix(cause.code());
+            }
             // "CHTH".
             Self::ChargeThrown { tick, charge, x, y } => {
                 mix(0x4348_5448);
@@ -2719,6 +2767,25 @@ impl fmt::Display for CombatEvent {
             Self::SpecialReady { tick, hero } => {
                 write!(f, "COMBAT_EVENT tick={tick} kind=special_ready hero={hero}")
             }
+            Self::BlinkResolved {
+                tick,
+                hero,
+                from_x,
+                to_x,
+            } => write!(
+                f,
+                "COMBAT_EVENT tick={tick} kind=blink_resolved hero={hero} from_x={from_x} to_x={to_x}"
+            ),
+            Self::BlinkFizzled { tick, hero, reason } => write!(
+                f,
+                "COMBAT_EVENT tick={tick} kind=blink_fizzled hero={hero} reason={}",
+                reason.name()
+            ),
+            Self::BlinkCancelled { tick, hero, cause } => write!(
+                f,
+                "COMBAT_EVENT tick={tick} kind=blink_cancelled hero={hero} cause={}",
+                cause.name()
+            ),
             Self::ChargeThrown { tick, charge, x, y } => write!(
                 f,
                 "COMBAT_EVENT tick={tick} kind=charge_thrown charge={charge} x={x} y={y}"

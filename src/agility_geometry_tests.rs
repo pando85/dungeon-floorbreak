@@ -32,6 +32,15 @@ fn donut() -> HeroMotion {
     agility::agile_motion()
 }
 
+/// DONUT-PROG-01 DP-C (the DP-B leftovers of #213, U-1): Donut with
+/// `jump_reach_boost` held: the adopted launch, everything else DM-A's.
+fn boosted() -> HeroMotion {
+    HeroMotion {
+        jump_speed: f32::from(crate::donut_prog::DonutProgTuning::active().dpq14_boost_launch_px_s),
+        ..donut()
+    }
+}
+
 /// The microarena's solids with the walking line moved to y = 0, and whether a
 /// ceiling slab is part of them (`ceiling` false removes it, to show what the
 /// ceiling is for).
@@ -181,6 +190,13 @@ fn the_ceiling_closes_the_perch_to_perch_skip() {
         count
     };
     assert_eq!(landings(donut(), true), 0, "with DM-Q27 she cannot skip");
+    // DP-B leftover (U-1): the boost (a 138 px apex) cannot skip either: the
+    // ceiling caps the rise at the same 96 px over the perch.
+    assert_eq!(
+        landings(boosted(), true),
+        0,
+        "with DM-Q27 the boosted Donut cannot skip"
+    );
     let free = landings(donut(), false);
     assert!(free > 0, "without it the skip exists: {free}");
     assert_eq!(landings(CARL, true), 0);
@@ -202,7 +218,7 @@ struct Hud {
 /// Jump straight up from the middle of every surface of `blocks` that stands up
 /// to 112 px above the walking line and report Donut's highest tops. `walk` is
 /// the walking line's world y.
-fn hud_of(label: &str, blocks: &[Block], walk: f32, max_x: f32) -> Hud {
+fn hud_of(label: &str, blocks: &[Block], walk: f32, max_x: f32, motion: HeroMotion) -> Hud {
     let mut hud = Hud {
         label: label.to_owned(),
         drawn: 0.0,
@@ -241,7 +257,7 @@ fn hud_of(label: &str, blocks: &[Block], walk: f32, max_x: f32) -> Hud {
             frame.advance(raw);
             step_hero_motion(
                 &mut hero,
-                donut(),
+                motion,
                 &frame,
                 blocks,
                 max_x,
@@ -283,10 +299,21 @@ fn spaces() -> Vec<(String, Vec<Block>, f32, f32)> {
 /// the walking line, so the auto camera's zoom does not move. Returns the
 /// measured line for the PR.
 pub(crate) fn check_hud(label: &str, blocks: &[Block], walk: f32, max_x: f32) -> String {
+    check_hud_with(donut(), label, blocks, walk, max_x)
+}
+
+/// [`check_hud`] for a given motion (the boosted launch of DP-B).
+pub(crate) fn check_hud_with(
+    motion: HeroMotion,
+    label: &str,
+    blocks: &[Block],
+    walk: f32,
+    max_x: f32,
+) -> String {
     let limit_360 = (walk_line_hud_px(640) - crate::hud::ACTION_LANE_TOP) as f32;
     let limit_400 = limit_360 + 20.0;
     assert_eq!(limit_360, 228.0);
-    let hud = hud_of(label, blocks, walk, max_x);
+    let hud = hud_of(label, blocks, walk, max_x, motion);
     assert!(hud.drawn > 0.0, "{}: no surface measured", hud.label);
     assert!(
         hud.drawn <= limit_360,
@@ -312,6 +339,29 @@ fn donut_stays_under_the_hud_band_from_every_surface_of_every_space() {
     let report: Vec<String> = spaces()
         .into_iter()
         .map(|(label, blocks, walk, max_x)| check_hud(&label, &blocks, walk, max_x))
+        .collect();
+    println!("HUD {}", report.join(" | "));
+}
+
+/// DP-B leftover (U-1), spec M2: with the boost (launch 547, apex 137.95 px)
+/// Donut's drawn top from every standable surface of the corridor kit, DEMO-01,
+/// the microarena (with DM-Q27) and the boss room stays within 228 px over the
+/// walking line (248 at 640 x 400), and her collider top plus the auto camera's
+/// 56 px pad stays inside the 288 px over the line, so the auto camera does not
+/// zoom (the same limits as the base kit: the rooms' ceilings keep them).
+#[test]
+fn the_boosted_donut_stays_under_the_hud_band_from_every_surface_of_every_space() {
+    let report: Vec<String> = spaces()
+        .into_iter()
+        .map(|(label, blocks, walk, max_x)| {
+            check_hud_with(
+                boosted(),
+                &format!("{label} (boosted)"),
+                &blocks,
+                walk,
+                max_x,
+            )
+        })
         .collect();
     println!("HUD {}", report.join(" | "));
 }

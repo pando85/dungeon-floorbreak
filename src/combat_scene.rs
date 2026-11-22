@@ -52,6 +52,7 @@ use crate::shore::{PLAYER_ONE, Shore};
 use crate::story_unlock::StoryRuntime;
 use crate::thrown_charge::Thrower;
 
+mod blink;
 mod carl_cf02;
 mod companion;
 mod contacts_cf02;
@@ -939,6 +940,9 @@ pub struct CombatState {
     cursor: usize,
     enemy_foot_y: f32,
     x_max: f32,
+    /// DONUT-PROG-01 DP-Q35: the room's optional blink barriers in world px
+    /// (configuration: never hashed, kept across restarts).
+    blink_barriers: Vec<Rect>,
     /// DEMO-01 rules (`None` for every fixture) and the furthest beat entered.
     demo: Option<&'static DemoRules>,
     pub checkpoint: usize,
@@ -1042,6 +1046,16 @@ impl CombatState {
             cursor: 0,
             enemy_foot_y: scene.world.hero_foot_y(),
             x_max: kit.width as f32,
+            blink_barriers: kit
+                .blink_barriers
+                .iter()
+                .map(|r| Rect {
+                    left: r.x as f32,
+                    bottom: (kit.height - (r.y + r.h)) as f32,
+                    width: r.w as f32,
+                    height: r.h as f32,
+                })
+                .collect(),
             demo: None,
             checkpoint: 0,
             confirm: None,
@@ -1222,7 +1236,7 @@ impl CombatState {
         self.defeated_ticks = 0;
         self.last_tell_start = None;
         self.confirm = None;
-        self.restart_donut(RestartKind::CheckpointRestart);
+        self.restart_donut(scene.world.tick, RestartKind::CheckpointRestart);
         self.restart_story(RestartKind::CheckpointRestart);
         self.companion.reset();
         // BOIL-B wire: a checkpoint respawn restores the props (design 6).
@@ -1393,12 +1407,13 @@ impl CombatState {
             tick: scene.world.tick,
             deaths: self.deaths,
         });
+        let restart_tick = scene.world.tick;
         scene.reset();
         // CF02-Q58: the attempt index is part of the temperament draw, so it counts
         // before the attempt is built (nothing else reads it in between).
         self.restarts += 1;
         self.reset_attempt();
-        self.restart_donut(kind);
+        self.restart_donut(restart_tick, kind);
         self.restart_story(kind);
         self.companion.reset();
         self.sync_arena(scene);

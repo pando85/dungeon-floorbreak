@@ -274,6 +274,10 @@ pub struct EnvKit {
     /// Presentation-only lighting data (`None` when the layout has no
     /// `lighting` profile). Never read by collision or the simulation.
     pub lighting: Option<LightingScene>,
+    /// DONUT-PROG-01 DP-Q27 rule 4b: the room's optional `blink_barriers`
+    /// (absent = none), layout pixels, y down. Collision never reads them; only
+    /// the blink's destination search does.
+    pub blink_barriers: Vec<IRect>,
 }
 
 /// Bevy z for a draw-order slot (steps of one, per the contract). Pieces in the
@@ -592,6 +596,7 @@ impl EnvKit {
                 .map_or(8.0, |l| layer_z(l.draw_order)),
             collidable_cells,
             lighting: None,
+            blink_barriers: Vec::new(),
         };
         // Lighting is derived last and only reads the finished kit (walking
         // lines for floor pools); nothing flows back into collision.
