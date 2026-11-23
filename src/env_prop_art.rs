@@ -27,6 +27,11 @@
 //!
 //! Coordinates are layout pixels, y down, like the sidecar. A `RING-D` append adds
 //! the shutter and the Rot Sticker arms to [`pieces`].
+//!
+//! Each stand-in also carries a visible "STAND-IN: <name>" text label
+//! ([`labels::tags`]), so a flat rectangle is never read as a broken texture.
+
+pub mod labels;
 
 use crate::camera_lab::room::IRect;
 use crate::combat_scene::EnvRuntime;

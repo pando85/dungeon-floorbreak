@@ -38,6 +38,8 @@ pub struct PadButtons {
     pub attack: bool,
     /// PhysicalAttack (Triangle/Y).
     pub physical: bool,
+    /// EquippedSpecial (Circle/B, East): unlock-gated by the hero's capability.
+    pub ability: bool,
     /// SwapCharacter (L1/LB).
     pub swap: bool,
     /// Restart (Select).
@@ -52,6 +54,7 @@ impl PadButtons {
             jump: self.jump || other.jump,
             attack: self.attack || other.attack,
             physical: self.physical || other.physical,
+            ability: self.ability || other.ability,
             swap: self.swap || other.swap,
             restart: self.restart || other.restart,
             start: self.start || other.start,
@@ -264,6 +267,7 @@ impl PadSlots {
             jump: state.held.jump || state.taps.jump,
             attack: state.held.attack || state.taps.attack,
             physical: state.held.physical || state.taps.physical,
+            ability: state.held.ability || state.taps.ability,
             swap: state.taps.swap,
             down: state.down,
             ..RawInput::NONE
@@ -280,6 +284,7 @@ impl PadSlots {
             || keyboard.jump
             || keyboard.attack
             || keyboard.physical
+            || keyboard.ability
             || keyboard.swap
             || keyboard.down
         {
@@ -761,5 +766,60 @@ mod tests {
         };
         let [p1, p2] = slots.take_inputs(keyboard);
         assert!(p1.down && !p2.down);
+    }
+
+    #[test]
+    fn east_is_the_equipped_special_on_both_pad_slots_and_is_latched() {
+        let mut slots = two_player();
+        // A tap shorter than a fixed tick: pressed edge, already released.
+        let mut fa = frame(A);
+        fa.pressed.ability = true;
+        slots.sample(fa);
+        slots.sample(frame(A));
+        let mut fb = frame(B);
+        fb.held.ability = true;
+        slots.sample(fb);
+        let [p1, p2] = slots.take_inputs(RawInput::default());
+        assert!(p1.ability, "P1's latched East tap survives the release");
+        assert!(p2.ability, "P2's held East");
+        assert!(!p1.attack && !p1.physical && !p1.jump);
+        assert!(!p2.attack && !p2.physical && !p2.jump);
+        // The tap was consumed; P2 released.
+        slots.sample(frame(A));
+        slots.sample(frame(B));
+        let [p1, p2] = slots.take_inputs(RawInput::default());
+        assert!(!p1.ability && !p2.ability);
+    }
+
+    #[test]
+    fn the_keyboard_special_merges_into_p1_only_and_is_idle_while_paused() {
+        let mut slots = two_player();
+        let keys = RawInput {
+            ability: true,
+            ..RawInput::NONE
+        };
+        let [p1, p2] = slots.take_inputs(keys);
+        assert!(p1.ability && !p2.ability);
+        // A keyboard special counts as a keyboard press (it keeps P1's seat).
+        let mut solo = PadSlots::default();
+        let [p1, _] = solo.take_inputs(keys);
+        assert!(p1.ability);
+        // An unowned pad's East is dropped.
+        connect(&mut slots, C, MS);
+        let mut fc = frame(C);
+        fc.held.ability = true;
+        fc.pressed.ability = true;
+        slots.sample(fc);
+        assert_eq!(
+            slots.take_inputs(RawInput::default()),
+            [RawInput::default(); 2]
+        );
+        // The owning pad's disconnect pauses: nothing sticks across the pause.
+        let mut fa = frame(A);
+        fa.held.ability = true;
+        fa.pressed.ability = true;
+        slots.sample(fa);
+        slots.apply(PadEvent::Disconnected { pad: A });
+        assert_eq!(slots.take_inputs(keys), [RawInput::default(); 2]);
     }
 }

@@ -382,7 +382,7 @@ fn drawing_the_pieces_never_changes_the_state_hash() {
         light_drum(&mut scene, &mut combat);
         light_drum(&mut scene2, &mut combat2);
         for t in 0..300u64 {
-            let _ = view(&run, &combat, t);
+            let _ = labels::tags(&view(&run, &combat, t));
             step(&mut scene, &mut combat);
             step(&mut scene2, &mut combat2);
             assert_eq!(
@@ -429,5 +429,169 @@ fn the_hazard_origins_are_the_volume_centres_by_prop_and_class() {
             (1, FallingMass, 816.0),
             (2, Blast, 864.0)
         ]
+    );
+}
+
+// ----------------------------------------------------------- K10 labels ----
+
+fn texts(p: &[Piece]) -> Vec<&'static str> {
+    labels::tags(p).iter().map(|t| t.text).collect()
+}
+
+/// K10: every code-drawn stand-in carries a visible "STAND-IN: <name>" label,
+/// each piece whose label says "(stand-in)" has one, and the part pieces do not.
+#[test]
+fn every_stand_in_prop_gets_a_visible_stand_in_label() {
+    let (run, _scene, combat) = rig();
+    let p = view(&run, &combat, 0);
+    assert_eq!(
+        texts(&p),
+        [
+            "STAND-IN: BOILER",
+            "STAND-IN: VALVE",
+            "STAND-IN: BRACE",
+            "STAND-IN: WEIGHT",
+            "STAND-IN: DRUM",
+        ]
+    );
+    // The mapping covers every "(stand-in)" piece label the module can draw.
+    for (label, text) in labels::STAND_IN_TEXTS {
+        assert!(text.starts_with("STAND-IN: "), "{text}");
+        assert!(
+            label.ends_with("(stand-in)") || label == "brace stump",
+            "{label}"
+        );
+    }
+    for label in [
+        "boiler landmark (stand-in)",
+        "valve body (stand-in)",
+        "brace (stand-in)",
+        "hanging weight (stand-in)",
+        "landed remnant (stand-in)",
+        "fuel drum (stand-in)",
+        "drum scorch (stand-in)",
+    ] {
+        assert!(
+            labels::STAND_IN_TEXTS.iter().any(|(l, _)| *l == label),
+            "{label}"
+        );
+    }
+    // A part piece (a band, a chain, a wheel) never gets a label of its own.
+    for piece in p.iter().filter(|x| !x.label.contains("(stand-in)")) {
+        assert!(
+            labels::tags(std::slice::from_ref(piece)).is_empty(),
+            "{}",
+            piece.label
+        );
+    }
+}
+
+/// The labels follow the chain: the broken brace keeps its label on the stump,
+/// the landed weight is labelled as the remnant and the spent drum as a scorch,
+/// every label is inside the room and the pool is never exceeded.
+#[test]
+fn the_labels_follow_the_props_through_the_whole_chain() {
+    let (run, mut scene, mut combat) = rig();
+    let width = run.kit.width;
+    two_hits(&mut combat, VALVE);
+    two_hits(&mut combat, WEIGHT);
+    light_drum(&mut scene, &mut combat);
+    let mut seen = std::collections::BTreeSet::new();
+    for t in 0..360u64 {
+        step(&mut scene, &mut combat);
+        let p = view(&run, &combat, t);
+        let tags = labels::tags(&p);
+        assert!(tags.len() <= labels::MAX_TAGS);
+        assert_eq!(tags, labels::tags(&p), "pure at tick {t}");
+        let texts: Vec<&str> = tags.iter().map(|x| x.text).collect();
+        let unique: std::collections::BTreeSet<&str> = texts.iter().copied().collect();
+        assert_eq!(texts.len(), unique.len(), "one label per text at {t}");
+        for tag in &tags {
+            assert!(
+                tag.centre_x >= 0 && tag.centre_x <= width,
+                "{} at {t}",
+                tag.text
+            );
+            seen.insert(tag.text);
+        }
+    }
+    for text in [
+        "STAND-IN: BOILER",
+        "STAND-IN: VALVE",
+        "STAND-IN: BRACE",
+        "STAND-IN: WEIGHT",
+        "STAND-IN: RUBBLE",
+        "STAND-IN: DRUM",
+        "STAND-IN: SCORCH",
+    ] {
+        assert!(seen.contains(text), "{text} never shown: {seen:?}");
+    }
+}
+
+/// A label sits above its piece (the landmark's inside, below the dome) and
+/// centred on it.
+#[test]
+fn a_label_is_centred_on_its_piece_and_sits_above_it() {
+    let (run, _scene, combat) = rig();
+    let p = view(&run, &combat, 0);
+    let tags = labels::tags(&p);
+    for (label, text) in labels::STAND_IN_TEXTS {
+        let (Some(piece), Some(tag)) = (
+            p.iter().find(|x| x.label == label),
+            tags.iter().find(|t| t.text == text),
+        ) else {
+            continue;
+        };
+        assert_eq!(tag.centre_x, piece.rect.x + piece.rect.w / 2, "{text}");
+        if label == "boiler landmark (stand-in)" {
+            assert_eq!(tag.bottom_y, piece.rect.y + labels::LANDMARK_TAG_DROP_PX);
+        } else {
+            assert_eq!(tag.bottom_y, piece.rect.y - 1, "{text}");
+        }
+    }
+}
+
+/// The 3 x 5 font draws every label text: ink and shadow only, the right size,
+/// and a character without a glyph is refused rather than drawn blank.
+#[test]
+fn every_label_text_rasterises_in_the_pixel_font() {
+    for (_, text) in labels::STAND_IN_TEXTS {
+        let img = labels::text_pixels(text).unwrap_or_else(|| panic!("{text}"));
+        assert_eq!(
+            img.w,
+            text.chars().count() as u32 * labels::GLYPH_ADVANCE_PX
+        );
+        assert_eq!(img.h, labels::GLYPH_HEIGHT_PX + 1);
+        assert_eq!(img.rgba.len(), (img.w * img.h * 4) as usize);
+        let px = |i: usize| {
+            [
+                img.rgba[i * 4],
+                img.rgba[i * 4 + 1],
+                img.rgba[i * 4 + 2],
+                img.rgba[i * 4 + 3],
+            ]
+        };
+        let ink = (0..(img.w * img.h) as usize)
+            .filter(|&i| px(i) == labels::TAG_INK)
+            .count();
+        let shadow = (0..(img.w * img.h) as usize)
+            .filter(|&i| px(i) == labels::TAG_SHADOW)
+            .count();
+        assert!(ink > text.len() * 2, "{text}: {ink} ink pixels");
+        assert!(shadow > 0, "{text}");
+        assert!(
+            (0..(img.w * img.h) as usize)
+                .all(|i| px(i) == labels::TAG_INK || px(i) == labels::TAG_SHADOW || px(i)[3] == 0),
+            "{text}: only ink, shadow and clear pixels"
+        );
+    }
+    assert!(labels::text_pixels("").is_none());
+    assert!(labels::text_pixels("STAND-IN: @").is_none());
+    // The shadow never covers ink: the first glyph's top-left ink pixel is ink.
+    let t = labels::text_pixels("S").unwrap();
+    assert_eq!(
+        &t.rgba[4..8],
+        &labels::TAG_INK,
+        "row 0, column 1 of S is ink"
     );
 }

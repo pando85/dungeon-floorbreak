@@ -3095,6 +3095,8 @@ struct Controls {
     jump_tap: bool,
     attack_tap: bool,
     physical_tap: bool,
+    /// EquippedSpecial (keyboard L).
+    ability_tap: bool,
     swap_tap: bool,
     restart: bool,
     /// DEMO-01 PR C: Carl was moved on purpose (a respawn, a restart): the
@@ -4502,6 +4504,7 @@ fn setup(
     if let Some(run) = &args.boiler_run {
         env_prop_art::spawn(
             &mut commands,
+            &mut images,
             run.loaded.encounter.clone(),
             layers_of("actors"),
             kit.actor_z,
@@ -4983,23 +4986,62 @@ fn pad_frame(entity: Entity, pad: &Gamepad) -> PadFrame {
             pad.dpad().x
         },
         down: pad_down(pad.dpad().y, pad.left_stick()),
-        held: PadButtons {
-            jump: pad.pressed(GamepadButton::South),
-            attack: pad.pressed(GamepadButton::West),
-            // PhysicalAttack is Triangle/Y (North); North no longer restarts.
-            physical: pad.pressed(GamepadButton::North),
-            swap: pad.pressed(GamepadButton::LeftTrigger),
-            restart: pad.pressed(GamepadButton::Select),
-            start: pad.pressed(GamepadButton::Start),
-        },
-        pressed: PadButtons {
-            jump: pad.just_pressed(GamepadButton::South),
-            attack: pad.just_pressed(GamepadButton::West),
-            physical: pad.just_pressed(GamepadButton::North),
-            swap: pad.just_pressed(GamepadButton::LeftTrigger),
-            restart: pad.just_pressed(GamepadButton::Select),
-            start: pad.just_pressed(GamepadButton::Start),
-        },
+        held: pad_buttons(|button| pad.pressed(button)),
+        pressed: pad_buttons(|button| pad.just_pressed(button)),
+    }
+}
+
+/// The logical buttons of one pad from a physical-button query (held or
+/// just-pressed). The physical mapping lives here only: South jump, West
+/// PrimaryAttack, North PhysicalAttack (North no longer restarts), East
+/// EquippedSpecial (Circle/B), LeftTrigger swap, Select restart, Start menu.
+/// The same mapping serves every pad slot (P1 and P2).
+fn pad_buttons(is: impl Fn(GamepadButton) -> bool) -> PadButtons {
+    PadButtons {
+        jump: is(GamepadButton::South),
+        attack: is(GamepadButton::West),
+        physical: is(GamepadButton::North),
+        ability: is(GamepadButton::East),
+        swap: is(GamepadButton::LeftTrigger),
+        restart: is(GamepadButton::Select),
+        start: is(GamepadButton::Start),
+    }
+}
+
+/// Latch the keyboard's just-pressed edges between fixed steps (a tap shorter
+/// than a fixed tick is not lost; `fixed_step` consumes them).
+fn latch_keyboard_taps(keys: &ButtonInput<KeyCode>, controls: &mut Controls) {
+    controls.jump_tap |= keys.just_pressed(KeyCode::Space);
+    controls.attack_tap |= keys.just_pressed(KeyCode::KeyJ);
+    controls.physical_tap |= keys.just_pressed(KeyCode::KeyK);
+    // EquippedSpecial is L (next to J and K), the keyboard's Circle/B.
+    controls.ability_tap |= keys.just_pressed(KeyCode::KeyL);
+    // Temporary keyboard default for the solo swap (the contract only fixes
+    // L1/LB); the keyboard stays P1.
+    controls.swap_tap |= keys.just_pressed(KeyCode::KeyQ);
+}
+
+/// P1's keyboard input for one fixed tick: held keys plus the latched taps,
+/// which are consumed.
+fn keyboard_input(keys: &ButtonInput<KeyCode>, controls: &mut Controls) -> RawInput {
+    let jump_tap = std::mem::take(&mut controls.jump_tap);
+    let attack_tap = std::mem::take(&mut controls.attack_tap);
+    let physical_tap = std::mem::take(&mut controls.physical_tap);
+    let ability_tap = std::mem::take(&mut controls.ability_tap);
+    let swap_tap = std::mem::take(&mut controls.swap_tap);
+    let left = keys.pressed(KeyCode::KeyA) || keys.pressed(KeyCode::ArrowLeft);
+    let right = keys.pressed(KeyCode::KeyD) || keys.pressed(KeyCode::ArrowRight);
+    RawInput {
+        move_x: f32::from(i8::from(right) - i8::from(left)),
+        jump: keys.pressed(KeyCode::Space) || jump_tap,
+        attack: keys.pressed(KeyCode::KeyJ) || attack_tap,
+        physical: keys.pressed(KeyCode::KeyK) || physical_tap,
+        ability: keys.pressed(KeyCode::KeyL) || ability_tap,
+        swap: swap_tap,
+        // CF02-Q01: Down (S or the Down arrow). Only Carl's Physical press
+        // under `--cf02` reads it.
+        down: keys.pressed(KeyCode::KeyS) || keys.pressed(KeyCode::ArrowDown),
+        ..RawInput::NONE
     }
 }
 
@@ -5011,12 +5053,7 @@ fn capture_input(
     mut exit: MessageWriter<AppExit>,
     mut lab: Option<ResMut<LabOverlay>>,
 ) {
-    controls.jump_tap |= keys.just_pressed(KeyCode::Space);
-    controls.attack_tap |= keys.just_pressed(KeyCode::KeyJ);
-    controls.physical_tap |= keys.just_pressed(KeyCode::KeyK);
-    // Temporary keyboard default for the solo swap (the contract only fixes
-    // L1/LB); the keyboard stays P1.
-    controls.swap_tap |= keys.just_pressed(KeyCode::KeyQ);
+    latch_keyboard_taps(&keys, &mut controls);
     controls.restart |= keys.just_pressed(KeyCode::KeyR);
     controls.select_tap |= keys.just_pressed(KeyCode::KeyR);
     if keys.just_pressed(KeyCode::Escape) {
@@ -5173,27 +5210,9 @@ fn fixed_step(
 ) {
     let mut restart = std::mem::take(&mut controls.restart);
     let select_tap = std::mem::take(&mut controls.select_tap);
-    let jump_tap = std::mem::take(&mut controls.jump_tap);
-    let attack_tap = std::mem::take(&mut controls.attack_tap);
-    let physical_tap = std::mem::take(&mut controls.physical_tap);
-    let swap_tap = std::mem::take(&mut controls.swap_tap);
     // Keyboard is P1. Pad edges are consumed here too, so a tap made during a
     // pause is dropped and nothing fires on resume.
-    let keyboard = {
-        let left = keys.pressed(KeyCode::KeyA) || keys.pressed(KeyCode::ArrowLeft);
-        let right = keys.pressed(KeyCode::KeyD) || keys.pressed(KeyCode::ArrowRight);
-        RawInput {
-            move_x: f32::from(i8::from(right) - i8::from(left)),
-            jump: keys.pressed(KeyCode::Space) || jump_tap,
-            attack: keys.pressed(KeyCode::KeyJ) || attack_tap,
-            physical: keys.pressed(KeyCode::KeyK) || physical_tap,
-            swap: swap_tap,
-            // CF02-Q01: Down (S or the Down arrow). Only Carl's Physical press
-            // under `--cf02` reads it.
-            down: keys.pressed(KeyCode::KeyS) || keys.pressed(KeyCode::ArrowDown),
-            ..RawInput::NONE
-        }
-    };
+    let keyboard = keyboard_input(&keys, &mut controls);
     let mut live_slots = pads.0.take_inputs(keyboard);
     // The lab menu and the end panel own the input: gameplay ignores it.
     if sinks.lab.as_ref().is_some_and(|lab| lab.blocks_gameplay()) {
@@ -11084,5 +11103,197 @@ mod tests {
         assert!(kit.view(REFERENCE_VIEW).is_some() && kit.view(REFERENCE_VIEW_DECK).is_some());
         assert_eq!(kit.view("refuge_640x360"), kit.view(REFERENCE_VIEW));
         assert_eq!(room.cast_x().carl, 258.0);
+    }
+
+    // BUG-SPECIAL-INPUT: the equipped special was unreachable from live input
+    // (no keyboard key and no pad East button reached `RawInput::ability`).
+
+    /// East (Circle/B) is the EquippedSpecial and nothing else; the other
+    /// buttons keep their bindings (North stays the kick, not a special).
+    #[test]
+    fn the_pad_maps_east_to_the_equipped_special_and_only_east() {
+        let only = |button: GamepadButton| pad_buttons(|b| b == button);
+        assert_eq!(
+            only(GamepadButton::East),
+            PadButtons {
+                ability: true,
+                ..PadButtons::default()
+            }
+        );
+        assert!(only(GamepadButton::South).jump && !only(GamepadButton::South).ability);
+        assert!(only(GamepadButton::West).attack && !only(GamepadButton::West).ability);
+        let north = only(GamepadButton::North);
+        assert!(north.physical && !north.ability);
+        assert!(only(GamepadButton::LeftTrigger).swap);
+        assert!(only(GamepadButton::Select).restart);
+        assert!(only(GamepadButton::Start).start);
+        // East restarts, quits, swaps and starts nothing.
+        let east = only(GamepadButton::East);
+        assert!(!east.restart && !east.start && !east.swap && !east.jump);
+        assert_eq!(pad_buttons(|_| false), PadButtons::default());
+    }
+
+    /// Keyboard L is the special, next to J and K, and the other keys do not
+    /// set it.
+    #[test]
+    fn keyboard_l_is_the_equipped_special_and_no_other_key_is() {
+        let mut keys = ButtonInput::<KeyCode>::default();
+        let mut controls = Controls::default();
+        for key in [
+            KeyCode::Space,
+            KeyCode::KeyJ,
+            KeyCode::KeyK,
+            KeyCode::KeyQ,
+            KeyCode::KeyA,
+            KeyCode::KeyD,
+            KeyCode::KeyS,
+            KeyCode::KeyR,
+            KeyCode::Escape,
+        ] {
+            keys.press(key);
+        }
+        latch_keyboard_taps(&keys, &mut controls);
+        assert!(!keyboard_input(&keys, &mut controls).ability);
+        keys.release_all();
+        keys.clear();
+        keys.press(KeyCode::KeyL);
+        latch_keyboard_taps(&keys, &mut controls);
+        let raw = keyboard_input(&keys, &mut controls);
+        assert!(raw.ability);
+        assert!(!raw.attack && !raw.physical && !raw.jump && !raw.swap);
+        assert_eq!(raw.move_x, 0.0);
+    }
+
+    /// A press shorter than a fixed tick (down and up between two steps) is
+    /// latched, read once, and not read again; a held key reads every tick.
+    #[test]
+    fn a_short_special_tap_between_fixed_steps_is_latched_once() {
+        let mut keys = ButtonInput::<KeyCode>::default();
+        let mut controls = Controls::default();
+        keys.press(KeyCode::KeyL);
+        latch_keyboard_taps(&keys, &mut controls);
+        keys.release(KeyCode::KeyL);
+        keys.clear();
+        latch_keyboard_taps(&keys, &mut controls);
+        assert!(controls.ability_tap, "the edge survives the release");
+        assert!(keyboard_input(&keys, &mut controls).ability);
+        assert!(!controls.ability_tap, "consumed by the step");
+        assert!(!keyboard_input(&keys, &mut controls).ability);
+        // Held: no new edge, but the level keeps reading (the press edge is
+        // derived downstream from the held state).
+        keys.press(KeyCode::KeyL);
+        keys.clear_just_pressed(KeyCode::KeyL);
+        assert!(keyboard_input(&keys, &mut controls).ability);
+        assert!(keyboard_input(&keys, &mut controls).ability);
+    }
+
+    /// Settle the room, then run `ticks` live ticks the way `fixed_step` builds
+    /// them: slot inputs from the keyboard and the pads, the party routing and
+    /// the combat step.
+    fn live_special_tick(
+        sim: &mut SceneSim,
+        combat: &mut CombatState,
+        pads: &mut PadSlots,
+        keyboard: RawInput,
+    ) {
+        let slot_inputs = pads.take_inputs(keyboard);
+        pads.party_mut().request_swap(slot_inputs[0].swap, false);
+        let hero_inputs = pads.party().hero_inputs(slot_inputs);
+        sim.set_drive(pads.party().drive(true));
+        combat.step_party(sim, hero_inputs);
+    }
+
+    fn special_starts(combat: &CombatState, hero: u8) -> usize {
+        combat
+            .events
+            .iter()
+            .filter(|e| {
+                matches!(e, dungeon_floorbreak::combat::CombatEvent::SpecialStarted { hero: h, .. } if *h == hero)
+            })
+            .count()
+    }
+
+    fn late_boiler_all() -> (SceneSim, CombatState) {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        let (carl, donut) = f01_late::Loadout::All.flags();
+        let (_, scene, combat) = f01_late::boiler_start(root, 360, carl, donut, None).unwrap();
+        (scene, combat)
+    }
+
+    /// A live keyboard L (through the real mapping, tap latch and party
+    /// routing) makes Carl throw in the `f01_late` Boiler; without it he does not.
+    #[test]
+    fn live_keyboard_l_makes_carl_throw_in_the_late_boiler() {
+        let (mut sim, mut combat) = late_boiler_all();
+        let mut pads = PadSlots::default();
+        let mut keys = ButtonInput::<KeyCode>::default();
+        let mut controls = Controls::default();
+        for _ in 0..30 {
+            live_special_tick(&mut sim, &mut combat, &mut pads, RawInput::NONE);
+        }
+        assert_eq!(special_starts(&combat, 0), 0, "no press, no throw");
+        // A tap that is up again before the step still throws.
+        keys.press(KeyCode::KeyL);
+        latch_keyboard_taps(&keys, &mut controls);
+        keys.release(KeyCode::KeyL);
+        keys.clear();
+        let keyboard = keyboard_input(&keys, &mut controls);
+        assert!(keyboard.ability);
+        live_special_tick(&mut sim, &mut combat, &mut pads, keyboard);
+        assert_eq!(special_starts(&combat, 0), 1, "Carl threw the dynamite");
+    }
+
+    /// A live pad East makes Carl throw from P1's pad and Donut blink from
+    /// P2's pad (the story-loadout `all` room holds both specials).
+    #[test]
+    fn live_pad_east_drives_carls_throw_on_p1_and_donuts_blink_on_p2() {
+        let (mut sim, mut combat) = late_boiler_all();
+        let mut pads = PadSlots::default();
+        let (a, b) = (PadId(10), PadId(11));
+        pads.apply(PadEvent::Connected {
+            pad: a,
+            vendor_id: None,
+        });
+        pads.apply(PadEvent::Connected {
+            pad: b,
+            vendor_id: None,
+        });
+        let frame = |pad: PadId, ability: bool, start: bool| PadFrame {
+            pad,
+            vendor_id: None,
+            move_x: 0.0,
+            down: false,
+            held: PadButtons {
+                ability,
+                start,
+                ..PadButtons::default()
+            },
+            pressed: PadButtons {
+                ability,
+                start,
+                ..PadButtons::default()
+            },
+        };
+        pads.sample(frame(b, false, true));
+        assert_eq!(
+            pads.party().mode(),
+            dungeon_floorbreak::party::PartyMode::TwoPlayer
+        );
+        for _ in 0..30 {
+            live_special_tick(&mut sim, &mut combat, &mut pads, RawInput::NONE);
+        }
+        assert_eq!(
+            (special_starts(&combat, 0), special_starts(&combat, 1)),
+            (0, 0)
+        );
+        // P2's East: Donut blinks, Carl does not throw.
+        pads.sample(frame(b, true, false));
+        live_special_tick(&mut sim, &mut combat, &mut pads, RawInput::NONE);
+        assert_eq!(special_starts(&combat, 1), 1, "Donut started her blink");
+        assert_eq!(special_starts(&combat, 0), 0);
+        // P1's East: Carl throws.
+        pads.sample(frame(a, true, false));
+        live_special_tick(&mut sim, &mut combat, &mut pads, RawInput::NONE);
+        assert_eq!(special_starts(&combat, 0), 1, "Carl threw the dynamite");
     }
 }
