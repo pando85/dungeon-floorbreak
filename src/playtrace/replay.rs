@@ -267,7 +267,7 @@ fn rebuild_scene(manifest: &SessionManifest, root: &Path) -> Result<Reset, Verif
             let fixture = find_party_fixture(&reset.name)
                 .ok_or_else(|| unsupported(format!("unknown party fixture {:?}", reset.name)))?;
             // CF02-F: the room fixtures run on the microarena kit.
-            let kit = if crate::cf02::arena::fixture_uses_arena(fixture.name()) {
+            let kit = if fixture.base.room == crate::combat_scene::FixtureRoom::Arena {
                 crate::cf02::arena::load_arena(root).map_err(unsupported)?
             } else {
                 corridor_kit(root)?

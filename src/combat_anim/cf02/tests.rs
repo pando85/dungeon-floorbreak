@@ -608,7 +608,7 @@ fn all_cf02() -> Vec<&'static crate::party_scene::PartyFixture> {
 /// The kit a fixture runs on: the arena for F's room fixtures, else the sample
 /// corridor.
 fn kit_for(fixture: &crate::party_scene::PartyFixture) -> EnvKit {
-    if crate::cf02::arena::fixture_uses_arena(fixture.name()) {
+    if fixture.base.room == crate::combat_scene::FixtureRoom::Arena {
         crate::cf02::arena::load_arena(root()).unwrap()
     } else {
         kit()

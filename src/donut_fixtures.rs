@@ -1160,6 +1160,7 @@ mod tests {
             charges: fixture.base.charges,
             script: fixture.base.script,
             ticks: fixture.base.ticks,
+            room: crate::combat_scene::FixtureRoom::Corridor,
         }));
         Box::leak(Box::new(PartyFixture {
             base,

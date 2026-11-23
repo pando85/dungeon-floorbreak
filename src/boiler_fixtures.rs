@@ -970,6 +970,7 @@ pub mod scene_pilots {
             charges: &[],
             script: &[],
             ticks: PLAN_TICKS,
+            room: crate::combat_scene::FixtureRoom::Corridor,
         }));
         let mut scene = SceneSim::new_at(&run.kit, 360, base.carl_x)?;
         let mut combat = CombatState::new(base, &run.kit, &scene)?

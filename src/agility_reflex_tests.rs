@@ -349,7 +349,7 @@ const SHORE_BLOCK_SOURCE: u32 = crate::cf02::arena::SHORE_BLOCK_SOURCE;
 fn kit_of(fixture: &PartyFixture) -> EnvKit {
     if fixture.base.boss.is_some() {
         crate::boss_scene::load_arena(&root()).unwrap()
-    } else if crate::cf02::arena::fixture_uses_arena(fixture.name()) {
+    } else if fixture.base.room == crate::combat_scene::FixtureRoom::Arena {
         crate::cf02::arena::load_arena(&root()).unwrap()
     } else {
         corridor()

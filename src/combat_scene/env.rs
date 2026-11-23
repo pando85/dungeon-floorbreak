@@ -2735,6 +2735,7 @@ mod tests {
             charges: &[],
             script: &[],
             ticks: 900,
+            room: crate::combat_scene::FixtureRoom::Corridor,
         }))
     }
 

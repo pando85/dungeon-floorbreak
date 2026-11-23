@@ -191,6 +191,7 @@ pub fn launch(root: &Path) -> Result<MasteryRun, String> {
         charges: &[],
         script: WALK_RIGHT,
         ticks: SMOKE_TICKS,
+        room: crate::combat_scene::FixtureRoom::Corridor,
     }));
     Ok(MasteryRun {
         kit,

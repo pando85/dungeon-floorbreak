@@ -222,6 +222,7 @@ pub(crate) const fn boss_base(
         llamas: &[],
         script: &[],
         ticks,
+        room: crate::combat_scene::FixtureRoom::Corridor,
     }
 }
 

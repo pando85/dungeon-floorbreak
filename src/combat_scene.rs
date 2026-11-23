@@ -200,6 +200,18 @@ const fn jump(from: u64, to: u64) -> Hold {
     }
 }
 
+/// Which room a fixture runs in (CF02-FU-C2F U7): the sample corridor or the CF02
+/// microarena. A field of the fixture, so the kit is chosen by the fixture itself and
+/// not by a name prefix; [`crate::cf02::arena::fixture_uses_arena`] reads it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum FixtureRoom {
+    /// The corridor sample (`corridor_abc_sample`), the default.
+    #[default]
+    Corridor,
+    /// The CF02 microarena (`cf02_microarena.room.json`).
+    Arena,
+}
+
 /// A named, deterministic combat setup.
 #[derive(Debug, PartialEq)]
 pub struct Fixture {
@@ -231,6 +243,8 @@ pub struct Fixture {
     pub script: &'static [Hold],
     /// Default run length of the headless replay and the CI hash.
     pub ticks: u64,
+    /// The room the fixture runs in (CF02-FU-C2F U7).
+    pub room: FixtureRoom,
 }
 
 impl Fixture {
@@ -298,6 +312,7 @@ pub const CP01_SINGLE_GOBLIN: Fixture = Fixture {
     charges: &[],
     script: &[attack(122, 123), attack(136, 137)],
     ticks: 200,
+    room: crate::combat_scene::FixtureRoom::Corridor,
 };
 
 /// CP-01 two sequential hits on a stationary goblin dummy. The first jab is
@@ -319,6 +334,7 @@ pub const CP01_TWO_HITS: Fixture = Fixture {
     charges: &[],
     script: &[attack(10, 60), attack(70, 71)],
     ticks: 140,
+    room: crate::combat_scene::FixtureRoom::Corridor,
 };
 
 /// CP-02 placeholder setup: two chasing goblins close together. The scripted
@@ -351,6 +367,7 @@ pub const CP02_TWO_GOBLINS: Fixture = Fixture {
         attack(170, 171),
     ],
     ticks: 260,
+    room: crate::combat_scene::FixtureRoom::Corridor,
 };
 
 /// CP-01: Carl idles and the goblin walks up, tells, swings and hits him; then
@@ -371,6 +388,7 @@ pub const CP01_GOBLIN_ATTACKS: Fixture = Fixture {
     charges: &[],
     script: &[],
     ticks: 300,
+    room: crate::combat_scene::FixtureRoom::Corridor,
 };
 
 /// CP-01: Carl jabs the goblin during its tell and the swing never happens.
@@ -390,6 +408,7 @@ pub const CP01_INTERRUPT: Fixture = Fixture {
     charges: &[],
     script: &[attack(137, 138)],
     ticks: 200,
+    room: crate::combat_scene::FixtureRoom::Corridor,
 };
 
 /// CP-01: jab, then the haymaker inside the jab's string window, defeats the
@@ -410,6 +429,7 @@ pub const CP01_HAYMAKER_CHAIN: Fixture = Fixture {
     charges: &[],
     script: &[attack(137, 138), attack(141, 142)],
     ticks: 230,
+    room: crate::combat_scene::FixtureRoom::Corridor,
 };
 
 /// CP-01: Carl idles against two goblins until he is defeated; the fixture
@@ -437,6 +457,7 @@ pub const CP01_RETRY: Fixture = Fixture {
     charges: &[],
     script: &[],
     ticks: 850,
+    room: crate::combat_scene::FixtureRoom::Corridor,
 };
 
 /// ART-INT-02 / D-02: the push kick (PhysicalAttack, Triangle/Y) against one
@@ -462,6 +483,7 @@ pub const CP01_KICK: Fixture = Fixture {
     charges: &[],
     script: &[kick(122, 123), kick(247, 248)],
     ticks: 340,
+    room: crate::combat_scene::FixtureRoom::Corridor,
 };
 
 /// D-03 / CP-02: Carl kicks a stationary goblin (Triangle/Y, pressed on tick
@@ -490,6 +512,7 @@ pub const CP02_KICK_CONTACT: Fixture = Fixture {
     charges: &[],
     script: &[kick(20, 21)],
     ticks: 140,
+    room: crate::combat_scene::FixtureRoom::Corridor,
 };
 
 /// D-04 / CP-03: three separate jabs (ticks 20, 60 and 100) hit the rotten
@@ -513,6 +536,7 @@ pub const CP03_SHORE_KILL: Fixture = Fixture {
     charges: &[],
     script: &[attack(20, 21), attack(60, 61), attack(100, 101)],
     ticks: 200,
+    room: crate::combat_scene::FixtureRoom::Corridor,
 };
 
 /// D-04 negative case: the same three jabs, a goblin standing outside the
@@ -533,6 +557,7 @@ pub const CP03_SHORE_MISS: Fixture = Fixture {
     charges: &[],
     script: &[attack(20, 21), attack(60, 61), attack(100, 101)],
     ticks: 200,
+    room: crate::combat_scene::FixtureRoom::Corridor,
 };
 
 /// DEATH-B chain: Carl kicks a stationary goblin (tick 20); the kick also
@@ -556,6 +581,7 @@ pub const CP03_KICK_BLOCK: Fixture = Fixture {
     charges: &[],
     script: &[kick(20, 21), attack(100, 101), attack(140, 141)],
     ticks: 260,
+    room: crate::combat_scene::FixtureRoom::Corridor,
 };
 
 /// DEATH-E1 worst case: ten stationary goblins defeated by mixed causes within
@@ -627,6 +653,7 @@ pub const CP03_GOBLIN_PILEUP: Fixture = Fixture {
         strike_towards(132, 133, -1.0, true),
     ],
     ticks: 260,
+    room: crate::combat_scene::FixtureRoom::Corridor,
 };
 
 /// DEMO-01 PR B: Carl kicks a Bad Llama to death. The llama (health 3) starts
@@ -656,6 +683,7 @@ pub const CP05_LLAMA_SLAM: Fixture = Fixture {
         kick(150, 151),
     ],
     ticks: 260,
+    room: crate::combat_scene::FixtureRoom::Corridor,
 };
 
 /// DEMO-01 PR B: jab, haymaker, jab defeat a Bad Llama. No lethal hit is a
@@ -676,6 +704,7 @@ pub const CP05_LLAMA_DOWN: Fixture = Fixture {
     charges: &[],
     script: &[attack(20, 21), attack(24, 25), attack(60, 61)],
     ticks: 200,
+    room: crate::combat_scene::FixtureRoom::Corridor,
 };
 
 /// DEMO-01 PR B: Carl idles inside the frame, 160 px from the llama. It tells
@@ -697,6 +726,7 @@ pub const CP05_LLAMA_SPIT: Fixture = Fixture {
     charges: &[],
     script: &[],
     ticks: 300,
+    room: crate::combat_scene::FixtureRoom::Corridor,
 };
 
 /// DEMO-01 PR B: the llama stands outside the simulation's scroll-camera view
@@ -717,6 +747,7 @@ pub const CP05_LLAMA_OFFSCREEN: Fixture = Fixture {
     charges: &[],
     script: &[],
     ticks: 400,
+    room: crate::combat_scene::FixtureRoom::Corridor,
 };
 
 /// DEMO-01 PR B: three jabs break the rotten shore and the block lands on a
@@ -738,6 +769,7 @@ pub const CP05_LLAMA_CRUSH: Fixture = Fixture {
     charges: &[],
     script: &[attack(20, 21), attack(60, 61), attack(100, 101)],
     ticks: 200,
+    room: crate::combat_scene::FixtureRoom::Corridor,
 };
 
 /// DEATH-D: `cp03_shore_kill` with the goblin standing on the footprint's
@@ -761,6 +793,7 @@ pub const CP03_BLOCK_EDGE_DECAP: Fixture = Fixture {
     charges: &[],
     script: &[attack(20, 21), attack(60, 61), attack(100, 101)],
     ticks: 200,
+    room: crate::combat_scene::FixtureRoom::Corridor,
 };
 
 /// DEATH-D QA fixture (never a route, not an ability): an authored blast
@@ -798,6 +831,7 @@ pub const QA_BLAST_BREAKUP: Fixture = Fixture {
     }],
     script: &[],
     ticks: 240,
+    room: crate::combat_scene::FixtureRoom::Corridor,
 };
 
 pub const FIXTURES: [&Fixture; 20] = [
@@ -1083,7 +1117,8 @@ impl CombatState {
             story: None,
             cf02: cf02::fixture_runs_cf02(fixture.name).then(cf02::active),
             carl_cf02: CarlCf02::default(),
-            morale_on: crate::cf02_fixtures::morale_fixture(fixture.name),
+            morale_on: crate::cf02_fixtures::morale_fixture(fixture.name)
+                || fixture.room == FixtureRoom::Arena,
             cf02_seed: None,
             temperament_cover: 0,
             morale: None,
@@ -3892,6 +3927,7 @@ mod tests {
                 charges: &[],
                 script: &[],
                 ticks: 100,
+                room: crate::combat_scene::FixtureRoom::Corridor,
             };
         };
     }
@@ -3916,6 +3952,7 @@ mod tests {
         charges: &[],
         script: &[],
         ticks: 400,
+        room: crate::combat_scene::FixtureRoom::Corridor,
     };
 
     /// Three chasing goblins already in range: more than the token allows.
@@ -3945,6 +3982,7 @@ mod tests {
         charges: &[],
         script: &[],
         ticks: 120,
+        room: crate::combat_scene::FixtureRoom::Corridor,
     };
 
     /// Carl runs right, past a goblin that is already in its tell.
@@ -3971,6 +4009,7 @@ mod tests {
             },
         }],
         ticks: 150,
+        room: crate::combat_scene::FixtureRoom::Corridor,
     };
 
     /// A jab pressed so that it lands in the goblin's smear (attack tick 25).
@@ -3990,6 +4029,7 @@ mod tests {
         charges: &[],
         script: &[attack(149, 150)],
         ticks: 200,
+        room: crate::combat_scene::FixtureRoom::Corridor,
     };
 
     /// No goblins: Carl alone (the Donut and combat-neutrality checks).
@@ -4006,6 +4046,7 @@ mod tests {
         charges: &[],
         script: &[],
         ticks: 100,
+        room: crate::combat_scene::FixtureRoom::Corridor,
     };
 
     fn max_tokens(sim: &mut FixtureSim, ticks: u64) -> usize {
@@ -4285,6 +4326,7 @@ mod tests {
             charges: &[],
             script: &[],
             ticks: 60,
+            room: crate::combat_scene::FixtureRoom::Corridor,
         };
         let mut sim = sim_of(&PAIR);
         sim.run_scripted(PAIR.ticks);
@@ -5278,6 +5320,7 @@ mod tests {
             charges: &[],
             script: &[attack(20, 400)],
             ticks: 300,
+            room: crate::combat_scene::FixtureRoom::Corridor,
         };
         let mut sim = sim_of(&HELD);
         sim.run_scripted(HELD.ticks);
@@ -5308,6 +5351,7 @@ mod tests {
             charges: &[],
             script: &[attack(20, 21), attack(60, 61), attack(100, 101)],
             ticks: 220,
+            room: crate::combat_scene::FixtureRoom::Corridor,
         };
         let mut sim = sim_of(&ORDER);
         // Defeat the goblin directly before the block falls.
@@ -5588,6 +5632,7 @@ mod tests {
             attack(200, 201),
         ],
         ticks: 320,
+        room: crate::combat_scene::FixtureRoom::Corridor,
     };
 
     #[test]
@@ -5915,6 +5960,7 @@ mod tests {
         }],
         script: &[attack(20, 21), attack(60, 61), attack(100, 101)],
         ticks: 200,
+        room: crate::combat_scene::FixtureRoom::Corridor,
     };
 
     #[test]
@@ -5983,6 +6029,7 @@ mod tests {
         ],
         script: &[],
         ticks: 100,
+        room: crate::combat_scene::FixtureRoom::Corridor,
     };
 
     #[test]
@@ -6047,6 +6094,7 @@ mod tests {
         }],
         script: &[],
         ticks: 80,
+        room: crate::combat_scene::FixtureRoom::Corridor,
     };
 
     #[test]
@@ -6106,6 +6154,7 @@ mod tests {
         }],
         script: &[],
         ticks: 60,
+        room: crate::combat_scene::FixtureRoom::Corridor,
     };
 
     static LONE_CHARGE_OWNED: Fixture = Fixture {
@@ -6126,6 +6175,7 @@ mod tests {
         }],
         script: &[],
         ticks: 60,
+        room: crate::combat_scene::FixtureRoom::Corridor,
     };
 
     #[test]
@@ -6177,6 +6227,7 @@ mod tests {
             }],
             script: &[],
             ticks: 10,
+            room: crate::combat_scene::FixtureRoom::Corridor,
         };
         let err = FixtureSim::new(&kit(), 360, &ZERO).unwrap_err();
         assert!(err.contains("tick 0"), "{err}");
@@ -6424,6 +6475,7 @@ mod tests {
             charges: &[],
             script: &[walk(1, 200, 1.0)],
             ticks: 400,
+            room: crate::combat_scene::FixtureRoom::Corridor,
         };
         let mut sim = sim_of(&APPROACH);
         let mut first_tell = None;
@@ -6470,6 +6522,7 @@ mod tests {
                 charges: &[],
                 script,
                 ticks: 120,
+                room: crate::combat_scene::FixtureRoom::Corridor,
             }));
             let mut sim = sim_of(fixture);
             sim.run_scripted(fixture.ticks);
@@ -6523,6 +6576,7 @@ mod tests {
             charges: &[],
             script: &[],
             ticks: 60,
+            room: crate::combat_scene::FixtureRoom::Corridor,
         };
         let (_, events) = llama_events(&POINT_BLANK);
         assert_eq!(hurts(&events), [37], "hit on the tick the glob leaves");
@@ -6587,6 +6641,7 @@ mod tests {
             charges: &[],
             script: &[attack(10, 11)],
             ticks: 40,
+            room: crate::combat_scene::FixtureRoom::Corridor,
         };
         let (sim, events) = llama_events(&MIXED);
         let mut targets: Vec<u32> = hits(&events).into_iter().map(|(_, t)| t).collect();

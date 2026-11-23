@@ -536,7 +536,7 @@ impl Args {
         (self.cf02.rules && !self.f01_room_scene())
             || self
                 .fixture
-                .is_some_and(|f| cf02::arena::fixture_uses_arena(f.name))
+                .is_some_and(|f| f.room == dungeon_floorbreak::combat_scene::FixtureRoom::Arena)
     }
 
     /// The party of a live run without a party fixture.

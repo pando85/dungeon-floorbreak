@@ -6375,7 +6375,7 @@ mod tests {
         let arena = crate::cf02::arena::load_arena(&root()).unwrap();
         let mut picked: Vec<(&str, SlamPose)> = Vec::new();
         for fixture in CF02_FIXTURES.iter().filter(|f| f.base.boss.is_none()) {
-            let kit = if crate::cf02::arena::fixture_uses_arena(fixture.name()) {
+            let kit = if fixture.base.room == crate::combat_scene::FixtureRoom::Arena {
                 &arena
             } else {
                 &corridor

@@ -127,6 +127,7 @@ const fn stage_fixture(
         charges: &[],
         script: &[],
         ticks: HORIZON_TICKS,
+        room: crate::combat_scene::FixtureRoom::Corridor,
     }
 }
 

@@ -78,6 +78,7 @@ fn rig_with(tuning: PartyTuning, slot: Vec<Dummy>) -> PartyFixtureSim {
         charges: &[],
         script: &[],
         ticks: 900,
+        room: crate::combat_scene::FixtureRoom::Corridor,
     }));
     let mut scene = SceneSim::new_at(&run.kit, 360, base.carl_x).unwrap();
     let mut combat = CombatState::new(base, &run.kit, &scene)

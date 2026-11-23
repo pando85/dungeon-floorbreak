@@ -2099,7 +2099,7 @@ mod tests {
         let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         if fixture.base.boss.is_some() {
             crate::boss_scene::load_arena(&root).unwrap()
-        } else if crate::cf02::arena::fixture_uses_arena(fixture.name()) {
+        } else if fixture.base.room == crate::combat_scene::FixtureRoom::Arena {
             crate::cf02::arena::load_arena(&root).unwrap()
         } else {
             EnvKit::load(&root, "assets/levels/floor01/corridor_abc_sample.json").unwrap()

@@ -926,6 +926,7 @@ fn an_authored_surface_is_the_top_of_solids_under_the_whole_body() {
         charges: base.charges,
         script: base.script,
         ticks: base.ticks,
+        room: crate::combat_scene::FixtureRoom::Corridor,
     }));
     let mut scene = crate::corridor::SceneSim::new_at(&kit, 360, probe.carl_x).unwrap();
     let floor = scene.world.hero_foot_y();

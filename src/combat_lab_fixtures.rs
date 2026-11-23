@@ -60,6 +60,7 @@ pub const PENDING_FIXTURE: Fixture = Fixture {
     charges: &[],
     script: &[],
     ticks: 1,
+    room: crate::combat_scene::FixtureRoom::Corridor,
 };
 
 static RULES: Mutex<Vec<(Vec<i32>, &'static DemoRules)>> = Mutex::new(Vec::new());
@@ -110,6 +111,7 @@ pub fn intern_fixture(key: FixtureKey) -> &'static Fixture {
         charges: &[],
         script: &[],
         ticks: key.ticks,
+        room: crate::combat_scene::FixtureRoom::Corridor,
     }));
     table.push((key, fixture));
     fixture

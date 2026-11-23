@@ -451,3 +451,56 @@ fn fu8_the_art_predicate_is_the_one_the_simulation_uses() {
     assert!(!run_uses_cf02(false, None) && run_uses_cf02(true, None));
     let _: Option<&Fixture> = None;
 }
+
+/// CF02-FU-C2F U7: the room is a field of the fixture, not a name prefix. The field
+/// agrees with the retired name rule (the prefixes below) over every registered
+/// fixture, so no fixture moved room, and the lookup by name reads the field.
+#[test]
+fn u7_the_room_is_a_fixture_field_and_matches_the_retired_name_rule() {
+    use crate::combat_scene::{Fixture, FixtureRoom};
+    let retired = |name: &str| {
+        name == "cf02_arena"
+            || [
+                "eng_",
+                "cf02_arena_",
+                "companion_arena_",
+                "cf02_block_",
+                "cf02_free_",
+                "donut_prog_arena_",
+                "carl_prog_pierce_engineer",
+            ]
+            .iter()
+            .any(|p| name.starts_with(p))
+            || matches!(
+                name,
+                "cf02_goblin_self_own"
+                    | "cf02_intact_shore_ignores_goblins"
+                    | "cf02_parapet_cover"
+                    | "cf02_perch_slab_climb"
+                    | "cf02_perch_above_spit"
+                    | "cf02_perch_dive"
+            )
+    };
+    let mut arena = 0;
+    for name in crate::cf02_fixtures::list_fixtures("") {
+        let room = crate::cf02_fixtures::find_party_fixture(name)
+            .map(|f| f.base.room)
+            .or_else(|| Fixture::by_name(name).map(|f| f.room))
+            .unwrap_or_else(|| panic!("{name} is registered"));
+        assert_eq!(room == FixtureRoom::Arena, retired(name), "{name}");
+        assert_eq!(
+            crate::cf02::arena::fixture_uses_arena(name),
+            retired(name),
+            "{name}"
+        );
+        arena += usize::from(room == FixtureRoom::Arena);
+    }
+    assert!(arena >= 30, "{arena} arena fixtures");
+    for live in [
+        &crate::cf02::arena::LIVE,
+        &crate::cf02::arena::LIVE_CP2,
+        &crate::cf02::arena::LIVE_ENG,
+    ] {
+        assert_eq!(live.room, FixtureRoom::Arena, "{}", live.name);
+    }
+}

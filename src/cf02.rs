@@ -1106,6 +1106,7 @@ pub mod arena {
             charges: &[],
             script: &[],
             ticks,
+            room: crate::combat_scene::FixtureRoom::Arena,
         }
     }
 
@@ -1192,29 +1193,23 @@ pub mod arena {
         ..fixture("", "", 0, 3600)
     };
 
-    /// Fixtures that run on the arena kit and geometry rather than the sample
-    /// corridor: the room fixtures of CF02-F.
+    /// Whether the fixture named `name` runs on the arena kit and geometry rather
+    /// than the sample corridor (CF02-FU-C2F U7): read from the fixture's own
+    /// [`FixtureRoom`](crate::combat_scene::FixtureRoom) field, looked up by name over
+    /// the registries (and the live room statics), not derived from a name prefix.
+    /// A caller that holds the fixture reads `fixture.base.room` itself.
     pub fn fixture_uses_arena(name: &str) -> bool {
-        name == "cf02_arena"
-            || name.starts_with("eng_")
-            || name.starts_with("cf02_arena_")
-            || name.starts_with("companion_arena_")
-            || name.starts_with("cf02_block_")
-            // COMPANION-AI-02 CA2-B2: the `cf02_free_*` fixtures run in the room.
-            || name.starts_with("cf02_free_")
-            // DONUT-PROG-01 DP-D: the blink evidence fixtures that run in the room.
-            || name.starts_with("donut_prog_arena_")
-            // CARL-PROG-01 CP-D: the Engineer pierce room.
-            || name.starts_with("carl_prog_pierce_engineer")
-            || matches!(
-                name,
-                "cf02_goblin_self_own"
-                    | "cf02_intact_shore_ignores_goblins"
-                    | "cf02_parapet_cover"
-                    | "cf02_perch_slab_climb"
-                    | "cf02_perch_above_spit"
-                    | "cf02_perch_dive"
-            )
+        use crate::combat_scene::{Fixture, FixtureRoom};
+        let room = crate::cf02_fixtures::find_party_fixture(name)
+            .map(|f| f.base.room)
+            .or_else(|| Fixture::by_name(name).map(|f| f.room))
+            .or_else(|| {
+                [&LIVE, &LIVE_CP2, &LIVE_ENG, &LIVE_ENG_CP2]
+                    .into_iter()
+                    .find(|f| f.name == name)
+                    .map(|f| f.room)
+            });
+        room == Some(FixtureRoom::Arena)
     }
 
     /// The rotten shore's source id in `CombatEvent::HeroHurt` (the falling block).
