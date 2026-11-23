@@ -1,0 +1,243 @@
+# HOARD-02: The Hoarder production art and room kit (AREA-HOARDER-01), design spec
+
+**Status:** design stage. Boss keys 17, 18, 19, 20, 22, 24 and 26 are drawn and frozen together with the six HOARD-01 keys (fixture `tests/fixtures/hoard-02_keys.json`). The room kit has one hero key, the lair mound in its `sealed` state. In-betweens 16, 21, 23, 25, 27 and 28 hold placeholder copies of their nearest key, so V12 (unique frames) fails until they are drawn. The other prop states, the Bevy wiring and the evidence are open (section 11). Independent review pending.
+
+**Scope:** this spec replaces every stand-in in room 1 (`--f01-room hoarder`). That covers the 16 HOARD-01 frames labelled "STAND-IN UNTIL HOARD-02", the missing shove, jam, pinned, get-up and emerge poses, and the greybox door, entry gate, bank A, J-B post, J-B stack and lair mound. The sim does not change. Every rule, tick window and box below is read from `src/pile_boss.rs`, `assets/data/gameplay/enemy_pile_boss_v0.json` and `docs/01-design/enemy-gameplay-hoarder.md`. The state hash stays byte-identical.
+
+**Difficulty and route** (`docs/07-agents/pixel-art-pipeline.md#routing-by-difficulty`):
+
+- **Boss poses:** new design, height above 40 px, complex anatomy and special states, so the score is **4/4**. That gives **route A plus the silhouette gate**: every key is drawn at the design stage.
+- **Room props:** kit-extension environment pieces are **Easy, route C**: this spec plus one hero key (the lair mound).
+
+Design images: `docs/evidence/hoard-02-design/` (`keys-x3.png`, `keys-1x.png`, `mound-scene-x3.png`).
+
+![HOARD-02 keys next to HOARD-01 keys 0, 7, 8, 15](../evidence/hoard-02-design/keys-x3.png)
+
+## 1. Canon and tone
+
+All of `docs/02-art/hoard-01-spec.md` sections 1 and 6 holds:
+
+- She is a transformed human woman, frightening and tragic. Dread, never comedy.
+- No junk on her back or body; the hoard is the room.
+- No logos, no gore, no invented biography or quote.
+- Hurt, jam and pinned read as pain and effort, never as slapstick.
+- **Pinned** is alive and furious: eyes open, teeth gritted, one hand clawing toward the heroes. It must never be mistaken for defeat.
+- **Emerge** is a person dragging herself out of her own nest. It is slow and heavy, head bowed, eyes up.
+
+The room follows the AREA-HOARDER-01 row of `docs/07-agents/floor-01-area-kits-plan.md`:
+
+- The junk is **localized** in the mound, bank A, the J-B stack and a few low dressing heaps.
+- Passages are never covered.
+- It is not a universal garbage or sewer look.
+- The hoard is *kept*: wood, iron, copper, brass, cold glass and grey rag, stacked by someone. It is not rot or sludge.
+
+## 2. Sheet layout, pivot and boxes
+
+- **Atlas:** `hoard-02`. Frame 160 x 128, pivot (70, 127), contact row 127, facing right (the sim flips for -x).
+- **Palette:** the 19-colour HOARD-01 palette `hoarder-floor01-v1`, unchanged.
+- **Frames:**
+  - Frames 0-15 are the HOARD-01 frames, pixel-identical (copied from `hoard-01.grid.json`).
+  - Frames 16-28 are new. They are built by `scripts/author_hoard02.py` on the HOARD-01 rig (`author_hoard01.hoarder(pose)`).
+  - One new face is added: `pinned` (whites open, brows knitted, teeth gritted).
+- **Boxes (sim, pivot-relative, y up):**
+
+  | Box | Extent | Canvas pixels |
+  |---|---|---|
+  | Standing body | `[-28, 28) x [0, 104)` | x 42..97, y 24..127 |
+  | Head | `[1, 21) x [88, 110)` | |
+  | Prone (Exposed, Get-up) | `[-48, 72) x [0, 48)` | x 22..141, y 80..127 |
+  | Swipe | `[42, 81) x [0, 44)` | |
+  | Shove | `[20, 48) x [0, 48)` | |
+
+- **Fitting the boxes:** arms and hands may reach past a body box, as in HOARD-01. The torso, hips and head stay inside the box of their mode, within 4 px.
+  - Pinned: the torso and head stay in the prone box (top row 78 against 80). The clawing hand reaches 11 px past its front, toward the heroes, on purpose.
+  - Get-up key 24: 57 px tall against the 48 px prone box, because the body is lifting. This is accepted, since the sim keeps the prone box for all 24 ticks.
+
+## 3. HOARD-01 frames: keep, rework or replace
+
+| Frames | Content | Decision | Use after HOARD-02 |
+|---|---|---|---|
+| 0-2 | idle breath | **keep** | Neutral, Turn, Cooldown, the last 30 Reveal ticks' hand-off |
+| 3-6 | walk | **keep** | Walk (8 ticks per frame) |
+| 7 | swipe gather | **keep** | SwipeTell ticks 1..8 only; **no longer** the shove tell |
+| 8 | swipe rear-up | **keep** | SwipeTell ticks 9..34 |
+| 9 | smear | **keep** | SwipeSmear; **no longer** the lunge |
+| 10 | impact | **keep** | SwipeImpact |
+| 11 | recovery | **keep** (authored 24, held 48) | SwipeRecover and ShoveRecover; **no longer** Exposed, Get-up or the jam hold |
+| 12 | hurt | **keep** | Flinch; **no longer** the jam impact |
+| 13-15 | defeat | **keep** | Defeated (8, 12, hold) |
+
+No HOARD-01 frame is reworked or replaced at this stage: the new states get their own frames. HOARD-01's independent review is still pending, so the HOARD-02 review covers frames 0-15 as well. A defect it finds there becomes a rework row in this table, and the frozen fixture is re-pinned in the same PR.
+
+## 4. State and frame table (sim tick windows)
+
+`mode_tick` is 1 on a mode's entry tick. "Frame (ticks)" is what `src/hoarder_art.rs::frame_for` shows.
+
+| Sim mode | Length (ticks) | Frame (ticks) | Notes |
+|---|---|---|---|
+| Dormant | until the gate closes | none drawn | The mound `sealed` (back plus front) hides her |
+| Reveal | 90 (retry 30) | **26** (1..30), **27** (31..60), **28** (61..90); retry: 10 each | Replaces the 30-tick fade (`REVEAL_FADE_TICKS`), which is removed. The front lip is drawn in front of her until the last Reveal tick, then the mound switches to `opened` |
+| Neutral, Turn, Cooldown | | 0-2 loop | unchanged |
+| Walk | | 3-6 loop | unchanged |
+| SwipeTell | 34 | 7 (1..8), 8 (9..34) | unchanged |
+| SwipeSmear / Impact / Recover | 3 / 6 / 48 | 9 / 10 / 11 | unchanged |
+| **ShoveTell** | 40 | **16** (1..10), **17** (11..40) | `SHOVE_WINDUP_PX` (4 px draw offset) is removed; the pose carries the wind-up |
+| **Lunge** | 1..48 | **18 / 19** alternating, 6 ticks each, starting on 18 | Loop; the dragged foot is on 19 |
+| ShoveRecover | 48 | 11 | |
+| **Jammed** | 72 | **20** (1..12), **21** (13..72) | 20 is the impact; 21 is the dazed stagger hold |
+| Flinch | 12 | 12 | unchanged |
+| **Exposed** | 150 | **22 / 23** alternating, 20 ticks each | Pinned struggle loop under the landed J-B remnant (drawn in front). Reachable only once HRD-C lands; mapped now |
+| **GetUp** | 24 | **24** (1..12), **25** (13..24) | Reachable after HRD-C |
+| Defeated | | 13 (8), 14 (12), 15 hold | unchanged |
+
+The new atlas tags are `shove_tell` 16-17, `lunge` 18-19 (loop), `jammed` 20-21, `pinned` 22-23 (loop), `get_up` 24-25 and `emerge` 26-28. Their authored ticks are in `TICKS` of `scripts/author_hoard02.py`.
+
+## 5. New frames: poses and who draws them
+
+| Frame | Kind | Pose |
+|---|---|---|
+| 16 shove settle | in-between | Idle → 17: body pitched about 12°, crouched 4 px, arms leaving the sides and opening low. **Width at least 120 px at once** (H13), so it never reads as the narrow, upright swipe gather 7 |
+| **17 shove brace** | key | Low wide brace: torso pitched 26°, lead shoulder ahead, both arms spread low (hands at shin height, palms out), feet wide, roar face. 94 px tall, 154 px wide |
+| **18 lunge heave** | key | Torso near flat at hip height (60°), lead shoulder driving, back leg straight, far arm tucked under. 66 px tall |
+| **19 lunge drag** | key | Same drive; the back foot dragged on its toes, far arm thrown forward-low. 68 px tall |
+| **20 jammed impact** | key | Stopped dead on the obstacle face: torso crumpled back (-10°, squash 0.92), head snapped back, arms flung wide, mouth open. 107 px tall, below the rear-up |
+| 21 jammed stagger | in-between | 20 → 0: body upright (-3°), head hanging 10° forward, near hand pressed to the head, far arm hanging; shut face. The held frame of the 60-tick stagger |
+| **22 pinned** | key | Prone (body 80°, squash 0.62); head raised, eyes open, teeth gritted; the near arm claws forward along the floor, the far forearm props the chest. 50 px tall |
+| 23 pinned strain | in-between | 22 with the chest lifted 2 px, the clawing hand drawn back 6 px (fingers curled), hair swing +2. Same face |
+| **24 get-up push** | key | On both hands and knees, back rounded, head up toward the target. 57 px tall |
+| 25 get-up rise | in-between | 24 → 0: one foot planted, torso 30°, hands leaving the floor; ends on idle's feet |
+| **26 emerge** | key | Kneeling deep in the mound, shoulders first, palms planted on the rim, head bowed, eyes up. **No arm above the head** (the swipe tell's signal) |
+| 27 emerge rise | in-between | Torso 6°, body 18 px down (instead of 34), hands pushing off the rim, head level |
+| 28 emerge stand | in-between | Body 6 px down, arms hanging and spread, hair swing +3; hands off to idle frame 0 |
+
+Every in-between is a pose dict for `hoarder()` built from its neighbouring keys, as in HOARD-01 section 8. The rule is no pixel edits.
+
+Junk that spills on a jam is a **prop** effect (section 7, bank A `disturbed` and post `cracked`), never pixels on her frame.
+
+## 6. Readability targets (checked at 1x)
+
+- **R1 swipe vs shove, before they land:**
+  - The swipe tell rises: the rear-up (8) is at least 122 px tall (H2) with both arms over the head.
+  - The shove tell sinks and widens: the brace (17) is at most 98 px tall (top row 30 or lower, H7) and at least 140 px wide, with both hands below the hips.
+  - The two tells also diverge from their first frame: the gather (7) is upright and narrow; the shove settle (16) is already at least 120 px wide (H13).
+  - Height difference of at least 24 px.
+- **R2 the lunge is jumpable:** frames 18-19 are at most 70 px tall (top row 58 or lower, H8), so a jumping Carl (apex 88.5 px) visibly passes over her.
+- **R3 pinned is not defeat:**
+  - Frames 22-23 show at least 4 eye-white pixels (`w`). Frame 15 shows 0, and frame 22 shows 7 today.
+  - The head is raised and a hand claws forward.
+  - Torso and head stay inside the prone band (top row 76 or lower, H10).
+- **R4 the jam stops her:** frame 20 is upright and pushed back, never pitched forward like the lunge. It is lower than the rear-up (H9).
+- **R5 the emerge teaches no false tell:** no arm rises above the head in frames 26-28.
+- **R6 the hoard is not the floor:**
+  - Solid junk (bank A, J-B remnants) has a flat, lit top edge (a plank or crate lid line, brightest values of its ramp).
+  - Non-solid junk (mound, dressing) has a ragged rag top, no flat lit line, and values about 1 step darker.
+
+## 7. Room kit (AREA-HOARDER-01)
+
+**Palette:** the `floor01-catacomb-v2` ramps only (`author_floor01_kit.RAMPS`).
+
+| Material | Ramp |
+|---|---|
+| wood | `wood` |
+| iron | `iron` |
+| copper | `copper` |
+| brass | `brass` indices 0-3 (no gold glare) |
+| cold glass | `gal` |
+| rag | `floor` |
+| outline | `mortar_00` |
+| floor-side flecks only | `lichen` |
+
+- No new colours; each atlas holds at most 63 colours. The mound key uses 37.
+- **Light:** the torch key is upper left, as on the boss and the ENV-01 kit.
+- **Sources:** pixel-grid-v1 plus `.ase` under `assets/source/props/floor01/hoarder_*.grid.json`, built by `scripts/author_hoarder_room.py`.
+
+Collision is the sim's, unchanged. Room coordinates: x in px, y up from the floor (layout floor y 580).
+
+| Prop | Sprite and pivot | Collision (unchanged) | States (sim trigger) | Wired in HOARD-02? |
+|---|---|---|---|---|
+| **Lair mound** `hoarder_mound` | 176 x 72, pivot (88, 71) at x 608 | none (DV-3) | `sealed` (Dormant, Reveal): layers `back` behind her plus `front` lip in front, the lip hiding her below about 31 px; `opened` (from the last Reveal tick): back layer with a hollow in the crown, the lip collapsed into a spill of at most 12 px, all behind her | **yes** |
+| **Bank A** `hoarder_bank_a` | 64 x 48 standing, pivot bottom-left at x 352 | solid `[352, 416) x [0, 48)`, top walkable | `stable`; `disturbed` (24 ticks: 2-frame shudder of ±1 px plus 3-6 falling scraps); `slid` (16 ticks, the mass moves 3 px/tick to `[304, 368)`, 2-frame tumble); `settled` remnant 80 x 16 at `[296, 376)` | `stable` yes; the rest on HRD-B |
+| **J-B post** `hoarder_post_b` | 16 x 64, pivot bottom-left at x 808 | hit target `[808, 824) x [0, 64)` | `intact`, `cracked` (first qualifying hit; split plus splinters), `broken` (release) | `intact` yes; the rest on HRD-C |
+| **J-B stack** `hoarder_stack_b` | 128 x 64 hanging, `[752, 880) x [96, 160)` | none while hanging | `supported`; `released` (24 ticks: sag 1 px every 6 ticks, dust); `falling` (8 ticks, 12 px/tick); `landed` remnant 128 x 16 at `[752, 880) x [0, 16)`, drawn **in front of** the pinned boss | `supported` yes; the rest on HRD-C |
+| **Exit door** `hoarder_door` | 16 x 228 in a stone jamb, at x 928 | solid until her defeat tick | `closed` (iron-banded planks, barred); `open` (jamb only, doorway dark) | **yes** |
+| **Entry gate** `hoarder_gate` | 16 x 228 at x 208 | solid while closed (HRD-Q41) | `open` (bars raised into the ceiling, grooves in the floor); `closed` (iron bars to the floor) | **yes** |
+| **Dressing heaps** `hoarder_heap_a..c` | at most 48 x 24 each | none | static | **yes** |
+
+**Rules for the room kit:**
+
+- **Bank A's top** reads as a standable shelf: the crate lids are flush at 48 px and the top row is lit, because heroes perch on it (section 5 of the design doc). Its front face (x 416) is a vertical wall of crate sides and a door plank, so her clamped shove visibly stops on it.
+- **J-B:**
+  - The post reads as the single support of the stack.
+  - The stack visibly rests on a beam lashed to the post: a broken shelf unit, crates and a pram frame, roped.
+  - Clear floor stays under it at 0..96 px.
+  - The stack and its remnant are heavy and readable as "this falls".
+- **Dressing heaps:**
+  - Place them against the back wall at x about 250, 470 and 700, never between 416..880 at floor level in front of the playfield.
+  - They use the rag top and a darker value (R6), so they are never read as solids.
+- **The door and the gate** are kit-family pieces (stone jamb from ENV-01, `iron` bars).
+  - The door replaces the always-closed `guild_portal_closed` stand-in in this room only.
+  - The exit at x 976 keeps its existing logic.
+
+**Hero key:** `hoarder_mound` `sealed` (`assets/source/props/floor01/hoarder_mound.grid.json`).
+
+- **Composition:** a rag body binds a crate, a broken bed rail, an iron pot on its side, a dented copper kettle, an empty brass mirror frame (black void, no reflection) and cold bottles. The front lip is a second rag ridge with a crate, a pot, planks and two stones.
+- **Silhouette:** only the bent copper pipe breaks it (`POKES`); every other item is clipped to the heap body grown by 2 px, so the mass reads as one heap.
+- **Checked in scene:** `mound-scene-x3.png` shows the emerge key behind the lip, idle in front of the back layer, and pinned.
+
+Bank A, the J-B pieces, the door, the gate, the dressing heaps and the `opened` mound follow this key's materials and outline rule.
+
+## 8. Acceptance targets
+
+- **A1:** `python3 -m scripts.pixelart validate assets/source/characters/hoarder/hoard-02.pixelart.json` passes, including:
+  - V12 (all 29 frames unique);
+  - H1-H13;
+  - the frozen-key fixture (13 keys) unchanged.
+- **A2:** `python3 scripts/author_hoard02.py --check` and `python3 scripts/author_hoarder_room.py --check` reproduce the committed grids. `.ase` files match their grids.
+- **A3:** frames 0-15 of `hoard-02.grid.json` are byte-identical to `hoard-01.grid.json`.
+- **A4:** R1-R6 hold on a 1x contact sheet and on 640 x 360 in-scene stills.
+- **A5:** every prop sprite matches its collision rectangle within 1 px (solid faces and tops exactly), at most 63 colours per atlas, `scripts/validate_assets.py` passes.
+- **A6:** after wiring, the following hold:
+  - no "STAND-IN" text or greybox `Piece` remains in room 1;
+  - `the_presenter_does_not_change_the_state_hash` and every existing golden stay byte-identical;
+  - `frame_for` unit tests cover every row of section 4.
+- **A7:** dread, not comedy (reviewer judgement against section 1).
+
+## 9. Known design notes for the reviewer
+
+- In 18, 19 and 24, the near sleeve cap rises above the back as a rounded hump. It is meant as the lead shoulder driving the shove. If it reads as a growth at 1x, the fix is a smaller cap radius in these poses (a rig option), not a pixel edit.
+- The pinned hand passes the prone box by 11 px (section 2). This is intended: it claws toward the heroes.
+
+## 10. Files
+
+- `scripts/author_hoard02.py`: boss frames 16-28. Run with `--check` and `--sheet`.
+- `scripts/author_hoarder_room.py`: room kit. Run with `--check` and `--preview`.
+- `assets/source/characters/hoarder/hoard-02.grid.json`, `.ase`, `.pixelart.json`.
+- `tests/fixtures/hoard-02_keys.json`.
+- `assets/source/props/floor01/hoarder_mound.grid.json`, `.ase`.
+- `docs/evidence/hoard-02-design/`: design images with `SHA256SUMS`.
+
+## 11. Open for execution
+
+**Art:**
+
+- In-betweens 16, 21, 23, 25, 27 and 28.
+- The manifest `assets/manifests/hoard-02.json` (id `hoarder_boss_h112_v2`) and the export.
+- Tests (`tests/test_art_hoard02.py`).
+- The remaining prop states and pieces of section 7, with their manifests.
+- Evidence and the review pack.
+
+**Wiring:**
+
+- `src/hoarder_art.rs` mapping (section 4).
+- Removal of the labels and greybox.
+- The prop sprites in `src/bin/floor01_scene/hoarder_art.rs`.
+- Regenerated `docs/evidence/f01-hoarder-presentation/`.
+
+## Rights/Provenance
+
+- Original art, generated from geometric rules on the HOARD-01 rig and the floor01 kit ramps. No raster image-model output, no tracing, no resampling of concept or reference pixels, no third-party assets.
+- Published under owner-reported scope `ART-PUBLICATION-ALL-V1` (fan-concept layer). There is no public reuse licence and no game or asset-pack distribution right (`docs/04-production/rights-and-release.md`).
+- Model record:
+  - Design, boss keys 17, 18, 19, 20, 22, 24 and 26, the mound hero key and this spec: Claude Opus.
+  - Execution (in-betweens, other prop states, wiring, evidence): Claude Sonnet, pending.
+  - Independent review: a separate Claude Opus agent, pending.
