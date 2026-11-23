@@ -289,6 +289,17 @@ const SOLO_DONUT_PINNED_KNOBS_OFF: [u64; 9] = [
 ];
 /// FA-Q14 (PR-D): first pins of the un-ignored `haz_room_donut_fights`.
 const DONUT_FIGHTS_PINNED: [u64; 9] = [
+    0x0ed1_1e96_74e1_7354,
+    0xcb56_1d14_e4a4_1784,
+    0x9fae_f718_f59a_c7b8,
+    0x1118_430c_5aec_d669,
+    0x203d_8b16_5243_ce0d,
+    0x1d12_e01e_00e0_bdb6,
+    0x3a70_1378_f19d_b682,
+    0xdadc_abce_096b_5138,
+    0x2c56_bed8_c6a4_5145,
+];
+const DONUT_FIGHTS_PINNED_KNOBS_OFF: [u64; 9] = [
     0x8d5d_6885_d6b8_04c7,
     0xabe4_de8f_4347_fe57,
     0x5a73_3dab_4026_0b03,
@@ -319,6 +330,14 @@ fn the_hazard_room_with_the_fix_all_knobs_off_keeps_its_old_pins() {
             .collect();
         assert_eq!(donut, SOLO_DONUT_PINNED_KNOBS_OFF, "donut: {donut:#018x?}");
         assert_eq!(direct[..9], SOLO_CARL_PINNED_KNOBS_OFF[..]);
+        let fights: Vec<u64> = SEEDS
+            .into_iter()
+            .map(|seed| run(&root(), Who::DonutFights, seed, true).unwrap().hash)
+            .collect();
+        assert_eq!(
+            fights, DONUT_FIGHTS_PINNED_KNOBS_OFF,
+            "fights: {fights:#018x?}"
+        );
     });
 }
 
