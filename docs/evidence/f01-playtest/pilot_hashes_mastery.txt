@@ -1,1 +1,1 @@
-mastery tick=1500 hp=1 deaths=0 complete=n/a hash=9e7639654fae6813
+mastery tick=1500 hp=1 deaths=0 complete=n/a hash=33431de9ab05d583

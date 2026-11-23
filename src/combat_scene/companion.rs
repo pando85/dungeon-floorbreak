@@ -26,6 +26,7 @@ use crate::companion::autonomy::{
     FreeZone, ViewRows, ZoneInput, choose_blink,
 };
 use crate::companion::director::{Action, CompanionDirector, Decision, Mode};
+use crate::companion::engage::leader_engages;
 use crate::companion::events::{CompanionEvent, CompanionStats, EVENT_CAP, RegroupOutcome};
 use crate::companion::nav::{NavConfig, Reason};
 use crate::companion::navfollow::{
@@ -91,6 +92,15 @@ pub(crate) fn with_profile_override<R>(
     run()
 }
 
+/// Every fix-all knob of every profile set off (tests): the pre-PR-A behaviour, which
+/// the knob-off identity tests compare against the hashes pinned before it.
+#[cfg(test)]
+pub(crate) fn fix_all_off(f: &mut ProfileFile) {
+    f.cf02_assist.fix_all = crate::companion::profile::FixAll::default();
+    f.companion_v0.fix_all = crate::companion::profile::FixAll::default();
+    f.cf02_free.fix_all = crate::companion::profile::FixAll::default();
+}
+
 /// Which counter a move instance number belongs to: Carl's melee runner, Donut's
 /// swat/pounce state machine and Donut's casts each number their own instances.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -148,9 +158,14 @@ pub(crate) struct CompanionRuntime {
     last_carl_instance: u32,
     /// The tick about to run (set by `companion_inputs`).
     tick: u64,
-    /// The leader's x on the tick about to run (FA-Q26, unhashed: derived from the
-    /// scene).
-    leader_x: f32,
+    /// FA-Q26 (FA-Q26-AD1): the enemies Carl engages on the tick about to run, by
+    /// the canonical predicate `engage::leader_engages` (A12, A11, A08). Empty
+    /// without the knob or without a human Carl.
+    engaged: Vec<StableEntityId>,
+    /// FA-Q26-AD1: the same set at each hero's last press (the start tick of the move
+    /// that press began), so a hit that lands later still sees what Carl was working
+    /// when she committed.
+    engaged_at_press: [Vec<StableEntityId>; 2],
     /// Unhashed counters and event log (CA-25, CA-31).
     stats: CompanionStats,
     events: Vec<CompanionEvent>,
@@ -187,7 +202,8 @@ impl Default for CompanionRuntime {
             pending_press: [None; 2],
             last_carl_instance: 0,
             tick: 0,
-            leader_x: 0.0,
+            engaged: Vec::new(),
+            engaged_at_press: [Vec::new(), Vec::new()],
             stats: CompanionStats::default(),
             events: Vec::new(),
             last_trace: [None; 2],
@@ -238,6 +254,16 @@ impl CompanionRuntime {
         for &(kind, instance) in &self.marks {
             mix(kind as u64);
             mix(u64::from(instance));
+        }
+        // FA-Q26: the engaged sets are state of the run while they are set (empty
+        // without the knob, so nothing is written then).
+        for set in std::iter::once(&self.engaged).chain(&self.engaged_at_press) {
+            if !set.is_empty() {
+                mix(HASH_MARK ^ set.len() as u64);
+                for id in set {
+                    id.hash_into(mix);
+                }
+            }
         }
         // 01B-wire: a committed nav transit is state of the run; with none live
         // nothing is written, so a run that never leaves its anchor hashes as
@@ -313,17 +339,25 @@ impl CompanionRuntime {
         }
     }
 
-    /// FA-Q26: the leader (Carl) is working an enemy at `target_x` that he last hit
-    /// `hit_age` ticks ago: within the A12 window, or within his A08 finisher reach.
+    /// FA-Q26 (FA-Q26-AD1): the enemy `id` is Carl's: the canonical engage predicate
+    /// (`engage::leader_engages`: A12, then A11, then A08) held for it on this tick or
+    /// at the start tick of her move, or he hit it within the A12 window as of this
+    /// very tick (`hit_age`, which sees a hit of his earlier in the same tick). A
+    /// standing Carl who never hit it, or who faces away under A11, claims nothing.
     /// Always `false` without the knob (or without a companion set).
-    pub(crate) fn leader_claims(&self, hit_age: Option<u16>, target_x: f32) -> bool {
+    pub(crate) fn leader_claims(
+        &self,
+        hero: HeroId,
+        id: StableEntityId,
+        hit_age: Option<u16>,
+    ) -> bool {
         let Some(set) = self.set.map(|s| profiles().set(s)) else {
             return false;
         };
         set.fix_all.fa_q26_steal_glance
             && (hit_age.is_some_and(|a| a <= set.cf02_duo.cf02_duo_a12_recent_hit_ticks)
-                || (target_x - self.leader_x).abs()
-                    <= f32::from(set.cf02_duo.cf02_duo_a08_finisher_reach_px))
+                || self.engaged.contains(&id)
+                || self.engaged_at_press[hero.index()].contains(&id))
     }
 
     /// The glance for a move instance of `kind`.
@@ -592,7 +626,6 @@ impl CombatState {
     ) -> [RawInput; 2] {
         let drive = *scene.drive();
         self.companion.tick = scene.world.tick + 1;
-        self.companion.leader_x = scene.world.hero.x;
         let sets = [
             drive.companion_set(HeroId::Carl),
             drive.companion_set(HeroId::Donut),
@@ -603,6 +636,8 @@ impl CombatState {
             // the scene's legacy regroup rule is in charge again.
             self.companion.set = None;
             self.companion.pending_press = [None; 2];
+            self.companion.engaged.clear();
+            self.companion.engaged_at_press = [Vec::new(), Vec::new()];
             self.companion.nav = None;
             self.companion.nav_failed = false;
             self.companion.autonomous = [false; 2];
@@ -627,6 +662,8 @@ impl CombatState {
         let owned = self.companion_regroup(scene);
         scene.set_nav_regroup(owned);
         let mut view = self.companion_view(scene, set_id);
+        // FA-Q26-AD1: whom Carl engages on this tick, by the canonical predicate.
+        self.companion.engaged = engaged_set(set, &view);
         // CA2-B2: the heroes the goal layer steers (never a hero of a set without
         // `autonomy.enabled`, so every other set runs the code below unchanged).
         let roles = [set.carl.autonomy_role, set.donut.autonomy_role];
@@ -752,6 +789,7 @@ impl CombatState {
             };
             if decision.pressed {
                 self.companion.pending_press[i] = Some(view.tick);
+                self.companion.engaged_at_press[i].clone_from(&self.companion.engaged);
             }
             self.companion.record(view.tick, hero, &decision);
         }
@@ -1678,8 +1716,26 @@ pub(crate) fn path_crosses(rects: &[Rect], span: (f32, f32), foot_y: f32) -> boo
     })
 }
 
+/// FA-Q26-AD1: the enemies a human Carl engages in `view`, by the canonical predicate
+/// (`engage::leader_engages`). Empty without the knob, without a human Carl, or with
+/// him defeated.
+pub(crate) fn engaged_set(set: &ProfileSet, view: &CompanionView) -> Vec<StableEntityId> {
+    let leader = view.hero(HeroId::Carl);
+    if !set.fix_all.fa_q26_steal_glance
+        || !matches!(leader.control, Control::Human(_))
+        || leader.defeated
+    {
+        return Vec::new();
+    }
+    view.targets
+        .iter()
+        .filter(|t| t.hp > 0 && leader_engages(set, leader, t))
+        .map(|t| t.id)
+        .collect()
+}
+
 /// A llama's stable id (serial 0: no respawn in 01A fixtures, CA-28).
-fn llama_id(index: usize) -> StableEntityId {
+pub(super) fn llama_id(index: usize) -> StableEntityId {
     StableEntityId {
         kind: EntityKind::Llama,
         index: index as u32,
@@ -1789,29 +1845,89 @@ mod tests {
         assert_eq!(off.glance_for(MarkKind::DonutMove, 5).boss_lands(1, 1), 1);
     }
 
-    /// FA-Q26: a lethal AI hit on an enemy the leader hit within the A12 window (31
-    /// ticks, inclusive) or that stands within his A08 reach (40 px, inclusive) is a
-    /// glance; a hit he did not claim, a non-lethal one and a human-started one are
-    /// unchanged, and the knob off claims nothing.
+    /// FA-Q26-AD1: the claim is Carl's real engage check, not distance. A lethal AI hit
+    /// on an enemy he engages (A12 window at 31/32 ticks, A08 reach at 40/40.5 px with
+    /// a move running, A11 facing) is a glance; an idle Carl beside an enemy he never
+    /// hit claims nothing; the knob off claims nothing.
     #[test]
-    fn fa_q26_a_lethal_ai_hit_on_an_enemy_the_leader_is_working_is_a_glance() {
+    fn fa_q26_a_lethal_ai_hit_on_an_enemy_the_leader_engages_is_a_glance() {
+        use crate::combat::MoveId;
+        use crate::companion::view::{ActiveMove, MovePhase, fixtures};
+        let set = profiles().set(ProfileSetId::Cf02Free);
+        let goblin = StableEntityId::goblin(0);
+        let target = |dx: f32, hit_age: Option<u16>| TargetView {
+            id: goblin,
+            x: 400.0 + dx,
+            foot_y: 0.0,
+            hp: 2,
+            state: TargetState::Standing,
+            guarded: false,
+            in_view: true,
+            carl_hit: hit_age.is_some(),
+            carl_hit_age: hit_age,
+        };
+        let view_with = |facing: i8, moving: bool, t: TargetView| {
+            let mut leader = fixtures::hero(HeroId::Carl, 400.0, Control::Human(0));
+            leader.facing = facing;
+            leader.active_move = moving.then_some(ActiveMove {
+                id: MoveId::Jab,
+                phase: MovePhase::Active,
+                ticks_left: 6,
+                ai_started: false,
+            });
+            let mut view = fixtures::view(
+                leader,
+                fixtures::hero(HeroId::Donut, 300.0, Control::Companion),
+            );
+            view.targets = vec![t];
+            view
+        };
+        let claims = |view: &CompanionView, hit_age: Option<u16>| {
+            let runtime = CompanionRuntime {
+                set: Some(ProfileSetId::Cf02Free),
+                engaged: engaged_set(set, view),
+                ..CompanionRuntime::default()
+            };
+            runtime.leader_claims(HeroId::Donut, goblin, hit_age)
+        };
+        // Idle Carl, a goblin 30 px away he never hit: not claimed (the old bare
+        // distance rule claimed it, and her lethal pounce on it became a glance).
+        let idle = view_with(1, false, target(30.0, None));
+        assert!(!claims(&idle, None), "idle Carl never engaged it");
+        // Carl jabbing toward the goblin at 40 px: claimed; at 40.5 px: not.
+        assert!(claims(&view_with(1, true, target(40.0, None)), None));
+        assert!(!claims(&view_with(1, true, target(40.5, None)), None));
+        // Jabbing the other way under A11: not claimed ...
+        assert!(!claims(&view_with(-1, true, target(40.0, None)), None));
+        // ... unless he hit it within the A12 window (31 ticks inclusive).
+        assert!(claims(
+            &view_with(-1, true, target(-300.0, Some(31))),
+            Some(31)
+        ));
+        assert!(!claims(
+            &view_with(-1, false, target(-300.0, Some(32))),
+            Some(32)
+        ));
+        // The live hit age sees a hit of his earlier in this same tick.
+        assert!(claims(&idle, Some(0)));
+        // At the start tick: the set taken when her move started still claims it after
+        // Carl's move has ended.
         let mut runtime = CompanionRuntime {
             set: Some(ProfileSetId::Cf02Free),
-            leader_x: 100.0,
+            engaged: Vec::new(),
+            engaged_at_press: [
+                Vec::new(),
+                engaged_set(set, &view_with(1, true, target(40.0, None))),
+            ],
             ..CompanionRuntime::default()
         };
-        runtime.marks.push((MarkKind::DonutMove, 5));
-        // The A12 window, inclusive; far from him.
-        assert!(runtime.leader_claims(Some(31), 500.0));
-        assert!(!runtime.leader_claims(Some(32), 500.0));
-        assert!(!runtime.leader_claims(None, 500.0));
-        // The A08 reach, inclusive; never hit by him.
-        assert!(runtime.leader_claims(None, 140.0));
-        assert!(!runtime.leader_claims(None, 140.5));
-        assert!(runtime.leader_claims(None, 60.0));
-        let g = runtime.glance_for(MarkKind::DonutMove, 5);
+        assert!(runtime.leader_claims(HeroId::Donut, goblin, None));
+        runtime.engaged_at_press = [Vec::new(), Vec::new()];
+        assert!(!runtime.leader_claims(HeroId::Donut, goblin, None));
         use crate::combat::DONUT_POUNCE;
         let lethal = |g: Glance, hp: u8| g.apply(&DONUT_POUNCE, hp).damage;
+        runtime.marks.push((MarkKind::DonutMove, 5));
+        let g = runtime.glance_for(MarkKind::DonutMove, 5);
         assert_eq!(lethal(g.with_claim(true), DONUT_POUNCE.damage), 0, "glance");
         assert_eq!(
             lethal(g.with_claim(true), DONUT_POUNCE.damage + 1),
@@ -1823,14 +1939,18 @@ mod tests {
         );
         let human = runtime.glance_for(MarkKind::DonutMove, 99).with_claim(true);
         assert_eq!(lethal(human, DONUT_POUNCE.damage), DONUT_POUNCE.damage);
+        // The knob off claims nothing (and computes no set).
         with_profile_override(
             |f| f.cf02_free.fix_all = crate::companion::profile::FixAll::default(),
             || {
-                assert!(!runtime.leader_claims(Some(0), 100.0), "knob off");
+                let off = profiles().set(ProfileSetId::Cf02Free);
+                let view = view_with(1, true, target(10.0, Some(0)));
+                assert!(engaged_set(off, &view).is_empty(), "knob off");
+                assert!(!claims(&view, Some(0)), "knob off");
             },
         );
         assert!(
-            !CompanionRuntime::default().leader_claims(Some(0), 0.0),
+            !CompanionRuntime::default().leader_claims(HeroId::Donut, goblin, Some(0)),
             "off"
         );
     }

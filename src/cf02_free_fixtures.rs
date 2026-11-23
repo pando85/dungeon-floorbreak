@@ -324,6 +324,11 @@ pub struct AutonomyMetrics {
     /// M2: ticks within [`M2_SHADOW_PX`] while both move the same way.
     pub shadow_ticks: u64,
     pub both_moving_ticks: u64,
+    /// M2e (FA-Q25-AD1): the same two counts over the ticks her goal is Escort or
+    /// Idle, the glue FA-Q25 targets. The all-goals figure also counts her joint
+    /// attack on the goblin he walks to.
+    pub shadow_escort_ticks: u64,
+    pub both_moving_escort_ticks: u64,
     /// M3: her AI-started damaging moves, those started on an enemy outside the
     /// leader's claim set `C`, and ticks both heroes' most recent hit (within 12
     /// ticks) is on the same enemy. (`MoveStarted` carries no target: the
@@ -352,6 +357,10 @@ pub struct AutonomyMetrics {
     pub regroup_teleports: u32,
     /// M13: her landed hits, all landed hits.
     pub her_hits: u32,
+    /// FA-Q28-AD1: her hits whose damage the glance rule zeroed (FA-Q26, FA-Q06): a
+    /// withheld kill is the rule working and the hit still lands contact, so M13
+    /// counts them as landed ([`Self::her_landed`]).
+    pub her_glanced: u32,
     pub all_hits: u32,
     /// M15: ticks in Retreat, ticks with a standing enemy within
     /// [`M15_NEAR_PX`] of either hero.
@@ -393,6 +402,19 @@ impl AutonomyMetrics {
             .unwrap_or(0)
     }
 
+    /// M2e: shadowing over the ticks her goal is Escort or Idle, percent (target at
+    /// most 20 %, FA-Q25-AD1).
+    pub fn shadow_escort_percent(&self) -> u64 {
+        (self.shadow_escort_ticks * 100)
+            .checked_div(self.both_moving_escort_ticks)
+            .unwrap_or(0)
+    }
+
+    /// M13 (FA-Q28-AD1): her landed hits, glanced ones included.
+    pub fn her_landed(&self) -> u32 {
+        self.her_hits + self.her_glanced
+    }
+
     /// M3: the share of her starts outside the claim set, percent.
     pub fn distinct_percent(&self) -> u64 {
         (u64::from(self.ai_starts_outside_claims) * 100)
@@ -402,8 +424,8 @@ impl AutonomyMetrics {
 
     /// M13: her share of the landed hits, percent.
     pub fn hit_share_percent(&self) -> u64 {
-        (u64::from(self.her_hits) * 100)
-            .checked_div(u64::from(self.all_hits))
+        (u64::from(self.her_landed()) * 100)
+            .checked_div(u64::from(self.all_hits + self.her_glanced))
             .unwrap_or(0)
     }
 
@@ -587,6 +609,9 @@ pub fn autonomy_metrics_with(
                         }
                     }
                 }
+                CombatEvent::Hit {
+                    damage: 0, move_id, ..
+                } if move_id.hero() == 1 => m.her_glanced += 1,
                 _ => {}
             }
         }
@@ -652,6 +677,10 @@ pub fn autonomy_metrics_with(
             if cv != 0.0 && dv != 0.0 && (cv > 0.0) == (dv > 0.0) {
                 m.both_moving_ticks += 1;
                 m.shadow_ticks += u64::from(d <= M2_SHADOW_PX);
+                if matches!(goal, Goal::Escort | Goal::Idle) {
+                    m.both_moving_escort_ticks += 1;
+                    m.shadow_escort_ticks += u64::from(d <= M2_SHADOW_PX);
+                }
             }
             let fresh = |h: Option<(u64, u32)>| h.filter(|(t, _)| tick.saturating_sub(*t) <= 12);
             if let (Some((_, a)), Some((_, b))) =
@@ -827,8 +856,8 @@ mod tests {
         ("cf02_free_finish_abandoned", 0x6157b6ebd088ec95),
         ("cf02_free_outnumbered", 0xaaaaea1c9e79bde8),
         ("cf02_free_carl_bolts", 0x8a85bbf67af09f9a),
-        ("cf02_free_retreat_when_hurt", 0xdb513b332e180280),
-        ("cf02_free_arena_direct", 0xbac0d64831960ead),
+        ("cf02_free_retreat_when_hurt", 0x025015c30e99827e),
+        ("cf02_free_arena_direct", 0xe2a9e0bb633cef16),
     ];
 
     #[test]
@@ -1061,15 +1090,10 @@ mod tests {
         let f = &CF02_FREE_RETREAT_WHEN_HURT;
         let m = metrics_of(f);
         assert!(m.retreats >= 1, "a Retreat started");
-        // FA-Q26 (PR-A) turns her lethal pounce on the goblin that is working Carl
-        // into a glance, so the goblin that hurt her stays alive beside her: the
-        // distance after 60 ticks is 39 px instead of at least 96 (M10 target 96:
-        // a recorded miss; the retreat rule itself is unchanged and is pinned by the
-        // autonomy unit tests).
         assert!(
             m.retreat_distances
                 .iter()
-                .all(|d| d.is_none_or(|d| d >= 36.0)),
+                .all(|d| d.is_none_or(|d| d >= 96.0)),
             "M10 distances {:?}",
             m.retreat_distances
         );

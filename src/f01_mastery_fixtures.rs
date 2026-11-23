@@ -1184,7 +1184,7 @@ pub fn metrics(
     let (mut assist, _) = start(root, Who::CarlSolo, seed)?;
     let baseline =
         crate::cf02_free_fixtures::autonomy_metrics_with(&mut assist, METRICS_TICKS, step);
-    Ok((m, baseline.her_hits))
+    Ok((m, baseline.her_landed()))
 }
 
 /// One printable line of the figures (M1 to M16 as the spec words them).
@@ -1194,12 +1194,14 @@ pub fn metrics_line(
     assist_hits: u32,
 ) -> String {
     format!(
-        "seed={seed} M1={}%/{:.0}px M2={}% M3={}%/{}t M4={}/{} M5={}+{}inv M6={}/{}ahead \
+        "seed={seed} M1={}%/{:.0}px M2={}%(escort/idle {}% of {}t) M3={}%/{}t M4={}/{} M5={}+{}inv M6={}/{}ahead \
          M10={}x{:?}/{}h M12={} M13={}hits({}%) vs assist {assist_hits} M15={}% \
          M16={}/{}/{}",
         m.spread_percent(),
         m.median_distance_px,
         m.shadow_percent(),
+        m.shadow_escort_percent(),
+        m.both_moving_escort_ticks,
         m.distinct_percent(),
         m.same_target_ticks,
         m.steals,
@@ -1215,7 +1217,7 @@ pub fn metrics_line(
             .collect::<Vec<_>>(),
         m.hits_in_retreat,
         m.regroup_teleports,
-        m.her_hits,
+        m.her_landed(),
         m.hit_share_percent(),
         m.retreat_share_percent(),
         m.interrupt_drift_skip_ticks,
@@ -1576,47 +1578,47 @@ mod tests {
     /// rules is a deliberate re-pin.
     const GOLDEN: [[u64; 9]; 4] = [
         [
-            0x7777_7d11_2fa1_50d7,
-            0xe399_d734_d95d_df83,
+            0xee25_fa69_fcdc_e0ea,
+            0xc832_8504_cb7e_b986,
             0x5dcf_f6b2_8acc_9637,
-            0x7386_55ae_e984_ec68,
-            0x6315_1d85_712a_a683,
-            0x14d8_c509_81c9_652b,
-            0x8404_727c_6e86_fbf0,
-            0x8855_c693_08a7_6f8e,
-            0x15bf_6232_1dbb_4493,
+            0xac16_1287_5acc_12e9,
+            0xea91_d2fc_bf04_1610,
+            0x62df_2d10_92c4_5420,
+            0x67af_70c7_66a3_4fbc,
+            0x56d0_a2d9_49f3_5a6c,
+            0xf230_7efc_baf8_3993,
         ],
         [
-            0x2ed1_ac22_7c23_b29b,
-            0xe399_d734_d95d_df83,
+            0x6b6c_5ba7_f32a_61d1,
+            0x78a4_4ce0_1846_6c48,
             0x5538_fdae_9809_2d9b,
-            0x7386_55ae_e984_ec68,
-            0x0eca_b49b_cc7d_2391,
-            0x14d8_c509_81c9_652b,
-            0x8404_727c_6e86_fbf0,
-            0x671b_aee5_42ee_e287,
-            0x8981_410b_b330_e5c8,
+            0x8186_5a1b_9774_63f1,
+            0x62fd_b9a1_774e_6bef,
+            0x50e8_80b8_350a_8491,
+            0x0258_0976_5343_12f6,
+            0x7af9_c904_da26_8ee5,
+            0x0344_443f_658c_83ac,
         ],
         [
-            0x547e_100f_2177_132a,
-            0x4920_f6b5_1938_85ce,
-            0x87d0_859f_2a34_f608,
-            0xdbad_e59f_8112_9802,
-            0xdf70_d738_d5c5_d82e,
-            0xc47a_3ee5_5ba3_1139,
-            0x04b8_6487_4dbf_af24,
-            0x78be_daf5_31a1_9119,
-            0x4529_2875_1db3_18a8,
+            0x85ab_2857_e91c_f573,
+            0x3b71_375b_a40e_38b7,
+            0x33af_f462_3746_182d,
+            0x72b3_072d_d462_7f01,
+            0x5d45_0ab3_babb_e1a4,
+            0xa55d_b1ba_dfdc_f4c4,
+            0x656c_a235_b39d_4d23,
+            0x8264_6dfa_f301_43ef,
+            0x7edf_5fc4_fa0a_1990,
         ],
         [
             0xfaa2_a0ee_3dca_42ae,
             0x27e9_7530_db5a_88ec,
             0x7827_ae2f_afb7_8b93,
-            0xd8f9_794a_597d_2062,
+            0xea8a_e27a_52f7_59d8,
             0xed76_07ce_0ac9_2ea0,
             0xc288_461a_bc42_bdf8,
-            0xaebe_9b55_7f9f_f9c2,
-            0x360b_78f2_e5e4_1630,
+            0xf20e_75c9_b105_f7e1,
+            0xc252_8edc_f628_bf2d,
             0x83a2_685d_3cac_ff08,
         ],
     ];
@@ -1744,26 +1746,26 @@ mod tests {
     /// [`Who::KITS`] and [`SEEDS`] order (PT-TUNE, new in this PR).
     const KIT_GOLDEN: [[u64; 9]; 2] = [
         [
-            0xad8b_a142_0f6e_8987,
-            0xacf4_df38_b21f_4115,
-            0xd957_db31_0ef1_267d,
-            0x86e5_13b5_cb3f_fe9f,
-            0x1c16_30e8_54ff_7583,
-            0xe663_82f8_6ac9_c60d,
+            0xf998_0cf4_8783_4182,
+            0x7869_2730_cd07_5d32,
+            0x26e8_78df_d5a2_e1ed,
+            0xc11c_9e86_8bbe_e094,
+            0xc20e_2d56_9dd6_4759,
+            0x28f6_d3df_21f5_fb95,
             0x72b6_f402_d8fc_6ef6,
-            0xea58_d0b6_782d_45b3,
+            0x01ac_6311_92ff_a79d,
             0x5e8c_ac54_545b_3c9f,
         ],
         [
-            0x099f_72e1_86ea_a24c,
-            0x96e2_973e_98df_63d6,
-            0x87d0_859f_2a34_f608,
-            0x69e4_aa03_2621_572b,
+            0xc12f_5e9d_8e08_3c77,
+            0xd85b_4015_6a99_7c69,
+            0x33af_f462_3746_182d,
+            0x781e_bebd_e54c_e599,
             0x4e61_0f87_0ce9_5b92,
-            0xc47a_3ee5_5ba3_1139,
-            0xf747_f7e1_4d73_92b9,
-            0xd39e_5523_a080_41c8,
-            0x9a7a_8e48_186c_0619,
+            0xa55d_b1ba_dfdc_f4c4,
+            0x221c_dc96_93a5_4656,
+            0xc818_a13c_1f5b_eef6,
+            0x68b3_b1b1_132a_77fd,
         ],
     ];
 
@@ -1935,73 +1937,75 @@ mod tests {
         crate::combat_scene::with_profile_override(
             |f| f.cf02_assist.fix_all = crate::companion::profile::FixAll::default(),
             || {
-            let (mut sim, _) = start(&root(), Who::CarlSolo, 0).unwrap();
-            assert_eq!(
-                sim.combat.slot_enemies().len(),
-                1,
-                "the slime is a slot enemy"
-            );
-            assert!(sim.combat.env().unwrap().has_acid(), "the pool is live");
-            let (mut slime_dead_at, mut pool_gone_at) = (None, None);
-            let mut walker_in_live_pool = false;
-            for _ in 0..RUN_TICKS {
-                let input = arena_pilot(&sim.combat, &sim.scene, HeroId::Carl);
-                sim.step_slots([input, RawInput::NONE]);
-                let t = sim.scene.world.tick;
-                let live = sim
-                    .combat
-                    .env()
-                    .unwrap()
-                    .acid()
-                    .patches()
-                    .any(|p| p.bounds().is_some());
-                if slime_dead_at.is_none() && sim.combat.slot_enemies().iter().all(|e| !e.alive()) {
-                    slime_dead_at = Some(t);
-                }
-                if live {
-                    // Walkers (goblins) never stand inside the live pool's current span.
-                    let span = sim
+                let (mut sim, _) = start(&root(), Who::CarlSolo, 0).unwrap();
+                assert_eq!(
+                    sim.combat.slot_enemies().len(),
+                    1,
+                    "the slime is a slot enemy"
+                );
+                assert!(sim.combat.env().unwrap().has_acid(), "the pool is live");
+                let (mut slime_dead_at, mut pool_gone_at) = (None, None);
+                let mut walker_in_live_pool = false;
+                for _ in 0..RUN_TICKS {
+                    let input = arena_pilot(&sim.combat, &sim.scene, HeroId::Carl);
+                    sim.step_slots([input, RawInput::NONE]);
+                    let t = sim.scene.world.tick;
+                    let live = sim
                         .combat
                         .env()
                         .unwrap()
                         .acid()
                         .patches()
-                        .find_map(|p| p.bounds());
-                    if let Some((x0, x1)) = span {
-                        walker_in_live_pool |= sim.combat.enemies.iter().any(|g| {
-                            g.alive()
-                                && g.mode == crate::goblin::GoblinMode::Neutral
-                                && g.x > x0 as f32 + 2.0
-                                && g.x < x1 as f32 - 2.0
-                        });
+                        .any(|p| p.bounds().is_some());
+                    if slime_dead_at.is_none()
+                        && sim.combat.slot_enemies().iter().all(|e| !e.alive())
+                    {
+                        slime_dead_at = Some(t);
                     }
-                } else if pool_gone_at.is_none() && slime_dead_at.is_some() {
-                    pool_gone_at = Some(t);
+                    if live {
+                        // Walkers (goblins) never stand inside the live pool's current span.
+                        let span = sim
+                            .combat
+                            .env()
+                            .unwrap()
+                            .acid()
+                            .patches()
+                            .find_map(|p| p.bounds());
+                        if let Some((x0, x1)) = span {
+                            walker_in_live_pool |= sim.combat.enemies.iter().any(|g| {
+                                g.alive()
+                                    && g.mode == crate::goblin::GoblinMode::Neutral
+                                    && g.x > x0 as f32 + 2.0
+                                    && g.x < x1 as f32 - 2.0
+                            });
+                        }
+                    } else if pool_gone_at.is_none() && slime_dead_at.is_some() {
+                        pool_gone_at = Some(t);
+                    }
+                    // To the exit, not to the clear: since FA-Q17 the seed-0 fight can end
+                    // before the sticker is walked under, and its blast is the walk's.
+                    if sim.combat.roster_cleared() && sim.scene.world.hero.x >= EXIT_X {
+                        break;
+                    }
                 }
-                // To the exit, not to the clear: since FA-Q17 the seed-0 fight can end
-                // before the sticker is walked under, and its blast is the walk's.
-                if sim.combat.roster_cleared() && sim.scene.world.hero.x >= EXIT_X {
-                    break;
-                }
-            }
-            // The sticker woke on proximity and its blast went off (the yard's
-            // environmental answer and its hazard to a hero who walks under it).
-            let rot = |e: &&CombatEvent| matches!(e, CombatEvent::RotProvoked { .. });
-            let blast = |e: &&CombatEvent| matches!(e, CombatEvent::Blast { .. });
-            assert!(
-                sim.combat.events.iter().any(|e| rot(&e)),
-                "the sticker wakes"
-            );
-            assert!(
-                sim.combat.events.iter().any(|e| blast(&e)),
-                "the sticker blasts"
-            );
-            let (dead, gone) = (slime_dead_at.unwrap(), pool_gone_at.unwrap());
-            assert!(
-                gone >= dead + 55,
-                "the pool drains over about 60 ticks: {dead} {gone}"
-            );
-            assert!(!walker_in_live_pool, "walkers stop at the pool (HAZ-Q48)");
+                // The sticker woke on proximity and its blast went off (the yard's
+                // environmental answer and its hazard to a hero who walks under it).
+                let rot = |e: &&CombatEvent| matches!(e, CombatEvent::RotProvoked { .. });
+                let blast = |e: &&CombatEvent| matches!(e, CombatEvent::Blast { .. });
+                assert!(
+                    sim.combat.events.iter().any(|e| rot(&e)),
+                    "the sticker wakes"
+                );
+                assert!(
+                    sim.combat.events.iter().any(|e| blast(&e)),
+                    "the sticker blasts"
+                );
+                let (dead, gone) = (slime_dead_at.unwrap(), pool_gone_at.unwrap());
+                assert!(
+                    gone >= dead + 55,
+                    "the pool drains over about 60 ticks: {dead} {gone}"
+                );
+                assert!(!walker_in_live_pool, "walkers stop at the pool (HAZ-Q48)");
             },
         );
     }
@@ -2135,10 +2139,13 @@ mod tests {
 
     #[test]
     fn every_knob_off_reproduces_the_recorded_hashes() {
-        for (who, seed, hash) in EARLIER_HASHES {
-            let r = run_earlier(who, seed);
-            assert_eq!(r.hash, hash, "{}", r.line());
-        }
+        // The PR-A fix-all knobs (FA-Q15, FA-Q25 to FA-Q28) are off with the others.
+        crate::combat_scene::with_profile_override(crate::combat_scene::fix_all_off, || {
+            for (who, seed, hash) in EARLIER_HASHES {
+                let r = run_earlier(who, seed);
+                assert_eq!(r.hash, hash, "{}", r.line());
+            }
+        });
     }
 
     /// Each knob moves the run on its own: the shipped pilot differs from the

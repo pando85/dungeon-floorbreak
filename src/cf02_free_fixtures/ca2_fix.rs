@@ -4,28 +4,28 @@
 
 /// The closing arena's solo Carl row (`cf02_assist` partner) as it was before PR-A.
 const OLD_ARENA_CARL_SOLO: [u64; 9] = [
-    0x8a0f_e792_7530_65f6,
-    0xd369_6e2d_8ad6_f931,
-    0x3255_f01a_be82_377d,
-    0x08bf_ca31_3a9a_fbae,
-    0xf0e1_f76d_ca31_d6c0,
-    0x6b5a_006a_3151_66b6,
-    0x77c5_25ab_8ad7_d7d5,
-    0xeb99_a639_92dd_edc2,
-    0x9459_94ed_88c5_1e8e,
+    0x7777_7d11_2fa1_50d7,
+    0xe399_d734_d95d_df83,
+    0x5dcf_f6b2_8acc_9637,
+    0x7386_55ae_e984_ec68,
+    0x6315_1d85_712a_a683,
+    0x14d8_c509_81c9_652b,
+    0x8404_727c_6e86_fbf0,
+    0x8855_c693_08a7_6f8e,
+    0x15bf_6232_1dbb_4493,
 ];
 
 /// The closing arena's `cf02_free` row as it was before PR-A.
 const OLD_ARENA_COMPANION: [u64; 9] = [
-    0x5d4b_d23c_4866_23ac,
-    0x594e_3503_067b_8480,
-    0x9c73_45ca_fed8_467d,
-    0xed30_d09b_b00f_bf1a,
-    0x91dc_e607_19a8_c68e,
-    0x6e7a_d5b5_7362_f147,
-    0xebfd_ae24_95a6_68d4,
-    0x3af1_8c36_ed1f_b3c6,
-    0x011c_f171_1af0_ee18,
+    0xfaa2_a0ee_3dca_42ae,
+    0x27e9_7530_db5a_88ec,
+    0x7827_ae2f_afb7_8b93,
+    0xd8f9_794a_597d_2062,
+    0xed76_07ce_0ac9_2ea0,
+    0xc288_461a_bc42_bdf8,
+    0xaebe_9b55_7f9f_f9c2,
+    0x360b_78f2_e5e4_1630,
+    0x83a2_685d_3cac_ff08,
 ];
 
 fn all_knobs_off(f: &mut crate::companion::profile::ProfileFile) {
@@ -60,22 +60,24 @@ fn the_closing_arena_with_the_fix_all_knobs_off_keeps_its_old_hashes() {
 }
 
 /// FA-Q25 to FA-Q28 in the closing arena (`f01_mastery`, `cf02_free`, seeds
-/// 0..8): M4 (steals) is 0 on 9 of 9. The other rows are FA-Q30 targets that
-/// **miss** after the allowed iterations and ship as measured:
+/// 0..8), re-measured on the PR-C base with the PR #250 review's rulings:
 ///
-/// - M2 (shadowing, target at most 20 %): 60 / 31 / 31 / 52 / 34 / 60 / 52 / 52 /
-///   52 % before, 60 / 31 / 31 / 54 / 34 / 50 / 54 / 54 / 54 % after. Two tuning
-///   iterations changed nothing useful: the first (the shadow re-pick also for
-///   Hunt, threshold 12) brought seeds 0 and 4 to 21 % and seeds 1 to 3 and 6 to
-///   8 up to 56 %, the second (threshold 6) was identical; both were dropped for
-///   the Escort-only re-pick. She shadows him mostly while hunting the goblin he
-///   walks to, which an escort re-pick does not reach.
-/// - M10 (retreat distance at least 96 px): the arena never makes her retreat
-///   (0 retreats on every seed, before and after), so the figure is not exercised
-///   there; the rule is pinned by the unit tests.
-/// - M13 (her hits at least the `cf02_assist` hits on at least 7 of 9): 4 to 7
-///   against 7 to 9. M4 = 0 turns her lethal hits on his enemies into glances,
-///   which the share counts as no hit.
+/// - **M4 (steals) is 0 on 9 of 9** (FA-Q26, now by Carl's real engage check,
+///   FA-Q26-AD1).
+/// - **M2e (FA-Q25-AD1): shadowing over the ticks her goal is Escort or Idle, target
+///   at most 20 %: met on 9 of 9** (0 % over 27 to 82 ticks per seed). **M2-all** is
+///   reported with a regression guard at the measured maximum plus 5 points: 41 /
+///   29 / 33 / 32 / 30 / 42 / 32 / 32 / 62 % (guard 67). It is mostly joint attack on
+///   the goblin he walks to, which is not the escort glue FA-Q25 targets; whether
+///   she still reads as glued joins the owner's T36 verdict.
+/// - **M10 (FA-Q27-AD2)**: the arena never makes her retreat (0 retreats on every
+///   seed), so it is *not exercised* here; it is measured in the Juicer run of
+///   FA-Q07 (60 ticks after each Retreat she is 111 px from the boss on 9 of 9,
+///   target 96) and on `cf02_free_retreat_when_hurt` (bound back at 96).
+/// - **M13 (FA-Q28-AD1): her landed hits, glanced ones included, against the
+///   `cf02_assist` hits, on at least 7 of 9: shipped as measured** (the count prints
+///   below). A withheld kill is the rule working; the figure still misses on
+///   most seeds, and rating her contribution is the owner's (T36, CA2-FU-M13).
 ///
 /// The bounds below are regression pins of the measured values.
 #[test]
@@ -88,21 +90,27 @@ fn fa_q25_to_q28_the_ca2_metrics_in_the_closing_arena_as_measured() {
         let (again, _) = metrics(&root(), seed).unwrap();
         assert_eq!(m, again, "twice identical, seed {seed}");
         assert_eq!(m.steals + m.start_steals, 0, "FA-Q26: M4 is 0, seed {seed}");
-        assert!(m.shadow_percent() <= 60, "M2 regression pin, seed {seed}");
-        assert!(m.retreat_distances.iter().flatten().all(|d| *d >= 90.0));
+        assert!(
+            m.shadow_escort_percent() <= 20,
+            "M2e (FA-Q25-AD1), seed {seed}: {}%",
+            m.shadow_escort_percent()
+        );
+        assert!(m.shadow_percent() <= 67, "M2-all guard, seed {seed}");
+        assert_eq!(m.retreats, 0, "M10 is not exercised in the arena");
         assert!(m.hit_share_percent() <= 50, "M13 share, seed {seed}");
         assert!(m.retreat_share_percent() <= 25, "M15, seed {seed}");
-        her.push(m.her_hits);
+        assert!(m.her_landed() >= 3, "M13 guard, seed {seed}");
+        her.push(m.her_landed());
         assist.push(assist_hits);
     }
     let met = her.iter().zip(&assist).filter(|(a, b)| a >= b).count();
-    println!("FA-Q28: her hits >= the assistant's on {met}/9 (target 7/9)");
+    println!("FA-Q28: her landed hits >= the assistant's on {met}/9 (target 7/9)");
 }
 
 /// FA-Q16: the AI partner never hits a setpiece prop it is not asked to: in the
 /// live Boiler's Direct plan (the pilot touches no prop) the partner's prop hits
-/// are 0 on every seed in all three hero modes, against 3 (`cf02_assist`) and 1
-/// (`cf02_free`) per run with the flag off.
+/// are 0 on every seed in all three hero modes, against 5 (`cf02_assist`) and 1
+/// (`cf02_free`) per run with the flag off (3 before PR-C's wake moved the room).
 #[test]
 fn fa_q16_the_partner_never_hits_the_valve_in_the_live_direct_boiler() {
     use crate::boiler_fixtures::scene_pilots::{Plan, Who, run_live};
@@ -126,7 +134,7 @@ fn fa_q16_the_partner_never_hits_the_valve_in_the_live_direct_boiler() {
         })
     };
     assert_eq!(total(true), [0, 0, 0], "FA-Q16 on");
-    assert_eq!(total(false), [27, 27, 9], "FA-Q16 off: the old behaviour");
+    assert_eq!(total(false), [45, 45, 9], "FA-Q16 off: the old behaviour");
 }
 
 /// FA-Q16: the geometry of the veto: a span that overlaps a prop target at her

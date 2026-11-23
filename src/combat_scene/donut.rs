@@ -14,13 +14,14 @@
 //! the domain's tick contract asks: the pounce's launch impulse of tick 10 is
 //! applied by the same tick's integration.
 
-use super::companion::{Glance, MarkKind};
+use super::companion::{Glance, MarkKind, llama_id};
 use super::{
     BOSS_ENEMY_ID, CombatEvent, CombatState, DefeatCause, Goblin, GoblinMode, HeroId, InputFrame,
     RawInput, Rect, SceneSim, TICK_SECONDS, solid_at,
 };
 use crate::boss::BossHit;
 use crate::combat::{DONUT_POUNCE, DONUT_SWAT, MAGIC_MISSILE, MoveId, MoveSpec};
+use crate::companion::view::StableEntityId;
 use crate::corridor::PartyStepCtx;
 use crate::donut_mana::{
     DonutMana, DonutSetup, EmptyPress, ManaTuning, RestartKind, StartState, UnlockTrigger,
@@ -915,16 +916,17 @@ impl CombatState {
         // CA-20 / CF02-Q38: an AI-started pounce re-checks lethality on its hit
         // tick, on the HP the goblin has now (a human may have lowered it
         // mid-move); a lethal one lands as a glance (damage 0, same reaction).
-        let Some(gx) = self.enemies.get(target as usize).map(|g| g.x) else {
+        if self.enemies.get(target as usize).is_none() {
             return;
-        };
+        }
         let glance = self
             .companion
             .glance_for(MarkKind::DonutMove, instance)
-            .with_claim(
-                self.companion
-                    .leader_claims(self.carl_hit_age(target as usize, tick), gx),
-            );
+            .with_claim(self.companion.leader_claims(
+                HeroId::Donut,
+                StableEntityId::goblin(target),
+                self.carl_hit_age(target as usize, tick),
+            ));
         let Some(goblin) = self.enemies.get_mut(target as usize) else {
             return;
         };
@@ -1037,8 +1039,9 @@ impl CombatState {
             .companion
             .glance_for(MarkKind::DonutMove, instance)
             .with_claim(self.companion.leader_claims(
+                HeroId::Donut,
+                llama_id(index),
                 self.carl_hit_age(self.enemies.len() + index, tick),
-                self.llamas[index].x,
             ));
         let id = (self.enemies.len() + index) as u32;
         let llama = &mut self.llamas[index];
@@ -1082,8 +1085,9 @@ impl CombatState {
             .companion
             .glance_for(MarkKind::DonutCast, bolt.instance)
             .with_claim(self.companion.leader_claims(
+                HeroId::Donut,
+                llama_id(index),
                 self.carl_hit_age(self.enemies.len() + index, tick),
-                self.llamas[index].x,
             ));
         let id = (self.enemies.len() + index) as u32;
         let llama = &mut self.llamas[index];
@@ -1413,10 +1417,11 @@ impl CombatState {
         let glance = self
             .companion
             .glance_for(MarkKind::DonutCast, bolt.instance)
-            .with_claim(
-                self.companion
-                    .leader_claims(self.carl_hit_age(target, tick), self.enemies[target].x),
-            );
+            .with_claim(self.companion.leader_claims(
+                HeroId::Donut,
+                StableEntityId::goblin(target as u32),
+                self.carl_hit_age(target, tick),
+            ));
         let goblin: &mut Goblin = &mut self.enemies[target];
         let landed = glance.apply(&MAGIC_MISSILE, goblin.health);
         let was_attacking = goblin.token_held();

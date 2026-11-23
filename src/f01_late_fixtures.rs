@@ -267,6 +267,9 @@ pub struct JuicerReport {
     /// boss) and how many rams began in all.
     pub ram_lane_hits: u32,
     pub rams: u32,
+    /// FA-Q27-AD2 (M10): her distance from the boss (px) `M10_READ_TICKS` after each
+    /// Retreat entry.
+    pub retreat_distances: Vec<f32>,
 }
 
 impl JuicerReport {
@@ -366,6 +369,8 @@ pub fn juicer_run_loadout(
     let mut last_mode = None;
     let mut last_restarts = sim.combat.restarts;
     let mut swap_pressed = false;
+    let (mut retreat_distances, mut open_retreats) = (Vec::new(), Vec::<u64>::new());
+    let mut was_retreating = false;
     for _ in 0..JUICER_RUN_TICKS {
         let tick = sim.scene.world.tick + 1;
         let controlled = sim.party.controlled_hero();
@@ -413,6 +418,24 @@ pub fn juicer_run_loadout(
         if sim.combat.restarts != last_restarts {
             deaths += 1;
             last_restarts = sim.combat.restarts;
+        }
+        // FA-Q27-AD2 (M10): her distance from the boss after each Retreat entry.
+        let retreating = sim.combat.autonomy_state(HeroId::Donut).goal()
+            == crate::companion::autonomy::Goal::Retreat;
+        if retreating && !was_retreating {
+            open_retreats.push(sim.scene.world.tick);
+        }
+        was_retreating = retreating;
+        if let Some(boss) = sim.combat.boss.as_ref() {
+            let now = sim.scene.world.tick;
+            open_retreats.retain(|t0| {
+                if now == t0 + crate::cf02_free_fixtures::M10_READ_TICKS {
+                    retreat_distances.push((sim.scene.world.donut_body.x - boss.x).abs());
+                    false
+                } else {
+                    true
+                }
+            });
         }
         // FA-Q07: the ram tick, the first tick of the charge.
         if let Some(boss) = sim.combat.boss.as_ref() {
@@ -465,6 +488,7 @@ pub fn juicer_run_loadout(
         donut_x_span: donut_span.1 - donut_span.0,
         ram_lane_hits,
         rams,
+        retreat_distances,
     };
     Ok((report, sim))
 }
@@ -831,30 +855,30 @@ mod tests {
             0x94b0_0648_b505_dfb2,
         ],
         [
-            0x1186_55c8_5819_b0be,
-            0x6f0d_12f6_adef_d12c,
-            0x2b96_5564_5736_7aaf,
-            0xc603_b4ef_d283_e981,
-            0x524a_d8e2_44e9_b078,
-            0x175d_8d84_9655_49d1,
-            0x51fa_9446_32c6_a7c4,
-            0x3d74_1be9_b14b_7757,
-            0x286d_7ed5_22b8_f6a4,
+            0x6883_2bef_c1cc_0d03,
+            0xd406_9c98_7d59_d1b6,
+            0x233d_c06a_20d4_51a3,
+            0x0201_21d9_0a23_96fd,
+            0xae3e_cf76_7062_28ba,
+            0x74fc_062d_8939_d304,
+            0x6a09_dfb0_76d2_419c,
+            0x8c96_844d_074c_af81,
+            0xd943_53a1_cecc_4ef2,
         ],
     ];
 
     /// The Companion row of [`GOLDEN_JUICER_PILOTS`] as it was before PR-A: what
     /// the knob-off check (every fix-all flag off) must reproduce byte for byte.
     const GOLDEN_JUICER_COMPANION_KNOBS_OFF: [u64; 9] = [
-        0xc3fa_1e52_5b9a_c89f,
-        0xddc2_cb43_beab_800c,
-        0x0b36_9bec_87fa_d147,
-        0xf96f_5c4e_bb37_faba,
-        0xc6ec_844c_3f87_6372,
-        0xccff_08ab_1e64_e2ac,
-        0x51ad_2163_d8d3_47e7,
-        0xb98d_c029_31e8_14bc,
-        0x6864_b594_d7db_dbe6,
+        0x1186_55c8_5819_b0be,
+        0x6f0d_12f6_adef_d12c,
+        0x2b96_5564_5736_7aaf,
+        0xc603_b4ef_d283_e981,
+        0x524a_d8e2_44e9_b078,
+        0x175d_8d84_9655_49d1,
+        0x51fa_9446_32c6_a7c4,
+        0x3d74_1be9_b14b_7757,
+        0x286d_7ed5_22b8_f6a4,
     ];
 
     fn juicer_reports() -> Vec<JuicerReport> {
@@ -1019,7 +1043,7 @@ mod tests {
     #[test]
     fn fa_q07_the_companion_fights_the_juicer_and_carl_takes_the_kill() {
         let (mut her_hits, mut her_hurts, mut carl_hurts) = (Vec::new(), Vec::new(), Vec::new());
-        let (mut retreating, mut lane) = (0, 0);
+        let (mut retreating, mut lane, mut far) = (0, 0, 0);
         for seed in JUICER_SEEDS {
             let (r, sim) = juicer_run(&root(), JuicerWho::Companion, seed).unwrap();
             let (again, _) = juicer_run(&root(), JuicerWho::Companion, seed).unwrap();
@@ -1041,6 +1065,11 @@ mod tests {
             carl_hurts.push(hurts_of(&sim, HeroId::Carl));
             retreating += usize::from(stats.retreat_entries >= 1);
             lane += usize::from(r.ram_lane_hits > 0);
+            // M10 (FA-Q27-AD2): every retreat ends at least 96 px from the boss.
+            println!("FA-Q07 seed {seed} M10 distances {:?}", r.retreat_distances);
+            far += usize::from(
+                !r.retreat_distances.is_empty() && r.retreat_distances.iter().all(|d| *d >= 96.0),
+            );
             println!(
                 "FA-Q07 seed {seed}: defeated {defeated} her_hits {} her_hurts {} carl_hurts {} \
                  retreats {} rams {} in_lane {}",
@@ -1061,6 +1090,10 @@ mod tests {
         assert!(mu <= mc, "her median hurts {mu} vs Carl's {mc}");
         assert!(retreating >= 7, "retreat entered on {retreating}/9");
         assert_eq!(lane, 0, "never in the ram box at the ram tick");
+        println!(
+            "FA-Q27-AD2 M10: 60 ticks after every Retreat she is >= 96 px from the boss on {far}/9"
+        );
+        assert_eq!(far, 9, "M10 (FA-Q27-AD2) in the Juicer run");
     }
 
     /// The Juicer room under `--f01-loadout all` (the blink held from the first
@@ -1075,6 +1108,8 @@ mod tests {
         jumped: bool,
         /// The per-charge latch after the charge (released).
         latched_after: bool,
+        /// The hurts her body took from the staged charge to its end (the ram).
+        hurts: u32,
         /// The tick of the staging and of her blink press (if any).
         hash: u64,
     }
@@ -1120,6 +1155,7 @@ mod tests {
             blinks: st.stats().blink_presses_committed,
             jumped,
             latched_after: st.charge_latched(),
+            hurts: hurts_of(&sim, HeroId::Donut) as u32,
             hash: sim.state_hash(),
         }
     }
@@ -1144,6 +1180,16 @@ mod tests {
             assert_eq!(off.blinks, 0, "the shipped window is dead, seed {seed}");
             assert!(off.jumped, "the follow layer's dodge jumps, seed {seed}");
             assert_ne!(on.hash, off.hash);
+            // F1 of the PR #250 review: the blink must save her from the ram, not just
+            // fire. It points along the ram's travel, so this is measured, per seed:
+            // her ram hurts with the knob on never exceed those with it off.
+            println!("FA_Q09_HURTS seed {seed} on {} off {}", on.hurts, off.hurts);
+            assert!(
+                on.hurts <= off.hurts,
+                "the blink hurts her more than the jump, seed {seed}: {} against {}",
+                on.hurts,
+                off.hurts
+            );
         }
     }
 
