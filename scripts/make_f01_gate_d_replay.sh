@@ -68,7 +68,14 @@ while read -r line; do
   for run in 1 2; do
     dir="$caps/$tag-run$run"
     # One frame, on the library fixture's final tick: first=ticks, step=1, count=1.
-    bash scripts/room_capture.sh "$room" "$plan" "$ticks:1:1" "$dir" > /dev/null || ok=no
+    # A window can lose its GPU device when other jobs share the GPU ("Device(Lost)"): the machine, not
+    # the run. A capture is retried up to three times; a hash mismatch still fails the line below.
+    captured=no
+    for attempt in 1 2 3; do
+      if bash scripts/room_capture.sh "$room" "$plan" "$ticks:1:1" "$dir" > /dev/null 2>&1; then captured=yes; break; fi
+      grep -q 'Device(Lost)' "$dir/run.log" 2>/dev/null || break
+    done
+    [[ "$captured" == yes ]] || ok=no
     state() { grep '^COMBAT_STATE ' "$1" | tail -n 1 | sed -E 's/.* hash=([0-9a-f]+).*/\1/'; }
     window+=("$(state "$dir/run.log")")
     headless+=("$(state "$dir/headless.log")")
