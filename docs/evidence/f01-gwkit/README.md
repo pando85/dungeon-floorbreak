@@ -23,7 +23,7 @@ BIN=./target/debug/floor01_scene bash scripts/room_capture.sh boiler chain 440:5
 | --- | --- |
 | `gw_<prop>/` (13) | per grid: `contact_sheet_x1.png`, `contact_sheet_x4.png` (every frame, key frames marked, pivot and contact row drawn), `gif_<tag>_x1.gif` and `_x3.gif` at tick timing, `tell_attack_strip.png` (the state strip with tick windows), `scene_640x360.png` and `scene_1920x1080.png` (the frames on the lit Floor 1 lane next to Carl and Donut), `SHA256SUMS` |
 | `review_pack/gw_<prop>/` (boiler, valve, brace, weight, drum) | the three-image review pack (contact sheet, lit scene, state strip) with the validator report, for the independent review |
-| `scene/` | eight in-scene stills of the Boiler room at gameplay scale (below) |
+| `scene/` | eight in-scene stills of the Boiler room at gameplay scale and the plume composite (below), with `SHA256SUMS` |
 
 ## Frames, pivots and the state-to-tag map
 
@@ -74,6 +74,7 @@ Chains tile `gw_chain` from layout y 376: the brace chain at x 758 down to the b
 | `06_remnant_drum_telegraph_t765.png` | 765 | landed remnant, drum telegraph with the blast-area outline and floor ring |
 | `07_scorch_t795.png` | 795 | scorch mark where the drum was |
 | `08_all_broken_end_t860.png` | 860 | all-broken end state |
+| `09_plume_over_lane_actors_composite_640x360.png`, `..._1920x1080.png`, `09_lane_actors_no_plume_640x360.png`, `09_plume_vs_baseline_crop_x3.png` | n/a | **composite, not a window capture** (acceptance 6): the real `steam_plume` frame 2 at the in-game alpha 0x90 on the tell layer, above real Carl, Donut and a goblin standing in the 80 x 96 lane on the lit Floor 1 lane, without and with the plume (left and right of the crop). Every scripted and aligned Boiler pilot keeps the actors out of the lane while the steam is Active, and the scene binary has no flag to place one, so a true capture needs a new pilot plan (a code change, out of this evidence-only pass). The sprites and lighting are the ones of the other stills (the toolkit's `Floor` renderer, `scripts/pixelart/scene.py`). |
 
 ## Simulation unchanged (read-only presentation)
 
