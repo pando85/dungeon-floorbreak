@@ -1536,10 +1536,9 @@ mod tests {
     /// throw columns 640..=720. **Knob off** (reach 64): no column chains R2, and the nearest
     /// floor landing is 70.0..70.1 px from its dome (the finding that needed the knob). **Knob
     /// on** (reach 76): the lowest chaining column is 648 (landing 759, 70.007 px, a margin of
-    /// 5.99 px), the chaining columns are the contiguous run 648..=688 (landing within 76 px:
-    /// dx +-29.6 around the dome), R2's blast is the stick's blast + 8 and S2 at home takes R2's
-    /// blast (3 -> 2; the stick's own outer ring reaches it too at some columns, which this
-    /// asserts as the total).
+    /// 5.99 px), the chaining columns are the contiguous run 648..=672 (landing 759..783, within
+    /// 76 px of the dome) and R2's blast is the stick's blast + 8. (S2 is not asserted here: in
+    /// the route the stick's own blast defeats it, see the spectacular test.)
     #[test]
     fn haz_r2_chain_sweep_over_the_throw_columns() {
         let columns: Vec<i32> = (640..=720).step_by(8).collect();
@@ -1577,9 +1576,11 @@ mod tests {
     /// R1 and backs off out of its blast, then throws exactly one dynamite from column 648
     /// (the sweep's lowest chaining column): the stick lands 111 px ahead, within the 76 px
     /// reach (`hazfu05`) of R2, its blast lights R2 (a `Chain` provoke of sticker 1 credited to
-    /// Carl on the stick's blast tick, R2's own blast 8 ticks later, CP-Q34), S2 at home loses
-    /// R2's 1 hit point, R1 hurts no hero (and neither does R2), and the room is cleared to its
-    /// exit with no defeat. The run replays to the same hash.
+    /// Carl on the stick's blast tick, R2's own blast 8 ticks later, CP-Q34), S2, which stands
+    /// inside R2's circle and on the stick's landing, is defeated by the stick's own blast on
+    /// that tick (credited to Carl; R2's 1 damage finds it already down), R1 hurts no hero (and
+    /// neither does R2), and the room is cleared to its exit with no defeat. The run replays to
+    /// the same hash, which is pinned.
     #[test]
     fn the_haz_spectacular_plan_chains_the_dynamite_into_r2_over_the_slime() {
         use crate::f01_late::hazards_start;
@@ -1720,6 +1721,14 @@ mod tests {
             combat.state_hash(&scene),
             combat_again.state_hash(&again),
             "the route replays to the same hash"
+        );
+        // The committed final hash as this test drives the room (slot 0 inputs only; the binary's
+        // run, with the follower bot, ends on the scorecard's `80cfaca8118ce58e`): a drift is a
+        // deliberate re-pin.
+        assert_eq!(
+            combat.state_hash(&scene),
+            0x4da6_3d15_32a5_5302,
+            "the committed final hash"
         );
     }
 
