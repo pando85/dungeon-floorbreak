@@ -188,6 +188,28 @@ pub fn shadow_center_x(spec: ActorSpec, foot_x: f32, flip_x: bool) -> f32 {
     center_x.round()
 }
 
+/// FA-Q38 (i-frame cue): the ticks one phase of the flicker lasts.
+pub const INVULNERABILITY_FLICKER_TICKS: u8 = 4;
+/// FA-Q38: the alpha of the dim phase of the flicker.
+pub const INVULNERABILITY_DIM_ALPHA: f32 = 0.5;
+
+/// FA-Q38 (i-frame cue): the alpha a hero's sprite is drawn with, from the
+/// ticks of invulnerability the simulation reports. Both heroes share it: it
+/// alternates 0.5 and 1.0 every 4 ticks while invulnerable (dim while
+/// `invulnerable_ticks / 4` is even), is always 1.0 outside the invulnerability,
+/// and is off while the hero is `downed` (the defeat freeze and the downed
+/// hold). Presentation only; it is never read back by the simulation.
+pub fn invulnerability_alpha(invulnerable_ticks: u8, downed: bool) -> f32 {
+    if downed
+        || invulnerable_ticks == 0
+        || !(invulnerable_ticks / INVULNERABILITY_FLICKER_TICKS).is_multiple_of(2)
+    {
+        1.0
+    } else {
+        INVULNERABILITY_DIM_ALPHA
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -330,5 +352,30 @@ mod tests {
         let [carl, _] = specs();
         let old_offset = CARL_SHADOW_FOOTPRINT.0 as f32 / 2.0 - CARL_SHADOW_FOOTPRINT.1 as f32;
         assert_eq!(actor_center(carl, 300.0, 92.0, false).0, 300.0 + old_offset);
+    }
+
+    #[test]
+    fn the_flicker_alternates_every_four_ticks_while_invulnerable() {
+        // 55 ticks left (the hit) counting down to 1: dim while ticks / 4 is even.
+        let alphas: Vec<f32> = (1..=8).map(|t| invulnerability_alpha(t, false)).collect();
+        assert_eq!(alphas, [0.5, 0.5, 0.5, 1.0, 1.0, 1.0, 1.0, 0.5]);
+        // Both edges of a phase: 3 is dim, 4 is bright, 7 is bright, 8 is dim.
+        assert_eq!(invulnerability_alpha(3, false), 0.5);
+        assert_eq!(invulnerability_alpha(4, false), 1.0);
+        assert_eq!(invulnerability_alpha(7, false), 1.0);
+        assert_eq!(invulnerability_alpha(8, false), 0.5);
+        // Only the two alphas ever occur, over the whole 55 tick window.
+        for t in 1..=55 {
+            let a = invulnerability_alpha(t, false);
+            assert!(a == 0.5 || a == 1.0, "tick {t}");
+        }
+    }
+
+    #[test]
+    fn there_is_no_cue_outside_the_invulnerability_or_while_downed() {
+        assert_eq!(invulnerability_alpha(0, false), 1.0);
+        for t in 0..=255u8 {
+            assert_eq!(invulnerability_alpha(t, true), 1.0, "downed, {t} left");
+        }
     }
 }

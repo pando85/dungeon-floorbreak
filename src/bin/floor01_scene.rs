@@ -38,7 +38,8 @@ use bevy::{
 };
 use dungeon_floorbreak::{
     actor_sprite::{
-        ActorAssets, ActorSpec, FrameSource, actor_center, load_carl, load_donut, shadow_center_x,
+        ActorAssets, ActorSpec, FrameSource, actor_center, invulnerability_alpha, load_carl,
+        load_donut, shadow_center_x,
     },
     anim::{Animator, Tag},
     audience::{AnticipationCue, AnticipationTrigger, ChainFeat},
@@ -5724,6 +5725,16 @@ fn presentation_tick(
     }
 }
 
+/// FA-Q38 (i-frame cue): the colour a hero's sprite is drawn with, for both heroes
+/// and every sprite that shows them (locomotion, melee, cast, throw, acting): white,
+/// dimmed to alpha 0.5 on alternate 4 tick phases of the simulation's post-hit
+/// invulnerability, and never while a hero is downed. No tint. Presentation only.
+fn hero_cue(sim: &SceneSim, combat: Option<&CombatState>, hero: HeroId) -> Color {
+    let downed = combat.is_some_and(|c| c.hero_defeated);
+    let ticks = sim.world.body(hero).invulnerable_ticks;
+    Color::srgba(1.0, 1.0, 1.0, invulnerability_alpha(ticks, downed))
+}
+
 #[allow(clippy::type_complexity, clippy::too_many_arguments)]
 fn sync_visuals(
     sim: Res<Sim>,
@@ -5829,6 +5840,16 @@ fn sync_visuals(
         if let Some(atlas) = sprite.texture_atlas.as_mut() {
             atlas.index = pose.frame;
         }
+        sprite.color = if reference.0.is_some() {
+            Color::WHITE
+        } else {
+            let id = if actor.is_hero {
+                HeroId::Carl
+            } else {
+                HeroId::Donut
+            };
+            hero_cue(state, combat.0.as_ref(), id)
+        };
     }
 
     let hero = &state.world.hero;
@@ -5965,6 +5986,7 @@ fn sync_combat_visuals(
                 transform.translation.x = cx;
                 transform.translation.y = cy;
                 sprite.flip_x = flip;
+                sprite.color = hero_cue(&sim.0, Some(state), HeroId::Carl);
                 if let Some(atlas) = sprite.texture_atlas.as_mut() {
                     atlas.index = pose.frame;
                 }
@@ -6276,6 +6298,7 @@ fn sync_donut_visuals(
         transform.translation.x = cx;
         transform.translation.y = cy;
         sprite.flip_x = flip;
+        sprite.color = hero_cue(sim, Some(state), HeroId::Donut);
         if let Some(atlas) = sprite.texture_atlas.as_mut() {
             atlas.index = frame;
         }
@@ -6291,6 +6314,7 @@ fn sync_donut_visuals(
         transform.translation.x = cx;
         transform.translation.y = cy;
         sprite.flip_x = flip;
+        sprite.color = hero_cue(sim, Some(state), HeroId::Donut);
         if let Some(atlas) = sprite.texture_atlas.as_mut() {
             atlas.index = frame;
         }
@@ -6807,6 +6831,7 @@ fn sync_blast_ring(
 #[allow(clippy::type_complexity)]
 fn sync_carl_throw_visual(
     sim: Res<Sim>,
+    combat: Res<Combat>,
     anim: Res<Anim>,
     mut throw: Query<
         (&mut Transform, &mut Sprite, &mut Visibility),
@@ -6830,6 +6855,7 @@ fn sync_carl_throw_visual(
                 transform.translation.x = cx;
                 transform.translation.y = cy;
                 sprite.flip_x = flip;
+                sprite.color = hero_cue(&sim.0, combat.0.as_ref(), HeroId::Carl);
                 if let Some(atlas) = sprite.texture_atlas.as_mut() {
                     atlas.index = pose.frame;
                 }
@@ -7074,6 +7100,7 @@ fn sync_cf02_acting_visuals(
                 transform.translation.x = cx;
                 transform.translation.y = cy;
                 sprite.flip_x = flip;
+                sprite.color = hero_cue(&sim.0, Some(state), HeroId::Carl);
                 if let Some(atlas) = sprite.texture_atlas.as_mut() {
                     atlas.index = pose.frame;
                 }
@@ -7094,6 +7121,7 @@ fn sync_cf02_acting_visuals(
                 transform.translation.x = cx;
                 transform.translation.y = cy;
                 sprite.flip_x = flip;
+                sprite.color = hero_cue(&sim.0, Some(state), HeroId::Donut);
                 if let Some(atlas) = sprite.texture_atlas.as_mut() {
                     atlas.index = pose.frame;
                 }
