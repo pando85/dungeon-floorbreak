@@ -1676,6 +1676,58 @@ fn frustration_waits_for_idle_for_at_most_the_pending_ticks() {
     assert_eq!(run(100), 0, "the wait has passed");
 }
 
+/// CF02-FU-I FU3: a running flinch refuses the frustration's start, and the run of
+/// whiffs is kept: the frustration shows once the flinch is over, if that is inside
+/// the pending window. (Before the fix the whiffs were cleared on the refusal and
+/// the frustration was lost.)
+#[test]
+fn a_running_flinch_keeps_the_frustration_pending() {
+    let (mut sim, mut acting) = rig("cf02_stomp_standing");
+    sim.combat.enemies.clear();
+    for instance in 1..=3 {
+        whiff(&mut sim, instance);
+        quiet_step(&mut sim, &mut acting, Tag::Run, Tag::Idle);
+    }
+    // A flinch is running when Carl stands idle with three whiffs behind him.
+    let t = acting.tuning;
+    assert!(
+        acting
+            .carl_overlay
+            .start(t, super::CarlOverlay::Flinch, t.q70_flinch_ticks)
+    );
+    acting.carl_overlay_total = t.q70_flinch_ticks;
+    let mut seen = Vec::new();
+    for _ in 0..40 {
+        quiet_step(&mut sim, &mut acting, Tag::Idle, Tag::Idle);
+        seen.push(acting.carl_overlay.running().map(|(k, _)| k));
+    }
+    assert!(
+        seen.iter()
+            .any(|k| matches!(k, Some(super::CarlOverlay::Frustration))),
+        "the frustration shows after the flinch: {seen:?}"
+    );
+}
+
+/// CF02-FU-I FU4 and FU5: two globs of one llama in one direction are two near
+/// globs (keyed by instance, not by owner and direction), and the `COMBAT_ANIM_STATE`
+/// suffix carries the slammed clock of every goblin.
+#[test]
+fn the_state_suffix_has_the_slammed_clock_and_globs_are_keyed_by_instance() {
+    let (mut sim, mut acting) = rig("cf02_stomp_standing");
+    quiet_step(&mut sim, &mut acting, Tag::Idle, Tag::Idle);
+    let suffix = acting.state_suffix();
+    assert!(suffix.contains(" acting_slammed="), "{suffix}");
+    assert!(
+        suffix.ends_with("acting_slammed=-"),
+        "one living goblin: {suffix}"
+    );
+    let src = include_str!("../cf02.rs");
+    assert!(
+        src.contains("near_globs: Vec<(u32, u32)>"),
+        "keyed by (owner, spawn tick)"
+    );
+}
+
 /// A show-off taunting at tick 20 of `cf02_showoff_taunt_punish`, then killed by
 /// a lethal `Stomp` (a body that stays where it stands, mode `Down`): returns,
 /// for every tick from the kill on, the taunt frame drawn (if any) and the

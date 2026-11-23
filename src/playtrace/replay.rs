@@ -635,6 +635,11 @@ pub(super) fn check_content(
         {
             continue;
         }
+        // CF02-FU-C2F U3: a session recorded before the microarena's room pin has
+        // none; one that has it must agree with this build.
+        if key == crate::cf02::arena::ROOM_PIN_KEY && !manifest.content_hashes.contains_key(key) {
+            continue;
+        }
         // PT-SCENE (U5 of the #207 review): a room pin is required only of a
         // recording of a room it covers.
         if crate::f01_late::pin_is_scoped_out(key, manifest.reset.f01_room.as_deref()) {

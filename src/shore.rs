@@ -49,6 +49,10 @@ pub const FOOTPRINT_WIDTH: f32 = 80.0;
 /// 2P ownership of the hit is **not proven** here).
 pub const PLAYER_ONE: u32 = 0;
 
+/// Marker word of the last hitter in the shore's hash (CF02-FU-C2F N1), written
+/// only for a hitter other than [`PLAYER_ONE`].
+const LAST_HITTER_MARK: u64 = 0x5348_4f52_4c48_0001;
+
 const TICK_SECONDS: f32 = 1.0 / 60.0;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -311,6 +315,14 @@ impl Shore {
         mix(u64::from(self.block_vy.to_bits()));
         mix(u64::from(self.landed));
         mix(self.breaker.map_or(0, |p| u64::from(p) + 1));
+        // CF02-FU-C2F N1: the last hitter decides who a goblin's trip is credited to
+        // (`credited`). Hero one (and a shore nobody hit) is the default, so a run
+        // only Carl hit hashes as before; a hit by Donut or a second player is
+        // state and is mixed.
+        if let Some(player) = self.last_hitter.filter(|p| *p != PLAYER_ONE) {
+            mix(LAST_HITTER_MARK);
+            mix(u64::from(player));
+        }
     }
 }
 
@@ -337,6 +349,35 @@ mod tests {
             width: 6.0,
             height: 6.0,
         }
+    }
+
+    fn hash_of(shore: &Shore) -> Vec<u64> {
+        let mut out = Vec::new();
+        shore.mix_into(&mut |w| out.push(w));
+        out
+    }
+
+    /// CF02-FU-C2F N1: the last hitter is hashed when it is not hero one, so two
+    /// shores that differ only in who hit last (and so in whom a trip is credited
+    /// to) hash differently, while a shore only Carl hit keeps its old words.
+    #[test]
+    fn the_last_hitter_is_hashed_only_when_it_is_not_hero_one() {
+        let mut carl = Shore::new(400.0, 100.0);
+        let mut donut = carl.clone();
+        let before = hash_of(&carl);
+        let b = jab_box(&carl);
+        carl.strike(1, b, PLAYER_ONE).unwrap();
+        donut.strike(1, b, 1).unwrap();
+        assert_eq!(carl.credited(), 0);
+        assert_eq!(donut.credited(), 1);
+        let (hc, hd) = (hash_of(&carl), hash_of(&donut));
+        assert_ne!(hc, hd, "who hit last is state");
+        assert_eq!(hd.len(), hc.len() + 2, "a marker and the player");
+        // Carl's hit adds no word: the old layout, the same length as untouched.
+        assert_eq!(hc.len(), before.len());
+        // A Carl hit after Donut's takes the credit back and the words with it.
+        donut.strike(2, b, PLAYER_ONE).unwrap();
+        assert_eq!(hash_of(&donut).len(), before.len());
     }
 
     #[test]

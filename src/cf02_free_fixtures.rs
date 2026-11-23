@@ -1282,3 +1282,6 @@ mod hazard;
 
 #[cfg(test)]
 mod ca2_fix;
+
+#[cfg(test)]
+mod followups;

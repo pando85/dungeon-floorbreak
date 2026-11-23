@@ -2692,10 +2692,8 @@ fn main() -> ExitCode {
     let draws_blast = !args.headless
         && (args.fixture.is_some_and(|f| !f.charges.is_empty()) || presents_dynamite);
     // CF02-I: the CF02 sheets are read only by a run under `cf02_rules`.
-    let runs_cf02 = args.cf02.rules
-        || args
-            .fixture
-            .is_some_and(|f| dungeon_floorbreak::cf02::fixture_runs_cf02(f.name));
+    let runs_cf02 =
+        dungeon_floorbreak::cf02::run_uses_cf02(args.cf02.rules, args.fixture.map(|f| f.name));
     let actors = match Actors::load(
         &root,
         source,

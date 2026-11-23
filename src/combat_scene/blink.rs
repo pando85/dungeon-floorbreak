@@ -145,13 +145,13 @@ impl CombatState {
         // Cancels: a hurt in the windup (t0..t6), else a primary, physical or
         // jump press on t0..t5 (DP-Q25, DP-Q29). Never a cost.
         if let Some(age) = self.donut_kit.blink.windup_age(tick) {
-            let cause = if hurt {
-                Some(CancelCause::Hurt)
-            } else if input_press && age < u64::from(t.dpq25_windup_ticks) {
-                Some(CancelCause::Input)
-            } else {
-                None
-            };
+            let cause = windup_cancel_cause(
+                hurt,
+                can_act,
+                input_press,
+                age,
+                u64::from(t.dpq25_windup_ticks),
+            );
             if let Some(cause) = cause {
                 self.donut_kit.blink.cancel();
                 self.log(CombatEvent::BlinkCancelled {
@@ -243,6 +243,26 @@ impl CombatState {
     }
 }
 
+/// The cause that cancels a blink windup this tick (DP-Q25, DP-Q29, DP-FU F1): a hurt
+/// or defeat, or any other loss of her hands (`!can_act`: frozen in hit-stop; it
+/// cannot happen in a windup today, one token for the day it can), else a primary,
+/// physical or jump press on t0..t5.
+pub(crate) fn windup_cancel_cause(
+    hurt: bool,
+    can_act: bool,
+    input_press: bool,
+    age: u64,
+    windup_ticks: u64,
+) -> Option<CancelCause> {
+    if hurt || !can_act {
+        Some(CancelCause::Hurt)
+    } else if input_press && age < windup_ticks {
+        Some(CancelCause::Input)
+    } else {
+        None
+    }
+}
+
 impl CombatState {
     /// Donut's blink state, read-only (the presentation and the tests).
     pub fn donut_blink(&self) -> &crate::short_blink::Blink {
@@ -255,6 +275,20 @@ impl CombatState {
     pub fn test_hurt_donut(&mut self, scene: &mut SceneSim, tick: u64) -> bool {
         let source_x = scene.world.body(HeroId::Donut).x + 1.0;
         self.hurt_hero_by(scene, HeroId::Donut, 0xb11, source_x, tick)
+    }
+
+    /// Tests only: where a blink from Donut's place in direction `dir` would land
+    /// now (the pure search over this scene's solids, barriers, zones, hazards and
+    /// camera), for a human press (`hull` `None`) or an AI press held to `hull`.
+    #[doc(hidden)]
+    pub fn test_blink_destination(
+        &self,
+        scene: &SceneSim,
+        dir: i8,
+        hull: Option<(f32, f32)>,
+    ) -> Option<f32> {
+        let body = scene.world.body(HeroId::Donut);
+        self.blink_search_in(scene, body.x, body.y, dir, hull)
     }
 
     /// Tests only: spend Donut's charges down to `to` (the regen timer restarts

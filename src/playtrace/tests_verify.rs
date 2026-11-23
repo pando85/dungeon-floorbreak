@@ -591,6 +591,7 @@ fn content_and_rules_mismatches_are_rejected() {
         "llama_rush_tuning",
         crate::slime::PIN_KEY,
         crate::rot_sticker::PIN_KEY,
+        crate::cf02::arena::ROOM_PIN_KEY,
     ] {
         assert!(stamped.contains(&format!("\"{key}\"")), "{key} is stamped");
     }
@@ -604,6 +605,7 @@ fn content_and_rules_mismatches_are_rejected() {
         "llama_rush_tuning",
         crate::slime::PIN_KEY,
         crate::rot_sticker::PIN_KEY,
+        crate::cf02::arena::ROOM_PIN_KEY,
         "party_tuning",
     ] {
         tamper_manifest(&session, |m| {
@@ -629,6 +631,13 @@ fn content_and_rules_mismatches_are_rejected() {
         expect_failure(&session, "content_mismatch");
         restore();
     }
+    // CF02-FU-C2F U3: a session recorded before the microarena's room pin has none
+    // and still verifies.
+    tamper_manifest(&session, |m| {
+        m.content_hashes.remove(crate::cf02::arena::ROOM_PIN_KEY);
+    });
+    verify(&session).expect("an older session without the arena room pin");
+    restore();
     // DONUT-PROG-01 DP-Q46: the Donut tuning pin is required like the others,
     // and a descriptor whose Donut start flag breaks the story order (no
     // biscuit) is a failure, never a panic.

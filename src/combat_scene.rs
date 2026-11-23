@@ -54,6 +54,8 @@ mod blink;
 mod carl_cf02;
 mod companion;
 #[cfg(test)]
+pub(crate) use blink::windup_cancel_cause;
+#[cfg(test)]
 pub(crate) use companion::path_crosses;
 #[cfg(test)]
 pub(crate) use companion::with_profile_override;

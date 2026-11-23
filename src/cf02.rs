@@ -949,6 +949,14 @@ pub fn fixture_runs_cf02(name: &str) -> bool {
         || crate::corral_fixtures::runs_cf02(name)
 }
 
+/// CF02-FU-I FU8: whether a run reads the CF02 sheets and rules: `--cf02` (`rules`),
+/// or a fixture that runs under `cf02_rules` ([`fixture_runs_cf02`]). The one
+/// predicate the launcher uses for the art and `CombatState::cf02()` is built from
+/// (a test pins the two together over every fixture name).
+pub fn run_uses_cf02(rules: bool, fixture: Option<&str>) -> bool {
+    rules || fixture.is_some_and(fixture_runs_cf02)
+}
+
 /// The pinned tuning with the master switch on: what a simulation running under
 /// `cf02_rules` reads (`--cf02` and every `cf02_*` fixture). One shared static, so
 /// goblins and the move tables can hold a `&'static` reference to it. The committed
@@ -1011,6 +1019,13 @@ pub mod arena {
 
     /// The room geometry (camera-lab room schema, one room).
     pub const ROOM_PATH: &str = "assets/levels/floor01/cf02_microarena.room.json";
+    /// CF02-FU-C2F U3: FNV-1a 64 of the room file, pinned like the f01 rooms'
+    /// (a constant, a test pins it to the file) and stamped into every PLAYTRACE
+    /// manifest as [`ROOM_PIN_KEY`]. A session recorded before the pin has no such
+    /// key and is not refused for it; one that has it must agree.
+    pub const ROOM_HASH: u64 = 0x4991_e0c7_5078_4c18;
+    /// The `data_pins()` key of [`ROOM_HASH`].
+    pub const ROOM_PIN_KEY: &str = "cf02_arena_room";
     pub const LAYOUT_ID: &str = "floor01_cf02_microarena";
     /// Q29: width, floor (the walking line) and the room height of the DEMO hall.
     pub const WIDTH: i32 = 1152;
@@ -1619,6 +1634,20 @@ pub mod arena {
 
         fn root() -> &'static Path {
             Path::new(env!("CARGO_MANIFEST_DIR"))
+        }
+
+        /// CF02-FU-C2F U3: the pinned hash is the room file's, the pin is in
+        /// `data_pins()` and an edit of the room means re-pinning here.
+        #[test]
+        fn the_arena_room_file_is_pinned_and_registered() {
+            let bytes = std::fs::read(root().join(ROOM_PATH)).unwrap();
+            let mut hash = 0xcbf2_9ce4_8422_2325_u64;
+            for b in bytes {
+                hash ^= u64::from(b);
+                hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+            }
+            assert_eq!(hash, ROOM_HASH, "{hash:#018x}");
+            assert!(crate::playtrace::live::data_pins().contains(&(ROOM_PIN_KEY, ROOM_HASH)));
         }
 
         /// The constants of this module are the adopted `q29_*` values of the data
