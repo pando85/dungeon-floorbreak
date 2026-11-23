@@ -480,7 +480,7 @@ mod tests {
     /// Re-pinned by BOIL-D: the drum's blast charge joins the Boiler's state hash
     /// (the walk touches no prop, so nothing else moved).
     const GOLDEN_BOILER: u64 = 0xd76e_2a86_49e8_48be;
-    const GOLDEN_JUICER: u64 = 0x60d4_470f_f8d7_4c3b;
+    const GOLDEN_JUICER: u64 = 0x4473_609c_72cf_6e2e;
 
     #[test]
     fn the_hoarders_dynamite_is_granted_exactly_once() {
@@ -762,37 +762,37 @@ mod tests {
     /// deliberate re-pin.
     const GOLDEN_JUICER_PILOTS: [[u64; 9]; 3] = [
         [
-            0xbb42_7d22_87b2_7d30,
-            0x7a95_75a6_324b_77aa,
-            0xd622_b320_2149_dfb5,
-            0x370b_5b09_b01b_815a,
-            0x8766_22f1_173d_6cb2,
-            0x42af_2a74_9ed9_418c,
-            0x4c86_2daf_b3b2_f434,
-            0x2d9a_a564_6fee_8444,
-            0x9290_e851_2559_467a,
+            0x41db_8ac0_6499_4f3d,
+            0xed70_2214_3acc_3e04,
+            0xc93a_6b31_0db7_1e8a,
+            0x12ae_9242_a7d4_5eb5,
+            0x69bf_c67f_f0ec_875f,
+            0x779c_8886_8b34_d997,
+            0x78c1_9b16_4ad0_b41d,
+            0x5ca7_1fe0_e26c_9809,
+            0xf784_eebd_55ca_8daa,
         ],
         [
-            0xc3bc_a497_bccc_674f,
-            0xa238_d8d6_131a_7d59,
-            0xdd32_5a2d_8c8f_7f55,
-            0x78df_5f9a_581a_df89,
-            0x0170_69a3_9fb8_496e,
-            0x441d_1a4e_edf8_c702,
-            0xb154_9621_d1f2_f52d,
-            0x2519_4eb7_7492_d5bd,
-            0x0797_9362_3de8_7c42,
+            0x6ebe_a34e_ea3f_4d7e,
+            0x0a95_7a4e_32de_7133,
+            0xd44f_f764_83e1_5a6a,
+            0x9bb5_539c_cda6_4c1e,
+            0x9df7_866c_4776_8f93,
+            0x92d9_05fd_86e6_bf95,
+            0xca29_d66a_9168_94a4,
+            0xaf78_c17e_7b90_58d4,
+            0x94b0_0648_b505_dfb2,
         ],
         [
-            0xc3fa_1e52_5b9a_c89f,
-            0xddc2_cb43_beab_800c,
-            0x0b36_9bec_87fa_d147,
-            0xf96f_5c4e_bb37_faba,
-            0xc6ec_844c_3f87_6372,
-            0xccff_08ab_1e64_e2ac,
-            0x51ad_2163_d8d3_47e7,
-            0xb98d_c029_31e8_14bc,
-            0x6864_b594_d7db_dbe6,
+            0x1186_55c8_5819_b0be,
+            0x6f0d_12f6_adef_d12c,
+            0x2b96_5564_5736_7aaf,
+            0xc603_b4ef_d283_e981,
+            0x524a_d8e2_44e9_b078,
+            0x175d_8d84_9655_49d1,
+            0x51fa_9446_32c6_a7c4,
+            0x3d74_1be9_b14b_7757,
+            0x286d_7ed5_22b8_f6a4,
         ],
     ];
 

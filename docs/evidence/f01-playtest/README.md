@@ -99,7 +99,7 @@ PT-TUNE game-feel questions for room 6 (none blocks anything):
 - **OQ1.** Does "kill the slime, the pool drains, the goblins rush" read as a trap you sprang, or as unfair?
 - **OQ2.** Is wave 1's spit over the pool pressure or nagging? The alternative is the llama in wave 2 with a third goblin in wave 1.
 - **OQ3.** Is one Rot Sticker enough for the arena?
-- **OQ4. The human clear-time band.** Is 15 to 50 s per clear (ticks 900 to 3000) the "powerful" feel, or too long for a closing room? The scripted base-kit Carl clears in a median of 667 ticks (11 s); the band is for the owner's playthrough, **blank in the scorecard below and NOT RUN here**.
+- **OQ4. The human clear-time band.** Is 15 to 50 s per clear (ticks 900 to 3000) the "powerful" feel, or too long for a closing room? The scripted base-kit Carl clears in a median of 672 ticks (11 s); the band is for the owner's playthrough, **blank in the scorecard below and NOT RUN here**.
 - **OQ5.** With party targeting, Donut gets spat at too. Is that right for the solo AI partner?
 
 ## 5. Scorecards
@@ -126,12 +126,12 @@ PT-TUNE game-feel questions for room 6 (none blocks anything):
 | 5 Juicer, CarlSolo | 9 of 9 | 0 / 0 | 38 / 43 | 3470 / 3887 | base kit: 0 | 17 |
 | 5 Juicer, DonutBySwap | 9 of 9 | 0 / 0 | 38 / 43 | 3445 / 3863 | base kit: 0 | 17 |
 | 5 Juicer, Companion | 9 of 9 | 0 / 0 | 39 / 44 | 3470 / 3887 | base kit: 0 | 17 |
-| 6 Arena, carl_solo | 9 of 9 | 0 / 0 | 4 / 4 | 737 / 771 | base kit: 0 | 91 |
-| 6 Arena, donut_by_swap | 9 of 9 | 0 / 0 | 4 / 4 | 735 / 764 | base kit: 0 | 91 |
-| 6 Arena, companion (`cf02_free`) | 9 of 9 | 0 / 1 | 3 / 5 | 835 / 1053 | base kit: 0 | 95 |
-| 6 Arena, donut_fights (Donut leads, base kit) | **0 of 9** | 7 / 7 | 30 / 31 | no clear | base kit: 0 | 21 |
-| 6 Arena, carl_kit (dynamite, report-only) | 9 of 9 | 1 / 1 | 4 / 6 | 874 / 1009 | throws 1 / 2, chains 0 | 95 |
-| 6 Arena, donut_kit (blink, report-only) | **0 of 9** | 8 / 8 | 30 / 30 | no clear | blinks 1 | 21 |
+| 6 Arena, carl_solo | 9 of 9 | 0 / 1 | 4 / 6 | 759 / 967 | base kit: 0 | 91 |
+| 6 Arena, donut_by_swap | 9 of 9 | 0 / 1 | 4 / 6 | 756 / 970 | base kit: 0 | 91 |
+| 6 Arena, companion (`cf02_free`) | 9 of 9 | 0 / 1 | 3 / 5 | 886 / 1050 | base kit: 0 | 91 |
+| 6 Arena, donut_fights (Donut leads, base kit, FA-Q12 rules) | 9 of 9 | 1 / 1 | 12 / 12 | 1316 / 1343 | base kit: 0 | 28 |
+| 6 Arena, carl_kit (dynamite, report-only) | 9 of 9 | 1 / 1 | 5 / 6 | 883 / 1009 | throws 1 / 2, chains 0 | 91 |
+| 6 Arena, donut_kit (blink, report-only) | 9 of 9 | 1 / 1 | 9 / 12 | 1320 / 1338 | blinks 1 / 2 | 28 |
 
 The Juicer rows are library fixtures (the `Companion` row uses `cf02_free`; the live room's partner is the follow-and-jump bot, section 1). The room 2 live rows and the room 4 rows are the PT-GATE-C2 fixtures (#240: `scene_pilots::run_live`, `hazards_fixtures::pilots`), with their hashes pinned there; [`scorecard.md`](scorecard.md) has every column. Their hurts count **both heroes**: in the room 2 live `Direct` runs the `cf02_assist` partner hits the valve itself (a game-feel note, section 9), and in room 4 the assist partner takes the Rot blast on every seed of the Carl-solo and Donut-by-swap runs (9 of 9) while the `cf02_free` companion takes none (scorecard, AI hurts by source). The stuck figure covers the controlled hero and the `cf02_free` companion; the `cf02_assist` partner's stuck is not measured (section 9). The backlog attributes nearly every hurt of the companion run to the passive Donut (section 9); the table does not split them by hero. Room 1 (not listed): **NOT RUN**.
 
@@ -140,8 +140,8 @@ The Juicer rows are library fixtures (the `Companion` row uses `cf02_free`; the 
 - **Room 6 (PT-TUNE D1 to D6, `carl_solo`, seeds 0..8):**
   - D1 overlap share W1 37 to 38 % (target median 30 %, every seed 20 % or more), W2 45 to 65 % (median target 40 %): pass.
   - D2 peak distinct engaged kinds W1 2 (3 seen over the wave), W2 3: pass.
-  - D3 bot clear median 667 ticks, range 667 to 684 (main 517, target at least 647, at most 4800): pass; the human band 900 to 3000 is the owner's (OQ4).
-  - D4 hurts 4 (2 in each wave) and 0 deaths on every seed: pass.
+  - D3 bot clear median 672 ticks, range 646 to 918 (main 517, target at least 647, at most 4800): pass; the margin over 647 is 25 ticks, under the 30 FA-Q18 asks for (its one composition iteration, W2 entry delays +30 ticks cascaded, moved no clear tick; shipped as measured); the human band 900 to 3000 is the owner's (OQ4).
+  - D4 hurts 4 to 6 (2 in W1, 2 to 4 in W2) and 0 deaths on every seed: pass.
   - D5 peak engaged enemies 3 (limit 4): pass.
   - D6 every mastery enemy keeps its base kind's HP: a test (`the_mastery_waves_meet_the_difficulty_targets` and its HP guard).
 - **Rooms 2, 4, 5:** composition and enemy numbers unchanged by PT-TUNE; there is no "powerful enemies" measure for them. The only numbers are the hurts above: **NOT RUN** as a rating.
@@ -293,15 +293,15 @@ From the backlog's owner game-feel notes, the PT-TUNE follow-ups, #237, the revi
   - *Tooling:* the Hoarder smoke in `ci_floor01_combat.sh` greps `slot_enemies=1` again; the filmed `haz_tactical` run is pinned in CI (`8e10bd0986d23ad9`); the `ROOMS=` filter of `make_f01_gate_d_replay.sh` finds the `boiler` lines (the `route=` field) and re-checks a kept line against the fresh library tick and hashes; `make_f01_gate_b_evidence.sh` prints the per-hero hurt split ("4 (Carl 3, Donut 1)").
 
 **The arena (PT-TUNE and PT-MASTERY)**
-- **The D3 margin is thin:** the bot's median clear is 667 ticks against the 647 target, a margin of 20 ticks; the 900 to 3000 human band is unmeasured (OQ4).
-- **The seeds give only 2 distinct arena outcomes for `carl_solo`** (clear ticks 667 and 684), 3 for the companion: 9 seeds cover about 2 fights, so "9 seeds" overstates the coverage.
-- **The Donut kit pilot stands still under fire.** `donut_fights` and `donut_kit` clear 0 of 9 (7 and 8 defeats): she is idle from about tick 500, takes a hurt every 95 ticks, and the stuck rule counts only walking input without motion, so it does not see it (PTT-Q21). Follow-up: a stall measure. A Donut-led clear is **unproven**.
+- **The D3 margin is thin:** the bot's median clear is 672 ticks against the 647 target, a margin of 25 ticks (FA-Q18's one composition iteration changed no clear tick and was not kept); the 900 to 3000 human band is unmeasured (OQ4).
+- **Seed coverage (FA-Q17):** the arena pilots offset the jab phase by the seed, so `carl_solo` has 7 distinct outcomes (clear tick, hurts, kill order) over seeds 0..8 (4 with the first form tried), `donut_fights` 9 and the companion 7; the seed still varies only the pilot's timing and the temperament draw. The Juicer's seed coverage (the seed shifts the jab phase only) is in the scorecard under room 5.
+- **The Donut kit pilot (PTT-Q21, fixed by FA-Q12, FA-Q13):** the shared pilot now plays Donut's rules (stand-off 40 px, pounce at point-blank or dry, approach, the kit pilot's blink). `donut_fights` and `donut_kit` clear 9 of 9 and no pilot stalls more than 79 ticks (`max_stall_ticks`, asserted at most 120). A Donut-led clear is proven for the scripted pilot only; her hurts (9 to 12 a clear against Carl's 4 to 6) are the price of the stand-off rules.
 - **The companion Donut is idle against the Juicer** (the `cf02_free` fixture; the live room launches the follow-and-jump bot instead) and takes most of the run's hurts, never attacking, blinking or retreating (CA2-Q35, `CA2-FU-BOSS`, COMPANION-AI-01E).
-- **CA2 misses:** M2 (shadowing), M4 (steals on 2 seeds) and M13's comparison with the assist partner; M7, M8, M9's cause split, M11 and the M14 planning time are not measured in the arena.
+- **CA2 misses:** M2 (shadowing), M4 (steals on 2 seeds) and M13's comparison with the assist partner; M7, M8, the M9 cause split, M11 and M14 are measured in the arena since FA-Q (all pass, 0 hazard hurts to her; `the_ca2_metrics_run_in_the_closing_arena`).
 - The arena reuses the stand-in art and has no presentation of its own; no human has played it.
 
 **Room 4, the hazards room (#240 review follow-ups)**
-- **`haz_room_donut_fights` is ignored: solo Donut who fights the whole room does not clear it.** No gate item needs it (item 5 and HAZ-09 say "solo Donut by swap", which `haz_room_solo_donut` covers). The cause looks like a pilot artifact plus a design note: the missile spawns 27 px ahead, so a goblin closer than about 27 px cannot be hit, and she has 5 casts. Next step: a Donut-specific pilot that stands off more than 27 px. **Game-feel list: "Donut has no point-blank answer once her casts are dry."**
+- **`haz_room_donut_fights` is ignored: solo Donut who fights the whole room does not clear it.** No gate item needs it (item 5 and HAZ-09 say "solo Donut by swap", which `haz_room_solo_donut` covers). The missile now sweeps from her front edge on its first tick (FA-Q14, `missile_spawn_sweep`), and the shared pilot has a Donut stand-off (FA-Q12); PR-D un-ignores the fixture with it. **Game-feel list: "Donut has no point-blank answer once her casts are dry."**
 - **`haz_room_solo_carl` is the HAZ-06 route:** the first nine `DIRECT_PINNED` hashes equal `SOLO_CARL_PINNED`; both run the same route (HAZ-09 says "same route").
 - **The assist partner walks into the Rot in room 4** (9 of 9 seeds of the Carl-solo and Donut-by-swap runs; the `cf02_free` companion never does): a game-feel note for the partner that rooms 2, 4 and 6 do not default to.
 
@@ -318,7 +318,7 @@ From the backlog's owner game-feel notes, the PT-TUNE follow-ups, #237, the revi
 **Mechanics notes**
 - Gauntlet: the haymaker-only pierce (F-12); the pierce spark is faint at 1x.
 - The scripted coop blink pilot had more deaths than its no-blink control (7 against 0 over seeds 0..8), likely the swat-hold rule; the boss-charge blink guard is dead in the shipped stack (#226).
-- The 720-tick reflex is not ready for the opener (a human-style Donut evaded 0 of 23 at 720 from tick 0, #222).
+- The 720-tick reflex was not ready for the opener (a human-style Donut evaded 0 of 23 at 720 from tick 0, #222). FA-Q19 (`dm_reflex_armed_at_attempt_start`) starts an attempt that begins with the biscuit armed; whether 720 and that rule feel right is the owner's measurement (DM spec U1).
 
 **Evidence limits**
 - Frame time is under xvfb only, with a dev build, on a machine with a load average of 2 to 3; real hardware, a Steam Deck, a 1080p window and a release build are **NOT RUN**. The perf reading is a lower bound (section 8, item 7e).

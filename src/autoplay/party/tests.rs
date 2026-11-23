@@ -97,9 +97,9 @@ const Q10_GOLDENS: [(&str, u64); 7] = [
     ("q10_swat_guard", 0x67c2_3bf7_826f_3fab),
     ("q10_pounce_hit", 0xf7fe_d891_c0e2_f8c1),
     ("q10_pounce_miss", 0x4274_d6eb_4552_8cc1),
-    ("q10_dry_press", 0x672f_2eca_b864_6492),
-    ("q10_mana_regen", 0xf7c2_1bf4_376c_ab99),
-    ("q10_unlock_persists", 0xd1d8_48a7_01a1_f50d),
+    ("q10_dry_press", 0x141b_f5d9_6f2c_55a8),
+    ("q10_mana_regen", 0x7861_1a00_785e_f14e),
+    ("q10_unlock_persists", 0x3934_047f_0ef2_189c),
 ];
 
 fn live_reference(fixture: &'static PartyFixture) -> (u64, Vec<CombatEvent>) {

@@ -1138,6 +1138,12 @@ impl CombatState {
     /// CF02-Q58: the `--cf02-seed` override of the temperament draw (`None`: the
     /// fixture seed). Rebuilds the attempt's morale with it.
     #[must_use]
+    /// The CF02 seed of this run (`--cf02-seed`), `None` when the room has none
+    /// (a scripted pilot may read it to vary its own timing, FA-Q17).
+    pub fn cf02_seed(&self) -> Option<u64> {
+        self.cf02_seed
+    }
+
     pub fn with_cf02_seed(mut self, seed: Option<u64>) -> Self {
         self.cf02_seed = seed;
         self.reset_attempt();

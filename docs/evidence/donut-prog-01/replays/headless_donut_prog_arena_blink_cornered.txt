@@ -1,8 +1,9 @@
+COMBAT_EVENT tick=1 kind=evade_armed hero=donut
 COMBAT_EVENT tick=5 kind=goblin_tell goblin=0
 COMBAT_EVENT tick=20 kind=special_started hero=1 capability=special_short_blink
 COMBAT_EVENT tick=26 kind=mana_spent hero=1 left=0
 COMBAT_EVENT tick=26 kind=blink_resolved hero=1 from_x=88 to_x=180
 COMBAT_EVENT tick=31 kind=goblin_swing goblin=0
 COMBAT_EVENT tick=96 kind=mana_regained hero=1 now=1
-COMBAT_STATE fixture=donut_prog_arena_blink_cornered seed=0xd90000a tick=120 elapsed=120 hero_hp=4 deaths=0 enemies=e0=85.833/40 hash=8214eb5a37186dff
-PARTY_STATE fixture=donut_prog_arena_blink_cornered mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=a375733d805c1725
+COMBAT_STATE fixture=donut_prog_arena_blink_cornered seed=0xd90000a tick=120 elapsed=120 hero_hp=4 deaths=0 enemies=e0=85.833/40 hash=c2d869c74e588889
+PARTY_STATE fixture=donut_prog_arena_blink_cornered mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=bad69d85668fab8f

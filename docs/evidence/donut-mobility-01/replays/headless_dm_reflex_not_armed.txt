@@ -1,9 +1,10 @@
+COMBAT_EVENT tick=1 kind=evade_armed hero=donut
 COMBAT_EVENT tick=103 kind=goblin_tell goblin=0
 COMBAT_EVENT tick=129 kind=goblin_swing goblin=0
-COMBAT_EVENT tick=129 kind=hero_hurt source=0 health_left=3 hero=donut
-COMBAT_EVENT tick=198 kind=goblin_tell goblin=0
-COMBAT_EVENT tick=224 kind=goblin_swing goblin=0
-COMBAT_EVENT tick=224 kind=hero_hurt source=0 health_left=2 hero=donut
-COMBAT_EVENT tick=293 kind=goblin_tell goblin=0
-COMBAT_STATE fixture=dm_reflex_not_armed seed=0xd4d0011 tick=300 elapsed=300 hero_hp=4 deaths=0 enemies=e0=673.500/2 hash=df062a64d4cb7a22
-PARTY_STATE fixture=dm_reflex_not_armed mode=2p controlled=Carl carl_hp=4 donut_hp=2 deaths=0 hash=82812a4446dd6c78
+COMBAT_EVENT tick=129 kind=hero_evaded hero=donut source=0 attack=goblin_swing
+COMBAT_EVENT tick=194 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=220 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=220 kind=hero_hurt source=0 health_left=3 hero=donut
+COMBAT_EVENT tick=289 kind=goblin_tell goblin=0
+COMBAT_STATE fixture=dm_reflex_not_armed seed=0xd4d0011 tick=300 elapsed=300 hero_hp=4 deaths=0 enemies=e0=673.500/2 hash=d354bb4222e40c65
+PARTY_STATE fixture=dm_reflex_not_armed mode=2p controlled=Carl carl_hp=4 donut_hp=3 deaths=0 hash=41b0a515d06773db

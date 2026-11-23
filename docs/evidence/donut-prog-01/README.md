@@ -16,10 +16,10 @@ Hashes and ticks are those of the agile Donut body (DM-A, #186), which is the de
 | Fixture | Final `PARTY_STATE` hash | What it shows |
 | --- | --- | --- |
 | `donut_prog_story_unlocks` | `f7eb55392e6c5a98` | the biscuit at the guild zone (tick 50), then one `capability_granted` (tick 246, hero 1, `jump_reach_boost`) at the safe-room placeholder zone; Circle/B presses emit nothing |
-| `donut_prog_grant_survives_retry` | `b3e9f4b4c2f6eff8` | the grant at tick 246, a defeat at tick 440 and a party retry at tick 489 (twice): the capability stays held and is never granted a second time |
+| `donut_prog_grant_survives_retry` | `4fe3164adcb229a3` | the grant at tick 246, a defeat at tick 440 and a party retry at tick 489 (twice): the capability stays held and is never granted a second time |
 | `donut_prog_primary_mapping` | `cd026290cfd5d561` | Square/X swats before the biscuit, casts eight missiles after it and is dry at 0 mana; Circle/B pressed four times does nothing |
-| `donut_prog_boss_pins` | `0a03af025ce95b25` | under Donut's boss pin (the boost, the biscuit read through) the Juicer defeat (tick 311) grants only `special_short_blink` (hero 1) on that tick |
-| `donut_prog_boss_both_programs` | `befb7d69bbe94cfd` | with both programs the defeat tick grants `fist_reinforced` (hero 0) and then `special_short_blink` (hero 1), in grants-list order |
+| `donut_prog_boss_pins` | `0aa62409c3c47e08` | under Donut's boss pin (the boost, the biscuit read through) the Juicer defeat (tick 311) grants only `special_short_blink` (hero 1) on that tick |
+| `donut_prog_boss_both_programs` | `cc0c9ac951ee295c` | with both programs the defeat tick grants `fist_reinforced` (hero 0) and then `special_short_blink` (hero 1), in grants-list order |
 
 Event log of both Juicer grants (`donut_prog_boss_both_programs`):
 
@@ -57,9 +57,9 @@ Juicer's defeat, which the render loop cannot run because the boss pilot is a he
 | Fixture | Final `PARTY_STATE` hash | What it shows |
 | --- | --- | --- |
 | `donut_prog_grants_2p` | `ab6921d3eba4608d` | tick 246: `jump_reach_boost` then `special_short_blink` (hero 1) on one tick; the notices `LIGHT FEET` (246) and `PUDDLE JUMPER` (412, after 136 + 30 ticks) queue; her socket turns from the padlock to the equipped chip on the grant tick |
-| `donut_prog_blink_fizzle` | `6e52421a4f95bf63` | `special_started` 136, `blink_fizzled reason=no_destination` 142: the destination was valid at the press, then Carl ran on and the scroll camera moved the 24 px inset past it; nothing spent, no cooldown, one shrinking ring |
-| `donut_prog_arena_blink_tour` | `90775214f5ef5cbe` | flat blink 340 -> 452 (press 40, arrival 46); `special_ready` 586 (arrival + 540); the second blink from 656 stops at 724, in front of the 32 px parapet at 736 (arrival 606) |
-| `donut_prog_arena_blink_edge` | `6ae2cb2ece513533` | `special_rejected reason=no_mana` 270 (pool cast down to one charge) and `reason=no_destination` 420 (no destination inside the view): each flashes the socket |
+| `donut_prog_blink_fizzle` | `d0cd38477c858fb7` | `special_started` 136, `blink_fizzled reason=no_destination` 142: the destination was valid at the press, then Carl ran on and the scroll camera moved the 24 px inset past it; nothing spent, no cooldown, one shrinking ring |
+| `donut_prog_arena_blink_tour` | `90998a5d28e8da53` | flat blink 340 -> 452 (press 40, arrival 46); `special_ready` 586 (arrival + 540); the second blink from 656 stops at 724, in front of the 32 px parapet at 736 (arrival 606) |
+| `donut_prog_arena_blink_edge` | `6def9c57460ab471` | `special_rejected reason=no_mana` 270 (pool cast down to one charge) and `reason=no_destination` 420 (no destination inside the view): each flashes the socket |
 
 Real windowed Bevy captures at 640 x 360 (1x), from `scripts/make_dp_d_evidence.sh` (needs a debug
 build, `scripts/export_assets.sh`, xvfb, ffmpeg and ImageMagick; the renders are driver dependent and
@@ -93,9 +93,9 @@ Last DONUT-PROG stage. It moves no golden and no earlier replay; the `donut_prog
 
 | Fixture | Final `PARTY_STATE` hash | What it shows |
 | --- | --- | --- |
-| `donut_prog_arena_ledge_base` | `970a169e812a4bd8` | the microarena with a 128 px ledge; P2 Donut (biscuit, no boost) runs into it and jumps on tick 40: she peaks under the top and falls back to the floor |
-| `donut_prog_arena_ledge_boost` | `98b7c723c72f71bc` | the same script and seed with `jump_reach_boost` (`--donut-light-feet`): she lands on the ledge (grounded on it at tick 80) |
-| `donut_prog_arena_blink_cornered` | `a375733d805c1725` | the AI Donut (jump dodge radius 0, target bias 0, exactly the 2 charge reserve) with a goblin 28 px away: `goblin_tell` 5, `special_started` 20, `mana_spent` (left 0) and `blink_resolved` 88 to 180 on 26, `goblin_swing` 31 finds no one |
+| `donut_prog_arena_ledge_base` | `c8f96c1ac605b624` | the microarena with a 128 px ledge; P2 Donut (biscuit, no boost) runs into it and jumps on tick 40: she peaks under the top and falls back to the floor |
+| `donut_prog_arena_ledge_boost` | `57f10fad98acfa80` | the same script and seed with `jump_reach_boost` (`--donut-light-feet`): she lands on the ledge (grounded on it at tick 80) |
+| `donut_prog_arena_blink_cornered` | `bad69d85668fab8f` | the AI Donut (jump dodge radius 0, target bias 0, exactly the 2 charge reserve) with a goblin 28 px away: `goblin_tell` 5, `special_started` 20, `mana_spent` (left 0) and `blink_resolved` 88 to 180 on 26, `goblin_swing` 31 finds no one |
 
 Real windowed Bevy captures at 640 x 360 (1x source), from `scripts/make_dp_f_evidence.sh` (debug build, `generated/art`, xvfb, ffmpeg, ImageMagick; driver dependent, not reproduced bit for bit by CI). Checksums in `SHA256SUMS`.
 

@@ -15,6 +15,11 @@ from pathlib import Path
 
 from PIL import Image
 
+# PT-FU-B8 (18): the size budget of one evidence GIF. The largest committed GIF is
+# 3.14 MB; a GIF above this is refused (shorten it, crop it or lower its frame
+# rate) instead of growing the repository. `--max-bytes` overrides it.
+MAX_GIF_BYTES = 3_670_016
+
 
 def load(folder: Path) -> list[Image.Image]:
     return [Image.open(p).convert("RGB") for p in sorted(folder.glob("frame_*.png"))]
@@ -58,6 +63,8 @@ def main() -> None:
     ap.add_argument("--zoom", type=int, default=1)
     ap.add_argument("--still", nargs=2, action="append", default=[],
                     metavar=("INDEX", "PNG"))
+    ap.add_argument("--max-bytes", type=int, default=MAX_GIF_BYTES,
+                    help="refuse a GIF larger than this many bytes (default %(default)s)")
     args = ap.parse_args()
     images = load(args.frames)
     if not images:
@@ -71,6 +78,11 @@ def main() -> None:
     ms = round(args.step_ticks * 1000 / 60 / 10) * 10
     args.out.parent.mkdir(parents=True, exist_ok=True)
     save_gif(images, args.out, ms)
+    size = args.out.stat().st_size
+    if size > args.max_bytes:
+        args.out.unlink()
+        raise SystemExit(f"{args.out}: {size} bytes is over the {args.max_bytes} byte GIF budget "
+                         "(shorten it, crop it or raise --step-ticks); the file was removed")
     for index, png in args.still:
         images[int(index)].save(png, optimize=True)
 

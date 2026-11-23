@@ -554,9 +554,9 @@ mod tests {
         ("q10_swat_guard", 0x67c2_3bf7_826f_3fab),
         ("q10_pounce_hit", 0xf7fe_d891_c0e2_f8c1),
         ("q10_pounce_miss", 0x4274_d6eb_4552_8cc1),
-        ("q10_dry_press", 0x672f_2eca_b864_6492),
-        ("q10_mana_regen", 0xf7c2_1bf4_376c_ab99),
-        ("q10_unlock_persists", 0xd1d8_48a7_01a1_f50d),
+        ("q10_dry_press", 0x141b_f5d9_6f2c_55a8),
+        ("q10_mana_regen", 0x7861_1a00_785e_f14e),
+        ("q10_unlock_persists", 0x3934_047f_0ef2_189c),
         ("q10_pounce_boss", 0xe2de_0452_dc5d_ede4),
     ];
 
@@ -565,7 +565,7 @@ mod tests {
         ("cf02_llama_swat_interrupt", 0xbd69_2a6b_647a_2a41),
         ("cf02_llama_swat_guard", 0x764d_bd2f_4024_0d1e),
         ("cf02_llama_pounce", 0xb463_4446_27b7_960e),
-        ("cf02_llama_bolt_stops", 0x2c8a_c75e_7472_7a0e),
+        ("cf02_llama_bolt_stops", 0x579f_344f_6826_3c67),
         ("cf02_donut_solo_llama", 0xe1ea_e0ff_ae9b_c431),
         ("cf02_donut_bailout", 0x50c5_db02_4da0_ce67),
         ("cf02_swap_eased_pan", 0xcb19_d498_fcbc_aee8),

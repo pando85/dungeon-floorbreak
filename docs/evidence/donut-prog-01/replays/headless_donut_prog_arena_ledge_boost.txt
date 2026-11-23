@@ -1,2 +1,3 @@
-COMBAT_STATE fixture=donut_prog_arena_ledge_boost seed=0xd90000b tick=150 elapsed=150 hero_hp=4 deaths=0 enemies= hash=f2cd1ad154ae3106
-PARTY_STATE fixture=donut_prog_arena_ledge_boost mode=2p controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=98b7c723c72f71bc
+COMBAT_EVENT tick=1 kind=evade_armed hero=donut
+COMBAT_STATE fixture=donut_prog_arena_ledge_boost seed=0xd90000b tick=150 elapsed=150 hero_hp=4 deaths=0 enemies= hash=8ea415bd080c595a
+PARTY_STATE fixture=donut_prog_arena_ledge_boost mode=2p controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=57f10fad98acfa80

@@ -28,7 +28,7 @@ pub const TUNING_JSON: &str = include_str!("../assets/data/gameplay/companion_ma
 /// repository already uses for its event hashes). Editing the file without
 /// updating this value fails [`ManaTuning::pinned`] and the pin test, so a
 /// tuning edit never changes a recorded outcome silently (proposal section 5).
-pub const TUNING_HASH: u64 = 0xf07c_c7d3_3187_956d;
+pub const TUNING_HASH: u64 = 0x7bbd_4601_b07e_eee6;
 
 /// FNV-1a 64 over raw bytes.
 pub const fn content_hash(text: &str) -> u64 {
@@ -95,6 +95,11 @@ pub struct ManaTuning {
     pub projectile_speed_px_per_tick: u8,
     pub projectile_range_px: u16,
     pub refire_ticks: u16,
+    /// FA-Q14 (the fix-all plan, T21): on its first tick the bolt's hit test
+    /// also sweeps from Donut's front edge to the spawn point, so an enemy
+    /// closer than the 27 px spawn offset is hit instead of passed. Default on;
+    /// off reproduces the earlier hashes (a one-line revert).
+    pub missile_spawn_sweep: bool,
 }
 
 /// Segments of the HUD-A mana track (the validated `mana_max`).

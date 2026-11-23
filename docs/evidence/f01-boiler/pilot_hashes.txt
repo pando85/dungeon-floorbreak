@@ -1,6 +1,6 @@
 direct tick=536 hp=4 deaths=0 complete=true hash=6c3bb7a02f8c6f60
 valve tick=641 hp=4 deaths=0 complete=true hash=65876c4cdfc2a977
 chain tick=949 hp=3 deaths=0 complete=true hash=90b3fbcbae614f4f
-direct:2p tick=556 hp=4 deaths=0 complete=true hash=0602b8b2cbe6f68f
-valve:2p tick=708 hp=3 deaths=0 complete=true hash=2bb3ccca5724260a
-chain:2p tick=950 hp=3 deaths=0 complete=true hash=33f1448a02b5a001
+direct:2p tick=556 hp=4 deaths=0 complete=true hash=3cd8f9e003744c18
+valve:2p tick=708 hp=3 deaths=0 complete=true hash=ffcca97c78f09542
+chain:2p tick=950 hp=3 deaths=0 complete=true hash=c87636c9e34e164f

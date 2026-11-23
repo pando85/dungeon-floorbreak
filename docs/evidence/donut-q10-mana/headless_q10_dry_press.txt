@@ -1,3 +1,4 @@
+COMBAT_EVENT tick=1 kind=evade_armed hero=donut
 COMBAT_EVENT tick=10 kind=cast_rejected hero=1 reason=dry
 COMBAT_EVENT tick=20 kind=cast_rejected hero=1 reason=dry
 COMBAT_EVENT tick=30 kind=cast_rejected hero=1 reason=dry
@@ -5,5 +6,5 @@ COMBAT_EVENT tick=70 kind=mana_regained hero=1 now=1
 COMBAT_EVENT tick=100 kind=move_started move=magic_missile instance=1
 COMBAT_EVENT tick=104 kind=mana_spent hero=1 left=0
 COMBAT_EVENT tick=116 kind=hit move=magic_missile instance=1 target=0 damage=1 health_left=1 hit_stop=2
-COMBAT_STATE fixture=q10_dry_press seed=0xd100005 tick=160 elapsed=160 hero_hp=4 deaths=0 enemies=e0=450.101/1 hash=9ca7c5074d7fce9c
-PARTY_STATE fixture=q10_dry_press mode=2p controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=672f2ecab8646492
+COMBAT_STATE fixture=q10_dry_press seed=0xd100005 tick=160 elapsed=160 hero_hp=4 deaths=0 enemies=e0=450.101/1 hash=f87d530993194ad2
+PARTY_STATE fixture=q10_dry_press mode=2p controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=141bf5d96f2c55a8

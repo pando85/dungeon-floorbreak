@@ -20,7 +20,8 @@
 # run.log (the window run) and capture.txt (one ROOM_CAPTURE line).
 #
 #   BIN=<floor01_scene> (default ./target/debug/floor01_scene), needs the exported
-#   atlases (bash scripts/export_assets.sh) and xvfb-run.
+#   atlases (bash scripts/export_assets.sh), xvfb-run and flock. Captures are serialized
+#   by a lock (ROOM_CAPTURE_LOCK, see below), so two invocations never open windows together.
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 room="${1:?room}"
@@ -31,6 +32,15 @@ shift 4
 bin="${BIN:-./target/debug/floor01_scene}"
 IFS=: read -r first step count <<<"$seq"
 last=$((first + step * (count - 1)))
+# PT-FU-B8 (12): captures flake when several xvfb windows run at once, so they run
+# one at a time: an exclusive lock held for the whole script (released when it
+# exits). `ROOM_CAPTURE_LOCK` names the lock file (default: one per user in the
+# runtime or temporary directory); `ROOM_CAPTURE_LOCK=off` skips it.
+lock="${ROOM_CAPTURE_LOCK:-${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}/dungeon-floorbreak-room-capture-$(id -u).lock}"
+if [[ "$lock" != off ]]; then
+  exec 9>"$lock"
+  flock -x 9
+fi
 rm -rf "$out"
 mkdir -p "$out"
 common=(--scene f01_late --f01-room "$room" --room-pilot "$plan" "$@")

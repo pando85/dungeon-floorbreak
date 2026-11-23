@@ -1396,10 +1396,10 @@ fn golden(room: &str, variant: &str, index: usize, ticks: u64) -> (u64, u64) {
 /// roster, checkpoint-rule or seed drift across commits is caught. A change
 /// here is deliberate: re-pin together with the layout hash of the manifest.
 const GOLDENS: [(&str, &str, usize, u64, u64); 4] = [
-    ("R01", "v1", 1, 0xb1e3_b87b_242e_a449, 0x2869_55ce_1e92_1c4f),
-    ("R01", "v2", 2, 0x89c5_0b50_5d36_870f, 0x29fb_3a50_ea73_3f4f),
-    ("R01", "v3", 3, 0xe65b_f514_1400_dda0, 0x4061_d8dc_db8d_440b),
-    ("R02", "v1", 5, 0x8b02_473f_ed85_f766, 0x15a4_81dc_cfff_0572),
+    ("R01", "v1", 1, 0xb1e3_b87b_242e_a449, 0x98e2_167a_ff04_3e29),
+    ("R01", "v2", 2, 0x89c5_0b50_5d36_870f, 0x992f_f472_138a_f72d),
+    ("R01", "v3", 3, 0xe65b_f514_1400_dda0, 0x73e6_07d6_0d85_a684),
+    ("R02", "v1", 5, 0x8b02_473f_ed85_f766, 0xf78b_5418_3a4b_54dc),
 ];
 
 #[test]

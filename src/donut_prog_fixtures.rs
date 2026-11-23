@@ -573,19 +573,19 @@ mod tests {
     /// The committed final hashes of the `donut_prog_*` fixtures.
     const GOLDENS: [(&str, u64); 12] = [
         ("donut_prog_story_unlocks", 0xf7eb_5539_2e6c_5a98),
-        ("donut_prog_grant_survives_retry", 0xb3e9_f4b4_c2f6_eff8),
+        ("donut_prog_grant_survives_retry", 0x4fe3_164a_dcb2_29a3),
         ("donut_prog_primary_mapping", 0xcd02_6290_cfd5_d561),
-        ("donut_prog_boss_pins", 0x0a03_af02_5ce9_5b25),
-        ("donut_prog_boss_both_programs", 0xbefb_7d69_bbe9_4cfd),
+        ("donut_prog_boss_pins", 0x0aa6_2409_c3c4_7e08),
+        ("donut_prog_boss_both_programs", 0xcc0c_9ac9_51ee_295c),
         // DP-D (pinned from their first run; the events are asserted below).
         ("donut_prog_grants_2p", 0xab69_21d3_eba4_608d),
-        ("donut_prog_blink_fizzle", 0x6e52_421a_4f95_bf63),
-        ("donut_prog_arena_blink_tour", 0x9077_5214_f5ef_5cbe),
-        ("donut_prog_arena_blink_edge", 0x6ae2_cb2e_ce51_3533),
+        ("donut_prog_blink_fizzle", 0xd0cd_3847_7c85_8fb7),
+        ("donut_prog_arena_blink_tour", 0x9099_8a5d_28e8_da53),
+        ("donut_prog_arena_blink_edge", 0x6def_9c57_460a_b471),
         // DP-F (pinned from their first run; the events are asserted below).
-        ("donut_prog_arena_ledge_base", 0x970a_169e_812a_4bd8),
-        ("donut_prog_arena_ledge_boost", 0x98b7_c723_c72f_71bc),
-        ("donut_prog_arena_blink_cornered", 0xa375_733d_805c_1725),
+        ("donut_prog_arena_ledge_base", 0xc8f9_6c1a_c605_b624),
+        ("donut_prog_arena_ledge_boost", 0x57f1_0fad_98ac_fa80),
+        ("donut_prog_arena_blink_cornered", 0xbad6_9d85_668f_ab8f),
     ];
 
     #[test]

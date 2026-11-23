@@ -327,7 +327,7 @@ impl RoomPilot {
             Plan::Direct => fight_or_walk(combat, sim, exit_x),
             Plan::Valve => valve(combat, sim, exit_x),
             Plan::Chain => chain(combat, sim, exit_x),
-            Plan::Mastery => crate::f01_mastery_fixtures::pilot(combat, sim, HeroId::Carl),
+            Plan::Mastery => crate::f01_mastery_fixtures::arena_pilot(combat, sim, HeroId::Carl),
             Plan::Juicer => crate::boss_scene::pilot_inputs(
                 Pilot::Carl,
                 [RawInput::NONE; 2],
@@ -410,7 +410,7 @@ impl RoomPilot {
             if self.plan == Plan::Hazards {
                 crate::hazards_fixtures::pilots::route_pilot(combat, sim, hero)
             } else {
-                mastery::pilot(combat, sim, hero)
+                mastery::arena_pilot(combat, sim, hero)
             }
         };
         let mut input = if self.plan == Plan::Juicer {

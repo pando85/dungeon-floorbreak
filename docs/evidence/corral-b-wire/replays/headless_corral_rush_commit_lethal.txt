@@ -1,3 +1,4 @@
+COMBAT_EVENT tick=1 kind=evade_armed hero=donut
 COMBAT_EVENT tick=1 kind=llama_rush_tell llama=0
 COMBAT_EVENT tick=23 kind=move_started move=magic_missile instance=1
 COMBAT_EVENT tick=27 kind=mana_spent hero=1 left=7
@@ -5,5 +6,5 @@ COMBAT_EVENT tick=33 kind=llama_rush_commit llama=0
 COMBAT_EVENT tick=34 kind=hit move=magic_missile instance=1 target=0 damage=1 health_left=0 hit_stop=5
 COMBAT_EVENT tick=34 kind=enemy_defeated target=0 instigator=1
 COMBAT_EVENT tick=97 kind=mana_regained hero=1 now=8
-COMBAT_STATE fixture=corral_rush_commit_lethal seed=0xc0da0009 tick=220 elapsed=220 hero_hp=4 deaths=0 enemies= hash=f326a3aabc63629e llamas=l0=627.500/0
-PARTY_STATE fixture=corral_rush_commit_lethal mode=2p controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=fd6b7c71d73e2184
+COMBAT_STATE fixture=corral_rush_commit_lethal seed=0xc0da0009 tick=220 elapsed=220 hero_hp=4 deaths=0 enemies= hash=2eb0c24dc117d864 llamas=l0=627.500/0
+PARTY_STATE fixture=corral_rush_commit_lethal mode=2p controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=30ddeb6f11a3d12a

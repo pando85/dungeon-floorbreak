@@ -1,3 +1,4 @@
+COMBAT_EVENT tick=1 kind=evade_armed hero=donut
 COMBAT_EVENT tick=10 kind=move_started move=magic_missile instance=1
 COMBAT_EVENT tick=14 kind=mana_spent hero=1 left=7
 COMBAT_EVENT tick=26 kind=move_started move=magic_missile instance=2
@@ -23,5 +24,5 @@ COMBAT_EVENT tick=356 kind=mana_regained hero=1 now=5
 COMBAT_EVENT tick=396 kind=mana_regained hero=1 now=6
 COMBAT_EVENT tick=436 kind=mana_regained hero=1 now=7
 COMBAT_EVENT tick=476 kind=mana_regained hero=1 now=8
-COMBAT_STATE fixture=q10_mana_regen seed=0xd100006 tick=520 elapsed=520 hero_hp=4 deaths=0 enemies= hash=64fe7fa937b53323
-PARTY_STATE fixture=q10_mana_regen mode=2p controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=f7c21bf4376cab99
+COMBAT_STATE fixture=q10_mana_regen seed=0xd100006 tick=520 elapsed=520 hero_hp=4 deaths=0 enemies= hash=6cc1dff23ee9aa98
+PARTY_STATE fixture=q10_mana_regen mode=2p controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=78611a00785ef14e

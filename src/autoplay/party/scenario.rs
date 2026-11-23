@@ -369,6 +369,7 @@ fn encode_tuning(tuning: &PartyTuning, uncontrolled: Option<u8>) -> Vec<u8> {
                 bytes.extend_from_slice(&ticks.to_le_bytes());
                 put("donut_reflex", &bytes);
             }
+            ReflexProfile::ShippedNoOpener => put("donut_reflex", &[3]),
         }
     }
     out
