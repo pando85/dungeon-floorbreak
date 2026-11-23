@@ -1927,6 +1927,8 @@ mod scene_pilot_tests {
         withheld: u32,
         released_hit: u32,
         released_timeout: u32,
+        /// The indexes of the enemies released, in order.
+        released: Vec<u32>,
     }
 
     /// Every partner knob off (FA-Q34 to FA-Q37): the sidecar is the retuned one.
@@ -2027,6 +2029,17 @@ mod scene_pilot_tests {
         out.withheld = st.reserve_withheld;
         out.released_hit = st.reserve_released_hit;
         out.released_timeout = st.reserve_released_timeout;
+        out.released = sim
+            .combat
+            .take_companion_events()
+            .into_iter()
+            .filter_map(|e| match e {
+                crate::companion::events::CompanionEvent::ReserveReleased { target, .. } => {
+                    Some(target.index)
+                }
+                _ => None,
+            })
+            .collect();
         out
     }
 
@@ -2066,8 +2079,8 @@ mod scene_pilot_tests {
             assert!(dead - woke <= 400, "seed {seed}: woke {woke}, dead {dead}");
             assert_eq!(r.hero_defeats, 0, "seed {seed}");
             assert!(
-                r.released_hit + r.released_timeout >= 1,
-                "seed {seed}: a release is logged"
+                r.released_hit + r.released_timeout >= 1 && r.released.contains(&0),
+                "seed {seed}: g1's release is logged"
             );
         }
     }
@@ -2087,7 +2100,7 @@ mod scene_pilot_tests {
             assert!(r.hurts <= 5, "seed {seed}: {} hurts", r.hurts);
             let r = probe(Human::SlowTick(4), &off, seed, LIVE_TICKS);
             eprintln!("PROBE P3 OFF seed={seed} {r:?}");
-            assert!(r.exit.is_some(), "seed {seed}: knobs off: no clear");
+            assert_eq!(r.exit, Some(1421), "seed {seed}: the knobs-off reference");
         }
     }
 
@@ -2364,7 +2377,7 @@ mod scene_pilot_tests {
     /// FA-Q15 and FA-Q16 are what moved the table above; with every fix-all knob off
     /// the 54 live runs hash exactly as they did before PR-A.
     #[test]
-    fn the_live_boiler_hashes_with_the_fix_all_knobs_off_are_the_old_pins() {
+    fn the_live_boiler_hashes_with_the_fix_all_knobs_off_are_pinned() {
         crate::combat_scene::with_profile_override(crate::combat_scene::fix_all_off, || {
             let mut got = Vec::new();
             for who in LIVE_WHO {

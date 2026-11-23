@@ -194,8 +194,9 @@ pub(crate) struct CompanionRuntime {
     /// attempt. Empty unless a release knob is on, so every other run is untouched; state of
     /// the run while it has anything to say (hashed then). A restart clears it.
     reserve: Vec<ReserveTrack>,
-    /// FA-Q37: how much of the combat event log the reserve bookkeeping has read (`None`
-    /// until its first tick of an attempt). Derived, never hashed.
+    /// FA-Q37: how many events (counted since the run began, dropped ones included) the
+    /// reserve bookkeeping has read (`None` until its first tick of an attempt). Derived,
+    /// never hashed.
     reserve_cursor: Option<usize>,
 }
 
@@ -1498,10 +1499,15 @@ impl CombatState {
         }
         let n = self.enemies.len();
         self.companion.reserve.resize(n, ReserveTrack::default());
+        // The cursor counts events since the run began (the log drops its oldest entries at
+        // `EVENT_LOG_CAP`, so a position in the retained log would go stale): the events
+        // not yet read start at its distance from the first retained one.
+        let total = self.dropped_events + self.events.len();
         let from = self
             .companion
             .reserve_cursor
-            .unwrap_or(self.events.len())
+            .unwrap_or(total)
+            .saturating_sub(self.dropped_events)
             .min(self.events.len());
         let mut new_hits = vec![0u8; n];
         for e in &self.events[from..] {
@@ -1511,7 +1517,7 @@ impl CombatState {
                 *h = h.saturating_add(1);
             }
         }
-        self.companion.reserve_cursor = Some(self.events.len());
+        self.companion.reserve_cursor = Some(total);
         for (i, hits) in new_hits.into_iter().enumerate() {
             let id = StableEntityId::goblin(i as u32);
             let candidate = view.reserved.binary_search(&id).is_ok();
@@ -2041,6 +2047,47 @@ mod tests {
         assert_eq!(ids, [StableEntityId::goblin(0), StableEntityId::goblin(2)]);
         // Beyond the radius the enemy is not reserved: she may kill it (owner 0.1(1)).
         assert!(reserved_ids(&targets, 1000.0, 160.0).is_empty());
+    }
+
+    /// FA-Q37 (re-review of #257): the reserve's hit counting survives the combat log dropping
+    /// its oldest events. The log is overflowed before the first tick (it stays at its cap, so
+    /// a cursor kept as a position in it would never see another event); a goblin with one hit
+    /// point then reaches the idle human, hurts him, and is released by that hit (not by the
+    /// 150 tick timeout).
+    #[test]
+    fn fa_q37_the_hit_release_survives_the_event_log_overflowing() {
+        use crate::boiler_fixtures::scene_pilots::{Who, live_start_with};
+        use crate::combat::EnemyAi;
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let (mut sim, _) =
+            live_start_with(&root, Who::Companion, 0, crate::f01_boiler::fixes::active()).unwrap();
+        for i in 0..(2 * crate::combat_scene::EVENT_LOG_CAP) {
+            sim.combat.push_event(CombatEvent::GoblinTell {
+                tick: i as u64,
+                goblin: 3,
+            });
+        }
+        assert_eq!(sim.combat.events.len(), crate::combat_scene::EVENT_LOG_CAP);
+        let carl_x = sim.scene.world.hero.x;
+        {
+            let g = &mut sim.combat.enemies[0];
+            g.x = carl_x + 60.0;
+            g.health = 1;
+            g.ai = EnemyAi::Chase;
+        }
+        for _ in 0..140 {
+            sim.step_slots([RawInput::NONE; 2]);
+        }
+        let stats = sim.combat.companion_stats();
+        assert!(
+            sim.combat.dropped_events > 0,
+            "the log really dropped events"
+        );
+        assert!(
+            stats.reserve_released_hit >= 1,
+            "released by the hit on the full log: {stats:?}"
+        );
+        assert_eq!(stats.reserve_released_timeout, 0, "{stats:?}");
     }
 
     /// FA-Q36: the leash holds her at the sight (220) plus the margin (4) of a sleeper: a step
