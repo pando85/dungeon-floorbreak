@@ -1,0 +1,109 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "area-gw-boiler",
+  "title": "AREA-GOBLINWORKSHOP-01 riveted copper boiler (idle loop, strain, damaged loop)",
+  "grid": "assets/source/props/floor01/gw_boiler.grid.json",
+  "manifest": "assets/manifests/f01-gw-boiler.json",
+  "frame_size": [
+    192,
+    208
+  ],
+  "pivot": [
+    96,
+    207
+  ],
+  "contact_row": 207,
+  "tick_hz": 60,
+  "hold_ms": 100,
+  "facing": "left",
+  "tags": {
+    "boiler_idle": {
+      "playback": "loop",
+      "contact": "grounded",
+      "frames": [
+        [
+          0,
+          8
+        ],
+        [
+          1,
+          8
+        ],
+        [
+          2,
+          8
+        ],
+        [
+          3,
+          8
+        ]
+      ]
+    },
+    "boiler_strain": {
+      "playback": "loop",
+      "contact": "grounded",
+      "frames": [
+        [
+          4,
+          4
+        ],
+        [
+          5,
+          4
+        ]
+      ]
+    },
+    "boiler_damaged": {
+      "playback": "loop",
+      "contact": "grounded",
+      "frames": [
+        [
+          6,
+          10
+        ],
+        [
+          7,
+          10
+        ]
+      ]
+    }
+  },
+  "rules": {
+    "max_colors": 63,
+    "max_isolated_per_frame": 0,
+    "max_orphans_per_frame": 288,
+    "unique_frames": true,
+    "frozen_keys": {
+      "fixture": "tests/fixtures/area-gw-boiler_keys.json",
+      "frames": [
+        0,
+        6
+      ],
+      "layers": [
+        "body"
+      ]
+    }
+  },
+  "scene": {
+    "shadow": true,
+    "actors": [
+      {
+        "frame": 0,
+        "x": 560,
+        "lift": 0
+      },
+      {
+        "frame": 6,
+        "x": 800,
+        "lift": 0
+      }
+    ]
+  },
+  "review": {
+    "strip_name": "03_state_strip.png",
+    "strip_tags": [
+      "boiler_idle",
+      "boiler_strain"
+    ]
+  }
+}

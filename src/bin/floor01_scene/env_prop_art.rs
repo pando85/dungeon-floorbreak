@@ -1,41 +1,53 @@
-//! BOIL-E (K10): the Bevy half of the Boiler's prop stand-ins. The pure half is
-//! `dungeon_floorbreak::env_prop_art::pieces`; this file only draws what it
-//! returns with a pool of code-drawn rectangles. **Presentation only and no new
-//! art**: it reads the combat state through a shared reference and writes only its
-//! own sprites, so nothing here can reach the simulation, the replay or the hash.
-//! The room's props are labelled stand-ins until ART-BOIL lands, and the label is
-//! drawn on screen: a small "STAND-IN: <name>" text over each one (K10).
+//! BOIL-E (K10) and AREA-GOBLINWORKSHOP-01: the Bevy half of the Boiler's prop
+//! art. The pure half is `dungeon_floorbreak::env_prop_art`: `sprites` lists the
+//! frames of the Goblin Workshop kit (one atlas per canvas, `Sheet`) and `pieces`
+//! the code-drawn rectangles. This file draws both with pools. A rectangle that
+//! stands in for a sheet is drawn only while that sheet's atlas is missing
+//! (`bash scripts/export_assets.sh` was not run, one notice per sheet); the
+//! footprints (steam warning area and edge, the drum's blast area) always draw.
+//! **Presentation only**: it reads the combat state through a shared reference and
+//! writes only its own sprites, so nothing here can reach the simulation, the
+//! replay or the hash.
 
 use super::*;
 use dungeon_floorbreak::encounter::Encounter;
-use dungeon_floorbreak::env_prop_art::labels::{
-    GLYPH_HEIGHT_PX, MAX_TAGS, STAND_IN_TEXTS, tags, text_pixels,
-};
-use dungeon_floorbreak::env_prop_art::{Layer, MAX_PIECES, pieces};
+use dungeon_floorbreak::env_kit::ATLAS_ASSET_PREFIX;
+use dungeon_floorbreak::env_prop_art::{Layer, MAX_PIECES, MAX_SPRITES, Sheet, pieces, sprites};
 
 #[derive(Component, Clone, Copy)]
 pub(super) struct PropPiece(usize);
 
-/// One pooled on-screen label; its image is swapped to the text it shows.
+/// One pooled kit sprite.
 #[derive(Component, Clone, Copy)]
-pub(super) struct PropTag(usize);
+pub(super) struct PropSprite(usize);
 
-/// The room's sidecar, for the authored prop rectangles and the z of each layer.
+/// The room's sidecar, for the authored prop rectangles, the z of each layer and
+/// the atlases that loaded.
 #[derive(Resource)]
 pub(super) struct PropArt {
     encounter: Encounter,
     back_z: f32,
     prop_z: f32,
     tell_z: f32,
-    /// The label z: above everything, never hidden.
-    tag_z: f32,
-    /// One rasterised image per label text.
-    tag_images: Vec<(&'static str, Handle<Image>)>,
+    sheets: Vec<(Sheet, Handle<Image>, Handle<TextureAtlasLayout>)>,
 }
 
+impl PropArt {
+    fn sheet(&self, sheet: Sheet) -> Option<&(Sheet, Handle<Image>, Handle<TextureAtlasLayout>)> {
+        self.sheets.iter().find(|(s, _, _)| *s == sheet)
+    }
+}
+
+fn atlas_present(path: &str) -> bool {
+    std::env::current_dir().is_ok_and(|root| root.join(path).is_file())
+}
+
+#[allow(clippy::too_many_arguments)]
 pub(super) fn spawn(
     commands: &mut Commands,
-    images: &mut Assets<Image>,
+    asset_server: &AssetServer,
+    layouts: &mut Assets<TextureAtlasLayout>,
+    handles: &mut Vec<(String, Handle<Image>)>,
     encounter: Encounter,
     layers: RenderLayers,
     actor_z: f32,
@@ -50,38 +62,54 @@ pub(super) fn spawn(
             layers.clone(),
         ));
     }
-    let mut tag_images: Vec<(&'static str, Handle<Image>)> = Vec::new();
-    for (_, text) in STAND_IN_TEXTS {
-        if tag_images.iter().any(|(t, _)| *t == text) {
+    let mut sheets = Vec::new();
+    for sheet in Sheet::ALL {
+        let path = sheet.atlas();
+        if !atlas_present(path) {
+            println!(
+                "GW_KIT missing {path} (run scripts/export_assets.sh): its stand-in rectangles draw instead"
+            );
             continue;
         }
-        let Some(raster) = text_pixels(text) else {
-            continue;
-        };
-        let image = images.add(Image::new(
-            Extent3d {
-                width: raster.w,
-                height: raster.h,
-                depth_or_array_layers: 1,
-            },
-            TextureDimension::D2,
-            raster.rgba,
-            TextureFormat::Rgba8UnormSrgb,
-            RenderAssetUsages::default(),
+        // The asset server's root is the atlas folder (`ATLAS_ASSET_PREFIX`).
+        let asset = path
+            .strip_prefix(ATLAS_ASSET_PREFIX)
+            .unwrap_or(path)
+            .to_owned();
+        let texture: Handle<Image> = asset_server.load(asset.clone());
+        handles.push((asset, texture.clone()));
+        let (w, h) = sheet.frame_size();
+        let layout = layouts.add(TextureAtlasLayout::from_grid(
+            UVec2::new(w as u32, h as u32),
+            sheet.frames() as u32,
+            1,
+            None,
+            None,
         ));
-        tag_images.push((text, image));
+        sheets.push((sheet, texture, layout));
     }
-    if let Some((_, first)) = tag_images.first() {
-        for i in 0..MAX_TAGS {
+    if let Some((_, texture, layout)) = sheets.first() {
+        for i in 0..MAX_SPRITES {
             commands.spawn((
-                PropTag(i),
-                Sprite::from_image(first.clone()),
-                Transform::from_xyz(0.0, 0.0, foreground_z + 0.1),
+                PropSprite(i),
+                Sprite::from_atlas_image(
+                    texture.clone(),
+                    TextureAtlas {
+                        layout: layout.clone(),
+                        index: 0,
+                    },
+                ),
+                Transform::from_xyz(0.0, 0.0, actor_z),
                 Visibility::Hidden,
                 layers.clone(),
             ));
         }
     }
+    println!(
+        "GW_KIT sheets={}/{} (prototype art, review pending)",
+        sheets.len(),
+        Sheet::ALL.len()
+    );
     commands.insert_resource(PropArt {
         encounter,
         // Behind the actors; with the lane props (the drum is a solid, so no
@@ -89,19 +117,25 @@ pub(super) fn spawn(
         back_z: actor_z - 0.5,
         prop_z: actor_z - 0.05,
         tell_z: foreground_z + 0.1,
-        // Labels are read first: above the warnings too.
-        tag_z: foreground_z + 0.2,
-        tag_images,
+        sheets,
     });
+}
+
+fn layer_z(art: &PropArt, layer: Layer) -> f32 {
+    match layer {
+        Layer::Back => art.back_z,
+        Layer::Prop => art.prop_z,
+        Layer::Tell => art.tell_z,
+    }
 }
 
 pub(super) fn sync_prop_art(
     sim: Res<Sim>,
     combat: Res<Combat>,
     art: Option<Res<PropArt>>,
-    mut sprites: Query<(&PropPiece, &mut Transform, &mut Sprite, &mut Visibility)>,
-    mut tag_sprites: Query<
-        (&PropTag, &mut Transform, &mut Sprite, &mut Visibility),
+    mut pieces_q: Query<(&PropPiece, &mut Transform, &mut Sprite, &mut Visibility)>,
+    mut sprites_q: Query<
+        (&PropSprite, &mut Transform, &mut Sprite, &mut Visibility),
         Without<PropPiece>,
     >,
 ) {
@@ -110,8 +144,12 @@ pub(super) fn sync_prop_art(
     };
     let world = &sim.0.world;
     let layout_h = world.layout_height();
-    let drawn = pieces(&art.encounter, env, world.tick);
-    for (slot, mut transform, mut sprite, mut visibility) in &mut sprites {
+    // The code-drawn rectangles: the footprints, and the stand-in of a missing atlas.
+    let drawn: Vec<_> = pieces(&art.encounter, env, world.tick)
+        .into_iter()
+        .filter(|p| p.sheet().is_none_or(|s| art.sheet(s).is_none()))
+        .collect();
+    for (slot, mut transform, mut sprite, mut visibility) in &mut pieces_q {
         match drawn.get(slot.0) {
             Some(p) => {
                 let [r, g, b, a] = p.tone.rgba();
@@ -121,40 +159,34 @@ pub(super) fn sync_prop_art(
                 transform.translation.x = p.rect.x as f32 + p.rect.w as f32 / 2.0;
                 transform.translation.y =
                     (layout_h - p.rect.bottom()) as f32 + p.rect.h as f32 / 2.0;
-                transform.translation.z = match p.layer {
-                    Layer::Back => art.back_z,
-                    Layer::Prop => art.prop_z,
-                    Layer::Tell => art.tell_z,
-                };
+                transform.translation.z = layer_z(&art, p.layer);
                 *visibility = Visibility::Inherited;
             }
             None => *visibility = Visibility::Hidden,
         }
     }
-    // K10: the visible "STAND-IN: <name>" labels (presentation only).
-    let drawn_tags = tags(&drawn);
-    let glyph_h = GLYPH_HEIGHT_PX as f32 + 1.0;
-    for (slot, mut transform, mut sprite, mut visibility) in &mut tag_sprites {
-        let shown = drawn_tags.get(slot.0).and_then(|tag| {
-            art.tag_images
-                .iter()
-                .find(|(text, _)| *text == tag.text)
-                .map(|(_, image)| (tag, image))
-        });
-        match shown {
-            Some((tag, image)) => {
-                if sprite.image != *image {
-                    sprite.image = image.clone();
+    // The kit sprites.
+    let list: Vec<_> = sprites(&art.encounter, env, world.tick)
+        .into_iter()
+        .filter_map(|d| art.sheet(d.sheet).map(|loaded| (d, loaded)))
+        .collect();
+    for (slot, mut transform, mut sprite, mut visibility) in &mut sprites_q {
+        match list.get(slot.0) {
+            Some((d, (_, texture, layout))) => {
+                if sprite.image != *texture {
+                    sprite.image = texture.clone();
                 }
-                // Whole pixels, so the glyphs stay sharp: the image is centred and
-                // its bottom row sits on `bottom_y` (layout y down to world y up).
-                transform.translation = Vec3::new(
-                    tag.centre_x as f32,
-                    (layout_h - tag.bottom_y) as f32 + glyph_h / 2.0,
-                    // A distinct z per pool slot: labels never overlap (`tags`
-                    // keeps them apart), and no draw order is left to a tie.
-                    art.tag_z + slot.0 as f32 * 0.001,
-                );
+                sprite.texture_atlas = Some(TextureAtlas {
+                    layout: layout.clone(),
+                    index: d.frame,
+                });
+                sprite.color = Color::srgba_u8(255, 255, 255, d.alpha);
+                sprite.custom_size = Some(Vec2::new(d.rect.w as f32, d.rect.h as f32));
+                transform.translation.x = d.rect.x as f32 + d.rect.w as f32 / 2.0;
+                transform.translation.y =
+                    (layout_h - d.rect.bottom()) as f32 + d.rect.h as f32 / 2.0;
+                // A distinct z per pool slot: no draw order is left to a tie.
+                transform.translation.z = layer_z(&art, d.layer) + slot.0 as f32 * 0.0001;
                 *visibility = Visibility::Inherited;
             }
             None => *visibility = Visibility::Hidden,

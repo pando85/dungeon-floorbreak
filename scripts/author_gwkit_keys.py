@@ -8,12 +8,15 @@ ellipses, lines, column shading) in the named Floor 01 kit palette
 cropped, traced or resampled. The design and the frozen-key list are in
 ``docs/02-art/goblin-workshop-prop-kit.md``.
 
-The script is deterministic (no randomness, no timestamps). The grids it writes
-are the source of truth from here on: the execution step adds in-between and
-state frames to the grids (by hand or by extending this script) and must keep the
-key frames byte-identical once they are frozen.
+The script is deterministic (no randomness, no timestamps). Since execution it is
+the **key library**: ``scripts/author_gwkit_frames.py`` imports these functions,
+adds every in-between, state and tell frame and writes the committed grids. This
+script's own ``main`` therefore needs an explicit ``--out`` (it never overwrites
+the committed grids, which hold more frames than the keys). The frozen keys stay
+byte-identical except the gate-approved edits recorded in the spec, section 8
+(``valve_spent`` petals, ``remnant`` side slant).
 
-Usage: ``python3 scripts/author_gwkit_keys.py [--out DIR]``
+Usage: ``python3 scripts/author_gwkit_keys.py --out DIR``
 """
 
 from __future__ import annotations
@@ -486,10 +489,15 @@ def valve_spent() -> Canvas:
     cv.rect(24, 16, 31, 27, None)
     pipe_h(cv, 24, 26, 18, 25, COPPER_ROWS)
     cv.rect(27, 19, 27, 24, "iron_00")
-    for x, y0, y1 in ((27, 15, 18), (28, 14, 16), (29, 13, 14), (27, 25, 28), (28, 27, 29), (29, 29, 30)):
-        cv.vline(x, y0, y1, "copper_04")
-    cv.set(30, 13, "copper_05")
-    cv.set(30, 30, "copper_03")
+    # Gate-approved edit: the petals are thick enough to keep copper inside the outline.
+    for x, y0, y1 in ((27, 13, 17), (28, 12, 16), (29, 11, 15), (30, 10, 14),
+                      (27, 25, 29), (28, 26, 30), (29, 27, 31), (30, 28, 32)):
+        for y in range(y0, y1 + 1):
+            cv.set(x, y, "copper_03" if (y - y0) < 2 else "copper_02")
+    cv.set(30, 10, "copper_05")
+    cv.set(29, 11, "copper_04")
+    cv.set(28, 12, "copper_04")
+    cv.set(30, 32, "copper_01")
     # Crack through the body and a condensation drip.
     cv.line(9, 19, 14, 24, "iron_00")
     cv.line(14, 24, 12, 30, "iron_00")
@@ -655,9 +663,16 @@ def remnant() -> Canvas:
             cv.set(x, t, "floor_08")
             cv.set(x, t + 1, "floor_07")
         cv.vline(x0 + 6, 12, 31, "floor_03")
-    # The weight, sunk and tilted: visible top 20 rows, left side higher.
-    for x in range(6, 58):
-        top = 1 + (x - 6) * 2 // 51
+    # The weight, sunk and tilted: visible top 20 rows, left side higher. Gate-approved
+    # edit: each side slants out by 1 px per 3 rows (4 px at most) like the hanging
+    # trapezoid; the walkable top (rows 0..3 over x 6..57) is unchanged.
+    for x in range(2, 62):
+        if 6 <= x <= 57:
+            top = 1 + (x - 6) * 2 // 51
+            band_y = top + 9
+        else:
+            top = 1 + 3 * (6 - x if x < 6 else x - 57)
+            band_y = 11 if top <= 10 else None
         u = (x - 6 + 0.5) / 52
         c = band(u, [(0.06, "stone_cold_00"), (0.22, "stone_cold_01"), (0.36, "stone_cold_02"),
                      (0.44, "stone_cold_03"), (0.72, "stone_cold_02"), (0.93, "stone_cold_01"),
@@ -665,11 +680,11 @@ def remnant() -> Canvas:
         cv.rect(x, top, x, 22, c)
         cv.set(x, top, "stone_cold_04")
         cv.set(x, top + 1, "stone_cold_03")
-        band_y = top + 9
-        k = (x + band_y) // 4
-        cv.rect(x, band_y, x, band_y + 4, "brass_05" if k % 2 == 0 else "iron_00")
-        cv.set(x, band_y - 1, "stone_cold_00")
-        cv.set(x, band_y + 5, "stone_cold_00")
+        if band_y is not None:
+            k = (x + band_y) // 4
+            cv.rect(x, band_y, x, band_y + 4, "brass_05" if k % 2 == 0 else "iron_00")
+            cv.set(x, band_y - 1, "stone_cold_00")
+            cv.set(x, band_y + 5, "stone_cold_00")
     # Broken floor and brick rubble along the base.
     cv.rect(2, 23, 61, 31, "floor_04")
     cv.hline(2, 61, 23, "floor_06")
@@ -866,7 +881,8 @@ def build(out: Path) -> list[Path]:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--out", type=Path, default=OUT)
+    ap.add_argument("--out", type=Path, required=True,
+                    help="scratch folder for the key-only grids (the committed grids come from author_gwkit_frames.py)")
     args = ap.parse_args()
     for p in build(args.out):
         print(p.relative_to(ROOT) if p.is_relative_to(ROOT) else p)

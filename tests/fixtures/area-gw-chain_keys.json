@@ -1,0 +1,12 @@
+{
+  "asset_id": "area-gw-chain",
+  "format": "pixelart-keys-v1",
+  "keys": {
+    "0": {
+      "sha256": "9a04720f808d3d22ed1bd3f2d48519b61e28413d88fad1490869aef3e8a745f4"
+    }
+  },
+  "layers": [
+    "body"
+  ]
+}

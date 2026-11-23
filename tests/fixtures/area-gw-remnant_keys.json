@@ -1,0 +1,12 @@
+{
+  "asset_id": "area-gw-remnant",
+  "format": "pixelart-keys-v1",
+  "keys": {
+    "0": {
+      "sha256": "6dd0aa1afab9c4532a134de53fe8c8604b3ca40364fd6cfdc4b10e838e46947d"
+    }
+  },
+  "layers": [
+    "body"
+  ]
+}

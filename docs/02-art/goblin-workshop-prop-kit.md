@@ -1,12 +1,12 @@
 # AREA-GOBLINWORKSHOP-01: Goblin Workshop prop kit (Boiler encounter), design spec
 
-**Status:** design spec and all silhouette-defining keys drawn and frozen (13 key frames in 9 grid sources); silhouette gate passed with key fixes (section 8), the fixed keys are re-frozen; in-betweens, state loops, tells, export, manifests, Bevy wiring and evidence not started.
+**Status:** design spec, 13 frozen keys, execution frames (in-betweens, state loops, tells), export, manifests, validators and the Bevy wiring are done; the two gate-approved key edits are applied and re-frozen (section 8). Independent top-tier review pending. Evidence: [docs/evidence/f01-gwkit](../evidence/f01-gwkit/README.md).
 
 **Route:** difficulty score **4** (new design; boiler native height 208 px; rig with moving parts; venting, telegraph and blast states), class Hard, route **B + silhouette gate** ([routing by difficulty](../07-agents/pixel-art-pipeline.md#routing-by-difficulty)). No separate draft existed, so the design step drew every key that defines a silhouette or a state read and froze them; execution draws in-betweens, loops, tells and VFX only after the gate passes. Work order row: [floor-01-area-kits-plan.md](../07-agents/floor-01-area-kits-plan.md) (`AREA-GOBLINWORKSHOP-01`: boiler, tools, pipes, gears, parked-vehicle props; no stationary factory boss).
 
 **Authorities:** encounter roles and timings [floor-01-goblin-boiler-encounter.md](../01-design/floor-01-goblin-boiler-encounter.md) (P1–P4); geometry [f01_boiler.encounter.json](../../assets/levels/floor01/f01_boiler.encounter.json); the present stand-in [src/env_prop_art.rs](../../src/env_prop_art.rs). Mood concept [06-goblin-workshop.png](../../assets/concept/floor-01/atlas-v1/06-goblin-workshop.png) for **mood only** (riveted copper vertical boiler with dome, gauge and glowing firebox; red hazard drums; a hook on a chain from an overhead beam): no pixel is cropped, traced or resampled from it. Pipeline: [art direction](art-direction.md), [asset pipeline](asset-pipeline.md), [pixel-art pipeline](../07-agents/pixel-art-pipeline.md), [antihero tone](../01-design/antihero-tone.md).
 
-**Sources:** `assets/source/props/floor01/gw_*.grid.json` (+ `.ase` built from them), authored by [scripts/author_gwkit_keys.py](../../scripts/author_gwkit_keys.py) (deterministic; re-running it must reproduce the grids byte for byte until execution starts editing them).
+**Sources:** `assets/source/props/floor01/gw_*.grid.json` (+ `.ase` built from them, one `*.pixelart.json` config and one `assets/manifests/f01-gw-*.json` manifest per grid), authored by [scripts/author_gwkit_keys.py](../../scripts/author_gwkit_keys.py) (the key functions) and [scripts/author_gwkit_frames.py](../../scripts/author_gwkit_frames.py) (every frame, the configs and the manifests; deterministic, `tests/test_art_gwkit.py` re-derives the committed files byte for byte). The tells are one grid per canvas: `gw_tell_sputter`, `gw_tell_plume`, `gw_tell_shadow`, `gw_tell_ring`.
 
 ## 1. Canon and tone
 
@@ -143,11 +143,18 @@ The silhouette gate found no design defect and prescribed key fixes; it is the d
 - `gw_brace` 1: stronger weakened read (sheared upper post, visible split, splinters, pin pulled out); creak loop made required.
 - Rule 1 and acceptance 3 reworded (trap parts vs hit targets).
 
-**Open for execution** (pre-approved edits; execution applies them, re-freezes the touched key and shows it in the fix-check renders):
+**Execution record** (the pre-approved edits; the touched keys are re-frozen in `tests/fixtures/area-gw-*_keys.json`, the other 11 keys are byte-identical to the gate head):
 
-- `gw_valve` 1 `valve_spent`: fill the split-pipe petals with `copper_02/03` inside the outline so they read as torn copper, not detached black arcs.
-- `gw_remnant` 0: slant each visible side of the sunk weight out by 1 px per about 3 rows so it matches the hanging trapezoid; keep the flat walkable top.
-- `gw_drum` 0 and `drum_telegraph`: show at 1x that the telegraph (seams `flame_03` plus bulge) is clearly distinct from the armed key; if it is not, drop the armed body highlight from `flame_02` to `flame_01`.
-- `gw_boiler` 0: if the owner finds the boiler upstages the valve, take the wide mid band down one copper step (owner call, not a default change).
+- `gw_valve` 1 `valve_spent`: **applied.** The split-pipe petals are 5 px thick bands with `copper_02/03` inside the outline and `copper_04/05` catches, so they read as torn copper (grid frame 6).
+- `gw_remnant` 0: **applied.** Each visible side slants out 1 px per 3 rows, at most 4 px (rows 1 to 13), over the heaved slabs; rows 0 to 3 over x 6 to 57 (the walkable top) are unchanged.
+- `gw_drum` 0 and `drum_telegraph`: **checked, no change.** At 1x the telegraph (two `flame_03` / `flame_02` seam rows across both hoops, the lid and body bulge, the hiss) is far brighter and wider than the armed key's single `flame_02` highlight column, so the armed highlight stays.
+- `gw_boiler` 0: **not applied** (an owner call, not a default change).
+
+Frame order in the grids follows the tags (a tag is a contiguous run), so a key's grid index is not its spec order: boiler keys at frames 0 and 6, valve 0 and 6, brace 0, 1 and 3. Deviations from the tables above, all execution choices inside the frozen canvases (listed for the independent review):
+
+- `rig_run`: the 24 row canvas leaves 2 rows below the weight sheave, so the loose chain end (10 to 12 px of path) hangs out of the right side of the sheave block and swings (frame 1), then settles beside the lead-out (frame 2). The simulation keeps no "ticks since release", so the presenter plays the two frames on the tick while the weight is Released and rests on frame 2 once it falls or lands.
+- Ticks-driven loops: every loop plays on the world tick (`tick / ticks per frame`), as the stand-in's flash and sway did; no state timer is added to the simulation.
+- `steam_sputter` has 3 frames (puff grows from 2 to 14 px) and the sputter, plume and shadow are drawn on the Tell layer; the steam warning area and edge and the drum's blast area outline stay as code-drawn footprints (they are taller than the art), the weight footprint rectangles are replaced by the shadow sprite.
+- Optional frames skipped: `scorch` ember fade (the simulation has no detonation timer to drive it) and the landing dust reuse (a one shot needs the landing tick).
 
 - The parked-vehicle, tools, pipe and gear dressing named in the work-order row are not needed by the Boiler encounter and are out of this kit's first pass; they extend `gw_*` later without touching these keys.

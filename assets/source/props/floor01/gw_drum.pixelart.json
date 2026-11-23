@@ -1,0 +1,82 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "area-gw-drum",
+  "title": "AREA-GOBLINWORKSHOP-01 fuel drum (armed, telegraph)",
+  "grid": "assets/source/props/floor01/gw_drum.grid.json",
+  "manifest": "assets/manifests/f01-gw-drum.json",
+  "frame_size": [
+    36,
+    36
+  ],
+  "pivot": [
+    18,
+    35
+  ],
+  "contact_row": 35,
+  "tick_hz": 60,
+  "hold_ms": 100,
+  "facing": "left",
+  "tags": {
+    "drum_armed": {
+      "playback": "hold",
+      "contact": "grounded",
+      "frames": [
+        [
+          0,
+          null
+        ]
+      ]
+    },
+    "drum_telegraph": {
+      "playback": "loop",
+      "contact": "grounded",
+      "frames": [
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          4
+        ]
+      ]
+    }
+  },
+  "rules": {
+    "max_colors": 63,
+    "max_isolated_per_frame": 0,
+    "max_orphans_per_frame": 4,
+    "unique_frames": true,
+    "frozen_keys": {
+      "fixture": "tests/fixtures/area-gw-drum_keys.json",
+      "frames": [
+        0
+      ],
+      "layers": [
+        "body"
+      ]
+    }
+  },
+  "scene": {
+    "shadow": true,
+    "actors": [
+      {
+        "frame": 0,
+        "x": 600,
+        "lift": 0
+      },
+      {
+        "frame": 2,
+        "x": 680,
+        "lift": 0
+      }
+    ]
+  },
+  "review": {
+    "strip_name": "03_state_strip.png",
+    "strip_tags": [
+      "drum_armed",
+      "drum_telegraph"
+    ]
+  }
+}

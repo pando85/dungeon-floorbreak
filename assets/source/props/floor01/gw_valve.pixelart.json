@@ -1,0 +1,129 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "area-gw-valve",
+  "title": "AREA-GOBLINWORKSHOP-01 steam valve (intact, warning, venting, spent)",
+  "grid": "assets/source/props/floor01/gw_valve.grid.json",
+  "manifest": "assets/manifests/f01-gw-valve.json",
+  "frame_size": [
+    32,
+    48
+  ],
+  "pivot": [
+    16,
+    47
+  ],
+  "contact_row": 47,
+  "tick_hz": 60,
+  "hold_ms": 100,
+  "facing": "left",
+  "tags": {
+    "valve_intact": {
+      "playback": "hold",
+      "contact": "grounded",
+      "frames": [
+        [
+          0,
+          null
+        ]
+      ]
+    },
+    "valve_warning": {
+      "playback": "loop",
+      "contact": "grounded",
+      "frames": [
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          4
+        ]
+      ]
+    },
+    "valve_venting": {
+      "playback": "loop",
+      "contact": "grounded",
+      "frames": [
+        [
+          3,
+          4
+        ],
+        [
+          4,
+          4
+        ],
+        [
+          5,
+          4
+        ]
+      ]
+    },
+    "valve_spent": {
+      "playback": "loop",
+      "contact": "grounded",
+      "frames": [
+        [
+          6,
+          10
+        ],
+        [
+          7,
+          10
+        ],
+        [
+          8,
+          10
+        ]
+      ]
+    }
+  },
+  "rules": {
+    "max_colors": 63,
+    "max_isolated_per_frame": 0,
+    "max_orphans_per_frame": 13,
+    "unique_frames": true,
+    "frozen_keys": {
+      "fixture": "tests/fixtures/area-gw-valve_keys.json",
+      "frames": [
+        0,
+        6
+      ],
+      "layers": [
+        "body"
+      ]
+    }
+  },
+  "scene": {
+    "shadow": true,
+    "actors": [
+      {
+        "frame": 0,
+        "x": 540,
+        "lift": 0
+      },
+      {
+        "frame": 2,
+        "x": 610,
+        "lift": 0
+      },
+      {
+        "frame": 4,
+        "x": 680,
+        "lift": 0
+      },
+      {
+        "frame": 6,
+        "x": 750,
+        "lift": 0
+      }
+    ]
+  },
+  "review": {
+    "strip_name": "03_state_strip.png",
+    "strip_tags": [
+      "valve_warning",
+      "valve_venting"
+    ]
+  }
+}

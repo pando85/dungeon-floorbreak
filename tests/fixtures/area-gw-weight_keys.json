@@ -1,0 +1,12 @@
+{
+  "asset_id": "area-gw-weight",
+  "format": "pixelart-keys-v1",
+  "keys": {
+    "0": {
+      "sha256": "0df544ec64e5039fc48400dad5215ebda8b341b3f1a9ac6ae8c9e4afe04d910f"
+    }
+  },
+  "layers": [
+    "body"
+  ]
+}

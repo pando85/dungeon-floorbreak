@@ -1,0 +1,132 @@
+{
+  "asset_id": "area-gw-weight",
+  "counts": {
+    "fail": 0,
+    "pass": 10,
+    "skipped": 7
+  },
+  "format": "pixelart-report-v1",
+  "frames": 2,
+  "passed": true,
+  "rules": [
+    {
+      "detail": "ok",
+      "failures": [],
+      "id": "V01",
+      "name": "structure",
+      "status": "pass"
+    },
+    {
+      "detail": "ok",
+      "failures": [],
+      "id": "V02",
+      "name": "tags",
+      "status": "pass"
+    },
+    {
+      "detail": "ok",
+      "failures": [],
+      "id": "V03",
+      "name": "tick table",
+      "status": "pass"
+    },
+    {
+      "detail": "ok",
+      "failures": [],
+      "id": "V04",
+      "name": "palette",
+      "status": "pass"
+    },
+    {
+      "detail": "ok",
+      "failures": [],
+      "id": "V05",
+      "name": "isolated pixels",
+      "status": "pass"
+    },
+    {
+      "detail": "ok",
+      "failures": [],
+      "id": "V06",
+      "name": "orphan pixels",
+      "status": "pass"
+    },
+    {
+      "detail": "ok",
+      "failures": [],
+      "id": "V07",
+      "name": "grounded contact rows",
+      "status": "pass"
+    },
+    {
+      "detail": "not configured",
+      "failures": [],
+      "id": "V08",
+      "name": "airborne frames off the floor",
+      "status": "skipped"
+    },
+    {
+      "detail": "ok",
+      "failures": [],
+      "id": "V09",
+      "name": "frozen keys",
+      "status": "pass"
+    },
+    {
+      "detail": "not configured",
+      "failures": [],
+      "id": "V10",
+      "name": "layers disjoint",
+      "status": "skipped"
+    },
+    {
+      "detail": "not configured",
+      "failures": [],
+      "id": "V11",
+      "name": "canvas margin",
+      "status": "skipped"
+    },
+    {
+      "detail": "ok",
+      "failures": [],
+      "id": "V12",
+      "name": "unique frames",
+      "status": "pass"
+    },
+    {
+      "detail": "not configured",
+      "failures": [],
+      "id": "V13",
+      "name": "bounding boxes",
+      "status": "skipped"
+    },
+    {
+      "detail": "not configured",
+      "failures": [],
+      "id": "V14",
+      "name": "key counts",
+      "status": "skipped"
+    },
+    {
+      "detail": "ok",
+      "failures": [],
+      "id": "V15",
+      "name": "non-empty frames",
+      "status": "pass"
+    },
+    {
+      "detail": "not configured",
+      "failures": [],
+      "id": "V16",
+      "name": "foot drift (loop seam)",
+      "status": "skipped"
+    },
+    {
+      "detail": "not configured",
+      "failures": [],
+      "id": "V17",
+      "name": "enclosed holes",
+      "status": "skipped"
+    }
+  ]
+}

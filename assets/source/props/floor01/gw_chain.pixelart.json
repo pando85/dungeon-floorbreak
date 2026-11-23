@@ -1,0 +1,62 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "area-gw-chain",
+  "title": "AREA-GOBLINWORKSHOP-01 vertical chain tile",
+  "grid": "assets/source/props/floor01/gw_chain.grid.json",
+  "manifest": "assets/manifests/f01-gw-chain.json",
+  "frame_size": [
+    4,
+    8
+  ],
+  "pivot": [
+    0,
+    0
+  ],
+  "contact_row": null,
+  "tick_hz": 60,
+  "hold_ms": 100,
+  "facing": "left",
+  "tags": {
+    "chain": {
+      "playback": "hold",
+      "contact": "free",
+      "frames": [
+        [
+          0,
+          null
+        ]
+      ]
+    }
+  },
+  "rules": {
+    "max_colors": 63,
+    "max_isolated_per_frame": 0,
+    "max_orphans_per_frame": 5,
+    "unique_frames": true,
+    "frozen_keys": {
+      "fixture": "tests/fixtures/area-gw-chain_keys.json",
+      "frames": [
+        0
+      ],
+      "layers": [
+        "body"
+      ]
+    }
+  },
+  "scene": {
+    "shadow": false,
+    "actors": [
+      {
+        "frame": 0,
+        "x": 640,
+        "lift": 20
+      }
+    ]
+  },
+  "review": {
+    "strip_name": "03_state_strip.png",
+    "strip_tags": [
+      "chain"
+    ]
+  }
+}

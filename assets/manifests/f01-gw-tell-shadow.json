@@ -1,0 +1,120 @@
+{
+  "schema_version": 1,
+  "id": "f01_gw_tell_shadow_candidate_v0",
+  "type": "prop_animation",
+  "source_path": "assets/source/props/floor01/gw_tell_shadow.ase",
+  "grid_source": "assets/source/props/floor01/gw_tell_shadow.grid.json",
+  "output_atlas": "generated/art/f01-gw-tell-shadow.png",
+  "output_metadata": "generated/art/f01-gw-tell-shadow.json",
+  "palette_id": "floor01-catacomb-v2",
+  "frame_size": [
+    64,
+    8
+  ],
+  "pivot": [
+    0,
+    0
+  ],
+  "animation_tags": [
+    "fall_shadow_tell",
+    "fall_shadow"
+  ],
+  "required_alpha": true,
+  "owner": "AI-authored Floor 1 Goblin Workshop prop kit (fan-concept layer; runtime ids IP-neutral gw_*)",
+  "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+  "provenance": {
+    "origin": "AREA-GOBLINWORKSHOP-01 weight fall shadow (tell, landing), drawn from explicit primitives in the named Floor 01 kit palette by scripts/author_gwkit_keys.py and scripts/author_gwkit_frames.py",
+    "generator": "designed by Claude Opus (keys, spec, silhouette gate), executed by Claude Sonnet; independent top-tier review pending. No concept pixels copied, no image-model raster output, no tracing, no resampling",
+    "generated_art": true,
+    "input_reference_ids": [
+      "docs/02-art/goblin-workshop-prop-kit.md",
+      "assets/source/terrain/floor01/floor01_catacomb_kit.json"
+    ]
+  },
+  "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
+  "review_status": "prototype_fixture_unapproved",
+  "prop_kit": {
+    "status": "3 frames drawn; independent top-tier review pending; drawn by presentation-only wiring in src/env_prop_art.rs",
+    "spec": "docs/02-art/goblin-workshop-prop-kit.md",
+    "tick_hz": 60,
+    "hold_preview_ms": 100,
+    "playback": {
+      "fall_shadow_tell": "loop",
+      "fall_shadow": "hold"
+    },
+    "frames": [
+      {
+        "index": 0,
+        "name": "fall_shadow_tell_0",
+        "tag": "fall_shadow_tell",
+        "ticks": 4,
+        "duration_ms": 67,
+        "pivot": [
+          0,
+          0
+        ],
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "w": 64,
+          "h": 8
+        },
+        "content": [
+          0,
+          0,
+          63,
+          7
+        ],
+        "sha256": "f89154337a2af2e4a9f6e3ac0ee76f5736c55c2d43a60551b807e077ffe370c5"
+      },
+      {
+        "index": 1,
+        "name": "fall_shadow_tell_1",
+        "tag": "fall_shadow_tell",
+        "ticks": 4,
+        "duration_ms": 67,
+        "pivot": [
+          0,
+          0
+        ],
+        "rect": {
+          "x": 64,
+          "y": 0,
+          "w": 64,
+          "h": 8
+        },
+        "content": [
+          0,
+          0,
+          63,
+          7
+        ],
+        "sha256": "416ec030fb9974ccb5a40927f4958c82fa2c2c60a113cd85f8f8e15adb1c5a72"
+      },
+      {
+        "index": 2,
+        "name": "fall_shadow_0",
+        "tag": "fall_shadow",
+        "ticks": null,
+        "duration_ms": 100,
+        "pivot": [
+          0,
+          0
+        ],
+        "rect": {
+          "x": 128,
+          "y": 0,
+          "w": 64,
+          "h": 8
+        },
+        "content": [
+          1,
+          0,
+          62,
+          7
+        ],
+        "sha256": "9670b929690b1b9e7c6da31e18396bf84e5c11073a3604a48e33b005b058503d"
+      }
+    ]
+  }
+}

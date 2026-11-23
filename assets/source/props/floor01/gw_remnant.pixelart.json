@@ -1,0 +1,62 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "area-gw-remnant",
+  "title": "AREA-GOBLINWORKSHOP-01 landed weight remnant",
+  "grid": "assets/source/props/floor01/gw_remnant.grid.json",
+  "manifest": "assets/manifests/f01-gw-remnant.json",
+  "frame_size": [
+    64,
+    32
+  ],
+  "pivot": [
+    32,
+    31
+  ],
+  "contact_row": 31,
+  "tick_hz": 60,
+  "hold_ms": 100,
+  "facing": "left",
+  "tags": {
+    "remnant": {
+      "playback": "hold",
+      "contact": "grounded",
+      "frames": [
+        [
+          0,
+          null
+        ]
+      ]
+    }
+  },
+  "rules": {
+    "max_colors": 63,
+    "max_isolated_per_frame": 0,
+    "max_orphans_per_frame": 33,
+    "unique_frames": true,
+    "frozen_keys": {
+      "fixture": "tests/fixtures/area-gw-remnant_keys.json",
+      "frames": [
+        0
+      ],
+      "layers": [
+        "body"
+      ]
+    }
+  },
+  "scene": {
+    "shadow": true,
+    "actors": [
+      {
+        "frame": 0,
+        "x": 640,
+        "lift": 0
+      }
+    ]
+  },
+  "review": {
+    "strip_name": "03_state_strip.png",
+    "strip_tags": [
+      "remnant"
+    ]
+  }
+}

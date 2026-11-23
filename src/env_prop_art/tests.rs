@@ -58,6 +58,10 @@ fn view(run: &BoilerRun, combat: &CombatState, tick: u64) -> Vec<Piece> {
     pieces(&run.loaded.encounter, combat.env().expect("env"), tick)
 }
 
+fn sprite_view(run: &BoilerRun, combat: &CombatState, tick: u64) -> Vec<SpriteDraw> {
+    sprites(&run.loaded.encounter, combat.env().expect("env"), tick)
+}
+
 fn has(p: &[Piece], label: &str) -> bool {
     p.iter().any(|x| x.label == label)
 }
@@ -352,11 +356,11 @@ fn every_piece_of_every_state_is_inside_the_room_and_a_pure_function_of_state_an
     }
 }
 
-/// Presentation only: the pieces are read from a shared reference, so drawing
+/// Presentation only: the pieces and sprites are read from a shared reference, so drawing
 /// them every tick cannot change the state hash. Compared on the inert room and
 /// on the live roster, through the valve, the weight and the drum chain.
 #[test]
-fn drawing_the_pieces_never_changes_the_state_hash() {
+fn drawing_the_pieces_and_sprites_never_changes_the_state_hash() {
     for roster in [
         crate::f01_boiler::Roster::Inert,
         crate::f01_boiler::Roster::Live,
@@ -382,7 +386,8 @@ fn drawing_the_pieces_never_changes_the_state_hash() {
         light_drum(&mut scene, &mut combat);
         light_drum(&mut scene2, &mut combat2);
         for t in 0..300u64 {
-            let _ = labels::tags(&view(&run, &combat, t));
+            let _ = view(&run, &combat, t);
+            let _ = sprite_view(&run, &combat, t);
             step(&mut scene, &mut combat);
             step(&mut scene2, &mut combat2);
             assert_eq!(
@@ -432,265 +437,335 @@ fn the_hazard_origins_are_the_volume_centres_by_prop_and_class() {
     );
 }
 
-// ----------------------------------------------------------- K10 labels ----
+// ------------------------------------------------- the Goblin Workshop kit ----
 
-fn texts(p: &[Piece]) -> Vec<&'static str> {
-    labels::tags(p).iter().map(|t| t.text).collect()
+fn manifest(sheet: Sheet) -> serde_json::Value {
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("assets/manifests")
+        .join(format!("{}.json", sheet.manifest()));
+    serde_json::from_str(&std::fs::read_to_string(&path).expect("the manifest exists"))
+        .expect("the manifest parses")
 }
 
-/// K10: every code-drawn stand-in carries a visible "STAND-IN: <name>" label,
-/// each piece whose label says "(stand-in)" has one, and the part pieces do not.
+/// The tag table of the code is the tag table of the committed manifests: names,
+/// first frame, frame count, ticks per frame, frame size and atlas path.
 #[test]
-fn every_stand_in_prop_gets_a_visible_stand_in_label() {
-    let (run, _scene, combat) = rig();
-    let p = view(&run, &combat, 0);
-    assert_eq!(
-        texts(&p),
-        [
-            "STAND-IN: BOILER",
-            "STAND-IN: VALVE",
-            "STAND-IN: BRACE",
-            "STAND-IN: WEIGHT",
-            "STAND-IN: DRUM",
-        ]
-    );
-    // The mapping covers every "(stand-in)" piece label the module can draw.
-    for (label, text) in labels::STAND_IN_TEXTS {
-        assert!(text.starts_with("STAND-IN: "), "{text}");
-        assert!(
-            label.ends_with("(stand-in)") || label == "brace stump",
-            "{label}"
+fn the_tag_table_matches_the_manifests() {
+    for sheet in Sheet::ALL {
+        let m = manifest(sheet);
+        assert_eq!(m["output_atlas"], sheet.atlas(), "{sheet:?}");
+        let size = m["frame_size"].as_array().unwrap();
+        let (w, h) = sheet.frame_size();
+        assert_eq!(
+            (size[0].as_i64().unwrap(), size[1].as_i64().unwrap()),
+            (i64::from(w), i64::from(h)),
+            "{sheet:?} frame size"
         );
-    }
-    for label in [
-        "boiler landmark (stand-in)",
-        "valve body (stand-in)",
-        "brace (stand-in)",
-        "hanging weight (stand-in)",
-        "landed remnant (stand-in)",
-        "fuel drum (stand-in)",
-        "drum scorch (stand-in)",
-    ] {
-        assert!(
-            labels::STAND_IN_TEXTS.iter().any(|(l, _)| *l == label),
-            "{label}"
+        let frames = m["prop_kit"]["frames"].as_array().unwrap();
+        assert_eq!(frames.len(), sheet.frames(), "{sheet:?} frame count");
+        let names: Vec<&str> = m["animation_tags"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v.as_str().unwrap())
+            .collect();
+        assert_eq!(
+            names,
+            sheet.tags().iter().map(|t| t.name).collect::<Vec<_>>(),
+            "{sheet:?} tags"
         );
-    }
-    // A part piece (a band, a chain, a wheel) never gets a label of its own.
-    for piece in p.iter().filter(|x| !x.label.contains("(stand-in)")) {
-        assert!(
-            labels::tags(std::slice::from_ref(piece)).is_empty(),
-            "{}",
-            piece.label
-        );
+        for tag in sheet.tags() {
+            let rows: Vec<&serde_json::Value> =
+                frames.iter().filter(|f| f["tag"] == tag.name).collect();
+            assert_eq!(rows.len(), tag.frames, "{} frames", tag.name);
+            for (k, row) in rows.iter().enumerate() {
+                assert_eq!(row["index"].as_u64().unwrap() as usize, tag.first + k);
+                assert_eq!(
+                    row["ticks"].as_u64().unwrap_or(0),
+                    tag.ticks,
+                    "{} ticks",
+                    tag.name
+                );
+                if tag.frames > 1 {
+                    assert_eq!(
+                        row["duration_ms"].as_u64().unwrap(),
+                        (tag.ticks * 1000 + 30) / 60,
+                        "{} duration",
+                        tag.name
+                    );
+                }
+            }
+        }
     }
 }
 
-/// The labels follow the chain: the broken brace keeps its label on the stump,
-/// the landed weight is labelled as the remnant and the spent drum as a scorch,
-/// every label is inside the room and the pool is never exceeded.
+/// Every sprite of every state of the whole chain names a real frame of a real
+/// tag, stays inside the room, and the list is a pure function of state and tick.
 #[test]
-fn the_labels_follow_the_props_through_the_whole_chain() {
+fn every_state_maps_to_an_existing_tag_and_the_sprite_list_is_pure() {
     let (run, mut scene, mut combat) = rig();
     let width = run.kit.width;
+    let mut seen: std::collections::BTreeSet<(Sheet, &'static str)> = Default::default();
+    // The untouched room first (the idle loop), then the whole chain.
+    for t in 0..40u64 {
+        for s in sprite_view(&run, &combat, t) {
+            let tag = s
+                .sheet
+                .tags()
+                .iter()
+                .find(|g| (g.first..g.first + g.frames).contains(&s.frame))
+                .expect("a tag");
+            seen.insert((s.sheet, tag.name));
+        }
+    }
+    // One hit weakens the brace (the creak loop), the second releases the weight.
+    let hit = |combat: &mut CombatState, token| {
+        combat.env_stimulate(
+            WEIGHT,
+            Stimulus::MeleeHit {
+                token,
+                player: 0,
+                weight: 1,
+            },
+            0,
+        );
+    };
+    hit(&mut combat, 1);
+    for t in 0..24u64 {
+        for s in sprite_view(&run, &combat, t) {
+            let tag = s
+                .sheet
+                .tags()
+                .iter()
+                .find(|g| (g.first..g.first + g.frames).contains(&s.frame))
+                .expect("a tag");
+            seen.insert((s.sheet, tag.name));
+        }
+    }
+    hit(&mut combat, 2);
+    two_hits(&mut combat, VALVE);
+    light_drum(&mut scene, &mut combat);
+    for t in 0..400u64 {
+        step(&mut scene, &mut combat);
+        let list = sprite_view(&run, &combat, t);
+        assert_eq!(list, sprite_view(&run, &combat, t), "pure at tick {t}");
+        assert!(list.len() <= MAX_SPRITES, "{} sprites at {t}", list.len());
+        assert!(list.windows(2).all(|w| w[0].layer <= w[1].layer));
+        for s in &list {
+            let tag = s
+                .sheet
+                .tags()
+                .iter()
+                .find(|g| (g.first..g.first + g.frames).contains(&s.frame))
+                .unwrap_or_else(|| panic!("{:?} frame {} is in no tag", s.sheet, s.frame));
+            seen.insert((s.sheet, tag.name));
+            assert!(s.frame < s.sheet.frames());
+            let (w, h) = s.sheet.frame_size();
+            assert_eq!((s.rect.w, s.rect.h), (w, h));
+            assert!(s.rect.x >= 0 && s.rect.right() <= width, "{s:?} at {t}");
+            assert!(s.rect.y >= 0, "{s:?} at {t}");
+        }
+    }
+    for (sheet, name) in [
+        (Sheet::Boiler, "boiler_idle"),
+        (Sheet::Boiler, "boiler_strain"),
+        (Sheet::Boiler, "boiler_damaged"),
+        (Sheet::Valve, "valve_warning"),
+        (Sheet::Valve, "valve_venting"),
+        (Sheet::Valve, "valve_spent"),
+        (Sheet::Brace, "brace_weakened"),
+        (Sheet::Brace, "brace_stump"),
+        (Sheet::Weight, "weight_fall"),
+        (Sheet::Remnant, "remnant"),
+        (Sheet::Rig, "rig_run"),
+        (Sheet::Chain, "chain"),
+        (Sheet::Drum, "drum_telegraph"),
+        (Sheet::Scorch, "scorch"),
+        (Sheet::Sputter, "steam_sputter"),
+        (Sheet::Plume, "steam_plume"),
+        (Sheet::Shadow, "fall_shadow_tell"),
+        (Sheet::Shadow, "fall_shadow"),
+        (Sheet::Ring, "drum_blast_tell"),
+    ] {
+        assert!(seen.contains(&(sheet, name)), "{name} never drawn");
+    }
+}
+
+fn first(list: &[SpriteDraw], sheet: Sheet) -> Option<SpriteDraw> {
+    list.iter().copied().find(|s| s.sheet == sheet)
+}
+
+/// The anchors of the spec table (section 3) match the encounter's rectangles.
+#[test]
+fn the_anchors_match_the_encounter_rects() {
+    let (run, mut scene, mut combat) = rig();
+    let enc = &run.loaded.encounter;
+    let list = sprite_view(&run, &combat, 0);
+    let at = |s: Sheet| first(&list, s).map(|d| (d.rect.x, d.rect.y)).unwrap();
+    assert_eq!(at(Sheet::Boiler), (496, 372));
+    assert_eq!(at(Sheet::Valve), (464, 532));
+    assert_eq!(at(Sheet::Brace), (744, 540));
+    assert_eq!(at(Sheet::Weight), (784, 404));
+    assert_eq!(at(Sheet::Drum), (846, 544));
+    assert_eq!(at(Sheet::Rig), (744, 352));
+    // The art stands on the same base lines as the rects it replaces.
+    let bottom = |s: Sheet| first(&list, s).unwrap().rect.bottom();
+    assert_eq!(bottom(Sheet::Boiler), enc.props[VALVE].target.bottom());
+    assert_eq!(bottom(Sheet::Valve), enc.props[VALVE].target.bottom());
+    assert_eq!(bottom(Sheet::Brace), enc.props[WEIGHT].target.bottom());
+    assert_eq!(bottom(Sheet::Drum), enc.props[DRUM].target.bottom());
+    let mass = combat
+        .env()
+        .unwrap()
+        .mass(WEIGHT)
+        .unwrap()
+        .mass_rect()
+        .unwrap();
+    let weight = first(&list, Sheet::Weight).unwrap().rect;
+    assert_eq!((weight.x, weight.bottom()), (mass.x, mass.bottom()));
+    // The chains: brace chain x 758 and weight chain x 814, from y 376.
+    let chains: Vec<&SpriteDraw> = list.iter().filter(|s| s.sheet == Sheet::Chain).collect();
+    assert!(chains.iter().any(|c| c.rect.x == 758 && c.rect.y == 376));
+    assert!(chains.iter().any(|c| c.rect.x == 814 && c.rect.y == 376));
+    assert!(chains.iter().all(|c| c.layer == Layer::Back));
+    // The tells sit on their rects once set off.
     two_hits(&mut combat, VALVE);
     two_hits(&mut combat, WEIGHT);
     light_drum(&mut scene, &mut combat);
-    let mut seen = std::collections::BTreeSet::new();
-    for t in 0..360u64 {
-        step(&mut scene, &mut combat);
-        let p = view(&run, &combat, t);
-        let tags = labels::tags(&p);
-        assert!(tags.len() <= labels::MAX_TAGS);
-        assert_eq!(tags, labels::tags(&p), "pure at tick {t}");
-        let texts: Vec<&str> = tags.iter().map(|x| x.text).collect();
-        let unique: std::collections::BTreeSet<&str> = texts.iter().copied().collect();
-        assert_eq!(texts.len(), unique.len(), "one label per text at {t}");
-        for (i, a) in tags.iter().enumerate() {
-            for b in &tags[i + 1..] {
-                assert!(
-                    !a.overlaps(b),
-                    "{} and {} overlap at tick {t}: {:?} {:?}",
-                    a.text,
-                    b.text,
-                    a.ink_box(),
-                    b.ink_box()
-                );
-            }
-        }
-        for tag in &tags {
-            assert!(
-                tag.centre_x >= 0 && tag.centre_x <= width,
-                "{} at {t}",
-                tag.text
-            );
-            seen.insert(tag.text);
-        }
-    }
-    for text in [
-        "STAND-IN: BOILER",
-        "STAND-IN: VALVE",
-        "STAND-IN: BRACE",
-        "STAND-IN: WEIGHT",
-        "STAND-IN: RUBBLE",
-        "STAND-IN: DRUM",
-        "STAND-IN: SCORCH",
-    ] {
-        assert!(seen.contains(text), "{text} never shown: {seen:?}");
-    }
-}
-
-/// A label sits above its piece (the landmark's inside, below the dome) and
-/// centred on it.
-#[test]
-fn a_label_is_centred_on_its_piece_and_sits_above_it() {
-    let (run, _scene, combat) = rig();
-    let p = view(&run, &combat, 0);
-    let tags = labels::tags(&p);
-    for (label, text) in labels::STAND_IN_TEXTS {
-        let (Some(piece), Some(tag)) = (
-            p.iter().find(|x| x.label == label),
-            tags.iter().find(|t| t.text == text),
-        ) else {
-            continue;
-        };
-        assert_eq!(tag.centre_x, piece.rect.x + piece.rect.w / 2, "{text}");
-        if label == "boiler landmark (stand-in)" {
-            assert_eq!(tag.bottom_y, piece.rect.y + labels::LANDMARK_TAG_DROP_PX);
-        } else {
-            assert_eq!(tag.bottom_y, piece.rect.y - 1, "{text}");
-        }
-    }
-}
-
-/// The 3 x 5 font draws every label text: ink and shadow only, the right size,
-/// and a character without a glyph is refused rather than drawn blank.
-#[test]
-fn every_label_text_rasterises_in_the_pixel_font() {
-    for (_, text) in labels::STAND_IN_TEXTS {
-        let img = labels::text_pixels(text).unwrap_or_else(|| panic!("{text}"));
-        assert_eq!(
-            img.w,
-            text.chars().count() as u32 * labels::GLYPH_ADVANCE_PX
-        );
-        assert_eq!(img.h, labels::GLYPH_HEIGHT_PX + 1);
-        assert_eq!(img.rgba.len(), (img.w * img.h * 4) as usize);
-        let px = |i: usize| {
-            [
-                img.rgba[i * 4],
-                img.rgba[i * 4 + 1],
-                img.rgba[i * 4 + 2],
-                img.rgba[i * 4 + 3],
-            ]
-        };
-        let ink = (0..(img.w * img.h) as usize)
-            .filter(|&i| px(i) == labels::TAG_INK)
-            .count();
-        let shadow = (0..(img.w * img.h) as usize)
-            .filter(|&i| px(i) == labels::TAG_SHADOW)
-            .count();
-        assert!(ink > text.len() * 2, "{text}: {ink} ink pixels");
-        assert!(shadow > 0, "{text}");
-        assert!(
-            (0..(img.w * img.h) as usize)
-                .all(|i| px(i) == labels::TAG_INK || px(i) == labels::TAG_SHADOW || px(i)[3] == 0),
-            "{text}: only ink, shadow and clear pixels"
-        );
-    }
-    assert!(labels::text_pixels("").is_none());
-    assert!(labels::text_pixels("STAND-IN: @").is_none());
-    // The shadow never covers ink: the first glyph's top-left ink pixel is ink.
-    let t = labels::text_pixels("S").unwrap();
-    assert_eq!(
-        &t.rgba[4..8],
-        &labels::TAG_INK,
-        "row 0, column 1 of S is ink"
-    );
-}
-
-/// Labels that would cross are lifted apart, deterministically and in piece
-/// order; a label that does not cross anything stays where it was put.
-#[test]
-fn overlapping_labels_are_lifted_apart_in_piece_order() {
-    let piece = |label: &'static str, x: i32, y: i32| Piece {
-        rect: IRect { x, y, w: 16, h: 16 },
-        tone: Tone::Iron,
-        layer: Layer::Prop,
-        label,
-    };
-    // The remnant and the drum stand side by side: their 64 px labels cross.
-    let p = [
-        piece("landed remnant (stand-in)", 100, 200),
-        piece("fuel drum (stand-in)", 120, 200),
-        piece("brace (stand-in)", 110, 200),
-    ];
-    let tags = labels::tags(&p);
-    assert_eq!(
-        texts(&p),
-        ["STAND-IN: RUBBLE", "STAND-IN: DRUM", "STAND-IN: BRACE"]
-    );
-    assert_eq!(tags[0].bottom_y, 199, "the first keeps its place");
-    assert_eq!(
-        tags[1].bottom_y,
-        199 - labels::LIFT_PX,
-        "the second is lifted once"
-    );
-    assert_eq!(
-        tags[2].bottom_y,
-        199 - 2 * labels::LIFT_PX,
-        "the third twice"
-    );
-    for (i, a) in tags.iter().enumerate() {
-        for b in &tags[i + 1..] {
-            assert!(!a.overlaps(b), "{} / {}", a.text, b.text);
-        }
-    }
-    assert_eq!(tags, labels::tags(&p), "deterministic");
-    // Far apart: nothing moves.
-    let apart = [
-        piece("landed remnant (stand-in)", 0, 200),
-        piece("fuel drum (stand-in)", 300, 200),
-    ];
-    assert!(labels::tags(&apart).iter().all(|t| t.bottom_y == 199));
-    // Touching boxes do not count as overlapping (the gap is the lift's own line).
-    let a = labels::Tag {
-        text: "STAND-IN: DRUM",
-        centre_x: 100,
-        bottom_y: 50,
-    };
-    let b = labels::Tag {
-        text: "STAND-IN: DRUM",
-        centre_x: 100,
-        bottom_y: 50 - 6,
-    };
-    assert!(!a.overlaps(&b) && a.overlaps(&a));
-}
-
-/// The chain that overlapped on screen (the review of #254): the weight falls
-/// and lands while the drum still stands, so the RUBBLE and DRUM labels are
-/// both due beside each other. They must be shown together and never cross.
-#[test]
-fn the_rubble_and_drum_labels_are_shown_together_without_crossing() {
-    let (run, mut scene, mut combat) = rig();
-    two_hits(&mut combat, WEIGHT);
-    let mut together = 0;
+    let steam = enc.hazards[0].spec.rect;
+    let mut saw = [false; 5];
     for t in 0..400u64 {
         step(&mut scene, &mut combat);
-        let tags = labels::tags(&view(&run, &combat, t));
-        let rubble = tags.iter().find(|x| x.text == "STAND-IN: RUBBLE");
-        let drum = tags.iter().find(|x| x.text == "STAND-IN: DRUM");
-        if let (Some(r), Some(d)) = (rubble, drum) {
-            together += 1;
-            assert!(
-                !r.overlaps(d),
-                "tick {t}: {:?} {:?}",
-                r.ink_box(),
-                d.ink_box()
-            );
+        let list = sprite_view(&run, &combat, t);
+        if let Some(d) = first(&list, Sheet::Sputter) {
+            assert_eq!((d.rect.x, d.rect.y), (steam.x, steam.y + SPUTTER_DY));
+            assert_eq!(d.alpha, 255);
+            saw[0] = true;
+        }
+        if let Some(d) = first(&list, Sheet::Plume) {
+            assert_eq!(d.rect, steam, "the plume covers the lane rect");
+            assert_eq!(d.alpha, STEAM_ALPHA);
+            saw[1] = true;
+        }
+        if let Some(d) = first(&list, Sheet::Shadow) {
+            assert_eq!((d.rect.x, d.rect.y), (784, 572));
+            assert_eq!(d.alpha, SHADOW_ALPHA);
+            saw[2] = true;
+        }
+        if let Some(d) = first(&list, Sheet::Ring) {
+            assert_eq!((d.rect.x, d.rect.y), (816, 572));
+            saw[3] = true;
+        }
+        if let Some(d) = first(&list, Sheet::Remnant) {
+            assert_eq!((d.rect.x, d.rect.y), (784, 548));
+            saw[4] = true;
+        }
+        if let Some(d) = first(&list, Sheet::Scorch) {
+            assert_eq!((d.rect.x, d.rect.y), (844, 572));
         }
     }
-    assert!(
-        together > 0,
-        "the landed weight and the standing drum never coexisted"
+    assert!(saw.iter().all(|s| *s), "{saw:?}");
+}
+
+/// The chains hang only while their end does: the brace chain while the brace
+/// stands, the weight chain until the weight falls; none after the landing.
+#[test]
+fn the_chains_follow_the_brace_and_the_weight() {
+    let (run, mut scene, mut combat) = rig();
+    let count = |list: &[SpriteDraw]| list.iter().filter(|s| s.sheet == Sheet::Chain).count();
+    let hung = count(&sprite_view(&run, &combat, 0));
+    assert!(hung > 20 && hung <= MAX_SPRITES - 8, "{hung}");
+    two_hits(&mut combat, WEIGHT);
+    let mut falling_seen = false;
+    for t in 1..=400u64 {
+        step(&mut scene, &mut combat);
+        let list = sprite_view(&run, &combat, t);
+        match combat.env().unwrap().mass_state(WEIGHT).unwrap() {
+            MassState::Falling => {
+                assert_eq!(count(&list), 0, "no chain while it falls");
+                assert_eq!(
+                    first(&list, Sheet::Weight).unwrap().frame,
+                    WEIGHT_FALL.first
+                );
+                falling_seen = true;
+            }
+            MassState::Landed => {
+                assert_eq!(count(&list), 0);
+                assert!(first(&list, Sheet::Weight).is_none());
+                assert_eq!(first(&list, Sheet::Rig).unwrap().frame, RIG_RUN.last());
+                break;
+            }
+            MassState::Released => {
+                assert_eq!(count(&list), hung - brace_chain_tiles(&run));
+                assert!(RIG_RUN.frame_at(t) >= RIG_RUN.first);
+            }
+            _ => {}
+        }
+    }
+    assert!(falling_seen);
+}
+
+fn brace_chain_tiles(run: &BoilerRun) -> usize {
+    let brace = run.loaded.encounter.props[WEIGHT].target;
+    ((brace.y - CHAIN_TOP_Y) as usize).div_ceil(8)
+}
+
+/// The placeholder rule: a piece that stands in for a sheet names it, and the
+/// pieces that name none are exactly the footprints that stay drawn with the art.
+#[test]
+fn only_the_footprints_have_no_sheet() {
+    let (run, mut scene, mut combat) = rig();
+    two_hits(&mut combat, VALVE);
+    two_hits(&mut combat, WEIGHT);
+    light_drum(&mut scene, &mut combat);
+    for t in 0..400u64 {
+        step(&mut scene, &mut combat);
+        for p in view(&run, &combat, t) {
+            let footprint = matches!(
+                p.label,
+                "steam warning area" | "steam warning edge" | "drum blast tell"
+            );
+            assert_eq!(p.sheet().is_none(), footprint, "{} at {t}", p.label);
+        }
+    }
+}
+
+/// The kit covers every prop the Boiler draws: with every atlas present the
+/// untouched room draws a sprite for the landmark, valve, brace, weight, drum,
+/// rig and both chains, and nothing in it is a "stand-in" without a sheet.
+#[test]
+fn the_untouched_room_is_drawn_by_the_kit() {
+    let (run, _scene, combat) = rig();
+    let list = sprite_view(&run, &combat, 0);
+    for sheet in [
+        Sheet::Boiler,
+        Sheet::Valve,
+        Sheet::Brace,
+        Sheet::Weight,
+        Sheet::Drum,
+        Sheet::Rig,
+        Sheet::Chain,
+    ] {
+        assert!(first(&list, sheet).is_some(), "{sheet:?}");
+    }
+    assert!(list.iter().all(|s| s.layer != Layer::Tell));
+    for p in view(&run, &combat, 0) {
+        assert!(p.sheet().is_some(), "{} has no sheet", p.label);
+    }
+}
+
+#[test]
+fn a_tag_loops_on_the_tick_and_a_single_frame_holds() {
+    assert_eq!(BOILER_IDLE.frame_at(0), 0);
+    assert_eq!(BOILER_IDLE.frame_at(8), 1);
+    assert_eq!(BOILER_IDLE.frame_at(31), 3);
+    assert_eq!(BOILER_IDLE.frame_at(32), 0, "the loop wraps");
+    assert_eq!(VALVE_WARNING.frame_at(FLASH_TICKS - 1), VALVE_WARNING.first);
+    assert_eq!(
+        VALVE_WARNING.frame_at(FLASH_TICKS),
+        VALVE_WARNING.first + 1,
+        "the warning swaps every FLASH_TICKS"
     );
+    assert_eq!(REMNANT.frame_at(12345), 0);
+    assert_eq!(RIG_RUN.last(), 2);
 }

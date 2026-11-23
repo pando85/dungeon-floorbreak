@@ -1,0 +1,71 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "area-gw-tell-sputter",
+  "title": "AREA-GOBLINWORKSHOP-01 steam sputter tell at the nozzle",
+  "grid": "assets/source/props/floor01/gw_tell_sputter.grid.json",
+  "manifest": "assets/manifests/f01-gw-tell-sputter.json",
+  "frame_size": [
+    16,
+    16
+  ],
+  "pivot": [
+    0,
+    0
+  ],
+  "contact_row": null,
+  "tick_hz": 60,
+  "hold_ms": 100,
+  "facing": "left",
+  "tags": {
+    "steam_sputter": {
+      "playback": "loop",
+      "contact": "free",
+      "frames": [
+        [
+          0,
+          4
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          4
+        ]
+      ]
+    }
+  },
+  "rules": {
+    "max_colors": 63,
+    "max_isolated_per_frame": 0,
+    "max_orphans_per_frame": 0,
+    "unique_frames": true
+  },
+  "scene": {
+    "shadow": false,
+    "actors": [
+      {
+        "frame": 0,
+        "x": 560,
+        "lift": 20
+      },
+      {
+        "frame": 1,
+        "x": 600,
+        "lift": 20
+      },
+      {
+        "frame": 2,
+        "x": 640,
+        "lift": 20
+      }
+    ]
+  },
+  "review": {
+    "strip_name": "03_state_strip.png",
+    "strip_tags": [
+      "steam_sputter"
+    ]
+  }
+}
