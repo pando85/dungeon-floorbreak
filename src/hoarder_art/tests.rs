@@ -459,3 +459,32 @@ fn the_palette_is_opaque_except_the_open_gates_footprint() {
         assert_eq!(c[3] == 0xff, i != Tone::GateOpen as usize, "tone {i}");
     }
 }
+
+/// F3: the hit flash follows her hit points, lasts `FLASH_TICKS`, and a tick that goes backwards (a
+/// restart or a retry resets the scene tick to 0) clears the memo, so the next attempt is not flashed
+/// by the last hit of the old one.
+#[test]
+fn the_flash_memo_runs_four_ticks_and_forgets_on_a_tick_regression() {
+    let mut memo = HoarderMemo::default();
+    assert!(!memo.observe(30, true, 1000).flash);
+    // A hit on tick 1010: the flash runs for FLASH_TICKS ticks, from the tick of the drop.
+    for (tick, flash) in [(1009, false), (1010, true), (1013, true), (1014, false)] {
+        let hp = if tick >= 1010 { 29 } else { 30 };
+        assert_eq!(memo.observe(hp, true, tick).flash, flash, "tick {tick}");
+    }
+    // Hit again, then a restart: the tick goes back to 5 and her hit points reset. No flash.
+    assert!(memo.observe(28, true, 1020).flash);
+    let after = memo.observe(30, true, 5);
+    assert!(!after.flash, "no stale flash after a restart");
+    assert!(!memo.observe(30, true, 6).flash);
+    assert_eq!(memo, {
+        let mut fresh = HoarderMemo::default();
+        fresh.observe(30, true, 5);
+        fresh.observe(30, true, 6);
+        fresh
+    });
+    // The defeat age counts from the first defeated frame and is forgotten by a regression too.
+    assert_eq!(memo.observe(0, false, 100).defeated_age, Some(0));
+    assert_eq!(memo.observe(0, false, 130).defeated_age, Some(30));
+    assert_eq!(memo.observe(30, true, 3).defeated_age, None);
+}

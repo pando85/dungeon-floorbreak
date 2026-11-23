@@ -96,6 +96,45 @@ pub struct HoarderLook {
     pub defeated_age: Option<u64>,
 }
 
+/// The hit flash runs this many ticks after her hit points drop.
+pub const FLASH_TICKS: u64 = 4;
+
+/// What the presenter remembers of her between frames (render-local, never hashed). Kept here, in
+/// the pure half, so its rules are tested: the scene tick goes back to 0 on a restart or a retry
+/// (`SceneSim` resets it), and a memo that kept an absolute tick would flash her through most of the
+/// next attempt, so a tick that goes backwards clears it.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct HoarderMemo {
+    hp: Option<u16>,
+    flash_until: u64,
+    defeated_since: Option<u64>,
+    last_tick: Option<u64>,
+}
+
+impl HoarderMemo {
+    /// Fold this frame's facts in and return the look to draw with: her hit points, whether she is
+    /// alive and the scene tick.
+    pub fn observe(&mut self, hp: u16, alive: bool, tick: u64) -> HoarderLook {
+        if self.last_tick.is_some_and(|last| tick < last) {
+            *self = Self::default();
+        }
+        self.last_tick = Some(tick);
+        if self.hp.is_some_and(|prev| hp < prev) {
+            self.flash_until = tick + FLASH_TICKS;
+        }
+        self.hp = Some(hp);
+        if alive {
+            self.defeated_since = None;
+        } else {
+            self.defeated_since.get_or_insert(tick);
+        }
+        HoarderLook {
+            flash: tick < self.flash_until,
+            defeated_age: self.defeated_since.map(|since| tick.saturating_sub(since)),
+        }
+    }
+}
+
 fn loop_frame(frames: &[u8], ticks: &[u64], tick: u64) -> u8 {
     let total: u64 = ticks.iter().sum();
     let mut t = tick % total.max(1);

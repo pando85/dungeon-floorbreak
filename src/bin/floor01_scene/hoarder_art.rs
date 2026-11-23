@@ -11,7 +11,8 @@ use super::*;
 use dungeon_floorbreak::encounter::Encounter;
 use dungeon_floorbreak::env_kit::ATLAS_ASSET_PREFIX;
 use dungeon_floorbreak::hoarder_art::{
-    ATLAS, FRAME_SIZE, FRAMES, HoarderLook, Layer, MAX_PIECES, TagKind, draw, text_pixels,
+    ATLAS, FRAME_SIZE, FRAMES, HoarderLook, HoarderMemo, Layer, MAX_PIECES, TagKind, draw,
+    text_pixels,
 };
 
 /// Her pooled sprite.
@@ -34,17 +35,6 @@ pub(super) struct HoarderArt {
     piece_z: f32,
     tag_z: f32,
 }
-
-/// What the presenter remembers of her between frames (render-local).
-#[derive(Default, Clone, Copy)]
-pub(super) struct HoarderMemo {
-    hp: Option<u16>,
-    flash_until: u64,
-    defeated_since: Option<u64>,
-}
-
-/// The hit flash runs this many ticks after her hit points drop.
-const FLASH_TICKS: u64 = 4;
 
 fn atlas_present(path: &str) -> bool {
     std::env::current_dir().is_ok_and(|root| root.join(path).is_file())
@@ -164,23 +154,11 @@ pub(super) fn sync_hoarder_art(
     };
     let world = &sim.0.world;
     let tick = world.tick;
-    // Render-local looks: the hit flash from a drop of her hit points, the age of her defeat.
-    if let Some(enemy) = dungeon_floorbreak::combat_scene::pile_boss::of(state) {
-        let boss = enemy.boss();
-        if memo.hp.is_some_and(|hp| boss.hp() < hp) {
-            memo.flash_until = tick + FLASH_TICKS;
-        }
-        memo.hp = Some(boss.hp());
-        if boss.alive() {
-            memo.defeated_since = None;
-        } else {
-            memo.defeated_since.get_or_insert(tick);
-        }
-    }
-    let look = HoarderLook {
-        flash: tick < memo.flash_until,
-        defeated_age: memo.defeated_since.map(|since| tick.saturating_sub(since)),
-    };
+    // Render-local looks (the hit flash, the age of her defeat), kept by the pure half.
+    let look = dungeon_floorbreak::combat_scene::pile_boss::of(state)
+        .map_or_else(HoarderLook::default, |enemy| {
+            memo.observe(enemy.boss().hp(), enemy.boss().alive(), tick)
+        });
     let Some(drawn) = draw(state, &art.encounter, world.layout_height(), tick, look) else {
         return;
     };

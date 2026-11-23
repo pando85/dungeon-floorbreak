@@ -1928,7 +1928,7 @@ pub fn hrd_gate_no_band(root: &Path) -> Result<Outcome, String> {
 /// `hrd_disengage_follow_punished` (sheet section 7, N1): the gate disabled and bank A
 /// removed; Carl idle at x 150 until `Disengage`, then he follows her walk home to 44 px behind
 /// her and jabs. She starts `Turn` within 1 tick of Carl entering 88 px, a swipe tell aimed at
-/// Carl starts within 21 ticks, and Carl lands at most 2 jabs before the tell.
+/// Carl starts within 23 ticks (HRDF-D1), and Carl lands at most 2 jabs before the tell.
 pub fn hrd_disengage_follow_punished(root: &Path) -> Result<Outcome, String> {
     // HRDF-AD1 (as HRDA2-AD3): she starts at x 340, not at E. From 760 Carl at 150 is 610 px
     // away (no hero within her 320 px return radius), so she walks home to 608 and holds
@@ -1990,12 +1990,11 @@ pub fn hrd_disengage_follow_punished(root: &Path) -> Result<Outcome, String> {
         "Turn {} ticks after Carl entered 88 px",
         turn - entered
     );
-    // HRDF-D1 (a design finding, not a pass): the sheet says 21 ticks; the implemented Turn is
-    // 20 ticks and the tell starts 3 ticks after it ends, so the measured bound is 23. The
-    // fixture holds the measured number and says so in its note until the sheet or the rule
-    // is settled.
+    // HRDF-D1 (adopted value): the bound is 23 ticks. The Turn is 20 ticks (HRD-Q04), a state of N
+    // ticks ends on tick N + 1, and a jab's hit stop freezes her clock; the sheet's earlier 21 left
+    // those out (the sheet is corrected, section 14 and section 20).
     ensure!(
-        tell - entered <= MEASURED_TELL_TICKS,
+        tell - entered <= TELL_WITHIN_TICKS,
         "the tell came {} ticks after (entered {entered}, Turn {turn})",
         tell - entered
     );
@@ -2015,20 +2014,18 @@ pub fn hrd_disengage_follow_punished(root: &Path) -> Result<Outcome, String> {
         })
         .count();
     ensure!(jabs <= 2, "Carl landed {jabs} jabs before the tell");
-    let over = (tell - entered).saturating_sub(SHEET_TELL_TICKS);
     done(
         &rig,
         format!(
-            "88 px on {entered}, Turn on {turn}, tell on {tell} ({} after; the sheet says {SHEET_TELL_TICKS}: {over} over, HRDF-D1), {jabs} jabs",
+            "88 px on {entered}, Turn on {turn}, tell on {tell} ({} after, bound {TELL_WITHIN_TICKS}, HRDF-D1), {jabs} jabs",
             tell - entered
         ),
     )
 }
 
-/// The sheet's bound for the swipe tell after Carl enters 88 px of her turning back (section 14),
-/// and the bound the rules as implemented meet (HRDF-D1).
-const SHEET_TELL_TICKS: u64 = 21;
-const MEASURED_TELL_TICKS: u64 = 23;
+/// The bound for the swipe tell after Carl enters 88 px of her turning back (section 14, HRDF-D1:
+/// adopted at 23, the sheet's 21 corrected).
+const TELL_WITHIN_TICKS: u64 = 23;
 
 /// An attack press on odd calls only (a jab needs a fresh press).
 fn attack_input_if(press: bool) -> RawInput {
