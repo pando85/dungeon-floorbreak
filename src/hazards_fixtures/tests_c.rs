@@ -5,7 +5,7 @@
 //! final hash is pinned (new fixtures: the pins are first pins).
 //! `cargo test haz_room -- --nocapture` prints the per-seed table of the PR.
 
-use super::pilots::{Report, SEEDS, STUCK_LIMIT, Who, run};
+use super::pilots::{Report, SEEDS, STUCK_LIMIT, Who, run, run_with};
 use super::*;
 use crate::encounter::ReachHero;
 
@@ -131,12 +131,57 @@ fn haz_room_solo_donut() {
 /// Magic Missile spawned 27 px ahead and missed a goblin closer than that; the
 /// `missile_spawn_sweep` knob of PR-B (FA-Q14, default on) sweeps the segment from her
 /// front edge to the spawn point on the cast tick, and the pilot of FA-Q12 plays her.
-/// The nine hashes are first pins. The nine runs are one fight (cleared on tick 551,
-/// exit on 633 at every seed): the room has no random stream under this pilot, so the
-/// seed varies only the morale draws, which this route never reaches.
+/// The room has no random stream under this pilot and the route never reaches a morale
+/// draw, so before the follow-up the nine seeds were one fight (cleared on tick 551, exit
+/// on 633 at every seed). FA-Q14 ruling 2: the pilot now offsets Donut's press phase by
+/// `seed % 4` ticks (FA-Q17's treatment, scoped to this pilot), and the nine runs show
+/// four distinct clear ticks. The nine hashes are re-pinned.
 #[test]
 fn haz_room_donut_fights() {
     solo_table(Who::DonutFights, DONUT_FIGHTS_PINNED);
+}
+
+/// FA-Q14 ruling 2: the seed phase varies the fight (at least 3 distinct clear ticks over
+/// seeds 0..=8) and the room still clears 9 of 9 with no death; with the phase off the
+/// nine seeds are one fight again and replay the first pins.
+#[test]
+fn haz_room_donut_fights_varies_by_seed_and_still_clears_every_seed() {
+    let mut clears = std::collections::BTreeSet::new();
+    let mut outcomes = std::collections::BTreeSet::new();
+    for seed in SEEDS {
+        let r = run_twice_checked(Who::DonutFights, seed, true);
+        assert_cleared(&r);
+        assert_eq!(r.deaths, 0, "seed {seed}");
+        clears.insert(r.cleared_tick);
+        outcomes.insert((r.cleared_tick, r.exit_tick, r.hurts.len()));
+    }
+    assert!(clears.len() >= 3, "distinct clear ticks: {clears:?}");
+    assert!(outcomes.len() >= 3, "distinct outcomes: {outcomes:?}");
+    // Phase 0 is the old pilot byte for byte: seeds 0, 4 and 8 keep their first pins.
+    for seed in [0u64, 4, 8] {
+        let r = run(&root(), Who::DonutFights, seed, true).unwrap();
+        assert_eq!(
+            r.hash, DONUT_FIGHTS_PINNED_NO_PHASE[seed as usize],
+            "seed {seed}"
+        );
+    }
+    // Phase off: the nine seeds are one fight again, with the first pins.
+    let mut ticks = std::collections::BTreeSet::new();
+    for seed in SEEDS {
+        let r = run_with(&root(), Who::DonutFights, seed, true, false).unwrap();
+        assert_eq!(
+            r.hash, DONUT_FIGHTS_PINNED_NO_PHASE[seed as usize],
+            "seed {seed}"
+        );
+        ticks.insert((r.cleared_tick, r.exit_tick));
+    }
+    assert_eq!(ticks.len(), 1, "{ticks:?}");
+    // Other pilots never read the phase: Carl's solo run is the same either way.
+    let a = run(&root(), Who::CarlSolo, 3, true).unwrap().hash;
+    let b = run_with(&root(), Who::CarlSolo, 3, true, false)
+        .unwrap()
+        .hash;
+    assert_eq!(a, b);
 }
 
 /// HAZ-09 with `cf02_free`: Carl is the pilot's, Donut the autonomous partner.
@@ -287,8 +332,22 @@ const SOLO_DONUT_PINNED_KNOBS_OFF: [u64; 9] = [
     0x9e18_2455_7686_523b,
     0x0846_1fd3_b9d2_e7e3,
 ];
-/// FA-Q14 (PR-D): first pins of the un-ignored `haz_room_donut_fights`.
+/// FA-Q14 (PR-D) first pins, re-pinned by the review follow-up (FA-Q14 ruling 2):
+/// with the seed phase (`seed % 4` ticks on Donut's press) seeds 1, 2, 3, 5, 6 and 7
+/// moved; seeds 0, 4 and 8 have phase 0 and keep their first pins.
 const DONUT_FIGHTS_PINNED: [u64; 9] = [
+    0x0ed1_1e96_74e1_7354,
+    0xe79f_ffc3_2a48_8a72,
+    0x87e9_731b_1672_e5d5,
+    0xa6ed_8e39_f7ee_a9b9,
+    0x203d_8b16_5243_ce0d,
+    0xf877_3d65_9005_8e2c,
+    0x122d_17fe_f0a3_1903,
+    0xde65_79cc_4a50_5c80,
+    0x2c56_bed8_c6a4_5145,
+];
+/// The first pins of PR-D: the pilot without the seed phase (nine seeds, one fight).
+const DONUT_FIGHTS_PINNED_NO_PHASE: [u64; 9] = [
     0x0ed1_1e96_74e1_7354,
     0xcb56_1d14_e4a4_1784,
     0x9fae_f718_f59a_c7b8,
@@ -332,7 +391,11 @@ fn the_hazard_room_with_the_fix_all_knobs_off_keeps_its_old_pins() {
         assert_eq!(direct[..9], SOLO_CARL_PINNED_KNOBS_OFF[..]);
         let fights: Vec<u64> = SEEDS
             .into_iter()
-            .map(|seed| run(&root(), Who::DonutFights, seed, true).unwrap().hash)
+            .map(|seed| {
+                run_with(&root(), Who::DonutFights, seed, true, false)
+                    .unwrap()
+                    .hash
+            })
             .collect();
         assert_eq!(
             fights, DONUT_FIGHTS_PINNED_KNOBS_OFF,

@@ -329,6 +329,22 @@ pub fn pilot_rules(
     kit: bool,
     rules: PilotRules,
 ) -> RawInput {
+    pilot_phased(combat, scene, hero, kit, rules, 0)
+}
+
+/// [`pilot_rules`] with `extra_phase` ticks added to the press phase (0 is
+/// [`pilot_rules`] byte for byte). FA-Q14 follow-up: the hazards room's solo-Donut
+/// fighter offsets her press (her cast and her pounce) by `seed % 4` ticks, so its
+/// nine seeds are not one fight, without turning on the arena's engagement-additive
+/// jab phase for the other pilots of that room.
+pub fn pilot_phased(
+    combat: &CombatState,
+    scene: &SceneSim,
+    hero: HeroId,
+    kit: bool,
+    rules: PilotRules,
+    extra_phase: u64,
+) -> RawInput {
     let body = scene.world.body(hero);
     let tick = scene.world.tick + 1;
     let defeated = combat.enemies.iter().filter(|g| !g.alive()).count()
@@ -339,6 +355,7 @@ pub fn pilot_rules(
     } else {
         0
     };
+    let phase = (phase + extra_phase) % PRESS_CADENCE;
     let press = (tick + phase).is_multiple_of(PRESS_CADENCE);
     let mut raw = RawInput::default();
     if combat.hero_defeated {
