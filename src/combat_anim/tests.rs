@@ -1359,3 +1359,83 @@ fn every_llama_fixture_draws_valid_frames_and_the_animation_never_changes_the_si
         }
     }
 }
+
+// ------------------------------------------- Donut's damage reactions -----
+
+/// Donut's reaction frame (melee atlas index) on every tick of a party fixture,
+/// with the plain run's hash checked against the animated run's on each tick.
+fn donut_reaction_frames(fixture: &'static crate::party_scene::PartyFixture) -> Vec<Option<usize>> {
+    use crate::party_scene::PartyFixtureSim;
+    let kit = kit();
+    let mut plain = PartyFixtureSim::new(&kit, 360, fixture).unwrap();
+    let mut shown = PartyFixtureSim::new(&kit, 360, fixture).unwrap();
+    let mut anim = CombatAnimators::new(
+        carl_clips(),
+        [goblin_clips(0), goblin_clips(1)],
+        &shown.combat,
+    );
+    let mut frames = Vec::new();
+    for _ in 0..fixture.base.ticks {
+        let before = shown.scene.world.tick;
+        plain.step_scripted();
+        shown.step_scripted();
+        if shown.scene.world.tick == before + 1 {
+            anim.step(&shown.scene, &shown.combat);
+        } else {
+            anim.reset(&shown.combat);
+        }
+        assert_eq!(
+            plain.state_hash(),
+            shown.state_hash(),
+            "{}",
+            fixture.base.name
+        );
+        frames.push(anim.donut_hurt_frame());
+    }
+    frames
+}
+
+/// Runs of equal values: `(value, length)`.
+fn frame_runs(frames: &[Option<usize>]) -> Vec<(Option<usize>, usize)> {
+    let mut out: Vec<(Option<usize>, usize)> = Vec::new();
+    for frame in frames {
+        match out.last_mut() {
+            Some((value, len)) if value == frame => *len += 1,
+            _ => out.push((*frame, 1)),
+        }
+    }
+    out
+}
+
+#[test]
+fn donut_flinches_h0_then_h1_after_a_goblin_blow_and_never_shows_it_otherwise() {
+    let frames = donut_reaction_frames(&crate::party_scene::DONUT_HURT_IFRAMES);
+    let runs = frame_runs(&frames);
+    // Idle, the freeze and the first 5 flinch ticks on h0 (8), the rest of the flinch
+    // on h1 (9), then her locomotion again (her i-frames are not a reaction frame).
+    let shape: Vec<Option<usize>> = runs.iter().map(|r| r.0).collect();
+    assert_eq!(shape, [None, Some(8), Some(9), None]);
+    // The 4 tick freeze and 5 flinch ticks on h0; the other 13 of the 18 flinch ticks on h1.
+    assert_eq!(runs[1].1, 4 + 5);
+    assert_eq!(runs[2].1, usize::from(HERO_HURT_TICKS) - 5);
+}
+
+#[test]
+fn donut_is_thrown_then_lies_d0_for_six_ticks_then_d1_until_the_restart() {
+    let frames = donut_reaction_frames(&crate::party_scene::DONUT_DEFEAT_PARTY);
+    // The fixture hurts her three times before the defeat: those are plain flinches (8 then 9,
+    // never the thrown frame). The defeat is the run of 8 that the thrown frame (10) follows: the
+    // freeze on h0, the air on kb, d0 (11) for the first 6 grounded ticks, d1 (12) held until the
+    // restart puts her back on her locomotion.
+    let runs = frame_runs(&frames);
+    let thrown = runs.iter().position(|r| r.0 == Some(10)).unwrap();
+    assert_eq!(runs.iter().filter(|r| r.0 == Some(10)).count(), 1);
+    let defeat: Vec<Option<usize>> = runs[thrown - 1..thrown + 4].iter().map(|r| r.0).collect();
+    assert_eq!(defeat, [Some(8), Some(10), Some(11), Some(12), None]);
+    assert_eq!(runs[thrown + 1].1, 6, "d0 lasts its 6 manifest ticks");
+    assert!(
+        runs[..thrown - 1]
+            .iter()
+            .all(|r| r.0 != Some(11) && r.0 != Some(12))
+    );
+}

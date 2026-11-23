@@ -3311,6 +3311,11 @@ impl CombatState {
         self.hero_defeated && self.defeated_hero == HeroId::Carl
     }
 
+    /// Donut is the defeated hero (her knockdown art plays).
+    pub fn donut_defeated(&self) -> bool {
+        self.hero_defeated && self.defeated_hero == HeroId::Donut
+    }
+
     /// One tick of a move's forward step: stopped by walls, the layout edge and
     /// body contact (centre distance under `BODY_CONTACT` with an alive goblin
     /// the step would approach).

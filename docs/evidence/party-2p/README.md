@@ -13,7 +13,7 @@ Real window captures of `floor01_scene` with the real exported atlases and the r
 | `party-REAL-two-players-640x360-2x-1280x720.png` | `duo_independent_moves`, tick 70 | P1 tag on Carl, P2 tag on Donut; Donut stands where she was while Carl runs ahead; the camera follows the midpoint |
 | `party-REAL-two-players-separation-wall-640x360-2x-1280x720.png` | `duo_separation_wall`, tick 240 | Carl stopped at the 448 px wall, Donut still at her start; both on screen |
 | `party-REAL-solo-swap-640x360-2x-1280x720.png` | `solo_swap_continuity`, tick 120 | After the swap: `P1` on Donut's plate, `AI` and `COMPANION` on Carl's; Carl follows as the bot |
-| `party-REAL-donut-hurt-640x360-2x-1280x720.png` | `donut_hurt_iframes`, tick 68 | Donut's HP bar is real (3 of 4) after a real goblin swing; her sprite shows the hit tint; Carl untouched |
+| `party-REAL-donut-hurt-640x360-2x-1280x720.png` | `donut_hurt_iframes`, tick 68 | Donut's HP bar is real (3 of 4) after a real goblin swing; her sprite shows the hit tint (taken before Donut's hurt frames were wired: the scene now draws her `h0` and `h1` frames, see [f01-donut-hurt](../f01-donut-hurt/README.md)); Carl untouched |
 
 ## Headless replays
 
@@ -35,4 +35,4 @@ The 13 combat fixture hashes (`combat_scene::tests::EXPECTED_HASHES`), the corri
 
 ## Not shown
 
-No video or GIF, no capture with a real pad, no capture of the Q7 edge arrow (not drawn), no Donut hurt art (she flashes and blinks; she has locomotion frames only).
+No video or GIF, no capture with a real pad, no capture of the Q7 edge arrow (not drawn), no Donut hurt art at the time of these captures (she flashed and blinked; her hurt, knockback and knockdown frames are wired since, see [f01-donut-hurt](../f01-donut-hurt/README.md)).
