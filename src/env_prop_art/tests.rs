@@ -506,6 +506,18 @@ fn the_labels_follow_the_props_through_the_whole_chain() {
         let texts: Vec<&str> = tags.iter().map(|x| x.text).collect();
         let unique: std::collections::BTreeSet<&str> = texts.iter().copied().collect();
         assert_eq!(texts.len(), unique.len(), "one label per text at {t}");
+        for (i, a) in tags.iter().enumerate() {
+            for b in &tags[i + 1..] {
+                assert!(
+                    !a.overlaps(b),
+                    "{} and {} overlap at tick {t}: {:?} {:?}",
+                    a.text,
+                    b.text,
+                    a.ink_box(),
+                    b.ink_box()
+                );
+            }
+        }
         for tag in &tags {
             assert!(
                 tag.centre_x >= 0 && tag.centre_x <= width,
@@ -593,5 +605,92 @@ fn every_label_text_rasterises_in_the_pixel_font() {
         &t.rgba[4..8],
         &labels::TAG_INK,
         "row 0, column 1 of S is ink"
+    );
+}
+
+/// Labels that would cross are lifted apart, deterministically and in piece
+/// order; a label that does not cross anything stays where it was put.
+#[test]
+fn overlapping_labels_are_lifted_apart_in_piece_order() {
+    let piece = |label: &'static str, x: i32, y: i32| Piece {
+        rect: IRect { x, y, w: 16, h: 16 },
+        tone: Tone::Iron,
+        layer: Layer::Prop,
+        label,
+    };
+    // The remnant and the drum stand side by side: their 64 px labels cross.
+    let p = [
+        piece("landed remnant (stand-in)", 100, 200),
+        piece("fuel drum (stand-in)", 120, 200),
+        piece("brace (stand-in)", 110, 200),
+    ];
+    let tags = labels::tags(&p);
+    assert_eq!(
+        texts(&p),
+        ["STAND-IN: RUBBLE", "STAND-IN: DRUM", "STAND-IN: BRACE"]
+    );
+    assert_eq!(tags[0].bottom_y, 199, "the first keeps its place");
+    assert_eq!(
+        tags[1].bottom_y,
+        199 - labels::LIFT_PX,
+        "the second is lifted once"
+    );
+    assert_eq!(
+        tags[2].bottom_y,
+        199 - 2 * labels::LIFT_PX,
+        "the third twice"
+    );
+    for (i, a) in tags.iter().enumerate() {
+        for b in &tags[i + 1..] {
+            assert!(!a.overlaps(b), "{} / {}", a.text, b.text);
+        }
+    }
+    assert_eq!(tags, labels::tags(&p), "deterministic");
+    // Far apart: nothing moves.
+    let apart = [
+        piece("landed remnant (stand-in)", 0, 200),
+        piece("fuel drum (stand-in)", 300, 200),
+    ];
+    assert!(labels::tags(&apart).iter().all(|t| t.bottom_y == 199));
+    // Touching boxes do not count as overlapping (the gap is the lift's own line).
+    let a = labels::Tag {
+        text: "STAND-IN: DRUM",
+        centre_x: 100,
+        bottom_y: 50,
+    };
+    let b = labels::Tag {
+        text: "STAND-IN: DRUM",
+        centre_x: 100,
+        bottom_y: 50 - 6,
+    };
+    assert!(!a.overlaps(&b) && a.overlaps(&a));
+}
+
+/// The chain that overlapped on screen (the review of #254): the weight falls
+/// and lands while the drum still stands, so the RUBBLE and DRUM labels are
+/// both due beside each other. They must be shown together and never cross.
+#[test]
+fn the_rubble_and_drum_labels_are_shown_together_without_crossing() {
+    let (run, mut scene, mut combat) = rig();
+    two_hits(&mut combat, WEIGHT);
+    let mut together = 0;
+    for t in 0..400u64 {
+        step(&mut scene, &mut combat);
+        let tags = labels::tags(&view(&run, &combat, t));
+        let rubble = tags.iter().find(|x| x.text == "STAND-IN: RUBBLE");
+        let drum = tags.iter().find(|x| x.text == "STAND-IN: DRUM");
+        if let (Some(r), Some(d)) = (rubble, drum) {
+            together += 1;
+            assert!(
+                !r.overlaps(d),
+                "tick {t}: {:?} {:?}",
+                r.ink_box(),
+                d.ink_box()
+            );
+        }
+    }
+    assert!(
+        together > 0,
+        "the landed weight and the standing drum never coexisted"
     );
 }

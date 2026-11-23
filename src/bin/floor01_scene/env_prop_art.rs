@@ -151,7 +151,9 @@ pub(super) fn sync_prop_art(
                 transform.translation = Vec3::new(
                     tag.centre_x as f32,
                     (layout_h - tag.bottom_y) as f32 + glyph_h / 2.0,
-                    art.tag_z,
+                    // A distinct z per pool slot: labels never overlap (`tags`
+                    // keeps them apart), and no draw order is left to a tie.
+                    art.tag_z + slot.0 as f32 * 0.001,
                 );
                 *visibility = Visibility::Inherited;
             }
