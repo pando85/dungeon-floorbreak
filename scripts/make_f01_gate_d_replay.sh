@@ -4,13 +4,14 @@
 # Every (who, seed) of the Juicer's room (`juicer:WHO:SEED`, 3 who x 9 seeds = 27), of the closing arena
 # (`mastery:WHO:SEED`, 4 who x 9 seeds = 36), of the hazards room (`hazards:WHO:SEED`, 3 who x 9 seeds = 27,
 # PT-GATE-E) and of the Boiler's live room (`boiler:WHO:direct|both:SEED`, 3 who x 2 plans x 9 seeds = 54,
-# PT-GATE-E) is run through scripts/room_capture.sh to the tick the library fixture ends on: a real window under xvfb (the Bevy presentation) and the
+# PT-GATE-E) and of the Hoarder's room (`hoarder:carl_solo:SEED`, 9 seeds, FA-Q24) is run through
+# scripts/room_capture.sh to the tick the library fixture ends on: a real window under xvfb (the Bevy presentation) and the
 # headless smoke, twice. For each run the window's final COMBAT_STATE hash must equal the headless
 # one, and both must equal the library fixture's: the combat hash of the same state (printed by the
 # ignored test `room_pilots::tests::prints_the_aligned_library_hashes`) and, from the headless
 # ROOM_PILOT_STATE line, the library fixture's final hash itself. Output: render_replay_lines.txt,
 # one RENDER_REPLAY line per run and a closing RENDER_REPLAY_TOTAL line. The script fails unless
-# all 144 match. (The 9 Rot-off hazards runs of #240 build the real `hazq02_rot_enabled` switch since FIX-TOOL,
+# all 153 match. (The 9 Rot-off hazards runs of #240 build the real `hazq02_rot_enabled` switch since FIX-TOOL,
 # but the shipped scene has no flag that turns it off: they have no scene route to replay and are not in this set.)
 #
 # Needs the debug binary (cargo build --locked --bin floor01_scene), the exported atlases
@@ -21,7 +22,7 @@
 #   OUT=<lines file> (default docs/evidence/f01-playtest/render_replay_lines.txt)
 #   CAPTURES=<scratch dir, under artifacts/> (deleted first)
 #   ROOMS="boiler hazards" (optional): run only those rooms and keep the committed lines of the others
-#     (a partial re-run after an output-only change of one room's smoke; the closing total covers all 144)
+#     (a partial re-run after an output-only change of one room's smoke; the closing total covers all 153)
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 export BIN="${BIN:-./target/debug/floor01_scene}"
@@ -36,7 +37,7 @@ mkdir -p "$caps" "$(dirname "$out")"
 library="$caps/library.txt"
 cargo test --locked --lib room_pilots::tests::prints_the_aligned_library_hashes -- --ignored --nocapture --test-threads=1 2>/dev/null \
   | grep '^ALIGNED_LIBRARY room=' > "$library"
-[[ "$(wc -l < "$library")" -eq 144 ]] || { echo "expected 144 library lines" >&2; exit 1; }
+[[ "$(wc -l < "$library")" -eq 153 ]] || { echo "expected 153 library lines" >&2; exit 1; }
 field() { sed -E "s/.* $1=([^ ]*).*/\\1/" <<<"$2"; }
 : > "$out.tmp"
 total=0 matched=0
@@ -67,7 +68,14 @@ while read -r line; do
   for run in 1 2; do
     dir="$caps/$tag-run$run"
     # One frame, on the library fixture's final tick: first=ticks, step=1, count=1.
-    bash scripts/room_capture.sh "$room" "$plan" "$ticks:1:1" "$dir" > /dev/null || ok=no
+    # A window can lose its GPU device when other jobs share the GPU ("Device(Lost)"): the machine, not
+    # the run. A capture is retried up to three times; a hash mismatch still fails the line below.
+    captured=no
+    for attempt in 1 2 3; do
+      if bash scripts/room_capture.sh "$room" "$plan" "$ticks:1:1" "$dir" > /dev/null 2>&1; then captured=yes; break; fi
+      grep -q 'Device(Lost)' "$dir/run.log" 2>/dev/null || break
+    done
+    [[ "$captured" == yes ]] || ok=no
     state() { grep '^COMBAT_STATE ' "$1" | tail -n 1 | sed -E 's/.* hash=([0-9a-f]+).*/\1/'; }
     window+=("$(state "$dir/run.log")")
     headless+=("$(state "$dir/headless.log")")
@@ -84,6 +92,6 @@ while read -r line; do
   total=$((total + 1))
   [[ "$ok" == yes ]] && matched=$((matched + 1))
 done < "$library"
-echo "RENDER_REPLAY_TOTAL runs=$total matched=$matched juicer=27 arena=36 hazards=27 boiler=54 passes=2" >> "$out.tmp"
+echo "RENDER_REPLAY_TOTAL runs=$total matched=$matched juicer=27 arena=36 hazards=27 boiler=54 hoarder=9 passes=2" >> "$out.tmp"
 mv "$out.tmp" "$out"
-[[ "$total" -eq 144 && "$matched" -eq 144 ]]
+[[ "$total" -eq 153 && "$matched" -eq 153 ]]

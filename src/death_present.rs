@@ -696,6 +696,11 @@ impl Finish {
             "goblin_exploded" => Self::Exploded,
             // The pose is picked from the defeat's events (`slam_pose_for`).
             "goblin_slammed" => Self::GoblinSlammed(SlamPose::Flung),
+            // FA-Q23 (HRD sheet section 10): every recipe of the Hoarder (`pile_boss`) maps to her
+            // HOARD-01 `down` frames 13 to 15, which the room's own presenter draws
+            // (`hoarder_art`). The generic presenter adds nothing: no gibs, no dismemberment, no
+            // blood (a ruined person, not a target for spectacle), and she is not CINE-eligible.
+            "pile_boss_down" => Self::NoArt,
             _ => Self::NoArt,
         }
     }
@@ -3927,6 +3932,63 @@ mod tests {
             0
         );
         assert!(q.pose_of(0).is_none());
+    }
+
+    /// FA-Q23 (HRD sheet section 10): the Hoarder's species is in the cf02 overlay, every cause
+    /// (the blast included) and force selects `pile_boss_down` (never a goblin finish), and the
+    /// generic presenter draws nothing for it: no part, no gib, no blood decal, no pose. Her
+    /// own presenter draws the HOARD-01 `down` frames.
+    #[test]
+    fn the_pile_boss_species_selects_its_down_finish_and_draws_no_gore() {
+        let profiles = DeathProfiles::cf02();
+        assert!(profiles.species("pile_boss").is_some());
+        assert!(DeathProfiles::builtin().species("pile_boss").is_none());
+        let causes = [
+            DefeatCause::Melee,
+            BLOCK,
+            EDGE,
+            DefeatCause::Explosion {
+                charge: 0,
+                player: Some(0),
+                point_blank: true,
+            },
+            DefeatCause::Explosion {
+                charge: 0,
+                player: None,
+                point_blank: false,
+            },
+        ];
+        for cause in causes {
+            for force in [
+                ForceTier::Routine,
+                ForceTier::Heavy,
+                ForceTier::Catastrophic,
+            ] {
+                let picked = profiles.select("pile_boss", cause, force);
+                assert_eq!(picked.finish, "pile_boss_down", "{cause:?} {force:?}");
+            }
+        }
+        assert_eq!(Finish::from_id("pile_boss_down"), Finish::NoArt);
+        for (cause, force) in [
+            (BLOCK, ForceTier::Catastrophic),
+            (DefeatCause::Melee, ForceTier::Routine),
+            (causes[3], ForceTier::Catastrophic),
+        ] {
+            let mut q = presenter(GorePreset::Full);
+            q.profiles = DeathProfiles::cf02();
+            q.species = "pile_boss";
+            let goblins = [goblin_at(484.0)];
+            q.step(&[defeat(1, 0, cause, force)], obs(&goblins));
+            for _ in 0..30 {
+                q.step(&[], obs(&goblins));
+            }
+            assert_eq!(
+                q.live_parts() + q.live_floor_decals() + q.live_wall_decals(),
+                0,
+                "{cause:?}"
+            );
+            assert!(q.pose_of(0).is_none());
+        }
     }
 
     #[test]

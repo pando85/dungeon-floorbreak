@@ -26,11 +26,13 @@ try() { # expectation(ok|refuse) args...
 }
 S="--scene f01_late --scale 2"
 try ok $S
-for room in boiler hazards juicer mastery; do try ok $S --f01-room "$room"; done
-# PTG-AD1: the Hoarder is unlisted; its own scene still launches it.
-for room in hoarder corral dozer ring_court ring_split; do try refuse $S --f01-room "$room"; done
+for room in hoarder boiler hazards juicer mastery; do try ok $S --f01-room "$room"; done
+# FA-Q24: the Hoarder is listed again (it reverses PTG-AD1); her own scene still launches her too.
+for room in corral dozer ring_court ring_split; do try refuse $S --f01-room "$room"; done
 try ok --scene f01_hoarder --scale 2
 try ok $S --f01-room mastery --f01-loadout all
+try ok $S --f01-room hoarder --f01-loadout all
+try ok $S --f01-room hoarder --companion cf02_assist
 try ok $S --f01-room boiler --f01-loadout story
 # Plan sections 8 and 9: a room scene defaults the AI partner to cf02_free and --companion overrides it
 # (PT-GATE-C1); the placeholder fixture a room scene sets is not a user fixture.

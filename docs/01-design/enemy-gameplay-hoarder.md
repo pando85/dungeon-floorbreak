@@ -134,6 +134,8 @@ Carl's window is about 18 ticks and starts around the lunge start: jumping *as s
 
 On the J-B landing tick, if the footprint overlaps her body box, whatever her mode (in a mode without a body box, including the Lunge, the standing box is tested): **6 damage, never lethal** (her HP floors at 1), then **Exposed 150 ticks**, then **Get-up 24**, then Cooldown 30. Exposed and Get-up have no attack boxes. Her body and hurtbox while Exposed and in Get-up are the prone box `[-48, 72) x [0, 48)` (HOARD-01 frame 15's bbox, rounded; section 4.0), which every merged hero hit can reach. Stand-in: frame 11 held under the landed remnant (alive, eyes open); never frames 13..15, which mean defeat (the Engineer U1 lesson). The finishing blow is always a hero's.
 
+**Stand-in pieces (labelled greybox until the pile props, HOARD-02, K10).** Drawn as flat labelled rectangles, no sprite: the exit **door** (a slab until her defeat tick, then its frame), the entry **gate** (bars while it stands, its faint footprint while open), **bank A** (a junk slab), the **J-B post** (`POST B`, added beyond the original list: an invisible hit target would read as a bug) and the **lair mound** (`MOUND`, DV-3, a backdrop with no collision, added for the same reason).
+
 ## 5. Pile A (J-A): the shuddering bank
 
 States (#178): `stable` → `disturbed` → `slid` → `settled`, once per attempt. With the disturbance on tick T (for a baited shove, the jam tick): `disturbed` T..T+23, `slid` **T+24..T+39**, `settled` from T+40.
@@ -333,7 +335,7 @@ All headless, under `cf02_rules`, golden-pinned. Unless stated: Carl only, her p
 | `hrd_reveal_no_hits` | Dormant, gate open; Carl alone walks right from x 428 (right of bank A's ground solid `[352, 416)`) | jab her during the reveal | the gate closes and `Engaged` fires 8 ticks after Carl reaches 432; no `Hurt` and no tell for 90 ticks; then Neutral |
 | `hrd_gate_2p_waits` | 2P, gate open; Carl walks past 432, P2 Donut stays at x 150 | none | gate open and she stays Dormant while Donut is outside; when Donut walks to x 236 the gate closes 1 tick later at most and `Engaged` fires |
 | `hrd_gate_solo_regroup` | solo Carl with the plain bot held at x 150 by fixture setup | Carl walks past 432 | after 120 ticks the bot is placed at x 248, the gate closes, `Engaged` |
-| `hrd_gate_no_band` | gate closed; bank A removed by fixture setup; P1 Donut at x 236 | none | her swipe hits Donut; her pivot never goes below 300; no `Disengage` |
+| `hrd_gate_no_band` | gate closed; bank A removed by fixture setup; P1 Donut at x 236 | none | her swipe hits Donut; her pivot never goes below the leash minimum 290 (HRDF-AD1: with her shove off cooldown the lunge reaches 290; with it suppressed she stops at the 64 px standoff, 323.5 measured); no `Disengage` |
 | `hrd_retry_short_reveal` | as above, after a retry | none | reveal 30 ticks |
 | `hrd_restart_mid_reveal` | restart on reveal tick 45 | none | fresh state; the retry reveal is 30 ticks; state hash equal to a fresh retry |
 | `hrd_swipe_hits_idle_carl` | Carl at d 60 | none | tell 0..33, `HeroHurt` 2 damage on attack tick 37, knock +160 / 200 away; Recover 43..90 |
@@ -350,7 +352,7 @@ All headless, under `cf02_rules`, golden-pinned. Unless stated: Carl only, her p
 | `hrd_leash_return` | gate disabled and bank A removed by fixture setup (the settled case); Carl retreats to x 100 | none | she stops at the leash edge 290; after 90 unreachable ticks `Disengage`, she walks to 608 and holds; HP unchanged |
 | `hrd_disengage_trigger_band` | gate disabled and bank A removed by fixture setup; P1 Donut at pivot 200 | none | `Disengage` after 90 ticks at the leash edge 290 (pivot distance 90 exceeds the 88 px trigger, though her hurtbox still touches the swipe box) |
 | `hrd_no_safe_snipe` | gate disabled and bank A removed by fixture setup; P1 Donut at x 150 | Donut fires Magic Missiles whenever she can | she holds at 290 for 90 ticks, then walks home (missile hits deal damage and poise, never cancel the walk) and holds at 608; from x 150 Donut's missiles no longer reach her |
-| `hrd_disengage_follow_punished` | gate disabled and bank A removed by fixture setup; Carl at x 150 | after `Disengage`, Carl follows to 44 px behind her and jabs | she starts `Turn` within 1 tick of Carl entering 88 px; a swipe tell aimed at Carl starts within 21 ticks; Carl lands at most 2 jabs before the tell |
+| `hrd_disengage_follow_punished` | gate disabled and bank A removed by fixture setup; Carl at x 150 | after `Disengage`, Carl follows to 44 px behind her and jabs | she starts `Turn` within 1 tick of Carl entering 88 px; a swipe tell aimed at Carl starts within 23 ticks (HRDF-D1, was 21); Carl lands at most 2 jabs before the tell |
 | `hrd_leash_kite_probe` | gate disabled and bank A removed by fixture setup; scripted solo Donut draws her (to x 288 or more), retreats to x 150 and fires whenever she is in range | pilot, 3 cycles | **reporting only**, no pass threshold: damage per cycle and ticks per cycle, for the HRD-D kite measurement |
 | `hrd_ai_steps_out_of_swipe` | P1 Carl idle at d 140; AI Donut at d 50, her target (50 + the 40 px M2 bias is still nearer than 140); **two runs: the plain bot and `--companion cf02_free`** (the companion run waits for CA2-B2, as plan companion fixtures do) | none | the follower steps out on the Pound anchor; no `HeroHurt` on Donut from the swipe |
 | `hrd_ai_steps_out_untargeted` | P1 Carl at d 44, her target; AI Donut at d 84; the same two runs | none | the Pound carries `target: None`; the untargeted bot steps out; no `HeroHurt` on Donut |
@@ -430,3 +432,23 @@ The third narrow check passed with six fix-now items (F-A..F-F) and an optional 
 | F-G wording | "Every living hero" is now "every present hero" (the slot's `present` flag) | 3, 7, HRD-Q41 |
 | Note: 2P gate off | Added to the HRD-D kite comparison | 11 |
 | Note: `hrd_reveal_no_hits` | Carl starts at x 428, outside bank A's ground solid | 14 |
+
+## 20. HRD-FU, the presentation and room 1 (FA-Q23, FA-Q24, PR-E)
+
+Execution by the medium tier (Claude Sonnet); no design decision of this sheet changed. Recorded here so the sheet and the code agree.
+
+| Item | What was done | Where |
+| --- | --- | --- |
+| Presentation (HRD-P) | The stand-in table of section 4 is drawn from the committed HOARD-01 frames, each carrying the visible label "STAND-IN UNTIL HOARD-02"; the door, the entry gate, bank A, the J-B post and the lair mound are labelled greybox (K10). A fade-in over the first 30 reveal ticks stands in for the emerge art. Not drawn: the stir cue at x 240 (HRD-Q05). Presentation only: no sim hash moves | `src/hoarder_art.rs`, `src/bin/floor01_scene/hoarder_art.rs` |
+| Death presentation | Species `pile_boss` is in the cf02 overlay; every recipe selects `pile_boss_down`, which the generic presenter draws as nothing (no gibs, no blood); her own presenter draws `down` 13 to 15 | `assets/data/death/species_death_profiles_cf02.json`, `src/death_present.rs` |
+| Room 1 relisted (FA-Q24) | The manifest lists `hoarder` again (reverses PTG-AD1); `hoarder:carl_solo:SEED` (seeds 0..8) is a room pilot; she is defeated on 9 of 9 with exactly one `CapabilityGranted`; `MANIFEST_HASH` re-pinned | `assets/levels/f01_late/manifest.json`, `src/room_pilots.rs`, `src/hoarder_fixtures.rs` |
+| Door and exit gate | `EnvSolidKind::Lock` (authored, one roster enemy) and `ExitGate` (derived, the whole roster) are kept as two kinds and reconciled by the one predicate `opens_on_defeat` and the shared rule that both read the enemies' own state | `src/combat_scene/env.rs` |
+| Deferred fixtures | `hrd_gate_no_band`, `hrd_disengage_follow_punished`, `hrd_leash_kite_probe` (reporting only), `hrd_direct_clear_companion`, `hrd_room_validator` | `src/hoarder_fixtures.rs` |
+
+**HRDF-AD1 (adopted, as HRDA2-AD3).** The sheet starts `hrd_gate_no_band` and `hrd_disengage_follow_punished` with her at E = 760, which cannot show their expectations: from there no hero is within her 320 px return radius, so she walks home to 608 and holds (section 7, "Home hold") and never reaches the standoff or the leash edge. The fixtures start her nearer (520 with her shove cooldown preset, 340) and say why. Off her shove cooldown she shoves the 96..176 px target instead and the lunge carries her to the leash minimum 290, below the standoff's 300.
+
+**HRDF-D1 (adopted value, 23 ticks).** Section 14 said that after a disengage a swipe tell aimed at a following Carl starts within 21 ticks of Carl entering 88 px. Measured: the Turn starts on the same tick and the tell 23 ticks after. The extra ticks are the global conventions: a state of N ticks ends on tick N + 1, and a jab's hit stop freezes her clock (up to two jabs land during the Turn). The Turn's 20 ticks is pinned by HRD-Q04 and `hrd_turn_flank`; matching 21 would mean shortening the Turn or exempting it from hit stop, moving goldens to recover 33 ms nobody can perceive. The sheet is corrected to 23 and the fixture's other bounds stand (Turn within 1 tick, at most 2 jabs before the tell). No code change.
+
+**Kite finding (reporting only, HRD-D).** With the entry gate **off** (`hrdq41_gate_enabled = false`), scripted solo Donut drawing her out from x 288 and firing from x 150 kills her in one cycle: 30 damage in 2193 ticks (about 36 s), no hero hit, and 19 `Disengage` events (the walk home is re-logged each time a hit resumes it). With the gate on (the default) heroes stand inside her reach. Levers (b) and (c) of section 11 stand; no number was tuned.
+
+**Companion.** `hrd_direct_clear_companion` (`cf02_free`, seeds 0..8): she is defeated and Carl reaches the exit on 9 of 9, no hero defeat, no hero stuck over 300 ticks (120 and 97 at most); the AI partner never hits her (passive by design, v1). A companion change re-pins the fixture.

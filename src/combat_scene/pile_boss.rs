@@ -42,8 +42,9 @@ use crate::scene_enemy::{
 
 /// The registry name of the kind: the roster kind string.
 pub const KIND: &str = "hoarder";
-/// The death-profile species key (HRD sheet section 10). The species has no
-/// presenter art yet, so the presenter draws nothing for it (stand-in).
+/// The death-profile species key (HRD sheet section 10). The cf02 overlay maps every
+/// recipe to `pile_boss_down`, which the generic death presenter draws as nothing (no gibs,
+/// no blood): her own presenter (`hoarder_art`, FA-Q23) draws HOARD-01's `down` frames.
 pub const SPECIES: &str = "pile_boss";
 /// The wall columns of the room kit (16 px, the kit's tile): her `walls` are the
 /// scene's width less one column on each side, so her push-out never places a

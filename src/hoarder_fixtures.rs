@@ -22,10 +22,11 @@
 //! the gate a slot gate that closes on `Engaged` (`hrd_gate_physical`,
 //! `hrd_exit_door_physical`).
 //!
-//! **Not here (deferred to HRD-A2b, listed in the PR):** `hrd_gate_no_band`,
-//! `hrd_disengage_follow_punished`, `hrd_leash_kite_probe` (reporting only),
-//! `hrd_direct_clear_companion` (waits for CA2-B2) and `hrd_room_validator` (the
-//! validator side is BOIL-A's and HRD-A1's tests).
+//! **HRD-FU (the FA-Q23 batch):** the five fixtures once deferred to HRD-A2b are here:
+//! `hrd_gate_no_band`, `hrd_disengage_follow_punished`, `hrd_leash_kite_probe` (reporting
+//! only), `hrd_direct_clear_companion` (CA2-B2 is merged) and `hrd_room_validator`. Where the
+//! sheet's start cannot show its own expectation (she starts at `E = 760`, so no hero is within
+//! her 320 px return radius), the fixture starts her nearer and says why (HRDF-AD1).
 
 use std::path::Path;
 
@@ -52,6 +53,13 @@ pub enum Control {
     CarlOnly,
     /// Solo, P1 controls Carl, Donut is the plain bot.
     SoloCarl,
+    /// FA-Q24: solo, P1 controls Carl, Donut is the autonomous `cf02_assist` partner with the
+    /// 12-tick swap: the party of every live `f01_late` room ([`room_party_tuning`]), which
+    /// the PLAYTRACE verifier rebuilds from a room recording.
+    SoloCarlAssist,
+    /// HRD-FU: solo, P1 controls Carl, Donut is the autonomous `cf02_free` partner
+    /// (`--companion cf02_free`, [`crate::f01_mastery_fixtures::tuning`] of the companion).
+    SoloCarlFree,
     /// Solo, P1 controls Donut (swapped before tick 1), Carl is the plain bot.
     SoloDonut,
     /// Two players: Carl on P1, Donut on P2.
@@ -109,6 +117,12 @@ impl Plan {
     }
 }
 
+/// FA-Q24: the party of a live room (`f01_late` default: `cf02_assist` and the 12-tick swap), the
+/// tuning of the aligned `hoarder` room pilot and of the PLAYTRACE verifier's rebuilt party.
+pub fn room_party_tuning() -> crate::party::PartyTuning {
+    crate::f01_mastery_fixtures::tuning(crate::f01_mastery_fixtures::Who::CarlSolo)
+}
+
 /// The tuning with the entry gate lever off, built once ([`PileBoss`] borrows its
 /// tuning for `'static`).
 fn gate_off_tuning() -> &'static PileBossTuning {
@@ -140,7 +154,13 @@ impl Rig {
         let party = match plan.control {
             Control::CarlOnly => None,
             _ => {
-                let mut party = PartyState::new(PROVISIONAL_TUNING);
+                let mut party = PartyState::new(match plan.control {
+                    Control::SoloCarlAssist => room_party_tuning(),
+                    Control::SoloCarlFree => crate::f01_mastery_fixtures::tuning(
+                        crate::f01_mastery_fixtures::Who::Companion,
+                    ),
+                    _ => PROVISIONAL_TUNING,
+                });
                 if plan.control == Control::TwoPlayer {
                     party.pad_connected(PadId(1));
                     party.pad_start_pressed(PadId(2));
@@ -1522,9 +1542,21 @@ impl CarlPilot {
 
     /// The input of the next tick from the state after the previous one.
     pub fn input(&mut self, rig: &Rig) -> RawInput {
-        let boss = rig.boss().boss();
-        let carl = rig.carl_x();
-        let grounded = rig.scene.world.hero.grounded;
+        self.input_at(
+            rig.boss().boss(),
+            rig.carl_x(),
+            rig.scene.world.hero.grounded,
+        )
+    }
+
+    /// The same from the three facts the pilot reads: her state, Carl's x and whether
+    /// he is grounded (the scene's room pilot has no [`Rig`]).
+    pub fn input_at(
+        &mut self,
+        boss: &crate::pile_boss::PileBoss,
+        carl: f32,
+        grounded: bool,
+    ) -> RawInput {
         let dx = boss.x() - carl;
         let adx = dx.abs();
         let mode = boss.mode();
@@ -1644,8 +1676,7 @@ impl DonutPilot {
 }
 
 /// The pre-fight walk: from the spawn to the lair, jumping bank A on the way.
-fn approach_input_for(rig: &Rig, x: f32, grounded: bool) -> RawInput {
-    let _ = rig;
+fn approach_input(x: f32, grounded: bool) -> RawInput {
     let mut raw = run_input(1.0);
     // Bank A is [352, 416) and 48 px high: an ordinary jump from just before it.
     if grounded && (326.0..340.0).contains(&x) {
@@ -1654,14 +1685,68 @@ fn approach_input_for(rig: &Rig, x: f32, grounded: bool) -> RawInput {
     raw
 }
 
+/// FA-Q24: Carl's whole-room pilot of room 1: walk in from the spawn (jumping bank A), stop
+/// short of her while she wakes, fight her ([`CarlPilot`]) and walk to the exit once she is
+/// down. A pure function of the finished simulation state, so the scene's room pilot
+/// (`room_pilots`, `hoarder:carl_solo:SEED`) and the library run play the same fight.
+#[derive(Debug, Clone)]
+pub struct ClearPilot {
+    carl: CarlPilot,
+}
+
+impl ClearPilot {
+    pub fn new(seed: u64) -> Self {
+        Self {
+            carl: CarlPilot::new(seed),
+        }
+    }
+
+    /// Carl's input of the next tick, from the state after the previous one.
+    pub fn input(&mut self, combat: &CombatState, scene: &SceneSim) -> RawInput {
+        let Some(boss) = of(combat).map(PileBossEnemy::boss) else {
+            return run_input(1.0);
+        };
+        if !boss.alive() {
+            return run_input(1.0);
+        }
+        let body = scene.world.body(crate::party::HeroId::Carl);
+        let engaged = combat.events.iter().any(|e| {
+            matches!(
+                e,
+                CombatEvent::PileBoss {
+                    event: PileEvent::Engaged,
+                    ..
+                }
+            )
+        });
+        if !engaged {
+            // Walk in; stop short of her body while she wakes.
+            return if body.x >= 500.0 {
+                RawInput::NONE
+            } else {
+                approach_input(body.x, body.grounded)
+            };
+        }
+        self.carl.input_at(boss, body.x, scene.world.hero.grounded)
+    }
+}
+
 /// A pilot run of the whole room: walk in from the spawn, fight, walk out. Returns
 /// the rig and `(defeat tick, exit tick, longest stuck stretch, hero defeats)`.
-fn clear_run(
-    root: &Path,
-    control: Control,
-    seed: u64,
-    limit: u64,
-) -> Result<(Rig, u64, u64, u64, u32), String> {
+/// What [`clear_run`] measured.
+struct ClearRun {
+    rig: Rig,
+    /// The scene tick of her defeat and of the exit.
+    defeat: u64,
+    exit: u64,
+    /// The longest stretch the controlled hero neither moved nor hit her, and the same for the
+    /// other hero (the plain bot or the companion).
+    stuck: u64,
+    stuck_partner: u64,
+    deaths: u32,
+}
+
+fn clear_run(root: &Path, control: Control, seed: u64, limit: u64) -> Result<ClearRun, String> {
     use crate::party::HeroId;
     let plan = Plan {
         carl_x: 112,
@@ -1677,36 +1762,40 @@ fn clear_run(
     } else {
         HeroId::Carl
     };
-    let (mut carl_pilot, mut donut_pilot) = (CarlPilot::new(seed), DonutPilot::new(seed));
+    let (mut clear_pilot, mut donut_pilot) = (ClearPilot::new(seed), DonutPilot::new(seed));
     let (mut defeat, mut exit) = (None, None);
     let mut stuck = 0u64;
     let mut longest = 0u64;
+    let partner = if hero == HeroId::Carl {
+        HeroId::Donut
+    } else {
+        HeroId::Carl
+    };
+    let (mut partner_stuck, mut partner_longest) = (0u64, 0u64);
     let pos = |rig: &Rig| rig.scene.world.body(hero).x;
+    let partner_pos = |rig: &Rig| rig.scene.world.body(partner).x;
     let mut last = (pos(&rig), 30u16);
+    let mut partner_last = partner_pos(&rig);
     for _ in 0..limit {
         let engaged = engaged_tick(&rig).is_some();
         let alive = rig.boss().boss().alive();
         let body = rig.scene.world.body(hero);
         let (x, grounded) = (body.x, body.grounded);
-        let input = if !alive {
+        let input = if hero == HeroId::Carl {
+            clear_pilot.input(&rig.combat, &rig.scene)
+        } else if !alive {
             run_input(1.0)
         } else if !engaged {
             // Walk in; stop short of her body while she wakes (Donut stops well
             // short of her: she fights from range).
-            let stop = if hero == HeroId::Donut {
-                470.0 + (seed % 4) as f32 * 9.0
-            } else {
-                500.0
-            };
+            let stop = 470.0 + (seed % 4) as f32 * 9.0;
             if x >= stop {
                 RawInput::NONE
             } else {
-                approach_input_for(&rig, x, grounded)
+                approach_input(x, grounded)
             }
-        } else if hero == HeroId::Donut {
-            donut_pilot.input(&rig)
         } else {
-            carl_pilot.input(&rig)
+            donut_pilot.input(&rig)
         };
         rig.step(carl_input(input));
         if defeat.is_none() && !rig.defeats().is_empty() {
@@ -1717,29 +1806,46 @@ fn clear_run(
             break;
         }
         let now = (pos(&rig), rig.boss().boss().hp());
-        if (now.0 - last.0).abs() < 0.01 && now.1 == last.1 && rig.boss().boss().alive() {
+        let partner_now = partner_pos(&rig);
+        let alive_now = rig.boss().boss().alive();
+        if (now.0 - last.0).abs() < 0.01 && now.1 == last.1 && alive_now {
             stuck += 1;
             longest = longest.max(stuck);
         } else {
             stuck = 0;
         }
+        if (partner_now - partner_last).abs() < 0.01 && now.1 == last.1 && alive_now {
+            partner_stuck += 1;
+            partner_longest = partner_longest.max(partner_stuck);
+        } else {
+            partner_stuck = 0;
+        }
         last = now;
+        partner_last = partner_now;
     }
     let deaths = rig.combat.deaths;
-    Ok((
+    Ok(ClearRun {
         rig,
-        defeat.ok_or("she was never defeated")?,
-        exit.ok_or("the hero never reached the exit")?,
-        longest,
+        defeat: defeat.ok_or("she was never defeated")?,
+        exit: exit.ok_or("the hero never reached the exit")?,
+        stuck: longest,
+        stuck_partner: partner_longest,
         deaths,
-    ))
+    })
 }
 
 fn direct_clear(root: &Path, control: Control) -> Result<Outcome, String> {
     let mut hash = 0u64;
     let mut notes = Vec::new();
     for seed in 0..8u64 {
-        let (rig, defeat, exit, stuck, deaths) = clear_run(root, control, seed, 6000)?;
+        let ClearRun {
+            rig,
+            defeat,
+            exit,
+            stuck,
+            deaths,
+            ..
+        } = clear_run(root, control, seed, 6000)?;
         ensure!(deaths == 0, "seed {seed}: {deaths} hero defeats");
         ensure!(stuck <= 300, "seed {seed}: stuck {stuck} ticks");
         ensure!(
@@ -1767,6 +1873,482 @@ pub fn hrd_direct_clear_solo(root: &Path) -> Result<Outcome, String> {
 /// swap puts Donut under P1; Carl is the plain bot), seeds 0..8.
 pub fn hrd_direct_clear_donut(root: &Path) -> Result<Outcome, String> {
     direct_clear(root, Control::SoloDonut)
+}
+
+// ------------------------------------------------------ HRD-FU fixtures --
+//
+// The five fixtures the module docs once deferred (backlog HRD-FU, FA-Q23 batch). A fixture
+// that contradicts the sheet is a design defect: it returns the measured reason.
+
+/// `hrd_gate_no_band` (sheet section 14, F-E): the gate closed and bank A removed; P1 Donut
+/// idle at x 236 (just inside the gate). Her 64 px standoff keeps her pivot at 300 or more:
+/// her swipe hits Donut, she never goes below 300 and never disengages.
+pub fn hrd_gate_no_band(root: &Path) -> Result<Outcome, String> {
+    // HRDF-AD1: the sheet's start (her at E = 760) cannot show it. Donut at 236 is 524 px away, so
+    // no hero is within her 320 px return radius: she walks home to 608 and holds there
+    // (section 7, "Home hold"), never reaching the standoff. She therefore starts at 520, 284 px
+    // from Donut, with her shove cooldown preset (as `hrd_poise_flinch` does): off cooldown she
+    // shoves the 96..176 px target and the lunge carries her to the leash minimum 290, below
+    // the standoff's 300.
+    let plan = Plan {
+        carl_x: 80,
+        donut_x: 236,
+        no_bank: true,
+        awake: Some((520.0, -1)),
+        shove_cooldown: Some(1000),
+        ..Plan::carl_at(60.0)
+    }
+    .with_control(Control::SoloDonut);
+    let mut rig = Rig::new(root, plan)?;
+    let mut min_x = f32::MAX;
+    let mut first_hit = None;
+    for _ in 0..1500 {
+        rig.step(IDLE);
+        min_x = min_x.min(rig.boss().boss().x());
+        if first_hit.is_none() && rig.hurts().iter().any(|h| h.3 == 1) {
+            first_hit = Some(rig.next_tick() - 1);
+            break;
+        }
+    }
+    let hit = first_hit.ok_or("her swipe never hit Donut")?;
+    ensure!(
+        first_tell(&rig, PileAttack::Swipe).is_some(),
+        "the hit came from a swipe"
+    );
+    ensure!(min_x >= 300.0 - 0.01, "her pivot went below 300: {min_x}");
+    ensure!(
+        !rig.piles()
+            .iter()
+            .any(|(_, e)| matches!(e, PileEvent::Disengage)),
+        "no Disengage"
+    );
+    done(&rig, format!("hit on tick {hit}, lowest pivot {min_x}"))
+}
+
+/// `hrd_disengage_follow_punished` (sheet section 7, N1): the gate disabled and bank A
+/// removed; Carl idle at x 150 until `Disengage`, then he follows her walk home to 44 px behind
+/// her and jabs. She starts `Turn` within 1 tick of Carl entering 88 px, a swipe tell aimed at
+/// Carl starts within 23 ticks (HRDF-D1), and Carl lands at most 2 jabs before the tell.
+pub fn hrd_disengage_follow_punished(root: &Path) -> Result<Outcome, String> {
+    // HRDF-AD1 (as HRDA2-AD3): she starts at x 340, not at E. From 760 Carl at 150 is 610 px
+    // away (no hero within her 320 px return radius), so she walks home to 608 and holds
+    // without ever reaching the leash edge to disengage from.
+    let plan = Plan {
+        carl_x: 150,
+        awake: Some((340.0, -1)),
+        gate_off: true,
+        no_bank: true,
+        ..Plan::carl_at(60.0)
+    };
+    let mut rig = Rig::new(root, plan)?;
+    let mut disengaged = false;
+    let mut entered = None;
+    let mut turn_tick = None;
+    let mut jab_toggle = false;
+    for _ in 0..2400 {
+        let carl = rig.carl_x();
+        let her = rig.boss().boss().x();
+        let input = if !disengaged {
+            RawInput::NONE
+        } else {
+            let gap = her - carl;
+            if gap > 44.0 + 2.0 {
+                run_input(1.0)
+            } else if gap.abs() <= 48.0 {
+                jab_toggle = !jab_toggle;
+                attack_input_if(jab_toggle)
+            } else {
+                RawInput::NONE
+            }
+        };
+        rig.step(carl_input(input));
+        let tick = rig.next_tick() - 1;
+        if !disengaged
+            && rig
+                .piles()
+                .iter()
+                .any(|(_, e)| matches!(e, PileEvent::Disengage))
+        {
+            disengaged = true;
+        }
+        let gap = (rig.boss().boss().x() - rig.carl_x()).abs();
+        if disengaged && entered.is_none() && gap <= 88.0 {
+            entered = Some(tick);
+        }
+        if entered.is_some() && turn_tick.is_none() && rig.mode() == PileMode::Turn {
+            turn_tick = Some(tick);
+        }
+        if entered.is_some() && first_tell_after(&rig, entered.unwrap()).is_some() {
+            break;
+        }
+    }
+    let entered = entered.ok_or("Carl never followed her inside 88 px")?;
+    let turn = turn_tick.ok_or("she never turned")?;
+    let tell = first_tell_after(&rig, entered).ok_or("no swipe tell aimed at Carl")?;
+    ensure!(
+        turn - entered <= 1,
+        "Turn {} ticks after Carl entered 88 px",
+        turn - entered
+    );
+    // HRDF-D1 (adopted value): the bound is 23 ticks. The Turn is 20 ticks (HRD-Q04), a state of N
+    // ticks ends on tick N + 1, and a jab's hit stop freezes her clock; the sheet's earlier 21 left
+    // those out (the sheet is corrected, section 14 and section 20).
+    ensure!(
+        tell - entered <= TELL_WITHIN_TICKS,
+        "the tell came {} ticks after (entered {entered}, Turn {turn})",
+        tell - entered
+    );
+    let jabs = rig
+        .piles()
+        .iter()
+        .filter(|(t, e)| {
+            *t > entered
+                && *t <= tell
+                && matches!(
+                    e,
+                    PileEvent::Hurt {
+                        source: Some(0),
+                        ..
+                    }
+                )
+        })
+        .count();
+    ensure!(jabs <= 2, "Carl landed {jabs} jabs before the tell");
+    done(
+        &rig,
+        format!(
+            "88 px on {entered}, Turn on {turn}, tell on {tell} ({} after, bound {TELL_WITHIN_TICKS}, HRDF-D1), {jabs} jabs",
+            tell - entered
+        ),
+    )
+}
+
+/// The bound for the swipe tell after Carl enters 88 px of her turning back (section 14, HRDF-D1:
+/// adopted at 23, the sheet's 21 corrected).
+const TELL_WITHIN_TICKS: u64 = 23;
+
+/// An attack press on odd calls only (a jab needs a fresh press).
+fn attack_input_if(press: bool) -> RawInput {
+    if press {
+        attack_input()
+    } else {
+        RawInput::NONE
+    }
+}
+
+/// The tick of her first swipe `Tell` aimed at Carl at or after `from`.
+fn first_tell_after(rig: &Rig, from: u64) -> Option<u64> {
+    rig.piles().iter().find_map(|&(tick, event)| match event {
+        PileEvent::Tell {
+            attack: PileAttack::Swipe,
+            target: crate::party::HeroId::Carl,
+        } if tick >= from => Some(tick),
+        _ => None,
+    })
+}
+
+/// `hrd_leash_kite_probe` (sheet section 11, **reporting only**, no pass threshold): the gate
+/// disabled and bank A removed; scripted solo Donut draws her toward the leash edge, retreats
+/// to x 150 and fires whenever she is in range, for three cycles. The note carries the damage
+/// Donut dealt and took and the ticks of each cycle, for the HRD-D kite measurement. A cycle
+/// ends when she disengages and is back home holding; the fixture fails only if a cycle never
+/// completes within its tick budget.
+pub fn hrd_leash_kite_probe(root: &Path) -> Result<Outcome, String> {
+    let plan = Plan {
+        carl_x: 80,
+        donut_x: 236,
+        gate_off: true,
+        no_bank: true,
+        awake: Some((608.0, -1)),
+        ..Plan::carl_at(60.0)
+    }
+    .with_control(Control::SoloDonut);
+    let mut rig = Rig::new(root, plan)?;
+    let donut_x = |rig: &Rig| rig.scene.world.body(crate::party::HeroId::Donut).x;
+    let mut cycles: Vec<(u64, u16, usize)> = Vec::new();
+    let mut killed = false;
+    for cycle in 0..3 {
+        let start = (rig.next_tick(), rig.boss().boss().hp(), rig.hurts().len());
+        let mut drawn = false;
+        let mut retreated = false;
+        let mut done_cycle = false;
+        for _ in 0..2400 {
+            let (x, her) = (donut_x(&rig), rig.boss().boss().x());
+            let tick = rig.next_tick();
+            let mut raw = RawInput::NONE;
+            if !drawn {
+                // Draw her out of her home hold: a hero within 320 px of 608 is x 288 or more
+                // (section 7). Stand there until she has walked out toward the hero.
+                if x < 288.0 {
+                    raw = run_input(1.0);
+                } else if her <= 520.0 {
+                    drawn = true;
+                }
+            }
+            if drawn && !retreated {
+                // Retreat to x 150, then face her again with one step right.
+                if x > 150.0 + 4.0 {
+                    raw = run_input(-1.0);
+                } else {
+                    retreated = true;
+                    raw = run_input(1.0);
+                }
+            }
+            if retreated && (her - x).abs() < 235.0 && tick % 16 == 1 {
+                raw = attack_input();
+            }
+            rig.step(carl_input(raw));
+            let disengaged = rig
+                .piles()
+                .iter()
+                .filter(|(_, e)| matches!(e, PileEvent::Disengage))
+                .count();
+            if !rig.boss().boss().alive() {
+                // The finding itself: from x 150 with the gate off the missiles can kill her
+                // before she is home (HRD-D measures it; the probe has no threshold).
+                killed = true;
+                done_cycle = true;
+                break;
+            }
+            if disengaged > cycle
+                && rig.boss().boss().home_hold()
+                && (rig.boss().boss().x() - 608.0).abs() < 0.01
+            {
+                done_cycle = true;
+                break;
+            }
+        }
+        ensure!(
+            done_cycle,
+            "cycle {} never completed (drawn {drawn}, retreated {retreated}, she {} {:?}, Donut {}, {} Disengage)",
+            cycle + 1,
+            rig.boss().boss().x(),
+            rig.mode(),
+            donut_x(&rig),
+            rig.piles()
+                .iter()
+                .filter(|(_, e)| matches!(e, PileEvent::Disengage))
+                .count()
+        );
+        cycles.push((
+            rig.next_tick() - start.0,
+            start.1.saturating_sub(rig.boss().boss().hp()),
+            rig.hurts().len() - start.2,
+        ));
+        if killed {
+            break;
+        }
+    }
+    let disengages = rig
+        .piles()
+        .iter()
+        .filter(|(_, e)| matches!(e, PileEvent::Disengage))
+        .count();
+    let note = cycles
+        .iter()
+        .enumerate()
+        .map(|(i, (ticks, dealt, taken))| {
+            format!(
+                "cycle {}: {ticks} ticks, {dealt} dealt, {taken} hero hits",
+                i + 1
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("; ");
+    done(
+        &rig,
+        format!(
+            "{note}; {disengages} Disengage events; she {}",
+            if killed {
+                "was killed by the missiles"
+            } else {
+                "survived 3 cycles"
+            }
+        ),
+    )
+}
+
+/// `hrd_direct_clear_companion` (sheet section 14): the Carl pilot with the autonomous
+/// `cf02_free` partner (`--companion cf02_free`), seeds 0..=8: she is defeated and Carl reaches
+/// the exit in every seed with no hero defeat and no hero stuck over 300 ticks; the AI's hits on
+/// her are reported. (CA2-B2 is merged; a later companion change re-pins the hash.)
+pub fn hrd_direct_clear_companion(root: &Path) -> Result<Outcome, String> {
+    let mut hash = 0u64;
+    let mut notes = Vec::new();
+    for seed in ROOM_SEEDS {
+        let ClearRun {
+            rig,
+            defeat,
+            exit,
+            stuck,
+            stuck_partner,
+            deaths,
+        } = clear_run(root, Control::SoloCarlFree, seed, ROOM_RUN_LIMIT)?;
+        ensure!(deaths == 0, "seed {seed}: {deaths} hero defeats");
+        ensure!(
+            stuck <= 300 && stuck_partner <= 300,
+            "seed {seed}: Carl stuck {stuck}, the companion {stuck_partner}"
+        );
+        ensure!(
+            rig.grants().len() == 1,
+            "seed {seed}: one grant, got {:?}",
+            rig.grants()
+        );
+        // The AI's hits on her: hurts credited to hero 1 (Donut).
+        let ai_hits = rig
+            .piles()
+            .iter()
+            .filter(|(_, e)| {
+                matches!(
+                    e,
+                    PileEvent::Hurt {
+                        source: Some(1),
+                        ..
+                    }
+                )
+            })
+            .count();
+        notes.push(format!(
+            "s{seed}: defeat {defeat}, exit {exit}, stuck {stuck}/{stuck_partner}, AI hits {ai_hits}"
+        ));
+        hash = hash.rotate_left(7) ^ rig.hash();
+    }
+    Ok(Outcome {
+        hash,
+        note: notes.join("; "),
+    })
+}
+
+/// `hrd_room_validator` (sheet section 14): the room and its sidecar as data. The load is
+/// the BOIL-A validator; the fixture then reads what it proved: every hero class reaches the
+/// exit in every state (the room has no props, so one state), the lane ceiling is 228, no
+/// solid surface is between 49 and 128 px, the protected rectangles are clear of her swipe and
+/// shove boxes at both leash edges (the exit pocket counts as sealed while the door is closed),
+/// the entry gate stands clear of the spawn pocket and the door opens on a reachable event (her
+/// defeat). The sheet's five pile orderings do not apply yet: bank A and the J-B post are
+/// static entries until HRD-B and HRD-C make them props, so the fixture reports one state.
+pub fn hrd_room_validator(root: &Path) -> Result<Outcome, String> {
+    let run = f01_hoarder::launch(root)?;
+    let l = &run.loaded;
+    let e = &l.encounter;
+    let t = PileBossTuning::active();
+    ensure!(l.ceiling_px == Some(228), "ceiling {:?}", l.ceiling_px);
+    ensure!(!e.reach.is_empty(), "no reach rows");
+    for row in &e.reach {
+        ensure!(
+            row.exit && row.lane,
+            "{row:?}: the exit is not reached on the lane"
+        );
+    }
+    let classes: std::collections::BTreeSet<String> =
+        e.reach.iter().map(|r| format!("{:?}", r.hero)).collect();
+    ensure!(classes.len() >= 3, "reach classes: {classes:?}");
+    // No solid surface between 49 and 128 px above the lane.
+    let floor = l.room.floor_y;
+    for s in &e.statics {
+        if s.kind == crate::encounter::StaticKind::Solid {
+            let top = floor - s.rect.y;
+            ensure!(
+                !(49..=128).contains(&top),
+                "static {} tops at {top} px",
+                s.id
+            );
+        }
+    }
+    // Her attack boxes at both leash edges, both facings: clear of the spawn pocket, the
+    // checkpoint and (while the door stands) the exit pocket's goal.
+    let (min, max) = (f32::from(t.hrdq19_leash_min), f32::from(t.hrdq19_leash_max));
+    let swipe_left = min - f32::from(t.hrdq09_box.x1);
+    let swipe_right = max + f32::from(t.hrdq09_box.x1);
+    let shove_right = max + f32::from(t.hrdq12_box.x1);
+    ensure!(
+        swipe_left >= e.protected_spawn.right() as f32 && swipe_left >= e.checkpoint.right() as f32,
+        "the swipe from the leash minimum reaches {swipe_left}"
+    );
+    ensure!(
+        swipe_right < e.exit.x as f32 && shove_right < e.exit.x as f32,
+        "her +x boxes from the leash maximum reach {swipe_right} / {shove_right}"
+    );
+    ensure!(
+        f32::from(t.hrdq41_gate_x) >= e.protected_spawn.right() as f32,
+        "the gate is inside the spawn pocket"
+    );
+    ensure!(
+        e.locks_opened_by(0) == [0],
+        "the door does not open on her defeat: {:?}",
+        e.locks_opened_by(0)
+    );
+    let mut hash = 0xcbf2_9ce4_8422_2325u64;
+    for v in [
+        e.reach.len() as u64,
+        classes.len() as u64,
+        swipe_left as u64,
+        swipe_right as u64,
+        shove_right as u64,
+        l.room_hash,
+        l.sidecar_hash,
+    ] {
+        for byte in v.to_le_bytes() {
+            hash ^= u64::from(byte);
+            hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+        }
+    }
+    Ok(Outcome {
+        hash,
+        note: format!(
+            "{} reach rows over {classes:?}, swipe reach {swipe_left}..{swipe_right}, shove {shove_right}; one pile state (piles are static until HRD-B/C)",
+            e.reach.len()
+        ),
+    })
+}
+
+/// FA-Q24: the seeds of the room 1 pilot (`hoarder:carl_solo:SEED`): nine fights, 0..=8.
+pub const ROOM_SEEDS: std::ops::Range<u64> = 0..9;
+/// The most ticks a room 1 pilot run may take before it counts as stuck (under the FA-Q30 cap).
+pub const ROOM_RUN_LIMIT: u64 = 6000;
+
+/// One room 1 pilot run, the library fixture of the aligned room pilot.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RoomReport {
+    pub seed: u64,
+    /// The scene tick the run ends on: Carl reaches the exit.
+    pub ticks: u64,
+    /// The scene tick of her defeat.
+    pub defeat_tick: u64,
+    /// The combat hash plus the party's swap timers on the last tick.
+    pub hash: u64,
+    /// Hero defeats on the way.
+    pub deaths: u32,
+    /// `HeroHurt` events (both heroes) on the way.
+    pub hurts: u32,
+    /// `CapabilityGranted` events (exactly one, at her defeat, FA-Q24).
+    pub grants: usize,
+    /// The longest stretch Carl neither moved nor hit her.
+    pub stuck: u64,
+}
+
+/// FA-Q24: the room 1 pilot at `seed`: solo Carl under the story loadout, the room's
+/// `cf02_assist` partner ([`room_party_tuning`]), from the spawn to the exit. Fails when she is never defeated or Carl never
+/// reaches the exit within [`ROOM_RUN_LIMIT`].
+pub fn room_run(root: &Path, seed: u64) -> Result<RoomReport, String> {
+    let ClearRun {
+        rig,
+        defeat: defeat_tick,
+        exit: ticks,
+        stuck,
+        deaths,
+        ..
+    } = clear_run(root, Control::SoloCarlAssist, seed, ROOM_RUN_LIMIT)?;
+    Ok(RoomReport {
+        seed,
+        ticks,
+        defeat_tick,
+        hash: rig.hash(),
+        deaths,
+        hurts: u32::try_from(rig.hurts().len()).unwrap_or(u32::MAX),
+        grants: rig.grants().len(),
+        stuck,
+    })
 }
 
 /// The Hoarder's room run to her defeat under `loadout`: she starts at 1 HP and
@@ -1816,6 +2398,14 @@ pub const FIXTURES: &[(&str, FixtureFn)] = &[
     ("hrd_no_safe_snipe", hrd_no_safe_snipe),
     ("hrd_direct_clear_solo", hrd_direct_clear_solo),
     ("hrd_direct_clear_donut", hrd_direct_clear_donut),
+    ("hrd_gate_no_band", hrd_gate_no_band),
+    (
+        "hrd_disengage_follow_punished",
+        hrd_disengage_follow_punished,
+    ),
+    ("hrd_leash_kite_probe", hrd_leash_kite_probe),
+    ("hrd_direct_clear_companion", hrd_direct_clear_companion),
+    ("hrd_room_validator", hrd_room_validator),
 ];
 
 #[cfg(test)]
@@ -1857,6 +2447,13 @@ mod tests {
         ("hrd_no_safe_snipe", 0x3427_3333_a3ee_c759),
         ("hrd_direct_clear_solo", 0x2eb7_4857_c5db_8632),
         ("hrd_direct_clear_donut", 0xd4ee_3852_1b48_7abb),
+        // HRD-FU (FA-Q23 batch). `hrd_direct_clear_companion` depends on the companion's
+        // behaviour: a COMPANION change re-pins it.
+        ("hrd_gate_no_band", 0x712e_c29b_453f_394a),
+        ("hrd_disengage_follow_punished", 0x62cc_5995_2db1_14d1),
+        ("hrd_leash_kite_probe", 0xecc0_0f24_43b1_036b),
+        ("hrd_direct_clear_companion", 0xd15c_c83e_f79b_9a3a),
+        ("hrd_room_validator", 0xb63d_c4fc_5f3f_8121),
     ];
 
     #[test]
@@ -1884,6 +2481,62 @@ mod tests {
         assert!(failed.is_empty(), "fixtures that failed: {failed:#?}");
         assert!(wrong.is_empty(), "hashes to (re)pin: {wrong:#?}");
         assert_eq!(GOLDENS.len(), FIXTURES.len(), "one golden per fixture");
+    }
+
+    /// FA-Q24: the room 1 pilot, seeds 0..=8: the exit tick and the committed final hash of
+    /// each run (a deliberate change re-pins here and in `render_replay_lines.txt`). Seeds 1, 6
+    /// and 8 play the identical fight (measured: their delay and hover differ, no decision does).
+    const ROOM_GOLDENS: [(u64, u64); 9] = [
+        (1381, 0xa8cd_c166_0e1d_cdbc),
+        (1383, 0x5c66_518c_066e_b2bf),
+        (1412, 0xe5bf_6427_4a6a_2698),
+        (1384, 0x99f7_2fe4_f177_b9e6),
+        (1383, 0x9e1d_5fe2_8e5f_7713),
+        (1385, 0x5bca_74d9_be16_cf2b),
+        (1383, 0x5c66_518c_066e_b2bf),
+        (1488, 0xcbe4_c19a_83f2_b4bf),
+        (1383, 0x5c66_518c_066e_b2bf),
+    ];
+
+    /// FA-Q24: nine of nine room 1 runs defeat her under the cap with exactly one
+    /// `CapabilityGranted` (dynamite's `special_thrown_charge`, at her defeat), no hero
+    /// defeat and no stretch over 300 ticks; each replays identically and is pinned.
+    #[test]
+    fn the_room_pilot_defeats_her_nine_of_nine_with_one_grant_and_is_pinned() {
+        assert_eq!(ROOM_SEEDS.count(), 9);
+        for (seed, (ticks, hash)) in ROOM_SEEDS.zip(ROOM_GOLDENS) {
+            let first = room_run(&root(), seed).unwrap();
+            assert_eq!(
+                first,
+                room_run(&root(), seed).unwrap(),
+                "seed {seed} replays"
+            );
+            assert_eq!((first.ticks, first.hash), (ticks, hash), "seed {seed}");
+            assert_eq!(first.deaths, 0, "seed {seed}");
+            assert_eq!(first.grants, 1, "seed {seed}");
+            assert!(first.stuck <= 300, "seed {seed}: {}", first.stuck);
+            assert!(first.ticks < ROOM_RUN_LIMIT, "seed {seed}");
+        }
+        // The one grant is the dynamite, by hero 0, on her defeat tick.
+        let ClearRun { rig, defeat, .. } =
+            clear_run(&root(), Control::SoloCarlAssist, 0, ROOM_RUN_LIMIT).unwrap();
+        let grants = rig.grants();
+        assert_eq!(grants.len(), 1, "{grants:?}");
+        assert_eq!(grants[0].2, "special_thrown_charge");
+        assert_eq!(grants[0].0, defeat, "the grant is on her defeat tick");
+    }
+
+    /// Prints each fixture's report line (the measured numbers the sheet asks to report).
+    #[test]
+    #[ignore = "prints the fixtures' notes for the PR body"]
+    fn prints_the_fixture_notes() {
+        for (name, run) in FIXTURES {
+            let outcome = run(&root()).unwrap();
+            println!(
+                "FIXTURE_NOTE {name} hash={:#018x} {}",
+                outcome.hash, outcome.note
+            );
+        }
     }
 
     /// The sheet's names: every fixture the brief lists is present.
@@ -1916,6 +2569,12 @@ mod tests {
             "hrd_defeat_grants_dynamite",
             "hrd_direct_clear_solo",
             "hrd_direct_clear_donut",
+            // HRD-FU: the five that were deferred.
+            "hrd_gate_no_band",
+            "hrd_disengage_follow_punished",
+            "hrd_leash_kite_probe",
+            "hrd_direct_clear_companion",
+            "hrd_room_validator",
         ] {
             assert!(FIXTURES.iter().any(|(n, _)| *n == name), "{name}");
         }
@@ -1960,6 +2619,9 @@ mod tests {
             (928, 16, 228),
             "the sidecar's lock solid"
         );
+        // HRD-FU: the door is one of the two "opens on defeat" kinds, the gate is not.
+        assert!(env.solids()[0].kind.opens_on_defeat());
+        assert!(!env.solids()[1].kind.opens_on_defeat());
         // Nothing was appended twice, and a repeat sync is idempotent.
         let before = rig.scene.world.solids.len();
         let mut rig = rig;

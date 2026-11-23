@@ -4,7 +4,7 @@
 #
 #   scripts/room_capture.sh ROOM PLAN FIRST:STEP:COUNT OUTDIR [more floor01_scene flags]
 #
-#   ROOM   boiler | hazards | mastery | juicer   (--scene f01_late --f01-room ROOM)
+#   ROOM   hoarder | boiler | hazards | mastery | juicer   (--scene f01_late --f01-room ROOM)
 #   PLAN   direct | valve | chain | mastery | juicer | haz_spectacular | haz_tactical, optionally ":2p",
 #          or an aligned library pilot WHO:SEED (mastery:, juicer:, hazards:) or WHO:direct|both:SEED
 #          (boiler:)   (--room-pilot, src/room_pilots.rs; mastery, juicer and the haz_ plans are valid
