@@ -241,10 +241,17 @@ pub struct PilotRules {
 }
 
 impl PilotRules {
-    /// What every play path runs.
+    /// The closing arena (room 6): the Donut rules and the seed-offset jab phase.
     pub const SHIPPED: Self = Self {
         donut_rules: true,
         jab_phase_by_seed: true,
+    };
+    /// Every other room that plays the PT-TUNE pilot (room 4's Carl and Donut,
+    /// the room pilots of the hazards plans): the Donut rules, and **no** jab
+    /// phase. FA-Q17 scopes the seed phase to "the arena pilots" (room 6).
+    pub const OTHER_ROOMS: Self = Self {
+        donut_rules: true,
+        jab_phase_by_seed: false,
     };
     /// The pilot before FA-Q12 and FA-Q17.
     pub const EARLIER: Self = Self {
@@ -301,11 +308,17 @@ pub fn pilot(combat: &CombatState, scene: &SceneSim, hero: HeroId) -> RawInput {
     pilot_with(combat, scene, hero, false)
 }
 
+/// [`pilot`] as the closing arena plays it ([`PilotRules::SHIPPED`]: with the FA-Q17
+/// seed-offset jab phase). Room 6's runs, metrics and room pilot use this one.
+pub fn arena_pilot(combat: &CombatState, scene: &SceneSim, hero: HeroId) -> RawInput {
+    pilot_rules(combat, scene, hero, false, PilotRules::SHIPPED)
+}
+
 /// [`pilot`], optionally pressing the held ability (D7: Carl's dynamite or
 /// Donut's blink) on the `ability` press edge, the input the progression
 /// fixtures use.
 pub fn pilot_with(combat: &CombatState, scene: &SceneSim, hero: HeroId, kit: bool) -> RawInput {
-    pilot_rules(combat, scene, hero, kit, PilotRules::SHIPPED)
+    pilot_rules(combat, scene, hero, kit, PilotRules::OTHER_ROOMS)
 }
 
 /// [`pilot_with`] under explicit [`PilotRules`].
@@ -1162,7 +1175,7 @@ pub fn metrics(
     // PT-TUNE: Carl is the room's pilot (it baits the slime), the same inputs
     // under both partners.
     let step = |sim: &mut PartyFixtureSim| {
-        let input = pilot(&sim.combat, &sim.scene, HeroId::Carl);
+        let input = arena_pilot(&sim.combat, &sim.scene, HeroId::Carl);
         sim.step_slots([input, RawInput::NONE]);
     };
     let (mut free, _) = start(root, Who::Companion, seed)?;
@@ -1332,7 +1345,7 @@ pub fn arena_extras(root: &Path, seed: u64) -> Result<(ArenaExtras, [StepCost; 2
     let mut costs = Vec::new();
     let mut goal = Goal::Idle;
     for _ in 0..METRICS_TICKS {
-        let input = pilot(&sim.combat, &sim.scene, HeroId::Carl);
+        let input = arena_pilot(&sim.combat, &sim.scene, HeroId::Carl);
         let t0 = std::time::Instant::now();
         sim.step_slots([input, RawInput::NONE]);
         costs.push(t0.elapsed().as_nanos() as u64);
@@ -1405,7 +1418,7 @@ pub fn arena_extras(root: &Path, seed: u64) -> Result<(ArenaExtras, [StepCost; 2
     let (mut assist, _) = start(root, Who::CarlSolo, seed)?;
     let mut base = Vec::new();
     for _ in 0..METRICS_TICKS {
-        let input = pilot(&assist.combat, &assist.scene, HeroId::Carl);
+        let input = arena_pilot(&assist.combat, &assist.scene, HeroId::Carl);
         let t0 = std::time::Instant::now();
         assist.step_slots([input, RawInput::NONE]);
         base.push(t0.elapsed().as_nanos() as u64);
@@ -1652,7 +1665,7 @@ mod tests {
             assert_eq!(gate, 1);
             let mut cleared_at = None;
             for _ in 0..RUN_TICKS {
-                let input = pilot(&sim.combat, &sim.scene, HeroId::Carl);
+                let input = arena_pilot(&sim.combat, &sim.scene, HeroId::Carl);
                 sim.step_slots([input, RawInput::NONE]);
                 let at = sim.combat.env().unwrap().solid_range().start;
                 let intact = sim.scene.world.solids[at].intact;
@@ -1688,7 +1701,7 @@ mod tests {
             let mut at_exit = None;
             for _ in 0..RUN_TICKS {
                 let controlled = sim.party.controlled_hero();
-                let mut input = pilot(&sim.combat, &sim.scene, controlled);
+                let mut input = arena_pilot(&sim.combat, &sim.scene, controlled);
                 input.swap = sim.combat.roster_cleared() && controlled == HeroId::Carl;
                 sim.step_slots([input, RawInput::NONE]);
                 if sim.combat.roster_cleared() && sim.scene.world.donut_body.x >= EXIT_X {
@@ -1927,7 +1940,7 @@ mod tests {
         let (mut slime_dead_at, mut pool_gone_at) = (None, None);
         let mut walker_in_live_pool = false;
         for _ in 0..RUN_TICKS {
-            let input = pilot(&sim.combat, &sim.scene, HeroId::Carl);
+            let input = arena_pilot(&sim.combat, &sim.scene, HeroId::Carl);
             sim.step_slots([input, RawInput::NONE]);
             let t = sim.scene.world.tick;
             let live = sim
@@ -2225,7 +2238,7 @@ mod tests {
         let (mut sim, _) = start(&root(), Who::DonutFights, 0).unwrap();
         for _ in 0..600 {
             let controlled = sim.party.controlled_hero();
-            let mut input = pilot(&sim.combat, &sim.scene, controlled);
+            let mut input = arena_pilot(&sim.combat, &sim.scene, controlled);
             input.swap = controlled == HeroId::Carl;
             sim.step_slots([input, RawInput::NONE]);
         }
@@ -2252,5 +2265,43 @@ mod tests {
         let mut other = reflex;
         other.restart();
         assert_eq!(other.attempts_for_test(), counted, "restart keeps it");
+    }
+
+    /// FA-Q17 is the closing arena's alone: `pilot` (room 4's Carl and Donut, the
+    /// hazards room pilots) never applies the seed-offset jab phase, while
+    /// `arena_pilot` does. Checked along a real room 6 run at a seed whose phase is not 0, and the plain `pilot` equals
+    /// the rules with the phase off at every tick.
+    #[test]
+    fn the_seed_phase_is_scoped_to_the_arena() {
+        let no_phase = PilotRules {
+            jab_phase_by_seed: false,
+            ..PilotRules::SHIPPED
+        };
+        assert_eq!(PilotRules::OTHER_ROOMS, no_phase);
+        let (mut sim, _) = start(&root(), Who::CarlSolo, 3).unwrap();
+        let mut differs = 0;
+        for _ in 0..700 {
+            let plain = pilot(&sim.combat, &sim.scene, HeroId::Carl);
+            let arena = arena_pilot(&sim.combat, &sim.scene, HeroId::Carl);
+            assert_eq!(
+                plain,
+                pilot_rules(&sim.combat, &sim.scene, HeroId::Carl, false, no_phase),
+                "tick {}",
+                sim.scene.world.tick
+            );
+            if plain != arena {
+                differs += 1;
+            }
+            sim.step_slots([arena, RawInput::NONE]);
+        }
+        assert!(differs > 0, "the arena phase changes the presses");
+        // The plain pilot reads no seed: from two states that differ only by the seed
+        // its input is the same.
+        let (a, _) = start(&root(), Who::CarlSolo, 0).unwrap();
+        let (b, _) = start(&root(), Who::CarlSolo, 3).unwrap();
+        assert_eq!(
+            pilot(&a.combat, &a.scene, HeroId::Carl),
+            pilot(&b.combat, &b.scene, HeroId::Carl)
+        );
     }
 }

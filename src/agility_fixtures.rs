@@ -344,7 +344,7 @@ pub const DM_REFLEX_EVADES_SWING: PartyFixture = PartyFixture {
 
 const DM_REFLEX_NOT_ARMED_BASE: Fixture = goblin_base(
     "dm_reflex_not_armed",
-    "Two players, biscuit from the start: Donut walks into the goblin at tick 40, long before 720; the swing lands",
+    "Two players, biscuit from the start (so armed at the attempt start, FA-Q19): Donut walks into the goblin at tick 40; the first swing is evaded (tick 129), and the next swing, inside the 720-tick wait the evade restarts, lands (tick 220). The name is from before FA-Q19, when the first swing landed",
     0x0D4D_0011,
     300,
 );

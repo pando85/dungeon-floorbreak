@@ -28,10 +28,10 @@ The live `Direct` run is "the pilot touches no prop": the partner's own hits on 
 
 | Pilot | Clears | Roster or boss cleared tick (median) | Exit tick (median / worst) | Deaths (med / worst) | Restart events | Hurts | Throws | Chains | Pierces | Blinks | Evades | Max stuck ticks | Max stall ticks (med / worst) | Distinct outcomes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| haz_room_direct_route / solo_carl (HAZ-06, HAZ-09) | 9 of 9 | 667 | 738 / 740 | 0 / 0 | 0 / 0 | 4 / 4 | 0 / 0 | 0 / 0 | NOT RUN | 0 / 0 | 0 / 0 | 20 / 20 | NOT RUN | 7 of 9 |
-| haz_room_direct_route, Rot kind removed (HAZ-06) | 9 of 9 | 561 | 635 / 637 | 0 / 0 | 0 / 0 | 2 / 2 | 0 / 0 | 0 / 0 | NOT RUN | 0 / 0 | 0 / 0 | 17 / 17 | NOT RUN | 3 of 9 |
-| haz_room_solo_donut (HAZ-09) | 9 of 9 | 667 | 749 / 751 | 0 / 0 | 0 / 0 | 4 / 4 | 0 / 0 | 0 / 0 | NOT RUN | 0 / 0 | 0 / 0 | 17 / 17 | NOT RUN | 7 of 9 |
-| haz_room_companion (HAZ-09, cf02_free) | 9 of 9 | 639 | 723 / 725 | 0 / 0 | 0 / 0 | 3 / 3 | 0 / 0 | 0 / 0 | NOT RUN | 0 / 0 | 0 / 0 | 40 / 40 | NOT RUN | 7 of 9 |
+| haz_room_direct_route / solo_carl (HAZ-06, HAZ-09) | 9 of 9 | 667 | 739 / 739 | 0 / 0 | 0 / 0 | 4 / 4 | 0 / 0 | 0 / 0 | NOT RUN | 0 / 0 | 0 / 0 | 20 / 20 | NOT RUN | 2 of 9 |
+| haz_room_direct_route, Rot kind removed (HAZ-06) | 9 of 9 | 561 | 636 / 636 | 0 / 0 | 0 / 0 | 2 / 2 | 0 / 0 | 0 / 0 | NOT RUN | 0 / 0 | 0 / 0 | 17 / 17 | NOT RUN | 1 of 9 |
+| haz_room_solo_donut (HAZ-09) | 9 of 9 | 667 | 749 / 749 | 0 / 0 | 0 / 0 | 4 / 4 | 0 / 0 | 0 / 0 | NOT RUN | 0 / 0 | 0 / 0 | 17 / 17 | NOT RUN | 2 of 9 |
+| haz_room_companion (HAZ-09, cf02_free) | 9 of 9 | 639 | 724 / 724 | 0 / 0 | 0 / 0 | 3 / 3 | 0 / 0 | 0 / 0 | NOT RUN | 0 / 0 | 0 / 0 | 40 / 40 | NOT RUN | 2 of 9 |
 
 The AI hero's hurts by source and its Rot provokes, summed over the nine seeds (HAZ-Q45, report-only):
 
@@ -121,8 +121,8 @@ The per-seed live rows are in the "live room" table above.
 | Pilot | Hero defeats | Respawns | Hurts | Blasts | Rot stickers woken | Enemy entries (dead and alive) | Final state |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | direct (solo Carl, plus the follower bot) | 3 | 3 | 15 | 2 | 2 | 2 | hp 1, deaths 3, hash 9466c18097e5e14a |
-| haz_spectacular (dynamite lights the latched sticker; solo Carl, plus the follower bot) | 0 | 0 | 2 | 3 | 2 | 2 | hp 2, deaths 0, hash 6f6538f2eb26661c |
-| haz_tactical (HAZ-07 pattern 2: R2 baited over the slime S2; solo Carl, plus the follower bot) | 0 | 0 | 1 | 2 | 2 | 2 | hp 3, deaths 0, hash 9395c064e874b6ad |
-| hazards:carl_solo:0 (the aligned HAZ-06 direct route, library fixture seed 0; the cf02_assist partner) | 0 | 0 | 4 (Carl 3, Donut 1) | 2 | 2 | 2 | hp 1, deaths 0, hash 5230ba65d27c10d1 |
+| haz_spectacular (dynamite lights the latched sticker; solo Carl, plus the follower bot) | 0 | 0 | 2 | 3 | 2 | 2 | hp 2, deaths 0, hash f1156c1548e7008a |
+| haz_tactical (HAZ-07 pattern 2: R2 baited over the slime S2; solo Carl, plus the follower bot) | 0 | 0 | 1 | 2 | 2 | 2 | hp 3, deaths 0, hash 8e10bd0986d23ad9 |
+| hazards:carl_solo:0 (the aligned HAZ-06 direct route, library fixture seed 0; the cf02_assist partner) | 0 | 0 | 4 (Carl 3, Donut 1) | 2 | 2 | 2 | hp 1, deaths 0, hash b5e9571a272eccdc |
 
 The `direct` room pilot walks into the pockets and is defeated and retries; it does not dodge hazards (it is a filming pilot, not a player). `haz_spectacular` is the PT-TUNE pilot plus one dynamite throw (PT-GATE-D). `haz_tactical` is the PT-TUNE pilot plus bait and retreat on both Rot Stickers (PT-GATE-E): R2 goes off over the slime S2, and no Rot blast hurts Carl (its one hurt is the pocket A pool). `hazards:carl_solo:0` is the PT-TUNE pilot of the library fixture `haz_room_solo_carl` at seed 0 (the aligned direct route): it does not dodge the Rot blasts, so Carl is hurt by them and ends on 1 hp, undefeated. The Hurts column counts the hurt events of both heroes; in this row they are Carl's three (the pocket A pool, R1, R2) and one of Donut's (R1).

@@ -284,7 +284,7 @@ Under `--cf02` the run is a demo run, `donut_setup()` returns `DonutSetup::NONE`
 **New goldens (DM-A, DM-B), all `dm_` prefixed:**
 
 - motion: `dm_run_race`, `dm_jump_ledge_96`, `dm_jump_ledge_112`, `dm_jump_ledge_116_fails`, `dm_2p_wall_running_jump`, `dm_microarena_perch_ceiling`;
-- evasion, starting unlocked unless noted: `dm_reflex_evades_swing`, `dm_reflex_not_armed`, `dm_reflex_ram_passes`, `dm_reflex_glob_passes`, `dm_reflex_block_not_evadable`, `dm_ai_reflex_same_as_human`;
+- evasion, starting unlocked unless noted: `dm_reflex_evades_swing`, `dm_reflex_not_armed` (since FA-Q19 it starts armed: the first swing, tick 129, is evaded and the next, tick 220, inside the wait the evade restarts, lands; the name predates the armed start and the unarmed case is `dm_evasion_locked_before_biscuit`), `dm_reflex_ram_passes`, `dm_reflex_glob_passes`, `dm_reflex_block_not_evadable`, `dm_ai_reflex_same_as_human`;
 - biscuit gate: `dm_evasion_locked_before_biscuit` (locked, 900 hurt-free ticks, then a goblin swing lands) and `dm_evasion_unlocks_at_guild` (starts locked, her guild-zone entry fires the unlock, the reflex arms 720 ticks later and evades).
 
 **2P:** a human Donut gets the same motion and evasion; the midpoint camera follows faster when she leads, and the separation wall holds (DM-Q09).

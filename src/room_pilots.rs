@@ -327,7 +327,7 @@ impl RoomPilot {
             Plan::Direct => fight_or_walk(combat, sim, exit_x),
             Plan::Valve => valve(combat, sim, exit_x),
             Plan::Chain => chain(combat, sim, exit_x),
-            Plan::Mastery => crate::f01_mastery_fixtures::pilot(combat, sim, HeroId::Carl),
+            Plan::Mastery => crate::f01_mastery_fixtures::arena_pilot(combat, sim, HeroId::Carl),
             Plan::Juicer => crate::boss_scene::pilot_inputs(
                 Pilot::Carl,
                 [RawInput::NONE; 2],
@@ -410,7 +410,7 @@ impl RoomPilot {
             if self.plan == Plan::Hazards {
                 crate::hazards_fixtures::pilots::route_pilot(combat, sim, hero)
             } else {
-                mastery::pilot(combat, sim, hero)
+                mastery::arena_pilot(combat, sim, hero)
             }
         };
         let mut input = if self.plan == Plan::Juicer {
@@ -1531,7 +1531,7 @@ mod tests {
         // the scorecard's `f1156c1548e7008a` instead): a drift is a deliberate re-pin.
         assert_eq!(
             combat.state_hash(&scene),
-            0xde7f_334e_4254_82dc,
+            0x4b32_c6da_d3be_c5f2,
             "the committed final hash"
         );
         let (again, combat_again) = play();
@@ -1646,7 +1646,7 @@ mod tests {
         // hash instead): a drift is a deliberate re-pin.
         assert_eq!(
             combat.state_hash(&scene),
-            0x95bc_1d84_e6ff_cac8,
+            0x383a_5307_0f66_546a,
             "the committed final hash"
         );
         let (again, combat_again, _) = play();
