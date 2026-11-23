@@ -2344,6 +2344,12 @@ mod tests {
         assert_ne!(same, none, "(Some(h), Some(h)) vs (None, Some(h))");
         assert_ne!(same, other);
         assert_ne!(none, other, "None is encoded apart from Some(1)");
+        // `None` must not collide with `Some(0)` (a naive `map_or(0, u64::from)`).
+        assert_ne!(
+            flying(None, Some(1)),
+            flying(Some(0), Some(1)),
+            "None is encoded apart from Some(0)"
+        );
         // Ownerless on a goblin nobody hit: equal to `hit_by`, nothing mixed.
         assert_eq!(flying(None, None), {
             let mut g = goblin_at(500.0);
