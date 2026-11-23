@@ -1,6 +1,6 @@
 # AREA-GOBLINWORKSHOP-01: Goblin Workshop prop kit (Boiler encounter), design spec
 
-**Status:** design spec and all silhouette-defining keys drawn and frozen (13 key frames in 9 grid sources); silhouette gate pending; in-betweens, state loops, tells, export, manifests, Bevy wiring and evidence not started.
+**Status:** design spec and all silhouette-defining keys drawn and frozen (13 key frames in 9 grid sources); silhouette gate passed with key fixes (section 8), the fixed keys are re-frozen; in-betweens, state loops, tells, export, manifests, Bevy wiring and evidence not started.
 
 **Route:** difficulty score **4** (new design; boiler native height 208 px; rig with moving parts; venting, telegraph and blast states), class Hard, route **B + silhouette gate** ([routing by difficulty](../07-agents/pixel-art-pipeline.md#routing-by-difficulty)). No separate draft existed, so the design step drew every key that defines a silhouette or a state read and froze them; execution draws in-betweens, loops, tells and VFX only after the gate passes. Work order row: [floor-01-area-kits-plan.md](../07-agents/floor-01-area-kits-plan.md) (`AREA-GOBLINWORKSHOP-01`: boiler, tools, pipes, gears, parked-vehicle props; no stationary factory boss).
 
@@ -17,7 +17,7 @@
 
 ## 2. Readability rules (the kit's core decision)
 
-1. **Hittable means hazard yellow.** Every part the player can hit carries the `brass_05` / `iron_00` stripe accent: the valve handwheel, the brace wedge pin, the weight chevron band, the drum band. Nothing else in the room uses that pairing except warning collars on the steam outlet (which marks the danger lane, not a target).
+1. **Yellow/black marks a trap part.** The `brass_05` / `iron_00` stripe accent appears only on trap parts. The three at strike height are the hit targets: the valve handwheel, the brace wedge pin and the drum band. The two elevated ones mark where a trap delivers danger and are not targets: the weight chevron band (the weight is dropped by hitting the brace) and the steam-outlet collar (the steam lane).
 2. **Interactive steel is cold.** Valve, brace hardware, weight, rig and hoops use the `stone_cold_00–04` ramp so they separate from the warm brick wall at 1x.
 3. **The boiler is background.** Its copper sits one step darker (`copper_00–04` body, `copper_05` only on the single specular streak and rim catches, `copper_06` on two or three glints). Its focal point is the firebox glow (`flame_00–04`), the only hot light in the room besides the drum telegraph.
 4. Light comes from the upper left; every prop has a 1 px `iron_00` silhouette outline (soot marks on the boiler are kept off the outline).
@@ -54,7 +54,7 @@ Silhouette: wide riveted copper cylinder on an iron plinth, shallow dome cap, a 
 | 0 `boiler_idle` | **F** | intact key | idle loop frame 1 |
 | 1–3 | E | idle loop: firebox brightens one ramp step (f1), gauge needle +1 px (f2), lever ball bobs 1 px and firebox dims back (f3); silhouette identical to frame 0 except the ball | 4 frames x 8 ticks |
 | `boiler_strain` | E | 2 frames while the valve is Warning: needle in the red arc, ball lifted 2 px, 3–4 px hiss puff (`gal_10`, `stone_10`) at the steam dome, firebox at full `flame_04`; frame 2 shifts the body 1 px right (rattle) | 2 x 4 ticks (= `FLASH_TICKS`) |
-| `boiler_damaged` | **F** | damaged key: torn dome flap, lever snapped and hanging (ball and brick gone), stack kinked, gauge smashed, upper hoop sprung out left, soot streaks, torn patch corner, scorched nozzle collar, firebox down to embers | damaged loop frame 1 |
+| `boiler_damaged` | **F** | damaged key: torn dome flap, lever snapped and hanging (ball and brick gone), stack kinked, gauge smashed, upper hoop sprung out left, soot streaks, torn patch corner, scorched nozzle collar, firebox dead (cold iron grate, grey ash bed, a few last embers), thin tapered soot smears | damaged loop frame 1 |
 | damaged 2 | E | ember flicker in the firebox, one soot drip 1 px longer; silhouette identical | 2 x 10 ticks |
 
 Shown damaged when the stand-in shows "broken" today (valve Venting or Spent, or mass Landed). The boiler never moves the sim.
@@ -79,7 +79,7 @@ Silhouettes: a timber post with a diagonal kicker strut, an iron floor shoe, a t
 | Frame | Kind | MassState | Content | Timing |
 | --- | --- | --- | --- | --- |
 | brace 0 `brace_supported` | **F** | Supported | supported key | static |
-| brace 1 `brace_weakened` | **F** | Weakened | post split with splinters, upper post leaning 1 px left, wedge half out, strut cracked | static; optional E creak 2 x 6 ticks (wedge jiggles 1 px, 2 dust grains) |
+| brace 1 `brace_weakened` | **F** | Weakened | upper post sheared 1 px left above a 1 px dark split, pale splinters out of both sides, wedge pin pulled 3 px further out with its outer end dropped 1 px, strut cracked | **required** E creak loop: 2 x 6 ticks (wedge jiggles 1 px, 2 dust grains); frame 1 is the key |
 | brace 2 `brace_stump` | **F** | Released, Falling, Landed | snapped stump with splintered tips, strut fallen flat, wedge on the floor | static |
 | weight 0 `weight_hang` | **F** | Supported, Weakened, Released | hanging key; Released keeps the code sway of ±1 px every `SWAY_TICKS` (6) | static |
 | `weight_fall` | E | Falling | same body, three 1 px speed-streak columns in rows 0–15, chain gone, shackle pin straight up | 1 frame |
@@ -115,7 +115,7 @@ All tells are presentation only, drawn on the Tell layer, and keep the stand-in 
 | `drum_blast_tell` | 96 x 8 | floor of {816, 500, 96, 80} | dithered red/yellow floor ring blinking with the drum telegraph | 2 x 4 ticks |
 | landing dust | — | — | reuse the existing `shore_dust` burst at the remnant top; no new art | — |
 
-Palette budget: the keys use 59 kit colours; the whole kit, tells included, must stay at 63 or fewer kit colours, all named and valued exactly as in the [Floor 01 kit palette](../../assets/source/terrain/floor01/floor01_catacomb_kit.json).
+Palette budget: the keys use 58 kit colours; the whole kit, tells included, must stay at 63 or fewer kit colours, all named and valued exactly as in the [Floor 01 kit palette](../../assets/source/terrain/floor01/floor01_catacomb_kit.json).
 
 ## 6. Wiring contract (presentation only)
 
@@ -128,12 +128,26 @@ Palette budget: the keys use 59 kit colours; the whole kit, tells included, must
 
 1. Every frozen key is byte-identical to the frame listed here; every E frame keeps its prop's canvas, pivot and bottom row (bottom-row drift 0 within a prop, except `gw_weight` streak rows above the body and drum bulge margins).
 2. No isolated pixels in any frame; palette within section 5; alpha is binary in the sources.
-3. At 1x in the lit room (640 x 360) a viewer can name, without labels: the boiler, the valve, the brace, the hanging weight, the drum, and which three things can be hit (yellow accents).
+3. At 1x in the lit room (640 x 360) a viewer can name, without labels: the boiler, the valve, the brace, the hanging weight, the drum, and which three things can be hit (yellow accents at strike height).
 4. The boiler never reads brighter than the valve, brace, weight or drum standing in front of it; the firebox is the brightest boiler pixel.
 5. Damaged and spent states read as broken from silhouette alone (boiler dome flap and hanging lever; valve missing its wheel; brace stump).
 6. The steam plume covers the lane rect and reads as dangerous at 1x without hiding an actor completely (alpha as specified).
 7. No text, logos or third-party designs; mood concept not traced.
 
-## 8. Open notes
+## 8. Silhouette gate record and open for execution
+
+The silhouette gate found no design defect and prescribed key fixes; it is the design authority for them. Applied and re-frozen in the design sources:
+
+- `gw_weight` 0: the chevron band is now drawn (an argument-order bug had dropped it, so the weight read as a lamp shade).
+- `gw_boiler` 1: dead firebox (no `flame_03/04`, 26 `flame_00/01` and 2 `flame_02` ember pixels) and soot as thin tapered dithered smears in `iron_01/02` instead of hard bars.
+- `gw_brace` 1: stronger weakened read (sheared upper post, visible split, splinters, pin pulled out); creak loop made required.
+- Rule 1 and acceptance 3 reworded (trap parts vs hit targets).
+
+**Open for execution** (pre-approved edits; execution applies them, re-freezes the touched key and shows it in the fix-check renders):
+
+- `gw_valve` 1 `valve_spent`: fill the split-pipe petals with `copper_02/03` inside the outline so they read as torn copper, not detached black arcs.
+- `gw_remnant` 0: slant each visible side of the sunk weight out by 1 px per about 3 rows so it matches the hanging trapezoid; keep the flat walkable top.
+- `gw_drum` 0 and `drum_telegraph`: show at 1x that the telegraph (seams `flame_03` plus bulge) is clearly distinct from the armed key; if it is not, drop the armed body highlight from `flame_02` to `flame_01`.
+- `gw_boiler` 0: if the owner finds the boiler upstages the valve, take the wide mid band down one copper step (owner call, not a default change).
 
 - The parked-vehicle, tools, pipe and gear dressing named in the work-order row are not needed by the Boiler encounter and are out of this kit's first pass; they extend `gw_*` later without touching these keys.

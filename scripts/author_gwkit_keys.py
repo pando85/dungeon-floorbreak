@@ -333,11 +333,41 @@ def boiler_intact() -> Canvas:
     return cv
 
 
+def soot_streak(cv: Canvas, x: int, y_src: int, y_end: int) -> None:
+    """A 2 px smear at the source tapering to 1 px, dithered at both ends, drawn over copper only."""
+    step = 1 if y_end > y_src else -1
+    n = abs(y_end - y_src)
+    for i in range(n + 1):
+        y = y_src + i * step
+        xx = x + (1 if (i // 9) % 2 else 0)
+        w = 2 if i < n * 0.4 else 1
+        for k in range(w):
+            px = xx + k
+            if (i < 2 or i > n - 7) and (px + y) % 2:
+                continue
+            v = cv.get(px, y)
+            if v is not None and v.startswith("copper_"):
+                cv.set(px, y, "iron_01" if i < n * 0.3 else "iron_02")
+
+
 def boiler_damaged(intact: Canvas) -> Canvas:
     cv = intact.copy()
-    # Firebox dims to deep red embers.
-    cv.recolor(68, 175, 124, 203, {"flame_04": "flame_02", "flame_03": "flame_01", "flame_02": "flame_01",
-                                   "copper_04": "flame_00"})
+    # Firebox dead: cold iron behind the grate, a grey ash bed with a few last embers.
+    cv.recolor(68, 175, 124, 203, {"flame_04": "iron_01", "flame_03": "iron_01", "flame_02": "iron_01",
+                                   "flame_01": "iron_01", "flame_00": "iron_02", "copper_04": "iron_03"})
+    for y in (196, 197):
+        for x in range(74, 118):
+            if cv.get(x, y) == "iron_01":
+                cv.set(x, y, "iron_03")
+    embers = {"flame_00": [(77, 197), (78, 197), (79, 196), (83, 197), (84, 197), (88, 197), (89, 196),
+                           (92, 197), (93, 197), (97, 196), (98, 197), (99, 197), (103, 197), (104, 196),
+                           (108, 197), (109, 197), (113, 197), (114, 196), (94, 195), (100, 195)],
+              "flame_01": [(85, 196), (90, 197), (95, 196), (100, 196), (105, 197), (110, 196)],
+              "flame_02": [(95, 197), (100, 197), (101, 196)]}
+    for c, pts in embers.items():
+        for x, y in pts:
+            if cv.get(x, y) in ("iron_01", "iron_03", "iron_02"):
+                cv.set(x, y, c)
     # Stack kinked: the top 12 rows shear 3 px right, cap askew.
     for y in range(0, 12):
         row = cv.p[y][:]
@@ -381,15 +411,9 @@ def boiler_damaged(intact: Canvas) -> Canvas:
         cv.rect(x, y, x, y + 4, "iron_03")
         cv.set(x, y, "iron_05")
         cv.set(x, y + 4, "iron_01")
-    # Soot streaks rising from the nozzle and the split.
-    soot = {"copper_00": "mortar_01", "copper_01": "mortar_02", "copper_02": "mortar_02",
-            "copper_03": "mortar_03", "copper_04": "copper_02", "copper_05": "copper_03"}
-    for x, y0, y1, w in ((158, 100, 141, 4), (165, 92, 141, 3), (90, 32, 60, 4), (99, 34, 70, 3)):
-        cv.recolor(x, y0 + 6, x + w - 1, y1, soot)
-        for y in range(y0, y0 + 6):  # dithered fade at the top of each streak
-            for xx in range(x, x + w):
-                if (xx + y) % 2 == 0:
-                    cv.recolor(xx, y, xx, y, soot)
+    # Soot streaks: thin tapered smears rising from the nozzle and running down from the split.
+    for x, y_src, y_end in ((162, 140, 104), (168, 141, 112), (92, 33, 64), (100, 35, 72)):
+        soot_streak(cv, x, y_src, y_end)
     # Patch plate corner torn loose.
     cv.rect(133, 100, 138, 102, "copper_03")
     cv.rect(136, 97, 139, 99, "copper_04")
@@ -524,25 +548,29 @@ def brace_supported() -> Canvas:
 def brace_weakened() -> Canvas:
     cv = Canvas(RW, RH)
     brace_parts(cv)
-    # The upper post leans 1 px left above the crack.
-    for y in range(0, 18):
+    cv.rect(0, 17, 9, 20, None)  # the pin is redrawn pulled out below
+    # The upper post shears 1 px left above the split (rows 0..18).
+    for y in range(0, 19):
         row = cv.p[y][:]
         for x in range(0, RW):
             cv.p[y][x] = row[x + 1] if x + 1 < RW else None
-    # Split through the post with splinters jutting out.
-    cv.line(10, 19, 15, 22, "iron_00")
-    cv.line(15, 22, 21, 20, "iron_00")
-    cv.line(11, 20, 15, 23, "wood_01")
-    for x, y in ((8, 19), (9, 21), (22, 19), (23, 21)):
-        cv.set(x, y, "wood_05")
-    # Wedge pushed half out and tilted.
-    cv.rect(0, 15, 10, 21, None)
-    cv.rect(8, 17, 9, 20, "wood_03")
-    hazard_stripes(cv, 1, 16, 7, 19, period=4)
-    cv.set(0, 17, "brass_05")
+    # Split: a 1 px dark gap across the post at row 19, jagged into rows 18 and 20.
+    for x in range(9, 22):
+        cv.set(x, 19, "iron_00")
+    for x in (12, 13, 17, 18):
+        cv.set(x, 20, "iron_00")
+    cv.set(15, 18, "iron_00")
+    # Wedge pin pulled 3 px further out (outer end at x 0) and dropping 1 px at its outer end.
+    for x in range(0, 9):
+        top = 17 if x >= 5 else 18
+        for y in range(top, top + 4):
+            cv.set(x, y, "brass_05" if ((x + y) // 2) % 2 == 0 else "iron_00")
     # Strut cracked.
     cv.line(23, 25, 26, 27, "iron_00")
     cv.outline(OUT_C)
+    # Splinters jutting out of both sides of the split (after the outline so they stay pale wood).
+    for x, y in ((8, 16), (7, 15), (9, 22), (8, 23), (21, 18), (22, 17), (22, 20), (23, 21)):
+        cv.set(x, y, "wood_05")
     return cv
 
 
@@ -586,7 +614,7 @@ def weight_body(cv: Canvas, oy: int) -> None:
     # Hazard chevron band.
     for y in range(18, 24):
         inset = 8 - ((y - 8) * 8) // 23 + 1
-        hazard_stripes(cv, inset, 62 - inset, oy + y, oy + y, period=8)
+        hazard_stripes(cv, inset, oy + y, 62 - inset, oy + y, period=8)
     cv.hline(5, 58, oy + 17, "stone_cold_00")
     cv.hline(4, 59, oy + 24, "stone_cold_00")
     # Bolts along the top and a welded goblin patch.
