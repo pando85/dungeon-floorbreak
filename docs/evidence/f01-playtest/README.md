@@ -23,6 +23,22 @@ tools/record-run.sh floor01_scene --scene f01_late --scale 2    # window video p
 
 To play two players, connect a second pad and press Start: P1 plays Carl and P2 plays Donut. Select restarts the room. Start on P1 quits.
 
+**Controls.** The keyboard drives P1 (Carl); every connected pad slot uses the same pad bindings (P1 on the first pad, P2 on the second pad after its Start). Pad bindings follow [the controller contract](../../01-design/mvp-controller-contract.md). The equipped special is **L on the keyboard and East (Circle on DualSense, B on Xbox) on a pad**; before the fix of this table it was unreachable from live input.
+
+| Action | Keyboard (P1) | Pad (every slot) |
+| --- | --- | --- |
+| Move | A / D or Left / Right arrows | Left stick or D-pad |
+| Jump | Space | South (Cross / A) |
+| Primary attack (jab) | J | West (Square / X) |
+| Physical attack (kick) | K | North (Triangle / Y) |
+| Equipped special (Carl's dynamite, Donut's blink) | L | East (Circle / B) |
+| Down (stomp or dive under the CF02 rules) | S or Down arrow | D-pad down, or left stick down |
+| Swap hero (solo) | Q | L1 / LB |
+| Restart the room (a tap respawns, a long hold restarts in a manual room scene) | R | Select |
+| Quit | Esc | Start on P1's pad (Start on a second pad joins P2) |
+
+The special does something only where the hero holds it: Carl's dynamite from room 2 on (the `f01_pin_post_pile_boss` pin; the HUD shows it as BOOM with the special button), Donut's blink where her grant or the loadout gives it (room 6, or `--f01-loadout all`). A press without the capability is inert. The lab menu and the end panel take the input first and block it.
+
 **Listed rooms.** The manifest `assets/levels/f01_late/manifest.json` lists `boiler, hazards, juicer, mastery`, and the game prints that list. **Room 1 (the Hoarder) is unlisted (adopted default PTG-AD1, PT-GATE-C1: the smaller option).** `--f01-room hoarder` is refused as `unlisted room`; `--scene f01_hoarder` still launches it, and `story_order` still names it. `MANIFEST_HASH` is re-pinned (`0x3273fc11fa08a1f3` to `0x24bc1268822f41f7`, reason: the `hoarder` row left the manifest). The placeholder dynamite fixture `carl_prog_story_event_grants_dynamite` is therefore the item 3b evidence for the Hoarder's grant. The alternative (list the room again with a defeating `hoarder` room pilot and a strict session with exactly one `CapabilityGranted`) is a larger work order the owner can ask for:
 
 | Room | Command suffix | Gate status |
