@@ -38,6 +38,7 @@ use crate::combat_scene::{DemoRules, EnemySpawn, Fixture, Hold, LlamaSpawn};
 use crate::donut_prog::DonutProgFlags;
 use crate::encounter::{self, BOILER_ENCOUNTER_PATH, Encounter, Loaded, RosterKind};
 use crate::env_kit::{EnvKit, IRect, Layout, ViewDef};
+use crate::goblin::WakeGate;
 use crate::input::RawInput;
 use crate::scene_enemy::{SlotRoom, spawn_from_roster};
 use crate::story_unlock::{SceneKind, StorySetup};
@@ -92,6 +93,64 @@ const WALK_RIGHT: &[Hold] = &[
 /// A fixture seed is only recorded (no rule reads it in this room).
 const FIXTURE_SEED: u64 = 0x0F01_B011;
 
+/// PR-C of the Floor 1 fix-all plan: the Boiler's knobs
+/// (`assets/data/gameplay/f01_boiler_fixes_v0.json`), embedded, validated and
+/// FNV-1a pinned like the other tunings (the pin is scoped to the Boiler room,
+/// [`crate::f01_late::pin_applies`]).
+pub mod fixes {
+    use serde::Deserialize;
+
+    use crate::donut_mana::content_hash;
+
+    pub const TUNING_JSON: &str = include_str!("../assets/data/gameplay/f01_boiler_fixes_v0.json");
+    /// The committed FNV-1a 64 content hash of [`TUNING_JSON`].
+    pub const TUNING_HASH: u64 = 0x0bf3_9798_0e31_825e;
+    /// The `data_pins()` key.
+    pub const PIN_KEY: &str = "f01_boiler_fixes";
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+    #[serde(deny_unknown_fields)]
+    pub struct Fixes {
+        pub schema_version: u32,
+        /// FA-Q20 (amends BOILE-AD2): the live roster's existing kinds honour
+        /// `trigger_x` and `delay_ticks`. Off: every enemy wakes by sight alone, the
+        /// pre-PR-C behaviour (and its hashes).
+        pub fa_q20_wake_gates: bool,
+        /// FA-Q20, adopted `false`: an entry with a `delay_ticks` and no `trigger_x`
+        /// keeps the plain sight wake (the sidecar's g2 sets `delay_ticks` 120 only to
+        /// stagger its spawn for the roster validator). On: that delay also counts after
+        /// the sight wake.
+        pub fa_q20_delay_after_sight: bool,
+    }
+
+    impl Fixes {
+        pub fn from_json(text: &str) -> Result<Self, String> {
+            let fixes: Self = serde_json::from_str(text).map_err(|e| e.to_string())?;
+            if fixes.schema_version != 1 {
+                return Err(format!("schema_version {} is not 1", fixes.schema_version));
+            }
+            Ok(fixes)
+        }
+
+        /// The embedded file, which must equal its pin.
+        pub fn pinned() -> Result<Self, String> {
+            let actual = content_hash(TUNING_JSON);
+            if actual != TUNING_HASH {
+                return Err(format!(
+                    "f01_boiler_fixes_v0.json hash {actual:#018x} is not the pin {TUNING_HASH:#018x}"
+                ));
+            }
+            Self::from_json(TUNING_JSON)
+        }
+    }
+
+    /// The pinned knobs: what a launch of the room reads.
+    pub fn active() -> &'static Fixes {
+        static ACTIVE: std::sync::OnceLock<Fixes> = std::sync::OnceLock::new();
+        ACTIVE.get_or_init(|| Fixes::pinned().expect("the embedded Boiler fixes are pinned"))
+    }
+}
+
 /// BOIL-E (K16): how the room's sidecar roster loads.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Roster {
@@ -104,10 +163,11 @@ pub enum Roster {
 }
 
 impl Roster {
-    /// The roster a recorded or launched run uses: the story launcher
-    /// (`--scene f01_late`) writes an `f01_loadout` label into its descriptor,
-    /// the plain `--scene f01_boiler` does not. The one rule the binary and the
-    /// PLAYTRACE verifier share, so a recording rebuilds the world it was made in.
+    /// The roster a launched run uses: the story launcher (`--scene f01_late`)
+    /// carries an `f01_loadout` label, the plain `--scene f01_boiler` does not. The
+    /// binary writes the choice into the descriptor's explicit `f01_roster` field
+    /// (BOIL-FU) and the verifier reads it back with [`Self::from_descriptor`]; this
+    /// rule is also its fallback for a recording that predates the field.
     pub fn for_loadout(label: Option<&str>) -> Self {
         if label.is_some() {
             Self::Live
@@ -120,6 +180,21 @@ impl Roster {
         match self {
             Self::Inert => "inert",
             Self::Live => "live",
+        }
+    }
+
+    /// The roster of a recorded run's descriptor (BOIL-FU): the explicit
+    /// `f01_roster` field when it is there (`live` or `inert`; anything else is an
+    /// error), else the legacy label rule of [`Self::for_loadout`] for a recording
+    /// made before the field existed.
+    pub fn from_descriptor(roster: Option<&str>, loadout: Option<&str>) -> Result<Self, String> {
+        match roster {
+            Some("live") => Ok(Self::Live),
+            Some("inert") => Ok(Self::Inert),
+            Some(other) => Err(format!(
+                "unknown Boiler roster {other:?} (expected live or inert)"
+            )),
+            None => Ok(Self::for_loadout(loadout)),
         }
     }
 }
@@ -136,6 +211,9 @@ pub struct BoilerRun {
     pub roster: Roster,
     pub kit: EnvKit,
     pub fixture: &'static Fixture,
+    /// FA-Q20: the wake gate of each enemy, in enemy index order (empty for the
+    /// inert roster and with the knob off); [`env_runtime`] carries them to the combat.
+    pub wakes: Vec<Option<WakeGate>>,
     /// Respawn columns: the start column, then the checkpoint's.
     pub rules: &'static DemoRules,
     pub loaded: Loaded,
@@ -209,7 +287,8 @@ pub(crate) fn compose_kit(root: &Path, room: &Room) -> Result<EnvKit, String> {
 /// The env runtime of a launched room: the sidecar's props, hazards and
 /// solids (BOIL-B wire, BOIL-C wire). `with_env` puts it on the combat state.
 pub fn env_runtime(run: &BoilerRun) -> Result<crate::combat_scene::EnvRuntime, String> {
-    crate::combat_scene::EnvRuntime::new(&run.loaded.encounter)
+    Ok(crate::combat_scene::EnvRuntime::new(&run.loaded.encounter)?
+        .with_wake_gates(run.wakes.clone()))
 }
 
 /// The enemies a sidecar roster puts in the fixture (BOIL-E, K16), in roster
@@ -220,6 +299,57 @@ pub struct RosterEnemies {
     pub goblins: Vec<EnemySpawn>,
     pub engineers: Vec<EnemySpawn>,
     pub llamas: Vec<LlamaSpawn>,
+    /// FA-Q20: the wake gate of each goblin and each Engineer, parallel to the two
+    /// lists above (`None`: wakes by sight alone, the entry sets no `trigger_x`).
+    pub goblin_wakes: Vec<Option<WakeGate>>,
+    pub engineer_wakes: Vec<Option<WakeGate>>,
+}
+
+impl RosterEnemies {
+    /// The gates in enemy index order: the goblins, then the Engineers.
+    pub fn wakes(&self) -> Vec<Option<WakeGate>> {
+        let all: Vec<Option<WakeGate>> = self
+            .goblin_wakes
+            .iter()
+            .chain(&self.engineer_wakes)
+            .copied()
+            .collect();
+        if all.iter().all(Option::is_none) {
+            Vec::new()
+        } else {
+            all
+        }
+    }
+}
+
+/// FA-Q20: the Boiler has no llama entry, and a llama has no wake gate: an
+/// entry that names one is refused, never silently ignored.
+pub fn refuse_llama_wake(encounter: &Encounter) -> Result<(), String> {
+    match encounter.roster.iter().find(|e| {
+        e.kind == RosterKind::Room(EnemyKind::Llama) && (e.trigger_x.is_some() || e.delay_ticks > 0)
+    }) {
+        Some(e) => Err(format!(
+            "roster {}: a llama has no wake gate (trigger_x, delay_ticks)",
+            e.id
+        )),
+        None => Ok(()),
+    }
+}
+
+/// FA-Q20: the wake gate of a roster entry, or `None` when the entry wakes by
+/// sight alone: it names no `trigger_x`, and its `delay_ticks` does not count
+/// without one unless `fa_q20_delay_after_sight` is on.
+pub fn wake_gate(entry: &encounter::RosterEntry, fixes: &fixes::Fixes) -> Option<WakeGate> {
+    if !fixes.fa_q20_wake_gates {
+        return None;
+    }
+    let counts =
+        entry.trigger_x.is_some() || (fixes.fa_q20_delay_after_sight && entry.delay_ticks > 0);
+    counts.then_some(WakeGate {
+        trigger_x: entry.trigger_x,
+        delay_ticks: entry.delay_ticks,
+        delay_after_sight: fixes.fa_q20_delay_after_sight,
+    })
 }
 
 /// Build the fixture's enemies from the sidecar roster. The slot spawn
@@ -227,19 +357,31 @@ pub struct RosterEnemies {
 /// (goblin, Engineer, llama); a slot kind in the Boiler is an error (the room
 /// has none). The Engineer entry is the K16 relaxation of ENG-G-Q25 for a
 /// sidecar roster: it needs the data kill switch (`engineer_enabled`), and
-/// without it the entry's `fallback_kind` stands in. `trigger_x` and
-/// `delay_ticks` are read by slot kinds only: an existing kind stands at its
-/// column from tick 0 and wakes by sight (BOILE-AD2).
+/// without it the entry's `fallback_kind` stands in. An entry's `trigger_x` and
+/// `delay_ticks` become its [`WakeGate`] (FA-Q20, which amends BOILE-AD2): the
+/// enemy stands at its column from tick 0 and wakes at the earlier of sight and
+/// any hero's column reaching `trigger_x`, plus the delay; an entry without a
+/// `trigger_x` wakes by sight alone.
 pub fn roster_enemies(
     encounter: &Encounter,
     room: SlotRoom,
     engineer_enabled: bool,
 ) -> Result<RosterEnemies, String> {
+    roster_enemies_with(encounter, room, engineer_enabled, fixes::active())
+}
+
+/// [`roster_enemies`] under explicit knobs (the knob-off proofs).
+pub fn roster_enemies_with(
+    encounter: &Encounter,
+    room: SlotRoom,
+    engineer_enabled: bool,
+    knobs: &fixes::Fixes,
+) -> Result<RosterEnemies, String> {
     let spawn = spawn_from_roster(encounter, room, false).map_err(|e| e.to_string())?;
     if !spawn.slot.is_empty() {
         return Err("the Boiler's roster holds a slot kind (the room has none)".to_owned());
     }
-    existing_enemies(encounter, &spawn.existing, engineer_enabled)
+    existing_enemies_with(encounter, &spawn.existing, engineer_enabled, knobs)
 }
 
 /// The existing-kind half of [`roster_enemies`] (PT-MASTERY): the enemies of the
@@ -250,6 +392,16 @@ pub fn existing_enemies(
     encounter: &Encounter,
     indices: &[usize],
     engineer_enabled: bool,
+) -> Result<RosterEnemies, String> {
+    existing_enemies_with(encounter, indices, engineer_enabled, fixes::active())
+}
+
+/// [`existing_enemies`] under explicit knobs.
+pub fn existing_enemies_with(
+    encounter: &Encounter,
+    indices: &[usize],
+    engineer_enabled: bool,
+    knobs: &fixes::Fixes,
 ) -> Result<RosterEnemies, String> {
     let mut out = RosterEnemies::default();
     for &index in indices {
@@ -267,8 +419,12 @@ pub fn existing_enemies(
             x: entry.x,
             ai: EnemyAi::Chase,
         };
+        let gate = wake_gate(entry, knobs);
         match kind {
-            EnemyKind::Goblin => out.goblins.push(at),
+            EnemyKind::Goblin => {
+                out.goblins.push(at);
+                out.goblin_wakes.push(gate);
+            }
             EnemyKind::Llama => out.llamas.push(LlamaSpawn {
                 x: entry.x,
                 ai: EnemyAi::Chase,
@@ -282,8 +438,10 @@ pub fn existing_enemies(
                 }
                 if engineer_enabled {
                     out.engineers.push(at);
+                    out.engineer_wakes.push(gate);
                 } else if entry.fallback == Some(EnemyKind::Goblin) {
                     out.goblins.push(at);
+                    out.goblin_wakes.push(gate);
                 } else {
                     return Err(format!(
                         "roster {}: the Engineer is off and the entry has no goblin fallback",
@@ -310,6 +468,15 @@ pub fn launch(root: &Path) -> Result<BoilerRun, String> {
 /// Load the room, compose its kit and build the fixture and rules. With
 /// [`Roster::Live`] the fixture carries the sidecar's enemies (BOIL-E).
 pub fn launch_with(root: &Path, roster: Roster) -> Result<BoilerRun, String> {
+    launch_with_fixes(root, roster, fixes::active())
+}
+
+/// [`launch_with`] under explicit knobs (the knob-off proofs).
+pub fn launch_with_fixes(
+    root: &Path,
+    roster: Roster,
+    knobs: &fixes::Fixes,
+) -> Result<BoilerRun, String> {
     let loaded = encounter::load(root, BOILER_ENCOUNTER_PATH).map_err(|errors| {
         format!(
             "{BOILER_ENCOUNTER_PATH}: {}",
@@ -375,15 +542,20 @@ pub fn launch_with(root: &Path, roster: Roster) -> Result<BoilerRun, String> {
     }));
     let enemies = match roster {
         Roster::Inert => RosterEnemies::default(),
-        Roster::Live => roster_enemies(
-            &loaded.encounter,
-            SlotRoom {
-                floor_y: loaded.room.floor_y as f32,
-                walls: (0.0, kit.width as f32),
-            },
-            crate::engineer::active().enabled(),
-        )?,
+        Roster::Live => {
+            refuse_llama_wake(&loaded.encounter)?;
+            roster_enemies_with(
+                &loaded.encounter,
+                SlotRoom {
+                    floor_y: loaded.room.floor_y as f32,
+                    walls: (0.0, kit.width as f32),
+                },
+                crate::engineer::active().enabled(),
+                knobs,
+            )?
+        }
     };
+    let wakes = enemies.wakes();
     let fixture: &'static Fixture = Box::leak(Box::new(Fixture {
         name: SCENE_NAME,
         summary: match roster {
@@ -409,6 +581,7 @@ pub fn launch_with(root: &Path, roster: Roster) -> Result<BoilerRun, String> {
         roster,
         kit,
         fixture,
+        wakes,
         rules,
         loaded,
     })
@@ -570,6 +743,27 @@ mod tests {
         }
     }
 
+    /// BOIL-FU (PR-C): the descriptor's explicit `f01_roster` decides; the label rule is
+    /// only the fallback of a recording that predates the field.
+    #[test]
+    fn the_explicit_roster_field_wins_and_the_label_is_only_the_fallback() {
+        let from = Roster::from_descriptor;
+        assert_eq!(from(Some("live"), None), Ok(Roster::Live));
+        assert_eq!(from(Some("inert"), Some("story")), Ok(Roster::Inert));
+        assert_eq!(from(Some("live"), Some("all")), Ok(Roster::Live));
+        assert_eq!(from(None, Some("story")), Ok(Roster::Live), "legacy");
+        assert_eq!(from(None, None), Ok(Roster::Inert), "legacy");
+        let err = from(Some("bogus"), Some("story")).unwrap_err();
+        assert!(err.contains("unknown Boiler roster"), "{err}");
+        for roster in [Roster::Inert, Roster::Live] {
+            assert_eq!(
+                from(Some(roster.name()), None),
+                Ok(roster),
+                "names round-trip"
+            );
+        }
+    }
+
     #[test]
     fn the_loadout_label_picks_the_roster() {
         assert_eq!(Roster::for_loadout(None), Roster::Inert);
@@ -630,35 +824,293 @@ mod tests {
         }
         let mut sorted = columns.clone();
         sorted.sort_unstable();
-        // The wake columns (the enemy's column minus the sight) are strictly
-        // increasing in roster order: one enters sight at a time.
-        let wake: Vec<i32> = r
+        // FA-Q20: an entry's wake column is the earlier of its sight column (its
+        // column minus the sight) and its `trigger_x`; the wake delay (counted
+        // only for an entry that names a `trigger_x`) orders two entries on the same
+        // column. The (column, delay) pairs are strictly increasing in roster order:
+        // one enters at a time (g3 and e1 share 560, 90 ticks apart).
+        let wake: Vec<(i32, u32)> = r
             .loaded
             .encounter
             .roster
             .iter()
-            .map(|e| e.x - sight)
+            .map(|e| {
+                let column = e.trigger_x.map_or(e.x - sight, |t| t.min(e.x - sight));
+                (column, e.trigger_x.map_or(0, |_| e.delay_ticks))
+            })
             .collect();
+        assert_eq!(wake, [(124, 0), (420, 0), (560, 0), (560, 90)]);
         assert!(wake.windows(2).all(|w| w[0] < w[1]), "{wake:?}");
         // No more than `max_living` enemies at once (the design's initial probe).
         assert!(columns.len() <= usize::from(r.loaded.encounter.max_living));
     }
 
     /// BOILE-AD2 in a simulation, not only in columns: with Carl idle at his spawn
-    /// nobody wakes, so every enemy holds its column for 300 ticks.
+    /// nobody wakes, so every enemy holds its column for 300 ticks (with the roster's
+    /// wake gates in the run: FA-Q20 keeps the idle room asleep).
     #[test]
     fn nobody_wakes_while_the_heroes_idle_at_the_spawn() {
         let r = live();
         let mut scene = SceneSim::new_at(&r.kit, 360, r.fixture.carl_x).unwrap();
         let mut combat = CombatState::new(r.fixture, &r.kit, &scene)
             .unwrap()
-            .with_cf02();
+            .with_cf02()
+            .with_env(env_runtime(&r).unwrap());
+        assert!(combat.enemies.iter().skip(2).all(|g| g.wake_holds()));
         let at: Vec<f32> = combat.enemies.iter().map(|g| g.x).collect();
         for _ in 0..300 {
             combat.step_party(&mut scene, [RawInput::default(), RawInput::default()]);
         }
         let after: Vec<f32> = combat.enemies.iter().map(|g| g.x).collect();
         assert_eq!(at, after);
+    }
+
+    /// FA-Q20: a checkpoint restart rebuilds the room, so a woken B3 sleeps again, with
+    /// its gate (the wake state is attempt state, the gate is run configuration).
+    #[test]
+    fn a_restart_puts_b3_back_to_sleep() {
+        let r = live();
+        let mut scene = SceneSim::new_at(&r.kit, 360, r.fixture.carl_x).unwrap();
+        let mut combat = CombatState::new(r.fixture, &r.kit, &scene)
+            .unwrap()
+            .with_cf02()
+            .with_env(env_runtime(&r).unwrap());
+        combat.sync_env(&mut scene);
+        for g in [0, 1] {
+            combat.enemies[g].health = 0;
+            combat.enemies[g].mode = crate::goblin::GoblinMode::Corpse;
+        }
+        let asleep: Vec<bool> = combat.enemies.iter().map(|g| g.wake_holds()).collect();
+        assert_eq!(asleep[2..], [true, true]);
+        scene.world.hero.x = 600.0;
+        for _ in 0..100 {
+            combat.step_party(&mut scene, [RawInput::default(), RawInput::default()]);
+        }
+        assert!(!combat.enemies[2].wake_holds() && !combat.enemies[3].wake_holds());
+        combat.restart(&mut scene);
+        assert!(combat.enemies[2].wake_holds() && combat.enemies[3].wake_holds());
+        assert_eq!(combat.enemies[2].x, 944.0);
+    }
+
+    /// The gates of the live sidecar: g3 and e1 (`trigger_x` 560) are gated, g1 and g2
+    /// (no trigger; g2's `delay_ticks` only staggers its spawn for the validator) keep
+    /// the plain sight wake and carry no gate, so nothing of theirs changes.
+    #[test]
+    fn only_the_entries_with_a_trigger_carry_a_wake_gate() {
+        let r = live();
+        let gate = |trigger_x, delay_ticks| {
+            Some(WakeGate {
+                trigger_x: Some(trigger_x),
+                delay_ticks,
+                delay_after_sight: false,
+            })
+        };
+        assert_eq!(r.wakes, [None, None, gate(560, 0), gate(560, 90)]);
+        // The inert roster has no enemy, so no gate.
+        assert!(run().wakes.is_empty());
+    }
+
+    /// FA-Q20 knob `fa_q20_wake_gates` off: no gate anywhere (the old sight-only wake).
+    #[test]
+    fn with_the_knob_off_no_entry_has_a_gate() {
+        let off = fixes::Fixes {
+            fa_q20_wake_gates: false,
+            ..*fixes::active()
+        };
+        let r = launch_with_fixes(&root(), Roster::Live, &off).unwrap();
+        assert!(r.wakes.is_empty());
+    }
+
+    /// FA-Q20, adopted `fa_q20_delay_after_sight: false`: an entry with a delay and no
+    /// trigger has no gate; with the knob on its delay counts after the sight wake.
+    #[test]
+    fn a_delay_without_a_trigger_gates_only_when_the_delay_after_sight_knob_is_on() {
+        let r = live();
+        let g2 = r
+            .loaded
+            .encounter
+            .roster
+            .iter()
+            .find(|e| e.id == "g2")
+            .unwrap();
+        assert_eq!((g2.trigger_x, g2.delay_ticks), (None, 120));
+        let base = *fixes::active();
+        assert_eq!(wake_gate(g2, &base), None);
+        let on = fixes::Fixes {
+            fa_q20_delay_after_sight: true,
+            ..base
+        };
+        assert_eq!(
+            wake_gate(g2, &on),
+            Some(WakeGate {
+                trigger_x: None,
+                delay_ticks: 120,
+                delay_after_sight: true
+            })
+        );
+        let g1 = r
+            .loaded
+            .encounter
+            .roster
+            .iter()
+            .find(|e| e.id == "g1")
+            .unwrap();
+        assert_eq!(wake_gate(g1, &on), None, "no delay, no trigger: no gate");
+        let off = fixes::Fixes {
+            fa_q20_wake_gates: false,
+            ..on
+        };
+        assert_eq!(wake_gate(g2, &off), None, "the master knob wins");
+    }
+
+    /// A llama entry with a wake field is refused, never silently ignored.
+    #[test]
+    fn a_llama_with_a_wake_field_is_refused() {
+        let r = run();
+        assert!(refuse_llama_wake(&r.loaded.encounter).is_ok());
+        for edit in [
+            |e: &mut encounter::RosterEntry| e.delay_ticks = 30,
+            |e: &mut encounter::RosterEntry| e.trigger_x = Some(500),
+        ] {
+            let mut enc = r.loaded.encounter.clone();
+            let i = enc.roster.iter().position(|e| e.id == "g1").unwrap();
+            enc.roster[i].kind = RosterKind::Room(EnemyKind::Llama);
+            edit(&mut enc.roster[i]);
+            let err = refuse_llama_wake(&enc).unwrap_err();
+            assert!(err.contains("a llama has no wake gate"), "{err}");
+        }
+        let mut plain = r.loaded.encounter.clone();
+        let i = plain.roster.iter().position(|e| e.id == "g1").unwrap();
+        plain.roster[i].kind = RosterKind::Room(EnemyKind::Llama);
+        assert!(
+            refuse_llama_wake(&plain).is_ok(),
+            "a llama with no wake field"
+        );
+    }
+
+    /// Design finding (PR-C): the drum's solid (848..880) stands between g3 (944) and the
+    /// steam lane, so a woken g3 cannot walk into 688..768 while the drum stands: it stops
+    /// at the drum's face. The T27 symptom was a *hero* in the lane when g3 woke.
+    #[test]
+    fn the_drum_walls_g3_off_the_lane_until_it_blows() {
+        let r = live();
+        let mut scene = SceneSim::new_at(&r.kit, 360, r.fixture.carl_x).unwrap();
+        let mut combat = CombatState::new(r.fixture, &r.kit, &scene)
+            .unwrap()
+            .with_cf02()
+            .with_env(env_runtime(&r).unwrap());
+        combat.sync_env(&mut scene);
+        for g in [0, 1, 3] {
+            combat.enemies[g].health = 0;
+            combat.enemies[g].mode = crate::goblin::GoblinMode::Corpse;
+        }
+        scene.world.hero.x = 600.0;
+        for _ in 0..400 {
+            combat.step_party(&mut scene, [RawInput::default(), RawInput::default()]);
+        }
+        let g3 = &combat.enemies[2];
+        assert!(!g3.wake_holds(), "woken by the trigger");
+        assert!(g3.x > 880.0, "g3 stops at the drum's face, at {}", g3.x);
+    }
+
+    /// FA-Q20 (T27): g3 is the third enemy; once Carl reaches the trigger column it
+    /// wakes (Carl is far from the lane then). The drum is blown first by a goblin
+    /// launched into it (through the runtime, as in play), which opens the way and
+    /// leaves g3, out of the blast's reach, at full health; g3 then walks to Carl
+    /// through the steam lane (688..768). Carl, back at the valve, sets it off while g3
+    /// is on its way and the steam scalds it (1 of its 2 health); without the vent the
+    /// same run leaves it untouched. Scripted by position; g1 and e1 are taken out of
+    /// the room and g2 (1 health) is the launched body.
+    #[test]
+    fn boil_b3_vented_in_the_lane() {
+        const G3: usize = 2;
+        let play = |vent: bool| {
+            let r = live();
+            let mut scene = SceneSim::new_at(&r.kit, 360, r.fixture.carl_x).unwrap();
+            let mut combat = CombatState::new(r.fixture, &r.kit, &scene)
+                .unwrap()
+                .with_donut(DonutSetup::unlocked(8))
+                .with_demo(r.rules)
+                .with_cf02()
+                .with_env(env_runtime(&r).unwrap());
+            combat.sync_env(&mut scene);
+            for g in [0, 3] {
+                combat.enemies[g].health = 0;
+                combat.enemies[g].mode = crate::goblin::GoblinMode::Corpse;
+            }
+            combat.enemies[1].health = 1;
+            let walk = |dir: f32| RawInput {
+                move_x: dir,
+                ..RawInput::NONE
+            };
+            // 0: walk right to the trigger; 1: walk left; 2: walk right to the
+            // valve's reach (facing it); 3: stand and jab.
+            let mut phase = 0;
+            let mut jabs: Vec<u64> = Vec::new();
+            let (mut woke, mut in_lane) = (None, false);
+            for t in 0..800u64 {
+                if t == 5 {
+                    // A fast rising arc into the drum's face (the `wall_stop` cases):
+                    // the drum is set off by the launched body and blows 24 ticks later.
+                    let g2 = &mut combat.enemies[1];
+                    g2.x = 800.0;
+                    g2.mode = crate::goblin::GoblinMode::Launched;
+                    g2.vx = 250.0;
+                    g2.vy = 150.0;
+                    g2.launch = Some(9);
+                }
+                let x = scene.world.hero.x;
+                match phase {
+                    0 if x >= 562.0 => phase = 1,
+                    1 if x <= 400.0 => phase = 2,
+                    2 if x >= 460.0 => phase = 3,
+                    _ => {}
+                }
+                let gx = combat.enemies[G3].x;
+                let input = match phase {
+                    0 | 2 => walk(1.0),
+                    1 => walk(-1.0),
+                    _ if vent && gx <= 800.0 && jabs.len() < 2 => {
+                        if jabs.last().is_none_or(|j| t >= j + 30) {
+                            jabs.push(t);
+                            RawInput {
+                                attack: true,
+                                ..RawInput::NONE
+                            }
+                        } else {
+                            RawInput::NONE
+                        }
+                    }
+                    _ => RawInput::NONE,
+                };
+                combat.step_party(&mut scene, [input, RawInput::default()]);
+                if woke.is_none() && !combat.enemies[G3].wake_holds() {
+                    woke = Some(t);
+                }
+                in_lane |= (688.0..768.0).contains(&combat.enemies[G3].x);
+            }
+            let drum_blown =
+                combat.env().unwrap().drum_state(2) == Some(crate::env_prop::DrumState::Detonated);
+            let g3 = &combat.enemies[G3];
+            assert!(drum_blown, "the launched body blew the drum");
+            assert!(g3.alive(), "g3 survives with 1 of 2 health at most");
+            (
+                woke,
+                in_lane,
+                g3.health < crate::combat::ENEMY_HEALTH,
+                jabs.len(),
+            )
+        };
+        let (woke, in_lane, hurt, jabs) = play(true);
+        assert!(
+            woke.is_some_and(|t| t < 200),
+            "g3 wakes at the trigger: {woke:?}"
+        );
+        assert!(in_lane, "and walks the lane");
+        assert_eq!(jabs, 2);
+        assert!(hurt, "the steam scalded g3 in the lane");
+        let (_, in_lane, hurt, _) = play(false);
+        assert!(in_lane && !hurt, "without the vent g3 is untouched");
     }
 
     /// ENG-G-Q25 kill switch: with the Engineer off, his entry stands in as its

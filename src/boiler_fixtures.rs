@@ -680,6 +680,11 @@ pub mod scene_pilots {
         /// PT-GATE-C2: Carl plays `plan`; Donut is the autonomous partner
         /// (`--companion cf02_free`). Live roster only ([`run_live`]).
         Companion,
+        /// FA-Q16 / PR-C (live pilots only): Carl plays `plan`; Donut is the
+        /// passive follower (`UncontrolledHero::FollowAndJumpBot`: follows and
+        /// jumps, never attacks, casts nothing). It isolates what the pilot's own
+        /// hero does to the props from what an AI partner's moves do.
+        PassivePartner,
     }
 
     #[derive(Debug, Clone, Copy, PartialEq)]
@@ -872,6 +877,11 @@ pub mod scene_pilots {
         /// hero, while that hero moved. Measured by [`run_live`] only (0 in the greybox
         /// [`run`]); a measure, never a rule.
         pub partner_left_behind: u32,
+        /// FA-Q16 / PR-C: the prop hits credited to the hero the pilot does not
+        /// steer (the partner: Donut while Carl is steered, Carl after a swap),
+        /// counted by [`run_live`] as they are logged; 0 in the greybox [`run`].
+        /// The initiator id of a hit is the hero's index (0 Carl, 1 Donut).
+        pub partner_prop_hits: usize,
     }
 
     impl Report {
@@ -935,8 +945,8 @@ pub mod scene_pilots {
     /// Run one plan on the real room for [`PLAN_TICKS`] (or until the exit and
     /// a short tail), at CF02 seed `seed`.
     pub fn run(root: &Path, who: Who, plan: Plan, seed: u64) -> Result<Report, String> {
-        if who == Who::Companion {
-            return Err("the greybox pilots have no companion mode: use run_live".into());
+        if matches!(who, Who::Companion | Who::PassivePartner) {
+            return Err("the greybox pilots have no partner mode: use run_live".into());
         }
         let run = f01_boiler::launch(root)?;
         let goblins: &'static [EnemySpawn] = if plan == Plan::Weight {
@@ -1005,7 +1015,7 @@ pub mod scene_pilots {
                     let input = donut.input(&sim.scene, &sim.combat, HeroId::Donut);
                     ([input, RawInput::NONE], [false, true])
                 }
-                Who::Companion => unreachable!("refused above"),
+                Who::Companion | Who::PassivePartner => unreachable!("refused above"),
                 Who::TwoPlayer => {
                     // P2 follows P1 at about 90 px behind (the scroll camera
                     // holds the lead player back when the partner lags); she
@@ -1049,6 +1059,7 @@ pub mod scene_pilots {
             hash: sim.combat.state_hash(&sim.scene),
             events: sim.combat.events.clone(),
             partner_left_behind: 0,
+            partner_prop_hits: 0,
         })
     }
 
@@ -1177,25 +1188,42 @@ pub mod scene_pilots {
     /// (`f01_mastery_fixtures::tuning`), at CF02 seed `seed`: the sim and the column the
     /// pilot walks to once nothing is left (the room's exit).
     pub fn live_start(root: &Path, who: Who, seed: u64) -> Result<(PartyFixtureSim, f32), String> {
-        use crate::f01_boiler::Roster;
-        use crate::f01_late::{Loadout, boiler_start_with};
-        use crate::f01_mastery_fixtures::{Who as MWho, tuning};
+        live_start_with(root, who, seed, crate::f01_boiler::fixes::active())
+    }
 
-        let mastery_who = match who {
-            Who::CarlSolo => MWho::CarlSolo,
-            Who::DonutBySwap => MWho::DonutBySwap,
-            Who::Companion => MWho::Companion,
+    /// [`live_start`] under explicit Boiler knobs (the knob-off proofs).
+    pub fn live_start_with(
+        root: &Path,
+        who: Who,
+        seed: u64,
+        knobs: &crate::f01_boiler::fixes::Fixes,
+    ) -> Result<(PartyFixtureSim, f32), String> {
+        use crate::f01_boiler::Roster;
+        use crate::f01_late::{Loadout, boiler_combat};
+        use crate::f01_mastery_fixtures::{Who as MWho, tuning};
+        use crate::party::{PartyTuning, UncontrolledHero};
+
+        let party = match who {
+            Who::CarlSolo => tuning(MWho::CarlSolo),
+            Who::DonutBySwap => tuning(MWho::DonutBySwap),
+            Who::Companion => tuning(MWho::Companion),
+            Who::PassivePartner => PartyTuning {
+                uncontrolled_hero: UncontrolledHero::FollowAndJumpBot,
+                ..PROVISIONAL_TUNING
+            }
+            .with_cf02_swap(),
             Who::TwoPlayer => return Err("the live pilots have no two-player mode".into()),
         };
         let (carl_flags, donut_flags) = Loadout::Story.flags();
-        let (run, scene, combat) =
-            boiler_start_with(root, 360, carl_flags, donut_flags, Some(seed), Roster::Live)?;
+        let run = f01_boiler::launch_with_fixes(root, Roster::Live, knobs)?;
+        let mut scene = SceneSim::new_at(&run.kit, 360, run.fixture.carl_x)?;
+        let combat = boiler_combat(&run, &mut scene, carl_flags, donut_flags, Some(seed))?;
         let exit = run.loaded.encounter.exit;
         let exit_x = (exit.x + exit.w / 2) as f32;
         let fixture: &'static PartyFixture = Box::leak(Box::new(PartyFixture {
             base: run.fixture,
             two_player: false,
-            tuning: tuning(mastery_who),
+            tuning: party,
             script: &[],
             pilot: Pilot::None,
             donut: DonutSetup::unlocked(8),
@@ -1248,10 +1276,41 @@ pub mod scene_pilots {
         seed: u64,
         force_restart_at: Option<u64>,
     ) -> Result<Report, String> {
+        run_live_core(
+            root,
+            who,
+            plan,
+            seed,
+            force_restart_at,
+            crate::f01_boiler::fixes::active(),
+        )
+    }
+
+    /// [`run_live`] under explicit Boiler knobs (the knob-off proofs).
+    pub fn run_live_with(
+        root: &Path,
+        who: Who,
+        plan: Plan,
+        seed: u64,
+        knobs: &crate::f01_boiler::fixes::Fixes,
+    ) -> Result<Report, String> {
+        run_live_core(root, who, plan, seed, None, knobs)
+    }
+
+    fn run_live_core(
+        root: &Path,
+        who: Who,
+        plan: Plan,
+        seed: u64,
+        force_restart_at: Option<u64>,
+        knobs: &crate::f01_boiler::fixes::Fixes,
+    ) -> Result<Report, String> {
         use crate::f01_mastery_fixtures::{APART_PX, LeftBehind};
 
         let mut driver = LiveDriver::new(who, plan)?;
-        let (mut sim, exit_x) = live_start(root, who, seed)?;
+        let (mut sim, exit_x) = live_start_with(root, who, seed, knobs)?;
+        let mut partner_prop_hits = 0usize;
+        let mut seen_events = 0usize;
         let mut last_x = [sim.scene.world.hero.x, sim.scene.world.donut_body.x];
         let mut stuck = [0u32; 2];
         let mut max_stuck = [0u32; 2];
@@ -1262,6 +1321,17 @@ pub mod scene_pilots {
             let controlled = sim.party.controlled_hero();
             let (slots, walking) = driver.next(&sim.combat, &sim.scene, controlled, exit_x);
             sim.step_slots(slots);
+            // FA-Q16: the prop hits this tick credited to the hero nobody steers.
+            let partner = if controlled == HeroId::Carl { 1 } else { 0 };
+            let log = &sim.combat.events;
+            seen_events = seen_events.min(log.len());
+            partner_prop_hits += log[seen_events..]
+                .iter()
+                .filter(
+                    |e| matches!(e, CombatEvent::PropHit { player: Some(p), .. } if *p == partner),
+                )
+                .count();
+            seen_events = log.len();
             // Once: the attempt that follows counts its ticks from 1 again.
             if !forced && force_restart_at == Some(sim.scene.world.tick) {
                 forced = true;
@@ -1304,6 +1374,7 @@ pub mod scene_pilots {
             hash: sim.state_hash(),
             events: sim.combat.events.clone(),
             partner_left_behind: left_behind.max(),
+            partner_prop_hits,
         })
     }
 }
@@ -1312,6 +1383,7 @@ pub mod scene_pilots {
 mod scene_pilot_tests {
     use super::scene_pilots::*;
     use crate::combat::{CombatEvent, PropPhase};
+    use crate::party::HeroId;
     use std::path::PathBuf;
 
     fn root() -> PathBuf {
@@ -1592,61 +1664,165 @@ mod scene_pilot_tests {
         assert_eq!(got, LIVE_PINNED, "pins: {got:#018x?}");
     }
 
+    /// FA-Q20 knob off: five live runs under `fa_q20_wake_gates: false` must keep the
+    /// hashes the live Boiler had on main before PR-C (post-#248 `LIVE_PINNED` entries at
+    /// these indexes; the knob-off world is the old world byte for byte).
+    #[test]
+    fn with_the_wake_knob_off_the_live_boiler_keeps_its_old_hashes() {
+        use crate::f01_boiler::fixes::Fixes;
+        let off = Fixes {
+            fa_q20_wake_gates: false,
+            ..*crate::f01_boiler::fixes::active()
+        };
+        let samples: [(Who, Plan, u64, u64); 5] = [
+            (Who::CarlSolo, Plan::Direct, 0, 0x48c4_688d_85af_3996),
+            (Who::CarlSolo, Plan::Both, 3, 0x8a13_3803_4a77_6fc1),
+            (Who::DonutBySwap, Plan::Direct, 4, 0x676e_534d_63fe_15ef),
+            (Who::Companion, Plan::Direct, 2, 0x84a5_4d3b_5e58_0614),
+            (Who::Companion, Plan::Both, 8, 0xd3c9_61b2_dcdb_348f),
+        ];
+        for (who, plan, seed, old) in samples {
+            let r = run_live_with(&root(), who, plan, seed, &off).unwrap();
+            assert_eq!(r.hash, old, "{who:?} {plan:?} seed {seed}");
+        }
+        // And the knob on moves them (the wake gate is mixed into the state).
+        let r = run_live(&root(), Who::CarlSolo, Plan::Direct, 0).unwrap();
+        assert_ne!(r.hash, samples[0].3);
+    }
+
+    /// FA-Q16 (PR-C), the passive-partner variant: with a partner that never
+    /// attacks, no hero touches a prop on the direct route, on any seed.
+    #[test]
+    fn the_passive_partner_variant_hits_no_prop_on_the_direct_route() {
+        for seed in 0..=8 {
+            let r = run_live(&root(), Who::PassivePartner, Plan::Direct, seed).unwrap();
+            assert!(r.exit_tick.is_some(), "seed {seed}: no exit");
+            assert_eq!(r.prop_hits(), 0, "seed {seed}: {:?}", r.events);
+            assert_eq!(r.partner_prop_hits, 0, "seed {seed}");
+        }
+    }
+
+    /// FA-Q16 (PR-C), the active partner: after PR-A's prop-safe fire rule the AI partner
+    /// (`cf02_assist` under Carl solo and under the swap, where Carl is the AI partner after it, `cf02_free` as the companion) hits no prop on the
+    /// direct route. PR-A removes the ignore (the declared one-line exception to file
+    /// ownership); until then the test documents the open target.
+    #[test]
+    #[ignore = "needs PR-A FA-Q16"]
+    fn the_active_partner_hits_no_prop_on_the_direct_route() {
+        for who in [Who::CarlSolo, Who::DonutBySwap, Who::Companion] {
+            for seed in 0..=8 {
+                let r = run_live(&root(), who, Plan::Direct, seed).unwrap();
+                assert_eq!(r.partner_prop_hits, 0, "{who:?} seed {seed}");
+            }
+        }
+    }
+
+    /// The counter counts what it says: it is the hits by the unsteered hero, and a
+    /// Carl hit is not one. (A `both` run jabs the props with Carl.)
+    #[test]
+    fn the_partner_prop_counter_leaves_carls_own_hits_out() {
+        let r = run_live(&root(), Who::PassivePartner, Plan::Both, 0).unwrap();
+        assert!(r.prop_hits_by(0) > 0, "the plan jabs the valve");
+        assert_eq!(r.partner_prop_hits, r.prop_hits_by(1));
+        assert_eq!(r.partner_prop_hits, 0, "a passive partner hits nothing");
+    }
+
+    /// FA-Q20 (T27): g3 stands at 944 and used to wake by sight at hero x 724, inside the
+    /// steam lane (688..768). It wakes by `trigger_x` 560 now: on every direct-pilot seed and
+    /// every hero mode, no hero stands in the lane (plus half a body each side) on the
+    /// tick g3 wakes.
+    #[test]
+    fn boil_b3_wakes_before_the_lane() {
+        use crate::prototype::HERO_HALF_WIDTH;
+        const G3: usize = 2;
+        let (lane_left, lane_right) = (688.0 - HERO_HALF_WIDTH, 768.0 + HERO_HALF_WIDTH);
+        for who in [
+            Who::CarlSolo,
+            Who::DonutBySwap,
+            Who::Companion,
+            Who::PassivePartner,
+        ] {
+            for seed in 0..=8 {
+                let mut driver = LiveDriver::new(who, Plan::Direct).unwrap();
+                let (mut sim, exit_x) = live_start(&root(), who, seed).unwrap();
+                assert!(sim.combat.enemies[G3].wake_holds(), "g3 starts asleep");
+                let mut woke_at = None;
+                for _ in 0..LIVE_TICKS {
+                    let controlled = sim.party.controlled_hero();
+                    let (slots, _) = driver.next(&sim.combat, &sim.scene, controlled, exit_x);
+                    sim.step_slots(slots);
+                    if !sim.combat.enemies[G3].wake_holds() {
+                        woke_at = Some(sim.scene.world.tick);
+                        for id in HeroId::ALL {
+                            let x = sim.scene.world.body(id).x;
+                            assert!(
+                                x < lane_left || x > lane_right,
+                                "{who:?} seed {seed}: {id:?} at {x} in the lane when g3 woke"
+                            );
+                        }
+                        break;
+                    }
+                }
+                assert!(woke_at.is_some(), "{who:?} seed {seed}: g3 never woke");
+            }
+        }
+    }
+
     const LIVE_PINNED: [u64; 54] = [
-        0x48c4_688d_85af_3996,
-        0x6ddb_8bc0_9f55_245a,
-        0xfa45_ea7c_3480_aaf3,
-        0x7cb3_a709_a026_7b69,
-        0xe3b5_1ba0_edc7_a849,
-        0xaaf1_e344_bbb5_90ac,
-        0x2452_dc40_b5df_1886,
-        0x9180_8953_c48b_ed0b,
-        0x66a7_afc0_d89b_be7d,
-        0xd66e_0091_6ef1_a10f,
-        0xb776_f2b3_0ab1_032d,
-        0xb53f_b8ac_8345_379c,
-        0x8a13_3803_4a77_6fc1,
-        0x142a_0fba_3fd6_a88f,
-        0xb4ee_3aef_0164_2e48,
-        0xdb05_e37c_a97c_65a2,
-        0x7f0f_592b_df1b_2c5c,
-        0x7d43_ec70_4cd4_69ce,
-        0x29ec_872a_fa78_bac0,
-        0x14e8_0b01_b50a_6b2c,
-        0xc34d_8866_df95_fa9d,
-        0x80fa_fc9d_1c22_cda7,
-        0x676e_534d_63fe_15ef,
-        0x6534_c20c_f28c_b9c2,
-        0x6ab0_b9d5_f8a4_53e0,
-        0x56c7_a961_8e6b_aecd,
-        0x81cc_8c50_5633_0be3,
-        0xe72b_d010_d351_f437,
-        0x77e5_bf7a_3e93_6ac5,
-        0xc277_8684_6dd2_1b34,
-        0x9f8e_8589_0764_fad6,
-        0x20a4_3917_695d_218b,
-        0xa897_33c9_2da2_8546,
-        0x9cc9_a564_3840_a1e2,
-        0xc894_ed97_4fba_57e4,
-        0xf408_3344_20f3_1e76,
-        0x8064_48fb_5afb_add5,
-        0xce6d_261a_7e39_c618,
-        0x84a5_4d3b_5e58_0614,
-        0xec68_9c9d_1171_ef9f,
-        0x4061_b028_a384_d675,
-        0x93ed_041a_a421_269a,
-        0x2c84_e318_a6f9_0337,
-        0xe373_e1e8_0363_2e78,
-        0x980b_a0aa_c8b2_e372,
-        0x86cb_0a78_dc35_64b4,
-        0x48da_291a_2210_15cf,
-        0x9e03_3a30_4f39_c631,
-        0x0734_d1c2_2316_6298,
-        0x2b7f_d290_1f93_b73f,
-        0xe243_b3c3_57f3_12fd,
-        0x9ac1_beba_982a_1455,
-        0x8659_e264_99ee_a82d,
-        0xd3c9_61b2_dcdb_348f,
+        0x993e_3e94_4d33_ae3c,
+        0x0645_efc0_3a8d_951b,
+        0x65a1_8260_8ae9_4785,
+        0x6805_1737_df40_e6fe,
+        0x37df_8a2f_8158_2daf,
+        0xb893_99c6_82c8_1fbb,
+        0xae3c_79a2_534d_af67,
+        0x7488_24e4_b84d_ae53,
+        0x5c24_3217_f68a_1b47,
+        0xf323_e9bd_d7f8_0259,
+        0x277a_e1a0_9b34_a8f6,
+        0x6ff4_35f1_e495_4c9c,
+        0x9e71_92d8_ff9a_2b01,
+        0x3eac_8f6b_2eb3_7d9a,
+        0x7f34_4574_2656_da24,
+        0xc0a9_c649_6a57_be4b,
+        0xe800_8c71_7544_e174,
+        0x0c80_786a_8320_121a,
+        0x5cb2_497e_5dd1_c46e,
+        0xfe8f_ef17_6dee_7cf5,
+        0xd422_51c2_6b86_ce6f,
+        0xe60e_0c12_16e1_f110,
+        0x3041_c974_66c0_0dad,
+        0xa99c_c77b_d208_7d0d,
+        0xdd09_2cd6_4b7d_7481,
+        0x71d9_b5ae_382e_8fe1,
+        0xe9cc_b5d9_158d_5fe5,
+        0x1888_475d_8b03_8ab0,
+        0x7409_7184_0598_07cb,
+        0xd00c_b662_513d_48b1,
+        0x0299_6eb0_e501_dd04,
+        0xfe8f_f3c5_ea10_2c27,
+        0xf6d2_f720_aac7_9081,
+        0xb6d8_3713_1f11_79c2,
+        0x5f02_fee5_2db0_93b9,
+        0xe958_06e4_a559_865f,
+        0x5247_601d_f2de_d19a,
+        0x6a04_aa4b_03c6_8e12,
+        0x5834_9c1a_5eca_7993,
+        0x1079_d857_98f7_12e3,
+        0x981b_cab0_aa1e_4373,
+        0xcc35_e26c_08e9_ff32,
+        0xf6e3_6a1a_2d63_38f8,
+        0x0c21_b258_4fcb_8275,
+        0xaff1_b4bc_23eb_6ce5,
+        0x8dbf_e9f1_1beb_84d1,
+        0xb536_3ed6_1199_8191,
+        0xf259_883d_de0b_5d80,
+        0x06c6_8e73_5fca_7b02,
+        0x372c_9425_e0ee_ed9a,
+        0x0a5e_d66f_6b79_1a1f,
+        0xe661_a432_a017_6c8a,
+        0xd799_6a0a_c31c_7e52,
+        0xdd46_bc57_608a_a904,
     ];
 
     /// Solo Carl at CF02 seed 0: direct, valve, weight, both. BOIL-D re-pin,

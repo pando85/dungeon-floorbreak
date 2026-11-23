@@ -155,3 +155,13 @@ The primary boiler is the **large background visual identity**. It rattles, chan
 - [Agent implementation work order](../07-agents/floor-01-goblin-boiler-workorder.md)
 
 This is an **original game-design adaptation**, not a claim that the source novel contains a literal boiler chain scene. No novel text/assets or third-party Metal Slug art may be copied.
+
+## 10. Open question FA-Q31: B3 cannot reach the lane or the weight while the drum stands
+
+Raised by the PR-C review (the Floor 1 fix-all plan, FA-Q20 follow-up). **Open; no level data changed.** The drum's solid (x 848 to 880) stands between B3 (g3 at 944, e1 at 1000) and both the steam lane (688 to 768) and the weight footprint (784 to 848). A woken B3 walks to the drum's face (x 892) and waits there until the drum blows or a hero comes over it, so while the drum stands B3 cannot be vented, crushed or lured under the brace. That works against section 3's B3 line ("readable angle to the anchor/weight"). The trigger of FA-Q20 (wake at x 560) fixed the hero-in-the-lane symptom, not this. Options for the top tier:
+
+1. Spawn g3 or e1 left of the drum (a sidecar change that moves every Boiler pin).
+2. Make the drum's solid hero-only (goblins walk through it; the drum stays a trigger for launched bodies).
+3. Leave it: B3 is the drum-face fight, and the vent is B2's first accident (section 3), so the design does not require venting B3.
+
+Until decided, the vent-on-B3 case is reachable only after a launched body of at least 160 px/s has blown the drum (test `boil_b3_vented_in_the_lane`).

@@ -3463,6 +3463,12 @@ fn recording_manifest(
         donut_puddle: args.donut.puddle,
         f01_room: args.f01_room.clone(),
         f01_loadout: args.f01_loadout.map(|l| l.name().to_owned()),
+        // PR-C (BOIL-FU): the Boiler's roster, explicit (the verifier reads it).
+        f01_roster: args.f01_boiler.then(|| {
+            f01_boiler::Roster::for_loadout(args.f01_loadout.map(|l| l.name()))
+                .name()
+                .to_owned()
+        }),
         kit_hash,
         start_hash,
     };

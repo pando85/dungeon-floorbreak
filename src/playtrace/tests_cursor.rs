@@ -279,6 +279,7 @@ fn the_cursor_replays_the_story_route_without_combat() {
         donut_puddle: false,
         f01_room: None,
         f01_loadout: None,
+        f01_roster: None,
         kit_hash: super::live_tests::real_kit_hash(),
         start_hash: scene.state_hash(),
     };

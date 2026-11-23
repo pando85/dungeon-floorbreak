@@ -78,6 +78,19 @@ pub use donut::{Bolt, Cast, DonutKit};
 /// half widths): the haymaker's step stops here.
 const BODY_CONTACT: f32 = HERO_HALF_WIDTH + crate::combat::ENEMY_HALF_WIDTH;
 
+/// FA-Q20: the columns of the heroes that can wake a gated enemy: those with health
+/// left, and none while the party is defeated (a downed hero trips no trigger).
+fn wake_columns(party_defeated: bool, bodies: &[(f32, u8)]) -> Vec<f32> {
+    if party_defeated {
+        return Vec::new();
+    }
+    bodies
+        .iter()
+        .filter(|(_, health)| *health > 0)
+        .map(|(x, _)| *x)
+        .collect()
+}
+
 /// One goblin spawn: its centre column and behaviour. It stands on the same
 /// walking line as Carl (checked on load).
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -854,6 +867,10 @@ pub struct HeroCombat {
 pub struct CombatState {
     pub fixture: &'static Fixture,
     pub enemies: Vec<Goblin>,
+    /// FA-Q20: the wake gate of enemy `i` (index order: goblins, then Engineers),
+    /// from the room's roster. Run configuration, never hashed; empty in every
+    /// run without a gated roster entry.
+    wake_gates: Vec<Option<crate::goblin::WakeGate>>,
     /// DEMO-01 PR B: the Bad Llamas (target ids follow the goblins') and the
     /// spit globs in flight.
     pub llamas: Vec<Llama>,
@@ -1038,6 +1055,7 @@ impl CombatState {
         let mut state = Self {
             fixture,
             enemies: Vec::new(),
+            wake_gates: Vec::new(),
             llamas: Vec::new(),
             globs: Vec::new(),
             shore: None,
@@ -1227,11 +1245,20 @@ impl CombatState {
     /// A fresh goblin (or Engineer) for enemy `index`.
     fn fresh_enemy(&self, index: usize) -> Option<Goblin> {
         let (spawn, engineer) = self.spawn_of(index)?;
-        Some(if engineer {
+        let goblin = if engineer {
             self.new_engineer(spawn.x as f32, spawn.ai)
         } else {
             self.new_goblin(spawn.x as f32, spawn.ai)
-        })
+        };
+        Some(self.with_wake_of(index, goblin))
+    }
+
+    /// FA-Q20: enemy `index` with the wake gate its roster entry names (if any).
+    fn with_wake_of(&self, index: usize, goblin: Goblin) -> Goblin {
+        match self.wake_gates.get(index).copied().flatten() {
+            Some(gate) => goblin.with_wake(gate),
+            None => goblin,
+        }
     }
 
     /// The beat whose checkpoint is the fixture's start column (0 without
@@ -1330,15 +1357,20 @@ impl CombatState {
             .fixture
             .enemies
             .iter()
-            .map(|spawn| self.new_goblin(spawn.x as f32, spawn.ai))
+            .enumerate()
+            .map(|(i, spawn)| self.with_wake_of(i, self.new_goblin(spawn.x as f32, spawn.ai)))
             .collect();
         // ENG-G-Q25: the Engineers follow the goblins, only when the gate is open.
         if self.engineer_on() {
+            let first = self.enemies.len();
             let engineers: Vec<Goblin> = self
                 .fixture
                 .engineers
                 .iter()
-                .map(|spawn| self.new_engineer(spawn.x as f32, spawn.ai))
+                .enumerate()
+                .map(|(k, spawn)| {
+                    self.with_wake_of(first + k, self.new_engineer(spawn.x as f32, spawn.ai))
+                })
                 .collect();
             self.enemies.extend(engineers);
         }
@@ -2221,6 +2253,17 @@ impl CombatState {
         let live = scene.party_live();
         if live {
             self.update_targets(scene);
+        }
+        // FA-Q20: the wake gates of the roster (nothing without a gated entry).
+        if self.wake_gates.iter().any(Option::is_some) {
+            let mut bodies = vec![(scene.world.hero.x, scene.world.hero.health)];
+            if live {
+                bodies.push((scene.world.donut_body.x, scene.world.donut_body.health));
+            }
+            let heroes = wake_columns(self.hero_defeated, &bodies);
+            for g in &mut self.enemies {
+                g.observe_wake(&heroes);
+            }
         }
         // The x each goblin chases: Carl for every goblin unless live.
         let target_x: Vec<f32> = (0..self.enemies.len())
@@ -3566,11 +3609,17 @@ impl CombatState {
             + &self.env_token()
     }
 
-    /// ` boss=<hp>/<max>/<mode>/p<phase>` in a boss fixture, else empty.
+    /// ` boss=<hp>/<max>/<mode>/p<phase> boss_x=<x>` in a boss fixture, else empty,
+    /// then ` boss_poise=<n>` while the boss has poise counted toward a flinch
+    /// (CP-FU-D: a reinforced punch counts double).
     fn boss_token(&self) -> String {
         self.boss.as_ref().map_or_else(String::new, |boss| {
+            let poise = match boss.poise_now() {
+                0 => String::new(),
+                n => format!(" boss_poise={n}"),
+            };
             format!(
-                " boss={}/{}/{}/p{} boss_x={:.2}",
+                " boss={}/{}/{}/p{} boss_x={:.2}{poise}",
                 boss.hp,
                 boss.data().hp_max,
                 boss.mode.name(),
@@ -4411,6 +4460,19 @@ mod tests {
         assert!(!sim.combat.hero_defeated);
         assert_eq!(sim.scene.world.hero.health, HERO_HEALTH);
         assert_eq!(sim.scene.world.hero.x, 400.0);
+    }
+
+    /// FA-Q20: only heroes with health left trip a wake trigger, and none while the party
+    /// is defeated.
+    #[test]
+    fn a_downed_hero_trips_no_wake_trigger() {
+        assert_eq!(
+            wake_columns(false, &[(600.0, 3), (100.0, 4)]),
+            [600.0, 100.0]
+        );
+        assert_eq!(wake_columns(false, &[(600.0, 0), (100.0, 4)]), [100.0]);
+        assert_eq!(wake_columns(false, &[(600.0, 0)]), Vec::<f32>::new());
+        assert!(wake_columns(true, &[(600.0, 3), (100.0, 4)]).is_empty());
     }
 
     #[test]

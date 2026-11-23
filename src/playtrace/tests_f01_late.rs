@@ -155,6 +155,11 @@ impl RoomRig {
             donut_puddle: donut.puddle,
             f01_room: Some(room.to_owned()),
             f01_loadout: (!direct).then(|| loadout.name().to_owned()),
+            f01_roster: (room == "boiler").then(|| {
+                crate::f01_boiler::Roster::for_loadout((!direct).then(|| loadout.name()))
+                    .name()
+                    .to_owned()
+            }),
             kit_hash: real_kit_hash(),
             start_hash: combat.state_hash(&scene),
         };

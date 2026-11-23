@@ -443,8 +443,12 @@ fn rebuild_f01_room(manifest: &SessionManifest, root: &Path) -> Result<Reset, Ve
             carl,
             donut,
             reset.cf02_seed,
-            // BOIL-E: the story launcher's label means the live roster.
-            crate::f01_boiler::Roster::for_loadout(reset.f01_loadout.as_deref()),
+            // PR-C (BOIL-FU): the explicit roster field, else the legacy label rule.
+            crate::f01_boiler::Roster::from_descriptor(
+                reset.f01_roster.as_deref(),
+                reset.f01_loadout.as_deref(),
+            )
+            .map_err(|e| VerifyFailure::new("content_mismatch", e))?,
         )
         .map(|(_, scene, combat)| (scene, combat)),
     };

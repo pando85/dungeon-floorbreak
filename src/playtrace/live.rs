@@ -200,6 +200,11 @@ pub fn data_pins() -> Vec<(&'static str, u64)> {
             crate::f01_boiler::ENCOUNTER_PIN_KEY,
             crate::f01_boiler::ENCOUNTER_HASH,
         ),
+        // FA-Q20 (fix-all PR-C): the Boiler's knob file, scoped to the Boiler room.
+        (
+            crate::f01_boiler::fixes::PIN_KEY,
+            crate::f01_boiler::fixes::TUNING_HASH,
+        ),
         // HRD-A2b and HAZ-A2b: the Hoarder's and the hazard room's room and
         // sidecar pins, scoped by room like the Boiler's (a recording of
         // another room neither stamps nor needs them).

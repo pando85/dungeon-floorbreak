@@ -312,6 +312,11 @@ pub struct EnvRuntime {
     floor_layout: Option<i32>,
     /// HAZ-A2: the exit rectangle of a `defeat_roster` room.
     defeat_roster: bool,
+    /// FA-Q20: the wake gate of each enemy of the room's roster, in enemy index
+    /// order (the goblins, then the Engineers); empty when no entry has one.
+    /// Run configuration the combat state takes in [`CombatState::with_env`]
+    /// (a launch of the room sets it, [`Self::with_wake_gates`]); never hashed.
+    wake_gates: Vec<Option<crate::goblin::WakeGate>>,
 }
 
 impl EnvRuntime {
@@ -412,13 +417,22 @@ impl EnvRuntime {
                             p.id
                         ));
                     }
-                    if p.solid_intact {
-                        solids.push(EnvSolid {
-                            rect: p.target,
-                            prop: index,
-                            kind: EnvSolidKind::Drum,
-                        });
+                    // BOIL-FU (#216): a drum without a solid is refused. Its only
+                    // way to light is then a chain-lit charge (an 8-tick delay),
+                    // which the drum's own machine would follow without a tell;
+                    // today's sidecar never authors one, so the guard makes the
+                    // unreachable path an error instead of an unguarded one.
+                    if !p.solid_intact {
+                        return Err(format!(
+                            "prop {}: a drum needs `solid_intact` (a solid-less drum is refused, BOIL-FU)",
+                            p.id
+                        ));
                     }
+                    solids.push(EnvSolid {
+                        rect: p.target,
+                        prop: index,
+                        kind: EnvSolidKind::Drum,
+                    });
                     let plan = DrumPlan {
                         x: p.target.x + p.target.w / 2,
                         radius,
@@ -534,7 +548,15 @@ impl EnvRuntime {
             acid_links,
             floor_layout: None,
             defeat_roster: enc.goal == Goal::DefeatRoster,
+            wake_gates: Vec::new(),
         })
+    }
+
+    /// FA-Q20: the roster's wake gates, one per enemy in index order.
+    #[must_use]
+    pub fn with_wake_gates(mut self, gates: Vec<Option<crate::goblin::WakeGate>>) -> Self {
+        self.wake_gates = gates;
+        self
     }
 
     /// HRD-A2: add a slot enemy's entry gate as a runtime solid, after every
@@ -1283,6 +1305,8 @@ impl CombatState {
     pub fn with_env(mut self, mut env: EnvRuntime) -> Self {
         // HAZ-A2: the stickers' tracks need the scene's walking line.
         env.attach(self.enemy_foot_y);
+        // FA-Q20: the room's roster wake gates ride with its env runtime.
+        self.wake_gates = std::mem::take(&mut env.wake_gates);
         self.env = Some(Box::new(env));
         self.reset_attempt();
         self
@@ -4152,5 +4176,83 @@ mod tests {
             crate::env_prop::MAX_CHAIN_DEPTH,
             crate::carl_prog::CarlProgTuning::active().cpq34_chain_max_depth
         );
+    }
+
+    /// BOIL-FU (PR-C): the `wall_stop` probe was only tried with horizontal flights. A
+    /// flier with a vertical speed too (an arc), or a slow one, near the drum's corner
+    /// counts once at speed and never below the launch threshold (160 px/s):
+    ///
+    /// * a fast rising arc into the drum's face (250 px/s, up 150 or 300) is stopped by the
+    ///   solid and sets the drum off exactly once, at the contact tick;
+    /// * an arc from the drum's own column (830, 200 px/s, up 40) does the same;
+    /// * a high fast arc (250 px/s, up 500) clears the drum and counts nothing;
+    /// * slow arcs (100 px/s up 300, 40 px/s up 150, 20 px/s up 200) that land at or
+    ///   against it count nothing (below the threshold: touching, no count), however close.
+    #[test]
+    fn a_diagonal_or_slow_flier_at_the_drum_counts_once_at_speed_and_never_below_it() {
+        let fly = |x0: f32, vx: f32, vy: f32| {
+            let mut s = sim(&[x0 as i32]);
+            let g = &mut s.combat.enemies[0];
+            g.x = x0;
+            g.mode = GoblinMode::Launched;
+            g.vx = vx;
+            g.vy = vy;
+            g.launch = Some(9);
+            for _ in 0..90 {
+                step(&mut s, RawInput::NONE);
+            }
+            let hits: Vec<_> = prop_events(&s)
+                .into_iter()
+                .filter(|(_, e)| e.starts_with("hit 2"))
+                .collect();
+            (s.combat.enemies[0].x, hits)
+        };
+        for (x0, vx, vy) in [
+            (800.0, 250.0, 150.0),
+            (800.0, 250.0, 300.0),
+            (830.0, 200.0, 40.0),
+        ] {
+            let (_, hits) = fly(x0, vx, vy);
+            assert_eq!(hits.len(), 1, "({x0}, {vx}, {vy}): {hits:?}");
+            assert!(hits[0].1.starts_with("hit 2 LaunchedBody"), "{hits:?}");
+        }
+        let (x, hits) = fly(800.0, 250.0, 500.0);
+        assert!(
+            hits.is_empty() && x > 880.0,
+            "clears the drum: {x} {hits:?}"
+        );
+        for (x0, vx, vy) in [
+            (800.0, 100.0, 300.0),
+            (800.0, 40.0, 150.0),
+            (830.0, 20.0, 200.0),
+        ] {
+            let (_, hits) = fly(x0, vx, vy);
+            assert!(
+                hits.is_empty(),
+                "({x0}, {vx}, {vy}) is below the threshold: {hits:?}"
+            );
+        }
+    }
+
+    /// BOIL-FU (#216): a drum without a solid is refused when the runtime is built (its
+    /// only way to light would be a chain-lit charge, an 8-tick delay the sidecar never
+    /// authors), and the Boiler's own drum, which has its solid, builds.
+    #[test]
+    fn a_drum_without_a_solid_is_refused() {
+        use crate::encounter::PropKind;
+        let enc = boiler().loaded.encounter.clone();
+        assert!(
+            EnvRuntime::new(&enc).is_ok(),
+            "the Boiler's drum has its solid"
+        );
+        let mut bare = enc.clone();
+        let drum = bare
+            .props
+            .iter_mut()
+            .find(|p| p.kind == PropKind::Drum)
+            .expect("the Boiler's drum");
+        drum.solid_intact = false;
+        let err = EnvRuntime::new(&bare).expect_err("a solid-less drum is refused");
+        assert!(err.contains("needs `solid_intact`"), "{err}");
     }
 }

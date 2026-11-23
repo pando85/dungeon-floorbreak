@@ -228,6 +228,121 @@ pub struct Goblin {
     /// builds the goblin: never hashed, empty (no allocation) outside a room
     /// that has barriers. Knockback, launches and wall slams never read it.
     pub(crate) walk_barriers: Vec<WalkBarrier>,
+    /// FA-Q20: the wake gate a sidecar roster entry gives this enemy (`None`
+    /// everywhere else: the enemy wakes by sight alone and nothing of it is
+    /// mixed into the state hash, so every earlier hash is untouched).
+    pub(crate) wake: Option<Wake>,
+}
+
+/// FA-Q20: when an enemy of a sidecar roster wakes (amends BOILE-AD2). It wakes
+/// on the first tick that any hero is within its sight, or any hero's column is
+/// at or past `trigger_x` (when the entry names one), then waits
+/// `delay_ticks` before it acts. An entry without `trigger_x` waits for its
+/// delay only when `delay_after_sight` is set (FA-Q20 adopted: it is not, so an
+/// entry that sets `delay_ticks` alone, such as a stagger for the roster
+/// validator, keeps the plain sight wake).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct WakeGate {
+    pub trigger_x: Option<i32>,
+    pub delay_ticks: u32,
+    pub delay_after_sight: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum WakePhase {
+    Asleep,
+    /// Woken; acts when `left` reaches 0. `alert`: it woke by the trigger and
+    /// no longer needs a hero within sight to chase.
+    Counting {
+        left: u32,
+        alert: bool,
+    },
+    Awake {
+        alert: bool,
+    },
+}
+
+/// The run state of a [`WakeGate`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Wake {
+    gate: WakeGate,
+    phase: WakePhase,
+}
+
+impl Wake {
+    pub const fn new(gate: WakeGate) -> Self {
+        Self {
+            gate,
+            phase: WakePhase::Asleep,
+        }
+    }
+
+    /// One tick, before the enemy's step. `sight`: any hero is within the
+    /// enemy's sight; `max_hero_x`: the furthest column a hero stands at;
+    /// `touched`: the enemy was hit or is otherwise not in plain neutral (it is
+    /// awake and alert then).
+    pub fn observe(&mut self, sight: bool, max_hero_x: f32, touched: bool) {
+        match self.phase {
+            WakePhase::Asleep => {
+                let by_trigger = self.gate.trigger_x.is_some_and(|x| max_hero_x >= x as f32);
+                if !(sight || by_trigger || touched) {
+                    return;
+                }
+                let alert = by_trigger || touched;
+                let delayed = self.gate.trigger_x.is_some() || self.gate.delay_after_sight;
+                let left = if delayed && !touched {
+                    self.gate.delay_ticks
+                } else {
+                    0
+                };
+                self.phase = if left == 0 {
+                    WakePhase::Awake { alert }
+                } else {
+                    WakePhase::Counting { left, alert }
+                };
+            }
+            // A hit during the delay ends it: the enemy is awake and alert at once.
+            WakePhase::Counting { .. } if touched => self.phase = WakePhase::Awake { alert: true },
+            WakePhase::Counting { left, alert } => {
+                let left = left - 1;
+                self.phase = if left == 0 {
+                    WakePhase::Awake { alert }
+                } else {
+                    WakePhase::Counting { left, alert }
+                };
+            }
+            WakePhase::Awake { .. } => {}
+        }
+    }
+
+    /// The enemy still sleeps or waits out its delay: it neither walks nor starts a tell.
+    pub const fn holds(&self) -> bool {
+        !matches!(self.phase, WakePhase::Awake { .. })
+    }
+
+    /// It woke by the trigger: no sight limit applies any more.
+    pub const fn alert(&self) -> bool {
+        matches!(
+            self.phase,
+            WakePhase::Awake { alert: true } | WakePhase::Counting { alert: true, .. }
+        )
+    }
+
+    fn mix_into(&self, mix: &mut impl FnMut(u64)) {
+        mix(0x5741_4b45); // "WAKE"
+        match self.phase {
+            WakePhase::Asleep => mix(0),
+            WakePhase::Counting { left, alert } => {
+                mix(1);
+                mix(u64::from(left));
+                mix(u64::from(alert));
+            }
+            WakePhase::Awake { alert } => {
+                mix(2);
+                mix(u64::from(alert));
+            }
+        }
+    }
 }
 
 /// HAZ-A2 (HAZ-Q48): a walk barrier, an x-interval `[x0, x1)` that a goblin on
@@ -286,6 +401,7 @@ impl Goblin {
             eng_sense: None,
             eng_tuning: None,
             walk_barriers: Vec::new(),
+            wake: None,
         }
     }
 
@@ -294,6 +410,45 @@ impl Goblin {
     pub fn with_walk_barriers(mut self, barriers: &[WalkBarrier]) -> Self {
         self.walk_barriers = barriers.to_vec();
         self
+    }
+
+    /// The same enemy with a wake gate (FA-Q20).
+    #[must_use]
+    pub fn with_wake(mut self, gate: WakeGate) -> Self {
+        self.wake = Some(Wake::new(gate));
+        self
+    }
+
+    /// FA-Q20: this enemy's sight in px (the goblin's, or the Engineer's
+    /// `engq04_sight`).
+    pub fn sight_px(&self) -> f32 {
+        self.eng_tuning
+            .map_or(GOBLIN_SIGHT, |t| f32::from(t.engq04_sight))
+    }
+
+    /// FA-Q20: one tick of the wake gate, before the step. `heroes` are the
+    /// columns of the heroes in play. An enemy that is not in plain neutral
+    /// (hit, launched, down) is awake and alert. A no-op without a gate.
+    pub fn observe_wake(&mut self, heroes: &[f32]) {
+        let sight = self.sight_px();
+        let touched = self.mode != GoblinMode::Neutral;
+        let x = self.x;
+        let Some(wake) = self.wake.as_mut() else {
+            return;
+        };
+        let seen = heroes.iter().any(|h| (h - x).abs() < sight);
+        let furthest = heroes.iter().copied().fold(f32::NEG_INFINITY, f32::max);
+        wake.observe(seen, furthest, touched);
+    }
+
+    /// FA-Q20: asleep or waiting out the wake delay (never without a gate).
+    pub fn wake_holds(&self) -> bool {
+        self.wake.is_some_and(|w| w.holds())
+    }
+
+    /// FA-Q20: woken by the trigger, so the sight limit no longer applies.
+    fn wake_alert(&self) -> bool {
+        self.wake.is_some_and(|w| w.alert())
     }
 
     /// Whether a grounded step from `self.x` to `candidate` would move the body
@@ -675,7 +830,11 @@ impl Goblin {
         };
         let dx = sense.target_x - self.x;
         let distance = dx.abs();
-        if self.ai == EnemyAi::Passive || !hero_alive || distance >= f32::from(t.engq04_sight) {
+        if self.ai == EnemyAi::Passive
+            || !hero_alive
+            || self.wake_holds()
+            || (distance >= f32::from(t.engq04_sight) && !self.wake_alert())
+        {
             return false;
         }
         let toward: i8 = if dx > 0.0 {
@@ -834,7 +993,11 @@ impl Goblin {
     ) -> bool {
         let dx = hero_x - self.x;
         let distance = dx.abs();
-        if self.ai == EnemyAi::Passive || !hero_alive || distance >= GOBLIN_SIGHT {
+        if self.ai == EnemyAi::Passive
+            || !hero_alive
+            || self.wake_holds()
+            || (distance >= GOBLIN_SIGHT && !self.wake_alert())
+        {
             return false;
         }
         let toward: i8 = if dx > 0.0 { 1 } else { -1 };
@@ -1022,6 +1185,10 @@ impl Goblin {
             if self.mode == GoblinMode::Attack {
                 self.eng.mix_into(mix);
             }
+        }
+        // FA-Q20: the wake gate, mixed only while the entry has one.
+        if let Some(wake) = &self.wake {
+            wake.mix_into(mix);
         }
     }
 
@@ -2586,5 +2753,195 @@ mod tests {
             "never deeper: {}",
             deeper.x
         );
+    }
+    // ---- FA-Q20: the wake gate
+
+    const GATE: WakeGate = WakeGate {
+        trigger_x: Some(560),
+        delay_ticks: 3,
+        delay_after_sight: false,
+    };
+
+    /// One tick of the scene: observe the wake, then step the goblin at `hero`.
+    fn wake_tick(g: &mut Goblin, hero: f32) {
+        g.observe_wake(&[hero]);
+        tick(g, hero, false);
+    }
+
+    /// The trigger is inclusive and the delay exact: a hero at 559.0 wakes nothing, at
+    /// 560.0 the goblin wakes on that tick and acts `delay_ticks` ticks later (held on
+    /// the wake tick and the two after it, free on the third).
+    #[test]
+    fn a_trigger_wakes_on_its_column_and_the_delay_is_exact() {
+        let mut g = goblin_at(944.0).with_wake(GATE);
+        for _ in 0..5 {
+            wake_tick(&mut g, 559.0);
+            assert!(g.wake_holds());
+            assert_eq!(g.x, 944.0, "asleep: no move");
+        }
+        let mut held = Vec::new();
+        for _ in 0..5 {
+            wake_tick(&mut g, 560.0);
+            held.push((g.wake_holds(), g.x));
+        }
+        // The wake tick T and the two after it hold; the goblin is free (and walks) on
+        // tick T + delay_ticks.
+        assert_eq!(
+            held.iter().map(|h| h.0).collect::<Vec<_>>(),
+            [true, true, true, false, false],
+            "{held:?}"
+        );
+        assert_eq!(held[2].1, 944.0);
+        assert!(held[3].1 < 944.0, "it walks on tick T + 3");
+        assert!(g.x < 944.0, "chases from 384 px: it woke by the trigger");
+    }
+
+    /// A zero delay wakes on the trigger tick itself and walks on it.
+    #[test]
+    fn a_zero_delay_acts_on_the_trigger_tick() {
+        let gate = WakeGate {
+            delay_ticks: 0,
+            ..GATE
+        };
+        let mut g = goblin_at(944.0).with_wake(gate);
+        wake_tick(&mut g, 560.0);
+        assert!(!g.wake_holds());
+        assert!(g.x < 944.0);
+    }
+
+    /// Both heroes count: the furthest column decides.
+    #[test]
+    fn any_hero_past_the_trigger_wakes_it() {
+        let mut g = goblin_at(944.0).with_wake(GATE);
+        g.observe_wake(&[100.0, 561.0]);
+        assert!(g.wake_holds(), "the delay is still counting");
+        let mut g = goblin_at(944.0).with_wake(GATE);
+        g.observe_wake(&[100.0, 559.0]);
+        assert!(!g.wake.unwrap().alert());
+        assert!(g.wake_holds());
+    }
+
+    /// Sight wakes it too: without a `trigger_x` and with `delay_after_sight` off the
+    /// delay does not count; a trigger entry that sees a hero first waits its delay.
+    #[test]
+    fn sight_wakes_it_and_the_delay_counts_only_where_the_gate_says() {
+        let no_trigger = WakeGate {
+            trigger_x: None,
+            delay_ticks: 120,
+            delay_after_sight: false,
+        };
+        let mut g = goblin_at(944.0).with_wake(no_trigger);
+        wake_tick(&mut g, 724.0);
+        assert!(
+            g.wake_holds(),
+            "220 px is outside the sight (a goblin sees under 220)"
+        );
+        wake_tick(&mut g, 725.0);
+        assert!(!g.wake_holds(), "sight, no trigger, delay not counted");
+        assert!(
+            !g.wake.unwrap().alert(),
+            "a sight wake keeps the sight limit"
+        );
+        let after = WakeGate {
+            delay_after_sight: true,
+            ..no_trigger
+        };
+        let mut g = goblin_at(944.0).with_wake(after);
+        wake_tick(&mut g, 725.0);
+        assert!(g.wake_holds(), "delay_after_sight counts the delay");
+        let mut g = goblin_at(944.0).with_wake(GATE);
+        wake_tick(&mut g, 725.0);
+        assert!(
+            g.wake_holds(),
+            "a trigger entry waits its delay after a sight wake too"
+        );
+    }
+
+    /// A sight wake keeps the sight leash (the legacy rule); a trigger wake is alert and
+    /// chases from beyond it.
+    #[test]
+    fn a_sight_wake_keeps_the_leash_and_a_trigger_wake_drops_it() {
+        let gate = WakeGate {
+            delay_ticks: 0,
+            ..GATE
+        };
+        let mut by_sight = goblin_at(944.0).with_wake(gate);
+        wake_tick(&mut by_sight, 725.0);
+        let at = by_sight.x;
+        // The hero backs off beyond 220 px: the legacy goblin stops.
+        wake_tick(&mut by_sight, 500.0);
+        assert!(by_sight.x <= at);
+        assert!(!by_sight.wake.unwrap().holds());
+        let mut by_trigger = goblin_at(944.0).with_wake(gate);
+        wake_tick(&mut by_trigger, 560.0);
+        let first = by_trigger.x;
+        wake_tick(&mut by_trigger, 560.0);
+        assert!(by_trigger.x < first, "alert: it keeps coming at 380 px");
+    }
+
+    /// A hit during the delay ends it: the enemy is awake and alert on that tick (e1 waits
+    /// 90 ticks; a hit must not leave him inert). Under the FA-Q20 knob: the gate, and so
+    /// this rule, exists only with `fa_q20_wake_gates` on.
+    #[test]
+    fn a_hit_during_the_delay_wakes_it_at_once() {
+        let mut g = goblin_at(1000.0).with_wake(WakeGate {
+            delay_ticks: 90,
+            ..GATE
+        });
+        wake_tick(&mut g, 560.0);
+        wake_tick(&mut g, 560.0);
+        assert!(g.wake_holds(), "counting the delay");
+        g.take_hit(&CARL_JAB, 1);
+        g.observe_wake(&[560.0]);
+        assert!(!g.wake_holds(), "the hit ended the delay");
+        assert!(g.wake.unwrap().alert());
+        // Without a hit the same enemy is still held a tick later.
+        let mut quiet = goblin_at(1000.0).with_wake(WakeGate {
+            delay_ticks: 90,
+            ..GATE
+        });
+        for _ in 0..3 {
+            wake_tick(&mut quiet, 560.0);
+        }
+        assert!(quiet.wake_holds());
+    }
+
+    /// A hit wakes it at once, alert, whatever the delay.
+    #[test]
+    fn a_hit_wakes_a_sleeper_alert_and_without_delay() {
+        let mut g = goblin_at(944.0).with_wake(GATE);
+        g.take_hit(&CARL_JAB, 1);
+        g.observe_wake(&[100.0]);
+        assert!(!g.wake_holds());
+        assert!(g.wake.unwrap().alert());
+    }
+
+    /// No gate: nothing is observed, held or hashed (every earlier hash is untouched).
+    #[test]
+    fn without_a_gate_nothing_of_the_wake_exists() {
+        let plain = goblin_at(944.0);
+        let mut observed = goblin_at(944.0);
+        observed.observe_wake(&[944.0, 100.0]);
+        assert_eq!(plain, observed);
+        assert!(!plain.wake_holds());
+        assert_eq!(hash_of(&plain), hash_of(&observed));
+        let gated = goblin_at(944.0).with_wake(GATE);
+        assert_ne!(hash_of(&plain), hash_of(&gated), "the gate is state");
+    }
+
+    /// The Engineer wakes with the same gate and his own sight (engq04_sight).
+    #[test]
+    fn the_engineer_reads_his_own_sight_and_the_same_gate() {
+        let t = crate::engineer::active();
+        let e = Goblin::new(1000.0, FLOOR, EnemyAi::Chase).with_engineer(t);
+        assert_eq!(e.sight_px(), f32::from(t.engq04_sight));
+        assert_eq!(goblin_at(0.0).sight_px(), GOBLIN_SIGHT);
+        let mut e = e.with_wake(WakeGate {
+            delay_ticks: 0,
+            ..GATE
+        });
+        e.observe_wake(&[560.0]);
+        assert!(!e.wake_holds());
+        assert!(e.wake.unwrap().alert());
     }
 }
