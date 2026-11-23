@@ -78,6 +78,8 @@ pub mod hazards_fixtures;
 pub mod hero_damage;
 pub mod hoarder_art;
 pub mod hoarder_fixtures;
+#[cfg(test)]
+mod hoarder_pile_tests;
 pub mod hud;
 pub mod hud_adapter;
 pub mod hud_draw;

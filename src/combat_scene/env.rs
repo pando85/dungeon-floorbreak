@@ -72,18 +72,21 @@ use crate::camera_lab::room::IRect;
 use crate::combat::{CombatEvent, DefeatCause, MoveId, PropPhase};
 use crate::donut_moves::DONUT_HERO;
 use crate::encounter::LinkKind;
-use crate::encounter::{Encounter, Goal, LockEvent, PropKind, RosterKind, StickerLayout};
+use crate::encounter::{
+    Encounter, Goal, LockEvent, PropKind, RosterKind, SlidePush, StickerLayout,
+};
 use crate::env_hazard::{HazardClass, HazardEdge, HazardSet, NavPhase, NavRect, Team, Victim};
 use crate::env_prop::{
     Drum, DrumConfig, DrumState, FallingMass, FallingMassConfig, Ignored, LinkEmit, LinkGraph,
-    MassBody, MassEdge, MassState, Offer, STEP_OVER_PX, Stimulus, Valve, ValveEdge, ValveState,
+    MassBody, MassEdge, MassState, Offer, STEP_OVER_PX, Slide, SlideEdge, SlideState, Stimulus,
+    Valve, ValveEdge, ValveState, remnant_lifts,
 };
 use crate::goblin::{GoblinMode, WalkBarrier};
 use crate::hero_damage::HeroDamagePolicy;
 use crate::llama::LlamaMode;
 use crate::prototype::{Block, HERO_HALF_HEIGHT, Material, Rect, TICK_SECONDS};
 use crate::rot_sticker::{self, RotSticker, StickerCtx, StickerState};
-use crate::scene_enemy::{EnvSource, EnvTarget, EnvView, SlotEnvHit};
+use crate::scene_enemy::{EnvFace, EnvSource, EnvTarget, EnvView, FaceKind, SlotEnvHit};
 use crate::slime::{self, AcidSet};
 
 /// The `HeroBlow.source` of every environmental blow (a falling mass, steam):
@@ -93,6 +96,8 @@ pub const ENV_SOURCE_ID: u32 = 0x454e;
 /// `MoveRunner::record_hit` ids of the props: far above every goblin, llama
 /// and slot id, plus the prop index.
 const ENV_HIT_ID_BASE: u32 = 0x0100_0000;
+/// HRD-C: the high bit of a Donut melee token (the mass counts tokens once).
+const DONUT_MELEE_TOKEN: u32 = 0x8000_0000;
 /// BOILBC-AD5: a body that moved further than this in one tick teleported.
 pub const TELEPORT_PX: i32 = 48;
 /// BOILBC-AD6: the hop a steam blow gives a hero (px/s up).
@@ -111,6 +116,21 @@ enum Machine {
     /// HAZ-A2: a Rot Sticker; its state lives in [`EnvRuntime::stickers`]
     /// (absent while `hazq02_rot_enabled` is false).
     Rot,
+    /// HRD-B: the Hoarder's J-A bank (a sidecar static with a slide spec).
+    Bank(Box<Bank>),
+}
+
+/// HRD-B: the J-A bank: the slide machine and the push of its moving mass
+/// (HRD-Q23, one blow per hero and motion, HRD-Q39).
+#[derive(Debug, Clone)]
+struct Bank {
+    slide: Slide,
+    push: SlidePush,
+    /// Heroes the moving mass already pushed in this slide.
+    pushed: Vec<Victim>,
+    /// Fixture hook ("bank A removed by fixture setup"): no solid, no remnant,
+    /// never reacts. Never set in the shipped room.
+    removed: bool,
 }
 
 /// What a drum's blast is, from the sidecar (BOIL-D). The blast itself is the
@@ -168,6 +188,24 @@ struct EnvProp {
     /// Where a stimulus hits the prop (layout px, y down).
     target: IRect,
     machine: Machine,
+    /// HRD-B / HRD-C: one of the Hoarder's piles (a sidecar static with a
+    /// machine). Its hits come only from a human-driven hero after her engage,
+    /// Donut's melee counts, and its pristine state is not hashed.
+    pile: bool,
+}
+
+impl EnvProp {
+    /// Never touched: the first state with nothing counted (a pile's hash and
+    /// state-line token are empty then).
+    fn pristine(&self) -> bool {
+        match &self.machine {
+            Machine::Mass(m) => m.state() == MassState::Supported && m.progress() == 0,
+            // `removed` is a fixture's construction choice (like her own obstacle list),
+            // not state: it is not hashed.
+            Machine::Bank(b) => b.slide.state() == SlideState::Stable && b.pushed.is_empty(),
+            _ => true,
+        }
+    }
 }
 
 /// What a runtime env solid is.
@@ -192,6 +230,9 @@ pub enum EnvSolidKind {
     /// wait on (one enemy, or all of them), not in when they open: both are gone on the
     /// tick of the defeat that completes their condition and both come back on a restart.
     Lock { target: u32 },
+    /// HRD-B: bank A while it stands (`stable` or `disturbed`): a solid with a
+    /// standable top. `EnvSolid::prop` is the bank's machine index.
+    Bank,
     /// HRD-A2: a slot enemy's entry gate (HRD-Q41, boss data): it stands while
     /// the slot enemy `target` reports [`crate::scene_enemy::SlotEnemy::gate_solid`].
     /// `EnvSolid::prop` is `None`.
@@ -214,7 +255,7 @@ impl EnvSolidKind {
     pub const fn opens_on_defeat(self) -> bool {
         match self {
             Self::Lock { .. } | Self::ExitGate => true,
-            Self::Remnant | Self::Drum | Self::Gate { .. } | Self::Soffit => false,
+            Self::Remnant | Self::Drum | Self::Bank | Self::Gate { .. } | Self::Soffit => false,
         }
     }
 }
@@ -550,6 +591,7 @@ impl EnvRuntime {
                 index,
                 target: p.target,
                 machine,
+                pile: false,
             });
         }
         // HRD-A2: the sidecar's locks are runtime solids too (the Hoarder's exit
@@ -573,6 +615,48 @@ impl EnvRuntime {
                 prop: Some(u16::try_from(i).map_err(|_| "too many locks".to_owned())?),
                 kind: EnvSolidKind::Lock { target },
             });
+        }
+        // HRD-B / HRD-C: the sidecar statics that carry a machine (bank A, the
+        // J-B post) are props after the authored ones, in file order.
+        for st in &enc.statics {
+            if let Some(spec) = st.slide {
+                let index = prop_u16(props.len())?;
+                solids.push(EnvSolid {
+                    rect: st.rect,
+                    prop: Some(index),
+                    kind: EnvSolidKind::Bank,
+                });
+                solids.push(EnvSolid {
+                    rect: spec.config.remnant,
+                    prop: Some(index),
+                    kind: EnvSolidKind::Remnant,
+                });
+                props.push(EnvProp {
+                    index,
+                    target: st.rect,
+                    machine: Machine::Bank(Box::new(Bank {
+                        slide: Slide::new(spec.config)?,
+                        push: spec.push,
+                        pushed: Vec::new(),
+                        removed: false,
+                    })),
+                    pile: true,
+                });
+            }
+            if let Some(spec) = st.stack {
+                let index = prop_u16(props.len())?;
+                solids.push(EnvSolid {
+                    rect: spec.config.remnant,
+                    prop: Some(index),
+                    kind: EnvSolidKind::Remnant,
+                });
+                props.push(EnvProp {
+                    index,
+                    target: st.rect,
+                    machine: Machine::Mass(Box::new(FallingMass::new(spec.config)?)),
+                    pile: true,
+                });
+            }
         }
         // NB-3: a survivor inside a remnant over 16 px would stand in a solid.
         let tall = enc
@@ -776,6 +860,10 @@ impl EnvRuntime {
                 Machine::Mass(m) => m.reset(),
                 Machine::Drum { drum, .. } => drum.reset(),
                 Machine::Rot => {}
+                Machine::Bank(b) => {
+                    b.slide.reset();
+                    b.pushed.clear();
+                }
             }
         }
         self.hazards = self.pristine_hazards.clone();
@@ -837,6 +925,69 @@ impl EnvRuntime {
             Machine::Mass(m) => Some(m),
             _ => None,
         }
+    }
+
+    /// HRD-B: the slide machine, if prop `index` is a bank.
+    pub fn slide(&self, index: usize) -> Option<&Slide> {
+        match &self.props.get(index)?.machine {
+            Machine::Bank(b) if !b.removed => Some(&b.slide),
+            _ => None,
+        }
+    }
+
+    /// HRD-B / HRD-C: the machine index of each sidecar static that carries a
+    /// machine, `(static id, prop index)` in file order (the presenter maps its
+    /// statics with it).
+    pub fn pile_props(&self, enc: &Encounter) -> Vec<(String, u16)> {
+        let mut next = enc.props.len();
+        let mut out = Vec::new();
+        for st in &enc.statics {
+            for _ in 0..usize::from(st.slide.is_some()) + usize::from(st.stack.is_some()) {
+                out.push((st.id.clone(), next as u16));
+                next += 1;
+            }
+        }
+        out
+    }
+
+    /// HRD-B (fixture): remove every J-A bank ("bank A removed by fixture
+    /// setup"): no solid, no remnant, no reaction.
+    #[must_use]
+    pub fn without_banks(mut self) -> Self {
+        for p in &mut self.props {
+            if let Machine::Bank(b) = &mut p.machine {
+                b.removed = true;
+            }
+        }
+        self
+    }
+
+    /// The faces her shove may meet right now (layout px, y down): bank A while
+    /// it stands, the post while it holds.
+    pub fn faces(&self) -> Vec<(u16, FaceKind, IRect)> {
+        self.props
+            .iter()
+            .filter_map(|p| match &p.machine {
+                Machine::Bank(b)
+                    if !b.removed
+                        && matches!(
+                            b.slide.state(),
+                            SlideState::Stable | SlideState::Disturbed
+                        ) =>
+                {
+                    Some((p.index, FaceKind::Bank, p.target))
+                }
+                Machine::Mass(m) if p.pile && m.is_supported() => {
+                    Some((p.index, FaceKind::Post, p.target))
+                }
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// Whether prop `index` is one of the Hoarder's piles.
+    pub fn is_pile(&self, index: u16) -> bool {
+        self.props.get(usize::from(index)).is_some_and(|p| p.pile)
     }
 
     pub fn hazards(&self) -> &HazardSet {
@@ -932,7 +1083,7 @@ impl EnvRuntime {
         // none (the Hoarder's `props` is empty): the kind is checked before props
         // are indexed.
         let prop = match s.kind {
-            EnvSolidKind::Remnant | EnvSolidKind::Drum => {
+            EnvSolidKind::Remnant | EnvSolidKind::Drum | EnvSolidKind::Bank => {
                 s.prop.and_then(|p| self.props.get(usize::from(p)))
             }
             EnvSolidKind::Lock { .. } | EnvSolidKind::Gate { .. } => return false,
@@ -942,6 +1093,12 @@ impl EnvRuntime {
         };
         match (s.kind, prop.map(|p| &p.machine)) {
             (EnvSolidKind::Remnant, Some(Machine::Mass(m))) => m.state() == MassState::Landed,
+            (EnvSolidKind::Remnant, Some(Machine::Bank(b))) => {
+                !b.removed && b.slide.state() == SlideState::Settled
+            }
+            (EnvSolidKind::Bank, Some(Machine::Bank(b))) => {
+                !b.removed && matches!(b.slide.state(), SlideState::Stable | SlideState::Disturbed)
+            }
             (EnvSolidKind::Drum, Some(Machine::Drum { drum, .. })) => {
                 drum.state() != DrumState::Detonated
             }
@@ -965,6 +1122,8 @@ impl EnvRuntime {
                 Machine::Mass(m) => m.is_supported(),
                 // A drum is no hit target of melee or the missile (BOILD-AD3).
                 Machine::Drum { .. } | Machine::Rot => false,
+                // HRD-B: hero melee and missiles never disturb a bank (HRD-Q22).
+                Machine::Bank(_) => false,
             })
             .map(|p| (p.index, p.target))
             .collect()
@@ -982,6 +1141,8 @@ impl EnvRuntime {
                 Machine::Drum { drum, .. } => drum.is_armed(),
                 // A blast never provokes a sticker (its charge is reached by the chain).
                 Machine::Rot => false,
+                // HRD-Q22: a blast disturbs a standing bank.
+                Machine::Bank(b) => !b.removed && b.slide.state() == SlideState::Stable,
             })
             .map(|p| (p.index, p.target))
             .collect()
@@ -1107,6 +1268,10 @@ impl EnvRuntime {
             Machine::Mass(m) => m.offer(stimulus),
             Machine::Drum { drum, .. } => drum.offer(stimulus),
             Machine::Rot => return None,
+            Machine::Bank(b) if b.removed => {
+                return Some((Offer::Ignored(Ignored::NotAccepted), Vec::new()));
+            }
+            Machine::Bank(b) => b.slide.offer(stimulus),
         };
         let mut events = Vec::new();
         let progress = match result {
@@ -1118,6 +1283,8 @@ impl EnvRuntime {
                 // A drum has one weight: the trigger itself.
                 Machine::Drum { .. } => 1,
                 Machine::Rot => 0,
+                // A bank has one weight: the trigger itself.
+                Machine::Bank(_) => 1,
             },
         };
         events.push(CombatEvent::PropHit {
@@ -1138,6 +1305,9 @@ impl EnvRuntime {
                 // The drum's tell is its warning; its charge keeps the clock.
                 Machine::Drum { .. } => PropPhase::Warning,
                 Machine::Mass(_) => PropPhase::Released,
+                // HRD-B: the bank's shudder is its warning (the slide reuses the
+                // existing phase names: Warning, Falling, Landed).
+                Machine::Bank(_) => PropPhase::Warning,
                 // A sticker takes its stimuli in its own step (`offer` returns above).
                 Machine::Rot => return Some((result, events)),
             };
@@ -1256,6 +1426,61 @@ impl EnvRuntime {
                 },
                 // A drum's clock is its charge's (the scene steps it).
                 Machine::Drum { .. } | Machine::Rot => {}
+                // HRD-B: the bank's slide, its push and its remnant lift.
+                Machine::Bank(b) => {
+                    if b.removed {
+                        continue;
+                    }
+                    match b.slide.step() {
+                        Some(SlideEdge::SlideStarted) => {
+                            b.pushed.clear();
+                            out.events.push(CombatEvent::PropPhase {
+                                tick,
+                                prop,
+                                phase: PropPhase::Falling,
+                                player: b.slide.initiator(),
+                            });
+                        }
+                        Some(SlideEdge::Settled) => {
+                            out.events.push(CombatEvent::PropPhase {
+                                tick,
+                                prop,
+                                phase: PropPhase::Landed,
+                                player: b.slide.initiator(),
+                            });
+                            for l in remnant_lifts(b.slide.config().remnant, &mass_bodies) {
+                                out.lifts.push(EnvLift {
+                                    hero: l.victim.id,
+                                    up_px: l.up_px,
+                                });
+                            }
+                        }
+                        None => {}
+                    }
+                    if let Some(mass) = b.slide.mass_rect() {
+                        let centre = mass.x + mass.w / 2;
+                        for body in &mass_bodies {
+                            if body.victim.team != Team::Hero
+                                || b.pushed.contains(&body.victim)
+                                || !body.cur.overlaps(mass)
+                            {
+                                continue;
+                            }
+                            b.pushed.push(body.victim);
+                            out.hits.push(EnvHit {
+                                victim: body.victim,
+                                prop,
+                                class: HazardClass::Slide,
+                                damage: b.push.damage,
+                                push_x: b.push.push_x_px_s,
+                                knock_up: b.push.knock_up_px_s,
+                                from_x: centre,
+                                initiator: b.slide.initiator(),
+                                activation: 1,
+                            });
+                        }
+                    }
+                }
             }
         }
         // The hazard windows advance in lockstep with the valve; their edges
@@ -1288,14 +1513,32 @@ impl EnvRuntime {
     /// Fold the full state into a state hash, behind a marker word.
     pub fn mix_into(&self, mix: &mut impl FnMut(u64)) {
         mix(0x454e_5652_0001); // "ENVR"
-        mix(self.props.len() as u64);
-        for p in &self.props {
+        // HRD-B / HRD-C: a pile that was never touched is not hashed, so a room 1
+        // run that never reaches a pile keeps its hash. The count is the authored
+        // props' count.
+        mix(self.props.iter().filter(|p| !p.pile).count() as u64);
+        for p in self.props.iter().filter(|p| !p.pile) {
             mix(u64::from(p.index));
             match &p.machine {
                 Machine::Valve { valve, .. } => valve.mix_into(&mut *mix),
                 Machine::Mass(m) => m.mix_into(&mut *mix),
                 Machine::Drum { drum, .. } => drum.mix_into(&mut *mix),
-                Machine::Rot => {}
+                Machine::Rot | Machine::Bank(_) => {}
+            }
+        }
+        for p in self.props.iter().filter(|p| p.pile && !p.pristine()) {
+            mix(0x5049_4c45_0001); // "PILE"
+            mix(u64::from(p.index));
+            match &p.machine {
+                Machine::Mass(m) => m.mix_into(&mut *mix),
+                Machine::Bank(b) => {
+                    b.slide.mix_into(&mut *mix);
+                    mix(b.pushed.len() as u64);
+                    for v in &b.pushed {
+                        mix(u64::from(v.id));
+                    }
+                }
+                _ => {}
             }
         }
         self.hazards.mix_into(&mut *mix);
@@ -1321,7 +1564,9 @@ impl EnvRuntime {
         let parts: Vec<String> = self
             .props
             .iter()
+            .filter(|p| !p.pile || !p.pristine())
             .map(|p| match &p.machine {
+                Machine::Bank(b) => format!("{}:bank_{:?}", p.index, b.slide.state()),
                 Machine::Valve { valve, .. } => format!("{}:{:?}", p.index, valve.state()),
                 Machine::Mass(m) => format!("{}:{:?}", p.index, m.state()),
                 Machine::Drum { drum, .. } => format!("{}:drum_{:?}", p.index, drum.state()),
@@ -1684,6 +1929,15 @@ impl CombatState {
                     solid: false,
                 })
                 .collect(),
+            faces: env
+                .faces()
+                .into_iter()
+                .map(|(prop, kind, rect)| EnvFace {
+                    prop,
+                    kind,
+                    rect: world_rect(layout_h, rect),
+                })
+                .collect(),
         }
     }
 
@@ -1863,6 +2117,10 @@ impl CombatState {
             if !world_rect(layout_h, target).overlaps(boxed) {
                 continue;
             }
+            // HRD-C: a pile takes only a human-driven hero's hit, after her engage.
+            if !self.env_hit_counts(scene, prop, HeroId::Carl) {
+                continue;
+            }
             if !scene
                 .world
                 .hero
@@ -1946,6 +2204,80 @@ impl CombatState {
         }
     }
 
+    /// HRD-C: whether a hit by `hero` on prop `prop` counts. An ordinary prop
+    /// always takes it. One of the Hoarder's piles takes only a **human-driven**
+    /// hero's hit (the Juicer rule "the AI never triggers a rack") and only once
+    /// every slot enemy has engaged (HRD-Q26: hits before `PileBoss(Engaged)` do
+    /// nothing).
+    fn env_hit_counts(&self, scene: &SceneSim, prop: u16, hero: HeroId) -> bool {
+        let Some(env) = self.env.as_deref() else {
+            return true;
+        };
+        if !env.is_pile(prop) {
+            return true;
+        }
+        !scene.drive().is_guarded(hero) && self.slot.enemies.iter().all(|e| e.engaged())
+    }
+
+    /// Tests only: [`Self::env_hit_counts`].
+    #[cfg(test)]
+    pub fn env_hit_counts_for_test(&self, scene: &SceneSim, prop: u16, hero: HeroId) -> bool {
+        self.env_hit_counts(scene, prop, hero)
+    }
+
+    /// Tests only: [`Self::env_donut_melee`] with a given active box.
+    #[cfg(test)]
+    pub fn env_donut_melee_for_test(
+        &mut self,
+        scene: &SceneSim,
+        hitbox: Rect,
+        instance: u32,
+        tick: u64,
+    ) {
+        self.env_donut_melee(scene, Some(hitbox), Some(instance), tick);
+    }
+
+    /// HRD-C: Donut's swat and pounce on a pile's hit target (the sheet's
+    /// "Donut's swat and pounce" are qualifying hits; every other prop keeps the
+    /// BOILBC-AD7 rule that her melee is no stimulus). One hit per move instance:
+    /// the mass counts a token once, and Donut's tokens carry a high bit so they
+    /// never meet Carl's.
+    pub(super) fn env_donut_melee(
+        &mut self,
+        scene: &SceneSim,
+        hitbox: Option<Rect>,
+        instance: Option<u32>,
+        tick: u64,
+    ) {
+        let (Some(boxed), Some(instance)) = (hitbox, instance) else {
+            return;
+        };
+        let Some(env) = self.env.as_deref() else {
+            return;
+        };
+        let layout_h = scene.world.layout_height();
+        let hit: Vec<u16> = env
+            .live_targets()
+            .into_iter()
+            .filter(|(p, t)| env.is_pile(*p) && world_rect(layout_h, *t).overlaps(boxed))
+            .map(|(p, _)| p)
+            .collect();
+        for prop in hit {
+            if !self.env_hit_counts(scene, prop, HeroId::Donut) {
+                continue;
+            }
+            self.env_stimulate(
+                usize::from(prop),
+                Stimulus::MeleeHit {
+                    token: DONUT_MELEE_TOKEN | instance,
+                    player: DONUT_HERO,
+                    weight: 1,
+                },
+                tick,
+            );
+        }
+    }
+
     /// A Magic Missile that overlaps a live prop target ends there (DV-5),
     /// after the goblins, llamas, boss and slot enemies. Returns whether the
     /// bolt was consumed. The projectile is credited to Donut.
@@ -1964,11 +2296,10 @@ impl CombatState {
             return true;
         }
         let env = self.env.as_ref().expect("checked above");
-        let Some((prop, _)) = env
-            .live_targets()
-            .into_iter()
-            .find(|(_, t)| world_rect(layout_h, *t).overlaps(rect))
-        else {
+        // HRD-C: a bolt of a bot Donut, or one before her engage, passes a pile.
+        let Some((prop, _)) = env.live_targets().into_iter().find(|(p, t)| {
+            world_rect(layout_h, *t).overlaps(rect) && self.env_hit_counts(scene, *p, HeroId::Donut)
+        }) else {
             return false;
         };
         self.env_stimulate(
@@ -2567,7 +2898,7 @@ impl CombatState {
             }
             let solid = env.solids()[i - range.start];
             match solid.kind {
-                EnvSolidKind::Drum => struck.extend(solid.prop),
+                EnvSolidKind::Drum | EnvSolidKind::Bank => struck.extend(solid.prop),
                 // The landed weight is a wall, not a trigger; a lock, a gate, a soffit
                 // and the exit gate are room solids, never a prop to strike.
                 EnvSolidKind::Remnant
@@ -2724,10 +3055,11 @@ mod tests {
     /// lock of one enemy, the derived exit gate of a whole roster) say so.
     #[test]
     fn the_two_exit_door_kinds_are_the_only_solids_that_open_on_a_defeat() {
-        use EnvSolidKind::{Drum, ExitGate, Gate, Lock, Remnant, Soffit};
+        use EnvSolidKind::{Bank, Drum, ExitGate, Gate, Lock, Remnant, Soffit};
         let doors: Vec<_> = [
             Remnant,
             Drum,
+            Bank,
             Lock { target: 7 },
             Gate { target: 7 },
             Soffit,

@@ -533,6 +533,11 @@ impl CombatState {
         self.step_cast_clock(hurt);
         let out = self.donut_kit.moves.step(&input);
         self.donut_kit.hitbox = out.hitbox;
+        // HRD-C: her swat and pounce on a pile's support post.
+        if out.hitbox.is_some() {
+            let instance = self.donut_kit.moves.view().map(|v| v.instance);
+            self.env_donut_melee(scene, out.hitbox, instance, tick);
+        }
 
         // CF02-C2 (C6): the legacy jump cancel of the swat or pounce recovery
         // becomes the cat hop (a human Donut only).

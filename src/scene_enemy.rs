@@ -246,6 +246,9 @@ pub struct SlotOut {
     /// HAZ-A2: the enemy began an attack tell on this tick and took an attack
     /// token (the scene stamps the goblins' 12-tick tell spacing).
     pub tell_started: bool,
+    /// HRD-B / HRD-C: prop stimuli of this tick (her shove meeting a pile), offered
+    /// in order before the env step.
+    pub env_stimuli: Vec<SlotStimulus>,
 }
 
 impl SlotOut {
@@ -255,6 +258,7 @@ impl SlotOut {
             && self.shifts.is_empty()
             && self.regroup.is_empty()
             && !self.tell_started
+            && self.env_stimuli.is_empty()
     }
 }
 
@@ -278,6 +282,33 @@ pub struct EnvTarget {
     pub solid: bool,
 }
 
+/// What a face her shove may meet is (HRD-B, HRD-C).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FaceKind {
+    /// Bank A while it stands (`stable` or `disturbed`).
+    Bank,
+    /// The J-B support post while it holds (`supported` or `weakened`).
+    Post,
+}
+
+/// A face of a pile a slot enemy's shove stops on right now (HRD-B, HRD-C): the
+/// env prop that owns it and its world rectangle (y up).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct EnvFace {
+    pub prop: u16,
+    pub kind: FaceKind,
+    pub rect: Rect,
+}
+
+/// A prop stimulus a slot enemy sends on its own tick (the Hoarder's shove
+/// meeting a pile): the scene offers it to the prop in the same tick, before the
+/// env step.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SlotStimulus {
+    pub prop: u16,
+    pub stimulus: crate::env_prop::Stimulus,
+}
+
 /// Read access to the env props of the scene (empty until BOIL-C wire fills
 /// it): the index range of the runtime env solids inside the scene's solids and
 /// the props' hit targets. The slot only reads it.
@@ -287,6 +318,8 @@ pub struct EnvView {
     pub solid_range: Range<usize>,
     /// Hit targets, in prop order.
     pub targets: Vec<EnvTarget>,
+    /// HRD-B / HRD-C: the pile faces standing now, in prop order.
+    pub faces: Vec<EnvFace>,
 }
 
 impl EnvView {
@@ -297,7 +330,7 @@ impl EnvView {
     }
 
     pub fn is_empty(&self) -> bool {
-        self.solid_range.is_empty() && self.targets.is_empty()
+        self.solid_range.is_empty() && self.targets.is_empty() && self.faces.is_empty()
     }
 }
 
@@ -432,6 +465,12 @@ pub trait SlotEnemy: fmt::Debug + Send + Sync {
         _out: &mut SlotOut,
     ) -> Option<SlotHitResult> {
         None
+    }
+
+    /// Whether the enemy has engaged the heroes (HRD-C: a pile's hits count only
+    /// after her `Engaged`). The default: always.
+    fn engaged(&self) -> bool {
+        true
     }
 
     /// The entry gate this enemy owns while it is closed (world px, y up): a
@@ -667,6 +706,11 @@ impl SlotSet {
             .collect();
         check_suppliers(&kinds, fixture_boss)?;
         Ok(Self { enemies })
+    }
+
+    /// The enemies of the set (a fixture reads what it asked its enemy for).
+    pub fn enemies(&self) -> &[Box<dyn SlotEnemy>] {
+        &self.enemies
     }
 
     pub fn is_empty(&self) -> bool {

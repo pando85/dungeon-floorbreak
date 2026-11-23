@@ -822,8 +822,11 @@ pub fn hrd_defeat_grants_dynamite(root: &Path) -> Result<Outcome, String> {
     };
     let mut rig = Rig::new(root, plan)?;
     let range = rig.combat.env().ok_or("the room has an env")?.solid_range();
-    ensure!(range.len() == 2, "door and gate are env solids: {range:?}");
-    let (door, gate) = (range.start, range.start + 1);
+    ensure!(
+        range.len() == ENV_SOLIDS,
+        "door, bank A, two remnants and gate are env solids: {range:?}"
+    );
+    let (door, gate) = (range.start, range.end - 1);
     ensure!(
         rig.scene.world.solids[door].intact,
         "the door is closed at start"
@@ -935,12 +938,19 @@ fn engaged_tick(rig: &Rig) -> Option<u64> {
         .map(|(t, _)| *t)
 }
 
-/// The scene's solid blocks of the room's env: `(door, gate)` indexes.
+/// The scene's solid blocks of the room's env: `(door, gate)` indexes. The env solids are the
+/// door, then bank A's standing solid and the two remnants (HRD-B, HRD-C), then the gate.
 fn env_blocks(rig: &Rig) -> Result<(usize, usize), String> {
     let range = rig.combat.env().ok_or("the room has an env")?.solid_range();
-    ensure!(range.len() == 2, "door and gate: {range:?}");
-    Ok((range.start, range.start + 1))
+    ensure!(
+        range.len() == ENV_SOLIDS,
+        "door, bank A, two remnants and gate: {range:?}"
+    );
+    Ok((range.start, range.end - 1))
 }
+
+/// The env solids of the room: the door, bank A, bank A's remnant, the stack's remnant, the gate.
+pub const ENV_SOLIDS: usize = 5;
 
 /// `hrd_reveal_no_hits`: dormant, gate open; Carl walks right from x 428. The gate
 /// closes and `Engaged` fires 8 ticks after Carl reaches x 432; no `Hurt` and no
@@ -1618,6 +1628,9 @@ impl CarlPilot {
     }
 }
 
+/// The distance below which Donut's pilot backs away while she is not attacking.
+const KITE_MIN_PX: f32 = 150.0;
+
 /// Donut's scripted pilot (the biscuit, the base jump): fire a Magic Missile on every
 /// refire tick, jump the swipe in its first ticks and the shove by the base-Donut
 /// reach table (19..46 at d 96, 30..57 at d 128, 39..68 at d 160), never retreat
@@ -1666,9 +1679,30 @@ impl DonutPilot {
                     self.jumped = true;
                 }
             }
+            // Neutral, Walk, Turn, Cooldown: HRD-B: bank A is solid now, so a shove jumped
+            // lands her pilot behind her and a close Donut never lets her mana regenerate;
+            // keep the missile range (a retreat first, then a one-tick turn to face her).
+            PileMode::Neutral | PileMode::Walk | PileMode::Turn | PileMode::Cooldown => {
+                let toward = if boss.x() >= x { 1.0 } else { -1.0 };
+                // The retreat stops short of bank A's face and of the J-B stack's footprint
+                // (x 752..880): the pilot never backs under the stack.
+                let room = if toward > 0.0 { x > 432.0 } else { x < 730.0 };
+                if grounded && adx < KITE_MIN_PX && room {
+                    raw.move_x = -toward;
+                } else if grounded && adx < 235.0 && f32::from(body.facing) != toward {
+                    raw.move_x = toward;
+                }
+            }
             _ => {}
         }
-        if !raw.jump && grounded && adx < 235.0 && (rig.next_tick() % 16 == 1) {
+        let faces_her = f32::from(body.facing) == if boss.x() >= x { 1.0 } else { -1.0 };
+        if !raw.jump
+            && raw.move_x == 0.0
+            && grounded
+            && adx < 235.0
+            && faces_her
+            && (rig.next_tick() % 16 == 1)
+        {
             raw.attack = true;
         }
         raw
@@ -1824,9 +1858,15 @@ fn clear_run(root: &Path, control: Control, seed: u64, limit: u64) -> Result<Cle
         partner_last = partner_now;
     }
     let deaths = rig.combat.deaths;
+    let (hero_x, her_hp, partner_x) = (pos(&rig), rig.boss().boss().hp(), partner_pos(&rig));
     Ok(ClearRun {
         rig,
-        defeat: defeat.ok_or("she was never defeated")?,
+        defeat: defeat.ok_or_else(|| {
+            format!(
+                "she was never defeated (the hero at x {hero_x:.0}, the partner at x \
+                 {partner_x:.0}, her hp {her_hp})"
+            )
+        })?,
         exit: exit.ok_or("the hero never reached the exit")?,
         stuck: longest,
         stuck_partner: partner_longest,
@@ -2225,8 +2265,10 @@ pub fn hrd_direct_clear_companion(root: &Path) -> Result<Outcome, String> {
 /// solid surface is between 49 and 128 px, the protected rectangles are clear of her swipe and
 /// shove boxes at both leash edges (the exit pocket counts as sealed while the door is closed),
 /// the entry gate stands clear of the spawn pocket and the door opens on a reachable event (her
-/// defeat). The sheet's five pile orderings do not apply yet: bank A and the J-B post are
-/// static entries until HRD-B and HRD-C make them props, so the fixture reports one state.
+/// defeat. The sheet's five pile orderings (A only, B only, A then B, B then A, neither) are
+/// covered by the conservative static reading (HRD-B, HRD-C): the validator keeps bank A a
+/// solid in every state and the post a hit target, and the machines' remnants (16 px) and the
+/// stack's footprint are validated inside the play area and clear of the protected rectangles.
 pub fn hrd_room_validator(root: &Path) -> Result<Outcome, String> {
     let run = f01_hoarder::launch(root)?;
     let l = &run.loaded;
@@ -2296,7 +2338,7 @@ pub fn hrd_room_validator(root: &Path) -> Result<Outcome, String> {
     Ok(Outcome {
         hash,
         note: format!(
-            "{} reach rows over {classes:?}, swipe reach {swipe_left}..{swipe_right}, shove {shove_right}; one pile state (piles are static until HRD-B/C)",
+            "{} reach rows over {classes:?}, swipe reach {swipe_left}..{swipe_right}, shove {shove_right}; the piles are read as statics (bank A always a solid: the conservative reading of the five orderings, its remnants only open the room)",
             e.reach.len()
         ),
     })
@@ -2410,6 +2452,34 @@ pub const FIXTURES: &[(&str, FixtureFn)] = &[
 
 #[cfg(test)]
 mod tests {
+
+    /// Report only (`--ignored --nocapture`): the room 1 clear rate of every control, seeds 0..=8,
+    /// per seed: `Ok(defeat tick, exit tick, stuck)` or the reason it did not clear.
+    #[test]
+    #[ignore = "report: HRD-B/HRD-C clear rates"]
+    fn clear_rates_report() {
+        for seed in ROOM_SEEDS {
+            let r = room_run(&root(), seed).unwrap();
+            println!("ROOMGOLD ({}, {:#018x}),", r.ticks, r.hash);
+        }
+        for control in [Control::SoloCarl, Control::SoloDonut, Control::SoloCarlFree] {
+            let mut ok = 0;
+            for seed in ROOM_SEEDS {
+                match clear_run(&root(), control, seed, ROOM_RUN_LIMIT) {
+                    Ok(r) => {
+                        ok += 1;
+                        println!(
+                            "CLEAR {control:?} seed {seed}: defeat {} exit {} stuck {} deaths {}",
+                            r.defeat, r.exit, r.stuck, r.deaths
+                        );
+                    }
+                    Err(e) => println!("CLEAR {control:?} seed {seed}: FAILED {e}"),
+                }
+            }
+            println!("CLEAR_RATE {control:?} {ok}/{}", ROOM_SEEDS.count());
+        }
+    }
+
     use super::*;
     use crate::encounter::RosterKind;
     use std::path::PathBuf;
@@ -2428,13 +2498,13 @@ mod tests {
         ("hrd_shove_jump_edges", 0x7afe_603b_77d6_b696),
         ("hrd_shove_jump_lands_behind", 0xeb83_fcbe_474d_086e),
         ("hrd_shove_2p_both", 0xc59f_d826_63fa_76da),
-        ("hrd_shove_jams_on_solid", 0x4da4_3218_3dcd_f353),
+        ("hrd_shove_jams_on_solid", 0x1291_6f86_0c80_d7bc),
         ("hrd_turn_flank", 0xf0ed_1f48_7864_7178),
         ("hrd_defeat_grants_dynamite", 0x3206_266a_728e_229f),
         ("hrd_not_evadable", 0x9b88_f640_aa3b_e2cf),
         ("hrd_reveal_no_hits", 0x182c_ed6f_68e1_1f61),
-        ("hrd_gate_2p_waits", 0x3c7b_389d_6bee_56ba),
-        ("hrd_gate_solo_regroup", 0x81a5_11f1_8321_44ca),
+        ("hrd_gate_2p_waits", 0x373f_5762_83ff_c553),
+        ("hrd_gate_solo_regroup", 0x2a38_ce23_6903_6dc8),
         ("hrd_retry_short_reveal", 0x78c3_48ed_4a39_8b74),
         ("hrd_restart_mid_reveal", 0xd8f5_13a1_c3f9_f43d),
         ("hrd_leash_return", 0xf1cf_09bf_157d_538f),
@@ -2442,18 +2512,18 @@ mod tests {
         ("hrd_ai_steps_out_untargeted", 0x0cc7_df5f_3447_0966),
         ("hrd_exit_door_physical", 0x8334_e001_0139_8372),
         ("hrd_gate_physical", 0x23ae_425d_f63b_f99b),
-        ("hrd_poise_flinch", 0x8f13_b63b_b3c9_810e),
+        ("hrd_poise_flinch", 0x7928_a926_32b5_8917),
         ("hrd_disengage_trigger_band", 0xd6e1_3bd0_5f46_4736),
         ("hrd_no_safe_snipe", 0x3427_3333_a3ee_c759),
-        ("hrd_direct_clear_solo", 0x2eb7_4857_c5db_8632),
-        ("hrd_direct_clear_donut", 0xd4ee_3852_1b48_7abb),
+        ("hrd_direct_clear_solo", 0x9c54_7667_146c_c0d3),
+        ("hrd_direct_clear_donut", 0x56c0_188d_5be1_ae2d),
         // HRD-FU (FA-Q23 batch). `hrd_direct_clear_companion` depends on the companion's
         // behaviour: a COMPANION change re-pins it.
         ("hrd_gate_no_band", 0x712e_c29b_453f_394a),
         ("hrd_disengage_follow_punished", 0x62cc_5995_2db1_14d1),
         ("hrd_leash_kite_probe", 0xecc0_0f24_43b1_036b),
-        ("hrd_direct_clear_companion", 0xd15c_c83e_f79b_9a3a),
-        ("hrd_room_validator", 0xb63d_c4fc_5f3f_8121),
+        ("hrd_direct_clear_companion", 0x64c6_e822_6024_3022),
+        ("hrd_room_validator", 0x98a8_7757_b6c3_94e5),
     ];
 
     #[test]
@@ -2487,15 +2557,15 @@ mod tests {
     /// each run (a deliberate change re-pins here and in `render_replay_lines.txt`). Seeds 1, 6
     /// and 8 play the identical fight (measured: their delay and hover differ, no decision does).
     const ROOM_GOLDENS: [(u64, u64); 9] = [
-        (1381, 0xa8cd_c166_0e1d_cdbc),
-        (1383, 0x5c66_518c_066e_b2bf),
-        (1412, 0xe5bf_6427_4a6a_2698),
-        (1384, 0x99f7_2fe4_f177_b9e6),
-        (1383, 0x9e1d_5fe2_8e5f_7713),
-        (1385, 0x5bca_74d9_be16_cf2b),
-        (1383, 0x5c66_518c_066e_b2bf),
-        (1488, 0xcbe4_c19a_83f2_b4bf),
-        (1383, 0x5c66_518c_066e_b2bf),
+        (1385, 0x2b01_88d9_a406_83f2),
+        (1387, 0xe919_852b_09df_1d51),
+        (1416, 0x442d_1763_18c3_eacb),
+        (1388, 0x8f6c_893b_d8ec_60b3),
+        (1387, 0x488e_270f_5c56_cddf),
+        (1389, 0xf3fe_a6ea_1d52_2aa6),
+        (1387, 0xe919_852b_09df_1d51),
+        (1492, 0xe5df_f396_32e6_4539),
+        (1387, 0xe919_852b_09df_1d51),
     ];
 
     /// FA-Q24: nine of nine room 1 runs defeat her under the cap with exactly one
@@ -2580,27 +2650,28 @@ mod tests {
         }
     }
 
-    /// `solid_intact` on her door and gate (a room with no props) answers `false`
-    /// without indexing props: the slot enemy decides them.
+    /// `solid_intact` on her door and gate answers `false` without indexing props (the
+    /// slot enemy decides them); of the pile solids only bank A stands at the start.
     #[test]
-    fn solid_intact_on_the_door_and_gate_of_a_propless_room_does_not_panic() {
+    fn solid_intact_on_the_door_and_gate_does_not_panic_and_only_bank_a_stands() {
+        use crate::combat_scene::EnvSolidKind;
         let rig = Rig::new(&root(), Plan::carl_at(60.0)).unwrap();
         let env = rig.combat.env().unwrap();
-        assert_eq!(env.props(), 0);
-        for i in 0..env.solids().len() {
-            assert!(!env.solid_intact(i));
+        assert_eq!(env.props(), 2, "bank A and the J-B stack, no authored prop");
+        for (i, s) in env.solids().iter().enumerate() {
+            assert_eq!(env.solid_intact(i), s.kind == EnvSolidKind::Bank, "{s:?}");
         }
         assert!(!env.solid_intact(99));
     }
 
     /// The door and the gate are runtime env solids of one sync: the door a lock
-    /// solid, the gate a slot gate; the room has no props.
+    /// solid, the gate a slot gate, with bank A and the two remnants between them.
     #[test]
     fn the_door_is_a_lock_solid_and_the_gate_a_slot_gate_of_the_one_env_sync() {
         use crate::combat_scene::EnvSolidKind;
         let rig = Rig::new(&root(), Plan::carl_at(60.0)).unwrap();
         let env = rig.combat.env().expect("the room runs the env sync");
-        assert_eq!(env.props(), 0);
+        assert_eq!(env.props(), 2);
         let kinds: Vec<_> = env.solids().iter().map(|s| s.kind).collect();
         assert_eq!(
             kinds,
@@ -2608,6 +2679,9 @@ mod tests {
                 EnvSolidKind::Lock {
                     target: PILE_BOSS_ID
                 },
+                EnvSolidKind::Bank,
+                EnvSolidKind::Remnant,
+                EnvSolidKind::Remnant,
                 EnvSolidKind::Gate {
                     target: PILE_BOSS_ID
                 }
@@ -2621,7 +2695,7 @@ mod tests {
         );
         // HRD-FU: the door is one of the two "opens on defeat" kinds, the gate is not.
         assert!(env.solids()[0].kind.opens_on_defeat());
-        assert!(!env.solids()[1].kind.opens_on_defeat());
+        assert!(!env.solids()[ENV_SOLIDS - 1].kind.opens_on_defeat());
         // Nothing was appended twice, and a repeat sync is idempotent.
         let before = rig.scene.world.solids.len();
         let mut rig = rig;

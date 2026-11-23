@@ -64,7 +64,9 @@ use serde::Deserialize;
 
 use crate::camera_lab::room::{EnemyKind, IRect, Room, parse_rooms};
 use crate::env_hazard::{HazardClass, HazardSet, HazardSetError, HazardSpec, HazardWindow};
-use crate::env_prop::{ShutterConfig, ShutterInitial, ValveConfig};
+use crate::env_prop::{
+    FallingMassConfig, STEP_OVER_PX, ShutterConfig, ShutterInitial, SlideConfig, ValveConfig,
+};
 use crate::hero_damage::HeroDamagePolicy;
 use crate::rot_sticker::{Orientation, Track, TrackError};
 use crate::slime::AcidPatchSpec;
@@ -467,6 +469,47 @@ pub struct StaticEntry {
     pub id: String,
     pub kind: StaticKind,
     pub rect: IRect,
+    /// HRD-B: a solid static that **is** the J-A bank: its slide machine. The
+    /// entry stays the validator's view of the bank (a solid, the conservative
+    /// reading: the settled remnant of 16 px only makes the room easier); the
+    /// runtime builds the machine from this.
+    pub slide: Option<SlideSpec>,
+    /// HRD-C: a hit-target static that **is** the J-B support post: the stack it
+    /// holds up. Non-solid itself (the validator's view is unchanged); the runtime
+    /// builds the falling mass from this.
+    pub stack: Option<StackSpec>,
+}
+
+impl StaticEntry {
+    /// Whether the entry has a runtime machine (a bank or a stack).
+    pub const fn has_machine(&self) -> bool {
+        self.slide.is_some() || self.stack.is_some()
+    }
+}
+
+/// HRD-B (HRD-Q21..Q23): the J-A bank's slide and the push of its moving mass.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SlideSpec {
+    /// The machine's config (`stable` is the static's own rectangle).
+    pub config: SlideConfig,
+    /// The push of the moving mass (HRD-Q23): 0 damage, a knock toward -x.
+    pub push: SlidePush,
+}
+
+/// What the moving mass does to a hero it overlaps, once per hero and motion
+/// (HRD-Q23, HRD-Q39).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SlidePush {
+    pub damage: u8,
+    /// Signed horizontal knock, px/s.
+    pub push_x_px_s: i16,
+    pub knock_up_px_s: i16,
+}
+
+/// HRD-C (HRD-Q25..Q28): the J-B stack the post holds up.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct StackSpec {
+    pub config: FallingMassConfig,
 }
 
 // -------------------------------------------------------------- typed data
@@ -1422,6 +1465,46 @@ struct RawStatic {
     id: String,
     kind: String,
     rect: RawRect,
+    /// HRD-B, optional: the J-A slide (only on a `solid`).
+    #[serde(default)]
+    slide: Option<RawSlide>,
+    /// HRD-C, optional: the J-B stack (only on a `hit_target`).
+    #[serde(default)]
+    stack: Option<RawStack>,
+}
+
+/// The J-A bank's knobs; every name starts with its HRD question id (sheet
+/// section 12).
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawSlide {
+    hrdq21_remnant: RawRect,
+    hrdq21_dx_per_tick: i32,
+    hrdq21_warning_ticks: u16,
+    hrdq21_slide_ticks: u16,
+    hrdq22_launch_min_impulse_px_s: u16,
+    hrdq22_shove_min_impulse_px_s: u16,
+    hrdq23_damage: u8,
+    hrdq23_push_x_px_s: i16,
+    hrdq23_knock_up_px_s: i16,
+}
+
+/// The J-B stack's knobs, named by their HRD question ids.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawStack {
+    hrdq25_stack: RawRect,
+    hrdq25_footprint: RawRect,
+    hrdq25_remnant: RawRect,
+    hrdq26_hits: u8,
+    /// HRD-Q26's switch: the weight of a Magic Missile, 0 turns it off.
+    hrdq26_missile: u8,
+    hrdq26_shove_min_impulse_px_s: u16,
+    hrdq27_warning_ticks: u16,
+    hrdq27_fall_ticks: u16,
+    hrdq28_damage: u8,
+    hrdq28_knock_x_px_s: i16,
+    hrdq28_knock_up_px_s: i16,
 }
 
 #[derive(Debug, Deserialize)]
@@ -2567,10 +2650,52 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
                 errs.push(bad(&format!("overlaps the protected {zone}")));
             }
         }
+        let mut slide = None;
+        let mut stack = None;
+        if let Some(raw_slide) = &st.slide {
+            match static_slide(kind, rect, raw_slide) {
+                Ok(spec) => slide = Some(spec),
+                Err(reason) => errs.push(bad(&reason)),
+            }
+        }
+        if let Some(raw_stack) = &st.stack {
+            match static_stack(kind, rect, raw_stack) {
+                Ok(spec) => stack = Some(spec),
+                Err(reason) => errs.push(bad(&reason)),
+            }
+        }
+        // The machines' other rectangles (the moving mass' end, the remnants, the
+        // footprint) stay inside the play area and out of the protected zones.
+        let mut reach: Vec<(&str, IRect)> = Vec::new();
+        if let Some(spec) = &slide {
+            reach.push(("slide end", spec.config.mass_after(spec.config.slide_ticks)));
+            reach.push(("slide remnant", spec.config.remnant));
+        }
+        if let Some(spec) = &stack {
+            reach.push(("stack", spec.config.hanging));
+            reach.push(("stack footprint", spec.config.footprint));
+            reach.push(("stack remnant", spec.config.remnant));
+        }
+        for (what, r) in reach {
+            if !within_play(room, r) {
+                errs.push(bad(&format!("the {what} leaves the play area")));
+            }
+            for (zone, protect) in [
+                ("spawn", protected_spawn),
+                ("exit", exit),
+                ("checkpoint", checkpoint),
+            ] {
+                if overlaps(r, protect) {
+                    errs.push(bad(&format!("the {what} overlaps the protected {zone}")));
+                }
+            }
+        }
         statics.push(StaticEntry {
             id: st.id.clone(),
             kind,
             rect,
+            slide,
+            stack,
         });
     }
 
@@ -2950,6 +3075,69 @@ fn changeable_props(props: &[Prop]) -> Vec<usize> {
         .filter(|(_, p)| p.solid_intact || p.remnant.is_some() || p.kind == PropKind::Shutter)
         .map(|(i, _)| i)
         .collect()
+}
+
+/// HRD-B: the J-A slide of a static solid, validated by the machine's own rules
+/// and by the room rules: the bank stands on the lane, the remnant is no taller
+/// than a step (heroes and her walk over it) and neither the moving mass nor the
+/// remnant leaves the play area.
+fn static_slide(kind: StaticKind, rect: IRect, raw: &RawSlide) -> Result<SlideSpec, String> {
+    if kind != StaticKind::Solid {
+        return Err("a slide belongs on a solid static".into());
+    }
+    let remnant = IRect::from(&raw.hrdq21_remnant);
+    let mut config = SlideConfig::new(rect, remnant);
+    config.dx_per_tick = raw.hrdq21_dx_per_tick;
+    config.warning_ticks = raw.hrdq21_warning_ticks;
+    config.slide_ticks = raw.hrdq21_slide_ticks;
+    config.launch_min_impulse_px_s = raw.hrdq22_launch_min_impulse_px_s;
+    config.shove_min_impulse_px_s = raw.hrdq22_shove_min_impulse_px_s;
+    config.validate()?;
+    if remnant.h > STEP_OVER_PX {
+        return Err(format!(
+            "the slide's remnant is at most {STEP_OVER_PX} px high (a step)"
+        ));
+    }
+    Ok(SlideSpec {
+        config,
+        push: SlidePush {
+            damage: raw.hrdq23_damage,
+            push_x_px_s: raw.hrdq23_push_x_px_s,
+            knock_up_px_s: raw.hrdq23_knock_up_px_s,
+        },
+    })
+}
+
+/// HRD-C: the J-B stack of a hit-target static (the support post), validated by
+/// the mass's own rules, and the remnant is a step.
+fn static_stack(kind: StaticKind, _rect: IRect, raw: &RawStack) -> Result<StackSpec, String> {
+    if kind != StaticKind::HitTarget {
+        return Err("a stack belongs on a hit_target static (the support post)".into());
+    }
+    let remnant = IRect::from(&raw.hrdq25_remnant);
+    let mut config = FallingMassConfig::new(
+        IRect::from(&raw.hrdq25_stack),
+        IRect::from(&raw.hrdq25_footprint),
+        remnant,
+    );
+    config.release_weight = raw.hrdq26_hits;
+    config.projectile_weight = raw.hrdq26_missile;
+    // HRD-Q26: her shove (and a blast) releases the support at once.
+    config.shove_weight = raw.hrdq26_hits;
+    config.blast_weight = raw.hrdq26_hits;
+    config.shove_min_impulse_px_s = raw.hrdq26_shove_min_impulse_px_s;
+    config.warning_ticks = raw.hrdq27_warning_ticks;
+    config.fall_ticks = raw.hrdq27_fall_ticks;
+    config.damage = raw.hrdq28_damage;
+    config.knock_x_px_s = raw.hrdq28_knock_x_px_s;
+    config.knock_up_px_s = raw.hrdq28_knock_up_px_s;
+    config.validate()?;
+    if remnant.h > STEP_OVER_PX {
+        return Err(format!(
+            "the stack's remnant is at most {STEP_OVER_PX} px high (a step)"
+        ));
+    }
+    Ok(StackSpec { config })
 }
 
 /// The sidecar's static solids (they are in every state), in file order.

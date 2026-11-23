@@ -1,7 +1,7 @@
 //! FA-Q23 (HRD-P): the Bevy half of the Hoarder room's stand-in presentation. The pure half is
 //! `dungeon_floorbreak::hoarder_art`; this file only draws what it returns: the HOARD-01
 //! atlas frames (the committed, unapproved candidate, reused as they are), the labelled
-//! greybox of the door, the entry gate, bank A, the J-B post and the lair mound, and the
+//! greybox of the door, the entry gate, bank A, the J-B post and its stack, and the low lair mound, and the
 //! visible "STAND-IN" labels (rasterised from a 3 x 5 pixel font into one small image each).
 //! **Presentation only**: every system reads the combat state through a shared reference and
 //! writes only its own sprites, so nothing here reaches the simulation, the replay or the
@@ -167,7 +167,15 @@ pub(super) fn sync_hoarder_art(
             Some(d) => {
                 transform.translation = Vec3::new(d.centre.0, d.centre.1, art.hoarder_z);
                 sprite.flip_x = d.flip_x;
-                sprite.color = if d.flash { FLASH_TINT } else { Color::WHITE }.with_alpha(d.alpha);
+                sprite.color = if d.flash {
+                    FLASH_TINT
+                } else if d.silhouette {
+                    // No hurtbox yet (the Reveal): a dim dark silhouette.
+                    Color::srgb(0.22, 0.24, 0.32)
+                } else {
+                    Color::WHITE
+                }
+                .with_alpha(d.alpha);
                 if let Some(atlas) = sprite.texture_atlas.as_mut() {
                     atlas.index = usize::from(d.frame);
                 }

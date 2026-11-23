@@ -1,6 +1,6 @@
 {
   "schema": "floor01-encounter-v1",
-  "status": "HRD-A1 data (ENEMY-GAMEPLAY-HOARDER section 3 and 9, docs/01-design/enemy-gameplay-hoarder.md): greybox hypotheses, validated by src/encounter.rs; nothing here is wired into a scene yet. Bank A and the J-B post are static entries (HRD-B and HRD-C upgrade them in place into the prop state machines). The entry gate is not here: it closes on the engage and opens on defeat, so it is boss data (HRD-Q41) and not a lock. Every number is a tuning knob. Coordinates are layout pixels, y down, like the room file.",
+  "status": "HRD-A1 data (ENEMY-GAMEPLAY-HOARDER section 3 and 9, docs/01-design/enemy-gameplay-hoarder.md): greybox hypotheses, validated by src/encounter.rs; Bank A and the J-B post are static entries that HRD-B and HRD-C upgraded in place: bank A carries its J-A slide knobs (HRD-Q21..Q23) and the post carries the J-B stack it holds up (HRD-Q25..Q28); the validator still reads them as a solid and a hit target. The entry gate is not here: it closes on the engage and opens on defeat, so it is boss data (HRD-Q41) and not a lock. Every number is a tuning knob. Coordinates are layout pixels, y down, like the room file.",
   "id": "F01-HOARDER-ENC",
   "room_file": "f01_hoarder.room.json",
   "room_id": "F01-HOARDER",
@@ -28,7 +28,39 @@
   "gates": [],
   "vantages": [],
   "statics": [
-    { "id": "bank_a", "kind": "solid", "rect": { "x": 352, "y": 532, "w": 64, "h": 48 } },
-    { "id": "post_b", "kind": "hit_target", "rect": { "x": 808, "y": 516, "w": 16, "h": 64 } }
+    {
+      "id": "bank_a",
+      "kind": "solid",
+      "rect": { "x": 352, "y": 532, "w": 64, "h": 48 },
+      "slide": {
+        "hrdq21_remnant": { "x": 296, "y": 564, "w": 80, "h": 16 },
+        "hrdq21_dx_per_tick": -3,
+        "hrdq21_warning_ticks": 24,
+        "hrdq21_slide_ticks": 16,
+        "hrdq22_launch_min_impulse_px_s": 160,
+        "hrdq22_shove_min_impulse_px_s": 160,
+        "hrdq23_damage": 0,
+        "hrdq23_push_x_px_s": -180,
+        "hrdq23_knock_up_px_s": 160
+      }
+    },
+    {
+      "id": "post_b",
+      "kind": "hit_target",
+      "rect": { "x": 808, "y": 516, "w": 16, "h": 64 },
+      "stack": {
+        "hrdq25_stack": { "x": 752, "y": 420, "w": 128, "h": 64 },
+        "hrdq25_footprint": { "x": 752, "y": 532, "w": 128, "h": 48 },
+        "hrdq25_remnant": { "x": 752, "y": 564, "w": 128, "h": 16 },
+        "hrdq26_hits": 2,
+        "hrdq26_missile": 1,
+        "hrdq26_shove_min_impulse_px_s": 160,
+        "hrdq27_warning_ticks": 24,
+        "hrdq27_fall_ticks": 8,
+        "hrdq28_damage": 1,
+        "hrdq28_knock_x_px_s": 120,
+        "hrdq28_knock_up_px_s": 140
+      }
+    }
   ]
 }
