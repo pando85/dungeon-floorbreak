@@ -126,15 +126,17 @@ fn haz_room_solo_donut() {
     solo_table(Who::DonutBySwap, SOLO_DONUT_PINNED);
 }
 
-/// The harder solo-Donut probe: Donut plays the whole room from tick 90 (Carl is the
-/// AI partner). FINDING (see the PR): she does not clear it; the fixture keeps the
-/// acceptance and is ignored until the cause is fixed.
+/// The harder solo-Donut probe (FA-Q14, PR-D): Donut plays the whole room from tick 90
+/// (Carl is the AI partner) and clears it at every seed. It was `#[ignore]`d while her
+/// Magic Missile spawned 27 px ahead and missed a goblin closer than that; the
+/// `missile_spawn_sweep` knob of PR-B (FA-Q14, default on) sweeps the segment from her
+/// front edge to the spawn point on the cast tick, and the pilot of FA-Q12 plays her.
+/// The nine hashes are first pins. The nine runs are one fight (cleared on tick 551,
+/// exit on 633 at every seed): the room has no random stream under this pilot, so the
+/// seed varies only the morale draws, which this route never reaches.
 #[test]
-#[ignore = "FINDING: solo Donut who fights the whole room does not clear it (PT-GATE-C2)"]
 fn haz_room_donut_fights() {
-    for seed in SEEDS {
-        assert_cleared(&run_twice_checked(Who::DonutFights, seed, true));
-    }
+    solo_table(Who::DonutFights, DONUT_FIGHTS_PINNED);
 }
 
 /// HAZ-09 with `cf02_free`: Carl is the pilot's, Donut the autonomous partner.
@@ -240,6 +242,18 @@ const SOLO_DONUT_PINNED: [u64; 9] = [
     0x786c_8a70_b401_6909,
     0x9e18_2455_7686_523b,
     0x0846_1fd3_b9d2_e7e3,
+];
+/// FA-Q14 (PR-D): first pins of the un-ignored `haz_room_donut_fights`.
+const DONUT_FIGHTS_PINNED: [u64; 9] = [
+    0x8d5d_6885_d6b8_04c7,
+    0xabe4_de8f_4347_fe57,
+    0x5a73_3dab_4026_0b03,
+    0x684b_bcd2_fd0f_8816,
+    0xaea6_75ea_4daa_8272,
+    0x1fc0_c183_d6e2_fc95,
+    0x4bba_9a6d_6451_f259,
+    0x5f2b_b532_9329_42c3,
+    0xe4e1_d92b_48fd_ae1a,
 ];
 const COMPANION_PINNED: [u64; 9] = [
     0x5a9c_abdd_ecca_9386,

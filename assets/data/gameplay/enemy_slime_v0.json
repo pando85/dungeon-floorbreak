@@ -34,5 +34,9 @@
   "hazq19_pop_x": 180,
   "hazq19_pop_y": 200,
   "hazq20_acid_hurts_launched": true,
-  "hazq21_drain_ticks": 60
+  "hazq21_drain_ticks": 60,
+  "hazfu01_flier_contact": true,
+  "hazfu02_acid_exit": true,
+  "hazfu03_acid_hurt_event": true,
+  "hazfu04_pool_edge": true
 }

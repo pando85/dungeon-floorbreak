@@ -2291,13 +2291,20 @@ impl CombatState {
                 .last_tell_start
                 .is_none_or(|start| tick - start >= TELL_SPACING);
             let drive = self.mind_drive(index);
+            // HAZ-FU: a goblin that landed inside a pool walks out by its nearer edge
+            // (and starts no attack while it does), instead of standing in it.
+            let out = self
+                .env
+                .as_deref()
+                .filter(|e| e.acid_exit())
+                .and_then(|_| Self::acid_drive_out_x(&self.enemies[index]));
             let step = self.enemies[index].step_with(
-                target_x[index],
+                out.unwrap_or(target_x[index]),
                 !self.hero_defeated,
                 &scene.world.solids,
                 self.x_max - ENEMY_HALF_WIDTH,
-                approved.contains(&index),
-                may_start,
+                out.is_none() && approved.contains(&index),
+                may_start && out.is_none(),
                 &drive,
             );
             // CF02-Q31: a goblin that left its impact phase may count on the shore again.
@@ -2336,6 +2343,37 @@ impl CombatState {
                 self.goblin_swing_on_shore(index, tick);
             }
         }
+    }
+
+    /// HAZ-FU: the column a living, neutral goblin whose body overlaps a walk
+    /// barrier (it was kicked or launched into a pool: its own motion never enters
+    /// one) walks toward: it ends just outside the **nearer** edge of that barrier, so it
+    /// leaves the pool the short way. `None` for a goblin outside every barrier, in
+    /// every room without acid, and for one in any other mode.
+    fn acid_drive_out_x(goblin: &Goblin) -> Option<f32> {
+        if goblin.walk_barriers.is_empty() || goblin.mode != GoblinMode::Neutral || !goblin.alive()
+        {
+            return None;
+        }
+        let foot = goblin.floor_y - ENEMY_HALF_HEIGHT;
+        goblin
+            .walk_barriers
+            .iter()
+            .find(|b| {
+                (foot - b.line).abs() < 0.5
+                    && goblin.x + ENEMY_HALF_WIDTH > b.x0
+                    && goblin.x - ENEMY_HALF_WIDTH < b.x1
+            })
+            .map(|b| {
+                // A walking goblin closes in on its target until it is within the
+                // stand-off of it, so the target lies one stand-off beyond the point
+                // where its body clears the edge.
+                if goblin.x < (b.x0 + b.x1) * 0.5 {
+                    b.x0 - ENEMY_HALF_WIDTH - 1.0 - crate::feel::GOBLIN_STANDOFF
+                } else {
+                    b.x1 + ENEMY_HALF_WIDTH + 1.0 + crate::feel::GOBLIN_STANDOFF
+                }
+            })
     }
 
     /// ENG-G-Q06: whether `hero` is eligible for the Engineer's ram: alive and with

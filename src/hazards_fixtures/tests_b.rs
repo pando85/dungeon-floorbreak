@@ -552,7 +552,7 @@ fn haz_hazard_feed_rows() {
 /// here, so a change to what the slime, the acid or the sticker do (or to the
 /// state they hash) is a visible edit of this table, never a silent one. The
 /// presentation (HAZ-B) is not in the hash (`hazards_art`'s state-hash test).
-type Case = (&'static str, fn() -> u64);
+pub(super) type Case = (&'static str, fn() -> u64);
 
 fn idle_run(mut rig: Rig, ticks: u64) -> u64 {
     for _ in 0..ticks {
@@ -651,7 +651,7 @@ fn case_room_two_player_walk() -> u64 {
     rig.hash()
 }
 
-const GOLDEN_CASES: [(Case, u64); 9] = [
+pub(super) const GOLDEN_CASES: [(Case, u64); 9] = [
     (
         (
             "slime_lunge_hits_idle_carl",

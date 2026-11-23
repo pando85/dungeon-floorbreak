@@ -158,6 +158,9 @@ pub struct SlotContact {
     pub speed: f32,
     /// +1 / -1: the way the contact pushes the target.
     pub push: i8,
+    /// The damage a flier's contact deals (CF02-Q12's `q12_contact_damage`, 0 in
+    /// the shipped data). HAZ-FU: a slime takes it and stops the flier.
+    pub damage: u8,
 }
 
 /// Where an env hit on a slot enemy comes from.

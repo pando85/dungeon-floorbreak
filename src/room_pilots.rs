@@ -1460,6 +1460,73 @@ mod tests {
         println!("ALIGNED_LIBRARY_END");
     }
 
+    /// PR-D, FA-Q21 (T28): the sweep the retarget of `haz_spectacular` onto R2 calls for, run as a
+    /// test. Carl throws one stick from every column 640..=728 (8 px apart) with R2 latched and
+    /// S2 at home; the stick lands 111 px ahead on the floor, and **no column chains R2**: R2's
+    /// dome is 70 px above a floor stick's blast centre at the nearest (landing 759), and the
+    /// dynamite's chain reach is its outer radius, 64 (CP-Q34). The sheet's "a stick within
+    /// 64 px of R2" cannot be met on the floor under the 84 px soffit, so `haz_spectacular`
+    /// still chains R1 (the bait route `haz_tactical` is the one that hits S2 with R2).
+    /// Design finding for the orchestrator (see the PR body): lower the soffit underside by
+    /// at least 8 px, or raise the sticker chain reach to 72 or more.
+    #[test]
+    fn haz_r2_is_out_of_reach_of_a_floor_stick_at_every_throw_column() {
+        use crate::f01_hazards;
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let mut nearest = f32::MAX;
+        for x in (640..=728).step_by(8) {
+            let (carl, donut) = Loadout::Story.flags();
+            let run = f01_hazards::launch(&root).unwrap();
+            let mut scene = SceneSim::new_at(&run.kit, 360, x).unwrap();
+            let mut combat = f01_hazards::combat_for(&run, &mut scene, carl, donut, None).unwrap();
+            for k in 0..120u64 {
+                let ability = k == 2;
+                combat.step_party(
+                    &mut scene,
+                    [
+                        RawInput {
+                            ability,
+                            ..RawInput::NONE
+                        },
+                        RawInput::NONE,
+                    ],
+                );
+            }
+            let stick = combat.charges[combat.dynamite_slot()];
+            let r2 = combat.charges[1];
+            let (cx, cy) = stick.centre();
+            let (tx, ty) = r2.centre();
+            let d = ((tx - cx).powi(2) + (ty - cy).powi(2)).sqrt();
+            assert!(
+                combat
+                    .events
+                    .iter()
+                    .any(|e| matches!(e, CombatEvent::ChargeLanded { .. })),
+                "column {x}: the stick landed"
+            );
+            assert!(
+                !combat.events.iter().any(|e| matches!(
+                    e,
+                    CombatEvent::RotProvoked {
+                        sticker: 1,
+                        cause: crate::rot_sticker::RotCause::Chain,
+                        ..
+                    }
+                )),
+                "column {x}: R2 is chained"
+            );
+            assert!(
+                d > stick.profile.outer_radius,
+                "column {x}: {d} within reach"
+            );
+            nearest = nearest.min(d);
+        }
+        assert!(
+            (70.0..70.1).contains(&nearest),
+            "the nearest landing is 70 px away: {nearest}"
+        );
+    }
+
     /// PT-GATE-D (room 4, the spectacular route): `haz_spectacular` clears pocket A,
     /// throws one dynamite from column 450 and backs off: the thrown blast lights the
     /// latched Rot Sticker (a `Chain` provoke on the blast tick, the sticker's own blast

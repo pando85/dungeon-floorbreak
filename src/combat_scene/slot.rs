@@ -407,16 +407,24 @@ impl CombatState {
     /// A launched body touched slot enemy `index`: its reaction, with the
     /// scene-bound follow-ups deferred to the **next** tick's slot step (the
     /// contacts resolve after this tick's slot step and without the scene).
-    pub(super) fn slot_contact_one(&mut self, index: usize, contact: &SlotContact, tick: u64) {
+    /// Returns whether the enemy reacted (`apply_contact` returned a result): a
+    /// reacting enemy stops the flier (`contact_slot_enemies`).
+    pub(super) fn slot_contact_one(
+        &mut self,
+        index: usize,
+        contact: &SlotContact,
+        tick: u64,
+    ) -> bool {
         let enemy = &mut self.slot.enemies[index];
         let (id, was_alive) = (enemy.target_id(), enemy.alive());
         let mut out = SlotOut::default();
-        enemy.apply_contact(contact, tick, &mut out);
+        let reacted = enemy.apply_contact(contact, tick, &mut out).is_some();
         Self::check_defeat_logged(id, was_alive, self.slot.enemies[index].alive(), &out);
         self.log_slot_events(&mut out);
         if !out.is_empty() {
             self.slot.deferred.push(out);
         }
+        reacted
     }
 
     // ---------------------------------------------------------- Donut --
