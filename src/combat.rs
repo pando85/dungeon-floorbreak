@@ -1827,6 +1827,20 @@ pub enum CombatEvent {
         hit: Option<MoveId>,
         player: Option<u32>,
     },
+    /// HAZ-FU, appended: an enemy took **non-lethal** damage from a hazard that
+    /// has no defeat to report (the acid patch's 1 damage on a launched goblin
+    /// that lands in it: HAZ-Q20). A lethal hit is `EnemyDefeated` plus
+    /// `EnvironmentKill`, as before; this variant is the hurt that was silent.
+    /// `prop` is the acid patch id, `player` the launch's credited initiator.
+    EnvironmentHurt {
+        tick: u64,
+        target: u32,
+        prop: u16,
+        class: HazardClass,
+        damage: u8,
+        health_left: u8,
+        player: Option<u32>,
+    },
 }
 
 /// BOIL-B wire: the phases of an environmental prop that are logged
@@ -2447,6 +2461,25 @@ impl CombatEvent {
                 mix(hit.map_or(0, |m| m as u64 + 1));
                 mix(player.map_or(0, |p| u64::from(p) + 1));
             }
+            // HAZ-FU: "ENVH"; only a landing in acid that does not defeat emits it.
+            Self::EnvironmentHurt {
+                tick,
+                target,
+                prop,
+                class,
+                damage,
+                health_left,
+                player,
+            } => {
+                mix(0x454e_5648);
+                mix(tick);
+                mix(u64::from(target));
+                mix(u64::from(prop));
+                mix(class as u64);
+                mix(u64::from(damage));
+                mix(u64::from(health_left));
+                mix(player.map_or(0, |p| u64::from(p) + 1));
+            }
         }
     }
 }
@@ -2967,6 +3000,25 @@ impl fmt::Display for CombatEvent {
                 }
                 if let Some(player) = player {
                     write!(f, " player={player}")?;
+                }
+                Ok(())
+            }
+            Self::EnvironmentHurt {
+                tick,
+                target,
+                prop,
+                class,
+                damage,
+                health_left,
+                player,
+            } => {
+                write!(
+                    f,
+                    "COMBAT_EVENT tick={tick} kind=environment_hurt target={target} prop={prop} class={} damage={damage} health_left={health_left}",
+                    class.name()
+                )?;
+                if let Some(player) = player {
+                    write!(f, " credit_player={player}")?;
                 }
                 Ok(())
             }

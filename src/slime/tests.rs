@@ -116,6 +116,14 @@ fn the_adopted_values_are_the_sheet_values() {
     assert_eq!(t.hazq18_volume_height_px, 6);
     assert!(t.hazq11_gel && t.hazq13_body_contact && t.hazq15_lunge_evadable);
     assert!(t.hazq20_acid_hurts_launched);
+    assert!(
+        t.hazfu01_flier_contact
+            && t.hazfu02_acid_exit
+            && t.hazfu03_acid_hurt_event
+            && t.hazfu04_pool_edge
+            && t.hazfu05_sticker_chain_reach_px == 76,
+        "the HAZ-FU knobs default to the new behaviour"
+    );
     assert!(t.enabled() && t.on(true) && !t.on(false));
     let mut off = t.clone();
     off.hazq02_slime_enabled = false;
@@ -224,7 +232,11 @@ fn the_slime_keys_are_named_after_a_question() {
         let named = key.starts_with("hazq")
             && key[4..6].parse::<u8>().is_ok_and(|q| (1..=50).contains(&q))
             && key.as_bytes()[6] == b'_';
-        assert!(named || key == "schema_version", "{key}");
+        // PR-D (HAZ-FU): the four follow-up knobs are named after their item, `hazfuNN_`.
+        let follow_up = key.starts_with("hazfu")
+            && key[5..7].parse::<u8>().is_ok_and(|q| (1..=5).contains(&q))
+            && key.as_bytes()[7] == b'_';
+        assert!(named || follow_up || key == "schema_version", "{key}");
     }
 }
 

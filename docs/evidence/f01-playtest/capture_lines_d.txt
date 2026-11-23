@@ -7,6 +7,6 @@ GATE_D_CAPTURE name=agile-run-race fixture=dm_run_race_2p view=640x400 first_tic
 GATE_D_CAPTURE name=agile-jump-race fixture=dm_jump_race_2p view=640x400 first_tick=6 step=2 last_tick=168 window_hash=1fa6655cbec592d5 headless_hash=1fa6655cbec592d5 match=yes
 GATE_D_CAPTURE name=ring-outer-launch fixture=carl_prog_dyn_outer_launch view=640x400 first_tick=188 step=3 last_tick=251 window_hash=0dae5dc42b38188a headless_hash=0dae5dc42b38188a match=yes
 GATE_D_BYTE_STABLE gifs=8 view=640x400 passes=2 result=identical
-GATE_D_ROUTE view=640x360 room=hazards plan=haz_spectacular frames=41 first_tick=340 step=6 last_tick=580 window_hash=0ef81a96e60f1cfd headless_hash=0ef81a96e60f1cfd timed_hash=0ef81a96e60f1cfd match=yes
-GATE_D_ROUTE view=640x400 room=hazards plan=haz_spectacular frames=41 first_tick=340 step=6 last_tick=580 window_hash=199c5912c4d22e93 headless_hash=199c5912c4d22e93 timed_hash=199c5912c4d22e93 match=yes
+GATE_D_ROUTE view=640x360 room=hazards plan=haz_spectacular frames=41 first_tick=470 step=6 last_tick=710 window_hash=6041f02265347aaf headless_hash=6041f02265347aaf timed_hash=6041f02265347aaf match=yes
+GATE_D_ROUTE view=640x400 room=hazards plan=haz_spectacular frames=41 first_tick=470 step=6 last_tick=710 window_hash=7557387336a0bdf8 headless_hash=7557387336a0bdf8 timed_hash=7557387336a0bdf8 match=yes
 GATE_D_BYTE_STABLE gifs=2 route=room4-spectacular passes=2 result=identical

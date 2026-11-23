@@ -613,18 +613,26 @@ case "$mode" in
       fi
     done
     echo "F01_ALIGNED_PILOTS_OK: 8 aligned room pilots, each twice identical"
-    # PT-GATE-D: room 4's spectacular route: the dynamite lights the latched sticker (a Chain provoke), the
-    # exit is reached (the scene stops before tick 1500) and the run replays identically twice.
+    # PT-GATE-D, retargeted by FA-Q21 (`hazfu05`): room 4's spectacular route baits R1, then one dynamite thrown from column
+    # 648 chains R2 over the slime S2 (a Chain provoke of sticker 1, R2's blast 8 ticks after the stick's), exactly one
+    # throw, no Rot hurt, the exit is reached (the scene stops before tick 1500), the final hash is the filmed run's and
+    # the run replays identically twice.
     spectacular_a="$("$bin" --headless-floor01-smoke --scene f01_late --f01-room hazards --room-pilot haz_spectacular --capture-tick 1500)"
     spectacular_b="$("$bin" --headless-floor01-smoke --scene f01_late --f01-room hazards --room-pilot haz_spectacular --capture-tick 1500)"
     spectacular_ticks="$(sed -n 's/^F01_HAZARDS_SMOKE_OK ticks=\([0-9]*\) .*/\1/p' <<<"$spectacular_a")"
+    spectacular_hash="$(grep '^COMBAT_STATE ' <<<"$spectacular_a" | tail -n 1 | sed -E 's/.* hash=([0-9a-f]+) .*/\1/')"
+    spectacular_rot_hurts="$(awk '/kind=hero_hurt source=/ { split($3, a, "="); if (a[2] % 65536 == 21076) n++ } END { print n + 0 }' <<<"$spectacular_a")"
+    spectacular_throws="$(grep -c 'kind=charge_thrown' <<<"$spectacular_a" || true)"
     if [[ "$spectacular_a" != "$spectacular_b" ]] \
-      || ! grep -q 'kind=rot_provoked sticker=0 cause=Chain' <<<"$spectacular_a" \
+      || ! grep -q 'kind=rot_provoked sticker=1 cause=Chain' <<<"$spectacular_a" \
+      || ! grep -q 'kind=blast charge=1' <<<"$spectacular_a" \
+      || [[ "$spectacular_throws" -ne 1 || "$spectacular_rot_hurts" -ne 0 ]] \
+      || [[ "$spectacular_hash" != "80cfaca8118ce58e" ]] \
       || [[ -z "$spectacular_ticks" || "$spectacular_ticks" -ge 1500 ]]; then
-      echo "--room-pilot haz_spectacular did not light the latched sticker, clear the room and replay identically twice" >&2
+      echo "--room-pilot haz_spectacular did not chain R2 with exactly one throw, clear the room without a Rot hurt, end on the committed final hash 80cfaca8118ce58e (the filmed run, scorecard.md) and replay identically twice (got ${spectacular_hash:-none})" >&2
       exit 1
     fi
-    echo "F01_HAZ_SPECTACULAR_OK: dynamite chain into the latched sticker, room cleared, twice identical"
+    echo "F01_HAZ_SPECTACULAR_OK: one dynamite chains R2 over the slime (+8), no Rot hurt, room cleared, final hash 80cfaca8118ce58e (the filmed run), twice identical"
     # PT-GATE-E: room 4's tactical route (HAZ-07 pattern 2): R1 is spent by bait and retreat, R2 is provoked by proximity
     # and its blast goes off (provoke + 24, the sheet's warning), no Rot blast hurts Carl, the exit is reached (the
     # scene stops before tick 1500) and the run replays identically twice.

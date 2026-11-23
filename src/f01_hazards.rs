@@ -116,6 +116,32 @@ fn goblins_and_slimes_only(roster: &[encounter::RosterEntry]) -> Result<(), Stri
     }
 }
 
+/// PR-D (PT-FU-B7 (7)): a sidecar that opts in with `"waves": true` lifts the
+/// roster cap of four per room (every beat may hold four), which rule 5 of the hazard
+/// validator keeps per **pocket**; until PTM-Q1 scopes that rule for wave rooms, a wave
+/// room that also declares pockets, acid patches or Rot Stickers is refused instead of
+/// loading with caps nobody checked.
+fn no_waves_with_hazard_pockets(enc: &encounter::Encounter) -> Result<(), String> {
+    if !enc.waves {
+        return Ok(());
+    }
+    let with = [
+        ("pockets", !enc.pockets.is_empty()),
+        ("acid patches", !enc.acid_patches.is_empty()),
+        (
+            "Rot Stickers",
+            enc.props.iter().any(|p| p.kind == PropKind::RotSticker),
+        ),
+    ];
+    match with.iter().find(|(_, present)| *present) {
+        Some((what, _)) => Err(format!(
+            "{}: \"waves\": true with {what} is refused until PTM-Q1 scopes the hazard validator's roster rule for wave rooms",
+            enc.id
+        )),
+        None => Ok(()),
+    }
+}
+
 /// The env runtime of a launched room: the sidecar's stickers and acid patches
 /// placed on the room's walking line, with the soffit solids and the exit gate.
 pub fn env_runtime(run: &HazardsRun) -> Result<EnvRuntime, String> {
@@ -191,6 +217,7 @@ pub fn launch(root: &Path) -> Result<HazardsRun, String> {
         }
     }
     goblins_and_slimes_only(&loaded.encounter.roster)?;
+    no_waves_with_hazard_pockets(&loaded.encounter)?;
     // HAZA2-AD8: the roster's goblins (an existing kind) are the fixture's
     // goblins, chasing, in roster order; `trigger_x` and `delay_ticks` are not
     // read (a goblin that is far from the heroes is dormant by its sight range).
@@ -365,6 +392,54 @@ mod tests {
         let error = goblins_and_slimes_only(&roster).expect_err("a llama is refused");
         assert!(error.contains("goblins and slimes only"), "{error}");
         assert!(error.contains(&roster[g].id), "{error}");
+    }
+
+    /// PT-FU-B7 (7): `"waves": true` beside pockets, acid patches or stickers is refused,
+    /// each on its own (a rule never skipped when only one of them is declared), and the
+    /// shipped room (no waves) and a wave room without hazards pass.
+    #[test]
+    fn a_wave_room_with_pockets_acid_or_stickers_is_refused() {
+        let run = launch(&root()).unwrap();
+        let shipped = run.loaded.encounter.clone();
+        assert!(!shipped.waves);
+        assert!(no_waves_with_hazard_pockets(&shipped).is_ok(), "no waves");
+        let mut enc = shipped.clone();
+        enc.waves = true;
+        let both = no_waves_with_hazard_pockets(&enc).expect_err("pockets");
+        assert!(both.contains("pockets"), "{both}");
+        // Each declaration alone.
+        let mut only_pockets = enc.clone();
+        only_pockets.acid_patches.clear();
+        only_pockets
+            .props
+            .retain(|p| p.kind != PropKind::RotSticker);
+        assert!(
+            no_waves_with_hazard_pockets(&only_pockets)
+                .expect_err("pockets alone")
+                .contains("pockets")
+        );
+        let mut only_acid = enc.clone();
+        only_acid.pockets.clear();
+        only_acid.props.retain(|p| p.kind != PropKind::RotSticker);
+        assert!(
+            no_waves_with_hazard_pockets(&only_acid)
+                .expect_err("acid alone")
+                .contains("acid patches")
+        );
+        let mut only_stickers = enc.clone();
+        only_stickers.pockets.clear();
+        only_stickers.acid_patches.clear();
+        assert!(
+            no_waves_with_hazard_pockets(&only_stickers)
+                .expect_err("stickers alone")
+                .contains("Rot Stickers")
+        );
+        // A wave room with none of them passes.
+        let mut plain = enc;
+        plain.pockets.clear();
+        plain.acid_patches.clear();
+        plain.props.retain(|p| p.kind != PropKind::RotSticker);
+        assert!(no_waves_with_hazard_pockets(&plain).is_ok());
     }
 
     #[test]

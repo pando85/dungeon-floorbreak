@@ -987,3 +987,5 @@ mod tests;
 mod tests_b;
 #[cfg(test)]
 pub(crate) mod tests_c;
+#[cfg(test)]
+mod tests_d;

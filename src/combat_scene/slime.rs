@@ -34,14 +34,14 @@ use crate::agility::{EvadeKey, EvadeSource, Verdict};
 use crate::blast::BlastReach;
 use crate::boss::{BossThreat, HeroView};
 use crate::camera_lab::room::IRect;
-use crate::combat::{CombatEvent, MoveId};
+use crate::combat::{CombatEvent, DefeatCause, MoveId};
 use crate::env_hazard::{HazardClass, NavPhase, NavRect};
 use crate::party::HeroId;
 use crate::prototype::Rect;
 use crate::rot_sticker::StickerState;
 use crate::scene_enemy::{
-    EnvSource, SLOT_ID_MIN, SlotBlast, SlotBuild, SlotDeathBody, SlotEnemy, SlotEnvHit, SlotError,
-    SlotHit, SlotHitResult, SlotOut, SlotStepCtx,
+    EnvSource, SLOT_ID_MIN, SlotBlast, SlotBuild, SlotContact, SlotDeathBody, SlotEnemy,
+    SlotEnvHit, SlotError, SlotHit, SlotHitResult, SlotOut, SlotStepCtx,
 };
 use crate::slime::{Slime, SlimeCtx, SlimeTuning};
 
@@ -173,6 +173,39 @@ impl SlotEnemy for SlimeEnemy {
 
     fn hurt_rects(&self) -> Vec<Rect> {
         self.slime.hurtbox(self.tuning).into_iter().collect()
+    }
+
+    /// HAZ-FU (D6): a launched body meets the slime's hurtbox (the gel mass).
+    fn contact_rect(&self) -> Option<Rect> {
+        self.tuning
+            .on(self.tuning.hazfu01_flier_contact)
+            .then(|| self.slime.hurtbox(self.tuning))
+            .flatten()
+    }
+
+    /// HAZ-FU (D6): never bowled, launched or staggered (gel): it flashes and takes
+    /// the flier's contact damage (CF02-Q12, 0 in the shipped data); the scene
+    /// stops the flier.
+    fn apply_contact(
+        &mut self,
+        contact: &SlotContact,
+        tick: u64,
+        out: &mut SlotOut,
+    ) -> Option<SlotHitResult> {
+        if !self.alive() {
+            return None;
+        }
+        let outcome = self.slime.hit(self.tuning, contact.damage);
+        if outcome.defeated {
+            out.events.push(CombatEvent::enemy_defeated(
+                tick,
+                self.id,
+                DefeatCause::Melee,
+                contact.instigator,
+                None,
+            ));
+        }
+        Some(self.defeat_result())
     }
 
     fn supplies_boss(&self) -> bool {
@@ -343,6 +376,20 @@ impl SlotEnemy for SlimeEnemy {
 /// three families apart in the one sorted feed.
 pub const FEED_ID_SLIME: u16 = 0x0200;
 pub const FEED_ID_STICKER: u16 = 0x0300;
+/// HAZ-FU: each family owns this many feed ids (`0x100`): an index at or over it
+/// would spill into the next family's range and mislabel a row.
+pub const FEED_ID_SPAN: u16 = 0x0100;
+
+/// HAZ-FU: the feed id of entry `index` of the family that starts at `base`. An
+/// index at or over [`FEED_ID_SPAN`] would land in the next family's range (a
+/// sticker row labelled as another prop), so it fails loudly in a debug build.
+pub fn feed_id(base: u16, index: u32) -> u16 {
+    debug_assert!(
+        index < u32::from(FEED_ID_SPAN),
+        "feed index {index} overflows the {FEED_ID_SPAN}-id range of family {base:#06x}"
+    );
+    base.wrapping_add(index as u16)
+}
 
 /// A world rectangle (y up) as the feed's layout rectangle (y down), rounded
 /// outward to whole pixels.
@@ -381,7 +428,7 @@ impl crate::combat_scene::CombatState {
                 continue;
             };
             feed.push(NavRect {
-                hazard: FEED_ID_SLIME + (slime.id - SLIME_ID_BASE) as u16,
+                hazard: feed_id(FEED_ID_SLIME, slime.id - SLIME_ID_BASE),
                 class: HazardClass::Acid,
                 rect: layout_rect(rect, layout_h),
                 phase: NavPhase::Active,
@@ -406,7 +453,7 @@ impl crate::combat_scene::CombatState {
                 StickerState::Latched | StickerState::Spent => continue,
             };
             feed.push(NavRect {
-                hazard: FEED_ID_STICKER + prop,
+                hazard: feed_id(FEED_ID_STICKER, u32::from(prop)),
                 class: HazardClass::Blast,
                 rect: layout_rect(rect, layout_h),
                 phase: NavPhase::Telegraph,

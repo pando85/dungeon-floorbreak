@@ -653,6 +653,10 @@ pub struct Encounter {
     pub acid_patches: Vec<AcidPatchSpec>,
     /// HAZ-A1: the pockets with their caps (empty when the sidecar has none).
     pub pockets: Vec<Pocket>,
+    /// PT-MASTERY: the sidecar opted in with `"waves": true` (its roster is
+    /// bounded per beat). PR-D: `f01_hazards` refuses a wave room that also
+    /// declares pockets, acid patches or stickers (PT-FU-B7 7).
+    pub waves: bool,
 }
 
 impl Encounter {
@@ -2814,6 +2818,7 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
             reach,
             acid_patches,
             pockets,
+            waves: raw.waves,
         })
     } else {
         Err(errs)

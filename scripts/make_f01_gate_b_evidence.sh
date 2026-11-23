@@ -132,7 +132,7 @@ hurts() { # events
   scount() { grep -c "kind=$1" <<<"$sp" || true; }
   sstate="$(grep '^COMBAT_STATE ' <<<"$sp" | tail -n 1 | sed -E 's/.* hero_hp=([0-9]+) deaths=([0-9]+) enemies=.* hash=([0-9a-f]+) .*/hp \1, deaths \2, hash \3/')"
   sleft="$(grep '^F01_HAZARDS_SMOKE_OK ' <<<"$sp" | sed -E 's/.* enemies=([0-9]+) .*/\1/')"
-  echo "| haz_spectacular (dynamite lights the latched sticker; solo Carl, plus the follower bot) | $(scount hero_defeated) | $(scount respawn) | $(hurts "$sp") | $(scount blast) | $(scount rot_provoked) | ${sleft:-NOT RUN} | $sstate |"
+  echo "| haz_spectacular (R1 baited, then one dynamite from column 648 chains R2 over the slime S2; solo Carl, plus the follower bot) | $(scount hero_defeated) | $(scount respawn) | $(hurts "$sp") | $(scount blast) | $(scount rot_provoked) | ${sleft:-NOT RUN} | $sstate |"
   # PT-GATE-E: the tactical route and the aligned direct route (the library's HAZ-06 melee route).
   for row in "haz_tactical|haz_tactical (HAZ-07 pattern 2: R2 baited over the slime S2; solo Carl, plus the follower bot)" \
              "hazards:carl_solo:0|hazards:carl_solo:0 (the aligned HAZ-06 direct route, library fixture seed 0; the cf02_assist partner)"; do
@@ -144,7 +144,7 @@ hurts() { # events
     echo "| ${row#*|} | $(rcount hero_defeated) | $(rcount respawn) | $(hurts "$run") | $(rcount blast) | $(rcount rot_provoked) | ${rleft:-NOT RUN} | $rstate |"
   done
   echo
-  echo "The \`direct\` room pilot walks into the pockets and is defeated and retries; it does not dodge hazards (it is a filming pilot, not a player). \`haz_spectacular\` is the PT-TUNE pilot plus one dynamite throw (PT-GATE-D). \`haz_tactical\` is the PT-TUNE pilot plus bait and retreat on both Rot Stickers (PT-GATE-E): R2 goes off over the slime S2, and no Rot blast hurts Carl (its one hurt is the pocket A pool). \`hazards:carl_solo:0\` is the PT-TUNE pilot of the library fixture \`haz_room_solo_carl\` at seed 0 (the aligned direct route): it does not dodge the Rot blasts, so Carl is hurt by them and ends on 1 hp, undefeated. The Hurts column counts the hurt events of both heroes; in this row they are Carl's three (the pocket A pool, R1, R2) and one of Donut's (R1)."
+  echo "The \`direct\` room pilot walks into the pockets and is defeated and retries; it does not dodge hazards (it is a filming pilot, not a player). \`haz_spectacular\` is the PT-TUNE pilot plus R1's bait and one dynamite throw from column 648 that chains R2 (FA-Q21, \`hazfu05\`; PT-GATE-D drew it onto R1); its one hurt is the pocket A pool. \`haz_tactical\` is the PT-TUNE pilot plus bait and retreat on both Rot Stickers (PT-GATE-E): R2 goes off over the slime S2, and no Rot blast hurts Carl (its one hurt is the pocket A pool). \`hazards:carl_solo:0\` is the PT-TUNE pilot of the library fixture \`haz_room_solo_carl\` at seed 0 (the aligned direct route): it does not dodge the Rot blasts, so Carl is hurt by them and ends on 1 hp, undefeated. The Hurts column counts the hurt events of both heroes; in this row they are Carl's three (the pocket A pool, R1, R2) and one of Donut's (R1)."
 } >> "$out/scorecard.md"
 
 (cd "$out" && sha256sum ./*.gif ./*.png ./*.txt ./*.md | grep -v ' ./README.md$' | sed 's# \./# #' > SHA256SUMS)

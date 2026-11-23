@@ -50,7 +50,7 @@ pub const TUNING_JSON: &str = include_str!("../assets/data/gameplay/enemy_slime_
 
 /// The committed FNV-1a 64 content hash of [`TUNING_JSON`]. Editing the file
 /// without updating this value fails [`SlimeTuning::pinned`] and the pin test.
-pub const TUNING_HASH: u64 = 0xd115_d39f_9401_8771;
+pub const TUNING_HASH: u64 = 0xa68d_8a48_11e1_6901;
 
 /// The key of the pin in a session manifest's `content_hashes`.
 pub const PIN_KEY: &str = "slime_tuning";
@@ -190,6 +190,27 @@ pub struct SlimeTuning {
     pub hazq20_acid_hurts_launched: bool,
     /// Q21: the drain of a linked pool, in ticks.
     pub hazq21_drain_ticks: u16,
+    /// HAZ-FU (PR-D) knobs: each default is the new behaviour, and `false` is the
+    /// behaviour (and the state hashes) of the build before it.
+    ///
+    /// D6: a launched body that meets a slime stops against it (sheet section 6).
+    pub hazfu01_flier_contact: bool,
+    /// A goblin that landed inside a pool walks out by the nearer edge.
+    pub hazfu02_acid_exit: bool,
+    /// A non-lethal acid landing on a goblin logs `CombatEvent::EnvironmentHurt`.
+    pub hazfu03_acid_hurt_event: bool,
+    /// A pool drains on the up -> down edge of its slime only (not every tick the
+    /// slime is down), and a slime that was never alive (the kill switch, AD6)
+    /// has its pool removed at once.
+    pub hazfu04_pool_edge: bool,
+    /// FA-Q21 (fix-all ruling, T28): the reach in px of **Carl's dynamite** onto a Rot
+    /// Sticker's charge (CP-Q34's chain, centre to centre, line of sight unchanged). A floor
+    /// stick is at least 70.007 px from the dome of R2 under the 84 px soffit, over the
+    /// dynamite's outer radius of 64, so pattern 3 (sheet section 15) was unreachable. 76 gives
+    /// a horizontal window of about +-29 px. `0` is off: the blast's `outer_radius`. Applies
+    /// only dynamite -> sticker; a drum, a sticker's own blast and the blast's damage radius
+    /// keep `outer_radius`.
+    pub hazfu05_sticker_chain_reach_px: u16,
 }
 
 fn bad(field: &'static str, reason: &str) -> Result<(), SlimeTuningError> {
@@ -368,9 +389,50 @@ impl SlimeTuning {
 
 /// The pinned tuning: what a simulation with a slime reads. One shared static.
 pub fn active() -> &'static SlimeTuning {
+    #[cfg(test)]
+    if let Some(t) = TEST_TUNING.with(std::cell::Cell::get) {
+        return t;
+    }
     static ACTIVE: std::sync::OnceLock<SlimeTuning> = std::sync::OnceLock::new();
     ACTIVE
         .get_or_init(|| SlimeTuning::pinned().expect("the embedded slime data is pinned and valid"))
+}
+
+#[cfg(test)]
+thread_local! {
+    /// The tuning one test thread runs under (`with_knobs_for_test`).
+    static TEST_TUNING: std::cell::Cell<Option<&'static SlimeTuning>> =
+        const { std::cell::Cell::new(None) };
+}
+
+/// Tests only (HAZ-FU): run `f` on this thread under the pinned tuning with `edit` applied,
+/// so a knob-off run builds and steps the whole room under the old behaviour. The previous
+/// tuning is restored afterwards, also when `f` panics.
+#[cfg(test)]
+pub(crate) fn with_knobs_for_test<R>(
+    edit: impl FnOnce(&mut SlimeTuning),
+    f: impl FnOnce() -> R,
+) -> R {
+    struct Restore(Option<&'static SlimeTuning>);
+    impl Drop for Restore {
+        fn drop(&mut self) {
+            TEST_TUNING.with(|c| c.set(self.0));
+        }
+    }
+    let mut t = active().clone();
+    edit(&mut t);
+    let _restore = Restore(TEST_TUNING.with(|c| c.replace(Some(Box::leak(Box::new(t))))));
+    f()
+}
+
+/// Tests only (HAZ-FU): every follow-up knob off, the build before PR-D.
+#[cfg(test)]
+pub(crate) fn hazfu_off(t: &mut SlimeTuning) {
+    t.hazfu01_flier_contact = false;
+    t.hazfu02_acid_exit = false;
+    t.hazfu03_acid_hurt_event = false;
+    t.hazfu04_pool_edge = false;
+    t.hazfu05_sticker_chain_reach_px = 0;
 }
 
 // ------------------------------------------------------------------ phases
@@ -1194,6 +1256,17 @@ impl AcidPatch {
     pub fn on_slime_defeated(&mut self) {
         if self.spec.linked_slime.is_some() && self.pool == Pool::Full {
             self.pool = Pool::Draining(0);
+        }
+    }
+
+    /// HAZ-FU (HAZA2-AD6): the linked slime was never alive in this attempt (the
+    /// kill switch `hazq02_slime_enabled` built it defeated): the pool is removed
+    /// at once, with no drain and no 60-tick window of a volume that belongs to a
+    /// slime the room does not have. Only a linked, full pool is removed.
+    pub fn remove_for_disabled_slime(&mut self) {
+        if self.spec.linked_slime.is_some() && self.pool == Pool::Full {
+            self.pool = Pool::Removed;
+            self.volume = None;
         }
     }
 

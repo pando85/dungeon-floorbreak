@@ -43,6 +43,19 @@ pub fn chain_rule(t: &CarlProgTuning) -> ChainRule {
     }
 }
 
+/// FA-Q21 (`hazfu05_sticker_chain_reach_px`): how far a blast's chain reaches a charge, centre to
+/// centre. The blast's own `outer_radius` for every pair, except **Carl's dynamite onto a Rot
+/// Sticker's charge**, which reaches `knob` px when the knob is on (a knob of 0 is off). A drum, a
+/// sticker's own blast and any other authored charge keep `outer_radius`; so does the blast's
+/// damage radius, which is not this function's business.
+pub fn chain_reach_px(from_dynamite: bool, to_sticker: bool, outer_radius: f32, knob: u16) -> f32 {
+    if from_dynamite && to_sticker && knob > 0 {
+        f32::from(knob).max(outer_radius)
+    } else {
+        outer_radius
+    }
+}
+
 /// CP-Q35: the boss rack strut as a [`BlastTarget`] for one blast: the drop is
 /// credited to the blast's owner and its event is collected for the caller.
 struct RackStrut<'a> {
@@ -283,6 +296,13 @@ impl CombatState {
         self.charges[index].chain_depth > 0 || index == self.dynamite_slot()
     }
 
+    /// Tests only (HAZ-FU05): run the chain of charge `source` on `tick` (the sticks'
+    /// boundary tests place a stick by hand).
+    #[cfg(test)]
+    pub fn chain_from_for_test(&mut self, scene: &SceneSim, source: usize, tick: u64) {
+        self.chain_from(scene, source, tick);
+    }
+
     /// CP-Q34: the chain reaction of the blast of charge `source` on `tick`: every
     /// **authored** charge (fixture and sticker charges; never the thrown stick
     /// itself) whose centre lies within this blast's outer radius, with line of
@@ -305,11 +325,22 @@ impl CombatState {
         }
         let depth = origin.chain_depth + 1;
         let (cx, cy) = origin.centre();
-        let reach = origin.profile.outer_radius;
+        let knob = crate::slime::active().hazfu05_sticker_chain_reach_px;
+        let from_dynamite = source == self.dynamite_slot();
+        let sticker_charges: Vec<usize> = self
+            .env()
+            .map(|e| e.stickers().map(|(_, _, charge)| charge).collect())
+            .unwrap_or_default();
         for target in 0..self.authored_charges {
             if target == source || self.charges[target].detonated {
                 continue;
             }
+            let reach = chain_reach_px(
+                from_dynamite,
+                sticker_charges.contains(&target),
+                origin.profile.outer_radius,
+                knob,
+            );
             let (tx, ty) = self.charges[target].centre();
             let (dx, dy) = (tx - cx, ty - cy);
             if dx * dx + dy * dy > reach * reach
@@ -677,6 +708,32 @@ impl CombatState {
 
 #[cfg(test)]
 mod tests {
+    /// FA-Q21: the scoped chain reach. Only dynamite -> sticker widens (to the knob, never below
+    /// the blast's outer radius); dynamite -> drum or other charge, sticker -> sticker, sticker ->
+    /// anything and a knob of 0 all keep the outer radius.
+    #[test]
+    fn the_sticker_chain_reach_is_scoped_to_dynamite_onto_a_sticker() {
+        use super::chain_reach_px;
+        assert_eq!(chain_reach_px(true, true, 64.0, 76), 76.0);
+        assert_eq!(
+            chain_reach_px(true, false, 64.0, 76),
+            64.0,
+            "a drum at 70 px stays out"
+        );
+        assert_eq!(
+            chain_reach_px(false, true, 64.0, 76),
+            64.0,
+            "a sticker's blast onto a sticker"
+        );
+        assert_eq!(chain_reach_px(false, false, 64.0, 76), 64.0);
+        assert_eq!(chain_reach_px(true, true, 64.0, 0), 64.0, "knob off");
+        assert_eq!(
+            chain_reach_px(true, true, 80.0, 76),
+            80.0,
+            "never below the outer radius"
+        );
+    }
+
     use super::*;
     use crate::boss_scene::Pilot;
     use crate::combat::EnemyAi;

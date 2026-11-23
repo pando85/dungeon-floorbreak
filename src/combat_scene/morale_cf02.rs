@@ -667,6 +667,23 @@ impl CombatState {
 
 #[cfg(test)]
 impl CombatState {
+    /// Test access (HAZ-FU, D8): the morale-forcing hook. Put goblin `index` into
+    /// `reaction` now (`back_dir` is the side a `BackOff` hop goes to), with its
+    /// first-approach delay cleared, so a scene fixture shows the flee and the
+    /// back-off hop at an acid edge. A no-op without morale.
+    pub(crate) fn force_reaction_for_test(
+        &mut self,
+        index: usize,
+        reaction: Reaction,
+        back_dir: i8,
+    ) {
+        if let Some(m) = self.morale.as_mut() {
+            m.morale[index].set_reaction_for_test(reaction);
+            m.back_dir[index] = back_dir;
+            m.delay_left[index] = 0;
+        }
+    }
+
     /// Test access: set goblin `index`'s remaining first-approach delay.
     pub(crate) fn set_delay_for_test(&mut self, index: usize, ticks: u8) {
         if let Some(m) = self.morale.as_mut() {

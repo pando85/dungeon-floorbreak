@@ -242,7 +242,10 @@ fn the_acid_strip_follows_the_live_pool() {
     assert_eq!(full.len(), 1);
     assert_eq!((full[0].x, full[0].w, full[0].h), (700, 64, 6));
     let bounds = |rig: &Rig| rig.combat().env().unwrap().acid().get(1).unwrap().bounds();
-    // Defeat the slime through the real path: the pool drains over 60 ticks.
+    // Defeat the slime through the real path: the pool drains over 60 ticks. One tick
+    // first: a slime that is down before the first env step was never alive (the
+    // kill switch, HAZA2-AD6) and its pool is removed at once, not drained.
+    rig.idle(1);
     rig.kill_slime(0);
     for _ in 0..30 {
         rig.carl(RawInput::NONE);

@@ -131,7 +131,7 @@ impl CombatState {
                 }
             }
             // ENEMY-SLOT: the same flier against the slot enemies' contact boxes.
-            self.contact_slot_enemies(source, &flier, speed, tick);
+            self.contact_slot_enemies(t, source, &flier, speed, tick);
             // BOIL-D: and against the env props, after the enemies.
             self.contact_env_props(scene, source, &flier, speed, tick);
         }
@@ -169,7 +169,14 @@ impl CombatState {
     /// overlaps a slot enemy's contact box contacts it once per launch, in slot
     /// order. The enemy decides the reaction; nothing is evented here, so a
     /// room without slot enemies is untouched.
-    fn contact_slot_enemies(&mut self, source: usize, flier: &Flier, speed: f32, tick: u64) {
+    fn contact_slot_enemies(
+        &mut self,
+        t: &'static Cf02Tuning,
+        source: usize,
+        flier: &Flier,
+        speed: f32,
+        tick: u64,
+    ) {
         for index in 0..self.slot.enemies.len() {
             let enemy = &self.slot.enemies[index];
             let id = enemy.target_id();
@@ -193,8 +200,20 @@ impl CombatState {
                 } else {
                     -1
                 },
+                damage: t.q12_contact_damage,
             };
-            self.slot_contact_one(index, &contact, tick);
+            // HAZ-FU (D6): an enemy that reacts to the contact is a solid mass to the
+            // flier (the slime: never bowled, "stops as against a llama", sheet
+            // section 6): it takes the normal CF02 contact result of a flier
+            // (slowdown, freeze, pose) and then stops dead along x.
+            if self.slot_contact_one(index, &contact, tick) {
+                if flier.body {
+                    self.enemies[source].contact_as_body_cf02(t);
+                } else {
+                    self.enemies[source].contact_as_flier_cf02(t);
+                }
+                self.enemies[source].vx = 0.0;
+            }
         }
     }
 

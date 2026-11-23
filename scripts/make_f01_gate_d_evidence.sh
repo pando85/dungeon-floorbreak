@@ -4,8 +4,8 @@
 #      Magic Missile, Light on Your Feet, Puddle Jumper), of Donut's agile motion (the run race and the
 #      jump race) and of the dynamite ring (outer launch), each window against headless, generated
 #      twice and compared byte for byte (deck-*.gif);
-#   2. room 4's spectacular route (`--room-pilot haz_spectacular`: a dynamite throw whose blast lights
-#      the latched Rot Sticker) at 640x360 and 640x400, window against headless and against the timed
+#   2. room 4's spectacular route (`--room-pilot haz_spectacular`: R1 baited, then a dynamite throw whose blast
+#      chains R2 over the slime S2) at 640x360 and 640x400, window against headless and against the timed
 #      live loop, generated twice and compared (route-room4-spectacular*.gif);
 # The room 6 and perf files are scripts/make_f01_gate_b_evidence.sh and the two perf scripts; the render-loop
 # replay is scripts/make_f01_gate_d_replay.sh; the human-default-path session is scripts/make_f01_gate_d_session.sh.
@@ -66,13 +66,13 @@ for g in "${names[@]}"; do
 done
 echo "GATE_D_BYTE_STABLE gifs=${#names[@]} view=640x400 passes=2 result=identical" >> "$out/capture_lines_d.txt"
 
-# 2. Room 4's spectacular route: the throw (tick 346 to 387), the fuse, the blast and the chain (537 and 545).
+# 2. Room 4's spectacular route: R1's bait, the throw from column 648 (tick 484), the fuse, the stick's blast (634) and R2's chained blast (642), ticks 470 to 710.
 for pass in a b; do
   for view in 640x360 640x400; do
     extra=()
     [[ "$view" == 640x400 ]] && extra=(--deck)
     dir="$caps/$pass/route-$view"
-    line="$(CHECK_TIMED=1 bash scripts/room_capture.sh hazards haz_spectacular 340:6:41 "$dir" "${extra[@]}")"
+    line="$(CHECK_TIMED=1 bash scripts/room_capture.sh hazards haz_spectacular 470:6:41 "$dir" "${extra[@]}")"
     [[ "$pass" == a ]] && echo "GATE_D_ROUTE view=$view ${line#ROOM_CAPTURE }" >> "$out/capture_lines_d.txt"
     python3 scripts/room_gif.py "$dir" "$caps/$pass/route-$view.gif" --step-ticks 6
   done

@@ -75,8 +75,8 @@ use crate::encounter::LinkKind;
 use crate::encounter::{Encounter, Goal, LockEvent, PropKind, RosterKind, StickerLayout};
 use crate::env_hazard::{HazardClass, HazardEdge, HazardSet, NavPhase, NavRect, Team, Victim};
 use crate::env_prop::{
-    Drum, DrumConfig, DrumState, FallingMass, FallingMassConfig, LinkEmit, LinkGraph, MassBody,
-    MassEdge, MassState, Offer, STEP_OVER_PX, Stimulus, Valve, ValveEdge, ValveState,
+    Drum, DrumConfig, DrumState, FallingMass, FallingMassConfig, Ignored, LinkEmit, LinkGraph,
+    MassBody, MassEdge, MassState, Offer, STEP_OVER_PX, Stimulus, Valve, ValveEdge, ValveState,
 };
 use crate::goblin::{GoblinMode, WalkBarrier};
 use crate::hero_damage::HeroDamagePolicy;
@@ -186,7 +186,7 @@ pub enum EnvSolidKind {
     Lock { target: u32 },
     /// HRD-A2: a slot enemy's entry gate (HRD-Q41, boss data): it stands while
     /// the slot enemy `target` reports [`crate::scene_enemy::SlotEnemy::gate_solid`].
-    /// `EnvSolid::prop` is 0.
+    /// `EnvSolid::prop` is `None`.
     Gate { target: u32 },
     /// HAZ-A2: a full-height soffit a Rot Sticker clings to (no standable top).
     /// Always intact.
@@ -209,8 +209,11 @@ fn roster_target_id(kind: RosterKind) -> Option<u32> {
 pub struct EnvSolid {
     /// Layout px, y down.
     pub rect: IRect,
-    /// The prop index in the sidecar.
-    pub prop: u16,
+    /// The prop index in the sidecar for a remnant or a drum, the lock index for a
+    /// lock, and `None` for a solid that belongs to no sidecar entry (a slot
+    /// enemy's gate, a soffit, the exit gate): HAZ-FU replaced the old `0`
+    /// sentinel, which read as prop 0.
+    pub prop: Option<u16>,
     pub kind: EnvSolidKind,
 }
 
@@ -282,6 +285,30 @@ struct StickerRt {
     pending: Vec<(Stimulus, Option<MoveId>)>,
 }
 
+/// HAZ-FU (PR-D): the acid-side knobs of `enemy_slime_v0.json` (`hazfu02..04`) as
+/// this run holds them. Read once from the pinned tuning when the runtime is built
+/// (a test builds the whole room under another tuning with
+/// `slime::with_knobs_for_test` to prove that off is the old behaviour byte for byte).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct HazFu {
+    /// A goblin inside a pool walks out by the nearer edge.
+    pub acid_exit: bool,
+    /// A non-lethal acid landing on a goblin is an event.
+    pub acid_hurt_event: bool,
+    /// Edge-triggered drain and the AD6 removal.
+    pub pool_edge: bool,
+}
+
+impl HazFu {
+    fn from_tuning(t: &slime::SlimeTuning) -> Self {
+        Self {
+            acid_exit: t.on(t.hazfu02_acid_exit),
+            acid_hurt_event: t.on(t.hazfu03_acid_hurt_event),
+            pool_edge: t.on(t.hazfu04_pool_edge),
+        }
+    }
+}
+
 /// The props, hazards and solids of one run of an encounter room.
 #[derive(Debug, Clone)]
 pub struct EnvRuntime {
@@ -317,6 +344,15 @@ pub struct EnvRuntime {
     /// Run configuration the combat state takes in [`CombatState::with_env`]
     /// (a launch of the room sets it, [`Self::with_wake_gates`]); never hashed.
     wake_gates: Vec<Option<crate::goblin::WakeGate>>,
+    /// HAZ-FU: whether each linked slime (in `acid_links` order) was up on the last
+    /// acid step. `None` until the first step of an attempt, which reads the slimes
+    /// as they stand: a slime that is already down then was never alive (the kill
+    /// switch), so its pool is removed at once (AD6). A pool drains on the
+    /// **edge** up -> down only (the old level test re-ran every tick). Not hashed:
+    /// it is a function of the slimes' hashed state.
+    acid_prev_up: Option<Vec<bool>>,
+    /// HAZ-FU: the knobs of this run.
+    fu: HazFu,
 }
 
 impl EnvRuntime {
@@ -397,7 +433,7 @@ impl EnvRuntime {
                     cfg.knock_x_px_s = fall.spec.push_x;
                     solids.push(EnvSolid {
                         rect: remnant,
-                        prop: index,
+                        prop: Some(index),
                         kind: EnvSolidKind::Remnant,
                     });
                     Machine::Mass(Box::new(FallingMass::new(cfg)?))
@@ -430,7 +466,7 @@ impl EnvRuntime {
                     }
                     solids.push(EnvSolid {
                         rect: p.target,
-                        prop: index,
+                        prop: Some(index),
                         kind: EnvSolidKind::Drum,
                     });
                     let plan = DrumPlan {
@@ -451,6 +487,16 @@ impl EnvRuntime {
                     }
                 }
                 PropKind::RotSticker => {
+                    // HAZ-FU: a sticker's damage is its `BlastCharge` and nothing else: a
+                    // hazard volume owned by a sticker would hurt on its own. The nav feed
+                    // (`hazard_feed`) only ever lists telegraph rows for it, so this is
+                    // checked directly on the data, with or without the kill switch.
+                    if enc.hazards.iter().any(|h| h.owner == Some(i)) {
+                        return Err(format!(
+                            "prop {}: a Rot Sticker owns no hazard volume (its damage is its blast charge)",
+                            p.id
+                        ));
+                    }
                     // HAZ-Q02: the data kill switch removes the kind.
                     if rot_enabled {
                         let layout = p
@@ -497,7 +543,7 @@ impl EnvRuntime {
                 })?;
             solids.push(EnvSolid {
                 rect: lock.solid,
-                prop: u16::try_from(i).map_err(|_| "too many locks".to_owned())?,
+                prop: Some(u16::try_from(i).map_err(|_| "too many locks".to_owned())?),
                 kind: EnvSolidKind::Lock { target },
             });
         }
@@ -549,6 +595,8 @@ impl EnvRuntime {
             floor_layout: None,
             defeat_roster: enc.goal == Goal::DefeatRoster,
             wake_gates: Vec::new(),
+            acid_prev_up: None,
+            fu: HazFu::from_tuning(slime::active()),
         })
     }
 
@@ -565,7 +613,7 @@ impl EnvRuntime {
     pub fn with_slot_gate(mut self, target: u32, rect: IRect) -> Self {
         self.solids.push(EnvSolid {
             rect,
-            prop: 0,
+            prop: None,
             kind: EnvSolidKind::Gate { target },
         });
         self
@@ -581,7 +629,7 @@ impl EnvRuntime {
         for r in soffits {
             self.solids.push(EnvSolid {
                 rect: *r,
-                prop: 0,
+                prop: None,
                 kind: EnvSolidKind::Soffit,
             });
         }
@@ -590,7 +638,7 @@ impl EnvRuntime {
         {
             self.solids.push(EnvSolid {
                 rect,
-                prop: 0,
+                prop: None,
                 kind: EnvSolidKind::ExitGate,
             });
         }
@@ -709,6 +757,7 @@ impl EnvRuntime {
             st.pending.clear();
         }
         self.acid.reset(slime::active());
+        self.acid_prev_up = None;
     }
 
     /// HAZ-A2: a defeat respawn (HAZ-Q49): a spent sticker stays spent, a
@@ -725,6 +774,11 @@ impl EnvRuntime {
 
     pub fn props(&self) -> usize {
         self.props.len()
+    }
+
+    /// HAZ-FU: whether this run drives a goblin out of a pool (the knob).
+    pub fn acid_exit(&self) -> bool {
+        self.fu.acid_exit
     }
 
     /// The valve's state, if prop `index` is a valve.
@@ -822,7 +876,9 @@ impl EnvRuntime {
         // none (the Hoarder's `props` is empty): the kind is checked before props
         // are indexed.
         let prop = match s.kind {
-            EnvSolidKind::Remnant | EnvSolidKind::Drum => self.props.get(usize::from(s.prop)),
+            EnvSolidKind::Remnant | EnvSolidKind::Drum => {
+                s.prop.and_then(|p| self.props.get(usize::from(p)))
+            }
             EnvSolidKind::Lock { .. } | EnvSolidKind::Gate { .. } => return false,
             // HAZ-A2: a soffit always stands; the exit gate defaults to closed (the
             // scene opens it when the roster is clear). Neither has a prop.
@@ -1370,6 +1426,8 @@ impl CombatState {
         };
         let env = self.env.as_mut().expect("checked above");
         env.respawn_hazards();
+        // HAZ-FU: the edge test starts from the slimes as the respawn left them.
+        env.acid_prev_up = Some(alive.iter().map(|(_, up)| *up).collect());
         for (patch, up) in alive {
             if up && let Some(p) = env.acid.get_mut(patch) {
                 p.on_slime_respawn(slime::active());
@@ -1400,6 +1458,16 @@ impl CombatState {
         self.enemies.iter().all(|g| !g.alive())
             && self.llamas.iter().all(|l| !l.alive())
             && self.slot.enemies.iter().all(|e| !e.alive())
+    }
+
+    /// Tests only (HAZ-FU): restore the pool(s) linked to the slime at roster index
+    /// `roster` while the slime stays as it is (what a respawn does for a living
+    /// slime), to tell an edge-triggered drain from a level-triggered one.
+    #[cfg(test)]
+    pub fn restore_pool_for_test(&mut self, roster: u8) {
+        if let Some(env) = self.env.as_mut() {
+            env.acid.slime_respawned(slime::active(), roster);
+        }
     }
 
     /// The env runtime, if the room has props.
@@ -1562,6 +1630,29 @@ impl CombatState {
             .iter_mut()
             .find(|s| usize::from(s.prop) == prop)
         {
+            // HAZ-FU: the offer says what happened. A sticker that already went
+            // off or is counting down takes nothing (one activation only), and a
+            // stimulus it does not count (a blast, a prop contact, a shove, a
+            // zero-weight hit) is `NotAccepted`; only a counted stimulus reports
+            // progress. The sticker's own intake (`RotSticker::step`) is unchanged.
+            if matches!(
+                st.sticker.as_ref().map(RotSticker::state),
+                Some(StickerState::Warning | StickerState::Spent)
+            ) {
+                return Some(Offer::Ignored(Ignored::AlreadyActivated));
+            }
+            let counted = match stimulus {
+                Stimulus::MeleeHit { weight, .. } | Stimulus::Projectile { weight, .. } => {
+                    weight >= 1
+                }
+                Stimulus::LaunchedBody { .. } => true,
+                Stimulus::Blast { .. } | Stimulus::Shove { .. } | Stimulus::PropContact { .. } => {
+                    false
+                }
+            };
+            if !counted {
+                return Some(Offer::Ignored(Ignored::NotAccepted));
+            }
             st.pending.push((stimulus, None));
             return Some(Offer::Progress { progress: 1 });
         }
@@ -2000,11 +2091,29 @@ impl CombatState {
         };
         let layout_h = scene.world.layout_height();
         let env = self.env.as_mut().expect("checked above");
-        for (patch, up) in links {
-            if !up && let Some(p) = env.acid.get_mut(patch) {
-                p.on_slime_defeated();
+        // HAZ-FU: edge-triggered. The drain starts on the tick a slime goes from up
+        // to down; a slime that is down on the first step of an attempt never was
+        // up (the kill switch, AD6) and its pool is removed at once.
+        let prev = env.acid_prev_up.take();
+        let edge = env.fu.pool_edge;
+        for (i, (patch, up)) in links.iter().enumerate() {
+            let Some(p) = env.acid.get_mut(*patch) else {
+                continue;
+            };
+            if !edge {
+                // Knob off: the old level test, every tick the slime is down.
+                if !*up {
+                    p.on_slime_defeated();
+                }
+                continue;
+            }
+            match prev.as_ref().and_then(|v| v.get(i)) {
+                Some(true) if !*up => p.on_slime_defeated(),
+                None if !*up => p.remove_for_disabled_slime(),
+                _ => {}
             }
         }
+        env.acid_prev_up = Some(links.iter().map(|(_, up)| *up).collect());
         env.acid.step();
         // Heroes: the contact is the hero's hurtbox against the live bounds.
         let drive = *scene.drive();
@@ -2080,6 +2189,20 @@ impl CombatState {
             return;
         }
         g.health -= hit.damage;
+        // HAZ-FU: the non-lethal landing was silent; it is an event now.
+        let health_left = g.health;
+        if !self.env.as_ref().is_some_and(|e| e.fu.acid_hurt_event) {
+            return;
+        }
+        self.log(CombatEvent::EnvironmentHurt {
+            tick,
+            target: index as u32,
+            prop: patch,
+            class: HazardClass::Acid,
+            damage: hit.damage,
+            health_left,
+            player: credit,
+        });
     }
 
     /// The victim bodies of this tick in layout px, in a fixed order: the
@@ -2373,7 +2496,7 @@ impl CombatState {
             }
             let solid = env.solids()[i - range.start];
             match solid.kind {
-                EnvSolidKind::Drum => struck.push(solid.prop),
+                EnvSolidKind::Drum => struck.extend(solid.prop),
                 // The landed weight is a wall, not a trigger; a lock, a gate, a soffit
                 // and the exit gate are room solids, never a prop to strike.
                 EnvSolidKind::Remnant
@@ -3908,7 +4031,7 @@ mod tests {
         let due = drum_charge_of(&s).detonate_tick;
         assert!(matches!(
             s.combat.env_stimulate(DRUM, launch(2), t + 3),
-            Some(Offer::Ignored(crate::env_prop::Ignored::AlreadyActivated))
+            Some(Offer::Ignored(Ignored::AlreadyActivated))
         ));
         assert_eq!(
             drum_charge_of(&s).detonate_tick,

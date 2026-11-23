@@ -414,6 +414,14 @@ impl Morale {
         self.temperament
     }
 
+    /// Tests only (HAZ-FU, D8): put this goblin into `reaction` now, so a scene
+    /// fixture can show a flee or a back-off hop without finding the script that
+    /// provokes it.
+    #[cfg(test)]
+    pub(crate) fn set_reaction_for_test(&mut self, reaction: Reaction) {
+        self.reaction = reaction;
+    }
+
     /// The nerve this goblin rests at and drifts back to: its temperament's
     /// baseline plus its drawn offset (N2).
     pub fn baseline(&self) -> u8 {
