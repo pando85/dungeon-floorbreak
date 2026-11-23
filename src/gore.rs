@@ -121,7 +121,7 @@ pub const fn keeps_stream_item(k: u32, quarters: u32) -> bool {
 ///   Drop quarters, corpse and decal caps and presets 1 to 3 are unchanged.
 /// * **Q43**: the slammed goblin poses carry their own base (quarters and
 ///   separated parts at preset 4) that overrides Q22; presets 1 to 3 scale by
-///   the existing ratio (`gib_quarters / 4`, rounded up, never to zero while the
+///   the existing ratio (`gib_quarters / 4`, rounded up (`scale_count`), never to zero while the
 ///   preset keeps anything). Routine blunt kills add `q43_routine_spray_count`
 ///   transient sprays at preset 4, each gone after `q43_routine_spray_ticks`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -192,7 +192,7 @@ impl Cf02GoreBudget {
     /// Gib quarters of a slammed pose at `preset`: its Q43 base at preset 4,
     /// scaled by the existing ratio below.
     pub fn slam_quarters(&self, preset: GorePreset, pose: crate::death::SlamPose) -> u32 {
-        self.pose_base(pose).0 * preset.gib_quarters() / 4
+        scale_count(self.pose_base(pose).0, preset.gib_quarters())
     }
 
     /// Separated parts of a slammed pose at `preset` (the manifest's preset
@@ -1245,6 +1245,19 @@ mod tests {
         let mut no_switch = crate::cf02::active().clone();
         no_switch.q36_gore_budget = false;
         assert!(Cf02GoreBudget::from_tuning(&no_switch).is_none());
+    }
+
+    #[test]
+    fn q43_an_odd_base_scales_up_never_to_zero_while_the_preset_keeps_anything() {
+        // D154-1: the documented rounding is up. A base of 3 quarters gives 2 at
+        // Medium (a floor would give 1) and 0 where the preset keeps nothing.
+        let mut t = crate::cf02::active().clone();
+        t.q43_wall_crumple_gib_quarters = 3;
+        let b = Cf02GoreBudget::from_tuning(&t).expect("active budget");
+        let pose = crate::death::SlamPose::WallCrumple;
+        assert_eq!(b.slam_quarters(GorePreset::Full, pose), 3);
+        assert_eq!(b.slam_quarters(GorePreset::Medium, pose), 2);
+        assert_eq!(b.slam_quarters(GorePreset::Reduced, pose), 0);
     }
 
     #[test]

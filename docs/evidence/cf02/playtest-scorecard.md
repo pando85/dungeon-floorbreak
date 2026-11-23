@@ -7,7 +7,7 @@ Fill in one copy per session. It extends the CF02-00 [template](scorecard-templa
 ```text
 Build SHA tested by the agents (main with CF02-I merged):  9dbf5f54ed36f399c91f00573438342873df2114
 Build SHA you play (git rev-parse HEAD of YOUR checkout):   <fill in; the PR head or the merge commit of CF02-REVIEW supersedes the line above>
-Pinned CF02 data hash (the CF02_CONFIG line):              tuning_hash=0x2da48577fa64315e  schema_version=1
+Pinned CF02 data hash (the CF02_CONFIG line):              tuning_hash=0xffd13ba92d65445c  schema_version=1
 Flags of the reference run (the launch the agents describe):  --cf02   (rules on; the room; the cf02_assist companion for Donut; 12-tick swap cooldown; eased swap pan)
 What the agents verified of it:                              headless (the party fixtures) and one idle live run; the live windowed party with the assistant in combat was NOT run
 Flags you may add:                                         --cf02-seed N   --companion off|cf02_assist|v0   --camera auto|scroll|1.0|1.25|1.5   --gore-preset 1..4 (default 4)   --cinematic-finishes[=on|off]   --scale 1..8 (3 = 1920x1080)   --deck (640x400)

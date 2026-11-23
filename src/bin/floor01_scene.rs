@@ -28,6 +28,7 @@ use bevy::{
     input::gamepad::{GamepadConnection, GamepadEvent},
     prelude::*,
     render::{
+        RenderPlugin,
         diagnostic::RenderDiagnosticsPlugin,
         render_resource::{Extent3d, TextureDimension, TextureFormat},
         view::screenshot::{Screenshot, save_to_disk},
@@ -939,11 +940,23 @@ fn lab_overlay_plugin(args: &Args, root: &Path) -> Result<Option<LabOverlayPlugi
 /// Nothing is closed here: other threads keep working until the `exec`.
 /// `close_range(.., CLOSE_RANGE_CLOEXEC)` does it in one call (Linux 5.11);
 /// an older kernel falls back to `fcntl(F_SETFD)` per listed descriptor.
-#[cfg(unix)]
+///
+/// The syscall is made directly, not through `libc::close_range`: that wrapper
+/// links the `close_range@GLIBC_2.34` symbol, and the whole binary would then
+/// fail to load on an older glibc (the Steam Linux Runtime "sniper" container
+/// ships 2.31) before this fallback could ever run.
+#[cfg(target_os = "linux")]
 fn close_inherited_fds() {
     // SAFETY: `close_range` only changes descriptor flags and touches no
-    // memory of this process.
-    let done = unsafe { libc::close_range(3, u32::MAX, libc::CLOSE_RANGE_CLOEXEC as _) } == 0;
+    // memory of this process; an unknown syscall just returns -1 (ENOSYS).
+    let done = unsafe {
+        libc::syscall(
+            libc::SYS_close_range,
+            3u32,
+            u32::MAX,
+            libc::CLOSE_RANGE_CLOEXEC,
+        )
+    } == 0;
     if done {
         return;
     }
@@ -963,7 +976,7 @@ fn close_inherited_fds() {
     }
 }
 
-#[cfg(not(unix))]
+#[cfg(not(target_os = "linux"))]
 fn close_inherited_fds() {}
 
 /// Start the scene again with the next selection: one room per launch (the
@@ -3806,6 +3819,10 @@ fn run_window(
     let hud_emblem = hud_plugin.emblem_asset();
     let mut plugins = DefaultPlugins
         .set(ImagePlugin::default_nearest())
+        .set(RenderPlugin {
+            synchronous_pipeline_compilation: exit_after.is_some(),
+            ..default()
+        })
         .set(AssetPlugin {
             file_path: asset_directory,
             ..default()

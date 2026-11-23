@@ -3981,6 +3981,182 @@ mod tests {
         }
     }
 
+    /// Swap the live tuning of a replayed sim for the shipped one with `edit`
+    /// applied (the knob tests).
+    fn retune(
+        sim: &mut crate::party_scene::PartyFixtureSim,
+        edit: &dyn Fn(&mut crate::cf02::Cf02Tuning),
+    ) {
+        let mut t = crate::cf02::active().clone();
+        edit(&mut t);
+        sim.combat.set_tuning_for_test(Box::leak(Box::new(t)));
+    }
+
+    /// The witness fixture up to tick 19, goblin 1 (a Show-off 90 px away) in the
+    /// fifth tick of its tell and holding the token. The haymaker kill on tick 20
+    /// is its hesitate.
+    fn witness_in_its_tell(
+        edit: &dyn Fn(&mut crate::cf02::Cf02Tuning),
+    ) -> crate::party_scene::PartyFixtureSim {
+        let mut sim = replay_for("cf02_morale_witness_hesitate", 19);
+        retune(&mut sim, edit);
+        let g = &mut sim.combat.enemies[1];
+        g.mode = GoblinMode::Attack;
+        g.attack_tick = 5;
+        g.swing_hit = false;
+        assert!(g.token_held());
+        sim
+    }
+
+    /// D149-1 (Q61, Q68): a hesitate that starts in a tell ends it like a panic
+    /// does, so the attack token is back on the hesitate's first tick.
+    #[test]
+    fn q68_a_hesitate_started_in_a_tell_returns_the_token_on_its_first_tick() {
+        let mut sim = witness_in_its_tell(&|_| {});
+        sim.step_scripted();
+        assert_eq!(reactions(&sim), vec![(20, 1, ReactionKind::Hesitate, 43)]);
+        assert!(events_of(&sim).contains(&CombatEvent::GoblinInterrupted {
+            tick: 20,
+            goblin: 1
+        }));
+        let g = &sim.combat.enemies[1];
+        assert!(!g.token_held() && g.mode == GoblinMode::Neutral);
+        assert_eq!(g.attack_tick, 0);
+        // It stands for the 20 ticks, takes no token and never swings.
+        for _ in 0..20 {
+            sim.step_scripted();
+            assert!(!sim.combat.enemies[1].token_held());
+        }
+        assert!(swings(&sim).iter().all(|s| s.1 != 1), "{:?}", swings(&sim));
+    }
+
+    /// D149-1: the knob off is the legacy G-A5. The tell, the token and the swing
+    /// run on through the hesitate, and the replay is the pre-fix one.
+    #[test]
+    fn q68_the_hesitate_knob_off_keeps_the_legacy_tell_and_token() {
+        let mut sim = witness_in_its_tell(&|t| t.q68_hesitate_aborts_tell = false);
+        sim.step_scripted();
+        assert_eq!(reactions(&sim), vec![(20, 1, ReactionKind::Hesitate, 43)]);
+        assert!(!events_of(&sim).contains(&CombatEvent::GoblinInterrupted {
+            tick: 20,
+            goblin: 1
+        }));
+        assert!(
+            sim.combat.enemies[1].token_held(),
+            "G-A5: it keeps the token"
+        );
+        sim.run_scripted(25);
+        assert!(
+            swings(&sim).iter().any(|s| s.1 == 1),
+            "the swing still comes"
+        );
+    }
+
+    /// D149-1: no pinned G fixture starts a hesitate inside a tell, so the fix
+    /// moves none of their committed hashes: the shipped knob and the knob off
+    /// replay every fixture to the same state hash (which is the pinned golden).
+    #[test]
+    fn q68_the_hesitate_knob_moves_no_committed_fixture_hash() {
+        for (name, _) in G_DRAWS {
+            let fixture = find_party_fixture(name).unwrap();
+            let hash = |on: bool| {
+                let mut sim = replay_for(name, 0);
+                retune(&mut sim, &|t| t.q68_hesitate_aborts_tell = on);
+                sim.run_scripted(fixture.base.ticks);
+                sim.state_hash()
+            };
+            assert_eq!(hash(true), hash(false), "{name}");
+        }
+    }
+
+    /// D149-2 (Q58 draw 3): with the knob on, a goblin counts its approach delay
+    /// only while it senses a hero. Goblin 2 stands 380 px away, out of sight;
+    /// goblin 1 is 90 px away.
+    #[test]
+    fn q58_the_approach_delay_counts_only_while_a_hero_is_in_sight() {
+        for on in [true, false] {
+            let mut sim = replay_for("cf02_morale_witness_hesitate", 0);
+            retune(&mut sim, &|t| t.q58_delay_from_first_sight = on);
+            sim.combat.set_delay_for_test(1, 30);
+            sim.combat.set_delay_for_test(2, 30);
+            sim.run_scripted(10);
+            // In sight: it counts either way.
+            assert_eq!(sim.combat.delay_left_for_test(1), 20, "in sight, knob {on}");
+            // Out of sight: it holds with the knob on, burns down without.
+            let far = sim.combat.delay_left_for_test(2);
+            assert_eq!(far, if on { 30 } else { 20 }, "out of sight, knob {on}");
+            // Left alone for 120 ticks it still holds for the whole delay.
+            sim.run_scripted(110);
+            let far = sim.combat.delay_left_for_test(2);
+            assert_eq!(far, if on { 30 } else { 0 }, "after 120 ticks, knob {on}");
+        }
+    }
+
+    /// D149-3 (Q11): the wall-slam kill is credited to the hero whose kick made
+    /// the launch, not to a later hero that hit the flier.
+    #[test]
+    fn q11_the_slam_is_credited_to_the_kicker_not_to_a_later_hero_hit() {
+        let mut sim = replay_for("cf02_wall_slam_kill", 20);
+        assert_eq!(sim.combat.enemies[0].mode, GoblinMode::Launched);
+        // Donut's pounce on the flier stamps `hit_by` (donut.rs does the same).
+        sim.combat.enemies[0].hit_by = Some(1);
+        sim.run_scripted(20);
+        assert_eq!(slams(&sim), vec![(34, 1, 0, Some(0))]);
+        assert!(events_of(&sim).iter().any(|e| matches!(
+            e,
+            CombatEvent::EnemyDefeated {
+                tick: 34,
+                instigator: Some(0),
+                ..
+            }
+        )));
+    }
+
+    /// D149-4 (Q65): a hero hit that does no damage (Donut's glance on a goblin
+    /// whose HP the pounce must not take) still punishes the taunt: it ends it and
+    /// staggers the goblin 20 ticks.
+    #[test]
+    fn q65_a_zero_damage_hero_hit_punishes_a_taunt() {
+        for punished in [true, false] {
+            let mut sim = replay_for("cf02_showoff_taunt_punish", 20);
+            assert!(matches!(
+                sim.combat.goblin_reaction(0),
+                Reaction::Taunt { .. }
+            ));
+            let health = sim.combat.enemies[0].health;
+            // What `take_hit_split` leaves of a glance: the goblin is hurt, no HP lost.
+            sim.combat.enemies[0].mode = GoblinMode::Hurt;
+            sim.combat.enemies[0].stagger_left = 10;
+            sim.combat.enemies[0].hit_stop = 0;
+            let feed = if punished {
+                vec![CombatEvent::Hit {
+                    tick: 21,
+                    move_id: MoveId::Pounce,
+                    instance: 99,
+                    target: 0,
+                    damage: 0,
+                    health_left: health,
+                    hit_stop: 0,
+                }]
+            } else {
+                Vec::new()
+            };
+            sim.combat.step_morale_on_for_test(&sim.scene, 21, feed);
+            assert_eq!(sim.combat.enemies[0].health, health);
+            let g = &sim.combat.enemies[0];
+            if punished {
+                assert!(matches!(sim.combat.goblin_reaction(0), Reaction::Neutral));
+                assert!(g.stagger_left >= 19, "staggered 20: {}", g.stagger_left);
+            } else {
+                // Without the hit event nothing changes: the taunt runs on.
+                assert!(matches!(
+                    sim.combat.goblin_reaction(0),
+                    Reaction::Taunt { .. }
+                ));
+            }
+        }
+    }
+
     #[test]
     fn q58_a_goblin_in_its_first_approach_delay_takes_no_attack_token() {
         // Three goblins around Carl; goblin 1 (nearest) is held by a long delay: the

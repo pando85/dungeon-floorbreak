@@ -15,6 +15,24 @@ Replays, not captures: the eleven morale fixtures are in [`../replays/`](../repl
 | Pincer token (Q66) | `cf02_pincer_token` | goblins 0 and 1 close in from the left, goblin 2 from the right: goblin 1 (nearest) tells on 1 and the second token goes to goblin 2 on the other side, not to goblin 0 (the legacy rule, tested with morale off, gives it to goblin 0) |
 | Restart reshuffle (Q58) | `cf02_restart_reshuffles` | see the table |
 
+## Adopted defaults G-A1..G-A9
+
+The implementation (PR #149) adopted nine defaults that the design table does not state. They are recorded as amendments under Q61, Q65, Q66 and Q68 in [`combat-fun-02-post-demo01-proposals.md`](../../../01-design/combat-fun-02-post-demo01-proposals.md#amendments-adopted-by-the-cf02-g-implementation-pr-149-g-a1g-a9).
+
+| ID | Question | Default |
+| --- | --- | --- |
+| G-A1 | Q61 (Q60 events) | A living flier's contact, a body contact and a wall slam without a defeat are spectacles (-15) for witnesses; a slam that kills is the spectacular defeat only |
+| G-A2 | Q61 | A reaction starts only from Neutral, Hurt or a tell, never while lying, flying, in a swing or in recovery. Narrowed: the reaction ends the tell; admitting `Hurt` is an open question |
+| G-A3 | Q65 | A "whiff" is Carl's move ending its active phase without a hit (Donut's are not tracked); the taunt punish takes any hero's non-launching hit, damage or not |
+| G-A4 | Q65 (Q64) | The Coward's back-off triggers on any hero move with startup >= 9 that starts in front within 48 px (Donut's pounce included) |
+| G-A5 | Q61 | A hesitate did not abort a tell, only a panic did. **Superseded** by `q68_hesitate_aborts_tell` (below) |
+| G-A6 | Q68 | A goblin in its first-approach delay takes no token; `q58_delay_from_first_sight` (shipped off) counts the delay only while a hero is in sight |
+| G-A7 | Q66 (fixtures) | A wall-slammed goblin gets the flier hit-stop (4 ticks) |
+| G-A8 | Q66 (fixtures) | Two contact fixtures start with a QA launch, because Carl's own kick would also hit a goblin that close |
+| G-A9 | Q61 (Q60 events) | A `ShoreLanded` spectacle uses the block footprint centre |
+
+**G-A2 and G-A5 after the re-review fix.** G-A5 is superseded: with `q68_hesitate_aborts_tell` on (the shipped value), a hesitate that starts in a tell ends it like a panic does and the token returns on the first tick (Q68). The knob off is the old behaviour and reproduces the old hashes. No committed G fixture starts a hesitate inside a tell, so no fixture golden moved; the new tests `q68_a_hesitate_started_in_a_tell_returns_the_token_on_its_first_tick`, `q68_the_hesitate_knob_off_keeps_the_legacy_tell_and_token` and `q68_the_hesitate_knob_moves_no_committed_fixture_hash` pin all three facts. G-A2 is narrowed, not replaced: the tell part is now consistent with Q61 and Q68, and `Hurt` stays admitted (a hurt goblin holds no token). Excluding it moves the hazard-room and Donut-progression pilot goldens and is left to the owner.
+
 ## Reactions per attempt over three restarts
 
 `cf02_restart_reshuffles` (three chasing goblins, Carl jabs, hits and kicks on the same ticks every attempt; seed `0xCF020D00`). The draw is `mix(seed, restarts, goblin, draw)`; the offset is the nerve offset from the temperament baseline. Test `q58_restarts_reshuffle_and_each_attempt_replays_identically` runs the three attempts twice and compares events and hashes.

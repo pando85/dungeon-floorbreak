@@ -178,6 +178,12 @@ pub struct Goblin {
     /// `Some(0)` is already implied by a hashed `Hit`; any other player is
     /// mixed, so a second player's hit never hashes like Carl's.
     pub hit_by: Option<u32>,
+    /// CF02-Q11: the player whose kick made the current launch (or the lethal
+    /// kick of a bowling body), stamped where the launch instance is. A later
+    /// hit from the other hero overwrites `hit_by` but not this, so a wall slam
+    /// is credited to the kicker. Read for the contact, slam and defeat events
+    /// only, so it is not mixed into the state hash (the events are hashed).
+    pub launch_by: Option<u32>,
     /// WORK-023 (Q10-06): the light guard a swat stagger sets. A guarded goblin
     /// glances further swats; Carl's hits and the pounce still interrupt it.
     /// `None` for every goblin Donut never swatted, so nothing of it is mixed
@@ -266,6 +272,7 @@ impl Goblin {
             flight_ticks: 0,
             contact_ticks: 0,
             hit_by: None,
+            launch_by: None,
             guard: None,
             cf02: None,
             hold_left: 0,
@@ -939,6 +946,12 @@ impl Goblin {
             };
         }
         false
+    }
+
+    /// CF02-Q11: the hero credited with a flight's contacts and slam: the one
+    /// whose kick launched it, else the last hero that hit it.
+    pub fn flight_credit(&self) -> Option<u32> {
+        self.launch_by.or(self.hit_by)
     }
 
     /// Fold the full state into a state hash.

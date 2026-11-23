@@ -870,6 +870,15 @@ case "$mode" in
     # shellcheck disable=SC2086
     timeout 300 "$bin" $live_room --record-dir "$ldir/exit" --exit-after-ticks 120 > "$out/replay_live_exit.log" 2>&1
     grep -q '^PLAYTRACE_SAVED .* ticks=120 status=Completed complete=true' "$out/replay_live_exit.log" || { tail -n 20 "$out/replay_live_exit.log"; echo "the live room scripted exit did not close its session" >&2; exit 1; }
+    # An early quit (10 ticks, about 0.2 s of wall clock) exits 0. Before the fix it crashed with 134 or 139 after the
+    # session was saved: the render pipelines still compiling on the async compute pool outlived the render device at
+    # teardown (a wgpu device dropped on a pool thread while the main thread tore the driver down). `--exit-after-ticks`
+    # now compiles pipelines synchronously, so nothing is in flight at exit.
+    for _ in 1 2 3; do
+      code=0
+      timeout 300 "$bin" --cf02 --autopilot --no-audio --scale 1 --exit-after-ticks 10 > "$out/replay_early_exit.log" 2>&1 || code=$?
+      [[ "$code" -eq 0 ]] || { tail -n 20 "$out/replay_early_exit.log"; echo "--exit-after-ticks 10 did not exit cleanly (exit $code)" >&2; exit 1; }
+    done
     # Wait (at most 30 s) for the background process $1 to exit; a window that ignores the signal fails the check
     # here (and is killed) instead of hanging the job. No `timeout` wrapper: a background job of a non-interactive
     # shell starts with SIGINT ignored, and `timeout` keeps an ignored SIGINT ignored.
@@ -890,9 +899,9 @@ case "$mode" in
         [[ -n "$(find "$sdir" -name 'ticks-*.jsonl' -size +0 2>/dev/null | head -n 1)" ]] && break
         sleep 0.5
       done
-      # A few seconds of running first: quitting in the first frames (any exit path, `--exit-after-ticks 10`
-      # included) can crash the engine's own teardown (SIGSEGV after the session is saved), which is not what
-      # this check is about.
+      # A few seconds of running first: a signal in the first frames can still catch the async pipeline compiles
+      # in flight (only `--exit-after-ticks` compiles them synchronously, see the early-quit check above), which
+      # is not what this check is about.
       sleep 4
       kill -"$sig" "$app"
       wait_gone "$app" || { kill -KILL "$app" 2>/dev/null || true; echo "the live room ignored SIG$sig" >&2; exit 1; }
