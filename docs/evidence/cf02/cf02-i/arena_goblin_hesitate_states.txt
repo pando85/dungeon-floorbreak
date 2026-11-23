@@ -1,15 +1,15 @@
 # arena_goblin_hesitate: fixture cf02_arena_coop, ticks 116..142 step 2
-COMBAT_ANIM_STATE tick=116 carl=punch_b:4 g0=A/hurt:17 g1=B/walk:8 g2=A/idle:2 g3=B/idle:3 g4=A/idle:0 l0=walk:6 acting_carl=- acting_donut=- acting_goblins=-,-,-,-,-
-COMBAT_ANIM_STATE tick=118 carl=punch_b:4 g0=A/hurt:17 g1=B/walk:8 g2=A/idle:2 g3=B/idle:3 g4=A/idle:0 l0=walk:6 acting_carl=- acting_donut=- acting_goblins=-,-,-,-,-
-COMBAT_ANIM_STATE tick=120 carl=punch_b:5 g0=A/hurt:16 g1=B/idle:1 g2=A/idle:2 g3=B/idle:3 g4=A/idle:1 l0=walk:3 acting_carl=- acting_donut=- acting_goblins=-,hesitate:0,-,-,-
-COMBAT_ANIM_STATE tick=122 carl=punch_b:5 g0=A/hurt:16 g1=B/idle:1 g2=A/idle:2 g3=B/idle:0 g4=A/idle:1 l0=walk:3 acting_carl=- acting_donut=- acting_goblins=-,hesitate:0,-,-,-
-COMBAT_ANIM_STATE tick=124 carl=punch_b:5 g0=A/hurt:16 g1=B/idle:1 g2=A/idle:2 g3=B/idle:0 g4=A/idle:1 l0=walk:3 acting_carl=- acting_donut=- acting_goblins=-,hesitate:0,-,-,-
-COMBAT_ANIM_STATE tick=126 carl=punch_b:5 g0=A/hurt:16 g1=B/idle:1 g2=A/idle:3 g3=B/idle:0 g4=A/idle:1 l0=walk:4 acting_carl=- acting_donut=- acting_goblins=-,hesitate:0,-,-,-
-COMBAT_ANIM_STATE tick=128 carl=punch_b:5 g0=A/knockback:18 g1=B/idle:2 g2=A/idle:3 g3=B/idle:0 g4=A/idle:2 l0=walk:4 acting_carl=- acting_donut=- acting_goblins=-,hesitate:0,-,-,-
-COMBAT_ANIM_STATE tick=130 carl=punch_b:5 g0=A/knockback:18 g1=B/idle:2 g2=A/idle:3 g3=B/idle:0 g4=A/idle:2 l0=walk:4 acting_carl=- acting_donut=- acting_goblins=-,hesitate:0,-,-,-
-COMBAT_ANIM_STATE tick=132 carl=punch_b:6 g0=A/knockback:19 g1=B/idle:2 g2=A/idle:3 g3=B/idle:0 g4=A/idle:2 l0=walk:5 acting_carl=- acting_donut=- acting_goblins=-,hesitate:0,-,-,-
-COMBAT_ANIM_STATE tick=134 carl=punch_b:6 g0=A/knockback:19 g1=B/idle:2 g2=A/idle:0 g3=B/idle:1 g4=A/idle:2 l0=walk:5 acting_carl=- acting_donut=- acting_goblins=-,hesitate:0,-,-,-
-COMBAT_ANIM_STATE tick=136 carl=punch_b:6 g0=A/knockback:19 g1=B/idle:2 g2=A/idle:0 g3=B/idle:1 g4=A/idle:2 l0=walk:5 acting_carl=- acting_donut=- acting_goblins=-,hesitate:0,-,-,-
-COMBAT_ANIM_STATE tick=138 carl=punch_b:7 g0=A/knockback:19 g1=B/idle:2 g2=A/idle:0 g3=B/idle:1 g4=A/idle:2 l0=walk:6 acting_carl=- acting_donut=- acting_goblins=-,hesitate:0,-,-,-
-COMBAT_ANIM_STATE tick=140 carl=punch_b:7 g0=A/knockback:19 g1=B/walk:7 g2=A/idle:0 g3=B/idle:1 g4=A/idle:3 l0=walk:6 acting_carl=- acting_donut=- acting_goblins=-,-,-,-,-
-COMBAT_ANIM_STATE tick=142 carl=punch_b:7 g0=A/knockback:19 g1=B/walk:7 g2=A/idle:0 g3=B/idle:2 g4=A/idle:3 l0=walk:6 acting_carl=- acting_donut=- acting_goblins=-,-,-,-,-
+COMBAT_ANIM_STATE tick=116 carl=punch_b:4 g0=A/hurt:17 g1=B/walk:8 g2=A/idle:2 g3=B/idle:3 g4=A/idle:0 l0=walk:6 acting_carl=- acting_donut=- acting_goblins=-,-,-,-,- acting_slammed=-,-,-,-,-
+COMBAT_ANIM_STATE tick=118 carl=punch_b:4 g0=A/hurt:17 g1=B/walk:8 g2=A/idle:2 g3=B/idle:3 g4=A/idle:0 l0=walk:6 acting_carl=- acting_donut=- acting_goblins=-,-,-,-,- acting_slammed=-,-,-,-,-
+COMBAT_ANIM_STATE tick=120 carl=punch_b:5 g0=A/hurt:16 g1=B/idle:1 g2=A/idle:2 g3=B/idle:3 g4=A/idle:1 l0=walk:3 acting_carl=- acting_donut=- acting_goblins=-,hesitate:0,-,-,- acting_slammed=1/-,-,-,-,-
+COMBAT_ANIM_STATE tick=122 carl=punch_b:5 g0=A/hurt:16 g1=B/idle:1 g2=A/idle:2 g3=B/idle:0 g4=A/idle:1 l0=walk:3 acting_carl=- acting_donut=- acting_goblins=-,hesitate:0,-,-,- acting_slammed=3/-,-,-,-,-
+COMBAT_ANIM_STATE tick=124 carl=punch_b:5 g0=A/hurt:16 g1=B/idle:1 g2=A/idle:2 g3=B/idle:0 g4=A/idle:1 l0=walk:3 acting_carl=- acting_donut=- acting_goblins=-,hesitate:0,-,-,- acting_slammed=5/-,-,-,-,-
+COMBAT_ANIM_STATE tick=126 carl=punch_b:5 g0=A/hurt:16 g1=B/idle:1 g2=A/idle:3 g3=B/idle:0 g4=A/idle:1 l0=walk:4 acting_carl=- acting_donut=- acting_goblins=-,hesitate:0,-,-,- acting_slammed=7/-,-,-,-,-
+COMBAT_ANIM_STATE tick=128 carl=punch_b:5 g0=A/knockback:18 g1=B/idle:2 g2=A/idle:3 g3=B/idle:0 g4=A/idle:2 l0=walk:4 acting_carl=- acting_donut=- acting_goblins=-,hesitate:0,-,-,- acting_slammed=9/-,-,-,-,-
+COMBAT_ANIM_STATE tick=130 carl=punch_b:5 g0=A/knockback:18 g1=B/idle:2 g2=A/idle:3 g3=B/idle:0 g4=A/idle:2 l0=walk:4 acting_carl=- acting_donut=- acting_goblins=-,hesitate:0,-,-,- acting_slammed=11/-,-,-,-,-
+COMBAT_ANIM_STATE tick=132 carl=punch_b:6 g0=A/knockback:19 g1=B/idle:2 g2=A/idle:3 g3=B/idle:0 g4=A/idle:2 l0=walk:5 acting_carl=- acting_donut=- acting_goblins=-,hesitate:0,-,-,- acting_slammed=13/-,-,-,-,-
+COMBAT_ANIM_STATE tick=134 carl=punch_b:6 g0=A/knockback:19 g1=B/idle:2 g2=A/idle:0 g3=B/idle:1 g4=A/idle:2 l0=walk:5 acting_carl=- acting_donut=- acting_goblins=-,hesitate:0,-,-,- acting_slammed=15/-,-,-,-,-
+COMBAT_ANIM_STATE tick=136 carl=punch_b:6 g0=A/knockback:19 g1=B/idle:2 g2=A/idle:0 g3=B/idle:1 g4=A/idle:2 l0=walk:5 acting_carl=- acting_donut=- acting_goblins=-,hesitate:0,-,-,- acting_slammed=17/-,-,-,-,-
+COMBAT_ANIM_STATE tick=138 carl=punch_b:7 g0=A/knockback:19 g1=B/idle:2 g2=A/idle:0 g3=B/idle:1 g4=A/idle:2 l0=walk:6 acting_carl=- acting_donut=- acting_goblins=-,hesitate:0,-,-,- acting_slammed=19/-,-,-,-,-
+COMBAT_ANIM_STATE tick=140 carl=punch_b:7 g0=A/knockback:19 g1=B/walk:7 g2=A/idle:0 g3=B/idle:1 g4=A/idle:3 l0=walk:6 acting_carl=- acting_donut=- acting_goblins=-,-,-,-,- acting_slammed=21/-,-,-,-,-
+COMBAT_ANIM_STATE tick=142 carl=punch_b:7 g0=A/knockback:19 g1=B/walk:7 g2=A/idle:0 g3=B/idle:2 g4=A/idle:3 l0=walk:6 acting_carl=- acting_donut=- acting_goblins=-,-,-,-,- acting_slammed=23/-,-,-,-,-

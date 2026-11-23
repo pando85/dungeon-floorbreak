@@ -1,11 +1,11 @@
 # donut_startle_clear: fixture cf02_showoff_taunt_punish, ticks 106..124 step 2
-COMBAT_ANIM_STATE tick=106 carl=- g0=A/attack_tell:11 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=108 carl=- g0=A/attack_swing:12 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=110 carl=hurt:15 g0=A/attack_swing:13 acting_carl=- acting_donut=startle:0 acting_goblins=-
-COMBAT_ANIM_STATE tick=112 carl=hurt:15 g0=A/attack_swing:13 acting_carl=- acting_donut=startle:0 acting_goblins=-
-COMBAT_ANIM_STATE tick=114 carl=hurt:15 g0=A/attack_swing:13 acting_carl=- acting_donut=startle:0 acting_goblins=-
-COMBAT_ANIM_STATE tick=116 carl=hurt:15 g0=A/attack_swing:13 acting_carl=- acting_donut=startle:1 acting_goblins=-
-COMBAT_ANIM_STATE tick=118 carl=hurt:16 g0=A/attack_recover:14 acting_carl=- acting_donut=startle:1 acting_goblins=-
-COMBAT_ANIM_STATE tick=120 carl=hurt:16 g0=A/attack_recover:14 acting_carl=- acting_donut=startle:1 acting_goblins=-
-COMBAT_ANIM_STATE tick=122 carl=hurt:16 g0=A/attack_recover:14 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=124 carl=hurt:16 g0=A/attack_recover:14 acting_carl=- acting_donut=- acting_goblins=-
+COMBAT_ANIM_STATE tick=106 carl=- g0=A/attack_tell:11 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=108 carl=- g0=A/attack_swing:12 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=110 carl=hurt:15 g0=A/attack_swing:13 acting_carl=- acting_donut=startle:0 acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=112 carl=hurt:15 g0=A/attack_swing:13 acting_carl=- acting_donut=startle:0 acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=114 carl=hurt:15 g0=A/attack_swing:13 acting_carl=- acting_donut=startle:0 acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=116 carl=hurt:15 g0=A/attack_swing:13 acting_carl=- acting_donut=startle:1 acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=118 carl=hurt:16 g0=A/attack_recover:14 acting_carl=- acting_donut=startle:1 acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=120 carl=hurt:16 g0=A/attack_recover:14 acting_carl=- acting_donut=startle:1 acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=122 carl=hurt:16 g0=A/attack_recover:14 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=124 carl=hurt:16 g0=A/attack_recover:14 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=-

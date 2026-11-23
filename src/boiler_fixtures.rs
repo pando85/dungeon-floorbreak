@@ -970,6 +970,7 @@ pub mod scene_pilots {
             charges: &[],
             script: &[],
             ticks: PLAN_TICKS,
+            room: crate::combat_scene::FixtureRoom::Corridor,
         }));
         let mut scene = SceneSim::new_at(&run.kit, 360, base.carl_x)?;
         let mut combat = CombatState::new(base, &run.kit, &scene)?
@@ -1681,10 +1682,13 @@ mod scene_pilot_tests {
             (Who::Companion, Plan::Direct, 2, 0x84a5_4d3b_5e58_0614),
             (Who::Companion, Plan::Both, 8, 0xd3c9_61b2_dcdb_348f),
         ];
-        for (who, plan, seed, old) in samples {
-            let r = run_live_with(&root(), who, plan, seed, &off).unwrap();
-            assert_eq!(r.hash, old, "{who:?} {plan:?} seed {seed}");
-        }
+        // The PR-A fix-all knobs (FA-Q15, FA-Q16) are off too: these are pre-PR-A hashes.
+        crate::combat_scene::with_profile_override(crate::combat_scene::fix_all_off, || {
+            for (who, plan, seed, old) in samples {
+                let r = run_live_with(&root(), who, plan, seed, &off).unwrap();
+                assert_eq!(r.hash, old, "{who:?} {plan:?} seed {seed}");
+            }
+        });
         // And the knob on moves them (the wake gate is mixed into the state).
         let r = run_live(&root(), Who::CarlSolo, Plan::Direct, 0).unwrap();
         assert_ne!(r.hash, samples[0].3);
@@ -1704,10 +1708,9 @@ mod scene_pilot_tests {
 
     /// FA-Q16 (PR-C), the active partner: after PR-A's prop-safe fire rule the AI partner
     /// (`cf02_assist` under Carl solo and under the swap, where Carl is the AI partner after it, `cf02_free` as the companion) hits no prop on the
-    /// direct route. PR-A removes the ignore (the declared one-line exception to file
-    /// ownership); until then the test documents the open target.
+    /// direct route (PR-A removed the ignore PR-C left, the declared one-line exception
+    /// to file ownership).
     #[test]
-    #[ignore = "needs PR-A FA-Q16"]
     fn the_active_partner_hits_no_prop_on_the_direct_route() {
         for who in [Who::CarlSolo, Who::DonutBySwap, Who::Companion] {
             for seed in 0..=8 {
@@ -1769,6 +1772,65 @@ mod scene_pilot_tests {
     }
 
     const LIVE_PINNED: [u64; 54] = [
+        0x3340_6bdb_6363_f857,
+        0x13d2_c73b_389d_073d,
+        0xb9d5_3ffe_2f20_096e,
+        0xf380_3b1f_d20c_ace8,
+        0xda43_ce62_8752_f3ff,
+        0x074c_0c00_5ff0_1b49,
+        0x95de_0f55_c931_d7a9,
+        0x2932_f06e_4eb2_4960,
+        0xc8ed_8d2e_3733_bc48,
+        0xda53_df37_aa60_8959,
+        0xd7e8_1b3b_022f_6da1,
+        0x749d_463d_7093_551c,
+        0x3be8_93fb_3d1b_d17e,
+        0x09b5_e691_2482_1686,
+        0xfb93_1612_e6e0_a4f3,
+        0xf0a2_6081_68f3_85bd,
+        0xeeb0_8621_a856_fc3c,
+        0x160c_9eb5_f969_1042,
+        0x5274_6560_ee09_2661,
+        0x677a_2dd4_f22a_dd7f,
+        0x08fb_9c76_df6c_210c,
+        0x0a84_b317_bbd9_9dbe,
+        0x7a0e_0c8a_bb54_9239,
+        0x755b_f02d_5e12_a3d7,
+        0x0a00_c659_e958_0cf3,
+        0xdc23_ba20_cd7f_94fe,
+        0xb3b0_49bb_9b3d_e52e,
+        0xbab5_ebc6_5831_4318,
+        0x431e_13b5_bab0_7e9c,
+        0xefe1_a762_4eb0_5c7d,
+        0x5a50_8b65_8a72_ecab,
+        0x80d2_3809_17d7_7a9f,
+        0x924f_a935_9230_21fe,
+        0x6061_2dd9_aff2_4d40,
+        0xdd05_b961_fdcf_3765,
+        0x2d18_b0e1_d386_5143,
+        0x01d2_ca23_8bd6_83a9,
+        0xa615_3500_9aab_adcc,
+        0x400c_a82f_36d7_b6f4,
+        0x3eed_9ea0_7ee1_f0f9,
+        0x2838_30ff_6166_7008,
+        0xe355_10c8_c30f_2f2c,
+        0xb723_6c24_facd_02ff,
+        0x7c63_9cd4_0cd9_f642,
+        0x802a_0ae2_07af_f032,
+        0x2ab5_c883_9828_3e70,
+        0xc2bd_2edc_53a0_0641,
+        0x6b9f_b821_4bd2_9669,
+        0xab06_13b0_c96b_d623,
+        0x90c1_52fb_4dfa_c2eb,
+        0x146d_9469_e59f_6bc3,
+        0x4a4b_493d_f543_e1c6,
+        0x90cb_dfe5_7928_9dd5,
+        0xa470_46e5_b4c7_9177,
+    ];
+
+    /// The live Boiler hashes before PR-A (main at the PR-C merge): with every fix-all
+    /// knob off the room replays them (FA-Q15, FA-Q16).
+    const LIVE_PINNED_KNOBS_OFF: [u64; 54] = [
         0x993e_3e94_4d33_ae3c,
         0x0645_efc0_3a8d_951b,
         0x65a1_8260_8ae9_4785,
@@ -1824,6 +1886,23 @@ mod scene_pilot_tests {
         0xd799_6a0a_c31c_7e52,
         0xdd46_bc57_608a_a904,
     ];
+
+    /// FA-Q15 and FA-Q16 are what moved the table above; with every fix-all knob off
+    /// the 54 live runs hash exactly as they did before PR-A.
+    #[test]
+    fn the_live_boiler_hashes_with_the_fix_all_knobs_off_are_the_old_pins() {
+        crate::combat_scene::with_profile_override(crate::combat_scene::fix_all_off, || {
+            let mut got = Vec::new();
+            for who in LIVE_WHO {
+                for plan in LIVE_PLANS {
+                    for seed in 0..=8 {
+                        got.push(run_live(&root(), who, plan, seed).unwrap().hash);
+                    }
+                }
+            }
+            assert_eq!(got, LIVE_PINNED_KNOBS_OFF, "pins: {got:#018x?}");
+        });
+    }
 
     /// Solo Carl at CF02 seed 0: direct, valve, weight, both. BOIL-D re-pin,
     /// three causes (a probe that restored the old drum hash words and skipped

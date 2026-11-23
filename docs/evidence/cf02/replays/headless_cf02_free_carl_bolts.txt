@@ -1,4 +1,4 @@
 COMBAT_EVENT tick=25 kind=move_started move=pounce instance=1
 COMBAT_EVENT tick=44 kind=hit move=pounce instance=1 target=0 damage=1 health_left=1 hit_stop=4
-COMBAT_STATE fixture=cf02_free_carl_bolts seed=0xcf02fe06 tick=520 elapsed=520 hero_hp=4 deaths=0 enemies=e0=240.000/1 hash=2dd8d25b11bba8b0
-PARTY_STATE fixture=cf02_free_carl_bolts mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=f269f4d8859bce16
+COMBAT_STATE fixture=cf02_free_carl_bolts seed=0xcf02fe06 tick=520 elapsed=520 hero_hp=4 deaths=0 enemies=e0=240.000/1 hash=55a72158d5ec6f14
+PARTY_STATE fixture=cf02_free_carl_bolts mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=8a85bbf67af09f9a

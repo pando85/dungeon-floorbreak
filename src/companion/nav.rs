@@ -1361,6 +1361,17 @@ impl NavGraph {
     /// can drop into but not climb out of, and its centre must lie in
     /// `ctx.bounds` when set.
     pub fn safe_anchor(&self, actor: HeroId, ctx: SafeContext) -> Result<NavAnchorId, Reason> {
+        self.safe_anchor_wide(actor, ctx, 0.0)
+    }
+
+    /// [`Self::safe_anchor`] over the anchors at least `min_width` px wide (CA2-FU-HAZ
+    /// U-2: a body that cannot fit on an anchor is left half over the hazard).
+    pub fn safe_anchor_wide(
+        &self,
+        actor: HeroId,
+        ctx: SafeContext,
+        min_width: f32,
+    ) -> Result<NavAnchorId, Reason> {
         let Some(here) = self.node_index(ctx.here) else {
             return Err(Reason::UnknownAnchor);
         };
@@ -1385,6 +1396,7 @@ impl NavGraph {
                 || back.dist[i] == u32::MAX
                 || n.status != NodeStatus::Open
                 || n.risk >= UNSAFE_RISK
+                || n.x1 - n.x0 < min_width
             {
                 continue;
             }

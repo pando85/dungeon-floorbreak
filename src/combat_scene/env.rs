@@ -834,6 +834,27 @@ impl EnvRuntime {
         // HAZ-A2: the acid patches are persistent active volumes of class Acid.
         feed.extend(self.acid.nav_feed());
         for p in &self.props {
+            // CA2-FU-HAZ U-5: a drum's tell (24 ticks, then the blast) is a hazard
+            // rectangle of class Blast while it shows.
+            if let Machine::Drum { drum, plan } = &p.machine
+                && drum.state() == DrumState::Telegraph
+            {
+                let hazard = self
+                    .owners
+                    .iter()
+                    .find(|(_, prop)| *prop == p.index)
+                    .map_or(p.index, |(h, _)| *h);
+                feed.push(NavRect {
+                    hazard,
+                    class: HazardClass::Blast,
+                    rect: plan.telegraph_rect,
+                    phase: NavPhase::Telegraph,
+                    ticks_left: None,
+                    hurts_heroes: plan.hero_damage.hurts_any_hero(),
+                    hurts_enemies: true,
+                });
+                continue;
+            }
             let Machine::Mass(m) = &p.machine else {
                 continue;
             };
@@ -1473,6 +1494,20 @@ impl CombatState {
     /// The env runtime, if the room has props.
     pub fn env(&self) -> Option<&EnvRuntime> {
         self.env.as_deref()
+    }
+
+    /// FA-Q16: the world rectangles of the live prop hit targets (valve, brace;
+    /// a drum is no hit target), for the AI's prop-safe fire.
+    pub(super) fn prop_target_rects(&self, layout_h: i32) -> Vec<Rect> {
+        self.env
+            .as_deref()
+            .map(|env| {
+                env.live_targets()
+                    .into_iter()
+                    .map(|(_, t)| world_rect(layout_h, t))
+                    .collect()
+            })
+            .unwrap_or_default()
     }
 
     /// A new attempt: every prop back to its first state, and every drum's
@@ -2700,6 +2735,7 @@ mod tests {
             charges: &[],
             script: &[],
             ticks: 900,
+            room: crate::combat_scene::FixtureRoom::Corridor,
         }))
     }
 

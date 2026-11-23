@@ -106,7 +106,7 @@ pub fn record_synthetic_fixture(
     fixture: &'static crate::party_scene::PartyFixture,
     ticks: u64,
 ) -> Result<SessionManifest, String> {
-    if crate::cf02::arena::fixture_uses_arena(fixture.name()) {
+    if fixture.base.room == crate::combat_scene::FixtureRoom::Arena {
         return Err("arena fixtures are not supported by the synthetic recorder".to_owned());
     }
     let kit = EnvKit::load(root, LAYOUT).map_err(|e| e.to_string())?;

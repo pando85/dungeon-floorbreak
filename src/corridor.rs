@@ -25,6 +25,16 @@ use crate::scroll_camera::{CameraConfig, DEADZONE_PX, MAX_SPEED_PX, ScrollCamera
 pub const DONUT_FOLLOW_PX: f32 = 32.0;
 /// Safety cap on stored Donut trail samples (about 8 s of continuous motion
 /// beyond the 32 px leash, which needs only a few dozen).
+/// CF02-FU-C2F U1: the eased swap pan hands over to the ordinary follow at this many
+/// px left and this speed (px per tick) or less.
+const EASED_PAN_HANDOVER_PX: i32 = 4;
+
+/// CF02-FU-C2F U1: the eased swap pan is over: nothing left, or at most
+/// [`EASED_PAN_HANDOVER_PX`] left at no more than that speed.
+pub(crate) fn eased_pan_done(left: i32, v: i32) -> bool {
+    left <= EASED_PAN_HANDOVER_PX && v <= EASED_PAN_HANDOVER_PX
+}
+
 const MAX_TRAIL_SAMPLES: usize = 512;
 /// Hard stop for scripted runs so a stuck scenario cannot loop forever.
 pub const MAX_SCENARIO_TICKS: u64 = 20_000;
@@ -1129,7 +1139,11 @@ impl SceneSim {
             let v = eased_pan_step(self.pan_v, remaining);
             self.pan_v = v;
             let left = self.camera.step_capped_deadzone(x, facing, v, deadzone);
-            if left == 0 {
+            // CF02-FU-C2F U1: the new hero keeps running, so the remaining distance
+            // never reaches 0 while it runs away; hand the camera back to the
+            // ordinary follow once the pan has nearly caught up and slowed (at most
+            // 4 px left at no more than 4 px per tick).
+            if eased_pan_done(left, v) {
                 self.pan_boost = false;
                 self.pan_v = 0;
             }

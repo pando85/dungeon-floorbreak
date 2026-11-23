@@ -949,6 +949,14 @@ pub fn fixture_runs_cf02(name: &str) -> bool {
         || crate::corral_fixtures::runs_cf02(name)
 }
 
+/// CF02-FU-I FU8: whether a run reads the CF02 sheets and rules: `--cf02` (`rules`),
+/// or a fixture that runs under `cf02_rules` ([`fixture_runs_cf02`]). The one
+/// predicate the launcher uses for the art and `CombatState::cf02()` is built from
+/// (a test pins the two together over every fixture name).
+pub fn run_uses_cf02(rules: bool, fixture: Option<&str>) -> bool {
+    rules || fixture.is_some_and(fixture_runs_cf02)
+}
+
 /// The pinned tuning with the master switch on: what a simulation running under
 /// `cf02_rules` reads (`--cf02` and every `cf02_*` fixture). One shared static, so
 /// goblins and the move tables can hold a `&'static` reference to it. The committed
@@ -1011,6 +1019,13 @@ pub mod arena {
 
     /// The room geometry (camera-lab room schema, one room).
     pub const ROOM_PATH: &str = "assets/levels/floor01/cf02_microarena.room.json";
+    /// CF02-FU-C2F U3: FNV-1a 64 of the room file, pinned like the f01 rooms'
+    /// (a constant, a test pins it to the file) and stamped into every PLAYTRACE
+    /// manifest as [`ROOM_PIN_KEY`]. A session recorded before the pin has no such
+    /// key and is not refused for it; one that has it must agree.
+    pub const ROOM_HASH: u64 = 0x4991_e0c7_5078_4c18;
+    /// The `data_pins()` key of [`ROOM_HASH`].
+    pub const ROOM_PIN_KEY: &str = "cf02_arena_room";
     pub const LAYOUT_ID: &str = "floor01_cf02_microarena";
     /// Q29: width, floor (the walking line) and the room height of the DEMO hall.
     pub const WIDTH: i32 = 1152;
@@ -1091,6 +1106,7 @@ pub mod arena {
             charges: &[],
             script: &[],
             ticks,
+            room: crate::combat_scene::FixtureRoom::Arena,
         }
     }
 
@@ -1177,29 +1193,23 @@ pub mod arena {
         ..fixture("", "", 0, 3600)
     };
 
-    /// Fixtures that run on the arena kit and geometry rather than the sample
-    /// corridor: the room fixtures of CF02-F.
+    /// Whether the fixture named `name` runs on the arena kit and geometry rather
+    /// than the sample corridor (CF02-FU-C2F U7): read from the fixture's own
+    /// [`FixtureRoom`](crate::combat_scene::FixtureRoom) field, looked up by name over
+    /// the registries (and the live room statics), not derived from a name prefix.
+    /// A caller that holds the fixture reads `fixture.base.room` itself.
     pub fn fixture_uses_arena(name: &str) -> bool {
-        name == "cf02_arena"
-            || name.starts_with("eng_")
-            || name.starts_with("cf02_arena_")
-            || name.starts_with("companion_arena_")
-            || name.starts_with("cf02_block_")
-            // COMPANION-AI-02 CA2-B2: the `cf02_free_*` fixtures run in the room.
-            || name.starts_with("cf02_free_")
-            // DONUT-PROG-01 DP-D: the blink evidence fixtures that run in the room.
-            || name.starts_with("donut_prog_arena_")
-            // CARL-PROG-01 CP-D: the Engineer pierce room.
-            || name.starts_with("carl_prog_pierce_engineer")
-            || matches!(
-                name,
-                "cf02_goblin_self_own"
-                    | "cf02_intact_shore_ignores_goblins"
-                    | "cf02_parapet_cover"
-                    | "cf02_perch_slab_climb"
-                    | "cf02_perch_above_spit"
-                    | "cf02_perch_dive"
-            )
+        use crate::combat_scene::{Fixture, FixtureRoom};
+        let room = crate::cf02_fixtures::find_party_fixture(name)
+            .map(|f| f.base.room)
+            .or_else(|| Fixture::by_name(name).map(|f| f.room))
+            .or_else(|| {
+                [&LIVE, &LIVE_CP2, &LIVE_ENG, &LIVE_ENG_CP2]
+                    .into_iter()
+                    .find(|f| f.name == name)
+                    .map(|f| f.room)
+            });
+        room == Some(FixtureRoom::Arena)
     }
 
     /// The rotten shore's source id in `CombatEvent::HeroHurt` (the falling block).
@@ -1371,6 +1381,20 @@ pub mod arena {
             let stand = SHORE_STRIKE_X as f32 - 20.0;
             let near = (hero.x - stand).abs() < 6.0;
             raw.move_x = if near { 1.0 } else { towards(stand) };
+            // CF02-FU-C2F U4: a goblin in its tell beside him swings at the shore
+            // whether or not he is in reach, so he steps back out of the swing
+            // (its box reaches 30 px, his body 12) and the trip still counts: the
+            // environmental plan used to stand there and take the blow.
+            let tell_beside = combat.enemies.iter().any(|g| {
+                g.alive()
+                    && g.mode == crate::goblin::GoblinMode::Attack
+                    && g.x > hero.x
+                    && g.x - hero.x < 60.0
+            });
+            if tell_beside {
+                raw.move_x = -1.0;
+                return raw;
+            }
             if near && tick.is_multiple_of(40) {
                 raw.attack = true;
             }
@@ -1388,9 +1412,10 @@ pub mod arena {
             let dir = dx.signum();
             if dx.abs() > JAB_REACH {
                 raw.move_x = dir;
-                // Direct: do not walk into the footprint while the block can still fall.
-                if plan == Plan::Direct
-                    && shore_open
+                // Do not walk into the footprint while the block can still fall. Both
+                // plans keep out (CF02-FU-C2F U4: the Environment plan walked under
+                // the block it had just broken).
+                if shore_open
                     && combat.shore.as_ref().is_some_and(|s| s.hits > 0)
                     && hero.x > SHORE_STRIKE_X as f32 - SHORE_KEEP_OUT
                     && hero.x < SHORE_STRIKE_X as f32 + 110.0
@@ -1400,6 +1425,13 @@ pub mod arena {
                 }
             } else {
                 raw.move_x = dir;
+                // CF02-FU-C2F U4: standing on a goblin's column Carl's jab box (16 to
+                // 22 px in front of him) passes in front of the goblin and misses, as
+                // the room's second-wave goblin showed (four swings taken, none
+                // landed). The Environment plan steps back out of the overlap.
+                if plan == Plan::Environment && dx.abs() < 12.0 {
+                    raw.move_x = -dir;
+                }
                 if press {
                     raw.attack = true;
                 }
@@ -1505,6 +1537,23 @@ pub mod arena {
     /// blink; the AI's own blink is measured by the `cf02_free_blink_*` fixtures.
     /// A pure function of the finished state.
     pub fn donut_blink_pilot(combat: &CombatState, scene: &SceneSim) -> RawInput {
+        blink_pilot(combat, scene, true)
+    }
+
+    /// FA-Q11: [`donut_blink_pilot`] with her swat, pounce and jump withheld only
+    /// while a swing aimed at her is in the blink window (impact 7 to 12 ticks
+    /// away); outside it she plays the normal kit (`Pilot::ArenaDuoBlinkWindow`).
+    /// Measured against the held rule and the no-blink control by the separation
+    /// run: a swing is usually in the middle of her own cast when the window
+    /// opens (the press is then rejected: a busy hero cannot start the blink), so
+    /// the rule as written does not cut the deaths (see the PR).
+    pub fn donut_blink_pilot_window(combat: &CombatState, scene: &SceneSim) -> RawInput {
+        blink_pilot(combat, scene, false)
+    }
+
+    /// `hold_any`: hands withheld for any swing aimed at her (the DP-F rule), else
+    /// only for one in the blink window (FA-Q11).
+    fn blink_pilot(combat: &CombatState, scene: &SceneSim, hold_any: bool) -> RawInput {
         let mut raw = donut_pilot_at(combat, scene, BLINK_PILOT_GOAL_DX);
         let blink = combat.donut_blink();
         let tick = scene.world.tick + 1;
@@ -1528,17 +1577,20 @@ pub mod arena {
                 && (g.x - body.x).abs() <= BLINK_THREAT_PX)
                 .then(|| (g.x, impact.saturating_sub(tell)))
         });
-        // A blink that is ready frees her hands for it: no swat, pounce or jump
-        // while a swing aimed at her is up (a busy hero cannot start the blink).
         let Some(first) = aimed.next() else {
             return raw;
         };
-        raw.attack = false;
-        raw.physical = false;
-        raw.jump = false;
         let threat = std::iter::once(first)
             .chain(aimed)
             .find_map(|(x, left)| (left > windup && left <= windup + 6).then_some(x));
+        // A blink that is ready frees her hands for it: no swat, pounce or jump
+        // while any swing aimed at her is up (a busy hero cannot start the
+        // blink), or, under the FA-Q11 rule, only while one is in the window.
+        if hold_any || threat.is_some() {
+            raw.attack = false;
+            raw.physical = false;
+            raw.jump = false;
+        }
         let Some(threat_x) = threat else {
             return raw;
         };
@@ -1599,6 +1651,20 @@ pub mod arena {
 
         fn root() -> &'static Path {
             Path::new(env!("CARGO_MANIFEST_DIR"))
+        }
+
+        /// CF02-FU-C2F U3: the pinned hash is the room file's, the pin is in
+        /// `data_pins()` and an edit of the room means re-pinning here.
+        #[test]
+        fn the_arena_room_file_is_pinned_and_registered() {
+            let bytes = std::fs::read(root().join(ROOM_PATH)).unwrap();
+            let mut hash = 0xcbf2_9ce4_8422_2325_u64;
+            for b in bytes {
+                hash ^= u64::from(b);
+                hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+            }
+            assert_eq!(hash, ROOM_HASH, "{hash:#018x}");
+            assert!(crate::playtrace::live::data_pins().contains(&(ROOM_PIN_KEY, ROOM_HASH)));
         }
 
         /// The constants of this module are the adopted `q29_*` values of the data

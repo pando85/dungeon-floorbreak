@@ -267,7 +267,7 @@ fn rebuild_scene(manifest: &SessionManifest, root: &Path) -> Result<Reset, Verif
             let fixture = find_party_fixture(&reset.name)
                 .ok_or_else(|| unsupported(format!("unknown party fixture {:?}", reset.name)))?;
             // CF02-F: the room fixtures run on the microarena kit.
-            let kit = if crate::cf02::arena::fixture_uses_arena(fixture.name()) {
+            let kit = if fixture.base.room == crate::combat_scene::FixtureRoom::Arena {
                 crate::cf02::arena::load_arena(root).map_err(unsupported)?
             } else {
                 corridor_kit(root)?
@@ -633,6 +633,11 @@ pub(super) fn check_content(
             && manifest.reset.donut_motion == MotionProfile::Legacy
             && !manifest.content_hashes.contains_key(key)
         {
+            continue;
+        }
+        // CF02-FU-C2F U3: a session recorded before the microarena's room pin has
+        // none; one that has it must agree with this build.
+        if key == crate::cf02::arena::ROOM_PIN_KEY && !manifest.content_hashes.contains_key(key) {
             continue;
         }
         // PT-SCENE (U5 of the #207 review): a room pin is required only of a

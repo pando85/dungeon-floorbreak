@@ -1160,6 +1160,7 @@ mod tests {
             charges: fixture.base.charges,
             script: fixture.base.script,
             ticks: fixture.base.ticks,
+            room: crate::combat_scene::FixtureRoom::Corridor,
         }));
         Box::leak(Box::new(PartyFixture {
             base,
@@ -1516,13 +1517,17 @@ mod tests {
             moving[..=peak_at].windows(2).all(|w| w[1] - w[0] <= 2),
             "the ramp up gains at most 2 px a tick: {moving:?}"
         );
+        // CF02-FU-C2F U1: the pan hands over to the ordinary follow at 4 px left, which
+        // finishes the last few px in one step of at most 4 px (a hero that keeps
+        // running would otherwise never end the pan).
+        let (slowing, handover) = moving.split_at(moving.len() - 1);
         assert!(
-            moving[peak_at..].windows(2).all(|w| w[1] <= w[0]),
+            slowing[peak_at..].windows(2).all(|w| w[1] <= w[0]),
             "then it only slows: {moving:?}"
         );
         assert!((6..=12).contains(&peak), "peak {peak}");
         assert!(
-            moving.last().is_some_and(|v| *v <= 2),
+            slowing.last().is_some_and(|v| *v <= 4) && handover[0] <= 4,
             "a soft arrival: {moving:?}"
         );
         // The same arrival column as the legacy pan, and the pan ends.

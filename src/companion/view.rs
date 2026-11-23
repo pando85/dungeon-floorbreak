@@ -6,10 +6,11 @@
 //! back and never hashed itself. `threats` and `targets` are ordered by
 //! [`StableEntityId`] (goblin, llama, boss, then index, then spawn serial).
 
-use crate::boss::BossThreat;
+use crate::boss::{BossFacts, BossMode, BossThreat};
 use crate::combat::MoveId;
 use crate::companion::profile::ProfileSetId;
 use crate::party::HeroId;
+use crate::prototype::Rect;
 
 /// What kind of enemy an id names. The derived order is the view order:
 /// goblins, then llamas, then the boss.
@@ -151,6 +152,10 @@ pub struct ThreatView {
     /// The Q10 light guard: a further swat would glance.
     pub guarded: bool,
     pub in_view: bool,
+    /// FA-Q10: the absolute x interval of the swing's hitbox (the goblin's box,
+    /// 8 to 30 px ahead of its feet), `None` where the box is not known (the
+    /// llama, the Engineer's ram). The blink's committed trigger reads it.
+    pub swing_x: Option<(f32, f32)>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -183,6 +188,148 @@ pub struct TargetView {
     pub carl_hit_age: Option<u16>,
 }
 
+/// FA-Q02: what the boss is doing, in the five classes the goal layer reads.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BossModeClass {
+    /// A tell is up (pound, second pound, charge): the hit is coming.
+    Tell,
+    /// A strike, the charge, the double step or the rebound: a hitbox is, or is
+    /// about to be, live.
+    Committed,
+    /// The boss takes free damage: Stun, Pinned, the pound recoveries, Flinch.
+    Vulnerable,
+    /// The phase roar.
+    Roar,
+    /// Everything else (dormant, neutral walk, turn, backstep, defeated).
+    Neutral,
+}
+
+impl BossModeClass {
+    /// The class of a boss mode (FA-Q02).
+    pub const fn of(mode: BossMode) -> Self {
+        match mode {
+            BossMode::PoundTell | BossMode::SecondTell | BossMode::ChargeTell => Self::Tell,
+            BossMode::PoundStrike
+            | BossMode::SecondStrike
+            | BossMode::Charge
+            | BossMode::DoubleStep
+            | BossMode::Rebound => Self::Committed,
+            BossMode::Stun
+            | BossMode::Pinned
+            | BossMode::PoundRecover
+            | BossMode::SecondRecover
+            | BossMode::Flinch => Self::Vulnerable,
+            BossMode::Roar => Self::Roar,
+            _ => Self::Neutral,
+        }
+    }
+}
+
+/// FA-Q02: the boss as the goal layer sees it, present whenever a boss is alive
+/// in the room (not only during a tell, unlike [`CompanionView::boss`]). Plain
+/// owned data derived from the boss' hashed state, never hashed itself.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct BossView {
+    pub x: f32,
+    pub foot_y: f32,
+    pub facing: i8,
+    pub hp: u16,
+    pub phase: u8,
+    /// The body box by mode (`None` while dormant).
+    pub hurtbox: Option<Rect>,
+    pub mode_class: BossModeClass,
+    /// Ticks the vulnerable mode still has (`0` outside `Vulnerable`).
+    pub vulnerable_ticks_left: u16,
+    /// Who the boss is after.
+    pub target: Option<HeroId>,
+    /// A charge is up (its tell or the run): the ram is coming along the lane, and
+    /// the answer is the dodge, not a walk.
+    pub charging: bool,
+    /// The mode is a pound recovery (the first or the second pound): the
+    /// shockwave ripples of that pound are still on their way.
+    pub pound_recovery: bool,
+    /// The boss mode is Stun, Pinned, Defeated or Dormant: no standing threat.
+    pub inert: bool,
+    /// The charge lane (FA-Q03): the ram box (x interval) projected ahead of the
+    /// pivot in the direction the boss faces (the run direction while it charges),
+    /// the box x 36..82 where the ram starts.
+    pub ram_box: (f32, f32),
+    /// The x interval of the damaging box a Committed mode has live or about to
+    /// be: the pound's hit box ahead of the pivot, or the live ram box while it
+    /// runs (FA-Q03: "the retreat path crosses a Committed hitbox"). `None`
+    /// outside `Committed` and for the rebound.
+    pub committed_box: Option<(f32, f32)>,
+    /// How far from the pivot a shockwave ripple reaches (`0.0` below phase 2).
+    pub ripple_reach_px: f32,
+}
+
+/// The id of the boss in a view (kind `Boss`, index 0, serial 0).
+pub const BOSS_ID: StableEntityId = StableEntityId {
+    kind: EntityKind::Boss,
+    index: 0,
+    spawn_serial: 0,
+};
+
+impl BossView {
+    /// Build the view from the boss' facts (FA-Q02), `foot_y` being the boss'
+    /// floor.
+    pub fn from_facts(f: &BossFacts, foot_y: f32) -> Self {
+        let class = BossModeClass::of(f.mode);
+        // The ram starts in the direction the boss faces (`run_dir` while it runs).
+        let dir = f32::from(f.run_dir);
+        let (a, b) = (f.x + dir * f.ram_x[0], f.x + dir * f.ram_x[1]);
+        let facing = f32::from(f.facing);
+        let (pa, pb) = (f.x + facing * f.pound_x[0], f.x + facing * f.pound_x[1]);
+        let committed_box = match f.mode {
+            BossMode::Charge => Some((a.min(b), a.max(b))),
+            BossMode::PoundStrike | BossMode::SecondStrike | BossMode::DoubleStep => {
+                Some((pa.min(pb), pa.max(pb)))
+            }
+            _ => None,
+        };
+        Self {
+            x: f.x,
+            foot_y,
+            facing: f.facing,
+            hp: f.hp,
+            phase: f.phase,
+            hurtbox: f.hurtbox,
+            mode_class: class,
+            vulnerable_ticks_left: if class == BossModeClass::Vulnerable {
+                f.vulnerable_ticks_left.unwrap_or(0)
+            } else {
+                0
+            },
+            target: f.target,
+            charging: matches!(f.mode, BossMode::ChargeTell | BossMode::Charge),
+            pound_recovery: matches!(f.mode, BossMode::PoundRecover | BossMode::SecondRecover),
+            inert: matches!(
+                f.mode,
+                BossMode::Stun | BossMode::Pinned | BossMode::Defeated | BossMode::Dormant
+            ),
+            ram_box: (a.min(b), a.max(b)),
+            committed_box,
+            ripple_reach_px: f.ripple_reach_px,
+        }
+    }
+
+    /// The boss as a target for the director's support plan (FA-Q04): standing,
+    /// unguarded, `hp` as the boss' own.
+    pub fn as_target(&self, in_view: bool) -> TargetView {
+        TargetView {
+            id: BOSS_ID,
+            x: self.x,
+            foot_y: self.foot_y,
+            hp: self.hp.min(u16::from(u8::MAX)) as u8,
+            state: TargetState::Standing,
+            guarded: false,
+            in_view,
+            carl_hit: false,
+            carl_hit_age: None,
+        }
+    }
+}
+
 /// The simulation scroll-camera view (CF02-Q40 = AP-Q07): `in_view(x)` is
 /// `!scene.is_offscreen(x, 0.0)`, never the presentation camera.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -213,8 +360,14 @@ pub struct CompanionView {
     pub threats: Vec<ThreatView>,
     /// Ordered by id.
     pub targets: Vec<TargetView>,
-    /// The boss tell, when one is up. Ignored by 01A-core (boss play is 01E).
+    /// The boss tell, when one is up. Ignored by 01A-core; boss play is
+    /// partially enabled by FA-Q02..Q07 (see [`Self::boss_view`]); the rest of
+    /// ADR-0009's 01E stays with 01E.
     pub boss: Option<BossThreat>,
+    /// FA-Q02: the boss as the goal layer sees it, present whenever a boss is
+    /// alive in the room. Only the goal layer's boss play reads it (knob
+    /// `fa_q02_boss_play`).
+    pub boss_view: Option<BossView>,
     /// CF02-DUO-A15: the x interval around Donut that is flat standing ground
     /// at her own foot level (no ledge edge, no wall, no hole), already inset by
     /// her body half width; `None` when she is airborne, stands on nothing
@@ -242,6 +395,15 @@ impl CompanionView {
             .binary_search_by(|t| t.id.cmp(&id))
             .ok()
             .map(|i| &self.targets[i])
+    }
+
+    /// [`Self::target`], or the boss as a target when `id` is [`BOSS_ID`] and
+    /// the view has a boss (FA-Q04: the boss is never in `targets`).
+    pub fn find_target(&self, id: StableEntityId) -> Option<TargetView> {
+        if id == BOSS_ID {
+            return self.boss_view.map(|b| b.as_target(self.view.in_view(b.x)));
+        }
+        self.target(id).copied()
     }
 
     /// The guarantees a builder owes (ordering, finite numbers).
@@ -320,6 +482,7 @@ pub(crate) mod fixtures {
             threats: Vec::new(),
             targets: Vec::new(),
             boss: None,
+            boss_view: None,
             flank_span: None,
         }
     }
@@ -399,5 +562,110 @@ mod tests {
         v.heroes[0].x = 0.0;
         v.heroes.swap(0, 1);
         assert_eq!(v.validate(), Err(ViewError::HeroOrder));
+    }
+
+    // ------------------------------------------------------- FA-Q02: BossView ----
+
+    fn facts(mode: BossMode, x: f32, facing: i8) -> BossFacts {
+        BossFacts {
+            mode,
+            phase: 2,
+            hp: 30,
+            x,
+            facing,
+            target: Some(HeroId::Carl),
+            hurtbox: Some(Rect {
+                left: x - 24.0,
+                bottom: 100.0,
+                width: 68.0,
+                height: 100.0,
+            }),
+            vulnerable_ticks_left: Some(40),
+            run_dir: facing,
+            ram_x: [36.0, 82.0],
+            pound_x: [32.0, 67.0],
+            ripple_reach_px: 176.0,
+            left_wall_x: 32.0,
+            right_wall_x: 608.0,
+        }
+    }
+
+    #[test]
+    fn every_boss_mode_has_the_class_the_plan_names() {
+        use BossMode::*;
+        for (mode, class) in [
+            (PoundTell, BossModeClass::Tell),
+            (SecondTell, BossModeClass::Tell),
+            (ChargeTell, BossModeClass::Tell),
+            (PoundStrike, BossModeClass::Committed),
+            (SecondStrike, BossModeClass::Committed),
+            (Charge, BossModeClass::Committed),
+            (DoubleStep, BossModeClass::Committed),
+            (Rebound, BossModeClass::Committed),
+            (Stun, BossModeClass::Vulnerable),
+            (Pinned, BossModeClass::Vulnerable),
+            (PoundRecover, BossModeClass::Vulnerable),
+            (SecondRecover, BossModeClass::Vulnerable),
+            (Flinch, BossModeClass::Vulnerable),
+            (Roar, BossModeClass::Roar),
+            (Dormant, BossModeClass::Neutral),
+            (Neutral, BossModeClass::Neutral),
+            (Turn, BossModeClass::Neutral),
+            (Backstep, BossModeClass::Neutral),
+            (Defeated, BossModeClass::Neutral),
+        ] {
+            assert_eq!(BossModeClass::of(mode), class, "{mode:?}");
+        }
+    }
+
+    #[test]
+    fn the_view_carries_the_geometry_the_goal_layer_reads() {
+        // A boss at 300 facing left: the ram box and the pound box lie ahead of
+        // the pivot, mirrored.
+        let v = BossView::from_facts(&facts(BossMode::PoundStrike, 300.0, -1), 100.0);
+        assert_eq!(v.ram_box, (218.0, 264.0));
+        assert_eq!(v.committed_box, Some((233.0, 268.0)));
+        assert_eq!(v.mode_class, BossModeClass::Committed);
+        assert!(!v.inert && !v.charging && !v.pound_recovery);
+        assert_eq!(v.ripple_reach_px, 176.0);
+        // The vulnerable ticks are read only in a vulnerable class.
+        assert_eq!(v.vulnerable_ticks_left, 0);
+        let v = BossView::from_facts(&facts(BossMode::Stun, 300.0, -1), 100.0);
+        assert_eq!(v.vulnerable_ticks_left, 40);
+        assert!(v.inert && v.committed_box.is_none());
+        let v = BossView::from_facts(&facts(BossMode::PoundRecover, 300.0, 1), 100.0);
+        assert!(v.pound_recovery && !v.inert);
+        // A running charge: the live ram box in the run direction.
+        let v = BossView::from_facts(&facts(BossMode::Charge, 300.0, 1), 100.0);
+        assert!(v.charging);
+        assert_eq!(v.committed_box, Some((336.0, 382.0)));
+        let v = BossView::from_facts(&facts(BossMode::ChargeTell, 300.0, 1), 100.0);
+        assert!(v.charging && v.committed_box.is_none());
+        // Dormant and defeated are inert; a dormant boss has no body.
+        let mut f = facts(BossMode::Dormant, 480.0, -1);
+        f.hurtbox = None;
+        let v = BossView::from_facts(&f, 100.0);
+        assert!(v.inert && v.hurtbox.is_none());
+    }
+
+    #[test]
+    fn the_boss_is_a_target_only_through_find_target() {
+        let mut v = view(
+            hero(HeroId::Carl, 0.0, Control::Human(0)),
+            hero(HeroId::Donut, 0.0, Control::Companion),
+        );
+        assert!(v.find_target(BOSS_ID).is_none(), "no boss, no target");
+        v.boss_view = Some(BossView::from_facts(
+            &facts(BossMode::Stun, 300.0, -1),
+            100.0,
+        ));
+        let t = v.find_target(BOSS_ID).expect("the boss target");
+        assert_eq!((t.id, t.x, t.foot_y), (BOSS_ID, 300.0, 100.0));
+        assert!(t.in_view && t.state == TargetState::Standing && !t.guarded);
+        // It is never in `targets`, so validate and the id order stay as before.
+        assert!(v.target(BOSS_ID).is_none());
+        assert_eq!(v.validate(), Ok(()));
+        // The boss sorts after every goblin and llama.
+        assert!(BOSS_ID > StableEntityId::goblin(999));
     }
 }

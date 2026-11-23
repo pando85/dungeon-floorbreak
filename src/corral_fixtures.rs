@@ -101,6 +101,7 @@ macro_rules! corral_fixture {
             charges: &[],
             script: &[],
             ticks: $ticks,
+            room: crate::combat_scene::FixtureRoom::Corridor,
         };
         pub static $fix: PartyFixture = PartyFixture {
             base: &$base,

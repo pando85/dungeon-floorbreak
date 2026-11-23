@@ -576,6 +576,7 @@ pub fn launch_with_fixes(
         charges: &[],
         script: WALK_RIGHT,
         ticks: SMOKE_TICKS,
+        room: crate::combat_scene::FixtureRoom::Corridor,
     }));
     Ok(BoilerRun {
         roster,

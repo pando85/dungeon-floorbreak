@@ -1696,6 +1696,74 @@ impl Boss {
     }
 }
 
+/// FA-Q02: the read-only facts the companion's `BossView` is built from, one
+/// plain value per tick (see [`Boss::facts`]). Everything is derived from the
+/// boss' own hashed state and its data; nothing here feeds back.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct BossFacts {
+    pub mode: BossMode,
+    pub phase: u8,
+    pub hp: u16,
+    pub x: f32,
+    pub facing: i8,
+    pub target: Option<HeroId>,
+    /// The body box of the current mode (`None` before the gate closes and after
+    /// the defeat).
+    pub hurtbox: Option<Rect>,
+    /// Ticks the current mode still has, for the modes that take free damage
+    /// (Stun, Pinned, the pound recoveries and the flinch); `None` otherwise.
+    pub vulnerable_ticks_left: Option<u16>,
+    /// The direction of the running or telegraphed charge.
+    pub run_dir: i8,
+    /// The ram box's near and far edge ahead of the boss pivot (px).
+    pub ram_x: [f32; 2],
+    /// The pound's hit box near and far edge ahead of the boss pivot (px).
+    pub pound_x: [f32; 2],
+    /// How far from the boss pivot a shockwave ripple may reach on the ground
+    /// (the origin ahead of the pivot plus the reach plus half the ripple's
+    /// width), `0` while the boss has no shockwave yet (phase below
+    /// `shockwave.from_phase`).
+    pub ripple_reach_px: f32,
+    /// The arena walls the charge runs to.
+    pub left_wall_x: f32,
+    pub right_wall_x: f32,
+}
+
+impl Boss {
+    /// The boss' facts for the companion's `BossView` (FA-Q02).
+    pub fn facts(&self) -> BossFacts {
+        let d = self.data;
+        let left = |len: u16| Some(len.saturating_sub(self.mode_tick));
+        let vulnerable_ticks_left = match self.mode {
+            BossMode::Stun => left(self.by_phase(d.crash.stun_by_phase)),
+            BossMode::Pinned => left(d.rack.pin_ticks),
+            BossMode::PoundRecover | BossMode::SecondRecover => left(d.pound.recover),
+            BossMode::Flinch => left(d.flinch.ticks),
+            _ => None,
+        };
+        BossFacts {
+            mode: self.mode,
+            phase: self.phase,
+            hp: self.hp,
+            x: self.x,
+            facing: self.facing,
+            target: self.target,
+            hurtbox: self.hurtbox(),
+            vulnerable_ticks_left,
+            run_dir: self.run_dir(),
+            ram_x: d.charge.ram_box.x,
+            pound_x: d.pound.hit_box.x,
+            ripple_reach_px: if self.phase >= d.shockwave.from_phase {
+                d.shockwave.origin_px + d.shockwave.reach + d.shockwave.width * 0.5
+            } else {
+                0.0
+            },
+            left_wall_x: d.arena.left_wall_x,
+            right_wall_x: d.arena.right_wall_x,
+        }
+    }
+}
+
 /// The follower's view of the boss (`Boss::threat`).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum BossThreat {

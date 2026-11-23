@@ -78,6 +78,7 @@ fn rig_with(tuning: PartyTuning, slot: Vec<Dummy>) -> PartyFixtureSim {
         charges: &[],
         script: &[],
         ticks: 900,
+        room: crate::combat_scene::FixtureRoom::Corridor,
     }));
     let mut scene = SceneSim::new_at(&run.kit, 360, base.carl_x).unwrap();
     let mut combat = CombatState::new(base, &run.kit, &scene)
@@ -281,10 +282,18 @@ fn steam_she_holds_short_of_the_lane_while_it_is_telegraphed_and_active_and_cros
 
 #[test]
 fn steam_the_assist_partner_without_the_feed_walks_into_it_so_the_fixture_guards_the_case() {
-    let r = steam(assist());
+    // FA-Q15 off: the same run under cf02_assist (no hazard feed) enters the lane.
+    let r = assist_knob_off(|| steam(assist()));
     assert!(
         r.entered.is_some() || !r.hurts.is_empty(),
         "the same run under cf02_assist (no hazard feed) enters the lane: {:?}",
+        r.entered
+    );
+    // FA-Q15 on (the shipped value): the assistant's follow steps are fenced.
+    let r = steam(assist());
+    assert!(
+        r.entered.is_none() && r.hurts.is_empty(),
+        "FA-Q15: the assistant holds at the fence: {:?}",
         r.entered
     );
 }
@@ -318,6 +327,94 @@ fn steam_standing_in_the_lane_when_it_is_telegraphed_she_leaves_before_it_is_act
         t + 23
     );
     assert!(donut_hurts(&s).is_empty(), "{:?}", donut_hurts(&s));
+}
+
+/// DP-FU F2 and the AI hazard regression (DP-Q27 rule 8) in a real hazard room, the
+/// Goblin Boiler: while the valve's steam lane (x 688..768) is telegraphed or
+/// active, no blink destination (a human press, or an AI press held to its hull)
+/// lies with her body over the lane; with the lane quiet the same blink from the
+/// same place lands inside it, so the test guards the rule and not the geometry.
+#[test]
+fn dp_fu_f2_no_blink_destination_lies_in_a_live_hazard_in_the_boiler() {
+    let lane = |x: f32| x + HERO_HALF_WIDTH > STEAM_LEFT && x - HERO_HALF_WIDTH < STEAM_RIGHT;
+    let hull = Some((300.0, 900.0));
+    let start = 620.0;
+    // Quiet lane: the blink from 620 to the right lands in the lane (human and AI).
+    let mut quiet = rig();
+    put(&mut quiet, HeroId::Carl, VALVE_X);
+    for _ in 0..90 {
+        // The camera follows Carl to the valve's column.
+        quiet.step_slots([RawInput::NONE, RawInput::NONE]);
+        put(&mut quiet, HeroId::Donut, start);
+    }
+    for h in [None, hull] {
+        let to = quiet
+            .combat
+            .test_blink_destination(&quiet.scene, 1, h)
+            .expect("a destination with nothing live");
+        assert!(lane(to), "control: the quiet lane is crossable at {to}");
+    }
+    // Live lane: telegraphed, then active, then drained.
+    let mut s = rig();
+    let t = trigger(&mut s, VALVE_X, VALVE);
+    put(&mut s, HeroId::Donut, start);
+    put(&mut s, HeroId::Carl, 560.0);
+    let mut checked = 0;
+    for _ in 0..80 {
+        // Carl and Donut stay put: only the hazard moves under the search.
+        s.step_slots([RawInput::NONE, RawInput::NONE]);
+        put(&mut s, HeroId::Donut, start);
+        put(&mut s, HeroId::Carl, 560.0);
+        let live = feed(&s).iter().any(|n| n.hurts_heroes);
+        if !live {
+            continue;
+        }
+        for h in [None, hull] {
+            if let Some(to) = s.combat.test_blink_destination(&s.scene, 1, h) {
+                assert!(
+                    !lane(to),
+                    "tick {}: lands at {to}, inside the lane",
+                    tick(&s)
+                );
+            }
+        }
+        checked += 1;
+    }
+    assert!(
+        tick(&s) > t && checked >= 20,
+        "the lane was live for {checked} ticks"
+    );
+}
+
+/// CA2-FU-HAZ U-5: the drum's tell is a hazard rectangle in the feed (class Blast,
+/// a telegraph phase, hurting heroes) for exactly as long as it shows, and is gone
+/// after the blast. The weight lands on the drum and sets it off.
+#[test]
+fn u5_the_drum_tell_is_in_the_nav_feed_while_it_shows() {
+    use crate::env_hazard::HazardClass;
+    let mut s = rig();
+    trigger(&mut s, BRACE_X, WEIGHT);
+    put(&mut s, HeroId::Carl, 112.0);
+    put(&mut s, HeroId::Donut, 100.0);
+    let (mut first, mut last, mut shown) = (None, None, 0u32);
+    for _ in 0..200 {
+        step(&mut s);
+        let blast = feed(&s)
+            .into_iter()
+            .find(|n| n.class == HazardClass::Blast && n.phase == NavPhase::Telegraph);
+        if let Some(n) = blast {
+            assert!(n.hurts_heroes, "the drum hurts every hero");
+            first.get_or_insert(tick(&s));
+            last = Some(tick(&s));
+            shown += 1;
+        }
+    }
+    let (first, last) = (first.expect("the tell reached the feed"), last.unwrap());
+    assert_eq!(u64::from(shown), last - first + 1, "one unbroken run");
+    assert!(
+        (20..=26).contains(&shown),
+        "about the drum's 24 tick telegraph: {shown}"
+    );
 }
 
 /// The weight's footprint: a thin telegraph on the floor for 24 ticks, then one
@@ -371,21 +468,41 @@ fn footprint_she_does_not_wait_under_it_with_carl_beyond() {
     assert!(donut_hurts(&s).is_empty());
 }
 
-/// Only the set with the goal layer is fed: under the assist set no event, no
-/// rebuild, the graph is the hazard-free one it always was.
+/// The assist set with FA-Q15 off (`fa_q15_assist_rot_avoidance`): the old set.
+fn assist_knob_off<R>(run: impl FnOnce() -> R) -> R {
+    crate::combat_scene::with_profile_override(
+        |f| f.cf02_assist.fix_all = crate::companion::profile::FixAll::default(),
+        run,
+    )
+}
+
+/// Only a set with the goal layer or FA-Q15 is fed: under the assist set with the
+/// knob off no event, no rebuild, the graph is the hazard-free one it always
+/// was; with it on (the shipped value) the assistant is fed too.
 #[test]
 fn only_the_autonomous_partners_set_is_fed() {
-    let mut s = rig_with(assist(), Vec::new());
-    trigger(&mut s, VALVE_X, VALVE);
+    assist_knob_off(|| {
+        let mut s = rig_with(assist(), Vec::new());
+        trigger(&mut s, VALVE_X, VALVE);
+        for _ in 0..40 {
+            step(&mut s);
+        }
+        assert_eq!(s.combat.companion_stats().hazard_feed_changes, 0);
+        let events = s.combat.take_companion_events();
+        assert!(
+            !events
+                .iter()
+                .any(|e| matches!(e, CompanionEvent::HazardFeed { .. }))
+        );
+    });
+    let mut a = rig_with(assist(), Vec::new());
+    trigger(&mut a, VALVE_X, VALVE);
     for _ in 0..40 {
-        step(&mut s);
+        step(&mut a);
     }
-    assert_eq!(s.combat.companion_stats().hazard_feed_changes, 0);
-    let events = s.combat.take_companion_events();
     assert!(
-        !events
-            .iter()
-            .any(|e| matches!(e, CompanionEvent::HazardFeed { .. }))
+        a.combat.companion_stats().hazard_feed_changes > 0,
+        "FA-Q15: the assistant is fed"
     );
     let mut f = rig();
     trigger(&mut f, VALVE_X, VALVE);
@@ -570,6 +687,12 @@ mod acid {
     /// ticks), and the takeoff is not set back by the hazard's height. The pockets'
     /// patches are all linked to a slime and drain when it falls (the next test);
     /// a takeoff clearance in `nav.rs` is a design note for the top tier.
+    ///
+    /// CA2-FU-HAZ U-3 (PR-A): a takeoff set back from the anchor's end by 8, 16, 24, 32,
+    /// 48 and 64 px was tried in `nav.rs` `transit`; no standing jump clears this 64 px
+    /// pool (the body is over it for most of the flight), so the limit stands and the
+    /// change was dropped. The real fix is a running jump or a bridge, which is a
+    /// design decision.
     #[test]
     fn a_persistent_patch_reaches_her_feed_she_is_not_hurt_and_the_stall_is_pinned() {
         let r = run(None, 600);

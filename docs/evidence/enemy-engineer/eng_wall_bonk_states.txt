@@ -1,39 +1,39 @@
 # eng_wall_bonk: fixture eng_parapet_bonk, ticks 4..78 step 2
-COMBAT_ANIM_STATE tick=4 carl=- g0=E/attack_tell:9 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=6 carl=- g0=E/attack_tell:9 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=8 carl=- g0=E/attack_tell:9 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=10 carl=- g0=E/attack_tell:10 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=12 carl=- g0=E/attack_tell:10 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=14 carl=- g0=E/attack_tell:10 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=16 carl=- g0=E/attack_tell:10 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=18 carl=- g0=E/attack_tell:10 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=20 carl=- g0=E/attack_tell:10 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=22 carl=- g0=E/attack_tell:10 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=24 carl=- g0=E/attack_tell:10 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=26 carl=- g0=E/attack_tell:10 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=28 carl=- g0=E/attack_tell:10 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=30 carl=- g0=E/attack_tell:10 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=32 carl=- g0=E/attack_tell:10 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=34 carl=- g0=E/attack_ram:11 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=36 carl=- g0=E/attack_ram:12 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=38 carl=- g0=E/attack_ram:12 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=40 carl=- g0=E/attack_ram:12 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=42 carl=- g0=E/attack_ram:12 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=44 carl=- g0=E/attack_ram:12 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=46 carl=- g0=E/attack_ram:12 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=48 carl=- g0=E/attack_ram:12 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=50 carl=- g0=E/attack_ram:12 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=52 carl=- g0=E/hurt:14 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=54 carl=- g0=E/hurt:14 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=56 carl=- g0=E/hurt:14 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=58 carl=- g0=E/hurt:14 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=60 carl=- g0=E/hurt:14 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=62 carl=- g0=E/hurt:14 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=64 carl=- g0=E/attack_recover:13 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=66 carl=- g0=E/attack_recover:13 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=68 carl=- g0=E/attack_recover:13 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=70 carl=- g0=E/attack_recover:13 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=72 carl=- g0=E/attack_recover:13 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=74 carl=- g0=E/attack_recover:13 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=76 carl=- g0=E/attack_recover:13 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=78 carl=- g0=E/attack_recover:13 acting_carl=- acting_donut=- acting_goblins=-
+COMBAT_ANIM_STATE tick=4 carl=- g0=E/attack_tell:9 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=6 carl=- g0=E/attack_tell:9 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=8 carl=- g0=E/attack_tell:9 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=10 carl=- g0=E/attack_tell:10 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=12 carl=- g0=E/attack_tell:10 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=14 carl=- g0=E/attack_tell:10 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=16 carl=- g0=E/attack_tell:10 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=18 carl=- g0=E/attack_tell:10 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=20 carl=- g0=E/attack_tell:10 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=22 carl=- g0=E/attack_tell:10 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=24 carl=- g0=E/attack_tell:10 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=26 carl=- g0=E/attack_tell:10 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=28 carl=- g0=E/attack_tell:10 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=30 carl=- g0=E/attack_tell:10 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=32 carl=- g0=E/attack_tell:10 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=34 carl=- g0=E/attack_ram:11 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=36 carl=- g0=E/attack_ram:12 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=38 carl=- g0=E/attack_ram:12 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=40 carl=- g0=E/attack_ram:12 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=42 carl=- g0=E/attack_ram:12 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=44 carl=- g0=E/attack_ram:12 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=46 carl=- g0=E/attack_ram:12 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=48 carl=- g0=E/attack_ram:12 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=50 carl=- g0=E/attack_ram:12 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=52 carl=- g0=E/hurt:14 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=54 carl=- g0=E/hurt:14 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=56 carl=- g0=E/hurt:14 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=58 carl=- g0=E/hurt:14 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=60 carl=- g0=E/hurt:14 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=62 carl=- g0=E/hurt:14 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=64 carl=- g0=E/attack_recover:13 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=66 carl=- g0=E/attack_recover:13 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=68 carl=- g0=E/attack_recover:13 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=70 carl=- g0=E/attack_recover:13 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=72 carl=- g0=E/attack_recover:13 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=74 carl=- g0=E/attack_recover:13 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=76 carl=- g0=E/attack_recover:13 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=78 carl=- g0=E/attack_recover:13 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=-

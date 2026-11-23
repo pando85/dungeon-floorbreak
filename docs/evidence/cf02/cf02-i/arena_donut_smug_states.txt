@@ -1,16 +1,16 @@
 # arena_donut_smug: fixture cf02_arena_direct, ticks 378..406 step 2
-COMBAT_ANIM_STATE tick=378 carl=punch_b:7 g0=A/corpse:25 g1=B/corpse:25 g2=A/corpse:25 g3=B/idle:1 g4=A/hurt:17 l0=hurt:11 acting_carl=- acting_donut=- acting_goblins=-,-,-,taunt:3,-
-COMBAT_ANIM_STATE tick=380 carl=punch_b:7 g0=A/corpse:25 g1=B/corpse:25 g2=A/corpse:25 g3=B/idle:1 g4=A/hurt:17 l0=hurt:11 acting_carl=- acting_donut=- acting_goblins=-,-,-,taunt:4,-
-COMBAT_ANIM_STATE tick=382 carl=punch_b:7 g0=A/corpse:25 g1=B/corpse:25 g2=A/corpse:25 g3=B/idle:2 g4=A/hurt:17 l0=hurt:11 acting_carl=- acting_donut=- acting_goblins=-,-,-,taunt:4,-
-COMBAT_ANIM_STATE tick=384 carl=punch_a:0 g0=A/corpse:25 g1=B/corpse:25 g2=A/corpse:25 g3=B/idle:2 g4=A/idle:3 l0=hurt:11 acting_carl=- acting_donut=- acting_goblins=-,-,-,taunt:4,-
-COMBAT_ANIM_STATE tick=386 carl=punch_a:0 g0=A/corpse:25 g1=B/corpse:25 g2=A/corpse:25 g3=B/idle:2 g4=A/idle:3 l0=hurt:11 acting_carl=- acting_donut=smug:2 acting_goblins=-,-,-,taunt:4,-
-COMBAT_ANIM_STATE tick=388 carl=punch_a:1 g0=A/corpse:25 g1=B/corpse:25 g2=A/corpse:25 g3=B/idle:2 g4=A/idle:0 l0=hurt:11 acting_carl=- acting_donut=- acting_goblins=-,-,-,taunt:3,-
-COMBAT_ANIM_STATE tick=390 carl=punch_a:1 g0=A/corpse:25 g1=B/corpse:25 g2=A/corpse:25 g3=B/idle:2 g4=A/idle:0 l0=hurt:11 acting_carl=- acting_donut=- acting_goblins=-,-,-,taunt:3,-
-COMBAT_ANIM_STATE tick=392 carl=punch_b:4 g0=A/corpse:25 g1=B/corpse:25 g2=A/corpse:25 g3=B/idle:2 g4=A/idle:0 l0=idle:0 acting_carl=- acting_donut=- acting_goblins=-,-,-,taunt:3,-
-COMBAT_ANIM_STATE tick=394 carl=punch_b:4 g0=A/corpse:25 g1=B/corpse:25 g2=A/corpse:25 g3=B/idle:3 g4=A/idle:0 l0=idle:1 acting_carl=- acting_donut=- acting_goblins=-,-,-,taunt:3,-
-COMBAT_ANIM_STATE tick=396 carl=punch_b:5 g0=A/corpse:25 g1=B/corpse:25 g2=A/corpse:25 g3=B/idle:3 g4=A/idle:0 l0=idle:1 acting_carl=- acting_donut=- acting_goblins=-,-,-,taunt:3,-
-COMBAT_ANIM_STATE tick=398 carl=punch_b:5 g0=A/corpse:25 g1=B/corpse:25 g2=A/corpse:25 g3=B/idle:3 g4=A/idle:0 l0=idle:1 acting_carl=- acting_donut=- acting_goblins=-,-,-,taunt:4,-
-COMBAT_ANIM_STATE tick=400 carl=punch_b:5 g0=A/corpse:25 g1=B/corpse:25 g2=A/corpse:25 g3=B/idle:3 g4=A/idle:1 l0=idle:1 acting_carl=- acting_donut=- acting_goblins=-,-,-,taunt:4,-
-COMBAT_ANIM_STATE tick=402 carl=punch_b:6 g0=A/corpse:25 g1=B/corpse:25 g2=A/corpse:25 g3=B/idle:0 g4=A/idle:1 l0=idle:1 acting_carl=- acting_donut=- acting_goblins=-,-,-,taunt:4,-
-COMBAT_ANIM_STATE tick=404 carl=punch_b:6 g0=A/corpse:25 g1=B/corpse:25 g2=A/corpse:25 g3=B/idle:0 g4=A/walk:4 l0=idle:2 acting_carl=- acting_donut=- acting_goblins=-,-,-,taunt:4,-
-COMBAT_ANIM_STATE tick=406 carl=punch_b:6 g0=A/corpse:25 g1=B/corpse:25 g2=A/corpse:25 g3=B/idle:0 g4=A/walk:4 l0=idle:2 acting_carl=- acting_donut=- acting_goblins=-,-,-,-,-
+COMBAT_ANIM_STATE tick=378 carl=punch_b:7 g0=A/corpse:25 g1=B/corpse:25 g2=A/corpse:25 g3=B/idle:1 g4=A/hurt:17 l0=hurt:11 acting_carl=- acting_donut=- acting_goblins=-,-,-,taunt:3,- acting_slammed=259/228,167/136,167/136,-,-
+COMBAT_ANIM_STATE tick=380 carl=punch_b:7 g0=A/corpse:25 g1=B/corpse:25 g2=A/corpse:25 g3=B/idle:1 g4=A/hurt:17 l0=hurt:11 acting_carl=- acting_donut=- acting_goblins=-,-,-,taunt:4,- acting_slammed=261/230,169/138,169/138,-,-
+COMBAT_ANIM_STATE tick=382 carl=punch_b:7 g0=A/corpse:25 g1=B/corpse:25 g2=A/corpse:25 g3=B/idle:2 g4=A/hurt:17 l0=hurt:11 acting_carl=- acting_donut=- acting_goblins=-,-,-,taunt:4,- acting_slammed=263/232,171/140,171/140,-,-
+COMBAT_ANIM_STATE tick=384 carl=punch_a:0 g0=A/corpse:25 g1=B/corpse:25 g2=A/corpse:25 g3=B/idle:2 g4=A/idle:3 l0=hurt:11 acting_carl=- acting_donut=- acting_goblins=-,-,-,taunt:4,- acting_slammed=265/234,173/142,173/142,-,-
+COMBAT_ANIM_STATE tick=386 carl=punch_a:0 g0=A/corpse:25 g1=B/corpse:25 g2=A/corpse:25 g3=B/idle:2 g4=A/idle:3 l0=hurt:11 acting_carl=- acting_donut=smug:2 acting_goblins=-,-,-,taunt:4,- acting_slammed=267/236,175/144,175/144,-,-
+COMBAT_ANIM_STATE tick=388 carl=punch_a:1 g0=A/corpse:25 g1=B/corpse:25 g2=A/corpse:25 g3=B/idle:2 g4=A/idle:0 l0=hurt:11 acting_carl=- acting_donut=- acting_goblins=-,-,-,taunt:3,- acting_slammed=269/238,177/146,177/146,-,-
+COMBAT_ANIM_STATE tick=390 carl=punch_a:1 g0=A/corpse:25 g1=B/corpse:25 g2=A/corpse:25 g3=B/idle:2 g4=A/idle:0 l0=hurt:11 acting_carl=- acting_donut=- acting_goblins=-,-,-,taunt:3,- acting_slammed=271/240,179/148,179/148,-,-
+COMBAT_ANIM_STATE tick=392 carl=punch_b:4 g0=A/corpse:25 g1=B/corpse:25 g2=A/corpse:25 g3=B/idle:2 g4=A/idle:0 l0=idle:0 acting_carl=- acting_donut=- acting_goblins=-,-,-,taunt:3,- acting_slammed=273/242,181/150,181/150,-,-
+COMBAT_ANIM_STATE tick=394 carl=punch_b:4 g0=A/corpse:25 g1=B/corpse:25 g2=A/corpse:25 g3=B/idle:3 g4=A/idle:0 l0=idle:1 acting_carl=- acting_donut=- acting_goblins=-,-,-,taunt:3,- acting_slammed=275/244,183/152,183/152,-,-
+COMBAT_ANIM_STATE tick=396 carl=punch_b:5 g0=A/corpse:25 g1=B/corpse:25 g2=A/corpse:25 g3=B/idle:3 g4=A/idle:0 l0=idle:1 acting_carl=- acting_donut=- acting_goblins=-,-,-,taunt:3,- acting_slammed=277/246,185/154,185/154,-,-
+COMBAT_ANIM_STATE tick=398 carl=punch_b:5 g0=A/corpse:25 g1=B/corpse:25 g2=A/corpse:25 g3=B/idle:3 g4=A/idle:0 l0=idle:1 acting_carl=- acting_donut=- acting_goblins=-,-,-,taunt:4,- acting_slammed=279/248,187/156,187/156,-,-
+COMBAT_ANIM_STATE tick=400 carl=punch_b:5 g0=A/corpse:25 g1=B/corpse:25 g2=A/corpse:25 g3=B/idle:3 g4=A/idle:1 l0=idle:1 acting_carl=- acting_donut=- acting_goblins=-,-,-,taunt:4,- acting_slammed=281/250,189/158,189/158,-,-
+COMBAT_ANIM_STATE tick=402 carl=punch_b:6 g0=A/corpse:25 g1=B/corpse:25 g2=A/corpse:25 g3=B/idle:0 g4=A/idle:1 l0=idle:1 acting_carl=- acting_donut=- acting_goblins=-,-,-,taunt:4,- acting_slammed=283/252,191/160,191/160,-,-
+COMBAT_ANIM_STATE tick=404 carl=punch_b:6 g0=A/corpse:25 g1=B/corpse:25 g2=A/corpse:25 g3=B/idle:0 g4=A/walk:4 l0=idle:2 acting_carl=- acting_donut=- acting_goblins=-,-,-,taunt:4,- acting_slammed=285/254,193/162,193/162,-,-
+COMBAT_ANIM_STATE tick=406 carl=punch_b:6 g0=A/corpse:25 g1=B/corpse:25 g2=A/corpse:25 g3=B/idle:0 g4=A/walk:4 l0=idle:2 acting_carl=- acting_donut=- acting_goblins=-,-,-,-,- acting_slammed=287/256,195/164,195/164,-,-

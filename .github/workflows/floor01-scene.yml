@@ -122,6 +122,14 @@ jobs:
           diff docs/evidence/anim-int-01/capture_log_strip_landing.txt artifacts/anim-int-01/evidence/capture_log_strip_landing.txt
       - name: Combat fixtures, headless replays (must equal the committed logs and anim traces and be deterministic)
         run: bash scripts/ci_floor01_combat.sh headless
+      - name: CF02 arena fixtures, release build replays (the owner handoff runs --release; must equal the committed replays)
+        run: |
+          cargo build --release --locked --bin floor01_scene
+          for f in cf02_arena_direct cf02_arena_environment cf02_arena_swap cf02_arena_coop cf02_free_arena_direct cf02_goblin_self_own cf02_perch_dive cf02_arena_three_attempts; do
+            ./target/release/floor01_scene --headless-floor01-smoke --party-fixture "$f" \
+              | grep -E '^(COMBAT_EVENT|COMBAT_STATE|PARTY_STATE)' \
+              | diff "docs/evidence/cf02/replays/headless_${f}.txt" -
+          done
       - name: Combat fixtures, real Bevy 1920x1080 loop (must reproduce the headless events and hash) and CP-01 and ART-INT-02 captures
         run: xvfb-run -a -s '-screen 0 1920x1080x24' bash scripts/ci_floor01_combat.sh render
       - name: DEMO-01 autopilot probes, headless (must equal the committed logs, be deterministic and identical at gore presets 1 to 4)

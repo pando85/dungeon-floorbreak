@@ -375,9 +375,9 @@ impl NavDriver {
         {
             return None;
         }
-        let ask = |bounds| {
+        let ask = |bounds, min_width| {
             self.graph
-                .safe_anchor(
+                .safe_anchor_wide(
                     actor,
                     SafeContext {
                         here,
@@ -385,10 +385,18 @@ impl NavDriver {
                         unlocks: Unlocks::NONE,
                         bounds,
                     },
+                    min_width,
                 )
                 .ok()
         };
-        let safe = ask(bounds).or_else(|| bounds.and_then(|_| ask(None)))?;
+        // CA2-FU-HAZ U-2: an anchor too narrow for her body plus the fence margins
+        // would leave it on the hazard's edge, so wider anchors come first; only
+        // when none exists does she take the nearest one.
+        let fit = 2.0 * (HERO_HALF_WIDTH + PLACE_INSET_PX);
+        let safe = ask(bounds, fit)
+            .or_else(|| bounds.and_then(|_| ask(None, fit)))
+            .or_else(|| ask(bounds, 0.0))
+            .or_else(|| bounds.and_then(|_| ask(None, 0.0)))?;
         let (x0, x1) = self.graph.anchor_span(safe)?;
         let (_, top) = self.graph.anchor_pos(safe)?;
         let (lo, hi) = self.hold_span(safe, x0, x1);
@@ -2337,6 +2345,36 @@ mod tests {
             "out of the lane: {}",
             hero_body.x
         );
+    }
+
+    /// CA2-FU-HAZ U-2: an evacuation never ends with her body over a hazard's edge
+    /// when a wider safe anchor exists. Between two lanes 20 px apart (too narrow
+    /// for her 24 px body plus the fence margins) the nearest safe anchor is that
+    /// gap, whose hold span is empty; the evacuation must go on to the open ground
+    /// beyond instead of parking in the gap.
+    #[test]
+    fn an_evacuation_never_parks_on_an_anchor_too_narrow_for_her_body() {
+        let blocks = flat();
+        let mut driver = NavDriver::new(&blocks, NavConfig::integrated()).unwrap();
+        driver
+            .set_hazards(vec![lane(600.0, 80.0, 1), lane(700.0, 80.0, 2)], &blocks)
+            .unwrap();
+        for x in [610.0, 640.0, 670.0, 720.0, 760.0] {
+            let me = standing(x, 0.0);
+            let goal = driver
+                .evacuation(HeroId::Donut, me, None)
+                .unwrap_or_else(|| panic!("{x}: a way out"));
+            let body = Rect {
+                left: goal.x - HERO_HALF_WIDTH,
+                bottom: 0.0,
+                width: 2.0 * HERO_HALF_WIDTH,
+                height: 2.0 * HERO_HALF_HEIGHT,
+            };
+            assert!(
+                !driver.hazards().iter().any(|h| h.rect.overlaps(body)),
+                "{x}: the goal {goal:?} leaves her body on a hazard"
+            );
+        }
     }
 
     #[test]

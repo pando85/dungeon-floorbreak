@@ -249,6 +249,7 @@ pub fn launch(root: &Path) -> Result<HazardsRun, String> {
         charges: &[],
         script: WALK_RIGHT,
         ticks: SMOKE_TICKS,
+        room: crate::combat_scene::FixtureRoom::Corridor,
     }));
     Ok(HazardsRun {
         kit,

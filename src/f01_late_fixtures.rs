@@ -262,6 +262,14 @@ pub struct JuicerReport {
     pub carl_trace: Vec<f32>,
     /// The width of Donut's column range over the run (px).
     pub donut_x_span: f32,
+    /// FA-Q07: how many times the boss' ram began (the first tick of its
+    /// charge) with Donut's body in the ram box (x 36..82 projected ahead of the
+    /// boss) and how many rams began in all.
+    pub ram_lane_hits: u32,
+    pub rams: u32,
+    /// FA-Q27-AD2 (M10): her distance from the boss (px) `M10_READ_TICKS` after each
+    /// Retreat entry.
+    pub retreat_distances: Vec<f32>,
 }
 
 impl JuicerReport {
@@ -293,7 +301,17 @@ pub fn juicer_room_for(
     root: &Path,
     party: &'static PartyFixture,
 ) -> Result<PartyFixtureSim, String> {
-    let (carl, donut) = Loadout::Story.flags();
+    juicer_room_loadout(root, party, Loadout::Story)
+}
+
+/// [`juicer_room_for`] under a given loadout (`--f01-loadout all` holds every
+/// capability from the first tick, the blink included).
+pub fn juicer_room_loadout(
+    root: &Path,
+    party: &'static PartyFixture,
+    loadout: Loadout,
+) -> Result<PartyFixtureSim, String> {
+    let (carl, donut) = loadout.flags();
     let kit = load_arena(root)?;
     let base = party.base;
     let scene = SceneSim::new_at(&kit, 360, base.carl_x)?;
@@ -318,12 +336,23 @@ pub fn juicer_run(
     who: JuicerWho,
     seed: u64,
 ) -> Result<(JuicerReport, PartyFixtureSim), String> {
-    let mut sim = juicer_room_for(
+    juicer_run_loadout(root, who, seed, Loadout::Story)
+}
+
+/// [`juicer_run`] under a given loadout.
+pub fn juicer_run_loadout(
+    root: &Path,
+    who: JuicerWho,
+    seed: u64,
+    loadout: Loadout,
+) -> Result<(JuicerReport, PartyFixtureSim), String> {
+    let mut sim = juicer_room_loadout(
         root,
         match who {
             JuicerWho::Companion => &JUICER_COMPANION_PARTY,
             _ => &JUICER_ROOM_PARTY,
         },
+        loadout,
     )?;
     let mut carl_x = sim.scene.world.hero.x;
     let mut carl_trace = Vec::new();
@@ -336,8 +365,12 @@ pub fn juicer_run(
     let mut defeated_tick = None;
     let mut exit_tick = None;
     let mut deaths = 0u32;
+    let (mut ram_lane_hits, mut rams) = (0u32, 0u32);
+    let mut last_mode = None;
     let mut last_restarts = sim.combat.restarts;
     let mut swap_pressed = false;
+    let (mut retreat_distances, mut open_retreats) = (Vec::new(), Vec::<u64>::new());
+    let mut was_retreating = false;
     for _ in 0..JUICER_RUN_TICKS {
         let tick = sim.scene.world.tick + 1;
         let controlled = sim.party.controlled_hero();
@@ -386,6 +419,41 @@ pub fn juicer_run(
             deaths += 1;
             last_restarts = sim.combat.restarts;
         }
+        // FA-Q27-AD2 (M10): her distance from the boss after each Retreat entry.
+        let retreating = sim.combat.autonomy_state(HeroId::Donut).goal()
+            == crate::companion::autonomy::Goal::Retreat;
+        if retreating && !was_retreating {
+            open_retreats.push(sim.scene.world.tick);
+        }
+        was_retreating = retreating;
+        if let Some(boss) = sim.combat.boss.as_ref() {
+            let now = sim.scene.world.tick;
+            open_retreats.retain(|t0| {
+                if now == t0 + crate::cf02_free_fixtures::M10_READ_TICKS {
+                    retreat_distances.push((sim.scene.world.donut_body.x - boss.x).abs());
+                    false
+                } else {
+                    true
+                }
+            });
+        }
+        // FA-Q07: the ram tick, the first tick of the charge.
+        if let Some(boss) = sim.combat.boss.as_ref() {
+            if boss.mode == crate::boss::BossMode::Charge
+                && last_mode != Some(crate::boss::BossMode::Charge)
+            {
+                rams += 1;
+                let view =
+                    crate::companion::view::BossView::from_facts(&boss.facts(), boss.floor_y());
+                let (lo, hi) = view.ram_box;
+                let x = sim.scene.world.donut_body.x;
+                ram_lane_hits += u32::from(
+                    x + crate::prototype::HERO_HALF_WIDTH > lo
+                        && x - crate::prototype::HERO_HALF_WIDTH < hi,
+                );
+            }
+            last_mode = Some(boss.mode);
+        }
         let now_released = sim.combat.boss.as_ref().is_some_and(|b| b.released());
         if defeated_tick.is_none() && now_released {
             defeated_tick = Some(sim.scene.world.tick);
@@ -418,6 +486,9 @@ pub fn juicer_run(
         grants: combat_grants(&sim.combat),
         carl_trace,
         donut_x_span: donut_span.1 - donut_span.0,
+        ram_lane_hits,
+        rams,
+        retreat_distances,
     };
     Ok((report, sim))
 }
@@ -784,16 +855,30 @@ mod tests {
             0x94b0_0648_b505_dfb2,
         ],
         [
-            0x1186_55c8_5819_b0be,
-            0x6f0d_12f6_adef_d12c,
-            0x2b96_5564_5736_7aaf,
-            0xc603_b4ef_d283_e981,
-            0x524a_d8e2_44e9_b078,
-            0x175d_8d84_9655_49d1,
-            0x51fa_9446_32c6_a7c4,
-            0x3d74_1be9_b14b_7757,
-            0x286d_7ed5_22b8_f6a4,
+            0x6883_2bef_c1cc_0d03,
+            0xd406_9c98_7d59_d1b6,
+            0x233d_c06a_20d4_51a3,
+            0x0201_21d9_0a23_96fd,
+            0xae3e_cf76_7062_28ba,
+            0x74fc_062d_8939_d304,
+            0x6a09_dfb0_76d2_419c,
+            0x8c96_844d_074c_af81,
+            0xd943_53a1_cecc_4ef2,
         ],
+    ];
+
+    /// The Companion row of [`GOLDEN_JUICER_PILOTS`] as it was before PR-A: what
+    /// the knob-off check (every fix-all flag off) must reproduce byte for byte.
+    const GOLDEN_JUICER_COMPANION_KNOBS_OFF: [u64; 9] = [
+        0x1186_55c8_5819_b0be,
+        0x6f0d_12f6_adef_d12c,
+        0x2b96_5564_5736_7aaf,
+        0xc603_b4ef_d283_e981,
+        0x524a_d8e2_44e9_b078,
+        0x175d_8d84_9655_49d1,
+        0x51fa_9446_32c6_a7c4,
+        0x3d74_1be9_b14b_7757,
+        0x286d_7ed5_22b8_f6a4,
     ];
 
     fn juicer_reports() -> Vec<JuicerReport> {
@@ -864,38 +949,246 @@ mod tests {
         }
     }
 
-    /// The boundary of the companion runs (PTB-AD7): under a boss `cf02_free`
-    /// hunts nothing (CA2-Q35, until COMPANION-AI-01E), so Donut escorts and
-    /// idles while Carl's fight is tick-identical to solo Carl's. When 01E gives
-    /// her boss behaviour, this test is the named, deliberate change.
+    /// The fix-all knobs all off: `cf02_free` as it shipped before PR-A.
+    fn knobs_off(f: &mut crate::companion::profile::ProfileFile) {
+        f.cf02_free.fix_all = crate::companion::profile::FixAll::default();
+    }
+
+    /// FA-Q01, the passive boundary of the companion runs (PTB-AD7, CA2-FU-BOSS):
+    /// with boss play off (`fa_q02_boss_play`) `cf02_free` hunts nothing under a
+    /// boss (CA2-Q35), so Donut escorts and idles while Carl's fight is
+    /// tick-identical to solo Carl's. She takes the hurts and never retreats,
+    /// blinks, starts a move or lands a hit. This is the knob-off identity of
+    /// FA-Q02..Q07 as well: the final state hash equals the pre-PR-A golden.
     #[test]
-    fn the_companion_escorts_but_takes_no_part_in_the_juicer_fight() {
+    fn fa_q01_the_companion_escorts_but_takes_no_part_in_the_juicer_fight() {
+        crate::combat_scene::with_profile_override(knobs_off, || {
+            for seed in JUICER_SEEDS {
+                let (solo, _) = juicer_run(&root(), JuicerWho::CarlSolo, seed).unwrap();
+                let (comp, sim) = juicer_run(&root(), JuicerWho::Companion, seed).unwrap();
+                assert_eq!(
+                    comp.hash, GOLDEN_JUICER_COMPANION_KNOBS_OFF[seed as usize],
+                    "knob off reproduces the old hash, seed {seed}"
+                );
+                assert_eq!(comp.defeated_tick, solo.defeated_tick, "seed {seed}");
+                assert_eq!(comp.exit_tick, solo.exit_tick, "seed {seed}");
+                assert_eq!(
+                    comp.carl_trace, solo.carl_trace,
+                    "Carl's run is solo Carl's"
+                );
+                // She is present and decides and walks...
+                let donut = sim.combat.autonomy_state(HeroId::Donut).stats();
+                assert!(donut.decisions > 0, "seed {seed}: her autonomy runs");
+                assert!(comp.donut_x_span > 100.0, "seed {seed}: she walks");
+                assert_ne!(comp.hash, solo.hash, "her block is part of the state");
+                // ...but starts no move, lands no hit, hunts nothing, never retreats
+                // and never blinks.
+                let stats = sim.combat.companion_stats();
+                assert_eq!(stats.assist_starts[1], 0, "seed {seed}");
+                assert_eq!(stats.interrupt_starts[1], 0, "seed {seed}");
+                assert_eq!(stats.chain_presses[1], 0, "seed {seed}");
+                assert_eq!(donut.hunt_evaluations, 0, "seed {seed}");
+                assert_eq!(donut.retreat_entries, 0, "seed {seed}: never retreats");
+                assert_eq!(
+                    (donut.blink_presses_retreat, donut.blink_presses_committed),
+                    (0, 0),
+                    "seed {seed}: never blinks"
+                );
+                assert!(
+                    !sim.combat
+                        .events
+                        .iter()
+                        .any(|e| matches!(e, CombatEvent::DonutGlance { .. })),
+                    "seed {seed}: no Donut hit on the boss"
+                );
+                // The boss lands blows on her (CA2-FU-BOSS: nearly every hurt of the
+                // run is hers) and she never answers.
+                assert!(hurts_of(&sim, HeroId::Donut) > 0, "seed {seed}");
+            }
+        });
+    }
+
+    /// `HeroHurt` events of `hero` in a finished run.
+    fn hurts_of(sim: &PartyFixtureSim, hero: HeroId) -> usize {
+        sim.combat
+            .events
+            .iter()
+            .filter(|e| matches!(e, CombatEvent::HeroHurt { hero: h, .. } if *h == hero))
+            .count()
+    }
+
+    /// Landed boss hits of hero slot `player` (0 Carl, 1 Donut): `BossHurt`
+    /// events with damage.
+    fn boss_hits_of(sim: &PartyFixtureSim, player: u32) -> usize {
+        sim.combat
+            .events
+            .iter()
+            .filter(|e| matches!(e, CombatEvent::BossHurt { source, .. } if *source == player))
+            .count()
+    }
+
+    fn median(mut v: Vec<usize>) -> usize {
+        v.sort_unstable();
+        v[v.len() / 2]
+    }
+
+    /// FA-Q07, the acceptance of the boss play (Juicer, `cf02_free` partner, the
+    /// Carl pilot, seeds 0..8): Carl is credited with the defeat and the room
+    /// clears on 9/9; her median landed hits on the boss are at least 3; her
+    /// median hurts are no more than Carl's; she retreats at least once per run
+    /// on at least 7 of 9; she is never in the ram box at the ram tick. The
+    /// determinism replay (twice, identical) is mandatory. The numeric rows are
+    /// FA-Q30 targets (two tuning iterations, recorded in the PR); the measured
+    /// values print.
+    #[test]
+    fn fa_q07_the_companion_fights_the_juicer_and_carl_takes_the_kill() {
+        let (mut her_hits, mut her_hurts, mut carl_hurts) = (Vec::new(), Vec::new(), Vec::new());
+        let (mut retreating, mut lane, mut far) = (0, 0, 0);
         for seed in JUICER_SEEDS {
-            let (solo, _) = juicer_run(&root(), JuicerWho::CarlSolo, seed).unwrap();
-            let (comp, sim) = juicer_run(&root(), JuicerWho::Companion, seed).unwrap();
-            assert_eq!(comp.defeated_tick, solo.defeated_tick, "seed {seed}");
-            assert_eq!(comp.exit_tick, solo.exit_tick, "seed {seed}");
-            assert_eq!(
-                comp.carl_trace, solo.carl_trace,
-                "Carl's run is solo Carl's"
+            let (r, sim) = juicer_run(&root(), JuicerWho::Companion, seed).unwrap();
+            let (again, _) = juicer_run(&root(), JuicerWho::Companion, seed).unwrap();
+            assert_eq!(r.hash, again.hash, "determinism replay, seed {seed}");
+            // The invariants: the room clears and the defeat is Carl's.
+            let defeated = r.defeated_tick.unwrap_or_else(|| panic!("{}", r.line()));
+            assert!(r.exit_tick.unwrap_or_else(|| panic!("{}", r.line())) > defeated);
+            let credit = sim.combat.events.iter().find_map(|e| match *e {
+                CombatEvent::EnemyDefeated {
+                    target, instigator, ..
+                } if target == crate::boss::BOSS_ENEMY_ID => Some(instigator),
+                _ => None,
+            });
+            assert_eq!(credit, Some(Some(0)), "Carl is credited, seed {seed}");
+            assert_eq!(r.deaths, 0, "{}", r.line());
+            let stats = sim.combat.autonomy_state(HeroId::Donut).stats();
+            her_hits.push(boss_hits_of(&sim, 1));
+            her_hurts.push(hurts_of(&sim, HeroId::Donut));
+            carl_hurts.push(hurts_of(&sim, HeroId::Carl));
+            retreating += usize::from(stats.retreat_entries >= 1);
+            lane += usize::from(r.ram_lane_hits > 0);
+            // M10 (FA-Q27-AD2): every retreat ends at least 96 px from the boss.
+            println!("FA-Q07 seed {seed} M10 distances {:?}", r.retreat_distances);
+            far += usize::from(
+                !r.retreat_distances.is_empty() && r.retreat_distances.iter().all(|d| *d >= 96.0),
             );
-            // She is present and decides and walks...
-            let donut = sim.combat.autonomy_state(HeroId::Donut).stats();
-            assert!(donut.decisions > 0, "seed {seed}: her autonomy runs");
-            assert!(comp.donut_x_span > 100.0, "seed {seed}: she walks");
-            assert_ne!(comp.hash, solo.hash, "her block is part of the state");
-            // ...but starts no move, lands no hit and hunts nothing.
-            let stats = sim.combat.companion_stats();
-            assert_eq!(stats.assist_starts[1], 0, "seed {seed}");
-            assert_eq!(stats.interrupt_starts[1], 0, "seed {seed}");
-            assert_eq!(stats.chain_presses[1], 0, "seed {seed}");
-            assert_eq!(donut.hunt_evaluations, 0, "seed {seed}");
+            println!(
+                "FA-Q07 seed {seed}: defeated {defeated} her_hits {} her_hurts {} carl_hurts {} \
+                 retreats {} rams {} in_lane {}",
+                boss_hits_of(&sim, 1),
+                hurts_of(&sim, HeroId::Donut),
+                hurts_of(&sim, HeroId::Carl),
+                stats.retreat_entries,
+                r.rams,
+                r.ram_lane_hits
+            );
+            assert!(r.rams > 0, "the boss rams at least once, seed {seed}");
+        }
+        let (mh, mu, mc) = (median(her_hits), median(her_hurts), median(carl_hurts));
+        println!(
+            "FA-Q07: median her hits {mh}, her hurts {mu}, Carl hurts {mc}, retreating {retreating}/9, in the lane {lane}/9"
+        );
+        assert!(mh >= 3, "her median landed hits on the boss: {mh}");
+        assert!(mu <= mc, "her median hurts {mu} vs Carl's {mc}");
+        assert!(retreating >= 7, "retreat entered on {retreating}/9");
+        assert_eq!(lane, 0, "never in the ram box at the ram tick");
+        println!(
+            "FA-Q27-AD2 M10: 60 ticks after every Retreat she is >= 96 px from the boss on {far}/9"
+        );
+        assert_eq!(far, 9, "M10 (FA-Q27-AD2) in the Juicer run");
+    }
+
+    /// The Juicer room under `--f01-loadout all` (the blink held from the first
+    /// tick) with the autonomous partner, played by the Carl pilot until the boss'
+    /// charge tell has 25 ticks left; then Donut is stood 40 px in front of the
+    /// ram's leading edge (the charge aimed at her) and Carl 60 px behind her. Runs
+    /// to the end of the charge. Returns what the run saw.
+    struct StagedCharge {
+        /// Blink presses for the charge.
+        blinks: u32,
+        /// Donut left the ground at some tick before the ram hurt anyone.
+        jumped: bool,
+        /// The per-charge latch after the charge (released).
+        latched_after: bool,
+        /// The hurts her body took from the staged charge to its end (the ram).
+        hurts: u32,
+        /// The tick of the staging and of her blink press (if any).
+        hash: u64,
+    }
+
+    fn stage_charge(seed: u64) -> StagedCharge {
+        use crate::boss::BossMode;
+        let mut sim = juicer_room_loadout(&root(), &JUICER_COMPANION_PARTY, Loadout::All).unwrap();
+        let phase = seed % SWING_PERIOD;
+        let mut staged = false;
+        let mut jumped = false;
+        let mut hurt = false;
+        for _ in 0..400u64 {
+            let tick = sim.scene.world.tick + 1;
+            let input = crate::boss_scene::pilot_inputs(
+                Pilot::Carl,
+                [RawInput::NONE; 2],
+                tick + phase,
+                &sim.combat,
+                &sim.scene,
+            )[0];
+            if !staged {
+                let b = sim.combat.boss.as_ref().unwrap();
+                if b.mode == BossMode::ChargeTell && b.mode_tick >= 14 {
+                    let dir = f32::from(b.facing);
+                    let lead = b.x + dir * 82.0;
+                    sim.scene.world.donut_body.x = lead - dir * 40.0;
+                    sim.scene.world.hero.x = sim.scene.world.donut_body.x - 60.0 * dir;
+                    staged = true;
+                }
+            }
+            sim.step_slots([input, RawInput::NONE]);
+            if staged {
+                hurt |= hurts_of(&sim, HeroId::Donut) > 0;
+                jumped |= !hurt && !sim.scene.world.donut_body.grounded;
+                if sim.combat.boss.as_ref().unwrap().mode == BossMode::Stun {
+                    break;
+                }
+            }
+        }
+        assert!(staged, "the boss charged, seed {seed}");
+        let st = sim.combat.autonomy_state(HeroId::Donut);
+        StagedCharge {
+            blinks: st.stats().blink_presses_committed,
+            jumped,
+            latched_after: st.charge_latched(),
+            hurts: hurts_of(&sim, HeroId::Donut) as u32,
+            hash: sim.state_hash(),
+        }
+    }
+
+    /// FA-Q09: with the blink held and a charge aimed at her, the AI blinks (the
+    /// window opens at the follow layer's jump lead plus 2) and the follow layer's
+    /// dodge jump stays silent for that charge, on every seed; the latch is
+    /// released when the charge is over. Knob off (the shipped window of windup
+    /// plus 6, the jump at 18): no blink, and she jumps.
+    #[test]
+    fn fa_q09_a_charge_aimed_at_her_is_answered_by_a_blink_and_no_dodge_jump() {
+        for seed in 0..9u64 {
+            let on = stage_charge(seed);
+            assert!(on.blinks >= 1, "the blink fires, seed {seed}");
+            assert!(!on.jumped, "no dodge jump on that charge, seed {seed}");
+            assert!(!on.latched_after, "the latch is per charge, seed {seed}");
+            assert_eq!(on.hash, stage_charge(seed).hash, "replays, seed {seed}");
+            let off = crate::combat_scene::with_profile_override(
+                |f| f.cf02_free.fix_all.fa_q09_blink_charge_window = false,
+                || stage_charge(seed),
+            );
+            assert_eq!(off.blinks, 0, "the shipped window is dead, seed {seed}");
+            assert!(off.jumped, "the follow layer's dodge jumps, seed {seed}");
+            assert_ne!(on.hash, off.hash);
+            // F1 of the PR #250 review: the blink must save her from the ram, not just
+            // fire. It points along the ram's travel, so this is measured, per seed:
+            // her ram hurts with the knob on never exceed those with it off.
+            println!("FA_Q09_HURTS seed {seed} on {} off {}", on.hurts, off.hurts);
             assert!(
-                !sim.combat
-                    .events
-                    .iter()
-                    .any(|e| matches!(e, CombatEvent::DonutGlance { .. })),
-                "seed {seed}: no Donut hit on the boss"
+                on.hurts <= off.hurts,
+                "the blink hurts her more than the jump, seed {seed}: {} against {}",
+                on.hurts,
+                off.hurts
             );
         }
     }

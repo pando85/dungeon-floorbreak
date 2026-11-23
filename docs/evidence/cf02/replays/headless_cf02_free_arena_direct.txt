@@ -67,5 +67,5 @@ COMBAT_EVENT tick=578 kind=goblin_interrupted goblin=3
 COMBAT_EVENT tick=590 kind=move_started move=jab instance=21
 COMBAT_EVENT tick=593 kind=hit move=jab instance=21 target=3 damage=1 health_left=0 hit_stop=6
 COMBAT_EVENT tick=593 kind=enemy_defeated target=3
-COMBAT_STATE fixture=cf02_free_arena_direct seed=0xcf02fe08 tick=1800 elapsed=1800 hero_hp=2 deaths=0 enemies=e0=548.800/0,e1=614.334/0,e2=694.334/0,e3=906.701/0,e4=933.668/0 hash=75d9fddf259626d7 shore=0/Intact/Seated block_bottom=140.00 llamas=l0=888.495/0
-PARTY_STATE fixture=cf02_free_arena_direct mode=solo controlled=Carl carl_hp=2 donut_hp=4 deaths=0 hash=bac0d64831960ead
+COMBAT_STATE fixture=cf02_free_arena_direct seed=0xcf02fe08 tick=1800 elapsed=1800 hero_hp=2 deaths=0 enemies=e0=548.800/0,e1=614.334/0,e2=694.334/0,e3=906.701/0,e4=933.668/0 hash=b551fe6b886a69b0 shore=0/Intact/Seated block_bottom=140.00 llamas=l0=888.495/0
+PARTY_STATE fixture=cf02_free_arena_direct mode=solo controlled=Carl carl_hp=2 donut_hp=4 deaths=0 hash=e2a9e0bb633cef16

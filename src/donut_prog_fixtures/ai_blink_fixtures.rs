@@ -388,6 +388,23 @@ fn every_ai_blink_fixture_replays_twice_and_matches_its_golden() {
     }
 }
 
+/// FA-Q09 and FA-Q10 knob off: with the boss-charge window, the dodge latch and
+/// the swing reach gate off (and every other fix-all flag), the four DP-E
+/// fixtures hash as they always did; they also match with the knobs on (none of
+/// the four has a swing 47 px away or a charge in the window), so PR-A moves no
+/// DP-E golden.
+#[test]
+fn the_blink_fixtures_with_the_fix_all_knobs_off_keep_their_goldens() {
+    crate::combat_scene::with_profile_override(
+        |f| f.cf02_free.fix_all = crate::companion::profile::FixAll::default(),
+        || {
+            for ((name, f), golden) in FIXTURES.iter().zip(GOLDENS) {
+                assert_eq!(f().state_hash(), golden, "{name}");
+            }
+        },
+    );
+}
+
 // ------------------------------------------------------------------- asserts --
 
 #[test]

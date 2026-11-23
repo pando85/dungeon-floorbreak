@@ -212,6 +212,7 @@ const fn beat_fixture(
         charges,
         script: &[],
         ticks,
+        room: crate::combat_scene::FixtureRoom::Corridor,
     }
 }
 

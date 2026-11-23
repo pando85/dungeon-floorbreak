@@ -234,6 +234,11 @@ pub fn data_pins() -> Vec<(&'static str, u64)> {
             crate::f01_mastery::ENCOUNTER_PIN_KEY,
             crate::f01_mastery::ENCOUNTER_HASH,
         ),
+        // CF02-FU-C2F U3: the microarena's room file.
+        (
+            crate::cf02::arena::ROOM_PIN_KEY,
+            crate::cf02::arena::ROOM_HASH,
+        ),
         // PT-SCENE: the manifest of the rooms `--scene f01_late` launches. The
         // Boiler's two pins above and this one are scoped by room, on both sides
         // (`f01_late::pin_applies`): stamped into and required of a recording

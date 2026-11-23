@@ -25,7 +25,7 @@ Tick 40 shows the left end, the spawn and the rotten shore; tick 330 is the auto
 | Beat (design question) | Fixture | What the replay shows |
 | --- | --- | --- |
 | Direct (Q32, Q39) | `cf02_arena_direct` | the room is completed solo by the direct plan on tick 745 with no death; the AI Donut starts 3 assist moves (swats on 362, 422, 552) and lands 3 of the 16 hits (18.8 %, floor: at least 3 starts, at most 25 %) |
-| Environmental (Q31, Q32) | `cf02_arena_environment` | Carl strikes the shore once (243), one goblin swing trips it once (`shore_tripped goblin=0 hits=2 broke=0 credited=0`, 351), Carl's next hit breaks it (403) and the block lands (439). The stand-in plan dies twice on this route in the 1800-tick run and does not finish the room by it (review follow-up U4) |
+| Environmental (Q31, Q32) | `cf02_arena_environment` | Carl strikes the shore once (323), one goblin swing trips it (`shore_tripped goblin=0 hits=2 broke=0 credited=0`, 381), the next swing breaks it (`hits=3 broke=1`, 473) and the block lands (509). Since review follow-up U4 the stand-in plan completes the room by this route (no deaths, last enemy at 814; it used to die twice) |
 | 1P swap (Q19) | `cf02_arena_swap` | the solo swap happens twice in the room (the second press is the one the 12-tick cooldown lets through) |
 | Cooperation (Q32) | `cf02_arena_coop` | two players: P2 Donut swats the tell aimed at Carl and Carl finishes; the room is complete on 597 |
 | Three attempts (Q32, Q58) | `cf02_arena_three_attempts` | Carl is defeated three times in front of the first wave; each restart draws its temperaments again from the bag (two brawlers, two cowards, one show-off) and the reactions differ per attempt |

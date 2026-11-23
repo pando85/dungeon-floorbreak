@@ -472,7 +472,9 @@ pub struct ActingAnimators {
     whiffs: Vec<u64>,
     watch: Option<CarlMoveWatch>,
     /// Globs within the flinch distance of Carl on the last tick (owner, dir).
-    near_globs: Vec<(u32, i8)>,
+    /// The globs near Carl last tick, by instance identity (owner and spawn tick,
+    /// CF02-FU-I FU4: two globs of one llama in one direction are not one).
+    near_globs: Vec<(u32, u32)>,
     // Carl move memory.
     prev_melee: Option<(MoveId, bool)>,
     bail_age: Option<u32>,
@@ -761,11 +763,11 @@ impl ActingAnimators {
                 _ => acting.near_miss_counted = false,
             }
         }
-        let mut near_globs: Vec<(u32, i8)> = Vec::new();
+        let mut near_globs: Vec<(u32, u32)> = Vec::new();
         for glob in &combat.globs {
             let gap = rect_gap_px(&glob.rect(), &hurtbox);
             if gap > 0.0 && gap <= near {
-                near_globs.push((glob.owner, glob.dir));
+                near_globs.push((glob.owner, glob.spawn_tick));
             }
         }
         for key in &self.near_globs {
@@ -777,7 +779,7 @@ impl ActingAnimators {
             let alive = combat
                 .globs
                 .iter()
-                .find(|g| (g.owner, g.dir) == *key)
+                .find(|g| (g.owner, g.spawn_tick) == *key)
                 .map(|g| rect_gap_px(&g.rect(), &hurtbox));
             flinch |= match alive {
                 Some(gap) => gap > near,
@@ -818,11 +820,15 @@ impl ActingAnimators {
             if !fresh {
                 self.whiffs.clear();
             } else if carl_can_show && self.frustration_cooldown == 0 {
-                self.whiffs.clear();
+                // CF02-FU-I FU3: the run of whiffs is spent only when the overlay
+                // really starts: a running flinch refuses the start, and the
+                // frustration stays pending (until its window passes) instead of
+                // being lost.
                 if self
                     .carl_overlay
                     .start(t, CarlOverlay::Frustration, t.q70_frustration_ticks)
                 {
+                    self.whiffs.clear();
                     self.carl_overlay_total = t.q70_frustration_ticks;
                     self.frustration_cooldown = t.q70_frustration_cooldown;
                 }
@@ -901,7 +907,7 @@ impl ActingAnimators {
                 in_move: donut_busy,
                 morale_reaction: false,
                 locomotion: loco(donut_loco),
-                press_this_tick: false,
+                press_this_tick: view.donut_press_edge,
             },
         );
         self.donut_pose = match (selection.layer, selection.overlay) {
@@ -1032,11 +1038,23 @@ impl ActingAnimators {
                     .map_or_else(|| "-".to_owned(), |p| p.pose.label())
             })
             .collect();
+        // CF02-FU-I FU5: the slammed clock of each goblin (ticks since its slammed
+        // frame may show, and since it landed), `-` while it lives.
+        let slammed: Vec<String> = self
+            .goblins
+            .iter()
+            .map(|g| match (g.dead_age, g.landed_age) {
+                (None, _) => "-".to_owned(),
+                (Some(d), None) => format!("{d}/-"),
+                (Some(d), Some(l)) => format!("{d}/{l}"),
+            })
+            .collect();
         format!(
-            " acting_carl={} acting_donut={} acting_goblins={}",
+            " acting_carl={} acting_donut={} acting_goblins={} acting_slammed={}",
             label(&self.carl_pose),
             label(&self.donut_pose),
-            goblins.join(",")
+            goblins.join(","),
+            slammed.join(",")
         )
     }
 }

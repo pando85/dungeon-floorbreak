@@ -210,6 +210,7 @@ impl Layout {
             charges: &[],
             script: &[],
             ticks: 900,
+            room: crate::combat_scene::FixtureRoom::Corridor,
         }));
         run.fixture = fixture;
         let enc = encounter_of(&run, self);

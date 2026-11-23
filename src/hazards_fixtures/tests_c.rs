@@ -202,6 +202,50 @@ fn haz_room_reach_matrix_catches_a_wall_across_the_lane() {
 /// the props stay as `Machine::Rot` without a sticker state); the outcomes are unchanged,
 /// and the nine Rot-on hashes did not move. The old and new values are listed in the PR that moved them.
 const DIRECT_PINNED: [u64; 18] = [
+    0x1732_2c2f_4963_7b35,
+    0xdb89_2cec_ea2f_bcb3,
+    0x7489_3510_9ad5_dd73,
+    0x5a4d_9ec3_b170_069e,
+    0x7c98_b011_b795_c321,
+    0x676b_cc53_bc0d_1443,
+    0xd5f3_41e2_cc02_69a8,
+    0x3459_49fa_92e8_4799,
+    0xe35f_57c1_3201_ffa4,
+    0x94c1_214a_4bd7_afe9,
+    0xa652_739a_8c15_38f9,
+    0x0a2b_088c_fa1e_2243,
+    0x0f18_753f_67d3_717a,
+    0xd5d8_5ccb_a1ef_882e,
+    0xae56_4957_70d7_2ed1,
+    0x3b16_983e_75ef_a99d,
+    0xcd16_463c_b787_ad0d,
+    0x50ae_43e9_a860_3e69,
+];
+pub(crate) const SOLO_CARL_PINNED: [u64; 9] = [
+    0x1732_2c2f_4963_7b35,
+    0xdb89_2cec_ea2f_bcb3,
+    0x7489_3510_9ad5_dd73,
+    0x5a4d_9ec3_b170_069e,
+    0x7c98_b011_b795_c321,
+    0x676b_cc53_bc0d_1443,
+    0xd5f3_41e2_cc02_69a8,
+    0x3459_49fa_92e8_4799,
+    0xe35f_57c1_3201_ffa4,
+];
+const SOLO_DONUT_PINNED: [u64; 9] = [
+    0x7572_3337_2c34_8c8b,
+    0x2d84_ed17_2d96_4c59,
+    0x0f1b_3947_ca6a_bab9,
+    0xe4cb_608d_ba67_3368,
+    0x386f_5504_1a1b_1c27,
+    0x8c66_62b1_9008_d769,
+    0x5ba0_7b39_d059_1e2b,
+    0x422d_01ba_f97f_158e,
+    0x530e_b5f2_d488_727b,
+];
+/// The hazard room hashes before PR-A (main at the PR-B merge): with every fix-all knob
+/// off the room replays them (FA-Q15, FA-Q16).
+const DIRECT_PINNED_KNOBS_OFF: [u64; 18] = [
     0x1d8a_7cab_ceff_8420,
     0x39fb_ed35_46a0_4a46,
     0x04a6_2a41_368d_8218,
@@ -221,7 +265,7 @@ const DIRECT_PINNED: [u64; 18] = [
     0x5f17_277d_e0dc_27eb,
     0x5990_bc2a_72b9_be5e,
 ];
-pub(crate) const SOLO_CARL_PINNED: [u64; 9] = [
+const SOLO_CARL_PINNED_KNOBS_OFF: [u64; 9] = [
     0x1d8a_7cab_ceff_8420,
     0x39fb_ed35_46a0_4a46,
     0x04a6_2a41_368d_8218,
@@ -232,7 +276,7 @@ pub(crate) const SOLO_CARL_PINNED: [u64; 9] = [
     0xe715_aadb_b058_b65f,
     0x486f_87ca_9c4b_b527,
 ];
-const SOLO_DONUT_PINNED: [u64; 9] = [
+const SOLO_DONUT_PINNED_KNOBS_OFF: [u64; 9] = [
     0x2572_dd09_b087_e632,
     0x330a_1554_c17d_b294,
     0x89e2_1099_5538_9e5a,
@@ -245,6 +289,17 @@ const SOLO_DONUT_PINNED: [u64; 9] = [
 ];
 /// FA-Q14 (PR-D): first pins of the un-ignored `haz_room_donut_fights`.
 const DONUT_FIGHTS_PINNED: [u64; 9] = [
+    0x0ed1_1e96_74e1_7354,
+    0xcb56_1d14_e4a4_1784,
+    0x9fae_f718_f59a_c7b8,
+    0x1118_430c_5aec_d669,
+    0x203d_8b16_5243_ce0d,
+    0x1d12_e01e_00e0_bdb6,
+    0x3a70_1378_f19d_b682,
+    0xdadc_abce_096b_5138,
+    0x2c56_bed8_c6a4_5145,
+];
+const DONUT_FIGHTS_PINNED_KNOBS_OFF: [u64; 9] = [
     0x8d5d_6885_d6b8_04c7,
     0xabe4_de8f_4347_fe57,
     0x5a73_3dab_4026_0b03,
@@ -255,6 +310,37 @@ const DONUT_FIGHTS_PINNED: [u64; 9] = [
     0x5f2b_b532_9329_42c3,
     0xe4e1_d92b_48fd_ae1a,
 ];
+
+/// FA-Q15 and FA-Q16 moved the three tables above; with every fix-all knob off the
+/// hazard room replays the pre-PR-A hashes on every seed (the direct route with the
+/// Rot kind on and off, solo Carl, solo Donut).
+#[test]
+fn the_hazard_room_with_the_fix_all_knobs_off_keeps_its_old_pins() {
+    crate::combat_scene::with_profile_override(crate::combat_scene::fix_all_off, || {
+        let mut direct = Vec::new();
+        for rot in [true, false] {
+            for seed in SEEDS {
+                direct.push(run(&root(), Who::CarlSolo, seed, rot).unwrap().hash);
+            }
+        }
+        assert_eq!(direct, DIRECT_PINNED_KNOBS_OFF, "direct: {direct:#018x?}");
+        let donut: Vec<u64> = SEEDS
+            .into_iter()
+            .map(|seed| run(&root(), Who::DonutBySwap, seed, true).unwrap().hash)
+            .collect();
+        assert_eq!(donut, SOLO_DONUT_PINNED_KNOBS_OFF, "donut: {donut:#018x?}");
+        assert_eq!(direct[..9], SOLO_CARL_PINNED_KNOBS_OFF[..]);
+        let fights: Vec<u64> = SEEDS
+            .into_iter()
+            .map(|seed| run(&root(), Who::DonutFights, seed, true).unwrap().hash)
+            .collect();
+        assert_eq!(
+            fights, DONUT_FIGHTS_PINNED_KNOBS_OFF,
+            "fights: {fights:#018x?}"
+        );
+    });
+}
+
 const COMPANION_PINNED: [u64; 9] = [
     0x5a9c_abdd_ecca_9386,
     0x6362_c33e_87fd_1513,

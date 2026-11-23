@@ -153,6 +153,7 @@ pub fn launch(root: &Path) -> Result<HoarderRun, String> {
         charges: &[],
         script: &[],
         ticks: 0,
+        room: crate::combat_scene::FixtureRoom::Corridor,
     }));
     Ok(HoarderRun {
         kit,

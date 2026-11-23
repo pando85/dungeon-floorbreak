@@ -468,13 +468,17 @@ impl Args {
         if let Some(tuning) = self.room_pilot.and_then(|p| p.tuning()) {
             return tuning.uncontrolled_hero;
         }
-        match self.companion.unwrap_or(if self.f01_room_scene() {
-            CompanionChoice::Cf02Free
-        } else if self.cf02.rules {
-            CompanionChoice::Cf02Assist
-        } else {
-            CompanionChoice::Off
-        }) {
+        // FA-Q08 (FA-Q07 met): room 5 defaults to `cf02_free` like rooms 2, 4 and 6;
+        // `--companion off` restores the follow-and-jump bot.
+        match self
+            .companion
+            .unwrap_or(if self.f01_room_scene() || self.juicer_room() {
+                CompanionChoice::Cf02Free
+            } else if self.cf02.rules {
+                CompanionChoice::Cf02Assist
+            } else {
+                CompanionChoice::Off
+            }) {
             CompanionChoice::Off => UncontrolledHero::FollowAndJumpBot,
             CompanionChoice::Cf02Assist => UncontrolledHero::Companion(ProfileSetId::Cf02Assist),
             CompanionChoice::V0 => UncontrolledHero::Companion(ProfileSetId::CompanionV0),
@@ -508,7 +512,16 @@ impl Args {
     /// refusal text; a room scene that ever accepted a user fixture would have to track the
     /// fixture's origin instead of inferring it here.
     fn user_fixture(&self) -> bool {
-        self.party_fixture.is_some() || (self.fixture.is_some() && !self.f01_room_scene())
+        // FA-Q08: the Juicer's room (the boss scene under `--f01-room juicer`) sets the
+        // boss fixture as its own placeholder, like every other room scene; it too
+        // refuses a user `--fixture` or `--party-fixture` up front.
+        self.party_fixture.is_some()
+            || (self.fixture.is_some() && !self.f01_room_scene() && !self.juicer_room())
+    }
+
+    /// FA-Q08: this run is the Juicer's room (`--scene f01_late --f01-room juicer`), room 5.
+    fn juicer_room(&self) -> bool {
+        self.boss && self.f01_room.as_deref() == Some("juicer")
     }
 
     /// Whether this run is one of the `f01_late` room scenes with its own room
@@ -523,7 +536,7 @@ impl Args {
         (self.cf02.rules && !self.f01_room_scene())
             || self
                 .fixture
-                .is_some_and(|f| cf02::arena::fixture_uses_arena(f.name))
+                .is_some_and(|f| f.room == dungeon_floorbreak::combat_scene::FixtureRoom::Arena)
     }
 
     /// The party of a live run without a party fixture.
@@ -2679,10 +2692,8 @@ fn main() -> ExitCode {
     let draws_blast = !args.headless
         && (args.fixture.is_some_and(|f| !f.charges.is_empty()) || presents_dynamite);
     // CF02-I: the CF02 sheets are read only by a run under `cf02_rules`.
-    let runs_cf02 = args.cf02.rules
-        || args
-            .fixture
-            .is_some_and(|f| dungeon_floorbreak::cf02::fixture_runs_cf02(f.name));
+    let runs_cf02 =
+        dungeon_floorbreak::cf02::run_uses_cf02(args.cf02.rules, args.fixture.map(|f| f.name));
     let actors = match Actors::load(
         &root,
         source,
@@ -9886,6 +9897,37 @@ mod tests {
         }
     }
 
+    /// FA-Q08: room 5 (the Juicer's room) accepts `--companion` like rooms 2, 4 and 6,
+    /// defaults to `cf02_free` (FA-Q07 met) and `--companion off` restores the follow bot.
+    #[test]
+    fn the_juicers_room_accepts_companion_and_defaults_to_cf02_free() {
+        let juicer = ["--scene", "f01_late", "--f01-room", "juicer"];
+        let with = |extra: &[&str]| args(&[&juicer[..], extra].concat());
+        let who = |a: &Args| a.uncontrolled_hero();
+        assert_eq!(
+            who(&with(&[]).unwrap()),
+            UncontrolledHero::Companion(ProfileSetId::Cf02Free),
+            "the default"
+        );
+        assert_eq!(
+            who(&with(&["--companion", "off"]).unwrap()),
+            UncontrolledHero::FollowAndJumpBot
+        );
+        assert_eq!(
+            who(&with(&["--companion", "cf02_assist"]).unwrap()),
+            UncontrolledHero::Companion(ProfileSetId::Cf02Assist)
+        );
+        assert_eq!(
+            who(&with(&["--companion", "v0"]).unwrap()),
+            UncontrolledHero::Companion(ProfileSetId::CompanionV0)
+        );
+        // A user fixture is still refused, by the room rule.
+        assert!(with(&["--fixture", "cp01_kick", "--companion", "cf02_free"]).is_err());
+        // The plain boss scene keeps its follow bot and refuses `--companion`.
+        let boss = args(&["--scene", "boss_f01"]).unwrap();
+        assert_eq!(who(&boss), UncontrolledHero::FollowAndJumpBot);
+    }
+
     /// FIX-TOOL (PT-FU-B8 item 3): `user_fixture()` is inferred from "a fixture inside a room
     /// scene is the scene's own", which holds only while every room scene refuses a user
     /// `--fixture` or `--party-fixture` up front. Assert the refusal and its text for every
@@ -9940,16 +9982,13 @@ mod tests {
                     );
                 }
             }
-            // The scene's own placeholder is not a user fixture; a real `--fixture` is.
-            // The Juicer's room is the boss scene, whose own fixture still counts as a user
-            // fixture (the known room 5 `--companion` gap, PT-FU-B8 item 2, out of this test).
+            // The scene's own placeholder is not a user fixture; a real `--fixture` is
+            // (FA-Q08: the Juicer's room too).
             let own = args(room).unwrap();
-            if room.last() != Some(&"juicer") {
-                assert!(
-                    !own.user_fixture(),
-                    "{room:?}: the placeholder is the scene's own"
-                );
-            }
+            assert!(
+                !own.user_fixture(),
+                "{room:?}: the placeholder is the scene's own"
+            );
         }
         assert!(args(&["--fixture", "cp01_kick"]).unwrap().user_fixture());
         assert!(

@@ -94,6 +94,10 @@ struct Report {
     missile_spends: u32,
     /// A missile cast refused for no mana, plus a blink press rejected.
     dry_presses: u32,
+    /// FA-Q11: her blink presses the game rejected (`SpecialRejected`: busy in a
+    /// move, hurt or frozen), and the swings her cat reflex evaded.
+    rejected: u32,
+    evaded: u32,
     /// The longest run of ticks each hero's position did not change.
     stuck: [u64; 2],
     hash: u64,
@@ -113,7 +117,16 @@ fn report(sim: &PartyFixtureSim, mut r: Report) -> Report {
             CombatEvent::BlinkCancelled { .. } => r.cancels += 1,
             CombatEvent::BlinkFizzled { .. } => r.fizzles += 1,
             CombatEvent::SpecialRejected { hero: 1, .. }
-            | CombatEvent::Mana(ManaEvent::CastRejected { .. }) => r.dry_presses += 1,
+            | CombatEvent::Mana(ManaEvent::CastRejected { .. }) => {
+                r.dry_presses += 1;
+                if matches!(e, CombatEvent::SpecialRejected { .. }) {
+                    r.rejected += 1;
+                }
+            }
+            CombatEvent::HeroEvaded {
+                hero: crate::party::HeroId::Donut,
+                ..
+            } => r.evaded += 1,
             _ => {}
         }
     }
@@ -343,7 +356,11 @@ fn arena_boost_reports() -> Vec<Report> {
 }
 
 fn arena_blink_reports() -> Vec<Report> {
-    (0..SEEDS)
+    arena_blink_held(SEEDS)
+}
+
+fn arena_blink_held(seeds: u64) -> Vec<Report> {
+    (0..seeds)
         .map(|seed| arena_run(blink_pilot(), seed, true).1)
         .collect()
 }
@@ -352,12 +369,33 @@ fn arena_blink_reports() -> Vec<Report> {
 /// stance** (a step ahead of Carl) with no blink rule and nothing withheld
 /// (`Pilot::ArenaDuoAhead`), so the two differ by the blink alone.
 fn arena_blink_control() -> Vec<Report> {
+    arena_blink_control_n(SEEDS)
+}
+
+fn arena_blink_control_n(seeds: u64) -> Vec<Report> {
     let control = unarmed(overlay(
         find_party_fixture("cf02_arena_coop").unwrap(),
         Pilot::ArenaDuoAhead,
     ));
-    (0..SEEDS)
+    (0..seeds)
         .map(|seed| arena_run(control, seed, true).1)
+        .collect()
+}
+
+/// FA-Q11: the blink pilot whose hands are withheld only while a swing aimed at
+/// her is in the blink window (`Pilot::ArenaDuoBlinkWindow`), the same room,
+/// seeds, capabilities and stance as [`blink_pilot`] (the held rule).
+fn arena_blink_window() -> Vec<Report> {
+    arena_blink_window_n(SEEDS)
+}
+
+fn arena_blink_window_n(seeds: u64) -> Vec<Report> {
+    let window = overlay(
+        find_party_fixture("cf02_arena_coop").unwrap(),
+        Pilot::ArenaDuoBlinkWindow,
+    );
+    (0..seeds)
+        .map(|seed| arena_run(window, seed, true).1)
         .collect()
 }
 
@@ -403,6 +441,12 @@ fn print_the_pilot_reports() {
         emit(&mut out, &r);
     }
     out.push_str(
+        "# FA-Q11 separation run: ArenaDuoBlinkWindow (hands withheld only in the 7..12 tick window)\n",
+    );
+    for r in arena_blink_window() {
+        emit(&mut out, &r);
+    }
+    out.push_str(
         "# reference only: the shipped trailing ArenaDuo pilot (stance -40, no blink): differs in stance as well\n",
     );
     for r in arena_blink_trailing() {
@@ -427,14 +471,18 @@ fn print_the_pilot_reports() {
 const GOLDEN_ARENA_BOOST: u64 = 0xaf27_817c_00c4_b50a;
 const GOLDEN_ARENA_BLINK: u64 = 0x336b_b672_e9a3_e696;
 const GOLDEN_ARENA_AHEAD: u64 = 0xc64c_2fab_503c_c3f6;
+const GOLDEN_ARENA_WINDOW: u64 = 0xcea1_4e3f_878b_8e4c;
+/// FA-Q11: the deaths of the window rule over seeds 0..8 (measured, a pin).
+const WINDOW_DEATHS: u32 = 0;
 const GOLDEN_BOSS_BOOST: u64 = 0x72e0_85f6_2c96_b8cb;
-const GOLDEN_BOSS_ARENA: u64 = 0x514d_33c0_5081_14af;
+const GOLDEN_BOSS_ARENA: u64 = 0x712a_5800_1c60_e674;
 
 #[test]
 fn print_the_pilot_folds() {
     println!("FOLD arena_boost {:#018x}", fold(&arena_boost_reports()));
     println!("FOLD arena_blink {:#018x}", fold(&arena_blink_reports()));
     println!("FOLD arena_ahead {:#018x}", fold(&arena_blink_control()));
+    println!("FOLD arena_window {:#018x}", fold(&arena_blink_window_n(9)));
     println!("FOLD boss_boost {:#018x}", fold(&boss_reports()));
     println!("FOLD boss_arena {:#018x}", fold(&[boss_free_run().1]));
 }
@@ -525,6 +573,81 @@ fn donut_prog_pilot_arena_blink() {
     );
 }
 
+/// FA-Q11, the separation run, re-measured on the PR-B base (point-blank missiles,
+/// the FA-Q17 jab phases) over **nine seeds, 0..8** (the DP-F pins above stay on
+/// their eight): the blink pilot with her hands withheld for any swing aimed at her
+/// (`Pilot::ArenaDuoBlink`, the DP-F held rule), the same pilot with them withheld
+/// only while the swing is in the blink window (`Pilot::ArenaDuoBlinkWindow`, the
+/// FA-Q11 window rule) and the no-blink control at the same stance
+/// (`Pilot::ArenaDuoAhead`). Per seed: deaths, blink presses, accepted blinks,
+/// presses the game rejected, evaded swings.
+///
+/// **Ruling FA-Q11-AD1 (review of PR #250):** the "control plus 1" death target is
+/// retired (the control is not comparable: both blink pilots withhold her hands, and
+/// since PR-B the pilot presses on only 3 of 9 seeds). The window variant stays
+/// harness-only and would replace the shipped pilot only if its deaths are at most
+/// the held rule's. Measured: held 0, window 0, control 1 deaths, so the
+/// condition holds, but the window pilot **accepts no blink on any seed**: on the 3
+/// seeds that press, the press falls while her own cast is running and the game
+/// rejects it (a busy hero cannot start the blink), and her cat reflex evades the
+/// swing instead (5 evaded). A pilot that never blinks cannot stand in for the
+/// human-style blink the DP-Q47 pilot demonstrates, so the held pilot stays the
+/// shipped one and the window run is pinned as a regression pin, not a target.
+/// **Open owner question FA-Q11-OQ1 (game feel):** should a blink press during her
+/// own move's recovery be buffered, or cancel the recovery?
+#[test]
+fn fa_q11_the_blink_pilot_separation_run_reports_the_held_rule_the_window_rule_and_the_control() {
+    const NINE: u64 = 9;
+    let held = arena_blink_held(NINE);
+    let window = arena_blink_window_n(NINE);
+    let control = arena_blink_control_n(NINE);
+    let deaths = |rs: &[Report]| rs.iter().map(|r| r.deaths).sum::<u32>();
+    let sum = |rs: &[Report], f: fn(&Report) -> u32| rs.iter().map(f).sum::<u32>();
+    for (name, rs) in [("held", &held), ("window", &window), ("control", &control)] {
+        println!(
+            "FA-Q11 seeds 0..8 {name}: deaths {} per seed {:?}, presses {:?}, accepted {:?}, rejected {:?}, evaded {:?}",
+            deaths(rs),
+            rs.iter().map(|r| r.deaths).collect::<Vec<_>>(),
+            rs.iter().map(|r| r.started).collect::<Vec<_>>(),
+            rs.iter().map(|r| r.blinks).collect::<Vec<_>>(),
+            rs.iter().map(|r| r.rejected).collect::<Vec<_>>(),
+            rs.iter().map(|r| r.evaded).collect::<Vec<_>>(),
+        );
+    }
+    assert_eq!(window, arena_blink_window_n(NINE), "replays identically");
+    assert_eq!(held, arena_blink_held(NINE), "replays identically");
+    assert_eq!(control, arena_blink_control_n(NINE), "replays identically");
+    for r in held.iter().chain(&window).chain(&control) {
+        assert!(r.stuck.iter().all(|s| *s <= STUCK_LIMIT), "{}", line(r));
+    }
+    assert_eq!(
+        (deaths(&held), deaths(&window), deaths(&control)),
+        (0, WINDOW_DEATHS, 1)
+    );
+    assert!(
+        deaths(&window) <= deaths(&held),
+        "FA-Q11-AD1: the window rule dies no more than the held rule"
+    );
+    // Why it is not shipped: no accepted blink, three presses rejected as busy.
+    assert_eq!(
+        sum(&window, |r| r.blinks),
+        0,
+        "the window pilot never blinks"
+    );
+    assert_eq!(sum(&window, |r| r.rejected), 3, "FA-Q11-OQ1");
+    assert_eq!(
+        sum(&held, |r| r.blinks),
+        3,
+        "the held pilot blinks on 3 seeds"
+    );
+    assert_eq!(
+        fold(&window),
+        GOLDEN_ARENA_WINDOW,
+        "{:#018x}",
+        fold(&window)
+    );
+}
+
 /// DP-Q47: `boss01_full_clear_solo` and `boss01_full_clear_2p` under the
 /// `--donut-prog` boss pin (the boost held, the biscuit read through): both still
 /// clear on the same tick as without the pin, the run ends with the Puddle Jumper
@@ -590,6 +713,20 @@ fn donut_prog_pilot_boss_boost() {
         "{:#018x}",
         fold(&reports)
     );
+}
+
+/// The boss-arena fold as it was before PR-A (FA-Q02..Q07 boss play), main at the PR-B merge: what the
+/// knob-off run must reproduce.
+const GOLDEN_BOSS_ARENA_KNOBS_OFF: u64 = 0x514d_33c0_5081_14af;
+
+/// FA-Q02..Q07 knob off: with every fix-all flag off the DP-F boss-arena run is
+/// byte-identical to its pre-PR-A golden (the boss play moved it).
+#[test]
+fn the_boss_arena_run_with_the_fix_all_knobs_off_keeps_its_old_golden() {
+    crate::combat_scene::with_profile_override(crate::combat_scene::fix_all_off, || {
+        let (_, r) = boss_free_run();
+        assert_eq!(fold(&[r]), GOLDEN_BOSS_ARENA_KNOBS_OFF);
+    });
 }
 
 /// DP-F (deferral 1): the AI Donut under `cf02_free` in the boss arena with the

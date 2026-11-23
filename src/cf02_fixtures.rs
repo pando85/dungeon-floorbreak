@@ -2099,7 +2099,7 @@ mod tests {
         let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         if fixture.base.boss.is_some() {
             crate::boss_scene::load_arena(&root).unwrap()
-        } else if crate::cf02::arena::fixture_uses_arena(fixture.name()) {
+        } else if fixture.base.room == crate::combat_scene::FixtureRoom::Arena {
             crate::cf02::arena::load_arena(&root).unwrap()
         } else {
             EnvKit::load(&root, "assets/levels/floor01/corridor_abc_sample.json").unwrap()
@@ -2198,7 +2198,7 @@ mod tests {
         ("cf02_pincer_token", 0x811d0b6d7b322c35),
         ("cf02_restart_reshuffles", 0x4962783a758ca230),
         ("cf02_arena_direct", 0xf2f36d36993a9288),
-        ("cf02_arena_environment", 0x5146be1636184a36),
+        ("cf02_arena_environment", 0x1832f2c963b23771),
         ("cf02_arena_swap", 0xcd98baad98a101ee),
         ("cf02_arena_coop", 0x5e46d9f55d160c60),
         ("cf02_arena_three_attempts", 0xf197596551d87996),
@@ -4750,18 +4750,18 @@ mod tests {
     }
 
     /// Q31, Q32: the environmental approach trips the shore with a goblin's swing,
-    /// breaks it with Carl's hit and lands the block. (The stand-in plan does not
-    /// yet finish the room by this route: follow-up U4 of the PR #158 review.)
+    /// breaks it with a goblin's second swing and lands the block, and (CF02-FU-C2F U4) the
+    /// plan now finishes the room: one attempt, no deaths, complete.
     #[test]
     fn cf02_arena_environment_trips_breaks_and_lands_the_shore() {
         let sim = replay("cf02_arena_environment");
-        assert!(
-            count_events(&sim, |e| matches!(e, CombatEvent::ShoreTripped { .. })) >= 2,
-            "one swing, one trip per attempt (the run holds attempts that play alike)"
-        );
-        assert!(count_events(&sim, |e| matches!(e, CombatEvent::ShoreHit { .. })) >= 2);
-        assert!(count_events(&sim, |e| matches!(e, CombatEvent::ShoreBroken { .. })) >= 1);
+        // One attempt: Carl's jab hits the shore once, two goblin swings trip it (the
+        // second breaks it: `shore_tripped hits=3 broke=1`) and the block lands.
+        assert!(count_events(&sim, |e| matches!(e, CombatEvent::ShoreTripped { .. })) >= 2);
+        assert!(count_events(&sim, |e| matches!(e, CombatEvent::ShoreHit { .. })) >= 1);
         assert!(count_events(&sim, |e| matches!(e, CombatEvent::ShoreLanded { .. })) >= 1);
+        assert_eq!(sim.combat.deaths, 0);
+        assert!(arena::complete(&sim.combat), "the room is complete");
     }
 
     /// F-3 of the PR #165 review: the environmental plan under the assistant the

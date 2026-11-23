@@ -636,7 +636,7 @@ mod tests {
     }
 
     fn sim_of(fixture: &'static PartyFixture) -> PartyFixtureSim {
-        let kit = if arena::fixture_uses_arena(fixture.name()) {
+        let kit = if fixture.base.room == crate::combat_scene::FixtureRoom::Arena {
             arena_kit()
         } else {
             kit()
