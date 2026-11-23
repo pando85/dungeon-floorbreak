@@ -9,7 +9,7 @@
 - **Boss poses:** new design, height above 40 px, complex anatomy and special states, so the score is **4/4**. That gives **route A plus the silhouette gate**: every key is drawn at the design stage.
 - **Room props:** kit-extension environment pieces are **Easy, route C**: this spec plus one hero key (the lair mound).
 
-Design images: `docs/evidence/hoard-02-design/` (`keys-x3.png`, `keys-1x.png`, `mound-scene-x3.png`).
+Design images: `docs/evidence/hoard-02-design/` (`keys-x3.png`, `keys-1x.png`, `mound-scene-x3.png`, and lit Floor 1 composites at 640 x 360 and 1920 x 1080: `lit-brace-lunge_*`, `lit-drag-getup_*`, `lit-mound-emerge_*`, built by `scripts/make_hoard02_design_scene.py`; offline composites, not runtime captures).
 
 ![HOARD-02 keys next to HOARD-01 keys 0, 7, 8, 15](../evidence/hoard-02-design/keys-x3.png)
 
@@ -51,7 +51,7 @@ The room follows the AREA-HOARDER-01 row of `docs/07-agents/floor-01-area-kits-p
 
 - **Fitting the boxes:** arms and hands may reach past a body box, as in HOARD-01. The torso, hips and head stay inside the box of their mode, within 4 px.
   - Pinned: the torso and head stay in the prone box (top row 78 against 80). The clawing hand reaches 11 px past its front, toward the heroes, on purpose.
-  - Get-up key 24: 57 px tall against the 48 px prone box, because the body is lifting. This is accepted, since the sim keeps the prone box for all 24 ticks.
+  - Get-up key 24: 65 px tall against the 48 px prone box, because she is up on hands and knees. This is accepted, since the sim keeps the prone box for all 24 ticks and the frame shows the lift out of it (H11 allows a top row of 60 or lower).
 
 ## 3. HOARD-01 frames: keep, rework or replace
 
@@ -76,7 +76,7 @@ No HOARD-01 frame is reworked or replaced at this stage: the new states get thei
 | Sim mode | Length (ticks) | Frame (ticks) | Notes |
 |---|---|---|---|
 | Dormant | until the gate closes | none drawn | The mound `sealed` (back plus front) hides her |
-| Reveal | 90 (retry 30) | **26** (1..30), **27** (31..60), **28** (61..90); retry: 10 each | Replaces the 30-tick fade (`REVEAL_FADE_TICKS`), which is removed. The front lip is drawn in front of her until the last Reveal tick, then the mound switches to `opened` |
+| Reveal | 90 (retry 30) | **26** (1..30), **27** (31..60), **28** (61..90); retry: 10 each | Replaces the 30-tick fade (`REVEAL_FADE_TICKS`), which is removed. The front lip is drawn in front of her until the last Reveal tick, then the mound switches to `opened`. R7 applies: she must not look hittable before that tick |
 | Neutral, Turn, Cooldown | | 0-2 loop | unchanged |
 | Walk | | 3-6 loop | unchanged |
 | SwipeTell | 34 | 7 (1..8), 8 (9..34) | unchanged |
@@ -97,14 +97,14 @@ The new atlas tags are `shove_tell` 16-17, `lunge` 18-19 (loop), `jammed` 20-21,
 | Frame | Kind | Pose |
 |---|---|---|
 | 16 shove settle | in-between | Idle → 17: body pitched about 12°, crouched 4 px, arms leaving the sides and opening low. **Width at least 120 px at once** (H13), so it never reads as the narrow, upright swipe gather 7 |
-| **17 shove brace** | key | Low wide brace: torso pitched 26°, lead shoulder ahead, both arms spread low (hands at shin height, palms out), feet wide, roar face. 94 px tall, 154 px wide |
-| **18 lunge heave** | key | Torso near flat at hip height (60°), lead shoulder driving, back leg straight, far arm tucked under. 66 px tall |
-| **19 lunge drag** | key | Same drive; the back foot dragged on its toes, far arm thrown forward-low. 68 px tall |
+| **17 shove brace** | key | Low wide brace: torso pitched 26°, lead shoulder ahead, both arms spread low (hands at shin height, palms out), feet wide, snarl face (glaring eyes under knitted brows, a wide mouth with bared upper and lower teeth, never a round "o"). 94 px tall, 154 px wide |
+| **18 lunge heave** | key | Torso near flat at hip height (60°), head thrust forward and up so it leads the silhouette, back leg straight, far arm tucked under; snarl face. The pitched-torso rig options (`PITCHED`: near shoulder lower in the torso, small sleeve cap, skin of the upper arm showing below it, no shirt tear, stains or neckline under the head) keep every sleeve pixel at least 4 px below the head top. 67 px tall |
+| **19 lunge drag** | key | Same drive and rig options; the back foot dragged on its toes, far arm thrown forward-low; snarl face. 69 px tall |
 | **20 jammed impact** | key | Stopped dead on the obstacle face: torso crumpled back (-10°, squash 0.92), head snapped back, arms flung wide, mouth open. 107 px tall, below the rear-up |
 | 21 jammed stagger | in-between | 20 → 0: body upright (-3°), head hanging 10° forward, near hand pressed to the head, far arm hanging; shut face. The held frame of the 60-tick stagger |
 | **22 pinned** | key | Prone (body 80°, squash 0.62); head raised, eyes open, teeth gritted; the near arm claws forward along the floor, the far forearm props the chest. 50 px tall |
 | 23 pinned strain | in-between | 22 with the chest lifted 2 px, the clawing hand drawn back 6 px (fingers curled), hair swing +2. Same face |
-| **24 get-up push** | key | On both hands and knees, back rounded, head up toward the target. 57 px tall |
+| **24 get-up push** | key | Hands and knees: the near thigh drops from the raised hip to a knee planted under it (a visible thigh angle), the shins trail, both palms are planted flat under the shoulders, the head is raised toward the target with gritted teeth (the pinned face). Same rig options as 18. 65 px tall |
 | 25 get-up rise | in-between | 24 → 0: one foot planted, torso 30°, hands leaving the floor; ends on idle's feet |
 | **26 emerge** | key | Kneeling deep in the mound, shoulders first, palms planted on the rim, head bowed, eyes up. **No arm above the head** (the swipe tell's signal) |
 | 27 emerge rise | in-between | Torso 6°, body 18 px down (instead of 34), hands pushing off the rim, head level |
@@ -131,6 +131,13 @@ Junk that spills on a jam is a **prop** effect (section 7, bank A `disturbed` an
 - **R6 the hoard is not the floor:**
   - Solid junk (bank A, J-B remnants) has a flat, lit top edge (a plank or crate lid line, brightest values of its ramp).
   - Non-solid junk (mound, dressing) has a ragged rag top, no flat lit line, and values about 1 step darker.
+  - Every drawn element's look matches its collision role (table in section 7, column "Collision"). Nothing that heroes walk through may have a flat lit top or a solid front face at lane level, and nothing solid may have a ragged or dark top.
+- **R7 not hittable until she is:** during Reveal she has no hurtbox and no body (90 ticks, 30 on retry). Until the last Reveal tick:
+  - she is drawn inside the junk: the `sealed` front lip covers her below about 31 px in all of frames 26-28;
+  - her sprite is drawn at the mound's shadow value (a presentation tint of about 1 ramp step darker, the same step R6 uses for non-solid junk), with junk dust and scraps sliding off her (cosmetic);
+  - a hero hit that lands in her area during Reveal shows no hit flash, no hit spark and no hit-stop on her (the sim already returns no reaction).
+
+  On the last Reveal tick, the first tick with a hurtbox, the lip collapses (`opened`), the tint drops to full value, and a 4-tick dust burst marks "she is out". From then on she is drawn exactly like any hittable state. This is presentation only and never reads or changes the sim.
 
 ## 7. Room kit (AREA-HOARDER-01)
 
@@ -155,10 +162,10 @@ Collision is the sim's, unchanged. Room coordinates: x in px, y up from the floo
 
 | Prop | Sprite and pivot | Collision (unchanged) | States (sim trigger) | Wired in HOARD-02? |
 |---|---|---|---|---|
-| **Lair mound** `hoarder_mound` | 176 x 72, pivot (88, 71) at x 608 | none (DV-3) | `sealed` (Dormant, Reveal): layers `back` behind her plus `front` lip in front, the lip hiding her below about 31 px; `opened` (from the last Reveal tick): back layer with a hollow in the crown, the lip collapsed into a spill of at most 12 px, all behind her | **yes** |
-| **Bank A** `hoarder_bank_a` | 64 x 48 standing, pivot bottom-left at x 352 | solid `[352, 416) x [0, 48)`, top walkable | `stable`; `disturbed` (24 ticks: 2-frame shudder of ±1 px plus 3-6 falling scraps); `slid` (16 ticks, the mass moves 3 px/tick to `[304, 368)`, 2-frame tumble); `settled` remnant 80 x 16 at `[296, 376)` | `stable` yes; the rest on HRD-B |
-| **J-B post** `hoarder_post_b` | 16 x 64, pivot bottom-left at x 808 | hit target `[808, 824) x [0, 64)` | `intact`, `cracked` (first qualifying hit; split plus splinters), `broken` (release) | `intact` yes; the rest on HRD-C |
-| **J-B stack** `hoarder_stack_b` | 128 x 64 hanging, `[752, 880) x [96, 160)` | none while hanging | `supported`; `released` (24 ticks: sag 1 px every 6 ticks, dust); `falling` (8 ticks, 12 px/tick); `landed` remnant 128 x 16 at `[752, 880) x [0, 16)`, drawn **in front of** the pinned boss | `supported` yes; the rest on HRD-C |
+| **Lair mound** `hoarder_mound` | 176 x 72 `sealed`, 176 x 24 at most `opened`; pivot (88, 71) at x 608 | none (DV-3): low background dressing | `sealed` (Dormant, Reveal): layer `back` behind her **and behind the heroes**, plus the `front` lip drawn in front of her and the heroes, hiding her below about 31 px; `opened` (from the last Reveal tick to the end of the fight): a low spill at most 24 px high, the hollowed heap gone, ragged top, 1 step darker, behind her and the heroes | **yes** |
+| **Bank A** `hoarder_bank_a` | 64 x 48 standing, pivot bottom-left at x 352 | solid `[352, 416) x [0, 48)`, heroes and boss collide, top standable (HRD-B) | `stable`; `disturbed` (24 ticks: 2-frame shudder of ±1 px plus 3-6 falling scraps); `slid` (16 ticks, the mass moves 3 px/tick to `[304, 368)`, 2-frame tumble); `settled` remnant 80 x 16 at `[296, 376)` | `stable` yes; the rest on HRD-B |
+| **J-B post** `hoarder_post_b` | 16 x 64, pivot bottom-left at x 808 | hit target `[808, 824) x [0, 64)`, **not solid**: heroes pass in front of it; 2 qualifying hits release the stack (HRD-C) | `intact`, `cracked` (first qualifying hit; split plus splinters), `broken` (second hit, the release tick) | `intact` yes; the rest on HRD-C |
+| **J-B stack** `hoarder_stack_b` | 128 x 64 hanging, `[752, 880) x [96, 160)` | none while hanging | `supported` (intact); `released` (24 ticks: sag 1 px every 6 ticks, dust); `falling` (8 ticks, 12 px/tick); `landed` (fallen) remnant 128 x 16 at `[752, 880) x [0, 16)`, drawn **in front of** the pinned boss | `supported` yes; the rest on HRD-C |
 | **Exit door** `hoarder_door` | 16 x 228 in a stone jamb, at x 928 | solid until her defeat tick | `closed` (iron-banded planks, barred); `open` (jamb only, doorway dark) | **yes** |
 | **Entry gate** `hoarder_gate` | 16 x 228 at x 208 | solid while closed (HRD-Q41) | `open` (bars raised into the ceiling, grooves in the floor); `closed` (iron bars to the floor) | **yes** |
 | **Dressing heaps** `hoarder_heap_a..c` | at most 48 x 24 each | none | static | **yes** |
@@ -166,6 +173,14 @@ Collision is the sim's, unchanged. Room coordinates: x in px, y up from the floo
 **Rules for the room kit:**
 
 - **Bank A's top** reads as a standable shelf: the crate lids are flush at 48 px and the top row is lit, because heroes perch on it (section 5 of the design doc). Its front face (x 416) is a vertical wall of crate sides and a door plank, so her clamped shove visibly stops on it.
+  - The top edge is one unbroken row across all 64 px at y 47, the brightest value of its ramp, with a 1 px dark lip under it. Nothing pokes above y 48, so the eye finds the standing line.
+  - Both side faces are vertical and fully opaque from 0 to 48. No rag, drape or loose item hangs outside the rectangle.
+  - Hero feet resting on it touch the lit row exactly (A5).
+- **J-B post** reads as hittable but not solid:
+  - It is a single thin upright (a split timber prop, 10-12 px wide inside its 16 px box), set on the back plane: its foot sits on a stone shim against the back wall, and the heroes draw in front of it.
+  - It has no flat lit top and no horizontal shelf a hero could stand on. Its top ends in the beam lashing under the stack.
+  - The hittable cue is the rope lashing and a pale fresh split on the side facing the lane (light `wood` values). `cracked` widens the split and adds splinters; each qualifying hit adds a 2-frame white-wood flash and splinter spray (cosmetic).
+  - No text label ("POST B" or any other).
 - **J-B:**
   - The post reads as the single support of the stack.
   - The stack visibly rests on a beam lashed to the post: a broken shelf unit, crates and a pram frame, roped.
@@ -174,6 +189,7 @@ Collision is the sim's, unchanged. Room coordinates: x in px, y up from the floo
 - **Dressing heaps:**
   - Place them against the back wall at x about 250, 470 and 700, never between 416..880 at floor level in front of the playfield.
   - They use the rag top and a darker value (R6), so they are never read as solids.
+- **The lair mound** is low background dressing with no collision (DV-3). The `sealed` heap may be tall because she is inside it, but it sits behind the heroes, has a ragged top and no lit line, and the heroes visibly pass in front of its back layer and behind its front lip, so it never reads as a slab or a step. After the reveal it drops to the `opened` spill (at most 24 px). No text label.
 - **The door and the gate** are kit-family pieces (stone jamb from ENV-01, `iron` bars).
   - The door replaces the always-closed `guild_portal_closed` stand-in in this room only.
   - The exit at x 976 keeps its existing logic.
@@ -201,10 +217,11 @@ Bank A, the J-B pieces, the door, the gate, the dressing heaps and the `opened` 
   - `the_presenter_does_not_change_the_state_hash` and every existing golden stay byte-identical;
   - `frame_for` unit tests cover every row of section 4.
 - **A7:** dread, not comedy (reviewer judgement against section 1).
+- **A8 collision read:** a 640 x 360 in-scene still per state shows that the look matches the collision role (R6, R7): Carl standing on bank A's lit top; Carl walking in front of the post and in front of the mound's back layer; the stack `supported`, `falling` and `landed`; Reveal frames 26-28 tinted and lip-covered, and the first hittable tick at full value.
 
 ## 9. Known design notes for the reviewer
 
-- In 18, 19 and 24, the near sleeve cap rises above the back as a rounded hump. It is meant as the lead shoulder driving the shove. If it reads as a growth at 1x, the fix is a smaller cap radius in these poses (a rig option), not a pixel edit.
+- Silhouette gate fixes: in 18, 19 and 24 the near sleeve cap no longer rises above the head (sleeve top at least 4 px below the head top, measured per part); 24 now reads as hands and knees; 17-19 use the snarl face. The rig options (`near_sh`, `near_cap`, `tear`, `stains`, `neckline`) default to the HOARD-01 values, so frames 0-15 stay byte-identical.
 - The pinned hand passes the prone box by 11 px (section 2). This is intended: it claws toward the heroes.
 
 ## 10. Files
@@ -217,6 +234,8 @@ Bank A, the J-B pieces, the door, the gate, the dressing heaps and the `opened` 
 - `docs/evidence/hoard-02-design/`: design images with `SHA256SUMS`.
 
 ## 11. Open for execution
+
+**Parallel work:** HRD-B (bank A as a hero solid) and HRD-C (the post as a 2-hit target that drops the stack) are implemented on a separate branch. HOARD-02 draws and wires only the static states (`stable`, `intact`, `supported`). The PR that lands second wires the remaining bank A, post and stack states to the new sim state. Both touch `src/hoarder_art.rs` and the scene bin, so keep changes there small and rebase rather than duplicate.
 
 **Art:**
 

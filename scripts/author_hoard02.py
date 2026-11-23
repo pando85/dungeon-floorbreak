@@ -39,17 +39,35 @@ h1.FACES.setdefault("pinned", (
     (83, 36, "K"), (84, 36, "w"), (85, 36, "w"), (86, 36, "w"), (87, 36, "K"),
     (84, 37, "K"), (85, 37, "K"), (86, 37, "K")))
 
+# snarl (shove brace and lunge): glaring eyes under knitted brows, a wide mouth with bared upper and lower teeth;
+# wider than tall so it never reads as a startled round mouth at 1x
+h1.FACES.setdefault("snarl", (
+    (79, 29, "w"), (80, 29, "w"), (81, 29, "K"), (79, 30, "x"), (80, 30, "x"),
+    (84, 29, "w"), (85, 29, "w"), (86, 29, "K"),
+    (78, 26, "K"), (79, 27, "K"), (80, 27, "K"), (81, 28, "K"),
+    (84, 28, "K"), (85, 27, "K"), (86, 26, "K"), (87, 25, "K"),
+    (87, 31, "h"), (86, 32, "K"), (87, 33, "s"), (88, 33, "s"),
+    (82, 35, "K"), (83, 35, "K"), (84, 34, "K"), (85, 34, "K"), (86, 34, "K"), (87, 34, "K"), (88, 35, "K"),
+    (82, 36, "K"), (83, 36, "w"), (84, 35, "w"), (85, 35, "w"), (86, 35, "w"), (87, 35, "w"), (88, 36, "K"),
+    (82, 37, "K"), (83, 37, "d"), (84, 36, "d"), (85, 36, "d"), (86, 36, "d"), (87, 36, "w"), (88, 37, "K"),
+    (83, 38, "K"), (84, 37, "w"), (85, 37, "d"), (86, 37, "w"), (87, 37, "K"),
+    (84, 38, "K"), (85, 38, "K"), (86, 38, "K")))
+
 I = h1.IDLE
+# pitched-torso rig options (gate fix): the near shoulder sits lower in the torso with a small sleeve cap, so no
+# sleeve dome rises above the head; the tear, stains and neckline that read as a second figure under the head are off
+PITCHED = dict(near_sh=(58, 56, 8), near_cap=(9, 0.35), tear=False, stains=False, neckline=False)
 # 17 shove brace: low, wide, torso pitched forward with the lead (far) shoulder ahead, both arms spread low
 BRACE = dict(I, body=(26, 8, 8, 1.0), head=(-16, 0, 2), swing=-6,
              near_arm=((40, 96), (22, 104), (14, 106), 60), far_arm=((124, 92), (138, 102), (143, 106), -60),
-             near_leg=((42, 112), (28, 117), 0), far_leg=((102, 112), (110, 117), 0), face="roar", sleeves="cap")
+             near_leg=((42, 112), (28, 117), 0), far_leg=((102, 112), (110, 117), 0), face="snarl", sleeves="cap")
 # 18 lunge heave: torso near flat at hip height, lead shoulder driving, back leg straight, far arm tucked
-HEAVE = dict(I, body=(60, 10, 18, 1.0), head=(-50, 2, 0), swing=-14,
+HEAVE = dict(I, body=(60, 10, 18, 1.0), head=(-46, 2, -9), swing=-14,
              near_arm=((92, 100), (74, 110), (68, 112), 80), far_arm=((132, 104), (124, 114), (120, 116), -20),
-             near_leg=((38, 114), (16, 117), 20), far_leg=((104, 112), (114, 117), 0), face="roar", sleeves="cap")
+             near_leg=((38, 114), (16, 117), 20), far_leg=((104, 112), (114, 117), 0), face="snarl", sleeves="cap",
+             **PITCHED)
 # 19 lunge drag: same drive, the back foot dragged on its toes, far arm thrown forward-low
-DRAG = dict(HEAVE, body=(56, 8, 19, 1.0), head=(-46, 2, 2), swing=-10,
+DRAG = dict(HEAVE, body=(56, 8, 19, 1.0), head=(-42, 4, -8), swing=-10,
             near_arm=((90, 98), (70, 104), (62, 104), 90), far_arm=((128, 102), (138, 110), (141, 114), -60),
             near_leg=((44, 116), (22, 118), 70), far_leg=((98, 112), (104, 117), 0))
 # 20 jammed impact: stopped dead on the obstacle face, torso crumpled back, head snapped back, arms flung out
@@ -61,10 +79,12 @@ JAMMED = dict(I, body=(-10, 4, 6, 0.92), head=(-24, -2, 0), swing=10,
 PINNED = dict(h1.DEFEAT, body=(80, -28, 17, 0.62), head=(-64, 6, -6), swing=0,
               near_arm=((120, 112), (134, 117), (139, 119), -80), far_arm=((110, 121), (118, 116), (121, 113), -120),
               near_leg=((58, 121), (30, 121), 85), far_leg=((66, 123), (40, 124), 85), face="pinned")
-# 24 get-up: pushed up on both hands, knees down, back rounded, head up toward the target
-GETUP = dict(I, body=(64, 4, 24, 0.95), head=(-54, 2, 0), swing=-4,
-             near_arm=((116, 106), (122, 118), (124, 121), -90), far_arm=((132, 106), (138, 118), (140, 121), -90),
-             near_leg=((70, 121), (46, 121), 80), far_leg=((84, 121), (58, 122), 80), face="idle", sleeves="cap")
+# 24 get-up: hands and knees; the near thigh drops from the raised hip to a knee planted under it, the shins trail,
+# both palms are planted flat under the shoulders, the head is raised toward the target with gritted teeth
+GETUP = dict(I, body=(76, 4, 5, 0.85), head=(-62, 4, -9), swing=-4,
+             near_arm=((114, 104), (115, 116), (118, 120), -90), far_arm=((131, 112), (134, 118), (138, 121), -90),
+             near_leg=((64, 121), (38, 121), 80), far_leg=((72, 122), (48, 122), 80), face="pinned", sleeves="cap",
+             **PITCHED)
 # 26 emerge: kneeling deep inside the mound, shoulders first, palms planted on the rim, head bowed, eyes open
 EMERGE = dict(I, body=(14, 2, 34, 1.0), head=(16, 0, 2), swing=8,
               near_arm=((62, 82), (82, 94), (88, 97), -60), far_arm=((112, 82), (124, 94), (128, 97), -60),
