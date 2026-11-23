@@ -1,17 +1,17 @@
 # donut_smug: fixture cf02_assist_pounce_staggered, ticks 56..86 step 2
-COMBAT_ANIM_STATE tick=56 carl=punch_a:1 g0=A/hurt:16 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=58 carl=punch_a:1 g0=A/hurt:17 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=60 carl=punch_a:2 g0=A/hurt:17 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=62 carl=punch_a:2 g0=A/hurt:17 acting_carl=- acting_donut=smug:2 acting_goblins=-
-COMBAT_ANIM_STATE tick=64 carl=punch_a:3 g0=A/hurt:17 acting_carl=- acting_donut=smug:2 acting_goblins=-
-COMBAT_ANIM_STATE tick=66 carl=punch_a:3 g0=A/idle:2 acting_carl=- acting_donut=smug:2 acting_goblins=-
-COMBAT_ANIM_STATE tick=68 carl=- g0=A/idle:2 acting_carl=- acting_donut=smug:2 acting_goblins=-
-COMBAT_ANIM_STATE tick=70 carl=- g0=A/idle:2 acting_carl=- acting_donut=smug:2 acting_goblins=-
-COMBAT_ANIM_STATE tick=72 carl=punch_a:0 g0=A/idle:3 acting_carl=- acting_donut=smug:2 acting_goblins=-
-COMBAT_ANIM_STATE tick=74 carl=punch_a:0 g0=A/idle:3 acting_carl=- acting_donut=smug:2 acting_goblins=-
-COMBAT_ANIM_STATE tick=76 carl=punch_a:1 g0=A/hurt:16 acting_carl=- acting_donut=smug:2 acting_goblins=-
-COMBAT_ANIM_STATE tick=78 carl=punch_a:1 g0=A/hurt:16 acting_carl=- acting_donut=smug:2 acting_goblins=-
-COMBAT_ANIM_STATE tick=80 carl=punch_a:1 g0=A/hurt:16 acting_carl=- acting_donut=smug:2 acting_goblins=-
-COMBAT_ANIM_STATE tick=82 carl=punch_a:1 g0=A/knockback:18 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=84 carl=punch_a:1 g0=A/knockback:18 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=86 carl=punch_a:2 g0=A/knockback:19 acting_carl=- acting_donut=- acting_goblins=-
+COMBAT_ANIM_STATE tick=56 carl=punch_a:2 g0=A/hurt:17 acting_carl=- acting_donut=smug:2 acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=58 carl=punch_a:2 g0=A/hurt:17 acting_carl=- acting_donut=smug:2 acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=60 carl=punch_a:3 g0=A/hurt:17 acting_carl=- acting_donut=smug:2 acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=62 carl=punch_a:3 g0=A/idle:2 acting_carl=- acting_donut=smug:2 acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=64 carl=- g0=A/idle:2 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=66 carl=- g0=A/idle:2 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=68 carl=- g0=A/idle:2 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=70 carl=- g0=A/idle:2 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=72 carl=punch_a:0 g0=A/idle:3 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=74 carl=punch_a:0 g0=A/idle:3 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=76 carl=punch_a:1 g0=A/hurt:16 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=1/-
+COMBAT_ANIM_STATE tick=78 carl=punch_a:1 g0=A/hurt:16 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=3/-
+COMBAT_ANIM_STATE tick=80 carl=punch_a:1 g0=A/hurt:16 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=5/-
+COMBAT_ANIM_STATE tick=82 carl=punch_a:1 g0=A/knockback:18 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=7/-
+COMBAT_ANIM_STATE tick=84 carl=punch_a:1 g0=A/knockback:18 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=9/-
+COMBAT_ANIM_STATE tick=86 carl=punch_a:2 g0=A/knockback:19 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=11/-

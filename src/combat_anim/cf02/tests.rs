@@ -1909,3 +1909,30 @@ fn an_evade_is_followed_by_the_smug_overlay_after_the_response() {
         "never while she runs (the pending wait is spent running)"
     );
 }
+
+/// CF02-FU-C2F FU2: Donut's own press edge reaches the acting view (so a press ends
+/// her smug or startle overlay when she is player-controlled), and Carl's does not
+/// read hers.
+#[test]
+fn donuts_press_edge_is_her_own() {
+    use crate::input::RawInput;
+    let (mut sim, _) = rig("cf02_stomp_standing");
+    let press = RawInput {
+        attack: true,
+        ..RawInput::NONE
+    };
+    sim.combat
+        .step_party(&mut sim.scene, [RawInput::NONE, press]);
+    let view = sim.combat.carl_acting_view();
+    assert!(view.donut_press_edge && !view.press_edge, "{view:?}");
+    sim.combat
+        .step_party(&mut sim.scene, [RawInput::NONE, press]);
+    assert!(
+        !sim.combat.carl_acting_view().donut_press_edge,
+        "a held button is not a new edge"
+    );
+    sim.combat
+        .step_party(&mut sim.scene, [press, RawInput::NONE]);
+    let view = sim.combat.carl_acting_view();
+    assert!(view.press_edge && !view.donut_press_edge, "{view:?}");
+}

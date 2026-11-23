@@ -507,3 +507,67 @@ fn u7_the_room_is_a_fixture_field_and_matches_the_retired_name_rule() {
         assert_eq!(live.room, FixtureRoom::Arena, "{}", live.name);
     }
 }
+
+/// CF02-FU-C2F FU9: a taunt does not slide. The trigger is a hero's hurt or whiff,
+/// not the goblin standing, so a taunt can start on a tick the goblin still walks (a
+/// step of about 1 px, measured: the pose swaps on that tick and the step is
+/// hidden), but from the next tick to the end of the hold (`q65_taunt_ticks`) the
+/// goblin does not move at all unless something hits it. Checked over every CF02
+/// fixture that holds a taunt, to the last tick of the hold.
+#[test]
+fn fu9_a_taunt_holds_the_goblin_still_after_its_start_tick() {
+    use crate::combat::{CombatEvent, ReactionKind};
+    let mut taunts = 0;
+    for f in crate::cf02_fixtures::CF02_FIXTURES
+        .iter()
+        .filter(|f| f.base.boss.is_none())
+    {
+        let kit = if f.base.room == crate::combat_scene::FixtureRoom::Arena {
+            crate::cf02::arena::load_arena(&crate::hazards_fixtures::root()).unwrap()
+        } else {
+            crate::env_kit::EnvKit::load(
+                &crate::hazards_fixtures::root(),
+                "assets/levels/floor01/corridor_abc_sample.json",
+            )
+            .unwrap()
+        };
+        let mut sim = crate::party_scene::PartyFixtureSim::new(&kit, 360, f).unwrap();
+        let mut xs: Vec<Vec<f32>> = Vec::new();
+        let mut hit_ticks: Vec<(u64, u32)> = Vec::new();
+        let mut starts: Vec<(usize, usize)> = Vec::new();
+        for _ in 0..f.base.ticks {
+            let seen = sim.combat.events.len();
+            sim.step_scripted();
+            xs.push(sim.combat.enemies.iter().map(|g| g.x).collect());
+            for e in &sim.combat.events[seen.min(sim.combat.events.len())..] {
+                match *e {
+                    CombatEvent::GoblinReaction {
+                        goblin,
+                        reaction: ReactionKind::Taunt,
+                        ..
+                    } => starts.push((xs.len() - 1, goblin as usize)),
+                    CombatEvent::Hit { tick, target, .. } => hit_ticks.push((tick, target)),
+                    _ => {}
+                }
+            }
+        }
+        let hold = usize::from(crate::cf02::active().q65_taunt_ticks);
+        for (at, g) in starts {
+            taunts += 1;
+            for k in at + 1..(at + hold).min(xs.len()) {
+                // A hit (the punish) ends the taunt and moves the goblin: stop there.
+                if hit_ticks.iter().any(|&(t, target)| {
+                    target as usize == g && t as usize <= k + 1 && t as usize + 1 >= at
+                }) {
+                    break;
+                }
+                assert!(
+                    (xs[k][g] - xs[k - 1][g]).abs() < 0.001,
+                    "{} goblin {g} slid at tick {k} of a taunt that began at {at}",
+                    f.name()
+                );
+            }
+        }
+    }
+    assert!(taunts >= 1, "the fixtures hold taunts");
+}

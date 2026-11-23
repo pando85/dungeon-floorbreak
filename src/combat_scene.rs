@@ -938,6 +938,9 @@ pub struct CombatState {
     /// Press-edge detector and held-button state of the combat buttons (the
     /// scene keeps its own for jump). The held state is part of the hash.
     input: InputFrame,
+    /// CF02-FU-C2F FU2: Donut's own input frame (press edges for her acting
+    /// overlay when she is player-controlled). Presentation only, never hashed.
+    donut_input: InputFrame,
     /// Ticks of hurt flinch left; Carl cannot act or move.
     pub hurt_ticks: u8,
     /// Ticks Carl stays frozen after a goblin's blow landed (hit-stop).
@@ -1105,6 +1108,7 @@ impl CombatState {
             thrower: Thrower::default(),
             contacts: Vec::new(),
             input: InputFrame::default(),
+            donut_input: InputFrame::default(),
             hurt_ticks: 0,
             hero_hit_stop: 0,
             hero_defeated: false,
@@ -1353,6 +1357,7 @@ impl CombatState {
         self.slot_respawn();
         self.carl_cf02 = CarlCf02::default();
         self.input = InputFrame::default();
+        self.donut_input = InputFrame::default();
         self.hurt_ticks = 0;
         self.hero_hit_stop = 0;
         self.hero_defeated = false;
@@ -1463,6 +1468,7 @@ impl CombatState {
         self.contacts.clear();
         self.carl_cf02 = CarlCf02::default();
         self.input = InputFrame::default();
+        self.donut_input = InputFrame::default();
         self.hurt_ticks = 0;
         self.hero_hit_stop = 0;
         self.hero_defeated = false;
@@ -1621,6 +1627,7 @@ impl CombatState {
         self.elapsed += 1;
         self.morale_feed.clear();
         self.input.advance(raw);
+        self.donut_input.advance(inputs[1]);
         // Hit-stop freezes a hero's timers: his flinch, his invulnerability and
         // (through the move clock) his move.
         let hero_frozen = self.hero_hit_stop > 0;

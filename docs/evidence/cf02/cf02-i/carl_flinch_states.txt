@@ -1,12 +1,12 @@
 # carl_flinch: fixture cf02_llama_bolt_stops, ticks 86..106 step 2
-COMBAT_ANIM_STATE tick=86 carl=-  l0=idle:0 l1=idle:1 acting_carl=- acting_donut=- acting_goblins=
-COMBAT_ANIM_STATE tick=88 carl=-  l0=idle:0 l1=idle:2 acting_carl=- acting_donut=- acting_goblins=
-COMBAT_ANIM_STATE tick=90 carl=-  l0=idle:1 l1=idle:2 acting_carl=- acting_donut=- acting_goblins=
-COMBAT_ANIM_STATE tick=92 carl=-  l0=idle:1 l1=idle:2 acting_carl=flinch:10 acting_donut=- acting_goblins=
-COMBAT_ANIM_STATE tick=94 carl=-  l0=idle:1 l1=idle:2 acting_carl=flinch:10 acting_donut=- acting_goblins=
-COMBAT_ANIM_STATE tick=96 carl=-  l0=idle:1 l1=idle:2 acting_carl=flinch:10 acting_donut=- acting_goblins=
-COMBAT_ANIM_STATE tick=98 carl=-  l0=idle:1 l1=idle:2 acting_carl=flinch:10 acting_donut=- acting_goblins=
-COMBAT_ANIM_STATE tick=100 carl=-  l0=idle:2 l1=idle:2 acting_carl=- acting_donut=- acting_goblins=
-COMBAT_ANIM_STATE tick=102 carl=-  l0=attack_tell:7 l1=idle:0 acting_carl=- acting_donut=- acting_goblins=
-COMBAT_ANIM_STATE tick=104 carl=-  l0=attack_tell:7 l1=idle:0 acting_carl=- acting_donut=- acting_goblins=
-COMBAT_ANIM_STATE tick=106 carl=-  l0=attack_tell:7 l1=idle:0 acting_carl=- acting_donut=- acting_goblins=
+COMBAT_ANIM_STATE tick=86 carl=-  l0=idle:0 l1=idle:1 acting_carl=- acting_donut=- acting_goblins= acting_slammed=
+COMBAT_ANIM_STATE tick=88 carl=-  l0=idle:0 l1=idle:2 acting_carl=- acting_donut=- acting_goblins= acting_slammed=
+COMBAT_ANIM_STATE tick=90 carl=-  l0=idle:1 l1=idle:2 acting_carl=- acting_donut=- acting_goblins= acting_slammed=
+COMBAT_ANIM_STATE tick=92 carl=-  l0=idle:1 l1=idle:2 acting_carl=flinch:10 acting_donut=- acting_goblins= acting_slammed=
+COMBAT_ANIM_STATE tick=94 carl=-  l0=idle:1 l1=idle:2 acting_carl=flinch:10 acting_donut=- acting_goblins= acting_slammed=
+COMBAT_ANIM_STATE tick=96 carl=-  l0=idle:1 l1=idle:2 acting_carl=flinch:10 acting_donut=- acting_goblins= acting_slammed=
+COMBAT_ANIM_STATE tick=98 carl=-  l0=idle:1 l1=idle:2 acting_carl=flinch:10 acting_donut=- acting_goblins= acting_slammed=
+COMBAT_ANIM_STATE tick=100 carl=-  l0=idle:2 l1=idle:2 acting_carl=- acting_donut=- acting_goblins= acting_slammed=
+COMBAT_ANIM_STATE tick=102 carl=-  l0=attack_tell:7 l1=idle:0 acting_carl=- acting_donut=- acting_goblins= acting_slammed=
+COMBAT_ANIM_STATE tick=104 carl=-  l0=attack_tell:7 l1=idle:0 acting_carl=- acting_donut=- acting_goblins= acting_slammed=
+COMBAT_ANIM_STATE tick=106 carl=-  l0=attack_tell:7 l1=idle:0 acting_carl=- acting_donut=- acting_goblins= acting_slammed=

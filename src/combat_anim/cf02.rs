@@ -907,7 +907,7 @@ impl ActingAnimators {
                 in_move: donut_busy,
                 morale_reaction: false,
                 locomotion: loco(donut_loco),
-                press_this_tick: false,
+                press_this_tick: view.donut_press_edge,
             },
         );
         self.donut_pose = match (selection.layer, selection.overlay) {

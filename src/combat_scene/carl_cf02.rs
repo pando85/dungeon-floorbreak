@@ -163,6 +163,9 @@ pub struct CarlActingView {
     /// Carl pressed Jab, Physical, Jump, Swap or the ability on this tick (a press edge, whether or
     /// not it started anything).
     pub press_edge: bool,
+    /// CF02-FU-C2F FU2: Donut pressed a button on this tick (her own press edge,
+    /// whether the player or the assistant drives her).
+    pub donut_press_edge: bool,
 }
 
 impl CombatState {
@@ -176,6 +179,10 @@ impl CombatState {
                 || self.input.jump_pressed
                 || self.input.swap_pressed
                 || self.input.ability_pressed,
+            donut_press_edge: self.donut_input.attack_pressed
+                || self.donut_input.physical_pressed
+                || self.donut_input.jump_pressed
+                || self.donut_input.ability_pressed,
         }
     }
 }

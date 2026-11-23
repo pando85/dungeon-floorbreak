@@ -1,21 +1,21 @@
 # carl_follow_kick: fixture cf02_confirm_kick, ticks 14..52 step 2
-COMBAT_ANIM_STATE tick=14 carl=punch_a:1 g0=A/hurt:17 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=16 carl=punch_a:2 g0=A/hurt:17 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=18 carl=kick:8 g0=A/hurt:17 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=20 carl=kick:8 g0=A/hurt:17 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=22 carl=kick:8 g0=A/idle:2 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=24 carl=kick:10 g0=A/idle:2 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=26 carl=kick:11 g0=A/hurt:16 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=28 carl=kick:11 g0=A/hurt:16 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=30 carl=kick:11 g0=A/hurt:16 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=32 carl=kick:11 g0=A/hurt:16 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=34 carl=kick:11 g0=A/hurt:16 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=36 carl=kick:11 g0=A/hurt:16 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=38 carl=kick:11 g0=A/knockback:18 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=40 carl=kick:11 g0=A/knockback:18 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=42 carl=kick:11 g0=A/knockback:18 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=44 carl=kick:12 g0=A/knockback:19 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=46 carl=kick:12 g0=A/knockback:19 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=48 carl=kick:13 g0=A/knockback:19 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=50 carl=kick:13 g0=A/knockback:19 acting_carl=- acting_donut=- acting_goblins=-
-COMBAT_ANIM_STATE tick=52 carl=kick:13 g0=A/knockback:19 acting_carl=- acting_donut=- acting_goblins=-
+COMBAT_ANIM_STATE tick=14 carl=punch_a:1 g0=A/hurt:17 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=16 carl=punch_a:2 g0=A/hurt:17 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=18 carl=kick:8 g0=A/hurt:17 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=20 carl=kick:8 g0=A/hurt:17 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=22 carl=kick:8 g0=A/idle:2 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=24 carl=kick:10 g0=A/idle:2 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=-
+COMBAT_ANIM_STATE tick=26 carl=kick:11 g0=A/hurt:16 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=0/-
+COMBAT_ANIM_STATE tick=28 carl=kick:11 g0=A/hurt:16 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=2/-
+COMBAT_ANIM_STATE tick=30 carl=kick:11 g0=A/hurt:16 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=4/-
+COMBAT_ANIM_STATE tick=32 carl=kick:11 g0=A/hurt:16 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=6/-
+COMBAT_ANIM_STATE tick=34 carl=kick:11 g0=A/hurt:16 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=8/-
+COMBAT_ANIM_STATE tick=36 carl=kick:11 g0=A/hurt:16 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=10/-
+COMBAT_ANIM_STATE tick=38 carl=kick:11 g0=A/knockback:18 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=12/-
+COMBAT_ANIM_STATE tick=40 carl=kick:11 g0=A/knockback:18 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=14/-
+COMBAT_ANIM_STATE tick=42 carl=kick:11 g0=A/knockback:18 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=16/-
+COMBAT_ANIM_STATE tick=44 carl=kick:12 g0=A/knockback:19 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=18/-
+COMBAT_ANIM_STATE tick=46 carl=kick:12 g0=A/knockback:19 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=20/-
+COMBAT_ANIM_STATE tick=48 carl=kick:13 g0=A/knockback:19 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=22/-
+COMBAT_ANIM_STATE tick=50 carl=kick:13 g0=A/knockback:19 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=24/-
+COMBAT_ANIM_STATE tick=52 carl=kick:13 g0=A/knockback:19 acting_carl=- acting_donut=- acting_goblins=- acting_slammed=26/-

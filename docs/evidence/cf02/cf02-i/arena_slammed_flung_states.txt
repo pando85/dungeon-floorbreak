@@ -1,18 +1,18 @@
 # arena_slammed_flung: fixture cf02_goblin_self_own, ticks 88..120 step 2
-COMBAT_ANIM_STATE tick=88 carl=- g0=A/idle:0 g1=B/idle:2 acting_carl=- acting_donut=- acting_goblins=-,-
-COMBAT_ANIM_STATE tick=90 carl=- g0=A/idle:0 g1=B/idle:2 acting_carl=- acting_donut=- acting_goblins=-,-
-COMBAT_ANIM_STATE tick=92 carl=- g0=A/idle:1 g1=B/idle:2 acting_carl=- acting_donut=- acting_goblins=-,-
-COMBAT_ANIM_STATE tick=94 carl=- g0=A/idle:1 g1=B/down:20 acting_carl=- acting_donut=- acting_goblins=-,-
-COMBAT_ANIM_STATE tick=96 carl=- g0=A/idle:1 g1=B/down:20 acting_carl=- acting_donut=- acting_goblins=-,-
-COMBAT_ANIM_STATE tick=98 carl=- g0=A/idle:1 g1=B/down:21 acting_carl=- acting_donut=- acting_goblins=-,-
-COMBAT_ANIM_STATE tick=100 carl=- g0=A/idle:2 g1=B/down:21 acting_carl=- acting_donut=- acting_goblins=-,-
-COMBAT_ANIM_STATE tick=102 carl=- g0=A/idle:2 g1=B/down:21 acting_carl=- acting_donut=- acting_goblins=-,-
-COMBAT_ANIM_STATE tick=104 carl=- g0=A/idle:2 g1=B/down:21 acting_carl=- acting_donut=- acting_goblins=-,-
-COMBAT_ANIM_STATE tick=106 carl=- g0=A/idle:2 g1=B/down:22 acting_carl=- acting_donut=- acting_goblins=-,-
-COMBAT_ANIM_STATE tick=108 carl=- g0=A/idle:2 g1=B/down:22 acting_carl=- acting_donut=- acting_goblins=-,-
-COMBAT_ANIM_STATE tick=110 carl=- g0=A/idle:2 g1=B/down:22 acting_carl=- acting_donut=- acting_goblins=-,-
-COMBAT_ANIM_STATE tick=112 carl=- g0=A/idle:3 g1=B/down:22 acting_carl=- acting_donut=- acting_goblins=-,-
-COMBAT_ANIM_STATE tick=114 carl=- g0=A/idle:3 g1=B/down:22 acting_carl=- acting_donut=- acting_goblins=-,-
-COMBAT_ANIM_STATE tick=116 carl=- g0=A/idle:3 g1=B/down:22 acting_carl=- acting_donut=- acting_goblins=-,-
-COMBAT_ANIM_STATE tick=118 carl=- g0=A/idle:3 g1=B/down:22 acting_carl=- acting_donut=- acting_goblins=-,-
-COMBAT_ANIM_STATE tick=120 carl=- g0=A/idle:0 g1=B/down:22 acting_carl=- acting_donut=- acting_goblins=-,-
+COMBAT_ANIM_STATE tick=88 carl=- g0=A/idle:0 g1=B/idle:2 acting_carl=- acting_donut=- acting_goblins=-,- acting_slammed=-,-
+COMBAT_ANIM_STATE tick=90 carl=- g0=A/idle:0 g1=B/idle:2 acting_carl=- acting_donut=- acting_goblins=-,- acting_slammed=-,-
+COMBAT_ANIM_STATE tick=92 carl=- g0=A/idle:1 g1=B/idle:2 acting_carl=- acting_donut=- acting_goblins=-,- acting_slammed=-,-
+COMBAT_ANIM_STATE tick=94 carl=- g0=A/idle:1 g1=B/down:20 acting_carl=- acting_donut=- acting_goblins=-,- acting_slammed=-,0/0
+COMBAT_ANIM_STATE tick=96 carl=- g0=A/idle:1 g1=B/down:20 acting_carl=- acting_donut=- acting_goblins=-,- acting_slammed=-,2/2
+COMBAT_ANIM_STATE tick=98 carl=- g0=A/idle:1 g1=B/down:21 acting_carl=- acting_donut=- acting_goblins=-,- acting_slammed=-,4/4
+COMBAT_ANIM_STATE tick=100 carl=- g0=A/idle:2 g1=B/down:21 acting_carl=- acting_donut=- acting_goblins=-,- acting_slammed=-,6/6
+COMBAT_ANIM_STATE tick=102 carl=- g0=A/idle:2 g1=B/down:21 acting_carl=- acting_donut=- acting_goblins=-,- acting_slammed=-,8/8
+COMBAT_ANIM_STATE tick=104 carl=- g0=A/idle:2 g1=B/down:21 acting_carl=- acting_donut=- acting_goblins=-,- acting_slammed=-,10/10
+COMBAT_ANIM_STATE tick=106 carl=- g0=A/idle:2 g1=B/down:22 acting_carl=- acting_donut=- acting_goblins=-,- acting_slammed=-,12/12
+COMBAT_ANIM_STATE tick=108 carl=- g0=A/idle:2 g1=B/down:22 acting_carl=- acting_donut=- acting_goblins=-,- acting_slammed=-,14/14
+COMBAT_ANIM_STATE tick=110 carl=- g0=A/idle:2 g1=B/down:22 acting_carl=- acting_donut=- acting_goblins=-,- acting_slammed=-,16/16
+COMBAT_ANIM_STATE tick=112 carl=- g0=A/idle:3 g1=B/down:22 acting_carl=- acting_donut=- acting_goblins=-,- acting_slammed=-,18/18
+COMBAT_ANIM_STATE tick=114 carl=- g0=A/idle:3 g1=B/down:22 acting_carl=- acting_donut=- acting_goblins=-,- acting_slammed=-,20/20
+COMBAT_ANIM_STATE tick=116 carl=- g0=A/idle:3 g1=B/down:22 acting_carl=- acting_donut=- acting_goblins=-,- acting_slammed=-,22/22
+COMBAT_ANIM_STATE tick=118 carl=- g0=A/idle:3 g1=B/down:22 acting_carl=- acting_donut=- acting_goblins=-,- acting_slammed=-,24/24
+COMBAT_ANIM_STATE tick=120 carl=- g0=A/idle:0 g1=B/down:22 acting_carl=- acting_donut=- acting_goblins=-,- acting_slammed=-,26/26
