@@ -120,7 +120,8 @@ fn the_adopted_values_are_the_sheet_values() {
         t.hazfu01_flier_contact
             && t.hazfu02_acid_exit
             && t.hazfu03_acid_hurt_event
-            && t.hazfu04_pool_edge,
+            && t.hazfu04_pool_edge
+            && t.hazfu05_sticker_chain_reach_px == 76,
         "the HAZ-FU knobs default to the new behaviour"
     );
     assert!(t.enabled() && t.on(true) && !t.on(false));
@@ -233,7 +234,7 @@ fn the_slime_keys_are_named_after_a_question() {
             && key.as_bytes()[6] == b'_';
         // PR-D (HAZ-FU): the four follow-up knobs are named after their item, `hazfuNN_`.
         let follow_up = key.starts_with("hazfu")
-            && key[5..7].parse::<u8>().is_ok_and(|q| (1..=4).contains(&q))
+            && key[5..7].parse::<u8>().is_ok_and(|q| (1..=5).contains(&q))
             && key.as_bytes()[7] == b'_';
         assert!(named || follow_up || key == "schema_version", "{key}");
     }

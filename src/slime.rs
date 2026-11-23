@@ -50,7 +50,7 @@ pub const TUNING_JSON: &str = include_str!("../assets/data/gameplay/enemy_slime_
 
 /// The committed FNV-1a 64 content hash of [`TUNING_JSON`]. Editing the file
 /// without updating this value fails [`SlimeTuning::pinned`] and the pin test.
-pub const TUNING_HASH: u64 = 0x22e1_efe1_7d32_afca;
+pub const TUNING_HASH: u64 = 0xa68d_8a48_11e1_6901;
 
 /// The key of the pin in a session manifest's `content_hashes`.
 pub const PIN_KEY: &str = "slime_tuning";
@@ -203,6 +203,14 @@ pub struct SlimeTuning {
     /// slime is down), and a slime that was never alive (the kill switch, AD6)
     /// has its pool removed at once.
     pub hazfu04_pool_edge: bool,
+    /// FA-Q21 (fix-all ruling, T28): the reach in px of **Carl's dynamite** onto a Rot
+    /// Sticker's charge (CP-Q34's chain, centre to centre, line of sight unchanged). A floor
+    /// stick is at least 70.007 px from the dome of R2 under the 84 px soffit, over the
+    /// dynamite's outer radius of 64, so pattern 3 (sheet section 15) was unreachable. 76 gives
+    /// a horizontal window of about +-29 px. `0` is off: the blast's `outer_radius`. Applies
+    /// only dynamite -> sticker; a drum, a sticker's own blast and the blast's damage radius
+    /// keep `outer_radius`.
+    pub hazfu05_sticker_chain_reach_px: u16,
 }
 
 fn bad(field: &'static str, reason: &str) -> Result<(), SlimeTuningError> {
@@ -424,6 +432,7 @@ pub(crate) fn hazfu_off(t: &mut SlimeTuning) {
     t.hazfu02_acid_exit = false;
     t.hazfu03_acid_hurt_event = false;
     t.hazfu04_pool_edge = false;
+    t.hazfu05_sticker_chain_reach_px = 0;
 }
 
 // ------------------------------------------------------------------ phases

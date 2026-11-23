@@ -38,5 +38,6 @@
   "hazfu01_flier_contact": true,
   "hazfu02_acid_exit": true,
   "hazfu03_acid_hurt_event": true,
-  "hazfu04_pool_edge": true
+  "hazfu04_pool_edge": true,
+  "hazfu05_sticker_chain_reach_px": 76
 }

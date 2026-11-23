@@ -637,7 +637,7 @@ fn a_feed_id_past_its_family_range_fails_in_a_debug_build() {
 /// build before PR-D (main `274b9151`) produced for the same script (measured there with
 /// `scn.rs` copied unchanged); the on column is the first pin of the new behaviour. A
 /// scenario a knob does not touch has the same hash in both columns.
-const SCENARIOS: [(&str, u64, u64); 7] = [
+const SCENARIOS: [(&str, u64, u64); 8] = [
     // D6 (`hazfu01`): the flier stops against the slime.
     (
         "flier_into_slime",
@@ -674,6 +674,12 @@ const SCENARIOS: [(&str, u64, u64); 7] = [
         0x55d1_b0f7_7956_fbe0,
         0x55d1_b0f7_7956_fbe0,
     ),
+    // FA-Q21 (`hazfu05`): the stick chains R2's stand-in under the soffit.
+    (
+        "dynamite_at_a_soffit_sticker",
+        0xd291_2648_dea8_9d56,
+        0xf7c1_5b98_516f_fe1e,
+    ),
 ];
 
 fn scenario(name: &str) -> u64 {
@@ -685,6 +691,7 @@ fn scenario(name: &str) -> u64 {
         "pool_drain_after_the_slime" => scn::pool_drain_after_the_slime(),
         "kick_slide" => scn::kick_slide(),
         "dynamite_chain" => scn::dynamite_chain(),
+        "dynamite_at_a_soffit_sticker" => scn::dynamite_at_a_soffit_sticker(),
         other => panic!("{other}"),
     }
 }
@@ -698,7 +705,7 @@ fn every_knob_off_reproduces_the_old_hashes() {
     // A scenario and the knobs that touch it. A goblin that lands in the pool is also driven
     // out of it (`hazfu02`), so the kick scenario is touched by `hazfu02` and `hazfu03`.
     type Edit = fn(&mut crate::slime::SlimeTuning);
-    let own: [(&str, Edit); 4] = [
+    let own: [(&str, Edit); 5] = [
         ("flier_into_slime", |t| t.hazfu01_flier_contact = false),
         ("goblin_in_pool", |t| t.hazfu02_acid_exit = false),
         ("kicked_into_the_pool", |t| {
@@ -707,6 +714,9 @@ fn every_knob_off_reproduces_the_old_hashes() {
         }),
         ("pool_of_a_slime_never_alive", |t| {
             t.hazfu04_pool_edge = false
+        }),
+        ("dynamite_at_a_soffit_sticker", |t| {
+            t.hazfu05_sticker_chain_reach_px = 0
         }),
     ];
     let mut wrong = Vec::new();
@@ -765,4 +775,78 @@ fn the_pinned_golden_cases_are_the_same_with_every_knob_off() {
             assert_eq!(run(), golden, "{name} with every knob off");
         }
     });
+}
+
+// ------------------------------------------------ hazfu05: chain reach
+
+/// A dynamite thrown at a latched sticker under the pocket B slab, then moved by hand to
+/// `d` px to the left of the sticker's dome, at its height (centre to centre) and chained once: whether the
+/// sticker's charge was lit. `block` places a wall across the segment first.
+fn chain_at(d: f32, block: bool, knob: u16) -> bool {
+    crate::slime::with_knobs_for_test(
+        |t| t.hazfu05_sticker_chain_reach_px = knob,
+        || {
+            let mut rig = Layout {
+                stickers: vec![Layout::under_slab(600, 600, 600)],
+                dynamite: true,
+                carl_x: 420,
+                ..Layout::default()
+            }
+            .sim(None);
+            rig.carl(RawInput {
+                ability: true,
+                ..RawInput::NONE
+            });
+            rig.idle(60);
+            let tick = rig.tick();
+            let (dome_x, dome_y) = rig.combat().charges[0].centre();
+            let slot = rig.combat().dynamite_slot();
+            let stick = &mut rig.combat_mut().charges[slot];
+            stick.x = dome_x - d;
+            stick.foot_y = dome_y - crate::blast::BLAST_CENTRE_DY;
+            stick.owner = Some(0);
+            assert_eq!(
+                rig.combat().charges[0].detonate_tick,
+                0,
+                "R1 is latched and unlit"
+            );
+            let (scene, combat) = rig.parts();
+            if block {
+                let mid = dome_x - d / 2.0;
+                scene.world.solids.push(crate::prototype::Block {
+                    rect: crate::prototype::Rect {
+                        left: mid - 1.0,
+                        bottom: dome_y - 20.0,
+                        width: 2.0,
+                        height: 40.0,
+                    },
+                    material: crate::prototype::Material::Stone,
+                    intact: true,
+                });
+            }
+            combat.chain_from_for_test(scene, slot, tick);
+            combat.charges[0].detonate_tick == tick + 8
+        },
+    )
+}
+
+/// FA-Q21 boundary: with the knob on (76 px), a dynamite stick chains a sticker 75.9 px away
+/// (centre to centre) and not 76.1 px away; with line of sight blocked it does not chain at
+/// 70 px; at 63.9 px it chains with the knob on or off (the old reach), and at 64.1 it chains
+/// only with the knob on. Knob off, 70 px does not chain (the old rule).
+#[test]
+fn a_dynamite_chains_a_sticker_out_to_76_px_and_not_beyond() {
+    assert!(chain_at(75.9, false, 76), "75.9 chains");
+    assert!(!chain_at(76.1, false, 76), "76.1 does not");
+    assert!(
+        !chain_at(70.0, true, 76),
+        "70 with the line of sight blocked does not"
+    );
+    assert!(chain_at(70.0, false, 76), "70 chains on");
+    assert!(
+        !chain_at(70.0, false, 0),
+        "70 does not chain with the knob off"
+    );
+    assert!(chain_at(63.9, false, 0) && chain_at(63.9, false, 76));
+    assert!(!chain_at(64.1, false, 0) && chain_at(64.1, false, 76));
 }

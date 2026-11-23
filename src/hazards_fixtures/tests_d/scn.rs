@@ -150,3 +150,29 @@ pub fn dynamite_chain() -> u64 {
     rig.idle(260);
     rig.hash()
 }
+
+/// FA-Q21: a dynamite thrown from column 650 at a latched sticker under an 84 px full-height
+/// soffit (pocket C's R2): the stick lands about 70 px from the dome.
+pub fn dynamite_at_a_soffit_sticker() -> u64 {
+    use crate::hazards_fixtures::{FLOOR, StickerAt};
+    let surface = crate::camera_lab::room::IRect::new(744, 352, 80, 144);
+    let mut rig = Layout {
+        stickers: vec![StickerAt {
+            orientation: crate::rot_sticker::Orientation::Ceiling,
+            surface,
+            a: (760, FLOOR - 84),
+            b: (760, FLOOR - 84),
+            start: (760, FLOOR - 84),
+        }],
+        dynamite: true,
+        carl_x: 650,
+        ..Layout::default()
+    }
+    .sim(None);
+    rig.carl(RawInput {
+        ability: true,
+        ..RawInput::NONE
+    });
+    rig.idle(230);
+    rig.hash()
+}

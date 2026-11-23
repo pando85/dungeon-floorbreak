@@ -51,10 +51,11 @@ const KICK_MAX_GAP: f32 = 60.0;
 /// The brace (prop 1) of the Boiler and its trigger weight.
 const BRACE_PROP: u16 = 1;
 
-/// Room 4's spectacular route: where Carl stands to throw (the lob lands about 46 px ahead
-/// of him, within the 64 px chain reach of the sticker once it has crept toward Carl), how far he backs off during the fuse, and the column pocket A
-/// ends at.
-const HAZ_THROW_X: f32 = 450.0;
+/// Room 4's spectacular route (FA-Q21): the column Carl throws from (the lowest column of the
+/// 8 px sweep over 640..720 whose floor landing, 111 px ahead of him, chains R2 under the
+/// `hazfu05` reach of 76 px: pinned by `haz_r2_chain_sweep_over_the_throw_columns`), how far he
+/// backs off during the 150-tick fuse, and the column pocket A ends at.
+const HAZ_THROW_X: f32 = 648.0;
 const HAZ_POCKET_A_END: f32 = 400.0;
 const HAZ_BACK_OFF: f32 = 90.0;
 
@@ -722,15 +723,6 @@ fn chain(combat: &CombatState, sim: &SceneSim, exit_x: f32) -> RawInput {
 
 // ---------------------------------------------------------------- room 4 routes (PT-GATE-D)
 
-/// The Rot Sticker of pocket B (sidecar prop 0, `r1`): its state and its dome column.
-fn haz_sticker(combat: &CombatState) -> Option<(StickerState, f32)> {
-    let sticker = combat.env()?.sticker(0)?;
-    Some((
-        sticker.state(),
-        sticker.dome(crate::rot_sticker::active()).0,
-    ))
-}
-
 /// Whether a slime of pocket A is alive (the second slime sleeps in pocket C).
 fn haz_slime_alive(combat: &CombatState) -> bool {
     combat.slot_enemies().iter().any(|e| {
@@ -742,16 +734,14 @@ fn haz_slime_alive(combat: &CombatState) -> bool {
     })
 }
 
-/// Spectacular route (room 4): the PT-TUNE pilot clears pocket A, then Carl walks to
-/// [`HAZ_THROW_X`] and throws his one dynamite at the latched Rot Sticker of pocket B:
-/// the blast lights it (the CP-Q34 chain, 8 ticks later) and both go off. Carl backs
-/// off down the lane while the 150-tick fuse runs, and hands over to the PT-TUNE
-/// pilot (which finishes the room) once the dynamite has gone off.
+/// Spectacular route (room 4, FA-Q21): the PT-TUNE pilot clears pocket A; Carl then baits R1 and
+/// backs off out of its blast (the tactical route's rule for sticker 0), walks to
+/// [`HAZ_THROW_X`] and throws his one dynamite at the floor under R2: the stick lands within the
+/// 76 px reach (`hazfu05`) of R2, its blast lights R2 (the CP-Q34 chain, 8 ticks later, credited
+/// to the stick) and S2 at home stands inside R2's blast. Carl backs off down the lane while the
+/// 150-tick fuse runs, and hands over to the PT-TUNE pilot once the dynamite has gone off.
 fn haz_spectacular(combat: &CombatState, sim: &SceneSim) -> RawInput {
     let pilot = || crate::f01_mastery_fixtures::pilot(combat, sim, HeroId::Carl);
-    let Some((state, _dome)) = haz_sticker(combat) else {
-        return pilot();
-    };
     let hero = &sim.world.hero;
     let pocket_a_clear = !haz_slime_alive(combat)
         && combat
@@ -759,7 +749,7 @@ fn haz_spectacular(combat: &CombatState, sim: &SceneSim) -> RawInput {
             .iter()
             .filter(|g| g.x < HAZ_POCKET_A_END)
             .all(|g| !g.alive());
-    if !pocket_a_clear || state == StickerState::Spent {
+    if !pocket_a_clear {
         return pilot();
     }
     if let Some(stick) = combat.charges.get(combat.dynamite_slot()) {
@@ -767,6 +757,24 @@ fn haz_spectacular(combat: &CombatState, sim: &SceneSim) -> RawInput {
             return pilot();
         }
         return walk_to(sim, HAZ_THROW_X - HAZ_BACK_OFF);
+    }
+    // R1 first: bait and back off out of its blast.
+    if let Some((state, dome)) = haz_sticker_at(combat, 0) {
+        match state {
+            StickerState::Spent => {}
+            StickerState::Warning => return walk_to(sim, dome - HAZ_RETREAT_PX),
+            StickerState::Latched | StickerState::Scuttling => {
+                return RawInput {
+                    move_x: 1.0,
+                    jump: hero.grounded && blocked_ahead(sim, 1.0),
+                    ..RawInput::NONE
+                };
+            }
+        }
+    }
+    // R2 spent already (nothing to chain): the PT-TUNE pilot finishes the room.
+    if haz_sticker_at(combat, 1).is_none_or(|(state, _)| state == StickerState::Spent) {
+        return pilot();
     }
     if hero.x < HAZ_THROW_X - WALK_DEADZONE {
         return walk_to(sim, HAZ_THROW_X);
@@ -1460,148 +1468,254 @@ mod tests {
         println!("ALIGNED_LIBRARY_END");
     }
 
-    /// PR-D, FA-Q21 (T28): the sweep the retarget of `haz_spectacular` onto R2 calls for, run as a
-    /// test. Carl throws one stick from every column 640..=728 (8 px apart) with R2 latched and
-    /// S2 at home; the stick lands 111 px ahead on the floor, and **no column chains R2**: R2's
-    /// dome is 70 px above a floor stick's blast centre at the nearest (landing 759), and the
-    /// dynamite's chain reach is its outer radius, 64 (CP-Q34). The sheet's "a stick within
-    /// 64 px of R2" cannot be met on the floor under the 84 px soffit, so `haz_spectacular`
-    /// still chains R1 (the bait route `haz_tactical` is the one that hits S2 with R2).
-    /// Design finding for the orchestrator (see the PR body): lower the soffit underside by
-    /// at least 8 px, or raise the sticker chain reach to 72 or more.
-    #[test]
-    fn haz_r2_is_out_of_reach_of_a_floor_stick_at_every_throw_column() {
+    /// One throw of Carl's dynamite from column `x` of pocket C with R2 latched and S2 at home
+    /// (the sweep scene of FA-Q21: the scene starts at `x`, nothing else moves): the distance
+    /// from the landed stick's blast centre to R2's dome, whether R2 was chained (a `Chain`
+    /// provoke of sticker 1 on the stick's blast tick, R2's own blast 8 ticks later), and S2's
+    /// hit points before and after R2's blast.
+    fn r2_throw(x: i32) -> (f32, Option<(u64, u64)>, (u8, u8)) {
         use crate::f01_hazards;
         let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        let mut nearest = f32::MAX;
-        for x in (640..=728).step_by(8) {
-            let (carl, donut) = Loadout::Story.flags();
-            let run = f01_hazards::launch(&root).unwrap();
-            let mut scene = SceneSim::new_at(&run.kit, 360, x).unwrap();
-            let mut combat = f01_hazards::combat_for(&run, &mut scene, carl, donut, None).unwrap();
-            for k in 0..120u64 {
-                let ability = k == 2;
-                combat.step_party(
-                    &mut scene,
-                    [
-                        RawInput {
-                            ability,
-                            ..RawInput::NONE
-                        },
-                        RawInput::NONE,
-                    ],
-                );
+        let (carl, donut) = Loadout::Story.flags();
+        let run = f01_hazards::launch(&root).unwrap();
+        let mut scene = SceneSim::new_at(&run.kit, 360, x).unwrap();
+        let mut combat = f01_hazards::combat_for(&run, &mut scene, carl, donut, None).unwrap();
+        let slime_hp = |c: &CombatState| {
+            c.slot_enemies()[1]
+                .as_any()
+                .and_then(|a| a.downcast_ref::<crate::combat_scene::slime::SlimeEnemy>())
+                .map(|s| s.slime().health())
+                .unwrap()
+        };
+        let mut s2 = (0, 0);
+        for k in 0..230u64 {
+            let before = slime_hp(&combat);
+            combat.step_party(
+                &mut scene,
+                [
+                    RawInput {
+                        ability: k == 2,
+                        ..RawInput::NONE
+                    },
+                    RawInput::NONE,
+                ],
+            );
+            if combat
+                .events
+                .iter()
+                .any(|e| matches!(e, CombatEvent::Blast { charge: 1, tick } if *tick == scene.world.tick))
+            {
+                s2 = (before, slime_hp(&combat));
             }
-            let stick = combat.charges[combat.dynamite_slot()];
-            let r2 = combat.charges[1];
-            let (cx, cy) = stick.centre();
-            let (tx, ty) = r2.centre();
-            let d = ((tx - cx).powi(2) + (ty - cy).powi(2)).sqrt();
-            assert!(
-                combat
-                    .events
-                    .iter()
-                    .any(|e| matches!(e, CombatEvent::ChargeLanded { .. })),
-                "column {x}: the stick landed"
-            );
-            assert!(
-                !combat.events.iter().any(|e| matches!(
-                    e,
-                    CombatEvent::RotProvoked {
-                        sticker: 1,
-                        cause: crate::rot_sticker::RotCause::Chain,
-                        ..
-                    }
-                )),
-                "column {x}: R2 is chained"
-            );
-            assert!(
-                d > stick.profile.outer_radius,
-                "column {x}: {d} within reach"
-            );
-            nearest = nearest.min(d);
         }
-        assert!(
-            (70.0..70.1).contains(&nearest),
-            "the nearest landing is 70 px away: {nearest}"
-        );
+        let stick = combat.charges[combat.dynamite_slot()];
+        let (cx, cy) = stick.centre();
+        let (tx, ty) = combat.charges[1].centre();
+        let d = ((tx - cx).powi(2) + (ty - cy).powi(2)).sqrt();
+        let blast = |charge: u32| {
+            combat.events.iter().find_map(|e| match e {
+                CombatEvent::Blast { tick, charge: c } if *c == charge => Some(*tick),
+                _ => None,
+            })
+        };
+        let chained = combat.events.iter().any(|e| {
+            matches!(
+                e,
+                CombatEvent::RotProvoked {
+                    sticker: 1,
+                    cause: crate::rot_sticker::RotCause::Chain,
+                    ..
+                }
+            )
+        });
+        let ticks = blast(1).zip(blast(combat.dynamite_slot() as u32));
+        (d, chained.then(|| ticks.expect("both blasts")), s2)
     }
 
-    /// PT-GATE-D (room 4, the spectacular route): `haz_spectacular` clears pocket A,
-    /// throws one dynamite from column 450 and backs off: the thrown blast lights the
-    /// latched Rot Sticker (a `Chain` provoke on the blast tick, the sticker's own blast
-    /// 8 ticks later, CP-Q34), neither blast hurts Carl, and the pilot then finishes the
-    /// room: the exit is reached with no defeat. The run replays to the same hash.
+    /// FA-Q21 (T28, ruling `hazfu05_sticker_chain_reach_px = 76`): the 8 px sweep over the
+    /// throw columns 640..=720. **Knob off** (reach 64): no column chains R2, and the nearest
+    /// floor landing is 70.0..70.1 px from its dome (the finding that needed the knob). **Knob
+    /// on** (reach 76): the lowest chaining column is 648 (landing 759, 70.007 px, a margin of
+    /// 5.99 px), the chaining columns are the contiguous run 648..=688 (landing within 76 px:
+    /// dx +-29.6 around the dome), R2's blast is the stick's blast + 8 and S2 at home takes R2's
+    /// blast (3 -> 2; the stick's own outer ring reaches it too at some columns, which this
+    /// asserts as the total).
     #[test]
-    fn the_haz_spectacular_plan_chains_the_dynamite_into_the_latched_sticker() {
+    fn haz_r2_chain_sweep_over_the_throw_columns() {
+        let columns: Vec<i32> = (640..=720).step_by(8).collect();
+        let off: Vec<_> = crate::slime::with_knobs_for_test(
+            |t| t.hazfu05_sticker_chain_reach_px = 0,
+            || columns.iter().map(|x| r2_throw(*x)).collect(),
+        );
+        for (x, (d, chain, _)) in columns.iter().zip(&off) {
+            assert!(chain.is_none(), "knob off, column {x}: chained at {d}");
+        }
+        let nearest = off.iter().map(|o| o.0).fold(f32::MAX, f32::min);
+        assert!((70.0..70.1).contains(&nearest), "{nearest}");
+        let on: Vec<_> = columns.iter().map(|x| r2_throw(*x)).collect();
+        let chaining: Vec<i32> = columns
+            .iter()
+            .zip(&on)
+            .filter(|(_, o)| o.1.is_some())
+            .map(|(x, _)| *x)
+            .collect();
+        eprintln!("R2_SWEEP chaining={chaining:?} {on:?}");
+        assert_eq!(chaining.first(), Some(&648), "{chaining:?}");
+        assert!(
+            chaining.windows(2).all(|w| w[1] - w[0] == 8),
+            "contiguous: {chaining:?}"
+        );
+        for (x, (d, chain, _)) in columns.iter().zip(&on) {
+            assert_eq!(chain.is_some(), *d <= 76.0, "column {x}: distance {d}");
+            if let Some((r2, stick)) = chain {
+                assert_eq!(*r2, stick + 8, "column {x}: the chain is +8");
+            }
+        }
+    }
+
+    /// FA-Q21 (room 4, the spectacular route, onto R2): `haz_spectacular` clears pocket A, baits
+    /// R1 and backs off out of its blast, then throws exactly one dynamite from column 648
+    /// (the sweep's lowest chaining column): the stick lands 111 px ahead, within the 76 px
+    /// reach (`hazfu05`) of R2, its blast lights R2 (a `Chain` provoke of sticker 1 credited to
+    /// Carl on the stick's blast tick, R2's own blast 8 ticks later, CP-Q34), S2 at home loses
+    /// R2's 1 hit point, R1 hurts no hero (and neither does R2), and the room is cleared to its
+    /// exit with no defeat. The run replays to the same hash.
+    #[test]
+    fn the_haz_spectacular_plan_chains_the_dynamite_into_r2_over_the_slime() {
         use crate::f01_late::hazards_start;
+        use crate::rot_sticker::{ROT_SOURCE_ID, RotCause};
         let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         let pilot = RoomPilot::parse("haz_spectacular").unwrap();
         assert_eq!(pilot.label(), "haz_spectacular");
         assert!(pilot.aligned.is_none() && !pilot.two_player);
+        let s2_hp = |c: &CombatState| {
+            c.slot_enemies()[1]
+                .as_any()
+                .and_then(|a| a.downcast_ref::<crate::combat_scene::slime::SlimeEnemy>())
+                .map(|s| (s.slime().health(), s.slime().x))
+                .unwrap()
+        };
         let play = || {
             let (carl, donut) = Loadout::Story.flags();
             let (run, mut scene, mut combat) =
                 hazards_start(&root, 360, carl, donut, None).unwrap();
             let exit = run.loaded.encounter.exit;
             let exit_x = (exit.x + exit.w / 2) as f32;
+            // S2's (hit points, x) the tick before and the tick after R2's blast.
+            let mut s2_around = None;
             for _ in 0..2500 {
                 if scene.world.complete {
                     break;
                 }
+                let before = s2_hp(&combat);
                 let inputs = pilot.inputs(&combat, &scene, exit_x);
                 combat.step_party(&mut scene, inputs);
+                if s2_around.is_none()
+                    && combat
+                        .events
+                        .iter()
+                        .any(|e| matches!(e, CombatEvent::Blast { charge: 1, .. }))
+                {
+                    s2_around = Some((before, s2_hp(&combat)));
+                }
             }
-            (scene, combat)
+            (scene, combat, s2_around)
         };
-        let (scene, combat) = play();
+        let (scene, combat, s2_around) = play();
         assert!(
             scene.world.complete,
             "the room is cleared and its exit reached"
         );
         assert_eq!(combat.deaths, 0);
-        let blasts: Vec<(u64, u32)> = combat
+        let throws = combat
             .events
             .iter()
-            .filter_map(|e| match e {
-                CombatEvent::Blast { tick, charge } => Some((*tick, *charge)),
+            .filter(|e| matches!(e, CombatEvent::ChargeThrown { .. }))
+            .count();
+        assert_eq!(throws, 1, "exactly one throw");
+        let blast = |charge: u32| {
+            combat.events.iter().find_map(|e| match e {
+                CombatEvent::Blast { tick, charge: c } if *c == charge => Some(*tick),
                 _ => None,
             })
-            .collect();
-        let slot = combat.dynamite_slot() as u32;
-        let dynamite = blasts
-            .iter()
-            .find(|b| b.1 == slot)
-            .expect("the dynamite goes off");
-        let sticker = blasts
-            .iter()
-            .find(|b| b.1 == 0)
-            .expect("sticker 0 goes off");
-        assert_eq!(sticker.0, dynamite.0 + 8, "the chain is +8 ticks (CP-Q34)");
+        };
+        let dynamite = blast(combat.dynamite_slot() as u32).expect("the dynamite goes off");
+        let r2 = blast(1).expect("R2 goes off");
+        assert_eq!(r2, dynamite + 8, "the chain is +8 ticks (CP-Q34)");
         assert!(
             combat.events.iter().any(|e| matches!(
                 e,
-                CombatEvent::RotProvoked { tick, sticker: 0, cause: crate::rot_sticker::RotCause::Chain, .. }
-                    if *tick == dynamite.0
+                CombatEvent::RotProvoked {
+                    tick,
+                    sticker: 1,
+                    cause: RotCause::Chain,
+                    player: Some(0),
+                    ..
+                } if *tick == dynamite
             )),
-            "sticker 0 is lit by the chain on the dynamite's blast tick"
+            "R2 is lit by the chain on the stick's blast tick, credited to Carl"
+        );
+        // R1 was baited by proximity and went off on its own, before the throw.
+        assert!(combat.events.iter().any(|e| matches!(
+            e,
+            CombatEvent::RotProvoked {
+                sticker: 0,
+                cause: RotCause::Proximity,
+                ..
+            }
+        )));
+        let r1 = blast(0).expect("R1 goes off");
+        assert!(r1 < dynamite, "R1 first");
+        let rot_hurts: Vec<u64> = combat
+            .events
+            .iter()
+            .filter_map(|e| match e {
+                CombatEvent::HeroHurt { tick, source, .. } if source & 0xffff == ROT_SOURCE_ID => {
+                    Some(*tick)
+                }
+                _ => None,
+            })
+            .collect();
+        assert!(
+            !rot_hurts.iter().any(|t| *t == r1 || *t == r2),
+            "no Rot blast hurts a hero: {rot_hurts:?}"
         );
         assert!(
             !combat.events.iter().any(|e| matches!(
                 e,
-                CombatEvent::HeroHurt { tick, .. } if (dynamite.0..=sticker.0).contains(tick)
+                CombatEvent::HeroHurt { tick, .. } if (dynamite..=r2).contains(tick)
             )),
             "neither blast reaches Carl"
         );
-        // The committed final hash of this new fixture, as this test drives the room (the
-        // inputs of slot 0 only; the binary's run, with the room scene's follower bot, ends on
-        // the scorecard's `f1156c1548e7008a` instead): a drift is a deliberate re-pin.
-        assert_eq!(
-            combat.state_hash(&scene),
-            0x4b32_c6da_d3be_c5f2,
-            "the committed final hash"
+        // S2 at home (it has crept at most to x 768.5 while Carl stood in view) lies inside R2's
+        // 48 px blast circle (dome 760) *and* on the stick's landing (759): the stick's own
+        // point-blank/ring blast defeats it on the dynamite's tick, credited to Carl, so R2's
+        // 1 damage finds it already down. Ruling FA-Q21 asked for "S2 takes R2's blast damage":
+        // that cannot be met, because every chaining landing is within 24 px of S2's home body.
+        let ((hp_before, x_before), (hp_after, _)) = s2_around.expect("R2's blast");
+        eprintln!("SPECT s2={s2_around:?} r1={r1} dyn={dynamite} r2={r2}");
+        assert!(
+            (x_before - 760.0).abs() < 48.0,
+            "S2 stands inside R2's 48 px circle: {x_before}"
         );
-        let (again, combat_again) = play();
+        assert_eq!((hp_before, hp_after), (0, 0), "defeated before R2's blast");
+        assert!(
+            combat.events.iter().any(|e| matches!(
+                e,
+                CombatEvent::EnemyDefeated {
+                    tick,
+                    target,
+                    cause: DefeatCause::Explosion { .. },
+                    instigator: Some(0),
+                    ..
+                } if *tick == dynamite && *target == crate::combat_scene::slime::target_id(2)
+            )),
+            "S2 falls to the stick's blast, credited to Carl"
+        );
+        let (again, combat_again) = {
+            let (s, c, _) = play();
+            (s, c)
+        };
         assert_eq!(
             combat.state_hash(&scene),
             combat_again.state_hash(&again),
