@@ -1,5 +1,7 @@
 # CF02-C2 + CF02-F evidence
 
+> **Predates FA-Q38 (i-frame cue) and Donut's hurt frames.** Captured before both heroes flicker during their post-hit invulnerability and before Donut's ANIM-DONUT-02 hurt, knockback and knockdown frames were wired (PR #259; see [f01-donut-hurt](../../f01-donut-hurt/README.md)). Affected here: `gifs/goblin_self_own_1x.gif` and `gifs/shore_drop_1x.gif` (Carl is probably hurt in them). Kept as captured, not regenerated; a regeneration would show the cue.
+
 One grouped PR (`feat/cf02-c2f`): C2 (solo swap and Donut's bail-out) lands first, then F (the microarena). Replays of every fixture are in [`../replays/`](../replays/) (run twice by `scripts/ci_floor01_combat.sh headless` and pinned by the `GOLDENS` of `src/donut_fixtures.rs` and `src/cf02_fixtures.rs`). Tick numbers are attempt-local ticks of the committed replays.
 
 ## CF02-C2

@@ -30,7 +30,7 @@ mkdir -p "$caps" "$out"
 # 379, d1 380 to the restart on 398).
 stills=(
   "hurt_h0:party-fixture:donut_hurt_iframes:68:320x210+790+680:HURT h0 (t68)"
-  "hurt_h1:party-fixture:donut_hurt_iframes:80:320x210+790+680:HURT h1 (t80)"
+  "hurt_h1:party-fixture:donut_hurt_iframes:77:320x210+790+680:HURT h1 (t77)"
   "defeat_freeze_h0:party-fixture:donut_defeat_party:352:320x210+790+680:DEFEAT FREEZE h0 (t352)"
   "knockback_kb:party-fixture:donut_defeat_party:364:320x210+800+680:KNOCKBACK kb (t364)"
   "knockdown_d0:party-fixture:donut_defeat_party:375:320x210+830+680:KNOCKDOWN d0 (t375)"

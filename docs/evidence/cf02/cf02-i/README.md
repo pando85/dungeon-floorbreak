@@ -1,5 +1,7 @@
 # CF02-I evidence: acting integration
 
+> **Predates FA-Q38 (i-frame cue) and Donut's hurt frames.** Captured before both heroes flicker during their post-hit invulnerability and before Donut's ANIM-DONUT-02 hurt, knockback and knockdown frames were wired (PR #259; see [f01-donut-hurt](../../f01-donut-hurt/README.md)). Affected here: `carl_flinch.gif`, `arena_carl_frustration.gif`, `arena_goblin_taunt.gif`, `arena_donut_smug.gif`, `donut_smug.gif`, `arena_slammed_flung.gif`, `slammed_flung.gif`, `donut_startle.gif` and `donut_startle_clear.gif` (Carl is hurt in them). Kept as captured, not regenerated; a regeneration would show the cue.
+
 The final CF02 frames (ART-CARL-CF02, ART-DONUT-CF02, ART-GOB-CF02 and the goblin slammed sheets) and the Q69 to Q72 overlays, drawn in the real Bevy scene under `cf02_rules`. Presentation only: no event, hash or input timing changes (proof below). Design and frame map: [CF02-I acting integration](../../../03-tech/floor01-scene.md#cf02-i-acting-integration). Game feel is not judged; nobody has played it.
 
 ## Real Bevy 1x GIFs

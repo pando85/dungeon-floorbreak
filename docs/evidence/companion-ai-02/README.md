@@ -1,5 +1,7 @@
 # COMPANION-AI-02 CA2-B2 evidence
 
+> **Predates FA-Q38 (i-frame cue) and Donut's hurt frames.** Captured before both heroes flicker during their post-hit invulnerability and before Donut's ANIM-DONUT-02 hurt, knockback and knockdown frames were wired (PR #259; see [f01-donut-hurt](../f01-donut-hurt/README.md)). Affected here: `retreat_when_hurt_1x.gif` (Donut and Carl are hurt in it). Kept as captured, not regenerated; a regeneration would show the cue.
+
 Real 640x360 Bevy frames of the autonomous partner (`--companion cf02_free`) in the CF02 microarena, captured at 1x with `xvfb-run -a floor01_scene --scale 1 --party-fixture <fixture> --capture-sequence <start>:<step>:<count>` and joined with `ffmpeg` (a 128 colour palette, no dither). Carl is the human (scripted inputs); the partner is Donut. Checksums are in `SHA256SUMS`. The owner's play-through guide and the measured metric table come with CA2-D; this folder holds the CA2-B2 captures only.
 
 | File | Fixture and ticks | What it shows |

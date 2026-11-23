@@ -1,5 +1,7 @@
 # Bad Llama in Bevy: evidence (DEMO-01 PR B, draft)
 
+> **Predates FA-Q38 (i-frame cue) and Donut's hurt frames.** Captured before both heroes flicker during their post-hit invulnerability and before Donut's ANIM-DONUT-02 hurt, knockback and knockdown frames were wired (PR #259; see [f01-donut-hurt](../f01-donut-hurt/README.md)). Affected here: `spit_p4_ticks30-90_960x540.gif` (Carl is hurt in it). Kept as captured, not regenerated; a regeneration would show the cue.
+
 Real captures of the Bad Llama (LLAMA-01 art, LLAMA-02-DEATH poses and parts) in the `floor01_scene` render loop, at **1920x1080** (`--scale 3`, lighting on, one frame per tick). Written by `bash scripts/make_llama_bevy_evidence.sh` (debug binary, exported atlases, `xvfb-run`, ImageMagick); the README is hand-written.
 
 The HUD is the main-branch hybrid HUD with the real exported atlas (`scripts/export_assets.sh` before the captures; no placeholder portraits).

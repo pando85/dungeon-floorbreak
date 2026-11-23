@@ -796,6 +796,15 @@ Bevy-free and deterministic at the fixed tick. Every number is a `PartyTuning` k
 | `solo_follower_dodge` | solo | The bot jumps over each swing aimed at her |
 
 
+### Adopted presentation defaults (hero hit reactions)
+
+Adopted by the orchestrator under the owner's design-defaults directive; the owner may change any value in a follow-up PR (presentation only: no value feeds the simulation).
+
+| ID | Question | Choice | Where |
+| --- | --- | --- | --- |
+| FA-Q38 | What tells the player a hero cannot be hurt? | **I-frame cue:** both heroes flicker, drawn over their real frames, alpha 1.0 and 0.5 alternating every 4 ticks (dim while `invulnerable_ticks / 4` is even) during the sim's post-hit invulnerability. No white tint. No cue for a hero who is downed (the defeat freeze and the downed hold); the other hero keeps flickering. | `actor_sprite::INVULNERABILITY_FLICKER_TICKS`, `INVULNERABILITY_DIM_ALPHA`, `invulnerability_alpha`; `hero_cue` in `floor01_scene` |
+| FA-Q38-AD1 | Does Donut's hurt use a flash? | No: her ANIM-DONUT-02 frames 8 to 12 replace the old white flash and blink (the flash is gone for both heroes). | `donut_art::hurt_frame` |
+
 ## Boss encounter (HUD-DEBT-03)
 
 The Floor 01 boss, **THE JUICER** (data id `brute_boss_f01`), implements [floor-01-boss-design.md](../02-art/floor-01-boss-design.md) without re-deciding it. Status: **in review, game feel pending**; every number is a data knob, not approved balance. The production art is not bound yet: the boss draws as placeholder rects and the HUD emblem is a placeholder 18x18 head.

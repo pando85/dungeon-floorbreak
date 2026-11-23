@@ -1,5 +1,5 @@
-GATE_B_WAVE ROOM_CAPTURE room=mastery plan=mastery frames=50 first_tick=440 step=6 last_tick=734 window_hash=f49a9fe874ca8106 headless_hash=f49a9fe874ca8106 timed_hash=skipped match=yes
-GATE_B_WAVE_640x400 ROOM_CAPTURE room=mastery plan=mastery frames=50 first_tick=440 step=6 last_tick=734 window_hash=366a292b36d4511e headless_hash=366a292b36d4511e timed_hash=skipped match=yes
+GATE_B_WAVE ROOM_CAPTURE room=mastery plan=mastery frames=50 first_tick=440 step=6 last_tick=734 window_hash=c72762bf40592f24 headless_hash=c72762bf40592f24 timed_hash=skipped match=yes
+GATE_B_WAVE_640x400 ROOM_CAPTURE room=mastery plan=mastery frames=50 first_tick=440 step=6 last_tick=734 window_hash=da06f96ed727a629 headless_hash=da06f96ed727a629 timed_hash=skipped match=yes
 GATE_B_CAPTURE name=ability-chain fixture=carl_prog_dyn_chain_depth_cap first_tick=188 step=3 last_tick=245 window_hash=c96b3e2be2e0049f headless_hash=c96b3e2be2e0049f match=yes
 GATE_B_CAPTURE name=ability-reflex fixture=cf02_dm_reflex_cues first_tick=712 step=3 last_tick=799 window_hash=8870c6f49c456c74 headless_hash=8870c6f49c456c74 match=yes
 GATE_B_CAPTURE name=ability-magic-missile fixture=cf02_assist_donut_missiles_goblin first_tick=8 step=2 last_tick=70 window_hash=a70d0a65ac6b7f04 headless_hash=a70d0a65ac6b7f04 match=yes

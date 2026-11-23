@@ -7,11 +7,13 @@ Screenshot evidence that Donut's damage reactions are drawn from the committed A
 | Still | Fixture, tick | Frame (melee atlas) | What it shows |
 | --- | --- | --- | --- |
 | `hurt_h0.png` | `donut_hurt_iframes`, 68 | 8 `h0 flinch` | a goblin's swing landed on tick 64; the 4 tick freeze and the first 5 flinch ticks, eyes shut |
-| `hurt_h1.png` | `donut_hurt_iframes`, 80 | 9 `h1 recoil` | the other 13 ticks of the 18 tick flinch |
+| `hurt_h1.png` | `donut_hurt_iframes`, 77 | 9 `h1 recoil` | the other 13 ticks of the 18 tick flinch |
 | `defeat_freeze_h0.png` | `donut_defeat_party`, 352 | 8 `h0 flinch` | the lethal blow (tick 349): the hit-stop holds `h0` (8 ticks) |
 | `knockback_kb.png` | `donut_defeat_party`, 364 | 10 `kb thrown` | thrown away from the goblin, held while airborne, anchored by the pivot at the launch and by the lowest row from the apex (Carl's blend) |
 | `knockdown_d0.png` | `donut_defeat_party`, 375 | 11 `d0 sploot impact` | the first 6 ticks on the floor |
 | `knockdown_d1.png` | `donut_defeat_party`, 390 | 12 `d1 sploot sulk` | held until the retry (tick 398) |
+
+The reaction stills are taken on bright phases of the flicker below (`hurt_h1` on tick 77, bright; on tick 80 the same frame is in a dim phase and reads faded), so the frames read at 1x.
 
 In `defeat_freeze_h0.png`, `knockdown_d0.png` and `knockdown_d1.png` Carl stands over her: that is the fixture's geometry (she is a stationary target at his column), and she is drawn behind him as every other Donut frame is.
 

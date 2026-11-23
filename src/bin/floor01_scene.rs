@@ -5728,9 +5728,9 @@ fn presentation_tick(
 /// FA-Q38 (i-frame cue): the colour a hero's sprite is drawn with, for both heroes
 /// and every sprite that shows them (locomotion, melee, cast, throw, acting): white,
 /// dimmed to alpha 0.5 on alternate 4 tick phases of the simulation's post-hit
-/// invulnerability, and never while a hero is downed. No tint. Presentation only.
+/// invulnerability, and never while that hero is downed (the other hero keeps flickering). No tint. Presentation only.
 fn hero_cue(sim: &SceneSim, combat: Option<&CombatState>, hero: HeroId) -> Color {
-    let downed = combat.is_some_and(|c| c.hero_defeated);
+    let downed = combat.is_some_and(|c| c.hero_downed(hero));
     let ticks = sim.world.body(hero).invulnerable_ticks;
     Color::srgba(1.0, 1.0, 1.0, invulnerability_alpha(ticks, downed))
 }

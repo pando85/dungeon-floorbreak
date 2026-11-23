@@ -1,5 +1,7 @@
 # Hazard room first look (NON-FINAL, a bonus of the EVID-ROOM stage)
 
+> **Predates FA-Q38 (i-frame cue) and Donut's hurt frames.** Captured before both heroes flicker during their post-hit invulnerability and before Donut's ANIM-DONUT-02 hurt, knockback and knockdown frames were wired (PR #259; see [f01-donut-hurt](../../f01-donut-hurt/README.md)). Affected here: `hazards-first-look.gif` (Carl is hurt in it). Kept as captured, not regenerated; a regeneration would show the cue.
+
 A first look at `--scene f01_late --f01-room hazards` (the HAZ-A2b room with the HAZ-B stand-in presentation) at gameplay
 scale (640 x 360), captured through the new room capture path (`scripts/room_capture.sh`, the `direct` room pilot). It is
 the first deliverable HAZ-C reuses. It is **not** HAZ-D's evidence (art review, 2P, human play) and approves nothing:

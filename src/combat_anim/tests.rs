@@ -1439,3 +1439,22 @@ fn donut_is_thrown_then_lies_d0_for_six_ticks_then_d1_until_the_restart() {
             .all(|r| r.0 != Some(11) && r.0 != Some(12))
     );
 }
+
+#[test]
+fn only_the_defeated_hero_is_downed_for_the_i_frame_cue() {
+    use crate::party_scene::{DONUT_DEFEAT_PARTY, PartyFixtureSim};
+    let kit = kit();
+    let mut sim = PartyFixtureSim::new(&kit, 360, &DONUT_DEFEAT_PARTY).unwrap();
+    let mut seen = false;
+    for _ in 0..DONUT_DEFEAT_PARTY.base.ticks {
+        sim.step_scripted();
+        let combat = &sim.combat;
+        assert!(!combat.hero_downed(crate::party::HeroId::Carl));
+        assert_eq!(
+            combat.hero_downed(crate::party::HeroId::Donut),
+            combat.donut_defeated()
+        );
+        seen |= combat.hero_downed(crate::party::HeroId::Donut);
+    }
+    assert!(seen, "Donut was defeated in the fixture");
+}
