@@ -374,6 +374,38 @@ pub struct CompanionView {
     /// flat, or the nav is driving her this tick. Built only where the flank
     /// is enabled; the director never leaves it.
     pub flank_span: Option<(f32, f32)>,
+    /// FA-Q34 (Boiler only): the living enemies reserved for the human leader, by id: at
+    /// most one hit point left and within `finish_reserve_px` of him. Empty unless the
+    /// room's knob is on. Sorted.
+    pub reserved: Vec<StableEntityId>,
+    /// FA-Q35 (Boiler only): the enemies still asleep or counting their wake delay (the
+    /// per-enemy awake flag, as a list). They are not in [`Self::targets`] while the knob
+    /// is on, so no press can pick one. Empty unless the room's knob is on. Sorted.
+    pub asleep: Vec<StableEntityId>,
+}
+
+/// FA-Q34 and FA-Q35: the Boiler's partner knobs
+/// (`assets/data/gameplay/f01_boiler_fixes_v0.json`), carried from the room's launch to
+/// the combat state. The default is both off: every other room, scene and golden.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct PartnerKnobs {
+    /// FA-Q34: an enemy with at most one hit point left, within this many px of the
+    /// human leader, is the leader's to finish: the AI starts no press against it
+    /// (unless it is in an attack tell aimed at her, and then the hit is a glance).
+    pub finish_reserve_px: Option<f32>,
+    /// FA-Q35: the AI starts no press against an enemy that is asleep or counting its
+    /// wake delay.
+    pub hold_fire_until_awake: bool,
+    /// FA-Q36: the wake leash's margin in px (`None` = off). While an enemy is not woken
+    /// the AI hero keeps at least this far outside its sight, unless the human leader is
+    /// already inside it or she is being attacked.
+    pub wake_leash_margin_px: Option<f32>,
+    /// FA-Q37: a reserved enemy is released after this many hits on any hero (`None` = no
+    /// release by hits).
+    pub release_on_hits: Option<u8>,
+    /// FA-Q37: a reserved enemy is released after being reserved this many ticks in a row
+    /// (`None` = no release by time).
+    pub release_after_ticks: Option<u16>,
 }
 
 /// A violated view guarantee.
@@ -484,6 +516,8 @@ pub(crate) mod fixtures {
             boss: None,
             boss_view: None,
             flank_span: None,
+            reserved: Vec::new(),
+            asleep: Vec::new(),
         }
     }
 }

@@ -367,6 +367,10 @@ pub struct EnvRuntime {
     /// Run configuration the combat state takes in [`CombatState::with_env`]
     /// (a launch of the room sets it, [`Self::with_wake_gates`]); never hashed.
     wake_gates: Vec<Option<crate::goblin::WakeGate>>,
+    /// FA-Q34, FA-Q35: the room's partner knobs; they ride with the env runtime like the
+    /// wake gates and the combat state takes them in [`CombatState::with_env`] (both scene
+    /// builders of the Boiler go through it). Never hashed; both off by default.
+    partner_knobs: crate::companion::view::PartnerKnobs,
     /// HAZ-FU: whether each linked slime (in `acid_links` order) was up on the last
     /// acid step. `None` until the first step of an attempt, which reads the slimes
     /// as they stand: a slime that is already down then was never alive (the kill
@@ -618,6 +622,7 @@ impl EnvRuntime {
             floor_layout: None,
             defeat_roster: enc.goal == Goal::DefeatRoster,
             wake_gates: Vec::new(),
+            partner_knobs: Default::default(),
             acid_prev_up: None,
             fu: HazFu::from_tuning(slime::active()),
         })
@@ -627,6 +632,13 @@ impl EnvRuntime {
     #[must_use]
     pub fn with_wake_gates(mut self, gates: Vec<Option<crate::goblin::WakeGate>>) -> Self {
         self.wake_gates = gates;
+        self
+    }
+
+    /// FA-Q34, FA-Q35: the room's partner knobs.
+    #[must_use]
+    pub fn with_partner_knobs(mut self, knobs: crate::companion::view::PartnerKnobs) -> Self {
+        self.partner_knobs = knobs;
         self
     }
 
@@ -1407,6 +1419,7 @@ impl CombatState {
         env.attach(self.enemy_foot_y);
         // FA-Q20: the room's roster wake gates ride with its env runtime.
         self.wake_gates = std::mem::take(&mut env.wake_gates);
+        self.partner_knobs = env.partner_knobs;
         self.env = Some(Box::new(env));
         self.reset_attempt();
         self

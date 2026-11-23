@@ -361,6 +361,8 @@ impl LeaderClaims {
         if let Some(id) = front {
             ids.push(id);
         }
+        // FA-Q34: the enemies reserved for the leader's finish are his (never Hunt's).
+        ids.extend(view.reserved.iter().copied());
         ids.sort_unstable();
         ids.dedup();
         Self { ids, front }

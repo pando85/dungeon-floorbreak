@@ -3488,7 +3488,7 @@ mod tests {
 
     // FNV-1a 64 of the two files: a data edit must update them on purpose.
     const ROOM_HASH: u64 = 3_100_011_409_838_489_558;
-    const SIDECAR_HASH: u64 = 17_616_661_401_001_110_695;
+    const SIDECAR_HASH: u64 = 15_150_591_341_698_282_220;
 
     #[test]
     fn the_data_file_pins_the_three_classes() {
@@ -3867,7 +3867,9 @@ mod tests {
     #[test]
     fn the_roster_is_bounded_staggered_and_limited_to_the_allowed_kinds() {
         let mut v = sidecar();
-        v["roster"][1]["delay_ticks"] = json!(0);
+        // e1 shares g3's trigger column (560): the same delay is a synchronized spawn
+        // (FA-Q32 gave g2 its own trigger, so g2 is no longer in that pair).
+        v["roster"][3]["delay_ticks"] = json!(0);
         assert!(has(&errors(&v), |e| matches!(
             e,
             EncounterError::SynchronizedSpawn { .. }

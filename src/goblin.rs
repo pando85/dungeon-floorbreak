@@ -233,6 +233,12 @@ pub struct Goblin {
     /// everywhere else: the enemy wakes by sight alone and nothing of it is
     /// mixed into the state hash, so every earlier hash is untouched).
     pub(crate) wake: Option<Wake>,
+    /// FA-Q35 (room 2 retune): this enemy has been woken: a hero was once inside its sight,
+    /// it was touched, or its wake gate released and its delay elapsed. Persistent for the
+    /// attempt (a restart rebuilds the enemy). Only the companion's view reads it; it is
+    /// never mixed into a hash and changes no goblin behaviour. Set by [`Self::observe_wake`],
+    /// which the room runs only when its roster has a gated entry (the Boiler).
+    pub(crate) woken: bool,
 }
 
 /// FA-Q20: when an enemy of a sidecar roster wakes (amends BOILE-AD2). It wakes
@@ -403,6 +409,7 @@ impl Goblin {
             eng_tuning: None,
             walk_barriers: Vec::new(),
             wake: None,
+            woken: false,
         }
     }
 
@@ -434,12 +441,23 @@ impl Goblin {
         let sight = self.sight_px();
         let touched = self.mode != GoblinMode::Neutral;
         let x = self.x;
+        let seen = heroes.iter().any(|h| (h - x).abs() < sight);
+        if seen || touched {
+            self.woken = true;
+        }
         let Some(wake) = self.wake.as_mut() else {
             return;
         };
-        let seen = heroes.iter().any(|h| (h - x).abs() < sight);
         let furthest = heroes.iter().copied().fold(f32::NEG_INFINITY, f32::max);
         wake.observe(seen, furthest, touched);
+        if !wake.holds() {
+            self.woken = true;
+        }
+    }
+
+    /// FA-Q35: whether this enemy has been woken (see the field).
+    pub fn woken(&self) -> bool {
+        self.woken
     }
 
     /// FA-Q20: asleep or waiting out the wake delay (never without a gate).
@@ -2964,6 +2982,9 @@ mod tests {
         let plain = goblin_at(944.0);
         let mut observed = goblin_at(944.0);
         observed.observe_wake(&[944.0, 100.0]);
+        // The FA-Q35 flag (a hero in sight) is the one thing an ungated enemy keeps.
+        assert!(observed.woken() && !plain.woken());
+        observed.woken = false;
         assert_eq!(plain, observed);
         assert!(!plain.wake_holds());
         assert_eq!(hash_of(&plain), hash_of(&observed));

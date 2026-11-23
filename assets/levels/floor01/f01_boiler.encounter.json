@@ -87,7 +87,7 @@
   ],
   "roster": [
     { "id": "g1", "kind": "goblin", "x": 344, "beat": "B1", "delay_ticks": 0 },
-    { "id": "g2", "kind": "goblin", "x": 640, "beat": "B1", "delay_ticks": 120 },
+    { "id": "g2", "kind": "goblin", "x": 640, "beat": "B1", "trigger_x": 224, "delay_ticks": 15 },
     { "id": "g3", "kind": "goblin", "x": 944, "beat": "B3", "trigger_x": 560, "delay_ticks": 0 },
     {
       "id": "e1",
@@ -97,7 +97,7 @@
       "x": 1000,
       "beat": "B3",
       "trigger_x": 560,
-      "delay_ticks": 90
+      "delay_ticks": 15
     }
   ],
   "gates": [

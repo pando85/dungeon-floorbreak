@@ -55,7 +55,7 @@ pub const ROOM_ID: &str = "F01-BOILER";
 /// Editing the room or the sidecar means re-pinning here, on purpose.
 pub const ROOM_HASH: u64 = 0x2b05_73f3_e314_bfd6;
 /// FNV-1a 64 of the sidecar (see [`ROOM_HASH`]).
-pub const ENCOUNTER_HASH: u64 = 0xf47a_f435_0701_aca7;
+pub const ENCOUNTER_HASH: u64 = 0xd241_b68d_d308_f2ec;
 /// The `data_pins()` keys.
 pub const ROOM_PIN_KEY: &str = "f01_boiler_room";
 pub const ENCOUNTER_PIN_KEY: &str = "f01_boiler_encounter";
@@ -104,7 +104,7 @@ pub mod fixes {
 
     pub const TUNING_JSON: &str = include_str!("../assets/data/gameplay/f01_boiler_fixes_v0.json");
     /// The committed FNV-1a 64 content hash of [`TUNING_JSON`].
-    pub const TUNING_HASH: u64 = 0x0bf3_9798_0e31_825e;
+    pub const TUNING_HASH: u64 = 0x71f0_acee_3e65_dace;
     /// The `data_pins()` key.
     pub const PIN_KEY: &str = "f01_boiler_fixes";
 
@@ -121,6 +121,35 @@ pub mod fixes {
         /// stagger its spawn for the roster validator). On: that delay also counts after
         /// the sight wake.
         pub fa_q20_delay_after_sight: bool,
+        /// FA-Q34 (room 2 retune): the finish reserve radius in px, absent (`None`) =
+        /// off. An enemy with at most one hit point within it of the human leader is his
+        /// to finish: the AI partner starts no press against it. Boiler-scoped.
+        #[serde(default)]
+        pub fa_q34_finish_reserve_px: Option<u16>,
+        /// FA-Q35 (room 2 retune): the AI partner starts no press against an enemy that is
+        /// asleep or counting its wake delay (B0 "read the machine"). Absent = off.
+        #[serde(default)]
+        pub fa_q35_hold_fire_until_awake: bool,
+        /// FA-Q36 (review of #257): the AI partner does not step into the sight of an enemy
+        /// that has not been woken, unless the human leader is already inside it or she is
+        /// attacked, so the human opens every fight. Absent = off.
+        #[serde(default)]
+        pub fa_q36_wake_leash: bool,
+        /// FA-Q36: how many px outside the sight the leash holds her (0..16).
+        #[serde(default = "default_leash_margin_px")]
+        pub fa_q36_leash_margin_px: u8,
+        /// FA-Q37: a reserved enemy (FA-Q34) is released, for good this attempt, after this
+        /// many hits on any hero. Absent = no release by hits.
+        #[serde(default)]
+        pub fa_q37_release_on_hits: Option<u8>,
+        /// FA-Q37: or after being reserved this many ticks in a row. Absent = no release by
+        /// time.
+        #[serde(default)]
+        pub fa_q37_release_after_ticks: Option<u16>,
+    }
+
+    fn default_leash_margin_px() -> u8 {
+        4
     }
 
     impl Fixes {
@@ -145,6 +174,21 @@ pub mod fixes {
     }
 
     /// The pinned knobs: what a launch of the room reads.
+    impl Fixes {
+        /// The partner knobs of these fixes, as the combat state carries them.
+        pub fn partner_knobs(&self) -> crate::companion::view::PartnerKnobs {
+            crate::companion::view::PartnerKnobs {
+                finish_reserve_px: self.fa_q34_finish_reserve_px.map(f32::from),
+                hold_fire_until_awake: self.fa_q35_hold_fire_until_awake,
+                wake_leash_margin_px: self
+                    .fa_q36_wake_leash
+                    .then(|| f32::from(self.fa_q36_leash_margin_px)),
+                release_on_hits: self.fa_q37_release_on_hits,
+                release_after_ticks: self.fa_q37_release_after_ticks,
+            }
+        }
+    }
+
     pub fn active() -> &'static Fixes {
         static ACTIVE: std::sync::OnceLock<Fixes> = std::sync::OnceLock::new();
         ACTIVE.get_or_init(|| Fixes::pinned().expect("the embedded Boiler fixes are pinned"))
@@ -214,6 +258,9 @@ pub struct BoilerRun {
     /// FA-Q20: the wake gate of each enemy, in enemy index order (empty for the
     /// inert roster and with the knob off); [`env_runtime`] carries them to the combat.
     pub wakes: Vec<Option<WakeGate>>,
+    /// FA-Q34, FA-Q35: the partner knobs of the launch ([`crate::f01_late::boiler_combat`]
+    /// puts them on the combat state).
+    pub partner: crate::companion::view::PartnerKnobs,
     /// Respawn columns: the start column, then the checkpoint's.
     pub rules: &'static DemoRules,
     pub loaded: Loaded,
@@ -288,7 +335,8 @@ pub(crate) fn compose_kit(root: &Path, room: &Room) -> Result<EnvKit, String> {
 /// solids (BOIL-B wire, BOIL-C wire). `with_env` puts it on the combat state.
 pub fn env_runtime(run: &BoilerRun) -> Result<crate::combat_scene::EnvRuntime, String> {
     Ok(crate::combat_scene::EnvRuntime::new(&run.loaded.encounter)?
-        .with_wake_gates(run.wakes.clone()))
+        .with_wake_gates(run.wakes.clone())
+        .with_partner_knobs(run.partner))
 }
 
 /// The enemies a sidecar roster puts in the fixture (BOIL-E, K16), in roster
@@ -583,6 +631,7 @@ pub fn launch_with_fixes(
         kit,
         fixture,
         wakes,
+        partner: knobs.partner_knobs(),
         rules,
         loaded,
     })
@@ -829,7 +878,8 @@ mod tests {
         // column minus the sight) and its `trigger_x`; the wake delay (counted
         // only for an entry that names a `trigger_x`) orders two entries on the same
         // column. The (column, delay) pairs are strictly increasing in roster order:
-        // one enters at a time (g3 and e1 share 560, 90 ticks apart).
+        // one enters at a time (g3 and e1 share 560, 15 ticks apart; FA-Q32: g2 wakes
+        // at 224, 15 ticks after a hero leaves the protected spawn).
         let wake: Vec<(i32, u32)> = r
             .loaded
             .encounter
@@ -840,7 +890,7 @@ mod tests {
                 (column, e.trigger_x.map_or(0, |_| e.delay_ticks))
             })
             .collect();
-        assert_eq!(wake, [(124, 0), (420, 0), (560, 0), (560, 90)]);
+        assert_eq!(wake, [(124, 0), (224, 15), (560, 0), (560, 15)]);
         assert!(wake.windows(2).all(|w| w[0] < w[1]), "{wake:?}");
         // No more than `max_living` enemies at once (the design's initial probe).
         assert!(columns.len() <= usize::from(r.loaded.encounter.max_living));
@@ -893,9 +943,8 @@ mod tests {
         assert_eq!(combat.enemies[2].x, 944.0);
     }
 
-    /// The gates of the live sidecar: g3 and e1 (`trigger_x` 560) are gated, g1 and g2
-    /// (no trigger; g2's `delay_ticks` only staggers its spawn for the validator) keep
-    /// the plain sight wake and carry no gate, so nothing of theirs changes.
+    /// The gates of the live sidecar: g2 (`trigger_x` 224, FA-Q32), g3 and e1 (`trigger_x`
+    /// 560) are gated; g1 (no trigger) keeps the plain sight wake and carries no gate.
     #[test]
     fn only_the_entries_with_a_trigger_carry_a_wake_gate() {
         let r = live();
@@ -906,7 +955,7 @@ mod tests {
                 delay_after_sight: false,
             })
         };
-        assert_eq!(r.wakes, [None, None, gate(560, 0), gate(560, 90)]);
+        assert_eq!(r.wakes, [None, gate(224, 15), gate(560, 0), gate(560, 15)]);
         // The inert roster has no enemy, so no gate.
         assert!(run().wakes.is_empty());
     }
@@ -927,14 +976,18 @@ mod tests {
     #[test]
     fn a_delay_without_a_trigger_gates_only_when_the_delay_after_sight_knob_is_on() {
         let r = live();
-        let g2 = r
+        // FA-Q32 gave g2 a trigger; the old shape (a delay, no trigger) is g2 without it.
+        let mut g2 = r
             .loaded
             .encounter
             .roster
             .iter()
             .find(|e| e.id == "g2")
-            .unwrap();
-        assert_eq!((g2.trigger_x, g2.delay_ticks), (None, 120));
+            .unwrap()
+            .clone();
+        g2.trigger_x = None;
+        g2.delay_ticks = 120;
+        let g2 = &g2;
         let base = *fixes::active();
         assert_eq!(wake_gate(g2, &base), None);
         let on = fixes::Fixes {

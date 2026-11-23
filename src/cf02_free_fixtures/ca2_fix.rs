@@ -113,7 +113,15 @@ fn fa_q25_to_q28_the_ca2_metrics_in_the_closing_arena_as_measured() {
 /// (`cf02_free`) per run with the flag off (3 before PR-C's wake moved the room).
 #[test]
 fn fa_q16_the_partner_never_hits_the_valve_in_the_live_direct_boiler() {
-    use crate::boiler_fixtures::scene_pilots::{Plan, Who, run_live};
+    use crate::boiler_fixtures::scene_pilots::{Plan, Who, run_live_with};
+    let no_partner_knobs = crate::f01_boiler::fixes::Fixes {
+        fa_q34_finish_reserve_px: None,
+        fa_q35_hold_fire_until_awake: false,
+        fa_q36_wake_leash: false,
+        fa_q37_release_on_hits: None,
+        fa_q37_release_after_ticks: None,
+        ..*crate::f01_boiler::fixes::active()
+    };
     let total = |knob: bool| {
         let edit = move |f: &mut crate::companion::profile::ProfileFile| {
             f.cf02_free.fix_all.fa_q16_prop_safe_fire = knob;
@@ -124,7 +132,10 @@ fn fa_q16_the_partner_never_hits_the_valve_in_the_live_direct_boiler() {
             for who in [Who::CarlSolo, Who::DonutBySwap, Who::Companion] {
                 let mut hits = 0;
                 for seed in 0..=8u64 {
-                    let r = run_live(&root(), who, Plan::Direct, seed).unwrap();
+                    // The room 2 retune's partner knobs (FA-Q34 to FA-Q37) are off: this
+                    // test is about FA-Q16 alone.
+                    let r =
+                        run_live_with(&root(), who, Plan::Direct, seed, &no_partner_knobs).unwrap();
                     assert!(r.exit_tick.is_some(), "{who:?} seed {seed}: cleared");
                     hits += r.prop_hits_by(1);
                 }

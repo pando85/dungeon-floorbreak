@@ -23,7 +23,7 @@ clips=(
   "chain-solo|chain|440|6|60"
   "chain-2p|chain:2p|440|6|60"
   "chain-solo-640x400|chain|440|6|60|--deck"
-  "b3-wake-chain-solo|chain|630|3|16"
+  "b3-wake-chain-solo|chain|585|3|16"
 )
 : > "$out/capture_lines.txt"
 for spec in "${clips[@]}"; do
