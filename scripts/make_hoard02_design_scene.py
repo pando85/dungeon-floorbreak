@@ -33,17 +33,9 @@ SCENES = {
 
 
 def layer_images(grid: dict) -> dict[str, Image.Image]:
-    pal = {e["key"]: tuple(int(e["rgba"][i:i + 2], 16) for i in (1, 3, 5, 7)) for e in grid["palette"]}
-    out = {}
-    for name in grid["layers"]:
-        rows = grid["frames"][0]["cels"][name]
-        im = Image.new("RGBA", (len(rows[0]), len(rows)), (0, 0, 0, 0))
-        for y, row in enumerate(rows):
-            for x, ch in enumerate(row):
-                if ch != ".":
-                    im.putpixel((x, y), pal[ch])
-        out[name] = im
-    return out
+    """The mound atlas holds one draw layer per frame: 0 `sealed_back`, 1 `sealed_front`, 2 `opened`."""
+    frames = grid_images(grid)
+    return {"back": frames[0], "front": frames[1], "opened": frames[2]}
 
 
 def main(argv=None) -> int:

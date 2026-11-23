@@ -1,0 +1,334 @@
+{
+ "schema_version": 1,
+ "id": "hoarder_boss_h112_v2",
+ "type": "character_animation",
+ "source_path": "assets/source/characters/hoarder/hoard-02.ase",
+ "grid_source": "assets/source/characters/hoarder/hoard-02.grid.json",
+ "output_atlas": "generated/art/hoard-02.png",
+ "output_metadata": "generated/art/hoard-02.json",
+ "palette_id": "hoarder-floor01-v1",
+ "frame_size": [
+  160,
+  128
+ ],
+ "pivot": [
+  70,
+  127
+ ],
+ "animation_tags": [
+  "idle",
+  "walk",
+  "attack_tell",
+  "attack_swing",
+  "hurt",
+  "down",
+  "shove_tell",
+  "lunge",
+  "jammed",
+  "pinned",
+  "get_up",
+  "emerge"
+ ],
+ "required_alpha": true,
+ "owner": "AI-authored enemy animation (fan-concept layer: Floor 01 boss The Hoarder; runtime role IP-neutral boss)",
+ "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+ "provenance": {
+  "origin": "HOARD-02 The Hoarder: atlas frames 0-15 are the HOARD-01 frames unchanged; frames 16-28 add the shove, lunge, jam, pinned, get-up and emerge states (13 frozen keys, fixture tests/fixtures/hoard-02_keys.json, plus 6 in-betweens 16, 21, 23, 25, 27, 28) rasterized by scripts/author_hoard02.py from the HOARD-01 pose rig hoarder(pose); layer body",
+  "generator": "Design, size decision, palette and keys 17, 18, 19, 20, 22, 24, 26: Claude Opus. In-betweens (pose dicts), manifest, .ase, validators and evidence: Claude Sonnet. Review: a separate Claude Opus agent (pending). No image-model raster output, no tracing, no resampling",
+  "generated_art": true,
+  "input_reference_ids": []
+ },
+ "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
+ "review_status": "prototype_fixture_unapproved",
+ "hoarder": {
+  "status": "Keys frozen, in-betweens drawn, validators pass; independent Opus review pending; wired into the Floor 01 presentation (docs/02-art/hoarder-hoard-02.md)",
+  "spec": "docs/02-art/hoarder-hoard-02.md",
+  "opaque_height_idle": 112,
+  "tick_hz": 60,
+  "hold_preview_ms": 100,
+  "grounded_tags": [
+   "idle",
+   "walk",
+   "attack_tell",
+   "attack_swing",
+   "hurt",
+   "down",
+   "shove_tell",
+   "lunge",
+   "jammed",
+   "pinned",
+   "get_up",
+   "emerge"
+  ],
+  "airborne_tags": [],
+  "playback": {
+   "idle": "loop",
+   "walk": "loop",
+   "attack_tell": "once",
+   "attack_swing": "once",
+   "hurt": "once",
+   "down": "hold",
+   "shove_tell": "once",
+   "lunge": "loop",
+   "jammed": "once",
+   "pinned": "loop",
+   "get_up": "once",
+   "emerge": "once"
+  },
+  "key_frames": [
+   0,
+   3,
+   8,
+   10,
+   12,
+   15,
+   17,
+   18,
+   19,
+   20,
+   22,
+   24,
+   26
+  ],
+  "inbetween_frames": [
+   1,
+   2,
+   4,
+   5,
+   6,
+   7,
+   9,
+   11,
+   13,
+   14,
+   16,
+   21,
+   23,
+   25,
+   27,
+   28
+  ],
+  "key_fixture": "tests/fixtures/hoard-02_keys.json",
+  "frame_map": {
+   "Dormant": "none drawn (the mound sealed hides her)",
+   "Reveal": "26 (ticks 1-30), 27 (31-60), 28 (61-90); retry 30 ticks: 10 each",
+   "Neutral/Turn/Cooldown": "0-2 loop",
+   "Walk": "3-6, 8 ticks each",
+   "SwipeTell": "7 (1-8), 8 (9-34)",
+   "SwipeSmear/Impact/Recover": "9 / 10 / 11",
+   "ShoveTell": "16 (1-10), 17 (11-40)",
+   "Lunge": "18 / 19 alternating, 6 ticks each",
+   "ShoveRecover": "11",
+   "Jammed": "20 (1-12), 21 (13-72)",
+   "Flinch": "12",
+   "Exposed": "22 / 23 alternating, 20 ticks each",
+   "GetUp": "24 (1-12), 25 (13-24)",
+   "Defeated": "13 (8), 14 (12), 15 hold"
+  },
+  "frames": [
+   {
+    "index": 0,
+    "tag": "idle",
+    "ticks": 16,
+    "duration_ms": 267,
+    "author": "key"
+   },
+   {
+    "index": 1,
+    "tag": "idle",
+    "ticks": 12,
+    "duration_ms": 200,
+    "author": "sonnet"
+   },
+   {
+    "index": 2,
+    "tag": "idle",
+    "ticks": 16,
+    "duration_ms": 267,
+    "author": "sonnet"
+   },
+   {
+    "index": 3,
+    "tag": "walk",
+    "ticks": 8,
+    "duration_ms": 133,
+    "author": "key"
+   },
+   {
+    "index": 4,
+    "tag": "walk",
+    "ticks": 8,
+    "duration_ms": 133,
+    "author": "sonnet"
+   },
+   {
+    "index": 5,
+    "tag": "walk",
+    "ticks": 8,
+    "duration_ms": 133,
+    "author": "sonnet"
+   },
+   {
+    "index": 6,
+    "tag": "walk",
+    "ticks": 8,
+    "duration_ms": 133,
+    "author": "sonnet"
+   },
+   {
+    "index": 7,
+    "tag": "attack_tell",
+    "ticks": 8,
+    "duration_ms": 133,
+    "author": "sonnet"
+   },
+   {
+    "index": 8,
+    "tag": "attack_tell",
+    "ticks": 26,
+    "duration_ms": 433,
+    "author": "key"
+   },
+   {
+    "index": 9,
+    "tag": "attack_swing",
+    "ticks": 3,
+    "duration_ms": 50,
+    "author": "sonnet"
+   },
+   {
+    "index": 10,
+    "tag": "attack_swing",
+    "ticks": 6,
+    "duration_ms": 100,
+    "author": "key"
+   },
+   {
+    "index": 11,
+    "tag": "attack_swing",
+    "ticks": 24,
+    "duration_ms": 400,
+    "author": "sonnet"
+   },
+   {
+    "index": 12,
+    "tag": "hurt",
+    "ticks": 12,
+    "duration_ms": 200,
+    "author": "key"
+   },
+   {
+    "index": 13,
+    "tag": "down",
+    "ticks": 8,
+    "duration_ms": 133,
+    "author": "sonnet"
+   },
+   {
+    "index": 14,
+    "tag": "down",
+    "ticks": 12,
+    "duration_ms": 200,
+    "author": "sonnet"
+   },
+   {
+    "index": 15,
+    "tag": "down",
+    "ticks": null,
+    "duration_ms": 100,
+    "author": "key"
+   },
+   {
+    "index": 16,
+    "tag": "shove_tell",
+    "ticks": 10,
+    "duration_ms": 167,
+    "author": "sonnet"
+   },
+   {
+    "index": 17,
+    "tag": "shove_tell",
+    "ticks": 30,
+    "duration_ms": 500,
+    "author": "key"
+   },
+   {
+    "index": 18,
+    "tag": "lunge",
+    "ticks": 6,
+    "duration_ms": 100,
+    "author": "key"
+   },
+   {
+    "index": 19,
+    "tag": "lunge",
+    "ticks": 6,
+    "duration_ms": 100,
+    "author": "key"
+   },
+   {
+    "index": 20,
+    "tag": "jammed",
+    "ticks": 12,
+    "duration_ms": 200,
+    "author": "key"
+   },
+   {
+    "index": 21,
+    "tag": "jammed",
+    "ticks": 60,
+    "duration_ms": 1000,
+    "author": "sonnet"
+   },
+   {
+    "index": 22,
+    "tag": "pinned",
+    "ticks": 20,
+    "duration_ms": 333,
+    "author": "key"
+   },
+   {
+    "index": 23,
+    "tag": "pinned",
+    "ticks": 20,
+    "duration_ms": 333,
+    "author": "sonnet"
+   },
+   {
+    "index": 24,
+    "tag": "get_up",
+    "ticks": 12,
+    "duration_ms": 200,
+    "author": "key"
+   },
+   {
+    "index": 25,
+    "tag": "get_up",
+    "ticks": 12,
+    "duration_ms": 200,
+    "author": "sonnet"
+   },
+   {
+    "index": 26,
+    "tag": "emerge",
+    "ticks": 30,
+    "duration_ms": 500,
+    "author": "key"
+   },
+   {
+    "index": 27,
+    "tag": "emerge",
+    "ticks": 30,
+    "duration_ms": 500,
+    "author": "sonnet"
+   },
+   {
+    "index": 28,
+    "tag": "emerge",
+    "ticks": 30,
+    "duration_ms": 500,
+    "author": "sonnet"
+   }
+  ]
+ }
+}

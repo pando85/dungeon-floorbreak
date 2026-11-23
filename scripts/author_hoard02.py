@@ -3,8 +3,8 @@
 
 Design spec: ``docs/02-art/hoarder-hoard-02.md``. HOARD-02 extends the HOARD-01 rig (``author_hoard01.hoarder``):
 atlas frames 0-15 are the HOARD-01 frames unchanged, frames 16-28 are the shove, jam, pinned, get-up and emerge
-states. Keys 17, 18, 19, 20, 22, 24 and 26 are frozen design keys; frames 16, 21, 23, 25, 27 and 28 hold a
-placeholder copy of the nearest key until the execution tier draws the in-betweens (spec section 5).
+states. Keys 17, 18, 19, 20, 22, 24 and 26 are frozen design keys; frames 16, 21, 23, 25, 27 and 28 are
+in-betweens drawn as pose dicts of the same rig (spec section 5, no pixel edits).
 No raster image-model output, no tracing or sampling of concept pixels.
 
     python3 scripts/author_hoard02.py               # write grid + .ase
@@ -92,17 +92,115 @@ EMERGE = dict(I, body=(14, 2, 34, 1.0), head=(16, 0, 2), swing=8,
 
 KEY_POSES = {17: BRACE, 18: HEAVE, 19: DRAG, 20: JAMMED, 22: PINNED, 24: GETUP, 26: EMERGE}
 KEY_FRAMES = tuple(sorted(KEY_POSES))
-# placeholder in-betweens: nearest key until the execution tier draws them (spec section 5)
-PLACEHOLDERS = {16: 17, 21: 20, 23: 22, 25: 24, 27: 26, 28: 26}
-INBETWEENS = tuple(sorted(PLACEHOLDERS))
+
+# In-betweens (spec section 5): pose dicts for ``hoarder()`` built from the neighbouring keys, no pixel edits.
+# 16 shove settle: idle -> 17, body pitched about 12 degrees and 4 px down, the arms leaving the sides and opening
+# low (crouched 5 px), the feet already wide (H13: at least 120 px wide at once, so it never reads as the narrow swipe gather 7)
+SETTLE = dict(I, body=(12, 4, 5, 1.0), head=(-8, 0, 1), swing=-3,
+              near_arm=((36, 84), (24, 98), (20, 102), 40), far_arm=((112, 80), (126, 96), (130, 101), -40),
+              near_leg=((43, 112), (34, 117), 0), far_leg=((98, 112), (105, 117), 0), face="snarl", sleeves="cap")
+# 21 jam stagger: 20 -> 0, upright (-3 degrees), head hanging 10 degrees forward, the near hand pressed to the head,
+# the far arm hanging; the held frame of the 60-tick stagger
+STAGGER = dict(I, body=(-3, 1, 3, 1.0), head=(13, 0, 3), swing=3,
+               near_arm=((40, 62), (54, 50), (60, 44), 150), far_arm=((102, 72), (108, 90), (109, 96), 4),
+               near_leg=((42, 112), (36, 117), 0), far_leg=((98, 112), (104, 117), 0), face="shut", sleeves="cap")
+# 23 pinned strain: 22 with the chest 2 px higher, the clawing hand drawn back 6 px with the fingers curled, hair +2
+STRAIN = dict(PINNED, body=(80, -28, 15, 0.62), swing=2,
+              near_arm=((114, 112), (128, 117), (133, 119), -58), far_arm=((110, 121), (118, 116), (121, 113), -120))
+# 25 get-up rise: 24 -> 0, one foot planted, torso 30 degrees, the hands leaving the floor; ends on idle's feet
+RISE = dict(GETUP, body=(30, 0, 6, 0.95), head=(-34, 2, -2), swing=-5,
+            near_arm=((84, 96), (96, 108), (100, 114), -75), far_arm=((118, 100), (126, 110), (130, 116), -80),
+            near_leg=((54, 108), (40, 117), 0), far_leg=((92, 114), (99, 117), 0))
+# 27 emerge rise: torso 6 degrees, body 18 px down (instead of 34), the hands pushing off the rim, head level
+ROSE = dict(I, body=(6, 1, 18, 1.0), head=(-6, 0, 2), swing=6,
+            near_arm=((54, 84), (74, 94), (80, 97), -70), far_arm=((112, 84), (122, 94), (127, 97), -70),
+            near_leg=((52, 118), (36, 121), 50), far_leg=((92, 118), (76, 122), 50), face="idle", sleeves="cap")
+# 28 emerge stand: body 6 px down, the arms hanging and spread, hair swing +3; hands off, the hand-off to idle frame 0
+STAND = dict(I, body=(0, 0, 6, 1.0), head=(0, 0, 3), swing=3,
+             near_arm=((30, 76), (24, 94), (22, 100), 6), far_arm=((106, 74), (112, 92), (114, 98), -6),
+             near_leg=((44, 114), (40, 117), 0), far_leg=((96, 114), (100, 117), 0), sleeves="cap")
+INB = {16: SETTLE, 21: STAGGER, 23: STRAIN, 25: RISE, 27: ROSE, 28: STAND}
+INBETWEENS = tuple(sorted(INB))
+POSES = {**KEY_POSES, **INB}
 # atlas frame -> authored ticks at 60 Hz (the presenter maps sim mode ticks onto these, spec section 4)
+TICK_HZ = h1.TICK_HZ
 TICKS = {16: 10, 17: 30, 18: 6, 19: 6, 20: 12, 21: 60, 22: 20, 23: 20, 24: 12, 25: 12, 26: 30, 27: 30, 28: 30}
 TAGS = [("shove_tell", 16, 17), ("lunge", 18, 19), ("jammed", 20, 21), ("pinned", 22, 23), ("get_up", 24, 25),
         ("emerge", 26, 28)]
 
 
+MANIFEST = ROOT / "assets/manifests/hoard-02.json"
+PLAYBACK = {"idle": "loop", "walk": "loop", "attack_tell": "once", "attack_swing": "once", "hurt": "once",
+            "down": "hold", "shove_tell": "once", "lunge": "loop", "jammed": "once", "pinned": "loop",
+            "get_up": "once", "emerge": "once"}
+ALL_TAGS = h1.TAGS + TAGS
+# spec section 4: what each atlas frame is shown for
+FRAME_MAP = {
+    "Dormant": "none drawn (the mound sealed hides her)",
+    "Reveal": "26 (ticks 1-30), 27 (31-60), 28 (61-90); retry 30 ticks: 10 each",
+    "Neutral/Turn/Cooldown": "0-2 loop", "Walk": "3-6, 8 ticks each",
+    "SwipeTell": "7 (1-8), 8 (9-34)", "SwipeSmear/Impact/Recover": "9 / 10 / 11",
+    "ShoveTell": "16 (1-10), 17 (11-40)", "Lunge": "18 / 19 alternating, 6 ticks each",
+    "ShoveRecover": "11", "Jammed": "20 (1-12), 21 (13-72)", "Flinch": "12",
+    "Exposed": "22 / 23 alternating, 20 ticks each", "GetUp": "24 (1-12), 25 (13-24)",
+    "Defeated": "13 (8), 14 (12), 15 hold",
+}
+
+
+def build_manifest() -> dict:
+    tag_of = {n: name for name, a, b in ALL_TAGS for n in range(a, b + 1)}
+    ticks = list(h1.TICKS) + [TICKS[f] for f in range(16, 29)]
+    keys = sorted(set(h1.KEY_FRAMES) | set(KEY_FRAMES))
+    frames = [{"index": n, "tag": tag_of[n], "ticks": t, "duration_ms": round((t or 6) * 1000 / TICK_HZ),
+               "author": "key" if n in keys else "sonnet"} for n, t in enumerate(ticks)]
+    return {
+        "schema_version": 1,
+        "id": "hoarder_boss_h112_v2",
+        "type": "character_animation",
+        "source_path": "assets/source/characters/hoarder/hoard-02.ase",
+        "grid_source": "assets/source/characters/hoarder/hoard-02.grid.json",
+        "output_atlas": "generated/art/hoard-02.png",
+        "output_metadata": "generated/art/hoard-02.json",
+        "palette_id": "hoarder-floor01-v1",
+        "frame_size": list(h1.CANVAS),
+        "pivot": list(h1.PIVOT),
+        "animation_tags": [n for n, _a, _b in ALL_TAGS],
+        "required_alpha": True,
+        "owner": "AI-authored enemy animation (fan-concept layer: Floor 01 boss The Hoarder; runtime role IP-neutral boss)",
+        "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+        "provenance": {
+            "origin": ("HOARD-02 The Hoarder: atlas frames 0-15 are the HOARD-01 frames unchanged; frames 16-28 add the shove, "
+                       "lunge, jam, pinned, get-up and emerge states (13 frozen keys, fixture tests/fixtures/hoard-02_keys.json, "
+                       "plus 6 in-betweens 16, 21, 23, 25, 27, 28) rasterized by scripts/author_hoard02.py from the HOARD-01 "
+                       "pose rig hoarder(pose); layer body"),
+            "generator": ("Design, size decision, palette and keys 17, 18, 19, 20, 22, 24, 26: Claude Opus. In-betweens "
+                          "(pose dicts), manifest, .ase, validators and evidence: Claude Sonnet. Review: a separate Claude "
+                          "Opus agent (pending). No image-model raster output, no tracing, no resampling"),
+            "generated_art": True,
+            "input_reference_ids": [],
+        },
+        "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
+        "review_status": "prototype_fixture_unapproved",
+        "hoarder": {
+            "status": "Keys frozen, in-betweens drawn, validators pass; independent Opus review pending; wired into the Floor 01 presentation (docs/02-art/hoarder-hoard-02.md)",
+            "spec": "docs/02-art/hoarder-hoard-02.md",
+            "opaque_height_idle": 112,
+            "tick_hz": h1.TICK_HZ,
+            "hold_preview_ms": 100,
+            "grounded_tags": [n for n, _a, _b in ALL_TAGS],
+            "airborne_tags": [],
+            "playback": PLAYBACK,
+            "key_frames": keys,
+            "inbetween_frames": sorted(set(h1.INBETWEENS) | set(INBETWEENS)),
+            "key_fixture": "tests/fixtures/hoard-02_keys.json",
+            "frame_map": FRAME_MAP,
+            "frames": frames,
+        },
+    }
+
+
 def render(frame: int) -> list[str]:
-    return h1.hoarder(KEY_POSES[PLACEHOLDERS.get(frame, frame)])
+    return h1.hoarder(POSES[frame])
 
 
 def build_grid() -> dict:
@@ -146,11 +244,13 @@ def main(argv=None) -> int:
         return 0
     text = h1.dump(grid)
     if a.check:
-        ok = GRID.is_file() and GRID.read_text() == text
+        ok = GRID.is_file() and GRID.read_text() == text and MANIFEST.is_file() and \
+            MANIFEST.read_text() == h1.dump(build_manifest())
         print("up to date" if ok else "differs")
         return 0 if ok else 1
     GRID.write_text(text, encoding="utf-8")
     pg.write_ase(grid, ASE)
+    MANIFEST.write_text(h1.dump(build_manifest()), encoding="utf-8")
     print(f"wrote {GRID.relative_to(ROOT)} and {ASE.relative_to(ROOT)}")
     return 0
 

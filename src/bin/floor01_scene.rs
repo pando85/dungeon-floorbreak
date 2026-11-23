@@ -4546,14 +4546,13 @@ fn setup(
         );
     }
 
-    // FA-Q23 (HRD-P): the Hoarder, her door, gate and bank A as labelled stand-ins, only in
-    // her room (presentation only).
+    // FA-Q23 (HRD-P) and HOARD-02: the Hoarder and her room kit (door, gate, bank A, the J-B post
+    // and stack, the lair mound, the dressing heaps), only in her room (presentation only).
     if let Some(run) = &args.hoarder_run {
         hoarder_art::spawn(
             &mut commands,
             &asset_server,
             &mut layouts,
-            &mut images,
             run.loaded.encounter.clone(),
             layers_of("actors"),
             kit,

@@ -1043,7 +1043,9 @@ impl PileBoss {
         })
     }
 
-    fn reveal_ticks(&self) -> u32 {
+    /// How many ticks the current attempt's Reveal lasts (the first or the retry value); read by the
+    /// presentation, which cuts the emerge into thirds of it.
+    pub fn reveal_ticks(&self) -> u32 {
         u32::from(if self.retry {
             self.tun.hrdq05_retry_reveal_ticks
         } else {

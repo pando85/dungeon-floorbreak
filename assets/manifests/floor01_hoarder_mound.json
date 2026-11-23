@@ -1,0 +1,42 @@
+{
+ "schema_version": 1,
+ "id": "floor01_hoarder_mound_v1",
+ "type": "prop_animation",
+ "source_path": "assets/source/props/floor01/hoarder_mound.ase",
+ "grid_source": "assets/source/props/floor01/hoarder_mound.grid.json",
+ "output_atlas": "generated/art/floor01_hoarder_mound.png",
+ "output_metadata": "generated/art/floor01_hoarder_mound.json",
+ "palette_id": "floor01-catacomb-v2",
+ "frame_size": [
+  176,
+  72
+ ],
+ "pivot": [
+  88,
+  71
+ ],
+ "animation_tags": [
+  "sealed_back",
+  "sealed_front",
+  "opened"
+ ],
+ "required_alpha": true,
+ "frame_names": [
+  "sealed_back",
+  "sealed_front",
+  "opened"
+ ],
+ "collision_role": "dressing",
+ "owner": "AI-authored environment pixel art (AREA-HOARDER-01: design spec and mound hero key Claude Opus, execution Claude Sonnet; independent review pending)",
+ "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+ "license": "Original repo-specific environment art; no standalone asset reuse license; no game/asset-pack distribution rights",
+ "review_status": "prototype_fixture_unapproved",
+ "provenance": {
+  "origin": "Original pixel-grid-v1 room kit piece of the Floor 1 Hoarder room (docs/02-art/hoarder-hoard-02.md section 7) on the floor01-catacomb-v2 ramps; rule-based shapes and a hash noise, nothing cropped, traced or resampled from concept art",
+  "generator": "scripts/author_hoarder_room.py: the lair mound `sealed` hero key by Claude Opus, every other piece and state by Claude Sonnet; independent review pending; no image-model raster output",
+  "generated_art": true,
+  "input_reference_ids": [
+   "floor01-catacomb-kit/env-kit-v2 (owner-approved ENV-01 kit, 2026-11-16)"
+  ]
+ }
+}

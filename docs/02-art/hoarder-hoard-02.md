@@ -1,6 +1,6 @@
 # HOARD-02: The Hoarder production art and room kit (AREA-HOARDER-01), design spec
 
-**Status:** design stage. Boss keys 17, 18, 19, 20, 22, 24 and 26 are drawn and frozen together with the six HOARD-01 keys (fixture `tests/fixtures/hoard-02_keys.json`). The room kit has one hero key, the lair mound in its `sealed` state. In-betweens 16, 21, 23, 25, 27 and 28 hold placeholder copies of their nearest key, so V12 (unique frames) fails until they are drawn. The other prop states, the Bevy wiring and the evidence are open (section 11). Independent review pending.
+**Status:** drawn and wired. Boss keys 17, 18, 19, 20, 22, 24 and 26 are drawn and frozen together with the six HOARD-01 keys (fixture `tests/fixtures/hoard-02_keys.json`); the six in-betweens 16, 21, 23, 25, 27 and 28 are drawn as pose dicts of the same rig, so V12 (all 29 frames unique) and H1-H13 pass. The room kit has seven atlases (the mound with its `sealed` and `opened` states, bank A, the J-B post and stack, the door, the gate and three dressing heaps). The presenter shows the Hoarder from the HOARD-02 atlas and every kit piece in room 1 with no stand-in label left. Bank A's slide states, the post's cracked and broken states and the stack's falling and landed states are drawn and mapped but wired by the parallel HRD-B and HRD-C branch. Independent review pending.
 
 **Scope:** this spec replaces every stand-in in room 1 (`--f01-room hoarder`). That covers the 16 HOARD-01 frames labelled "STAND-IN UNTIL HOARD-02", the missing shove, jam, pinned, get-up and emerge poses, and the greybox door, entry gate, bank A, J-B post, J-B stack and lair mound. The sim does not change. Every rule, tick window and box below is read from `src/pile_boss.rs`, `assets/data/gameplay/enemy_pile_boss_v0.json` and `docs/01-design/enemy-gameplay-hoarder.md`. The state hash stays byte-identical.
 
@@ -165,7 +165,7 @@ Collision is the sim's, unchanged. Room coordinates: x in px, y up from the floo
 | **Lair mound** `hoarder_mound` | 176 x 72 `sealed`, 176 x 24 at most `opened`; pivot (88, 71) at x 608 | none (DV-3): low background dressing | `sealed` (Dormant, Reveal): layer `back` behind her **and behind the heroes**, plus the `front` lip drawn in front of her and the heroes, hiding her below about 31 px; `opened` (from the last Reveal tick to the end of the fight): a low spill at most 24 px high, the hollowed heap gone, ragged top, 1 step darker, behind her and the heroes | **yes** |
 | **Bank A** `hoarder_bank_a` | 64 x 48 standing, pivot bottom-left at x 352 | solid `[352, 416) x [0, 48)`, heroes and boss collide, top standable (HRD-B) | `stable`; `disturbed` (24 ticks: 2-frame shudder of ±1 px plus 3-6 falling scraps); `slid` (16 ticks, the mass moves 3 px/tick to `[304, 368)`, 2-frame tumble); `settled` remnant 80 x 16 at `[296, 376)` | `stable` yes; the rest on HRD-B |
 | **J-B post** `hoarder_post_b` | 16 x 64, pivot bottom-left at x 808 | hit target `[808, 824) x [0, 64)`, **not solid**: heroes pass in front of it; 2 qualifying hits release the stack (HRD-C) | `intact`, `cracked` (first qualifying hit; split plus splinters), `broken` (second hit, the release tick) | `intact` yes; the rest on HRD-C |
-| **J-B stack** `hoarder_stack_b` | 128 x 64 hanging, `[752, 880) x [96, 160)` | none while hanging | `supported` (intact); `released` (24 ticks: sag 1 px every 6 ticks, dust); `falling` (8 ticks, 12 px/tick); `landed` (fallen) remnant 128 x 16 at `[752, 880) x [0, 16)`, drawn **in front of** the pinned boss | `supported` yes; the rest on HRD-C |
+| **J-B stack** `hoarder_stack_b` | 128 x 64 hanging, `[752, 880) x [96, 160)` (the sprite is 128 x 104: it adds the 32 px strut down to the post's head, E1 in section 11) | none while hanging | `supported` (intact); `released` (24 ticks: sag 1 px every 6 ticks, dust); `falling` (8 ticks, 12 px/tick); `landed` (fallen) remnant 128 x 16 at `[752, 880) x [0, 16)`, drawn **in front of** the pinned boss | `supported` yes; the rest on HRD-C |
 | **Exit door** `hoarder_door` | 16 x 228 in a stone jamb, at x 928 | solid until her defeat tick | `closed` (iron-banded planks, barred); `open` (jamb only, doorway dark) | **yes** |
 | **Entry gate** `hoarder_gate` | 16 x 228 at x 208 | solid while closed (HRD-Q41) | `open` (bars raised into the ceiling, grooves in the floor); `closed` (iron bars to the floor) | **yes** |
 | **Dressing heaps** `hoarder_heap_a..c` | at most 48 x 24 each | none | static | **yes** |
@@ -230,27 +230,31 @@ Bank A, the J-B pieces, the door, the gate, the dressing heaps and the `opened` 
 - `scripts/author_hoarder_room.py`: room kit. Run with `--check` and `--preview`.
 - `assets/source/characters/hoarder/hoard-02.grid.json`, `.ase`, `.pixelart.json`.
 - `tests/fixtures/hoard-02_keys.json`.
-- `assets/source/props/floor01/hoarder_mound.grid.json`, `.ase`.
+- `assets/source/props/floor01/hoarder_{mound,bank_a,post_b,stack_b,door,gate,heap}.grid.json`, `.ase`, and `assets/manifests/floor01_hoarder_*.json`, `assets/manifests/hoard-02.json`.
+- `tests/test_art_hoard02.py`, `tests/test_art_hoarder_room.py`.
+- `docs/evidence/hoard-02/`, `docs/evidence/f01-hoarder-presentation/`.
 - `docs/evidence/hoard-02-design/`: design images with `SHA256SUMS`.
 
-## 11. Open for execution
+## 11. Execution record and open items
 
-**Parallel work:** HRD-B (bank A as a hero solid) and HRD-C (the post as a 2-hit target that drops the stack) are implemented on a separate branch. HOARD-02 draws and wires only the static states (`stable`, `intact`, `supported`). The PR that lands second wires the remaining bank A, post and stack states to the new sim state. Both touch `src/hoarder_art.rs` and the scene bin, so keep changes there small and rebase rather than duplicate.
+**Done (execution tier):**
 
-**Art:**
+- In-betweens 16, 21, 23, 25, 27, 28 (`scripts/author_hoard02.py`, pose dicts only), the manifest `assets/manifests/hoard-02.json` (id `hoarder_boss_h112_v2`), the `.ase` and `tests/test_art_hoard02.py`.
+- The room kit (`scripts/author_hoarder_room.py`): seven atlases `assets/source/props/floor01/hoarder_*` with manifests `assets/manifests/floor01_hoarder_*.json` and `tests/test_art_hoarder_room.py`. The editor flattens layers, so each state is one frame; the mound's `back` and `front` draw layers are frames 0 and 1 (pixel-identical to the design stage's hero key), `opened` is frame 2.
+- Wiring (`src/hoarder_art.rs`, `src/bin/floor01_scene/hoarder_art.rs`): the section 4 table in `frame_for`, one function per prop from its state to its frame (`bank_prop`, `post_prop`, `stack_prop`), and the R7 rules (shadow tint, dust, burst, no hit flash on her during the Reveal).
+- Evidence: `docs/evidence/hoard-02/` (contact sheets, enlarged frames, GIFs, frame layout and timing diagram, offline composites of unwired states, all labelled "composite, not runtime") and `docs/evidence/f01-hoarder-presentation/` (in-room stills at 640 x 360 and 1920 x 1080).
 
-- In-betweens 16, 21, 23, 25, 27 and 28.
-- The manifest `assets/manifests/hoard-02.json` (id `hoarder_boss_h112_v2`) and the export.
-- Tests (`tests/test_art_hoard02.py`).
-- The remaining prop states and pieces of section 7, with their manifests.
-- Evidence and the review pack.
+**Deviations and adopted defaults (execution tier; each can be changed in a follow-up):**
 
-**Wiring:**
+- **E1, the stack carries its own leg.** The sim's post top is at 64 and the stack's footprint starts at 96, a 32 px gap. The stack sprite is 128 x 104: the 128 x 64 body plus a 32 px strut under the beam that ends on the post's head, and its bottom-left corner is placed at world y 64. The collision stays `[752, 880) x [96, 160)`. When the post breaks, the leg falls with the stack. Design question for the top tier: draw the strut on the post instead, or raise the post's collision rect.
+- **E2, "she is out" is the first tick she is neither Dormant nor in the Reveal.** The spec (R7) says the last Reveal tick, but the sim gives her a hurtbox only from the first Neutral tick (`hurt_rects` is empty through the whole Reveal). The tint, the lip and the dust burst follow the hurtbox so she never looks hittable early; the difference is one tick.
+- **E3, the shudder of the disturbed bank** is a 1 px presenter offset on the two `disturbed` frames, as in the parallel branch; frames 1 and 2 also differ in the falling scraps.
+- **E4, the sprite of bank A's `settled` remnant and the stack's `landed` remnant** have a flat lit top, vertical sides and 16 px height, because the sim makes them solid and standable (HRD-Q30).
 
-- `src/hoarder_art.rs` mapping (section 4).
-- Removal of the labels and greybox.
-- The prop sprites in `src/bin/floor01_scene/hoarder_art.rs`.
-- Regenerated `docs/evidence/f01-hoarder-presentation/`.
+**Open:**
+
+- The remaining wiring on the parallel branch: bank A `disturbed`/`slid`/`settled`, post `cracked`/`broken`, stack `released`/`falling`/`landed` (the tables and frames exist: `bank_frame`, `post_frame`, `stack_frame`). The PR that lands second passes the sim's state to `bank_prop`, `post_prop` and `stack_prop` in `static_props`, and maps its interim reveal dim onto `Shade`.
+- Independent review of frames 0-28 and the kit.
 
 ## Rights/Provenance
 
@@ -258,5 +262,5 @@ Bank A, the J-B pieces, the door, the gate, the dressing heaps and the `opened` 
 - Published under owner-reported scope `ART-PUBLICATION-ALL-V1` (fan-concept layer). There is no public reuse licence and no game or asset-pack distribution right (`docs/04-production/rights-and-release.md`).
 - Model record:
   - Design, boss keys 17, 18, 19, 20, 22, 24 and 26, the mound hero key and this spec: Claude Opus.
-  - Execution (in-betweens, other prop states, wiring, evidence): Claude Sonnet, pending.
+  - Execution (in-betweens, other prop states, wiring, evidence): Claude Sonnet.
   - Independent review: a separate Claude Opus agent, pending.
