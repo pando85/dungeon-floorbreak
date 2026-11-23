@@ -178,6 +178,13 @@ pub struct Goblin {
     /// `Some(0)` is already implied by a hashed `Hit`; any other player is
     /// mixed, so a second player's hit never hashes like Carl's.
     pub hit_by: Option<u32>,
+    /// CF02-Q11: the player whose kick made the current launch (or the lethal
+    /// kick of a bowling body), stamped where the launch instance is. A later
+    /// hit from the other hero overwrites `hit_by` but not this, so a wall slam
+    /// is credited to the kicker. Cleared with `launch` when the flight ends and
+    /// at a blast launch. Mixed into the hash only while it differs from `hit_by`
+    /// (the other hero hit the flier), so no single-hero hash sees it.
+    pub launch_by: Option<u32>,
     /// WORK-023 (Q10-06): the light guard a swat stagger sets. A guarded goblin
     /// glances further swats; Carl's hits and the pounce still interrupt it.
     /// `None` for every goblin Donut never swatted, so nothing of it is mixed
@@ -266,6 +273,7 @@ impl Goblin {
             flight_ticks: 0,
             contact_ticks: 0,
             hit_by: None,
+            launch_by: None,
             guard: None,
             cf02: None,
             hold_left: 0,
@@ -579,6 +587,7 @@ impl Goblin {
                     self.mode = GoblinMode::Downed;
                     self.down_ticks = 0;
                     self.launch = None;
+                    self.launch_by = None;
                     self.contact_ticks = 0;
                     // A new down instance: its one hold is available again.
                     self.hold_left = 0;
@@ -941,6 +950,12 @@ impl Goblin {
         false
     }
 
+    /// CF02-Q11: the hero credited with a flight's contacts and slam: the one
+    /// whose kick launched it, else the last hero that hit it.
+    pub fn flight_credit(&self) -> Option<u32> {
+        self.launch_by.or(self.hit_by)
+    }
+
     /// Fold the full state into a state hash.
     pub fn mix_into(&self, mix: &mut impl FnMut(u64)) {
         mix(u64::from(self.x.to_bits()));
@@ -974,6 +989,13 @@ impl Goblin {
             && player != 0
         {
             mix(0x4849_5442);
+            mix(u64::from(player));
+        }
+        // CF02-Q11: the launching hero, only when another hero hit the flier since.
+        if let Some(player) = self.launch_by
+            && self.launch_by != self.hit_by
+        {
+            mix(0x4c42_5942); // "LBY"
             mix(u64::from(player));
         }
         // WORK-023: the light guard, mixed only while it is set.
@@ -1036,6 +1058,7 @@ impl Goblin {
         self.swing_hit = false;
         self.stagger_left = 0;
         self.launch = None;
+        self.launch_by = None;
         self.flight_ticks = 0;
         self.contact_ticks = 0;
         self.hold_left = 0;
@@ -1055,6 +1078,7 @@ impl Goblin {
     pub(crate) fn wall_slam(&mut self, t: &Cf02Tuning) -> bool {
         self.health = self.health.saturating_sub(t.q11_wall_slam_damage);
         self.launch = None;
+        self.launch_by = None;
         self.flight_ticks = 0;
         self.contact_ticks = 0;
         self.relaunched = false;
@@ -1151,6 +1175,7 @@ impl Goblin {
         self.stagger_left = 0;
         self.swing_hit = false;
         self.launch = None;
+        self.launch_by = None;
         self.contact_ticks = 0;
         self.hit_stop = 0;
         self.vx = (f32::from(away) * vx).clamp(-KNOCK_VX_MAX, KNOCK_VX_MAX);
@@ -1186,6 +1211,9 @@ impl Goblin {
         self.stagger_left = 0;
         self.swing_hit = false;
         self.launch = Some(launch);
+        // A blast has its own owner: the scene stamps it (`thrown.rs`), never the
+        // kicker of an earlier flight.
+        self.launch_by = None;
         self.flight_ticks = 0;
         self.contact_ticks = 0;
         self.hold_left = 0;
@@ -1213,6 +1241,7 @@ impl Goblin {
         self.stagger_left = 0;
         self.swing_hit = false;
         self.launch = None;
+        self.launch_by = None;
         self.contact_ticks = 0;
         self.vx = 0.0;
         self.vy = 0.0;
@@ -1337,6 +1366,7 @@ impl Goblin {
             self.stagger_left = 0;
             self.swing_hit = false;
             self.launch = None;
+            self.launch_by = None;
             self.contact_ticks = 0;
             self.hold_left = 0;
             stop += LETHAL_HIT_STOP_BONUS;
@@ -1393,6 +1423,7 @@ impl Goblin {
                 if !self.relaunched {
                     self.relaunched = true;
                     self.launch = None;
+                    self.launch_by = None;
                     self.flight_ticks = 0;
                     self.contact_ticks = 0;
                     self.vx = (direction * f32::from(t.q51_relaunch_x))
@@ -1407,6 +1438,7 @@ impl Goblin {
                 self.stagger_left = 0;
                 self.swing_hit = false;
                 self.launch = None;
+                self.launch_by = None;
                 self.flight_ticks = 0;
                 self.contact_ticks = 0;
                 self.hold_left = 0;
@@ -1423,6 +1455,7 @@ impl Goblin {
                 self.stagger_left = 0;
                 self.swing_hit = false;
                 self.launch = None; // the scene stamps the move instance
+                self.launch_by = None;
                 self.flight_ticks = 0;
                 self.contact_ticks = 0;
                 self.vx = (direction * reaction.knock_vx).clamp(-KNOCK_VX_MAX, KNOCK_VX_MAX);
@@ -1432,6 +1465,7 @@ impl Goblin {
             } else if !committed {
                 // A jab on a goblin in the air or lying: no launch state left.
                 self.launch = None;
+                self.launch_by = None;
                 self.flight_ticks = 0;
                 self.contact_ticks = 0;
                 self.mode = GoblinMode::Hurt;

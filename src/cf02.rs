@@ -24,11 +24,11 @@ pub const TUNING_JSON: &str = include_str!("../assets/data/gameplay/cf02_combat_
 /// The committed FNV-1a 64 content hash of [`TUNING_JSON`]. Editing the file
 /// without updating this value fails [`Cf02Tuning::pinned`] and the pin test, so
 /// a tuning edit never changes a recorded outcome silently.
-pub const TUNING_HASH: u64 = 0x2da4_8577_fa64_315e;
+pub const TUNING_HASH: u64 = 0xffd1_3ba9_2d65_445c;
 
 /// Question IDs that have no key in the file, and why. The completeness test
 /// requires every other ID in 1..=75 to own at least one `qNN_` key.
-pub const NO_KNOB: [(u8, &str); 22] = [
+pub const NO_KNOB: [(u8, &str); 21] = [
     (7, "retired: superseded by Q50..Q53"),
     (
         13,
@@ -57,7 +57,6 @@ pub const NO_KNOB: [(u8, &str); 22] = [
     (41, "code: the ShoreTripped event and the CINE rule"),
     (44, "fixture cf02_donut_solo_llama only"),
     (67, "no llama morale"),
-    (68, "code: reactions and tokens"),
     (74, "process: tone limits of the acting spec"),
     (75, "process: the art route"),
 ];
@@ -509,6 +508,11 @@ pub struct Cf02Tuning {
     pub q58_nerve_offset_min: i8,
     /// Q58: draw 1, nerve offset maximum.
     pub q58_nerve_offset_max: i8,
+    /// Q58 draw 3: the first-approach delay counts only the ticks a goblin senses
+    /// a hero (within the legacy sight range), so a goblin that starts out of sight
+    /// still holds for its drawn delay once it arrives (re-review fix D149-2 of
+    /// PR #149). Off: it counts from the spawn, as before.
+    pub q58_delay_from_first_sight: bool,
     /// Q58: draw 2, panic length minimum (ticks).
     pub q58_panic_len_min: u8,
     /// Q58: draw 2, panic length maximum (ticks).
@@ -555,6 +559,12 @@ pub struct Cf02Tuning {
     pub q61_panic_speed_px_s: u8,
     /// Q61: enrage when events raise nerve to this or more.
     pub q61_enrage_threshold: u8,
+    /// Q68 (with Q61): a hesitate that starts while the goblin is in its tell ends
+    /// the tell like a panic does, so hesitate, panic and taunt all return the
+    /// attack token on their first tick (re-review fix D149-1 of PR #149;
+    /// supersedes G-A5). Off: the legacy rule, where the tell and its swing run on
+    /// and the token comes back 24 to 40 ticks late.
+    pub q68_hesitate_aborts_tell: bool,
     /// Q61: enrage length.
     pub q61_enrage_ticks: u8,
     /// Q61: enraged walk speed.
@@ -652,7 +662,8 @@ impl Cf02Tuning {
 
     /// The one way to read a boolean switch of the file: it is effective only
     /// under `cf02_rules` (`q10_bowling`, `q11_wall_slam`, `q34_keep_down`,
-    /// `q36_*`, `q47_*`, `q49_c*`, `q54/q55_*_enabled`, `q66_pincer_token`,
+    /// `q36_*`, `q47_*`, `q49_c*`, `q54/q55_*_enabled`, `q58_delay_from_first_sight`,
+    /// `q68_hesitate_aborts_tell`, `q66_pincer_token`,
     /// `q69_acting_overlays`, ...). Reading a raw switch would leak a rule into
     /// `--demo`.
     pub fn on(&self, switch: bool) -> bool {

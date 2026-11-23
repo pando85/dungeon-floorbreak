@@ -88,7 +88,7 @@ impl CombatState {
                     -1
                 };
                 let was_attacking = self.enemies[target].token_held();
-                let instigator = self.enemies[source].hit_by;
+                let instigator = self.enemies[source].flight_credit();
                 if flier.body {
                     self.enemies[source].contact_as_body_cf02(t);
                 } else {
@@ -158,7 +158,7 @@ impl CombatState {
         let body = LaunchedBody {
             body: g.body(),
             launch: flier.launch,
-            initiator: g.hit_by,
+            initiator: g.flight_credit(),
             speed,
             stop: g.wall_stop,
         };
@@ -186,7 +186,7 @@ impl CombatState {
                 launch: flier.launch,
                 body: flier.body,
                 source: source as u32,
-                instigator: self.enemies[source].hit_by,
+                instigator: self.enemies[source].flight_credit(),
                 speed,
                 push: if rect.center().0 >= self.enemies[source].x {
                     1
@@ -203,7 +203,7 @@ impl CombatState {
     /// hero whose kick made the launch: `Melee`, force Heavy); a dead body only
     /// crumples. A slam ends the flight, so it happens once per launch.
     fn wall_slam(&mut self, t: &'static Cf02Tuning, tick: u64, source: usize, flier: &Flier) {
-        let instigator = self.enemies[source].hit_by;
+        let instigator = self.enemies[source].flight_credit();
         self.log(CombatEvent::WallSlam {
             tick,
             launch: flier.launch,
@@ -250,6 +250,7 @@ impl CombatState {
             && !body.alive()
         {
             body.bowl = Some(instance);
+            body.launch_by = body.hit_by;
         }
     }
 }

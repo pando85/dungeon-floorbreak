@@ -358,6 +358,31 @@ Morale runs only under `cf02_rules`; its state enters the state hash only then. 
 | CF02-Q67 | Llama morale | None. The llama keeps its Q27 behaviour and does not witness | Keeps the ranged threat steady and E unchanged | n/a |
 | CF02-Q68 | Reactions and tokens | Hesitate, panic and taunt return the attack token on their first tick; a goblin in any reaction cannot take a token. No morale reaction aborts a swing past its tell (a contact knockdown still does, Q35) | Killing one goblin spectacularly breaks the others' pressure: the meaningful decision | Code |
 
+#### Amendments adopted by the CF02-G implementation (PR #149), G-A1..G-A9
+
+The implementation adopted nine defaults that the table above does not state. They are recorded here, under the question each one amends, and in [`docs/evidence/cf02/cf02-g/README.md`](../evidence/cf02/cf02-g/README.md). The owner can change any of them in a follow-up PR.
+
+**Q61 (reactions).**
+
+- **G-A1.** A living flier's `GoblinContact`, a `BodyContact`, and a `WallSlam` without a defeat count as Q60 spectacles (-15) for witnesses ("every contact, bowl and slam is a witness event"). A slam that kills is the spectacular defeat only.
+- **G-A2.** A reaction may start only while the goblin is Neutral, Hurt or in its tell. It never starts while the goblin lies, flies, is in a swing or in its recovery (Q68), so a knocked-down goblin does not burn its panic while lying. *Narrowed by the re-review fix below:* the tell is ended by the reaction itself. Admitting `Hurt` stays an open question (a hurt goblin holds no token, so Q68 is not affected; excluding it moves the hazard-room and Donut-progression pilot goldens).
+- **G-A5.** A hesitate did not abort a tell in progress, so the goblin lost its next turn instead; only a panic aborted it (Q61). **Superseded** (re-review of PR #149, D149-1) by `q68_hesitate_aborts_tell` (default on): a hesitate that starts in a tell ends it like a panic does, so the token returns on the first tick (Q68). Off, the knob reproduces G-A5 and the old hashes. No committed fixture starts a hesitate inside a tell, so no golden moves (`q68_the_hesitate_knob_moves_no_committed_fixture_hash`).
+- **G-A9.** A pre-existing `ShoreLanded` spectacle uses the shore block's footprint centre as its position.
+
+**Q65 (taunt, with the Q64 back-off).**
+
+- **G-A3.** A Show-off's "whiff" is Carl's move leaving its active phase without a hit. Donut's whiffs are not tracked (`donut.rs` was out of scope). The punish detects any hero's non-launching hit on a taunting goblin; since the re-review fix (D149-4) a hit that deals no damage (Donut's glance) counts too.
+- **G-A4.** The Coward's back-off (Q64) triggers on any hero move with startup of at least 9 (`carl_move` or `donut_move`) that starts with the goblin in front, within 48 px. Donut's pounce (startup 10) therefore triggers it too.
+
+**Q66 (pincer token).** No amendment changes the pincer rule. The two fixture-level ones ride with the G fixtures:
+
+- **G-A7.** The slammed goblin gets the flier hit-stop (4 ticks) on a wall slam (the design gives no value).
+- **G-A8.** `cf02_contact_below_threshold` (100 px/s) and `cf02_contact_cancels_swing` (a flier from behind Carl) start with a QA launch (`goblin_launch`), because Carl's own kick would also hit a goblin that close.
+
+**Q68 (reactions and tokens).**
+
+- **G-A6.** A goblin in its first-approach delay (Q58 draw 3) takes no attack token. Re-review note (D149-2): the delay counted down from the spawn, so a goblin that starts out of sight had used it up before it first approached. `q58_delay_from_first_sight` makes it count only while a hero is within sight (220 px). It ships **off**: turning it on moves the committed goldens of the F01 rooms (Boiler, mastery, Donut-progression and companion pilots), which belong to other open work, so the re-pin is a follow-up once those merge.
+
 ### CF02-H — aerial combat and input feel (`src/input_buffer.rs`)
 
 | ID | Question | Adopted value | Rationale | Reversibility |

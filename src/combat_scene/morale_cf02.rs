@@ -487,6 +487,9 @@ impl CombatState {
                 .iter()
                 .map(|&id| hero_pos(id).x)
                 .min_by(|a, b| (a - at.x).abs().total_cmp(&(b - at.x).abs()));
+            // Q58 draw 3: the goblin senses a hero (the legacy sight range).
+            let sees_hero =
+                nearest_hero_x.is_some_and(|x| (x - at.x).abs() < crate::feel::GOBLIN_SIGHT);
             let in_swing = goblin.mode == GoblinMode::Attack && goblin.attack_tick >= TELL_TICKS;
             let can_react = !in_swing
                 && matches!(
@@ -498,7 +501,12 @@ impl CombatState {
             let facing = goblin.facing;
             let attacking = goblin.token_held();
             let neutral_mode = goblin.mode == GoblinMode::Neutral;
-            let hurt_now = goblin.health < self.morale.as_ref().expect("checked").health[i];
+            // Q65: "any non-launching hero hit", so the hit event counts too (a
+            // 0-damage hit, such as Donut's glance, drops no health).
+            let hurt_now = goblin.health < self.morale.as_ref().expect("checked").health[i]
+                || feed
+                    .iter()
+                    .any(|e| matches!(*e, CombatEvent::Hit { target, .. } if target as usize == i));
             let (launched_or_down, dead) = (
                 matches!(
                     goblin.mode,
@@ -545,8 +553,13 @@ impl CombatState {
                     Started::Panic => ReactionKind::Panic,
                     Started::Enraged => ReactionKind::Enraged,
                 });
-                if started.aborts_tell() && attacking && !in_swing {
-                    // Q61: a panic ends a tell (never a swing already past it).
+                // Q61: a panic ends a tell (never a swing already past it); Q68: a
+                // hesitate returns the token on its first tick, so it ends it too
+                // (`q68_hesitate_aborts_tell` off keeps the legacy G-A5: the tell
+                // runs on and the goblin keeps its token).
+                let aborts = started.aborts_tell()
+                    || (t.on(t.q68_hesitate_aborts_tell) && matches!(started, Started::Hesitate));
+                if aborts && attacking && !in_swing {
                     let g = &mut self.enemies[i];
                     g.mode = GoblinMode::Neutral;
                     g.attack_tick = 0;
@@ -588,7 +601,9 @@ impl CombatState {
             let back_dir = m.back_dir[i];
             m.knocked[i] = knocked_now[i];
             m.health[i] = self.enemies[i].health;
-            if m.delay_left[i] > 0 {
+            // Q58 draw 3: the first-approach delay counts the ticks a goblin
+            // senses a hero (`q58_delay_from_first_sight` off: every tick).
+            if m.delay_left[i] > 0 && (!t.on(t.q58_delay_from_first_sight) || sees_hero) {
                 m.delay_left[i] -= 1;
             }
             if step_px > 0 && neutral_mode {
@@ -656,6 +671,32 @@ impl CombatState {
     pub(crate) fn set_delay_for_test(&mut self, index: usize, ticks: u8) {
         if let Some(m) = self.morale.as_mut() {
             m.delay_left[index] = ticks;
+        }
+    }
+
+    /// Test access: goblin `index`'s remaining first-approach delay.
+    pub(crate) fn delay_left_for_test(&self, index: usize) -> u8 {
+        self.morale.as_ref().map_or(0, |m| m.delay_left[index])
+    }
+
+    /// Test access: run one morale step on `feed` as the tick's events (the
+    /// scene's own step clears the feed first, so an event cannot be injected
+    /// ahead of it).
+    pub(crate) fn step_morale_on_for_test(
+        &mut self,
+        scene: &SceneSim,
+        tick: u64,
+        feed: Vec<CombatEvent>,
+    ) {
+        self.morale_feed = feed;
+        self.step_morale(scene, tick, 4000.0);
+    }
+
+    /// Test access: run under another tuning from now on (the knob tests).
+    pub(crate) fn set_tuning_for_test(&mut self, tuning: &'static crate::cf02::Cf02Tuning) {
+        self.cf02 = Some(tuning);
+        for goblin in &mut self.enemies {
+            goblin.cf02 = Some(tuning);
         }
     }
 }

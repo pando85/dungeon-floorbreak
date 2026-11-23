@@ -429,6 +429,8 @@ impl CombatState {
                             // The thrower is credited with the launch, so a wall
                             // slam or a later block kill is the thrower's.
                             self.enemies[index].hit_by = owner.or(self.enemies[index].hit_by);
+                            // The blast owner made this launch, not an earlier kicker.
+                            self.enemies[index].launch_by = owner;
                             None
                         }
                         None => continue,
@@ -656,6 +658,20 @@ impl CombatState {
                 tick,
             );
         }
+    }
+}
+
+#[cfg(test)]
+impl CombatState {
+    /// Test access: a profile blast at `x` owned by player `owner` (the heroes are
+    /// spared), resolved now on the scene's next tick.
+    pub(crate) fn blast_owned_for_test(&mut self, scene: &mut SceneSim, x: f32, owner: u32) {
+        let mut profile = blast_profile(CarlProgTuning::active());
+        profile.hero_damage = crate::hero_damage::HeroDamagePolicy::NoHeroes;
+        let tick = scene.world.tick + 1;
+        let charge =
+            BlastCharge::new(x, scene.world.hero_foot_y(), tick, Some(owner)).with_profile(profile);
+        self.resolve_profile_blast(scene, 0, charge, tick);
     }
 }
 

@@ -1700,6 +1700,7 @@ impl CombatState {
                         let goblin = &mut self.enemies[target as usize];
                         if goblin.mode == GoblinMode::Launched && goblin.launch.is_none() {
                             goblin.launch = Some(instance);
+                            goblin.launch_by = Some(attacker.player);
                         }
                         goblin.hit_by = Some(attacker.player);
                         if health_left == 0 {
