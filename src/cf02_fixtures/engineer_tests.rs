@@ -131,7 +131,7 @@ const ENGINEER_GOLDENS: [(&str, u64); 29] = [
     ("eng_2p_partner_in_lane", 0x475de5f61a0c5d12),
     ("eng_solo_assist", 0xf28556f86e16a187),
     ("cf02_arena_eng", 0x396b00cb46cfbc3b),
-    ("cf02_arena_eng_cp2", 0x9a127517724b02af),
+    ("cf02_arena_eng_cp2", 0x42b787e2b7d26d7c),
 ];
 
 #[test]

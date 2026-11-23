@@ -326,30 +326,33 @@ fn u5_both_heroes_reach_the_right_perch_by_way_of_the_parapet() {
 }
 
 /// CF02-FU-C2F U4: the environmental autopilot (`Plan::Environment` on
-/// `cf02_arena_environment`) is pinned as the known limit it is. It trips, breaks and
-/// lands the shore, but Carl dies twice and never completes the room. Diagnosis
-/// (measured): the plan breaks the shore and then fights on with the Direct plan's
-/// footing minus its keep-out, so the block it just landed hurts him (tick 399, 4 to
-/// 1 hp with the goblins' two hits), and a goblin of the second wave finishes him at
-/// 1 hp (ticks 660 and 709). Giving the Environment plan the Direct plan's keep-out
-/// removes the block hurt (he then dies at tick 739 after the second wave), but it
-/// moves the Engineer fixtures' goldens and the committed replays for a pilot that
-/// still does not complete the room, so the change was not made; a pilot rewrite that
-/// plays the second wave from full health is the real fix.
+/// `cf02_arena_environment`) completes the room. It used to die twice and never
+/// finish: (1) after breaking the shore it fought on without the Direct plan's
+/// keep-out, so the block it had just landed hurt Carl (tick 399); (2) a goblin of
+/// the second wave that stood on his column was never hit, because the jab box starts
+/// 16 px in front of him and passes in front of a goblin at 2 px, so he took four swings
+/// and died. Now both plans keep out of the footprint, and the Environment plan steps
+/// back out of an overlap of less than 12 px. Measured: no deaths, the room completes
+/// at tick 814, and the only hurt is the landed shore block's own trip.
 #[test]
-fn u4_the_environment_plan_still_does_not_complete_the_room() {
+fn u4_the_environment_plan_completes_the_room() {
     use crate::party_scene::PartyFixtureSim;
     let f = crate::cf02_fixtures::find_party_fixture("cf02_arena_environment").unwrap();
     let kit = crate::cf02::arena::load_arena(&crate::hazards_fixtures::root()).unwrap();
     let mut sim = PartyFixtureSim::new(&kit, 360, f).unwrap();
+    let mut done = None;
     for _ in 0..f.base.ticks {
         sim.step_scripted();
+        if done.is_none() && crate::cf02::arena::complete(&sim.combat) {
+            done = Some(sim.scene.world.tick);
+        }
     }
-    assert_eq!(sim.combat.deaths, 2, "two deaths");
+    assert_eq!(sim.combat.deaths, 0, "no deaths");
     assert!(
-        !crate::cf02::arena::complete(&sim.combat),
-        "never completes"
+        done.is_some_and(|t| t < 1200),
+        "the room completes: {done:?}"
     );
+    assert!(sim.combat.shore.as_ref().is_some_and(|s| s.landed));
 }
 
 /// CF02-FU-C2F FU-C: a scripted live-party smoke with the assistant in combat. The

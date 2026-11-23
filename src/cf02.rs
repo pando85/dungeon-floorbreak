@@ -1381,6 +1381,20 @@ pub mod arena {
             let stand = SHORE_STRIKE_X as f32 - 20.0;
             let near = (hero.x - stand).abs() < 6.0;
             raw.move_x = if near { 1.0 } else { towards(stand) };
+            // CF02-FU-C2F U4: a goblin in its tell beside him swings at the shore
+            // whether or not he is in reach, so he steps back out of the swing
+            // (its box reaches 30 px, his body 12) and the trip still counts: the
+            // environmental plan used to stand there and take the blow.
+            let tell_beside = combat.enemies.iter().any(|g| {
+                g.alive()
+                    && g.mode == crate::goblin::GoblinMode::Attack
+                    && g.x > hero.x
+                    && g.x - hero.x < 60.0
+            });
+            if tell_beside {
+                raw.move_x = -1.0;
+                return raw;
+            }
             if near && tick.is_multiple_of(40) {
                 raw.attack = true;
             }
@@ -1398,9 +1412,10 @@ pub mod arena {
             let dir = dx.signum();
             if dx.abs() > JAB_REACH {
                 raw.move_x = dir;
-                // Direct: do not walk into the footprint while the block can still fall.
-                if plan == Plan::Direct
-                    && shore_open
+                // Do not walk into the footprint while the block can still fall. Both
+                // plans keep out (CF02-FU-C2F U4: the Environment plan walked under
+                // the block it had just broken).
+                if shore_open
                     && combat.shore.as_ref().is_some_and(|s| s.hits > 0)
                     && hero.x > SHORE_STRIKE_X as f32 - SHORE_KEEP_OUT
                     && hero.x < SHORE_STRIKE_X as f32 + 110.0
@@ -1410,6 +1425,13 @@ pub mod arena {
                 }
             } else {
                 raw.move_x = dir;
+                // CF02-FU-C2F U4: standing on a goblin's column Carl's jab box (16 to
+                // 22 px in front of him) passes in front of the goblin and misses, as
+                // the room's second-wave goblin showed (four swings taken, none
+                // landed). The Environment plan steps back out of the overlap.
+                if plan == Plan::Environment && dx.abs() < 12.0 {
+                    raw.move_x = -dir;
+                }
                 if press {
                     raw.attack = true;
                 }
