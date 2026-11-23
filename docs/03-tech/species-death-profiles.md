@@ -101,6 +101,8 @@ The llama rows equal the goblin rows with `llama_*` ids. `src/death.rs` pins eve
 | --- | --- | --- |
 | `goblin` | `{ "kind": "slammed", "finish": "goblin_slammed", "causes": ["blunt"], "min_force": "heavy" }` | a heavy (or catastrophic) blunt defeat is the slammed finish; a routine blunt kill keeps `goblin_knockback_down`; crush, shear and blast rows are unchanged |
 
+**`pile_boss` (FA-Q23, HRD sheet section 10).** The overlay's `add_species` also carries the Hoarder (the global file stays byte-identical): the five recipes and the fallback all select `pile_boss_down`, which `Finish::from_id` maps to `NoArt`. The generic presenter therefore draws nothing for her (no gibs, no dismemberment, no blood: "a ruined person, not a target for spectacle"); her own presenter (`hoarder_art`) draws HOARD-01's `down` frames 13 to 15. She is not CINE-eligible. A test pins every cause and force.
+
 A heavy ring blast (`Explosion { point_blank: false }`, force heavy) has no blast recipe and degrades along its ladder to the blunt class, so under the overlay it also selects `goblin_slammed` (degraded, played as the flung pose). That is the one non-melee row the overlay changes; a test pins it.
 
 **Pose from events (presentation only).** The profile says "slammed"; `death::slam_pose_for(events, target)` picks one of three poses from the events of the defeat's own tick: a `WallSlam` of that goblin gives `WallCrumple`, else a `Hit` of `Stomp` or `DiveStomp` on it gives `Stomped`, else `Flung` (the lethal kick). The pose is stored nowhere authoritative and mixed into no hash.

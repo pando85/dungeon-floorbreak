@@ -21,6 +21,18 @@
         { "kind": "crushed", "finish": "engineer_down", "causes": ["crush"], "min_force": "routine" },
         { "kind": "knockback_down", "finish": "engineer_down", "causes": ["blunt"], "min_force": "routine" }
       ]
+    },
+    {
+      "id": "pile_boss",
+      "body_material": "organic",
+      "fallback_finish": "pile_boss_down",
+      "recipes": [
+        { "kind": "slammed", "finish": "pile_boss_down", "causes": ["blunt"], "min_force": "heavy" },
+        { "kind": "exploded", "finish": "pile_boss_down", "causes": ["blast"], "min_force": "catastrophic" },
+        { "kind": "decapitated", "finish": "pile_boss_down", "causes": ["shear"], "min_force": "heavy" },
+        { "kind": "crushed", "finish": "pile_boss_down", "causes": ["crush"], "min_force": "routine" },
+        { "kind": "knockback_down", "finish": "pile_boss_down", "causes": ["blunt"], "min_force": "routine" }
+      ]
     }
   ]
 }

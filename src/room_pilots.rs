@@ -95,6 +95,10 @@ pub enum Plan {
     /// ([`crate::boiler_fixtures::scene_pilots::run_live`],
     /// `boiler:<who>:<direct|both>:<seed>`). Only valid in the Boiler's room, and only aligned.
     Boiler,
+    /// FA-Q24 (room 1): the Hoarder's room pilot ([`crate::hoarder_fixtures::ClearPilot`],
+    /// `hoarder:carl_solo:<seed>`, plain `hoarder` = seed 0): solo Carl walks in, fights her
+    /// and walks out. Only valid in the Hoarder's room, solo, and only solo Carl.
+    Hoarder,
 }
 
 impl Plan {
@@ -109,6 +113,7 @@ impl Plan {
             Self::HazTactical => "haz_tactical",
             Self::Hazards => "hazards",
             Self::Boiler => "boiler",
+            Self::Hoarder => "hoarder",
         }
     }
 }
@@ -189,6 +194,7 @@ fn route_token(route: BoilerRoute) -> &'static str {
 pub struct AlignedMemory {
     swap_sent: bool,
     boiler: Option<crate::boiler_fixtures::scene_pilots::LiveDriver>,
+    hoarder: Option<crate::hoarder_fixtures::ClearPilot>,
 }
 
 /// A parsed `--room-pilot` value: `PLAN`, `PLAN:2p`, or `mastery|juicer:WHO:SEED`.
@@ -207,7 +213,12 @@ pub struct RoomPilot {
 impl RoomPilot {
     pub fn parse(value: &str) -> Result<Self, String> {
         let (plan, rest) = value.split_once(':').map_or((value, ""), |(a, b)| (a, b));
-        if rest.contains(':') && matches!(plan, "mastery" | "juicer" | "hazards" | "boiler") {
+        if rest.contains(':')
+            && matches!(
+                plan,
+                "mastery" | "juicer" | "hazards" | "boiler" | "hoarder"
+            )
+        {
             // PT-GATE-C1: `mastery:<who>:<seed>` and `juicer:<who>:<seed>`; PT-GATE-E:
             // `hazards:<who>:<seed>` and `boiler:<who>:<direct|both>:<seed>`.
             let parts: Vec<&str> = rest.split(':').collect();
@@ -228,7 +239,11 @@ impl RoomPilot {
             let fights = plan == "mastery";
             let who = AlignedWho::parse(who)
                 .filter(|who| fights || *who != AlignedWho::DonutFights)
+                .filter(|who| plan != "hoarder" || *who == AlignedWho::CarlSolo)
                 .ok_or_else(|| {
+                    if plan == "hoarder" {
+                        return format!("bad --room-pilot who {who:?} (room 1 has only carl_solo)");
+                    }
                     format!(
                         "bad --room-pilot who {who:?} (expected carl_solo, donut_by_swap, {}companion)",
                         if fights { "donut_fights, " } else { "" }
@@ -251,6 +266,7 @@ impl RoomPilot {
                     "juicer" => Plan::Juicer,
                     "hazards" => Plan::Hazards,
                     "boiler" => Plan::Boiler,
+                    "hoarder" => Plan::Hoarder,
                     _ => Plan::Mastery,
                 },
                 two_player: false,
@@ -265,6 +281,7 @@ impl RoomPilot {
             "juicer" => Plan::Juicer,
             "haz_spectacular" => Plan::HazSpectacular,
             "haz_tactical" => Plan::HazTactical,
+            "hoarder" => Plan::Hoarder,
             "hazards" | "boiler" => {
                 return Err(format!(
                     "--room-pilot {plan} is an aligned plan: {plan}:WHO:{}SEED",
@@ -273,7 +290,7 @@ impl RoomPilot {
             }
             other => {
                 return Err(format!(
-                    "unknown --room-pilot plan {other:?} (expected direct, valve, chain, mastery, juicer, haz_spectacular or haz_tactical, optionally :2p, or mastery|juicer|hazards:WHO:SEED, or boiler:WHO:direct|both:SEED)"
+                    "unknown --room-pilot plan {other:?} (expected direct, valve, chain, mastery, juicer, hoarder, haz_spectacular or haz_tactical, optionally :2p, or mastery|juicer|hazards:WHO:SEED, hoarder:carl_solo:SEED, or boiler:WHO:direct|both:SEED)"
                 ));
             }
         };
@@ -286,12 +303,17 @@ impl RoomPilot {
                 ));
             }
         };
-        // The plain mastery plan is the library's `carl_solo` at seed 0 (PT-GATE-C1).
-        let aligned = (plan == Plan::Mastery && !two_player).then_some(Aligned {
-            who: AlignedWho::CarlSolo,
-            seed: 0,
-            route: None,
-        });
+        if plan == Plan::Hoarder && two_player {
+            return Err("--room-pilot hoarder is a solo plan (no :2p)".into());
+        }
+        // The plain mastery plan is the library's `carl_solo` at seed 0 (PT-GATE-C1); so is the
+        // plain hoarder plan (FA-Q24).
+        let aligned =
+            (matches!(plan, Plan::Mastery | Plan::Hoarder) && !two_player).then_some(Aligned {
+                who: AlignedWho::CarlSolo,
+                seed: 0,
+                route: None,
+            });
         Ok(Self {
             plan,
             two_player,
@@ -302,7 +324,9 @@ impl RoomPilot {
     /// The value that parses back to this pilot.
     pub fn label(self) -> String {
         if let Some(a) = self.aligned
-            && !(self.plan == Plan::Mastery && a.who == AlignedWho::CarlSolo && a.seed == 0)
+            && !(matches!(self.plan, Plan::Mastery | Plan::Hoarder)
+                && a.who == AlignedWho::CarlSolo
+                && a.seed == 0)
         {
             match a.route {
                 Some(route) => format!(
@@ -342,6 +366,7 @@ impl RoomPilot {
                 crate::hazards_fixtures::pilots::route_pilot(combat, sim, HeroId::Carl)
             }
             Plan::Boiler => unreachable!("the live Boiler pilot is aligned only (aligned_inputs)"),
+            Plan::Hoarder => unreachable!("the Hoarder's pilot is aligned only (aligned_inputs)"),
         };
         let donut = if self.two_player {
             arena::donut_pilot(combat, sim)
@@ -365,6 +390,9 @@ pub fn aligned_tuning(plan: Plan, who: AlignedWho) -> PartyTuning {
                 JUICER_ROOM_PARTY.tuning
             }
         }
+        // FA-Q24: the room's own party (`cf02_assist`, 12-tick swap): what the PLAYTRACE verifier
+        // rebuilds from a room recording, and the library fixture's.
+        Plan::Hoarder => crate::hoarder_fixtures::room_party_tuning(),
         _ => crate::f01_mastery_fixtures::tuning(who.mastery()),
     }
 }
@@ -405,6 +433,18 @@ impl RoomPilot {
                     .expect("a live boiler plan")
             });
             return driver.next(combat, sim, controlled, exit_x).0;
+        }
+        if self.plan == Plan::Hoarder {
+            // FA-Q24: Carl's room 1 pilot; the other hero is the party's `cf02_assist` partner.
+            let pilot = memory
+                .hoarder
+                .get_or_insert_with(|| crate::hoarder_fixtures::ClearPilot::new(seed));
+            let input = if controlled == HeroId::Carl {
+                pilot.input(combat, sim)
+            } else {
+                RawInput::NONE
+            };
+            return [input, RawInput::NONE];
         }
         let swap_sent = &mut memory.swap_sent;
         let hero_pilot = |hero: HeroId| {
@@ -1479,7 +1519,103 @@ mod tests {
                 }
             }
         }
+        // FA-Q24: room 1, the Hoarder (solo Carl, nine seeds).
+        for seed in crate::hoarder_fixtures::ROOM_SEEDS {
+            let report = crate::hoarder_fixtures::room_run(&root, seed).unwrap();
+            let (hash, combat_hash) = replay_hoarder(&root, seed, report.ticks);
+            assert_eq!(hash, report.hash, "hoarder seed {seed}");
+            println!(
+                "ALIGNED_LIBRARY room=hoarder who=carl_solo seed={seed} ticks={} hash={hash:016x} combat_hash={combat_hash:016x}",
+                report.ticks
+            );
+        }
         println!("ALIGNED_LIBRARY_END");
+    }
+
+    /// Room 1 played by the aligned room pilot `hoarder:carl_solo:<seed>` for `ticks` ticks the way
+    /// the scene steps it (the `f01_late` constructor, the pilot's party, the story loadout): the
+    /// party hash the library reports and the combat hash the window prints.
+    fn replay_hoarder(root: &Path, seed: u64, ticks: u64) -> (u64, u64) {
+        let pilot = RoomPilot::parse(&format!("hoarder:carl_solo:{seed}")).unwrap();
+        let (carl, donut) = crate::f01_late::Loadout::Story.flags();
+        let (_, mut scene, mut combat) =
+            crate::f01_late::hoarder_start(root, 360, carl, donut).unwrap();
+        let mut party = crate::party::PartyState::new(pilot.tuning().unwrap());
+        let mut memory = AlignedMemory::default();
+        for _ in 0..ticks {
+            let slots =
+                pilot.aligned_inputs(&combat, &scene, party.controlled_hero(), 0.0, &mut memory);
+            let hurt = combat.hurt_ticks_of(party.controlled_hero()) > 0;
+            party.request_swap(slots[0].swap, hurt);
+            let inputs = party.hero_inputs(slots);
+            scene.set_drive(party.drive(true));
+            let restarts = combat.restarts;
+            combat.step_party(&mut scene, inputs);
+            if combat.restarts != restarts {
+                party.restart();
+            }
+        }
+        (
+            crate::party_scene::party_hash(&combat, &scene, &party),
+            combat.state_hash(&scene),
+        )
+    }
+
+    /// FA-Q24: the room 1 pilot parses, labels back and refuses what it cannot play; the plain
+    /// `hoarder` plan is `hoarder:carl_solo:0`.
+    #[test]
+    fn the_hoarder_plan_parses_labels_and_refuses_what_it_cannot_play() {
+        let plain = RoomPilot::parse("hoarder").unwrap();
+        assert_eq!(plain.plan, Plan::Hoarder);
+        assert_eq!(
+            plain.aligned,
+            Some(Aligned {
+                who: AlignedWho::CarlSolo,
+                seed: 0,
+                route: None
+            })
+        );
+        assert_eq!(plain.label(), "hoarder");
+        assert_eq!(RoomPilot::parse(&plain.label()).unwrap(), plain);
+        let seeded = RoomPilot::parse("hoarder:carl_solo:7").unwrap();
+        assert_eq!(seeded.aligned.unwrap().seed, 7);
+        assert_eq!(seeded.label(), "hoarder:carl_solo:7");
+        assert_eq!(RoomPilot::parse(&seeded.label()).unwrap(), seeded);
+        // Room 1 has one pilot: solo Carl.
+        for bad in [
+            "hoarder:donut_by_swap:1",
+            "hoarder:companion:1",
+            "hoarder:donut_fights:1",
+            "hoarder:2p",
+            "hoarder:carl_solo:x",
+            "hoarder:carl_solo",
+        ] {
+            assert!(RoomPilot::parse(bad).is_err(), "{bad}");
+        }
+        // Its party is the library fixture's.
+        assert_eq!(
+            plain.tuning(),
+            Some(crate::hoarder_fixtures::room_party_tuning())
+        );
+    }
+
+    /// FA-Q24: the room pilot's run is the library fixture's for every seed: the same party hash
+    /// on the exit tick, her defeat once, one `CapabilityGranted`, no hero defeat (nine of nine).
+    #[test]
+    fn the_hoarder_room_pilot_replays_the_library_run_and_defeats_her_nine_of_nine() {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let mut defeated = 0;
+        for seed in crate::hoarder_fixtures::ROOM_SEEDS {
+            let report = crate::hoarder_fixtures::room_run(&root, seed).unwrap();
+            let (hash, _) = replay_hoarder(&root, seed, report.ticks);
+            assert_eq!(hash, report.hash, "seed {seed}");
+            assert_eq!(report.grants, 1, "seed {seed}");
+            assert_eq!(report.deaths, 0, "seed {seed}");
+            assert!(report.stuck <= 300, "seed {seed}: stuck {}", report.stuck);
+            assert!(report.defeat_tick < report.ticks, "seed {seed}");
+            defeated += 1;
+        }
+        assert_eq!(defeated, 9);
     }
 
     /// One throw of Carl's dynamite from column `x` of pocket C with R2 latched and S2 at home

@@ -430,3 +430,23 @@ The third narrow check passed with six fix-now items (F-A..F-F) and an optional 
 | F-G wording | "Every living hero" is now "every present hero" (the slot's `present` flag) | 3, 7, HRD-Q41 |
 | Note: 2P gate off | Added to the HRD-D kite comparison | 11 |
 | Note: `hrd_reveal_no_hits` | Carl starts at x 428, outside bank A's ground solid | 14 |
+
+## 20. HRD-FU, the presentation and room 1 (FA-Q23, FA-Q24, PR-E)
+
+Execution by the medium tier (Claude Sonnet); no design decision of this sheet changed. Recorded here so the sheet and the code agree.
+
+| Item | What was done | Where |
+| --- | --- | --- |
+| Presentation (HRD-P) | The stand-in table of section 4 is drawn from the committed HOARD-01 frames, each carrying the visible label "STAND-IN UNTIL HOARD-02"; the door, the entry gate, bank A, the J-B post and the lair mound are labelled greybox (K10). A fade-in over the first 30 reveal ticks stands in for the emerge art. Not drawn: the stir cue at x 240 (HRD-Q05). Presentation only: no sim hash moves | `src/hoarder_art.rs`, `src/bin/floor01_scene/hoarder_art.rs` |
+| Death presentation | Species `pile_boss` is in the cf02 overlay; every recipe selects `pile_boss_down`, which the generic presenter draws as nothing (no gibs, no blood); her own presenter draws `down` 13 to 15 | `assets/data/death/species_death_profiles_cf02.json`, `src/death_present.rs` |
+| Room 1 relisted (FA-Q24) | The manifest lists `hoarder` again (reverses PTG-AD1); `hoarder:carl_solo:SEED` (seeds 0..8) is a room pilot; she is defeated on 9 of 9 with exactly one `CapabilityGranted`; `MANIFEST_HASH` re-pinned | `assets/levels/f01_late/manifest.json`, `src/room_pilots.rs`, `src/hoarder_fixtures.rs` |
+| Door and exit gate | `EnvSolidKind::Lock` (authored, one roster enemy) and `ExitGate` (derived, the whole roster) are kept as two kinds and reconciled by the one predicate `opens_on_defeat` and the shared rule that both read the enemies' own state | `src/combat_scene/env.rs` |
+| Deferred fixtures | `hrd_gate_no_band`, `hrd_disengage_follow_punished`, `hrd_leash_kite_probe` (reporting only), `hrd_direct_clear_companion`, `hrd_room_validator` | `src/hoarder_fixtures.rs` |
+
+**HRDF-AD1 (adopted, as HRDA2-AD3).** The sheet starts `hrd_gate_no_band` and `hrd_disengage_follow_punished` with her at E = 760, which cannot show their expectations: from there no hero is within her 320 px return radius, so she walks home to 608 and holds (section 7, "Home hold") and never reaches the standoff or the leash edge. The fixtures start her nearer (520 with her shove cooldown preset, 340) and say why. Off her shove cooldown she shoves the 96..176 px target instead and the lunge carries her to the leash minimum 290, below the standoff's 300.
+
+**HRDF-D1 (a finding, not a pass).** Section 14 says that after a disengage a swipe tell aimed at a following Carl starts within 21 ticks of Carl entering 88 px. Measured: the Turn starts on the same tick and the tell 23 ticks after (the Turn's 20 ticks plus 3). The fixture holds the measured 23 and prints "2 over" until the sheet or the rule is settled.
+
+**Kite finding (reporting only, HRD-D).** With the entry gate **off** (`hrdq41_gate_enabled = false`), scripted solo Donut drawing her out from x 288 and firing from x 150 kills her in one cycle: 30 damage in 2193 ticks (about 36 s), no hero hit, and 19 `Disengage` events (the walk home is re-logged each time a hit resumes it). With the gate on (the default) heroes stand inside her reach. Levers (b) and (c) of section 11 stand; no number was tuned.
+
+**Companion.** `hrd_direct_clear_companion` (`cf02_free`, seeds 0..8): she is defeated and Carl reaches the exit on 9 of 9, no hero defeat, no hero stuck over 300 ticks (120 and 97 at most); the AI partner never hits her (passive by design, v1). A companion change re-pins the fixture.

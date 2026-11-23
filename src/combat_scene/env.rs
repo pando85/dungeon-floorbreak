@@ -183,6 +183,14 @@ pub enum EnvSolidKind {
     /// lock's index in the sidecar. The state is read from the slot enemy, so a
     /// respawn (the defeated stay defeated) and a restart (all back) need no
     /// latch of their own.
+    ///
+    /// **One of the two "the exit opens on defeat" kinds (HRD-FU, reconciled, see
+    /// [`Self::opens_on_defeat`]).** A `Lock` is *authored*: the sidecar names the lock
+    /// and the one roster entry it waits on (the Hoarder's door). The other,
+    /// [`Self::ExitGate`], is *derived*: a `defeat_roster` room has no lock row, and the
+    /// scene opens its exit when the whole roster is clear. They differ in what they
+    /// wait on (one enemy, or all of them), not in when they open: both are gone on the
+    /// tick of the defeat that completes their condition and both come back on a restart.
     Lock { target: u32 },
     /// HRD-A2: a slot enemy's entry gate (HRD-Q41, boss data): it stands while
     /// the slot enemy `target` reports [`crate::scene_enemy::SlotEnemy::gate_solid`].
@@ -192,8 +200,23 @@ pub enum EnvSolidKind {
     /// Always intact.
     Soffit,
     /// HAZ-A2: the exit of a `defeat_roster` room: it stands until every roster
-    /// enemy is defeated (the room goal opens it at runtime, HAZ-Q39).
+    /// enemy is defeated (the room goal opens it at runtime, HAZ-Q39). The derived
+    /// sibling of [`Self::Lock`] (see there).
     ExitGate,
+}
+
+impl EnvSolidKind {
+    /// Whether this solid is a door that opens on a defeat: [`Self::Lock`] (one named
+    /// slot enemy) and [`Self::ExitGate`] (the whole roster). The match has no wildcard,
+    /// so a new kind must say which it is. HRD-FU: the reconciliation of the two kinds
+    /// is this one predicate and the shared rule that both read the enemies' own state
+    /// (never a latch of the env's), so a respawn after the defeat keeps them open.
+    pub const fn opens_on_defeat(self) -> bool {
+        match self {
+            Self::Lock { .. } | Self::ExitGate => true,
+            Self::Remnant | Self::Drum | Self::Gate { .. } | Self::Soffit => false,
+        }
+    }
 }
 
 /// The slot target id of the roster entry a lock waits on. Appended to by the
@@ -2684,6 +2707,25 @@ impl BlastTarget for PropTarget<'_> {
 
 #[cfg(test)]
 mod tests {
+    /// HRD-FU: of the env's solid kinds exactly the two "exit opens on defeat" ones (the sidecar
+    /// lock of one enemy, the derived exit gate of a whole roster) say so.
+    #[test]
+    fn the_two_exit_door_kinds_are_the_only_solids_that_open_on_a_defeat() {
+        use EnvSolidKind::{Drum, ExitGate, Gate, Lock, Remnant, Soffit};
+        let doors: Vec<_> = [
+            Remnant,
+            Drum,
+            Lock { target: 7 },
+            Gate { target: 7 },
+            Soffit,
+            ExitGate,
+        ]
+        .into_iter()
+        .filter(|k| k.opens_on_defeat())
+        .collect();
+        assert_eq!(doors, [Lock { target: 7 }, ExitGate]);
+    }
+
     use super::*;
     use crate::blast::BlastProfile;
     use crate::boss_scene::Pilot;

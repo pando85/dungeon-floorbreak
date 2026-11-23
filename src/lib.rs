@@ -76,6 +76,7 @@ pub mod gore;
 pub mod hazards_art;
 pub mod hazards_fixtures;
 pub mod hero_damage;
+pub mod hoarder_art;
 pub mod hoarder_fixtures;
 pub mod hud;
 pub mod hud_adapter;

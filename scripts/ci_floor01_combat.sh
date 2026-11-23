@@ -512,7 +512,7 @@ case "$mode" in
     # its room; the story loadout of the Boiler differs from the plain room (the
     # pin holds dynamite and Light on Your Feet), and the plain room is unchanged.
     late_lines() { "$bin" --headless-floor01-smoke --scene f01_late "$@" | grep -E '^(F01_LATE_ENTRY|F01_(BOILER|HOARDER|HAZARDS|MASTERY)_(ENTRY|SMOKE_OK)|COMBAT_STATE)'; }
-    for late_args in "--f01-room boiler" "--f01-room boiler --f01-loadout all" "--f01-room juicer" "--f01-room juicer --f01-loadout all" "--f01-room hazards" "--f01-room hazards --f01-loadout all" "--f01-room mastery" "--f01-room mastery --f01-loadout all" "--f01-room mastery --cf02-seed 7"; do
+    for late_args in "--f01-room boiler" "--f01-room boiler --f01-loadout all" "--f01-room juicer" "--f01-room juicer --f01-loadout all" "--f01-room hoarder" "--f01-room hoarder --f01-loadout all" "--f01-room hazards" "--f01-room hazards --f01-loadout all" "--f01-room mastery" "--f01-room mastery --f01-loadout all" "--f01-room mastery --cf02-seed 7"; do
       # shellcheck disable=SC2086
       late_a="$(late_lines $late_args)"
       # shellcheck disable=SC2086
@@ -540,7 +540,7 @@ case "$mode" in
     # acid patches) launch from the f01_late story loadout and replay identically
     # twice; the story loadout differs from the TEST LOADOUT (the pin holds
     # abilities), and each room's marker names its pin and roster.
-    for room_marker in "hazards F01_HAZARDS_SMOKE_OK slot_enemies=2"; do
+    for room_marker in "hoarder F01_HOARDER_SMOKE_OK slot_enemies=1" "hazards F01_HAZARDS_SMOKE_OK slot_enemies=2"; do
       read -r slot_room slot_marker slot_count <<<"$room_marker"
       story_state="$(late_lines --f01-room "$slot_room")"
       all_state="$(late_lines --f01-room "$slot_room" --f01-loadout all)"
@@ -603,7 +603,8 @@ case "$mode" in
     # asserted equal to the library's for every (who, seed) by the unit tests). PT-GATE-E adds the hazards
     # (`hazards:WHO:SEED`) and the Boiler's live room (`boiler:WHO:direct|both:SEED`).
     for aligned in mastery:donut_by_swap:3 mastery:companion:5 juicer:carl_solo:0 juicer:companion:2 \
-      hazards:carl_solo:0 hazards:donut_by_swap:4 boiler:carl_solo:direct:0 boiler:companion:both:5; do
+      hazards:carl_solo:0 hazards:donut_by_swap:4 boiler:carl_solo:direct:0 boiler:companion:both:5 \
+      hoarder:carl_solo:2; do
       aligned_room="${aligned%%:*}"
       aligned_a="$("$bin" --headless-floor01-smoke --scene f01_late --f01-room "$aligned_room" --room-pilot "$aligned" --capture-tick 1500 | grep '^ROOM_PILOT_STATE')"
       aligned_b="$("$bin" --headless-floor01-smoke --scene f01_late --f01-room "$aligned_room" --room-pilot "$aligned" --capture-tick 1500 | grep '^ROOM_PILOT_STATE')"
@@ -612,7 +613,7 @@ case "$mode" in
         exit 1
       fi
     done
-    echo "F01_ALIGNED_PILOTS_OK: 8 aligned room pilots, each twice identical"
+    echo "F01_ALIGNED_PILOTS_OK: 9 aligned room pilots, each twice identical"
     # PT-GATE-D, retargeted by FA-Q21 (`hazfu05`): room 4's spectacular route baits R1, then one dynamite thrown from column
     # 648 chains R2 over the slime S2 (a Chain provoke of sticker 1, R2's blast 8 ticks after the stick's), exactly one
     # throw, no Rot hurt, the exit is reached (the scene stops before tick 1500), the final hash is the filmed run's and
@@ -651,7 +652,7 @@ case "$mode" in
       exit 1
     fi
     echo "F01_HAZ_TACTICAL_OK: second sticker baited over the slime, no Rot hurt, room cleared, final hash 8e10bd0986d23ad9 (the filmed run), twice identical"
-    echo "F01_LATE_HEADLESS_OK: boiler, hazards, juicer and mastery, story and all, each twice identical"
+    echo "F01_LATE_HEADLESS_OK: hoarder, boiler, hazards, juicer and mastery, story and all, each twice identical"
     ;;
   render)
     for f in "${fixtures[@]}"; do

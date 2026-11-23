@@ -48,7 +48,7 @@ pub const MANIFEST_PATH: &str = "assets/levels/f01_late/manifest.json";
 /// hash is a constant, pinned to the file by a test and compared by every
 /// replay of a recorded room. A step that lists a room (CORRAL-WIRE, RING-A
 /// wire, HRD-A2, ...) re-pins it on purpose.
-pub const MANIFEST_HASH: u64 = 0x24bc_1268_822f_41f7;
+pub const MANIFEST_HASH: u64 = 0xb45c_744a_126e_e87c;
 /// The fixture-only stub trigger the story-order tie skips by name.
 pub const STUB_TRIGGER: &str = "carl_prog_find_zone_stub";
 /// The `data_pins()` key.
@@ -605,11 +605,9 @@ pub fn check_descriptor(
     carl: CarlProgFlags,
     donut: DonutProgFlags,
 ) -> Result<(), String> {
-    // PTG-AD1: the Hoarder is unlisted (no `--f01-room hoarder`), but `--scene f01_hoarder` still
-    // launches and records it (no loadout label), so such a session must keep verifying.
-    if !(room == "hoarder" && loadout.is_none()) {
-        manifest.room(room)?;
-    }
+    // FA-Q24: the Hoarder is listed again, so a recording of her room (`--f01-room hoarder`, or
+    // `--scene f01_hoarder` with no loadout label) names a listed room like every other.
+    manifest.room(room)?;
     if let Some(label) = loadout {
         let known = Loadout::parse(label).ok_or_else(|| format!("unknown loadout {label:?}"))?;
         if !known.matches(carl, donut) {
@@ -649,16 +647,19 @@ mod tests {
     #[test]
     fn the_manifest_lists_the_landed_rooms_in_story_order() {
         let m = manifest();
-        assert_eq!(m.listed(), ["boiler", "hazards", "juicer", "mastery"]);
-        // PTG-AD1: the Hoarder is unlisted (the smaller option); its room stays
-        // reachable as `--scene f01_hoarder` and in `story_order`. The default
-        // room stays the Boiler.
+        assert_eq!(
+            m.listed(),
+            ["hoarder", "boiler", "hazards", "juicer", "mastery"]
+        );
+        // FA-Q24 (reverses PTG-AD1): the Hoarder is listed first in the story, and the
+        // default room stays the Boiler.
         assert_eq!(m.default_room().id, "boiler");
         assert_eq!(m.room("boiler").unwrap().scene, RoomScene::Boiler);
+        assert_eq!(m.room("hoarder").unwrap().scene, RoomScene::Hoarder);
         assert_eq!(m.room("hazards").unwrap().scene, RoomScene::Hazards);
         assert_eq!(m.room("mastery").unwrap().scene, RoomScene::Mastery);
         assert!(m.story_order.iter().any(|o| o.id == "hoarder"));
-        for id in ["hazards", "mastery"] {
+        for id in ["hoarder", "hazards", "mastery"] {
             assert_eq!(m.room(id).unwrap().rules, RoomRules::Cf02, "{id}");
         }
         assert_eq!(m.room("juicer").unwrap().rules, RoomRules::Boss);
@@ -670,31 +671,33 @@ mod tests {
         let unknown = m.room("cellar").unwrap_err();
         assert!(unknown.starts_with("unknown room"), "{unknown}");
         assert!(
-            unknown.contains("boiler, hazards, juicer, mastery"),
+            unknown.contains("hoarder, boiler, hazards, juicer, mastery"),
             "{unknown}"
         );
         // Known to the story order but not landed yet.
-        // (PTG-AD1: the Hoarder is in the story order and unlisted.)
-        for id in ["corral", "dozer", "hoarder"] {
+        for id in ["corral", "dozer"] {
             let unlisted = m.room(id).unwrap_err();
             assert!(unlisted.starts_with("unlisted room"), "{unlisted}");
             assert!(
-                unlisted.contains("boiler, hazards, juicer, mastery"),
+                unlisted.contains("hoarder, boiler, hazards, juicer, mastery"),
                 "{unlisted}"
             );
         }
     }
 
-    /// PTG-AD1: a recorded `--scene f01_hoarder` session (no loadout label) still
-    /// has a consistent descriptor; the unlisted room under a loadout label does not.
+    /// FA-Q24: a recorded `--scene f01_hoarder` session (no loadout label) and a
+    /// `--f01-room hoarder` one (a loadout label bound to its flags) both have a
+    /// consistent descriptor; an unlisted room still has none.
     #[test]
-    fn the_unlisted_hoarders_direct_descriptor_is_consistent_and_a_loadout_label_is_not() {
+    fn the_listed_hoarders_descriptors_are_consistent_and_an_unlisted_room_has_none() {
         let m = manifest();
         let flags = (CarlProgFlags::default(), DonutProgFlags::default());
         assert!(check_descriptor(&m, "hoarder", None, flags.0, flags.1).is_ok());
+        let (carl, donut) = Loadout::Story.flags();
+        assert!(check_descriptor(&m, "hoarder", Some("story"), carl, donut).is_ok());
         let error = check_descriptor(&m, "hoarder", Some("story"), flags.0, flags.1)
-            .expect_err("a loadout on the unlisted room");
-        assert!(error.starts_with("unlisted room"), "{error}");
+            .expect_err("a loadout label that disagrees with the flags");
+        assert!(error.contains("another run"), "{error}");
         assert!(check_descriptor(&m, "corral", None, flags.0, flags.1).is_err());
     }
 

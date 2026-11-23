@@ -177,6 +177,43 @@ mod tests {
             .collect()
     }
 
+    /// Room 1 (FA-Q24, PR-E): the Hoarder's room pilot, `hoarder:carl_solo:SEED`, seeds 0..8: solo
+    /// Carl with the room's `cf02_assist` partner, from the spawn to the exit. The room was
+    /// excluded from earlier scorecards (PTG-AD1, no defeating pilot); it is listed again.
+    fn hoarder_table(out: &mut String) {
+        use crate::hoarder_fixtures::{ROOM_SEEDS, room_run};
+        let _ = writeln!(
+            out,
+            "\n## Room 1, the Hoarder (`hoarder_fixtures::room_run`, the aligned room pilot `hoarder:carl_solo:SEED`, seeds 0..8; hashes pinned in `hoarder_fixtures`; listed again by FA-Q24, it reverses PTG-AD1)\n"
+        );
+        out.push_str(HEAD);
+        let reports: Vec<_> = ROOM_SEEDS
+            .map(|seed| room_run(&root(), seed).unwrap())
+            .collect();
+        let rows: Vec<Row> = reports
+            .iter()
+            .map(|r| Row {
+                cleared: Some(r.defeat_tick),
+                exit: Some(r.ticks),
+                defeats: r.deaths,
+                hurts: r.hurts,
+                max_stuck: u32::try_from(r.stuck).unwrap_or(u32::MAX),
+                ..Row::default()
+            })
+            .collect();
+        summary(
+            out,
+            "hoarder:carl_solo (the story loadout, cf02_assist partner)",
+            &rows,
+        );
+        let grants = reports.iter().filter(|r| r.grants == 1).count();
+        let _ = writeln!(
+            out,
+            "\nThe boss is the Hoarder: the \"cleared tick\" is her defeat. Exactly one `CapabilityGranted` (`special_thrown_charge`, hero 0, on her defeat tick) on {grants} of {} seeds. Seeds 1, 6 and 8 play the identical fight. Hurts count both heroes; the pilot jumps the swipe and the shove and punishes the free windows. Not run: Donut who fights her alone as a gate mode (`hrd_direct_clear_donut` exists, library only).",
+            reports.len()
+        );
+    }
+
     /// Room 4 (PT-GATE-C2, #240): the HAZ-06 direct route (with the Rot kind present and
     /// removed) and the HAZ-09 modes, seeds 0..8, with the AI hero's hurts by source.
     fn hazards_tables(out: &mut String) {
@@ -440,6 +477,7 @@ mod tests {
             "\nThe live `Direct` run is \"the pilot touches no prop\": the partner's own hits on the valve are reported by the fixture (a follow-up, not a gate failure). Hurts count both heroes."
         );
         hazards_tables(&mut out);
+        hoarder_table(&mut out);
 
         let _ = writeln!(
             out,

@@ -44,6 +44,14 @@ The AI hero's hurts by source and its Rot provokes, summed over the nine seeds (
 
 Solo Donut who fights the whole room (`haz_room_donut_fights`) clears it 9 of 9 (0 deaths, 0 hurts, nobody stuck) with **4 distinct outcomes** over seeds 0..8: the pilot offsets Donut's press phase by `seed % 4` ticks (FA-Q14 ruling 2, FA-Q17's treatment, scoped to this pilot), so the clear tick is 549, 550, 551 or 552 and the exit tick 631 to 634 by phase. Before this follow-up the nine seeds were one fight (clear 551, exit 633) and the 9 of 9 was a clearability proof only.
 
+## Room 1, the Hoarder (`hoarder_fixtures::room_run`, the aligned room pilot `hoarder:carl_solo:SEED`, seeds 0..8; hashes pinned in `hoarder_fixtures`; listed again by FA-Q24, it reverses PTG-AD1)
+
+| Pilot | Clears | Roster or boss cleared tick (median) | Exit tick (median / worst) | Deaths (med / worst) | Restart events | Hurts | Throws | Chains | Pierces | Blinks | Evades | Max stuck ticks | Max stall ticks (med / worst) | Distinct outcomes |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| hoarder:carl_solo (the story loadout, cf02_assist partner) | 9 of 9 | 1233 | 1383 / 1488 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | NOT RUN | 0 / 0 | 0 / 0 | 104 / 106 | NOT RUN | 6 of 9 |
+
+The boss is the Hoarder: the "cleared tick" is her defeat. Exactly one `CapabilityGranted` (`special_thrown_charge`, hero 0, on her defeat tick) on 9 of 9 seeds. Seeds 1, 6 and 8 play the identical fight. Hurts count both heroes; the pilot jumps the swipe and the shove and punishes the free windows. Not run: Donut who fights her alone as a gate mode (`hrd_direct_clear_donut` exists, library only).
+
 ## Room 5, the Juicer (`f01_late_fixtures` pilots, seeds 0..8; the seed shifts the pilot's jab phase only)
 
 | Pilot | Clears | Roster or boss cleared tick (median) | Exit tick (median / worst) | Deaths (med / worst) | Restart events | Hurts | Throws | Chains | Pierces | Blinks | Evades | Max stuck ticks | Max stall ticks (med / worst) | Distinct outcomes |

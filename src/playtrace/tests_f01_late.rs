@@ -41,14 +41,16 @@ impl RoomRig {
 
     /// `seed` is `--cf02-seed` (the hazard room and the Boiler take one).
     fn start_seeded(base: &Path, room: &str, loadout: Loadout, seed: Option<u64>) -> Self {
-        // PTG-AD1: the Hoarder is not a listed `f01_late` room; her direct scene
-        // (`--scene f01_hoarder`) has no loadout label and no story programs.
-        let direct = room == "hoarder";
-        let (carl, donut) = if direct {
-            (Default::default(), Default::default())
-        } else {
-            loadout.flags()
-        };
+        Self::build(base, room, Some(loadout), seed)
+    }
+
+    /// The Hoarder's own scene (`--scene f01_hoarder`): no loadout label and no story programs.
+    fn start_direct(base: &Path, room: &str) -> Self {
+        Self::build(base, room, None, None)
+    }
+
+    fn build(base: &Path, room: &str, loadout: Option<Loadout>, seed: Option<u64>) -> Self {
+        let (carl, donut) = loadout.map_or_else(Default::default, Loadout::flags);
         // The live party of a CF02-rules room: `cf02_assist` and the 12-tick swap.
         let room_party = || {
             PartyState::new(
@@ -68,7 +70,7 @@ impl RoomRig {
                 carl,
                 donut,
                 seed,
-                crate::f01_boiler::Roster::for_loadout(Some(loadout.name())),
+                crate::f01_boiler::Roster::for_loadout(loadout.map(Loadout::name)),
             )
             .expect("the Boiler launches");
             (
@@ -154,9 +156,9 @@ impl RoomRig {
             donut_light_feet: donut.light_feet,
             donut_puddle: donut.puddle,
             f01_room: Some(room.to_owned()),
-            f01_loadout: (!direct).then(|| loadout.name().to_owned()),
+            f01_loadout: loadout.map(|l| l.name().to_owned()),
             f01_roster: (room == "boiler").then(|| {
-                crate::f01_boiler::Roster::for_loadout((!direct).then(|| loadout.name()))
+                crate::f01_boiler::Roster::for_loadout(loadout.map(Loadout::name))
                     .name()
                     .to_owned()
             }),
@@ -269,9 +271,7 @@ fn assert_scoped_stamps(loaded: &LoadedSession, room: &str) {
 /// another room's, and a relabelled room, loadout or seed is another run.
 #[test]
 fn a_recorded_hoarder_session_verifies_strict() {
-    // PTG-AD1: her direct scene has no loadout label (the rig ignores the loadout for her).
-    {
-        let loadout = Loadout::Story;
+    for loadout in [Loadout::Story, Loadout::All] {
         let dir = TempDir::new("f01-hoarder");
         let mut rig = RoomRig::start(&dir.0, "hoarder", loadout);
         assert_eq!(
@@ -288,7 +288,7 @@ fn a_recorded_hoarder_session_verifies_strict() {
         let loaded = read_session(&session, false).unwrap();
         assert_eq!(loaded.manifest.reset.name, "f01_hoarder");
         assert_scoped_stamps(&loaded, "hoarder");
-        // A loadout label on the unlisted room is refused, and the room has no seed.
+        // The loadout label is bound to the flags, and the room has no seed.
         let other = if loadout == Loadout::Story {
             "all"
         } else {
@@ -299,11 +299,83 @@ fn a_recorded_hoarder_session_verifies_strict() {
             verify(&session).expect_err("relabelled").code,
             "rules_mismatch"
         );
-        tamper_manifest(&session, |m| m.reset.f01_loadout = None);
+        tamper_manifest(&session, |m| {
+            m.reset.f01_loadout = Some(loadout.name().into())
+        });
         verify(&session).expect("restored");
         tamper_manifest(&session, |m| m.reset.cf02_seed = Some(7));
         assert_eq!(verify(&session).expect_err("a seed").code, "rules_mismatch");
     }
+}
+
+/// FA-Q24: her own scene (`--scene f01_hoarder`, no loadout label, no story programs)
+/// still records and verifies strict now that her room is listed.
+#[test]
+fn a_recorded_direct_hoarder_session_verifies_strict() {
+    let dir = TempDir::new("f01-hoarder-direct");
+    let mut rig = RoomRig::start_direct(&dir.0, "hoarder");
+    rig.walk(900);
+    let manifest = rig.rec.finish("test").expect("finished");
+    let session = dir.0.join(manifest.session_id);
+    let report = verify(&session).expect("the direct scene verifies");
+    assert_eq!(report.ticks, 900);
+    let loaded = read_session(&session, false).unwrap();
+    assert_eq!(loaded.manifest.reset.f01_loadout, None);
+    assert_scoped_stamps(&loaded, "hoarder");
+}
+
+/// FA-Q24: a strict session of room 1 played by the room pilot to her defeat and out of the
+/// room: it verifies from its reset descriptor, holds her one defeat and **exactly one**
+/// `CapabilityGranted` (the dynamite, `special_thrown_charge`) in the journal, and it is the run
+/// the library fixture reports for the seed.
+#[test]
+fn a_piloted_hoarder_session_has_exactly_one_capability_granted_and_verifies_strict() {
+    let dir = TempDir::new("f01-hoarder-clear");
+    let mut rig = RoomRig::start(&dir.0, "hoarder", Loadout::Story);
+    let report = crate::hoarder_fixtures::room_run(&root(), 0).unwrap();
+    let mut pilot = crate::hoarder_fixtures::ClearPilot::new(0);
+    for _ in 0..report.ticks {
+        let carl = pilot.input(&rig.combat, &rig.scene);
+        rig.step(carl);
+    }
+    let defeats = rig
+        .combat
+        .events
+        .iter()
+        .filter(|e| matches!(e, CombatEvent::EnemyDefeated { .. }))
+        .count();
+    assert_eq!(defeats, 1, "she is defeated once");
+    assert_eq!(rig.combat.deaths, 0, "no hero defeat on the way");
+    assert!(rig.scene.world.complete, "Carl reaches the exit");
+    assert_eq!(
+        crate::party_scene::party_hash(&rig.combat, &rig.scene, &rig.party),
+        report.hash,
+        "the recorded run is the library fixture's"
+    );
+    let manifest = rig.rec.finish("test").expect("finished");
+    let session = dir.0.join(manifest.session_id);
+    let verified = verify(&session).expect("the piloted session verifies");
+    assert_eq!(verified.ticks, report.ticks);
+    assert_eq!(verified.scope, VerifyScope::Full);
+    // The journal's own lines: one CapabilityGranted, for the dynamite.
+    let mut lines = Vec::new();
+    for entry in std::fs::read_dir(&session).unwrap() {
+        let path = entry.unwrap().path();
+        let name = path.file_name().unwrap().to_string_lossy().into_owned();
+        if name.starts_with("ticks-") && name.ends_with(".jsonl") {
+            for line in std::fs::read_to_string(&path).unwrap().lines() {
+                if line.contains("\"k\":\"CapabilityGranted\"") {
+                    lines.push(line.to_owned());
+                }
+            }
+        }
+    }
+    let granted: usize = lines
+        .iter()
+        .map(|l| l.matches("\"k\":\"CapabilityGranted\"").count())
+        .sum();
+    assert_eq!(granted, 1, "{lines:?}");
+    assert!(lines[0].contains("special_thrown_charge"), "{lines:?}");
 }
 
 /// HAZ-A2b: the same for the hazard room (its goblins take `--cf02-seed`).

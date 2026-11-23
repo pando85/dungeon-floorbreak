@@ -2,6 +2,8 @@
 
 **Status:** keys 0, 3, 8, 10, 12, 15 drawn and frozen (key 0 passed the silhouette gate). In-betweens drawn (pose dicts), manifest, evidence and review pack produced; validators pass. Independent review pending.
 
+**Bevy integration (FA-Q23, PR-E):** the committed frames are wired, unchanged, into the Hoarder's room as a labelled **stand-in** (the sheet's mapping, `docs/01-design/enemy-gameplay-hoarder.md` section 4): every frame of her carries the visible label "STAND-IN UNTIL HOARD-02" until the review passes and HOARD-02 adds the shove, jam, pinned, get-up and emerge poses. The sources, the manifest, the atlas and the validators are untouched; the integration is `src/hoarder_art.rs` and `src/bin/floor01_scene/hoarder_art.rs` (presentation only, no sim hash moves). Screenshots at 1x and 1080p: `docs/evidence/f01-hoarder-presentation/`. Model record for this integration: Claude Sonnet (integration only; the art stays the HOARD-01 candidate designed by Claude Opus).
+
 **Decision record:** height 112 px, frame 160 x 128, pivot (70, 127). Proposed by the HOARD-01 designer; decided by the independent silhouette-gate review on key 0 (pending).
 
 The sections follow `docs/02-art/gob-01-goblin-spec.md`. The design step stops at the keys and this spec (see the top-tier budget in `docs/07-agents/agent-orchestration.md`).

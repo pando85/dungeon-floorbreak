@@ -131,6 +131,9 @@ mod donut_cues;
 mod env_prop_art;
 #[path = "floor01_scene/hazards_art.rs"]
 mod hazards_art;
+// FA-Q23 (HRD-P): the Hoarder's stand-in presentation (HOARD-01 frames, labelled greybox).
+#[path = "floor01_scene/hoarder_art.rs"]
+mod hoarder_art;
 #[path = "floor01_scene/pierce_spark.rs"]
 mod pierce_spark;
 
@@ -330,7 +333,7 @@ struct Args {
     refuge_empty: bool,
     /// The launched Boiler room (`main` fills it right after parsing).
     boiler_run: Option<Box<f01_boiler::BoilerRun>>,
-    /// HRD-A2b: `--scene f01_hoarder` (PTG-AD1: no longer a listed `--f01-room`):
+    /// HRD-A2b: `--scene f01_hoarder` (or `--scene f01_late --f01-room hoarder`, FA-Q24):
     /// the Hoarder's room. Like the Boiler it implies `cf02_rules` and is its own
     /// room, and its boss is a slot enemy loaded from the sidecar roster.
     f01_hoarder: bool,
@@ -1580,6 +1583,13 @@ fn parse_args_full(
                 "--room-pilot {} needs its own room (hazards: --f01-room hazards, boiler: --f01-room boiler)",
                 pilot.plan.name()
             ));
+        }
+        // FA-Q24: the Hoarder's pilot plays room 1 and nothing else.
+        if pilot.plan == room_pilots::Plan::Hoarder && !parsed.f01_hoarder {
+            return Err(
+                "--room-pilot hoarder needs the Hoarder's room (--f01-room hoarder or --scene f01_hoarder)"
+                    .into(),
+            );
         }
         // PT-GATE-A: the mastery and juicer plans play their own room and nothing else.
         if (pilot.plan == room_pilots::Plan::Mastery) != parsed.f01_mastery
@@ -3936,6 +3946,7 @@ fn run_window(
                 env_prop_art::sync_prop_art,
                 hazards_art::sync_hazard_art,
                 hazards_art::sync_hazard_debug,
+                hoarder_art::sync_hoarder_art,
             )
                 .chain(),
             update_lighting,
@@ -4529,6 +4540,22 @@ fn setup(
             state,
             layers_of("actors"),
             debug_layers,
+            kit,
+            &mut combat_handles,
+            &mut combat_entities,
+        );
+    }
+
+    // FA-Q23 (HRD-P): the Hoarder, her door, gate and bank A as labelled stand-ins, only in
+    // her room (presentation only).
+    if let Some(run) = &args.hoarder_run {
+        hoarder_art::spawn(
+            &mut commands,
+            &asset_server,
+            &mut layouts,
+            &mut images,
+            run.loaded.encounter.clone(),
+            layers_of("actors"),
             kit,
             &mut combat_handles,
             &mut combat_entities,
@@ -8835,15 +8862,7 @@ mod tests {
                 "--exit-after-ticks",
                 "300",
             ];
-            let live = args(&list);
-            if room == "hoarder" {
-                // PTG-AD1: the Hoarder is unlisted in `f01_late`; its own scene takes the flag.
-                assert!(live.is_err());
-                let own = args(&["--scene", "f01_hoarder", "--exit-after-ticks", "300"]).unwrap();
-                assert!(own.manual && own.live_input() && own.recording_enabled());
-                continue;
-            }
-            let live = live.unwrap_or_else(|e| panic!("{room}: {e}"));
+            let live = args(&list).unwrap_or_else(|e| panic!("{room}: {e}"));
             assert_eq!(live.exit_after_ticks, Some(300));
             assert!(live.manual, "{room}: the run stays the player's");
             assert!(live.live_input() && live.recording_enabled(), "{room}");
@@ -9954,11 +9973,12 @@ mod tests {
     /// by the room rule ("replaces ... --fixture"), not by the companion rule.
     #[test]
     fn every_room_scene_refuses_a_user_fixture_up_front() {
-        let rooms: [&[&str]; 7] = [
+        let rooms: [&[&str]; 8] = [
             &["--scene", "f01_boiler"],
             &["--scene", "f01_hoarder"],
             &["--scene", "f01_hazards"],
             &["--scene", "f01_late", "--f01-room", "boiler"],
+            &["--scene", "f01_late", "--f01-room", "hoarder"],
             &["--scene", "f01_late", "--f01-room", "hazards"],
             &["--scene", "f01_late", "--f01-room", "mastery"],
             &["--scene", "f01_late", "--f01-room", "juicer"],
@@ -10067,7 +10087,7 @@ mod tests {
             list.extend_from_slice(extra);
             args(&list).unwrap()
         };
-        for name in ["boiler", "hazards", "mastery"] {
+        for name in ["boiler", "hoarder", "hazards", "mastery"] {
             let parsed = args(&["--scene", "f01_late", "--f01-room", name]).unwrap();
             assert_eq!(
                 parsed.uncontrolled_hero(),
@@ -10304,35 +10324,29 @@ mod tests {
     /// records by default, and refuses what replaces it.
     #[test]
     fn the_slot_room_scenes_resolve_like_the_boiler() {
-        // PTG-AD1: the Hoarder is not a listed `f01_late` room; only its own scene
-        // launches it.
-        let unlisted = args(&["--scene", "f01_late", "--f01-room", "hoarder"])
-            .expect_err("the Hoarder is unlisted");
-        assert!(unlisted.contains("unlisted room"), "{unlisted}");
-        let hoarder = args(&["--scene", "f01_hoarder"]).unwrap();
-        assert!(hoarder.f01_hoarder && !hoarder.f01_late && hoarder.cf02.rules);
+        // FA-Q24 (reverses PTG-AD1): the Hoarder is a listed `f01_late` room again and
+        // still a scene of its own.
         for (room, direct) in [("hoarder", "f01_hoarder"), ("hazards", "f01_hazards")] {
-            if room == "hazards" {
-                let late = args(&["--scene", "f01_late", "--f01-room", room]).unwrap();
-                assert!(late.f01_late && late.cf02.rules && !late.demo && !late.f01_boiler);
-                assert!(!late.f01_hoarder && late.f01_hazards);
-                assert_eq!(late.f01_room.as_deref(), Some(room));
-                assert_eq!(late.f01_loadout, Some(f01_late::Loadout::Story));
-                assert!(late.carl.prog && late.donut.prog && late.donut_biscuit);
-                assert!(late.recording_enabled());
-                assert!(!late.arena_room(), "no microarena");
-                // The TEST LOADOUT holds no program flag.
-                let all = args(&[
-                    "--scene",
-                    "f01_late",
-                    "--f01-room",
-                    room,
-                    "--f01-loadout",
-                    "all",
-                ])
-                .unwrap();
-                assert!(all.carl.dynamite && all.donut.puddle && !all.carl.prog);
-            }
+            let late = args(&["--scene", "f01_late", "--f01-room", room]).unwrap();
+            assert!(late.f01_late && late.cf02.rules && !late.demo && !late.f01_boiler);
+            assert_eq!(late.f01_hoarder, room == "hoarder");
+            assert_eq!(late.f01_hazards, room == "hazards");
+            assert_eq!(late.f01_room.as_deref(), Some(room));
+            assert_eq!(late.f01_loadout, Some(f01_late::Loadout::Story));
+            assert!(late.carl.prog && late.donut.prog && late.donut_biscuit);
+            assert!(late.recording_enabled());
+            assert!(!late.arena_room(), "no microarena");
+            // The TEST LOADOUT holds no program flag.
+            let all = args(&[
+                "--scene",
+                "f01_late",
+                "--f01-room",
+                room,
+                "--f01-loadout",
+                "all",
+            ])
+            .unwrap();
+            assert!(all.carl.dynamite && all.donut.puddle && !all.carl.prog);
             // The direct scene names the room and no loadout.
             let direct_args = args(&["--scene", direct]).unwrap();
             assert_eq!(direct_args.f01_room.as_deref(), Some(room));
@@ -10361,11 +10375,19 @@ mod tests {
         assert!(args(&["--scene", "f01_hoarder", "--scene", "f01_hazards"]).is_err());
         // The Hoarder's room has no goblin, so no seed; the hazard room's goblins
         // take one.
-        assert!(
-            args(&["--scene", "f01_hoarder", "--cf02-seed", "7"])
-                .expect_err("a seed")
-                .contains("no --cf02-seed")
-        );
+        for list in [
+            &["--scene", "f01_hoarder", "--cf02-seed", "7"][..],
+            &[
+                "--scene",
+                "f01_late",
+                "--f01-room",
+                "hoarder",
+                "--cf02-seed",
+                "7",
+            ][..],
+        ] {
+            assert!(args(list).expect_err("a seed").contains("no --cf02-seed"));
+        }
         assert_eq!(
             args(&["--scene", "f01_hazards", "--cf02-seed", "7"])
                 .unwrap()
@@ -10379,7 +10401,7 @@ mod tests {
         // Unlisted rooms stay refused with the listed ones named.
         let error = args(&["--scene", "f01_late", "--f01-room", "dozer"]).expect_err("unlisted");
         assert!(
-            error.contains("boiler, hazards, juicer, mastery"),
+            error.contains("hoarder, boiler, hazards, juicer, mastery"),
             "{error}"
         );
         // No other run sets either scene.
@@ -10498,19 +10520,15 @@ mod tests {
         let actors =
             Actors::load(root, FrameSource::GridSource, true, false, false, false).unwrap();
         // The Story loadout, the TEST LOADOUT and (hazard room) a seed (review of #229).
-        let cases: [(&str, &[&str]); 4] = [
+        let cases: [(&str, &[&str]); 5] = [
             ("hoarder", &[]),
+            ("hoarder", &["--f01-loadout", "all"]),
             ("hazards", &[]),
             ("hazards", &["--f01-loadout", "all"]),
             ("hazards", &["--cf02-seed", "7"]),
         ];
         for (room, extra) in cases {
-            // PTG-AD1: the Hoarder launches through its own scene, not `f01_late`.
-            let mut list = if room == "hoarder" {
-                vec!["--scene", "f01_hoarder"]
-            } else {
-                vec!["--scene", "f01_late", "--f01-room", room]
-            };
+            let mut list = vec!["--scene", "f01_late", "--f01-room", room];
             list.extend_from_slice(extra);
             let mut run = args(&list).unwrap();
             let (library, scene_hash) = if room == "hoarder" {
@@ -10654,14 +10672,15 @@ mod tests {
         // An unknown or unlisted room names the listed rooms; a bad loadout fails.
         let error = refused(&["--f01-room", "cellar"]);
         assert!(
-            error.contains("unknown room") && error.contains("boiler, hazards, juicer, mastery"),
+            error.contains("unknown room")
+                && error.contains("hoarder, boiler, hazards, juicer, mastery"),
             "{error}"
         );
         for unlisted in ["corral", "dozer"] {
             let error = refused(&["--f01-room", unlisted]);
             assert!(
                 error.contains("unlisted room")
-                    && error.contains("boiler, hazards, juicer, mastery"),
+                    && error.contains("hoarder, boiler, hazards, juicer, mastery"),
                 "{error}"
             );
         }
@@ -10840,23 +10859,12 @@ mod tests {
         // HRD-A2b and HAZ-A2b: the two rooms record under the Boiler's source with
         // their own fixture names (the names the verifier's source rule binds).
         for (room, name) in [("hoarder", "f01_hoarder"), ("hazards", "f01_hazards")] {
-            // PTG-AD1: the Hoarder is not a listed late room; it records from its own
-            // scene (no loadout, no story programs).
-            let m = if room == "hoarder" {
-                manifest_of(&["--scene", "f01_hoarder"])
-            } else {
-                manifest_of(&["--scene", "f01_late", "--f01-room", room])
-            };
+            let m = manifest_of(&["--scene", "f01_late", "--f01-room", room]);
             assert_eq!(m.reset.source, f01_late::SESSION_SOURCE, "{room}");
             assert_eq!(m.reset.name, name, "{room}");
             assert_eq!(m.reset.f01_room.as_deref(), Some(room));
-            if room == "hoarder" {
-                assert_eq!(m.reset.f01_loadout, None);
-                assert!(m.reset.cf02_rules);
-            } else {
-                assert_eq!(m.reset.f01_loadout.as_deref(), Some("story"));
-                assert!(m.reset.carl_prog && m.reset.donut_prog && m.reset.cf02_rules);
-            }
+            assert_eq!(m.reset.f01_loadout.as_deref(), Some("story"));
+            assert!(m.reset.carl_prog && m.reset.donut_prog && m.reset.cf02_rules);
             assert!(m.reset.donut_biscuit && m.reset.cf02_seed.is_none());
             assert_eq!(
                 m.feature_flags.get("f01_room").map(String::as_str),
@@ -10870,6 +10878,12 @@ mod tests {
             }));
             assert!(!m.content_hashes.contains_key(f01_boiler::ROOM_PIN_KEY));
         }
+        // The Hoarder's own scene (`--scene f01_hoarder`) still records, with her room name
+        // and no loadout label and no story programs.
+        let own = manifest_of(&["--scene", "f01_hoarder"]);
+        assert_eq!(own.reset.f01_room.as_deref(), Some("hoarder"));
+        assert_eq!(own.reset.f01_loadout, None);
+        assert!(own.reset.cf02_rules && !own.reset.carl_prog);
         // A direct Boiler launch names the room and no loadout; a legacy run neither.
         let direct = manifest_of(&["--scene", "f01_boiler", "--carl-prog"]);
         assert_eq!(direct.reset.f01_room.as_deref(), Some("boiler"));
