@@ -488,8 +488,8 @@ impl CombatState {
                 .map(|&id| hero_pos(id).x)
                 .min_by(|a, b| (a - at.x).abs().total_cmp(&(b - at.x).abs()));
             // Q58 draw 3: the goblin senses a hero (the legacy sight range).
-            let sees_hero = goblin.alive()
-                && nearest_hero_x.is_some_and(|x| (x - at.x).abs() < crate::feel::GOBLIN_SIGHT);
+            let sees_hero =
+                nearest_hero_x.is_some_and(|x| (x - at.x).abs() < crate::feel::GOBLIN_SIGHT);
             let in_swing = goblin.mode == GoblinMode::Attack && goblin.attack_tick >= TELL_TICKS;
             let can_react = !in_swing
                 && matches!(

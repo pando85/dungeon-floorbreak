@@ -193,7 +193,10 @@ struct Args {
     /// and the probe sees the same deaths whatever the frame time.
     perf_from_tick: Option<u64>,
     /// Live run: step the scripted scenario for this many fixed ticks in the
-    /// real render loop, print `FLOOR1_SCENE_STATE` and exit.
+    /// real render loop, print `FLOOR1_SCENE_STATE` and exit. The run compiles
+    /// render pipelines synchronously (an engine teardown crash workaround), so
+    /// a pipeline first used mid-run stalls one frame: it is not for frame-time
+    /// evidence (use `--perf-frames`, which keeps them asynchronous).
     exit_after_ticks: Option<u64>,
     /// Review capture sequence `first:step:count`: pre-simulate `first` ticks
     /// of the scenario, then save `count` window screenshots `step` ticks
@@ -944,7 +947,9 @@ fn lab_overlay_plugin(args: &Args, root: &Path) -> Result<Option<LabOverlayPlugi
 /// The syscall is made directly, not through `libc::close_range`: that wrapper
 /// links the `close_range@GLIBC_2.34` symbol, and the whole binary would then
 /// fail to load on an older glibc (the Steam Linux Runtime "sniper" container
-/// ships 2.31) before this fallback could ever run.
+/// ships 2.31) before this fallback could ever run. The binary is only that
+/// portable when built in the Steam Runtime SDK: a host build still links newer
+/// glibc symbols from the toolchain (note it in the release notes).
 #[cfg(target_os = "linux")]
 fn close_inherited_fds() {
     // SAFETY: `close_range` only changes descriptor flags and touches no
@@ -3820,7 +3825,7 @@ fn run_window(
     let mut plugins = DefaultPlugins
         .set(ImagePlugin::default_nearest())
         .set(RenderPlugin {
-            synchronous_pipeline_compilation: exit_after.is_some(),
+            synchronous_pipeline_compilation: exit_after.is_some() && args.perf_frames.is_none(),
             ..default()
         })
         .set(AssetPlugin {

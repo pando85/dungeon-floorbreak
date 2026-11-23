@@ -4112,6 +4112,51 @@ mod tests {
         )));
     }
 
+    /// D149-3 (Q11), review B1: the launching hero is the one of the flight that
+    /// is under way. Carl kicks a goblin and it lands; a player-1 blast then
+    /// launches it into the wall, and the slam and the defeat are player 1's.
+    #[test]
+    fn q11_a_later_blast_launch_is_credited_to_its_owner_not_to_the_old_kicker() {
+        let mut sim = replay_for("cf02_wall_slam_kill", 20);
+        assert_eq!(sim.combat.enemies[0].launch_by, Some(0), "Carl's kick");
+        // Let the kicked goblin land, well away from the wall.
+        sim.combat.enemies[0].x = 900.0;
+        for _ in 0..80 {
+            sim.step_scripted();
+            if sim.combat.enemies[0].mode != GoblinMode::Launched {
+                break;
+            }
+        }
+        let g = &sim.combat.enemies[0];
+        assert_ne!(g.mode, GoblinMode::Launched, "it landed");
+        assert_eq!((g.launch, g.launch_by), (None, None), "the flight is over");
+        assert_eq!(g.hit_by, Some(0));
+        // Up again beside the wall (x 1392) with 2 HP: the blast takes 1, the slam 1.
+        let g = &mut sim.combat.enemies[0];
+        g.mode = GoblinMode::Neutral;
+        g.x = 1360.0;
+        g.health = 2;
+        g.down_ticks = 0;
+        g.vx = 0.0;
+        g.vy = 0.0;
+        g.y = g.floor_y;
+        sim.combat.blast_owned_for_test(&mut sim.scene, 1320.0, 1);
+        assert_eq!(sim.combat.enemies[0].mode, GoblinMode::Launched);
+        assert_eq!(sim.combat.enemies[0].launch_by, Some(1));
+        sim.run_scripted(40);
+        let slam = slams(&sim);
+        assert_eq!(slam.len(), 1, "{slam:?}");
+        assert_eq!(slam[0].3, Some(1), "the slam is the blast owner's");
+        assert!(events_of(&sim).iter().any(|e| matches!(
+            e,
+            CombatEvent::EnemyDefeated {
+                target: 0,
+                instigator: Some(1),
+                ..
+            }
+        )));
+    }
+
     /// D149-4 (Q65): a hero hit that does no damage (Donut's glance on a goblin
     /// whose HP the pounce must not take) still punishes the taunt: it ends it and
     /// staggers the goblin 20 ticks.
