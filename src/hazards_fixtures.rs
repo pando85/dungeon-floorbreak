@@ -536,7 +536,7 @@ pub mod pilots {
     use crate::f01_hazards;
     use crate::f01_late::{Loadout, hazards_start};
     use crate::f01_mastery_fixtures::{
-        APART_PX, LeftBehind, RUN_TICKS, SWAP_TICK, Who as MWho, pilot, tuning,
+        APART_PX, LeftBehind, PilotRules, RUN_TICKS, SWAP_TICK, Who as MWho, pilot_phased, tuning,
     };
     use crate::input::RawInput;
     use crate::party::HeroId;
@@ -712,6 +712,10 @@ pub mod pilots {
         }
     }
 
+    /// The solo-Donut fighter's seed-derived press phase is `seed % 4` ticks (the
+    /// press cadence of the PT-TUNE pilot).
+    const DONUT_FIGHTS_PHASE_MOD: u64 = 4;
+
     /// A goblin whose centre is this close (px) to a hero's is inside the jab's
     /// dead zone (the jab starts 16 px ahead of the body): the hero steps back
     /// from it instead of swinging at nothing (the `room_pilots` rule).
@@ -723,6 +727,17 @@ pub mod pilots {
     /// until she is defeated; stepping back opens the jab's reach again. The step
     /// is never into a live acid patch.
     pub fn route_pilot(combat: &CombatState, scene: &SceneSim, hero: HeroId) -> RawInput {
+        route_pilot_phased(combat, scene, hero, 0)
+    }
+
+    /// [`route_pilot`] with `extra_phase` ticks added to the press phase (0 is
+    /// [`route_pilot`] byte for byte).
+    pub fn route_pilot_phased(
+        combat: &CombatState,
+        scene: &SceneSim,
+        hero: HeroId,
+        extra_phase: u64,
+    ) -> RawInput {
         let body = scene.world.body(hero);
         let on_top = combat
             .enemies
@@ -762,7 +777,14 @@ pub mod pilots {
                 };
             }
         }
-        pilot(combat, scene, hero)
+        pilot_phased(
+            combat,
+            scene,
+            hero,
+            false,
+            PilotRules::OTHER_ROOMS,
+            extra_phase,
+        )
     }
 
     /// The slimes' attack phases, by roster index.
@@ -818,6 +840,19 @@ pub mod pilots {
 
     /// Run one pilot for [`RUN_TICKS`] (or until the exit is reached).
     pub fn run(root: &Path, who: Who, seed: u64, rot_enabled: bool) -> Result<Report, String> {
+        run_with(root, who, seed, rot_enabled, true)
+    }
+
+    /// [`run`], with the solo-Donut fighter's seed phase (`seed % 4`) on or off. Off
+    /// is the pilot as recorded before the FA-Q14 follow-up: `DonutFights` plays one
+    /// fight at every seed. No other pilot reads it.
+    pub fn run_with(
+        root: &Path,
+        who: Who,
+        seed: u64,
+        rot_enabled: bool,
+        seed_phase: bool,
+    ) -> Result<Report, String> {
         let (mut sim, _) = start(root, who, seed, rot_enabled)?;
         let rt = crate::rot_sticker::active();
         let mut last_x = [sim.scene.world.hero.x, sim.scene.world.donut_body.x];
@@ -850,7 +885,16 @@ pub mod pilots {
                     } else {
                         sim.combat.roster_cleared()
                     };
-                    let mut input = route_pilot(&sim.combat, &sim.scene, controlled);
+                    // FA-Q14 follow-up (FA-Q17's treatment): the solo fighter's press
+                    // phase is offset by `seed % 4` ticks while Donut is steered, so
+                    // the nine seeds are not one fight. Scoped to this pilot.
+                    let phase =
+                        if seed_phase && who == Who::DonutFights && controlled == HeroId::Donut {
+                            seed % DONUT_FIGHTS_PHASE_MOD
+                        } else {
+                            0
+                        };
+                    let mut input = route_pilot_phased(&sim.combat, &sim.scene, controlled, phase);
                     if due && !swap_pressed && controlled == HeroId::Carl {
                         input.swap = true;
                         swap_pressed = true;

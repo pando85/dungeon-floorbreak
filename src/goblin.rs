@@ -182,8 +182,9 @@ pub struct Goblin {
     /// kick of a bowling body), stamped where the launch instance is. A later
     /// hit from the other hero overwrites `hit_by` but not this, so a wall slam
     /// is credited to the kicker. Cleared with `launch` when the flight ends and
-    /// at a blast launch. Mixed into the hash only while it differs from `hit_by`
-    /// (the other hero hit the flier), so no single-hero hash sees it.
+    /// at a blast launch. Mixed into the hash while a flight is under way and it
+    /// differs from `hit_by` (the other hero hit the flier, or an ownerless blast
+    /// launched a goblin someone had hit), with `None` encoded as well (N1).
     pub launch_by: Option<u32>,
     /// WORK-023 (Q10-06): the light guard a swat stagger sets. A guarded goblin
     /// glances further swats; Carl's hits and the pounce still interrupt it.
@@ -1154,12 +1155,13 @@ impl Goblin {
             mix(0x4849_5442);
             mix(u64::from(player));
         }
-        // CF02-Q11: the launching hero, only when another hero hit the flier since.
-        if let Some(player) = self.launch_by
-            && self.launch_by != self.hit_by
-        {
+        // CF02-Q11 (N1): the launching hero, while a flight is under way and its
+        // credit differs from `hit_by` (the other hero hit the flier, or an
+        // ownerless blast launched a goblin someone had hit). `None` is encoded
+        // too (0), so `(None, Some(h))` never hashes like `(Some(h), Some(h))`.
+        if self.launch.is_some() && self.launch_by != self.hit_by {
             mix(0x4c42_5942); // "LBY"
-            mix(u64::from(player));
+            mix(self.launch_by.map_or(0, |player| u64::from(player) + 1));
         }
         // WORK-023: the light guard, mixed only while it is set.
         hash_guard(&self.guard, mix);
@@ -2320,6 +2322,40 @@ mod tests {
             g.mode = mode;
             assert_eq!(g.target_state(), want, "{mode:?}");
         }
+    }
+
+    /// CF02-Q11 (N1): two states that differ only in `launch_by` hash differently
+    /// while a flight is under way, `None` included; outside a flight, or when it
+    /// equals `hit_by`, nothing is mixed.
+    #[test]
+    fn launch_by_is_hashed_while_a_flight_credits_someone_other_than_hit_by() {
+        let flying = |launch_by: Option<u32>, hit_by: Option<u32>| {
+            let mut g = goblin_at(500.0);
+            g.launch = Some(7);
+            g.hit_by = hit_by;
+            g.launch_by = launch_by;
+            hash_of(&g)
+        };
+        // Same `hit_by`, only `launch_by` differs: Some(h) == hit_by hashes nothing,
+        // `None` and the other hero's credit each hash their own bytes.
+        let same = flying(Some(0), Some(0));
+        let none = flying(None, Some(0));
+        let other = flying(Some(1), Some(0));
+        assert_ne!(same, none, "(Some(h), Some(h)) vs (None, Some(h))");
+        assert_ne!(same, other);
+        assert_ne!(none, other, "None is encoded apart from Some(1)");
+        // Ownerless on a goblin nobody hit: equal to `hit_by`, nothing mixed.
+        assert_eq!(flying(None, None), {
+            let mut g = goblin_at(500.0);
+            g.launch = Some(7);
+            hash_of(&g)
+        });
+        // A flight that is over: `launch_by` is not hashed even if it differs.
+        let mut g = goblin_at(500.0);
+        g.hit_by = Some(0);
+        let idle = hash_of(&g);
+        g.launch_by = Some(1);
+        assert_eq!(hash_of(&g), idle, "no flight, no `launch_by` in the hash");
     }
 
     #[test]

@@ -42,7 +42,7 @@ The AI hero's hurts by source and its Rot provokes, summed over the nine seeds (
 | haz_room_solo_donut (HAZ-09) | 0 | 0 | 0 | 9 | 0 | 0 |
 | haz_room_companion (HAZ-09, cf02_free) | 0 | 0 | 0 | 0 | 0 | 0 |
 
-Solo Donut who fights the whole room (`haz_room_donut_fights`) clears it 9 of 9 (cleared on tick 551, exit on 633, 0 deaths) and is **seed-invariant**: the nine seeds are one fight (nine distinct hashes, one outcome), so the 9 of 9 is a clearability proof and not robustness evidence (FA-Q14, PR-D).
+Solo Donut who fights the whole room (`haz_room_donut_fights`) clears it 9 of 9 (0 deaths, 0 hurts, nobody stuck) with **4 distinct outcomes** over seeds 0..8: the pilot offsets Donut's press phase by `seed % 4` ticks (FA-Q14 ruling 2, FA-Q17's treatment, scoped to this pilot), so the clear tick is 549, 550, 551 or 552 and the exit tick 631 to 634 by phase. Before this follow-up the nine seeds were one fight (clear 551, exit 633) and the 9 of 9 was a clearability proof only.
 
 ## Room 5, the Juicer (`f01_late_fixtures` pilots, seeds 0..8; the seed shifts the pilot's jab phase only)
 
