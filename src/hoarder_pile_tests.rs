@@ -635,3 +635,110 @@ fn bank_a_blocks_donut() {
     let x = rig.scene.world.body(HeroId::Donut).x;
     assert!((330.0..=342.5).contains(&x), "stopped at the face: {x}");
 }
+
+// ------------------------------------------------------- review additions --
+
+/// `hrd_ja_nest_push` (K8, HRD-Q24): a percher on bank A's top is never in an untouchable nest. Carl
+/// climbs onto the 48 px top; she comes to the face and the bank is disturbed by her shove (a
+/// nest push or the ordinary shove, both jam on the face), it slides and settles, and no raised
+/// surface above 16 px is left. The slide never costs HP.
+#[test]
+fn a_percher_on_bank_a_loses_the_vantage() {
+    let mut rig = awake(300, 600.0, -1);
+    rig.run(75, &|_| carl_input(run_input(1.0)));
+    rig.step(carl_input(crate::input::RawInput {
+        move_x: 1.0,
+        ..jump_input()
+    }));
+    rig.run(14, &|_| carl_input(run_input(1.0)));
+    let mut perched = false;
+    for _ in 0..600 {
+        rig.step(IDLE);
+        perched |= rig.scene.world.hero.grounded && carl_foot(&rig) == 532;
+        if slide(&rig) == SlideState::Settled {
+            break;
+        }
+    }
+    assert!(perched, "Carl stood on the 48 px top");
+    let jam = pile_tick(&rig, |e| {
+        matches!(
+            e,
+            PileEvent::Jammed {
+                obstacle: ObstacleKind::BankA
+            }
+        )
+    });
+    assert!(jam.is_some(), "her shove jammed on the face");
+    assert_eq!(slide(&rig), SlideState::Settled, "the vantage is gone");
+    rig.run(60, &|_| IDLE);
+    assert!(
+        matches!(carl_foot(&rig), 564 | 580),
+        "no 48 px top left: foot {}",
+        carl_foot(&rig)
+    );
+    let slide_blows: Vec<_> = rig
+        .hurts()
+        .into_iter()
+        .filter(|(_, src, _, hero)| *src == ENV_SOURCE_ID && *hero == 0)
+        .collect();
+    assert!(slide_blows.len() <= 1, "one push at most: {slide_blows:?}");
+}
+
+/// `hrd_ja_bot_target_credit`: her shove aimed at a bot-driven hero still jams on bank A and
+/// disturbs it, credited to nobody.
+#[test]
+fn a_shove_at_a_bot_hero_disturbs_bank_a_with_no_credit() {
+    let mut rig = Rig::new(
+        &root(),
+        Plan {
+            carl_x: 330,
+            donut_x: 250,
+            awake: Some((470.0, -1)),
+            ..Plan::carl_at(60.0)
+        }
+        .with_control(crate::hoarder_fixtures::Control::SoloDonut),
+    )
+    .unwrap();
+    rig.run(200, &|_| IDLE);
+    assert_ne!(slide(&rig), SlideState::Stable, "the bank was disturbed");
+    let credit = rig.combat.events.iter().find_map(|e| match e {
+        CombatEvent::PropHit {
+            prop: 0, player, ..
+        } => Some(*player),
+        _ => None,
+    });
+    assert_eq!(credit, Some(None), "no player baited it");
+}
+
+/// `hrd_jb_bait_right`: her shove clamped on the post's right face leaves her pivot at 872 (body
+/// 844..900, under the footprint); the landing on J+31 exposes her (6 damage, never lethal).
+#[test]
+fn a_baited_shove_into_the_posts_right_face_drops_the_stack_on_her() {
+    let mut rig = awake(720, 940.0, -1);
+    let mut j = None;
+    for _ in 0..260 {
+        rig.step(IDLE);
+        if j.is_none() {
+            j = pile_tick(&rig, |e| {
+                matches!(
+                    e,
+                    PileEvent::Jammed {
+                        obstacle: ObstacleKind::Post
+                    }
+                )
+            });
+            if j.is_some() {
+                assert!(
+                    (rig.boss().boss().x() - 872.0).abs() < 1.0,
+                    "clamped on the right face: {}",
+                    rig.boss().boss().x()
+                );
+            }
+        }
+    }
+    let j = j.expect("jam on the post's right face");
+    assert_eq!(phase_tick(&rig, 1, PropPhase::Landed), Some(j + 31));
+    let exposed = pile_tick(&rig, |e| matches!(e, PileEvent::Exposed { .. }));
+    assert_eq!(exposed, Some(j + 31));
+    assert_eq!(rig.boss().boss().hp(), 24);
+}
