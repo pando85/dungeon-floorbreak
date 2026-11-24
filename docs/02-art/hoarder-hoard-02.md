@@ -252,9 +252,6 @@ Bank A, the J-B pieces, the door, the gate, the dressing heaps and the `opened` 
 - **E4, the sprite of bank A's `settled` remnant and the stack's `landed` remnant** have a flat lit top, vertical sides and 16 px height, because the sim makes them solid and standable (HRD-Q30).
 
 - **E5, the HRD-B and HRD-C wiring (this PR landed second, after #260).** `static_props` reads the env machines: the bank is drawn on the sim's rectangle of its state (the standing solid, the moving mass while `slid`, the remnant once `settled`); the post is `intact`, `cracked` while the mass is `Weakened`, and `broken` (drawn, not hidden) from the release on; the stack is drawn on the sim's mass rectangle (`supported`, `released`, `falling`; the strut 32 px under it) and on the remnant once `landed`, in front of the actors. HRD-C's floor shadow of the footprint (at most 8 px, translucent black) is kept while the stack is released or falling. #260's interim reveal silhouette is replaced by `Shade::Shadow`, and its low translucent stand-in mound by the `sealed`/`opened` art. The sag and the strut's dip on the last falling tick were follow-ups, done in E6.
-
-**Open:**
-
 - **E6, the PR #258 review follow-ups (HOARD-02 polish, presentation only; sim, hashes and goldens unchanged).**
   - **Landed rubble:** the stack's `landed` frame is redrawn from the stack's own junk inside the 128 x 16 band: a crate caved in at one corner, the iron pot on its side, the dropped shelf board and the snapped strut, two bottles, a burst crate with a sprung plank, the copper kettle, and the pram's crushed hood with one round and one buckled wheel, separated by dark voids. E4 still holds: one unbroken lit top row (the beam lying flat), the dark lip, opaque vertical sides, a dark foot; same rectangle.
   - **The strut on the last falling ticks:** the `falling` frame carries the strut snapped to 20 px with a splintered end (the post is broken). The body's bottom is 23 px over the floor on the last falling tick (drop 96 x 7² / 8² = 73), so the stub never dips under the floor line (`STACK_FALL_LEG_PX`, tested on every falling tick). The fall is drawn no higher than the full sag, so the body never jumps back up on the first falling ticks.
@@ -264,7 +261,7 @@ Bank A, the J-B pieces, the door, the gate, the dressing heaps and the `opened` 
 
 **Open:**
 
-- Owner review of frames 0-28 and the kit (the independent art-director review passed on 2026-11-24; the E6 polish has its own independent review).
+- Owner review of frames 0-28 and the kit (the independent art-director review passed on 2026-11-24; the E6 polish passed its own independent review on the same day).
 
 ## Rights/Provenance
 
@@ -274,4 +271,4 @@ Bank A, the J-B pieces, the door, the gate, the dressing heaps and the `opened` 
   - Design, boss keys 17, 18, 19, 20, 22, 24 and 26, the mound hero key and this spec: Claude Opus.
   - Execution (in-betweens, other prop states, wiring, evidence): Claude Sonnet.
   - Independent review: a separate Claude Opus agent (art-director review of frames 0-28, the room kit and the in-room stills, 2026-11-24).
-  - E6 polish (landed rubble, snapped strut, the warning's shudder and sag, heap b's rim light, the shove and J-B runtime stills): designed and executed by Claude Opus; independent review pending.
+  - E6 polish (landed rubble, snapped strut, the warning's shudder and sag, heap b's rim light, the shove and J-B runtime stills): designed and executed by Claude Opus; independent art-director review by a separate Claude Opus agent (passed, 2026-11-24).
