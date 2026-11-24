@@ -1,6 +1,6 @@
 # F01 danger FX evidence: acid pool, blast reach rings, blast waves, room 5 gate
 
-Prototype art (`review_status: prototype_fixture_unapproved`); nothing here approves art, tuning or game feel. Spec: [floor01-danger-fx-spec.md](../../02-art/floor01-danger-fx-spec.md). The independent review and the owner's art and game-feel review are pending.
+Prototype art (`review_status: prototype_fixture_unapproved`); nothing here approves art, tuning or game feel. Spec: [floor01-danger-fx-spec.md](../../02-art/floor01-danger-fx-spec.md). The independent top-tier art-director review passed (fix round applied); the owner's art and game-feel review are pending.
 
 Everything is drawn from the committed grid sources by `scripts/author_danger_fx.py`, exported by `bash scripts/export_assets.sh` and rendered by the shared toolkit (`python3 -m scripts.pixelart evidence` and `review-pack`); the in-scene stills and the GIF in `scene/` are real windowed captures of `floor01_scene` (the Bevy presentation), each ending on the same state hash as its headless replay.
 
@@ -72,5 +72,5 @@ Room 4 (`--f01-room hazards --room-pilot haz_spectacular`): the slime under the 
 ## Not covered
 
 - The gate's drop is a snap (the simulation closes it on one tick and keeps no close tick); the spent sticker's drip stays code-drawn. See the spec's follow-ups.
-- The committed Boiler GIFs and the hazard first look predate this art (the drum's blast now also plays the 48 px wave); they were not regenerated.
+- The committed Boiler GIFs and the hazard first look were regenerated in this PR (two passes byte-identical each, capture lines and pilot hashes unchanged): the drum's chain clips and the first look now show the danger FX art.
 - Human pad play, 2P captures and a real-GPU frame time were not run.

@@ -549,8 +549,9 @@ def manifest_of(name: str, tags: list[TagSpec], grid: dict) -> dict:
                        "content": [min(xs), min(ys), max(xs), max(ys)],
                        "sha256": frame_digest(grid["frames"][i]["cels"], ["body"])})
     acid = name == "dfx_acid"
-    palette_note = ("floor01-catacomb-v2 + SLIME-01 gel ramp (adopted default DFX-AD1)" if acid
-                    else "floor01-catacomb-v2")
+    # The acid uses only the SLIME-01 gel ramp (named entries, values exact), so it
+    # carries the slime's palette id; the kit sheets carry the kit's (DFX-AD1).
+    palette_note = "slime-floor01-v1" if acid else "floor01-catacomb-v2"
     return {
         "schema_version": 1, "id": f"{stem.replace('-', '_')}_candidate_v0", "type": "prop_animation",
         "source_path": f"{GRID_DIR_REL}/{name}.ase", "grid_source": f"{GRID_DIR_REL}/{name}.grid.json",
@@ -562,8 +563,10 @@ def manifest_of(name: str, tags: list[TagSpec], grid: dict) -> dict:
         "provenance": {
             "origin": f"F01 danger FX {TITLES[name]}, drawn from explicit primitives in named palette entries "
                       "by scripts/author_danger_fx.py",
-            "generator": "designed and executed by Claude Opus (spec, keys, frames); independent top-tier review "
-                         "pending. No concept pixels copied, no image-model raster output, no tracing, no resampling",
+            "generator": "designed and executed by Claude Opus (spec, keys, frames); independent art-director review "
+                         "by a separate Claude Opus agent. No concept pixels copied, no image-model raster output, "
+                         "no tracing, no resampling"
+                         + ("; palette: the SLIME-01 gel ramp only (adopted default DFX-AD1)" if acid else ""),
             "generated_art": True,
             "input_reference_ids": [SPEC, "assets/source/terrain/floor01/floor01_catacomb_kit.json"]
             + (["assets/source/characters/slime/slime_01.grid.json"] if acid else []),
@@ -572,7 +575,8 @@ def manifest_of(name: str, tags: list[TagSpec], grid: dict) -> dict:
                    "no public reuse license; no game/asset-pack distribution rights",
         "review_status": "prototype_fixture_unapproved",
         "prop_kit": {
-            "status": f"{len(flat)} frames drawn; independent top-tier review pending; drawn by presentation-only "
+            "status": f"{len(flat)} frames drawn; independent top-tier review passed, owner art and game-feel review "
+                      "pending; drawn by presentation-only "
                       "wiring in src/danger_fx_art.rs",
             "spec": SPEC, "tick_hz": 60, "hold_preview_ms": HOLD_MS,
             "playback": {tag: p for tag, _f, p in tags},

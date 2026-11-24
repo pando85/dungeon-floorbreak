@@ -98,7 +98,10 @@ pub const RING_HOT_TICKS: u64 = 6;
 /// The acid canvas: 80 x 10, the 6 px volume in rows 4..9 (fumes above it).
 pub const ACID_W: i32 = 80;
 pub const ACID_H: i32 = 10;
-/// The room 5 gate canvas: exactly the closed gate's collider, 28 x 224.
+/// The volume height the acid canvas is drawn for (HAZ-Q18 `hazq18_volume_height_px`).
+pub const ACID_VOLUME_H: i32 = 6;
+/// The room 5 gate canvas: the closed gate's 28 px collider from the walking line
+/// up to the arena ceiling (224 px), the rectangle the stand-in slab covered.
 pub const GATE_W: i32 = 28;
 pub const GATE_H: i32 = 224;
 /// The raised gate's rail and teeth hang this far below the top of the doorway.
@@ -190,6 +193,12 @@ pub fn wave_sheet(radius: f32) -> Option<Sheet> {
     [Sheet::WaveR48, Sheet::WaveR64]
         .into_iter()
         .find(|s| s.radius().is_some_and(|r| r as f32 == radius))
+}
+
+/// Whether the acid art draws with the active tuning: only for the volume height
+/// its canvas is drawn for (another height keeps the code-drawn strip).
+pub fn acid_drawn() -> bool {
+    i32::from(crate::slime::active().hazq18_volume_height_px) == ACID_VOLUME_H
 }
 
 /// The ring a warning Rot Sticker shows with the active tuning (its outer radius).
@@ -310,7 +319,7 @@ fn acid_strip(x: i32, w: i32, bottom: i32, frame: usize, out: &mut Vec<FxDraw>) 
 pub fn acid(env: &EnvRuntime, layout_h: i32, tick: u64) -> Vec<FxDraw> {
     let mut out = Vec::new();
     for patch in env.acid().patches() {
-        let Some(rect) = patch.rect() else {
+        let Some(rect) = patch.rect().filter(|r| r.h == ACID_VOLUME_H) else {
             continue;
         };
         let frame = match patch.pool_state() {
@@ -376,7 +385,8 @@ pub fn blast_wave(charge: &BlastCharge, tick: u64) -> Option<FxDraw> {
     Some(centred(sheet, frame, charge.centre(), Layer::Blast))
 }
 
-/// The room 5 gate: closed over the collider `{0, floor, 28, 224}` while the
+/// The room 5 gate: closed over `{0, floor, 28, 224}` (the gate collider up to the
+/// arena ceiling) while the
 /// simulation's gate is closed, raised (rail and teeth under the lintel) before
 /// and after. `None` when the collider is not the 28 px the canvas covers.
 pub fn gate(boss: &Boss) -> Option<FxDraw> {

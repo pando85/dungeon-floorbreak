@@ -12,7 +12,7 @@
 
 use super::*;
 use dungeon_floorbreak::danger_fx_art::{
-    FxDraw, Layer as FxLayer, MAX_DRAWS, Sheet as FxSheet, draws, rot_ring_sheet,
+    FxDraw, Layer as FxLayer, MAX_DRAWS, Sheet as FxSheet, acid_drawn, draws, rot_ring_sheet,
 };
 use dungeon_floorbreak::env_kit::ATLAS_ASSET_PREFIX;
 
@@ -46,7 +46,7 @@ impl DangerFxArt {
 
     /// The acid art replaces the code-drawn acid strip and lip.
     pub(super) fn draws_acid(&self) -> bool {
-        self.has(FxSheet::Acid)
+        self.has(FxSheet::Acid) && acid_drawn()
     }
 
     /// The Rot ring art replaces the code-drawn ring dots (only when the active

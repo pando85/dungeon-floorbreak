@@ -6,7 +6,7 @@
   "grid_source": "assets/source/props/floor01/dfx_acid.grid.json",
   "output_atlas": "generated/art/f01-dfx-acid.png",
   "output_metadata": "generated/art/f01-dfx-acid.json",
-  "palette_id": "floor01-catacomb-v2 + SLIME-01 gel ramp (adopted default DFX-AD1)",
+  "palette_id": "slime-floor01-v1",
   "frame_size": [
     80,
     10
@@ -24,7 +24,7 @@
   "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
   "provenance": {
     "origin": "F01 danger FX acid pool strip (idle, draining), drawn from explicit primitives in named palette entries by scripts/author_danger_fx.py",
-    "generator": "designed and executed by Claude Opus (spec, keys, frames); independent top-tier review pending. No concept pixels copied, no image-model raster output, no tracing, no resampling",
+    "generator": "designed and executed by Claude Opus (spec, keys, frames); independent art-director review by a separate Claude Opus agent. No concept pixels copied, no image-model raster output, no tracing, no resampling; palette: the SLIME-01 gel ramp only (adopted default DFX-AD1)",
     "generated_art": true,
     "input_reference_ids": [
       "docs/02-art/floor01-danger-fx-spec.md",
@@ -35,7 +35,7 @@
   "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
   "review_status": "prototype_fixture_unapproved",
   "prop_kit": {
-    "status": "6 frames drawn; independent top-tier review pending; drawn by presentation-only wiring in src/danger_fx_art.rs",
+    "status": "6 frames drawn; independent top-tier review passed, owner art and game-feel review pending; drawn by presentation-only wiring in src/danger_fx_art.rs",
     "spec": "docs/02-art/floor01-danger-fx-spec.md",
     "tick_hz": 60,
     "hold_preview_ms": 100,

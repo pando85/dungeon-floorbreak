@@ -199,6 +199,10 @@ fn acid_rig() -> Rig {
 /// with the drain loop while it drains; a drained pool draws nothing.
 #[test]
 fn the_acid_covers_exactly_the_live_volume() {
+    // The canvas is drawn for the active volume height (another height keeps the
+    // code-drawn strip).
+    assert!(acid_drawn());
+    assert_eq!(ACID_VOLUME_H, ACID_H - 4);
     let mut rig = acid_rig();
     let layout_h = rig.scene().world.layout_height();
     let check = |rig: &Rig, want_tag: Tag| {
