@@ -1088,3 +1088,68 @@ fn a_baited_shove_into_the_posts_right_face_drops_the_stack_on_her() {
     assert_eq!(exposed, Some(j + 31));
     assert_eq!(rig.boss().boss().hp(), 24);
 }
+
+// ------------------------------------------------------------------ HRD-D --
+
+/// Review of #260, follow-up 4: the nest push needs bank A `stable` (section 5: "When bank A is
+/// `stable`, she is at that goal ... for 60 consecutive ticks, she shoves bank A"). A bank that is
+/// already `disturbed` slides on its own 24 ticks later, so a push at it is a spent shove (its
+/// stimulus is ignored, `AlreadyActivated`). Carl perches on the top, she reaches the face, and on
+/// the tick her nest timer reaches 60 a blast (the test loadout's stimulus, the only one that can
+/// disturb the bank while she is free to act) disturbs it: she never starts the push, and the
+/// bank slides and settles as before.
+#[test]
+fn the_nest_push_is_never_spent_on_a_disturbed_bank() {
+    let mut rig = awake(300, 600.0, -1);
+    rig.run(75, &|_| carl_input(run_input(1.0)));
+    rig.step(carl_input(crate::input::RawInput {
+        move_x: 1.0,
+        ..jump_input()
+    }));
+    rig.run(14, &|_| carl_input(run_input(1.0)));
+    let mut reached = false;
+    for _ in 0..600 {
+        rig.step(IDLE);
+        if rig.boss().boss().nest_ticks() >= 60 {
+            reached = true;
+            break;
+        }
+    }
+    assert!(reached, "her nest timer reached 60 at the face");
+    assert_eq!(carl_foot(&rig), 532, "Carl perches on the 48 px top");
+    let nest_pushes = |rig: &Rig| {
+        rig.piles()
+            .iter()
+            .filter(|(_, e)| *e == PileEvent::NestPush)
+            .count()
+    };
+    assert_eq!(nest_pushes(&rig), 0, "no push before the timer is full");
+    let tick = rig.next_tick() - 1;
+    rig.combat.env_stimulate(
+        BANK,
+        crate::env_prop::Stimulus::Blast {
+            blast_id: 1,
+            owner: Some(0),
+            depth: 0,
+        },
+        tick,
+    );
+    // A blast lands inside a tick, before the env step's own sync: sync as that step does, so her
+    // next step sees the disturbed bank.
+    rig.combat.sync_env(&mut rig.scene);
+    assert_eq!(slide(&rig), SlideState::Disturbed);
+    for _ in 0..60 {
+        rig.step(IDLE);
+    }
+    assert_eq!(slide(&rig), SlideState::Settled, "the bank slid on its own");
+    assert_eq!(
+        nest_pushes(&rig),
+        0,
+        "no nest push at a disturbed bank: {:?}",
+        rig.piles()
+    );
+    assert!(
+        pile_tick(&rig, |e| matches!(e, PileEvent::Jammed { .. })).is_none(),
+        "no shove was spent on it"
+    );
+}

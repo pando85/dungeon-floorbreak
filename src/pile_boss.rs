@@ -765,6 +765,11 @@ pub struct PileCtx<'a> {
     pub solo: bool,
     /// The scene tick of this step (attempt-local).
     pub tick: u64,
+    /// HRD-D (review of #260): bank A still stands but is already `disturbed`, so it slides on its
+    /// own. It still blocks and is still her nest walk goal, but the nest push needs it `stable`
+    /// (design section 5): a push at a disturbed bank would be a spent shove. `false` when bank A
+    /// is stable or gone.
+    pub bank_a_disturbed: bool,
 }
 
 /// The room facts she needs.
@@ -1508,6 +1513,7 @@ impl PileBoss {
     fn nest_ready(&self, ctx: &PileCtx) -> bool {
         self.tun.hrdq24_nest_ticks > 0
             && Self::bank_a(ctx).is_some()
+            && !ctx.bank_a_disturbed
             && self.nest_ticks >= u32::from(self.tun.hrdq24_nest_ticks)
     }
 
@@ -2251,6 +2257,7 @@ mod tests {
             obstacles,
             solo: false,
             tick,
+            bank_a_disturbed: false,
         }
     }
 
@@ -3830,6 +3837,7 @@ mod tests {
             obstacles: &[],
             solo,
             tick,
+            bank_a_disturbed: false,
         }
     }
 
@@ -4216,6 +4224,37 @@ mod tests {
             assert_eq!(blows, 0, "a percher on the top (feet 48) is not hit");
             assert_eq!(boss.facing(), -1);
         }
+    }
+
+    /// HRD-D (review of #260): the push needs bank A `stable`. While the bank is `disturbed` the
+    /// timer still counts (it is keyed on her pivot and the heroes' x only), but she does not push
+    /// and does not turn for it.
+    #[test]
+    fn the_nest_push_waits_for_a_stable_bank() {
+        let bank = [bank_a()];
+        let heroes = [carl_on_top(410.0), absent(HeroId::Donut)];
+        let mut boss = awake(444.0);
+        for t in 1..=120u64 {
+            let out = boss.step(&PileCtx {
+                bank_a_disturbed: true,
+                ..ctx(heroes, &bank, t)
+            });
+            assert!(
+                !out.pile_events
+                    .iter()
+                    .any(|(_, e)| *e == PileEvent::NestPush),
+                "no push at a disturbed bank (tick {t})"
+            );
+            assert_eq!(boss.mode(), PileMode::Neutral, "tick {t}");
+        }
+        assert_eq!(boss.nest_ticks(), 120, "the timer still counts");
+        let out = boss.step(&ctx(heroes, &bank, 121));
+        assert!(
+            out.pile_events
+                .iter()
+                .any(|(_, e)| *e == PileEvent::NestPush),
+            "a stable bank takes the push at once"
+        );
     }
 
     #[test]

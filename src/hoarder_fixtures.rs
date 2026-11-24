@@ -27,19 +27,27 @@
 //! only), `hrd_direct_clear_companion` (CA2-B2 is merged) and `hrd_room_validator`. Where the
 //! sheet's start cannot show its own expectation (she starts at `E = 760`, so no hero is within
 //! her 320 px return radius), the fixture starts her nearer and says why (HRDF-AD1).
+//!
+//! **HRD-D:** the five HRD-B and HRD-C sheet fixtures that had no scene test are pinned here too:
+//! `hrd_ja_nest_push_donut`, `hrd_ja_settled_walkable`, `hrd_jb_nonlethal`, `hrd_orders` and
+//! `hrd_collapse_clear` (the other pile scene tests are in `hoarder_pile_tests`).
 
 use std::path::Path;
 
-use crate::combat::CombatEvent;
+use crate::combat::{CombatEvent, PropPhase};
+use crate::combat_scene::ENV_SOURCE_ID;
 use crate::combat_scene::pile_boss::{PileBossEnemy, of};
 use crate::combat_scene::{CombatState, Fixture};
 use crate::corridor::SceneSim;
+use crate::env_prop::{MassState, SlideState};
 use crate::f01_hoarder::{self, HoarderRun, slot_room};
 use crate::f01_late::Loadout;
 use crate::input::RawInput;
+use crate::party::HeroId;
 use crate::party::{PROVISIONAL_TUNING, PadId, PartyState};
 use crate::pile_boss::{
-    PILE_BOSS_ID, PILE_BOSS_SOURCE_ID, PileAttack, PileBossTuning, PileEvent, PileMode,
+    ObstacleKind, PILE_BOSS_ID, PILE_BOSS_SOURCE_ID, PileAttack, PileBossTuning, PileEvent,
+    PileMode,
 };
 use crate::scene_enemy::SlotSet;
 
@@ -2355,6 +2363,723 @@ pub fn hrd_room_validator(root: &Path) -> Result<Outcome, String> {
     })
 }
 
+// ------------------------------------------------------- HRD-D fixtures --
+//
+// The five sheet fixtures of HRD-B and HRD-C that had no scene test (review of #260, follow-up 5):
+// `hrd_ja_nest_push_donut`, `hrd_ja_settled_walkable`, `hrd_jb_nonlethal`, `hrd_orders` and
+// `hrd_collapse_clear`. Prop 0 is bank A, prop 1 the J-B stack (the sidecar's statics, in file
+// order).
+
+const BANK_PROP: usize = 0;
+const STACK_PROP: usize = 1;
+
+fn bank_state(rig: &Rig) -> Option<SlideState> {
+    rig.combat
+        .env()
+        .and_then(|e| e.slide(BANK_PROP))
+        .map(|s| s.state())
+}
+
+fn stack_state(rig: &Rig) -> Option<MassState> {
+    rig.combat.env().and_then(|e| e.mass_state(STACK_PROP))
+}
+
+/// The tick of her first event matching `want`.
+fn pile_event_tick(rig: &Rig, want: impl Fn(&PileEvent) -> bool) -> Option<u64> {
+    rig.piles().iter().find(|(_, e)| want(e)).map(|(t, _)| *t)
+}
+
+fn jam_tick(rig: &Rig, obstacle: ObstacleKind) -> Option<u64> {
+    pile_event_tick(rig, |e| *e == PileEvent::Jammed { obstacle })
+}
+
+/// The tick of the first `PropPhase` of `prop` with `phase`.
+fn prop_phase_tick(rig: &Rig, prop: u16, phase: PropPhase) -> Option<u64> {
+    rig.combat.events.iter().find_map(|e| match *e {
+        CombatEvent::PropPhase {
+            tick,
+            prop: p,
+            phase: ph,
+            ..
+        } if p == prop && ph == phase => Some(tick),
+        _ => None,
+    })
+}
+
+/// The environment blows (`HeroHurt` from the env source) on hero `hero`: `(tick, health left)`.
+fn env_blows(rig: &Rig, hero: usize) -> Vec<(u64, u8)> {
+    rig.hurts()
+        .into_iter()
+        .filter(|(_, src, _, h)| *src == ENV_SOURCE_ID && *h == hero)
+        .map(|(t, _, hp, _)| (t, hp))
+        .collect()
+}
+
+/// A hero's foot in layout px (y down; the lane is 580, bank A's top 532, a remnant's top 564).
+fn foot(rig: &Rig, hero: HeroId) -> i32 {
+    rig.combat.env_hero_foot_layout(&rig.scene, hero)
+}
+
+/// Walk toward `goal` (stop within 2 px); a grounded hero that did not move on the last tick
+/// while walking is blocked by a step (bank A's face or a 16 px remnant) and jumps it.
+fn walk_to(goal: f32, x: f32, last_x: f32, grounded: bool) -> RawInput {
+    if (goal - x).abs() <= 2.0 {
+        return RawInput::NONE;
+    }
+    let mut raw = run_input(if goal > x { 1.0 } else { -1.0 });
+    if grounded && (x - last_x).abs() < 0.01 {
+        raw.jump = true;
+    }
+    raw
+}
+
+/// `hrd_ja_nest_push_donut` (sheet section 14, HRD-B): as `hrd_ja_nest_push`, with P1 Donut perched
+/// on bank A's top at x 425 (the far end of the covered top for Donut, section 5). Placed on the top
+/// by fixture setup; the solo bot Carl waits behind the closed gate (x 80) and is her walk target
+/// (the only eligible hero), so she walks to the face 444. Expected: `NestPush` after 60 ticks at
+/// the face, the immediate jam (no motion) credited to Donut, the slide from J+24 (observed on the
+/// step of J+23), settled from J+40; Donut ends on the lane or the remnant and takes one slide
+/// push, 0 damage.
+pub fn hrd_ja_nest_push_donut(root: &Path) -> Result<Outcome, String> {
+    let plan = Plan {
+        carl_x: 80,
+        donut_x: 425,
+        awake: Some((600.0, -1)),
+        ..Plan::carl_at(60.0)
+    }
+    .with_control(Control::SoloDonut);
+    let mut rig = Rig::new(root, plan)?;
+    rig.scene.world.donut_body.y += 48.0;
+    rig.scene.world.sync_donut_for_tests();
+    let mut perched = false;
+    let mut at_face = None;
+    for _ in 0..500 {
+        rig.step(IDLE);
+        let tick = rig.next_tick() - 1;
+        perched |= foot(&rig, HeroId::Donut) == 532 && rig.scene.world.donut_body.grounded;
+        if at_face.is_none() && (rig.boss().boss().x() - 444.0).abs() <= 4.0 {
+            at_face = Some(tick);
+        }
+        if bank_state(&rig) == Some(SlideState::Settled) {
+            break;
+        }
+    }
+    rig.run(60, &|_| IDLE);
+    ensure!(perched, "Donut stood on the 48 px top");
+    let at_face = at_face.ok_or("she never reached the face")?;
+    let push = pile_event_tick(&rig, |e| *e == PileEvent::NestPush).ok_or("no NestPush")?;
+    ensure!(
+        push == at_face + 60,
+        "NestPush {push}, 60 ticks after reaching the face on {at_face}"
+    );
+    let j = jam_tick(&rig, ObstacleKind::BankA).ok_or("no jam on bank A")?;
+    ensure!(j == push + 40, "the jam is lunge tick 1: {j} (push {push})");
+    let credit = rig.combat.events.iter().find_map(|e| match e {
+        CombatEvent::PropHit {
+            prop: 0, player, ..
+        } => Some(*player),
+        _ => None,
+    });
+    ensure!(credit == Some(Some(1)), "credited to Donut: {credit:?}");
+    ensure!(
+        prop_phase_tick(&rig, 0, PropPhase::Falling) == Some(j + 23),
+        "the slide starts on the step of J+23 (slid J+24..J+39)"
+    );
+    ensure!(
+        prop_phase_tick(&rig, 0, PropPhase::Landed) == Some(j + 40),
+        "settled from J+40"
+    );
+    let pushes = env_blows(&rig, 1);
+    let full = rig.scene.world.donut_body.health;
+    ensure!(
+        pushes.len() == 1 && pushes.iter().all(|(_, hp)| *hp == full),
+        "one slide push on Donut, 0 damage: {pushes:?}"
+    );
+    let donut_foot = foot(&rig, HeroId::Donut);
+    ensure!(
+        matches!(donut_foot, 564 | 580),
+        "no 48 px top left: Donut's foot {donut_foot}"
+    );
+    done(
+        &rig,
+        format!(
+            "face {at_face}, push {push}, jam {j}, slid {}..{}, settled {}; pushes on Donut {pushes:?}",
+            j + 24,
+            j + 39,
+            j + 40
+        ),
+    )
+}
+
+/// `hrd_ja_settled_walkable` (HRD-B): both heroes and she cross the settled remnant
+/// `[296, 376) x [0, 16)`. 2P: Carl (P1) at x 330 behind the bank baits her shove from 470 (as
+/// `hrd_ja_bait_slide`), P2 Donut at 300; the bank slides and settles. Then both heroes walk right
+/// across the remnant to x 400 and back left to x 250 (a hero blocked by the 16 px step jumps
+/// it); she follows them left. Expected: each hero ends right of the remnant and then left of it,
+/// never stuck; her pivot reaches 324 or less going left, so her body (half-width 28) spans the
+/// remnant's whole width (with her body stopped by a 16 px step she would stop at 404, the
+/// remnant's right face plus her half-width).
+pub fn hrd_ja_settled_walkable(root: &Path) -> Result<Outcome, String> {
+    let plan = Plan {
+        carl_x: 330,
+        donut_x: 300,
+        awake: Some((470.0, -1)),
+        ..Plan::carl_at(60.0)
+    }
+    .with_control(Control::TwoPlayer);
+    let mut rig = Rig::new(root, plan)?;
+    for _ in 0..200 {
+        rig.step(IDLE);
+        if bank_state(&rig) == Some(SlideState::Settled) {
+            break;
+        }
+    }
+    ensure!(
+        bank_state(&rig) == Some(SlideState::Settled),
+        "the bank settled: {:?}",
+        bank_state(&rig)
+    );
+    let settled = rig.next_tick() - 1;
+    // Out to x 400, then back to x 250, each hero on its own.
+    let heroes = [HeroId::Carl, HeroId::Donut];
+    let mut leg = [0u8; 2];
+    let mut last = heroes.map(|h| rig.scene.world.body(h).x);
+    let mut right_of = [false; 2];
+    let mut her_min = f32::MAX;
+    let mut stuck = [0u64; 2];
+    let mut longest = [0u64; 2];
+    for _ in 0..900 {
+        let mut slots = IDLE;
+        for (i, hero) in heroes.into_iter().enumerate() {
+            let body = rig.scene.world.body(hero);
+            let goal = if leg[i] == 0 { 400.0 } else { 250.0 };
+            if leg[i] == 0 && (body.x - goal).abs() <= 2.0 {
+                leg[i] = 1;
+            }
+            if leg[i] < 2 {
+                slots[i] = walk_to(goal, body.x, last[i], body.grounded);
+            }
+            if leg[i] == 1 && (body.x - 250.0).abs() <= 2.0 {
+                leg[i] = 2;
+            }
+        }
+        rig.step(slots);
+        for (i, hero) in heroes.into_iter().enumerate() {
+            let x = rig.scene.world.body(hero).x;
+            right_of[i] |= x - 12.0 >= 376.0;
+            if leg[i] < 2 && (x - last[i]).abs() < 0.01 {
+                stuck[i] += 1;
+                longest[i] = longest[i].max(stuck[i]);
+            } else {
+                stuck[i] = 0;
+            }
+            last[i] = x;
+        }
+        her_min = her_min.min(rig.boss().boss().x());
+        if leg == [2, 2] && her_min <= 324.0 {
+            break;
+        }
+    }
+    ensure!(
+        right_of == [true, true],
+        "both crossed to the right: {right_of:?}"
+    );
+    ensure!(leg == [2, 2], "both came back to x 250: legs {leg:?}");
+    for (i, hero) in heroes.into_iter().enumerate() {
+        let x = rig.scene.world.body(hero).x;
+        ensure!(x + 12.0 <= 296.0, "{hero:?} ends left of the remnant: {x}");
+        ensure!(longest[i] <= 30, "{hero:?} was stuck {} ticks", longest[i]);
+    }
+    ensure!(
+        her_min <= 324.0,
+        "her body crossed the whole remnant going left (pivot 324 or less: her left edge at 296 \
+         or less): min {her_min}"
+    );
+    done(
+        &rig,
+        format!(
+            "settled {settled}; heroes out and back, longest stand {longest:?}; her pivot min {her_min:.1}"
+        ),
+    )
+}
+
+/// `hrd_jb_nonlethal` (HRD-C): the baited landing never kills her. Her HP preset to 4 by fixture
+/// setup, she at 700 facing +x, Carl idle at 852 beyond the post: her shove jams on the post's left
+/// face (pivot 760), the stack is released at once (J) and the landing on J+31 finds her: HP 4 -> 1
+/// (the floor of HRD-Q18), `Exposed` for 150 ticks then `GetUp`, never defeated.
+pub fn hrd_jb_nonlethal(root: &Path) -> Result<Outcome, String> {
+    let plan = Plan {
+        carl_x: 852,
+        awake: Some((700.0, 1)),
+        hp: Some(4),
+        ..Plan::carl_at(60.0)
+    };
+    let mut rig = Rig::new(root, plan)?;
+    let mut exposed_until = None;
+    for _ in 0..400 {
+        rig.step(IDLE);
+        let tick = rig.next_tick() - 1;
+        if rig.mode() == PileMode::Exposed {
+            exposed_until = Some(tick);
+        }
+        if rig.mode() == PileMode::GetUp {
+            break;
+        }
+    }
+    let j = jam_tick(&rig, ObstacleKind::Post).ok_or("no jam on the post")?;
+    ensure!(
+        (rig.boss().boss().x() - 760.0).abs() < 1.0,
+        "clamped on the left face: {}",
+        rig.boss().boss().x()
+    );
+    ensure!(
+        prop_phase_tick(&rig, 1, PropPhase::Landed) == Some(j + 31),
+        "the landing on J+31"
+    );
+    let hurt = rig.piles().into_iter().find_map(|(t, e)| match e {
+        PileEvent::Hurt {
+            hp_left, damage, ..
+        } if t == j + 31 => Some((damage, hp_left)),
+        _ => None,
+    });
+    ensure!(
+        matches!(hurt, Some((_, 1))),
+        "the landing leaves her at 1 HP: {hurt:?}"
+    );
+    let exposed = pile_event_tick(&rig, |e| matches!(e, PileEvent::Exposed { .. }));
+    ensure!(
+        exposed == Some(j + 31),
+        "Exposed on the landing: {exposed:?}"
+    );
+    let until = exposed_until.ok_or("never Exposed")?;
+    ensure!(
+        until - (j + 31) + 1 == 150,
+        "Exposed {} ticks",
+        until - (j + 31) + 1
+    );
+    ensure!(
+        rig.mode() == PileMode::GetUp,
+        "then Get-up: {:?}",
+        rig.mode()
+    );
+    ensure!(rig.boss().boss().alive(), "not defeated");
+    ensure!(rig.boss().boss().hp() == 1, "HP {}", rig.boss().boss().hp());
+    ensure!(rig.defeats().is_empty(), "no EnemyDefeated");
+    done(
+        &rig,
+        format!(
+            "jam {j}, landing {}, hurt {hurt:?}, Exposed to {until}",
+            j + 31
+        ),
+    )
+}
+
+/// One pile ordering of `hrd_orders`: which piles resolve, in order.
+const ORDERS: [(&str, &[usize]); 5] = [
+    ("A only", &[BANK_PROP]),
+    ("B only", &[STACK_PROP]),
+    ("A then B", &[BANK_PROP, STACK_PROP]),
+    ("B then A", &[STACK_PROP, BANK_PROP]),
+    ("neither", &[]),
+];
+
+/// `hrd_orders` (HRD-C): in each of the five pile orderings (A only, B only, A then B, B then A,
+/// neither) the exit is reachable after her defeat, and the room passes the validator.
+///
+/// Each run: her HP preset to 1, awake at 300 facing -x, Carl at 256 jabs her down on the first
+/// ticks (the door and the gate open on that tick). Then the piles of the ordering resolve one
+/// after the other, each from the blast stimulus of the dynamite her defeat grants (K1: before her
+/// defeat a blast exists only under the test loadout); the next one starts only when the previous
+/// one has settled or landed. Resolving them after her defeat keeps the fight from resolving a pile
+/// the ordering excludes (her nest push or a shove on bank A); the in-fight resolutions are the
+/// bait fixtures. Then Carl walks left through the open gate to the checkpoint (x 72) and right to
+/// the exit, jumping any face that blocks him. Expected: the piles end in the ordering's states,
+/// Carl reaches the exit on every ordering with no hero hurt, and the sidecar's reach rows (the
+/// validator's physics check, which reads both piles as statics, HRDB-AD1) all reach the exit on the
+/// lane.
+pub fn hrd_orders(root: &Path) -> Result<Outcome, String> {
+    let validator = f01_hoarder::launch(root)?;
+    let reach = &validator.loaded.encounter.reach;
+    ensure!(
+        !reach.is_empty() && reach.iter().all(|r| r.exit && r.lane),
+        "the validator's reach rows reach the exit on the lane"
+    );
+    let mut hash = 0u64;
+    let mut notes = Vec::new();
+    for (name, order) in ORDERS {
+        let plan = Plan {
+            carl_x: 256,
+            awake: Some((300.0, -1)),
+            hp: Some(1),
+            ..Plan::carl_at(60.0)
+        };
+        let mut rig = Rig::new(root, plan)?;
+        rig.run(12, &|t| {
+            carl_input(if t == 1 {
+                attack_input()
+            } else {
+                RawInput::NONE
+            })
+        });
+        ensure!(
+            rig.defeats().len() == 1,
+            "{name}: she is defeated by the jab"
+        );
+        for (k, &prop) in order.iter().enumerate() {
+            let tick = rig.next_tick() - 1;
+            rig.combat.env_stimulate(
+                prop,
+                crate::env_prop::Stimulus::Blast {
+                    blast_id: 1 + k as u32,
+                    owner: Some(0),
+                    depth: 0,
+                },
+                tick,
+            );
+            let done_state = |rig: &Rig| {
+                if prop == BANK_PROP {
+                    bank_state(rig) == Some(SlideState::Settled)
+                } else {
+                    stack_state(rig) == Some(MassState::Landed)
+                }
+            };
+            for _ in 0..120 {
+                if done_state(&rig) {
+                    break;
+                }
+                rig.step(IDLE);
+            }
+            ensure!(done_state(&rig), "{name}: prop {prop} resolved");
+        }
+        let a = bank_state(&rig);
+        let b = stack_state(&rig);
+        let want_a = if order.contains(&BANK_PROP) {
+            SlideState::Settled
+        } else {
+            SlideState::Stable
+        };
+        let want_b = if order.contains(&STACK_PROP) {
+            MassState::Landed
+        } else {
+            MassState::Supported
+        };
+        ensure!(
+            a == Some(want_a) && b == Some(want_b),
+            "{name}: piles {a:?} / {b:?}"
+        );
+        // To the checkpoint, then to the exit.
+        let mut leg = 0;
+        let mut last = rig.carl_x();
+        let mut exit = None;
+        for _ in 0..1500 {
+            let body = rig.scene.world.body(HeroId::Carl);
+            let (x, grounded) = (body.x, body.grounded);
+            if leg == 0 && (x - 72.0).abs() <= 2.0 {
+                leg = 1;
+            }
+            let goal = if leg == 0 { 72.0 } else { 1020.0 };
+            rig.step(carl_input(walk_to(goal, x, last, grounded)));
+            last = x;
+            if rig.scene.world.complete {
+                exit = Some(rig.next_tick() - 1);
+                break;
+            }
+        }
+        let exit = exit.ok_or_else(|| {
+            format!(
+                "{name}: Carl never reached the exit (x {:.0}, leg {leg})",
+                rig.carl_x()
+            )
+        })?;
+        ensure!(
+            rig.hurts().is_empty(),
+            "{name}: no hero hurt: {:?}",
+            rig.hurts()
+        );
+        notes.push(format!("{name}: exit {exit}"));
+        hash = hash.rotate_left(7) ^ rig.hash();
+    }
+    Ok(Outcome {
+        hash,
+        note: notes.join("; "),
+    })
+}
+
+/// The collapse pilot of `hrd_collapse_clear`: Carl walks in from the spawn (jumping bank A),
+/// stops short of her while she wakes, then baits her shove into the J-B post. While the stack
+/// holds: from her left he holds 100 px (the near end of her shove range) and jumps her shove so he
+/// lands behind her (`hrd_shove_jump_lands_behind`); from her right he stands beyond the post (x 852 or more, 132 px
+/// from her), so her shove toward him jams on the post's left face and leaves her under the
+/// footprint. He jumps a swipe as [`CarlPilot`] does; a shove toward him beyond the post is not
+/// jumped (the box stops on the post). While the stack warns and falls he leaves the footprint to
+/// the right; once it has landed he fights her as [`CarlPilot`] (the finisher hits while she is
+/// Exposed, then the direct fight) and walks to the exit after her defeat. A hero blocked by a
+/// step jumps it.
+#[derive(Debug, Clone)]
+struct CollapsePilot {
+    carl: CarlPilot,
+    last_x: f32,
+    /// The direction held through a jump onto a step (the fight pilot moves only on the ground).
+    climb: Option<f32>,
+    /// Grounded ticks the fight pilot pushed against something without moving.
+    still: u32,
+    /// The finisher's jab press toggle.
+    jab: bool,
+    /// The fight's shove jump: the attack tick to jump on (fixed at the tell) and whether it was
+    /// spent.
+    shove_k: Option<u32>,
+    shove_jumped: bool,
+}
+
+impl CollapsePilot {
+    fn new(seed: u64) -> Self {
+        Self {
+            carl: CarlPilot::new(seed),
+            last_x: f32::MIN,
+            climb: None,
+            still: 0,
+            jab: false,
+            shove_k: None,
+            shove_jumped: false,
+        }
+    }
+
+    fn input(&mut self, rig: &Rig) -> RawInput {
+        let body = rig.scene.world.body(HeroId::Carl);
+        let (x, grounded) = (body.x, body.grounded);
+        let last_x = std::mem::replace(&mut self.last_x, x);
+        let boss = rig.boss().boss();
+        if !boss.alive() {
+            return self.step_to(1020.0, x, last_x, grounded);
+        }
+        if engaged_tick(rig).is_none() {
+            return if x >= 470.0 {
+                RawInput::NONE
+            } else {
+                self.step_to(480.0, x, last_x, grounded)
+            };
+        }
+        match stack_state(rig) {
+            Some(MassState::Supported | MassState::Weakened) => {
+                self.bait(boss, x, last_x, grounded)
+            }
+            Some(MassState::Released | MassState::Falling) => {
+                // Out of the footprint [752, 880) to the right, short of the door.
+                if x - 12.0 < 880.0 && x > 740.0 {
+                    self.step_to(900.0, x, last_x, grounded)
+                } else {
+                    RawInput::NONE
+                }
+            }
+            _ if matches!(boss.mode(), PileMode::Exposed | PileMode::GetUp) => {
+                // The finisher: her prone box `[-48, 72)` is wider than her standing body, so the
+                // fight pilot's 44 px pivot rule never reaches it. Close to the box and jab.
+                let (x0, x1) = (-48.0, 72.0);
+                let f = f32::from(boss.facing());
+                let left = if f > 0.0 {
+                    boss.x() + x0
+                } else {
+                    boss.x() - x1
+                };
+                let gap = if x < left { left - x } else { f32::MAX };
+                if gap > 14.0 || !grounded {
+                    // Always from her -x side, on the open floor: from the right he jumps the
+                    // remnant and her prone body, and the fight after her get-up stays off the
+                    // remnant (the direct pilot is tuned on a flat floor).
+                    self.step_to(left - 12.0, x, last_x, grounded)
+                } else {
+                    self.still = 0;
+                    self.jab = !self.jab;
+                    let mut raw = RawInput::NONE;
+                    raw.attack = self.jab;
+                    // Face her.
+                    if (boss.x() - x).signum() != f32::from(rig.scene.world.hero.facing) {
+                        raw.move_x = (boss.x() - x).signum();
+                    }
+                    raw
+                }
+            }
+            _ if matches!(boss.mode(), PileMode::ShoveTell | PileMode::Lunge) => {
+                // The direct pilot's shove jump is timed in the mode's own ticks, so it never
+                // fires past about 104 px (the tell is 40 ticks). Time it in attack ticks (the
+                // tell's ticks, then 40 + the lunge's), at the middle of the sheet's clear window
+                // for the distance at the tell (96: 28..45, 128: 38..55, 160: 47..66).
+                self.still = 0;
+                self.climb = None;
+                let adx = (boss.x() - x).abs();
+                let k = *self.shove_k.get_or_insert_with(|| {
+                    36 + ((adx - 96.0) * 20.0 / 64.0).clamp(0.0, 25.0) as u32
+                });
+                let attack_tick = if boss.mode() == PileMode::ShoveTell {
+                    boss.mode_tick()
+                } else {
+                    40 + boss.mode_tick()
+                };
+                let mut raw = RawInput::NONE;
+                if grounded && !self.shove_jumped && attack_tick >= k && adx < 200.0 {
+                    raw.jump = true;
+                    self.shove_jumped = true;
+                }
+                raw
+            }
+            _ => {
+                self.shove_k = None;
+                self.shove_jumped = false;
+                let mut raw = self.carl.input_at(boss, x, grounded);
+                if grounded {
+                    self.climb = None;
+                    let pushing = raw.move_x != 0.0 && (x - last_x).abs() < 0.01;
+                    self.still = if pushing { self.still + 1 } else { 0 };
+                    if self.still >= 2 {
+                        self.still = 0;
+                        // Blocked by the landed remnant's 16 px face: jump onto it, holding the
+                        // direction through the jump.
+                        raw.jump = true;
+                        self.climb = Some(raw.move_x);
+                    }
+                } else if let Some(dir) = self.climb {
+                    raw.move_x = dir;
+                }
+                raw
+            }
+        }
+    }
+
+    /// Walk toward `goal` (stop within 2 px), in the air too; a grounded hero that pushed for two
+    /// ticks without moving is blocked by a step and jumps it.
+    fn step_to(&mut self, goal: f32, x: f32, last_x: f32, grounded: bool) -> RawInput {
+        if (goal - x).abs() <= 2.0 {
+            self.still = 0;
+            return RawInput::NONE;
+        }
+        let mut raw = run_input(if goal > x { 1.0 } else { -1.0 });
+        if grounded {
+            self.still = if (x - last_x).abs() < 0.01 {
+                self.still + 1
+            } else {
+                0
+            };
+            if self.still >= 2 {
+                self.still = 0;
+                raw.jump = true;
+            }
+        }
+        raw
+    }
+
+    fn bait(
+        &mut self,
+        boss: &crate::pile_boss::PileBoss,
+        x: f32,
+        last_x: f32,
+        grounded: bool,
+    ) -> RawInput {
+        let mode = boss.mode();
+        let right_of_her = x > boss.x();
+        let swipe = matches!(
+            mode,
+            PileMode::SwipeTell | PileMode::SwipeSmear | PileMode::SwipeImpact
+        );
+        let shove = matches!(mode, PileMode::ShoveTell | PileMode::Lunge);
+        if swipe || (shove && !(right_of_her && x - 12.0 >= 824.0)) {
+            // Jump as the direct pilot does (the swipe; a shove from her right side of the post).
+            return self.carl.input_at(boss, x, grounded);
+        }
+        if shove {
+            return RawInput::NONE;
+        }
+        let goal = if right_of_her {
+            (boss.x() + 132.0).clamp(852.0, 914.0)
+        } else {
+            boss.x() - 100.0
+        };
+        self.step_to(goal, x, last_x, grounded)
+    }
+}
+
+/// `hrd_collapse_clear` (HRD-C): the collapse win, from the spawn. Solo Carl (Carl only) driven by
+/// [`CollapsePilot`], seeds 0..=8: he baits her shove into the J-B post, the stack lands on her
+/// (Exposed, 6 damage), and he finishes the fight and walks out. Expected in every seed: her shove
+/// jams on the post, the landing on J+31 exposes her, Carl is not under it, she is defeated, Carl
+/// reaches the exit, no hero defeat, one grant; bank A stays `stable`. Defeat and exit ticks are
+/// reported.
+pub fn hrd_collapse_clear(root: &Path) -> Result<Outcome, String> {
+    let mut hash = 0u64;
+    let mut notes = Vec::new();
+    for seed in ROOM_SEEDS {
+        let plan = Plan {
+            carl_x: 112,
+            ..Plan::carl_at(60.0)
+        }
+        .dormant();
+        let mut rig = Rig::new(root, plan)?;
+        let mut pilot = CollapsePilot::new(seed);
+        let (mut defeat, mut exit) = (None, None);
+        for _ in 0..ROOM_RUN_LIMIT {
+            let input = pilot.input(&rig);
+            rig.step(carl_input(input));
+            let tick = rig.next_tick() - 1;
+            if defeat.is_none() && !rig.defeats().is_empty() {
+                defeat = Some(tick);
+            }
+            if rig.scene.world.complete {
+                exit = Some(tick);
+                break;
+            }
+        }
+        let j = jam_tick(&rig, ObstacleKind::Post)
+            .ok_or_else(|| format!("seed {seed}: her shove never jammed on the post"))?;
+        let landing = prop_phase_tick(&rig, 1, PropPhase::Landed);
+        ensure!(
+            landing == Some(j + 31),
+            "seed {seed}: landing {landing:?}, J {j}"
+        );
+        let exposed = pile_event_tick(&rig, |e| matches!(e, PileEvent::Exposed { .. }));
+        ensure!(exposed == Some(j + 31), "seed {seed}: Exposed {exposed:?}");
+        let crush = rig.piles().into_iter().find_map(|(t, e)| match e {
+            PileEvent::Hurt { damage, .. } if t == j + 31 => Some(damage),
+            _ => None,
+        });
+        ensure!(
+            crush == Some(6),
+            "seed {seed}: the landing deals 6: {crush:?}"
+        );
+        ensure!(
+            env_blows(&rig, 0).iter().all(|(t, _)| *t != j + 31),
+            "seed {seed}: Carl left the footprint"
+        );
+        let defeat = defeat.ok_or_else(|| {
+            format!(
+                "seed {seed}: she was never defeated (hp {}, Carl at {:.0})",
+                rig.boss().boss().hp(),
+                rig.carl_x()
+            )
+        })?;
+        let exit = exit.ok_or_else(|| format!("seed {seed}: Carl never reached the exit"))?;
+        ensure!(
+            rig.combat.deaths == 0,
+            "seed {seed}: {} hero defeats",
+            rig.combat.deaths
+        );
+        ensure!(
+            rig.grants().len() == 1,
+            "seed {seed}: grants {:?}",
+            rig.grants()
+        );
+        ensure!(
+            bank_state(&rig) == Some(SlideState::Stable),
+            "seed {seed}: bank A {:?}",
+            bank_state(&rig)
+        );
+        notes.push(format!("s{seed}: jam {j}, defeat {defeat}, exit {exit}"));
+        hash = hash.rotate_left(7) ^ rig.hash();
+    }
+    Ok(Outcome {
+        hash,
+        note: notes.join("; "),
+    })
+}
+
 /// FA-Q24: the seeds of the room 1 pilot (`hoarder:carl_solo:SEED`): nine fights, 0..=8.
 pub const ROOM_SEEDS: std::ops::Range<u64> = 0..9;
 /// The most ticks a room 1 pilot run may take before it counts as stuck (under the FA-Q30 cap).
@@ -2459,6 +3184,12 @@ pub const FIXTURES: &[(&str, FixtureFn)] = &[
     ("hrd_leash_kite_probe", hrd_leash_kite_probe),
     ("hrd_direct_clear_companion", hrd_direct_clear_companion),
     ("hrd_room_validator", hrd_room_validator),
+    // HRD-D: the sheet fixtures of HRD-B and HRD-C that had no scene test.
+    ("hrd_ja_nest_push_donut", hrd_ja_nest_push_donut),
+    ("hrd_ja_settled_walkable", hrd_ja_settled_walkable),
+    ("hrd_jb_nonlethal", hrd_jb_nonlethal),
+    ("hrd_orders", hrd_orders),
+    ("hrd_collapse_clear", hrd_collapse_clear),
 ];
 
 #[cfg(test)]
@@ -2535,6 +3266,12 @@ mod tests {
         ("hrd_leash_kite_probe", 0xecc0_0f24_43b1_036b),
         ("hrd_direct_clear_companion", 0x64c6_e822_6024_3022),
         ("hrd_room_validator", 0x98a8_7757_b6c3_94e5),
+        // HRD-D: the sheet fixtures of HRD-B and HRD-C that had no scene test.
+        ("hrd_ja_nest_push_donut", 0x5518_a6f3_16f9_12de),
+        ("hrd_ja_settled_walkable", 0x9b98_4e76_c2c8_c97b),
+        ("hrd_jb_nonlethal", 0xf47f_4af1_96f9_41e7),
+        ("hrd_orders", 0x5a70_4741_54fb_0097),
+        ("hrd_collapse_clear", 0x38b1_21cd_7ae2_d74e),
     ];
 
     #[test]
@@ -2656,6 +3393,12 @@ mod tests {
             "hrd_leash_kite_probe",
             "hrd_direct_clear_companion",
             "hrd_room_validator",
+            // HRD-D: the HRD-B and HRD-C sheet fixtures that had no scene test.
+            "hrd_ja_nest_push_donut",
+            "hrd_ja_settled_walkable",
+            "hrd_jb_nonlethal",
+            "hrd_orders",
+            "hrd_collapse_clear",
         ] {
             assert!(FIXTURES.iter().any(|(n, _)| *n == name), "{name}");
         }

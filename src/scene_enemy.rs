@@ -298,6 +298,9 @@ pub struct EnvFace {
     pub prop: u16,
     pub kind: FaceKind,
     pub rect: Rect,
+    /// HRD-D: bank A is `disturbed` (its face still stands, the slide is under way); always
+    /// `false` for the post.
+    pub disturbed: bool,
 }
 
 /// A prop stimulus a slot enemy sends on its own tick (the Hoarder's shove
