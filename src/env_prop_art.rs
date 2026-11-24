@@ -21,9 +21,9 @@
 //! tick. The simulation keeps no "ticks since the event" for a prop, so the loops
 //! below run on the world tick (`tick / ticks_per_frame`), like the stand-in's
 //! flash and sway did; a tag that is not a loop (the rig's run) is chosen by state.
-//! The one exception is the scorch's ember fade, which plays once from the drum
-//! charge's own `detonate_tick` (read from the scene's charges, like the blast
-//! wave of `danger_fx_art`).
+//! The one exception is the scorch's ember fade, which plays once, timed from the
+//! drum charge's own `detonate_tick` (read from the scene's charges, like the blast
+//! wave of `danger_fx_art`): it starts when the VFX-01 burst over it has ended.
 //! The explosion of the drum is **not** drawn here: its `BlastCharge` already
 //! plays the shared blast presentation (`blast_art`).
 //!
@@ -37,6 +37,7 @@
 use crate::blast::BlastCharge;
 use crate::camera_lab::room::IRect;
 use crate::combat_scene::EnvRuntime;
+use crate::death_present::burst_ticks;
 use crate::encounter::{Encounter, PropKind};
 use crate::env_hazard::{HazardClass, NavPhase};
 use crate::env_prop::{DrumState, MassState, ValveState};
@@ -78,7 +79,8 @@ impl Tone {
 /// The draw order, back to front. The presenter maps each layer to a z.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Layer {
-    /// Behind the actors (the boiler landmark).
+    /// Behind the actors (the boiler landmark, the rig and chains, and the drum's
+    /// scorch: a floor scar the presenter keeps under the blast's fireball and wave).
     Back,
     /// With the lane props.
     Prop,
@@ -600,19 +602,22 @@ pub fn sprites(
                 match env.drum_state(i) {
                     Some(DrumState::Detonated) => {
                         // The drum is gone: its scorch mark, 4 px wider than the drum each
-                        // side. Its embers fade from the charge's detonation tick; with no
-                        // known tick the cold last frame holds.
+                        // side. A floor scar: on `Back`, under the blast's fireball and
+                        // wave (not across them). The burst hides it while it plays, so
+                        // the embers (the key) hold until the burst has ended, then fade;
+                        // with no known tick the cold last frame holds.
                         let age = u16::try_from(i)
                             .ok()
                             .and_then(|prop| env.drum_charge(prop))
                             .and_then(|c| charges.get(c))
                             .filter(|c| c.detonated)
-                            .and_then(|c| tick.checked_sub(c.detonate_tick));
+                            .and_then(|c| tick.checked_sub(c.detonate_tick))
+                            .map(|age| age.saturating_sub(burst_ticks()));
                         add(
                             Sheet::Scorch,
                             age.map_or(SCORCH.last(), |a| SCORCH.frame_once(a)),
                             cell(Sheet::Scorch, t.x - 4, t.bottom()),
-                            Layer::Prop,
+                            Layer::Back,
                             255,
                         );
                     }
@@ -866,11 +871,12 @@ pub fn pieces(enc: &Encounter, env: &EnvRuntime, tick: u64) -> Vec<Piece> {
                 let state = env.drum_state(i);
                 match state {
                     Some(DrumState::Detonated) => {
-                        // The drum is gone: a flat scorch mark on the lane.
+                        // The drum is gone: a flat scorch mark on the lane (a floor
+                        // scar, under the blast like the sprite).
                         out.push(Piece {
                             rect: rect(t.x - 4, t.bottom() - 3, t.w + 8, 3),
                             tone: Tone::Scorch,
-                            layer: Layer::Prop,
+                            layer: Layer::Back,
                             label: "drum scorch (stand-in)",
                         });
                     }

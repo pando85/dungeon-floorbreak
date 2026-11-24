@@ -24,7 +24,7 @@
   "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
   "provenance": {
     "origin": "AREA-GOBLINWORKSHOP-01 falling weight (hanging, falling), drawn from explicit primitives in the named Floor 01 kit palette by scripts/author_gwkit_keys.py and scripts/author_gwkit_frames.py",
-    "generator": "designed by Claude Opus (keys, spec, silhouette gate), executed by Claude Sonnet; independent top-tier review passed (Claude Opus, PR 256, no design defect); review follow-ups (weight silhouette, rig run, plume, shadow tell, scorch ember fade) designed and executed by Claude Opus. No concept pixels copied, no image-model raster output, no tracing, no resampling",
+    "generator": "designed by Claude Opus (keys, spec, silhouette gate), executed by Claude Sonnet; independent top-tier review passed (Claude Opus, PR 256, no design defect); review follow-ups (weight silhouette, rig run, plume, shadow tell, scorch ember fade) designed and executed by Claude Opus, independent top-tier review passed (Claude Opus, PR 264). No concept pixels copied, no image-model raster output, no tracing, no resampling",
     "generated_art": true,
     "input_reference_ids": [
       "docs/02-art/goblin-workshop-prop-kit.md",
@@ -34,7 +34,7 @@
   "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
   "review_status": "prototype_fixture_unapproved",
   "prop_kit": {
-    "status": "2 frames drawn; independent top-tier review passed (PR 256), owner review pending; drawn by presentation-only wiring in src/env_prop_art.rs",
+    "status": "2 frames drawn; independent top-tier reviews passed (PR 256, follow-ups PR 264), owner review pending; drawn by presentation-only wiring in src/env_prop_art.rs",
     "spec": "docs/02-art/goblin-workshop-prop-kit.md",
     "tick_hz": 60,
     "hold_preview_ms": 100,

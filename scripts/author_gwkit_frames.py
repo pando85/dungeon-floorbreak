@@ -310,8 +310,9 @@ def drum_frames():
 
 
 def scorch_frames():
-    """The key (with its last embers), then the ember fade: 3 x 10 ticks from the drum's
-    detonation tick, holding the cold last frame (spec section 4, optional E)."""
+    """The key (with its last embers), then the ember fade: 3 x 10 ticks once the blast
+    burst over the scorch has ended (timed from the drum's detonation tick), holding the
+    cold last frame (spec section 4, optional E)."""
     key = K.drum_scorch()
     dim = key.copy()
     px(dim, [(19, 5)], "flame_00")
@@ -652,7 +653,7 @@ def manifest_of(name: str, tags: list[TagSpec], grid: dict) -> dict:
             "generator": "designed by Claude Opus (keys, spec, silhouette gate), executed by Claude Sonnet; "
                          "independent top-tier review passed (Claude Opus, PR 256, no design defect); review follow-ups "
                          "(weight silhouette, rig run, plume, shadow tell, scorch ember fade) designed and executed by "
-                         "Claude Opus. No concept pixels copied, no image-model raster output, no tracing, no resampling",
+                         "Claude Opus, independent top-tier review passed (Claude Opus, PR 264). No concept pixels copied, no image-model raster output, no tracing, no resampling",
             "generated_art": True,
             "input_reference_ids": [SPEC, "assets/source/terrain/floor01/floor01_catacomb_kit.json"],
         },
@@ -660,7 +661,8 @@ def manifest_of(name: str, tags: list[TagSpec], grid: dict) -> dict:
                    "no public reuse license; no game/asset-pack distribution rights",
         "review_status": "prototype_fixture_unapproved",
         "prop_kit": {
-            "status": f"{n} frames drawn; independent top-tier review passed (PR 256), owner review pending; "
+            "status": f"{n} frames drawn; independent top-tier reviews passed (PR 256, follow-ups PR 264), "
+                      "owner review pending; "
                       "drawn by presentation-only wiring in src/env_prop_art.rs",
             "spec": SPEC, "tick_hz": 60, "hold_preview_ms": HOLD_MS,
             "playback": {tag: p for tag, _f, p, _c in tags},

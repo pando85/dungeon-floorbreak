@@ -294,6 +294,7 @@ fn the_drum_flashes_its_area_tell_then_leaves_a_scorch() {
                     .find(|x| x.label == "drum scorch (stand-in)")
                     .unwrap();
                 assert_eq!(scorch.tone, Tone::Scorch);
+                assert_eq!(scorch.layer, Layer::Back, "under the blast");
                 assert!(scorch.rect.bottom() <= t.bottom(), "flat on the lane");
                 assert!(!has(&p, "drum blast tell"));
                 blown = true;
@@ -783,8 +784,9 @@ fn a_tag_loops_on_the_tick_and_a_single_frame_holds() {
 }
 
 /// The scorch's embers fade from the drum charge's own detonation tick: the key
-/// (last embers) on the blast tick, then 10 ticks a frame to the cold frame, which
-/// holds. Without the charges (no known tick) the cold frame holds at once.
+/// (last embers) from the blast tick until the VFX-01 burst over it has ended, then
+/// 10 ticks a frame to the cold frame, which holds. Without the charges (no known
+/// tick) the cold frame holds at once.
 #[test]
 fn the_scorch_embers_fade_from_the_drum_detonation_tick() {
     let (run, mut scene, mut combat) = rig();
@@ -813,9 +815,16 @@ fn the_scorch_embers_fade_from_the_drum_detonation_tick() {
         SCORCH.first,
         "the key, with its embers, on the blast tick"
     );
-    assert_eq!(frame(at + 10), SCORCH.first + 1);
-    assert_eq!(frame(at + 20), SCORCH.last());
+    let burst = crate::death_present::burst_ticks();
+    assert_eq!(frame(at + burst - 1), SCORCH.first, "hot under the burst");
+    assert_eq!(frame(at + burst + 9), SCORCH.first);
+    assert_eq!(frame(at + burst + 10), SCORCH.first + 1);
+    assert_eq!(frame(at + burst + 20), SCORCH.last());
     assert_eq!(frame(at + 500), SCORCH.last(), "the cold scorch holds");
+    // A floor scar: on `Back`, so the presenter keeps it under the blast's fireball
+    // and wave (the Prop z is above the blast layer).
+    let scorch = first(&sprite_view(&run, &combat, at), Sheet::Scorch).unwrap();
+    assert_eq!(scorch.layer, Layer::Back);
     let blind = sprites(&run.loaded.encounter, combat.env().unwrap(), &[], at);
     assert_eq!(first(&blind, Sheet::Scorch).unwrap().frame, SCORCH.last());
 }
