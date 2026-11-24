@@ -1,0 +1,15 @@
+{
+  "asset_id": "area-gw-valve",
+  "format": "pixelart-keys-v1",
+  "keys": {
+    "0": {
+      "sha256": "3b9a76c3e159f411ee17e4fc32c23be411cb60e62300060f9576df8134032047"
+    },
+    "6": {
+      "sha256": "1766eb17b537cc03983209bab891af589b4fe963cd25490f8e9c9ee81731c6f5"
+    }
+  },
+  "layers": [
+    "body"
+  ]
+}

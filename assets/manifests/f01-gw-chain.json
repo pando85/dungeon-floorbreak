@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "id": "f01_gw_chain_candidate_v0",
+  "type": "prop_animation",
+  "source_path": "assets/source/props/floor01/gw_chain.ase",
+  "grid_source": "assets/source/props/floor01/gw_chain.grid.json",
+  "output_atlas": "generated/art/f01-gw-chain.png",
+  "output_metadata": "generated/art/f01-gw-chain.json",
+  "palette_id": "floor01-catacomb-v2",
+  "frame_size": [
+    4,
+    8
+  ],
+  "pivot": [
+    0,
+    0
+  ],
+  "animation_tags": [
+    "chain"
+  ],
+  "required_alpha": true,
+  "owner": "AI-authored Floor 1 Goblin Workshop prop kit (fan-concept layer; runtime ids IP-neutral gw_*)",
+  "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+  "provenance": {
+    "origin": "AREA-GOBLINWORKSHOP-01 vertical chain tile, drawn from explicit primitives in the named Floor 01 kit palette by scripts/author_gwkit_keys.py and scripts/author_gwkit_frames.py",
+    "generator": "designed by Claude Opus (keys, spec, silhouette gate), executed by Claude Sonnet; independent top-tier review pending. No concept pixels copied, no image-model raster output, no tracing, no resampling",
+    "generated_art": true,
+    "input_reference_ids": [
+      "docs/02-art/goblin-workshop-prop-kit.md",
+      "assets/source/terrain/floor01/floor01_catacomb_kit.json"
+    ]
+  },
+  "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
+  "review_status": "prototype_fixture_unapproved",
+  "prop_kit": {
+    "status": "1 frames drawn; independent top-tier review pending; drawn by presentation-only wiring in src/env_prop_art.rs",
+    "spec": "docs/02-art/goblin-workshop-prop-kit.md",
+    "tick_hz": 60,
+    "hold_preview_ms": 100,
+    "playback": {
+      "chain": "hold"
+    },
+    "frames": [
+      {
+        "index": 0,
+        "name": "chain_0",
+        "tag": "chain",
+        "ticks": null,
+        "duration_ms": 100,
+        "pivot": [
+          0,
+          0
+        ],
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "w": 4,
+          "h": 8
+        },
+        "content": [
+          0,
+          0,
+          3,
+          7
+        ],
+        "sha256": "9a04720f808d3d22ed1bd3f2d48519b61e28413d88fad1490869aef3e8a745f4"
+      }
+    ]
+  }
+}

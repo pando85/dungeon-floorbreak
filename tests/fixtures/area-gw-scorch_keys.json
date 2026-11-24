@@ -1,0 +1,12 @@
+{
+  "asset_id": "area-gw-scorch",
+  "format": "pixelart-keys-v1",
+  "keys": {
+    "0": {
+      "sha256": "880cc7caa9ce3ea440fddd7fc461b2d062d891939c5d1b780cc2fb22cf8bff4f"
+    }
+  },
+  "layers": [
+    "body"
+  ]
+}

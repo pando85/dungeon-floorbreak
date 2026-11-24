@@ -1,0 +1,120 @@
+{
+  "schema_version": 1,
+  "id": "f01_gw_rig_candidate_v0",
+  "type": "prop_animation",
+  "source_path": "assets/source/props/floor01/gw_rig.ase",
+  "grid_source": "assets/source/props/floor01/gw_rig.grid.json",
+  "output_atlas": "generated/art/f01-gw-rig.png",
+  "output_metadata": "generated/art/f01-gw-rig.json",
+  "palette_id": "floor01-catacomb-v2",
+  "frame_size": [
+    112,
+    24
+  ],
+  "pivot": [
+    0,
+    0
+  ],
+  "animation_tags": [
+    "rig",
+    "rig_run"
+  ],
+  "required_alpha": true,
+  "owner": "AI-authored Floor 1 Goblin Workshop prop kit (fan-concept layer; runtime ids IP-neutral gw_*)",
+  "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+  "provenance": {
+    "origin": "AREA-GOBLINWORKSHOP-01 ceiling beam rig with two sheaves (intact, run), drawn from explicit primitives in the named Floor 01 kit palette by scripts/author_gwkit_keys.py and scripts/author_gwkit_frames.py",
+    "generator": "designed by Claude Opus (keys, spec, silhouette gate), executed by Claude Sonnet; independent top-tier review pending. No concept pixels copied, no image-model raster output, no tracing, no resampling",
+    "generated_art": true,
+    "input_reference_ids": [
+      "docs/02-art/goblin-workshop-prop-kit.md",
+      "assets/source/terrain/floor01/floor01_catacomb_kit.json"
+    ]
+  },
+  "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
+  "review_status": "prototype_fixture_unapproved",
+  "prop_kit": {
+    "status": "3 frames drawn; independent top-tier review pending; drawn by presentation-only wiring in src/env_prop_art.rs",
+    "spec": "docs/02-art/goblin-workshop-prop-kit.md",
+    "tick_hz": 60,
+    "hold_preview_ms": 100,
+    "playback": {
+      "rig": "hold",
+      "rig_run": "once"
+    },
+    "frames": [
+      {
+        "index": 0,
+        "name": "rig_0",
+        "tag": "rig",
+        "ticks": null,
+        "duration_ms": 100,
+        "pivot": [
+          0,
+          0
+        ],
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "w": 112,
+          "h": 24
+        },
+        "content": [
+          0,
+          0,
+          111,
+          23
+        ],
+        "sha256": "33e9a30858ce2ea2390783e2d952cd353156c091bd47d8f35b96f6b78a5b0ca3"
+      },
+      {
+        "index": 1,
+        "name": "rig_run_0",
+        "tag": "rig_run",
+        "ticks": 6,
+        "duration_ms": 100,
+        "pivot": [
+          0,
+          0
+        ],
+        "rect": {
+          "x": 112,
+          "y": 0,
+          "w": 112,
+          "h": 24
+        },
+        "content": [
+          0,
+          0,
+          111,
+          23
+        ],
+        "sha256": "a1d4d8315e79da82e4c28915710e99c0f2eee27f06b9ef1f5ed2740279c11129"
+      },
+      {
+        "index": 2,
+        "name": "rig_run_1",
+        "tag": "rig_run",
+        "ticks": 6,
+        "duration_ms": 100,
+        "pivot": [
+          0,
+          0
+        ],
+        "rect": {
+          "x": 224,
+          "y": 0,
+          "w": 112,
+          "h": 24
+        },
+        "content": [
+          0,
+          0,
+          111,
+          23
+        ],
+        "sha256": "690364d82a1f99390838c217541dbd4c3abf7e2a3e6d946cf182ad1fe74d3c6e"
+      }
+    ]
+  }
+}

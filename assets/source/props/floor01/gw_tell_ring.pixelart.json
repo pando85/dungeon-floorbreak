@@ -1,0 +1,62 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "area-gw-tell-ring",
+  "title": "AREA-GOBLINWORKSHOP-01 drum blast floor ring tell",
+  "grid": "assets/source/props/floor01/gw_tell_ring.grid.json",
+  "manifest": "assets/manifests/f01-gw-tell-ring.json",
+  "frame_size": [
+    96,
+    8
+  ],
+  "pivot": [
+    0,
+    0
+  ],
+  "contact_row": null,
+  "tick_hz": 60,
+  "hold_ms": 100,
+  "facing": "left",
+  "tags": {
+    "drum_blast_tell": {
+      "playback": "loop",
+      "contact": "free",
+      "frames": [
+        [
+          0,
+          4
+        ],
+        [
+          1,
+          4
+        ]
+      ]
+    }
+  },
+  "rules": {
+    "max_colors": 63,
+    "max_isolated_per_frame": 0,
+    "max_orphans_per_frame": 0,
+    "unique_frames": true
+  },
+  "scene": {
+    "shadow": false,
+    "actors": [
+      {
+        "frame": 0,
+        "x": 520,
+        "lift": 0
+      },
+      {
+        "frame": 1,
+        "x": 660,
+        "lift": 0
+      }
+    ]
+  },
+  "review": {
+    "strip_name": "03_state_strip.png",
+    "strip_tags": [
+      "drum_blast_tell"
+    ]
+  }
+}

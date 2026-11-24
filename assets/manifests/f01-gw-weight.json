@@ -1,0 +1,96 @@
+{
+  "schema_version": 1,
+  "id": "f01_gw_weight_candidate_v0",
+  "type": "prop_animation",
+  "source_path": "assets/source/props/floor01/gw_weight.ase",
+  "grid_source": "assets/source/props/floor01/gw_weight.grid.json",
+  "output_atlas": "generated/art/f01-gw-weight.png",
+  "output_metadata": "generated/art/f01-gw-weight.json",
+  "palette_id": "floor01-catacomb-v2",
+  "frame_size": [
+    64,
+    48
+  ],
+  "pivot": [
+    32,
+    47
+  ],
+  "animation_tags": [
+    "weight_hang",
+    "weight_fall"
+  ],
+  "required_alpha": true,
+  "owner": "AI-authored Floor 1 Goblin Workshop prop kit (fan-concept layer; runtime ids IP-neutral gw_*)",
+  "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+  "provenance": {
+    "origin": "AREA-GOBLINWORKSHOP-01 falling weight (hanging, falling), drawn from explicit primitives in the named Floor 01 kit palette by scripts/author_gwkit_keys.py and scripts/author_gwkit_frames.py",
+    "generator": "designed by Claude Opus (keys, spec, silhouette gate), executed by Claude Sonnet; independent top-tier review pending. No concept pixels copied, no image-model raster output, no tracing, no resampling",
+    "generated_art": true,
+    "input_reference_ids": [
+      "docs/02-art/goblin-workshop-prop-kit.md",
+      "assets/source/terrain/floor01/floor01_catacomb_kit.json"
+    ]
+  },
+  "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
+  "review_status": "prototype_fixture_unapproved",
+  "prop_kit": {
+    "status": "2 frames drawn; independent top-tier review pending; drawn by presentation-only wiring in src/env_prop_art.rs",
+    "spec": "docs/02-art/goblin-workshop-prop-kit.md",
+    "tick_hz": 60,
+    "hold_preview_ms": 100,
+    "playback": {
+      "weight_hang": "hold",
+      "weight_fall": "hold"
+    },
+    "frames": [
+      {
+        "index": 0,
+        "name": "weight_hang_0",
+        "tag": "weight_hang",
+        "ticks": null,
+        "duration_ms": 100,
+        "pivot": [
+          32,
+          47
+        ],
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "w": 64,
+          "h": 48
+        },
+        "content": [
+          0,
+          12,
+          63,
+          47
+        ],
+        "sha256": "0df544ec64e5039fc48400dad5215ebda8b341b3f1a9ac6ae8c9e4afe04d910f"
+      },
+      {
+        "index": 1,
+        "name": "weight_fall_0",
+        "tag": "weight_fall",
+        "ticks": null,
+        "duration_ms": 100,
+        "pivot": [
+          32,
+          47
+        ],
+        "rect": {
+          "x": 64,
+          "y": 0,
+          "w": 64,
+          "h": 48
+        },
+        "content": [
+          0,
+          1,
+          63,
+          47
+        ],
+        "sha256": "d5e30942556ad3b6d5194626309a8a4eea2ca4fcdcd0ef055ac32e3f1e58b5f4"
+      }
+    ]
+  }
+}

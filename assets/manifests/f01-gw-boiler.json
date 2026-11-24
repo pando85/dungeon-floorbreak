@@ -1,0 +1,242 @@
+{
+  "schema_version": 1,
+  "id": "f01_gw_boiler_candidate_v0",
+  "type": "prop_animation",
+  "source_path": "assets/source/props/floor01/gw_boiler.ase",
+  "grid_source": "assets/source/props/floor01/gw_boiler.grid.json",
+  "output_atlas": "generated/art/f01-gw-boiler.png",
+  "output_metadata": "generated/art/f01-gw-boiler.json",
+  "palette_id": "floor01-catacomb-v2",
+  "frame_size": [
+    192,
+    208
+  ],
+  "pivot": [
+    96,
+    207
+  ],
+  "animation_tags": [
+    "boiler_idle",
+    "boiler_strain",
+    "boiler_damaged"
+  ],
+  "required_alpha": true,
+  "owner": "AI-authored Floor 1 Goblin Workshop prop kit (fan-concept layer; runtime ids IP-neutral gw_*)",
+  "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+  "provenance": {
+    "origin": "AREA-GOBLINWORKSHOP-01 riveted copper boiler (idle loop, strain, damaged loop), drawn from explicit primitives in the named Floor 01 kit palette by scripts/author_gwkit_keys.py and scripts/author_gwkit_frames.py",
+    "generator": "designed by Claude Opus (keys, spec, silhouette gate), executed by Claude Sonnet; independent top-tier review pending. No concept pixels copied, no image-model raster output, no tracing, no resampling",
+    "generated_art": true,
+    "input_reference_ids": [
+      "docs/02-art/goblin-workshop-prop-kit.md",
+      "assets/source/terrain/floor01/floor01_catacomb_kit.json"
+    ]
+  },
+  "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
+  "review_status": "prototype_fixture_unapproved",
+  "prop_kit": {
+    "status": "8 frames drawn; independent top-tier review pending; drawn by presentation-only wiring in src/env_prop_art.rs",
+    "spec": "docs/02-art/goblin-workshop-prop-kit.md",
+    "tick_hz": 60,
+    "hold_preview_ms": 100,
+    "playback": {
+      "boiler_idle": "loop",
+      "boiler_strain": "loop",
+      "boiler_damaged": "loop"
+    },
+    "frames": [
+      {
+        "index": 0,
+        "name": "boiler_idle_0",
+        "tag": "boiler_idle",
+        "ticks": 8,
+        "duration_ms": 133,
+        "pivot": [
+          96,
+          207
+        ],
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "w": 192,
+          "h": 208
+        },
+        "content": [
+          0,
+          0,
+          191,
+          207
+        ],
+        "sha256": "81d19ff93ff2101d704ea7a75a61e19b88ae5476aff665a4b75d05980c1201a1"
+      },
+      {
+        "index": 1,
+        "name": "boiler_idle_1",
+        "tag": "boiler_idle",
+        "ticks": 8,
+        "duration_ms": 133,
+        "pivot": [
+          96,
+          207
+        ],
+        "rect": {
+          "x": 192,
+          "y": 0,
+          "w": 192,
+          "h": 208
+        },
+        "content": [
+          0,
+          0,
+          191,
+          207
+        ],
+        "sha256": "1394c1c37d719e8840ab7fd65c865a33d8305159467aa954a70c5454c52194e1"
+      },
+      {
+        "index": 2,
+        "name": "boiler_idle_2",
+        "tag": "boiler_idle",
+        "ticks": 8,
+        "duration_ms": 133,
+        "pivot": [
+          96,
+          207
+        ],
+        "rect": {
+          "x": 384,
+          "y": 0,
+          "w": 192,
+          "h": 208
+        },
+        "content": [
+          0,
+          0,
+          191,
+          207
+        ],
+        "sha256": "81c7baaacda852147da4411d57b671961b6134f33b4f96bacfb7660608539a53"
+      },
+      {
+        "index": 3,
+        "name": "boiler_idle_3",
+        "tag": "boiler_idle",
+        "ticks": 8,
+        "duration_ms": 133,
+        "pivot": [
+          96,
+          207
+        ],
+        "rect": {
+          "x": 576,
+          "y": 0,
+          "w": 192,
+          "h": 208
+        },
+        "content": [
+          0,
+          0,
+          191,
+          207
+        ],
+        "sha256": "9fca1910662dd44da5800c72778a73b78829846512154a7584318bce53fb79c6"
+      },
+      {
+        "index": 4,
+        "name": "boiler_strain_0",
+        "tag": "boiler_strain",
+        "ticks": 4,
+        "duration_ms": 67,
+        "pivot": [
+          96,
+          207
+        ],
+        "rect": {
+          "x": 768,
+          "y": 0,
+          "w": 192,
+          "h": 208
+        },
+        "content": [
+          0,
+          0,
+          191,
+          207
+        ],
+        "sha256": "4e837bde8760aad55efb89ef0c2c73a1748dafb01e9497f94cb991a5c9131107"
+      },
+      {
+        "index": 5,
+        "name": "boiler_strain_1",
+        "tag": "boiler_strain",
+        "ticks": 4,
+        "duration_ms": 67,
+        "pivot": [
+          96,
+          207
+        ],
+        "rect": {
+          "x": 960,
+          "y": 0,
+          "w": 192,
+          "h": 208
+        },
+        "content": [
+          0,
+          0,
+          191,
+          207
+        ],
+        "sha256": "8415c19cbe5201b17a9b9f165d9472f6a76130db868a4310d8f4508fa976a0f1"
+      },
+      {
+        "index": 6,
+        "name": "boiler_damaged_0",
+        "tag": "boiler_damaged",
+        "ticks": 10,
+        "duration_ms": 167,
+        "pivot": [
+          96,
+          207
+        ],
+        "rect": {
+          "x": 1152,
+          "y": 0,
+          "w": 192,
+          "h": 208
+        },
+        "content": [
+          0,
+          0,
+          191,
+          207
+        ],
+        "sha256": "5620ef2016f2303d4fb3658d990f8832a6c6e844b0b16b8e7fc8e43c0a8c89e7"
+      },
+      {
+        "index": 7,
+        "name": "boiler_damaged_1",
+        "tag": "boiler_damaged",
+        "ticks": 10,
+        "duration_ms": 167,
+        "pivot": [
+          96,
+          207
+        ],
+        "rect": {
+          "x": 1344,
+          "y": 0,
+          "w": 192,
+          "h": 208
+        },
+        "content": [
+          0,
+          0,
+          191,
+          207
+        ],
+        "sha256": "de7d0849dc57f9ff707a505271bf76eaf1350cbb7509ed2ee0450d575006902b"
+      }
+    ]
+  }
+}

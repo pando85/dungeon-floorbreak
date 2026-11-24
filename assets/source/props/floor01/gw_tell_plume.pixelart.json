@@ -1,0 +1,70 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "area-gw-tell-plume",
+  "title": "AREA-GOBLINWORKSHOP-01 steam plume over the lane",
+  "grid": "assets/source/props/floor01/gw_tell_plume.grid.json",
+  "manifest": "assets/manifests/f01-gw-tell-plume.json",
+  "frame_size": [
+    80,
+    96
+  ],
+  "pivot": [
+    0,
+    0
+  ],
+  "contact_row": null,
+  "tick_hz": 60,
+  "hold_ms": 100,
+  "facing": "left",
+  "tags": {
+    "steam_plume": {
+      "playback": "loop",
+      "contact": "free",
+      "frames": [
+        [
+          0,
+          4
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          3,
+          4
+        ]
+      ]
+    }
+  },
+  "rules": {
+    "max_colors": 63,
+    "max_isolated_per_frame": 0,
+    "max_orphans_per_frame": 40,
+    "unique_frames": true
+  },
+  "scene": {
+    "shadow": false,
+    "actors": [
+      {
+        "frame": 0,
+        "x": 520,
+        "lift": 96
+      },
+      {
+        "frame": 2,
+        "x": 660,
+        "lift": 96
+      }
+    ]
+  },
+  "review": {
+    "strip_name": "03_state_strip.png",
+    "strip_tags": [
+      "steam_plume"
+    ]
+  }
+}

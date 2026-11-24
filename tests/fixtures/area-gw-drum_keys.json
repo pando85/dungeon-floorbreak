@@ -1,0 +1,12 @@
+{
+  "asset_id": "area-gw-drum",
+  "format": "pixelart-keys-v1",
+  "keys": {
+    "0": {
+      "sha256": "7e36f8ad5cd1000a8e7954cfcd6ee50e09cb682647a44b6a6a25a6da73df2b55"
+    }
+  },
+  "layers": [
+    "body"
+  ]
+}

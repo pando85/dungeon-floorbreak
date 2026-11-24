@@ -4508,12 +4508,14 @@ fn setup(
         blink_cues::spawn(&mut commands, layers_of("actors"), kit.actor_z + 0.025);
     }
 
-    // BOIL-E (K10): the Boiler's code-drawn prop stand-ins (valve, steam, brace,
-    // weight, drum, the boiler landmark), only in the room that has props.
+    // BOIL-E (K10) / AREA-GOBLINWORKSHOP-01: the Boiler's prop art (the kit atlases;
+    // code-drawn footprints and placeholders), only in the room that has props.
     if let Some(run) = &args.boiler_run {
         env_prop_art::spawn(
             &mut commands,
-            &mut images,
+            &asset_server,
+            &mut layouts,
+            &mut combat_handles,
             run.loaded.encounter.clone(),
             layers_of("actors"),
             kit.actor_z,

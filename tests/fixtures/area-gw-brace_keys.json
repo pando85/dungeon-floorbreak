@@ -1,0 +1,18 @@
+{
+  "asset_id": "area-gw-brace",
+  "format": "pixelart-keys-v1",
+  "keys": {
+    "0": {
+      "sha256": "12057cc7c543adf67d59f26334ac4d76a503e96a960ce3eb25d9428bb3c682f8"
+    },
+    "1": {
+      "sha256": "bba1e1b7230bbe157a362a80e3f245f18d48f921e602cec499cd5f2ac3805893"
+    },
+    "3": {
+      "sha256": "16aa5c8c248f5201c397a854da1f5918cd416db4a65eea4ebf8835784a1058e6"
+    }
+  },
+  "layers": [
+    "body"
+  ]
+}

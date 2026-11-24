@@ -1,0 +1,87 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "area-gw-rig",
+  "title": "AREA-GOBLINWORKSHOP-01 ceiling beam rig with two sheaves (intact, run)",
+  "grid": "assets/source/props/floor01/gw_rig.grid.json",
+  "manifest": "assets/manifests/f01-gw-rig.json",
+  "frame_size": [
+    112,
+    24
+  ],
+  "pivot": [
+    0,
+    0
+  ],
+  "contact_row": null,
+  "tick_hz": 60,
+  "hold_ms": 100,
+  "facing": "left",
+  "tags": {
+    "rig": {
+      "playback": "hold",
+      "contact": "free",
+      "frames": [
+        [
+          0,
+          null
+        ]
+      ]
+    },
+    "rig_run": {
+      "playback": "once",
+      "contact": "free",
+      "frames": [
+        [
+          1,
+          6
+        ],
+        [
+          2,
+          6
+        ]
+      ]
+    }
+  },
+  "rules": {
+    "max_colors": 63,
+    "max_isolated_per_frame": 0,
+    "max_orphans_per_frame": 2,
+    "unique_frames": true,
+    "frozen_keys": {
+      "fixture": "tests/fixtures/area-gw-rig_keys.json",
+      "frames": [
+        0
+      ],
+      "layers": [
+        "body"
+      ]
+    }
+  },
+  "scene": {
+    "shadow": false,
+    "actors": [
+      {
+        "frame": 0,
+        "x": 520,
+        "lift": 110
+      },
+      {
+        "frame": 1,
+        "x": 640,
+        "lift": 110
+      },
+      {
+        "frame": 2,
+        "x": 760,
+        "lift": 110
+      }
+    ]
+  },
+  "review": {
+    "strip_name": "03_state_strip.png",
+    "strip_tags": [
+      "rig",
+      "rig_run"
+    ]
+  }
+}

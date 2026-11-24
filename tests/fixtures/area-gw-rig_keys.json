@@ -1,0 +1,12 @@
+{
+  "asset_id": "area-gw-rig",
+  "format": "pixelart-keys-v1",
+  "keys": {
+    "0": {
+      "sha256": "33e9a30858ce2ea2390783e2d952cd353156c091bd47d8f35b96f6b78a5b0ca3"
+    }
+  },
+  "layers": [
+    "body"
+  ]
+}

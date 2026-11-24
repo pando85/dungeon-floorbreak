@@ -1,0 +1,78 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "area-gw-weight",
+  "title": "AREA-GOBLINWORKSHOP-01 falling weight (hanging, falling)",
+  "grid": "assets/source/props/floor01/gw_weight.grid.json",
+  "manifest": "assets/manifests/f01-gw-weight.json",
+  "frame_size": [
+    64,
+    48
+  ],
+  "pivot": [
+    32,
+    47
+  ],
+  "contact_row": 47,
+  "tick_hz": 60,
+  "hold_ms": 100,
+  "facing": "left",
+  "tags": {
+    "weight_hang": {
+      "playback": "hold",
+      "contact": "grounded",
+      "frames": [
+        [
+          0,
+          null
+        ]
+      ]
+    },
+    "weight_fall": {
+      "playback": "hold",
+      "contact": "grounded",
+      "frames": [
+        [
+          1,
+          null
+        ]
+      ]
+    }
+  },
+  "rules": {
+    "max_colors": 63,
+    "max_isolated_per_frame": 0,
+    "max_orphans_per_frame": 20,
+    "unique_frames": true,
+    "frozen_keys": {
+      "fixture": "tests/fixtures/area-gw-weight_keys.json",
+      "frames": [
+        0
+      ],
+      "layers": [
+        "body"
+      ]
+    }
+  },
+  "scene": {
+    "shadow": false,
+    "actors": [
+      {
+        "frame": 0,
+        "x": 600,
+        "lift": 4
+      },
+      {
+        "frame": 1,
+        "x": 700,
+        "lift": 4
+      }
+    ]
+  },
+  "review": {
+    "strip_name": "03_state_strip.png",
+    "strip_tags": [
+      "weight_hang",
+      "weight_fall"
+    ]
+  }
+}

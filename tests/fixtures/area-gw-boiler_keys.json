@@ -1,0 +1,15 @@
+{
+  "asset_id": "area-gw-boiler",
+  "format": "pixelart-keys-v1",
+  "keys": {
+    "0": {
+      "sha256": "81d19ff93ff2101d704ea7a75a61e19b88ae5476aff665a4b75d05980c1201a1"
+    },
+    "6": {
+      "sha256": "5620ef2016f2303d4fb3658d990f8832a6c6e844b0b16b8e7fc8e43c0a8c89e7"
+    }
+  },
+  "layers": [
+    "body"
+  ]
+}

@@ -1,0 +1,66 @@
+{
+ "format": "pixel-grid-v1",
+ "canvas": [
+  4,
+  8
+ ],
+ "pivot": [
+  0,
+  0
+ ],
+ "palette": [
+  {
+   "key": "#",
+   "name": "stone_cold_00",
+   "rgba": "#1f2338ff"
+  },
+  {
+   "key": "$",
+   "name": "stone_cold_01",
+   "rgba": "#2a3250ff"
+  },
+  {
+   "key": "%",
+   "name": "stone_cold_02",
+   "rgba": "#38456aff"
+  },
+  {
+   "key": "&",
+   "name": "stone_cold_03",
+   "rgba": "#4b5d86ff"
+  },
+  {
+   "key": "'",
+   "name": "stone_cold_04",
+   "rgba": "#647ca4ff"
+  }
+ ],
+ "layers": [
+  "body"
+ ],
+ "frames": [
+  {
+   "duration_ms": 100,
+   "cels": {
+    "body": [
+     ".%%.",
+     "'..%",
+     "&..%",
+     "%..#",
+     ".&&.",
+     ".'$.",
+     ".&$.",
+     ".&$."
+    ]
+   }
+  }
+ ],
+ "tags": [
+  {
+   "name": "chain",
+   "from": 0,
+   "to": 0,
+   "direction": "forward"
+  }
+ ]
+}
