@@ -1,6 +1,6 @@
 # HOARD-02: The Hoarder production art and room kit (AREA-HOARDER-01), design spec
 
-**Status:** drawn and wired. Boss keys 17, 18, 19, 20, 22, 24 and 26 are drawn and frozen together with the six HOARD-01 keys (fixture `tests/fixtures/hoard-02_keys.json`); the six in-betweens 16, 21, 23, 25, 27 and 28 are drawn as pose dicts of the same rig, so V12 (all 29 frames unique) and H1-H13 pass. The room kit has seven atlases (the mound with its `sealed` and `opened` states, bank A, the J-B post and stack, the door, the gate and three dressing heaps). The presenter shows the Hoarder from the HOARD-02 atlas and every kit piece in room 1 with no stand-in label left. Bank A's slide states, the post's cracked and broken states and the stack's falling and landed states are drawn and mapped but wired by the parallel HRD-B and HRD-C branch. Independent review pending.
+**Status:** drawn and wired. Boss keys 17, 18, 19, 20, 22, 24 and 26 are drawn and frozen together with the six HOARD-01 keys (fixture `tests/fixtures/hoard-02_keys.json`); the six in-betweens 16, 21, 23, 25, 27 and 28 are drawn as pose dicts of the same rig, so V12 (all 29 frames unique) and H1-H13 pass. The room kit has seven atlases (the mound with its `sealed` and `opened` states, bank A, the J-B post and stack, the door, the gate and three dressing heaps). The presenter shows the Hoarder from the HOARD-02 atlas and every kit piece in room 1 with no stand-in label left. Bank A's slide states, the post's cracked and broken states and the stack's falling and landed states are drawn and mapped but wired by the parallel HRD-B and HRD-C branch. Independent art-director review passed (2026-11-24; E1 and E2 adopted, section 11); owner review and game feel pending.
 
 **Scope:** this spec replaces every stand-in in room 1 (`--f01-room hoarder`). That covers the 16 HOARD-01 frames labelled "STAND-IN UNTIL HOARD-02", the missing shove, jam, pinned, get-up and emerge poses, and the greybox door, entry gate, bank A, J-B post, J-B stack and lair mound. The sim does not change. Every rule, tick window and box below is read from `src/pile_boss.rs`, `assets/data/gameplay/enemy_pile_boss_v0.json` and `docs/01-design/enemy-gameplay-hoarder.md`. The state hash stays byte-identical.
 
@@ -246,15 +246,15 @@ Bank A, the J-B pieces, the door, the gate, the dressing heaps and the `opened` 
 
 **Deviations and adopted defaults (execution tier; each can be changed in a follow-up):**
 
-- **E1, the stack carries its own leg.** The sim's post top is at 64 and the stack's footprint starts at 96, a 32 px gap. The stack sprite is 128 x 104: the 128 x 64 body plus a 32 px strut under the beam that ends on the post's head, and its bottom-left corner is placed at world y 64. The collision stays `[752, 880) x [96, 160)`. When the post breaks, the leg falls with the stack. Design question for the top tier: draw the strut on the post instead, or raise the post's collision rect.
-- **E2, "she is out" is the first tick she is neither Dormant nor in the Reveal.** The spec (R7) says the last Reveal tick, but the sim gives her a hurtbox only from the first Neutral tick (`hurt_rects` is empty through the whole Reveal). The tint, the lip and the dust burst follow the hurtbox so she never looks hittable early; the difference is one tick.
+- **E1, the stack carries its own leg.** The sim's post top is at 64 and the stack's footprint starts at 96, a 32 px gap. The stack sprite is 128 x 104: the 128 x 64 body plus a 32 px strut under the beam that ends on the post's head, and its bottom-left corner is placed at world y 64. The collision stays `[752, 880) x [96, 160)`. When the post breaks, the leg falls with the stack. **Adopted default (independent review, 2026-11-24):** the short strut that joins the stack to its post is drawn **on the stack**, as executed. The post keeps its 16 x 64 sprite and its sim rect `[808, 824) x [0, 64)`; neither the post's art nor any collision rect changes. HRD-C's `released`/`falling` frames carry the strut with the stack.
+- **E2, "she is out" is the first tick she is neither Dormant nor in the Reveal.** The spec (R7) says the last Reveal tick, but the sim gives her a hurtbox only from the first Neutral tick (`hurt_rects` is empty through the whole Reveal). The tint, the lip and the dust burst follow the hurtbox so she never looks hittable early; the difference is one tick. **Adopted default (independent review, 2026-11-24):** R7's "last Reveal tick" reads as "the first tick with a hurtbox"; section 6 R7 is superseded on this point.
 - **E3, the shudder of the disturbed bank** is a 1 px presenter offset on the two `disturbed` frames, as in the parallel branch; frames 1 and 2 also differ in the falling scraps.
 - **E4, the sprite of bank A's `settled` remnant and the stack's `landed` remnant** have a flat lit top, vertical sides and 16 px height, because the sim makes them solid and standable (HRD-Q30).
 
 **Open:**
 
 - The remaining wiring on the parallel branch: bank A `disturbed`/`slid`/`settled`, post `cracked`/`broken`, stack `released`/`falling`/`landed` (the tables and frames exist: `bank_frame`, `post_frame`, `stack_frame`). The PR that lands second passes the sim's state to `bank_prop`, `post_prop` and `stack_prop` in `static_props`, and maps its interim reveal dim onto `Shade`.
-- Independent review of frames 0-28 and the kit.
+- Owner review of frames 0-28 and the kit (the independent art-director review passed on 2026-11-24).
 
 ## Rights/Provenance
 
@@ -263,4 +263,4 @@ Bank A, the J-B pieces, the door, the gate, the dressing heaps and the `opened` 
 - Model record:
   - Design, boss keys 17, 18, 19, 20, 22, 24 and 26, the mound hero key and this spec: Claude Opus.
   - Execution (in-betweens, other prop states, wiring, evidence): Claude Sonnet.
-  - Independent review: a separate Claude Opus agent, pending.
+  - Independent review: a separate Claude Opus agent (art-director review of frames 0-28, the room kit and the in-room stills, 2026-11-24).
