@@ -177,17 +177,19 @@ def composites(out: Path) -> None:
         gif.append(render(floor, hero(h - 20, lift) + [e], f"bank A: {note}. {LABEL}"))
     gif[0].save(out / "composite_bank_slide_640x360.png")
     gif[0].save(out / "composite_bank_slide.gif", save_all=True, append_images=gif[1:], duration=[100] * 5 + [50] * 16 + [150] * 6, loop=0)
-    # 2. J-B: post intact, stack supported, released (sag), falling 12 px/tick x 8, landed remnant in front of her
+    # 2. J-B: post intact, stack supported, released (the presenter's shudder, 1 px each way every 2 ticks, and sag,
+    # 1 px every 6 ticks to 3 px), falling on the sim's curve (drop 96 * k^2 / 64, never above the full sag; the
+    # `falling` frame's snapped strut), landed junk rubble in front of her. Mirrors src/hoarder_art.rs.
     px = 808 + ROOM_TO_FLOOR_STACK
     sx = 752 + ROOM_TO_FLOOR_STACK
     post_note = lambda f: prop("hoarder_post_b", f, px)  # noqa: E731
-    stack_h = 64 + room.STACK_LEG
     seq = [("supported", [post_note(0), prop("hoarder_stack_b", 0, sx, 64)])] * 8
     seq += [("cracked", [post_note(1), prop("hoarder_stack_b", 0, sx, 64)])] * 4
     for t in range(24):
-        seq.append(("released", [post_note(2), prop("hoarder_stack_b", 1, sx, 64 - t // 6)]))
-    for t in range(8):
-        seq.append(("falling", [post_note(2), prop("hoarder_stack_b", 2, sx, max(0, 64 - 12 * t) - (0 if t < 7 else 64))]))
+        shudder = 1 if (t // 2) % 2 == 0 else -1
+        seq.append(("released", [post_note(2), prop("hoarder_stack_b", 1, sx + shudder, 64 - min(t // 6, 3))]))
+    for k in range(8):
+        seq.append(("falling", [post_note(2), prop("hoarder_stack_b", 2, sx, min(64 - 96 * k * k // 64, 61))]))
     seq += [("landed", [post_note(2), prop("hoarder_stack_b", 3, sx, 0)])] * 8
     frames = [render(floor, hero(CARL_X) + e + [(bimgs[22], bpiv, px - 60, 0)] if n == "landed" else hero(CARL_X) + e,
                      f"J-B stack: {n}. {LABEL}") for n, e in seq]

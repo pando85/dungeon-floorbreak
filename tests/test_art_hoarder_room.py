@@ -167,6 +167,42 @@ class RoomKitTests(unittest.TestCase):
         mid = sum(1 for y in range(40, 200) for c in open_px[y] if c)
         self.assertLess(mid, 160 * 3)
 
+    def test_stack_polish_snapped_strut_and_junk_rubble(self) -> None:
+        """HOARD-02 polish: the `falling` frame's strut is snapped to STACK_FALL_LEG (the body is 23 px over the floor
+        on the last falling tick, so the stub never dips under the floor line); the `landed` remnant keeps the stack's
+        junk (iron pot and pram, copper kettle, glass bottles, wood) instead of a plain plank slab."""
+        stack = load("hoarder_stack_b")
+        oy = room.STACK_OY
+        for f in (0, 1):
+            self.assertEqual(bbox(pixels(stack, f))[3], oy + 64 + room.STACK_LEG - 1, f)
+        self.assertEqual(bbox(pixels(stack, 2))[3], oy + 64 + room.STACK_FALL_LEG - 1)
+        self.assertLess(room.STACK_FALL_LEG, 96 - 96 * 7 * 7 // 64)    # under the body's last falling height (23)
+        ramp_of = {v.lower(): name for name, ramp in kit.RAMPS.items() for v in ramp}
+        landed = pixels(stack, 3)
+        used = {ramp_of[c] for row in landed for c in row if c}
+        self.assertTrue({"wood", "iron", "copper", "gal", "floor"} <= used, used)
+        # dark voids between the items: under the lit top and its lip, at least 12 % of the band is the darkest wood (the old plank slab: about 1 %)
+        darkest = kit.RAMPS["wood"][0].lower()
+        band = [c for row in landed[90:103] for c in row[1:127]]
+        self.assertGreater(sum(1 for c in band if c == darkest) / len(band), 0.12)
+
+    def test_heap_b_has_a_rim_lit_top(self) -> None:
+        """HOARD-02 polish: heap b (x 470, behind the dark floor shapes of the lane edge) gets the torch's rim light:
+        the pixels just under its outline are brighter than heap a's."""
+        idx = {v.lower(): i for ramp in kit.RAMPS.values() for i, v in enumerate(ramp)}
+        outline = kit.RAMPS["mortar"][0].lower()
+
+        def rim(px) -> float:
+            vals = []
+            for x in range(len(px[0])):
+                col = [px[y][x] for y in range(len(px)) if px[y][x] and px[y][x] != outline]
+                if col:
+                    vals.append(idx[col[0]])
+            return sum(vals) / len(vals)
+
+        heaps = load("hoarder_heap")
+        self.assertGreater(rim(pixels(heaps, 1)), rim(pixels(heaps, 0)) + 1.0)
+
 
 if __name__ == "__main__":
     unittest.main()

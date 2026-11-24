@@ -112,6 +112,9 @@ pub struct HoarderLook {
     pub out_age: Option<u64>,
     /// The Reveal's length in ticks, read from the sim by [`draw`] (0 = the first Reveal's 90).
     pub reveal_ticks: u32,
+    /// Ticks since the presenter first saw the J-B stack released (its 24-tick warning); `None`
+    /// while it hangs, falls or has landed. Drives the stack's sag ([`stack_warning_offset`]).
+    pub released_age: Option<u64>,
 }
 
 /// The hit flash runs this many ticks after her hit points drop.
@@ -127,6 +130,7 @@ pub struct HoarderMemo {
     flash_until: u64,
     defeated_since: Option<u64>,
     out_since: Option<u64>,
+    released_since: Option<u64>,
     last_tick: Option<u64>,
 }
 
@@ -152,6 +156,7 @@ impl HoarderMemo {
             defeated_age: self.defeated_since.map(|since| tick.saturating_sub(since)),
             out_age: self.out_since.map(|since| tick.saturating_sub(since)),
             reveal_ticks: 0,
+            released_age: self.released_since.map(|since| tick.saturating_sub(since)),
         }
     }
 
@@ -165,6 +170,18 @@ impl HoarderMemo {
             self.out_since.get_or_insert(tick);
         }
         self.out_since.map(|since| tick.saturating_sub(since))
+    }
+
+    /// Fold in whether the J-B stack is released (warning, [`stack_released`]) and return the ticks
+    /// since the presenter first saw it so (0 on the release tick), for its sag. Call after
+    /// [`Self::observe`] on the same tick; a restart already cleared it.
+    pub fn observe_released(&mut self, released: bool, tick: u64) -> Option<u64> {
+        if released {
+            self.released_since.get_or_insert(tick);
+        } else {
+            self.released_since = None;
+        }
+        self.released_since.map(|since| tick.saturating_sub(since))
     }
 }
 
@@ -436,6 +453,27 @@ pub const fn stack_frame(state: StackState) -> u8 {
 pub const STACK_FOOTPRINT_BOTTOM_PX: i32 = 96;
 pub const STACK_LEG_PX: i32 = 32;
 pub const STACK_W_PX: i32 = 128;
+/// The `falling` frame's strut is snapped to this length (the post is broken): the body is 23 px
+/// over the floor on the last falling tick, so the stub never dips under the floor line.
+pub const STACK_FALL_LEG_PX: i32 = 20;
+/// While the stack is released (its warning) it sags 1 px every this many ticks...
+pub const STACK_SAG_EVERY_TICKS: u64 = 6;
+/// ...to at most this many px (spec section 7: "sag 1 px every 6 ticks" over the 24-tick warning).
+pub const STACK_SAG_MAX_PX: i32 = 3;
+
+/// The released stack's presenter offset `(dx, dy)` (world px, y up): a 1 px shudder each way that
+/// flips every 2 ticks, plus the sag of `released_age` (ticks since the release, 0 when unknown).
+/// Cosmetic only: the sim's mass waits on its hanging rectangle until it falls.
+pub const fn stack_warning_offset(released_age: u64, tick: u64) -> (i32, i32) {
+    let shudder = if (tick / 2).is_multiple_of(2) { 1 } else { -1 };
+    let steps = released_age / STACK_SAG_EVERY_TICKS;
+    let sag = if steps > STACK_SAG_MAX_PX as u64 {
+        STACK_SAG_MAX_PX
+    } else {
+        steps as i32
+    };
+    (shudder, -sag)
+}
 
 /// The dressing heaps: centre columns against the back wall (spec section 7: never between 416 and 880
 /// in front of the playfield, so they are drawn behind everything) and the heap each one is.
@@ -658,7 +696,8 @@ pub fn draw(
 
     // The sidecar's statics: bank A (a solid) and the J-B post (a hit target) with the stack it
     // holds, each by its machine's state (HRD-B, HRD-C).
-    let (statics, shadow) = static_props(encounter, combat.env(), layout_h, tick);
+    let (statics, shadow) =
+        static_props(encounter, combat.env(), layout_h, tick, look.released_age);
     art.props.extend(statics);
     art.shadow = shadow;
 
@@ -707,6 +746,8 @@ fn post_and_stack_from(
     post: crate::camera_lab::room::IRect,
     mass: Option<&FallingMass>,
     layout_h: i32,
+    tick: u64,
+    released_age: Option<u64>,
 ) -> [PropDraw; 2] {
     let state = mass.map_or(MassState::Supported, FallingMass::state);
     let post_state = match state {
@@ -722,14 +763,44 @@ fn post_and_stack_from(
         MassState::Falling => (StackState::Falling, mass.and_then(FallingMass::mass_rect)),
         MassState::Landed => (StackState::Landed, mass.and_then(FallingMass::remnant)),
     };
-    [
-        post_prop(post, post_state, layout_h),
-        stack_prop(
-            body.unwrap_or_else(|| hanging_over(post)),
-            stack_state,
-            layout_h,
-        ),
-    ]
+    let mut stack = stack_prop(
+        body.unwrap_or_else(|| hanging_over(post)),
+        stack_state,
+        layout_h,
+    );
+    match (stack_state, mass) {
+        // The warning: the shudder and the sag (presentation; the sim's mass has not moved yet).
+        (StackState::Released, _) => {
+            let (dx, dy) = stack_warning_offset(released_age.unwrap_or(0), tick);
+            stack.x += dx;
+            stack.y += dy;
+        }
+        // The fall starts from the sagged pose: the body is drawn no higher than the full sag, so it
+        // never jumps back up on the first falling ticks (the sim's drop is 1 px after one tick).
+        (StackState::Falling, Some(m)) => {
+            let hanging = world(m.config().hanging, layout_h).1 - STACK_LEG_PX;
+            stack.y = stack.y.min(hanging - STACK_SAG_MAX_PX);
+        }
+        _ => {}
+    }
+    [post_prop(post, post_state, layout_h), stack]
+}
+
+/// Whether the room's J-B stack is released (its warning) this tick: the fact the presenter's memo
+/// folds into [`HoarderLook::released_age`] ([`HoarderMemo::observe_released`]).
+pub fn stack_released(combat: &CombatState, encounter: &Encounter) -> bool {
+    let Some(env) = combat.env() else {
+        return false;
+    };
+    env.pile_props(encounter).iter().any(|(id, i)| {
+        encounter
+            .statics
+            .iter()
+            .any(|s| s.id == *id && s.kind == StaticKind::HitTarget)
+            && env
+                .mass(usize::from(*i))
+                .is_some_and(|m| m.state() == MassState::Released)
+    })
 }
 
 /// The sidecar's statics by their machines' states (`env` is `None` in a room without them): bank A
@@ -740,6 +811,7 @@ fn static_props(
     env: Option<&crate::combat_scene::EnvRuntime>,
     layout_h: i32,
     tick: u64,
+    released_age: Option<u64>,
 ) -> (Vec<PropDraw>, Option<FloorShadow>) {
     let machines = env.map(|e| e.pile_props(encounter)).unwrap_or_default();
     let mut out = Vec::new();
@@ -756,7 +828,13 @@ fn static_props(
             }
             StaticKind::HitTarget => {
                 let mass = index.and_then(|i| env.and_then(|e| e.mass(i)));
-                out.extend(post_and_stack_from(s.rect, mass, layout_h));
+                out.extend(post_and_stack_from(
+                    s.rect,
+                    mass,
+                    layout_h,
+                    tick,
+                    released_age,
+                ));
                 if let Some(f) = mass.and_then(FallingMass::telegraph_rect) {
                     let (x, y, w, h) = world(f, layout_h);
                     shadow = Some(FloorShadow {
