@@ -1750,6 +1750,12 @@ impl CombatState {
                 let landed = glance.apply(spec, hp);
                 gauntlet.map_or(landed, |t| t.reinforce(&landed))
             };
+            // FA-Q06 (F01-FU-B10): on the boss a lethal AI hit is a glance whatever
+            // the policy, for an AI Carl as for Donut.
+            let boss_landed_of = |spec: &MoveSpec, hp: u8| {
+                let landed = glance.apply_boss(spec, hp);
+                gauntlet.map_or(landed, |t| t.reinforce(&landed))
+            };
             // One move over every kind of target: the goblins (ids from 0),
             // then the llamas (ids after them). The attacker's hit-stop is the
             // longest of the hits, started once.
@@ -1888,7 +1894,7 @@ impl CombatState {
                     attacker,
                     tick,
                     gauntlet,
-                    &landed_of,
+                    &boss_landed_of,
                 );
                 scene.world.hero.melee = runner;
             }
@@ -2347,7 +2353,8 @@ impl CombatState {
         // cannot happen yet; revisit with real geometry (the opening scene).
         self.sense_engineers(scene, &target_x);
         let approved: Vec<usize> = self.approved_goblins(&target_x);
-        for index in 0..self.enemies.len() {
+        // `target_x` holds one entry per goblin, in index order.
+        for (index, &goal_x) in target_x.iter().enumerate() {
             let may_start = self
                 .last_tell_start
                 .is_none_or(|start| tick - start >= TELL_SPACING);
@@ -2360,7 +2367,7 @@ impl CombatState {
                 .filter(|e| e.acid_exit())
                 .and_then(|_| Self::acid_drive_out_x(&self.enemies[index]));
             let step = self.enemies[index].step_with(
-                out.unwrap_or(target_x[index]),
+                out.unwrap_or(goal_x),
                 !self.hero_defeated,
                 &scene.world.solids,
                 self.x_max - ENEMY_HALF_WIDTH,
@@ -2453,7 +2460,7 @@ impl CombatState {
     /// the lane to it is clear.
     fn sense_engineers(&mut self, scene: &SceneSim, target_x: &[f32]) {
         let live = scene.party_live();
-        for index in 0..self.enemies.len() {
+        for (index, &goal_x) in target_x.iter().enumerate() {
             let goblin = &self.enemies[index];
             let Some(t) = goblin.eng_tuning.filter(|_| goblin.is_engineer()) else {
                 continue;
@@ -2464,13 +2471,13 @@ impl CombatState {
                 HeroId::Carl
             };
             let eligible = self.hero_eligible_for(scene, goblin, target);
-            let distance = (target_x[index] - goblin.x).abs();
+            let distance = (goal_x - goblin.x).abs();
             let in_trigger = eligible && distance <= f32::from(t.engq05_trigger_px);
             let lane_clear = !t.on(t.engq07_lane_check)
                 || engineer::lane_clear(
                     goblin.x,
                     goblin.y - ENEMY_HALF_HEIGHT,
-                    target_x[index],
+                    goal_x,
                     &scene.world.solids,
                     self.enemies
                         .iter()
@@ -2480,7 +2487,7 @@ impl CombatState {
                 );
             self.enemies[index].eng_sense = Some(EngineerSense {
                 target,
-                target_x: target_x[index],
+                target_x: goal_x,
                 eligible,
                 lane_clear,
                 in_trigger,
@@ -3312,14 +3319,10 @@ impl CombatState {
     }
 
     /// `id` is the defeated hero (the freeze and the downed hold): the i-frame
-    /// cue is off for that hero only.
+    /// cue is off for that hero only, and Donut's knockdown art plays while she
+    /// is.
     pub fn hero_downed(&self, id: HeroId) -> bool {
         self.hero_defeated && self.defeated_hero == id
-    }
-
-    /// Donut is the defeated hero (her knockdown art plays).
-    pub fn donut_defeated(&self) -> bool {
-        self.hero_defeated && self.defeated_hero == HeroId::Donut
     }
 
     /// One tick of a move's forward step: stopped by walls, the layout edge and

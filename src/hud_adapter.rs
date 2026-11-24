@@ -617,8 +617,8 @@ fn sync_hud(
             vis.set_if_neq(Visibility::Hidden);
         }
     }
-    for f in 0..3 {
-        for &entity in render.texts[f][ti[f]..render.used_texts[f].max(ti[f])].iter() {
+    for (f, &first) in ti.iter().enumerate() {
+        for &entity in render.texts[f][first..render.used_texts[f].max(first)].iter() {
             if let Ok((_, _, _, mut vis)) = texts.get_mut(entity) {
                 vis.set_if_neq(Visibility::Hidden);
             }

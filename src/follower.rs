@@ -180,6 +180,7 @@ pub fn follower_input_boss(
             depth,
             speed,
             lead_ticks,
+            started: _,
         } => {
             // The tell counts too (M3: the ram reaches the bot within
             // `lead_ticks`, takeoff included): the arrival is the rest of the
@@ -420,6 +421,7 @@ mod tests {
             depth: 46.0,
             speed: 5.0,
             lead_ticks: 18,
+            started: 0,
         };
         let jump = |threat: BossThreat| {
             follower_input_boss(

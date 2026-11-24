@@ -764,15 +764,17 @@ pub struct DustView {
 }
 
 /// CF02-D (Q21): a slammed goblin finish as the presenter sees it, for the
-/// pose wiring of CF02-I. `rest` is false while the impact frame holds
-/// (`q21_slammed_impact_hold_ticks` from the defeat), true afterwards.
+/// pose wiring of CF02-I: which of the three poses, where and how faded. The
+/// impact-then-rest clock is not here (F01-FU-B10, CF02-FU-I FU7): the one clock
+/// is the acting selector's (`combat_anim::cf02::SlamArtInput::dead_age`, the
+/// `acting_slammed=` field of `COMBAT_ANIM_STATE`), which the drawn frame reads
+/// and which starts after a Q72 taunt hold. The presenter's own copy (a `rest`
+/// flag counted from the defeat) was read by nothing but its test and disagreed
+/// with the drawn frame after a taunt hold.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct SlamView {
     pub target: u32,
     pub pose: SlamPose,
-    pub rest: bool,
-    /// Presenter ticks since the defeat.
-    pub age: u64,
     pub foot_x: f32,
     pub ground_y: f32,
     pub flip: bool,
@@ -1103,8 +1105,8 @@ pub struct DeathPresenter {
     cf02: Option<&'static Cf02Tuning>,
     /// CF02-D (Q22, Q43): the cf02 gore budget (Q36 switch on).
     gore_budget: Option<Cf02GoreBudget>,
-    /// CF02-D (Q21): ticks a slammed pose holds its impact frame.
-    slam_hold: u64,
+    /// CF02-D (Q36): the cf02 death overlay is on (slammed finishes exist).
+    slam_overlay: bool,
     /// While set, every launched piece is a transient (see `Part`).
     transient_until: Option<u64>,
 }
@@ -1167,7 +1169,7 @@ impl DeathPresenter {
             exploded: Vec::new(),
             cf02: None,
             gore_budget: None,
-            slam_hold: 0,
+            slam_overlay: false,
             transient_until: None,
         })
     }
@@ -1181,7 +1183,7 @@ impl DeathPresenter {
         self.cf02 = Some(tuning);
         if tuning.on(tuning.q36_death_overlay) {
             self.profiles = DeathProfiles::cf02();
-            self.slam_hold = u64::from(tuning.q21_slammed_impact_hold_ticks);
+            self.slam_overlay = true;
         }
         self.gore_budget = Cf02GoreBudget::from_tuning(tuning);
         self
@@ -1189,7 +1191,7 @@ impl DeathPresenter {
 
     /// Whether the cf02 death overlay is active in this presenter.
     pub fn cf02_overlay(&self) -> bool {
-        self.slam_hold > 0
+        self.slam_overlay
     }
 
     /// Gib quarters of a finish of `force`: the cf02 budget's (Q22: 1.5x at
@@ -1416,12 +1418,9 @@ impl DeathPresenter {
             let Finish::GoblinSlammed(pose) = d.finish else {
                 return None;
             };
-            let age = self.clock.saturating_sub(d.start);
             Some(SlamView {
                 target: d.target,
                 pose,
-                rest: age >= self.slam_hold,
-                age,
                 foot_x: d.foot_x,
                 ground_y: d.ground_y,
                 flip: d.flip,
@@ -6198,9 +6197,15 @@ mod tests {
         assert_eq!(p.slam_pose_of(0), Some(SlamPose::Flung));
     }
 
+    /// F01-FU-B10 (CF02-FU-I FU7): the presenter reports the slammed pose for as
+    /// long as the finish lasts and keeps no impact clock of its own; the impact
+    /// hold (8 ticks, then the rest frame) is the acting selector's, tested in
+    /// `combat_anim::cf02::tests` (`the_three_slammed_finishes_hold_their_impact_then_rest`,
+    /// `a_lethal_stomp_on_a_taunting_goblin_holds_the_taunt_then_folds_then_rests`).
     #[test]
-    fn q21_the_slammed_pose_holds_its_impact_frame_for_eight_ticks_then_rests() {
+    fn fu7_the_presenter_reports_the_slammed_pose_and_leaves_the_clock_to_the_art() {
         let mut p = cf02_presenter(GorePreset::Full);
+        assert!(p.cf02_overlay());
         let goblins = [goblin_at(484.0)];
         p.step(
             &[
@@ -6209,18 +6214,12 @@ mod tests {
             ],
             obs(&goblins),
         );
-        let hold = u64::from(crate::cf02::active().q21_slammed_impact_hold_ticks);
-        assert_eq!(hold, 8);
-        let mut impact_ticks = 0;
+        assert_eq!(crate::cf02::active().q21_slammed_impact_hold_ticks, 8);
         for _ in 0..20 {
             let view = p.slammed_poses().next().expect("the slammed view");
-            if !view.rest {
-                impact_ticks += 1;
-            }
+            assert_eq!((view.target, view.pose), (0, SlamPose::Stomped));
             p.step(&[], obs(&goblins));
         }
-        assert_eq!(impact_ticks, hold, "impact frame for exactly the hold");
-        assert!(p.slammed_poses().next().unwrap().rest);
     }
 
     #[test]

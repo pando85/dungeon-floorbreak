@@ -561,19 +561,43 @@ impl SessionWriter {
         self.manifest.capture_complete = !failed;
         self.write_manifest()?;
         // Release the session lock: the recording is no longer live.
-        self.control_lock = None;
+        self.release_lock();
         self.control_out = None;
         self.diag_out = None;
         let manifest = self.manifest.clone();
         Ok(manifest)
     }
 
+    /// Drop the session lock, unlocking it first. `flock` belongs to the open
+    /// file description, not to this handle: a child process forked by another
+    /// thread (a test spawning a subprocess, or the game launching a tool)
+    /// holds a duplicate of every descriptor until its `exec`, so closing ours
+    /// alone would leave the session looking live for that window
+    /// (CF02-FU-TEST: `recover_session` returned `SessionLive` once in CI).
+    /// An explicit unlock releases the description's lock for every duplicate.
+    fn release_lock(&mut self) {
+        if let Some(file) = self.control_lock.take() {
+            let _ = file.unlock();
+        }
+    }
+
     /// Test hook: die like a killed process (nothing is finished, the lock is
     /// released, buffers are not flushed).
     #[cfg(test)]
     pub(super) fn crash_for_test(mut self) {
-        self.control_lock = None;
+        self.release_lock();
         std::mem::forget(self);
+    }
+
+    /// Test hook: a duplicate of the lock handle, as a child forked before its
+    /// `exec` would hold it.
+    #[cfg(test)]
+    pub(super) fn lock_duplicate_for_test(&self) -> File {
+        self.control_lock
+            .as_ref()
+            .expect("a live writer holds the lock")
+            .try_clone()
+            .expect("dup the lock handle")
     }
 }
 

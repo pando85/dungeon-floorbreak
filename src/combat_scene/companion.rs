@@ -516,12 +516,28 @@ impl Glance {
 impl Glance {
     /// The damage a hit on **the Juicer** lands (FA-Q06): [`Self::lands`], and a
     /// lethal AI hit is a glance whatever the kill policy says (the boss' kill is
-    /// Carl's). Only the boss' hit site calls it: slot enemies keep [`Self::lands`].
+    /// never an AI's, FA-Q06-AD1). Only the boss' hit sites call it (Donut's here, Carl's through
+    /// [`Self::apply_boss`]): slot enemies keep [`Self::lands`].
     pub(crate) fn boss_lands(&self, damage: u16, target_hp: u16) -> u16 {
-        if self.boss_kill_is_carls && self.ai_started && damage > 0 && damage >= target_hp {
+        if self.boss_glances(damage, target_hp) {
             return 0;
         }
         self.lands(damage, target_hp)
+    }
+
+    /// FA-Q06 at Carl's boss hit site (F01-FU-B10, #250 review): an AI-driven
+    /// Carl (swap mode, or `--companion` with Donut played) obeys the same rule
+    /// as Donut, so a lethal AI hit on the Juicer is a glance (0 damage, the
+    /// non-lethal reaction kept); otherwise [`Self::apply`].
+    pub(crate) fn apply_boss(&self, spec: &MoveSpec, target_hp: u8) -> MoveSpec {
+        if self.boss_glances(u16::from(spec.damage), u16::from(target_hp)) {
+            return MoveSpec { damage: 0, ..*spec };
+        }
+        self.apply(spec, target_hp)
+    }
+
+    fn boss_glances(&self, damage: u16, target_hp: u16) -> bool {
+        self.boss_kill_is_carls && self.ai_started && damage > 0 && damage >= target_hp
     }
 }
 
@@ -779,9 +795,12 @@ impl CombatState {
                     self.companion_blink(scene, &view, set, brief, hero, dodge_jumps[i])
             {
                 self.companion.autonomy[i].note_blink(self.companion.tick, choice.reason);
-                if choice.boss_charge && set.fix_all.fa_q09_blink_charge_window {
+                if choice.boss_charge
+                    && set.fix_all.fa_q09_blink_charge_window
+                    && let Some(BossThreat::Charge { started, .. }) = view.boss
+                {
                     // FA-Q09: the dodge jump stays silent for this charge.
-                    self.companion.autonomy[i].latch_charge_blink();
+                    self.companion.autonomy[i].latch_charge_blink(started);
                 }
                 out[i] = RawInput {
                     move_x: f32::from(choice.dir),
@@ -1088,12 +1107,13 @@ impl CombatState {
             };
             let threats = self.follow_threats(hero, active);
             // FA-Q09: a blink pressed for the boss' charge silences the follow
-            // layer's boss dodge for that charge (the latch is released with it).
-            let mut latched = self.companion.autonomy[i].charge_latched();
-            if latched && !matches!(view.boss, Some(BossThreat::Charge { .. })) {
-                self.companion.autonomy[i].release_charge_latch();
-                latched = false;
-            }
+            // layer's boss dodge for that charge (the latch is released with it,
+            // or when another charge began: it is keyed by the start tick).
+            let current = match view.boss {
+                Some(BossThreat::Charge { started, .. }) => Some(started),
+                _ => None,
+            };
+            let latched = self.companion.autonomy[i].sync_charge_latch(current);
             let dodge_boss = view.boss.filter(|_| !latched);
             let dodge = scene.dodge_input(hero, &threats, dodge_boss.as_ref());
             if dodge.jump || dodge.move_x != 0.0 {
@@ -2329,6 +2349,46 @@ mod tests {
         // A runtime with no set (the companion off) is the identity.
         let off = CompanionRuntime::default();
         assert_eq!(off.glance_for(MarkKind::DonutMove, 5).boss_lands(1, 1), 1);
+    }
+
+    /// FA-Q06 at Carl's boss site (F01-FU-B10): an AI-started Carl move that would
+    /// kill the boss lands as a glance (damage 0, the reaction kept); a non-lethal
+    /// one, a human-started one and the knob off are unchanged.
+    #[test]
+    fn fa_q06_a_lethal_ai_carl_hit_on_the_boss_is_a_glance_too() {
+        let mut runtime = CompanionRuntime {
+            set: Some(ProfileSetId::Cf02Free),
+            ..CompanionRuntime::default()
+        };
+        runtime.marks.push((MarkKind::CarlMove, 7));
+        let g = runtime.glance_for(MarkKind::CarlMove, 7);
+        let lethal = g.apply_boss(&CARL_JAB, CARL_JAB.damage);
+        assert_eq!(lethal.damage, 0, "damage = hp");
+        assert_eq!(
+            MoveSpec {
+                damage: CARL_JAB.damage,
+                ..lethal
+            },
+            CARL_JAB,
+            "only the damage changes"
+        );
+        assert_eq!(g.apply_boss(&CARL_JAB, 255), CARL_JAB, "far from lethal");
+        // The plain rule (the slot enemies) stays policy-only under `factual`.
+        assert_eq!(g.apply(&CARL_JAB, CARL_JAB.damage), CARL_JAB);
+        // A move the human started is never a glance.
+        let human = runtime.glance_for(MarkKind::CarlMove, 99);
+        assert_eq!(human.apply_boss(&CARL_JAB, CARL_JAB.damage), CARL_JAB);
+        with_profile_override(
+            |f| f.cf02_free.fix_all = crate::companion::profile::FixAll::default(),
+            || {
+                let g = runtime.glance_for(MarkKind::CarlMove, 7);
+                assert_eq!(
+                    g.apply_boss(&CARL_JAB, CARL_JAB.damage),
+                    CARL_JAB,
+                    "knob off"
+                );
+            },
+        );
     }
 
     /// FA-Q26-AD1: the claim is Carl's real engage check, not distance. A lethal AI hit

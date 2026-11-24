@@ -171,6 +171,20 @@ pub fn knockback_foot_drop(frame: usize, blend: f32) -> f32 {
     }
 }
 
+/// Contact-shadow footprint `(box width, box pivot column)` of the two lying
+/// frames (`d0`, `d1`): their opaque extent in the 72 x 44 frame, columns 12 to
+/// 68 with the pivot at column 46 (from the grid source; pinned by a test).
+const KNOCKDOWN_SHADOW_FOOTPRINT: (i32, i32) = (57, 34);
+
+/// The contact shadow of a damage-reaction frame: the lying frames (`d0`,
+/// `d1`) cast the shadow of the body on the floor, like Carl's sprawl
+/// (`SpriteClips::shadow_footprint`); every other frame keeps her idle
+/// footprint (`None`). Presentation only.
+pub fn hurt_shadow_footprint(frame: usize) -> Option<(i32, i32)> {
+    matches!(frame, KNOCKDOWN_IMPACT_FRAME | KNOCKDOWN_SULK_FRAME)
+        .then_some(KNOCKDOWN_SHADOW_FOOTPRINT)
+}
+
 /// Cast phase of a cast age: `cast_gather` 0-3, `cast_release` 4-9,
 /// `cast_follow` 10-15.
 pub fn cast_phase(age: u16) -> usize {
@@ -357,6 +371,42 @@ mod tests {
         for frame in [8, 9, 11, 12, 5] {
             assert_eq!(knockback_foot_drop(frame, 1.0), 0.0, "frame {frame}");
         }
+    }
+
+    /// F01-FU-B10 (#259): the lying frames' shadow is their opaque extent in the
+    /// grid source (columns 12 to 68, pivot column 46), like Carl's sprawl; the
+    /// flinch, recoil and thrown frames keep the idle footprint.
+    #[test]
+    fn the_lying_frames_cast_the_shadow_of_their_opaque_extent() {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        let read = |rel: &str| -> serde_json::Value {
+            serde_json::from_str(&std::fs::read_to_string(root.join(rel)).unwrap()).unwrap()
+        };
+        let manifest = read("assets/manifests/donut_h40_melee.json");
+        let grid = read(manifest["grid_source"].as_str().unwrap());
+        let pivot_x = manifest["pivot"][0].as_i64().unwrap() as i32;
+        let extent = |index: usize| {
+            let (mut left, mut right) = (i32::MAX, -1);
+            for rows in grid["frames"][index]["cels"].as_object().unwrap().values() {
+                for row in rows.as_array().unwrap() {
+                    for (x, ch) in row.as_str().unwrap().chars().enumerate() {
+                        if ch != '.' {
+                            left = left.min(x as i32);
+                            right = right.max(x as i32);
+                        }
+                    }
+                }
+            }
+            (right - left + 1, pivot_x - left)
+        };
+        for frame in [KNOCKDOWN_IMPACT_FRAME, KNOCKDOWN_SULK_FRAME] {
+            assert_eq!(hurt_shadow_footprint(frame), Some(extent(frame)), "{frame}");
+        }
+        for frame in [HURT_FLINCH_FRAME, HURT_RECOIL_FRAME, KNOCKBACK_FRAME, 0, 5] {
+            assert_eq!(hurt_shadow_footprint(frame), None, "{frame}");
+        }
+        // Wider than the idle footprint: the shadow grows when she lies down.
+        assert!(KNOCKDOWN_SHADOW_FOOTPRINT.0 > crate::actor_sprite::DONUT_SHADOW_FOOTPRINT.0);
     }
 
     /// The frame table is the manifest's: indices, tags, tick windows and the

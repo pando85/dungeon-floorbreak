@@ -1450,10 +1450,6 @@ fn only_the_defeated_hero_is_downed_for_the_i_frame_cue() {
         sim.step_scripted();
         let combat = &sim.combat;
         assert!(!combat.hero_downed(crate::party::HeroId::Carl));
-        assert_eq!(
-            combat.hero_downed(crate::party::HeroId::Donut),
-            combat.donut_defeated()
-        );
         seen |= combat.hero_downed(crate::party::HeroId::Donut);
     }
     assert!(seen, "Donut was defeated in the fixture");

@@ -517,9 +517,9 @@ fn interleaved_and_threaded_envs_equal_sequential_runs() {
 
     let mut env_a = reset_env("ap2a_two_goblins_wide_biscuit", seats[0]);
     let mut env_b = reset_env("ap2a_two_goblins_wide_biscuit", seats[1]);
-    for k in 0..500 {
-        let _ = env_a.step(streams[0][k]);
-        let _ = env_b.step(streams[1][k]);
+    for (&input_a, &input_b) in streams[0].iter().zip(&streams[1]).take(500) {
+        let _ = env_a.step(input_a);
+        let _ = env_b.step(input_b);
     }
     assert_eq!(
         (

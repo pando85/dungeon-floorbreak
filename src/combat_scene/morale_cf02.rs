@@ -436,8 +436,8 @@ impl CombatState {
             .collect();
         {
             let m = self.morale.as_ref().expect("checked above");
-            for i in 0..n {
-                if knocked_now[i] && !m.knocked[i] {
+            for (i, &now) in knocked_now.iter().enumerate() {
+                if now && !m.knocked[i] {
                     events.push(MoraleEvent::OwnKnockdown { goblin: i });
                 }
             }
@@ -471,7 +471,8 @@ impl CombatState {
         // Goblins whose tell a panic ended this tick (logged once the loop is done).
         let mut aborted: Vec<u32> = Vec::new();
 
-        for i in 0..n {
+        // `knocked_now` holds one entry per goblin (`n`).
+        for (i, &now_knocked) in knocked_now.iter().enumerate() {
             let goblin = &self.enemies[i];
             // ENG-G-Q18: the Engineer has no nerve (`engq18_morale` is off in v1).
             if !goblin.alive()
@@ -599,7 +600,7 @@ impl CombatState {
             // Q64: the hop covers `q64_backoff_distance_px` over the reaction.
             let step_px = m.morale[i].backoff_step_px(t);
             let back_dir = m.back_dir[i];
-            m.knocked[i] = knocked_now[i];
+            m.knocked[i] = now_knocked;
             m.health[i] = self.enemies[i].health;
             // Q58 draw 3: the first-approach delay counts the ticks a goblin
             // senses a hero (`q58_delay_from_first_sight` off: every tick).
@@ -623,8 +624,8 @@ impl CombatState {
         }
         // Dead goblins keep the bookkeeping current (a respawn resets them).
         if let Some(m) = self.morale.as_mut() {
-            for i in 0..n {
-                m.knocked[i] = knocked_now[i];
+            for (i, &now) in knocked_now.iter().enumerate() {
+                m.knocked[i] = now;
                 m.health[i] = self.enemies[i].health;
             }
         }

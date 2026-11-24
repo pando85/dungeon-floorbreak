@@ -549,6 +549,7 @@ fn a_boss_charge_reaches_the_autonomous_partner_through_the_threat_feed() {
         depth: 46.0,
         speed: 5.0,
         lead_ticks: 18,
+        started: 0,
     };
     assert!(jumps(Some(charge)), "she jumps the ram");
     assert!(!jumps(None), "and not without it");

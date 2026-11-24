@@ -7536,6 +7536,22 @@ fn update_lighting(
                 spec.shadow_width = width;
                 spec.shadow_pivot_x = pivot;
             }
+            // F01-FU-B10 (#259): Donut's lying frames (`d0`, `d1`) do the same
+            // (her reaction frames are drawn only in a live party, as in
+            // `sync_donut_visuals`).
+            if !pose.is_hero
+                && reference.0.is_none()
+                && state.party_live()
+                && let Some((width, pivot)) = anim
+                    .0
+                    .art
+                    .as_ref()
+                    .and_then(|art| art.donut_hurt_frame())
+                    .and_then(donut_art::hurt_shadow_footprint)
+            {
+                spec.shadow_width = width;
+                spec.shadow_pivot_x = pivot;
+            }
             let centre_x = shadow_center_x(spec, pose.foot_x, pose.flip);
             let line = kit
                 .walking_line_at(pose.foot_x.round() as i32)
