@@ -990,6 +990,16 @@ impl EnvRuntime {
         self.props.get(usize::from(index)).is_some_and(|p| p.pile)
     }
 
+    /// HRD-Q26's missile switch: whether a Magic Missile stops on prop `index`. Every prop but a
+    /// pile does (DV-5); a pile's mass with `hrdq26_missile = 0` lets the bolt pass, so the switch
+    /// off means the post is not there for a bolt at all.
+    pub fn pile_takes_missiles(&self, index: u16) -> bool {
+        !self.is_pile(index)
+            || self
+                .mass(usize::from(index))
+                .is_none_or(|m| m.config().projectile_weight > 0)
+    }
+
     pub fn hazards(&self) -> &HazardSet {
         &self.hazards
     }
@@ -2117,7 +2127,7 @@ impl CombatState {
             if !world_rect(layout_h, target).overlaps(boxed) {
                 continue;
             }
-            // HRD-C: a pile takes only a human-driven hero's hit, after her engage.
+            // HRD-C: a pile takes only a human-driven hero's hit, once she is out.
             if !self.env_hit_counts(scene, prop, HeroId::Carl) {
                 continue;
             }
@@ -2207,8 +2217,8 @@ impl CombatState {
     /// HRD-C: whether a hit by `hero` on prop `prop` counts. An ordinary prop
     /// always takes it. One of the Hoarder's piles takes only a **human-driven**
     /// hero's hit (the Juicer rule "the AI never triggers a rack") and only once
-    /// every slot enemy has engaged (HRD-Q26: hits before `PileBoss(Engaged)` do
-    /// nothing).
+    /// every slot enemy opens its pile hits (HRD-Q26, HRDC-AD4: hits before the
+    /// Hoarder is out of her Reveal do nothing).
     fn env_hit_counts(&self, scene: &SceneSim, prop: u16, hero: HeroId) -> bool {
         let Some(env) = self.env.as_deref() else {
             return true;
@@ -2216,13 +2226,24 @@ impl CombatState {
         if !env.is_pile(prop) {
             return true;
         }
-        !scene.drive().is_guarded(hero) && self.slot.enemies.iter().all(|e| e.engaged())
+        !scene.drive().is_guarded(hero) && self.slot.enemies.iter().all(|e| e.pile_hits_open())
     }
 
     /// Tests only: [`Self::env_hit_counts`].
     #[cfg(test)]
     pub fn env_hit_counts_for_test(&self, scene: &SceneSim, prop: u16, hero: HeroId) -> bool {
         self.env_hit_counts(scene, prop, hero)
+    }
+
+    /// Tests only: [`Self::env_missile_hit`] (whether a prop took the bolt).
+    #[cfg(test)]
+    pub fn env_missile_hit_for_test(
+        &mut self,
+        bolt: &super::Bolt,
+        scene: &SceneSim,
+        tick: u64,
+    ) -> bool {
+        self.env_missile_hit(bolt, scene, tick)
     }
 
     /// Tests only: [`Self::env_donut_melee`] with a given active box.
@@ -2296,9 +2317,12 @@ impl CombatState {
             return true;
         }
         let env = self.env.as_ref().expect("checked above");
-        // HRD-C: a bolt of a bot Donut, or one before her engage, passes a pile.
+        // HRD-C: a bolt of a bot Donut, one before she is out, or one at a pile whose missile
+        // switch is off (`hrdq26_missile = 0`) passes a pile.
         let Some((prop, _)) = env.live_targets().into_iter().find(|(p, t)| {
-            world_rect(layout_h, *t).overlaps(rect) && self.env_hit_counts(scene, *p, HeroId::Donut)
+            world_rect(layout_h, *t).overlaps(rect)
+                && env.pile_takes_missiles(*p)
+                && self.env_hit_counts(scene, *p, HeroId::Donut)
         }) else {
             return false;
         };

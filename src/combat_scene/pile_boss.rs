@@ -34,7 +34,7 @@ use crate::env_hazard::HazardClass;
 use crate::env_prop::Stimulus;
 use crate::pile_boss::{
     HitReaction, Obstacle, ObstacleKind, PILE_BOSS_ID, PileBoss, PileBossTuning, PileCtx, PileHit,
-    PileMode, PileOut, PileSetup, obstacles_from_encounter,
+    PileOut, PileSetup, obstacles_from_encounter,
 };
 use crate::prototype::Rect;
 use crate::scene_enemy::{
@@ -362,8 +362,10 @@ impl SlotEnemy for PileBossEnemy {
         })
     }
 
-    fn engaged(&self) -> bool {
-        self.boss.mode() != PileMode::Dormant
+    /// HRDC-AD4: the pile hits open once she is out (not Dormant, not in the Reveal), never while
+    /// she emerges with no body for a landing to find.
+    fn pile_hits_open(&self) -> bool {
+        self.boss.is_out()
     }
 
     fn gate_solid(&self) -> Option<Rect> {

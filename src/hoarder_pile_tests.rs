@@ -5,13 +5,12 @@
 
 use crate::combat::{CombatEvent, PropPhase};
 use crate::combat_scene::{ENV_SOURCE_ID, EnvSolidKind};
-use crate::env_prop::{MassState, SlideState};
+use crate::env_prop::{MassState, SlideState, StimulusKind};
 use crate::hoarder_fixtures::{
     ENV_SOLIDS, IDLE, Plan, Rig, attack_input, carl_input, jump_input, run_input,
 };
 use crate::party::HeroId;
 use crate::pile_boss::{ObstacleKind, PileEvent, PileMode};
-use crate::scene_enemy::SlotEnemy;
 use std::path::PathBuf;
 
 const BANK: usize = 0;
@@ -46,6 +45,14 @@ fn phase_tick(rig: &Rig, prop: u16, phase: PropPhase) -> Option<u64> {
             phase: ph,
             ..
         } if p == prop && ph == phase => Some(tick),
+        _ => None,
+    })
+}
+
+/// The tick of the first counted hit (`PropHit`) on the post at or after `from`.
+fn post_hit_tick(rig: &Rig, from: u64) -> Option<u64> {
+    rig.combat.events.iter().find_map(|e| match *e {
+        CombatEvent::PropHit { tick, prop: 1, .. } if tick >= from => Some(tick),
         _ => None,
     })
 }
@@ -138,7 +145,7 @@ fn bank_a_blocks_donut_and_a_hero_coming_from_the_right() {
 fn hero_melee_never_disturbs_bank_a() {
     let mut rig = dormant(330);
     rig.run(120, &|t| {
-        if t % 2 == 0 {
+        if t.is_multiple_of(2) {
             carl_input(attack_input())
         } else {
             IDLE
@@ -379,37 +386,190 @@ fn one_move_instance_counts_once() {
     assert_eq!(mass(&rig), MassState::Weakened);
 }
 
-/// Hits before `Engaged`, and hits from a bot-driven hero, do nothing (HRD-Q26).
+/// Hits before she is out (Dormant, then the whole 90-tick Reveal) do nothing (HRD-Q26, HRDC-AD4):
+/// solo Carl at 790 jabs the post from tick 1. Every tick whose hits meet her Dormant or in the
+/// Reveal leaves the post untouched (no progress, no prop event); the first counted hit comes after
+/// she is out, and two of them release the stack.
 #[test]
-fn hits_before_her_engage_do_nothing() {
+fn hits_before_she_is_out_do_nothing() {
     // Carl at 790 already past the engage line: she engages 8 ticks after tick 1 (gate settle).
     let mut rig = dormant(790);
-    let mut engaged = None;
-    for _ in 0..20 {
-        let tick = rig.next_tick();
-        rig.step(carl_input(attack_input()));
-        if engaged.is_none() && rig.boss().engaged() {
-            engaged = Some(tick);
-        }
-        if engaged.is_none() {
-            assert_eq!(
-                progress(&rig),
-                0,
-                "tick {tick}: not engaged yet, no hit counts"
-            );
-        }
-    }
-    let engaged = engaged.expect("she engages");
-    assert!(engaged > 1);
-    // After it the same jabs count.
-    rig.run(30, &|t| {
-        if t % 2 == 0 {
+    let jab = |t: u64| {
+        if t.is_multiple_of(2) {
             carl_input(attack_input())
         } else {
             IDLE
         }
-    });
-    assert!(progress(&rig) > 0 || mass(&rig) != MassState::Supported);
+    };
+    let mut out_at = None;
+    let mut reveal_ticks = 0;
+    for _ in 0..200 {
+        let tick = rig.next_tick();
+        // The hero strike runs before her step, so this tick's hits meet the state of now.
+        let open = rig.boss().boss().is_out();
+        assert_eq!(
+            rig.combat
+                .env_hit_counts_for_test(&rig.scene, 1, HeroId::Carl),
+            open,
+            "tick {tick}: the post opens exactly when she is out"
+        );
+        let before = progress(&rig);
+        rig.step(jab(tick));
+        if !open {
+            assert_eq!(
+                progress(&rig),
+                before,
+                "tick {tick}: not out yet, no hit counts"
+            );
+            assert_eq!(mass(&rig), MassState::Supported, "tick {tick}");
+        }
+        if rig.mode() == PileMode::Reveal {
+            reveal_ticks += 1;
+        }
+        if out_at.is_none() && rig.boss().boss().is_out() {
+            out_at = Some(tick);
+        }
+    }
+    assert_eq!(reveal_ticks, 90, "the full first Reveal was jabbed through");
+    let out_at = out_at.expect("she comes out");
+    let engaged = pile_tick(&rig, |e| *e == PileEvent::Engaged).expect("Engaged");
+    assert_eq!(out_at, engaged + 90, "out on the first Neutral tick");
+    // No prop event of the post while she was hidden.
+    assert!(rig.combat.events.iter().all(|e| match *e {
+        CombatEvent::PropPhase { tick, prop: 1, .. }
+        | CombatEvent::PropHit { tick, prop: 1, .. } => tick > out_at,
+        _ => true,
+    }));
+    // After it the same jabs count: weakened on a hit after `out_at`, then released.
+    let weakened = post_hit_tick(&rig, 0).expect("a jab weakens the post");
+    let released = phase_tick(&rig, 1, PropPhase::Released).expect("a second jab releases it");
+    assert!(
+        out_at < weakened && weakened < released,
+        "out {out_at}, weakened {weakened}, released {released}"
+    );
+    assert!(
+        weakened <= out_at + 24,
+        "the first jab after she is out counts: weakened {weakened}, out {out_at}"
+    );
+}
+
+/// The window's two edges (HRDC-AD4), a human Donut's swat on the post evaluated as the real strike
+/// is (before her step): on the tick whose step ends the Reveal the swat still meets her Reveal and
+/// counts nothing; on the next tick, the first she can be hit, it counts.
+#[test]
+fn the_post_opens_on_the_first_tick_she_can_be_hit() {
+    let plan = Plan {
+        carl_x: 600,
+        donut_x: 790,
+        ..Plan::carl_at(60.0)
+    }
+    .dormant()
+    .with_control(crate::hoarder_fixtures::Control::SoloDonut);
+    // A probe run finds T, the tick whose step takes her out of the Reveal.
+    let mut probe = Rig::new(&root(), plan).unwrap();
+    let mut t_out = None;
+    for _ in 0..300 {
+        let tick = probe.next_tick();
+        probe.step(IDLE);
+        if probe.boss().boss().is_out() {
+            t_out = Some(tick);
+            break;
+        }
+    }
+    let t_out = t_out.expect("she comes out");
+    let mut rig = Rig::new(&root(), plan).unwrap();
+    rig.run(t_out - 1, &|_| IDLE);
+    assert_eq!(rig.mode(), PileMode::Reveal, "the last Reveal state");
+    let layout_h = rig.scene.world.layout_height();
+    let floor = (layout_h - 580) as f32;
+    let swat = crate::prototype::Rect {
+        left: 806.0,
+        bottom: floor + 4.0,
+        width: 10.0,
+        height: 20.0,
+    };
+    // Tick T: the strike meets the Reveal.
+    assert!(
+        !rig.combat
+            .env_hit_counts_for_test(&rig.scene, 1, HeroId::Donut)
+    );
+    rig.combat
+        .env_donut_melee_for_test(&rig.scene, swat, 1, t_out);
+    assert_eq!(progress(&rig), 0, "the last Reveal tick: nothing");
+    rig.step(IDLE);
+    assert!(rig.boss().boss().is_out(), "her step on T took her out");
+    // Tick T + 1: the first tick a hero hit can reach her; the post takes it.
+    assert!(
+        rig.combat
+            .env_hit_counts_for_test(&rig.scene, 1, HeroId::Donut)
+    );
+    rig.combat
+        .env_donut_melee_for_test(&rig.scene, swat, 2, t_out + 1);
+    assert_eq!(progress(&rig), 1, "the first hittable tick counts");
+    assert_eq!(mass(&rig), MassState::Weakened);
+}
+
+/// The retry path (HRD-Q05, 30-tick Reveal): after a restart she is Dormant again, the post is
+/// closed again until she is out of the short Reveal, and it opens on the same edge.
+#[test]
+fn the_retry_reveal_keeps_the_post_closed_too() {
+    let mut rig = dormant(790);
+    while !rig.boss().boss().is_out() {
+        rig.step(IDLE);
+        assert!(rig.next_tick() < 300, "she never came out");
+    }
+    rig.combat.restart(&mut rig.scene);
+    assert_eq!(rig.mode(), PileMode::Dormant, "fresh state");
+    assert_eq!(mass(&rig), MassState::Supported);
+    assert!(rig.carl_x() > 432.0, "Carl respawns past the engage line");
+    let start = rig.next_tick();
+    let mut reveal_ticks = 0;
+    let mut out_at = None;
+    for _ in 0..160 {
+        let tick = rig.next_tick();
+        let open = rig.boss().boss().is_out();
+        assert_eq!(
+            rig.combat
+                .env_hit_counts_for_test(&rig.scene, 1, HeroId::Carl),
+            open,
+            "tick {tick}"
+        );
+        let before = progress(&rig);
+        rig.step(if tick.is_multiple_of(2) {
+            carl_input(attack_input())
+        } else {
+            IDLE
+        });
+        if !open {
+            assert_eq!(progress(&rig), before, "tick {tick}: hidden, no hit counts");
+        }
+        if rig.mode() == PileMode::Reveal {
+            reveal_ticks += 1;
+        }
+        if out_at.is_none() && rig.boss().boss().is_out() {
+            out_at = Some(tick);
+        }
+    }
+    assert_eq!(reveal_ticks, 30, "the retry Reveal");
+    let out_at = out_at.expect("she comes out of the retry Reveal");
+    let weakened =
+        post_hit_tick(&rig, start).expect("a jab after the retry Reveal weakens the post");
+    assert!(weakened > out_at, "weakened {weakened}, out {out_at}");
+    let released = rig
+        .combat
+        .events
+        .iter()
+        .find_map(|e| match *e {
+            CombatEvent::PropPhase {
+                tick,
+                prop: 1,
+                phase: PropPhase::Released,
+                ..
+            } if tick >= start => Some(tick),
+            _ => None,
+        })
+        .expect("a second jab releases the stack");
+    assert!(released > weakened);
 }
 
 #[test]
@@ -443,7 +603,7 @@ fn a_bot_driven_hero_never_triggers_a_pile() {
 }
 
 /// Donut's Magic Missile is a qualifying hit (DV-5, HRD-Q26): two missiles from a human Donut
-/// release the stack.
+/// release the stack, the first weakens it, and each counted bolt ends on the post.
 #[test]
 fn two_magic_missiles_release_the_stack() {
     let mut rig = Rig::new(
@@ -464,12 +624,198 @@ fn two_magic_missiles_release_the_stack() {
             IDLE
         }
     });
-    assert!(
-        progress(&rig) >= 2 || mass(&rig) != MassState::Supported,
-        "{:?} {}",
-        mass(&rig),
-        progress(&rig)
+    let weakened = post_hit_tick(&rig, 0).expect("the first missile weakens");
+    let released = phase_tick(&rig, 1, PropPhase::Released).expect("the second releases");
+    assert!(weakened < released, "two distinct missiles");
+    assert_eq!(phase_tick(&rig, 1, PropPhase::Landed), Some(released + 31));
+    assert_eq!(mass(&rig), MassState::Landed);
+    // Both counted hits are Donut's projectiles.
+    let hits: Vec<_> = rig
+        .combat
+        .events
+        .iter()
+        .filter_map(|e| match e {
+            CombatEvent::PropHit {
+                prop: 1,
+                kind,
+                player,
+                ..
+            } => Some((*kind, *player)),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        hits,
+        vec![
+            (
+                StimulusKind::Projectile,
+                Some(crate::donut_moves::DONUT_HERO)
+            );
+            2
+        ],
+        "two counted missiles, both Donut's"
     );
+}
+
+/// The review's case (HRDC-AD4): a human Donut fires Magic Missiles at the post from its right
+/// while she emerges under the stack. Every bolt of the Reveal passes the post (it is not there for
+/// a bolt yet) and the post shows no damage; once she is out, two bolts release the stack, and a
+/// stack dropped then can find her body.
+#[test]
+fn a_human_donut_s_missiles_during_the_reveal_pass_the_post() {
+    let mut rig = Rig::new(
+        &root(),
+        Plan {
+            carl_x: 600,
+            donut_x: 900,
+            ..Plan::carl_at(60.0)
+        }
+        .dormant()
+        .with_control(crate::hoarder_fixtures::Control::SoloDonut),
+    )
+    .unwrap();
+    // Face -x, then fire at the refire cadence from tick 4.
+    let script = |t: u64| {
+        if t <= 3 {
+            carl_input(run_input(-1.0))
+        } else if t % 24 == 4 {
+            carl_input(attack_input())
+        } else {
+            IDLE
+        }
+    };
+    assert_missiles_wait_for_her(&mut rig, &script);
+}
+
+/// The 2P variant: Carl (P1) waits at the post and jabs it through the Reveal, Donut (P2) fires at
+/// it from its right. Nothing counts until she is out; then the stack drops.
+#[test]
+fn a_2p_party_at_the_post_cannot_drop_the_stack_during_the_reveal() {
+    let mut rig = Rig::new(
+        &root(),
+        Plan {
+            carl_x: 790,
+            donut_x: 900,
+            ..Plan::carl_at(60.0)
+        }
+        .dormant()
+        .with_control(crate::hoarder_fixtures::Control::TwoPlayer),
+    )
+    .unwrap();
+    let script = |t: u64| {
+        let carl = if t.is_multiple_of(2) {
+            attack_input()
+        } else {
+            crate::input::RawInput::NONE
+        };
+        let donut = if t <= 3 {
+            run_input(-1.0)
+        } else if t % 24 == 4 {
+            attack_input()
+        } else {
+            crate::input::RawInput::NONE
+        };
+        [carl, donut]
+    };
+    assert_missiles_wait_for_her(&mut rig, &script);
+}
+
+/// Runs `script` until the stack is released: the post takes nothing while she is Dormant or in the
+/// Reveal, at least one bolt flies past the post in that time, and the release comes after she is
+/// out.
+fn assert_missiles_wait_for_her(
+    rig: &mut Rig,
+    script: &dyn Fn(u64) -> [crate::input::RawInput; 2],
+) {
+    let mut out_at = None;
+    let mut passed = false;
+    for _ in 0..400 {
+        let tick = rig.next_tick();
+        let open = rig.boss().boss().is_out();
+        rig.step(script(tick));
+        if !open {
+            assert_eq!(progress(rig), 0, "tick {tick}: the post shows no damage");
+            assert_eq!(mass(rig), MassState::Supported, "tick {tick}");
+            passed |= rig.combat.donut_bolts().iter().any(|b| b.x < 800.0);
+        }
+        if out_at.is_none() && rig.boss().boss().is_out() {
+            out_at = Some(tick);
+        }
+        if mass(rig) == MassState::Released {
+            break;
+        }
+    }
+    let engaged = pile_tick(rig, |e| *e == PileEvent::Engaged).expect("Engaged");
+    let out_at = out_at.expect("she comes out");
+    assert_eq!(out_at, engaged + 90);
+    assert!(passed, "a bolt of the Reveal flew past the post");
+    let released = phase_tick(rig, 1, PropPhase::Released).expect("released once she is out");
+    assert!(released > out_at, "released {released}, out {out_at}");
+}
+
+/// HRD-Q26's switch off (`hrdq26_missile = 0`): a Magic Missile is no stimulus of the post and the
+/// bolt passes it instead of ending there; melee still counts. With the switch on, the same bolt
+/// ends on the post and weakens it.
+#[test]
+fn the_missile_switch_off_lets_a_bolt_pass_the_post() {
+    let plan = Plan {
+        carl_x: 112,
+        donut_x: 900,
+        awake: Some((290.0, 1)),
+        ..Plan::carl_at(60.0)
+    }
+    .with_control(crate::hoarder_fixtures::Control::SoloDonut);
+    let switch_off = |run: &mut crate::f01_hoarder::HoarderRun| {
+        let stack = run
+            .loaded
+            .encounter
+            .statics
+            .iter_mut()
+            .find_map(|st| st.stack.as_mut())
+            .expect("the post's stack");
+        stack.config.projectile_weight = 0;
+    };
+    let bolt_at = |rig: &Rig| {
+        let floor = (rig.scene.world.layout_height() - 580) as f32;
+        crate::combat_scene::Bolt {
+            instance: 7,
+            x: 830.0,
+            y: floor + 30.0,
+            dir: -1,
+            travelled: 0.0,
+        }
+    };
+    let mut off = Rig::new_edited(&root(), plan, &switch_off).unwrap();
+    let tick = off.next_tick();
+    let bolt = bolt_at(&off);
+    assert!(
+        !off.combat.env_missile_hit_for_test(&bolt, &off.scene, tick),
+        "the bolt passes the post"
+    );
+    assert_eq!(progress(&off), 0);
+    assert_eq!(mass(&off), MassState::Supported);
+    // In the scene: four bolts from the right fly past the post and leave it untouched (with the
+    // old rule a bolt ended on the post, so none got past it).
+    let mut passed = false;
+    for _ in 0..120 {
+        let t = off.next_tick();
+        off.step(if t <= 3 {
+            carl_input(run_input(-1.0))
+        } else if t % 24 == 4 {
+            carl_input(attack_input())
+        } else {
+            IDLE
+        });
+        passed |= off.combat.donut_bolts().iter().any(|b| b.x < 800.0);
+    }
+    assert!(passed, "a bolt flew past the post");
+    assert_eq!(progress(&off), 0, "no missile counted");
+    assert_eq!(mass(&off), MassState::Supported);
+    // The switch on (the sidecar): the same bolt ends on the post.
+    let mut on = Rig::new(&root(), plan).unwrap();
+    let bolt = bolt_at(&on);
+    assert!(on.combat.env_missile_hit_for_test(&bolt, &on.scene, tick));
+    assert_eq!(progress(&on), 1);
 }
 
 /// The bait (HRD-Q18, HRD-Q26 heavy impact): her shove, clamped on the post's left face, leaves her
@@ -527,7 +873,7 @@ fn a_baited_shove_into_the_post_drops_the_stack_on_her() {
 fn a_landing_that_misses_her_has_no_effect_on_her() {
     let mut rig = awake(790, 290.0, 1);
     rig.run(200, &|t| {
-        if t % 2 == 0 {
+        if t.is_multiple_of(2) {
             carl_input(attack_input())
         } else {
             IDLE
