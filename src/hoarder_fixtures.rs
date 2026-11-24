@@ -144,7 +144,18 @@ pub struct Rig {
 
 impl Rig {
     pub fn new(root: &Path, plan: Plan) -> Result<Self, String> {
-        let run = f01_hoarder::launch(root)?;
+        Self::new_edited(root, plan, &|_| {})
+    }
+
+    /// [`Self::new`] with the loaded room edited first (a test's data knob, such as a sidecar
+    /// switch), before the env and her slot are built from it.
+    pub fn new_edited(
+        root: &Path,
+        plan: Plan,
+        edit: &dyn Fn(&mut HoarderRun),
+    ) -> Result<Self, String> {
+        let mut run = f01_hoarder::launch(root)?;
+        edit(&mut run);
         let (carl, donut) = plan.loadout.flags();
         let fixture: &'static Fixture = Box::leak(Box::new(Fixture {
             carl_x: plan.carl_x,

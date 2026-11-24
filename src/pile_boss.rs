@@ -983,6 +983,13 @@ impl PileBoss {
         self.mode
     }
 
+    /// "She is out" (HOARD-02 E2): neither Dormant nor in the Reveal, so a hero hit can reach her
+    /// from here on (her hurtbox appears on the first Neutral tick). HRD-C reads it: the J-B post
+    /// takes a qualifying hit only once she is out (HRDC-AD4).
+    pub fn is_out(&self) -> bool {
+        !matches!(self.mode, PileMode::Dormant | PileMode::Reveal)
+    }
+
     /// Ticks in the current mode (1 on the tick it was entered).
     pub fn mode_tick(&self) -> u32 {
         self.mode_tick

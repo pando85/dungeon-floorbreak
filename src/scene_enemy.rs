@@ -467,9 +467,10 @@ pub trait SlotEnemy: fmt::Debug + Send + Sync {
         None
     }
 
-    /// Whether the enemy has engaged the heroes (HRD-C: a pile's hits count only
-    /// after her `Engaged`). The default: always.
-    fn engaged(&self) -> bool {
+    /// Whether a pile's hits count against this enemy's room yet (HRD-C: the
+    /// Hoarder's piles take a hit only once she is out of her Reveal,
+    /// HRDC-AD4). The default: always.
+    fn pile_hits_open(&self) -> bool {
         true
     }
 
