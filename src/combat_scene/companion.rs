@@ -516,7 +516,7 @@ impl Glance {
 impl Glance {
     /// The damage a hit on **the Juicer** lands (FA-Q06): [`Self::lands`], and a
     /// lethal AI hit is a glance whatever the kill policy says (the boss' kill is
-    /// Carl's). Only the boss' hit sites call it (Donut's here, Carl's through
+    /// never an AI's, FA-Q06-AD1). Only the boss' hit sites call it (Donut's here, Carl's through
     /// [`Self::apply_boss`]): slot enemies keep [`Self::lands`].
     pub(crate) fn boss_lands(&self, damage: u16, target_hp: u16) -> u16 {
         if self.boss_glances(damage, target_hp) {
