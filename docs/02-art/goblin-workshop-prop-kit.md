@@ -1,6 +1,6 @@
 # AREA-GOBLINWORKSHOP-01: Goblin Workshop prop kit (Boiler encounter), design spec
 
-**Status:** design spec, 13 frozen keys, execution frames (in-betweens, state loops, tells), export, manifests, validators and the Bevy wiring are done; the two gate-approved key edits are applied and re-frozen (section 8). Independent top-tier review passed (PR 256, no design defect; non-blocking follow-ups in the PR); owner review pending. Evidence: [docs/evidence/f01-gwkit](../evidence/f01-gwkit/README.md).
+**Status:** design spec, 13 frozen keys, execution frames (in-betweens, state loops, tells), export, manifests, validators and the Bevy wiring are done; the two gate-approved key edits are applied and re-frozen (section 8). Independent top-tier review passed (PR 256, no design defect); its non-blocking follow-ups are applied (section 9: weight silhouette re-frozen under the review's approval, rig run, plume, shadow tell, scorch ember fade), their review is pending; owner review pending. Evidence: [docs/evidence/f01-gwkit](../evidence/f01-gwkit/README.md).
 
 **Route:** difficulty score **4** (new design; boiler native height 208 px; rig with moving parts; venting, telegraph and blast states), class Hard, route **B + silhouette gate** ([routing by difficulty](../07-agents/pixel-art-pipeline.md#routing-by-difficulty)). No separate draft existed, so the design step drew every key that defines a silhouette or a state read and froze them; execution draws in-betweens, loops, tells and VFX only after the gate passes. Work order row: [floor-01-area-kits-plan.md](../07-agents/floor-01-area-kits-plan.md) (`AREA-GOBLINWORKSHOP-01`: boiler, tools, pipes, gears, parked-vehicle props; no stationary factory boss).
 
@@ -68,13 +68,13 @@ Silhouette: squat cold-steel valve on a bolted floor plate: riser, round cast bo
 | 0 `valve_intact` | **F** | Intact | intact key | static |
 | `valve_warning` | E | Warning | 2 frames: handwheel spokes rotated 45° (frame 2), 2–3 px packing puff at the bonnet, body 1 px right on frame 2 | 2 x 4 ticks |
 | `valve_venting` | E | Venting | spent body plus a short white jet spitting from the torn side pipe and the neck; 3-frame loop | 3 x 4 ticks |
-| 1 `valve_spent` | **F** | Spent | bonnet and wheel blown off, bent stem stub, side pipe split into curled petals, cracked body, drip | static; optional E wisp loop 2 x 10 ticks |
+| 1 `valve_spent` | **F** | Spent | bonnet and wheel blown off, bent stem stub, side pipe split into curled petals, cracked body, drip | E wisp loop 3 x 10 ticks: the key, then two wisp frames rising from the torn neck |
 
 Broken art persists (encounter doc P1).
 
 ### P2 `gw_brace`, `gw_weight`, `gw_remnant`, `gw_rig`, `gw_chain` (falling-weight trap)
 
-Silhouettes: a timber post with a diagonal kicker strut, an iron floor shoe, a top cleat with the chain eye, a yellow wedge pin through the post (the hit target). The weight is a cast-iron trapezoid (64 bottom, 48 top) with a lifting eye, bolts, a welded patch and a yellow/black chevron band. The rig is a ceiling-hung I-beam with two sheave blocks and a sagging return chain. The remnant is the weight sunk and tilted into heaved floor slabs with rubble and a coiled chain on top.
+Silhouettes: a timber post with a diagonal kicker strut, an iron floor shoe, a top cleat with the chain eye, a yellow wedge pin through the post (the hit target). The weight is a stack of three cast-iron slabs (60 px wide, vertical sides, dark notches between the slabs) on two tie rods whose nuts stand on top, under a square lifting lug, with bolts, a welded patch and a yellow/black chevron band on the middle slab (section 9: it replaced a flared trapezoid that read as a lamp shade). The rig is a ceiling-hung I-beam with two sheave blocks and a sagging return chain. The remnant is the weight sunk and tilted into heaved floor slabs with rubble and a coiled chain on top.
 
 | Frame | Kind | MassState | Content | Timing |
 | --- | --- | --- | --- | --- |
@@ -85,7 +85,7 @@ Silhouettes: a timber post with a diagonal kicker strut, an iron floor shoe, a t
 | `weight_fall` | E | Falling | same body, three 1 px speed-streak columns in rows 0–15, chain gone, shackle pin straight up | 1 frame |
 | remnant 0 `remnant` | **F** | Landed | remnant key; the walkable top is rows 0–3 across local x 6–57 (collision is the rect, unchanged) | static |
 | rig 0 `rig` | **F** | Supported, Weakened | rig key | static |
-| `rig_run` | E | Released onward | return chain gone from under the beam; a 10–12 px loose end swings below the weight sheave | 2 x 6 ticks, then hold frame 1 |
+| `rig_run` | E | Released onward | return chain gone from under the beam; its 10–12 px loose end leaves the weight sheave's rim on the return (left) side and hangs down the sheave block's left cheek, swung out (frame 1), then straight (frame 2) | 2 x 6 ticks, then hold frame 2 |
 | chain 0 `chain` | **F** | — | 4 x 8 tile | — |
 
 Chain drawing (code, presentation only): brace chain from layout y 376 down to the brace eye (y 540) while the brace is whole (Supported, Weakened); weight chain from y 376 down to the weight eye (mass top) while Supported, Weakened, Released; none while Falling or Landed.
@@ -98,7 +98,7 @@ Silhouette: an upright red fuel drum: steel lid with a brass bung, two rolling h
 | --- | --- | --- | --- | --- |
 | drum 0 `drum_armed` | **F** | Armed | armed key | static |
 | `drum_telegraph` | E | Telegraph | seams along both hoops glow `flame_03`; frame 2 bulges the lid 1 px into the top margin and the body 1 px into each side margin; 2–3 px hiss at the bung | 2 x 4 ticks |
-| scorch 0 `scorch` | **F** | Detonated | scorch key; drum hidden | static; optional E ember fade 3 x 10 ticks then hold |
+| scorch 0 `scorch` | **F** | Detonated | scorch key; drum hidden | E ember fade: the key, a dimmer frame, the cold frame; 3 x 10 ticks from the drum charge's `detonate_tick`, then the cold frame holds |
 
 The explosion itself stays `blast_art`; this kit adds no blast frames.
 
@@ -109,13 +109,13 @@ All tells are presentation only, drawn on the Tell layer, and keep the stand-in 
 | Tag | Canvas | Rect | Content | Timing |
 | --- | --- | --- | --- | --- |
 | `steam_sputter` | 16 x 16 | at the nozzle mouth (layout 688, 512) | 2–5 px puffs leaving the nozzle (telegraph) | 3 x 4 ticks |
-| `steam_plume` | 80 x 96 | steam lane {688, 484, 80, 96} | dense jet from the nozzle bore spreading right and up; pixel clumps in `stone_10`, `gal_10`, `gal_08`; Bevy applies the stand-in alpha (0x90) | 4 x 4 ticks loop |
-| `fall_shadow_tell` | 64 x 8 | {784, 572, 64, 8} | dithered `iron_00` ellipse with hazard ticks at both ends, blinking at `FLASH_TICKS`; Bevy alpha 0x58 | 2 x 4 ticks |
-| `fall_shadow` | 64 x 8 | same | solid ellipse | static |
+| `steam_plume` | 80 x 96 | steam lane {688, 484, 80, 96} | one continuous jet from the nozzle bore spreading right and slightly up, built of overlapping billows on a continuous core (about 55 % coverage), billows travelling 4 px a frame; a ground fog at actor height; light from the upper left: `gal_10` shadow, `stone_10` body, near-white `flame_05` core, `gal_08` only on the fog's edge; Bevy applies the stand-in alpha (0x90) | 4 x 4 ticks loop |
+| `fall_shadow_tell` | 64 x 8 | {784, 572, 64, 8} | `iron_00` ellipse with a solid 1 px rim and a dithered inside, hazard ticks at both ends; inside dither and ticks swap phase at `FLASH_TICKS`; Bevy alpha 0x70 | 2 x 4 ticks |
+| `fall_shadow` | 64 x 8 | same | solid ellipse (Bevy alpha 0x70) | static |
 | `drum_blast_tell` | 96 x 8 | floor of {816, 500, 96, 80} | dithered red/yellow floor ring blinking with the drum telegraph | 2 x 4 ticks |
 | landing dust | — | — | reuse the existing `shore_dust` burst at the remnant top; no new art | — |
 
-Palette budget: the keys use 58 kit colours; the whole kit, tells included, must stay at 63 or fewer kit colours, all named and valued exactly as in the [Floor 01 kit palette](../../assets/source/terrain/floor01/floor01_catacomb_kit.json).
+Palette budget: the keys use 58 kit colours (the plume core adds `flame_05`: 59); the whole kit, tells included, must stay at 63 or fewer kit colours, all named and valued exactly as in the [Floor 01 kit palette](../../assets/source/terrain/floor01/floor01_catacomb_kit.json).
 
 ## 6. Wiring contract (presentation only)
 
@@ -155,6 +155,18 @@ Frame order in the grids follows the tags (a tag is a contiguous run), so a key'
 - `rig_run`: the 24 row canvas leaves 2 rows below the weight sheave, so the loose chain end (10 to 12 px of path) hangs out of the right side of the sheave block and swings (frame 1), then settles beside the lead-out (frame 2). The simulation keeps no "ticks since release", so the presenter plays the two frames on the tick while the weight is Released and rests on frame 2 once it falls or lands.
 - Ticks-driven loops: every loop plays on the world tick (`tick / ticks per frame`), as the stand-in's flash and sway did; no state timer is added to the simulation.
 - `steam_sputter` has 3 frames (puff grows from 2 to 14 px) and the sputter, plume and shadow are drawn on the Tell layer; the steam warning area and edge and the drum's blast area outline stay as code-drawn footprints (they are taller than the art), the weight footprint rectangles are replaced by the shadow sprite.
-- Optional frames skipped: `scorch` ember fade (the simulation has no detonation timer to drive it) and the landing dust reuse (a one shot needs the landing tick).
+- Optional frames skipped: `scorch` ember fade (the simulation has no detonation timer to drive it) and the landing dust reuse (a one shot needs the landing tick). The ember fade was added later (section 9).
 
 - The parked-vehicle, tools, pipe and gear dressing named in the work-order row are not needed by the Boiler encounter and are out of this kit's first pass; they extend `gw_*` later without touching these keys.
+
+## 9. Review follow-ups (after the PR 256 review)
+
+The independent review of PR 256 passed with no design defect; these are its non-blocking follow-ups. Per the [fix-loop rule](../07-agents/pixel-art-pipeline.md#routing-by-difficulty), the review is the design authority for the key change it asked for.
+
+- **`gw_weight` 0 re-frozen (follow-up 3).** The flared trapezoid with a ring on top read partly as a lamp shade, worse with a backdrop torch under it. The review asked for a bulkier or taller mass: the weight is now a stack of three cast slabs, 60 px wide with vertical sides and notches, on two tie rods (their nuts stand on top), under a square lifting lug; the shackle pin, the chain column (local x 30–33) and the chevron band are kept. The body fills rows 7–31 of the mass rect (it filled rows 8–31 before, tapering from 64 to 48 px). `weight_fall` follows from the same body. The fixture `tests/fixtures/area-gw-weight_keys.json` is re-frozen; the other 12 keys are unchanged. The remnant key already shows a straight-sided block, so it now matches better. The torch and the encounter x stay as they are (a level-composition call).
+- **`rig_run` (follow-up 1).** The review's alternative, a rig canvas 12 rows taller, would change the canvas of the frozen `rig` key (acceptance 1: every frame keeps its prop's canvas), so the frames are redrawn inside the frozen 112 x 24 canvas instead: the return chain fed the weight sheave from the left, so its loose end now leaves the pulley rim on that side and hangs down the sheave block's left cheek (an 11 px path to the canvas bottom), clear of the weight chain below the lead-out. Frame 1 swings it out to the left, frame 2 hangs it straight in face-on and edge-on links like the `gw_chain` tile; the old draft's 2 px links were turned into solid outline by the silhouette pass and are gone.
+- **`steam_plume` (follow-up 2).** Redrawn as one continuous jet (section 5), about 55 % coverage in every frame instead of about 28 %, with a paler near-white core (`flame_05`, one new kit colour, 59 of 63).
+- **`fall_shadow_tell` (follow-up 4).** A solid 1 px rim around the dithered inside, and the shadow sprite's alpha raised from 0x58 to 0x70 (adopted default GWP-AD3; the code-drawn stand-in tone is unchanged).
+- **`valve_spent` wisp (follow-up 6).** The art has a 3 x 10 tick loop (the key and two wisp frames); the spec table now says so.
+- **`scorch` ember fade (follow-up 7).** Added: it needs no simulation change, because the drum's `BlastCharge` keeps its own `detonate_tick` (the blast wave of the [danger FX](floor01-danger-fx-spec.md) reads the same tick). The presenter reads it through the scene's charges; with no known tick the cold frame holds. The landing dust stays skipped: the falling mass keeps no landing tick, so it would need a simulation change.
+- **Not changed:** the boiler brightness and dominance (follow-up 5, an owner call), the small sputter and the remnant's square hazard blocks (follow-up 7, the footprint carries the warning).

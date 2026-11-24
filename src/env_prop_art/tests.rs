@@ -59,7 +59,12 @@ fn view(run: &BoilerRun, combat: &CombatState, tick: u64) -> Vec<Piece> {
 }
 
 fn sprite_view(run: &BoilerRun, combat: &CombatState, tick: u64) -> Vec<SpriteDraw> {
-    sprites(&run.loaded.encounter, combat.env().expect("env"), tick)
+    sprites(
+        &run.loaded.encounter,
+        combat.env().expect("env"),
+        &combat.charges,
+        tick,
+    )
 }
 
 fn has(p: &[Piece], label: &str) -> bool {
@@ -768,4 +773,49 @@ fn a_tag_loops_on_the_tick_and_a_single_frame_holds() {
     );
     assert_eq!(REMNANT.frame_at(12345), 0);
     assert_eq!(RIG_RUN.last(), 2);
+    // A tag played once from its event: 10 ticks a frame, then the last holds.
+    assert_eq!(SCORCH.frame_once(0), 0);
+    assert_eq!(SCORCH.frame_once(9), 0);
+    assert_eq!(SCORCH.frame_once(10), 1);
+    assert_eq!(SCORCH.frame_once(29), 2);
+    assert_eq!(SCORCH.frame_once(10_000), SCORCH.last());
+    assert_eq!(REMNANT.frame_once(50), 0);
+}
+
+/// The scorch's embers fade from the drum charge's own detonation tick: the key
+/// (last embers) on the blast tick, then 10 ticks a frame to the cold frame, which
+/// holds. Without the charges (no known tick) the cold frame holds at once.
+#[test]
+fn the_scorch_embers_fade_from_the_drum_detonation_tick() {
+    let (run, mut scene, mut combat) = rig();
+    light_drum(&mut scene, &mut combat);
+    let mut blast = None;
+    for _ in 0..300 {
+        step(&mut scene, &mut combat);
+        if combat.env().unwrap().drum_state(DRUM) == Some(DrumState::Detonated) {
+            let charge = combat
+                .env()
+                .unwrap()
+                .drum_charge(DRUM as u16)
+                .expect("the drum's charge");
+            blast = Some(combat.charges[charge].detonate_tick);
+            break;
+        }
+    }
+    let at = blast.expect("the drum blew");
+    let frame = |t: u64| {
+        first(&sprite_view(&run, &combat, t), Sheet::Scorch)
+            .unwrap()
+            .frame
+    };
+    assert_eq!(
+        frame(at),
+        SCORCH.first,
+        "the key, with its embers, on the blast tick"
+    );
+    assert_eq!(frame(at + 10), SCORCH.first + 1);
+    assert_eq!(frame(at + 20), SCORCH.last());
+    assert_eq!(frame(at + 500), SCORCH.last(), "the cold scorch holds");
+    let blind = sprites(&run.loaded.encounter, combat.env().unwrap(), &[], at);
+    assert_eq!(first(&blind, Sheet::Scorch).unwrap().frame, SCORCH.last());
 }

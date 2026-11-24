@@ -106,7 +106,7 @@ pub(super) fn spawn(
         }
     }
     println!(
-        "GW_KIT sheets={}/{} (prototype art, review pending)",
+        "GW_KIT sheets={}/{} (prototype art, owner review pending)",
         sheets.len(),
         Sheet::ALL.len()
     );
@@ -139,7 +139,10 @@ pub(super) fn sync_prop_art(
         Without<PropPiece>,
     >,
 ) {
-    let (Some(art), Some(env)) = (art, combat.0.as_ref().and_then(|c| c.env())) else {
+    let Some(state) = combat.0.as_ref() else {
+        return;
+    };
+    let (Some(art), Some(env)) = (art, state.env()) else {
         return;
     };
     let world = &sim.0.world;
@@ -166,7 +169,7 @@ pub(super) fn sync_prop_art(
         }
     }
     // The kit sprites.
-    let list: Vec<_> = sprites(&art.encounter, env, world.tick)
+    let list: Vec<_> = sprites(&art.encounter, env, &state.charges, world.tick)
         .into_iter()
         .filter_map(|d| art.sheet(d.sheet).map(|loaded| (d, loaded)))
         .collect();

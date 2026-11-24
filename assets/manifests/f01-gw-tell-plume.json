@@ -23,7 +23,7 @@
   "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
   "provenance": {
     "origin": "AREA-GOBLINWORKSHOP-01 steam plume over the lane, drawn from explicit primitives in the named Floor 01 kit palette by scripts/author_gwkit_keys.py and scripts/author_gwkit_frames.py",
-    "generator": "designed by Claude Opus (keys, spec, silhouette gate), executed by Claude Sonnet; independent top-tier review pending. No concept pixels copied, no image-model raster output, no tracing, no resampling",
+    "generator": "designed by Claude Opus (keys, spec, silhouette gate), executed by Claude Sonnet; independent top-tier review passed (Claude Opus, PR 256, no design defect); review follow-ups (weight silhouette, rig run, plume, shadow tell, scorch ember fade) designed and executed by Claude Opus. No concept pixels copied, no image-model raster output, no tracing, no resampling",
     "generated_art": true,
     "input_reference_ids": [
       "docs/02-art/goblin-workshop-prop-kit.md",
@@ -33,7 +33,7 @@
   "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
   "review_status": "prototype_fixture_unapproved",
   "prop_kit": {
-    "status": "4 frames drawn; independent top-tier review pending; drawn by presentation-only wiring in src/env_prop_art.rs",
+    "status": "4 frames drawn; independent top-tier review passed (PR 256), owner review pending; drawn by presentation-only wiring in src/env_prop_art.rs",
     "spec": "docs/02-art/goblin-workshop-prop-kit.md",
     "tick_hz": 60,
     "hold_preview_ms": 100,
@@ -59,11 +59,11 @@
         },
         "content": [
           0,
-          1,
-          79,
+          0,
+          78,
           95
         ],
-        "sha256": "92456bf1a1e78c3b70ab822b8d46b43ec328719db47f2a6b8d931c187e8d58e3"
+        "sha256": "1ec2699ebe56638fe097ecc840b5ee381b1d009fb475dec468d02ab4e0a3d839"
       },
       {
         "index": 1,
@@ -84,10 +84,10 @@
         "content": [
           0,
           0,
-          79,
-          94
+          78,
+          95
         ],
-        "sha256": "435dcb06c2e9763bd998e62413da6bf5e457a4133010ec1e116ae6ac3ba12b44"
+        "sha256": "5f26887f187ab280433050251f35a249acbb9bb9cda2009c318a3c37d2ab33c9"
       },
       {
         "index": 2,
@@ -108,10 +108,10 @@
         "content": [
           0,
           0,
-          79,
+          78,
           95
         ],
-        "sha256": "ab5d5b0afe2fc4bf1351579abd328dd0d450e562582e198b894e08622e8b07e7"
+        "sha256": "8c51f9691b2a929451207dd50ab2bee2a471942a65cb759e97b78218e2e9ab6d"
       },
       {
         "index": 3,
@@ -132,10 +132,10 @@
         "content": [
           0,
           0,
-          79,
-          94
+          78,
+          95
         ],
-        "sha256": "d3f2baa71c546bf9dee50b177740f6063c32bc4b8170a6ffb2203ce022425fac"
+        "sha256": "e916fa2b66a64527a3a054de957d8845cbd8a2c859ca334ee28c280a7a73c843"
       }
     ]
   }

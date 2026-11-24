@@ -18,12 +18,20 @@
   "facing": "left",
   "tags": {
     "scorch": {
-      "playback": "hold",
+      "playback": "once",
       "contact": "grounded",
       "frames": [
         [
           0,
-          null
+          10
+        ],
+        [
+          1,
+          10
+        ],
+        [
+          2,
+          10
         ]
       ]
     }

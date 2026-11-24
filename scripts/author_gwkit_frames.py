@@ -239,15 +239,34 @@ def rig_frames():
     base = rig.copy()
     base.rect(21, 19, 66, 23, None)  # the return chain is gone from under the beam
 
-    def loose(points: list[tuple[int, int]]) -> Canvas:
-        cv = base.copy()
-        for i, (x, y) in enumerate(points):
-            cv.rect(x, y, x + 1, y + 1, "stone_cold_03" if i % 2 == 0 else "stone_cold_01")
-        cv.outline(K.OUT_C)
+    # The return chain ran into the weight sheave from the left, so its loose end
+    # leaves the pulley rim on the left (x 66..68, rows 14..15) and hangs down the
+    # left cheek of the sheave block, 3 px wide, to the canvas bottom: an 11 px path
+    # inside the frozen 24-row canvas, clear of the weight chain below the lead-out.
+    def rim(cv: Canvas) -> Canvas:
+        px(cv, [(67, 14), (68, 14)], "stone_cold_03")
+        px(cv, [(66, 15), (67, 15)], "stone_cold_02")
+        px(cv, [(66, 14)], "stone_cold_04")
         return cv
 
-    swung = loose([(77, 17), (78, 19), (79, 21), (80, 23)])
-    settled = loose([(73, 22), (75, 22)])  # hangs from the lead-out beside the sheave
+    def link_face(cv: Canvas, x: int, y: int) -> None:
+        """A face-on link, 3 x 4 with a 1 x 2 eye (the gw_chain tile's look, one px narrower)."""
+        cv.rect(x, y, x + 2, y + 3, "stone_cold_02")
+        cv.vline(x, y + 1, y + 2, "stone_cold_04")
+        cv.vline(x + 1, y + 1, y + 2, "iron_00")
+        cv.set(x + 2, y + 3, "stone_cold_00")
+
+    settled = rim(base.copy())
+    link_face(settled, 64, 16)
+    settled.vline(65, 20, 21, "stone_cold_03")  # edge-on link
+    settled.set(64, 20, "stone_cold_01")
+    link_face(settled, 64, 22)  # the last face link, cut by the canvas bottom
+    swung = rim(base.copy())
+    # Swung out to the left: links stepping 1 px left every 2 rows.
+    for i, (x, y) in enumerate(((65, 16), (64, 18), (63, 20), (62, 22))):
+        swung.rect(x, y, x + 1, y + 1, "stone_cold_03" if i % 2 == 0 else "stone_cold_02")
+        swung.set(x, y, "stone_cold_04" if i % 2 == 0 else "stone_cold_03")
+        swung.set(x + 2, y + 1, "stone_cold_00")
     return [
         ("rig", [(rig, None)], "hold", "free"),
         ("rig_run", [(swung, 6), (settled, 6)], "once", "free"),
@@ -291,7 +310,17 @@ def drum_frames():
 
 
 def scorch_frames():
-    return [("scorch", [(K.drum_scorch(), None)], "hold", "grounded")]
+    """The key (with its last embers), then the ember fade: 3 x 10 ticks from the drum's
+    detonation tick, holding the cold last frame (spec section 4, optional E)."""
+    key = K.drum_scorch()
+    dim = key.copy()
+    px(dim, [(19, 5)], "flame_00")
+    px(dim, [(20, 5), (14, 5)], "brick_04")
+    px(dim, [(15, 5)], "mortar_00")
+    cold = key.copy()
+    px(cold, [(19, 5)], "brick_04")
+    px(cold, [(20, 5), (14, 5), (15, 5)], "mortar_00")
+    return [("scorch", [(key, 10), (dim, 10), (cold, 10)], "once", "grounded")]
 
 
 # ================================================================= TELLS ====
@@ -326,59 +355,117 @@ def drop_isolated(cv: Canvas) -> None:
         cv.p[y][x] = None
 
 
+# Steam plume (PR 256 review, follow-up 2): one continuous jet instead of strings of
+# round puffs. The jet leaves the nozzle bore (local y 31..44, centre 37.5) and rises
+# and widens to the right as overlapping billows on a continuous core; a ground fog
+# rolls along the floor at actor height. Billows are spaced 16 px and travel 4 px per
+# frame, so the 4-frame loop is seamless. Light from the upper left: each billow is a
+# gal_10 shadow (offset down-right), a stone_10 body and a near-white flame_05 core
+# (offset up-left; paler than the peach body), the fog is gal_10 with stone_10 tops,
+# and gal_08 only edges the thin far fog.
+PLUME_STEP = 4
+PLUME_SPACING = 16
+
+
+def plume_centre(x: float) -> float:
+    return 37.5 - 0.14 * x
+
+
+def plume_radius(x: float) -> float:
+    return 6.0 + 0.40 * max(0.0, x)
+
+
 def plume_frames():
     w, h = 80, 96
     frames = []
-    # (x0, y offset, radius) clumps along the rising jet and a second, lower drift band.
-    upper = [(i * 8, (_h(i, 1, 7) % 9) - 4, 3 + (i * 7) % 4) for i in range(10)]
-    lower = [(i * 10, (_h(i, 2, 9) % 7) - 3, 4 + (i * 5) % 3) for i in range(8)]
     for f in range(4):
         cv = Canvas(w, h)
+        shift = PLUME_STEP * f
+        # (cx, cy, r) billows: the main line on the centre, an upper and a lower
+        # line half a spacing out of phase.
+        main = []
+        for i in range(-1, w // PLUME_SPACING + 2):
+            cx = i * PLUME_SPACING + shift
+            r = plume_radius(cx)
+            main.append((cx, plume_centre(cx), r * 0.62))
+            ox = cx + PLUME_SPACING / 2
+            ro = plume_radius(ox)
+            main.append((ox, plume_centre(ox) - ro * 0.42, ro * 0.48))
+            main.append((ox, plume_centre(ox) + ro * 0.48, ro * 0.52))
+            if cx > 24:  # spill: billows rolling down from the jet towards the fog
+                main.append((cx + 4, plume_centre(cx) + r * 1.0, r * 0.40))
+        fog = []
+        for i in range(-1, w // PLUME_SPACING + 2):
+            cx = i * PLUME_SPACING + shift + 6
+            fog.append((cx, 93.0, 8.0))
+            fog.append((cx + PLUME_SPACING / 2, 95.0, 6.0))
+        # The continuous core from the bore: a cone 7 px tall at the nozzle.
+        def core(colour: str, grow: float, dx: float, dy: float) -> None:
+            for x in range(w):
+                yc = plume_centre(x) + dy
+                half = (3.5 + 0.10 * x) * grow
+                for y in range(int(yc - half) - 1, int(yc + half) + 2):
+                    if abs(y + 0.5 - yc) <= half and 0 <= x + int(dx) < w:
+                        cv.set(x + int(dx), y, colour)
 
-        def clump(cx: float, cy: float, r: float, salt: int) -> None:
-            for tier, (scale, colour) in enumerate(((1.0, "gal_08"), (0.8, "gal_10"), (0.5, "stone_10"))):
-                rr = max(2.0, r * scale)
+        for cx, cy, r in fog:  # fog: shadow then body then lit tops
+            cv.ellipse(cx + 1, cy + 1, r, r * 0.8, "gal_08")
+        for cx, cy, r in fog:
+            cv.ellipse(cx, cy, r - 1, (r - 1) * 0.8, "gal_10")
+        for cx, cy, r in fog:
+            cv.ellipse(cx - 1, cy - 1.5, r * 0.45, r * 0.3, "stone_10")
+        for cx, cy, r in main:
+            cv.ellipse(cx + 1.5, cy + 1.5, r, r * 0.9, "gal_10")
+        core("gal_10", 1.25, 1, 1)
+        for cx, cy, r in main:
+            cv.ellipse(cx, cy, r, r * 0.9, "stone_10")
+        core("stone_10", 1.2, 0, 0)
+        for cx, cy, r in main:
+            cv.ellipse(cx - r * 0.2, cy - r * 0.25, r * 0.6, r * 0.5, "flame_05")
+        core("flame_05", 0.6, 0, -1)
+        # The lane ends at the canvas: round the plume's right and top edges into
+        # travelling lobes so the canvas border never shows as a straight cut.
+        def lobe(u: float) -> float:  # a half-circle bump over u in [0, 1)
+            return (1.0 - (2.0 * u - 1.0) ** 2) ** 0.5
 
-                def keep(x, y, tier=tier, salt=salt):
-                    return tier == 2 or (_h(x, y, salt + tier) % 5) != 0
-
-                cv.ellipse(cx, cy, rr, rr * 0.85, colour, only=keep)
-
-        for i, (bx, jitter, r0) in enumerate(upper):
-            x = (bx + 20 * f) % 80
-            clump(x + 0.5, 38 - int(x * 0.42) + jitter + 0.5, r0 + x // 10, i)
-        for i, (bx, jitter, r0) in enumerate(lower):
-            x = (bx + 20 * f) % 80
-            clump(x + 0.5, 64 - int(x * 0.12) + jitter + 0.5, r0 + x // 16, 40 + i)
-        for i in range(5):  # low drift along the floor, at actor height
-            x = (_h(i, f, 3) % 70) + 4
-            clump(x + 0.5, 86 + (_h(i, f, 5) % 8) + 0.5, 4, 80 + i)
+        for y in range(h):
+            right = 72 + 7 * lobe(((y + 6 * f) % 24) / 24)
+            for x in range(w):
+                top = 5 - 5 * lobe(((x - 4 * f) % 16) / 16)
+                if x + 0.5 > right or y + 0.5 < top:
+                    cv.set(x, y, None)
         drop_isolated(cv)
         frames.append((cv, 4))
     return [("steam_plume", frames, "loop", "free")]
 
 
 def shadow_frames():
+    def inside(x: int, y: int) -> bool:
+        dx = (x + 0.5 - 32) / 31.0
+        dy = (y + 0.5 - 4) / 3.6
+        return 0 <= x < 64 and 0 <= y < 8 and dx * dx + dy * dy <= 1.0
+
     def ellipse(phase: int | None) -> Canvas:
+        """Solid for the landing; for the tell a solid 1 px rim (PR 256 review, follow-up 4:
+        the all-dithered ellipse was faint) around a dithered inside that swaps phase."""
         cv = Canvas(64, 8)
         for y in range(8):
             for x in range(64):
-                dx = (x + 0.5 - 32) / 31.0
-                dy = (y + 0.5 - 4) / 3.6
-                if dx * dx + dy * dy <= 1.0:
-                    if phase is None or (x + y + phase) % 2 == 0:
+                if inside(x, y):
+                    rim = any(not inside(x + dx, y + dy) for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)))
+                    if phase is None or rim or (x + y + phase) % 2 == 0:
                         cv.set(x, y, "iron_00")
         return cv
 
-    def ticks(cv: Canvas) -> Canvas:
+    def ticks(cv: Canvas, phase: int) -> Canvas:
         for x0 in (0, 61):
             for y in range(2, 6):
                 for x in range(x0, x0 + 3):
-                    cv.set(x, y, "brass_05" if (x + y) % 2 == 0 else "iron_00")
+                    cv.set(x, y, "brass_05" if (x + y + phase) % 2 == 0 else "iron_00")
         return cv
 
     return [
-        ("fall_shadow_tell", [(ticks(ellipse(0)), 4), (ticks(ellipse(1)), 4)], "loop", "free"),
+        ("fall_shadow_tell", [(ticks(ellipse(0), 0), 4), (ticks(ellipse(1), 1), 4)], "loop", "free"),
         ("fall_shadow", [(ellipse(None), None)], "hold", "free"),
     ]
 
@@ -563,8 +650,9 @@ def manifest_of(name: str, tags: list[TagSpec], grid: dict) -> dict:
             "origin": f"AREA-GOBLINWORKSHOP-01 {TITLES[name]}, drawn from explicit primitives in the named Floor 01 kit "
                       f"palette by scripts/author_gwkit_keys.py and scripts/author_gwkit_frames.py",
             "generator": "designed by Claude Opus (keys, spec, silhouette gate), executed by Claude Sonnet; "
-                         "independent top-tier review pending. No concept pixels copied, no image-model raster output, "
-                         "no tracing, no resampling",
+                         "independent top-tier review passed (Claude Opus, PR 256, no design defect); review follow-ups "
+                         "(weight silhouette, rig run, plume, shadow tell, scorch ember fade) designed and executed by "
+                         "Claude Opus. No concept pixels copied, no image-model raster output, no tracing, no resampling",
             "generated_art": True,
             "input_reference_ids": [SPEC, "assets/source/terrain/floor01/floor01_catacomb_kit.json"],
         },
@@ -572,8 +660,8 @@ def manifest_of(name: str, tags: list[TagSpec], grid: dict) -> dict:
                    "no public reuse license; no game/asset-pack distribution rights",
         "review_status": "prototype_fixture_unapproved",
         "prop_kit": {
-            "status": f"{n} frames drawn; independent top-tier review pending; drawn by presentation-only wiring "
-                      "in src/env_prop_art.rs",
+            "status": f"{n} frames drawn; independent top-tier review passed (PR 256), owner review pending; "
+                      "drawn by presentation-only wiring in src/env_prop_art.rs",
             "spec": SPEC, "tick_hz": 60, "hold_preview_ms": HOLD_MS,
             "playback": {tag: p for tag, _f, p, _c in tags},
             "frames": frames,

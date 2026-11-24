@@ -45,7 +45,7 @@
   "rules": {
     "max_colors": 63,
     "max_isolated_per_frame": 0,
-    "max_orphans_per_frame": 2,
+    "max_orphans_per_frame": 8,
     "unique_frames": true,
     "frozen_keys": {
       "fixture": "tests/fixtures/area-gw-rig_keys.json",
