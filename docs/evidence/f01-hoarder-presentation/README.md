@@ -2,24 +2,24 @@
 
 Screenshot evidence of room 1 drawn with the HOARD-02 production art: the Hoarder from the `hoard-02` atlas (29 frames) and the `floor01_hoarder_*` room kit (the sealed and opened lair mound, bank A, the J-B post and the stack hanging from it, the exit door, the entry gate and three dressing heaps). **No STAND-IN label and no greybox piece remains** for her or any wired prop. The presentation is `src/hoarder_art.rs` (pure) and `src/bin/floor01_scene/hoarder_art.rs` (Bevy). The art passed its independent art-director review (Claude Opus, 2026-11-24); it is not owner-approved, and game feel is pending.
 
-The room pilot `--f01-room hoarder --room-pilot hoarder:carl_solo:0` plays the room (a defeating pilot, 9 of 9 seeds; seed 0 reveals her on ticks 112..201, swipes from tick 202, defeats her on tick 1231 and reaches the exit on tick 1381). `scripts/make_hoarder_presentation_evidence.sh` renders the real Bevy window under xvfb at eleven ticks, at 1x (640x360, `--scale 1`) and at 1080p (1920x1080, `--scale 3`), **twice**, and requires the two passes to be byte-identical PNGs. The stills were re-captured after the last cosmetic change (dust motes 3 px and brighter): all 22 are byte-identical across the two passes and every window hash equals the headless hash.
+The room pilot `--f01-room hoarder --room-pilot hoarder:carl_solo:0` plays the room (a defeating pilot, 9 of 9 seeds; seed 0 reveals her on ticks 116..205, swipes from tick 206, defeats her on tick 1235 and reaches the exit on tick 1385; HRD-B and HRD-C (#260) moved the timeline 4 ticks later). `scripts/make_hoarder_presentation_evidence.sh` renders the real Bevy window under xvfb at eleven ticks, at 1x (640x360, `--scale 1`) and at 1080p (1920x1080, `--scale 3`), **twice**, and requires the two passes to be byte-identical PNGs. The stills were re-captured after the last cosmetic change (dust motes 3 px and brighter) and on top of HRD-B and HRD-C (the bank, post and stack drawn from their machines): all 22 are byte-identical across the two passes and every window hash equals the headless hash.
 
 | Still | Tick | What it shows |
 | --- | --- | --- |
 | `dormant_*` | 100 | the sealed mound (back layer behind everything, the front lip in front), bank A with its lit top, the post with the stack hanging from it, the dressing heaps, the gate open; she is under the mound |
-| `reveal1_*`, `reveal2_*`, `reveal3_*` | 125, 155, 185 | the Reveal in thirds: emerge frames 26, 27, 28, drawn one ramp step darker (R7) with the lip in front of her and dust sliding off her; the gate closed |
-| `reveal_last_*` | 201 | the last Reveal tick: still in shadow, lip still in front (she has no hurtbox yet) |
-| `out_*`, `out_late_*` | 202, 206 | the first tick she can be hit: full value, the mound is the low `opened` spill, the 4-tick dust burst (gone by 206) |
-| `tell_*` | 218 | the swipe's rear-up hold (frame 8) |
-| `impact_*` | 241 | the swipe's impact frame (frame 10) |
-| `recover_*` | 262 | the held recovery frame (frame 11): the free-damage window |
+| `reveal1_*`, `reveal2_*`, `reveal3_*` | 129, 159, 189 | the Reveal in thirds: emerge frames 26, 27, 28, drawn one ramp step darker (R7) with the lip in front of her and dust sliding off her; the gate closed |
+| `reveal_last_*` | 205 | the last Reveal tick: still in shadow, lip still in front (she has no hurtbox yet) |
+| `out_*`, `out_late_*` | 206, 210 | the first tick she can be hit: full value, the mound is the low `opened` spill, the 4-tick dust burst (gone by 210) |
+| `tell_*` | 222 | the swipe's rear-up hold (frame 8) |
+| `impact_*` | 245 | the swipe's impact frame (frame 10) |
+| `recover_*` | 266 | the held recovery frame (frame 11): the free-damage window |
 | `defeated_*` | 1300 | down frame 15 (held), the exit door open (jamb only), the gate open |
 
 [`capture_lines.txt`](capture_lines.txt) has one `HOARDER_STILL` line per still and size: the window's final `COMBAT_STATE` hash, the headless run's (they must be equal: the presentation changes no sim hash), whether the two passes were byte-identical, and the PNG's sha256. [`SHA256SUMS`](SHA256SUMS) is verified by `python3 scripts/check_docs.py`.
 
 The state hash is also proven by `hoarder_art::tests::the_presenter_does_not_change_the_state_hash` (the pure presenter called on every tick of two room pilot runs; the hash equals the plain run's at every tick and the pinned library hash at the end) and by the render-loop replay of the nine room pilot runs (`../f01-playtest/render_replay_lines.txt`).
 
-**Not shown at runtime:** the shove tell, lunge, jam, pinned and get-up (the room pilot kills her with swipes and never draws a shove, so those modes have no window still; their frame mapping is unit-tested and `../hoard-02/` has offline composites, labelled "composite, not runtime"), and the J-A and J-B pile states (HRD-B and HRD-C land on a parallel branch; the frames are drawn and mapped). **NOT RUN:** a 2P run, a human run, the release build, real hardware.
+**Not shown at runtime:** the shove tell, lunge, jam, pinned and get-up (the room pilot kills her with swipes and never draws a shove, so those modes have no window still; their frame mapping is unit-tested and `../hoard-02/` has offline composites, labelled "composite, not runtime"), and the J-A and J-B pile states after `stable`/`intact`/`supported` (the room pilot never disturbs bank A or the post; the presenter draws them from the HRD-B and HRD-C machines, `the_piles_are_drawn_from_their_machines` tests every state, and `../hoard-02/` has offline composites). **NOT RUN:** a 2P run, a human run, the release build, real hardware.
 
 Regenerate: `cargo build --locked --bin floor01_scene && bash scripts/export_assets.sh && bash scripts/make_hoarder_presentation_evidence.sh`.
 

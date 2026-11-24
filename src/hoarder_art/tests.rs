@@ -579,7 +579,12 @@ fn the_piles_are_drawn_from_their_machines() {
             }
             crate::env_prop::SlideState::Slid => {
                 assert!(matches!(bank[0].frame, 3 | 4));
-                assert_eq!(bank[0].x, slide.mass_rect().unwrap().x, "on the sim's mass");
+                let m = slide.mass_rect().unwrap();
+                assert_eq!(
+                    (bank[0].x, bank[0].y),
+                    (m.x, world(m, rig.scene.world.layout_height()).1),
+                    "on the sim's mass"
+                );
                 assert!(bank[0].x <= 352, "moving toward -x: {}", bank[0].x);
                 slid = true;
             }
@@ -630,7 +635,24 @@ fn the_piles_are_drawn_from_their_machines() {
                 assert_eq!(post[0].frame, 2, "broken from the release on");
                 let s = art.shadow.expect("the footprint's floor shadow");
                 assert_eq!((s.x, s.y, s.w, s.h), (752, floor, 128, FLOOR_SHADOW_PX));
+                let m = rig
+                    .combat
+                    .env()
+                    .unwrap()
+                    .mass(1)
+                    .unwrap()
+                    .mass_rect()
+                    .unwrap();
+                let body_y = world(m, rig.scene.world.layout_height()).1;
+                assert_eq!(
+                    (stack[0].x, stack[0].y),
+                    (m.x, body_y - STACK_LEG_PX),
+                    "on the sim's mass, the strut under it"
+                );
                 assert!(stack[0].y <= floor + 64, "never above the hanging stack");
+                if state == crate::env_prop::MassState::Released {
+                    assert_eq!(stack[0].y, floor + 64, "the mass waits at its hanging rect");
+                }
                 assert_eq!(stack[0].layer, Layer::Prop);
                 shadow = true;
                 fell |= state == crate::env_prop::MassState::Falling && stack[0].frame == 2;
@@ -745,4 +767,36 @@ fn the_out_age_counts_from_the_first_tick_she_can_be_hit() {
     // A retry resets the scene tick: the memo forgets.
     memo.observe(30, true, 2);
     assert_eq!(memo.observe_out(true, 2), None);
+}
+
+/// A weakened support (one qualifying hit of two) draws the post `cracked` with the stack still
+/// hanging: the `Weakened` row of `post_and_stack_from`, on the room's J-B config.
+#[test]
+fn a_weakened_post_is_drawn_cracked_with_the_stack_still_hanging() {
+    use crate::camera_lab::room::IRect;
+    use crate::env_prop::{FallingMass, FallingMassConfig, MassState, Offer, Stimulus};
+    let mut mass = FallingMass::new(FallingMassConfig::new(
+        IRect::new(752, 420, 128, 64),
+        IRect::new(752, 532, 128, 48),
+        IRect::new(752, 564, 128, 16),
+    ))
+    .unwrap();
+    let post = IRect::new(808, 516, 16, 64);
+    let [p, s] = post_and_stack_from(post, Some(&mass), 580);
+    assert_eq!((p.frame, s.frame, s.x, s.y), (0, 0, 752, 64), "intact");
+    let hit = Stimulus::MeleeHit {
+        token: 1,
+        player: 0,
+        weight: 1,
+    };
+    assert_eq!(mass.offer(hit), Offer::Progress { progress: 1 });
+    assert_eq!(mass.state(), MassState::Weakened);
+    let [p, s] = post_and_stack_from(post, Some(&mass), 580);
+    assert_eq!(
+        (p.frame, s.frame, s.x, s.y, s.layer),
+        (1, 0, 752, 64, Layer::Prop)
+    );
+    // No machine: the standing pair over the post.
+    let [p, s] = post_and_stack_from(post, None, 580);
+    assert_eq!((p.frame, s.frame, s.x, s.y), (0, 0, 752, 64));
 }

@@ -30,9 +30,9 @@ mkdir -p "$caps" "$out"
 # name:tick: the dormant lair (sealed mound), the Reveal in thirds (frames 26, 27, 28: shadow tint, lip in front), the last
 # Reveal tick, the first tick she can be hit (full value, the opened mound, the dust burst), the swipe's rear-up tell, its
 # impact, the free recovery, and the defeat (down frame 15, the door open). Ticks of the pilot hoarder:carl_solo:0: Reveal
-# 112..201, SwipeTell from 202, SwipeSmear 236, SwipeImpact 239, SwipeRecover 245. The room pilot kills her before she
+# 116..205, SwipeTell from 206, SwipeSmear 240, SwipeImpact 243, SwipeRecover 249 (HRD-B/HRD-C, #260, moved them 4 later). The room pilot kills her before she
 # shoves, so the shove, lunge, jam, pinned and get-up have offline composites instead (docs/evidence/hoard-02).
-stills=(dormant:100 reveal1:125 reveal2:155 reveal3:185 reveal_last:201 out:202 out_late:206 tell:218 impact:241 recover:262 defeated:1300)
+stills=(dormant:100 reveal1:129 reveal2:159 reveal3:189 reveal_last:205 out:206 out_late:210 tell:222 impact:245 recover:266 defeated:1300)
 sizes=(640x360:1 1920x1080:3)
 lines="$caps/capture_lines.txt"
 : > "$lines"
