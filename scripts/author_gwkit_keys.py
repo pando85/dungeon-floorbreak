@@ -608,37 +608,53 @@ def brace_stump() -> Canvas:
 WW, WH = 64, 48  # body 64 x 32 in the bottom rows, 16 rows above for the fall streaks
 
 
+WEIGHT_SLAB = [(0.05, "stone_cold_00"), (0.16, "stone_cold_01"), (0.30, "stone_cold_02"),
+               (0.40, "stone_cold_03"), (0.68, "stone_cold_02"), (0.90, "stone_cold_01"),
+               (1.01, "stone_cold_00")]
+
+
 def weight_body(cv: Canvas, oy: int) -> None:
-    # Trapezoid cast-iron block: bottom 64 wide, top 48 wide.
-    for y in range(8, 32):
-        inset = 8 - ((y - 8) * 8) // 23
-        cylinder(cv, inset, 63 - inset, oy + y, oy + y,
-                 [(0.06, "stone_cold_00"), (0.20, "stone_cold_01"), (0.34, "stone_cold_02"),
-                  (0.42, "stone_cold_03"), (0.70, "stone_cold_02"), (0.92, "stone_cold_01"),
-                  (1.01, "stone_cold_00")])
-    cv.hline(8, 55, oy + 8, "stone_cold_04")  # lit top edge
-    cv.hline(9, 54, oy + 9, "stone_cold_03")
-    cv.hline(1, 62, oy + 31, "stone_cold_00")
-    # Hazard chevron band.
-    for y in range(18, 24):
-        inset = 8 - ((y - 8) * 8) // 23 + 1
-        hazard_stripes(cv, inset, oy + y, 62 - inset, oy + y, period=8)
-    cv.hline(5, 58, oy + 17, "stone_cold_00")
-    cv.hline(4, 59, oy + 24, "stone_cold_00")
-    # Bolts along the top and a welded goblin patch.
-    for x in range(12, 53, 8):
-        cv.set(x, oy + 12, "stone_cold_04")
-        cv.set(x, oy + 13, "stone_cold_00")
+    """A stack of three cast-iron slabs on two tie rods, 60 x 25 under a lifting lug.
+
+    Silhouette fix (PR 256 review, follow-up 3): the earlier flared trapezoid with a
+    ring on top read as a lamp shade. The stack has vertical sides, notches between
+    the slabs, tie-rod nuts on top and a square lug, so it reads as a counterweight.
+    """
+    # Slabs: rows 7..14, 16..23, 25..31 with dark notch rows 15 and 24 (inset 2 px).
+    for y0, y1 in ((7, 14), (16, 23), (25, 31)):
+        cylinder(cv, 2, 61, oy + y0, oy + y1, WEIGHT_SLAB)
+        cv.hline(3, 60, oy + y0, "stone_cold_03")  # lit top edge of each slab
+        cv.hline(2, 61, oy + y1, "stone_cold_00")  # shadowed bottom edge
+    for y in (15, 24):
+        cv.hline(4, 59, oy + y, "stone_cold_00")
+    # Chamfered top corners of the upper slab, its top lit brighter (light from the upper left).
+    for x in (2, 61):
+        cv.set(x, oy + 7, None)
+    cv.hline(3, 52, oy + 7, "stone_cold_04")
+    # Hazard chevron band across the middle slab.
+    hazard_stripes(cv, 4, oy + 18, 59, oy + 21, period=8)
+    cv.hline(4, 59, oy + 17, "stone_cold_00")
+    cv.hline(4, 59, oy + 22, "stone_cold_00")
+    # Bolt heads on the upper slab, a welded goblin patch on the lower one.
+    for x in range(14, 51, 9):
+        cv.set(x, oy + 10, "stone_cold_04")
+        cv.set(x, oy + 11, "stone_cold_00")
     cv.rect(40, oy + 26, 49, oy + 29, "iron_03")
     cv.hline(40, 49, oy + 26, "iron_05")
     for x in range(40, 50, 2):
         cv.set(x, oy + 30, "iron_05")
-    # Lifting eye and shackle.
-    cv.ellipse(32, oy + 4, 6, 5, "stone_cold_02")
-    cv.ellipse(32, oy + 4, 3, 2.5, None)
-    cv.rect(26, oy + 6, 37, oy + 7, "stone_cold_01")
-    cv.set(28, oy + 1, "stone_cold_04")
-    cv.set(29, oy + 0, "stone_cold_04")
+    # Tie-rod nuts on top of the stack.
+    for nx in (6, 54):
+        cv.rect(nx, oy + 4, nx + 3, oy + 6, "stone_cold_02")
+        cv.hline(nx, nx + 2, oy + 4, "stone_cold_04")
+        cv.set(nx + 3, oy + 6, "stone_cold_00")
+    # Square lifting lug with the shackle hole.
+    cv.rect(27, oy + 0, 36, oy + 6, "stone_cold_02")
+    cv.vline(27, oy + 1, oy + 6, "stone_cold_03")
+    cv.hline(28, 35, oy + 0, "stone_cold_04")
+    cv.set(27, oy + 0, None)
+    cv.set(36, oy + 0, None)
+    cv.rect(30, oy + 2, 33, oy + 4, None)
 
 
 def weight_hang() -> Canvas:

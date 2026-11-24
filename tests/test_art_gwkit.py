@@ -37,7 +37,7 @@ TAGS = {
     "gw_valve": {"valve_intact": 1, "valve_warning": 2, "valve_venting": 3, "valve_spent": 3},
     "gw_brace": {"brace_supported": 1, "brace_weakened": 2, "brace_stump": 1},
     "gw_weight": {"weight_hang": 1, "weight_fall": 1}, "gw_remnant": {"remnant": 1},
-    "gw_drum": {"drum_armed": 1, "drum_telegraph": 2}, "gw_scorch": {"scorch": 1},
+    "gw_drum": {"drum_armed": 1, "drum_telegraph": 2}, "gw_scorch": {"scorch": 3},
     "gw_rig": {"rig": 1, "rig_run": 2}, "gw_chain": {"chain": 1},
     "gw_tell_sputter": {"steam_sputter": 3}, "gw_tell_plume": {"steam_plume": 4},
     "gw_tell_shadow": {"fall_shadow_tell": 2, "fall_shadow": 1}, "gw_tell_ring": {"drum_blast_tell": 2},
@@ -130,6 +130,7 @@ class KitSourcesTest(unittest.TestCase):
         expect = {("gw_boiler", "boiler_idle"): 8, ("gw_boiler", "boiler_strain"): 4, ("gw_boiler", "boiler_damaged"): 10,
                   ("gw_valve", "valve_warning"): 4, ("gw_valve", "valve_venting"): 4, ("gw_valve", "valve_spent"): 10,
                   ("gw_brace", "brace_weakened"): 6, ("gw_rig", "rig_run"): 6, ("gw_drum", "drum_telegraph"): 4,
+                  ("gw_scorch", "scorch"): 10,
                   ("gw_tell_sputter", "steam_sputter"): 4, ("gw_tell_plume", "steam_plume"): 4,
                   ("gw_tell_shadow", "fall_shadow_tell"): 4, ("gw_tell_ring", "drum_blast_tell"): 4}
         for (name, tag), ticks in expect.items():
@@ -146,6 +147,26 @@ class KitSourcesTest(unittest.TestCase):
         self.assertEqual(spent, keys.valve_spent().p)
         petals = {spent[y][x] for y in range(10, 33) for x in range(27, 31)}
         self.assertTrue({"copper_02", "copper_03"} <= petals, "the torn petals are filled with copper")
+
+    def test_the_review_approved_weight_is_a_slab_stack_with_vertical_sides(self) -> None:
+        """PR 256 review, follow-up 3: the weight key is re-frozen as a slab stack (no flared lamp-shade sides)."""
+        grid = load(PROPS / "gw_weight.grid.json")
+        names = {p["key"]: p["name"] for p in grid["palette"]}
+        hang = [[names.get(c) for c in row] for row in grid["frames"][0]["cels"]["body"]]
+        self.assertEqual(hang, keys.weight_hang().p)
+        slab_rows = [16 + y for y in (*range(8, 15), *range(16, 24), *range(25, 32))]
+        edges = {(row.index(next(c for c in row if c)), 63 - row[::-1].index(next(c for c in row[::-1] if c)))
+                 for row in (hang[y] for y in slab_rows)}
+        self.assertEqual(edges, {(2, 61)}, "every slab row spans the same 60 px: vertical sides")
+
+    def test_the_scorch_fade_keeps_the_key_and_cools_the_embers(self) -> None:
+        grid = load(PROPS / "gw_scorch.grid.json")
+        names = {p["key"]: p["name"] for p in grid["palette"]}
+        rows = [[[names.get(c) for c in row] for row in f["cels"]["body"]] for f in grid["frames"]]
+        self.assertEqual(rows[0], keys.drum_scorch().p)
+        hot = [sum(c in ("flame_01", "flame_02") for row in f for c in row) for f in rows]
+        self.assertEqual(hot[-1], 0, "the held last frame has no glowing ember")
+        self.assertTrue(hot[0] > hot[1] >= hot[2])
 
 
 if __name__ == "__main__":

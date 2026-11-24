@@ -21,18 +21,23 @@
 //! tick. The simulation keeps no "ticks since the event" for a prop, so the loops
 //! below run on the world tick (`tick / ticks_per_frame`), like the stand-in's
 //! flash and sway did; a tag that is not a loop (the rig's run) is chosen by state.
+//! The one exception is the scorch's ember fade, which plays once, timed from the
+//! drum charge's own `detonate_tick` (read from the scene's charges, like the blast
+//! wave of `danger_fx_art`): it starts when the VFX-01 burst over it has ended.
 //! The explosion of the drum is **not** drawn here: its `BlastCharge` already
 //! plays the shared blast presentation (`blast_art`).
 //!
-//! The kit is a prototype (`prototype_fixture_unapproved`, independent review
-//! pending). Telegraph pieces and sprites sit on [`Layer::Tell`], above every other
+//! The kit is a prototype (`prototype_fixture_unapproved`; independent review
+//! passed in PR 256, owner review pending). Telegraph pieces and sprites sit on [`Layer::Tell`], above every other
 //! piece, so no prop or backdrop hides a warning.
 //!
 //! Coordinates are layout pixels, y down, like the sidecar. A `RING-D` append adds
 //! the shutter and the Rot Sticker arms to [`pieces`].
 
+use crate::blast::BlastCharge;
 use crate::camera_lab::room::IRect;
 use crate::combat_scene::EnvRuntime;
+use crate::death_present::burst_ticks;
 use crate::encounter::{Encounter, PropKind};
 use crate::env_hazard::{HazardClass, NavPhase};
 use crate::env_prop::{DrumState, MassState, ValveState};
@@ -74,7 +79,8 @@ impl Tone {
 /// The draw order, back to front. The presenter maps each layer to a z.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Layer {
-    /// Behind the actors (the boiler landmark).
+    /// Behind the actors (the boiler landmark, the rig and chains, and the drum's
+    /// scorch: a floor scar the presenter keeps under the blast's fireball and wave).
     Back,
     /// With the lane props.
     Prop,
@@ -217,6 +223,16 @@ impl Tag {
     pub const fn last(self) -> usize {
         self.first + self.frames - 1
     }
+
+    /// The frame of a tag played once, `age` ticks after its event: each frame for
+    /// `ticks`, then the last frame holds.
+    pub fn frame_once(self, age: u64) -> usize {
+        if self.frames <= 1 || self.ticks == 0 {
+            self.first
+        } else {
+            self.first + ((age / self.ticks) as usize).min(self.frames - 1)
+        }
+    }
 }
 
 pub const BOILER_IDLE: Tag = tag("boiler_idle", 0, 4, 8);
@@ -234,7 +250,7 @@ pub const WEIGHT_FALL: Tag = tag("weight_fall", 1, 1, 0);
 pub const REMNANT: Tag = tag("remnant", 0, 1, 0);
 pub const DRUM_ARMED: Tag = tag("drum_armed", 0, 1, 0);
 pub const DRUM_TELEGRAPH: Tag = tag("drum_telegraph", 1, 2, FLASH_TICKS);
-pub const SCORCH: Tag = tag("scorch", 0, 1, 0);
+pub const SCORCH: Tag = tag("scorch", 0, 3, 10);
 pub const RIG: Tag = tag("rig", 0, 1, 0);
 pub const RIG_RUN: Tag = tag("rig_run", 1, 2, 6);
 pub const CHAIN: Tag = tag("chain", 0, 1, 0);
@@ -372,7 +388,9 @@ pub const WEIGHT_CHAIN_DX: i32 = 30;
 pub const SPUTTER_DY: i32 = 28;
 /// Alphas of the translucent tells (the stand-in's `Steam` and `Shadow` tones).
 pub const STEAM_ALPHA: u8 = 0x90;
-pub const SHADOW_ALPHA: u8 = 0x58;
+/// The weight's shadow sprite is darker than the stand-in tone (0x58): the PR 256
+/// review found the tell faint (follow-up 4, adopted default GWP-AD3).
+pub const SHADOW_ALPHA: u8 = 0x70;
 
 impl Piece {
     /// The sheet this piece stands in for, if any. A presenter draws such a piece
@@ -433,8 +451,14 @@ fn boiler_frame(enc: &Encounter, env: &EnvRuntime, tick: u64) -> usize {
 }
 
 /// The sprites of the props at `tick`, back to front. Read-only; the same inputs
-/// always give the same list.
-pub fn sprites(enc: &Encounter, env: &EnvRuntime, tick: u64) -> Vec<SpriteDraw> {
+/// always give the same list. `charges` are the scene's blast charges (only a
+/// detonated drum's `detonate_tick` is read, for the scorch's ember fade).
+pub fn sprites(
+    enc: &Encounter,
+    env: &EnvRuntime,
+    charges: &[BlastCharge],
+    tick: u64,
+) -> Vec<SpriteDraw> {
     let mut out: Vec<SpriteDraw> = Vec::with_capacity(MAX_SPRITES);
     let mut add = |sheet: Sheet, frame: usize, rect: IRect, layer: Layer, alpha: u8| {
         out.push(SpriteDraw {
@@ -577,12 +601,23 @@ pub fn sprites(enc: &Encounter, env: &EnvRuntime, tick: u64) -> Vec<SpriteDraw> 
             PropKind::Drum => {
                 match env.drum_state(i) {
                     Some(DrumState::Detonated) => {
-                        // The drum is gone: its scorch mark, 4 px wider than the drum each side.
+                        // The drum is gone: its scorch mark, 4 px wider than the drum each
+                        // side. A floor scar: on `Back`, under the blast's fireball and
+                        // wave (not across them). The burst hides it while it plays, so
+                        // the embers (the key) hold until the burst has ended, then fade;
+                        // with no known tick the cold last frame holds.
+                        let age = u16::try_from(i)
+                            .ok()
+                            .and_then(|prop| env.drum_charge(prop))
+                            .and_then(|c| charges.get(c))
+                            .filter(|c| c.detonated)
+                            .and_then(|c| tick.checked_sub(c.detonate_tick))
+                            .map(|age| age.saturating_sub(burst_ticks()));
                         add(
                             Sheet::Scorch,
-                            SCORCH.frame_at(tick),
+                            age.map_or(SCORCH.last(), |a| SCORCH.frame_once(a)),
                             cell(Sheet::Scorch, t.x - 4, t.bottom()),
-                            Layer::Prop,
+                            Layer::Back,
                             255,
                         );
                     }
@@ -836,11 +871,12 @@ pub fn pieces(enc: &Encounter, env: &EnvRuntime, tick: u64) -> Vec<Piece> {
                 let state = env.drum_state(i);
                 match state {
                     Some(DrumState::Detonated) => {
-                        // The drum is gone: a flat scorch mark on the lane.
+                        // The drum is gone: a flat scorch mark on the lane (a floor
+                        // scar, under the blast like the sprite).
                         out.push(Piece {
                             rect: rect(t.x - 4, t.bottom() - 3, t.w + 8, 3),
                             tone: Tone::Scorch,
-                            layer: Layer::Prop,
+                            layer: Layer::Back,
                             label: "drum scorch (stand-in)",
                         });
                     }
