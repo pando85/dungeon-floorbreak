@@ -92,6 +92,85 @@ pub fn melee_foot_drop(frame: usize) -> f32 {
     }
 }
 
+/// Melee atlas frames of the damage reactions (ANIM-DONUT-02, manifest
+/// `melee.frames` 8 to 12): `h0` flinch, `h1` recoil, `kb` thrown, `d0` sploot
+/// impact and `d1` sploot sulk. The get-up frames (13, 14) are not used: no
+/// simulation state gets Donut up (the defeat ends the attempt and the retry
+/// restarts it), the same as Carl's get-up.
+const HURT_FLINCH_FRAME: usize = 8;
+const HURT_RECOIL_FRAME: usize = 9;
+const KNOCKBACK_FRAME: usize = 10;
+const KNOCKDOWN_IMPACT_FRAME: usize = 11;
+const KNOCKDOWN_SULK_FRAME: usize = 12;
+/// Manifest ticks of `h0` (0 to 4) and of `d0` (0 to 5).
+const HURT_FLINCH_TICKS: u32 = 5;
+const KNOCKDOWN_IMPACT_TICKS: u32 = 6;
+/// The knockback frame's lowest opaque row is this many pixels above the pivot
+/// row (row 41 against 43), like the pounce flight frame.
+const KNOCKBACK_LIFT_PX: f32 = 2.0;
+
+/// What Donut's damage-reaction frame depends on, from one finished tick (the
+/// same inputs as Carl's `CarlInput`).
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct HurtInput {
+    /// Ticks of the flinch left (counts down from `hurt_total`).
+    pub hurt_ticks: u8,
+    /// The flinch length of the blow (`PartyTuning::donut_hurt_ticks`).
+    pub hurt_total: u8,
+    /// Frozen in the hit-stop of a blow on her.
+    pub frozen: bool,
+    /// Donut is the defeated hero.
+    pub defeated: bool,
+    pub grounded: bool,
+    /// Ticks since she touched down after the defeat (0 on the first grounded
+    /// tick).
+    pub landed_age: Option<u32>,
+}
+
+/// Donut's damage-reaction frame in the melee atlas, or `None` when no
+/// reaction is drawn. Mirrors Carl's `carl_pose`:
+///
+/// * defeated: the hit-stop shows `h0`, then `kb` while she is in the air, then
+///   `d0` (6 ticks) and `d1` (held) from touchdown;
+/// * hurt: `h0` for the first 5 ticks of the flinch, then `h1`; the freeze of
+///   the blow holds `h0`.
+pub fn hurt_frame(input: &HurtInput) -> Option<usize> {
+    if input.defeated {
+        return Some(if input.frozen {
+            HURT_FLINCH_FRAME
+        } else if input.grounded {
+            if input.landed_age.unwrap_or(0) < KNOCKDOWN_IMPACT_TICKS {
+                KNOCKDOWN_IMPACT_FRAME
+            } else {
+                KNOCKDOWN_SULK_FRAME
+            }
+        } else {
+            KNOCKBACK_FRAME
+        });
+    }
+    if input.hurt_ticks > 0 {
+        let age = u32::from(input.hurt_total.saturating_sub(input.hurt_ticks));
+        return Some(if age < HURT_FLINCH_TICKS {
+            HURT_FLINCH_FRAME
+        } else {
+            HURT_RECOIL_FRAME
+        });
+    }
+    None
+}
+
+/// How far the drawn pivot drops below the body's foot for the
+/// knockback frame: it blends from the pivot rule at the launch (`blend` 0) to
+/// the lowest row on the body from the apex on (1), like Carl's knockdown, so the
+/// thrown frame never hovers and the sploot lands without a pop.
+pub fn knockback_foot_drop(frame: usize, blend: f32) -> f32 {
+    if frame == KNOCKBACK_FRAME {
+        KNOCKBACK_LIFT_PX * blend.clamp(0.0, 1.0)
+    } else {
+        0.0
+    }
+}
+
 /// Cast phase of a cast age: `cast_gather` 0-3, `cast_release` 4-9,
 /// `cast_follow` 10-15.
 pub fn cast_phase(age: u16) -> usize {
@@ -208,5 +287,121 @@ mod tests {
         assert_eq!(blink_crouch_frame(Some(6), 6), None);
         assert_eq!(blink_crouch_frame(None, 6), None);
         assert_eq!(blink_crouch_frame(Some(0), 0), None);
+    }
+
+    fn hurt(hurt_ticks: u8) -> HurtInput {
+        HurtInput {
+            hurt_ticks,
+            hurt_total: 18,
+            ..HurtInput::default()
+        }
+    }
+
+    #[test]
+    fn the_flinch_plays_h0_for_five_ticks_then_h1_and_ends_with_the_flinch() {
+        // `hurt_ticks` counts down from 18: age 0 is 18 left.
+        let frames: Vec<Option<usize>> = (0..=18u8)
+            .rev()
+            .map(|left| hurt_frame(&hurt(left)))
+            .collect();
+        assert_eq!(frames[0], Some(8), "age 0");
+        assert_eq!(frames[4], Some(8), "age 4, the last h0 tick");
+        assert_eq!(frames[5], Some(9), "age 5, the first h1 tick");
+        assert_eq!(frames[17], Some(9), "age 17, the last flinch tick");
+        assert_eq!(frames[18], None, "no flinch left: her locomotion");
+        // A longer hurt tuning keeps the same age table.
+        let long = HurtInput {
+            hurt_ticks: 20,
+            hurt_total: 20,
+            ..HurtInput::default()
+        };
+        assert_eq!(hurt_frame(&long), Some(8));
+    }
+
+    #[test]
+    fn the_defeat_shows_h0_frozen_then_thrown_then_d0_six_ticks_then_d1() {
+        let down = |frozen, grounded, landed_age| HurtInput {
+            hurt_ticks: 18,
+            hurt_total: 18,
+            frozen,
+            defeated: true,
+            grounded,
+            landed_age,
+        };
+        assert_eq!(hurt_frame(&down(true, false, None)), Some(8));
+        assert_eq!(hurt_frame(&down(false, false, None)), Some(10));
+        assert_eq!(hurt_frame(&down(false, true, Some(0))), Some(11));
+        assert_eq!(hurt_frame(&down(false, true, Some(5))), Some(11));
+        assert_eq!(hurt_frame(&down(false, true, Some(6))), Some(12));
+        assert_eq!(hurt_frame(&down(false, true, Some(500))), Some(12));
+        // Defeated with the flinch long over: still lying, not her locomotion.
+        let lying = HurtInput {
+            hurt_ticks: 0,
+            ..down(false, true, Some(40))
+        };
+        assert_eq!(hurt_frame(&lying), Some(12));
+    }
+
+    #[test]
+    fn nothing_is_drawn_when_she_is_not_hurt() {
+        assert_eq!(hurt_frame(&HurtInput::default()), None);
+        assert_eq!(hurt_frame(&hurt(0)), None);
+    }
+
+    #[test]
+    fn only_the_thrown_frame_drops_the_pivot_and_by_the_blend() {
+        assert_eq!(knockback_foot_drop(10, 0.0), 0.0);
+        assert_eq!(knockback_foot_drop(10, 0.5), 1.0);
+        assert_eq!(knockback_foot_drop(10, 1.0), 2.0);
+        assert_eq!(knockback_foot_drop(10, 3.0), 2.0);
+        for frame in [8, 9, 11, 12, 5] {
+            assert_eq!(knockback_foot_drop(frame, 1.0), 0.0, "frame {frame}");
+        }
+    }
+
+    /// The frame table is the manifest's: indices, tags, tick windows and the
+    /// airborne tag of the thrown frame.
+    #[test]
+    fn the_reaction_frames_match_the_melee_manifest() {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("assets/manifests/donut_h40_melee.json");
+        let json: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+        let melee = &json["melee"];
+        let frame = |index: usize| &melee["frames"][index];
+        for (index, name, tag, ticks) in [
+            (HURT_FLINCH_FRAME, "h0 flinch", "hurt", Some(5)),
+            (HURT_RECOIL_FRAME, "h1 recoil", "hurt", Some(11)),
+            (KNOCKBACK_FRAME, "kb thrown", "knockback", None),
+            (
+                KNOCKDOWN_IMPACT_FRAME,
+                "d0 sploot impact",
+                "knockdown",
+                Some(6),
+            ),
+            (
+                KNOCKDOWN_SULK_FRAME,
+                "d1 sploot sulk",
+                "knockdown",
+                Some(30),
+            ),
+        ] {
+            assert_eq!(frame(index)["index"], index, "{name}");
+            assert_eq!(frame(index)["name"], name);
+            assert_eq!(frame(index)["tag"], tag);
+            assert_eq!(frame(index)["ticks"].as_u64(), ticks, "{name}");
+        }
+        assert_eq!(u64::from(HURT_FLINCH_TICKS), 5);
+        assert_eq!(u64::from(KNOCKDOWN_IMPACT_TICKS), 6);
+        let airborne: Vec<&str> = melee["airborne_tags"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|t| t.as_str())
+            .collect();
+        assert!(airborne.contains(&"knockback"));
+        assert_eq!(melee["moves"]["hurt"]["total_ticks"], 16);
+        assert_eq!(melee["moves"]["knockdown"]["total_ticks"], 36);
+        assert_eq!(MELEE_FRAMES, 15);
     }
 }

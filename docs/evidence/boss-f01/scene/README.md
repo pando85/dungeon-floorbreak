@@ -1,5 +1,7 @@
 # Boss Floor 01: real scene captures (HUD-DEBT-03, art integration)
 
+> **Predates FA-Q38 (i-frame cue) and Donut's hurt frames.** Captured before both heroes flicker during their post-hit invulnerability and before Donut's ANIM-DONUT-02 hurt, knockback and knockdown frames were wired (PR #259; see [f01-donut-hurt](../../f01-donut-hurt/README.md)). Affected here: `gif_full_clear_solo_640x360.gif` (Donut is hurt many times in it). Kept as captured, not regenerated; a regeneration would show the cue.
+
 Real Bevy captures of THE JUICER with the production art bound (`src/boss_art.rs`), through `scripts/ci_floor01_render_smoke.sh boss` (1280x720, the 640x360 view at scale 2) and `boss-deck` (1280x800, the 640x400 Deck view). Each file is `boss-<state>-<view>.png`; every state is a frozen capture of a committed boss fixture replay (`../headless_<fixture>.txt`), and the rendered simulation state equals the headless one.
 
 | State | Fixture and tick |

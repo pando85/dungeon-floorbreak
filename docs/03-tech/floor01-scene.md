@@ -781,7 +781,7 @@ Bevy-free and deterministic at the fixed tick. Every number is a `PartyTuning` k
 - **The bot (Q9).** `follower::follower_input`: it stays 32 to 48 px from the leader on the side it stands on, jumps a step or ledge its own jump reaches (about 88 px), waits at taller walls, jumps on a goblin tell within 40 px while the swing is still 6 or more ticks from active, never attacks, and is placed just outside the view behind the leader after 120 ticks off-screen. There is no authored gate, gap or ledge in the sample layout, so "waits at gaps it cannot cross" is only unit-tested on a synthetic wall.
 - **Camera (Q7).** Solo: the controlled hero with the usual lead and deadzone; a swap raises the speed cap from 4 to 8 px per tick until the pan has caught up. Two players: the midpoint with no look-ahead **and no deadzone** (`ScrollCamera::step_capped_deadzone`, S3: the +-40 px deadzone let the centre lag the midpoint and left the leader at the wall only about 56 px from the frame edge, the test now pins the 96 px margin within one pixel); the separation wall stops a hero whose move would take it past `view_w - 2 x 96 = 448` px from the other (a hero already beyond may only move closer; a second player who joins while the bot is already beyond the limit places Donut beside Carl on the first 2P tick, on the same free-spot rule as the bot regroup, S4). No zoom. The edge arrow from 384 px is a knob only and is **not drawn**.
 - **Hashes.** A live party mixes Donut's body, the camera boost, the bot's off-screen counters, the controlled hero, the two-player flag, her hit state (flinch, hit-stop, drift), the defeated hero and every goblin's target behind marker words, only when the party is live, so no legacy hash can change (B1: `the_party_hash_covers_targets_donut_hit_state_and_the_defeated_hero` proves a target, hit-state or defeated-hero change alters the party hash and not the legacy one). The party fixtures add the swap timers.
-- **Presentation.** Donut's drawn animation follows her own motion (not Carl's) when live. She has no hurt art: her sprite flashes for the first 3 ticks of a flinch and blinks through her invulnerability (presentation only). The HUD flashes Donut's plate from real `HeroHurt` events.
+- **Presentation.** Donut's drawn animation follows her own motion (not Carl's) when live. Her hurt, knockback and knockdown frames (ANIM-DONUT-02 melee frames 8 to 12) are drawn from the sim's reaction state, like Carl's (`donut_art::hurt_frame`, stepped in `CombatAnimators`; presentation only, [evidence](../evidence/f01-donut-hurt/README.md)). Both heroes share the FA-Q38 i-frame cue (`actor_sprite::invulnerability_alpha`): alpha 1.0 and 0.5 alternating every 4 ticks of the sim's post-hit invulnerability, drawn over the real frame, no white tint, none while a hero is downed. Her getup frames stay unwired (no sim state gets a hero up). The HUD flashes Donut's plate from real `HeroHurt` events.
 
 **Party fixtures** (`party_scene`, run with `--party-fixture NAME` headless or with `--capture-tick N`; goldens in `party_scene::tests::GOLDENS`, replays in [docs/evidence/party-2p](../evidence/party-2p/README.md), diffed by `scripts/ci_floor01_combat.sh headless`, captured by the `hud` render recipe):
 
@@ -795,6 +795,15 @@ Bevy-free and deterministic at the fixed tick. Every number is a `PartyTuning` k
 | `solo_guard_floors_at_one` | solo | A bot that does not dodge is hit repeatedly and floors at 1 HP; the unguarded run is a defeat |
 | `solo_follower_dodge` | solo | The bot jumps over each swing aimed at her |
 
+
+### Adopted presentation defaults (hero hit reactions)
+
+Adopted by the orchestrator under the owner's design-defaults directive; the owner may change any value in a follow-up PR (presentation only: no value feeds the simulation).
+
+| ID | Question | Choice | Where |
+| --- | --- | --- | --- |
+| FA-Q38 | What tells the player a hero cannot be hurt? | **I-frame cue:** both heroes flicker, drawn over their real frames, alpha 1.0 and 0.5 alternating every 4 ticks (dim while `invulnerable_ticks / 4` is even) during the sim's post-hit invulnerability. No white tint. No cue for a hero who is downed (the defeat freeze and the downed hold); the other hero keeps flickering. | `actor_sprite::INVULNERABILITY_FLICKER_TICKS`, `INVULNERABILITY_DIM_ALPHA`, `invulnerability_alpha`; `hero_cue` in `floor01_scene` |
+| FA-Q38-AD1 | Does Donut's hurt use a flash? | No: her ANIM-DONUT-02 frames 8 to 12 replace the old white flash and blink (the flash is gone for both heroes). | `donut_art::hurt_frame` |
 
 ## Boss encounter (HUD-DEBT-03)
 

@@ -62,6 +62,7 @@ use crate::actor_sprite::{ActorSpec, CARL_SHADOW_FOOTPRINT, DONUT_SHADOW_FOOTPRI
 use crate::combat::{ENEMY_HALF_HEIGHT, MoveId};
 use crate::combat_scene::CombatState;
 use crate::corridor::SceneSim;
+use crate::donut_art;
 use crate::feel::LLAMA_TELL_TICKS;
 use crate::feel::{
     ATTACK_TICKS, DOWNED_TICKS, HERO_HURT_TICKS, HERO_KNOCKDOWN_VY, IMPACT_END, KNOCK_GRAVITY,
@@ -1498,6 +1499,10 @@ pub struct CombatAnimators {
     carl_input: CarlInput,
     /// Carl's hit-stop counter at the end of the previous tick.
     prev_hero_stop: u8,
+    /// Donut's damage-reaction input (idle outside a live party) and her
+    /// hit-stop counter at the end of the previous tick.
+    donut_hurt: donut_art::HurtInput,
+    prev_donut_stop: u8,
     tracks: Vec<GoblinTrack>,
     /// The Bad Llama atlas and per-llama tracks (a fixture with llamas only).
     llama: Option<SpriteClips>,
@@ -1526,6 +1531,8 @@ impl CombatAnimators {
             goblins,
             carl_input: CarlInput::default(),
             prev_hero_stop: 0,
+            donut_hurt: donut_art::HurtInput::default(),
+            prev_donut_stop: 0,
             tracks: Vec::new(),
             llama: None,
             llama_tracks: Vec::new(),
@@ -1689,6 +1696,8 @@ impl CombatAnimators {
         self.carl_input = CarlInput::default();
         self.throw_pose = None;
         self.prev_hero_stop = 0;
+        self.donut_hurt = donut_art::HurtInput::default();
+        self.prev_donut_stop = 0;
         self.tracks = combat
             .enemies
             .iter()
@@ -1765,6 +1774,28 @@ impl CombatAnimators {
             landed_age,
         };
         self.prev_hero_stop = combat.hero_hit_stop;
+        // Donut's reaction frames (a live party only: otherwise she is never hurt).
+        if scene.party_live() {
+            let donut = &scene.world.donut_body;
+            let defeated = combat.donut_defeated();
+            let landed_age = if defeated && donut.grounded {
+                Some(self.donut_hurt.landed_age.map_or(0, |a| a + 1))
+            } else {
+                None
+            };
+            self.donut_hurt = donut_art::HurtInput {
+                hurt_ticks: combat.donut.hurt_ticks,
+                hurt_total: scene.drive().tuning.donut_hurt_ticks,
+                frozen: combat.donut.hit_stop > 0 || self.prev_donut_stop > 0,
+                defeated,
+                grounded: donut.grounded,
+                landed_age,
+            };
+            self.prev_donut_stop = combat.donut.hit_stop;
+        } else {
+            self.donut_hurt = donut_art::HurtInput::default();
+            self.prev_donut_stop = 0;
+        }
         let carl_pose = carl_pose(&self.carl, &self.carl_input);
         let carl_foot_y = hero.y - HERO_HALF_HEIGHT;
         let tick = scene.world.tick;
@@ -1879,6 +1910,12 @@ impl CombatAnimators {
             let away = if goblin.x >= hero.x { 1 } else { -1 };
             self.tracks[index].stack_dx = nudge.round() as i32 * away;
         }
+    }
+
+    /// Donut's damage-reaction frame in the melee atlas (hurt, thrown, knocked
+    /// down), or `None` while no reaction is drawn.
+    pub fn donut_hurt_frame(&self) -> Option<usize> {
+        donut_art::hurt_frame(&self.donut_hurt)
     }
 
     pub fn carl_input(&self) -> &CarlInput {

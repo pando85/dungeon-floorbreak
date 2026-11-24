@@ -3311,6 +3311,17 @@ impl CombatState {
         self.hero_defeated && self.defeated_hero == HeroId::Carl
     }
 
+    /// `id` is the defeated hero (the freeze and the downed hold): the i-frame
+    /// cue is off for that hero only.
+    pub fn hero_downed(&self, id: HeroId) -> bool {
+        self.hero_defeated && self.defeated_hero == id
+    }
+
+    /// Donut is the defeated hero (her knockdown art plays).
+    pub fn donut_defeated(&self) -> bool {
+        self.hero_defeated && self.defeated_hero == HeroId::Donut
+    }
+
     /// One tick of a move's forward step: stopped by walls, the layout edge and
     /// body contact (centre distance under `BODY_CONTACT` with an alive goblin
     /// the step would approach).

@@ -38,7 +38,8 @@ use bevy::{
 };
 use dungeon_floorbreak::{
     actor_sprite::{
-        ActorAssets, ActorSpec, FrameSource, actor_center, load_carl, load_donut, shadow_center_x,
+        ActorAssets, ActorSpec, FrameSource, actor_center, invulnerability_alpha, load_carl,
+        load_donut, shadow_center_x,
     },
     anim::{Animator, Tag},
     audience::{AnticipationCue, AnticipationTrigger, ChainFeat},
@@ -88,10 +89,7 @@ use dungeon_floorbreak::{
         EnvKit, IRect, PieceDraw, animation_frame, parallax_copies, parallax_start, to_world_y,
     },
     f01_boiler, f01_hazards, f01_hoarder, f01_late, f01_mastery,
-    feel::{
-        HERO_HURT_TICKS, IMPACT_FLASH_TICKS, LLAMA_GLOB_MOUTH_DX, LLAMA_GLOB_MOUTH_DY,
-        LLAMA_GLOB_SPEED,
-    },
+    feel::{LLAMA_GLOB_MOUTH_DX, LLAMA_GLOB_MOUTH_DY, LLAMA_GLOB_SPEED},
     goblin::{AttackPhase, GoblinMode},
     gore::{DEATH_VARIANTS, DeathArt, GorePreset, LLAMA_VARIANT, Sheet},
     hud::{EventCursor, GlyphSet, HudConfig, HudLayout, HudPreview, HudRuntime, SpecialPhase},
@@ -5727,22 +5725,14 @@ fn presentation_tick(
     }
 }
 
-/// Donut's hit reaction as a tint (presentation only, live party only): the
-/// impact flash for the first ticks of her flinch, then a blink through her
-/// invulnerability. She has no hurt art yet; Carl has his own.
-fn donut_tint(sim: &SceneSim, combat: Option<&CombatState>) -> Color {
-    let Some(combat) = combat.filter(|_| sim.party_live()) else {
-        return Color::WHITE;
-    };
-    let hurt = combat.hurt_ticks_of(HeroId::Donut);
-    let invulnerable = sim.world.donut_body.invulnerable_ticks;
-    if hurt > HERO_HURT_TICKS.saturating_sub(IMPACT_FLASH_TICKS) {
-        FLASH_TINT
-    } else if invulnerable > 0 && (invulnerable / 4).is_multiple_of(2) {
-        Color::srgba(1.0, 1.0, 1.0, 0.5)
-    } else {
-        Color::WHITE
-    }
+/// FA-Q38 (i-frame cue): the colour a hero's sprite is drawn with, for both heroes
+/// and every sprite that shows them (locomotion, melee, cast, throw, acting): white,
+/// dimmed to alpha 0.5 on alternate 4 tick phases of the simulation's post-hit
+/// invulnerability, and never while that hero is downed (the other hero keeps flickering). No tint. Presentation only.
+fn hero_cue(sim: &SceneSim, combat: Option<&CombatState>, hero: HeroId) -> Color {
+    let downed = combat.is_some_and(|c| c.hero_downed(hero));
+    let ticks = sim.world.body(hero).invulnerable_ticks;
+    Color::srgba(1.0, 1.0, 1.0, invulnerability_alpha(ticks, downed))
 }
 
 #[allow(clippy::type_complexity, clippy::too_many_arguments)]
@@ -5850,9 +5840,16 @@ fn sync_visuals(
         if let Some(atlas) = sprite.texture_atlas.as_mut() {
             atlas.index = pose.frame;
         }
-        if !actor.is_hero {
-            sprite.color = donut_tint(state, combat.0.as_ref());
-        }
+        sprite.color = if reference.0.is_some() {
+            Color::WHITE
+        } else {
+            let id = if actor.is_hero {
+                HeroId::Carl
+            } else {
+                HeroId::Donut
+            };
+            hero_cue(state, combat.0.as_ref(), id)
+        };
     }
 
     let hero = &state.world.hero;
@@ -5989,6 +5986,7 @@ fn sync_combat_visuals(
                 transform.translation.x = cx;
                 transform.translation.y = cy;
                 sprite.flip_x = flip;
+                sprite.color = hero_cue(&sim.0, Some(state), HeroId::Carl);
                 if let Some(atlas) = sprite.texture_atlas.as_mut() {
                     atlas.index = pose.frame;
                 }
@@ -6252,12 +6250,22 @@ fn sync_donut_visuals(
     let flip = donut.facing < 0;
     let spec = actors.donut.spec;
     let locomotion_frame = anim.0.donut.atlas_index();
-    let tint = donut_tint(sim, Some(state));
 
-    let melee_frame = state
-        .donut_move_view()
-        .filter(|_| party)
-        .map(|view| donut_art::melee_frame(&view))
+    // Her damage reaction (hurt, thrown, knocked down) wins over everything: a hit
+    // ends her move and the reaction frames are the melee atlas's own.
+    let hurt_frame = anim
+        .0
+        .art
+        .as_ref()
+        .and_then(|art| art.donut_hurt_frame())
+        .filter(|_| party);
+    let melee_frame = hurt_frame
+        .or_else(|| {
+            state
+                .donut_move_view()
+                .filter(|_| party)
+                .map(|view| donut_art::melee_frame(&view))
+        })
         // DP-Q34: the blink's windup crouches on the pounce crouch frame.
         .or_else(|| {
             donut_art::blink_crouch_frame(
@@ -6281,12 +6289,16 @@ fn sync_donut_visuals(
             *visibility = Visibility::Hidden;
             continue;
         };
-        let foot = donut.foot_y - donut_art::melee_foot_drop(frame);
+        // The thrown frame settles onto the body by the apex, like Carl's knockdown.
+        let blend = dungeon_floorbreak::combat_anim::knockdown_blend(sim.world.donut_body.vy);
+        let foot = donut.foot_y
+            - donut_art::melee_foot_drop(frame)
+            - donut_art::knockback_foot_drop(frame, blend);
         let (cx, cy) = actor_center(spec, donut.x, foot, flip);
         transform.translation.x = cx;
         transform.translation.y = cy;
         sprite.flip_x = flip;
-        sprite.color = tint;
+        sprite.color = hero_cue(sim, Some(state), HeroId::Donut);
         if let Some(atlas) = sprite.texture_atlas.as_mut() {
             atlas.index = frame;
         }
@@ -6302,7 +6314,7 @@ fn sync_donut_visuals(
         transform.translation.x = cx;
         transform.translation.y = cy;
         sprite.flip_x = flip;
-        sprite.color = tint;
+        sprite.color = hero_cue(sim, Some(state), HeroId::Donut);
         if let Some(atlas) = sprite.texture_atlas.as_mut() {
             atlas.index = frame;
         }
@@ -6819,6 +6831,7 @@ fn sync_blast_ring(
 #[allow(clippy::type_complexity)]
 fn sync_carl_throw_visual(
     sim: Res<Sim>,
+    combat: Res<Combat>,
     anim: Res<Anim>,
     mut throw: Query<
         (&mut Transform, &mut Sprite, &mut Visibility),
@@ -6842,6 +6855,7 @@ fn sync_carl_throw_visual(
                 transform.translation.x = cx;
                 transform.translation.y = cy;
                 sprite.flip_x = flip;
+                sprite.color = hero_cue(&sim.0, combat.0.as_ref(), HeroId::Carl);
                 if let Some(atlas) = sprite.texture_atlas.as_mut() {
                     atlas.index = pose.frame;
                 }
@@ -7086,6 +7100,7 @@ fn sync_cf02_acting_visuals(
                 transform.translation.x = cx;
                 transform.translation.y = cy;
                 sprite.flip_x = flip;
+                sprite.color = hero_cue(&sim.0, Some(state), HeroId::Carl);
                 if let Some(atlas) = sprite.texture_atlas.as_mut() {
                     atlas.index = pose.frame;
                 }
@@ -7106,7 +7121,7 @@ fn sync_cf02_acting_visuals(
                 transform.translation.x = cx;
                 transform.translation.y = cy;
                 sprite.flip_x = flip;
-                sprite.color = donut_tint(&sim.0, Some(state));
+                sprite.color = hero_cue(&sim.0, Some(state), HeroId::Donut);
                 if let Some(atlas) = sprite.texture_atlas.as_mut() {
                     atlas.index = pose.frame;
                 }
