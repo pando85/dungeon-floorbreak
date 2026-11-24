@@ -1,0 +1,78 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "f01-dfx-gate",
+  "title": "F01 danger FX room 5 entrance gate (closed, raised)",
+  "grid": "assets/source/props/floor01/dfx_gate.grid.json",
+  "manifest": "assets/manifests/f01-dfx-gate.json",
+  "frame_size": [
+    28,
+    224
+  ],
+  "pivot": [
+    0,
+    223
+  ],
+  "contact_row": null,
+  "tick_hz": 60,
+  "hold_ms": 100,
+  "facing": "left",
+  "tags": {
+    "gate_closed": {
+      "playback": "hold",
+      "contact": "free",
+      "frames": [
+        [
+          0,
+          null
+        ]
+      ]
+    },
+    "gate_raised": {
+      "playback": "hold",
+      "contact": "free",
+      "frames": [
+        [
+          1,
+          null
+        ]
+      ]
+    }
+  },
+  "rules": {
+    "max_colors": 63,
+    "max_isolated_per_frame": 0,
+    "max_orphans_per_frame": 37,
+    "unique_frames": true,
+    "frozen_keys": {
+      "fixture": "tests/fixtures/f01-dfx-gate_keys.json",
+      "frames": [
+        0
+      ],
+      "layers": [
+        "body"
+      ]
+    }
+  },
+  "scene": {
+    "shadow": false,
+    "actors": [
+      {
+        "frame": 0,
+        "x": 560,
+        "lift": 0
+      },
+      {
+        "frame": 1,
+        "x": 640,
+        "lift": 0
+      }
+    ]
+  },
+  "review": {
+    "strip_name": "03_state_strip.png",
+    "strip_tags": [
+      "gate_closed",
+      "gate_raised"
+    ]
+  }
+}

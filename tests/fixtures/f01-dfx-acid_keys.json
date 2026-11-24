@@ -1,0 +1,12 @@
+{
+  "asset_id": "f01-dfx-acid",
+  "format": "pixelart-keys-v1",
+  "keys": {
+    "0": {
+      "sha256": "6eae3b15444d26caa6d7b3f7c4ad785dcdf6ea7ded47fdf83bed92bb180e9c44"
+    }
+  },
+  "layers": [
+    "body"
+  ]
+}

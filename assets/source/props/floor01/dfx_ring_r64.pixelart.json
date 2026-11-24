@@ -1,0 +1,86 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "f01-dfx-ring-r64",
+  "title": "F01 danger FX blast reach ring, 64 px (march, hot)",
+  "grid": "assets/source/props/floor01/dfx_ring_r64.grid.json",
+  "manifest": "assets/manifests/f01-dfx-ring-r64.json",
+  "frame_size": [
+    135,
+    135
+  ],
+  "pivot": [
+    67,
+    67
+  ],
+  "contact_row": null,
+  "tick_hz": 60,
+  "hold_ms": 100,
+  "facing": "left",
+  "tags": {
+    "ring_march": {
+      "playback": "loop",
+      "contact": "free",
+      "frames": [
+        [
+          0,
+          4
+        ],
+        [
+          1,
+          4
+        ]
+      ]
+    },
+    "ring_hot": {
+      "playback": "loop",
+      "contact": "free",
+      "frames": [
+        [
+          2,
+          2
+        ],
+        [
+          3,
+          2
+        ]
+      ]
+    }
+  },
+  "rules": {
+    "max_colors": 63,
+    "max_isolated_per_frame": 0,
+    "max_orphans_per_frame": 3,
+    "unique_frames": true,
+    "frozen_keys": {
+      "fixture": "tests/fixtures/f01-dfx-ring-r64_keys.json",
+      "frames": [
+        0
+      ],
+      "layers": [
+        "body"
+      ]
+    }
+  },
+  "scene": {
+    "shadow": false,
+    "actors": [
+      {
+        "frame": 0,
+        "x": 560,
+        "lift": 56
+      },
+      {
+        "frame": 2,
+        "x": 720,
+        "lift": 56
+      }
+    ]
+  },
+  "review": {
+    "strip_name": "03_state_strip.png",
+    "strip_tags": [
+      "ring_march",
+      "ring_hot"
+    ]
+  }
+}

@@ -42,6 +42,7 @@ pub mod companion_fixtures;
 pub mod corral_eval;
 pub mod corral_fixtures;
 pub mod corridor;
+pub mod danger_fx_art;
 pub mod death;
 pub mod death_present;
 pub mod demo;

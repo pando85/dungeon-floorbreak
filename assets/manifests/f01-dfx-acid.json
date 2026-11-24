@@ -1,0 +1,193 @@
+{
+  "schema_version": 1,
+  "id": "f01_dfx_acid_candidate_v0",
+  "type": "prop_animation",
+  "source_path": "assets/source/props/floor01/dfx_acid.ase",
+  "grid_source": "assets/source/props/floor01/dfx_acid.grid.json",
+  "output_atlas": "generated/art/f01-dfx-acid.png",
+  "output_metadata": "generated/art/f01-dfx-acid.json",
+  "palette_id": "slime-floor01-v1",
+  "frame_size": [
+    80,
+    10
+  ],
+  "pivot": [
+    0,
+    9
+  ],
+  "animation_tags": [
+    "acid_idle",
+    "acid_drain"
+  ],
+  "required_alpha": true,
+  "owner": "AI-authored Floor 1 danger FX (fan-concept layer; runtime ids IP-neutral dfx_*)",
+  "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+  "provenance": {
+    "origin": "F01 danger FX acid pool strip (idle, draining), drawn from explicit primitives in named palette entries by scripts/author_danger_fx.py",
+    "generator": "designed and executed by Claude Opus (spec, keys, frames); independent art-director review by a separate Claude Opus agent. No concept pixels copied, no image-model raster output, no tracing, no resampling; palette: the SLIME-01 gel ramp only (adopted default DFX-AD1)",
+    "generated_art": true,
+    "input_reference_ids": [
+      "docs/02-art/floor01-danger-fx-spec.md",
+      "assets/source/terrain/floor01/floor01_catacomb_kit.json",
+      "assets/source/characters/slime/slime_01.grid.json"
+    ]
+  },
+  "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
+  "review_status": "prototype_fixture_unapproved",
+  "prop_kit": {
+    "status": "6 frames drawn; independent top-tier review passed, owner art and game-feel review pending; drawn by presentation-only wiring in src/danger_fx_art.rs",
+    "spec": "docs/02-art/floor01-danger-fx-spec.md",
+    "tick_hz": 60,
+    "hold_preview_ms": 100,
+    "playback": {
+      "acid_idle": "loop",
+      "acid_drain": "loop"
+    },
+    "frames": [
+      {
+        "index": 0,
+        "name": "acid_idle_0",
+        "tag": "acid_idle",
+        "ticks": 8,
+        "duration_ms": 133,
+        "pivot": [
+          0,
+          9
+        ],
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "w": 80,
+          "h": 10
+        },
+        "content": [
+          0,
+          1,
+          79,
+          9
+        ],
+        "sha256": "6eae3b15444d26caa6d7b3f7c4ad785dcdf6ea7ded47fdf83bed92bb180e9c44"
+      },
+      {
+        "index": 1,
+        "name": "acid_idle_1",
+        "tag": "acid_idle",
+        "ticks": 8,
+        "duration_ms": 133,
+        "pivot": [
+          0,
+          9
+        ],
+        "rect": {
+          "x": 80,
+          "y": 0,
+          "w": 80,
+          "h": 10
+        },
+        "content": [
+          0,
+          1,
+          79,
+          9
+        ],
+        "sha256": "79488e80c5f06ae209afc1ddc0948f887e173e1a96c4dc243179c91a6c5d98ee"
+      },
+      {
+        "index": 2,
+        "name": "acid_idle_2",
+        "tag": "acid_idle",
+        "ticks": 8,
+        "duration_ms": 133,
+        "pivot": [
+          0,
+          9
+        ],
+        "rect": {
+          "x": 160,
+          "y": 0,
+          "w": 80,
+          "h": 10
+        },
+        "content": [
+          0,
+          1,
+          79,
+          9
+        ],
+        "sha256": "1a16b36c2ed9f86db1f2498cd488ea45ffb7aefbf42d3898472381884dcc0618"
+      },
+      {
+        "index": 3,
+        "name": "acid_idle_3",
+        "tag": "acid_idle",
+        "ticks": 8,
+        "duration_ms": 133,
+        "pivot": [
+          0,
+          9
+        ],
+        "rect": {
+          "x": 240,
+          "y": 0,
+          "w": 80,
+          "h": 10
+        },
+        "content": [
+          0,
+          1,
+          79,
+          9
+        ],
+        "sha256": "310d39735548cd2808465d419329d457b6f4ad0d824d831cef41a2554e3fbf8b"
+      },
+      {
+        "index": 4,
+        "name": "acid_drain_0",
+        "tag": "acid_drain",
+        "ticks": 6,
+        "duration_ms": 100,
+        "pivot": [
+          0,
+          9
+        ],
+        "rect": {
+          "x": 320,
+          "y": 0,
+          "w": 80,
+          "h": 10
+        },
+        "content": [
+          0,
+          0,
+          79,
+          9
+        ],
+        "sha256": "ba10c260a8cc6711fe7a174b6951e12de3121063b0806d934dc98fa41f1e599c"
+      },
+      {
+        "index": 5,
+        "name": "acid_drain_1",
+        "tag": "acid_drain",
+        "ticks": 6,
+        "duration_ms": 100,
+        "pivot": [
+          0,
+          9
+        ],
+        "rect": {
+          "x": 400,
+          "y": 0,
+          "w": 80,
+          "h": 10
+        },
+        "content": [
+          0,
+          0,
+          79,
+          9
+        ],
+        "sha256": "c5d28308b8b6d047eb3c13f9a76fdb03702b5638c7cae786da7d3f8730605f7b"
+      }
+    ]
+  }
+}

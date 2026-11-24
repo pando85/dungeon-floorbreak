@@ -1,6 +1,6 @@
 # Hazard room first look (NON-FINAL, a bonus of the EVID-ROOM stage)
 
-> **Predates FA-Q38 (i-frame cue) and Donut's hurt frames.** Captured before both heroes flicker during their post-hit invulnerability and before Donut's ANIM-DONUT-02 hurt, knockback and knockdown frames were wired (PR #259; see [f01-donut-hurt](../../f01-donut-hurt/README.md)). Affected here: `hazards-first-look.gif` (Carl is hurt in it). Kept as captured, not regenerated; a regeneration would show the cue.
+> **Regenerated with the F01 danger FX art (PR #263).** The GIF and the three stills were regenerated with `scripts/make_f01_hazards_first_look.sh` on the danger FX head, two passes byte-identical, `capture_lines.txt` unchanged (same state hash). They now show the acid pool, the Rot Sticker's 48 px reach ring and its 48 px blast wave ([danger FX evidence](../../f01-danger-fx/README.md)), plus everything merged since the first capture (the FA-Q38 i-frame flicker, Donut's ANIM-DONUT-02 hurt frames). The prose below describes the original first look.
 
 A first look at `--scene f01_late --f01-room hazards` (the HAZ-A2b room with the HAZ-B stand-in presentation) at gameplay
 scale (640 x 360), captured through the new room capture path (`scripts/room_capture.sh`, the `direct` room pilot). It is
@@ -17,8 +17,8 @@ bash scripts/make_f01_hazards_first_look.sh      # xvfb-run and Pillow
 | --- | --- |
 | `hazards-first-look.gif` | Ticks 0 to 414, 6 ticks (100 ms) per frame, game speed. The `direct` pilot walks into the room, is hurt twice (ticks 41 and 100), fights the goblin (jab hits 91 and 130, defeated 130), walks under the first Rot Sticker (provoked 210, blast 234, Carl left with one heart), provokes the second (284), is hurt again and defeated at tick 296, and is back at the entrance door after the respawn (tick about 345, visible at 360). |
 | `still-slime-goblin-tick048.png` | Slime and acid trail beside the entrance door, the goblin behind it, Carl's hearts down by one (hurt at tick 41). |
-| `still-sticker-ring-tick216.png` | A Rot Sticker on the ceiling with its dotted orange proximity ring and a slime on the floor. |
-| `still-sticker-blast-tick240.png` | The sticker's blast: an orange and red fireball with black smoke next to Carl and Donut. |
+| `still-sticker-ring-tick216.png` | A Rot Sticker on the ceiling with its 48 px hazard-tape reach ring (the danger FX art; the dotted stand-in ring before PR #263) and a slime on the floor. |
+| `still-sticker-blast-tick240.png` | The sticker's blast: an orange and red fireball with black smoke next to Carl and Donut, inside the 48 px blast wave (danger FX art). |
 | `capture_lines.txt` | The `ROOM_CAPTURE ... match=yes` line: the window run and the headless replay end on the same state hash, so the presentation is read-only. |
 
 What is visible (looked at by the author): the slimes read as green blobs with a green acid line on the floor; the stickers
