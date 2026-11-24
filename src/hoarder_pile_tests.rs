@@ -794,16 +794,21 @@ fn the_missile_switch_off_lets_a_bolt_pass_the_post() {
     );
     assert_eq!(progress(&off), 0);
     assert_eq!(mass(&off), MassState::Supported);
-    // In the scene: four bolts from the right leave the post untouched.
-    off.run(120, &|t| {
-        if t <= 3 {
+    // In the scene: four bolts from the right fly past the post and leave it untouched (with the
+    // old rule a bolt ended on the post, so none got past it).
+    let mut passed = false;
+    for _ in 0..120 {
+        let t = off.next_tick();
+        off.step(if t <= 3 {
             carl_input(run_input(-1.0))
         } else if t % 24 == 4 {
             carl_input(attack_input())
         } else {
             IDLE
-        }
-    });
+        });
+        passed |= off.combat.donut_bolts().iter().any(|b| b.x < 800.0);
+    }
+    assert!(passed, "a bolt flew past the post");
     assert_eq!(progress(&off), 0, "no missile counted");
     assert_eq!(mass(&off), MassState::Supported);
     // The switch on (the sidecar): the same bolt ends on the post.
