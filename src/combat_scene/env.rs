@@ -1946,6 +1946,9 @@ impl CombatState {
                     prop,
                     kind,
                     rect: world_rect(layout_h, rect),
+                    disturbed: env
+                        .slide(usize::from(prop))
+                        .is_some_and(|s| s.state() == SlideState::Disturbed),
                 })
                 .collect(),
         }

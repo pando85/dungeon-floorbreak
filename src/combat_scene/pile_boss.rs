@@ -275,12 +275,14 @@ impl SlotEnemy for PileBossEnemy {
                 &self.closed
             };
             let mut all: Vec<Obstacle> = obstacles.clone();
+            let mut bank_a_disturbed = false;
             for face in &ctx.env.faces {
                 let kind = match face.kind {
                     FaceKind::Bank if self.bank_a_removed => continue,
                     FaceKind::Bank => ObstacleKind::BankA,
                     FaceKind::Post => ObstacleKind::Post,
                 };
+                bank_a_disturbed |= kind == ObstacleKind::BankA && face.disturbed;
                 all.push(Obstacle {
                     kind,
                     rect: face.rect,
@@ -291,6 +293,7 @@ impl SlotEnemy for PileBossEnemy {
                 obstacles: &all,
                 solo: ctx.solo,
                 tick: ctx.tick,
+                bank_a_disturbed,
             };
             self.boss.step(&pctx)
         };
