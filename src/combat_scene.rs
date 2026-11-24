@@ -913,6 +913,9 @@ pub struct CombatState {
     /// from the room's roster. Run configuration, never hashed; empty in every
     /// run without a gated roster entry.
     wake_gates: Vec<Option<crate::goblin::WakeGate>>,
+    /// FA-Q34, FA-Q35: the room's partner knobs (the Boiler's launch sets them). Run
+    /// configuration, never hashed; both off everywhere else.
+    partner_knobs: crate::companion::view::PartnerKnobs,
     /// DEMO-01 PR B: the Bad Llamas (target ids follow the goblins') and the
     /// spit globs in flight.
     pub llamas: Vec<Llama>,
@@ -1101,6 +1104,7 @@ impl CombatState {
             fixture,
             enemies: Vec::new(),
             wake_gates: Vec::new(),
+            partner_knobs: Default::default(),
             llamas: Vec::new(),
             globs: Vec::new(),
             shore: None,
@@ -1207,6 +1211,13 @@ impl CombatState {
     /// (a scripted pilot may read it to vary its own timing, FA-Q17).
     pub fn cf02_seed(&self) -> Option<u64> {
         self.cf02_seed
+    }
+
+    /// FA-Q34, FA-Q35: the room's partner knobs.
+    #[must_use]
+    pub fn with_partner_knobs(mut self, knobs: crate::companion::view::PartnerKnobs) -> Self {
+        self.partner_knobs = knobs;
+        self
     }
 
     pub fn with_cf02_seed(mut self, seed: Option<u64>) -> Self {

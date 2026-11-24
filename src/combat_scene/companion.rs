@@ -27,7 +27,9 @@ use crate::companion::autonomy::{
 };
 use crate::companion::director::{Action, CompanionDirector, Decision, Mode};
 use crate::companion::engage::leader_engages;
-use crate::companion::events::{CompanionEvent, CompanionStats, EVENT_CAP, RegroupOutcome};
+use crate::companion::events::{
+    CompanionEvent, CompanionStats, EVENT_CAP, RegroupOutcome, ReserveRelease,
+};
 use crate::companion::nav::{NavConfig, Reason};
 use crate::companion::navfollow::{
     Body, NavDriver, NavNote, NavSpots, Regroup, RegroupView, arrive_eps_px, fence_step,
@@ -187,7 +189,30 @@ pub(crate) struct CompanionRuntime {
     /// `companion_inputs`; also read by the presentation camera (the partner is
     /// a bound-only subject, CA2-Q25).
     autonomous: [bool; 2],
+    /// FA-Q37 (Boiler only): the reserve of each enemy (by index): how long it has been
+    /// reserved in a row, the hits it landed meanwhile and whether it is released for the
+    /// attempt. Empty unless a release knob is on, so every other run is untouched; state of
+    /// the run while it has anything to say (hashed then). A restart clears it.
+    reserve: Vec<ReserveTrack>,
+    /// FA-Q37: how many events (counted since the run began, dropped ones included) the
+    /// reserve bookkeeping has read (`None` until its first tick of an attempt). Derived,
+    /// never hashed.
+    reserve_cursor: Option<usize>,
 }
+
+/// FA-Q37: one enemy's reserve bookkeeping.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+struct ReserveTrack {
+    /// Ticks reserved in a row.
+    run: u16,
+    /// Hits on any hero while reserved.
+    hits: u8,
+    /// Released for the rest of the attempt.
+    released: bool,
+}
+
+/// A marker word of a reserve track in the companion block ("RESV").
+const RESERVE_MARK: u64 = 0x5245_5356_0000_0001;
 
 impl Default for CompanionRuntime {
     fn default() -> Self {
@@ -211,6 +236,8 @@ impl Default for CompanionRuntime {
             nav_failed: false,
             autonomy: [AutonomyState::new(), AutonomyState::new()],
             autonomous: [false; 2],
+            reserve: Vec::new(),
+            reserve_cursor: None,
         }
     }
 }
@@ -263,6 +290,14 @@ impl CompanionRuntime {
                 for id in set {
                     id.hash_into(mix);
                 }
+            }
+        }
+        // FA-Q37: the reserve bookkeeping, only while it has something to say.
+        for (i, t) in self.reserve.iter().enumerate() {
+            if t.run > 0 || t.hits > 0 || t.released {
+                mix(RESERVE_MARK ^ i as u64);
+                mix(u64::from(t.run));
+                mix(u64::from(t.hits) | (u64::from(t.released) << 8));
             }
         }
         // 01B-wire: a committed nav transit is state of the run; with none live
@@ -662,8 +697,12 @@ impl CombatState {
         let owned = self.companion_regroup(scene);
         scene.set_nav_regroup(owned);
         let mut view = self.companion_view(scene, set_id);
+        // FA-Q37: a reserved enemy that hurt a hero or was reserved too long is released.
+        self.reserve_release(&mut view);
         // FA-Q26-AD1: whom Carl engages on this tick, by the canonical predicate.
         self.companion.engaged = engaged_set(set, &view);
+        // FA-Q34: a lethal hit on a reserved enemy (she answers its tell) is a glance.
+        self.companion.engaged.extend(view.reserved.iter().copied());
         // CA2-B2: the heroes the goal layer steers (never a hero of a set without
         // `autonomy.enabled`, so every other set runs the code below unchanged).
         let roles = [set.carl.autonomy_role, set.donut.autonomy_role];
@@ -779,7 +818,19 @@ impl CombatState {
                 raw.attack = false;
                 raw.physical = false;
             }
+            if decision.pressed
+                && reserve_withholds(&view.reserved, &view.threats, hero, decision.target)
+            {
+                // FA-Q34: the finish is the human leader's: no press (and no 0-damage
+                // glance, which would stun-lock the target on the 16-tick refire).
+                decision.pressed = false;
+                raw.attack = false;
+                raw.physical = false;
+                self.companion.stats.reserve_withheld += 1;
+            }
             let move_x = if decision.pressed { 0.0 } else { move_x };
+            // FA-Q36: she does not walk into the sight of a sleeper before the human.
+            let move_x = self.leash_move(scene, &view, hero, move_x);
             out[i] = RawInput {
                 move_x,
                 jump: raw.jump,
@@ -1371,6 +1422,8 @@ impl CombatState {
         .then(|| Self::flat_span(scene, HeroId::Donut))
         .flatten();
 
+        let mut targets = self.companion_targets(view, scene.world.tick + 1);
+        let (reserved, asleep) = self.partner_knob_lists(&heroes, &mut targets);
         CompanionView {
             tick: scene.world.tick + 1,
             solo: live && !drive.two_player,
@@ -1380,7 +1433,9 @@ impl CombatState {
             heroes,
             follow,
             threats: self.companion_threats(view),
-            targets: self.companion_targets(view, scene.world.tick + 1),
+            targets,
+            reserved,
+            asleep,
             boss,
             boss_view: profile
                 .fix_all
@@ -1388,6 +1443,150 @@ impl CombatState {
                 .then(|| self.companion_boss_view())
                 .flatten(),
             flank_span,
+        }
+    }
+
+    /// FA-Q34 and FA-Q35 (the room's partner knobs, both off elsewhere): the ids reserved
+    /// for the human leader's finish (living, at most one hit point, within the radius of
+    /// him) and the ids still asleep or counting their wake delay. The sleepers are taken
+    /// out of `targets`, so no goal or press can pick one; the reserved stay (an interrupt
+    /// may still answer a tell aimed at her). Both lists are empty with the knobs off, a
+    /// leader who is not a living human, or no enemy in the case.
+    fn partner_knob_lists(
+        &self,
+        heroes: &[HeroView; 2],
+        targets: &mut Vec<TargetView>,
+    ) -> (Vec<StableEntityId>, Vec<StableEntityId>) {
+        let knobs = self.partner_knobs;
+        let mut asleep = Vec::new();
+        if knobs.hold_fire_until_awake {
+            targets.retain(|t| {
+                let sleeping = t.id.kind == EntityKind::Goblin
+                    && self
+                        .enemies
+                        .get(t.id.index as usize)
+                        .is_some_and(|g| !g.woken());
+                if sleeping {
+                    asleep.push(t.id);
+                }
+                !sleeping
+            });
+        }
+        let mut reserved = Vec::new();
+        if let Some(radius) = knobs.finish_reserve_px
+            && let Some(leader) = heroes
+                .iter()
+                .find(|h| matches!(h.control, Control::Human(_)) && !h.defeated)
+        {
+            reserved = reserved_ids(targets, leader.x, radius);
+        }
+        (reserved, asleep)
+    }
+
+    /// FA-Q37: the reserve bookkeeping of this tick (see [`ReserveTrack`]). Reads the hurts
+    /// the combat log gained since the last tick, counts the ticks each candidate has been
+    /// reserved in a row, and releases an enemy that landed `release_on_hits` hits or was
+    /// reserved `release_after_ticks` ticks: it leaves `view.reserved` and stays out for the
+    /// attempt. Each release is a [`CompanionEvent::ReserveReleased`] and a stat. A no-op
+    /// without a release knob.
+    fn reserve_release(&mut self, view: &mut CompanionView) {
+        let (hits_cap, after) = (
+            self.partner_knobs.release_on_hits,
+            self.partner_knobs.release_after_ticks,
+        );
+        if hits_cap.is_none() && after.is_none() {
+            return;
+        }
+        let n = self.enemies.len();
+        self.companion.reserve.resize(n, ReserveTrack::default());
+        // The cursor counts events since the run began (the log drops its oldest entries at
+        // `EVENT_LOG_CAP`, so a position in the retained log would go stale): the events
+        // not yet read start at its distance from the first retained one.
+        let total = self.dropped_events + self.events.len();
+        let from = self
+            .companion
+            .reserve_cursor
+            .unwrap_or(total)
+            .saturating_sub(self.dropped_events)
+            .min(self.events.len());
+        let mut new_hits = vec![0u8; n];
+        for e in &self.events[from..] {
+            if let CombatEvent::HeroHurt { source, .. } = e
+                && let Some(h) = new_hits.get_mut(*source as usize)
+            {
+                *h = h.saturating_add(1);
+            }
+        }
+        self.companion.reserve_cursor = Some(total);
+        for (i, hits) in new_hits.into_iter().enumerate() {
+            let id = StableEntityId::goblin(i as u32);
+            let candidate = view.reserved.binary_search(&id).is_ok();
+            let track = &mut self.companion.reserve[i];
+            if track.released {
+                view.reserved.retain(|r| *r != id);
+                continue;
+            }
+            if !candidate {
+                track.run = 0;
+                track.hits = 0;
+                continue;
+            }
+            track.run = track.run.saturating_add(1);
+            track.hits = track.hits.saturating_add(hits);
+            let cause = if hits_cap.is_some_and(|h| track.hits >= h) {
+                Some(ReserveRelease::Hit)
+            } else if after.is_some_and(|a| track.run >= a) {
+                Some(ReserveRelease::Timeout)
+            } else {
+                None
+            };
+            if let Some(cause) = cause {
+                track.released = true;
+                view.reserved.retain(|r| *r != id);
+                match cause {
+                    ReserveRelease::Hit => self.companion.stats.reserve_released_hit += 1,
+                    ReserveRelease::Timeout => self.companion.stats.reserve_released_timeout += 1,
+                }
+                for hero in HeroId::ALL {
+                    if self.companion.driven[hero.index()] {
+                        self.companion.autonomy[hero.index()].clear_plan();
+                    }
+                }
+                self.companion.push_event(CompanionEvent::ReserveReleased {
+                    tick: view.tick,
+                    target: id,
+                    cause,
+                });
+            }
+        }
+    }
+
+    /// FA-Q36: `move_x` of the AI hero `hero`, or 0 when it would take her deeper into the
+    /// sight (plus the leash margin) of an enemy that has not been woken. Not clamped: while
+    /// the human leader is inside that sight, while she is hurt or an attack tell is aimed
+    /// at her, or when the step leads out of the zone. Without the knob it is `move_x`.
+    fn leash_move(&self, scene: &SceneSim, view: &CompanionView, hero: HeroId, move_x: f32) -> f32 {
+        let Some(margin) = self.partner_knobs.wake_leash_margin_px else {
+            return move_x;
+        };
+        if move_x == 0.0 {
+            return move_x;
+        }
+        let me = view.hero(hero);
+        if me.hurt_ticks > 0 || view.threats.iter().any(|t| t.aimed_at == Some(hero)) {
+            return move_x;
+        }
+        let sleepers: Vec<(f32, f32)> = self
+            .enemies
+            .iter()
+            .filter(|g| g.alive() && !g.woken())
+            .map(|g| (g.x, g.sight_px()))
+            .collect();
+        let next = me.x + move_x.signum() * self.run_px_per_tick(scene, hero);
+        if leash_blocks(me.x, next, view.hero(hero.other()).x, &sleepers, margin) {
+            0.0
+        } else {
+            move_x
         }
     }
 
@@ -1705,6 +1904,57 @@ impl CombatState {
     }
 }
 
+/// FA-Q36: whether the step of the AI hero from `x` to `next` is held back by the wake
+/// leash. `sleepers` are the `(x, sight)` of the enemies not yet woken. A sleeper holds her
+/// when the step ends inside its sight plus `margin` and nearer to it than where she stands
+/// (a step out of the zone, or along its edge away from it, is free), and the human leader
+/// at `leader_x` is not already inside its sight.
+pub(crate) fn leash_blocks(
+    x: f32,
+    next: f32,
+    leader_x: f32,
+    sleepers: &[(f32, f32)],
+    margin: f32,
+) -> bool {
+    sleepers.iter().any(|&(ex, sight)| {
+        (leader_x - ex).abs() >= sight
+            && (next - ex).abs() < sight + margin
+            && (next - ex).abs() < (x - ex).abs()
+    })
+}
+
+/// FA-Q34: the living enemies with at most one hit point left within `radius` px of the human
+/// leader at `leader_x`, in id order (`targets` is): his to finish.
+pub(crate) fn reserved_ids(
+    targets: &[TargetView],
+    leader_x: f32,
+    radius: f32,
+) -> Vec<StableEntityId> {
+    targets
+        .iter()
+        .filter(|t| t.hp > 0 && t.hp <= 1 && (t.x - leader_x).abs() <= radius)
+        .map(|t| t.id)
+        .collect()
+}
+
+/// FA-Q34: whether the AI's press of `hero` on `target` is withheld: the target is reserved
+/// for the human leader and no attack tell of it is aimed at `hero` (then the press may go
+/// and the lethal hit becomes a glance, because the reserved ids are in the engaged set).
+pub(crate) fn reserve_withholds(
+    reserved: &[StableEntityId],
+    threats: &[ThreatView],
+    hero: HeroId,
+    target: Option<StableEntityId>,
+) -> bool {
+    let Some(id) = target else {
+        return false;
+    };
+    reserved.binary_search(&id).is_ok()
+        && !threats
+            .iter()
+            .any(|t| t.id == id && t.aimed_at == Some(hero))
+}
+
 /// FA-Q16: whether the x interval `span` at her feet `foot_y` overlaps any of the
 /// prop target `rects` (her body band: from just under her feet to her height).
 pub(crate) fn path_crosses(rects: &[Rect], span: (f32, f32), foot_y: f32) -> bool {
@@ -1750,6 +2000,242 @@ mod tests {
     use crate::combat_scene::{FIXTURES, FixtureSim};
     use crate::env_kit::EnvKit;
     use std::path::PathBuf;
+
+    fn tgt(index: u32, x: f32, hp: u8) -> TargetView {
+        TargetView {
+            id: StableEntityId::goblin(index),
+            x,
+            foot_y: 0.0,
+            hp,
+            state: TargetState::Standing,
+            guarded: false,
+            in_view: true,
+            carl_hit: false,
+            carl_hit_age: None,
+        }
+    }
+
+    fn tell(index: u32, aimed_at: Option<HeroId>) -> ThreatView {
+        ThreatView {
+            id: StableEntityId::goblin(index),
+            x: 0.0,
+            foot_y: 0.0,
+            facing: 1,
+            tell_tick: 4,
+            tell_len: 24,
+            impact_tick: 26,
+            aimed_at,
+            guarded: false,
+            in_view: true,
+            swing_x: None,
+        }
+    }
+
+    /// FA-Q34: reserved means one hit point or less (and alive) within the radius of the
+    /// leader, at the radius itself and one pixel beyond it, on both sides of him.
+    #[test]
+    fn fa_q34_reserved_is_one_hp_within_the_radius_of_the_leader() {
+        let targets = [
+            tgt(0, 400.0 + 160.0, 1), // at the radius, 1 hp: reserved
+            tgt(1, 400.0 + 161.0, 1), // one px beyond: not
+            tgt(2, 400.0 - 160.0, 1), // the other side, at the radius: reserved
+            tgt(3, 400.0 - 161.0, 1), // the other side, beyond: not
+            tgt(4, 450.0, 2),         // near, but 2 hp: not
+            tgt(5, 450.0, 0),         // near, but dead: not
+        ];
+        let ids = reserved_ids(&targets, 400.0, 160.0);
+        assert_eq!(ids, [StableEntityId::goblin(0), StableEntityId::goblin(2)]);
+        // Beyond the radius the enemy is not reserved: she may kill it (owner 0.1(1)).
+        assert!(reserved_ids(&targets, 1000.0, 160.0).is_empty());
+    }
+
+    /// FA-Q37 (re-review of #257): the reserve's hit counting survives the combat log dropping
+    /// its oldest events. The log is overflowed before the first tick (it stays at its cap, so
+    /// a cursor kept as a position in it would never see another event); a goblin with one hit
+    /// point then reaches the idle human, hurts him, and is released by that hit (not by the
+    /// 150 tick timeout).
+    #[test]
+    fn fa_q37_the_hit_release_survives_the_event_log_overflowing() {
+        use crate::boiler_fixtures::scene_pilots::{Who, live_start_with};
+        use crate::combat::EnemyAi;
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let (mut sim, _) =
+            live_start_with(&root, Who::Companion, 0, crate::f01_boiler::fixes::active()).unwrap();
+        for i in 0..(2 * crate::combat_scene::EVENT_LOG_CAP) {
+            sim.combat.push_event(CombatEvent::GoblinTell {
+                tick: i as u64,
+                goblin: 3,
+            });
+        }
+        assert_eq!(sim.combat.events.len(), crate::combat_scene::EVENT_LOG_CAP);
+        let carl_x = sim.scene.world.hero.x;
+        {
+            let g = &mut sim.combat.enemies[0];
+            g.x = carl_x + 60.0;
+            g.health = 1;
+            g.ai = EnemyAi::Chase;
+        }
+        for _ in 0..140 {
+            sim.step_slots([RawInput::NONE; 2]);
+        }
+        let stats = sim.combat.companion_stats();
+        assert!(
+            sim.combat.dropped_events > 0,
+            "the log really dropped events"
+        );
+        assert!(
+            stats.reserve_released_hit >= 1,
+            "released by the hit on the full log: {stats:?}"
+        );
+        assert_eq!(stats.reserve_released_timeout, 0, "{stats:?}");
+    }
+
+    /// FA-Q36: the leash holds her at the sight (220) plus the margin (4) of a sleeper: a step
+    /// that ends at 224 px or more is free, one that ends at 223 is held, a step out of the
+    /// zone is free, and so is anything while the human leader is already inside the sight.
+    #[test]
+    fn fa_q36_the_leash_holds_her_at_the_sight_plus_the_margin() {
+        let sleepers = [(500.0, 220.0)];
+        // Standing at 270 (230 px away), a step of 6 px lands at 276 (224 px away): free.
+        assert!(!leash_blocks(270.0, 276.0, 100.0, &sleepers, 4.0));
+        // A step to 277 (223 px away) enters the zone: held.
+        assert!(leash_blocks(271.0, 277.0, 100.0, &sleepers, 4.0));
+        // The same on the other side of the sleeper.
+        assert!(!leash_blocks(730.0, 724.0, 100.0, &sleepers, 4.0));
+        assert!(leash_blocks(729.0, 723.0, 100.0, &sleepers, 4.0));
+        // Inside the zone already (a knockback): a step out is free, one deeper is held.
+        assert!(!leash_blocks(300.0, 294.0, 100.0, &sleepers, 4.0));
+        assert!(leash_blocks(300.0, 306.0, 100.0, &sleepers, 4.0));
+        // The human leader inside the sight (219 px): she may go.
+        assert!(!leash_blocks(271.0, 277.0, 281.0, &sleepers, 4.0));
+        assert!(leash_blocks(271.0, 277.0, 280.0, &sleepers, 4.0));
+        // No sleeper, no leash; margin 0 holds at the sight itself.
+        assert!(!leash_blocks(271.0, 277.0, 100.0, &[], 4.0));
+        assert!(!leash_blocks(270.0, 280.0, 100.0, &sleepers, 0.0));
+        assert!(leash_blocks(270.0, 281.0, 100.0, &sleepers, 0.0));
+    }
+
+    /// FA-Q34: a press on a reserved enemy is withheld, except while an attack tell of it is
+    /// aimed at the pressing hero (then the interrupt may go: a glance, not a kill).
+    #[test]
+    fn fa_q34_a_reserved_press_is_withheld_unless_its_tell_is_aimed_at_her() {
+        let reserved = [StableEntityId::goblin(1)];
+        let g1 = Some(StableEntityId::goblin(1));
+        let g0 = Some(StableEntityId::goblin(0));
+        // No tell: withheld. Another target: not.
+        assert!(reserve_withholds(&reserved, &[], HeroId::Donut, g1));
+        assert!(!reserve_withholds(&reserved, &[], HeroId::Donut, g0));
+        assert!(!reserve_withholds(&reserved, &[], HeroId::Donut, None));
+        // A tell aimed at the leader (the human): still withheld.
+        let at_leader = [tell(1, Some(HeroId::Carl))];
+        assert!(reserve_withholds(&reserved, &at_leader, HeroId::Donut, g1));
+        // A tell aimed at her: the press may go.
+        let at_her = [tell(1, Some(HeroId::Donut))];
+        assert!(!reserve_withholds(&reserved, &at_her, HeroId::Donut, g1));
+        // Another enemy's tell aimed at her does not release this one.
+        let other = [tell(0, Some(HeroId::Donut))];
+        assert!(reserve_withholds(&reserved, &other, HeroId::Donut, g1));
+    }
+
+    /// FA-Q34: the reserved ids join the leader's claims (never Hunt's, never a steal).
+    #[test]
+    fn fa_q34_the_reserved_join_the_leader_claims() {
+        use crate::companion::autonomy::LeaderClaims;
+        use crate::companion::view::fixtures;
+        let set = profiles().set(ProfileSetId::Cf02Free).clone();
+        let leader = fixtures::hero(HeroId::Carl, 400.0, Control::Human(0));
+        let donut = fixtures::hero(HeroId::Donut, 300.0, Control::Companion);
+        let mut view = fixtures::view(leader, donut);
+        // A standing enemy 150 px behind a standing leader: no engage, no front claim.
+        view.targets = vec![tgt(0, 250.0, 1)];
+        assert!(!LeaderClaims::compute(&view, &set, &leader).contains(StableEntityId::goblin(0)));
+        view.reserved = vec![StableEntityId::goblin(0)];
+        assert!(LeaderClaims::compute(&view, &set, &leader).contains(StableEntityId::goblin(0)));
+    }
+
+    /// FA-Q35 on the live Boiler: with the knob on, a goblin that is asleep or counting its
+    /// wake delay is no target (and is listed as asleep); once its delay is over it is one.
+    /// With the knobs off (every other room) the lists are empty and every enemy is a target.
+    #[test]
+    fn fa_q35_a_sleeper_is_no_target_until_its_wake_delay_is_over() {
+        use crate::companion::view::{PartnerKnobs, fixtures};
+        use crate::f01_late::{Loadout, boiler_start_with};
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let (carl, donut) = Loadout::Story.flags();
+        let (_run, mut scene, combat) = boiler_start_with(
+            &root,
+            360,
+            carl,
+            donut,
+            None,
+            crate::f01_boiler::Roster::Live,
+        )
+        .unwrap();
+        let heroes = [
+            fixtures::hero(HeroId::Carl, 115.0, Control::Human(0)),
+            fixtures::hero(HeroId::Donut, 80.0, Control::Companion),
+        ];
+        let view = ViewBounds {
+            left: 0.0,
+            right: 1152.0,
+        };
+        let ids = |t: &[TargetView]| t.iter().map(|t| t.id.index).collect::<Vec<_>>();
+        let off = combat.clone().with_partner_knobs(PartnerKnobs::default());
+        let mut on = combat.with_partner_knobs(PartnerKnobs {
+            finish_reserve_px: None,
+            hold_fire_until_awake: true,
+            ..PartnerKnobs::default()
+        });
+        let mut t = on.companion_targets(view, 1);
+        let (reserved, asleep) = on.partner_knob_lists(&heroes, &mut t);
+        assert!(reserved.is_empty(), "no reserve radius: nothing reserved");
+        // FA-Q35 widened (review of #257): "awake" is a persistent flag (a hero was once in
+        // sight, it was touched, or its gate released and its delay elapsed). At the spawn no
+        // hero is within 220 px of g1 (344), so nobody is awake, g1 included.
+        assert!(t.is_empty(), "nobody is awake at the spawn");
+        assert_eq!(
+            asleep.iter().map(|i| i.index).collect::<Vec<_>>(),
+            [0, 1, 2, 3]
+        );
+        let mut t = off.companion_targets(view, 1);
+        let (reserved, asleep) = off.partner_knob_lists(&heroes, &mut t);
+        assert!(reserved.is_empty() && asleep.is_empty());
+        assert_eq!(ids(&t), [0, 1, 2, 3], "knobs off: every enemy is a target");
+        // A hero steps into g1's sight (x 124 and on): it wakes, and stays awake.
+        scene.world.hero.x = 130.0;
+        on.step_party(&mut scene, [RawInput::NONE; 2]);
+        let mut t = on.companion_targets(view, 1);
+        let (_, asleep) = on.partner_knob_lists(&heroes, &mut t);
+        assert_eq!(ids(&t), [0], "g1 is awake and a target");
+        assert_eq!(
+            asleep.iter().map(|i| i.index).collect::<Vec<_>>(),
+            [1, 2, 3]
+        );
+        scene.world.hero.x = 100.0;
+        on.step_party(&mut scene, [RawInput::NONE; 2]);
+        let mut t = on.companion_targets(view, 1);
+        on.partner_knob_lists(&heroes, &mut t);
+        assert_eq!(ids(&t), [0], "persistent: g1 stays awake out of sight");
+        // A hero leaves the protected spawn (x 224): g2's wake delay (15 ticks) runs, then
+        // it is awake and a target; g3 and e1 sleep on (their trigger is 560).
+        scene.world.hero.x = 230.0;
+        let mut first_target = None;
+        for tick in 0..40u32 {
+            on.step_party(&mut scene, [RawInput::NONE; 2]);
+            let mut t = on.companion_targets(view, 1);
+            let (_, asleep) = on.partner_knob_lists(&heroes, &mut t);
+            let g2_listed = asleep.contains(&StableEntityId::goblin(1));
+            let g2_target = t.iter().any(|x| x.id == StableEntityId::goblin(1));
+            assert_ne!(g2_listed, g2_target, "tick {tick}: asleep xor target");
+            assert!(asleep.contains(&StableEntityId::goblin(2)), "g3 sleeps on");
+            if g2_target && first_target.is_none() {
+                first_target = Some(tick);
+            }
+            assert!(first_target.is_none() || g2_target, "awake stays awake");
+        }
+        let at = first_target.expect("g2 wakes after its delay");
+        assert!((14..=17).contains(&at), "g2 is a target on tick {at}");
+    }
 
     #[test]
     fn companion_stub_parity_mix_hash_writes_nothing() {

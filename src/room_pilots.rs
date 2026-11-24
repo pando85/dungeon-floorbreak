@@ -619,6 +619,11 @@ fn approach(sim: &SceneSim, column: f32) -> Option<RawInput> {
         Some(walk_to(sim, column - 24.0))
     } else if x < column - 4.0 {
         Some(walk_to(sim, column))
+    } else if sim.world.hero.facing < 0 {
+        // FA-Q32 (room 2 retune): a fight carried him past the column and he stepped back
+        // into its band facing left; jabbing there never reaches the prop. Step left of it
+        // again and come back facing right.
+        Some(walk_to(sim, column - 24.0))
     } else {
         None
     }

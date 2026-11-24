@@ -1,5 +1,11 @@
 {
   "schema_version": 1,
   "fa_q20_wake_gates": true,
-  "fa_q20_delay_after_sight": false
+  "fa_q20_delay_after_sight": false,
+  "fa_q34_finish_reserve_px": 200,
+  "fa_q35_hold_fire_until_awake": true,
+  "fa_q36_wake_leash": true,
+  "fa_q36_leash_margin_px": 4,
+  "fa_q37_release_on_hits": 1,
+  "fa_q37_release_after_ticks": 150
 }

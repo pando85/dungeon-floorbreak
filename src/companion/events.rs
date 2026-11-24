@@ -59,6 +59,22 @@ pub enum CompanionEvent {
         hero: HeroId,
         outcome: RegroupOutcome,
     },
+    /// FA-Q37 (Boiler only; a trace, never hashed): the enemy `target` stopped being
+    /// reserved for the human leader, for good (this attempt), because of `cause`.
+    ReserveReleased {
+        tick: u64,
+        target: StableEntityId,
+        cause: ReserveRelease,
+    },
+}
+
+/// Why a reserved enemy was released (FA-Q37).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReserveRelease {
+    /// It landed the configured number of hits on a hero.
+    Hit,
+    /// It stayed reserved for the configured number of ticks in a row.
+    Timeout,
 }
 
 /// What the nav-safe regroup did (the debug trace and the camera warning).
@@ -103,6 +119,13 @@ pub struct CompanionStats {
     pub hazard_feed_changes: u32,
     /// CA2-C: times the graph refused the hazard list (always 0: a defect if not).
     pub hazard_feed_errors: u32,
+    /// FA-Q34 (M16, Boiler only): ticks on which the AI's press against an enemy reserved
+    /// for the human leader was withheld.
+    pub reserve_withheld: u32,
+    /// FA-Q37 (M16, Boiler only): reserved enemies released by a hit on a hero.
+    pub reserve_released_hit: u32,
+    /// FA-Q37 (M16, Boiler only): reserved enemies released by the timeout.
+    pub reserve_released_timeout: u32,
 }
 
 /// The cap of the bounded event buffer (oldest dropped first).

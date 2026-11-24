@@ -66,7 +66,7 @@ The special does something only where the hero holds it: Carl's dynamite from ro
 
 ## 2. What to look for, per room
 
-- **Room 2, the Goblin Boiler (setpiece).** Jab the steam valve twice (a steam lane telegraphs 24 ticks, then bursts 72), jab the brace to drop the weight on goblins under its footprint, kick a goblin into the valve for the chain, and use the drum. The direct route must stay safe with every prop untouched. Look for: whether the props read as threats you can use, whether the steam telegraph is fair, the Engineer, and the greybox look (stand-in props are labelled, K10). Known: B3 can wake inside the steam lane (section 9).
+- **Room 2, the Goblin Boiler (setpiece).** Jab the steam valve twice (a steam lane telegraphs 24 ticks, then bursts 72), jab the brace to drop the weight on goblins under its footprint, kick a goblin into the valve for the chain, and use the drum. The direct route must stay safe with every prop untouched. Look for: whether the props read as threats you can use, whether the steam telegraph is fair, the Engineer, and the greybox look (stand-in props are labelled, K10). Retuned after the owner's first run ("tooooo easy": the AI Donut did the killing): the second goblin now wakes as you leave the spawn (so B1 is a staggered pair), the Engineer arrives with B3's goblin as a pair, Donut keeps out of the sight of sleeping enemies until you have woken them (FA-Q36), never shoots one that is not awake (FA-Q35), and leaves a one-hit-point enemy near you for you to finish (200 px) until it hurts someone or 150 ticks pass (FA-Q37). Look for: whether Donut visibly softens and staggers but leaves the finish nearby, and whether the first pass takes 90 to 180 seconds. Known: B3 can wake inside the steam lane (section 9); B3 waits at the drum's face (FA-Q31, deferred: a non-solid drum needs engine code).
 - **Room 4, slimes and Rot Stickers (greybox).** Three isolated pockets: a slime with an acid pool, a Rot Sticker overhead, a crossover. Look for: the slime tell and its punish window, that acid bars walkers, the Rot Sticker's 24-tick warning and its blast on both heroes, and that nothing here can be reflex-evaded (K6). The `direct` room pilot does not dodge hazards and is defeated; the PT-TUNE pilot clears the room (section 5, section 8 item 5), `--room-pilot haz_spectacular` plays the dynamite route, `--room-pilot haz_tactical` baits the second Rot Sticker over the slime, and `--room-pilot hazards:carl_solo:0` is the melee route that does not dodge (section 8, item 7b); a human should clear it.
 - **Room 5, the Juicer (boss).** Carl holds dynamite and Donut the boost (the story pin). After the defeat two notices grant the gauntlet (HEAVY FIST) and the blink (PUDDLE JUMPER). Look for: dynamite on the boss, whether the grants read, and the partner: on the live `--f01-room juicer` the other hero is the follow-and-jump bot, not an autonomous Donut (the passive-escort figures of section 9 come from the `JuicerWho::Companion` fixture, which uses `cf02_free`, not from the live launch).
 - **Room 6, the mastery arena (greybox, no presentation of its own).** Everything is held (the `f01_late_mastery` pin, no grant, no trigger). Wave 1 is the brawl lane: goblins, a slime with its acid pool and a spitting llama. Wave 2 is the llama yard: goblins in the matador lane, the Engineer with a llama, a second llama, and a Rot Sticker under the right perch. The exit gate opens when the roster is defeated. Look for the "powerful enemies" feel (overlap, the slime beat, the Engineer with a llama, clear time) against the questions of section 4.
@@ -110,6 +110,15 @@ From plan section 13 (the full text is there):
 
 The owner is also informed of K1 and K15, and of KC2, KC4, KC8, KC9 (the corral) and the #181 C-A sequencing (plan section 13).
 
+Room 2 retune questions (FA-Q31 to FA-Q35, `docs/01-design/floor-01-goblin-boiler-encounter.md` section 10; none blocks anything):
+
+- **R2-OQ1.** Is Donut's "softens but leaves you the kill nearby" (finish reserve 200 px, FA-Q34) the right feel? Should FA-Q34 and FA-Q35 later apply to every room, not only the Boiler?
+- **R2-OQ2.** The drum (FA-Q31, deferred): B3 still waits at the drum's face. Should an engine change make the drum non-solid (heroes and goblins pass through it) or hero-only solid, or is the drum-face fight fine? Would a non-solid drum read as wrong visually?
+- **R2-OQ3.** Is a direct-route clear with up to 3 hurts (scripted pilots) the right difficulty, or should the room add a fifth enemy under `waves: true` (opt-in, PTM-AD6)?
+- **R2-OQ4.** Is it right that nobody fires at a sleeping goblin (B0 "read the machine"), or should Donut be allowed a deliberate opening shot on the human's input only?
+- **R2-OQ5.** With an idle human the room stays asleep until Carl moves (Donut keeps out of every sleeper's sight, FA-Q36). Is that right for B0?
+- **R2-OQ6.** Should a reserved enemy be released after 1 hit on a hero (adopted, FA-Q37) or after 2? (After 150 ticks it is released either way.)
+
 PT-TUNE game-feel questions for room 6 (none blocks anything):
 
 - **OQ1.** Does "kill the slime, the pool drains, the goblins rush" read as a trap you sprang, or as unfair?
@@ -128,12 +137,12 @@ PT-TUNE game-feel questions for room 6 (none blocks anything):
 | 2 Boiler greybox, no roster, DonutBySwap, direct | 9 of 9 | 0 / 0 | 0 / 0 | 286 / 286 | base kit: 0 | 1 |
 | 2 Boiler greybox, no roster, CarlSolo, valve then brace | 9 of 9 | 0 / 0 | 0 / 0 | 485 / 485 | base kit: 0 | 1 |
 | 2 Boiler greybox, no roster, DonutBySwap, valve then brace | 9 of 9 | 0 / 0 | 0 / 0 | 496 / 496 | base kit: 0 | 7 |
-| 2 Boiler **live roster** (`Roster::Live`: goblins and the Engineer), CarlSolo, direct | 9 of 9 | 0 / 0 | 2 / 2 | 478 / 478 | base kit: 0 | 40 |
-| 2 Boiler live roster, DonutBySwap, direct | 9 of 9 | 0 / 0 | 2 / 2 | 463 / 463 | base kit: 0 | 40 |
-| 2 Boiler live roster, Companion (`cf02_free`), direct | 9 of 9 | 0 / 0 | 1 / 1 | 611 / 611 | base kit: 0 | 83 |
-| 2 Boiler live roster, CarlSolo, valve then brace | 9 of 9 | 0 / 0 | 1 / 1 | 565 / 565 | base kit: 0 | 22 |
-| 2 Boiler live roster, DonutBySwap, valve then brace | 9 of 9 | 0 / 0 | 1 / 1 | 558 / 558 | base kit: 0 | 22 |
-| 2 Boiler live roster, Companion (`cf02_free`), valve then brace | 9 of 9 | 0 / 0 | 1 / 1 | 568 / 568 | base kit: 0 | 28 |
+| 2 Boiler **live roster** (`Roster::Live`: goblins and the Engineer), CarlSolo, direct | 9 of 9 | 0 / 0 | 3 / 3 | 862 / 862 | base kit: 0 | 28 |
+| 2 Boiler live roster, DonutBySwap, direct | 9 of 9 | 0 / 0 | 3 / 3 | 842 / 842 | base kit: 0 | 28 |
+| 2 Boiler live roster, Companion (`cf02_free`), direct | 9 of 9 | 0 / 0 | 1 / 3 | 611 / 882 | base kit: 0 | 120 |
+| 2 Boiler live roster, CarlSolo, valve then brace | 9 of 9 | 0 / 0 | 0 / 0 | 667 / 667 | base kit: 0 | 40 |
+| 2 Boiler live roster, DonutBySwap, valve then brace | 9 of 9 | 0 / 0 | 0 / 0 | 650 / 650 | base kit: 0 | 40 |
+| 2 Boiler live roster, Companion (`cf02_free`), valve then brace | 9 of 9 | 0 / 0 | 1 / 1 | 804 / 804 | base kit: 0 | 82 |
 | 4 Hazards, CarlSolo, the direct route (HAZ-06, HAZ-09; melee only) | 9 of 9 | 0 / 0 | 4 / 4 | 739 / 739 | base kit: 0 | 20 |
 | 4 Hazards, the same route with the Rot kind removed (HAZ-06) | 9 of 9 | 0 / 0 | 2 / 2 | 636 / 636 | base kit: 0 | 17 |
 | 4 Hazards, DonutBySwap | 9 of 9 | 0 / 0 | 4 / 4 | 749 / 749 | base kit: 0 | 17 |
