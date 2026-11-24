@@ -467,11 +467,15 @@ STACK_CANVAS = (128, 104)
 STACK_OY = 8            # rows 0..7 hold motion streaks and dust; the hanging body is rows 8..71
 STACK_LEG = 32          # rows 72..103: the strut that carries the beam down to the post's head (the sim's post top
                         # is 32 px under the stack's footprint, so the stack carries its own leg; spec section 7)
+STACK_FALL_LEG = 20     # HOARD-02 polish: the strut once the post has broken (snapped). The body's bottom is 23 px over
+                        # the floor on the last falling tick (drop 96 * 7^2 / 8^2 = 73), so a 20 px stub stays above it
 
 
-def stack_body(p: Layer) -> None:
+def stack_body(p: Layer, leg: int = STACK_LEG) -> None:
     """J-B stack, hanging: a beam lashed to the post (the only support), a broken shelf unit, crates and a pram
-    frame, roped. The body is 128 x 64 at rows STACK_OY..STACK_OY + 63."""
+    frame, roped. The body is 128 x 64 at rows STACK_OY..STACK_OY + 63. ``leg`` is the strut's length under the beam:
+    the full STACK_LEG down to the post's head while it hangs and warns, STACK_FALL_LEG (snapped, a splintered end)
+    while it falls, so the strut never dips under the floor line on the last falling tick."""
     oy = STACK_OY
     seed = "stack"
     # the lashed beam: the stack's only support, directly above the post at x 56..71
@@ -532,16 +536,117 @@ def stack_body(p: Layer) -> None:
     for x in range(0, 128):
         p.put(x, oy + 63, "wood", 0)
     # the leg: a split timber strut under the beam, lashed to it, ending on the post's head (x 56..71)
-    for y in range(oy + 64, oy + 64 + STACK_LEG):
+    for y in range(oy + 64, oy + 64 + leg):
         for x in range(57, 71):
             v = 3.0 + (rnd(seed, "leg", x, y // 2) - 0.5) * 1.0 + (1.2 if x == 57 else 0) - (1.4 if x >= 69 else 0)
             p.put(x, y, "wood", ci(v, 1, 5))
         p.put(56, y, "mortar", 0)
         p.put(71, y, "mortar", 0)
+    if leg < STACK_LEG:                  # the snapped end: a jagged cut, pale fresh splinters (as the broken post)
+        end = oy + 64 + leg
+        for x in range(56, 72):
+            cut = (4, 1, 3, 0, 2, 4, 1, 3, 0, 2, 4, 1, 3, 0, 2, 4)[x - 56]
+            for y in range(end - cut, end):
+                p.px[y][x] = None
+            if 57 <= x <= 70 and cut < 4:
+                p.put(x, end - cut - 1, "wood", 5 if x % 2 else 4)
     for k, y in enumerate(range(oy + 64, oy + 74, 2)):
         for x in range(56, 72):
             p.put(x, y + (x // 4) % 2, "floor", 8 if (x + k) % 3 else 6)
             p.put(x, y + 1 + (x // 4) % 2, "floor", 3)
+
+
+def stack_rubble(p: Layer, y0: int) -> None:
+    """J-B `landed` (HOARD-02 polish): the stack's own junk crushed into the 128 x 16 remnant band from row ``y0``.
+
+    E4 keeps the solid's read: the beam lies flat on top (one unbroken lit row across all 128 px, a dark lip under
+    it), both side columns are opaque and the foot is dark. Under the beam the stack stays recognisable instead of a
+    plank slab: a crate caved in at one corner, the iron pot on its side, the dropped shelf board and the snapped
+    strut, a burst crate, the copper kettle, and the pram's crushed hood with one round and one buckled wheel, all
+    separated by dark voids and tied by the rope."""
+    seed = "stack_rubble"
+    h = 16
+    for y in range(y0 + 2, y0 + h - 1):            # the voids between the crushed items
+        for x in range(1, 127):
+            p.put(x, y, "wood", 0 if rnd(seed, "void", x // 3, y) < 0.35 else 1)
+    # 1. a crate caved in at its right corner: tilted slats, the dark break
+    for px, py in box(2, y0 + 3, 25, 12, -6):
+        if 1 <= px <= 28 and y0 + 2 <= py <= y0 + 14:
+            ly = (py - (y0 + 3)) - (px - 2) * 0.1
+            v = 3.0 + (rnd(seed, "c1", px // 3, py) - 0.5) * 0.8 + (0.9 if int(ly) % 4 == 0 else 0) - (1.3 if int(ly) % 4 == 3 else 0)
+            p.put(px, py, "wood", ci(v, 1, 5))
+    for i in range(10):                            # its brace, lit, and the left post
+        p.put(4 + 2 * i, y0 + 13 - i, "wood", 5)
+        p.put(4 + 2 * i + 1, y0 + 13 - i, "wood", 4)
+    for py in range(y0 + 3, y0 + 15):
+        p.put(2, py, "wood", 4)
+    for k in range(6):                             # the caved corner: a dark wedge with two splinters
+        for x in range(22 + k, 29):
+            p.put(x, y0 + 2 + k, "wood", 0)
+    p.put(24, y0 + 4, "wood", 5)
+    p.put(25, y0 + 5, "wood", 4)
+    # 2. the iron pot on its side, its dark mouth to the left
+    for px, py in ellipse(36, y0 + 9, 6, 5):
+        if y0 + 2 <= py <= y0 + 14:
+            p.put(px, py, "iron", 5 if px + py < 36 + y0 + 6 else 2 if px + py > 36 + y0 + 12 else 4)
+    for px, py in ellipse(33, y0 + 9, 2.5, 3.2):
+        p.put(px, py, "iron", 0)
+    p.put(41, y0 + 6, "iron", 6)
+    # 3. the dropped shelf board, slanting, and the snapped strut lying under it
+    for i in range(26):
+        x, y = 42 + i, y0 + 13 - round(i * 0.36)
+        p.put(x, y, "wood", 5)
+        p.put(x, y + 1, "wood", 2)
+    for y in range(y0 + 9, y0 + 15):
+        for x in range(46, 52):
+            p.put(x, y, "wood", 4 if x == 46 else 3 if x < 50 else 1)
+    for x, y in ((46, y0 + 8), (48, y0 + 7), (50, y0 + 8)):
+        p.put(x, y, "wood", 5)
+    for x in (54, 57):                             # two cold bottles, one broken at the neck
+        for y in range(y0 + 8, y0 + 14):
+            p.put(x, y, "gal", 8 if y > y0 + 9 else 6)
+            p.put(x + 1, y, "gal", 4)
+    p.put(57, y0 + 7, "gal", 9)
+    # 4. a burst crate: the front slats sprung open, one plank sticking out at an angle
+    for px, py in box(64, y0 + 4, 22, 10, 7):
+        if y0 + 2 <= py <= y0 + 14 and 60 <= px <= 90:
+            gap = (px - 64) % 7 in (3,) or (px > 78 and py < y0 + 8)
+            if gap:
+                p.put(px, py, "wood", 0)
+            else:
+                v = 3.0 + (rnd(seed, "c2", px // 3, py) - 0.5) * 0.8 + (0.8 if (py - y0) % 4 == 0 else 0)
+                p.put(px, py, "wood", ci(v, 1, 5))
+    for i in range(12):                            # the sprung plank
+        p.put(70 + i, y0 + 3 + i // 3, "wood", 5 if i % 3 else 4)
+        p.put(70 + i, y0 + 4 + i // 3, "wood", 2)
+    # 5. the dented copper kettle
+    for px, py in ellipse(95, y0 + 10, 4.5, 3.8):
+        p.put(px, py, "copper", 5 if px + py < 95 + y0 + 8 else 2 if px + py > 95 + y0 + 12 else 3)
+    for i in range(3):
+        p.put(90 - i, y0 + 9 - i, "copper", 4)
+    p.put(97, y0 + 7, "copper", 1)                 # the dent
+    # 6. the pram: the hood crushed to a low arc, one round wheel and one buckled, the handle bar
+    for px, py in ellipse(112, y0 + 9, 13, 6):
+        r = math.hypot((px - 112) / 13, (py - y0 - 9) / 6)
+        if py <= y0 + 9 and r >= 0.7:
+            p.put(px, py, "iron", 5 if px < 110 else 3)
+        elif py <= y0 + 9 and (px + py) % 3 == 0:
+            p.put(px, py, "floor", 4)
+    for x in range(100, 126):
+        p.put(x, y0 + 10, "iron", 4)
+    for px, py in ellipse(106, y0 + 12, 3.5, 3.5):
+        r = math.hypot(px - 106, py - y0 - 12)
+        p.put(px, py, "iron", (5 if px < 106 else 3) if r >= 2.2 else 0)
+    p.put(106, y0 + 12, "iron", 6)
+    for px, py in ellipse(120, y0 + 13, 4.5, 2):   # the buckled wheel, squashed flat
+        r = math.hypot((px - 120) / 4.5, (py - y0 - 13) / 2)
+        if r >= 0.55:
+            p.put(px, py, "iron", 4 if px < 120 else 2)
+    for i in range(8):                             # the handle bar, bent down over the junk
+        p.put(99 - i, y0 + 4 + i // 2, "iron", 4)
+    # the rope that held it all, slack across the pile
+    rope(p, 60, y0 + 12, 100, y0 + 6)
+    solid_edges(p, 0, y0, 127, y0 + h - 1)
 
 
 def stack_sheet() -> list[Layer]:
@@ -549,9 +654,9 @@ def stack_sheet() -> list[Layer]:
     for kind in ("supported", "released", "falling", "landed"):
         p = Layer(*STACK_CANVAS)
         if kind == "landed":
-            remnant(p, 128, 16, STACK_CANVAS[1] - 16, "stack_rem", wheel=True)
+            stack_rubble(p, STACK_CANVAS[1] - 16)
         else:
-            stack_body(p)
+            stack_body(p, leg=STACK_FALL_LEG if kind == "falling" else STACK_LEG)
             if kind == "released":       # dust shaken out of the junk and loose scraps
                 dust(p, [(5 + 9 * k, 6 - (k * 5) % 6) for k in range(14)])
                 chips(p, [(30, 4), (84, 5), (112, 3)], kind)
@@ -696,11 +801,31 @@ def darken(layer: Layer, steps: int = 1) -> None:
 MAT_FLOOR = {"floor": 1, "wood": 0, "iron": 0, "copper": 1, "brass": 0, "gal": 3, "stone": 1}
 
 
+def rim_light(layer: Layer, lifts=(3, 2, 1)) -> None:
+    """HOARD-02 polish: the torch (upper left) catches the top of a heap. Under the outline, the first pixels of each
+    column are lifted by ``lifts`` ramp steps (within the material's band), so a low dark heap separates from the dark
+    floor shapes at the lane edge. The outline stays on top, so the silhouette keeps its ragged dark edge."""
+    for x in range(layer.w):
+        ys = [y for y in range(layer.h) if layer.px[y][x] is not None and layer.px[y][x] != OUTLINE]
+        for k, y in enumerate(ys[:len(lifts)]):
+            ramp, idx = layer.px[y][x]
+            hi = MAT[layer.mat[y][x]][2] if layer.mat[y][x] in MAT else len(RAMPS[ramp]) - 1
+            layer.px[y][x] = (ramp, min(hi, idx + lifts[k]))
+
+
+# HOARD-02 polish (PR #258 review follow-up 3): heap b stands at x 470, right behind the dark rounded floor shapes of
+# the lane edge, and read as one more dark blob. It keeps its items one step darker than the solids but gets the
+# torch's rim light on its ragged top.
+RIM_LIT_HEAPS = {"b"}
+
+
 def heap(kind: str) -> Layer:
     p = Layer(*HEAP_CANVAS)
     draw(p, HEAP_ITEMS[kind])
     darken(p)
     outline(p)
+    if kind in RIM_LIT_HEAPS:
+        rim_light(p)
     return p
 
 

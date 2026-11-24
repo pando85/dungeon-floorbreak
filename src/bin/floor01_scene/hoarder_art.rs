@@ -12,7 +12,7 @@ use dungeon_floorbreak::encounter::Encounter;
 use dungeon_floorbreak::env_kit::ATLAS_ASSET_PREFIX;
 use dungeon_floorbreak::hoarder_art::{
     ATLAS, FRAME_SIZE, FRAMES, HoarderLook, HoarderMemo, Layer, MAX_MOTES, MAX_PROPS, Prop, Shade,
-    draw,
+    draw, stack_released,
 };
 
 /// Her pooled sprite.
@@ -217,8 +217,8 @@ pub(super) fn sync_hoarder_art(
     };
     let world = &sim.0.world;
     let tick = world.tick;
-    // Render-local looks (the hit flash, the age of her defeat, the age of her emergence), kept by
-    // the pure half.
+    // Render-local looks (the hit flash, the age of her defeat, the age of her emergence, the age of
+    // the J-B stack's warning), kept by the pure half.
     let look = dungeon_floorbreak::combat_scene::pile_boss::of(state).map_or_else(
         HoarderLook::default,
         |enemy| {
@@ -229,6 +229,7 @@ pub(super) fn sync_hoarder_art(
                     | dungeon_floorbreak::pile_boss::PileMode::Reveal
             );
             look.out_age = memo.observe_out(hidden, tick);
+            look.released_age = memo.observe_released(stack_released(state, &art.encounter), tick);
             look
         },
     );

@@ -608,10 +608,16 @@ fn the_piles_are_drawn_from_their_machines() {
     .unwrap();
     let floor = rig.boss().boss().setup().floor_y as i32;
     let (mut shadow, mut fell, mut landed) = (false, false, false);
+    let mut memo = HoarderMemo::default();
+    let (mut max_sag, mut shuddered) = (0, [false; 2]);
     for _ in 0..260 {
         rig.step(IDLE_SLOTS);
         let t = rig.next_tick() - 1;
-        let art = art_of(&rig, t, HoarderLook::default());
+        let boss = rig.boss().boss();
+        let mut look = memo.observe(boss.hp(), boss.alive(), t);
+        look.released_age =
+            memo.observe_released(stack_released(&rig.combat, &rig.run.loaded.encounter), t);
+        let art = art_of(&rig, t, look);
         let post = props_of(&art, Prop::Post);
         let stack = props_of(&art, Prop::Stack);
         assert_eq!((post.len(), stack.len()), (1, 1));
@@ -644,14 +650,38 @@ fn the_piles_are_drawn_from_their_machines() {
                     .mass_rect()
                     .unwrap();
                 let body_y = world(m, rig.scene.world.layout_height()).1;
-                assert_eq!(
-                    (stack[0].x, stack[0].y),
-                    (m.x, body_y - STACK_LEG_PX),
-                    "on the sim's mass, the strut under it"
-                );
                 assert!(stack[0].y <= floor + 64, "never above the hanging stack");
                 if state == crate::env_prop::MassState::Released {
-                    assert_eq!(stack[0].y, floor + 64, "the mass waits at its hanging rect");
+                    assert_eq!(
+                        body_y - STACK_LEG_PX,
+                        floor + 64,
+                        "the mass waits at its hanging rect"
+                    );
+                    let age = look.released_age.expect("the memo saw the release");
+                    let (dx, dy) = stack_warning_offset(age, t);
+                    assert_eq!(
+                        (stack[0].x, stack[0].y),
+                        (m.x + dx, body_y - STACK_LEG_PX + dy),
+                        "on the sim's mass plus the shudder and the sag"
+                    );
+                    max_sag = max_sag.max(-dy);
+                    shuddered[usize::from(dx > 0)] = true;
+                } else {
+                    assert_eq!(look.released_age, None);
+                    assert_eq!(
+                        (stack[0].x, stack[0].y),
+                        (
+                            m.x,
+                            (body_y - STACK_LEG_PX).min(floor + 64 - STACK_SAG_MAX_PX)
+                        ),
+                        "on the sim's mass, never higher than the full sag"
+                    );
+                    // The snapped strut of the `falling` frame never dips under the floor line.
+                    assert!(
+                        stack[0].y + STACK_LEG_PX - STACK_FALL_LEG_PX >= floor,
+                        "strut bottom {} under the floor {floor}",
+                        stack[0].y + STACK_LEG_PX - STACK_FALL_LEG_PX
+                    );
                 }
                 assert_eq!(stack[0].layer, Layer::Prop);
                 shadow = true;
@@ -671,6 +701,38 @@ fn the_piles_are_drawn_from_their_machines() {
     // Her shove releases the stack outright (no `Weakened` tick in this bait): `cracked` is checked
     // whenever that state shows up, the release, fall and landing always.
     assert!(shadow && fell && landed, "{shadow} {fell} {landed}");
+    // The 24-tick warning sags the stack 1 px every 6 ticks to its full 3 px, shuddering both ways.
+    assert_eq!(max_sag, STACK_SAG_MAX_PX);
+    assert_eq!(shuddered, [true, true]);
+}
+
+/// The released stack's presenter offset: a 1 px shudder that flips every 2 ticks and a sag of 1 px
+/// every 6 ticks, capped at 3 px.
+#[test]
+fn the_released_stack_shudders_and_sags() {
+    assert_eq!(stack_warning_offset(0, 0), (1, 0));
+    assert_eq!(stack_warning_offset(0, 1), (1, 0));
+    assert_eq!(stack_warning_offset(0, 2), (-1, 0));
+    assert_eq!(stack_warning_offset(5, 4), (1, 0));
+    assert_eq!(stack_warning_offset(6, 4), (1, -1));
+    assert_eq!(stack_warning_offset(17, 6), (-1, -2));
+    assert_eq!(stack_warning_offset(18, 6), (-1, -3));
+    assert_eq!(stack_warning_offset(500, 6), (-1, -STACK_SAG_MAX_PX));
+    // The memo: the age counts from the release tick, clears when the warning ends, and a restart
+    // (a tick that goes backwards) clears it too.
+    let mut memo = HoarderMemo::default();
+    let _ = memo.observe(100, true, 10);
+    assert_eq!(memo.observe_released(false, 10), None);
+    let _ = memo.observe(100, true, 50);
+    assert_eq!(memo.observe_released(true, 50), Some(0));
+    let _ = memo.observe(100, true, 61);
+    assert_eq!(memo.observe_released(true, 61), Some(11));
+    let _ = memo.observe(100, true, 74);
+    assert_eq!(memo.observe_released(false, 74), None);
+    let _ = memo.observe(100, true, 80);
+    assert_eq!(memo.observe_released(true, 80), Some(0));
+    let look = memo.observe(100, true, 3);
+    assert_eq!(look.released_age, None, "a restart clears it");
 }
 
 /// The room kit's manifests agree with the sizes and frame counts the presenter slices the atlases by,
@@ -782,7 +844,7 @@ fn a_weakened_post_is_drawn_cracked_with_the_stack_still_hanging() {
     ))
     .unwrap();
     let post = IRect::new(808, 516, 16, 64);
-    let [p, s] = post_and_stack_from(post, Some(&mass), 580);
+    let [p, s] = post_and_stack_from(post, Some(&mass), 580, 7, Some(12));
     assert_eq!((p.frame, s.frame, s.x, s.y), (0, 0, 752, 64), "intact");
     let hit = Stimulus::MeleeHit {
         token: 1,
@@ -791,12 +853,12 @@ fn a_weakened_post_is_drawn_cracked_with_the_stack_still_hanging() {
     };
     assert_eq!(mass.offer(hit), Offer::Progress { progress: 1 });
     assert_eq!(mass.state(), MassState::Weakened);
-    let [p, s] = post_and_stack_from(post, Some(&mass), 580);
+    let [p, s] = post_and_stack_from(post, Some(&mass), 580, 7, Some(12));
     assert_eq!(
         (p.frame, s.frame, s.x, s.y, s.layer),
         (1, 0, 752, 64, Layer::Prop)
     );
     // No machine: the standing pair over the post.
-    let [p, s] = post_and_stack_from(post, None, 580);
+    let [p, s] = post_and_stack_from(post, None, 580, 7, None);
     assert_eq!((p.frame, s.frame, s.x, s.y), (0, 0, 752, 64));
 }
