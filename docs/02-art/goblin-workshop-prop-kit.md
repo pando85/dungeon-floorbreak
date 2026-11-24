@@ -1,6 +1,6 @@
 # AREA-GOBLINWORKSHOP-01: Goblin Workshop prop kit (Boiler encounter), design spec
 
-**Status:** design spec, 13 frozen keys, execution frames (in-betweens, state loops, tells), export, manifests, validators and the Bevy wiring are done; the two gate-approved key edits are applied and re-frozen (section 8). Independent top-tier review pending. Evidence: [docs/evidence/f01-gwkit](../evidence/f01-gwkit/README.md).
+**Status:** design spec, 13 frozen keys, execution frames (in-betweens, state loops, tells), export, manifests, validators and the Bevy wiring are done; the two gate-approved key edits are applied and re-frozen (section 8). Independent top-tier review passed (PR 256, no design defect; non-blocking follow-ups in the PR); owner review pending. Evidence: [docs/evidence/f01-gwkit](../evidence/f01-gwkit/README.md).
 
 **Route:** difficulty score **4** (new design; boiler native height 208 px; rig with moving parts; venting, telegraph and blast states), class Hard, route **B + silhouette gate** ([routing by difficulty](../07-agents/pixel-art-pipeline.md#routing-by-difficulty)). No separate draft existed, so the design step drew every key that defines a silhouette or a state read and froze them; execution draws in-betweens, loops, tells and VFX only after the gate passes. Work order row: [floor-01-area-kits-plan.md](../07-agents/floor-01-area-kits-plan.md) (`AREA-GOBLINWORKSHOP-01`: boiler, tools, pipes, gears, parked-vehicle props; no stationary factory boss).
 

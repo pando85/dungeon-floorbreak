@@ -1,6 +1,6 @@
 # AREA-GOBLINWORKSHOP-01 evidence: the Goblin Workshop prop kit
 
-Prototype art (`review_status: prototype_fixture_unapproved`); nothing here approves art, tuning or game feel. Spec: [goblin-workshop-prop-kit.md](../../02-art/goblin-workshop-prop-kit.md). The independent top-tier review is pending.
+Prototype art (`review_status: prototype_fixture_unapproved`); nothing here approves art, tuning or game feel. Spec: [goblin-workshop-prop-kit.md](../../02-art/goblin-workshop-prop-kit.md). The independent top-tier review passed (PR 256, no design defect; its non-blocking follow-ups are listed in the PR); the owner's review is pending. The manifests' notes still say "review pending" until the follow-up that records the review there.
 
 Everything below is drawn from the committed grid sources by `scripts/author_gwkit_frames.py` (the keys come from `scripts/author_gwkit_keys.py`), exported by `bash scripts/export_assets.sh` and rendered by the shared toolkit (`python3 -m scripts.pixelart evidence`); the in-scene stills are real windowed captures of `floor01_scene` (the Bevy presentation, 640 x 360).
 
@@ -15,6 +15,7 @@ for c in assets/source/props/floor01/gw_*.pixelart.json; do
 done
 cargo build --locked --bin floor01_scene
 BIN=./target/debug/floor01_scene bash scripts/room_capture.sh boiler chain 440:5:85 artifacts/f01-gwkit-captures
+BIN=./target/debug/floor01_scene bash scripts/room_capture.sh boiler chain 686:1:9 artifacts/f01-gwkit-fall   # the falling weight (tick 693)
 ```
 
 ## What is in this folder
@@ -64,25 +65,27 @@ Chains tile `gw_chain` from layout y 376: the brace chain at x 758 down to the b
 
 ## In-scene stills (`scene/`, chain plan, solo, 640 x 360)
 
+Recaptured on the retuned room (PR 257 moved the chain's ticks: launch 441, venting 464, brace released 664, weight lands 695, drum blast 719). Both captures end `match=yes` (`window_hash == headless_hash`: `0f1a32c42b83a5ad` at tick 860, `7ec10e09886b6585` at tick 694).
+
 | File | Tick | Shows |
 | --- | --- | --- |
-| `01_intact_room_t440.png` | 440 | intact room: boiler idle, valve, drum |
-| `02_valve_warning_t495.png` | 495 | valve warning, boiler strain (firebox at full glow), the steam warning footprint at the right edge |
-| `03_venting_plume_t535.png` | 535 | valve venting, damaged boiler, steam plume over the lane |
-| `04_weight_telegraph_t735.png` | 735 | released weight swaying, stump, floor shadow tell |
-| `05_weight_falls_t750.png` | 750 | the falling weight, the rig's loose chain end |
-| `06_remnant_drum_telegraph_t765.png` | 765 | landed remnant, drum telegraph with the blast-area outline and floor ring |
-| `07_scorch_t795.png` | 795 | scorch mark where the drum was |
+| `01_intact_room_t440.png` | 440 | intact room: boiler idle, valve, drum; the kicked goblin flies at the valve |
+| `02_valve_warning_t455.png` | 455 | valve warning, boiler strain (firebox at full glow), the steam warning footprint at the right edge |
+| `03_venting_plume_t485.png` | 485 | valve venting, damaged boiler, steam plume over the lane at the right edge |
+| `04_weight_telegraph_t675.png` | 675 | released weight swaying under the rig, floor shadow tell |
+| `05_weight_falls_t693.png` | 693 | the falling weight, the rig's loose chain end (from the 1-tick capture `686:1:9`) |
+| `06_remnant_drum_telegraph_t705.png` | 705 | landed remnant, drum telegraph with the blast-area outline and floor ring |
+| `07_scorch_t760.png` | 760 | scorch mark where the drum was, beside the remnant |
 | `08_all_broken_end_t860.png` | 860 | all-broken end state |
 | `09_plume_over_lane_actors_composite_640x360.png`, `..._1920x1080.png`, `09_lane_actors_no_plume_640x360.png`, `09_plume_vs_baseline_crop_x3.png` | n/a | **composite, not a window capture** (acceptance 6): the real `steam_plume` frame 2 at the in-game alpha 0x90 on the tell layer, above real Carl, Donut and a goblin standing in the 80 x 96 lane on the lit Floor 1 lane, without and with the plume (left and right of the crop). Every scripted and aligned Boiler pilot keeps the actors out of the lane while the steam is Active, and the scene binary has no flag to place one, so a true capture needs a new pilot plan (a code change, out of this evidence-only pass). The sprites and lighting are the ones of the other stills (the toolkit's `Floor` renderer, `scripts/pixelart/scene.py`). |
 
 ## Simulation unchanged (read-only presentation)
 
 - The window run and the headless run of the capture above end on the same `COMBAT_STATE` hash (`window_hash == headless_hash`, `match=yes`).
-- Re-running the eight committed Boiler clip plans of `scripts/make_f01_boiler_evidence.sh` into a scratch folder with the kit drawn gives hash lines byte-identical to `docs/evidence/f01-boiler/capture_lines.txt`, and `python3 scripts/room_pilot_hashes.py boiler` is byte-identical to `pilot_hashes.txt` (compared with `cmp`; the committed GIFs of `docs/evidence/f01-boiler` were not touched).
+- Re-running the eight committed Boiler clip plans of `scripts/make_f01_boiler_evidence.sh` into a scratch folder with the kit drawn gives hash lines byte-identical to `docs/evidence/f01-boiler/capture_lines.txt`, and `python3 scripts/room_pilot_hashes.py boiler` is byte-identical to `pilot_hashes.txt` (compared with `cmp`). After the room 2 retune (PR 257) this was re-run on the rebased head: `bash scripts/make_f01_boiler_evidence.sh` with the kit drawn writes `capture_lines.txt` and `pilot_hashes.txt` byte-identical to the ones PR 257 committed (stand-ins drawn), every run logs `GW_KIT sheets=13/13`, and the eight GIFs it regenerated with the kit are byte-identical over two passes.
 - `drawing_the_pieces_and_sprites_never_changes_the_state_hash` (unit test) draws `pieces` and `sprites` every tick through the whole chain on the inert and the live roster and compares the state hash with an undrawn twin.
 
 ## Pending
 
-- The `docs/evidence/f01-boiler` GIFs still show the earlier stand-ins. They are regenerated (twice, byte-identical) after the Boiler room retune of PR 257 merges, because that PR moves their hashes and GIFs.
-- Not covered by this pass, by design: the scorch ember fade and the landing dust (both need an event tick the simulation does not keep). The independent review and the owner's game-feel review are pending.
+- The `docs/evidence/f01-boiler` GIFs now show the kit (regenerated after PR 257, two passes byte-identical). No `docs/evidence/f01-playtest` GIF films the Boiler room, so none was regenerated there.
+- Not covered by this pass, by design: the scorch ember fade and the landing dust (both need an event tick the simulation does not keep). The owner's art and game-feel review is pending.
