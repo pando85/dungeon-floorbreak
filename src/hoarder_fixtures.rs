@@ -2451,12 +2451,21 @@ pub fn hrd_ja_nest_push_donut(root: &Path) -> Result<Outcome, String> {
     let mut rig = Rig::new(root, plan)?;
     rig.scene.world.donut_body.y += 48.0;
     rig.scene.world.sync_donut_for_tests();
+    // Her health before any blow: a blow's `health_left` equal to it is a 0-damage blow.
+    let full = rig.scene.world.donut_body.health;
     let mut perched = false;
+    let mut perched_at_push = None;
     let mut at_face = None;
     for _ in 0..500 {
         rig.step(IDLE);
         let tick = rig.next_tick() - 1;
-        perched |= foot(&rig, HeroId::Donut) == 532 && rig.scene.world.donut_body.grounded;
+        let on_top = foot(&rig, HeroId::Donut) == 532 && rig.scene.world.donut_body.grounded;
+        perched |= on_top;
+        if perched_at_push.is_none()
+            && pile_event_tick(&rig, |e| *e == PileEvent::NestPush) == Some(tick)
+        {
+            perched_at_push = Some((on_top, rig.scene.world.donut_body.x));
+        }
         if at_face.is_none() && (rig.boss().boss().x() - 444.0).abs() <= 4.0 {
             at_face = Some(tick);
         }
@@ -2466,6 +2475,12 @@ pub fn hrd_ja_nest_push_donut(root: &Path) -> Result<Outcome, String> {
     }
     rig.run(60, &|_| IDLE);
     ensure!(perched, "Donut stood on the 48 px top");
+    // The percher is still on the top when the push starts (the face push-out keeps her on it).
+    let (on_top, donut_x) = perched_at_push.ok_or("no NestPush in the run")?;
+    ensure!(
+        on_top,
+        "Donut perched on the top at the push: on top {on_top}, x {donut_x}"
+    );
     let at_face = at_face.ok_or("she never reached the face")?;
     let push = pile_event_tick(&rig, |e| *e == PileEvent::NestPush).ok_or("no NestPush")?;
     ensure!(
@@ -2490,7 +2505,6 @@ pub fn hrd_ja_nest_push_donut(root: &Path) -> Result<Outcome, String> {
         "settled from J+40"
     );
     let pushes = env_blows(&rig, 1);
-    let full = rig.scene.world.donut_body.health;
     ensure!(
         pushes.len() == 1 && pushes.iter().all(|(_, hp)| *hp == full),
         "one slide push on Donut, 0 damage: {pushes:?}"

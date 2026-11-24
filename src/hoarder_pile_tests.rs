@@ -161,6 +161,8 @@ fn hero_melee_never_disturbs_bank_a() {
 #[test]
 fn a_baited_shove_disturbs_bank_a_slides_it_once_and_pushes_a_hero_once() {
     let mut rig = awake(330, 470.0, -1);
+    // His health before any blow: a blow's `health_left` equal to it is a 0-damage blow.
+    let full = rig.scene.world.body(HeroId::Carl).health;
     let mut states = Vec::new();
     for _ in 0..200 {
         rig.step(IDLE);
@@ -221,8 +223,10 @@ fn a_baited_shove_disturbs_bank_a_slides_it_once_and_pushes_a_hero_once() {
         (j + 24..=j + 40).contains(&pushes[0].0),
         "pushed while the mass moves: {pushes:?} J={j}"
     );
-    let full = rig.scene.world.body(HeroId::Carl).health;
-    assert_eq!(pushes[0].2, full, "0 damage: health left equals health");
+    assert_eq!(
+        pushes[0].2, full,
+        "0 damage: health left equals his starting health"
+    );
     // After the settle the bank is a 16 px remnant: nobody stands inside it.
     assert!(matches!(carl_foot(&rig), 564 | 580));
     // The attribution: she was targeting the idle Carl, a human: credit Carl (0).
