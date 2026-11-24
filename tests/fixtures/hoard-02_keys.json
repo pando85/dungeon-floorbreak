@@ -1,0 +1,48 @@
+{
+  "asset_id": "hoard-02",
+  "format": "pixelart-keys-v1",
+  "keys": {
+    "0": {
+      "sha256": "25eea2f644c948b7619e3b8c5fe751a9f166888b8c1c8ec2ff219229ea5ad713"
+    },
+    "10": {
+      "sha256": "4287b111b9a006edd44ba316e50adc3c0a557c29ae1a04ffa74cd20b85071ecb"
+    },
+    "12": {
+      "sha256": "f10bc5f61eec69f31dbf16cee40258122dbdf4e3cc204d1106c7e254510221ef"
+    },
+    "15": {
+      "sha256": "869bd1d888e64874eb16317a0c8bc99d21590b595294d7dd65a8f767243a333a"
+    },
+    "17": {
+      "sha256": "faf3c0ce66d8af4317b4d7d138fd0d2f62dc65bb746556677f14f632fd7a2790"
+    },
+    "18": {
+      "sha256": "a83f115e57a90ff4d8f5ea3c8fb2f1de3855906a92654135837c0f5f35e0ae16"
+    },
+    "19": {
+      "sha256": "d8bbb480dedaa3c1b853503ccab8129a9694db7af122c5f5adad25de65dbd9de"
+    },
+    "20": {
+      "sha256": "e491df13debce23419b82ba69867b7d1629613f9a5aff82dc01d02d4147a2133"
+    },
+    "22": {
+      "sha256": "7391f045e84f58652f7805d667a639f935cf71a3ba2c9cc8d78a6f67aacc3f81"
+    },
+    "24": {
+      "sha256": "58ebb110c93b359645ab778a1e7ed95783821bf853cb165fd61ec1a394aa9468"
+    },
+    "26": {
+      "sha256": "36eaf711daf98f251ac96857fccb9900f0d53b1d6884eb5a33e1cb777cd44d85"
+    },
+    "3": {
+      "sha256": "2c860ff65f56ef95a14bff0ee760adc52a5f3f1a5767f71a3d67bf38a3a8152f"
+    },
+    "8": {
+      "sha256": "a60e4c8e9e3bf2c8298a12406d725aa84f5ae6f5929d96747eda2439b5ae69e8"
+    }
+  },
+  "layers": [
+    "body"
+  ]
+}

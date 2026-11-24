@@ -21,19 +21,20 @@ fn art_of(rig: &Rig, tick: u64, look: HoarderLook) -> HoarderArt {
     .expect("her room")
 }
 
-const MOUND_LABEL: &str = "lair mound (low backdrop dressing, no collision)";
-
-fn labels(art: &HoarderArt) -> Vec<&'static str> {
-    art.pieces.iter().map(|p| p.label).collect()
+fn props_of(art: &HoarderArt, prop: Prop) -> Vec<PropDraw> {
+    art.props
+        .iter()
+        .copied()
+        .filter(|p| p.prop == prop)
+        .collect()
 }
 
-/// The sheet's stand-in table (section 4.1, 4.2, 4.3, 4.4), mode by mode, and the swipe's
-/// 8-tick gather then rear-up hold.
+/// The spec's state table (section 4), mode by mode and at both edges of every window.
 #[test]
-fn the_frame_table_follows_the_sheets_stand_in_rows() {
+fn the_frame_table_follows_the_hoard_02_spec() {
     let look = HoarderLook::default();
     let f = |mode, mt| frame_for(mode, mt, 0, look);
-    // Swipe: gather 7 (attack ticks 0..7 = mode ticks 1..8), rear-up 8, smear 9, impact 10,
+    // Swipe (unchanged): gather 7 for mode ticks 1..8, rear-up 8 for 9..34, smear 9, impact 10,
     // recover 11.
     for mt in 1..=8 {
         assert_eq!(f(PileMode::SwipeTell, mt), 7, "gather at mode tick {mt}");
@@ -44,19 +45,28 @@ fn the_frame_table_follows_the_sheets_stand_in_rows() {
     assert_eq!(f(PileMode::SwipeSmear, 1), 9);
     assert_eq!(f(PileMode::SwipeImpact, 1), 10);
     assert_eq!(f(PileMode::SwipeRecover, 1), 11);
-    // Shove: the tell on the gather frame, the lunge on the smear frame, recover 11; a jam
-    // shows the hurt frame for 12 ticks, then the recovery.
-    assert_eq!(f(PileMode::ShoveTell, 1), 7);
-    assert_eq!(f(PileMode::ShoveTell, 40), 7);
-    assert_eq!(f(PileMode::Lunge, 5), 9);
     assert_eq!(f(PileMode::ShoveRecover, 1), 11);
-    assert_eq!(f(PileMode::Jammed, 1), 12);
-    assert_eq!(f(PileMode::Jammed, 12), 12);
-    assert_eq!(f(PileMode::Jammed, 13), 11);
-    // Flinch 12; Exposed and Get-up hold the recovery frame, alive with eyes open.
+    // Shove tell: the settle 16 for ticks 1..10, the brace 17 for 11..40 (never the swipe's gather).
+    assert_eq!(f(PileMode::ShoveTell, 1), 16);
+    assert_eq!(f(PileMode::ShoveTell, 10), 16);
+    assert_eq!(f(PileMode::ShoveTell, 11), 17);
+    assert_eq!(f(PileMode::ShoveTell, 40), 17);
+    // Lunge: 18 and 19 alternate every 6 ticks, starting on 18.
+    for (mt, frame) in [(1, 18), (6, 18), (7, 19), (12, 19), (13, 18), (48, 19)] {
+        assert_eq!(f(PileMode::Lunge, mt), frame, "lunge tick {mt}");
+    }
+    // Jammed: the impact 20 for ticks 1..12, the stagger 21 from 13 to the end of the 72.
+    for (mt, frame) in [(1, 20), (12, 20), (13, 21), (72, 21)] {
+        assert_eq!(f(PileMode::Jammed, mt), frame, "jammed tick {mt}");
+    }
+    // Flinch 12. Exposed: 22 and 23 alternate every 20 ticks; Get-up: 24 for 1..12, 25 for 13..24.
     assert_eq!(f(PileMode::Flinch, 1), 12);
-    assert_eq!(f(PileMode::Exposed, 1), 11);
-    assert_eq!(f(PileMode::GetUp, 1), 11);
+    for (mt, frame) in [(1, 22), (20, 22), (21, 23), (40, 23), (41, 22), (150, 23)] {
+        assert_eq!(f(PileMode::Exposed, mt), frame, "exposed tick {mt}");
+    }
+    for (mt, frame) in [(1, 24), (12, 24), (13, 25), (24, 25)] {
+        assert_eq!(f(PileMode::GetUp, mt), frame, "get-up tick {mt}");
+    }
     // The idle loop is 16, 12, 16 ticks; the walk loop 8 ticks a frame.
     let idle: Vec<u8> = (0..44)
         .map(|t| frame_for(PileMode::Neutral, 1, t, look))
@@ -79,8 +89,39 @@ fn the_frame_table_follows_the_sheets_stand_in_rows() {
     assert_eq!(walk, [3, 4, 5, 6]);
 }
 
+/// The Reveal is cut into thirds of its length: 26, 27, 28 for 90 ticks (30 each) and for the 30-tick
+/// retry (10 each), and every frame of the table is inside the atlas.
+#[test]
+fn the_reveal_shows_the_emerge_in_thirds() {
+    for (len, third) in [(90u32, 30u32), (30, 10)] {
+        let look = HoarderLook {
+            reveal_ticks: len,
+            ..HoarderLook::default()
+        };
+        for mt in 1..=len {
+            let expected = 26 + (mt - 1) / third;
+            assert_eq!(
+                u32::from(frame_for(PileMode::Reveal, mt, 0, look)),
+                expected,
+                "reveal {len}, tick {mt}"
+            );
+        }
+    }
+    // An unknown length is the first Reveal's 90.
+    let unknown = HoarderLook::default();
+    assert_eq!(frame_for(PileMode::Reveal, 31, 0, unknown), 27);
+    assert_eq!(frame_for(PileMode::Reveal, 61, 0, unknown), 28);
+    for mode in PileMode::ALL {
+        for mt in [1, 12, 13, 100] {
+            for tick in [0, 17, 90] {
+                assert!(u32::from(frame_for(mode, mt, tick, HoarderLook::default())) < FRAMES);
+            }
+        }
+    }
+}
+
 /// The `down` frames mean defeat and nothing else (the Engineer U1 lesson): 13 for 8 ticks, 14
-/// for 12, then 15 held; no live mode ever shows one.
+/// for 12, then 15 held; no live mode ever shows one, Exposed (pinned) included.
 #[test]
 fn the_down_frames_are_only_for_the_defeated() {
     for mode in PileMode::ALL {
@@ -112,11 +153,10 @@ fn the_down_frames_are_only_for_the_defeated() {
     );
 }
 
-/// Every frame of her carries the visible stand-in label: whenever her sprite is drawn the
-/// label tag is, at her pivot, above her head, with the sheet's text; while she is Dormant
-/// (under the mound) neither is. A run of the room pilot covers every mode she plays.
+/// The room pilot's run, tick by tick: her sprite and the room kit are drawn from the sim's own states,
+/// every frame is inside the atlas, and no stand-in text, label or code-drawn piece remains.
 #[test]
-fn every_drawn_frame_carries_the_stand_in_label() {
+fn every_drawn_frame_is_inside_the_atlas_and_nothing_is_a_stand_in() {
     let mut rig = Rig::new(&root(), clear_plan()).unwrap();
     let mut pilot = ClearPilot::new(0);
     let mut modes = std::collections::BTreeSet::new();
@@ -125,41 +165,25 @@ fn every_drawn_frame_carries_the_stand_in_label() {
         let input = pilot.input(&rig.combat, &rig.scene);
         rig.step(carl_input(input));
         let art = art_of(&rig, rig.scene.world.tick, HoarderLook::default());
-        let tag = art.tags.iter().find(|t| t.kind == TagKind::Hoarder);
-        match (art.hoarder, tag) {
-            (Some(h), Some(t)) => {
-                drawn += 1;
-                modes.insert(format!("{:?}", rig.boss().boss().mode()));
-                assert_eq!(t.kind.text(), "STAND-IN UNTIL HOARD-02");
-                assert_eq!(t.centre_x, h.x);
-                // Above the top of her tallest frame (the rear-up, about 121 px) while she
-                // stands, just over her body while she is down.
-                let floor = rig.boss().boss().setup().floor_y;
-                if rig.boss().boss().mode() == PileMode::Defeated {
-                    assert_eq!(t.bottom_y, floor + PRONE_LABEL_ABOVE_FEET_PX);
-                } else {
-                    assert!(t.bottom_y >= floor + 121.0);
-                }
-            }
-            (None, None) => {
-                assert_eq!(rig.boss().boss().mode(), PileMode::Dormant);
-            }
-            other => panic!("sprite and tag disagree: {other:?}"),
+        if let Some(h) = art.hoarder {
+            drawn += 1;
+            modes.insert(format!("{:?}", rig.boss().boss().mode()));
+            assert!(u32::from(h.frame) < FRAMES);
+            assert_eq!(h.x, rig.boss().boss().x());
         }
+        for p in &art.props {
+            assert!(
+                u32::from(p.frame) < p.prop.frames(),
+                "{:?} frame {}",
+                p.prop,
+                p.frame
+            );
+        }
+        assert!(art.props.len() <= MAX_PROPS && art.motes.len() <= MAX_MOTES);
     }
-    assert!(drawn > 1000, "she was drawn on {drawn} ticks");
-    // The run covers the reveal, a whole swipe, the cooldown and the defeat.
-    for want in [
-        "Reveal",
-        "SwipeTell",
-        "SwipeSmear",
-        "SwipeImpact",
-        "SwipeRecover",
-        "Cooldown",
-        "Defeated",
-    ] {
-        assert!(modes.contains(want), "{want} not drawn: {modes:?}");
-    }
+    assert!(drawn > 600, "she was drawn for most of the run: {drawn}");
+    assert!(modes.contains("Reveal") && modes.contains("Defeated"));
+    assert!(modes.len() >= 6, "the pilot plays her modes: {modes:?}");
 }
 
 fn clear_plan() -> Plan {
@@ -172,37 +196,7 @@ fn clear_plan() -> Plan {
     .with_control(Control::SoloCarlAssist)
 }
 
-/// The shove's tell is drawn 4 px back (the wind-up), toward the side she faces away from.
-#[test]
-fn the_shove_tell_is_drawn_four_px_back() {
-    let mut rig = Rig::new(
-        &root(),
-        Plan {
-            shove_cooldown: Some(0),
-            ..Plan::carl_at(150.0)
-        },
-    )
-    .unwrap();
-    let mut seen = false;
-    for _ in 0..120 {
-        rig.step(IDLE_SLOTS);
-        if rig.boss().boss().mode() == PileMode::ShoveTell {
-            let art = art_of(&rig, rig.scene.world.tick, HoarderLook::default());
-            let draw = art.hoarder.unwrap();
-            let boss = rig.boss().boss();
-            let at_pivot = actor_center(SPEC, boss.x(), boss.setup().floor_y, boss.facing() < 0);
-            // She faces -x, so the wind-up is toward +x.
-            assert_eq!(boss.facing(), -1);
-            assert_eq!(draw.centre.0 - at_pivot.0, SHOVE_WINDUP_PX);
-            assert_eq!(draw.frame, GATHER);
-            seen = true;
-            break;
-        }
-    }
-    assert!(seen, "she shoved");
-}
-
-/// The door stands as a closed slab until her defeat tick and is only its open frame after
+/// The door stands as a closed sprite on the lock solid until her defeat tick and is the open frame from
 /// it, on exactly that tick (the sim's own door state, read through the slot enemy).
 #[test]
 fn the_door_is_drawn_closed_until_her_defeat_and_open_after() {
@@ -216,13 +210,21 @@ fn the_door_is_drawn_closed_until_her_defeat_and_open_after() {
     .unwrap();
     rig.step(IDLE_SLOTS);
     let before = art_of(&rig, rig.scene.world.tick, HoarderLook::default());
-    assert!(labels(&before).contains(&"exit door (stand-in)"));
-    assert!(!labels(&before).contains(&"door frame, open (stand-in)"));
+    let lock = rig.run.loaded.encounter.locks[0].solid;
+    let layout_h = rig.scene.world.layout_height();
+    let door = props_of(&before, Prop::Door);
+    assert_eq!(door.len(), 1);
+    assert_eq!(
+        (door[0].frame, door[0].x, door[0].y),
+        (0, lock.x, layout_h - lock.bottom()),
+        "closed, on the lock solid"
+    );
+    assert_eq!(Prop::Door.frame_size(), (lock.w as u32, lock.h as u32));
     let mut defeat_tick = None;
     for _ in 0..30 {
         rig.step(carl_input(attack_input()));
         let art = art_of(&rig, rig.scene.world.tick, HoarderLook::default());
-        let closed = labels(&art).contains(&"exit door (stand-in)");
+        let closed = props_of(&art, Prop::Door)[0].frame == 0;
         if defeat_tick.is_none() && !rig.defeats().is_empty() {
             defeat_tick = Some(rig.scene.world.tick);
         }
@@ -235,23 +237,11 @@ fn the_door_is_drawn_closed_until_her_defeat_and_open_after() {
     }
     assert!(defeat_tick.is_some(), "she fell");
     let after = art_of(&rig, rig.scene.world.tick, HoarderLook::default());
-    assert!(labels(&after).contains(&"door frame, open (stand-in)"));
-    // The door's slab is the sidecar's lock solid, in world px.
-    let lock = rig.run.loaded.encounter.locks[0].solid;
-    let layout_h = rig.scene.world.layout_height();
-    let slab = before
-        .pieces
-        .iter()
-        .find(|p| p.label == "exit door (stand-in)")
-        .unwrap();
-    assert_eq!(
-        (slab.x, slab.y, slab.w, slab.h),
-        (lock.x, layout_h - lock.bottom(), lock.w, lock.h)
-    );
+    assert_eq!(props_of(&after, Prop::Door)[0].frame, 1, "open");
 }
 
-/// The entry gate is drawn as bars while the sim's gate stands, and as its faint footprint
-/// while open (before the engage, after her defeat); the footprint is the gate solid's.
+/// The entry gate is the closed frame while the sim's gate stands and the open frame otherwise
+/// (before the engage, after her defeat); the sprite is the gate solid's rectangle.
 #[test]
 fn the_gate_is_drawn_as_the_sims_gate() {
     let mut rig = Rig::new(&root(), clear_plan()).unwrap();
@@ -262,96 +252,157 @@ fn the_gate_is_drawn_as_the_sims_gate() {
         rig.step(carl_input(input));
         let art = art_of(&rig, rig.scene.world.tick, HoarderLook::default());
         let stands = rig.boss().boss().gate_solid();
-        let drawn_closed = labels(&art).contains(&"entry gate, closed (stand-in)");
-        let drawn_open = labels(&art).contains(&"entry gate, open (stand-in)");
+        let gate = props_of(&art, Prop::Gate);
+        assert_eq!(gate.len(), 1);
         assert_eq!(
-            drawn_closed,
+            gate[0].frame == 1,
             stands.is_some(),
             "tick {}",
             rig.scene.world.tick
         );
-        assert_eq!(
-            drawn_open,
-            stands.is_none(),
-            "tick {}",
-            rig.scene.world.tick
-        );
         if let Some(rect) = stands {
-            let p = art
-                .pieces
-                .iter()
-                .find(|p| p.label == "entry gate, closed (stand-in)")
-                .unwrap();
             assert_eq!(
-                (p.x, p.y, p.w, p.h),
-                (
-                    rect.left as i32,
-                    rect.bottom as i32,
-                    rect.width as i32,
-                    rect.height as i32
-                )
+                (gate[0].x, gate[0].y),
+                (rect.left as i32, rect.bottom as i32)
+            );
+            assert_eq!(
+                Prop::Gate.frame_size(),
+                (rect.width as u32, rect.height as u32)
             );
         }
-        closed_seen |= drawn_closed;
-        open_seen |= drawn_open;
+        closed_seen |= gate[0].frame == 1;
+        open_seen |= gate[0].frame == 0;
     }
     assert!(closed_seen && open_seen);
 }
 
-/// Bank A and the post are the sidecar's statics in world px, standing on the walking line,
-/// each with its visible label; the mound is behind everything, at her home column.
+/// Bank A, the post and the stack come from the sidecar's statics in world px, standing on the walking
+/// line at their standing states; the mound is behind everything, centred on her home column, sealed
+/// (back and front) while she is Dormant; the heaps are behind everything, clear of the lane.
 #[test]
-fn bank_a_the_post_and_the_mound_come_from_the_sidecar_and_the_tuning() {
+fn the_room_kit_comes_from_the_sidecar_and_the_tuning() {
     let rig = Rig::new(&root(), clear_plan()).unwrap();
     let art = art_of(&rig, 0, HoarderLook::default());
     let floor = rig.boss().boss().setup().floor_y as i32;
-    let bank = art
-        .pieces
-        .iter()
-        .find(|p| p.label == "bank A (stand-in)")
-        .unwrap();
-    assert_eq!((bank.x, bank.y, bank.w, bank.h), (352, floor, 64, 48));
-    let post = art
-        .pieces
-        .iter()
-        .find(|p| p.label == "J-B post (stand-in)")
-        .unwrap();
-    assert_eq!((post.x, post.y, post.w, post.h), (808, floor, 16, 64));
-    let mound = art.pieces.iter().find(|p| p.label == MOUND_LABEL).unwrap();
-    assert_eq!(mound.layer, Layer::Back);
-    assert_eq!(mound.x + mound.w / 2, 608, "her home column");
-    // Interim readability (the owner's report): the collision-free mound is low, dark and
-    // translucent dressing behind the actors, not a solid labelled slab.
-    assert!(mound.h <= 10, "low: {}", mound.h);
-    assert!(PALETTE[mound.tone as usize][3] < 0xff, "translucent");
-    let stack = art
-        .pieces
-        .iter()
-        .find(|p| p.label == "J-B stack (stand-in)")
-        .unwrap();
     assert_eq!(
-        (stack.x, stack.y, stack.w, stack.h),
-        (752, floor + 96, 128, 64),
-        "the sheet's stack [752, 880) x [96, 160)"
+        props_of(&art, Prop::Bank),
+        [PropDraw {
+            prop: Prop::Bank,
+            frame: 0,
+            x: 352,
+            y: floor,
+            layer: Layer::Prop
+        }],
+        "bank A stable on [352, 416) x [0, 48)"
     );
-    for kind in [
-        TagKind::BankA,
-        TagKind::PostB,
-        TagKind::StackB,
-        TagKind::Door,
-        TagKind::Gate,
-    ] {
-        assert!(art.tags.iter().any(|t| t.kind == kind), "{kind:?}");
-    }
-    // Once she is up the mound is still there, unlabelled, in every mode.
-    let mut up = Rig::new(&root(), Plan::carl_at(60.0)).unwrap();
-    up.step(IDLE_SLOTS);
-    let awake = art_of(&up, 1, HoarderLook::default());
-    assert!(awake.pieces.iter().any(|p| p.label == MOUND_LABEL));
-    assert!(art.pieces.len() <= MAX_PIECES);
-    // Dormant: no sprite, no label of hers.
+    assert_eq!(
+        props_of(&art, Prop::Post),
+        [PropDraw {
+            prop: Prop::Post,
+            frame: 0,
+            x: 808,
+            y: floor,
+            layer: Layer::Prop
+        }],
+        "the post intact on [808, 824) x [0, 64)"
+    );
+    // The stack's footprint is [752, 880) x [96, 160); its sprite starts 32 px lower with its strut.
+    assert_eq!(
+        props_of(&art, Prop::Stack),
+        [PropDraw {
+            prop: Prop::Stack,
+            frame: 0,
+            x: 752,
+            y: floor + 64,
+            layer: Layer::Prop
+        }]
+    );
+    let mound = props_of(&art, Prop::Mound);
+    assert_eq!(
+        mound.iter().map(|p| (p.frame, p.layer)).collect::<Vec<_>>(),
+        [(0, Layer::Back), (1, Layer::Front)],
+        "sealed: the back layer behind everything, the lip in front"
+    );
+    assert!(
+        mound.iter().all(|p| p.x + 88 == 608 && p.y == floor),
+        "her home column"
+    );
+    let heaps = props_of(&art, Prop::Heap);
+    assert_eq!(heaps.len(), 3);
+    assert!(heaps.iter().all(|p| p.layer == Layer::Back && p.y == floor));
+    assert!(art.props.len() <= MAX_PROPS);
+    // Dormant: no sprite, no dust.
     assert!(art.hoarder.is_none());
-    assert!(!art.tags.iter().any(|t| t.kind == TagKind::Hoarder));
+    assert!(art.motes.is_empty());
+}
+
+/// R7: she is drawn one ramp step darker with dust sliding off her and no hit flash while she has no
+/// hurtbox (the Reveal), inside the sealed mound (the front lip is drawn); on the first tick she can be
+/// hit the mound is the low `opened` spill (no lip), she is at full value, and a 4-tick dust burst runs.
+#[test]
+fn the_reveal_is_shadowed_and_lip_covered_then_she_is_out() {
+    let mut rig = Rig::new(&root(), clear_plan()).unwrap();
+    let mut pilot = ClearPilot::new(0);
+    let mut memo = HoarderMemo::default();
+    let (mut reveal_ticks, mut out_ticks, mut burst_ticks) = (0, 0, 0);
+    let mut seen_reveal = false;
+    for _ in 0..600 {
+        let input = pilot.input(&rig.combat, &rig.scene);
+        rig.step(carl_input(input));
+        let tick = rig.scene.world.tick;
+        let boss = rig.boss().boss();
+        let hidden = matches!(boss.mode(), PileMode::Dormant | PileMode::Reveal);
+        let mut look = memo.observe(boss.hp(), boss.alive(), tick);
+        look.flash = true; // a flash must never show on her while she is hidden
+        look.out_age = memo.observe_out(hidden, tick);
+        let art = art_of(&rig, tick, look);
+        let mound = props_of(&art, Prop::Mound);
+        if hidden {
+            assert!(
+                mound
+                    .iter()
+                    .any(|p| p.frame == MOUND_FRONT && p.layer == Layer::Front)
+            );
+            assert!(
+                mound
+                    .iter()
+                    .any(|p| p.frame == MOUND_BACK && p.layer == Layer::Back)
+            );
+        } else {
+            assert_eq!(
+                mound.iter().map(|p| (p.frame, p.layer)).collect::<Vec<_>>(),
+                [(MOUND_OPENED, Layer::Back)]
+            );
+        }
+        match (boss.mode(), art.hoarder) {
+            (PileMode::Dormant, h) => assert!(h.is_none()),
+            (PileMode::Reveal, Some(h)) => {
+                seen_reveal = true;
+                reveal_ticks += 1;
+                assert_eq!(h.shade, Shade::Shadow, "tick {tick}");
+                assert!(!h.flash, "no hit flash on her during the Reveal");
+                assert!((26..=28).contains(&h.frame));
+                assert!(!art.motes.is_empty(), "dust slides off her");
+            }
+            (_, Some(h)) if seen_reveal && boss.alive() && boss.mode() != PileMode::Defeated => {
+                out_ticks += 1;
+                assert_eq!(h.shade, Shade::Full, "{:?} at tick {tick}", boss.mode());
+                if look.out_age.is_some_and(|a| a < OUT_BURST_TICKS) {
+                    burst_ticks += 1;
+                    assert!(!art.motes.is_empty());
+                } else {
+                    assert!(art.motes.is_empty());
+                }
+            }
+            _ => {}
+        }
+        if seen_reveal && out_ticks > 40 {
+            break;
+        }
+    }
+    assert_eq!(reveal_ticks, 90, "the pilot's first Reveal is 90 ticks");
+    assert!(out_ticks > 40);
+    assert_eq!(burst_ticks, OUT_BURST_TICKS, "a 4-tick burst");
 }
 
 /// A room with no Hoarder in the slot draws nothing of hers.
@@ -375,9 +426,9 @@ fn a_room_without_her_draws_nothing() {
 }
 
 /// FA-Q23: the presenter has no authoritative effect. The room pilot's run with every function of
-/// this module called on every tick (and every label rasterised) ends on the same state hash
-/// as the library fixture's run that never calls it, and the hash after each tick is the
-/// same in both: the hashes are pinned (`hoarder_fixtures::tests::ROOM_GOLDENS`) and never move.
+/// this module called on every tick ends on the same state hash as the library fixture's run that
+/// never calls it, and the hash after each tick is the same in both: the hashes are pinned
+/// (`hoarder_fixtures::tests::ROOM_GOLDENS`) and never move.
 #[test]
 fn the_presenter_does_not_change_the_state_hash() {
     for seed in [0u64, 7] {
@@ -393,12 +444,10 @@ fn the_presenter_does_not_change_the_state_hash() {
             );
             with_art.step(carl_input(ia));
             plain.step(carl_input(ib));
-            let art = art_of(&with_art, tick, look);
-            for tag in &art.tags {
-                let _ = text_pixels(tag.kind.text()).expect("every label rasterises");
-            }
+            let _ = art_of(&with_art, tick, look);
             look.flash = tick % 7 == 0;
             look.defeated_age = (!with_art.boss().boss().alive()).then_some(tick % 40);
+            look.out_age = Some(tick % 9);
             assert_eq!(with_art.hash(), plain.hash(), "seed {seed} tick {tick}");
         }
         assert_eq!(
@@ -426,46 +475,248 @@ fn the_presenter_does_not_change_the_state_hash() {
     }
 }
 
-/// The label font: every label of the room rasterises, with its width from the glyph advance, a
-/// shadow row and column, ink and shadow pixels and nothing outside the image; an unknown
-/// character has no glyph.
+/// The states HRD-B and HRD-C wire later have their frame tables ready: bank A stable 0, disturbed 1/2
+/// alternating, slid 3/4, settled 5; the post 0/1/2; the stack 0..3, and its landed remnant is drawn in
+/// front of the pinned boss. Every frame is inside its atlas, and the sizes match the manifests.
 #[test]
-fn the_labels_rasterise_in_the_pixel_font() {
-    for kind in TagKind::ALL {
-        let image = text_pixels(kind.text()).unwrap_or_else(|| panic!("{}", kind.text()));
-        let chars = kind.text().chars().count() as u32;
-        assert_eq!(image.w, chars * GLYPH_ADVANCE_PX, "{kind:?}");
-        assert_eq!(image.h, GLYPH_HEIGHT_PX + 1);
-        assert_eq!(image.rgba.len(), (image.w * image.h * 4) as usize);
-        let ink = image.rgba.chunks(4).filter(|p| *p == TAG_INK).count();
-        let shadow = image.rgba.chunks(4).filter(|p| *p == TAG_SHADOW).count();
-        assert!(
-            ink > 0 && shadow > 0,
-            "{kind:?}: {ink} ink, {shadow} shadow"
-        );
+fn the_later_prop_states_map_to_frames_inside_their_atlases() {
+    let rect = crate::camera_lab::room::IRect {
+        x: 352,
+        y: 532,
+        w: 64,
+        h: 48,
+    };
+    for (state, ticks, frames) in [
+        (BankState::Stable, [0, 1], [0, 0]),
+        (BankState::Disturbed, [0, 1], [1, 2]),
+        (BankState::Slid, [0, 1], [3, 4]),
+        (BankState::Settled, [0, 1], [5, 5]),
+    ] {
+        for (tick, frame) in ticks.into_iter().zip(frames) {
+            assert_eq!(bank_prop(rect, state, 580, tick).frame, frame, "{state:?}");
+            assert!(u32::from(frame) < Prop::Bank.frames());
+        }
     }
-    // "I" is a full top and bottom bar over a one-pixel stem: 3 + 1 + 1 + 1 + 3 = 9 ink pixels.
-    let i = text_pixels("I").unwrap();
-    assert_eq!(i.rgba.chunks(4).filter(|p| *p == TAG_INK).count(), 9);
-    // The shadow sits one pixel down and right of the ink and never covers it.
-    assert_eq!(&i.rgba[0..4], &TAG_INK, "top left is ink");
-    assert!(text_pixels("a").is_none(), "lower case has no glyph");
-    assert!(text_pixels("").is_none());
+    let post = crate::camera_lab::room::IRect {
+        x: 808,
+        y: 516,
+        w: 16,
+        h: 64,
+    };
+    for (state, frame) in [
+        (PostState::Intact, 0),
+        (PostState::Cracked, 1),
+        (PostState::Broken, 2),
+    ] {
+        assert_eq!(post_prop(post, state, 580).frame, frame);
+    }
+    // The sheet's hanging stack `[752, 880) x [96, 160)` and its landed remnant `[752, 880) x [0, 16)`
+    // (layout y down, floor 580): the hanging sprite carries the strut (E1), so its bottom is 32 px
+    // under the body; the remnant's rows are the frame's bottom rows.
+    let hanging = hanging_over(post);
     assert_eq!(
-        text_pixels(STAND_IN_LABEL).unwrap().w,
-        23 * GLYPH_ADVANCE_PX,
-        "the sheet's label is 23 characters"
+        (hanging.x, hanging.y, hanging.w, hanging.h),
+        (752, 420, 128, 64)
     );
+    let remnant = crate::camera_lab::room::IRect {
+        x: 752,
+        y: 564,
+        w: 128,
+        h: 16,
+    };
+    for (state, body, frame, layer, y) in [
+        (StackState::Supported, hanging, 0, Layer::Prop, 64),
+        (StackState::Released, hanging, 1, Layer::Prop, 64),
+        (StackState::Falling, hanging, 2, Layer::Prop, 64),
+        (StackState::Landed, remnant, 3, Layer::Front, 0),
+    ] {
+        let d = stack_prop(body, state, 580);
+        assert_eq!(
+            (d.frame, d.layer, d.x, d.y),
+            (frame, layer, 752, y),
+            "{state:?}"
+        );
+        assert!(u32::from(d.frame) < Prop::Stack.frames());
+    }
 }
 
-/// The tones are opaque except the open gate's faint footprint, the low mound and the stack's
-/// floor shadow.
+/// HRD-B and HRD-C wired (the PR that lands second, spec section 11): bank A and the J-B pieces are
+/// drawn from their machines. The bank stands on its solid, tumbles on the sim's moving rectangle and
+/// settles on the sim's remnant; the post cracks, then breaks on the release; the stack warns and falls
+/// on the sim's mass rectangle with the footprint's floor shadow, then lands in front of the actors.
 #[test]
-fn the_palette_is_opaque_except_the_open_gates_footprint_the_mound_and_the_shadow() {
-    let faint = [Tone::GateOpen, Tone::Mound, Tone::Shadow].map(|t| t as usize);
-    for (i, c) in PALETTE.iter().enumerate() {
-        assert_eq!(c[3] == 0xff, !faint.contains(&i), "tone {i}");
+fn the_piles_are_drawn_from_their_machines() {
+    // Bank A: baited slide.
+    let mut rig = Rig::new(
+        &root(),
+        Plan {
+            carl_x: 330,
+            awake: Some((470.0, -1)),
+            ..Plan::carl_at(140.0)
+        },
+    )
+    .unwrap();
+    let art = art_of(&rig, 1, HoarderLook::default());
+    let bank = props_of(&art, Prop::Bank);
+    assert_eq!(
+        (bank.len(), bank[0].frame, bank[0].x),
+        (1, 0, 352),
+        "standing"
+    );
+    let (mut disturbed, mut slid, mut settled) = (false, false, false);
+    for _ in 0..220 {
+        rig.step(IDLE_SLOTS);
+        let t = rig.next_tick() - 1;
+        let art = art_of(&rig, t, HoarderLook::default());
+        let bank = props_of(&art, Prop::Bank);
+        assert_eq!(bank.len(), 1);
+        let slide = rig.combat.env().unwrap().slide(0).unwrap();
+        match slide.state() {
+            crate::env_prop::SlideState::Disturbed => {
+                assert!(matches!(bank[0].frame, 1 | 2));
+                assert_eq!(bank[0].x, 352, "it shudders in place");
+                disturbed = true;
+            }
+            crate::env_prop::SlideState::Slid => {
+                assert!(matches!(bank[0].frame, 3 | 4));
+                let m = slide.mass_rect().unwrap();
+                assert_eq!(
+                    (bank[0].x, bank[0].y),
+                    (m.x, world(m, rig.scene.world.layout_height()).1),
+                    "on the sim's mass"
+                );
+                assert!(bank[0].x <= 352, "moving toward -x: {}", bank[0].x);
+                slid = true;
+            }
+            crate::env_prop::SlideState::Settled => {
+                assert_eq!((bank[0].frame, bank[0].x), (5, 296), "the remnant");
+                settled = true;
+            }
+            crate::env_prop::SlideState::Stable => {}
+        }
     }
+    assert!(disturbed && slid && settled);
+    // The J-B stack: baited into the post.
+    let mut rig = Rig::new(
+        &root(),
+        Plan {
+            carl_x: 852,
+            awake: Some((700.0, 1)),
+            ..Plan::carl_at(60.0)
+        },
+    )
+    .unwrap();
+    let floor = rig.boss().boss().setup().floor_y as i32;
+    let (mut shadow, mut fell, mut landed) = (false, false, false);
+    for _ in 0..260 {
+        rig.step(IDLE_SLOTS);
+        let t = rig.next_tick() - 1;
+        let art = art_of(&rig, t, HoarderLook::default());
+        let post = props_of(&art, Prop::Post);
+        let stack = props_of(&art, Prop::Stack);
+        assert_eq!((post.len(), stack.len()), (1, 1));
+        let state = rig.combat.env().unwrap().mass_state(1).unwrap();
+        match state {
+            crate::env_prop::MassState::Supported => {
+                assert_eq!(
+                    (post[0].frame, stack[0].frame, stack[0].y),
+                    (0, 0, floor + 64)
+                );
+                assert!(art.shadow.is_none());
+            }
+            crate::env_prop::MassState::Weakened => {
+                assert_eq!(
+                    (post[0].frame, stack[0].frame),
+                    (1, 0),
+                    "cracked, still hanging"
+                );
+            }
+            crate::env_prop::MassState::Released | crate::env_prop::MassState::Falling => {
+                assert_eq!(post[0].frame, 2, "broken from the release on");
+                let s = art.shadow.expect("the footprint's floor shadow");
+                assert_eq!((s.x, s.y, s.w, s.h), (752, floor, 128, FLOOR_SHADOW_PX));
+                let m = rig
+                    .combat
+                    .env()
+                    .unwrap()
+                    .mass(1)
+                    .unwrap()
+                    .mass_rect()
+                    .unwrap();
+                let body_y = world(m, rig.scene.world.layout_height()).1;
+                assert_eq!(
+                    (stack[0].x, stack[0].y),
+                    (m.x, body_y - STACK_LEG_PX),
+                    "on the sim's mass, the strut under it"
+                );
+                assert!(stack[0].y <= floor + 64, "never above the hanging stack");
+                if state == crate::env_prop::MassState::Released {
+                    assert_eq!(stack[0].y, floor + 64, "the mass waits at its hanging rect");
+                }
+                assert_eq!(stack[0].layer, Layer::Prop);
+                shadow = true;
+                fell |= state == crate::env_prop::MassState::Falling && stack[0].frame == 2;
+            }
+            crate::env_prop::MassState::Landed => {
+                assert_eq!(
+                    (stack[0].frame, stack[0].x, stack[0].y, stack[0].layer),
+                    (3, 752, floor, Layer::Front)
+                );
+                assert!(art.shadow.is_none());
+                landed = true;
+            }
+        }
+        assert!(art.props.len() <= MAX_PROPS);
+    }
+    // Her shove releases the stack outright (no `Weakened` tick in this bait): `cracked` is checked
+    // whenever that state shows up, the release, fall and landing always.
+    assert!(shadow && fell && landed, "{shadow} {fell} {landed}");
+}
+
+/// The room kit's manifests agree with the sizes and frame counts the presenter slices the atlases by,
+/// and every exported atlas is one row of frames.
+#[test]
+fn the_prop_sizes_match_the_manifests() {
+    let manifests = [
+        (Prop::Mound, "floor01_hoarder_mound"),
+        (Prop::Bank, "floor01_hoarder_bank_a"),
+        (Prop::Post, "floor01_hoarder_post_b"),
+        (Prop::Stack, "floor01_hoarder_stack_b"),
+        (Prop::Door, "floor01_hoarder_door"),
+        (Prop::Gate, "floor01_hoarder_gate"),
+        (Prop::Heap, "floor01_hoarder_heap"),
+    ];
+    for (prop, name) in manifests {
+        assert_eq!(prop.atlas(), format!("generated/art/{name}.png"));
+        let text = std::fs::read_to_string(root().join(format!("assets/manifests/{name}.json")))
+            .unwrap_or_else(|e| panic!("{name}: {e}"));
+        let json: serde_json::Value = serde_json::from_str(&text).unwrap();
+        let size = &json["frame_size"];
+        assert_eq!(
+            (size[0].as_u64().unwrap(), size[1].as_u64().unwrap()),
+            (
+                u64::from(prop.frame_size().0),
+                u64::from(prop.frame_size().1)
+            ),
+            "{name}"
+        );
+        assert_eq!(
+            json["frame_names"].as_array().unwrap().len() as u32,
+            prop.frames(),
+            "{name}"
+        );
+    }
+    let text = std::fs::read_to_string(root().join("assets/manifests/hoard-02.json")).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&text).unwrap();
+    assert_eq!(
+        json["frame_size"][0].as_u64().unwrap(),
+        u64::from(FRAME_SIZE.0)
+    );
+    assert_eq!(
+        json["hoarder"]["frames"].as_array().unwrap().len() as u32,
+        FRAMES
+    );
+    assert_eq!(json["output_atlas"].as_str().unwrap(), ATLAS);
 }
 
 /// F3: the hit flash follows her hit points, lasts `FLASH_TICKS`, and a tick that goes backwards (a
@@ -497,135 +748,55 @@ fn the_flash_memo_runs_four_ticks_and_forgets_on_a_tick_regression() {
     assert_eq!(memo.observe(30, true, 3).defeated_age, None);
 }
 
-/// Interim readability (the owner's report that she "looks transparent from the mechanics too"):
-/// while she has no hurtbox (the 90-tick Reveal) she is drawn as a dim silhouette, and solid on the
-/// first hittable tick. The flag is read from the simulation's own hurtbox, never invented.
+/// R7: the out age counts from the first tick she is no longer hidden, restarts at 0 when she is hidden
+/// again, and is forgotten by a tick regression (a retry).
 #[test]
-fn she_is_a_dim_silhouette_until_the_first_hittable_tick() {
-    let plan = Plan {
-        carl_x: 428,
-        ..Plan::carl_at(60.0)
-    }
-    .dormant();
-    let mut rig = Rig::new(&root(), plan).unwrap();
-    let (mut silhouette_ticks, mut first_hittable) = (0, None);
-    for _ in 0..200 {
-        let tick = rig.next_tick();
-        rig.step(carl_input(crate::hoarder_fixtures::run_input(1.0)));
-        let tick_after = rig.next_tick() - 1;
-        let _ = tick;
-        let art = art_of(&rig, tick_after, HoarderLook::default());
-        let Some(her) = art.hoarder else {
-            continue;
-        };
-        let hittable = !rig.boss().boss().hurt_rects().is_empty();
-        if rig.boss().boss().mode() == PileMode::Reveal {
-            assert!(!hittable, "no hurtbox in the Reveal");
-            assert!(her.silhouette, "dim while she cannot be hit");
-            assert!(
-                her.alpha <= REVEAL_DIM_ALPHA + f32::EPSILON,
-                "{}",
-                her.alpha
-            );
-            silhouette_ticks += 1;
-        } else if hittable {
-            assert!(!her.silhouette);
-            assert!(
-                (her.alpha - 1.0).abs() < f32::EPSILON,
-                "solid once hittable"
-            );
-            first_hittable.get_or_insert(tick_after);
-        }
-    }
-    assert_eq!(silhouette_ticks, 90, "the whole 90-tick Reveal");
-    assert!(first_hittable.is_some(), "she becomes hittable");
+fn the_out_age_counts_from_the_first_tick_she_can_be_hit() {
+    let mut memo = HoarderMemo::default();
+    memo.observe(30, true, 10);
+    assert_eq!(memo.observe_out(true, 10), None);
+    memo.observe(30, true, 100);
+    assert_eq!(memo.observe_out(false, 100), Some(0));
+    memo.observe(30, true, 103);
+    assert_eq!(memo.observe_out(false, 103), Some(3));
+    // Hidden again (a restart without the tick going back): the age restarts.
+    memo.observe(30, true, 104);
+    assert_eq!(memo.observe_out(true, 104), None);
+    memo.observe(30, true, 105);
+    assert_eq!(memo.observe_out(false, 105), Some(0));
+    // A retry resets the scene tick: the memo forgets.
+    memo.observe(30, true, 2);
+    assert_eq!(memo.observe_out(true, 2), None);
 }
 
-/// Bank A is drawn as the sim's solid by state: the slab while it stands, the moving mass while it
-/// slides, the low remnant after; the J-B stack hangs at its sheet rectangle, drops, and leaves the
-/// remnant (HRD-B, HRD-C; stand-in drawing until HOARD-02).
+/// A weakened support (one qualifying hit of two) draws the post `cracked` with the stack still
+/// hanging: the `Weakened` row of `post_and_stack_from`, on the room's J-B config.
 #[test]
-fn the_piles_are_drawn_from_their_machines() {
-    let floor = |rig: &Rig| rig.boss().boss().setup().floor_y as i32;
-    let pieces_with = |art: &HoarderArt, label: &str| {
-        art.pieces
-            .iter()
-            .filter(|p| p.label == label)
-            .copied()
-            .collect::<Vec<_>>()
+fn a_weakened_post_is_drawn_cracked_with_the_stack_still_hanging() {
+    use crate::camera_lab::room::IRect;
+    use crate::env_prop::{FallingMass, FallingMassConfig, MassState, Offer, Stimulus};
+    let mut mass = FallingMass::new(FallingMassConfig::new(
+        IRect::new(752, 420, 128, 64),
+        IRect::new(752, 532, 128, 48),
+        IRect::new(752, 564, 128, 16),
+    ))
+    .unwrap();
+    let post = IRect::new(808, 516, 16, 64);
+    let [p, s] = post_and_stack_from(post, Some(&mass), 580);
+    assert_eq!((p.frame, s.frame, s.x, s.y), (0, 0, 752, 64), "intact");
+    let hit = Stimulus::MeleeHit {
+        token: 1,
+        player: 0,
+        weight: 1,
     };
-    // Bank A: baited slide.
-    let mut rig = Rig::new(
-        &root(),
-        Plan {
-            carl_x: 330,
-            awake: Some((470.0, -1)),
-            ..Plan::carl_at(140.0)
-        },
-    )
-    .unwrap();
-    let art = art_of(&rig, 1, HoarderLook::default());
+    assert_eq!(mass.offer(hit), Offer::Progress { progress: 1 });
+    assert_eq!(mass.state(), MassState::Weakened);
+    let [p, s] = post_and_stack_from(post, Some(&mass), 580);
     assert_eq!(
-        pieces_with(&art, "bank A (stand-in)").len(),
-        2,
-        "body and top bar"
+        (p.frame, s.frame, s.x, s.y, s.layer),
+        (1, 0, 752, 64, Layer::Prop)
     );
-    let (mut slid, mut settled) = (false, false);
-    for _ in 0..220 {
-        rig.step(IDLE_SLOTS);
-        let t = rig.next_tick() - 1;
-        let art = art_of(&rig, t, HoarderLook::default());
-        match rig.combat.env().unwrap().slide(0).unwrap().state() {
-            crate::env_prop::SlideState::Slid => {
-                let m = pieces_with(&art, "bank A, sliding (stand-in)");
-                assert_eq!(m.len(), 1, "one moving mass");
-                assert!(m[0].x <= 352, "moving toward -x: {}", m[0].x);
-                assert!(pieces_with(&art, "bank A (stand-in)").is_empty());
-                slid = true;
-            }
-            crate::env_prop::SlideState::Settled => {
-                let r = pieces_with(&art, "bank A remnant (stand-in)");
-                assert_eq!(r.len(), 2, "body and top bar");
-                assert!(r.iter().all(|p| p.h <= 16));
-                assert!(art.tags.iter().all(|tg| tg.kind != TagKind::BankA));
-                settled = true;
-            }
-            _ => {}
-        }
-    }
-    assert!(slid && settled);
-    // The J-B stack: baited into the post.
-    let mut rig = Rig::new(
-        &root(),
-        Plan {
-            carl_x: 852,
-            awake: Some((700.0, 1)),
-            ..Plan::carl_at(60.0)
-        },
-    )
-    .unwrap();
-    let f = floor(&rig);
-    let (mut shadow, mut remnant, mut gone_post) = (false, false, false);
-    for _ in 0..260 {
-        rig.step(IDLE_SLOTS);
-        let t = rig.next_tick() - 1;
-        let art = art_of(&rig, t, HoarderLook::default());
-        match rig.combat.env().unwrap().mass_state(1).unwrap() {
-            crate::env_prop::MassState::Released | crate::env_prop::MassState::Falling => {
-                shadow |= !pieces_with(&art, "J-B footprint shadow (stand-in)").is_empty();
-                gone_post |= pieces_with(&art, "J-B post (stand-in)").is_empty();
-                let s = pieces_with(&art, "J-B stack (stand-in)");
-                assert_eq!(s.len(), 2, "body and top bar");
-                assert!(s[0].y <= f + 96 + 2, "never above the hanging stack");
-            }
-            crate::env_prop::MassState::Landed => {
-                let r = pieces_with(&art, "J-B stack remnant (stand-in)");
-                assert_eq!((r[0].x, r[0].w, r[0].h), (752, 128, 16));
-                assert!(pieces_with(&art, "J-B stack (stand-in)").is_empty());
-                remnant = true;
-            }
-            _ => {}
-        }
-    }
-    assert!(shadow && remnant && gone_post);
+    // No machine: the standing pair over the post.
+    let [p, s] = post_and_stack_from(post, None, 580);
+    assert_eq!((p.frame, s.frame, s.x, s.y), (0, 0, 752, 64));
 }

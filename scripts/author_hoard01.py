@@ -409,8 +409,10 @@ def hoarder(pose: dict) -> list[str]:
     def arm(side):
         elbow, wrist, palm, hang = pose[side + "_arm"]
         if side == "near":
-            sh = apply(B, 48, 46)
-            return union(capsule(*sh, 11, *elbow, 9), capsule(*elbow, 9, *wrist, 6), ellipse(*palm, 6, 5),
+            # optional rig override (HOARD-02): shoulder anchor and radius, for pitched poses
+            nx, ny, nr = pose.get("near_sh", (48, 46, 11))
+            sh = apply(B, nx, ny)
+            return union(capsule(*sh, nr, *elbow, 9), capsule(*elbow, 9, *wrist, 6), ellipse(*palm, 6, 5),
                          hand(palm, hang, NEAR_FINGERS, NEAR_THUMB, (1.8, 1.5), (1.9, 1.6)))
         sh = apply(B, 88, 46)
         return union(capsule(*sh, 9, *elbow, 8), capsule(*elbow, 8, *wrist, 5.5), ellipse(*palm, 5, 5),
@@ -424,10 +426,12 @@ def hoarder(pose: dict) -> list[str]:
             return t_polygon(B, [(82, 38), (96, 44), (99, 56), (95, 58), (92, 55), (88, 59), (82, 52)],
                              (88, 46), (10, 12))
         elbow = pose[side + "_arm"][0]
-        sh = apply(B, 48, 46) if side == "near" else apply(B, 88, 46)
+        sh = apply(B, *pose.get("near_sh", (48, 46))[:2]) if side == "near" else apply(B, 88, 46)
         r = 11 if side == "near" else 9
-        end = (sh[0] + (elbow[0] - sh[0]) * 0.45, sh[1] + (elbow[1] - sh[1]) * 0.45)
-        return capsule(*sh, r + 1.5, *end, r + 0.5)
+        # optional rig override (HOARD-02): near sleeve cap radius and length as a fraction of the upper arm
+        rs, frac = pose.get("near_cap", (r + 1.5, 0.45)) if side == "near" else (r + 1.5, 0.45)
+        end = (sh[0] + (elbow[0] - sh[0]) * frac, sh[1] + (elbow[1] - sh[1]) * frac)
+        return capsule(*sh, rs, *end, rs - 1)
 
     def leg(side):
         knee, ankle, _f = pose[side + "_leg"]
@@ -458,8 +462,9 @@ def hoarder(pose: dict) -> list[str]:
     torso = union(t_ellipse(B, 56, 46, 17, 13), t_ellipse(B, 72, 52, 22, 16), t_ellipse(B, 72, 77, 30, 20),
                   t_ellipse(B, 68, 91, 29, 7))
     c.part("torso", "shirt", torso, clip=lambda x, y: (lambda l: l[1] <= hem_y(l[0]))(apply(Bi, x, y)))
-    c.part("neckline", "skin", t_polygon(B, [(80, 42), (89, 42), (88, 46), (86, 48), (85, 46), (83, 48), (81, 46)],
-                                         (85, 43), (6, 4)))
+    if pose.get("neckline", True):
+        c.part("neckline", "skin", t_polygon(B, [(80, 42), (89, 42), (88, 46), (86, 48), (85, 46), (83, 48), (81, 46)],
+                                             (85, 43), (6, 4)))
     c.part("hair_back", "hair", union(
         t_polygon(H, swung([(68, 18), (58, 18), (50, 23), (44, 30), (40, 40), (37, 52), (36, 62), (39, 70),
                             (44, 66), (48, 58), (54, 48), (62, 40), (70, 34)], sw), (60, 30), (22, 26)),
@@ -536,11 +541,11 @@ def hoarder(pose: dict) -> list[str]:
               keep=("K", "g"))
         where("shirt", B, lambda lx, ly, f=bust: f(lx, ly)[0] and f(lx, ly)[2] > 0.5, "t", keep=("K", "g"))
     # grime stains on the plain shirt (no print, no logo)
-    for sx_, sy_, sw_, sh_ in STAINS:
+    for sx_, sy_, sw_, sh_ in (STAINS if pose.get("stains", True) else ()):
         where("shirt", B, lambda lx, ly, a=sx_, b=sy_, w=sw_, h=sh_: a <= round(lx) < a + w and b <= round(ly) < b + h,
               "g", keep=("K", "s", "m", "h"))
     # side tear in the shirt showing skin
-    for p in [p for p, f in c.family.items() if f == "shirt"]:
+    for p in [p for p, f in c.family.items() if f == "shirt" and pose.get("tear", True)]:
         lx, ly = apply(Bi, *p)
         if in_polygon(TEAR_IN, lx, ly):
             c.key[p] = "s" if ly > 81 else "m"

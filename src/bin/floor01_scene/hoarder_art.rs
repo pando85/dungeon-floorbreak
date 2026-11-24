@@ -1,8 +1,8 @@
-//! FA-Q23 (HRD-P): the Bevy half of the Hoarder room's stand-in presentation. The pure half is
-//! `dungeon_floorbreak::hoarder_art`; this file only draws what it returns: the HOARD-01
-//! atlas frames (the committed, unapproved candidate, reused as they are), the labelled
-//! greybox of the door, the entry gate, bank A, the J-B post and its stack, and the low lair mound, and the
-//! visible "STAND-IN" labels (rasterised from a 3 x 5 pixel font into one small image each).
+//! FA-Q23 (HRD-P) and HOARD-02: the Bevy half of the Hoarder room's presentation. The pure half is
+//! `dungeon_floorbreak::hoarder_art`; this file only draws what it returns: the HOARD-02 atlas
+//! frames of her, the `floor01_hoarder_*` room kit (door, gate, bank A, the J-B post and stack, the
+//! lair mound and the dressing heaps), a few cosmetic dust motes and the J-B footprint's floor
+//! shadow while the stack warns and falls (HRD-C).
 //! **Presentation only**: every system reads the combat state through a shared reference and
 //! writes only its own sprites, so nothing here reaches the simulation, the replay or the
 //! state hash (the pure half proves it with a state-hash test).
@@ -11,65 +11,116 @@ use super::*;
 use dungeon_floorbreak::encounter::Encounter;
 use dungeon_floorbreak::env_kit::ATLAS_ASSET_PREFIX;
 use dungeon_floorbreak::hoarder_art::{
-    ATLAS, FRAME_SIZE, FRAMES, HoarderLook, HoarderMemo, Layer, MAX_PIECES, TagKind, draw,
-    text_pixels,
+    ATLAS, FRAME_SIZE, FRAMES, HoarderLook, HoarderMemo, Layer, MAX_MOTES, MAX_PROPS, Prop, Shade,
+    draw,
 };
 
 /// Her pooled sprite.
 #[derive(Component, Clone, Copy)]
 pub(super) struct HoarderSprite;
 
-/// One pooled code-drawn piece (door, gate, bank, post, mound).
+/// One pooled room-kit sprite (door, gate, bank, post, stack, mound, heaps).
 #[derive(Component, Clone, Copy)]
-pub(super) struct HoarderPiece(usize);
+pub(super) struct HoarderProp(usize);
 
-/// One visible label.
+/// One pooled dust mote.
 #[derive(Component, Clone, Copy)]
-pub(super) struct HoarderTagSprite(TagKind);
+pub(super) struct HoarderMote(usize);
+
+/// The J-B footprint's floor shadow (one sprite, scaled to the band).
+#[derive(Component, Clone, Copy)]
+pub(super) struct HoarderShadow;
+
+/// R7: her sprite in the Reveal, about one ramp step darker (the mound's shadow value).
+const REVEAL_SHADOW_TINT: Color = Color::srgb(0.62, 0.6, 0.68);
+/// Dust: the `floor` ramp's rag fibre, lit.
+const DUST_COLOUR: Color = Color::srgba(0.95, 0.82, 0.62, 0.95);
+const DUST_PX: f32 = 3.0;
+/// HRD-C: the stack's footprint warning, a translucent dark band on the floor.
+const SHADOW_COLOUR: Color = Color::srgba(0.0, 0.0, 0.0, 0.44);
+
+/// One prop's atlas: its image and its frame layout.
+struct PropAtlas {
+    prop: Prop,
+    image: Handle<Image>,
+    layout: Handle<TextureAtlasLayout>,
+}
 
 #[derive(Resource)]
 pub(super) struct HoarderArt {
     encounter: Encounter,
+    props: Vec<PropAtlas>,
     hoarder_z: f32,
     back_z: f32,
-    piece_z: f32,
-    tag_z: f32,
+    prop_z: f32,
+    front_z: f32,
+    mote_z: f32,
 }
 
 fn atlas_present(path: &str) -> bool {
     std::env::current_dir().is_ok_and(|root| root.join(path).is_file())
 }
 
+fn asset_path(path: &str) -> String {
+    path.strip_prefix(ATLAS_ASSET_PREFIX)
+        .unwrap_or(path)
+        .to_owned()
+}
+
 /// Spawn the pools of the Hoarder room. A missing atlas (`bash scripts/export_assets.sh` was
-/// not run) skips her sprite with a one-line notice; the greybox and the labels still draw.
+/// not run) skips that sprite with a one-line notice.
 #[allow(clippy::too_many_arguments)]
 pub(super) fn spawn(
     commands: &mut Commands,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
-    images: &mut Assets<Image>,
     encounter: Encounter,
     layers: RenderLayers,
     kit: &EnvKit,
     handles: &mut Vec<(String, Handle<Image>)>,
     entities: &mut usize,
 ) {
-    println!("HRD_P_ART stand-in presentation (HOARD-01 frames, labelled greybox)");
+    println!("HRD_P_ART HOARD-02 presentation (boss atlas, room kit, no stand-ins)");
     let actor_z = kit.actor_z;
+    let mut props = Vec::new();
+    for prop in Prop::ALL {
+        if !atlas_present(prop.atlas()) {
+            println!(
+                "HRD_P_ART missing {} (run scripts/export_assets.sh): that prop is skipped",
+                prop.atlas()
+            );
+            continue;
+        }
+        let asset = asset_path(prop.atlas());
+        let image: Handle<Image> = asset_server.load(asset.clone());
+        handles.push((asset, image.clone()));
+        let (w, h) = prop.frame_size();
+        let layout = layouts.add(TextureAtlasLayout::from_grid(
+            UVec2::new(w, h),
+            prop.frames(),
+            1,
+            None,
+            None,
+        ));
+        props.push(PropAtlas {
+            prop,
+            image,
+            layout,
+        });
+    }
     commands.insert_resource(HoarderArt {
         encounter,
+        props,
         // Among the goblins' band, behind Carl and Donut (the slime's convention).
         hoarder_z: actor_z + GOBLIN_Z_OFFSET - 32.0 * GOBLIN_Z_STEP,
         back_z: actor_z - 0.5,
-        piece_z: actor_z - 0.045,
-        // The labels are read first: above everything, never hidden.
-        tag_z: kit.foreground_z + 0.1,
+        prop_z: actor_z - 0.045,
+        // In front of every actor (Carl is +0.1, a glob +0.2): the mound's front lip.
+        front_z: actor_z + 0.3,
+        mote_z: actor_z + GOBLIN_Z_OFFSET - 32.0 * GOBLIN_Z_STEP + 0.0005,
     });
     if atlas_present(ATLAS) {
-        let asset = ATLAS
-            .strip_prefix(ATLAS_ASSET_PREFIX)
-            .unwrap_or(ATLAS)
-            .to_owned();
+        let asset = asset_path(ATLAS);
         let texture: Handle<Image> = asset_server.load(asset.clone());
         handles.push((asset, texture.clone()));
         let layout = layouts.add(TextureAtlasLayout::from_grid(
@@ -90,34 +141,28 @@ pub(super) fn spawn(
     } else {
         println!("HRD_P_ART missing {ATLAS} (run scripts/export_assets.sh): her sprite is skipped");
     }
-    for index in 0..MAX_PIECES {
+    for index in 0..MAX_PROPS {
         commands.spawn((
-            HoarderPiece(index),
-            Sprite::from_color(Color::WHITE, Vec2::ONE),
+            HoarderProp(index),
+            Sprite::default(),
             Transform::from_xyz(0.0, 0.0, actor_z),
             Visibility::Hidden,
             layers.clone(),
         ));
         *entities += 1;
     }
-    for kind in TagKind::ALL {
-        let Some(text) = text_pixels(kind.text()) else {
-            continue;
-        };
-        let image = images.add(Image::new(
-            Extent3d {
-                width: text.w,
-                height: text.h,
-                depth_or_array_layers: 1,
-            },
-            TextureDimension::D2,
-            text.rgba,
-            TextureFormat::Rgba8UnormSrgb,
-            RenderAssetUsages::default(),
-        ));
+    commands.spawn((
+        HoarderShadow,
+        Sprite::from_color(SHADOW_COLOUR, Vec2::ONE),
+        Transform::from_xyz(0.0, 0.0, actor_z),
+        Visibility::Hidden,
+        layers.clone(),
+    ));
+    *entities += 1;
+    for index in 0..MAX_MOTES {
         commands.spawn((
-            HoarderTagSprite(kind),
-            Sprite::from_image(image),
+            HoarderMote(index),
+            Sprite::from_color(DUST_COLOUR, Vec2::splat(DUST_PX)),
             Transform::from_xyz(0.0, 0.0, actor_z),
             Visibility::Hidden,
             layers.clone(),
@@ -126,7 +171,7 @@ pub(super) fn spawn(
     }
 }
 
-#[allow(clippy::type_complexity)]
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
 pub(super) fn sync_hoarder_art(
     sim: Res<Sim>,
     combat: Res<Combat>,
@@ -136,17 +181,35 @@ pub(super) fn sync_hoarder_art(
         (&mut Transform, &mut Sprite, &mut Visibility),
         (
             With<HoarderSprite>,
-            Without<HoarderPiece>,
-            Without<HoarderTagSprite>,
+            Without<HoarderProp>,
+            Without<HoarderMote>,
+            Without<HoarderShadow>,
         ),
     >,
-    mut piece_sprites: Query<
-        (&HoarderPiece, &mut Transform, &mut Sprite, &mut Visibility),
-        (Without<HoarderSprite>, Without<HoarderTagSprite>),
+    mut prop_sprites: Query<
+        (&HoarderProp, &mut Transform, &mut Sprite, &mut Visibility),
+        (
+            Without<HoarderSprite>,
+            Without<HoarderMote>,
+            Without<HoarderShadow>,
+        ),
     >,
-    mut tag_sprites: Query<
-        (&HoarderTagSprite, &mut Transform, &mut Visibility),
-        (Without<HoarderSprite>, Without<HoarderPiece>),
+    mut mote_sprites: Query<
+        (&HoarderMote, &mut Transform, &mut Visibility),
+        (
+            Without<HoarderSprite>,
+            Without<HoarderProp>,
+            Without<HoarderShadow>,
+        ),
+    >,
+    mut shadow_sprite: Query<
+        (&mut Transform, &mut Visibility),
+        (
+            With<HoarderShadow>,
+            Without<HoarderSprite>,
+            Without<HoarderProp>,
+            Without<HoarderMote>,
+        ),
     >,
 ) {
     let (Some(art), Some(state)) = (art, combat.0.as_ref()) else {
@@ -154,11 +217,21 @@ pub(super) fn sync_hoarder_art(
     };
     let world = &sim.0.world;
     let tick = world.tick;
-    // Render-local looks (the hit flash, the age of her defeat), kept by the pure half.
-    let look = dungeon_floorbreak::combat_scene::pile_boss::of(state)
-        .map_or_else(HoarderLook::default, |enemy| {
-            memo.observe(enemy.boss().hp(), enemy.boss().alive(), tick)
-        });
+    // Render-local looks (the hit flash, the age of her defeat, the age of her emergence), kept by
+    // the pure half.
+    let look = dungeon_floorbreak::combat_scene::pile_boss::of(state).map_or_else(
+        HoarderLook::default,
+        |enemy| {
+            let mut look = memo.observe(enemy.boss().hp(), enemy.boss().alive(), tick);
+            let hidden = matches!(
+                enemy.boss().mode(),
+                dungeon_floorbreak::pile_boss::PileMode::Dormant
+                    | dungeon_floorbreak::pile_boss::PileMode::Reveal
+            );
+            look.out_age = memo.observe_out(hidden, tick);
+            look
+        },
+    );
     let Some(drawn) = draw(state, &art.encounter, world.layout_height(), tick, look) else {
         return;
     };
@@ -169,13 +242,11 @@ pub(super) fn sync_hoarder_art(
                 sprite.flip_x = d.flip_x;
                 sprite.color = if d.flash {
                     FLASH_TINT
-                } else if d.silhouette {
-                    // No hurtbox yet (the Reveal): a dim dark silhouette.
-                    Color::srgb(0.22, 0.24, 0.32)
+                } else if d.shade == Shade::Shadow {
+                    REVEAL_SHADOW_TINT
                 } else {
                     Color::WHITE
-                }
-                .with_alpha(d.alpha);
+                };
                 if let Some(atlas) = sprite.texture_atlas.as_mut() {
                     atlas.index = usize::from(d.frame);
                 }
@@ -184,34 +255,56 @@ pub(super) fn sync_hoarder_art(
             None => *visibility = Visibility::Hidden,
         }
     }
-    for (piece_id, mut transform, mut sprite, mut visibility) in &mut piece_sprites {
-        match drawn.pieces.get(piece_id.0) {
-            Some(p) => {
-                let [r, g, b, a] = p.tone.rgba();
-                sprite.color = Color::srgba_u8(r, g, b, a);
-                sprite.custom_size = Some(Vec2::new(p.w as f32, p.h as f32));
-                transform.translation.x = p.x as f32 + p.w as f32 / 2.0;
-                transform.translation.y = p.y as f32 + p.h as f32 / 2.0;
-                transform.translation.z = match p.layer {
-                    Layer::Back => art.back_z,
-                    Layer::Prop => art.piece_z,
+    for (slot, mut transform, mut sprite, mut visibility) in &mut prop_sprites {
+        let drawn_prop = drawn.props.get(slot.0);
+        let atlas = drawn_prop.and_then(|p| art.props.iter().find(|a| a.prop == p.prop));
+        match (drawn_prop, atlas) {
+            (Some(p), Some(a)) => {
+                let (w, h) = p.prop.frame_size();
+                // The sprite is centred; its bottom-left corner sits on `(x, y)`. A bank in its
+                // `disturbed` frames shudders 1 px each way (presentation).
+                let shudder = if p.prop == Prop::Bank && matches!(p.frame, 1 | 2) {
+                    if p.frame == 1 { 1.0 } else { -1.0 }
+                } else {
+                    0.0
                 };
+                transform.translation = Vec3::new(
+                    p.x as f32 + w as f32 / 2.0 + shudder,
+                    p.y as f32 + h as f32 / 2.0,
+                    match p.layer {
+                        Layer::Back => art.back_z,
+                        Layer::Prop => art.prop_z,
+                        Layer::Front => art.front_z,
+                    },
+                );
+                sprite.image = a.image.clone();
+                sprite.texture_atlas = Some(TextureAtlas {
+                    layout: a.layout.clone(),
+                    index: usize::from(p.frame),
+                });
+                *visibility = Visibility::Inherited;
+            }
+            _ => *visibility = Visibility::Hidden,
+        }
+    }
+    for (mut transform, mut visibility) in &mut shadow_sprite {
+        match drawn.shadow {
+            Some(s) => {
+                *transform = Transform::from_xyz(
+                    s.x as f32 + s.w as f32 / 2.0,
+                    s.y as f32 + s.h as f32 / 2.0,
+                    art.back_z + 0.001,
+                )
+                .with_scale(Vec3::new(s.w as f32, s.h as f32, 1.0));
                 *visibility = Visibility::Inherited;
             }
             None => *visibility = Visibility::Hidden,
         }
     }
-    for (tag_id, mut transform, mut visibility) in &mut tag_sprites {
-        match drawn.tags.iter().find(|t| t.kind == tag_id.0) {
-            Some(t) => {
-                // The image is centred; its bottom row sits on `bottom_y`. Whole pixels, so the
-                // glyphs stay sharp.
-                let h = dungeon_floorbreak::hoarder_art::GLYPH_HEIGHT_PX as f32 + 1.0;
-                transform.translation = Vec3::new(
-                    t.centre_x.round(),
-                    (t.bottom_y + h / 2.0).round(),
-                    art.tag_z,
-                );
+    for (slot, mut transform, mut visibility) in &mut mote_sprites {
+        match drawn.motes.get(slot.0) {
+            Some(m) => {
+                transform.translation = Vec3::new(m.x.round(), m.y.round(), art.mote_z);
                 *visibility = Visibility::Inherited;
             }
             None => *visibility = Visibility::Hidden,
