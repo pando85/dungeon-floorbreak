@@ -21,6 +21,8 @@ fn art_of(rig: &Rig, tick: u64, look: HoarderLook) -> HoarderArt {
     .expect("her room")
 }
 
+const MOUND_LABEL: &str = "lair mound (low backdrop dressing, no collision)";
+
 fn labels(art: &HoarderArt) -> Vec<&'static str> {
     art.pieces.iter().map(|p| p.label).collect()
 }
@@ -315,33 +317,37 @@ fn bank_a_the_post_and_the_mound_come_from_the_sidecar_and_the_tuning() {
         .find(|p| p.label == "J-B post (stand-in)")
         .unwrap();
     assert_eq!((post.x, post.y, post.w, post.h), (808, floor, 16, 64));
-    let mound = art
-        .pieces
-        .iter()
-        .find(|p| p.label == "lair mound (stand-in)")
-        .unwrap();
+    let mound = art.pieces.iter().find(|p| p.label == MOUND_LABEL).unwrap();
     assert_eq!(mound.layer, Layer::Back);
     assert_eq!(mound.x + mound.w / 2, 608, "her home column");
+    // Interim readability (the owner's report): the collision-free mound is low, dark and
+    // translucent dressing behind the actors, not a solid labelled slab.
+    assert!(mound.h <= 10, "low: {}", mound.h);
+    assert!(PALETTE[mound.tone as usize][3] < 0xff, "translucent");
+    let stack = art
+        .pieces
+        .iter()
+        .find(|p| p.label == "J-B stack (stand-in)")
+        .unwrap();
+    assert_eq!(
+        (stack.x, stack.y, stack.w, stack.h),
+        (752, floor + 96, 128, 64),
+        "the sheet's stack [752, 880) x [96, 160)"
+    );
     for kind in [
         TagKind::BankA,
         TagKind::PostB,
-        TagKind::Mound,
+        TagKind::StackB,
         TagKind::Door,
         TagKind::Gate,
     ] {
         assert!(art.tags.iter().any(|t| t.kind == kind), "{kind:?}");
     }
-    // Once she is up, the mound's label is gone (it would sit across her legs).
+    // Once she is up the mound is still there, unlabelled, in every mode.
     let mut up = Rig::new(&root(), Plan::carl_at(60.0)).unwrap();
     up.step(IDLE_SLOTS);
     let awake = art_of(&up, 1, HoarderLook::default());
-    assert!(!awake.tags.iter().any(|t| t.kind == TagKind::Mound));
-    assert!(
-        awake
-            .pieces
-            .iter()
-            .any(|p| p.label == "lair mound (stand-in)")
-    );
+    assert!(awake.pieces.iter().any(|p| p.label == MOUND_LABEL));
     assert!(art.pieces.len() <= MAX_PIECES);
     // Dormant: no sprite, no label of hers.
     assert!(art.hoarder.is_none());
@@ -452,11 +458,13 @@ fn the_labels_rasterise_in_the_pixel_font() {
     );
 }
 
-/// The tones are opaque except the open gate's faint footprint.
+/// The tones are opaque except the open gate's faint footprint, the low mound and the stack's
+/// floor shadow.
 #[test]
-fn the_palette_is_opaque_except_the_open_gates_footprint() {
+fn the_palette_is_opaque_except_the_open_gates_footprint_the_mound_and_the_shadow() {
+    let faint = [Tone::GateOpen, Tone::Mound, Tone::Shadow].map(|t| t as usize);
     for (i, c) in PALETTE.iter().enumerate() {
-        assert_eq!(c[3] == 0xff, i != Tone::GateOpen as usize, "tone {i}");
+        assert_eq!(c[3] == 0xff, !faint.contains(&i), "tone {i}");
     }
 }
 
@@ -487,4 +495,137 @@ fn the_flash_memo_runs_four_ticks_and_forgets_on_a_tick_regression() {
     assert_eq!(memo.observe(0, false, 100).defeated_age, Some(0));
     assert_eq!(memo.observe(0, false, 130).defeated_age, Some(30));
     assert_eq!(memo.observe(30, true, 3).defeated_age, None);
+}
+
+/// Interim readability (the owner's report that she "looks transparent from the mechanics too"):
+/// while she has no hurtbox (the 90-tick Reveal) she is drawn as a dim silhouette, and solid on the
+/// first hittable tick. The flag is read from the simulation's own hurtbox, never invented.
+#[test]
+fn she_is_a_dim_silhouette_until_the_first_hittable_tick() {
+    let plan = Plan {
+        carl_x: 428,
+        ..Plan::carl_at(60.0)
+    }
+    .dormant();
+    let mut rig = Rig::new(&root(), plan).unwrap();
+    let (mut silhouette_ticks, mut first_hittable) = (0, None);
+    for _ in 0..200 {
+        let tick = rig.next_tick();
+        rig.step(carl_input(crate::hoarder_fixtures::run_input(1.0)));
+        let tick_after = rig.next_tick() - 1;
+        let _ = tick;
+        let art = art_of(&rig, tick_after, HoarderLook::default());
+        let Some(her) = art.hoarder else {
+            continue;
+        };
+        let hittable = !rig.boss().boss().hurt_rects().is_empty();
+        if rig.boss().boss().mode() == PileMode::Reveal {
+            assert!(!hittable, "no hurtbox in the Reveal");
+            assert!(her.silhouette, "dim while she cannot be hit");
+            assert!(
+                her.alpha <= REVEAL_DIM_ALPHA + f32::EPSILON,
+                "{}",
+                her.alpha
+            );
+            silhouette_ticks += 1;
+        } else if hittable {
+            assert!(!her.silhouette);
+            assert!(
+                (her.alpha - 1.0).abs() < f32::EPSILON,
+                "solid once hittable"
+            );
+            first_hittable.get_or_insert(tick_after);
+        }
+    }
+    assert_eq!(silhouette_ticks, 90, "the whole 90-tick Reveal");
+    assert!(first_hittable.is_some(), "she becomes hittable");
+}
+
+/// Bank A is drawn as the sim's solid by state: the slab while it stands, the moving mass while it
+/// slides, the low remnant after; the J-B stack hangs at its sheet rectangle, drops, and leaves the
+/// remnant (HRD-B, HRD-C; stand-in drawing until HOARD-02).
+#[test]
+fn the_piles_are_drawn_from_their_machines() {
+    let floor = |rig: &Rig| rig.boss().boss().setup().floor_y as i32;
+    let pieces_with = |art: &HoarderArt, label: &str| {
+        art.pieces
+            .iter()
+            .filter(|p| p.label == label)
+            .copied()
+            .collect::<Vec<_>>()
+    };
+    // Bank A: baited slide.
+    let mut rig = Rig::new(
+        &root(),
+        Plan {
+            carl_x: 330,
+            awake: Some((470.0, -1)),
+            ..Plan::carl_at(140.0)
+        },
+    )
+    .unwrap();
+    let art = art_of(&rig, 1, HoarderLook::default());
+    assert_eq!(
+        pieces_with(&art, "bank A (stand-in)").len(),
+        2,
+        "body and top bar"
+    );
+    let (mut slid, mut settled) = (false, false);
+    for _ in 0..220 {
+        rig.step(IDLE_SLOTS);
+        let t = rig.next_tick() - 1;
+        let art = art_of(&rig, t, HoarderLook::default());
+        match rig.combat.env().unwrap().slide(0).unwrap().state() {
+            crate::env_prop::SlideState::Slid => {
+                let m = pieces_with(&art, "bank A, sliding (stand-in)");
+                assert_eq!(m.len(), 1, "one moving mass");
+                assert!(m[0].x <= 352, "moving toward -x: {}", m[0].x);
+                assert!(pieces_with(&art, "bank A (stand-in)").is_empty());
+                slid = true;
+            }
+            crate::env_prop::SlideState::Settled => {
+                let r = pieces_with(&art, "bank A remnant (stand-in)");
+                assert_eq!(r.len(), 2, "body and top bar");
+                assert!(r.iter().all(|p| p.h <= 16));
+                assert!(art.tags.iter().all(|tg| tg.kind != TagKind::BankA));
+                settled = true;
+            }
+            _ => {}
+        }
+    }
+    assert!(slid && settled);
+    // The J-B stack: baited into the post.
+    let mut rig = Rig::new(
+        &root(),
+        Plan {
+            carl_x: 852,
+            awake: Some((700.0, 1)),
+            ..Plan::carl_at(60.0)
+        },
+    )
+    .unwrap();
+    let f = floor(&rig);
+    let (mut shadow, mut remnant, mut gone_post) = (false, false, false);
+    for _ in 0..260 {
+        rig.step(IDLE_SLOTS);
+        let t = rig.next_tick() - 1;
+        let art = art_of(&rig, t, HoarderLook::default());
+        match rig.combat.env().unwrap().mass_state(1).unwrap() {
+            crate::env_prop::MassState::Released | crate::env_prop::MassState::Falling => {
+                shadow |= !pieces_with(&art, "J-B footprint shadow (stand-in)").is_empty();
+                gone_post |= pieces_with(&art, "J-B post (stand-in)").is_empty();
+                let s = pieces_with(&art, "J-B stack (stand-in)");
+                assert_eq!(s.len(), 2, "body and top bar");
+                assert!(s[0].y <= f + 96 + 2, "never above the hanging stack");
+            }
+            crate::env_prop::MassState::Landed => {
+                let r = pieces_with(&art, "J-B stack remnant (stand-in)");
+                assert_eq!((r[0].x, r[0].w, r[0].h), (752, 128, 16));
+                assert!(pieces_with(&art, "J-B stack (stand-in)").is_empty());
+                remnant = true;
+            }
+            _ => {}
+        }
+    }
+    assert!(shadow && remnant && gone_post);
 }

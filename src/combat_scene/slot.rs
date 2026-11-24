@@ -198,6 +198,11 @@ impl CombatState {
     /// one `hurt_hero` path (invulnerability, the solo last-HP guard).
     pub(super) fn apply_slot_out(&mut self, scene: &mut SceneSim, mut out: SlotOut, tick: u64) {
         self.log_slot_events(&mut out);
+        // HRD-B / HRD-C: her shove meeting a pile reaches the prop in this tick,
+        // before the env step (the slot step runs first).
+        for s in std::mem::take(&mut out.env_stimuli) {
+            self.env_stimulate(usize::from(s.prop), s.stimulus, tick);
+        }
         for (id, x) in out.shifts {
             scene.world.body_mut(id).x = x;
         }
@@ -1424,6 +1429,7 @@ mod tests {
             });
         }
         s.combat.set_slot_env(EnvView {
+            faces: Vec::new(),
             solid_range: before..before + 2,
             targets: vec![EnvTarget {
                 prop: 4,

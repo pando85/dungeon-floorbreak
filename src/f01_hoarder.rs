@@ -49,7 +49,7 @@ pub const ROOM_ID: &str = "F01-HOARDER";
 /// `assets/levels`, which a compiled-in `include_str!` may not reach, so the hash
 /// is a constant ([`crate::f01_boiler::ROOM_HASH`] is the precedent).
 pub const ROOM_HASH: u64 = 0x5b52_cfe9_96a9_0679;
-pub const ENCOUNTER_HASH: u64 = 0x05fc_ad32_3772_d2d8;
+pub const ENCOUNTER_HASH: u64 = 0xf84d_c1d2_3df9_0811;
 /// The `data_pins()` keys of the room and its sidecar, scoped by room on both
 /// sides of a recording (`f01_late::pin_applies`, HRD-A2b).
 pub const ROOM_PIN_KEY: &str = "f01_hoarder_room";
@@ -241,13 +241,23 @@ pub fn combat_with(
     slot: SlotSet,
 ) -> Result<CombatState, String> {
     let setup = story_setup(&run.loaded.encounter.story_pin, carl, donut)?;
+    // The fixture hook "bank A removed" (the settled case) removes the bank's
+    // machine as well as her obstacle.
+    let mut env = env_runtime(run)?;
+    if slot.enemies().iter().any(|e| {
+        e.as_any()
+            .and_then(|a| a.downcast_ref::<crate::combat_scene::pile_boss::PileBossEnemy>())
+            .is_some_and(crate::combat_scene::pile_boss::PileBossEnemy::bank_a_removed)
+    }) {
+        env = env.without_banks();
+    }
     let mut combat = CombatState::new(fixture, &run.kit, scene)?
         .with_donut(DonutSetup::unlocked(8))
         .try_with_story(setup)
         .map_err(|e| e.to_string())?
         .with_demo(run.rules)
         .with_cf02()
-        .with_env(env_runtime(run)?)
+        .with_env(env)
         .with_slot_enemies(slot)
         .map_err(|e| e.to_string())?;
     combat.sync_env(scene);

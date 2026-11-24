@@ -29,6 +29,7 @@ use crate::actor_sprite::{ActorSpec, actor_center};
 use crate::combat_scene::CombatState;
 use crate::combat_scene::pile_boss::of;
 use crate::encounter::{Encounter, StaticKind};
+use crate::env_prop::{MassState, SlideState};
 use crate::pile_boss::{GATE_HEIGHT_PX, GATE_WIDTH_PX, PileMode};
 
 /// HOARD-01: 16 frames of 160 x 128 in one row, pivot (70, 127), authored facing right.
@@ -86,6 +87,9 @@ const JAM_HURT_TICKS: u32 = 12;
 const DOWN_TICKS: [u64; 2] = [8, 12];
 /// She fades in over the first ticks of the reveal (the stand-in of the emerge, HOARD-02).
 pub const REVEAL_FADE_TICKS: u32 = 30;
+/// While she has no hurtbox (the whole Reveal) she is drawn as a dim silhouette at this
+/// alpha, and solid from the first hittable tick (interim, until HOARD-02's emerge art).
+pub const REVEAL_DIM_ALPHA: f32 = 0.35;
 
 /// What the presenter knows about her beyond the simulation's state: it is render-local.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -191,8 +195,11 @@ pub struct HoarderDraw {
     pub centre: (f32, f32),
     pub flip_x: bool,
     pub frame: u8,
-    /// 1 once revealed; ramps up during the first ticks of the reveal.
+    /// 1 once she is hittable; during the Reveal a dim ramp up to [`REVEAL_DIM_ALPHA`].
     pub alpha: f32,
+    /// She has no hurtbox now (the Reveal): the presenter draws a dark silhouette. Read from
+    /// the simulation's own hurtbox, so it flips on the first hittable tick.
+    pub silhouette: bool,
     /// The hit flash is running.
     pub flash: bool,
     /// The pivot x she stands at (the label follows it).
@@ -210,10 +217,14 @@ pub enum Tone {
     BankTop = 5,
     Post = 6,
     Mound = 7,
+    /// The floor shadow of the stack's footprint while it warns and falls.
+    Shadow = 8,
+    /// The crack of a weakened post.
+    Crack = 9,
 }
 
 /// The tones of the stand-ins, in Floor 01's brick and junk colours.
-pub const PALETTE: [[u8; 4]; 8] = [
+pub const PALETTE: [[u8; 4]; 10] = [
     [0x3a, 0x38, 0x3c, 0xff], // DoorClosed
     [0x8a, 0x4a, 0x2c, 0xff], // DoorFrame
     [0x5c, 0x58, 0x4e, 0xff], // GateBar
@@ -221,7 +232,9 @@ pub const PALETTE: [[u8; 4]; 8] = [
     [0x5e, 0x4a, 0x3a, 0xff], // BankBody
     [0x7a, 0x60, 0x48, 0xff], // BankTop
     [0x6a, 0x4a, 0x2c, 0xff], // Post
-    [0x4a, 0x3a, 0x30, 0xff], // Mound
+    [0x24, 0x1e, 0x1c, 0xa0], // Mound (low, dark, translucent dressing)
+    [0x00, 0x00, 0x00, 0x70], // Shadow
+    [0x1c, 0x14, 0x0e, 0xff], // Crack
 ];
 
 impl Tone {
@@ -260,7 +273,8 @@ pub enum TagKind {
     Gate,
     BankA,
     PostB,
-    Mound,
+    /// HRD-C: the J-B stack the post holds up.
+    StackB,
 }
 
 impl TagKind {
@@ -270,7 +284,7 @@ impl TagKind {
         Self::Gate,
         Self::BankA,
         Self::PostB,
-        Self::Mound,
+        Self::StackB,
     ];
 
     pub const fn text(self) -> &'static str {
@@ -280,7 +294,7 @@ impl TagKind {
             Self::Gate => "GATE",
             Self::BankA => "BANK A",
             Self::PostB => "POST B",
-            Self::Mound => "MOUND",
+            Self::StackB => "STACK B",
         }
     }
 }
@@ -294,7 +308,7 @@ pub struct Tag {
 }
 
 /// The most pieces [`draw`] can return, with margin: the presenter keeps a pool of this many.
-pub const MAX_PIECES: usize = 24;
+pub const MAX_PIECES: usize = 32;
 
 /// Everything to draw this tick.
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -328,7 +342,9 @@ const fn piece(
 /// The lair mound's width and height (a static backdrop, no collision, sheet DV-3), centred
 /// on her home column.
 const MOUND_W_PX: i32 = 96;
-const MOUND_H_PX: i32 = 22;
+const MOUND_H_PX: i32 = 8;
+/// A stand-in bank shudders by this many px each way while disturbed (presentation).
+const SHUDDER_PX: i32 = 1;
 
 /// Everything of the Hoarder's room to draw at `tick`, or `None` when her slot is not in the
 /// combat state (any other room). `encounter` is the room's sidecar (the door, bank A and the
@@ -355,8 +371,11 @@ pub fn draw(
         } else {
             0.0
         };
-        let alpha = if mode == PileMode::Reveal {
-            (boss.mode_tick() as f32 / REVEAL_FADE_TICKS as f32).clamp(0.0, 1.0)
+        // Interim readability (until HOARD-02): with no hurtbox she is a dim silhouette, and
+        // solid from the first hittable tick. Driven only by the simulation's own hurtbox.
+        let silhouette = boss.hurt_rects().is_empty() && mode == PileMode::Reveal;
+        let alpha = if silhouette {
+            (boss.mode_tick() as f32 / REVEAL_FADE_TICKS as f32).clamp(0.0, 1.0) * REVEAL_DIM_ALPHA
         } else {
             1.0
         };
@@ -365,6 +384,7 @@ pub fn draw(
             flip_x,
             frame: frame_for(mode, boss.mode_tick(), tick, look),
             alpha,
+            silhouette,
             flash: look.flash && mode != PileMode::Defeated,
             x: boss.x(),
         });
@@ -393,72 +413,26 @@ pub fn draw(
         MOUND_H_PX,
         Tone::Mound,
         Layer::Back,
-        "lair mound (stand-in)",
+        "lair mound (low backdrop dressing, no collision)",
     ));
-    // Its label shows while she is under it (Dormant) and rising out of it (Reveal); once she
-    // stands in front of it the label would sit across her legs.
-    if matches!(mode, PileMode::Dormant | PileMode::Reveal) {
-        art.tags.push(Tag {
-            kind: TagKind::Mound,
-            centre_x: home as f32,
-            bottom_y: (my + MOUND_H_PX + 2) as f32,
-        });
-    }
-
-    // The sidecar's statics: bank A (a solid) and the J-B post (a hit target).
+    // The sidecar's statics: bank A (a solid) and the J-B post (a hit target) with the stack it
+    // holds. Their machines are the env's (HRD-B, HRD-C); a room without an env draws them
+    // standing.
+    let env = combat.env();
+    let machines = env.map(|e| e.pile_props(encounter)).unwrap_or_default();
     for s in &encounter.statics {
-        let r = s.rect;
-        let (x, y, w, h) = (r.x, layout_h - r.bottom(), r.w, r.h);
+        let index = machines
+            .iter()
+            .find(|(id, _)| *id == s.id)
+            .map(|(_, i)| usize::from(*i));
         match s.kind {
             StaticKind::Solid => {
-                art.pieces.push(piece(
-                    x,
-                    y,
-                    w,
-                    h,
-                    Tone::BankBody,
-                    Layer::Prop,
-                    "bank A (stand-in)",
-                ));
-                art.pieces.push(piece(
-                    x,
-                    y + h - 4,
-                    w,
-                    4,
-                    Tone::BankTop,
-                    Layer::Prop,
-                    "bank A top (stand-in)",
-                ));
-                art.pieces.push(piece(
-                    x + w / 4,
-                    y + h / 3,
-                    w / 2,
-                    3,
-                    Tone::BankTop,
-                    Layer::Prop,
-                    "bank A junk (stand-in)",
-                ));
-                art.tags.push(Tag {
-                    kind: TagKind::BankA,
-                    centre_x: (x + w / 2) as f32,
-                    bottom_y: (y + h / 2 - 2) as f32,
-                });
+                let slide = index.and_then(|i| env.and_then(|e| e.slide(i)));
+                bank_pieces(&mut art, s.rect, slide, layout_h, tick);
             }
             StaticKind::HitTarget => {
-                art.pieces.push(piece(
-                    x,
-                    y,
-                    w,
-                    h,
-                    Tone::Post,
-                    Layer::Prop,
-                    "J-B post (stand-in)",
-                ));
-                art.tags.push(Tag {
-                    kind: TagKind::PostB,
-                    centre_x: (x + w / 2) as f32,
-                    bottom_y: (y + h + 3) as f32,
-                });
+                let mass = index.and_then(|i| env.and_then(|e| e.mass(i)));
+                post_pieces(&mut art, s.rect, mass, layout_h, tick);
             }
         }
     }
@@ -566,6 +540,165 @@ pub fn draw(
     }
     debug_assert!(art.pieces.len() <= MAX_PIECES);
     Some(art)
+}
+
+/// Layout rect (y down) to world `(x, y, w, h)` (y up).
+fn world(r: crate::camera_lab::room::IRect, layout_h: i32) -> (i32, i32, i32, i32) {
+    (r.x, layout_h - r.bottom(), r.w, r.h)
+}
+
+/// A junk slab: body, top bar, and a junk strip (the stand-in look of bank A and the stack).
+fn slab(art: &mut HoarderArt, (x, y, w, h): (i32, i32, i32, i32), what: &'static str) {
+    art.pieces
+        .push(piece(x, y, w, h, Tone::BankBody, Layer::Prop, what));
+    art.pieces.push(piece(
+        x,
+        y + h - 4.min(h),
+        w,
+        4.min(h),
+        Tone::BankTop,
+        Layer::Prop,
+        what,
+    ));
+}
+
+/// Bank A by its slide state: a solid slab you can stand on while it stands (a one-pixel
+/// shudder while disturbed), the moving mass while it slides, the low remnant after.
+fn bank_pieces(
+    art: &mut HoarderArt,
+    rect: crate::camera_lab::room::IRect,
+    slide: Option<&crate::env_prop::Slide>,
+    layout_h: i32,
+    tick: u64,
+) {
+    let (x, y, w, h) = world(rect, layout_h);
+    let state = slide.map_or(SlideState::Stable, crate::env_prop::Slide::state);
+    match state {
+        SlideState::Stable | SlideState::Disturbed => {
+            let dx = if state == SlideState::Disturbed {
+                if tick.is_multiple_of(2) {
+                    SHUDDER_PX
+                } else {
+                    -SHUDDER_PX
+                }
+            } else {
+                0
+            };
+            slab(art, (x + dx, y, w, h), "bank A (stand-in)");
+            art.pieces.push(piece(
+                x + dx + w / 4,
+                y + h / 3,
+                w / 2,
+                3,
+                Tone::BankTop,
+                Layer::Prop,
+                "bank A junk (stand-in)",
+            ));
+            art.tags.push(Tag {
+                kind: TagKind::BankA,
+                centre_x: (x + dx + w / 2) as f32,
+                bottom_y: (y + h / 2 - 2) as f32,
+            });
+        }
+        SlideState::Slid => {
+            if let Some(m) = slide.and_then(crate::env_prop::Slide::mass_rect) {
+                let (mx, my, mw, mh) = world(m, layout_h);
+                art.pieces.push(piece(
+                    mx,
+                    my,
+                    mw,
+                    mh,
+                    Tone::BankBody,
+                    Layer::Prop,
+                    "bank A, sliding (stand-in)",
+                ));
+            }
+        }
+        SlideState::Settled => {
+            if let Some(r) = slide.and_then(crate::env_prop::Slide::remnant) {
+                slab(art, world(r, layout_h), "bank A remnant (stand-in)");
+            }
+        }
+    }
+}
+
+/// The J-B post and its stack by the falling mass' state: the post (cracked once weakened) and
+/// the hanging stack while supported, the shaking stack and the floor shadow while released, the
+/// dropping stack, then the low remnant.
+fn post_pieces(
+    art: &mut HoarderArt,
+    rect: crate::camera_lab::room::IRect,
+    mass: Option<&crate::env_prop::FallingMass>,
+    layout_h: i32,
+    tick: u64,
+) {
+    let (x, y, w, h) = world(rect, layout_h);
+    let state = mass.map_or(MassState::Supported, crate::env_prop::FallingMass::state);
+    if matches!(state, MassState::Supported | MassState::Weakened) {
+        art.pieces.push(piece(
+            x,
+            y,
+            w,
+            h,
+            Tone::Post,
+            Layer::Prop,
+            "J-B post (stand-in)",
+        ));
+        if state == MassState::Weakened {
+            art.pieces.push(piece(
+                x + w / 2 - 1,
+                y + h / 3,
+                2,
+                h / 3,
+                Tone::Crack,
+                Layer::Prop,
+                "J-B post crack (stand-in)",
+            ));
+        }
+        art.tags.push(Tag {
+            kind: TagKind::PostB,
+            centre_x: (x + w / 2) as f32,
+            bottom_y: (y + h + 3) as f32,
+        });
+    }
+    let Some(mass) = mass else { return };
+    if let Some(f) = mass.telegraph_rect() {
+        let (fx, fy, fw, fh) = world(f, layout_h);
+        art.pieces.push(piece(
+            fx,
+            fy,
+            fw,
+            fh.min(8),
+            Tone::Shadow,
+            Layer::Back,
+            "J-B footprint shadow (stand-in)",
+        ));
+    }
+    match mass.mass_rect() {
+        Some(m) => {
+            let dx = if state == MassState::Released {
+                if tick.is_multiple_of(2) {
+                    SHUDDER_PX
+                } else {
+                    -SHUDDER_PX
+                }
+            } else {
+                0
+            };
+            let (mx, my, mw, mh) = world(m, layout_h);
+            slab(art, (mx + dx, my, mw, mh), "J-B stack (stand-in)");
+            art.tags.push(Tag {
+                kind: TagKind::StackB,
+                centre_x: (mx + dx + mw / 2) as f32,
+                bottom_y: (my + mh / 2 - 2) as f32,
+            });
+        }
+        None => {
+            if let Some(r) = mass.remnant() {
+                slab(art, world(r, layout_h), "J-B stack remnant (stand-in)");
+            }
+        }
+    }
 }
 
 // ------------------------------------------------------------------- labels --

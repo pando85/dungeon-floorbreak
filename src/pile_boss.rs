@@ -2563,7 +2563,7 @@ mod tests {
 
     // FNV-1a 64 of the two files: a data edit must update them on purpose.
     const ROOM_HASH: u64 = 6_580_550_607_703_705_209;
-    const SIDECAR_HASH: u64 = 431_410_095_510_967_000;
+    const SIDECAR_HASH: u64 = 17_892_170_003_339_872_273;
 
     #[test]
     fn the_sidecar_geometry_matches_the_sheet_and_the_protected_rects_are_clear() {
@@ -2613,6 +2613,97 @@ mod tests {
         assert_eq!(open.len(), 2, "the door is gone once she is defeated");
     }
 
+    /// HRD-B / HRD-C: the machines' knobs are validated, each rule with a failing case, and the
+    /// shipped sidecar carries both machines on the statics the validator already reads.
+    #[test]
+    fn the_pile_machines_are_validated_and_shipped_on_the_statics() {
+        let l = loaded();
+        let bank = &l.encounter.statics[0];
+        let post = &l.encounter.statics[1];
+        let slide = bank.slide.expect("bank A carries its slide");
+        assert_eq!(slide.config.stable, bank.rect);
+        assert_eq!(
+            (
+                slide.config.warning_ticks,
+                slide.config.slide_ticks,
+                slide.config.dx_per_tick
+            ),
+            (24, 16, -3),
+            "HRD-Q21"
+        );
+        assert_eq!(
+            (
+                slide.push.damage,
+                slide.push.push_x_px_s,
+                slide.push.knock_up_px_s
+            ),
+            (0, -180, 160),
+            "HRD-Q23"
+        );
+        let stack = post.stack.expect("the post carries its stack").config;
+        assert_eq!(
+            (stack.release_weight, stack.warning_ticks, stack.fall_ticks),
+            (2, 24, 8)
+        );
+        assert_eq!(
+            (stack.damage, stack.knock_x_px_s, stack.knock_up_px_s),
+            (1, 120, 140)
+        );
+        assert_eq!(
+            stack.footprint,
+            crate::camera_lab::room::IRect::new(752, 532, 128, 48)
+        );
+        let text = std::fs::read_to_string(root().join(ENCOUNTER_PATH)).unwrap();
+        let ctx = crate::encounter::Context {
+            room: l.room.clone(),
+            classes: l.classes,
+            ceiling_px: l.ceiling_px,
+        };
+        let check = |edit: &dyn Fn(&mut Value)| {
+            let mut v: Value = serde_json::from_str(&text).unwrap();
+            edit(&mut v);
+            crate::encounter::parse_sidecar(&v.to_string(), &ctx)
+                .expect_err("the edited sidecar must be rejected")
+        };
+        let invalid = |errs: &[crate::encounter::EncounterError]| {
+            errs.iter()
+                .any(|e| matches!(e, crate::encounter::EncounterError::StaticInvalid { .. }))
+        };
+        // A slide on a hit target, a stack on a solid.
+        assert!(invalid(&check(&|v| {
+            v["statics"][1]["slide"] = v["statics"][0]["slide"].clone();
+        })));
+        assert!(invalid(&check(&|v| {
+            v["statics"][0]["stack"] = v["statics"][1]["stack"].clone();
+        })));
+        // A remnant taller than a step.
+        assert!(invalid(&check(&|v| {
+            v["statics"][0]["slide"]["hrdq21_remnant"] =
+                serde_json::json!({"x":296,"y":548,"w":80,"h":32});
+        })));
+        // The warning under the fairness floor (HRD-Q38: at least 18; the machine's floor is 24).
+        assert!(invalid(&check(&|v| {
+            v["statics"][0]["slide"]["hrdq21_warning_ticks"] = 10.into();
+        })));
+        assert!(invalid(&check(&|v| {
+            v["statics"][1]["stack"]["hrdq27_warning_ticks"] = 10.into();
+        })));
+        // The moving mass leaving the remnant, a remnant on the protected spawn.
+        assert!(invalid(&check(&|v| {
+            v["statics"][0]["slide"]["hrdq21_dx_per_tick"] = (-6).into();
+        })));
+        assert!(invalid(&check(&|v| {
+            v["statics"][0]["slide"]["hrdq21_remnant"] =
+                serde_json::json!({"x":140,"y":564,"w":80,"h":16});
+            v["statics"][0]["slide"]["hrdq21_dx_per_tick"] = (-1).into();
+        })));
+        // A stack footprint that does not cover the hanging stack.
+        assert!(invalid(&check(&|v| {
+            v["statics"][1]["stack"]["hrdq25_footprint"] =
+                serde_json::json!({"x":800,"y":532,"w":64,"h":48});
+        })));
+    }
+
     #[test]
     fn the_sidecar_schema_rejects_a_misplaced_static() {
         let l = loaded();
@@ -2660,6 +2751,7 @@ mod tests {
         // A hit target is never a solid: the same rectangle as a post is fine.
         let ok = {
             let mut v: Value = serde_json::from_str(&text).unwrap();
+            v["statics"][0].as_object_mut().unwrap().remove("slide");
             v["statics"][0]["kind"] = "hit_target".into();
             v["statics"][0]["rect"] = serde_json::json!({"x":352,"y":532,"w":480,"h":48});
             crate::encounter::parse_sidecar(&v.to_string(), &ctx)

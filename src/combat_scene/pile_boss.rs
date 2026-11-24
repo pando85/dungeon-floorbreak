@@ -30,14 +30,16 @@ use crate::boss::BossThreat;
 use crate::combat::{CombatEvent, DefeatCause};
 use crate::donut_moves::TargetState;
 use crate::encounter::Encounter;
+use crate::env_hazard::HazardClass;
+use crate::env_prop::Stimulus;
 use crate::pile_boss::{
-    HitReaction, Obstacle, PILE_BOSS_ID, PileBoss, PileBossTuning, PileCtx, PileHit, PileOut,
-    PileSetup, obstacles_from_encounter,
+    HitReaction, Obstacle, ObstacleKind, PILE_BOSS_ID, PileBoss, PileBossTuning, PileCtx, PileHit,
+    PileMode, PileOut, PileSetup, obstacles_from_encounter,
 };
 use crate::prototype::Rect;
 use crate::scene_enemy::{
-    SlotBlast, SlotBuild, SlotDeathBody, SlotEnemy, SlotError, SlotHit, SlotHitResult, SlotOut,
-    SlotRoom, SlotStepCtx,
+    EnvFace, FaceKind, SlotBlast, SlotBuild, SlotDeathBody, SlotEnemy, SlotEnvHit, SlotError,
+    SlotHit, SlotHitResult, SlotOut, SlotRoom, SlotStepCtx, SlotStimulus,
 };
 
 /// The registry name of the kind: the roster kind string.
@@ -59,6 +61,9 @@ pub struct PileBossEnemy {
     closed: Vec<Obstacle>,
     /// The same with the door open (her defeat).
     open: Vec<Obstacle>,
+    /// Fixture hook: bank A removed ("the settled case"): its face is never an
+    /// obstacle, whatever the env says.
+    bank_a_removed: bool,
 }
 
 impl PileBossEnemy {
@@ -77,10 +82,25 @@ impl PileBossEnemy {
             floor_y: room.floor_y,
             walls: (room.walls.0 + WALL_COLUMN_PX, room.walls.1 - WALL_COLUMN_PX),
         };
+        // HRD-B / HRD-C: bank A and the post that carry a machine are faces the env
+        // reports while they stand (`SlotStepCtx::env`), never a static obstacle.
+        let bank_live = encounter.statics.iter().any(|s| s.slide.is_some());
+        let post_live = encounter.statics.iter().any(|s| s.stack.is_some());
+        let fixed = |door_open: bool| {
+            let mut list =
+                obstacles_from_encounter(encounter, layout_floor_y, room.floor_y, door_open);
+            list.retain(|o| match o.kind {
+                ObstacleKind::BankA => !bank_live,
+                ObstacleKind::Post => !post_live,
+                _ => true,
+            });
+            list
+        };
         Self {
             boss: PileBoss::new(tuning, setup),
-            closed: obstacles_from_encounter(encounter, layout_floor_y, room.floor_y, false),
-            open: obstacles_from_encounter(encounter, layout_floor_y, room.floor_y, true),
+            closed: fixed(false),
+            open: fixed(true),
+            bank_a_removed: false,
         }
     }
 
@@ -110,10 +130,16 @@ impl PileBossEnemy {
     /// sheet's fixtures: "bank A removed by fixture setup").
     #[must_use]
     pub fn without_bank_a(mut self) -> Self {
+        self.bank_a_removed = true;
         for list in [&mut self.closed, &mut self.open] {
             list.retain(|o| o.kind != crate::pile_boss::ObstacleKind::BankA);
         }
         self
+    }
+
+    /// Whether the fixture removed bank A (the scene removes its machine too).
+    pub fn bank_a_removed(&self) -> bool {
+        self.bank_a_removed
     }
 
     fn setup(&self) -> PileSetup {
@@ -134,7 +160,30 @@ impl PileBossEnemy {
     /// non-defeat events lead the existing ones: a lethal hit logs its `Hurt`
     /// before the `EnemyDefeated`, as the core produced them. The CP-A trigger
     /// name is dropped: the defeat event is the only grant path.
-    fn absorb(&self, pile: PileOut, out: &mut SlotOut) {
+    fn absorb(&self, pile: PileOut, faces: &[EnvFace], out: &mut SlotOut) {
+        // HRD-B / HRD-C: her shove meeting a pile is a heavy stimulus on its prop
+        // (the sheet's `EnemyImpact`): the lunge speed, no credit when her target
+        // was a bot hero.
+        let impulse = u16::try_from(u32::from(self.boss.tuning().hrdq11_px_per_tick) * 60)
+            .unwrap_or(u16::MAX);
+        for jam in &pile.jams {
+            let kind = match jam.obstacle {
+                ObstacleKind::BankA => FaceKind::Bank,
+                ObstacleKind::Post => FaceKind::Post,
+                ObstacleKind::Solid | ObstacleKind::Remnant => continue,
+            };
+            if let Some(face) = faces.iter().find(|f| f.kind == kind) {
+                out.env_stimuli.push(SlotStimulus {
+                    prop: face.prop,
+                    stimulus: Stimulus::Shove {
+                        shove_id: u32::try_from(jam.tick).unwrap_or(u32::MAX),
+                        impulse_px_s: impulse,
+                        source: PILE_BOSS_ID,
+                        credit: jam.credit,
+                    },
+                });
+            }
+        }
         out.events.extend(
             pile.pile_events
                 .iter()
@@ -158,7 +207,7 @@ impl PileBossEnemy {
     ) -> Option<SlotHitResult> {
         let mut pile = PileOut::default();
         let result = self.boss.apply_hit(hit, spec, tick, &mut pile)?;
-        self.absorb(pile, out);
+        self.absorb(pile, &[], out);
         Some(SlotHitResult {
             hp_left: result.hp_left,
             defeated: result.defeated,
@@ -225,15 +274,27 @@ impl SlotEnemy for PileBossEnemy {
             } else {
                 &self.closed
             };
+            let mut all: Vec<Obstacle> = obstacles.clone();
+            for face in &ctx.env.faces {
+                let kind = match face.kind {
+                    FaceKind::Bank if self.bank_a_removed => continue,
+                    FaceKind::Bank => ObstacleKind::BankA,
+                    FaceKind::Post => ObstacleKind::Post,
+                };
+                all.push(Obstacle {
+                    kind,
+                    rect: face.rect,
+                });
+            }
             let pctx = PileCtx {
                 heroes: ctx.heroes,
-                obstacles,
+                obstacles: &all,
                 solo: ctx.solo,
                 tick: ctx.tick,
             };
             self.boss.step(&pctx)
         };
-        self.absorb(pile, out);
+        self.absorb(pile, &ctx.env.faces, out);
     }
 
     fn apply_hit(&mut self, hit: &SlotHit, tick: u64, out: &mut SlotOut) -> Option<SlotHitResult> {
@@ -277,6 +338,32 @@ impl SlotEnemy for PileBossEnemy {
             tick,
             out,
         )
+    }
+
+    /// HRD-C: the J-B stack landing on her body (HRD-Q18): the exposure, never a
+    /// kill. Any other env hit leaves her immune.
+    fn apply_env(
+        &mut self,
+        hit: &SlotEnvHit,
+        tick: u64,
+        out: &mut SlotOut,
+    ) -> Option<SlotHitResult> {
+        if hit.class != HazardClass::FallingMass {
+            return None;
+        }
+        let mut pile = PileOut::default();
+        if !self.boss.expose(hit.initiator, tick, &mut pile) {
+            return None;
+        }
+        self.absorb(pile, &[], out);
+        Some(SlotHitResult {
+            hp_left: self.boss.hp(),
+            defeated: false,
+        })
+    }
+
+    fn engaged(&self) -> bool {
+        self.boss.mode() != PileMode::Dormant
     }
 
     fn gate_solid(&self) -> Option<Rect> {
