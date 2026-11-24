@@ -846,6 +846,10 @@ pub struct PileBoss {
     setup: PileSetup,
     retry: bool,
     clock: u64,
+    /// The clock when the last shove tell began (`BossThreat::Charge::started`).
+    /// Not mixed into the hash: a copy of the hashed `clock` taken at a hashed
+    /// mode change.
+    shove_started: u64,
     hp: u16,
     mode: PileMode,
     mode_tick: u32,
@@ -904,6 +908,7 @@ impl PileBoss {
             setup,
             retry: false,
             clock: 0,
+            shove_started: 0,
             hp: tun.hrdq02_hp,
             mode: PileMode::Dormant,
             mode_tick: 0,
@@ -1247,6 +1252,9 @@ impl PileBoss {
     fn enter(&mut self, mode: PileMode) {
         self.mode = mode;
         self.mode_tick = 1;
+        if mode == PileMode::ShoveTell {
+            self.shove_started = self.clock;
+        }
     }
 
     // ---- the follower's view
@@ -1281,6 +1289,7 @@ impl PileBoss {
                     depth: f32::from(b.x1 - b.x0),
                     speed: f32::from(self.tun.hrdq11_px_per_tick),
                     lead_ticks: self.tun.hrdq33_ai_jump_lead,
+                    started: self.shove_started,
                 })
             }
             _ => None,
@@ -4845,8 +4854,10 @@ mod tests {
                 depth,
                 speed,
                 lead_ticks,
+                started,
             }) => {
                 assert_eq!(tell_left, 39);
+                assert_eq!(started, 1, "the clock of the tell's first tick");
                 assert_eq!((x, dir, running), (E, -1, false));
                 assert_eq!((front, depth, speed, lead_ticks), (48.0, 28.0, 3.0, 18));
             }

@@ -18,7 +18,8 @@ Each GIF replays a committed `cf02_*` fixture in the real render loop (lighting 
 | [`carl_flinch.gif`](carl_flinch.gif) | `cf02_llama_bolt_stops`, 86..106 | the flinch (8 ticks) after a llama glob passed within 12 px of Carl without hitting |
 | [`donut_startle.gif`](donut_startle.gif) | `cf02_wall_slam_kill`, 30..52 | Donut's startle (puff, then settle) when a goblin is slammed into the wall within 160 px |
 | [`donut_startle_clear.gif`](donut_startle_clear.gif) | `cf02_showoff_taunt_punish`, 106..124 | Donut's startle with her standing clear of Carl and the goblin (about 47 px to the nearest actor): the puff when Carl is hurt, then the settle; this is the readable shot (corridor, not the arena) |
-| [`donut_smug.gif`](donut_smug.gif) | `cf02_assist_pounce_staggered`, 56..86 | Donut's smug (20 ticks) once her pounce on a staggered goblin has landed and she stands idle (she stands behind Carl in this fixture, so the frame is hard to read; a clearer shot is a post-F item) |
+| [`donut_smug.gif`](donut_smug.gif) | `cf02_assist_pounce_staggered`, 56..86 | Donut's smug (20 ticks) once her pounce on a staggered goblin has landed and she stands idle (she stands behind Carl in this fixture, so the frame is hard to read; see `donut_smug_clear.gif`) |
+| [`donut_smug_clear.gif`](donut_smug_clear.gif) | `cf02_free_smug_clear`, 156..190 | CF02-FU-I FU1 (F01-FU-B10): her smug in a clear shot. Her pounce finishes the goblin Carl softened (tick 127); she stands idle about 118 px from Carl with no one else alive, and the smug plays its 20 ticks (164..182 in the trace). Test `fu1_her_smug_plays_its_twenty_ticks_in_a_clear_shot` |
 | [`goblin_hesitate.gif`](goblin_hesitate.gif) | `cf02_morale_witness_hesitate`, 14..46 | the double take of a goblin that sees a kicked body fly (20 ticks) |
 | [`goblin_panic.gif`](goblin_panic.gif) | `cf02_morale_spectacle_panic`, 38..72 | the panicking goblin: arms up, looking back, running the way it flees |
 | [`goblin_taunt_punished.gif`](goblin_taunt_punished.gif) | `cf02_showoff_taunt_punish`, 6..52 | the show-off's chest thump and beckon, then a jab on tick 39: the taunt frame is held 6 ticks over the hit |
@@ -26,7 +27,7 @@ Each GIF replays a committed `cf02_*` fixture in the real render loop (lighting 
 | [`slammed_wall.gif`](slammed_wall.gif) | `cf02_wall_slam_kill`, 24..58 | the wall crumple: the squash on the wall while the body falls, then the slump |
 | [`slammed_flung.gif`](slammed_flung.gif) | `cf02_lethal_kick_far`, 60..100 | the flung finish: the GOB-01 knockback flight, the face-plant for 8 ticks from the landing, then the heap |
 
-Staging note: a search over every `cf02_*` fixture (`list_donut_clearance`, run with `--ignored`) found no arena run in which Donut stands more than about 33 px from the nearest actor when she smugs or startles, so the arena shots of her stay crowded. The best clear shot of the startle is `donut_startle_clear.gif`; no clear shot of the smug exists yet (the best is 32 px), so her smug has not been shown readable in a scene.
+Staging note: a search over every `cf02_*` fixture (`list_donut_clearance`, run with `--ignored`) found no arena run in which Donut stands more than about 33 px from the nearest actor when she smugs or startles, so the arena shots of her stay crowded. The best clear shot of the startle is `donut_startle_clear.gif`. For the smug, F01-FU-B10 added the arena fixture `cf02_free_smug_clear` (the `cf02_free_finish_abandoned` setup with Carl backing off 18 ticks instead of 35, so her escort keeps her idle where she landed): `donut_smug_clear.gif` (no one within 96 px for the whole smug).
 
 Microarena clips (CF02-F, stacked on `feat/cf02-c2f`; the room fixtures run on the arena kit):
 

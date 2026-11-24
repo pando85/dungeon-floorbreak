@@ -274,8 +274,28 @@ pub const CF02_FREE_ARENA_DIRECT: PartyFixture = PartyFixture {
     donut: DonutSetup::NONE,
 };
 
-/// Every `cf02_free_*` fixture, in spec 7.2 order.
-pub const CF02_FREE_FIXTURES: [&PartyFixture; 8] = [
+// ---------------------------------------------------------- smug clear --
+
+const SMUG_CLEAR_BASE: Fixture = room(
+    "cf02_free_smug_clear",
+    "CF02-FU-I FU1 (F01-FU-B10): the abandoned-finish setup with Carl backing off less, so after her killing hit she stands idle about 118 px from him with no one else alive: her Q71 smug plays its 20 ticks in a clear shot",
+    0xCF02_FE09,
+    &[dummy(215)],
+    240,
+);
+
+pub const CF02_FREE_SMUG_CLEAR: PartyFixture = PartyFixture {
+    base: &SMUG_CLEAR_BASE,
+    two_player: false,
+    tuning: FREE,
+    script: &[run(5, 25, 0, 1.0), primary(40, 41, 0), run(60, 78, 0, -1.0)],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+/// Every `cf02_free_*` fixture, in spec 7.2 order (then the later evidence
+/// fixtures).
+pub const CF02_FREE_FIXTURES: [&PartyFixture; 9] = [
     &CF02_FREE_EXPLORE_ROOM,
     &CF02_FREE_SPLIT_TWO_GOBLINS,
     &CF02_FREE_LONE_CLAIMED,
@@ -284,6 +304,7 @@ pub const CF02_FREE_FIXTURES: [&PartyFixture; 8] = [
     &CF02_FREE_CARL_BOLTS,
     &CF02_FREE_RETREAT_WHEN_HURT,
     &CF02_FREE_ARENA_DIRECT,
+    &CF02_FREE_SMUG_CLEAR,
 ];
 
 // ---------------------------------------------------------------- metrics --
@@ -849,7 +870,7 @@ mod tests {
 
     /// The committed final `PARTY_STATE` hash of every fixture here (the replays
     /// in `docs/evidence/cf02/replays` pin the same values through the CI loop).
-    const GOLDENS: [(&str, u64); 8] = [
+    const GOLDENS: [(&str, u64); 9] = [
         ("cf02_free_explore_room", 0x6c70b2d943b87695),
         ("cf02_free_split_two_goblins", 0x8452e118b7766779),
         ("cf02_free_lone_claimed", 0xd469e7deac91c4be),
@@ -858,6 +879,7 @@ mod tests {
         ("cf02_free_carl_bolts", 0x8a85bbf67af09f9a),
         ("cf02_free_retreat_when_hurt", 0x025015c30e99827e),
         ("cf02_free_arena_direct", 0xe2a9e0bb633cef16),
+        ("cf02_free_smug_clear", 0x721f5ea4a6ee72ec),
     ];
 
     #[test]

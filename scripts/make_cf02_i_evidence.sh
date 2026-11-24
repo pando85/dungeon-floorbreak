@@ -41,6 +41,8 @@ clips=(
   "donut_startle_clear|cf02_showoff_taunt_punish|106|124|2|288x108+176+190"
   "arena_goblin_hesitate|cf02_arena_coop|116|142|2|288x108+176+190"
   "arena_slammed_flung|cf02_goblin_self_own|88|120|2|320x108+160+190"
+  # CF02-FU-I FU1 (F01-FU-B10): her smug in a clear shot (no one within 96 px).
+  "donut_smug_clear|cf02_free_smug_clear|156|190|2|288x108+112+190"
 )
 extra_clips="${CF02_I_EXTRA_CLIPS:-}"
 if [[ -n "$extra_clips" ]]; then

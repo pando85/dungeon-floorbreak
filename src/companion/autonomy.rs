@@ -713,9 +713,12 @@ pub struct AutonomyState {
     /// that never blinks hashes exactly as before.
     last_blink: Option<u64>,
     /// FA-Q09: a blink was pressed for the boss' charge that is still up: the
-    /// follow layer's dodge jump stays silent for that charge. Cleared when no
-    /// charge is up. Mixed into the hash only while set.
-    charge_latch: bool,
+    /// follow layer's dodge jump stays silent for that charge. Keyed by the
+    /// charge's start (`BossThreat::Charge::started`), so a chained charge is
+    /// not silenced; cleared when no charge or another charge is up. Its marker
+    /// is mixed into the hash only while set (the key is the boss' clock, which
+    /// the boss hashes).
+    charge_latch: Option<u64>,
     /// FA-Q25: consecutive ticks both heroes travelled the same way within the
     /// shadow radius, and her x on the previous tick. Mixed into the hash only
     /// while the count is above zero (the knob off never counts).
@@ -744,7 +747,7 @@ impl Default for AutonomyState {
             prev: None,
             seen: Vec::new(),
             last_blink: None,
-            charge_latch: false,
+            charge_latch: None,
             shadow_ticks: 0,
             prev_me_x: None,
             stats: AutonomyStats::default(),
@@ -1219,7 +1222,12 @@ impl<'a> Ctx<'a> {
                 best.offer(score, spot);
             });
         }
-        best.best.or(fallback.best).or(unclear.best).map(|(_, s)| s)
+        // F01-FU-B10 (#250 review): FA-Q03's fallback is for "no legal spot under
+        // the boss rules", and FA-Q27's `unclear` spots pass those rules (only the
+        // 112 px from a goblin fails), so they come before the fallback: best, then
+        // unclear, then fallback. Without a standing goblin beside a boss (the
+        // Juicer alone) `unclear` is empty and the order changes nothing.
+        best.best.or(unclear.best).or(fallback.best).map(|(_, s)| s)
     }
 
     /// The escort spot: 72 to 120 px behind the leader while he travels, on
@@ -1346,21 +1354,27 @@ impl AutonomyState {
         self.last_blink
     }
 
-    /// FA-Q09: the press at `tick` answered the boss' charge: the follow layer's
-    /// dodge jump stays silent until that charge is over.
-    pub fn latch_charge_blink(&mut self) {
-        self.charge_latch = true;
+    /// FA-Q09: the press answered the boss' charge that started at `started`:
+    /// the follow layer's dodge jump stays silent until that charge is over.
+    pub fn latch_charge_blink(&mut self, started: u64) {
+        self.charge_latch = Some(started);
     }
 
     /// FA-Q09: the dodge jump for the boss' charge is silenced (a blink answered
     /// it).
     pub fn charge_latched(&self) -> bool {
-        self.charge_latch
+        self.charge_latch.is_some()
     }
 
-    /// FA-Q09: no boss charge is up any more (the latch is per charge).
-    pub fn release_charge_latch(&mut self) {
-        self.charge_latch = false;
+    /// FA-Q09: the latch against the charge now up (`started` of the boss'
+    /// `Charge` threat, `None` without one): it holds only for the charge it was
+    /// set for, and is released when that charge is over or another one began
+    /// (chained charges). Returns whether the dodge stays silenced.
+    pub fn sync_charge_latch(&mut self, current: Option<u64>) -> bool {
+        if self.charge_latch.is_some() && self.charge_latch != current {
+            self.charge_latch = None;
+        }
+        self.charge_latch.is_some()
     }
 
     /// Forget the plan (a swap, the partner is defeated, the hero stops being
@@ -1468,7 +1482,7 @@ impl AutonomyState {
             mix(tick);
         }
         // FA-Q09: nothing unless a charge blink is latched.
-        if self.charge_latch {
+        if self.charge_latch.is_some() {
             mix(CHARGE_LATCH_MARK);
         }
         // FA-Q25: nothing unless she is counting a shadow run.
@@ -5418,7 +5432,7 @@ mod tests {
         let mut state = AutonomyState::new();
         let mut before = Vec::new();
         state.hash_into(&mut |w| before.push(w));
-        state.latch_charge_blink();
+        state.latch_charge_blink(30);
         assert!(state.charge_latched());
         let mut after = Vec::new();
         state.hash_into(&mut |w| after.push(w));
@@ -5426,13 +5440,37 @@ mod tests {
         assert_eq!(after.len(), before.len() + 1);
         state.clear_plan();
         assert!(state.charge_latched(), "a swap keeps it");
-        state.release_charge_latch();
+        assert!(!state.sync_charge_latch(None), "no charge up: released");
         let mut released = Vec::new();
         state.hash_into(&mut |w| released.push(w));
         assert_eq!(released, before, "released: hashes as before");
-        state.latch_charge_blink();
+        state.latch_charge_blink(30);
         state.reset();
         assert!(!state.charge_latched(), "a restart forgets it");
+    }
+
+    /// FA-Q09 (F01-FU-B10): the latch is keyed by the charge's start tick. It holds
+    /// through the charge it was set for (tell and run), and a chained charge (a new
+    /// tell right after the run, with no tick without a charge between them) gets
+    /// the dodge back.
+    #[test]
+    fn fa_q09_the_charge_latch_is_per_charge_start_and_a_chained_charge_releases_it() {
+        let mut state = AutonomyState::new();
+        state.latch_charge_blink(30);
+        assert!(
+            state.sync_charge_latch(Some(30)),
+            "same charge: still silenced"
+        );
+        assert!(state.sync_charge_latch(Some(30)));
+        assert!(!state.sync_charge_latch(Some(52)), "a chained charge");
+        assert!(!state.charge_latched());
+        // A fresh latch on the chained charge holds for it.
+        state.latch_charge_blink(52);
+        assert!(state.sync_charge_latch(Some(52)));
+        // Nothing latched: nothing to keep, whatever is up.
+        let mut idle = AutonomyState::new();
+        assert!(!idle.sync_charge_latch(Some(52)));
+        assert!(!idle.sync_charge_latch(None));
     }
 
     #[test]
@@ -5489,6 +5527,7 @@ mod tests {
             depth: RAM_DEPTH,
             speed: RAM_SPEED,
             lead_ticks: 18,
+            started: 0,
         }
     }
 
@@ -5568,6 +5607,7 @@ mod tests {
             depth: RAM_DEPTH,
             speed: RAM_SPEED,
             lead_ticks: 18,
+            started: 0,
         };
         assert!(boss_case(away).choose(lands(440.0, 100.0)).is_none());
     }
@@ -5980,6 +6020,29 @@ mod tests {
         assert_eq!(b.goal, Goal::Retreat);
         let spot = b.spot.unwrap();
         assert!(spot.x <= 60.0, "the corner side of the boss: {}", spot.x);
+    }
+
+    /// F01-FU-B10 (#250 review): under a boss with an add, a spot that passes the
+    /// boss rules but is within 112 px of the goblin (FA-Q27 `unclear`) beats the
+    /// FA-Q03 fallback (the farthest spot from the boss, here beside the goblin).
+    #[test]
+    fn under_a_boss_an_unclear_spot_beats_the_farthest_anchor_fallback() {
+        // A narrow floor 230..330 with a goblin at 250: no spot is 112 px clear of
+        // it. The boss at 560 is 128+ px from all of it and its lane is far away.
+        let mut rig = boss_rig(boss_at(560.0, -1, BossModeClass::Neutral));
+        rig.world.surfaces[0].left = 230.0;
+        rig.world.surfaces[0].right = 330.0;
+        rig.goblin(1, 250.0, standing());
+        rig.donut().x = 290.0;
+        rig.carl().x = 300.0;
+        rig.run(2);
+        hurt(&mut rig);
+        let b = rig.step().unwrap();
+        assert_eq!(b.goal, Goal::Retreat);
+        let spot = b.spot.expect("a spot");
+        // The fallback would be the far left end, beside the goblin; the old rule's
+        // best spot is as far from it as the floor allows.
+        assert!(spot.x - 250.0 >= 40.0, "away from the goblin: {}", spot.x);
     }
 
     #[test]

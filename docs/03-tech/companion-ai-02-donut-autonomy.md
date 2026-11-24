@@ -392,6 +392,7 @@ Computed by a fixture harness (`autonomy_metrics()`, beside #170's `offence()`),
 | `cf02_free_carl_bolts` | She hunts 150 px from Carl; on the tick her pounce starts, Carl sprints 900 px away. She lands, breaks off and runs with him; never off-screen | M5, M6, M12 |
 | `cf02_free_retreat_when_hurt` | A goblin hits her; she retreats behind Carl or up high, then returns | M10 |
 | `cf02_free_arena_direct` | The `cf02_arena_direct` inputs under `cf02_free` | all |
+| `cf02_free_smug_clear` | Added in F01-FU-B10 (CF02-FU-I FU1), presentation evidence: the abandoned-finish setup with Carl backing off less; after her killing pounce she stands idle about 118 px from him and her smug plays its 20 ticks in a clear shot | none (golden and replay only) |
 | `cf02_free_perch_and_show_off` | Quiet room with a perch; she perches; a goblin arrives; she swats it to a stagger and pounces it; "it falls" means it is knocked down or defeated (either counts; her pounce only lands on a lying or staggered goblin); with no standing enemy within 128 px she stands still and the `smug` key plays | M11 |
 | `cf02_free_hazard_edge` | A fight next to a ledge and a hero-hurting hazard | M9 |
 

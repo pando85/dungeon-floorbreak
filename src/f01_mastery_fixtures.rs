@@ -967,7 +967,7 @@ impl Meter {
         }
         let enemies = engaged.iter().filter(|(_, k)| *k != Threat::Rot).count() as u8;
         self.out.peak_engaged = self.out.peak_engaged.max(enemies);
-        for beat in 0..2 {
+        for (beat, &alive_now) in alive.iter().enumerate() {
             let here: Vec<Threat> = engaged
                 .iter()
                 .filter(|(b, _)| *b == beat)
@@ -976,10 +976,10 @@ impl Meter {
             if !here.is_empty() {
                 self.started[beat] = true;
             }
-            if self.started[beat] && alive[beat] == 0 && beat == 0 && self.w1_done.is_none() {
+            if self.started[beat] && alive_now == 0 && beat == 0 && self.w1_done.is_none() {
                 self.w1_done = Some(scene.world.tick);
             }
-            if !self.started[beat] || alive[beat] == 0 {
+            if !self.started[beat] || alive_now == 0 {
                 continue;
             }
             let w = &mut self.out.waves[beat];

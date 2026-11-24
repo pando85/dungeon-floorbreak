@@ -1936,3 +1936,41 @@ fn donuts_press_edge_is_her_own() {
     let view = sim.combat.carl_acting_view();
     assert!(view.press_edge && !view.donut_press_edge, "{view:?}");
 }
+
+/// CF02-FU-I FU1 (F01-FU-B10): Donut's smug in a clear shot. In
+/// `cf02_free_smug_clear` her killing hit leaves her idle with no one alive
+/// within 96 px: the smug plays all its 20 ticks (Q71) there, the first time it
+/// reads in a scene (every arena fixture has a neighbour within about 33 px).
+#[test]
+fn fu1_her_smug_plays_its_twenty_ticks_in_a_clear_shot() {
+    let f = &crate::cf02_free_fixtures::CF02_FREE_SMUG_CLEAR;
+    let mut sim = PartyFixtureSim::new(&kit_for(f), 360, f).unwrap();
+    let mut anim = scene_animators(&sim, Some(on()));
+    let mut rows = Vec::new();
+    for _ in 0..f.base.ticks {
+        sim.step_scripted();
+        anim.step(&sim.scene.world);
+        anim.step_art(&sim.scene, &sim.combat);
+        if let Some(p) = anim.art.as_ref().unwrap().donut_cf02_pose()
+            && p.label().contains("smug")
+        {
+            let dx = sim.scene.world.donut.x;
+            let mut near = (dx - sim.scene.world.hero.x).abs();
+            for g in sim.combat.enemies.iter().filter(|g| g.alive()) {
+                near = near.min((dx - g.x).abs());
+            }
+            for l in &sim.combat.llamas {
+                near = near.min((dx - l.x).abs());
+            }
+            rows.push((sim.combat.elapsed, near));
+        }
+    }
+    assert_eq!(rows.len(), 20, "{rows:?}");
+    assert!(
+        rows.windows(2).all(|w| w[1].0 == w[0].0 + 1),
+        "one run: {rows:?}"
+    );
+    assert!(rows.iter().all(|r| r.1 >= 96.0), "clear shot: {rows:?}");
+    // Nobody is left: the goblin she finished is the only one.
+    assert!(sim.combat.enemies.iter().all(|g| !g.alive()));
+}

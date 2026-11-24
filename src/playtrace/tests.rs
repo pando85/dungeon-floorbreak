@@ -522,6 +522,32 @@ fn killed_writer_recovers_the_valid_prefix() {
     assert_eq!(again.manifest.terminal.as_deref(), Some("truncated"));
 }
 
+/// CF02-FU-TEST: the CI failure (`recover_session` -> `SessionLive`) was a
+/// subprocess forked by a parallel test (`live_tests`, `tests_verify`) holding a
+/// duplicate of the lock descriptor until its `exec`. A held duplicate stands
+/// in for that child: a crashed or finished writer must still read as not live.
+#[test]
+fn a_duplicated_lock_handle_does_not_keep_a_dead_session_live() {
+    let dir = TempDir::new("dup-lock");
+    let mut writer = SessionWriter::create(dir.path(), manifest()).unwrap();
+    drive(&mut writer, &mut FakeParty::new(23, 0), 10);
+    let session = writer.dir().to_path_buf();
+    let child = writer.lock_duplicate_for_test();
+    assert!(session_is_live(&session));
+    writer.crash_for_test();
+    assert!(!session_is_live(&session), "a crash releases the lock");
+    assert!(recover_session(&session).is_ok());
+    drop(child);
+    // The same for a finished writer.
+    let mut writer = SessionWriter::create(dir.path(), manifest()).unwrap();
+    drive(&mut writer, &mut FakeParty::new(24, 0), 10);
+    let session = writer.dir().to_path_buf();
+    let child = writer.lock_duplicate_for_test();
+    writer.finish(SessionStatus::Completed).unwrap();
+    assert!(!session_is_live(&session), "a finish releases the lock");
+    drop(child);
+}
+
 #[test]
 fn a_live_session_is_locked_and_cannot_be_recovered_or_mistaken_for_a_crash() {
     let dir = TempDir::new("lock");

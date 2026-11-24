@@ -588,12 +588,17 @@ enum Gate {
 }
 
 /// The encounter's whole simulation state. Everything here is hashed
-/// ([`Self::mix_into`]); presentation never feeds back into it.
+/// ([`Self::mix_into`]) except `charge_started`, a copy of the hashed clock;
+/// presentation never feeds back into it.
 #[derive(Debug, Clone)]
 pub struct Boss {
     data: &'static BossData,
     floor_y: f32,
     clock: u64,
+    /// The clock when the last charge tell began (`BossThreat::Charge::started`).
+    /// Not mixed into the hash: a copy of the hashed `clock` taken at a hashed
+    /// mode change, so it adds no state of its own.
+    charge_started: u64,
     pub hp: u16,
     pub phase: u8,
     pub mode: BossMode,
@@ -632,6 +637,7 @@ impl Boss {
             data,
             floor_y,
             clock: 0,
+            charge_started: 0,
             hp: data.hp_max,
             phase: 1,
             mode: BossMode::Dormant,
@@ -879,6 +885,7 @@ impl Boss {
                 depth: self.data.charge.ram_box.x[1] - self.data.charge.ram_box.x[0],
                 speed: self.data.charge.speed_px_s * TICK,
                 lead_ticks: self.data.ai_charge_jump_lead,
+                started: self.charge_started,
             }),
             _ => None,
         }
@@ -1056,6 +1063,9 @@ impl Boss {
         self.mode_tick = 0;
         if matches!(mode, BossMode::PoundTell | BossMode::ChargeTell) {
             self.strike_hit = [false; 2];
+        }
+        if mode == BossMode::ChargeTell {
+            self.charge_started = self.clock;
         }
     }
 
@@ -1787,6 +1797,10 @@ pub enum BossThreat {
         speed: f32,
         /// `ai_charge_jump_lead`: jump when the ram reaches the bot within this.
         lead_ticks: u16,
+        /// The boss clock on the first tick of this charge's tell: one value per
+        /// charge, so chained charges are told apart (FA-Q09 keys the AI's
+        /// per-charge dodge latch by it).
+        started: u64,
     },
 }
 
@@ -2844,6 +2858,30 @@ mod tests {
         };
         assert!(running);
         assert_eq!(tell_left, 0);
+    }
+
+    /// FA-Q09 (F01-FU-B10): a charge is identified by the clock of its tell's
+    /// first tick, kept through the run; a chained charge gets a new one, and the
+    /// key is not part of the hash (a copy of the hashed clock).
+    #[test]
+    fn a_charge_threat_carries_the_clock_its_tell_began() {
+        let started_of = |boss: &Boss| match boss.threat() {
+            Some(BossThreat::Charge { started, .. }) => started,
+            other => panic!("{other:?}"),
+        };
+        let mut boss = engaged(300.0, 1);
+        boss.clock = 40;
+        boss.enter(BossMode::ChargeTell);
+        assert_eq!(started_of(&boss), 40);
+        boss.clock = 55;
+        boss.enter(BossMode::Charge);
+        assert_eq!(started_of(&boss), 40, "the run is the same charge");
+        boss.clock = 70;
+        boss.enter(BossMode::ChargeTell);
+        assert_eq!(started_of(&boss), 70, "a chained charge is a new one");
+        let mut copy = boss.clone();
+        copy.charge_started = 40;
+        assert_eq!(hash_of(&copy), hash_of(&boss), "not hashed");
     }
 
     fn hash_of(boss: &Boss) -> u64 {

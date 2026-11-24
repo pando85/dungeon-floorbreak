@@ -32,14 +32,14 @@ Before: a white flash for the first 3 ticks of a flinch and a 50% alpha blink th
 
 - **Getup (frames 13 and 14):** not wired. No simulation state gets a hero up: Donut's defeat ends the attempt and the retry restarts it, exactly as for Carl (whose getup is not wired either).
 - **A non-lethal launch** (a boss or rack blow with `knock_vy`): the sim lifts her but her state is a flinch, so `h0` then `h1` play while she is in the air, as for Carl. The `kb` frame is drawn only for the defeat, as for Carl's.
-- Her contact shadow keeps the idle footprint while she lies (Carl's follows his sprawl); not changed here.
+- Her contact shadow follows the lying frames (F01-FU-B10): `d0` and `d1` cast the shadow of their opaque extent (`donut_art::hurt_shadow_footprint`: 57 px, columns 12 to 68 of the frame, pinned against the grid source by a test), as Carl's sprawl does; every other frame keeps the idle footprint. Only `knockdown_d0.png`, `knockdown_d1.png` and `strip_x6.png` changed when it landed; every window hash is unchanged.
 
 ## Sim unchanged
 
-Presentation only: `CombatState::donut_defeated()` is a read-only accessor. Every unit test, golden and pin passes unchanged; `scripts/ci_floor01_combat.sh headless` replays every committed party and combat fixture against its committed text; no `docs/evidence/*/SHA256SUMS` file other than this folder's changed. New tests: `actor_sprite::tests` (the FA-Q38 cue: on and off ticks at both edges of a phase, off outside the invulnerability and while downed), `donut_art::tests` (frame table, manifest pin, anchor blend) and `combat_anim::tests` (the two fixtures' frame runs, the animated and plain hashes equal on every tick).
+Presentation only: the knockdown art reads `CombatState::hero_downed(HeroId::Donut)`, a read-only accessor (the duplicate `donut_defeated()` was removed in F01-FU-B10). Every unit test, golden and pin passes unchanged; `scripts/ci_floor01_combat.sh headless` replays every committed party and combat fixture against its committed text; no `docs/evidence/*/SHA256SUMS` file other than this folder's changed. New tests: `actor_sprite::tests` (the FA-Q38 cue: on and off ticks at both edges of a phase, off outside the invulnerability and while downed), `donut_art::tests` (frame table, manifest pin, anchor blend) and `combat_anim::tests` (the two fixtures' frame runs, the animated and plain hashes equal on every tick).
 
 Regenerate: `cargo build --locked --bin floor01_scene && bash scripts/export_assets.sh && bash scripts/make_donut_hurt_evidence.sh`.
 
 ## Rights and provenance
 
-Integration only: the frames are the existing committed ANIM-DONUT-02 candidate (fan-concept art under the owner-reported scope `ART-PUBLICATION-ALL-V1`, see `docs/04-production/rights-and-release.md`; not owner-approved). **No new art, no sprite was drawn, resampled or altered.** Integration and evidence: Claude Sonnet (medium tier, Bevy integration of existing art); independent review pending. Nothing here is a claim of approved art, a Steam build, or a playable-game distribution right.
+Integration only: the frames are the existing committed ANIM-DONUT-02 candidate (fan-concept art under the owner-reported scope `ART-PUBLICATION-ALL-V1`, see `docs/04-production/rights-and-release.md`; not owner-approved). **No new art, no sprite was drawn, resampled or altered.** Integration and evidence: Claude Sonnet (medium tier, Bevy integration of existing art); independent top-tier review passed (#259). Nothing here is a claim of approved art, a Steam build, or a playable-game distribution right.

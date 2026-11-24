@@ -1777,7 +1777,7 @@ impl CombatAnimators {
         // Donut's reaction frames (a live party only: otherwise she is never hurt).
         if scene.party_live() {
             let donut = &scene.world.donut_body;
-            let defeated = combat.donut_defeated();
+            let defeated = combat.hero_downed(crate::party::HeroId::Donut);
             let landed_age = if defeated && donut.grounded {
                 Some(self.donut_hurt.landed_age.map_or(0, |a| a + 1))
             } else {
