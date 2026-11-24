@@ -1,0 +1,19 @@
+pixelart validate: f01-dfx-ring-r48 (4 frames)
+  PASS    V01 structure
+  PASS    V02 tags
+  PASS    V03 tick table
+  PASS    V04 palette
+  PASS    V05 isolated pixels
+  PASS    V06 orphan pixels
+  SKIPPED V07 grounded contact rows (not configured)
+  SKIPPED V08 airborne frames off the floor (not configured)
+  PASS    V09 frozen keys
+  SKIPPED V10 layers disjoint (not configured)
+  SKIPPED V11 canvas margin (not configured)
+  PASS    V12 unique frames
+  SKIPPED V13 bounding boxes (not configured)
+  SKIPPED V14 key counts (not configured)
+  PASS    V15 non-empty frames
+  SKIPPED V16 foot drift (loop seam) (not configured)
+  SKIPPED V17 enclosed holes (not configured)
+verdict: PASS (9 pass, 0 fail, 8 skipped)

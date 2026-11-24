@@ -1,0 +1,94 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "f01-dfx-acid",
+  "title": "F01 danger FX acid pool strip (idle, draining)",
+  "grid": "assets/source/props/floor01/dfx_acid.grid.json",
+  "manifest": "assets/manifests/f01-dfx-acid.json",
+  "frame_size": [
+    80,
+    10
+  ],
+  "pivot": [
+    0,
+    9
+  ],
+  "contact_row": null,
+  "tick_hz": 60,
+  "hold_ms": 100,
+  "facing": "left",
+  "tags": {
+    "acid_idle": {
+      "playback": "loop",
+      "contact": "free",
+      "frames": [
+        [
+          0,
+          8
+        ],
+        [
+          1,
+          8
+        ],
+        [
+          2,
+          8
+        ],
+        [
+          3,
+          8
+        ]
+      ]
+    },
+    "acid_drain": {
+      "playback": "loop",
+      "contact": "free",
+      "frames": [
+        [
+          4,
+          6
+        ],
+        [
+          5,
+          6
+        ]
+      ]
+    }
+  },
+  "rules": {
+    "max_colors": 63,
+    "max_isolated_per_frame": 0,
+    "max_orphans_per_frame": 12,
+    "unique_frames": true,
+    "frozen_keys": {
+      "fixture": "tests/fixtures/f01-dfx-acid_keys.json",
+      "frames": [
+        0
+      ],
+      "layers": [
+        "body"
+      ]
+    }
+  },
+  "scene": {
+    "shadow": false,
+    "actors": [
+      {
+        "frame": 0,
+        "x": 520,
+        "lift": 0
+      },
+      {
+        "frame": 4,
+        "x": 640,
+        "lift": 0
+      }
+    ]
+  },
+  "review": {
+    "strip_name": "03_state_strip.png",
+    "strip_tags": [
+      "acid_idle",
+      "acid_drain"
+    ]
+  }
+}

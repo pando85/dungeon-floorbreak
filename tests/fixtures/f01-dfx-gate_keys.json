@@ -1,0 +1,12 @@
+{
+  "asset_id": "f01-dfx-gate",
+  "format": "pixelart-keys-v1",
+  "keys": {
+    "0": {
+      "sha256": "9d912220e237c2668d06be09dd6a359ee15b0df25858dbcdc356792bab464871"
+    }
+  },
+  "layers": [
+    "body"
+  ]
+}

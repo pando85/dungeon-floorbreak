@@ -1,0 +1,12 @@
+{
+  "asset_id": "f01-dfx-ring-r64",
+  "format": "pixelart-keys-v1",
+  "keys": {
+    "0": {
+      "sha256": "6bb3bdb592a3f87b87843dd348b1ab94709d8a3bc961f15001579db7da1172c9"
+    }
+  },
+  "layers": [
+    "body"
+  ]
+}

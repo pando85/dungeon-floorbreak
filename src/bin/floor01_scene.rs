@@ -125,6 +125,9 @@ mod replay_view;
 mod blink_cues;
 #[path = "floor01_scene/donut_cues.rs"]
 mod donut_cues;
+// F01 danger FX: the acid pool, the blast reach rings, the blast wave, the room 5 gate.
+#[path = "floor01_scene/danger_fx_art.rs"]
+mod danger_fx_art;
 #[path = "floor01_scene/env_prop_art.rs"]
 mod env_prop_art;
 #[path = "floor01_scene/hazards_art.rs"]
@@ -3943,6 +3946,7 @@ fn run_window(
                 pierce_spark::sync_pierce_spark,
                 env_prop_art::sync_prop_art,
                 hazards_art::sync_hazard_art,
+                danger_fx_art::sync_danger_fx,
                 hazards_art::sync_hazard_debug,
                 hoarder_art::sync_hoarder_art,
             )
@@ -4542,6 +4546,16 @@ fn setup(
             debug_layers,
             kit,
             &mut combat_handles,
+            &mut combat_entities,
+        );
+        // F01 danger FX: the acid pool, the reach rings, the blast wave and the
+        // room 5 gate art (presentation only; one pool for every combat scene).
+        danger_fx_art::spawn(
+            &mut commands,
+            &asset_server,
+            &mut combat_handles,
+            layers_of("actors"),
+            kit,
             &mut combat_entities,
         );
     }
@@ -6383,6 +6397,7 @@ fn sync_boss_visuals(
     setup: Res<Setup>,
     art: Res<BossArtRes>,
     textures: Option<Res<BossTextures>>,
+    danger: Option<Res<danger_fx_art::DangerFxArt>>,
     mut walk: Local<WalkTrack>,
     mut pieces: Query<
         (&BossPiece, &mut Transform, &mut Sprite, &mut Visibility),
@@ -6502,7 +6517,8 @@ fn sync_boss_visuals(
                         height: 224.0,
                     },
                 );
-                boss.gate_closed()
+                // The F01 danger FX gate art replaces the slab when its atlas loaded.
+                boss.gate_closed() && !danger.as_ref().is_some_and(|d| d.draws_gate(boss))
             }
             BossPiece::Ripple(slot) => match ripples.get(slot) {
                 Some(&(x, _)) => {

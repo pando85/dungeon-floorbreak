@@ -1,0 +1,87 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "f01-dfx-wave-r48",
+  "title": "F01 danger FX blast wave to the 48 px reach",
+  "grid": "assets/source/props/floor01/dfx_wave_r48.grid.json",
+  "manifest": "assets/manifests/f01-dfx-wave-r48.json",
+  "frame_size": [
+    103,
+    103
+  ],
+  "pivot": [
+    51,
+    51
+  ],
+  "contact_row": null,
+  "tick_hz": 60,
+  "hold_ms": 100,
+  "facing": "left",
+  "tags": {
+    "blast_wave": {
+      "playback": "once",
+      "contact": "free",
+      "frames": [
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          2,
+          2
+        ],
+        [
+          3,
+          6
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          5,
+          5
+        ]
+      ]
+    }
+  },
+  "rules": {
+    "max_colors": 63,
+    "max_isolated_per_frame": 0,
+    "max_orphans_per_frame": 0,
+    "unique_frames": true,
+    "frozen_keys": {
+      "fixture": "tests/fixtures/f01-dfx-wave-r48_keys.json",
+      "frames": [
+        3
+      ],
+      "layers": [
+        "body"
+      ]
+    }
+  },
+  "scene": {
+    "shadow": false,
+    "actors": [
+      {
+        "frame": 1,
+        "x": 520,
+        "lift": 40
+      },
+      {
+        "frame": 3,
+        "x": 660,
+        "lift": 40
+      }
+    ]
+  },
+  "review": {
+    "strip_name": "03_state_strip.png",
+    "strip_tags": [
+      "blast_wave"
+    ]
+  }
+}
