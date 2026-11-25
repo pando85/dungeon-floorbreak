@@ -1,0 +1,425 @@
+{ "frames": [
+   {
+    "filename": "carl_h52_dynamite_gauntlet 0.ase",
+    "frame": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "sourceSize": { "w": 48, "h": 56 },
+    "duration": 100
+   },
+   {
+    "filename": "carl_h52_dynamite_gauntlet 1.ase",
+    "frame": { "x": 48, "y": 0, "w": 48, "h": 56 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "sourceSize": { "w": 48, "h": 56 },
+    "duration": 167
+   },
+   {
+    "filename": "carl_h52_dynamite_gauntlet 2.ase",
+    "frame": { "x": 96, "y": 0, "w": 48, "h": 56 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "sourceSize": { "w": 48, "h": 56 },
+    "duration": 117
+   },
+   {
+    "filename": "carl_h52_dynamite_gauntlet 3.ase",
+    "frame": { "x": 144, "y": 0, "w": 48, "h": 56 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "sourceSize": { "w": 48, "h": 56 },
+    "duration": 117
+   },
+   {
+    "filename": "carl_h52_dynamite_gauntlet 4.ase",
+    "frame": { "x": 192, "y": 0, "w": 48, "h": 56 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "sourceSize": { "w": 48, "h": 56 },
+    "duration": 133
+   },
+   {
+    "filename": "carl_h52_dynamite_gauntlet 5.ase",
+    "frame": { "x": 240, "y": 0, "w": 48, "h": 56 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "sourceSize": { "w": 48, "h": 56 },
+    "duration": 67
+   },
+   {
+    "filename": "carl_h52_dynamite_gauntlet 6.ase",
+    "frame": { "x": 288, "y": 0, "w": 48, "h": 56 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "sourceSize": { "w": 48, "h": 56 },
+    "duration": 133
+   },
+   {
+    "filename": "carl_h52_dynamite_gauntlet 7.ase",
+    "frame": { "x": 336, "y": 0, "w": 48, "h": 56 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "sourceSize": { "w": 48, "h": 56 },
+    "duration": 200
+   },
+   {
+    "filename": "carl_h52_dynamite_gauntlet 8.ase",
+    "frame": { "x": 384, "y": 0, "w": 48, "h": 56 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "sourceSize": { "w": 48, "h": 56 },
+    "duration": 133
+   },
+   {
+    "filename": "carl_h52_dynamite_gauntlet 9.ase",
+    "frame": { "x": 432, "y": 0, "w": 48, "h": 56 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "sourceSize": { "w": 48, "h": 56 },
+    "duration": 67
+   },
+   {
+    "filename": "carl_h52_dynamite_gauntlet 10.ase",
+    "frame": { "x": 480, "y": 0, "w": 48, "h": 56 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "sourceSize": { "w": 48, "h": 56 },
+    "duration": 67
+   },
+   {
+    "filename": "carl_h52_dynamite_gauntlet 11.ase",
+    "frame": { "x": 528, "y": 0, "w": 48, "h": 56 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "sourceSize": { "w": 48, "h": 56 },
+    "duration": 67
+   },
+   {
+    "filename": "carl_h52_dynamite_gauntlet 12.ase",
+    "frame": { "x": 576, "y": 0, "w": 48, "h": 56 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "sourceSize": { "w": 48, "h": 56 },
+    "duration": 67
+   },
+   {
+    "filename": "carl_h52_dynamite_gauntlet 13.ase",
+    "frame": { "x": 624, "y": 0, "w": 48, "h": 56 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "sourceSize": { "w": 48, "h": 56 },
+    "duration": 67
+   },
+   {
+    "filename": "carl_h52_dynamite_gauntlet 14.ase",
+    "frame": { "x": 672, "y": 0, "w": 48, "h": 56 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "sourceSize": { "w": 48, "h": 56 },
+    "duration": 67
+   },
+   {
+    "filename": "carl_h52_dynamite_gauntlet 15.ase",
+    "frame": { "x": 720, "y": 0, "w": 48, "h": 56 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "sourceSize": { "w": 48, "h": 56 },
+    "duration": 67
+   },
+   {
+    "filename": "carl_h52_dynamite_gauntlet 16.ase",
+    "frame": { "x": 768, "y": 0, "w": 48, "h": 56 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "sourceSize": { "w": 48, "h": 56 },
+    "duration": 67
+   },
+   {
+    "filename": "carl_h52_dynamite_gauntlet 17.ase",
+    "frame": { "x": 816, "y": 0, "w": 48, "h": 56 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "sourceSize": { "w": 48, "h": 56 },
+    "duration": 67
+   },
+   {
+    "filename": "carl_h52_dynamite_gauntlet 18.ase",
+    "frame": { "x": 864, "y": 0, "w": 48, "h": 56 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "sourceSize": { "w": 48, "h": 56 },
+    "duration": 67
+   },
+   {
+    "filename": "carl_h52_dynamite_gauntlet 19.ase",
+    "frame": { "x": 912, "y": 0, "w": 48, "h": 56 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "sourceSize": { "w": 48, "h": 56 },
+    "duration": 67
+   },
+   {
+    "filename": "carl_h52_dynamite_gauntlet 20.ase",
+    "frame": { "x": 960, "y": 0, "w": 48, "h": 56 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "sourceSize": { "w": 48, "h": 56 },
+    "duration": 67
+   },
+   {
+    "filename": "carl_h52_dynamite_gauntlet 21.ase",
+    "frame": { "x": 1008, "y": 0, "w": 48, "h": 56 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "sourceSize": { "w": 48, "h": 56 },
+    "duration": 67
+   },
+   {
+    "filename": "carl_h52_dynamite_gauntlet 22.ase",
+    "frame": { "x": 1056, "y": 0, "w": 48, "h": 56 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "sourceSize": { "w": 48, "h": 56 },
+    "duration": 67
+   },
+   {
+    "filename": "carl_h52_dynamite_gauntlet 23.ase",
+    "frame": { "x": 1104, "y": 0, "w": 48, "h": 56 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "sourceSize": { "w": 48, "h": 56 },
+    "duration": 67
+   },
+   {
+    "filename": "carl_h52_dynamite_gauntlet 24.ase",
+    "frame": { "x": 1152, "y": 0, "w": 48, "h": 56 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "sourceSize": { "w": 48, "h": 56 },
+    "duration": 67
+   },
+   {
+    "filename": "carl_h52_dynamite_gauntlet 25.ase",
+    "frame": { "x": 1200, "y": 0, "w": 48, "h": 56 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "sourceSize": { "w": 48, "h": 56 },
+    "duration": 67
+   },
+   {
+    "filename": "carl_h52_dynamite_gauntlet 26.ase",
+    "frame": { "x": 1248, "y": 0, "w": 48, "h": 56 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "sourceSize": { "w": 48, "h": 56 },
+    "duration": 67
+   },
+   {
+    "filename": "carl_h52_dynamite_gauntlet 27.ase",
+    "frame": { "x": 1296, "y": 0, "w": 48, "h": 56 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "sourceSize": { "w": 48, "h": 56 },
+    "duration": 67
+   },
+   {
+    "filename": "carl_h52_dynamite_gauntlet 28.ase",
+    "frame": { "x": 1344, "y": 0, "w": 48, "h": 56 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "sourceSize": { "w": 48, "h": 56 },
+    "duration": 67
+   },
+   {
+    "filename": "carl_h52_dynamite_gauntlet 29.ase",
+    "frame": { "x": 1392, "y": 0, "w": 48, "h": 56 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "sourceSize": { "w": 48, "h": 56 },
+    "duration": 67
+   },
+   {
+    "filename": "carl_h52_dynamite_gauntlet 30.ase",
+    "frame": { "x": 1440, "y": 0, "w": 48, "h": 56 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "sourceSize": { "w": 48, "h": 56 },
+    "duration": 67
+   },
+   {
+    "filename": "carl_h52_dynamite_gauntlet 31.ase",
+    "frame": { "x": 1488, "y": 0, "w": 48, "h": 56 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "sourceSize": { "w": 48, "h": 56 },
+    "duration": 67
+   },
+   {
+    "filename": "carl_h52_dynamite_gauntlet 32.ase",
+    "frame": { "x": 1536, "y": 0, "w": 48, "h": 56 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "sourceSize": { "w": 48, "h": 56 },
+    "duration": 67
+   },
+   {
+    "filename": "carl_h52_dynamite_gauntlet 33.ase",
+    "frame": { "x": 1584, "y": 0, "w": 48, "h": 56 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "sourceSize": { "w": 48, "h": 56 },
+    "duration": 67
+   },
+   {
+    "filename": "carl_h52_dynamite_gauntlet 34.ase",
+    "frame": { "x": 1632, "y": 0, "w": 48, "h": 56 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "sourceSize": { "w": 48, "h": 56 },
+    "duration": 67
+   },
+   {
+    "filename": "carl_h52_dynamite_gauntlet 35.ase",
+    "frame": { "x": 1680, "y": 0, "w": 48, "h": 56 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "sourceSize": { "w": 48, "h": 56 },
+    "duration": 67
+   },
+   {
+    "filename": "carl_h52_dynamite_gauntlet 36.ase",
+    "frame": { "x": 1728, "y": 0, "w": 48, "h": 56 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "sourceSize": { "w": 48, "h": 56 },
+    "duration": 67
+   },
+   {
+    "filename": "carl_h52_dynamite_gauntlet 37.ase",
+    "frame": { "x": 1776, "y": 0, "w": 48, "h": 56 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "sourceSize": { "w": 48, "h": 56 },
+    "duration": 67
+   },
+   {
+    "filename": "carl_h52_dynamite_gauntlet 38.ase",
+    "frame": { "x": 1824, "y": 0, "w": 48, "h": 56 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "sourceSize": { "w": 48, "h": 56 },
+    "duration": 67
+   },
+   {
+    "filename": "carl_h52_dynamite_gauntlet 39.ase",
+    "frame": { "x": 1872, "y": 0, "w": 48, "h": 56 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "sourceSize": { "w": 48, "h": 56 },
+    "duration": 67
+   },
+   {
+    "filename": "carl_h52_dynamite_gauntlet 40.ase",
+    "frame": { "x": 1920, "y": 0, "w": 48, "h": 56 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "sourceSize": { "w": 48, "h": 56 },
+    "duration": 67
+   },
+   {
+    "filename": "carl_h52_dynamite_gauntlet 41.ase",
+    "frame": { "x": 1968, "y": 0, "w": 48, "h": 56 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "sourceSize": { "w": 48, "h": 56 },
+    "duration": 67
+   },
+   {
+    "filename": "carl_h52_dynamite_gauntlet 42.ase",
+    "frame": { "x": 2016, "y": 0, "w": 48, "h": 56 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "sourceSize": { "w": 48, "h": 56 },
+    "duration": 67
+   },
+   {
+    "filename": "carl_h52_dynamite_gauntlet 43.ase",
+    "frame": { "x": 2064, "y": 0, "w": 48, "h": 56 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "sourceSize": { "w": 48, "h": 56 },
+    "duration": 67
+   },
+   {
+    "filename": "carl_h52_dynamite_gauntlet 44.ase",
+    "frame": { "x": 2112, "y": 0, "w": 48, "h": 56 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "sourceSize": { "w": 48, "h": 56 },
+    "duration": 67
+   }
+ ],
+ "meta": {
+  "app": "https://github.com/LibreSprite/LibreSprite/",
+  "version": "1.2-dev (local build)",
+  "image": "generated/art/carl_book1_h52_dynamite_gauntlet.png",
+  "format": "RGBA8888",
+  "size": { "w": 2160, "h": 56 },
+  "scale": "1",
+  "frameTags": [
+   { "name": "dynamite_throw", "from": 0, "to": 8, "direction": "forward" },
+   { "name": "dynamite_move_light", "from": 9, "to": 14, "direction": "forward" },
+   { "name": "dynamite_move_hold", "from": 15, "to": 20, "direction": "forward" },
+   { "name": "dynamite_move_hold_b", "from": 21, "to": 26, "direction": "forward" },
+   { "name": "dynamite_move_wind", "from": 27, "to": 32, "direction": "forward" },
+   { "name": "dynamite_move_release", "from": 33, "to": 38, "direction": "forward" },
+   { "name": "dynamite_move_follow", "from": 39, "to": 44, "direction": "forward" }
+  ]
+ }
+}

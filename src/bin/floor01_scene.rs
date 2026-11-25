@@ -140,6 +140,9 @@ mod hazards_art;
 mod hoarder_art;
 #[path = "floor01_scene/pierce_spark.rs"]
 mod pierce_spark;
+// CARL-GAUNTLET-01: Carl's reinforced-fist overlay (presentation only, capability-gated).
+#[path = "floor01_scene/carl_gauntlet.rs"]
+mod carl_gauntlet;
 // ROOM-PORTALS-01: the exit door of rooms 2, 4, 4a, 4b and 6 (the grate down while the exit gate stands).
 #[path = "floor01_scene/room_exit_art.rs"]
 mod room_exit_art;
@@ -3288,6 +3291,9 @@ impl Actors {
 struct Setup {
     kit: EnvKit,
     args: Args,
+    /// `<repository root>/generated/art`: the directory the asset server reads
+    /// (the presenters that probe for an optional atlas look here).
+    art_dir: PathBuf,
 }
 
 #[derive(Resource)]
@@ -4068,7 +4074,8 @@ fn run_window(
     };
     // Bevy 0.20 resolves a relative AssetPlugin path from the binary directory,
     // so give it an absolute directory below the repository root.
-    let asset_directory = root.join("generated/art").to_string_lossy().into_owned();
+    let asset_directory_path = root.join("generated/art");
+    let asset_directory = asset_directory_path.to_string_lossy().into_owned();
     let window_size = (
         VIRTUAL_WIDTH as u32 * args.scale,
         view_height(args.deck) as u32 * args.scale,
@@ -4279,7 +4286,11 @@ fn run_window(
     .init_resource::<Interest>()
     .insert_resource(LiveFixture(live_fixture))
     .insert_resource(HudAtlas(hud_atlas, hud_emblem))
-    .insert_resource(Setup { kit, args })
+    .insert_resource(Setup {
+        kit,
+        args,
+        art_dir: asset_directory_path,
+    })
     .init_resource::<Controls>()
     .insert_resource(Pads(PadSlots::new(party)))
     .insert_resource(Recorder(recorder))
@@ -4307,6 +4318,8 @@ fn run_window(
             sync_carl_throw_visual,
             sync_blast_ring,
             (
+                // CARL-GAUNTLET-01: after every Carl body sprite is synced this frame.
+                carl_gauntlet::sync_carl_gauntlet,
                 donut_cues::sync_donut_cues,
                 blink_cues::sync_blink_cues,
                 pierce_spark::sync_pierce_spark,
@@ -5180,6 +5193,56 @@ fn setup(
             &mut combat_handles,
             layers_of("actors"),
             kit.actor_z,
+        );
+    }
+
+    // CARL-GAUNTLET-01: one overlay sprite per Carl body sprite (hidden until the
+    // run holds `fist_reinforced`); presentation only, nothing is read back.
+    if let (Some(_), Some(art)) = (combat.0.as_ref(), actors.art.as_ref()) {
+        let z = kit.actor_z + CARL_Z_OFFSET;
+        let cell = |spec: &ActorSpec| UVec2::new(spec.width as u32, spec.height as u32);
+        let mut bodies = vec![
+            (
+                carl_gauntlet::CarlGauntlet::Locomotion,
+                actors.carl.atlas_asset.as_str(),
+                cell(&actors.carl.spec),
+                actors.carl.clips.frame_count,
+                z,
+            ),
+            (
+                carl_gauntlet::CarlGauntlet::Melee,
+                art.carl.atlas_asset.as_str(),
+                cell(&art.carl.spec),
+                art.carl.frame_count,
+                z,
+            ),
+        ];
+        if let Some(clips) = art.dynamite.as_ref() {
+            bodies.push((
+                carl_gauntlet::CarlGauntlet::Throw,
+                clips.atlas_asset.as_str(),
+                cell(&clips.spec),
+                clips.frame_count,
+                z,
+            ));
+        }
+        if let Some(acting) = actors.cf02.as_ref() {
+            bodies.push((
+                carl_gauntlet::CarlGauntlet::Cf02,
+                acting.carl.atlas_asset.as_str(),
+                cell(&acting.carl.spec),
+                acting.carl.frame_count,
+                z,
+            ));
+        }
+        combat_entities += carl_gauntlet::spawn(
+            &mut commands,
+            &asset_server,
+            &mut layouts,
+            &mut combat_handles,
+            &layers_of("actors"),
+            &bodies,
+            &setup.art_dir,
         );
     }
 

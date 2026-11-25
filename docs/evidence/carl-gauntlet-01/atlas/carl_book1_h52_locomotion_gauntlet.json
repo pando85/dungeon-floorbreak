@@ -1,0 +1,163 @@
+{ "frames": [
+   {
+    "filename": "carl_h52_locomotion_gauntlet 0.ase",
+    "frame": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "sourceSize": { "w": 48, "h": 56 },
+    "duration": 420
+   },
+   {
+    "filename": "carl_h52_locomotion_gauntlet 1.ase",
+    "frame": { "x": 48, "y": 0, "w": 48, "h": 56 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "sourceSize": { "w": 48, "h": 56 },
+    "duration": 260
+   },
+   {
+    "filename": "carl_h52_locomotion_gauntlet 2.ase",
+    "frame": { "x": 96, "y": 0, "w": 48, "h": 56 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "sourceSize": { "w": 48, "h": 56 },
+    "duration": 560
+   },
+   {
+    "filename": "carl_h52_locomotion_gauntlet 3.ase",
+    "frame": { "x": 144, "y": 0, "w": 48, "h": 56 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "sourceSize": { "w": 48, "h": 56 },
+    "duration": 260
+   },
+   {
+    "filename": "carl_h52_locomotion_gauntlet 4.ase",
+    "frame": { "x": 192, "y": 0, "w": 48, "h": 56 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "sourceSize": { "w": 48, "h": 56 },
+    "duration": 60
+   },
+   {
+    "filename": "carl_h52_locomotion_gauntlet 5.ase",
+    "frame": { "x": 240, "y": 0, "w": 48, "h": 56 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "sourceSize": { "w": 48, "h": 56 },
+    "duration": 60
+   },
+   {
+    "filename": "carl_h52_locomotion_gauntlet 6.ase",
+    "frame": { "x": 288, "y": 0, "w": 48, "h": 56 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "sourceSize": { "w": 48, "h": 56 },
+    "duration": 60
+   },
+   {
+    "filename": "carl_h52_locomotion_gauntlet 7.ase",
+    "frame": { "x": 336, "y": 0, "w": 48, "h": 56 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "sourceSize": { "w": 48, "h": 56 },
+    "duration": 60
+   },
+   {
+    "filename": "carl_h52_locomotion_gauntlet 8.ase",
+    "frame": { "x": 384, "y": 0, "w": 48, "h": 56 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "sourceSize": { "w": 48, "h": 56 },
+    "duration": 60
+   },
+   {
+    "filename": "carl_h52_locomotion_gauntlet 9.ase",
+    "frame": { "x": 432, "y": 0, "w": 48, "h": 56 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "sourceSize": { "w": 48, "h": 56 },
+    "duration": 60
+   },
+   {
+    "filename": "carl_h52_locomotion_gauntlet 10.ase",
+    "frame": { "x": 480, "y": 0, "w": 48, "h": 56 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "sourceSize": { "w": 48, "h": 56 },
+    "duration": 50
+   },
+   {
+    "filename": "carl_h52_locomotion_gauntlet 11.ase",
+    "frame": { "x": 528, "y": 0, "w": 48, "h": 56 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "sourceSize": { "w": 48, "h": 56 },
+    "duration": 70
+   },
+   {
+    "filename": "carl_h52_locomotion_gauntlet 12.ase",
+    "frame": { "x": 576, "y": 0, "w": 48, "h": 56 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "sourceSize": { "w": 48, "h": 56 },
+    "duration": 100
+   },
+   {
+    "filename": "carl_h52_locomotion_gauntlet 13.ase",
+    "frame": { "x": 624, "y": 0, "w": 48, "h": 56 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "sourceSize": { "w": 48, "h": 56 },
+    "duration": 100
+   },
+   {
+    "filename": "carl_h52_locomotion_gauntlet 14.ase",
+    "frame": { "x": 672, "y": 0, "w": 48, "h": 56 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "sourceSize": { "w": 48, "h": 56 },
+    "duration": 80
+   },
+   {
+    "filename": "carl_h52_locomotion_gauntlet 15.ase",
+    "frame": { "x": 720, "y": 0, "w": 48, "h": 56 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 56 },
+    "sourceSize": { "w": 48, "h": 56 },
+    "duration": 100
+   }
+ ],
+ "meta": {
+  "app": "https://github.com/LibreSprite/LibreSprite/",
+  "version": "1.2-dev (local build)",
+  "image": "generated/art/carl_book1_h52_locomotion_gauntlet.png",
+  "format": "RGBA8888",
+  "size": { "w": 768, "h": 56 },
+  "scale": "1",
+  "frameTags": [
+   { "name": "idle", "from": 0, "to": 3, "direction": "forward" },
+   { "name": "run", "from": 4, "to": 9, "direction": "forward" },
+   { "name": "jump_start", "from": 10, "to": 11, "direction": "forward" },
+   { "name": "jump_rise", "from": 12, "to": 12, "direction": "forward" },
+   { "name": "jump_fall", "from": 13, "to": 13, "direction": "forward" },
+   { "name": "land", "from": 14, "to": 15, "direction": "forward" }
+  ]
+ }
+}

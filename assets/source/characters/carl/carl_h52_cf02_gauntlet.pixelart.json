@@ -1,0 +1,129 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "art-carl-gauntlet-cf02",
+  "title": "CARL-GAUNTLET-01 reinforced-fist overlay for the Carl 52 px cf02 sheet (13 frames)",
+  "grid": "assets/source/characters/carl/carl_h52_cf02_gauntlet.grid.json",
+  "manifest": "assets/manifests/carl_book1_h52_cf02_gauntlet.json",
+  "frame_size": [
+    48,
+    56
+  ],
+  "pivot": [
+    25,
+    55
+  ],
+  "contact_row": null,
+  "tick_hz": 1000,
+  "hold_ms": 100,
+  "facing": "right",
+  "tags": {
+    "stomp": {
+      "playback": "loop",
+      "contact": "free",
+      "frames": [
+        [
+          0,
+          150
+        ],
+        [
+          1,
+          117
+        ],
+        [
+          2,
+          167
+        ]
+      ]
+    },
+    "air_kick": {
+      "playback": "loop",
+      "contact": "free",
+      "frames": [
+        [
+          3,
+          83
+        ],
+        [
+          4,
+          167
+        ]
+      ]
+    },
+    "dive_tuck": {
+      "playback": "once",
+      "contact": "free",
+      "frames": [
+        [
+          5,
+          100
+        ]
+      ]
+    },
+    "dive_plunge": {
+      "playback": "once",
+      "contact": "free",
+      "frames": [
+        [
+          6,
+          500
+        ]
+      ]
+    },
+    "dive_land": {
+      "playback": "once",
+      "contact": "free",
+      "frames": [
+        [
+          7,
+          167
+        ]
+      ]
+    },
+    "bailout": {
+      "playback": "loop",
+      "contact": "free",
+      "frames": [
+        [
+          8,
+          50
+        ],
+        [
+          9,
+          500
+        ]
+      ]
+    },
+    "flinch": {
+      "playback": "once",
+      "contact": "free",
+      "frames": [
+        [
+          10,
+          133
+        ]
+      ]
+    },
+    "frustration": {
+      "playback": "loop",
+      "contact": "free",
+      "frames": [
+        [
+          11,
+          100
+        ],
+        [
+          12,
+          100
+        ]
+      ]
+    }
+  },
+  "overlay": {
+    "body_grid": "assets/source/characters/carl/carl_h52_cf02.grid.json",
+    "layer": "gauntlet"
+  },
+  "rules": {
+    "max_colors": 8
+  },
+  "_note": "tick_hz 1000: the tick column is the frame duration in ms, copied from the body sheet"
+}

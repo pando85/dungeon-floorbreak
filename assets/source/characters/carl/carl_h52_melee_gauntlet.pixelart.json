@@ -1,0 +1,167 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "art-carl-gauntlet-melee",
+  "title": "CARL-GAUNTLET-01 reinforced-fist overlay for the Carl 52 px melee sheet (24 frames)",
+  "grid": "assets/source/characters/carl/carl_h52_melee_gauntlet.grid.json",
+  "manifest": "assets/manifests/carl_book1_h52_melee_gauntlet.json",
+  "frame_size": [
+    48,
+    56
+  ],
+  "pivot": [
+    25,
+    55
+  ],
+  "contact_row": null,
+  "tick_hz": 1000,
+  "hold_ms": 100,
+  "facing": "right",
+  "tags": {
+    "punch_a": {
+      "playback": "loop",
+      "contact": "free",
+      "frames": [
+        [
+          0,
+          50
+        ],
+        [
+          1,
+          67
+        ],
+        [
+          2,
+          67
+        ],
+        [
+          3,
+          50
+        ]
+      ]
+    },
+    "punch_b": {
+      "playback": "loop",
+      "contact": "free",
+      "frames": [
+        [
+          4,
+          83
+        ],
+        [
+          5,
+          83
+        ],
+        [
+          6,
+          100
+        ],
+        [
+          7,
+          100
+        ]
+      ]
+    },
+    "kick": {
+      "playback": "loop",
+      "contact": "free",
+      "frames": [
+        [
+          8,
+          67
+        ],
+        [
+          9,
+          117
+        ],
+        [
+          10,
+          33
+        ],
+        [
+          11,
+          100
+        ],
+        [
+          12,
+          83
+        ],
+        [
+          13,
+          117
+        ],
+        [
+          14,
+          83
+        ]
+      ]
+    },
+    "hurt": {
+      "playback": "loop",
+      "contact": "free",
+      "frames": [
+        [
+          15,
+          67
+        ],
+        [
+          16,
+          133
+        ],
+        [
+          17,
+          100
+        ]
+      ]
+    },
+    "knockback": {
+      "playback": "once",
+      "contact": "free",
+      "frames": [
+        [
+          18,
+          100
+        ]
+      ]
+    },
+    "knockdown": {
+      "playback": "loop",
+      "contact": "free",
+      "frames": [
+        [
+          19,
+          100
+        ],
+        [
+          20,
+          500
+        ]
+      ]
+    },
+    "getup": {
+      "playback": "loop",
+      "contact": "free",
+      "frames": [
+        [
+          21,
+          133
+        ],
+        [
+          22,
+          133
+        ],
+        [
+          23,
+          100
+        ]
+      ]
+    }
+  },
+  "overlay": {
+    "body_grid": "assets/source/characters/carl/carl_h52_melee.grid.json",
+    "layer": "gauntlet"
+  },
+  "rules": {
+    "max_colors": 8
+  },
+  "_note": "tick_hz 1000: the tick column is the frame duration in ms, copied from the body sheet"
+}

@@ -26,6 +26,7 @@ V14   key counts              ``rules.key_counts`` (pixels of a palette key per 
 V15   non-empty frames        every frame has at least one opaque pixel
 V16   foot drift              ``rules.foot_drift`` (planted feet of loop tags, seam included)
 V17   enclosed holes          ``rules.holes`` (transparent pixels a flood fill from the frame border cannot reach)
+V18   overlay layering        the config's top-level ``overlay`` section (CG-L1..CG-L9 of the CARL-GAUNTLET-01 spec)
 ====  ======================  ===================================================================
 
 V17 flags pinholes and slits: transparent pixels ringed by opaque ones, which no fill from the frame border
@@ -413,6 +414,8 @@ def v14_key_counts(c: Context) -> list[str]:
 
 
 def v15_nonempty(c: Context) -> list[str]:
+    if c.cfg.data.get("overlay"):
+        return []       # an overlay frame may be empty where the body shows no skin: CG-L9 (V18) judges it
     return [f"frame {n} is empty" for n, b in enumerate(c.boxes) if b is None]
 
 
@@ -531,6 +534,144 @@ def v17_holes(c: Context) -> list[str]:
     return [describe_hole(i, pocket) for i, pocket in unallowed_holes(c.grid, entries, int(spec.get("connectivity", 4)))]
 
 
+# ------------------------------------------------------------------ V18 overlay layering (CG-L1..CG-L9)
+
+OVERLAY_DEFAULTS = {
+    "layer": "gauntlet", "near": "near_arm", "watch": "watch", "pin": "pin", "prop": "prop",
+    "head": "head", "hair": "hair", "skin_keys": "LMSD", "allowed_keys": "KJjTUVwH",
+    "glint_key": "w", "max_glints": 3, "max_outside": 12,
+}
+OVERLAY_RULES = ("CG-L1", "CG-L2", "CG-L3", "CG-L4", "CG-L5", "CG-L6", "CG-L7", "CG-L8", "CG-L9")
+
+
+def overlay_params(spec: dict) -> dict:
+    """The overlay section of a config with the defaults filled in (``body_grid`` is required)."""
+    params = {**OVERLAY_DEFAULTS, **spec}
+    if not params.get("body_grid"):
+        raise ToolkitError("overlay section needs 'body_grid' (the body sheet the overlay sits on)")
+    return params
+
+
+def cel_points(rows: list[str] | None) -> dict:
+    """``{(x, y): key}`` of the opaque pixels of one cel (None or missing is empty)."""
+    return {(x, y): ch for y, row in enumerate(rows or []) for x, ch in enumerate(row) if ch != "."}
+
+
+def dilate1(points, w: int, h: int) -> set:
+    """The point set grown by one pixel in the 8-neighbourhood, clipped to the canvas."""
+    out = set(points)
+    for x, y in points:
+        for dx in (-1, 0, 1):
+            for dy in (-1, 0, 1):
+                if 0 <= x + dx < w and 0 <= y + dy < h:
+                    out.add((x + dx, y + dy))
+    return out
+
+
+def overlay_frame_findings(body_cels: dict, over_rows: list[str] | None, canvas, params: dict,
+                           exceptions=()) -> dict:
+    """CG-L1..CG-L7 and CG-L9 for one frame: ``{rule: [message, ...]}`` (empty list = pass).
+
+    ``body_cels`` are the body frame's cels, ``over_rows`` the overlay cel, ``exceptions`` the skin pixels
+    of the near arm that the overlay may leave uncovered (the frozen CG-L6 list of the manifest).
+    """
+    w, h = canvas
+    over = cel_points(over_rows)
+    p = params
+    near = cel_points(body_cels.get(p["near"]))
+    watch, pin = (set(cel_points(body_cels.get(p[k]))) for k in ("watch", "pin"))
+    prop = set(cel_points(body_cels.get(p["prop"]))) - set(near)     # the stick pixels that show (the near arm is drawn over the prop)
+    head_hair = set(cel_points(body_cels.get(p["head"]))) | set(cel_points(body_cels.get(p["hair"])))
+    out: dict = {rule: [] for rule in OVERLAY_RULES if rule != "CG-L8"}
+
+    def listed(points) -> str:
+        pts = sorted(points)
+        return str(pts[:4]) + (f" (+{len(pts) - 4})" if len(pts) > 4 else "")
+
+    grown = dilate1(set(near), w, h)
+    outside_grow = set(over) - grown
+    if outside_grow:
+        out["CG-L1"].append(f"{len(outside_grow)} px outside the near arm grown by 1: {listed(outside_grow)}")
+    on_forbidden = set(over) & (watch | pin | prop)
+    if on_forbidden:
+        out["CG-L2"].append(f"{len(on_forbidden)} px cover a watch, pin or visible prop pixel: {listed(on_forbidden)}")
+    off_arm = set(over) - set(near)
+    on_head = off_arm & head_hair
+    if on_head:
+        out["CG-L3"].append(f"{len(on_head)} px outside the near arm cover head or hair: {listed(on_head)}")
+    if len(off_arm) > p["max_outside"]:
+        out["CG-L4"].append(f"{len(off_arm)} px outside the near arm (limit {p['max_outside']})")
+    bad_keys = sorted({k for k in over.values() if k not in p["allowed_keys"]})
+    if bad_keys:
+        out["CG-L5"].append(f"keys outside {p['allowed_keys']}: {bad_keys}")
+    glints = sum(1 for k in over.values() if k == p["glint_key"])
+    if glints > p["max_glints"]:
+        out["CG-L5"].append(f"{glints} '{p['glint_key']}' glint pixels (limit {p['max_glints']})")
+    exposed = {q for q, k in near.items() if k in p["skin_keys"]} - watch - pin
+    uncovered = exposed - set(over) - {tuple(e) for e in exceptions}
+    if uncovered:
+        out["CG-L6"].append(f"{len(uncovered)} near-arm skin px not covered: {listed(uncovered)}")
+    edge = {q for q in over if q[0] in (0, w - 1)}
+    if edge:
+        out["CG-L7"].append(f"overlay pixels on the edge columns: {listed(edge)}")
+    if not over and exposed - {tuple(e) for e in exceptions}:
+        out["CG-L9"].append(f"empty overlay but the near arm shows {len(exposed)} skin px")
+    return out
+
+
+def overlay_strays(body_grid: dict, over_rows: list[str] | None, frame: int, layer: str) -> dict:
+    """Orphan and isolated pixels of the body frame alone and of body + overlay: ``{"body": ..., "both": ...}``."""
+    accents = {e["key"] for e in body_grid["palette"] if e.get("accent")}
+    flat = pg.composite_keys(body_grid, frame)
+    base_o, base_i = pg._stray_pixels(flat, accents)
+    both = [list(r) for r in flat]
+    for (x, y), ch in cel_points(over_rows).items():
+        both[y][x] = ch
+    both_o, both_i = pg._stray_pixels(both, accents)
+    as_set = lambda pts: {tuple(q) for q in pts}  # noqa: E731
+    return {"body": as_set(base_o) | as_set(base_i), "both": as_set(both_o) | as_set(both_i)}
+
+
+def overlay_l8(body_grid: dict, over_rows: list[str] | None, frame: int, layer: str) -> tuple[list[str], list[tuple]]:
+    """CG-L8: ``(failures, inherited)``: strays that body + overlay adds over the body alone, and the ones the body had."""
+    s = overlay_strays(body_grid, over_rows, frame, layer)
+    new = s["both"] - s["body"]
+    failures = [f"{len(new)} new orphan or isolated px over the body alone: {sorted(new)[:4]}"] if new else []
+    return failures, sorted(s["body"])
+
+
+def load_overlay_body(cfg: AssetConfig) -> dict:
+    return pg.load_grid(repo_path(overlay_params(cfg.data["overlay"])["body_grid"]))
+
+
+def overlay_exceptions(c: "Context") -> dict:
+    """The frozen CG-L6 exception list ``{frame: [[x, y], ...]}`` from the manifest's overlay block."""
+    block = (c.manifest or {}).get("overlay", {})
+    return {int(k): v for k, v in block.get("skin_exceptions", {}).items()}
+
+
+def v18_overlay(c: Context) -> list[str]:
+    params = overlay_params(c.cfg.data["overlay"])
+    body = load_overlay_body(c.cfg)
+    out: list[str] = []
+    if len(body["frames"]) != len(c.grid["frames"]):
+        return [f"overlay has {len(c.grid['frames'])} frames, the body sheet {len(body['frames'])}"]
+    if body["canvas"] != c.grid["canvas"] or body["pivot"] != c.grid["pivot"]:
+        out.append("overlay canvas or pivot differs from the body sheet")
+    if [(t["name"], t["from"], t["to"]) for t in body["tags"]] != [(t["name"], t["from"], t["to"]) for t in c.grid["tags"]]:
+        out.append("overlay tags differ from the body sheet")
+    exceptions = overlay_exceptions(c)
+    for i, frame in enumerate(c.grid["frames"]):
+        rows = frame["cels"].get(params["layer"])
+        found = overlay_frame_findings(body["frames"][i]["cels"], rows, c.grid["canvas"], params, exceptions.get(i, ()))
+        found["CG-L8"] = overlay_l8(body, rows, i, params["layer"])[0]
+        for rule in OVERLAY_RULES:
+            out += [f"frame {i}: {rule} {msg}" for msg in found[rule]]
+    return out
+
+
+TOP_LEVEL_KEYS = ("overlay",)    # rule switches that live beside ``rules`` in the config, not inside it
+
 # (id, name, function, config path that enables it, or None for always-on)
 RULES = [
     ("V01", "structure", v01_structure, None),
@@ -550,6 +691,7 @@ RULES = [
     ("V15", "non-empty frames", v15_nonempty, None),
     ("V16", "foot drift (loop seam)", v16_foot_drift, "foot_drift"),
     ("V17", "enclosed holes", v17_holes, "holes"),
+    ("V18", "overlay layering (CG-L1..CG-L9)", v18_overlay, "overlay"),
 ]
 
 
@@ -570,10 +712,12 @@ def run(ctx: Context) -> dict:
     """Run every rule; return the report (``passed`` is False when any rule fails)."""
     results = []
     for rid, name, fn, key in RULES:
-        value = None if key is None else ctx.cfg.rules.get(key)
+        value = None if key is None else ctx.cfg.rules.get(key, ctx.cfg.data.get(key) if key in TOP_LEVEL_KEYS else None)
         enabled = key is None or not (value is None or value is False)    # 0 is a real limit
         if (rid == "V07" and not _tag_frames(ctx, "grounded")) or (rid == "V08" and not _tag_frames(ctx, "airborne")):
             enabled = False
+        if not enabled and rid == "V18":
+            continue        # the overlay rule is listed only for an overlay config: every other report keeps its 17 rules
         if not enabled:
             results.append({"id": rid, "name": name, "status": "skipped", "detail": "not configured", "failures": []})
             continue
