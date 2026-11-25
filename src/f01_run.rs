@@ -485,22 +485,27 @@ mod tests {
             next_room(&manifest, "corral").unwrap(),
             NextStep::Room(manifest.room("hoarder").unwrap().clone())
         );
-        assert!(next_room(&manifest, "dozer").is_err(), "unlisted");
+        assert!(next_room(&manifest, "cellar").is_err(), "unknown");
     }
 
     #[test]
     fn a_room_listed_later_joins_the_run_with_no_code_change() {
-        // The committed manifest with every room of its story order listed (as
-        // the Dozer step will list it; CORRAL-F listed the corral): the chain
-        // follows the rows, whatever they are.
+        // The committed manifest (CORRAL-F listed the corral, DR-A the dozer: every
+        // room of its story order is listed) plus a made-up room listed after the
+        // dozer: the chain follows the rows, whatever they are.
         let text = std::fs::read_to_string(root().join(crate::f01_late::MANIFEST_PATH)).unwrap();
         let mut value: serde_json::Value = serde_json::from_str(&text).unwrap();
         let rooms = value["rooms"].as_array_mut().unwrap();
-        let dozer = serde_json::json!({
-            "id": "dozer", "title": "Dozer Revenge", "scene": "f01_boiler",
+        let made_up = serde_json::json!({
+            "id": "cellar", "title": "A Made-Up Room", "scene": "f01_boiler",
             "rules": "cf02_rules", "milestone": "greybox"
         });
-        rooms.insert(3, dozer);
+        rooms.insert(4, made_up);
+        let order = value["story_order"].as_array_mut().unwrap();
+        let at = order.iter().position(|o| o["id"] == "dozer").unwrap();
+        let mut row = order[at].clone();
+        row["id"] = "cellar".into();
+        order.insert(at + 1, row);
         let manifest = Manifest::from_json(&value.to_string(), StoryTable::active()).unwrap();
         assert_eq!(first_room(&manifest).id, "corral");
         let mut seen = vec!["corral".to_owned()];
@@ -514,6 +519,7 @@ mod tests {
                 "hoarder",
                 "boiler",
                 "dozer",
+                "cellar",
                 "hazards",
                 "ring_court",
                 "ring_split",
@@ -521,7 +527,8 @@ mod tests {
                 "mastery"
             ]
         );
-        assert_eq!(room_index(&manifest, "dozer"), Some((4, 9)));
+        assert_eq!(room_index(&manifest, "dozer"), Some((4, 10)));
+        assert_eq!(room_index(&manifest, "cellar"), Some((5, 10)));
     }
 
     #[test]
@@ -597,7 +604,7 @@ mod tests {
         };
         let (facts, panel, decision) = on_exit(&input).unwrap();
         assert_eq!(facts.grants, [(0, "special_thrown_charge".to_owned())]);
-        assert!(panel.heading.starts_with("ROOM 2/8 CLEARED"));
+        assert!(panel.heading.starts_with("ROOM 2/9 CLEARED"));
         let Decision::Relaunch { room, argv: next } = decision else {
             panic!("the Hoarder leads on");
         };
@@ -622,12 +629,12 @@ mod tests {
         };
         assert!(!next.iter().any(|a| a == FLAG_CARRY));
         assert!(panel.lines[3].contains("TEST LOADOUT, nothing carried"));
-        // The last listed room ends the floor; an unlisted room is an error.
+        // The last listed room ends the floor; an unknown room is an error.
         let last = &manifest.rooms.last().unwrap().id;
         let end = ExitInput {
             room: last,
             tally: RunTally {
-                rooms: 7,
+                rooms: 8,
                 ..RunTally::default()
             },
             ..input
@@ -635,10 +642,10 @@ mod tests {
         let (_, panel, decision) = on_exit(&end).unwrap();
         assert_eq!(decision, Decision::Quit);
         assert_eq!(panel.heading, "FLOOR 1 SLICE FINISHED");
-        assert!(panel.lines[2].contains("8 of 8 listed rooms"));
+        assert!(panel.lines[2].contains("9 of 9 listed rooms"));
         assert!(
             on_exit(&ExitInput {
-                room: "dozer",
+                room: "cellar",
                 ..input
             })
             .is_err()
@@ -670,7 +677,7 @@ mod tests {
         assert!(
             panel
                 .heading
-                .starts_with("ROOM 1/8 CLEARED: THE INFERNAL CORRAL"),
+                .starts_with("ROOM 1/9 CLEARED: THE INFERNAL CORRAL"),
             "{}",
             panel.heading
         );
@@ -747,6 +754,7 @@ mod tests {
                     .2
             }
             RoomScene::Boiler
+            | RoomScene::Dozer
             | RoomScene::Hazards
             | RoomScene::Mastery
             | RoomScene::RingCourt
@@ -768,6 +776,11 @@ mod tests {
                     }
                     RoomScene::Hazards => {
                         crate::f01_late::hazards_start(&root(), 360, carl, donut, None)
+                            .map(|(_, s, c)| (s, c))
+                    }
+                    // DR-A: room 3, after the Boiler.
+                    RoomScene::Dozer => {
+                        crate::f01_late::dozer_start(&root(), 360, carl, donut, None)
                             .map(|(_, s, c)| (s, c))
                     }
                     _ => crate::f01_late::mastery_start(&root(), 360, carl, donut, None)
@@ -858,13 +871,13 @@ mod tests {
         assert_eq!(tally.rooms, 1);
         let next = manifest.room("boiler").unwrap();
         let panel = room_clear_panel(&manifest, &facts, tally, next, true, "REC");
-        assert!(panel.heading.starts_with("ROOM 2/8 CLEARED: THE HOARDER"));
+        assert!(panel.heading.starts_with("ROOM 2/9 CLEARED: THE HOARDER"));
         assert!(panel.lines[1].contains("special_thrown_charge (Carl)"));
         assert!(panel.lines[3].contains("Goblin Boiler (story ledger carried)"));
         assert!(panel.lines.last().unwrap().starts_with("Facts only"));
         let end = floor_end_panel(&manifest, &facts, tally, &held_of(&hoarder.combat), "REC");
         assert_eq!(end.heading, "FLOOR 1 SLICE FINISHED");
-        assert!(end.lines[2].contains("1 of 8 listed rooms"));
+        assert!(end.lines[2].contains("1 of 9 listed rooms"));
         assert!(end.lines[3].starts_with("Carl holds: special_thrown_charge"));
         // The real floor end: the last room's facts and the held list after the
         // Juicer's grants (the longest lines the panel draws today).

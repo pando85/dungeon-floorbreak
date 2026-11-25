@@ -1,0 +1,35 @@
+# dozer dozer:close_call, 640x360, run 1
+ROOM_PERF room=dozer plan=dozer:close_call last_tick=492 cpu="AMD Ryzen 9 5950X 16-Core Processor" adapter="NVIDIA GeForce RTX 4060 Ti (DiscreteGpu)" display=xvfb profile=debug loadavg_after="2.87 2.96 3.73"
+FLOOR1_PERF frames=493 median_ms=16.49 p95_ms=19.53 p99_ms=20.95 mean_ms=16.67 max_ms=22.92 lighting=on window=640x360 present=AutoNoVsync warmup_frames=120
+FLOOR1_PERF_CPU_GPU gpu_ms_mean=1.220 gpu_ms_p95=2.229 gpu_ms_max=6.968 tick_us_mean=16.4 tick_us_p95=27.0 tick_us_max=54.9 death_sync_us_mean=23.4 death_sync_us_p95=27.7 death_sync_us_max=44.7 gpu_passes=4
+FLOOR1_PERF_MEM rss_mib=507.0 peak_rss_mib=507.0 entities=5715 death_sprites_spawned=840 peak_visible_death_sprites=0
+# dozer dozer:close_call, 640x360, run 2
+ROOM_PERF room=dozer plan=dozer:close_call last_tick=492 cpu="AMD Ryzen 9 5950X 16-Core Processor" adapter="NVIDIA GeForce RTX 4060 Ti (DiscreteGpu)" display=xvfb profile=debug loadavg_after="2.54 2.88 3.69"
+FLOOR1_PERF frames=493 median_ms=16.51 p95_ms=19.66 p99_ms=24.10 mean_ms=16.75 max_ms=34.82 lighting=on window=640x360 present=AutoNoVsync warmup_frames=120
+FLOOR1_PERF_CPU_GPU gpu_ms_mean=1.155 gpu_ms_p95=2.231 gpu_ms_max=4.068 tick_us_mean=16.7 tick_us_p95=25.5 tick_us_max=57.8 death_sync_us_mean=24.0 death_sync_us_p95=31.0 death_sync_us_max=54.4 gpu_passes=4
+FLOOR1_PERF_MEM rss_mib=514.8 peak_rss_mib=514.8 entities=5715 death_sprites_spawned=840 peak_visible_death_sprites=0
+# dozer dozer:close_call, 640x360, run 3
+ROOM_PERF room=dozer plan=dozer:close_call last_tick=492 cpu="AMD Ryzen 9 5950X 16-Core Processor" adapter="NVIDIA GeForce RTX 4060 Ti (DiscreteGpu)" display=xvfb profile=debug loadavg_after="2.46 2.85 3.67"
+FLOOR1_PERF frames=493 median_ms=16.64 p95_ms=18.92 p99_ms=19.86 mean_ms=16.67 max_ms=21.28 lighting=on window=640x360 present=AutoNoVsync warmup_frames=120
+FLOOR1_PERF_CPU_GPU gpu_ms_mean=0.506 gpu_ms_p95=1.451 gpu_ms_max=1.895 tick_us_mean=17.0 tick_us_p95=26.1 tick_us_max=43.4 death_sync_us_mean=22.7 death_sync_us_p95=25.7 death_sync_us_max=39.3 gpu_passes=4
+FLOOR1_PERF_MEM rss_mib=512.3 peak_rss_mib=512.3 entities=5715 death_sprites_spawned=840 peak_visible_death_sprites=0
+# dozer dozer:close_call, 640x400, run 1
+ROOM_PERF room=dozer plan=dozer:close_call last_tick=492 cpu="AMD Ryzen 9 5950X 16-Core Processor" adapter="NVIDIA GeForce RTX 4060 Ti (DiscreteGpu)" display=xvfb profile=debug loadavg_after="2.15 2.76 3.62"
+FLOOR1_PERF frames=493 median_ms=16.45 p95_ms=19.39 p99_ms=20.73 mean_ms=16.69 max_ms=23.73 lighting=on window=640x400 present=AutoNoVsync warmup_frames=120
+FLOOR1_PERF_CPU_GPU gpu_ms_mean=1.338 gpu_ms_p95=2.400 gpu_ms_max=4.321 tick_us_mean=15.8 tick_us_p95=23.7 tick_us_max=50.7 death_sync_us_mean=22.8 death_sync_us_p95=25.9 death_sync_us_max=38.9 gpu_passes=4
+FLOOR1_PERF_MEM rss_mib=516.0 peak_rss_mib=516.0 entities=5715 death_sprites_spawned=840 peak_visible_death_sprites=0
+# dozer dozer:close_call, 640x400, run 2
+ROOM_PERF room=dozer plan=dozer:close_call last_tick=492 cpu="AMD Ryzen 9 5950X 16-Core Processor" adapter="NVIDIA GeForce RTX 4060 Ti (DiscreteGpu)" display=xvfb profile=debug loadavg_after="2.42 2.79 3.62"
+FLOOR1_PERF frames=493 median_ms=16.55 p95_ms=19.27 p99_ms=20.81 mean_ms=16.67 max_ms=23.75 lighting=on window=640x400 present=AutoNoVsync warmup_frames=120
+FLOOR1_PERF_CPU_GPU gpu_ms_mean=0.588 gpu_ms_p95=1.354 gpu_ms_max=2.409 tick_us_mean=18.0 tick_us_p95=28.4 tick_us_max=44.7 death_sync_us_mean=23.3 death_sync_us_p95=27.7 death_sync_us_max=40.1 gpu_passes=4
+FLOOR1_PERF_MEM rss_mib=515.6 peak_rss_mib=515.6 entities=5715 death_sprites_spawned=840 peak_visible_death_sprites=0
+# dozer dozer:close_call, 640x400, run 3
+ROOM_PERF room=dozer plan=dozer:close_call last_tick=492 cpu="AMD Ryzen 9 5950X 16-Core Processor" adapter="NVIDIA GeForce RTX 4060 Ti (DiscreteGpu)" display=xvfb profile=debug loadavg_after="1.96 2.67 3.57"
+FLOOR1_PERF frames=493 median_ms=16.46 p95_ms=19.12 p99_ms=20.96 mean_ms=16.68 max_ms=21.65 lighting=on window=640x400 present=AutoNoVsync warmup_frames=120
+FLOOR1_PERF_CPU_GPU gpu_ms_mean=1.192 gpu_ms_p95=2.276 gpu_ms_max=4.253 tick_us_mean=15.9 tick_us_p95=24.3 tick_us_max=52.6 death_sync_us_mean=23.1 death_sync_us_p95=26.7 death_sync_us_max=37.5 gpu_passes=4
+FLOOR1_PERF_MEM rss_mib=519.2 peak_rss_mib=519.2 entities=5715 death_sprites_spawned=840 peak_visible_death_sprites=0
+# nav rebuild count: the AI partner's hazard feed changes per headless room-pilot run (cf02_free partner), and the no-pilot smoke
+plan=dozer:run F01_DOZER_NAV ticks=344 state=escaped nav_rebuilds=0 hazard_feed_errors=0 wheel_hits=0 rescues=[0, 0]
+plan=dozer:close_call F01_DOZER_NAV ticks=492 state=escaped nav_rebuilds=0 hazard_feed_errors=0 wheel_hits=0 rescues=[0, 0]
+plan=dozer:wait F01_DOZER_NAV ticks=492 state=escaped nav_rebuilds=0 hazard_feed_errors=0 wheel_hits=0 rescues=[0, 0]
+plan=none F01_DOZER_NAV ticks=344 state=escaped nav_rebuilds=0 hazard_feed_errors=0 wheel_hits=0 rescues=[0, 0]

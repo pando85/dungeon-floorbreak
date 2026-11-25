@@ -41,7 +41,7 @@ use crate::f01_boiler::{self, BoilerRun, Roster};
 use crate::f01_corral;
 use crate::f01_ring::{self, RingRoom};
 use crate::story_unlock::{Storage, StoryTable};
-use crate::{f01_hazards, f01_hoarder, f01_mastery};
+use crate::{f01_dozer, f01_hazards, f01_hoarder, f01_mastery};
 
 /// The manifest of the listed rooms.
 pub const MANIFEST_PATH: &str = "assets/levels/f01_late/manifest.json";
@@ -49,8 +49,8 @@ pub const MANIFEST_PATH: &str = "assets/levels/f01_late/manifest.json";
 /// a compiled-in `include_str!` may not reach (`playtrace::build_info`), so the
 /// hash is a constant, pinned to the file by a test and compared by every
 /// replay of a recorded room. A step that lists a room (CORRAL-WIRE, RING-A
-/// wire, HRD-A2, ...) re-pins it on purpose.
-pub const MANIFEST_HASH: u64 = 0xbb11_225e_c03d_7e0b;
+/// wire, HRD-A2, CORRAL-F, DR-A, ...) re-pins it on purpose.
+pub const MANIFEST_HASH: u64 = 0x0000_0000_0000_0000;
 /// The fixture-only stub trigger the story-order tie skips by name.
 pub const STUB_TRIGGER: &str = "carl_prog_find_zone_stub";
 /// The `data_pins()` key.
@@ -77,12 +77,15 @@ pub const fn data_pins() -> [(&'static str, u64); 1] {
 /// stamps nor needs them, so a later edit of the manifest (every room step) or of
 /// the Boiler files (BOIL-B/C wire) fails only the recordings it can change; a
 /// Juicer recording needs the manifest hash and not the Boiler's.
-pub const SCOPED_PIN_KEYS: [&str; 16] = [
+pub const SCOPED_PIN_KEYS: [&str; 19] = [
     f01_boiler::ROOM_PIN_KEY,
     f01_boiler::ENCOUNTER_PIN_KEY,
     f01_boiler::fixes::PIN_KEY,
     f01_hoarder::ROOM_PIN_KEY,
     f01_hoarder::ENCOUNTER_PIN_KEY,
+    f01_dozer::ROOM_PIN_KEY,
+    f01_dozer::ENCOUNTER_PIN_KEY,
+    crate::dozer::PIN_KEY,
     f01_hazards::ROOM_PIN_KEY,
     f01_hazards::ENCOUNTER_PIN_KEY,
     f01_mastery::ROOM_PIN_KEY,
@@ -105,6 +108,11 @@ pub fn pin_applies(key: &str, room: Option<&str>) -> bool {
             room == Some("boiler")
         }
         f01_hoarder::ROOM_PIN_KEY | f01_hoarder::ENCOUNTER_PIN_KEY => room == Some("hoarder"),
+        // DR-A (DRA-AD1): the machine lives only in room 3, so its tuning pin is
+        // scoped with the room's files (no recording of another room needs it).
+        f01_dozer::ROOM_PIN_KEY | f01_dozer::ENCOUNTER_PIN_KEY | crate::dozer::PIN_KEY => {
+            room == Some("dozer")
+        }
         f01_hazards::ROOM_PIN_KEY | f01_hazards::ENCOUNTER_PIN_KEY => room == Some("hazards"),
         f01_mastery::ROOM_PIN_KEY | f01_mastery::ENCOUNTER_PIN_KEY => room == Some("mastery"),
         f01_ring::COURT_ROOM_PIN_KEY | f01_ring::COURT_ENCOUNTER_PIN_KEY => {
@@ -140,6 +148,9 @@ pub enum RoomScene {
     /// `--scene f01_hoarder` (HRD-A2b).
     #[serde(rename = "f01_hoarder")]
     Hoarder,
+    /// `--scene f01_dozer` (DR-A): room 3, the revenge Dozer's chase.
+    #[serde(rename = "f01_dozer")]
+    Dozer,
     /// `--scene f01_hazards` (HAZ-A2b).
     #[serde(rename = "f01_hazards")]
     Hazards,
@@ -169,6 +180,7 @@ impl RoomScene {
             Self::Boiler => "f01_boiler",
             Self::Boss => "boss_f01",
             Self::Hoarder => "f01_hoarder",
+            Self::Dozer => f01_dozer::SCENE_NAME,
             Self::Hazards => "f01_hazards",
             Self::Mastery => "f01_mastery",
             Self::RingCourt => RingRoom::Court.scene_name(),
@@ -395,6 +407,7 @@ fn check_rules(row: &RoomRow) -> Result<(), String> {
     let rules_ok = match row.scene {
         RoomScene::Boiler
         | RoomScene::Hoarder
+        | RoomScene::Dozer
         | RoomScene::Hazards
         | RoomScene::Mastery
         | RoomScene::RingCourt
@@ -707,6 +720,23 @@ pub fn hazards_start(
     Ok((run, scene, combat))
 }
 
+/// Launch room 3 and build its scene and combat state (DR-A), the shared
+/// constructor of the binary and the verifier. The machine spawns from the
+/// sidecar roster; the seed is the companion's CF02 draw (no rule of the room
+/// reads it otherwise).
+pub fn dozer_start(
+    root: &Path,
+    view_height: i32,
+    carl: CarlProgFlags,
+    donut: DonutProgFlags,
+    cf02_seed: Option<u64>,
+) -> Result<(f01_dozer::DozerRun, SceneSim, CombatState), String> {
+    let run = f01_dozer::launch(root)?;
+    let mut scene = SceneSim::new_at(&run.kit, view_height, run.fixture.carl_x)?;
+    let combat = f01_dozer::combat_for(&run, &mut scene, carl, donut, cf02_seed)?;
+    Ok((run, scene, combat))
+}
+
 /// Launch the closing arena and build its scene and combat state (PT-MASTERY),
 /// the shared constructor of the binary and the verifier. Its goblins draw their
 /// temperaments from `--cf02-seed`.
@@ -814,6 +844,7 @@ mod tests {
                 "corral",
                 "hoarder",
                 "boiler",
+                "dozer",
                 "hazards",
                 "ring_court",
                 "ring_split",
@@ -831,11 +862,20 @@ mod tests {
         // RING-A/B wire (RINGW-AD1): rooms 4a and 4b are listed at milestone `greybox`.
         assert_eq!(m.room("ring_court").unwrap().scene, RoomScene::RingCourt);
         assert_eq!(m.room("ring_split").unwrap().scene, RoomScene::RingSplit);
-        for id in ["ring_court", "ring_split"] {
+        // DR-A: room 3 is listed at milestone `greybox`, after the Boiler.
+        assert_eq!(m.room("dozer").unwrap().scene, RoomScene::Dozer);
+        for id in ["ring_court", "ring_split", "dozer"] {
             assert_eq!(m.room(id).unwrap().milestone, "greybox", "{id}");
         }
         assert!(m.story_order.iter().any(|o| o.id == "hoarder"));
-        for id in ["hoarder", "hazards", "mastery", "ring_court", "ring_split"] {
+        for id in [
+            "hoarder",
+            "dozer",
+            "hazards",
+            "mastery",
+            "ring_court",
+            "ring_split",
+        ] {
             assert_eq!(m.room(id).unwrap().rules, RoomRules::Cf02, "{id}");
         }
         assert_eq!(m.room("juicer").unwrap().rules, RoomRules::Boss);
@@ -850,11 +890,24 @@ mod tests {
         assert!(m.unlisted_rooms.is_empty());
         assert!(!m.is_unlisted("corral") && !m.is_unlisted("boiler"));
         assert_eq!(m.launchable("boiler").unwrap().scene, RoomScene::Boiler);
-        assert!(
-            m.launchable("dozer")
-                .unwrap_err()
-                .starts_with("unlisted room")
-        );
+        // DR-A lists room 3, so it launches as a listed room.
+        assert_eq!(m.launchable("dozer").unwrap().scene, RoomScene::Dozer);
+        assert!(!m.is_unlisted("dozer"));
+    }
+
+    /// A made-up room id for the unlisted cases: CORRAL-F and DR-A listed every
+    /// room of the committed story order, so none is unlisted any more.
+    const MADE_UP_ROOM: &str = "cellar";
+
+    /// `m` with [`MADE_UP_ROOM`] added to its story order, unlisted.
+    fn with_made_up_room(mut m: Manifest) -> Manifest {
+        m.story_order.push(OrderRow {
+            id: MADE_UP_ROOM.into(),
+            kind: OrderKind::Room,
+            pins: Vec::new(),
+            grants: Vec::new(),
+        });
+        m
     }
 
     /// CORRAL-F: the corral is the first listed room, its scene runs room 0
@@ -874,29 +927,36 @@ mod tests {
         m.rooms.remove(0);
         m.unlisted_rooms.push(corral.clone());
         assert!(m.validate(table()).unwrap_err().contains("CORRAL-F"));
+        // DR-A: the listed dozer cannot also be an unlisted row.
+        let mut m = base.clone();
+        let mut dozer = corral.clone();
+        dozer.id = "dozer".into();
+        dozer.scene = RoomScene::Dozer;
+        m.unlisted_rooms.push(dozer);
+        assert!(m.validate(table()).unwrap_err().contains("duplicate room"));
         let mut m = base.clone();
         m.unlisted_rooms.push(corral.clone());
         assert!(m.validate(table()).unwrap_err().contains("duplicate room"));
         let mut m = base.clone();
         m.rooms[0].rules = RoomRules::Boss;
         assert!(m.validate(table()).unwrap_err().contains("K17"));
-        let mut dozer = corral.clone();
-        dozer.id = "dozer".into();
-        let mut m = base.clone();
-        m.unlisted_rooms.push(dozer.clone());
+        // A made-up room the story order knows (every committed one is listed).
+        let mut made_up = corral.clone();
+        made_up.id = MADE_UP_ROOM.into();
+        let mut m = with_made_up_room(base.clone());
+        m.unlisted_rooms.push(made_up.clone());
         assert!(
             m.validate(table())
                 .unwrap_err()
                 .contains("names the scene of")
         );
-        dozer.scene = RoomScene::Boss;
-        let mut m = base.clone();
-        m.unlisted_rooms.push(dozer.clone());
+        made_up.scene = RoomScene::Boss;
+        let mut m = with_made_up_room(base.clone());
+        m.unlisted_rooms.push(made_up.clone());
         assert!(m.validate(table()).unwrap_err().contains("K17"));
-        dozer.id = "cellar".into();
-        dozer.rules = RoomRules::Boss;
+        made_up.rules = RoomRules::Boss;
         let mut m = base.clone();
-        m.unlisted_rooms.push(dozer);
+        m.unlisted_rooms.push(made_up);
         assert!(
             m.validate(table())
                 .unwrap_err()
@@ -911,17 +971,18 @@ mod tests {
         assert!(unknown.starts_with("unknown room"), "{unknown}");
         assert!(
             unknown.contains(
-                "corral, hoarder, boiler, hazards, ring_court, ring_split, juicer, mastery"
+                "corral, hoarder, boiler, dozer, hazards, ring_court, ring_split, juicer, mastery"
             ),
             "{unknown}"
         );
-        // Known to the story order but not listed (the dozer has not landed;
-        // CORRAL-F listed the corral).
-        let unlisted = m.room("dozer").unwrap_err();
+        // Known to the story order but not listed: CORRAL-F and DR-A listed every
+        // committed story-order room, so a made-up one.
+        let m = with_made_up_room(m);
+        let unlisted = m.room(MADE_UP_ROOM).unwrap_err();
         assert!(unlisted.starts_with("unlisted room"), "{unlisted}");
         assert!(
             unlisted.contains(
-                "corral, hoarder, boiler, hazards, ring_court, ring_split, juicer, mastery"
+                "corral, hoarder, boiler, dozer, hazards, ring_court, ring_split, juicer, mastery"
             ),
             "{unlisted}"
         );
@@ -940,9 +1001,11 @@ mod tests {
         let error = check_descriptor(&m, "hoarder", Some("story"), flags.0, flags.1)
             .expect_err("a loadout label that disagrees with the flags");
         assert!(error.contains("another run"), "{error}");
-        assert!(check_descriptor(&m, "dozer", None, flags.0, flags.1).is_err());
+        let made_up = with_made_up_room(m.clone());
+        assert!(check_descriptor(&made_up, MADE_UP_ROOM, None, flags.0, flags.1).is_err());
         // CORRAL-F: the listed corral's recordings are consistent (as they were
-        // unlisted, CORRAL-WIRE).
+        // unlisted, CORRAL-WIRE); DR-A: so are the listed dozer's.
+        assert!(check_descriptor(&m, "dozer", None, flags.0, flags.1).is_ok());
         assert!(check_descriptor(&m, "corral", None, flags.0, flags.1).is_ok());
     }
 
@@ -1305,6 +1368,19 @@ mod tests {
             held_of(&combat),
             ["jump_reach_boost", "special_thrown_charge"]
         );
+        // DR-A: room 3 launches with the post-Hoarder pin its row names (the
+        // dynamite and Light on Your Feet) and arms nothing.
+        let (dozer, _, combat) = dozer_start(&root(), 360, story.0, story.1, None).unwrap();
+        assert_eq!(
+            m.pins_of("dozer"),
+            std::slice::from_ref(&dozer.loaded.encounter.story_pin)
+        );
+        assert_eq!(dozer.loaded.encounter.story_pin, "f01_pin_post_pile_boss");
+        assert_eq!(
+            held_of(&combat),
+            ["jump_reach_boost", "special_thrown_charge"]
+        );
+        assert!(combat.story_ledger().unwrap().receipts().is_empty());
         // PT-MASTERY: the closing arena holds every capability and arms nothing
         // (the final-boss rule): its manifest row grants nothing.
         let (mastery, _, combat) = mastery_start(&root(), 360, story.0, story.1, None).unwrap();
@@ -1357,6 +1433,7 @@ mod tests {
                     "corral",
                     "boiler",
                     "hoarder",
+                    "dozer",
                     "hazards",
                     "mastery",
                     "ring_court",
@@ -1417,6 +1494,9 @@ mod tests {
             if key == f01_boiler::fixes::PIN_KEY {
                 return Some("boiler");
             }
+            if key == crate::dozer::PIN_KEY {
+                return Some("dozer");
+            }
             [
                 (
                     "boiler",
@@ -1425,6 +1505,10 @@ mod tests {
                 (
                     "hoarder",
                     [f01_hoarder::ROOM_PIN_KEY, f01_hoarder::ENCOUNTER_PIN_KEY],
+                ),
+                (
+                    "dozer",
+                    [f01_dozer::ROOM_PIN_KEY, f01_dozer::ENCOUNTER_PIN_KEY],
                 ),
                 (
                     "hazards",
@@ -1462,6 +1546,7 @@ mod tests {
             Some("juicer"),
             Some("boiler"),
             Some("hoarder"),
+            Some("dozer"),
             Some("hazards"),
             Some("mastery"),
             Some("ring_court"),

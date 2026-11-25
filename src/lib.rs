@@ -55,6 +55,7 @@ pub mod donut_moves;
 pub mod donut_prog;
 pub mod donut_prog_fixtures;
 pub mod dozer;
+pub mod dozer_art;
 pub mod dozer_fixtures;
 pub mod encounter;
 #[cfg(test)]

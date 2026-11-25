@@ -41,13 +41,16 @@ try ok $S
 try ok $S --f01-run
 try ok $S --f01-run --f01-loadout all
 try refuse $S --f01-run --cf02-seed 3
-# CORRAL-F: room 0 (the corral) is the first listed room.
-for room in corral hoarder boiler hazards ring_court ring_split juicer mastery; do try ok $S --f01-room "$room"; done
-# FA-Q24: the Hoarder is listed again (it reverses PTG-AD1); her own scene still launches her too.
-try refuse $S --f01-room dozer
+# CORRAL-F: room 0 (the corral) is the first listed room; DR-A lists room 3 (the dozer).
+for room in corral hoarder boiler dozer hazards ring_court ring_split juicer mastery; do try ok $S --f01-room "$room"; done
+# No committed room is unlisted any more: an unknown id is refused.
+try refuse $S --f01-room cellar
 # RING-A/B wire: the Ring rooms launch only through f01_late (KR22: no scene of their own).
 try refuse --scene f01_ring_court --scale 2
+# FA-Q24: the Hoarder is listed again (it reverses PTG-AD1); her own scene still launches her too.
 try ok --scene f01_hoarder --scale 2
+# DR-A: room 3 (the Dozer revenge) is listed, and its own scene launches it too.
+try ok --scene f01_dozer --scale 2
 try ok $S --f01-room mastery --f01-loadout all
 try ok $S --f01-room hoarder --f01-loadout all
 try ok $S --f01-room hoarder --companion cf02_assist

@@ -362,6 +362,11 @@ pub(super) fn check_f01_source(
         (crate::f01_late::SESSION_SOURCE, Some("boiler")) if reset.name == "f01_boiler" => Ok(()),
         (crate::f01_late::SESSION_SOURCE, Some("hoarder")) if reset.name == "f01_hoarder" => Ok(()),
         (crate::f01_late::SESSION_SOURCE, Some("hazards")) if reset.name == "f01_hazards" => Ok(()),
+        (crate::f01_late::SESSION_SOURCE, Some("dozer"))
+            if reset.name == crate::f01_dozer::SCENE_NAME =>
+        {
+            Ok(())
+        }
         (crate::f01_late::SESSION_SOURCE, Some("mastery")) if reset.name == "f01_mastery" => Ok(()),
         (crate::f01_late::SESSION_SOURCE, Some(crate::f01_corral::ROOM_ID))
             if reset.name == crate::f01_corral::SCENE_NAME =>
@@ -376,7 +381,7 @@ pub(super) fn check_f01_source(
         }
         ("boss", Some("juicer")) if reset.name == crate::boss_scene::BOSS01_SCENE.name => Ok(()),
         (crate::f01_late::SESSION_SOURCE, _) => Err(bad(
-            "the f01_room source replays the corral, boiler, hoarder, hazards, ring and mastery rooms only"
+            "the f01_room source replays the corral, boiler, hoarder, dozer, hazards, ring and mastery rooms only"
                 .to_owned(),
         )),
         (source, _) if labelled => Err(bad(format!(
@@ -421,23 +426,32 @@ fn check_f01_label(
 }
 
 /// PT-SCENE: rebuild tick 0 of a late-Floor-1 room (the Boiler; HRD-A2b the
-/// Hoarder; HAZ-A2b the hazard room) from its descriptor, through the one
-/// constructor the scene uses (`f01_late::boiler_start_with`, `hoarder_start`,
-/// `hazards_start`).
+/// Hoarder; HAZ-A2b the hazard room; DR-A room 3) from its descriptor, through
+/// the one constructor the scene uses (`f01_late::boiler_start_with`,
+/// `hoarder_start`, `hazards_start`, `dozer_start`).
 fn rebuild_f01_room(manifest: &SessionManifest, root: &Path) -> Result<Reset, VerifyFailure> {
     let reset = &manifest.reset;
     check_f01_label(reset, root)?;
     let room = reset.f01_room.as_deref();
     if !matches!(
         room,
-        Some("corral" | "boiler" | "hoarder" | "hazards" | "mastery" | "ring_court" | "ring_split")
+        Some(
+            "corral"
+                | "boiler"
+                | "hoarder"
+                | "dozer"
+                | "hazards"
+                | "mastery"
+                | "ring_court"
+                | "ring_split"
+        )
     ) || !reset.cf02_rules
         || reset.demo
     {
         return Err(VerifyFailure::new(
             "unsupported_source",
             format!(
-                "the {} source replays the corral, Boiler, Hoarder, hazard, Ring and mastery rooms under the CF02 rules",
+                "the {} source replays the corral, Boiler, Hoarder, Dozer, hazard, Ring and mastery rooms under the CF02 rules",
                 crate::f01_late::SESSION_SOURCE
             ),
         ));
@@ -464,6 +478,11 @@ fn rebuild_f01_room(manifest: &SessionManifest, root: &Path) -> Result<Reset, Ve
             .map(|(_, scene, combat)| (scene, combat)),
         Some("hazards") => {
             crate::f01_late::hazards_start(root, reset.view_height, carl, donut, reset.cf02_seed)
+                .map(|(_, scene, combat)| (scene, combat))
+        }
+        // DR-A: room 3 (the seed is the companion's CF02 draw).
+        Some("dozer") => {
+            crate::f01_late::dozer_start(root, reset.view_height, carl, donut, reset.cf02_seed)
                 .map(|(_, scene, combat)| (scene, combat))
         }
         Some("mastery") => {
