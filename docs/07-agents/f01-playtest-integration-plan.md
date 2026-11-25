@@ -205,6 +205,13 @@ Every BOIL step ships its room's scripted pilot fixtures for the gate (section 1
 | DR-C crew aftermath | DR-B | sidecar roster |
 | DR-D timing, evidence, human play | DR-C | `docs/evidence/f01-dozer-revenge/` |
 
+**DOZER-CORE design note: done** in [ENEMY-GAMEPLAY-DOZER](../01-design/enemy-gameplay-dozer.md) (DZ-Q01..Q25, DZ-AD1..AD21, DZ-OQ1..OQ2). It amends this section as follows (its section 16, DV-4 to DV-6):
+- **K5:** no `BossThreat` supplier in a Dozer room (the follow layer answers a `Charge` with a jump, and no jump clears this wheel). The AI rule is hazard-feed rows (the machine plus a 144 px lead zone, through a new default `SlotEnemy::nav_rects`), a slot rescue regroup that always lands beyond `stop_x`, and the D1 guard as backstop. **CA2-DZ** is pre-registered as the named CA2 append; DOZER-CORE's counts trigger it, and if triggered it merges before DR-A lists room 3 (DZ-AD2).
+- Room 3 has no charge, so acceptance item 3's charge clause is vacuous there; the charge is CHASE-01's append (DZ-AD3).
+- The room and sidecar files move from DR-A to DOZER-CORE, so the K5 fixtures run in the revenge room. DR-A becomes the scene arm, the listing and the presentation (DZ-AD12).
+- Acceptance item 4: DOZR-03 moves to DR-B, where the frame exists. The room files are `f01_dozer.*`, not `f01_dozer_revenge.*`. BOIL-D is merged, so it is no longer a pending DR-B dependency (DV-6).
+- The note also adds the stop frame (DR-B, the Boiler's `weight_rig` as data), the crew contract (DR-C) and the DOZ-02 art order.
+
 **DOZER-CORE acceptance:**
 1. Implements the states of the owner's DOZER-R machine, as data-driven per room.
 2. The wheel is a hazard volume through `env_hazard.rs`, never evadable (K6).
