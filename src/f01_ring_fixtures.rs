@@ -55,6 +55,8 @@ pub const SWAP_TICK: u64 = 30;
 /// The takeoff window before a platform's left edge: a grounded hero inside it
 /// that walks right jumps (both motions land on a 64 px surface from it).
 const TAKEOFF_PX: f32 = 36.0;
+/// A goblin whose column is this near the hero's overlaps it (review F4).
+const OVERLAP_PX: f32 = 8.0;
 
 /// Who plays.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -181,6 +183,26 @@ pub fn pilot(route: &Route, combat: &CombatState, scene: &SceneSim, hero: HeroId
             ..RawInput::default()
         };
     }
+    // Review F4 of #271: the shared pilot steps toward a goblin it overlaps
+    // (|dx| under its turn dead band), so its jab never lands and the hero is
+    // worn down. A grounded hero on the floor that overlaps a living goblin
+    // steps away from it first, then the shared pilot fights from range. Carl
+    // only: Donut's own rules answer point-blank with the pounce.
+    if hero == HeroId::Carl
+        && body.grounded
+        && on_floor(route, scene, hero)
+        && let Some(g) = combat
+            .enemies
+            .iter()
+            .filter(|g| g.alive())
+            .find(|g| (g.x - body.x).abs() < OVERLAP_PX)
+    {
+        let away = if g.x > body.x { -1.0 } else { 1.0 };
+        raw = RawInput {
+            move_x: away,
+            ..RawInput::default()
+        };
+    }
     // The route: a grounded hero on the floor, left of the crossing, whose
     // business lies right of it.
     if let (Some((climb_x, _)), Some(until)) = (route.climb, route.climb_until())
@@ -289,8 +311,10 @@ pub fn run(root: &Path, room: RingRoom, who: Who, seed: u64, high: bool) -> Resu
     let mut forced_wait_ticks = 0u32;
     let mut cleared_tick = None;
     let mut exit_tick = None;
-    let mut deaths = 0u32;
-    let mut last_restarts = sim.combat.restarts;
+    // Review F1 of #271: a hero defeat respawns the party at the checkpoint
+    // without a restart, so the count is the combat state's own `deaths`, never
+    // the restart counter (which stays 0 here).
+    let deaths_at_start = sim.combat.deaths;
     let mut swap_pressed = false;
     let mut walkway_crossing = [false; 2];
     let mut climbed = [false; 2];
@@ -350,10 +374,6 @@ pub fn run(root: &Path, room: RingRoom, who: Who, seed: u64, high: bool) -> Resu
             }
             last_x[i] = x;
         }
-        if sim.combat.restarts != last_restarts {
-            deaths += 1;
-            last_restarts = sim.combat.restarts;
-        }
         if cleared_tick.is_none() && !enemies_left(&sim.combat) {
             cleared_tick = Some(sim.scene.world.tick);
         }
@@ -376,6 +396,16 @@ pub fn run(root: &Path, room: RingRoom, who: Who, seed: u64, high: bool) -> Resu
         .iter()
         .filter(|e| matches!(e, CombatEvent::HeroHurt { .. }))
         .count();
+    let deaths = sim.combat.deaths - deaths_at_start;
+    // The event log says the same: one `HeroDefeated` per defeat.
+    debug_assert_eq!(
+        deaths as usize,
+        sim.combat
+            .events
+            .iter()
+            .filter(|e| matches!(e, CombatEvent::HeroDefeated { .. }))
+            .count()
+    );
     Ok(Report {
         room,
         who,
@@ -497,10 +527,11 @@ mod tests {
         assert_eq!(once(), once());
     }
 
-    /// KR19 with the autonomous partner (`cf02_free`): the split clears at every
-    /// seed. In the court Carl crosses over the walkway and nobody walks under
-    /// the closed arch; whether the AI Donut follows him over the walkway is
-    /// [`ring_court_companion_crosses_the_walkway`], a reported gap (RINGW-F1).
+    /// KR19 with the autonomous partner (`cf02_free`): both rooms clear at every
+    /// seed with no defeat. In the court Carl crosses over the walkway and nobody
+    /// walks under the closed arch; whether the AI Donut follows him over the
+    /// walkway during the fight is [`ring_court_companion_crosses_the_walkway`],
+    /// a reported gap (RINGW-F1).
     #[test]
     fn ring_companion_runs() {
         for seed in SEEDS {
@@ -509,13 +540,20 @@ mod tests {
             let r = run(&root(), RingRoom::Court, Who::Companion, seed, false).unwrap();
             assert!(r.walkway_crossing[0], "{}", r.line());
             assert!(!r.under_the_shutter, "{}", r.line());
+            // Since the F4 pilot fix Carl clears the court even when the partner
+            // stays behind (RINGW-F1 is about following, not progression).
+            assert!(r.exit_tick.is_some() && r.deaths == 0, "{}", r.line());
         }
     }
 
-    /// RINGW-F1 (reported gap, KR19: back to design, no companion patch): the
-    /// autonomous partner must cross the closed shutter over the walkway. The
-    /// companion nav plans that route (floor, step, walkway, floor), but at the
-    /// head of this PR the AI Donut waits at the shutter's face instead.
+    /// RINGW-F1 (reported gap, KR19: the next PR): the autonomous partner must
+    /// cross the closed shutter over the walkway while Carl fights **near** it on
+    /// the far side. The companion nav plans that route (floor, step, walkway,
+    /// floor), and when Carl runs on to the exit she does follow it (review of
+    /// #271), but while he fights g1 about 200 px away across the shutter she
+    /// approaches him directly and waits at the shutter's left face (x ~1172).
+    /// The near-follow case is the one this fixture asserts: she crosses before
+    /// Carl reaches the exit.
     #[test]
     #[ignore = "RINGW-F1: the cf02_free partner does not follow over the walkway (reported gap)"]
     fn ring_court_companion_crosses_the_walkway() {
@@ -640,6 +678,72 @@ mod tests {
                 .any(|e| matches!(e, CombatEvent::WallSlam { goblin: 0, .. }));
         }
         assert!(slammed, "a launched goblin slams on the shutter's face");
+    }
+
+    /// Review F5 of #271 (RING-B wire, the blast LoS): Carl's dynamite has line
+    /// of sight on (CP-Q22), and the closed shutter's slices in the world block a
+    /// blast segment from its left side to a goblin behind it inside the 64 px
+    /// ring; the same distance on the goblins' side is clear.
+    #[test]
+    fn ring_court_shutter_blocks_the_dynamite_blast_line() {
+        use crate::blast::{closest_point, line_of_sight};
+        let profile =
+            crate::thrown_charge::blast_profile(crate::carl_prog::CarlProgTuning::active());
+        assert!(profile.los, "the thrown charge's blast respects solids");
+        let (sim, ring) = start(&root(), RingRoom::Court, Who::CarlSolo, 0).unwrap();
+        let s = ring.shutter().unwrap();
+        let feet = to_world_y(ring.kit.height, ring.loaded.room.floor_y);
+        let goblin = |x: f32| Rect {
+            left: x - 10.0,
+            bottom: feet,
+            width: 20.0,
+            height: 38.0,
+        };
+        let solids = &sim.scene.world.solids;
+        // Centre 20 px left of the face, the goblin's near edge 10 px right of it.
+        let centre = (s.x as f32 - 20.0, feet + 8.0);
+        let behind = goblin(s.right() as f32 + 20.0);
+        let near = closest_point(behind, centre);
+        let dist = ((near.0 - centre.0).powi(2) + (near.1 - centre.1).powi(2)).sqrt();
+        assert!(dist < profile.outer_radius, "{dist} inside the ring");
+        assert!(
+            !line_of_sight(solids, centre, near),
+            "the shutter blocks it"
+        );
+        // The control: the same offset on the goblins' side.
+        let centre = (s.right() as f32 + 40.0, feet + 8.0);
+        let open = goblin(s.right() as f32 + 80.0);
+        assert!(line_of_sight(solids, centre, closest_point(open, centre)));
+    }
+
+    /// Review F5 of #271 (RING-B wire, "the walkway lane stays open"): the
+    /// band a bolt flies in when Donut casts on the walkway (16..22 px above its
+    /// top, the box `bolt_blocked` probes) crosses the closed shutter's column
+    /// with no intact solid in it, while the same band on the floor is blocked
+    /// by the shutter. (No goblin stands on the walkway: goblins walk the
+    /// floor line, so a hit there cannot be staged without moving one by hand.)
+    #[test]
+    fn ring_court_walkway_lane_stays_open_for_the_missile() {
+        let (sim, ring) = start(&root(), RingRoom::Court, Who::CarlSolo, 0).unwrap();
+        let walk = ring.loaded.room.platforms[1].rect;
+        let s = ring.shutter().unwrap();
+        let band = |feet: f32| Rect {
+            left: walk.x as f32 + 8.0,
+            bottom: feet + 16.0,
+            width: (s.right() + 60 - walk.x) as f32,
+            height: 6.0,
+        };
+        let solids = &sim.scene.world.solids;
+        let floor = to_world_y(ring.kit.height, ring.loaded.room.floor_y);
+        let top = to_world_y(ring.kit.height, walk.y);
+        assert!(
+            !crate::combat::solid_at(solids, band(top)),
+            "the walkway lane is open"
+        );
+        assert!(
+            crate::combat::solid_at(solids, band(floor)),
+            "the floor lane is cut"
+        );
     }
 
     /// The trace probe: `RING_TRACE=room:who:high` prints every 20 ticks.

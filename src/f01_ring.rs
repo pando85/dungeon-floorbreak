@@ -14,7 +14,8 @@
 //! the PLAYTRACE verifier share:
 //!
 //! * the court's **static closed shutter** (`initial: closed`, KR3 clause 5)
-//!   is an env prop of the env step: 17 slices of 4 px appended to
+//!   is an env prop of the env step: one block (its closed footprint, no
+//!   slice seams for a blast to pass, review F5 of #271) appended to
 //!   `scene.world.solids` by the KR6 sync (Timber, so the companion's nav
 //!   updates stay incremental), standing for the whole attempt. Collision, the
 //!   goblin's `wall_stop` (the CF02-B slam), the Magic Missile and the
@@ -486,18 +487,18 @@ mod tests {
             let mut scene = SceneSim::new_at(&run.kit, 360, run.fixture.carl_x).unwrap();
             let combat = combat_of(&run, &mut scene).unwrap();
             let env = combat.env().expect("the env step");
-            let slices = env
+            let stacks = env
                 .solids()
                 .iter()
-                .filter(|s| matches!(s.kind, EnvSolidKind::ShutterSlice { .. }))
+                .filter(|s| s.kind == EnvSolidKind::ShutterStack)
                 .count();
             match room {
                 RingRoom::Court => {
-                    assert_eq!(slices, 17, "17 slices of 4 px (KR6)");
+                    assert_eq!(stacks, 1, "the static stack is one block");
                     assert!(run.shutter().is_some());
-                    // The slices are in the world, standing, as Timber (KR6).
+                    // It is in the world, standing, as Timber (KR6).
                     let range = env.solid_range();
-                    assert_eq!(range.len(), 17);
+                    assert_eq!(range.len(), 1);
                     for i in range {
                         let block = &scene.world.solids[i];
                         assert!(block.intact);
@@ -505,7 +506,7 @@ mod tests {
                     }
                 }
                 RingRoom::Split => {
-                    assert_eq!(slices, 0);
+                    assert_eq!(stacks, 0);
                     assert!(run.shutter().is_none());
                 }
             }
@@ -534,6 +535,8 @@ mod tests {
             };
             assert_eq!(run_once(None), run_once(None), "{room:?}");
             assert_eq!(run_once(Some(3)), run_once(Some(3)), "{room:?}");
+            // The seed is the goblins' temperament draw: part of the state.
+            assert_ne!(run_once(None), run_once(Some(3)), "{room:?}");
         }
     }
 

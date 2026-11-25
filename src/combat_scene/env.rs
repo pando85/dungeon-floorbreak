@@ -249,11 +249,16 @@ pub enum EnvSolidKind {
     /// enemy is defeated (the room goal opens it at runtime, HAZ-Q39). The derived
     /// sibling of [`Self::Lock`] (see there).
     ExitGate,
-    /// RING-B wire (KR6): slice `slice` (counted from the top of the arch) of a
-    /// shutter's fixed stack of `slice_px` slices. `EnvSolid::prop` is the
-    /// shutter's prop index; the slice stands while the machine says so. A
-    /// static closed shutter keeps every slice standing for the whole attempt.
-    ShutterSlice { slice: u8 },
+    /// RING-B wire: a **static** shutter's closed stack as **one** block (its
+    /// footprint). `EnvSolid::prop` is the shutter's prop index; it stands while
+    /// every slice of the machine stands, which a static closed shutter keeps for
+    /// the whole attempt. Not KR6's 17 slices of 4 px: a blast's line of sight
+    /// (`blast::line_of_sight`) passes a segment that only touches block edges,
+    /// and a charge on the floor has its centre 8 px up, exactly on a slice seam,
+    /// so a sliced stack let the dynamite through the closed shutter (review F5
+    /// of #271). The moving shutter's slices are RING-C wire's, which must close
+    /// that seam first.
+    ShutterStack,
 }
 
 impl EnvSolidKind {
@@ -270,7 +275,7 @@ impl EnvSolidKind {
             | Self::Bank
             | Self::Gate { .. }
             | Self::Soffit
-            | Self::ShutterSlice { .. } => false,
+            | Self::ShutterStack => false,
         }
     }
 }
@@ -610,17 +615,12 @@ impl EnvRuntime {
                     }
                     let shutter =
                         Shutter::new(cfg, p.target).map_err(|e| format!("prop {}: {e}", p.id))?;
-                    // KR6: a fixed stack of slices, in order from the top.
-                    for k in 0..shutter.slice_count() {
-                        solids.push(EnvSolid {
-                            rect: shutter.slice_rect(k),
-                            prop: Some(index),
-                            kind: EnvSolidKind::ShutterSlice {
-                                slice: u8::try_from(k)
-                                    .map_err(|_| format!("prop {}: too many slices", p.id))?,
-                            },
-                        });
-                    }
+                    // The static stack as one block (see `ShutterStack`).
+                    solids.push(EnvSolid {
+                        rect: shutter.footprint(),
+                        prop: Some(index),
+                        kind: EnvSolidKind::ShutterStack,
+                    });
                     Machine::Shutter(Box::new(shutter))
                 }
             };
@@ -1142,9 +1142,7 @@ impl EnvRuntime {
             EnvSolidKind::Remnant
             | EnvSolidKind::Drum
             | EnvSolidKind::Bank
-            | EnvSolidKind::ShutterSlice { .. } => {
-                s.prop.and_then(|p| self.props.get(usize::from(p)))
-            }
+            | EnvSolidKind::ShutterStack => s.prop.and_then(|p| self.props.get(usize::from(p))),
             EnvSolidKind::Lock { .. } | EnvSolidKind::Gate { .. } => return false,
             // HAZ-A2: a soffit always stands; the exit gate defaults to closed (the
             // scene opens it when the roster is clear). Neither has a prop.
@@ -1161,8 +1159,8 @@ impl EnvRuntime {
             (EnvSolidKind::Drum, Some(Machine::Drum { drum, .. })) => {
                 drum.state() != DrumState::Detonated
             }
-            (EnvSolidKind::ShutterSlice { slice }, Some(Machine::Shutter(sh))) => {
-                sh.slice_intact(usize::from(slice))
+            (EnvSolidKind::ShutterStack, Some(Machine::Shutter(sh))) => {
+                sh.intact_slices() == sh.slice_count()
             }
             _ => false,
         }
@@ -2998,7 +2996,7 @@ impl CombatState {
                 // RING-B wire: the static shutter is a wall for a flier (the
                 // existing CF02-B slam through `wall_stop`, KR4: no new damage);
                 // its face pin through this target is RING-C wire's (KR7).
-                EnvSolidKind::ShutterSlice { .. } => {}
+                EnvSolidKind::ShutterStack => {}
             }
         }
         struck.sort_unstable();
@@ -3148,7 +3146,7 @@ mod tests {
     /// lock of one enemy, the derived exit gate of a whole roster) say so.
     #[test]
     fn the_two_exit_door_kinds_are_the_only_solids_that_open_on_a_defeat() {
-        use EnvSolidKind::{Bank, Drum, ExitGate, Gate, Lock, Remnant, ShutterSlice, Soffit};
+        use EnvSolidKind::{Bank, Drum, ExitGate, Gate, Lock, Remnant, ShutterStack, Soffit};
         let doors: Vec<_> = [
             Remnant,
             Drum,
@@ -3157,7 +3155,7 @@ mod tests {
             Gate { target: 7 },
             Soffit,
             ExitGate,
-            ShutterSlice { slice: 0 },
+            ShutterStack,
         ]
         .into_iter()
         .filter(|k| k.opens_on_defeat())
@@ -4056,17 +4054,15 @@ mod tests {
         use crate::ring_fixtures::COURT_ENCOUNTER_PATH;
         let court = load(&root(), COURT_ENCOUNTER_PATH).unwrap();
         let env = EnvRuntime::new(&court.encounter).expect("the static gate runs");
-        let slices: Vec<_> = env
+        let stack: Vec<_> = env
             .solids()
             .iter()
             .enumerate()
-            .filter(|(_, s)| matches!(s.kind, EnvSolidKind::ShutterSlice { .. }))
+            .filter(|(_, s)| s.kind == EnvSolidKind::ShutterStack)
             .collect();
-        assert_eq!(slices.len(), 17);
-        assert!(slices.iter().all(|(i, _)| env.solid_intact(*i)));
-        let target = court.encounter.props[0].target;
-        let (top, bottom) = (slices[0].1.rect, slices[16].1.rect);
-        assert_eq!((top.y, bottom.bottom()), (target.y, target.bottom()));
+        assert_eq!(stack.len(), 1, "one block, no slice seams");
+        assert!(env.solid_intact(stack[0].0));
+        assert_eq!(stack[0].1.rect, court.encounter.props[0].target);
         assert!(env.live_targets().is_empty() && env.blast_targets().is_empty());
         assert!(env.token().contains("0:shutter_Closed"), "{}", env.token());
         let mut moving = court.encounter.clone();

@@ -12,6 +12,8 @@ bin="${BIN:-./target/debug/floor01_scene}"
 out=docs/evidence/f01-playtest/owner_commands_check.txt
 : > "$out"
 fail=0
+# Logs of unexpected outcomes (never committed; target/ is ignored).
+keep="${OWNER_LOG_DIR:-target/owner_command_logs}"
 try() { # expectation(ok|refuse) args...
   local want="$1"; shift
   local log code
@@ -21,8 +23,17 @@ try() { # expectation(ok|refuse) args...
   local res
   if [[ "$code" == 0 ]]; then res=ok; else res="refused (exit $code): $(grep -v '^\s*$' "$log" | tail -n 1 | cut -c1-160)"; fi
   echo "[$want] $res :: floor01_scene $*" >> "$out"
+  case "$want:$res" in
+    ok:ok|refuse:refused*) ;;
+    *)
+      # Review F6 of #271: keep the full log of an unexpected outcome.
+      mkdir -p "$keep"
+      cp "$log" "$keep/$(date +%s)-$$-${RANDOM}.log"
+      echo "  (full log kept under $keep)" >> "$out"
+      fail=1
+      ;;
+  esac
   rm -f "$log"
-  case "$want:$res" in ok:ok|refuse:refused*) ;; *) fail=1 ;; esac
 }
 S="--scene f01_late --scale 2"
 try ok $S

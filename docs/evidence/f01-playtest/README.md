@@ -55,7 +55,8 @@ The special does something only where the hero holds it: Carl's dynamite from ro
 | 5, the Juicer | `--f01-room juicer` (also `--scene boss_f01 --carl-prog --donut-prog`) | listed |
 | 6, the mastery arena | `--f01-room mastery` | listed |
 | 1, the Hoarder | `--f01-room hoarder` (also `--scene f01_hoarder`) | listed (FA-Q24); prototype pixel art since PR #258 (owner art review pending), defeating room pilot `--room-pilot hoarder:carl_solo:SEED` (9 of 9) |
-| 0 the corral, 3 the Dozer, 4a and 4b the Ring | `corral`, `dozer`, `ring_court`, `ring_split` | not landed in the manifest: the game refuses them (`unlisted room` or `unknown room`) |
+| 4a and 4b, the Broken Ring | `--f01-room ring_court`, `--f01-room ring_split` | launchable (greybox), not gate-listed (RINGW-F1); the court's closed shutter is drawn as a plain grey slab under the walkway (a code-drawn stand-in until AREA-RINGS-01): cross it over the step and the walkway |
+| 0 the corral, 3 the Dozer | `corral`, `dozer` | not landed in the manifest: the game refuses them (`unlisted room`) |
 
 **Interim and diagnostic builds** (plan section 9, still valid on this head):
 
