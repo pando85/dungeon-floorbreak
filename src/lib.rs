@@ -77,6 +77,8 @@ pub mod feel;
 pub mod follower;
 pub mod goblin;
 pub mod gore;
+pub mod gym_art;
+pub mod gym_kit;
 pub mod hazards_art;
 pub mod hazards_fixtures;
 pub mod hero_damage;

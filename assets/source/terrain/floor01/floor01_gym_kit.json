@@ -1,0 +1,728 @@
+{
+ "format": "env-kit-v2",
+ "kit_id": "floor01_gym",
+ "extends": "assets/source/terrain/floor01/floor01_opening_kit.json",
+ "status": "proposed - AREA-GYM-01 kit (docs/02-art/area-gym-01-spec.md); independent review pending; not owner-approved",
+ "extension_note": "Inherits palette, layers, draw order, coordinates, walking-line rule and lighting schema from the ENV-01 contract through the opening kit. Adds five decor atlases and the gym pieces; no tiles, nothing collidable and no new palette colour.",
+ "palette_use": {
+  "floor01_gym_wall": 22,
+  "floor01_gym_fixture": 10,
+  "floor01_gym_props": 29,
+  "floor01_gym_floor": 7,
+  "floor01_gym_exit": 20
+ },
+ "atlases": {
+  "floor01_gym_wall": {
+   "grid": "assets/source/props/floor01/gym_wall.grid.json",
+   "manifest": "assets/manifests/floor01_gym_wall.json",
+   "image": "generated/art/floor01_gym_wall.png",
+   "metadata": "generated/art/floor01_gym_wall.json"
+  },
+  "floor01_gym_fixture": {
+   "grid": "assets/source/props/floor01/gym_fixture.grid.json",
+   "manifest": "assets/manifests/floor01_gym_fixture.json",
+   "image": "generated/art/floor01_gym_fixture.png",
+   "metadata": "generated/art/floor01_gym_fixture.json"
+  },
+  "floor01_gym_props": {
+   "grid": "assets/source/props/floor01/gym_props.grid.json",
+   "manifest": "assets/manifests/floor01_gym_props.json",
+   "image": "generated/art/floor01_gym_props.png",
+   "metadata": "generated/art/floor01_gym_props.json"
+  },
+  "floor01_gym_floor": {
+   "grid": "assets/source/props/floor01/gym_floor.grid.json",
+   "manifest": "assets/manifests/floor01_gym_floor.json",
+   "image": "generated/art/floor01_gym_floor.png",
+   "metadata": "generated/art/floor01_gym_floor.json"
+  },
+  "floor01_gym_exit": {
+   "grid": "assets/source/props/floor01/gym_exit.grid.json",
+   "manifest": "assets/manifests/floor01_gym_exit.json",
+   "image": "generated/art/floor01_gym_exit.png",
+   "metadata": "generated/art/floor01_gym_exit.json"
+  }
+ },
+ "tiles": [],
+ "pieces": [
+  {
+   "id": "gym_mirror_bay",
+   "atlas": "floor01_gym_wall",
+   "rect": [
+    0,
+    0,
+    96,
+    74
+   ],
+   "role": "backwall",
+   "layer": "backwall_decal",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (arena placement, spec section 4)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ],
+   "decal": true
+  },
+  {
+   "id": "gym_gate_lintel",
+   "atlas": "floor01_gym_wall",
+   "rect": [
+    96,
+    0,
+    48,
+    18
+   ],
+   "role": "structure",
+   "layer": "structure",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (arena placement, spec section 4)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ]
+  },
+  {
+   "id": "gym_girder",
+   "atlas": "floor01_gym_wall",
+   "rect": [
+    0,
+    74,
+    32,
+    10
+   ],
+   "role": "structure",
+   "layer": "structure",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (arena placement, spec section 4)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ]
+  },
+  {
+   "id": "gym_fluoro_cold",
+   "atlas": "floor01_gym_fixture",
+   "rect": [
+    0,
+    0,
+    40,
+    10
+   ],
+   "role": "prop",
+   "layer": "prop",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (arena placement, spec section 4)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ],
+   "lights": [
+    {
+     "id": "tube",
+     "offset": [
+      20,
+      8
+     ],
+     "colour": "#cfdcff",
+     "radius": 150,
+     "intensity": 0.26,
+     "group": "scene",
+     "glow": {
+      "radius": 16,
+      "additive": 0.1
+     }
+    },
+    {
+     "id": "tube_floor",
+     "offset": [
+      20,
+      8
+     ],
+     "colour": "#bccbff",
+     "radius": 120,
+     "intensity": 0.16,
+     "group": "scene",
+     "project": "walk_line",
+     "project_dy": -6,
+     "squash_y": 0.3
+    }
+   ]
+  },
+  {
+   "id": "gym_fluoro_accent",
+   "atlas": "floor01_gym_fixture",
+   "rect": [
+    40,
+    0,
+    40,
+    10
+   ],
+   "role": "prop",
+   "layer": "prop",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (arena placement, spec section 4)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ],
+   "lights": [
+    {
+     "id": "tube",
+     "offset": [
+      20,
+      8
+     ],
+     "colour": "#ff62cf",
+     "radius": 140,
+     "intensity": 0.22,
+     "group": "scene",
+     "glow": {
+      "radius": 16,
+      "additive": 0.12
+     }
+    },
+    {
+     "id": "tube_floor",
+     "offset": [
+      20,
+      8
+     ],
+     "colour": "#ff7ad6",
+     "radius": 110,
+     "intensity": 0.12,
+     "group": "scene",
+     "project": "walk_line",
+     "project_dy": -6,
+     "squash_y": 0.3
+    }
+   ]
+  },
+  {
+   "id": "gym_cable_tower",
+   "atlas": "floor01_gym_props",
+   "rect": [
+    0,
+    0,
+    44,
+    104
+   ],
+   "role": "prop",
+   "layer": "prop",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (arena placement, spec section 4)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ]
+  },
+  {
+   "id": "gym_reception_desk",
+   "atlas": "floor01_gym_props",
+   "rect": [
+    44,
+    0,
+    60,
+    32
+   ],
+   "role": "prop",
+   "layer": "prop",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (arena placement, spec section 4)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ]
+  },
+  {
+   "id": "gym_dumbbell_rack",
+   "atlas": "floor01_gym_props",
+   "rect": [
+    104,
+    0,
+    56,
+    28
+   ],
+   "role": "prop",
+   "layer": "prop",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (arena placement, spec section 4)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ]
+  },
+  {
+   "id": "gym_turnstile",
+   "atlas": "floor01_gym_props",
+   "rect": [
+    160,
+    0,
+    20,
+    30
+   ],
+   "role": "prop",
+   "layer": "prop",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (arena placement, spec section 4)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ]
+  },
+  {
+   "id": "gym_bench",
+   "atlas": "floor01_gym_props",
+   "rect": [
+    0,
+    104,
+    44,
+    18
+   ],
+   "role": "prop",
+   "layer": "prop",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (arena placement, spec section 4)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ]
+  },
+  {
+   "id": "gym_plate_tree",
+   "atlas": "floor01_gym_props",
+   "rect": [
+    44,
+    104,
+    28,
+    36
+   ],
+   "role": "prop",
+   "layer": "prop",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (arena placement, spec section 4)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ]
+  },
+  {
+   "id": "gym_tyres",
+   "atlas": "floor01_gym_props",
+   "rect": [
+    72,
+    104,
+    34,
+    18
+   ],
+   "role": "prop",
+   "layer": "prop",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (arena placement, spec section 4)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ]
+  },
+  {
+   "id": "gym_mat_a",
+   "atlas": "floor01_gym_floor",
+   "rect": [
+    0,
+    0,
+    48,
+    22
+   ],
+   "role": "structure",
+   "layer": "structure",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (arena placement, spec section 4)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ]
+  },
+  {
+   "id": "gym_mat_b",
+   "atlas": "floor01_gym_floor",
+   "rect": [
+    48,
+    0,
+    48,
+    22
+   ],
+   "role": "structure",
+   "layer": "structure",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (arena placement, spec section 4)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ]
+  },
+  {
+   "id": "gym_exit_closed",
+   "atlas": "floor01_gym_exit",
+   "rect": [
+    0,
+    0,
+    20,
+    96
+   ],
+   "role": "prop",
+   "layer": "prop",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (arena placement, spec section 4)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ],
+   "state_of": {
+    "group": "gym_exit",
+    "state": "closed"
+   }
+  },
+  {
+   "id": "gym_exit_open",
+   "atlas": "floor01_gym_exit",
+   "rect": [
+    20,
+    0,
+    20,
+    96
+   ],
+   "role": "prop",
+   "layer": "prop",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (arena placement, spec section 4)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ],
+   "state_of": {
+    "group": "gym_exit",
+    "state": "open"
+   }
+  }
+ ],
+ "state_groups": {
+  "gym_exit": {
+   "states": [
+    "closed",
+    "open"
+   ],
+   "note": "drawn by src/gym_art.rs: closed while the boss lives, open once Boss::released() (presentation only)"
+  }
+ },
+ "arena_dressing": {
+  "layout_id": "floor01_boss_arena",
+  "note": "applied by src/gym_kit.rs to the composed boss arena: pieces removed from the catacomb composition, then placements appended per layer (layout px, top-left). Presentation only.",
+  "remove": [
+   "door_timber",
+   "guild_portal_closed"
+  ],
+  "place": [
+   {
+    "layer": "backwall_decal",
+    "piece": "gym_mirror_bay",
+    "x": 28,
+    "y": 326
+   },
+   {
+    "layer": "backwall_decal",
+    "piece": "gym_mirror_bay",
+    "x": 528,
+    "y": 326
+   },
+   {
+    "layer": "structure",
+    "piece": "gym_mat_a",
+    "x": 224,
+    "y": 401
+   },
+   {
+    "layer": "structure",
+    "piece": "gym_mat_b",
+    "x": 272,
+    "y": 401
+   },
+   {
+    "layer": "structure",
+    "piece": "gym_mat_a",
+    "x": 320,
+    "y": 401
+   },
+   {
+    "layer": "structure",
+    "piece": "gym_mat_b",
+    "x": 368,
+    "y": 401
+   },
+   {
+    "layer": "structure",
+    "piece": "gym_mat_a",
+    "x": 416,
+    "y": 401
+   },
+   {
+    "layer": "structure",
+    "piece": "gym_mat_b",
+    "x": 464,
+    "y": 401
+   },
+   {
+    "layer": "structure",
+    "piece": "gym_gate_lintel",
+    "x": 0,
+    "y": 180
+   },
+   {
+    "layer": "structure",
+    "piece": "gym_girder",
+    "x": 48,
+    "y": 186
+   },
+   {
+    "layer": "structure",
+    "piece": "gym_girder",
+    "x": 80,
+    "y": 186
+   },
+   {
+    "layer": "structure",
+    "piece": "gym_girder",
+    "x": 112,
+    "y": 186
+   },
+   {
+    "layer": "structure",
+    "piece": "gym_girder",
+    "x": 144,
+    "y": 186
+   },
+   {
+    "layer": "structure",
+    "piece": "gym_girder",
+    "x": 176,
+    "y": 186
+   },
+   {
+    "layer": "structure",
+    "piece": "gym_girder",
+    "x": 208,
+    "y": 186
+   },
+   {
+    "layer": "structure",
+    "piece": "gym_girder",
+    "x": 240,
+    "y": 186
+   },
+   {
+    "layer": "structure",
+    "piece": "gym_girder",
+    "x": 272,
+    "y": 186
+   },
+   {
+    "layer": "structure",
+    "piece": "gym_girder",
+    "x": 304,
+    "y": 186
+   },
+   {
+    "layer": "structure",
+    "piece": "gym_girder",
+    "x": 336,
+    "y": 186
+   },
+   {
+    "layer": "structure",
+    "piece": "gym_girder",
+    "x": 368,
+    "y": 186
+   },
+   {
+    "layer": "structure",
+    "piece": "gym_girder",
+    "x": 400,
+    "y": 186
+   },
+   {
+    "layer": "structure",
+    "piece": "gym_girder",
+    "x": 432,
+    "y": 186
+   },
+   {
+    "layer": "structure",
+    "piece": "gym_girder",
+    "x": 464,
+    "y": 186
+   },
+   {
+    "layer": "structure",
+    "piece": "gym_girder",
+    "x": 496,
+    "y": 186
+   },
+   {
+    "layer": "structure",
+    "piece": "gym_girder",
+    "x": 528,
+    "y": 186
+   },
+   {
+    "layer": "structure",
+    "piece": "gym_girder",
+    "x": 560,
+    "y": 186
+   },
+   {
+    "layer": "structure",
+    "piece": "gym_girder",
+    "x": 592,
+    "y": 186
+   },
+   {
+    "layer": "prop",
+    "piece": "gym_fluoro_cold",
+    "x": 232,
+    "y": 196
+   },
+   {
+    "layer": "prop",
+    "piece": "gym_fluoro_cold",
+    "x": 360,
+    "y": 196
+   },
+   {
+    "layer": "prop",
+    "piece": "gym_fluoro_accent",
+    "x": 520,
+    "y": 196
+   },
+   {
+    "layer": "prop",
+    "piece": "gym_reception_desk",
+    "x": 46,
+    "y": 368
+   },
+   {
+    "layer": "prop",
+    "piece": "gym_turnstile",
+    "x": 110,
+    "y": 370
+   },
+   {
+    "layer": "prop",
+    "piece": "gym_dumbbell_rack",
+    "x": 228,
+    "y": 372
+   },
+   {
+    "layer": "prop",
+    "piece": "gym_bench",
+    "x": 296,
+    "y": 382
+   },
+   {
+    "layer": "prop",
+    "piece": "gym_plate_tree",
+    "x": 352,
+    "y": 364
+   },
+   {
+    "layer": "prop",
+    "piece": "gym_cable_tower",
+    "x": 440,
+    "y": 296
+   },
+   {
+    "layer": "prop",
+    "piece": "gym_tyres",
+    "x": 490,
+    "y": 382
+   },
+   {
+    "layer": "prop",
+    "piece": "gym_exit_closed",
+    "x": 620,
+    "y": 324
+   },
+   {
+    "layer": "prop",
+    "piece": "gym_exit_open",
+    "x": 620,
+    "y": 324
+   }
+  ]
+ },
+ "usage_rules": {
+  "R1_gym_arena": "the boss arena only: mirror bays reach both crash walls (the mirror_crack anchors), props stand on the floor back line (y 400), mats keep rows 400 and 422..423 of the floor visible, the girder's bottom row is the ceiling collider line (y 195), the exit door states share one rect."
+ }
+}

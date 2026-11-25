@@ -130,6 +130,8 @@ mod donut_cues;
 mod danger_fx_art;
 #[path = "floor01_scene/env_prop_art.rs"]
 mod env_prop_art;
+#[path = "floor01_scene/gym_art.rs"]
+mod gym_art;
 #[path = "floor01_scene/hazards_art.rs"]
 mod hazards_art;
 // FA-Q23 (HRD-P): the Hoarder's stand-in presentation (HOARD-01 frames, labelled greybox).
@@ -4197,6 +4199,7 @@ fn run_window(
                 hazards_art::sync_hazard_debug,
                 hoarder_art::sync_hoarder_art,
                 room_exit_art::sync_room_exit,
+                gym_art::sync_gym_art,
             )
                 .chain(),
             update_lighting,
@@ -4407,6 +4410,10 @@ fn setup(
         ));
         if piece.frames.len() > 1 {
             entity.insert(torch_component(piece));
+        }
+        // AREA-GYM-01: the exit door's state pair (`gym_art`).
+        if let Some(marker) = gym_art::marker(&piece.piece) {
+            entity.insert((marker, gym_art::initial_visibility(&piece.piece)));
         }
     }
 

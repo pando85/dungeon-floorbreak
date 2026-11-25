@@ -306,7 +306,7 @@ const MAX_EXTENDS_DEPTH: usize = 4;
 /// as `scripts/env_kit.py resolve_extends` does: an extension adds atlases
 /// (names must be new), tiles and pieces to its base and overrides descriptive
 /// fields; a contract without `extends` is read as it is.
-fn load_contract(root: &Path, path: &str) -> Result<Contract, EnvError> {
+pub fn load_contract(root: &Path, path: &str) -> Result<Contract, EnvError> {
     let value = merged_contract_value(root, path, 0)?;
     serde_json::from_value(value).map_err(|e| EnvError::Parse(format!("{path}: {e}")))
 }
