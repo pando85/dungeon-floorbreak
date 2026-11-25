@@ -1,70 +1,61 @@
-//! DONUT-PROG-01 DP-D (DP-Q34): the stand-in cues of Donut's Puddle Jumper, the
-//! pure half. Read-only from the event log, in the shape of
+//! DONUT-PROG-01 DP-D (DP-Q34) and DONUT-MOVES-ART-01: the cues of Donut's
+//! Puddle Jumper, the pure half. Read-only from the event log, in the shape of
 //! [`crate::donut_cues`]:
 //!
-//! - on `SpecialStarted` a 3-ring ripple at her feet (and the 6-tick crouch,
-//!   which the presenter draws from the blink state with
-//!   [`crate::donut_art::blink_crouch_frame`]);
-//! - on `BlinkResolved` the same ripple at the destination and a dotted streak
-//!   between the two points, for [`STREAK_TICKS`] ticks (the data's
-//!   `dpq34_streak_frames`);
-//! - on `BlinkFizzled` a single shrinking ring.
+//! - on `SpecialStarted` the puddle opens at her feet (`ring_open` of the
+//!   Puddle Jumper strip, 3 ticks a frame) while the windup plays the moves
+//!   frames `blink_crouch`, `blink_dip` and `blink_vanish` (the presenter draws
+//!   those from the blink state with [`crate::donut_art::blink_crouch_frame`]);
+//! - on `BlinkResolved` the same ring opens at the destination, the origin ring
+//!   closes (`ring_close`, from age 6), a tiled streak (`streak_dash` and
+//!   `streak_head`) runs between the two points for [`STREAK_TICKS`] ticks (the
+//!   data's `dpq34_streak_frames`) and she rises out of the destination puddle
+//!   (`blink_pop`, `blink_arrive`, `blink_settle`, ages 6 to 12);
+//! - on `BlinkFizzled` she bonks and huffs (`fizzle_bonk`, `fizzle_huff`) over
+//!   [`FIZZLE_TICKS`] ticks while the strip's drying ring (`fizzle_0..2`) plays;
+//! - on `BlinkCancelled` there is no new frame: whatever owns her sprite takes
+//!   over, and the origin ring closes from the cancel tick.
 //!
-//! The colours are the Magic Missile VFX palette (`vfx_magic_missile.grid.json`).
-//! No aura, no glow on her body, no screen shake. **Presentation only**: nothing
-//! here is hashed, replayed or read by the simulation, so a run with the cues
-//! drawn and one without have the same state hash (a test in
-//! `donut_prog_fixtures`). Every cue is a function of event ticks, so a render
-//! that skips frames or a replay seek draws the same picture for the same tick.
+//! The colours are the Magic Missile VFX palette (the strip's own). No aura, no
+//! glow on her body, no screen shake. **Presentation only**: nothing here is
+//! hashed, replayed or read by the simulation, so a run with the cues drawn and
+//! one without have the same state hash (a test in `donut_prog_fixtures`). Every
+//! cue is a function of event ticks, so a render that skips frames or a replay
+//! seek draws the same picture for the same tick.
 //!
-//! The numbers below (ring spacing, radii, the fizzle ring's length) are adopted
-//! defaults of DP-Q34's stand-ins, recorded in spec section 16; the owner may
-//! retune them after playing.
+//! The numbers below are adopted defaults of DP-Q34's stand-ins and of the
+//! DONUT-MOVES-ART-01 spec (sections 5 and 6); the owner may retune them after
+//! playing.
 
 use crate::combat::CombatEvent;
 use crate::combat_scene::CombatState;
+use crate::donut_art::{PuddleVfx, arrive_frame, fizzle_frame, puddle_vfx_frame};
 use crate::donut_prog::DonutProgTuning;
 
 /// The hero index of Donut in the event log.
 const DONUT: u8 = 1;
 
-/// A ripple's rings start this many ticks apart.
-pub const RING_STAGGER_TICKS: u64 = 3;
-/// One ring lives this many ticks.
-pub const RING_LIFE_TICKS: u64 = 9;
-/// A ring starts at this half width and grows by [`RING_GROW_PX`] per tick.
-pub const RING_START_RX: i32 = 4;
-pub const RING_GROW_PX: i32 = 2;
-/// The fizzle ring starts at this half width, shrinks by [`RING_GROW_PX`] per tick
-/// and lives [`FIZZLE_TICKS`] ticks.
-pub const FIZZLE_START_RX: i32 = 20;
+/// The arrival tick counted from the press (DP-Q25: t0 to t5 windup, t6 arrival).
+pub const ARRIVE_AGE: u64 = 6;
+/// The fizzle cue lasts this many ticks (DP-Q34; the strip's drying ring is 8 ticks too).
 pub const FIZZLE_TICKS: u64 = 8;
-/// The streak: a 2 x 1 dot every this many pixels.
-pub const STREAK_DOT_STEP_PX: i32 = 6;
-pub const STREAK_DOT_W_PX: i32 = 2;
 /// The streak lies this many pixels above her feet (across her body, low).
 pub const STREAK_LIFT_PX: i32 = 8;
+/// The width of one tiled streak dash and of the streak head, in px (strip frames 7 and 8).
+pub const DASH_W_PX: i32 = 16;
+pub const HEAD_W_PX: i32 = 4;
 
-/// The Magic Missile palette (`magenta_deep`, `magenta`, `pink_hot`, `core_pale`).
-pub const PALETTE: [[u8; 3]; 4] = [
-    [0x7a, 0x1a, 0x63],
-    [0xe2, 0x30, 0x9f],
-    [0xff, 0x7f, 0xd0],
-    [0xff, 0xd8, 0xf4],
-];
-
-/// One ring: its centre column and foot row (world px, y up), its half width and
-/// the palette entry it is drawn in.
+/// One puddle effect of the strip: its centre column and foot row (world px, y
+/// up) and the strip frame to draw there.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Ring {
+pub struct PuddleCue {
     pub x: i32,
     pub foot_y: i32,
-    pub rx: i32,
-    pub ry: i32,
-    pub tone: usize,
+    pub frame: usize,
 }
 
-/// The dotted streak between two columns on one foot row.
+/// The tiled streak between two columns on one foot row: `streak_dash` tiles from
+/// the origin and the `streak_head` at the arrival end.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Streak {
     pub from_x: i32,
@@ -73,17 +64,28 @@ pub struct Streak {
 }
 
 impl Streak {
-    /// The left column of each dot, from the start to the end point (inclusive of
-    /// the start), spaced [`STREAK_DOT_STEP_PX`].
-    pub fn dots(&self) -> Vec<i32> {
-        let dir = (self.to_x - self.from_x).signum();
-        if dir == 0 {
+    /// +1 when she blinks right, -1 when left (0 when the two columns are equal).
+    pub const fn dir(&self) -> i32 {
+        (self.to_x - self.from_x).signum()
+    }
+
+    /// The near edge of each dash tile, in the streak's own direction: the dashes
+    /// start at the origin column and run toward the destination, keeping
+    /// [`HEAD_W_PX`] free for the head. A tile spans `edge` to `edge + dir *
+    /// DASH_W_PX`. Empty when the span is shorter than the head.
+    pub fn dash_edges(&self) -> Vec<i32> {
+        let dir = self.dir();
+        let reach = (self.to_x - self.from_x).abs() - HEAD_W_PX;
+        if dir == 0 || reach <= 0 {
             return Vec::new();
         }
-        let n = (self.to_x - self.from_x).abs() / STREAK_DOT_STEP_PX;
-        (0..=n)
-            .map(|i| self.from_x + dir * i * STREAK_DOT_STEP_PX)
-            .collect()
+        let n = (reach as u32).div_ceil(DASH_W_PX as u32) as i32;
+        (0..n).map(|i| self.from_x + dir * i * DASH_W_PX).collect()
+    }
+
+    /// The far edge of the head: the head lies on the last [`HEAD_W_PX`] columns before the destination column.
+    pub const fn head_edge(&self) -> i32 {
+        self.to_x - self.dir() * HEAD_W_PX
     }
 
     pub const fn y(&self) -> i32 {
@@ -91,59 +93,16 @@ impl Streak {
     }
 }
 
-/// The half height of a ring of half width `rx` (a flat ellipse, as the ground
-/// reads it): a third, at least one row.
-pub const fn ring_ry(rx: i32) -> i32 {
-    let ry = rx / 3;
-    if ry < 1 { 1 } else { ry }
-}
-
-/// The ring `index` of a ripple `age` ticks after its start, if it is alive.
-fn ripple_ring(index: u64, age: u64) -> Option<(i32, usize)> {
-    let started = index * RING_STAGGER_TICKS;
-    let age = age.checked_sub(started)?;
-    if age >= RING_LIFE_TICKS {
-        return None;
-    }
-    let rx = RING_START_RX + RING_GROW_PX * age as i32;
-    // Bright first, then fading to the deep magenta.
-    let tone = match age {
-        0..=2 => 3,
-        3..=5 => 2,
-        6..=7 => 1,
-        _ => 0,
-    };
-    Some((rx, tone))
-}
-
-/// The outline of an ellipse of half width `rx` and half height `ry` as pixel
-/// rows: for each `dy` in `-ry..=ry` the inclusive `(from, to)` offsets of the
-/// right half (`0 <= from <= to`); the left half mirrors it. Rows join: each row
-/// reaches from the extent of the row nearer the ends to its own extent, and the
-/// top and bottom rows run from the middle.
-pub fn ellipse_spans(rx: i32, ry: i32) -> Vec<(i32, i32, i32)> {
-    let extent = |dy: i32| -> i32 {
-        let t = f64::from(dy.abs()) / f64::from(ry.max(1));
-        (f64::from(rx) * (1.0 - t * t).max(0.0).sqrt()).round() as i32
-    };
-    (-ry..=ry)
-        .map(|dy| {
-            let outer = extent(dy);
-            let inner = if dy.abs() == ry {
-                0
-            } else {
-                extent(dy.abs() + 1).min(outer)
-            };
-            (dy, inner, outer)
-        })
-        .collect()
-}
-
 /// What the cues look like on one tick.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct BlinkCueView {
-    pub rings: Vec<Ring>,
+    /// The strip's puddle effects (rings and the drying fizzle ring).
+    pub puddles: Vec<PuddleCue>,
     pub streak: Option<Streak>,
+    /// The moves frame she is drawn in at the destination (ages 6 to 12 of the press).
+    pub arrive: Option<usize>,
+    /// The moves frame of a fizzle (she never left the origin).
+    pub fizzle: Option<usize>,
 }
 
 /// The pure cue state: what the event log said, as ticks and columns.
@@ -151,12 +110,14 @@ pub struct BlinkCueView {
 pub struct BlinkCues {
     seen_events: usize,
     last_tick: u64,
-    /// The ripple at her feet: (tick, column, foot row).
+    /// The press: (tick, column, foot row).
     start: Option<(u64, i32, i32)>,
     /// The arrival: (tick, from column, to column, foot row).
     arrival: Option<(u64, i32, i32, i32)>,
     /// The fizzle: (tick, column, foot row).
     fizzle: Option<(u64, i32, i32)>,
+    /// The tick a windup was cancelled.
+    cancel: Option<u64>,
 }
 
 impl BlinkCues {
@@ -185,6 +146,7 @@ impl BlinkCues {
                     capability,
                 } if capability == crate::donut_prog::SPECIAL_SHORT_BLINK.as_str() => {
                     self.start = Some((tick, x, foot_y));
+                    self.cancel = None;
                 }
                 CombatEvent::BlinkResolved {
                     tick,
@@ -197,68 +159,86 @@ impl BlinkCues {
                 } => {
                     self.fizzle = Some((tick, x, foot_y));
                 }
-                // A cancelled windup keeps the ripple already started: it is a
-                // flourish of the press, not a promise of an arrival.
+                CombatEvent::BlinkCancelled {
+                    tick, hero: DONUT, ..
+                } => self.cancel = Some(tick),
                 _ => {}
             }
         }
     }
 
+    /// The tick the press at `start` ended (arrival, fizzle or cancel), if it has.
+    fn press_end(&self, start: u64) -> Option<u64> {
+        [
+            self.arrival.map(|a| a.0),
+            self.fizzle.map(|f| f.0),
+            self.cancel,
+        ]
+        .into_iter()
+        .flatten()
+        .filter(|t| *t >= start)
+        .min()
+    }
+
     /// The cues on `tick`.
     pub fn view(&self, tick: u64) -> BlinkCueView {
         let mut view = BlinkCueView::default();
-        let rings = DonutProgTuning::active().dpq34_ripple_rings.into();
-        let ripple = |at: Option<(u64, i32, i32)>, view: &mut BlinkCueView| {
-            let Some((start, x, foot_y)) = at else { return };
-            let Some(age) = tick.checked_sub(start) else {
-                return;
-            };
-            for i in 0..rings {
-                if let Some((rx, tone)) = ripple_ring(i, age) {
-                    view.rings.push(Ring {
-                        x,
-                        foot_y,
-                        rx,
-                        ry: ring_ry(rx),
-                        tone,
-                    });
+        // The origin puddle: it opens on the press, then closes after she has
+        // gone (arrival or cancel) or dries up (fizzle, below).
+        if let Some((start, x, foot_y)) = self.start
+            && let Some(age) = tick.checked_sub(start)
+        {
+            let end = self.press_end(start);
+            let frame = match end {
+                Some(end) if tick >= end => {
+                    // After the arrival or a cancel: ring_close from the end tick.
+                    let closing = self.fizzle.is_none_or(|f| f.0 != end);
+                    closing
+                        .then(|| puddle_vfx_frame(PuddleVfx::RingClose, tick - end))
+                        .flatten()
                 }
+                // Still in the windup (the resolution event lands on the arrival tick):
+                // ring_open's first two frames, 3 ticks each.
+                None if age <= ARRIVE_AGE => {
+                    puddle_vfx_frame(PuddleVfx::RingOpen, age.min(ARRIVE_AGE - 1))
+                }
+                Some(_) => puddle_vfx_frame(PuddleVfx::RingOpen, age.min(ARRIVE_AGE - 1)),
+                None => None,
+            };
+            if let Some(frame) = frame {
+                view.puddles.push(PuddleCue { x, foot_y, frame });
             }
-        };
-        ripple(self.start, &mut view);
-        ripple(self.arrival.map(|(t, _, to, y)| (t, to, y)), &mut view);
+        }
+        if let Some((start, from_x, to_x, foot_y)) = self.arrival
+            && let Some(age) = tick.checked_sub(start)
+        {
+            if let Some(frame) = puddle_vfx_frame(PuddleVfx::RingOpen, age) {
+                view.puddles.push(PuddleCue {
+                    x: to_x,
+                    foot_y,
+                    frame,
+                });
+            }
+            view.arrive = arrive_frame(ARRIVE_AGE + age);
+            if age < u64::from(DonutProgTuning::active().dpq34_streak_frames) {
+                view.streak = Some(Streak {
+                    from_x,
+                    to_x,
+                    foot_y,
+                });
+            }
+        }
         if let Some((start, x, foot_y)) = self.fizzle
             && let Some(age) = tick.checked_sub(start)
             && age < FIZZLE_TICKS
         {
-            let rx = FIZZLE_START_RX - RING_GROW_PX * age as i32;
-            view.rings.push(Ring {
-                x,
-                foot_y,
-                rx,
-                ry: ring_ry(rx),
-                tone: 1,
-            });
-        }
-        if let Some((start, from_x, to_x, foot_y)) = self.arrival
-            && let Some(age) = tick.checked_sub(start)
-            && age < u64::from(DonutProgTuning::active().dpq34_streak_frames)
-        {
-            view.streak = Some(Streak {
-                from_x,
-                to_x,
-                foot_y,
-            });
+            if let Some(frame) = puddle_vfx_frame(PuddleVfx::Fizzle, age) {
+                view.puddles.push(PuddleCue { x, foot_y, frame });
+            }
+            view.fizzle = fizzle_frame(age);
         }
         view
     }
-}
-
-/// The most rows of spans one ring can need (the pool bound of the presenter):
-/// the widest ring is the fizzle ring or the oldest ripple ring.
-pub fn max_ring_spans() -> usize {
-    let widest = FIZZLE_START_RX.max(RING_START_RX + RING_GROW_PX * (RING_LIFE_TICKS as i32 - 1));
-    ellipse_spans(widest, ring_ry(widest)).len() * 2
 }
 
 #[cfg(test)]

@@ -1,0 +1,203 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "donut-moves-art-01-tail-ready",
+  "title": "DONUT-MOVES-ART-01 tail swap: the locomotion atlas with only the tail cel flicked (docs/02-art/donut-moves-art-01-spec.md section 3)",
+  "grid": "assets/source/characters/donut/donut_h40_tail_ready.grid.json",
+  "manifest": "assets/manifests/donut_h40_tail_ready.json",
+  "frame_size": [
+    72,
+    44
+  ],
+  "pivot": [
+    46,
+    43
+  ],
+  "contact_row": 43,
+  "tick_hz": 60,
+  "hold_ms": 100,
+  "facing": "right",
+  "tags": {
+    "flick_up": {
+      "playback": "loop",
+      "contact": "free",
+      "frames": [
+        [
+          0,
+          19
+        ],
+        [
+          1,
+          16
+        ],
+        [
+          2,
+          11
+        ],
+        [
+          3,
+          16
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          5,
+          5
+        ],
+        [
+          6,
+          5
+        ],
+        [
+          7,
+          5
+        ],
+        [
+          8,
+          5
+        ],
+        [
+          9,
+          5
+        ],
+        [
+          10,
+          5
+        ],
+        [
+          11,
+          4
+        ],
+        [
+          12,
+          7
+        ],
+        [
+          13,
+          7
+        ],
+        [
+          14,
+          5
+        ],
+        [
+          15,
+          7
+        ]
+      ]
+    },
+    "flick_snap": {
+      "playback": "loop",
+      "contact": "free",
+      "frames": [
+        [
+          16,
+          19
+        ],
+        [
+          17,
+          16
+        ],
+        [
+          18,
+          11
+        ],
+        [
+          19,
+          16
+        ],
+        [
+          20,
+          5
+        ],
+        [
+          21,
+          5
+        ],
+        [
+          22,
+          5
+        ],
+        [
+          23,
+          5
+        ],
+        [
+          24,
+          5
+        ],
+        [
+          25,
+          5
+        ],
+        [
+          26,
+          5
+        ],
+        [
+          27,
+          4
+        ],
+        [
+          28,
+          7
+        ],
+        [
+          29,
+          7
+        ],
+        [
+          30,
+          5
+        ],
+        [
+          31,
+          7
+        ]
+      ]
+    }
+  },
+  "roles": {
+    "idle": "flick_up",
+    "tell": "flick_snap"
+  },
+  "rules": {
+    "max_colors": 22,
+    "max_isolated_per_frame": 0,
+    "max_orphans_per_frame": 0,
+    "canvas_margin": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "unique_frames": true
+  },
+  "scene": {
+    "shadow": true,
+    "actors": [
+      {
+        "frame": 0,
+        "x": 520,
+        "flip": false
+      },
+      {
+        "frame": 16,
+        "x": 586,
+        "flip": false
+      },
+      {
+        "frame": 24,
+        "x": 652,
+        "flip": false
+      }
+    ]
+  },
+  "review": {
+    "strip_tags": [
+      "flick_up",
+      "flick_snap"
+    ]
+  }
+}

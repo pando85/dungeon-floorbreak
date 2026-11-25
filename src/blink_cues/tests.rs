@@ -8,45 +8,97 @@ fn cues() -> BlinkCues {
     }
 }
 
-/// DP-Q34: the ripple at her feet is three rings, 3 ticks apart, each alive 9
-/// ticks, growing 2 px per tick, brightest first.
-#[test]
-fn the_start_ripple_is_three_staggered_rings() {
-    let c = BlinkCues {
-        start: Some((10, 640, 100)),
-        ..BlinkCues::default()
-    };
-    let rings_at = |tick| c.view(tick).rings;
-    assert!(rings_at(9).is_empty(), "nothing before the press");
-    let r10 = rings_at(10);
-    assert_eq!(r10.len(), 1);
-    assert_eq!(
-        (r10[0].x, r10[0].foot_y, r10[0].rx, r10[0].ry),
-        (640, 100, 4, 1)
-    );
-    assert_eq!(r10[0].tone, 3);
-    // Tick 13: the first ring is 3 old, the second starts.
-    let r13 = rings_at(13);
-    assert_eq!(r13.iter().map(|r| r.rx).collect::<Vec<_>>(), [10, 4]);
-    // Tick 16: three rings alive; tick 18: the first ring's last tick.
-    assert_eq!(rings_at(16).len(), 3);
-    assert_eq!(rings_at(18).len(), 3);
-    assert_eq!(rings_at(18)[0].rx, 4 + 2 * 8);
-    // Tick 19: the first ring is gone; the last ring ends on 10 + 6 + 8 = 24.
-    assert_eq!(rings_at(19).len(), 2);
-    assert_eq!(rings_at(24).len(), 1);
-    assert!(rings_at(25).is_empty());
-    // Every tone is in the Magic Missile palette.
-    assert!((10..25).all(|t| rings_at(t).iter().all(|r| r.tone < PALETTE.len())));
+fn frames_at(c: &BlinkCues, x: i32, ticks: impl Iterator<Item = u64>) -> Vec<Option<usize>> {
+    ticks
+        .map(|t| c.view(t).puddles.iter().find(|p| p.x == x).map(|p| p.frame))
+        .collect()
 }
 
-/// DP-Q34: the arrival draws the same ripple at the destination and a one-frame
-/// dotted streak between the two columns, in either direction.
+/// DONUT-MOVES-ART-01 spec 5: the origin puddle opens on the press (`ring_open_0`
+/// for 3 ticks, `ring_open_1` for 3), and after the arrival it closes
+/// (`ring_close_0..2`, 3 ticks each, ages 6 to 14), then it is gone.
 #[test]
-fn the_arrival_draws_a_ripple_at_the_destination_and_a_one_frame_streak() {
+fn the_origin_puddle_opens_then_closes_after_she_has_left() {
+    let c = cues();
+    let f = frames_at(&c, 640, 9..=26);
+    assert_eq!(f[0], None, "nothing before the press");
+    assert_eq!(
+        f[1..7],
+        [Some(0), Some(0), Some(0), Some(1), Some(1), Some(1)],
+        "ages 0 to 5"
+    );
+    assert_eq!(
+        f[7..16],
+        [
+            Some(4),
+            Some(4),
+            Some(4),
+            Some(5),
+            Some(5),
+            Some(5),
+            Some(6),
+            Some(6),
+            Some(6)
+        ],
+        "ages 6 to 14"
+    );
+    assert_eq!(f[16..], [None, None], "gone after 9 ticks of closing");
+}
+
+/// The arrival opens the destination puddle: `ring_open_0..3`, 3 ticks each (12).
+#[test]
+fn the_destination_puddle_opens_over_twelve_ticks() {
+    let c = cues();
+    let f = frames_at(&c, 752, 15..=29);
+    assert_eq!(f[0], None, "before the arrival");
+    assert_eq!(
+        f[1..13],
+        [
+            Some(0),
+            Some(0),
+            Some(0),
+            Some(1),
+            Some(1),
+            Some(1),
+            Some(2),
+            Some(2),
+            Some(2),
+            Some(3),
+            Some(3),
+            Some(3)
+        ]
+    );
+    assert_eq!(f[13..], [None, None]);
+}
+
+/// She rises out of the destination puddle: a0 on press ages 6-7, the key on 8-10,
+/// a2 on 11-12 (the arrival is tick 16 here), then locomotion.
+#[test]
+fn she_rises_out_of_the_destination_puddle_over_seven_ticks() {
+    let c = cues();
+    let arrive: Vec<Option<usize>> = (15..=24).map(|t| c.view(t).arrive).collect();
+    assert_eq!(
+        arrive,
+        [
+            None,
+            Some(8),
+            Some(8),
+            Some(9),
+            Some(9),
+            Some(9),
+            Some(10),
+            Some(10),
+            None,
+            None
+        ]
+    );
+}
+
+/// DP-Q34: the arrival draws a one-frame streak between the two columns, in either direction.
+#[test]
+fn the_arrival_draws_a_one_frame_tiled_streak() {
     let c = cues();
     let v = c.view(16);
-    assert!(v.rings.iter().any(|r| r.x == 752), "the destination ripple");
     assert_eq!(
         v.streak,
         Some(Streak {
@@ -59,74 +111,142 @@ fn the_arrival_draws_a_ripple_at_the_destination_and_a_one_frame_streak() {
     assert_eq!(DonutProgTuning::active().dpq34_streak_frames, 1);
     assert_eq!(c.view(17).streak, None);
     assert_eq!(c.view(15).streak, None);
-    // The dots: from the start to the end, 6 px apart, both ways.
+    // 112 px less the 4 px head: seven 16 px dashes from the origin, the head on the last 4 columns.
     let right = Streak {
         from_x: 640,
         to_x: 752,
         foot_y: 100,
     };
-    let dots = right.dots();
-    assert_eq!((dots[0], *dots.last().unwrap(), dots.len()), (640, 748, 19));
+    let edges = right.dash_edges();
+    assert_eq!(
+        (edges[0], *edges.last().unwrap(), edges.len()),
+        (640, 736, 7)
+    );
+    assert_eq!(right.head_edge(), 748);
     let left = Streak {
         from_x: 752,
         to_x: 640,
         foot_y: 100,
     };
-    assert_eq!(left.dots()[1], 746);
+    assert_eq!(left.dash_edges()[1], 736, "mirrored: tiles run toward -x");
+    assert_eq!(left.head_edge(), 644);
     assert!(
         Streak {
             from_x: 5,
             to_x: 5,
             foot_y: 0
         }
-        .dots()
+        .dash_edges()
         .is_empty()
+    );
+    assert!(
+        Streak {
+            from_x: 0,
+            to_x: 4,
+            foot_y: 0
+        }
+        .dash_edges()
+        .is_empty(),
+        "a span that only fits the head has no dashes"
     );
     assert_eq!(right.y(), 108);
 }
 
-/// DP-Q34: a fizzle is one shrinking ring, 8 ticks, and only that.
+/// DMA-Q08: a fizzle is the bonk for 4 ticks, the huff for 4, and the drying ring (3, 3, 2) at the
+/// origin, and only that (no streak, no arrival).
 #[test]
-fn a_fizzle_is_one_shrinking_ring() {
+fn a_fizzle_bonks_huffs_and_dries_up() {
     let c = BlinkCues {
+        start: Some((14, 500, 90)),
         fizzle: Some((20, 500, 90)),
         ..BlinkCues::default()
     };
-    let widths: Vec<i32> = (20..28).map(|t| c.view(t).rings[0].rx).collect();
-    assert_eq!(widths, [20, 18, 16, 14, 12, 10, 8, 6]);
-    assert!(c.view(28).rings.is_empty() && c.view(19).rings.is_empty());
-    assert!((20..28).all(|t| c.view(t).rings.len() == 1 && c.view(t).streak.is_none()));
+    let body: Vec<Option<usize>> = (19..=28).map(|t| c.view(t).fizzle).collect();
+    assert_eq!(
+        body,
+        [
+            None,
+            Some(11),
+            Some(11),
+            Some(11),
+            Some(11),
+            Some(12),
+            Some(12),
+            Some(12),
+            Some(12),
+            None
+        ]
+    );
+    let ring: Vec<Option<usize>> = (20..=28)
+        .map(|t| c.view(t).puddles.first().map(|p| p.frame))
+        .collect();
+    assert_eq!(
+        ring,
+        [
+            Some(9),
+            Some(9),
+            Some(9),
+            Some(10),
+            Some(10),
+            Some(10),
+            Some(11),
+            Some(11),
+            None
+        ]
+    );
+    assert!((20..28).all(|t| {
+        let v = c.view(t);
+        v.streak.is_none() && v.arrive.is_none() && v.puddles.len() == 1
+    }));
+    // The origin ring opened during the windup and did not close: the fizzle ends the press.
+    assert_eq!(c.view(17).puddles.first().map(|p| p.frame), Some(1));
 }
 
-/// The outline is closed (each row joins the next), symmetric by construction,
-/// and bounded for the presenter's pool.
+/// A cancelled windup has no new frame of her own; the origin puddle closes from the cancel tick.
 #[test]
-fn an_ellipse_outline_is_connected_and_bounded() {
-    for rx in [4, 6, 10, 14, 20] {
-        let ry = ring_ry(rx);
-        let rows = ellipse_spans(rx, ry);
-        assert_eq!(rows.len() as i32, 2 * ry + 1);
-        // The widest row is the middle one and reaches rx.
-        assert_eq!(rows[ry as usize].2, rx, "rx {rx}");
-        for &(dy, from, to) in &rows {
-            assert!(0 <= from && from <= to && to <= rx, "{rx} {dy}");
-            if dy.abs() == ry {
-                assert_eq!(from, 0, "the end rows run from the middle");
-            }
-        }
-        // Each row reaches the next row's extent, so the outline has no gap.
-        for w in rows.windows(2) {
-            let (a, b) = (w[0], w[1]);
-            if a.0.abs() < ry && b.0.abs() < ry || a.0 < 0 && b.0 <= 0 {
-                assert!(
-                    a.2.min(b.2) >= a.1.max(b.1) || (a.2 - b.2).abs() <= 1,
-                    "{a:?} {b:?}"
-                );
-            }
-        }
-    }
-    // At most 2 spans per row: the pool bound of the presenter.
-    assert!(max_ring_spans() <= 30, "{}", max_ring_spans());
+fn a_cancel_closes_the_origin_puddle_and_draws_nothing_else() {
+    let c = BlinkCues {
+        start: Some((10, 640, 100)),
+        cancel: Some(13),
+        ..BlinkCues::default()
+    };
+    let f: Vec<Option<usize>> = (10..=23)
+        .map(|t| c.view(t).puddles.first().map(|p| p.frame))
+        .collect();
+    assert_eq!(
+        f,
+        [
+            Some(0),
+            Some(0),
+            Some(0),
+            Some(4),
+            Some(4),
+            Some(4),
+            Some(5),
+            Some(5),
+            Some(5),
+            Some(6),
+            Some(6),
+            Some(6),
+            None,
+            None
+        ]
+    );
+    assert!((10..24).all(|t| {
+        let v = c.view(t);
+        v.arrive.is_none() && v.fizzle.is_none() && v.streak.is_none()
+    }));
+}
+
+/// A stale press (no resolution event ever arrives) does not leave a ring on screen for ever.
+#[test]
+fn an_unresolved_press_does_not_hold_the_ring() {
+    let c = BlinkCues {
+        start: Some((10, 640, 100)),
+        ..BlinkCues::default()
+    };
+    assert!(c.view(16).puddles.len() == 1);
+    assert!(c.view(17).puddles.is_empty());
 }
 
 /// A seek back or a new attempt (fewer events than seen) clears everything.
@@ -134,5 +254,6 @@ fn an_ellipse_outline_is_connected_and_bounded() {
 fn reset_clears_the_cues() {
     let mut c = cues();
     c.reset();
-    assert!(c.view(16).rings.is_empty() && c.view(16).streak.is_none());
+    let v = c.view(16);
+    assert!(v.puddles.is_empty() && v.streak.is_none() && v.arrive.is_none());
 }

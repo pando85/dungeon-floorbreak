@@ -4,7 +4,10 @@
 //! binary draws the result; nothing here is read back by the simulation, so no
 //! replay hash can depend on it. Frame tables follow
 //! `docs/02-art/donut-moveset-q10.md` section 7 and the two manifests
-//! `assets/manifests/donut_h40_melee.json` and `donut_h40_missile.json`.
+//! `assets/manifests/donut_h40_melee.json` and `donut_h40_missile.json`; the
+//! DONUT-MOVES-ART-01 reflex and Puddle Jumper cue frames follow
+//! `docs/02-art/donut-moves-art-01-spec.md` and the manifests
+//! `donut_h40_moves.json`, `donut_h40_tail_ready.json` and `vfx_puddle_jumper.json`.
 
 use crate::donut_moves::{MoveKind, MovePhase, MoveView};
 
@@ -21,6 +24,47 @@ pub const FRAME_H: u32 = 44;
 pub const VFX_ATLAS: &str = "vfx_magic_missile.png";
 pub const VFX_FRAMES: usize = 9;
 pub const VFX_SIZE: u32 = 32;
+
+/// DONUT-MOVES-ART-01 moves atlas: evade e0-e4, blink b0-b2 and a0-a2, fizzle f0-f1 (13 frames of 72 x 44,
+/// her locomotion pivot).
+pub const MOVES_ATLAS: &str = "donut_h40_moves.png";
+pub const MOVES_FRAMES: usize = 13;
+/// The tail-swap atlas: 2 phases x 16 locomotion frames, only the `tail` cel changed.
+pub const TAIL_READY_ATLAS: &str = "donut_h40_tail_ready.png";
+pub const TAIL_READY_FRAMES: usize = 32;
+/// The Puddle Jumper VFX strip: 16 frames of 48 x 16, pivot (24, 11) (the puddle surface row).
+pub const PUDDLE_VFX_ATLAS: &str = "vfx_puddle_jumper.png";
+pub const PUDDLE_VFX_FRAMES: usize = 16;
+pub const PUDDLE_VFX_W: u32 = 48;
+pub const PUDDLE_VFX_H: u32 = 16;
+pub const PUDDLE_VFX_PIVOT: (u32, u32) = (24, 11);
+/// The tileable streak dash (16 x 3 in frame 7) and the streak head (4 x 3 in frame 8) as `(x, y, w, h)` inside
+/// their frames; the presenter adds them to the strip's atlas layout as two extra entries after the 16 frames.
+pub const PUDDLE_DASH_RECT: (u32, u32, u32, u32) = (16, 10, 16, 3);
+pub const PUDDLE_HEAD_RECT: (u32, u32, u32, u32) = (22, 10, 4, 3);
+/// The in-sprite puddle mouth (b0-b2, a0-a2, f0) is centred 3 px above her foot row (canvas row 40 against 43), so
+/// the strip's puddle effects anchor their surface row there, not on the foot row: otherwise the ring's lower crescent
+/// shows as a second ellipse under the mouth (a saucer, review F1 of PR 281).
+pub const PUDDLE_MOUTH_LIFT_PX: i32 = 3;
+pub const PUDDLE_DASH_FRAME: usize = 7;
+pub const PUDDLE_HEAD_FRAME: usize = 8;
+pub const PUDDLE_DASH_INDEX: usize = PUDDLE_VFX_FRAMES;
+pub const PUDDLE_HEAD_INDEX: usize = PUDDLE_VFX_FRAMES + 1;
+
+/// Moves atlas frames by name.
+pub const EVADE_COIL: usize = 0;
+pub const EVADE_ARCH: usize = 1;
+pub const EVADE_TWIST: usize = 2;
+pub const EVADE_UNTWIST: usize = 3;
+pub const EVADE_LAND: usize = 4;
+pub const BLINK_CROUCH: usize = 5;
+pub const BLINK_DIP: usize = 6;
+pub const BLINK_VANISH: usize = 7;
+pub const BLINK_POP: usize = 8;
+pub const BLINK_ARRIVE: usize = 9;
+pub const BLINK_SETTLE: usize = 10;
+pub const FIZZLE_BONK: usize = 11;
+pub const FIZZLE_HUFF: usize = 12;
 
 /// The dry-press cue lasts this many ticks (presentation only).
 pub const DRY_CUE_TICKS: u64 = 8;
@@ -73,14 +117,102 @@ pub fn melee_frame(view: &MoveView) -> usize {
     }
 }
 
-/// DP-Q34 (stand-in): the melee atlas frame of the blink's crouch, the existing
-/// pounce crouch frame `p0`, for the first `crouch_ticks` ticks of the windup
-/// (`windup_age` is `0` on the press tick, `None` outside a windup). Presentation
-/// only; the arrival tick is not a crouch tick (she has moved by then).
+/// DONUT-MOVES-ART-01 spec 4: the evade frame `age` ticks after `HeroEvaded` (12 ticks, five frames): `evade_coil`
+/// 0-1, `evade_arch` 2-4, `evade_twist` (the key) 5-7, `evade_untwist` 8-9, `evade_land` 10-11. `None` once the
+/// response is over; the cosmetic lift is `donut_cues::arc_lift_px`, never baked into the art.
+pub fn evade_frame(age: u64) -> Option<usize> {
+    match age {
+        0..=1 => Some(EVADE_COIL),
+        2..=4 => Some(EVADE_ARCH),
+        5..=7 => Some(EVADE_TWIST),
+        8..=9 => Some(EVADE_UNTWIST),
+        10..=11 => Some(EVADE_LAND),
+        _ => None,
+    }
+}
+
+/// Spec 5: the moves frame of the blink's windup, `age` ticks after `SpecialStarted` at the origin: `blink_crouch`
+/// 0-2, `blink_dip` 3-4, `blink_vanish` 5. The arrival tick (age 6) belongs to [`arrive_frame`].
+pub fn blink_frame(age: u64) -> Option<usize> {
+    match age {
+        0..=2 => Some(BLINK_CROUCH),
+        3..=4 => Some(BLINK_DIP),
+        5 => Some(BLINK_VANISH),
+        _ => None,
+    }
+}
+
+/// DP-Q34: the moves frame of the blink's windup for the first `crouch_ticks` ticks (`windup_age` is `0` on the
+/// press tick, `None` outside a windup). Presentation only; replaces the pounce-crouch stand-in.
 pub fn blink_crouch_frame(windup_age: Option<u64>, crouch_ticks: u8) -> Option<usize> {
     windup_age
         .filter(|age| *age < u64::from(crouch_ticks))
-        .map(|_| POUNCE_CROUCH_FRAME)
+        .and_then(blink_frame)
+}
+
+/// Spec 5: the moves frame at the destination, `age` ticks after `SpecialStarted` (the arrival is age 6):
+/// `blink_pop` 6-7, `blink_arrive` (the key) 8-10, `blink_settle` 11-12. Locomotion resumes on age 13.
+pub fn arrive_frame(age: u64) -> Option<usize> {
+    match age {
+        6..=7 => Some(BLINK_POP),
+        8..=10 => Some(BLINK_ARRIVE),
+        11..=12 => Some(BLINK_SETTLE),
+        _ => None,
+    }
+}
+
+/// Spec 5 (DMA-Q08): the moves frame of a fizzle, `age` ticks after `BlinkFizzled` (over `FIZZLE_TICKS`, 8):
+/// `fizzle_bonk` 0-3, `fizzle_huff` 4-7.
+pub fn fizzle_frame(age: u64) -> Option<usize> {
+    match age {
+        0..=3 => Some(FIZZLE_BONK),
+        4..=7 => Some(FIZZLE_HUFF),
+        _ => None,
+    }
+}
+
+/// Spec 3: the tail-swap atlas index, `16 * phase + locomotion frame` (phase 0 `flick_up`, 1 `flick_snap`).
+pub fn tail_ready_index(phase: usize, locomotion_frame: usize) -> usize {
+    (phase.min(1) * 16 + locomotion_frame % 16).min(TAIL_READY_FRAMES - 1)
+}
+
+/// The Puddle Jumper VFX strip's animated cues.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PuddleVfx {
+    /// `ring_open_0..3`, 3 ticks each, 12 in all.
+    RingOpen,
+    /// `ring_close_0..2`, 3 ticks each, 9 in all.
+    RingClose,
+    /// `fizzle_0..2`, 3, 3 and 2 ticks.
+    Fizzle,
+    /// The ready glint: `age` is the tick inside the 4-tick on window; the 4th tick is the small twinkle.
+    Glint,
+    /// The evade swish: `swish_a` at age 0, `swish_b` at age 1.
+    Swish,
+}
+
+/// Spec 5: the strip frame of a cue at `age` ticks, or `None` once it has ended.
+pub fn puddle_vfx_frame(kind: PuddleVfx, age: u64) -> Option<usize> {
+    match kind {
+        PuddleVfx::RingOpen => (age < 12).then_some((age / 3) as usize),
+        PuddleVfx::RingClose => (age < 9).then_some(4 + (age / 3) as usize),
+        PuddleVfx::Fizzle => match age {
+            0..=2 => Some(9),
+            3..=5 => Some(10),
+            6..=7 => Some(11),
+            _ => None,
+        },
+        PuddleVfx::Glint => match age {
+            0..=2 => Some(12),
+            3 => Some(13),
+            _ => None,
+        },
+        PuddleVfx::Swish => match age {
+            0 => Some(14),
+            1 => Some(15),
+            _ => None,
+        },
+    }
 }
 
 /// How far the drawn pivot drops below the body's foot for a melee frame.
@@ -291,16 +423,197 @@ mod tests {
         assert_eq!(bolt_frame(5.0, 0.0), 1);
     }
 
-    /// DP-Q34: the crouch is the pounce crouch frame for the first 6 ticks of the
-    /// windup (ages 0..=5) and nothing on the arrival tick (age 6) or outside one.
+    /// Spec 4: five evade frames over the 12 ticks, every boundary age.
     #[test]
-    fn the_blink_crouch_is_the_pounce_crouch_for_six_ticks() {
+    fn the_evade_plays_five_frames_over_twelve_ticks() {
+        let frames: Vec<Option<usize>> = (0..=12).map(evade_frame).collect();
+        assert_eq!(
+            frames,
+            [
+                Some(0),
+                Some(0),
+                Some(1),
+                Some(1),
+                Some(1),
+                Some(2),
+                Some(2),
+                Some(2),
+                Some(3),
+                Some(3),
+                Some(4),
+                Some(4),
+                None
+            ]
+        );
+        assert_eq!(evade_frame(500), None);
+    }
+
+    /// Spec 5: the windup is b0 for 3 ticks, b1 for 2 and b2 for 1; the arrival tick (age 6) is the destination's;
+    /// DP-Q34's crouch ticks still gate it.
+    #[test]
+    fn the_blink_windup_plays_b0_b1_b2_over_six_ticks() {
+        let f: Vec<Option<usize>> = (0..8).map(blink_frame).collect();
+        assert_eq!(
+            f,
+            [
+                Some(5),
+                Some(5),
+                Some(5),
+                Some(6),
+                Some(6),
+                Some(7),
+                None,
+                None
+            ]
+        );
         for age in 0..6 {
-            assert_eq!(blink_crouch_frame(Some(age), 6), Some(4), "age {age}");
+            assert_eq!(
+                blink_crouch_frame(Some(age), 6),
+                blink_frame(age),
+                "age {age}"
+            );
         }
         assert_eq!(blink_crouch_frame(Some(6), 6), None);
         assert_eq!(blink_crouch_frame(None, 6), None);
         assert_eq!(blink_crouch_frame(Some(0), 0), None);
+        assert_eq!(
+            blink_crouch_frame(Some(4), 4),
+            None,
+            "the data can shorten it"
+        );
+        assert_eq!(blink_crouch_frame(Some(3), 4), Some(6));
+    }
+
+    /// Spec 5: the destination is a0 on ages 6-7, the key on 8-10, a2 on 11-12, then locomotion.
+    #[test]
+    fn the_arrival_plays_pop_arrive_settle_then_locomotion() {
+        let f: Vec<Option<usize>> = (5..=13).map(arrive_frame).collect();
+        assert_eq!(
+            f,
+            [
+                None,
+                Some(8),
+                Some(8),
+                Some(9),
+                Some(9),
+                Some(9),
+                Some(10),
+                Some(10),
+                None
+            ]
+        );
+    }
+
+    /// Spec 5 (DMA-Q08): a fizzle is f0 for 4 ticks then f1 for 4.
+    #[test]
+    fn the_fizzle_plays_bonk_then_huff_over_eight_ticks() {
+        let f: Vec<Option<usize>> = (0..=8).map(fizzle_frame).collect();
+        assert_eq!(
+            f,
+            [
+                Some(11),
+                Some(11),
+                Some(11),
+                Some(11),
+                Some(12),
+                Some(12),
+                Some(12),
+                Some(12),
+                None
+            ]
+        );
+    }
+
+    /// Spec 3: `16 * phase + locomotion frame`.
+    #[test]
+    fn the_tail_swap_indexes_two_phases_of_the_locomotion_atlas() {
+        assert_eq!(tail_ready_index(0, 0), 0);
+        assert_eq!(tail_ready_index(0, 15), 15);
+        assert_eq!(tail_ready_index(1, 0), 16);
+        assert_eq!(tail_ready_index(1, 15), 31);
+        assert_eq!(
+            tail_ready_index(1, 19),
+            19,
+            "the locomotion frame wraps at 16"
+        );
+        assert_eq!(
+            tail_ready_index(9, 3),
+            19,
+            "a phase past the table clamps to the last"
+        );
+    }
+
+    /// Spec 5 table: ring_open 3 ticks a frame (12), ring_close (9), fizzle 3 + 3 + 2, the glint's twinkle on the
+    /// 4th on-tick, the swish pair.
+    #[test]
+    fn the_puddle_strip_cues_follow_the_spec_tick_table() {
+        let seq = |k: PuddleVfx, n: u64| -> Vec<Option<usize>> {
+            (0..n).map(|age| puddle_vfx_frame(k, age)).collect()
+        };
+        assert_eq!(
+            seq(PuddleVfx::RingOpen, 13),
+            [
+                Some(0),
+                Some(0),
+                Some(0),
+                Some(1),
+                Some(1),
+                Some(1),
+                Some(2),
+                Some(2),
+                Some(2),
+                Some(3),
+                Some(3),
+                Some(3),
+                None
+            ]
+        );
+        assert_eq!(
+            seq(PuddleVfx::RingClose, 10),
+            [
+                Some(4),
+                Some(4),
+                Some(4),
+                Some(5),
+                Some(5),
+                Some(5),
+                Some(6),
+                Some(6),
+                Some(6),
+                None
+            ]
+        );
+        assert_eq!(
+            seq(PuddleVfx::Fizzle, 9),
+            [
+                Some(9),
+                Some(9),
+                Some(9),
+                Some(10),
+                Some(10),
+                Some(10),
+                Some(11),
+                Some(11),
+                None
+            ]
+        );
+        assert_eq!(
+            seq(PuddleVfx::Glint, 5),
+            [Some(12), Some(12), Some(12), Some(13), None]
+        );
+        assert_eq!(seq(PuddleVfx::Swish, 3), [Some(14), Some(15), None]);
+    }
+
+    #[test]
+    fn the_streak_pieces_sit_after_the_sixteen_strip_frames() {
+        assert_eq!(PUDDLE_DASH_INDEX, 16);
+        assert_eq!(PUDDLE_HEAD_INDEX, 17);
+        assert_eq!(PUDDLE_DASH_RECT.2, 16, "a 16 px tileable dash");
+        assert_eq!(
+            PUDDLE_MOUTH_LIFT_PX,
+            43 - 40,
+            "the in-sprite mouth is centred on canvas row 40, the foot row is 43"
+        );
     }
 
     fn hurt(hurt_ticks: u8) -> HurtInput {

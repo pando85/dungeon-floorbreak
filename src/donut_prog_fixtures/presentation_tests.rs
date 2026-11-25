@@ -286,9 +286,9 @@ fn the_socket_follows_a_whole_blink_cycle() {
     assert_eq!(flashes[562 - 1], None, "the flash is six ticks, 556..=561");
 }
 
-/// The cue state reads the real event log: the ripple starts on the press tick at
-/// her feet, the arrival adds the destination ripple and the one-frame streak, a
-/// seek back clears it.
+/// The cue state reads the real event log: the puddle opens on the press tick at
+/// her feet, the arrival opens the destination puddle, closes the origin one and
+/// adds the one-frame streak and the rising frames, a seek back clears it.
 #[test]
 fn the_cues_read_the_real_event_log() {
     let holds = vec![at(10, circle())];
@@ -307,17 +307,32 @@ fn the_cues_read_the_real_event_log() {
         );
         views.push(cues.view(tick));
     }
-    assert!(views[8].rings.is_empty(), "before the press");
-    assert_eq!(views[9].rings.len(), 1, "the press tick");
-    assert_eq!(views[9].rings[0].x, start_x);
+    assert!(views[8].puddles.is_empty(), "before the press");
+    assert_eq!(views[9].puddles.len(), 1, "the press tick");
+    assert_eq!(views[9].puddles[0].x, start_x);
+    assert_eq!(views[9].puddles[0].frame, 0, "ring_open_0");
     assert!(views[9].streak.is_none());
-    // The arrival is tick 16: the streak for one tick, a ripple at the destination.
+    // The arrival is tick 16: the streak for one tick, a puddle at the destination
+    // (ring_open_0), the origin puddle closing (ring_close_0) and her pop frame.
     let s = views[15].streak.expect("the streak on the arrival tick");
     assert_eq!((s.from_x, s.to_x), (start_x, start_x + 112));
-    assert!(views[15].rings.iter().any(|r| r.x == start_x + 112));
+    assert!(
+        views[15]
+            .puddles
+            .iter()
+            .any(|r| r.x == start_x + 112 && r.frame == 0)
+    );
+    assert!(
+        views[15]
+            .puddles
+            .iter()
+            .any(|r| r.x == start_x && r.frame == 4)
+    );
+    assert_eq!(views[15].arrive, Some(8), "age 6: blink_pop is frame 8");
     assert!(views[16].streak.is_none());
+    assert_eq!(views[17].arrive, Some(9), "age 8: the blink_arrive key");
     cues.step(5, &sim.combat, 0, 0);
-    assert!(cues.view(5).rings.is_empty(), "a seek back resets");
+    assert!(cues.view(5).puddles.is_empty(), "a seek back resets");
 }
 
 /// DP-Q12 end to end over the real grants fixture: the HUD, fed as the scene feeds

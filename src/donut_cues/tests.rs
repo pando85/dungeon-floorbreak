@@ -68,36 +68,35 @@ fn the_arc_rises_to_ten_pixels_and_lands_in_twelve_ticks() {
 }
 
 /// Spec 3.4: while armed, the glint blinks 4 ticks on and 26 off from the arm
-/// tick; the flick is the 6 ticks from the arming (3 out, 3 back); nothing
-/// before the arm.
+/// tick; the flick (DONUT-MOVES-ART-01 spec 3) is `flick_up` for 2 ticks, then
+/// `flick_snap` for 2, then the base locomotion frame; nothing before the arm.
 #[test]
 fn the_glint_blinks_four_on_twenty_six_off_from_the_arm_and_the_flick_is_six_ticks() {
     let mut sim = empty_sim();
     let mut cues = DonutCues::default();
     let mut glint = Vec::new();
     let mut flick = Vec::new();
+    let mut twinkle = Vec::new();
     for _ in 0..800 {
         drive(&mut sim, &mut cues, 1);
         let t = sim.scene.world.tick;
         glint.push((t, cues.glint_on(t)));
         flick.push((t, cues.flick(t)));
+        twinkle.push((t, cues.glint_age(t)));
     }
     let on: Vec<u64> = glint.iter().filter(|g| g.1).map(|g| g.0).collect();
     // Armed on tick 720 (DM-B): on for 720..=723, off 724..=749, on again 750..=753.
     assert_eq!(on[..4], [720, 721, 722, 723], "{on:?}");
     assert_eq!(on[4..8], [750, 751, 752, 753], "{on:?}");
     assert!(on.iter().all(|t| *t >= 720), "nothing before the arm");
-    let flicks: Vec<(u64, bool)> = flick.iter().filter_map(|f| f.1.map(|o| (f.0, o))).collect();
+    // The glint's age inside its window: 0, 1, 2, then 3 (the small twinkle).
+    let ages: Vec<u64> = twinkle.iter().filter_map(|g| g.1).take(8).collect();
+    assert_eq!(ages, [0, 1, 2, 3, 0, 1, 2, 3]);
+    let flicks: Vec<(u64, usize)> = flick.iter().filter_map(|f| f.1.map(|o| (f.0, o))).collect();
     assert_eq!(
         flicks,
-        [
-            (720, true),
-            (721, true),
-            (722, true),
-            (723, false),
-            (724, false),
-            (725, false)
-        ]
+        [(720, 0), (721, 0), (722, 1), (723, 1)],
+        "flick_up 2 ticks, flick_snap 2 ticks, then the base frame (FLICK_TICKS stays {FLICK_TICKS})"
     );
 }
 
@@ -134,7 +133,7 @@ fn the_glint_goes_with_the_evade() {
 }
 
 /// Spec 3.4 evade response: 12 ticks exactly (last tick in, first tick out),
-/// the streak for its first 2, the arc and the two afterimages.
+/// the swish for its first 2 and the arc (the afterimages are retired, DMA-Q06).
 #[test]
 fn the_evade_response_runs_exactly_twelve_ticks_with_a_two_tick_streak() {
     let mut sim = PartyFixtureSim::new(&corridor(), 360, &DM_REFLEX_EVADES_SWING).unwrap();
@@ -160,7 +159,6 @@ fn the_evade_response_runs_exactly_twelve_ticks_with_a_two_tick_streak() {
     assert_eq!(view(741), None, "the first tick out");
     let first = view(729).unwrap();
     assert_eq!((first.age, first.lift_px), (0, 0));
-    assert_eq!(first.afterimages, AFTERIMAGES);
     assert!(first.streak.is_some() && view(730).unwrap().streak.is_some());
     assert_eq!(view(731).unwrap().streak, None, "two ticks");
     assert_eq!(view(735).unwrap().lift_px, ARC_PEAK_PX);

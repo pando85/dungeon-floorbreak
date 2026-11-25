@@ -1,150 +1,216 @@
-//! DM-C: the Bevy half of Donut's reflex cues (spec section 3.4, DM-Q21).
+//! DM-C and DONUT-MOVES-ART-01: the Bevy half of Donut's reflex cues (spec section
+//! 3.4, DM-Q21; art spec `docs/02-art/donut-moves-art-01-spec.md`).
 //!
 //! The pure state is `dungeon_floorbreak::donut_cues::DonutCues`; this file only
-//! draws what it reports. **Presentation only and no new art**: the cues are
-//! code-drawn overlays on her existing approved locomotion frames (the jump-rise
-//! frame for the evade arc and its afterimages, copies of her own tail-tip pixels
-//! for the flick) plus two code-drawn rectangles (the glint, in the brightest
-//! colour of her own atlas, and the white streak). Nothing here writes to the
-//! simulation, the animators or a resource other than its own.
+//! draws what it reports, from the production atlases:
 //!
-//! The smug that follows an evade is the existing CF02-I overlay, started by
-//! `ActingAnimators` (`combat_anim/cf02.rs`); it needs `--cf02` like every other
-//! acting overlay.
-
-use std::collections::VecDeque;
+//! - the ready tell: the tail glint is the Puddle Jumper strip's 3 x 3 plus (the
+//!   small twinkle on the 4th on-tick) on the tail tip, and the tail flick is the
+//!   tail-swap atlas (`flick_up`, `flick_snap`) drawn over her locomotion frame;
+//! - the evade response: the five moves-atlas frames (coil, arch, the twist key,
+//!   untwist, land) with the cosmetic `arc_lift_px` offset, and the strip's swish
+//!   pair on the side the attack came from. The DM-C afterimages are retired
+//!   (DMA-Q06).
+//!
+//! **Presentation only**: nothing here writes to the simulation, the animators or
+//! a resource other than its own. A missing atlas leaves its cue undrawn (her
+//! locomotion sprite stays). The smug that follows an evade is the existing
+//! CF02-I overlay, started by `ActingAnimators` (`combat_anim/cf02.rs`); it needs
+//! `--cf02` like every other acting overlay.
 
 use super::*;
 use dungeon_floorbreak::{
-    anim::Tag,
-    donut_cues::{
-        AtlasCues, DonutCues, GLINT_SIZE_PX, STREAK_HALF_LENGTH_PX, STREAK_THICKNESS_PX,
-        analyze_atlas, arc_lift_px,
-    },
+    actor_sprite::FOOT_SINK_PX,
+    donut_art::{self, PuddleVfx},
+    donut_cues::{AtlasCues, DonutCues, analyze_atlas},
 };
+
+/// The three DONUT-MOVES-ART-01 atlases (moves, tail swap, Puddle Jumper strip), each with its
+/// layout; `None` when the atlas is not on disk.
+#[derive(Clone)]
+pub(super) struct MovesArt {
+    pub moves: Option<(Handle<Image>, Handle<TextureAtlasLayout>)>,
+    pub tail: Option<(Handle<Image>, Handle<TextureAtlasLayout>)>,
+    pub vfx: Option<(Handle<Image>, Handle<TextureAtlasLayout>)>,
+}
+
+/// Load the atlases that exist in `generated/art` and return them with the handles the loading
+/// watchdog waits for. The strip's layout carries two extra entries after its 16 frames: the
+/// tileable streak dash and the streak head.
+pub(super) fn load_art(
+    asset_server: &AssetServer,
+    layouts: &mut Assets<TextureAtlasLayout>,
+) -> (MovesArt, Vec<(String, Handle<Image>)>) {
+    let art_dir = std::env::current_dir()
+        .ok()
+        .map(|root| root.join("generated/art"));
+    let on_disk = |name: &str| art_dir.as_ref().is_some_and(|dir| dir.join(name).is_file());
+    let mut handles = Vec::new();
+    let mut load = |name: &str,
+                    w: u32,
+                    h: u32,
+                    count: usize,
+                    extra: &[(u32, u32, u32, u32, usize)]|
+     -> Option<(Handle<Image>, Handle<TextureAtlasLayout>)> {
+        if !on_disk(name) {
+            return None;
+        }
+        let texture: Handle<Image> = asset_server.load(name.to_owned());
+        handles.push((name.to_owned(), texture.clone()));
+        let mut layout =
+            TextureAtlasLayout::from_grid(UVec2::new(w, h), count as u32, 1, None, None);
+        for &(x, y, rw, rh, frame) in extra {
+            let ox = frame as u32 * w + x;
+            layout.add_texture(URect::new(ox, y, ox + rw, y + rh));
+        }
+        Some((texture, layouts.add(layout)))
+    };
+    let (dx, dy, dw, dh) = donut_art::PUDDLE_DASH_RECT;
+    let (hx, hy, hw, hh) = donut_art::PUDDLE_HEAD_RECT;
+    let art = MovesArt {
+        moves: load(
+            donut_art::MOVES_ATLAS,
+            donut_art::FRAME_W,
+            donut_art::FRAME_H,
+            donut_art::MOVES_FRAMES,
+            &[],
+        ),
+        tail: load(
+            donut_art::TAIL_READY_ATLAS,
+            donut_art::FRAME_W,
+            donut_art::FRAME_H,
+            donut_art::TAIL_READY_FRAMES,
+            &[],
+        ),
+        vfx: load(
+            donut_art::PUDDLE_VFX_ATLAS,
+            donut_art::PUDDLE_VFX_W,
+            donut_art::PUDDLE_VFX_H,
+            donut_art::PUDDLE_VFX_FRAMES,
+            &[
+                (dx, dy, dw, dh, donut_art::PUDDLE_DASH_FRAME),
+                (hx, hy, hw, hh, donut_art::PUDDLE_HEAD_FRAME),
+            ],
+        ),
+    };
+    (art, handles)
+}
+
+/// World centre of a strip sprite whose pivot pixel (the puddle surface row) sits on `foot_y` at
+/// column `x`: the strip's pivot is the foot line, like her frames' pivot.
+pub(super) fn vfx_center(x: f32, foot_y: f32) -> (f32, f32) {
+    let h = donut_art::PUDDLE_VFX_H as f32;
+    let pivot_y = donut_art::PUDDLE_VFX_PIVOT.1 as f32;
+    let off_x = donut_art::PUDDLE_VFX_W as f32 / 2.0 - donut_art::PUDDLE_VFX_PIVOT.0 as f32;
+    (
+        (x + off_x).round(),
+        (foot_y - FOOT_SINK_PX as f32 - (h - 1.0 - pivot_y) + h / 2.0).round(),
+    )
+}
 
 /// The cue sprites, pooled once at startup.
 #[derive(Component, Clone, Copy)]
 pub(super) enum CueSprite {
-    /// The 2 x 2 tail glint.
+    /// The glint (a strip frame) on the tail tip.
     Glint,
-    /// One of the (at most nine) 1 x 1 pixels of the shifted tail tip.
-    Flick(usize),
-    /// Her sprite on the evade arc.
+    /// Her tail-swap frame: the flick, drawn over her locomotion frame.
+    Tail,
+    /// Her moves-atlas frame on the evade arc.
     Arc,
-    /// The `n`th afterimage.
-    After(usize),
-    /// The white streak.
-    Streak,
+    /// The swish (a strip frame).
+    Swish,
 }
-
-/// Opaque pixels of the tail-tip cluster (the tip and its 8-neighbourhood).
-const FLICK_PIXELS: usize = 9;
-
-/// Frames of her own history kept for the afterimages (the longest lag + 1).
-const HISTORY: usize = 8;
 
 /// The cue state of the run, owned by the presenter.
 #[derive(Resource)]
 pub(super) struct DonutCueRes {
     cues: DonutCues,
     texture: Handle<Image>,
-    /// Per-frame tail tips and the glint colour, read once from the loaded atlas.
+    tail_texture: Option<Handle<Image>>,
+    /// The moves atlas was loaded: the evade arc can draw her (else her locomotion sprite stays).
+    has_moves: bool,
+    /// Per-frame tail tips of the locomotion atlas, read once from the loaded atlas.
     atlas: Option<AtlasCues>,
-    /// The atlas had pixels that this presenter cannot read (no glint or flick).
+    /// The same for the tail-swap atlas (the flick moves the tip, so the glint follows it).
+    tail_atlas: Option<AtlasCues>,
+    /// An atlas had pixels that this presenter cannot read (no glint on it).
     unreadable: bool,
-    /// Her drawn centre (x, y) on the last [`HISTORY`] ticks, newest last.
-    history: VecDeque<(f32, f32)>,
-    last_tick: Option<u64>,
 }
 
 /// Spawn the pool of cue sprites and the resource. Called once from `setup`,
 /// only in a combat scene (the cues need the combat log).
 pub(super) fn spawn(
     commands: &mut Commands,
-    actors: &Actors,
     texture: Handle<Image>,
-    layouts: &mut Assets<TextureAtlasLayout>,
     layers: RenderLayers,
     z: f32,
+    art: &MovesArt,
 ) {
-    let layout = layouts.add(TextureAtlasLayout::from_grid(
-        UVec2::new(
-            actors.donut.spec.width as u32,
-            actors.donut.spec.height as u32,
-        ),
-        actors.donut.clips.frame_count as u32,
-        1,
-        None,
-        None,
-    ));
-    let mut rect = |kind: CueSprite, colour: Color, size: Vec2| {
-        commands.spawn((
-            kind,
-            Sprite::from_color(colour, size),
-            Transform::from_xyz(0.0, 0.0, z),
-            Visibility::Hidden,
-            layers.clone(),
-        ));
-    };
-    rect(
-        CueSprite::Glint,
-        Color::WHITE,
-        Vec2::splat(GLINT_SIZE_PX as f32),
-    );
-    rect(CueSprite::Streak, Color::WHITE, Vec2::ONE);
-    for i in 0..FLICK_PIXELS {
-        rect(CueSprite::Flick(i), Color::WHITE, Vec2::ONE);
-    }
-    let mut body = |kind: CueSprite, dz: f32| {
-        commands.spawn((
-            kind,
-            Sprite::from_atlas_image(
-                texture.clone(),
-                TextureAtlas {
-                    layout: layout.clone(),
-                    index: 0,
-                },
-            ),
-            Transform::from_xyz(0.0, 0.0, z + dz),
-            Visibility::Hidden,
-            layers.clone(),
-        ));
-    };
-    body(CueSprite::Arc, 0.0);
-    body(CueSprite::After(0), -0.001);
-    body(CueSprite::After(1), -0.002);
+    let mut sprite =
+        |kind: CueSprite, atlas: &Option<(Handle<Image>, Handle<TextureAtlasLayout>)>, dz: f32| {
+            let Some((texture, layout)) = atlas.clone() else {
+                return;
+            };
+            commands.spawn((
+                kind,
+                Sprite::from_atlas_image(texture, TextureAtlas { layout, index: 0 }),
+                Transform::from_xyz(0.0, 0.0, z + dz),
+                Visibility::Hidden,
+                layers.clone(),
+            ));
+        };
+    sprite(CueSprite::Glint, &art.vfx, 0.02);
+    sprite(CueSprite::Swish, &art.vfx, 0.03);
+    sprite(CueSprite::Arc, &art.moves, 0.005);
+    sprite(CueSprite::Tail, &art.tail, 0.004);
     commands.insert_resource(DonutCueRes {
         cues: DonutCues::default(),
         texture,
+        tail_texture: art.tail.as_ref().map(|(t, _)| t.clone()),
+        has_moves: art.moves.is_some(),
         atlas: None,
+        tail_atlas: None,
         unreadable: false,
-        history: VecDeque::new(),
-        last_tick: None,
     });
 }
 
-/// Read the tail tips and the highlight colour from the loaded atlas, once.
+/// Read the tail tips from the loaded atlases, once each (the highlight colour is no longer needed:
+/// the glint is strip art).
 fn read_atlas(state: &mut DonutCueRes, actors: &Actors, images: &Assets<Image>) {
-    if state.atlas.is_some() || state.unreadable {
+    if state.unreadable {
         return;
     }
-    let Some(image) = images.get(&state.texture) else {
-        return; // still loading
-    };
     let spec = actors.donut.spec;
-    let frames = actors.donut.clips.frame_count;
-    match image.data.as_deref() {
-        Some(data) if data.len() == (image.width() * image.height() * 4) as usize => {
-            state.atlas = Some(analyze_atlas(
-                data,
-                image.width(),
-                spec.width as u32,
-                spec.height as u32,
-                frames,
-            ));
+    let analyse = |texture: &Handle<Image>, frames: usize| -> Option<Option<AtlasCues>> {
+        let image = images.get(texture)?; // still loading
+        Some(match image.data.as_deref() {
+            Some(data) if data.len() == (image.width() * image.height() * 4) as usize => {
+                Some(analyze_atlas(
+                    data,
+                    image.width(),
+                    spec.width as u32,
+                    spec.height as u32,
+                    frames,
+                ))
+            }
+            _ => None,
+        })
+    };
+    if state.atlas.is_none() {
+        match analyse(&state.texture, actors.donut.clips.frame_count) {
+            Some(Some(cues)) => state.atlas = Some(cues),
+            Some(None) => state.unreadable = true,
+            None => {}
         }
-        _ => state.unreadable = true,
+    }
+    if state.tail_atlas.is_none()
+        && let Some(texture) = state.tail_texture.clone()
+    {
+        match analyse(&texture, donut_art::TAIL_READY_FRAMES) {
+            Some(Some(cues)) => state.tail_atlas = Some(cues),
+            Some(None) => state.unreadable = true,
+            None => {}
+        }
     }
 }
 
@@ -186,7 +252,7 @@ pub(super) fn sync_donut_cues(
     state.cues.step(tick, combat, donut_x);
 
     // Her locomotion sprite as the earlier systems left it this frame.
-    let Some((center, flip, frame, tint, shown, z)) = base
+    let Some((center, flip, frame, tint, shown)) = base
         .iter()
         .find(|(actor, ..)| !actor.is_hero)
         .map(|(_, transform, sprite, visibility)| {
@@ -196,7 +262,6 @@ pub(super) fn sync_donut_cues(
                 sprite.texture_atlas.as_ref().map_or(0, |a| a.index),
                 sprite.color,
                 *visibility != Visibility::Hidden,
-                transform.translation.z,
             )
         })
     else {
@@ -204,30 +269,30 @@ pub(super) fn sync_donut_cues(
         return;
     };
 
-    // Her drawn centre on each new tick, for the afterimages.
-    if state.last_tick != Some(tick) {
-        if state.last_tick.is_some_and(|last| tick < last) {
-            state.history.clear();
-        }
-        state.last_tick = Some(tick);
-        state.history.push_back((center.x, center.y));
-        while state.history.len() > HISTORY {
-            state.history.pop_front();
-        }
-    }
-
     let spec = actors.donut.spec;
     let (w, h) = (spec.width as f32, spec.height as f32);
     let evade = state.cues.evade(tick);
-    let arc_on = evade.is_some() && shown;
-    let jump_rise = actors.donut.clips.clip(Tag::JumpRise).first;
-    let glint = state.cues.glint_on(tick) && shown && evade.is_none();
-    let flick = state.cues.flick(tick).filter(|_| shown && evade.is_none());
-    let tip = state
-        .atlas
-        .as_ref()
-        .and_then(|a| a.tips.get(frame).and_then(Option::as_ref));
-    let highlight = state.atlas.as_ref().map(|a| a.highlight);
+    let arc_on = evade.is_some() && shown && state.has_moves;
+    let glint = state
+        .cues
+        .glint_age(tick)
+        .filter(|_| shown && evade.is_none());
+    let flick = state
+        .cues
+        .flick(tick)
+        .filter(|_| shown && evade.is_none() && state.tail_texture.is_some());
+    // The tail-swap frame replaces the locomotion frame for the flick; the glint follows its tip.
+    let tail_index = flick.map(|phase| donut_art::tail_ready_index(phase, frame));
+    let tip = match tail_index {
+        Some(index) => state
+            .tail_atlas
+            .as_ref()
+            .and_then(|a| a.tips.get(index).and_then(Option::as_ref)),
+        None => state
+            .atlas
+            .as_ref()
+            .and_then(|a| a.tips.get(frame).and_then(Option::as_ref)),
+    };
 
     // Pixel (x, y from the top) of her current frame to world coordinates.
     let to_world = |px: f32, py: f32| -> (f32, f32) {
@@ -240,83 +305,80 @@ pub(super) fn sync_donut_cues(
     };
 
     for (kind, mut transform, mut sprite, mut visibility) in &mut cues {
-        // Where the cue is drawn (`None` hides it) and its depth above her sprite.
-        let (at, dz): (Option<(f32, f32)>, f32) = match *kind {
+        // Where the cue is drawn (`None` hides it), its strip or atlas frame and its depth.
+        let (at, index): (Option<(f32, f32)>, usize) = match *kind {
             CueSprite::Glint => {
-                // A 2 x 2 glint on the tip pixel and the pixel inward and below.
-                let at = match (tip.filter(|_| glint), highlight) {
-                    (Some(t), Some([r, g, b])) => {
-                        let inward = if flip { -1.0 } else { 1.0 };
+                // The strip's plus is centred on its pivot pixel: put that pixel on the tail tip.
+                let frame = glint
+                    .and_then(|age| donut_art::puddle_vfx_frame(PuddleVfx::Glint, age))
+                    .unwrap_or(0);
+                let at = match (tip.filter(|_| glint.is_some()), donut_art::PUDDLE_VFX_PIVOT) {
+                    (Some(t), (pivot_x, pivot_y)) => {
                         let (x, y) = to_world(t.x as f32 + 0.5, t.y as f32 + 0.5);
-                        sprite.color = Color::srgb_u8(r, g, b);
-                        Some((x + inward * 0.5, y - 0.5))
+                        let off_x = donut_art::PUDDLE_VFX_W as f32 / 2.0 - (pivot_x as f32 + 0.5);
+                        let off_y = (pivot_y as f32 + 0.5) - donut_art::PUDDLE_VFX_H as f32 / 2.0;
+                        Some((x + off_x, y + off_y))
                     }
                     _ => None,
                 };
-                (at, 0.02)
+                (at, frame)
             }
-            CueSprite::Flick(i) => {
-                // The tail-tip pixels again, one pixel higher while shifted out.
-                let at = tip
-                    .filter(|_| flick == Some(true))
-                    .and_then(|t| t.cluster.get(i))
-                    .map(|&(px, py, c)| {
-                        let (x, y) = to_world(px as f32 + 0.5, py as f32 + 0.5);
-                        sprite.color = Color::srgba_u8(c[0], c[1], c[2], c[3]);
-                        (x, y + 1.0)
-                    });
-                (at, 0.015)
-            }
-            CueSprite::Arc => {
-                let at = evade.filter(|_| arc_on).map(|view| {
-                    if let Some(atlas) = sprite.texture_atlas.as_mut() {
-                        atlas.index = jump_rise;
-                    }
+            CueSprite::Tail => {
+                let at = tail_index.map(|_| (center.x, center.y));
+                if at.is_some() {
                     sprite.flip_x = flip;
                     sprite.color = tint;
-                    (center.x, center.y + view.lift_px as f32)
-                });
-                (at, 0.005)
+                }
+                (at, tail_index.unwrap_or(0))
             }
-            CueSprite::After(n) => {
-                let at = evade.filter(|_| arc_on).and_then(|view| {
-                    let (lag, alpha) = *view.afterimages.get(n)?;
-                    // Where she stood `lag` ticks ago (the oldest kept, early on).
-                    let back = (lag as usize).min(state.history.len().saturating_sub(1));
-                    let (x, y) = state.history[state.history.len() - 1 - back];
-                    if let Some(atlas) = sprite.texture_atlas.as_mut() {
-                        atlas.index = jump_rise;
-                    }
+            CueSprite::Arc => {
+                let view = evade.filter(|_| arc_on);
+                let at = view.map(|v| (center.x, center.y + v.lift_px as f32));
+                if at.is_some() {
                     sprite.flip_x = flip;
-                    sprite.color = Color::srgba(1.0, 1.0, 1.0, alpha);
-                    Some((x, y + arc_lift_px(view.age.saturating_sub(lag)) as f32))
-                });
-                (at, 0.004 - 0.001 * n as f32)
+                    sprite.color = tint;
+                }
+                (
+                    at,
+                    view.and_then(|v| donut_art::evade_frame(v.age))
+                        .unwrap_or(0),
+                )
             }
-            CueSprite::Streak => {
-                let at = evade.and_then(|view| {
+            CueSprite::Swish => {
+                // The visible path of the attack she slipped, on the side it came from: drawn
+                // travelling toward her, so an attacker on her right flips it.
+                let view = evade.and_then(|view| {
                     let side = view.streak?;
-                    sprite.custom_size = Some(Vec2::new(
-                        (2 * STREAK_HALF_LENGTH_PX) as f32,
-                        STREAK_THICKNESS_PX as f32,
-                    ));
-                    sprite.color = Color::WHITE;
-                    // Across her body, on the side the attack came from.
-                    Some((center.x + f32::from(side) * 6.0, center.y + 2.0))
+                    let frame = donut_art::puddle_vfx_frame(PuddleVfx::Swish, view.age)?;
+                    Some((side, frame))
                 });
-                (at, 0.03)
+                match view {
+                    Some((side, frame)) => {
+                        sprite.flip_x = side > 0;
+                        sprite.color = Color::WHITE;
+                        (
+                            Some((center.x + f32::from(side) * 6.0, center.y + 2.0)),
+                            frame,
+                        )
+                    }
+                    None => (None, 14),
+                }
             }
         };
         match at {
             Some((x, y)) => {
-                transform.translation = Vec3::new(x, y, z + dz);
+                transform.translation.x = x;
+                transform.translation.y = y;
+                if let Some(atlas) = sprite.texture_atlas.as_mut() {
+                    atlas.index = index;
+                }
                 *visibility = Visibility::Inherited;
             }
             None => *visibility = Visibility::Hidden,
         }
     }
-    // The arc draws her: the locomotion sprite steps aside while it runs.
-    if arc_on {
+    // The arc or the tail swap draws her: the locomotion sprite steps aside while it runs.
+    if arc_on || tail_index.is_some() {
         for (actor, _, _, mut visibility) in &mut base {
             if !actor.is_hero {
                 *visibility = Visibility::Hidden;
