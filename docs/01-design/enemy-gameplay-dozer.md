@@ -1,6 +1,6 @@
 # ENEMY-GAMEPLAY-DOZER: the revenge Dozer and room 3 (DOZER-CORE design note)
 
-> **Status: design adopted under the owner's design-defaults directive (AGENTS.md, 2026-11-19); docs only, nothing here is implemented, nothing is game-feel accepted.** **Revision 1** applies the independent review of #273: findings 1 to 4 (rescue placement, the off-screen regroup, the buffer stop and the parked wheel, the front impact collider) and 5 to 13 (section 18).
+> **Status: design adopted under the owner's design-defaults directive (AGENTS.md, 2026-11-19); docs only, nothing here is implemented, nothing is game-feel accepted.** **Revision 1** applies the independent review of #273: findings 1 to 4 (rescue placement, the off-screen regroup, the buffer stop and the parked wheel, the front impact collider) and 5 to 13 (section 18). **Revision 2** applies the re-review: the rescue places the bot on the floor at its own foot height (R1), prefers an in-view lane spot (R2), the AI rule is narrowed to what the fixtures assert (R3), and the parked wheel holds still (R4).
 > Every tuning value below has one adopted value with a `DZ-Q##` ID and a data key (section 12), stored in `assets/data/gameplay/enemy_dozer_v0.json` or in the room sidecar. Every design resolution is a `DZ-AD##` (section 11). Only section 13 (`DZ-OQ##`) waits for the owner; none of it blocks implementation. The owner reviews game feel after the implementation merges and may change any value in a follow-up PR.
 > Design: Claude Opus (top tier). Execution: medium tier, steps DOZER-CORE, DR-A, DR-B, DR-C, DR-D, the conditional CA2-DZ and the art order DOZ-02 (section 14). Review: a separate top-tier agent.
 
@@ -107,7 +107,7 @@ stateDiagram-v2
 | `dormant` | parked off-room, O = −136 (wheel front at the gate's right edge, x 32) | off | off | none | none (the gate is still) |
 | `approaching` | none | off | off | none | the rear gate shakes, puffs over it every 12 ticks, a kettle steam burst, the familiar approach sound (never needed for safety) |
 | `committed_chase` | right, speed band of section 4.2 | **lethal** | push box | machine + lead zone | cruise wheel and tread, rattle, rider idle, yells within 120 px of a hero |
-| `escaped` (terminal) | brake: 24 ticks with the DOZ-01 4 px slide, ending with the wheel front exactly at `stop_x`; then strain for 90 ticks, then idle | **lethal during the 24 brake ticks only**, then off (the wheel stops against the buffer) | push box | machine row only | brake and strain keys, steam, riders jeer (yell loop) |
+| `escaped` (terminal) | brake: 24 ticks with the DOZ-01 4 px slide, ending with the wheel front exactly at `stop_x`; then strain for 90 ticks, then idle | **lethal during the 24 brake ticks only**, then off (the wheel stops against the buffer) | push box | machine row only | brake keys; from the end of the brake the **wheel and tread frames hold still** (a still wheel reads as harmless, a spinning one as lethal; DV-7); strain shows only the hull rattle, smoke and steam; riders jeer (yell loop) |
 | `impact_stunned` | stops on the landing tick | off from this tick (jammed) | push box | machine row only | jammed front, hull pitch, smoke and steam bursts, riders lurch forward (new art, section 15) |
 | `disabled` (terminal) | none | off | push box | machine row only | damaged overlays, slow smoke, driver slumped |
 
@@ -211,8 +211,10 @@ x:  0  32        224                  640    720  800 816              1000  100
 
 **Rule.** In every mode, while the wheel is lethal, an AI-driven hero (the autonomous Donut of a Carl-solo run, the assisted Carl of a Donut-solo run, any `cf02_assist` partner):
 - never has its centre behind the axle;
-- is never inside the machine envelope or the lead zone, nor between the leader and the wheel;
+- is never **placed** by any regroup (the Dozer's rescue or the companion's off-screen regroup) inside a Dozer row or between the leader and the wheel: asserted for the rescue in DOZER-CORE; counted for the companion regroup in DOZER-CORE and required to be 0 before DR-A lists the room (the CA2-DZ trigger, DZ-Q24);
 - is never touched by the wheel.
+
+This is the scope the fixtures assert (section 10) and K5's own wording ("the regroup places it ahead of the Dozer"). A follow partner that **walks** behind its leader may trail between the leader and the wheel; the lead zone and the fence keep it out of reach, and the touch and behind-the-axle asserts cover the outcome.
 
 Nothing makes any hero immune to the wheel.
 
@@ -240,12 +242,11 @@ The Dozer supplies no `BossThreat` (R-4), and a Dozer room admits no other suppl
   - its body comes within **24 px** of the wheel front;
   - its centre is behind the axle;
   - the wheel would reach it outside the view.
-- **What it does:** the Dozer emits `SlotOut.regroup(bot, x)`, the slot channel the Hoarder uses for HRD-Q41. The placement is always **beyond the machine's reach**:
-
-  `x = clamp(max(leader x + 48, lead-zone front + 24, stop_x + 48), stop_x + 48, exit left − 16)`
-
-  That is on the tunnel floor, at x 1048..1248 in room 3, never in front of the arriving or parked wheel.
-- **No re-fire.** The spot is past `stop_x`, the band never reaches it and the lead zone ends short of it, so a rescue cannot re-fire on the next tick. A fixture asserts at most one rescue per bot per 120 ticks.
+- **What it does:** the Dozer emits a new **`SlotOut.place(bot, x, foot_y)`** entry: the bot is put at rest (vx = vy = 0, `prev == cur` for the swept tests) **standing on the floor at its own foot height** (`foot_y` = the walking line). It does **not** use `SlotOut.regroup`, the slot channel the Hoarder uses for HRD-Q41, because that one copies the **leader's** body y: a rescue fired while the leader jumps would put the bot's body top above the 112 px lintel and embed it in the tunnel ceiling (re-review R1). `place` is appended to `SlotOut` in `src/scene_enemy.rs` and applied and hashed in `src/combat_scene/slot.rs` next to `regroup`; the existing `regroup` is unchanged, so the Hoarder's goldens do not move.
+- **Where** (two spots, both on the floor, both beyond the machine's reach):
+  - the **lane spot** `x_lane = max(leader x + 48, lead-zone front + 24)`, used when `x_lane ≤ stop_x − 32`, `x_lane` is inside the sim view by at least 24 px, and this bot had no rescue in the last 120 ticks. It keeps the bot on screen near its leader, so the off-screen regroup has no reason to pull it back (re-review R2). From there the bot is 168 px ahead of the wheel front, 54 ticks of standing still at cruise before the band could reach it again;
+  - otherwise the **tunnel spot** `x = clamp(max(x_lane, stop_x + 48), stop_x + 48, exit left − 16)`: on the tunnel floor, at x 1048..1248 in room 3, never in front of the arriving or parked wheel, never re-fired (the band never reaches it, and the lead zone ends short of it).
+- **No loop.** A second rescue of the same bot within 120 ticks always takes the tunnel spot, so a bot is rescued at most twice in any 120 ticks and the second one ends the sequence. Rescue-then-off-screen-regroup cycles are counted and reported with the CA2-DZ counts.
 - **Logging and modes:** each rescue is logged as `DozerEvent::AiRescue`. 2P has no bots and no rescue.
 - **Budget:** it is a **backstop**. Its count is the CA2-DZ trigger (section 7.5).
 
@@ -317,7 +318,7 @@ All at seeds 0..8. Every fixture replays twice with a committed hash. No existin
 | Check | Fixture(s) | Expectation |
 | --- | --- | --- |
 | K5 | `dz_k5_{mode}_{run,stall,close_call,wait}_s0..s8` (in DOZER-CORE) | Hard asserts: no hero is touched; every hero reaches the exit; speed ≤ 185 and cruise ≤ 170 at every tick; **0 AI wheel contacts**; no AI centre behind the axle for more than the one tick a rescue takes; no hero stuck over 300 ticks. Each band (catch-up, cruise, mercy) is entered at least once across the matrix (close_call and wait reach mercy). Reported, not asserted: ticks per band, rescues per bot, companion off-screen regroups toward the machine, nav rebuilds. These counts are the CA2-DZ trigger |
-| Rescue placement | `dz_rescue_leader_in_tunnel`, `dz_rescue_no_loop`, `dz_rescue_behind_axle` | The leader in the tunnel and the bot trailing: the bot lands at ≥ `stop_x` + 48 and is never touched. At most one rescue per bot per 120 ticks. A bot placed behind the axle is rescued ahead on that tick |
+| Rescue placement | `dz_rescue_leader_in_tunnel`, `dz_rescue_at_leader_apex`, `dz_rescue_lane_spot`, `dz_rescue_no_loop`, `dz_rescue_behind_axle` | The leader in the tunnel and the bot trailing: the bot lands at ≥ `stop_x` + 48 and is never touched. A rescue fired while the leader is at the apex of a jump (Carl and Donut, boosted too) puts the bot standing on the floor, never inside a solid (no overlap with the lintel or any solid on the placement tick). An early-lane rescue uses the in-view lane spot. At most two rescues per bot per 120 ticks, the second at the tunnel spot. A bot placed behind the axle is rescued ahead on that tick |
 | DOZR-01 | the run pilots above | Every mode reaches the exit without touching the frame or the brace |
 | DOZR-02 | `dz_frame_early_miss` (DR-B) | Released with the wheel front at 400: lands, misses, the machine rolls over the remnant, the run escapes |
 | DOZR-03 | `dz_frame_disable_once`, `dz_frame_window_sweep`, `dz_frame_rear_glance` (DR-B) | One `impact_stunned` on the landing tick, exactly once. The sweep's hit window equals `release_window` exactly. A rear-only landing is a miss |
@@ -362,7 +363,7 @@ All at seeds 0..8. Every fixture replays twice with a committed hash. No existin
 | DZ-AD18 | Display and data call it "a Dozer of the same family" (the doc's label); engine names stay generic (`dozer`, a tracked pursuit machine), with no franchise name in types or data keys |
 | DZ-AD19 | One checkpoint (the entry); any party defeat retries from R0. The room is short, and the doc asks for fast retry |
 | DZ-AD20 | **The escaped wheel is lethal only during its 24-tick brake,** and the machine feeds only its Active row once it leaves `committed_chase`. A parked machine is an obstacle, not a trap, and never evicts the AI from the tunnel mouth |
-| DZ-AD21 | **The rescue always lands beyond `stop_x`** (section 7.3), and it also catches a bot behind the axle |
+| DZ-AD21 | **The rescue lands beyond the machine's reach, standing on the floor** through `SlotOut.place` (section 7.3): an in-view lane spot ahead of the lead zone when it is safe, else the tunnel beyond `stop_x`. It also catches a bot behind the axle |
 
 ## 12. Tuning values (`DZ-Q##`, data)
 
@@ -386,7 +387,7 @@ Machine and fairness values live in `enemy_dozer_v0.json` (keys `dzq##_...`); ro
 | DZ-Q14 | sidecar `dozer.dzq14_stop_x`; `dzq14_brake_ticks`, `dzq14_brake_slide_px`, `dzq14_strain_ticks`, `dzq14_lethal_in_brake` | 1000; 24, 4, 90, true (off after the brake) | DOZ-01 section 5, DZ-AD20 |
 | DZ-Q15 | `dzq15_stunned_ticks` | 48 | new |
 | DZ-Q16 | `dzq16_nav_lead_px`, `dzq16_nav_grid_px` | 144, 16 | #220 ruling 6 |
-| DZ-Q17 | `dzq17_rescue_band_px`, `dzq17_rescue_ahead_px`, `dzq17_rescue_past_stop_px`, `dzq17_rescue_exit_margin_px`, `dzq17_rescue_min_spacing_ticks` | 24, 48, 48, 16, 120 | DZ-AD21 |
+| DZ-Q17 | `dzq17_rescue_band_px`, `dzq17_rescue_ahead_px`, `dzq17_rescue_zone_margin_px`, `dzq17_rescue_past_stop_px`, `dzq17_rescue_exit_margin_px`, `dzq17_lane_spot_stop_margin_px`, `dzq17_lane_spot_view_margin_px`, `dzq17_rescue_min_spacing_ticks` | 24, 48, 24, 48, 16, 32, 24, 120 | DZ-AD21 |
 | DZ-Q18 | sidecar prop `stop_frame` (`kind: weight_rig`, `target`, `hang_px`, `remnant`) and hazard `frame_fall` (`rect`, `telegraph_rect`, `telegraph_ticks`, `damage`, `push_x`, `hero_damage`, `hurts_enemies`) | footprint x 640..720 × 96, hang 168, remnant × 16, telegraph 30, fall 8 (engine default), hero damage 1, push 120, release weight 2 (engine default) | Boiler P2, HRD-Q26..Q28, doc 24–36 |
 | DZ-Q19 | the prop's `target` | x 800..816 × 64, back wall | new |
 | DZ-Q20 | sidecar roster `rider_a` / `rider_b`: `mount`, `dzq20_land_dx` (32, 72), `dzq20_down_ticks` 45, `dzq20_nudge_px` 32, `dzq20_max_nudges` 2, temperament | brawler, coward | new |
@@ -418,7 +419,8 @@ Every step uses the medium tier, an independent top-tier review and the full loc
 - **Files:**
   - **new:** `src/dozer.rs` (pure: the profile, states, speed band, `release_window`, wheel, push box, nav rows, rescue rule and events); `assets/data/gameplay/enemy_dozer_v0.json`; `src/combat_scene/dozer.rs` (the slot module); `assets/levels/floor01/f01_dozer.room.json` and `f01_dozer.encounter.json` (chase only, no prop yet); `src/f01_dozer.rs` (`launch` and `combat`, the Hoarder pattern, library only); `src/dozer_fixtures.rs`;
   - **edited:**
-    - `src/scene_enemy.rs`: register `dozer`; append the default `nav_rects()`;
+    - `src/scene_enemy.rs`: register `dozer`; append the default `nav_rects()`; append the `SlotOut.place` entry (hero, x, foot y);
+    - `src/combat_scene/slot.rs`: apply and hash `place` next to `regroup` (not a one-owner file);
     - `src/combat_scene/slime.rs`: the one feed loop;
     - `src/combat.rs`: one appended `CombatEvent::Dozer` and the exhaustive arms (the `combat.rs` queue);
     - `src/encounter.rs`: the `dozer` roster kind and the rules of section 9 that need no prop;
@@ -508,6 +510,7 @@ DR-C goes first (a disable then ends with the crew slumped aboard), then DR-B (r
 | DV-3 | doc: 1280–1440 px, 10–20 s of flight, a 60–100 s set piece | 1344 px; about 4–6 s of flight; an escape-only clear of about 10 s | the doc's numbers disagree at real run speeds; DR-D measures |
 | DV-4 | plan K5: the charge as `BossThreat::Charge` | no `BossThreat` supplier in a Dozer room | R-4 |
 | DV-5 | plan 4.5: room files owned by DR-A | owned by DOZER-CORE | DZ-AD12 |
+| DV-7 | DOZ-01 section 5: the wheel turns at 3 ticks per frame in strain | in room 3 the wheel and tread hold still from the end of the brake | the parked wheel is not lethal, and a spinning one would read as a trap |
 | DV-6 | plan 4.5: DOZER-CORE acceptance item 4 lists DOZR-01, 03, 05 and 07; room files `f01_dozer_revenge.*`; DR-B depends on BOIL-D | DOZR-03 moves to DR-B (the frame lands there); files `f01_dozer.*`; BOIL-D is merged, so it is no longer a pending dependency; CA2-DZ is a new conditional step before DR-A | the frame does not exist before DR-B; the scene id matches the manifest id `dozer` |
 
 ## 17. Horizon fit, tone and rights
@@ -516,7 +519,7 @@ DR-C goes first (a disable then ends with the crew slumped aboard), then DR-B (r
 - **Tone:** the [antihero tone](antihero-tone.md) holds. The heroes do not beat the machine in a fair fight: they run, and a scrappy one waits with his back to a wall and drops a press on it. The riders stay grimy and a little ridiculous, and the reversal is player-authored, never a cutscene.
 - **Rights:** no new art, text or third-party material in this note. The Dozer, rider and driver names are the replaceable fan-concept layer; the encounter is an original adaptation, not a claim about the novel.
 
-## 18. Revision 1 resolutions (independent review of #273)
+## 18. Revision 1 and 2 resolutions (independent review and re-review of #273)
 
 | Finding | Resolution |
 | --- | --- |
@@ -533,3 +536,7 @@ DR-C goes first (a disable then ends with the crew slumped aboard), then DR-B (r
 | 11 Contract gaps | `alive()` and `hp()`, the Dozer-owned volume, `hurts_enemies` false, the gap fallback, named restart kinds, the rider spot after two nudges (sections 4, 8 and 10) |
 | 12 DZ-OQ3 | Moved to the game-feel items |
 | 13 Sources | DV-3 adds the total duration; the regroup channel is the Hoarder's; section 7.5 cites the owner's "do not modify companion movement" |
+| Re-review R1 | The rescue uses a new `SlotOut.place` with an explicit floor foot height; `dz_rescue_at_leader_apex` |
+| Re-review R2 | The in-view lane spot first, the tunnel spot otherwise and on a second rescue; cycles reported |
+| Re-review R3 | The rule now says "never placed by a regroup between the leader and the wheel", which is asserted; walking trail is allowed |
+| Re-review R4 | The wheel and tread hold still after the brake (DV-7) |
