@@ -1057,8 +1057,10 @@ fn run_sim(
     let mut max_stuck = [0u32; 2];
     let mut cleared_tick = None;
     let mut exit_tick = None;
-    let mut deaths = 0u32;
-    let mut last_restarts = sim.combat.restarts;
+    // RING-FU-A (review F1 of #271): a hero defeat in a room with checkpoints
+    // respawns the party without a restart, so the count is the combat state's
+    // own `deaths`, never the restart counter.
+    let deaths_at_start = sim.combat.deaths;
     let mut swap_pressed = false;
     // FA-Q13: the stall run of the controlled hero.
     let mut stall = Stall::default();
@@ -1127,10 +1129,6 @@ fn run_sim(
             max_stuck[i] = max_stuck[i].max(stuck[i]);
             last_x[i] = x;
         }
-        if sim.combat.restarts != last_restarts {
-            deaths += 1;
-            last_restarts = sim.combat.restarts;
-        }
         if cleared_tick.is_none() && sim.combat.roster_cleared() {
             cleared_tick = Some(sim.scene.world.tick);
         }
@@ -1159,7 +1157,7 @@ fn run_sim(
         exit_tick,
         max_stuck,
         max_stall_ticks: stall.max,
-        deaths,
+        deaths: sim.combat.deaths - deaths_at_start,
         hero_hurts,
         hash: sim.state_hash(),
         ticks: sim.scene.world.tick,
@@ -1479,6 +1477,35 @@ mod tests {
 
     fn root() -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+    }
+
+    /// RING-FU-A (review F1 of #271): `Report::deaths` sees a defeat that the
+    /// checkpoint respawns without a restart. Carl solo at seed 2 is defeated
+    /// once, logs no `Restart`, and the report says 1 (the restart counter said
+    /// 0); at seed 0 he is never defeated.
+    #[test]
+    fn the_death_count_sees_a_defeat_the_checkpoint_respawns_without_a_restart() {
+        let count = |r: &Report, restart: bool| {
+            r.events
+                .iter()
+                .filter(|e| {
+                    if restart {
+                        matches!(e, CombatEvent::Restart { .. })
+                    } else {
+                        matches!(e, CombatEvent::HeroDefeated { .. })
+                    }
+                })
+                .count()
+        };
+        let r = run(&root(), Who::CarlSolo, 2).unwrap();
+        assert_eq!(
+            (r.deaths, count(&r, false), count(&r, true)),
+            (1, 1, 0),
+            "{}",
+            r.line()
+        );
+        let r = run(&root(), Who::CarlSolo, 0).unwrap();
+        assert_eq!((r.deaths, count(&r, false)), (0, 0), "{}", r.line());
     }
 
     /// The room as `--scene f01_late --f01-room mastery` builds it under the story

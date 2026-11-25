@@ -14,8 +14,9 @@
 //! the PLAYTRACE verifier share:
 //!
 //! * the court's **static closed shutter** (`initial: closed`, KR3 clause 5)
-//!   is an env prop of the env step: one block (its closed footprint, no
-//!   slice seams for a blast to pass, review F5 of #271) appended to
+//!   is an env prop of the env step: one block (its closed footprint,
+//!   RINGW-AD8 after review F5 of #271; since RING-FU-A a blast's line of
+//!   sight is blocked along slice seams too, and the one block is kept) appended to
 //!   `scene.world.solids` by the KR6 sync (Timber, so the companion's nav
 //!   updates stay incremental), standing for the whole attempt. Collision, the
 //!   goblin's `wall_stop` (the CF02-B slam), the Magic Missile and the

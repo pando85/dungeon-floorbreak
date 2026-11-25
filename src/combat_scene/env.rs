@@ -252,12 +252,13 @@ pub enum EnvSolidKind {
     /// RING-B wire: a **static** shutter's closed stack as **one** block (its
     /// footprint). `EnvSolid::prop` is the shutter's prop index; it stands while
     /// every slice of the machine stands, which a static closed shutter keeps for
-    /// the whole attempt. Not KR6's 17 slices of 4 px: a blast's line of sight
-    /// (`blast::line_of_sight`) passes a segment that only touches block edges,
-    /// and a charge on the floor has its centre 8 px up, exactly on a slice seam,
-    /// so a sliced stack let the dynamite through the closed shutter (review F5
-    /// of #271). The moving shutter's slices are RING-C wire's, which must close
-    /// that seam first.
+    /// the whole attempt. Not KR6's 17 slices of 4 px (RINGW-AD8): a floor
+    /// charge's centre (8 px up) lies exactly on a slice seam, and before
+    /// RING-FU-A `blast::line_of_sight` passed a segment that only touched block
+    /// edges, so a sliced stack let the dynamite through (review F5 of #271).
+    /// RING-FU-A (BLAST-SEAM) blocks a seam two intact blocks share, so slices
+    /// would now block too; the one block is kept (RFA-AD1) so collision and nav
+    /// see one rectangle. The moving shutter's solids are RING-C wire's.
     ShutterStack,
 }
 
