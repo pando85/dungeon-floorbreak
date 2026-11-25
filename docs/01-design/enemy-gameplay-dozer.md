@@ -242,7 +242,7 @@ The Dozer supplies no `BossThreat` (R-4), and a Dozer room admits no other suppl
   - its body comes within **24 px** of the wheel front;
   - its centre is behind the axle;
   - the wheel would reach it outside the view.
-- **What it does:** the Dozer emits a new **`SlotOut.place(bot, x, foot_y)`** entry: the bot is put at rest (vx = vy = 0, `prev == cur` for the swept tests) **standing on the floor at its own foot height** (`foot_y` = the walking line). It does **not** use `SlotOut.regroup`, the slot channel the Hoarder uses for HRD-Q41, because that one copies the **leader's** body y: a rescue fired while the leader jumps would put the bot's body top above the 112 px lintel and embed it in the tunnel ceiling (re-review R1). `place` is appended to `SlotOut` in `src/scene_enemy.rs` and applied and hashed in `src/combat_scene/slot.rs` next to `regroup`; the existing `regroup` is unchanged, so the Hoarder's goldens do not move.
+- **What it does:** the Dozer emits a new **`SlotOut.place(bot, x, foot_y)`** entry: the bot is put at rest (vx = vy = 0, `prev == cur` for the swept tests) **standing on the floor at its own foot height**: `foot_y` is the top of the highest solid under the bot's body span at x (the walking line, or a 16 px remnant after an early miss: the remnant-lift precedent; DR-B adds the remnant case and its fixture). It does **not** use `SlotOut.regroup`, the slot channel the Hoarder uses for HRD-Q41, because that one copies the **leader's** body y: a rescue fired while the leader jumps would put the bot's body top above the 112 px lintel and embed it in the tunnel ceiling (re-review R1). `place` is appended to `SlotOut` in `src/scene_enemy.rs` and applied and hashed in `src/combat_scene/slot.rs` next to `regroup`; the existing `regroup` is unchanged, so the Hoarder's goldens do not move.
 - **Where** (two spots, both on the floor, both beyond the machine's reach):
   - the **lane spot** `x_lane = max(leader x + 48, lead-zone front + 24)`, used when `x_lane ≤ stop_x − 32`, `x_lane` is inside the sim view by at least 24 px, and this bot had no rescue in the last 120 ticks. It keeps the bot on screen near its leader, so the off-screen regroup has no reason to pull it back (re-review R2). From there the bot is 168 px ahead of the wheel front, 54 ticks of standing still at cruise before the band could reach it again;
   - otherwise the **tunnel spot** `x = clamp(max(x_lane, stop_x + 48), stop_x + 48, exit left − 16)`: on the tunnel floor, at x 1048..1248 in room 3, never in front of the arriving or parked wheel, never re-fired (the band never reaches it, and the lead zone ends short of it).
@@ -420,7 +420,7 @@ Every step uses the medium tier, an independent top-tier review and the full loc
   - **new:** `src/dozer.rs` (pure: the profile, states, speed band, `release_window`, wheel, push box, nav rows, rescue rule and events); `assets/data/gameplay/enemy_dozer_v0.json`; `src/combat_scene/dozer.rs` (the slot module); `assets/levels/floor01/f01_dozer.room.json` and `f01_dozer.encounter.json` (chase only, no prop yet); `src/f01_dozer.rs` (`launch` and `combat`, the Hoarder pattern, library only); `src/dozer_fixtures.rs`;
   - **edited:**
     - `src/scene_enemy.rs`: register `dozer`; append the default `nav_rects()`; append the `SlotOut.place` entry (hero, x, foot y);
-    - `src/combat_scene/slot.rs`: apply and hash `place` next to `regroup` (not a one-owner file);
+    - `src/combat_scene/slot.rs`: apply `place` next to `regroup` and mix it into the hash **only when it is non-empty**, so no existing golden moves (not a one-owner file);
     - `src/combat_scene/slime.rs`: the one feed loop;
     - `src/combat.rs`: one appended `CombatEvent::Dozer` and the exhaustive arms (the `combat.rs` queue);
     - `src/encounter.rs`: the `dozer` roster kind and the rules of section 9 that need no prop;
@@ -510,8 +510,8 @@ DR-C goes first (a disable then ends with the crew slumped aboard), then DR-B (r
 | DV-3 | doc: 1280–1440 px, 10–20 s of flight, a 60–100 s set piece | 1344 px; about 4–6 s of flight; an escape-only clear of about 10 s | the doc's numbers disagree at real run speeds; DR-D measures |
 | DV-4 | plan K5: the charge as `BossThreat::Charge` | no `BossThreat` supplier in a Dozer room | R-4 |
 | DV-5 | plan 4.5: room files owned by DR-A | owned by DOZER-CORE | DZ-AD12 |
-| DV-7 | DOZ-01 section 5: the wheel turns at 3 ticks per frame in strain | in room 3 the wheel and tread hold still from the end of the brake | the parked wheel is not lethal, and a spinning one would read as a trap |
 | DV-6 | plan 4.5: DOZER-CORE acceptance item 4 lists DOZR-01, 03, 05 and 07; room files `f01_dozer_revenge.*`; DR-B depends on BOIL-D | DOZR-03 moves to DR-B (the frame lands there); files `f01_dozer.*`; BOIL-D is merged, so it is no longer a pending dependency; CA2-DZ is a new conditional step before DR-A | the frame does not exist before DR-B; the scene id matches the manifest id `dozer` |
+| DV-7 | DOZ-01 section 5: the wheel turns at 3 ticks per frame in strain | in room 3 the wheel and tread hold still from the end of the brake | the parked wheel is not lethal, and a spinning one would read as a trap |
 
 ## 17. Horizon fit, tone and rights
 
@@ -540,3 +540,4 @@ DR-C goes first (a disable then ends with the crew slumped aboard), then DR-B (r
 | Re-review R2 | The in-view lane spot first, the tunnel spot otherwise and on a second rescue; cycles reported |
 | Re-review R3 | The rule now says "never placed by a regroup between the leader and the wheel", which is asserted; walking trail is allowed |
 | Re-review R4 | The wheel and tread hold still after the brake (DV-7) |
+| Final notes N1 to N3 | `place` stands the bot on the highest solid under it (a remnant in DR-B); `place` is hashed only when non-empty; DV-7 follows DV-6 |
