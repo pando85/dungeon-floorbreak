@@ -512,6 +512,7 @@ DR-C goes first (a disable then ends with the crew slumped aboard), then DR-B (r
 | DV-5 | plan 4.5: room files owned by DR-A | owned by DOZER-CORE | DZ-AD12 |
 | DV-6 | plan 4.5: DOZER-CORE acceptance item 4 lists DOZR-01, 03, 05 and 07; room files `f01_dozer_revenge.*`; DR-B depends on BOIL-D | DOZR-03 moves to DR-B (the frame lands there); files `f01_dozer.*`; BOIL-D is merged, so it is no longer a pending dependency; CA2-DZ is a new conditional step before DR-A | the frame does not exist before DR-B; the scene id matches the manifest id `dozer` |
 | DV-7 | DOZ-01 section 5: the wheel turns at 3 ticks per frame in strain | in room 3 the wheel and tread hold still from the end of the brake | the parked wheel is not lethal, and a spinning one would read as a trap |
+| DV-8 | section 10, K5: "every hero reaches the exit" | DZ-IMPL-AD14 (DOZER-CORE): read as the room's completion, frozen when the **first** hero overlaps the exit, with every hero alive and ahead of the wheel (or the wheel off); the trailing hero need not touch the exit | the scene stops at completion, so nothing can hurt the trailing hero after it; recorded when DR-A lands (#279 review, finding 9) |
 
 ## 17. Horizon fit, tone and rights
 

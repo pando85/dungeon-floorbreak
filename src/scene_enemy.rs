@@ -491,10 +491,9 @@ pub trait SlotEnemy: fmt::Debug + Send + Sync {
 
     /// DOZER-CORE: the rows this enemy adds to the hazard feed this tick (layout
     /// px, y down, `layout_h` the room height), after the slime and sticker
-    /// rows. The default: none.
-    fn nav_rects(&self, _layout_h: i32) -> Vec<crate::env_hazard::NavRect> {
-        Vec::new()
-    }
+    /// rows, appended to `out` (the feed itself, so no per-tick list is allocated). The
+    /// default: none.
+    fn nav_rects(&self, _layout_h: i32, _out: &mut Vec<crate::env_hazard::NavRect>) {}
 
     /// Fixture and test inspection: the concrete enemy behind the trait object
     /// (`downcast_ref`). The default is `None`: nothing is exposed.

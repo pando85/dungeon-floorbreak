@@ -235,6 +235,15 @@ pub struct AlignedMemory {
     hoarder: Option<crate::hoarder_fixtures::ClearPilot>,
 }
 
+/// DR-A (DRA-AD5): the aligned party of every `dozer:*` pilot: Carl steered, Donut the
+/// autonomous `cf02_free` partner (K5 `carl_solo`'s party). The seed is nominal: the room is
+/// built without `--cf02-seed`, like a player's run (DRA-AD2).
+pub const DOZER_ALIGNED: Aligned = Aligned {
+    who: AlignedWho::Companion,
+    seed: 0,
+    route: None,
+};
+
 /// A parsed `--room-pilot` value: `PLAN`, `PLAN:2p`, or `mastery|juicer:WHO:SEED`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RoomPilot {
@@ -254,6 +263,8 @@ impl RoomPilot {
         if plan == "dozer" {
             // DR-A (DRA-AD2): `dozer:run|close_call|wait`, solo only (a stateless pilot,
             // no seed: the input is a function of the hero's column and the machine).
+            // DRA-AD5: aligned, so Donut is the live party's autonomous `cf02_free` partner (the
+            // mode a solo player gets, K5 `carl_solo`), not the legacy follower.
             let plan = match rest {
                 "run" => Plan::DozerRun,
                 "close_call" => Plan::DozerCloseCall,
@@ -272,7 +283,7 @@ impl RoomPilot {
             return Ok(Self {
                 plan,
                 two_player: false,
-                aligned: None,
+                aligned: Some(DOZER_ALIGNED),
             });
         }
         if rest.contains(':')
@@ -396,6 +407,9 @@ impl RoomPilot {
 
     /// The value that parses back to this pilot.
     pub fn label(self) -> String {
+        if self.plan.is_dozer() {
+            return self.plan.name().to_owned();
+        }
         if let Some(a) = self.aligned
             && !(plain_aligned(self.plan) && a.who == AlignedWho::CarlSolo && a.seed == 0)
         {
@@ -441,12 +455,8 @@ impl RoomPilot {
             Plan::Corral | Plan::CorralRush => {
                 unreachable!("the corral's pilots are aligned only (aligned_inputs)")
             }
-            Plan::DozerRun => dozer_escape(combat, sim, exit_x, None),
-            Plan::DozerCloseCall => {
-                dozer_escape(combat, sim, exit_x, Some(crate::dozer_fixtures::HOLD_X))
-            }
-            Plan::DozerWait => {
-                dozer_escape(combat, sim, exit_x, Some(crate::dozer_fixtures::WAIT_X))
+            Plan::DozerRun | Plan::DozerCloseCall | Plan::DozerWait => {
+                self.dozer_input(combat, sim, exit_x)
             }
         };
         let donut = if self.two_player {
@@ -485,6 +495,18 @@ pub fn corral_rush_tuning() -> PartyTuning {
         ..crate::party::PROVISIONAL_TUNING
     }
     .with_cf02_swap()
+}
+
+impl RoomPilot {
+    /// DR-A: Carl's input of a `dozer:*` plan (see [`dozer_escape`]).
+    fn dozer_input(self, combat: &CombatState, sim: &SceneSim, exit_x: f32) -> RawInput {
+        let hold_at = match self.plan {
+            Plan::DozerCloseCall => Some(crate::dozer_fixtures::HOLD_X),
+            Plan::DozerWait => Some(crate::dozer_fixtures::WAIT_X),
+            _ => None,
+        };
+        dozer_escape(combat, sim, exit_x, hold_at)
+    }
 }
 
 /// PT-GATE-C1: the party tuning of an aligned run, the library fixture's own
@@ -534,6 +556,15 @@ impl RoomPilot {
         use crate::f01_mastery_fixtures as mastery;
         let Aligned { who, seed, route } = self.aligned.expect("an aligned room pilot");
         let tick = sim.world.tick + 1;
+        if self.plan.is_dozer() {
+            // DR-A (DRA-AD5): the escape steers Carl; the party's `cf02_free` partner drives Donut.
+            let input = if controlled == HeroId::Carl {
+                self.dozer_input(combat, sim, exit_x)
+            } else {
+                RawInput::NONE
+            };
+            return [input, RawInput::NONE];
+        }
         if self.plan == Plan::Boiler {
             use crate::boiler_fixtures::scene_pilots::{LiveDriver, Who as BoilerWho};
             let boiler_who = match who {
@@ -2471,7 +2502,14 @@ mod tests {
         ] {
             let pilot = RoomPilot::parse(value).unwrap();
             assert_eq!(pilot.plan, plan);
-            assert!(!pilot.two_player && pilot.aligned.is_none());
+            // DRA-AD5: aligned, with the `cf02_free` partner of K5 `carl_solo`.
+            assert!(!pilot.two_player && pilot.aligned == Some(DOZER_ALIGNED));
+            assert_eq!(
+                pilot.tuning().unwrap().uncontrolled_hero,
+                crate::party::UncontrolledHero::Companion(
+                    crate::companion::profile::ProfileSetId::Cf02Free
+                )
+            );
             assert!(plan.is_dozer());
             assert_eq!(pilot.label(), value);
         }
@@ -2482,7 +2520,9 @@ mod tests {
     }
 
     /// DR-A: each room 3 pilot escapes under the story loadout with nobody hit by the wheel,
-    /// and the close call and the wait come within the yell range of the wheel.
+    /// and the close call and the wait come within the yell range of the wheel. The pilots are
+    /// stepped the way the scene steps an aligned pilot (DRA-AD5): through the party, with Donut
+    /// the autonomous `cf02_free` partner, whose hazard feed sees the machine's rows.
     #[test]
     fn the_dozer_pilots_escape_room_3() {
         let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -2492,17 +2532,25 @@ mod tests {
                 crate::f01_late::dozer_start(&root, 360, carl, donut, None).unwrap();
             let exit = run.loaded.encounter.exit;
             let exit_x = (exit.x + exit.w / 2) as f32;
-            let pilot = RoomPilot {
-                plan,
-                two_player: false,
-                aligned: None,
-            };
+            let pilot = RoomPilot::parse(plan.name()).unwrap();
+            let mut party = crate::party::PartyState::new(pilot.tuning().unwrap());
+            let mut memory = AlignedMemory::default();
             let mut closest = f32::MAX;
             for _ in 0..1500 {
                 if scene.world.complete {
                     break;
                 }
-                let inputs = pilot.inputs(&combat, &scene, exit_x);
+                let slots = pilot.aligned_inputs(
+                    &combat,
+                    &scene,
+                    party.controlled_hero(),
+                    exit_x,
+                    &mut memory,
+                );
+                let hurt = combat.hurt_ticks_of(party.controlled_hero()) > 0;
+                party.request_swap(slots[0].swap, hurt);
+                let inputs = party.hero_inputs(slots);
+                scene.set_drive(party.drive(true));
                 combat.step_party(&mut scene, inputs);
                 let d = crate::dozer_art::dozer_of(&combat).unwrap();
                 if d.state.emerged() {

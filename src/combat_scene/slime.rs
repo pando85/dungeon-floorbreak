@@ -466,7 +466,7 @@ impl crate::combat_scene::CombatState {
         // DOZER-CORE: the slot enemies' own rows (the Dozer's machine and
         // telegraph rows), after the stickers; none for any other kind.
         for e in self.slot.enemies.iter() {
-            feed.extend(e.nav_rects(layout_h));
+            e.nav_rects(layout_h, &mut feed);
         }
         feed
     }

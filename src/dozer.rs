@@ -989,6 +989,13 @@ impl Dozer {
     /// The feed rows of this tick (section 7.1), layout px (y down), rounded
     /// outward to the data's grid.
     pub fn nav_rows(&self, layout_h: i32) -> Vec<NavRect> {
+        let mut rows = Vec::new();
+        self.nav_rows_into(layout_h, &mut rows);
+        rows
+    }
+
+    /// [`Self::nav_rows`] appended to `out` (the hazard feed's own list: no per-tick allocation).
+    pub fn nav_rows_into(&self, layout_h: i32, out: &mut Vec<NavRect>) {
         let t = self.tuning;
         let grid = i32::from(t.dzq16_nav_grid_px);
         let height = t.dzq02_push_box.y1 as f32;
@@ -1016,18 +1023,18 @@ impl Dozer {
             NavPhase::Active,
         );
         match self.state {
-            DozerState::Dormant { .. } | DozerState::Approaching { .. } => Vec::new(),
-            DozerState::CommittedChase => vec![
-                machine,
-                row(
+            DozerState::Dormant { .. } | DozerState::Approaching { .. } => {}
+            DozerState::CommittedChase => {
+                out.push(machine);
+                out.push(row(
                     self.tips(),
                     self.tips() + f32::from(t.dzq16_nav_lead_px),
                     1,
                     NavPhase::Telegraph,
-                ),
-            ],
+                ));
+            }
             DozerState::Escaped(_) | DozerState::ImpactStunned { .. } | DozerState::Disabled => {
-                vec![machine]
+                out.push(machine);
             }
         }
     }
