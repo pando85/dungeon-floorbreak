@@ -1,0 +1,16 @@
+# The Broken Ring rooms: RING-A wire and RING-B wire evidence
+
+Rooms 4a `ring_court` and 4b `ring_split` of the late-Floor-1 slice ([plan section 15](../../07-agents/f01-playtest-integration-plan.md#15-ring-owner-pr-189)), launched with `--scene f01_late --f01-room ring_court` (or `ring_split`). Milestone `greybox`: geometry composed from the approved Floor 01 kit, the court's static closed shutter drawn as a labelled greybox stand-in (KR17), no AREA-RINGS-01 art yet. Game feel is the owner's call: nothing here is accepted.
+
+| File | What it shows | How it was made |
+| --- | --- | --- |
+| `physics_exact.txt` | K8 on both launched kits: edges each class replays with the real integrator, and the lane walk to the exit (the walk is `None`, so not listed, in the court's closed-shutter states: the closed shutter is a real cut) | `cargo test --lib -- ring_fixtures::tests::the_physics_exact_run_proves_both_rooms --nocapture` |
+| `ring_runs.txt` | One line per room, pilot and seed (0..8): clear and exit ticks, deaths, hurts, longest stuck run, RING-14 backtrack and forced-wait, the walkway crossing over the closed shutter, the split's overhead route (`high=true`) | `cargo test --lib -- --ignored ring_probe --nocapture` |
+| `still-court-shutter-tick420.png` | The court at 640x360 (scale 2) at tick 420 of the scripted walk-right smoke: the walk-right script presses no jump, so Carl stands at the closed shutter's face (the grey stand-in under the walkway) with a goblin on the far side; the pilots of `ring_runs.txt` take the step and the walkway instead | `floor01_scene --scene f01_late --f01-room ring_court --scale 2 --capture-sequence 420:1:1 --capture-dir DIR` under `xvfb-run` |
+
+## Readings
+
+- **Carl's 80 px jump from the floor onto the walkway is not a real move from the left with the shutter closed** (`carl: 15/16 edges land`). KR2 predicted it (about 8.5 px of apex margin, and the step stands in the way); the validator accepts the edge because 80 px is Carl's class. His real route is the 64 px step, then the 16 px hop onto the walkway, and both edges are witnessed. Every other accepted edge of both rooms lands.
+- **Solo Carl and solo Donut (the swap)** clear both rooms at every seed with no death, no hero stuck over 300 ticks, at most 256 px of backtrack, and in the court a crossing of the closed shutter over the walkway. Nobody passes under the closed arch.
+- **RINGW-F1 (finding, back to design per KR19).** With the autonomous partner (`cf02_free`) Carl crosses the walkway but the AI Donut waits at the shutter's face (`companion_cf02_free` court lines: `walkway=[true, false]`, no clear). The companion nav plans the crossing (floor, step, walkway, floor; a test asserts the plan), so the gap is in how the partner follows, not in the level. The fixture that asserts her crossing is kept, ignored and named (`ring_court_companion_crosses_the_walkway`). The `cf02_assist` partner of the solo runs does not cross either (the solo lines show the partner's `walkway` flag false); the room still clears because the player-controlled hero does. The split, which has no shutter, clears with the partner at every seed.
+- **NOT RUN:** a real two-pad run, a human session, RING-02 captures at two heights (RING-D), the moving shutter and its pins (RING-C wire), the RING-11 slime or Rot variant (KR20).

@@ -24,10 +24,14 @@
 //!   that overlap in x), the KR10 view ledge (at most 80 px) and the R2 fork
 //!   (two routes that rejoin well inside 640 px).
 //!
-//! Disclosed limits: the route graphs use the height classes of the data file
-//! (an optimistic bound for a rising jump); the physics-exact run on the real
-//! jump arcs is RING-A wire's. No fight, no shutter motion and no scene is
-//! exercised here.
+//! The route graphs use the height classes of the data file (an optimistic
+//! bound for a rising jump); RING-A wire replaces that bound with the
+//! **physics-exact run** ([`crate::encounter_physics::check`] on each room's
+//! launched kit, the lane ceiling slab included): every edge the validator
+//! accepts is replayed with the real Carl, base Donut and boosted Donut
+//! integrators, and the exit is joined over the witnessed edges in every state.
+//! The scene runs, fights and traversals are `crate::f01_ring_fixtures`'s; no
+//! shutter motion is exercised (RING-C wire).
 
 use std::path::Path;
 
@@ -249,8 +253,119 @@ mod tests {
     }
 
     // FNV-1a 64 of (room file, sidecar): a data edit must update them on purpose.
-    const COURT_HASHES: (u64, u64) = (10_588_199_708_419_537_207, 2_384_236_193_852_185_720);
-    const SPLIT_HASHES: (u64, u64) = (8_139_090_723_959_068_657, 12_308_761_602_624_524_825);
+    // RING-A/B wire moved the pins to `crate::f01_ring` (the launcher refuses an
+    // unpinned edit); the status texts of all four files changed with it.
+    const COURT_HASHES: (u64, u64) = (
+        crate::f01_ring::COURT_ROOM_HASH,
+        crate::f01_ring::COURT_ENCOUNTER_HASH,
+    );
+    const SPLIT_HASHES: (u64, u64) = (
+        crate::f01_ring::SPLIT_ROOM_HASH,
+        crate::f01_ring::SPLIT_ENCOUNTER_HASH,
+    );
+
+    // ---- RING-A wire: the physics-exact reachability (K8, replaces the
+    // optimistic class bound above)
+
+    /// Both rooms on their launched kits: every accepted edge of every class
+    /// and state lands with the real integrator **but one**, and the exit is
+    /// joined over the witnessed edges alone in every state. The one is KR2's
+    /// prediction, confirmed: Carl's direct 80 px jump from the left floor onto
+    /// the walkway (the validator accepts it, 80 is his class) has no takeoff
+    /// with the shutter closed (the step is in the way and the apex margin is
+    /// about 8.5 px); the 64 px step is his real route, and it is witnessed. The
+    /// lane walker (which hops what is ahead and never climbs a route) reaches
+    /// the exit with the shutter open, and **never** with it closed: the closed
+    /// shutter is a real cut, and the crossing is the step and the walkway (KR3).
+    #[test]
+    fn the_physics_exact_run_proves_both_rooms() {
+        use crate::encounter_physics::check;
+        use crate::f01_ring::{RingRoom, launch};
+        for room in RingRoom::ALL {
+            let run = launch(root(), room).unwrap();
+            let report = check(&run.kit, &run.loaded).unwrap();
+            println!("{} K8 {}", room.id(), report.summary());
+            let bad = report.untraversable();
+            let walkway = run.loaded.room.platforms.get(1).map(|p| p.rect);
+            let kr2 = |e: &&crate::encounter_physics::EdgeReport| {
+                room == RingRoom::Court
+                    && e.hero == ReachHero::Carl
+                    && e.state & CLOSED != 0
+                    && e.from.floor
+                    && e.from.x1 <= run.loaded.encounter.props[0].target.x
+                    && walkway.is_some_and(|w| e.to.top == w.y && e.to.x0 == w.x)
+            };
+            let other: Vec<_> = bad.iter().filter(|e| !kr2(e)).collect();
+            assert!(
+                other.is_empty(),
+                "{room:?}: validator false positives: {other:#?}"
+            );
+            assert_eq!(
+                bad.len(),
+                usize::from(room == RingRoom::Court),
+                "{room:?}: {bad:#?}"
+            );
+            for exit in &report.exits {
+                assert!(exit.by_edges, "{room:?}: {exit:?}");
+                let closed = room == RingRoom::Court && exit.state & CLOSED != 0;
+                assert_eq!(exit.walk_tick.is_none(), closed, "{room:?}: {exit:?}");
+            }
+            assert_eq!(
+                report.exits.len(),
+                if room == RingRoom::Court { 6 } else { 3 }
+            );
+            for hero in ReachHero::ALL {
+                let edges: Vec<_> = report.edges.iter().filter(|e| e.hero == hero).collect();
+                assert!(
+                    edges.iter().any(|e| e.from.floor && !e.to.floor),
+                    "{hero:?} climb"
+                );
+                assert!(
+                    edges.iter().any(|e| !e.from.floor && e.to.floor),
+                    "{hero:?} drop"
+                );
+            }
+        }
+    }
+
+    /// KR2's step, physics-exact: Carl's real jump lands on the 64 px step from
+    /// the floor, and from the step on the 80 px walkway; the 128 px shelf has a
+    /// boosted-Donut witness and no Carl or base-Donut edge (KR8).
+    #[test]
+    fn the_physics_exact_run_lands_the_step_the_walkway_and_the_boosted_shelf() {
+        use crate::encounter_physics::check;
+        use crate::f01_ring::{RingRoom, launch};
+        let run = launch(root(), RingRoom::Court).unwrap();
+        let report = check(&run.kit, &run.loaded).unwrap();
+        let top = |i: usize| run.loaded.room.platforms[i].rect.y;
+        let lands = |hero: ReachHero, from: Option<i32>, to: i32| {
+            report.edges.iter().any(|e| {
+                e.hero == hero
+                    && e.to.top == to
+                    && !e.to.floor
+                    && from.map_or(e.from.floor, |f| !e.from.floor && e.from.top == f)
+                    && e.witness.is_some()
+            })
+        };
+        assert!(lands(ReachHero::Carl, None, top(0)), "floor to step");
+        assert!(
+            lands(ReachHero::Carl, Some(top(0)), top(1)),
+            "step to walkway"
+        );
+        assert!(
+            lands(ReachHero::DonutBoosted, None, top(2)),
+            "boosted Donut on the shelf"
+        );
+        for hero in [ReachHero::Carl, ReachHero::DonutBase] {
+            assert!(
+                !report
+                    .edges
+                    .iter()
+                    .any(|e| e.hero == hero && e.to.top == top(2)),
+                "{hero:?} has no shelf edge"
+            );
+        }
+    }
 
     // ---- the court: step, walkway, shutter, shelf
 

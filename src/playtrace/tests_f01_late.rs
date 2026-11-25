@@ -128,6 +128,18 @@ impl RoomRig {
                 combat,
                 room_party(),
             )
+        } else if let Some(ring) = crate::f01_ring::RingRoom::from_id(room) {
+            // RING-A/B wire: a Ring room, the same way.
+            let (run, scene, combat) = f01_late::ring_start(&root(), ring, 360, carl, donut, seed)
+                .expect("the Ring room launches");
+            (
+                f01_late::SESSION_SOURCE,
+                run.fixture.name,
+                true,
+                scene,
+                combat,
+                room_party(),
+            )
         } else {
             let kit = crate::boss_scene::load_arena(&root()).expect("the boss arena");
             let fixture = crate::boss_scene::BOSS01_SCENE;
@@ -501,11 +513,66 @@ fn a_recorded_mastery_session_verifies_strict() {
     }
 }
 
+/// RING-A/B wire: a recorded session of each Ring room verifies strict under
+/// both loadouts and a seed, stamps its own room pins and the manifest's and no
+/// other room's, and the seed and the loadout label are part of the run. The
+/// recorded run is driven by the rooms' move-right pilot
+/// (`f01_ring_fixtures::pilot`), so it holds the walkway crossing over the
+/// static shutter, hits and defeats, not only a walk.
+#[test]
+fn a_recorded_ring_session_verifies_strict() {
+    use crate::f01_ring::{RingRoom, launch};
+    use crate::f01_ring_fixtures::{Route, pilot};
+    for room in RingRoom::ALL {
+        let route = Route::of(&launch(&root(), room).unwrap(), false);
+        for (loadout, seed) in [
+            (Loadout::Story, None),
+            (Loadout::Story, Some(5)),
+            (Loadout::All, Some(7)),
+        ] {
+            let dir = TempDir::new("f01-ring");
+            let mut rig = RoomRig::start_seeded(&dir.0, room.id(), loadout, seed);
+            assert_eq!(rig.combat.enemies.len(), 2, "two goblins");
+            for _ in 0..900 {
+                let hero = rig.party.controlled_hero();
+                let mut input = pilot(&route, &rig.combat, &rig.scene, hero);
+                // The TEST LOADOUT holds the dynamite: the pilot never throws it.
+                input.ability = false;
+                rig.step(input);
+            }
+            let defeated = rig
+                .combat
+                .events
+                .iter()
+                .filter(|e| matches!(e, crate::combat::CombatEvent::EnemyDefeated { .. }))
+                .count();
+            assert_eq!(defeated, 2, "{room:?}: the recorded run clears the room");
+            let manifest = rig.rec.finish("test").expect("finished");
+            let session = dir.0.join(manifest.session_id);
+            let report = verify(&session).unwrap_or_else(|e| panic!("{room:?}: {e}"));
+            assert_eq!(report.scope, VerifyScope::Full);
+            let loaded = read_session(&session, false).unwrap();
+            assert_eq!(loaded.manifest.reset.name, room.scene_name());
+            assert_eq!(loaded.manifest.reset.f01_room.as_deref(), Some(room.id()));
+            assert_scoped_stamps(&loaded, room.id());
+            let other_seed = seed.map_or(Some(1), |s| Some(s + 1));
+            tamper_manifest(&session, |m| m.reset.cf02_seed = other_seed);
+            assert!(verify(&session).is_err(), "another seed is another run");
+            tamper_manifest(&session, |m| m.reset.cf02_seed = seed);
+            verify(&session).expect("restored");
+            // The other Ring room's label is another run.
+            let other = RingRoom::ALL.into_iter().find(|r| *r != room).unwrap();
+            tamper_manifest(&session, |m| m.reset.f01_room = Some(other.id().into()));
+            assert!(verify(&session).is_err(), "{room:?} relabelled {other:?}");
+        }
+    }
+}
+
 /// A room's own pin is required of its recordings: removing one of the room's
 /// pins, or editing its value, fails, and another room's pin never does.
 #[test]
 fn a_hoarder_or_hazard_recording_needs_its_room_pins_and_no_other() {
-    for room in ["hoarder", "hazards", "mastery"] {
+    for room in ["hoarder", "hazards", "mastery", "ring_court", "ring_split"] {
         let (_dir, session) = record("f01-room-pins", room, Loadout::Story, 200);
         for key in f01_late::SCOPED_PIN_KEYS {
             let covers = f01_late::pin_applies(key, Some(room));
@@ -596,6 +663,8 @@ fn a_relabelled_room_is_rejected() {
         Some("hoarder"),
         Some("hazards"),
         Some("mastery"),
+        Some("ring_court"),
+        Some("ring_split"),
         Some("corral"),
         None,
     ] {
@@ -731,6 +800,8 @@ fn a_session_of_another_source_cannot_claim_a_room() {
         (Some("hoarder"), None),
         (Some("hazards"), None),
         (Some("mastery"), None),
+        (Some("ring_court"), None),
+        (Some("ring_split"), None),
         (Some("juicer"), None),
         (Some("boiler"), Some("story")),
         (Some("juicer"), Some("all")),
@@ -778,6 +849,8 @@ fn only_the_listed_rooms_sessions_may_carry_their_own_room() {
         ("hoarder", "f01_hoarder"),
         ("hazards", "f01_hazards"),
         ("mastery", "f01_mastery"),
+        ("ring_court", "f01_ring_court"),
+        ("ring_split", "f01_ring_split"),
     ] {
         assert!(ok(&reset(
             f01_late::SESSION_SOURCE,
@@ -805,7 +878,15 @@ fn only_the_listed_rooms_sessions_may_carry_their_own_room() {
     }
     // `demo` and `fixture` (and the rest) claiming either room, or only a loadout.
     for source in ["demo", "fixture", "story", "party_fixture"] {
-        for room in ["boiler", "hoarder", "hazards", "mastery", "juicer"] {
+        for room in [
+            "boiler",
+            "hoarder",
+            "hazards",
+            "mastery",
+            "ring_court",
+            "ring_split",
+            "juicer",
+        ] {
             assert!(
                 !ok(&reset(source, "x", Some(room), None)),
                 "{source} {room}"

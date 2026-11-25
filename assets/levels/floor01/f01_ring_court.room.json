@@ -1,6 +1,6 @@
 {
   "schema": "floor01-demo-hall-v1",
-  "status": "RING-A core greybox room (FLOOR01-RINGS-01, room 4a, KR1): geometry only, composed at load time from approved Floor 01 kit pieces by camera_lab::layout (no new art, not an authored level, not wired into any scene). The shutter, roster and zones live in f01_ring_court.encounter.json, validated by src/encounter.rs.",
+  "status": "RING-A core greybox room (FLOOR01-RINGS-01, room 4a, KR1): geometry only, composed at load time from approved Floor 01 kit pieces by camera_lab::layout (no new art, not an authored level, launched as the room ring_court of --scene f01_late since RING-A/B wire, src/f01_ring.rs). The shutter, roster and zones live in f01_ring_court.encounter.json, validated by src/encounter.rs.",
   "scenarios": [
     {
       "id": "F01-RING-COURT",

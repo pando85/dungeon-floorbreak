@@ -511,8 +511,8 @@ case "$mode" in
     # headless smoke of each room and loadout replays identically twice and names
     # its room; the story loadout of the Boiler differs from the plain room (the
     # pin holds dynamite and Light on Your Feet), and the plain room is unchanged.
-    late_lines() { "$bin" --headless-floor01-smoke --scene f01_late "$@" | grep -E '^(F01_LATE_ENTRY|F01_(BOILER|HOARDER|HAZARDS|MASTERY)_(ENTRY|SMOKE_OK)|COMBAT_STATE)'; }
-    for late_args in "--f01-room boiler" "--f01-room boiler --f01-loadout all" "--f01-room juicer" "--f01-room juicer --f01-loadout all" "--f01-room hoarder" "--f01-room hoarder --f01-loadout all" "--f01-room hazards" "--f01-room hazards --f01-loadout all" "--f01-room mastery" "--f01-room mastery --f01-loadout all" "--f01-room mastery --cf02-seed 7"; do
+    late_lines() { "$bin" --headless-floor01-smoke --scene f01_late "$@" | grep -E '^(F01_LATE_ENTRY|F01_(BOILER|HOARDER|HAZARDS|MASTERY|RING_COURT|RING_SPLIT)_(ENTRY|SMOKE_OK)|COMBAT_STATE)'; }
+    for late_args in "--f01-room boiler" "--f01-room boiler --f01-loadout all" "--f01-room juicer" "--f01-room juicer --f01-loadout all" "--f01-room hoarder" "--f01-room hoarder --f01-loadout all" "--f01-room hazards" "--f01-room hazards --f01-loadout all" "--f01-room mastery" "--f01-room mastery --f01-loadout all" "--f01-room mastery --cf02-seed 7" "--f01-room ring_court" "--f01-room ring_court --f01-loadout all" "--f01-room ring_split" "--f01-room ring_split --cf02-seed 7"; do
       # shellcheck disable=SC2086
       late_a="$(late_lines $late_args)"
       # shellcheck disable=SC2086
@@ -561,6 +561,17 @@ case "$mode" in
       if ! grep -q '^F01_MASTERY_SMOKE_OK .* env=live slot_enemies=1 enemies=5 ' <<<"$mastery_state" \
         || ! grep -q '^F01_MASTERY_ENTRY .* goblins=4 engineers=1 llamas=2 slot=1 ' <<<"$mastery_state"; then
         echo "the f01_late mastery room did not load its sidecar roster ($mastery_loadout)" >&2
+        exit 1
+      fi
+    done
+    # RING-A/B wire: the two Ring rooms load their two goblins; the court runs its
+    # static closed shutter in the env step, the split has none.
+    for ring_marker in "ring_court F01_RING_COURT static_closed" "ring_split F01_RING_SPLIT none"; do
+      read -r ring_room ring_prefix ring_shutter <<<"$ring_marker"
+      ring_state="$(late_lines --f01-room "$ring_room")"
+      if ! grep -q "^${ring_prefix}_SMOKE_OK .* env=live slot_enemies=0 enemies=2 " <<<"$ring_state" \
+        || ! grep -q "^${ring_prefix}_ENTRY .* goblins=2 shutter=${ring_shutter} " <<<"$ring_state"; then
+        echo "the f01_late $ring_room room did not load its goblins or its shutter" >&2
         exit 1
       fi
     done
@@ -652,7 +663,7 @@ case "$mode" in
       exit 1
     fi
     echo "F01_HAZ_TACTICAL_OK: second sticker baited over the slime, no Rot hurt, room cleared, final hash 8e10bd0986d23ad9 (the filmed run), twice identical"
-    echo "F01_LATE_HEADLESS_OK: hoarder, boiler, hazards, juicer and mastery, story and all, each twice identical"
+    echo "F01_LATE_HEADLESS_OK: hoarder, boiler, hazards, ring_court, ring_split, juicer and mastery, story and all, each twice identical"
     ;;
   render)
     for f in "${fixtures[@]}"; do

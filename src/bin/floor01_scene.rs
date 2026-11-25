@@ -88,7 +88,7 @@ use dungeon_floorbreak::{
     env_kit::{
         EnvKit, IRect, PieceDraw, animation_frame, parallax_copies, parallax_start, to_world_y,
     },
-    f01_boiler, f01_hazards, f01_hoarder, f01_late, f01_mastery, f01_run,
+    f01_boiler, f01_hazards, f01_hoarder, f01_late, f01_mastery, f01_ring, f01_run,
     feel::{LLAMA_GLOB_MOUTH_DX, LLAMA_GLOB_MOUTH_DY, LLAMA_GLOB_SPEED},
     goblin::{AttackPhase, GoblinMode},
     gore::{DEATH_VARIANTS, DeathArt, GorePreset, LLAMA_VARIANT, Sheet},
@@ -356,6 +356,11 @@ struct Args {
     f01_mastery: bool,
     /// The launched mastery arena (`main` fills it right after parsing).
     mastery_run: Option<Box<f01_mastery::MasteryRun>>,
+    /// RING-A/B wire: `--scene f01_late --f01-room ring_court` (or `ring_split`),
+    /// a room of the Broken Ring (KR22: no scene of its own). Under the room rules.
+    f01_ring: Option<f01_ring::RingRoom>,
+    /// The launched Ring room (`main` fills it right after parsing).
+    ring_run: Option<Box<f01_ring::RingRun>>,
     /// PT-SCENE: `--scene f01_late`. It is a launcher: the room (`--f01-room`)
     /// and the loadout (`--f01-loadout`) resolve, once the arguments are read,
     /// to the scene that runs the room (`f01_boiler` or the boss arena) and the
@@ -552,7 +557,11 @@ impl Args {
     /// (the Boiler, the Hoarder or the hazard room): each implies `cf02_rules`
     /// without the microarena.
     fn f01_room_scene(&self) -> bool {
-        self.f01_boiler || self.f01_hoarder || self.f01_hazards || self.f01_mastery
+        self.f01_boiler
+            || self.f01_hoarder
+            || self.f01_hazards
+            || self.f01_mastery
+            || self.f01_ring.is_some()
     }
 
     /// CF02-F: this run is in the microarena (`--cf02`, or a CF02-F room fixture).
@@ -752,6 +761,8 @@ fn resolve_boiler_args(parsed: &mut Args) -> Result<(), String> {
         (f01_hazards::SCENE_NAME, "hazards")
     } else if parsed.f01_mastery {
         (f01_mastery::SCENE_NAME, f01_mastery::ROOM_NAME)
+    } else if let Some(ring) = parsed.f01_ring {
+        (ring.scene_name(), ring.id())
     } else {
         return Ok(());
     };
@@ -919,6 +930,9 @@ fn resolve_f01_late_args(parsed: &mut Args) -> Result<(), String> {
         f01_late::RoomScene::Hoarder => parsed.f01_hoarder = true,
         f01_late::RoomScene::Hazards => parsed.f01_hazards = true,
         f01_late::RoomScene::Mastery => parsed.f01_mastery = true,
+        f01_late::RoomScene::RingCourt | f01_late::RoomScene::RingSplit => {
+            parsed.f01_ring = row.scene.ring();
+        }
         f01_late::RoomScene::Boss => {
             parsed.boss = true;
             parsed.fixture = Some(boss_scene::BOSS01_SCENE);
@@ -1410,6 +1424,8 @@ fn parse_args_full(
         hazards_run: None,
         f01_mastery: false,
         mastery_run: None,
+        f01_ring: None,
+        ring_run: None,
         f01_late: false,
         f01_room: None,
         f01_loadout: None,
@@ -2289,6 +2305,12 @@ fn build_scene(
             let combat =
                 f01_mastery::combat_for(run, &mut sim, args.carl, args.donut, args.cf02.seed)?;
             (sim, combat)
+        } else if let Some(run) = &args.ring_run {
+            // RING-A/B wire: a Ring room, the verifier's constructor.
+            let mut sim = SceneSim::new_at(kit, view_height(args.deck), fixture.carl_x)?;
+            let combat =
+                f01_ring::combat_for(run, &mut sim, args.carl, args.donut, args.cf02.seed)?;
+            (sim, combat)
         } else {
             let sim = SceneSim::new_at(kit, view_height(args.deck), fixture.carl_x)?;
             let combat = CombatState::new(fixture, kit, &sim)?
@@ -2297,8 +2319,12 @@ fn build_scene(
                 .map_err(|e| e.to_string())?;
             (sim, combat)
         };
-        if args.hoarder_run.is_some() || args.hazards_run.is_some() || args.mastery_run.is_some() {
-            // HRD-A2b, HAZ-A2b and PT-MASTERY: the library built the state with its rules,
+        if args.hoarder_run.is_some()
+            || args.hazards_run.is_some()
+            || args.mastery_run.is_some()
+            || args.ring_run.is_some()
+        {
+            // HRD-A2b, HAZ-A2b, PT-MASTERY and RING-A/B wire: the library built the state with its rules,
             // env and slot. A builder run after the slot would reset the attempt.
         } else if let Some(run) = &args.boiler_run {
             // BOIL-B/C wire: the sidecar's props and hazards are live.
@@ -2317,6 +2343,7 @@ fn build_scene(
             && args.hoarder_run.is_none()
             && args.hazards_run.is_none()
             && args.mastery_run.is_none()
+            && args.ring_run.is_none()
         {
             combat = combat.with_cf02().with_cf02_seed(args.cf02.seed);
         }
@@ -2491,6 +2518,8 @@ fn room_exit_x(args: &Args) -> f32 {
     } else if let Some(run) = &args.hoarder_run {
         run.loaded.encounter.exit
     } else if let Some(run) = &args.hazards_run {
+        run.loaded.encounter.exit
+    } else if let Some(run) = &args.ring_run {
         run.loaded.encounter.exit
     } else {
         return 0.0;
@@ -2843,6 +2872,20 @@ fn main() -> ExitCode {
             }
         }
     }
+    // RING-A/B wire: load the Ring room and its sidecar.
+    if let Some(room) = args.f01_ring {
+        match f01_ring::launch(&root, room) {
+            Ok(run) => {
+                println!("{}", f01_ring::entry_line(&run));
+                args.fixture = Some(run.fixture);
+                args.ring_run = Some(Box::new(run));
+            }
+            Err(error) => {
+                eprintln!("floor01_scene: {error}");
+                return ExitCode::from(2);
+            }
+        }
+    }
     // PTR-R1: open the recording before anything else; a recording the viewer
     // cannot show opens no window.
     let prepared = if args.replay.is_some() {
@@ -2864,6 +2907,8 @@ fn main() -> ExitCode {
     } else if let Some(run) = &args.hazards_run {
         Ok(run.kit.clone())
     } else if let Some(run) = &args.mastery_run {
+        Ok(run.kit.clone())
+    } else if let Some(run) = &args.ring_run {
         Ok(run.kit.clone())
     } else if args.refuge {
         refuge::load(&root).map(|(kit, _)| kit)
@@ -3651,6 +3696,9 @@ fn recording_manifest(
     } else if args.f01_mastery {
         // PT-MASTERY: and the closing arena.
         (f01_late::SESSION_SOURCE, f01_mastery::SCENE_NAME)
+    } else if let Some(ring) = args.f01_ring {
+        // RING-A/B wire: and the two Ring rooms, under their own fixture names.
+        (f01_late::SESSION_SOURCE, ring.scene_name())
     } else if args.demo {
         ("demo", args.fixture.map_or("", |f| f.name))
     } else if args.boss {
@@ -4713,14 +4761,21 @@ fn setup(
     }
 
     // BOIL-E (K10) / AREA-GOBLINWORKSHOP-01: the Boiler's prop art (the kit atlases;
-    // code-drawn footprints and placeholders), only in the room that has props.
-    if let Some(run) = &args.boiler_run {
+    // code-drawn footprints and placeholders), only in a room that has props (RING-A/B
+    // wire: the court's greybox shutter stand-in, KR17).
+    let prop_room = args.boiler_run.as_ref().map(|r| &r.loaded).or_else(|| {
+        args.ring_run
+            .as_ref()
+            .filter(|r| r.shutter().is_some())
+            .map(|r| &r.loaded)
+    });
+    if let Some(loaded) = prop_room {
         env_prop_art::spawn(
             &mut commands,
             &asset_server,
             &mut layouts,
             &mut combat_handles,
-            run.loaded.encounter.clone(),
+            loaded.encounter.clone(),
             layers_of("actors"),
             kit.actor_z,
             kit.foreground_z,
@@ -8366,7 +8421,11 @@ fn headless_smoke(kit: &EnvKit, args: &Args, actors: &Actors, root: &Path) -> Re
     if let Some(run) = &args.boiler_run {
         return headless_boiler(kit, args, actors, root, run);
     }
-    if args.hoarder_run.is_some() || args.hazards_run.is_some() || args.mastery_run.is_some() {
+    if args.hoarder_run.is_some()
+        || args.hazards_run.is_some()
+        || args.mastery_run.is_some()
+        || args.ring_run.is_some()
+    {
         return headless_slot_room(kit, args, actors, root);
     }
     if args.demo || args.arena_room() {
@@ -8511,6 +8570,16 @@ fn headless_slot_room(
             "F01_MASTERY_SMOKE_OK",
             run.loaded.encounter.story_pin.clone(),
             f01_mastery::SMOKE_TICKS,
+        )
+    } else if let Some(run) = &args.ring_run {
+        (
+            run.room.id(),
+            match run.room {
+                f01_ring::RingRoom::Court => "F01_RING_COURT_SMOKE_OK",
+                f01_ring::RingRoom::Split => "F01_RING_SPLIT_SMOKE_OK",
+            },
+            run.loaded.encounter.story_pin.clone(),
+            f01_ring::SMOKE_TICKS,
         )
     } else {
         return Err("no room".into());
@@ -10676,12 +10745,95 @@ mod tests {
         // Unlisted rooms stay refused with the listed ones named.
         let error = args(&["--scene", "f01_late", "--f01-room", "dozer"]).expect_err("unlisted");
         assert!(
-            error.contains("hoarder, boiler, hazards, juicer, mastery"),
+            error.contains("hoarder, boiler, hazards, ring_court, ring_split, juicer, mastery"),
             "{error}"
         );
         // No other run sets either scene.
         assert!(!args(&["--cf02"]).unwrap().f01_room_scene());
         assert!(!args(&["--scene", "boss_f01"]).unwrap().f01_room_scene());
+    }
+
+    /// RING-A/B wire: the two Ring rooms are listed rooms of `--scene f01_late`
+    /// only (KR22: no scene arm). Each implies `cf02_rules`, takes a seed (its
+    /// goblins draw temperaments), records under the late-Floor-1 source with its
+    /// own fixture name, stamps its own room pins and the manifest's, and its
+    /// tick-0 state in the binary is the verifier's constructor.
+    #[test]
+    fn the_ring_rooms_resolve_through_the_late_launcher() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let actors =
+            Actors::load(root, FrameSource::GridSource, true, false, false, false).unwrap();
+        for room in f01_ring::RingRoom::ALL {
+            let id = room.id();
+            let late = args(&["--scene", "f01_late", "--f01-room", id]).unwrap();
+            assert!(late.f01_late && late.cf02.rules && !late.demo, "{id}");
+            assert_eq!(late.f01_ring, Some(room));
+            assert!(
+                !late.f01_boiler && !late.f01_hoarder && !late.f01_hazards && !late.f01_mastery
+            );
+            assert!(
+                late.f01_room_scene() && !late.arena_room(),
+                "{id}: its own room"
+            );
+            assert_eq!(late.f01_room.as_deref(), Some(id));
+            assert!(late.carl.prog && late.donut.prog && late.donut_biscuit);
+            assert!(late.recording_enabled());
+            for flag in ["--cf02", "--demo", "--autopilot", "--cf02-engineer"] {
+                assert!(
+                    args(&["--scene", "f01_late", "--f01-room", id, flag]).is_err(),
+                    "{id} {flag}"
+                );
+            }
+            assert!(
+                args(&["--scene", room.scene_name()]).is_err(),
+                "no scene arm"
+            );
+            for list in [
+                &["--scene", "f01_late", "--f01-room", id][..],
+                &[
+                    "--scene",
+                    "f01_late",
+                    "--f01-room",
+                    id,
+                    "--f01-loadout",
+                    "all",
+                ][..],
+                &["--scene", "f01_late", "--f01-room", id, "--cf02-seed", "7"][..],
+            ] {
+                let mut run = args(list).unwrap();
+                let launched = f01_ring::launch(root, room).unwrap();
+                run.fixture = Some(launched.fixture);
+                let kit = launched.kit.clone();
+                run.ring_run = Some(Box::new(launched));
+                let (_, scene, library) =
+                    f01_late::ring_start(root, room, 360, run.carl, run.donut, run.cf02.seed)
+                        .unwrap();
+                let mut hud = new_hud(&run, &kit, &actors);
+                let (sim, _, combat, _, _) =
+                    build_scene(&kit, &run, &actors, root, &mut hud).unwrap();
+                let combat = combat.expect("a combat state");
+                assert_eq!(
+                    combat.state_hash(&sim),
+                    library.state_hash(&scene),
+                    "{list:?}"
+                );
+                assert_eq!(sim.world.state_hash(), scene.world.state_hash(), "{list:?}");
+                let party = run.live_party();
+                let manifest = recording_manifest(&run, &sim, Some(&combat), &party, root);
+                assert_eq!(manifest.reset.source, f01_late::SESSION_SOURCE);
+                assert_eq!(manifest.reset.name, room.scene_name());
+                assert_eq!(manifest.reset.f01_room.as_deref(), Some(id));
+                assert_eq!(manifest.reset.cf02_seed, run.cf02.seed);
+                for key in f01_late::SCOPED_PIN_KEYS {
+                    assert_eq!(
+                        manifest.content_hashes.contains_key(key),
+                        f01_late::pin_applies(key, Some(id)),
+                        "{key}"
+                    );
+                }
+                assert_eq!(manifest.reset.start_hash, library.state_hash(&scene));
+            }
+        }
     }
 
     /// PT-MASTERY: the closing arena is a listed room of `--scene f01_late` only
@@ -11153,14 +11305,17 @@ mod tests {
         let error = refused(&["--f01-room", "cellar"]);
         assert!(
             error.contains("unknown room")
-                && error.contains("hoarder, boiler, hazards, juicer, mastery"),
+                && error
+                    .contains("hoarder, boiler, hazards, ring_court, ring_split, juicer, mastery"),
             "{error}"
         );
         for unlisted in ["corral", "dozer"] {
             let error = refused(&["--f01-room", unlisted]);
             assert!(
                 error.contains("unlisted room")
-                    && error.contains("hoarder, boiler, hazards, juicer, mastery"),
+                    && error.contains(
+                        "hoarder, boiler, hazards, ring_court, ring_split, juicer, mastery"
+                    ),
                 "{error}"
             );
         }
