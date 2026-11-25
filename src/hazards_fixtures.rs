@@ -636,7 +636,8 @@ pub mod pilots {
         /// The tick the scene completed (a hero reached the exit) after the clear.
         pub exit_tick: Option<u64>,
         pub max_stuck: [u32; 2],
-        /// Checkpoint restarts (a defeat of the controlled hero).
+        /// Hero defeats in the run (`CombatState::deaths`; a defeat respawns the
+        /// party at the checkpoint without a restart).
         pub deaths: u32,
         pub hash: u64,
         pub ticks: u64,
@@ -861,8 +862,10 @@ pub mod pilots {
         let mut left_behind = LeftBehind::default();
         let mut cleared_tick = None;
         let mut exit_tick = None;
-        let mut deaths = 0u32;
-        let mut last_restarts = sim.combat.restarts;
+        // RING-FU-A (review F1 of #271): a hero defeat in a room with checkpoints
+        // respawns the party without a restart, so the count is the combat state's
+        // own `deaths`, never the restart counter.
+        let deaths_at_start = sim.combat.deaths;
         let mut swap_pressed = false;
         let mut seen = 0usize;
         let mut hurts = Vec::new();
@@ -992,10 +995,6 @@ pub mod pilots {
                 (1, 0)
             };
             left_behind.observe(!moved[p_i], (xs[p_i] - xs[s_i]).abs(), moved[s_i]);
-            if sim.combat.restarts != last_restarts {
-                deaths += 1;
-                last_restarts = sim.combat.restarts;
-            }
             if cleared_tick.is_none() && sim.combat.roster_cleared() {
                 cleared_tick = Some(sim.scene.world.tick);
             }
@@ -1015,7 +1014,7 @@ pub mod pilots {
             cleared_tick,
             exit_tick,
             max_stuck,
-            deaths,
+            deaths: sim.combat.deaths - deaths_at_start,
             hash: sim.state_hash(),
             ticks: sim.scene.world.tick,
             hurts,

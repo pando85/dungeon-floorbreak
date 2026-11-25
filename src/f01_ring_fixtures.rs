@@ -716,6 +716,81 @@ mod tests {
         assert!(line_of_sight(solids, centre, closest_point(open, centre)));
     }
 
+    /// BLAST-SEAM (RING-FU-A): the court's world with its one-block shutter
+    /// (RINGW-AD8) replaced by KR6's 17 Timber slices of 4 px, as RING-C wire's
+    /// moving shutter will append them. The floor charge's blast line runs
+    /// exactly along a slice seam (centre 8 px up), and since the seam fix
+    /// the sliced stack blocks it as the one block does; so does every other
+    /// slice seam, and the seam between the stack's top and the walkway's
+    /// underside (flush at 68 px). Beside the stack the walkway's underside is
+    /// a plain outer edge and still passes.
+    #[test]
+    fn ring_court_a_sliced_shutter_and_its_walkway_seam_block_the_blast_line() {
+        use crate::blast::line_of_sight;
+        use crate::prototype::Block;
+        let (sim, ring) = start(&root(), RingRoom::Court, Who::CarlSolo, 0).unwrap();
+        let s = ring.shutter().unwrap();
+        let feet = to_world_y(ring.kit.height, ring.loaded.room.floor_y);
+        let (left, right) = (s.x as f32, s.right() as f32);
+        let mut solids = sim.scene.world.solids.clone();
+        let at = solids
+            .iter()
+            .position(|b| b.rect.left == left && b.rect.width == s.w as f32)
+            .expect("the shutter's block");
+        let stack = solids.remove(at);
+        assert!(stack.intact);
+        assert_eq!((stack.rect.bottom, stack.rect.height), (feet, 68.0));
+        let slice_px = f32::from(
+            ring.loaded.encounter.props[0]
+                .shutter
+                .expect("the shutter's config")
+                .slice_px,
+        );
+        let count = (stack.rect.height / slice_px) as usize;
+        assert_eq!(count, 17, "KR6");
+        solids.extend((0..count).map(|k| Block {
+            rect: Rect {
+                bottom: feet + slice_px * k as f32,
+                height: slice_px,
+                ..stack.rect
+            },
+            ..stack.clone()
+        }));
+        // The floor charge 20 px left of the face, a goblin's near edge 10 px
+        // right of it: the segment is horizontal on the seam at 8 px.
+        let (centre, near) = ((left - 20.0, feet + 8.0), (right + 10.0, feet + 8.0));
+        assert_eq!(slice_px * 2.0, 8.0, "the line lies on a seam");
+        assert!(!line_of_sight(&solids, centre, near), "the slices block it");
+        for k in 1..count {
+            let y = feet + slice_px * k as f32;
+            assert!(
+                !line_of_sight(&solids, (left - 20.0, y), (right + 10.0, y)),
+                "seam {k}"
+            );
+        }
+        // The stack's top against the walkway's underside: a blast exactly at
+        // that height, from under the walkway left of the stack to the right.
+        let top = feet + 68.0;
+        assert!(
+            solids.iter().any(|b| b.intact
+                && b.rect.bottom == top
+                && b.rect.left < left
+                && b.rect.right() > right),
+            "the walkway's underside is flush with the stack's top"
+        );
+        for solids in [&solids, &sim.scene.world.solids] {
+            assert!(!line_of_sight(
+                solids,
+                (left - 20.0, top),
+                (right + 10.0, top)
+            ));
+            assert!(
+                line_of_sight(solids, (right + 10.0, top), (right + 60.0, top)),
+                "beside the stack the underside is an outer edge"
+            );
+        }
+    }
+
     /// Review F5 of #271 (RING-B wire, "the walkway lane stays open"): the
     /// band a bolt flies in when Donut casts on the walkway (16..22 px above its
     /// top, the box `bolt_blocked` probes) crosses the closed shutter's column

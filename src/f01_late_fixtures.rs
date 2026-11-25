@@ -364,10 +364,12 @@ pub fn juicer_run_loadout(
     ];
     let mut defeated_tick = None;
     let mut exit_tick = None;
-    let mut deaths = 0u32;
+    // RING-FU-A (review F1 of #271): a hero defeat in a room with checkpoints
+    // respawns the party without a restart, so the count is the combat state's
+    // own `deaths`, never the restart counter.
+    let deaths_at_start = sim.combat.deaths;
     let (mut ram_lane_hits, mut rams) = (0u32, 0u32);
     let mut last_mode = None;
-    let mut last_restarts = sim.combat.restarts;
     let mut swap_pressed = false;
     let (mut retreat_distances, mut open_retreats) = (Vec::new(), Vec::<u64>::new());
     let mut was_retreating = false;
@@ -414,10 +416,6 @@ pub fn juicer_run_loadout(
             } else {
                 stuck[i].tick(walking[i], x);
             }
-        }
-        if sim.combat.restarts != last_restarts {
-            deaths += 1;
-            last_restarts = sim.combat.restarts;
         }
         // FA-Q27-AD2 (M10): her distance from the boss after each Retreat entry.
         let retreating = sim.combat.autonomy_state(HeroId::Donut).goal()
@@ -479,7 +477,7 @@ pub fn juicer_run_loadout(
         defeated_tick,
         exit_tick,
         max_stuck: [stuck[0].max, stuck[1].max],
-        deaths,
+        deaths: sim.combat.deaths - deaths_at_start,
         hero_hurts,
         hash: sim.state_hash(),
         ticks: sim.scene.world.tick,

@@ -176,7 +176,7 @@ The Juicer rows are library fixtures (the `Companion` row uses `cf02_free`, whic
   - D1 overlap share W1 37 to 38 % (target median 30 %, every seed 20 % or more), W2 45 to 65 % (median target 40 %): pass.
   - D2 peak distinct engaged kinds W1 2 (3 seen over the wave), W2 3: pass.
   - D3 bot clear median 672 ticks, range 646 to 918 (main 517, target at least 647, at most 4800): pass; the margin over 647 is 25 ticks, under the 30 FA-Q18 asks for (its one composition iteration, W2 entry delays +30 ticks cascaded, moved no clear tick; shipped as measured); the human band 900 to 3000 is the owner's (OQ4).
-  - D4 hurts 4 to 6 (2 in W1, 2 to 4 in W2) and 0 deaths on every seed: pass.
+  - D4 hurts 4 to 6 (2 in W1, 2 to 4 in W2) and at most 1 death on every seed (one hero defeat on seeds 2 and 7, limit 2): pass. Until RING-FU-A the per-seed count read the restart counter, which a checkpoint respawn leaves unchanged, and printed 0 for those two seeds (review F1 of #271); the Deaths column of the table above already counted the defeats.
   - D5 peak engaged enemies 3 (limit 4): pass.
   - D6 every mastery enemy keeps its base kind's HP: a test (`the_mastery_waves_meet_the_difficulty_targets` and its HP guard).
 - **Rooms 2, 4, 5:** composition and enemy numbers unchanged by PT-TUNE; there is no "powerful enemies" measure for them. The only numbers are the hurts above: **NOT RUN** as a rating.

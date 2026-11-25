@@ -148,14 +148,72 @@ pub fn closest_point(body: Rect, (x, y): (f32, f32)) -> (f32, f32) {
     )
 }
 
-/// CP-Q22: whether the segment `from -> to` is free of every intact solid: it
-/// is blocked only by the **interior** of a block (a segment that merely
-/// touches an edge or corner passes). Exact `f32` arithmetic, no square root.
+/// CP-Q22: whether the segment `from -> to` is free of every intact solid. It
+/// is blocked by the **interior** of a block and (BLAST-SEAM) by a **seam**: an
+/// axis-aligned stretch of positive length along an edge that two intact blocks
+/// share from opposite sides (one stacked on the other, two side by side, a
+/// shutter's top flush with a walkway's underside), where the two together are
+/// solid. A segment that merely touches the outer edge or a corner of the
+/// solids passes, so two blocks that touch only at a corner leave a pinch the
+/// line goes through: never author a wall that way. Exact `f32` arithmetic, no
+/// square root: a seam needs exactly equal edges, so moving or computed blocks
+/// (RING-C's shutter slices) must place adjacent edges with the same integer
+/// formula, or a sub-pixel gap lets the line pass.
 pub fn line_of_sight(solids: &[Block], from: (f32, f32), to: (f32, f32)) -> bool {
     solids
         .iter()
         .filter(|block| block.intact)
         .all(|block| !segment_crosses_interior(from, to, block.rect))
+        && !runs_along_a_seam(solids, from, to)
+}
+
+/// BLAST-SEAM: whether an axis-aligned segment runs, over a positive length,
+/// along an edge shared by two intact blocks on its two sides. A horizontal
+/// segment at `y` needs a block whose top is `y` and one whose bottom is `y`, a
+/// vertical one at `x` a block whose right is `x` and one whose left is `x`; the
+/// open overlap of the segment's span and both blocks' spans must be non-empty
+/// (blocks that touch only corner to corner, or a segment that only reaches the
+/// seam's end point, do not count). A block with no area is never solid. Testing
+/// the pairs suffices: the solid part of the line is the union of their overlaps.
+/// A diagonal or degenerate segment never runs along a seam (an oblique one
+/// that crosses a seam enters an interior on one side of it).
+fn runs_along_a_seam(solids: &[Block], from: (f32, f32), to: (f32, f32)) -> bool {
+    type Edge = fn(Rect) -> f32;
+    type Span = fn(Rect) -> (f32, f32);
+    let seam = |line: f32, (lo, hi): (f32, f32), low_side: Edge, high_side: Edge, span: Span| {
+        let solid = || {
+            solids
+                .iter()
+                .filter(|b| b.intact && b.rect.width > 0.0 && b.rect.height > 0.0)
+                .map(|b| b.rect)
+        };
+        solid().filter(|a| low_side(*a) == line).any(|a| {
+            let (a_lo, a_hi) = span(a);
+            solid().filter(|b| high_side(*b) == line).any(|b| {
+                let (b_lo, b_hi) = span(b);
+                lo.max(a_lo).max(b_lo) < hi.min(a_hi).min(b_hi)
+            })
+        })
+    };
+    if from.1 == to.1 && from.0 != to.0 {
+        seam(
+            from.1,
+            (from.0.min(to.0), from.0.max(to.0)),
+            Rect::top,
+            |r| r.bottom,
+            |r| (r.left, r.right()),
+        )
+    } else if from.0 == to.0 && from.1 != to.1 {
+        seam(
+            from.0,
+            (from.1.min(to.1), from.1.max(to.1)),
+            Rect::right,
+            |r| r.left,
+            |r| (r.bottom, r.top()),
+        )
+    } else {
+        false
+    }
 }
 
 /// The open interval of `t` (in `0..=1` parametrization of the segment) where
@@ -702,7 +760,7 @@ mod tests {
     }
 
     #[test]
-    fn line_of_sight_is_blocked_only_by_the_interior_of_an_intact_solid() {
+    fn line_of_sight_is_blocked_by_the_interior_of_an_intact_solid_not_by_one_edge() {
         let from = (100.0, 108.0);
         let to = (200.0, 108.0);
         // Nothing in the way.
@@ -749,6 +807,197 @@ mod tests {
         // A degenerate segment (the centre inside the target) inside a solid is blocked.
         assert!(!line_of_sight(&[wall(0.0, 0.0, 400.0, 400.0)], from, from));
         assert!(line_of_sight(&[wall(0.0, 0.0, 400.0, 100.0)], from, from));
+    }
+
+    /// BLAST-SEAM: a segment exactly along an edge two intact blocks share from
+    /// opposite sides is blocked (the union is solid there); along the outer
+    /// edge of one block, or of two blocks on the same side, it still passes.
+    #[test]
+    fn line_of_sight_is_blocked_along_a_seam_between_two_intact_blocks() {
+        // A horizontal seam at y 108: a 4 px slice stacked on another.
+        let low = wall(140.0, 104.0, 20.0, 4.0);
+        let high = wall(140.0, 108.0, 20.0, 4.0);
+        let (from, to) = ((100.0, 108.0), (200.0, 108.0));
+        assert!(
+            line_of_sight(std::slice::from_ref(&low), from, to),
+            "a single top"
+        );
+        assert!(
+            line_of_sight(std::slice::from_ref(&high), from, to),
+            "a single underside"
+        );
+        assert!(
+            !line_of_sight(&[low.clone(), high.clone()], from, to),
+            "the stacked seam"
+        );
+        assert!(
+            !line_of_sight(&[high.clone(), low.clone()], from, to),
+            "in either order"
+        );
+        // Either half broken: the seam is an outer edge again.
+        let mut broken = high.clone();
+        broken.intact = false;
+        assert!(line_of_sight(&[low.clone(), broken], from, to));
+        // The segment must run along the shared part for a positive length:
+        // one that ends on the seam's first point passes, a hair further is
+        // blocked; one wholly beside the seam passes; one in the middle of it
+        // (both ends on the seam) is blocked.
+        assert!(line_of_sight(
+            &[low.clone(), high.clone()],
+            from,
+            (140.0, 108.0)
+        ));
+        assert!(!line_of_sight(
+            &[low.clone(), high.clone()],
+            from,
+            (140.5, 108.0)
+        ));
+        assert!(line_of_sight(
+            &[low.clone(), high.clone()],
+            from,
+            (130.0, 108.0)
+        ));
+        assert!(!line_of_sight(
+            &[low.clone(), high.clone()],
+            (145.0, 108.0),
+            (150.0, 108.0)
+        ));
+        // Offset halves: only their common span (150..160) is a seam.
+        let shifted = wall(150.0, 108.0, 30.0, 4.0);
+        assert!(!line_of_sight(&[low.clone(), shifted.clone()], from, to));
+        assert!(line_of_sight(
+            &[low.clone(), shifted.clone()],
+            from,
+            (150.0, 108.0)
+        ));
+        assert!(line_of_sight(&[low.clone(), shifted], (160.0, 108.0), to));
+        // Halves that only touch corner to corner share no edge.
+        assert!(line_of_sight(
+            &[wall(100.0, 104.0, 40.0, 4.0), wall(140.0, 108.0, 40.0, 4.0)],
+            (90.0, 108.0),
+            (190.0, 108.0)
+        ));
+        // Two blocks side by side on the same side: a top, not a seam.
+        assert!(line_of_sight(
+            &[wall(100.0, 100.0, 50.0, 8.0), wall(150.0, 100.0, 50.0, 8.0)],
+            from,
+            to
+        ));
+        // A block with no area is not solid, even on itself.
+        assert!(line_of_sight(&[wall(100.0, 108.0, 100.0, 0.0)], from, to));
+
+        // A vertical seam at x 150: two blocks side by side.
+        let left = wall(130.0, 100.0, 20.0, 40.0);
+        let right = wall(150.0, 100.0, 20.0, 40.0);
+        let (up, down) = ((150.0, 160.0), (150.0, 80.0));
+        assert!(
+            line_of_sight(std::slice::from_ref(&left), up, down),
+            "a single right face"
+        );
+        assert!(
+            line_of_sight(std::slice::from_ref(&right), up, down),
+            "a single left face"
+        );
+        assert!(!line_of_sight(&[left.clone(), right.clone()], up, down));
+        assert!(!line_of_sight(&[right.clone(), left.clone()], down, up));
+        assert!(line_of_sight(
+            &[left.clone(), right.clone()],
+            up,
+            (150.0, 140.0)
+        ));
+        assert!(line_of_sight(&[left, right], (150.0, 100.0), down));
+    }
+
+    /// BLAST-SEAM at a T-junction: a wide block under two side by side. The
+    /// horizontal seam under either one blocks, and so does the vertical seam
+    /// between the two upper blocks; the stem of the T past their tops is a
+    /// plain outer edge again (nothing on its right).
+    #[test]
+    fn line_of_sight_is_blocked_along_both_seams_of_a_t_junction() {
+        let base = wall(100.0, 100.0, 100.0, 8.0);
+        let a = wall(100.0, 108.0, 50.0, 20.0);
+        let b = wall(150.0, 108.0, 50.0, 20.0);
+        let t = [base.clone(), a.clone(), b.clone()];
+        assert!(!line_of_sight(&t, (90.0, 108.0), (120.0, 108.0)), "under a");
+        assert!(
+            !line_of_sight(&t, (180.0, 108.0), (210.0, 108.0)),
+            "under b"
+        );
+        assert!(!line_of_sight(&t, (150.0, 140.0), (150.0, 110.0)), "a | b");
+        assert!(
+            !line_of_sight(&t, (150.0, 140.0), (150.0, 108.0)),
+            "to the junction"
+        );
+        // Without b the stem is a's right face over the base's top.
+        let stem = [base, a];
+        assert!(line_of_sight(&stem, (150.0, 140.0), (150.0, 108.0)));
+        assert!(
+            line_of_sight(&stem, (150.0, 108.0), (210.0, 108.0)),
+            "the base's top"
+        );
+        assert!(
+            !line_of_sight(&stem, (90.0, 108.0), (210.0, 108.0)),
+            "under a"
+        );
+    }
+
+    /// BLAST-SEAM, unchanged: a segment that grazes the outer edge of one block
+    /// (along its top, its underside, either face) or of a row of blocks on the
+    /// same side still passes, whatever lies elsewhere.
+    #[test]
+    fn line_of_sight_along_a_single_outer_edge_is_unchanged() {
+        let block = wall(140.0, 100.0, 20.0, 20.0);
+        let far = wall(400.0, 120.0, 20.0, 20.0);
+        let solids = [block, far];
+        assert!(
+            line_of_sight(&solids, (100.0, 120.0), (200.0, 120.0)),
+            "top"
+        );
+        assert!(
+            line_of_sight(&solids, (100.0, 100.0), (200.0, 100.0)),
+            "underside"
+        );
+        assert!(
+            line_of_sight(&solids, (140.0, 80.0), (140.0, 140.0)),
+            "left face"
+        );
+        assert!(
+            line_of_sight(&solids, (160.0, 80.0), (160.0, 140.0)),
+            "right face"
+        );
+        // `far`'s underside is on the line y 120 too, but not over this span.
+        assert!(line_of_sight(&solids, (100.0, 120.0), (400.0, 120.0)));
+    }
+
+    /// BLAST-SEAM at the Ring court's shutter: a static stack (32 x 68) under
+    /// a 12 px walkway collider whose underside is flush with the stack's top.
+    /// A blast exactly at that height is cut by the seam over the stack; the
+    /// same line clear of the stack grazes only the walkway's underside.
+    #[test]
+    fn a_blast_on_the_shutter_top_and_walkway_underside_line_is_blocked() {
+        let floor = 0.0;
+        let shutter = wall(1200.0, floor, 32.0, 68.0);
+        let walkway = wall(1120.0, floor + 68.0, 192.0, 12.0);
+        let solids = [shutter, walkway];
+        let y = floor + 68.0;
+        assert!(!line_of_sight(&solids, (1180.0, y), (1252.0, y)), "across");
+        assert!(!line_of_sight(&solids, (1252.0, y), (1180.0, y)), "back");
+        assert!(
+            line_of_sight(&solids, (1240.0, y), (1300.0, y)),
+            "beside it"
+        );
+        // A sliced stack (17 slices of 4 px) blocks the floor charge's line,
+        // centre 8 px up on a slice seam, as the one block does.
+        let slices: Vec<Block> = (0..17)
+            .map(|k| wall(1200.0, floor + 4.0 * k as f32, 32.0, 4.0))
+            .collect();
+        for k in 1..17 {
+            let y = floor + 4.0 * k as f32;
+            assert!(
+                !line_of_sight(&slices, (1180.0, y), (1252.0, y)),
+                "seam {k}"
+            );
+        }
     }
 
     #[test]
