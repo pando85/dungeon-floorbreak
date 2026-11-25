@@ -463,6 +463,27 @@ fn sheets_for<'a>(
     }
 }
 
+/// `--death-lab-edge`: a block kill read as a block-edge cut by the same
+/// player (every other event unchanged).
+fn lab_edge_event(event: CombatEvent) -> CombatEvent {
+    match event {
+        CombatEvent::EnemyDefeated {
+            tick,
+            target,
+            cause: DefeatCause::ShoreBlock { player },
+            force,
+            instigator,
+        } => CombatEvent::EnemyDefeated {
+            tick,
+            target,
+            cause: DefeatCause::ShoreBlockEdge { player },
+            force,
+            instigator,
+        },
+        other => other,
+    }
+}
+
 // ------------------------------------------------------ blast frames ------
 
 /// The `vfx_dynamite` atlas frames of the fizzling charge (`dynamite_fizzle`:
@@ -540,7 +561,8 @@ pub struct ExplosionTable {
     pub parts: &'static [&'static str],
     /// Gib ids and how many of each.
     pub gibs: &'static [(&'static str, u32)],
-    /// `gib_rag` count (class clean: the same at every preset).
+    /// Rag count (class clean: the same at every preset), cycled over
+    /// `rag_ids`.
     pub rags: u32,
     /// `drop_blood` count.
     pub drops: u32,
@@ -557,6 +579,19 @@ pub struct ExplosionTable {
     pub extra_wall_spatters: u8,
     pub burst_scale: f32,
     pub flash_ticks: u64,
+    /// The part whose `frame0_origin` emits the gibs, rags and blood drops
+    /// (the goblin's `torso_upper`, the llama's `torso_front`).
+    pub torso: &'static str,
+    /// The rag ids, cycled for `rags`: the goblin's `gib_rag`, the llama's
+    /// two wool tufts (LLAMA-02 section 5, the clean class of every preset).
+    pub rag_ids: &'static [&'static str],
+    /// LLAMA-02: lava drops out of the burst gland (`drop_molten`, shown at
+    /// every preset, section 5); 0 for the goblin.
+    pub molten_drops: u32,
+    /// The part whose `frame0_origin` places a listed part that has none, and
+    /// emits the lava drops: the llama's `neck` (the throat, where the gland
+    /// sits); the goblin's `torso_upper` (every goblin part has an origin).
+    pub throat: &'static str,
 }
 
 /// Indexed by `preset.level() - 1`.
@@ -574,6 +609,10 @@ pub static EXPLOSION_TABLES: [ExplosionTable; 4] = [
         extra_wall_spatters: 0,
         burst_scale: 1.0,
         flash_ticks: 0,
+        torso: "torso_upper",
+        rag_ids: &["gib_rag"],
+        molten_drops: 0,
+        throat: "torso_upper",
     },
     // 2: head, torso_upper and the club; gore muted.
     ExplosionTable {
@@ -588,6 +627,10 @@ pub static EXPLOSION_TABLES: [ExplosionTable; 4] = [
         extra_wall_spatters: 0,
         burst_scale: 1.0,
         flash_ticks: 0,
+        torso: "torso_upper",
+        rag_ids: &["gib_rag"],
+        molten_drops: 0,
+        throat: "torso_upper",
     },
     // 3: five parts, four gibs, one pool to stage 2.
     ExplosionTable {
@@ -602,6 +645,10 @@ pub static EXPLOSION_TABLES: [ExplosionTable; 4] = [
         extra_wall_spatters: 0,
         burst_scale: 1.0,
         flash_ticks: 0,
+        torso: "torso_upper",
+        rag_ids: &["gib_rag"],
+        molten_drops: 0,
+        throat: "torso_upper",
     },
     // 4: ten parts (the club splits), ten gibs, two pools to stage 3.
     ExplosionTable {
@@ -630,12 +677,136 @@ pub static EXPLOSION_TABLES: [ExplosionTable; 4] = [
         extra_wall_spatters: 2,
         burst_scale: 2.0,
         flash_ticks: 3,
+        torso: "torso_upper",
+        rag_ids: &["gib_rag"],
+        molten_drops: 0,
+        throat: "torso_upper",
     },
 ];
 
 /// The table of `preset`.
 pub fn explosion_table(preset: GorePreset) -> &'static ExplosionTable {
     &EXPLOSION_TABLES[preset.level() as usize - 1]
+}
+
+/// LLAMA-DEATH-WIRE: the Bad Llama's explosive breakup (LLAMA-02 spec sections
+/// 5 and 8, `death_poses.spawner_hints.explosive` of `llama_death_h64.json`),
+/// indexed by `preset.level() - 1`. Every list is the spec's; the counts
+/// follow the section 5 scales (gibs and blood 1.0 / 0.5 / 0.25 / 0, lava
+/// 1.0 / 1.0 / 0.5 / 0.5). Adopted defaults (LDW-AD2, LDW-AD3): two wool tufts
+/// stand in for the goblin's rags at every preset (the section 5 preset 1 list
+/// names them) and one knocked-out `tooth` flies at every preset (the section 5
+/// preset 1 list; the crush and the slam throw one too). The preset 4
+/// punch-up (pool and spatter scale, burst, flash) is the goblin's.
+pub static LLAMA_EXPLOSION_TABLES: [ExplosionTable; 4] = [
+    // 1: the LLAMA-01 `down` stays (the sim's own slide); tufts, a tooth and
+    // the lava fly.
+    ExplosionTable {
+        parts: &[],
+        gibs: &[("tooth", 1)],
+        rags: 2,
+        drops: 0,
+        drop_splat_cap: 0,
+        part_stain_cap: 0,
+        pools: 0,
+        pool_scale: 1.0,
+        extra_wall_spatters: 0,
+        burst_scale: 1.0,
+        flash_ticks: 0,
+        torso: "torso_front",
+        rag_ids: &["wool_tuft_a", "wool_tuft_b"],
+        molten_drops: 4,
+        throat: "neck",
+    },
+    // 2: head, front torso and the gland; blood muted, no gibs.
+    ExplosionTable {
+        parts: &["head", "torso_front", "gland"],
+        gibs: &[("tooth", 1)],
+        rags: 2,
+        drops: 7,
+        drop_splat_cap: 4,
+        part_stain_cap: 4,
+        pools: 0,
+        pool_scale: 1.0,
+        extra_wall_spatters: 0,
+        burst_scale: 1.0,
+        flash_ticks: 0,
+        torso: "torso_front",
+        rag_ids: &["wool_tuft_a", "wool_tuft_b"],
+        molten_drops: 4,
+        throat: "neck",
+    },
+    // 3: six parts (no neck, ear, jaw or far legs), four gibs, one pool.
+    ExplosionTable {
+        parts: &[
+            "head",
+            "torso_front",
+            "torso_rump",
+            "leg_fore",
+            "leg_hind",
+            "gland",
+        ],
+        gibs: &[("gib_flesh_a", 2), ("gib_flesh_b", 2), ("tooth", 1)],
+        rags: 2,
+        drops: 14,
+        drop_splat_cap: 8,
+        part_stain_cap: 6,
+        pools: 1,
+        pool_scale: 1.0,
+        extra_wall_spatters: 0,
+        burst_scale: 1.0,
+        flash_ticks: 0,
+        torso: "torso_front",
+        rag_ids: &["wool_tuft_a", "wool_tuft_b"],
+        molten_drops: 8,
+        throat: "neck",
+    },
+    // 4: every body part, ten gibs and two ribs, two pools.
+    ExplosionTable {
+        parts: &[
+            "head",
+            "neck",
+            "torso_front",
+            "torso_rump",
+            "leg_fore",
+            "leg_hind",
+            "leg_fore_far",
+            "leg_hind_far",
+            "ear",
+            "jaw",
+            "gland",
+        ],
+        gibs: &[
+            ("gib_flesh_a", 4),
+            ("gib_flesh_b", 4),
+            ("gib_bone", 2),
+            ("gib_rib", 2),
+            ("tooth", 1),
+        ],
+        rags: 2,
+        drops: 28,
+        drop_splat_cap: 14,
+        part_stain_cap: 10,
+        pools: 2,
+        pool_scale: 2.0,
+        extra_wall_spatters: 2,
+        burst_scale: 2.0,
+        flash_ticks: 3,
+        torso: "torso_front",
+        rag_ids: &["wool_tuft_a", "wool_tuft_b"],
+        molten_drops: 8,
+        throat: "neck",
+    },
+];
+
+/// The explosion table of a death set `variant` (goblin A or B, or the llama)
+/// at `preset`.
+pub fn explosion_table_of(variant: usize, preset: GorePreset) -> &'static ExplosionTable {
+    if variant == LLAMA_VARIANT {
+        &LLAMA_EXPLOSION_TABLES[preset.level() as usize - 1]
+    } else {
+        explosion_table(preset)
+    }
 }
 
 /// Pool stages of a piece that rests at tick R: stage 1 on R, 2 on R + 16,
@@ -693,6 +864,12 @@ impl Finish {
             "llama_crushed" => Self::Crushed,
             "llama_slammed" => Self::Slammed,
             "llama_down" => Self::Knockback,
+            // LLAMA-DEATH-WIRE: the LLAMA-02 decapitation pair (`decap_contact`,
+            // `headless_collapse`, the head) and the explosive breakup of its
+            // parts sheet play through the goblin scripts with the llama's own
+            // numbers (`script_decap`, `LLAMA_EXPLOSION_TABLES`).
+            "llama_decapitated" => Self::Decapitated,
+            "llama_exploded" => Self::Exploded,
             "goblin_exploded" => Self::Exploded,
             // The pose is picked from the defeat's events (`slam_pose_for`).
             "goblin_slammed" => Self::GoblinSlammed(SlamPose::Flung),
@@ -1109,6 +1286,10 @@ pub struct DeathPresenter {
     slam_overlay: bool,
     /// While set, every launched piece is a transient (see `Part`).
     transient_until: Option<u64>,
+    /// LLAMA-DEATH-WIRE evidence lab (`--death-lab-edge`): the presenter plays
+    /// every block kill as a block-edge cut. Presentation only: the
+    /// simulation, its log and its hash never see it.
+    lab_edge: bool,
 }
 
 impl DeathPresenter {
@@ -1171,7 +1352,19 @@ impl DeathPresenter {
             gore_budget: None,
             slam_overlay: false,
             transient_until: None,
+            lab_edge: false,
         })
+    }
+
+    /// LLAMA-DEATH-WIRE evidence lab: read every `ShoreBlock` defeat as a
+    /// `ShoreBlockEdge` cut by the same player, so the decapitation of a
+    /// species the simulation never shears (the llama) can be looked at in
+    /// the real render loop. Presentation only: the events the simulation
+    /// logged and hashed are untouched; only this presenter's copy differs.
+    #[must_use]
+    pub fn with_lab_edge(mut self) -> Self {
+        self.lab_edge = true;
+        self
     }
 
     /// CF02-D (Q36): read the cf02 presentation inputs of `tuning`: the death
@@ -1250,14 +1443,16 @@ impl DeathPresenter {
         self.clock
     }
 
-    /// Whether the GOB-01 body of goblin `target` is still in the scene: not
-    /// replaced by an explosion's pieces (`hides`) and not retired. The sprite
-    /// and its cast shadow share this one rule.
+    /// Whether the GOB-01 body of goblin `target` (or the LLAMA-01 body of a
+    /// llama target) is still in the scene: not replaced by an explosion's
+    /// pieces (`hides`) and not retired. The sprite and its cast shadow share
+    /// this one rule.
     pub fn draws_goblin(&self, target: u32) -> bool {
         !self.hides(target) && !self.is_retired(target)
     }
 
-    /// DEATH-D: whether the GOB-01 sprite of goblin `target` is skipped: its
+    /// DEATH-D: whether the GOB-01 sprite of goblin `target` (the LLAMA-01
+    /// sprite of a llama target, LLAMA-DEATH-WIRE) is skipped: its
     /// death is an explosion at gore presets 2 to 4 (the pieces replace it)
     /// and the presenter clock has reached the death's start. Kept true for
     /// the rest of the attempt (a restart clears it). At preset 1 the sprite
@@ -1578,6 +1773,13 @@ impl DeathPresenter {
 
     /// One fixed tick with the events logged during it.
     pub fn step(&mut self, events: &[CombatEvent], obs: Observation<'_>) {
+        let recaused: Vec<CombatEvent>;
+        let events = if self.lab_edge {
+            recaused = events.iter().map(|&e| lab_edge_event(e)).collect();
+            &recaused[..]
+        } else {
+            events
+        };
         for event in events {
             match *event {
                 CombatEvent::Restart { .. } => {
@@ -1781,7 +1983,7 @@ impl DeathPresenter {
             PresentationRng::for_event(self.attempt, tick, target),
         );
         if finish == Finish::Exploded {
-            let table = explosion_table(self.preset);
+            let table = explosion_table_of(variant, self.preset);
             death.drop_cap = table.drop_splat_cap;
             death.stain_cap = table.part_stain_cap;
             death.pool_scale = table.pool_scale;
@@ -1842,7 +2044,7 @@ impl DeathPresenter {
         );
         if finish == Finish::Exploded {
             // A synthetic explosion has no charge: the impact is under it.
-            let table = explosion_table(self.preset);
+            let table = explosion_table_of(death.variant, self.preset);
             death.drop_cap = table.drop_splat_cap;
             death.stain_cap = table.part_stain_cap;
             death.pool_scale = table.pool_scale;
@@ -2077,9 +2279,11 @@ impl DeathPresenter {
             }
             Contact::Rested { x, .. } => {
                 // The first rest of a tracked torso piece grows a pool under it.
+                // The llama's two heavy pieces (LLAMA-02 section 8: pools
+                // under the two heaviest) are its torso halves.
                 let tracked = match part.id.as_str() {
-                    "torso_upper" => Some(0),
-                    "torso_lower" => Some(1),
+                    "torso_upper" | "torso_front" => Some(0),
+                    "torso_lower" | "torso_rump" => Some(1),
                     _ => None,
                 };
                 let clock = self.clock;
@@ -2553,22 +2757,10 @@ impl DeathPresenter {
     /// (DEATH-D: cause `ShoreBlockEdge`).
     fn script_decap(&mut self, d: &mut Death, age: u64) {
         d.done_after = 150;
-        // The block pinched the neck (a real edge cut only): a squeeze of low,
-        // fast drops from the neck away from the stone on D, and a medium
-        // splat on the walking line at the edge on D+2.
-        if let Some(edge_x) = d.edge_splat_x {
-            if age == 0 {
-                let neck = self.pose_point(d, 3, "neck");
-                let n = scale_count(EDGE_SQUEEZE_DROPS, self.preset.drop_quarters());
-                for _ in 0..n {
-                    let elevation = d.rng.range(10.0, 35.0);
-                    let speed = d.rng.range(80.0, 160.0);
-                    self.drop_blood(d, neck, d.away, elevation, speed);
-                }
-            }
-            if age == 2 {
-                self.spawn_floor_decal(d.variant, "decal_splat_m", edge_x, d.ground_y, false);
-            }
+        self.edge_pinch(d, age);
+        if d.variant == LLAMA_VARIANT {
+            self.script_llama_decap(d, age);
+            return;
         }
         match age {
             0 => {
@@ -2661,6 +2853,126 @@ impl DeathPresenter {
         }
     }
 
+    /// The block's edge pinched the neck (a real `ShoreBlockEdge` only): a
+    /// squeeze of low, fast drops from the neck away from the stone on D, and
+    /// a medium splat on the walking line at the edge on D+2.
+    fn edge_pinch(&mut self, d: &mut Death, age: u64) {
+        if let Some(edge_x) = d.edge_splat_x {
+            if age == 0 {
+                let neck = self.pose_point(d, 3, "neck");
+                let n = scale_count(EDGE_SQUEEZE_DROPS, self.preset.drop_quarters());
+                for _ in 0..n {
+                    let elevation = d.rng.range(10.0, 35.0);
+                    let speed = d.rng.range(80.0, 160.0);
+                    self.drop_blood(d, neck, d.away, elevation, speed);
+                }
+            }
+            if age == 2 {
+                self.spawn_floor_decal(d.variant, "decal_splat_m", edge_x, d.ground_y, false);
+            }
+        }
+    }
+
+    /// LLAMA-DEATH-WIRE: the llama's decapitation, LLAMA-02 spec section 8
+    /// (`death_poses.spawner_hints.decapitation` of `llama_death_h64.json`),
+    /// tick D: pose 3 for 4 ticks, pose 4 for 6, pose 5 held (the shared
+    /// `pose_frame`). The head flies muzzle up from the pose 3 `neck` and
+    /// swaps to `head_dead` on its first floor contact (manifest); the jet is
+    /// 3 drops every 3 ticks for 36 ticks from D+4; the cut duct dribbles one
+    /// lava drop every 6 ticks for 24 ticks (shown at every preset, half as
+    /// many at presets 1 and 2, as the crush burst); the trickle and the pool
+    /// stages are the goblin's.
+    fn script_llama_decap(&mut self, d: &mut Death, age: u64) {
+        match age {
+            0 => {
+                let neck = self.pose_point(d, 3, "neck");
+                let (vx, vy) = (d.away * d.rng.range(50.0, 90.0), d.rng.range(240.0, 300.0));
+                self.launch(
+                    d,
+                    "head",
+                    Some("neck"),
+                    neck,
+                    (vx, vy),
+                    -25.0 * d.away,
+                    -600.0 * d.away,
+                    d.flip,
+                );
+            }
+            4 => {
+                let neck = self.pose_point(d, 4, "neck");
+                self.wall_spatter(d, (neck.0, d.ground_y + 16.0));
+            }
+            14 => {
+                let pool = self.pose_point(d, 5, "pool_origin");
+                self.pool_stage(d, 0, "decal_pool_1", pool.0);
+            }
+            40 => {
+                let pool = self.pose_point(d, 5, "pool_origin");
+                self.pool_stage(d, 0, "decal_pool_2", pool.0);
+            }
+            100 => {
+                let pool = self.pose_point(d, 5, "pool_origin");
+                self.pool_stage(d, 0, "decal_pool_3", pool.0);
+            }
+            _ => {}
+        }
+        // LDW-AD5: the jet and the lava leave the buckle's (pose 4) anchors
+        // while it shows and the propped stump of the hold (pose 5) after, so
+        // they never hang in the air above the lying body.
+        let held = age >= 10;
+        if (4..40).contains(&age) && (age - 4).is_multiple_of(3) {
+            let base = if held {
+                self.pose_point(d, 5, "neck")
+            } else {
+                self.pose_point(d, 4, "jet_base")
+            };
+            for _ in 0..3 {
+                let k = d.drops_emitted;
+                d.drops_emitted += 1;
+                if !keeps_stream_item(k, self.preset.drop_quarters()) {
+                    continue;
+                }
+                let spread = d.rng.range(-12.0, 12.0).to_radians();
+                let up = d.rng.range(170.0, 240.0);
+                self.launch(
+                    d,
+                    "drop_blood",
+                    None,
+                    base,
+                    (spread.tan() * up, up),
+                    0.0,
+                    0.0,
+                    false,
+                );
+            }
+        }
+        if (4..28).contains(&age) && (age - 4).is_multiple_of(6) {
+            let quarters = if self.preset >= GorePreset::Medium {
+                4
+            } else {
+                2
+            };
+            if keeps_stream_item(((age - 4) / 6) as u32, quarters) {
+                let gland = self.pose_point(d, if held { 5 } else { 4 }, "gland");
+                // LDW-AD6: a slow dribble out of the duct (the spec gives no
+                // speed): it lands within a few pixels of the stump.
+                let (vx, vy) = (d.rng.range(-15.0, 15.0), d.rng.range(40.0, 90.0));
+                self.launch(d, "drop_molten", None, gland, (vx, vy), 0.0, 0.0, false);
+            }
+        }
+        // The trickle: 1 drop every 8 ticks from D+10 for 40 ticks.
+        if (10..50).contains(&age) && (age - 10).is_multiple_of(8) {
+            let neck = self.pose_point(d, 5, "neck");
+            let k = d.drops_emitted;
+            d.drops_emitted += 1;
+            if keeps_stream_item(k, self.preset.drop_quarters()) {
+                let vx = d.rng.range(-10.0, 10.0);
+                let vy = d.rng.range(20.0, 60.0);
+                self.launch(d, "drop_blood", None, neck, (vx, vy), 0.0, 0.0, false);
+            }
+        }
+    }
+
     /// A spin in degrees per second from a manifest spin class, sign seeded.
     fn class_spin(rng: &mut PresentationRng, class: SpinClass) -> f32 {
         let spin = match class {
@@ -2677,28 +2989,41 @@ impl DeathPresenter {
     /// presets 2 to 4 (`hides`).
     fn script_explode(&mut self, d: &mut Death, age: u64) {
         d.done_after = 240;
-        let table = explosion_table(self.preset);
+        let table = explosion_table_of(d.variant, self.preset);
         let (ix, iy) = d.impact.unwrap_or((d.foot_x, d.ground_y + BLAST_CENTRE_DY));
         let (foot_x, ground_y, flip) = (d.foot_x, d.ground_y, d.flip);
         match age {
             0 => {
-                // The torso point: where the goblin's torso is on frame 0.
-                let pivot = self.art.pose_pivot;
+                // The set of this death (goblin A, or the llama: its own
+                // frame, pivot and parts); a cheap handle, so `launch` may
+                // borrow the presenter.
+                let art = Arc::clone(if d.variant == LLAMA_VARIANT {
+                    self.llama.as_ref().map_or(&self.art, |l| &l.art)
+                } else {
+                    &self.art
+                });
+                let pivot = art.pose_pivot;
                 let origin_of = |art: &DeathArt, id: &str| {
                     art.part_index(id)
                         .and_then(|i| art.parts[i].frame0_origin)
                         .map(|o| pose_anchor_world(pivot, (o[0], o[1]), foot_x, ground_y, flip))
                 };
-                let torso =
-                    origin_of(&self.art, "torso_upper").unwrap_or((foot_x, ground_y + 20.0));
+                // The torso point: where the torso is on frame 0.
+                let torso = origin_of(&art, table.torso).unwrap_or((foot_x, ground_y + 20.0));
+                // The throat: where a part with no origin of its own (the
+                // llama's gland) starts, and where the lava comes out.
+                let throat = origin_of(&art, table.throat).unwrap_or(torso);
                 for id in table.parts {
-                    let Some(index) = self.art.part_index(id) else {
+                    let Some(index) = art.part_index(id) else {
                         continue;
                     };
-                    let (spin_class, mass) =
-                        (self.art.parts[index].spin, self.art.parts[index].mass);
-                    let Some(start) = origin_of(&self.art, id) else {
-                        continue;
+                    let (spin_class, mass) = (art.parts[index].spin, art.parts[index].mass);
+                    let start = match origin_of(&art, id) {
+                        Some(start) => start,
+                        // LDW-AD1: only the llama lists a part without a
+                        // `frame0_origin` (the gland, in the throat).
+                        None if d.variant == LLAMA_VARIANT => throat,
+                        None => continue,
                     };
                     let (dx, dy) = (start.0 - ix, start.1 - iy);
                     let len = dx.hypot(dy);
@@ -2722,10 +3047,9 @@ impl DeathPresenter {
                         _ => n,
                     };
                     // The manifest's spin class drives the gib, as for a part.
-                    let gib_class = self
-                        .art
+                    let gib_class = art
                         .part_index(id)
-                        .map_or(SpinClass::Fast, |i| self.art.parts[i].spin);
+                        .map_or(SpinClass::Fast, |i| art.parts[i].spin);
                     for _ in 0..n {
                         let (sin, cos) = d.rng.range(20.0, 160.0).to_radians().sin_cos();
                         let speed = d.rng.range(140.0, 260.0);
@@ -2742,17 +3066,17 @@ impl DeathPresenter {
                         );
                     }
                 }
-                for _ in 0..table.rags {
+                for k in 0..table.rags as usize {
                     let (sin, cos) = d.rng.range(40.0, 140.0).to_radians().sin_cos();
                     let speed = d.rng.range(80.0, 160.0);
-                    let rag_class = self
-                        .art
-                        .part_index("gib_rag")
-                        .map_or(SpinClass::Slow, |i| self.art.parts[i].spin);
+                    let rag = table.rag_ids[k % table.rag_ids.len()];
+                    let rag_class = art
+                        .part_index(rag)
+                        .map_or(SpinClass::Slow, |i| art.parts[i].spin);
                     let spin = Self::class_spin(&mut d.rng, rag_class);
                     self.launch(
                         d,
-                        "gib_rag",
+                        rag,
                         None,
                         torso,
                         (cos * speed, sin * speed),
@@ -2765,6 +3089,24 @@ impl DeathPresenter {
                     let elevation = d.rng.range(10.0, 170.0);
                     let speed = d.rng.range(120.0, 280.0);
                     self.drop_blood(d, torso, 1.0, elevation, speed);
+                }
+                // LLAMA-02 section 8: the gland bursts; its lava leaves the
+                // throat in a fan (each landing becomes `decal_molten`, at most
+                // six per death).
+                for _ in 0..table.molten_drops {
+                    let elevation = d.rng.range(30.0, 150.0);
+                    let speed = d.rng.range(140.0, 260.0);
+                    let (sin, cos) = elevation.to_radians().sin_cos();
+                    self.launch(
+                        d,
+                        "drop_molten",
+                        None,
+                        throat,
+                        (cos * speed, sin * speed),
+                        0.0,
+                        0.0,
+                        false,
+                    );
                 }
             }
             1 => {
@@ -5172,6 +5514,365 @@ mod tests {
         ids
     }
 
+    // ================================================ LLAMA-DEATH-WIRE ====
+
+    /// The llama death set's `spawner_hints` (LLAMA-02 section 8).
+    fn llama_hints() -> serde_json::Value {
+        let text =
+            std::fs::read_to_string(root().join("assets/manifests/llama_death_h64.json")).unwrap();
+        let manifest: serde_json::Value = serde_json::from_str(&text).unwrap();
+        manifest["death_poses"]["spawner_hints"].clone()
+    }
+
+    /// Parts spawned on each presenter tick of a llama death (index = age).
+    fn spawned_per_tick(
+        preset: GorePreset,
+        cause: DefeatCause,
+        ticks: u64,
+        charges: &[BlastCharge],
+    ) -> (DeathPresenter, Vec<u64>) {
+        let mut p = llama_presenter(preset);
+        let llamas = [llama_at(484.0)];
+        let ob = Observation {
+            charges,
+            ..lobs(&[], &llamas)
+        };
+        let mut out = Vec::new();
+        let mut before = 0;
+        for age in 0..ticks {
+            let events = if age == 0 {
+                vec![defeat(10, 0, cause, ForceTier::Catastrophic)]
+            } else {
+                Vec::new()
+            };
+            p.step(&events, ob);
+            out.push(p.stats().parts_spawned - before);
+            before = p.stats().parts_spawned;
+        }
+        (p, out)
+    }
+
+    #[test]
+    fn ldw_the_llama_decapitation_plays_the_llama_02_pair_and_throws_the_head() {
+        for preset in GorePreset::ALL {
+            let mut p = llama_presenter(preset);
+            let llamas = [llama_at(484.0)];
+            p.step(
+                &[defeat(10, 0, EDGE, ForceTier::Catastrophic)],
+                lobs(&[], &llamas),
+            );
+            let first = p.pose_of(0).expect("the decapitation pose");
+            assert_eq!(
+                (first.frame, first.variant),
+                (3, LLAMA_VARIANT),
+                "{preset:?}"
+            );
+            // The head leaves on D at every preset (preset 1 keeps the head:
+            // LLAMA-02 section 5), from the pose 3 `neck`, anchored by its own.
+            assert_eq!(count(&llama_part_ids(&p), "head"), 1, "{preset:?}");
+            for age in 1..160u64 {
+                p.step(&[], lobs(&[], &llamas));
+                let want = match age {
+                    0..=3 => 3,
+                    4..=9 => 4,
+                    _ => 5,
+                };
+                assert_eq!(p.pose_of(0).unwrap().frame, want, "age {age} {preset:?}");
+            }
+            let art = p.art_of(LLAMA_VARIANT);
+            assert_eq!(art.pose(3).tag, "decap_contact");
+            assert_eq!(art.pose(4).tag, "headless_collapse");
+            assert_eq!(art.pose(5).tag, "headless_collapse");
+            // The head swapped to `head_dead` on its first floor contact.
+            let ids = llama_part_ids(&p);
+            assert_eq!(count(&ids, "head"), 0, "{preset:?} {ids:?}");
+            assert_eq!(count(&ids, "head_dead"), 1, "{preset:?} {ids:?}");
+            // Not an explosion: the body is a pose, never hidden; no stone over it.
+            assert!(!p.hides(0));
+            assert!(p.hazard_over_anchor().is_none());
+            let floors = llama_floor_ids(&p);
+            if preset == GorePreset::Off {
+                assert!(
+                    floors.iter().all(|id| id.starts_with("decal_molten")),
+                    "{floors:?}"
+                );
+                assert!(
+                    floors.iter().any(|id| id.starts_with("decal_molten")),
+                    "lava at preset 1"
+                );
+            }
+            if preset == GorePreset::Full {
+                assert!(floors.iter().any(|id| id == "decal_pool_3"), "{floors:?}");
+                assert!(p.live_wall_decals() > 0, "the jet's wall spatter");
+            }
+        }
+    }
+
+    #[test]
+    fn ldw_the_llama_jet_lava_and_trickle_follow_the_spawner_hints() {
+        let hints = llama_hints();
+        let decap = &hints["decapitation"];
+        let (jet, lava, trickle) = (
+            &decap["jet_drops"],
+            &decap["molten_drops"],
+            &decap["trickle"],
+        );
+        let n = |v: &serde_json::Value| v.as_u64().unwrap();
+        assert_eq!(
+            (
+                n(&jet["every_ticks"]),
+                n(&jet["per_emit"]),
+                n(&jet["for_ticks"])
+            ),
+            (3, 3, 36)
+        );
+        assert_eq!((n(&lava["every_ticks"]), n(&lava["for_ticks"])), (6, 24));
+        assert_eq!(
+            (n(&trickle["every_ticks"]), n(&trickle["for_ticks"])),
+            (8, 40)
+        );
+        assert_eq!(n(&decap["ticks"]["pose_4"]), 4);
+        assert_eq!(n(&decap["ticks"]["pose_5"]), 10);
+        // Per tick at preset 4: D = the head and the 8 squeeze drops of the
+        // edge; the jet from D+4 every 3 ticks (3 drops) until D+40; the lava
+        // from D+4 every 6 ticks until D+28; the trickle from D+10 every 8 ticks
+        // until D+50.
+        let want: Vec<u64> = (0..60u64)
+            .map(|age| {
+                let mut k = if age == 0 {
+                    1 + EDGE_SQUEEZE_DROPS as u64
+                } else {
+                    0
+                };
+                if (4..40).contains(&age) && (age - 4) % 3 == 0 {
+                    k += 3;
+                }
+                if (4..28).contains(&age) && (age - 4) % 6 == 0 {
+                    k += 1;
+                }
+                if (10..50).contains(&age) && (age - 10) % 8 == 0 {
+                    k += 1;
+                }
+                k
+            })
+            .collect();
+        let (_, got) = spawned_per_tick(GorePreset::Full, EDGE, 60, &[]);
+        assert_eq!(got, want);
+        // The totals at each preset: the blood streams scale by the drop
+        // quarters, the lava is kept whole at presets 3 and 4 and halved at 1
+        // and 2, the head always flies.
+        for (preset, total) in [
+            (GorePreset::Full, 1 + 8 + 36 + 5 + 4),
+            (GorePreset::Medium, 1 + 4 + 20 + 4),
+            (GorePreset::Reduced, 1 + 2 + 10 + 2),
+            (GorePreset::Off, 1 + 2),
+        ] {
+            let (p, _) = spawned_per_tick(preset, EDGE, 60, &[]);
+            assert_eq!(p.stats().parts_spawned, total, "{preset:?}");
+        }
+    }
+
+    #[test]
+    fn ldw_the_llama_explosion_tables_are_the_spec_and_the_manifest() {
+        let art = llama_art();
+        let hints = llama_hints();
+        let explosive = &hints["explosive"];
+        let n = |v: &serde_json::Value| v.as_u64().unwrap() as u32;
+        let full = explosion_table_of(LLAMA_VARIANT, GorePreset::Full);
+        let gib = |t: &ExplosionTable, id: &str| {
+            t.gibs.iter().find(|(g, _)| *g == id).map_or(0, |(_, k)| *k)
+        };
+        assert_eq!(
+            gib(full, "gib_flesh_a") + gib(full, "gib_flesh_b") + gib(full, "gib_bone"),
+            n(&explosive["gibs"])
+        );
+        assert_eq!(gib(full, "gib_rib"), n(&explosive["gib_rib"]));
+        assert_eq!(full.drops, n(&explosive["drop_blood"]));
+        assert_eq!(full.molten_drops, n(&explosive["drop_molten"]));
+        assert_eq!(u32::from(full.pools), n(&explosive["pools_under"]));
+        // Preset 4 lists every body part of the sheet: the wound pieces that
+        // exist on frame 0 (not the swap target) and the gland.
+        let mut body: Vec<&str> = art
+            .parts
+            .iter()
+            .filter(|m| m.class == PartClass::Wound && m.frame0_origin.is_some())
+            .map(|m| m.id.as_str())
+            .filter(|id| *id != "head_dead")
+            .chain(["gland"])
+            .collect();
+        let mut listed = full.parts.to_vec();
+        body.sort_unstable();
+        listed.sort_unstable();
+        assert_eq!(listed, body);
+        // Section 5's lists for presets 3 and 2, and preset 1's fallback.
+        let lists: [&[&str]; 4] = [
+            &[],
+            &["head", "torso_front", "gland"],
+            &[
+                "head",
+                "torso_front",
+                "torso_rump",
+                "leg_fore",
+                "leg_hind",
+                "gland",
+            ],
+            full.parts,
+        ];
+        for (i, preset) in GorePreset::ALL.into_iter().enumerate() {
+            let t = explosion_table_of(LLAMA_VARIANT, preset);
+            assert_eq!(t.parts, lists[i], "{preset:?}");
+            assert_eq!(
+                t.drops,
+                scale_count(28, preset.drop_quarters()),
+                "{preset:?}"
+            );
+            let lava = if preset >= GorePreset::Medium { 8 } else { 4 };
+            assert_eq!(t.molten_drops, lava, "{preset:?}");
+            for &(id, k) in t.gibs {
+                let want = match id {
+                    "tooth" => 1,
+                    "gib_bone" | "gib_rib" => 2,
+                    _ => scale_count(4, preset.gib_quarters()),
+                };
+                assert_eq!(k, want, "{id} at {preset:?}");
+            }
+            // Every id the table launches is allowed at its preset.
+            // (`torso` and `throat` are emitter points, read from the manifest
+            // whatever the preset: they only need a frame-0 origin.)
+            for id in [t.torso, t.throat] {
+                assert!(
+                    art.parts[art.part_index(id).unwrap()]
+                        .frame0_origin
+                        .is_some()
+                );
+            }
+            let named = ["drop_molten"];
+            let ids = t
+                .parts
+                .iter()
+                .chain(t.gibs.iter().map(|(id, _)| id))
+                .chain(t.rag_ids.iter())
+                .chain(named.iter());
+            for id in ids {
+                let meta = &art.parts[art.part_index(id).unwrap()];
+                assert!(meta.allowed_at(preset), "{id} at {preset:?}");
+            }
+            if t.drops > 0 {
+                assert!(art.parts[art.part_index("drop_blood").unwrap()].allowed_at(preset));
+            }
+            // The punch-up of preset 4 is the goblin's.
+            let g = explosion_table(preset);
+            assert_eq!(
+                (
+                    t.pool_scale,
+                    t.extra_wall_spatters,
+                    t.burst_scale,
+                    t.flash_ticks
+                ),
+                (
+                    g.pool_scale,
+                    g.extra_wall_spatters,
+                    g.burst_scale,
+                    g.flash_ticks
+                )
+            );
+        }
+        // The goblin's own tables did not move (variants A and B).
+        for preset in GorePreset::ALL {
+            assert_eq!(explosion_table_of(0, preset), explosion_table(preset));
+            assert_eq!(explosion_table_of(1, preset), explosion_table(preset));
+            assert_eq!(explosion_table(preset).molten_drops, 0);
+        }
+    }
+
+    #[test]
+    fn ldw_a_dynamite_kill_of_a_llama_launches_exactly_its_table() {
+        let charges = charge_484();
+        for preset in GorePreset::ALL {
+            let (p, _) = spawned_per_tick(preset, BLAST_PB, 1, &charges);
+            let t = explosion_table_of(LLAMA_VARIANT, preset);
+            let mut want: Vec<String> = t.parts.iter().map(ToString::to_string).collect();
+            for &(id, k) in t.gibs {
+                want.extend(std::iter::repeat_n(id.to_string(), k as usize));
+            }
+            for k in 0..t.rags as usize {
+                want.push(t.rag_ids[k % t.rag_ids.len()].to_string());
+            }
+            want.extend(std::iter::repeat_n(
+                "drop_blood".to_string(),
+                t.drops as usize,
+            ));
+            want.extend(std::iter::repeat_n(
+                "drop_molten".to_string(),
+                t.molten_drops as usize,
+            ));
+            assert_eq!(sorted(llama_part_ids(&p)), sorted(want), "{preset:?}");
+            assert!(p.parts().all(|(_, part)| part.variant == LLAMA_VARIANT));
+            // The pieces replace the LLAMA-01 sprite at presets 2 to 4; at
+            // preset 1 its `down` frames stay. Never a pose.
+            assert_eq!(p.hides(0), preset != GorePreset::Off, "{preset:?}");
+            assert_eq!(p.draws_goblin(0), preset == GorePreset::Off, "{preset:?}");
+            assert!(p.pose_of(0).is_none());
+            assert_eq!(p.recycled(), (0, 0, 0));
+        }
+    }
+
+    #[test]
+    fn ldw_the_exploded_llama_settles_pools_under_its_torso_halves_and_leaves_lava() {
+        let charges = charge_484();
+        let (p, _) = spawned_per_tick(GorePreset::Full, BLAST_PB, 240, &charges);
+        let floors = llama_floor_ids(&p);
+        let pools = floors
+            .iter()
+            .filter(|id| id.starts_with("decal_pool"))
+            .count();
+        assert!(pools >= 2, "{floors:?}");
+        assert!(floors.iter().any(|id| id == "decal_molten"), "{floors:?}");
+        assert!(p.live_wall_decals() >= 2, "both spatters at preset 4");
+        // Every piece rests on the floor line (never below it).
+        for (_, part) in p.parts() {
+            assert!(part.y >= part.ground_y - 0.01, "{part:?}");
+        }
+        // Preset 1: no blood at all, the lava stays.
+        let (off, _) = spawned_per_tick(GorePreset::Off, BLAST_PB, 240, &charges);
+        let floors = llama_floor_ids(&off);
+        assert!(
+            floors.iter().all(|id| id.starts_with("decal_molten")),
+            "{floors:?}"
+        );
+        assert!(!floors.is_empty(), "the lava lands at preset 1");
+        assert_eq!(off.live_wall_decals(), 0);
+        // The same death replays the same pieces (event-seeded).
+        let (again, _) = spawned_per_tick(GorePreset::Full, BLAST_PB, 240, &charges);
+        assert_eq!(p.digest(), again.digest());
+    }
+
+    #[test]
+    fn ldw_the_evidence_lab_reads_a_block_kill_as_an_edge_cut_and_nothing_else() {
+        let block = defeat(10, 0, BLOCK, ForceTier::Catastrophic);
+        assert_eq!(
+            lab_edge_event(block),
+            defeat(10, 0, EDGE, ForceTier::Catastrophic)
+        );
+        for other in [
+            defeat(10, 0, DefeatCause::Melee, ForceTier::Heavy),
+            defeat(10, 0, BLAST_PB, ForceTier::Catastrophic),
+            defeat(10, 0, EDGE, ForceTier::Catastrophic),
+            CombatEvent::Restart { tick: 3, deaths: 1 },
+        ] {
+            assert_eq!(lab_edge_event(other), other);
+        }
+        // A crushed llama plays the decapitation under the lab, the crush
+        // without it.
+        let llamas = [llama_at(484.0)];
+        let mut lab = llama_presenter(GorePreset::Full).with_lab_edge();
+        lab.step(&[block], lobs(&[], &llamas));
+        assert_eq!(lab.pose_of(0).unwrap().frame, 3);
+        let mut plain = llama_presenter(GorePreset::Full);
+        plain.step(&[block], lobs(&[], &llamas));
+        assert_eq!(plain.pose_of(0).unwrap().frame, 0);
+    }
+
     // ---- the decapitation through a real event ----
 
     #[test]
@@ -5820,27 +6521,35 @@ mod tests {
         // The finishes the profile can pick are the four with art.
         assert_eq!(Finish::from_id("goblin_decapitated"), Finish::Decapitated);
         assert_eq!(Finish::from_id("goblin_exploded"), Finish::Exploded);
-        // The llama (DEMO-01 PR B): the crush, the slam and the plain down have
-        // art; its decapitation and explosion do not (no cause selects them for
-        // the demo, and an artless finish draws nothing).
+        // The llama: the crush, the slam and the plain down (DEMO-01 PR B),
+        // and since LLAMA-DEATH-WIRE its decapitation and explosion, have art.
+        // Every recipe of its profile and its fallback select one.
         let llama = profiles.species("llama").unwrap();
-        for recipe in &llama.recipes {
-            let want = match recipe.finish.as_str() {
+        let mut llama_ids: Vec<&str> = llama.recipes.iter().map(|r| r.finish.as_str()).collect();
+        llama_ids.push(llama.fallback_finish.as_str());
+        assert_eq!(llama_ids.len(), 6, "{llama_ids:?}");
+        for id in llama_ids {
+            let want = match id {
                 "llama_crushed" => Finish::Crushed,
                 "llama_slammed" => Finish::Slammed,
                 "llama_down" => Finish::Knockback,
-                _ => Finish::NoArt,
+                "llama_decapitated" => Finish::Decapitated,
+                "llama_exploded" => Finish::Exploded,
+                other => panic!("an unexpected llama finish {other}"),
             };
-            assert_eq!(Finish::from_id(&recipe.finish), want, "{}", recipe.finish);
+            assert_eq!(Finish::from_id(id), want, "{id}");
         }
     }
 
     #[test]
     fn a_species_without_decapitation_art_draws_the_next_class_or_nothing() {
-        // A llama is never drawn as a goblin: a finish id with no presenter art
-        // draws nothing, never a mismatched head.
+        // A species without the art is never drawn as a goblin: the block edge
+        // falls to the skeleton mock's crush (`skeleton_flat_pile`), a finish
+        // id with no presenter art, which draws nothing, never a mismatched
+        // head. (The llama was this test's species until LLAMA-DEATH-WIRE
+        // gave it the art.)
         let mut p = presenter(GorePreset::Full);
-        p.species = "llama";
+        p.species = "skeleton_mock";
         let goblins = [goblin_at(484.0)];
         let charges = charge_484();
         let ob = Observation {

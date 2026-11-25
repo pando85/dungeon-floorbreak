@@ -36,7 +36,7 @@ The same final `COMBAT_STATE` hash in the headless replay, in the live render ru
 
 ## Known limits
 
-* Not drawn or not wired: the llama's decapitation and explosion, the molten crust swap after 240 ticks, the slam's impact dust, any llama sound, a debug box for the llama.
+* Not drawn or not wired: the llama's decapitation and explosion (wired later by LLAMA-DEATH-WIRE, see [llama-death-wire](../llama-death-wire/README.md)), the molten crust swap after 240 ticks, the slam's impact dust, any llama sound, a debug box for the llama.
 * The llama never launches and never touches a goblin; Carl passes through its body (the same as a goblin).
 * The slam and down finishes are lit by the same A1 pass as the goblin's; no lighting change.
 * The folder is `llama-bevy`, not the plan's `llama-int-01` (recorded deviation).

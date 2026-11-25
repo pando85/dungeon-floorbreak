@@ -1,0 +1,10 @@
+decap headless COMBAT_STATE fixture=cp05_llama_crush seed=0xc050005 tick=259 elapsed=259 hero_hp=4 deaths=0 enemies= hash=12371a3fcb87643c shore=3/Broken/Landed block_bottom=0.00 llamas=l0=484.000/0
+decap window p4 640x360 COMBAT_STATE fixture=cp05_llama_crush seed=0xc050005 tick=259 elapsed=259 hero_hp=4 deaths=0 enemies= hash=12371a3fcb87643c shore=3/Broken/Landed block_bottom=0.00 llamas=l0=484.000/0
+decap window p1 640x360 COMBAT_STATE fixture=cp05_llama_crush seed=0xc050005 tick=259 elapsed=259 hero_hp=4 deaths=0 enemies= hash=12371a3fcb87643c shore=3/Broken/Landed block_bottom=0.00 llamas=l0=484.000/0
+decap window p4 1920x1080 COMBAT_STATE fixture=cp05_llama_crush seed=0xc050005 tick=259 elapsed=259 hero_hp=4 deaths=0 enemies= hash=12371a3fcb87643c shore=3/Broken/Landed block_bottom=0.00 llamas=l0=484.000/0
+decap window p1 1920x1080 COMBAT_STATE fixture=cp05_llama_crush seed=0xc050005 tick=259 elapsed=259 hero_hp=4 deaths=0 enemies= hash=12371a3fcb87643c shore=3/Broken/Landed block_bottom=0.00 llamas=l0=484.000/0
+blast headless COMBAT_STATE fixture=carl_prog_dyn_llama_core seed=0xca10047 tick=330 elapsed=330 hero_hp=4 deaths=0 enemies= hash=7155c127cbcc2612 llamas=l0=542.500/0
+blast window p4 640x360 COMBAT_STATE fixture=carl_prog_dyn_llama_core seed=0xca10047 tick=330 elapsed=330 hero_hp=4 deaths=0 enemies= hash=7155c127cbcc2612 llamas=l0=542.500/0
+blast window p1 640x360 COMBAT_STATE fixture=carl_prog_dyn_llama_core seed=0xca10047 tick=330 elapsed=330 hero_hp=4 deaths=0 enemies= hash=7155c127cbcc2612 llamas=l0=542.500/0
+blast window p4 1920x1080 COMBAT_STATE fixture=carl_prog_dyn_llama_core seed=0xca10047 tick=330 elapsed=330 hero_hp=4 deaths=0 enemies= hash=7155c127cbcc2612 llamas=l0=542.500/0
+blast window p1 1920x1080 COMBAT_STATE fixture=carl_prog_dyn_llama_core seed=0xca10047 tick=330 elapsed=330 hero_hp=4 deaths=0 enemies= hash=7155c127cbcc2612 llamas=l0=542.500/0

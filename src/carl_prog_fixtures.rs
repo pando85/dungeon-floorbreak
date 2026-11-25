@@ -17,7 +17,7 @@ use crate::blast::Arm;
 use crate::boss_scene::{FULL, FULL_NO_RACKS, Pilot, boss_base, hp};
 use crate::carl_prog::CarlProgFlags;
 use crate::combat::EnemyAi;
-use crate::combat_scene::{ChargeSpawn, EnemySpawn, Fixture};
+use crate::combat_scene::{ChargeSpawn, EnemySpawn, Fixture, LlamaSpawn};
 use crate::donut_mana::DonutSetup;
 use crate::party::PROVISIONAL_TUNING;
 use crate::party_scene::{PartyFixture, SlotHold, base, run, swap};
@@ -889,8 +889,34 @@ pub const CARL_PROG_KICK_UNCHANGED: PartyFixture = PartyFixture {
     donut: DonutSetup::NONE,
 };
 
+const DYN_LLAMA_CORE_BASE: Fixture = Fixture {
+    llamas: &[LlamaSpawn {
+        x: 511,
+        ai: EnemyAi::Passive,
+    }],
+    ..base(
+        "carl_prog_dyn_llama_core",
+        "Solo, thrown charge held: a passive Bad Llama stands where the stick lands; the core kills it point blank on the detonation tick (a llama_exploded finish), credited to Carl",
+        0x0CA1_0047,
+        &[],
+        330,
+    )
+};
+
+/// LLAMA-DEATH-WIRE evidence (CP-Q26): the dynamite kill of a llama, the
+/// replay the explosive breakup of its LLAMA-02 parts is captured from. The
+/// simulation rule is CP-Q26's, unchanged (`thrown.rs` tests it).
+pub const CARL_PROG_DYN_LLAMA_CORE: PartyFixture = PartyFixture {
+    base: &DYN_LLAMA_CORE_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[special(4, 0)],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
 /// Every `carl_prog_*` replay fixture, in committed order.
-pub const CARL_PROG_FIXTURES: [&PartyFixture; 31] = [
+pub const CARL_PROG_FIXTURES: [&PartyFixture; 32] = [
     &CARL_PROG_STORY_EVENT_GRANTS_DYNAMITE,
     &CARL_PROG_GRANT_SURVIVES_RESPAWN,
     &CARL_PROG_JUICER_GRANTS_FIST,
@@ -922,6 +948,7 @@ pub const CARL_PROG_FIXTURES: [&PartyFixture; 31] = [
     &CARL_PROG_BOSS_POISE,
     &CARL_PROG_SHORE_COMBO,
     &CARL_PROG_KICK_UNCHANGED,
+    &CARL_PROG_DYN_LLAMA_CORE,
 ];
 
 #[cfg(test)]
@@ -997,7 +1024,7 @@ mod tests {
     }
 
     /// The committed final hashes of the `carl_prog_*` fixtures.
-    const GOLDENS: [(&str, u64); 31] = [
+    const GOLDENS: [(&str, u64); 32] = [
         (
             "carl_prog_story_event_grants_dynamite",
             0x7594_ba64_4fd2_dbaf,
@@ -1032,6 +1059,7 @@ mod tests {
         ("carl_prog_boss_poise", 0x7ce8_2d1e_f101_63c1),
         ("carl_prog_shore_combo", 0xc155_9bef_ceb0_67bf),
         ("carl_prog_kick_unchanged", 0x0755_27d1_bab1_0490),
+        ("carl_prog_dyn_llama_core", 0xa00c_a20c_6dcf_ece8),
     ];
 
     #[test]
