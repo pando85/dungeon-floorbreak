@@ -1,0 +1,251 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "art-carl-gauntlet-dynamite",
+  "title": "CARL-GAUNTLET-01 reinforced-fist overlay for the Carl 52 px dynamite sheet (45 frames)",
+  "grid": "assets/source/characters/carl/carl_h52_dynamite_gauntlet.grid.json",
+  "manifest": "assets/manifests/carl_book1_h52_dynamite_gauntlet.json",
+  "frame_size": [
+    48,
+    56
+  ],
+  "pivot": [
+    25,
+    55
+  ],
+  "contact_row": null,
+  "tick_hz": 1000,
+  "hold_ms": 100,
+  "facing": "right",
+  "tags": {
+    "dynamite_throw": {
+      "playback": "loop",
+      "contact": "free",
+      "frames": [
+        [
+          0,
+          100
+        ],
+        [
+          1,
+          167
+        ],
+        [
+          2,
+          117
+        ],
+        [
+          3,
+          117
+        ],
+        [
+          4,
+          133
+        ],
+        [
+          5,
+          67
+        ],
+        [
+          6,
+          133
+        ],
+        [
+          7,
+          200
+        ],
+        [
+          8,
+          133
+        ]
+      ]
+    },
+    "dynamite_move_light": {
+      "playback": "loop",
+      "contact": "free",
+      "frames": [
+        [
+          9,
+          67
+        ],
+        [
+          10,
+          67
+        ],
+        [
+          11,
+          67
+        ],
+        [
+          12,
+          67
+        ],
+        [
+          13,
+          67
+        ],
+        [
+          14,
+          67
+        ]
+      ]
+    },
+    "dynamite_move_hold": {
+      "playback": "loop",
+      "contact": "free",
+      "frames": [
+        [
+          15,
+          67
+        ],
+        [
+          16,
+          67
+        ],
+        [
+          17,
+          67
+        ],
+        [
+          18,
+          67
+        ],
+        [
+          19,
+          67
+        ],
+        [
+          20,
+          67
+        ]
+      ]
+    },
+    "dynamite_move_hold_b": {
+      "playback": "loop",
+      "contact": "free",
+      "frames": [
+        [
+          21,
+          67
+        ],
+        [
+          22,
+          67
+        ],
+        [
+          23,
+          67
+        ],
+        [
+          24,
+          67
+        ],
+        [
+          25,
+          67
+        ],
+        [
+          26,
+          67
+        ]
+      ]
+    },
+    "dynamite_move_wind": {
+      "playback": "loop",
+      "contact": "free",
+      "frames": [
+        [
+          27,
+          67
+        ],
+        [
+          28,
+          67
+        ],
+        [
+          29,
+          67
+        ],
+        [
+          30,
+          67
+        ],
+        [
+          31,
+          67
+        ],
+        [
+          32,
+          67
+        ]
+      ]
+    },
+    "dynamite_move_release": {
+      "playback": "loop",
+      "contact": "free",
+      "frames": [
+        [
+          33,
+          67
+        ],
+        [
+          34,
+          67
+        ],
+        [
+          35,
+          67
+        ],
+        [
+          36,
+          67
+        ],
+        [
+          37,
+          67
+        ],
+        [
+          38,
+          67
+        ]
+      ]
+    },
+    "dynamite_move_follow": {
+      "playback": "loop",
+      "contact": "free",
+      "frames": [
+        [
+          39,
+          67
+        ],
+        [
+          40,
+          67
+        ],
+        [
+          41,
+          67
+        ],
+        [
+          42,
+          67
+        ],
+        [
+          43,
+          67
+        ],
+        [
+          44,
+          67
+        ]
+      ]
+    }
+  },
+  "overlay": {
+    "body_grid": "assets/source/characters/carl/carl_h52_dynamite.grid.json",
+    "layer": "gauntlet"
+  },
+  "rules": {
+    "max_colors": 8
+  },
+  "_note": "tick_hz 1000: the tick column is the frame duration in ms, copied from the body sheet"
+}

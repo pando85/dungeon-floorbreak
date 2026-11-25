@@ -1,0 +1,25 @@
+{
+  "asset_id": "art-carl-gauntlet",
+  "format": "pixelart-keys-v1",
+  "keys": {
+    "idle_hand": {
+      "frame": 0,
+      "sha256": "4e16b01021b9dae63f50f073d9030f9ad43eba4c1be4d28b804cdeea9bae5f1b",
+      "sheet": "locomotion"
+    },
+    "punch_b_contact": {
+      "frame": 5,
+      "sha256": "68ee2a8dcf3c882b7bd9e84746c46cb03219d5f4ecf9d5fdc9f3ae46d756e763",
+      "sheet": "melee"
+    },
+    "punch_b_windup": {
+      "frame": 4,
+      "sha256": "cdf3023e5073438f4975f44505643df77893661f281a4a6e06a740ee2253bf3b",
+      "sheet": "melee"
+    }
+  },
+  "layers": [
+    "gauntlet"
+  ],
+  "source": "assets/source/characters/carl/gauntlet_keys/carl_h52_gauntlet_keys.grid.json"
+}

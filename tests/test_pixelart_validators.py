@@ -73,7 +73,7 @@ class BaselineTests(unittest.TestCase):
         self.assertTrue(report["passed"], v.summary(report))
         self.assertEqual(report["counts"]["fail"], 0)
         self.assertEqual({r["id"] for r in report["rules"] if r["status"] == "skipped"},
-                         {"V04", "V05", "V06", "V09", "V10", "V11", "V12", "V13", "V14", "V16", "V17"})
+                         {"V04", "V05", "V06", "V09", "V10", "V11", "V12", "V13", "V14", "V16", "V17", "V18"})
 
     def test_report_is_machine_readable_and_summary_is_short(self) -> None:
         report = run(make_cfg(max_colors=3, max_isolated_per_frame=0))
@@ -345,6 +345,143 @@ class ConfigTests(unittest.TestCase):
         report = v.run(v.Context(cfg, grid))
         self.assertTrue(report["passed"], v.summary(report))
         self.assertEqual(result(report, "V04")["status"], "pass")
+
+
+class OverlayRuleTests(unittest.TestCase):
+    """CG-L1..CG-L9 (V18, the CARL-GAUNTLET-01 overlay layering) on a 12 x 10 body: one passing and one failing case each."""
+
+    OW, OH = 12, 10
+    PARAMS = v.overlay_params({"body_grid": "synthetic"})
+
+    @classmethod
+    def blank(cls) -> list[list[str]]:
+        return [["."] * cls.OW for _ in range(cls.OH)]
+
+    @classmethod
+    def cel(cls, points: dict) -> list[str]:
+        rows = cls.blank()
+        for (x, y), k in points.items():
+            rows[y][x] = k
+        return ["".join(r) for r in rows]
+
+    def body(self, **layers) -> dict:
+        """Body cels: a 2 x 2 hand of skin ``M`` at (5..6, 4..5) ringed by outline ``K`` on the near arm."""
+        near = {(x, y): "K" for x in range(4, 8) for y in range(3, 7)}
+        near.update({(5, 4): "M", (6, 4): "M", (5, 5): "M", (6, 5): "M"})
+        cels = {"near_arm": self.cel(near)}
+        for name, pts in layers.items():
+            cels[name] = self.cel(pts)
+        return cels
+
+    def findings(self, body: dict, over: dict, exceptions=()) -> dict:
+        return v.overlay_frame_findings(body, self.cel(over), (self.OW, self.OH), self.PARAMS, exceptions)
+
+    GLOVE = {(5, 4): "U", (6, 4): "U", (5, 5): "T", (6, 5): "T"}
+
+    def test_a_clean_glove_passes_every_rule(self) -> None:
+        found = self.findings(self.body(), self.GLOVE)
+        self.assertEqual({k: x for k, x in found.items() if x}, {})
+
+    def test_cg_l1_a_pixel_beyond_the_near_arm_grown_by_one_fails(self) -> None:
+        self.assertEqual(self.findings(self.body(), {**self.GLOVE, (8, 4): "K"})["CG-L1"], [])          # inside the 1 px growth
+        far = self.findings(self.body(), {**self.GLOVE, (9, 4): "K"})
+        self.assertEqual(len(far["CG-L1"]), 1)
+
+    def test_cg_l2_the_watch_pin_and_prop_pixels_stay_uncovered(self) -> None:
+        body = self.body(watch={(4, 3): "w"}, pin={(7, 6): "G"}, prop={(8, 5): "m"})
+        self.assertEqual(self.findings(body, self.GLOVE)["CG-L2"], [])
+        for covered in ((4, 3), (7, 6), (8, 5)):
+            self.assertEqual(len(self.findings(body, {**self.GLOVE, covered: "K"})["CG-L2"]), 1, covered)
+
+    def test_cg_l2_only_the_visible_prop_counts_the_near_arm_is_drawn_over_it(self) -> None:
+        body = self.body(prop={(5, 4): "m", (8, 5): "m"})       # (5, 4) is under the hand's skin pixel
+        self.assertEqual(self.findings(body, self.GLOVE)["CG-L2"], [])
+
+    def test_cg_l3_head_and_hair_outside_the_near_arm_stay_uncovered(self) -> None:
+        body = self.body(head={(8, 4): "M"}, hair={(8, 5): "H"})
+        self.assertEqual(self.findings(body, self.GLOVE)["CG-L3"], [])
+        self.assertEqual(len(self.findings(body, {**self.GLOVE, (8, 4): "K"})["CG-L3"]), 1)
+        # a head pixel that lies under the near arm is the arm's own pixel (the jaw-line case): allowed
+        under = self.body(head={(4, 3): "M"})
+        self.assertEqual(self.findings(under, {**self.GLOVE, (4, 3): "K"})["CG-L3"], [])
+
+    def test_cg_l4_at_most_twelve_pixels_outside_the_near_arm(self) -> None:
+        ring = {(x, 2): "K" for x in range(3, 9)}                # 6 px above the arm
+        self.assertEqual(self.findings(self.body(), {**self.GLOVE, **ring})["CG-L4"], [])
+        more = {**ring, **{(x, 7): "K" for x in range(3, 9)}, (8, 3): "K"}       # 13 outside
+        self.assertEqual(len(self.findings(self.body(), {**self.GLOVE, **more})["CG-L4"]), 1)
+
+    def test_cg_l5_only_the_eight_gauntlet_keys_and_three_glints(self) -> None:
+        self.assertEqual(self.findings(self.body(), {**self.GLOVE, (5, 4): "w"})["CG-L5"], [])
+        for bad in ("M", "Y", "m"):
+            self.assertEqual(len(self.findings(self.body(), {**self.GLOVE, (5, 4): bad})["CG-L5"]), 1, bad)
+        glints = {(4, 3): "w", (5, 3): "w", (6, 3): "w", (7, 3): "w"}
+        self.assertEqual(len(self.findings(self.body(), {**self.GLOVE, **glints})["CG-L5"]), 1)
+        self.assertEqual(self.findings(self.body(), {**self.GLOVE, (4, 3): "w", (5, 3): "w", (6, 3): "w"})["CG-L5"], [])
+
+    def test_cg_l6_every_skin_pixel_is_covered_except_the_listed_ones(self) -> None:
+        partial = {(5, 4): "U", (6, 4): "U", (5, 5): "T"}
+        self.assertEqual(len(self.findings(self.body(), partial)["CG-L6"]), 1)
+        self.assertEqual(self.findings(self.body(), partial, [(6, 5)])["CG-L6"], [])
+        # skin under the watch is not visible, so it needs no cover
+        body = self.body(watch={(6, 5): "w"})
+        self.assertEqual(self.findings(body, partial)["CG-L6"], [])
+
+    def test_cg_l7_the_edge_columns_stay_empty(self) -> None:
+        self.assertEqual(self.findings(self.body(), self.GLOVE)["CG-L7"], [])
+        near = {(0, 4): "K", (1, 4): "M", (1, 5): "M"}
+        body = {"near_arm": self.cel(near)}
+        edge = v.overlay_frame_findings(body, self.cel({(0, 4): "K", (1, 4): "U", (1, 5): "U"}), (self.OW, self.OH),
+                                        self.PARAMS)
+        self.assertEqual(len(edge["CG-L7"]), 1)
+
+    def body_grid(self, near: dict) -> dict:
+        cel = self.cel(near)
+        return pg.validate_grid({
+            "format": "pixel-grid-v1", "canvas": [self.OW, self.OH], "pivot": [5, 9], "layers": ["near_arm", "gauntlet"],
+            "palette": [{"key": k, "name": n, "rgba": c} for k, n, c in (
+                ("K", "outline", "#1b1124ff"), ("M", "skin", "#eb9a6cff"), ("U", "steel", "#82689aff"),
+                ("T", "shade", "#5a4068ff"), ("w", "glint", "#b8c0d8ff"))],
+            "frames": [{"duration_ms": 100, "cels": {"near_arm": cel}}], "tags": []})
+
+    def test_cg_l8_the_overlay_adds_no_orphan_or_isolated_pixel(self) -> None:
+        near = {(x, y): "K" for x in range(3, 9) for y in range(3, 7)}
+        near.update({(5, 4): "M", (6, 4): "M", (5, 5): "M", (6, 5): "M"})
+        grid = self.body_grid(near)
+        good, _ = v.overlay_l8(grid, self.cel(self.GLOVE), 0, "gauntlet")
+        self.assertEqual(good, [])
+        # a lone steel pixel in a field of outline has no same-key neighbour: a new orphan
+        failures, _ = v.overlay_l8(grid, self.cel({(4, 3): "T", (5, 4): "U", (6, 4): "U", (5, 5): "U", (6, 5): "U"}), 0, "gauntlet")
+        self.assertTrue(failures, "the lone T is an orphan")
+
+    def test_cg_l8_orphans_the_body_already_has_are_reported_not_failed(self) -> None:
+        near = {(x, y): "K" for x in range(3, 9) for y in range(3, 7)}
+        near.update({(5, 4): "M", (6, 4): "M", (5, 5): "M", (6, 5): "M", (10, 8): "T", (10, 7): "K"})
+        grid = self.body_grid(near)
+        failures, inherited = v.overlay_l8(grid, self.cel(self.GLOVE), 0, "gauntlet")
+        self.assertEqual(failures, [])
+        self.assertIn((10, 8), inherited)
+
+    def test_cg_l9_an_empty_overlay_is_allowed_only_without_near_arm_skin(self) -> None:
+        with_skin = self.findings(self.body(), {})
+        self.assertEqual(len(with_skin["CG-L9"]), 1)
+        no_skin = {"near_arm": self.cel({(5, 4): "K", (6, 4): "K"})}
+        self.assertEqual(v.overlay_frame_findings(no_skin, self.cel({}), (self.OW, self.OH), self.PARAMS)["CG-L9"], [])
+        self.assertEqual(self.findings(self.body(), {}, [(5, 4), (6, 4), (5, 5), (6, 5)])["CG-L9"], [])
+
+    def test_the_overlay_section_needs_a_body_grid_and_v18_is_skipped_without_it(self) -> None:
+        with self.assertRaises(ToolkitError):
+            v.overlay_params({})
+        report = v.run(v.Context(make_cfg(), good_grid()))
+        self.assertEqual(result(report, "V18")["status"], "skipped")
+
+    def test_v15_leaves_empty_overlay_frames_to_cg_l9(self) -> None:
+        grid = make_grid([{"body": BLOCK}, {"body": [BLANK] * H}, {"body": BLOCK_UP}])
+        plain = v.Context(make_cfg(), grid)
+        self.assertEqual(len(v.v15_nonempty(plain)), 1)
+        cfg = make_cfg()
+        cfg.data["overlay"] = {"body_grid": "synthetic"}
+        self.assertEqual(v.v15_nonempty(v.Context(cfg, grid)), [])
 
 
 if __name__ == "__main__":

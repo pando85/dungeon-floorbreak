@@ -1,0 +1,129 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "art-carl-gauntlet-locomotion",
+  "title": "CARL-GAUNTLET-01 reinforced-fist overlay for the Carl 52 px locomotion sheet (16 frames)",
+  "grid": "assets/source/characters/carl/carl_h52_locomotion_gauntlet.grid.json",
+  "manifest": "assets/manifests/carl_book1_h52_locomotion_gauntlet.json",
+  "frame_size": [
+    48,
+    56
+  ],
+  "pivot": [
+    25,
+    55
+  ],
+  "contact_row": null,
+  "tick_hz": 1000,
+  "hold_ms": 100,
+  "facing": "right",
+  "tags": {
+    "idle": {
+      "playback": "loop",
+      "contact": "free",
+      "frames": [
+        [
+          0,
+          420
+        ],
+        [
+          1,
+          260
+        ],
+        [
+          2,
+          560
+        ],
+        [
+          3,
+          260
+        ]
+      ]
+    },
+    "run": {
+      "playback": "loop",
+      "contact": "free",
+      "frames": [
+        [
+          4,
+          60
+        ],
+        [
+          5,
+          60
+        ],
+        [
+          6,
+          60
+        ],
+        [
+          7,
+          60
+        ],
+        [
+          8,
+          60
+        ],
+        [
+          9,
+          60
+        ]
+      ]
+    },
+    "jump_start": {
+      "playback": "loop",
+      "contact": "free",
+      "frames": [
+        [
+          10,
+          50
+        ],
+        [
+          11,
+          70
+        ]
+      ]
+    },
+    "jump_rise": {
+      "playback": "once",
+      "contact": "free",
+      "frames": [
+        [
+          12,
+          100
+        ]
+      ]
+    },
+    "jump_fall": {
+      "playback": "once",
+      "contact": "free",
+      "frames": [
+        [
+          13,
+          100
+        ]
+      ]
+    },
+    "land": {
+      "playback": "loop",
+      "contact": "free",
+      "frames": [
+        [
+          14,
+          80
+        ],
+        [
+          15,
+          100
+        ]
+      ]
+    }
+  },
+  "overlay": {
+    "body_grid": "assets/source/characters/carl/carl_h52_locomotion.grid.json",
+    "layer": "gauntlet"
+  },
+  "rules": {
+    "max_colors": 8
+  },
+  "_note": "tick_hz 1000: the tick column is the frame duration in ms, copied from the body sheet"
+}

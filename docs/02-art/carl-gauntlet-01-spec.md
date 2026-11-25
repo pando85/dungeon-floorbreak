@@ -1,6 +1,6 @@
 # CARL-GAUNTLET-01: Carl's reinforced fist, design spec
 
-**Status:** design spec and three key frames frozen. The silhouette gate passed with notes; the notes are folded into the keys (section 10). Derived frames, overlay atlases, validators and Bevy wiring are not done yet (execution step). Independent review pending; not owner-approved.
+**Status:** design spec, three key frames frozen and the execution done: the four overlay sheets (98 frames, 95 of them stamped by `scripts/author_carl_gauntlet.py`, Sonnet), manifests, validators (V18, CG-L1 to CG-L9), tests, the Bevy presenter and the evidence are in the PR (section 13). The silhouette gate passed with notes; the notes are folded into the keys (section 10). Independent top-tier art review pending; owner art review pending; not owner-approved.
 
 **Route:** difficulty score 1 (a small, new prop design on an approved character, no new pose), class Easy, route **C + silhouette gate on the keys** ([routing by difficulty](../07-agents/pixel-art-pipeline.md#routing-by-difficulty)). Work order: CARL-GAUNTLET-01 (art audit 2026-11-24). It closes the art half of CP-Q02 and CP-Q43 of the [Carl progression spec](../03-tech/carl-prog-01-floor01-combat-progression.md): the gameplay capability `fist_reinforced` is merged (CP-D, #228) and grants on the Juicer's defeat, but Carl's sprite never shows it.
 
@@ -141,3 +141,18 @@ A fresh reviewer that had not seen the design looked at the x8 pairs, the x20 ha
 - **Two hands in a frame.** In some melee and cf02 frames both hands are visible; only the near one is gloved. Accepted by CG-AD2.
 - **`interact` sheet** deferred (CG-AD5); a later scene that draws it needs its 12 overlay frames.
 - **Canon look** unknown; if a cited source describes it later, the overlay is redrawn without touching the body sheets (CG-AD1).
+
+## 13. Execution notes (Sonnet) and adopted defaults
+
+The design above is unchanged. Execution choices, each recorded as an adopted default:
+
+| ID | Default | Why |
+| --- | --- | --- |
+| CG-EX-AD1 | **The overlay grids hold the `gauntlet` layer only** (`carl_h52_<sheet>_gauntlet.grid.json`, palette = the 8 gauntlet keys). The body layers are not copied; the toolkit config's `overlay.body_grid` names the body sheet and the rules compose body + overlay on the fly. The combined review view is derived by `scripts/make_carl_gauntlet_evidence.py` | The export of the overlay atlas is then the gauntlet layer alone with no export option, and there is no second 4 MB copy of the body frames to drift (the point of CG-AD1). The keys file keeps its combined layout |
+| CG-EX-AD2 | **CG-L2 judges the visible prop pixels.** The near arm is drawn over the prop layer, so a prop pixel under a near-arm pixel does not show; the overlay may cover the skin pixels that lie on the stick (dynamite 1, 4, 9 to 14 and 27 to 32: 2 or 6 pixels each) and still never covers a stick pixel that shows | Otherwise CG-L2 and CG-L6 cannot both hold on those frames (bare skin would be left on a gloved hand), and no visible stick pixel is hidden |
+| CG-EX-AD3 | **CG-L6 counts the exposed skin**: near-arm skin pixels that the watch or pin layer does not draw over. **Exceptions** (manifest `overlay.skin_exceptions`): melee 5 (35, 19) as designed, plus 2 pixels in melee 22 and 1 in dynamite 6 and each of 39 to 44: an isolated skin pixel the near-arm layer carries inside the sleeve, not on the hand | Not covered by the glove: it would be a patch on the sleeve, not a gauntlet |
+| CG-EX-AD4 | **Stamping:** the three keys are copied byte for byte; a hand that equals a key's skin shape with the same cuff side (the idle hand in 13 frames, the windup fist in dynamite 4 and 27 to 32) reuses the key by translation; every other hand is built by the key's construction (strap at the cuff, steel plate with a lit knuckle bar and a glint, one dent, a 1 px heavier far edge along runs of two or more pixels), with an orphan repair so CG-L8 holds | The same look as the keys with no per-frame anchor table; the few 1 to 3 px fists of the run frames read as a mitt with a lit knuckle |
+| CG-EX-AD5 | **Toolkit tick table in ms** (`tick_hz` 1000) for the overlay configs: the durations are copied from the body sheet, and some (260, 420, 560 ms) are not whole 60 Hz ticks | V03 then checks the copy exactly |
+| CG-EX-AD6 | **The presenter skips an overlay atlas that is not exported** (stderr note, Carl drawn bare) and spawns overlays only in combat runs | A stale local export must not stop a run |
+
+No overlay frame is empty (every body frame shows near-hand skin), so CG-L9 never fires.
