@@ -814,9 +814,12 @@ mod tests {
         let low = wall(140.0, 104.0, 20.0, 4.0);
         let high = wall(140.0, 108.0, 20.0, 4.0);
         let (from, to) = ((100.0, 108.0), (200.0, 108.0));
-        assert!(line_of_sight(&[low.clone()], from, to), "a single top");
         assert!(
-            line_of_sight(&[high.clone()], from, to),
+            line_of_sight(std::slice::from_ref(&low), from, to),
+            "a single top"
+        );
+        assert!(
+            line_of_sight(std::slice::from_ref(&high), from, to),
             "a single underside"
         );
         assert!(
@@ -884,11 +887,11 @@ mod tests {
         let right = wall(150.0, 100.0, 20.0, 40.0);
         let (up, down) = ((150.0, 160.0), (150.0, 80.0));
         assert!(
-            line_of_sight(&[left.clone()], up, down),
+            line_of_sight(std::slice::from_ref(&left), up, down),
             "a single right face"
         );
         assert!(
-            line_of_sight(&[right.clone()], up, down),
+            line_of_sight(std::slice::from_ref(&right), up, down),
             "a single left face"
         );
         assert!(!line_of_sight(&[left.clone(), right.clone()], up, down));
