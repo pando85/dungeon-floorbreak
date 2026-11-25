@@ -228,6 +228,8 @@ struct Args {
     /// Fixture only, evidence lab (LLAMA-DEATH-WIRE): the presenter plays
     /// every block kill as a block-edge cut (`DeathPresenter::with_lab_edge`).
     /// Presentation only: the simulation, its log and its hash are untouched.
+    /// Remove it when a simulation cause can behead a llama (precedent:
+    /// DEATH-D removed `--death-lab-finish` once the goblin had one).
     death_lab_edge: bool,
     /// HUD-HYBRID-A-01: draw a labelled HUD preview fixture. Presentation
     /// only: it never reaches the simulation, the combat state or a replay.

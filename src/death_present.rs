@@ -1361,6 +1361,7 @@ impl DeathPresenter {
     /// species the simulation never shears (the llama) can be looked at in
     /// the real render loop. Presentation only: the events the simulation
     /// logged and hashed are untouched; only this presenter's copy differs.
+    /// Remove it when a simulation cause can behead a llama.
     #[must_use]
     pub fn with_lab_edge(mut self) -> Self {
         self.lab_edge = true;
@@ -3040,8 +3041,13 @@ impl DeathPresenter {
                 }
                 for &(id, n) in table.gibs {
                     // Q22 (cf02, preset 4): catastrophic force asks 6 quarters.
+                    // A clean piece (the llama's one knocked-out tooth,
+                    // LDW-AD3) is not a gib and is never scaled.
+                    let clean = art
+                        .part_index(id)
+                        .is_some_and(|i| art.parts[i].class == PartClass::Clean);
                     let n = match self.gore_budget {
-                        Some(b) if self.preset == GorePreset::Full => {
+                        Some(b) if self.preset == GorePreset::Full && !clean => {
                             scale_count(n, b.gib_quarters(self.preset, d.force))
                         }
                         _ => n,
@@ -5845,6 +5851,86 @@ mod tests {
         // The same death replays the same pieces (event-seeded).
         let (again, _) = spawned_per_tick(GorePreset::Full, BLAST_PB, 240, &charges);
         assert_eq!(p.digest(), again.digest());
+    }
+
+    /// The world point of anchor `name` of llama pose `frame` for the test
+    /// llama (x 484, floor 100, facing left: mirrored).
+    fn llama_pose_point(art: &DeathArt, frame: usize, name: &str) -> (f32, f32) {
+        let anchor = art.pose(frame).anchor(name).unwrap();
+        pose_anchor_world(art.pose_pivot, anchor, 484.0, 100.0, true)
+    }
+
+    /// Whether a live `id` piece sits exactly on `at` (a piece launched this
+    /// tick has not moved yet).
+    fn spawned_at(p: &DeathPresenter, id: &str, at: (f32, f32)) -> bool {
+        p.parts().any(|(_, part)| {
+            p.art_of(part.variant).parts[part.meta].id == id
+                && part.x == at.0
+                && part.y == at.1.max(part.ground_y)
+        })
+    }
+
+    #[test]
+    fn ldw_ad5_the_jet_leaves_the_buckle_then_the_propped_stump() {
+        let art = llama_art();
+        let buckle = llama_pose_point(&art, 4, "jet_base");
+        let stump = llama_pose_point(&art, 5, "neck");
+        assert_ne!(buckle, stump);
+        let mut p = llama_presenter(GorePreset::Full);
+        let llamas = [llama_at(484.0)];
+        p.step(
+            &[defeat(10, 0, EDGE, ForceTier::Catastrophic)],
+            lobs(&[], &llamas),
+        );
+        for age in 1..=13u64 {
+            p.step(&[], lobs(&[], &llamas));
+            if age == 7 {
+                // D+7: the buckle (pose 4) shows; the jet leaves its `jet_base`.
+                assert!(spawned_at(&p, "drop_blood", buckle), "age 7");
+                assert!(!spawned_at(&p, "drop_blood", stump), "age 7");
+            }
+        }
+        // D+13: the hold (pose 5); the jet leaves the propped stump's `neck`.
+        assert!(spawned_at(&p, "drop_blood", stump), "age 13");
+    }
+
+    #[test]
+    fn ldw_ad1_the_gland_and_the_lava_start_at_the_throat() {
+        let art = llama_art();
+        let neck = art.parts[art.part_index("neck").unwrap()]
+            .frame0_origin
+            .unwrap();
+        assert!(
+            art.parts[art.part_index("gland").unwrap()]
+                .frame0_origin
+                .is_none()
+        );
+        let throat = pose_anchor_world(art.pose_pivot, (neck[0], neck[1]), 484.0, 100.0, true);
+        let (p, _) = spawned_per_tick(GorePreset::Full, BLAST_PB, 1, &charge_484());
+        assert!(spawned_at(&p, "gland", throat));
+        assert!(spawned_at(&p, "drop_molten", throat));
+    }
+
+    #[test]
+    fn ldw_ad3_the_cf02_gore_budget_never_doubles_the_tooth() {
+        // Q22 (cf02, preset 4): a catastrophic blast scales the gibs by 6/4,
+        // never the one clean tooth.
+        let mut p = cf02_presenter(GorePreset::Full)
+            .with_llama(llama_art())
+            .unwrap();
+        let llamas = [llama_at(484.0)];
+        let charges = charge_484();
+        let ob = Observation {
+            charges: &charges,
+            ..lobs(&[], &llamas)
+        };
+        p.step(&[defeat(10, 0, BLAST_PB, ForceTier::Catastrophic)], ob);
+        let ids = llama_part_ids(&p);
+        assert_eq!(count(&ids, "tooth"), 1, "{ids:?}");
+        assert!(
+            count(&ids, "gib_flesh_a") > 4,
+            "the gibs are scaled: {ids:?}"
+        );
     }
 
     #[test]

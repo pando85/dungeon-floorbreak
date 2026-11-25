@@ -22,7 +22,7 @@ The HUD's system notice reads `FLATTENED!` in both runs: that is the HUD's exist
 * `still_<name>_p<preset>_<tick>_640x360.png`: native 1x frames at preset 4 and preset 1 (decap L-2, L+0, L+4, L+10, L+40, L+120; blast X-5, X+0, X+3, X+12, X+40, X+120).
 * `still_<name>_p4_<tick>_1920x1080.png`: 3x frames at three key ticks, preset 4.
 * `sheet_<name>_p4_vs_p1.png`: 1920x1080 crops at the same ticks, preset 4 left and preset 1 right (half size).
-* `gif_<name>_p4_crop_960x540.gif`: every tick from 10 before the event, a 960x540 crop of the 3x frames (gameplay scale, 60 ticks per second as 20/20/10 ms).
+* `gif_<name>_p4_crop_960x540.gif`: every tick from 10 before the event (Pillow merges identical held frames), a 960x540 crop of the 3x frames (gameplay scale, 60 ticks per second as 20/20/10 ms).
 * [`capture_lines.txt`](capture_lines.txt): the headless and window `COMBAT_STATE` lines; `SHA256SUMS`.
 
 ## Byte identity (local checks on the PR head)
@@ -35,4 +35,4 @@ The HUD's system notice reads `FLATTENED!` in both runs: that is the HUD's exist
 * Timings and counts are the LLAMA-02 spec's (section 8 and `spawner_hints`); where the spec gave no number the PR body records an adopted default (LDW-AD1 to LDW-AD6).
 * The decapitation pose was drawn for a blade; the only block-edge cut seen here is the lab's.
 * The molten crust swap after 240 ticks (`swap_on_ttl`), llama sound and a llama shear cause are not wired.
-* Rights and provenance: the art is the existing LLAMA-01 and LLAMA-02-DEATH sets under the recorded `ART-PUBLICATION-ALL-V1` scope; this PR adds no art. Wiring, tests and captures: Claude Opus (implementer); independent top-tier review pending.
+* Rights and provenance: the art is the existing LLAMA-01 and LLAMA-02-DEATH sets under the recorded `ART-PUBLICATION-ALL-V1` scope; this PR adds no art. Wiring, tests and captures: Claude Opus (implementer; the owner directed Opus for this session); independent top-tier review passed with fixes.
