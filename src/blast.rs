@@ -154,7 +154,11 @@ pub fn closest_point(body: Rect, (x, y): (f32, f32)) -> (f32, f32) {
 /// share from opposite sides (one stacked on the other, two side by side, a
 /// shutter's top flush with a walkway's underside), where the two together are
 /// solid. A segment that merely touches the outer edge or a corner of the
-/// solids passes. Exact `f32` arithmetic, no square root.
+/// solids passes, so two blocks that touch only at a corner leave a pinch the
+/// line goes through: never author a wall that way. Exact `f32` arithmetic, no
+/// square root: a seam needs exactly equal edges, so moving or computed blocks
+/// (RING-C's shutter slices) must place adjacent edges with the same integer
+/// formula, or a sub-pixel gap lets the line pass.
 pub fn line_of_sight(solids: &[Block], from: (f32, f32), to: (f32, f32)) -> bool {
     solids
         .iter()
