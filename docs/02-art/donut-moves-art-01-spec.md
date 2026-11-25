@@ -1,6 +1,6 @@
 # DONUT-MOVES-ART-01: Donut reflex cues and Puddle Jumper, design spec
 
-**Status:** design keys and spec in review. The `evade_twist` and `blink_arrive` hero keys are drawn and passed the silhouette gate (section 12). The remaining frames, the VFX strip, export, validators and the Bevy wiring are execution work (section 10). Nothing is wired into any Bevy binary yet, and nothing here is accepted. Rights basis for publishing: owner-reported `ART-PUBLICATION-ALL-V1` ([rights register](../04-production/rights-and-release.md)); no reuse licence, no game distribution right.
+**Status:** keys, remaining frames, VFX strip, export, validators, Bevy wiring and evidence are drawn and landed on the PR branch (executor status, section 14); owner art review pending and nothing here is accepted. The `evade_twist` and `blink_arrive` hero keys passed the silhouette gate (section 12). Rights basis for publishing: owner-reported `ART-PUBLICATION-ALL-V1` ([rights register](../04-production/rights-and-release.md)); no reuse licence, no game distribution right.
 
 This order replaces two sets of presentation stand-ins with production art:
 
@@ -238,3 +238,38 @@ Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope ([rights
 - The keys are literal pixel edits and rule rasterization in `scripts/author_donut_moves_keys.py`, built on the approved `jump_rise` cels and the frozen CF02 `smug` key.
 - No tracing, no image-model raster output, no third-party sprite or animation used as reference.
 - Who designed, executed and reviewed is recorded in the PR's Rights/Provenance section.
+
+## 14. Executor status (Claude Sonnet, adopted defaults DMA-Q10 onward)
+
+**Done, owner art review pending.** The remaining frames are drawn by rule in `scripts/author_donut_moves.py` (deterministic; `--check` verifies every output) from the two frozen keys and the approved locomotion, melee and CF02 cels:
+
+| Output | Content |
+| --- | --- |
+| `assets/source/characters/donut/donut_h40_moves.{grid.json,ase,pixelart.json}` | 13 frames: evade e0-e4 (e2 is the frozen key), blink b0-b2 and a0-a2 (a1 is the frozen key), fizzle f0-f1; tick table of sections 4 and 5 |
+| `assets/source/characters/donut/donut_h40_tail_ready.{grid.json,ase,pixelart.json}` | 32 tail-swap frames, `16 * phase + locomotion frame` |
+| `assets/source/vfx/puddle_jumper/vfx_puddle_jumper.{grid.json,ase,pixelart.json}` | 16 strip frames, 48 x 16, pivot (24, 11), the Magic Missile palette unchanged |
+| `assets/manifests/donut_h40_moves.json`, `donut_h40_tail_ready.json`, `vfx_puddle_jumper.json` | frame maps, ticks, pivots, provenance |
+| `tests/fixtures/donut-moves-art-01_keys.json` | frozen SHA-256 of e2 and a1 |
+| `tests/test_art_donut_moves.py` | palette, canvas, frozen keys, never-a-flip, tail-swap limits, VFX table |
+
+The Bevy side is presentation only: `donut_art` (atlas constants and the pure mappings `evade_frame`, `blink_frame`, `arrive_frame`, `fizzle_frame`, `tail_ready_index` and `puddle_vfx_frame`, tested at every boundary age), `donut_cues` and `blink_cues` (the pure cue state, now reporting the flick phase, the strip frames and the arrival and fizzle frames) and the two presenters under `src/bin/floor01_scene/`. The stand-ins of section 6 are replaced; `AFTERIMAGES`, `GLINT_SIZE_PX`, the white-streak constants and the ring and dot drawing constants are retired.
+
+| ID | Adopted default | Why |
+| --- | --- | --- |
+| DMA-Q10 | The tail swap is its own sheet (`donut_h40_tail_ready`), not tags in the moves sheet | The atlas index is the missile head swap's `16 * phase + locomotion frame`, and the moves sheet keeps one tag table |
+| DMA-Q11 | The size bound of acceptance 6 (-26 .. +25 for blink frames) is checked on the puddle frames b1, b2, a0 and a1. b0, a2, f0 and f1 sit on the approved melee, CF02 and locomotion bodies and keep those extents | b0 is the melee `p0` body (its tail alone is 35 px behind the pivot) |
+| DMA-Q12 | `twinkle_small` is a `w` pixel with one `c` neighbour (2 px), not a lone pixel | A lone pixel is an isolated-pixel lint error, which always fails |
+| DMA-Q13 | The origin puddle plays `ring_open_0` and `ring_open_1` over ages 0-5 (3 ticks each), then `ring_close` over ages 6-14; a cancel closes it from the cancel tick; a fizzle keeps `ring_open` to the fizzle tick and then plays `fizzle_0..2` instead of closing | The spec lists ring_open as 12 ticks at both ends but the origin must close at age 6 |
+| DMA-Q14 | A missing atlas leaves its cue undrawn (her locomotion sprite stays); there is no code-drawn fallback | The stand-ins are retired |
+| DMA-Q15 | An evade head cel is the approved head translated; the key's strict-lint orphan cleanup may recolour at most 2 outline pixels of it, and the frozen key already does | The cleanup is part of the frozen key's authoring record |
+| DMA-Q16 | The streak is `streak_dash` tiles of 16 px from the origin column toward the destination with the 4 px `streak_head` on the last 4 columns, mirrored for a blink to the left; a span shorter than the head draws no dashes | The brief's tiling, made concrete |
+| DMA-Q17 | `flick_up`: the 8 tip pixels move (-1, -2) and the two cells opened under them take the stem's own colours so the tail stays one piece. `flick_snap`: the tip moves (+1, +1) and one `G` fur pixel is added on a free cell that touches a `G` pixel (never an orphan). The `K` re-close and the orphan hand-fix touch tail pixels only and the `K` re-close is dropped on the frames where it would exceed 24 changed pixels | Acceptance 7 |
+| DMA-Q18 | The swish is drawn with its sprite centre at her sprite centre + (6 px toward the attacker, +2 px), travelling toward her (mirrored when the attacker is on her right) | The old streak's place |
+| DMA-Q19 | The glint is the strip plus centred on the tail-tip pixel of the frame actually drawn: the locomotion frame, or the tail-swap frame during the flick | `analyze_atlas` runs on both atlases |
+
+**Open notes for the independent review (non-blocking).**
+
+- The arrive: judged on `gif_blink_arrive_1x.gif` and `gif_blink_arrive_3x.gif`. In motion it reads as a pop, a rise and a settle: `blink_pop` (ears, tiara and eyes over the rim) for 2 ticks, the key for 3, then `blink_settle`, while `ring_open` ripples out at the destination. The whole rise is 7 ticks (117 ms), so the pop is quick. The one remaining "dish" read is the key itself, with the front rim over her lower body. If the review still reads a mat, the fix is a taller pop (more rows between `blink_pop` and the key) and goes back to design.
+- `blink_dip` (b1) is built from capsule chains, not an approved cel: a dark nose-first body with the rump and tail up. It is the least derived frame; check it at 1x.
+- `fizzle_bonk` shows her head over a half-width puddle on a shallow dive body; the "one paw on the rim" is small at 1x.
+- The advisory `python3 -m scripts.pixelart holes` scan lists enclosed pockets in the moves and tail-ready sheets; most are inherited from the locomotion, melee and CF02 cels and from the frozen key's tail hook (V17 is not configured for these sheets).

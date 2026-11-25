@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "id": "donut_h40_tail_ready_candidate_v0",
+  "type": "character_animation",
+  "source_path": "assets/source/characters/donut/donut_h40_tail_ready.ase",
+  "grid_source": "assets/source/characters/donut/donut_h40_tail_ready.grid.json",
+  "output_atlas": "generated/art/donut_h40_tail_ready.png",
+  "output_metadata": "generated/art/donut_h40_tail_ready.json",
+  "palette_id": "donut-master-h40",
+  "frame_size": [
+    72,
+    44
+  ],
+  "pivot": [
+    46,
+    43
+  ],
+  "animation_tags": [
+    "flick_up",
+    "flick_snap"
+  ],
+  "required_alpha": true,
+  "owner": "AI-authored animation candidate (fan-concept layer: Princess Donut; runtime role IP-neutral small quadruped ready tell)",
+  "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+  "provenance": {
+    "origin": "DONUT-MOVES-ART-01 tail swap: the ANIM-DONUT-01 locomotion frames with only the tail cel changed, by the rule of spec section 3 in scripts/author_donut_moves.py",
+    "generator": "design keys and spec: Claude Opus; remaining frames, export, wiring and evidence: Claude Sonnet; independent review pending. No image-model raster output, no tracing, no resampling",
+    "generated_art": true,
+    "input_reference_ids": [
+      "assets/source/characters/donut/donut_h40_locomotion.grid.json"
+    ]
+  },
+  "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
+  "review_status": "prototype_fixture_unapproved",
+  "tail_ready": {
+    "status": "Drawn by rule; wired into the Floor 1 scene presenter; owner art review pending",
+    "spec": "docs/02-art/donut-moves-art-01-spec.md",
+    "tick_hz": 60,
+    "composition": "tail_swap_phase_synced: atlas frame = 16 * phase_index + locomotion_frame",
+    "locomotion_atlas": "assets/source/characters/donut/donut_h40_locomotion.grid.json",
+    "phases": [
+      "flick_up",
+      "flick_snap"
+    ],
+    "phase_ticks": {
+      "flick_up": [
+        0,
+        1
+      ],
+      "flick_snap": [
+        2,
+        3
+      ]
+    },
+    "tip_pixels": 8,
+    "max_changed_pixels": 24
+  }
+}

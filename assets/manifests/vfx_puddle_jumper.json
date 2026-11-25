@@ -1,0 +1,202 @@
+{
+  "schema_version": 1,
+  "id": "vfx_puddle_jumper_48_candidate_v0",
+  "type": "vfx_animation",
+  "source_path": "assets/source/vfx/puddle_jumper/vfx_puddle_jumper.ase",
+  "grid_source": "assets/source/vfx/puddle_jumper/vfx_puddle_jumper.grid.json",
+  "output_atlas": "generated/art/vfx_puddle_jumper.png",
+  "output_metadata": "generated/art/vfx_puddle_jumper.json",
+  "palette_id": "vfx-missile-v0",
+  "frame_size": [
+    48,
+    16
+  ],
+  "pivot": [
+    24,
+    11
+  ],
+  "animation_tags": [
+    "ring_open",
+    "ring_close",
+    "streak",
+    "fizzle",
+    "glint",
+    "swish"
+  ],
+  "required_alpha": true,
+  "owner": "AI-authored VFX candidate (fan-concept layer: Donut's Puddle Jumper and reflex cues; runtime role IP-neutral small magic ripple, streak and glint)",
+  "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+  "provenance": {
+    "origin": "DONUT-MOVES-ART-01 VFX strip rasterized natively from rules in scripts/author_donut_moves.py, in the Magic Missile palette unchanged",
+    "generator": "design keys and spec: Claude Opus; remaining frames, export, wiring and evidence: Claude Sonnet; independent review pending. No image-model raster output, no tracing, no resampling",
+    "generated_art": true,
+    "input_reference_ids": []
+  },
+  "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
+  "review_status": "prototype_fixture_unapproved",
+  "vfx": {
+    "status": "Drawn by rule; wired into the Floor 1 scene presenter; owner art review pending",
+    "spec": "docs/02-art/donut-moves-art-01-spec.md",
+    "tick_hz": 60,
+    "free_tags": [
+      "ring_open",
+      "ring_close",
+      "streak",
+      "fizzle",
+      "glint",
+      "swish"
+    ],
+    "playback": {
+      "ring_open": "once",
+      "ring_close": "once",
+      "streak": "free",
+      "fizzle": "once",
+      "glint": "free",
+      "swish": "once"
+    },
+    "facing": "right",
+    "surface_row": 11,
+    "dash_rect": [
+      16,
+      10,
+      16,
+      3
+    ],
+    "head_rect": [
+      22,
+      10,
+      4,
+      3
+    ],
+    "frames": [
+      {
+        "index": 0,
+        "name": "ring_open_0",
+        "tag": "ring_open",
+        "ticks": 3,
+        "duration_ms": 50,
+        "author": "execution"
+      },
+      {
+        "index": 1,
+        "name": "ring_open_1",
+        "tag": "ring_open",
+        "ticks": 3,
+        "duration_ms": 50,
+        "author": "execution"
+      },
+      {
+        "index": 2,
+        "name": "ring_open_2",
+        "tag": "ring_open",
+        "ticks": 3,
+        "duration_ms": 50,
+        "author": "execution"
+      },
+      {
+        "index": 3,
+        "name": "ring_open_3",
+        "tag": "ring_open",
+        "ticks": 3,
+        "duration_ms": 50,
+        "author": "execution"
+      },
+      {
+        "index": 4,
+        "name": "ring_close_0",
+        "tag": "ring_close",
+        "ticks": 3,
+        "duration_ms": 50,
+        "author": "execution"
+      },
+      {
+        "index": 5,
+        "name": "ring_close_1",
+        "tag": "ring_close",
+        "ticks": 3,
+        "duration_ms": 50,
+        "author": "execution"
+      },
+      {
+        "index": 6,
+        "name": "ring_close_2",
+        "tag": "ring_close",
+        "ticks": 3,
+        "duration_ms": 50,
+        "author": "execution"
+      },
+      {
+        "index": 7,
+        "name": "streak_dash",
+        "tag": "streak",
+        "ticks": 1,
+        "duration_ms": 17,
+        "author": "execution"
+      },
+      {
+        "index": 8,
+        "name": "streak_head",
+        "tag": "streak",
+        "ticks": 1,
+        "duration_ms": 17,
+        "author": "execution"
+      },
+      {
+        "index": 9,
+        "name": "fizzle_0",
+        "tag": "fizzle",
+        "ticks": 3,
+        "duration_ms": 50,
+        "author": "execution"
+      },
+      {
+        "index": 10,
+        "name": "fizzle_1",
+        "tag": "fizzle",
+        "ticks": 3,
+        "duration_ms": 50,
+        "author": "execution"
+      },
+      {
+        "index": 11,
+        "name": "fizzle_2",
+        "tag": "fizzle",
+        "ticks": 2,
+        "duration_ms": 33,
+        "author": "execution"
+      },
+      {
+        "index": 12,
+        "name": "glint",
+        "tag": "glint",
+        "ticks": 4,
+        "duration_ms": 67,
+        "author": "execution"
+      },
+      {
+        "index": 13,
+        "name": "twinkle_small",
+        "tag": "glint",
+        "ticks": 1,
+        "duration_ms": 17,
+        "author": "execution"
+      },
+      {
+        "index": 14,
+        "name": "swish_a",
+        "tag": "swish",
+        "ticks": 1,
+        "duration_ms": 17,
+        "author": "execution"
+      },
+      {
+        "index": 15,
+        "name": "swish_b",
+        "tag": "swish",
+        "ticks": 1,
+        "duration_ms": 17,
+        "author": "execution"
+      }
+    ]
+  }
+}

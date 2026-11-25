@@ -4892,17 +4892,20 @@ fn setup(
             kit.foreground_z + 1.0,
             args.debug_combat,
         ));
+        // DONUT-MOVES-ART-01: the moves, tail-swap and Puddle Jumper atlases (a missing
+        // atlas leaves its cue undrawn); the handles join the loading watchdog.
+        let (moves_art, moves_handles) = donut_cues::load_art(&asset_server, &mut layouts);
+        combat_handles.extend(moves_handles);
         donut_cues::spawn(
             &mut commands,
-            &actors,
             donut_texture.clone(),
-            &mut layouts,
             layers_of("actors"),
             kit.actor_z,
+            &moves_art,
         );
-        // DP-D (DP-Q34): the Puddle Jumper ripples and streak, only where the
-        // blink can exist (the same condition as the cues' pool).
-        blink_cues::spawn(&mut commands, layers_of("actors"), kit.actor_z + 0.025);
+        // DP-D (DP-Q34): the Puddle Jumper puddles, streak and her blink frames, only
+        // where the blink can exist (the same condition as the cues' pool).
+        blink_cues::spawn(&mut commands, layers_of("actors"), kit.actor_z, &moves_art);
         // CORRAL-WIRE (CW-AD5) and CORRAL-E (CRL-Q38): room 0's grate and the rush
         // stand-in, only where a gate or a corral llama exists.
         let rush_llamas = combat.0.as_ref().map_or(0, |c| {
@@ -6720,20 +6723,13 @@ fn sync_donut_visuals(
         .as_ref()
         .and_then(|art| art.donut_hurt_frame())
         .filter(|_| party);
-    let melee_frame = hurt_frame
-        .or_else(|| {
-            state
-                .donut_move_view()
-                .filter(|_| party)
-                .map(|view| donut_art::melee_frame(&view))
-        })
-        // DP-Q34: the blink's windup crouches on the pounce crouch frame.
-        .or_else(|| {
-            donut_art::blink_crouch_frame(
-                state.donut_blink().windup_age(tick).filter(|_| party),
-                DonutProgTuning::active().dpq34_crouch_ticks,
-            )
-        });
+    let melee_frame = hurt_frame.or_else(|| {
+        state
+            .donut_move_view()
+            .filter(|_| party)
+            .map(|view| donut_art::melee_frame(&view))
+    });
+    // (The blink's windup frames are drawn by `blink_cues::sync_blink_cues` from the moves atlas.)
     // Melee wins over a cast; a real cast over the dry cue.
     let cast_frame = if melee_frame.is_some() || !party {
         None

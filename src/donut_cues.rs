@@ -1,6 +1,6 @@
 //! DONUT-MOBILITY-01 DM-C: Donut's reflex cues (spec section 3.4, DM-Q21), the
 //! pure half. The ready tell (a tail glint while armed, a tail flick on arming),
-//! the evade response (a cosmetic arc, two afterimages, a white streak) and the
+//! the evade response (a cosmetic arc, five evade frames, a swish) and the
 //! hand-off to the existing CF02-I `smug` overlay.
 //!
 //! **Presentation only.** [`DonutCues::step`] reads a `&CombatState` and writes
@@ -23,28 +23,23 @@ use crate::combat_scene::CombatState;
 use crate::party::HeroId;
 
 /// Glint blink: on for this many ticks, then off for [`GLINT_OFF_TICKS`] (a
-/// 30 tick cycle, 2 Hz). Spec 3.4.
+/// 30 tick cycle, 2 Hz). Spec 3.4. The glint is drawn from the Puddle Jumper strip
+/// (`donut_art::puddle_vfx_frame(PuddleVfx::Glint, ..)`): a 3 x 3 plus, with the
+/// small twinkle on the 4th on-tick (DMA-Q05).
 pub const GLINT_ON_TICKS: u64 = 4;
 pub const GLINT_OFF_TICKS: u64 = 26;
-/// The glint is a square of this many pixels (spec 3.4: 2 x 2).
-pub const GLINT_SIZE_PX: u32 = 2;
-/// The tail flick on arming lasts this many ticks, the tip shifted out for the
-/// first [`FLICK_OUT_TICKS`] and back for the rest (spec 3.4: 6 ticks, 1 px).
+/// The tail flick on arming lasts this many ticks (spec 3.4: 6): the
+/// `flick_up` tail for the first [`FLICK_PHASE_TICKS`], the `flick_snap` tail for
+/// the next [`FLICK_PHASE_TICKS`], then the base locomotion frame for the rest.
 pub const FLICK_TICKS: u64 = 6;
-pub const FLICK_OUT_TICKS: u64 = 3;
+pub const FLICK_PHASE_TICKS: u64 = 2;
 /// The evade response lasts this many ticks (spec 3.4: 12).
 pub const EVADE_TICKS: u64 = 12;
 /// The cosmetic arc rises this many pixels over her authoritative position.
 pub const ARC_PEAK_PX: i32 = 10;
-/// The two afterimages: how many ticks behind her they are drawn and their alpha
-/// (spec 3.4: 50 % and 25 %). A lag is a presentation distance, not a rule.
-pub const AFTERIMAGES: [(u64, f32); 2] = [(3, 0.5), (6, 0.25)];
-/// DM-Q21/C3: the white streak stays this many ticks. The spec says "one frame";
-/// two ticks survive a 30 fps capture and read at gameplay scale.
+/// DM-Q21/C3: the swish stays this many ticks (`swish_a` then `swish_b`). The spec
+/// says "one frame"; two ticks survive a 30 fps capture and read at gameplay scale.
 pub const STREAK_TICKS: u64 = 2;
-/// The streak's size: it lies across her body, half the length on each side.
-pub const STREAK_HALF_LENGTH_PX: i32 = 18;
-pub const STREAK_THICKNESS_PX: i32 = 2;
 
 /// The cosmetic height of the evade arc `age` ticks after the evade: a parabola
 /// from 0 at the start, [`ARC_PEAK_PX`] at the middle, 0 again at
@@ -64,10 +59,7 @@ pub struct EvadeView {
     pub age: u64,
     /// Cosmetic lift of her sprite, in pixels.
     pub lift_px: i32,
-    /// The two afterimages: `(lag ticks, alpha)`; each is drawn where she stood
-    /// `lag` ticks ago, lifted by the arc of `age - lag`.
-    pub afterimages: [(u64, f32); 2],
-    /// The white streak, while it lasts: the side the attack came from
+    /// The swish, while it lasts: the side the attack came from
     /// (-1 left, +1 right, 0 unknown).
     pub streak: Option<i8>,
 }
@@ -139,17 +131,26 @@ impl DonutCues {
     /// Whether the tail glint is lit on `tick`: armed, in the 4-on part of the
     /// 30 tick cycle that began when the armed spell did.
     pub fn glint_on(&self, tick: u64) -> bool {
-        self.armed
-            && self.armed_since.is_some_and(|since| {
-                tick.saturating_sub(since) % (GLINT_ON_TICKS + GLINT_OFF_TICKS) < GLINT_ON_TICKS
-            })
+        self.glint_age(tick).is_some()
     }
 
-    /// The tail flick on `tick`: `Some(true)` while the tip is shifted out,
-    /// `Some(false)` while it is back, `None` outside the 6 ticks.
-    pub fn flick(&self, tick: u64) -> Option<bool> {
+    /// The tick inside the 4-on window of the glint on `tick` (0 to 3), or `None`
+    /// while it is dark. The 4th on-tick is the small twinkle (DMA-Q05).
+    pub fn glint_age(&self, tick: u64) -> Option<u64> {
+        if !self.armed {
+            return None;
+        }
+        let since = self.armed_since?;
+        let at = tick.saturating_sub(since) % (GLINT_ON_TICKS + GLINT_OFF_TICKS);
+        (at < GLINT_ON_TICKS).then_some(at)
+    }
+
+    /// The tail flick on `tick` as a tail-swap phase: `Some(0)` (`flick_up`) for the
+    /// first two ticks, `Some(1)` (`flick_snap`) for the next two, `None` from the
+    /// fifth tick on (the base locomotion frame; [`FLICK_TICKS`] stays 6).
+    pub fn flick(&self, tick: u64) -> Option<usize> {
         let age = tick.checked_sub(self.flick_start?)?;
-        (age < FLICK_TICKS).then_some(age < FLICK_OUT_TICKS)
+        (age < 2 * FLICK_PHASE_TICKS).then_some((age / FLICK_PHASE_TICKS) as usize)
     }
 
     /// The evade response on `tick`, or `None` outside its [`EVADE_TICKS`].
@@ -161,7 +162,6 @@ impl DonutCues {
         Some(EvadeView {
             age,
             lift_px: arc_lift_px(age),
-            afterimages: AFTERIMAGES,
             streak: (age < STREAK_TICKS).then_some(self.evade_side),
         })
     }

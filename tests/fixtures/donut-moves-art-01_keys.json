@@ -1,0 +1,23 @@
+{
+  "asset_id": "donut-moves-art-01",
+  "format": "pixelart-keys-v1",
+  "keys": {
+    "2": {
+      "sha256": "5d053d6c989ce6101993cfafbbf69a273a6524d14afaee3e100fd19b66306da8"
+    },
+    "9": {
+      "sha256": "c74f95849f3050eb18327ba6981f78b11090367508ee6fd5e925f50924b36172"
+    }
+  },
+  "layers": [
+    "puddle_back",
+    "tail",
+    "legs_far",
+    "body",
+    "legs_near",
+    "head",
+    "face",
+    "gear",
+    "puddle_front"
+  ]
+}
