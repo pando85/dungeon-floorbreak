@@ -214,6 +214,13 @@ fn body_x(e: &RosterEntry) -> (i32, i32) {
             }
         }
         RosterKind::Room(_) => (e.x - ENEMY_BODY.0 / 2, e.x + ENEMY_BODY.0 / 2),
+        // DOZER-CORE: the parked machine, push box rear to spike tips, with its
+        // wheel front at the entry's x.
+        RosterKind::Dozer => {
+            let t = crate::dozer::DozerTuning::active();
+            let o = e.x - (t.dzq01_wheel_axle.x + i32::from(t.dzq01_wheel_r_px));
+            (o + t.dzq02_push_box.x0, o + t.dzq03_impact_collider.x1)
+        }
     }
 }
 
@@ -866,6 +873,185 @@ pub(super) fn check(
     }
 
     (specs, pockets)
+}
+
+fn dozer_err(rule: u8, ids: &[&str], reason: impl Into<String>) -> EncounterError {
+    EncounterError::Dozer {
+        rule,
+        ids: ids.iter().map(|s| (*s).to_owned()).collect(),
+        reason: reason.into(),
+    }
+}
+
+/// DOZER-CORE: the rules of the Dozer note's section 9 that need no prop (1, 2,
+/// 4 and 6; 3 and 5 read the stop frame of DR-B). A no-op for a sidecar with
+/// neither a `dozer` roster entry nor a `dozer` block. Layout px (y down).
+pub(super) fn check_dozer(inp: &HazInput<'_>, errs: &mut Vec<EncounterError>) {
+    use crate::dozer::rules;
+    let dozers: Vec<&RosterEntry> = inp.roster.iter().filter(|e| e.kind.is_dozer()).collect();
+    let block = inp.raw.dozer.as_ref();
+    if dozers.is_empty() && block.is_none() {
+        return;
+    }
+    let ids: Vec<&str> = dozers.iter().map(|e| e.id.as_str()).collect();
+    // ---- rule 1: exactly one machine, its block, and a long enough lane
+    if dozers.len() != 1 {
+        errs.push(dozer_err(
+            1,
+            &ids,
+            "a dozer room has exactly one dozer entry",
+        ));
+    }
+    let Some(block) = block else {
+        errs.push(dozer_err(
+            1,
+            &ids,
+            "a dozer entry needs the sidecar's dozer block",
+        ));
+        return;
+    };
+    let site = block.site();
+    let room = &inp.ctx.room;
+    let floor = room.floor_y;
+    if let Some(e) = dozers.first()
+        && e.x != site.emerge_front_x
+    {
+        errs.push(dozer_err(
+            1,
+            &[&e.id],
+            "the dozer entry's x is its emergence front (dzq13_emerge_front_x)",
+        ));
+    }
+    if site.stop_x <= room.play_x.0 || site.stop_x >= room.play_x.1 {
+        errs.push(dozer_err(1, &ids, "dzq14_stop_x lies outside the room"));
+    }
+    if site.stop_x < site.emerge_front_x + rules::MIN_RUN_PX {
+        errs.push(dozer_err(
+            1,
+            &ids,
+            format!(
+                "dzq14_stop_x must be at least the gate x + {}",
+                rules::MIN_RUN_PX
+            ),
+        ));
+    }
+    if site.trigger_x <= site.emerge_front_x || site.trigger_x >= site.stop_x {
+        errs.push(dozer_err(
+            1,
+            &ids,
+            "dzq11_trigger_x lies between the gate and dzq14_stop_x",
+        ));
+    }
+    // ---- rule 2: the lane is clear
+    let mouth = site.lintel.x;
+    let slab = inp.raw.platform_slab_px;
+    let mut solids: Vec<(String, IRect)> = Vec::new();
+    for (i, p) in room.platforms.iter().enumerate() {
+        solids.push((
+            format!("platform {i}"),
+            IRect::new(p.rect.x, p.rect.y, p.rect.w, slab),
+        ));
+    }
+    for (i, r) in room.steps.iter().enumerate() {
+        solids.push((format!("step {i}"), *r));
+    }
+    for p in inp.props {
+        for r in p
+            .remnant
+            .into_iter()
+            .chain(p.solid_intact.then_some(p.target))
+        {
+            solids.push((format!("prop {}", p.id), r));
+        }
+    }
+    for st in inp.raw.statics.iter().filter(|st| st.kind == "solid") {
+        solids.push((format!("static {}", st.id), IRect::from(&st.rect)));
+    }
+    for l in &inp.raw.locks {
+        solids.push((format!("lock {}", l.id), IRect::from(&l.solid)));
+    }
+    for (name, r) in &solids {
+        let in_lane = r.x < mouth && r.right() > site.emerge_front_x;
+        let bottom_up = floor - r.bottom();
+        if in_lane && r.h > rules::REMNANT_MAX_PX && bottom_up < rules::FRAME_HANG_PX {
+            errs.push(dozer_err(
+                2,
+                &[name],
+                "a solid on the chase lane is taller than a remnant and below the frame hang",
+            ));
+        }
+        if r.x < mouth && r.right() > site.stop_x - rules::RUN_OUT_CLEAR_PX {
+            errs.push(dozer_err(
+                2,
+                &[name],
+                "no solid stands between dzq14_stop_x - 256 and the tunnel mouth",
+            ));
+        }
+    }
+    if mouth < site.stop_x + rules::MOUTH_MARGIN_PX {
+        errs.push(dozer_err(
+            2,
+            &ids,
+            format!(
+                "the tunnel mouth must be at least dzq14_stop_x + {}",
+                rules::MOUTH_MARGIN_PX
+            ),
+        ));
+    }
+    // ---- rule 4: the ceiling, the passage and the lintel
+    match inp.ctx.ceiling_px {
+        Some(c) if c >= rules::MIN_CEILING_PX => {
+            if site.lintel.y > floor - c {
+                errs.push(dozer_err(
+                    4,
+                    &ids,
+                    "the tunnel lintel does not reach the lane ceiling",
+                ));
+            }
+        }
+        _ => errs.push(dozer_err(
+            4,
+            &ids,
+            format!(
+                "the lane ceiling must be declared and at least {}",
+                rules::MIN_CEILING_PX
+            ),
+        )),
+    }
+    let clear = floor - site.lintel.bottom();
+    if !(rules::PASSAGE_CLEAR_PX.0..=rules::PASSAGE_CLEAR_PX.1).contains(&clear) {
+        errs.push(dozer_err(
+            4,
+            &ids,
+            format!(
+                "the escape passage's clear height {clear} is not in {}..={}",
+                rules::PASSAGE_CLEAR_PX.0,
+                rules::PASSAGE_CLEAR_PX.1
+            ),
+        ));
+    }
+    if site.lintel.x < site.stop_x {
+        errs.push(dozer_err(
+            4,
+            &ids,
+            "the escape passage lies beyond dzq14_stop_x",
+        ));
+    }
+    let exit = inp.protected[2].1;
+    if exit.x < site.lintel.x || exit.right() > site.lintel.right() {
+        errs.push(dozer_err(4, &ids, "the tunnel lintel holds the exit"));
+    }
+    // ---- rule 6: no supplier at all, and the K5 profile
+    for e in inp.roster.iter().filter(|e| e.kind.supplies_boss()) {
+        errs.push(dozer_err(
+            6,
+            &[&e.id],
+            "a dozer room has no BossThreat supplier at all",
+        ));
+    }
+    if let Err(err) = crate::dozer::DozerTuning::active().validate() {
+        errs.push(dozer_err(6, &ids, err.to_string()));
+    }
 }
 
 #[cfg(test)]

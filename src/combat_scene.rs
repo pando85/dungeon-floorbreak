@@ -64,6 +64,7 @@ pub(crate) use companion::with_profile_override;
 mod contacts_cf02;
 pub mod corral;
 mod donut;
+pub mod dozer;
 mod env;
 mod evade;
 mod morale_cf02;

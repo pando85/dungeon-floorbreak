@@ -249,6 +249,10 @@ pub struct SlotOut {
     /// HRD-B / HRD-C: prop stimuli of this tick (her shove meeting a pile), offered
     /// in order before the env step.
     pub env_stimuli: Vec<SlotStimulus>,
+    /// DOZER-CORE: solo, put this bot hero at `(x, foot_y)` (world px) with no
+    /// speed, grounded (the Dozer's rescue, `docs/01-design/enemy-gameplay-dozer.md`
+    /// section 7.3). Applied after the regroups, before the blows.
+    pub place: Vec<(HeroId, f32, f32)>,
 }
 
 impl SlotOut {
@@ -259,6 +263,7 @@ impl SlotOut {
             && self.regroup.is_empty()
             && !self.tell_started
             && self.env_stimuli.is_empty()
+            && self.place.is_empty()
     }
 }
 
@@ -484,6 +489,13 @@ pub trait SlotEnemy: fmt::Debug + Send + Sync {
         None
     }
 
+    /// DOZER-CORE: the rows this enemy adds to the hazard feed this tick (layout
+    /// px, y down, `layout_h` the room height), after the slime and sticker
+    /// rows. The default: none.
+    fn nav_rects(&self, _layout_h: i32) -> Vec<crate::env_hazard::NavRect> {
+        Vec::new()
+    }
+
     /// Fixture and test inspection: the concrete enemy behind the trait object
     /// (`downcast_ref`). The default is `None`: nothing is exposed.
     fn as_any(&self) -> Option<&dyn std::any::Any> {
@@ -573,6 +585,11 @@ pub static SLOT_KINDS: &[SlotKindDef] = &[
         name: crate::combat_scene::slime::KIND,
         build: crate::combat_scene::slime::build,
     },
+    // DOZER-CORE: the room 3 revenge machine.
+    SlotKindDef {
+        name: crate::combat_scene::dozer::KIND,
+        build: crate::combat_scene::dozer::build,
+    },
 ];
 
 /// The roster kind names the slot never builds: the existing goblin and
@@ -599,6 +616,7 @@ fn entry_kind_name(entry: &RosterEntry) -> &'static str {
     match entry.kind {
         RosterKind::Room(kind) => kind_name(kind),
         RosterKind::Slime => "slime",
+        RosterKind::Dozer => "dozer",
     }
 }
 

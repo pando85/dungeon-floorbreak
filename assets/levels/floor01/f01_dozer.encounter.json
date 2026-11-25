@@ -1,0 +1,31 @@
+{
+  "schema": "floor01-encounter-v1",
+  "status": "DOZER-CORE data (ENEMY-GAMEPLAY-DOZER sections 5 and 9, docs/01-design/enemy-gameplay-dozer.md, DZ-AD12): chase only, no prop yet (the stop frame is DR-B, the crew DR-C). The dozer block holds the machine's room data (DZ-Q11, DZ-Q13, DZ-Q14, DZ-Q22); its lintel is the tunnel's solid. Every number is a tuning knob. Coordinates are layout pixels, y down, like the room file.",
+  "id": "F01-DOZER-ENC",
+  "room_file": "f01_dozer.room.json",
+  "room_id": "F01-DOZER",
+  "story_pin": "f01_pin_post_pile_boss",
+  "goal": "reach_exit",
+  "grants": [],
+  "max_living": 3,
+  "locks": [],
+  "platform_slab_px": 12,
+  "protected_spawn": { "x": 32, "y": 484, "w": 192, "h": 96 },
+  "checkpoint": { "x": 48, "y": 484, "w": 48, "h": 96 },
+  "exit": { "x": 1264, "y": 484, "w": 64, "h": 96 },
+  "props": [],
+  "hazards": [],
+  "links": [],
+  "roster": [
+    { "id": "dozer", "kind": "dozer", "x": 32, "beat": "R1" }
+  ],
+  "gates": [],
+  "vantages": [],
+  "dozer": {
+    "dzq11_trigger_x": 256,
+    "dzq11_idle_trigger_ticks": 300,
+    "dzq13_emerge_front_x": 32,
+    "dzq14_stop_x": 1000,
+    "dzq22_lintel": { "x": 1040, "y": 352, "w": 304, "h": 116 }
+  }
+}

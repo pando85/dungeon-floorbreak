@@ -774,6 +774,8 @@ mod tests {
             ("environment", crate::combat_scene::ENV_SOURCE_ID),
             // ENEMY-SLOT: the test dummy; every real slot enemy appends its own id here.
             ("slot test dummy", crate::scene_enemy::testing::DUMMY_SOURCE),
+            // DOZER-CORE: the revenge machine's wheel.
+            ("dozer wheel", crate::dozer::DOZER_SOURCE_ID),
         ];
         let low = |id: u32| id & 0xFFFF;
         for (i, (name, id)) in ids.iter().enumerate() {

@@ -132,6 +132,17 @@ impl SlotRuntime {
                     mix(*hero as u64);
                     mix(u64::from(x.to_bits()));
                 }
+                // DOZER-CORE: folded only when present, so a room without a
+                // Dozer hashes as before.
+                if !out.place.is_empty() {
+                    mix(0x534c_4f54_0003);
+                    mix(out.place.len() as u64);
+                    for (hero, x, y) in &out.place {
+                        mix(*hero as u64);
+                        mix(u64::from(x.to_bits()));
+                        mix(u64::from(y.to_bits()));
+                    }
+                }
             }
         }
     }
@@ -214,6 +225,15 @@ impl CombatState {
             body.vx = 0.0;
             body.vy = 0.0;
             body.grounded = false;
+        }
+        // DOZER-CORE: the Dozer's solo rescue puts a bot on its feet at a spot.
+        for (id, x, foot_y) in out.place {
+            let body = scene.world.body_mut(id);
+            body.x = x;
+            body.y = foot_y + HERO_HALF_HEIGHT;
+            body.vx = 0.0;
+            body.vy = 0.0;
+            body.grounded = true;
         }
         for blow in out.blows {
             debug_assert!(
