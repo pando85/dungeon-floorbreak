@@ -716,6 +716,8 @@ def run(ctx: Context) -> dict:
         enabled = key is None or not (value is None or value is False)    # 0 is a real limit
         if (rid == "V07" and not _tag_frames(ctx, "grounded")) or (rid == "V08" and not _tag_frames(ctx, "airborne")):
             enabled = False
+        if not enabled and rid == "V18":
+            continue        # the overlay rule is listed only for an overlay config: every other report keeps its 17 rules
         if not enabled:
             results.append({"id": rid, "name": name, "status": "skipped", "detail": "not configured", "failures": []})
             continue

@@ -104,7 +104,9 @@ pub(super) fn spawn(
         };
         // The windowed scene reads exported atlases from the repository root.
         if !Path::new("generated/art").join(&asset).is_file() {
-            eprintln!("CARL_GAUNTLET: {asset} is not exported; Carl is drawn bare (run bash scripts/export_assets.sh)");
+            eprintln!(
+                "CARL_GAUNTLET: {asset} is not exported; Carl is drawn bare (run bash scripts/export_assets.sh)"
+            );
             continue;
         }
         let texture: Handle<Image> = asset_server.load(asset.clone());
@@ -133,22 +135,13 @@ pub(super) fn spawn(
 #[allow(clippy::type_complexity)]
 pub(super) fn sync_carl_gauntlet(
     combat: Res<Combat>,
-    locomotion: Query<
-        (&ActorVisual, &Transform, &Sprite, &Visibility),
-        Without<CarlGauntlet>,
-    >,
-    melee: Query<
-        (&Transform, &Sprite, &Visibility),
-        (With<CarlMelee>, Without<CarlGauntlet>),
-    >,
+    locomotion: Query<(&ActorVisual, &Transform, &Sprite, &Visibility), Without<CarlGauntlet>>,
+    melee: Query<(&Transform, &Sprite, &Visibility), (With<CarlMelee>, Without<CarlGauntlet>)>,
     throw: Query<
         (&Transform, &Sprite, &Visibility),
         (With<CarlThrowSprite>, Without<CarlGauntlet>),
     >,
-    cf02: Query<
-        (&Transform, &Sprite, &Visibility),
-        (With<CarlCf02Sprite>, Without<CarlGauntlet>),
-    >,
+    cf02: Query<(&Transform, &Sprite, &Visibility), (With<CarlCf02Sprite>, Without<CarlGauntlet>)>,
     mut overlays: Query<(&CarlGauntlet, &mut Transform, &mut Sprite, &mut Visibility)>,
 ) {
     let held = held(&combat);
@@ -240,7 +233,8 @@ mod tests {
         let actors =
             Actors::load(root, FrameSource::GridSource, true, false, runs_cf02, false).unwrap();
         let mut hud = new_hud(&args, &kit, &actors);
-        let (sim, anim, combat, death, _) = build_scene(&kit, &args, &actors, root, &mut hud).unwrap();
+        let (sim, anim, combat, death, _) =
+            build_scene(&kit, &args, &actors, root, &mut hud).unwrap();
         (args, sim, anim, combat.unwrap(), death.unwrap())
     }
 
@@ -264,18 +258,48 @@ mod tests {
     /// Donut's locomotion sprite, and the four hidden overlays.
     fn populate(world: &mut World) {
         let at = |x: f32| Transform::from_xyz(x, 40.0, 5.1);
-        world.spawn((ActorVisual { is_hero: true }, body_sprite(3, false), at(10.0), Visibility::Inherited));
-        world.spawn((ActorVisual { is_hero: false }, body_sprite(1, false), at(99.0), Visibility::Inherited));
-        world.spawn((CarlMelee, body_sprite(5, true), at(20.0), Visibility::Inherited));
-        world.spawn((CarlThrowSprite, body_sprite(7, false), at(30.0), Visibility::Inherited));
-        world.spawn((CarlCf02Sprite, body_sprite(9, true), at(40.0), Visibility::Inherited));
+        world.spawn((
+            ActorVisual { is_hero: true },
+            body_sprite(3, false),
+            at(10.0),
+            Visibility::Inherited,
+        ));
+        world.spawn((
+            ActorVisual { is_hero: false },
+            body_sprite(1, false),
+            at(99.0),
+            Visibility::Inherited,
+        ));
+        world.spawn((
+            CarlMelee,
+            body_sprite(5, true),
+            at(20.0),
+            Visibility::Inherited,
+        ));
+        world.spawn((
+            CarlThrowSprite,
+            body_sprite(7, false),
+            at(30.0),
+            Visibility::Inherited,
+        ));
+        world.spawn((
+            CarlCf02Sprite,
+            body_sprite(9, true),
+            at(40.0),
+            Visibility::Inherited,
+        ));
         for kind in [
             CarlGauntlet::Locomotion,
             CarlGauntlet::Melee,
             CarlGauntlet::Throw,
             CarlGauntlet::Cf02,
         ] {
-            world.spawn((kind, overlay_sprite(), Transform::default(), Visibility::Hidden));
+            world.spawn((
+                kind,
+                overlay_sprite(),
+                Transform::default(),
+                Visibility::Hidden,
+            ));
         }
     }
 
@@ -365,9 +389,9 @@ mod tests {
             for _ in 0..TICKS {
                 let mut resource = world.resource_mut::<Combat>();
                 let combat = resource.0.as_mut().unwrap();
-                let input = args
-                    .fixture
-                    .map_or_else(RawInput::default, |f| scripted_input(&args, f, &sim, combat));
+                let input = args.fixture.map_or_else(RawInput::default, |f| {
+                    scripted_input(&args, f, &sim, combat)
+                });
                 step_combat(
                     &mut sim,
                     combat,

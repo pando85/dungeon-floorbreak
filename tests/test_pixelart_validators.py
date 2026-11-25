@@ -73,7 +73,7 @@ class BaselineTests(unittest.TestCase):
         self.assertTrue(report["passed"], v.summary(report))
         self.assertEqual(report["counts"]["fail"], 0)
         self.assertEqual({r["id"] for r in report["rules"] if r["status"] == "skipped"},
-                         {"V04", "V05", "V06", "V09", "V10", "V11", "V12", "V13", "V14", "V16", "V17", "V18"})
+                         {"V04", "V05", "V06", "V09", "V10", "V11", "V12", "V13", "V14", "V16", "V17"})
 
     def test_report_is_machine_readable_and_summary_is_short(self) -> None:
         report = run(make_cfg(max_colors=3, max_isolated_per_frame=0))
@@ -469,11 +469,11 @@ class OverlayRuleTests(unittest.TestCase):
         self.assertEqual(v.overlay_frame_findings(no_skin, self.cel({}), (self.OW, self.OH), self.PARAMS)["CG-L9"], [])
         self.assertEqual(self.findings(self.body(), {}, [(5, 4), (6, 4), (5, 5), (6, 5)])["CG-L9"], [])
 
-    def test_the_overlay_section_needs_a_body_grid_and_v18_is_skipped_without_it(self) -> None:
+    def test_the_overlay_section_needs_a_body_grid_and_v18_is_absent_without_it(self) -> None:
         with self.assertRaises(ToolkitError):
             v.overlay_params({})
         report = v.run(v.Context(make_cfg(), good_grid()))
-        self.assertEqual(result(report, "V18")["status"], "skipped")
+        self.assertNotIn("V18", {r["id"] for r in report["rules"]}, "listed only for an overlay config")
 
     def test_v15_leaves_empty_overlay_frames_to_cg_l9(self) -> None:
         grid = make_grid([{"body": BLOCK}, {"body": [BLANK] * H}, {"body": BLOCK_UP}])
