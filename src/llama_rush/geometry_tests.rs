@@ -172,14 +172,14 @@ fn reach_box(leash: Leash, feet: f32) -> Rect {
 }
 
 #[derive(Default, Debug, PartialEq, Eq)]
-struct Reach {
-    a: bool,
-    b: bool,
+pub(crate) struct Reach {
+    pub(crate) a: bool,
+    pub(crate) b: bool,
 }
 
 /// What a Donut staying on `surface` (top, pivot range) can hit with a bolt
 /// released at any height of a jump in place, with any launch, both facings.
-fn sweep(solids: &[Block], top: f32, pivots: core::ops::RangeInclusive<i32>) -> Reach {
+pub(crate) fn sweep(solids: &[Block], top: f32, pivots: core::ops::RangeInclusive<i32>) -> Reach {
     let a = reach_box(A_LEASH, DOCK_FEET);
     let b = reach_box(B_LEASH, 0.0);
     let mut reach = Reach::default();

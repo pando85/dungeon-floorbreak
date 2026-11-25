@@ -511,6 +511,12 @@ fn no_play_path_constructs_a_non_shipped_reflex_profile() {
             if allowed.contains(&name.as_str()) {
                 continue;
             }
+            // CORRAL-C (plan section 14.4, F6): the CORRAL-AUTO evaluator runs
+            // its `off` reflex variant as test tuning; it is a measurement
+            // tool, never a play path.
+            if path.ends_with("corral_eval/mod.rs") {
+                continue;
+            }
             let text = std::fs::read_to_string(&path).unwrap();
             let code = play_code(&name, &text);
             for needle in [

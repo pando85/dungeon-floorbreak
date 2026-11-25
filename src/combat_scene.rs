@@ -77,8 +77,8 @@ use self::companion::CompanionRuntime;
 pub use self::env::{ENV_SOURCE_ID, EnvRuntime, EnvSolidKind};
 use self::morale_cf02::MoraleRuntime;
 use self::slot::SlotRuntime;
-/// Where a missile spawns relative to Donut's pivot (read by the corral reach tests).
-#[cfg(test)]
+/// Where a missile spawns relative to Donut's pivot (read by the corral reach
+/// tests and the CORRAL-EVAL aimed policies).
 pub(crate) use donut::{BOLT_SPAWN_FORWARD, BOLT_SPAWN_UP};
 pub use donut::{Bolt, Cast, DonutKit};
 
@@ -1092,8 +1092,20 @@ impl CombatState {
                 ));
             }
         }
-        for spawn in fixture.llamas {
-            if kit.walking_line_at(spawn.x) != Some(line) {
+        // CORRAL-C (R1): a llama whose opt-in authors its surface (the corral's
+        // dock llama) is checked by the opt-in load check below, against the
+        // scene's solids, not against Carl's walking line.
+        let authored = crate::corral_fixtures::llama_opt_ins(fixture.name)
+            .map(|set| {
+                set.opt_ins
+                    .iter()
+                    .filter(|o| o.feet.is_some())
+                    .map(|o| o.index)
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+        for (index, spawn) in fixture.llamas.iter().enumerate() {
+            if !authored.contains(&index) && kit.walking_line_at(spawn.x) != Some(line) {
                 return Err(format!(
                     "{}: llama column {} is not on Carl's walking line",
                     fixture.name, spawn.x
@@ -1175,8 +1187,11 @@ impl CombatState {
         };
         // CORRAL-B wire (KC15): a `corral_*` fixture's opt-ins are checked once
         // here, where the scene's solids are known; `reset_attempt` reapplies them.
+        // CORRAL-FU (1): the check sees the fixture's authored solids too.
         if let Some(set) = crate::corral_fixtures::llama_opt_ins(fixture.name) {
-            state.validate_llama_opt_ins(&scene.world.solids, &set.opt_ins)?;
+            let mut solids = scene.world.solids.clone();
+            solids.extend(set.solids.iter().cloned());
+            state.validate_llama_opt_ins(&solids, &set.opt_ins)?;
         }
         state.reset_attempt();
         Ok(state)
@@ -1629,6 +1644,10 @@ impl CombatState {
     /// Magic Missile run after Carl's strike and before the scene step (Carl,
     /// Donut, goblins).
     pub fn step_party(&mut self, scene: &mut SceneSim, inputs: [RawInput; 2]) {
+        // CORRAL-FU (1): a `corral_*` fixture's authored solids join the scene
+        // before anything of the first tick moves, so the tick-1 hero step of
+        // attempt 1 meets the same solids as a retry.
+        self.sync_corral_solids(scene);
         // DP-Q17: Donut's launch of this tick, from the ledger, before anything
         // reads her reach (the companion's view, the follower bot, the nav).
         let donut_launch = self.donut_launch_now();
@@ -2727,7 +2746,6 @@ impl CombatState {
         if self.llamas.is_empty() {
             return;
         }
-        self.sync_corral_solids(scene);
         let left = scene.camera.left();
         let view = FireView {
             left: left as f32,
@@ -3538,8 +3556,10 @@ impl CombatState {
             for llama in &self.llamas {
                 llama.mix_into(&mut put);
             }
-            // CORRAL-B wire (KC1): the held hero, only while party targeting is on.
-            if self.llama_party_target {
+            // CORRAL-B wire (KC1): the held hero, only while party targeting is
+            // on or a llama has a corral profile (CORRAL-FU (3): a corral llama
+            // writes `held` itself, with or without party targeting).
+            if self.llama_party_target || self.llamas.iter().any(|l| l.corral.is_some()) {
                 put(0x4c50_5447); // "LPTG"
                 for llama in &self.llamas {
                     put(llama.held.map_or(2, |h| h.index() as u64));

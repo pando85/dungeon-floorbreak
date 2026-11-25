@@ -6,9 +6,11 @@
 //!     [--assets-root DIR] [--quick] [--horizon TICKS]
 //! ```
 //!
-//! No Python, GPU or trained policy is involved. The M2 gate in the report is
-//! report-only until CORRAL-C; the exit code is 0 unless the sweep itself
-//! cannot run.
+//! No Python, GPU or trained policy is involved. The sweep covers the CORRAL-C
+//! Infernal Corral (the "after", gated) and the CORRAL-EVAL core corridor
+//! baselines (the "before", report-only); `--quick` runs the baselines only.
+//! The exit code is 1 when the sweep cannot run or when it ran the corral and
+//! the corral gate fails. `CORRAL_EVAL_THREADS` sets the worker threads.
 
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -49,7 +51,16 @@ fn main() -> ExitCode {
         Ok(summary) => {
             println!("{summary}");
             println!("wrote {}", out.display());
-            ExitCode::SUCCESS
+            let failed = serde_json::from_str::<serde_json::Value>(&summary)
+                .ok()
+                .and_then(|v| v["corral_gate"]["passes"].as_bool())
+                .is_some_and(|passes| config.corral && !passes);
+            if failed {
+                eprintln!("corral_eval: the corral gate fails (see report.md)");
+                ExitCode::FAILURE
+            } else {
+                ExitCode::SUCCESS
+            }
         }
         Err(e) => {
             eprintln!("corral_eval: {e}");

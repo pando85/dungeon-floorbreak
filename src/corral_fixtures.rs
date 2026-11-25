@@ -419,9 +419,10 @@ fn entry_of(name: &str) -> Option<&'static Entry> {
     REGISTRY.iter().find(|e| e.fixture.name() == name)
 }
 
-/// KC2: the exact fixture names that run under `cf02_rules`.
+/// KC2: the exact fixture names that run under `cf02_rules` (the isolated
+/// fixtures and the CORRAL-C room fixtures).
 pub fn runs_cf02(name: &str) -> bool {
-    entry_of(name).is_some()
+    entry_of(name).is_some() || room::is_room_fixture(name)
 }
 
 /// KC15: where Donut starts in a corral fixture.
@@ -432,6 +433,9 @@ pub fn donut_start_x(name: &str) -> Option<f32> {
 /// R2, KC15: the party targeting and per-llama opt-ins of a corral fixture, and
 /// its authored solids. `None` for every other fixture, so nothing else changes.
 pub fn llama_opt_ins(name: &str) -> Option<LlamaOptInSet> {
+    if room::is_room_fixture(name) {
+        return room::llama_opt_ins(name);
+    }
     let entry = entry_of(name)?;
     let cfg = entry.cfg;
     let rush = cfg.rush.then(|| RushOptIn {
@@ -474,5 +478,9 @@ pub fn llama_opt_ins(name: &str) -> Option<LlamaOptInSet> {
     })
 }
 
+pub mod room;
+
+#[cfg(test)]
+mod room_tests;
 #[cfg(test)]
 mod tests;

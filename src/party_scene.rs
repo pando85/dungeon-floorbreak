@@ -378,6 +378,9 @@ pub struct PartyFixtureSim {
     pub combat: CombatState,
     pub party: PartyState,
     fixture: &'static PartyFixture,
+    /// CORRAL-C (spec section 11, NB2): the uncontrolled hero is parked (no
+    /// bot, no companion: an idle human seat). Off on every fixture.
+    parked: bool,
 }
 
 impl PartyFixtureSim {
@@ -396,9 +399,10 @@ impl PartyFixtureSim {
             combat,
             party,
             fixture,
+            parked: false,
         };
         fixture.place_donut(&mut sim.scene);
-        sim.scene.set_drive(fixture.drive(&sim.party));
+        sim.scene.set_drive(sim.drive());
         Ok(sim)
     }
 
@@ -420,9 +424,29 @@ impl PartyFixtureSim {
             combat,
             party,
             fixture,
+            parked: false,
         };
-        sim.scene.set_drive(fixture.drive(&sim.party));
+        sim.scene.set_drive(sim.drive());
         sim
+    }
+
+    /// Tests and the CORRAL-EVAL evaluator only (spec section 11, NB2): the
+    /// solo party's uncontrolled hero is parked. The drive keeps `live` and
+    /// solo, but no hero is a bot, so the uncontrolled hero gets an idle input
+    /// every tick: no follow-and-jump bot, no companion AI, no D1 guard.
+    #[doc(hidden)]
+    pub fn park_uncontrolled(&mut self) {
+        self.parked = true;
+        self.scene.set_drive(self.drive());
+    }
+
+    /// The scene drive of this tick: the fixture's, with the park applied.
+    fn drive(&self) -> crate::party::PartyDrive {
+        let mut drive = self.fixture.drive(&self.party);
+        if self.parked {
+            drive.bots = [false, false];
+        }
+        drive
     }
 
     /// One tick with explicit slot inputs: the swap, the party routing, the
@@ -431,7 +455,7 @@ impl PartyFixtureSim {
         let hurt = self.combat.hurt_ticks_of(self.party.controlled_hero()) > 0;
         self.party.request_swap(slots[0].swap, hurt);
         let inputs = self.party.hero_inputs(slots);
-        self.scene.set_drive(self.fixture.drive(&self.party));
+        self.scene.set_drive(self.drive());
         let restarts = self.combat.restarts;
         self.combat.step_party(&mut self.scene, inputs);
         if self.combat.restarts != restarts {

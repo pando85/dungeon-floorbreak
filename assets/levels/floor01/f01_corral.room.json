@@ -1,0 +1,32 @@
+{
+  "schema": "floor01-demo-hall-v1",
+  "status": "CORRAL-C greybox room (room 0, The Infernal Corral; docs/01-design/enemy-gameplay-llama-rush.md section 10, CRL-Q25 to CRL-Q33 and CRL-Q41): geometry only, composed at load time from approved Floor 01 kit pieces by camera_lab::layout (no new art, not an authored level, not wired into any scene). The llamas, their opt-ins and the start sweep live in src/corral_fixtures/room.rs until CORRAL-WIRE adds f01_corral.encounter.json; the M0 goblins, the checkpoints and the M3 gate are CORRAL-WIRE data, the partition is CORRAL-D.",
+  "scenarios": [
+    {
+      "id": "F01-CORRAL",
+      "name": "The Infernal Corral",
+      "subtitle": "Floor 01 room 0: the first bolts, an easy first llama and a two-llama corral with an exit dock",
+      "act": 1,
+      "setting": "dry-catacomb",
+      "width": 2320,
+      "height": 660,
+      "floor": 580,
+      "spawn": { "carl": 112, "donut": 80 },
+      "camera_intro": 112,
+      "ceiling_px": 228,
+      "platforms": [],
+      "parapet": [
+        { "x": 1120, "w": 96, "h": 32 },
+        { "x": 1856, "w": 32, "h": 80 },
+        { "x": 1888, "w": 416, "h": 32 }
+      ],
+      "props": [],
+      "enemies": [],
+      "hazards": [],
+      "goal_x": 2256,
+      "purpose": "A 2320 px scrolling room in story order: M0 First Spark (0..448), M1 One Burning Throat (448..1056, a flat pocket with no cover), the M2 pen floor (1056..1856) with the optional 32 px entry shelf (1120..1216), the exit dock (1856..2304, 32 px up) whose first 32 px are the 80 px dock bumper (CRL-Q41, a full-height step, never a platform), and the M3 Fast-food Threshold on the dock level (2048..2304). Every raised surface is a full-height masonry step: no gap under a surface leaks a bolt.",
+      "expected": "The llamas (M1 at 848, B at 1488 on the pen floor, A at 1968 on the dock), their leashes, surfaces and rush opt-ins come from src/corral_fixtures/room.rs; this file holds geometry only. The lane ceiling is the DP-Q45 soffit at 228 px above the walking line (CRL-Q31).",
+      "coop": "Solo with a swap, or two players: the 80 px bumper is Carl's DP-Q18 class limit and the CF02 perch height, so both heroes climb onto the dock; nothing here is Donut-only and room 0 grants nothing (CRL-Q33)."
+    }
+  ]
+}
