@@ -75,10 +75,10 @@ impl RunTally {
     #[must_use]
     pub fn with(self, room: &RoomFacts) -> Self {
         Self {
-            rooms: self.rooms + 1,
-            ticks: self.ticks + room.ticks,
-            deaths: self.deaths + room.deaths,
-            restarts: self.restarts + room.restarts,
+            rooms: self.rooms.saturating_add(1),
+            ticks: self.ticks.saturating_add(room.ticks),
+            deaths: self.deaths.saturating_add(room.deaths),
+            restarts: self.restarts.saturating_add(room.restarts),
         }
     }
 }
@@ -171,14 +171,79 @@ pub fn carry_for(loadout: Loadout, combat: &CombatState) -> Option<LedgerSnapsho
     }
 }
 
-/// Whether the HUD shows the TEST LOADOUT tag (PT-SCENE U5): always under
-/// `--f01-loadout all`; under the story loadout when the room started from its
-/// static pin instead of the ledger the run carried into it. The first room of
-/// a floor run has nothing to carry: its pin is the run's own start state.
-pub fn test_loadout_tag(loadout: Option<Loadout>, floor_run_start: bool, carried: bool) -> bool {
-    match loadout {
-        Some(Loadout::All) => true,
-        _ => !(floor_run_start || carried),
+/// Whether the HUD shows the TEST LOADOUT tag (PT-SCENE U5): exactly under
+/// `--f01-loadout all` (every capability held, the story triggers off). A story
+/// room started from its pin is the canonical story state at that point (the
+/// KR12 pins, its triggers armed), so it is not tagged; whether a room started
+/// from a pin or from a carried ledger is in the descriptor (`f01_carry`).
+pub fn test_loadout_tag(loadout: Option<Loadout>) -> bool {
+    loadout == Some(Loadout::All)
+}
+
+/// What the run does once the room-clear or floor-end panel is confirmed.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Decision {
+    /// Relaunch the binary with these arguments into this listed room.
+    Relaunch { room: String, argv: Vec<String> },
+    /// The floor end: quit.
+    Quit,
+}
+
+/// Everything the binary knows when a floor run room's exit is reached.
+pub struct ExitInput<'a> {
+    pub manifest: &'a Manifest,
+    /// The room being left.
+    pub room: &'a str,
+    pub loadout: Loadout,
+    pub combat: &'a CombatState,
+    /// The ledger the run carried into this room (`--f01-carry`).
+    pub carried: Option<&'a LedgerSnapshot>,
+    /// The run's tally before this room (`--f01-run-tally`; none in the first room).
+    pub tally: RunTally,
+    /// This process's arguments (program name first).
+    pub argv: &'a [String],
+    /// The REC badge text.
+    pub recording: &'a str,
+}
+
+/// F01-RUN: the decision of an exit: the room's facts, the panel to show and
+/// what its confirmation does (the next listed room with the carried ledger and
+/// the tally, or the floor end). The binary's run step only calls this.
+pub fn on_exit(input: &ExitInput<'_>) -> Result<(RoomFacts, PanelText, Decision), String> {
+    let row = input.manifest.room(input.room)?;
+    let facts = RoomFacts::of(row, input.combat, input.carried);
+    let tally = input.tally.with(&facts);
+    match next_room(input.manifest, input.room)? {
+        NextStep::Room(next) => {
+            let carry = carry_for(input.loadout, input.combat);
+            let argv = relaunch_argv(input.argv, &next.id, carry.as_ref(), tally);
+            let panel = room_clear_panel(
+                input.manifest,
+                &facts,
+                tally,
+                &next,
+                carry.is_some(),
+                input.recording,
+            );
+            Ok((
+                facts,
+                panel,
+                Decision::Relaunch {
+                    room: next.id,
+                    argv,
+                },
+            ))
+        }
+        NextStep::FloorEnd => {
+            let panel = floor_end_panel(
+                input.manifest,
+                &facts,
+                tally,
+                &held_of(input.combat),
+                input.recording,
+            );
+            Ok((facts, panel, Decision::Quit))
+        }
     }
 }
 
@@ -318,14 +383,14 @@ pub fn floor_end_panel(
 ) -> PanelText {
     let mut lines = vec![
         format!(
-            "{}: {} ticks ({}), deaths {}, restarts {}, granted {}",
+            "{}: {} ticks ({}), deaths {}, restarts {}",
             facts.title,
             facts.ticks,
             clock(facts.ticks),
             facts.deaths,
-            facts.restarts,
-            grant_list(&facts.grants)
+            facts.restarts
         ),
+        format!("granted here: {}", grant_list(&facts.grants)),
         format!(
             "run total: {} of {} listed rooms, {} ticks ({}), deaths {}, restarts {}",
             tally_after.rooms,
@@ -486,15 +551,75 @@ mod tests {
     }
 
     #[test]
-    fn the_test_loadout_tag_marks_a_pinned_start_and_the_all_loadout() {
-        // A bare room launch starts from its pin: tagged.
-        assert!(test_loadout_tag(Some(Loadout::Story), false, false));
-        // The first room of a floor run and a carried room are the story.
-        assert!(!test_loadout_tag(Some(Loadout::Story), true, false));
-        assert!(!test_loadout_tag(Some(Loadout::Story), false, true));
-        // `all` is always the TEST LOADOUT.
-        assert!(test_loadout_tag(Some(Loadout::All), true, false));
-        assert!(test_loadout_tag(Some(Loadout::All), false, true));
+    fn the_test_loadout_tag_marks_the_all_loadout_only() {
+        assert!(test_loadout_tag(Some(Loadout::All)));
+        assert!(!test_loadout_tag(Some(Loadout::Story)));
+        assert!(!test_loadout_tag(None));
+    }
+
+    #[test]
+    fn an_exit_relaunches_into_the_next_room_or_ends_the_floor() {
+        let manifest = manifest();
+        let hoarder = hoarder_defeat(&root()).unwrap();
+        let argv = argv(&["floor01_scene", "--scene", "f01_late", "--f01-run"]);
+        let input = ExitInput {
+            manifest: &manifest,
+            room: "hoarder",
+            loadout: Loadout::Story,
+            combat: &hoarder.combat,
+            carried: None,
+            tally: RunTally::default(),
+            argv: &argv,
+            recording: "REC",
+        };
+        let (facts, panel, decision) = on_exit(&input).unwrap();
+        assert_eq!(facts.grants, [(0, "special_thrown_charge".to_owned())]);
+        assert!(panel.heading.starts_with("ROOM 1/5 CLEARED"));
+        let Decision::Relaunch { room, argv: next } = decision else {
+            panic!("the Hoarder leads on");
+        };
+        assert_eq!(room, "boiler");
+        let carry = next.iter().position(|a| a == FLAG_CARRY).unwrap();
+        assert_eq!(
+            decode_carry(&next[carry + 1]).unwrap(),
+            hoarder.snapshot().unwrap()
+        );
+        let tally = next.iter().position(|a| a == FLAG_TALLY).unwrap();
+        assert_eq!(
+            RunTally::parse(&next[tally + 1]).unwrap(),
+            RunTally::default().with(&facts)
+        );
+        // The TEST LOADOUT chains without a carry.
+        let all = ExitInput {
+            loadout: Loadout::All,
+            ..input
+        };
+        let (_, panel, Decision::Relaunch { argv: next, .. }) = on_exit(&all).unwrap() else {
+            panic!("relaunch");
+        };
+        assert!(!next.iter().any(|a| a == FLAG_CARRY));
+        assert!(panel.lines[3].contains("TEST LOADOUT, nothing carried"));
+        // The last listed room ends the floor; an unlisted room is an error.
+        let last = &manifest.rooms.last().unwrap().id;
+        let end = ExitInput {
+            room: last,
+            tally: RunTally {
+                rooms: 4,
+                ..RunTally::default()
+            },
+            ..input
+        };
+        let (_, panel, decision) = on_exit(&end).unwrap();
+        assert_eq!(decision, Decision::Quit);
+        assert_eq!(panel.heading, "FLOOR 1 SLICE FINISHED");
+        assert!(panel.lines[2].contains("5 of 5 listed rooms"));
+        assert!(
+            on_exit(&ExitInput {
+                room: "corral",
+                ..input
+            })
+            .is_err()
+        );
     }
 
     /// One listed room's tick-0 state under the story loadout, built through the
@@ -617,11 +742,28 @@ mod tests {
         assert!(panel.lines.last().unwrap().starts_with("Facts only"));
         let end = floor_end_panel(&manifest, &facts, tally, &held_of(&hoarder.combat), "REC");
         assert_eq!(end.heading, "FLOOR 1 SLICE FINISHED");
-        assert!(end.lines[1].contains("1 of 5 listed rooms"));
-        assert!(end.lines[2].starts_with("Carl holds: special_thrown_charge"));
-        for text in panel.lines.iter().chain(&end.lines) {
-            // The overlay draws from x 112 in 6 px cells (its own on-screen test).
-            assert!(112 + 6 * text.chars().count() <= 640, "{text}");
+        assert!(end.lines[2].contains("1 of 5 listed rooms"));
+        assert!(end.lines[3].starts_with("Carl holds: special_thrown_charge"));
+        // The real floor end: the last room's facts and the held list after the
+        // Juicer's grants (the longest lines the panel draws today).
+        let last = manifest.rooms.last().unwrap();
+        let mut carry = hoarder.snapshot();
+        for row in &manifest.rooms[1..manifest.rooms.len() - 1] {
+            carry = room_run(row, carry.as_ref()).1;
+        }
+        let (mastery, _) = room_run(last, carry.as_ref());
+        let last_facts = RoomFacts::of(last, &mastery, carry.as_ref());
+        let real_end = floor_end_panel(&manifest, &last_facts, tally, &held_of(&mastery), "REC");
+        for text in panel
+            .lines
+            .iter()
+            .chain(&end.lines)
+            .chain(&real_end.lines)
+            .chain([&panel.heading, &panel.hint])
+        {
+            // The overlay draws from x 112 in the 8 px font's 5 px advance; the
+            // panel box ends at x 544 (96 + 448).
+            assert!(112 + 5 * text.chars().count() <= 544, "{text}");
             for word in ["score", "rating", "grade", "rank"] {
                 assert!(
                     !text.to_lowercase().contains(word) || text.starts_with("Facts only"),

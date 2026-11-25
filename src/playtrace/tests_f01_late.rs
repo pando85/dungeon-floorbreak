@@ -923,6 +923,14 @@ fn a_carried_floor_run_room_verifies_strict_from_its_descriptor() {
             verify(&session).expect_err("unknown capability").code,
             "content_mismatch"
         );
+        // A carry needs the story loadout (the binary refuses it under `all`).
+        tamper_manifest(&session, |m| m.reset.f01_carry = Some(snapshot.clone()));
+        verify(&session).unwrap_or_else(|e| panic!("{room} restored: {e}"));
+        tamper_manifest(&session, |m| m.reset.f01_loadout = None);
+        assert_eq!(
+            verify(&session).expect_err("no loadout").code,
+            "rules_mismatch"
+        );
         // A carry needs a room.
         tamper_manifest(&session, |m| {
             m.reset.f01_carry = Some(snapshot.clone());

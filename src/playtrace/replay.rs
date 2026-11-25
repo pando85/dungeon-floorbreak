@@ -261,6 +261,11 @@ pub(super) fn rebuild(manifest: &SessionManifest, root: &Path) -> Result<Reset, 
         if manifest.reset.f01_room.is_none() {
             return Err(rules("a carried story ledger needs a late-Floor-1 room"));
         }
+        // The binary carries the story loadout's ledger only (the TEST LOADOUT
+        // carries nothing, F01RUN-AD2).
+        if manifest.reset.f01_loadout.as_deref() != Some("story") {
+            return Err(rules("a carried story ledger needs the story loadout"));
+        }
         let combat = rebuilt
             .combat
             .as_mut()

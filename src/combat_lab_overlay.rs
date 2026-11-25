@@ -159,6 +159,10 @@ pub struct LabOverlay {
     pub end_heading: String,
     pub end_hint: String,
     pub end_action: EndAction,
+    /// F01-RUN: frames left during which the end panel ignores Confirm (the
+    /// floor run arms it when the panel opens, so a jump pressed through the exit
+    /// does not skip the facts). The lab leaves it at 0.
+    pub end_lock_frames: u16,
 }
 
 impl LabOverlay {
@@ -177,6 +181,7 @@ impl LabOverlay {
             end_heading: "LAB-01 R00-R02 SET FINISHED".to_owned(),
             end_hint: "Enter, A or Start: back to the Setup Cage".to_owned(),
             end_action: EndAction::BackToCage,
+            end_lock_frames: 0,
         }
     }
 
@@ -204,7 +209,7 @@ impl LabOverlay {
                 let picked = menu.selection();
                 self.request = Some(LabRequest::Relaunch(picked));
             }
-        } else if self.end.is_some() && key == MenuKey::Confirm {
+        } else if self.end.is_some() && key == MenuKey::Confirm && self.end_lock_frames == 0 {
             self.request = Some(match self.end_action {
                 EndAction::BackToCage => LabRequest::Relaunch(back_to_cage(&self.selection)),
                 EndAction::Continue => LabRequest::Continue,
@@ -406,6 +411,9 @@ fn overlay_input(
 ) {
     if !overlay.blocks_gameplay() {
         return;
+    }
+    if overlay.end_lock_frames > 0 {
+        overlay.end_lock_frames -= 1;
     }
     let mut pressed = |key: MenuKey| overlay.press(key);
     let map = [
@@ -649,6 +657,12 @@ mod tests {
         );
         o.press(MenuKey::Down);
         assert!(o.request.is_none());
+        // Armed: a confirm while the lock runs is swallowed (Start still never quits).
+        o.end_lock_frames = 30;
+        assert!(o.pad_start());
+        o.press(MenuKey::Confirm);
+        assert!(o.request.is_none(), "locked");
+        o.end_lock_frames = 0;
         assert!(o.pad_start());
         assert_eq!(o.request.take(), Some(LabRequest::Continue));
         // The lab keeps its own heading and hint.

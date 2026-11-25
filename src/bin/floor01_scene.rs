@@ -895,15 +895,9 @@ fn resolve_f01_late_args(parsed: &mut Args) -> Result<(), String> {
     if loadout == f01_late::Loadout::All && parsed.f01_carry.is_some() {
         return Err("--f01-carry is the story loadout's ledger: the TEST LOADOUT (--f01-loadout all) carries nothing".into());
     }
-    // F01-HUD-ROOM: the title and the TEST LOADOUT tag (PT-SCENE U5): the first
-    // listed room at the start of a run and a carried room are the story; a room
-    // launched from its pin (on its own, or a run started further in) is not.
-    let run_start =
-        parsed.f01_run && parsed.f01_tally.is_none() && row.id == f01_run::first_room(&manifest).id;
-    parsed.f01_hud = Some((
-        row.title.clone(),
-        f01_run::test_loadout_tag(Some(loadout), run_start, parsed.f01_carry.is_some()),
-    ));
+    // F01-HUD-ROOM: the title and the TEST LOADOUT tag (PT-SCENE U5: the `all`
+    // loadout only).
+    parsed.f01_hud = Some((row.title.clone(), f01_run::test_loadout_tag(Some(loadout))));
     parsed.f01_room = Some(row.id.clone());
     parsed.f01_loadout = Some(loadout);
     let (carl, donut) = loadout.flags();
@@ -1093,19 +1087,23 @@ enum RunNext {
     /// The room is still being played.
     #[default]
     Playing,
-    /// The room-clear panel is up; confirming relaunches with these arguments.
-    Relaunch { room: String, argv: Vec<String> },
-    /// The floor-end panel is up; confirming quits.
-    Quit,
+    /// The panel is up; its confirmation does this.
+    Decided(f01_run::Decision),
+    /// The exit could not be resolved (reported once); the room stays.
+    Failed,
 }
 
+/// F01-RUN: frames the room-clear and floor-end panels ignore a confirmation
+/// for after they open, so a jump press carried through the exit (either pad's
+/// South is also Confirm) does not skip the facts.
+const RUN_PANEL_ARM_FRAMES: u16 = 30;
+
 /// F01-RUN: one fixed tick of the floor run, after `fixed_step`. When the
-/// room's exit is reached (the room's own rule: `world.complete`), the facts of
-/// the room go on the panel and the next launch is prepared (the next listed
-/// room, the carried ledger, the tally); the panel's confirmation relaunches, or
-/// quits after the last listed room. Reads the finished simulation; nothing
-/// flows back. A scripted run shows the panel (presentation only) and never
-/// leaves the room.
+/// room's exit is reached (the room's own rule: `world.complete`), the pure
+/// decision of `f01_run::on_exit` goes on the panel; the panel's confirmation
+/// relaunches, or quits after the last listed room. Reads the finished
+/// simulation; nothing flows back. A scripted run shows the panel
+/// (presentation only) and never leaves the room.
 fn f01_run_step(
     sim: Res<Sim>,
     combat: Res<Combat>,
@@ -1118,75 +1116,52 @@ fn f01_run_step(
     let (Some(combat), Some(room)) = (combat.0.as_ref(), setup.args.f01_room.as_deref()) else {
         return;
     };
-    if sim.0.world.complete && overlay.end.is_none() {
-        let root = std::env::current_dir().unwrap_or_default();
-        let manifest = match f01_late::Manifest::load(&root) {
-            Ok(manifest) => manifest,
-            Err(error) => {
-                eprintln!("F01_RUN cannot read the manifest: {error}");
-                return;
-            }
-        };
-        let Ok(row) = manifest.room(room) else {
-            return;
-        };
-        let loadout = setup.args.f01_loadout.unwrap_or(f01_late::Loadout::Story);
-        let facts = f01_run::RoomFacts::of(row, combat, setup.args.f01_carry.as_ref());
-        let tally = setup.args.f01_tally.unwrap_or_default().with(&facts);
-        let recording = lab_rec_status(&setup.args, rec.0.as_ref()).badge().0;
-        let (panel, decided) = match f01_run::next_room(&manifest, room) {
-            Ok(f01_run::NextStep::Room(row_next)) => {
-                let carry = f01_run::carry_for(loadout, combat);
+    if sim.0.world.complete && matches!(*next, RunNext::Playing) {
+        let decided = std::env::current_dir()
+            .map_err(|e| e.to_string())
+            .and_then(|root| f01_late::Manifest::load(&root))
+            .and_then(|manifest| {
                 let argv: Vec<String> = std::env::args().collect();
-                let next_argv = f01_run::relaunch_argv(&argv, &row_next.id, carry.as_ref(), tally);
-                (
-                    f01_run::room_clear_panel(
-                        &manifest,
-                        &facts,
-                        tally,
-                        &row_next,
-                        carry.is_some(),
-                        &recording,
-                    ),
-                    RunNext::Relaunch {
-                        room: row_next.id.clone(),
-                        argv: next_argv,
-                    },
-                )
+                let recording = lab_rec_status(&setup.args, rec.0.as_ref()).badge().0;
+                f01_run::on_exit(&f01_run::ExitInput {
+                    manifest: &manifest,
+                    room,
+                    loadout: setup.args.f01_loadout.unwrap_or(f01_late::Loadout::Story),
+                    combat,
+                    carried: setup.args.f01_carry.as_ref(),
+                    tally: setup.args.f01_tally.unwrap_or_default(),
+                    argv: &argv,
+                    recording: &recording,
+                })
+            });
+        match decided {
+            Ok((facts, panel, decision)) => {
+                let tally = setup.args.f01_tally.unwrap_or_default().with(&facts);
+                println!(
+                    "F01_RUN_ROOM_CLEARED room={} ticks={} deaths={} restarts={} grants={} run_rooms={} run_ticks={}",
+                    facts.id,
+                    facts.ticks,
+                    facts.deaths,
+                    facts.restarts,
+                    facts.grants.len(),
+                    tally.rooms,
+                    tally.ticks
+                );
+                overlay.end_heading = panel.heading;
+                overlay.end_hint = panel.hint;
+                overlay.end_lock_frames = RUN_PANEL_ARM_FRAMES;
+                overlay.end = Some(EndPanel { lines: panel.lines });
+                *next = RunNext::Decided(decision);
             }
-            Ok(f01_run::NextStep::FloorEnd) => (
-                f01_run::floor_end_panel(
-                    &manifest,
-                    &facts,
-                    tally,
-                    &f01_run::held_of(combat),
-                    &recording,
-                ),
-                RunNext::Quit,
-            ),
             Err(error) => {
-                eprintln!("F01_RUN {error}");
-                return;
+                eprintln!("F01_RUN cannot resolve the exit of {room}: {error}");
+                *next = RunNext::Failed;
             }
-        };
-        println!(
-            "F01_RUN_ROOM_CLEARED room={} ticks={} deaths={} restarts={} grants={} run_rooms={} run_ticks={}",
-            facts.id,
-            facts.ticks,
-            facts.deaths,
-            facts.restarts,
-            facts.grants.len(),
-            tally.rooms,
-            tally.ticks
-        );
-        overlay.end_heading = panel.heading;
-        overlay.end_hint = panel.hint;
-        overlay.end = Some(EndPanel { lines: panel.lines });
-        *next = decided;
+        }
     }
     if overlay.request.take() == Some(LabRequest::Continue) && setup.args.manual {
         match std::mem::take(&mut *next) {
-            RunNext::Relaunch { room, argv } => {
+            RunNext::Decided(f01_run::Decision::Relaunch { room, argv }) => {
                 // `exec` bypasses the exit path: close and flush the session first, so
                 // it is saved as completed and not recovered as a crash.
                 if let Some(recorder) = rec.0.as_mut() {
@@ -1197,11 +1172,11 @@ fn f01_run_step(
                 let current: Vec<String> = std::env::args().collect();
                 exec_next(&current, &argv, "floor run room");
             }
-            RunNext::Quit => {
+            RunNext::Decided(f01_run::Decision::Quit) => {
                 println!("F01_RUN_FLOOR_END");
                 exit.write(AppExit::Success);
             }
-            RunNext::Playing => {}
+            other => *next = other,
         }
     }
 }
@@ -10848,6 +10823,7 @@ mod tests {
                 let room = parsed.f01_room.clone().unwrap();
                 let (title, tag) = parsed.f01_hud.clone().unwrap();
                 assert_eq!(title, manifest.room(&room).unwrap().title);
+                // The TEST LOADOUT tag is the `all` loadout's (U5), the one that carries nothing.
                 assert_eq!(tag, !carried, "{room} {extra:?}");
                 assert_eq!(parsed.f01_carry.is_some(), carried && !visited.is_empty());
                 assert_eq!(parsed.f01_tally, (!visited.is_empty()).then_some(tally));
@@ -10864,14 +10840,23 @@ mod tests {
             }
             assert_eq!(visited, manifest.listed(), "{extra:?}");
         }
-        // A bare `--scene f01_late` is unchanged: the Boiler, no run, and a room
-        // launched from its pin carries the TEST LOADOUT tag.
+        // A bare `--scene f01_late` is unchanged: the Boiler, no run; a story room
+        // launched from its pin is the story state, so it has no TEST LOADOUT tag.
         let bare = args(&["--scene", "f01_late"]).unwrap();
         assert!(!bare.f01_run && bare.f01_room.as_deref() == Some("boiler"));
-        assert_eq!(bare.f01_hud, Some(("Goblin Boiler".to_owned(), true)));
-        // A run started further in is a pinned start too.
+        assert_eq!(bare.f01_hud, Some(("Goblin Boiler".to_owned(), false)));
         let mid = args(&["--scene", "f01_late", "--f01-run", "--f01-room", "juicer"]).unwrap();
-        assert!(mid.f01_hud.unwrap().1);
+        assert!(!mid.f01_hud.unwrap().1);
+        let all = args(&[
+            "--scene",
+            "f01_late",
+            "--f01-room",
+            "juicer",
+            "--f01-loadout",
+            "all",
+        ])
+        .unwrap();
+        assert!(all.f01_hud.unwrap().1);
     }
 
     /// F01-RUN: the run's flags are refused outside their place.
@@ -10918,7 +10903,10 @@ mod tests {
     }
 
     /// F01-RUN: a carried room's tick-0 state is the verifier's (the room's
-    /// constructor, then `carry_story` with the descriptor's `f01_carry`).
+    /// constructor, then `carry_story` with the descriptor's `f01_carry`), in the
+    /// hazard room, the Boiler (its extra `with_demo`/`with_env` builders) and the
+    /// Juicer (the generic boss path): the binary's carried build equals its own
+    /// pinned build carried afterwards, and the library constructor carried.
     #[test]
     fn a_carried_rooms_binary_state_is_the_verifiers_constructor() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR"));
@@ -10929,39 +10917,87 @@ mod tests {
             .snapshot()
             .unwrap();
         let carry = f01_run::encode_carry(&snapshot);
-        let mut run = args(&[
-            "--scene",
-            "f01_late",
-            "--f01-run",
-            "--f01-room",
-            "hazards",
-            "--f01-carry",
-            carry.as_str(),
-            "--f01-run-tally",
-            "2:1200:0:1",
-        ])
-        .unwrap();
-        let launched = f01_hazards::launch(root).unwrap();
-        run.fixture = Some(launched.fixture);
-        let kit = launched.kit.clone();
-        run.hazards_run = Some(Box::new(launched));
-        let (_, scene, mut library) =
-            f01_late::hazards_start(root, 360, run.carl, run.donut, None).unwrap();
-        let pinned = library.state_hash(&scene);
-        library.carry_story(&snapshot).unwrap();
-        let mut hud = new_hud(&run, &kit, &actors);
-        let (sim, _, combat, _, _) = build_scene(&kit, &run, &actors, root, &mut hud).unwrap();
-        let combat = combat.expect("a combat state");
-        assert_eq!(combat.state_hash(&sim), library.state_hash(&scene));
-        assert_ne!(pinned, library.state_hash(&scene), "the receipt is hashed");
-        // The descriptor carries it; the HUD shows the room, no tag.
-        let manifest = recording_manifest(&run, &sim, Some(&combat), &run.live_party(), root);
-        assert_eq!(manifest.reset.f01_carry.as_ref(), Some(&snapshot));
+        let build = |room: &str, carried: bool| {
+            let mut list = vec!["--scene", "f01_late", "--f01-run", "--f01-room", room];
+            if carried {
+                list.extend([
+                    "--f01-carry",
+                    carry.as_str(),
+                    "--f01-run-tally",
+                    "2:1200:0:1",
+                ]);
+            }
+            let mut run = args(&list).unwrap();
+            let kit = match room {
+                "hazards" => {
+                    let launched = f01_hazards::launch(root).unwrap();
+                    run.fixture = Some(launched.fixture);
+                    let kit = launched.kit.clone();
+                    run.hazards_run = Some(Box::new(launched));
+                    kit
+                }
+                "boiler" => {
+                    let launched = f01_boiler::launch_with(root, f01_boiler::Roster::Live).unwrap();
+                    run.fixture = Some(launched.fixture);
+                    let kit = launched.kit.clone();
+                    run.boiler_run = Some(Box::new(launched));
+                    kit
+                }
+                _ => boss_scene::load_arena(root).unwrap(),
+            };
+            let mut hud = new_hud(&run, &kit, &actors);
+            let (sim, _, combat, _, _) = build_scene(&kit, &run, &actors, root, &mut hud).unwrap();
+            (run, sim, combat.expect("a combat state"), hud)
+        };
+        for room in ["hazards", "boiler", "juicer"] {
+            let (run, sim, combat, hud) = build(room, true);
+            let (_, pinned_sim, mut pinned, _) = build(room, false);
+            let pinned_hash = pinned.state_hash(&pinned_sim);
+            pinned.carry_story(&snapshot).unwrap();
+            assert_eq!(
+                combat.state_hash(&sim),
+                pinned.state_hash(&pinned_sim),
+                "{room}"
+            );
+            assert_ne!(
+                pinned_hash,
+                combat.state_hash(&sim),
+                "{room}: the receipt is hashed"
+            );
+            // The library constructor the verifier calls, then the carry.
+            let library = match room {
+                "hazards" => Some(
+                    f01_late::hazards_start(root, 360, run.carl, run.donut, None)
+                        .map(|(_, scene, combat)| (scene, combat)),
+                ),
+                "boiler" => Some(
+                    f01_late::boiler_start_with(
+                        root,
+                        360,
+                        run.carl,
+                        run.donut,
+                        None,
+                        f01_boiler::Roster::Live,
+                    )
+                    .map(|(_, scene, combat)| (scene, combat)),
+                ),
+                _ => None,
+            };
+            if let Some(built) = library {
+                let (scene, mut lib) = built.unwrap();
+                lib.carry_story(&snapshot).unwrap();
+                assert_eq!(combat.state_hash(&sim), lib.state_hash(&scene), "{room}");
+            }
+            // The descriptor carries it; the HUD shows the room and no tag.
+            let manifest = recording_manifest(&run, &sim, Some(&combat), &run.live_party(), root);
+            assert_eq!(manifest.reset.f01_carry.as_ref(), Some(&snapshot), "{room}");
+            assert!(!hud.snapshot().loadout_tag, "{room}");
+        }
+        let (_, _, _, hud) = build("hazards", true);
         assert_eq!(
             hud.snapshot().location.as_deref(),
             Some("SLIMES AND ROT STICKERS \u{b7} TRY 1")
         );
-        assert!(!hud.snapshot().loadout_tag);
     }
 
     /// PT-SCENE: `--scene f01_late` resolves a room and a loadout into the scene

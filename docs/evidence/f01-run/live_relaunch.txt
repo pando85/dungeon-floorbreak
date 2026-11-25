@@ -1,0 +1,20 @@
+# F01-RUN live relaunch (xvfb, debug build, synthetic keys via xdotool: D held, Space and J tapped, Return on the panel, Esc in the next room)
+# command: floor01_scene --scene f01_late --f01-run --f01-room boiler --scale 1 --no-audio --record-dir DIR
+# console (paths removed):
+F01_LATE_ENTRY room=boiler title="Goblin Boiler" scene=f01_boiler milestone=setpiece loadout=story
+F01_BOILER_ENTRY room=F01-BOILER encounter=F01-BOILER-ENC pin=f01_pin_post_pile_boss spawn_carl=112 spawn_donut=80 checkpoints=[112, 200] exit=1072,484,64,9 ...
+PLAYTRACE_REC session=3492cb84532b86bb6b646bc114f652be
+FLOOR1_EXIT_REACHED tick=943
+F01_RUN_ROOM_CLEARED room=boiler ticks=943 deaths=0 restarts=0 grants=0 run_rooms=1 run_ticks=943
+PLAYTRACE_SAVED session=3492cb84532b86bb6b646bc114f652be ticks=1142 status=Completed complete=true
+F01_RUN_RELAUNCH room=hazards
+F01_LATE_ENTRY room=hazards title="Slimes and Rot Stickers" scene=f01_hazards milestone=greybox loadout=story
+F01_HAZARDS_ENTRY room=F01-HAZARDS encounter=F01-HAZARDS-ENC pin=f01_pin_post_pile_boss spawn_carl=112 spawn_donut=80 checkpoints=[112] goal=DefeatRoster aci ...
+PLAYTRACE_REC session=de99999bf7bd77f3c1ce71492dd72549
+PLAYTRACE_SAVED session=de99999bf7bd77f3c1ce71492dd72549 ticks=1046 status=Completed complete=true
+# descriptor f01_carry of the relaunched room (hazards), from its manifest.json:
+f01_room=boiler f01_carry=null
+f01_room=hazards f01_carry={"version":1,"held":[{"hero":0,"capability":"special_thrown_charge"},{"hero":1,"capability":"jump_reach_boost"}],"receipts":[]}
+# playtrace verify (fresh process, strict):
+PLAYTRACE_VERIFY session=de99999bf7bd77f3c1ce71492dd72549 result=PASS scope=full ticks=1046 episodes=1 combat_events=1 control_events=5 build=identical
+PLAYTRACE_VERIFY session=3492cb84532b86bb6b646bc114f652be result=PASS scope=full ticks=1142 episodes=1 combat_events=39 control_events=6 build=identical
