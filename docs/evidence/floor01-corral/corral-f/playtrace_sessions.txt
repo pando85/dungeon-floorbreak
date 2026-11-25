@@ -1,0 +1,33 @@
+# CORRAL-F PLAYTRACE sessions: two recordings of the corral room pilot (scripted bot, never a human)
+# command: floor01_scene --scale 1 --no-audio --scene f01_late --f01-room corral --room-pilot corral --record --record-dir DIR --exit-after-ticks 1000 (xvfb, debug build)
+# each session is verified strict twice, each time in a fresh process: playtrace verify ID --dir DIR --root .
+== recording=a room=corral plan=corral exit_after_ticks=1000
+FLOOR1_EXIT_REACHED tick=971
+final_state tick=971 hash=d8926421f4d8b797
+PLAYTRACE_SAVED ticks=1000 status=Completed complete=true
+-- verify 1
+PLAYTRACE_VERIFY result=PASS scope=full ticks=1000 episodes=1 combat_events=65 control_events=6 build=identical
+PLAYTRACE_VERIFY_CHECKS state_hashes=1000 event_hashes=1000 effective_inputs=1000 observations=2000 final_observations=2 diagnostics=1000 slot_routing=1000 labels=1000
+-- verify 2
+PLAYTRACE_VERIFY result=PASS scope=full ticks=1000 episodes=1 combat_events=65 control_events=6 build=identical
+PLAYTRACE_VERIFY_CHECKS state_hashes=1000 event_hashes=1000 effective_inputs=1000 observations=2000 final_observations=2 diagnostics=1000 slot_routing=1000 labels=1000
+inspect: schema playtrace-session/1 participants OwnerOnly run_kind ScriptedBot mode solo_human
+inspect: reset f01_room:f01_corral demo_beat=0 cf02=true
+inspect: ticks 1000 chunks 2 (closed 2) gaps 0 dropped_ticks 0 write_errors 0
+inspect: episodes 1 combat_events 65 control_events 6
+journal_capability_granted_count=0
+== recording=b room=corral plan=corral exit_after_ticks=1000
+FLOOR1_EXIT_REACHED tick=971
+final_state tick=971 hash=d8926421f4d8b797
+PLAYTRACE_SAVED ticks=1000 status=Completed complete=true
+-- verify 1
+PLAYTRACE_VERIFY result=PASS scope=full ticks=1000 episodes=1 combat_events=65 control_events=6 build=identical
+PLAYTRACE_VERIFY_CHECKS state_hashes=1000 event_hashes=1000 effective_inputs=1000 observations=2000 final_observations=2 diagnostics=1000 slot_routing=1000 labels=1000
+-- verify 2
+PLAYTRACE_VERIFY result=PASS scope=full ticks=1000 episodes=1 combat_events=65 control_events=6 build=identical
+PLAYTRACE_VERIFY_CHECKS state_hashes=1000 event_hashes=1000 effective_inputs=1000 observations=2000 final_observations=2 diagnostics=1000 slot_routing=1000 labels=1000
+inspect: schema playtrace-session/1 participants OwnerOnly run_kind ScriptedBot mode solo_human
+inspect: reset f01_room:f01_corral demo_beat=0 cf02=true
+inspect: ticks 1000 chunks 2 (closed 2) gaps 0 dropped_ticks 0 write_errors 0
+inspect: episodes 1 combat_events 65 control_events 6
+journal_capability_granted_count=0

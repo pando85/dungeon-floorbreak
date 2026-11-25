@@ -4,11 +4,12 @@
 #
 #   scripts/room_capture.sh ROOM PLAN FIRST:STEP:COUNT OUTDIR [more floor01_scene flags]
 #
-#   ROOM   hoarder | boiler | hazards | mastery | juicer   (--scene f01_late --f01-room ROOM)
-#   PLAN   direct | valve | chain | mastery | juicer | haz_spectacular | haz_tactical, optionally ":2p",
-#          or an aligned library pilot WHO:SEED (mastery:, juicer:, hazards:) or WHO:direct|both:SEED
-#          (boiler:)   (--room-pilot, src/room_pilots.rs; mastery, juicer and the haz_ plans are valid
-#          only in their own room)
+#   ROOM   hoarder | boiler | hazards | mastery | juicer | corral   (--scene f01_late --f01-room ROOM)
+#   PLAN   direct | valve | chain | mastery | juicer | haz_spectacular | haz_tactical | corral |
+#          corral_rush, optionally ":2p" (not the corral's), or an aligned library pilot WHO:SEED
+#          (mastery:, juicer:, hazards:, corral:) or WHO:direct|both:SEED (boiler:)
+#          (--room-pilot, src/room_pilots.rs; mastery, juicer, the haz_ and the corral plans are
+#          valid only in their own room)
 #
 # The pilot plays the room from the finished simulation state alone (no
 # synthetic input into any window, no clock, no RNG), so the run is a pure

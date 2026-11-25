@@ -1,0 +1,25 @@
+# CORRAL-F native captures (xvfb, debug build, --scale 1): scripts/room_capture.sh corral PLAN FIRST:STEP:COUNT OUTDIR [--deck]
+# window_hash is the last COMBAT_STATE of the window run, headless_hash the --headless-floor01-smoke run to the same tick
+== rush-360
+ROOM_CAPTURE room=corral plan=corral_rush frames=30 first_tick=736 step=2 last_tick=794 window_hash=aabf4ee965f78447 headless_hash=aabf4ee965f78447 timed_hash=skipped match=yes
+== rush-360-quiet (MAG-16: the same rush plan with --no-audio --hud-reduced-motion; differing frames against rush-360: 2 of 30)
+ROOM_CAPTURE room=corral plan=corral_rush frames=30 first_tick=736 step=2 last_tick=794 window_hash=aabf4ee965f78447 headless_hash=aabf4ee965f78447 timed_hash=skipped match=yes
+== rush-400
+ROOM_CAPTURE room=corral plan=corral_rush frames=30 first_tick=736 step=2 last_tick=794 window_hash=840e49d9179e7282 headless_hash=840e49d9179e7282 timed_hash=skipped match=yes
+== gate-360
+ROOM_CAPTURE room=corral plan=corral frames=5 first_tick=855 step=4 last_tick=871 window_hash=1622d2239f251607 headless_hash=1622d2239f251607 timed_hash=skipped match=yes
+== gate-400
+ROOM_CAPTURE room=corral plan=corral frames=5 first_tick=855 step=4 last_tick=871 window_hash=65cde8a220f8800d headless_hash=65cde8a220f8800d timed_hash=skipped match=yes
+== m0-360 (MAG-02: Donut's first missile in flight toward goblin 0, hit on tick 48)
+ROOM_CAPTURE room=corral plan=corral frames=4 first_tick=36 step=4 last_tick=48 window_hash=453569d41d381d9d headless_hash=453569d41d381d9d timed_hash=skipped match=yes
+== in-room rush events (headless, plan corral_rush, both sizes identical)
+COMBAT_EVENT tick=742 kind=llama_rush_tell llama=1
+COMBAT_EVENT tick=774 kind=llama_rush_commit llama=1
+COMBAT_EVENT tick=791 kind=hero_hurt source=19538 health_left=1
+COMBAT_EVENT tick=791 kind=llama_rush_end llama=1 end=contact_carl
+# rush-400 headless events: identical to rush-360
+== M3 gate events (headless, plan corral)
+COMBAT_EVENT tick=115 kind=enemy_defeated target=1 instigator=1
+COMBAT_EVENT tick=301 kind=enemy_defeated target=2 instigator=1
+COMBAT_EVENT tick=593 kind=enemy_defeated target=3 force=heavy
+COMBAT_EVENT tick=863 kind=enemy_defeated target=4 instigator=1

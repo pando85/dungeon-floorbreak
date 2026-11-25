@@ -99,7 +99,24 @@ pub enum Plan {
     /// `hoarder:carl_solo:<seed>`, plain `hoarder` = seed 0): solo Carl walks in, fights her
     /// and walks out. Only valid in the Hoarder's room, solo, and only solo Carl.
     Hoarder,
+    /// CORRAL-F (room 0): the Infernal Corral's route pilot
+    /// ([`crate::f01_corral_fixtures::pilot`], `corral:<who>:<seed>`, plain `corral` =
+    /// `carl_solo` at seed 0, `who` one of `carl_solo`, `donut_fights` (the swap on tick 30,
+    /// Donut fights the room) and `companion`): fights M0 to M3 with the base kit and walks
+    /// to the exit. Only valid in the corral, solo, and only aligned.
+    Corral,
+    /// CORRAL-F (the #280 review F4): the in-room rush. Carl clears M0 and M1 with the corral
+    /// pilot, walks to [`CORRAL_PARK_X`] inside B's rush trigger and stands there, so B
+    /// rushes him in the launched room (the scene twin of
+    /// `a_parked_carl_inside_b_trigger_is_rushed_by_b`). An evidence plan, not a clear:
+    /// it never fights B or A. Only valid in the corral, solo; its partner is the
+    /// follow-and-jump bot (it never attacks, so B lives to rush: [`corral_rush_tuning`]).
+    CorralRush,
 }
+
+/// Where [`Plan::CorralRush`] parks Carl: 112 px left of B, inside her 128 px trigger
+/// (the column of `a_parked_carl_inside_b_trigger_is_rushed_by_b`).
+pub const CORRAL_PARK_X: f32 = (crate::corral_fixtures::room::B_X - 112) as f32;
 
 impl Plan {
     pub const fn name(self) -> &'static str {
@@ -114,6 +131,8 @@ impl Plan {
             Self::Hazards => "hazards",
             Self::Boiler => "boiler",
             Self::Hoarder => "hoarder",
+            Self::Corral => "corral",
+            Self::CorralRush => "corral_rush",
         }
     }
 }
@@ -216,7 +235,7 @@ impl RoomPilot {
         if rest.contains(':')
             && matches!(
                 plan,
-                "mastery" | "juicer" | "hazards" | "boiler" | "hoarder"
+                "mastery" | "juicer" | "hazards" | "boiler" | "hoarder" | "corral"
             )
         {
             // PT-GATE-C1: `mastery:<who>:<seed>` and `juicer:<who>:<seed>`; PT-GATE-E:
@@ -236,13 +255,19 @@ impl RoomPilot {
                     ));
                 }
             };
-            let fights = plan == "mastery";
+            let fights = matches!(plan, "mastery" | "corral");
             let who = AlignedWho::parse(who)
                 .filter(|who| fights || *who != AlignedWho::DonutFights)
                 .filter(|who| plan != "hoarder" || *who == AlignedWho::CarlSolo)
+                .filter(|who| plan != "corral" || *who != AlignedWho::DonutBySwap)
                 .ok_or_else(|| {
                     if plan == "hoarder" {
                         return format!("bad --room-pilot who {who:?} (room 1 has only carl_solo)");
+                    }
+                    if plan == "corral" {
+                        return format!(
+                            "bad --room-pilot who {who:?} (room 0 has carl_solo, donut_fights and companion)"
+                        );
                     }
                     format!(
                         "bad --room-pilot who {who:?} (expected carl_solo, donut_by_swap, {}companion)",
@@ -267,6 +292,7 @@ impl RoomPilot {
                     "hazards" => Plan::Hazards,
                     "boiler" => Plan::Boiler,
                     "hoarder" => Plan::Hoarder,
+                    "corral" => Plan::Corral,
                     _ => Plan::Mastery,
                 },
                 two_player: false,
@@ -282,6 +308,8 @@ impl RoomPilot {
             "haz_spectacular" => Plan::HazSpectacular,
             "haz_tactical" => Plan::HazTactical,
             "hoarder" => Plan::Hoarder,
+            "corral" => Plan::Corral,
+            "corral_rush" => Plan::CorralRush,
             "hazards" | "boiler" => {
                 return Err(format!(
                     "--room-pilot {plan} is an aligned plan: {plan}:WHO:{}SEED",
@@ -290,7 +318,7 @@ impl RoomPilot {
             }
             other => {
                 return Err(format!(
-                    "unknown --room-pilot plan {other:?} (expected direct, valve, chain, mastery, juicer, hoarder, haz_spectacular or haz_tactical, optionally :2p, or mastery|juicer|hazards:WHO:SEED, hoarder:carl_solo:SEED, or boiler:WHO:direct|both:SEED)"
+                    "unknown --room-pilot plan {other:?} (expected direct, valve, chain, mastery, juicer, hoarder, corral, corral_rush, haz_spectacular or haz_tactical, optionally :2p, or mastery|juicer|hazards|corral:WHO:SEED, hoarder:carl_solo:SEED, or boiler:WHO:direct|both:SEED)"
                 ));
             }
         };
@@ -303,17 +331,19 @@ impl RoomPilot {
                 ));
             }
         };
-        if plan == Plan::Hoarder && two_player {
-            return Err("--room-pilot hoarder is a solo plan (no :2p)".into());
+        if matches!(plan, Plan::Hoarder | Plan::Corral | Plan::CorralRush) && two_player {
+            return Err(format!(
+                "--room-pilot {} is a solo plan (no :2p)",
+                plan.name()
+            ));
         }
-        // The plain mastery plan is the library's `carl_solo` at seed 0 (PT-GATE-C1); so is the
-        // plain hoarder plan (FA-Q24).
-        let aligned =
-            (matches!(plan, Plan::Mastery | Plan::Hoarder) && !two_player).then_some(Aligned {
-                who: AlignedWho::CarlSolo,
-                seed: 0,
-                route: None,
-            });
+        // The plain mastery plan is the library's `carl_solo` at seed 0 (PT-GATE-C1); so are the
+        // plain hoarder plan (FA-Q24) and the plain corral plans (CORRAL-F).
+        let aligned = (plain_aligned(plan) && !two_player).then_some(Aligned {
+            who: AlignedWho::CarlSolo,
+            seed: 0,
+            route: None,
+        });
         Ok(Self {
             plan,
             two_player,
@@ -324,9 +354,7 @@ impl RoomPilot {
     /// The value that parses back to this pilot.
     pub fn label(self) -> String {
         if let Some(a) = self.aligned
-            && !(matches!(self.plan, Plan::Mastery | Plan::Hoarder)
-                && a.who == AlignedWho::CarlSolo
-                && a.seed == 0)
+            && !(plain_aligned(self.plan) && a.who == AlignedWho::CarlSolo && a.seed == 0)
         {
             match a.route {
                 Some(route) => format!(
@@ -367,6 +395,9 @@ impl RoomPilot {
             }
             Plan::Boiler => unreachable!("the live Boiler pilot is aligned only (aligned_inputs)"),
             Plan::Hoarder => unreachable!("the Hoarder's pilot is aligned only (aligned_inputs)"),
+            Plan::Corral | Plan::CorralRush => {
+                unreachable!("the corral's pilots are aligned only (aligned_inputs)")
+            }
         };
         let donut = if self.two_player {
             arena::donut_pilot(combat, sim)
@@ -375,6 +406,35 @@ impl RoomPilot {
         };
         [carl, donut]
     }
+}
+
+/// The plans whose plain name is an aligned run (`carl_solo` at seed 0).
+const fn plain_aligned(plan: Plan) -> bool {
+    matches!(
+        plan,
+        Plan::Mastery | Plan::Hoarder | Plan::Corral | Plan::CorralRush
+    )
+}
+
+/// CORRAL-F: the corral fixture's `Who` of an aligned corral pilot.
+pub const fn corral_who(who: AlignedWho) -> crate::f01_corral_fixtures::Who {
+    use crate::f01_corral_fixtures::Who;
+    match who {
+        AlignedWho::DonutFights => Who::DonutSolo,
+        AlignedWho::Companion => Who::Companion,
+        AlignedWho::CarlSolo | AlignedWho::DonutBySwap => Who::CarlSolo,
+    }
+}
+
+/// CORRAL-F: the party of [`Plan::CorralRush`]: the late slice's 12-tick swap with the
+/// follow-and-jump bot as the partner, which never attacks (the `cf02_assist` partner of
+/// `carl_solo` shoots B down before she can rush the parked Carl).
+pub fn corral_rush_tuning() -> PartyTuning {
+    PartyTuning {
+        uncontrolled_hero: crate::party::UncontrolledHero::FollowAndJumpBot,
+        ..crate::party::PROVISIONAL_TUNING
+    }
+    .with_cf02_swap()
 }
 
 /// PT-GATE-C1: the party tuning of an aligned run, the library fixture's own
@@ -393,6 +453,9 @@ pub fn aligned_tuning(plan: Plan, who: AlignedWho) -> PartyTuning {
         // FA-Q24: the room's own party (`cf02_assist`, 12-tick swap): what the PLAYTRACE verifier
         // rebuilds from a room recording, and the library fixture's.
         Plan::Hoarder => crate::hoarder_fixtures::room_party_tuning(),
+        // CORRAL-F: the corral fixture's party; the rush plan's partner never attacks.
+        Plan::Corral => corral_who(who).tuning(),
+        Plan::CorralRush => corral_rush_tuning(),
         _ => crate::f01_mastery_fixtures::tuning(who.mastery()),
     }
 }
@@ -446,6 +509,25 @@ impl RoomPilot {
             };
             return [input, RawInput::NONE];
         }
+        if matches!(self.plan, Plan::Corral | Plan::CorralRush) {
+            // CORRAL-F: the corral fixture's run (`f01_corral_fixtures::run`), tick for tick.
+            use crate::f01_corral_fixtures as corral;
+            let route = corral::Route::with_exit(exit_x);
+            let mut input = if self.plan == Plan::CorralRush {
+                corral_rush(&route, combat, sim, controlled)
+            } else {
+                corral::pilot(&route, combat, sim, controlled)
+            };
+            if who == AlignedWho::DonutFights
+                && tick >= corral::SWAP_TICK
+                && !memory.swap_sent
+                && controlled == HeroId::Carl
+            {
+                input.swap = true;
+                memory.swap_sent = true;
+            }
+            return [input, RawInput::NONE];
+        }
         let swap_sent = &mut memory.swap_sent;
         let hero_pilot = |hero: HeroId| {
             if self.plan == Plan::Hazards {
@@ -490,6 +572,34 @@ impl RoomPilot {
             *swap_sent = true;
         }
         [input, RawInput::NONE]
+    }
+}
+
+/// CORRAL-F: [`Plan::CorralRush`]: the corral pilot while M0's goblins or the M1 llama
+/// live, then the walk to [`CORRAL_PARK_X`] and nothing more (no attack, no jump), so B's
+/// rush trigger finds a still hero.
+fn corral_rush(
+    route: &crate::f01_corral_fixtures::Route,
+    combat: &CombatState,
+    sim: &SceneSim,
+    hero: HeroId,
+) -> RawInput {
+    let m1 = combat
+        .llamas
+        .iter()
+        .any(|l| l.alive() && l.corral.is_none());
+    let goblins = combat.enemies.iter().any(|g| g.alive());
+    if m1 || goblins {
+        return crate::f01_corral_fixtures::pilot(route, combat, sim, hero);
+    }
+    let x = sim.world.body(hero).x;
+    if x < CORRAL_PARK_X - WALK_DEADZONE {
+        let mut raw = walk_to(sim, CORRAL_PARK_X);
+        raw.attack = false;
+        raw.ability = false;
+        raw
+    } else {
+        RawInput::NONE
     }
 }
 
@@ -1571,6 +1681,151 @@ mod tests {
             crate::party_scene::party_hash(&combat, &scene, &party),
             combat.state_hash(&scene),
         )
+    }
+
+    /// Room 0 played by the aligned room pilot `plan` for `ticks` ticks the way the scene steps it
+    /// (the `f01_late` constructor at the pilot's seed, the pilot's party, the story loadout): the
+    /// party hash, the combat hash and the combat state.
+    fn replay_corral(root: &Path, plan: &str, ticks: u64) -> (u64, u64, CombatState) {
+        let pilot = RoomPilot::parse(plan).unwrap();
+        let seed = pilot.aligned.unwrap().seed;
+        let (carl, donut) = crate::f01_late::Loadout::Story.flags();
+        let (run, mut scene, mut combat) =
+            crate::f01_late::corral_start(root, 360, carl, donut, Some(seed)).unwrap();
+        let exit_x = crate::f01_corral_fixtures::Route::of(&run).exit_x;
+        let mut party = crate::party::PartyState::new(pilot.tuning().unwrap());
+        let mut memory = AlignedMemory::default();
+        for _ in 0..ticks {
+            let slots = pilot.aligned_inputs(
+                &combat,
+                &scene,
+                party.controlled_hero(),
+                exit_x,
+                &mut memory,
+            );
+            let hurt = combat.hurt_ticks_of(party.controlled_hero()) > 0;
+            party.request_swap(slots[0].swap, hurt);
+            let inputs = party.hero_inputs(slots);
+            scene.set_drive(party.drive(true));
+            let restarts = combat.restarts;
+            combat.step_party(&mut scene, inputs);
+            if combat.restarts != restarts {
+                party.restart();
+            }
+        }
+        (
+            crate::party_scene::party_hash(&combat, &scene, &party),
+            combat.state_hash(&scene),
+            combat,
+        )
+    }
+
+    /// CORRAL-F: the room 0 pilots parse, label back and refuse what they cannot play; the plain
+    /// `corral` plan is `corral:carl_solo:0`, and each who runs the corral fixture's party.
+    #[test]
+    fn the_corral_plans_parse_label_and_refuse_what_they_cannot_play() {
+        let plain = RoomPilot::parse("corral").unwrap();
+        assert_eq!(plain.plan, Plan::Corral);
+        assert_eq!(
+            plain.aligned,
+            Some(Aligned {
+                who: AlignedWho::CarlSolo,
+                seed: 0,
+                route: None
+            })
+        );
+        assert_eq!(plain.label(), "corral");
+        let rush = RoomPilot::parse("corral_rush").unwrap();
+        assert_eq!(rush.plan, Plan::CorralRush);
+        assert_eq!(rush.label(), "corral_rush");
+        assert_eq!(rush.aligned, plain.aligned);
+        assert_eq!(rush.tuning(), Some(corral_rush_tuning()));
+        for value in [
+            "corral:carl_solo:7",
+            "corral:donut_fights:3",
+            "corral:companion:8",
+        ] {
+            let pilot = RoomPilot::parse(value).unwrap();
+            assert_eq!(pilot.label(), value);
+            assert_eq!(RoomPilot::parse(&pilot.label()).unwrap(), pilot);
+            let who = corral_who(pilot.aligned.unwrap().who);
+            assert_eq!(pilot.tuning(), Some(who.tuning()), "{value}");
+        }
+        for bad in [
+            "corral:donut_by_swap:1",
+            "corral:2p",
+            "corral_rush:2p",
+            "corral_rush:carl_solo:1",
+            "corral:carl_solo:x",
+            "corral:carl_solo",
+        ] {
+            assert!(RoomPilot::parse(bad).is_err(), "{bad}");
+        }
+    }
+
+    /// CORRAL-F (plan section 10, item 5): the corral room pilot replays the library run of
+    /// `f01_corral_fixtures` tick for tick for solo Carl, solo Donut (the swap on tick 30) and
+    /// the `cf02_free` companion at seeds 0..=8: the same party hash on the exit tick, the
+    /// roster cleared, no defeat, no grant, no hero stuck past 300 ticks, nobody past the
+    /// closed M3 gate.
+    #[test]
+    fn the_corral_room_pilot_replays_the_library_run_at_every_gate_seed() {
+        use crate::f01_corral_fixtures::{self as corral, STUCK_LIMIT};
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        for who in [
+            AlignedWho::CarlSolo,
+            AlignedWho::DonutFights,
+            AlignedWho::Companion,
+        ] {
+            for seed in corral::GATE_SEEDS {
+                let tag = format!("corral:{}:{seed}", who.token());
+                let report = corral::run(&root, corral_who(who), seed).unwrap();
+                assert!(report.exit_tick.is_some(), "{tag}: reaches the exit");
+                assert_eq!(report.deaths, 0, "{tag}");
+                assert_eq!(report.capability_grants, 0, "{tag}");
+                assert!(!report.passed_closed_gate, "{tag}");
+                assert!(
+                    report.max_stuck.iter().all(|&s| s <= STUCK_LIMIT),
+                    "{tag}: stuck {:?}",
+                    report.max_stuck
+                );
+                let (hash, combat_hash, _) = replay_corral(&root, &tag, report.ticks);
+                assert_eq!(hash, report.party_hash, "{tag}");
+                assert_eq!(combat_hash, report.hash, "{tag}");
+            }
+        }
+    }
+
+    /// CORRAL-F (the #280 review F4): `corral_rush` parks Carl inside B's trigger in the launched
+    /// room, and B (never the M1 llama, never A) commits a rush at him.
+    #[test]
+    fn the_corral_rush_plan_parks_carl_and_b_rushes_him_in_the_room() {
+        use crate::combat::CombatEvent;
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        // The first rush (tell 742, commit 774, contact 791) lands before Carl's first defeat.
+        let (_, _, combat) = replay_corral(&root, "corral_rush", 800);
+        let commits: Vec<u32> = combat
+            .events
+            .iter()
+            .filter_map(|e| match *e {
+                CombatEvent::LlamaRushCommit { llama, .. } => Some(llama),
+                _ => None,
+            })
+            .collect();
+        assert!(
+            commits.contains(&1),
+            "B rushes the parked Carl: {commits:?}"
+        );
+        assert!(!commits.contains(&0), "the M1 llama never rushes");
+        assert!(
+            !combat
+                .events
+                .iter()
+                .any(|e| matches!(e, CombatEvent::HeroDefeated { .. })),
+            "the rush lands on a live Carl"
+        );
+        assert!(!combat.llamas[0].alive(), "M1 was cleared first");
+        assert!(combat.llamas[1].alive(), "the plan never fights B");
     }
 
     /// FA-Q24: the room 1 pilot parses, labels back and refuses what it cannot play; the plain

@@ -2,6 +2,7 @@
 [ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-run
 [ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-run --f01-loadout all
 [refuse] refused (exit 2): floor01_scene: --f01-run takes no --cf02-seed: launch a seeded room on its own with --f01-room :: floor01_scene --scene f01_late --scale 2 --f01-run --cf02-seed 3
+[ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room corral
 [ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room hoarder
 [ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room boiler
 [ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room hazards
@@ -9,8 +10,7 @@
 [ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room ring_split
 [ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room juicer
 [ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room mastery
-[refuse] refused (exit 2): floor01_scene: --f01-room: unlisted room "corral" (listed rooms: hoarder, boiler, hazards, ring_court, ring_split, juicer, mastery) :: floor01_scene --scene f01_late --scale 2 --f01-room corral
-[refuse] refused (exit 2): floor01_scene: --f01-room: unlisted room "dozer" (listed rooms: hoarder, boiler, hazards, ring_court, ring_split, juicer, mastery) :: floor01_scene --scene f01_late --scale 2 --f01-room dozer
+[refuse] refused (exit 2): floor01_scene: --f01-room: unlisted room "dozer" (listed rooms: corral, hoarder, boiler, hazards, ring_court, ring_split, juicer, mastery) :: floor01_scene --scene f01_late --scale 2 --f01-room dozer
 [refuse] refused (exit 2): floor01_scene: unknown scene "f01_ring_court" (expected boss_f01, combat_lab, f01_boiler, f01_hoarder, f01_hazards, f01_late, refuge_guild) :: floor01_scene --scene f01_ring_court --scale 2
 [ok] ok :: floor01_scene --scene f01_hoarder --scale 2
 [ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room mastery --f01-loadout all
