@@ -86,15 +86,17 @@ pub struct ExitDraw {
     pub h: i32,
 }
 
-/// Whether the room's exit gate stands now: the room has a `defeat_roster` exit
-/// gate and its roster is not clear. The same predicate as the env sync's
-/// (`EnvSolidKind::ExitGate => !cleared`), so the drawn grate is the solid block.
+/// Whether the room's exit gate stands now: the room has an exit gate (a
+/// `defeat_roster` exit, or CORRAL-WIRE's M3 gate) and it is not open. The same
+/// predicate as the env sync's (`EnvSolidKind::ExitGate => !cleared`, with
+/// `cleared` from [`CombatState::exit_gate_open`]), so the drawn grate is the
+/// solid block.
 pub fn exit_closed(state: &CombatState) -> bool {
     state.env().is_some_and(|env| {
         env.solids()
             .iter()
             .any(|s| matches!(s.kind, EnvSolidKind::ExitGate))
-    }) && !state.roster_cleared()
+    }) && !state.exit_gate_open()
 }
 
 /// The doorway around the sidecar exit `exit` (layout px, y down) of a room whose

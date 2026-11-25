@@ -424,6 +424,12 @@ pub struct EnvRuntime {
     floor_layout: Option<i32>,
     /// HAZ-A2: the exit rectangle of a `defeat_roster` room.
     defeat_roster: bool,
+    /// CORRAL-WIRE (CRL-Q26, DV-3): the llamas (indices of the combat state's
+    /// llamas) the room's [`EnvSolidKind::ExitGate`] waits on instead of the whole
+    /// roster: the corral's M3 gate opens on the second M2 defeat, whatever M0 and
+    /// M1 left standing. `None` in every other room (the whole roster). Run
+    /// configuration set by [`Self::with_llama_gate`]; never hashed.
+    gate_llamas: Option<Vec<usize>>,
     /// FA-Q20: the wake gate of each enemy of the room's roster, in enemy index
     /// order (the goblins, then the Engineers); empty when no entry has one.
     /// Run configuration the combat state takes in [`CombatState::with_env`]
@@ -743,6 +749,7 @@ impl EnvRuntime {
             acid_links,
             floor_layout: None,
             defeat_roster: enc.goal == Goal::DefeatRoster,
+            gate_llamas: None,
             wake_gates: Vec::new(),
             partner_knobs: Default::default(),
             acid_prev_up: None,
@@ -774,6 +781,27 @@ impl EnvRuntime {
             kind: EnvSolidKind::Gate { target },
         });
         self
+    }
+
+    /// CORRAL-WIRE (CRL-Q26): add a gate solid at `rect` (layout px, y down) that
+    /// stands until every llama of `llamas` (indices of the combat state's llamas)
+    /// is defeated, after every other solid. It is an [`EnvSolidKind::ExitGate`]
+    /// with a narrower condition ([`CombatState::exit_gate_open`]); a room has at
+    /// most one such condition, so this replaces any earlier one.
+    #[must_use]
+    pub fn with_llama_gate(mut self, rect: IRect, llamas: Vec<usize>) -> Self {
+        self.solids.push(EnvSolid {
+            rect,
+            prop: None,
+            kind: EnvSolidKind::ExitGate,
+        });
+        self.gate_llamas = Some(llamas);
+        self
+    }
+
+    /// The llamas the exit gate waits on (`None`: the whole roster).
+    pub fn gate_llamas(&self) -> Option<&[usize]> {
+        self.gate_llamas.as_deref()
     }
 
     /// HAZ-A2: place this runtime in a room: its walking line (layout px, for
@@ -1833,6 +1861,19 @@ impl CombatState {
             && self.slot.enemies.iter().all(|e| !e.alive())
     }
 
+    /// Whether the room's exit gate is open: the gate's llamas are all defeated
+    /// in a room that names them (CORRAL-WIRE, CRL-Q26: the corral's M3 gate),
+    /// else the whole roster is clear ([`Self::roster_cleared`], HAZ-Q39). Read
+    /// from the enemies' own state, never a latch, so a respawn keeps it open.
+    pub fn exit_gate_open(&self) -> bool {
+        match self.env.as_ref().and_then(|env| env.gate_llamas()) {
+            Some(llamas) => llamas
+                .iter()
+                .all(|&i| self.llamas.get(i).is_none_or(|l| !l.alive())),
+            None => self.roster_cleared(),
+        }
+    }
+
     /// Tests only (HAZ-FU): restore the pool(s) linked to the slime at roster index
     /// `roster` while the slime stays as it is (what a respawn does for a living
     /// slime), to tell an edge-triggered drain from a level-triggered one.
@@ -1940,7 +1981,7 @@ impl CombatState {
     fn env_sync_solids(&mut self, scene: &mut SceneSim) {
         let layout_h = scene.world.layout_height();
         let dynamic = SlotSolids::of(&self.slot);
-        let cleared = self.roster_cleared();
+        let cleared = self.exit_gate_open();
         let Some(env) = self.env.as_mut() else {
             return;
         };
@@ -1975,7 +2016,8 @@ impl CombatState {
             let intact = match env.solids[i].kind {
                 EnvSolidKind::Lock { target } => dynamic.lock_closed(target),
                 EnvSolidKind::Gate { target } => dynamic.gate_closed(target),
-                // HAZ-A2: the exit opens on the tick the roster is clear.
+                // HAZ-A2: the exit opens on the tick the roster is clear
+                // (CORRAL-WIRE: on the tick its named llamas are all down).
                 EnvSolidKind::ExitGate => !cleared,
                 _ => env.solid_intact(i),
             };

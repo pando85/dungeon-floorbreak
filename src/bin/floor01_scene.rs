@@ -88,7 +88,7 @@ use dungeon_floorbreak::{
     env_kit::{
         EnvKit, IRect, PieceDraw, animation_frame, parallax_copies, parallax_start, to_world_y,
     },
-    f01_boiler, f01_hazards, f01_hoarder, f01_late, f01_mastery, f01_ring, f01_run,
+    f01_boiler, f01_corral, f01_hazards, f01_hoarder, f01_late, f01_mastery, f01_ring, f01_run,
     feel::{LLAMA_GLOB_MOUTH_DX, LLAMA_GLOB_MOUTH_DY, LLAMA_GLOB_SPEED},
     goblin::{AttackPhase, GoblinMode},
     gore::{DEATH_VARIANTS, DeathArt, GorePreset, LLAMA_VARIANT, Sheet},
@@ -142,6 +142,9 @@ mod pierce_spark;
 // ROOM-PORTALS-01: the exit door of rooms 2, 4, 4a, 4b and 6 (the grate down while the exit gate stands).
 #[path = "floor01_scene/room_exit_art.rs"]
 mod room_exit_art;
+// CORRAL-WIRE and CORRAL-E: room 0's M3 gate grate and the rush stand-in (greybox).
+#[path = "floor01_scene/corral_art.rs"]
+mod corral_art;
 
 /// Draw order above the actor plane. Carl is drawn above every goblin, except
 /// that a goblin in its smear or impact is drawn over him (its club lands on
@@ -366,6 +369,11 @@ struct Args {
     f01_ring: Option<f01_ring::RingRoom>,
     /// The launched Ring room (`main` fills it right after parsing).
     ring_run: Option<Box<f01_ring::RingRun>>,
+    /// CORRAL-WIRE: `--scene f01_late --f01-room corral`, room 0 (the Infernal
+    /// Corral). Launchable but unlisted until CORRAL-F (plan section 14.7).
+    f01_corral: bool,
+    /// The launched corral (`main` fills it right after parsing).
+    corral_run: Option<Box<f01_corral::CorralRun>>,
     /// PT-SCENE: `--scene f01_late`. It is a launcher: the room (`--f01-room`)
     /// and the loadout (`--f01-loadout`) resolve, once the arguments are read,
     /// to the scene that runs the room (`f01_boiler` or the boss arena) and the
@@ -567,6 +575,7 @@ impl Args {
             || self.f01_hazards
             || self.f01_mastery
             || self.f01_ring.is_some()
+            || self.f01_corral
     }
 
     /// CF02-F: this run is in the microarena (`--cf02`, or a CF02-F room fixture).
@@ -768,6 +777,8 @@ fn resolve_boiler_args(parsed: &mut Args) -> Result<(), String> {
         (f01_mastery::SCENE_NAME, f01_mastery::ROOM_NAME)
     } else if let Some(ring) = parsed.f01_ring {
         (ring.scene_name(), ring.id())
+    } else if parsed.f01_corral {
+        (f01_corral::SCENE_NAME, f01_corral::ROOM_ID)
     } else {
         return Ok(());
     };
@@ -909,7 +920,16 @@ fn resolve_f01_late_args(parsed: &mut Args) -> Result<(), String> {
     let root = std::env::current_dir().map_err(|e| format!("no working directory: {e}"))?;
     let manifest = f01_late::Manifest::load(&root)?;
     let row = match parsed.f01_room.as_deref() {
-        Some(id) => manifest.room(id).map_err(|e| format!("--f01-room: {e}"))?,
+        // CORRAL-WIRE: an unlisted launchable room launches on its own; a floor
+        // run walks the listed rooms only (CW-AD1).
+        Some(id) if parsed.f01_run && manifest.is_unlisted(id) => {
+            return Err(format!(
+                "--f01-run walks the listed rooms only: {id:?} is launchable but unlisted (launch it without --f01-run)"
+            ));
+        }
+        Some(id) => manifest
+            .launchable(id)
+            .map_err(|e| format!("--f01-room: {e}"))?,
         // F01-RUN: a floor run starts at the first listed room; a bare launch at
         // the Boiler (HRDA2B-AD1, unchanged).
         None if parsed.f01_run => f01_run::first_room(&manifest),
@@ -938,6 +958,7 @@ fn resolve_f01_late_args(parsed: &mut Args) -> Result<(), String> {
         f01_late::RoomScene::RingCourt | f01_late::RoomScene::RingSplit => {
             parsed.f01_ring = row.scene.ring();
         }
+        f01_late::RoomScene::Corral => parsed.f01_corral = true,
         f01_late::RoomScene::Boss => {
             parsed.boss = true;
             parsed.fixture = Some(boss_scene::BOSS01_SCENE);
@@ -1431,6 +1452,8 @@ fn parse_args_full(
         mastery_run: None,
         f01_ring: None,
         ring_run: None,
+        f01_corral: false,
+        corral_run: None,
         f01_late: false,
         f01_room: None,
         f01_loadout: None,
@@ -2316,6 +2339,12 @@ fn build_scene(
             let combat =
                 f01_ring::combat_for(run, &mut sim, args.carl, args.donut, args.cf02.seed)?;
             (sim, combat)
+        } else if let Some(run) = &args.corral_run {
+            // CORRAL-WIRE: room 0, the verifier's constructor.
+            let mut sim = SceneSim::new_at(kit, view_height(args.deck), fixture.carl_x)?;
+            let combat =
+                f01_corral::combat_for(run, &mut sim, args.carl, args.donut, args.cf02.seed)?;
+            (sim, combat)
         } else {
             let sim = SceneSim::new_at(kit, view_height(args.deck), fixture.carl_x)?;
             let combat = CombatState::new(fixture, kit, &sim)?
@@ -2328,8 +2357,9 @@ fn build_scene(
             || args.hazards_run.is_some()
             || args.mastery_run.is_some()
             || args.ring_run.is_some()
+            || args.corral_run.is_some()
         {
-            // HRD-A2b, HAZ-A2b, PT-MASTERY and RING-A/B wire: the library built the state with its rules,
+            // HRD-A2b, HAZ-A2b, PT-MASTERY, RING-A/B wire and CORRAL-WIRE: the library built the state with its rules,
             // env and slot. A builder run after the slot would reset the attempt.
         } else if let Some(run) = &args.boiler_run {
             // BOIL-B/C wire: the sidecar's props and hazards are live.
@@ -2349,6 +2379,7 @@ fn build_scene(
             && args.hazards_run.is_none()
             && args.mastery_run.is_none()
             && args.ring_run.is_none()
+            && args.corral_run.is_none()
         {
             combat = combat.with_cf02().with_cf02_seed(args.cf02.seed);
         }
@@ -2525,6 +2556,8 @@ fn room_exit_x(args: &Args) -> f32 {
     } else if let Some(run) = &args.hazards_run {
         run.loaded.encounter.exit
     } else if let Some(run) = &args.ring_run {
+        run.loaded.encounter.exit
+    } else if let Some(run) = &args.corral_run {
         run.loaded.encounter.exit
     } else {
         return 0.0;
@@ -2761,7 +2794,7 @@ fn main() -> ExitCode {
         && let Some(room) = args
             .f01_room
             .as_deref()
-            .and_then(|id| manifest.room(id).ok())
+            .and_then(|id| manifest.launchable(id).ok())
     {
         println!("{}", f01_late::entry_line(room, args.f01_loadout));
     }
@@ -2891,6 +2924,20 @@ fn main() -> ExitCode {
             }
         }
     }
+    // CORRAL-WIRE: load room 0 and its sidecar.
+    if args.f01_corral {
+        match f01_corral::launch(&root) {
+            Ok(run) => {
+                println!("{}", f01_corral::entry_line(&run));
+                args.fixture = Some(run.fixture);
+                args.corral_run = Some(Box::new(run));
+            }
+            Err(error) => {
+                eprintln!("floor01_scene: {error}");
+                return ExitCode::from(2);
+            }
+        }
+    }
     // PTR-R1: open the recording before anything else; a recording the viewer
     // cannot show opens no window.
     let prepared = if args.replay.is_some() {
@@ -2914,6 +2961,8 @@ fn main() -> ExitCode {
     } else if let Some(run) = &args.mastery_run {
         Ok(run.kit.clone())
     } else if let Some(run) = &args.ring_run {
+        Ok(run.kit.clone())
+    } else if let Some(run) = &args.corral_run {
         Ok(run.kit.clone())
     } else if args.refuge {
         refuge::load(&root).map(|(kit, _)| kit)
@@ -3704,6 +3753,9 @@ fn recording_manifest(
     } else if let Some(ring) = args.f01_ring {
         // RING-A/B wire: and the two Ring rooms, under their own fixture names.
         (f01_late::SESSION_SOURCE, ring.scene_name())
+    } else if args.f01_corral {
+        // CORRAL-WIRE: and room 0, under its fixture name.
+        (f01_late::SESSION_SOURCE, f01_corral::SCENE_NAME)
     } else if args.demo {
         ("demo", args.fixture.map_or("", |f| f.name))
     } else if args.boss {
@@ -4200,6 +4252,7 @@ fn run_window(
                 hoarder_art::sync_hoarder_art,
                 room_exit_art::sync_room_exit,
                 gym_art::sync_gym_art,
+                corral_art::sync_corral_art,
             )
                 .chain(),
             update_lighting,
@@ -4784,6 +4837,22 @@ fn setup(
         // DP-D (DP-Q34): the Puddle Jumper ripples and streak, only where the
         // blink can exist (the same condition as the cues' pool).
         blink_cues::spawn(&mut commands, layers_of("actors"), kit.actor_z + 0.025);
+        // CORRAL-WIRE (CW-AD5) and CORRAL-E (CRL-Q38): room 0's grate and the rush
+        // stand-in, only where a gate or a corral llama exists.
+        let rush_llamas = combat.0.as_ref().map_or(0, |c| {
+            c.llamas.iter().filter(|l| l.corral.is_some()).count()
+        });
+        let gate = args
+            .corral_run
+            .as_ref()
+            .and_then(|run| run.m3_gate.as_ref().map(|(rect, _)| *rect));
+        corral_art::spawn(
+            &mut commands,
+            layers_of("actors"),
+            kit.actor_z + 0.02,
+            gate,
+            rush_llamas,
+        );
     }
 
     // BOIL-E (K10) / AREA-GOBLINWORKSHOP-01: the Boiler's prop art (the kit atlases;
@@ -6948,6 +7017,13 @@ fn sync_llama_visuals(
             CombatAnimators::llama_foot_y(llama),
             flip,
         );
+        // CORRAL-E (CRL-Q38): the rush stand-in's brace, charge and bonk lean.
+        let cx = cx
+            + dungeon_floorbreak::combat_anim::rush_stand_in::rush_stand_in(
+                llama,
+                CombatAnimators::llama_foot_y(llama),
+            )
+            .map_or(0.0, |s| s.lean_px as f32);
         let lying = matches!(llama.mode, LlamaMode::Down | LlamaMode::Corpse);
         let z_offset = if lying {
             GOBLIN_LYING_Z_OFFSET
@@ -8463,6 +8539,7 @@ fn headless_smoke(kit: &EnvKit, args: &Args, actors: &Actors, root: &Path) -> Re
         || args.hazards_run.is_some()
         || args.mastery_run.is_some()
         || args.ring_run.is_some()
+        || args.corral_run.is_some()
     {
         return headless_slot_room(kit, args, actors, root);
     }
@@ -8618,6 +8695,13 @@ fn headless_slot_room(
             },
             run.loaded.encounter.story_pin.clone(),
             f01_ring::SMOKE_TICKS,
+        )
+    } else if let Some(run) = &args.corral_run {
+        (
+            f01_corral::ROOM_ID,
+            "F01_CORRAL_SMOKE_OK",
+            run.loaded.encounter.story_pin.clone(),
+            f01_corral::SMOKE_TICKS,
         )
     } else {
         return Err("no room".into());
@@ -10791,6 +10875,84 @@ mod tests {
         assert!(!args(&["--scene", "boss_f01"]).unwrap().f01_room_scene());
     }
 
+    /// CORRAL-WIRE: room 0 is a launchable but unlisted room of `--scene
+    /// f01_late` (CW-AD1, plan section 14.7): `--f01-room corral` launches it under
+    /// the room rules with a seed, records under the late-Floor-1 source with its
+    /// own fixture name and pins, and its tick-0 state in the binary is the
+    /// verifier's constructor; a floor run refuses it, and it has no scene arm.
+    #[test]
+    fn the_corral_resolves_through_the_late_launcher_unlisted() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let actors =
+            Actors::load(root, FrameSource::GridSource, true, false, false, false).unwrap();
+        let id = f01_corral::ROOM_ID;
+        let late = args(&["--scene", "f01_late", "--f01-room", id]).unwrap();
+        assert!(late.f01_late && late.cf02.rules && !late.demo);
+        assert!(late.f01_corral && late.f01_ring.is_none());
+        assert!(!late.f01_boiler && !late.f01_hoarder && !late.f01_hazards && !late.f01_mastery);
+        assert!(late.f01_room_scene() && !late.arena_room());
+        assert_eq!(late.f01_room.as_deref(), Some(id));
+        assert!(late.carl.prog && late.donut.prog && late.donut_biscuit);
+        assert!(late.recording_enabled());
+        let error = args(&["--scene", "f01_late", "--f01-room", id, "--f01-run"])
+            .expect_err("a floor run walks the listed rooms");
+        assert!(error.contains("launchable but unlisted"), "{error}");
+        for flag in ["--cf02", "--demo", "--autopilot", "--cf02-engineer"] {
+            assert!(
+                args(&["--scene", "f01_late", "--f01-room", id, flag]).is_err(),
+                "{flag}"
+            );
+        }
+        assert!(
+            args(&["--scene", f01_corral::SCENE_NAME]).is_err(),
+            "no scene arm"
+        );
+        for list in [
+            &["--scene", "f01_late", "--f01-room", id][..],
+            &[
+                "--scene",
+                "f01_late",
+                "--f01-room",
+                id,
+                "--f01-loadout",
+                "all",
+            ][..],
+            &["--scene", "f01_late", "--f01-room", id, "--cf02-seed", "7"][..],
+        ] {
+            let mut run = args(list).unwrap();
+            let launched = f01_corral::launch(root).unwrap();
+            run.fixture = Some(launched.fixture);
+            let kit = launched.kit.clone();
+            run.corral_run = Some(Box::new(launched));
+            let (_, scene, library) =
+                f01_late::corral_start(root, 360, run.carl, run.donut, run.cf02.seed).unwrap();
+            let mut hud = new_hud(&run, &kit, &actors);
+            let (sim, _, combat, _, _) = build_scene(&kit, &run, &actors, root, &mut hud).unwrap();
+            let combat = combat.expect("a combat state");
+            assert_eq!(
+                combat.state_hash(&sim),
+                library.state_hash(&scene),
+                "{list:?}"
+            );
+            assert_eq!(sim.world.state_hash(), scene.world.state_hash(), "{list:?}");
+            assert!(!combat.exit_gate_open(), "the M3 gate stands");
+            let party = run.live_party();
+            let manifest = recording_manifest(&run, &sim, Some(&combat), &party, root);
+            assert_eq!(manifest.reset.source, f01_late::SESSION_SOURCE);
+            assert_eq!(manifest.reset.name, f01_corral::SCENE_NAME);
+            assert_eq!(manifest.reset.f01_room.as_deref(), Some(id));
+            assert_eq!(manifest.reset.cf02_seed, run.cf02.seed);
+            for key in f01_late::SCOPED_PIN_KEYS {
+                assert_eq!(
+                    manifest.content_hashes.contains_key(key),
+                    f01_late::pin_applies(key, Some(id)),
+                    "{key}"
+                );
+            }
+            assert_eq!(manifest.reset.start_hash, library.state_hash(&scene));
+        }
+    }
+
     /// RING-A/B wire: the two Ring rooms are listed rooms of `--scene f01_late`
     /// only (KR22: no scene arm). Each implies `cf02_rules`, takes a seed (its
     /// goblins draw temperaments), records under the late-Floor-1 source with its
@@ -11347,16 +11509,14 @@ mod tests {
                     .contains("hoarder, boiler, hazards, ring_court, ring_split, juicer, mastery"),
             "{error}"
         );
-        for unlisted in ["corral", "dozer"] {
-            let error = refused(&["--f01-room", unlisted]);
-            assert!(
-                error.contains("unlisted room")
-                    && error.contains(
-                        "hoarder, boiler, hazards, ring_court, ring_split, juicer, mastery"
-                    ),
-                "{error}"
-            );
-        }
+        // CORRAL-WIRE: the corral is launchable but unlisted; the dozer is not.
+        let error = refused(&["--f01-room", "dozer"]);
+        assert!(
+            error.contains("unlisted room")
+                && error
+                    .contains("hoarder, boiler, hazards, ring_court, ring_split, juicer, mastery"),
+            "{error}"
+        );
         assert!(refused(&["--f01-loadout", "everything"]).contains("unknown loadout"));
         assert!(refused(&["--f01-room"]).contains("needs a room id"));
         // Other scenes are unchanged: no room label on the legacy runs.
