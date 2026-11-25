@@ -104,6 +104,13 @@ pub struct ResetDescriptor {
     /// recording and in every other room (the legacy label rule then applies).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub f01_roster: Option<String>,
+    /// F01-RUN: the story ledger the floor run carried into this room
+    /// (`--f01-carry`, the previous room's `story_snapshot`). The verifier applies
+    /// it with `carry_story` after the room's constructor, as the binary does.
+    /// Absent in every older recording and in every room launched on its own
+    /// (it then starts from its static pin), and written only when set.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub f01_carry: Option<crate::story_unlock::LedgerSnapshot>,
     /// FNV-1a-64 of the layout and kit contract (0 when not computed).
     #[serde(with = "hex64")]
     pub kit_hash: u64,

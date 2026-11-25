@@ -70,6 +70,7 @@ pub mod f01_late;
 pub mod f01_late_fixtures;
 pub mod f01_mastery;
 pub mod f01_mastery_fixtures;
+pub mod f01_run;
 pub mod feel;
 pub mod follower;
 pub mod goblin;

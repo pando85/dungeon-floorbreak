@@ -73,6 +73,30 @@ pub fn location_text(layout_id: &str) -> Option<String> {
         .then(|| format!("FLOOR {number}"))
 }
 
+/// F01-HUD-ROOM: the widest text the location strip holds (its 280 px cap
+/// minus the 28 px of caps and padding).
+pub const LOCATION_TEXT_MAX_PX: i32 = 252;
+
+/// F01-HUD-ROOM: the location text of a late-Floor-1 room: the manifest's room
+/// title in capitals and the attempt counter (`THE HOARDER · TRY 2`). A title
+/// too wide for the strip loses letters from its end, never the counter.
+pub fn room_location_text(title: &str, attempt: u32) -> String {
+    let suffix = format!(" \u{b7} TRY {attempt}");
+    let mut upper: Vec<char> = title.to_uppercase().chars().collect();
+    loop {
+        let text: String = upper.iter().collect::<String>() + &suffix;
+        if upper.is_empty() || text_width_px(HudFont::Jersey, &text) <= LOCATION_TEXT_MAX_PX {
+            return text;
+        }
+        upper.pop();
+    }
+}
+
+/// F01-HUD-ROOM (PT-SCENE U5): the tag under the top strip of a room that did
+/// not start from the story: the `all` loadout, or a story room launched from its
+/// static pin instead of a carried ledger.
+pub const LOADOUT_TAG_TEXT: &str = "TEST LOADOUT";
+
 // ------------------------------------------------------------------- palette
 
 /// An sRGB colour, `0xRRGGBB`.
@@ -655,8 +679,11 @@ impl HudPreview {
 pub struct HudSnapshot {
     /// `[0]` the left slot (Carl), `[1]` the right slot (Donut).
     pub plates: [PlateView; 2],
-    /// Real: `FLOOR 01` (plus an area name only if layout data had one).
+    /// Real: `FLOOR 01` (plus an area name only if layout data had one); in a
+    /// late-Floor-1 room the room title and the attempt (F01-HUD-ROOM).
     pub location: Option<String>,
+    /// F01-HUD-ROOM: the TEST LOADOUT tag under the top strip.
+    pub loadout_tag: bool,
     /// Fixture only today (HUD-DEBT-03).
     pub boss: Option<BossView>,
     /// Real, from the notice queue fed by [`CombatEvent`]s; or a fixture.
@@ -713,6 +740,8 @@ pub struct RealHudInputs {
     pub donut_hp_flash: Option<HpFlash>,
     pub notice: Option<NoticeView>,
     pub location: Option<String>,
+    /// F01-HUD-ROOM: draw the TEST LOADOUT tag.
+    pub loadout_tag: bool,
     /// Per-plate glyph families (the pad that owns each hero's plate).
     pub carl_glyphs: GlyphSet,
     pub donut_glyphs: GlyphSet,
@@ -753,6 +782,7 @@ impl RealHudInputs {
             donut_hp_flash: None,
             notice: None,
             location: None,
+            loadout_tag: false,
             carl_glyphs: GlyphSet::default(),
             donut_glyphs: GlyphSet::default(),
             reconnect: None,
@@ -897,6 +927,7 @@ pub fn build_snapshot(real: &RealHudInputs, preview: Option<HudPreview>, tick: u
         } else {
             real.location.clone()
         },
+        loadout_tag: real.loadout_tag,
         boss: real.boss.clone(),
         notice: real.notice,
         reconnect: real.reconnect,
@@ -1296,6 +1327,10 @@ pub struct HudRuntime {
     carl_name: String,
     donut_name: String,
     location: Option<String>,
+    /// F01-HUD-ROOM: the late-Floor-1 room this run is in (title, TEST LOADOUT),
+    /// and the attempt the location text counts.
+    room: Option<(String, bool)>,
+    attempt: u32,
     /// The real boss encounter (HUD-DEBT-03), `None` outside one.
     boss: Option<BossHud>,
     /// HUD-DEBT-02: Donut's unlocked mana pool as `(mana, mana_max)`, `None`
@@ -1362,6 +1397,8 @@ impl HudRuntime {
             carl_name: FALLBACK_NAME_LEFT.to_string(),
             donut_name: FALLBACK_NAME_RIGHT.to_string(),
             location: None,
+            room: None,
+            attempt: 1,
             boss: None,
             donut_mana: None,
             empty_press: EmptyPress::Dry,
@@ -1540,7 +1577,35 @@ impl HudRuntime {
         self.carl_name = carl_name.to_string();
         self.donut_name = donut_name.to_string();
         self.location = location_text(layout_id);
+        self.refresh_room_location();
         self.revision += 1;
+    }
+
+    /// F01-HUD-ROOM: the run is a late-Floor-1 room: the location strip shows
+    /// its title (the manifest's) and the attempt, and `test_loadout` draws the
+    /// TEST LOADOUT tag (PT-SCENE U5).
+    pub fn set_room(&mut self, title: &str, test_loadout: bool) {
+        self.room = Some((title.to_owned(), test_loadout));
+        self.refresh_room_location();
+        self.revision += 1;
+    }
+
+    /// F01-HUD-ROOM: the attempt the location text counts (1 + the restarts of
+    /// the room). Bumps the revision only on a change, and only in a room.
+    pub fn set_attempt(&mut self, attempt: u32) {
+        if self.attempt != attempt {
+            self.attempt = attempt;
+            if self.room.is_some() {
+                self.refresh_room_location();
+                self.revision += 1;
+            }
+        }
+    }
+
+    fn refresh_room_location(&mut self) {
+        if let Some((title, _)) = &self.room {
+            self.location = Some(room_location_text(title, self.attempt));
+        }
     }
 
     /// Record whether the scene acts on Primary/Physical right now (the
@@ -1801,6 +1866,7 @@ impl HudRuntime {
         real.carl_name.clone_from(&self.carl_name);
         real.donut_name.clone_from(&self.donut_name);
         real.location.clone_from(&self.location);
+        real.loadout_tag = self.room.as_ref().is_some_and(|(_, tag)| *tag);
         real.hp_flash = self.flash[0];
         real.donut_hp_flash = self.flash[1];
         real.notice = self.notices.active();
@@ -1880,6 +1946,18 @@ impl HudLayout {
             y: SAFE_MARGIN,
             w,
             h: 16,
+        }
+    }
+
+    /// F01-HUD-ROOM: the TEST LOADOUT tag, centred 2 px under the location
+    /// strip, or under the boss strip's resting position when that replaces it.
+    pub fn loadout_tag(&self, text_w: i32, below_boss: bool) -> IRect {
+        let w = text_w + 10;
+        IRect {
+            x: VIEW_WIDTH / 2 - w / 2,
+            y: SAFE_MARGIN + if below_boss { 26 } else { 16 } + 2,
+            w,
+            h: 11,
         }
     }
 
@@ -3647,5 +3725,112 @@ mod tests {
             hud.real_inputs().donut_special,
             SpecialSlot::Cooling { chip, bar_px: 5 }
         );
+    }
+}
+
+/// F01-HUD-ROOM: the room title, the attempt counter and the TEST LOADOUT tag.
+#[cfg(test)]
+mod room_tests {
+    use super::*;
+    use crate::hud_draw::{DrawKind, build_draw_list};
+
+    fn manifest_titles() -> Vec<String> {
+        let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        crate::f01_late::Manifest::load(&root)
+            .unwrap()
+            .rooms
+            .into_iter()
+            .map(|r| r.title)
+            .collect()
+    }
+
+    #[test]
+    fn every_listed_room_title_fits_the_strip_with_its_attempt_counter() {
+        for title in manifest_titles() {
+            let text = room_location_text(&title, 99);
+            assert_eq!(text, format!("{} \u{b7} TRY 99", title.to_uppercase()));
+            assert!(text_width_px(HudFont::Jersey, &text) <= LOCATION_TEXT_MAX_PX);
+        }
+        assert_eq!(
+            room_location_text("The Hoarder", 1),
+            "THE HOARDER \u{b7} TRY 1"
+        );
+        // A title too wide loses letters, never the counter.
+        let long = room_location_text(&"W".repeat(40), 3);
+        assert!(long.ends_with(" \u{b7} TRY 3"), "{long}");
+        assert!(text_width_px(HudFont::Jersey, &long) <= LOCATION_TEXT_MAX_PX);
+    }
+
+    #[test]
+    fn a_room_run_shows_its_title_attempt_and_tag() {
+        let mut hud = HudRuntime::new(HudConfig::default());
+        hud.set_identity("A", "B", "floor01_x");
+        // Outside a room nothing changes: the floor number, no tag, and the
+        // attempt never bumps the revision.
+        let r0 = hud.revision;
+        hud.set_attempt(4);
+        assert_eq!(hud.revision, r0);
+        assert_eq!(hud.snapshot().location.as_deref(), Some("FLOOR 01"));
+        assert!(!hud.snapshot().loadout_tag);
+        hud.set_room("The Hoarder", true);
+        assert_eq!(
+            hud.snapshot().location.as_deref(),
+            Some("THE HOARDER \u{b7} TRY 4")
+        );
+        assert!(hud.snapshot().loadout_tag);
+        let r1 = hud.revision;
+        hud.set_attempt(4);
+        assert_eq!(hud.revision, r1, "unchanged");
+        hud.set_attempt(5);
+        assert_eq!(hud.revision, r1 + 1);
+        assert_eq!(
+            hud.snapshot().location.as_deref(),
+            Some("THE HOARDER \u{b7} TRY 5")
+        );
+        // A later identity keeps the room.
+        hud.set_identity("A", "B", "floor01_x");
+        assert_eq!(
+            hud.snapshot().location.as_deref(),
+            Some("THE HOARDER \u{b7} TRY 5")
+        );
+        hud.set_room("The Juicer", false);
+        assert!(!hud.snapshot().loadout_tag);
+    }
+
+    fn texts(snapshot: &HudSnapshot, view_h: i32) -> Vec<(String, i32)> {
+        let mut out = Vec::new();
+        build_draw_list(snapshot, &HudLayout::new(view_h, view_h - 72), &mut out);
+        out.iter()
+            .filter_map(|i| match &i.kind {
+                DrawKind::Text { text, .. } => Some((text.clone(), i.y)),
+                _ => None,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn the_tag_draws_under_the_location_or_the_boss_strip_inside_the_margins() {
+        for view_h in [360, 400] {
+            let layout = HudLayout::new(view_h, view_h - 72);
+            let tw = text_width_px(HudFont::SilkBold, LOADOUT_TAG_TEXT);
+            let widest = layout.location(LOCATION_TEXT_MAX_PX);
+            for (below_boss, strip) in [(false, widest), (true, layout.boss())] {
+                let tag = layout.loadout_tag(tw, below_boss);
+                assert!(tag.y >= strip.bottom() + 2, "{tag:?} under {strip:?}");
+                for plate in [layout.carl_plate, layout.donut_plate] {
+                    assert!(!rects_intersect(tag, plate), "{tag:?} vs {plate:?}");
+                }
+                assert!(tag.x >= SAFE_MARGIN && tag.right() <= VIEW_WIDTH - SAFE_MARGIN);
+            }
+            let mut real = RealHudInputs::normal(4, 4);
+            real.location = Some(room_location_text("The Hoarder", 2));
+            real.loadout_tag = true;
+            let drawn = texts(&build_snapshot(&real, None, 0), view_h);
+            assert!(drawn.iter().any(|(t, _)| t == "THE HOARDER \u{b7} TRY 2"));
+            assert!(drawn.iter().any(|(t, _)| t == LOADOUT_TAG_TEXT));
+            real.loadout_tag = false;
+            let drawn = texts(&build_snapshot(&real, None, 0), view_h);
+            assert!(!drawn.iter().any(|(t, _)| t == LOADOUT_TAG_TEXT));
+        }
     }
 }

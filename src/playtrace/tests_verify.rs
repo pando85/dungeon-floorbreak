@@ -404,6 +404,7 @@ fn the_story_route_without_combat_replays_without_observations() {
         f01_room: None,
         f01_loadout: None,
         f01_roster: None,
+        f01_carry: None,
         kit_hash: real_kit_hash(),
         start_hash: scene.state_hash(),
     };

@@ -131,6 +131,7 @@ pub fn record_synthetic_fixture(
         f01_room: None,
         f01_loadout: None,
         f01_roster: None,
+        f01_carry: None,
         kit_hash,
         start_hash: sim.combat.state_hash(&sim.scene),
     };

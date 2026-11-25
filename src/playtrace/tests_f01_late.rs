@@ -41,15 +41,26 @@ impl RoomRig {
 
     /// `seed` is `--cf02-seed` (the hazard room and the Boiler take one).
     fn start_seeded(base: &Path, room: &str, loadout: Loadout, seed: Option<u64>) -> Self {
-        Self::build(base, room, Some(loadout), seed)
+        Self::build(base, room, Some(loadout), seed, None)
+    }
+
+    /// F01-RUN: the room of a floor run, started from the ledger the run carried in.
+    fn start_carried(base: &Path, room: &str, carry: &crate::story_unlock::LedgerSnapshot) -> Self {
+        Self::build(base, room, Some(Loadout::Story), None, Some(carry))
     }
 
     /// The Hoarder's own scene (`--scene f01_hoarder`): no loadout label and no story programs.
     fn start_direct(base: &Path, room: &str) -> Self {
-        Self::build(base, room, None, None)
+        Self::build(base, room, None, None, None)
     }
 
-    fn build(base: &Path, room: &str, loadout: Option<Loadout>, seed: Option<u64>) -> Self {
+    fn build(
+        base: &Path,
+        room: &str,
+        loadout: Option<Loadout>,
+        seed: Option<u64>,
+        carry: Option<&crate::story_unlock::LedgerSnapshot>,
+    ) -> Self {
         let (carl, donut) = loadout.map_or_else(Default::default, Loadout::flags);
         // The live party of a CF02-rules room: `cf02_assist` and the 12-tick swap.
         let room_party = || {
@@ -61,7 +72,7 @@ impl RoomRig {
                 .with_cf02_swap(),
             )
         };
-        let (source, name, cf02, scene, combat, party) = if room == "boiler" {
+        let (source, name, cf02, scene, mut combat, party) = if room == "boiler" {
             // BOIL-E: the story launcher's label means the live roster, the
             // rule the binary and the verifier share.
             let (run, scene, combat) = f01_late::boiler_start_with(
@@ -139,6 +150,10 @@ impl RoomRig {
                 PartyState::new(PROVISIONAL_TUNING),
             )
         };
+        // F01-RUN: the binary carries the ledger after the room's constructor.
+        if let Some(snapshot) = carry {
+            combat.carry_story(snapshot).expect("the carry applies");
+        }
         let reset = ResetDescriptor {
             source: source.to_owned(),
             name: name.to_owned(),
@@ -162,6 +177,7 @@ impl RoomRig {
                     .name()
                     .to_owned()
             }),
+            f01_carry: carry.cloned(),
             kit_hash: real_kit_hash(),
             start_hash: combat.state_hash(&scene),
         };
@@ -869,4 +885,58 @@ fn write_the_hazard_evidence_session() {
     }
     let manifest = rig.rec.finish("test").expect("finished");
     println!("HAZB_SESSION {}", manifest.session_id);
+}
+
+/// F01-RUN: a room of a floor run starts from the ledger the run carried into it
+/// (the Hoarder's, with her dynamite receipt). Its session writes the carry into the
+/// descriptor and verifies strict from it, in the Boiler and in the Juicer's boss
+/// scene; the same session without the carry (or with another ledger) is another
+/// start state and fails, and a carry with no room is refused.
+#[test]
+fn a_carried_floor_run_room_verifies_strict_from_its_descriptor() {
+    let snapshot = crate::f01_late_fixtures::hoarder_defeat(&root())
+        .unwrap()
+        .snapshot()
+        .expect("a ledger");
+    for room in ["boiler", "juicer"] {
+        let dir = TempDir::new("f01-run-carry");
+        let mut rig = RoomRig::start_carried(&dir.0, room, &snapshot);
+        assert!(
+            rig.combat
+                .story_holds(crate::story_unlock::SPECIAL_THROWN_CHARGE)
+        );
+        rig.walk(300);
+        let manifest = rig.rec.finish("test").expect("finished");
+        let session = dir.0.join(manifest.session_id);
+        let report = verify(&session).unwrap_or_else(|e| panic!("{room}: {e}"));
+        assert_eq!((report.ticks, report.scope), (300, VerifyScope::Full));
+        let loaded = read_session(&session, false).unwrap();
+        assert_eq!(loaded.manifest.reset.f01_carry.as_ref(), Some(&snapshot));
+        // Dropped: the pin-only start hashes differently (the receipt is hashed).
+        tamper_manifest(&session, |m| m.reset.f01_carry = None);
+        assert!(verify(&session).is_err(), "{room}: a dropped carry");
+        // A carry the table does not know is refused as content.
+        let mut bad = snapshot.clone();
+        bad.held[0].capability = "no_such_capability".into();
+        tamper_manifest(&session, |m| m.reset.f01_carry = Some(bad.clone()));
+        assert_eq!(
+            verify(&session).expect_err("unknown capability").code,
+            "content_mismatch"
+        );
+        // A carry needs a room.
+        tamper_manifest(&session, |m| {
+            m.reset.f01_carry = Some(snapshot.clone());
+            m.reset.f01_room = None;
+            m.reset.f01_loadout = None;
+        });
+        assert!(verify(&session).is_err(), "{room}: a carry without a room");
+        tamper_manifest(&session, |m| {
+            m.reset.f01_room = Some(room.into());
+            m.reset.f01_loadout = Some("story".into());
+        });
+        verify(&session).unwrap_or_else(|e| panic!("{room} restored: {e}"));
+    }
+    // Absent from every older descriptor's text.
+    let plain = serde_json::to_string(&super::tests::reset()).unwrap();
+    assert!(!plain.contains("f01_carry"));
 }

@@ -398,6 +398,9 @@ pub fn build_draw_list(snapshot: &HudSnapshot, layout: &HudLayout, out: &mut Vec
     } else if let Some(location) = snapshot.location.as_deref() {
         location_strip(&mut o, location, layout);
     }
+    if snapshot.loadout_tag {
+        loadout_tag(&mut o, snapshot.boss.is_some(), layout);
+    }
     system(&mut o, snapshot, layout);
     if let Some(preview) = snapshot.preview {
         preview_tag(&mut o, preview.tag_name(), layout);
@@ -817,6 +820,23 @@ fn location_strip(o: &mut Out, text: &str, layout: &HudLayout) {
         r.y + 3,
         p::AMBER,
     );
+}
+
+/// F01-HUD-ROOM (PT-SCENE U5): the TEST LOADOUT tag, the PREVIEW tag's look
+/// (ink, amber dash rows, Silkscreen Bold) in the text band under the top strip.
+fn loadout_tag(o: &mut Out, below_boss: bool, layout: &HudLayout) {
+    let text = crate::hud::LOADOUT_TAG_TEXT;
+    let tw = text_width_px(HudFont::SilkBold, text);
+    let r = layout.loadout_tag(tw, below_boss);
+    o.rect(Z_TEXT, r.x, r.y, r.w, r.h, p::HUD_INK);
+    let mut dx = 0;
+    while dx < r.w {
+        let w = 2.min(r.w - dx);
+        o.rect(Z_TEXT, r.x + dx, r.y, w, 1, p::AMBER);
+        o.rect(Z_TEXT, r.x + dx, r.y + r.h - 1, w, 1, p::AMBER);
+        dx += 4;
+    }
+    o.text(Z_TEXT, HudFont::SilkBold, text, r.x + 5, r.y + 3, p::AMBER);
 }
 
 fn three_slice(o: &mut Out, r: IRect, left: FrameId, mid: FrameId, right: FrameId) {

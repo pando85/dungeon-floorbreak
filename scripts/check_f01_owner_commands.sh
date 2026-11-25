@@ -26,6 +26,10 @@ try() { # expectation(ok|refuse) args...
 }
 S="--scene f01_late --scale 2"
 try ok $S
+# F01-RUN: the whole floor in one session (the first listed room; a 30-tick run never reaches an exit).
+try ok $S --f01-run
+try ok $S --f01-run --f01-loadout all
+try refuse $S --f01-run --cf02-seed 3
 for room in hoarder boiler hazards juicer mastery; do try ok $S --f01-room "$room"; done
 # FA-Q24: the Hoarder is listed again (it reverses PTG-AD1); her own scene still launches her too.
 for room in corral dozer ring_court ring_split; do try refuse $S --f01-room "$room"; done
