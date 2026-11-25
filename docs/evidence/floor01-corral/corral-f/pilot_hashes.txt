@@ -1,0 +1,4 @@
+corral:carl_solo:0 tick=971 hp=2 deaths=0 complete=n/a hash=0f078906e9aa609b
+corral:donut_fights:0 tick=973 hp=2 deaths=0 complete=n/a hash=c91f353e933bffa5
+corral:companion:0 tick=1125 hp=2 deaths=0 complete=n/a hash=a2f52d0648c1ceb9
+corral_rush tick=1500 hp=0 deaths=2 complete=n/a hash=4bff91dc9e9350ea

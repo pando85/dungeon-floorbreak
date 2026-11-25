@@ -10978,8 +10978,12 @@ mod tests {
         // holds nothing her pin does not (KC11).
         let (_, _, corral) =
             f01_late::corral_start(root, 360, late.carl, late.donut, None).unwrap();
-        let snapshot = f01_run::carry_for(f01_late::Loadout::Story, &corral)
-            .expect("the story loadout carries (the empty ledger, CF-AD3)");
+        let snapshot = f01_run::carry_for(
+            f01_late::Loadout::Story,
+            f01_late::RoomScene::Corral,
+            &corral,
+        )
+        .expect("the story loadout carries (the empty ledger, CF-AD3)");
         let carry = f01_run::encode_carry(&snapshot);
         let hoarder = |carried: bool| {
             let mut list = vec!["--scene", "f01_late", "--f01-run", "--f01-room", "hoarder"];

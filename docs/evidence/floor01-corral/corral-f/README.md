@@ -10,7 +10,7 @@ Every run below is a scripted pilot or a fixture, never a human. Window runs are
 
 | Item | Result | Evidence |
 | --- | --- | --- |
-| (a) The brace reads at 1x | Stand-in changed, readability **open (OQ1)** | `combat_anim::rush_stand_in`: the brace lean is 4 px (was 2), rocks 1 px forward between scrapes, and every scrape puff is 3x3 (was 2x2); test `the_brace_reads_at_1x_as_a_pumping_lean_with_3x3_puffs`. [`rush-brace-1x.png`](rush-brace-1x.png) is 1x crops (200x90 each); [`rush-brace-x3.png`](rush-brace-x3.png) is the same sheet enlarged 3x (nearest). Rows: the `corral_rush_bonk_wall` fixture (ticks 18, 40, 52), `corral_rush_hits_idle_carl` (18, 40, 60), and the in-room rush (746, 782, 792). The puffs show but stay small. Whether the brace reads as a rush and not a spit at 1x (hard review gate (c)) is the owner's call. |
+| (a) The brace reads at 1x | Stand-in changed, readability **open (OQ1)** | `combat_anim::rush_stand_in`: the brace lean is 4 px (was 2), rocks 1 px forward between scrapes, and every scrape puff is 3x3 (was 2x2); test `the_brace_reads_at_1x_as_a_pumping_lean_with_3x3_puffs`. [`rush-brace-1x.png`](rush-brace-1x.png) is 1x crops (200x90 each); [`rush-brace-x3.png`](rush-brace-x3.png) is the same sheet enlarged 3x (nearest). Rows: the `corral_rush_bonk_wall` fixture (ticks 18, 40, 52), `corral_rush_hits_idle_carl` (18, 40, 60), and the in-room rush (746, 782, 792; 746 is a pump beat with no puff). [`rush-brace-tell-742-774-x3.gif`](rush-brace-tell-742-774-x3.gif) is the whole in-room tell, game ticks 742 to 774 every 2 ticks, cropped around B and enlarged 3x (nearest), at real speed (33 ms a frame). The scrape puffs (tell tick 8 on, game ticks 750-752 and 758-760) show as a faint 3x3 speck at the rear hoof, and the 4 px lean is barely perceptible at 1x (the #283 review F2). The puffs show but stay small. Whether the brace reads as a rush and not a spit at 1x (hard review gate (c)) is the owner's call. |
 | (b) A corral room pilot that plays M0 to M3 | PASS | `--room-pilot corral` (`corral:WHO:SEED`, WHO `carl_solo`, `donut_fights`, `companion`); `room_pilots::tests::the_corral_room_pilot_replays_the_library_run_at_every_gate_seed` (party hash equal to the library run's). `--room-pilot corral_rush` is an evidence plan: Carl clears M0 and M1, parks inside B's trigger and is rushed (`the_corral_rush_plan_parks_carl_and_b_rushes_him_in_the_room`). |
 | (c) Native 640x360 and 640x400 captures of the M3 grate and an in-room rush, window hash equal to headless hash | PASS | [`captures.txt`](captures.txt): four `match=yes` lines plus the M0 missile capture. Stills below. |
 
@@ -18,7 +18,7 @@ Every run below is a scripted pilot or a fixture, never a human. Window runs are
 
 | File | What it shows |
 | --- | --- |
-| [`rush-640x360-tick746-brace.png`](rush-640x360-tick746-brace.png), [`rush-640x400-tick746-brace.png`](rush-640x400-tick746-brace.png) | B's brace, tell tick 4 (tell on 742) |
+| [`rush-640x360-tick750-brace-scrape.png`](rush-640x360-tick750-brace-scrape.png), [`rush-640x400-tick750-brace-scrape.png`](rush-640x400-tick750-brace-scrape.png) | B's brace on its first scrape beat, tell tick 8 (tell on 742): the 3x3 puff at the rear hoof. It replaces the tick-746 still, a pump beat with no puff (the #283 review F2). Whether this reads at 1x stays open (OQ1) |
 | [`rush-640x360-tick782-charge.png`](rush-640x360-tick782-charge.png), [`rush-640x400-tick782-charge.png`](rush-640x400-tick782-charge.png) | the committed charge (commit on 774, 32 ticks after the tell) |
 | [`rush-640x360-tick792-contact.png`](rush-640x360-tick792-contact.png), [`rush-640x400-tick792-contact.png`](rush-640x400-tick792-contact.png) | the tick after contact (contact on 791, Carl hurt, health 1 left) |
 | [`gate-640x360-tick859-closed.png`](gate-640x360-tick859-closed.png), [`gate-640x400-tick859-closed.png`](gate-640x400-tick859-closed.png) | the M3 grate standing (greybox, code-drawn) while the dock llama lives |
@@ -64,6 +64,10 @@ The 640x360 and 640x400 hashes differ from each other because the view height is
 
 Seeds 0 to 8 give these same ticks and stuck values for every pilot: the seed (the goblins' temperaments) does not change these runs' outcome. The seed still changes the state hash of a fixture-input run (`the_room_replays_to_the_same_hash_twice_and_the_seed_matters`).
 
+**Committed final hashes (plan section 14.7 gate 4, the #283 review F1).**
+- The unit test `f01_corral_fixtures::tests::corral_room_pilots_pin_their_final_hashes_at_seed_0` pins the library run at seed 0 for `carl_solo` (exit 971, state `0x4741f6330738da2d`, party `0xe5272ae3991c4393`), `donut_solo` (the binary's `donut_fights`: exit 973, `0x2e2229c912c8597d`, party `0x0c6102c8e5219ca3`) and `companion` (exit 1125, `0x91188a00ffd73a6b`, party `0x66f7e2f4ca5254d1`). The state hash is the binary's `COMBAT_STATE` at `--capture-tick` of the exit tick, and the party hash is its `ROOM_PILOT_STATE`.
+- [`pilot_hashes.txt`](pilot_hashes.txt) is `python3 scripts/room_pilot_hashes.py corral corral:carl_solo:0 corral:donut_fights:0 corral:companion:0 corral_rush`, the binary's headless final state at tick 1500, twice identical. `scripts/ci_floor01_combat.sh headless` compares against it (`F01_CORRAL_PILOTS_OK`). Its hashes differ from the exit-tick ones because the combat clock (`elapsed`) keeps counting after the exit: at `--capture-tick 1000` the `carl_solo` hash is `d8926421f4d8b797`, the PLAYTRACE sessions' final hash. `corral_rush` is the evidence plan: Carl stays parked in B's rush and is defeated twice by tick 1500, by design.
+
 ## Listing and the floor run
 
 - The manifest's `rooms` are now `corral, hoarder, boiler, hazards, ring_court, ring_split, juicer, mastery`; `Manifest::validate` requires a listed corral to be the first room and a corral scene to be named `corral`.
@@ -80,7 +84,7 @@ No committed recording stamps the old manifest pin (searched in hex and decimal)
 
 ## Adopted defaults (recorded, not owner decisions)
 
-- **CF-AD3:** an inert story room (the corral) carries the empty story ledger to the next room, so the Hoarder starts from her own pin and the panel says the ledger was carried, instead of "TEST LOADOUT, nothing carried".
+- **CF-AD3:** an inert story room (the corral) carries the empty story ledger to the next room, so the Hoarder starts from her own pin and the panel says the ledger was carried, instead of "TEST LOADOUT, nothing carried". The fallback is scoped to `RoomScene::Corral`: any other room without a story snapshot carries nothing (tested; review finding F4 of #283).
 - **CF-AD4:** the corral gets no render replay lines in `scripts/make_f01_gate_d_replay.sh` (that file's count of 153 lines is pinned by its own check); the window-equals-headless captures above stand in for them.
 - **CF-AD5:** the seed sweep of the gate probe is reported as-is (seeds 0 to 8 identical) rather than adding a seed-sensitive pilot.
 

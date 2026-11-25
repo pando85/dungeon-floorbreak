@@ -25,7 +25,7 @@
 //! no change here.
 
 use crate::combat_scene::CombatState;
-use crate::f01_late::{Loadout, Manifest, RoomRow};
+use crate::f01_late::{Loadout, Manifest, RoomRow, RoomScene};
 use crate::story_unlock::LedgerSnapshot;
 
 /// The flag that makes `--scene f01_late` a floor run.
@@ -163,17 +163,25 @@ pub fn relaunch_argv(
 
 /// The ledger a relaunch carries: the room's snapshot under the story loadout,
 /// nothing under the TEST LOADOUT (every room holds everything; adopted
-/// F01RUN-AD2). A story room with no story runtime (the corral: its pin holds
-/// nothing and arms nothing, KC11) carries the empty ledger, so the next room
-/// starts from its own pin and the panel states the story chain (CORRAL-F,
-/// adopted CF-AD3).
-pub fn carry_for(loadout: Loadout, combat: &CombatState) -> Option<LedgerSnapshot> {
+/// F01RUN-AD2). Only the corral (`RoomScene::Corral`), the one story room
+/// with no story runtime (its pin holds nothing and arms nothing, KC11),
+/// carries the empty ledger when it has no snapshot, so the next room starts
+/// from its own pin and the panel states the story chain (CORRAL-F, adopted
+/// CF-AD3). Any other room without a snapshot carries nothing, so a future
+/// story-less room never claims a carried ledger by accident.
+pub fn carry_for(
+    loadout: Loadout,
+    scene: RoomScene,
+    combat: &CombatState,
+) -> Option<LedgerSnapshot> {
     match loadout {
-        Loadout::Story => Some(combat.story_snapshot().unwrap_or(LedgerSnapshot {
-            version: crate::story_unlock::SNAPSHOT_VERSION,
-            held: Vec::new(),
-            receipts: Vec::new(),
-        })),
+        Loadout::Story => combat.story_snapshot().or_else(|| {
+            (scene == RoomScene::Corral).then(|| LedgerSnapshot {
+                version: crate::story_unlock::SNAPSHOT_VERSION,
+                held: Vec::new(),
+                receipts: Vec::new(),
+            })
+        }),
         Loadout::All => None,
     }
 }
@@ -222,7 +230,7 @@ pub fn on_exit(input: &ExitInput<'_>) -> Result<(RoomFacts, PanelText, Decision)
     let tally = input.tally.with(&facts);
     match next_room(input.manifest, input.room)? {
         NextStep::Room(next) => {
-            let carry = carry_for(input.loadout, input.combat);
+            let carry = carry_for(input.loadout, row.scene, input.combat);
             let argv = relaunch_argv(input.argv, &next.id, carry.as_ref(), tally);
             let panel = room_clear_panel(
                 input.manifest,
@@ -447,7 +455,6 @@ pub fn held_of(combat: &CombatState) -> Vec<(u8, String)> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::f01_late::RoomScene;
     use crate::f01_late_fixtures::{hoarder_defeat, juicer_relaunch};
     use crate::story_unlock::{FIST_REINFORCED, SPECIAL_THROWN_CHARGE, StoryTable};
     use std::path::PathBuf;
@@ -684,7 +691,14 @@ mod tests {
         // carries the empty ledger (CF-AD3).
         assert!(corral.story_snapshot().is_none());
         assert!(snapshot.held.is_empty() && snapshot.receipts.is_empty());
-        assert_eq!(Some(snapshot.clone()), carry_for(Loadout::Story, &corral));
+        assert_eq!(
+            Some(snapshot.clone()),
+            carry_for(Loadout::Story, RoomScene::Corral, &corral)
+        );
+        // The fallback is the corral's only: a story-less state in any other
+        // room carries nothing (review finding F4 of #283).
+        assert_eq!(None, carry_for(Loadout::Story, RoomScene::Boiler, &corral));
+        assert_eq!(None, carry_for(Loadout::All, RoomScene::Corral, &corral));
         let (_, _, mut hoarder) =
             crate::f01_late::hoarder_start(&root(), 360, carl, donut).unwrap();
         let (_, _, plain) = crate::f01_late::hoarder_start(&root(), 360, carl, donut).unwrap();
@@ -766,7 +780,7 @@ mod tests {
                 combat
             }
         };
-        let snapshot = carry_for(Loadout::Story, &combat);
+        let snapshot = carry_for(Loadout::Story, row.scene, &combat);
         (combat, snapshot)
     }
 
@@ -797,7 +811,10 @@ mod tests {
                 );
             }
             // The relaunch writes it on the argument list and reads it back.
-            let snapshot = snapshot.expect("a story room has a ledger");
+            // Every room of the run carries a ledger: its story snapshot, or
+            // the empty one for the corral only (CF-AD3), so a story-less room
+            // anywhere else fails here.
+            let snapshot = snapshot.unwrap_or_else(|| panic!("{} carries no ledger", row.id));
             let text = encode_carry(&snapshot);
             carry = Some(decode_carry(&text).unwrap());
         }

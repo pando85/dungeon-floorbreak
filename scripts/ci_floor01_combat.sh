@@ -621,6 +621,18 @@ case "$mode" in
       exit 1
     fi
     echo "F01_MASTERY_PILOT_OK: $mastery_pilot"
+    # CORRAL-F (the #283 review F1, plan section 14.7 gate 4): the corral room pilots at seed 0
+    # (carl_solo, donut_fights, companion) and the corral_rush evidence plan replay identically twice
+    # (the helper exits non-zero otherwise) and equal the committed final states. The three route
+    # pilots reach the exit undefeated; corral_rush parks Carl in B's rush and is meant to be hit.
+    corral_pilots="$(BIN="$bin" python3 scripts/room_pilot_hashes.py corral corral:carl_solo:0 corral:donut_fights:0 corral:companion:0 corral_rush)"
+    if [[ "$corral_pilots" != "$(cat docs/evidence/floor01-corral/corral-f/pilot_hashes.txt)" ]] \
+      || grep -v '^corral_rush ' <<<"$corral_pilots" | grep -qv ' deaths=0 '; then
+      echo "the corral room pilots differ from docs/evidence/floor01-corral/corral-f/pilot_hashes.txt, or a route pilot was defeated" >&2
+      echo "$corral_pilots" >&2
+      exit 1
+    fi
+    echo "F01_CORRAL_PILOTS_OK: $(wc -l <<<"$corral_pilots") plans, each twice identical and equal to the committed hashes"
     # PT-GATE-C1: the aligned room pilots (`mastery|juicer:WHO:SEED`) run the library fixture's party and seed
     # through the live party: each replays identically twice and prints its ROOM_PILOT_STATE (the fixture hash,
     # asserted equal to the library's for every (who, seed) by the unit tests). PT-GATE-E adds the hazards

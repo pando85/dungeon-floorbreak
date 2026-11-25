@@ -576,4 +576,55 @@ mod tests {
         );
         assert!(!sim.combat.reflex().armed(), "the hurt disarmed the reflex");
     }
+
+    /// CORRAL-F (the #283 review F1, plan section 14.7 gate 4): the committed
+    /// final state of the corral room pilots at seed 0, the library run that
+    /// `--room-pilot corral:WHO:0` replays tick for tick. `hash` is the combat
+    /// state hash on the exit tick (the binary's `COMBAT_STATE` at
+    /// `--capture-tick` of that tick), `party_hash` its `ROOM_PILOT_STATE`. The
+    /// binary's own lines are pinned in
+    /// `docs/evidence/floor01-corral/corral-f/pilot_hashes.txt`, checked by
+    /// `scripts/ci_floor01_combat.sh headless`.
+    #[test]
+    fn corral_room_pilots_pin_their_final_hashes_at_seed_0() {
+        let pins = [
+            (
+                Who::CarlSolo,
+                863,
+                971,
+                0x4741_f633_0738_da2d,
+                0xe527_2ae3_991c_4393,
+            ),
+            (
+                Who::DonutSolo,
+                862,
+                973,
+                0x2e22_29c9_12c8_597d,
+                0x0c61_02c8_e521_9ca3,
+            ),
+            (
+                Who::Companion,
+                1017,
+                1125,
+                0x9118_8a00_ffd7_3a6b,
+                0x66f7_e2f4_ca52_54d1,
+            ),
+        ];
+        for (who, gate, exit, hash, party_hash) in pins {
+            let report = run(&root(), who, 0).unwrap();
+            assert_eq!(report.gate_open_tick, Some(gate), "{who:?} gate");
+            assert_eq!(report.exit_tick, Some(exit), "{who:?} exit");
+            assert_eq!(report.deaths, 0, "{who:?} deaths");
+            assert_eq!(
+                report.hash, hash,
+                "{who:?} state hash {:#018x}",
+                report.hash
+            );
+            assert_eq!(
+                report.party_hash, party_hash,
+                "{who:?} party hash {:#018x}",
+                report.party_hash
+            );
+        }
+    }
 }
