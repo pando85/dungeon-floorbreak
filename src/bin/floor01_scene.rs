@@ -137,6 +137,9 @@ mod hazards_art;
 mod hoarder_art;
 #[path = "floor01_scene/pierce_spark.rs"]
 mod pierce_spark;
+// ROOM-PORTALS-01: the exit door of rooms 2, 4, 4a, 4b and 6 (the grate down while the exit gate stands).
+#[path = "floor01_scene/room_exit_art.rs"]
+mod room_exit_art;
 
 /// Draw order above the actor plane. Carl is drawn above every goblin, except
 /// that a goblin in its smear or impact is drawn over him (its club lands on
@@ -4193,6 +4196,7 @@ fn run_window(
                 danger_fx_art::sync_danger_fx,
                 hazards_art::sync_hazard_debug,
                 hoarder_art::sync_hoarder_art,
+                room_exit_art::sync_room_exit,
             )
                 .chain(),
             update_lighting,
@@ -4378,8 +4382,23 @@ fn setup(
         ));
     }
 
-    // Placed pieces (decals, structure, props, foreground).
+    // Placed pieces (decals, structure, props, foreground). ROOM-PORTALS-01: in
+    // rooms 2, 4, 4a, 4b and 6 the exit door takes the Guild door's place (its z and
+    // layer); the end torch it covers but for the flame tip is not drawn either.
+    // Its sprite is spawned with the combat art below.
+    let exit_art = room_exit_art::replaced_exit(args).and_then(|exit| {
+        kit.pieces
+            .iter()
+            .find(|p| room_exit_art::is_replaced(&p.piece))
+            .map(|p| (exit, p.z, layers_of(&p.layer)))
+    });
     for piece in &kit.pieces {
+        if exit_art
+            .as_ref()
+            .is_some_and(|(exit, _, _)| room_exit_art::skips(*exit, piece))
+        {
+            continue;
+        }
         let mut entity = commands.spawn((
             atlas_sprite(&atlas(&piece.atlas), piece.rect),
             Anchor::TOP_LEFT,
@@ -4812,6 +4831,18 @@ fn setup(
             layers_of("actors"),
             kit,
             &mut combat_entities,
+        );
+    }
+
+    // ROOM-PORTALS-01: the exit door in the Guild door's place.
+    if let Some((exit, z, layer)) = exit_art {
+        room_exit_art::spawn(
+            &mut commands,
+            &asset_server,
+            &mut combat_handles,
+            layer,
+            z,
+            exit,
         );
     }
 

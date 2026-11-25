@@ -1,5 +1,7 @@
 # Hazard room first look (NON-FINAL, a bonus of the EVID-ROOM stage)
 
+> **Regenerated for ROOM-PORTALS-01.** `hazards-first-look.gif` was regenerated with `scripts/make_f01_hazards_first_look.sh` (two passes byte-identical, `capture_lines.txt` unchanged): its last frames reach the room exit, now the room exit door instead of the Guild door; the room title of the HUD (#270) shows in them too. The three stills do not show the exit and were not touched (a fresh capture differs from them only by that HUD title, a separate refresh).
+
 > **Regenerated with the F01 danger FX art (PR #263).** The GIF and the three stills were regenerated with `scripts/make_f01_hazards_first_look.sh` on the danger FX head, two passes byte-identical, `capture_lines.txt` unchanged (same state hash). They now show the acid pool, the Rot Sticker's 48 px reach ring and its 48 px blast wave ([danger FX evidence](../../f01-danger-fx/README.md)), plus everything merged since the first capture (the FA-Q38 i-frame flicker, Donut's ANIM-DONUT-02 hurt frames). The prose below describes the original first look.
 
 A first look at `--scene f01_late --f01-room hazards` (the HAZ-A2b room with the HAZ-B stand-in presentation) at gameplay

@@ -1,0 +1,15 @@
+{
+  "asset_id": "f01-dfx-exit",
+  "format": "pixelart-keys-v1",
+  "keys": {
+    "0": {
+      "sha256": "f5db6fbacc494500f25307fa805646f5441c8a7dac67100428b062d0e54daf01"
+    },
+    "1": {
+      "sha256": "a5ec51c07a3b364f4e5975b587a9d97a334dafb63192f06f30a80eb5254ba1e5"
+    }
+  },
+  "layers": [
+    "body"
+  ]
+}
