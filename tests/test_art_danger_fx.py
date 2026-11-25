@@ -1,4 +1,4 @@
-"""F01 danger FX: the acid, ring, wave and gate sources, configs, manifests and spec contract."""
+"""F01 danger FX: the acid, ring, wave, gate and room exit sources, configs, manifests and spec contract."""
 from __future__ import annotations
 
 import json
@@ -28,6 +28,7 @@ SPEC = {
     "dfx_wave_r48": ((103, 103), (51, 51), {"blast_wave": 6}),
     "dfx_wave_r64": ((135, 135), (67, 67), {"blast_wave": 6}),
     "dfx_gate": ((28, 224), (0, 223), {"gate_closed": 1, "gate_raised": 1}),
+    "dfx_exit": ((96, 136), (0, 135), {"exit_closed": 1, "exit_open": 1}),
 }
 WAVE_TICKS = [2, 2, 2, 6, 5, 5]
 
@@ -103,6 +104,32 @@ class DangerFxSourcesTest(unittest.TestCase):
         self.assertTrue(closed[223].strip("."), "the teeth bite the floor on the last row")
         self.assertTrue(all(not row.strip(".") for row in raised[fx.GATE_RAISED_ROWS:]),
                         "the raised gate hangs only under the lintel")
+
+    def test_the_exit_opening_is_the_exit_gate_and_the_grate_bites_the_floor(self) -> None:
+        """ROOM-PORTALS-01: the opening is the 64 x 96 exit gate collider (columns 16..79,
+        rows 40..135); closed, the grate's teeth reach the floor row in every bar column;
+        open, the grate hangs only EXIT_RAISED_ROWS under the slot; the jambs and the
+        header are identical in both frames (only the grate moves)."""
+        grid = load(PROPS / "dfx_exit.grid.json")
+        pal = {p["key"]: p["name"] for p in grid["palette"]}
+        closed, opened = (f["cels"]["body"] for f in grid["frames"])
+        steel = {"stone_cold_00", "stone_cold_01", "stone_cold_02", "stone_cold_03", "stone_cold_04"}
+        self.assertEqual(fx.EW - 2 * fx.EJ, 64)
+        self.assertEqual(fx.EH - fx.EO_TOP, 96)
+        for bx in fx.EXIT_BARS:
+            self.assertIn(pal[closed[fx.EH - 1][bx + 1]], steel, f"bar {bx} tooth on the floor row")
+        for y in range(fx.EO_TOP + fx.EXIT_RAISED_ROWS, fx.EH):
+            row = "".join(opened[y][fx.EJ:fx.EW - fx.EJ])
+            self.assertFalse(any(pal[k] in steel for k in row), f"open row {y} is clear of the grate")
+        for y in range(fx.EH):
+            for x in list(range(fx.EJ)) + list(range(fx.EW - fx.EJ, fx.EW)):
+                self.assertEqual(closed[y][x], opened[y][x], f"jamb ({x}, {y})")
+        for y in range(fx.EO_TOP):
+            self.assertEqual(closed[y], opened[y], f"header row {y}")
+        corners = {(0, 0), (1, 0), (0, 1), (fx.EW - 1, 0), (fx.EW - 2, 0), (fx.EW - 1, 1)}
+        for frame in (closed, opened):
+            holes = {(x, y) for y, row in enumerate(frame) for x, k in enumerate(row) if k == "."}
+            self.assertEqual(holes, corners, "opaque but for the cap's chamfered corners")
 
 
 if __name__ == "__main__":

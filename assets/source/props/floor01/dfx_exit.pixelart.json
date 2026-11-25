@@ -1,0 +1,79 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "f01-dfx-exit",
+  "title": "F01 danger FX room exit door, rooms 2, 4, 4a, 4b and 6 (closed, open)",
+  "grid": "assets/source/props/floor01/dfx_exit.grid.json",
+  "manifest": "assets/manifests/f01-dfx-exit.json",
+  "frame_size": [
+    96,
+    136
+  ],
+  "pivot": [
+    0,
+    135
+  ],
+  "contact_row": null,
+  "tick_hz": 60,
+  "hold_ms": 100,
+  "facing": "left",
+  "tags": {
+    "exit_closed": {
+      "playback": "hold",
+      "contact": "free",
+      "frames": [
+        [
+          0,
+          null
+        ]
+      ]
+    },
+    "exit_open": {
+      "playback": "hold",
+      "contact": "free",
+      "frames": [
+        [
+          1,
+          null
+        ]
+      ]
+    }
+  },
+  "rules": {
+    "max_colors": 63,
+    "max_isolated_per_frame": 0,
+    "max_orphans_per_frame": 158,
+    "unique_frames": true,
+    "frozen_keys": {
+      "fixture": "tests/fixtures/f01-dfx-exit_keys.json",
+      "frames": [
+        0,
+        1
+      ],
+      "layers": [
+        "body"
+      ]
+    }
+  },
+  "scene": {
+    "shadow": false,
+    "actors": [
+      {
+        "frame": 0,
+        "x": 520,
+        "lift": 0
+      },
+      {
+        "frame": 1,
+        "x": 660,
+        "lift": 0
+      }
+    ]
+  },
+  "review": {
+    "strip_name": "03_state_strip.png",
+    "strip_tags": [
+      "exit_closed",
+      "exit_open"
+    ]
+  }
+}

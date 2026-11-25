@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""F01 danger FX: author the Floor 1 danger visuals (acid pool, blast rings, blast waves, room 5 gate).
+"""F01 danger FX: author the Floor 1 danger visuals (acid pool, blast rings, blast waves, room 5 gate, room exit).
 
 Writes one ``pixel-grid-v1`` source per canvas under ``assets/source/props/floor01/``
 (``dfx_*.grid.json``) and, with ``--meta``, the per-grid toolkit configs
@@ -42,6 +42,8 @@ OUT = K.OUT
 SLIME_GRID = ROOT / "assets/source/characters/slime/slime_01.grid.json"
 HOLD_MS = 100
 SPEC = "docs/02-art/floor01-danger-fx-spec.md"
+# The room exit door has its own spec (ROOM-PORTALS-01); the other sheets share SPEC.
+EXIT_SPEC = "docs/02-art/floor01-room-exit-spec.md"
 GRID_DIR_REL = "assets/source/props/floor01"
 MANIFESTS = ROOT / "assets/manifests"
 
@@ -342,63 +344,82 @@ RAIL = 204  # top row of the 8 px bottom rail; teeth below it to row 223
 GATE_RAISED_ROWS = 24  # the raised gate's rail and teeth hang this far under the lintel
 
 
+def grate(cv: Canvas, top: int, x0: int, x1: int, bars: list[int], straps: list[int], rail: int,
+          salt: int, clip_top: int = 0) -> None:
+    """A drop grate between columns ``x0..x1``: 3 px cold-steel ``bars`` (left columns),
+    riveted 6 px ``straps`` (rows from the grate's top), an 8 px bottom ``rail`` and 8 rows
+    of teeth, its top row on canvas row ``top``. Rows above ``clip_top`` are not drawn (the
+    part hidden in the lintel). ``salt`` keys the rust runs (a fixed integer hash)."""
+    def put(x: int, y: int, c: str) -> None:
+        if y >= clip_top:
+            cv.set(x, y, c)
+
+    def hl(y: int, c: str) -> None:
+        for x in range(x0, x1 + 1):
+            put(x, y, c)
+
+    for bx in bars:
+        for y in range(top, top + rail):
+            put(bx, y, "stone_cold_04")
+            put(bx + 1, y, "stone_cold_03")
+            put(bx + 2, y, "stone_cold_01")
+    for sy in straps:
+        y = top + sy
+        hl(y, "iron_00")
+        hl(y + 1, "stone_cold_04")
+        for yy in range(y + 2, y + 5):
+            hl(yy, "stone_cold_02")
+        hl(y + 5, "iron_00")
+        for bx in bars:  # a rivet on every bar crossing: lit head, shadow below-right
+            put(bx + 1, y + 2, "stone_cold_04")
+            put(bx + 2, y + 3, "iron_00")
+    # the bottom rail: heavier, a lit top edge, two rows of shade, soot at the base.
+    y = top + rail
+    hl(y, "iron_00")
+    hl(y + 1, "stone_cold_04")
+    for yy in range(y + 2, y + 6):
+        hl(yy, "stone_cold_02")
+    hl(y + 4, "stone_cold_01")
+    hl(y + 6, "stone_cold_00")
+    hl(y + 7, "iron_00")
+    for bx in bars:
+        put(bx + 1, y + 2, "stone_cold_04")
+        put(bx + 2, y + 3, "iron_00")
+    # teeth: each bar ends in a spike, 3 px wide tapering to 1 px, 8 rows under the rail.
+    for bx in bars:
+        for k in range(8):
+            yy = top + rail + 8 + k
+            if k < 3:
+                put(bx, yy, "stone_cold_04")
+                put(bx + 1, yy, "stone_cold_03")
+                put(bx + 2, yy, "stone_cold_01")
+            elif k < 6:
+                put(bx + 1, yy, "stone_cold_03")
+                put(bx + 2, yy, "stone_cold_01")
+            else:
+                put(bx + 1, yy, "stone_cold_02")
+                put(bx + 2, yy, "iron_00")
+    # rust: short runs down a bar under some rivets (copper ramp, never on the outline).
+    for i, bx in enumerate(bars):
+        for j, sy in enumerate(straps + [rail]):
+            if h32(i, j, salt) % 3 == 0:
+                length = 3 + h32(i, j, salt + 1) % 6
+                for k in range(length):
+                    yy = top + sy + 6 + k
+                    if yy >= top + rail:
+                        break
+                    put(bx + 1, yy, "copper_03" if k < length // 2 else "copper_02")
+    # grime: the bars darken toward the floor (the lit column steps down one value).
+    for bx in bars:
+        for y in range(top + rail - 40, top + rail):
+            if y >= clip_top and cv.get(bx, y) == "stone_cold_04" and (y + bx) % 3 == 0:
+                cv.set(bx, y, "stone_cold_03")
+
+
 def gate_grate(cv: Canvas, top: int) -> None:
     """Draw the grate with its bottom (teeth tips) on row ``top + 223``; rows above the
     canvas are clipped, so ``top < 0`` draws only the lower part (the raised gate)."""
-    for bx in BARS:
-        for y in range(top, top + RAIL):
-            cv.set(bx, y, "stone_cold_04")
-            cv.set(bx + 1, y, "stone_cold_03")
-            cv.set(bx + 2, y, "stone_cold_01")
-    for sy in STRAPS:
-        y = top + sy
-        cv.hline(0, 23, y, "iron_00")
-        cv.hline(0, 23, y + 1, "stone_cold_04")
-        cv.rect(0, y + 2, 23, y + 4, "stone_cold_02")
-        cv.hline(0, 23, y + 5, "iron_00")
-        for bx in BARS:  # a rivet on every bar crossing: lit head, shadow below-right
-            cv.set(bx + 1, y + 2, "stone_cold_04")
-            cv.set(bx + 2, y + 3, "iron_00")
-    # the bottom rail: heavier, a lit top edge, two rows of shade, soot at the base.
-    y = top + RAIL
-    cv.hline(0, 23, y, "iron_00")
-    cv.hline(0, 23, y + 1, "stone_cold_04")
-    cv.rect(0, y + 2, 23, y + 5, "stone_cold_02")
-    cv.hline(0, 23, y + 4, "stone_cold_01")
-    cv.hline(0, 23, y + 6, "stone_cold_00")
-    cv.hline(0, 23, y + 7, "iron_00")
-    for bx in BARS:
-        cv.set(bx + 1, y + 2, "stone_cold_04")
-        cv.set(bx + 2, y + 3, "iron_00")
-    # teeth: each bar ends in a spike, 3 px wide tapering to 1 px, rows RAIL+8..223.
-    for bx in BARS:
-        for k in range(8):
-            yy = top + RAIL + 8 + k
-            if k < 3:
-                cv.set(bx, yy, "stone_cold_04")
-                cv.set(bx + 1, yy, "stone_cold_03")
-                cv.set(bx + 2, yy, "stone_cold_01")
-            elif k < 6:
-                cv.set(bx + 1, yy, "stone_cold_03")
-                cv.set(bx + 2, yy, "stone_cold_01")
-            else:
-                cv.set(bx + 1, yy, "stone_cold_02")
-                cv.set(bx + 2, yy, "iron_00")
-    # rust: short runs down a bar under some rivets (copper ramp, never on the outline).
-    for i, bx in enumerate(BARS):
-        for j, sy in enumerate(STRAPS + [RAIL]):
-            if h32(i, j, 11) % 3 == 0:
-                length = 3 + h32(i, j, 12) % 6
-                for k in range(length):
-                    yy = top + sy + 6 + k
-                    if yy >= top + RAIL:
-                        break
-                    cv.set(bx + 1, yy, "copper_03" if k < length // 2 else "copper_02")
-    # grime: the bars darken toward the floor (the lit column steps down one value).
-    for bx in BARS:
-        for y in range(top + RAIL - 40, top + RAIL):
-            if cv.get(bx, y) == "stone_cold_04" and (y + bx) % 3 == 0:
-                cv.set(bx, y, "stone_cold_03")
+    grate(cv, top, 0, 23, BARS, STRAPS, RAIL, 11)
 
 
 def gate_jamb(cv: Canvas) -> None:
@@ -432,6 +453,169 @@ def gate_assets() -> list[TagSpec]:
             ("gate_raised", [(gate_raised(), None)], "hold")]
 
 
+# ================================================================== EXIT ====
+# The room exit of the f01 rooms 2, 4, 4a, 4b and 6 (ROOM-PORTALS-01; spec
+# docs/02-art/floor01-room-exit-spec.md): 96 x 136 (the replaced Guild door's height), a
+# dressed-stone doorway around the sidecar's 64 x 96 exit (the opening is exactly the
+# `defeat_roster` exit gate's collider), a two-course header with the grate's slot, a
+# lamp-lit passage behind it and the drop grate of the room 5 gate (same bars, straps,
+# rail, teeth and rust) closing the opening.
+EW, EH = 96, 136
+EJ = 16  # jamb width: the opening is columns EJ..EW - EJ - 1
+EO_TOP = 40  # first row of the opening (rows above: cap, two header courses, the slot)
+EXIT_BARS = [EJ + 1 + 6 * k for k in range(11)]  # 3 px bars, 3 px gaps
+EXIT_STRAPS = [12, 46]
+EXIT_RAIL = 80  # grate rows: bars to 79, rail 80..87, teeth 88..95 (tips on the floor row)
+EXIT_RAISED_ROWS = 16  # the raised grate's rail and teeth hang this far under the slot
+LAMP_X = 67  # the passage lamp's cage (columns 67..70), between two bars
+LAMP_Y = EO_TOP + 18  # the cage's top row (the Guild door's grille light sits on it)
+
+
+def ashlar_block(cv: Canvas, x0: int, y0: int, x1: int, y1: int, seed: int) -> None:
+    """One dressed warm-stone block lit from the top left: a lit top row and left column,
+    a shaded bottom row and right column, a few pits from a fixed hash."""
+    cv.rect(x0, y0, x1, y1, "stone_05")
+    cv.hline(x0, x1, y0, "stone_07")
+    cv.vline(x0, y0, y1, "stone_06")
+    cv.hline(x0, x1, y1, "stone_03")
+    cv.vline(x1, y0 + 1, y1, "stone_04")
+    for y in range(y0 + 2, y1 - 1):
+        for x in range(x0 + 2, x1 - 1):
+            if h32(x, y, seed) % 23 == 0:
+                cv.set(x, y, "stone_04")
+
+
+def exit_frame_stone(cv: Canvas) -> None:
+    """The jambs (16-row courses laid up from the floor, bonded every other course), the
+    cap course, a header course and the lintel with its keystone, the grate's iron slot
+    under it, mortar between the blocks."""
+    right = EW - EJ
+    cv.rect(0, 0, EW - 1, EO_TOP - 1, "mortar_02")
+    for x0, x1 in ((0, EJ - 1), (right, EW - 1)):
+        cv.rect(x0, EO_TOP, x1, EH - 1, "mortar_02")
+        for c, y1 in enumerate(range(EH - 1, EO_TOP, -16)):
+            y0 = max(y1 - 15, EO_TOP)
+            if c % 2:  # a bond joint: two short blocks
+                mid = x0 + 6 if x0 == 0 else x0 + 9
+                ashlar_block(cv, x0, y0, mid - 1, y1 - 1, 31 + c + x0)
+                ashlar_block(cv, mid + 1, y0, x1, y1 - 1, 41 + c + x0)
+            else:
+                ashlar_block(cv, x0, y0, x1, y1 - 1, 51 + c + x0)
+    # the cap course: a projecting ledge across the whole width.
+    cv.hline(0, EW - 1, 0, "stone_00")
+    cv.hline(0, EW - 1, 1, "stone_08")
+    cv.rect(0, 2, EW - 1, 3, "stone_06")
+    cv.hline(0, EW - 1, 4, "stone_02")
+    # the header course: three blocks, rows 5..18.
+    ashlar_block(cv, 0, 5, 27, 18, 64)
+    ashlar_block(cv, 29, 5, 66, 18, 65)
+    ashlar_block(cv, 68, 5, EW - 1, 18, 66)
+    # the lintel: two long blocks and a keystone breaking the header joint, rows 20..39.
+    ashlar_block(cv, 0, 20, 37, 39, 61)
+    ashlar_block(cv, 58, 20, EW - 1, 39, 62)
+    ashlar_block(cv, 39, 16, 56, 39, 63)
+    # the grate's slot: an iron channel across the opening, two bolts.
+    s = EO_TOP - 4
+    cv.hline(EJ - 2, right + 1, s, "iron_00")
+    cv.rect(EJ - 2, s + 1, right + 1, s + 2, "iron_02")
+    cv.hline(EJ - 2, right + 1, s + 3, "iron_00")
+    for bx in (EJ + 2, right - 3):
+        cv.set(bx, s + 1, "iron_06")
+        cv.set(bx + 1, s + 2, "iron_00")
+    # the guide grooves the grate runs in (the inner jamb faces).
+    cv.vline(EJ - 1, EO_TOP, EH - 1, "iron_00")
+    cv.vline(right, EO_TOP, EH - 1, "iron_00")
+    # the outer outline against the room's brick.
+    cv.vline(0, 1, EH - 1, "stone_00")
+    cv.vline(EW - 1, 1, EH - 1, "stone_00")
+    # the cap's chamfered ends: the room's brick shows in the two top corners.
+    for x, y in ((0, 0), (1, 0), (0, 1)):
+        cv.set(x, y, None)
+        cv.set(EW - 1 - x, y, None)
+    cv.set(1, 1, "stone_00")
+    cv.set(EW - 2, 1, "stone_00")
+
+
+def exit_passage(cv: Canvas) -> None:
+    """The passage behind the opening: dark brick courses lit warm by one caged lamp on the
+    right reveal, a shadowed left reveal, the lintel's soffit and the passage floor."""
+    x0, x1 = EJ, EW - EJ - 1
+    lamp = (LAMP_X + 1.5, LAMP_Y + 6.0)
+    for y in range(EO_TOP, EH):
+        for x in range(x0, x1 + 1):
+            d = math.hypot(x - lamp[0], (y - lamp[1]) * 1.3)
+            course = (y - EO_TOP) // 6
+            joint = (y - EO_TOP) % 6 == 5 or (x + 6 * (course % 2)) % 12 == 0
+            if d < 7:
+                c = "brick_05" if not joint else "brick_03"
+            elif d < 13:
+                c = "brick_04" if not joint else "brick_02"
+            elif d < 21:
+                c = "brick_03" if not joint else "brick_01"
+            elif d < 32:
+                c = "brick_02" if not joint else "brick_00"
+            else:
+                c = "brick_01" if not joint else "brick_00"
+            cv.set(x, y, c)
+    # the soffit under the lintel and the two reveals (the opening's depth).
+    cv.rect(x0, EO_TOP, x1, EO_TOP + 2, "stone_01")
+    cv.rect(x0, EO_TOP, x0 + 2, EH - 1, "stone_01")
+    cv.vline(x0 + 3, EO_TOP + 3, EH - 1, "stone_00")
+    cv.rect(x1 - 2, EO_TOP, x1, EH - 1, "stone_02")
+    for y in range(EO_TOP + 3, EH):
+        if abs(y - lamp[1]) < 14:
+            cv.set(x1 - 2, y, "stone_04")
+    # the passage floor, a lit spill under the lamp.
+    for y in range(EH - 8, EH):
+        for x in range(x0 + 4, x1 - 2):
+            e = ((x - lamp[0]) / 18) ** 2 + ((y - (EH - 1)) / 6) ** 2
+            if e < 0.45:
+                c = "floor_05"
+            elif e < 1.0:
+                c = "floor_04"
+            else:
+                c = "floor_02" if y > EH - 5 else "floor_01"
+            cv.set(x, y, c)
+    cv.hline(x0 + 4, x1 - 3, EH - 9, "floor_00")
+    # the lamp: a bracket into the right reveal, a brass cage, a small flame.
+    lx, ly = LAMP_X, LAMP_Y
+    cv.hline(lx + 3, x1 - 1, ly + 2, "iron_02")
+    cv.hline(lx, lx + 3, ly + 1, "brass_02")
+    cv.vline(lx, ly + 2, ly + 8, "brass_02")
+    cv.vline(lx + 3, ly + 2, ly + 8, "brass_02")
+    cv.hline(lx, lx + 3, ly + 9, "brass_01")
+    cv.rect(lx + 1, ly + 2, lx + 2, ly + 8, "flame_02")
+    cv.rect(lx + 1, ly + 4, lx + 2, ly + 7, "flame_03")
+    cv.set(lx + 1, ly + 5, "flame_04")
+    cv.set(lx + 1, ly, "brass_04")
+    cv.set(lx + 2, ly, "brass_03")
+
+
+def exit_closed() -> Canvas:
+    """The roster lives: the grate is down over the whole opening, teeth on the floor row."""
+    cv = Canvas(EW, EH)
+    exit_passage(cv)
+    grate(cv, EH - 96, EJ, EW - EJ - 1, EXIT_BARS, EXIT_STRAPS, EXIT_RAIL, 21, EO_TOP)
+    exit_frame_stone(cv)
+    return cv
+
+
+def exit_open() -> Canvas:
+    """The way is open: the grate hauled up into the lintel, only its rail and teeth hang
+    under the slot (``EXIT_RAISED_ROWS``); the lamp-lit passage reads through."""
+    cv = Canvas(EW, EH)
+    exit_passage(cv)
+    grate(cv, EO_TOP + EXIT_RAISED_ROWS - 96, EJ, EW - EJ - 1, EXIT_BARS, EXIT_STRAPS,
+          EXIT_RAIL, 21, EO_TOP)
+    exit_frame_stone(cv)
+    return cv
+
+
+def exit_assets() -> list[TagSpec]:
+    return [("exit_closed", [(exit_closed(), None)], "hold"),
+            ("exit_open", [(exit_open(), None)], "hold")]
+
+
 # ================================================================ OUTPUT ====
 def assets() -> dict[str, tuple[list[TagSpec], tuple[int, int]]]:
     out: dict[str, tuple[list[TagSpec], tuple[int, int]]] = {
@@ -442,13 +626,14 @@ def assets() -> dict[str, tuple[list[TagSpec], tuple[int, int]]]:
         out[f"dfx_ring_r{r}"] = (ring_assets(r), (c, c))
         out[f"dfx_wave_r{r}"] = (wave_assets(r), (c, c))
     out["dfx_gate"] = (gate_assets(), (0, GH - 1))
+    out["dfx_exit"] = (exit_assets(), (0, EH - 1))
     return out
 
 
 # Frozen design keys (grid frame index): the acid idle key, both march rings, the reach
 # frame of both waves, the closed gate.
 FROZEN = {"dfx_acid": [0], "dfx_ring_r48": [0], "dfx_ring_r64": [0], "dfx_wave_r48": [3],
-          "dfx_wave_r64": [3], "dfx_gate": [0]}
+          "dfx_wave_r64": [3], "dfx_gate": [0], "dfx_exit": [0, 1]}
 TITLES = {
     "dfx_acid": "acid pool strip (idle, draining)",
     "dfx_ring_r48": "blast reach ring, 48 px (march, hot)",
@@ -456,6 +641,7 @@ TITLES = {
     "dfx_wave_r48": "blast wave to the 48 px reach",
     "dfx_wave_r64": "blast wave to the 64 px reach",
     "dfx_gate": "room 5 entrance gate (closed, raised)",
+    "dfx_exit": "room exit door, rooms 2, 4, 4a, 4b and 6 (closed, open)",
 }
 # Evidence scene rows: (frame, x of the pivot column, lift).
 SCENES = {
@@ -465,10 +651,12 @@ SCENES = {
     "dfx_wave_r48": ([(1, 520, 40), (3, 660, 40)], False),
     "dfx_wave_r64": ([(1, 520, 56), (3, 700, 56)], False),
     "dfx_gate": ([(0, 560, 0), (1, 640, 0)], False),
+    "dfx_exit": ([(0, 520, 0), (1, 660, 0)], False),
 }
 STRIPS = {"dfx_acid": ["acid_idle", "acid_drain"], "dfx_ring_r48": ["ring_march", "ring_hot"],
           "dfx_ring_r64": ["ring_march", "ring_hot"], "dfx_wave_r48": ["blast_wave"],
-          "dfx_wave_r64": ["blast_wave"], "dfx_gate": ["gate_closed", "gate_raised"]}
+          "dfx_wave_r64": ["blast_wave"], "dfx_gate": ["gate_closed", "gate_raised"],
+          "dfx_exit": ["exit_closed", "exit_open"]}
 
 
 def to_grid(tags: list[TagSpec], pivot: tuple[int, int], pal: dict[str, str]) -> dict:
@@ -549,6 +737,9 @@ def manifest_of(name: str, tags: list[TagSpec], grid: dict) -> dict:
                        "content": [min(xs), min(ys), max(xs), max(ys)],
                        "sha256": frame_digest(grid["frames"][i]["cels"], ["body"])})
     acid = name == "dfx_acid"
+    exit_door = name == "dfx_exit"
+    spec = EXIT_SPEC if exit_door else SPEC
+    review = "independent top-tier review passed"
     # The acid uses only the SLIME-01 gel ramp (named entries, values exact), so it
     # carries the slime's palette id; the kit sheets carry the kit's (DFX-AD1).
     palette_note = "slime-floor01-v1" if acid else "floor01-catacomb-v2"
@@ -566,19 +757,21 @@ def manifest_of(name: str, tags: list[TagSpec], grid: dict) -> dict:
             "generator": "designed and executed by Claude Opus (spec, keys, frames); independent art-director review "
                          "by a separate Claude Opus agent. No concept pixels copied, no image-model raster output, "
                          "no tracing, no resampling"
+                         + ("; the grate reuses the room 5 gate's drawing code (dfx_gate)" if exit_door else "")
                          + ("; palette: the SLIME-01 gel ramp only (adopted default DFX-AD1)" if acid else ""),
             "generated_art": True,
-            "input_reference_ids": [SPEC, "assets/source/terrain/floor01/floor01_catacomb_kit.json"]
-            + (["assets/source/characters/slime/slime_01.grid.json"] if acid else []),
+            "input_reference_ids": [spec, "assets/source/terrain/floor01/floor01_catacomb_kit.json"]
+            + (["assets/source/characters/slime/slime_01.grid.json"] if acid else [])
+            + ([SPEC, "assets/source/props/floor01/dfx_gate.grid.json"] if exit_door else []),
         },
         "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; "
                    "no public reuse license; no game/asset-pack distribution rights",
         "review_status": "prototype_fixture_unapproved",
         "prop_kit": {
-            "status": f"{len(flat)} frames drawn; independent top-tier review passed, owner art and game-feel review "
+            "status": f"{len(flat)} frames drawn; {review}, owner art and game-feel review "
                       "pending; drawn by presentation-only "
-                      "wiring in src/danger_fx_art.rs",
-            "spec": SPEC, "tick_hz": 60, "hold_preview_ms": HOLD_MS,
+                      f"wiring in {'src/room_exit_art.rs' if exit_door else 'src/danger_fx_art.rs'}",
+            "spec": spec, "tick_hz": 60, "hold_preview_ms": HOLD_MS,
             "playback": {tag: p for tag, _f, p in tags},
             "frames": frames,
         },

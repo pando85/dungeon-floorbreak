@@ -61,6 +61,8 @@ The wave is a full circle: the simulation tests a circle (bodies are hit by dist
 
 **Design.** A drop grate: five 3 px cold-steel bars (`stone_cold_04` lit, `stone_cold_03`, `stone_cold_01` shade) with 2 px gaps, four riveted cross straps and a heavier bottom rail, every bar ending in a tapering spike that bites the floor on row 223, a jamb channel on the arena side (x 24..27, warm `iron_*`, a bolt every 32 rows), short rust runs (`copper_03`/`copper_02`) under some rivets and grime darkening toward the floor. Cold steel separates it from the warm brick at 1x (the Goblin Workshop kit's "interactive steel is cold" rule); it reads as a lock-in, not a door.
 
+The room exit door of rooms 2, 4 and 6 draws the same grate 64 px wide (shared drawing code; this sheet stays byte-identical): [floor01-room-exit-spec.md](floor01-room-exit-spec.md).
+
 ## 3. Palette
 
 All kit sheets use named entries of the Floor 01 kit palette, values exact: 23 distinct kit colours across the five kit sheets (at most 63). The acid uses ten named entries of the SLIME-01 gel ramp (`outline_murk`, `gel_0_deep` .. `gel_4_lit`, `sheen_torch`, `acid_hot`, `bone_gel_lit`, `bone_gel_dark`), values exact as in `slime_01.grid.json` (adopted default DFX-AD1: the kit has no acid green, only the dark `lichen` ramp, and the pool must be the same fluid as the slime that stands in it). Alpha is binary in every source.
