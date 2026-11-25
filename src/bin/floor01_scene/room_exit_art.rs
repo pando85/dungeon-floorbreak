@@ -42,6 +42,9 @@ pub(super) fn replaced_exit(args: &Args) -> Option<RoomRect> {
         run.loaded.encounter.exit
     } else if let Some(run) = &args.ring_run {
         run.loaded.encounter.exit
+    } else if let Some(run) = &args.corral_run {
+        // CORRAL-WIRE: room 0's exit, down while the M3 gate stands.
+        run.loaded.encounter.exit
     } else {
         return None;
     };

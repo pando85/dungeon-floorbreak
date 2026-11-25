@@ -2110,6 +2110,8 @@ pub fn carl_above_goblin(carl_active: bool, goblin_swinging: bool) -> bool {
 
 pub mod cf02;
 pub mod dynamite;
+/// CORRAL-E (CRL-Q38): the code-drawn rush stand-in.
+pub mod rush_stand_in;
 
 #[cfg(test)]
 mod tests;

@@ -38,6 +38,7 @@ use crate::corridor::SceneSim;
 use crate::donut_mana::DonutSetup;
 use crate::donut_prog::DonutProgFlags;
 use crate::f01_boiler::{self, BoilerRun, Roster};
+use crate::f01_corral;
 use crate::f01_ring::{self, RingRoom};
 use crate::story_unlock::{Storage, StoryTable};
 use crate::{f01_hazards, f01_hoarder, f01_mastery};
@@ -49,7 +50,7 @@ pub const MANIFEST_PATH: &str = "assets/levels/f01_late/manifest.json";
 /// hash is a constant, pinned to the file by a test and compared by every
 /// replay of a recorded room. A step that lists a room (CORRAL-WIRE, RING-A
 /// wire, HRD-A2, ...) re-pins it on purpose.
-pub const MANIFEST_HASH: u64 = 0xf501_4811_4f3b_5ed7;
+pub const MANIFEST_HASH: u64 = 0x727f_c5cf_5fd6_2109;
 /// The fixture-only stub trigger the story-order tie skips by name.
 pub const STUB_TRIGGER: &str = "carl_prog_find_zone_stub";
 /// The `data_pins()` key.
@@ -76,7 +77,7 @@ pub const fn data_pins() -> [(&'static str, u64); 1] {
 /// stamps nor needs them, so a later edit of the manifest (every room step) or of
 /// the Boiler files (BOIL-B/C wire) fails only the recordings it can change; a
 /// Juicer recording needs the manifest hash and not the Boiler's.
-pub const SCOPED_PIN_KEYS: [&str; 14] = [
+pub const SCOPED_PIN_KEYS: [&str; 16] = [
     f01_boiler::ROOM_PIN_KEY,
     f01_boiler::ENCOUNTER_PIN_KEY,
     f01_boiler::fixes::PIN_KEY,
@@ -90,6 +91,8 @@ pub const SCOPED_PIN_KEYS: [&str; 14] = [
     f01_ring::COURT_ENCOUNTER_PIN_KEY,
     f01_ring::SPLIT_ROOM_PIN_KEY,
     f01_ring::SPLIT_ENCOUNTER_PIN_KEY,
+    f01_corral::ROOM_PIN_KEY,
+    f01_corral::ENCOUNTER_PIN_KEY,
     MANIFEST_PIN_KEY,
 ];
 
@@ -109,6 +112,9 @@ pub fn pin_applies(key: &str, room: Option<&str>) -> bool {
         }
         f01_ring::SPLIT_ROOM_PIN_KEY | f01_ring::SPLIT_ENCOUNTER_PIN_KEY => {
             room == Some(RingRoom::Split.id())
+        }
+        f01_corral::ROOM_PIN_KEY | f01_corral::ENCOUNTER_PIN_KEY => {
+            room == Some(f01_corral::ROOM_ID)
         }
         MANIFEST_PIN_KEY => room.is_some(),
         _ => true,
@@ -148,6 +154,10 @@ pub enum RoomScene {
     /// `--scene f01_late` only.
     #[serde(rename = "f01_ring_split")]
     RingSplit,
+    /// CORRAL-WIRE: room 0, the Infernal Corral; launched through
+    /// `--scene f01_late` only, and unlisted until CORRAL-F (CW-AD1).
+    #[serde(rename = "f01_corral")]
+    Corral,
 }
 
 impl RoomScene {
@@ -162,6 +172,7 @@ impl RoomScene {
             Self::Mastery => "f01_mastery",
             Self::RingCourt => RingRoom::Court.scene_name(),
             Self::RingSplit => RingRoom::Split.scene_name(),
+            Self::Corral => f01_corral::SCENE_NAME,
         }
     }
 
@@ -232,6 +243,11 @@ pub struct Manifest {
     pub schema: String,
     pub status: String,
     pub rooms: Vec<RoomRow>,
+    /// Rooms that launch by id (`--f01-room`) but are **not listed**: no floor
+    /// run walks them and [`Self::room`] refuses them (CORRAL-WIRE, plan section
+    /// 14.7: the corral until CORRAL-F lands and CORRAL-AUTO passes).
+    #[serde(default)]
+    pub unlisted_rooms: Vec<RoomRow>,
     pub story_order: Vec<OrderRow>,
 }
 
@@ -265,6 +281,21 @@ impl Manifest {
                 self.listed().join(", ")
             )
         })
+    }
+
+    /// The row of a room `--f01-room` may launch: a listed room, else an
+    /// unlisted launchable one (CORRAL-WIRE). Every other id is refused like
+    /// [`Self::room`] refuses it.
+    pub fn launchable(&self, id: &str) -> Result<&RoomRow, String> {
+        match self.unlisted_rooms.iter().find(|r| r.id == id) {
+            Some(row) => Ok(row),
+            None => self.room(id),
+        }
+    }
+
+    /// Whether `id` is an unlisted launchable room.
+    pub fn is_unlisted(&self, id: &str) -> bool {
+        self.unlisted_rooms.iter().any(|r| r.id == id)
     }
 
     /// The default of `--f01-room`: the Boiler, the room the launcher began with
@@ -318,7 +349,8 @@ impl Manifest {
                 | RoomScene::Hazards
                 | RoomScene::Mastery
                 | RoomScene::RingCourt
-                | RoomScene::RingSplit => row.rules == RoomRules::Cf02,
+                | RoomScene::RingSplit
+                | RoomScene::Corral => row.rules == RoomRules::Cf02,
                 RoomScene::Boss => row.rules == RoomRules::Boss,
             };
             if !rules_ok {
@@ -337,6 +369,38 @@ impl Manifest {
                     ring.id()
                 ));
             }
+        }
+        for (i, row) in self.unlisted_rooms.iter().enumerate() {
+            if self.unlisted_rooms[..i].iter().any(|r| r.id == row.id)
+                || self.rooms.iter().any(|r| r.id == row.id)
+            {
+                return Err(format!("manifest: duplicate room {:?}", row.id));
+            }
+            if !self
+                .story_order
+                .iter()
+                .any(|o| o.id == row.id && o.kind == OrderKind::Room)
+            {
+                return Err(format!(
+                    "manifest: unlisted room {:?} is not in story_order",
+                    row.id
+                ));
+            }
+            // CORRAL-WIRE: the one unlisted scene is the corral's, under CF02.
+            if row.scene != RoomScene::Corral
+                || row.id != f01_corral::ROOM_ID
+                || row.rules != RoomRules::Cf02
+            {
+                return Err(format!(
+                    "manifest: unlisted room {:?} must be the corral under cf02_rules",
+                    row.id
+                ));
+            }
+        }
+        if self.rooms.iter().any(|r| r.scene == RoomScene::Corral) {
+            return Err(
+                "manifest: the corral is listed only by CORRAL-F (plan section 14.7)".into(),
+            );
         }
         check_story_order(&self.story_order, table)
     }
@@ -663,8 +727,25 @@ pub fn ring_start(
     Ok((run, scene, combat))
 }
 
+/// Launch room 0, the Infernal Corral, and build its scene and combat state
+/// (CORRAL-WIRE), the shared constructor of the binary and the verifier. Its
+/// goblins draw their temperaments from `--cf02-seed`.
+pub fn corral_start(
+    root: &Path,
+    view_height: i32,
+    carl: CarlProgFlags,
+    donut: DonutProgFlags,
+    cf02_seed: Option<u64>,
+) -> Result<(f01_corral::CorralRun, SceneSim, CombatState), String> {
+    let run = f01_corral::launch(root)?;
+    let mut scene = SceneSim::new_at(&run.kit, view_height, run.fixture.carl_x)?;
+    let combat = f01_corral::combat_for(&run, &mut scene, carl, donut, cf02_seed)?;
+    Ok((run, scene, combat))
+}
+
 /// Whether a recorded descriptor's room label is consistent with this build:
-/// the room is listed, a loadout label is known and agrees with the flags.
+/// the room is launchable (listed, or unlisted and launchable: CORRAL-WIRE), a
+/// loadout label is known and agrees with the flags.
 pub fn check_descriptor(
     manifest: &Manifest,
     room: &str,
@@ -674,7 +755,7 @@ pub fn check_descriptor(
 ) -> Result<(), String> {
     // FA-Q24: the Hoarder is listed again, so a recording of her room (`--f01-room hoarder`, or
     // `--scene f01_hoarder` with no loadout label) names a listed room like every other.
-    manifest.room(room)?;
+    manifest.launchable(room)?;
     if let Some(label) = loadout {
         let known = Loadout::parse(label).ok_or_else(|| format!("unknown loadout {label:?}"))?;
         if !known.matches(carl, donut) {
@@ -744,6 +825,55 @@ mod tests {
             assert_eq!(m.room(id).unwrap().rules, RoomRules::Cf02, "{id}");
         }
         assert_eq!(m.room("juicer").unwrap().rules, RoomRules::Boss);
+        // CORRAL-WIRE (CW-AD1): the corral launches by id but is not listed.
+        assert!(m.room("corral").is_err());
+        let corral = m.launchable("corral").unwrap();
+        assert_eq!(corral.scene, RoomScene::Corral);
+        assert_eq!(corral.rules, RoomRules::Cf02);
+        assert_eq!(corral.milestone, "greybox");
+        assert!(m.is_unlisted("corral") && !m.is_unlisted("boiler"));
+        assert_eq!(m.launchable("boiler").unwrap().scene, RoomScene::Boiler);
+        assert!(
+            m.launchable("dozer")
+                .unwrap_err()
+                .starts_with("unlisted room")
+        );
+    }
+
+    /// CORRAL-WIRE: an unlisted row must be the corral under the CF02 rules, in
+    /// the story order, not also listed; and the corral is never listed yet.
+    #[test]
+    fn the_unlisted_rows_are_checked() {
+        let base = manifest();
+        let corral = base.unlisted_rooms[0].clone();
+        let mut m = base.clone();
+        m.unlisted_rooms[0].rules = RoomRules::Boss;
+        assert!(
+            m.validate(table())
+                .unwrap_err()
+                .contains("must be the corral")
+        );
+        let mut m = base.clone();
+        m.unlisted_rooms[0].id = "dozer".into();
+        assert!(
+            m.validate(table())
+                .unwrap_err()
+                .contains("must be the corral")
+        );
+        let mut m = base.clone();
+        m.unlisted_rooms.push(corral.clone());
+        assert!(m.validate(table()).unwrap_err().contains("duplicate room"));
+        let mut m = base.clone();
+        m.unlisted_rooms[0].id = "cellar".into();
+        assert!(
+            m.validate(table())
+                .unwrap_err()
+                .contains("not in story_order")
+        );
+        let mut m = base.clone();
+        m.unlisted_rooms.clear();
+        m.rooms.insert(0, corral);
+        assert!(m.validate(table()).unwrap_err().contains("CORRAL-F"));
     }
 
     #[test]
@@ -755,7 +885,8 @@ mod tests {
             unknown.contains("hoarder, boiler, hazards, ring_court, ring_split, juicer, mastery"),
             "{unknown}"
         );
-        // Known to the story order but not landed yet.
+        // Known to the story order but not listed (the corral launches unlisted,
+        // CORRAL-WIRE; the dozer has not landed).
         for id in ["corral", "dozer"] {
             let unlisted = m.room(id).unwrap_err();
             assert!(unlisted.starts_with("unlisted room"), "{unlisted}");
@@ -780,7 +911,9 @@ mod tests {
         let error = check_descriptor(&m, "hoarder", Some("story"), flags.0, flags.1)
             .expect_err("a loadout label that disagrees with the flags");
         assert!(error.contains("another run"), "{error}");
-        assert!(check_descriptor(&m, "corral", None, flags.0, flags.1).is_err());
+        assert!(check_descriptor(&m, "dozer", None, flags.0, flags.1).is_err());
+        // CORRAL-WIRE: the unlisted corral launches, so its recordings are consistent.
+        assert!(check_descriptor(&m, "corral", None, flags.0, flags.1).is_ok());
     }
 
     // ---- KR12: the story-order pin test
@@ -1274,6 +1407,10 @@ mod tests {
                         f01_ring::SPLIT_ENCOUNTER_PIN_KEY,
                     ],
                 ),
+                (
+                    "corral",
+                    [f01_corral::ROOM_PIN_KEY, f01_corral::ENCOUNTER_PIN_KEY],
+                ),
             ]
             .into_iter()
             .find(|(_, keys)| keys.contains(&key))
@@ -1288,6 +1425,7 @@ mod tests {
             Some("mastery"),
             Some("ring_court"),
             Some("ring_split"),
+            Some("corral"),
         ] {
             for key in SCOPED_PIN_KEYS {
                 let covered = match owner(key) {

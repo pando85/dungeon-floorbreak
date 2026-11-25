@@ -511,8 +511,8 @@ case "$mode" in
     # headless smoke of each room and loadout replays identically twice and names
     # its room; the story loadout of the Boiler differs from the plain room (the
     # pin holds dynamite and Light on Your Feet), and the plain room is unchanged.
-    late_lines() { "$bin" --headless-floor01-smoke --scene f01_late "$@" | grep -E '^(F01_LATE_ENTRY|F01_(BOILER|HOARDER|HAZARDS|MASTERY|RING_COURT|RING_SPLIT)_(ENTRY|SMOKE_OK)|COMBAT_STATE)'; }
-    for late_args in "--f01-room boiler" "--f01-room boiler --f01-loadout all" "--f01-room juicer" "--f01-room juicer --f01-loadout all" "--f01-room hoarder" "--f01-room hoarder --f01-loadout all" "--f01-room hazards" "--f01-room hazards --f01-loadout all" "--f01-room mastery" "--f01-room mastery --f01-loadout all" "--f01-room mastery --cf02-seed 7" "--f01-room ring_court" "--f01-room ring_court --f01-loadout all" "--f01-room ring_split" "--f01-room ring_split --cf02-seed 7"; do
+    late_lines() { "$bin" --headless-floor01-smoke --scene f01_late "$@" | grep -E '^(F01_LATE_ENTRY|F01_(BOILER|HOARDER|HAZARDS|MASTERY|RING_COURT|RING_SPLIT|CORRAL)_(ENTRY|SMOKE_OK)|COMBAT_STATE)'; }
+    for late_args in "--f01-room boiler" "--f01-room boiler --f01-loadout all" "--f01-room juicer" "--f01-room juicer --f01-loadout all" "--f01-room hoarder" "--f01-room hoarder --f01-loadout all" "--f01-room hazards" "--f01-room hazards --f01-loadout all" "--f01-room mastery" "--f01-room mastery --f01-loadout all" "--f01-room mastery --cf02-seed 7" "--f01-room ring_court" "--f01-room ring_court --f01-loadout all" "--f01-room ring_split" "--f01-room ring_split --cf02-seed 7" "--f01-room corral" "--f01-room corral --f01-loadout all" "--f01-room corral --cf02-seed 7"; do
       # shellcheck disable=SC2086
       late_a="$(late_lines $late_args)"
       # shellcheck disable=SC2086
@@ -575,6 +575,17 @@ case "$mode" in
         exit 1
       fi
     done
+    # CORRAL-WIRE: room 0 is launchable but unlisted (plan section 14.7). It loads
+    # M0's two goblins and the three llamas, stands its M3 gate on the two M2
+    # llamas, and a floor run refuses it.
+    corral_state="$(late_lines --f01-room corral)"
+    if ! grep -q '^F01_CORRAL_SMOKE_OK .* env=live slot_enemies=0 enemies=2 ' <<<"$corral_state" \
+      || ! grep -q '^F01_CORRAL_ENTRY .* goblins=2 llamas=3 m3_gate=2048..2064_on_llamas_1+2 listed=false ' <<<"$corral_state" \
+      || "$bin" --headless-floor01-smoke --scene f01_late --f01-room corral --f01-run >/dev/null 2>&1; then
+      echo "the f01_late corral did not load its roster and M3 gate, or a floor run accepted it" >&2
+      exit 1
+    fi
+    echo "F01_CORRAL_HEADLESS_OK: $(grep '^F01_CORRAL_SMOKE_OK' <<<"$corral_state")"
     # The direct scenes name the same room, load their slot roster (the Hoarder's one slot enemy, the hazard room's
     # two slimes) and replay identically twice.
     for direct in f01_hoarder:F01_HOARDER:slot_enemies=1 f01_hazards:F01_HAZARDS:slot_enemies=2; do
@@ -663,7 +674,7 @@ case "$mode" in
       exit 1
     fi
     echo "F01_HAZ_TACTICAL_OK: second sticker baited over the slime, no Rot hurt, room cleared, final hash 8e10bd0986d23ad9 (the filmed run), twice identical"
-    echo "F01_LATE_HEADLESS_OK: hoarder, boiler, hazards, ring_court, ring_split, juicer and mastery, story and all, each twice identical"
+    echo "F01_LATE_HEADLESS_OK: hoarder, boiler, hazards, ring_court, ring_split, juicer and mastery (listed) and corral (unlisted), story and all, each twice identical"
     ;;
   render)
     for f in "${fixtures[@]}"; do

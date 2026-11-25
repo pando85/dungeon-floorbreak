@@ -156,44 +156,70 @@ pub fn is_room_fixture(name: &str) -> bool {
     name == M1_BASE.name || name == M2_BASE.name
 }
 
-/// The opt-ins of a room fixture (R1, R2, KC15), `None` for every other name.
-pub fn llama_opt_ins(name: &str) -> Option<LlamaOptInSet> {
+/// CORRAL-WIRE: the fixture name of the launched room (`--f01-room corral`,
+/// `src/f01_corral.rs`). Its llamas are the sidecar's, in roster order: the M1
+/// llama (index 0), then B (1) and A (2), at the columns above; the launch
+/// refuses a sidecar whose llamas are elsewhere. It is not a room fixture of
+/// this module ([`is_room_fixture`]): it runs under the room rules of the late
+/// launcher, not under the `corral_` name hooks of `cf02_rules`.
+pub const WIRED_NAME: &str = "f01_corral";
+
+/// The llama columns of the launched room, in its llama index order.
+pub const WIRED_LLAMAS: [i32; 3] = [M1_X, B_X, A_X];
+
+/// CRL-Q27: no profile, the legacy leash and spit, party targeting.
+fn m1_opt_in(index: usize) -> LlamaOptIn {
+    LlamaOptIn {
+        index,
+        feet: None,
+        facing: 0,
+        dormant: false,
+        health: None,
+        rush: None,
+    }
+}
+
+/// CRL-Q25, CRL-Q28: B on the pen floor and A on the dock, both with the corral
+/// profile, facing -1 and dormant until the CRL-Q24 wake.
+fn m2_opt_ins(b: usize, a: usize) -> [LlamaOptIn; 2] {
     let profile = llama_rush::active();
-    let opt_ins = if name == M1_BASE.name {
-        // CRL-Q27: no profile, the legacy leash and spit, party targeting.
-        vec![LlamaOptIn {
-            index: 0,
+    [
+        LlamaOptIn {
+            index: b,
             feet: None,
-            facing: 0,
-            dormant: false,
+            facing: -1,
+            dormant: true,
             health: None,
-            rush: None,
-        }]
+            rush: Some(RushOptIn {
+                profile,
+                leash: B_LEASH,
+            }),
+        },
+        LlamaOptIn {
+            index: a,
+            feet: Some(FLOOR_WORLD_Y + DOCK_RISE),
+            facing: -1,
+            dormant: true,
+            health: None,
+            rush: Some(RushOptIn {
+                profile,
+                leash: A_LEASH,
+            }),
+        },
+    ]
+}
+
+/// The opt-ins of a room fixture (R1, R2, KC15) or of the launched room
+/// ([`WIRED_NAME`]), `None` for every other name.
+pub fn llama_opt_ins(name: &str) -> Option<LlamaOptInSet> {
+    let opt_ins = if name == M1_BASE.name {
+        vec![m1_opt_in(0)]
     } else if name == M2_BASE.name {
-        vec![
-            LlamaOptIn {
-                index: 0,
-                feet: None,
-                facing: -1,
-                dormant: true,
-                health: None,
-                rush: Some(RushOptIn {
-                    profile,
-                    leash: B_LEASH,
-                }),
-            },
-            LlamaOptIn {
-                index: 1,
-                feet: Some(FLOOR_WORLD_Y + DOCK_RISE),
-                facing: -1,
-                dormant: true,
-                health: None,
-                rush: Some(RushOptIn {
-                    profile,
-                    leash: A_LEASH,
-                }),
-            },
-        ]
+        m2_opt_ins(0, 1).to_vec()
+    } else if name == WIRED_NAME {
+        let mut all = vec![m1_opt_in(0)];
+        all.extend(m2_opt_ins(1, 2));
+        all
     } else {
         return None;
     };

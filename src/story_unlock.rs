@@ -117,6 +117,11 @@ pub enum SceneKind {
     /// ([`StorySetup::for_pin`], the `pin` key of the room manifest), so
     /// [`StorySetup::for_scene`] never holds it, and no trigger is armed in it.
     F01Late,
+    /// CORRAL-WIRE: room 0, the Infernal Corral (`--f01-room corral`). No pin row
+    /// and no trigger carries it (KC9, KC11: the room holds the Guild biscuit
+    /// only, read through, and grants nothing), so a story setup for it holds
+    /// and arms nothing; a row that names it is a deliberate table change.
+    Corral,
 }
 
 /// How a data event id is matched against the combat events.

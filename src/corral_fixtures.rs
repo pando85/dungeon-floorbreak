@@ -433,7 +433,7 @@ pub fn donut_start_x(name: &str) -> Option<f32> {
 /// R2, KC15: the party targeting and per-llama opt-ins of a corral fixture, and
 /// its authored solids. `None` for every other fixture, so nothing else changes.
 pub fn llama_opt_ins(name: &str) -> Option<LlamaOptInSet> {
-    if room::is_room_fixture(name) {
+    if room::is_room_fixture(name) || name == room::WIRED_NAME {
         return room::llama_opt_ins(name);
     }
     let entry = entry_of(name)?;

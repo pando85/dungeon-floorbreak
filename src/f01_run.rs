@@ -475,6 +475,8 @@ mod tests {
         // chain follows the rows, whatever they are.
         let text = std::fs::read_to_string(root().join(crate::f01_late::MANIFEST_PATH)).unwrap();
         let mut value: serde_json::Value = serde_json::from_str(&text).unwrap();
+        // CORRAL-WIRE: the corral launches unlisted today; listing it moves its row.
+        value.as_object_mut().unwrap().remove("unlisted_rooms");
         let rooms = value["rooms"].as_array_mut().unwrap();
         let corral = serde_json::json!({
             "id": "corral", "title": "The Infernal Corral", "scene": "f01_boiler",
@@ -649,6 +651,8 @@ mod tests {
                     .unwrap()
                     .combat
             }
+            // CORRAL-WIRE: the corral is unlisted, so no floor run walks it.
+            RoomScene::Corral => unreachable!("the floor run walks listed rooms only"),
             RoomScene::Boiler
             | RoomScene::Hazards
             | RoomScene::Mastery

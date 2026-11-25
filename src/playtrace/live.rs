@@ -252,6 +252,15 @@ pub fn data_pins() -> Vec<(&'static str, u64)> {
             crate::f01_ring::SPLIT_ENCOUNTER_PIN_KEY,
             crate::f01_ring::SPLIT_ENCOUNTER_HASH,
         ),
+        // CORRAL-WIRE: room 0's room and sidecar pins, scoped to the corral.
+        (
+            crate::f01_corral::ROOM_PIN_KEY,
+            crate::f01_corral::ROOM_HASH,
+        ),
+        (
+            crate::f01_corral::ENCOUNTER_PIN_KEY,
+            crate::f01_corral::ENCOUNTER_HASH,
+        ),
         // CF02-FU-C2F U3: the microarena's room file.
         (
             crate::cf02::arena::ROOM_PIN_KEY,

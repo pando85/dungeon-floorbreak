@@ -19,6 +19,7 @@ use serde::Deserialize;
 
 use crate::cf02::Cf02Tuning;
 use crate::combat::{CombatEvent, ForceTier, MoveId, PropPhase};
+use crate::llama_rush::RushEnd;
 
 /// Directory of the Floor 01 pack, relative to the repository root.
 pub const PACK_DIR: &str = "assets/audio/floor01";
@@ -288,6 +289,16 @@ pub fn cues_from_combat_event_cf02(event: &CombatEvent, tuning: &Cf02Tuning) -> 
         CombatEvent::WallSlam { .. } => vec![CueId::EnemyWallSlam],
         CombatEvent::Blast { .. } => vec![CueId::BlastDetonation],
         CombatEvent::LlamaTell { .. } => vec![CueId::Warning],
+        // CORRAL-E (cue reuse, no new sound): the rush brace warns like the spit
+        // tell, a rush stopped by a solid or the partition is a wall slam and a
+        // rush that meets a hero a body collision. The commit and a miss stay
+        // silent (the brace already warned).
+        CombatEvent::LlamaRushTell { .. } => vec![CueId::Warning],
+        CombatEvent::LlamaRushEnd { end, .. } => match end {
+            RushEnd::Blocked | RushEnd::Partition => vec![CueId::EnemyWallSlam],
+            RushEnd::Contact(_) => vec![CueId::EnemyBodyCollision],
+            RushEnd::Miss => Vec::new(),
+        },
         CombatEvent::EnemyDefeated { force, .. } if *force >= ForceTier::Heavy => {
             vec![CueId::EnemyDefeatHeavy]
         }
@@ -1384,6 +1395,28 @@ mod tests {
         assert_eq!(map(body), [EnemyBodyCollision]);
         assert_eq!(map(CombatEvent::ShoreLanded { tick: 1 }), [HeavyPropCrash]);
         assert_eq!(map(CombatEvent::LlamaTell { tick: 1, llama: 0 }), [Warning]);
+        // CORRAL-E: the rush reuses the tell, the wall slam and the body cue.
+        use crate::llama_rush::RushEnd;
+        assert_eq!(
+            map(CombatEvent::LlamaRushTell { tick: 1, llama: 1 }),
+            [Warning]
+        );
+        let end = |end| CombatEvent::LlamaRushEnd {
+            tick: 1,
+            llama: 1,
+            end,
+        };
+        assert_eq!(map(end(RushEnd::Blocked)), [EnemyWallSlam]);
+        assert_eq!(map(end(RushEnd::Partition)), [EnemyWallSlam]);
+        assert_eq!(
+            map(end(RushEnd::Contact(crate::party::HeroId::Carl))),
+            [EnemyBodyCollision]
+        );
+        assert_eq!(map(end(RushEnd::Miss)), Vec::<CueId>::new());
+        assert_eq!(
+            map(CombatEvent::LlamaRushCommit { tick: 1, llama: 1 }),
+            Vec::<CueId>::new()
+        );
         // Five distinct new cue ids.
         let mut names: Vec<_> = CueId::CF02.iter().map(|c| c.name()).collect();
         names.sort_unstable();
