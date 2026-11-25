@@ -11,7 +11,7 @@ Evidence for [the AREA-GYM-01 spec](../../02-art/area-gym-01-spec.md): the boss 
 | `scene_intact_*` | 60 | the room before the engage: both mirror bays intact, the gate open under its lintel cap, the exit door closed |
 | `scene_left_crack_*` | 300 | the `mirror_crack` held on the left mirror after the tick-139 left-wall crash (the stun is over, the dust has gone) |
 | `scene_phase2_*` | 1000 | a phase-2 exchange in the middle of the room: actors over the mats and the backdrop |
-| `scene_exit_open_*` | 3230 | after the defeat (hp 0 on tick 3175): the right wall released, the exit door open on a warm lamp-lit passage (review fix 2) |
+| `scene_exit_open_*` | 3230 | after the defeat (hp 0 on tick 3175): the right wall released, the exit door open on a warm lamp-lit brick passage with a floor spill (review fix 2, in the #274 `dfx_exit` language) |
 
 ## Offline sheets (deterministic, `scripts/make_gym01_sheets.py`)
 

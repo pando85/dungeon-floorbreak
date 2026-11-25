@@ -576,7 +576,8 @@ EXIT_W, EXIT_H = 20, 96
 def exit_door(open_: bool) -> Pix:
     """20 x 96: lamp box rows 0..5 (an 8 x 3 lamp: dull red when closed, lit brass with a halo when open),
     lintel rows 6..8, jamb cols 0..1; closed = riveted steel leaf, open = a warm lamp-lit passage with the
-    leaf swung in against the jamb (the same "open = warm lit passage" cue as the rooms 2/4/6 exits)."""
+    leaf swung in against the jamb (the same "open = warm lit passage" cue as the rooms 2/4/6 exits: brick
+    courses lit by the lamp, a warm floor spill)."""
     c = Pix(EXIT_W, EXIT_H)
     for y in range(6, EXIT_H):
         c.put(0, y, "iron", 3)
@@ -613,18 +614,24 @@ def exit_door(open_: bool) -> Pix:
         for x in range(2, EXIT_W):
             c.put(x, EXIT_H - 1, "iron", 0)
     else:
-        # a warm lamp-lit passage: brightest under the lamp, falling off downward and to the far wall
+        # a lamp-lit passage in the rooms 2/4/6 exit language (#274 dfx_exit): brick courses lit warm
+        # from the lamp above, a lifted lower third (that exit's owner note) and a warm floor spill
         for y in range(9, EXIT_H):
             t = (y - 9) / (EXIT_H - 9)
             for x in range(5, EXIT_W):
                 if y > EXIT_H - 14:                           # the passage floor catches the lamp
-                    v = 4.6 - 1.6 * (EXIT_H - 1 - y) / 13 + (0.6 if (x + y) % 3 == 0 else 0)
-                    c.put(x, y, "gal_warm", v)
+                    v = 9.0 - 3.0 * (EXIT_H - 1 - y) / 13 + (0.5 if (x + y) % 2 == 0 else -0.5)
+                    c.put(x, y, "floor", v)
+                    continue
+                v = max(8.0 - 7.0 * t, 2.5 + 3.5 * max(0.0, t - 0.5) / 0.5, 2.5)
+                v -= 0.08 * abs(x - 11)
+                v += 0.25 if (x + y) % 2 else -0.25           # 1 px dither between ramp steps
+                row = (y - 9) % 6
+                bond = 3 if ((y - 9) // 6) % 2 else 10
+                if row == 5 or x == bond:                     # mortar joints, bonded every other course
+                    c.put(x, y, "mortar", v - 2.0)
                 else:
-                    v = 5.0 - 2.6 * t - 0.12 * abs(x - 11)
-                    if (x * 7 + y // 6) % 13 == 0:
-                        v -= 1                                # a few block joints in the passage wall
-                    c.put(x, y, "gal_warm", v)
+                    c.put(x, y, "brick", v)
             for x in range(2, 5):                             # the leaf, swung in, edge-on and dark
                 c.put(x, y, "stone_cold", 3 if x == 2 else 1)
         for x in range(5, EXIT_W):                            # the lit threshold
