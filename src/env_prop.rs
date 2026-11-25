@@ -476,6 +476,9 @@ pub const STEP_OVER_PX: i32 = 16;
 /// A fall is at most this many ticks (1 s): longer is a drift, not a drop.
 /// Adopted default BOILC-AD5.
 pub const MAX_FALL_TICKS: u16 = 60;
+/// The fall every falling mass is built with (the sidecar authors the warning
+/// only; DR-B's rule 5 reads it).
+pub const DEFAULT_FALL_TICKS: u16 = 8;
 
 /// The smallest rectangle that holds both: the **swept** volume of something
 /// that moved from `a` to `b` in one tick. Testing the swept volume instead of
@@ -681,7 +684,7 @@ impl FallingMassConfig {
             shove_weight: 0,
             shove_min_impulse_px_s: 160,
             warning_ticks: 24,
-            fall_ticks: 8,
+            fall_ticks: DEFAULT_FALL_TICKS,
             hero_damage: HeroDamagePolicy::AllHeroes,
             damage: 1,
             hurts_enemies: true,

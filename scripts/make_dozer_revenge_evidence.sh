@@ -9,7 +9,12 @@
 # the headless run's (the presentation is read-only: it changes no sim hash). A short GIF of the chase (640x360, every
 # 6th tick) is made from one more capture sequence, and one PLAYTRACE session of the same pilot is recorded in the real
 # window and verified strict. Output: the PNGs, the GIF, capture_lines.txt (one DOZER_STILL line per still and size,
-# one DOZER_GIF line), playtrace_session.txt and SHA256SUMS. Perf is scripts/room_perf.sh (perf.txt, run on its own).
+# one DOZER_GIF line), playtrace_session.txt and SHA256SUMS.
+#
+# DR-B, the reversal capture: the aligned room pilot `dozer:brace` (src/room_pilots.rs `dozer_brace`: Carl turns back to
+# the brace at x 832, jabs it twice so the stop frame is released in the middle of the helper's useful window, holds
+# while it lands on the machine, and runs once it is stunned) is captured the same way (stills `brace_*`, twice, both
+# sizes, hash-checked) with a reversal GIF; the frame, the brace, its shadow and the remnant are labelled stand-ins. Perf is scripts/room_perf.sh (perf.txt, run on its own).
 #
 # Needs the debug binaries (cargo build --locked --bin floor01_scene --bin playtrace), the exported atlases (bash
 # scripts/export_assets.sh: generated/art/dozer_*.png), xvfb-run, flock, ImageMagick and ffmpeg.
@@ -32,8 +37,17 @@ plan=dozer:close_call
 # name:tick. Timeline of the pilot (the headless run's COMBAT_EVENT lines): the trigger and the rumble on tick 21 (the
 # gate shakes, 90 ticks), the machine emerges on 111 (off screen: the camera follows Carl at the hold column), the
 # chase bands catch_up, cruise from 132, mercy from 237 (the close call: the riders yell), cruise from 297, the brake
-# on 473 at the buffer stop and the escape (strain) on 498, the tick the first hero reaches the exit under the lintel.
-stills=(trigger:30 chase:200 close_call:242 run:306 brake:476 exit:498)
+# on 473 at the buffer stop, and the room completes on 477, the tick the first hero (since DR-B the AI partner Donut, who
+# now runs ahead of Carl) reaches the exit under the lintel (DV-8); the escape (strain) would follow on 478.
+stills=(trigger:30 chase:200 close_call:242 run:306 brake:474 exit:477)
+brace=dozer:brace
+# DR-B, the brace pilot's timeline (its headless COMBAT_EVENT lines): emerged on 111, Carl's jabs hit the brace on 303
+# and 315 (the release, R 204), the frame falls from 344 and lands on 352 on the wheel front at x 728 (impact_stunned,
+# by player 0), the machine is disabled on 400, and the room completes on 490.
+brace_stills=(brace_release:318 brace_fall:348 brace_stun:353 brace_disabled:404 brace_run:440)
+all_stills=()
+for still in "${stills[@]}"; do all_stills+=("$plan:$still"); done
+for still in "${brace_stills[@]}"; do all_stills+=("$brace:$still"); done
 sizes=(640x360:--scale:1 640x400:--deck:--scale:1)
 lines="$caps/capture_lines.txt"
 : > "$lines"
@@ -41,13 +55,14 @@ for pass in 1 2; do
   for size in "${sizes[@]}"; do
     res="${size%%:*}"
     IFS=: read -r -a flags <<<"${size#*:}"
-    for still in "${stills[@]}"; do
-      IFS=: read -r name tick <<<"$still"
+    for still in "${all_stills[@]}"; do
+      IFS=: read -r _ splan name tick <<<"$still"
+      splan="dozer:$splan"
       dir="$caps/pass$pass-$res-$name"
       # A window can lose its GPU device when other jobs share the GPU ("Device(Lost)"): that is the machine, not the
       # run, so a capture is retried up to three times. A hash mismatch is not retried away: it fails the checks below.
       for attempt in 1 2 3; do
-        bash scripts/room_capture.sh dozer "$plan" "$tick:1:1" "$dir" "${flags[@]}" > "$dir.txt" 2> "$dir.err" && break
+        bash scripts/room_capture.sh dozer "$splan" "$tick:1:1" "$dir" "${flags[@]}" > "$dir.txt" 2> "$dir.err" && break
         [[ "$attempt" -lt 3 ]] || { echo "capture $name at $res failed 3 times: see $dir/run.log" >&2; exit 1; }
       done
       frame="$(find "$dir" -name 'frame_*.png')"
@@ -60,8 +75,9 @@ rm -f "$out"/*.png "$out"/*.gif "$out"/capture_lines.txt "$out"/playtrace_sessio
 fail=0
 for size in "${sizes[@]}"; do
   res="${size%%:*}"
-  for still in "${stills[@]}"; do
-    IFS=: read -r name tick <<<"$still"
+  for still in "${all_stills[@]}"; do
+    IFS=: read -r _ splan name tick <<<"$still"
+    splan="dozer:$splan"
     a="$caps/pass1-${name}_$res.png" b="$caps/pass2-${name}_$res.png"
     same=no
     cmp -s "$a" "$b" && same=yes
@@ -74,12 +90,12 @@ for size in "${sizes[@]}"; do
     cp "$a" "$out/${name}_$res.png"
     partner="$(sed -nE 's/^COMPANION_CONFIG: set=//p' "$caps/pass1-$res-$name/run.log" | tr ' ' '_')"
     [[ "$partner" == cf02_free ]] || fail=1
-    echo "DOZER_STILL name=$name plan=$plan tick=$tick size=$res partner=$partner window_hash=$window headless_hash=$headless hash_match=$match passes_byte_identical=$same sha256=$(sha256sum "$a" | cut -d' ' -f1)" >> "$out/capture_lines.txt"
+    echo "DOZER_STILL name=$name plan=$splan tick=$tick size=$res partner=$partner window_hash=$window headless_hash=$headless hash_match=$match passes_byte_identical=$same sha256=$(sha256sum "$a" | cut -d' ' -f1)" >> "$out/capture_lines.txt"
   done
 done
-# The chase GIF: ticks 174..498 every 6th tick, 640x360, 10 frames per second (0.6x game speed).
+# The chase GIF: ticks 174..474 every 6th tick, 640x360, 10 frames per second (0.6x game speed).
 gif_dir="$caps/gif"
-bash scripts/room_capture.sh dozer "$plan" "174:6:55" "$gif_dir" --scale 1 > "$gif_dir.txt" 2> "$gif_dir.err" || fail=1
+bash scripts/room_capture.sh dozer "$plan" "174:6:51" "$gif_dir" --scale 1 > "$gif_dir.txt" 2> "$gif_dir.err" || fail=1
 ffmpeg -loglevel error -y -framerate 10 -pattern_type glob -i "$gif_dir/frame_*.png" \
   -vf "split[a][b];[a]palettegen=max_colors=128:stats_mode=diff[p];[b][p]paletteuse=dither=none" \
   "$out/chase_640x360.gif"
@@ -90,8 +106,23 @@ gif_partner="$(sed -nE 's/^COMPANION_CONFIG: set=//p' "$gif_dir/run.log" | tr ' 
 [[ "$gif_partner" == cf02_free ]] || fail=1
 [[ -n "$gif_window" && "$gif_window" == "$gif_headless" ]] && gif_match=yes
 [[ "$gif_match" == yes ]] || fail=1
-echo "DOZER_GIF name=chase plan=$plan ticks=174..498 step=6 frames=$(find "$gif_dir" -name 'frame_*.png' | wc -l) size=640x360 partner=$gif_partner window_hash=$gif_window headless_hash=$gif_headless hash_match=$gif_match" >> "$out/capture_lines.txt"
-# One recorded PLAYTRACE session of room 3 (the same pilot, real window, ticks 0 to 520: the exit is reached on tick 498),
+echo "DOZER_GIF name=chase plan=$plan ticks=174..474 step=6 frames=$(find "$gif_dir" -name 'frame_*.png' | wc -l) size=640x360 partner=$gif_partner window_hash=$gif_window headless_hash=$gif_headless hash_match=$gif_match" >> "$out/capture_lines.txt"
+# DR-B, the reversal GIF: ticks 297..489 every 4th tick (the second jab, the warning, the fall, the stun, the disable and
+# the run), 640x360, 10 frames per second (0.4x game speed).
+rev_dir="$caps/gif-reversal"
+bash scripts/room_capture.sh dozer "$brace" "297:4:49" "$rev_dir" --scale 1 > "$rev_dir.txt" 2> "$rev_dir.err" || fail=1
+ffmpeg -loglevel error -y -framerate 10 -pattern_type glob -i "$rev_dir/frame_*.png" \
+  -vf "split[a][b];[a]palettegen=max_colors=128:stats_mode=diff[p];[b][p]paletteuse=dither=none" \
+  "$out/reversal_640x360.gif"
+rev_window="$(sed -E 's/.* window_hash=([0-9a-f]+).*/\1/' "$rev_dir.txt")"
+rev_headless="$(sed -E 's/.* headless_hash=([0-9a-f]+).*/\1/' "$rev_dir.txt")"
+rev_partner="$(sed -nE 's/^COMPANION_CONFIG: set=//p' "$rev_dir/run.log" | tr ' ' '_')"
+[[ "$rev_partner" == cf02_free ]] || fail=1
+rev_match=no
+[[ -n "$rev_window" && "$rev_window" == "$rev_headless" ]] && rev_match=yes
+[[ "$rev_match" == yes ]] || fail=1
+echo "DOZER_GIF name=reversal plan=$brace ticks=297..489 step=4 frames=$(find "$rev_dir" -name 'frame_*.png' | wc -l) size=640x360 partner=$rev_partner window_hash=$rev_window headless_hash=$rev_headless hash_match=$rev_match" >> "$out/capture_lines.txt"
+# One recorded PLAYTRACE session of room 3 (the same pilot, real window, ticks 0 to 520: the exit is reached on tick 477),
 # verified strict (scope=full) with the replay rebuild of the late-Floor-1 source.
 pt="${PT:-./target/debug/playtrace}"
 sdir="$caps/session"; slog="$caps/session.log"; mkdir -p "$sdir"

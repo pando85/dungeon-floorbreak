@@ -441,52 +441,48 @@ pub struct ReleaseWindow {
     /// The wheel front on the first and the last useful release tick.
     pub first_front: f32,
     pub last_front: f32,
+    /// DR-B: the release ticks whose landing meets the front collider, with or
+    /// without the hero's recovery (the set DR-B's sweep compares with the
+    /// simulation), and their first and last tick.
+    pub hit_ticks: u32,
+    pub hit_first_tick: Option<u32>,
+    pub hit_last_tick: Option<u32>,
+    /// DR-B: the release ticks evaluated (0 .. `evaluated`: every chase tick
+    /// whose wheel front is still short of the hero's body), the domain of
+    /// DR-B's sweep.
+    pub evaluated: u32,
 }
 
 /// Section 6, the single definition of the useful release window. The machine
 /// chases a hero who stands still with its centre at `hero_x`; a release on
 /// chase tick R is **useful** when the landing on R + `land_delay_ticks` meets
-/// the front impact collider (the tips past the footprint's left edge and the
-/// tub front short of its right edge) and the wheel front on R +
-/// `recovery_ticks` has not yet reached the hero's body (the hero can still turn
-/// and run). The band is integrated tick by tick exactly as [`Dozer::step`]
-/// does.
+/// the front impact collider and the wheel front on R + `recovery_ticks` has
+/// not yet reached the hero's body (the hero can still turn and run). The band
+/// is integrated tick by tick exactly as [`Dozer::step`] does (the gap of a
+/// hero whose centre is ahead of the axle, negative once the front has passed
+/// its left edge), and the landing is the env step's swept test (DR-B): the
+/// collider of the landing tick joined with the one of the tick before, each
+/// rounded to layout px, overlaps the footprint.
 pub fn release_window(
     profile: &DozerProfile,
     frame: &StopFrame,
     hero_x: f32,
     recovery_ticks: u32,
 ) -> ReleaseWindow {
-    let t = DozerTuning::active();
-    let wheel_front = t.wheel_front();
-    let tips_ahead = t.tips() - wheel_front;
-    let tub_behind = wheel_front - t.dzq03_impact_collider.x0 as f32;
+    let hits = release_hits(profile, frame, hero_x);
+    let mut out = ReleaseWindow {
+        evaluated: hits.len() as u32,
+        ..ReleaseWindow::default()
+    };
+    let fronts = chase_fronts(profile, frame, hero_x, recovery_ticks);
     let hero_left = hero_x - HERO_HALF_WIDTH;
-    // The fronts of every chase tick until the wheel reaches the hero.
-    let mut fronts = Vec::new();
-    let mut front = frame.emerge_front_x;
-    let gap = |front: f32| (hero_left > front).then_some(hero_left - front);
-    let mut speed = profile.speed_of(profile.band(gap(front)));
-    let limit = recovery_ticks.max(frame.land_delay_ticks) as usize + 4096;
-    for _ in 0..limit {
-        fronts.push(front);
-        if front >= hero_left {
-            break;
+    for (r, &hits) in hits.iter().enumerate() {
+        let recovered = fronts[r + recovery_ticks as usize];
+        if hits {
+            out.hit_first_tick.get_or_insert(r as u32);
+            out.hit_last_tick = Some(r as u32);
+            out.hit_ticks += 1;
         }
-        let target = profile.speed_of(profile.band(gap(front)));
-        speed = profile.approach(speed, target);
-        front += speed * TICK_SECONDS;
-    }
-    let mut out = ReleaseWindow::default();
-    for r in 0..fronts.len() {
-        let (Some(&landing), Some(&recovered)) = (
-            fronts.get(r + frame.land_delay_ticks as usize),
-            fronts.get(r + recovery_ticks as usize),
-        ) else {
-            break;
-        };
-        let hits =
-            landing + tips_ahead > frame.footprint_x0 && landing - tub_behind < frame.footprint_x1;
         if hits && recovered < hero_left {
             if out.first_tick.is_none() {
                 out.first_tick = Some(r as u32);
@@ -498,6 +494,74 @@ pub fn release_window(
         }
     }
     out
+}
+
+/// The wheel front of every chase tick for a hero who stands still at
+/// `hero_x`: every tick until the front reaches the hero's left edge (the
+/// release domain), then `land_delay_ticks` and `recovery_ticks` more so
+/// every release in the domain has its landing and its recovery.
+fn chase_fronts(
+    profile: &DozerProfile,
+    frame: &StopFrame,
+    hero_x: f32,
+    recovery_ticks: u32,
+) -> Vec<f32> {
+    let t = DozerTuning::active();
+    let axle_behind = t.wheel_front() - t.dzq01_wheel_axle.x as f32;
+    let hero_left = hero_x - HERO_HALF_WIDTH;
+    // Dozer::gap: the hero counts while its centre is ahead of the axle. A
+    // hero who waits until the wheel front reaches its left edge is run over
+    // (defeated): from then on the machine sees no hero and cruises.
+    let gap = |front: f32| {
+        (front < hero_left && hero_x > front - axle_behind).then_some(hero_left - front)
+    };
+    let tail = recovery_ticks.max(frame.land_delay_ticks) as usize;
+    let mut fronts = Vec::new();
+    let mut front = frame.emerge_front_x;
+    let mut speed = profile.speed_of(profile.band(gap(front)));
+    let mut extra = None;
+    for _ in 0..4096 + tail {
+        fronts.push(front);
+        if extra.is_none() && front >= hero_left {
+            extra = Some(tail);
+        }
+        match extra.as_mut() {
+            Some(0) => break,
+            Some(n) => *n -= 1,
+            None => {}
+        }
+        let target = profile.speed_of(profile.band(gap(front)));
+        speed = profile.approach(speed, target);
+        front += speed * TICK_SECONDS;
+    }
+    fronts
+}
+
+/// DR-B: per release tick R of the domain (every chase tick whose wheel front
+/// is short of the hero's left edge), whether the landing on R +
+/// `land_delay_ticks` meets the front impact collider under the env step's
+/// swept test. This is the set DR-B's sweep (`dz_frame_window_sweep`) checks
+/// against the simulation tick by tick.
+pub fn release_hits(profile: &DozerProfile, frame: &StopFrame, hero_x: f32) -> Vec<bool> {
+    let t = DozerTuning::active();
+    let wheel_front = t.wheel_front();
+    let tips_ahead = t.tips() - wheel_front;
+    let tub_behind = wheel_front - t.dzq03_impact_collider.x0 as f32;
+    let hero_left = hero_x - HERO_HALF_WIDTH;
+    let fronts = chase_fronts(profile, frame, hero_x, 0);
+    let land = frame.land_delay_ticks.max(1) as usize;
+    let (fx0, fx1) = (frame.footprint_x0.round(), frame.footprint_x1.round());
+    fronts
+        .iter()
+        .take_while(|&&f| f < hero_left)
+        .enumerate()
+        .map(|(r, _)| {
+            // The env step's layout rounding of the victim rect, swept from
+            // the tick before the landing (the machine only moves right).
+            let (prev, cur) = (fronts[r + land - 1], fronts[r + land]);
+            (cur + tips_ahead).round() > fx0 && (prev - tub_behind).round() < fx1
+        })
+        .collect()
 }
 
 // --------------------------------------------------------------- the rules --
@@ -519,6 +583,11 @@ pub mod rules {
     pub const MIN_CEILING_PX: i32 = 200;
     /// Rule 4: the escape passage's clear height (DOZ-01 9.1).
     pub const PASSAGE_CLEAR_PX: (i32, i32) = (64, 116);
+    /// Rule 3: a frame hangs at least this far above the push box's top.
+    pub const HANG_OVER_PUSH_BOX_PX: i32 = 8;
+    /// Rule 5: the brace hero spot is the hero's body this far right of the
+    /// brace target (the doc's body 820..844 for a target ending at 816).
+    pub const BRACE_STAND_OFF_PX: i32 = 4;
 }
 
 // ---------------------------------------------------------------- the site --
@@ -592,8 +661,10 @@ pub enum DozerEvent {
     BrakeStarted { front_x: i32 },
     /// The brake ended: strain, then idle; the wheel is off.
     BrakeEnded { front_x: i32 },
-    /// A stop frame landed on the front collider.
-    Stunned { front_x: i32 },
+    /// A stop frame landed on the front collider. `by` is the player credited
+    /// with the release (DOZR-04: the thrower of a stick, the caster of the
+    /// missiles, the hero whose jabs broke the brace).
+    Stunned { front_x: i32, by: Option<u32> },
     /// The stun ended.
     Disabled,
     /// A solo bot was put ahead of the machine (`SlotOut.place`).
@@ -610,6 +681,10 @@ pub enum DozerEvent {
     WheelHit { hero: HeroId },
     /// A push-out would have put a hero into a solid: the machine held still.
     PinnedHold { hero: HeroId },
+    /// DR-B (DZ-AD7): a stop frame landed on the hull behind the front
+    /// collider: a miss, drawn as the frame striking the rear deck and tipping
+    /// off behind the exhaust. No state change.
+    Glance { front_x: i32 },
 }
 
 impl DozerEvent {
@@ -626,6 +701,7 @@ impl DozerEvent {
             Self::Clang { .. } => "clang",
             Self::WheelHit { .. } => "wheel_hit",
             Self::PinnedHold { .. } => "pinned_hold",
+            Self::Glance { .. } => "glance",
         }
     }
 
@@ -642,6 +718,7 @@ impl DozerEvent {
             Self::Clang { .. } => 9,
             Self::WheelHit { .. } => 10,
             Self::PinnedHold { .. } => 11,
+            Self::Glance { .. } => 12,
         }
     }
 
@@ -656,7 +733,11 @@ impl DozerEvent {
             }
             Self::BrakeStarted { front_x }
             | Self::BrakeEnded { front_x }
-            | Self::Stunned { front_x } => mix(front_x as u32 as u64),
+            | Self::Glance { front_x } => mix(front_x as u32 as u64),
+            Self::Stunned { front_x, by } => {
+                mix(front_x as u32 as u64);
+                mix(by.map_or(0, |p| u64::from(p) + 1));
+            }
             Self::Disabled => {}
             Self::AiRescue {
                 hero,
@@ -688,7 +769,11 @@ impl DozerEvent {
             }
             Self::BrakeStarted { front_x }
             | Self::BrakeEnded { front_x }
-            | Self::Stunned { front_x } => format!("front_x={front_x}"),
+            | Self::Glance { front_x } => format!("front_x={front_x}"),
+            Self::Stunned { front_x, by } => match by {
+                Some(p) => format!("front_x={front_x} by={p}"),
+                None => format!("front_x={front_x} by=none"),
+            },
             Self::Disabled => String::new(),
             Self::AiRescue {
                 hero,
@@ -1348,8 +1433,9 @@ impl Dozer {
     }
 
     /// A stop frame's landing on the front collider (`FallingMass`): stunned
-    /// once, only from the chase. `true` when it took effect.
-    pub fn apply_falling_mass(&mut self, out: &mut DozerOut) -> bool {
+    /// once, only from the chase, credited to `by` (the release's initiator).
+    /// `true` when it took effect.
+    pub fn apply_falling_mass(&mut self, by: Option<u32>, out: &mut DozerOut) -> bool {
         if self.state != DozerState::CommittedChase {
             return false;
         }
@@ -1359,8 +1445,24 @@ impl Dozer {
         };
         out.events.push(DozerEvent::Stunned {
             front_x: self.wheel_front().round() as i32,
+            by,
         });
         true
+    }
+
+    /// DR-B (DZ-AD7): a stop frame landed with `footprint` (world, y up) and
+    /// missed the front collider. While the machine moves (the chase or the
+    /// brake) a footprint that meets its hull is a rear-hull landing: the
+    /// drawn glance. A landing anywhere else (ahead of the machine, an early
+    /// miss) is nothing.
+    pub fn glance(&self, footprint: Rect) -> Option<DozerEvent> {
+        let moving = matches!(
+            self.state,
+            DozerState::CommittedChase | DozerState::Escaped(EscapePhase::Brake { .. })
+        );
+        (moving && self.push_box().overlaps(footprint)).then(|| DozerEvent::Glance {
+            front_x: self.wheel_front().round() as i32,
+        })
     }
 
     /// The tick of `hero`'s last rescue.

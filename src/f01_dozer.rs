@@ -14,8 +14,9 @@
 //! [`crate::scene_enemy::SLOT_KINDS`]).
 //!
 //! The room's pin is the `F01Late` row the sidecar names
-//! (`f01_pin_post_pile_boss`), chosen by id; the room arms no trigger. It has
-//! no prop yet (the stop frame is DR-B) and no env runtime.
+//! (`f01_pin_post_pile_boss`), chosen by id; the room arms no trigger. DR-B adds
+//! the stop frame: the sidecar's `weight_rig` prop and its `falling_mass`
+//! hazard run on the env runtime ([`env_runtime`]).
 //!
 //! The room's content is pinned ([`ROOM_HASH`], [`ENCOUNTER_HASH`]): [`launch`]
 //! refuses an edited file, a test pins each constant to its file, and an edit
@@ -43,7 +44,7 @@ pub const ENCOUNTER_PATH: &str = "assets/levels/floor01/f01_dozer.encounter.json
 /// FNV-1a 64 of the room file and of the sidecar (the files live under
 /// `assets/levels`, so the hash is a constant, as in [`crate::f01_hoarder`]).
 pub const ROOM_HASH: u64 = 0xaf54_bc91_c52d_6f83;
-pub const ENCOUNTER_HASH: u64 = 0xb378_d649_fb08_641c;
+pub const ENCOUNTER_HASH: u64 = 0x43c1_3d0b_2743_f6ab;
 /// The data pin keys of the room's files.
 pub const ROOM_PIN_KEY: &str = "f01_dozer_room";
 pub const ENCOUNTER_PIN_KEY: &str = "f01_dozer_encounter";
@@ -157,7 +158,7 @@ pub fn launch(root: &Path) -> Result<DozerRun, String> {
     }));
     let fixture: &'static Fixture = Box::leak(Box::new(Fixture {
         name: SCENE_NAME,
-        summary: "DOZER-CORE and DR-A: room 3, the revenge machine's chase (greybox, no prop)",
+        summary: "DOZER-CORE, DR-A and DR-B: room 3, the revenge machine's chase and the stop frame (greybox)",
         seed: FIXTURE_SEED,
         carl_x: start,
         enemies: &[],
@@ -249,9 +250,29 @@ pub fn combat_seeded(
     slot: SlotSet,
     cf02_seed: Option<u64>,
 ) -> Result<CombatState, String> {
+    combat_seeded_kit(
+        fixture,
+        run,
+        scene,
+        (carl, donut, DonutSetup::unlocked(8)),
+        slot,
+        cf02_seed,
+    )
+}
+
+/// [`combat_seeded`] with Donut's kit given (DR-B: `dz_frame_missile` starts
+/// one run without the biscuit, the Magic Missile's capability).
+pub fn combat_seeded_kit(
+    fixture: &'static Fixture,
+    run: &DozerRun,
+    scene: &mut SceneSim,
+    (carl, donut, kit): (CarlProgFlags, DonutProgFlags, DonutSetup),
+    slot: SlotSet,
+    cf02_seed: Option<u64>,
+) -> Result<CombatState, String> {
     let setup = story_setup(&run.loaded.encounter.story_pin, carl, donut)?;
     let mut combat = CombatState::new(fixture, &run.kit, scene)?
-        .with_donut(DonutSetup::unlocked(8))
+        .with_donut(kit)
         .try_with_story(setup)
         .map_err(|e| e.to_string())?
         .with_demo(run.rules)
@@ -259,8 +280,39 @@ pub fn combat_seeded(
     if cf02_seed.is_some() {
         combat = combat.with_cf02_seed(cf02_seed);
     }
-    let combat = combat.with_slot_enemies(slot).map_err(|e| e.to_string())?;
+    // DR-B: the stop frame is live (the env runtime before the slot, which a
+    // builder after it would mark as retried).
+    let mut combat = combat
+        .with_env(env_runtime(run)?)
+        .with_slot_enemies(slot)
+        .map_err(|e| e.to_string())?;
+    combat.sync_env(scene);
     Ok(combat)
+}
+
+/// DR-B: the env runtime of a launched room 3, the sidecar's stop frame (a
+/// `weight_rig` prop and its `falling_mass` hazard, DZ-Q18, DZ-Q19) and its
+/// remnant solid once it has landed.
+pub fn env_runtime(run: &DozerRun) -> Result<crate::combat_scene::EnvRuntime, String> {
+    crate::combat_scene::EnvRuntime::new(&run.loaded.encounter)
+}
+
+/// DR-B: the index of the stop frame among the sidecar's props.
+pub const STOP_FRAME_PROP: usize = 0;
+
+/// DR-B: the live stop frame as [`crate::dozer::release_window`] reads it: the
+/// footprint and the landing delay (warning + fall − 1) of the env's falling
+/// mass, and the machine's emergence front. `None` without an env or a machine.
+pub fn stop_frame_of(combat: &CombatState) -> Option<crate::dozer::StopFrame> {
+    let d = crate::dozer_art::dozer_of(combat)?;
+    let cfg = combat.env()?.mass(STOP_FRAME_PROP)?.config();
+    Some(crate::dozer::StopFrame {
+        footprint_x0: cfg.footprint.x as f32,
+        footprint_x1: cfg.footprint.right() as f32,
+        land_delay_ticks: (u32::from(cfg.warning_ticks) + u32::from(cfg.fall_ticks))
+            .saturating_sub(1),
+        emerge_front_x: d.site.emerge_front_x as f32,
+    })
 }
 
 /// The room's combat state for a scene or a verifier (DR-A): [`combat`] under

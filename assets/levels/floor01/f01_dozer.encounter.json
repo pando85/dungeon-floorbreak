@@ -1,6 +1,6 @@
 {
   "schema": "floor01-encounter-v1",
-  "status": "DOZER-CORE data (ENEMY-GAMEPLAY-DOZER sections 5 and 9, docs/01-design/enemy-gameplay-dozer.md, DZ-AD12): chase only, no prop yet (the stop frame is DR-B, the crew DR-C). The dozer block holds the machine's room data (DZ-Q11, DZ-Q13, DZ-Q14, DZ-Q22); its lintel is the tunnel's solid. Every number is a tuning knob. Coordinates are layout pixels, y down, like the room file.",
+  "status": "DOZER-CORE and DR-B data (ENEMY-GAMEPLAY-DOZER sections 5, 6 and 9, docs/01-design/enemy-gameplay-dozer.md, DZ-AD12): the chase and the stop frame (DZ-Q18, DZ-Q19: a weight_rig prop and its falling_mass hazard, the Boiler engine as data only); the crew is DR-C. The dozer block holds the machine's room data (DZ-Q11, DZ-Q13, DZ-Q14, DZ-Q22); its lintel is the tunnel's solid. Every number is a tuning knob. Coordinates are layout pixels, y down, like the room file.",
   "id": "F01-DOZER-ENC",
   "room_file": "f01_dozer.room.json",
   "room_id": "F01-DOZER",
@@ -13,8 +13,32 @@
   "protected_spawn": { "x": 32, "y": 484, "w": 192, "h": 96 },
   "checkpoint": { "x": 48, "y": 484, "w": 48, "h": 96 },
   "exit": { "x": 1264, "y": 484, "w": 64, "h": 96 },
-  "props": [],
-  "hazards": [],
+  "props": [
+    {
+      "id": "stop_frame",
+      "kind": "weight_rig",
+      "target": { "x": 800, "y": 516, "w": 16, "h": 64 },
+      "hang_px": 168,
+      "remnant": { "x": 640, "y": 564, "w": 80, "h": 16 }
+    }
+  ],
+  "hazards": [
+    {
+      "id": 1,
+      "name": "frame_fall",
+      "class": "falling_mass",
+      "owner": "stop_frame",
+      "rect": { "x": 640, "y": 484, "w": 80, "h": 96 },
+      "telegraph_rect": { "x": 640, "y": 572, "w": 80, "h": 8 },
+      "telegraph_ticks": 30,
+      "active_ticks": 1,
+      "max_activations": 1,
+      "damage": 1,
+      "push_x": 120,
+      "hero_damage": "all_heroes",
+      "hurts_enemies": true
+    }
+  ],
   "links": [],
   "roster": [
     { "id": "dozer", "kind": "dozer", "x": 32, "beat": "R1" }

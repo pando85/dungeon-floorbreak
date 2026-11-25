@@ -1054,8 +1054,8 @@ pub enum EncounterError {
         ids: Vec<String>,
         reason: String,
     },
-    /// DOZER-CORE: a rule of the Dozer note's section 9 (1, 2, 4 and 6 here;
-    /// 3 and 5 need the stop frame of DR-B) failed.
+    /// DOZER-CORE and DR-B: a rule of the Dozer note's section 9 (1 to 6; 3
+    /// and 5 read the stop frames, DR-B) failed.
     Dozer {
         rule: u8,
         ids: Vec<String>,
@@ -2973,6 +2973,7 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
             ctx,
             goal,
             props: &props,
+            hazards: &hazards,
             roster: &roster,
             protected: [
                 ("spawn", protected_spawn),
@@ -2982,13 +2983,14 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
         },
         &mut errs,
     );
-    // ---- DOZER-CORE: the Dozer rules of section 9 that need no prop (1, 2, 4, 6)
+    // ---- DOZER-CORE and DR-B: the Dozer rules of section 9 (1 to 6)
     haz::check_dozer(
         &haz::HazInput {
             raw,
             ctx,
             goal,
             props: &props,
+            hazards: &hazards,
             roster: &roster,
             protected: [
                 ("spawn", protected_spawn),

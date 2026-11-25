@@ -120,6 +120,14 @@ pub enum Plan {
     DozerCloseCall,
     /// DR-A (room 3): the same hold at [`crate::dozer_fixtures::WAIT_X`] (`dozer:wait`).
     DozerWait,
+    /// DR-B (room 3, the reversal capture): the brace pilot of `dz_frame_disable_once` in the
+    /// live room (`dozer:brace`). Carl walks past the brace and back to
+    /// [`crate::dozer_fixtures::WAIT_X`] so he faces it, jabs it twice so the frame is
+    /// released in the middle of the helper's useful window, holds while it lands on the
+    /// machine, and runs to the exit once the machine is stunned or disabled (or, as a
+    /// fallback, once the wheel is [`crate::dozer_fixtures::CLOSE_GAP_PX`] away). Only valid in
+    /// the Dozer's room, solo, and only aligned (it keeps the first chase tick).
+    DozerBrace,
 }
 
 /// Where [`Plan::CorralRush`] parks Carl: 112 px left of B, inside her 128 px trigger
@@ -144,6 +152,7 @@ impl Plan {
             Self::DozerRun => "dozer:run",
             Self::DozerCloseCall => "dozer:close_call",
             Self::DozerWait => "dozer:wait",
+            Self::DozerBrace => "dozer:brace",
         }
     }
 
@@ -151,7 +160,7 @@ impl Plan {
     pub const fn is_dozer(self) -> bool {
         matches!(
             self,
-            Self::DozerRun | Self::DozerCloseCall | Self::DozerWait
+            Self::DozerRun | Self::DozerCloseCall | Self::DozerWait | Self::DozerBrace
         )
     }
 }
@@ -233,6 +242,12 @@ pub struct AlignedMemory {
     swap_sent: bool,
     boiler: Option<crate::boiler_fixtures::scene_pilots::LiveDriver>,
     hoarder: Option<crate::hoarder_fixtures::ClearPilot>,
+    /// DR-B (`dozer:brace`): Carl has passed the brace and turned back to it, and has
+    /// arrived at it (he stands still from then on, so he keeps facing it).
+    dozer_turned: bool,
+    dozer_arrived: bool,
+    /// DR-B (`dozer:brace`): the first committed-chase tick and the aimed release R.
+    dozer_chase: Option<(u64, u64)>,
 }
 
 /// DR-A (DRA-AD5): the aligned party of every `dozer:*` pilot: Carl steered, Donut the
@@ -269,9 +284,10 @@ impl RoomPilot {
                 "run" => Plan::DozerRun,
                 "close_call" => Plan::DozerCloseCall,
                 "wait" => Plan::DozerWait,
+                "brace" => Plan::DozerBrace,
                 other => {
                     return Err(format!(
-                        "bad --room-pilot {value:?} (expected dozer:run, dozer:close_call or dozer:wait; solo only{})",
+                        "bad --room-pilot {value:?} (expected dozer:run, dozer:close_call, dozer:wait or dozer:brace; solo only{})",
                         if other.ends_with("2p") {
                             ", no :2p"
                         } else {
@@ -458,6 +474,7 @@ impl RoomPilot {
             Plan::DozerRun | Plan::DozerCloseCall | Plan::DozerWait => {
                 self.dozer_input(combat, sim, exit_x)
             }
+            Plan::DozerBrace => unreachable!("the brace pilot is aligned only (aligned_inputs)"),
         };
         let donut = if self.two_player {
             arena::donut_pilot(combat, sim)
@@ -558,10 +575,12 @@ impl RoomPilot {
         let tick = sim.world.tick + 1;
         if self.plan.is_dozer() {
             // DR-A (DRA-AD5): the escape steers Carl; the party's `cf02_free` partner drives Donut.
-            let input = if controlled == HeroId::Carl {
-                self.dozer_input(combat, sim, exit_x)
-            } else {
+            let input = if controlled != HeroId::Carl {
                 RawInput::NONE
+            } else if self.plan == Plan::DozerBrace {
+                dozer_brace(combat, sim, exit_x, memory)
+            } else {
+                self.dozer_input(combat, sim, exit_x)
             };
             return [input, RawInput::NONE];
         }
@@ -1095,6 +1114,75 @@ fn dozer_escape(
         return RawInput::NONE;
     }
     walk_to(sim, exit_x)
+}
+
+/// DR-B: how far past the brace column Carl walks before he turns back to it.
+pub const BRACE_TURN_PX: f32 = 24.0;
+
+/// DR-B: the `dozer:brace` pilot (the live twin of `dz_frame_disable_once`'s brace pilot,
+/// [`crate::dozer_fixtures::frame::brace_pilot`]). Carl walks to
+/// [`crate::dozer_fixtures::WAIT_X`] + [`BRACE_TURN_PX`] and back to the brace column, so he
+/// stands there facing the brace. On the first committed-chase tick it aims the release at the
+/// middle of the helper's useful window ([`crate::dozer::release_window`] for a hero at the
+/// brace, read from the live frame) and presses attack on the two ticks that release it then.
+/// Once the machine is stunned, disabled or escaped Carl runs to the exit; a wheel within
+/// [`crate::dozer_fixtures::CLOSE_GAP_PX`] of him sends him running too (the fallback of a
+/// missed landing).
+fn dozer_brace(
+    combat: &CombatState,
+    sim: &SceneSim,
+    exit_x: f32,
+    memory: &mut AlignedMemory,
+) -> RawInput {
+    use crate::dozer::DozerState;
+    use crate::dozer_fixtures::frame::{JAB_PERIOD, JAB_TO_RELEASE};
+    use crate::dozer_fixtures::{CLOSE_GAP_PX, WAIT_X};
+    let Some(d) = crate::dozer_art::dozer_of(combat) else {
+        return walk_to(sim, exit_x);
+    };
+    match d.state {
+        DozerState::ImpactStunned { .. } | DozerState::Disabled | DozerState::Escaped(_) => {
+            return walk_to(sim, exit_x);
+        }
+        _ if d.state.emerged() && d.wheel_front() >= WAIT_X - HERO_HALF_WIDTH - CLOSE_GAP_PX => {
+            return walk_to(sim, exit_x);
+        }
+        DozerState::CommittedChase if memory.dozer_chase.is_none() => {
+            let aim = crate::f01_dozer::stop_frame_of(combat).and_then(|frame| {
+                let w = crate::dozer::release_window(
+                    &d.profile,
+                    &frame,
+                    WAIT_X,
+                    u32::from(d.tuning.dzq23_melee_recovery_ticks),
+                );
+                Some(u64::from(w.first_tick? + w.last_tick?) / 2)
+            });
+            // No window: aim past the run's end (the fallback runs him out).
+            memory.dozer_chase = Some((sim.world.tick, aim.unwrap_or(u64::MAX / 2)));
+        }
+        _ => {}
+    }
+    if !memory.dozer_turned {
+        if sim.world.hero.x < WAIT_X + BRACE_TURN_PX - WALK_DEADZONE {
+            return walk_to(sim, WAIT_X + BRACE_TURN_PX);
+        }
+        memory.dozer_turned = true;
+    }
+    if !memory.dozer_arrived {
+        if (sim.world.hero.x - WAIT_X).abs() >= WALK_DEADZONE {
+            return walk_to(sim, WAIT_X);
+        }
+        memory.dozer_arrived = true;
+    }
+    let tick = sim.world.tick + 1;
+    let jab = memory.dozer_chase.is_some_and(|(chase0, r)| {
+        let second = (chase0 + r).saturating_sub(JAB_TO_RELEASE);
+        tick == second || tick + JAB_PERIOD == second
+    });
+    RawInput {
+        attack: jab,
+        ..RawInput::NONE
+    }
 }
 
 #[cfg(test)]
@@ -2499,6 +2587,7 @@ mod tests {
             ("dozer:run", Plan::DozerRun),
             ("dozer:close_call", Plan::DozerCloseCall),
             ("dozer:wait", Plan::DozerWait),
+            ("dozer:brace", Plan::DozerBrace),
         ] {
             let pilot = RoomPilot::parse(value).unwrap();
             assert_eq!(pilot.plan, plan);
@@ -2567,12 +2656,94 @@ mod tests {
                     plan.name()
                 );
             }
+            // The machine's hazard-feed rows reach the partner's nav: the
+            // graph rebuilds while it rolls (the perf note's rebuild ticks).
+            let rebuilds = combat.companion_stats().hazard_feed_changes;
+            assert!(rebuilds > 0, "{}: no nav rebuild", plan.name());
             println!(
-                "DOZER_PILOT plan={} ticks={} closest_gap={closest:.1} state={}",
+                "DOZER_PILOT plan={} ticks={} closest_gap={closest:.1} state={} nav_rebuilds={rebuilds} carl_x={:.1} donut_x={:.1}",
                 plan.name(),
                 scene.world.tick,
-                d.state.name()
+                d.state.name(),
+                scene.world.hero.x,
+                scene.world.donut_body.x
             );
         }
+    }
+    /// DR-B (the reversal capture): `dozer:brace` in the live room, stepped like an aligned
+    /// pilot with the `cf02_free` partner: Carl's two jabs release the frame on the aimed R
+    /// (the middle of the helper's window), the landing stuns the machine once, credited to
+    /// him, it ends disabled, nobody is hurt or run over, and the room completes.
+    #[test]
+    fn the_dozer_brace_pilot_reverses_the_chase() {
+        use crate::combat::CombatEvent;
+        use crate::dozer::DozerEvent;
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let (carl, donut) = Loadout::Story.flags();
+        let (run, mut scene, mut combat) =
+            crate::f01_late::dozer_start(&root, 360, carl, donut, None).unwrap();
+        let exit = run.loaded.encounter.exit;
+        let exit_x = (exit.x + exit.w / 2) as f32;
+        let pilot = RoomPilot::parse("dozer:brace").unwrap();
+        let mut party = crate::party::PartyState::new(pilot.tuning().unwrap());
+        let mut memory = AlignedMemory::default();
+        let mut hurts = 0;
+        let mut disabled_at = None;
+        for _ in 0..1500 {
+            if scene.world.complete {
+                break;
+            }
+            let slots = pilot.aligned_inputs(
+                &combat,
+                &scene,
+                party.controlled_hero(),
+                exit_x,
+                &mut memory,
+            );
+            let hurt = combat.hurt_ticks_of(party.controlled_hero()) > 0;
+            party.request_swap(slots[0].swap, hurt);
+            let inputs = party.hero_inputs(slots);
+            scene.set_drive(party.drive(true));
+            combat.step_party(&mut scene, inputs);
+            for hero in [HeroId::Carl, HeroId::Donut] {
+                if combat.hurt_ticks_of(hero) > 0 {
+                    hurts += 1;
+                }
+            }
+            let d = crate::dozer_art::dozer_of(&combat).unwrap();
+            if d.state == crate::dozer::DozerState::Disabled && disabled_at.is_none() {
+                disabled_at = Some(scene.world.tick);
+            }
+        }
+        let (chase0, aimed) = memory.dozer_chase.expect("the chase was seen");
+        let stuns: Vec<(u64, Option<u32>)> = combat
+            .events
+            .iter()
+            .filter_map(|e| match e {
+                CombatEvent::Dozer {
+                    tick,
+                    event: DozerEvent::Stunned { by, .. },
+                } => Some((*tick, *by)),
+                _ => None,
+            })
+            .collect();
+        let d = crate::dozer_art::dozer_of(&combat).unwrap();
+        println!(
+            "DOZER_BRACE ticks={} chase0={chase0} aimed_r={aimed} stuns={stuns:?} disabled_at={disabled_at:?} state={}",
+            scene.world.tick,
+            d.state.name()
+        );
+        assert_eq!(stuns.len(), 1, "{stuns:?}");
+        assert_eq!(
+            stuns[0],
+            (
+                chase0 + aimed + crate::dozer_fixtures::frame::LAND_DELAY,
+                Some(crate::shore::PLAYER_ONE)
+            )
+        );
+        assert!(disabled_at.is_some(), "never disabled");
+        assert_eq!(d.stats.wheel_hits, 0);
+        assert_eq!(hurts, 0, "hurt ticks");
+        assert!(scene.world.complete, "no exit");
     }
 }

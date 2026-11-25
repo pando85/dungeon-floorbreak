@@ -189,6 +189,8 @@ pub(super) struct HazInput<'a> {
     pub ctx: &'a Context,
     pub goal: Goal,
     pub props: &'a [Prop],
+    /// The parsed hazards (DR-B: a frame's footprint is its owned falling mass).
+    pub hazards: &'a [Hazard],
     pub roster: &'a [RosterEntry],
     pub protected: [(&'static str, IRect); 3],
 }
@@ -883,9 +885,10 @@ fn dozer_err(rule: u8, ids: &[&str], reason: impl Into<String>) -> EncounterErro
     }
 }
 
-/// DOZER-CORE: the rules of the Dozer note's section 9 that need no prop (1, 2,
-/// 4 and 6; 3 and 5 read the stop frame of DR-B). A no-op for a sidecar with
-/// neither a `dozer` roster entry nor a `dozer` block. Layout px (y down).
+/// DOZER-CORE and DR-B: the rules of the Dozer note's section 9 (1 to 6; 3 and
+/// 5 read the stop frames, the `weight_rig` props with their owned
+/// `falling_mass` footprints). A no-op for a sidecar with neither a `dozer`
+/// roster entry nor a `dozer` block. Layout px (y down).
 pub(super) fn check_dozer(inp: &HazInput<'_>, errs: &mut Vec<EncounterError>) {
     use crate::dozer::rules;
     let dozers: Vec<&RosterEntry> = inp.roster.iter().filter(|e| e.kind.is_dozer()).collect();
@@ -1041,6 +1044,74 @@ pub(super) fn check_dozer(inp: &HazInput<'_>, errs: &mut Vec<EncounterError>) {
     if exit.x < site.lintel.x || exit.right() > site.lintel.right() {
         errs.push(dozer_err(4, &ids, "the tunnel lintel holds the exit"));
     }
+    // ---- rules 3 and 5: the stop frames
+    let t = crate::dozer::DozerTuning::active();
+    let wheel_front = t.wheel_front().round() as i32;
+    let push = t.dzq02_push_box;
+    let tips = t.tips().round() as i32;
+    // The parked machine, push box rear to spike tips (stop_x - 252 .. stop_x + 4).
+    let rest = (
+        site.stop_x - wheel_front + push.x0,
+        site.stop_x - wheel_front + tips,
+    );
+    for (i, p) in inp.props.iter().enumerate() {
+        if p.kind != PropKind::WeightRig {
+            continue;
+        }
+        let Some(fall) = inp
+            .hazards
+            .iter()
+            .find(|h| h.owner == Some(i) && h.spec.class == HazardClass::FallingMass)
+        else {
+            // The prop rules refuse a weight without its falling mass.
+            continue;
+        };
+        let f = fall.spec.rect;
+        if f.x < rest.1 && f.right() > rest.0 {
+            errs.push(dozer_err(
+                3,
+                &[&p.id],
+                format!(
+                    "a frame's footprint overlaps the resting envelope {}..{}",
+                    rest.0, rest.1
+                ),
+            ));
+        }
+        let min_hang = push.y1 + rules::HANG_OVER_PUSH_BOX_PX;
+        if p.hang_px.is_some_and(|h| h < min_hang) {
+            errs.push(dozer_err(
+                3,
+                &[&p.id],
+                format!("a frame hangs at least {min_hang} px (the push box top + 8)"),
+            ));
+        }
+        let hero_x =
+            p.target.right() + rules::BRACE_STAND_OFF_PX + crate::prototype::HERO_HALF_WIDTH as i32;
+        let land_delay = u32::from(fall.spec.telegraph_ticks())
+            + u32::from(crate::env_prop::DEFAULT_FALL_TICKS)
+            - 1;
+        let w = crate::dozer::release_window(
+            &t.revenge(),
+            &crate::dozer::StopFrame {
+                footprint_x0: f.x as f32,
+                footprint_x1: f.right() as f32,
+                land_delay_ticks: land_delay,
+                emerge_front_x: site.emerge_front_x as f32,
+            },
+            hero_x as f32,
+            u32::from(t.dzq23_melee_recovery_ticks),
+        );
+        if w.ticks < u32::from(t.dzq23_min_release_window_ticks) {
+            errs.push(dozer_err(
+                5,
+                &[&p.id],
+                format!(
+                    "the useful release window is {} ticks, under the minimum {}",
+                    w.ticks, t.dzq23_min_release_window_ticks
+                ),
+            ));
+        }
+    }
     // ---- rule 6: no supplier at all, and the K5 profile
     for e in inp.roster.iter().filter(|e| e.kind.supplies_boss()) {
         errs.push(dozer_err(
@@ -1049,7 +1120,7 @@ pub(super) fn check_dozer(inp: &HazInput<'_>, errs: &mut Vec<EncounterError>) {
             "a dozer room has no BossThreat supplier at all",
         ));
     }
-    if let Err(err) = crate::dozer::DozerTuning::active().validate() {
+    if let Err(err) = t.validate() {
         errs.push(dozer_err(6, &ids, err.to_string()));
     }
 }

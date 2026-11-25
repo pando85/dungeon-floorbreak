@@ -285,5 +285,82 @@ fn drawing_never_changes_the_state_hash() {
         assert!(states.contains(state), "{state} not drawn: {states:?}");
     }
     assert!(yelled, "the riders yell at the close call");
-    assert_eq!(tags_seen, 2);
+    // The gate, the buffer stop, the brace and the hanging frame.
+    assert_eq!(tags_seen, 4);
+}
+
+/// DR-B: the stop frame's stand-ins follow the frame through every state (the
+/// brace intact, weakened and snapped; the hanging frame and chain, the warning
+/// shake and its floor shadow, the fall, the remnant) and the rear glance
+/// plays after a late landing. Every piece is labelled, the pools hold, and
+/// drawing never changes the hash.
+#[test]
+fn the_frame_stand_ins_follow_the_frame_and_the_rear_glance() {
+    use crate::dozer_fixtures::{Stage, chase_at};
+    use crate::env_prop::Stimulus;
+    use crate::f01_late::Loadout;
+    let flags = Loadout::Story.flags();
+    let mut st = Stage::new(
+        &root(),
+        Mode::TwoPlayer,
+        flags,
+        chase_at(800.0),
+        1100.0,
+        1150.0,
+    )
+    .unwrap();
+    let mut twin = st.clone();
+    let mut labels = std::collections::BTreeSet::new();
+    let mut glance_pieces = 0;
+    for k in 0..240u64 {
+        let tick = st.tick();
+        if k == 2 || k == 4 {
+            // One melee hit weakens the brace; then a blast releases the frame.
+            let stimulus = if k == 2 {
+                Stimulus::MeleeHit {
+                    token: 9001,
+                    player: crate::shore::PLAYER_ONE,
+                    weight: 1,
+                }
+            } else {
+                Stimulus::Blast {
+                    blast_id: 9002,
+                    owner: Some(crate::shore::PLAYER_ONE),
+                    depth: 0,
+                }
+            };
+            for s in [&mut st, &mut twin] {
+                s.sim.combat.env_stimulate(FRAME_PROP, stimulus, tick);
+            }
+        }
+        let world = &st.sim.scene.world;
+        let art = draw(&st.sim.combat, [world.hero.x, world.donut_body.x], tick).unwrap();
+        assert!(art.stand_ins.len() <= MAX_STAND_INS && art.tags.len() <= MAX_TAGS);
+        for p in &art.stand_ins {
+            assert!(p.label.contains("stand-in until DOZ-02"), "{p:?}");
+            labels.insert(p.label);
+        }
+        glance_pieces += art
+            .stand_ins
+            .iter()
+            .filter(|p| p.label == GLANCE_LABEL)
+            .count();
+        st.step(RawInput::NONE);
+        twin.step(RawInput::NONE);
+        assert_eq!(st.hash(), twin.hash(), "tick {tick}");
+    }
+    for label in [
+        BRACE_LABEL,
+        BRACE_WEAK_LABEL,
+        BRACE_SNAPPED_LABEL,
+        FRAME_LABEL,
+        FRAME_WARN_LABEL,
+        FRAME_SHADOW_LABEL,
+        FRAME_FALL_LABEL,
+        REMNANT_LABEL,
+        GLANCE_LABEL,
+    ] {
+        assert!(labels.contains(label), "{label} not drawn: {labels:?}");
+    }
+    assert_eq!(glance_pieces, GLANCE_TICKS as usize);
 }

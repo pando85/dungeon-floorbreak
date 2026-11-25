@@ -624,6 +624,31 @@ impl CombatState {
             self.apply_slot_out(scene, out, tick);
         }
     }
+
+    /// DR-B: each landing of the tick (its footprint, world, and the slot ids
+    /// it hit) reaches every living slot enemy it did not hit
+    /// ([`SlotEnemy::env_landing_missed`]). Only sub-events come back; an empty
+    /// answer changes nothing.
+    pub fn slot_env_landings(
+        &mut self,
+        scene: &mut SceneSim,
+        landings: &[(Rect, Vec<u32>)],
+        tick: u64,
+    ) {
+        for (footprint, hit) in landings {
+            for index in 0..self.slot.enemies.len() {
+                let enemy = &mut self.slot.enemies[index];
+                if !enemy.alive() || hit.contains(&enemy.target_id()) {
+                    continue;
+                }
+                let mut out = SlotOut::default();
+                enemy.env_landing_missed(*footprint, tick, &mut out);
+                if !out.events.is_empty() {
+                    self.apply_slot_out(scene, out, tick);
+                }
+            }
+        }
+    }
 }
 
 #[cfg(test)]

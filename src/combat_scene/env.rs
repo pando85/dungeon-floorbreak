@@ -987,6 +987,11 @@ impl EnvRuntime {
         }
     }
 
+    /// Prop `index`'s hit target (layout px, y down), live or not.
+    pub fn prop_target(&self, index: usize) -> Option<IRect> {
+        self.props.get(index).map(|p| p.target)
+    }
+
     pub fn mass(&self, index: usize) -> Option<&FallingMass> {
         match &self.props.get(index)?.machine {
             Machine::Mass(m) => Some(m),
@@ -2787,6 +2792,30 @@ impl CombatState {
             .as_mut()
             .expect("checked above")
             .step(tick, &bodies);
+        // DR-B: the masses that landed this tick, their footprints (world) and
+        // the slot victims their landing hit (the rest may draw a glance).
+        let landings: Vec<(Rect, Vec<u32>)> = {
+            let env = self.env.as_ref().expect("checked above");
+            out.events
+                .iter()
+                .filter_map(|e| match *e {
+                    CombatEvent::PropPhase {
+                        prop,
+                        phase: PropPhase::Landed,
+                        ..
+                    } => env.mass(usize::from(prop)).map(|m| {
+                        let hit = out
+                            .hits
+                            .iter()
+                            .filter(|h| h.prop == prop && h.victim.team == Team::Enemy)
+                            .map(|h| h.victim.id)
+                            .collect();
+                        (world_rect(layout_h, m.config().footprint), hit)
+                    }),
+                    _ => None,
+                })
+                .collect()
+        };
         for event in out.events {
             self.log(event);
         }
@@ -2832,6 +2861,9 @@ impl CombatState {
         }
         if !slot_hits.is_empty() {
             self.slot_env_hits(scene, &slot_hits, tick);
+        }
+        if !landings.is_empty() {
+            self.slot_env_landings(scene, &landings, tick);
         }
         // BOIL-D: the edges of the tick reach their linked props, after the
         // hits they caused (a landing kills, then it reaches the drum).
