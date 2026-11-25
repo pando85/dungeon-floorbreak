@@ -103,6 +103,8 @@ dyn moving    special 5 -> thrown 46 -> landed 84 -> blast 196 -> hero_hurt (sel
 juicer        boss_engaged 21 -> charge_thrown 174 -> landed 212 -> blast 324 (Donut hurt by the pound at 318)
 ```
 
+**LLAMA-DEATH-WIRE replay (`carl_prog_dyn_llama_core`, final `PARTY_STATE` hash `a00ca20c6dcfece8`).** A passive Bad Llama stands where the standing throw lands (x 511): special 4, thrown 45, landed 83, blast 195, `enemy_defeated target=0 cause=explosion charge=0 credit_player=0 point_blank` on 195 (the CP-Q26 core rule, unchanged). It is the replay the llama's explosive breakup is captured from ([`docs/evidence/llama-death-wire/`](../llama-death-wire/README.md)); every earlier `carl_prog_*` golden and replay is byte-identical.
+
 **Owner scorecard (blank, to fill in when the owner plays; the build SHA is the head of the merged PR).** One row per attempt.
 
 | Build SHA | Flags | Pad | Resolution | Deaths and restarts | Throws | Self-hits | Chains | Pierces |

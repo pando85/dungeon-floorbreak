@@ -225,6 +225,12 @@ struct Args {
     death_stress: bool,
     /// Headless fixture only: print the presenter's `DEATH_PRESENT` summary.
     death_trace: bool,
+    /// Fixture only, evidence lab (LLAMA-DEATH-WIRE): the presenter plays
+    /// every block kill as a block-edge cut (`DeathPresenter::with_lab_edge`).
+    /// Presentation only: the simulation, its log and its hash are untouched.
+    /// Remove it when a simulation cause can behead a llama (precedent:
+    /// DEATH-D removed `--death-lab-finish` once the goblin had one).
+    death_lab_edge: bool,
     /// HUD-HYBRID-A-01: draw a labelled HUD preview fixture. Presentation
     /// only: it never reaches the simulation, the combat state or a replay.
     hud_preview: Option<HudPreview>,
@@ -450,6 +456,7 @@ impl Args {
             && self.hud_preview.is_none()
             && self.camera_test_room.is_none()
             && !self.death_stress
+            && !self.death_lab_edge
             && !self.audience_probe
             && self.list_fixtures.is_none()
     }
@@ -1359,6 +1366,7 @@ fn parse_args_full(
         gore_preset: GorePreset::default(),
         death_stress: false,
         death_trace: false,
+        death_lab_edge: false,
         hud_preview: None,
         glyphs: None,
         hud_settings,
@@ -1609,6 +1617,7 @@ fn parse_args_full(
             }
             "--death-stress" => parsed.death_stress = true,
             "--death-trace" => parsed.death_trace = true,
+            "--death-lab-edge" => parsed.death_lab_edge = true,
             "--camera" => {
                 let value = iter.next().ok_or("--camera needs a mode")?;
                 parsed.camera = Some(CameraChoice::parse(value)?);
@@ -1918,6 +1927,9 @@ fn parse_args_full(
             "--death-stress is a live run: drop --headless-floor01-smoke and --capture-tick".into(),
         );
     }
+    if parsed.death_lab_edge && parsed.fixture.is_none() {
+        return Err("--death-lab-edge needs --fixture".into());
+    }
     if parsed.death_trace && !parsed.headless {
         return Err("--death-trace needs --headless-floor01-smoke".into());
     }
@@ -2037,8 +2049,13 @@ type Scene = (
 fn death_presenter(root: &Path, args: &Args) -> Result<DeathPresenter, String> {
     let art = Arc::new(DeathArt::load(root)?);
     let variant_b = DeathArt::load_variant(root, 1)?;
-    DeathPresenter::with_variants(art, &variant_b, args.gore_preset)?
-        .with_llama(Arc::new(DeathArt::load_llama(root)?))
+    let death = DeathPresenter::with_variants(art, &variant_b, args.gore_preset)?
+        .with_llama(Arc::new(DeathArt::load_llama(root)?))?;
+    Ok(if args.death_lab_edge {
+        death.with_lab_edge()
+    } else {
+        death
+    })
 }
 
 /// Where the QA probe's one authored anticipation cue fires (any hero's x
@@ -7483,10 +7500,12 @@ fn sync_death_visuals(
             .with_alpha(presenter.corpse_alpha(goblin.index as u32));
     }
     // A llama's death pose replaces its sprite; a retired corpse is not drawn.
+    // LLAMA-DEATH-WIRE: an exploded llama (presets 2 to 4) is replaced by its
+    // pieces, as the goblin.
     let goblin_count = state.enemies.len();
     for (llama, mut visibility, mut sprite) in &mut llamas {
         let target = (goblin_count + llama.index) as u32;
-        *visibility = if presenter.pose_of(target).is_some() || presenter.is_retired(target) {
+        *visibility = if presenter.pose_of(target).is_some() || !presenter.draws_goblin(target) {
             Visibility::Hidden
         } else {
             Visibility::Inherited
@@ -7807,7 +7826,14 @@ fn update_lighting(
                 );
             }
             if let Some(clips) = art.llama_clips() {
+                let goblin_count = combat.enemies.len();
                 for (index, llama) in combat.llamas.iter().enumerate() {
+                    // No shadow under an exploded or retired llama either.
+                    if death.0.as_ref().is_some_and(|presenter| {
+                        !presenter.draws_goblin((goblin_count + index) as u32)
+                    }) {
+                        continue;
+                    }
                     if let Some(pose) = art.llama_pose(index) {
                         put(clips, &pose, llama.x, llama.facing < 0);
                     }
@@ -8985,6 +9011,21 @@ mod tests {
             .is_err()
         );
         assert!(args(&["--fixture", "cp03_shore_kill", "--death-trace"]).is_err());
+        // LLAMA-DEATH-WIRE: the block-edge evidence lab needs a fixture and is
+        // never a recording run.
+        assert!(args(&["--death-lab-edge"]).is_err());
+        let lab = args(&["--fixture", "cp05_llama_crush", "--death-lab-edge"]).unwrap();
+        assert!(lab.death_lab_edge);
+        assert!(
+            !args(&[
+                "--fixture",
+                "cp05_llama_crush",
+                "--death-lab-edge",
+                "--manual"
+            ])
+            .unwrap()
+            .recording_enabled()
+        );
         assert!(
             args(&[
                 "--fixture",
