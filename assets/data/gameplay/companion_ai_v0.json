@@ -385,7 +385,8 @@
       "fa_q28_escort_bonus": 200,
       "fa_q28_hunt_near_px": 160,
       "fa_q29_pounce_timing": true,
-      "fa_q29_slack_ticks": 4
+      "fa_q29_slack_ticks": 4,
+      "rwf1_cut_off_escort": true
     },
     "autonomy": {
       "enabled": true,

@@ -559,6 +559,27 @@ pub trait SpotWorld {
     fn hazard_between(&self, _x0: f32, _x1: f32, _y: f32) -> bool {
         false
     }
+
+    /// RINGW-F1: she is **cut off** from the leader's ground: both stand on open
+    /// surfaces, different ones, his is not above hers, and the route from hers
+    /// to his needs a jump or a drop over ground higher than his (it climbs over
+    /// a barrier, like the court's step and walkway over the closed shutter, or
+    /// she is above him on the way down). A plain jump over a gap in one floor
+    /// is no crossing. The default is `None`: a world with no such crossing.
+    fn crossing(&self, _partner: &HeroView, _leader: &HeroView) -> Option<Crossing> {
+        None
+    }
+}
+
+/// RINGW-F1: the leader's standing surface across a crossing
+/// ([`SpotWorld::crossing`]).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Crossing {
+    /// The leader's surface, inset like every [`SpotWorld::surfaces`] entry.
+    pub surface: Surface,
+    /// Both surfaces stand at the same height: a barrier between two stretches
+    /// of one floor (RWF1-AD1: she neither holds nor escorts on her side of it).
+    pub same_level: bool,
 }
 
 /// What a spot is for.
@@ -979,6 +1000,16 @@ impl<'a> Ctx<'a> {
         low && !self.unclaimed_near_leader()
     }
 
+    /// RINGW-F1: the crossing that cuts her off from the leader's ground, while
+    /// the `rwf1_cut_off_escort` knob is on ([`SpotWorld::crossing`]).
+    fn cut_off(&self) -> Option<Crossing> {
+        if self.inp.set.fix_all.rwf1_cut_off_escort {
+            self.inp.world.crossing(self.me, self.leader)
+        } else {
+            None
+        }
+    }
+
     /// The worst-case commitment of attacking `t` from `x` is inside the view,
     /// and so is the walk or the nav transit that gets her there (spec 3.3).
     /// Returns `(ok, only_the_drift_check_failed)`.
@@ -1251,14 +1282,14 @@ impl<'a> Ctx<'a> {
             sign(self.me.x - self.leader.x)
         };
         let mut best = BestSpot { best: None };
-        for surface in surfaces {
-            if surface.risk >= self.a.ca2_q29_spot_max_risk
-                || (surface.y - self.leader.foot_y).abs() > self.vertical()
-            {
-                continue;
-            }
+        // `drift`: whether the spot must pass the drift check (spec 3.3).
+        let offer = |best: &mut BestSpot, surface: &Surface, drift: bool| {
             sample_xs(surface, |x| {
-                if !zone.contains_spot(x, surface.y) || !self.commit_ok(x, surface, None).0 {
+                if !zone.contains_spot(x, surface.y) {
+                    return;
+                }
+                let (ok, drift_only) = self.commit_ok(x, surface, None);
+                if !(ok || (!drift && drift_only)) {
                     return;
                 }
                 let from_leader = (x - self.leader.x).abs();
@@ -1281,8 +1312,44 @@ impl<'a> Ctx<'a> {
                     },
                 );
             });
+        };
+        // RINGW-F1 (RWF1-AD2): she is cut off from the leader's ground (the
+        // court's step and walkway over the closed shutter). The drift check
+        // prices the whole crossing as one commitment, so every spot across
+        // fails it and she would park at the barrier's face, or stall on the
+        // walkway. She escorts on the leader's own surface instead, with the
+        // drift check waived for the crossing: the executor commits one edge at
+        // a time and the off-screen regroup still covers a leader who runs away
+        // meanwhile. Across a barrier on one floor she always does (RWF1-AD1);
+        // from above, only when no spot in the escort band passes the check.
+        let cross = self
+            .cut_off()
+            .filter(|c| c.surface.risk < self.a.ca2_q29_spot_max_risk);
+        let across = |best: &mut BestSpot, c: &Crossing| {
+            offer(best, &c.surface, false);
+            best.best.map(|(_, s)| s)
+        };
+        if let Some(c) = cross.filter(|c| c.same_level)
+            && let Some(s) = across(&mut best, &c)
+        {
+            return Some(s);
         }
-        best.best.map(|(_, s)| s)
+        for surface in surfaces {
+            if surface.risk >= self.a.ca2_q29_spot_max_risk
+                || (surface.y - self.leader.foot_y).abs() > self.vertical()
+            {
+                continue;
+            }
+            offer(&mut best, surface, true);
+        }
+        let found = best.best.map(|(_, s)| s);
+        if found.is_none_or(|s| (s.x - self.leader.x).abs() > max)
+            && let Some(c) = cross.filter(|c| !c.same_level)
+            && let Some(s) = across(&mut BestSpot { best: None }, &c)
+        {
+            return Some(s);
+        }
+        found
     }
 }
 
@@ -1749,6 +1816,10 @@ impl AutonomyState {
                 c.bv.is_none_or(|b| !c.standoff_violated(&b, spot.x))
                     && !(c.shadowing
                         && (spot.x - c.leader.x).abs() < f32::from(c.fa().fa_q25_respot_px))
+                    // RINGW-F1 (RWF1-AD1): a spot on her side of a barrier that
+                    // cuts her off from the leader on one floor goes stale.
+                    && c.cut_off()
+                        .is_none_or(|x| !x.same_level || x.surface.key == spot.key)
             }
             _ => false,
         }
@@ -2158,9 +2229,12 @@ impl AutonomyState {
             f32::from(c.a.ca2_q06_comfort_px)
         };
         // FA-Q05: under a boss she holds only on ground the standoff allows.
+        // RINGW-F1 (RWF1-AD1): she does not hold on her side of a barrier that
+        // cuts her off from the leader on one floor; she escorts across it.
         let hold = !c.travelling
             && (c.me.x - c.leader.x).abs() <= hold_radius
-            && c.bv.is_none_or(|b| !c.standoff_violated(&b, c.me.x));
+            && c.bv.is_none_or(|b| !c.standoff_violated(&b, c.me.x))
+            && c.cut_off().is_none_or(|x| !x.same_level);
         // A running Escort that has just arrived keeps its minimum time (CA2-Q16)
         // as a hold, so it does not flip to Idle the tick she enters the band.
         let settling = escorting

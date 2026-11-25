@@ -54,7 +54,7 @@
 //! press, which are state of the simulation (the graph itself is derived from
 //! the solids, which are hashed already).
 
-use crate::companion::autonomy::{SpotWorld, Surface};
+use crate::companion::autonomy::{Crossing, SpotWorld, Surface};
 use crate::companion::nav::{
     EdgeKind, EdgePlan, NavAnchorId, NavConfig, NavError, NavGraph, NavHazard, NavLevel, Plan,
     Reason, SafeContext, SolidId, UNSAFE_RISK, Unlocks, walk_ticks,
@@ -1000,6 +1000,52 @@ impl SpotWorld for NavSpots<'_> {
         }
         Some(ticks.min(u32::from(u16::MAX)) as u16)
     }
+
+    /// RINGW-F1: both stand on open anchors, different ones, his top is not
+    /// above hers (1 px tolerance), the route from hers to his needs a jump or
+    /// a drop, and it passes over ground higher than his: it climbs over a
+    /// barrier (the court's step and walkway over the closed shutter), or she
+    /// is above him on the way down. A jump over a gap between two stretches of
+    /// one floor, or a walk, is no crossing: those keep the plain escort.
+    fn crossing(&self, partner: &HeroView, leader: &HeroView) -> Option<Crossing> {
+        let graph = self.driver.graph();
+        let here = graph.anchor_at(partner.x, partner.foot_y)?;
+        let there = graph.anchor_at(leader.x, leader.foot_y)?;
+        if here == there || !graph.anchor_open(here) || !graph.anchor_open(there) {
+            return None;
+        }
+        let ((_, my_top), (_, top)) = (graph.anchor_pos(here)?, graph.anchor_pos(there)?);
+        if top > my_top + 1.0 {
+            return None;
+        }
+        let path = graph
+            .path_or_reason(self.actor, here, there, Unlocks::NONE)
+            .ok()?;
+        if !path
+            .anchors
+            .iter()
+            .any(|a| graph.anchor_pos(*a).is_some_and(|p| p.1 > top + 1.0))
+        {
+            return None;
+        }
+        let (x0, x1) = graph.anchor_span(there)?;
+        let inset = HERO_HALF_WIDTH + self.ledge_inset_px;
+        if x1 - x0 < 2.0 * inset {
+            return None;
+        }
+        let surface = Surface {
+            key: Self::key(there),
+            left: x0 + inset,
+            right: x1 - inset,
+            y: top,
+            risk: graph.anchor_risk(there)?,
+        };
+        let x = leader.x.clamp(surface.left, surface.right);
+        (self.route_ticks(partner, x, &surface)? > 0).then_some(Crossing {
+            surface,
+            same_level: (top - my_top).abs() <= 1.0,
+        })
+    }
 }
 
 /// CA2-Q29 (adopted default, PR #220 review ruling 6): every fed rectangle is
@@ -1349,6 +1395,52 @@ mod tests {
         let (drive, notes) = goto.go_to(HeroId::Carl, me, target, None);
         assert!(notes.iter().any(|n| matches!(n, NavNote::Waiting { .. })));
         assert!(drive.unwrap().move_x > 0.0, "a go-to closes on the spot");
+    }
+
+    /// RINGW-F1: a crossing is a route over a barrier, or down from above the
+    /// leader; a walk, a jump over a gap in one floor, or a leader above her
+    /// is none.
+    #[test]
+    fn nav_spots_report_a_crossing_over_a_barrier_only() {
+        use crate::companion::autonomy::SpotWorld;
+        use crate::companion::view::{Control, HeroView, fixtures};
+        let hero = |id, x: f32, foot: f32| -> HeroView {
+            let mut h = fixtures::hero(id, x, Control::Companion);
+            h.foot_y = foot;
+            h
+        };
+        // A 104 px block standing on the floor between x 300 and 600.
+        let wall = vec![
+            stone(0.0, 0.0, 2000.0, 40.0),
+            stone(300.0, 104.0, 300.0, 144.0),
+        ];
+        let driver = NavDriver::new(&wall, NavConfig::agile()).unwrap();
+        let spots = NavSpots::new(&driver, HeroId::Donut, 16.0);
+        let me = hero(HeroId::Donut, 100.0, 0.0);
+        let leader = hero(HeroId::Carl, 800.0, 0.0);
+        let c = spots.crossing(&me, &leader).expect("over the block");
+        assert!(
+            c.same_level && c.surface.y == 0.0 && c.surface.left > 600.0,
+            "{c:?}"
+        );
+        // On top of the block, above him: a crossing on the way down.
+        let c = spots.crossing(&hero(HeroId::Donut, 450.0, 104.0), &leader);
+        assert!(c.is_some_and(|c| !c.same_level), "{c:?}");
+        // A walk on her stretch of floor, or the leader up on the block: none.
+        assert_eq!(spots.crossing(&me, &hero(HeroId::Carl, 200.0, 0.0)), None);
+        assert_eq!(spots.crossing(&me, &hero(HeroId::Carl, 450.0, 104.0)), None);
+        // A 40 px gap in one floor: a jump, but no crossing.
+        let gap = vec![
+            stone(0.0, 0.0, 500.0, 40.0),
+            stone(540.0, 0.0, 1460.0, 40.0),
+        ];
+        let driver = NavDriver::new(&gap, NavConfig::agile()).unwrap();
+        let spots = NavSpots::new(&driver, HeroId::Donut, 16.0);
+        let mut out = Vec::new();
+        spots.surfaces(&mut out);
+        let far = out.iter().find(|s| s.left > 540.0).copied().unwrap();
+        assert!(spots.route_ticks(&me, 800.0, &far).is_some_and(|t| t > 0));
+        assert_eq!(spots.crossing(&me, &leader), None);
     }
 
     #[test]

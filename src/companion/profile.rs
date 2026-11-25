@@ -19,7 +19,7 @@ pub const PROFILE_JSON: &str = include_str!("../../assets/data/gameplay/companio
 
 /// The committed FNV-1a 64 content hash of [`PROFILE_JSON`]. Editing the file
 /// without updating this value fails [`ProfileFile::pinned`] and the pin test.
-pub const PROFILE_HASH: u64 = 0x21ec_f2a4_b285_9f85;
+pub const PROFILE_HASH: u64 = 0xd64d_7be0_1a40_0c43;
 
 /// The profile set id under the spec's name (CA-21, section 17): the runtime's
 /// `UncontrolledHero::Companion(CompanionProfileSet)` names it.
@@ -456,6 +456,11 @@ pub struct FixAll {
     /// `fa_q29_slack_ticks` or more before the target's next impact tick.
     pub fa_q29_pounce_timing: bool,
     pub fa_q29_slack_ticks: u16,
+    /// RINGW-F1 (RWF1-AD1, RWF1-AD2): when she is cut off from the leader's
+    /// ground (`SpotWorld::crossing`), she neither holds nor keeps an escort spot
+    /// on her side of the barrier, and escorts on his surface with the drift
+    /// check waived for the crossing.
+    pub rwf1_cut_off_escort: bool,
 }
 
 /// One profile set.

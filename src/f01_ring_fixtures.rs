@@ -529,9 +529,9 @@ mod tests {
 
     /// KR19 with the autonomous partner (`cf02_free`): both rooms clear at every
     /// seed with no defeat. In the court Carl crosses over the walkway and nobody
-    /// walks under the closed arch; whether the AI Donut follows him over the
-    /// walkway during the fight is [`ring_court_companion_crosses_the_walkway`],
-    /// a reported gap (RINGW-F1).
+    /// walks under the closed arch; that the AI Donut follows him over the
+    /// walkway during the fight is [`ring_court_companion_crosses_the_walkway`]
+    /// and [`ring_court_companion_near_follow_crosses_the_shutter`] (RINGW-F1).
     #[test]
     fn ring_companion_runs() {
         for seed in SEEDS {
@@ -546,21 +546,118 @@ mod tests {
         }
     }
 
-    /// RINGW-F1 (reported gap, KR19: the next PR): the autonomous partner must
-    /// cross the closed shutter over the walkway while Carl fights **near** it on
-    /// the far side. The companion nav plans that route (floor, step, walkway,
-    /// floor), and when Carl runs on to the exit she does follow it (review of
-    /// #271), but while he fights g1 about 200 px away across the shutter she
-    /// approaches him directly and waits at the shutter's left face (x ~1172).
-    /// The near-follow case is the one this fixture asserts: she crosses before
-    /// Carl reaches the exit.
+    /// RINGW-F1 (KR19): the autonomous partner crosses the closed shutter over
+    /// the walkway while Carl fights **near** it on the far side, before he
+    /// reaches the exit. Before the fix she approached him directly and waited at
+    /// the shutter's left face (x ~1172) while he fought g1 about 200 px away:
+    /// the drift check priced the whole crossing as one commitment and refused
+    /// every spot across (RWF1-AD1, RWF1-AD2).
     #[test]
-    #[ignore = "RINGW-F1: the cf02_free partner does not follow over the walkway (reported gap)"]
     fn ring_court_companion_crosses_the_walkway() {
         for seed in SEEDS {
             let r = run(&root(), RingRoom::Court, Who::Companion, seed, false).unwrap();
             assert!(r.walkway_crossing[1], "{}", r.line());
+            assert!(!r.under_the_shutter, "{}", r.line());
             assert!(r.exit_tick.is_some(), "{}", r.line());
+        }
+    }
+
+    /// RINGW-F1 knob off (`rwf1_cut_off_escort`): the court's companion run is
+    /// the pre-fix run byte for byte (the hash of `ring_runs.txt` before the fix,
+    /// seed 0), and the partner does not cross over the walkway.
+    #[test]
+    fn ring_court_companion_with_the_rwf1_knob_off_keeps_its_old_hash() {
+        let r = crate::combat_scene::with_profile_override(
+            |f| f.cf02_free.fix_all.rwf1_cut_off_escort = false,
+            || run(&root(), RingRoom::Court, Who::Companion, 0, false).unwrap(),
+        );
+        assert_eq!(r.hash, 0x28e0_19ad_b12a_867d, "{}", r.line());
+        assert_eq!(r.walkway_crossing, [true, false], "{}", r.line());
+    }
+
+    /// RINGW-F1, the near follow: Carl crosses over the walkway and then stands
+    /// (no input) on the floor just right of the closed shutter, about 120 px
+    /// from its face, while the goblins come to him. The autonomous partner, cut
+    /// off on the left floor, takes the nav route over the step and the walkway
+    /// by herself (no regroup placement) and joins him on his floor within
+    /// [`NEAR_FOLLOW_TICKS`] of his landing; she never waits under the shutter.
+    #[test]
+    fn ring_court_companion_near_follow_crosses_the_shutter() {
+        use crate::companion::events::CompanionEvent;
+        /// 6 s: the crossing (two jumps and a drop) takes about 4 s.
+        const NEAR_FOLLOW_TICKS: u64 = 360;
+        for seed in SEEDS {
+            let (mut sim, ring) = start(&root(), RingRoom::Court, Who::Companion, seed).unwrap();
+            let route = Route::of(&ring, false);
+            let (s0, s1) = route.shutter.unwrap();
+            let mid = (s0 + s1) * 0.5;
+            let walk = ring.loaded.room.platforms[1].rect;
+            let walk_top = to_world_y(ring.kit.height, walk.y);
+            let (w0, w1) = (walk.x as f32, walk.right() as f32);
+            let mut landed: Option<u64> = None;
+            let (mut over, mut under, mut regroup) = (false, false, false);
+            let mut joined: Option<u64> = None;
+            let mut last_x = sim.scene.world.body(HeroId::Donut).x;
+            for _ in 0..RUN_TICKS {
+                let input = if landed.is_some() {
+                    RawInput::NONE
+                } else {
+                    pilot(&route, &sim.combat, &sim.scene, HeroId::Carl)
+                };
+                sim.step_slots([input, RawInput::NONE]);
+                let t = sim.scene.world.tick;
+                regroup |= sim
+                    .combat
+                    .take_companion_events()
+                    .iter()
+                    .any(|e| matches!(e, CompanionEvent::Regroup { .. }));
+                let carl = sim.scene.world.body(HeroId::Carl).x;
+                let (dx, dy) = {
+                    let d = sim.scene.world.body(HeroId::Donut);
+                    (d.x, d.y)
+                };
+                if landed.is_none()
+                    && on_floor(&route, &sim.scene, HeroId::Carl)
+                    && carl > s1 + HERO_HALF_WIDTH
+                {
+                    landed = Some(t);
+                }
+                let feet = dy - HERO_HALF_HEIGHT;
+                if (feet - walk_top).abs() < 1.0
+                    && (w0..=w1).contains(&dx)
+                    && last_x < mid
+                    && dx >= mid
+                {
+                    over = true;
+                }
+                if !over && on_floor(&route, &sim.scene, HeroId::Donut) && dx > s1 {
+                    under = true;
+                }
+                last_x = dx;
+                if joined.is_none()
+                    && over
+                    && on_floor(&route, &sim.scene, HeroId::Donut)
+                    && dx > s1
+                    && (dx - carl).abs() <= 120.0
+                {
+                    joined = Some(t);
+                }
+                if let Some(t0) = landed
+                    && (joined.is_some() || t >= t0 + NEAR_FOLLOW_TICKS)
+                {
+                    break;
+                }
+            }
+            let line = format!(
+                "seed {seed}: landed {landed:?} joined {joined:?} over {over} under {under} \
+                 regroup {regroup}"
+            );
+            let t0 = landed.unwrap_or_else(|| panic!("Carl never landed right: {line}"));
+            assert!(
+                joined.is_some_and(|t| t <= t0 + NEAR_FOLLOW_TICKS),
+                "{line}"
+            );
+            assert!(over && !under && !regroup, "{line}");
         }
     }
 
