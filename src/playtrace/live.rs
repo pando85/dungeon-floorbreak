@@ -234,6 +234,24 @@ pub fn data_pins() -> Vec<(&'static str, u64)> {
             crate::f01_mastery::ENCOUNTER_PIN_KEY,
             crate::f01_mastery::ENCOUNTER_HASH,
         ),
+        // RING-A/B wire: the two Ring rooms' room and sidecar pins, each scoped to
+        // its own room.
+        (
+            crate::f01_ring::COURT_ROOM_PIN_KEY,
+            crate::f01_ring::COURT_ROOM_HASH,
+        ),
+        (
+            crate::f01_ring::COURT_ENCOUNTER_PIN_KEY,
+            crate::f01_ring::COURT_ENCOUNTER_HASH,
+        ),
+        (
+            crate::f01_ring::SPLIT_ROOM_PIN_KEY,
+            crate::f01_ring::SPLIT_ROOM_HASH,
+        ),
+        (
+            crate::f01_ring::SPLIT_ENCOUNTER_PIN_KEY,
+            crate::f01_ring::SPLIT_ENCOUNTER_HASH,
+        ),
         // CF02-FU-C2F U3: the microarena's room file.
         (
             crate::cf02::arena::ROOM_PIN_KEY,

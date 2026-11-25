@@ -12,6 +12,8 @@ bin="${BIN:-./target/debug/floor01_scene}"
 out=docs/evidence/f01-playtest/owner_commands_check.txt
 : > "$out"
 fail=0
+# Logs of unexpected outcomes (never committed; target/ is ignored).
+keep="${OWNER_LOG_DIR:-target/owner_command_logs}"
 try() { # expectation(ok|refuse) args...
   local want="$1"; shift
   local log code
@@ -21,8 +23,17 @@ try() { # expectation(ok|refuse) args...
   local res
   if [[ "$code" == 0 ]]; then res=ok; else res="refused (exit $code): $(grep -v '^\s*$' "$log" | tail -n 1 | cut -c1-160)"; fi
   echo "[$want] $res :: floor01_scene $*" >> "$out"
+  case "$want:$res" in
+    ok:ok|refuse:refused*) ;;
+    *)
+      # Review F6 of #271: keep the full log of an unexpected outcome.
+      mkdir -p "$keep"
+      cp "$log" "$keep/$(date +%s)-$$-${RANDOM}.log"
+      echo "  (full log kept under $keep)" >> "$out"
+      fail=1
+      ;;
+  esac
   rm -f "$log"
-  case "$want:$res" in ok:ok|refuse:refused*) ;; *) fail=1 ;; esac
 }
 S="--scene f01_late --scale 2"
 try ok $S
@@ -30,9 +41,11 @@ try ok $S
 try ok $S --f01-run
 try ok $S --f01-run --f01-loadout all
 try refuse $S --f01-run --cf02-seed 3
-for room in hoarder boiler hazards juicer mastery; do try ok $S --f01-room "$room"; done
+for room in hoarder boiler hazards ring_court ring_split juicer mastery; do try ok $S --f01-room "$room"; done
 # FA-Q24: the Hoarder is listed again (it reverses PTG-AD1); her own scene still launches her too.
-for room in corral dozer ring_court ring_split; do try refuse $S --f01-room "$room"; done
+for room in corral dozer; do try refuse $S --f01-room "$room"; done
+# RING-A/B wire: the Ring rooms launch only through f01_late (KR22: no scene of their own).
+try refuse --scene f01_ring_court --scale 2
 try ok --scene f01_hoarder --scale 2
 try ok $S --f01-room mastery --f01-loadout all
 try ok $S --f01-room hoarder --f01-loadout all

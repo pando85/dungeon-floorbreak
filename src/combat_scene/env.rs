@@ -78,8 +78,8 @@ use crate::encounter::{
 use crate::env_hazard::{HazardClass, HazardEdge, HazardSet, NavPhase, NavRect, Team, Victim};
 use crate::env_prop::{
     Drum, DrumConfig, DrumState, FallingMass, FallingMassConfig, Ignored, LinkEmit, LinkGraph,
-    MassBody, MassEdge, MassState, Offer, STEP_OVER_PX, Slide, SlideEdge, SlideState, Stimulus,
-    Valve, ValveEdge, ValveState, remnant_lifts,
+    MassBody, MassEdge, MassState, Offer, STEP_OVER_PX, Shutter, Slide, SlideEdge, SlideState,
+    Stimulus, Valve, ValveEdge, ValveState, remnant_lifts,
 };
 use crate::goblin::{GoblinMode, WalkBarrier};
 use crate::hero_damage::HeroDamagePolicy;
@@ -118,6 +118,11 @@ enum Machine {
     Rot,
     /// HRD-B: the Hoarder's J-A bank (a sidecar static with a slide spec).
     Bank(Box<Bank>),
+    /// RING-B wire: a **static** shutter (`cycles` 0, KR3 clause 5): the machine
+    /// of RING-C core, never armed and never stepped, so its slices stand as
+    /// authored. The moving shutter (its step, the arm rule, the pins) is RING-C
+    /// wire's.
+    Shutter(Box<Shutter>),
 }
 
 /// HRD-B: the J-A bank: the slide machine and the push of its moving mass
@@ -244,6 +249,16 @@ pub enum EnvSolidKind {
     /// enemy is defeated (the room goal opens it at runtime, HAZ-Q39). The derived
     /// sibling of [`Self::Lock`] (see there).
     ExitGate,
+    /// RING-B wire: a **static** shutter's closed stack as **one** block (its
+    /// footprint). `EnvSolid::prop` is the shutter's prop index; it stands while
+    /// every slice of the machine stands, which a static closed shutter keeps for
+    /// the whole attempt. Not KR6's 17 slices of 4 px: a blast's line of sight
+    /// (`blast::line_of_sight`) passes a segment that only touches block edges,
+    /// and a charge on the floor has its centre 8 px up, exactly on a slice seam,
+    /// so a sliced stack let the dynamite through the closed shutter (review F5
+    /// of #271). The moving shutter's slices are RING-C wire's, which must close
+    /// that seam first.
+    ShutterStack,
 }
 
 impl EnvSolidKind {
@@ -255,7 +270,12 @@ impl EnvSolidKind {
     pub const fn opens_on_defeat(self) -> bool {
         match self {
             Self::Lock { .. } | Self::ExitGate => true,
-            Self::Remnant | Self::Drum | Self::Bank | Self::Gate { .. } | Self::Soffit => false,
+            Self::Remnant
+            | Self::Drum
+            | Self::Bank
+            | Self::Gate { .. }
+            | Self::Soffit
+            | Self::ShutterStack => false,
         }
     }
 }
@@ -581,10 +601,27 @@ impl EnvRuntime {
                     Machine::Rot
                 }
                 PropKind::Shutter => {
-                    return Err(format!(
-                        "prop {}: the env step does not run a {:?} yet (RING wire adds it)",
-                        p.id, p.kind
-                    ));
+                    let cfg = p
+                        .shutter
+                        .ok_or_else(|| format!("prop {}: a shutter needs its config", p.id))?;
+                    // RING-B wire runs the static gate only; the moving shutter's
+                    // step, arm rule and pins are RING-C wire's, so a moving one
+                    // is refused here, never silently left open.
+                    if !cfg.is_static() {
+                        return Err(format!(
+                            "prop {}: the env step runs a static shutter only (the moving shutter is RING-C wire's)",
+                            p.id
+                        ));
+                    }
+                    let shutter =
+                        Shutter::new(cfg, p.target).map_err(|e| format!("prop {}: {e}", p.id))?;
+                    // The static stack as one block (see `ShutterStack`).
+                    solids.push(EnvSolid {
+                        rect: shutter.footprint(),
+                        prop: Some(index),
+                        kind: EnvSolidKind::ShutterStack,
+                    });
+                    Machine::Shutter(Box::new(shutter))
                 }
             };
             props.push(EnvProp {
@@ -864,6 +901,7 @@ impl EnvRuntime {
                     b.slide.reset();
                     b.pushed.clear();
                 }
+                Machine::Shutter(s) => s.reset(),
             }
         }
         self.hazards = self.pristine_hazards.clone();
@@ -923,6 +961,14 @@ impl EnvRuntime {
     pub fn mass(&self, index: usize) -> Option<&FallingMass> {
         match &self.props.get(index)?.machine {
             Machine::Mass(m) => Some(m),
+            _ => None,
+        }
+    }
+
+    /// RING-B wire: the shutter machine, if prop `index` is a shutter.
+    pub fn shutter(&self, index: usize) -> Option<&Shutter> {
+        match &self.props.get(index)?.machine {
+            Machine::Shutter(s) => Some(s),
             _ => None,
         }
     }
@@ -1093,9 +1139,10 @@ impl EnvRuntime {
         // none (the Hoarder's `props` is empty): the kind is checked before props
         // are indexed.
         let prop = match s.kind {
-            EnvSolidKind::Remnant | EnvSolidKind::Drum | EnvSolidKind::Bank => {
-                s.prop.and_then(|p| self.props.get(usize::from(p)))
-            }
+            EnvSolidKind::Remnant
+            | EnvSolidKind::Drum
+            | EnvSolidKind::Bank
+            | EnvSolidKind::ShutterStack => s.prop.and_then(|p| self.props.get(usize::from(p))),
             EnvSolidKind::Lock { .. } | EnvSolidKind::Gate { .. } => return false,
             // HAZ-A2: a soffit always stands; the exit gate defaults to closed (the
             // scene opens it when the roster is clear). Neither has a prop.
@@ -1111,6 +1158,9 @@ impl EnvRuntime {
             }
             (EnvSolidKind::Drum, Some(Machine::Drum { drum, .. })) => {
                 drum.state() != DrumState::Detonated
+            }
+            (EnvSolidKind::ShutterStack, Some(Machine::Shutter(sh))) => {
+                sh.intact_slices() == sh.slice_count()
             }
             _ => false,
         }
@@ -1134,6 +1184,9 @@ impl EnvRuntime {
                 Machine::Drum { .. } | Machine::Rot => false,
                 // HRD-B: hero melee and missiles never disturb a bank (HRD-Q22).
                 Machine::Bank(_) => false,
+                // RING-B wire: the static shutter takes no stimulus (KR4: no
+                // switch, no hit target); a missile stops on its slices.
+                Machine::Shutter(_) => false,
             })
             .map(|p| (p.index, p.target))
             .collect()
@@ -1153,6 +1206,8 @@ impl EnvRuntime {
                 Machine::Rot => false,
                 // HRD-Q22: a blast disturbs a standing bank.
                 Machine::Bank(b) => !b.removed && b.slide.state() == SlideState::Stable,
+                // A blast never moves a shutter (KR5: it hurts nobody, nothing breaks it).
+                Machine::Shutter(_) => false,
             })
             .map(|p| (p.index, p.target))
             .collect()
@@ -1277,7 +1332,7 @@ impl EnvRuntime {
             Machine::Valve { valve, .. } => valve.offer(stimulus),
             Machine::Mass(m) => m.offer(stimulus),
             Machine::Drum { drum, .. } => drum.offer(stimulus),
-            Machine::Rot => return None,
+            Machine::Rot | Machine::Shutter(_) => return None,
             Machine::Bank(b) if b.removed => {
                 return Some((Offer::Ignored(Ignored::NotAccepted), Vec::new()));
             }
@@ -1292,7 +1347,7 @@ impl EnvRuntime {
                 Machine::Mass(m) => m.progress(),
                 // A drum has one weight: the trigger itself.
                 Machine::Drum { .. } => 1,
-                Machine::Rot => 0,
+                Machine::Rot | Machine::Shutter(_) => 0,
                 // A bank has one weight: the trigger itself.
                 Machine::Bank(_) => 1,
             },
@@ -1318,8 +1373,9 @@ impl EnvRuntime {
                 // HRD-B: the bank's shudder is its warning (the slide reuses the
                 // existing phase names: Warning, Falling, Landed).
                 Machine::Bank(_) => PropPhase::Warning,
-                // A sticker takes its stimuli in its own step (`offer` returns above).
-                Machine::Rot => return Some((result, events)),
+                // A sticker takes its stimuli in its own step and a shutter none
+                // (`offer` returns above).
+                Machine::Rot | Machine::Shutter(_) => return Some((result, events)),
             };
             events.push(CombatEvent::PropPhase {
                 tick,
@@ -1434,8 +1490,9 @@ impl EnvRuntime {
                     }
                     None => {}
                 },
-                // A drum's clock is its charge's (the scene steps it).
-                Machine::Drum { .. } | Machine::Rot => {}
+                // A drum's clock is its charge's (the scene steps it). RING-B wire:
+                // a static shutter never steps (RING-C wire steps the moving one).
+                Machine::Drum { .. } | Machine::Rot | Machine::Shutter(_) => {}
                 // HRD-B: the bank's slide, its push and its remnant lift.
                 Machine::Bank(b) => {
                     if b.removed {
@@ -1534,6 +1591,8 @@ impl EnvRuntime {
                 Machine::Mass(m) => m.mix_into(&mut *mix),
                 Machine::Drum { drum, .. } => drum.mix_into(&mut *mix),
                 Machine::Rot | Machine::Bank(_) => {}
+                // RING-B wire: only a room with a shutter mixes it (no older hash moves).
+                Machine::Shutter(s) => s.mix_into(&mut *mix),
             }
         }
         for p in self.props.iter().filter(|p| p.pile && !p.pristine()) {
@@ -1580,6 +1639,7 @@ impl EnvRuntime {
                 Machine::Valve { valve, .. } => format!("{}:{:?}", p.index, valve.state()),
                 Machine::Mass(m) => format!("{}:{:?}", p.index, m.state()),
                 Machine::Drum { drum, .. } => format!("{}:drum_{:?}", p.index, drum.state()),
+                Machine::Shutter(s) => format!("{}:shutter_{:?}", p.index, s.phase()),
                 Machine::Rot => {
                     let state = self
                         .stickers
@@ -2933,6 +2993,10 @@ impl CombatState {
                 | EnvSolidKind::Gate { .. }
                 | EnvSolidKind::Soffit
                 | EnvSolidKind::ExitGate => {}
+                // RING-B wire: the static shutter is a wall for a flier (the
+                // existing CF02-B slam through `wall_stop`, KR4: no new damage);
+                // its face pin through this target is RING-C wire's (KR7).
+                EnvSolidKind::ShutterStack => {}
             }
         }
         struck.sort_unstable();
@@ -3082,7 +3146,7 @@ mod tests {
     /// lock of one enemy, the derived exit gate of a whole roster) say so.
     #[test]
     fn the_two_exit_door_kinds_are_the_only_solids_that_open_on_a_defeat() {
-        use EnvSolidKind::{Bank, Drum, ExitGate, Gate, Lock, Remnant, Soffit};
+        use EnvSolidKind::{Bank, Drum, ExitGate, Gate, Lock, Remnant, ShutterStack, Soffit};
         let doors: Vec<_> = [
             Remnant,
             Drum,
@@ -3091,6 +3155,7 @@ mod tests {
             Gate { target: 7 },
             Soffit,
             ExitGate,
+            ShutterStack,
         ]
         .into_iter()
         .filter(|k| k.opens_on_defeat())
@@ -3980,12 +4045,30 @@ mod tests {
 
     // ---- the build rules
 
+    /// RING-B wire: the court's static closed shutter runs as 17 standing slices
+    /// of 4 px (KR6); a moving shutter is still an error here (RING-C wire's),
+    /// never a silently open arch.
     #[test]
-    fn an_unsupported_prop_kind_is_an_error_not_a_silent_skip() {
+    fn a_static_shutter_runs_and_a_moving_one_is_an_error_not_a_silent_skip() {
+        use crate::env_prop::{ShutterConfig, ShutterInitial};
         use crate::ring_fixtures::COURT_ENCOUNTER_PATH;
         let court = load(&root(), COURT_ENCOUNTER_PATH).unwrap();
-        let err = EnvRuntime::new(&court.encounter).expect_err("the court has a shutter");
-        assert!(err.contains("RING"), "{err}");
+        let env = EnvRuntime::new(&court.encounter).expect("the static gate runs");
+        let stack: Vec<_> = env
+            .solids()
+            .iter()
+            .enumerate()
+            .filter(|(_, s)| s.kind == EnvSolidKind::ShutterStack)
+            .collect();
+        assert_eq!(stack.len(), 1, "one block, no slice seams");
+        assert!(env.solid_intact(stack[0].0));
+        assert_eq!(stack[0].1.rect, court.encounter.props[0].target);
+        assert!(env.live_targets().is_empty() && env.blast_targets().is_empty());
+        assert!(env.token().contains("0:shutter_Closed"), "{}", env.token());
+        let mut moving = court.encounter.clone();
+        moving.props[0].shutter = Some(ShutterConfig::defaults(ShutterInitial::Open));
+        let err = EnvRuntime::new(&moving).expect_err("a moving shutter");
+        assert!(err.contains("RING-C"), "{err}");
     }
 
     #[test]

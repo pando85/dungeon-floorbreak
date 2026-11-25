@@ -31,8 +31,9 @@
 //! passed in PR 256, owner review pending). Telegraph pieces and sprites sit on [`Layer::Tell`], above every other
 //! piece, so no prop or backdrop hides a warning.
 //!
-//! Coordinates are layout pixels, y down, like the sidecar. A `RING-D` append adds
-//! the shutter and the Rot Sticker arms to [`pieces`].
+//! Coordinates are layout pixels, y down, like the sidecar. RING-A/B wire draws the
+//! static shutter as a labelled greybox stand-in (KR17); a `RING-D` append replaces
+//! it with AREA-RINGS-01 art and adds the Rot Sticker arms to [`pieces`].
 
 use crate::blast::BlastCharge;
 use crate::camera_lab::room::IRect;
@@ -904,8 +905,21 @@ pub fn pieces(enc: &Encounter, env: &EnvRuntime, tick: u64) -> Vec<Piece> {
                     outline(area, Tone::Warn, "drum blast tell", &mut out);
                 }
             }
-            // RING-D appends the shutter and the Rot Sticker here.
-            PropKind::RotSticker | PropKind::Shutter => {}
+            // RING-A/B wire (KR17): the static shutter's greybox stand-in, so the
+            // closed arch is never an invisible wall: the standing stack as one
+            // iron slab. RING-D (AREA-RINGS-01) replaces it and appends the
+            // moving states; the Rot Sticker arms stay RING-D's.
+            PropKind::Shutter => {
+                if let Some(t) = env.shutter(i).and_then(|s| s.solid_rect()) {
+                    out.push(Piece {
+                        rect: t,
+                        tone: Tone::Iron,
+                        layer: Layer::Prop,
+                        label: "shutter (greybox stand-in)",
+                    });
+                }
+            }
+            PropKind::RotSticker => {}
         }
     }
     // The hazard tells and the steam, from the same feed the companion reads.

@@ -1278,15 +1278,14 @@ fn non_wave_sidecars_validate_identically() {
             "assets/levels/floor01/f01_hoarder.encounter.json",
             crate::f01_hoarder::ENCOUNTER_HASH,
         ),
-        // The ring rooms carry no module pin: the values are the files' FNV-1a 64
-        // on main before PT-TUNE.
+        // RING-A/B wire: the ring rooms carry their module pins now.
         (
-            "assets/levels/floor01/f01_ring_court.encounter.json",
-            0x2116_822f_a330_5c78,
+            crate::f01_ring::COURT_ENCOUNTER_PATH,
+            crate::f01_ring::COURT_ENCOUNTER_HASH,
         ),
         (
-            "assets/levels/floor01/f01_ring_split.encounter.json",
-            0xaad1_8176_8567_1219,
+            crate::f01_ring::SPLIT_ENCOUNTER_PATH,
+            crate::f01_ring::SPLIT_ENCOUNTER_HASH,
         ),
     ];
     let mut seen = 0;

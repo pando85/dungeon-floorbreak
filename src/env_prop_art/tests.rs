@@ -828,3 +828,35 @@ fn the_scorch_embers_fade_from_the_drum_detonation_tick() {
     let blind = sprites(&run.loaded.encounter, combat.env().unwrap(), &[], at);
     assert_eq!(first(&blind, Sheet::Scorch).unwrap().frame, SCORCH.last());
 }
+
+/// RING-A/B wire (KR17): the court's static closed shutter draws as a labelled
+/// greybox stand-in over its whole closed rectangle (with no sheet, so it always
+/// draws), the split draws nothing, and drawing never changes the state hash.
+#[test]
+fn the_static_shutter_draws_its_greybox_stand_in_and_the_hash_stays() {
+    use crate::f01_ring::{RingRoom, combat_of, launch};
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let run = launch(&root, RingRoom::Court).unwrap();
+    let mut scene = SceneSim::new_at(&run.kit, 360, run.fixture.carl_x).unwrap();
+    let combat = combat_of(&run, &mut scene).unwrap();
+    let before = combat.state_hash(&scene);
+    let env = combat.env().unwrap();
+    let drawn = pieces(&run.loaded.encounter, env, 0);
+    let slab: Vec<_> = drawn
+        .iter()
+        .filter(|p| p.label == "shutter (greybox stand-in)")
+        .collect();
+    assert_eq!(slab.len(), 1);
+    assert_eq!(slab[0].rect, run.shutter().unwrap());
+    assert!(
+        slab[0].sheet().is_none(),
+        "no atlas: the stand-in always draws"
+    );
+    assert_eq!(drawn.len(), 1, "the slab only");
+    assert!(sprites(&run.loaded.encounter, env, &[], 0).is_empty());
+    assert_eq!(combat.state_hash(&scene), before);
+    let split = launch(&root, RingRoom::Split).unwrap();
+    let mut scene = SceneSim::new_at(&split.kit, 360, split.fixture.carl_x).unwrap();
+    let combat = combat_of(&split, &mut scene).unwrap();
+    assert!(pieces(&split.loaded.encounter, combat.env().unwrap(), 0).is_empty());
+}

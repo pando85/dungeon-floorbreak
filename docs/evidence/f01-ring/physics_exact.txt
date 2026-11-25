@@ -1,0 +1,2 @@
+ring_court K8 carl: 15/16 edges land, exit walk (Some(599), Some(599)) ticks | donut_base: 16/16 edges land, exit walk (Some(544), Some(544)) ticks | donut_boosted: 18/18 edges land, exit walk (Some(544), Some(544)) ticks
+ring_split K8 carl: 4/4 edges land, exit walk (Some(308), Some(308)) ticks | donut_base: 4/4 edges land, exit walk (Some(285), Some(285)) ticks | donut_boosted: 4/4 edges land, exit walk (Some(285), Some(285)) ticks

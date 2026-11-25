@@ -38,6 +38,7 @@ use crate::corridor::SceneSim;
 use crate::donut_mana::DonutSetup;
 use crate::donut_prog::DonutProgFlags;
 use crate::f01_boiler::{self, BoilerRun, Roster};
+use crate::f01_ring::{self, RingRoom};
 use crate::story_unlock::{Storage, StoryTable};
 use crate::{f01_hazards, f01_hoarder, f01_mastery};
 
@@ -48,7 +49,7 @@ pub const MANIFEST_PATH: &str = "assets/levels/f01_late/manifest.json";
 /// hash is a constant, pinned to the file by a test and compared by every
 /// replay of a recorded room. A step that lists a room (CORRAL-WIRE, RING-A
 /// wire, HRD-A2, ...) re-pins it on purpose.
-pub const MANIFEST_HASH: u64 = 0xb45c_744a_126e_e87c;
+pub const MANIFEST_HASH: u64 = 0xf501_4811_4f3b_5ed7;
 /// The fixture-only stub trigger the story-order tie skips by name.
 pub const STUB_TRIGGER: &str = "carl_prog_find_zone_stub";
 /// The `data_pins()` key.
@@ -75,7 +76,7 @@ pub const fn data_pins() -> [(&'static str, u64); 1] {
 /// stamps nor needs them, so a later edit of the manifest (every room step) or of
 /// the Boiler files (BOIL-B/C wire) fails only the recordings it can change; a
 /// Juicer recording needs the manifest hash and not the Boiler's.
-pub const SCOPED_PIN_KEYS: [&str; 10] = [
+pub const SCOPED_PIN_KEYS: [&str; 14] = [
     f01_boiler::ROOM_PIN_KEY,
     f01_boiler::ENCOUNTER_PIN_KEY,
     f01_boiler::fixes::PIN_KEY,
@@ -85,6 +86,10 @@ pub const SCOPED_PIN_KEYS: [&str; 10] = [
     f01_hazards::ENCOUNTER_PIN_KEY,
     f01_mastery::ROOM_PIN_KEY,
     f01_mastery::ENCOUNTER_PIN_KEY,
+    f01_ring::COURT_ROOM_PIN_KEY,
+    f01_ring::COURT_ENCOUNTER_PIN_KEY,
+    f01_ring::SPLIT_ROOM_PIN_KEY,
+    f01_ring::SPLIT_ENCOUNTER_PIN_KEY,
     MANIFEST_PIN_KEY,
 ];
 
@@ -99,6 +104,12 @@ pub fn pin_applies(key: &str, room: Option<&str>) -> bool {
         f01_hoarder::ROOM_PIN_KEY | f01_hoarder::ENCOUNTER_PIN_KEY => room == Some("hoarder"),
         f01_hazards::ROOM_PIN_KEY | f01_hazards::ENCOUNTER_PIN_KEY => room == Some("hazards"),
         f01_mastery::ROOM_PIN_KEY | f01_mastery::ENCOUNTER_PIN_KEY => room == Some("mastery"),
+        f01_ring::COURT_ROOM_PIN_KEY | f01_ring::COURT_ENCOUNTER_PIN_KEY => {
+            room == Some(RingRoom::Court.id())
+        }
+        f01_ring::SPLIT_ROOM_PIN_KEY | f01_ring::SPLIT_ENCOUNTER_PIN_KEY => {
+            room == Some(RingRoom::Split.id())
+        }
         MANIFEST_PIN_KEY => room.is_some(),
         _ => true,
     }
@@ -129,6 +140,39 @@ pub enum RoomScene {
     /// `--scene f01_mastery` (PT-MASTERY): launched through `--scene f01_late`.
     #[serde(rename = "f01_mastery")]
     Mastery,
+    /// RING-A/B wire: room 4a, the Shutter Court; launched through
+    /// `--scene f01_late` only (KR22: no scene arm).
+    #[serde(rename = "f01_ring_court")]
+    RingCourt,
+    /// RING-A/B wire: room 4b, the split passage; launched through
+    /// `--scene f01_late` only.
+    #[serde(rename = "f01_ring_split")]
+    RingSplit,
+}
+
+impl RoomScene {
+    /// The scene's name (the fixture name of a room scene, the boss arena's
+    /// scene name for the Juicer).
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Boiler => "f01_boiler",
+            Self::Boss => "boss_f01",
+            Self::Hoarder => "f01_hoarder",
+            Self::Hazards => "f01_hazards",
+            Self::Mastery => "f01_mastery",
+            Self::RingCourt => RingRoom::Court.scene_name(),
+            Self::RingSplit => RingRoom::Split.scene_name(),
+        }
+    }
+
+    /// The Ring room this scene runs, if it is one.
+    pub const fn ring(self) -> Option<RingRoom> {
+        match self {
+            Self::RingCourt => Some(RingRoom::Court),
+            Self::RingSplit => Some(RingRoom::Split),
+            _ => None,
+        }
+    }
 }
 
 /// The run rules of a room (K17).
@@ -272,13 +316,25 @@ impl Manifest {
                 RoomScene::Boiler
                 | RoomScene::Hoarder
                 | RoomScene::Hazards
-                | RoomScene::Mastery => row.rules == RoomRules::Cf02,
+                | RoomScene::Mastery
+                | RoomScene::RingCourt
+                | RoomScene::RingSplit => row.rules == RoomRules::Cf02,
                 RoomScene::Boss => row.rules == RoomRules::Boss,
             };
             if !rules_ok {
                 return Err(format!(
                     "manifest: room {:?} runs under the wrong rules for its scene (K17)",
                     row.id
+                ));
+            }
+            // RING-A/B wire: a Ring scene runs the room of its own id only.
+            if let Some(ring) = row.scene.ring()
+                && row.id != ring.id()
+            {
+                return Err(format!(
+                    "manifest: room {:?} names the scene of {:?}",
+                    row.id,
+                    ring.id()
                 ));
             }
         }
@@ -482,13 +538,7 @@ pub fn entry_line(room: &RoomRow, loadout: Option<Loadout>) -> String {
         "F01_LATE_ENTRY room={} title={:?} scene={} milestone={} loadout={}{label}",
         room.id,
         room.title,
-        match room.scene {
-            RoomScene::Boiler => "f01_boiler",
-            RoomScene::Boss => "boss_f01",
-            RoomScene::Hoarder => "f01_hoarder",
-            RoomScene::Hazards => "f01_hazards",
-            RoomScene::Mastery => "f01_mastery",
-        },
+        room.scene.name(),
         room.milestone,
         loadout.map_or("flags", Loadout::name),
     )
@@ -596,6 +646,23 @@ pub fn mastery_start(
     Ok((run, scene, combat))
 }
 
+/// Launch a Ring room and build its scene and combat state (RING-A/B wire),
+/// the shared constructor of the binary and the verifier. Its goblins draw
+/// their temperaments from `--cf02-seed`.
+pub fn ring_start(
+    root: &Path,
+    room: RingRoom,
+    view_height: i32,
+    carl: CarlProgFlags,
+    donut: DonutProgFlags,
+    cf02_seed: Option<u64>,
+) -> Result<(f01_ring::RingRun, SceneSim, CombatState), String> {
+    let run = f01_ring::launch(root, room)?;
+    let mut scene = SceneSim::new_at(&run.kit, view_height, run.fixture.carl_x)?;
+    let combat = f01_ring::combat_for(&run, &mut scene, carl, donut, cf02_seed)?;
+    Ok((run, scene, combat))
+}
+
 /// Whether a recorded descriptor's room label is consistent with this build:
 /// the room is listed, a loadout label is known and agrees with the flags.
 pub fn check_descriptor(
@@ -649,7 +716,15 @@ mod tests {
         let m = manifest();
         assert_eq!(
             m.listed(),
-            ["hoarder", "boiler", "hazards", "juicer", "mastery"]
+            [
+                "hoarder",
+                "boiler",
+                "hazards",
+                "ring_court",
+                "ring_split",
+                "juicer",
+                "mastery"
+            ]
         );
         // FA-Q24 (reverses PTG-AD1): the Hoarder is listed first in the story, and the
         // default room stays the Boiler.
@@ -658,8 +733,14 @@ mod tests {
         assert_eq!(m.room("hoarder").unwrap().scene, RoomScene::Hoarder);
         assert_eq!(m.room("hazards").unwrap().scene, RoomScene::Hazards);
         assert_eq!(m.room("mastery").unwrap().scene, RoomScene::Mastery);
+        // RING-A/B wire (RINGW-AD1): rooms 4a and 4b are listed at milestone `greybox`.
+        assert_eq!(m.room("ring_court").unwrap().scene, RoomScene::RingCourt);
+        assert_eq!(m.room("ring_split").unwrap().scene, RoomScene::RingSplit);
+        for id in ["ring_court", "ring_split"] {
+            assert_eq!(m.room(id).unwrap().milestone, "greybox", "{id}");
+        }
         assert!(m.story_order.iter().any(|o| o.id == "hoarder"));
-        for id in ["hoarder", "hazards", "mastery"] {
+        for id in ["hoarder", "hazards", "mastery", "ring_court", "ring_split"] {
             assert_eq!(m.room(id).unwrap().rules, RoomRules::Cf02, "{id}");
         }
         assert_eq!(m.room("juicer").unwrap().rules, RoomRules::Boss);
@@ -671,7 +752,7 @@ mod tests {
         let unknown = m.room("cellar").unwrap_err();
         assert!(unknown.starts_with("unknown room"), "{unknown}");
         assert!(
-            unknown.contains("hoarder, boiler, hazards, juicer, mastery"),
+            unknown.contains("hoarder, boiler, hazards, ring_court, ring_split, juicer, mastery"),
             "{unknown}"
         );
         // Known to the story order but not landed yet.
@@ -679,7 +760,8 @@ mod tests {
             let unlisted = m.room(id).unwrap_err();
             assert!(unlisted.starts_with("unlisted room"), "{unlisted}");
             assert!(
-                unlisted.contains("hoarder, boiler, hazards, juicer, mastery"),
+                unlisted
+                    .contains("hoarder, boiler, hazards, ring_court, ring_split, juicer, mastery"),
                 "{unlisted}"
             );
         }
@@ -738,6 +820,69 @@ mod tests {
         let post = pin_capabilities(table(), "f01_pin_post_pile_boss");
         assert!(post.iter().any(|c| c == "special_thrown_charge"));
         assert!(post.iter().any(|c| c == "jump_reach_boost"));
+    }
+
+    /// KR12, the Ring rows (RING-A wire): both rooms sit after the Slime and Rot
+    /// room and before the Juicer, hold the post-Hoarder pin and grant nothing.
+    /// If the Hoarder's dynamite (K1) ever moved past the Ring, the order fails
+    /// until the Ring's pin drops it.
+    #[test]
+    fn the_ring_rows_hold_the_post_hoarder_pin_and_fail_if_k1_moves_past_them() {
+        let m = manifest();
+        let at = |id: &str| index(&m.story_order, id);
+        assert!(at("hazards") < at("ring_court"));
+        assert!(at("ring_court") + 1 == at("ring_split"));
+        assert!(at("ring_split") < at("juicer"));
+        for id in ["ring_court", "ring_split"] {
+            let row = &m.story_order[at(id)];
+            assert_eq!(row.kind, OrderKind::Room, "{id}");
+            assert_eq!(row.pins, ["f01_pin_post_pile_boss"], "{id}");
+            assert!(row.grants.is_empty(), "{id}: a Ring room grants nothing");
+        }
+        // K1 moved onto the split (and the rooms before the Ring no longer hold
+        // the post pin): the court's pin now holds a capability granted later,
+        // and the split's own pin one granted at it.
+        let err = mutate(|order| {
+            let from = index(order, "hoarder");
+            let grant = order[from].grants.remove(0);
+            for id in ["boiler", "dozer", "hazards"] {
+                let i = index(order, id);
+                order[i].pins.clear();
+            }
+            let to = index(order, "ring_split");
+            order[to].grants.push(grant);
+        })
+        .unwrap_err();
+        assert!(
+            err.contains("\"ring_court\"") && err.contains("granted later"),
+            "{err}"
+        );
+        let err = mutate(|order| {
+            let from = index(order, "hoarder");
+            let grant = order[from].grants.remove(0);
+            for id in ["boiler", "dozer", "hazards", "ring_court"] {
+                let i = index(order, id);
+                order[i].pins.clear();
+            }
+            let to = index(order, "ring_split");
+            order[to].grants.push(grant);
+        })
+        .unwrap_err();
+        assert!(err.contains("\"ring_split\""), "{err}");
+        // A Ring row that names the other Ring room's scene is refused.
+        let mut swapped = m.clone();
+        let i = swapped
+            .rooms
+            .iter()
+            .position(|r| r.id == "ring_court")
+            .unwrap();
+        swapped.rooms[i].scene = RoomScene::RingSplit;
+        assert!(
+            swapped
+                .validate(table())
+                .unwrap_err()
+                .contains("names the scene of")
+        );
     }
 
     fn mutate(edit: impl FnOnce(&mut Vec<OrderRow>)) -> Result<(), String> {
@@ -1017,9 +1162,33 @@ mod tests {
         assert!(combat.story_ledger().unwrap().receipts().is_empty());
         let order = |id: &str| m.story_order.iter().find(|o| o.id == id).unwrap();
         assert!(order("mastery").grants.is_empty(), "no story trigger");
+        // RING-A/B wire: each Ring room launches with the pin its row names.
+        for room in RingRoom::ALL {
+            let (ring, _, combat) = ring_start(&root(), room, 360, story.0, story.1, None).unwrap();
+            assert_eq!(
+                m.pins_of(room.id()),
+                std::slice::from_ref(&ring.loaded.encounter.story_pin),
+                "{room:?}"
+            );
+            assert_eq!(
+                held_of(&combat),
+                ["jump_reach_boost", "special_thrown_charge"],
+                "{room:?}"
+            );
+            assert!(combat.story_ledger().unwrap().receipts().is_empty());
+            assert_eq!(m.room(room.id()).unwrap().scene.ring(), Some(room));
+        }
         for row in m.rooms.iter().filter(|r| r.rules == RoomRules::Cf02) {
             assert!(
-                ["boiler", "hoarder", "hazards", "mastery"].contains(&row.id.as_str()),
+                [
+                    "boiler",
+                    "hoarder",
+                    "hazards",
+                    "mastery",
+                    "ring_court",
+                    "ring_split"
+                ]
+                .contains(&row.id.as_str()),
                 "{}: add its sidecar-pin tie above",
                 row.id
             );
@@ -1091,6 +1260,20 @@ mod tests {
                     "mastery",
                     [f01_mastery::ROOM_PIN_KEY, f01_mastery::ENCOUNTER_PIN_KEY],
                 ),
+                (
+                    "ring_court",
+                    [
+                        f01_ring::COURT_ROOM_PIN_KEY,
+                        f01_ring::COURT_ENCOUNTER_PIN_KEY,
+                    ],
+                ),
+                (
+                    "ring_split",
+                    [
+                        f01_ring::SPLIT_ROOM_PIN_KEY,
+                        f01_ring::SPLIT_ENCOUNTER_PIN_KEY,
+                    ],
+                ),
             ]
             .into_iter()
             .find(|(_, keys)| keys.contains(&key))
@@ -1103,6 +1286,8 @@ mod tests {
             Some("hoarder"),
             Some("hazards"),
             Some("mastery"),
+            Some("ring_court"),
+            Some("ring_split"),
         ] {
             for key in SCOPED_PIN_KEYS {
                 let covered = match owner(key) {

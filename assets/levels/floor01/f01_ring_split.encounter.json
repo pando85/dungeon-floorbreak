@@ -1,6 +1,6 @@
 {
   "schema": "floor01-encounter-v1",
-  "status": "RING-A/B core data (FLOOR01-RINGS-01, docs/07-agents/f01-playtest-integration-plan.md section 15): greybox hypotheses, validated by src/encounter.rs; nothing here is wired into a scene yet. RING-11 is a data-only roster swap here after HAZ-B (KR20). Every number is a tuning knob. Coordinates are layout pixels, y down, like the room file.",
+  "status": "RING-A/B core data (FLOOR01-RINGS-01, docs/07-agents/f01-playtest-integration-plan.md section 15): greybox hypotheses, validated by src/encounter.rs, launched as the room ring_split of --scene f01_late since RING-A/B wire (src/f01_ring.rs, the roster spawns). RING-11 is a data-only roster swap here after HAZ-B (KR20). Every number is a tuning knob. Coordinates are layout pixels, y down, like the room file.",
   "id": "F01-RING-SPLIT-ENC",
   "room_file": "f01_ring_split.room.json",
   "room_id": "F01-RING-SPLIT",
