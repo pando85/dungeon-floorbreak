@@ -414,6 +414,8 @@ impl crate::combat_scene::CombatState {
     /// warning sticker's blast box with its ticks left (**telegraphed**, class
     /// `Blast`). A latched or spent sticker has no row. **Feed only**: no sticker
     /// has a damage-dealing hazard volume, its damage is its `BlastCharge`.
+    /// Then each slot enemy's own rows ([`crate::scene_enemy::SlotEnemy::nav_rects`],
+    /// the Dozer's, DOZER-CORE).
     pub fn hazard_feed(&self, layout_h: i32, tick: u64) -> Vec<NavRect> {
         let mut feed = self.env.as_ref().map(|e| e.nav_feed()).unwrap_or_default();
         for e in self.slot.enemies.iter() {
@@ -437,30 +439,34 @@ impl crate::combat_scene::CombatState {
                 hurts_enemies: false,
             });
         }
-        let Some(env) = self.env.as_ref() else {
-            return feed;
-        };
-        let t = crate::rot_sticker::active();
-        for (prop, sticker, _) in env.stickers() {
-            let (rect, ticks_left) = match sticker.state() {
-                StickerState::Scuttling => (sticker.trigger_bounds(t), None),
-                StickerState::Warning => (
-                    sticker.blast_bounds(t),
-                    sticker
-                        .remaining(tick)
-                        .map(|r| u16::try_from(r).unwrap_or(u16::MAX)),
-                ),
-                StickerState::Latched | StickerState::Spent => continue,
-            };
-            feed.push(NavRect {
-                hazard: feed_id(FEED_ID_STICKER, u32::from(prop)),
-                class: HazardClass::Blast,
-                rect: layout_rect(rect, layout_h),
-                phase: NavPhase::Telegraph,
-                ticks_left,
-                hurts_heroes: true,
-                hurts_enemies: true,
-            });
+        if let Some(env) = self.env.as_ref() {
+            let t = crate::rot_sticker::active();
+            for (prop, sticker, _) in env.stickers() {
+                let (rect, ticks_left) = match sticker.state() {
+                    StickerState::Scuttling => (sticker.trigger_bounds(t), None),
+                    StickerState::Warning => (
+                        sticker.blast_bounds(t),
+                        sticker
+                            .remaining(tick)
+                            .map(|r| u16::try_from(r).unwrap_or(u16::MAX)),
+                    ),
+                    StickerState::Latched | StickerState::Spent => continue,
+                };
+                feed.push(NavRect {
+                    hazard: feed_id(FEED_ID_STICKER, u32::from(prop)),
+                    class: HazardClass::Blast,
+                    rect: layout_rect(rect, layout_h),
+                    phase: NavPhase::Telegraph,
+                    ticks_left,
+                    hurts_heroes: true,
+                    hurts_enemies: true,
+                });
+            }
+        }
+        // DOZER-CORE: the slot enemies' own rows (the Dozer's machine and
+        // telegraph rows), after the stickers; none for any other kind.
+        for e in self.slot.enemies.iter() {
+            feed.extend(e.nav_rects(layout_h));
         }
         feed
     }

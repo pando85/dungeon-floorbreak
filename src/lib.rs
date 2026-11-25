@@ -54,6 +54,8 @@ pub mod donut_mana;
 pub mod donut_moves;
 pub mod donut_prog;
 pub mod donut_prog_fixtures;
+pub mod dozer;
+pub mod dozer_fixtures;
 pub mod encounter;
 #[cfg(test)]
 pub(crate) mod encounter_physics;
@@ -63,6 +65,7 @@ pub mod env_kit;
 pub mod env_prop;
 pub mod env_prop_art;
 pub mod f01_boiler;
+pub mod f01_dozer;
 pub mod f01_gate_scorecard;
 pub mod f01_hazards;
 pub mod f01_hoarder;

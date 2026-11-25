@@ -1,0 +1,27 @@
+{
+  "schema": "floor01-demo-hall-v1",
+  "status": "DOZER-CORE greybox room (ENEMY-GAMEPLAY-DOZER section 5, docs/01-design/enemy-gameplay-dozer.md, DZ-Q22): geometry only, composed at load time from approved Floor 01 kit pieces by camera_lab::layout (no new art, not an authored level). The Dozer roster entry and the tunnel lintel live in f01_dozer.encounter.json, validated by src/encounter.rs. The rear gate and the buffer stop are presentation only (DR-A), never solids.",
+  "scenarios": [
+    {
+      "id": "F01-DOZER",
+      "name": "Revenge Run",
+      "subtitle": "Floor 01 workshop lane: a parked machine wakes behind you, run for the tunnel",
+      "act": 2,
+      "setting": "workshop",
+      "width": 1344,
+      "height": 660,
+      "floor": 580,
+      "spawn": { "carl": 192, "donut": 160 },
+      "camera_intro": 192,
+      "ceiling_px": 228,
+      "platforms": [],
+      "props": [],
+      "enemies": [],
+      "hazards": [],
+      "goal_x": 1288,
+      "purpose": "A 1344 px scrolling chase with one flat ground lane: a protected entry pocket at the rear gate, a clear chase lane, the machine's stop line at x 1000 and a low tunnel whose lintel stops the machine while both heroes walk under it to the exit.",
+      "expected": "The machine and the tunnel lintel come from f01_dozer.encounter.json; this file holds geometry only. The lane ceiling is declared for the tunnel lintel and the stop frame of DR-B.",
+      "coop": "Solo with a swap, or two players: the only route is the flat lane; no Donut-only gate and no raised surface."
+    }
+  ]
+}

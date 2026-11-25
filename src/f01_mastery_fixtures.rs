@@ -858,6 +858,8 @@ impl Meter {
                 RosterKind::Room(EnemyKind::Llama) => m.llama_beats.push(beat),
                 RosterKind::Room(EnemyKind::Engineer) => m.engineer_beats.push(beat),
                 RosterKind::Room(_) => m.goblin_beats.push(beat),
+                // DOZER-CORE: no mastery room holds a machine.
+                RosterKind::Dozer => {}
             }
         }
         Ok(m)

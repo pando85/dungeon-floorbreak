@@ -1271,7 +1271,7 @@ fn a_wave_room_with_a_slime_and_no_pocket_is_still_refused() {
 /// hash is its pin. The existing negative tests above pass unedited.
 #[test]
 fn non_wave_sidecars_validate_identically() {
-    let pins: [(&str, u64); 5] = [
+    let pins: [(&str, u64); 6] = [
         (BOILER_ENCOUNTER_PATH, crate::f01_boiler::ENCOUNTER_HASH),
         (HAZARDS_ENCOUNTER_PATH, crate::f01_hazards::ENCOUNTER_HASH),
         (
@@ -1286,6 +1286,11 @@ fn non_wave_sidecars_validate_identically() {
         (
             crate::f01_ring::SPLIT_ENCOUNTER_PATH,
             crate::f01_ring::SPLIT_ENCOUNTER_HASH,
+        ),
+        // DOZER-CORE: room 3.
+        (
+            crate::f01_dozer::ENCOUNTER_PATH,
+            crate::f01_dozer::ENCOUNTER_HASH,
         ),
     ];
     let mut seen = 0;
@@ -1327,4 +1332,93 @@ fn walk(dir: &Path) -> Vec<std::path::PathBuf> {
     }
     out.sort();
     out
+}
+
+// ------------------------------------------- DOZER-CORE: section 9 rules
+
+fn dozer_sidecar() -> Value {
+    let t = std::fs::read_to_string(root().join(crate::f01_dozer::ENCOUNTER_PATH)).unwrap();
+    serde_json::from_str(&t).unwrap()
+}
+
+fn dozer_ctx() -> Context {
+    let l =
+        load(root(), crate::f01_dozer::ENCOUNTER_PATH).unwrap_or_else(|e| panic!("{}", text(&e)));
+    Context {
+        room: l.room,
+        classes: l.classes,
+        ceiling_px: l.ceiling_px,
+    }
+}
+
+/// The edited Dozer sidecar's errors of `rule`.
+fn dozer_rule(edit: impl FnOnce(&mut Value), n: u8) -> Vec<EncounterError> {
+    let mut v = dozer_sidecar();
+    edit(&mut v);
+    let errs = parse_sidecar(&v.to_string(), &dozer_ctx())
+        .expect_err("the edited sidecar must be rejected");
+    let hits: Vec<EncounterError> = errs
+        .iter()
+        .filter(|e| matches!(e, EncounterError::Dozer { rule, .. } if *rule == n))
+        .cloned()
+        .collect();
+    assert!(!hits.is_empty(), "no rule {n} error: {}", text(&errs));
+    hits
+}
+
+#[test]
+fn the_dozer_room_passes_every_rule() {
+    parse_sidecar(&dozer_sidecar().to_string(), &dozer_ctx())
+        .unwrap_or_else(|e| panic!("{}", text(&e)));
+}
+
+#[test]
+fn dozer_rule_1_one_machine_its_block_and_a_long_enough_lane() {
+    dozer_rule(|v| v["dozer"] = Value::Null, 1);
+    dozer_rule(
+        |v| {
+            let e = v["roster"][0].clone();
+            let mut twin = e;
+            twin["id"] = json!("dozer_b");
+            v["roster"].as_array_mut().unwrap().push(twin);
+        },
+        1,
+    );
+    dozer_rule(|v| v["roster"][0]["x"] = json!(48), 1);
+    dozer_rule(|v| v["dozer"]["dzq14_stop_x"] = json!(300), 1);
+    dozer_rule(|v| v["dozer"]["dzq11_trigger_x"] = json!(1100), 1);
+}
+
+#[test]
+fn dozer_rule_2_the_chase_lane_is_clear() {
+    dozer_rule(
+        |v| {
+            v["statics"] = json!([{
+                "id": "crate", "kind": "solid",
+                "rect": { "x": 500, "y": 540, "w": 32, "h": 40 }
+            }]);
+        },
+        2,
+    );
+    dozer_rule(|v| v["dozer"]["dzq22_lintel"]["x"] = json!(1010), 2);
+}
+
+#[test]
+fn dozer_rule_4_the_passage_and_the_lintel() {
+    // A passage too low for a hero.
+    dozer_rule(|v| v["dozer"]["dzq22_lintel"]["h"] = json!(180), 4);
+    // A lintel that no longer covers the exit.
+    dozer_rule(|v| v["dozer"]["dzq22_lintel"]["w"] = json!(200), 4);
+}
+
+#[test]
+fn dozer_rule_6_no_boss_supplier_in_a_dozer_room() {
+    dozer_rule(
+        |v| {
+            v["roster"].as_array_mut().unwrap().push(json!({
+                "id": "hoard", "kind": "hoarder", "x": 600, "beat": "R1"
+            }));
+        },
+        6,
+    );
 }

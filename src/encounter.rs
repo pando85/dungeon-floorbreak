@@ -595,6 +595,9 @@ pub struct Link {
 pub enum RosterKind {
     Room(EnemyKind),
     Slime,
+    /// DOZER-CORE: the room 3 revenge machine (a slot enemy, parked off-room
+    /// behind the rear gate; `docs/01-design/enemy-gameplay-dozer.md`).
+    Dozer,
 }
 
 impl RosterKind {
@@ -602,12 +605,16 @@ impl RosterKind {
     pub const fn room(self) -> Option<EnemyKind> {
         match self {
             Self::Room(k) => Some(k),
-            Self::Slime => None,
+            Self::Slime | Self::Dozer => None,
         }
     }
 
     pub const fn is_slime(self) -> bool {
         matches!(self, Self::Slime)
+    }
+
+    pub const fn is_dozer(self) -> bool {
+        matches!(self, Self::Dozer)
     }
 
     /// Whether this kind supplies `CompanionView.boss` (HAZ rule 9). Appended to
@@ -700,6 +707,9 @@ pub struct Encounter {
     /// bounded per beat). PR-D: `f01_hazards` refuses a wave room that also
     /// declares pockets, acid patches or stickers (PT-FU-B7 7).
     pub waves: bool,
+    /// DOZER-CORE: the Dozer's room data (the sidecar's `dozer` block), `None`
+    /// for every room without a Dozer.
+    pub dozer: Option<crate::dozer::DozerSite>,
 }
 
 impl Encounter {
@@ -1044,6 +1054,13 @@ pub enum EncounterError {
         ids: Vec<String>,
         reason: String,
     },
+    /// DOZER-CORE: a rule of the Dozer note's section 9 (1, 2, 4 and 6 here;
+    /// 3 and 5 need the stop frame of DR-B) failed.
+    Dozer {
+        rule: u8,
+        ids: Vec<String>,
+        reason: String,
+    },
 }
 
 impl std::fmt::Display for EncounterError {
@@ -1144,6 +1161,9 @@ impl std::fmt::Display for EncounterError {
             ),
             Haz { rule, ids, reason } => {
                 write!(f, "HAZ rule {rule} [{}]: {reason}", ids.join(", "))
+            }
+            Dozer { rule, ids, reason } => {
+                write!(f, "DOZER rule {rule} [{}]: {reason}", ids.join(", "))
             }
             GateBypassed {
                 surface,
@@ -1556,6 +1576,33 @@ struct RawEncounter {
     /// room bounds its roster per beat ([`MAX_ROSTER_WAVES`]).
     #[serde(default)]
     waves: bool,
+    /// DOZER-CORE, optional: absent means none (every earlier sidecar). The
+    /// Dozer's room data; required by a `dozer` roster entry.
+    #[serde(default)]
+    dozer: Option<RawDozer>,
+}
+
+/// DOZER-CORE: the sidecar's `dozer` block (DZ-Q11, DZ-Q13, DZ-Q14, DZ-Q22).
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawDozer {
+    dzq11_trigger_x: i32,
+    dzq11_idle_trigger_ticks: u32,
+    dzq13_emerge_front_x: i32,
+    dzq14_stop_x: i32,
+    dzq22_lintel: RawRect,
+}
+
+impl RawDozer {
+    fn site(&self) -> crate::dozer::DozerSite {
+        crate::dozer::DozerSite {
+            trigger_x: self.dzq11_trigger_x,
+            idle_trigger_ticks: self.dzq11_idle_trigger_ticks,
+            emerge_front_x: self.dzq13_emerge_front_x,
+            stop_x: self.dzq14_stop_x,
+            lintel: IRect::from(&self.dzq22_lintel),
+        }
+    }
 }
 
 // ------------------------------------------------------------------ loading
@@ -2272,6 +2319,8 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
         };
         let kind = if r.kind == "slime" {
             RosterKind::Slime
+        } else if r.kind == "dozer" {
+            RosterKind::Dozer
         } else {
             match EnemyKind::parse(&r.kind).filter(|k| allowed(*k)) {
                 Some(k) => RosterKind::Room(k),
@@ -2295,8 +2344,8 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
                 errs.push(haz_roster("a slime needs a facing of 1 or -1"));
                 1
             }
-            (RosterKind::Room(_), None) => 1,
-            (RosterKind::Room(_), Some(_)) => {
+            (RosterKind::Room(_) | RosterKind::Dozer, None) => 1,
+            (RosterKind::Room(_) | RosterKind::Dozer, Some(_)) => {
                 errs.push(haz_roster("only a slime has a facing"));
                 1
             }
@@ -2307,6 +2356,17 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
         if kind.is_slime() && (r.gate.is_some() || r.fallback_kind.is_some() || r.perch.is_some()) {
             errs.push(haz_roster(
                 "a slime has no gate, fallback_kind or perch (it lives on the floor lane)",
+            ));
+        }
+        if kind.is_dozer()
+            && (r.gate.is_some()
+                || r.fallback_kind.is_some()
+                || r.perch.is_some()
+                || r.trigger_x.is_some()
+                || r.delay_ticks != 0)
+        {
+            errs.push(haz_roster(
+                "a dozer has no gate, fallback_kind, perch, trigger_x or delay_ticks (its wake rule is the dozer block)",
             ));
         }
         let fallback = match r.fallback_kind.as_deref() {
@@ -2360,10 +2420,13 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
                 ENEMY_BODY.1,
             )
         };
-        if body.x < room.play_x.0 || body.right() > room.play_x.1 {
+        // DOZER-CORE: the machine is parked off-room behind the rear gate; its
+        // own rules (section 9 of the Dozer note) replace the body checks.
+        let parked_off_room = kind.is_dozer();
+        if !parked_off_room && (body.x < room.play_x.0 || body.right() > room.play_x.1) {
             errs.push(E::RosterOutOfBounds(r.id.clone()));
         }
-        if overlaps(body, protected_spawn) {
+        if !parked_off_room && overlaps(body, protected_spawn) {
             errs.push(E::RosterOnProtected(r.id.clone()));
         }
         for name in &r.allow_in_hazard {
@@ -2374,7 +2437,7 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
                 });
             }
         }
-        for h in &hazards {
+        for h in hazards.iter().filter(|_| !parked_off_room) {
             let exempt = r.allow_in_hazard.contains(&h.name);
             if !exempt && (overlaps(body, h.spec.rect) || overlaps(body, h.spec.telegraph_rect)) {
                 errs.push(E::RosterInHazard {
@@ -2919,6 +2982,22 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
         },
         &mut errs,
     );
+    // ---- DOZER-CORE: the Dozer rules of section 9 that need no prop (1, 2, 4, 6)
+    haz::check_dozer(
+        &haz::HazInput {
+            raw,
+            ctx,
+            goal,
+            props: &props,
+            roster: &roster,
+            protected: [
+                ("spawn", protected_spawn),
+                ("checkpoint", checkpoint),
+                ("exit", exit),
+            ],
+        },
+        &mut errs,
+    );
 
     if errs.is_empty() {
         Ok(Encounter {
@@ -2944,6 +3023,7 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
             acid_patches,
             pockets,
             waves: raw.waves,
+            dozer: raw.dozer.as_ref().map(RawDozer::site),
         })
     } else {
         Err(errs)

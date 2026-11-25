@@ -1841,6 +1841,13 @@ pub enum CombatEvent {
         health_left: u8,
         player: Option<u32>,
     },
+    /// DOZER-CORE, appended: a sub-event of the room 3 revenge machine
+    /// (`docs/01-design/enemy-gameplay-dozer.md`). Only a room with a Dozer
+    /// emits it.
+    Dozer {
+        tick: u64,
+        event: crate::dozer::DozerEvent,
+    },
 }
 
 /// BOIL-B wire: the phases of an environmental prop that are logged
@@ -2480,6 +2487,12 @@ impl CombatEvent {
                 mix(u64::from(health_left));
                 mix(player.map_or(0, |p| u64::from(p) + 1));
             }
+            // DOZER-CORE: "DOZR"; only a room with a Dozer emits it.
+            Self::Dozer { tick, event } => {
+                mix(0x444f_5a52);
+                mix(tick);
+                event.mix_into(mix);
+            }
         }
     }
 }
@@ -3019,6 +3032,18 @@ impl fmt::Display for CombatEvent {
                 )?;
                 if let Some(player) = player {
                     write!(f, " credit_player={player}")?;
+                }
+                Ok(())
+            }
+            Self::Dozer { tick, event } => {
+                write!(
+                    f,
+                    "COMBAT_EVENT tick={tick} kind=dozer event={}",
+                    event.name()
+                )?;
+                let fields = event.fields();
+                if !fields.is_empty() {
+                    write!(f, " {fields}")?;
                 }
                 Ok(())
             }
