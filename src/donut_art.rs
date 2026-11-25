@@ -42,6 +42,10 @@ pub const PUDDLE_VFX_PIVOT: (u32, u32) = (24, 11);
 /// their frames; the presenter adds them to the strip's atlas layout as two extra entries after the 16 frames.
 pub const PUDDLE_DASH_RECT: (u32, u32, u32, u32) = (16, 10, 16, 3);
 pub const PUDDLE_HEAD_RECT: (u32, u32, u32, u32) = (22, 10, 4, 3);
+/// The in-sprite puddle mouth (b0-b2, a0-a2, f0) is centred 3 px above her foot row (canvas row 40 against 43), so
+/// the strip's puddle effects anchor their surface row there, not on the foot row: otherwise the ring's lower crescent
+/// shows as a second ellipse under the mouth (a saucer, review F1 of PR 281).
+pub const PUDDLE_MOUTH_LIFT_PX: i32 = 3;
 pub const PUDDLE_DASH_FRAME: usize = 7;
 pub const PUDDLE_HEAD_FRAME: usize = 8;
 pub const PUDDLE_DASH_INDEX: usize = PUDDLE_VFX_FRAMES;
@@ -605,6 +609,11 @@ mod tests {
         assert_eq!(PUDDLE_DASH_INDEX, 16);
         assert_eq!(PUDDLE_HEAD_INDEX, 17);
         assert_eq!(PUDDLE_DASH_RECT.2, 16, "a 16 px tileable dash");
+        assert_eq!(
+            PUDDLE_MOUTH_LIFT_PX,
+            43 - 40,
+            "the in-sprite mouth is centred on canvas row 40, the foot row is 43"
+        );
     }
 
     fn hurt(hurt_ticks: u8) -> HurtInput {

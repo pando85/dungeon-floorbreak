@@ -198,7 +198,11 @@ class DonutMovesTests(unittest.TestCase):
         f0 = self.moves["frames"][11]["cels"]
         puff = pixels(cf["frames"][0]["cels"]["face"])
         got = pixels(f0["face"])
-        self.assertEqual(sorted(got.values()), sorted(puff.values()), "the startle_puff face, shifted")
+        mx, my = min(puff)
+        gx, gy = min(got)
+        moved = {(x + gx - mx, y + gy - my): c for (x, y), c in puff.items()}
+        self.assertEqual(set(got), set(moved), "the startle_puff face, shifted")
+        self.assertLessEqual(sum(got[p] != moved[p] for p in got), 2, "at most the lint cleanup's recolours")
         f1 = self.moves["frames"][12]["cels"]
         settle = cf["frames"][1]["cels"]
         for layer in ("head", "face", "gear", "body"):
@@ -274,7 +278,9 @@ class DonutMovesTests(unittest.TestCase):
     def test_the_vfx_frames_are_lint_clean_and_use_the_orphan_allowance(self) -> None:
         report = pg.lint_grid(self.vfx)
         self.assertEqual(report["isolated_count_per_frame"], [0] * 16)
-        self.assertLessEqual(max(report["orphan_count_per_frame"]), 9)
+        # The spec's orphan rule (acceptance 1): orphans only on accents (and motes); the accent `w` is exempt in the
+        # lint itself, so the strip has none.
+        self.assertEqual(report["orphan_count_per_frame"], [0] * 16)
         used = set(report["colors_used"])
         self.assertLessEqual(used, set("kdmpcwvl"))
 

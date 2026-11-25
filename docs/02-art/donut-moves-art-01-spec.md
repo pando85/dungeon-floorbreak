@@ -258,7 +258,7 @@ The Bevy side is presentation only: `donut_art` (atlas constants and the pure ma
 | --- | --- | --- |
 | DMA-Q10 | The tail swap is its own sheet (`donut_h40_tail_ready`), not tags in the moves sheet | The atlas index is the missile head swap's `16 * phase + locomotion frame`, and the moves sheet keeps one tag table |
 | DMA-Q11 | The size bound of acceptance 6 (-26 .. +25 for blink frames) is checked on the puddle frames b1, b2, a0 and a1. b0, a2, f0 and f1 sit on the approved melee, CF02 and locomotion bodies and keep those extents | b0 is the melee `p0` body (its tail alone is 35 px behind the pivot) |
-| DMA-Q12 | `twinkle_small` is a `w` pixel with one `c` neighbour (2 px), not a lone pixel | A lone pixel is an isolated-pixel lint error, which always fails |
+| DMA-Q12 | `twinkle_small` is two `w` pixels (one above the other), not a lone pixel | A lone pixel is an isolated-pixel lint error, which always fails; two accent pixels are not orphans either |
 | DMA-Q13 | The origin puddle plays `ring_open_0` and `ring_open_1` over ages 0-5 (3 ticks each), then `ring_close` over ages 6-14; a cancel closes it from the cancel tick; a fizzle keeps `ring_open` to the fizzle tick and then plays `fizzle_0..2` instead of closing | The spec lists ring_open as 12 ticks at both ends but the origin must close at age 6 |
 | DMA-Q14 | A missing atlas leaves its cue undrawn (her locomotion sprite stays); there is no code-drawn fallback | The stand-ins are retired |
 | DMA-Q15 | An evade head cel is the approved head translated; the key's strict-lint orphan cleanup may recolour at most 2 outline pixels of it, and the frozen key already does | The cleanup is part of the frozen key's authoring record |
@@ -266,6 +266,10 @@ The Bevy side is presentation only: `donut_art` (atlas constants and the pure ma
 | DMA-Q17 | `flick_up`: the 8 tip pixels move (-1, -2) and the two cells opened under them take the stem's own colours so the tail stays one piece. `flick_snap`: the tip moves (+1, +1) and one `G` fur pixel is added on a free cell that touches a `G` pixel (never an orphan). The `K` re-close and the orphan hand-fix touch tail pixels only and the `K` re-close is dropped on the frames where it would exceed 24 changed pixels | Acceptance 7 |
 | DMA-Q18 | The swish is drawn with its sprite centre at her sprite centre + (6 px toward the attacker, +2 px), travelling toward her (mirrored when the attacker is on her right) | The old streak's place |
 | DMA-Q19 | The glint is the strip plus centred on the tail-tip pixel of the frame actually drawn: the locomotion frame, or the tail-swap frame during the flick | `analyze_atlas` runs on both atlases |
+
+| DMA-Q20 | The strip's puddle effects (rings and the fizzle ring) anchor their surface row 3 px above her foot row (`PUDDLE_MOUTH_LIFT_PX`), on the centre of the in-sprite mouth, at both ends and for the origin close | Review F1: on the foot row the ring's lower crescent showed as a second ellipse under the mouth and read as a saucer |
+| DMA-Q21 | Review fixes F3-F8: `evade_untwist` has a 2 px belly seam, `evade_land` and the pinholes of e0, b1, a2 and tail-swap frame 8 are filled, `blink_dip` is rebuilt with calico patches, a fur fringe and a thicker thigh, `fizzle_bonk`'s paw is a cream mitt over the rim, `fizzle_huff`'s tail has a fur fringe, and the strip has no orphan pixels | Independent review, PASS-with-fixes |
+| DMA-Q22 | The fizzle heads are the CF02 `startle_puff` and `startle_settle` heads, whose ears are up, although section 5 says "ears flat" | The brief names those heads; a flat-ear variant is a later design task (review note F7) |
 
 **Open notes for the independent review (non-blocking).**
 

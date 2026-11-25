@@ -124,7 +124,10 @@ pub(super) fn sync_blink_cues(
         let view = state.cues.view(tick);
         for cue in &view.puddles {
             puddles.push(Piece {
-                at: vfx_center(cue.x as f32, cue.foot_y as f32),
+                at: vfx_center(
+                    cue.x as f32,
+                    (cue.foot_y + donut_art::PUDDLE_MOUTH_LIFT_PX) as f32,
+                ),
                 index: cue.frame,
                 flip: false,
             });

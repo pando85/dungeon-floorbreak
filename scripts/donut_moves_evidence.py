@@ -28,6 +28,7 @@ from scripts.pixelart.scene import Floor, reference_idle  # noqa: E402
 
 ORIGIN_X, DEST_X, CARL_X = 500, 612, 452
 EVADE_X, GOB_X = 540, 612
+MOUTH_LIFT = 3                  # donut_art::PUDDLE_MOUTH_LIFT_PX: the puddle effects centre on the sprite's mouth
 PIV = A.PIVOT
 VPIV = A.VPIVOT
 
@@ -90,6 +91,7 @@ class Kit:
         return (im, piv, x, lift)
 
     def v(self, frame, x, lift=0, flip=False, shadow=False):
+        """A strip entry; the puddle effects pass ``lift=MOUTH_LIFT`` (PUDDLE_MOUTH_LIFT_PX in donut_art.rs)."""
         im, piv = (c.flip(self.vfx[frame], VPIV) if flip else (self.vfx[frame], VPIV))
         return (im, piv, x, lift, shadow)
 
@@ -167,7 +169,7 @@ def blink_seq(kit, k, crop, with_origin=True, start_age=0, end_age=24, fizzle=Fa
         fz = fizzle_vfx(age - 6) if (fizzle and age >= 6) else None
         for f in (o, cl, fz):
             if f is not None and with_origin:
-                ents.append(kit.v(f, ORIGIN_X))
+                ents.append(kit.v(f, ORIGIN_X, MOUTH_LIFT))
         if age < 6:
             f = blink_frame(age)
             ents.append(kit.donut(kit.moves[f], ORIGIN_X))
@@ -182,7 +184,7 @@ def blink_seq(kit, k, crop, with_origin=True, start_age=0, end_age=24, fizzle=Fa
         else:
             d = DEST_X
             if age - 6 < 12:
-                ents.append(kit.v(ring_open(age - 6), d))
+                ents.append(kit.v(ring_open(age - 6), d, MOUTH_LIFT))
             f = arrive_frame(age)
             if f is not None:
                 ents.append(kit.donut(kit.moves[f], d))

@@ -85,10 +85,16 @@ MOVES = [
     ("fizzle_huff", "fizzle", 4, "execution"),
 ]
 MOVE_KEYS = (2, 9)
+# Pockets closed on purpose (review F4, F6, F8): the collar gaps of e0 and e4, the pinholes of e4, b1 (every small
+# pocket) and a2. The pockets inherited from the approved cels (the legs gap of e0 and b0, the key's tail hook) stay.
+FILL = {0: ("body", [(25, 28), (47, 33)]), 4: ("body", [(45, 30), (16, 24)]), 6: ("body", None),
+        10: ("body", [(41, 41), (44, 41)])}
 TAG_CONTACT = {"evade": "free", "blink_depart": "grounded", "blink_arrive": "grounded", "fizzle": "grounded"}
 TAG_PLAYBACK = {"evade": "once", "blink_depart": "once", "blink_arrive": "once", "fizzle": "once"}
 PHASES = ("flick_up", "flick_snap")
 ACCENTS = {"M", "N", "P", "w"}     # the locomotion palette's accent keys (exempt from the orphan rule)
+N8 = [(dx, dy) for dx in (-1, 0, 1) for dy in (-1, 0, 1) if dx or dy]
+N4 = [(1, 0), (-1, 0), (0, 1), (0, -1)]
 
 
 # ---------------------------------------------------------------------------- generic helpers
@@ -117,9 +123,67 @@ def anchor_down(layers: dict[str, dict], lowest: int = 43) -> None:
             layers[name] = shift(layers[name], 0, lowest - bottom)
 
 
-def finish(layers: dict[str, dict], accents: set[str], anchor: bool = True) -> dict:
-    """Clean orphans, anchor, and turn the layers into a grid frame (every layer name of the sheet)."""
+def composite(layers: dict[str, dict]) -> dict:
+    out: dict = {}
+    for name in LAYERS:
+        out.update(layers.get(name, {}))
+    return out
+
+
+def pockets(comp: dict) -> list[set]:
+    """Enclosed transparent pockets (4-connected, not touching the canvas border) of a composite."""
+    seen, out = set(), []
+    for y in range(H):
+        for x in range(W):
+            if (x, y) in comp or (x, y) in seen:
+                continue
+            cells, stack, edge = set(), [(x, y)], False
+            seen.add((x, y))
+            while stack:
+                cx, cy = stack.pop()
+                cells.add((cx, cy))
+                for dx, dy in N4:
+                    q = (cx + dx, cy + dy)
+                    if not (0 <= q[0] < W and 0 <= q[1] < H):
+                        edge = True
+                    elif q not in comp and q not in seen:
+                        seen.add(q)
+                        stack.append(q)
+            if not edge:
+                out.append(cells)
+    return out
+
+
+def fill_pockets(layers: dict[str, dict], layer: str, seeds=None, max_size: int = 24) -> None:
+    """Close enclosed transparent pockets (the ones holding a seed cell, or every pocket of at most ``max_size``
+    cells when ``seeds`` is None) in ``layer``, each cell taking the most common opaque non-accent colour around it
+    (repeated from the pocket's rim inward)."""
+    comp = composite(layers)
+    for cells in pockets(comp):
+        if len(cells) > max_size or (seeds is not None and not cells & set(seeds)):
+            continue
+        todo = set(cells)
+        while todo:
+            progress = False
+            for (x, y) in sorted(todo):
+                votes = Counter(comp[(x + dx, y + dy)] for dx, dy in N8
+                                if (x + dx, y + dy) in comp and comp[(x + dx, y + dy)] not in ACCENTS)
+                if votes:
+                    c = votes.most_common(1)[0][0]
+                    layers.setdefault(layer, {})[(x, y)] = c
+                    comp[(x, y)] = c
+                    todo.discard((x, y))
+                    progress = True
+            if not progress:
+                break
+
+
+def finish(layers: dict[str, dict], accents: set[str], anchor: bool = True, fill=None) -> dict:
+    """Clean orphans, anchor, and turn the layers into a grid frame (every layer name of the sheet). ``fill`` is
+    ``(layer, seeds)`` for ``fill_pockets`` (``seeds`` None: every small pocket)."""
     layers = {n: dict(p) for n, p in layers.items() if p}
+    if fill is not None:
+        fill_pockets(layers, fill[0], fill[1], 3 if fill[1] is None else 24)
     cleanup(layers, accents)
     if anchor:
         anchor_down(layers)
@@ -189,10 +253,11 @@ def evade_body(loco: dict, *, back, tail, head_dy: int, seam: int, thigh_cream: 
     paint(body, chain([(39, p + 3, 1.0), (41, p + 3, 1.0)]), "o")
     paint(body, chain([(22, p - 4, 2.0), (25, p - 5, 1.5)]), "O")
     if seam:
+        # The rolled belly: a cream seam `seam` px thick along the underside of the rear half (never wider).
         belly = {(x, y) for (x, y) in back_mask
-                 if x <= 34 and y >= back[3][1] - 1 + 0.5 * (x - 24) + (3 - seam)}
+                 if x <= 34 and any((x, y + k) not in back_mask for k in range(1, seam + 1))}
         paint(body, belly, "C")
-        paint(body, {(x, y) for (x, y) in belly if (x, y + 2) not in back_mask}, "c")
+        paint(body, {(x, y) for (x, y) in belly if (x, y + 1) not in back_mask}, "c")
     chest = chain([(47, 37, 3.5), (58, 37, 3.5)])
     bib = shade(chest, "C", "W", "c", top_soft="c", hard="K", dark_rows=1)
     for p, c in bib.items():
@@ -263,7 +328,7 @@ def evade_untwist(loco: dict) -> dict:
     back = lerp_pose(KEY_POSE["back"], LAND_POSE["back"], 0.25)
     tail = [(13, 24, 3.5), (8, 18, 4.5), (7, 12, 4.5), (9, 7, 3.6), (14, 5, 2.6), (17, 6, 1.6)]
     hind = ([(24, 32, 2.6), (25, 41, 2.1)], [(19, 31, 4.2), (18, 36, 3.2), (18, 41, 2.3)])
-    return evade_body(loco, back=back, tail=tail, head_dy=5, seam=1, thigh_cream=False, hind=hind,
+    return evade_body(loco, back=back, tail=tail, head_dy=5, seam=2, thigh_cream=False, hind=hind,
                       front_lift=1)
 
 
@@ -357,10 +422,16 @@ def dive_body(spine, tail, thigh, patches: bool = True) -> dict:
     mask = chain(spine)
     body = shade(mask, "B", "H", "D")
     if patches:
-        (x0, y0, _r0), (x1, y1, _r1) = spine[0], spine[2]
-        paint(body, chain([(x0 + 2, y0 - 1, 2.8), (x0 + 7, y0 + 3, 2.2)]), "O")
-        paint(body, chain([(x0 + 1, y0 - 2, 1.2), (x0 + 4, y0, 1.0)]), "G")
-        paint(body, chain([(x1 - 2, y1 - 3, 2.0), (x1 + 1, y1 - 1, 1.6)]), "O")
+        # Calico as on the e1 and key bodies: a big ginger haunch patch with a light edge and a shadow, two more
+        # patches down the back, a fur fringe on the rump's outline.
+        (x0, y0, _r0), (x1, y1, _r1), (x2, y2, _r2) = spine[0], spine[1], spine[2]
+        paint(body, chain([(x0 + 1, y0 - 1, 4.4), (x0 + 5, y0 + 3, 3.4)]), "O")
+        paint(body, chain([(x0 - 2, y0 - 3, 1.6), (x0 + 2, y0 - 4, 1.2)]), "G")
+        paint(body, chain([(x0 + 2, y0 + 4, 1.4), (x0 + 6, y0 + 6, 1.2)]), "o")
+        paint(body, chain([(x1 + 4, y1 + 2, 2.6), (x2 + 1, y2 - 1, 2.0)]), "O")
+        paint(body, chain([(x1 + 3, y1 + 1, 1.0), (x2, y2 - 2, 1.0)]), "G")
+        paint(body, chain([(x2 + 3, y2 + 4, 2.2), (spine[3][0], spine[3][1] - 1, 1.6)]), "O")
+        fur_fringe(body, {q for q in mask if q[0] < x1 + 2}, "G", "left", every=3)
     L["body"] = body
     # Hind legs trail behind the rump, dark like the coat with a cream paw (the rear is not rolled toward the camera).
     near_mask = chain(thigh)
@@ -382,9 +453,9 @@ def dive_body(spine, tail, thigh, patches: bool = True) -> dict:
     return L
 
 
-DIVE_SPINE = [(30, 21, 8.8), (34, 25, 8.4), (38, 30, 8.0), (42, 35, 7.5), (47, 40, 7.0)]
-DIVE_TAIL = [(29, 16, 3.5), (26, 11, 3.8), (25, 6, 3.4), (28, 3, 2.6), (31, 3, 1.6)]
-DIVE_THIGH = [(28, 25, 4.0), (25, 29, 2.8), (22, 33, 2.1)]
+DIVE_SPINE = [(31, 21, 10.0), (35, 25, 9.0), (39, 30, 8.2), (43, 35, 7.6), (47, 40, 7.0)]
+DIVE_TAIL = [(30, 14, 3.5), (27, 10, 3.8), (26, 6, 3.4), (29, 3, 2.6), (32, 3, 1.6)]
+DIVE_THIGH = [(29, 27, 4.4), (26, 31, 3.2), (23, 34, 2.4)]
 
 
 def blink_dip(_loco: dict) -> dict:
@@ -458,13 +529,14 @@ def fizzle_bonk(loco: dict, cf: dict) -> dict:
     behind = set(L["head"]) | set(L["body"])
     half = (cx + 4, cy, rx / 2, ry * 0.8)
     L["puddle_back"], L["puddle_front"] = puddle_mouth(*half, WATERLINE, behind)
-    paw = chain([(62, 31, 2.4), (62, 35, 2.4)])
+    # One paw on the rim: a cream mitt drawn over the front rim (in puddle_front, so the rim does not cover it).
+    paw = chain([(59, 34, 3.0), (59, 37, 3.0)])
     mitt = {}
     for (x, y) in paw:
         lower = (x, y + 1) not in paw
         outer = (x - 1, y) not in paw or (x + 1, y) not in paw
         mitt[(x, y)] = "K" if lower else ("c" if outer else ("W" if (x, y - 1) not in paw else "C"))
-    L["legs_near"] = merge_over(L.get("legs_near", {}), mitt)
+    L["puddle_front"] = merge_over(L["puddle_front"], mitt)
     return L
 
 
@@ -476,6 +548,8 @@ def fizzle_huff(cf: dict) -> dict:
     tail = shade(mask, "O", "G", "o", dark_rows=1)
     paint(tail, chain([(18, 39, 1.8), (22, 39, 1.4)]), "B")
     paint(tail, chain([(9, 33, 1.5)]), "B")
+    fur_fringe(tail, mask, "G", "up", every=3)
+    fur_fringe(tail, mask, "G", "left", every=2)
     L["tail"] = tail
     return L
 
@@ -484,8 +558,6 @@ def fizzle_huff(cf: dict) -> dict:
 
 TIP_PIXELS = 8              # the tip is the 8 tail pixels farthest from the root by path distance
 MAX_TAIL_CHANGES = 24       # at most this many pixels change per frame
-N8 = [(dx, dy) for dx in (-1, 0, 1) for dy in (-1, 0, 1) if dx or dy]
-N4 = [(1, 0), (-1, 0), (0, 1), (0, -1)]
 
 
 def tail_distances(tail: dict, body: dict) -> tuple[tuple, dict]:
@@ -623,6 +695,22 @@ def fix_tail_orphans(tail: dict, others: dict, accents: set) -> None:
             return
 
 
+def close_new_tail_pockets(base_tail: dict, swapped: dict, others: dict) -> None:
+    """The swap must not add enclosed transparent pockets (review F8: a pinhole on locomotion frame 8): any pocket of
+    at most 2 cells that the base tail did not have is filled from its tail neighbours. Tail pixels only."""
+    def comp(tail):
+        out = dict(tail)
+        out.update(others)
+        return out
+    before = {c for cells in pockets(comp(base_tail)) for c in cells}
+    for cells in pockets(comp(swapped)):
+        if len(cells) <= 2 and not cells & before:
+            for (x, y) in sorted(cells):
+                votes = Counter(swapped[(x + dx, y + dy)] for dx, dy in N8 if (x + dx, y + dy) in swapped)
+                if votes:
+                    swapped[(x, y)] = votes.most_common(1)[0][0]
+
+
 def tail_ready_frames(loco: dict) -> list[dict]:
     """The 32 frames: ``16 * phase + locomotion frame`` with only the ``tail`` cel changed."""
     frames = []
@@ -638,6 +726,7 @@ def tail_ready_frames(loco: dict) -> list[dict]:
             for reclose in (True, False):       # the K re-close is dropped only where it would break the 24 px limit
                 swapped = tail_swap(tail, body, phase, reclose)
                 fix_tail_orphans(swapped, others, ACCENTS)
+                close_new_tail_pockets(tail, swapped, others)
                 if changed_pixels(tail, swapped) <= MAX_TAIL_CHANGES:
                     break
             cels["tail"] = K.cel(swapped)
@@ -755,7 +844,7 @@ def vfx_rows() -> list[list[str]]:
     g = vblank(); draw_ring(g, 10, "d"); frames.append(g)
     g = vblank(); draw_ring(g, 4, "d"); drops(g, [(24, 6)], "v"); frames.append(g)
     # glint 12: a 3 x 3 plus, w centre and c arms; twinkle_small 13: the one-pixel core with a single pale neighbour
-    # (a lone pixel is an isolated-pixel lint error)
+    # (a lone pixel is an isolated-pixel lint error); both are accent white, so no orphan either
     g = vblank()
     cx, cy = VPIVOT
     g[cy][cx] = "w"
@@ -764,7 +853,7 @@ def vfx_rows() -> list[list[str]]:
     frames.append(g)
     g = vblank()
     g[cy][cx] = "w"
-    g[cy + 1][cx] = "c"
+    g[cy + 1][cx] = "w"
     frames.append(g)
     # swish 14-15: a thin curved arc in c with a w head and a k underside; the visible path of the attack she slipped
     for a, b, lift in ((4, 42, 0), (14, 44, 1)):
@@ -787,7 +876,30 @@ def vfx_rows() -> list[list[str]]:
         for dx in (0, -1, -2):
             g[hy][hx + dx] = "w"
         frames.append(g)
+    for g in frames:
+        merge_orphans(g)
     return frames
+
+
+def merge_orphans(g) -> None:
+    """Recolour every non-accent pixel with no same-colour 8-neighbour to its most common opaque neighbour (the spec's
+    orphan rule: orphans only on accents and motes), so the strip lints with 0 orphans."""
+    h, w = len(g), len(g[0])
+    for _ in range(4):
+        changed = False
+        for y in range(h):
+            for x in range(w):
+                c = g[y][x]
+                if c in (".", "w"):
+                    continue
+                around = [g[y + dy][x + dx] for dx, dy in N8 if 0 <= x + dx < w and 0 <= y + dy < h]
+                opaque = [n for n in around if n != "."]
+                if c in around or not opaque:
+                    continue
+                g[y][x] = Counter(opaque).most_common(1)[0][0]
+                changed = True
+        if not changed:
+            return
 
 
 def vpalette() -> list[dict]:
@@ -836,7 +948,7 @@ def build_moves_grid() -> dict:
         if layers is None:                       # e2 and a1 are the frozen keys, byte for byte
             cels = copy.deepcopy(keys["frames"][0 if n == 2 else 1]["cels"])
         else:
-            cels = finish(layers, accents)
+            cels = finish(layers, accents, fill=FILL.get(n))
         frames.append({"duration_ms": ms(ticks), "cels": cels})
     tags = []
     for name in dict.fromkeys(t for _n, t, _k, _a in MOVES):
