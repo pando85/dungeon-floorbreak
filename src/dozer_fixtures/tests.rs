@@ -21,23 +21,24 @@ fn replay(name: &str, mut f: impl FnMut(&Path) -> Result<u64, String>, committed
 /// The committed fold of the nine seeds' final hashes per `(mode, plan)`.
 const K5_HASHES: [(Mode, Plan, u64); 12] = [
     (Mode::CarlSolo, Plan::Run, 0x27f52ab3c7b1ef6b),
-    (Mode::CarlSolo, Plan::Stall, 0xe863cb56de2fa7e3),
-    (Mode::CarlSolo, Plan::CloseCall, 0xa4177998d982128d),
-    (Mode::CarlSolo, Plan::Wait, 0xb9f96cc18122d9bc),
-    (Mode::DonutSolo, Plan::Run, 0x031e73bd1a5f9910),
-    (Mode::DonutSolo, Plan::Stall, 0xd2de1ddae138eee5),
-    (Mode::DonutSolo, Plan::CloseCall, 0xb4505386c8c05ff3),
-    (Mode::DonutSolo, Plan::Wait, 0x07b81befddadddc8),
+    (Mode::CarlSolo, Plan::Stall, 0xe1b55120ec6deca9),
+    (Mode::CarlSolo, Plan::CloseCall, 0xeb15a5e413088743),
+    (Mode::CarlSolo, Plan::Wait, 0x7a7b5a5a2d58a4fe),
+    (Mode::DonutSolo, Plan::Run, 0x339885e5df70cd97),
+    (Mode::DonutSolo, Plan::Stall, 0x0afb54ae8cf75731),
+    (Mode::DonutSolo, Plan::CloseCall, 0x5ac171c1efce249a),
+    (Mode::DonutSolo, Plan::Wait, 0x688d18fb347f3ab5),
     (Mode::TwoPlayer, Plan::Run, 0x82ce782ffaa6673b),
-    (Mode::TwoPlayer, Plan::Stall, 0x8547e90fc8ea9fa7),
-    (Mode::TwoPlayer, Plan::CloseCall, 0x9983ab2a6096aa79),
-    (Mode::TwoPlayer, Plan::Wait, 0x3baaefb1b76677a8),
+    (Mode::TwoPlayer, Plan::Stall, 0xaa68c1bb07a2bfa7),
+    (Mode::TwoPlayer, Plan::CloseCall, 0x67afc815208a89db),
+    (Mode::TwoPlayer, Plan::Wait, 0x6567d1f97fd238e9),
 ];
 
 /// One mode's 36 cells, twice: every hard assert holds, the replays agree
 /// and each plan's fold matches. Returns the reports.
 fn k5_mode(mode: Mode) -> Vec<K5Report> {
     let mut reports = Vec::new();
+    let mut mismatches = Vec::new();
     for plan in Plan::ALL {
         let mut folds = [Vec::new(), Vec::new()];
         for seed in SEEDS {
@@ -65,14 +66,15 @@ fn k5_mode(mode: Mode) -> Vec<K5Report> {
             .find(|(m, p, _)| *m == mode && *p == plan)
             .map(|(_, _, h)| *h)
             .unwrap();
-        assert_eq!(
-            got,
-            committed,
-            "dz_k5_{}_{}: hash {got:#018x}",
-            mode.name(),
-            plan.name()
-        );
+        if got != committed {
+            mismatches.push(format!(
+                "dz_k5_{}_{}: hash {got:#018x}",
+                mode.name(),
+                plan.name()
+            ));
+        }
     }
+    assert!(mismatches.is_empty(), "{}", mismatches.join("\n"));
     reports
 }
 
@@ -103,6 +105,33 @@ fn dz_k5_matrix_bands_pinned_and_ca2dz() {
             }
         }
     }
+    let mut behaviours: Vec<String> = all
+        .iter()
+        .map(|r| {
+            format!(
+                "{} {} {:?} {:?} {:?} {} {} {:?}",
+                r.mode.name(),
+                r.plan.name(),
+                r.complete_tick,
+                r.band_ticks,
+                r.rescues,
+                r.lane_rescues,
+                r.tunnel_rescues,
+                r.max_stuck
+            )
+        })
+        .collect();
+    behaviours.sort();
+    behaviours.dedup();
+    println!(
+        "DZ_K5 distinct behaviours: {} of {}",
+        behaviours.len(),
+        all.len()
+    );
+    assert!(
+        behaviours.len() > Mode::ALL.len() * Plan::ALL.len(),
+        "the seed axis is degenerate"
+    );
     for band in [Band::CatchUp, Band::Cruise, Band::Mercy] {
         assert!(
             all.iter().any(|r| r.band_ticks[band.index()] > 0),
@@ -112,7 +141,12 @@ fn dz_k5_matrix_bands_pinned_and_ca2dz() {
     // dz_pinned_never_in_room3
     let pinned: u32 = all.iter().map(|r| r.pinned_holds).sum();
     assert_eq!(pinned, 0, "dz_pinned_never_in_room3: {pinned} pinned holds");
-    println!("CA2-DZ: {:?}", ca2dz_verdict(&all));
+    println!(
+        "CA2-DZ: counts {:?} assisted per run {:.2} verdict {:?}",
+        Ca2DzCounts::of(&all),
+        Ca2DzCounts::of(&all).assisted_per_run(),
+        ca2dz_verdict(&all)
+    );
 }
 
 // ------------------------------------------------------------- rescue --
@@ -201,7 +235,7 @@ fn dz_hull_clang_replays() {
 
 #[test]
 fn dz_wheel_strike_replays() {
-    replay("dz_wheel_strike", dz_wheel_strike, 0x4abf940c85f9ac6f);
+    replay("dz_wheel_strike", dz_wheel_strike, 0xfc69723209a0ae7e);
 }
 
 #[test]

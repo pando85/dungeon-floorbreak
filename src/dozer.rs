@@ -713,6 +713,10 @@ impl DozerEvent {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EscapePhase {
     /// Brake step `k` of `dzq14_brake_ticks` (0 on the tick the brake began).
+    /// The `k = 0` tick is the chase's last move, clamped to `stop_x` minus
+    /// the slide; the 24 slide steps `k = 1..=24` follow. With
+    /// `dzq14_lethal_in_brake` the wheel is lethal on all 25 ticks
+    /// (DZ-IMPL-AD8).
     Brake {
         k: u16,
     },

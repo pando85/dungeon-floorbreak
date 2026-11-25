@@ -104,7 +104,9 @@ impl SlotEnemy for DozerEnemy {
     }
 
     /// The hull (the push box) and the front collider once it has emerged;
-    /// nothing while it is parked off-room.
+    /// nothing while it is parked off-room. Donut's swat and pounce aim only
+    /// at the first rect (`slot_donut_targets`), so her hits on the wheel or
+    /// the front collider do not clang yet (DZ-IMPL-AD12; cosmetic in room 3).
     fn hurt_rects(&self) -> Vec<Rect> {
         if self.dozer.state.emerged() {
             vec![self.dozer.push_box(), self.dozer.impact_collider()]
