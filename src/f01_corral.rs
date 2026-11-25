@@ -2,9 +2,9 @@
 //! slice (`docs/07-agents/f01-playtest-integration-plan.md` section 14, the
 //! CORRAL-0 sheet `docs/01-design/enemy-gameplay-llama-rush.md` sections 10 and
 //! 15). It launches only through `--scene f01_late --f01-room corral` (plan:
-//! "CORRAL-WIRE adds no arg"), and it is **launchable but not listed** until
-//! CORRAL-F lands (section 14.7, adopted default CW-AD1): the manifest holds its
-//! row under `unlisted_rooms`, so `--f01-run` and the listed set are unchanged.
+//! "CORRAL-WIRE adds no arg"). CORRAL-WIRE kept it **launchable but not listed**
+//! (CW-AD1); CORRAL-F (section 14.7) lists it as the first room of the
+//! manifest, so `--f01-run` starts here and walks on to the Hoarder.
 //!
 //! Bevy-free. [`launch`] loads the CORRAL-C room file and its sidecar through the
 //! one room parser ([`crate::encounter::load`], the whole validation), composes
@@ -330,7 +330,7 @@ pub fn entry_line(run: &CorralRun) -> String {
     let room = &run.loaded.room;
     format!(
         "{MARKER}_ENTRY room={} encounter={} pin={} spawn_carl={} spawn_donut={} \
-         checkpoints={:?} goal={:?} roster={} goblins={} llamas={} m3_gate={} listed=false \
+         checkpoints={:?} goal={:?} roster={} goblins={} llamas={} m3_gate={} listed=true \
          env=live room_hash={:#018x} sidecar_hash={:#018x}",
         e.room_id,
         e.id,

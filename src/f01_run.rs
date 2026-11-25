@@ -25,7 +25,7 @@
 //! no change here.
 
 use crate::combat_scene::CombatState;
-use crate::f01_late::{Loadout, Manifest, RoomRow};
+use crate::f01_late::{Loadout, Manifest, RoomRow, RoomScene};
 use crate::story_unlock::LedgerSnapshot;
 
 /// The flag that makes `--scene f01_late` a floor run.
@@ -163,10 +163,25 @@ pub fn relaunch_argv(
 
 /// The ledger a relaunch carries: the room's snapshot under the story loadout,
 /// nothing under the TEST LOADOUT (every room holds everything; adopted
-/// F01RUN-AD2).
-pub fn carry_for(loadout: Loadout, combat: &CombatState) -> Option<LedgerSnapshot> {
+/// F01RUN-AD2). Only the corral (`RoomScene::Corral`), the one story room
+/// with no story runtime (its pin holds nothing and arms nothing, KC11),
+/// carries the empty ledger when it has no snapshot, so the next room starts
+/// from its own pin and the panel states the story chain (CORRAL-F, adopted
+/// CF-AD3). Any other room without a snapshot carries nothing, so a future
+/// story-less room never claims a carried ledger by accident.
+pub fn carry_for(
+    loadout: Loadout,
+    scene: RoomScene,
+    combat: &CombatState,
+) -> Option<LedgerSnapshot> {
     match loadout {
-        Loadout::Story => combat.story_snapshot(),
+        Loadout::Story => combat.story_snapshot().or_else(|| {
+            (scene == RoomScene::Corral).then(|| LedgerSnapshot {
+                version: crate::story_unlock::SNAPSHOT_VERSION,
+                held: Vec::new(),
+                receipts: Vec::new(),
+            })
+        }),
         Loadout::All => None,
     }
 }
@@ -215,7 +230,7 @@ pub fn on_exit(input: &ExitInput<'_>) -> Result<(RoomFacts, PanelText, Decision)
     let tally = input.tally.with(&facts);
     match next_room(input.manifest, input.room)? {
         NextStep::Room(next) => {
-            let carry = carry_for(input.loadout, input.combat);
+            let carry = carry_for(input.loadout, row.scene, input.combat);
             let argv = relaunch_argv(input.argv, &next.id, carry.as_ref(), tally);
             let panel = room_clear_panel(
                 input.manifest,
@@ -440,7 +455,6 @@ pub fn held_of(combat: &CombatState) -> Vec<(u8, String)> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::f01_late::RoomScene;
     use crate::f01_late_fixtures::{hoarder_defeat, juicer_relaunch};
     use crate::story_unlock::{FIST_REINFORCED, SPECIAL_THROWN_CHARGE, StoryTable};
     use std::path::PathBuf;
@@ -465,28 +479,27 @@ mod tests {
             seen.push(row.id);
         }
         assert_eq!(seen, manifest.listed());
-        assert!(next_room(&manifest, "corral").is_err(), "unlisted");
+        // CORRAL-F: the run starts in room 0 and walks on to the Hoarder.
+        assert_eq!(first_room(&manifest).id, "corral");
+        assert_eq!(
+            next_room(&manifest, "corral").unwrap(),
+            NextStep::Room(manifest.room("hoarder").unwrap().clone())
+        );
+        assert!(next_room(&manifest, "dozer").is_err(), "unlisted");
     }
 
     #[test]
     fn a_room_listed_later_joins_the_run_with_no_code_change() {
         // The committed manifest with every room of its story order listed (as
-        // CORRAL-WIRE, RING-A wire and the Dozer steps will list them): the
-        // chain follows the rows, whatever they are.
+        // the Dozer step will list it; CORRAL-F listed the corral): the chain
+        // follows the rows, whatever they are.
         let text = std::fs::read_to_string(root().join(crate::f01_late::MANIFEST_PATH)).unwrap();
         let mut value: serde_json::Value = serde_json::from_str(&text).unwrap();
-        // CORRAL-WIRE: the corral launches unlisted today; listing it moves its row.
-        value.as_object_mut().unwrap().remove("unlisted_rooms");
         let rooms = value["rooms"].as_array_mut().unwrap();
-        let corral = serde_json::json!({
-            "id": "corral", "title": "The Infernal Corral", "scene": "f01_boiler",
-            "rules": "cf02_rules", "milestone": "greybox"
-        });
         let dozer = serde_json::json!({
             "id": "dozer", "title": "Dozer Revenge", "scene": "f01_boiler",
             "rules": "cf02_rules", "milestone": "greybox"
         });
-        rooms.insert(0, corral);
         rooms.insert(3, dozer);
         let manifest = Manifest::from_json(&value.to_string(), StoryTable::active()).unwrap();
         assert_eq!(first_room(&manifest).id, "corral");
@@ -584,7 +597,7 @@ mod tests {
         };
         let (facts, panel, decision) = on_exit(&input).unwrap();
         assert_eq!(facts.grants, [(0, "special_thrown_charge".to_owned())]);
-        assert!(panel.heading.starts_with("ROOM 1/7 CLEARED"));
+        assert!(panel.heading.starts_with("ROOM 2/8 CLEARED"));
         let Decision::Relaunch { room, argv: next } = decision else {
             panic!("the Hoarder leads on");
         };
@@ -614,7 +627,7 @@ mod tests {
         let end = ExitInput {
             room: last,
             tally: RunTally {
-                rooms: 6,
+                rooms: 7,
                 ..RunTally::default()
             },
             ..input
@@ -622,20 +635,84 @@ mod tests {
         let (_, panel, decision) = on_exit(&end).unwrap();
         assert_eq!(decision, Decision::Quit);
         assert_eq!(panel.heading, "FLOOR 1 SLICE FINISHED");
-        assert!(panel.lines[2].contains("7 of 7 listed rooms"));
+        assert!(panel.lines[2].contains("8 of 8 listed rooms"));
         assert!(
             on_exit(&ExitInput {
-                room: "corral",
+                room: "dozer",
                 ..input
             })
             .is_err()
         );
     }
 
+    /// CORRAL-F: the corral's exit relaunches the run into the Hoarder with the
+    /// corral's ledger carried, and the Hoarder accepts it (her pin is unioned in,
+    /// so she starts as she does from her pin alone).
+    #[test]
+    fn the_corral_exit_relaunches_into_the_hoarder_with_its_ledger() {
+        let manifest = manifest();
+        let (carl, donut) = Loadout::Story.flags();
+        let (_, _, corral) =
+            crate::f01_late::corral_start(&root(), 360, carl, donut, None).unwrap();
+        let argv = argv(&["floor01_scene", "--scene", "f01_late", "--f01-run"]);
+        let input = ExitInput {
+            manifest: &manifest,
+            room: "corral",
+            loadout: Loadout::Story,
+            combat: &corral,
+            carried: None,
+            tally: RunTally::default(),
+            argv: &argv,
+            recording: "REC",
+        };
+        let (facts, panel, decision) = on_exit(&input).unwrap();
+        assert!(facts.grants.is_empty(), "the corral grants nothing (KC11)");
+        assert!(
+            panel
+                .heading
+                .starts_with("ROOM 1/8 CLEARED: THE INFERNAL CORRAL"),
+            "{}",
+            panel.heading
+        );
+        assert!(
+            panel.lines[3].contains("The Hoarder (story ledger carried)"),
+            "{:?}",
+            panel.lines
+        );
+        let Decision::Relaunch { room, argv: next } = decision else {
+            panic!("the corral leads on");
+        };
+        assert_eq!(room, "hoarder");
+        let at = next.iter().position(|a| a == "--f01-room").unwrap();
+        assert_eq!(next[at + 1], "hoarder");
+        let carry = next.iter().position(|a| a == FLAG_CARRY).unwrap();
+        let snapshot = decode_carry(&next[carry + 1]).unwrap();
+        // The corral runs no story runtime (its pin is empty, KC11): the run
+        // carries the empty ledger (CF-AD3).
+        assert!(corral.story_snapshot().is_none());
+        assert!(snapshot.held.is_empty() && snapshot.receipts.is_empty());
+        assert_eq!(
+            Some(snapshot.clone()),
+            carry_for(Loadout::Story, RoomScene::Corral, &corral)
+        );
+        // The fallback is the corral's only: a story-less state in any other
+        // room carries nothing (review finding F4 of #283).
+        assert_eq!(None, carry_for(Loadout::Story, RoomScene::Boiler, &corral));
+        assert_eq!(None, carry_for(Loadout::All, RoomScene::Corral, &corral));
+        let (_, _, mut hoarder) =
+            crate::f01_late::hoarder_start(&root(), 360, carl, donut).unwrap();
+        let (_, _, plain) = crate::f01_late::hoarder_start(&root(), 360, carl, donut).unwrap();
+        hoarder.carry_story(&snapshot).unwrap();
+        assert_eq!(hoarder.story_snapshot(), plain.story_snapshot());
+        let tally = next.iter().position(|a| a == FLAG_TALLY).unwrap();
+        assert_eq!(RunTally::parse(&next[tally + 1]).unwrap().rooms, 1);
+    }
+
     /// One listed room's tick-0 state under the story loadout, built through the
     /// constructor the binary and the verifier share, then carried. The boss
     /// room is the PT-SCENE fixture (the Juicer nearly dead, defeated by the
-    /// scripted pilot), the Hoarder her defeat run.
+    /// scripted pilot), the Hoarder her defeat run, the corral (room 0, CORRAL-F)
+    /// its story start.
     fn room_run(
         row: &RoomRow,
         carry: Option<&LedgerSnapshot>,
@@ -643,7 +720,18 @@ mod tests {
         let (carl, donut) = Loadout::Story.flags();
         let combat = match row.scene {
             RoomScene::Hoarder => {
-                assert!(carry.is_none(), "the Hoarder is the run's first room");
+                // CORRAL-F: the Hoarder follows the corral, whose ledger holds
+                // nothing the Hoarder's pin does not (KC11), so her defeat run
+                // (built from the pin) is the carried room's: the carry changes
+                // nothing at tick 0.
+                let (_, _, mut carried) =
+                    crate::f01_late::hoarder_start(&root(), 360, carl, donut).unwrap();
+                let (_, _, plain) =
+                    crate::f01_late::hoarder_start(&root(), 360, carl, donut).unwrap();
+                if let Some(snapshot) = carry {
+                    carried.carry_story(snapshot).unwrap();
+                }
+                assert_eq!(carried.story_snapshot(), plain.story_snapshot());
                 hoarder_defeat(&root()).unwrap().combat
             }
             RoomScene::Boss => {
@@ -651,8 +739,13 @@ mod tests {
                     .unwrap()
                     .combat
             }
-            // CORRAL-WIRE: the corral is unlisted, so no floor run walks it.
-            RoomScene::Corral => unreachable!("the floor run walks listed rooms only"),
+            // CORRAL-F: room 0 opens the run, so nothing is carried into it.
+            RoomScene::Corral => {
+                assert!(carry.is_none(), "the corral is the run's first room");
+                crate::f01_late::corral_start(&root(), 360, carl, donut, None)
+                    .unwrap()
+                    .2
+            }
             RoomScene::Boiler
             | RoomScene::Hazards
             | RoomScene::Mastery
@@ -687,7 +780,7 @@ mod tests {
                 combat
             }
         };
-        let snapshot = carry_for(Loadout::Story, &combat);
+        let snapshot = carry_for(Loadout::Story, row.scene, &combat);
         (combat, snapshot)
     }
 
@@ -700,7 +793,7 @@ mod tests {
             let (combat, snapshot) = room_run(row, carry.as_ref());
             let facts = RoomFacts::of(row, &combat, carry.as_ref());
             grants.push((row.id.clone(), facts.grants.clone()));
-            if row.id != "hoarder" {
+            if row.id != "hoarder" && row.id != "corral" {
                 assert!(
                     combat.story_holds(SPECIAL_THROWN_CHARGE),
                     "dynamite carried into {}",
@@ -718,7 +811,10 @@ mod tests {
                 );
             }
             // The relaunch writes it on the argument list and reads it back.
-            let snapshot = snapshot.expect("a story room has a ledger");
+            // Every room of the run carries a ledger: its story snapshot, or
+            // the empty one for the corral only (CF-AD3), so a story-less room
+            // anywhere else fails here.
+            let snapshot = snapshot.unwrap_or_else(|| panic!("{} carries no ledger", row.id));
             let text = encode_carry(&snapshot);
             carry = Some(decode_carry(&text).unwrap());
         }
@@ -762,19 +858,20 @@ mod tests {
         assert_eq!(tally.rooms, 1);
         let next = manifest.room("boiler").unwrap();
         let panel = room_clear_panel(&manifest, &facts, tally, next, true, "REC");
-        assert!(panel.heading.starts_with("ROOM 1/7 CLEARED: THE HOARDER"));
+        assert!(panel.heading.starts_with("ROOM 2/8 CLEARED: THE HOARDER"));
         assert!(panel.lines[1].contains("special_thrown_charge (Carl)"));
         assert!(panel.lines[3].contains("Goblin Boiler (story ledger carried)"));
         assert!(panel.lines.last().unwrap().starts_with("Facts only"));
         let end = floor_end_panel(&manifest, &facts, tally, &held_of(&hoarder.combat), "REC");
         assert_eq!(end.heading, "FLOOR 1 SLICE FINISHED");
-        assert!(end.lines[2].contains("1 of 7 listed rooms"));
+        assert!(end.lines[2].contains("1 of 8 listed rooms"));
         assert!(end.lines[3].starts_with("Carl holds: special_thrown_charge"));
         // The real floor end: the last room's facts and the held list after the
         // Juicer's grants (the longest lines the panel draws today).
         let last = manifest.rooms.last().unwrap();
         let mut carry = hoarder.snapshot();
-        for row in &manifest.rooms[1..manifest.rooms.len() - 1] {
+        // The rooms after the corral and the Hoarder (CORRAL-F: room 0 first).
+        for row in &manifest.rooms[2..manifest.rooms.len() - 1] {
             carry = room_run(row, carry.as_ref()).1;
         }
         let (mastery, _) = room_run(last, carry.as_ref());

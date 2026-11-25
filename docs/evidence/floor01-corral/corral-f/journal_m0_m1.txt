@@ -1,0 +1,34 @@
+# CORRAL-F: journal excerpt of PLAYTRACE recording a (room pilot corral = carl_solo, its cf02_assist partner; scripted bot, never a human)
+# every CombatEvent of the session up to tick 320 (M0's two goblins and the M1 llama), in tick-file order, straight from ticks-*.jsonl
+EvadeArmed { tick: 1, hero: Donut }
+MoveStarted { tick: 31, move_id: MagicMissile, instance: 1 }
+Mana(ManaSpent { tick: 35, hero: 1, left: 7 })
+Hit { tick: 48, move_id: MagicMissile, instance: 1, target: 0, damage: 1, health_left: 1, hit_stop: 2 }
+MoveStarted { tick: 51, move_id: MagicMissile, instance: 2 }
+Mana(ManaSpent { tick: 55, hero: 1, left: 6 })
+MoveStarted { tick: 56, move_id: Jab, instance: 1 }
+Hit { tick: 59, move_id: Jab, instance: 1, target: 0, damage: 1, health_left: 0, hit_stop: 6 }
+EnemyDefeated { tick: 59, target: 0, cause: Melee, force: Routine, instigator: Some(0) }
+GoblinReaction { tick: 59, goblin: 1, reaction: Panic, nerve: 20 }
+Hit { tick: 84, move_id: MagicMissile, instance: 2, target: 1, damage: 1, health_left: 1, hit_stop: 2 }
+MoveStarted { tick: 91, move_id: MagicMissile, instance: 3 }
+Mana(ManaSpent { tick: 95, hero: 1, left: 5 })
+MoveStarted { tick: 111, move_id: MagicMissile, instance: 4 }
+Mana(ManaSpent { tick: 115, hero: 1, left: 4 })
+Hit { tick: 115, move_id: MagicMissile, instance: 3, target: 1, damage: 1, health_left: 0, hit_stop: 5 }
+EnemyDefeated { tick: 115, target: 1, cause: Melee, force: Routine, instigator: Some(1) }
+LlamaTell { tick: 139, llama: 0 }
+LlamaSpit { tick: 175, llama: 0 }
+Mana(ManaRegained { tick: 185, hero: 1, now: 5 })
+HeroHurt { tick: 194, source: 2, health_left: 3, hero: Carl }
+MoveStarted { tick: 223, move_id: MagicMissile, instance: 5 }
+Mana(ManaRegained { tick: 225, hero: 1, now: 6 })
+Mana(ManaSpent { tick: 227, hero: 1, left: 5 })
+MoveStarted { tick: 240, move_id: PushKick, instance: 2 }
+Hit { tick: 242, move_id: MagicMissile, instance: 5, target: 2, damage: 1, health_left: 2, hit_stop: 2 }
+Hit { tick: 253, move_id: PushKick, instance: 2, target: 2, damage: 1, health_left: 1, hit_stop: 8 }
+MoveStarted { tick: 289, move_id: MagicMissile, instance: 6 }
+Mana(ManaSpent { tick: 293, hero: 1, left: 4 })
+MoveStarted { tick: 296, move_id: PushKick, instance: 3 }
+Hit { tick: 301, move_id: MagicMissile, instance: 6, target: 2, damage: 1, health_left: 0, hit_stop: 5 }
+EnemyDefeated { tick: 301, target: 2, cause: Melee, force: Routine, instigator: Some(1) }

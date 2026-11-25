@@ -575,14 +575,15 @@ case "$mode" in
         exit 1
       fi
     done
-    # CORRAL-WIRE: room 0 is launchable but unlisted (plan section 14.7). It loads
-    # M0's two goblins and the three llamas, stands its M3 gate on the two M2
-    # llamas, and a floor run refuses it.
+    # CORRAL-F: room 0 is the first listed room (plan section 14.7). It loads M0's
+    # two goblins and the three llamas, stands its M3 gate on the two M2 llamas,
+    # and a bare floor run starts in it.
     corral_state="$(late_lines --f01-room corral)"
+    run_entry="$("$bin" --headless-floor01-smoke --scene f01_late --f01-run | grep -E '^F01_CORRAL_ENTRY' || true)"
     if ! grep -q '^F01_CORRAL_SMOKE_OK .* env=live slot_enemies=0 enemies=2 ' <<<"$corral_state" \
-      || ! grep -q '^F01_CORRAL_ENTRY .* goblins=2 llamas=3 m3_gate=2048..2064_on_llamas_1+2 listed=false ' <<<"$corral_state" \
-      || "$bin" --headless-floor01-smoke --scene f01_late --f01-room corral --f01-run >/dev/null 2>&1; then
-      echo "the f01_late corral did not load its roster and M3 gate, or a floor run accepted it" >&2
+      || ! grep -q '^F01_CORRAL_ENTRY .* goblins=2 llamas=3 m3_gate=2048..2064_on_llamas_1+2 listed=true ' <<<"$corral_state" \
+      || [[ -z "$run_entry" ]]; then
+      echo "the f01_late corral did not load its roster and M3 gate, or a floor run did not start in it" >&2
       exit 1
     fi
     echo "F01_CORRAL_HEADLESS_OK: $(grep '^F01_CORRAL_SMOKE_OK' <<<"$corral_state")"
@@ -620,6 +621,18 @@ case "$mode" in
       exit 1
     fi
     echo "F01_MASTERY_PILOT_OK: $mastery_pilot"
+    # CORRAL-F (the #283 review F1, plan section 14.7 gate 4): the corral room pilots at seed 0
+    # (carl_solo, donut_fights, companion) and the corral_rush evidence plan replay identically twice
+    # (the helper exits non-zero otherwise) and equal the committed final states. The three route
+    # pilots reach the exit undefeated; corral_rush parks Carl in B's rush and is meant to be hit.
+    corral_pilots="$(BIN="$bin" python3 scripts/room_pilot_hashes.py corral corral:carl_solo:0 corral:donut_fights:0 corral:companion:0 corral_rush)"
+    if [[ "$corral_pilots" != "$(cat docs/evidence/floor01-corral/corral-f/pilot_hashes.txt)" ]] \
+      || grep -v '^corral_rush ' <<<"$corral_pilots" | grep -qv ' deaths=0 '; then
+      echo "the corral room pilots differ from docs/evidence/floor01-corral/corral-f/pilot_hashes.txt, or a route pilot was defeated" >&2
+      echo "$corral_pilots" >&2
+      exit 1
+    fi
+    echo "F01_CORRAL_PILOTS_OK: $(wc -l <<<"$corral_pilots") plans, each twice identical and equal to the committed hashes"
     # PT-GATE-C1: the aligned room pilots (`mastery|juicer:WHO:SEED`) run the library fixture's party and seed
     # through the live party: each replays identically twice and prints its ROOM_PILOT_STATE (the fixture hash,
     # asserted equal to the library's for every (who, seed) by the unit tests). PT-GATE-E adds the hazards
@@ -674,7 +687,7 @@ case "$mode" in
       exit 1
     fi
     echo "F01_HAZ_TACTICAL_OK: second sticker baited over the slime, no Rot hurt, room cleared, final hash 8e10bd0986d23ad9 (the filmed run), twice identical"
-    echo "F01_LATE_HEADLESS_OK: hoarder, boiler, hazards, ring_court, ring_split, juicer and mastery (listed) and corral (unlisted), story and all, each twice identical"
+    echo "F01_LATE_HEADLESS_OK: corral, hoarder, boiler, hazards, ring_court, ring_split, juicer and mastery (listed), story and all, each twice identical"
     ;;
   render)
     for f in "${fixtures[@]}"; do

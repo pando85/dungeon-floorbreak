@@ -129,7 +129,7 @@ impl RoomRig {
                 room_party(),
             )
         } else if room == crate::f01_corral::ROOM_ID {
-            // CORRAL-WIRE: room 0 (unlisted, launchable), the same way.
+            // CORRAL-WIRE/CORRAL-F: room 0 (listed first since CORRAL-F), the same way.
             let (run, scene, combat) = f01_late::corral_start(&root(), 360, carl, donut, seed)
                 .expect("the corral launches");
             (
@@ -580,7 +580,7 @@ fn a_recorded_ring_session_verifies_strict() {
     }
 }
 
-/// CORRAL-WIRE: a recorded room-0 session (unlisted, launched by id) verifies
+/// CORRAL-WIRE/CORRAL-F: a recorded room-0 session (launched by id) verifies
 /// strict from its descriptor, under both loadouts and a seed; its llamas are
 /// the CORRAL-C ones and another room's label or seed is another run.
 #[test]
@@ -716,8 +716,8 @@ fn a_boiler_session_under_the_all_loadout_verifies() {
 #[test]
 fn a_relabelled_room_is_rejected() {
     let (_dir, session) = record("f01-relabel", "boiler", Loadout::Story, 300);
-    // Another listed room, the unlisted launchable corral, an unlisted room
-    // that does not launch, and no room at all.
+    // Another listed room (the corral among them since CORRAL-F), an unlisted
+    // room that does not launch, and no room at all.
     for room in [
         Some("juicer"),
         Some("hoarder"),

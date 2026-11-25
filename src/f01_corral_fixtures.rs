@@ -22,6 +22,11 @@
 //! | [`Who::CarlSolo`] | solo Carl (the live party's `cf02_assist` partner follows) |
 //! | [`Who::DonutSolo`] | the swap on [`SWAP_TICK`], then Donut (solo) plays the room |
 //! | [`Who::TwoPlayer`] | two slots, each hero driven by its own pilot |
+//! | [`Who::Companion`] | Carl plays, Donut is the autonomous `cf02_free` partner (CORRAL-F) |
+//!
+//! CORRAL-F: the scene's `--room-pilot corral:WHO:SEED`
+//! ([`crate::room_pilots::Plan::Corral`]) replays these runs tick for tick
+//! (`carl_solo`, `donut_fights` = [`Who::DonutSolo`], `companion`).
 
 use std::path::Path;
 
@@ -43,6 +48,8 @@ use crate::prototype::{HERO_HALF_HEIGHT, HERO_HALF_WIDTH, Rect};
 pub const RUN_TICKS: u64 = 6000;
 /// The tick on which [`Who::DonutSolo`] swaps to Donut.
 pub const SWAP_TICK: u64 = 30;
+/// The seeds of the plan section 10 gate (item 5): `--cf02-seed` 0..=8.
+pub const GATE_SEEDS: std::ops::RangeInclusive<u64> = 0..=8;
 
 /// Who plays.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -50,9 +57,13 @@ pub enum Who {
     CarlSolo,
     DonutSolo,
     TwoPlayer,
+    /// CORRAL-F (plan section 10, item 5): Carl is the pilot's, Donut is the
+    /// autonomous `cf02_free` partner.
+    Companion,
 }
 
 impl Who {
+    /// The CORRAL-WIRE route pilots (the companion is the gate's fourth).
     pub const ALL: [Who; 3] = [Who::CarlSolo, Who::DonutSolo, Who::TwoPlayer];
 
     pub const fn name(self) -> &'static str {
@@ -60,11 +71,19 @@ impl Who {
             Self::CarlSolo => "carl_solo",
             Self::DonutSolo => "donut_solo",
             Self::TwoPlayer => "two_player",
+            Self::Companion => "companion",
         }
     }
 
-    fn tuning(self) -> PartyTuning {
-        mastery_tuning(crate::f01_mastery_fixtures::Who::CarlSolo)
+    /// The party of the run: the late slice's (`cf02_assist` partner, 12-tick
+    /// swap), or its `cf02_free` partner for [`Who::Companion`].
+    pub fn tuning(self) -> PartyTuning {
+        use crate::f01_mastery_fixtures::Who as Mastery;
+        mastery_tuning(if self == Self::Companion {
+            Mastery::Companion
+        } else {
+            Mastery::CarlSolo
+        })
     }
 }
 
@@ -83,8 +102,14 @@ pub struct Route {
 impl Route {
     pub fn of(run: &CorralRun) -> Self {
         let exit = run.loaded.encounter.exit;
+        Self::with_exit((exit.x + exit.w / 2) as f32)
+    }
+
+    /// The route whose exit's centre column is `exit_x` (the room pilot knows
+    /// the column, not the run).
+    pub fn with_exit(exit_x: f32) -> Self {
         Self {
-            exit_x: (exit.x + exit.w / 2) as f32,
+            exit_x,
             goal_x: crate::corral_fixtures::room::DOCK.1 as f32,
         }
     }
@@ -159,7 +184,13 @@ pub struct Report {
     pub max_stuck: [u32; 2],
     pub deaths: u32,
     pub capability_grants: usize,
+    /// The combat state hash on the last tick.
     pub hash: u64,
+    /// CORRAL-F: the party hash on the last tick (what the scene's room pilot
+    /// replays to, [`crate::party_scene::party_hash`]).
+    pub party_hash: u64,
+    /// Ticks stepped (the run ends on the exit tick, or after [`RUN_TICKS`]).
+    pub ticks: u64,
     pub events: Vec<CombatEvent>,
 }
 
@@ -234,7 +265,9 @@ fn run_with(root: &Path, who: Who, seed: u64, through: bool) -> Result<Report, S
     let deaths_at_start = sim.combat.deaths;
     let mut swap_pressed = false;
     let mut handover_pressed = false;
+    let mut ticks = 0;
     for _ in 0..RUN_TICKS {
+        ticks += 1;
         let tick = sim.scene.world.tick + 1;
         let controlled = sim.party.controlled_hero();
         let mut slots = [
@@ -341,6 +374,8 @@ fn run_with(root: &Path, who: Who, seed: u64, through: bool) -> Result<Report, S
         deaths: sim.combat.deaths - deaths_at_start,
         capability_grants,
         hash: sim.combat.state_hash(&sim.scene),
+        party_hash: sim.state_hash(),
+        ticks,
         events: sim.combat.events.clone(),
     })
 }
@@ -442,5 +477,154 @@ mod tests {
         let a = run(&root(), Who::CarlSolo, 1).unwrap();
         let b = run(&root(), Who::CarlSolo, 1).unwrap();
         assert_eq!((a.hash, a.exit_tick), (b.hash, b.exit_tick));
+    }
+
+    /// MAG-16 in the room (DM-Q18, CRL-Q18, DM-Q13): the rush has no
+    /// `EvadeSource`, so Donut's reflex never meets it. On the route pilots
+    /// every evade is a goblin swing or a glob and none lands on a rush
+    /// contact tick; with Donut parked inside B's trigger and her reflex armed,
+    /// B's rush hits her, no `HeroEvaded` is logged, and the hurt disarms the
+    /// reflex like every `HeroHurt` she takes.
+    #[test]
+    fn corral_rush_does_not_consume_reflex() {
+        use crate::agility::EvadeSource;
+        use crate::corral_fixtures::room;
+        use crate::llama_rush::RushEnd;
+        let contact = |e: &CombatEvent| match *e {
+            CombatEvent::LlamaRushEnd {
+                tick,
+                end: RushEnd::Contact(hero),
+                ..
+            } => Some((tick, hero)),
+            _ => None,
+        };
+        let (mut evades, mut contacts) = (0, 0);
+        for who in [
+            Who::CarlSolo,
+            Who::DonutSolo,
+            Who::TwoPlayer,
+            Who::Companion,
+        ] {
+            let r = run(&root(), who, 0).unwrap();
+            let hits: Vec<(u64, HeroId)> = r.events.iter().filter_map(contact).collect();
+            contacts += hits.len();
+            for e in &r.events {
+                if let CombatEvent::HeroEvaded { tick, kind, .. } = *e {
+                    evades += 1;
+                    assert!(
+                        matches!(kind, EvadeSource::GoblinSwing | EvadeSource::LlamaGlob),
+                        "{}: {kind:?}",
+                        who.name()
+                    );
+                    assert!(
+                        !hits.iter().any(|&(t, _)| t == tick),
+                        "{}: an evade on a rush contact tick {tick}",
+                        who.name()
+                    );
+                }
+            }
+        }
+        // The pilots meet one rush contact and no evade in this room (the
+        // reflex's wait outlasts their fights): the armed case is below.
+        assert!(contacts >= 1, "a pilot run meets a rush contact");
+        assert_eq!(evades, 0, "no pilot run evades in room 0");
+
+        let run = crate::f01_corral::launch(&root()).unwrap();
+        let park = room::B_X - 112;
+        let mut scene = SceneSim::new_at(&run.kit, 360, park).unwrap();
+        let combat = crate::f01_corral::combat_of(&run, &mut scene).unwrap();
+        let fixture: &'static PartyFixture = Box::leak(Box::new(PartyFixture {
+            base: run.fixture,
+            two_player: false,
+            tuning: Who::CarlSolo.tuning(),
+            script: &[],
+            pilot: Pilot::ArenaDirect,
+            donut: DonutSetup::unlocked(8),
+        }));
+        let mut sim = PartyFixtureSim::from_parts(scene, combat, fixture);
+        sim.park_uncontrolled();
+        sim.scene.world.body_mut(HeroId::Carl).x = park as f32 - 48.0;
+        sim.scene.world.donut_body.x = park as f32;
+        sim.scene.world.sync_donut_for_tests();
+        sim.combat.arm_reflex_for_test();
+        assert!(sim.combat.reflex().armed());
+        let mut hit = None;
+        for _ in 0..360 {
+            let armed_before = sim.combat.reflex().armed();
+            sim.step_slots([RawInput::NONE, RawInput::NONE]);
+            if let Some(h) = sim.combat.events.iter().filter_map(contact).next() {
+                assert!(armed_before, "armed up to the contact tick");
+                hit = Some(h);
+                break;
+            }
+        }
+        let (tick, hero) = hit.expect("B rushes the parked Donut");
+        assert_eq!(hero, HeroId::Donut);
+        assert!(
+            sim.combat.events.iter().any(|e| matches!(
+                *e,
+                CombatEvent::HeroHurt { tick: t, hero: HeroId::Donut, .. } if t == tick
+            )),
+            "the rush hit her on its contact tick"
+        );
+        assert!(
+            !sim.combat
+                .events
+                .iter()
+                .any(|e| matches!(e, CombatEvent::HeroEvaded { .. })),
+            "no evade"
+        );
+        assert!(!sim.combat.reflex().armed(), "the hurt disarmed the reflex");
+    }
+
+    /// CORRAL-F (the #283 review F1, plan section 14.7 gate 4): the committed
+    /// final state of the corral room pilots at seed 0, the library run that
+    /// `--room-pilot corral:WHO:0` replays tick for tick. `hash` is the combat
+    /// state hash on the exit tick (the binary's `COMBAT_STATE` at
+    /// `--capture-tick` of that tick), `party_hash` its `ROOM_PILOT_STATE`. The
+    /// binary's own lines are pinned in
+    /// `docs/evidence/floor01-corral/corral-f/pilot_hashes.txt`, checked by
+    /// `scripts/ci_floor01_combat.sh headless`.
+    #[test]
+    fn corral_room_pilots_pin_their_final_hashes_at_seed_0() {
+        let pins = [
+            (
+                Who::CarlSolo,
+                863,
+                971,
+                0x4741_f633_0738_da2d,
+                0xe527_2ae3_991c_4393,
+            ),
+            (
+                Who::DonutSolo,
+                862,
+                973,
+                0x2e22_29c9_12c8_597d,
+                0x0c61_02c8_e521_9ca3,
+            ),
+            (
+                Who::Companion,
+                1017,
+                1125,
+                0x9118_8a00_ffd7_3a6b,
+                0x66f7_e2f4_ca52_54d1,
+            ),
+        ];
+        for (who, gate, exit, hash, party_hash) in pins {
+            let report = run(&root(), who, 0).unwrap();
+            assert_eq!(report.gate_open_tick, Some(gate), "{who:?} gate");
+            assert_eq!(report.exit_tick, Some(exit), "{who:?} exit");
+            assert_eq!(report.deaths, 0, "{who:?} deaths");
+            assert_eq!(
+                report.hash, hash,
+                "{who:?} state hash {:#018x}",
+                report.hash
+            );
+            assert_eq!(
+                report.party_hash, party_hash,
+                "{who:?} party hash {:#018x}",
+                report.party_hash
+            );
+        }
     }
 }

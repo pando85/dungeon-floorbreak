@@ -86,7 +86,7 @@ fn the_room_builds_its_roster_opt_ins_steps_and_gate() {
     assert!(!combat.exit_gate_open());
     let line = entry_line(&run);
     assert!(
-        line.contains("F01_CORRAL_ENTRY") && line.contains("listed=false"),
+        line.contains("F01_CORRAL_ENTRY") && line.contains("listed=true"),
         "{line}"
     );
 }

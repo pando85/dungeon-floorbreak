@@ -370,7 +370,8 @@ struct Args {
     /// The launched Ring room (`main` fills it right after parsing).
     ring_run: Option<Box<f01_ring::RingRun>>,
     /// CORRAL-WIRE: `--scene f01_late --f01-room corral`, room 0 (the Infernal
-    /// Corral). Launchable but unlisted until CORRAL-F (plan section 14.7).
+    /// Corral). The first listed room since CORRAL-F (plan section 14.7; it
+    /// launched unlisted under CORRAL-WIRE).
     f01_corral: bool,
     /// The launched corral (`main` fills it right after parsing).
     corral_run: Option<Box<f01_corral::CorralRun>>,
@@ -1786,9 +1787,18 @@ fn parse_args_full(
             || parsed.f01_hoarder
             || parsed.f01_hazards
             || parsed.f01_mastery
+            || parsed.f01_corral
             || juicer)
         {
-            return Err("--room-pilot needs a room scene: --scene f01_late with --f01-room boiler, hoarder, hazards, mastery or juicer (or --scene f01_boiler, f01_hoarder, f01_hazards)".into());
+            return Err("--room-pilot needs a room scene: --scene f01_late with --f01-room corral, boiler, hoarder, hazards, mastery or juicer (or --scene f01_boiler, f01_hoarder, f01_hazards)".into());
+        }
+        // CORRAL-F: the corral's pilots play room 0, and room 0 takes only its own pilots.
+        let corral_plan = matches!(
+            pilot.plan,
+            room_pilots::Plan::Corral | room_pilots::Plan::CorralRush
+        );
+        if corral_plan != parsed.f01_corral {
+            return Err("--room-pilot corral and corral_rush need the corral (--f01-room corral), and the corral takes only its own plans".into());
         }
         // PT-GATE-E: the hazards library pilot plays the hazards room, the Boiler's the Boiler.
         if (pilot.plan == room_pilots::Plan::Hazards && !parsed.f01_hazards)
@@ -1860,7 +1870,11 @@ fn parse_args_full(
             // seed (`--cf02-seed`); the Juicer's seed is its swing offset.
             if matches!(
                 pilot.plan,
-                room_pilots::Plan::Mastery | room_pilots::Plan::Hazards | room_pilots::Plan::Boiler
+                room_pilots::Plan::Mastery
+                    | room_pilots::Plan::Hazards
+                    | room_pilots::Plan::Boiler
+                    | room_pilots::Plan::Corral
+                    | room_pilots::Plan::CorralRush
             ) {
                 match parsed.cf02.seed {
                     Some(seed) if seed != aligned.seed => {
@@ -10867,7 +10881,9 @@ mod tests {
         // Unlisted rooms stay refused with the listed ones named.
         let error = args(&["--scene", "f01_late", "--f01-room", "dozer"]).expect_err("unlisted");
         assert!(
-            error.contains("hoarder, boiler, hazards, ring_court, ring_split, juicer, mastery"),
+            error.contains(
+                "corral, hoarder, boiler, hazards, ring_court, ring_split, juicer, mastery"
+            ),
             "{error}"
         );
         // No other run sets either scene.
@@ -10875,13 +10891,14 @@ mod tests {
         assert!(!args(&["--scene", "boss_f01"]).unwrap().f01_room_scene());
     }
 
-    /// CORRAL-WIRE: room 0 is a launchable but unlisted room of `--scene
-    /// f01_late` (CW-AD1, plan section 14.7): `--f01-room corral` launches it under
-    /// the room rules with a seed, records under the late-Floor-1 source with its
-    /// own fixture name and pins, and its tick-0 state in the binary is the
-    /// verifier's constructor; a floor run refuses it, and it has no scene arm.
+    /// CORRAL-F: room 0 is the first listed room of `--scene f01_late` (plan
+    /// section 14.7; CORRAL-WIRE launched it unlisted): `--f01-room corral`
+    /// launches it under the room rules with a seed, records under the
+    /// late-Floor-1 source with its own fixture name and pins, and its tick-0
+    /// state in the binary is the verifier's constructor; a floor run starts in
+    /// it and relaunches into the Hoarder with its ledger, and it has no scene arm.
     #[test]
-    fn the_corral_resolves_through_the_late_launcher_unlisted() {
+    fn the_corral_resolves_through_the_late_launcher_listed_first() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR"));
         let actors =
             Actors::load(root, FrameSource::GridSource, true, false, false, false).unwrap();
@@ -10894,9 +10911,14 @@ mod tests {
         assert_eq!(late.f01_room.as_deref(), Some(id));
         assert!(late.carl.prog && late.donut.prog && late.donut_biscuit);
         assert!(late.recording_enabled());
-        let error = args(&["--scene", "f01_late", "--f01-room", id, "--f01-run"])
-            .expect_err("a floor run walks the listed rooms");
-        assert!(error.contains("launchable but unlisted"), "{error}");
+        let run = args(&["--scene", "f01_late", "--f01-room", id, "--f01-run"]).unwrap();
+        assert!(run.f01_run && run.f01_corral);
+        let first = args(&["--scene", "f01_late", "--f01-run"]).unwrap();
+        assert!(first.f01_corral && first.f01_room.as_deref() == Some(id));
+        assert_eq!(
+            first.f01_hud,
+            Some(("The Infernal Corral".to_owned(), false))
+        );
         for flag in ["--cf02", "--demo", "--autopilot", "--cf02-engineer"] {
             assert!(
                 args(&["--scene", "f01_late", "--f01-room", id, flag]).is_err(),
@@ -10951,6 +10973,47 @@ mod tests {
             }
             assert_eq!(manifest.reset.start_hash, library.state_hash(&scene));
         }
+        // CORRAL-F: the run's next room is the Hoarder, carried the corral's
+        // ledger. The binary's carried Hoarder is her pinned build: the corral
+        // holds nothing her pin does not (KC11).
+        let (_, _, corral) =
+            f01_late::corral_start(root, 360, late.carl, late.donut, None).unwrap();
+        let snapshot = f01_run::carry_for(
+            f01_late::Loadout::Story,
+            f01_late::RoomScene::Corral,
+            &corral,
+        )
+        .expect("the story loadout carries (the empty ledger, CF-AD3)");
+        let carry = f01_run::encode_carry(&snapshot);
+        let hoarder = |carried: bool| {
+            let mut list = vec!["--scene", "f01_late", "--f01-run", "--f01-room", "hoarder"];
+            if carried {
+                list.extend([
+                    "--f01-carry",
+                    carry.as_str(),
+                    "--f01-run-tally",
+                    "1:600:0:0",
+                ]);
+            }
+            let mut run = args(&list).unwrap();
+            let launched = f01_hoarder::launch(root).unwrap();
+            run.fixture = Some(launched.fixture);
+            let kit = launched.kit.clone();
+            run.hoarder_run = Some(Box::new(launched));
+            let mut hud = new_hud(&run, &kit, &actors);
+            let (sim, _, combat, _, _) = build_scene(&kit, &run, &actors, root, &mut hud).unwrap();
+            let combat = combat.expect("a combat state");
+            (
+                run.f01_carry.is_some(),
+                combat.state_hash(&sim),
+                combat.story_snapshot(),
+            )
+        };
+        let (with_carry, carried_hash, carried_ledger) = hoarder(true);
+        let (without, pinned_hash, pinned_ledger) = hoarder(false);
+        assert!(with_carry && !without);
+        assert_eq!(carried_ledger, pinned_ledger);
+        assert_eq!(carried_hash, pinned_hash);
     }
 
     /// RING-A/B wire: the two Ring rooms are listed rooms of `--scene f01_late`
@@ -11292,7 +11355,8 @@ mod tests {
             carry.as_str(),
         ])
         .unwrap();
-        assert_eq!(ok.f01_room.as_deref(), Some("hoarder"));
+        // CORRAL-F: the first listed room is the corral.
+        assert_eq!(ok.f01_room.as_deref(), Some("corral"));
     }
 
     /// F01-RUN: a carried room's tick-0 state is the verifier's (the room's
@@ -11505,16 +11569,18 @@ mod tests {
         let error = refused(&["--f01-room", "cellar"]);
         assert!(
             error.contains("unknown room")
-                && error
-                    .contains("hoarder, boiler, hazards, ring_court, ring_split, juicer, mastery"),
+                && error.contains(
+                    "corral, hoarder, boiler, hazards, ring_court, ring_split, juicer, mastery"
+                ),
             "{error}"
         );
-        // CORRAL-WIRE: the corral is launchable but unlisted; the dozer is not.
+        // CORRAL-F listed the corral; the dozer is still unlisted.
         let error = refused(&["--f01-room", "dozer"]);
         assert!(
             error.contains("unlisted room")
-                && error
-                    .contains("hoarder, boiler, hazards, ring_court, ring_split, juicer, mastery"),
+                && error.contains(
+                    "corral, hoarder, boiler, hazards, ring_court, ring_split, juicer, mastery"
+                ),
             "{error}"
         );
         assert!(refused(&["--f01-loadout", "everything"]).contains("unknown loadout"));

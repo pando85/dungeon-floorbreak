@@ -4,9 +4,11 @@
 //! swing, see [`super::llama_pose`]); this module adds what tells the rush apart
 //! from an idle llama, read from the rush state alone:
 //!
-//! * **brace** (the tell): the body leans back from the rush direction and the
-//!   hind hoof scrapes the floor, a scrape streak with two flecks of dirt and a
-//!   small dust puff kicked back on every scrape;
+//! * **brace** (the tell): the body leans back from the rush direction and
+//!   pumps (CORRAL-F, the #280 review F3: a 4 px lean that rocks 1 px forward
+//!   between scrapes, so the brace reads at 1x as motion an idle llama never
+//!   makes), and the hind hoof scrapes the floor, a scrape streak with two flecks
+//!   of dirt and a 3x3 dust puff kicked back on every scrape;
 //! * **charge** (the committed rush): the body leans into the rush and a trail of
 //!   dust puffs rises behind the hind hoof;
 //! * **stop** (recover): the trail settles and shrinks at the stopping point;
@@ -35,7 +37,13 @@ pub const PALETTE: [[u8; 4]; 3] = [
 ];
 
 /// How far the body leans in px: back during the brace, into the charge.
-pub const BRACE_LEAN_PX: i32 = 2;
+/// CORRAL-F (#280 review F3): the brace was 2 px and did not read at 1x; it is
+/// now 4 px on the scrape beat and [`BRACE_PUMP_PX`] less between scrapes.
+pub const BRACE_LEAN_PX: i32 = 4;
+/// The brace pump: between two scrapes the body rocks forward by this much.
+pub const BRACE_PUMP_PX: i32 = 1;
+/// The side of the square dust puff kicked back on every scrape.
+pub const BRACE_PUFF_PX: i32 = 3;
 pub const CHARGE_LEAN_PX: i32 = 2;
 /// The bonk rocks the body back this far for [`BONK_ROCK_TICKS`].
 pub const BONK_ROCK_PX: i32 = 3;
@@ -107,9 +115,16 @@ pub fn rush_stand_in(llama: &Llama, foot_y: f32) -> Option<RushStandIn> {
     let mut pieces = Vec::new();
     let lean_px = match rush.phase {
         RushPhase::Tell => {
-            // The brace settles in over the first 4 ticks, then holds.
-            let lean = if rush.tick < 4 { 1 } else { BRACE_LEAN_PX };
+            // The brace settles in over the first 4 ticks, then pumps: full
+            // lean on the scrape half of each beat, rocked forward between.
             let beat = rush.tick % SCRAPE_PERIOD;
+            let lean = if rush.tick < 4 {
+                1 + i32::from(rush.tick) * (BRACE_LEAN_PX - 1) / 4
+            } else if beat < SCRAPE_PERIOD / 2 {
+                BRACE_LEAN_PX
+            } else {
+                BRACE_LEAN_PX - BRACE_PUMP_PX
+            };
             if rush.tick >= 4 && beat < SCRAPE_PERIOD / 2 {
                 let reach = i32::from(beat) + 2;
                 // The gouge grows backward under the hind hoof.
@@ -131,15 +146,15 @@ pub fn rush_stand_in(llama: &Llama, foot_y: f32) -> Option<RushStandIn> {
                         tone: Tone::Fleck,
                     });
                 }
-                // A small pale puff behind the flecks: the dark gouge and the
-                // flecks sink into the lit floor at 1x (the first window
-                // capture), the puff carries the scrape's beat.
-                let (left, w) = span(hind - dir * (reach + 4), -dir, 2);
+                // A pale puff behind the flecks: the dark gouge and the flecks
+                // sink into the lit floor at 1x (the first window capture), the
+                // puff carries the scrape's beat (3x3 since CORRAL-F).
+                let (left, w) = span(hind - dir * (reach + 4), -dir, BRACE_PUFF_PX);
                 pieces.push(Piece {
                     x: left,
                     y: foot + 1 + i32::from(beat) / 2,
                     w,
-                    h: 2,
+                    h: BRACE_PUFF_PX,
                     tone: Tone::Dust,
                 });
             }
@@ -313,6 +328,32 @@ mod tests {
             }
             assert!(scrapes >= 3, "the hoof scrapes more than once: {scrapes}");
             assert_eq!(puffs, scrapes, "every scrape kicks one readable puff");
+        }
+    }
+
+    /// CORRAL-F (#280 review F3): the brace reads at 1x. An idle llama never
+    /// moves its sprite off its pivot; the brace leans 3-4 px back once settled
+    /// and pumps by 1 px between scrapes, and every scrape puff is 3x3.
+    #[test]
+    fn the_brace_reads_at_1x_as_a_pumping_lean_with_3x3_puffs() {
+        let tell = llama_rush::active().crlq06_tell_ticks;
+        for dir in [-1i8, 1] {
+            let mut leans = std::collections::BTreeSet::new();
+            for tick in 4..tell {
+                let s = rush_stand_in(&llama_in(dir, RushPhase::Tell, tick, 0, 0), FOOT).unwrap();
+                let back = -s.lean_px * i32::from(dir);
+                assert!((3..=4).contains(&back), "tick {tick}: {back} px back");
+                leans.insert(back);
+                for p in s.pieces.iter().filter(|p| p.tone == Tone::Dust) {
+                    assert_eq!((p.w, p.h), (BRACE_PUFF_PX, BRACE_PUFF_PX), "{p:?}");
+                }
+            }
+            assert_eq!(leans.len(), 2, "the brace pumps between 3 and 4 px");
+            for tick in 0..4 {
+                let s = rush_stand_in(&llama_in(dir, RushPhase::Tell, tick, 0, 0), FOOT).unwrap();
+                let back = -s.lean_px * i32::from(dir);
+                assert!((1..=BRACE_LEAN_PX).contains(&back), "settling {tick}");
+            }
         }
     }
 
