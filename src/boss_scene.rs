@@ -15,7 +15,6 @@
 use std::path::Path;
 
 use crate::boss::{Boss, BossMode, BossSetup, builtin};
-use crate::camera_lab::layout::build_kit;
 use crate::camera_lab::room::parse_rooms;
 use crate::combat_scene::{CombatState, Fixture};
 use crate::corridor::SceneSim;
@@ -38,12 +37,25 @@ const WALL_BELOW_FLOOR: f32 = 12.0;
 const WALL_H: f32 = 400.0;
 
 /// Load the arena kit: the composed room plus the colliders the boss needs.
+/// AREA-GYM-01: the room is drawn with the gym dressing (`crate::gym_kit`), which
+/// is presentation only (same solids, spawn, exit, views and walking line).
 pub fn load_arena(root: &Path) -> Result<EnvKit, String> {
+    arena(root, true)
+}
+
+/// The arena without the gym dressing (the plain catacomb composition): the
+/// reference the presentation-only tests compare [`load_arena`] with.
+pub fn load_arena_undressed(root: &Path) -> Result<EnvKit, String> {
+    arena(root, false)
+}
+
+fn arena(root: &Path, dressed: bool) -> Result<EnvKit, String> {
     let path = root.join(ARENA_PATH);
     let text = std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
     let rooms = parse_rooms(&text)?;
     let room = rooms.first().ok_or("the arena file holds no room")?;
-    let (mut kit, _contract, _plan) = build_kit(root, room).map_err(|e| e.to_string())?;
+    let mut kit =
+        crate::gym_kit::build_arena_kit(root, room, dressed).map_err(|e| e.to_string())?;
     let walk = kit.base_walk_line_y;
     let data = builtin();
     // The kit's 16 px end walls go: the left side is the entrance gate (open

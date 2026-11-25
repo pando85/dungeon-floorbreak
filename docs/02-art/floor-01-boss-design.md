@@ -134,7 +134,7 @@ Load-time validation rejects a tell or punish under the fairness floors, thresho
 | Crash dust + mirror crack VFX, roar push ring | 2 | **B + gate** (one order) |
 | Plate rack prop (hanging, shudder, falling, landed) | 2 (1, 3) | **B + gate** |
 | Rotten strut (3 damage states), ledge and release plate | 1 | **C** (extends the CP-03 shore kit) |
-| Gym arena kit (AREA-GYM-01) | env | Its own environment order. A greybox catacomb kit with mirrors is enough for the first playable |
+| Gym arena kit (AREA-GYM-01) | env | Its own environment order: [area-gym-01-spec.md](area-gym-01-spec.md) (mirror bays at both crash walls, gym props, tube fixtures, gate lintel cap, exit door state pair; presentation only) |
 | Finishes `brute_ko_timber`, `brute_crushed` (boil spatter, pool) | 2 | **B**, from the Death Lab grammar |
 
 **Production atlases (execution status, route and frame names for the code):** manifests in `assets/manifests/boss-f01*.json` list every frame name, pivot, atlas rect, tick count and SHA-256; sources in `assets/source/enemies/brute_boss_f01/`; evidence in `docs/evidence/boss-f01/`. The JUICE-01 base set (idle, walk, pound tell, pound, recover, hurt, down) stays in the `juice-01` atlas.
