@@ -254,6 +254,26 @@ pub(super) fn rebuild(manifest: &SessionManifest, root: &Path) -> Result<Reset, 
     // lab ships today. This is the only non-test path that builds
     // `MotionProfile::Legacy`: replay archaeology, not play.
     rebuilt.tuning.donut_motion = manifest.reset.donut_motion;
+    // F01-RUN: a room of a floor run started from the ledger the run carried into
+    // it; the binary applies it after the room's constructor, so does the rebuild.
+    if let Some(carry) = &manifest.reset.f01_carry {
+        let rules = |why: &str| VerifyFailure::new("rules_mismatch", why);
+        if manifest.reset.f01_room.is_none() {
+            return Err(rules("a carried story ledger needs a late-Floor-1 room"));
+        }
+        // The binary carries the story loadout's ledger only (the TEST LOADOUT
+        // carries nothing, F01RUN-AD2).
+        if manifest.reset.f01_loadout.as_deref() != Some("story") {
+            return Err(rules("a carried story ledger needs the story loadout"));
+        }
+        let combat = rebuilt
+            .combat
+            .as_mut()
+            .ok_or_else(|| rules("a carried story ledger needs a combat room"))?;
+        combat
+            .carry_story(carry)
+            .map_err(|e| VerifyFailure::new("content_mismatch", e.to_string()))?;
+    }
     Ok(rebuilt)
 }
 

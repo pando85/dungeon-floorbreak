@@ -12,6 +12,11 @@
 //! strip sits in the bottom 26 px of the view (masonry), the menu panel in the
 //! middle, both clear of the HUD's top 60 px.
 //!
+//! F01-RUN reuses it for the floor run of `--scene f01_late --f01-run`
+//! ([`LabOverlay::floor_run`]): no strip, only the room-clear and floor-end
+//! panels, whose confirmation raises [`LabRequest::Continue`] (the rules are in
+//! [`crate::f01_run`]).
+//!
 //! The REC badge shows the recorder state (PTI-09): `REC` while recording,
 //! `REC ERROR: <reason>` when the recorder failed or is losing writes, and
 //! `REC off (<reason>)` when it is off (`--no-record`, the environment, a
@@ -72,6 +77,18 @@ impl RecStatus {
 pub enum LabRequest {
     /// Start the scene again with this selection (one room per launch).
     Relaunch(LabSelection),
+    /// F01-RUN: the end panel was confirmed; the binary goes on (the next room
+    /// of the floor run, or the end of it).
+    Continue,
+}
+
+/// What confirming the end panel does.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EndAction {
+    /// The lab: back to the Setup Cage.
+    BackToCage,
+    /// The floor run: [`LabRequest::Continue`].
+    Continue,
 }
 
 /// What the end panel (R02 cleared and exited) shows: facts only (LAB-Q10).
@@ -135,6 +152,17 @@ pub struct LabOverlay {
     pub selection: LabSelection,
     /// Raised by the overlay's input; the binary takes it.
     pub request: Option<LabRequest>,
+    /// Whether the bottom strip (title, status, REC badge) is drawn: the lab's,
+    /// not the floor run's (its HUD owns the screen).
+    pub strip: bool,
+    /// The end panel's heading and confirm hint.
+    pub end_heading: String,
+    pub end_hint: String,
+    pub end_action: EndAction,
+    /// F01-RUN: frames left during which the end panel ignores Confirm (the
+    /// floor run arms it when the panel opens, so a jump pressed through the exit
+    /// does not skip the facts). The lab leaves it at 0.
+    pub end_lock_frames: u16,
 }
 
 impl LabOverlay {
@@ -149,6 +177,23 @@ impl LabOverlay {
             end: None,
             selection,
             request: None,
+            strip: true,
+            end_heading: "LAB-01 R00-R02 SET FINISHED".to_owned(),
+            end_hint: "Enter, A or Start: back to the Setup Cage".to_owned(),
+            end_action: EndAction::BackToCage,
+            end_lock_frames: 0,
+        }
+    }
+
+    /// F01-RUN: the floor run's overlay: no strip, no menu, the end panel only
+    /// once a room is cleared (its heading and hint are set with it).
+    pub fn floor_run(view_h: i32) -> Self {
+        Self {
+            strip: false,
+            end_heading: String::new(),
+            end_hint: String::new(),
+            end_action: EndAction::Continue,
+            ..Self::new(view_h, LabSelection::default(), false)
         }
     }
 
@@ -164,8 +209,11 @@ impl LabOverlay {
                 let picked = menu.selection();
                 self.request = Some(LabRequest::Relaunch(picked));
             }
-        } else if self.end.is_some() && key == MenuKey::Confirm {
-            self.request = Some(LabRequest::Relaunch(back_to_cage(&self.selection)));
+        } else if self.end.is_some() && key == MenuKey::Confirm && self.end_lock_frames == 0 {
+            self.request = Some(match self.end_action {
+                EndAction::BackToCage => LabRequest::Relaunch(back_to_cage(&self.selection)),
+                EndAction::Continue => LabRequest::Continue,
+            });
         }
     }
 
@@ -185,13 +233,15 @@ impl LabOverlay {
         let mut rects = Vec::new();
         let mut lines = Vec::new();
         let top = self.view_h - STRIP_H;
-        rects.push(DrawRect {
-            x: 0,
-            y: top,
-            w: VIEW_WIDTH,
-            h: STRIP_H,
-            alpha: 200,
-        });
+        if self.strip {
+            rects.push(DrawRect {
+                x: 0,
+                y: top,
+                w: VIEW_WIDTH,
+                h: STRIP_H,
+                alpha: 200,
+            });
+        }
         let mut line = |x: i32, y: i32, text: &str, tone: Tone| {
             lines.push(DrawLine {
                 x,
@@ -200,13 +250,15 @@ impl LabOverlay {
                 tone,
             });
         };
-        line(6, top + 3, &self.title, Tone::Normal);
-        line(6, top + 14, &self.status, Tone::Normal);
-        let (badge, tone) = self.rec.badge();
-        // Right-aligned by the 5 px advance of the 8 px font, clear of the
-        // HUD's corner emblem (the last 36 px).
-        let x = (VIEW_WIDTH - 36 - 5 * badge.chars().count() as i32).max(0);
-        line(x, top + 3, &badge, tone);
+        if self.strip {
+            line(6, top + 3, &self.title, Tone::Normal);
+            line(6, top + 14, &self.status, Tone::Normal);
+            let (badge, tone) = self.rec.badge();
+            // Right-aligned by the 5 px advance of the 8 px font, clear of the
+            // HUD's corner emblem (the last 36 px).
+            let x = (VIEW_WIDTH - 36 - 5 * badge.chars().count() as i32).max(0);
+            line(x, top + 3, &badge, tone);
+        }
         if let Some(menu) = &self.menu {
             panel(&mut rects, 96, HUD_BAND_PX + 8, 448, 150);
             let mut y = HUD_BAND_PX + 16;
@@ -250,21 +302,11 @@ impl LabOverlay {
         if let Some(end) = &self.end {
             let h = 40 + 12 * end.lines.len() as i32;
             panel(&mut rects, 96, HUD_BAND_PX + 8, 448, h);
-            line(
-                112,
-                HUD_BAND_PX + 16,
-                "LAB-01 R00-R02 SET FINISHED",
-                Tone::Green,
-            );
+            line(112, HUD_BAND_PX + 16, &self.end_heading, Tone::Green);
             for (i, text) in end.lines.iter().enumerate() {
                 line(112, HUD_BAND_PX + 32 + 12 * i as i32, text, Tone::Normal);
             }
-            line(
-                112,
-                HUD_BAND_PX + 8 + h - 14,
-                "Enter, A or Start: back to the Setup Cage",
-                Tone::Dim,
-            );
+            line(112, HUD_BAND_PX + 8 + h - 14, &self.end_hint, Tone::Dim);
         }
         (rects, lines)
     }
@@ -369,6 +411,9 @@ fn overlay_input(
 ) {
     if !overlay.blocks_gameplay() {
         return;
+    }
+    if overlay.end_lock_frames > 0 {
+        overlay.end_lock_frames -= 1;
     }
     let mut pressed = |key: MenuKey| overlay.press(key);
     let map = [
@@ -586,6 +631,44 @@ mod tests {
         let mut o = overlay(false);
         assert!(!o.pad_start());
         assert!(o.request.is_none());
+    }
+
+    #[test]
+    fn the_floor_run_overlay_draws_only_its_panel_and_confirms_with_continue() {
+        let mut o = LabOverlay::floor_run(360);
+        assert!(!o.blocks_gameplay());
+        let (rects, lines) = o.layout();
+        assert!(rects.is_empty() && lines.is_empty(), "no strip");
+        o.end_heading = "ROOM 1/5 CLEARED: THE HOARDER".into();
+        o.end_hint = "Enter, A or Start: next room (Goblin Boiler)".into();
+        o.end = Some(EndPanel {
+            lines: vec!["2400 ticks (0:40), deaths 0, restarts 0".into()],
+        });
+        assert!(o.blocks_gameplay());
+        let (rects, lines) = o.layout();
+        assert_eq!(rects.len(), 1, "the panel only");
+        assert_eq!(lines[0].text, "ROOM 1/5 CLEARED: THE HOARDER");
+        assert!(
+            lines
+                .last()
+                .unwrap()
+                .text
+                .starts_with("Enter, A or Start: next room")
+        );
+        o.press(MenuKey::Down);
+        assert!(o.request.is_none());
+        // Armed: a confirm while the lock runs is swallowed (Start still never quits).
+        o.end_lock_frames = 30;
+        assert!(o.pad_start());
+        o.press(MenuKey::Confirm);
+        assert!(o.request.is_none(), "locked");
+        o.end_lock_frames = 0;
+        assert!(o.pad_start());
+        assert_eq!(o.request.take(), Some(LabRequest::Continue));
+        // The lab keeps its own heading and hint.
+        let lab = overlay(false);
+        assert_eq!(lab.end_heading, "LAB-01 R00-R02 SET FINISHED");
+        assert_eq!(lab.end_action, EndAction::BackToCage);
     }
 
     #[test]
