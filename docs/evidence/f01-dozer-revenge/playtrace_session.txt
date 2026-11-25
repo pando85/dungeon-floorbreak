@@ -1,0 +1,10 @@
+== room=dozer plan=dozer:close_call label=dozer:close_call exit_after_ticks=520
+F01_LATE_ENTRY room=dozer loadout=story
+COMPANION_CONFIG: set=cf02_free
+PLAYTRACE_SAVED ticks=520 status=Completed complete=true
+PLAYTRACE_VERIFY result=PASS scope=full ticks=520 episodes=1 combat_events=8 control_events=5 build=identical
+PLAYTRACE_VERIFY_CHECKS state_hashes=520 event_hashes=520 effective_inputs=520 observations=1040 final_observations=2 diagnostics=520 slot_routing=520 labels=520
+inspect: schema playtrace-session/1 participants OwnerOnly run_kind ScriptedBot mode solo_human
+inspect: reset f01_room:f01_dozer demo_beat=0 cf02=true
+inspect: ticks 520 chunks 1 (closed 1) gaps 0 dropped_ticks 0 write_errors 0
+inspect: episodes 1 combat_events 8 control_events 5

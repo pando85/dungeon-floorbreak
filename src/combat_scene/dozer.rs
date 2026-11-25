@@ -195,8 +195,8 @@ impl SlotEnemy for DozerEnemy {
         Some(Self::untouched())
     }
 
-    fn nav_rects(&self, layout_h: i32) -> Vec<NavRect> {
-        self.dozer.nav_rows(layout_h)
+    fn nav_rects(&self, layout_h: i32, out: &mut Vec<NavRect>) {
+        self.dozer.nav_rows_into(layout_h, out);
     }
 
     fn as_any(&self) -> Option<&dyn std::any::Any> {

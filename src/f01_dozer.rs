@@ -1,7 +1,8 @@
 //! DOZER-CORE: room 3 of the late-Floor-1 slice, the revenge Dozer's chase
 //! (`f01_dozer`, `docs/01-design/enemy-gameplay-dozer.md` section 5).
 //!
-//! Bevy-free, library only (the scene and the room manifest listing are DR-A).
+//! Bevy-free. DR-A wires it: `--scene f01_dozer`, the manifest row `dozer` and
+//! the PLAYTRACE registration; the drawing is `crate::dozer_art`.
 //! [`launch`] loads the room and its encounter sidecar through the one room
 //! parser ([`crate::encounter::load`], which runs the whole validation, the
 //! Dozer rules of section 9 included), composes the kit exactly as the Boiler
@@ -23,12 +24,13 @@
 use std::path::Path;
 
 use crate::carl_prog::CarlProgFlags;
-use crate::combat_scene::{CombatState, DemoRules, Fixture};
+use crate::combat_scene::{CombatState, DemoRules, Fixture, Hold};
 use crate::corridor::SceneSim;
 use crate::donut_mana::DonutSetup;
 use crate::donut_prog::DonutProgFlags;
 use crate::encounter::{self, Loaded};
 use crate::env_kit::{EnvKit, IRect as KitRect};
+use crate::input::RawInput;
 use crate::scene_enemy::{SlotRoom, SlotSet, spawn_from_roster};
 use crate::story_unlock::{SceneKind, StorySetup, StoryTable};
 
@@ -49,6 +51,18 @@ pub const ENCOUNTER_PIN_KEY: &str = "f01_dozer_encounter";
 pub const PIN_POST_PILE_BOSS: &str = "f01_pin_post_pile_boss";
 /// A fixture seed is only recorded (no rule reads it in this room).
 const FIXTURE_SEED: u64 = 0x0F01_D0E3;
+
+/// DR-A: the smoke script, hold right for this many ticks (a live run ignores
+/// it). The walk crosses the trigger, so the smoke runs the rumble and the chase.
+pub const SMOKE_TICKS: u64 = 600;
+const WALK_RIGHT: &[Hold] = &[Hold {
+    from: 0,
+    to: SMOKE_TICKS,
+    input: RawInput {
+        move_x: 1.0,
+        ..RawInput::NONE
+    },
+}];
 
 /// A launched room 3: everything a scene or a fixture needs.
 #[derive(Debug, Clone)]
@@ -143,7 +157,7 @@ pub fn launch(root: &Path) -> Result<DozerRun, String> {
     }));
     let fixture: &'static Fixture = Box::leak(Box::new(Fixture {
         name: SCENE_NAME,
-        summary: "DOZER-CORE: room 3, the revenge machine's chase (greybox, no prop)",
+        summary: "DOZER-CORE and DR-A: room 3, the revenge machine's chase (greybox, no prop)",
         seed: FIXTURE_SEED,
         carl_x: start,
         enemies: &[],
@@ -152,8 +166,8 @@ pub fn launch(root: &Path) -> Result<DozerRun, String> {
         llamas: &[],
         engineers: &[],
         charges: &[],
-        script: &[],
-        ticks: 0,
+        script: WALK_RIGHT,
+        ticks: SMOKE_TICKS,
         room: crate::combat_scene::FixtureRoom::Corridor,
     }));
     Ok(DozerRun {
@@ -249,6 +263,24 @@ pub fn combat_seeded(
     Ok(combat)
 }
 
+/// The room's combat state for a scene or a verifier (DR-A): [`combat`] under
+/// a CF02 seed (the companion's draws). The binary and the PLAYTRACE verifier
+/// both reach it through [`crate::f01_late::dozer_start`].
+pub fn combat_for(
+    run: &DozerRun,
+    scene: &mut SceneSim,
+    carl: CarlProgFlags,
+    donut: DonutProgFlags,
+    cf02_seed: Option<u64>,
+) -> Result<CombatState, String> {
+    let spawn = spawn_from_roster(&run.loaded.encounter, slot_room(run, scene), false)
+        .map_err(|e| e.to_string())?;
+    if !spawn.existing.is_empty() {
+        return Err("room 3's roster holds an existing kind (DR-C adds the crew)".to_owned());
+    }
+    combat_seeded(run.fixture, run, scene, carl, donut, spawn.slot, cf02_seed)
+}
+
 /// Launch the room and build its scene and combat state.
 pub fn start(
     root: &Path,
@@ -263,7 +295,8 @@ pub fn start(
 }
 
 /// The pins a live run would stamp (the room, the sidecar and the machine's
-/// tuning). The playtrace registration is DR-A.
+/// tuning), registered in `playtrace::live::data_pins` and scoped to the
+/// `dozer` room by [`crate::f01_late::pin_applies`] (DR-A).
 pub const fn data_pins() -> [(&'static str, u64); 3] {
     [
         (ROOM_PIN_KEY, ROOM_HASH),
@@ -333,6 +366,18 @@ mod tests {
         );
         for (key, value) in data_pins() {
             assert_ne!(value, 0, "{key}");
+            // DR-A: registered for a live recording and scoped to room 3 only.
+            assert!(
+                crate::playtrace::live::data_pins().contains(&(key, value)),
+                "{key}"
+            );
+            assert!(crate::f01_late::pin_applies(key, Some("dozer")), "{key}");
+            for other in [None, Some("boiler"), Some("hazards"), Some("juicer")] {
+                assert!(
+                    crate::f01_late::pin_is_scoped_out(key, other),
+                    "{key} {other:?}"
+                );
+            }
         }
         assert_eq!(combat.slot_enemies().len(), 1);
         assert_eq!(combat.slot_enemies()[0].kind(), "dozer");

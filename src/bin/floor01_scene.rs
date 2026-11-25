@@ -88,7 +88,8 @@ use dungeon_floorbreak::{
     env_kit::{
         EnvKit, IRect, PieceDraw, animation_frame, parallax_copies, parallax_start, to_world_y,
     },
-    f01_boiler, f01_corral, f01_hazards, f01_hoarder, f01_late, f01_mastery, f01_ring, f01_run,
+    f01_boiler, f01_corral, f01_dozer, f01_hazards, f01_hoarder, f01_late, f01_mastery, f01_ring,
+    f01_run,
     feel::{LLAMA_GLOB_MOUTH_DX, LLAMA_GLOB_MOUTH_DY, LLAMA_GLOB_SPEED},
     goblin::{AttackPhase, GoblinMode},
     gore::{DEATH_VARIANTS, DeathArt, GorePreset, LLAMA_VARIANT, Sheet},
@@ -145,6 +146,9 @@ mod room_exit_art;
 // CORRAL-WIRE and CORRAL-E: room 0's M3 gate grate and the rush stand-in (greybox).
 #[path = "floor01_scene/corral_art.rs"]
 mod corral_art;
+// DR-A: room 3's machine (the DOZ-01 rig) and its labelled environment stand-ins.
+#[path = "floor01_scene/dozer_art.rs"]
+mod dozer_art;
 
 /// Draw order above the actor plane. Carl is drawn above every goblin, except
 /// that a goblin in its smear or impact is drawn over him (its club lands on
@@ -375,6 +379,12 @@ struct Args {
     f01_corral: bool,
     /// The launched corral (`main` fills it right after parsing).
     corral_run: Option<Box<f01_corral::CorralRun>>,
+    /// DR-A: `--scene f01_dozer` (or `--scene f01_late --f01-room dozer`): room
+    /// 3, the revenge Dozer's chase. Under the room rules; the machine is a slot
+    /// enemy loaded from the sidecar roster.
+    f01_dozer: bool,
+    /// The launched room 3 (`main` fills it right after parsing).
+    dozer_run: Option<Box<f01_dozer::DozerRun>>,
     /// PT-SCENE: `--scene f01_late`. It is a launcher: the room (`--f01-room`)
     /// and the loadout (`--f01-loadout`) resolve, once the arguments are read,
     /// to the scene that runs the room (`f01_boiler` or the boss arena) and the
@@ -577,6 +587,7 @@ impl Args {
             || self.f01_mastery
             || self.f01_ring.is_some()
             || self.f01_corral
+            || self.f01_dozer
     }
 
     /// CF02-F: this run is in the microarena (`--cf02`, or a CF02-F room fixture).
@@ -780,6 +791,8 @@ fn resolve_boiler_args(parsed: &mut Args) -> Result<(), String> {
         (ring.scene_name(), ring.id())
     } else if parsed.f01_corral {
         (f01_corral::SCENE_NAME, f01_corral::ROOM_ID)
+    } else if parsed.f01_dozer {
+        (f01_dozer::SCENE_NAME, "dozer")
     } else {
         return Ok(());
     };
@@ -960,6 +973,7 @@ fn resolve_f01_late_args(parsed: &mut Args) -> Result<(), String> {
             parsed.f01_ring = row.scene.ring();
         }
         f01_late::RoomScene::Corral => parsed.f01_corral = true,
+        f01_late::RoomScene::Dozer => parsed.f01_dozer = true,
         f01_late::RoomScene::Boss => {
             parsed.boss = true;
             parsed.fixture = Some(boss_scene::BOSS01_SCENE);
@@ -1455,6 +1469,8 @@ fn parse_args_full(
         ring_run: None,
         f01_corral: false,
         corral_run: None,
+        f01_dozer: false,
+        dozer_run: None,
         f01_late: false,
         f01_room: None,
         f01_loadout: None,
@@ -1566,7 +1582,7 @@ fn parse_args_full(
             "--scene" => {
                 let value = iter
                     .next()
-                    .ok_or("--scene needs a name (boss_f01, combat_lab, f01_boiler, f01_hoarder, f01_hazards, f01_late, refuge_guild)")?;
+                    .ok_or("--scene needs a name (boss_f01, combat_lab, f01_boiler, f01_hoarder, f01_dozer, f01_hazards, f01_late, refuge_guild)")?;
                 if parsed.boss
                     || parsed.lab_scene
                     || parsed.f01_room_scene()
@@ -1574,7 +1590,7 @@ fn parse_args_full(
                     || parsed.refuge
                 {
                     return Err(
-                        "--scene takes one scene: boss_f01, combat_lab, f01_boiler, f01_hoarder, f01_hazards, f01_late and refuge_guild are exclusive"
+                        "--scene takes one scene: boss_f01, combat_lab, f01_boiler, f01_hoarder, f01_dozer, f01_hazards, f01_late and refuge_guild are exclusive"
                             .into(),
                     );
                 }
@@ -1591,12 +1607,13 @@ fn parse_args_full(
                     "combat_lab" => parsed.lab_scene = true,
                     f01_boiler::SCENE_NAME => parsed.f01_boiler = true,
                     f01_hoarder::SCENE_NAME => parsed.f01_hoarder = true,
+                    f01_dozer::SCENE_NAME => parsed.f01_dozer = true,
                     f01_hazards::SCENE_NAME => parsed.f01_hazards = true,
                     f01_late::SCENE_NAME => parsed.f01_late = true,
                     refuge::SCENE_NAME => parsed.refuge = true,
                     _ => {
                         return Err(format!(
-                            "unknown scene {value:?} (expected boss_f01, combat_lab, f01_boiler, f01_hoarder, f01_hazards, f01_late, refuge_guild)"
+                            "unknown scene {value:?} (expected boss_f01, combat_lab, f01_boiler, f01_hoarder, f01_dozer, f01_hazards, f01_late, refuge_guild)"
                         ));
                     }
                 }
@@ -1788,9 +1805,10 @@ fn parse_args_full(
             || parsed.f01_hazards
             || parsed.f01_mastery
             || parsed.f01_corral
+            || parsed.f01_dozer
             || juicer)
         {
-            return Err("--room-pilot needs a room scene: --scene f01_late with --f01-room corral, boiler, hoarder, hazards, mastery or juicer (or --scene f01_boiler, f01_hoarder, f01_hazards)".into());
+            return Err("--room-pilot needs a room scene: --scene f01_late with --f01-room corral, boiler, hoarder, dozer, hazards, mastery or juicer (or --scene f01_boiler, f01_hoarder, f01_dozer, f01_hazards)".into());
         }
         // CORRAL-F: the corral's pilots play room 0, and room 0 takes only its own pilots.
         let corral_plan = matches!(
@@ -1799,6 +1817,10 @@ fn parse_args_full(
         );
         if corral_plan != parsed.f01_corral {
             return Err("--room-pilot corral and corral_rush need the corral (--f01-room corral), and the corral takes only its own plans".into());
+        }
+        // DR-A: the `dozer:*` plans play room 3, and room 3 takes only them.
+        if pilot.plan.is_dozer() != parsed.f01_dozer {
+            return Err("--room-pilot dozer:run, dozer:close_call and dozer:wait need the Dozer's room (--f01-room dozer or --scene f01_dozer), and that room takes only them".into());
         }
         // PT-GATE-E: the hazards library pilot plays the hazards room, the Boiler's the Boiler.
         if (pilot.plan == room_pilots::Plan::Hazards && !parsed.f01_hazards)
@@ -2359,6 +2381,12 @@ fn build_scene(
             let combat =
                 f01_corral::combat_for(run, &mut sim, args.carl, args.donut, args.cf02.seed)?;
             (sim, combat)
+        } else if let Some(run) = &args.dozer_run {
+            // DR-A: room 3, the verifier's constructor (the machine from the roster).
+            let mut sim = SceneSim::new_at(kit, view_height(args.deck), fixture.carl_x)?;
+            let combat =
+                f01_dozer::combat_for(run, &mut sim, args.carl, args.donut, args.cf02.seed)?;
+            (sim, combat)
         } else {
             let sim = SceneSim::new_at(kit, view_height(args.deck), fixture.carl_x)?;
             let combat = CombatState::new(fixture, kit, &sim)?
@@ -2372,8 +2400,9 @@ fn build_scene(
             || args.mastery_run.is_some()
             || args.ring_run.is_some()
             || args.corral_run.is_some()
+            || args.dozer_run.is_some()
         {
-            // HRD-A2b, HAZ-A2b, PT-MASTERY, RING-A/B wire and CORRAL-WIRE: the library built the state with its rules,
+            // HRD-A2b, HAZ-A2b, PT-MASTERY, RING-A/B wire, CORRAL-WIRE and DR-A: the library built the state with its rules,
             // env and slot. A builder run after the slot would reset the attempt.
         } else if let Some(run) = &args.boiler_run {
             // BOIL-B/C wire: the sidecar's props and hazards are live.
@@ -2394,6 +2423,7 @@ fn build_scene(
             && args.mastery_run.is_none()
             && args.ring_run.is_none()
             && args.corral_run.is_none()
+            && args.dozer_run.is_none()
         {
             combat = combat.with_cf02().with_cf02_seed(args.cf02.seed);
         }
@@ -2572,6 +2602,8 @@ fn room_exit_x(args: &Args) -> f32 {
     } else if let Some(run) = &args.ring_run {
         run.loaded.encounter.exit
     } else if let Some(run) = &args.corral_run {
+        run.loaded.encounter.exit
+    } else if let Some(run) = &args.dozer_run {
         run.loaded.encounter.exit
     } else {
         return 0.0;
@@ -2952,6 +2984,20 @@ fn main() -> ExitCode {
             }
         }
     }
+    // DR-A: load room 3 and its sidecar.
+    if args.f01_dozer {
+        match f01_dozer::launch(&root) {
+            Ok(run) => {
+                println!("{}", f01_dozer::entry_line(&run));
+                args.fixture = Some(run.fixture);
+                args.dozer_run = Some(Box::new(run));
+            }
+            Err(error) => {
+                eprintln!("floor01_scene: {error}");
+                return ExitCode::from(2);
+            }
+        }
+    }
     // PTR-R1: open the recording before anything else; a recording the viewer
     // cannot show opens no window.
     let prepared = if args.replay.is_some() {
@@ -2977,6 +3023,8 @@ fn main() -> ExitCode {
     } else if let Some(run) = &args.ring_run {
         Ok(run.kit.clone())
     } else if let Some(run) = &args.corral_run {
+        Ok(run.kit.clone())
+    } else if let Some(run) = &args.dozer_run {
         Ok(run.kit.clone())
     } else if args.refuge {
         refuge::load(&root).map(|(kit, _)| kit)
@@ -3770,6 +3818,9 @@ fn recording_manifest(
     } else if args.f01_corral {
         // CORRAL-WIRE: and room 0, under its fixture name.
         (f01_late::SESSION_SOURCE, f01_corral::SCENE_NAME)
+    } else if args.f01_dozer {
+        // DR-A: and room 3, under its fixture name.
+        (f01_late::SESSION_SOURCE, f01_dozer::SCENE_NAME)
     } else if args.demo {
         ("demo", args.fixture.map_or("", |f| f.name))
     } else if args.boss {
@@ -4264,6 +4315,7 @@ fn run_window(
                 danger_fx_art::sync_danger_fx,
                 hazards_art::sync_hazard_debug,
                 hoarder_art::sync_hoarder_art,
+                dozer_art::sync_dozer_art,
                 room_exit_art::sync_room_exit,
                 gym_art::sync_gym_art,
                 corral_art::sync_corral_art,
@@ -4944,6 +4996,21 @@ fn setup(
             &asset_server,
             &mut layouts,
             run.loaded.encounter.clone(),
+            layers_of("actors"),
+            kit,
+            &mut combat_handles,
+            &mut combat_entities,
+        );
+    }
+
+    // DR-A: the Dozer's DOZ-01 rig, its smoke, and the labelled stand-ins of the rear gate, the
+    // buffer stop and damage (until DOZ-02), only in room 3 (presentation only).
+    if args.dozer_run.is_some() {
+        dozer_art::spawn(
+            &mut commands,
+            &asset_server,
+            &mut layouts,
+            &mut images,
             layers_of("actors"),
             kit,
             &mut combat_handles,
@@ -8554,6 +8621,7 @@ fn headless_smoke(kit: &EnvKit, args: &Args, actors: &Actors, root: &Path) -> Re
         || args.mastery_run.is_some()
         || args.ring_run.is_some()
         || args.corral_run.is_some()
+        || args.dozer_run.is_some()
     {
         return headless_slot_room(kit, args, actors, root);
     }
@@ -8717,6 +8785,13 @@ fn headless_slot_room(
             run.loaded.encounter.story_pin.clone(),
             f01_corral::SMOKE_TICKS,
         )
+    } else if let Some(run) = &args.dozer_run {
+        (
+            "dozer",
+            "F01_DOZER_SMOKE_OK",
+            run.loaded.encounter.story_pin.clone(),
+            f01_dozer::SMOKE_TICKS,
+        )
     } else {
         return Err("no room".into());
     };
@@ -8744,6 +8819,22 @@ fn headless_slot_room(
         combat.enemies.len(),
         combat.state_hash(&sim),
     );
+    // DR-A: room 3's nav rebuild count (the AI partner's hazard feed changes: each one rebuilds its
+    // navigation around the machine) and the machine's state, for the frame-time evidence.
+    if args.dozer_run.is_some()
+        && let Some(d) = dungeon_floorbreak::dozer_art::dozer_of(&combat)
+    {
+        let stats = combat.companion_stats();
+        println!(
+            "F01_DOZER_NAV ticks={} state={} nav_rebuilds={} hazard_feed_errors={} wheel_hits={} rescues={:?}",
+            sim.world.tick,
+            d.state.name(),
+            stats.hazard_feed_changes,
+            stats.hazard_feed_errors,
+            d.stats.wheel_hits,
+            d.stats.rescues,
+        );
+    }
     Ok(())
 }
 
@@ -10878,11 +10969,16 @@ mod tests {
         // A bare `--scene f01_late` still launches the Boiler (HRDA2B-AD1).
         let bare = args(&["--scene", "f01_late"]).unwrap();
         assert!(bare.f01_boiler && !bare.f01_hoarder && !bare.f01_hazards);
-        // Unlisted rooms stay refused with the listed ones named.
-        let error = args(&["--scene", "f01_late", "--f01-room", "dozer"]).expect_err("unlisted");
+        // DR-A lists the Dozer; an unknown room stays refused with the listed ones named.
+        assert!(
+            args(&["--scene", "f01_late", "--f01-room", "dozer"])
+                .unwrap()
+                .f01_dozer
+        );
+        let error = args(&["--scene", "f01_late", "--f01-room", "cellar"]).expect_err("unknown");
         assert!(
             error.contains(
-                "corral, hoarder, boiler, hazards, ring_court, ring_split, juicer, mastery"
+                "corral, hoarder, boiler, dozer, hazards, ring_court, ring_split, juicer, mastery"
             ),
             "{error}"
         );
@@ -11097,6 +11193,90 @@ mod tests {
                 assert_eq!(manifest.reset.start_hash, library.state_hash(&scene));
             }
         }
+    }
+
+    /// DR-A: room 3 (the Dozer revenge) is a listed room of `--scene f01_late` and has its own
+    /// scene arm (`--scene f01_dozer`). Both start on the verifier's constructor
+    /// (`f01_late::dozer_start`), record under the late-Floor-1 source, and stamp exactly the
+    /// pins scoped to the room (DRA-AD1: the dozer tuning pin is room 3's only).
+    #[test]
+    fn the_dozer_room_resolves_through_the_late_launcher_and_its_scene() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let actors =
+            Actors::load(root, FrameSource::GridSource, true, false, false, false).unwrap();
+        for list in [
+            &["--scene", "f01_late", "--f01-room", "dozer"][..],
+            &[
+                "--scene",
+                "f01_late",
+                "--f01-room",
+                "dozer",
+                "--f01-loadout",
+                "all",
+            ][..],
+            &["--scene", "f01_dozer"][..],
+        ] {
+            let mut run = args(list).unwrap();
+            assert!(run.f01_dozer && run.f01_room_scene(), "{list:?}");
+            assert!(
+                !run.f01_boiler && !run.f01_hoarder && !run.f01_hazards && !run.f01_mastery,
+                "{list:?}"
+            );
+            assert!(run.recording_enabled(), "{list:?}");
+            let launched = f01_dozer::launch(root).unwrap();
+            run.fixture = Some(launched.fixture);
+            let kit = launched.kit.clone();
+            run.dozer_run = Some(Box::new(launched));
+            let (_, scene, library) =
+                f01_late::dozer_start(root, 360, run.carl, run.donut, run.cf02.seed).unwrap();
+            let mut hud = new_hud(&run, &kit, &actors);
+            let (sim, _, combat, _, _) = build_scene(&kit, &run, &actors, root, &mut hud).unwrap();
+            let combat = combat.expect("a combat state");
+            assert_eq!(
+                combat.state_hash(&sim),
+                library.state_hash(&scene),
+                "{list:?}"
+            );
+            assert_eq!(sim.world.state_hash(), scene.world.state_hash(), "{list:?}");
+            assert!(
+                dungeon_floorbreak::dozer_art::dozer_of(&combat).is_some(),
+                "{list:?}: the machine"
+            );
+            let party = run.live_party();
+            let manifest = recording_manifest(&run, &sim, Some(&combat), &party, root);
+            assert_eq!(manifest.reset.source, f01_late::SESSION_SOURCE, "{list:?}");
+            assert_eq!(manifest.reset.name, f01_dozer::SCENE_NAME, "{list:?}");
+            for key in f01_late::SCOPED_PIN_KEYS {
+                assert_eq!(
+                    manifest.content_hashes.contains_key(key),
+                    f01_late::pin_applies(key, Some("dozer")),
+                    "{list:?} {key}"
+                );
+            }
+            assert_eq!(manifest.reset.start_hash, library.state_hash(&scene));
+        }
+        // The dozer plans play room 3 only, and room 3 takes only them.
+        let smoke = ["--headless-floor01-smoke"];
+        let with = |scene: &[&str], plan: &str| {
+            let mut list: Vec<&str> = scene.to_vec();
+            list.extend_from_slice(&["--room-pilot", plan]);
+            list.extend_from_slice(&smoke);
+            args(&list)
+        };
+        let room3 = ["--scene", "f01_late", "--f01-room", "dozer"];
+        for plan in ["dozer:run", "dozer:close_call", "dozer:wait"] {
+            assert_eq!(
+                with(&room3, plan).unwrap().room_pilot.unwrap().label(),
+                plan
+            );
+            assert!(with(&["--scene", "f01_dozer"], plan).is_ok(), "{plan}");
+            assert!(
+                with(&["--scene", "f01_late", "--f01-room", "boiler"], plan).is_err(),
+                "{plan}"
+            );
+        }
+        assert!(with(&room3, "direct").is_err());
+        assert!(with(&room3, "dozer:run:2p").is_err());
     }
 
     /// PT-MASTERY: the closing arena is a listed room of `--scene f01_late` only
@@ -11570,19 +11750,12 @@ mod tests {
         assert!(
             error.contains("unknown room")
                 && error.contains(
-                    "corral, hoarder, boiler, hazards, ring_court, ring_split, juicer, mastery"
+                    "corral, hoarder, boiler, dozer, hazards, ring_court, ring_split, juicer, mastery"
                 ),
             "{error}"
         );
-        // CORRAL-F listed the corral; the dozer is still unlisted.
-        let error = refused(&["--f01-room", "dozer"]);
-        assert!(
-            error.contains("unlisted room")
-                && error.contains(
-                    "corral, hoarder, boiler, hazards, ring_court, ring_split, juicer, mastery"
-                ),
-            "{error}"
-        );
+        // CORRAL-F listed the corral and DR-A the dozer, so no story-order room is refused
+        // as unlisted any more (`f01_late`'s tests cover that refusal with a made-up room).
         assert!(refused(&["--f01-loadout", "everything"]).contains("unknown loadout"));
         assert!(refused(&["--f01-room"]).contains("needs a room id"));
         // Other scenes are unchanged: no room label on the legacy runs.

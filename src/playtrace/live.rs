@@ -224,6 +224,14 @@ pub fn data_pins() -> Vec<(&'static str, u64)> {
             crate::f01_hazards::ENCOUNTER_PIN_KEY,
             crate::f01_hazards::ENCOUNTER_HASH,
         ),
+        // DR-A: room 3's room and sidecar pins and the machine's tuning, all
+        // three scoped to the `dozer` room (DRA-AD1: the machine lives there only).
+        (crate::f01_dozer::ROOM_PIN_KEY, crate::f01_dozer::ROOM_HASH),
+        (
+            crate::f01_dozer::ENCOUNTER_PIN_KEY,
+            crate::f01_dozer::ENCOUNTER_HASH,
+        ),
+        (crate::dozer::PIN_KEY, crate::dozer::TUNING_HASH),
         // PT-MASTERY: the closing arena's room and sidecar pins, scoped like the
         // others.
         (

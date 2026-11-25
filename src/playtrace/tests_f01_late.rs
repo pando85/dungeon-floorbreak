@@ -716,8 +716,8 @@ fn a_boiler_session_under_the_all_loadout_verifies() {
 #[test]
 fn a_relabelled_room_is_rejected() {
     let (_dir, session) = record("f01-relabel", "boiler", Loadout::Story, 300);
-    // Another listed room (the corral among them since CORRAL-F), an unlisted
-    // room that does not launch, and no room at all.
+    // Another listed room (the corral since CORRAL-F, the dozer since DR-A), an
+    // unlisted room that does not launch, and no room at all.
     for room in [
         Some("juicer"),
         Some("hoarder"),
