@@ -82,6 +82,9 @@ pub fn dress(layout: &mut Value, dressing: &Dressing) {
 
 /// The env kit of the arena room: the catacomb composition with (`dressed`) or
 /// without the gym dressing. Both load the same merged contract.
+/// The undressed kit is built from the gym contract too, not from main's
+/// `camera_lab::layout::build_kit` path; its equivalence with main rests on the
+/// unchanged boss goldens.
 pub fn build_arena_kit(root: &Path, room: &Room, dressed: bool) -> Result<EnvKit, EnvError> {
     let contract = load_contract(root, GYM_CONTRACT)?;
     let base = read_json(root, BASE_LAYOUT)?;

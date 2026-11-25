@@ -4,7 +4,7 @@
 
 **Route:** difficulty score 1 (new design, a kit extension of approved ENV-01 pieces), class Easy, route **C + silhouette gate on the hero key** ([routing by difficulty](../07-agents/pixel-art-pipeline.md#routing-by-difficulty)). Work order: AREA-GYM-01 (art audit 2026-11-24, order 1), [area kits plan](../07-agents/floor-01-area-kits-plan.md) row `AREA-GYM-01` (the dedicated standalone concept exists).
 
-**Authorities:** mood and props from the owner-selected [standalone gym panorama](../../assets/concept/floor-01/juicer-gym/floor01-juicer-gym-standalone-panorama-approved.png) and [atlas panel 09](../../assets/concept/floor-01/atlas-v1/09-juicer-gym-atlas-excerpt.png), **mood only** ([concept notes](floor-01-juicer-gym-standalone-concept.md)); no pixel is cropped, traced or resampled from either. Geometry: [boss design](floor-01-boss-design.md) section 2 (one locked 640 px screen, walls at x 0..32 and 608..640, the ceiling collider 224 px above the walking line, the walls "faced with cracked mirrors (cosmetic)" and the crash surfaces), `src/boss_scene.rs`, `assets/data/bosses/brute_boss_f01.json`. The crack it anchors: `boss-f01-vfx` `mirror_crack` (pivot (76, 24), drawn at the wall x and 40 px above the walking line). The gate it caps: [danger FX spec](floor01-danger-fx-spec.md) 2.4 (`dfx_gate`, review finding F3). Environment language: the [ENV-01 kit](floor-01-catacomb-kit.md) contract and palette. Pipeline: [art direction](art-direction.md) ("some fluorescent/accented light **only here**", [atlas row 09](floor-01-art-atlas-v1.md)), [asset pipeline](asset-pipeline.md), [antihero tone](../01-design/antihero-tone.md).
+**Authorities:** mood and props from the owner-selected [standalone gym panorama](../../assets/concept/floor-01/juicer-gym/floor01-juicer-gym-standalone-panorama-approved.png) and [atlas panel 09](../../assets/concept/floor-01/atlas-v1/09-juicer-gym-atlas-excerpt.png), **mood only** ([concept notes](floor-01-juicer-gym-standalone-concept.md)); no pixel is cropped, traced or resampled from either. Geometry: [boss design](floor-01-boss-design.md) section 2 (one locked 640 px screen, walls at x 0..32 and 608..640, the ceiling collider 224 px above the walking line, the walls "faced with cracked mirrors (cosmetic)" and the crash surfaces), `src/boss_scene.rs`, `assets/data/bosses/brute_boss_f01.json`. The crack it anchors: `boss-f01-vfx` `mirror_crack` (pivot (76, 24), drawn at the wall x and 40 px above the walking line). The gate it caps: [danger FX spec](floor01-danger-fx-spec.md) 2.4 (`dfx_gate`; the independent review of #263 noted as its finding F3 that the grate ends against open brick 224 px up and that a lintel or header cap would sell "no way over"). Environment language: the [ENV-01 kit](floor-01-catacomb-kit.md) contract and palette. Pipeline: [art direction](art-direction.md) ("some fluorescent/accented light **only here**", [atlas row 09](floor-01-art-atlas-v1.md)), [asset pipeline](asset-pipeline.md), [antihero tone](../01-design/antihero-tone.md).
 
 ## 1. Canon and tone constraints
 
@@ -59,8 +59,8 @@ All pieces are decor: `collidable: false`, no tiles, 1-bit alpha. Anchors are th
 | `gym_plate_tree` | `floor01_gym_props` | 28 x 36 | `prop` | (352, 364) | post on a cross foot, four round iron plates face-on with hubs |
 | `gym_cable_tower` | `floor01_gym_props` | 44 x 104 | `prop` | (440, 296) | two uprights, top beam with two pulley wheels, cable, a selector weight stack, a hanging handle |
 | `gym_tyres` | `floor01_gym_props` | 34 x 18 | `prop` | (490, 382) | two stacked tractor tyres, treads catching the light |
-| `gym_mat_a`, `gym_mat_b` | `floor01_gym_floor` | 48 x 22 | `structure` | x 224..512 every 48, y 401 (a, b, a, b, a, b) | dark rubber tile with moulded studs over the floor surface (rows 401..422); 1 px seam; the far row and the front edge lit, the front face darker; `b` has a taped seam and a scuffed corner |
-| `gym_exit_closed`, `gym_exit_open` | `floor01_gym_exit` | 20 x 96 | `prop` | (620, 324) | state pair (`state_group` `gym_exit`): a riveted steel door in a narrow frame with a push bar and an unlit lamp / the leaf swung in, a dark cold corridor, the lamp lit |
+| `gym_mat_a`, `gym_mat_b` | `floor01_gym_floor` | 48 x 22 | `structure` | x 224..512 every 48, y 401 (a, b, a, b, a, b) | rubber tile with moulded studs over the floor surface (rows 401..422), one `iron` step lighter than the first cut so the lane reads as floor; 1 px seam; the far row and the front edge lit, the front face darker; `b` has a grey duct-taped seam (no yellow: it must not read as hazard striping) and a scuffed corner |
+| `gym_exit_closed`, `gym_exit_open` | `floor01_gym_exit` | 20 x 96 | `prop` | (620, 324) | state pair (`state_group` `gym_exit`): a riveted steel door in a narrow frame with a push bar under a dull red 8 x 3 lamp / the leaf swung in against the jamb, a **warm lamp-lit passage** behind it and the lamp lit brass with a halo (the same "open = warm lit passage" cue as the rooms 2/4/6 exits of `dfx_exit`) |
 
 ## 5. Animation
 
@@ -68,7 +68,7 @@ None. Every piece is a still. The exit door is a **state pair**: the presenter (
 
 ## 6. Palette
 
-**`floor01-catacomb-v2`, no extension** (an extension contract may not redeclare the palette). Ramps used: `stone_cold` and `gal` (mirror glass, aluminium, steel), `iron` (rubber, girder, weights), `brick` (red vinyl, the turnstile lamp), `wood` and `stone` (desk, terminal, paper), `copper` and `brass` (rust, tape, lamp), `flame`/`copper_08` (tube cores), `floor_cold` (the open doorway). The magenta of the accent tube is **light data only** (its glow colour); the pixel tube stays near-white. Each atlas stays at or below 63 colours.
+**`floor01-catacomb-v2`, no extension** (an extension contract may not redeclare the palette). Ramps used: `stone_cold` and `gal` (mirror glass, aluminium, steel), `iron` (rubber, girder, weights), `brick` (red vinyl, the turnstile lamp), `wood` and `stone` (desk, terminal, paper), `copper` and `brass` (rust, tape, lamp), `flame`/`copper_08` (tube cores), `floor_cold` (the open doorway). The magenta of the accent tube is **light data only** (its glow colour); its pixel tube is a warm cream (`copper` 8 / `brass` 6), the cold fixtures' tube is near-white (`flame` 5 / `gal` 10). Each atlas stays at or below 63 colours.
 
 ## 7. Lighting (presentation only)
 
@@ -76,10 +76,12 @@ None. Every piece is a still. The exit door is a **state pair**: the presenter (
 | --- | --- | --- | --- | --- | --- | --- |
 | `tube` | `gym_fluoro_cold` | (20, 8) | `#cfdcff` | 150 | 0.26 | glow 16 / 0.10 |
 | `tube_floor` | `gym_fluoro_cold` | (20, 8) | `#bccbff` | 120 | 0.16 | `project: walk_line`, `project_dy` -6, `squash_y` 0.3 |
-| `tube` | `gym_fluoro_accent` | (20, 8) | `#ff62cf` | 140 | 0.22 | glow 16 / 0.12 |
+| `tube` | `gym_fluoro_accent` | (20, 8) | `#ff62cf` | 150 | 0.30 | glow 18 / 0.18 |
 | `tube_floor` | `gym_fluoro_accent` | (20, 8) | `#ff7ad6` | 110 | 0.12 | `project: walk_line`, `project_dy` -6, `squash_y` 0.3 |
+| `door_lamp` | `gym_exit_open` | (10, 3) | `#ffc27a` | 60 | 0.16 | glow 8 / 0.08 (always on, GYM-AD8) |
+| `door_leak` | `gym_exit_open` | (10, 94) | `#ffc27a` | 90 | 0.22 | `project: walk_line`, `squash_y` 0.3 (always on, GYM-AD8) |
 
-The torches stay the key light. Total emitters in the arena: 8 torch + 6 tube = 14 (pass limit 64).
+The torches stay the key light. Total emitters in the arena: 8 torch + 6 tube + 2 exit = 16 (pass limit 64).
 
 ## 8. Collision and state
 
@@ -100,10 +102,11 @@ Source: [gym_wall.grid.json](../../assets/source/props/floor01/gym_wall.grid.jso
 | Part | Local rows / columns | Design note (frozen) |
 | --- | --- | --- |
 | Frame | row 0, row 70; cols 0 and 95 | thin brushed aluminium (`stone_cold`): lit top row, dark bottom row; iron clips at each panel corner; the two outer top corners rounded (transparent) |
-| Glass | rows 1..69; cols 1..46 and 48..94 | silvered blue-grey (`stone_cold` 1..3), lighter toward the top; lit top row |
+| Glass | rows 1..69; cols 1..46 and 48..94 | silvered blue-grey (`stone_cold` 1..3), a smooth ramp lighter toward the top with a 2 x 2 ordered dither at each step (no block noise); lit top row; local rows 29..55 take every other pixel one step toward the warm room (`gal_warm` 1..2) |
+| Mirrored brick | local rows 30..55 | faint courses of this room: a 1 px `brick` 2 line every 5 rows, staggered `gal_warm` 1 joints every 12 px |
 | Seam | col 47 | a dark hairline where the two panels butt (no mullion) |
 | Reflection | rows 57..69 | the mirrored torch-lit floor: a warm band (`gal_warm` 1..3) with a brighter top row |
-| Mirrored lights | two per panel, upper half | warm glow points (`gal_warm` 6 core, 4..5 ring, a dithered `gal_warm` 3 halo) at different heights so the panels do not repeat |
+| Mirrored lights | two per panel, never level (local rows 9, 24, 27, 12) | warm glow points (`gal_warm` 6 core, 4..5 ring, a dithered `gal_warm` 3 halo) at different heights so the panels do not repeat |
 | Reflected room | rows 45..56 | a dim reversed silhouette of a bench and a plate stack (`stone_cold` 0) |
 | Sheen | two streaks per panel at 40 degrees | one 2 px `gal` 10 core with a 1 px `stone_cold` 4 edge, one 1 px `gal` 9 line; offsets differ per panel |
 | Grime | rows 34..45 | hand smears (one step darker clusters) at 1 m to 1.5 m, a strip of brown tape on the right panel's lower corner |
@@ -149,16 +152,19 @@ Source: [gym_wall.grid.json](../../assets/source/props/floor01/gym_wall.grid.jso
 | GYM-AD1 | Where do the mirrors go? | On the back wall at both ends, reaching each crash wall, because the `mirror_crack` VFX is anchored at the wall x and 40 px up; the centre keeps the catacomb arch (the gallery) as the "stone arch transition" of zone C |
 | GYM-AD2 | The reused `guild_portal_closed` exit marker | Not drawn in the arena; a gym exit door in the end-wall strip (x 620..640), closed until `Boss::released()`, open after. It is narrower than the 28 px exit rect so the largest crack frame (to x 624) touches it by 4 px at most |
 | GYM-AD3 | Magenta without a palette colour | The accent is light data (glow and pool colour); the pixel tube stays near-white. The kit palette is not extended |
-| GYM-AD4 | The ceiling | A riveted girder on the collider line makes the jump ceiling visible and carries the tubes; the lintel cap is its left bearing over the gate (DFX F3) |
+| GYM-AD4 | The ceiling | A riveted girder on the collider line makes the jump ceiling visible and carries the tubes; the lintel cap is its left bearing over the gate (the #263 review's gate-top finding, see Authorities) |
 | GYM-AD5 | Torches in a gym | Kept: the catacomb's amber torches stay the key light (the panorama's amber lamps); the tubes are the gym's own cold fill |
 | GYM-AD6 | Banner, posters, punching bag, lockers of the concept | Not drawn: lettering does not survive 1x, posters risk real likenesses, a static bag would read as interactive. A later order can add them |
 | GYM-AD7 | The door state | A pure function of `Boss::released()` in a presenter; no animation (the sim keeps no release tick for a swing) |
+| GYM-AD8 | The exit lights | The lighting pass reads no piece state, so the warm `door_lamp` and `door_leak` floor pool on the exit are always on (the same choice as the rooms 2/4/6 exits, EXIT-AD4); the passage art carries the open/closed difference |
 
 ## 15. Execution record
 
 **Silhouette gate (two rounds, fresh reviewer each time).** Key 1 (dark cold glass with a heavy frame and mullion): **FAIL**; it read as a window or display case, its sheen vanished at 1x, and the crack looked like a spark. The key was redesigned as above: silvered glass, mirrored torch glows, a warm floor band, a reflected silhouette, bold sheens, a thin frame and a hairline seam. Key 2: **PASS** (borderline). Its two fixes were applied before freezing: the streaks dropped to light blue-grey (two per panel), and the glass base moved from the saturated `gal` ramp to the greyer `stone_cold` ramp so it separates from the night-blue gallery in the arch. Reviewer note, out of scope here: the `mirror_crack` sprite itself (boss VFX order) reads more as a spark than a spiderweb. A radial redraw is a follow-up for that order.
 
-**Atlases** (all `floor01-catacomb-v2`, 1-bit alpha, every piece with at least one transparent pixel as the kit validator requires): `floor01_gym_wall` 144 x 84 (22 colours), `floor01_gym_fixture` 80 x 10 (10), `floor01_gym_props` 200 x 140 (29), `floor01_gym_floor` 96 x 22 (7), `floor01_gym_exit` 40 x 96 (20). `scripts/env_kit.py validate --contract assets/source/terrain/floor01/floor01_gym_kit.json` passes.
+**Review round 1 (independent, PASS-with-fixes).** Two design defects, fixed and sent to a narrow re-review. (1) The glass's block noise drew a night-city skyline and read as a window again. The glass is now a smooth dithered ramp with faint mirrored brick of this room, the lower two thirds warmed toward the room, and glows that are never level. (2) The open exit could not be told from the closed one at 1x. The open state is now a warm lamp-lit passage with a bigger lit lamp, and a warm floor leak light marks the exit (GYM-AD8). Fix-forward items also applied: grey tape on the mats and a lighter mat base, a stronger magenta accent (0.30 / glow 0.18), the comments, and the gate-top finding reference.
+
+**Atlases** (all `floor01-catacomb-v2`, 1-bit alpha, every piece with at least one transparent pixel as the kit validator requires): `floor01_gym_wall` 144 x 84 (23 colours), `floor01_gym_fixture` 80 x 10 (10), `floor01_gym_props` 200 x 140 (29), `floor01_gym_floor` 96 x 22 (8), `floor01_gym_exit` 40 x 96 (18). `scripts/env_kit.py validate --contract assets/source/terrain/floor01/floor01_gym_kit.json` passes.
 
 **Wiring.** `boss_scene::load_arena` builds the arena through `gym_kit::build_arena_kit` (the gym contract, the catacomb composition, then the `arena_dressing` block). `boss_scene::load_arena_undressed` is the plain composition the tests compare against. The binary marks the two exit door pieces at spawn, and `gym_art::sync_gym_art` shows the one that `gym_art::piece_visible` names for the boss state.
 

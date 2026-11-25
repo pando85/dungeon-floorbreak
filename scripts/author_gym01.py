@@ -77,15 +77,16 @@ class Pix:
 
 
 # =============================================================================================
-# Hero key: the mirror bay (spec section 10). 96 x 74: frame rows 0..3 / 68..70, glass rows 4..67,
-# skirting rows 71..73; glass columns 2..46 and 49..93, mullion 47..48, frame 0..1 / 94..95.
+# Hero key: the mirror bay (spec section 10). 96 x 74: frame row 0 / row 70 and cols 0 / 95, glass rows
+# 1..69 in cols 1..46 and 48..94, a hairline seam at col 47, rubber skirting rows 71..73.
 # =============================================================================================
 MIRROR_W, MIRROR_H = 96, 74
 GLASS_ROWS = (1, 69)
 GLASS_COLS = ((1, 46), (48, 94))
 SEAM_COL = 47
 # mirrored torch glows (panel-local x, local y) and the dim reversed bench silhouette, per panel
-GLOWS = (((10, 14), (37, 20)), ((14, 18), (36, 12)))
+GLOWS = (((9, 9), (37, 24)), ((12, 27), (38, 12)))      # never level: no row of street lamps
+BAYER = ((0.0, 0.5), (0.75, 0.25))        # 2 x 2 ordered dither for the smooth glass ramp
 SHEENS = ((6, 27), (17, 44))              # diagonal offsets of the two streaks per panel
 
 
@@ -96,8 +97,18 @@ def mirror_glass(c: Pix, panel: int, x0: int, x1: int) -> None:
         ly = y - g0
         for x in range(x0, x1 + 1):
             lx = x - x0
-            # silvered blue-grey, a little lighter toward the top (the tubes above)
-            ramp, v = "stone_cold", 3.3 - 1.8 * t + (rnd("gl", panel, lx // 8, ly // 10) - 0.5) * 0.4
+            # silvered blue-grey, a little lighter toward the top (the tubes above): a smooth ramp with a
+            # 2 x 2 ordered dither at each step, no block noise
+            f = 3.3 - 1.8 * t
+            ramp, v = "stone_cold", int(f) + (1 if (f - int(f)) > BAYER[ly % 2][lx % 2] else 0)
+            # the lower two thirds take the warm room: every other pixel one step toward it
+            if 29 <= ly < 56 and (lx + ly) % 2 == 0:
+                ramp, v = "gal_warm", 2 if ly >= 40 else 1
+            # faint mirrored brick courses of this room (1 px lines every 5 rows, staggered joints)
+            if 30 <= ly < 56:
+                course = (ly - 30) // 5
+                if (ly - 30) % 5 == 4 or ((lx + (6 if course % 2 else 0)) % 12 == 0 and (ly - 30) % 5 != 4):
+                    ramp, v = ("brick", 2) if (ly - 30) % 5 == 4 else ("gal_warm", 1)
             # the mirrored torch-lit floor: a warm band at the bottom
             if ly >= 56:
                 ramp, v = "gal_warm", 2.4 - (ly - 56) * 0.12
@@ -532,7 +543,7 @@ def mat(variant: str) -> Pix:
     c = Pix(48, 22)
     for y in range(22):
         for x in range(48):
-            v = 3.2 + (rnd("mat", variant, x // 8, y // 6) - 0.5) * 0.3 - 0.4 * (y / 19)
+            v = 3.8 + (rnd("mat", variant, x // 8, y // 6) - 0.5) * 0.3 - 0.4 * (y / 19)
             if (x % 8 == 3) and (y % 6 == 3):
                 v += 1                                        # moulded studs
             if y == 0:
@@ -547,9 +558,9 @@ def mat(variant: str) -> Pix:
                 v = 1
             c.put(x, y, "iron", v)
     if variant == "b":
-        for y in range(2, 19):                                # taped seam down the middle
-            c.put(23, y, "brass", 2)
-            c.put(24, y, "brass", 3 if y % 5 else 2)
+        for y in range(2, 19):                                # grey duct tape down the middle seam
+            c.put(23, y, "stone_cold", 2)
+            c.put(24, y, "stone_cold", 3 if y % 5 else 2)
         for y in range(14, 19):                               # scuffed corner showing stone
             for x in range(40, 47):
                 if (x - 40) + (18 - y) < 5:
@@ -563,8 +574,10 @@ EXIT_W, EXIT_H = 20, 96
 
 
 def exit_door(open_: bool) -> Pix:
+    """20 x 96: lamp box rows 0..5 (an 8 x 3 lamp: dull red when closed, lit brass with a halo when open),
+    lintel rows 6..8, jamb cols 0..1; closed = riveted steel leaf, open = a warm lamp-lit passage with the
+    leaf swung in against the jamb (the same "open = warm lit passage" cue as the rooms 2/4/6 exits)."""
     c = Pix(EXIT_W, EXIT_H)
-    # frame: jamb x 0..1 and lintel rows 6..8, lamp box rows 0..5
     for y in range(6, EXIT_H):
         c.put(0, y, "iron", 3)
         c.put(1, y, "iron", 1)
@@ -572,13 +585,16 @@ def exit_door(open_: bool) -> Pix:
         c.put(x, 6, "iron", 4)
         c.put(x, 7, "iron", 2)
         c.put(x, 8, "iron", 1)
-    for y in range(1, 5):                                     # the lamp box over the door
-        for x in range(6, 14):
-            c.put(x, y, "iron", 2)
-    for x in range(7, 13):
-        lamp = ("brass", 6 if x in (9, 10) else 5) if open_ else ("brick", 3)
-        c.put(x, 2, *lamp)
-        c.put(x, 3, *lamp)
+    for y in range(0, 6):                                     # the lamp box over the door
+        for x in range(4, 16):
+            c.put(x, y, "iron", 2 if 0 < y < 5 else 3)
+    for y in range(1, 5):
+        for x in range(5, 15):
+            core = 6 <= x <= 13 and 2 <= y <= 3
+            if open_:
+                c.put(x, y, "brass", 6 if core else 4)
+            elif core:
+                c.put(x, y, "brick", 3)
     if not open_:
         # riveted steel leaf with a push bar
         for y in range(9, EXIT_H):
@@ -597,18 +613,22 @@ def exit_door(open_: bool) -> Pix:
         for x in range(2, EXIT_W):
             c.put(x, EXIT_H - 1, "iron", 0)
     else:
-        # dark cold corridor beyond; the leaf swung in against the jamb (edge-on, x 2..4)
+        # a warm lamp-lit passage: brightest under the lamp, falling off downward and to the far wall
         for y in range(9, EXIT_H):
             t = (y - 9) / (EXIT_H - 9)
             for x in range(5, EXIT_W):
-                if y > EXIT_H - 14:
-                    c.put(x, y, "floor_cold", 0.6 + 2.2 * (y - (EXIT_H - 14)) / 14)
+                if y > EXIT_H - 14:                           # the passage floor catches the lamp
+                    v = 4.6 - 1.6 * (EXIT_H - 1 - y) / 13 + (0.6 if (x + y) % 3 == 0 else 0)
+                    c.put(x, y, "gal_warm", v)
                 else:
-                    c.put(x, y, "gal", 1.2 + 1.6 * t + (rnd("cor", x // 4, y // 6) - 0.5) * 0.5)
-            for x in range(2, 5):
+                    v = 5.0 - 2.6 * t - 0.12 * abs(x - 11)
+                    if (x * 7 + y // 6) % 13 == 0:
+                        v -= 1                                # a few block joints in the passage wall
+                    c.put(x, y, "gal_warm", v)
+            for x in range(2, 5):                             # the leaf, swung in, edge-on and dark
                 c.put(x, y, "stone_cold", 3 if x == 2 else 1)
-        for y in range(20, 60):                               # light spilling down from the lamp
-            c.put(12, y, "gal", 4)
+        for x in range(5, EXIT_W):                            # the lit threshold
+            c.put(x, EXIT_H - 1, "brass", 4)
     return c
 
 
@@ -687,12 +707,18 @@ COLD_TUBE = [
      "project": "walk_line", "project_dy": -6, "squash_y": 0.3},
 ]
 ACCENT_TUBE = [
-    {"id": "tube", "offset": [20, 8], "colour": "#ff62cf", "radius": 140, "intensity": 0.22, "group": "scene",
-     "glow": {"radius": 16, "additive": 0.12}},
+    {"id": "tube", "offset": [20, 8], "colour": "#ff62cf", "radius": 150, "intensity": 0.30, "group": "scene",
+     "glow": {"radius": 18, "additive": 0.18}},
     {"id": "tube_floor", "offset": [20, 8], "colour": "#ff7ad6", "radius": 110, "intensity": 0.12, "group": "scene",
      "project": "walk_line", "project_dy": -6, "squash_y": 0.3},
 ]
-LIGHTS = {"gym_fluoro_cold": COLD_TUBE, "gym_fluoro_accent": ACCENT_TUBE}
+EXIT_LIGHTS = [  # GYM-AD8: always on (lighting reads no state), like the rooms 2/4/6 exits (EXIT-AD4)
+    {"id": "door_lamp", "offset": [10, 3], "colour": "#ffc27a", "radius": 60, "intensity": 0.16, "group": "scene",
+     "glow": {"radius": 8, "additive": 0.08}},
+    {"id": "door_leak", "offset": [10, 94], "colour": "#ffc27a", "radius": 90, "intensity": 0.22, "group": "scene",
+     "project": "walk_line", "squash_y": 0.3},
+]
+LIGHTS = {"gym_fluoro_cold": COLD_TUBE, "gym_fluoro_accent": ACCENT_TUBE, "gym_exit_open": EXIT_LIGHTS}
 STATES = {"gym_exit_closed": "closed", "gym_exit_open": "open"}
 
 # Spec section 4: the arena placements (layout px, top-left); floor back line y 400, ceiling line y 196.

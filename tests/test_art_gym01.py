@@ -81,10 +81,10 @@ class GymKitTest(unittest.TestCase):
         for pid in SIZES:
             self.assertIn(pid, placed, pid)
 
-    def test_lights_are_on_the_fixtures_only(self):
+    def test_lights_are_on_the_fixtures_and_the_exit_only(self):
         kit = load(CONTRACT)
         lit = sorted(p["id"] for p in kit["pieces"] if "lights" in p)
-        self.assertEqual(lit, ["gym_fluoro_accent", "gym_fluoro_cold"])
+        self.assertEqual(lit, ["gym_exit_open", "gym_fluoro_accent", "gym_fluoro_cold"])
 
     def test_contract_validates_against_the_exported_atlases(self):
         if not (ROOT / "generated/art/floor01_gym_wall.png").is_file():

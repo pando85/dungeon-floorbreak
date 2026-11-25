@@ -5,11 +5,11 @@
  "status": "proposed - AREA-GYM-01 kit (docs/02-art/area-gym-01-spec.md); independent review pending; not owner-approved",
  "extension_note": "Inherits palette, layers, draw order, coordinates, walking-line rule and lighting schema from the ENV-01 contract through the opening kit. Adds five decor atlases and the gym pieces; no tiles, nothing collidable and no new palette colour.",
  "palette_use": {
-  "floor01_gym_wall": 22,
+  "floor01_gym_wall": 23,
   "floor01_gym_fixture": 10,
   "floor01_gym_props": 29,
-  "floor01_gym_floor": 7,
-  "floor01_gym_exit": 20
+  "floor01_gym_floor": 8,
+  "floor01_gym_exit": 18
  },
  "atlases": {
   "floor01_gym_wall": {
@@ -194,12 +194,12 @@
       8
      ],
      "colour": "#ff62cf",
-     "radius": 140,
-     "intensity": 0.22,
+     "radius": 150,
+     "intensity": 0.3,
      "group": "scene",
      "glow": {
-      "radius": 16,
-      "additive": 0.12
+      "radius": 18,
+      "additive": 0.18
      }
     },
     {
@@ -462,6 +462,36 @@
    "grid_snap": 1,
    "grammar": [
     "A"
+   ],
+   "lights": [
+    {
+     "id": "door_lamp",
+     "offset": [
+      10,
+      3
+     ],
+     "colour": "#ffc27a",
+     "radius": 60,
+     "intensity": 0.16,
+     "group": "scene",
+     "glow": {
+      "radius": 8,
+      "additive": 0.08
+     }
+    },
+    {
+     "id": "door_leak",
+     "offset": [
+      10,
+      94
+     ],
+     "colour": "#ffc27a",
+     "radius": 90,
+     "intensity": 0.22,
+     "group": "scene",
+     "project": "walk_line",
+     "squash_y": 0.3
+    }
    ],
    "state_of": {
     "group": "gym_exit",

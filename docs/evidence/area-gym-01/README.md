@@ -11,7 +11,7 @@ Evidence for [the AREA-GYM-01 spec](../../02-art/area-gym-01-spec.md): the boss 
 | `scene_intact_*` | 60 | the room before the engage: both mirror bays intact, the gate open under its lintel cap, the exit door closed |
 | `scene_left_crack_*` | 300 | the `mirror_crack` held on the left mirror after the tick-139 left-wall crash (the stun is over, the dust has gone) |
 | `scene_phase2_*` | 1000 | a phase-2 exchange in the middle of the room: actors over the mats and the backdrop |
-| `scene_exit_open_*` | 3230 | after the defeat (hp 0 on tick 3175): the right wall released and the exit door open |
+| `scene_exit_open_*` | 3230 | after the defeat (hp 0 on tick 3175): the right wall released, the exit door open on a warm lamp-lit passage (review fix 2) |
 
 ## Offline sheets (deterministic, `scripts/make_gym01_sheets.py`)
 
@@ -29,6 +29,10 @@ Evidence for [the AREA-GYM-01 spec](../../02-art/area-gym-01-spec.md): the boss 
 - The state hash: `gym_art::tests::the_dressing_and_the_presenter_do_not_change_the_state_hash` runs `boss01_full_clear_solo` and `boss01_party_defeat_retry` on the dressed and the plain arena. The hashes are equal on every tick, with the presenter reading the boss each tick, and the door opens on the release tick. `gym_kit::tests` cover solids, spawn, exit, views, walking line, crack zones, floor and ceiling lines, and the light budget. Every boss golden is unchanged.
 - The export: two passes (the `.ase` rebuilt from the grids, then the CLI export) produce byte-identical atlases, metadata and `.ase` files.
 - [`SHA256SUMS`](SHA256SUMS) is verified by `python3 scripts/check_docs.py`.
+
+**Review round 1 fixes:** these stills were re-captured after the two design fixes (the mirror glass without the block-noise skyline, the warm lit open exit) and the fix-forward items (grey mat tape, a lighter mat base, the stronger magenta accent).
+
+**Not refreshed here (follow-up):** other evidence folders still show room 5 before this dressing. Their hash lines are unaffected because they hash simulation state. The folders are `../boss-f01/scene/`, the room 5 gate stills in `../f01-danger-fx/`, and the Juicer clips and stills in `../f01-playtest/` and `../carl-prog-01/`.
 
 **NOT RUN:** a 2P run, a human run, the release build, real hardware, the 640 x 400 view.
 
