@@ -1300,13 +1300,19 @@ fn non_wave_sidecars_validate_identically() {
             .unwrap()
             .to_string_lossy()
             .to_string();
-        if !rel.ends_with(".encounter.json") || rel == MASTERY_PATH {
+        // CORRAL-WIRE: room 0's roster (two M0 goblins, three llamas) exceeds the
+        // living cap of four, so it is the second wave room (PTM-AD6, one beat
+        // per milestone); its pin is checked by `f01_corral`.
+        if !rel.ends_with(".encounter.json")
+            || rel == MASTERY_PATH
+            || rel == crate::f01_corral::ENCOUNTER_PATH
+        {
             continue;
         }
         let raw: Value = serde_json::from_str(&std::fs::read_to_string(&entry).unwrap()).unwrap();
         assert!(
             raw.get("waves").is_none_or(|w| w == &json!(false)),
-            "{rel}: only the mastery arena sets waves"
+            "{rel}: only the mastery arena and the corral set waves"
         );
         let hash = pins
             .iter()

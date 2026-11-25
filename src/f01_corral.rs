@@ -342,12 +342,10 @@ pub fn entry_line(run: &CorralRun) -> String {
         e.roster.len(),
         run.fixture.enemies.len(),
         run.fixture.llamas.len(),
-        run.m3_gate
-            .as_ref()
-            .map_or("off".to_owned(), |(r, l)| {
-                let llamas: Vec<String> = l.iter().map(|i| i.to_string()).collect();
-                format!("{}..{}_on_llamas_{}", r.x, r.right(), llamas.join("+"))
-            }),
+        run.m3_gate.as_ref().map_or("off".to_owned(), |(r, l)| {
+            let llamas: Vec<String> = l.iter().map(|i| i.to_string()).collect();
+            format!("{}..{}_on_llamas_{}", r.x, r.right(), llamas.join("+"))
+        }),
         run.loaded.room_hash,
         run.loaded.sidecar_hash,
     )

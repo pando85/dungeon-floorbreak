@@ -5,8 +5,8 @@
 //! from an idle llama, read from the rush state alone:
 //!
 //! * **brace** (the tell): the body leans back from the rush direction and the
-//!   hind hoof scrapes the floor, a scrape streak with two flecks of dirt kicked
-//!   back on every scrape;
+//!   hind hoof scrapes the floor, a scrape streak with two flecks of dirt and a
+//!   small dust puff kicked back on every scrape;
 //! * **charge** (the committed rush): the body leans into the rush and a trail of
 //!   dust puffs rises behind the hind hoof;
 //! * **stop** (recover): the trail settles and shrinks at the stopping point;
@@ -131,6 +131,17 @@ pub fn rush_stand_in(llama: &Llama, foot_y: f32) -> Option<RushStandIn> {
                         tone: Tone::Fleck,
                     });
                 }
+                // A small pale puff behind the flecks: the dark gouge and the
+                // flecks sink into the lit floor at 1x (the first window
+                // capture), the puff carries the scrape's beat.
+                let (left, w) = span(hind - dir * (reach + 4), -dir, 2);
+                pieces.push(Piece {
+                    x: left,
+                    y: foot + 1 + i32::from(beat) / 2,
+                    w,
+                    h: 2,
+                    tone: Tone::Dust,
+                });
             }
             -dir * lean
         }
@@ -283,7 +294,7 @@ mod tests {
     fn the_brace_leans_back_and_scrapes_behind_the_hind_hoof() {
         let tell = llama_rush::active().crlq06_tell_ticks;
         for dir in [-1i8, 1] {
-            let mut scrapes = 0;
+            let (mut scrapes, mut puffs) = (0, 0);
             for tick in 0..tell {
                 let s = rush_stand_in(&llama_in(dir, RushPhase::Tell, tick, 0, 0), FOOT)
                     .expect("a rush");
@@ -296,9 +307,12 @@ mod tests {
                     assert!((centre(p) - X as i32) * i32::from(dir) < 0, "{tick} {p:?}");
                     assert!(p.y >= FOOT as i32, "{tick} {p:?}: above the floor");
                     scrapes += usize::from(p.tone == Tone::Scrape);
+                    puffs += usize::from(p.tone == Tone::Dust);
                 }
+                assert!(s.pieces.len() <= MAX_PIECES);
             }
             assert!(scrapes >= 3, "the hoof scrapes more than once: {scrapes}");
+            assert_eq!(puffs, scrapes, "every scrape kicks one readable puff");
         }
     }
 
