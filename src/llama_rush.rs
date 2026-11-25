@@ -40,7 +40,7 @@ use serde::{Deserialize, Serialize};
 pub mod geometry;
 
 #[cfg(test)]
-mod geometry_tests;
+pub(crate) mod geometry_tests;
 #[cfg(test)]
 mod tests;
 

@@ -289,8 +289,9 @@ So in Revision 3, the set of llamas a Donut can hit from one spot is {B} on the 
 
 CORRAL-C turns this sweep into a unit test with the room's real solids (machine item 2, section 15), so a quantisation change like the one that turned 72 into 80 is caught.
 
-**Nothing moves a stationary Donut to another level.**
+**Nothing moves a stationary Donut to a level from which she can hit another llama.**
 - On the floor, only B can hit her. B's rush knocks her with `knock_vy` 160, a rise of about 12 px. Even caught mid-hop (feet below 30), she peaks under 45 px. She can never reach the 80 px bumper, which is the only way onto the dock from the floor.
+- *CORRAL-C erratum (review of #276):* the original line read "Nothing moves a stationary Donut to another level", and that is false. A jump-cast Donut near the entry shelf (M2-04, x 1248) caught mid-hop by B's rush can land on the 32 px shelf, and B's glob can then hit her there. This is harmless: the shelf's reach set is empty (machine item 2), so nothing she fires from the shelf hits a llama, and the gate and the invariant hold. The evaluator reports such landings as the `donut_level_changes` diagnostic (a landing on another height with no steering in the 30 ticks before). **The rule the geometry must keep:** the reach set of every surface a knock can carry a stationary Donut onto is a subset of her start surface's reach set, or is empty. CORRAL-D must check it for the two surfaces it adds within knock range, the 16 px remnant and the 48 px partition top.
 - On the dock, A's rush knocks her toward the bumper. Its contact needs her feet below 30 above the dock, so even a boosted Donut (547) caught late in a hop peaks below 72.9 above the floor, under the 80 px top. She cannot land on it. At 72 px a boosted Donut at dock pivots 1914..1921.75, caught on jump tick 58, could land on it (re-review FN3). That case was harmless, because A cannot be hit from the bumper or the floor. The 80 px bumper removes it.
 - Llamas have no gravity, and the CRL-Q43 clamp keeps them inside their leashes, so neither llama changes level.
 
@@ -335,7 +336,7 @@ Each start runs **both facings**; the listed facing is the natural one.
 | M1-A | 608 | floor | +1 | M1 llama (d 240) / glob over her | **victory**, 0 damage (positive control) |
 | M1-B | 560 | floor | +1 | M1 llama (d 288) / none | **victory**, 0 damage |
 | M2-01 entry | 1072 | floor | +1 | B once in line (partition absent or broken) / B's rush only if it gets in, which it cannot under fire | B defeated or none; **timeout** |
-| M2-02 entry shelf | 1168 | 32 | +1 | nothing / B's glob (partition absent or broken) | **timeout** or **hero_defeat** |
+| M2-02 entry shelf | 1168 | 32 | +1 | nothing / B's glob once B is awake (partition absent or broken); a Donut planted here never brings B into the view, so B stays dormant (CRL-Q24) and nothing reaches her | **timeout** (or **hero_defeat** if she woke B first) |
 | M2-03 shelf edge | 1204 | 32 | +1 | nothing / as M2-02 | as M2-02 |
 | M2-04 approach lane | 1248 | floor | +1 | B / as M2-01 | **timeout** (B may die) |
 | M2-05 cover edge | 1376 | floor | +1 | B after the partition breaks / B's rush into the partition | **timeout** (B dies after the break) |
@@ -449,6 +450,7 @@ Knob names start with the question ID (`crlq05_trigger_px`). Profile knobs live 
 5. **Awareness notes (adopted defaults the owner may revert):**
    - DV-2: a mandatory dock level with the second llama, behind an 80 px bumper, and M3 at +32.
    - **The bumper top is a stall spot.** Nothing reaches a hero there: A's glob band tops out at 80, B's glob and both rushes are below it. Nothing fired from there hits a llama. A player can hide on it but cannot win from it. Neither the gate nor the invariant is affected; this is a feel question only.
+   - **The entry shelf is a second stall spot (found by CORRAL-C).** With the CRL-Q24 wake rule and the trailing camera, a Donut planted on the shelf (M2-02, M2-03) never brings B into the view, so B stays dormant. Nothing threatens her there and she threatens nothing. The expected terminal (timeout) holds, and the M3 exit gate forces her to leave. A feel question only.
    - DV-10: the partition stands on the floor route.
    - CRL-Q42: the gate counts a hop in place as stationary. That is broader than CORRAL-AUTO's literal "never jumps".
 
@@ -499,6 +501,8 @@ Isolated fixtures (CORRAL-B wire) run headless on the corridor kit under CF02 ru
 | `corral_rush_retry_reset` | retry during a commit | restart | Rush state, `rush_seq` and cooldowns restored from the fixture |
 
 **CORRAL-C:** `corral_m1_static_control` (M1-A, M1-B), `corral_m2_static_sweep` (section 11, the gate and the invariant, every gated policy including `stationary_jump_cast`), `corral_m2_b1_counterexample` (M2-13, Donut at 1728, every `o` and `aimed`: A is never hit and never damaged; any bolt in A's band ends on the bumper), `corral_b1_reach_sweep` (machine item 2), `corral_m2_mobile_donut`, `corral_m2_carl_melee`, `corral_m2_coop`, `corral_m2_double_run`, `corral_m2_heights` (the section 10 truth table with real bolts, globs and rushes).
+
+*CORRAL-C execution note (not a design change):* the room fixtures are `corral_m1` and `corral_m2` in `src/corral_fixtures/room.rs` (tests only until CORRAL-WIRE's corral scene arm can replay them by name), and the gate runs in `src/corral_eval/` (`corral_auto_*`). Deferred owners (CORRAL-FU item 5): `corral_rush_does_not_consume_reflex` moves to CORRAL-F (MAG-16 evidence), and the Donut-on-a-32-px-block spit case is covered by CORRAL-C's `corral_auto_m2_heights_real_globs_and_rushes` on the real entry shelf.
 
 **CORRAL-D:** `corral_partition_rush_break` (B rushes a Donut at 1376: break on the contact tick, Bonk, the lane opens, a bolt then reaches B), `corral_partition_near_miss` (leash stop 4 px short: intact), `corral_partition_carl_breaks` (three distinct hits), `corral_partition_missile_blocked` (eight bolts: intact), `corral_partition_glob_blocked`, `corral_partition_remnant_bolt_passes`, `corral_partition_retry_restores`.
 

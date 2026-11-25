@@ -13,6 +13,7 @@ use serde_json::{Value, json};
 use super::policy::PolicyId;
 use super::{
     Evasion, HORIZON_TICKS, POLICY_VERSION, RunRecord, Seat, Stage, SweepConfig, Terminal,
+    start_name, surface_name,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -46,7 +47,7 @@ pub const LOW_RISK_HP_LOSS: u8 = 1;
 /// a longer horizon never widens what counts as a clear.
 pub fn is_low_risk_stationary_clear(r: &RunRecord) -> bool {
     r.spec.policy.is_stationary_gate()
-        && r.spec.seat == Seat::SoloDonutBot
+        && r.spec.seat == Seat::decisive(r.spec.stage)
         && r.terminal == Terminal::Victory
         && r.ticks <= HORIZON_TICKS
         && r.donut_hp_lost() <= LOW_RISK_HP_LOSS
@@ -74,31 +75,17 @@ pub fn stationary_groups(
     stages: &[Stage],
     evasion: Evasion,
 ) -> Vec<GroupVerdict> {
-    // Keyed with the column as a number, so `x1000` sorts after `x240`.
-    type Key = (
-        &'static str,
-        &'static str,
-        &'static str,
-        &'static str,
-        i32,
-        i8,
-    );
+    // Keyed by the group id plus the column as a number.
+    type Key = (String, i32, i32);
     let mut groups: BTreeMap<Key, Vec<&RunRecord>> = BTreeMap::new();
     for r in records {
         if stages.contains(&r.spec.stage)
             && r.spec.evasion == evasion
-            && r.spec.seat == Seat::SoloDonutBot
+            && r.spec.seat == Seat::decisive(r.spec.stage)
             && r.spec.policy.is_stationary_gate()
             && !matches!(r.terminal, Terminal::Blocked | Terminal::InvalidSetup)
         {
-            let key = (
-                r.spec.stage.name(),
-                r.spec.seat.name(),
-                r.spec.policy.name(),
-                r.spec.evasion.name(),
-                r.spec.donut_x,
-                r.spec.facing,
-            );
+            let key = (r.spec.group_id(), r.spec.donut_x, r.spec.donut_rise);
             groups.entry(key).or_default().push(r);
         }
     }
@@ -133,40 +120,124 @@ pub struct Counterexample {
     pub donut_hp_lost: u8,
 }
 
-/// The gates of one sweep.
+/// The gates of one sweep: the CORRAL-C corral gate (asserted by the
+/// `corral_auto_*` tests) and the CORRAL-EVAL core baselines (the "before",
+/// report-only).
 #[derive(Debug, Clone)]
 pub struct Gate {
-    /// M1 positive control: a stationary Donut wins M1 (asserted).
+    /// Baseline M1 positive control on the corridor kit.
     pub m1_control: Outcome,
     pub m1_control_best: Option<String>,
-    /// KC19 on M2 and the pincer, decided on `evasion = off` today
-    /// (REPORT-ONLY until CORRAL-C).
+    /// Baseline KC19 on the corridor M2 stages, reflex off (report-only).
     pub m2_stationary: Outcome,
     pub m2_failing_groups: Vec<GroupVerdict>,
     pub m2_groups: usize,
-    /// The best counterexample over all failing groups: the clearing run
-    /// with the fewest ticks, then the least Donut HP lost (then run id).
     pub m2_best_counterexample: Option<Counterexample>,
-    /// The same gate with the reflex on: blocked until DM-B.
+    /// Baseline KC19 with the reflex on (report-only).
     pub m2_stationary_reflex: Outcome,
-    /// A mobile Donut / Carl melee / 2P victory exists on an M2 stage
-    /// (REPORT-ONLY until CORRAL-C).
+    /// Baseline movement wins (report-only).
     pub mobile_win: Outcome,
     pub carl_melee_win: Outcome,
     pub coop_win: Outcome,
+    /// Corral gate item 3: `stationary_cast_aimed` wins M1-A and M1-B in their
+    /// natural facing with 0 damage, in every reflex variant run.
+    pub corral_m1_control: Outcome,
+    /// Corral gate item 1 (KC19), decided on the decisive variant: the parked
+    /// seat with the reflex on.
+    pub corral_kc19: Outcome,
+    pub corral_failing_groups: Vec<GroupVerdict>,
+    pub corral_groups: usize,
+    pub corral_best_counterexample: Option<Counterexample>,
+    /// KC19 with the reflex off (reported).
+    pub corral_kc19_reflex_off: Outcome,
+    /// Corral gate item 2 (CRL-Q35): no gated static run ends with both M2
+    /// llamas defeated by Donut-credited hits.
+    pub corral_invariant: Outcome,
+    pub corral_invariant_breaches: Vec<String>,
+    /// Corral gate item 4: one mobile Donut, one Carl melee, one co-op win.
+    pub corral_mobile_win: Outcome,
+    pub corral_carl_melee_win: Outcome,
+    pub corral_coop_win: Outcome,
+    /// Corral gate item 5: the hard system failures over every corral run.
+    pub corral_system_failures: Outcome,
+    pub corral_failure_runs: Vec<String>,
+    /// Diagnostic: gated static M2 runs that defeated their own level's llama.
+    pub layer_static_clears: usize,
+    pub gated_static_m2_runs: usize,
+    /// The same, broken down by start surface and by named start (open
+    /// question 3 of the sheet: which level and which starts stunlock).
+    pub layer_static_by_surface: Vec<LayerRow>,
+    pub layer_static_by_start: Vec<LayerRow>,
+    /// Diagnostic (finding 1): corral runs in which Donut landed on another
+    /// level with no steering (a knock), and the total landings.
+    pub level_change_runs: Vec<String>,
+    pub level_changes: u32,
     /// `hold_attack_trivial` never produced more than the one press.
     pub trivial_hold_is_one_press: Outcome,
     /// Every run's mana arithmetic closes (asserted).
     pub mana_accounting: Outcome,
 }
 
-fn any_win(records: &[RunRecord], stages: &[Stage], seat: Seat, policy: PolicyId) -> Outcome {
+/// One row of the `layer_static_clear` breakdown: the gated parked M2 runs
+/// of a surface or a start, those that defeated a llama by Donut's hits and
+/// which llama (B on the floor, A on the dock).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct LayerRow {
+    pub key: String,
+    pub runs: usize,
+    pub clears: usize,
+    pub b_defeated: usize,
+    pub a_defeated: usize,
+}
+
+fn layer_rows(runs: &[&RunRecord], key: impl Fn(&RunRecord) -> String) -> Vec<LayerRow> {
+    let mut rows: BTreeMap<String, LayerRow> = BTreeMap::new();
+    for r in runs {
+        let k = key(r);
+        let row = rows.entry(k.clone()).or_insert_with(|| LayerRow {
+            key: k,
+            ..LayerRow::default()
+        });
+        row.runs += 1;
+        if r.layer_static_clear() {
+            row.clears += 1;
+            let killed = |i: usize| {
+                r.kill_by_donut.get(i).copied().unwrap_or(false)
+                    && r.kill_ticks.get(i).copied().flatten().is_some()
+            };
+            row.b_defeated += usize::from(killed(0));
+            row.a_defeated += usize::from(killed(1));
+        }
+    }
+    rows.into_values().collect()
+}
+
+fn layer_json(rows: &[LayerRow]) -> Value {
+    Value::Array(
+        rows.iter()
+            .map(|r| {
+                json!({
+                    "key": r.key, "runs": r.runs, "clears": r.clears,
+                    "b_defeated_by_donut": r.b_defeated, "a_defeated_by_donut": r.a_defeated,
+                })
+            })
+            .collect(),
+    )
+}
+
+fn any_win(
+    records: &[RunRecord],
+    stages: &[Stage],
+    seat: Seat,
+    policy: PolicyId,
+    evasion: Option<Evasion>,
+) -> Outcome {
     let mut seen = false;
     for r in records.iter().filter(|r| {
         stages.contains(&r.spec.stage)
             && r.spec.seat == seat
             && r.spec.policy == policy
-            && r.spec.evasion == Evasion::Off
+            && evasion.is_none_or(|e| r.spec.evasion == e)
     }) {
         seen = true;
         if r.terminal == Terminal::Victory {
@@ -174,6 +245,34 @@ fn any_win(records: &[RunRecord], stages: &[Stage], seat: Seat, policy: PolicyId
         }
     }
     if seen { Outcome::Fail } else { Outcome::NotRun }
+}
+
+/// KC19 over `stages` for one reflex variant: the outcome, the failing groups,
+/// the group count and the global best counterexample.
+fn kc19(
+    records: &[RunRecord],
+    stages: &[Stage],
+    evasion: Evasion,
+) -> (Outcome, Vec<GroupVerdict>, usize, Option<Counterexample>) {
+    let groups = stationary_groups(records, stages, evasion);
+    let failing: Vec<GroupVerdict> = groups.iter().filter(|g| g.fails).cloned().collect();
+    let outcome = if groups.is_empty() {
+        Outcome::NotRun
+    } else if failing.is_empty() {
+        Outcome::Pass
+    } else {
+        Outcome::Fail
+    };
+    let best = failing
+        .iter()
+        .filter_map(|g| Some((g.best_key?, g.best_counterexample.as_ref()?)))
+        .min_by(|a, b| (a.0, a.1).cmp(&(b.0, b.1)))
+        .map(|((ticks, hp), id)| Counterexample {
+            run_id: id.clone(),
+            ticks,
+            donut_hp_lost: hp,
+        });
+    (outcome, failing, groups.len(), best)
 }
 
 impl Gate {
@@ -194,34 +293,83 @@ impl Gate {
             (true, Some(_)) => Outcome::Pass,
             (true, None) => Outcome::Fail,
         };
-        let groups = stationary_groups(records, &m2, Evasion::Off);
-        let failing: Vec<GroupVerdict> = groups.iter().filter(|g| g.fails).cloned().collect();
-        let m2_stationary = if groups.is_empty() {
+        let (m2_stationary, failing, m2_groups, best) = kc19(records, &m2, Evasion::Off);
+        let (m2_stationary_reflex, _, _, _) = kc19(records, &m2, Evasion::Reflex);
+
+        // ---- the corral (CORRAL-C) ----
+        let corral = [Stage::CorralM2];
+        let controls: Vec<&RunRecord> = records
+            .iter()
+            .filter(|r| {
+                r.spec.stage == Stage::CorralM1
+                    && r.spec.policy == PolicyId::StationaryCastAimed
+                    && r.spec.seat == Seat::SoloDonutParked
+                    && r.spec.facing == 1
+            })
+            .collect();
+        let corral_m1_control = if controls.is_empty() {
             Outcome::NotRun
-        } else if failing.is_empty() {
+        } else if controls
+            .iter()
+            .all(|r| r.terminal == Terminal::Victory && r.donut_hp_lost() == 0)
+        {
             Outcome::Pass
         } else {
             Outcome::Fail
         };
-        let reflex_ran = records
+        let (corral_kc19, corral_failing_groups, corral_groups, corral_best) =
+            kc19(records, &corral, Evasion::Reflex);
+        let (corral_kc19_reflex_off, _, _, _) = kc19(records, &corral, Evasion::Off);
+        let gated: Vec<&RunRecord> = records
             .iter()
-            .any(|r| r.spec.evasion == Evasion::Reflex && r.terminal != Terminal::Blocked);
-        let reflex_listed = records.iter().any(|r| r.spec.evasion == Evasion::Reflex);
-        let m2_stationary_reflex = if reflex_ran {
-            let g = stationary_groups(records, &m2, Evasion::Reflex);
-            if g.is_empty() {
-                // Runs exist but no stationary group formed: not a pass.
-                Outcome::NotRun
-            } else if g.iter().any(|x| x.fails) {
-                Outcome::Fail
-            } else {
-                Outcome::Pass
-            }
-        } else if reflex_listed {
-            Outcome::Blocked
-        } else {
+            .filter(|r| {
+                r.spec.stage == Stage::CorralM2
+                    && r.spec.policy.is_stationary_gate()
+                    && matches!(r.spec.seat, Seat::SoloDonutParked | Seat::SoloDonutAssist)
+                    && r.terminal != Terminal::InvalidSetup
+            })
+            .collect();
+        let breaches: Vec<String> = gated
+            .iter()
+            .filter(|r| {
+                if r.spec.seat == Seat::SoloDonutParked {
+                    r.both_llamas_defeated()
+                } else {
+                    r.both_llamas_defeated() && r.all_defeated_by_donut()
+                }
+            })
+            .map(|r| r.run_id.clone())
+            .collect();
+        let corral_invariant = if gated.is_empty() {
             Outcome::NotRun
+        } else if breaches.is_empty() {
+            Outcome::Pass
+        } else {
+            Outcome::Fail
         };
+        let corral_runs: Vec<&RunRecord> = records
+            .iter()
+            .filter(|r| r.spec.stage.is_corral() && r.terminal != Terminal::InvalidSetup)
+            .collect();
+        let failure_runs: Vec<String> = corral_runs
+            .iter()
+            .filter(|r| r.failures.total() > 0)
+            .map(|r| format!("{} ({})", r.run_id, r.note))
+            .collect();
+        let corral_system_failures = if corral_runs.is_empty() {
+            Outcome::NotRun
+        } else if failure_runs.is_empty() {
+            Outcome::Pass
+        } else {
+            Outcome::Fail
+        };
+
+        let parked: Vec<&RunRecord> = gated
+            .iter()
+            .copied()
+            .filter(|r| r.spec.seat == Seat::SoloDonutParked)
+            .collect();
+
         let hold: Vec<&RunRecord> = records
             .iter()
             .filter(|r| r.spec.policy == PolicyId::HoldAttackTrivial)
@@ -244,96 +392,245 @@ impl Gate {
         } else {
             Outcome::Fail
         };
-        let best = failing
-            .iter()
-            .filter_map(|g| Some((g.best_key?, g.best_counterexample.as_ref()?)))
-            .min_by(|a, b| (a.0, a.1).cmp(&(b.0, b.1)))
-            .map(|((ticks, hp), id)| Counterexample {
-                run_id: id.clone(),
-                ticks,
-                donut_hp_lost: hp,
-            });
         Self {
             m1_control,
             m1_control_best: m1_best,
             m2_stationary,
             m2_failing_groups: failing,
-            m2_groups: groups.len(),
+            m2_groups,
             m2_best_counterexample: best,
             m2_stationary_reflex,
-            mobile_win: any_win(records, &m2, Seat::SoloDonutBot, PolicyId::MobileCast),
-            carl_melee_win: any_win(records, &m2, Seat::SoloCarl, PolicyId::CarlMelee),
-            coop_win: any_win(records, &m2, Seat::TwoPlayer, PolicyId::CoopProbe),
+            mobile_win: any_win(
+                records,
+                &m2,
+                Seat::SoloDonutBot,
+                PolicyId::MobileCast,
+                Some(Evasion::Off),
+            ),
+            carl_melee_win: any_win(
+                records,
+                &m2,
+                Seat::SoloCarl,
+                PolicyId::CarlMelee,
+                Some(Evasion::Off),
+            ),
+            coop_win: any_win(
+                records,
+                &m2,
+                Seat::TwoPlayer,
+                PolicyId::CoopProbe,
+                Some(Evasion::Off),
+            ),
+            corral_m1_control,
+            corral_kc19,
+            corral_failing_groups,
+            corral_groups,
+            corral_best_counterexample: corral_best,
+            corral_kc19_reflex_off,
+            corral_invariant,
+            corral_invariant_breaches: breaches,
+            corral_mobile_win: any_win(
+                records,
+                &corral,
+                Seat::SoloDonutParked,
+                PolicyId::MobileCast,
+                None,
+            ),
+            corral_carl_melee_win: any_win(
+                records,
+                &corral,
+                Seat::SoloCarl,
+                PolicyId::CarlMelee,
+                None,
+            ),
+            corral_coop_win: any_win(records, &corral, Seat::TwoPlayer, PolicyId::CoopProbe, None),
+            corral_system_failures,
+            corral_failure_runs: failure_runs,
+            layer_static_clears: parked.iter().filter(|r| r.layer_static_clear()).count(),
+            gated_static_m2_runs: parked.len(),
+            layer_static_by_surface: layer_rows(&parked, |r| {
+                surface_name(r.spec.donut_x, r.spec.donut_rise).to_string()
+            }),
+            layer_static_by_start: layer_rows(&parked, |r| {
+                format!(
+                    "{} {} x{}",
+                    start_name(r.spec.donut_x, r.spec.donut_rise),
+                    surface_name(r.spec.donut_x, r.spec.donut_rise),
+                    r.spec.donut_x
+                )
+            }),
+            level_change_runs: corral_runs
+                .iter()
+                .filter(|r| r.donut_level_changes > 0)
+                .map(|r| r.run_id.clone())
+                .collect(),
+            level_changes: corral_runs.iter().map(|r| r.donut_level_changes).sum(),
             trivial_hold_is_one_press: trivial,
             mana_accounting: accounting,
         }
+    }
+
+    /// Every asserted corral gate passes.
+    pub fn corral_passes(&self) -> bool {
+        [
+            self.corral_m1_control,
+            self.corral_kc19,
+            self.corral_invariant,
+            self.corral_mobile_win,
+            self.corral_carl_melee_win,
+            self.corral_coop_win,
+            self.corral_system_failures,
+        ]
+        .iter()
+        .all(|o| *o == Outcome::Pass)
     }
 }
 
 /// `runs.csv`: one row per run, CORRAL-AUTO section 4 columns the schema can
 /// attribute honestly.
 pub fn runs_csv(records: &[RunRecord]) -> String {
-    let mut out = String::from(
-        "run_id,stage,seat,policy,policy_version,evasion,donut_x,facing,phase_a,phase_b,terminal,ticks,\
-donut_hp_start,donut_hp_final,carl_hp_start,carl_hp_final,mana_start,mana_final,mana_min,presses,\
-bolts_released,dry_presses,bolt_hits,donut_melee_hits,carl_hits,llamas,llamas_defeated,kill_tick_a,\
-kill_tick_b,tells,spits,tells_interrupted,donut_hurt_events,carl_hurt_events,donut_move_inputs,donut_displacement_px,\
-stationary_position_valid,no_damage_clear,no_movement_clear,both_llamas_defeated,companion_assisted,\
-low_risk_stationary_clear,state_hash\n",
-    );
+    let columns = [
+        "run_id",
+        "stage",
+        "seat",
+        "policy",
+        "jump_offset",
+        "policy_version",
+        "evasion",
+        "donut_x",
+        "donut_rise",
+        "facing",
+        "cooldown_a",
+        "rush_cooldown_a",
+        "cooldown_b",
+        "rush_cooldown_b",
+        "terminal",
+        "ticks",
+        "donut_hp_start",
+        "donut_hp_final",
+        "carl_hp_start",
+        "carl_hp_final",
+        "mana_start",
+        "mana_final",
+        "mana_min",
+        "presses",
+        "jump_presses",
+        "bolts_released",
+        "dry_presses",
+        "bolt_hits",
+        "donut_melee_hits",
+        "carl_hits",
+        "llamas",
+        "llamas_defeated",
+        "kill_tick_a",
+        "kill_tick_b",
+        "kill_by_donut_a",
+        "kill_by_donut_b",
+        "tells",
+        "spits",
+        "tells_interrupted",
+        "rush_tells",
+        "rush_commits",
+        "rush_contacts",
+        "rush_misses",
+        "rush_bonks",
+        "donut_hurt_events",
+        "carl_hurt_events",
+        "donut_rush_hurts",
+        "carl_rush_hurts",
+        "evades",
+        "donut_move_inputs",
+        "donut_displacement_px",
+        "donut_max_offset_px",
+        "donut_level_changes",
+        "spits_at_floor_donut",
+        "stationary_position_valid",
+        "no_damage_clear",
+        "no_movement_clear",
+        "both_llamas_defeated",
+        "companion_assisted",
+        "low_risk_stationary_clear",
+        "layer_static_clear",
+        "system_failures",
+        "state_hash",
+    ];
+    let mut out = columns.join(",");
+    out.push('\n');
     let tick = |t: Option<&Option<u64>>| match t.copied().flatten() {
         Some(t) => t.to_string(),
         None => String::new(),
     };
+    let flag = |v: Option<&bool>| v.map_or(String::new(), |b| b.to_string());
     for r in records {
         let s = &r.spec;
-        let _ = writeln!(
-            out,
-            "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{:016x}",
-            r.run_id,
-            s.stage.name(),
-            s.seat.name(),
-            s.policy.name(),
-            POLICY_VERSION,
-            s.evasion.name(),
-            s.donut_x,
-            s.facing,
-            s.phase[0],
-            s.phase[1],
-            r.terminal.name(),
-            r.ticks,
-            r.donut_hp_start,
-            r.donut_hp_final,
-            r.carl_hp_start,
-            r.carl_hp_final,
-            r.mana_start,
-            r.mana_final,
-            r.mana_min,
-            r.presses,
-            r.bolts_released,
-            r.dry_presses,
-            r.bolt_hits,
-            r.donut_melee_hits,
-            r.carl_hits,
-            r.llamas,
-            r.llamas_defeated,
+        let row: Vec<String> = vec![
+            r.run_id.clone(),
+            s.stage.name().into(),
+            s.seat.name().into(),
+            s.policy.name().into(),
+            s.jump_offset.to_string(),
+            POLICY_VERSION.to_string(),
+            s.evasion.name().into(),
+            s.donut_x.to_string(),
+            s.donut_rise.to_string(),
+            s.facing.to_string(),
+            s.phase[0].0.to_string(),
+            s.phase[0].1.to_string(),
+            s.phase[1].0.to_string(),
+            s.phase[1].1.to_string(),
+            r.terminal.name().into(),
+            r.ticks.to_string(),
+            r.donut_hp_start.to_string(),
+            r.donut_hp_final.to_string(),
+            r.carl_hp_start.to_string(),
+            r.carl_hp_final.to_string(),
+            r.mana_start.to_string(),
+            r.mana_final.to_string(),
+            r.mana_min.to_string(),
+            r.presses.to_string(),
+            r.jump_presses.to_string(),
+            r.bolts_released.to_string(),
+            r.dry_presses.to_string(),
+            r.bolt_hits.to_string(),
+            r.donut_melee_hits.to_string(),
+            r.carl_hits.to_string(),
+            r.llamas.to_string(),
+            r.llamas_defeated.to_string(),
             tick(r.kill_ticks.first()),
             tick(r.kill_ticks.get(1)),
-            r.tells,
-            r.spits,
-            r.tells_interrupted,
-            r.donut_hurt_events,
-            r.carl_hurt_events,
-            r.donut_move_inputs,
-            r.donut_displacement_px,
-            r.stationary_position_valid(),
-            r.no_damage_clear(),
-            r.no_movement_clear(),
-            r.both_llamas_defeated(),
-            r.companion_assisted(),
-            is_low_risk_stationary_clear(r),
-            r.state_hash,
-        );
+            flag(r.kill_by_donut.first()),
+            flag(r.kill_by_donut.get(1)),
+            r.tells.to_string(),
+            r.spits.to_string(),
+            r.tells_interrupted.to_string(),
+            r.rush_tells.to_string(),
+            r.rush_commits.to_string(),
+            r.rush_contacts.to_string(),
+            r.rush_misses.to_string(),
+            r.rush_bonks.to_string(),
+            r.donut_hurt_events.to_string(),
+            r.carl_hurt_events.to_string(),
+            r.donut_rush_hurts.to_string(),
+            r.carl_rush_hurts.to_string(),
+            r.evades.to_string(),
+            r.donut_move_inputs.to_string(),
+            r.donut_displacement_px.to_string(),
+            r.donut_max_offset_px.to_string(),
+            r.donut_level_changes.to_string(),
+            r.spits_at_floor_donut.to_string(),
+            r.stationary_position_valid().to_string(),
+            r.no_damage_clear().to_string(),
+            r.no_movement_clear().to_string(),
+            r.both_llamas_defeated().to_string(),
+            r.companion_assisted().to_string(),
+            is_low_risk_stationary_clear(r).to_string(),
+            r.layer_static_clear().to_string(),
+            r.failures.total().to_string(),
+            format!("{:016x}", r.state_hash),
+        ];
+        debug_assert_eq!(row.len(), columns.len());
+        out.push_str(&row.join(","));
+        out.push('\n');
     }
     out
 }
@@ -445,32 +742,69 @@ pub fn summary_json(records: &[RunRecord], config: &SweepConfig, targeting: Opti
             })
         })
         .collect();
+    let counter = |c: &Option<Counterexample>| {
+        c.as_ref().map(|c| {
+            json!({
+                "run_id": c.run_id, "ticks": c.ticks, "donut_hp_lost": c.donut_hp_lost,
+                "rank": "fewest ticks, then least Donut HP lost, over all failing groups",
+            })
+        })
+    };
     json!({
         "tool": "corral_eval",
         "policy_version": POLICY_VERSION,
         "horizon_ticks": config.horizon,
         "runs": records.len(),
         "counting_unit": "fixtures (seeds do not vary gameplay)",
-        "stages": config.stages.iter().map(|s| s.name()).collect::<Vec<_>>(),
-        "reflex_variant": Evasion::Reflex.pending(),
-        "carl_only_llama_targeting": targeting,
-        "gates": {
+        "stages": config.stages().iter().map(|s| s.name()).collect::<Vec<_>>(),
+        "partition_variants": {
+            "absent": "run",
+            "intact": "not_run (CORRAL-D has not built the partition)",
+            "broken": "not_run (CORRAL-D has not built the partition)",
+        },
+        "carl_only_llama_targeting_baseline": targeting,
+        "corral_gate": {
+            "passes": gate.corral_passes(),
+            "m1_positive_control": gate.corral_m1_control.name(),
+            "kc19_decisive_parked_reflex": gate.corral_kc19.name(),
+            "kc19_groups": gate.corral_groups,
+            "kc19_failing_groups": gate.corral_failing_groups.iter().map(group_json).collect::<Vec<_>>(),
+            "kc19_best_counterexample": counter(&gate.corral_best_counterexample),
+            "kc19_reflex_off_reported": gate.corral_kc19_reflex_off.name(),
+            "crlq35_invariant": gate.corral_invariant.name(),
+            "crlq35_breaches": gate.corral_invariant_breaches,
+            "mobile_donut_win": gate.corral_mobile_win.name(),
+            "carl_melee_win": gate.corral_carl_melee_win.name(),
+            "coop_win": gate.corral_coop_win.name(),
+            "system_failures": gate.corral_system_failures.name(),
+            "system_failure_runs": gate.corral_failure_runs,
+            "layer_static_clear_diagnostic": {
+                "runs": gate.layer_static_clears,
+                "of_gated_parked_runs": gate.gated_static_m2_runs,
+                "by_surface": layer_json(&gate.layer_static_by_surface),
+                "by_start": layer_json(&gate.layer_static_by_start),
+            },
+            "donut_level_changes_diagnostic": {
+                "definition": "landings on a surface of another height with no policy steering in the 30 ticks before (a knock)",
+                "landings": gate.level_changes,
+                "runs": gate.level_change_runs.len(),
+                "run_ids": gate.level_change_runs,
+            },
+            "stuck_enemy_check": "not measured (no progress definition for a llama that legitimately holds)",
+        },
+        "baseline_report_only": {
             "m1_positive_control": gate.m1_control.name(),
             "m1_positive_control_best": gate.m1_control_best,
-            "m2_stationary_kc19_report_only": gate.m2_stationary.name(),
+            "m2_stationary_kc19_reflex_off": gate.m2_stationary.name(),
             "m2_stationary_groups": gate.m2_groups,
-            "m2_stationary_best_counterexample": gate.m2_best_counterexample.as_ref().map(|c| json!({
-                "run_id": c.run_id, "ticks": c.ticks, "donut_hp_lost": c.donut_hp_lost,
-                "rank": "fewest ticks, then least Donut HP lost, over all failing groups",
-            })),
-            "m2_stationary_failing_groups": gate.m2_failing_groups.iter().map(group_json).collect::<Vec<_>>(),
-            "m2_stationary_reflex_report_only": gate.m2_stationary_reflex.name(),
-            "mobile_donut_win_report_only": gate.mobile_win.name(),
-            "carl_melee_win_report_only": gate.carl_melee_win.name(),
-            "coop_win_report_only": gate.coop_win.name(),
-            "trivial_hold_is_one_press": gate.trivial_hold_is_one_press.name(),
-            "mana_accounting": gate.mana_accounting.name(),
+            "m2_stationary_best_counterexample": counter(&gate.m2_best_counterexample),
+            "m2_stationary_kc19_reflex_on": gate.m2_stationary_reflex.name(),
+            "mobile_donut_win": gate.mobile_win.name(),
+            "carl_melee_win": gate.carl_melee_win.name(),
+            "coop_win": gate.coop_win.name(),
         },
+        "trivial_hold_is_one_press": gate.trivial_hold_is_one_press.name(),
+        "mana_accounting": gate.mana_accounting.name(),
         "tallies": rows,
     })
 }
@@ -479,98 +813,164 @@ pub fn summary_json(records: &[RunRecord], config: &SweepConfig, targeting: Opti
 pub fn report_md(records: &[RunRecord], config: &SweepConfig, targeting: Option<bool>) -> String {
     let gate = Gate::evaluate(records);
     let mut out = String::new();
-    let _ = writeln!(out, "# CORRAL-EVAL baseline report (reflex absent)\n");
     let _ = writeln!(
         out,
-        "Policy version {POLICY_VERSION}, horizon {} ticks, {} runs. The unit is a fixture (start x facing x attack phase), never a seed: seeds do not vary gameplay. Stages are baselines on the corridor kit with today's llamas (no rush, no party targeting, no cover), not the Infernal Corral. The reflex variant is `{}`.\n",
+        "# CORRAL-AUTO report: the Infernal Corral (after) and the corridor baselines (before)\n"
+    );
+    let _ = writeln!(
+        out,
+        "Policy version {POLICY_VERSION}, horizon {} ticks, {} runs. The unit is a fixture (start x surface x facing x attack phase x reflex x seat x policy), never a seed: seeds do not vary gameplay. The corral stages run on `f01_corral.room.json` with the CORRAL-B rush and llama party targeting; the baselines run on the corridor kit with today's legacy llamas (no rush, no cover). Partition variants `intact` and `broken` are `not_run` until CORRAL-D.\n",
         config.horizon,
         records.len(),
-        Evasion::Reflex.pending().unwrap_or("available"),
     );
-    let _ = writeln!(out, "## Gates\n");
-    let _ = writeln!(out, "| Gate | Outcome | Status |\n| --- | --- | --- |");
-    let rows = [
+    let _ = writeln!(out, "## Corral gate (asserted)\n");
+    let _ = writeln!(out, "| Gate | Outcome |\n| --- | --- |");
+    for (name, outcome) in [
         (
-            "M1 positive control (stationary Donut wins M1)",
-            gate.m1_control,
-            "asserted",
+            "M1 positive control: `stationary_cast_aimed` wins M1-A and M1-B with 0 damage",
+            gate.corral_m1_control,
         ),
         (
-            "Mana accounting closes on every run",
-            gate.mana_accounting,
-            "asserted",
+            "KC19 on M2, decisive variant (Carl parked, reflex on)",
+            gate.corral_kc19,
         ),
         (
-            "`hold_attack_trivial` is one press",
-            gate.trivial_hold_is_one_press,
-            "asserted",
+            "CRL-Q35 invariant: no gated static run defeats both M2 llamas by Donut hits",
+            gate.corral_invariant,
+        ),
+        ("A mobile Donut victory on M2", gate.corral_mobile_win),
+        ("A Carl melee victory on M2", gate.corral_carl_melee_win),
+        ("A 2P co-op victory on M2", gate.corral_coop_win),
+        (
+            "No hard system failure on any corral run",
+            gate.corral_system_failures,
         ),
         (
-            "M2 stationary gate, KC19, reflex off",
-            gate.m2_stationary,
-            "REPORT-ONLY until CORRAL-C",
+            "KC19 on M2 with the reflex off (reported)",
+            gate.corral_kc19_reflex_off,
         ),
-        (
-            "M2 stationary gate, KC19, reflex on",
-            gate.m2_stationary_reflex,
-            "REPORT-ONLY, blocked until DM-B",
-        ),
-        (
-            "Mobile Donut victory on M2",
-            gate.mobile_win,
-            "REPORT-ONLY until CORRAL-C",
-        ),
-        (
-            "Carl melee victory on M2",
-            gate.carl_melee_win,
-            "REPORT-ONLY until CORRAL-C",
-        ),
-        (
-            "2P co-op victory on M2",
-            gate.coop_win,
-            "REPORT-ONLY until CORRAL-C",
-        ),
-    ];
-    for (name, outcome, status) in rows {
-        let _ = writeln!(out, "| {name} | {} | {status} |", outcome.name());
+    ] {
+        let _ = writeln!(out, "| {name} | {} |", outcome.name());
     }
     let _ = writeln!(
         out,
-        "\nCarl-only llama targeting (a hard system failure once CORRAL-B lands; measured, not asserted): {}.\n",
+        "\nKC19 groups judged: {}; failing: {}. `layer_static_clear` (diagnostic, not gated): {} of {} gated parked M2 runs defeated the llama of their own level.\n",
+        gate.corral_groups,
+        gate.corral_failing_groups.len(),
+        gate.layer_static_clears,
+        gate.gated_static_m2_runs,
+    );
+    let _ = writeln!(
+        out,
+        "`layer_static_clear` by start surface (open question 3, owner-level):\n\n| Surface | Gated parked runs | Clears | B defeated by Donut | A defeated by Donut |\n| --- | ---: | ---: | ---: | ---: |"
+    );
+    for row in &gate.layer_static_by_surface {
+        let _ = writeln!(
+            out,
+            "| {} | {} | {} | {} | {} |",
+            row.key, row.runs, row.clears, row.b_defeated, row.a_defeated
+        );
+    }
+    let _ = writeln!(
+        out,
+        "\nBy named start (the M2-G grid columns are pooled per surface as `grid`):\n\n| Start | Gated parked runs | Clears | B defeated by Donut | A defeated by Donut |\n| --- | ---: | ---: | ---: | ---: |"
+    );
+    for row in &gate.layer_static_by_start {
+        if !row.key.starts_with("grid") {
+            let _ = writeln!(
+                out,
+                "| {} | {} | {} | {} | {} |",
+                row.key, row.runs, row.clears, row.b_defeated, row.a_defeated
+            );
+        }
+    }
+    let mut grid: BTreeMap<&str, LayerRow> = BTreeMap::new();
+    for row in gate
+        .layer_static_by_start
+        .iter()
+        .filter(|r| r.key.starts_with("grid"))
+    {
+        let surface = row.key.split(' ').nth(1).unwrap_or("?");
+        let g = grid.entry(surface).or_default();
+        g.runs += row.runs;
+        g.clears += row.clears;
+        g.b_defeated += row.b_defeated;
+        g.a_defeated += row.a_defeated;
+    }
+    for (surface, g) in grid {
+        let _ = writeln!(
+            out,
+            "| grid {surface} | {} | {} | {} | {} |",
+            g.runs, g.clears, g.b_defeated, g.a_defeated
+        );
+    }
+    let _ = writeln!(
+        out,
+        "\n`donut_level_changes` (diagnostic, finding 1): {} knock landings on another level in {} corral runs.\n",
+        gate.level_changes,
+        gate.level_change_runs.len()
+    );
+    for id in gate.level_change_runs.iter().take(10) {
+        let _ = writeln!(out, "- level change: `{id}`");
+    }
+    if !gate.level_change_runs.is_empty() {
+        out.push('\n');
+    }
+    if let Some(c) = &gate.corral_best_counterexample {
+        let _ = writeln!(
+            out,
+            "Best corral counterexample: `{}` ({} ticks, Donut lost {} HP).\n",
+            c.run_id, c.ticks, c.donut_hp_lost
+        );
+    }
+    for id in gate.corral_invariant_breaches.iter().take(10) {
+        let _ = writeln!(out, "- CRL-Q35 breach: `{id}`");
+    }
+    for id in gate.corral_failure_runs.iter().take(10) {
+        let _ = writeln!(out, "- system failure: `{id}`");
+    }
+    let _ = writeln!(out, "## Baselines (report-only, the \"before\")\n");
+    let _ = writeln!(out, "| Gate | Outcome |\n| --- | --- |");
+    for (name, outcome) in [
+        ("M1 positive control", gate.m1_control),
+        ("M2 stationary KC19, reflex off", gate.m2_stationary),
+        ("M2 stationary KC19, reflex on", gate.m2_stationary_reflex),
+        ("Mobile Donut victory on M2", gate.mobile_win),
+        ("Carl melee victory on M2", gate.carl_melee_win),
+        ("2P co-op victory on M2", gate.coop_win),
+        ("Mana accounting closes on every run", gate.mana_accounting),
+        (
+            "`hold_attack_trivial` is one press",
+            gate.trivial_hold_is_one_press,
+        ),
+    ] {
+        let _ = writeln!(out, "| {name} | {} |", outcome.name());
+    }
+    let _ = writeln!(
+        out,
+        "\nBaseline Carl-only llama targeting (legacy llamas; measured, not asserted): {}.\n",
         match targeting {
-            Some(true) => "present (every llama aims at Carl)",
+            Some(true) => "present (every legacy llama aims at Carl)",
             Some(false) => "absent",
             None => "not measured",
         }
     );
-    let _ = writeln!(
-        out,
-        "M2 stationary groups judged: {}; failing: {}.\n",
-        gate.m2_groups,
-        gate.m2_failing_groups.len()
-    );
     if let Some(c) = &gate.m2_best_counterexample {
         let _ = writeln!(
             out,
-            "Best counterexample (fewest ticks, then least Donut HP lost, over all failing groups): `{}` ({} ticks, Donut lost {} HP).\n",
+            "Best baseline counterexample: `{}` ({} ticks, Donut lost {} HP).\n",
             c.run_id, c.ticks, c.donut_hp_lost
         );
     }
     let _ = writeln!(out, "## Tallies\n");
     let _ = writeln!(
         out,
-        "| Stage | Seat | Policy | Evasion | Runs | Victory | Low-risk | No-damage | Defeat | Timeout | Softlock | Blocked | Invalid | Companion-assisted | Win ticks |\n| --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |"
+        "| Stage | Seat | Policy | Evasion | Runs | Victory | Low-risk | No-damage | Defeat | Timeout | Invalid | Companion-assisted | Win ticks |\n| --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |"
     );
-    let all = tallies(records);
-    let blocked_runs: usize = all
-        .iter()
-        .filter(|t| t.blocked == t.runs)
-        .map(|t| t.runs)
-        .sum();
-    for t in all.iter().filter(|t| t.blocked != t.runs) {
+    for t in tallies(records) {
         let _ = writeln!(
             out,
-            "| {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |",
+            "| {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |",
             t.stage,
             t.seat,
             t.policy,
@@ -581,17 +981,9 @@ pub fn report_md(records: &[RunRecord], config: &SweepConfig, targeting: Option<
             t.no_damage_victories,
             t.defeats,
             t.timeouts,
-            t.softlocks,
-            t.blocked,
             t.invalid,
             t.companion_assisted,
             t.ticks_range(),
-        );
-    }
-    if blocked_runs > 0 {
-        let _ = writeln!(
-            out,
-            "\n{blocked_runs} runs of the `reflex` variant are `blocked` (not on main) and are left out of the table; they stay in `runs.csv`."
         );
     }
     out

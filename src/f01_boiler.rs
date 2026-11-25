@@ -296,8 +296,21 @@ pub fn story_setup(
 /// tile (a 16 px slab, top 80 px up, the deck tile's solid 12 px: Carl walks
 /// under it), the scene's two scroll-camera views and the room's exit marker.
 pub(crate) fn compose_kit(root: &Path, room: &Room) -> Result<EnvKit, String> {
+    compose_kit_with_steps(root, room, &[])
+}
+
+/// [`compose_kit`] with the room's own authored full-height steps (the CF02
+/// parapet precedent): the composer's generated staircases are still dropped,
+/// and `steps` (layout px, floor up) take their place. CORRAL-C's room uses it
+/// for the entry shelf, the exit dock and the dock bumper.
+pub(crate) fn compose_kit_with_steps(
+    root: &Path,
+    room: &Room,
+    steps: &[crate::camera_lab::room::IRect],
+) -> Result<EnvKit, String> {
     let mut room = room.clone();
     room.steps.clear();
+    room.steps.extend_from_slice(steps);
     let base_path = root.join(BASE_LAYOUT);
     let base: Value = serde_json::from_str(
         &std::fs::read_to_string(&base_path)
