@@ -28,7 +28,7 @@
   "owner": "AI-authored pixel overlay candidate (fan-concept layer: Carl -> demolitionist, reinforced fist)",
   "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
   "provenance": {
-    "origin": "CARL-GAUNTLET-01 overlay of the ANIM-CARL-02 body sheet carl_book1_h52_melee_candidate_v1: a single gauntlet layer, same cell grid, pivot, frame order, tags and durations, drawn by hand on the camera-near hand (near_arm layer); the body sheet is unchanged and is not copied into this file",
+    "origin": "CARL-GAUNTLET-01 overlay of the ANIM-CARL-02 body sheet carl_book1_h52_melee_candidate_v1: a single gauntlet layer, same cell grid, pivot, frame order, tags and durations, on the camera-near hand (near_arm layer): 3 frames are hand-placed keys, the others are stamped by script from those keys; the body sheet is unchanged and is not copied into this file",
     "generator": "Design and the 3 frozen key frames (locomotion 0, melee 4, melee 5): Claude Opus (hand-placed pixel grids, assets/source/characters/carl/gauntlet_keys/carl_h52_gauntlet_keys.grid.json). Remaining frames: Claude Sonnet, stamped by scripts/author_carl_gauntlet.py; no image-model raster output, no resampling, no rotation",
     "generated_art": true,
     "input_reference_ids": [

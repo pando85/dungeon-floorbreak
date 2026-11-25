@@ -86,7 +86,7 @@ pub(super) fn shown(
 }
 
 /// Spawn the four overlay sprites (hidden) for the body sheets this run loads.
-/// `bodies` is `(which, body atlas asset, cell w, cell h, frame count, body z)`
+/// `art_dir` is the asset directory. `bodies` is `(which, body atlas asset, cell w, cell h, frame count, body z)`
 /// per sheet; an overlay atlas that is not exported is skipped (the body sprite
 /// is then drawn bare). Returns how many sprites were spawned.
 pub(super) fn spawn(
@@ -96,14 +96,15 @@ pub(super) fn spawn(
     handles: &mut Vec<(String, Handle<Image>)>,
     layers: &RenderLayers,
     bodies: &[(CarlGauntlet, &str, UVec2, usize, f32)],
+    art_dir: &Path,
 ) -> usize {
     let mut spawned = 0;
     for (kind, body_asset, cell, count, z) in bodies {
         let Some(asset) = overlay_asset(body_asset) else {
             continue;
         };
-        // The windowed scene reads exported atlases from the repository root.
-        if !Path::new("generated/art").join(&asset).is_file() {
+        // The same directory the asset server reads (`<repository root>/generated/art`), not the working directory.
+        if !art_dir.join(&asset).is_file() {
             eprintln!(
                 "CARL_GAUNTLET: {asset} is not exported; Carl is drawn bare (run bash scripts/export_assets.sh)"
             );

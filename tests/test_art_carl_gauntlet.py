@@ -186,6 +186,38 @@ class LayeringTests(unittest.TestCase):
                                  f"{sheet}[{i}]")
 
 
+class OpenHandTests(unittest.TestCase):
+    """Review fix F1 and F6 of PR #284: open hands are leather fingers under a small steel plate, and every stamp has a dent."""
+
+    OPEN = {"melee": [18, 20], "cf02": [9, 11, 12], "dynamite": [5, 7, 33, 34, 35, 36, 37, 38]}
+    DENTED = {"melee": [6, 21, 22], "dynamite": [0]}
+
+    def keys_of(self, sheet: str, frame: int) -> dict:
+        _, over = grids(sheet)
+        return val.cel_points(over["frames"][frame]["cels"]["gauntlet"])
+
+    def test_open_hands_have_leather_fingers_a_lit_plate_and_a_strap_not_a_flat_steel_fill(self) -> None:
+        for sheet, frames in self.OPEN.items():
+            for frame in frames:
+                keys = list(self.keys_of(sheet, frame).values())
+                leather = sum(k in "jJ" for k in keys)
+                steel = sum(k in "UVTw" for k in keys)
+                self.assertGreaterEqual(leather, 4, f"{sheet}[{frame}] leather fingers")
+                self.assertGreaterEqual(keys.count("V"), 2, f"{sheet}[{frame}] lit plate")
+                self.assertGreaterEqual(keys.count("H"), 2, f"{sheet}[{frame}] strap")
+                self.assertLessEqual(keys.count("w"), 3, f"{sheet}[{frame}]")
+                self.assertLess(steel, len(keys), f"{sheet}[{frame}] not all steel")
+                if (sheet, frame) != ("dynamite", 7):      # its plate is three pixels wide: lit bar only, no room for a dent
+                    self.assertGreater(keys.count("U") + keys.count("T"), 0, f"{sheet}[{frame}] base and shadow")
+
+    def test_the_small_stamps_that_lacked_a_dent_have_a_shadow_notch(self) -> None:
+        for sheet, frames in self.DENTED.items():
+            for frame in frames:
+                keys = self.keys_of(sheet, frame)
+                for pos, key in author.EDITS[(sheet, frame)].items():
+                    self.assertEqual(keys[pos], key, f"{sheet}[{frame}] {pos}")
+                self.assertGreaterEqual(list(keys.values()).count("T"), 2, f"{sheet}[{frame}]")
+
 class ToolkitTests(unittest.TestCase):
     def test_the_toolkit_validators_pass_on_each_overlay_config(self) -> None:
         for sheet in SHEETS:
@@ -231,6 +263,8 @@ class ManifestTests(unittest.TestCase):
             self.assertIn("Claude Opus", m["provenance"]["generator"])
             self.assertIn("Claude Sonnet", m["provenance"]["generator"])
             self.assertIn("scripts/author_carl_gauntlet.py", m["provenance"]["generator"])
+            self.assertNotIn("drawn by hand", m["provenance"]["origin"])
+            self.assertIn("stamped by script", m["provenance"]["origin"])
             self.assertEqual(m["provenance"]["input_reference_ids"], ["CARL-CONCEPT-APPROVED-V1"])
             self.assertTrue((ROOT / m["source_path"]).is_file(), m["source_path"])
             self.assertEqual(m["overlay"]["body_grid"], f"assets/source/characters/carl/carl_h52_{sheet}.grid.json")

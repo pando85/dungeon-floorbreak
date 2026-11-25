@@ -3291,6 +3291,9 @@ impl Actors {
 struct Setup {
     kit: EnvKit,
     args: Args,
+    /// `<repository root>/generated/art`: the directory the asset server reads
+    /// (the presenters that probe for an optional atlas look here).
+    art_dir: PathBuf,
 }
 
 #[derive(Resource)]
@@ -4071,7 +4074,8 @@ fn run_window(
     };
     // Bevy 0.20 resolves a relative AssetPlugin path from the binary directory,
     // so give it an absolute directory below the repository root.
-    let asset_directory = root.join("generated/art").to_string_lossy().into_owned();
+    let asset_directory_path = root.join("generated/art");
+    let asset_directory = asset_directory_path.to_string_lossy().into_owned();
     let window_size = (
         VIRTUAL_WIDTH as u32 * args.scale,
         view_height(args.deck) as u32 * args.scale,
@@ -4282,7 +4286,11 @@ fn run_window(
     .init_resource::<Interest>()
     .insert_resource(LiveFixture(live_fixture))
     .insert_resource(HudAtlas(hud_atlas, hud_emblem))
-    .insert_resource(Setup { kit, args })
+    .insert_resource(Setup {
+        kit,
+        args,
+        art_dir: asset_directory_path,
+    })
     .init_resource::<Controls>()
     .insert_resource(Pads(PadSlots::new(party)))
     .insert_resource(Recorder(recorder))
@@ -5234,6 +5242,7 @@ fn setup(
             &mut combat_handles,
             &layers_of("actors"),
             &bodies,
+            &setup.art_dir,
         );
     }
 

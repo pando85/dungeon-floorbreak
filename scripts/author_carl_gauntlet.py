@@ -229,8 +229,73 @@ def repair_strays(body: "Body", over: dict, protected: set) -> dict:
 KEY_SIDES = {("locomotion", 0): ["D", "U"], ("melee", 4): ["D"], ("melee", 5): ["U"]}  # melee 4 via SIDES
 # side overrides: (sheet, frame) -> {component index (top-left order): side}
 SIDES: dict = {("melee", 4): {0: "D"}}
-# hand-fix tables: (sheet, frame) -> {(x, y): key or "." to clear}
-EDITS: dict = {}
+# hand-fix tables: (sheet, frame) -> {(x, y): key or "." to clear}. The four 11 px fists below got no dent from the
+# generator: the plate row ends in two T pixels (a shadow notch) instead of the stray H the repair left
+EDITS: dict = {
+    ("melee", 6): {(40, 36): "T", (41, 36): "T"},
+    ("melee", 21): {(31, 45): "T", (32, 45): "T"},
+    ("melee", 22): {(33, 45): "T", (34, 45): "T"},
+    ("dynamite", 0): {(14, 35): "T", (15, 35): "T"},
+}
+
+
+def _rows(*lines: str) -> dict:
+    """A hand template from text rows (``.`` = no pixel), relative to the patch's top-left pixel."""
+    return {(x, y): ch for y, line in enumerate(lines) for x, ch in enumerate(line) if ch != "."}
+
+
+# Open hands (spec section 3: dark plum leather fingers and palm, a small steel back plate with a lit bar and a dent,
+# the brown strap at the cuff, never a flat steel fill or a claw). Review fix F1 of PR #284. Each template covers
+# exactly the skin pixels of one body hand shape; the key is (sheet, frame) of a frame that shows the shape.
+HAND_TEMPLATES = {
+    # two knuckle columns with a finger gap, wrist below: leather finger ends, lit steel bar, strap
+    ("melee", 18): _rows("jj.jj",
+                         "JJ.JJ",
+                         "wVVTT",
+                         ".HHH."),
+    # open hand, three finger tips up, wrist below
+    ("cf02", 9): _rows("j.j.j",
+                       "jjjjj",
+                       "wVVTT",
+                       ".HHH."),
+    # frustration, fingers up (cf02 11), the cuff below on the left
+    ("cf02", 11): _rows("...j...",
+                        "j..j..j",
+                        ".j.j.j.",
+                        "..wVVTT",
+                        "..HHHH"),
+    # frustration, fingers down (cf02 12), the cuff on the left: strap and lit plate on the back of the hand
+    ("cf02", 12): _rows("..HwVT",
+                        "..HVVTT",
+                        ".j.j.j.",
+                        "j..j..j",
+                        "...j..."),
+    # knockdown: the hand lies on the floor, wrist above (melee 20)
+    ("melee", 20): _rows("....J.J",
+                         "HHHHHH",
+                         "wVVUTT",
+                         "VUUTT",
+                         "jjjJJ"),
+    # a fist by the cheek with two finger tips up, wrist below (dynamite 7)
+    ("dynamite", 7): _rows("j.j",
+                           "j.j",
+                           "wVV",
+                           "HHH",
+                           ".H."),
+}
+TEMPLATE_BY_SHAPE: dict = {}
+
+
+def register_templates() -> None:
+    """Index the templates by the skin shape of the frame they name."""
+    for (sheet, index), rows in HAND_TEMPLATES.items():
+        body = Body(load(body_path(sheet)), index)
+        patch = hand_patches(sheet, index, body)[0]
+        sig = signature(patch)
+        covered = {p for p in rows if p in set(sig)}
+        if covered != set(sig):
+            raise SystemExit(f"hand template {sheet}[{index}] does not cover its skin shape exactly")
+        TEMPLATE_BY_SHAPE[sig] = rows
 # skin pixels of the near arm that are not part of the hand (CG-L6 exceptions): (sheet, frame) -> [(x, y)]
 # melee 5: the jaw-line pixel of the head drawn on the arm layer; melee 22 and dynamite 6, 39-44: a skin shading
 # pixel of the chest edge that the arm layer carries inside the sleeve. None is on the hand.
@@ -281,7 +346,13 @@ def draw_frame(sheet: str, index: int, body: Body, keys: dict, stamps: list) -> 
             break
     else:
         for comp, side in zip(patches, sides):
-            over.update({p: k for p, k in glove(body, comp, side).items() if body.free(p)})
+            template = TEMPLATE_BY_SHAPE.get(signature(comp))
+            if template is not None:
+                x0, y0 = min(p[0] for p in comp), min(p[1] for p in comp)
+                built = {(x + x0, y + y0): k for (x, y), k in template.items()}
+            else:
+                built = glove(body, comp, side)
+            over.update({p: k for p, k in built.items() if body.free(p)})
     for p, k in EDITS.get((sheet, index), {}).items():
         if k == ".":
             over.pop(p, None)
@@ -307,6 +378,8 @@ def to_rows(points: dict, w: int, h: int) -> list[str]:
 
 def build_overlay(sheet: str, keys: dict, stamps: list | None = None) -> tuple[dict, dict]:
     """``(overlay grid, {frame: points})`` of one sheet."""
+    if not TEMPLATE_BY_SHAPE:
+        register_templates()
     body = load(body_path(sheet))
     w, h = body["canvas"]
     frames, drawn = [], {}
@@ -353,8 +426,9 @@ def manifest_for(sheet: str, grid: dict) -> dict:
         "tool_version": body["tool_version"],
         "provenance": {
             "origin": ("CARL-GAUNTLET-01 overlay of the ANIM-CARL-02 body sheet " + body["id"] + ": a single gauntlet "
-                       "layer, same cell grid, pivot, frame order, tags and durations, drawn by hand on the camera-near hand "
-                       "(near_arm layer); the body sheet is unchanged and is not copied into this file"),
+                       "layer, same cell grid, pivot, frame order, tags and durations, on the camera-near hand (near_arm "
+                       "layer): 3 frames are hand-placed keys, the others are stamped by script from those keys; the "
+                       "body sheet is unchanged and is not copied into this file"),
             "generator": ("Design and the 3 frozen key frames (locomotion 0, melee 4, melee 5): Claude Opus (hand-placed pixel "
                           "grids, assets/source/characters/carl/gauntlet_keys/carl_h52_gauntlet_keys.grid.json). Remaining "
                           "frames: Claude Sonnet, stamped by scripts/author_carl_gauntlet.py; no image-model raster output, "
