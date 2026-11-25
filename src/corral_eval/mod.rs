@@ -41,13 +41,15 @@
 //! invariant, the M1 positive control, one mobile Donut, one Carl melee and
 //! one co-op victory, and the hard system failures.
 
+mod evasion;
 pub mod policy;
 pub mod report;
+
+pub use self::evasion::Evasion;
 
 use std::path::Path;
 use std::sync::OnceLock;
 
-use crate::agility::ReflexProfile;
 use crate::boss_scene::Pilot;
 use crate::combat::{CombatEvent, EnemyAi, MoveId};
 use crate::combat_scene::{BOLT_SPAWN_FORWARD, BOLT_SPAWN_UP, CombatState, Fixture, LlamaSpawn};
@@ -307,34 +309,6 @@ fn fixture_for(stage: Stage, seat: Seat, evasion: Evasion) -> &'static PartyFixt
 
 // ------------------------------------------------------------- variants --
 
-/// DM-Q11 reflex evasion mode of the sweep (F6, #181 section 7 and MAG-16).
-/// DM-B is on main: `Off` forces `dm_q11_evasion_mode: off`, `Reflex` runs
-/// the shipped reflex (720 ticks, armed at attempt start per FA-Q19).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub enum Evasion {
-    Off,
-    Reflex,
-}
-
-impl Evasion {
-    pub const ALL: [Evasion; 2] = [Evasion::Off, Evasion::Reflex];
-
-    pub const fn name(self) -> &'static str {
-        match self {
-            Evasion::Off => "off",
-            Evasion::Reflex => "reflex",
-        }
-    }
-
-    /// The party tuning's reflex for this variant.
-    pub const fn profile(self) -> ReflexProfile {
-        match self {
-            Evasion::Off => ReflexProfile::Off,
-            Evasion::Reflex => ReflexProfile::Shipped,
-        }
-    }
-}
-
 /// One llama's attack phase, written at tick 0 (F13, CRL-Q36):
 /// `(cooldown, rush_cooldown)`. A llama without a rush profile ignores the
 /// second value.
@@ -530,6 +504,18 @@ pub struct RunRecord {
     pub donut_displacement_px: f32,
     /// Largest horizontal distance from Donut's start column (CRL-Q42).
     pub donut_max_offset_px: f32,
+    /// Diagnostic (review finding 1, CRL-Q35's "hero displaced to another
+    /// level"): landings of a policy-driven Donut on a surface of another
+    /// height than her last one, with no horizontal input from the policy in
+    /// the [`STEER_WINDOW_TICKS`] before (a knock, not a walk).
+    pub donut_level_changes: u32,
+    /// Spits of the first llama (B on M2) released while Donut stood over the
+    /// walking line (MAG-07, CRL-Q11: a floor Donut is rushed, never spat
+    /// at). Measured on her support at the spit tick, not on her start
+    /// surface. The event names no target and the spit is decided at its
+    /// tell, so the count is judged (0) on the parked stationary runs only;
+    /// in a seat where a hero moves it is reported.
+    pub spits_at_floor_donut: u32,
     pub donut_start: (f32, f32),
     pub donut_final: (f32, f32),
     pub failures: SystemFailures,
@@ -708,6 +694,17 @@ pub fn build(kits: &Kits, spec: &RunSpec) -> Result<PartyFixtureSim, String> {
     Ok(sim)
 }
 
+/// The height of the surface under a hero's feet (her feet when grounded).
+fn support_of(body: &Hero, solids: &[crate::prototype::Block]) -> f32 {
+    let feet = body.y - HERO_HALF_HEIGHT;
+    feet - feet_height_above_solid(body, solids).unwrap_or(0.0)
+}
+
+/// A level change counts as a knock when the policy sent Donut no horizontal
+/// input in this many ticks before she landed (a walk or a steered hop off a
+/// ledge carries her momentum for less than this).
+pub const STEER_WINDOW_TICKS: u64 = 30;
+
 /// What the policy may see of the finished state.
 fn observe(sim: &PartyFixtureSim) -> Obs {
     let solids = &sim.scene.world.solids;
@@ -720,7 +717,7 @@ fn observe(sim: &PartyFixtureSim) -> Obs {
             health: body.health,
             grounded: body.grounded,
             feet,
-            support: feet - feet_height_above_solid(body, solids).unwrap_or(0.0),
+            support: support_of(body, solids),
         }
     };
     Obs {
@@ -870,6 +867,8 @@ pub fn run(kits: &Kits, spec: &RunSpec) -> RunRecord {
         donut_move_inputs: 0,
         donut_displacement_px: 0.0,
         donut_max_offset_px: 0.0,
+        donut_level_changes: 0,
+        spits_at_floor_donut: 0,
         donut_start: (0.0, 0.0),
         donut_final: (0.0, 0.0),
         failures: SystemFailures::default(),
@@ -910,6 +909,12 @@ pub fn run(kits: &Kits, spec: &RunSpec) -> RunRecord {
     let mut seen = 0usize;
     let mut displacement = 0.0f32;
     let mut last = start;
+    // The walking line (Carl stands on it at setup in every stage).
+    let floor_y = sim.scene.world.hero_foot_y();
+    let mut last_support = support_of(&sim.scene.world.donut_body, &sim.scene.world.solids);
+    let mut last_steer: Option<u64> = None;
+    // Donut's support when her latest bolt was released (review nit 11).
+    let mut release_support = last_support;
 
     for _ in 0..spec.horizon {
         let obs = observe(&sim);
@@ -918,10 +923,15 @@ pub fn run(kits: &Kits, spec: &RunSpec) -> RunRecord {
         if inputs.donut.move_x != 0.0 || inputs.donut.jump {
             record.donut_move_inputs += 1;
         }
+        if inputs.donut.move_x != 0.0 {
+            last_steer = Some(tick);
+        }
         sim.step_slots(route(spec.seat, tick, inputs));
         record.ticks = tick;
         let view_left = sim.scene.camera.left() as f32;
         let view_right = view_left + sim.scene.camera.config().view_w as f32;
+        let donut_support = support_of(&sim.scene.world.donut_body, &sim.scene.world.solids);
+        let donut_on_floor = (donut_support - floor_y).abs() < 0.5;
 
         let first = seen.saturating_sub(sim.combat.dropped_events);
         for event in &sim.combat.events[first..] {
@@ -930,6 +940,7 @@ pub fn run(kits: &Kits, spec: &RunSpec) -> RunRecord {
                 CombatEvent::Mana(ManaEvent::ManaSpent { .. }) => {
                     record.mana_spent += 1;
                     record.bolts_released += 1;
+                    release_support = donut_support;
                 }
                 CombatEvent::Mana(ManaEvent::ManaRegained { .. }) => record.mana_regained += 1,
                 CombatEvent::Mana(ManaEvent::CastRejected { .. }) => record.dry_presses += 1,
@@ -945,13 +956,14 @@ pub fn run(kits: &Kits, spec: &RunSpec) -> RunRecord {
                     if let Some(slot) = last_hit_donut.get_mut(index) {
                         *slot = donut_move(move_id);
                     }
-                    // CRL-Q35 machine check: a static Donut on the floor
-                    // never hits the dock llama.
+                    // CRL-Q35 machine check: a static Donut who released
+                    // the bolt over the walking line never hits the dock
+                    // llama.
                     if move_id == MoveId::MagicMissile
                         && spec.stage == Stage::CorralM2
                         && index == 1
                         && spec.policy.is_stationary_gate()
-                        && spec.donut_rise == 0
+                        && (release_support - floor_y).abs() < 0.5
                     {
                         record.failures.dock_hit_from_floor += 1;
                     }
@@ -972,6 +984,9 @@ pub fn run(kits: &Kits, spec: &RunSpec) -> RunRecord {
                 }
                 CombatEvent::LlamaSpit { llama, .. } => {
                     record.spits += 1;
+                    if llama == 0 && donut_on_floor {
+                        record.spits_at_floor_donut += 1;
+                    }
                     if sim
                         .combat
                         .llamas
@@ -1039,6 +1054,15 @@ pub fn run(kits: &Kits, spec: &RunSpec) -> RunRecord {
         displacement += (now.0 - last.0).abs() + (now.1 - last.1).abs();
         record.donut_max_offset_px = record.donut_max_offset_px.max((now.0 - start.0).abs());
         last = now;
+        // Only a policy-driven Donut: her AI steers itself in the Carl seat.
+        if spec.seat.donut_is_player() && sim.scene.world.donut_body.grounded {
+            if (donut_support - last_support).abs() > 0.5
+                && last_steer.is_none_or(|t| tick.saturating_sub(t) > STEER_WINDOW_TICKS)
+            {
+                record.donut_level_changes += 1;
+            }
+            last_support = donut_support;
+        }
         for (i, llama) in sim.combat.llamas.iter().enumerate() {
             if llama_defeated(llama) && record.kill_ticks[i].is_none() {
                 record.kill_ticks[i] = Some(tick);
@@ -1124,6 +1148,25 @@ pub const M2_STARTS: [Start; 12] = [
     start("M2-13", 1728, 0, 1),
 ];
 
+/// The named M2 start at `(x, rise)`, or `"grid"` for an M2-G column.
+pub fn start_name(x: i32, rise: i32) -> &'static str {
+    M2_STARTS
+        .iter()
+        .find(|s| s.x == x && s.rise == rise)
+        .map_or("grid", |s| s.id)
+}
+
+/// The room surface of a start: `floor`, `shelf` (the 32 px entry shelf),
+/// `bumper` (its 80 px top) or `dock` (the 32 px dock behind it).
+pub fn surface_name(x: i32, rise: i32) -> &'static str {
+    match rise {
+        0 => "floor",
+        r if r == room::BUMPER.2 => "bumper",
+        _ if x < room::BUMPER.0 => "shelf",
+        _ => "dock",
+    }
+}
+
 /// The M2-G grid (spec section 11, step 16): the floor, the shelf, the bumper
 /// top and the dock, each column wholly on its surface (Donut's 20 px wide
 /// collider: no floor column inside the entry shelf, the bumper's middle
@@ -1186,22 +1229,17 @@ impl SweepConfig {
         }
     }
 
-    /// The asserted gate sweep of the tests (debug builds): every named start,
-    /// both facings, P0..P2, the decisive seat with the reflex on, every gated
-    /// policy with the jump-cast at `aimed`, 0, 5 and 45, and the movement and
-    /// co-op runs. No baseline, no grid.
+    /// The asserted gate sweep of the tests: the whole corral half of
+    /// [`Self::full`] (every named start with every jump offset -3..=52, the
+    /// M2-G grid, both facings, P0..P2, both reflex variants, the decisive and
+    /// the reported seats and policies, the M1 control and the movement and
+    /// co-op runs). Only the corridor baselines (report-only) are left out.
     pub fn gate() -> Self {
         Self {
             baseline: Vec::new(),
             baseline_xs: Vec::new(),
             baseline_phases: Vec::new(),
-            corral: true,
-            grid: false,
-            jump_offsets: vec![0, 5, 45],
-            facings: vec![1, -1],
-            evasions: vec![Evasion::Reflex],
-            reported: false,
-            horizon: HORIZON_TICKS,
+            ..Self::full()
         }
     }
 

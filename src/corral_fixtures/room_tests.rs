@@ -87,10 +87,18 @@ fn the_kit_has_the_floor_the_shelf_the_dock_and_the_80_px_bumper() {
 /// change to the bumper, the dock, a leash or the bolt geometry fails here.
 #[test]
 fn corral_b1_reach_sweep_on_the_real_room_rects() {
-    use crate::llama_rush::geometry_tests::{Reach, sweep};
-    // The sweep's llama leashes are the sheet's: they must be the room's.
-    assert_eq!((A_LEASH.min, A_LEASH.max), (1920.0, 2016.0));
-    assert_eq!((B_LEASH.min, B_LEASH.max), (1248.0, 1830.0));
+    use crate::llama_rush::geometry_tests::{self as geo, Reach, sweep};
+    // `sweep` uses its own leashes and dock height: they must be the room's.
+    assert_eq!(
+        (geo::A_LEASH.min, geo::A_LEASH.max),
+        (A_LEASH.min, A_LEASH.max)
+    );
+    assert_eq!(
+        (geo::B_LEASH.min, geo::B_LEASH.max),
+        (B_LEASH.min, B_LEASH.max)
+    );
+    assert_eq!(geo::DOCK_FEET, room::DOCK_RISE);
+    assert_eq!(geo::DOCK_FEET, room::DOCK.2 as f32);
     // Floor-relative solids (the sweep puts the walking line at 0).
     let solids: Vec<Block> = solids()
         .into_iter()
@@ -195,14 +203,18 @@ fn a_retry_in_m2_restores_both_llamas_from_the_fixture() {
             break;
         }
     }
-    for _ in 0..300 {
-        sim.step_slots([crate::input::RawInput::NONE; 2]);
-        saw_rush |= sim.combat.llamas[0].rush_state().is_some();
-        if saw_rush {
+    // Step until a rush is running at the restart tick, whatever the first
+    // loop saw.
+    let rushing =
+        |s: &PartyFixtureSim| s.combat.llamas[0].rush_state().is_some() && s.combat.rush_seq() > 0;
+    for _ in 0..600 {
+        if rushing(&sim) {
             break;
         }
+        sim.step_slots([crate::input::RawInput::NONE; 2]);
     }
-    assert!(saw_rush, "B rushed Carl");
+    assert!(saw_rush || rushing(&sim), "B rushed Carl");
+    assert!(rushing(&sim), "a rush is running at the restart");
     sim.combat.restart(&mut sim.scene);
     let mix = |s: &PartyFixtureSim| {
         let mut h = Vec::new();

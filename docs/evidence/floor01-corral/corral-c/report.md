@@ -17,6 +17,48 @@ Policy version 2, horizon 1800 ticks, 21384 runs. The unit is a fixture (start x
 
 KC19 groups judged: 2122; failing: 0. `layer_static_clear` (diagnostic, not gated): 3204 of 12732 gated parked M2 runs defeated the llama of their own level.
 
+`layer_static_clear` by start surface (open question 3, owner-level):
+
+| Surface | Gated parked runs | Clears | B defeated by Donut | A defeated by Donut |
+| --- | ---: | ---: | ---: | ---: |
+| bumper | 732 | 0 | 0 | 0 |
+| dock | 2052 | 660 | 0 | 660 |
+| floor | 8148 | 2544 | 2544 | 0 |
+| shelf | 1800 | 0 | 0 | 0 |
+
+By named start (the M2-G grid columns are pooled per surface as `grid`):
+
+| Start | Gated parked runs | Clears | B defeated by Donut | A defeated by Donut |
+| --- | ---: | ---: | ---: | ---: |
+| M2-01 floor x1072 | 732 | 0 | 0 | 0 |
+| M2-02 shelf x1168 | 732 | 0 | 0 | 0 |
+| M2-03 shelf x1204 | 732 | 0 | 0 | 0 |
+| M2-04 floor x1248 | 732 | 102 | 102 | 0 |
+| M2-05 floor x1376 | 732 | 120 | 120 | 0 |
+| M2-07 floor x1424 | 732 | 120 | 120 | 0 |
+| M2-08 floor x1640 | 732 | 120 | 120 | 0 |
+| M2-09 floor x1840 | 732 | 0 | 0 | 0 |
+| M2-10 dock x1904 | 732 | 120 | 0 | 120 |
+| M2-11 dock x2032 | 732 | 120 | 0 | 120 |
+| M2-12 bumper x1872 | 732 | 0 | 0 | 0 |
+| M2-13 floor x1728 | 732 | 120 | 120 | 0 |
+| grid dock | 588 | 420 | 0 | 420 |
+| grid floor | 3024 | 1962 | 1962 | 0 |
+| grid shelf | 336 | 0 | 0 | 0 |
+
+`donut_level_changes` (diagnostic, finding 1): 540 knock landings on another level in 540 corral runs.
+
+- level change: `corral_m2.solo_donut_parked.stationary_jump_cast.o-1.off.x1248.h0.fr.p0-0-45-75`
+- level change: `corral_m2.solo_donut_parked.stationary_jump_cast.o0.off.x1248.h0.fr.p0-0-45-75`
+- level change: `corral_m2.solo_donut_parked.stationary_jump_cast.o1.off.x1248.h0.fr.p0-0-45-75`
+- level change: `corral_m2.solo_donut_parked.stationary_jump_cast.o2.off.x1248.h0.fr.p0-0-45-75`
+- level change: `corral_m2.solo_donut_parked.stationary_jump_cast.o3.off.x1248.h0.fr.p0-0-45-75`
+- level change: `corral_m2.solo_donut_parked.stationary_jump_cast.o4.off.x1248.h0.fr.p0-0-45-75`
+- level change: `corral_m2.solo_donut_parked.stationary_jump_cast.o5.off.x1248.h0.fr.p0-0-45-75`
+- level change: `corral_m2.solo_donut_parked.stationary_jump_cast.o6.off.x1248.h0.fr.p0-0-45-75`
+- level change: `corral_m2.solo_donut_parked.stationary_jump_cast.o7.off.x1248.h0.fr.p0-0-45-75`
+- level change: `corral_m2.solo_donut_parked.stationary_jump_cast.o8.off.x1248.h0.fr.p0-0-45-75`
+
 ## Baselines (report-only, the "before")
 
 | Gate | Outcome |

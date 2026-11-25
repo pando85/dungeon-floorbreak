@@ -513,8 +513,9 @@ fn no_play_path_constructs_a_non_shipped_reflex_profile() {
             }
             // CORRAL-C (plan section 14.4, F6): the CORRAL-AUTO evaluator runs
             // its `off` reflex variant as test tuning; it is a measurement
-            // tool, never a play path.
-            if path.ends_with("corral_eval/mod.rs") {
+            // tool, never a play path. Only its variant file is exempt; no
+            // play path reaches the evaluator (the scan below).
+            if path.ends_with("corral_eval/evasion.rs") {
                 continue;
             }
             let text = std::fs::read_to_string(&path).unwrap();
@@ -532,6 +533,45 @@ fn no_play_path_constructs_a_non_shipped_reflex_profile() {
             }
         }
     }
+}
+
+/// The CORRAL-AUTO evaluator (whose `off` variant builds the test-only reflex)
+/// is reachable only from its own binary and from tests: no play path names
+/// `corral_eval::` outside its `#[cfg(test)]` modules.
+#[test]
+fn only_the_evaluator_binary_and_tests_reach_the_corral_evaluator() {
+    let mut stack = vec![root().join("src")];
+    let mut scanned = 0;
+    while let Some(dir) = stack.pop() {
+        let Ok(read) = std::fs::read_dir(dir) else {
+            continue;
+        };
+        for entry in read {
+            let path = entry.unwrap().path();
+            if path.is_dir() {
+                if !path.ends_with("corral_eval") {
+                    stack.push(path);
+                }
+                continue;
+            }
+            if path.extension().is_none_or(|e| e != "rs") || path.ends_with("bin/corral_eval.rs") {
+                continue;
+            }
+            let name = path.file_name().unwrap().to_string_lossy().into_owned();
+            if name == "tests.rs" || name.ends_with("_tests.rs") {
+                continue;
+            }
+            scanned += 1;
+            let text = std::fs::read_to_string(&path).unwrap();
+            let code = play_code(&name, &text);
+            assert!(
+                !code.contains("corral_eval::"),
+                "{} reaches the evaluator outside tests",
+                path.display()
+            );
+        }
+    }
+    assert!(scanned > 50, "{scanned}");
 }
 
 // ------------------------------------------- the ram, the glob, the rest --

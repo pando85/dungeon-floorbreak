@@ -33,7 +33,8 @@ fn spec(stage: Stage, seat: Seat, policy: PolicyId, x: i32) -> RunSpec {
     }
 }
 
-/// The gate sweep, run once for every test that reads it.
+/// The gate sweep (the whole corral half of the `corral_eval` sweep, about
+/// 20k runs), run once for every test that reads it.
 fn gate_records() -> &'static Vec<RunRecord> {
     static RECORDS: OnceLock<Vec<RunRecord>> = OnceLock::new();
     RECORDS.get_or_init(|| sweep(kits(), &SweepConfig::gate()))
@@ -312,9 +313,10 @@ fn corral_auto_m2_b1_counterexample_never_touches_the_dock_llama() {
 }
 
 /// The asserted CORRAL-C gate (spec section 11, gate items 1 to 5) over the
-/// gate sweep: every named start, both facings, P0..P2, the decisive seat
-/// with the reflex on, every gated policy (the jump-cast at `aimed`, 0, 5 and
-/// 45), the M1 control and the movement and co-op runs.
+/// full corral sweep: every named start with every jump offset, the M2-G
+/// grid, both facings, P0..P2, both reflex variants (KC19 is decided on the
+/// reflex), the decisive and reported seats, the M1 control and the movement
+/// and co-op runs.
 #[test]
 fn corral_auto_the_corral_gate_passes() {
     let records = gate_records();
@@ -327,7 +329,27 @@ fn corral_auto_the_corral_gate_passes() {
         "{:?}",
         gate.corral_best_counterexample
     );
-    assert!(gate.corral_groups >= 12 * 2 * 8, "{}", gate.corral_groups);
+    // Every named start and grid column is valid: 12 named starts x 2
+    // facings x (5 fixed + 56 offsets) plus 47 grid columns x 2 facings x
+    // (5 fixed + 2 offsets) = 1,464 + 658 groups.
+    let full = SweepConfig::full();
+    assert_eq!(config.jump_offsets, full.jump_offsets);
+    assert!(config.grid && config.reported);
+    assert_eq!(config.evasions, Evasion::ALL.to_vec());
+    assert_eq!(PolicyId::GATED_FIXED.len(), 5);
+    let grid_only = m2_grid()
+        .into_iter()
+        .filter(|&(x, rise)| start_name(x, rise) == "grid")
+        .count();
+    assert_eq!(grid_only, 47, "the grid columns that are not named starts");
+    assert_eq!(gate.corral_groups, 2_122, "{}", gate.corral_groups);
+    assert!(
+        records
+            .iter()
+            .filter(|r| r.spec.stage.is_corral())
+            .all(|r| r.terminal != Terminal::InvalidSetup),
+        "every corral start is legal"
+    );
     assert_eq!(
         gate.corral_invariant,
         Outcome::Pass,
@@ -364,10 +386,11 @@ fn corral_auto_the_rush_runs_and_the_bumper_top_is_a_stall_spot() {
     assert!(m2.iter().map(|r| r.rush_tells).sum::<u32>() > 0);
     assert!(m2.iter().map(|r| r.rush_commits).sum::<u32>() > 0);
     assert!(m2.iter().map(|r| r.rush_contacts).sum::<u32>() > 0);
-    for r in m2
-        .iter()
-        .filter(|r| r.spec.donut_rise == 80 && r.spec.policy.is_stationary_gate())
-    {
+    for r in m2.iter().filter(|r| {
+        r.spec.donut_rise == 80
+            && r.spec.policy.is_stationary_gate()
+            && r.spec.seat == Seat::SoloDonutParked
+    }) {
         assert_eq!(r.llamas_defeated, 0, "{}", r.run_id);
         assert_eq!(r.donut_hp_lost(), 0, "{}", r.run_id);
     }
@@ -502,15 +525,29 @@ fn corral_auto_m2_heights_real_globs_and_rushes() {
         .count();
     assert!(spits_at_donut > 0, "B spits at the shelf Donut");
     assert!(glob_hurts > 0, "and its glob hits her");
-    for rec in gate_records()
-        .iter()
-        .filter(|r| r.spec.stage == Stage::CorralM2 && r.spec.policy.is_stationary_gate())
-    {
+    let mut knocked = 0;
+    for rec in gate_records().iter().filter(|r| {
+        r.spec.stage == Stage::CorralM2
+            && r.spec.policy.is_stationary_gate()
+            && r.spec.seat == Seat::SoloDonutParked
+    }) {
         let on_shelf = rec.spec.donut_rise == 32 && rec.spec.donut_x < 1300;
-        // A floor start near the shelf can be knocked onto it by a rush (then
-        // she is a shelf Donut); every other start is never spat at.
-        if !on_shelf && (rec.spec.donut_rise != 0 || rec.spec.donut_x >= 1400) {
+        // CRL-Q11 on Donut's support at each spit tick, whatever her start: a
+        // floor Donut is rushed, never spat at. A rush can knock a hopping
+        // floor Donut onto the shelf (sheet erratum, finding 1); B may spit
+        // at her there, and that spit is not a floor spit.
+        assert_eq!(
+            rec.spits_at_floor_donut, 0,
+            "{}: spat at on the floor",
+            rec.run_id
+        );
+        if rec.spec.donut_rise != 0 && !on_shelf {
             assert_eq!(rec.spits, 0, "{}: spat at", rec.run_id);
+        }
+        if rec.spec.donut_rise == 0 && rec.spits > 0 {
+            // Only a knocked floor Donut is ever spat at.
+            assert!(rec.donut_level_changes > 0, "{}: spat at", rec.run_id);
+            knocked += 1;
         }
         if rec.spec.donut_rise == 32 && rec.spec.donut_x > 1888 {
             assert_eq!(
@@ -527,4 +564,99 @@ fn corral_auto_m2_heights_real_globs_and_rushes() {
             );
         }
     }
+    println!("floor starts knocked onto the shelf and spat at: {knocked}");
+}
+
+/// Review finding 4: the corral gate path can fail. Synthetic parked
+/// reflex-on `CorralM2` records of one start group in which a static Donut
+/// defeats both llamas in 2 of 3 phases fail KC19 and the CRL-Q35 invariant.
+#[test]
+fn corral_auto_the_corral_gate_can_fail() {
+    let mut base = spec(
+        Stage::CorralM2,
+        Seat::SoloDonutParked,
+        PolicyId::StationaryCastAimed,
+        1424,
+    );
+    base.evasion = Evasion::Reflex;
+    let real = run(kits(), &base);
+    assert_ne!(real.terminal, Terminal::InvalidSetup);
+    let records: Vec<RunRecord> = M2_PHASES
+        .iter()
+        .enumerate()
+        .map(|(i, &phase)| {
+            let mut r = real.clone();
+            r.spec.phase = phase;
+            r.run_id = r.spec.run_id();
+            r.carl_hits = 0;
+            r.donut_hp_final = r.donut_hp_start;
+            if i < 2 {
+                r.terminal = Terminal::Victory;
+                r.ticks = 900 + i as u64;
+                r.llamas_defeated = 2;
+                r.kill_ticks = vec![Some(400), Some(800 + i as u64)];
+                r.kill_by_donut = vec![true, true];
+            } else {
+                r.terminal = Terminal::Timeout;
+            }
+            r
+        })
+        .collect();
+    let gate = Gate::evaluate(&records);
+    assert_eq!(gate.corral_groups, 1);
+    assert_eq!(gate.corral_kc19, Outcome::Fail);
+    assert_eq!(gate.corral_failing_groups.len(), 1);
+    assert_eq!(
+        gate.corral_best_counterexample.as_ref().map(|c| c.ticks),
+        Some(900)
+    );
+    assert_eq!(gate.corral_invariant, Outcome::Fail);
+    assert_eq!(gate.corral_invariant_breaches.len(), 2);
+    assert!(!gate.corral_passes());
+    // A single clear in three phases is below KC19's half, but it still
+    // breaches the invariant.
+    let one: Vec<RunRecord> = records
+        .iter()
+        .enumerate()
+        .map(|(i, r)| {
+            let mut r = r.clone();
+            if i == 1 {
+                r.terminal = Terminal::Timeout;
+                r.llamas_defeated = 0;
+                r.kill_ticks = vec![None, None];
+            }
+            r
+        })
+        .collect();
+    let gate = Gate::evaluate(&one);
+    assert_eq!(gate.corral_kc19, Outcome::Pass);
+    assert_eq!(gate.corral_invariant, Outcome::Fail);
+}
+
+/// CRL-Q42 (review nit 9): the turret's turn taps and the jump-cast's hops in
+/// place move Donut at most 8 px from her start column while nothing hurts
+/// her.
+#[test]
+fn corral_auto_stationary_policies_stay_within_eight_px() {
+    let mut checked = 0;
+    for r in gate_records().iter().filter(|r| {
+        r.spec.stage.is_corral()
+            && matches!(
+                r.spec.policy,
+                PolicyId::StationaryTurret
+                    | PolicyId::StationaryJumpCast
+                    | PolicyId::StationaryJumpCastAimed
+            )
+            && r.donut_hurt_events == 0
+            && r.donut_rush_hurts == 0
+    }) {
+        checked += 1;
+        assert!(
+            r.donut_max_offset_px <= 8.0,
+            "{}: {} px",
+            r.run_id,
+            r.donut_max_offset_px
+        );
+    }
+    assert!(checked > 1000, "{checked}");
 }

@@ -42,12 +42,12 @@ fn launches() -> [f32; 3] {
 const BUMPER_LEFT: f32 = 1856.0;
 const BUMPER_WIDTH: f32 = 32.0;
 const BUMPER_TOP: f32 = 80.0;
-const DOCK_FEET: f32 = 32.0;
-const A_LEASH: Leash = Leash {
+pub(crate) const DOCK_FEET: f32 = 32.0;
+pub(crate) const A_LEASH: Leash = Leash {
     min: 1920.0,
     max: 2016.0,
 };
-const B_LEASH: Leash = Leash {
+pub(crate) const B_LEASH: Leash = Leash {
     min: 1248.0,
     max: 1830.0,
 };

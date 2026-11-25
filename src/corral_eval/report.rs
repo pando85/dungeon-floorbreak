@@ -13,6 +13,7 @@ use serde_json::{Value, json};
 use super::policy::PolicyId;
 use super::{
     Evasion, HORIZON_TICKS, POLICY_VERSION, RunRecord, Seat, Stage, SweepConfig, Terminal,
+    start_name, surface_name,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -163,10 +164,65 @@ pub struct Gate {
     /// Diagnostic: gated static M2 runs that defeated their own level's llama.
     pub layer_static_clears: usize,
     pub gated_static_m2_runs: usize,
+    /// The same, broken down by start surface and by named start (open
+    /// question 3 of the sheet: which level and which starts stunlock).
+    pub layer_static_by_surface: Vec<LayerRow>,
+    pub layer_static_by_start: Vec<LayerRow>,
+    /// Diagnostic (finding 1): corral runs in which Donut landed on another
+    /// level with no steering (a knock), and the total landings.
+    pub level_change_runs: Vec<String>,
+    pub level_changes: u32,
     /// `hold_attack_trivial` never produced more than the one press.
     pub trivial_hold_is_one_press: Outcome,
     /// Every run's mana arithmetic closes (asserted).
     pub mana_accounting: Outcome,
+}
+
+/// One row of the `layer_static_clear` breakdown: the gated parked M2 runs
+/// of a surface or a start, those that defeated a llama by Donut's hits and
+/// which llama (B on the floor, A on the dock).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct LayerRow {
+    pub key: String,
+    pub runs: usize,
+    pub clears: usize,
+    pub b_defeated: usize,
+    pub a_defeated: usize,
+}
+
+fn layer_rows(runs: &[&RunRecord], key: impl Fn(&RunRecord) -> String) -> Vec<LayerRow> {
+    let mut rows: BTreeMap<String, LayerRow> = BTreeMap::new();
+    for r in runs {
+        let k = key(r);
+        let row = rows.entry(k.clone()).or_insert_with(|| LayerRow {
+            key: k,
+            ..LayerRow::default()
+        });
+        row.runs += 1;
+        if r.layer_static_clear() {
+            row.clears += 1;
+            let killed = |i: usize| {
+                r.kill_by_donut.get(i).copied().unwrap_or(false)
+                    && r.kill_ticks.get(i).copied().flatten().is_some()
+            };
+            row.b_defeated += usize::from(killed(0));
+            row.a_defeated += usize::from(killed(1));
+        }
+    }
+    rows.into_values().collect()
+}
+
+fn layer_json(rows: &[LayerRow]) -> Value {
+    Value::Array(
+        rows.iter()
+            .map(|r| {
+                json!({
+                    "key": r.key, "runs": r.runs, "clears": r.clears,
+                    "b_defeated_by_donut": r.b_defeated, "a_defeated_by_donut": r.a_defeated,
+                })
+            })
+            .collect(),
+    )
 }
 
 fn any_win(
@@ -308,6 +364,12 @@ impl Gate {
             Outcome::Fail
         };
 
+        let parked: Vec<&RunRecord> = gated
+            .iter()
+            .copied()
+            .filter(|r| r.spec.seat == Seat::SoloDonutParked)
+            .collect();
+
         let hold: Vec<&RunRecord> = records
             .iter()
             .filter(|r| r.spec.policy == PolicyId::HoldAttackTrivial)
@@ -384,14 +446,25 @@ impl Gate {
             corral_coop_win: any_win(records, &corral, Seat::TwoPlayer, PolicyId::CoopProbe, None),
             corral_system_failures,
             corral_failure_runs: failure_runs,
-            layer_static_clears: gated
+            layer_static_clears: parked.iter().filter(|r| r.layer_static_clear()).count(),
+            gated_static_m2_runs: parked.len(),
+            layer_static_by_surface: layer_rows(&parked, |r| {
+                surface_name(r.spec.donut_x, r.spec.donut_rise).to_string()
+            }),
+            layer_static_by_start: layer_rows(&parked, |r| {
+                format!(
+                    "{} {} x{}",
+                    start_name(r.spec.donut_x, r.spec.donut_rise),
+                    surface_name(r.spec.donut_x, r.spec.donut_rise),
+                    r.spec.donut_x
+                )
+            }),
+            level_change_runs: corral_runs
                 .iter()
-                .filter(|r| r.spec.seat == Seat::SoloDonutParked && r.layer_static_clear())
-                .count(),
-            gated_static_m2_runs: gated
-                .iter()
-                .filter(|r| r.spec.seat == Seat::SoloDonutParked)
-                .count(),
+                .filter(|r| r.donut_level_changes > 0)
+                .map(|r| r.run_id.clone())
+                .collect(),
+            level_changes: corral_runs.iter().map(|r| r.donut_level_changes).sum(),
             trivial_hold_is_one_press: trivial,
             mana_accounting: accounting,
         }
@@ -469,6 +542,8 @@ pub fn runs_csv(records: &[RunRecord]) -> String {
         "donut_move_inputs",
         "donut_displacement_px",
         "donut_max_offset_px",
+        "donut_level_changes",
+        "spits_at_floor_donut",
         "stationary_position_valid",
         "no_damage_clear",
         "no_movement_clear",
@@ -541,6 +616,8 @@ pub fn runs_csv(records: &[RunRecord]) -> String {
             r.donut_move_inputs.to_string(),
             r.donut_displacement_px.to_string(),
             r.donut_max_offset_px.to_string(),
+            r.donut_level_changes.to_string(),
+            r.spits_at_floor_donut.to_string(),
             r.stationary_position_valid().to_string(),
             r.no_damage_clear().to_string(),
             r.no_movement_clear().to_string(),
@@ -704,6 +781,14 @@ pub fn summary_json(records: &[RunRecord], config: &SweepConfig, targeting: Opti
             "layer_static_clear_diagnostic": {
                 "runs": gate.layer_static_clears,
                 "of_gated_parked_runs": gate.gated_static_m2_runs,
+                "by_surface": layer_json(&gate.layer_static_by_surface),
+                "by_start": layer_json(&gate.layer_static_by_start),
+            },
+            "donut_level_changes_diagnostic": {
+                "definition": "landings on a surface of another height with no policy steering in the 30 ticks before (a knock)",
+                "landings": gate.level_changes,
+                "runs": gate.level_change_runs.len(),
+                "run_ids": gate.level_change_runs,
             },
             "stuck_enemy_check": "not measured (no progress definition for a llama that legitimately holds)",
         },
@@ -775,6 +860,62 @@ pub fn report_md(records: &[RunRecord], config: &SweepConfig, targeting: Option<
         gate.layer_static_clears,
         gate.gated_static_m2_runs,
     );
+    let _ = writeln!(
+        out,
+        "`layer_static_clear` by start surface (open question 3, owner-level):\n\n| Surface | Gated parked runs | Clears | B defeated by Donut | A defeated by Donut |\n| --- | ---: | ---: | ---: | ---: |"
+    );
+    for row in &gate.layer_static_by_surface {
+        let _ = writeln!(
+            out,
+            "| {} | {} | {} | {} | {} |",
+            row.key, row.runs, row.clears, row.b_defeated, row.a_defeated
+        );
+    }
+    let _ = writeln!(
+        out,
+        "\nBy named start (the M2-G grid columns are pooled per surface as `grid`):\n\n| Start | Gated parked runs | Clears | B defeated by Donut | A defeated by Donut |\n| --- | ---: | ---: | ---: | ---: |"
+    );
+    for row in &gate.layer_static_by_start {
+        if !row.key.starts_with("grid") {
+            let _ = writeln!(
+                out,
+                "| {} | {} | {} | {} | {} |",
+                row.key, row.runs, row.clears, row.b_defeated, row.a_defeated
+            );
+        }
+    }
+    let mut grid: BTreeMap<&str, LayerRow> = BTreeMap::new();
+    for row in gate
+        .layer_static_by_start
+        .iter()
+        .filter(|r| r.key.starts_with("grid"))
+    {
+        let surface = row.key.split(' ').nth(1).unwrap_or("?");
+        let g = grid.entry(surface).or_default();
+        g.runs += row.runs;
+        g.clears += row.clears;
+        g.b_defeated += row.b_defeated;
+        g.a_defeated += row.a_defeated;
+    }
+    for (surface, g) in grid {
+        let _ = writeln!(
+            out,
+            "| grid {surface} | {} | {} | {} | {} |",
+            g.runs, g.clears, g.b_defeated, g.a_defeated
+        );
+    }
+    let _ = writeln!(
+        out,
+        "\n`donut_level_changes` (diagnostic, finding 1): {} knock landings on another level in {} corral runs.\n",
+        gate.level_changes,
+        gate.level_change_runs.len()
+    );
+    for id in gate.level_change_runs.iter().take(10) {
+        let _ = writeln!(out, "- level change: `{id}`");
+    }
+    if !gate.level_change_runs.is_empty() {
+        out.push('\n');
+    }
     if let Some(c) = &gate.corral_best_counterexample {
         let _ = writeln!(
             out,

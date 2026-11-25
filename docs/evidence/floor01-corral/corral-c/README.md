@@ -13,12 +13,14 @@ The sweep covers the named starts M1-A, M1-B and M2-01..M2-13 (M2-06 needs the p
 
 | File | Content |
 | --- | --- |
-| [`summary.json`](summary.json) | The corral gate outcomes, the KC19 groups, the CRL-Q35 breaches (none), the system-failure runs (none), the `layer_static_clear` diagnostic, the baseline gates and the tallies |
+| [`summary.json`](summary.json) | The corral gate outcomes, the KC19 groups, the CRL-Q35 breaches (none), the system-failure runs (none), the `layer_static_clear` diagnostic (by surface and by start), the `donut_level_changes` diagnostic, the baseline gates and the tallies |
 | [`report.md`](report.md) | The same, generated as a readable report |
 
 `runs.csv` (one row per run, about 7 MB) is not committed; regenerate it with the command below.
 
-**Result.** Every asserted corral gate passes: the M1 positive control (three bolts, 0 damage), KC19 on the decisive variant (0 failing of 2,122 groups), the CRL-Q35 geometric invariant, a mobile Donut, a Carl melee and a 2P co-op victory, and no hard system failure. No tuning was needed: the CORRAL-0 values and geometry pass as authored. The diagnostic `layer_static_clear` (a static Donut defeats the llama of her own level, open question 3 of the sheet) is reported: 3,204 of 12,732 gated parked M2 runs.
+**What is asserted.** The `corral_auto_the_corral_gate_passes` test asserts every corral gate on the whole corral half of this sweep (every named start with every jump offset, the M2-G grid, both facings, P0..P2, both reflex variants, the decisive and reported seats; about 20,000 runs, about 25 s in a debug test build). Only the corridor baselines are report-only. `corral_auto_the_corral_gate_can_fail` feeds the same gate synthetic records that breach KC19 and CRL-Q35 and asserts it fails.
+
+**Result.** Every corral gate passes: the M1 positive control (three bolts, 0 damage), KC19 on the decisive variant (0 failing of 2,122 groups), the CRL-Q35 geometric invariant, a mobile Donut, a Carl melee and a 2P co-op victory, and no hard system failure. No tuning was needed: the CORRAL-0 values and geometry pass as authored. The diagnostic `layer_static_clear` (a static Donut defeats the llama of her own level, open question 3 of the sheet) is reported: 3,204 of 12,732 gated parked M2 runs, all of them one-level kills: 2,544 floor runs defeat B and 660 dock runs defeat A; the shelf and the bumper top never clear (the breakdown by start is in the report). The diagnostic `donut_level_changes` (a knock landing on another level, sheet section 10 erratum) is reported: 270 parked jump-cast runs per reflex variant, all at x 1248 and 1280, where B's rush knocks a hopping Donut onto the entry shelf. The shelf reaches no llama, so the gate and the invariant hold.
 
 Reproduce from a fresh checkout:
 
