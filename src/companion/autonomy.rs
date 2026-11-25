@@ -26,6 +26,8 @@
 //! [`AutonomyBrief`], including the [`GoalBrief`] that gates the director. It is
 //! still unwired (CA2-B2 calls it).
 
+use std::cell::OnceCell;
+
 use crate::boss::BossThreat;
 use crate::combat::{MAGIC_MISSILE, MoveId};
 use crate::companion::director::{Decision, GoalBrief, Veto};
@@ -560,12 +562,13 @@ pub trait SpotWorld {
         false
     }
 
-    /// RINGW-F1: she is **cut off** from the leader's ground: both stand on open
-    /// surfaces, different ones, his is not above hers, and the route from hers
-    /// to his needs a jump or a drop over ground higher than his (it climbs over
-    /// a barrier, like the court's step and walkway over the closed shutter, or
-    /// she is above him on the way down). A plain jump over a gap in one floor
-    /// is no crossing. The default is `None`: a world with no such crossing.
+    /// RINGW-F1: she is **cut off** from the leader's ground by a barrier on his
+    /// level: both stand on open surfaces, different ones, his is not above
+    /// hers, and either the route from hers to his climbs over ground higher
+    /// than his (RWF1-AD1: the court's step and walkway over the closed
+    /// shutter), or she is above him on such a climb, mid-way over the barrier
+    /// (RWF1-AD2). A plain jump over a gap in one floor, or a ledge above him on
+    /// no climb, is no crossing. The default is `None`: a world with none.
     fn crossing(&self, _partner: &HeroView, _leader: &HeroView) -> Option<Crossing> {
         None
     }
@@ -578,7 +581,9 @@ pub struct Crossing {
     /// The leader's surface, inset like every [`SpotWorld::surfaces`] entry.
     pub surface: Surface,
     /// Both surfaces stand at the same height: a barrier between two stretches
-    /// of one floor (RWF1-AD1: she neither holds nor escorts on her side of it).
+    /// of one floor (RWF1-AD1: she neither holds nor escorts on her side of it
+    /// when a spot across is offered). `false`: she is up on the barrier
+    /// (RWF1-AD2).
     pub same_level: bool,
 }
 
@@ -814,6 +819,9 @@ struct Ctx<'a> {
     travel_dir: i8,
     /// She is in a move or in the air: committed, so no routine re-decision.
     committed: bool,
+    /// RINGW-F1: [`Ctx::cut_off`] and [`Ctx::across`], computed once per step.
+    cut: OnceCell<Option<Crossing>>,
+    across: OnceCell<Option<(Crossing, Spot)>>,
 }
 
 fn sign(dx: f32) -> i8 {
@@ -1001,13 +1009,39 @@ impl<'a> Ctx<'a> {
     }
 
     /// RINGW-F1: the crossing that cuts her off from the leader's ground, while
-    /// the `rwf1_cut_off_escort` knob is on ([`SpotWorld::crossing`]).
+    /// the `rwf1_cut_off_escort` knob is on ([`SpotWorld::crossing`]). It is
+    /// filtered exactly as the escort uses it (review F2 of #278): none under a
+    /// boss whose standoff escort takes over (it ignores crossings), none to a
+    /// surface too risky to stand on (CA2-Q29).
     fn cut_off(&self) -> Option<Crossing> {
-        if self.inp.set.fix_all.rwf1_cut_off_escort {
-            self.inp.world.crossing(self.me, self.leader)
-        } else {
-            None
-        }
+        *self.cut.get_or_init(|| {
+            if !self.inp.set.fix_all.rwf1_cut_off_escort || self.bv.is_some_and(|b| !b.charging) {
+                return None;
+            }
+            self.inp
+                .world
+                .crossing(self.me, self.leader)
+                .filter(|c| c.surface.risk < self.a.ca2_q29_spot_max_risk)
+        })
+    }
+
+    /// RINGW-F1: the escort spot on the leader's surface across the crossing,
+    /// the drift check waived (RWF1-AD1, RWF1-AD2), when one is offered at all.
+    fn across(&self) -> Option<(Crossing, Spot)> {
+        *self.across.get_or_init(|| {
+            let c = self.cut_off()?;
+            let mut best = BestSpot { best: None };
+            self.escort_offer(&mut best, &c.surface, false);
+            best.best.map(|(_, s)| (c, s))
+        })
+    }
+
+    /// RWF1-AD1: the spot [`Ctx::escort_spot`] takes before anything else: across
+    /// a barrier on the leader's level, when a spot there is offered. The stale
+    /// rule and the hold suppression use exactly this, so a crossing whose far
+    /// side offers no spot leaves her ordinary escort alone (review F2 of #278).
+    fn across_first(&self) -> Option<Spot> {
+        self.across().filter(|(c, _)| c.same_level).map(|(_, s)| s)
     }
 
     /// The worst-case commitment of attacking `t` from `x` is inside the view,
@@ -1270,6 +1304,44 @@ impl<'a> Ctx<'a> {
         if let Some(b) = self.bv.filter(|b| !b.charging) {
             return self.boss_escort_spot(surfaces, &b);
         }
+        // RINGW-F1: she is cut off from the leader's ground (the court's step
+        // and walkway over the closed shutter). The drift check prices the
+        // whole crossing as one commitment, so every spot across fails it and
+        // she would park at the barrier's face, or stall on the walkway. She
+        // escorts on the leader's own surface instead, with the drift check
+        // waived for the crossing: the executor commits one edge at a time and
+        // the off-screen regroup still covers a leader who runs away meanwhile.
+        // RWF1-AD1: across a barrier on his level she always does, when a spot
+        // there is offered at all ([`Ctx::across_first`]).
+        if let Some(s) = self.across_first() {
+            return Some(s);
+        }
+        let max = f32::from(self.a.ca2_q07_escort_max_px);
+        let mut best = BestSpot { best: None };
+        for surface in surfaces {
+            if surface.risk >= self.a.ca2_q29_spot_max_risk
+                || (surface.y - self.leader.foot_y).abs() > self.vertical()
+            {
+                continue;
+            }
+            self.escort_offer(&mut best, surface, true);
+        }
+        let found = best.best.map(|(_, s)| s);
+        // RWF1-AD2: up on the barrier (mid-way over it), she keeps heading for
+        // his surface when no spot in the escort band passes the check.
+        if found.is_none_or(|s| (s.x - self.leader.x).abs() > max)
+            && let Some((c, s)) = self.across()
+            && !c.same_level
+        {
+            return Some(s);
+        }
+        found
+    }
+
+    /// Offer every escort spot on `surface` to `best`: 72 to 120 px from the
+    /// leader on the chosen side, in the zone, out of the FA-Q25 shadow radius;
+    /// `drift`: whether the spot must pass the drift check (spec 3.3).
+    fn escort_offer(&self, best: &mut BestSpot, surface: &Surface, drift: bool) {
         let zone = self.zone();
         let min = f32::from(self.a.ca2_q07_escort_min_px);
         let max = f32::from(self.a.ca2_q07_escort_max_px);
@@ -1281,75 +1353,34 @@ impl<'a> Ctx<'a> {
         } else {
             sign(self.me.x - self.leader.x)
         };
-        let mut best = BestSpot { best: None };
-        // `drift`: whether the spot must pass the drift check (spec 3.3).
-        let offer = |best: &mut BestSpot, surface: &Surface, drift: bool| {
-            sample_xs(surface, |x| {
-                if !zone.contains_spot(x, surface.y) {
-                    return;
-                }
-                let (ok, drift_only) = self.commit_ok(x, surface, None);
-                if !(ok || (!drift && drift_only)) {
-                    return;
-                }
-                let from_leader = (x - self.leader.x).abs();
-                // FA-Q25: out of the shadow radius.
-                if self.shadowing && from_leader < f32::from(self.fa().fa_q25_respot_px) {
-                    return;
-                }
-                let wrong_side = (x - self.leader.x) * f32::from(side) < 0.0;
-                let score = -ipx((from_leader - mid).abs())
-                    - if wrong_side { 1000 } else { 0 }
-                    - FreeZone::pull_penalty(self.a, from_leader);
-                best.offer(
-                    score,
-                    Spot {
-                        x,
-                        surface_y: surface.y,
-                        key: surface.key,
-                        leader_ref_x: self.leader.x,
-                        purpose: SpotPurpose::Escort,
-                    },
-                );
-            });
-        };
-        // RINGW-F1 (RWF1-AD2): she is cut off from the leader's ground (the
-        // court's step and walkway over the closed shutter). The drift check
-        // prices the whole crossing as one commitment, so every spot across
-        // fails it and she would park at the barrier's face, or stall on the
-        // walkway. She escorts on the leader's own surface instead, with the
-        // drift check waived for the crossing: the executor commits one edge at
-        // a time and the off-screen regroup still covers a leader who runs away
-        // meanwhile. Across a barrier on one floor she always does (RWF1-AD1);
-        // from above, only when no spot in the escort band passes the check.
-        let cross = self
-            .cut_off()
-            .filter(|c| c.surface.risk < self.a.ca2_q29_spot_max_risk);
-        let across = |best: &mut BestSpot, c: &Crossing| {
-            offer(best, &c.surface, false);
-            best.best.map(|(_, s)| s)
-        };
-        if let Some(c) = cross.filter(|c| c.same_level)
-            && let Some(s) = across(&mut best, &c)
-        {
-            return Some(s);
-        }
-        for surface in surfaces {
-            if surface.risk >= self.a.ca2_q29_spot_max_risk
-                || (surface.y - self.leader.foot_y).abs() > self.vertical()
-            {
-                continue;
+        sample_xs(surface, |x| {
+            if !zone.contains_spot(x, surface.y) {
+                return;
             }
-            offer(&mut best, surface, true);
-        }
-        let found = best.best.map(|(_, s)| s);
-        if found.is_none_or(|s| (s.x - self.leader.x).abs() > max)
-            && let Some(c) = cross.filter(|c| !c.same_level)
-            && let Some(s) = across(&mut BestSpot { best: None }, &c)
-        {
-            return Some(s);
-        }
-        found
+            let (ok, drift_only) = self.commit_ok(x, surface, None);
+            if !(ok || (!drift && drift_only)) {
+                return;
+            }
+            let from_leader = (x - self.leader.x).abs();
+            // FA-Q25: out of the shadow radius.
+            if self.shadowing && from_leader < f32::from(self.fa().fa_q25_respot_px) {
+                return;
+            }
+            let wrong_side = (x - self.leader.x) * f32::from(side) < 0.0;
+            let score = -ipx((from_leader - mid).abs())
+                - if wrong_side { 1000 } else { 0 }
+                - FreeZone::pull_penalty(self.a, from_leader);
+            best.offer(
+                score,
+                Spot {
+                    x,
+                    surface_y: surface.y,
+                    key: surface.key,
+                    leader_ref_x: self.leader.x,
+                    purpose: SpotPurpose::Escort,
+                },
+            );
+        });
     }
 }
 
@@ -1816,10 +1847,10 @@ impl AutonomyState {
                 c.bv.is_none_or(|b| !c.standoff_violated(&b, spot.x))
                     && !(c.shadowing
                         && (spot.x - c.leader.x).abs() < f32::from(c.fa().fa_q25_respot_px))
-                    // RINGW-F1 (RWF1-AD1): a spot on her side of a barrier that
-                    // cuts her off from the leader on one floor goes stale.
-                    && c.cut_off()
-                        .is_none_or(|x| !x.same_level || x.surface.key == spot.key)
+                    // RINGW-F1 (RWF1-AD1): a spot on her side of a barrier on
+                    // his level goes stale, only when the escort would take a
+                    // spot across it instead (review F2 of #278: no flicker).
+                    && c.across_first().is_none_or(|s| s.key == spot.key)
             }
             _ => false,
         }
@@ -1881,6 +1912,8 @@ impl AutonomyState {
             travelling,
             travel_dir: self.travel_dir,
             committed: me.active_move.is_some() || !me.grounded,
+            cut: OnceCell::new(),
+            across: OnceCell::new(),
         };
 
         let mut changed = None;
@@ -2229,12 +2262,12 @@ impl AutonomyState {
             f32::from(c.a.ca2_q06_comfort_px)
         };
         // FA-Q05: under a boss she holds only on ground the standoff allows.
-        // RINGW-F1 (RWF1-AD1): she does not hold on her side of a barrier that
-        // cuts her off from the leader on one floor; she escorts across it.
+        // RINGW-F1 (RWF1-AD1): she does not hold on her side of a barrier on
+        // his level when the escort would take a spot across it.
         let hold = !c.travelling
             && (c.me.x - c.leader.x).abs() <= hold_radius
             && c.bv.is_none_or(|b| !c.standoff_violated(&b, c.me.x))
-            && c.cut_off().is_none_or(|x| !x.same_level);
+            && c.across_first().is_none();
         // A running Escort that has just arrived keeps its minimum time (CA2-Q16)
         // as a hold, so it does not flip to Idle the tick she enters the band.
         let settling = escorting
@@ -3524,6 +3557,8 @@ mod tests {
     struct FlatWorld {
         surfaces: Vec<Surface>,
         climb: Option<u16>,
+        /// RINGW-F1: the crossing this world reports, whoever stands where.
+        crossing: Option<Crossing>,
     }
 
     impl FlatWorld {
@@ -3537,6 +3572,7 @@ mod tests {
                     risk: 0,
                 }],
                 climb: None,
+                crossing: None,
             }
         }
     }
@@ -3559,6 +3595,10 @@ mod tests {
                 Some(h) if (surface.y - h.y).abs() <= 4.0 => Some(0),
                 _ => self.climb,
             }
+        }
+
+        fn crossing(&self, _partner: &HeroView, _leader: &HeroView) -> Option<Crossing> {
+            self.crossing
         }
     }
 
@@ -4774,6 +4814,7 @@ mod tests {
                 },
             ],
             climb: Some(40),
+            crossing: None,
         };
         let mut samples = Vec::new();
         for _ in 0..600 {
@@ -4788,6 +4829,63 @@ mod tests {
             "autonomy step: median {median} ns, max {max} ns (debug build, 8 goblins, 3 surfaces)"
         );
         assert!(median < 2_000_000, "{median} ns");
+    }
+
+    /// RINGW-F1, review F2 of #278: the stale rule and the hold suppression
+    /// mirror the escort. A crossing whose far surface offers no spot (out of
+    /// the zone) or is too risky to stand on leaves her escort exactly as with
+    /// no crossing: same goals, same spots, decisions at the cadence only, no
+    /// re-decision every tick. With a spot offered across, she takes it.
+    #[test]
+    fn a_crossing_with_no_spot_across_leaves_the_escort_alone() {
+        let max_risk = free_set().autonomy.ca2_q29_spot_max_risk;
+        let far = |left: f32, risk: u16| Crossing {
+            surface: Surface {
+                key: 2,
+                left,
+                right: left + 200.0,
+                y: 0.0,
+                risk,
+            },
+            same_level: true,
+        };
+        let run = |crossing: Option<Crossing>| {
+            let mut rig = Rig::new();
+            // Out of the hold band: she escorts on the floor (key 1).
+            rig.donut().x = 100.0;
+            rig.world.crossing = crossing;
+            let mut trace = Vec::new();
+            let mut decisions = 0u32;
+            for _ in 0..120 {
+                let tick = rig.v.tick;
+                rig.step();
+                decisions += u32::from(rig.st.last_decision == Some(tick));
+                trace.push((rig.st.goal(), rig.st.spot()));
+            }
+            (trace, decisions)
+        };
+        let plain = run(None);
+        assert!(
+            plain
+                .0
+                .iter()
+                .any(|(g, s)| *g == Goal::Escort && s.is_some_and(|s| s.key == 1)),
+            "{:?}",
+            plain.0
+        );
+        assert!(plain.1 <= 30, "{} decisions", plain.1);
+        // Out of the zone (the view is 0..640), and too risky: no spot across.
+        for c in [far(2000.0, 0), far(330.0, max_risk)] {
+            assert_eq!(run(Some(c)), plain, "{c:?}");
+        }
+        // The control: a spot is offered across, so she escorts there.
+        let (across, _) = run(Some(far(330.0, 0)));
+        assert!(
+            across
+                .iter()
+                .any(|(g, s)| *g == Goal::Escort && s.is_some_and(|s| s.key == 2)),
+            "{across:?}"
+        );
     }
 
     #[test]
@@ -4812,6 +4910,7 @@ mod tests {
                 },
             ],
             climb: None,
+            crossing: None,
         };
         rig.goblin(1, 230.0, standing());
         rig.donut().x = 286.0;
@@ -5193,6 +5292,7 @@ mod tests {
             inner: FlatWorld {
                 surfaces: rig.world.surfaces.clone(),
                 climb: rig.world.climb,
+                crossing: None,
             },
             spans: spans.to_vec(),
         };

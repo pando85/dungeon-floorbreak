@@ -456,10 +456,11 @@ pub struct FixAll {
     /// `fa_q29_slack_ticks` or more before the target's next impact tick.
     pub fa_q29_pounce_timing: bool,
     pub fa_q29_slack_ticks: u16,
-    /// RINGW-F1 (RWF1-AD1, RWF1-AD2): when she is cut off from the leader's
-    /// ground (`SpotWorld::crossing`), she neither holds nor keeps an escort spot
-    /// on her side of the barrier, and escorts on his surface with the drift
-    /// check waived for the crossing.
+    /// RINGW-F1 (RWF1-AD1 to RWF1-AD3): when a barrier on the leader's level
+    /// cuts her off from his ground (`SpotWorld::crossing`), she escorts on his
+    /// surface with the drift check waived for the crossing, and neither holds
+    /// nor keeps an escort spot on her side, whenever a spot across is offered;
+    /// up on the barrier she keeps heading for his surface.
     pub rwf1_cut_off_escort: bool,
 }
 

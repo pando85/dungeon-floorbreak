@@ -563,16 +563,29 @@ mod tests {
     }
 
     /// RINGW-F1 knob off (`rwf1_cut_off_escort`): the court's companion run is
-    /// the pre-fix run byte for byte (the hash of `ring_runs.txt` before the fix,
-    /// seed 0), and the partner does not cross over the walkway.
+    /// the pre-fix run byte for byte (the hashes of `ring_runs.txt` before the
+    /// fix, every seed), and the partner does not cross over the walkway.
     #[test]
     fn ring_court_companion_with_the_rwf1_knob_off_keeps_its_old_hash() {
-        let r = crate::combat_scene::with_profile_override(
-            |f| f.cf02_free.fix_all.rwf1_cut_off_escort = false,
-            || run(&root(), RingRoom::Court, Who::Companion, 0, false).unwrap(),
-        );
-        assert_eq!(r.hash, 0x28e0_19ad_b12a_867d, "{}", r.line());
-        assert_eq!(r.walkway_crossing, [true, false], "{}", r.line());
+        const PRE_FIX: [u64; 9] = [
+            0x28e0_19ad_b12a_867d,
+            0xdd50_0119_e37c_db95,
+            0xcf06_6cac_2402_4fc9,
+            0x43d8_38df_73bc_176c,
+            0x8962_63db_1ca7_c240,
+            0x4cc9_cc15_f097_f013,
+            0x7ad6_3789_4c2e_c497,
+            0xe604_2116_18d1_bc51,
+            0xdd2c_2ef6_c46c_a188,
+        ];
+        for seed in SEEDS {
+            let r = crate::combat_scene::with_profile_override(
+                |f| f.cf02_free.fix_all.rwf1_cut_off_escort = false,
+                || run(&root(), RingRoom::Court, Who::Companion, seed, false).unwrap(),
+            );
+            assert_eq!(r.hash, PRE_FIX[seed as usize], "{}", r.line());
+            assert_eq!(r.walkway_crossing, [true, false], "{}", r.line());
+        }
     }
 
     /// RINGW-F1, the near follow: Carl crosses over the walkway and then stands

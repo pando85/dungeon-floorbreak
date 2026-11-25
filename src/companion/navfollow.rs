@@ -1002,11 +1002,18 @@ impl SpotWorld for NavSpots<'_> {
     }
 
     /// RINGW-F1: both stand on open anchors, different ones, his top is not
-    /// above hers (1 px tolerance), the route from hers to his needs a jump or
-    /// a drop, and it passes over ground higher than his: it climbs over a
-    /// barrier (the court's step and walkway over the closed shutter), or she
-    /// is above him on the way down. A jump over a gap between two stretches of
-    /// one floor, or a walk, is no crossing: those keep the plain escort.
+    /// above hers (1 px tolerance), and she is cut off from his ground by a
+    /// barrier on his level:
+    ///
+    /// - on his level (RWF1-AD1), the route from hers to his climbs over ground
+    ///   higher than his (the court's step and walkway over the closed shutter);
+    /// - above him (RWF1-AD2), her anchor lies on such a climb: the route from
+    ///   another anchor on his level to his passes over hers (she is mid-way
+    ///   over the barrier, on the step or the walkway). A ledge, heap or
+    ///   platform above him that is on no such climb is no crossing.
+    ///
+    /// A jump over a gap between two stretches of one floor, or a walk, is no
+    /// crossing either: those keep the plain escort.
     fn crossing(&self, partner: &HeroView, leader: &HeroView) -> Option<Crossing> {
         let graph = self.driver.graph();
         let here = graph.anchor_at(partner.x, partner.foot_y)?;
@@ -1018,14 +1025,28 @@ impl SpotWorld for NavSpots<'_> {
         if top > my_top + 1.0 {
             return None;
         }
-        let path = graph
-            .path_or_reason(self.actor, here, there, Unlocks::NONE)
-            .ok()?;
-        if !path
-            .anchors
-            .iter()
-            .any(|a| graph.anchor_pos(*a).is_some_and(|p| p.1 > top + 1.0))
-        {
+        let same_level = (top - my_top).abs() <= 1.0;
+        let path = |from| {
+            graph
+                .path_or_reason(self.actor, from, there, Unlocks::NONE)
+                .ok()
+        };
+        let climbs = if same_level {
+            path(here)?
+                .anchors
+                .iter()
+                .any(|a| graph.anchor_pos(*a).is_some_and(|p| p.1 > top + 1.0))
+        } else {
+            graph.anchors().any(|b| {
+                b != there
+                    && graph.anchor_open(b)
+                    && graph
+                        .anchor_pos(b)
+                        .is_some_and(|p| (p.1 - top).abs() <= 1.0)
+                    && path(b).is_some_and(|p| p.anchors.contains(&here))
+            })
+        };
+        if !climbs {
             return None;
         }
         let (x0, x1) = graph.anchor_span(there)?;
@@ -1043,7 +1064,7 @@ impl SpotWorld for NavSpots<'_> {
         let x = leader.x.clamp(surface.left, surface.right);
         (self.route_ticks(partner, x, &surface)? > 0).then_some(Crossing {
             surface,
-            same_level: (top - my_top).abs() <= 1.0,
+            same_level,
         })
     }
 }
@@ -1397,9 +1418,10 @@ mod tests {
         assert!(drive.unwrap().move_x > 0.0, "a go-to closes on the spot");
     }
 
-    /// RINGW-F1: a crossing is a route over a barrier, or down from above the
-    /// leader; a walk, a jump over a gap in one floor, or a leader above her
-    /// is none.
+    /// RINGW-F1: a crossing is a route over a barrier on the leader's level, or
+    /// down from the top of that barrier (RWF1-AD1, RWF1-AD2); a walk, a jump
+    /// over a gap in one floor, a leader above her, or a ledge above him that
+    /// is on no climb (review F1 of #278) is none.
     #[test]
     fn nav_spots_report_a_crossing_over_a_barrier_only() {
         use crate::companion::autonomy::SpotWorld;
@@ -1441,6 +1463,21 @@ mod tests {
         let far = out.iter().find(|s| s.left > 540.0).copied().unwrap();
         assert!(spots.route_ticks(&me, 800.0, &far).is_some_and(|t| t > 0));
         assert_eq!(spots.crossing(&me, &leader), None);
+        // A ledge floating over one unbroken floor (a Boiler ledge, a Hoarder
+        // heap): she is above him with a drop to his ground, but on no climb
+        // between two stretches of his level, so it is no crossing.
+        let ledge = vec![
+            stone(0.0, 0.0, 2000.0, 40.0),
+            stone(300.0, 104.0, 300.0, 20.0),
+        ];
+        let driver = NavDriver::new(&ledge, NavConfig::agile()).unwrap();
+        let spots = NavSpots::new(&driver, HeroId::Donut, 16.0);
+        let up = hero(HeroId::Donut, 450.0, 104.0);
+        let mut out = Vec::new();
+        spots.surfaces(&mut out);
+        let floor = out.iter().find(|s| s.y == 0.0).copied().unwrap();
+        assert!(spots.route_ticks(&up, 800.0, &floor).is_some_and(|t| t > 0));
+        assert_eq!(spots.crossing(&up, &leader), None);
     }
 
     #[test]
