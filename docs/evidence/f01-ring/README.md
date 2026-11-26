@@ -1,6 +1,6 @@
 # The Broken Ring rooms: RING-A wire and RING-B wire evidence
 
-Rooms 4a `ring_court` and 4b `ring_split` of the late-Floor-1 slice ([plan section 15](../../07-agents/f01-playtest-integration-plan.md#15-ring-owner-pr-189)), launched with `--scene f01_late --f01-room ring_court` (or `ring_split`). Milestone `greybox`: geometry composed from the approved Floor 01 kit, the court's static closed shutter drawn as a labelled greybox stand-in (KR17), no AREA-RINGS-01 art yet. Game feel is the owner's call: nothing here is accepted.
+Rooms 4a `ring_court` and 4b `ring_split` of the late-Floor-1 slice ([plan section 15](../../07-agents/f01-playtest-integration-plan.md#15-ring-owner-pr-189)), launched with `--scene f01_late --f01-room ring_court` (or `ring_split`). Milestone `greybox` when these files were made: geometry composed from the approved Floor 01 kit, the court's static closed shutter drawn as a labelled greybox stand-in (KR17). Since AREA-RINGS-01 the rooms carry the Broken Ring kit (see [`../area-rings-01/`](../area-rings-01/README.md)); the still below is the greybox before. Game feel is the owner's call: nothing here is accepted.
 
 | File | What it shows | How it was made |
 | --- | --- | --- |

@@ -61,6 +61,19 @@ impl RoomRig {
         seed: Option<u64>,
         carry: Option<&crate::story_unlock::LedgerSnapshot>,
     ) -> Self {
+        Self::build_view(base, room, loadout, seed, carry, 360)
+    }
+
+    /// [`Self::build`] with the view height of a Ring room (360, or 400 for the
+    /// `--deck` view); every other room is the 360 view.
+    fn build_view(
+        base: &Path,
+        room: &str,
+        loadout: Option<Loadout>,
+        seed: Option<u64>,
+        carry: Option<&crate::story_unlock::LedgerSnapshot>,
+        view_h: i32,
+    ) -> Self {
         let (carl, donut) = loadout.map_or_else(Default::default, Loadout::flags);
         // The live party of a CF02-rules room: `cf02_assist` and the 12-tick swap.
         let room_party = || {
@@ -142,8 +155,9 @@ impl RoomRig {
             )
         } else if let Some(ring) = crate::f01_ring::RingRoom::from_id(room) {
             // RING-A/B wire: a Ring room, the same way.
-            let (run, scene, combat) = f01_late::ring_start(&root(), ring, 360, carl, donut, seed)
-                .expect("the Ring room launches");
+            let (run, scene, combat) =
+                f01_late::ring_start(&root(), ring, view_h, carl, donut, seed)
+                    .expect("the Ring room launches");
             (
                 f01_late::SESSION_SOURCE,
                 run.fixture.name,
@@ -185,7 +199,7 @@ impl RoomRig {
             demo_beat: 0,
             cf02_rules: cf02,
             cf02_seed: seed,
-            view_height: 360,
+            view_height: view_h,
             donut_biscuit: room != "juicer" || donut.implies_biscuit(),
             carl_prog: carl.prog,
             carl_dynamite: carl.dynamite,
@@ -577,6 +591,55 @@ fn a_recorded_ring_session_verifies_strict() {
             tamper_manifest(&session, |m| m.reset.f01_room = Some(other.id().into()));
             assert!(verify(&session).is_err(), "{room:?} relabelled {other:?}");
         }
+    }
+}
+
+/// AREA-RINGS-01 evidence helper (ignored, writes only under `RINGS_REC_DIR`):
+/// records the Ring pilot's session of each room (the pilot of the recorded
+/// strict-verify test above, under the story loadout) so the replay viewer can
+/// render the rooms with the hero in every zone, and prints the session ids, the
+/// verified post hash of the last tick and a hero trace (`tick x y`, every 10
+/// ticks) per room. The Ring rooms have no `--room-pilot`, and the walk-right
+/// script cannot pass the closed shutter.
+///
+/// `RINGS_REC_DIR=<dir> cargo test --lib -- --ignored record_ring_evidence_sessions --nocapture`
+#[test]
+#[ignore = "evidence helper: records the Ring pilot sessions the replay viewer renders"]
+fn record_ring_evidence_sessions() {
+    use crate::f01_ring::{RingRoom, launch};
+    use crate::f01_ring_fixtures::{Route, pilot};
+    let Ok(base) = std::env::var("RINGS_REC_DIR") else {
+        return;
+    };
+    for (room, view_h) in RingRoom::ALL.into_iter().flat_map(|r| [(r, 360), (r, 400)]) {
+        let dir = PathBuf::from(&base).join(format!("{}_{view_h}", room.id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let route = Route::of(&launch(&root(), room).unwrap(), false);
+        let mut rig =
+            RoomRig::build_view(&dir, room.id(), Some(Loadout::Story), None, None, view_h);
+        let mut trace = String::new();
+        for tick in 1..=900u64 {
+            let hero = rig.party.controlled_hero();
+            let mut input = pilot(&route, &rig.combat, &rig.scene, hero);
+            input.ability = false;
+            rig.step(input);
+            if tick % 10 == 0 {
+                let b = rig.scene.world.body(hero);
+                trace.push_str(&format!("{tick} {:.0} {:.0}\n", b.x, b.y));
+            }
+        }
+        let manifest = rig.rec.finish("test").expect("finished");
+        let report = verify(&dir.join(&manifest.session_id)).expect("verifies strict");
+        std::fs::write(dir.join("trace.txt"), trace).unwrap();
+        println!(
+            "RINGS_SESSION room={} view={view_h} session={} ticks={} state_hashes={} scope={:?} combat_hash={:#018x}",
+            room.id(),
+            manifest.session_id,
+            report.ticks,
+            report.state_hashes,
+            report.scope,
+            rig.combat.state_hash(&rig.scene)
+        );
     }
 }
 

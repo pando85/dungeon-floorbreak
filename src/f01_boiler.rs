@@ -308,6 +308,22 @@ pub(crate) fn compose_kit_with_steps(
     room: &Room,
     steps: &[crate::camera_lab::room::IRect],
 ) -> Result<EnvKit, String> {
+    compose_kit_hooked(root, room, steps, None, |_| Ok(()))
+}
+
+/// [`compose_kit_with_steps`] with a **dressing hook** (AREA-RINGS-01): `hook`
+/// edits the composed layout value after the platform face rows are cleared and
+/// before it is parsed, and `contract` (default: the catacomb contract merged
+/// with the opening kit) builds the kit. A presentation-only dressing adds
+/// pieces and swaps the parallax strips through it; the collision tiles, the
+/// steps, the views and the walking line are built exactly as without it.
+pub(crate) fn compose_kit_hooked(
+    root: &Path,
+    room: &Room,
+    steps: &[crate::camera_lab::room::IRect],
+    contract: Option<crate::env_kit::Contract>,
+    hook: impl FnOnce(&mut Value) -> Result<(), String>,
+) -> Result<EnvKit, String> {
     let mut room = room.clone();
     room.steps.clear();
     room.steps.extend_from_slice(steps);
@@ -324,8 +340,12 @@ pub(crate) fn compose_kit_with_steps(
             layout["tile_layers"]["collision"][face_row][col as usize] = Value::Null;
         }
     }
+    hook(&mut layout)?;
     let layout: Layout = serde_json::from_value(layout).map_err(|e| e.to_string())?;
-    let contract = merged_contract(root).map_err(|e| e.to_string())?;
+    let contract = match contract {
+        Some(c) => c,
+        None => merged_contract(root).map_err(|e| e.to_string())?,
+    };
     let mut kit = EnvKit::build(&contract, &layout).map_err(|e| e.to_string())?;
     // The walking line 288 px below the top of the 640x360 view (308 px below
     // the top of the 640x400 one), like the corridor and the DEMO hall.

@@ -829,9 +829,11 @@ fn the_scorch_embers_fade_from_the_drum_detonation_tick() {
     assert_eq!(first(&blind, Sheet::Scorch).unwrap().frame, SCORCH.last());
 }
 
-/// RING-A/B wire (KR17): the court's static closed shutter draws as a labelled
+/// RING-A/B wire (KR17): the court's static closed shutter has a labelled
 /// greybox stand-in over its whole closed rectangle (with no sheet, so it always
-/// draws), the split draws nothing, and drawing never changes the state hash.
+/// draws unless the scene shows the stone shutter instead: the scene skips it
+/// while the ring atlas is loaded), the split draws nothing, and drawing never
+/// changes the state hash.
 #[test]
 fn the_static_shutter_draws_its_greybox_stand_in_and_the_hash_stays() {
     use crate::f01_ring::{RingRoom, combat_of, launch};
@@ -844,7 +846,7 @@ fn the_static_shutter_draws_its_greybox_stand_in_and_the_hash_stays() {
     let drawn = pieces(&run.loaded.encounter, env, 0);
     let slab: Vec<_> = drawn
         .iter()
-        .filter(|p| p.label == "shutter (greybox stand-in)")
+        .filter(|p| p.label == crate::ring_shutter_art::STANDIN_LABEL)
         .collect();
     assert_eq!(slab.len(), 1);
     assert_eq!(slab[0].rect, run.shutter().unwrap());

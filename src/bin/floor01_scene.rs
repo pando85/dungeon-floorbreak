@@ -380,6 +380,11 @@ struct Args {
     f01_ring: Option<f01_ring::RingRoom>,
     /// The launched Ring room (`main` fills it right after parsing).
     ring_run: Option<Box<f01_ring::RingRun>>,
+    /// AREA-RINGS-01 evidence: `--ring-pilot` plays a Ring room's scripted run with
+    /// the library pilot (`f01_ring_fixtures::pilot`: the step, the walkway, the
+    /// fight, the exit) instead of the walk-right script, so a capture can stand the
+    /// hero in every zone. The Ring rooms have no `--room-pilot`. Scripted runs only.
+    ring_pilot: bool,
     /// CORRAL-WIRE: `--scene f01_late --f01-room corral`, room 0 (the Infernal
     /// Corral). The first listed room since CORRAL-F (plan section 14.7; it
     /// launched unlisted under CORRAL-WIRE).
@@ -1474,6 +1479,7 @@ fn parse_args_full(
         mastery_run: None,
         f01_ring: None,
         ring_run: None,
+        ring_pilot: false,
         f01_corral: false,
         corral_run: None,
         f01_dozer: false,
@@ -1635,6 +1641,7 @@ fn parse_args_full(
                 let value = iter.next().ok_or("--f01-room needs a room id")?;
                 parsed.f01_room = Some(value.clone());
             }
+            "--ring-pilot" => parsed.ring_pilot = true,
             "--room-pilot" => {
                 let value = iter
                     .next()
@@ -1807,6 +1814,16 @@ fn parse_args_full(
     resolve_f01_late_args(&mut parsed)?;
     resolve_boiler_args(&mut parsed)?;
     resolve_refuge_args(&mut parsed)?;
+    if parsed.ring_pilot {
+        if parsed.f01_ring.is_none() {
+            return Err("--ring-pilot needs a Ring room (--scene f01_late --f01-room ring_court or ring_split)".into());
+        }
+        if parsed.room_pilot.is_some() {
+            return Err(
+                "--ring-pilot replaces --room-pilot (the Ring rooms take only --ring-pilot)".into(),
+            );
+        }
+    }
     if let Some(pilot) = parsed.room_pilot {
         let juicer = parsed.boss && parsed.f01_room.as_deref() == Some("juicer");
         if !(parsed.f01_boiler
@@ -2587,6 +2604,14 @@ fn scripted_input(
     if let Some(pilot) = args.room_pilot {
         // EVID-ROOM: the scripted pilot of a room scene (slot 0; slot 1 below).
         pilot.inputs(combat, sim, room_exit_x(args))[0]
+    } else if let (true, Some(run)) = (args.ring_pilot, &args.ring_run) {
+        // AREA-RINGS-01 evidence: the Ring library pilot (a pure function of the state).
+        dungeon_floorbreak::f01_ring_fixtures::pilot(
+            &dungeon_floorbreak::f01_ring_fixtures::Route::of(run, false),
+            combat,
+            sim,
+            HeroId::Carl,
+        )
     } else if args.lab_autopilot
         && let Some(run) = &args.lab_run
     {
@@ -4331,6 +4356,7 @@ fn run_window(
                 blink_cues::sync_blink_cues,
                 pierce_spark::sync_pierce_spark,
                 env_prop_art::sync_prop_art,
+                env_prop_art::sync_ring_shutter,
                 hazards_art::sync_hazard_art,
                 danger_fx_art::sync_danger_fx,
                 danger_fx_art::sync_acid_splash,
@@ -4965,6 +4991,27 @@ fn setup(
             layers_of("actors"),
             kit.actor_z,
             kit.foreground_z,
+        );
+    }
+
+    // AREA-RINGS-01: the court's stone shutter (the key cropped by `edge_px` plus the
+    // extras of spec section 6) in the greybox stand-in's place. The slab sits just
+    // under the dressing's housing piece (a prop-layer piece), so the housing draws
+    // over its top rows. Presentation only.
+    if let Some(run) = args.ring_run.as_ref().filter(|r| r.shutter().is_some()) {
+        let slab_z = kit
+            .pieces
+            .iter()
+            .find(|p| p.piece == "ring_shutter_housing")
+            .map_or(kit.actor_z - 1.0, |p| p.z - 0.0005);
+        env_prop_art::spawn_ring_shutter(
+            &mut commands,
+            &atlas("floor01_ring_shutter"),
+            &run.loaded.encounter,
+            slab_z,
+            kit.foreground_z,
+            layers_of("prop"),
+            layers_of("foreground"),
         );
     }
 
