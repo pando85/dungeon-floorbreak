@@ -81,24 +81,54 @@ fn act1_shore_2p_and_the_default_companion() {
 }
 
 /// ACT1-F04: a party defeat respawns at the checkpoint (local 56), the living goblins are
-/// restored and no machine stands anywhere in the room.
+/// restored to their spawn columns and health (they had moved and one was hurt) and no machine
+/// stands anywhere in the room.
 #[test]
 fn act1_shore_retry_from_post_chase() {
+    // The fixture itself refuses to run without a hurt, moved goblin before the respawn.
     let s = sim(Case::ShoreRetryFromPostChase);
     assert!(!s.complete());
-    assert!(
-        s.x_of(HeroId::Carl) < 80.0,
-        "Carl stands at the checkpoint column 56"
-    );
     assert_eq!(s.run.rules.checkpoints, [56]);
-    assert_eq!(s.combat.enemies.len(), 2);
-    assert!(s.combat.enemies.iter().all(|g| g.alive() && g.health == 2));
-    assert!(
-        s.combat.enemies.iter().all(|g| g.x > 450.0),
-        "back at their columns"
-    );
     assert!(s.combat.slot_enemies().is_empty(), "no machine anywhere");
     assert!(s.defeats().is_empty());
+    // Step by step: just before and just after the respawn.
+    let mut s = Act1Sim::new(
+        &root(),
+        Act1Room::Shore,
+        CarlProgFlags::default(),
+        DonutProgFlags::default(),
+        Party::Solo { uncontrolled: BOT },
+    )
+    .unwrap();
+    let ex = s.exit_x();
+    while s.tick() < 400 && s.combat.enemies.iter().all(|g| g.health == 2) {
+        let input = clear_and_exit(&s.combat, &s.scene, ex);
+        s.step([input, RawInput::NONE]);
+    }
+    assert!(
+        s.combat.enemies.iter().any(|g| g.health < 2),
+        "one goblin is hurt"
+    );
+    assert!(
+        s.combat
+            .enemies
+            .iter()
+            .any(|g| (g.x - 528.0).abs() > 1.0 && (g.x - 568.0).abs() > 1.0),
+        "a goblin has walked off its column"
+    );
+    s.respawn();
+    let columns: Vec<f32> = s.combat.enemies.iter().map(|g| g.x).collect();
+    assert_eq!(
+        columns,
+        [528.0, 568.0],
+        "the goblins are back on their columns"
+    );
+    assert!(s.combat.enemies.iter().all(|g| g.alive() && g.health == 2));
+    assert!(
+        (s.x_of(HeroId::Carl) - 56.0).abs() < 1.0,
+        "{}",
+        s.x_of(HeroId::Carl)
+    );
 }
 
 /// ACT1-F05: exactly one `UnlockGranted { hero: 1 }` when Donut's pivot enters the zone, the
@@ -155,9 +185,17 @@ fn the_guild_door_stands_until_the_unlock_tick() {
         if s.unlocks().is_empty() {
             assert_eq!(s.door_stands(), Some(true), "tick {}", s.tick());
             assert!(
-                (336.0..376.0).contains(&s.x_of(HeroId::Donut)) || s.x_of(HeroId::Donut) < 376.0
+                s.x_of(HeroId::Donut) < 376.0,
+                "still short of the zone's end"
             );
         } else {
+            if zone.is_none() {
+                assert!(
+                    (336.0..376.0).contains(&s.x_of(HeroId::Donut)),
+                    "the unlock tick: Donut's pivot is in the zone, {}",
+                    s.x_of(HeroId::Donut)
+                );
+            }
             zone.get_or_insert(s.tick());
             assert_eq!(s.door_stands(), Some(false));
             assert_eq!(s.door_events().len(), 1);
@@ -223,10 +261,72 @@ fn act1_guild_all_loadout_is_open() {
     );
 }
 
-/// The door is closed to a Carl who is alone: with the companion trailing far behind he cannot
-/// leave until her mana unlocks (no softlock: the companion walks the zone on her own).
+/// The closed door is a real wall for Carl: with P2 (Donut) idle he walks into it and stops at
+/// x 516 (the door's left edge 528 minus his half width), for as long as her mana is locked and
+/// the room never completes. When she walks the zone, Carl is still held at the door at the end
+/// of the unlock tick (he collided earlier in that tick) and is through it by two ticks later.
 #[test]
-fn carl_alone_cannot_pass_the_closed_door() {
+fn the_closed_door_blocks_carl_until_the_tick_after_the_unlock() {
+    let (carl, donut) = story();
+    let mut s = Act1Sim::new(&root(), Act1Room::Guild, carl, donut, Party::TwoPlayer).unwrap();
+    let ex = s.exit_x();
+    let limit = 528.0 - crate::prototype::HERO_HALF_WIDTH;
+    let (mut max_x, mut at_the_door) = (0.0f32, 0u32);
+    for _ in 0..200 {
+        let x = s.x_of(HeroId::Carl);
+        s.step([walk_in(x, ex), RawInput::NONE]);
+        max_x = max_x.max(s.x_of(HeroId::Carl));
+        if s.x_of(HeroId::Carl) >= limit - 1.0 {
+            at_the_door += 1;
+        }
+    }
+    assert!(
+        s.unlocks().is_empty() && !s.complete(),
+        "Donut idles: the door stays shut"
+    );
+    assert!(max_x <= limit + 0.5, "the door blocks Carl: max x {max_x}");
+    assert!(
+        at_the_door >= 50,
+        "Carl stood at the door for {at_the_door} ticks"
+    );
+    // Donut walks the zone; Carl keeps pressing right.
+    while s.unlocks().is_empty() && s.tick() < 600 {
+        let (cx, dx) = (s.x_of(HeroId::Carl), s.x_of(HeroId::Donut));
+        s.step([walk_in(cx, ex), walk_in(dx, ex)]);
+    }
+    assert_eq!(s.unlocks().len(), 1);
+    let unlock_tick = s.unlocks()[0].0;
+    assert_eq!(s.tick(), unlock_tick);
+    assert!(
+        s.x_of(HeroId::Carl) <= limit + 0.5,
+        "still held at the end of the unlock tick: {}",
+        s.x_of(HeroId::Carl)
+    );
+    assert_eq!(
+        s.door_stands(),
+        Some(false),
+        "the door solid is already gone"
+    );
+    for _ in 0..2 {
+        let (cx, dx) = (s.x_of(HeroId::Carl), s.x_of(HeroId::Donut));
+        s.step([walk_in(cx, ex), walk_in(dx, ex)]);
+    }
+    assert!(
+        s.x_of(HeroId::Carl) > limit + 0.5,
+        "through the door two ticks after the unlock: {}",
+        s.x_of(HeroId::Carl)
+    );
+    while !s.complete() && s.tick() < 1200 {
+        let (cx, dx) = (s.x_of(HeroId::Carl), s.x_of(HeroId::Donut));
+        s.step([walk_in(cx, ex), walk_in(dx, ex)]);
+    }
+    assert!(s.complete());
+}
+
+/// Solo with the follow bot: Carl alone at the closed door is never a softlock, because the
+/// trailing bot crosses the zone before he reaches the door.
+#[test]
+fn the_trailing_bot_walks_the_zone_so_the_room_never_softlocks() {
     let (carl, donut) = story();
     let mut s = Act1Sim::new(
         &root(),
@@ -237,22 +337,52 @@ fn carl_alone_cannot_pass_the_closed_door() {
     )
     .unwrap();
     let ex = s.exit_x();
-    // The bot is held at the spawn column by freezing nothing: walk Carl, check he stops at the
-    // door while Donut has not unlocked yet (she follows, so the unlock comes later).
-    let mut stopped_at_door = false;
-    for _ in 0..600 {
+    while !s.complete() && s.tick() < 600 {
         let x = s.x_of(HeroId::Carl);
         s.step([walk_in(x, ex), RawInput::NONE]);
-        if s.unlocks().is_empty() && s.x_of(HeroId::Carl) > 500.0 {
-            stopped_at_door = true;
-            assert!(s.x_of(HeroId::Carl) < 528.0, "the door blocks Carl");
-        }
-        if s.complete() {
-            break;
-        }
     }
-    let _ = stopped_at_door;
-    assert!(s.complete(), "the trailing bot walks the zone: no softlock");
+    assert!(s.complete() && s.unlocks().len() == 1);
+}
+
+/// ACT1-F05: Donut's prompt reads `SWAT` before the biscuit and `MISSILE` from the unlock tick on
+/// (the pre-existing `PreBiscuit` switch, now played in the guild).
+#[test]
+fn donuts_prompt_switches_from_swat_to_missile_at_the_biscuit() {
+    use crate::donut_hud::{donut_ability_row, magic_of};
+    use crate::donut_mana::EmptyPress;
+    use crate::hud::{AbilityRow, Control, LabelId, SpecialSlot};
+    let (carl, donut) = story();
+    let mut s = Act1Sim::new(
+        &root(),
+        Act1Room::Guild,
+        carl,
+        donut,
+        Party::Solo { uncontrolled: BOT },
+    )
+    .unwrap();
+    let label = |s: &Act1Sim| {
+        let row = donut_ability_row(
+            Control::Player(0),
+            magic_of(s.combat.donut_mana_view(), None),
+            EmptyPress::Dry,
+            true,
+            true,
+            SpecialSlot::Locked,
+        );
+        match row {
+            AbilityRow::Chips { a, .. } => a.label,
+            other => panic!("{other:?}"),
+        }
+    };
+    assert_eq!(label(&s), LabelId::Swat);
+    s.step([swap(), RawInput::NONE]);
+    let ex = s.exit_x();
+    while s.unlocks().is_empty() && s.tick() < 400 {
+        assert_eq!(label(&s), LabelId::Swat, "tick {}", s.tick());
+        let x = s.x_of(HeroId::Donut);
+        s.step([walk_in(x, ex), RawInput::NONE]);
+    }
+    assert_eq!(label(&s), LabelId::Missile, "from the unlock tick on");
 }
 
 /// The Pilot parser and fits.

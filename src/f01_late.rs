@@ -1587,24 +1587,25 @@ mod tests {
         assert!(check_descriptor(&m, "act1_guild", None, flags.0, flags.1).is_ok());
     }
 
-    /// KR12, ACT1-A: `act1_guild` is a room row granting `primary_ranged` before the corral
-    /// (the biscuit, read-through); moving the grant after the corral (or giving the guild a
-    /// trigger the table does not know) is refused or changes nothing the table holds.
+    /// KR12, ACT1-A: `act1_guild` is a room row granting `primary_ranged` (read-through, no
+    /// trigger) before the corral and the refuge, and a pin that holds a later grant on the
+    /// shore is refused with the exact KR12 error. The order itself is pinned by ACT1-F (the
+    /// listed rooms) and T01; `check_story_order` does not yet check that a grant's `requires`
+    /// are granted earlier (the same gap the old `guild_biscuit` point had): a follow-up.
     #[test]
     fn the_guild_row_grants_the_biscuit_before_the_corral() {
         let m = manifest();
         let at = |id: &str| index(&m.story_order, id);
-        assert!(at("act1_guild") < at("corral"));
+        assert!(at("act1_guild") < at("corral") && at("act1_guild") < at("rest_refuge"));
         assert!(m.pins_of("act1_guild").is_empty());
-        // A pin that holds the biscuit on the shore (before the guild grants it) is refused.
         let err = mutate(|order| {
             let shore = index(order, "act1_shore");
             order[shore].pins = vec!["f01_pin_pre_pile_boss".into()];
         })
         .unwrap_err();
-        assert!(
-            err.contains("jump_reach_boost") || err.contains("primary_ranged"),
-            "{err}"
+        assert_eq!(
+            err,
+            "story_order: pin \"f01_pin_pre_pile_boss\" of \"act1_shore\" holds \"jump_reach_boost\", granted later at \"rest_refuge\""
         );
     }
 

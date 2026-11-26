@@ -4607,9 +4607,25 @@ fn run_window(
     let cine_settings = args.cinematic_settings();
     let camera = scene_camera_of(&kit, &args, &sim, combat.as_ref(), window_size);
     let lighting_on = !args.no_lighting && kit.lighting.is_some();
-    let mordecai = if args.refuge && !args.refuge_empty {
+    // ACT1-A (ACT1-AD11): the guild's guide is Mordecai's existing `mordecai_h44` sprite on the
+    // refuge's mark (x 380, facing left), at the guide decor's column. Presentation only.
+    let act1_guide = args
+        .act1_run
+        .as_ref()
+        .filter(|run| run.room == f01_act1::Act1Room::Guild)
+        .and_then(|run| {
+            f01_act1::decor(run.room)
+                .iter()
+                .find(|d| d.label == "guide")
+        })
+        .map(|d| d.rect.x + d.rect.w / 2);
+    let mordecai = if (args.refuge && !args.refuge_empty) || act1_guide.is_some() {
         match refuge::Room::load(root).and_then(|room| room.mordecai(root)) {
-            Ok(found) => found.map(|m| {
+            Ok(found) => found.map(|mut m| {
+                if let Some(x) = act1_guide {
+                    m.x = x;
+                    m.facing = refuge::Facing::Left;
+                }
                 let spec = ActorSpec {
                     name: "MORDECAI",
                     width: m.frame_w,
@@ -5522,7 +5538,14 @@ fn setup(
     // ACT1-A: the Act I rooms' flat labelled greybox decor and the guild door (no art yet:
     // ACT1-Q7). Presentation only.
     if let Some(run) = args.act1_run.as_ref() {
-        spawn_act1_greybox(&mut commands, run, kit, height, layers_of("prop"));
+        spawn_act1_greybox(
+            &mut commands,
+            run,
+            kit,
+            height,
+            layers_of("prop"),
+            mordecai.0.is_some(),
+        );
     }
 
     // HAZ-B: the slimes, the Rot Stickers, the acid strip, the warning ring and the
@@ -8015,6 +8038,7 @@ fn spawn_act1_greybox(
     kit: &EnvKit,
     height: i32,
     layers: RenderLayers,
+    guide_sprite: bool,
 ) {
     for decor in f01_act1::decor(run.room) {
         let rect = decor.rect;
@@ -8027,6 +8051,10 @@ fn spawn_act1_greybox(
             rect.w,
             rect.h
         );
+        // The guide is Mordecai's sprite when it is loaded; the rectangle is the fallback.
+        if guide_sprite && decor.label == "guide" {
+            continue;
+        }
         commands.spawn((
             Sprite::from_color(
                 act1_decor_colour(decor.label),

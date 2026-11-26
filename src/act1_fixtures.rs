@@ -480,9 +480,23 @@ fn drive(root: &Path, case: Case) -> Result<Act1Sim, String> {
         Case::ShoreRetryFromPostChase => {
             let mut sim = Act1Sim::new(root, Act1Room::Shore, carl, donut, solo_bot)?;
             let ex = sim.exit_x();
-            while sim.tick() < 100 {
+            // Fight until a goblin has taken a hit (it has also walked off its column), so the
+            // respawn has something to restore.
+            while sim.tick() < 400 && sim.combat.enemies.iter().all(|g| g.health == 2) {
                 let input = clear_and_exit(&sim.combat, &sim.scene, ex);
                 sim.step([input, RawInput::NONE]);
+            }
+            let hurt = sim.combat.enemies.iter().any(|g| g.health < 2);
+            let moved = sim
+                .combat
+                .enemies
+                .iter()
+                .zip(sim.run.fixture.enemies)
+                .any(|(g, spawn)| (g.x - spawn.x as f32).abs() > 1.0);
+            if !hurt || !moved {
+                return Err(
+                    "the retry fixture needs a hurt, moved goblin before the respawn".into(),
+                );
             }
             sim.respawn();
             for _ in 0..60 {
@@ -595,7 +609,7 @@ pub const PINNED: [(&str, u64); 11] = [
     ("act1_shore_block_kill", 0xa41e_f2b4_9b85_2c09),
     ("act1_shore_2p", 0x16c4_c3c9_806a_cf0f),
     ("act1_shore_solo_companion", 0xf354_ef29_51b7_e634),
-    ("act1_shore_retry_from_post_chase", 0xa5c1_984a_e83a_c10a),
+    ("act1_shore_retry_from_post_chase", 0x34c3_de61_bae4_3a0d),
     ("act1_guild_solo_carl", 0xbd2d_56f9_249f_656d),
     ("act1_guild_solo_donut", 0x01a7_1c04_7d66_e4de),
     ("act1_guild_2p", 0xb3b2_8a6b_e8eb_e3fa),

@@ -605,7 +605,7 @@ All are adopted under the owner decision of 2026-11-25. The owner may change any
   - `LabelId::MagicMissile`, the `MAGIC MISSILE` notice (cut order 1 not needed: no golden moved).
   - The binary, PLAYTRACE and CI arms.
   - The fixtures ACT1-F01 to F08 (`src/act1_fixtures.rs`) and the tests T01 to T04 and T12.
-- **Greybox.** Both rooms are flat rectangles (the wedged machine and the guide are labelled decor; the `mordecai_h44` sprite is the allowed upgrade, ACT1-AD11), no audio, no dressing.
+- **Greybox.** Both rooms are flat rectangles (the wedged machine is labelled decor; the guide is the existing `mordecai_h44` sprite, ACT1-AD11), no audio, no dressing.
 - **Not in ACT1-A.** The chase room, the opening profile, `LockEvent::DozerContact`, ACT1-F10 to F18 and T10, T11, `LabelId::GetIntoTheAlcove` (all ACT1-B). `Act1Room` has no `Chase` variant yet.
 - **Pins.** `MANIFEST_HASH` re-pinned (`0xb42f_2f31_5436_e7d2` to `0x9f2e_dc09_b49e_0f08`); four new room and sidecar pins; `SCOPED_PIN_KEYS` 25 to 29. `TABLE_HASH`, `dozer::TUNING_HASH`, every DP, room 3 and golden hash are unchanged.
 
@@ -616,10 +616,10 @@ All are adopted under the owner decision of 2026-11-25. The owner may change any
 | ACT1-IMP-1 | Section 4.2 names `temperament` on the shore's roster rows, but the sidecar format carries a temperament on a mounted entry only (`deny_unknown_fields`; the validator refuses it elsewhere). | The sidecar rows carry `id`, `kind`, `x`, `beat` and `delay_ticks`. The module constant `f01_act1::SHORE_TEMPERAMENTS` (brawler, coward) is applied through the new `CombatState::with_goblin_temperaments`, which overrides the seeded draw's temperament only (empty everywhere else, so no other room moves). |
 | ACT1-IMP-2 | The post-chase checkpoint (centre 56) lies behind Carl's start (112), and the respawn columns must ascend. | A checkpoint behind the start is the only respawn column of the room (a retry puts the party at 56 in the shore and at 88 in the guild). A checkpoint ahead keeps the usual start then checkpoint pair. |
 | ACT1-IMP-3 | The design names `goal_x` as the exit centre. | The room parser derives the exit as `goal_x - 24`, 64 px wide, so `goal_x` is 752 (shore) and 584 (guild): the exit rectangles are the design's `{728, 484, 64, 96}` and `{560, 484, 64, 96}`. |
-| ACT1-IMP-4 | The design lists no sidecar form for an event with no target. | `RawOpensOn.target` defaults to the empty string. A `donut_unlocked` lock must leave it and `surface` empty; any other event with no target now fails as an unknown target instead of a missing field. |
+| ACT1-IMP-4 | The design lists no sidecar form for an event with no target. | `RawOpensOn.target` defaults to the empty string. A `donut_unlocked` lock must leave it and `surface` empty; any other event with no target now fails as an unknown target instead of a missing field (still refused, a different error class). |
 | ACT1-IMP-5 | The `guild_door` lock needed a log fact for "the door's open event". | A `CombatEvent::ManaLockOpened { tick, lock }` is appended and logged once per opening (first step records the state, so a room that starts unlocked logs none). It is hashed like every event and never mixed into the room state. |
 | ACT1-IMP-6 | Story setup of a story-less Act I room. | `SceneKind::Corral`'s setup (no pin row, no trigger), so `story_unlock.rs` and its table are untouched. |
-| ACT1-IMP-7 | The guild guide's draw. | A labelled flat rectangle (the sprite is the allowed upgrade); no ACT1-A art. |
+| ACT1-IMP-7 | The guild guide's draw. | The existing `mordecai_h44` sprite, drawn exactly as the refuge draws him (the refuge's Mordecai mark, standing at the guide decor's column x 380, facing left, with his contact shadow); presentation only. The labelled rectangle is the fallback when the atlas is not loaded. No new art. |
 | ACT1-IMP-8 | ACT1-F04 "a party defeat". | The fixture calls `CombatState::respawn` (the call a party defeat makes), the REST retry fixtures' precedent, and asserts the respawn column and the restored goblins. |
 | ACT1-IMP-9 | A scripted capture of the Act I rooms. | `--act1-pilot walk|donut|strike` (the `--rest-pilot` pattern); never with `--f01-run`. |
 
