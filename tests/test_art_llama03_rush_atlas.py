@@ -149,7 +149,8 @@ class AtlasTargetTests(unittest.TestCase):
 
 
 class RunCycleTests(unittest.TestCase):
-    """The B1 far legs: the run cycle never skates a planted hoof (world space, 12 px a frame)."""
+    """The run frames keep a hoof on the floor (rows 68 to 71). The B1 far-leg poses were checked in world space at 12 px a
+    frame by the gate and the independent review; this class does not re-check hoof travel."""
 
     @classmethod
     def setUpClass(cls):

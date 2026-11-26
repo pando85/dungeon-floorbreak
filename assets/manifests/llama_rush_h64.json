@@ -21,7 +21,7 @@
     "rush_recover"
   ],
   "required_alpha": true,
-  "owner": "AI-authored enemy animation candidate (fan-concept layer: Floor 1 Bad Llama; runtime role IP-neutral ranged spitter)",
+  "owner": "AI-authored enemy animation candidate (fan-concept layer: Floor 1 Bad Llama; runtime role IP-neutral charging animal, melee rush)",
   "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
   "provenance": {
     "origin": "LLAMA-03 Bad Llama rush art (docs/02-art/llama-03-rush-spec.md): 4 frozen keys (atlas frames 1, 2, 4, 8; fixture tests/fixtures/llama-03-rush_keys.json) plus 6 in-betweens (0, 3, 5, 6, 7, 9) rasterized by scripts/author_llama03_rush.py from the LLAMA-01 parametric rig and literal stamps; layer body; pixel-grid-v1 source, no image-model output, no tracing",

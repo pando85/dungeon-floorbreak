@@ -1,6 +1,6 @@
 # LLAMA-03: Bad Llama rush (brace, scrape, run, recover), design spec
 
-**Status:** design keys authored (frames 1, 2, 4 and 8 of the rush atlas); K1 and K2 applied at the silhouette gate. The ten-frame atlas, manifest, Bevy wiring and runtime evidence are executed (section 11); the independent review and the owner's art and game-feel review are pending. Nothing here is accepted: the owner judges the rush by playing it.
+**Status:** design keys authored (frames 1, 2, 4 and 8 of the rush atlas); K1 and K2 applied at the silhouette gate. The ten-frame atlas, manifest, Bevy wiring and runtime evidence are executed (section 11); the independent review passed with fixes (applied); the owner's art and game-feel review is pending. Nothing here is accepted: the owner judges the rush by playing it.
 
 Scope: the production art for the corral rush ([CRL-Q39](../01-design/enemy-gameplay-llama-rush.md)), replacing the CORRAL-E code-drawn stand-in's **body** (CRL-Q38) on the merged rush state. The rush mechanics, data and timings (`assets/data/gameplay/enemy_llama_rush_v0.json`, [enemy-gameplay-llama-rush.md](../01-design/enemy-gameplay-llama-rush.md)) are unchanged; this is presentation only.
 
@@ -197,9 +197,9 @@ Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope; no publ
 
 ### Rights/Provenance
 
-Rights/Provenance: designed Opus, gate Opus, executed Sonnet, reviewed Opus (review pending).
+Rights/Provenance: designed Opus, gate Opus, executed Sonnet, reviewed Opus (independent).
 
 - Design, spec, the four keys and the gate images: Claude Opus.
 - Silhouette gate (K1, K2, B1 to B8): Claude Opus, a separate fresh agent.
 - Execution (section 11): Claude Sonnet.
-- Independent review: pending, a separate top-tier agent.
+- Independent review: Claude Opus (a separate top-tier agent), PASS-with-fixes, nothing blocking.
