@@ -34,8 +34,10 @@ pub(super) struct HazardDecalArt {
     wall_z: f32,
     /// The nest and its scuffs: just under the Rot shell (`sticker_z - 0.002`).
     nest_z: f32,
-    /// The spent drip: the stand-in's z (`piece_z`).
+    /// The spent drip: over the nest, under the Rot shell (`sticker_z - 0.001`).
     drip_z: f32,
+    /// The deck's visible top surface above the walking line, from the kit (HZB-AD17).
+    deck_top_px: i32,
 }
 
 impl HazardDecalArt {
@@ -142,8 +144,10 @@ pub(super) fn spawn(
         wall_z: wall_z + 0.01,
         // The Rot shell is `actor_z - 0.04`.
         nest_z: actor_z - 0.04 - 0.002,
-        // The drip stand-in's z (`HazardArt::piece_z`).
-        drip_z: actor_z - 0.045,
+        // Between the nest and the shell (`HazardArt::sticker_z` is `actor_z - 0.04`): the spec's
+        // order draws the nest (6) before the spent drip (7) and the shell (8).
+        drip_z: actor_z - 0.04 - 0.001,
+        deck_top_px: kit.deck_top_px,
     });
 }
 
@@ -173,8 +177,14 @@ pub(super) fn sync_hazard_decals(
         return;
     };
     let world = &sim.0.world;
-    let list = statics
-        .get_or_insert_with(|| static_decals(env, world.layout_height(), state.fixture.name));
+    let list = statics.get_or_insert_with(|| {
+        static_decals(
+            env,
+            world.layout_height(),
+            art.deck_top_px,
+            state.fixture.name,
+        )
+    });
     let spent = drips(state, world.tick);
     for (kind, mut transform, mut sprite, mut visibility) in &mut sprites {
         let draw = match *kind {

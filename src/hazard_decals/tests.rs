@@ -34,6 +34,14 @@ fn room6() -> (EnvRuntime, i32, &'static str) {
     (combat.env().unwrap().clone(), h, run.fixture.name)
 }
 
+/// The deck's visible top surface, from the kit of the real rooms (HZB-AD17).
+fn deck() -> i32 {
+    let a = f01_hazards::launch(&root()).unwrap().kit.deck_top_px;
+    let b = f01_mastery::launch(&root()).unwrap().kit.deck_top_px;
+    assert_eq!(a, b, "both rooms share the catacomb kit's deep floor");
+    a
+}
+
 fn of(decals: &[Decal], sheet: DecalSheet) -> Vec<Decal> {
     decals
         .iter()
@@ -118,7 +126,7 @@ fn the_face_tiles_are_centred_alternately_mirrored_and_cropped() {
 #[test]
 fn room_4_placements_follow_the_authored_data() {
     let (env, layout_h, fixture) = room4();
-    let decals = static_decals(&env, layout_h, fixture);
+    let decals = static_decals(&env, layout_h, deck(), fixture);
     let line = layout_h - 580;
     // The acid patches (authored 248..312 and 856..920, walking line 580).
     let faces = of(&decals, DecalSheet::CorrFace);
@@ -146,8 +154,8 @@ fn room_4_placements_follow_the_authored_data() {
             .map(|d| (d.x, d.y, d.layer))
             .collect::<Vec<_>>(),
         vec![
-            (248 + WALL_INSET_PX, line, DecalLayer::Wall),
-            (856 + WALL_INSET_PX, line, DecalLayer::Wall)
+            (248 + WALL_INSET_PX, line + deck(), DecalLayer::Wall),
+            (856 + WALL_INSET_PX, line + deck(), DecalLayer::Wall)
         ]
     );
     // The entry stain of room 4, at x 150, bottom row on the walking line.
@@ -184,7 +192,7 @@ fn room_4_placements_follow_the_authored_data() {
 #[test]
 fn room_6_placements_follow_the_authored_data() {
     let (env, layout_h, fixture) = room6();
-    let decals = static_decals(&env, layout_h, fixture);
+    let decals = static_decals(&env, layout_h, deck(), fixture);
     let line = layout_h - 580;
     let faces = of(&decals, DecalSheet::CorrFace);
     // The authored 320..360 patch: two tiles cropped to [316, 364].
@@ -200,7 +208,7 @@ fn room_6_placements_follow_the_authored_data() {
             .iter()
             .map(|d| (d.x, d.y))
             .collect::<Vec<_>>(),
-        vec![(320 + WALL_INSET_PX, line)]
+        vec![(320 + WALL_INSET_PX, line + deck())]
     );
     assert!(
         of(&decals, DecalSheet::CorrTop).is_empty(),
@@ -217,7 +225,7 @@ fn room_6_placements_follow_the_authored_data() {
 #[test]
 fn no_floor_top_stain_near_a_patch() {
     for (env, layout_h, fixture) in [room4(), room6()] {
-        let decals = static_decals(&env, layout_h, fixture);
+        let decals = static_decals(&env, layout_h, deck(), fixture);
         for patch in env.acid().patches() {
             let (x0, x1) = (patch.spec().x0, patch.spec().x1);
             for d in of(&decals, DecalSheet::CorrTop) {
@@ -243,7 +251,12 @@ fn a_wall_track_has_no_nest() {
     .sim(None);
     rig.idle(1);
     let env = rig.combat().env().unwrap();
-    let decals = static_decals(env, rig.scene().world.layout_height(), "haz_fixture");
+    let decals = static_decals(
+        env,
+        rig.scene().world.layout_height(),
+        deck(),
+        "haz_fixture",
+    );
     assert!(of(&decals, DecalSheet::RotNest).is_empty());
     assert!(of(&decals, DecalSheet::RotTrail).is_empty());
     assert!(decals.is_empty(), "{decals:?}");
@@ -265,7 +278,7 @@ fn the_decals_persist_after_a_drain() {
     }
     .sim(None);
     let layout_h = rig.scene().world.layout_height();
-    let before = static_decals(rig.combat().env().unwrap(), layout_h, "haz_fixture");
+    let before = static_decals(rig.combat().env().unwrap(), layout_h, deck(), "haz_fixture");
     assert_eq!(of(&before, DecalSheet::CorrFace).len(), 2);
     rig.idle(1);
     rig.kill_slime(0);
@@ -274,7 +287,7 @@ fn the_decals_persist_after_a_drain() {
     }
     let env = rig.combat().env().unwrap();
     assert!(env.acid().get(1).unwrap().rect().is_none(), "drained away");
-    assert_eq!(static_decals(env, layout_h, "haz_fixture"), before);
+    assert_eq!(static_decals(env, layout_h, deck(), "haz_fixture"), before);
     assert_eq!(static_capacity(env, "haz_fixture"), before.len());
 }
 
@@ -432,7 +445,7 @@ fn drawing_never_changes_the_state_hash() {
         drawn.step(input, RawInput::NONE);
         let tick = drawn.tick();
         if let Some(env) = drawn.combat().env() {
-            let _ = static_decals(env, layout_h, "haz_fixture");
+            let _ = static_decals(env, layout_h, deck(), "haz_fixture");
             let _ = static_capacity(env, "haz_fixture");
         }
         let _ = drips(drawn.combat(), tick);
@@ -440,4 +453,28 @@ fn drawing_never_changes_the_state_hash() {
         assert_eq!(plain.events().len(), drawn.events().len(), "tick {k}");
     }
     assert!(walk_event_count(&plain) == walk_event_count(&drawn));
+}
+
+/// HZB-AD17: the wall trail lies wholly on the backwall. Its pivot row is the layout row
+/// `floor_y - DECK_TOP_PX - 1`, the last backwall row above the deck's back edge, with the
+/// deck depth derived from the kit (20 px: `tests/test_art_hazard_decals.py` checks the same
+/// edge against a captured pixel column of each room).
+#[test]
+fn the_wall_trail_sits_on_the_backwall_base() {
+    assert_eq!(deck(), 20, "the catacomb kit's deep floor");
+    for (env, layout_h, fixture) in [room4(), room6()] {
+        let decals = static_decals(&env, layout_h, deck(), fixture);
+        let walls = of(&decals, DecalSheet::CorrWall);
+        assert_eq!(walls.len(), env.acid().patches().count());
+        for (d, patch) in walls.iter().zip(env.acid().patches()) {
+            let pivot_row = layout_h - d.y - 1;
+            assert_eq!(
+                pivot_row,
+                patch.spec().floor_y - deck() - 1,
+                "layout row of the pivot"
+            );
+            // The whole 24 rows are above the deck's back edge (layout rows smaller than it).
+            assert!(layout_h - (d.y + d.h) >= 0 && pivot_row < patch.spec().floor_y - deck());
+        }
+    }
 }

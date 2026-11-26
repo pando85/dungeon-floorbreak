@@ -118,6 +118,20 @@ pub struct PieceDef {
     pub lights: Vec<LightDef>,
 }
 
+/// The kit's `walk_line.base_floor` block: the deep floor's back edge and walking line (kit px).
+#[derive(Debug, Clone, Copy, Deserialize)]
+pub struct BaseFloor {
+    pub floor_back_y: i32,
+    pub walk_line_y: i32,
+}
+
+/// The kit's `walk_line` block (only the part the presenters read).
+#[derive(Debug, Clone, Deserialize)]
+pub struct WalkLineDef {
+    #[serde(default)]
+    pub base_floor: Option<BaseFloor>,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 pub struct Contract {
     pub format: String,
@@ -125,6 +139,9 @@ pub struct Contract {
     pub tile_size: [i32; 2],
     pub layers: Vec<LayerDef>,
     pub actor_draw_order: u32,
+    /// The walking line contract (the deep floor's depth, [`EnvKit::deck_top_px`]).
+    #[serde(default)]
+    pub walk_line: Option<WalkLineDef>,
     /// Presentation only: the light group actors are lit as.
     #[serde(default = "default_actor_light_group")]
     pub actor_light_group: String,
@@ -259,6 +276,10 @@ pub struct EnvKit {
     pub height: i32,
     pub tile: i32,
     pub base_walk_line_y: i32,
+    /// The deep floor's visible top surface above the walking line, px: the kit's
+    /// `walk_line.base_floor` `walk_line_y - floor_back_y` (20 in the catacomb kit), 0 when the
+    /// contract has none. Presentation only (the backwall base of the wall decals sits above it).
+    pub deck_top_px: i32,
     pub atlases: BTreeMap<String, String>,
     pub tiles: Vec<TileDraw>,
     pub pieces: Vec<PieceDraw>,
@@ -580,6 +601,11 @@ impl EnvKit {
             height,
             tile,
             base_walk_line_y: layout.base_walk_line_y,
+            deck_top_px: contract
+                .walk_line
+                .as_ref()
+                .and_then(|w| w.base_floor)
+                .map_or(0, |b| b.walk_line_y - b.floor_back_y),
             atlases,
             tiles,
             pieces,
@@ -899,6 +925,18 @@ mod tests {
         layout.parallax_layers.clear();
         let after = EnvKit::build(&contract, &layout).unwrap().solid_rects;
         assert_eq!(before, after);
+    }
+
+    /// AREA-HAZARDS-01B (HZB-AD17): the deck's visible top surface is the kit's deep floor,
+    /// `walk_line_y - floor_back_y` of `walk_line.base_floor` (20 px in the catacomb kit).
+    #[test]
+    fn the_deck_top_is_the_kits_deep_floor() {
+        let (contract, layout) = files();
+        let base = contract.walk_line.as_ref().unwrap().base_floor.unwrap();
+        assert_eq!((base.floor_back_y, base.walk_line_y), (288, 308));
+        let kit = EnvKit::build(&contract, &layout).unwrap();
+        assert_eq!(kit.deck_top_px, 20);
+        assert_eq!(kit.deck_top_px, kit.base_walk_line_y - base.floor_back_y);
     }
 
     #[test]

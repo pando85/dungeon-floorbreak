@@ -5,7 +5,8 @@
 //!
 //! - the **corrosion** under every acid patch: `dfx_corr_face` tiles along the floor
 //!   face (the patch's **authored** `x0..x1`, not the live rectangle, because the
-//!   stain outlives the drain), one `dfx_corr_wall` trail on the backwall per patch, and
+//!   stain outlives the drain), one `dfx_corr_wall` trail on the backwall per patch (its
+//!   pivot row on the **backwall base**, above the deck's back edge: HZB-AD17), and
 //!   the const entry stains of [`ENTRY_STAINS`] (room 4's `dfx_corr_top` at x 150);
 //! - the **Rot marks** on every ceiling track: a `dfx_rot_nest` at the track's `start`
 //!   (HZB-AD6: ceilings only, wall nests are deferred) and a `dfx_rot_trail` scuff
@@ -108,7 +109,7 @@ pub const FACE_H: i32 = 10;
 /// `dfx_corr_top`: 32 x 6, the bottom row on the walking line.
 pub const TOP_W: i32 = 32;
 pub const TOP_H: i32 = 6;
-/// `dfx_corr_wall`: 12 x 24, the bottom row on the walking line.
+/// `dfx_corr_wall`: 12 x 24, the bottom row on the backwall base (HZB-AD17).
 pub const WALL_W: i32 = 12;
 pub const WALL_H: i32 = 24;
 /// `dfx_rot_nest`: 32 x 12, row 0 on the ceiling's underside line.
@@ -154,13 +155,13 @@ const DRIP_DROP_W: usize = DRIP_RUN_W + DRIP_RUN_FRAMES;
 /// The draw order of the decals; the presenter maps each layer to a z.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum DecalLayer {
-    /// The backwall trail: just over the backwall decals.
+    /// The backwall trail: just over the backwall decals, on the backwall base.
     Wall,
     /// The floor stains: over the floor solid, under the acid.
     Floor,
     /// The ceiling nest and its scuffs: over the ceiling solid, under the Rot shell.
     Nest,
-    /// The spent drip: the stand-in's z.
+    /// The spent drip: over the nest, under the Rot shell (`sticker_z - 0.001`).
     Drip,
 }
 
@@ -234,7 +235,7 @@ fn tiles(x0: i32, x1: i32, width: i32, margin: i32) -> Vec<(i32, bool, i32, i32)
 }
 
 /// The decals of one acid patch: its corrosion face tiles and its wall trail.
-fn patch_decals(spec: &AcidPatchSpec, layout_h: i32, out: &mut Vec<Decal>) {
+fn patch_decals(spec: &AcidPatchSpec, layout_h: i32, deck_top_px: i32, out: &mut Vec<Decal>) {
     let line = layout_h - spec.floor_y;
     for (x, mirrored, src_x, w) in tiles(spec.x0, spec.x1, FACE_W, FACE_MARGIN_PX) {
         out.push(Decal {
@@ -250,12 +251,15 @@ fn patch_decals(spec: &AcidPatchSpec, layout_h: i32, out: &mut Vec<Decal>) {
             layer: DecalLayer::Floor,
         });
     }
+    // HZB-AD17: the trail lies on the backwall, never on the deck's top surface. Its pivot
+    // row is the layout row `floor_y - deck_top_px - 1` (the last backwall row above the
+    // deck's back edge), so the canvas' bottom-left sits `deck_top_px` above the walking line.
     out.push(Decal::whole(
         DecalSheet::CorrWall,
         0,
         false,
         spec.x0 + WALL_INSET_PX,
-        line,
+        line + deck_top_px,
         DecalLayer::Wall,
     ));
 }
@@ -297,12 +301,19 @@ fn track_decals(track: &Track, out: &mut Vec<Decal>) {
 /// the room's const entry stains (`fixture` is the combat fixture's name) and the Rot
 /// marks of each ceiling track. Computed from the authored specs and tracks, never
 /// from the live state, so a drained patch keeps its stain (HZB-AD8). `layout_h` flips
-/// the room's layout rows (y down) into world rows (y up).
-pub fn static_decals(env: &EnvRuntime, layout_h: i32, fixture: &str) -> Vec<Decal> {
+/// the room's layout rows (y down) into world rows (y up); `deck_top_px` is the deck's
+/// visible top surface above the walking line ([`crate::env_kit::EnvKit::deck_top_px`],
+/// derived from the kit's deep floor).
+pub fn static_decals(
+    env: &EnvRuntime,
+    layout_h: i32,
+    deck_top_px: i32,
+    fixture: &str,
+) -> Vec<Decal> {
     let mut out = Vec::new();
     let mut first_line = None;
     for patch in env.acid().patches() {
-        patch_decals(patch.spec(), layout_h, &mut out);
+        patch_decals(patch.spec(), layout_h, deck_top_px, &mut out);
         first_line.get_or_insert(layout_h - patch.spec().floor_y);
     }
     if let Some(line) = first_line {
@@ -328,7 +339,7 @@ pub fn static_decals(env: &EnvRuntime, layout_h: i32, fixture: &str) -> Vec<Deca
 /// How many sprites the static decals of `env` need (the presenter's pool size); a
 /// function of the authored data only.
 pub fn static_capacity(env: &EnvRuntime, fixture: &str) -> usize {
-    static_decals(env, 0, fixture).len()
+    static_decals(env, 0, 0, fixture).len()
 }
 
 /// The drip frame of a spent sticker `age` ticks after its detonation: `drip_run_*` on

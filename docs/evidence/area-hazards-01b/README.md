@@ -37,9 +37,9 @@ python3 scripts/hz01b_evidence.py                   # contact_sheet_x8.png, spla
 | Grid | Canvas | Pivot | Frames | State to tag |
 | --- | --- | --- | --- | --- |
 | `dfx_acid_splash` | 32 x 24 | (16, 23) | 5 (2, 3, 3, 4, 4 ticks; frame 2 is the key) | an acid `HeroHurt`, `EnvironmentHurt` or `EnvironmentKill` -> `splash` once, 16 ticks |
-| `dfx_corr_face` | 32 x 10 | (16, 0) | 1 (the key) | under every acid patch, tiled over the authored `x0..x1` |
+| `dfx_corr_face` | 32 x 10 | (16, 0) | 1 (the key, redrawn after review: HZB-AD18) | under every acid patch, tiled over the authored `x0..x1` |
 | `dfx_corr_top` | 32 x 6 | (16, 5) | 1 | room 4's entry stain at x 150 |
-| `dfx_corr_wall` | 12 x 24 | (0, 23) | 1 | on the backwall, one per patch at `x0 + 6` |
+| `dfx_corr_wall` | 12 x 24 | (0, 23) | 1 | on the backwall base, one per patch at `x0 + 6`, pivot row at `floor_y - 20 - 1` (HZB-AD17) |
 | `dfx_rot_nest` | 32 x 12 | (16, 0) | 1 | at the `start` of every ceiling track |
 | `dfx_rot_trail` | 16 x 3 | (8, 0) | 1 | every 16 px along `lo..=hi`, more than 16 px from the nest |
 | `dfx_rot_drip` | 8 x 16 | ceiling (4, 0), wall (0, 0) | 14 | a spent sticker: `drip_run_c`/`_w` 4 x 6 ticks from `detonate_tick`, then `drip_drop_c`/`_w` 3 x 20 ticks looping |
@@ -80,6 +80,7 @@ Room 4 (`--f01-room hazards`): with the `direct` pilot Carl walks into the first
 
 | Pin | Why |
 | --- | --- |
+| `tests/fixtures/f01-dfx-corr-face_keys.json` (a new fixture of this PR, re-pinned after the review) | HZB-AD18: the corrosion key was redrawn with three unequal bites |
 | `tests/fixtures/f01-dfx-ring-r48_keys.json`, `tests/fixtures/f01-dfx-ring-r64_keys.json` | HZB-AD2: the outer band row of the march and hot frames is `flame_00`, so frame 0 (the frozen key) changes |
 | `assets/manifests/f01-dfx-acid.json`, `f01-dfx-ring-r48.json`, `f01-dfx-ring-r64.json` | the palette id and provenance of the acid (HZB-AD1) and the ring frame digests (HZB-AD2); the acid frame digests are unchanged because they hash the rows |
 | the `dfx_acid`, `dfx_ring_r48`, `dfx_ring_r64` atlases and the evidence `SHA256SUMS` of their folders | the pixels (teal ramp, tape backing) |
@@ -88,7 +89,9 @@ Unmoved on purpose: `tests/fixtures/f01-dfx-acid_keys.json` (a rows-only digest 
 
 ## Not covered
 
-- Room 6's non-mirrored splash: every stock pilot enters the 40 px pool from its left (tick 123 at x 316 or 313, centre 340). The mirror rule is room independent and tested (`acid_splash::tests::the_splash_is_mirrored_below_the_centre`).
+- Follow-ups from the review: a non-mirrored room 6 splash still and a goblin-in-pool still (no stock pilot produces either: a 36-run sweep of the room 6 library pilots and a 27-run sweep of the hazards pilots found only left-side hero entries and no goblin acid event); the older evidence folders that still show the green pool go to EVID-REFRESH-01; the room 4 scuffs of sticker 1 run over open brick because the drawn pillar is narrower than its solid (level art).
+
+- Room 6's non-mirrored splash (see the follow-ups above): every stock pilot enters the 40 px pool from its left (tick 123 at x 316 or 313, centre 340). The mirror rule is room independent and tested (`acid_splash::tests::the_splash_is_mirrored_below_the_centre`).
 - A goblin landing splash needs `fu.acid_hurt_event` for a non-lethal landing; a lethal landing splashes through its `EnvironmentKill`. No room pilot lands a goblin in a pool; the triggers are covered by `acid_splash::tests::only_acid_events_trigger`.
 - Wall nests are deferred (HZB-AD6); no authored room has a wall sticker, so the wall drip is covered by a test (`hazard_decals::tests::a_wall_drip_is_mirrored_on_the_right_wall`), not a capture.
 - Human pad play and a real-GPU frame time were not run.

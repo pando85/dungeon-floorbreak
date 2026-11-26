@@ -240,7 +240,7 @@ class HazardSheetsTest(unittest.TestCase):
 
     def test_the_lone_pixel_limit_and_the_orphan_budget_per_element(self) -> None:
         """Spec 9: no isolated pixel anywhere; the orphan limit is the largest measured frame
-        plus 2, at most 32 (the splash key measures 26, the corrosion key 15)."""
+        plus 2, at most 32 (the splash key measures 26, the corrosion key 13)."""
         for name in hz.HAZARD_SHEETS:
             grid = self.grid(name)
             rep = pg.lint_grid(grid)
@@ -252,7 +252,7 @@ class HazardSheetsTest(unittest.TestCase):
             self.assertEqual(cfg["rules"]["max_colors"], 63, name)
             self.assertLessEqual(len(grid["palette"]), 63, name)
         self.assertEqual(max(pg.lint_grid(self.grid("dfx_acid_splash"))["orphan_count_per_frame"]), 26)
-        self.assertEqual(pg.lint_grid(self.grid("dfx_corr_face"))["orphan_count_per_frame"], [15])
+        self.assertEqual(pg.lint_grid(self.grid("dfx_corr_face"))["orphan_count_per_frame"], [13])
 
     def test_every_config_passes_the_toolkit_validators(self) -> None:
         for name in hz.HAZARD_SHEETS:
@@ -279,6 +279,39 @@ class HazardSheetsTest(unittest.TestCase):
                 self.assertEqual(f["sha256"], validators.frame_digest(g["cels"], ["body"]), name)
         self.assertEqual(load(MANIFESTS / "f01-dfx-acid-splash.json")["palette_id"], "hz01b-acid-teal-v1")
         self.assertEqual(load(MANIFESTS / "f01-dfx-rot-drip.json")["palette_id"], "rot-sticker-floor01-v1")
+
+
+KIT = ROOT / "assets/source/terrain/floor01/floor01_catacomb_kit.json"
+SCENE = ROOT / "docs/evidence/area-hazards-01b/scene"
+# The window captures show layout rows 292.. at 1x (the camera row printed as `cam=0,292`), so the
+# walking line (layout row 580) is screen row 288.
+CAMERA_ROW, WALK_LINE_ROW = 292, 580
+
+
+class DeckEdgeTest(unittest.TestCase):
+    """HZB-AD17: the wall trail's pivot row is the last backwall row above the deck's back edge,
+    `floor_y - DECK_TOP_PX - 1`, with `DECK_TOP_PX` taken from the catacomb kit's deep floor."""
+
+    def test_the_deck_depth_is_the_kits_and_the_captured_deck_edge_agrees(self) -> None:
+        base = load(KIT)["walk_line"]["base_floor"]
+        deck_top = base["walk_line_y"] - base["floor_back_y"]
+        self.assertEqual(deck_top, 20)
+        walk_row = WALK_LINE_ROW - CAMERA_ROW
+        edge_row = walk_row - deck_top  # the deck's dark back-edge outline row
+        from PIL import Image
+
+        def lum(im: "Image.Image", x: int, y: int) -> int:
+            return sum(im.getpixel((x, y))[:3]) // 3
+
+        # Columns clear of actors, decals and props in the committed window stills: the deck's
+        # back edge is the dark row that the brighter deck top follows.
+        for still, columns in (("r4_corrosion_drained", (120, 150, 400)), ("r6_corrosion_drained", (500, 560))):
+            im = Image.open(SCENE / f"{still}_640x360.png").convert("RGB")
+            for x in columns:
+                edges = [y for y in range(262, 271) if lum(im, x, y) <= 40 and lum(im, x, y + 1) >= lum(im, x, y) + 25]
+                self.assertEqual(edges, [edge_row], f"{still} column {x}")
+        # The trail's pivot row is the row just above that edge: layout row floor_y - 20 - 1.
+        self.assertEqual(WALK_LINE_ROW - deck_top - 1 - CAMERA_ROW, edge_row - 1)
 
 
 if __name__ == "__main__":
