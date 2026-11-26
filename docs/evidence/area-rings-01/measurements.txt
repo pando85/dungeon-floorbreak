@@ -1,9 +1,9 @@
 ACTOR_SEPARATION room=ring_court actor=carl x=1216 layout=plain actor_L=38.3 ring_L=22.9 dL=15.3 contrast=2.34 edge_dL=14.7
-ACTOR_SEPARATION room=ring_court actor=carl x=1216 layout=dressed actor_L=38.3 ring_L=18.2 dL=20.1 contrast=2.69 edge_dL=14.7
+ACTOR_SEPARATION room=ring_court actor=carl x=1216 layout=dressed actor_L=38.0 ring_L=17.4 dL=20.6 contrast=2.73 edge_dL=14.6
 ACTOR_SEPARATION room=ring_court actor=goblin x=1824 layout=plain actor_L=29.4 ring_L=21.1 dL=8.3 contrast=1.82 edge_dL=13.2
-ACTOR_SEPARATION room=ring_court actor=goblin x=1824 layout=dressed actor_L=29.4 ring_L=20.5 dL=8.9 contrast=1.84 edge_dL=13.1
+ACTOR_SEPARATION room=ring_court actor=goblin x=1824 layout=dressed actor_L=28.5 ring_L=19.0 dL=9.5 contrast=1.79 edge_dL=14.0
 ACTOR_SEPARATION room=ring_court actor=goblin x=1424 layout=plain actor_L=28.6 ring_L=26.5 dL=2.1 contrast=1.46 edge_dL=18.4
-ACTOR_SEPARATION room=ring_court actor=goblin x=1424 layout=dressed actor_L=28.6 ring_L=25.0 dL=3.6 contrast=1.55 edge_dL=18.4
+ACTOR_SEPARATION room=ring_court actor=goblin x=1424 layout=dressed actor_L=29.6 ring_L=31.1 dL=-1.4 contrast=1.29 edge_dL=23.2
 ACTOR_SEPARATION room=ring_split actor=goblin x=560 layout=plain actor_L=27.9 ring_L=21.1 dL=6.8 contrast=1.74 edge_dL=15.1
 ACTOR_SEPARATION room=ring_split actor=goblin x=560 layout=dressed actor_L=27.9 ring_L=19.8 dL=8.1 contrast=1.79 edge_dL=15.1
 ACTOR_SEPARATION room=ring_split actor=goblin x=848 layout=plain actor_L=27.9 ring_L=21.4 dL=6.5 contrast=1.73 edge_dL=15.1
@@ -12,8 +12,8 @@ WALKABLE_TOP room=ring_court platform=step layout=plain top_arris_run_L=30.2 bri
 WALKABLE_TOP room=ring_court platform=walkway layout=plain top_arris_run_L=32.0 brightest_rival_run_L=43.3 at_y=545 brightest=rival
 WALKABLE_TOP room=ring_court platform=shelf layout=plain top_arris_run_L=31.3 brightest_rival_run_L=37.8 at_y=513 brightest=rival
 WALKABLE_TOP room=ring_court platform=step layout=dressed top_arris_run_L=44.5 brightest_rival_run_L=40.6 at_y=546 brightest=top
-WALKABLE_TOP room=ring_court platform=walkway layout=dressed top_arris_run_L=46.9 brightest_rival_run_L=43.3 at_y=545 brightest=top
-WALKABLE_TOP room=ring_court platform=shelf layout=dressed top_arris_run_L=45.8 brightest_rival_run_L=37.8 at_y=513 brightest=top
+WALKABLE_TOP room=ring_court platform=walkway layout=dressed top_arris_run_L=39.7 brightest_rival_run_L=38.9 at_y=545 brightest=top
+WALKABLE_TOP room=ring_court platform=shelf layout=dressed top_arris_run_L=52.6 brightest_rival_run_L=53.0 at_y=501 brightest=rival
 WALKABLE_TOP room=ring_split platform=route layout=plain top_arris_run_L=31.9 brightest_rival_run_L=41.8 at_y=545 brightest=rival
 WALKABLE_TOP room=ring_split platform=r3_ledge layout=plain top_arris_run_L=27.5 brightest_rival_run_L=39.7 at_y=545 brightest=rival
 WALKABLE_TOP room=ring_split platform=route layout=dressed top_arris_run_L=46.7 brightest_rival_run_L=39.7 at_y=545 brightest=top

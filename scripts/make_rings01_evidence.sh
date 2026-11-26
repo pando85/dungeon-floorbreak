@@ -39,10 +39,10 @@ xvfb() { xvfb-run -a -s '-screen 0 1920x1080x24' "$@" || true; }
 # name:room:tick. The scripted pilot's hero (x, sim camera x) per tick: 4a x 235 at tick 40 (cam 0), 975 at 280 (639),
 # on the walkway at 340 (x 1146), standing at x 1365 from tick 500 (cam 1041, settled), 1552 at 660, 1629 at 700 (the
 # goblin at 1824 is fought here), 1752 at 740 (cam 1408, clamped), at the exit from 850; 4b x 420 at tick 100 (cam 84),
-# 736 at 280 (cam 400), 921 at 340, x 1062 from 400 (cam 512, clamped).
+# 736 at 280 (cam 400), 921 at 340, x 1044 at 380 (cam 512, settled; Carl reaches the exit at tick 390 and the panel opens).
 stills=(entry_keystone:ring_court:40 great_arc_shutter:ring_court:280 walkway_under_arc:ring_court:340
         after_walkway:ring_court:530 ring_goblin:ring_court:700 full_ring:ring_court:740 exit:ring_court:850
-        arc_route:ring_split:100 camp:ring_split:280 r3_breach:ring_split:340 marker_exit:ring_split:420)
+        arc_route:ring_split:100 camp:ring_split:280 r3_breach:ring_split:340 marker_exit:ring_split:380)
 # res:scale:deck-flag
 sizes=(640x360:1: 1920x1080:3: 640x400:1:--deck)
 state() { grep "^COMBAT_STATE " "$1" | tail -n 1 | sed -E 's/.* hash=([0-9a-f]+).*/\1/'; }

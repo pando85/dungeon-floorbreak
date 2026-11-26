@@ -83,6 +83,9 @@ class Pix:
 LIGHT = (-0.55, -0.83)     # key light from the upper left (unit vector, y down)
 
 
+SOFT = 8                    # dithered falloff width of a local darkening, px
+
+
 class Arc:
     """One ring: geometry (angles from the apex, + to the right), bands and weathering seeds."""
 
@@ -157,7 +160,7 @@ ARC_LM = Arc(w=208, h=208, cx=LM_CX, cy=LM_CY, seed="lm", keystone=False,
             chip_range=(-1790, 1790), lichen_rows=26, lift=(-0.9, 0.2), crown_deg=0.0,
              # gate C4 (behind the goblin at x 1824, piece-local x about 144): recomputed by execution per band
              # after the move to 1680 (RNG-AD20); empty until then
-             local_dark=(),
+             local_dark=((112, 160, 180, 204, (3, 3, 2)),),
              # 4a: the bay-1680 torch moved to 1648 (pool 1544/364) and the bay torch at 1936 (pool 1832/364)
              torch_lit=pools_local(ARC_LM_AT, ((1544, 364), (1832, 364))),
              # the goblin at x 1824 stands at piece-local x 144 since the move to 1680 (RNG-AD20)
@@ -354,13 +357,8 @@ def _arc_value_shift(c: Pix, g: Arc) -> None:
     """K1 (gate verdict, spec section 16): every ``stone`` index drops by ``g.shift`` (floor 1); on the outer
     and notch bands of the crown sector (|a| < ``crown_deg`` from the apex) it drops by ``crown_extra`` more
     (the soffit's shadow). ``mortar``, ``iron`` and ``lichen`` stay."""
-    for (x0, y0, x1, y1, drop) in g.local_dark:
-        for y in range(y0, min(y1, c.h)):
-            for x in range(x0, min(x1, c.w)):
-                p = c.px[y][x]
-                if p is not None and p[0] == "stone":
-                    c.px[y][x] = ("stone", max(1, p[1] - drop))
     if g.shift == 0 and g.crown_extra == 0:
+        _local_dark(c, g)
         return
     for y in range(c.h):
         for x in range(c.w):
@@ -375,6 +373,28 @@ def _arc_value_shift(c: Pix, g: Arc) -> None:
                 drop += g.crown_extra
             c.px[y][x] = ("stone", min(g.cap, max(1, p[1] - drop)))
     _torch_bake(c, g)
+    _local_dark(c, g)
+
+
+def _local_dark(c: Pix, g: Arc) -> None:
+    # gate C4 / review finding 8: a local darkening behind an actor's head line, per band (outer, notch, inner
+    # drops) with a dithered falloff over ``SOFT`` px at every edge, never a hard-edged wedge
+    for (x0, y0, x1, y1, drops) in g.local_dark:
+        for y in range(max(0, y0 - SOFT), min(y1 + SOFT, c.h)):
+            for x in range(max(0, x0 - SOFT), min(x1 + SOFT, c.w)):
+                p = c.px[y][x]
+                if p is None or p[0] != "stone":
+                    continue
+                inside = min(x - x0, x1 - 1 - x, y - y0, y1 - 1 - y)        # < 0 outside the box
+                if inside >= SOFT:
+                    w = 1.0
+                else:
+                    w = (inside + SOFT) / (2.0 * SOFT)                       # 0.5 at the edge, 0 at SOFT outside
+                    if R(g, "ld", x, y) >= w:
+                        continue
+                r = math.hypot(x + 0.5 - g.cx, y + 0.5 - g.cy)
+                band = 0 if r >= g.outer[0] else (1 if r >= g.notch[0] else 2)
+                c.px[y][x] = ("stone", max(1, p[1] - drops[band]))
 
 
 def _torch_bake(c: Pix, g: Arc) -> None:
@@ -1435,6 +1455,14 @@ def ring_arc_upper(variant: str) -> Pix:
                 crown_deg=0.0, base=(4.6, 4.2, 4.2), brk={"outer": (900.0, 901.0), "notch": (900.0, 901.0),
                                                            "inner": (900.0, 901.0)})
     cy = 404.0                                              # the crest's outer edge sits 4 px below the top edge
+    if variant == "b":
+        # review finding 7: `b` is its own ring pair, not a re-seeded copy of `a`. A tighter radius (340) with the
+        # crest lifted so the arcs still meet `a`'s at the piece edges (the same y at x 0 and x 256), its own
+        # joint pitch (the angular pitch is the same, the blocks are shorter) and its own hairline cracks.
+        base.update(outer=(328.0, 340.0), groove_a=(326.0, 328.0), notch=(318.0, 326.0), groove_b=(316.0, 318.0),
+                    cracks=((-17.0, 336.0, 11, 0.7), (11.0, 322.0, 8, -0.6), (-31.0, 330.0, 9, 0.5),
+                            (27.0, 336.0, 10, -0.8)))
+        cy = 340.0
     # ring crests at local x 128, -128 and 384 (the flank of the neighbours): the arcs cross at the piece edges
     for cx in (128.0, -128.0, 384.0):
         draw_arc(c, Arc(cx=cx, cy=cy, **base))

@@ -227,6 +227,13 @@ class RingsKitTest(unittest.TestCase):
         for x in range(32):
             self.assertTrue(4 <= mid.px[5][x][1] <= 6 or mid.px[5][x][0] == "mortar", x)
 
+    def test_the_upper_arcs_are_not_near_duplicates(self):
+        pieces = pieces_of("floor01_ring_wall")
+        a, b = pieces["ring_arc_upper_a"], pieces["ring_arc_upper_b"]
+        diff = sum(1 for y in range(a.h) for x in range(a.w) if a.px[y][x] != b.px[y][x])
+        self.assertGreater(diff / (a.w * a.h), 0.15, "a 256 px repeat would run along the soffit")
+        self.assertLess(rings.mean_lstar(b), rings.mean_lstar(all_pieces()["ring_arc_wall_a"]))
+
     def test_c2_the_full_ring(self):
         lm = all_pieces()["ring_relief_landmark"]
         opaque = [(x, y) for y, row in enumerate(lm.px) for x, p in enumerate(row) if p]

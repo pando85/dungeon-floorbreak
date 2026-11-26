@@ -133,6 +133,8 @@ def layout_diagram(room: str, still: Path, left: int, contract: dict, sizes: dic
     d.text((560, sy(336) - 12), "soffit band 336..352 = ceiling slab solid", fill=(255, 120, 120, 255))
     shown = {"ring_soffit", "ring_ledge_mid", "ring_ledge_end_l", "ring_ledge_end_r", "ring_arc_upper_a", "ring_arc_upper_b"}
     for p in contract["room_dressing"][room]["place"]:
+        if p["piece"] not in sizes:
+            continue                                     # a composer piece the dressing re-places (torch pools)
         w, h = sizes[p["piece"]]
         col = (255, 210, 90, 255) if p["piece"] not in shown else (200, 160, 70, 255)
         if p["piece"] in ("ring_soffit",):
