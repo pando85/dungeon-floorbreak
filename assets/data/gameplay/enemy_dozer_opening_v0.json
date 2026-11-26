@@ -1,0 +1,23 @@
+{
+  "schema": "dozer-opening-v0",
+  "provenance": "ACT1-B: the opening profile of DOZER-CORE (DOZ-01 section 9, ENV-02 charge marker); room 3's enemy_dozer_v0.json is unchanged.",
+  "dzq06_cruise_px_s": 160,
+  "dzq07_catch_up_px_s": 185,
+  "dzq07_catch_up_gap_px": 260,
+  "dzq08_mercy_px_s": 150,
+  "dzq08_mercy_gap_px": 96,
+  "dzq09_accel_px_s_per_tick": 4,
+  "dzq25_no_hero_ahead_target": "cruise",
+  "dzq10_charge": {
+    "arm_x": 1888,
+    "min_gap_px": 140,
+    "tell_ticks": 36,
+    "speed_px_s": 240,
+    "max_ticks": 90,
+    "brake_ticks": 24,
+    "brake_slide_px": 4,
+    "strain_ticks": 90,
+    "reach_margin_ticks": 20,
+    "charges_per_attempt": 1
+  }
+}

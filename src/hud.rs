@@ -206,6 +206,11 @@ pub enum LabelId {
     /// capability with no ledger receipt and no `notices` row), raised by the `UnlockGranted`
     /// mana event of the Guild zone. Presentation only, never hashed.
     MagicMissile,
+    /// ACT1-B: the optional hint at the chase's checkpoint after a failure (`GET INTO THE
+    /// ALCOVE`, #179 section 4): shown for [`ALCOVE_HINT_TICKS`] after a checkpoint respawn in
+    /// `act1_chase`, only after a hero defeat, never on a fresh run. Presentation only, never
+    /// hashed; not a grant notice.
+    GetIntoTheAlcove,
 }
 
 impl LabelId {
@@ -233,6 +238,7 @@ impl LabelId {
             Self::HeavyFist => "HEAVY FIST",
             Self::SwapToDonut => "SWAP TO DONUT",
             Self::MagicMissile => "MAGIC MISSILE",
+            Self::GetIntoTheAlcove => "GET INTO THE ALCOVE",
         }
     }
 
@@ -248,7 +254,7 @@ impl LabelId {
     }
 
     /// Every label, in declaration order (the closed set the width checks iterate).
-    pub const ALL: [Self; 22] = [
+    pub const ALL: [Self; 23] = [
         Self::Punch,
         Self::Kick,
         Self::Swat,
@@ -271,6 +277,7 @@ impl LabelId {
         Self::HeavyFist,
         Self::SwapToDonut,
         Self::MagicMissile,
+        Self::GetIntoTheAlcove,
     ];
 
     /// The labels that can sit above the special socket (at most 33 px, HA2-AD1).
@@ -297,7 +304,8 @@ impl LabelId {
             | Self::PuddleJumper
             | Self::HeavyFist
             | Self::SwapToDonut
-            | Self::MagicMissile => false,
+            | Self::MagicMissile
+            | Self::GetIntoTheAlcove => false,
         }
     }
 
@@ -1462,7 +1470,12 @@ pub struct HudRuntime {
     /// in every other room), and the consecutive ticks Carl has stood in front of it.
     rest_door: Option<RestDoorView>,
     swap_hint_ticks: u16,
+    /// ACT1-B: the chase's alcove hint is live (the scene reports it each tick).
+    alcove_hint: bool,
 }
+
+/// ACT1-B: how long the alcove hint stays live after a checkpoint respawn in the chase.
+pub const ALCOVE_HINT_TICKS: u64 = 180;
 
 /// REST-WIRE: what the HUD needs of the refuge's staff door: its left edge (layout
 /// px) and whether it has opened. Fed by the scene; presentation only.
@@ -1531,6 +1544,7 @@ impl HudRuntime {
             hero_x: [0; 2],
             rest_door: None,
             swap_hint_ticks: 0,
+            alcove_hint: false,
         }
     }
 
@@ -1584,6 +1598,13 @@ impl HudRuntime {
     /// per tick before [`Self::step`], with [`Self::set_hero_x`].
     pub fn set_rest_door(&mut self, door: Option<RestDoorView>) {
         self.rest_door = door;
+    }
+
+    /// ACT1-B: the chase's alcove hint (`GET INTO THE ALCOVE`): the scene says whether it is live
+    /// (a checkpoint respawn in `act1_chase` less than [`ALCOVE_HINT_TICKS`] ago, after a hero
+    /// defeat). Call once per tick before [`Self::step`]. Never hashed.
+    pub fn set_alcove_hint(&mut self, live: bool) {
+        self.alcove_hint = live;
     }
 
     /// REST-AD7: the solo swap hint. In solo (Carl driven by a player, Donut by the
@@ -2018,6 +2039,11 @@ impl HudRuntime {
         self.donut_health = donut_health;
         self.step_boss_hud(engaged, boss_down, restarted);
         self.step_swap_hint();
+        if self.alcove_hint {
+            self.notices.offer(LabelId::GetIntoTheAlcove);
+        } else {
+            self.notices.cancel(LabelId::GetIntoTheAlcove);
+        }
         self.step_audience();
         if self.visual_key() != before {
             self.revision += 1;
@@ -3950,6 +3976,29 @@ mod tests {
         assert_eq!(shown.headline, LabelId::MagicMissile);
         // A defeat notice does not replace a grant notice (the queue's rule).
         assert_eq!(LabelId::for_notice_text("MAGIC MISSILE"), None);
+    }
+
+    /// ACT1-B: the chase's alcove hint is a plain headline the scene raises while it is live
+    /// (a respawn after a failure), withdrawn when it ends; with the hint never live (a fresh
+    /// run) nothing shows. Its text fits the notice frame like every other label.
+    #[test]
+    fn the_alcove_hint_shows_only_after_a_failure() {
+        let mut hud = HudRuntime::new(HudConfig::default());
+        let headline = |hud: &HudRuntime| hud.real_inputs().notice.map(|n| n.headline);
+        for _ in 0..300 {
+            hud.set_alcove_hint(false);
+            hud.step(HERO_HEALTH, DONUT_HEALTH, &[], 0);
+            assert_eq!(headline(&hud), None, "never on a fresh run");
+        }
+        hud.set_alcove_hint(true);
+        hud.step(HERO_HEALTH, DONUT_HEALTH, &[], 0);
+        assert_eq!(headline(&hud), Some(LabelId::GetIntoTheAlcove));
+        assert_eq!(LabelId::GetIntoTheAlcove.text(), "GET INTO THE ALCOVE");
+        assert!(!LabelId::GetIntoTheAlcove.is_grant());
+        // The hint ending withdraws it at once.
+        hud.set_alcove_hint(false);
+        hud.step(HERO_HEALTH, DONUT_HEALTH, &[], 0);
+        assert_eq!(headline(&hud), None);
     }
 
     /// DP-Q12: on the Juicer tick with both programs on, the two notices queue in

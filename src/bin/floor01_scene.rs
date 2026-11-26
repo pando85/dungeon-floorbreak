@@ -1080,7 +1080,9 @@ fn resolve_f01_late_args(parsed: &mut Args) -> Result<(), String> {
         f01_late::RoomScene::RestRefuge
         | f01_late::RoomScene::RestCamp
         | f01_late::RoomScene::RestAftermath => parsed.f01_rest = row.scene.rest(),
-        f01_late::RoomScene::Act1Shore | f01_late::RoomScene::Act1Guild => {
+        f01_late::RoomScene::Act1Chase
+        | f01_late::RoomScene::Act1Shore
+        | f01_late::RoomScene::Act1Guild => {
             parsed.f01_act1 = row.scene.act1();
         }
         f01_late::RoomScene::Corral => parsed.f01_corral = true,
@@ -2000,13 +2002,13 @@ fn parse_args_full(
     if let Some(kind) = parsed.act1_pilot {
         let Some(room) = parsed.f01_act1 else {
             return Err(
-                "--act1-pilot needs an Act I room (--scene f01_late --f01-room act1_shore or act1_guild)"
+                "--act1-pilot needs an Act I room (--scene f01_late --f01-room act1_chase, act1_shore or act1_guild)"
                     .into(),
             );
         };
         if !kind.fits(room) {
             return Err(format!(
-                "--act1-pilot {kind:?} does not fit the room {}: strike plays in act1_shore, donut in act1_guild, walk in either",
+                "--act1-pilot {kind:?} does not fit the room {}: strike plays in act1_shore, donut in act1_guild, hide and skip in act1_chase, walk in any",
                 room.id()
             ));
         }
@@ -2566,6 +2568,10 @@ fn step_hud(hud: &mut HudRuntime, sim: &SceneSim, combat: Option<&CombatState>) 
                 left_x: rect.x,
                 open,
             }),
+    );
+    // ACT1-B: the chase's alcove hint after a checkpoint respawn (read only; false elsewhere).
+    hud.set_alcove_hint(
+        combat.is_some_and(|c| dungeon_floorbreak::f01_act1::alcove_hint_live(c, sim.world.tick)),
     );
     // HUD-DEBT-02: Donut's real mana (None while the biscuit is locked).
     hud.set_donut_mana(combat.and_then(CombatState::donut_mana_view));
@@ -4850,6 +4856,7 @@ fn run_window(
                 corral_art::sync_partition_art,
                 fastfood_art::sync_fastfood_art,
                 sync_act1_door,
+                sync_act1_chase,
             )
                 .chain(),
             update_lighting,
@@ -5661,11 +5668,14 @@ fn setup(
             .dozer
             .as_ref()
             .map_or_else(Vec::new, |site| {
-                dungeon_floorbreak::dozer_art::lintel_sprites(
-                    to_world_y(height, kit.base_walk_line_y) as i32,
-                    kit.base_walk_line_y,
-                    site.lintel,
-                )
+                // Room 3 always holds its lintel (the sidecar's rule 4).
+                site.lintel.map_or_else(Vec::new, |lintel| {
+                    dungeon_floorbreak::dozer_art::lintel_sprites(
+                        to_world_y(height, kit.base_walk_line_y) as i32,
+                        kit.base_walk_line_y,
+                        lintel,
+                    )
+                })
             });
         let door = kit
             .pieces
@@ -5679,6 +5689,24 @@ fn setup(
             layers_of("actors"),
             &lintel,
             door,
+            kit,
+            &mut combat_handles,
+            &mut combat_entities,
+        );
+    } else if args
+        .act1_run
+        .as_ref()
+        .is_some_and(|run| run.room == f01_act1::Act1Room::Chase)
+    {
+        // ACT1-B: the chase's machine is room 3's DOZ-01 rig (no tunnel, no Guild door piece);
+        // its room pieces, the timber and barricade bursts and the wedge are the pure half's.
+        dozer_art::spawn(
+            &mut commands,
+            &asset_server,
+            &mut layouts,
+            layers_of("actors"),
+            &[],
+            None,
             kit,
             &mut combat_handles,
             &mut combat_entities,
@@ -8014,6 +8042,16 @@ fn spawn_rest_greybox(
 #[derive(Component)]
 struct Act1DoorSprite;
 
+/// ACT1-B: the chase's barricade sprite (a solid greybox rectangle until the machine's front
+/// reaches it, then hidden). Presentation only.
+#[derive(Component)]
+struct Act1BarricadeSprite;
+
+/// ACT1-B: a timber decor rectangle of the chase, hidden once the front has smashed it
+/// (`TimberSmashed`). Presentation only.
+#[derive(Component)]
+struct Act1TimberSprite(usize);
+
 /// The colour of an Act I decor rectangle by its label (flat, no art).
 fn act1_decor_colour(label: &str) -> Color {
     match label {
@@ -8021,6 +8059,13 @@ fn act1_decor_colour(label: &str) -> Color {
         "wedged_dozer" => Color::srgb(0.28, 0.24, 0.22),
         // The guide: a plain muted figure (ACT1-AD11: the sprite is the allowed upgrade).
         "guide" => Color::srgb(0.62, 0.52, 0.34),
+        // The chase (ACT1-B): the lowered soffit, the timber sets, the window, the arch and the lit
+        // alcove, the brightest shape of the S4 lane (spotting it is the player's decision).
+        "soffit" => Color::srgb(0.20, 0.17, 0.18),
+        "timber_a" | "timber_b" => Color::srgb(0.46, 0.30, 0.16),
+        "window" => Color::srgb(0.30, 0.22, 0.16),
+        "arch" => Color::srgb(0.13, 0.12, 0.14),
+        "alcove" => Color::srgb(1.0, 0.88, 0.50),
         _ => Color::srgb(0.58, 0.72, 0.80),
     }
 }
@@ -8051,13 +8096,37 @@ fn spawn_act1_greybox(
         if guide_sprite && decor.label == "guide" {
             continue;
         }
-        commands.spawn((
+        let mut entity = commands.spawn((
             Sprite::from_color(
                 act1_decor_colour(decor.label),
                 Vec2::new(rect.w as f32, rect.h as f32),
             ),
             Anchor::TOP_LEFT,
             Transform::from_xyz(rect.x as f32, to_world_y(height, rect.y), kit.actor_z - 0.2),
+            layers.clone(),
+        ));
+        if let Some(id) = decor
+            .label
+            .strip_prefix("timber_")
+            .and_then(|k| k.bytes().next())
+            .map(|b| usize::from(b - b'a'))
+        {
+            entity.insert(Act1TimberSprite(id));
+        }
+    }
+    if let Some(barricade) = run.barricade() {
+        commands.spawn((
+            Act1BarricadeSprite,
+            Sprite::from_color(
+                Color::srgb(0.40, 0.26, 0.14),
+                Vec2::new(barricade.w as f32, barricade.h as f32),
+            ),
+            Anchor::TOP_LEFT,
+            Transform::from_xyz(
+                barricade.x as f32,
+                to_world_y(height, barricade.y),
+                kit.actor_z - 0.1,
+            ),
             layers.clone(),
         ));
     }
@@ -8072,6 +8141,47 @@ fn spawn_act1_greybox(
             Transform::from_xyz(door.x as f32, to_world_y(height, door.y), kit.actor_z - 0.1),
             layers,
         ));
+    }
+}
+
+/// ACT1-B: the barricade disappears when the machine's front reaches it and a smashed timber set
+/// disappears with the front's passing (both read the machine, one tick behind the solid).
+fn sync_act1_chase(
+    combat: Res<Combat>,
+    mut barricades: Query<&mut Visibility, (With<Act1BarricadeSprite>, Without<Act1TimberSprite>)>,
+    mut timbers: Query<(&Act1TimberSprite, &mut Visibility), Without<Act1BarricadeSprite>>,
+    mut wedge_logged: Local<bool>,
+) {
+    let Some(d) = combat
+        .0
+        .as_ref()
+        .and_then(dungeon_floorbreak::dozer_art::dozer_of)
+    else {
+        return;
+    };
+    // The wedge is a labelled greybox (ACT1-Q3: the end-on art is a later work order).
+    if d.wedged() && !*wedge_logged {
+        *wedge_logged = true;
+        println!(
+            "F01_ACT1_WEDGE label=\"GREYBOX WEDGE\" clip_right={}",
+            d.site.stop_x
+        );
+    } else if !d.wedged() {
+        *wedge_logged = false;
+    }
+    for mut visibility in &mut barricades {
+        *visibility = if d.barrier_hit() {
+            Visibility::Hidden
+        } else {
+            Visibility::Inherited
+        };
+    }
+    for (timber, mut visibility) in &mut timbers {
+        *visibility = if d.timber_smashed(timber.0) {
+            Visibility::Hidden
+        } else {
+            Visibility::Inherited
+        };
     }
 }
 
@@ -9714,6 +9824,7 @@ fn headless_slot_room(
         (
             run.room.id(),
             match run.room {
+                f01_act1::Act1Room::Chase => "F01_ACT1_CHASE_SMOKE_OK",
                 f01_act1::Act1Room::Shore => "F01_ACT1_SHORE_SMOKE_OK",
                 f01_act1::Act1Room::Guild => "F01_ACT1_GUILD_SMOKE_OK",
             },
@@ -9763,7 +9874,11 @@ fn headless_slot_room(
     );
     // DR-A: room 3's nav rebuild count (the AI partner's hazard feed changes: each one rebuilds its
     // navigation around the machine) and the machine's state, for the frame-time evidence.
-    if args.dozer_run.is_some()
+    if (args.dozer_run.is_some()
+        || args
+            .act1_run
+            .as_ref()
+            .is_some_and(|r| r.room == f01_act1::Act1Room::Chase))
         && let Some(d) = dungeon_floorbreak::dozer_art::dozer_of(&combat)
     {
         let stats = combat.companion_stats();
@@ -12517,10 +12632,11 @@ mod tests {
         assert!(late.recording_enabled());
         let run = args(&["--scene", "f01_late", "--f01-room", id, "--f01-run"]).unwrap();
         assert!(run.f01_run && run.f01_corral);
-        // ACT1-F: the run starts in the first Act I room, and the corral follows the guild.
+        // ACT1-F: the run starts in the first Act I room (the chase), and the corral follows the
+        // guild.
         let first = args(&["--scene", "f01_late", "--f01-run"]).unwrap();
-        assert!(!first.f01_corral && first.f01_room.as_deref() == Some("act1_shore"));
-        assert_eq!(first.f01_hud, Some(("The Rotten Shore".to_owned(), false)));
+        assert!(!first.f01_corral && first.f01_room.as_deref() == Some("act1_chase"));
+        assert_eq!(first.f01_hud, Some(("The First Chase".to_owned(), false)));
         let direct = args(&["--scene", "f01_late", "--f01-run", "--f01-room", id]).unwrap();
         assert!(direct.f01_corral);
         assert_eq!(
@@ -12840,6 +12956,7 @@ mod tests {
             let run = args(&["--scene", "f01_late", "--f01-run", "--f01-room", id]).unwrap();
             assert!(run.f01_run && run.f01_act1 == Some(room));
             let title = match room {
+                f01_act1::Act1Room::Chase => "The First Chase",
                 f01_act1::Act1Room::Shore => "The Rotten Shore",
                 f01_act1::Act1Room::Guild => "The Guild Door",
             };
@@ -12905,6 +13022,18 @@ mod tests {
         assert!(with("act1_shore", "strike").unwrap().act1_pilot.is_some());
         assert!(with("act1_guild", "donut").is_ok());
         assert!(with("act1_shore", "walk").is_ok() && with("act1_guild", "walk").is_ok());
+        assert!(with("act1_chase", "hide").is_ok() && with("act1_chase", "skip").is_ok());
+        assert!(with("act1_chase", "walk").is_ok());
+        assert!(
+            with("act1_shore", "hide")
+                .unwrap_err()
+                .contains("does not fit")
+        );
+        assert!(
+            with("act1_chase", "strike")
+                .unwrap_err()
+                .contains("does not fit")
+        );
         assert!(
             with("act1_guild", "strike")
                 .unwrap_err()
@@ -13374,8 +13503,8 @@ mod tests {
             carry.as_str(),
         ])
         .unwrap();
-        // ACT1-F: the first listed room is the shore.
-        assert_eq!(ok.f01_room.as_deref(), Some("act1_shore"));
+        // ACT1-F: the first listed room is the chase.
+        assert_eq!(ok.f01_room.as_deref(), Some("act1_chase"));
     }
 
     /// F01-RUN: a carried room's tick-0 state is the verifier's (the room's

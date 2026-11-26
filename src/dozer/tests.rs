@@ -4,13 +4,7 @@ use crate::prototype::Material;
 const FLOOR: f32 = 92.0;
 
 fn site() -> DozerSite {
-    DozerSite {
-        trigger_x: 256,
-        idle_trigger_ticks: 300,
-        emerge_front_x: 32,
-        stop_x: 1000,
-        lintel: IRect::new(1040, 352, 304, 116),
-    }
+    DozerSite::revenge(256, 300, 32, 1000, IRect::new(1040, 352, 304, 116))
 }
 
 /// A machine in the chase with its wheel front at `front`.

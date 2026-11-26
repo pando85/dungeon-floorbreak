@@ -1,6 +1,6 @@
 # Floor 01 Act I in the floor run (ACT1-PLAN)
 
-**Status:** design and integration plan. **ACT1-A** (the run plumbing, the shore and the guild) is implemented as a labelled playable greybox (section 17); **ACT1-B** (the chase and the opening profile) is **not implemented**. Nothing here is playtested or accepted. After its implementation PRs merge, the status is "merged, game-feel review pending".
+**Status:** design and integration plan. **ACT1-A** (the run plumbing, the shore and the guild) and **ACT1-B** (the chase and the opening profile) are implemented as labelled playable greybox (section 17). Nothing here is playtested or accepted. After its implementation PRs merge, the status is "merged, game-feel review pending".
 
 **Owner decision (2026-11-25, cited for every adopted default below):** "Go with all because I could not test it until next week" and "Ensure that everything ends on main for testing all together next week". Every owner-gated Floor 1 item is authorized under adopted defaults recorded by ID. Everything must be reachable in `--scene f01_late --f01-run` in story order. New behaviour is on by default where the spec allows. Large unfinished items land as a labelled playable greybox.
 
@@ -588,7 +588,7 @@ All are adopted under the owner decision of 2026-11-25. The owner may change any
   - Every drawn piece is an existing committed asset (the DOZ-01 rig, the ENV-02 splinter burst, `mordecai_h44`) or a greybox rectangle.
   - Character names remain the replaceable fan-concept layer: room ids, events and data use neutral names (`guide`, `pocket`, `opening`).
 
-## 17. ACT1 status and implementation notes (ACT1-A)
+## 17. ACT1 status and implementation notes (ACT1-A, ACT1-B)
 
 **What landed (ACT1-A).** The run is fourteen rooms: `act1_shore`, `act1_guild`, `corral`, and the rest as before.
 
@@ -624,3 +624,40 @@ All are adopted under the owner decision of 2026-11-25. The owner may change any
 | ACT1-IMP-9 | A scripted capture of the Act I rooms. | `--act1-pilot walk|donut|strike` (the `--rest-pilot` pattern); never with `--f01-run`. |
 
 **Horizon-fit.** Unchanged from section 16: no new button, verb or ability. The biscuit is the approved first Donut unlock, now in a room.
+
+### 17.1 ACT1-B: the chase
+
+**What landed (ACT1-B).** The run is fifteen rooms: `act1_chase` first, then `act1_shore`, `act1_guild`, `corral` and the rest as before.
+
+- **The opening profile on DOZER-CORE** (`src/dozer.rs`, `src/combat_scene/dozer.rs`; the machine is not forked).
+  - `assets/data/gameplay/enemy_dozer_opening_v0.json` (`OPENING_TUNING_HASH`, pin key `dozer_opening_tuning`) is merged over the shared `enemy_dozer_v0.json` by `DozerTuning::opening()`; `build` picks the tuning from the site's `profile` (`revenge` passes `DozerTuning::active()` exactly as `Dozer::new` does).
+  - `DozerSite` gains the profile, the rearmost trigger, `pockets`, `timbers`, `wedge`, the walking line and the barricade x, and `lintel` becomes optional. It is `Clone` and no longer `Copy`.
+  - The charge sub-machine (`ChargeStage`), the pure commit rule (`commit_rule_holds`, `wheel_ticks`, `walk_ticks`), the pocket test (`Dozer::pocket_of`), `barrier_hit`, the wedge and the timbers are in `Dozer`. Everything the opening adds is mixed into the hash only when the tuning has a charge block.
+  - Appended `DozerEvent` codes 13 to 20, `RescueSpot::{Pocket, Behind}` and `RescueCause::Charge`.
+- **The lock.** `LockEvent::DozerContact` and `EnvSolidKind::ContactLock`: the barricade solid stands exactly while the room's dozer reports `!barrier_hit()`; no flag, no hash term.
+- **Validation.** The opening branch O1 to O10 (reported as DOZER rules 11 to 20, ACT1-IMP-14).
+- **The room.** `src/f01_act1.rs` `Act1Room::Chase`, the room and sidecar files, the three lane statics pushed into the kit as physical steps, the decor table, the alcove hint (`LabelId::GetIntoTheAlcove`, shown while `f01_act1::alcove_hint_live`), the binary, PLAYTRACE and CI arms, the `--act1-pilot hide|skip` evidence pilots.
+- **Fixtures** (`src/act1_chase_fixtures.rs`): ACT1-F10 to F18, a 96-run robustness sweep, domain tests T10 and T11.
+- **Greybox.** The machine is room 3's approved DOZ-01 rig. The window, the soffit, the timbers, the barricade and the arch are flat rectangles; the lit alcove is the brightest shape. The wedge is the rig clipped to the arch and darkened, with the console label `GREYBOX WEDGE` (ACT1-Q3). The splinter bursts of DR-D play on each timber and on the barricade.
+- **Cut order.** Nothing was cut: the hint, the splinters, the nav-row hole around the pocket and the wedge draw all landed. The zero-contact fixtures hold with the nav-row hole in place; it was not tested without it.
+- **Pins.** `MANIFEST_HASH` re-pinned (`0x9f2e_dc09_b49e_0f08` to `0xd213_db6d_b329_d342`); two new room pins, the opening tuning pin, `SCOPED_PIN_KEYS` 29 to 32 (`dozer::PIN_KEY` now applies to room 3 and the chase). `TABLE_HASH`, `dozer::TUNING_HASH`, room 3's room and sidecar hashes, every DP and DOZR hash and every golden are unchanged.
+
+| ID | Gap | Adopted default |
+| --- | --- | --- |
+| ACT1-IMP-10 | The barricade, a timber or a charge's last tick is a float comparison of the wheel front (accumulated in f32), so a charge committed at the rule-4 boundary could miss the barricade by a rounding error. | Every "front reaches x" test and rule 4 accept a front within 0.01 px short of x (`REACH_EPS_PX`). The boundary test (front 1855 against 1856 at 160 px/s) is unchanged. |
+| ACT1-IMP-11 | ACT1-F14 asserts "no `BarrierImpact`" after the wheel defeat, but a defeat respawns only after `RESTART_DELAY_TICKS`, and the machine keeps running through that delay, so it breaks the barricade about 10 ticks after the hit. | F14 asserts that the `WheelHit` precedes any `BarrierImpact`, no `PinnedHold`, no tell, and that the respawn rebuilds the machine (dormant, `barrier_hit()` false, the barricade solid standing again, the hint live). The impact before the respawn is the open-then-respawn regression ACT1-AD19 wants covered. |
+| ACT1-IMP-12 | The pocket test converts layout y to world y with `layout_h - y`, but the machine step has no `layout_h`. | The site carries the room's walking line in layout px (`floor_px`, set by the loader); the ledge top is `floor_px - rect.bottom()` over the world walking line. The same conversion, taken from the line. |
+| ACT1-IMP-13 | ACT1-F13 lag 448: the 2P camera leash stops the leader 447 px ahead of P2, so 448 cannot be reached. | The script holds P2 at `min(lag, 440)`; the separation at the leader's arm is recorded in the evidence table (6, 99, 230 and 444 px for the four cases). |
+| ACT1-IMP-14 | The error type numbers the rules `1..=7`. | The opening's O1 to O10 are reported as DOZER rules 11 to 20 with an `O<n>:` prefix in the reason. O8's closed half (the exit is unreachable with the barricade closed) is the test `the_closed_barricade_seals_the_exit_for_every_class` on the route graphs. |
+| ACT1-IMP-15 | `wheel_ticks` is "about 66" in the plan; integrated tick by tick in f32, exactly as the machine moves, it is 66 or 67. Donut waiting at the barricade (47 walk ticks) commits at 67. | The rule keeps the integrated count. The fixtures put Carl at the barricade (F14), as the plan says; Donut there is the rule-3 boundary and is not asserted. |
+| ACT1-IMP-16 | The scripted hero in F10 stood at the pocket centre; the follow bot trails 48 px behind and never entered the pocket, so the tell rescued it (cause `Charge`). | The scripted hero waits at the pocket's right end (x 2136), so the trailing bot stands inside the pocket before the tell and `AiRescue` is 0. |
+| ACT1-IMP-17 | The greybox wedge label has no text path (the scene draws no text for greybox decor). | The console line `F01_ACT1_WEDGE label="GREYBOX WEDGE"` and the darkened, arch-clipped rig; no on-screen text. |
+| ACT1-IMP-18 | The opening's `draw` would put room 3's rear gate (x 0) and buffer stop (x 1008) into the chase. | `dozer_art::draw` skips the room pieces and the stop frame for a profile with a charge block; the emergence, timber and barricade bursts use ENV-02's splinter art at the window, the timber sets and the barricade. |
+| ACT1-IMP-19 | The alcove notice lasts `NOTICE_TOTAL_TICKS` (136), shorter than the 180-tick window. | The scene raises the hint while the window is live and the notice runs its own lifetime; presentation only. |
+
+**Findings of the fixtures.**
+
+- The commit front is 1856 to 1859 in every run (rule 4 is the last to hold at the cruise): the "first run" row of section 5.3 holds. With the default companion as the bot the commit margin of Donut is 49 ticks (she trails), still above the 20-tick reserve.
+- 96 solo runs (either hero active, the follow bot or the default companion, four start delays, six stalls) have zero wheel contacts and no respawn.
+- With Carl active and the default companion, Donut was rescued into the pocket twice (cause `off_screen` before the tell, cause `charge` at the tell); every other solo run has zero rescues.
+- While a defeated hero overlaps the wheel the machine's `WheelHit` repeats every tick (room 3's behaviour, ACT1-F14 logs 21).

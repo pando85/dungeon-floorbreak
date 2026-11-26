@@ -1,0 +1,26 @@
+{
+  "schema": "floor01-demo-hall-v1",
+  "status": "ACT1 greybox room (docs/01-design/floor-01-act-01-integration.md section 4.1, ACT1-B): geometry only, composed at load time from approved Floor 01 kit pieces by camera_lab::layout (no new art, not an authored level; the ENV-02 dressing of the Act I rooms is a separate later work order), launched as the room act1_chase of --scene f01_late (src/f01_act1.rs). The machine, the humps, the pocket ledge, the barricade lock and the opening profile live in f01_act1_chase.encounter.json, validated by src/encounter.rs.",
+  "scenarios": [
+    {
+      "id": "F01-ACT1-CHASE",
+      "name": "The First Chase",
+      "subtitle": "Floor 01 Act I: a quiet lane, a machine in the window and a hole in the wall",
+      "act": 1,
+      "setting": "dry-catacomb",
+      "width": 3008,
+      "height": 660,
+      "floor": 580,
+      "spawn": { "carl": 72, "donut": 48 },
+      "camera_intro": 72,
+      "platforms": [],
+      "props": [],
+      "enemies": [],
+      "hazards": [],
+      "goal_x": 2952,
+      "purpose": "A 3008 px lane (ACT1-B, I-01 and I-02): a false calm, then a machine that cannot be hurt. The route is ENV-02's S1 to the S5 arch. Nothing stands on the lane but two one-tile humps and the pocket ledge (sidecar statics, 16 px) and the barricade lock; the soffit, the timbers, the window and the arch are decor (presentation only).",
+      "expected": "Spawns, the checkpoint, the exit, the machine and the locks come from f01_act1_chase.encounter.json; this file holds geometry only. The exit is reachable once the machine has broken the barricade.",
+      "coop": "Solo with the companion, or two players: both run, spot the lit alcove and wait in it while the wheel passes; nobody fights the machine."
+    }
+  ]
+}

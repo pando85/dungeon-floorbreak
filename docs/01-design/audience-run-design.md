@@ -28,7 +28,7 @@ Room order (`assets/levels/f01_late/manifest.json`): `corral`, `rest_refuge` (RE
 
 ## 2. The unlock beat (deliverable 1)
 
-**Adopted (AR-AD1): the broadcast goes live when the run leaves the Infernal Corral.** The corral (the third room of the run since ACT1-A, after the two Act I rooms) and the Act I rooms before it play with no viewer decoration. Every run room listed after the corral (the refuge `rest_refuge` onward, the camp `rest_camp` and the aftermath `rest_aftermath` included) has both counts live; N is the current run length, read from the manifest. The refuge, the camp and the aftermath are quiet rooms with no kill, so no award happens there and decay runs unchanged (REST-AD14; REST-Q10 asks whether it should freeze).
+**Adopted (AR-AD1): the broadcast goes live when the run leaves the Infernal Corral.** The corral (the fourth room of the run since ACT1-B, after the three Act I rooms) and the Act I rooms before it (the chase, the shore and the guild) play with no viewer decoration. Every run room listed after the corral (the refuge `rest_refuge` onward, the camp `rest_camp` and the aftermath `rest_aftermath` included) has both counts live; N is the current run length, read from the manifest. The refuge, the camp and the aftermath are quiet rooms with no kill, so no award happens there and decay runs unchanged (REST-AD14; REST-Q10 asks whether it should freeze).
 
 Why this beat:
 
@@ -166,7 +166,7 @@ No new art or wiring is needed. DEATH-D (#108), LLAMA-DEATH-WIRE (#272) and the 
 
 | ID | Adopted value | Why |
 | --- | --- | --- |
-| AR-AD1 | The unlock beat is the corral exit (the refuge onward, room 3 of N, N = 14 since ACT1-A: the run length is read from the manifest). The audience is live in every `--f01-run` room whose manifest row comes after `corral`. The rule is positional and fails closed if `corral` is not listed. | Section 2 |
+| AR-AD1 | The unlock beat is the corral exit (the refuge onward, room 4 of N, N = 15 since ACT1-B: the run length is read from the manifest). The audience is live in every `--f01-run` room whose manifest row comes after `corral`. The rule is positional and fails closed if `corral` is not listed. | Section 2 |
 | AR-AD2 | The corral's room-clear panel gets one fact line, only when the audience will be live next: `broadcast: live from the next room (viewers per hero)`. No number on any panel. The plates appear at the next room's first tick, at the carried or baseline counts, with no count-up from zero. | An explicit, calm reveal that stays inside the facts-only panel rule |
 | AR-AD3 | `--f01-audience C:P:D:Q` carries the current count and the peak per hero at the exit tick. The decay remainder is dropped. Validation is `peak >= current >= 250`. | The smallest carry that keeps what the player sees |
 | AR-AD4 | A live room started without a carry starts at the baseline of 250 for both heroes. | Same as `unlock()` |

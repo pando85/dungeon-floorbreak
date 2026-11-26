@@ -284,6 +284,14 @@ pub enum EnvSolidKind {
     /// `lock` indexes the runtime's mana locks; `EnvSolid::prop` is the lock's index
     /// in the sidecar.
     ManaLock { lock: u16 },
+    /// ACT1-B (ACT1-AD19): a `dozer_contact` lock's solid (the chase's barricade). It
+    /// stands exactly while the room's dozer reports `!barrier_hit()`: the combat state
+    /// reads the machine each fixed tick ([`CombatState::env_sync_solids`]), so there is
+    /// **no stored flag and no hash term**; a defeat retry, a checkpoint respawn and a
+    /// fixture restart rebuild the machine and so close it by construction. `lock`
+    /// indexes the runtime's contact locks; `EnvSolid::prop` is the lock's index in the
+    /// sidecar.
+    ContactLock { lock: u16 },
 }
 
 impl EnvSolidKind {
@@ -303,7 +311,8 @@ impl EnvSolidKind {
             | Self::ShutterStack
             | Self::PartitionWall
             | Self::SurfaceLock { .. }
-            | Self::ManaLock { .. } => false,
+            | Self::ManaLock { .. }
+            | Self::ContactLock { .. } => false,
         }
     }
 }
@@ -540,6 +549,7 @@ impl EnvRuntime {
         let mut stickers: Vec<StickerRt> = Vec::new();
         let mut surface_locks: Vec<SurfaceLockRt> = Vec::new();
         let mut mana_locks: Vec<(u16, Option<bool>)> = Vec::new();
+        let mut contact_locks = 0usize;
         for (i, p) in enc.props.iter().enumerate() {
             let index = u16::try_from(i).map_err(|_| "too many props".to_owned())?;
             let incoming = links.incoming(index);
@@ -743,6 +753,20 @@ impl EnvRuntime {
                         platform,
                         opened: false,
                     });
+                    continue;
+                }
+                LockEvent::DozerContact => {
+                    // ACT1-B: the combat state reads the room's dozer each tick (no flag).
+                    let lock_index = u16::try_from(i).map_err(|_| "too many locks".to_owned())?;
+                    solids.push(EnvSolid {
+                        rect: lock.solid,
+                        prop: Some(lock_index),
+                        kind: EnvSolidKind::ContactLock {
+                            lock: u16::try_from(contact_locks)
+                                .map_err(|_| "too many locks".to_owned())?,
+                        },
+                    });
+                    contact_locks += 1;
                     continue;
                 }
                 LockEvent::DonutUnlocked => {
@@ -1420,7 +1444,7 @@ impl EnvRuntime {
             EnvSolidKind::Soffit | EnvSolidKind::ExitGate => return true,
             // ACT1-A: stands until Donut's mana is unlocked, which the combat state
             // reads (`env_sync_solids`); the runtime alone defaults to closed.
-            EnvSolidKind::ManaLock { .. } => return true,
+            EnvSolidKind::ManaLock { .. } | EnvSolidKind::ContactLock { .. } => return true,
         };
         match (s.kind, prop.map(|p| &p.machine)) {
             (EnvSolidKind::Remnant, Some(Machine::Mass(m))) => m.state() == MassState::Landed,
@@ -1979,6 +2003,16 @@ impl EnvRuntime {
             .collect()
     }
 
+    /// ACT1-B: the `dozer_contact` locks as their solid rectangles, in sidecar order (the
+    /// barricade's drawing reads them with the machine's `barrier_hit`).
+    pub fn contact_doors(&self) -> Vec<IRect> {
+        self.solids
+            .iter()
+            .filter(|s| matches!(s.kind, EnvSolidKind::ContactLock { .. }))
+            .map(|s| s.rect)
+            .collect()
+    }
+
     /// REST-WIRE: whether each `hero_on_surface` lock has opened, in sidecar order.
     pub fn surface_locks_open(&self) -> Vec<bool> {
         self.surface_locks.iter().map(|l| l.opened).collect()
@@ -2340,6 +2374,8 @@ impl CombatState {
         let dynamic = SlotSolids::of(&self.slot);
         let cleared = self.exit_gate_open();
         let mana_unlocked = self.donut_kit.mana.unlocked();
+        // ACT1-B: the barricade stands until the room's dozer reports the hit.
+        let barrier_hit = crate::dozer_art::dozer_of(self).is_some_and(|d| d.barrier_hit());
         let Some(env) = self.env.as_mut() else {
             return;
         };
@@ -2379,6 +2415,8 @@ impl CombatState {
                 EnvSolidKind::ExitGate => !cleared,
                 // ACT1-A: the guild door stands while Donut's mana is locked.
                 EnvSolidKind::ManaLock { .. } => !mana_unlocked,
+                // ACT1-B: the barricade stands until the machine's front reaches it.
+                EnvSolidKind::ContactLock { .. } => !barrier_hit,
                 // REST-WIRE: the latched surface lock (`solid_intact` reads the flag).
                 _ => env.solid_intact(i),
             };
@@ -3485,6 +3523,7 @@ impl CombatState {
                 | EnvSolidKind::Gate { .. }
                 | EnvSolidKind::SurfaceLock { .. }
                 | EnvSolidKind::ManaLock { .. }
+                | EnvSolidKind::ContactLock { .. }
                 | EnvSolidKind::Soffit
                 | EnvSolidKind::ExitGate => {}
                 // CORRAL-D: a launched body is no physical hero hit on the partition

@@ -281,6 +281,12 @@ pub enum Pilot {
     /// The shore: Carl strikes the rotten shore from its column, then fights on and walks to
     /// the exit.
     Strike,
+    /// The chase (ACT1-B): Carl runs to the alcove, waits there until the machine is wedged and
+    /// walks to the exit (the F10 script).
+    Hide,
+    /// The chase (ACT1-B): Carl runs on to the closed barricade and waits (the F14 skip); after
+    /// the respawn he plays the `Hide` script.
+    Skip,
 }
 
 impl Pilot {
@@ -289,8 +295,10 @@ impl Pilot {
             "walk" => Ok(Self::Walk),
             "donut" => Ok(Self::Donut),
             "strike" => Ok(Self::Strike),
+            "hide" => Ok(Self::Hide),
+            "skip" => Ok(Self::Skip),
             other => Err(format!(
-                "--act1-pilot {other:?}: expected walk, donut or strike"
+                "--act1-pilot {other:?}: expected walk, donut, strike, hide or skip"
             )),
         }
     }
@@ -301,6 +309,7 @@ impl Pilot {
             Self::Walk => true,
             Self::Donut => matches!(room, Act1Room::Guild),
             Self::Strike => matches!(room, Act1Room::Shore),
+            Self::Hide | Self::Skip => matches!(room, Act1Room::Chase),
         }
     }
 }
@@ -314,6 +323,19 @@ pub fn pilot(kind: Pilot, combat: &CombatState, scene: &SceneSim, exit_x: f32) -
         Pilot::Donut => walk_in(donut.x, exit_x),
         Pilot::Walk => clear_and_exit(combat, scene, exit_x),
         Pilot::Strike => strike_input(combat, scene, exit_x),
+        Pilot::Hide | Pilot::Skip => {
+            let wedged = crate::dozer_art::dozer_of(combat).is_some_and(|d| d.wedged());
+            let skipping = kind == Pilot::Skip && combat.respawns == 0;
+            let target = if wedged {
+                exit_x
+            } else if skipping {
+                crate::act1_chase_fixtures::BARRICADE_WAIT_X
+            } else {
+                crate::act1_chase_fixtures::POCKET_X
+            };
+            let carl = scene.world.body(HeroId::Carl);
+            crate::act1_chase_fixtures::Runner { target }.input(carl.x, carl.grounded)
+        }
     }
 }
 

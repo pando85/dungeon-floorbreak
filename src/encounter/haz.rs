@@ -922,12 +922,30 @@ fn check_crew(roster: &[RosterEntry], dozers: &[&RosterEntry], errs: &mut Vec<En
 /// 5 read the stop frames, the `weight_rig` props with their owned
 /// `falling_mass` footprints). A no-op for a sidecar with neither a `dozer`
 /// roster entry nor a `dozer` block. Layout px (y down).
+/// ACT1-B: the opening rules O1..O10 report as DOZER rules 11..=20 (`opening_rule(n)`).
+const fn opening_rule(n: u8) -> u8 {
+    10 + n
+}
+
 pub(super) fn check_dozer(inp: &HazInput<'_>, errs: &mut Vec<EncounterError>) {
-    use crate::dozer::rules;
+    use crate::dozer::{SiteProfile, rules};
     let dozers: Vec<&RosterEntry> = inp.roster.iter().filter(|e| e.kind.is_dozer()).collect();
     check_crew(inp.roster, &dozers, errs);
     let block = inp.raw.dozer.as_ref();
+    let contact: Vec<&RawLock> = inp
+        .raw
+        .locks
+        .iter()
+        .filter(|l| l.opens_on.event == "dozer_contact")
+        .collect();
     if dozers.is_empty() && block.is_none() {
+        for l in &contact {
+            errs.push(dozer_err(
+                opening_rule(1),
+                &[l.id.as_str()],
+                "O1: a dozer_contact lock needs the room's dozer block with profile opening",
+            ));
+        }
         return;
     }
     let ids: Vec<&str> = dozers.iter().map(|e| e.id.as_str()).collect();
@@ -947,9 +965,20 @@ pub(super) fn check_dozer(inp: &HazInput<'_>, errs: &mut Vec<EncounterError>) {
         ));
         return;
     };
-    let site = block.site();
+    let Some(profile) = block.profile() else {
+        errs.push(dozer_err(
+            1,
+            &ids,
+            "the dozer block's profile is revenge or opening",
+        ));
+        return;
+    };
+    if block.trigger_by().is_none() {
+        errs.push(dozer_err(1, &ids, "dzq11_trigger_by is lead or rearmost"));
+        return;
+    }
     let room = &inp.ctx.room;
-    let floor = room.floor_y;
+    let site = block.site(room.floor_y, contact.first().map(|l| l.solid.x));
     if let Some(e) = dozers.first()
         && e.x != site.emerge_front_x
     {
@@ -979,104 +1008,32 @@ pub(super) fn check_dozer(inp: &HazInput<'_>, errs: &mut Vec<EncounterError>) {
             "dzq11_trigger_x lies between the gate and dzq14_stop_x",
         ));
     }
-    // ---- rule 2: the lane is clear
-    let mouth = site.lintel.x;
-    let slab = inp.raw.platform_slab_px;
-    let mut solids: Vec<(String, IRect)> = Vec::new();
-    for (i, p) in room.platforms.iter().enumerate() {
-        solids.push((
-            format!("platform {i}"),
-            IRect::new(p.rect.x, p.rect.y, p.rect.w, slab),
-        ));
-    }
-    for (i, r) in room.steps.iter().enumerate() {
-        solids.push((format!("step {i}"), *r));
-    }
-    for p in inp.props {
-        for r in p
-            .remnant
-            .into_iter()
-            .chain(p.solid_intact.then_some(p.target))
-        {
-            solids.push((format!("prop {}", p.id), r));
-        }
-    }
-    for st in inp.raw.statics.iter().filter(|st| st.kind == "solid") {
-        solids.push((format!("static {}", st.id), IRect::from(&st.rect)));
-    }
-    for l in &inp.raw.locks {
-        solids.push((format!("lock {}", l.id), IRect::from(&l.solid)));
-    }
-    for (name, r) in &solids {
-        let in_lane = r.x < mouth && r.right() > site.emerge_front_x;
-        let bottom_up = floor - r.bottom();
-        if in_lane && r.h > rules::REMNANT_MAX_PX && bottom_up < rules::FRAME_HANG_PX {
-            errs.push(dozer_err(
-                2,
-                &[name],
-                "a solid on the chase lane is taller than a remnant and below the frame hang",
-            ));
-        }
-        if r.x < mouth && r.right() > site.stop_x - rules::RUN_OUT_CLEAR_PX {
-            errs.push(dozer_err(
-                2,
-                &[name],
-                "no solid stands between dzq14_stop_x - 256 and the tunnel mouth",
-            ));
-        }
-    }
-    if mouth < site.stop_x + rules::MOUTH_MARGIN_PX {
-        errs.push(dozer_err(
-            2,
-            &ids,
-            format!(
-                "the tunnel mouth must be at least dzq14_stop_x + {}",
-                rules::MOUTH_MARGIN_PX
-            ),
-        ));
-    }
-    // ---- rule 4: the ceiling, the passage and the lintel
-    match inp.ctx.ceiling_px {
-        Some(c) if c >= rules::MIN_CEILING_PX => {
-            if site.lintel.y > floor - c {
+    let solids = lane_solids(inp);
+    match profile {
+        SiteProfile::Revenge => {
+            // ACT1-B: the opening's fields belong to an opening room.
+            if !site.pockets.is_empty()
+                || !site.timbers.is_empty()
+                || site.wedge
+                || site.trigger_by != crate::dozer::TriggerBy::Lead
+                || !contact.is_empty()
+            {
                 errs.push(dozer_err(
-                    4,
+                    1,
                     &ids,
-                    "the tunnel lintel does not reach the lane ceiling",
+                    "pockets, timbers, wedge, a rearmost trigger and a dozer_contact lock belong to profile opening",
                 ));
             }
+            match site.lintel {
+                Some(lintel) => check_revenge_lane(inp, &site, lintel, &solids, &ids, errs),
+                None => errs.push(dozer_err(
+                    4,
+                    &ids,
+                    "a revenge dozer room needs dzq22_lintel (the tunnel)",
+                )),
+            }
         }
-        _ => errs.push(dozer_err(
-            4,
-            &ids,
-            format!(
-                "the lane ceiling must be declared and at least {}",
-                rules::MIN_CEILING_PX
-            ),
-        )),
-    }
-    let clear = floor - site.lintel.bottom();
-    if !(rules::PASSAGE_CLEAR_PX.0..=rules::PASSAGE_CLEAR_PX.1).contains(&clear) {
-        errs.push(dozer_err(
-            4,
-            &ids,
-            format!(
-                "the escape passage's clear height {clear} is not in {}..={}",
-                rules::PASSAGE_CLEAR_PX.0,
-                rules::PASSAGE_CLEAR_PX.1
-            ),
-        ));
-    }
-    if site.lintel.x < site.stop_x {
-        errs.push(dozer_err(
-            4,
-            &ids,
-            "the escape passage lies beyond dzq14_stop_x",
-        ));
-    }
-    let exit = inp.protected[2].1;
-    if exit.x < site.lintel.x || exit.right() > site.lintel.right() {
-        errs.push(dozer_err(4, &ids, "the tunnel lintel holds the exit"));
+        SiteProfile::Opening => check_opening(inp, &site, &contact, &solids, &ids, errs),
     }
     // ---- rules 3 and 5: the stop frames
     let t = crate::dozer::DozerTuning::active();
@@ -1160,8 +1117,343 @@ pub(super) fn check_dozer(inp: &HazInput<'_>, errs: &mut Vec<EncounterError>) {
             "a dozer room has no BossThreat supplier at all",
         ));
     }
-    if let Err(err) = t.validate() {
+    let tuned = site.tuning();
+    if let Err(err) = if profile == SiteProfile::Opening {
+        tuned.validate_opening()
+    } else {
+        t.validate()
+    } {
         errs.push(dozer_err(6, &ids, err.to_string()));
+    }
+}
+
+/// The solids of the room's lane, named (platform slabs, steps, props, solid statics, locks).
+fn lane_solids(inp: &HazInput<'_>) -> Vec<(String, IRect)> {
+    let room = &inp.ctx.room;
+    let slab = inp.raw.platform_slab_px;
+    let mut solids: Vec<(String, IRect)> = Vec::new();
+    for (i, p) in room.platforms.iter().enumerate() {
+        solids.push((
+            format!("platform {i}"),
+            IRect::new(p.rect.x, p.rect.y, p.rect.w, slab),
+        ));
+    }
+    for (i, r) in room.steps.iter().enumerate() {
+        solids.push((format!("step {i}"), *r));
+    }
+    for p in inp.props {
+        for r in p
+            .remnant
+            .into_iter()
+            .chain(p.solid_intact.then_some(p.target))
+        {
+            solids.push((format!("prop {}", p.id), r));
+        }
+    }
+    for st in inp.raw.statics.iter().filter(|st| st.kind == "solid") {
+        solids.push((format!("static {}", st.id), IRect::from(&st.rect)));
+    }
+    for l in &inp.raw.locks {
+        solids.push((format!("lock {}", l.id), IRect::from(&l.solid)));
+    }
+    solids
+}
+
+/// Rules 2 and 4 of room 3 (`revenge`): the clear lane, the ceiling, the passage and the
+/// lintel.
+fn check_revenge_lane(
+    inp: &HazInput<'_>,
+    site: &crate::dozer::DozerSite,
+    lintel: IRect,
+    solids: &[(String, IRect)],
+    ids: &[&str],
+    errs: &mut Vec<EncounterError>,
+) {
+    use crate::dozer::rules;
+    let floor = inp.ctx.room.floor_y;
+    // ---- rule 2: the lane is clear
+    let mouth = lintel.x;
+    for (name, r) in solids {
+        let in_lane = r.x < mouth && r.right() > site.emerge_front_x;
+        let bottom_up = floor - r.bottom();
+        if in_lane && r.h > rules::REMNANT_MAX_PX && bottom_up < rules::FRAME_HANG_PX {
+            errs.push(dozer_err(
+                2,
+                &[name],
+                "a solid on the chase lane is taller than a remnant and below the frame hang",
+            ));
+        }
+        if r.x < mouth && r.right() > site.stop_x - rules::RUN_OUT_CLEAR_PX {
+            errs.push(dozer_err(
+                2,
+                &[name],
+                "no solid stands between dzq14_stop_x - 256 and the tunnel mouth",
+            ));
+        }
+    }
+    if mouth < site.stop_x + rules::MOUTH_MARGIN_PX {
+        errs.push(dozer_err(
+            2,
+            ids,
+            format!(
+                "the tunnel mouth must be at least dzq14_stop_x + {}",
+                rules::MOUTH_MARGIN_PX
+            ),
+        ));
+    }
+    // ---- rule 4: the ceiling, the passage and the lintel
+    match inp.ctx.ceiling_px {
+        Some(c) if c >= rules::MIN_CEILING_PX => {
+            if lintel.y > floor - c {
+                errs.push(dozer_err(
+                    4,
+                    ids,
+                    "the tunnel lintel does not reach the lane ceiling",
+                ));
+            }
+        }
+        _ => errs.push(dozer_err(
+            4,
+            ids,
+            format!(
+                "the lane ceiling must be declared and at least {}",
+                rules::MIN_CEILING_PX
+            ),
+        )),
+    }
+    let clear = floor - lintel.bottom();
+    if !(rules::PASSAGE_CLEAR_PX.0..=rules::PASSAGE_CLEAR_PX.1).contains(&clear) {
+        errs.push(dozer_err(
+            4,
+            ids,
+            format!(
+                "the escape passage's clear height {clear} is not in {}..={}",
+                rules::PASSAGE_CLEAR_PX.0,
+                rules::PASSAGE_CLEAR_PX.1
+            ),
+        ));
+    }
+    if lintel.x < site.stop_x {
+        errs.push(dozer_err(
+            4,
+            ids,
+            "the escape passage lies beyond dzq14_stop_x",
+        ));
+    }
+    let exit = inp.protected[2].1;
+    if exit.x < lintel.x || exit.right() > lintel.right() {
+        errs.push(dozer_err(4, ids, "the tunnel lintel holds the exit"));
+    }
+}
+
+/// ACT1-B: the opening's rules O1..O10 (`docs/01-design/floor-01-act-01-integration.md`
+/// section 5.6), replacing room 3's rules 2 and 4 (rule 1 still applies, and rules 3, 5 and
+/// 6 run after). They report as DOZER rules 11..=20.
+fn check_opening(
+    inp: &HazInput<'_>,
+    site: &crate::dozer::DozerSite,
+    contact: &[&RawLock],
+    solids: &[(String, IRect)],
+    ids: &[&str],
+    errs: &mut Vec<EncounterError>,
+) {
+    use crate::dozer::rules;
+    use crate::prototype::{HERO_HALF_HEIGHT, HERO_HALF_WIDTH};
+    let room = &inp.ctx.room;
+    let floor = room.floor_y;
+    let t = site.tuning();
+    let mut o = |n: u8, who: &[&str], reason: String| {
+        errs.push(dozer_err(opening_rule(n), who, format!("O{n}: {reason}")));
+    };
+    // ---- O1: the charge block, a pocket and exactly one dozer_contact lock
+    let Some(ch) = t.charge else {
+        o(
+            1,
+            ids,
+            "the opening tuning has no dzq10_charge block".into(),
+        );
+        return;
+    };
+    if site.pockets.is_empty() {
+        o(1, ids, "an opening room has at least one pocket".into());
+    }
+    if contact.len() != 1 {
+        o(
+            1,
+            ids,
+            format!(
+                "an opening room has exactly one dozer_contact lock (found {})",
+                contact.len()
+            ),
+        );
+    }
+    let barricade = contact.first().map(|l| IRect::from(&l.solid));
+    // ---- O2: the ordering of the emergence, the trigger, the arm, the timbers and the pocket
+    if !(site.emerge_front_x < site.trigger_x && site.trigger_x < ch.arm_x) {
+        o(2, ids, "emerge_front_x < trigger_x < arm_x".into());
+    }
+    for p in &site.pockets {
+        if ch.arm_x >= p.rect.x {
+            o(2, &[&p.id], "arm_x < the pocket's x".into());
+        }
+    }
+    let mut seen_timbers: Vec<&str> = Vec::new();
+    let mut prev_x = i32::MIN;
+    for tm in &site.timbers {
+        if seen_timbers.contains(&tm.id.as_str()) {
+            o(2, &[&tm.id], "timber ids are unique".into());
+        }
+        seen_timbers.push(&tm.id);
+        if !(site.emerge_front_x < tm.x && tm.x < ch.arm_x) {
+            o(
+                2,
+                &[&tm.id],
+                "a timber's x lies in (emerge_front_x, arm_x)".into(),
+            );
+        }
+        if tm.x <= prev_x {
+            o(2, &[&tm.id], "timber x is strictly increasing".into());
+        }
+        prev_x = tm.x;
+    }
+    // ---- O3: each pocket stands on a solid static, fits two bodies and clears a hero
+    for p in &site.pockets {
+        let ledge = inp
+            .raw
+            .statics
+            .iter()
+            .find(|st| st.id == p.ledge && st.kind == "solid");
+        match ledge {
+            None => o(
+                3,
+                &[&p.id],
+                format!(
+                    "the ledge {:?} is not a solid static of the sidecar",
+                    p.ledge
+                ),
+            ),
+            Some(st) if st.rect.y != p.rect.bottom() => o(
+                3,
+                &[&p.id],
+                format!(
+                    "the ledge's top {} is not the pocket rect's bottom {}",
+                    st.rect.y,
+                    p.rect.bottom()
+                ),
+            ),
+            Some(st) => {
+                let ledge = IRect::from(&st.rect);
+                if ledge.x > p.rect.x || ledge.right() < p.rect.right() {
+                    o(3, &[&p.id], "the ledge spans the pocket".into());
+                }
+            }
+        }
+        if p.rect.w < (4.0 * HERO_HALF_WIDTH) as i32 {
+            o(
+                3,
+                &[&p.id],
+                "the pocket fits two bodies (width >= 4 half widths)".into(),
+            );
+        }
+        if p.rect.h < (2.0 * HERO_HALF_HEIGHT) as i32 + 8 {
+            o(
+                3,
+                &[&p.id],
+                "the pocket clears a hero (height >= body + 8)".into(),
+            );
+        }
+        if let Some(b) = barricade
+            && p.rect.right() > b.x
+        {
+            o(3, &[&p.id], "the pocket lies left of the barricade".into());
+        }
+    }
+    // ---- O4: the barricade lies after the pocket, far enough before stop_x, floor to a wall
+    if let Some(b) = barricade {
+        if site.pockets.iter().any(|p| b.x < p.rect.right()) {
+            o(4, ids, "the barricade lies after the pocket".into());
+        }
+        if b.right() + rules::RUN_OUT_CLEAR_PX > site.stop_x {
+            o(
+                4,
+                ids,
+                format!(
+                    "the barricade ends at least {} px before dzq14_stop_x",
+                    rules::RUN_OUT_CLEAR_PX
+                ),
+            );
+        }
+        if b.bottom() != floor {
+            o(4, ids, "the barricade reaches the floor".into());
+        }
+        let apex = jump_classes()
+            .iter()
+            .map(|c| crate::agility::discrete_apex_px(c.launch))
+            .fold(0.0_f32, f32::max);
+        if (b.h as f32) <= apex + 2.0 * HERO_HALF_HEIGHT {
+            o(
+                4,
+                ids,
+                format!("the barricade is taller than any hero jump ({apex:.0} px apex)"),
+            );
+        }
+    }
+    // ---- O5: the exit lies past the past-stop rescue spot
+    let exit = inp.protected[2].1;
+    let past = i32::from(t.dzq17_rescue_past_stop_px) + i32::from(t.dzq17_rescue_exit_margin_px);
+    if exit.x < site.stop_x + past {
+        o(5, ids, format!("exit.x >= stop_x + {past}"));
+    }
+    // ---- O6: nothing else on the lane between the emergence front and stop_x stands over 16 px
+    for (name, r) in solids {
+        let is_barricade = barricade.is_some_and(|b| b == *r) && name.starts_with("lock ");
+        if is_barricade {
+            continue;
+        }
+        let in_lane = r.x < site.stop_x && r.right() > site.emerge_front_x;
+        if in_lane && r.h > rules::REMNANT_MAX_PX {
+            o(
+                6,
+                &[name],
+                format!(
+                    "a solid on the lane is at most {} px high (the barricade excepted)",
+                    rules::REMNANT_MAX_PX
+                ),
+            );
+        }
+    }
+    // ---- O7: no lintel and no crew
+    if site.lintel.is_some() {
+        o(7, ids, "an opening room has no dzq22_lintel".into());
+    }
+    if inp.roster.iter().any(|e| e.mount.is_some()) {
+        o(7, ids, "an opening room has no mounted crew".into());
+    }
+    // ---- O8: the barricade closed cuts the exit (the room's closed-lock tests); open, the
+    // existing reach checks hold. Nothing to add here: the lock is a solid of every graph.
+    // ---- O9: the commit window is non-empty at the slowest band speed
+    if let (Some(b), Some(p)) = (barricade, site.pockets.first()) {
+        let reach = (f32::from(ch.tell_ticks) * f32::from(t.revenge.dzq08_mercy_px_s)
+            + f32::from(ch.speed_px_s) * f32::from(ch.max_ticks))
+            / 60.0;
+        let earliest = b.x as f32 - reach;
+        let latest = (p.rect.x - ch.min_gap_px) as f32;
+        if earliest > latest {
+            o(
+                9,
+                ids,
+                format!("the commit window {earliest:.0}..{latest:.0} is empty"),
+            );
+        }
+        // ---- O10: a pocket rescue never puts a body in the barricade
+        let centre = p.rect.x as f32 + p.rect.w as f32 * 0.5;
+        if centre >= b.x as f32 - HERO_HALF_WIDTH {
+            o(
+                10,
+                ids,
+                "the pocket centre lies left of the barricade by a body half width".into(),
+            );
+        }
     }
 }
 

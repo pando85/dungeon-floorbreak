@@ -12,6 +12,10 @@ fn hash(path: &str) -> u64 {
     crate::donut_mana::content_hash(&std::fs::read_to_string(root().join(path)).expect("reads"))
 }
 
+fn chase() -> Act1Run {
+    launch(&root(), Act1Room::Chase).expect("the chase launches")
+}
+
 fn shore() -> Act1Run {
     launch(&root(), Act1Room::Shore).expect("the shore launches")
 }
@@ -51,6 +55,9 @@ fn the_pinned_hashes_are_the_files() {
     assert_eq!(
         keys,
         [
+            "f01_act1_chase_room",
+            "f01_act1_chase_encounter",
+            "dozer_opening_tuning",
             "f01_act1_shore_room",
             "f01_act1_shore_encounter",
             "f01_act1_guild_room",
@@ -279,6 +286,13 @@ fn the_act1_rooms_launch() {
                 let door = if held { "door=open" } else { "door=closed" };
                 let biscuit = if held { "biscuit=held" } else { "biscuit=zone" };
                 assert!(line.contains(door) && line.contains(biscuit), "{line}");
+            } else if room == Act1Room::Chase {
+                assert!(
+                    line.contains("dozer=dormant")
+                        && line.contains("pocket=1")
+                        && line.contains("barricade=closed"),
+                    "{line}"
+                );
             } else {
                 assert!(line.contains("goblins=2"), "{line}");
             }
@@ -291,6 +305,7 @@ fn the_act1_rooms_launch() {
 fn donut_is_locked_in_act1_under_story_and_open_under_all() {
     let (_, story) = Loadout::Story.flags();
     let (_, all) = Loadout::All.flags();
+    assert_eq!(donut_setup(Act1Room::Chase, story), DonutSetup::NONE);
     assert_eq!(donut_setup(Act1Room::Shore, story), DonutSetup::NONE);
     assert_eq!(
         donut_setup(Act1Room::Shore, DonutProgFlags::default()),
@@ -347,4 +362,149 @@ fn the_shore_smoke_does_not_reach_the_exit() {
         "the exit stays closed with the goblins alive"
     );
     assert!(!combat.roster_cleared());
+}
+
+/// ACT1-T03: the chase's sidecar is valid: one dozer under the opening profile, the barricade
+/// lock, no platform and no ceiling, the 3008 px room, the statics as physical lane steps.
+#[test]
+fn act1_chase_sidecar_validates() {
+    let run = chase();
+    let loaded = &run.loaded;
+    assert_eq!(loaded.encounter.id, "F01-ACT1-CHASE-ENC");
+    assert_eq!(loaded.encounter.goal, Goal::ReachExit);
+    assert_eq!(run.kit.width, 3008);
+    assert_eq!(loaded.encounter.max_living, 1);
+    assert!(loaded.room.platforms.is_empty() && loaded.ceiling_px.is_none());
+    assert_eq!(loaded.room.spawn_carl, 72);
+    assert_eq!(loaded.room.spawn_donut, 48);
+    let roster: Vec<(&str, i32, &str)> = loaded
+        .encounter
+        .roster
+        .iter()
+        .map(|e| (e.id.as_str(), e.x, e.beat.as_str()))
+        .collect();
+    assert_eq!(roster, [("dozer", 888, "I02")]);
+    let exit = loaded.encounter.exit;
+    assert_eq!((exit.x, exit.right()), (2928, 2992));
+    let cp = loaded.encounter.checkpoint;
+    assert_eq!((cp.x, cp.x + cp.w / 2), (984, 1008));
+    assert_eq!(run.rules.checkpoints, [72, 1008]);
+    let [lock] = loaded.encounter.locks.as_slice() else {
+        panic!("one lock");
+    };
+    assert_eq!(lock.id, CHASE_BARRICADE);
+    assert_eq!(lock.opens_on, LockEvent::DozerContact);
+    assert_eq!(lock.solid, IRect::new(2312, 304, 80, 276));
+    assert_eq!(run.barricade(), Some(lock.solid));
+    let site = loaded.encounter.dozer.as_ref().expect("the dozer block");
+    assert_eq!(site.profile, crate::dozer::SiteProfile::Opening);
+    assert_eq!(site.trigger_by, crate::dozer::TriggerBy::Rearmost);
+    assert_eq!(site.barricade_x, Some(2312));
+    assert_eq!(site.floor_px, 580);
+    assert_eq!(
+        (site.trigger_x, site.emerge_front_x, site.stop_x),
+        (1072, 888, 2856)
+    );
+    assert_eq!(site.idle_trigger_ticks, 216_000, "no idle wake (ACT1-AD7)");
+    assert!(site.lintel.is_none());
+    assert_eq!(site.pockets[0].rect, IRect::new(2072, 460, 80, 104));
+    assert_eq!(
+        site.timbers.iter().map(|t| t.x).collect::<Vec<_>>(),
+        [1104, 1424]
+    );
+    // The humps and the ledge are physical lane steps: three 16 px solids of the kit, each
+    // standing on the walking line, nothing taller than 42 px but the barricade (an env solid).
+    let steps: Vec<_> = run
+        .kit
+        .solid_rects
+        .iter()
+        .filter(|s| s.w < run.kit.width && s.y + s.h == run.kit.base_walk_line_y && s.h == 16)
+        .map(|s| (s.x, s.w))
+        .collect();
+    for want in [(1168, 64), (1456, 64), (2064, 96)] {
+        assert!(steps.contains(&want), "{want:?} in {steps:?}");
+    }
+    assert!(
+        run.kit.solid_rects.iter().all(|s| s.w >= run.kit.width
+            || s.y + s.h >= run.kit.base_walk_line_y - 42
+            || s.y <= 0),
+        "{:?}",
+        run.kit.solid_rects
+    );
+    // The tuning pin and the data pins are in the room's list.
+    assert!(data_pins().contains(&(
+        crate::dozer::OPENING_PIN_KEY,
+        crate::dozer::OPENING_TUNING_HASH
+    )));
+    // The decor is the design's (presentation only).
+    let labels: Vec<_> = decor(Act1Room::Chase).iter().map(|d| d.label).collect();
+    assert_eq!(
+        labels,
+        ["soffit", "timber_a", "timber_b", "window", "alcove", "arch"]
+    );
+    let alcove = decor(Act1Room::Chase)
+        .iter()
+        .find(|d| d.label == "alcove")
+        .unwrap();
+    assert_eq!(
+        alcove.rect, site.pockets[0].rect,
+        "the lit recess is the pocket"
+    );
+}
+
+/// The chase's machine is in the slot as the opening profile, parked, and the barricade is an env
+/// solid that stands (ACT1-AD19), through every loadout.
+#[test]
+fn the_chase_launches_parked_with_the_barricade_standing() {
+    let run = chase();
+    for flags in [
+        Loadout::Story.flags(),
+        Loadout::All.flags(),
+        Default::default(),
+    ] {
+        let mut scene = scene_of(&run);
+        let combat = combat_for(&run, &mut scene, flags.0, flags.1, Some(3)).unwrap();
+        let d = crate::dozer_art::dozer_of(&combat).expect("the machine");
+        assert!(d.has_charge() && d.state.name() == "dormant" && !d.barrier_hit());
+        assert_eq!(d.tuning, crate::dozer::DozerTuning::opening());
+        let env = combat.env().expect("env");
+        let barricades: Vec<_> = env
+            .solids()
+            .iter()
+            .enumerate()
+            .filter(|(_, s)| matches!(s.kind, EnvSolidKind::ContactLock { .. }))
+            .collect();
+        assert_eq!(barricades.len(), 1);
+        let (i, _) = barricades[0];
+        assert!(
+            scene.world.solids[env.solid_range().start + i].intact,
+            "stands at tick 0"
+        );
+        assert_eq!(env.contact_doors(), [run.barricade().unwrap()]);
+    }
+}
+
+/// The chase smoke: the scripted pocket path (F10's) reaches the exit; a bare walk right does not
+/// (the barricade stands until the machine breaks it) and the wheel defeats the walker.
+#[test]
+fn the_chase_smoke_reaches_the_exit_by_the_pocket_and_not_by_walking() {
+    let s = crate::act1_chase_fixtures::first_run(&root(), false).unwrap();
+    assert!(s.complete());
+    let run = chase();
+    let mut scene = scene_of(&run);
+    let mut combat = combat_of(&run, &mut scene).unwrap();
+    for tick in 1..=SMOKE_TICKS {
+        combat.step(&mut scene, run.fixture.input(tick));
+    }
+    assert!(
+        !scene.world.complete,
+        "walking right never reaches the exit"
+    );
+    assert!(combat.events.iter().any(|e| matches!(
+        e,
+        crate::combat::CombatEvent::Dozer {
+            event: crate::dozer::DozerEvent::WheelHit { .. },
+            ..
+        }
+    )));
 }

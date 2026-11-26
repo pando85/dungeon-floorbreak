@@ -845,11 +845,22 @@ fn act1_room_recording_verifies(room: crate::f01_act1::Act1Room, label: &str) {
                 .exit;
                 (e.x + e.w / 2) as f32
             };
-            for _ in 0..1800 {
+            for _ in 0..2400 {
                 if rig.scene.world.complete {
                     break;
                 }
-                let input = crate::act1_fixtures::clear_and_exit(&rig.combat, &rig.scene, exit_x);
+                // The chase's scripted run hides in the alcove and walks out once the machine is
+                // wedged (ACT1-B, the F10 script); the shore and the guild walk and fight.
+                let input = if room == crate::f01_act1::Act1Room::Chase {
+                    crate::act1_fixtures::pilot(
+                        crate::act1_fixtures::Pilot::Hide,
+                        &rig.combat,
+                        &rig.scene,
+                        exit_x,
+                    )
+                } else {
+                    crate::act1_fixtures::clear_and_exit(&rig.combat, &rig.scene, exit_x)
+                };
                 rig.step(input);
             }
             assert!(
@@ -907,6 +918,11 @@ fn rig_carl(loadout: Loadout) -> crate::carl_prog::CarlProgFlags {
 
 fn rig_donut(loadout: Loadout) -> crate::donut_prog::DonutProgFlags {
     loadout.flags().1
+}
+
+#[test]
+fn f01_act1_chase_recording_verifies() {
+    act1_room_recording_verifies(crate::f01_act1::Act1Room::Chase, "ACT1_CHASE");
 }
 
 #[test]
@@ -1258,6 +1274,7 @@ fn a_hoarder_or_hazard_recording_needs_its_room_pins_and_no_other() {
         "rest_refuge",
         "rest_camp",
         "rest_aftermath",
+        "act1_chase",
         "act1_shore",
         "act1_guild",
     ] {
@@ -1546,6 +1563,7 @@ fn only_the_listed_rooms_sessions_may_carry_their_own_room() {
         ("rest_refuge", "f01_rest_refuge"),
         ("rest_camp", "f01_rest_camp"),
         ("rest_aftermath", "f01_rest_aftermath"),
+        ("act1_chase", "f01_act1_chase"),
         ("act1_shore", "f01_act1_shore"),
         ("act1_guild", "f01_act1_guild"),
     ] {
@@ -1586,6 +1604,7 @@ fn only_the_listed_rooms_sessions_may_carry_their_own_room() {
             "rest_refuge",
             "rest_camp",
             "rest_aftermath",
+            "act1_chase",
             "act1_shore",
             "act1_guild",
             "juicer",

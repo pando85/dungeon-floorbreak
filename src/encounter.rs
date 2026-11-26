@@ -444,6 +444,10 @@ pub enum LockEvent {
     /// read from her mana each fixed tick (never a stored flag): the biscuit unlocks it,
     /// a defeat retry keeps it, a fixture restart restores the declared start.
     DonutUnlocked,
+    /// ACT1-B (ACT1-AD19): open iff the room's dozer reports `barrier_hit()`; no stored
+    /// flag. Valid only in a room whose sidecar has a `dozer` block with profile `opening`
+    /// (exactly one such lock, rule O1).
+    DozerContact,
 }
 
 /// A solid that stays closed until a named event (an exit that is solid until
@@ -1796,25 +1800,101 @@ struct RawEncounter {
     dozer: Option<RawDozer>,
 }
 
-/// DOZER-CORE: the sidecar's `dozer` block (DZ-Q11, DZ-Q13, DZ-Q14, DZ-Q22).
+/// DOZER-CORE: the sidecar's `dozer` block (DZ-Q11, DZ-Q13, DZ-Q14, DZ-Q22; ACT1-B: the
+/// opening's profile, trigger, pockets, timbers and wedge, all optional so every earlier
+/// sidecar parses to the same site).
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct RawDozer {
+pub(crate) struct RawDozer {
+    /// `revenge` (the default) or `opening`.
+    #[serde(default)]
+    profile: Option<String>,
     dzq11_trigger_x: i32,
+    /// `lead` (the default) or `rearmost`.
+    #[serde(default)]
+    dzq11_trigger_by: Option<String>,
     dzq11_idle_trigger_ticks: u32,
     dzq13_emerge_front_x: i32,
     dzq14_stop_x: i32,
-    dzq22_lintel: RawRect,
+    /// Required by `revenge`, absent in an `opening` room (rule O7).
+    #[serde(default)]
+    dzq22_lintel: Option<RawRect>,
+    #[serde(default)]
+    pockets: Vec<RawDozerPocket>,
+    #[serde(default)]
+    timbers: Vec<RawTimber>,
+    #[serde(default)]
+    wedge: bool,
+}
+
+/// An authored safe pocket of the `dozer` block.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawDozerPocket {
+    id: String,
+    rect: RawRect,
+    /// The id of the `solid` static the pocket stands on.
+    ledge: String,
+}
+
+/// A timber set of the `dozer` block.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawTimber {
+    id: String,
+    x: i32,
 }
 
 impl RawDozer {
-    fn site(&self) -> crate::dozer::DozerSite {
+    /// The profile this block names (`None` for an unknown string: rule 1 refuses it).
+    pub(crate) fn profile(&self) -> Option<crate::dozer::SiteProfile> {
+        match self.profile.as_deref() {
+            None | Some("revenge") => Some(crate::dozer::SiteProfile::Revenge),
+            Some("opening") => Some(crate::dozer::SiteProfile::Opening),
+            Some(_) => None,
+        }
+    }
+
+    /// The trigger rule (`None` for an unknown string: rule 1 refuses it).
+    pub(crate) fn trigger_by(&self) -> Option<crate::dozer::TriggerBy> {
+        match self.dzq11_trigger_by.as_deref() {
+            None | Some("lead") => Some(crate::dozer::TriggerBy::Lead),
+            Some("rearmost") => Some(crate::dozer::TriggerBy::Rearmost),
+            Some(_) => None,
+        }
+    }
+
+    /// The machine's site. `floor_px` is the room's walking line (layout px) and
+    /// `barricade_x` the `dozer_contact` lock's solid x, if the room has one.
+    pub(crate) fn site(&self, floor_px: i32, barricade_x: Option<i32>) -> crate::dozer::DozerSite {
         crate::dozer::DozerSite {
             trigger_x: self.dzq11_trigger_x,
             idle_trigger_ticks: self.dzq11_idle_trigger_ticks,
             emerge_front_x: self.dzq13_emerge_front_x,
             stop_x: self.dzq14_stop_x,
-            lintel: IRect::from(&self.dzq22_lintel),
+            lintel: self.dzq22_lintel.as_ref().map(IRect::from),
+            profile: self.profile().unwrap_or_default(),
+            trigger_by: self.trigger_by().unwrap_or_default(),
+            pockets: self
+                .pockets
+                .iter()
+                .map(|p| crate::dozer::PocketSite {
+                    id: p.id.clone(),
+                    rect: IRect::from(&p.rect),
+                    ledge: p.ledge.clone(),
+                })
+                .collect(),
+            timbers: self
+                .timbers
+                .iter()
+                .map(|t| crate::dozer::TimberSite {
+                    id: t.id.clone(),
+                    x: t.x,
+                })
+                .collect(),
+            wedge: self.wedge,
+            floor_px,
+            barricade_x,
         }
     }
 }
@@ -3007,6 +3087,23 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
                 }
                 (LockEvent::DonutUnlocked, None)
             }
+            // ACT1-B (ACT1-AD19): the room's dozer reports the barricade hit; no target,
+            // no surface (the dozer block's rules O1..O10 gate the room).
+            "dozer_contact" => {
+                if !l.opens_on.target.is_empty() {
+                    errs.push(E::LockSurfaceField {
+                        lock: l.id.clone(),
+                        reason: "a dozer_contact lock names no target",
+                    });
+                }
+                if l.opens_on.surface.is_some() {
+                    errs.push(E::LockSurfaceField {
+                        lock: l.id.clone(),
+                        reason: "a dozer_contact lock names no surface",
+                    });
+                }
+                (LockEvent::DozerContact, None)
+            }
             _ => {
                 errs.push(E::LockUnknownEvent(l.opens_on.event.clone()));
                 continue;
@@ -3289,7 +3386,9 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
                             trigger_x: roster[r].trigger_x,
                         },
                     )),
-                    LockEvent::HeroOnSurface { .. } | LockEvent::DonutUnlocked => None,
+                    LockEvent::HeroOnSurface { .. }
+                    | LockEvent::DonutUnlocked
+                    | LockEvent::DozerContact => None,
                 })
                 .collect();
             let only: Vec<LockCheck> = checks.iter().map(|(_, c)| c.clone()).collect();
@@ -3393,6 +3492,16 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
         &mut errs,
     );
 
+    // ACT1-B: the machine's site (the `dozer_contact` lock's x is the barricade).
+    let dozer_site = raw.dozer.as_ref().map(|d| {
+        d.site(
+            room.floor_y,
+            locks
+                .iter()
+                .find(|l| l.opens_on == LockEvent::DozerContact)
+                .map(|l| l.solid.x),
+        )
+    });
     if errs.is_empty() {
         Ok(Encounter {
             id: raw.id.clone(),
@@ -3417,7 +3526,7 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
             acid_patches,
             pockets,
             waves: raw.waves,
-            dozer: raw.dozer.as_ref().map(RawDozer::site),
+            dozer: dozer_site,
         })
     } else {
         Err(errs)

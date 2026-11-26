@@ -595,7 +595,25 @@ pub struct DozerArt {
     pub sprites: Vec<SpriteDraw>,
     /// The machine's state name (for the capture logs).
     pub state: &'static str,
+    /// ACT1-B: the machine is wedged in the arch (the greybox wedge: the presenter darkens the
+    /// rig, which is already clipped to the arch's right edge in `sprites`).
+    pub wedged: bool,
 }
+
+/// ACT1-B: the world x of the burst point of the machine's emergence: room 3's rear gate, or
+/// the opening's window (its right edge is the emergence front; the window is 192 px wide).
+pub fn gate_centre_x(d: &Dozer) -> i32 {
+    if d.has_charge() {
+        d.site.emerge_front_x - 96
+    } else {
+        (GATE_X.0 + GATE_X.1) / 2
+    }
+}
+
+/// ACT1-B: the world x and height range of a timber set's burst (the decor rect is 80 x 104).
+pub const TIMBER_HALF_W: i32 = 40;
+/// ACT1-B: the barricade's burst heights over the walking line (its decor is 276 px tall).
+pub const BARRIER_BURST_Y: [i32; 3] = [40, 120, 200];
 
 /// The room's machine (its only slot enemy), if any.
 pub fn dozer_of(combat: &CombatState) -> Option<&Dozer> {
@@ -892,7 +910,7 @@ pub fn puffs(d: &Dozer, tick: u64) -> Vec<SpriteDraw> {
             // Behind the gate: puffs rise over it, and one kettle burst.
             let rumble = u64::from(d.tuning.dzq12_rumble_ticks.saturating_sub(ticks_left));
             let gate = |y: i32, steam| Source {
-                emitter: ((GATE_X.0 + GATE_X.1) / 2, floor + y),
+                emitter: (gate_centre_x(d), floor + y),
                 steam,
             };
             burst(&gate(KETTLE.1, true), rumble, &mut out);
@@ -1338,7 +1356,7 @@ pub fn fx_sprites(
 ) -> Vec<SpriteDraw> {
     let floor = d.floor_y.round() as i32;
     let brace = combat.env().and_then(|env| brace_centre(d, env));
-    let gate_x = (GATE_X.0 + GATE_X.1) / 2;
+    let gate_x = gate_centre_x(d);
     let mut out = Vec::new();
     let mut brace_tick = None;
     for e in attempt_events(combat) {
@@ -1393,6 +1411,45 @@ pub fn fx_sprites(
                     out.push(fx_at(Sheet::Spark, frame, glance_contact(d, front_x)));
                 }
             }
+            // ACT1-B: a timber set smashed by the front: the ENV-02 splinter burst, two
+            // staggered bursts on the set's centre.
+            CombatEvent::Dozer {
+                tick: at,
+                event: DozerEvent::TimberSmashed { id },
+            } if at <= tick => {
+                let Some(timber) = d.site.timbers.get(usize::from(id)) else {
+                    continue;
+                };
+                for (n, y) in GATE_BURST_Y.into_iter().enumerate() {
+                    let Some(age) = (tick - at).checked_sub(n as u64 * GATE_BURST_STAGGER) else {
+                        continue;
+                    };
+                    if let Some(frame) = fx_frame(Sheet::Splinter, SPLINTER_FRAME_TICKS, age) {
+                        out.push(fx_at(
+                            Sheet::Splinter,
+                            frame,
+                            (timber.x + TIMBER_HALF_W, floor + y),
+                        ));
+                    }
+                }
+            }
+            // ACT1-B: the barricade broken by the front: bursts up its height.
+            CombatEvent::Dozer {
+                tick: at,
+                event: DozerEvent::BarrierImpact,
+            } if at <= tick => {
+                let Some(bx) = d.site.barricade_x else {
+                    continue;
+                };
+                for (n, y) in BARRIER_BURST_Y.into_iter().enumerate() {
+                    let Some(age) = (tick - at).checked_sub(n as u64 * GATE_BURST_STAGGER) else {
+                        continue;
+                    };
+                    if let Some(frame) = fx_frame(Sheet::Splinter, SPLINTER_FRAME_TICKS, age) {
+                        out.push(fx_at(Sheet::Splinter, frame, (bx + 40, floor + y)));
+                    }
+                }
+            }
             CombatEvent::Dozer {
                 tick: at,
                 event: DozerEvent::Emerged { .. },
@@ -1434,9 +1491,30 @@ pub fn draw(combat: &CombatState, heroes_x: [f32; 2], tick: u64) -> Option<Dozer
     }
     sprites.extend(fx_sprites(combat, d, heroes_x, tick));
     let pieces = sprites.len();
-    room_pieces(d, tick, &mut sprites);
-    if let Some(env) = combat.env() {
-        frame_sprites(d, combat, env, last_glance(combat), tick, &mut sprites);
+    // ACT1-B: the opening has no rear gate, buffer stop or stop frame (they are room 3's);
+    // its window, timbers, alcove, barricade and arch are the presenter's decor.
+    if !d.has_charge() {
+        room_pieces(d, tick, &mut sprites);
+        if let Some(env) = combat.env() {
+            frame_sprites(d, combat, env, last_glance(combat), tick, &mut sprites);
+        }
+    }
+    // ACT1-B: the greybox wedge clips the rig to the arch (its right edge is `stop_x`).
+    if d.wedged() {
+        let arch_right = d.site.stop_x;
+        for s in &mut sprites {
+            if s.z == FX_Z {
+                continue;
+            }
+            let (w, _) = s.sheet.frame_size();
+            let right = s.left + (w - u32::from(s.crop_right)) as i32;
+            let excess = right - arch_right;
+            if excess > 0 {
+                s.crop_right = (u32::from(s.crop_right) + excess as u32)
+                    .min(w - 1)
+                    .min(255) as u8;
+            }
+        }
     }
     debug_assert!(
         sprites.len() - pieces <= MAX_PIECES && sprites.len() <= MAX_SPRITES,
@@ -1446,6 +1524,7 @@ pub fn draw(combat: &CombatState, heroes_x: [f32; 2], tick: u64) -> Option<Dozer
     Some(DozerArt {
         sprites,
         state: d.state.name(),
+        wedged: d.wedged(),
     })
 }
 
