@@ -9,8 +9,9 @@ Draws the frozen design keys of ``docs/02-art/area-heat-01-spec.md`` on ``floor0
 - ``assets/source/props/floor01/heat_scorch.grid.json``     ``heat_scorch_wall_a`` (64 x 96) and
   ``heat_scorch_floor_a`` (72 x 12) (the scorch sample, spec section 7)
 
-The keys are frozen: execution adds the remaining pieces of spec section 5 as new functions and new
-atlases, and must not redraw a key (a key change is a design change). Every pixel comes from rules
+The keys are frozen as of the gate (its K2, K3 and the R1..R8 redraw of ``heat_scorch_wall_a`` are applied
+here): execution adds the remaining pieces of spec section 5 as new functions and new atlases, and must not
+redraw a key (a key change is a design change). Every pixel comes from rules
 (ramps, a Bayer threshold, a hash noise); nothing is traced or resampled from a concept image. No text,
 logos or likenesses.
 
@@ -158,13 +159,13 @@ def _rot_and_soot(c: Pix, x0: int = SX0, x1: int = SX1, y_from: int = 26) -> Non
             d = (y - y_from) / (SILL[0] - y_from)
             if d * 0.9 > 0.25 + 0.75 * clump(x, y * 2, "soot"):         # stretched along the grain
                 c.darken(x, y)
-    rot = ((16, 38), (17, 38), (16, 39), (22, 40), (23, 40), (23, 41), (19, 31), (20, 31))
+    rot = ((15, 36), (16, 36), (15, 37), (21, 41), (22, 41), (23, 41), (24, 41), (19, 31), (20, 31))
     for x, y in rot:
         if c.get(x, y) is not None:
             c.put(x, y, "wood", 0)
-    for x, y in ((17, 39), (22, 41)):
+    for x, y in ((16, 37),):
         if c.get(x, y) is not None:
-            c.put(x, y, "lichen", 0)                           # damp rot, two pixels, never a green patch
+            c.put(x, y, "lichen", 0)                           # damp rot, one pixel, never a green patch (gate K2)
 
 
 def _sill(c: Pix, x0: int = SX0, x1: int = SX1) -> None:
@@ -319,7 +320,7 @@ def heat_partition_broken() -> Pix:
     _sill(c)
     for x, h in ((13, 3), (19, 2), (26, 3), (23, 1)):          # splinter spikes, dark-tipped so the edge stays flat
         for k in range(1, h + 1):
-            c.put(x, t - k, "stone" if k == 1 else "wood", 7 if k == 1 else 4)
+            c.put(x, t - k, "stone" if k == 1 else "wood", 7 if k == 1 else 1)
     # flat debris in the margins: at most 3 rows tall, lit tops, never a dark run longer than 2 px
     for x in range(0, 11):                                     # a board lying flat, left
         c.put(x, 45, "wood", 4)
@@ -345,58 +346,104 @@ def heat_partition_broken() -> Pix:
 # follows.
 # =============================================================================================
 SW_W, SW_H = 64, 96                # heat_scorch_wall_a, backwall_decal, bottom row at y 559 (the deck back line - 1)
-HEAD_ROW = 60                      # rows >= 60 lie behind the actors' head and torso band: never darker than brick 3
-BURN_ROW = 72                      # rows >= 72: the burn-off zone at the fire's foot (reddened, crazed, few embers)
-EMBER_ROW = 90                     # embers only in the bottom 6 rows (y >= 554, below every glob band)
+# Gate redraw (R1..R8): a whole-brick re-shade of the corral wall in the ENV-01 bond, a soot plume that widens
+# upward from a narrow foot and thins out brick by brick at the top, over a pale stone base course that only
+# darkens. Placed at world (1088, 464): rows 0..79 are ten 8 px wall brick rows (two mid, four lower, four low
+# rows of 8 px, bond offset 8 * (row % 2) as in the world), rows 80..95 are the base course (32 px blocks,
+# joints at world x % 32 == 16, i.e. local x % 32 == 16). Plume bricks start at local x 16 (world 1104), clear
+# of the torch pool of the torch at world x 1016, whose bricks sit 4 px off the wall bond.
+SW_ROW_BAND = ["mid"] * 2 + ["lower"] * 4 + ["low"] * 4
+SW_SOOT_FLOOR = 0.65               # every plume pixel at least the world's brick-jitter half-range darker: never a lighter brick
+SW_HEAD_ROW = 60                   # pixel rows >= 60 lie behind the actors' heads and torsos: never darker than brick 3
+SW_PLUME = dict(
+    foot_x=28.0, lean=0.3,         # core centre at the fire's foot; drift per px of height (positive: to the right)
+    sig0=4.0, sig_grow=0.25,       # lateral spread of the soot at the foot, growth per px of height
+    amp=4.2, amp_top=0.2,          # soot at the core just above the fire; fraction left at the top
+    fade_top=40,                   # brick rows centred above this thin out brick by brick
+    thr=1.4,                       # a brick joins the plume when its strongest sample reaches this soot
+    base_s=1.0, base_rx=14.0, base_ry=18.0,   # stone re-shade dome on the base course (at most -1.0)
+    x_min=16, base_x=(8, 32),      # plume bricks from local x 16; base-course re-shade over local x 8..31
+)
 
 
-STREAKS = ((11, 0.60, 4), (21, 0.86, 5), (33, 1.0, 5), (45, 0.72, 4), (55, 0.48, 3))   # (x at the foot, height, half width)
+def _plume_soot(x: float, y: float, p=SW_PLUME) -> float:
+    """Soot at a pixel: a leaning, widening plume, darkest just above the fire. Low frequency only (no strands)."""
+    d = (79.5 - y) / 79.5
+    sig = p["sig0"] + p["sig_grow"] * (79.5 - y)
+    a = p["amp"] * (1.0 - (1.0 - p["amp_top"]) * d ** 1.1)
+    u = (x - (p["foot_x"] + p["lean"] * (79.5 - y))) / sig
+    taper = clamp((x - p["x_min"]) / 8.0, 0.0, 1.0) * clamp((SW_W - x) / 8.0, 0.0, 1.0)
+    return a * math.exp(-u * u) * taper * (0.85 + 0.3 * vnoise(x, y, 20, "plume_mod"))
 
 
-def _soot_density(x: int, y: int) -> float:
-    """A wide, asymmetric bloom at the foot with five rising streaks that lean with the draught; 0..0.92.
-    Wide and holed on purpose: a narrow solid plume reads as a figure, not a stain (gate finding)."""
-    t = (SW_H - 1 - y) / (SW_H - 1)                            # 0 at the foot, 1 at the top
-    base = 1 - ((x - 31.5) / 25) ** 2 - ((y - 97) / 40) ** 2
-    best = max(0.0, base)
-    for x0, h, w in STREAKS:
-        if t >= h:
-            continue
-        cx = x0 + (SW_H - 1 - y) * 0.08                        # a slight lean to the right
-        best = max(best, (1 - abs(x - cx) / w) * (1 - (t / h) ** 1.3))
-    return clamp(best * 1.05, 0, 0.92)
+def _plume_brick(r: int, col: int, p=SW_PLUME) -> bool:
+    """A brick is in the plume or out (whole-brick rule); the top rows thin out brick by brick."""
+    x0 = col * 16 - 8 * (r % 2)
+    if x0 < p["x_min"] or x0 + 16 > SW_W:
+        return False
+    peak = max(_plume_soot(x + 0.5, y + 0.5, p) for y in range(r * 8, r * 8 + 8, 2) for x in range(x0, x0 + 16, 2))
+    if peak < p["thr"] + (rnd("plume_edge", r, col) - 0.5) * 0.3:
+        return False
+    by = r * 8 + 4.0
+    if by < p["fade_top"]:
+        return rnd("plume_thin", r, col) < (by / p["fade_top"]) ** 0.7 + 0.15
+    return True
 
 
 def heat_scorch_wall_a() -> Pix:
-    c = Pix(SW_W, SW_H)
-    for y in range(SW_H):
-        for x in range(SW_W):
-            d = _soot_density(x, y)
-            if d <= 0:
+    import lookdev_floor01_author as ld  # noqa: PLC0415  (the kit's shading core: bevel normals)
+    p = SW_PLUME
+    c = kit.canvas(SW_W, SW_H)
+    members = {}
+    for r in range(9, -1, -1):          # bottom-up: a brick joins only if it rests on a plume brick (no floaters)
+        for col in range(6):
+            x0 = col * 16 - 8 * (r % 2)
+            below = r == 9 or any(members.get((r + 1, k)) and abs(k * 16 - 8 * ((r + 1) % 2) - x0) < 16
+                                  for k in range(6))
+            members[(r, col)] = below and _plume_brick(r, col)
+    for r in range(10):
+        _rows, base, mortar = kit.BANDS[SW_ROW_BAND[r]]
+        for col in range(6):
+            if not members[(r, col)]:
                 continue
-            n = clump(x, y, "sw")
-            red = clamp((y - 64) / 14, 0, 1)                   # soot hands over to the burn-off zone
-            if red > 0 and rnd("hz", x, y) < red:
-                if d > 0.45 + 0.55 * n:                        # sparser: the heat burnt the soot off
-                    c.put(x, y, "brick", 6 if n < 0.3 else 5)  # heat-reddened brick
-            elif d > 0.02 + 0.7 * n:                           # clumped, holed: the brick shows through
-                if d > 0.72 and y < HEAD_ROW:
-                    v = 2
-                elif d > 0.5:
-                    v = 3
-                else:
-                    v = 4 if n > 0.3 else 5
-                c.put(x, y, "brick", v)
-    # heat crazing in the burn-off zone: short meandering hairline cracks
-    for k, (x, y, n) in enumerate(((24, 76, 9), (37, 80, 8), (30, 86, 7))):
-        for i in range(n):
-            c.put(x, y, "mortar", 1)
-            x += 1 if rnd("cz", k, i) > 0.35 else -1
-            y += 1 if rnd("cy", k, i) > 0.5 else 0
-    # embers: four pixels, flame 0 and 1 only, in the bottom rows, never a blob
-    for x, y, v in ((28, 93, 0), (33, 94, 1), (36, 92, 0), (25, 95, 0)):
-        c.put(x, y, "flame", v)
-    return c
+            x0 = col * 16 - 8 * (r % 2)
+            for py in range(r * 8, r * 8 + 8):
+                for px in range(x0, x0 + 16):
+                    kit.brick_pixel(c, px, py, px - x0, py - r * 8, base=base, mortar_base=mortar, jit=0.0,
+                                    seed=("heat_plume", r, col), chips=False,
+                                    soot=max(SW_SOOT_FLOOR, _plume_soot(px + 0.5, py + 0.5)))
+                    q = c.px[py][px]
+                    lo = 3 if py >= SW_HEAD_ROW else 2
+                    if q and q[0] == "brick" and q[1] < lo:
+                        c.px[py][px] = ("brick", lo)
+    # the base course (rows 80..95) stays pale stone: a low dome of re-shade at the fire's foot, at most -1.0
+    fx = p["foot_x"]
+    for py in range(80, 96):
+        for px in range(*p["base_x"]):
+            u = ((px + 0.5 - fx) / p["base_rx"]) ** 2 + ((95.5 - py) / p["base_ry"]) ** 2
+            s = p["base_s"] * (1.0 - u)
+            if s < 0.3:
+                continue
+            du, dv = (px + 16) % 32, py - 80
+            if du == 0 or dv == 0:
+                kit.put(c, px, py, "mortar", (2.1 if dv else 1.4) - 0.5 * s)
+            elif dv == 15:
+                kit.put(c, px, py, "stone", 2.0)
+            else:
+                nrm, _e = ld.bevel_normal(du - 1, dv - 1, 31, 14, 1)
+                kit.put(c, px, py, "stone", 6.8 + 1.6 * kit.key_term(nrm) - 0.12 * dv - s)
+    # heat crazing: two 1 px hairlines licking up from the fire on the stone (diagonal, never a horizontal pair)
+    fx = int(fx)
+    for path in (((-2, 91), (-3, 90), (-3, 89), (-4, 88), (-5, 87)), ((3, 90), (3, 89), (4, 88), (4, 87))):
+        for dx, y in path:
+            q = c.px[y][fx + dx]
+            if q is not None and q[0] == "stone":
+                kit.put(c, fx + dx, y, "mortar", 1)
+    for dx, y, v in ((-3, 93, 0), (0, 94, 1), (2, 92, 0), (5, 94, 0)):   # embers: flame 0..1, single pixels
+        kit.put(c, fx + dx, y, "flame", v)
+    out = Pix(SW_W, SW_H)
+    out.px = [row[:] for row in c.px]
+    return out
 
 
 SF_W, SF_H = 72, 12                # heat_scorch_floor_a, structure layer, top row at y 561 (back half of the deck)
@@ -475,9 +522,11 @@ def to_image(img: Pix, silhouette: bool = False):
 
 
 # The gate's scene still: the corral pilot's window frame at tick 510 (scripts/room_capture.sh corral corral
-# 420:30:7), copied to docs/evidence/area-heat-01/gate/scene_pen_before_1x.png. Its drawn view is x 1038, y 292
-# (measured on the entry shelf's edges, x 1120..1215 at screen 82..177).
-VIEW = (1038, 292)
+# 420:30:7), copied to docs/evidence/area-heat-01/gate/scene_pen_before_1x.png. Its drawn view is x 1038, y 289:
+# x from the entry shelf's edges (x 1120..1215 at screen 82..177), y from the wall itself (the base course's top
+# mortar row, world y 544, is screen row 255; the wall's mortar rows sit at screen y % 8 == 7). The first gate
+# used y 292, which put every wall decal 3 px off the world bond.
+VIEW = (1038, 289)
 FRONT = (  # what draws in front of a backwall decal or a structure-layer floor decal in that still
     ("shelf", (82, 256, 178, 268)),
     ("donut", (184, 206, 246, 252)),
@@ -485,9 +534,10 @@ FRONT = (  # what draws in front of a backwall decal or a structure-layer floor 
     ("llama", (414, 224, 488, 292)),
 )
 PARTITION_AT = (1380, 532)
-SCORCH_WALL_AT = (1056, 464)
+SCORCH_WALL_AT = (1088, 464)     # plume bricks from world x 1104: clear of the torch pools at 1016 and 1240 (C4)
 SCORCH_FLOOR_AT = (1044, 561)
 GOBLIN_AT = (40, 288)              # staged: screen x of the goblin's feet centre (M0 goblins do not reach the pen)
+CARL_AT = (72, 288)                # staged for the wall-scorch contrast crop: Carl at the pen entry, beside the plume
 
 
 def _goblin():
@@ -498,6 +548,62 @@ def _goblin():
     f = meta["frames"][0]["frame"]
     cell = sheet.crop((f["x"], f["y"], f["x"] + f["w"], f["y"] + f["h"]))
     return cell.crop(cell.getbbox())
+
+
+def _sprite(name: str):
+    """Frame 0 of an exported atlas, trimmed to its opaque box (feet on the bottom row)."""
+    from PIL import Image
+    sheet = Image.open(ROOT / f"generated/art/{name}.png").convert("RGBA")
+    meta = json.loads((ROOT / f"generated/art/{name}.json").read_text(encoding="utf-8"))
+    frames = meta["frames"]
+    f = frames[0]["frame"] if isinstance(frames, list) else next(iter(frames.values()))["frame"]
+    cell = sheet.crop((f["x"], f["y"], f["x"] + f["w"], f["y"] + f["h"]))
+    return cell.crop(cell.getbbox())
+
+
+def _lit_wall(img: Pix, still, at: tuple) -> "object":
+    """The wall decal under the still's light: each brick (or base-course block) of the decal is scaled per
+    channel by the light the still shows on that same brick (mean face colour over the band's base colour).
+    An approximation of the runtime's lit backwall for the gate sheets, not a capture."""
+    vx, vy = VIEW
+    ox, oy = at[0] - vx, at[1] - vy
+
+    def cell(x, y):
+        if y >= 80:
+            return ("base", (x + 16) // 32)
+        r = y // 8
+        return ("b", r, (x + 8 * (r % 2)) // 16)
+
+    def face(x, y):
+        if y >= 80:
+            return y not in (80, 95) and (x + 16) % 32 != 0
+        return y % 8 != 0 and (x + 8 * ((y // 8) % 2)) % 16 != 0
+
+    def hexrgb(h):
+        return tuple(int(h[i:i + 2], 16) for i in (1, 3, 5))
+
+    acc = {}
+    for y in range(img.h):
+        for x in range(img.w):
+            if face(x, y):
+                a = acc.setdefault(cell(x, y), [0, 0, 0, 0])
+                p = still.getpixel((ox + x, oy + y))
+                for i in range(3):
+                    a[i] += p[i]
+                a[3] += 1
+    mul = {}
+    for k, a in acc.items():
+        ref = hexrgb(RAMPS["stone"][6] if k[0] == "base" else RAMPS["brick"][round(kit.BANDS[SW_ROW_BAND[k[1]]][1])])
+        mul[k] = [a[i] / a[3] / max(1, ref[i]) for i in range(3)]
+    im = to_image(img)
+    px = im.load()
+    for y in range(img.h):
+        for x in range(img.w):
+            r, g, b, al = px[x, y]
+            if al:
+                m = mul[cell(x, y)]
+                px[x, y] = (min(255, int(r * m[0])), min(255, int(g * m[1])), min(255, int(b * m[2])), 255)
+    return im
 
 
 def gate(out_dir: Path) -> None:
@@ -522,7 +628,7 @@ def gate(out_dir: Path) -> None:
     still = Image.open(out_dir / "scene_pen_before_1x.png").convert("RGBA")
     vx, vy = VIEW
     gob = _goblin()
-    wall, floor = to_image(heat_scorch_wall_a()), to_image(heat_scorch_floor_a())
+    wall, floor = _lit_wall(heat_scorch_wall_a(), still.convert("RGB"), SCORCH_WALL_AT), to_image(heat_scorch_floor_a())
     states = (("intact", heat_partition_intact), ("weakened", heat_partition_weakened),
               ("broken", heat_partition_broken))
     strip = []
@@ -544,6 +650,30 @@ def gate(out_dir: Path) -> None:
         s.alpha_composite(im, (8 + k * 148, 4))
     s.save(out_dir / "states_in_scene_1x.png")
     s.resize((s.width * 4, s.height * 4), Image.NEAREST).save(out_dir / "states_in_scene_4x.png")
+    # the wall scorch before and after at gameplay scale: without actors (the "not a door" check), with the
+    # staged goblin at its gate position, the goblin over the plume, and Carl at the pen entry; before | after
+    # per row, 1x and 3x
+    carl = _sprite("carl_book1_h48")
+    box = (10, 150, 150, 290)
+    rows = []
+    for actors in ((), ((gob, GOBLIN_AT),), ((gob, CARL_AT),), ((carl, CARL_AT),)):
+        pair = []
+        for with_scorch in (False, True):
+            comp = still.copy()
+            if with_scorch:
+                comp.alpha_composite(wall, (SCORCH_WALL_AT[0] - vx, SCORCH_WALL_AT[1] - vy))
+                comp.paste(still.crop(FRONT[0][1]), FRONT[0][1][:2])
+            for spr, (fx, fy) in actors:
+                comp.alpha_composite(spr, (fx - spr.width // 2, fy - spr.height))
+            pair.append(comp.crop(box))
+        rows.append(pair)
+    cw, ch = box[2] - box[0], box[3] - box[1]
+    s = Image.new("RGBA", (cw * 2 + 12, ch * len(rows) + 4 * (len(rows) + 1)), (40, 36, 48, 255))
+    for i, pair in enumerate(rows):
+        for j, im in enumerate(pair):
+            s.alpha_composite(im, (4 + j * (cw + 4), 4 + i * (ch + 4)))
+    s.save(out_dir / "scorch_wall_before_after_1x.png")
+    s.resize((s.width * 3, s.height * 3), Image.NEAREST).save(out_dir / "scorch_wall_before_after_3x.png")
 
 
 if __name__ == "__main__":
