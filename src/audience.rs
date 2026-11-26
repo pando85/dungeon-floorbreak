@@ -461,6 +461,38 @@ impl AudienceState {
         self.begin_attempt();
     }
 
+    /// AUDIENCE-RUN: unlock with carried counts, `(current, peak)` per hero
+    /// (Carl 0, Donut 1), from an earlier room of the run. Every pair must
+    /// satisfy `peak >= current >= baseline`; the decay remainder starts at
+    /// zero and the fall reference at the current count. The attempt-start
+    /// snapshot is taken at once, so a `Restart` restores the carried counts
+    /// and a fresh room starts with an empty dedupe set. A no-op (and `Ok`)
+    /// when already unlocked; an invalid carry changes nothing.
+    pub fn resume(&mut self, counts: [(u64, u64); 2]) -> Result<(), String> {
+        if self.unlocked {
+            return Ok(());
+        }
+        for (name, (current, peak)) in ["carl", "donut"].iter().zip(counts) {
+            if current < TUNING.baseline || peak < current {
+                return Err(format!(
+                    "audience carry for {name} must satisfy peak >= current >= {} (got current {current}, peak {peak})",
+                    TUNING.baseline
+                ));
+            }
+        }
+        self.unlocked = true;
+        self.heroes = counts.map(|(current, peak)| HeroAudience::at(current, peak, 0));
+        self.begin_attempt();
+        Ok(())
+    }
+
+    /// The `(current, peak)` of both heroes, `None` while locked. The exit
+    /// carry of a run room (the decay remainder is dropped, AR-AD3).
+    pub fn carry(&self) -> Option<[(u64, u64); 2]> {
+        self.unlocked
+            .then(|| [0, 1].map(|i| (self.heroes[i].current, self.heroes[i].peak)))
+    }
+
     /// Install the authored cue table (validated; replaces any earlier one).
     pub fn set_cues(&mut self, cues: Vec<AnticipationCue>) -> Result<(), CueError> {
         validate_cues(&cues)?;
@@ -778,6 +810,48 @@ mod tests {
         s.step(&[melee(1, 0, ForceTier::Routine)]);
         s.unlock();
         assert_eq!(carl(&s), 370, "a second unlock is a no-op");
+    }
+
+    #[test]
+    fn resume_carries_counts_and_starts_a_fresh_room() {
+        let mut s = AudienceState::locked();
+        s.resume([(1_400, 1_900), (600, 800)]).unwrap();
+        assert!(s.is_unlocked());
+        assert_eq!((carl(&s), donut(&s)), (1_400, 600));
+        assert_eq!(s.carry(), Some([(1_400, 1_900), (600, 800)]));
+        assert_eq!(s.view(HeroId::Carl).unwrap().peak, 1_900);
+        assert_eq!(s.view(HeroId::Carl).unwrap().shown, 1_400, "no count-up");
+        // A fresh room: the dedupe set is empty, so a reused target id pays.
+        s.step(&[melee(7, 0, ForceTier::Routine)]);
+        assert_eq!(carl(&s), 1_520);
+        // Respawn keeps the counts and the dedupe set.
+        s.step(&[AudienceInput::Respawn]);
+        assert_eq!(carl(&s), 1_520);
+        s.step(&[melee(7, 0, ForceTier::Routine)]);
+        assert_eq!(carl(&s), 1_520, "the same target pays once per attempt");
+        // Restart restores the carried counts, not the baseline.
+        s.step(&[AudienceInput::Restart]);
+        assert_eq!((carl(&s), donut(&s)), (1_400, 600));
+        assert_eq!(s.carry(), Some([(1_400, 1_900), (600, 800)]));
+        // A second resume (or unlock) is a no-op.
+        s.resume([(300, 300), (300, 300)]).unwrap();
+        s.unlock();
+        assert_eq!(carl(&s), 1_400);
+        // Bad carries are rejected and change nothing.
+        for bad in [
+            [(249, 400), (300, 300)],
+            [(300, 300), (500, 400)],
+            [(0, 0), (250, 250)],
+        ] {
+            let mut s = AudienceState::locked();
+            assert!(s.resume(bad).is_err(), "{bad:?}");
+            assert_eq!(s, AudienceState::locked());
+        }
+        assert_eq!(AudienceState::locked().carry(), None);
+        // The boundary values are valid.
+        AudienceState::locked()
+            .resume([(250, 250), (250, 9_000)])
+            .unwrap();
     }
 
     #[test]

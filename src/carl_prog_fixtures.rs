@@ -915,8 +915,53 @@ pub const CARL_PROG_DYN_LLAMA_CORE: PartyFixture = PartyFixture {
     donut: DonutSetup::NONE,
 };
 
+const DYN_THROWN_TRIPLE_BASE: Fixture = base(
+    "carl_prog_dyn_thrown_triple",
+    "Solo, thrown charge held: three passive goblins stand inside the 20 px core where the stick lands; the one blast defeats all three on its tick, credited to Carl (AUDIENCE-RUN CINE-THROWN-MULTI evidence)",
+    0x0CA1_0049,
+    &[passive(499), passive(511), passive(523)],
+    330,
+);
+
+/// AUDIENCE-RUN (AR-T23): a deliberate throw whose one blast defeats three
+/// goblins on one tick. The simulation rule is CP-Q20's, unchanged.
+pub const CARL_PROG_DYN_THROWN_TRIPLE: PartyFixture = PartyFixture {
+    base: &DYN_THROWN_TRIPLE_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[special(4, 0)],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const DYN_LLAMA_PACK_BASE: Fixture = Fixture {
+    llamas: &[LlamaSpawn {
+        x: 511,
+        ai: EnemyAi::Passive,
+    }],
+    ..base(
+        "carl_prog_dyn_llama_pack",
+        "Solo, thrown charge held: four passive goblins and a passive Bad Llama stand inside the 20 px core where the stick lands; the one blast defeats all five on its tick (the llama_exploded finish among them), credited to Carl (AUDIENCE-RUN legendary showcase evidence)",
+        0x0CA1_004A,
+        &[passive(493), passive(503), passive(519), passive(529)],
+        330,
+    )
+};
+
+/// AUDIENCE-RUN (AR-T24): the run's "best one": a thrown stick that defeats
+/// four goblins and a llama in one blast. The simulation rule is CP-Q20's and
+/// CP-Q26's, unchanged.
+pub const CARL_PROG_DYN_LLAMA_PACK: PartyFixture = PartyFixture {
+    base: &DYN_LLAMA_PACK_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[special(4, 0)],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
 /// Every `carl_prog_*` replay fixture, in committed order.
-pub const CARL_PROG_FIXTURES: [&PartyFixture; 32] = [
+pub const CARL_PROG_FIXTURES: [&PartyFixture; 34] = [
     &CARL_PROG_STORY_EVENT_GRANTS_DYNAMITE,
     &CARL_PROG_GRANT_SURVIVES_RESPAWN,
     &CARL_PROG_JUICER_GRANTS_FIST,
@@ -949,6 +994,8 @@ pub const CARL_PROG_FIXTURES: [&PartyFixture; 32] = [
     &CARL_PROG_SHORE_COMBO,
     &CARL_PROG_KICK_UNCHANGED,
     &CARL_PROG_DYN_LLAMA_CORE,
+    &CARL_PROG_DYN_THROWN_TRIPLE,
+    &CARL_PROG_DYN_LLAMA_PACK,
 ];
 
 #[cfg(test)]
@@ -1024,7 +1071,7 @@ mod tests {
     }
 
     /// The committed final hashes of the `carl_prog_*` fixtures.
-    const GOLDENS: [(&str, u64); 32] = [
+    const GOLDENS: [(&str, u64); 34] = [
         (
             "carl_prog_story_event_grants_dynamite",
             0x7594_ba64_4fd2_dbaf,
@@ -1060,6 +1107,8 @@ mod tests {
         ("carl_prog_shore_combo", 0xc155_9bef_ceb0_67bf),
         ("carl_prog_kick_unchanged", 0x0755_27d1_bab1_0490),
         ("carl_prog_dyn_llama_core", 0xa00c_a20c_6dcf_ece8),
+        ("carl_prog_dyn_thrown_triple", 0xcee2_8f1e_e914_b7aa),
+        ("carl_prog_dyn_llama_pack", 0xf46c_22a6_4d10_893a),
     ];
 
     #[test]

@@ -1,0 +1,7 @@
+AUDIENCE_RESTART_LOG room start (carried)       carl=1400 donut=600 carry=Some([(1400, 1900), (600, 800)])
+AUDIENCE_RESTART_LOG goblin 3 defeated by Carl  carl=1520 donut=600 carry=Some([(1520, 1900), (600, 800)])
+AUDIENCE_RESTART_LOG goblin 3 again (same id)   carl=1520 donut=600 carry=Some([(1520, 1900), (600, 800)])
+AUDIENCE_RESTART_LOG checkpoint Respawn         carl=1520 donut=600 carry=Some([(1520, 1900), (600, 800)])
+AUDIENCE_RESTART_LOG goblin 3 after Respawn     carl=1520 donut=600 carry=Some([(1520, 1900), (600, 800)])
+AUDIENCE_RESTART_LOG Restart                    carl=1400 donut=600 carry=Some([(1400, 1900), (600, 800)])
+AUDIENCE_RESTART_LOG goblin 3 after Restart     carl=1520 donut=600 carry=Some([(1520, 1900), (600, 800)])

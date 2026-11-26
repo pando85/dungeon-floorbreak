@@ -58,7 +58,7 @@ use dungeon_floorbreak::{
     carl_prog_fixtures,
     cf02::{self, Cf02Config, Cf02Tuning},
     cf02_fixtures::{find_party_fixture, list_fixtures},
-    cine::{ENV_CINEMATIC_FINISHES, FrameContext, PlannerState, PresentationSettings},
+    cine::{CineTuning, ENV_CINEMATIC_FINISHES, FrameContext, PlannerState, PresentationSettings},
     cine_adapter::CineAdapter,
     combat::{Attacker, ENEMY_HALF_HEIGHT, ENEMY_HALF_WIDTH, Phase, hit_box},
     combat_anim::{
@@ -95,7 +95,7 @@ use dungeon_floorbreak::{
     gore::{DEATH_VARIANTS, DeathArt, GorePreset, LLAMA_VARIANT, Sheet},
     hud::{EventCursor, GlyphSet, HudConfig, HudLayout, HudPreview, HudRuntime, SpecialPhase},
     hud_adapter::{HudPlugin, HudState},
-    hud_settings::HudSettings,
+    hud_settings::{HudSettings, parse_switch},
     input::RawInput,
     key_bindings::{self, KeyAction, KeyName},
     light_pass::{
@@ -307,6 +307,17 @@ struct Args {
     /// that never touches the simulation, so every other line is unchanged.
     audience_probe: bool,
     audience_cue_x: i32,
+    /// AUDIENCE-RUN (`--audience[=on|off]`, AR-AD6): the per-hero viewer counts
+    /// of a floor run. `None` takes the run default (on in a live `--f01-run`
+    /// only, see [`Args::run_broadcast_default`]); `Some(true)` needs
+    /// `--f01-run`; `Some(false)` locks the audience everywhere.
+    audience: Option<bool>,
+    /// AUDIENCE-RUN (`--cine-showcase[=on|off]`, AR-AD7): the CINE-01 showcase
+    /// feats (a thrown multi-kill, a llama kill). `None` takes the run default.
+    cine_showcase: Option<bool>,
+    /// AUDIENCE-RUN: `--f01-audience C:P:D:Q`, the viewer counts the previous
+    /// room of the run carried (written by the relaunch).
+    f01_audience: Option<f01_run::AudienceCarry>,
     /// COMBAT-FUN-02 (`--cf02`, `--cf02-seed N`): the CF02 run configuration.
     /// CF02-00 only carries it (the room is still the DEMO hall and no rule
     /// reads it), so a `--cf02` run replays exactly like `--demo`.
@@ -500,6 +511,33 @@ impl Args {
             && !self.death_lab_edge
             && !self.audience_probe
             && self.list_fixtures.is_none()
+    }
+
+    /// AUDIENCE-RUN (AR-AD6, AR-AD7): the run default of both new behaviours.
+    /// On exactly for a live floor run: `live_input()` already excludes every
+    /// scripted, headless, capture, perf and probe path, and the two extra
+    /// terms switch it off for the scripted room and ring pilots, so every
+    /// evidence script that passes `--f01-run` keeps its output.
+    fn run_broadcast_default(&self) -> bool {
+        self.f01_run && self.live_input() && self.room_pilot.is_none() && !self.ring_pilot
+    }
+
+    /// AUDIENCE-RUN: whether the per-hero viewer counts are enabled for this
+    /// run (an explicit flag always wins over the run default). The audience
+    /// still goes live only in the rooms after the corral
+    /// ([`f01_run::audience_live_in`]).
+    fn audience_enabled(&self) -> bool {
+        self.audience
+            .unwrap_or_else(|| self.run_broadcast_default())
+    }
+
+    /// AUDIENCE-RUN: the CINE-01 tuning of this run. It does not depend on the
+    /// room: showcase slow motion is live in the corral too.
+    fn cine_tuning(&self) -> CineTuning {
+        CineTuning::DEFAULT.with_showcase(
+            self.cine_showcase
+                .unwrap_or_else(|| self.run_broadcast_default()),
+        )
     }
 
     /// FIX-TOOL: a live room run (an `f01_late` room, the Juicer included) with a scripted
@@ -901,10 +939,16 @@ fn resolve_f01_late_args(parsed: &mut Args) -> Result<(), String> {
         if parsed.f01_run || parsed.f01_carry.is_some() || parsed.f01_tally.is_some() {
             return Err("--f01-run, --f01-carry and --f01-run-tally need --scene f01_late".into());
         }
+        if parsed.f01_audience.is_some() || parsed.audience == Some(true) {
+            return Err("--f01-audience and --audience=on need --scene f01_late --f01-run".into());
+        }
         return Ok(());
     }
     if !parsed.f01_run && (parsed.f01_carry.is_some() || parsed.f01_tally.is_some()) {
         return Err("--f01-carry and --f01-run-tally belong to a floor run: add --f01-run".into());
+    }
+    if !parsed.f01_run && (parsed.f01_audience.is_some() || parsed.audience == Some(true)) {
+        return Err("--f01-audience and --audience=on belong to a floor run: add --f01-run".into());
     }
     if parsed.f01_run && parsed.cf02.seed.is_some() {
         // Adopted F01RUN-AD3: the rooms of a run draw their default seeds (the
@@ -961,6 +1005,13 @@ fn resolve_f01_late_args(parsed: &mut Args) -> Result<(), String> {
         None if parsed.f01_run => f01_run::first_room(&manifest),
         None => manifest.default_room(),
     };
+    if parsed.f01_audience.is_some() && !f01_run::audience_live_in(&manifest, &row.id) {
+        return Err(format!(
+            "--f01-audience: the broadcast is not live in {:?} (it goes live in the rooms after {:?})",
+            row.id,
+            f01_run::AUDIENCE_UNLOCK_AFTER
+        ));
+    }
     if loadout == f01_late::Loadout::All && parsed.f01_carry.is_some() {
         return Err("--f01-carry is the story loadout's ledger: the TEST LOADOUT (--f01-loadout all) carries nothing".into());
     }
@@ -1178,10 +1229,12 @@ const RUN_PANEL_ARM_FRAMES: u16 = 30;
 /// relaunches, or quits after the last listed room. Reads the finished
 /// simulation; nothing flows back. A scripted run shows the panel
 /// (presentation only) and never leaves the room.
+#[allow(clippy::too_many_arguments)]
 fn f01_run_step(
     sim: Res<Sim>,
     combat: Res<Combat>,
     setup: Res<Setup>,
+    hud: Res<HudState>,
     mut overlay: ResMut<LabOverlay>,
     mut rec: ResMut<Recorder>,
     mut next: Local<RunNext>,
@@ -1206,6 +1259,11 @@ fn f01_run_step(
                     tally: setup.args.f01_tally.unwrap_or_default(),
                     argv: &argv,
                     recording: &recording,
+                    audience: hud
+                        .0
+                        .audience_carry()
+                        .map(f01_run::AudienceCarry::from_counts),
+                    audience_enabled: setup.args.audience_enabled(),
                 })
             });
         match decided {
@@ -1452,6 +1510,9 @@ fn parse_args_full(
         donut: DonutProgFlags::OFF,
         audience_probe: false,
         audience_cue_x: AUDIENCE_PROBE_CUE_X,
+        audience: None,
+        cine_showcase: None,
+        f01_audience: None,
         cf02: Cf02Config::OFF,
         cf02_engineer: false,
         companion: None,
@@ -1543,6 +1604,26 @@ fn parse_args_full(
                 parsed.donut_biscuit |= parsed.donut.implies_biscuit();
             }
             "--audience-probe" => parsed.audience_probe = true,
+            "--audience" => parsed.audience = Some(true),
+            other if other.starts_with("--audience=") => {
+                let value = &other["--audience=".len()..];
+                parsed.audience = Some(parse_switch(value).ok_or_else(|| {
+                    format!("bad value {value:?} for --audience (expected on or off)")
+                })?);
+            }
+            "--cine-showcase" => parsed.cine_showcase = Some(true),
+            other if other.starts_with("--cine-showcase=") => {
+                let value = &other["--cine-showcase=".len()..];
+                parsed.cine_showcase = Some(parse_switch(value).ok_or_else(|| {
+                    format!("bad value {value:?} for --cine-showcase (expected on or off)")
+                })?);
+            }
+            f01_run::FLAG_AUDIENCE => {
+                let value = iter
+                    .next()
+                    .ok_or("--f01-audience needs carl:carl_peak:donut:donut_peak (written by the floor run)")?;
+                parsed.f01_audience = Some(f01_run::AudienceCarry::parse(value)?);
+            }
             "--audience-cue-x" => {
                 let value = iter.next().ok_or("--audience-cue-x needs a scene x")?;
                 parsed.audience_cue_x = value
@@ -2201,13 +2282,42 @@ fn new_hud(args: &Args, kit: &EnvKit, actors: &Actors) -> HudRuntime {
         };
         hud.unlock_audience(vec![cue])
             .expect("the probe cue is inside the tuning range");
+    } else if args.audience_enabled() && run_room_has_broadcast(args) {
+        // AUDIENCE-RUN (AR-AD1, AR-AD4): the broadcast is live in the run
+        // rooms after the corral, at the carried counts or, without a carry,
+        // at the baseline. Floor 01 authors no anticipation cue (AR-AD19).
+        match args.f01_audience {
+            Some(carry) => hud
+                .resume_audience(carry.counts())
+                .expect("the carry was validated when it was parsed"),
+            None => hud
+                .unlock_audience(Vec::new())
+                .expect("an empty cue table is valid"),
+        }
     }
     hud
 }
 
-/// The `AUDIENCE_STATE` line: printed only while the audience is unlocked (the
-/// QA probe), never by a Floor 01 run, and never part of the combat hash.
-fn print_audience_state(hud: &HudRuntime) {
+/// AUDIENCE-RUN: whether the run's room is one the broadcast is live in
+/// (positional, after the corral; fails closed when the manifest or the room
+/// cannot be read).
+fn run_room_has_broadcast(args: &Args) -> bool {
+    let Some(room) = args.f01_room.as_deref() else {
+        return false;
+    };
+    std::env::current_dir()
+        .map_err(|e| e.to_string())
+        .and_then(|root| f01_late::Manifest::load(&root))
+        .is_ok_and(|manifest| f01_run::audience_live_in(&manifest, room))
+}
+
+/// The `AUDIENCE_STATE` line: printed only while the audience is unlocked and
+/// only under the QA probe or an explicit `--audience=on` (AR-AD22), never by a
+/// default run, and never part of the combat hash.
+fn print_audience_state(args: &Args, hud: &HudRuntime) {
+    if !(args.audience_probe || args.audience == Some(true)) {
+        return;
+    }
     let audience = hud.audience();
     if let (Some(digest), Some(carl), Some(donut)) = (
         audience.digest(),
@@ -2503,7 +2613,7 @@ fn build_scene(
         } else if args.lab_run.is_some() {
             sim.set_drive(party.drive(true));
         }
-        let mut feat_feed = AudienceFeatFeed::default();
+        let mut feat_feed = AudienceFeatFeed::new(args);
         for _ in 0..presim_ticks(args).unwrap_or(0) {
             let inputs = if let Some(pf) = args.party_fixture {
                 let slots = pf.inputs(sim.world.tick + 1, &combat, &sim);
@@ -2740,6 +2850,11 @@ fn print_combat_events(
     let cf02 = combat.cf02();
     // CA-29: the heroes the companion drove on the tick these events came from.
     let driven = combat.companion_driven();
+    // AUDIENCE-RUN: the showcase species' target ids, from the state the
+    // events came from (a no-op unless the tuning has showcase feats on).
+    if let Some(cine) = cine.as_deref_mut() {
+        bridge_showcase_targets(cine, combat);
+    }
     for event in combat.take_new_events() {
         println!("{event}");
         if let Some(audio) = audio.as_deref_mut() {
@@ -2782,37 +2897,70 @@ fn chain_feat(m: &dungeon_floorbreak::cine::CinematicMoment) -> ChainFeat {
 /// [`CineAdapter`] (the evaluator is a function of the events only, whatever
 /// the presentation setting), reads the log and returns nothing to the
 /// simulation. Inert while the audience is locked.
-#[derive(Default)]
 struct AudienceFeatFeed {
     adapter: Option<CineAdapter>,
     cursor: EventCursor,
+    /// AR-AD8: the same CINE tuning as the live adapter (showcase included).
+    tuning: CineTuning,
+    /// An explicit `--cine-showcase=on`: the feed runs, and prints the
+    /// observer `CINE01_MOMENT` lines, even while the audience is locked
+    /// (AR-AD22). Without it a locked audience keeps today's early return.
+    explicit_showcase: bool,
 }
 
 impl AudienceFeatFeed {
+    fn new(args: &Args) -> Self {
+        Self {
+            adapter: None,
+            cursor: EventCursor::default(),
+            tuning: args.cine_tuning(),
+            explicit_showcase: args.cine_showcase == Some(true),
+        }
+    }
+
     /// One finished tick: call before [`step_hud`] (the live loop also queues
     /// the feats before its HUD step).
     fn observe(&mut self, combat: &CombatState, hud: &mut HudRuntime) {
-        if !hud.audience().is_unlocked() {
+        let unlocked = hud.audience().is_unlocked();
+        if !unlocked && !self.explicit_showcase {
             return;
         }
+        let tuning = self.tuning;
         let adapter = self
             .adapter
-            .get_or_insert_with(|| CineAdapter::new(PresentationSettings::OFF));
+            .get_or_insert_with(|| CineAdapter::with_tuning(PresentationSettings::OFF, tuning));
+        bridge_showcase_targets(adapter, combat);
         // CA-29: the CINE filter does not apply here. AUDIENCE credit stays
         // factual per hero (it never triggers a slow-motion moment).
         for event in self.cursor.next(&combat.events, combat.dropped_events) {
             adapter.push(event);
         }
         for emission in adapter.flush() {
-            hud.push_chain_feat(chain_feat(&emission.moment));
+            if self.explicit_showcase {
+                // Observer line (presentation OFF, so no CINE01_SLOWMO line).
+                println!("{}", cine_moment_line(&emission.moment));
+            }
+            if unlocked {
+                hud.push_chain_feat(chain_feat(&emission.moment));
+            }
         }
     }
+}
+
+/// AUDIENCE-RUN: tell the CINE adapter which target ids are showcase species
+/// (the llamas, which follow the goblins in the target id space), read from the
+/// authoritative combat state. A no-op for the evaluator while the tuning has
+/// showcase feats off.
+fn bridge_showcase_targets(adapter: &mut CineAdapter, combat: &CombatState) {
+    let goblins = u32::try_from(combat.enemies.len()).unwrap_or(u32::MAX);
+    let llamas = u32::try_from(combat.llamas.len()).unwrap_or(u32::MAX);
+    adapter.set_showcase_targets(goblins, llamas);
 }
 
 /// The `CINE01_MOMENT` line of an emitted moment.
 fn cine_moment_line(m: &dungeon_floorbreak::cine::CinematicMoment) -> String {
     format!(
-        "CINE01_MOMENT tick={} tier={} score={} credited={} target={} precision_edge={} mixed_chain={} contact_setup={} extra_kills={}{}",
+        "CINE01_MOMENT tick={} tier={} score={} credited={} target={} precision_edge={} mixed_chain={} contact_setup={} extra_kills={}{}{}{}{}",
         m.tick,
         match m.tier {
             dungeon_floorbreak::cine::CineTier::Ordinary => "ordinary",
@@ -2825,6 +2973,23 @@ fn cine_moment_line(m: &dungeon_floorbreak::cine::CinematicMoment) -> String {
         u8::from(m.feats.mixed_chain),
         u8::from(m.feats.contact_setup),
         m.feats.extra_kills,
+        // AR-AD21: only when set, before ` upgrade=1`, so a legacy line is
+        // byte-identical.
+        if m.feats.thrown_multi {
+            " thrown_multi=1"
+        } else {
+            ""
+        },
+        if m.feats.showcase_kill {
+            " showcase_kill=1"
+        } else {
+            ""
+        },
+        if m.feats.showcase_bonus {
+            " showcase_bonus=1"
+        } else {
+            ""
+        },
         if m.upgrade { " upgrade=1" } else { "" },
     )
 }
@@ -4330,7 +4495,7 @@ fn run_window(
     .insert_resource(actors)
     .insert_resource(Frozen(freeze))
     .insert_resource(Cine {
-        adapter: CineAdapter::new(cine_settings),
+        adapter: CineAdapter::with_tuning(cine_settings, args.cine_tuning()),
         speed: 1.0,
         run: None,
         last_elapsed: 0,
@@ -6177,7 +6342,7 @@ fn fixed_step(
         if let Some(combat) = combat.0.as_ref() {
             print_combat_state(&sim.0, &anim.0, combat);
         }
-        print_audience_state(&hud.0);
+        print_audience_state(&setup.args, &hud.0);
         if let Some(death) = death.0.as_ref() {
             println!("{}", death.state_line());
         }
@@ -8946,7 +9111,7 @@ fn headless_smoke(kit: &EnvKit, args: &Args, actors: &Actors, root: &Path) -> Re
     let (sim, anim, _, _, _) = build_scene(kit, args, actors, root, &mut hud)?;
     println!("{}", sim.state_line());
     println!("{}", anim.state_line(sim.world.tick));
-    print_audience_state(&hud);
+    print_audience_state(args, &hud);
     Ok(())
 }
 
@@ -9150,7 +9315,7 @@ fn headless_fixture(kit: &EnvKit, args: &Args, actors: &Actors, root: &Path) -> 
             );
         }
         print_room_pilot_state(&args, &combat, &sim, &party);
-        print_audience_state(&hud);
+        print_audience_state(&args, &hud);
         if args.death_trace
             && let Some(death) = death
         {
@@ -9162,7 +9327,7 @@ fn headless_fixture(kit: &EnvKit, args: &Args, actors: &Actors, root: &Path) -> 
     let (sim, anim, _, _, _) = build_scene(kit, args, actors, root, &mut hud)?;
     println!("{}", sim.state_line());
     println!("{}", anim.state_line(sim.world.tick));
-    print_audience_state(&hud);
+    print_audience_state(args, &hud);
     Ok(())
 }
 
@@ -9438,6 +9603,514 @@ mod tests {
         );
         assert_eq!(fast_view.steps(), live_view.steps());
         assert_eq!(fast_view.digest(), live_view.digest());
+    }
+
+    /// AUDIENCE-RUN (AR-T21, AR-AD6, AR-AD7): the broadcast and the showcase feats
+    /// are on by default only for a live floor run. Every argument set the
+    /// evidence scripts pass with `--f01-run` (the combat CI's corral entry, the
+    /// heat, ring and Hoarder-cue evidence, the owner commands) keeps both off
+    /// except the owner commands, which are live play; an explicit flag wins.
+    #[test]
+    fn broadcast_defaults_are_on_only_for_a_live_f01_run() {
+        let both = |a: &Args| (a.audience_enabled(), a.cine_tuning().showcase_feats);
+        // On: the owner's command, with or without a room, scale, loadout or exit.
+        for live in [
+            &["--scene", "f01_late", "--f01-run"][..],
+            &["--scene", "f01_late", "--scale", "2", "--f01-run"],
+            &["--scene", "f01_late", "--f01-run", "--f01-loadout", "all"],
+            &[
+                "--scene",
+                "f01_late",
+                "--f01-run",
+                "--f01-room",
+                "ring_court",
+            ],
+            &["--scene", "f01_late", "--f01-run", "--f01-room", "hoarder"],
+            &[
+                "--scene",
+                "f01_late",
+                "--f01-run",
+                "--exit-after-ticks",
+                "30",
+            ],
+        ] {
+            let parsed = args(live).unwrap_or_else(|e| panic!("{live:?}: {e}"));
+            assert_eq!(both(&parsed), (true, true), "{live:?}");
+        }
+        // Off: everything scripted, headless, captured, piloted or opted out.
+        for off in [
+            // scripts/ci_floor01_combat.sh (the corral entry)
+            &[
+                "--headless-floor01-smoke",
+                "--scene",
+                "f01_late",
+                "--f01-run",
+            ][..],
+            // scripts/make_heat01_evidence.sh
+            &[
+                "--no-audio",
+                "--no-record",
+                "--scale",
+                "1",
+                "--scene",
+                "f01_late",
+                "--f01-run",
+                "--capture-sequence",
+                "60:30:2",
+                "--capture-dir",
+                "x",
+            ],
+            &[
+                "--headless-floor01-smoke",
+                "--scene",
+                "f01_late",
+                "--f01-run",
+                "--capture-tick",
+                "90",
+            ],
+            // scripts/make_rings01_evidence.sh
+            &[
+                "--scale",
+                "1",
+                "--scene",
+                "f01_late",
+                "--f01-run",
+                "--f01-room",
+                "ring_court",
+                "--ring-pilot",
+            ],
+            &[
+                "--headless-floor01-smoke",
+                "--scene",
+                "f01_late",
+                "--f01-run",
+                "--f01-room",
+                "ring_split",
+                "--ring-pilot",
+            ],
+            // scripts/make_hrd_cues_evidence.sh (scripts/room_capture.sh with the floor plan)
+            &[
+                "--f01-run",
+                "--scale",
+                "1",
+                "--scene",
+                "f01_late",
+                "--f01-room",
+                "hoarder",
+                "--room-pilot",
+                "hoarder:carl_solo:0",
+                "--capture-sequence",
+                "60:1:2",
+                "--capture-dir",
+                "x",
+            ],
+            &[
+                "--headless-floor01-smoke",
+                "--f01-run",
+                "--scene",
+                "f01_late",
+                "--f01-room",
+                "hoarder",
+                "--room-pilot",
+                "hoarder:carl_solo:0",
+                "--capture-tick",
+                "120",
+            ],
+            // the explicit opt-outs persist
+            &[
+                "--scene",
+                "f01_late",
+                "--f01-run",
+                "--audience=off",
+                "--cine-showcase=off",
+            ],
+        ] {
+            let parsed = args(off).unwrap_or_else(|e| panic!("{off:?}: {e}"));
+            assert_eq!(both(&parsed), (false, false), "{off:?}");
+        }
+        // Each opt-out works alone, and an explicit flag beats the default.
+        let a = args(&["--scene", "f01_late", "--f01-run", "--audience=off"]).unwrap();
+        assert_eq!(both(&a), (false, true));
+        let a = args(&["--scene", "f01_late", "--f01-run", "--cine-showcase=off"]).unwrap();
+        assert_eq!(both(&a), (true, false));
+        let a = args(&["--scene", "f01_late", "--f01-run", "--audience"]).unwrap();
+        assert_eq!(a.audience, Some(true));
+        // Not a floor run: both default off, and showcase may be asked for anywhere.
+        assert_eq!(both(&args(&[]).unwrap()), (false, false));
+        assert_eq!(
+            both(&args(&["--scene", "f01_late"]).unwrap()),
+            (false, false)
+        );
+        let a = args(&[
+            "--headless-floor01-smoke",
+            "--party-fixture",
+            "carl_prog_dyn_llama_pack",
+            "--cine-showcase=on",
+        ])
+        .unwrap();
+        assert_eq!(both(&a), (false, true));
+        // Parse errors: the broadcast belongs to a floor run (AR-AD6).
+        for bad in [
+            &["--audience=on"][..],
+            &["--audience"],
+            &["--scene", "f01_late", "--audience=on"],
+            &["--f01-audience", "1400:1900:600:800"],
+            &[
+                "--scene",
+                "f01_late",
+                "--f01-room",
+                "boiler",
+                "--f01-audience",
+                "1400:1900:600:800",
+            ],
+            // the corral never holds a carry
+            &[
+                "--scene",
+                "f01_late",
+                "--f01-run",
+                "--f01-audience",
+                "1400:1900:600:800",
+            ],
+            &[
+                "--scene",
+                "f01_late",
+                "--f01-run",
+                "--f01-room",
+                "corral",
+                "--f01-audience",
+                "300:300:300:300",
+            ],
+            // a malformed carry, a missing value, a bad switch
+            &[
+                "--scene",
+                "f01_late",
+                "--f01-run",
+                "--f01-room",
+                "boiler",
+                "--f01-audience",
+                "100:100:300:300",
+            ],
+            &[
+                "--scene",
+                "f01_late",
+                "--f01-run",
+                "--f01-room",
+                "boiler",
+                "--f01-audience",
+                "1:2:3",
+            ],
+            &[
+                "--scene",
+                "f01_late",
+                "--f01-run",
+                "--f01-room",
+                "boiler",
+                "--f01-audience",
+            ],
+            &["--scene", "f01_late", "--f01-run", "--audience=maybe"],
+            &["--scene", "f01_late", "--f01-run", "--cine-showcase=2"],
+        ] {
+            assert!(args(bad).is_err(), "{bad:?} must be refused");
+        }
+        // The opt-out is allowed anywhere, and a valid carry parses in a later room.
+        assert!(args(&["--audience=off"]).is_ok());
+        let ok = args(&[
+            "--scene",
+            "f01_late",
+            "--f01-run",
+            "--f01-room",
+            "boiler",
+            "--audience=on",
+            "--f01-audience",
+            "1400:1900:600:800",
+        ])
+        .unwrap();
+        assert_eq!(
+            ok.f01_audience.map(f01_run::AudienceCarry::counts),
+            Some([(1_400, 1_900), (600, 800)])
+        );
+    }
+
+    /// AUDIENCE-RUN: the run rooms after the corral unlock the audience at the
+    /// carried counts (or the baseline), the corral and every non-run path stay
+    /// locked, and an opt-out locks even a later room.
+    #[test]
+    fn the_run_unlocks_the_audience_after_the_corral_at_the_carried_counts() {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        let kit = EnvKit::load(root, LAYOUT_PATH).unwrap();
+        let actors =
+            Actors::load(root, FrameSource::GridSource, true, false, false, false).unwrap();
+        let counts = |list: &[&str]| {
+            let hud = new_hud(&args(list).unwrap(), &kit, &actors);
+            (
+                hud.audience().is_unlocked(),
+                hud.audience().carry(),
+                hud.audience().count(HeroId::Carl),
+            )
+        };
+        let run = ["--scene", "f01_late", "--f01-run"];
+        let with = |extra: &[&'static str]| -> Vec<&'static str> {
+            let mut v = run.to_vec();
+            v.extend(extra);
+            v
+        };
+        // The corral (the run's first room): locked, even with an explicit flag.
+        assert_eq!(counts(&run), (false, None, None));
+        assert_eq!(counts(&with(&["--audience=on"])), (false, None, None));
+        // A later room without a carry: the baseline, one peak.
+        assert_eq!(
+            counts(&with(&["--f01-room", "hoarder"])),
+            (true, Some([(250, 250), (250, 250)]), Some(250))
+        );
+        // With a carry: exactly the carried counts.
+        assert_eq!(
+            counts(&with(&[
+                "--f01-room",
+                "boiler",
+                "--f01-audience",
+                "1400:1900:600:800"
+            ])),
+            (true, Some([(1_400, 1_900), (600, 800)]), Some(1_400))
+        );
+        // The opt-out and every non-run path stay locked.
+        assert_eq!(
+            counts(&with(&["--f01-room", "boiler", "--audience=off"])),
+            (false, None, None)
+        );
+        assert_eq!(
+            counts(&["--scene", "f01_late", "--f01-room", "boiler"]),
+            (false, None, None)
+        );
+        assert_eq!(counts(&[]), (false, None, None));
+        // A scripted room pilot is off by default; an explicit flag wins.
+        assert_eq!(
+            counts(&with(&["--f01-room", "ring_court", "--ring-pilot"])),
+            (false, None, None)
+        );
+        assert!(
+            counts(&with(&[
+                "--f01-room",
+                "ring_court",
+                "--ring-pilot",
+                "--audience=on"
+            ]))
+            .0
+        );
+    }
+
+    /// AUDIENCE-RUN (AR-AD5, evidence item 5): in a run room that resumed from a carry,
+    /// a checkpoint respawn keeps the counts and the dedupe set, and a restart
+    /// restores the counts the room began with (so it never farms viewers and never
+    /// takes away the carried ones). Prints one `AUDIENCE_STATE` line per step:
+    /// `cargo test --bin floor01_scene the_carried_counts -- --nocapture`.
+    #[test]
+    fn the_carried_counts_survive_a_respawn_and_a_restart_in_a_run_room() {
+        use dungeon_floorbreak::combat::{CombatEvent, DefeatCause};
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        let kit = EnvKit::load(root, LAYOUT_PATH).unwrap();
+        let actors =
+            Actors::load(root, FrameSource::GridSource, true, false, false, false).unwrap();
+        let parsed = args(&[
+            "--scene",
+            "f01_late",
+            "--f01-run",
+            "--f01-room",
+            "boiler",
+            "--audience=on",
+            "--f01-audience",
+            "1400:1900:600:800",
+        ])
+        .unwrap();
+        let mut hud = new_hud(&parsed, &kit, &actors);
+        let mut log: Vec<CombatEvent> = Vec::new();
+        let mut step = |hud: &mut HudRuntime, label: &str, event: Option<CombatEvent>| {
+            log.extend(event);
+            hud.step(4, 4, &log, 0);
+            let audience = hud.audience();
+            let (carl, donut) = (
+                audience.count(HeroId::Carl).unwrap(),
+                audience.count(HeroId::Donut).unwrap(),
+            );
+            println!(
+                "AUDIENCE_RESTART_LOG {label:<26} carl={carl} donut={donut} carry={:?}",
+                audience.carry()
+            );
+            (carl, donut)
+        };
+        let kill = |tick| CombatEvent::enemy_defeated(tick, 3, DefeatCause::Melee, Some(0), None);
+        assert_eq!(step(&mut hud, "room start (carried)", None), (1_400, 600));
+        let after_kill = step(&mut hud, "goblin 3 defeated by Carl", Some(kill(10))).0;
+        assert!(after_kill > 1_400, "a defeat pays");
+        let repeat = step(&mut hud, "goblin 3 again (same id)", Some(kill(11))).0;
+        assert_eq!(repeat, after_kill, "one award per target per attempt");
+        let respawn = CombatEvent::Respawn {
+            tick: 20,
+            checkpoint: 1,
+        };
+        assert_eq!(
+            step(&mut hud, "checkpoint Respawn", Some(respawn)).0,
+            after_kill,
+            "respawn keeps"
+        );
+        let again = step(&mut hud, "goblin 3 after Respawn", Some(kill(21))).0;
+        assert_eq!(again, after_kill, "the dedupe set survives a respawn");
+        let restart = CombatEvent::Restart {
+            tick: 30,
+            deaths: 1,
+        };
+        assert_eq!(
+            step(&mut hud, "Restart", Some(restart)),
+            (1_400, 600),
+            "restart restores the carried counts"
+        );
+        let farmed = step(&mut hud, "goblin 3 after Restart", Some(kill(5))).0;
+        assert_eq!(farmed, after_kill, "the same award again, no more");
+        assert_eq!(
+            hud.audience().carry().map(|c| c[0].1),
+            Some(farmed.max(1_900)),
+            "the peak never drops"
+        );
+    }
+
+    /// AUDIENCE-RUN (AR-T22, AR-AD8): a thrown triple reaches the audience on the
+    /// headless fast-forward (`AudienceFeatFeed`) and the live fan-out
+    /// (`print_combat_events`) the same way; a locked audience with an explicit
+    /// showcase still computes the moment (printed, never pushed to the HUD),
+    /// and with both off the feed returns early as on main.
+    #[test]
+    fn a_thrown_triple_reaches_the_audience_on_headless_and_live_paths() {
+        const FIXTURE: [&str; 6] = [
+            "--headless-floor01-smoke",
+            "--party-fixture",
+            "carl_prog_dyn_thrown_triple",
+            "--capture-tick",
+            "260",
+            "--cine-showcase=on",
+        ];
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        let kit = EnvKit::load(root, LAYOUT_PATH).unwrap();
+        let actors =
+            Actors::load(root, FrameSource::GridSource, true, false, false, false).unwrap();
+        let probe = |extra: &[&str]| {
+            let mut list = FIXTURE.to_vec();
+            list.push("--audience-probe");
+            list.extend(extra);
+            args(&list).unwrap()
+        };
+
+        // Headless fast-forward: the feed runs inside `build_scene` (probe unlocks it).
+        let fast = probe(&[]);
+        let mut hud_fast = new_hud(&fast, &kit, &actors);
+        let (_, _, combat, _, _) = build_scene(&kit, &fast, &actors, root, &mut hud_fast).unwrap();
+        let combat = combat.unwrap();
+        let blast_defeats = combat
+            .events
+            .iter()
+            .filter(|e| e.to_string().contains("kind=enemy_defeated"))
+            .count();
+        assert_eq!(blast_defeats, 3, "the triple dies on the one blast tick");
+
+        // Live fan-out: the same events through `print_combat_events`, with the
+        // live adapter's tuning, pushed into a probe-unlocked HUD.
+        let plain = args(&FIXTURE[..5]).unwrap();
+        let mut hud_plain = new_hud(&plain, &kit, &actors);
+        let (sim, _, live_combat, _, _) =
+            build_scene(&kit, &plain, &actors, root, &mut hud_plain).unwrap();
+        let mut live_combat = live_combat.unwrap();
+        assert!(
+            !hud_plain.audience().is_unlocked(),
+            "locked: the feed did nothing"
+        );
+        let mut hud_live = new_hud(&probe(&[]), &kit, &actors);
+        let mut adapter =
+            CineAdapter::with_tuning(PresentationSettings::OFF, probe(&[]).cine_tuning());
+        let feats = print_combat_events(&mut live_combat, None, Some(&mut adapter));
+        assert_eq!(feats.len(), 1, "one thrown-multi moment: {feats:?}");
+        assert_eq!((feats[0].credited, feats[0].score), (0, 5));
+        for feat in feats {
+            hud_live.push_chain_feat(feat);
+        }
+        step_hud(&mut hud_live, &sim, Some(&live_combat));
+        assert_eq!(
+            hud_fast.audience().count(HeroId::Carl),
+            hud_live.audience().count(HeroId::Carl),
+            "the same chain award on both paths"
+        );
+        assert!(hud_fast.audience().count(HeroId::Carl).unwrap() > 250 + 3 * 1_800);
+        assert_eq!(hud_fast.audience().count(HeroId::Donut), Some(250));
+
+        // The default tuning (showcase off) gives no moment on the same events.
+        let mut off_adapter = CineAdapter::new(PresentationSettings::OFF);
+        let mut replay = build_scene(
+            &kit,
+            &plain,
+            &actors,
+            root,
+            &mut new_hud(&plain, &kit, &actors),
+        )
+        .unwrap()
+        .2
+        .unwrap();
+        assert!(print_combat_events(&mut replay, None, Some(&mut off_adapter)).is_empty());
+
+        // A locked audience with an explicit showcase: the feed still evaluates.
+        let (_, _, locked_combat, _, _) = build_scene(
+            &kit,
+            &plain,
+            &actors,
+            root,
+            &mut new_hud(&plain, &kit, &actors),
+        )
+        .unwrap();
+        let locked_combat = locked_combat.unwrap();
+        let mut locked_hud = new_hud(&plain, &kit, &actors);
+        let explicit = args(&FIXTURE).unwrap();
+        let mut feed = AudienceFeatFeed::new(&explicit);
+        feed.observe(&locked_combat, &mut locked_hud);
+        assert_eq!(feed.adapter.as_ref().map(CineAdapter::emitted), Some(1));
+        assert!(!locked_hud.audience().is_unlocked() && locked_hud.audience().digest().is_none());
+        // Both off (no probe, no explicit showcase): the early return of main.
+        let both_off = args(&FIXTURE[..5]).unwrap();
+        let mut feed = AudienceFeatFeed::new(&both_off);
+        feed.observe(&locked_combat, &mut new_hud(&both_off, &kit, &actors));
+        assert!(feed.adapter.is_none());
+    }
+
+    /// AUDIENCE-RUN (AR-T17, section 5): the audience award and the death finish
+    /// read the same authoritative pair independently, so the gore preset never
+    /// changes an `AUDIENCE_STATE` digest or the combat log.
+    #[test]
+    fn audience_digest_ignores_the_gore_preset() {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        let kit = EnvKit::load(root, LAYOUT_PATH).unwrap();
+        let actors =
+            Actors::load(root, FrameSource::GridSource, true, false, false, false).unwrap();
+        let run = |preset: &str| {
+            let parsed = args(&[
+                "--headless-floor01-smoke",
+                "--party-fixture",
+                "carl_prog_dyn_llama_pack",
+                "--capture-tick",
+                "330",
+                "--audience-probe",
+                "--cine-showcase=on",
+                "--gore-preset",
+                preset,
+            ])
+            .unwrap();
+            let mut hud = new_hud(&parsed, &kit, &actors);
+            let (sim, _, combat, _, _) =
+                build_scene(&kit, &parsed, &actors, root, &mut hud).unwrap();
+            let combat = combat.unwrap();
+            let events: Vec<String> = combat.events.iter().map(ToString::to_string).collect();
+            (hud.audience().digest(), events, combat.state_hash(&sim))
+        };
+        let (digest_1, events_1, hash_1) = run("1");
+        let (digest_4, events_4, hash_4) = run("4");
+        assert!(digest_1.is_some());
+        assert_eq!(digest_1, digest_4, "the AUDIENCE_STATE digest");
+        assert_eq!(events_1, events_4, "the COMBAT_EVENT lines");
+        assert_eq!(hash_1, hash_4, "the simulation hash");
     }
 
     #[test]
@@ -11754,7 +12427,7 @@ mod tests {
                         tally.rooms += 1;
                         tally.ticks += 600;
                         let carry = carried.then_some(&snapshot);
-                        argv = f01_run::relaunch_argv(&argv, &row.id, carry, tally);
+                        argv = f01_run::relaunch_argv(&argv, &row.id, carry, tally, None);
                     }
                     f01_run::NextStep::FloorEnd => break,
                 }

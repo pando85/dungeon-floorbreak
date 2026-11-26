@@ -1,0 +1,1 @@
+CINE01_MOMENT tick=163 tier=ordinary score=5 credited=0 target=0 precision_edge=0 mixed_chain=0 contact_setup=0 extra_kills=0 showcase_kill=1

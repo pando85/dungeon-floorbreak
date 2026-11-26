@@ -28,6 +28,7 @@ use std::collections::VecDeque;
 use crate::boss::BOSS_ENEMY_ID;
 use crate::combat::{CombatEvent, DefeatCause};
 use crate::hud_settings::parse_switch;
+use crate::pile_boss::PILE_BOSS_ID;
 
 // ------------------------------------------------------------------- tuning --
 
@@ -93,6 +94,20 @@ pub struct CineTuning {
     /// latch (`Controls`, `bool` taken once per fixed tick); 2 would keep a
     /// second press made inside one slowed tick for the next tick.
     pub edge_buffer_cap: u8,
+    /// AUDIENCE-RUN (AR-AD7): the showcase feats (`CINE-THROWN-MULTI`,
+    /// `CINE-SHOWCASE-KILL`, `CINE-SHOWCASE-BONUS`) and the credit of a
+    /// deliberately thrown charge's blast. `false` gives main's rules exactly.
+    pub showcase_feats: bool,
+    /// AR-AD9: distinct non-boss targets one thrown blast must defeat on one
+    /// tick for `CINE-THROWN-MULTI`.
+    pub thrown_multi_min_kills: u8,
+    /// Score of `CINE-THROWN-MULTI`.
+    pub thrown_multi_score: u8,
+    /// Score of `CINE-SHOWCASE-KILL`. `0` switches that primary off alone
+    /// (AR-AD13); the thrown multi-kill and the showcase bonus still apply.
+    pub showcase_kill_score: u8,
+    /// Bonus of `CINE-SHOWCASE-BONUS`.
+    pub showcase_bonus: u8,
 }
 
 impl CineTuning {
@@ -118,7 +133,36 @@ impl CineTuning {
         max_history_entries: 64,
         upgrade_window_ticks: 8,
         edge_buffer_cap: 1,
+        showcase_feats: false,
+        thrown_multi_min_kills: 3,
+        thrown_multi_score: 5,
+        showcase_kill_score: 5,
+        showcase_bonus: 1,
     };
+
+    /// The same table with the showcase feats switched on or off.
+    pub const fn with_showcase(self, on: bool) -> Self {
+        Self {
+            showcase_feats: on,
+            ..self
+        }
+    }
+
+    /// Consistency of the showcase values (AR-AD9, AR-AD13): the thrown
+    /// multi-kill has a score and needs at least two kills, and the llama
+    /// primary is either off (`0`) or at least the ordinary threshold.
+    pub const fn validate(&self) -> Result<(), &'static str> {
+        if self.thrown_multi_score == 0 {
+            return Err("thrown_multi_score must be above 0");
+        }
+        if self.thrown_multi_min_kills < 2 {
+            return Err("thrown_multi_min_kills must be at least 2");
+        }
+        if self.showcase_kill_score != 0 && self.showcase_kill_score < self.ordinary_threshold {
+            return Err("showcase_kill_score must be 0 (off) or at least the ordinary threshold");
+        }
+        Ok(())
+    }
 
     /// The presentation request a moment turns into: tier scale, duration,
     /// blends, cooldown. Presentation data only.
@@ -166,6 +210,12 @@ pub enum CineCause {
     /// The boss itself is never mapped here (boss defeats never trigger CINE
     /// in v0), so in practice no v0 chain reaches it.
     DropHazard { player: u32 },
+    /// AUDIENCE-RUN: a blast charge reached the target. `player` is the
+    /// charge's owner (the sim sets it; `None` for a QA or world charge). It is
+    /// credited only under `showcase_feats`, only to a charge with a recorded
+    /// deliberate throw ([`CineEvent::ChargeThrown`]); otherwise it behaves
+    /// exactly like [`Self::Other`].
+    Blast { player: Option<u32>, charge: u32 },
     /// Any cause this evaluator does not know. Never qualifies, never credited.
     Other,
 }
@@ -211,6 +261,13 @@ pub enum CineEvent {
     Restart { tick: u64 },
     /// `CombatEvent::Respawn` (demo): history is dropped, the cooldown stays.
     Respawn { tick: u64 },
+    /// `CombatEvent::ChargeThrown`: the dynamite stick left the hand (t41) or
+    /// was dropped by a hurt. Whether it was a deliberate throw is decided by a
+    /// `HeroHurt` of the owner on the same tick (AR-AD10).
+    ChargeThrown { tick: u64, charge: u32 },
+    /// **Adapter bridge only** (never produced by [`CineEvent::from_combat`]):
+    /// `target` is a showcase species (a llama in v1) defeated on `tick`.
+    ShowcaseTarget { tick: u64, target: u32 },
 }
 
 impl CineEvent {
@@ -223,7 +280,9 @@ impl CineEvent {
             | Self::LaunchCredited { tick, .. }
             | Self::GoblinContact { tick, .. }
             | Self::Restart { tick }
-            | Self::Respawn { tick } => tick,
+            | Self::Respawn { tick }
+            | Self::ChargeThrown { tick, .. }
+            | Self::ShowcaseTarget { tick, .. } => tick,
         }
     }
 
@@ -270,6 +329,7 @@ impl CineEvent {
             },
             CombatEvent::Restart { tick, .. } => Self::Restart { tick },
             CombatEvent::Respawn { tick, .. } => Self::Respawn { tick },
+            CombatEvent::ChargeThrown { tick, charge, .. } => Self::ChargeThrown { tick, charge },
             _ => return None,
         })
     }
@@ -307,20 +367,22 @@ impl CineEvent {
             Self::HeroDefeated { .. } => (4, 0, 0, 0),
             Self::LaunchCredited { goblin, player, .. } => (5, goblin, player, 0),
             Self::GoblinContact { source, target, .. } => (6, source, target, 0),
+            Self::ChargeThrown { charge, .. } => (7, charge, 0, 0),
+            Self::ShowcaseTarget { target, .. } => (8, target, 0, 0),
             Self::Defeated {
                 target,
                 cause,
                 instigator,
                 ..
             } => (
-                7,
+                9,
                 target,
                 match cause {
                     CineCause::Melee => 0,
                     CineCause::ShoreBlock { player } => 1 + player * 4,
                     CineCause::ShoreBlockEdge { player } => 2 + player * 4,
                     CineCause::DropHazard { player } => 3 + player * 4,
-                    CineCause::Other => 8,
+                    CineCause::Blast { .. } | CineCause::Other => 8,
                 },
                 instigator.map_or(0, |p| p + 1),
             ),
@@ -347,8 +409,10 @@ fn cine_cause(cause: DefeatCause) -> CineCause {
         DefeatCause::DropHazard { .. } => cause
             .drop_credit()
             .map_or(CineCause::Other, |player| CineCause::DropHazard { player }),
-        // A blast is never a primary feat (spec T02).
-        DefeatCause::Explosion { .. } => CineCause::Other,
+        // A blast is never a primary feat on its own (spec T02). AUDIENCE-RUN
+        // names its owner and charge so a deliberate throw can be credited
+        // under `showcase_feats`; every other blast stays uncredited.
+        DefeatCause::Explosion { charge, player, .. } => CineCause::Blast { player, charge },
         // BOIL-B wire (BOILBC-AD4): an environmental kill is not a primary feat
         // until CINE-01 gets a recipe for it.
         DefeatCause::Environment { .. } => CineCause::Other,
@@ -373,6 +437,12 @@ pub struct FeatSet {
     pub contact_setup: bool,
     /// Counted `CINE-EXTRA-KILL` defeats (before the cap).
     pub extra_kills: u8,
+    /// AUDIENCE-RUN: `CINE-THROWN-MULTI` was the selected primary.
+    pub thrown_multi: bool,
+    /// AUDIENCE-RUN: `CINE-SHOWCASE-KILL` was the selected primary.
+    pub showcase_kill: bool,
+    /// AUDIENCE-RUN: `CINE-SHOWCASE-BONUS` was added.
+    pub showcase_bonus: bool,
 }
 
 /// An eligible exceptional defeat: the evaluator's only output.
@@ -403,6 +473,9 @@ enum DefeatKind {
     Melee,
     Shore,
     Edge,
+    /// A credited thrown-charge blast (showcase feats only): an extra kill,
+    /// never the melee or the drop half of a mixed chain.
+    Blast,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -413,6 +486,19 @@ struct DefeatEntry {
     credit: Option<u32>,
     slot: Option<u32>,
     kind: DefeatKind,
+    /// The adapter flagged the target as a showcase species on this tick.
+    showcase: bool,
+    /// The charge slot of a credited blast defeat.
+    charge: Option<u32>,
+}
+
+/// A recorded throw of one charge slot: the tick and which hero indices were
+/// hurt on that very tick (a hurt of the owner means the stick was dropped).
+#[derive(Debug, Clone, Copy)]
+struct ThrownRecord {
+    charge: u32,
+    tick: u64,
+    hurt_mask: [bool; 2],
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -464,6 +550,11 @@ pub struct CinematicEvaluator {
     launches: VecDeque<Launch>,
     contacts: VecDeque<Contact>,
     shore_breakers: Vec<u32>,
+    /// Recorded throws, one per charge slot (AUDIENCE-RUN), bounded by
+    /// `max_history_entries` and cleared with the rest of the history.
+    thrown: VecDeque<ThrownRecord>,
+    /// Showcase targets flagged for the tick being observed.
+    showcase_now: Vec<u32>,
     last_tick: Option<u64>,
     /// Ticks of the attempts finished before this one (a `Restart` carries the
     /// tick the finished attempt ended on). `epoch + tick` is the monotonic
@@ -485,6 +576,8 @@ impl CinematicEvaluator {
             launches: VecDeque::new(),
             contacts: VecDeque::new(),
             shore_breakers: Vec::new(),
+            thrown: VecDeque::new(),
+            showcase_now: Vec::new(),
             last_tick: None,
             epoch: 0,
             emitted: None,
@@ -563,8 +656,10 @@ impl CinematicEvaluator {
             self.launches.clear();
             self.contacts.clear();
             self.shore_breakers.clear();
+            self.thrown.clear();
             self.defeated_latch = false;
         }
+        self.showcase_now.clear();
 
         // Entries older than the window are gone before this batch is
         // recorded, so a target id reused after a long quiet spell is not
@@ -598,6 +693,28 @@ impl CinematicEvaluator {
                     source,
                     target,
                 }),
+                CineEvent::ChargeThrown { tick, charge } => {
+                    if self.tuning.showcase_feats {
+                        let hurt_mask =
+                            [0u32, 1].map(|h| self.hurts.iter().any(|&(t, p)| t == tick && p == h));
+                        self.thrown.retain(|r| r.charge != charge);
+                        self.thrown.push_back(ThrownRecord {
+                            charge,
+                            tick,
+                            hurt_mask,
+                        });
+                        self.thrown.trim_to(self.tuning.max_history_entries);
+                    }
+                }
+                CineEvent::ShowcaseTarget { target, .. } => {
+                    if self.tuning.showcase_feats
+                        && target != BOSS_ENEMY_ID
+                        && target != PILE_BOSS_ID
+                        && !self.showcase_now.contains(&target)
+                    {
+                        self.showcase_now.push(target);
+                    }
+                }
                 CineEvent::Defeated {
                     tick,
                     target,
@@ -608,13 +725,20 @@ impl CinematicEvaluator {
                     if self.defeats.iter().any(|d| d.target == target) {
                         continue;
                     }
-                    let (credit, kind) = self.credit_of(cause, instigator);
+                    let (credit, kind) = self.credit_of(tick, cause, instigator);
                     self.defeats.push_back(DefeatEntry {
                         tick,
                         target,
                         credit,
                         slot,
                         kind,
+                        showcase: self.showcase_now.contains(&target),
+                        charge: match cause {
+                            CineCause::Blast { charge, .. } if kind == DefeatKind::Blast => {
+                                Some(charge)
+                            }
+                            _ => None,
+                        },
                     });
                     if let Some(player) = credit {
                         batch_credited.push((player, target));
@@ -707,7 +831,12 @@ impl CinematicEvaluator {
     /// Credit of a defeat, fail-closed: a melee defeat needs an `instigator`;
     /// a block defeat needs a prior `ShoreBroken` by the very player the cause
     /// names (a different or missing breaker means no credit at all).
-    fn credit_of(&self, cause: CineCause, instigator: Option<u32>) -> (Option<u32>, DefeatKind) {
+    fn credit_of(
+        &self,
+        tick: u64,
+        cause: CineCause,
+        instigator: Option<u32>,
+    ) -> (Option<u32>, DefeatKind) {
         match cause {
             CineCause::Melee => (instigator, DefeatKind::Melee),
             CineCause::ShoreBlock { player } => (
@@ -720,7 +849,23 @@ impl CinematicEvaluator {
             ),
             // The cause names the player who dropped it: no `ShoreBroken`.
             CineCause::DropHazard { player } => (Some(player), DefeatKind::Shore),
-            CineCause::Other => (None, DefeatKind::Melee),
+            // AUDIENCE-RUN (AR-AD10..AR-AD12): only a blast of a recorded,
+            // deliberate throw by its named owner is credited; every other
+            // blast (and a blast with showcase off) is main's fail-closed
+            // path.
+            CineCause::Blast {
+                player: Some(player),
+                charge,
+            } if self.tuning.showcase_feats
+                && self.thrown.iter().any(|r| {
+                    r.charge == charge
+                        && r.tick <= tick
+                        && r.hurt_mask.get(player as usize) == Some(&false)
+                }) =>
+            {
+                (Some(player), DefeatKind::Blast)
+            }
+            CineCause::Blast { .. } | CineCause::Other => (None, DefeatKind::Melee),
         }
     }
 
@@ -762,17 +907,56 @@ impl CinematicEvaluator {
         let has = |kind: DefeatKind| mine.iter().any(|d| d.kind == kind);
         let precision_edge = has(DefeatKind::Edge);
         let mixed_chain = has(DefeatKind::Melee) && (has(DefeatKind::Shore) || precision_edge);
-        let primary = match (precision_edge, mixed_chain) {
-            (false, false) => return None,
-            (true, false) => t.precision_edge_score,
-            (false, true) => t.mixed_chain_score,
-            (true, true) => t.precision_edge_score.max(t.mixed_chain_score),
+        // AUDIENCE-RUN primaries (showcase feats only; with the switch off
+        // every flag below is false and the code gives main's result).
+        let thrown_multi = t.showcase_feats && self.thrown_multi_holds(tick, &mine);
+        let showcase_now: Vec<u32> = if t.showcase_feats && t.showcase_kill_score > 0 {
+            mine.iter()
+                .filter(|d| d.tick == tick && d.showcase)
+                .map(|d| d.target)
+                .collect()
+        } else {
+            Vec::new()
         };
-        let base_targets = if mixed_chain { 2 } else { 1 };
+        let showcase_kill = !showcase_now.is_empty();
+        // Primary selection: the largest base wins; ties go in the fixed order
+        // THROWN-MULTI, MIXED-CHAIN, PRECISION-EDGE, SHOWCASE-KILL (AR-AD15).
+        #[derive(Clone, Copy, PartialEq)]
+        enum Primary {
+            ThrownMulti,
+            Mixed,
+            Edge,
+            ShowcaseKill,
+        }
+        let mut chosen: Option<(Primary, usize)> = None;
+        for (held, which, base) in [
+            (thrown_multi, Primary::ThrownMulti, 3usize),
+            (mixed_chain, Primary::Mixed, 2),
+            (precision_edge, Primary::Edge, 1),
+            (showcase_kill, Primary::ShowcaseKill, 1),
+        ] {
+            if held && chosen.is_none_or(|(_, b)| base > b) {
+                chosen = Some((which, base));
+            }
+        }
+        let (selected, base_targets) = chosen?;
+        let primary = match selected {
+            Primary::ThrownMulti => t.thrown_multi_score,
+            Primary::ShowcaseKill => t.showcase_kill_score,
+            // Main's rule, kept exactly: both held scores meet at the larger.
+            Primary::Mixed | Primary::Edge => match (precision_edge, mixed_chain) {
+                (true, true) => t.precision_edge_score.max(t.mixed_chain_score),
+                (true, false) => t.precision_edge_score,
+                _ => t.mixed_chain_score,
+            },
+        };
         let extra_kills = u8::try_from(mine.len().saturating_sub(base_targets)).unwrap_or(u8::MAX);
         let extra_bonus = extra_kills
             .saturating_mul(t.extra_kill_bonus)
             .min(t.extra_kill_bonus_cap);
+        let showcase_bonus = t.showcase_feats
+            && selected != Primary::ShowcaseKill
+            && mine.iter().any(|d| d.showcase);
         let contact_setup =
             t.contact_setup_enabled && mine.iter().any(|d| self.contact_links(player, d));
         let score = primary
@@ -781,7 +965,8 @@ impl CinematicEvaluator {
                 t.contact_setup_bonus
             } else {
                 0
-            });
+            })
+            .saturating_add(if showcase_bonus { t.showcase_bonus } else { 0 });
         let tier = if score >= t.legendary_threshold {
             CineTier::Legendary
         } else if score >= t.ordinary_threshold {
@@ -800,14 +985,42 @@ impl CinematicEvaluator {
             score,
             credited: player,
             credited_slot,
-            target,
+            // SHOWCASE-KILL anchors on the lowest showcase id of the batch.
+            target: if selected == Primary::ShowcaseKill {
+                showcase_now.iter().copied().min().unwrap_or(target)
+            } else {
+                target
+            },
             feats: FeatSet {
                 precision_edge,
                 mixed_chain,
                 contact_setup,
                 extra_kills,
+                thrown_multi: selected == Primary::ThrownMulti,
+                showcase_kill: selected == Primary::ShowcaseKill,
+                showcase_bonus,
             },
             upgrade: false,
+        })
+    }
+
+    /// `CINE-THROWN-MULTI`: at least `thrown_multi_min_kills` distinct targets
+    /// of `mine` (the boss and the Hoarder never count) were defeated by one
+    /// credited thrown charge on the completing `tick`.
+    fn thrown_multi_holds(&self, tick: u64, mine: &[&DefeatEntry]) -> bool {
+        let counted = |d: &&&DefeatEntry| {
+            d.kind == DefeatKind::Blast
+                && d.tick == tick
+                && d.target != BOSS_ENEMY_ID
+                && d.target != PILE_BOSS_ID
+        };
+        mine.iter().filter(counted).any(|first| {
+            let n = mine
+                .iter()
+                .filter(counted)
+                .filter(|d| d.charge == first.charge)
+                .count();
+            n >= usize::from(self.tuning.thrown_multi_min_kills)
         })
     }
 
@@ -1573,7 +1786,8 @@ mod tests {
                 precision_edge: false,
                 mixed_chain: true,
                 contact_setup: true,
-                extra_kills: 1
+                extra_kills: 1,
+                ..FeatSet::default()
             }
         );
     }
@@ -1754,10 +1968,419 @@ mod tests {
                 target: 3
             })
         );
+        assert_eq!(
+            CineEvent::from_combat(&C::ChargeThrown {
+                tick: 6,
+                charge: 7,
+                x: 1,
+                y: 2
+            }),
+            Some(CineEvent::ChargeThrown { tick: 6, charge: 7 })
+        );
+        // AUDIENCE-RUN: a blast names its owner and charge; it is no longer
+        // `Other` (the evaluator still credits it only under showcase feats).
+        assert_eq!(
+            CineEvent::from_combat(&C::EnemyDefeated {
+                tick: 4,
+                target: 8,
+                cause: DefeatCause::Explosion {
+                    charge: 3,
+                    player: Some(0),
+                    point_blank: false
+                },
+                force: ForceTier::Heavy,
+                instigator: None,
+            }),
+            Some(CineEvent::Defeated {
+                tick: 4,
+                target: 8,
+                cause: CineCause::Blast {
+                    player: Some(0),
+                    charge: 3
+                },
+                instigator: None,
+                slot: None
+            })
+        );
         assert_eq!(CineEvent::from_combat(&C::ShoreLanded { tick: 9 }), None);
         assert_eq!(
             CineEvent::from_combat(&C::GoblinSwing { tick: 9, goblin: 1 }),
             None
+        );
+    }
+
+    // ---- AUDIENCE-RUN: showcase feats (AR-T01..AR-T14) -------------------
+
+    const SHOW: CineTuning = CineTuning::DEFAULT.with_showcase(true);
+
+    fn showcase_ev() -> CinematicEvaluator {
+        CinematicEvaluator::new(SHOW)
+    }
+
+    fn thrown(tick: u64, charge: u32) -> CineEvent {
+        CineEvent::ChargeThrown { tick, charge }
+    }
+
+    fn blast(tick: u64, target: u32, charge: u32, player: Option<u32>) -> CineEvent {
+        CineEvent::Defeated {
+            tick,
+            target,
+            cause: CineCause::Blast { player, charge },
+            instigator: None,
+            slot: None,
+        }
+    }
+
+    fn llama(tick: u64, target: u32) -> CineEvent {
+        CineEvent::ShowcaseTarget { tick, target }
+    }
+
+    /// A deliberate throw at tick 100 and `kills` goblin blast defeats at 250.
+    fn stick(kills: u32) -> Vec<CineEvent> {
+        let mut ev = vec![thrown(100, 7)];
+        ev.extend((0..kills).map(|g| blast(250, g, 7, Some(0))));
+        ev
+    }
+
+    #[test]
+    fn ar_showcase_off_keeps_main_rules() {
+        // A thrown blast killing 5 goblins and a llama: nothing, showcase off.
+        let mut events = stick(5);
+        events.push(llama(250, 50));
+        events.push(blast(250, 50, 7, Some(0)));
+        let mut ev = fresh();
+        assert!(run(&mut ev, &events).is_empty());
+        // A melee llama kill: nothing either.
+        let mut ev = fresh();
+        assert!(run(&mut ev, &[llama(30, 50), melee(30, 50, Some(0))]).is_empty());
+        assert_eq!(ev.last_rejection(), Some(Rejection::NoQualifyingFeat));
+        // The legacy mixed chain scores exactly as before with showcase on.
+        let chain = [broken(10, 0), block(10, 1, 0), melee(10, 2, Some(0))];
+        let off = fresh().observe_tick(10, &chain, false).unwrap();
+        let on = showcase_ev().observe_tick(10, &chain, false).unwrap();
+        assert_eq!(
+            (off.score, off.tier, off.target),
+            (on.score, on.tier, on.target)
+        );
+        assert!(off.feats.mixed_chain && !off.feats.thrown_multi);
+    }
+
+    #[test]
+    fn ar_thrown_triple_is_one_ordinary_moment() {
+        let mut ev = showcase_ev();
+        let moments = run(&mut ev, &stick(3));
+        assert_eq!(moments.len(), 1);
+        let m = moments[0];
+        assert_eq!(
+            (m.score, m.tier, m.credited, m.target),
+            (5, CineTier::Ordinary, 0, 0)
+        );
+        assert!(m.feats.thrown_multi && !m.feats.showcase_bonus && !m.feats.showcase_kill);
+        assert_eq!(m.feats.extra_kills, 0);
+        assert_eq!(m.tick, 250);
+    }
+
+    #[test]
+    fn ar_thrown_pair_is_not_a_feat() {
+        let mut ev = showcase_ev();
+        assert!(run(&mut ev, &stick(2)).is_empty());
+        assert_eq!(ev.last_rejection(), Some(Rejection::NoQualifyingFeat));
+    }
+
+    #[test]
+    fn ar_four_goblins_and_a_llama_is_legendary() {
+        let mut events = stick(4);
+        events.extend([llama(250, 50), blast(250, 50, 7, Some(0))]);
+        let m = run(&mut showcase_ev(), &events)[0];
+        assert_eq!((m.score, m.tier), (8, CineTier::Legendary));
+        assert!(m.feats.thrown_multi && m.feats.showcase_bonus && !m.feats.showcase_kill);
+        assert_eq!(m.feats.extra_kills, 2);
+        // The worked table: 3 goblins + llama = 7, 5 goblins = 7.
+        let mut three = stick(3);
+        three.extend([llama(250, 50), blast(250, 50, 7, Some(0))]);
+        assert_eq!(run(&mut showcase_ev(), &three)[0].score, 7);
+        assert_eq!(run(&mut showcase_ev(), &stick(5))[0].score, 7);
+    }
+
+    #[test]
+    fn ar_a_llama_counts_toward_the_three_blast_kills() {
+        let mut events = stick(2);
+        events.extend([llama(250, 50), blast(250, 50, 7, Some(0))]);
+        let m = run(&mut showcase_ev(), &events)[0];
+        assert_eq!((m.score, m.tier), (6, CineTier::Ordinary));
+        assert!(m.feats.thrown_multi && m.feats.showcase_bonus);
+        assert_eq!(m.feats.extra_kills, 0);
+    }
+
+    #[test]
+    fn ar_a_dropped_stick_never_credits() {
+        // Carl hurt on the drop tick: the throw is a drop.
+        let mut events = vec![hurt(100, 0), thrown(100, 7)];
+        events.extend((0..5).map(|g| blast(250, g, 7, Some(0))));
+        let mut ev = showcase_ev();
+        assert!(run(&mut ev, &events).is_empty());
+        assert_eq!(ev.last_rejection(), Some(Rejection::NoCreditedDefeat));
+        // Sub-case: a t41 release on the same tick as a hurt of the owner.
+        let mut events = vec![thrown(41, 7), hurt(41, 0)];
+        events.extend((0..3).map(|g| blast(191, g, 7, Some(0))));
+        assert!(run(&mut showcase_ev(), &events).is_empty());
+        // A hurt of the other hero on that tick does not make it a drop.
+        let mut events = vec![thrown(41, 7), hurt(41, 1)];
+        events.extend((0..3).map(|g| blast(191, g, 7, Some(0))));
+        assert_eq!(run(&mut showcase_ev(), &events).len(), 1);
+    }
+
+    #[test]
+    fn ar_unthrown_authored_or_ownerless_blasts_never_credit() {
+        // No ChargeThrown at all.
+        let events: Vec<_> = (0..5).map(|g| blast(250, g, 7, Some(0))).collect();
+        assert!(run(&mut showcase_ev(), &events).is_empty());
+        // An authored charge index (no throw recorded for it) with an owner.
+        let mut events = vec![thrown(100, 7)];
+        events.extend((0..5).map(|g| blast(250, g, 2, Some(0))));
+        assert!(run(&mut showcase_ev(), &events).is_empty());
+        // An ownerless blast of the thrown slot.
+        let mut events = vec![thrown(100, 7)];
+        events.extend((0..5).map(|g| blast(250, g, 7, None)));
+        assert!(run(&mut showcase_ev(), &events).is_empty());
+        // A throw recorded after the defeat does not retro-credit it.
+        let mut events: Vec<_> = (0..3).map(|g| blast(90, g, 7, Some(0))).collect();
+        events.push(thrown(100, 7));
+        assert!(run(&mut showcase_ev(), &events).is_empty());
+    }
+
+    #[test]
+    fn ar_the_boss_never_counts() {
+        let boss = CineEvent::from_combat(&CombatEvent::EnemyDefeated {
+            tick: 250,
+            target: BOSS_ENEMY_ID,
+            cause: DefeatCause::Explosion {
+                charge: 7,
+                player: Some(0),
+                point_blank: false,
+            },
+            force: ForceTier::Heavy,
+            instigator: None,
+        })
+        .unwrap();
+        let mut events = vec![
+            thrown(100, 7),
+            boss,
+            blast(250, 1, 7, Some(0)),
+            blast(250, 2, 7, Some(0)),
+        ];
+        assert!(run(&mut showcase_ev(), &events).is_empty());
+        // A bridge flag for the boss, or the Hoarder, is ignored.
+        events.push(llama(250, BOSS_ENEMY_ID));
+        events.push(llama(250, PILE_BOSS_ID));
+        assert!(run(&mut showcase_ev(), &events).is_empty());
+        // The Hoarder is never one of the three, even if it is blast-defeated.
+        let events = [
+            thrown(100, 7),
+            blast(250, 1, 7, Some(0)),
+            blast(250, 2, 7, Some(0)),
+            blast(250, PILE_BOSS_ID, 7, Some(0)),
+        ];
+        assert!(run(&mut showcase_ev(), &events).is_empty());
+    }
+
+    #[test]
+    fn ar_a_hurt_in_the_clean_window_vetoes_the_blast() {
+        let mut events = vec![thrown(100, 7), hurt(190, 0)];
+        events.extend((0..3).map(|g| blast(250, g, 7, Some(0))));
+        let mut ev = showcase_ev();
+        assert!(run(&mut ev, &events).is_empty());
+        assert_eq!(ev.last_rejection(), Some(Rejection::NotClean));
+    }
+
+    #[test]
+    fn ar_a_clean_credited_llama_kill_is_a_showcase_moment() {
+        let m = run(&mut showcase_ev(), &[llama(30, 50), melee(30, 50, Some(0))])[0];
+        assert_eq!(
+            (m.score, m.tier, m.credited, m.target),
+            (5, CineTier::Ordinary, 0, 50)
+        );
+        assert!(m.feats.showcase_kill && !m.feats.thrown_multi && !m.feats.showcase_bonus);
+        // Donut's credit.
+        let m = run(&mut showcase_ev(), &[llama(30, 51), melee(30, 51, Some(1))])[0];
+        assert_eq!((m.credited, m.target), (1, 51));
+        // The anchor is the lowest showcase id of the batch.
+        let m = run(
+            &mut showcase_ev(),
+            &[
+                llama(30, 52),
+                llama(30, 51),
+                melee(30, 52, Some(0)),
+                melee(30, 51, Some(0)),
+            ],
+        )[0];
+        assert_eq!(m.target, 51);
+        // `showcase_kill_score = 0` switches the llama primary off alone ...
+        let no_kill = CineTuning {
+            showcase_kill_score: 0,
+            ..SHOW
+        };
+        let mut ev = CinematicEvaluator::new(no_kill);
+        assert!(run(&mut ev, &[llama(30, 50), melee(30, 50, Some(0))]).is_empty());
+        // ... and a thrown triple with a llama still scores 6.
+        let mut events = stick(2);
+        events.extend([llama(250, 50), blast(250, 50, 7, Some(0))]);
+        let m = run(&mut CinematicEvaluator::new(no_kill), &events)[0];
+        assert_eq!(m.score, 6);
+        assert!(m.feats.thrown_multi && m.feats.showcase_bonus);
+    }
+
+    #[test]
+    fn ar_an_uncredited_llama_kill_is_nothing() {
+        // Killed by an authored blast.
+        let mut ev = showcase_ev();
+        assert!(run(&mut ev, &[llama(30, 50), blast(30, 50, 2, Some(0))]).is_empty());
+        assert_eq!(ev.last_rejection(), Some(Rejection::NoCreditedDefeat));
+        // Killed by the environment.
+        let env = CineEvent::Defeated {
+            tick: 30,
+            target: 50,
+            cause: CineCause::Other,
+            instigator: None,
+            slot: None,
+        };
+        let mut ev = showcase_ev();
+        assert!(run(&mut ev, &[llama(30, 50), env]).is_empty());
+        // A melee kill with no instigator.
+        let mut ev = showcase_ev();
+        assert!(run(&mut ev, &[llama(30, 50), melee(30, 50, None)]).is_empty());
+    }
+
+    #[test]
+    fn ar_cooldown_and_no_stacking_hold_for_showcase() {
+        let mut events = vec![llama(30, 50), melee(30, 50, Some(0)), thrown(200, 7)];
+        events.extend((0..3).map(|g| blast(330, g, 7, Some(0))));
+        let mut ev = showcase_ev();
+        let moments = run(&mut ev, &events);
+        assert_eq!(moments.len(), 1);
+        assert_eq!(ev.last_rejection(), Some(Rejection::Cooldown));
+        // Melee + shore + llama melee inside one window: 5 + 1 + 1, not 10.
+        // The melee half and the llama kill share the completing tick.
+        let chain = [
+            broken(60, 0),
+            block(60, 1, 0),
+            melee(80, 2, Some(0)),
+            llama(80, 50),
+            melee(80, 50, Some(0)),
+        ];
+        let m = run(&mut showcase_ev(), &chain)[0];
+        assert_eq!(m.score, 7);
+        assert!(m.feats.mixed_chain && m.feats.showcase_bonus && !m.feats.showcase_kill);
+        assert_eq!(m.feats.extra_kills, 1);
+    }
+
+    #[test]
+    fn ar_restart_and_respawn_forget_the_throw() {
+        let kills =
+            |tick| -> Vec<CineEvent> { (0..3).map(|g| blast(tick, g, 7, Some(0))).collect() };
+        // Control: with no reset the same three kills are a moment.
+        let mut ev = showcase_ev();
+        ev.observe_tick(100, &[thrown(100, 7)], false);
+        assert!(ev.observe_tick(130, &kills(130), false).is_some());
+        for (reset, tick) in [
+            (CineEvent::Restart { tick: 120 }, 10),
+            (CineEvent::Respawn { tick: 120 }, 130),
+        ] {
+            let mut ev = showcase_ev();
+            ev.observe_tick(100, &[thrown(100, 7)], false);
+            ev.observe_tick(120, &[reset], false);
+            assert!(
+                ev.observe_tick(tick, &kills(tick), false).is_none(),
+                "{reset:?}"
+            );
+            assert_eq!(ev.last_rejection(), Some(Rejection::NoCreditedDefeat));
+        }
+    }
+
+    #[test]
+    fn ar_blast_kills_are_extras_in_a_mixed_chain() {
+        // One blast kill beside melee + shore: 5 + 1 extra = 6.
+        let events = [
+            thrown(20, 7),
+            broken(60, 0),
+            block(60, 1, 0),
+            melee(60, 2, Some(0)),
+            blast(60, 3, 7, Some(0)),
+        ];
+        let m = run(&mut showcase_ev(), &events)[0];
+        assert_eq!(m.score, 6);
+        assert!(m.feats.mixed_chain && !m.feats.thrown_multi);
+        assert_eq!(m.feats.extra_kills, 1);
+        // A blast kill never supplies either half of the mixed chain.
+        let events = [
+            thrown(20, 7),
+            melee(60, 2, Some(0)),
+            blast(60, 3, 7, Some(0)),
+        ];
+        assert!(run(&mut showcase_ev(), &events).is_empty());
+        let events = [
+            thrown(20, 7),
+            broken(60, 0),
+            block(60, 1, 0),
+            blast(60, 3, 7, Some(0)),
+        ];
+        assert!(run(&mut showcase_ev(), &events).is_empty());
+    }
+
+    #[test]
+    fn ar_showcase_choice_is_order_independent() {
+        let mut events = stick(4);
+        events.extend([llama(250, 50), blast(250, 50, 7, Some(0))]);
+        let reference = run(&mut showcase_ev(), &events);
+        assert_eq!(reference.len(), 1);
+        let n = events.len();
+        for seed in 0..24u64 {
+            let mut shuffled = events.clone();
+            // A deterministic Fisher-Yates driven by a tiny LCG.
+            let mut state = seed * 2_654_435_761 + 1;
+            for i in (1..n).rev() {
+                state = state
+                    .wrapping_mul(6_364_136_223_846_793_005)
+                    .wrapping_add(1_442_695_040_888_963_407);
+                shuffled.swap(i, (state >> 33) as usize % (i + 1));
+            }
+            let mut ev = showcase_ev();
+            let mut got = Vec::new();
+            for tick in [100, 250] {
+                let batch: Vec<_> = shuffled
+                    .iter()
+                    .copied()
+                    .filter(|e| e.tick() == tick)
+                    .collect();
+                got.extend(ev.observe_tick(tick, &batch, false));
+            }
+            assert_eq!(got, reference, "seed {seed}");
+        }
+    }
+
+    #[test]
+    fn the_showcase_tuning_is_validated() {
+        assert_eq!(CineTuning::DEFAULT.validate(), Ok(()));
+        let bad = |t: CineTuning| t.validate().is_err();
+        assert!(bad(CineTuning {
+            thrown_multi_score: 0,
+            ..SHOW
+        }));
+        assert!(bad(CineTuning {
+            thrown_multi_min_kills: 1,
+            ..SHOW
+        }));
+        assert!(bad(CineTuning {
+            showcase_kill_score: 3,
+            ..SHOW
+        }));
+        assert_eq!(
+            CineTuning {
+                showcase_kill_score: 0,
+                ..SHOW
+            }
+            .validate(),
+            Ok(())
         );
     }
 

@@ -1492,6 +1492,22 @@ impl HudRuntime {
         Ok(())
     }
 
+    /// AUDIENCE-RUN: the same unlock with the counts carried from an earlier
+    /// room of the run (`(current, peak)` per hero, Carl first). The cue table
+    /// is empty (AR-AD19: Floor 01 authors no anticipation cue). An invalid
+    /// carry unlocks nothing.
+    pub fn resume_audience(&mut self, counts: [(u64, u64); 2]) -> Result<(), String> {
+        self.audience.resume(counts)?;
+        self.revision += 1;
+        Ok(())
+    }
+
+    /// AUDIENCE-RUN: `(current, peak)` per hero for the exit carry, `None`
+    /// while the audience is locked.
+    pub fn audience_carry(&self) -> Option<[(u64, u64); 2]> {
+        self.audience.carry()
+    }
+
     /// The audience observer (read-only; its digest is the `AUDIENCE_STATE`).
     pub fn audience(&self) -> &AudienceState {
         &self.audience

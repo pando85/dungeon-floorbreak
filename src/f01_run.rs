@@ -35,6 +35,16 @@ pub const FLAG_CARRY: &str = "--f01-carry";
 /// The run's tally so far (`rooms:ticks:deaths:restarts`, written by a relaunch).
 pub const FLAG_TALLY: &str = "--f01-run-tally";
 
+/// AUDIENCE-RUN: the viewer counts of the previous room
+/// (`current_carl:peak_carl:current_donut:peak_donut`, written by a relaunch).
+pub const FLAG_AUDIENCE: &str = "--f01-audience";
+/// AUDIENCE-RUN (AR-AD1): the broadcast goes live in every run room listed
+/// **after** this one (the Infernal Corral).
+pub const AUDIENCE_UNLOCK_AFTER: &str = "corral";
+/// The room-clear panel line announcing the broadcast (AR-AD2). A flat fact:
+/// no viewer number, no quote.
+pub const BROADCAST_LINE: &str = "broadcast: live from the next room (viewers per hero)";
+
 /// Fixed ticks per second (the tally's clock).
 const TICKS_PER_SECOND: u64 = 60;
 
@@ -80,6 +90,80 @@ impl RunTally {
             deaths: self.deaths.saturating_add(room.deaths),
             restarts: self.restarts.saturating_add(room.restarts),
         }
+    }
+}
+
+/// The viewer counts a run room hands to the next one (AR-AD3): current and
+/// peak per hero, the decay remainder dropped.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct AudienceCarry {
+    /// Carl: `(current, peak)`.
+    pub carl: (u64, u64),
+    /// Donut: `(current, peak)`.
+    pub donut: (u64, u64),
+}
+
+impl AudienceCarry {
+    /// The `--f01-audience` value (`C:P:D:Q`).
+    pub fn to_arg(self) -> String {
+        format!(
+            "{}:{}:{}:{}",
+            self.carl.0, self.carl.1, self.donut.0, self.donut.1
+        )
+    }
+
+    /// Parse a `--f01-audience` value. Four decimal numbers, each hero's
+    /// `peak >= current >= baseline`.
+    pub fn parse(text: &str) -> Result<Self, String> {
+        let baseline = crate::audience::TUNING.baseline;
+        let bad = || {
+            format!(
+                "bad {FLAG_AUDIENCE} {text:?} (expected carl:carl_peak:donut:donut_peak, each peak >= current >= {baseline})"
+            )
+        };
+        let parts: Vec<&str> = text.split(':').collect();
+        let [c, p, d, q] = parts.as_slice() else {
+            return Err(bad());
+        };
+        let num = |v: &str| {
+            (!v.is_empty() && v.bytes().all(|b| b.is_ascii_digit()))
+                .then(|| v.parse::<u64>().ok())
+                .flatten()
+                .ok_or_else(bad)
+        };
+        let (c, p, d, q) = (num(c)?, num(p)?, num(d)?, num(q)?);
+        if c < baseline || p < c || d < baseline || q < d {
+            return Err(bad());
+        }
+        Ok(Self {
+            carl: (c, p),
+            donut: (d, q),
+        })
+    }
+
+    /// The `(current, peak)` pairs, Carl first, as the audience resumes them.
+    pub const fn counts(self) -> [(u64, u64); 2] {
+        [self.carl, self.donut]
+    }
+
+    /// The carry of the audience's exit counts.
+    pub const fn from_counts(counts: [(u64, u64); 2]) -> Self {
+        Self {
+            carl: counts[0],
+            donut: counts[1],
+        }
+    }
+}
+
+/// AUDIENCE-RUN (AR-AD1): whether the broadcast is live in `room`: the
+/// [`AUDIENCE_UNLOCK_AFTER`] row exists and `room`'s row comes after it.
+/// Positional, so it does not depend on how the room was reached; fails closed
+/// when the unlock row is not listed.
+pub fn audience_live_in(manifest: &Manifest, room: &str) -> bool {
+    let index_of = |id: &str| manifest.rooms.iter().position(|r| r.id == id);
+    match (index_of(AUDIENCE_UNLOCK_AFTER), index_of(room)) {
+        (Some(unlock), Some(at)) => at > unlock,
+        _ => false,
     }
 }
 
@@ -131,14 +215,15 @@ pub fn room_index(manifest: &Manifest, room: &str) -> Option<(usize, usize)> {
 }
 
 /// The argument list of the next launch: `argv` (program name first) with the
-/// run's own per-room flags (`--f01-room`, `--f01-carry`, `--f01-run-tally`)
-/// replaced. Everything else (`--f01-run`, the loadout, the scale, the deck,
+/// run's own per-room flags (`--f01-room`, `--f01-carry`, `--f01-run-tally`,
+/// `--f01-audience`) replaced. Everything else (`--f01-run`, the loadout, the scale, the deck,
 /// `--companion`, the recording flags) is kept.
 pub fn relaunch_argv(
     argv: &[String],
     next: &str,
     carry: Option<&LedgerSnapshot>,
     tally: RunTally,
+    audience: Option<AudienceCarry>,
 ) -> Vec<String> {
     let mut out = Vec::with_capacity(argv.len() + 6);
     let mut iter = argv.iter();
@@ -147,7 +232,7 @@ pub fn relaunch_argv(
     }
     while let Some(arg) = iter.next() {
         match arg.as_str() {
-            "--f01-room" | FLAG_CARRY | FLAG_TALLY => {
+            "--f01-room" | FLAG_CARRY | FLAG_TALLY | FLAG_AUDIENCE => {
                 iter.next();
             }
             _ => out.push(arg.clone()),
@@ -158,6 +243,9 @@ pub fn relaunch_argv(
         out.extend([FLAG_CARRY.to_owned(), encode_carry(snapshot)]);
     }
     out.extend([FLAG_TALLY.to_owned(), tally.to_arg()]);
+    if let Some(carry) = audience {
+        out.extend([FLAG_AUDIENCE.to_owned(), carry.to_arg()]);
+    }
     out
 }
 
@@ -219,6 +307,12 @@ pub struct ExitInput<'a> {
     pub argv: &'a [String],
     /// The REC badge text.
     pub recording: &'a str,
+    /// AUDIENCE-RUN: the viewer counts at the exit tick, `Some` only while the
+    /// audience is live in this room.
+    pub audience: Option<AudienceCarry>,
+    /// AUDIENCE-RUN: the broadcast is enabled for this run (`--audience`
+    /// resolved); the corral's panel announces it only then.
+    pub audience_enabled: bool,
 }
 
 /// F01-RUN: the decision of an exit: the room's facts, the panel to show and
@@ -231,7 +325,7 @@ pub fn on_exit(input: &ExitInput<'_>) -> Result<(RoomFacts, PanelText, Decision)
     match next_room(input.manifest, input.room)? {
         NextStep::Room(next) => {
             let carry = carry_for(input.loadout, row.scene, input.combat);
-            let argv = relaunch_argv(input.argv, &next.id, carry.as_ref(), tally);
+            let argv = relaunch_argv(input.argv, &next.id, carry.as_ref(), tally, input.audience);
             let panel = room_clear_panel(
                 input.manifest,
                 &facts,
@@ -239,6 +333,7 @@ pub fn on_exit(input: &ExitInput<'_>) -> Result<(RoomFacts, PanelText, Decision)
                 &next,
                 carry.is_some(),
                 input.recording,
+                input.audience_enabled,
             );
             Ok((
                 facts,
@@ -349,41 +444,52 @@ pub fn room_clear_panel(
     next: &RoomRow,
     carried_on: bool,
     recording: &str,
+    announce_broadcast: bool,
 ) -> PanelText {
     let index =
         room_index(manifest, &facts.id).map_or_else(String::new, |(i, n)| format!("ROOM {i}/{n} "));
+    // AR-AD2: the one reveal, only on the unlock room's panel and only when
+    // the broadcast is on; no viewer number (AR-AD20).
+    let mut lines = vec![
+        format!(
+            "{} ticks ({}), deaths {}, restarts {}",
+            facts.ticks,
+            clock(facts.ticks),
+            facts.deaths,
+            facts.restarts
+        ),
+        format!("granted here: {}", grant_list(&facts.grants)),
+        format!(
+            "run so far: {} room{}, {} ticks ({}), deaths {}, restarts {}",
+            tally_after.rooms,
+            if tally_after.rooms == 1 { "" } else { "s" },
+            tally_after.ticks,
+            clock(tally_after.ticks),
+            tally_after.deaths,
+            tally_after.restarts
+        ),
+        format!(
+            "next: {} ({})",
+            next.title,
+            if carried_on {
+                "story ledger carried"
+            } else {
+                "TEST LOADOUT, nothing carried"
+            }
+        ),
+        format!("recording: {recording}"),
+        "Facts only: no score, no rating.".to_owned(),
+    ];
+    if announce_broadcast && facts.id == AUDIENCE_UNLOCK_AFTER {
+        let at = lines
+            .iter()
+            .position(|l| l.starts_with("next: "))
+            .expect("the panel has a next line");
+        lines.insert(at, BROADCAST_LINE.to_owned());
+    }
     PanelText {
         heading: format!("{index}CLEARED: {}", facts.title.to_uppercase()),
-        lines: vec![
-            format!(
-                "{} ticks ({}), deaths {}, restarts {}",
-                facts.ticks,
-                clock(facts.ticks),
-                facts.deaths,
-                facts.restarts
-            ),
-            format!("granted here: {}", grant_list(&facts.grants)),
-            format!(
-                "run so far: {} room{}, {} ticks ({}), deaths {}, restarts {}",
-                tally_after.rooms,
-                if tally_after.rooms == 1 { "" } else { "s" },
-                tally_after.ticks,
-                clock(tally_after.ticks),
-                tally_after.deaths,
-                tally_after.restarts
-            ),
-            format!(
-                "next: {} ({})",
-                next.title,
-                if carried_on {
-                    "story ledger carried"
-                } else {
-                    "TEST LOADOUT, nothing carried"
-                }
-            ),
-            format!("recording: {recording}"),
-            "Facts only: no score, no rating.".to_owned(),
-        ],
+        lines,
         hint: format!("Enter, A or Start: next room ({})", next.title),
     }
 }
@@ -550,14 +656,14 @@ mod tests {
             deaths: 1,
             restarts: 0,
         };
-        let second = relaunch_argv(&first, "boiler", Some(&snapshot), tally);
+        let second = relaunch_argv(&first, "boiler", Some(&snapshot), tally, None);
         assert_eq!(&second[..8], &first[..]);
         assert_eq!(&second[8..10], ["--f01-room", "boiler"]);
         assert_eq!(second[10], FLAG_CARRY);
         assert_eq!(decode_carry(&second[11]).unwrap(), snapshot);
         assert_eq!(&second[12..], [FLAG_TALLY, "1:2400:1:0"]);
         // A second relaunch replaces, never duplicates.
-        let third = relaunch_argv(&second, "hazards", None, tally);
+        let third = relaunch_argv(&second, "hazards", None, tally, None);
         assert_eq!(third.iter().filter(|a| *a == "--f01-room").count(), 1);
         assert!(!third.iter().any(|a| a == FLAG_CARRY));
         assert_eq!(third.iter().filter(|a| *a == FLAG_TALLY).count(), 1);
@@ -581,6 +687,150 @@ mod tests {
     }
 
     #[test]
+    fn audience_carry_round_trips_and_is_replaced_on_relaunch() {
+        let carry = AudienceCarry {
+            carl: (1_400, 1_900),
+            donut: (600, 800),
+        };
+        assert_eq!(carry.to_arg(), "1400:1900:600:800");
+        assert_eq!(AudienceCarry::parse(&carry.to_arg()).unwrap(), carry);
+        assert_eq!(AudienceCarry::from_counts(carry.counts()), carry);
+        // The boundary values parse; everything else is an error naming the flag.
+        assert!(AudienceCarry::parse("250:250:250:250").is_ok());
+        for bad in [
+            "",
+            "1:2:3",
+            "1:2:3:4:5",
+            "250:250:250",
+            "249:300:300:300",
+            "300:299:300:300",
+            "300:300:249:300",
+            "300:300:400:399",
+            "a:300:300:300",
+            "-300:300:300:300",
+            "+300:300:300:300",
+            "300::300:300",
+            "300:300:300:99999999999999999999999",
+        ] {
+            let error = AudienceCarry::parse(bad).unwrap_err();
+            assert!(error.contains(FLAG_AUDIENCE), "{bad:?}: {error}");
+        }
+        // relaunch_argv writes it once and drops an older one.
+        let first = argv(&["floor01_scene", "--scene", "f01_late", "--f01-run"]);
+        let tally = RunTally::default();
+        let second = relaunch_argv(&first, "boiler", None, tally, Some(carry));
+        assert_eq!(second.iter().filter(|a| *a == FLAG_AUDIENCE).count(), 1);
+        let at = second.iter().position(|a| a == FLAG_AUDIENCE).unwrap();
+        assert_eq!(second[at + 1], "1400:1900:600:800");
+        let newer = AudienceCarry {
+            carl: (2_000, 2_000),
+            donut: (700, 900),
+        };
+        let third = relaunch_argv(&second, "hazards", None, tally, Some(newer));
+        assert_eq!(third.iter().filter(|a| *a == FLAG_AUDIENCE).count(), 1);
+        let at = third.iter().position(|a| a == FLAG_AUDIENCE).unwrap();
+        assert_eq!(third[at + 1], "2000:2000:700:900");
+        // No carry (the audience was locked at the exit): the flag is dropped.
+        let fourth = relaunch_argv(&third, "juicer", None, tally, None);
+        assert!(!fourth.iter().any(|a| a == FLAG_AUDIENCE));
+        // An opt-out flag the run does not own survives every relaunch.
+        let off = argv(&["floor01_scene", "--f01-run", "--audience=off"]);
+        assert!(
+            relaunch_argv(&off, "boiler", None, tally, None).contains(&"--audience=off".to_owned())
+        );
+    }
+
+    #[test]
+    fn the_audience_is_live_only_after_the_corral() {
+        let manifest = manifest();
+        let listed = manifest.listed();
+        assert_eq!(listed[0], "corral");
+        assert!(!audience_live_in(&manifest, "corral"));
+        for room in &listed[1..] {
+            assert!(audience_live_in(&manifest, room), "{room}");
+        }
+        assert!(!audience_live_in(&manifest, "cellar"), "unlisted room");
+        // A manifest without the corral row: nothing unlocks (fail closed).
+        let text = std::fs::read_to_string(root().join(crate::f01_late::MANIFEST_PATH)).unwrap();
+        let mut value: serde_json::Value = serde_json::from_str(&text).unwrap();
+        let rooms = value["rooms"].as_array_mut().unwrap();
+        rooms.retain(|r| r["id"] != "corral");
+        let order = value["story_order"].as_array_mut().unwrap();
+        order.retain(|o| o["id"] != "corral");
+        if let Ok(manifest) = Manifest::from_json(&value.to_string(), StoryTable::active()) {
+            assert!(manifest.rooms.iter().all(|r| r.id != "corral"));
+            for row in &manifest.rooms {
+                assert!(!audience_live_in(&manifest, &row.id), "{}", row.id);
+            }
+        }
+    }
+
+    #[test]
+    fn only_the_unlock_room_panel_announces_the_broadcast() {
+        let manifest = manifest();
+        let tally = RunTally::default();
+        for (i, row) in manifest.rooms.iter().enumerate() {
+            let Some(next) = manifest.rooms.get(i + 1) else {
+                continue;
+            };
+            let facts = RoomFacts {
+                id: row.id.clone(),
+                title: row.title.clone(),
+                ticks: 600,
+                deaths: 0,
+                restarts: 0,
+                grants: vec![],
+            };
+            let off = room_clear_panel(&manifest, &facts, tally, next, true, "REC", false);
+            let on = room_clear_panel(&manifest, &facts, tally, next, true, "REC", true);
+            if row.id == AUDIENCE_UNLOCK_AFTER {
+                // Exactly one extra line, before `next:`, and nothing else moves.
+                assert_eq!(on.lines.len(), off.lines.len() + 1);
+                assert_eq!(on.lines[3], BROADCAST_LINE);
+                assert!(on.lines[4].starts_with("next: "));
+                let mut without = on.lines.clone();
+                without.remove(3);
+                assert_eq!(without, off.lines);
+                assert_eq!((&on.heading, &on.hint), (&off.heading, &off.hint));
+            } else {
+                assert_eq!(on, off, "{}", row.id);
+            }
+            // Never a viewer number or any count on a panel.
+            for line in on.lines.iter().chain(&off.lines) {
+                assert!(
+                    !line.contains("viewers:") && !line.contains("250"),
+                    "{line}"
+                );
+            }
+        }
+        // The same through the real exit decision.
+        let (carl, donut) = Loadout::Story.flags();
+        let (_, _, corral) =
+            crate::f01_late::corral_start(&root(), 360, carl, donut, None).unwrap();
+        let argv = argv(&["floor01_scene", "--scene", "f01_late", "--f01-run"]);
+        let input = ExitInput {
+            manifest: &manifest,
+            room: "corral",
+            loadout: Loadout::Story,
+            combat: &corral,
+            carried: None,
+            tally: RunTally::default(),
+            argv: &argv,
+            recording: "REC",
+            audience: None,
+            audience_enabled: true,
+        };
+        let (_, panel, _) = on_exit(&input).unwrap();
+        assert!(panel.lines.contains(&BROADCAST_LINE.to_owned()));
+        let (_, panel, _) = on_exit(&ExitInput {
+            audience_enabled: false,
+            ..input
+        })
+        .unwrap();
+        assert!(!panel.lines.contains(&BROADCAST_LINE.to_owned()));
+    }
+
+    #[test]
     fn the_test_loadout_tag_marks_the_all_loadout_only() {
         assert!(test_loadout_tag(Some(Loadout::All)));
         assert!(!test_loadout_tag(Some(Loadout::Story)));
@@ -601,6 +851,8 @@ mod tests {
             tally: RunTally::default(),
             argv: &argv,
             recording: "REC",
+            audience: None,
+            audience_enabled: false,
         };
         let (facts, panel, decision) = on_exit(&input).unwrap();
         assert_eq!(facts.grants, [(0, "special_thrown_charge".to_owned())]);
@@ -671,6 +923,8 @@ mod tests {
             tally: RunTally::default(),
             argv: &argv,
             recording: "REC",
+            audience: None,
+            audience_enabled: false,
         };
         let (facts, panel, decision) = on_exit(&input).unwrap();
         assert!(facts.grants.is_empty(), "the corral grants nothing (KC11)");
@@ -870,7 +1124,7 @@ mod tests {
         let tally = RunTally::default().with(&facts);
         assert_eq!(tally.rooms, 1);
         let next = manifest.room("boiler").unwrap();
-        let panel = room_clear_panel(&manifest, &facts, tally, next, true, "REC");
+        let panel = room_clear_panel(&manifest, &facts, tally, next, true, "REC", false);
         assert!(panel.heading.starts_with("ROOM 2/9 CLEARED: THE HOARDER"));
         assert!(panel.lines[1].contains("special_thrown_charge (Carl)"));
         assert!(panel.lines[3].contains("Goblin Boiler (story ledger carried)"));

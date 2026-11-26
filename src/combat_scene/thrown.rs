@@ -1327,6 +1327,39 @@ mod tests {
         assert_eq!(s.combat.enemies[2].vx, -200.0, "thrown the other way");
     }
 
+    /// AUDIENCE-RUN (AR-AD10, AR-T26): the fact the deliberate-throw proof relies on. A hit
+    /// on Carl while the lit stick is in his hand (t6..t40) logs `hero_hurt` and the dropped
+    /// stick's `charge_thrown` on the very same tick, so a `ChargeThrown` with a `HeroHurt` of
+    /// its owner on that tick is a drop and never a throw.
+    #[test]
+    fn a_drop_logs_the_hurt_and_the_throw_on_one_tick() {
+        let tick_in = |line: &str| -> u64 {
+            line.split_whitespace()
+                .find_map(|part| part.strip_prefix("tick="))
+                .and_then(|n| n.parse().ok())
+                .expect("a COMBAT_EVENT line carries its tick")
+        };
+        for at in [6, 12, 25, 40] {
+            let mut s = thrown(&EMPTY_SOLO);
+            run_to(&mut s, P + at);
+            assert!(hit_carl(&mut s, 1), "t{at}");
+            let hurts = lines_of(&s, "hero_hurt");
+            let throws = lines_of(&s, "charge_thrown");
+            assert_eq!(
+                (hurts.len(), throws.len()),
+                (1, 1),
+                "t{at}: {hurts:?} {throws:?}"
+            );
+            assert_eq!(tick_in(&hurts[0]), tick_in(&throws[0]), "t{at}");
+            assert_eq!(tick_in(&throws[0]), tick_of(&s), "t{at}");
+        }
+        // A deliberate release (t41, no hit) logs no hurt at all.
+        let mut s = thrown(&EMPTY_SOLO);
+        run_to(&mut s, RELEASE + 1);
+        assert_eq!(lines_of(&s, "charge_thrown").len(), 1);
+        assert!(lines_of(&s, "hero_hurt").is_empty());
+    }
+
     #[test]
     fn carl_prog_dyn_hit_drops_stick() {
         // t10: the lit stick drops at Carl's feet, its fuse restarts at 150 from
