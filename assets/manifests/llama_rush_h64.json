@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "id": "llama_rush_h64_candidate_v1",
+  "type": "character_animation",
+  "source_path": "assets/source/characters/llama/rush/llama_rush_h64.ase",
+  "grid_source": "assets/source/characters/llama/rush/llama_rush_h64.grid.json",
+  "output_atlas": "generated/art/llama_rush_h64.png",
+  "output_metadata": "generated/art/llama_rush_h64.json",
+  "palette_id": "llama-floor01-v0",
+  "frame_size": [
+    96,
+    72
+  ],
+  "pivot": [
+    44,
+    71
+  ],
+  "animation_tags": [
+    "rush_brace",
+    "rush_run",
+    "rush_recover"
+  ],
+  "required_alpha": true,
+  "owner": "AI-authored enemy animation candidate (fan-concept layer: Floor 1 Bad Llama; runtime role IP-neutral charging animal, melee rush)",
+  "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+  "provenance": {
+    "origin": "LLAMA-03 Bad Llama rush art (docs/02-art/llama-03-rush-spec.md): 4 frozen keys (atlas frames 1, 2, 4, 8; fixture tests/fixtures/llama-03-rush_keys.json) plus 6 in-betweens (0, 3, 5, 6, 7, 9) rasterized by scripts/author_llama03_rush.py from the LLAMA-01 parametric rig and literal stamps; layer body; pixel-grid-v1 source, no image-model output, no tracing",
+    "generator": "Design, spec, keys and gate: Claude Opus. In-betweens, atlas, manifest, export, validators, wiring and evidence: Claude Sonnet. Independent review pending (separate top-tier agent)",
+    "generated_art": true,
+    "input_reference_ids": [
+      "assets/concept/floor-01/enemies/bad-llama-c-plus-a-approved.png"
+    ]
+  },
+  "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
+  "review_status": "prototype_fixture_unapproved",
+  "rush_poses": {
+    "spec": "docs/02-art/llama-03-rush-spec.md",
+    "tick_hz": 60,
+    "facing": "right",
+    "key_frames": [
+      1,
+      2,
+      4,
+      8
+    ],
+    "key_fixture": "tests/fixtures/llama-03-rush_keys.json",
+    "tell": {
+      "slot_ticks": 4,
+      "slots": [
+        0,
+        1,
+        2,
+        1,
+        2,
+        1,
+        2,
+        3
+      ]
+    },
+    "committed": {
+      "cycle": [
+        6,
+        7,
+        4,
+        5
+      ],
+      "ticks_per_frame": 3
+    },
+    "recover": [
+      [
+        0,
+        8
+      ],
+      [
+        10,
+        9
+      ]
+    ],
+    "bonk": [
+      [
+        0,
+        "llama-01:11"
+      ],
+      [
+        12,
+        9
+      ]
+    ]
+  }
+}

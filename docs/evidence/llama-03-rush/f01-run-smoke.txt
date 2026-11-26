@@ -1,0 +1,7 @@
+# floor01_scene --headless-floor01-smoke --scene f01_late --f01-run (no flag selects the rush art)
+F01_CORRAL_ENTRY room=F01-CORRAL encounter=F01-CORRAL-ENC pin=f01_pin_corral_entry spawn_carl=112 spawn_donut=80 checkpoints=[112, 1072] goal=ReachExit roster=5 goblins=2 llamas=3 m3_gate=2048..2064_on_llamas_1+2 listed=true env=l
+LLAMA_RUSH_ART on frames=10
+F01_CORRAL_SMOKE_OK ticks=600 checkpoint=1 pin=f01_pin_corral_entry env=live slot_enemies=0 enemies=2 state_hash=0x2d847e416b946726
+# the window run's log of the --f01-run capture:
+LLAMA_RUSH_ART on frames=10
+rush-atlas fallback lines in that log: 0
