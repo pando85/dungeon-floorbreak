@@ -1,12 +1,12 @@
 # TROG-A evidence: the three troglodytes and `trog_run` in the floor run
 
-`trog_run` ("The Troglodyte Run", #191 T0..T3) is listed after `rest_camp` and directly before the Juicer, so the floor run is sixteen rooms. One Pygmy, one Basher and one Virtuoso run on ENEMY-SLOT. They are **labelled playable greybox**: the enemies are labelled hurtbox rectangles with a translucent stand-in telegraph, the room is flat decor rectangles on the existing kit, and the TROG atlases are **not wired** (the work order's first cut; art review is pending). Design: [the troglodyte integration plan](../../01-design/floor-01-troglodyte-integration.md) (adopted defaults TROG-AD1..AD38, implementation notes 15.1); work order: [the troglodyte work order](../../07-agents/floor-01-troglodyte-workorder.md). Owner decisions of 2026-11-24 and 2026-11-25: everything on by default, reachable in story order, large unfinished items land as a labelled greybox. Game feel is the owner's call: nothing here is accepted. The Test of Strength, the bench and the gate are TROG-B (not in this evidence).
+`trog_run` ("The Troglodyte Run", #191 T0..T3) is listed after `rest_camp` and directly before the Juicer, so the floor run is sixteen rooms. One Pygmy, one Basher and one Virtuoso run on ENEMY-SLOT. They are **labelled playable greybox**: the enemies draw the committed TROG-01/02/03 atlas frames (`prototype_fixture_unapproved`, **art review pending**; frame map TROG-AD39..AD41) with a translucent stand-in telegraph of the committed hitbox, and the room is flat decor rectangles on the existing kit. The labelled hurtbox rectangle is the fallback where an atlas is missing and, faint, behind `--debug-combat`. Design: [the troglodyte integration plan](../../01-design/floor-01-troglodyte-integration.md) (adopted defaults TROG-AD1..AD41, implementation notes 15.1); work order: [the troglodyte work order](../../07-agents/floor-01-troglodyte-workorder.md). Owner decisions of 2026-11-24 and 2026-11-25: everything on by default, reachable in story order, large unfinished items land as a labelled greybox. Game feel is the owner's call: nothing here is accepted. The Test of Strength, the bench and the gate are TROG-B (not in this evidence).
 
 ## Files
 
 | File | What it shows | How it was made |
 | --- | --- | --- |
-| `still_pygmy_dormant_*.png` | T1: the Pygmy asleep at 640 (the dark rectangle), Carl walking in | window, `--f01-room trog_run --trog-pilot carl --companion off`, tick 80 |
+| `still_pygmy_dormant_*.png` | T1: the Pygmy asleep at 640 (the idle frame), Carl walking in | window, `--f01-room trog_run --trog-pilot carl --companion off`, tick 80 |
 | `still_pygmy_tell_*.png` | The Pygmy's 24-tick coil (tell tick 11 of 24): the translucent box is the committed hitbox | same, tick 125 |
 | `still_pygmy_leap_*.png` | Mid-leap: the committed arc, the body lifted on the integer parabola | same, tick 144 |
 | `still_pygmy_land_*.png` | The landing: Recover, the low hurtbox the stomp meets | same, tick 152 |
@@ -50,9 +50,9 @@ xvfb-run -a -s '-screen 0 1920x1080x24' floor01_scene --no-audio --no-record --s
 ## Not run / not working
 
 - A real two-pad run and a human first-run time: **NOT RUN**. The mixed fight's feel (TROG acceptance question 9) is the owner's.
-- The T3 platform with the tongue passing under it, as a capture: **NOT RUN** (no pilot stands a hero on the platform while the other draws the tongue; the F05 matrix covers the geometry).
+- The T3 platform with the tongue passing under it, as a capture: **NOT RUN**. A raised Donut is a Virtuoso candidate only while airborne at feet 13..45, and the 32 px step lies 36 px from the platform, so no pilot can stand a hero on the platform while the other draws the tongue; the geometry is asserted against the real room file (`the_t3_platform_stands_over_the_tongue_in_the_real_room`) and by the F05 matrix.
 - A 2P window capture and `trog_eval`/the gate: TROG-B.
-- The TROG-01/02/03 atlases, audio and the AREA-TROG-01 dressing: later work orders. Base Donut cannot reach the 64 px platform (TROG-AD35).
+- The atlases' own independent art review, audio and the AREA-TROG-01 dressing: later work orders. Base Donut cannot reach the 64 px platform (TROG-AD35).
 
 ## Reproduce the check list
 
