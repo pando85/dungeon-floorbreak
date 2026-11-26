@@ -1,6 +1,6 @@
 # AREA-CAMP-01: the survivor camp and the quiet after the Juicer, design spec
 
-**Status:** design spec and keys (prototype art, silhouette gate pending, not owner-approved). This order dresses the two greybox quiet rooms that REST-WIRE landed:
+**Status:** design spec, keys and execution (prototype art, silhouette gate passed with notes G1..G8, independent art review pending, not owner-approved). This order dresses the two greybox quiet rooms that REST-WIRE landed:
 - `rest_camp` (REST-B, the survivors' camp, between `ring_split` and the Juicer);
 - `rest_aftermath` (REST-C, after the Juicer, before `mastery`).
 
@@ -119,11 +119,11 @@ K = key (frozen, drawn here). E = executor (drawn in `scripts/author_camp01.py` 
 | `ring_crates_b` | R | 56 x 28 | prop | (652, 532) | low in window B2 (28 ≤ 40); stands in for the greybox crate stack {704, 548, 64, 32}, which would cover the hearth |
 | `camp_hearth` | K | 96 x 64 | prop | (720, 496) | over the checkpoint (744..791) |
 | `camp_fire` | K | 20 x 26, 4 frames | prop | (758, 526) | animated; the light is attached here (section 8) |
-| `camp_figure_repair` | E | 24 x 36 | prop | (872, 524) | kneeling, mending a pack with a lamp beside it; window B3, so ≤ 40 |
+| `camp_figure_repair` | E | 24 x 36 | prop | (872, 524) | kneeling, mending a pack with a shuttered tin lamp beside it (one 2 x 2 `flame` 3 slit, no emitter: gate note G5, CAMP-AD18); window B3, so ≤ 40 |
 | `camp_figure_seated` | E | 20 x 30 | prop | (1024, 530) | sitting on a low crate, hood down, hands around a cup |
-| `camp_toy_cart` | E | 18 x 12 | prop | (1046, 548) | a salvage toy: a tin-can body, bottle-cap wheels and a string. The childlike prop of beat 2 |
+| `camp_toy_cart` | E | 18 x 12 | prop | (1048, 548) | a salvage toy: a tin-can body, bottle-cap wheels and a string. The childlike prop of beat 2 |
 | `camp_map_table` | E | 44 x 30 | prop | (1112, 530) | a trestle; the map is pale `stone` with ink-dark lines, blots and pins. No words |
-| `camp_figure_map` | E | 20 x 46 | prop | (1158, 514) | standing, one hand on the table, leaning over the map |
+| `camp_figure_map` | E | 20 x 46 | prop | (1152, 514) | standing, one hand on the table (listed after the table, so the hand draws over its end; gate note G3, CAMP-AD16), leaning over the map |
 | `camp_motifs` | E | 80 x 48 | backwall_decal | (1344, 384) | crude painted kettlebell, bar and flexed arm in `brick` 6..8 and chalk `stone` 8; above torch 1376's top (448) |
 | `camp_chalk_tally` | E | 24 x 40 | backwall_decal | (1404, 488) | chalk tallies and an arrow on the wall beside the exit door (x 1432) |
 | `camp_chalk_floor` | E | 128 x 12 | structure | (1320, 561) | chalk arrows on the floor's back half toward the exit; `structure`, so it draws above the deck (FF-AD26) |
@@ -132,7 +132,7 @@ K = key (frozen, drawn here). E = executor (drawn in `scripts/author_camp01.py` 
 
 | Piece | K/E/R | Size | Layer | Placement | Notes |
 | --- | --- | --- | --- | --- | --- |
-| `gym_girder` | R | 32 x 10 | structure | (548, 440), (580, 440), (612, 440), (644, 440), (676, 440) | the beam the bag hangs from, across the bricked B2 |
+| `gym_girder` | R | 32 x 10 | structure | (684, 440) first, then (548, 440), (580, 440), (612, 440), (644, 440), (676, 440) | the beam the bag hangs from, across the bricked B2. The sixth girder at 684, drawn under the fifth, closes the 8 px gap to the right pier (gate note G1, CAMP-AD15) |
 | `gym_tyres` | R | 34 x 18 | prop | (236, 542) | low in window B1 |
 | `aft_bench_bent` | E | 48 x 20 | prop | (284, 540) | `gym_bench` with its seat folded at a 20° kink and one leg sheared; derived from the gym bench's pixels like the wreck panel; low in window B1 |
 | `aft_mirror_wreck` | K | 160 x 72 | prop | (368, 488) | its tall leaning panel sits at x 422..490 over the B1 pier and the wall; low parts only elsewhere; the torch columns 400..415 and 496..511 are clear above y 504 |
@@ -313,4 +313,38 @@ Adopted under the owner's go-with-all authorization (AGENTS.md, design defaults 
 
 ## 16. Execution record
 
-Not started. The executor records the pieces, the contracts, the tests and the evidence here.
+Executed by Claude Sonnet after the independent silhouette gate (verdict FREEZE-with-notes, notes G1..G8). Prototype art, independent art review pending, not owner-approved. Every pixel is drawn by `scripts/author_camp01.py` from rules; the twelve key frames are byte-identical to the gate's pins (`tests/test_art_camp01.py`).
+
+**Pieces and atlases** (`floor01-catacomb-v2`, at most 63 colours per atlas, 1-bit alpha, at least one transparent pixel per piece; sources in `assets/source/props/floor01/`, manifests `assets/manifests/floor01_camp_*.json` and `floor01_aft_*.json`, status `prototype_fixture_unapproved`):
+
+| Atlas | Source stem | Pieces | Colours |
+| --- | --- | --- | --- |
+| `floor01_camp_hearth` | `camp_hearth` | `camp_hearth` (K) | 25 |
+| `floor01_camp_fire` | `camp_fire` | the 4 `camp_fire` frames (K), one canvas per frame, tag `burn` | 6 |
+| `floor01_camp_figures` | `camp_figure` | `camp_figure_sentry` (K), `camp_figure_repair`, `camp_figure_seated`, `camp_figure_map`, `camp_toy_cart`, `camp_map_table` | 36 |
+| `floor01_camp_wall` | `camp_wall` | `camp_motifs`, `camp_chalk_tally`, `camp_chalk_floor` | 7 |
+| `floor01_aft_wreck` | `aft_wreck` | `aft_mirror_wreck` (K), `aft_bench_bent`, `aft_sand_spill`, `aft_lane_chalk` | 32 |
+| `floor01_aft_bag` | `aft_heavy_bag` | the 5 bag frames (K), presenter-drawn | 19 |
+| `floor01_aft_grooves` | `aft_grooves` | `aft_groove_rings` | 4 |
+
+The twelve executor pieces (E) are `camp_figure_repair`, `camp_figure_seated`, `camp_toy_cart`, `camp_map_table`, `camp_figure_map`, `camp_motifs`, `camp_chalk_tally`, `camp_chalk_floor`, `aft_bench_bent` (the gym bench's own pixels, the right half dropped 20 degrees at a kink and one leg sheared), `aft_sand_spill`, `aft_lane_chalk` and `aft_groove_rings`. The four survivor figures have mean luma 30.7 (sentry), 30.9, 32.6 and 26.9 (at most 45). The contracts are `floor01_camp_kit.json` (extends the rings kit; `camp_fire` carries the animation and the two lights of section 8) and `floor01_aftermath_kit.json` (extends the gym kit; the bag is the `aft_heavy_bag` state group at (620, 450)). The rest of the execution is `src/camp_kit.rs`, `src/bin/floor01_scene/camp_art.rs`, the `f01_rest::launch_with` wiring and the scene's REST-WIRE branch (`spawn_rest_greybox` and its colour table are removed: no quiet room draws flat rectangles any more).
+
+**Tests.** `src/camp_kit/tests.rs` (CAMP-A1 solids, spawns, checkpoints, exits, views, walking line, hashes and the sidecar's inert `hit_target` unchanged and the state hash equal on every tick; CAMP-A3 every `remove_at` matches; CAMP-A5 the bricked bay x 488..743, y 352..559; CAMP-A6; the window rule; torch clearance; CAMP-A7 lights; CAMP-A8 the bag selection; the gate notes G1 and G6; the `punch` pilot) and `tests/test_art_camp01.py` (CAMP-A9 and A10, the contracts, figure language, G1, G3, G4 and G5, the sway table equals the Rust one). **Evidence:** [`docs/evidence/area-camp-01/`](../evidence/area-camp-01/README.md): 16 window stills (two sizes), every capture twice and byte-identical, window hash equal to the headless hash at every tick, the lit figure measurements of gate note G2 (all four pass), contact sheets, the bag sway in the window, layout diagrams, `SHA256SUMS`.
+
+**Adopted defaults of the execution** (the owner may change any in a follow-up PR):
+
+| Id | Adopted default | Reason |
+| --- | --- | --- |
+| CAMP-AD14 | The grooves are drawn here as concentric 2 px cuts (radii 82, 94, 106, broken in places, a 1 px `stone` lip on the upper inner side), centred on the portal's mid-height (1232, 512), instead of with the rings kit's `Arc` generator | `Arc` draws a 24 px voussoir relief on a 148..208 px radius, which cannot fit a 160 px piece; the three cuts wrap round the portal's top and left |
+| CAMP-AD15 | Gate note G1: a sixth `gym_girder` at (684, 440), listed before the one at (676, 440); the pixel model shows no brick between the run and either pier shadow column (a transparent top corner at each girder joint is the gym piece's own) | the run stopped 8 px short of the right pier (rule 10.5) |
+| CAMP-AD16 | Gate note G3: `camp_figure_map` at (1152, 514), after the table, so its wrapped hand draws over the table's end | a 2 px bbox gap broke "one hand on the table" |
+| CAMP-AD17 | Gate note G4: `camp_toy_cart` at (1048, 548), 7 empty columns from the seated figure | 4..8 px, measured on pixels |
+| CAMP-AD18 | Gate note G5: the repair figure's lamp is a shuttered `iron` 2..4 tin with one 2 x 2 `flame` 3 slit, no emitter | rule 10.6 keeps the fire the only `flame` 4/5 below y 500 |
+| CAMP-AD19 | Gate note G6: the bag presenter's entry swing starts on the first tick it observes, not at tick 0; same tick, same frame; a rewind resets to `rest` and treats a held overlap as held; the overlap is Carl's OR Donut's, the direction uses Carl's x when his overlap rose; a tie follows the attacker's facing; Donut's bolts do not trigger it | executable without design calls; no sim or hashed state |
+| CAMP-AD20 | The fire is its own atlas (`floor01_camp_fire`, one canvas per frame, tag `burn`) and the hearth atlas holds the hearth only | the contract's animation needs one exported sheet frame per animation frame (the `torch_wall` pattern) |
+| CAMP-AD21 | The floor chalk, the sand spill and the lane chalk are `structure` pieces | they draw above the collision deck (FF-AD26, review F1 of the refuge) |
+| CAMP-AD22 | A new evidence pilot `--rest-pilot punch` (aftermath only) | the entry swing runs while the bag is at the view's edge, so a hit fixture is the only way to show the sway in a window still |
+| CAMP-AD23 | The window-rule and torch-clearance tests cover the dressing's own `prop` and `structure` placements; a wall decal sits behind a torch, and the composer's `torch_pool_*` decals are not floor decals | the reused lean-to and marker are the Ring's own pieces; the decals are wall washes |
+| CAMP-AD24 | The drawn view lefts of the design stage (237, 483, 607) are 25 px short; the measured ones are 262, 508 and 632 | landmark match against the lit model, confirmed by the sentry's spear |
+
+Gate recommendations adopted for the open questions (CAMP-Q1..6): Q1 the four figures stay anonymous and faceless until a separate narrative and art order after the REST-Q2 review; Q2 no crate animation in this order (a bounded, presentation-only drag of `ring_crates_b` may follow the owner's static-camp review); Q3 no idles (if wanted later: a 1 px two-frame breathing idle for the seated and map figures only; no sentry head turn); Q4 the sim stays inert on Floor 01 and the bag's presentation sway satisfies the "usable" half of REST-C-02 (a stronger reaction needs wider r3/l3 frames, a key change); Q5 no audio; Q6 no fallen tube (CAMP-AD9 stands).

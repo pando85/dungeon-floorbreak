@@ -1,0 +1,409 @@
+{
+ "format": "env-kit-v2",
+ "kit_id": "floor01_aftermath",
+ "extends": "assets/source/terrain/floor01/floor01_gym_kit.json",
+ "status": "proposed - AREA-CAMP-01 kit (docs/02-art/area-camp-01-spec.md); independent review pending; not owner-approved",
+ "extension_note": "Inherits palette, layers, coordinates, walking-line rule and lighting schema from the ENV-01 contract through the gym kit. Adds the quiet aftermath atlases for Floor 01 room 10 (rest_aftermath): no tiles, nothing collidable, no new palette colour, no new emitter. The heavy bag is drawn by the presenter.",
+ "palette_use": {
+  "floor01_aft_wreck": 32,
+  "floor01_aft_bag": 19,
+  "floor01_aft_grooves": 4
+ },
+ "atlases": {
+  "floor01_aft_wreck": {
+   "grid": "assets/source/props/floor01/aft_wreck.grid.json",
+   "manifest": "assets/manifests/floor01_aft_wreck.json",
+   "image": "generated/art/floor01_aft_wreck.png",
+   "metadata": "generated/art/floor01_aft_wreck.json"
+  },
+  "floor01_aft_bag": {
+   "grid": "assets/source/props/floor01/aft_heavy_bag.grid.json",
+   "manifest": "assets/manifests/floor01_aft_bag.json",
+   "image": "generated/art/floor01_aft_bag.png",
+   "metadata": "generated/art/floor01_aft_bag.json"
+  },
+  "floor01_aft_grooves": {
+   "grid": "assets/source/props/floor01/aft_grooves.grid.json",
+   "manifest": "assets/manifests/floor01_aft_grooves.json",
+   "image": "generated/art/floor01_aft_grooves.png",
+   "metadata": "generated/art/floor01_aft_grooves.json"
+  }
+ },
+ "tiles": [],
+ "pieces": [
+  {
+   "id": "aft_mirror_wreck",
+   "atlas": "floor01_aft_wreck",
+   "rect": [
+    0,
+    0,
+    160,
+    72
+   ],
+   "role": "prop",
+   "layer": "prop",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (room placement, spec section 5)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ]
+  },
+  {
+   "id": "aft_bench_bent",
+   "atlas": "floor01_aft_wreck",
+   "rect": [
+    0,
+    72,
+    48,
+    20
+   ],
+   "role": "prop",
+   "layer": "prop",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (room placement, spec section 5)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ]
+  },
+  {
+   "id": "aft_sand_spill",
+   "atlas": "floor01_aft_wreck",
+   "rect": [
+    48,
+    72,
+    40,
+    8
+   ],
+   "role": "structure",
+   "layer": "structure",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (room placement, spec section 5)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ]
+  },
+  {
+   "id": "aft_lane_chalk",
+   "atlas": "floor01_aft_wreck",
+   "rect": [
+    0,
+    92,
+    116,
+    12
+   ],
+   "role": "structure",
+   "layer": "structure",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (room placement, spec section 5)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ]
+  },
+  {
+   "id": "aft_heavy_bag_rest",
+   "atlas": "floor01_aft_bag",
+   "rect": [
+    0,
+    0,
+    40,
+    122
+   ],
+   "role": "prop",
+   "layer": "prop",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (room placement, spec section 5)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ],
+   "state_of": {
+    "group": "aft_heavy_bag",
+    "state": "rest"
+   }
+  },
+  {
+   "id": "aft_heavy_bag_r1",
+   "atlas": "floor01_aft_bag",
+   "rect": [
+    40,
+    0,
+    40,
+    122
+   ],
+   "role": "prop",
+   "layer": "prop",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (room placement, spec section 5)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ],
+   "state_of": {
+    "group": "aft_heavy_bag",
+    "state": "r1"
+   }
+  },
+  {
+   "id": "aft_heavy_bag_r2",
+   "atlas": "floor01_aft_bag",
+   "rect": [
+    80,
+    0,
+    40,
+    122
+   ],
+   "role": "prop",
+   "layer": "prop",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (room placement, spec section 5)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ],
+   "state_of": {
+    "group": "aft_heavy_bag",
+    "state": "r2"
+   }
+  },
+  {
+   "id": "aft_heavy_bag_l1",
+   "atlas": "floor01_aft_bag",
+   "rect": [
+    120,
+    0,
+    40,
+    122
+   ],
+   "role": "prop",
+   "layer": "prop",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (room placement, spec section 5)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ],
+   "state_of": {
+    "group": "aft_heavy_bag",
+    "state": "l1"
+   }
+  },
+  {
+   "id": "aft_heavy_bag_l2",
+   "atlas": "floor01_aft_bag",
+   "rect": [
+    160,
+    0,
+    40,
+    122
+   ],
+   "role": "prop",
+   "layer": "prop",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (room placement, spec section 5)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ],
+   "state_of": {
+    "group": "aft_heavy_bag",
+    "state": "l2"
+   }
+  },
+  {
+   "id": "aft_groove_rings",
+   "atlas": "floor01_aft_grooves",
+   "rect": [
+    0,
+    0,
+    160,
+    160
+   ],
+   "role": "backwall",
+   "layer": "backwall_decal",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (room placement, spec section 5)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ],
+   "decal": true
+  }
+ ],
+ "state_groups": {
+  "aft_heavy_bag": {
+   "states": [
+    "rest",
+    "r1",
+    "r2",
+    "l1",
+    "l2"
+   ],
+   "anchor": [
+    620,
+    450
+   ],
+   "note": "the heavy bag (spec section 7), five 40 x 122 frames at (620, 450): rest, r1, r2, l1, l2. The dressing does NOT place it: the presenter (src/bin/floor01_scene/camp_art.rs) draws the frame src/camp_kit.rs picks from the 38-tick sway table. Presentation only; the sim's hit_target stays inert."
+  }
+ },
+ "room_dressing": {
+  "rest_aftermath": {
+   "remove": [],
+   "remove_at": [
+    {
+     "layer": "structure",
+     "piece": "arch_chain",
+     "x": 560,
+     "y": 384
+    },
+    {
+     "layer": "backwall_decal",
+     "piece": "torch_pool_b_m",
+     "x": 1112,
+     "y": 348
+    }
+   ],
+   "backwall_fill": [
+    {
+     "x": 512,
+     "y": 352,
+     "w": 208,
+     "h": 208
+    }
+   ],
+   "place": [
+    {
+     "layer": "backwall_decal",
+     "piece": "aft_groove_rings",
+     "x": 1120,
+     "y": 400
+    },
+    {
+     "layer": "backwall_decal",
+     "piece": "torch_pool_b_m",
+     "x": 1112,
+     "y": 348
+    },
+    {
+     "layer": "structure",
+     "piece": "gym_girder",
+     "x": 684,
+     "y": 440
+    },
+    {
+     "layer": "structure",
+     "piece": "gym_girder",
+     "x": 548,
+     "y": 440
+    },
+    {
+     "layer": "structure",
+     "piece": "gym_girder",
+     "x": 580,
+     "y": 440
+    },
+    {
+     "layer": "structure",
+     "piece": "gym_girder",
+     "x": 612,
+     "y": 440
+    },
+    {
+     "layer": "structure",
+     "piece": "gym_girder",
+     "x": 644,
+     "y": 440
+    },
+    {
+     "layer": "structure",
+     "piece": "gym_girder",
+     "x": 676,
+     "y": 440
+    },
+    {
+     "layer": "structure",
+     "piece": "aft_sand_spill",
+     "x": 622,
+     "y": 562
+    },
+    {
+     "layer": "structure",
+     "piece": "aft_lane_chalk",
+     "x": 766,
+     "y": 561
+    },
+    {
+     "layer": "prop",
+     "piece": "gym_tyres",
+     "x": 236,
+     "y": 542
+    },
+    {
+     "layer": "prop",
+     "piece": "aft_bench_bent",
+     "x": 284,
+     "y": 540
+    },
+    {
+     "layer": "prop",
+     "piece": "aft_mirror_wreck",
+     "x": 368,
+     "y": 488
+    },
+    {
+     "layer": "prop",
+     "piece": "gym_plate_tree",
+     "x": 1000,
+     "y": 524
+    }
+   ],
+   "parallax": {}
+  }
+ },
+ "usage_rules": {
+  "R1_rest_aftermath": "room `rest_aftermath` only: the dressing never adds or moves a tile or a solid; B2 is bricked up across both pier columns; floor decals are `structure`; the bag is not placed"
+ }
+}

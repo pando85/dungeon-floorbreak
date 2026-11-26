@@ -27,6 +27,7 @@ pub mod boss_art;
 pub mod boss_scene;
 pub mod camera;
 pub mod camera_lab;
+pub mod camp_kit;
 pub mod carl_prog;
 pub mod carl_prog_fixtures;
 pub mod cf02;

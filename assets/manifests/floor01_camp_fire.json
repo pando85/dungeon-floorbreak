@@ -1,0 +1,36 @@
+{
+ "schema_version": 1,
+ "id": "floor01_camp_fire_v1",
+ "type": "prop_animation",
+ "source_path": "assets/source/props/floor01/camp_fire.ase",
+ "grid_source": "assets/source/props/floor01/camp_fire.grid.json",
+ "output_atlas": "generated/art/floor01_camp_fire.png",
+ "output_metadata": "generated/art/floor01_camp_fire.json",
+ "palette_id": "floor01-catacomb-v2",
+ "frame_size": [
+  20,
+  26
+ ],
+ "pivot": [
+  0,
+  0
+ ],
+ "animation_tags": [
+  "burn"
+ ],
+ "required_alpha": true,
+ "kit_contract": "assets/source/terrain/floor01/floor01_camp_kit.json",
+ "owner": "AI-authored environment pixel art (AREA-CAMP-01: design spec, keys and silhouette gate Claude Opus; execution Claude Sonnet; independent review pending)",
+ "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+ "license": "Original repo-specific environment art; no standalone asset reuse license; no game/asset-pack distribution rights",
+ "review_status": "prototype_fixture_unapproved",
+ "provenance": {
+  "origin": "Original pixel-grid-v1 pieces for the Floor 1 quiet rooms rest_camp and rest_aftermath (AREA-CAMP-01 on the ENV-01 kit); rule-based shapes and ramps, the aftermath wreck and bench derived from AREA-GYM-01 pixels; nothing cropped, traced or resampled from concept art; no text, logos, brands, faces or likenesses",
+  "generator": "Deterministic authoring script scripts/author_camp01.py written by AI agents (spec and keys designed by Claude Opus; execution by Claude Sonnet); no image-model raster output",
+  "generated_art": true,
+  "input_reference_ids": [
+   "floor01-catacomb-kit/env-kit-v2 (owner-approved ENV-01 kit, 2026-11-16)",
+   "floor-01-art-atlas-v1/08-circular-maze-survivor-camp and the juicer gym panorama (mood reference only; no pixel cropped, traced or resampled)"
+  ]
+ }
+}

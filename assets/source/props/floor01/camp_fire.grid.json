@@ -177,5 +177,12 @@
    }
   }
  ],
- "tags": []
+ "tags": [
+  {
+   "name": "burn",
+   "from": 0,
+   "to": 3,
+   "direction": "forward"
+  }
+ ]
 }

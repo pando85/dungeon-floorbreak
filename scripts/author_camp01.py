@@ -16,8 +16,9 @@ atlases, and must not redraw a key (a key change is a design change). Every pixe
 ramps, a hash noise); nothing is traced or resampled from a concept image. No text, logos or likenesses;
 the survivor figure is anonymous and faceless (REST-Q2).
 
-    python3 scripts/author_camp01.py              # grids + .ase of the keys, key pins
-    python3 scripts/author_camp01.py gate DIR     # gate sheets over the stills in DIR (see gate())
+    python3 scripts/author_camp01.py              # every atlas grid + .ase, manifest and the two kit contracts
+    python3 scripts/author_camp01.py keys         # the key pins only
+    python3 scripts/author_camp01.py gate CAPS OUT [BOARD]   # the gate sheets (design stage, see gate())
 """
 from __future__ import annotations
 
@@ -763,20 +764,6 @@ def key_sha() -> dict:
             for pieces in KEYS.values() for pid, fn in pieces}
 
 
-def write() -> None:
-    for stem, pieces in KEYS.items():
-        imgs = [fn() for _, fn in pieces]
-        grid = kit.grid_from(imgs, layer_names=["main"], durations=FRAMED.get(stem, [100] * len(imgs)),
-                             pivot=(0, 0))
-        path = SRC / f"{stem}.grid.json"
-        path.write_text(json.dumps(grid, indent=1) + "\n", encoding="utf-8")
-        subprocess.run([sys.executable, str(ROOT / "scripts" / "pixel_grid_to_ase.py"), "build", str(path),
-                        str(SRC / f"{stem}.ase")], check=True)
-        print(f"{stem}: {[pid for pid, _ in pieces]} {grid['canvas']} {len(grid['palette'])} colours")
-    for pid, sha in key_sha().items():
-        print(f"KEY {pid} {sha}")
-
-
 def _luma(ramp: str, v: int) -> float:
     h = RAMPS[ramp][v]
     r, g, b = int(h[1:3], 16), int(h[3:5], 16), int(h[5:7], 16)
@@ -934,10 +921,722 @@ def gate_board(out_dir: Path, dest: Path) -> None:
     board.save(dest)
 
 
+
+
+# =============================================================================================
+# EXECUTION (AREA-CAMP-01, spec section 13): the executor pieces of spec section 5 (rows marked E), drawn below
+# the frozen keys with the same figure language (hood void gal 0, coat gal 1..3 with folds, a warm rim gal_warm
+# 1..2 only on the side facing the hearth, wrapped hands wood 3, boots iron 1, mean luma <= 45), the atlases,
+# the manifests, the two kit contracts and the dressing. The key functions above are untouched.
+# =============================================================================================
+def _fig_fill(c: Pix, spans: dict, warm_left: bool, seed: str, fold_from: int = 99, fold_w: int = 4) -> None:
+    """Fill a coat mass: ``spans`` is {row: (x0, x1)}. The hearth-facing edge column takes a warm rim
+    (gal_warm 1..2); the other edge a cool rim (gal 3); a darker terminator on the far side; long folds."""
+    for y, (x0, x1) in spans.items():
+        for x in range(x0, x1 + 1):
+            warm_edge = x == (x0 if warm_left else x1)
+            cool_edge = x == (x1 if warm_left else x0)
+            v = 2.0
+            if cool_edge:
+                v += 0.9
+            elif x == (x1 - 1 if warm_left else x0 + 1):
+                v -= 0.5
+            if y >= fold_from and (x - x0) % fold_w == fold_w - 1:
+                v -= 0.8
+            if rnd("coat", seed, x, y) > 0.9:
+                v -= 0.5
+            if warm_edge:
+                c.put(x, y, "gal_warm", 1 if (y + x) % 3 else 2)
+            else:
+                c.put(x, y, "gal", v)
+
+
+def _hood(c: Pix, spans: dict, void: list, warm_left: bool, seed: str) -> None:
+    """A rounded hood; the opening is a flat void (gal 0), never a feature."""
+    for y, (x0, x1) in spans.items():
+        for x in range(x0, x1 + 1):
+            top = y == min(spans)
+            warm_edge = x == (x0 if warm_left else x1) and not top
+            v = 2.4 + (1.0 if top else 0) - (0.5 if x == (x1 if warm_left else x0) else 0)
+            if warm_edge:
+                c.put(x, y, "gal_warm", 1 if y % 2 else 2)
+            else:
+                c.put(x, y, "gal", v)
+    for (x, y) in void:
+        c.put(x, y, "gal", 0)
+
+
+def _wrap_hand(c: Pix, x0: int, y0: int, x1: int, y1: int) -> None:
+    """A wrapped hand: wood 3 with a darker binding row."""
+    c.box(x0, y0, x1, y1, "wood", 3)
+    c.put(x0, y0, "wood", 4)
+    for x in range(x0, x1 + 1):
+        c.put(x, y1, "wood", 2)
+
+
+def _boots(c: Pix, y: int, spans: list) -> None:
+    for (x0, x1) in spans:
+        for x in range(x0, x1 + 1):
+            c.put(x, y, "wood", 1)
+            c.put(x, y + 1, "iron", 1)
+
+
+def camp_figure_repair() -> Pix:
+    """24 x 36: a figure kneeling over a pack, mending it with a cord, a shuttered tin lamp beside it (gate note
+    G5: iron 2..4 body, one 2 x 2 flame-3 slit, no flame 4/5). Faces right; the hearth is to the left."""
+    c = Pix(24, 36)
+    # the shuttered lamp, left
+    for k, (x, y) in enumerate(((1, 25), (2, 24), (3, 24), (4, 25))):     # the bail
+        c.put(x, y, "iron", 3)
+    c.box(0, 26, 5, 27, "iron", 3)                                         # the hood of the lamp
+    c.put(0, 26, "iron", 2)
+    c.box(0, 28, 5, 34, "iron", 2)
+    for y in range(28, 35):
+        c.put(0, y, "iron", 4)                                             # the lit edge
+        c.put(5, y, "iron", 1)
+    c.box(2, 30, 3, 31, "flame", 3)                                        # the 2 x 2 slit
+    c.box(0, 35, 5, 35, "iron", 1)
+    # the pack on the ground, right
+    for y in range(27, 36):
+        for x in range(18, 24):
+            if (x, y) in ((18, 27), (23, 27)):
+                continue
+            v = 2.4 + (0.8 if y == 27 else 0) - (0.5 if x == 23 else 0)
+            c.put(x, y, "wood", v)
+    c.box(19, 30, 22, 32, "stone", 3)                                      # a lighter patch
+    for x in range(18, 24):
+        c.put(x, 29, "wood", 1)                                            # the strap
+    c.put(21, 33, "stone", 5)                                              # the needle's thread
+    c.put(22, 34, "stone", 5)
+    # the back leg (a long shin on the ground), then the front leg and boots
+    for y in (32, 33):
+        for x in range(6, 15):
+            c.put(x, y, "gal", 1)
+    _boots(c, 34, [(3, 7)])
+    for y in range(28, 33):
+        for x in range(14, 18):
+            c.put(x, y, "gal", 1.4 if x < 17 else 0.8)
+    _boots(c, 33, [(14, 18)])
+    # the bent back and coat
+    spans = {}
+    for y in range(17, 32):
+        spans[y] = (5 - (1 if y > 22 else 0) - (1 if y > 27 else 0), 15 + (1 if y > 20 else 0) + (1 if y > 26 else 0))
+    _fig_fill(c, spans, True, "rep", fold_from=24)
+    c.box(6, 26, 16, 26, "wood", 1)                                        # the rope belt
+    # the hood, bowed to the work; the opening faces right
+    _hood(c, {9: (10, 14), 10: (9, 15), 11: (8, 16), 12: (8, 16), 13: (8, 17), 14: (8, 17), 15: (9, 17),
+              16: (9, 16)}, [(16, 12), (17, 13), (17, 14), (16, 13), (16, 14), (16, 15), (15, 13), (15, 14)],
+          True, "rephood")
+    # the arm from the shoulder to the wrapped hand on the pack, a cord drawn tight
+    for i, (x, y) in enumerate(((16, 18), (17, 19), (18, 21), (18, 23), (19, 25))):
+        c.put(x, y, "gal", 3 if i < 2 else 2)
+        c.put(x - 1, y, "gal", 1)
+    _wrap_hand(c, 19, 26, 21, 28)
+    c.line(21, 29, 23, 33, "stone", 5)
+    return c
+
+
+def camp_figure_seated() -> Pix:
+    """20 x 30: a figure sitting on a low crate, the hood bunched on its shoulders over a bare dark head, both
+    wrapped hands around a cup. Faces left (the fire); the hearth is to the left."""
+    c = Pix(20, 30)
+    for y in range(21, 30):                                                # the low crate
+        for x in range(3, 17):
+            v = 2.6 + (1.0 if y == 21 else 0) - (0.8 if x >= 15 else 0)
+            if y in (24, 27):
+                v = 1.2
+            c.put(x, y, "wood", v)
+    for y in range(22, 29):
+        c.put(3, y, "wood", 4)                                             # the lit end grain edge
+    c.put(9, 25, "iron", 3)                                                # a nail head
+    # the seated body: torso, thighs forward, shins down
+    spans = {y: (5, 14 + (1 if y < 14 else 0)) for y in range(12, 21)}
+    _fig_fill(c, spans, True, "sea", fold_from=16, fold_w=3)
+    for y in (19, 20, 21):                                                 # the thighs
+        for x in range(1, 10):
+            c.put(x, y, "gal", 1.8 if y < 21 else 1)
+    c.put(1, 19, "gal_warm", 1)
+    c.put(1, 20, "gal_warm", 2)
+    for y in range(22, 28):                                                # the shins
+        for x in (1, 2, 3):
+            c.put(x, y, "gal", 1 if x > 1 else 0.5)
+        c.put(1, y, "gal_warm", 1)
+    _boots(c, 28, [(0, 4)])
+    # the head: a bare dark oval and the hood heaped on the shoulders
+    for y, (x0, x1) in {3: (7, 10), 4: (6, 11), 5: (6, 11), 6: (6, 11), 7: (6, 11), 8: (7, 11)}.items():
+        for x in range(x0, x1 + 1):
+            c.put(x, y, "gal", 0 if x < 10 else 1)
+    for x in range(7, 11):
+        c.put(x, 2, "gal", 3)
+    for y, (x0, x1) in {9: (4, 14), 10: (4, 15), 11: (4, 15)}.items():     # the bunched hood
+        for x in range(x0, x1 + 1):
+            c.put(x, y, "gal_warm" if x == x0 else "gal", (1 if y % 2 else 2) if x == x0 else 2.6 - 0.4 * (y - 9))
+    # the arms and the cup
+    for (x, y) in ((6, 12), (5, 13), (4, 14), (3, 15)):
+        c.put(x, y, "gal", 2)
+        c.put(x + 1, y, "gal", 1)
+    c.box(1, 14, 3, 17, "iron", 3)                                         # the cup
+    c.put(1, 14, "iron", 5)
+    c.put(2, 14, "gal_warm", 2)
+    _wrap_hand(c, 0, 16, 1, 18)
+    _wrap_hand(c, 4, 16, 5, 18)
+    return c
+
+
+def camp_toy_cart() -> Pix:
+    """18 x 12: a salvage toy: a tin-can body on two bottle-cap wheels, a string loop to pull it by."""
+    c = Pix(18, 12)
+    for y in range(2, 9):                                                  # the can
+        for x in range(3, 13):
+            v = 3.4 - 0.9 * (x - 3) / 9
+            c.put(x, y, "stone_cold", clamp(v, 1, 3))
+    c.box(3, 2, 12, 2, "iron", 5)                                          # the rolled rim
+    c.box(3, 8, 12, 8, "iron", 3)
+    for x in range(4, 12):                                                 # a faded label band
+        c.put(x, 5, "brick", 4)
+        c.put(x, 6, "brick", 3)
+    c.put(13, 4, "iron", 4)                                                # the can's open end, lit
+    c.put(13, 5, "iron", 3)
+    for cx in (5, 11):                                                     # bottle-cap wheels
+        c.disc(cx + 0.5, 9.5, 2.3, "brass", lambda x, y, d: 3 if d < 1.2 else 2)
+        c.put(cx, 9, "brass", 4)
+        c.put(cx, 10, "brass", 1)
+    c.line(2, 6, 0, 9, "wood", 3)                                          # the string loop
+    c.line(0, 9, 3, 11, "wood", 2)
+    return c
+
+
+def camp_map_table() -> Pix:
+    """44 x 30: a trestle table; the map on it is pale stone with ink lines, blots and pins. No words."""
+    c = Pix(44, 30)
+    for (lx, leaning) in ((3, 1), (35, -1)):                               # two A-frame trestles
+        for y in range(9, 30):
+            t = (y - 9) / 20
+            for sx in (round(lx + 2 * t * leaning * -1), round(lx + 5 - 2 * t * leaning * -1)):
+                c.put(sx, y, "wood", 2 if y % 7 else 1)
+                c.put(sx + 1, y, "wood", 3)
+        c.box(lx + 1, 19, lx + 5, 19, "wood", 1)                           # the cross brace
+    c.box(2, 8, 41, 9, "wood", 3)                                          # the top plank edge
+    c.box(2, 9, 41, 9, "wood", 1)
+    for x in range(2, 42):
+        c.put(x, 8, "wood", 4 if x % 5 else 3)
+    for y in range(2, 8):                                                  # the map sheet
+        for x in range(3, 41):
+            if (x in (3, 40)) and y in (2, 7):
+                continue
+            v = 5.0 + 0.7 * math.sin(x * 0.4 + y) + (0.8 if y == 2 else 0) - (0.9 if y == 7 else 0)
+            c.put(x, y, "stone", clamp(round(v), 4, 7))
+    for k in range(7):                                                     # ink lines, a river, a road
+        x = 5 + k * 5
+        c.line(x, 6 - (k % 3), x + 6, 3 + (k % 2) * 2, "mortar", 1)
+    c.line(4, 4, 38, 5, "mortar", 3)
+    for (x, y) in ((9, 4), (10, 4), (22, 5), (23, 5), (23, 6), (31, 3), (32, 3), (32, 4)):
+        c.put(x, y, "mortar", 0)                                           # blots
+    for (x, y) in ((15, 3), (27, 5), (36, 3)):                             # pins
+        c.put(x, y, "brick", 7)
+        c.put(x, y - 1, "brick", 9)
+    c.put(41, 5, "stone", 3)                                               # the curled corner
+    c.put(41, 6, "stone", 2)
+    return c
+
+
+def camp_figure_map() -> Pix:
+    """20 x 46: a figure standing over the map, leaning on one wrapped hand on the table, a rolled blanket
+    on its back. Faces left; the hearth is to the left."""
+    c = Pix(20, 46)
+    for i in range(20):                                                    # the rolled blanket across the back
+        x, y = 14 + i // 6, 13 + i
+        for dx in (0, 1):
+            c.put(x + dx, y, "stone", 1.6 if dx == 0 else 2.2)
+    spans = {}
+    for y in range(12, 41):
+        ly = y - 12
+        spans[y] = (5 - (1 if ly > 3 else 0) - (1 if ly > 21 else 0), 15 + (1 if ly > 21 else 0))
+    _fig_fill(c, spans, True, "map", fold_from=28)
+    for x in range(6, 16):
+        c.put(x, 25, "wood", 1)                                            # the rope belt
+    c.box(8, 29, 11, 33, "stone", 2)                                       # a sewn patch
+    c.put(8, 29, "stone", 3)
+    _hood(c, {3: (7, 11), 4: (6, 12), 5: (5, 12), 6: (5, 13), 7: (5, 13), 8: (5, 13), 9: (5, 13), 10: (6, 13),
+              11: (6, 13)}, [(5, 6), (5, 7), (5, 8), (6, 6), (6, 7), (6, 8), (6, 9), (7, 7), (7, 8)], True, "maph")
+    for i, (x, y) in enumerate(((6, 14), (5, 15), (4, 16), (3, 17), (3, 18), (2, 19))):   # the reaching arm
+        c.put(x, y, "gal", 3 if i < 3 else 2)
+        c.put(x + 1, y, "gal", 1)
+    _wrap_hand(c, 0, 20, 4, 22)
+    for y in range(40, 44):                                                # legs
+        for x in (6, 7, 8, 9):
+            c.put(x, y, "gal", 1)
+        for x in (11, 12, 13):
+            c.put(x, y, "gal", 1)
+    c.put(6, 41, "gal_warm", 1)
+    c.put(6, 42, "gal_warm", 1)
+    _boots(c, 44, [(5, 10), (11, 15)])
+    return c
+
+
+def _stroke(c: Pix, pts: list, ramp: str, v: int, seed: str, gap: float = 0.1, width: int = 1) -> None:
+    """A rough painted/chalk stroke along a polyline with ragged gaps (rules, not a trace)."""
+    for (x0, y0), (x1, y1) in zip(pts, pts[1:]):
+        n = max(abs(x1 - x0), abs(y1 - y0), 1)
+        for i in range(n + 1):
+            x = round(x0 + (x1 - x0) * i / n)
+            y = round(y0 + (y1 - y0) * i / n)
+            if rnd("stk", seed, x, y) < gap:
+                continue
+            for d in range(width):
+                c.put(x, y + d, ramp, v)
+
+
+def camp_motifs() -> Pix:
+    """80 x 48: crude strength motifs painted on the brick: a kettlebell, a bar with plates, a flexed arm. Brick
+    paint (brick 7..9) with a chalk outline (stone 8); strokes only, so the wall shows through."""
+    c = Pix(80, 48)
+    # kettlebell: a round body and a handle arch
+    for a in range(0, 360, 6):
+        x = round(13 + 9.5 * math.cos(math.radians(a)))
+        y = round(32 + 8.5 * math.sin(math.radians(a)))
+        if rnd("kb", a) > 0.12:
+            c.put(x, y, "brick", 8)
+            c.put(x + 1, y, "brick", 7)
+    for a in range(200, 341, 5):
+        x = round(13 + 7 * math.cos(math.radians(a)))
+        y = round(21 + 6 * math.sin(math.radians(a)))
+        c.put(x, y, "brick", 8)
+        c.put(x, y + 1, "brick", 7)
+    for a in range(20, 160, 14):                                           # a chalk glint on the body
+        c.put(round(13 + 6.5 * math.cos(math.radians(a))), round(32 + 5.5 * math.sin(math.radians(a))), "stone", 8)
+    # barbell: bar, two plate stacks, collars
+    _stroke(c, [(28, 31), (54, 30)], "brick", 8, "bar", 0.06, 2)
+    for px in (30, 50):
+        _stroke(c, [(px, 20), (px + 1, 40)], "brick", 8, f"pl{px}", 0.08, 3)
+        _stroke(c, [(px + 4, 23), (px + 4, 37)], "brick", 7, f"pm{px}", 0.1, 2)
+    _stroke(c, [(29, 19), (32, 19)], "stone", 8, "pc1", 0.0)
+    _stroke(c, [(49, 19), (52, 19)], "stone", 8, "pc2", 0.0)
+    # flexed arm: forearm up, a bicep bump, the fist
+    _stroke(c, [(60, 42), (62, 31), (66, 25)], "brick", 8, "arm1", 0.07, 3)
+    _stroke(c, [(66, 25), (70, 22), (74, 25), (73, 30), (68, 31)], "brick", 8, "arm2", 0.08, 2)
+    for a in range(180, 361, 12):                                          # the bicep peak
+        x = round(70 + 5 * math.cos(math.radians(a)))
+        y = round(24 + 4 * math.sin(math.radians(a)))
+        c.put(x, y, "stone", 8)
+    c.box(58, 38, 63, 41, "brick", 9)                                      # the fist
+    c.put(58, 38, "brick", 7)
+    # paint drips
+    for (x, y, n) in ((9, 40, 4), (17, 41, 3), (33, 41, 4), (55, 39, 3), (66, 33, 4)):
+        for k in range(n):
+            c.put(x, y + k, "brick", 7)
+    return c
+
+
+def camp_chalk_tally() -> Pix:
+    """24 x 40: chalk tally strokes in groups of four with a diagonal, and an arrow toward the exit door."""
+    c = Pix(24, 40)
+    for gy, gx in ((3, 2), (3, 13), (15, 5)):
+        for k in range(4):
+            x = gx + k * 3
+            _stroke(c, [(x, gy), (x + (k % 2), gy + 8)], "stone", 8 if k % 2 else 7, f"t{gx}{gy}{k}", 0.12)
+        _stroke(c, [(gx - 1, gy + 7), (gx + 11, gy + 1)], "stone", 7, f"d{gx}{gy}", 0.1)
+    # the arrow: a shaft and a head, pointing right
+    _stroke(c, [(1, 33), (19, 33)], "stone", 8, "arr", 0.08, 2)
+    _stroke(c, [(14, 28), (20, 33), (14, 38)], "stone", 8, "arh", 0.05, 2)
+    for k in range(3):                                                     # chalk dust below
+        c.put(4 + k * 5, 38, "stone", 4)
+    return c
+
+
+def camp_chalk_floor() -> Pix:
+    """128 x 12: chalk chevrons and a dashed line on the deck's back half, pointing right to the exit. Strokes
+    are at most 3 px tall (the lane rule, spec 10.3)."""
+    c = Pix(128, 12)
+    for k in range(5):
+        x = 6 + k * 24
+        for i in range(3):
+            c.put(x + i, 3 + i, "stone", 7 if i != 1 else 8)
+            c.put(x + i, 7 - i, "stone", 7 if i != 1 else 8)
+        c.put(x + 3, 5, "stone", 8)
+    for x in range(10, 126):
+        if (x // 6) % 2 == 0 and x % 24 not in range(0, 8) and rnd("dash", x) > 0.1:
+            c.put(x, 5, "stone", 6)
+    for x in range(0, 128, 9):
+        if rnd("dust", x) > 0.5:
+            c.put(x, 9, "stone", 4)
+    return c
+
+
+# ----------------------------------------------------------------------------------------- aftermath
+def aft_bench_bent() -> Pix:
+    """48 x 20 from the gym bench's own pixels: the seat folded at a kink (the right half dropped 20 degrees),
+    one leg sheared to a stub, a crack at the fold."""
+    b = gym.bench()                                                        # 44 x 18
+    c = Pix(48, 20)
+    ox, oy = 2, 2
+    kx, ky = 22, 9                                                         # the pivot in bench coordinates
+    ang = math.radians(20)
+    ca, sa = math.cos(ang), math.sin(ang)
+    for y in range(18):
+        for x in range(kx):
+            if b.px[y][x] is not None:
+                c.put(x + ox, y + oy, *b.px[y][x])
+    for ty in range(20):
+        for tx in range(48):
+            dx, dy = tx - ox - kx, ty - oy - ky
+            sx, sy = dx * ca + dy * sa, -dx * sa + dy * ca                 # inverse of the clockwise drop
+            ix, iy = round(sx) + kx, round(sy) + ky
+            if ix >= kx and 0 <= ix < 44 and 0 <= iy < 18 and b.px[iy][ix] is not None:
+                c.put(tx, ty, *b.px[iy][ix])
+    for y in range(20):                                                    # the sheared leg: a ragged stub
+        for x in range(34, 48):
+            p = c.px[y][x]
+            if p is not None and p[0] == "stone_cold" and y > 13 + (x % 3):
+                c.px[y][x] = None
+    for y in range(ky + oy - 5, ky + oy + 6):                              # the crack at the fold
+        c.put(kx + ox, y, "iron", 0)
+    for (x, y) in ((kx + ox - 1, ky + oy + 2), (kx + ox + 1, ky + oy - 3)):
+        c.put(x, y, "iron", 1)
+    return c
+
+
+def aft_sand_spill() -> Pix:
+    """40 x 8: the sand the split seam has spilled: a low heap under the trickle, a fan of grains."""
+    c = Pix(40, 8)
+    for x in range(40):
+        h = 5.0 * math.exp(-((x - 27) / 7.5) ** 2) + 1.6 * math.exp(-((x - 14) / 9.0) ** 2)
+        top = 7 - round(h)
+        for y in range(top, 8):
+            if y == 7 and rnd("sp", x) < 0.25:
+                continue
+            v = 7.0 - 0.9 * (y - top) + (0.8 if y == top else 0) - (0.7 if x > 30 else 0)
+            c.put(x, y, "stone", clamp(round(v), 3, 9))
+    for x in range(0, 40, 3):
+        if rnd("gr", x) > 0.55 and c.get(x, 7) is None:
+            c.put(x, 7, "stone", 4)
+    return c
+
+
+def aft_lane_chalk() -> Pix:
+    """116 x 12: the blink lane's two chalk ticks (x 768..771 and 876..879) and a dashed chevron between them.
+    Every stroke is at most 3 px tall."""
+    c = Pix(116, 12)
+    for x0 in (2, 110):
+        for y in (3, 4, 5):
+            for x in range(x0, x0 + 4):
+                c.put(x, y, "stone", 8 if y == 4 else 7)
+    for k in range(4):                                                     # dashed chevrons
+        x = 16 + k * 22
+        for i in range(3):
+            c.put(x + i, 3 + i, "stone", 7)
+            c.put(x + i, 7 - i, "stone", 7)
+    for x in range(10, 108):
+        if (x // 5) % 2 == 1 and x % 22 not in range(14, 22) and rnd("ld", x) > 0.08:
+            c.put(x, 5, "stone", 5)
+    return c
+
+
+GROOVE_C = (112, 112)                 # ring centre, piece-local: the exit portal's mid-height (1232, 512)
+GROOVE_R = (82.0, 94.0, 106.0)
+
+
+def aft_groove_rings() -> Pix:
+    """160 x 160: concentric arcs cut into the back wall around the exit door: dark mortar cuts 2 px wide with a
+    1 px stone 7 lit lip on the inner side of the upper arcs. Each ring is broken in a few places. The portal
+    covers the middle; the arcs show round it. (The rings kit's Arc relief, 24 px bands over a 150..208 radius,
+    cannot fit a 160 px piece, so the cut is drawn here: CAMP-AD14.)"""
+    c = Pix(160, 160)
+    cx, cy = GROOVE_C
+    for k, R in enumerate(GROOVE_R):
+        for y in range(160):
+            for x in range(160):
+                dx, dy = x + 0.5 - cx, y + 0.5 - cy
+                r = math.hypot(dx, dy)
+                a = math.degrees(math.atan2(dx, -dy)) % 360
+                sector = int(a // 20)
+                if rnd("gsec", k, sector) > 0.82:
+                    continue                                               # a broken stretch
+                if R - 1.0 <= r < R + 1.0:
+                    c.put(x, y, "mortar", 0 if r < R else 1)
+                elif R - 2.0 <= r < R - 1.0 and dy < 20:
+                    c.put(x, y, "stone", 7 if rnd("lip", x, y) > 0.2 else 6)
+    return c
+
+
+# ----------------------------------------------------------------------------------------- atlases
+def _pack(pieces: list, width: int, pad: int = 0):
+    """Shelf packing, left to right: a piece's rect holds exactly its pixels (a key stays byte-identical)."""
+    x = y = shelf = 0
+    placed = []
+    for pid, img in pieces:
+        if x + img.w > width:
+            x, y, shelf = 0, y + shelf + pad, 0
+        placed.append((pid, img, x, y))
+        x += img.w + pad
+        shelf = max(shelf, img.h)
+    sheet = Pix(width, y + shelf)
+    rects = {}
+    for pid, img, px, py in placed:
+        for yy in range(img.h):
+            for xx in range(img.w):
+                if img.px[yy][xx] is not None:
+                    sheet.px[py + yy][px + xx] = img.px[yy][xx]
+        rects[pid] = [px, py, img.w, img.h]
+    return sheet, rects
+
+
+def _bag(n: str):
+    return lambda i=BAG_FRAMES.index(n): aft_heavy_bag_frames()[i]
+
+
+# stem = the source file stem under assets/source/props/floor01; the key grids of the design stage keep their stems
+ATLASES = {
+    "floor01_camp_hearth": {"stem": "camp_hearth", "width": 96, "pieces": [("camp_hearth", camp_hearth)]},
+    "floor01_camp_figures": {"stem": "camp_figure", "width": 112, "pieces": [
+        ("camp_figure_sentry", camp_figure_sentry), ("camp_figure_repair", camp_figure_repair),
+        ("camp_figure_seated", camp_figure_seated), ("camp_figure_map", camp_figure_map),
+        ("camp_toy_cart", camp_toy_cart), ("camp_map_table", camp_map_table)]},
+    "floor01_camp_wall": {"stem": "camp_wall", "width": 128, "pieces": [
+        ("camp_motifs", camp_motifs), ("camp_chalk_tally", camp_chalk_tally), ("camp_chalk_floor", camp_chalk_floor)]},
+    "floor01_aft_wreck": {"stem": "aft_wreck", "width": 160, "pieces": [
+        ("aft_mirror_wreck", aft_mirror_wreck), ("aft_bench_bent", aft_bench_bent), ("aft_sand_spill", aft_sand_spill),
+        ("aft_lane_chalk", aft_lane_chalk)]},
+    "floor01_aft_bag": {"stem": "aft_heavy_bag", "width": 200, "pieces": [
+        (f"aft_heavy_bag_{n}", _bag(n)) for n in BAG_FRAMES]},
+    "floor01_aft_grooves": {"stem": "aft_grooves", "width": 160, "pieces": [("aft_groove_rings", aft_groove_rings)]},
+}
+FIRE_ATLAS = "floor01_camp_fire"       # the 4-frame loop: one canvas per frame (the torch pattern, tag "burn")
+KIT_OF_ATLAS = {"floor01_camp_hearth": "camp", "floor01_camp_fire": "camp", "floor01_camp_figures": "camp",
+                "floor01_camp_wall": "camp", "floor01_aft_wreck": "aft", "floor01_aft_bag": "aft",
+                "floor01_aft_grooves": "aft"}
+LAYER_OF_ATLAS = {"floor01_camp_hearth": ("prop", "prop"), "floor01_camp_figures": ("prop", "prop"),
+                  "floor01_camp_wall": ("backwall", "backwall_decal"), "floor01_aft_wreck": ("prop", "prop"),
+                  "floor01_aft_bag": ("prop", "prop"), "floor01_aft_grooves": ("backwall", "backwall_decal")}
+# A piece that is not on its atlas's layer: the floor chalk and the spill draw above the collision deck (FF-AD26)
+LAYER_OVERRIDE = {"camp_chalk_floor": ("structure", "structure"), "aft_sand_spill": ("structure", "structure"),
+                  "aft_lane_chalk": ("structure", "structure")}
+PRESENTER_PIECES = {f"aft_heavy_bag_{n}" for n in BAG_FRAMES}
+EXEC_PIECES = ("camp_figure_repair", "camp_figure_seated", "camp_toy_cart", "camp_map_table", "camp_figure_map",
+               "camp_motifs", "camp_chalk_tally", "camp_chalk_floor", "aft_bench_bent", "aft_sand_spill",
+               "aft_lane_chalk", "aft_groove_rings")
+KEY_PIECE_IDS = tuple(pid for pieces in KEYS.values() for pid, _ in pieces)
+FIGURES = ("camp_figure_sentry", "camp_figure_repair", "camp_figure_seated", "camp_figure_map")
+
+CAMP_CONTRACT = ROOT / "assets/source/terrain/floor01/floor01_camp_kit.json"
+AFT_CONTRACT = ROOT / "assets/source/terrain/floor01/floor01_aftermath_kit.json"
+MANIFESTS = ROOT / "assets/manifests"
+OWNER = ("AI-authored environment pixel art (AREA-CAMP-01: design spec, keys and silhouette gate Claude Opus; "
+         "execution Claude Sonnet; independent review pending)")
+FIRE_LIGHTS = [
+    {"id": "flame", "offset": [10, 22], "colour": "#ffb060", "radius": 240, "intensity": 0.40,
+     "glow": {"radius": 40, "additive": 0.08}, "flicker": [1.0, 0.9, 1.08, 0.95], "group": "scene"},
+    {"id": "floor_pool", "offset": [10, 22], "project": "walk_line", "project_dy": -6, "squash_y": 0.32,
+     "colour": "#ffa95e", "radius": 150, "intensity": 0.34, "flicker": [1.0, 0.9, 1.08, 0.95], "group": "scene"},
+]
+
+# -- the dressing (spec sections 4 and 5, with the gate notes G1, G3, G4) --------------------------------------
+CAMP_REMOVE_AT = [("prop", "torch_wall", 368, 448), ("backwall_decal", "torch_pool_b", 264, 364),
+                  ("prop", "torch_wall", 704, 448), ("backwall_decal", "torch_pool_a_m", 600, 364),
+                  ("prop", "torch_wall", 760, 432), ("backwall_decal", "torch_pool_a_m", 656, 348),
+                  ("prop", "torch_wall", 800, 448), ("backwall_decal", "torch_pool_a_m", 696, 364)]
+CART_X = 1048                           # gate note G4: the opaque gap to the seated figure is 4..8 px (measured below)
+MAP_FIGURE_AT = (1152, 514)             # gate note G3: its reaching hand draws over the table's top (x 1152..1157)
+CAMP_PLACE = [
+    ("backwall_decal", "camp_motifs", 1344, 384), ("backwall_decal", "camp_chalk_tally", 1404, 488),
+    ("structure", "camp_chalk_floor", 1320, 561),
+    ("prop", "ring_marker_a", 156, 504), ("prop", "ring_camp_a", 352, 488), ("prop", "camp_figure_sentry", 500, 512),
+    ("prop", "ring_crates_b", 652, 532), ("prop", "camp_hearth", 720, 496), ("prop", "camp_fire", 758, 526),
+    ("prop", "camp_figure_repair", 872, 524), ("prop", "camp_figure_seated", 1024, 530),
+    ("prop", "camp_toy_cart", CART_X, 548), ("prop", "camp_map_table", 1112, 530),
+    ("prop", "camp_figure_map", MAP_FIGURE_AT[0], MAP_FIGURE_AT[1]),
+]
+AFT_REMOVE_AT = [("structure", "arch_chain", 560, 384), ("backwall_decal", "torch_pool_b_m", 1112, 348)]
+AFT_FILL = [{"x": 512, "y": 352, "w": 208, "h": 208}]
+# G1: a sixth girder at x 684, listed before the one at 676 so the fifth draws over it; only its columns 24..31
+# (the plain web and the butt joint at 715) show, meeting the pier's shadow column at 716.
+GIRDERS = [684, 548, 580, 612, 644, 676]
+AFT_PLACE = [
+    ("backwall_decal", "aft_groove_rings", 1120, 400), ("backwall_decal", "torch_pool_b_m", 1112, 348),
+    *[("structure", "gym_girder", x, 440) for x in GIRDERS],
+    ("structure", "aft_sand_spill", 622, 562), ("structure", "aft_lane_chalk", 766, 561),
+    ("prop", "gym_tyres", 236, 542), ("prop", "aft_bench_bent", 284, 540), ("prop", "aft_mirror_wreck", 368, 488),
+    ("prop", "gym_plate_tree", 1000, 524),
+]
+BAG_AT = (620, 450)                     # the bag's top-left (state group origin, drawn by the presenter)
+
+
+def _at(layer, piece, x, y):
+    return {"layer": layer, "piece": piece, "x": x, "y": y}
+
+
+def dressing(kit: str) -> dict:
+    if kit == "camp":
+        return {"rest_camp": {
+            "remove": [], "remove_at": [_at(*r) for r in CAMP_REMOVE_AT], "backwall_fill": [],
+            "place": [_at(*t) for t in CAMP_PLACE], "parallax": {"parallax_far": "ring_tiers_far",
+                                                                  "parallax_mid": "ring_tiers_mid"}}}
+    return {"rest_aftermath": {
+        "remove": [], "remove_at": [_at(*r) for r in AFT_REMOVE_AT], "backwall_fill": AFT_FILL,
+        "place": [_at(*t) for t in AFT_PLACE], "parallax": {}}}
+
+
+def build_pieces(name: str) -> list:
+    return [(pid, fn()) for pid, fn in ATLASES[name]["pieces"]]
+
+
+def fire_images() -> list:
+    return camp_fire_frames()
+
+
+def _opaque_all(img: Pix) -> bool:
+    return all(p is not None for row in img.px for p in row)
+
+
+def piece_entry(pid: str, atlas: str, rect: list) -> dict:
+    role, layer = LAYER_OVERRIDE.get(pid) or LAYER_OF_ATLAS[atlas]
+    entry = {"id": pid, "atlas": atlas, "rect": rect, "role": role, "layer": layer, "collidable": False,
+             "anchor": [0, 0], "anchor_name": "top_left (room placement, spec section 5)", "grid_snap": 1,
+             "grammar": ["A"]}
+    if layer == "backwall_decal":
+        entry["decal"] = True
+    if pid in PRESENTER_PIECES:
+        entry["state_of"] = {"group": "aft_heavy_bag", "state": pid.rsplit("_", 1)[1]}
+    return entry
+
+
+def fire_entry() -> dict:
+    frames = [{"frame": {"x": FIRE_W * k, "y": 0, "w": FIRE_W, "h": FIRE_H}, "duration": FIRE_DURATIONS[k]}
+              for k in range(4)]
+    return {"id": "camp_fire", "atlas": FIRE_ATLAS, "rect": [0, 0, FIRE_W, FIRE_H], "role": "prop", "layer": "prop",
+            "collidable": False, "anchor": [10, 22], "anchor_name": "flame_base_centre", "grid_snap": 1,
+            "grammar": ["A"], "lights": FIRE_LIGHTS,
+            "animation": {"tag": {"name": "burn", "from": 0, "to": 3, "direction": "forward"}, "frames": frames}}
+
+
+def contract(kit: str, rects: dict, colours: dict) -> dict:
+    names = [n for n in list(ATLASES) + [FIRE_ATLAS] if KIT_OF_ATLAS[n] == kit]
+    atlases, pieces = {}, []
+    for name in names:
+        stem = "camp_fire" if name == FIRE_ATLAS else ATLASES[name]["stem"]
+        atlases[name] = {"grid": f"assets/source/props/floor01/{stem}.grid.json",
+                         "manifest": f"assets/manifests/{name}.json", "image": f"generated/art/{name}.png",
+                         "metadata": f"generated/art/{name}.json"}
+        if name == FIRE_ATLAS:
+            pieces.append(fire_entry())
+            continue
+        for pid, _ in ATLASES[name]["pieces"]:
+            pieces.append(piece_entry(pid, name, rects[name][pid]))
+    camp = kit == "camp"
+    out = {
+        "format": "env-kit-v2",
+        "kit_id": "floor01_camp" if camp else "floor01_aftermath",
+        "extends": ("assets/source/terrain/floor01/floor01_rings_kit.json" if camp
+                    else "assets/source/terrain/floor01/floor01_gym_kit.json"),
+        "status": "proposed - AREA-CAMP-01 kit (docs/02-art/area-camp-01-spec.md); independent review pending; "
+                  "not owner-approved",
+        "extension_note": (
+            "Inherits palette, layers, draw order, coordinates, walking-line rule and lighting schema from the "
+            "ENV-01 contract through the rings kit. Adds the survivors' camp atlases for Floor 01 room 8 "
+            "(rest_camp): no tiles, nothing collidable, no new palette colour. The only new emitter is the "
+            "camp fire (spec section 8); the dressing removes four torches and their pools."
+            if camp else
+            "Inherits palette, layers, coordinates, walking-line rule and lighting schema from the ENV-01 "
+            "contract through the gym kit. Adds the quiet aftermath atlases for Floor 01 room 10 "
+            "(rest_aftermath): no tiles, nothing collidable, no new palette colour, no new emitter. The heavy "
+            "bag is drawn by the presenter."),
+        "palette_use": {n: colours[n] for n in names},
+        "atlases": atlases, "tiles": [], "pieces": pieces,
+    }
+    if not camp:
+        out["state_groups"] = {"aft_heavy_bag": {
+            "states": list(BAG_FRAMES), "anchor": list(BAG_AT),
+            "note": "the heavy bag (spec section 7), five 40 x 122 frames at (620, 450): rest, r1, r2, l1, l2. "
+                    "The dressing does NOT place it: the presenter (src/bin/floor01_scene/camp_art.rs) draws the "
+                    "frame src/camp_kit.rs picks from the 38-tick sway table. Presentation only; the sim's "
+                    "hit_target stays inert."}}
+    out["room_dressing"] = dressing(kit)
+    out["usage_rules"] = {("R1_rest_camp" if camp else "R1_rest_aftermath"):
+                          ("room `rest_camp` only: the dressing never adds or moves a tile or a solid; props stand on "
+                           "the floor back line (y 559); nothing stands across a window above y 520; floor chalk is "
+                           "`structure` so it draws above the deck" if camp else
+                           "room `rest_aftermath` only: the dressing never adds or moves a tile or a solid; B2 is "
+                           "bricked up across both pier columns; floor decals are `structure`; the bag is not placed")}
+    return out
+
+
+def manifest(name: str, canvas: list, stem: str) -> dict:
+    camp = KIT_OF_ATLAS[name] == "camp"
+    anim = name == FIRE_ATLAS
+    return {
+        "schema_version": 1, "id": f"{name}_v1", "type": "prop_animation" if anim else "decor_atlas",
+        "source_path": f"assets/source/props/floor01/{stem}.ase",
+        "grid_source": f"assets/source/props/floor01/{stem}.grid.json",
+        "output_atlas": f"generated/art/{name}.png", "output_metadata": f"generated/art/{name}.json",
+        "palette_id": "floor01-catacomb-v2", "frame_size": canvas, "pivot": [0, 0],
+        "animation_tags": ["burn"] if anim else [], "required_alpha": True,
+        "kit_contract": f"assets/source/terrain/floor01/{'floor01_camp_kit.json' if camp else 'floor01_aftermath_kit.json'}",
+        "owner": OWNER, "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+        "license": "Original repo-specific environment art; no standalone asset reuse license; no game/asset-pack "
+                   "distribution rights",
+        "review_status": "prototype_fixture_unapproved",
+        "provenance": {
+            "origin": "Original pixel-grid-v1 pieces for the Floor 1 quiet rooms rest_camp and rest_aftermath "
+                      "(AREA-CAMP-01 on the ENV-01 kit); rule-based shapes and ramps, the aftermath wreck and bench "
+                      "derived from AREA-GYM-01 pixels; nothing cropped, traced or resampled from concept art; no "
+                      "text, logos, brands, faces or likenesses",
+            "generator": "Deterministic authoring script scripts/author_camp01.py written by AI agents (spec and "
+                         "keys designed by Claude Opus; execution by Claude Sonnet); no image-model raster output",
+            "generated_art": True,
+            "input_reference_ids": [
+                "floor01-catacomb-kit/env-kit-v2 (owner-approved ENV-01 kit, 2026-11-16)",
+                "floor-01-art-atlas-v1/08-circular-maze-survivor-camp and the juicer gym panorama (mood reference "
+                "only; no pixel cropped, traced or resampled)"]},
+    }
+
+
+def write_kit() -> None:
+    """Write every atlas grid + .ase, manifest and the two contracts; print the key pins."""
+    rects, colours = {}, {}
+
+    def emit(name, grid, stem):
+        path = SRC / f"{stem}.grid.json"
+        path.write_text(json.dumps(grid, indent=1) + "\n", encoding="utf-8")
+        subprocess.run([sys.executable, str(ROOT / "scripts" / "pixel_grid_to_ase.py"), "build", str(path),
+                        str(SRC / f"{stem}.ase")], check=True)
+        colours[name] = len(grid["palette"])
+        (MANIFESTS / f"{name}.json").write_text(json.dumps(manifest(name, grid["canvas"], stem), indent=1) + "\n",
+                                                encoding="utf-8")
+        print(f"{name}: {grid['canvas']} {len(grid['palette'])} colours")
+
+    for name, spec in ATLASES.items():
+        sheet, r = _pack(build_pieces(name), spec["width"])
+        rects[name] = r
+        emit(name, kit.grid_from([sheet], layer_names=["main"], durations=[100], pivot=(0, 0)), spec["stem"])
+    emit(FIRE_ATLAS, kit.grid_from(fire_images(), layer_names=["main"], durations=list(FIRE_DURATIONS), pivot=(0, 0),
+                                   tags=[{"name": "burn", "from": 0, "to": 3, "direction": "forward"}]),
+         "camp_fire")
+    CAMP_CONTRACT.write_text(json.dumps(contract("camp", rects, colours), indent=1) + "\n", encoding="utf-8")
+    AFT_CONTRACT.write_text(json.dumps(contract("aft", rects, colours), indent=1) + "\n", encoding="utf-8")
+    for pid, sha in key_sha().items():
+        print(f"KEY {pid} {sha}")
+
+
+def all_pieces() -> dict:
+    """{piece id: Pix} for every piece this order draws (keys, executor pieces, the five bag frames)."""
+    out = {pid: fn() for pieces in KEYS.values() for pid, fn in pieces}
+    for name in ATLASES:
+        out.update(dict(build_pieces(name)))
+    return out
+
+
+def mean_luma(img: Pix) -> float:
+    vals = [_luma(*p) for row in img.px for p in row if p]
+    return sum(vals) / len(vals)
+
+
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "gate":
         gate(Path(sys.argv[2]), Path(sys.argv[3]))
         if len(sys.argv) > 4:
             gate_board(Path(sys.argv[3]), Path(sys.argv[4]))
+    elif len(sys.argv) > 1 and sys.argv[1] == "keys":
+        for pid, sha in key_sha().items():
+            print(pid, sha)
     else:
-        write()
+        write_kit()

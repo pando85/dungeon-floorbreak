@@ -114,12 +114,12 @@ fn the_launched_refuge_is_the_same_room_with_and_without_the_dressing() {
     assert!(dressed.kit.pieces.len() > plain.kit.pieces.len());
 }
 
-/// The camp and the aftermath keep `compose_kit` byte for byte (the dressing is the
-/// refuge's only).
+/// The camp and the aftermath hold no fast-food piece; undressed they are `compose_kit` byte
+/// for byte (their own dressing is AREA-CAMP-01's, `crate::camp_kit`).
 #[test]
 fn the_camp_and_the_aftermath_kits_are_unchanged() {
     for room in [RestRoom::Camp, RestRoom::Aftermath] {
-        let run = f01_rest::launch(&root(), room).unwrap();
+        let run = f01_rest::launch_with(&root(), room, false).unwrap();
         let plain = crate::f01_boiler::compose_kit(&root(), &run.loaded.room).unwrap();
         assert_eq!(
             format!("{:?}", run.kit.pieces),
