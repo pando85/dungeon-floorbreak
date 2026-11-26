@@ -100,6 +100,7 @@ pub mod hud_draw;
 pub mod hud_settings;
 pub mod input;
 pub mod input_buffer;
+pub mod key_bindings;
 pub mod label_font;
 pub mod light_pass;
 pub mod lighting;

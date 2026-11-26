@@ -26,6 +26,9 @@ EVIDENCE = ROOT / "docs/evidence/hud-hybrid-a-01"
 KEY_SHA256 = {
     "carl_portrait": "7d13f3d2a5b4ef4e604a3bcea2be4b558eb41b7da51e9769cd4d32361ecaf306",
     "system_crt_face": "b5ec5a51332bcb3dc6641a0dd95f08e7d2817bb812f16f4a63a9387cc8dc71a3",
+    "hud_art_02_keycaps": "6bcaed3b355fda18afa9c0f0acbb89174d4aeb5e3989c940d2a7f24a2b5495fd",
+    "hud_art_02_chips": "4d1cba4b870327af755ec660e34c23f9b1f0bda46f94a03fe92a29e636cef6c6",
+    "hud_art_02_notice_plate": "87bb7511e524da0cfdb2306f09ec2eaead3fe44452f79731b2286c11703d2fa5",
 }
 REGION_NAMES = [
     "plate_frame", "portrait_carl", "portrait_donut", "notice_frame", "crt_idle", "crt_blink", "crt_notice",
@@ -38,10 +41,12 @@ REGION_NAMES = [
     "viewer_digit_0", "viewer_digit_1", "viewer_digit_2", "viewer_digit_3", "viewer_digit_4",
     "viewer_digit_5", "viewer_digit_6", "viewer_digit_7", "viewer_digit_8", "viewer_digit_9",
     "viewer_digit_k", "viewer_digit_m", "viewer_digit_plus",
+    "key_j", "key_k", "key_l", "key_q", "key_space", "key_left", "key_right", "key_down",
+    "chip_dynamite", "chip_puddle",
 ]
 FRAME_COUNTS = {"hud_portrait_carl": 1, "hud_portrait_donut": 1, "hud_system_crt": 3, "hud_glyphs": 9,
                 "hud_tags": 3, "hud_icons": 6, "hud_plate_frame": 1, "hud_notice_frame": 1,
-                "hud_strip_3slice": 1, **{n: 1 for n in author.VIEWER_SOURCES}}
+                "hud_strip_3slice": 1, "hud_keycaps": 8, "hud_chips": 2, **{n: 1 for n in author.VIEWER_SOURCES}}
 SOURCE_GRIDS = sorted(FRAME_COUNTS)
 
 
@@ -62,7 +67,7 @@ def flat_rgba(grid: dict, frame: int) -> list[list[str | None]]:
 class HudSources(unittest.TestCase):
     def test_keys_are_frozen_and_recorded(self) -> None:
         manifest = load(MANIFEST)
-        for name in ("carl_portrait", "system_crt_face"):
+        for name in KEY_SHA256:
             digest = hashlib.sha256((SRC / "keys" / f"{name}.grid.json").read_bytes()).hexdigest()
             self.assertEqual(manifest["provenance"]["key_sha256"][name], digest, name)
             self.assertEqual(KEY_SHA256[name], digest, f"{name}: frozen key changed")
@@ -109,7 +114,7 @@ class HudSources(unittest.TestCase):
     def test_hud_pieces_use_only_hud_tokens(self) -> None:
         tokens = {h + "ff" for h in author.HUD.values()}
         for name in ("hud_system_crt", "hud_plate_frame", "hud_strip_3slice", "hud_notice_frame",
-                     "hud_glyphs", "hud_icons", "hud_tags", *author.VIEWER_SOURCES):
+                     "hud_glyphs", "hud_icons", "hud_tags", "hud_keycaps", "hud_chips", *author.VIEWER_SOURCES):
             self.assertLessEqual(rgba_set(load(SRC / f"{name}.grid.json")), tokens, name)
 
     def test_hud_token_palette_budget(self) -> None:
@@ -257,7 +262,7 @@ class HudAtlas(unittest.TestCase):
     def test_frame_counts_in_manifest(self) -> None:
         self.assertEqual(self.manifest["hud"]["frame_counts"], {
             "hud_portrait_carl": 1, "hud_portrait_donut": 1, "hud_system_crt": 3, "hud_glyphs": 9,
-            "hud_tags": 3, "hud_icons": 6})
+            "hud_tags": 3, "hud_icons": 6, "hud_keycaps": 8, "hud_chips": 2})
         per_source: dict[str, int] = {}
         for r in self.manifest["hud"]["regions"]:
             per_source[r["source"]] = per_source.get(r["source"], 0) + 1
@@ -272,7 +277,7 @@ class HudAtlas(unittest.TestCase):
         self.assertEqual(sizes.pop("viewer_eye"), [9, 7])
         self.assertEqual(set(map(tuple, sizes.values())), {(5, 7)})
         self.assertEqual(len(sizes) + 1, 16)
-        self.assertEqual(len(self.regions), 47)
+        self.assertEqual(len(self.regions), 57)
         # every viewer region is opaque only where its key is (eye keeps empty top and bottom rows)
         x, y, w, h = self.regions["viewer_eye"]["rect"]
         for yy in (0, 6):
@@ -285,6 +290,168 @@ class HudAtlas(unittest.TestCase):
         self.assertIn("no AI concept pixels copied", m["provenance"]["origin"])
         self.assertIn("Claude Opus", m["provenance"]["generator"])
         self.assertIn("Claude Sonnet", m["provenance"]["generator"])
+
+
+# HUD-ART-02 (keyboard key caps, item chips, the notice backing plate), restated independently of the
+# authoring script. Spec: docs/02-art/hud-art-02-spec.md sections 2, 5 and 8.
+CAP_NAMES = ["key_j", "key_k", "key_l", "key_q", "key_space", "key_left", "key_right", "key_down"]
+CHIP_NAMES = ["chip_dynamite", "chip_puddle"]
+# frozen key tag -> region name
+KEY_TAG_TO_REGION = {"key_j": "key_j", "key_arrow_right": "key_right", "chip_dynamite": "chip_dynamite",
+                     "chip_puddle": "chip_puddle"}
+CAP_SIZES = {n: (19, 11) if n == "key_space" else (11, 11) for n in CAP_NAMES}
+CAP_SYMBOL_ROWS = {  # 5x5 symbol (cols 3..7, rows 2..6) of every cap the executor drew
+    "key_k": ["W...W", "W..W.", "WWW..", "W..W.", "W...W"],
+    "key_l": ["W....", "W....", "W....", "W....", "WWWWW"],
+    "key_q": [".WWW.", "W...W", "W.W.W", "W..W.", ".WW.W"],
+    "key_left": ["..W..", ".W...", "WWWWW", ".W...", "..W.."],
+    "key_down": ["..W..", "..W..", "W.W.W", ".WWW.", "..W.."],
+}
+TEXT_WHITE = (0xf4, 0xe6, 0xd2, 255)
+
+
+def frame_tag(grid: dict, tag: str) -> int:
+    return next(t["from"] for t in grid["tags"] if t["name"] == tag)
+
+
+class HudArt02Sources(unittest.TestCase):
+    """The authored caps, chips and notice frame equal the frozen design keys where they overlap."""
+
+    def test_caps_and_chips_equal_the_frozen_keys(self) -> None:
+        for key_file, asset in (("hud_art_02_keycaps", "hud_keycaps"), ("hud_art_02_chips", "hud_chips")):
+            key = load(SRC / "keys" / f"{key_file}.grid.json")
+            made = load(SRC / f"{asset}.grid.json")
+            for tag, region in KEY_TAG_TO_REGION.items():
+                if tag not in {t["name"] for t in key["tags"]}:
+                    continue
+                want = flat_rgba(key, frame_tag(key, tag))
+                got = flat_rgba(made, frame_tag(made, region))
+                for y, row in enumerate(want):
+                    self.assertEqual(got[y][:len(row)], row, f"{region} row {y}")
+
+    def test_notice_frame_equals_the_frozen_plate_key(self) -> None:
+        key = load(SRC / "keys" / "hud_art_02_notice_plate.grid.json")
+        made = load(SRC / "hud_notice_frame.grid.json")
+        self.assertEqual(made["canvas"], [204, 32])
+        self.assertEqual(flat_rgba(made, 0), flat_rgba(key, 0))
+
+    def test_cap_sources_shape(self) -> None:
+        caps = load(SRC / "hud_keycaps.grid.json")
+        self.assertEqual(len(caps["frames"]), 8)
+        self.assertEqual([t["name"] for t in caps["tags"]], CAP_NAMES)
+        self.assertEqual(caps["pivot"], [0, 10])
+        chips = load(SRC / "hud_chips.grid.json")
+        self.assertEqual(len(chips["frames"]), 2)
+        self.assertEqual([t["name"] for t in chips["tags"]], CHIP_NAMES)
+        self.assertEqual(chips["pivot"], [0, 10])
+
+    def test_drawn_caps_carry_their_spec_symbols(self) -> None:
+        caps = load(SRC / "hud_keycaps.grid.json")
+        for name, symbol in CAP_SYMBOL_ROWS.items():
+            px = flat_rgba(caps, frame_tag(caps, name))
+            white = {(x, y) for y, row in enumerate(px) for x, c in enumerate(row) if c == "#f4e6d2ff"}
+            want = {(3 + x, 2 + y) for y, row in enumerate(symbol) for x, ch in enumerate(row) if ch == "W"}
+            self.assertEqual(white, want, name)
+        # key_left is key_right mirrored (symbol only): the bevel stays lit on top and left
+        right = flat_rgba(caps, frame_tag(caps, "key_right"))
+        left = flat_rgba(caps, frame_tag(caps, "key_left"))
+        for y in range(2, 7):
+            self.assertEqual(left[y][3:8], right[y][3:8][::-1], f"row {y}")
+        self.assertEqual(left[1][1:10], right[1][1:10])
+        # key_space: the 9x2 open bracket at cols 5..13, rows 5..6
+        space = flat_rgba(caps, frame_tag(caps, "key_space"))
+        white = {(x, y) for y, row in enumerate(space) for x, c in enumerate(row) if c == "#f4e6d2ff"}
+        want = {(5 + x, 5) for x in (0, 8)} | {(5 + x, 6) for x in range(9)}
+        self.assertEqual(white, want)
+
+    def test_hud_art_02_palettes_are_hud_tokens_only(self) -> None:
+        tokens = {h + "ff" for h in author.HUD.values()}
+        for name in ("hud_keycaps", "hud_chips", "hud_notice_frame"):
+            self.assertLessEqual(rgba_set(load(SRC / f"{name}.grid.json")), tokens, name)
+        self.assertLessEqual(len(set(author.HUD) | set(author.CODE_TOKENS)), 36)  # swatch budget unchanged
+        # the notice frame uses exactly the HA2-AD3 tokens
+        used = {e["name"] for e in load(SRC / "hud_notice_frame.grid.json")["palette"]}
+        self.assertEqual(used, {"hud_ink", "metal_hi", "metal_mid", "magenta", "magenta_dk", "notice_bg"})
+
+
+class HudArt02Atlas(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.manifest = load(MANIFEST)
+        assert ATLAS.is_file(), "run bash scripts/export_assets.sh first"
+        cls.image = Image.open(ATLAS).convert("RGBA")
+        cls.regions = {r["name"]: r for r in cls.manifest["hud"]["regions"]}
+
+    def crop(self, name: str) -> list[list[tuple[int, int, int, int]]]:
+        x, y, w, h = self.regions[name]["rect"]
+        return [[self.image.getpixel((x + xx, y + yy)) for xx in range(w)] for yy in range(h)]
+
+    def test_new_regions_exist_with_the_spec_size(self) -> None:
+        meta = load(ROOT / "generated/art/hud_hybrid_a.json")
+        self.assertEqual(len(meta["frames"]), 1)
+        for name in CAP_NAMES:
+            self.assertEqual(tuple(self.regions[name]["rect"][2:]), CAP_SIZES[name], name)
+            self.assertEqual(self.regions[name]["source"], "hud_keycaps")
+        for name in CHIP_NAMES:
+            self.assertEqual(self.regions[name]["rect"][2:], [11, 11], name)
+            self.assertEqual(self.regions[name]["source"], "hud_chips")
+        self.assertEqual(self.regions["notice_frame"]["rect"][2:], [204, 32])
+
+    def test_existing_regions_keep_name_size_and_position(self) -> None:
+        self.assertEqual(self.regions["plate_frame"]["rect"], [0, 0, 164, 48])
+        self.assertEqual(self.regions["notice_frame"]["rect"], [0, 60, 204, 32])
+        self.assertEqual(self.regions["glyph_a"]["rect"], [0, 116, 11, 11])
+        self.assertEqual(self.regions["viewer_digit_plus"]["rect"], [48 + 12 * 6, 140, 5, 7])
+
+    def test_hud_art_02_regions_use_hud_tokens_only(self) -> None:
+        hud = {tuple(int(h[i:i + 2], 16) for i in (1, 3, 5)) for h in author.HUD.values()}
+        for name in CAP_NAMES + CHIP_NAMES + ["notice_frame"]:
+            colours = {p[:3] for row in self.crop(name) for p in row if p[3]}
+            self.assertLessEqual(colours, hud, name)
+
+    def test_caps_differ_from_the_pad_disks_by_silhouette(self) -> None:
+        """AT-5: cut 1 px corners and two metal_dark skirt rows on every cap; the lit bevel on row 1."""
+        dark = (0x2a, 0x24, 0x30, 255)
+        hi = (0x8a, 0x7e, 0x8c, 255)
+        for name in CAP_NAMES:
+            px = self.crop(name)
+            w, h = len(px[0]), len(px)
+            for x, y in ((0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1)):
+                self.assertEqual(px[y][x][3], 0, f"{name} corner ({x},{y}) must be transparent")
+            for y in (8, 9):
+                self.assertTrue(all(p == dark for p in px[y][1:w - 1]), f"{name} skirt row {y}")
+            self.assertTrue(all(p == hi for p in px[1][1:w - 2]), f"{name} bevel row 1")
+            self.assertEqual(sum(1 for row in px for p in row if p[3] == 0), 4, f"{name}: only the 4 cut corners are transparent")
+        disk_transparent = sum(1 for row in self.crop("glyph_x") for p in row if p[3] == 0)
+        cap_transparent = sum(1 for row in self.crop("key_k") for p in row if p[3] == 0)
+        self.assertEqual(cap_transparent, 4)
+        self.assertGreater(disk_transparent, cap_transparent)
+
+    def test_caps_are_square_keys_with_a_white_symbol(self) -> None:
+        for name in CAP_NAMES:
+            whites = [(x, y) for y, row in enumerate(self.crop(name)) for x, p in enumerate(row) if p == TEXT_WHITE]
+            self.assertTrue(whites, name)
+            self.assertTrue(all(2 <= y <= 6 and 3 <= x <= (13 if name == "key_space" else 7) for x, y in whites), name)
+
+    def test_notice_frame_rings_follow_ha2_ad3(self) -> None:
+        px = self.crop("notice_frame")
+        ink, hi = (0x12, 0x0c, 0x18, 255), (0x8a, 0x7e, 0x8c, 255)
+        mid, mag = (0x3d, 0x35, 0x42, 255), (0xe0, 0x33, 0x8f, 255)
+        bg, rule = (0x1e, 0x0f, 0x22, 255), (0x6e, 0x1a, 0x4c, 255)
+        w, h = 204, 32
+        self.assertEqual((len(px[0]), len(px)), (w, h))
+        # centre column of every side, ring 0 to ring 3
+        self.assertEqual([px[i][100] for i in range(4)], [ink, hi, mag, ink])
+        self.assertEqual([px[h - 1 - i][100] for i in range(4)], [ink, mid, mag, ink])
+        self.assertEqual([px[16][i] for i in range(4)], [ink, hi, mag, ink])
+        self.assertEqual([px[16][w - 1 - i] for i in range(4)], [ink, mid, mag, ink])
+        # dotted rule on row +26, x +4..+199, 2-on / 2-off
+        on = [x for x in range(w) if px[26][x] == rule]
+        self.assertEqual(on[:4], [4, 5, 8, 9])
+        self.assertEqual(on[-2:], [196, 197])
+        self.assertTrue(all(((x // 2) % 2 == 0) for x in on) and len(on) == 98)
+        self.assertEqual(px[27][100], bg)
+        self.assertTrue(all(p[3] == 255 for row in px for p in row))
 
 
 class HudEvidence(unittest.TestCase):

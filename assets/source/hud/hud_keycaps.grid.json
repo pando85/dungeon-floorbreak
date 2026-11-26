@@ -1,0 +1,242 @@
+{
+ "format": "pixel-grid-v1",
+ "canvas": [
+  19,
+  11
+ ],
+ "pivot": [
+  0,
+  10
+ ],
+ "palette": [
+  {
+   "key": "K",
+   "name": "hud_ink",
+   "rgba": "#120c18ff"
+  },
+  {
+   "key": "r",
+   "name": "metal_dark",
+   "rgba": "#2a2430ff"
+  },
+  {
+   "key": "M",
+   "name": "metal_mid",
+   "rgba": "#3d3542ff"
+  },
+  {
+   "key": "L",
+   "name": "metal_light",
+   "rgba": "#5c5262ff"
+  },
+  {
+   "key": "H",
+   "name": "metal_hi",
+   "rgba": "#8a7e8cff"
+  },
+  {
+   "key": "W",
+   "name": "text_white",
+   "rgba": "#f4e6d2ff"
+  }
+ ],
+ "layers": [
+  "art"
+ ],
+ "frames": [
+  {
+   "duration_ms": 100,
+   "cels": {
+    "art": [
+     ".KKKKKKKKK.........",
+     "KHHHHHHHHMK........",
+     "KHLLLWWWLMK........",
+     "KHLLLLLWLMK........",
+     "KHLLLLLWLMK........",
+     "KHLWLLLWLMK........",
+     "KHLLWWWLLMK........",
+     "KMMMMMMMMMK........",
+     "KrrrrrrrrrK........",
+     "KrrrrrrrrrK........",
+     ".KKKKKKKKK........."
+    ]
+   }
+  },
+  {
+   "duration_ms": 100,
+   "cels": {
+    "art": [
+     ".KKKKKKKKK.........",
+     "KHHHHHHHHMK........",
+     "KHLWLLLWLMK........",
+     "KHLWLLWLLMK........",
+     "KHLWWWLLLMK........",
+     "KHLWLLWLLMK........",
+     "KHLWLLLWLMK........",
+     "KMMMMMMMMMK........",
+     "KrrrrrrrrrK........",
+     "KrrrrrrrrrK........",
+     ".KKKKKKKKK........."
+    ]
+   }
+  },
+  {
+   "duration_ms": 100,
+   "cels": {
+    "art": [
+     ".KKKKKKKKK.........",
+     "KHHHHHHHHMK........",
+     "KHLWLLLLLMK........",
+     "KHLWLLLLLMK........",
+     "KHLWLLLLLMK........",
+     "KHLWLLLLLMK........",
+     "KHLWWWWWLMK........",
+     "KMMMMMMMMMK........",
+     "KrrrrrrrrrK........",
+     "KrrrrrrrrrK........",
+     ".KKKKKKKKK........."
+    ]
+   }
+  },
+  {
+   "duration_ms": 100,
+   "cels": {
+    "art": [
+     ".KKKKKKKKK.........",
+     "KHHHHHHHHMK........",
+     "KHLLWWWLLMK........",
+     "KHLWLLLWLMK........",
+     "KHLWLWLWLMK........",
+     "KHLWLLWLLMK........",
+     "KHLLWWLWLMK........",
+     "KMMMMMMMMMK........",
+     "KrrrrrrrrrK........",
+     "KrrrrrrrrrK........",
+     ".KKKKKKKKK........."
+    ]
+   }
+  },
+  {
+   "duration_ms": 100,
+   "cels": {
+    "art": [
+     ".KKKKKKKKKKKKKKKKK.",
+     "KHHHHHHHHHHHHHHHHMK",
+     "KHLLLLLLLLLLLLLLLMK",
+     "KHLLLLLLLLLLLLLLLMK",
+     "KHLLLLLLLLLLLLLLLMK",
+     "KHLLLWLLLLLLLWLLLMK",
+     "KHLLLWWWWWWWWWLLLMK",
+     "KMMMMMMMMMMMMMMMMMK",
+     "KrrrrrrrrrrrrrrrrrK",
+     "KrrrrrrrrrrrrrrrrrK",
+     ".KKKKKKKKKKKKKKKKK."
+    ]
+   }
+  },
+  {
+   "duration_ms": 100,
+   "cels": {
+    "art": [
+     ".KKKKKKKKK.........",
+     "KHHHHHHHHMK........",
+     "KHLLLWLLLMK........",
+     "KHLLWLLLLMK........",
+     "KHLWWWWWLMK........",
+     "KHLLWLLLLMK........",
+     "KHLLLWLLLMK........",
+     "KMMMMMMMMMK........",
+     "KrrrrrrrrrK........",
+     "KrrrrrrrrrK........",
+     ".KKKKKKKKK........."
+    ]
+   }
+  },
+  {
+   "duration_ms": 100,
+   "cels": {
+    "art": [
+     ".KKKKKKKKK.........",
+     "KHHHHHHHHMK........",
+     "KHLLLWLLLMK........",
+     "KHLLLLWLLMK........",
+     "KHLWWWWWLMK........",
+     "KHLLLLWLLMK........",
+     "KHLLLWLLLMK........",
+     "KMMMMMMMMMK........",
+     "KrrrrrrrrrK........",
+     "KrrrrrrrrrK........",
+     ".KKKKKKKKK........."
+    ]
+   }
+  },
+  {
+   "duration_ms": 100,
+   "cels": {
+    "art": [
+     ".KKKKKKKKK.........",
+     "KHHHHHHHHMK........",
+     "KHLLLWLLLMK........",
+     "KHLLLWLLLMK........",
+     "KHLWLWLWLMK........",
+     "KHLLWWWLLMK........",
+     "KHLLLWLLLMK........",
+     "KMMMMMMMMMK........",
+     "KrrrrrrrrrK........",
+     "KrrrrrrrrrK........",
+     ".KKKKKKKKK........."
+    ]
+   }
+  }
+ ],
+ "tags": [
+  {
+   "name": "key_j",
+   "from": 0,
+   "to": 0,
+   "direction": "forward"
+  },
+  {
+   "name": "key_k",
+   "from": 1,
+   "to": 1,
+   "direction": "forward"
+  },
+  {
+   "name": "key_l",
+   "from": 2,
+   "to": 2,
+   "direction": "forward"
+  },
+  {
+   "name": "key_q",
+   "from": 3,
+   "to": 3,
+   "direction": "forward"
+  },
+  {
+   "name": "key_space",
+   "from": 4,
+   "to": 4,
+   "direction": "forward"
+  },
+  {
+   "name": "key_left",
+   "from": 5,
+   "to": 5,
+   "direction": "forward"
+  },
+  {
+   "name": "key_right",
+   "from": 6,
+   "to": 6,
+   "direction": "forward"
+  },
+  {
+   "name": "key_down",
+   "from": 7,
+   "to": 7,
+   "direction": "forward"
+  }
+ ]
+}

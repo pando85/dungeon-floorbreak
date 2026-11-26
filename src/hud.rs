@@ -34,7 +34,9 @@ pub const ACTION_LANE_TOP: i32 = 60;
 pub const PLATE_W: i32 = 164;
 pub const PLATE_H: i32 = 48;
 pub const HP_BAR_INNER_W: i32 = 94;
-pub const MANA_BAR_INNER_W: i32 = 94;
+/// HA2-AD1: Donut's mana track is 72 px outer on every plate state (70 px inner:
+/// 8 segments of 7 px with 2 px gaps, pitch 9).
+pub const MANA_BAR_INNER_W: i32 = 70;
 pub const BOSS_BAR_INNER_W: i32 = 234;
 
 /// Notice timeline (ticks, section 5). Slide in 8, hold 120, slide out 8.
@@ -349,6 +351,10 @@ pub enum GlyphSet {
     #[default]
     Xbox,
     DualSense,
+    /// HUD-ART-02 (HA2-AD4, HA2-AD4b): square key caps for P1 while the keyboard
+    /// is the last-used device, or when `--glyphs=keyboard` forces them. Never
+    /// P2's set, never the default.
+    Keyboard,
 }
 
 impl GlyphSet {
@@ -356,6 +362,7 @@ impl GlyphSet {
         match value {
             "xbox" => Some(Self::Xbox),
             "dualsense" => Some(Self::DualSense),
+            "keyboard" => Some(Self::Keyboard),
             _ => None,
         }
     }
@@ -381,11 +388,16 @@ impl GlyphSet {
             (Self::DualSense, LogicalAction::Physical) => Glyph::Triangle,
             (Self::Xbox, LogicalAction::Special) => Glyph::B,
             (Self::DualSense, LogicalAction::Special) => Glyph::Circle,
+            (Self::Keyboard, LogicalAction::Primary) => Glyph::KeyJ,
+            (Self::Keyboard, LogicalAction::Physical) => Glyph::KeyK,
+            (Self::Keyboard, LogicalAction::Special) => Glyph::KeyL,
         }
     }
 }
 
-/// Every glyph the art atlas carries (the Xbox set and the DualSense set).
+/// Every glyph the art atlas carries (the Xbox set, the DualSense set and the
+/// keyboard key caps of HUD-ART-02; `KeySpace`, `KeyLeft`, `KeyRight`, `KeyDown`
+/// and `KeyQ` are prompt caps no chip uses yet).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Glyph {
     A,
@@ -396,6 +408,14 @@ pub enum Glyph {
     Circle,
     Square,
     Triangle,
+    KeyJ,
+    KeyK,
+    KeyL,
+    KeyQ,
+    KeySpace,
+    KeyLeft,
+    KeyRight,
+    KeyDown,
 }
 
 /// Who drives a plate. Spec 6: `Player(1)`, `Player(2)` or `Ai`.
@@ -436,7 +456,7 @@ pub struct HpFlash {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ManaView {
-    /// Filled pixels of the 94 px track, `0..=94`.
+    /// Filled pixels of the 70 px inner track, `0..=70` (HA2-AD1).
     pub fill_px: u8,
     /// Ticks since the mana reached 0 (drives the one-time outline flash).
     pub depleted_age: Option<u8>,
@@ -947,10 +967,10 @@ pub fn build_snapshot(real: &RealHudInputs, preview: Option<HudPreview>, tick: u
     snapshot
 }
 
-/// Mana full / 60 / 31 of the 94 px track (fixture values, not balance).
-const MANA_FULL: u8 = HP_BAR_INNER_W as u8;
-const MANA_BOSS: u8 = 60;
-const MANA_COOP: u8 = 31;
+/// Mana full / 45 / 23 of the 70 px track (fixture values, not balance).
+const MANA_FULL: u8 = MANA_BAR_INNER_W as u8;
+const MANA_BOSS: u8 = 45;
+const MANA_COOP: u8 = 23;
 
 fn set_donut(
     snapshot: &mut HudSnapshot,
@@ -1688,12 +1708,23 @@ impl HudRuntime {
     }
 
     /// The party as drawn now: the explicit `--glyphs=` override wins over the
-    /// owning pads' families on both plates.
+    /// owning pads' families on both plates (`keyboard` only on P1's plate).
     fn drawn_party(&self) -> PartyView {
         let mut view = self.party;
         if let Some(forced) = self.config.glyphs {
-            view.carl_glyphs = forced;
-            view.donut_glyphs = forced;
+            if forced == GlyphSet::Keyboard {
+                // HA2-AD4b: the keyboard drives P1 only, so the forced caps go to
+                // the plate P1 drives; P2 (and an AI plate) keep their pad family.
+                if view.carl == Control::Player(1) {
+                    view.carl_glyphs = forced;
+                }
+                if view.donut == Control::Player(1) {
+                    view.donut_glyphs = forced;
+                }
+            } else {
+                view.carl_glyphs = forced;
+                view.donut_glyphs = forced;
+            }
         }
         view
     }
@@ -2141,7 +2172,7 @@ mod tests {
         assert_label_pair(&s.plates[0], LabelId::Punch, LabelId::Kick);
 
         let s = snap(HudPreview::PostUnlock);
-        assert_eq!(s.plates[1].mana.unwrap().fill_px, 94);
+        assert_eq!(s.plates[1].mana.unwrap().fill_px, 70);
         assert_label_pair(&s.plates[1], LabelId::Missile, LabelId::Pounce);
 
         let s = snap(HudPreview::Depleted);
@@ -2173,7 +2204,7 @@ mod tests {
         let s = snap(HudPreview::Boss);
         assert_eq!(s.plates[0].hp.cur, 3);
         assert_eq!(s.plates[1].control, Control::Ai);
-        assert_eq!(s.plates[1].mana.unwrap().fill_px, 60);
+        assert_eq!(s.plates[1].mana.unwrap().fill_px, 45);
         assert_eq!(s.plates[1].abilities, AbilityRow::AiCompanion);
         let boss = s.boss.as_ref().unwrap();
         assert_eq!(boss.name, "TEST BRUTE");
@@ -2185,7 +2216,7 @@ mod tests {
         assert_eq!(s.plates[0].hp.cur, 3);
         assert_eq!(s.plates[1].control, Control::Player(2));
         assert_eq!(s.plates[1].hp.cur, 2);
-        assert_eq!(s.plates[1].mana.unwrap().fill_px, 31);
+        assert_eq!(s.plates[1].mana.unwrap().fill_px, 23);
         assert_label_pair(&s.plates[1], LabelId::Missile, LabelId::Pounce);
         assert_eq!(s.location.as_deref(), Some("FLOOR 01"));
         assert!(s.boss.is_none());
@@ -2227,7 +2258,7 @@ mod tests {
         }
         // Even a fully unlocked Donut gives Carl none.
         let mut real = test_inputs(4, 4);
-        real.donut_magic = mana(94);
+        real.donut_magic = mana(70);
         let s = build_snapshot(&real, None, 0);
         assert!(s.plates[0].mana.is_none());
         assert!(s.plates[1].mana.is_some());
@@ -2316,6 +2347,56 @@ mod tests {
         forced.set_party(party);
         assert_eq!(forced.plate_glyphs(), [GlyphSet::Xbox; 2]);
         assert_eq!(forced.revision(), start);
+    }
+
+    /// HUD-ART-02 (AT-8): `--glyphs=keyboard` forces P1's plate only; P2 keeps its
+    /// pad family and an AI plate is left alone.
+    #[test]
+    fn the_forced_keyboard_set_applies_to_p1_only() {
+        assert_eq!(GlyphSet::parse("keyboard"), Some(GlyphSet::Keyboard));
+        let mut forced = HudRuntime::new(HudConfig {
+            glyphs: Some(GlyphSet::Keyboard),
+            ..HudConfig::default()
+        });
+        // Solo: Carl is P1, Donut the AI companion.
+        forced.set_party(PartyView::default());
+        assert_eq!(forced.plate_glyphs(), [GlyphSet::Keyboard, GlyphSet::Xbox]);
+        // Two players: P1 Carl gets the caps, P2 Donut keeps her pad's family.
+        forced.set_party(PartyView {
+            carl: Control::Player(1),
+            donut: Control::Player(2),
+            donut_glyphs: GlyphSet::DualSense,
+            ..PartyView::default()
+        });
+        assert_eq!(
+            forced.plate_glyphs(),
+            [GlyphSet::Keyboard, GlyphSet::DualSense]
+        );
+        // Solo swap: P1 drives Donut, so the caps follow P1 to her plate.
+        forced.set_party(PartyView {
+            carl: Control::Ai,
+            donut: Control::Player(1),
+            ..PartyView::default()
+        });
+        assert_eq!(forced.plate_glyphs(), [GlyphSet::Xbox, GlyphSet::Keyboard]);
+        // The chips of the keyboard set are the caps J, K and L.
+        assert_eq!(
+            GlyphSet::Keyboard.glyph(LogicalAction::Primary),
+            Glyph::KeyJ
+        );
+        assert_eq!(
+            GlyphSet::Keyboard.glyph(LogicalAction::Physical),
+            Glyph::KeyK
+        );
+        assert_eq!(
+            GlyphSet::Keyboard.glyph(LogicalAction::Special),
+            Glyph::KeyL
+        );
+        assert_eq!(
+            GlyphSet::default(),
+            GlyphSet::Xbox,
+            "the default stays Xbox"
+        );
     }
 
     #[test]
@@ -2884,7 +2965,7 @@ mod tests {
             panic!("chips")
         };
         assert_eq!((a.label, b.label), (LabelId::Swat, LabelId::Pounce));
-        // Unlocked and full: 94 px, MISSILE unmuted.
+        // Unlocked and full: 70 px, MISSILE unmuted.
         let before = hud.revision();
         hud.set_donut_mana(Some((8, 8)));
         hud.step(HERO_HEALTH, DONUT_HEALTH, &[], 0);
@@ -2893,7 +2974,7 @@ mod tests {
         assert_eq!(
             full.mana,
             Some(ManaView {
-                fill_px: 94,
+                fill_px: 70,
                 depleted_age: None
             })
         );
@@ -2901,10 +2982,10 @@ mod tests {
             panic!("chips")
         };
         assert_eq!((a.label, a.muted), (LabelId::Missile, false));
-        // Whole segments: 3 charges is 35 px.
+        // 3 charges is 26 px of the 70 px track.
         hud.set_donut_mana(Some((3, 8)));
         hud.step(HERO_HEALTH, DONUT_HEALTH, &[], 0);
-        assert_eq!(donut(&hud).mana.map(|m| m.fill_px), Some(35));
+        assert_eq!(donut(&hud).mana.map(|m| m.fill_px), Some(26));
         // Depleted: the flash starts at 0 and ages while she stays at 0.
         hud.set_donut_mana(Some((0, 8)));
         hud.step(HERO_HEALTH, DONUT_HEALTH, &[], 0);

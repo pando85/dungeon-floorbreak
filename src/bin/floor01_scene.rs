@@ -97,6 +97,7 @@ use dungeon_floorbreak::{
     hud_adapter::{HudPlugin, HudState},
     hud_settings::HudSettings,
     input::RawInput,
+    key_bindings::{self, KeyAction, KeyName},
     light_pass::{
         LAYER_DEBUG, LightPassPlugin, LightRig, LightingMaterial, PassFrame, SceneCamera,
         slot_layer, spawn_rig, update_rig,
@@ -252,7 +253,7 @@ struct Args {
     /// HUD-HYBRID-A-01: draw a labelled HUD preview fixture. Presentation
     /// only: it never reaches the simulation, the combat state or a replay.
     hud_preview: Option<HudPreview>,
-    /// HUD glyph set override (`--glyphs=xbox|dualsense`). `None` follows the
+    /// HUD glyph set override (`--glyphs=xbox|dualsense|keyboard`; `keyboard` forces P1's plate only). `None` follows the
     /// last-used gamepad (Xbox until one is seen).
     glyphs: Option<GlyphSet>,
     /// HUD-DEBT-06: reduced UI motion and high contrast. Environment first
@@ -677,7 +678,7 @@ fn parse_hud_preview(value: &str) -> Result<HudPreview, String> {
 
 fn parse_glyphs(value: &str) -> Result<GlyphSet, String> {
     GlyphSet::parse(value)
-        .ok_or_else(|| format!("unknown glyph set {value:?} (expected xbox, dualsense)"))
+        .ok_or_else(|| format!("unknown glyph set {value:?} (expected xbox, dualsense, keyboard)"))
 }
 
 /// Parse `first:step:count` of `--capture-sequence`.
@@ -1574,7 +1575,9 @@ fn parse_args_full(
                 parsed.hud_preview = Some(parse_hud_preview(&other["--hud-preview=".len()..])?);
             }
             "--glyphs" => {
-                let value = iter.next().ok_or("--glyphs needs xbox or dualsense")?;
+                let value = iter
+                    .next()
+                    .ok_or("--glyphs needs xbox, dualsense or keyboard")?;
                 parsed.glyphs = Some(parse_glyphs(value)?);
             }
             other if other.starts_with("--glyphs=") => {
@@ -5573,39 +5576,72 @@ fn pad_buttons(is: impl Fn(GamepadButton) -> bool) -> PadButtons {
     }
 }
 
+/// The engine key code of a key the binding table names (`key_bindings`). The
+/// table is the single source of the keyboard bindings: this is the only place a
+/// `KeyName` meets a Bevy `KeyCode`.
+const fn key_code(name: KeyName) -> KeyCode {
+    match name {
+        KeyName::KeyJ => KeyCode::KeyJ,
+        KeyName::KeyK => KeyCode::KeyK,
+        KeyName::KeyL => KeyCode::KeyL,
+        KeyName::KeyQ => KeyCode::KeyQ,
+        KeyName::Space => KeyCode::Space,
+        KeyName::ArrowLeft => KeyCode::ArrowLeft,
+        KeyName::ArrowRight => KeyCode::ArrowRight,
+        KeyName::ArrowDown => KeyCode::ArrowDown,
+        KeyName::KeyA => KeyCode::KeyA,
+        KeyName::KeyD => KeyCode::KeyD,
+        KeyName::KeyS => KeyCode::KeyS,
+    }
+}
+
+/// Any key bound to `action` is held.
+fn key_held(keys: &ButtonInput<KeyCode>, action: KeyAction) -> bool {
+    key_bindings::keys_of(action)
+        .iter()
+        .any(|name| keys.pressed(key_code(*name)))
+}
+
+/// Any key bound to `action` went down this frame.
+fn key_tapped(keys: &ButtonInput<KeyCode>, action: KeyAction) -> bool {
+    key_bindings::keys_of(action)
+        .iter()
+        .any(|name| keys.just_pressed(key_code(*name)))
+}
+
 /// Latch the keyboard's just-pressed edges between fixed steps (a tap shorter
-/// than a fixed tick is not lost; `fixed_step` consumes them).
+/// than a fixed tick is not lost; `fixed_step` consumes them). The keys come from
+/// the binding table (`key_bindings`): Jump Space, Primary J, Physical K, the
+/// equipped Special L (next to J and K, the keyboard's Circle/B) and the
+/// temporary solo Swap Q (the contract only fixes L1/LB; the keyboard stays P1).
 fn latch_keyboard_taps(keys: &ButtonInput<KeyCode>, controls: &mut Controls) {
-    controls.jump_tap |= keys.just_pressed(KeyCode::Space);
-    controls.attack_tap |= keys.just_pressed(KeyCode::KeyJ);
-    controls.physical_tap |= keys.just_pressed(KeyCode::KeyK);
-    // EquippedSpecial is L (next to J and K), the keyboard's Circle/B.
-    controls.ability_tap |= keys.just_pressed(KeyCode::KeyL);
-    // Temporary keyboard default for the solo swap (the contract only fixes
-    // L1/LB); the keyboard stays P1.
-    controls.swap_tap |= keys.just_pressed(KeyCode::KeyQ);
+    controls.jump_tap |= key_tapped(keys, KeyAction::Jump);
+    controls.attack_tap |= key_tapped(keys, KeyAction::Primary);
+    controls.physical_tap |= key_tapped(keys, KeyAction::Physical);
+    controls.ability_tap |= key_tapped(keys, KeyAction::Special);
+    controls.swap_tap |= key_tapped(keys, KeyAction::Swap);
 }
 
 /// P1's keyboard input for one fixed tick: held keys plus the latched taps,
-/// which are consumed.
+/// which are consumed. Every binding is read from `key_bindings`.
 fn keyboard_input(keys: &ButtonInput<KeyCode>, controls: &mut Controls) -> RawInput {
     let jump_tap = std::mem::take(&mut controls.jump_tap);
     let attack_tap = std::mem::take(&mut controls.attack_tap);
     let physical_tap = std::mem::take(&mut controls.physical_tap);
     let ability_tap = std::mem::take(&mut controls.ability_tap);
     let swap_tap = std::mem::take(&mut controls.swap_tap);
-    let left = keys.pressed(KeyCode::KeyA) || keys.pressed(KeyCode::ArrowLeft);
-    let right = keys.pressed(KeyCode::KeyD) || keys.pressed(KeyCode::ArrowRight);
+    let left = key_held(keys, KeyAction::MoveLeft);
+    let right = key_held(keys, KeyAction::MoveRight);
     RawInput {
         move_x: f32::from(i8::from(right) - i8::from(left)),
-        jump: keys.pressed(KeyCode::Space) || jump_tap,
-        attack: keys.pressed(KeyCode::KeyJ) || attack_tap,
-        physical: keys.pressed(KeyCode::KeyK) || physical_tap,
-        ability: keys.pressed(KeyCode::KeyL) || ability_tap,
+        jump: key_held(keys, KeyAction::Jump) || jump_tap,
+        attack: key_held(keys, KeyAction::Primary) || attack_tap,
+        physical: key_held(keys, KeyAction::Physical) || physical_tap,
+        ability: key_held(keys, KeyAction::Special) || ability_tap,
         swap: swap_tap,
-        // CF02-Q01: Down (S or the Down arrow). Only Carl's Physical press
+        // CF02-Q01: Down (the Down arrow or S). Only Carl's Physical press
         // under `--cf02` reads it.
-        down: keys.pressed(KeyCode::KeyS) || keys.pressed(KeyCode::ArrowDown),
+        down: key_held(keys, KeyAction::Down),
         ..RawInput::NONE
     }
 }
@@ -9330,6 +9366,10 @@ mod tests {
             args(&["--glyphs", "dualsense"]).unwrap().glyphs,
             Some(GlyphSet::DualSense)
         );
+        assert_eq!(
+            args(&["--glyphs=keyboard"]).unwrap().glyphs,
+            Some(GlyphSet::Keyboard)
+        );
         assert!(args(&["--glyphs=ps5"]).is_err());
         assert!(
             args(&["--hud-reduced-motion"])
@@ -12323,6 +12363,76 @@ mod tests {
         assert!(raw.ability);
         assert!(!raw.attack && !raw.physical && !raw.jump && !raw.swap);
         assert_eq!(raw.move_x, 0.0);
+    }
+
+    /// HUD-ART-02: the keyboard adapter reads its keys from the binding table (the
+    /// single source the HUD's key caps also come from). Every key of every row
+    /// drives exactly its action, and no key outside the table drives anything.
+    #[test]
+    fn the_keyboard_adapter_reads_its_keys_from_the_binding_table() {
+        let fire = |key: KeyCode| {
+            let mut keys = ButtonInput::<KeyCode>::default();
+            let mut controls = Controls::default();
+            keys.press(key);
+            latch_keyboard_taps(&keys, &mut controls);
+            keyboard_input(&keys, &mut controls)
+        };
+        let reads = |raw: &RawInput, action: KeyAction| match action {
+            KeyAction::Primary => raw.attack,
+            KeyAction::Physical => raw.physical,
+            KeyAction::Special => raw.ability,
+            KeyAction::Swap => raw.swap,
+            KeyAction::Jump => raw.jump,
+            KeyAction::MoveLeft => raw.move_x < 0.0,
+            KeyAction::MoveRight => raw.move_x > 0.0,
+            KeyAction::Down => raw.down,
+        };
+        let mut table_keys = Vec::new();
+        for (action, _cap, names) in key_bindings::KEY_BINDINGS {
+            for name in names {
+                table_keys.push(key_code(*name));
+                let raw = fire(key_code(*name));
+                for other in key_bindings::all_actions() {
+                    assert_eq!(reads(&raw, other), other == action, "{name:?} -> {other:?}");
+                }
+            }
+        }
+        // The legacy bindings are unchanged: J K L Q Space, A D and the arrows, S.
+        for (name, action) in [
+            (KeyName::KeyJ, KeyAction::Primary),
+            (KeyName::KeyK, KeyAction::Physical),
+            (KeyName::KeyL, KeyAction::Special),
+            (KeyName::KeyQ, KeyAction::Swap),
+            (KeyName::Space, KeyAction::Jump),
+            (KeyName::KeyA, KeyAction::MoveLeft),
+            (KeyName::ArrowLeft, KeyAction::MoveLeft),
+            (KeyName::KeyD, KeyAction::MoveRight),
+            (KeyName::ArrowRight, KeyAction::MoveRight),
+            (KeyName::KeyS, KeyAction::Down),
+            (KeyName::ArrowDown, KeyAction::Down),
+        ] {
+            assert!(key_bindings::keys_of(action).contains(&name));
+        }
+        // A key outside the table drives nothing.
+        for key in [
+            KeyCode::KeyR,
+            KeyCode::Escape,
+            KeyCode::KeyW,
+            KeyCode::KeyF,
+            KeyCode::KeyG,
+            KeyCode::Enter,
+            KeyCode::Tab,
+            KeyCode::ArrowUp,
+        ] {
+            assert!(!table_keys.contains(&key));
+            let raw = fire(key);
+            assert!(
+                key_bindings::all_actions()
+                    .iter()
+                    .all(|action| !reads(&raw, *action)),
+                "{key:?}"
+            );
+        }
     }
 
     /// A press shorter than a fixed tick (down and up between two steps) is

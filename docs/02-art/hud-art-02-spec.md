@@ -1,6 +1,6 @@
 # HUD-ART-02: keyboard glyphs, special chips, Donut plate (T07), notice backing plate
 
-Status: **design spec, keys drawn, execution pending.** Extends the hybrid HUD A ([native spec](hybrid-hud-a-native-spec.md)); everything not named here keeps that spec. Presentation only: no gameplay state, no hash, no input semantics change. Review status of every new region: `prototype_fixture_unapproved` until the independent art review and the owner's batch review.
+Status: **keys drawn, execution done, review pending.** Extends the hybrid HUD A ([native spec](hybrid-hud-a-native-spec.md)); everything not named here keeps that spec. Presentation only: no gameplay state, no hash, no input semantics change. Review status of every new region: `prototype_fixture_unapproved` until the independent art review and the owner's batch review.
 
 Scope (art audit, section 10, row 7): a keyboard key-cap glyph set (HUD-DEBT-05 leftover, audit H5), special chips for the dynamite and the blink (audit H3), a Donut plate layout that shows `BLINK` (T07, F01-FU-B10), a notice backing plate for dark scenes (CP-B2-FU-NOTICE, audit H4). AUDIENCE-01-A1 is out of scope (HA2-AD5).
 

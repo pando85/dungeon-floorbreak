@@ -107,6 +107,10 @@ pub struct PadSlots {
     known: Vec<(PadId, Option<u16>)>,
     slots: [SlotState; 2],
     glyphs: [GlyphSet; 2],
+    /// HA2-AD4b: the keyboard is P1's last-used device (a non-neutral keyboard
+    /// tick sets it, a non-neutral tick of P1's own pad clears it, both in one
+    /// tick keep it). Presentation only: nothing but [`PadSlots::glyphs`] reads it.
+    keyboard_p1: bool,
 }
 
 impl Default for PadSlots {
@@ -122,6 +126,7 @@ impl PadSlots {
             known: Vec::new(),
             slots: [SlotState::default(); 2],
             glyphs: [GlyphSet::default(); 2],
+            keyboard_p1: false,
         }
     }
 
@@ -151,8 +156,19 @@ impl PadSlots {
 
     /// The glyph set of `slot`'s own pad (Xbox until it has one). Kept while
     /// the slot waits for a reconnect, so the plate does not flicker.
-    pub fn glyphs(&self, slot: PlayerSlot) -> GlyphSet {
+    pub fn pad_glyphs(&self, slot: PlayerSlot) -> GlyphSet {
         self.glyphs[slot.index()]
+    }
+
+    /// The glyph set drawn for `slot`: P1 shows the key caps while the keyboard
+    /// is its last-used device (HA2-AD4b), every other case its pad family.
+    /// P2 never shows the keyboard set.
+    pub fn glyphs(&self, slot: PlayerSlot) -> GlyphSet {
+        if slot == PlayerSlot::P1 && self.keyboard_p1 {
+            GlyphSet::Keyboard
+        } else {
+            self.pad_glyphs(slot)
+        }
     }
 
     /// What the HUD draws: real ownership and the glyph family of each
@@ -166,11 +182,16 @@ impl PadSlots {
         };
         let (carl, carl_slot) = control(HeroId::Carl);
         let (donut, donut_slot) = control(HeroId::Donut);
+        // An AI plate draws no glyph: it shows P1's pad family, never the caps.
+        let shown = |control: Control, slot: PlayerSlot| match control {
+            Control::Ai => self.pad_glyphs(slot),
+            Control::Player(_) => self.glyphs(slot),
+        };
         PartyView {
             carl,
             donut,
-            carl_glyphs: self.glyphs(carl_slot),
-            donut_glyphs: self.glyphs(donut_slot),
+            carl_glyphs: shown(carl, carl_slot),
+            donut_glyphs: shown(donut, donut_slot),
             reconnect: self.waiting_slot().map(|slot| slot.index() as u8 + 1),
             donut_chips: self.party.tuning().donut_ability_chips(),
         }
@@ -280,15 +301,30 @@ impl PadSlots {
     /// (nothing sticks across the pause).
     pub fn take_inputs(&mut self, keyboard: RawInput) -> SlotInputs {
         let paused = self.party.is_paused();
-        if keyboard.move_x != 0.0
+        let keyboard_active = keyboard.move_x != 0.0
             || keyboard.jump
             || keyboard.attack
             || keyboard.physical
             || keyboard.ability
             || keyboard.swap
-            || keyboard.down
-        {
+            || keyboard.down;
+        if keyboard_active {
             self.party.note_keyboard_p1();
+        }
+        // HA2-AD4b: the last-used device of P1 for the HUD glyphs. A tick with
+        // both inputs keeps the current set; no input keeps it too.
+        let p1_pad = Self::slot_raw(&self.slots[PlayerSlot::P1.index()]);
+        let pad_active = p1_pad.move_x != 0.0
+            || p1_pad.jump
+            || p1_pad.attack
+            || p1_pad.physical
+            || p1_pad.ability
+            || p1_pad.swap
+            || p1_pad.down;
+        match (keyboard_active, pad_active) {
+            (true, false) => self.keyboard_p1 = true,
+            (false, true) => self.keyboard_p1 = false,
+            _ => {}
         }
         let mut out = [RawInput::default(); 2];
         for slot in PlayerSlot::ALL {
@@ -821,5 +857,162 @@ mod tests {
         slots.sample(fa);
         slots.apply(PadEvent::Disconnected { pad: A });
         assert_eq!(slots.take_inputs(keys), [RawInput::default(); 2]);
+    }
+
+    // ---- HUD-ART-02, HA2-AD4b: the keyboard glyph switch (presentation only)
+
+    const KB_MOVE: RawInput = RawInput {
+        move_x: 1.0,
+        ..RawInput::NONE
+    };
+
+    fn pad_press(slots: &mut PadSlots, pad: PadId) {
+        let mut f = frame(pad);
+        f.held.attack = true;
+        f.pressed.attack = true;
+        slots.sample(f);
+    }
+
+    fn pad_release(slots: &mut PadSlots, pad: PadId) {
+        slots.sample(frame(pad));
+    }
+
+    #[test]
+    fn with_no_input_the_default_glyph_set_stays() {
+        let mut slots = PadSlots::default();
+        for _ in 0..10 {
+            slots.take_inputs(RawInput::NONE);
+        }
+        assert_eq!(slots.glyphs(PlayerSlot::P1), GlyphSet::Xbox);
+        let mut pad = PadSlots::default();
+        connect(&mut pad, A, SONY);
+        pad.take_inputs(RawInput::NONE);
+        assert_eq!(pad.glyphs(PlayerSlot::P1), GlyphSet::DualSense);
+        assert_eq!(pad.hud_view().carl_glyphs, GlyphSet::DualSense);
+    }
+
+    #[test]
+    fn a_non_neutral_keyboard_tick_switches_p1_to_the_caps_and_a_pad_tick_switches_back() {
+        let mut slots = PadSlots::default();
+        connect(&mut slots, A, SONY);
+        assert_eq!(slots.glyphs(PlayerSlot::P1), GlyphSet::DualSense);
+        // A keyboard press of every kind switches.
+        for raw in [
+            KB_MOVE,
+            RawInput {
+                jump: true,
+                ..RawInput::NONE
+            },
+            RawInput {
+                attack: true,
+                ..RawInput::NONE
+            },
+            RawInput {
+                physical: true,
+                ..RawInput::NONE
+            },
+            RawInput {
+                ability: true,
+                ..RawInput::NONE
+            },
+            RawInput {
+                swap: true,
+                ..RawInput::NONE
+            },
+            RawInput {
+                down: true,
+                ..RawInput::NONE
+            },
+        ] {
+            let mut s = slots.clone();
+            s.take_inputs(raw);
+            assert_eq!(s.glyphs(PlayerSlot::P1), GlyphSet::Keyboard, "{raw:?}");
+            // The pad family underneath is kept for the return.
+            assert_eq!(s.pad_glyphs(PlayerSlot::P1), GlyphSet::DualSense);
+        }
+        slots.take_inputs(KB_MOVE);
+        assert_eq!(slots.hud_view().carl_glyphs, GlyphSet::Keyboard);
+        // Idle ticks keep the caps.
+        slots.take_inputs(RawInput::NONE);
+        assert_eq!(slots.glyphs(PlayerSlot::P1), GlyphSet::Keyboard);
+        // A non-neutral tick of P1's own pad returns to its vendor family.
+        pad_press(&mut slots, A);
+        slots.take_inputs(RawInput::NONE);
+        assert_eq!(slots.glyphs(PlayerSlot::P1), GlyphSet::DualSense);
+        // A stick beyond the deadzone counts, one inside it does not.
+        pad_release(&mut slots, A);
+        slots.take_inputs(KB_MOVE);
+        assert_eq!(slots.glyphs(PlayerSlot::P1), GlyphSet::Keyboard);
+        let mut drift = frame(A);
+        drift.move_x = STICK_DEADZONE * 0.5;
+        slots.sample(drift);
+        slots.take_inputs(RawInput::NONE);
+        assert_eq!(
+            slots.glyphs(PlayerSlot::P1),
+            GlyphSet::Keyboard,
+            "drift is neutral"
+        );
+        let mut stick = frame(A);
+        stick.move_x = -0.8;
+        slots.sample(stick);
+        slots.take_inputs(RawInput::NONE);
+        assert_eq!(slots.glyphs(PlayerSlot::P1), GlyphSet::DualSense);
+    }
+
+    #[test]
+    fn a_tick_with_both_inputs_keeps_the_current_set() {
+        let mut slots = PadSlots::default();
+        connect(&mut slots, A, MS);
+        // Pad set (Xbox): both in one tick keep it.
+        pad_press(&mut slots, A);
+        slots.take_inputs(KB_MOVE);
+        assert_eq!(slots.glyphs(PlayerSlot::P1), GlyphSet::Xbox);
+        pad_release(&mut slots, A);
+        slots.take_inputs(KB_MOVE);
+        assert_eq!(slots.glyphs(PlayerSlot::P1), GlyphSet::Keyboard);
+        // Keyboard set: both in one tick keep it.
+        pad_press(&mut slots, A);
+        slots.take_inputs(KB_MOVE);
+        assert_eq!(slots.glyphs(PlayerSlot::P1), GlyphSet::Keyboard);
+    }
+
+    #[test]
+    fn p2_never_shows_keyboard_glyphs_and_keyboard_input_only_moves_p1() {
+        let mut slots = two_player();
+        for _ in 0..3 {
+            slots.take_inputs(KB_MOVE);
+        }
+        assert_eq!(slots.glyphs(PlayerSlot::P1), GlyphSet::Keyboard);
+        assert_eq!(slots.glyphs(PlayerSlot::P2), GlyphSet::DualSense);
+        let view = slots.hud_view();
+        assert_eq!(
+            (view.carl, view.carl_glyphs),
+            (Control::Player(1), GlyphSet::Keyboard)
+        );
+        assert_eq!(
+            (view.donut, view.donut_glyphs),
+            (Control::Player(2), GlyphSet::DualSense)
+        );
+        // P2's pad input does not clear P1's caps either.
+        let mut f = frame(B);
+        f.held.attack = true;
+        f.pressed.attack = true;
+        slots.sample(f);
+        slots.take_inputs(RawInput::NONE);
+        assert_eq!(slots.glyphs(PlayerSlot::P1), GlyphSet::Keyboard);
+    }
+
+    #[test]
+    fn the_solo_swap_moves_the_caps_with_p1_and_an_ai_plate_never_shows_them() {
+        let mut slots = PadSlots::default();
+        slots.take_inputs(KB_MOVE);
+        let solo = slots.hud_view();
+        assert_eq!(
+            (solo.carl, solo.carl_glyphs),
+            (Control::Player(1), GlyphSet::Keyboard)
+        );
+        // The AI companion's plate draws no glyph and never takes the caps.
+        assert_eq!(solo.donut, Control::Ai);
+        assert_eq!(solo.donut_glyphs, GlyphSet::Xbox);
     }
 }

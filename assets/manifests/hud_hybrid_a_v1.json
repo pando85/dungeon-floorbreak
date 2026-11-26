@@ -9,20 +9,20 @@
   "palette_id": "hud-hybrid-a-v1",
   "frame_size": [
     208,
-    156
+    168
   ],
   "pivot": [
     0,
-    155
+    167
   ],
   "animation_tags": [],
   "required_alpha": true,
-  "owner": "AI-authored HUD art (HUD-HYBRID-A-01, hybrid A HUD: plates, strips, notice frame, glyphs, icons, tags, hero portraits, System CRT face; AUDIENCE-01 viewer eye, trend arrows and 5x7 digit masks)",
+  "owner": "AI-authored HUD art (HUD-HYBRID-A-01, hybrid A HUD: plates, strips, notice frame, glyphs, icons, tags, hero portraits, System CRT face; AUDIENCE-01 viewer eye, trend arrows and 5x7 digit masks; HUD-ART-02 keyboard key caps, item chips and the notice backing plate)",
   "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
   "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
   "review_status": "prototype_fixture_unapproved",
   "provenance": {
-    "origin": "Derived from approved sprite masters and top-tier keys; no AI concept pixels copied. Carl portrait and System CRT face are the frozen top-tier keys (assets/source/hud/keys/), pixels unchanged, lone 1 px details re-keyed to same-colour accent aliases for the strict lint. Donut portrait is a 28x28 1:1 crop of assets/source/characters/donut/donut_h40.grid.json frame 0 (x 14..41, y 4..31) with four edge pixels repainted. Frames, strips, notice frame, glyphs, icons and tags are original pixel-grid-v1 art written by scripts/author_hud_hybrid_a.py from the design spec (sections 2, 3, 7). The AUDIENCE-01 viewer eye, arrows and digits are copied pixel-exact from the top-tier keys in the PR #118 design review. The HUD concept PNGs were never sampled, traced or cropped.",
+    "origin": "Derived from approved sprite masters and top-tier keys; no AI concept pixels copied. Carl portrait and System CRT face are the frozen top-tier keys (assets/source/hud/keys/), pixels unchanged, lone 1 px details re-keyed to same-colour accent aliases for the strict lint. Donut portrait is a 28x28 1:1 crop of assets/source/characters/donut/donut_h40.grid.json frame 0 (x 14..41, y 4..31) with four edge pixels repainted. Frames, strips, notice frame, glyphs, icons and tags are original pixel-grid-v1 art written by scripts/author_hud_hybrid_a.py from the design spec (sections 2, 3, 7). The AUDIENCE-01 viewer eye, arrows and digits are copied pixel-exact from the top-tier keys in the PR #118 design review. HUD-ART-02: key_j, key_right, chip_dynamite and chip_puddle are the frozen top-tier keys (assets/source/hud/keys/hud_art_02_*), copied pixel-exact (lone 1 px details re-keyed to same-colour accent aliases for the strict lint); key_k, key_l, key_q, key_space, key_left and key_down are drawn from the spec's cap construction and 5x5 symbols; notice_frame is the HA2-AD3 plate, equal to the frozen notice-plate key. The HUD concept PNGs were never sampled, traced or cropped.",
     "generator": "Design and keys: Claude Opus. Execution (portrait crop, frames, glyphs, icons, tags, atlas, validators, evidence): Claude Sonnet via scripts/author_hud_hybrid_a.py. Independent review: pending, a separate top-tier agent. No image-model raster output.",
     "generated_art": true,
     "input_reference_ids": [
@@ -31,13 +31,16 @@
     ],
     "key_sha256": {
       "carl_portrait": "7d13f3d2a5b4ef4e604a3bcea2be4b558eb41b7da51e9769cd4d32361ecaf306",
-      "system_crt_face": "b5ec5a51332bcb3dc6641a0dd95f08e7d2817bb812f16f4a63a9387cc8dc71a3"
+      "system_crt_face": "b5ec5a51332bcb3dc6641a0dd95f08e7d2817bb812f16f4a63a9387cc8dc71a3",
+      "hud_art_02_keycaps": "6bcaed3b355fda18afa9c0f0acbb89174d4aeb5e3989c940d2a7f24a2b5495fd",
+      "hud_art_02_chips": "4d1cba4b870327af755ec660e34c23f9b1f0bda46f94a03fe92a29e636cef6c6",
+      "hud_art_02_notice_plate": "87bb7511e524da0cfdb2306f09ec2eaead3fe44452f79731b2286c11703d2fa5"
     }
   },
   "hud": {
     "atlas_size": [
       208,
-      156
+      168
     ],
     "regions": [
       {
@@ -86,7 +89,7 @@
           204,
           32
         ],
-        "sha256": "a7242d3047d3ccba15bc44196f389249e025ea7da583e61528405c1cb2ce14c2"
+        "sha256": "bd48e9ff6ca21891ef26cd76edd36f23f5c14a99366fdcf5d59654c1eaab3acd"
       },
       {
         "name": "crt_idle",
@@ -603,6 +606,126 @@
           7
         ],
         "sha256": "6c1679219f2cb37474e7b3bbfcd9bf23d1056bcb59a5fade29bd7f0fc9ada010"
+      },
+      {
+        "name": "key_j",
+        "source": "hud_keycaps",
+        "source_frame": 0,
+        "rect": [
+          0,
+          157,
+          11,
+          11
+        ],
+        "sha256": "5c2b9596a3150dcca1971046d80d66cc1d7a15dbd7322c272f7585fa49810f74"
+      },
+      {
+        "name": "key_k",
+        "source": "hud_keycaps",
+        "source_frame": 1,
+        "rect": [
+          12,
+          157,
+          11,
+          11
+        ],
+        "sha256": "14d232678df8af51911ad0fcd4924ae7a78a69a544df934675d5bcb5efba1c1a"
+      },
+      {
+        "name": "key_l",
+        "source": "hud_keycaps",
+        "source_frame": 2,
+        "rect": [
+          24,
+          157,
+          11,
+          11
+        ],
+        "sha256": "4d64e3ae4761b878cf67c84c2dfea19ad412dc8453def16c09cf7e539ceb84b2"
+      },
+      {
+        "name": "key_q",
+        "source": "hud_keycaps",
+        "source_frame": 3,
+        "rect": [
+          36,
+          157,
+          11,
+          11
+        ],
+        "sha256": "a4276748b736e4f03b1477a295f50b1e0567bbaabd6be7948b92bb1cd50db83f"
+      },
+      {
+        "name": "key_space",
+        "source": "hud_keycaps",
+        "source_frame": 4,
+        "rect": [
+          48,
+          157,
+          19,
+          11
+        ],
+        "sha256": "22b1739a5197e2b392bd3b2c24d6d8679f423a005af5061bc03f50ef21534a60"
+      },
+      {
+        "name": "key_left",
+        "source": "hud_keycaps",
+        "source_frame": 5,
+        "rect": [
+          68,
+          157,
+          11,
+          11
+        ],
+        "sha256": "c821b998e3dfa5e35197c81746b03e3053c7efb5e3156c8a2f670f933f015711"
+      },
+      {
+        "name": "key_right",
+        "source": "hud_keycaps",
+        "source_frame": 6,
+        "rect": [
+          80,
+          157,
+          11,
+          11
+        ],
+        "sha256": "cd17ce41641f1f4f7985732a2adaba3d994eec497bec130910dec283474bb8a2"
+      },
+      {
+        "name": "key_down",
+        "source": "hud_keycaps",
+        "source_frame": 7,
+        "rect": [
+          92,
+          157,
+          11,
+          11
+        ],
+        "sha256": "f82789ce7460c838376ab0ecdfc104207e22e9f3ee0e18167aead9ff84dbde31"
+      },
+      {
+        "name": "chip_dynamite",
+        "source": "hud_chips",
+        "source_frame": 0,
+        "rect": [
+          104,
+          157,
+          11,
+          11
+        ],
+        "sha256": "6e6fc4f6e5e6ca837ecd3e957a1b34e30871a1ea4ca7bf62f03269e721f3e1dc"
+      },
+      {
+        "name": "chip_puddle",
+        "source": "hud_chips",
+        "source_frame": 1,
+        "rect": [
+          116,
+          157,
+          11,
+          11
+        ],
+        "sha256": "c4bd198e3a69ef1053a3460746e299643fdb42bbdc14c88ac7f738c4448f3510"
       }
     ],
     "frame_counts": {
@@ -611,7 +734,9 @@
       "hud_system_crt": 3,
       "hud_glyphs": 9,
       "hud_tags": 3,
-      "hud_icons": 6
+      "hud_icons": 6,
+      "hud_keycaps": 8,
+      "hud_chips": 2
     },
     "portrait_palettes": {
       "portrait_carl": "carl_h52 subset (names carl_*)",
@@ -664,6 +789,8 @@
       "strip_*: draw left cap, repeat the 1 px mid column to the wanted width, draw right cap",
       "glyph names a, b, x, y are the Xbox set, cross/circle/square/triangle the DualSense set",
       "viewer_*: AUDIENCE-01 part A, single-frame sources hud_viewer_*; eye 9x7 (brass, brass_hi, hud_ink pupil), up 5x7 magenta_hi, down 5x7 amber (renderer tints amber_dim, untinted in high contrast), digits 5x7 text_white masks (advance 6; K and M and + included)",
+      "key_*: HUD-ART-02 keyboard key caps (11x11, key_space 19x11), HUD tokens only, a lit metal bevel with cut corners and a two-row metal_dark skirt; the renderer draws the cap for the keyboard glyph set in the same place as a pad glyph. chip_*: 11x11 item chips for the grant notice well (chip_dynamite on well_carl, chip_puddle on well_donut), drawn at notice +184,+10",
+      "notice_frame: HA2-AD3 plate (ink, metal bevel, magenta, ink ring, magenta_dk rule on row +26); the 15x15 item well (hud_ink, brass ring, well_carl or well_donut fill) at notice +182,+8 is code-drawn, not in the atlas",
       "the decimal point is not in the atlas: the renderer draws it as a code-placed 1x1 rect on digit row 6 with advance 2 (a lone pixel is not a sprite and fails the strict lint)"
     ]
   }
