@@ -1007,3 +1007,17 @@ The owner draft #179 is carried onto main, adapted, as [the Dozer opening choreo
 - **Hot files:** the REST-WIRE list, plus `src/dozer.rs`, `src/combat_scene/dozer.rs` and `src/encounter/haz.rs` for ACT1-B. REST-WIRE PR 2 is merged; the run grows from 12 to 14 (ACT1-A) and 15 (ACT1-B) rooms.
 - **Status after merge:** "merged, game-feel review pending", milestone `greybox`. Audio, the end-on wedge art and the ENV-02 dressing stay open (ACT1-Q2, Q3, Q7).
 - **Horizon:** no new button or ability. The biscuit moves from a run point into a room, and the chase teaches "too strong to kill yet". The direction is unchanged.
+
+## 18. TROG: the troglodyte run and the Test of Strength (owner draft #191)
+
+The owner draft #191 ("The House of Broken Weights") is carried onto main, adapted, as [the troglodyte integration plan](../01-design/floor-01-troglodyte-integration.md) and its [work order](floor-01-troglodyte-workorder.md). The plan holds every number. Under the owner decisions of 2026-11-24 and 2026-11-25, the lead-in joins the run as two greybox rooms between the camp and the Juicer, in two PRs: TROG-A (the enemy family and `trog_run`) and TROG-B (`trog_strength`, the bench and the gate). The environment art is a separate art order, AREA-TROG-01. This section records only what this plan owns.
+
+- **Run order:** … → rest_camp → **`trog_run`** → **`trog_strength`** → juicer → … (TROG-AD1). Validation rule TROG-R1: the listed trog rooms keep that order, and the last one directly precedes `juicer`. #191's T5 (the reception and turnstile) is the Juicer arena's existing zone A.
+- **Enemies:** the Pygmy, Basher and Virtuoso are one ENEMY-SLOT kind, `RosterKind::Trog`, with three profiles, one tuning file and boxes checked against the TROG manifests. Each attack commits at its tell start and targets only a hero it can reach. Interrupts key on `HitSource`, so bolts never interrupt the heavy two.
+- **The bench:** an 80 px CORRAL-D partition that the Basher's smash breaks by a real overlap (a Hoarder-style shove). A declared static fallback applies if the partition cannot carry it.
+- **Gate:** STATIONARY-DONUT is asserted on the Test of Strength, as the invariant plus KC19. T1's Pygmy is the positive control. A new `trog_eval` reuses `corral_eval`'s machinery; the corral report stays byte-identical.
+- **Pins:** `MANIFEST_HASH` once per PR; `SCOPED_PIN_KEYS` 32 → 35 → 37; PLAYTRACE `data_pins()` the same. The Juicer's data, goldens and gate, `TABLE_HASH` and every existing fixture hash do not move.
+- **AUDIENCE-RUN:** live in both rooms by the positional rule; no new reaction.
+- **Hot files:** the ACT1 list, plus `src/scene_enemy.rs` (one appended ctx field, two default trait methods), its `SlotStepCtx` constructors, the companion view kinds with one data-free `mode_for` arm in `src/companion/autonomy.rs`, and `src/corral_eval/`. The run grows from 15 to 16 (TROG-A) and 17 (TROG-B) rooms.
+- **Status after merge:** "merged, game-feel review pending", milestone `greybox`. Audio, death profiles and the environment kit stay open (TROG-Q6, Q7, AREA-TROG-01).
+- **Horizon:** no new button or ability. Three enemies deepen existing verbs, and the bench is a bounded terrain interaction. The direction is unchanged.
