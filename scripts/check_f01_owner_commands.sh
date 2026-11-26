@@ -40,6 +40,11 @@ try ok $S
 # F01-RUN: the whole floor in one session (the first listed room; a 30-tick run never reaches an exit).
 try ok $S --f01-run
 try ok $S --f01-run --f01-loadout all
+# AUDIENCE-RUN: the viewer counts and the showcase feats are on in a live run; the opt-outs and a direct start in a
+# room after the corral (live at the baseline) launch too, and the broadcast flags are refused outside a floor run.
+try ok $S --f01-run --audience=off
+try ok $S --f01-run --f01-room hoarder
+try refuse $S --audience=on
 try refuse $S --f01-run --cf02-seed 3
 # AREA-RINGS-01: a floor run can start in either Ring room (the kit renders through the one launch path), and
 # `--ring-pilot` (the evidence pilot of the Ring rooms) is refused outside them.

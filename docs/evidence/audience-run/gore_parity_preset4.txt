@@ -1,0 +1,11 @@
+CINE01_MOMENT tick=195 tier=legendary score=8 credited=0 target=0 precision_edge=0 mixed_chain=0 contact_setup=0 extra_kills=2 thrown_multi=1 showcase_bonus=1
+COMBAT_EVENT tick=4 kind=special_started hero=0 capability=special_thrown_charge
+COMBAT_EVENT tick=45 kind=charge_thrown charge=0 x=416 y=138
+COMBAT_EVENT tick=83 kind=charge_landed charge=0 x=511 y=92
+COMBAT_EVENT tick=195 kind=blast charge=0
+COMBAT_EVENT tick=195 kind=enemy_defeated target=0 cause=explosion charge=0 credit_player=0 instigator=0
+COMBAT_EVENT tick=195 kind=enemy_defeated target=1 cause=explosion charge=0 credit_player=0 point_blank instigator=0
+COMBAT_EVENT tick=195 kind=enemy_defeated target=2 cause=explosion charge=0 credit_player=0 point_blank instigator=0
+COMBAT_EVENT tick=195 kind=enemy_defeated target=3 cause=explosion charge=0 credit_player=0 instigator=0
+COMBAT_EVENT tick=195 kind=enemy_defeated target=4 cause=explosion charge=0 credit_player=0 point_blank instigator=0
+AUDIENCE_STATE steps=330 carl=12150 donut=250 carl_trend=Flat donut_trend=Flat digest=241102db8eb84d4b

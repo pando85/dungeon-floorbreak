@@ -1,6 +1,6 @@
 # AUDIENCE-RUN: viewers and showcase slow motion in the Floor 01 run
 
-> **Status: design adopted under the owner's design-defaults directive (AGENTS.md, 2026-11-19), owner decision 2026-11-25; not implemented, not game-feel accepted.** After the implementation PR merges, the backlog status is "merged, game-feel review pending". The owner judges the feel in the playtest; any adopted value below can change in a follow-up PR.
+> **Status: design adopted under the owner's design-defaults directive (AGENTS.md, 2026-11-19), owner decision 2026-11-25; implemented in the AUDIENCE-RUN PR (see [section 12](#12-implementation-status)), not game-feel accepted.** After the implementation PR merges, the backlog status is "merged, game-feel review pending". The owner judges the feel in the playtest; any adopted value below can change in a follow-up PR.
 > Design: Claude Opus (top tier). Execution: medium tier, one implementation PR ([section 9](#9-implementation-plan-one-pr)). Review: a separate top-tier agent.
 
 **Owner decision (2026-11-25):** "go with all owner-gated items using adopted defaults; everything must end on main and be reachable in `--scene f01_late --f01-run` for next week's playtest." The owner asked whether the audience system with per-death-kind animations exists, and whether the best kills get slow motion. AUDIENCE-RUN answers with three changes:
@@ -135,7 +135,7 @@ Worked scores:
 - **CINE-T02 is amended to:** "three routine kills / block-only / `qa_blast_breakup` `Explosion` defeats / an authored, chained, sticker or dropped charge's blast → no candidate, **with showcase on or off**. Only a deliberate thrown charge with a recorded `ChargeThrown` and an owner (`CINE-THROWN-MULTI`, at least 3 kills) is a blast primary, and only under `showcase_feats`."
 - **The "bonuses alone never qualify" sentence** stays true. SHOWCASE-BONUS and EXTRA-KILL never qualify on their own.
 
-The CINE-01 tech doc carries these amendments (section 2, section 5, section 7) with "implementation pending".
+The CINE-01 tech doc carries these amendments (section 2, section 5, section 7) (now implemented, game feel pending).
 
 ## 5. Audience scoring hooks (deliverable 4)
 
@@ -298,3 +298,21 @@ Commit everything under `docs/evidence/audience-run/`, with a README holding the
 - **Living-horizon check** ([character-progression-horizon](character-progression-horizon.md)): this design adds no move, ability, unlock of play or co-op rule. It rewards existing moves (the thrown charge, Donut's missiles, Carl's kicks) through presentation and a cosmetic counter. **It still fits; the guide needs no update.**
 - **Antihero tone** ([antihero-tone](antihero-tone.md)): the broadcast is the dungeon's cynical spectacle, not the heroes' vanity. The plates only count. The reveal line is a flat fact, with no catchphrase, no announcer quote and no invented dialogue. Slow motion stays short, so it reads as a hard-won moment rather than a power fantasy.
 - **IP-neutral contracts:** the engine-side names are generic (`ShowcaseTarget`, `CINE-THROWN-MULTI`, `showcase_feats`). The llama is the v1 showcase species, chosen in the scene adapter, and can be replaced like any fan-concept layer.
+
+## 12. Implementation status
+
+Implemented in the AUDIENCE-RUN PR (medium tier, from this design; review by a separate top-tier agent). Status after merge: **merged, game-feel review pending**. Nothing here is game-feel accepted; the owner judges it in the playtest and any adopted value can change in a follow-up PR.
+
+| Piece | Where | Tests |
+| --- | --- | --- |
+| Showcase feats, `CineCause::Blast`, `ChargeThrown` and `ShowcaseTarget` events, tuning fields and `validate` | `src/cine.rs` | AR-T01 to AR-T14 (`cine::ar_*`), the `from_combat` mapping test |
+| Showcase-target bridge, CA-29 for `Blast`, boss exclusions | `src/cine_adapter.rs` | AR-T15, AR-T15b |
+| `AudienceState::resume` and `carry`, `HudRuntime::resume_audience` and `audience_carry` | `src/audience.rs`, `src/hud.rs` | AR-T16 |
+| `--f01-audience`, `audience_live_in`, the corral panel line | `src/f01_run.rs` | AR-T18 to AR-T20 |
+| `--audience`, `--cine-showcase`, run defaults, resume at room start, feed and live adapter tuning, observer moment lines, exit carry | `src/bin/floor01_scene.rs` | AR-T17, AR-T21, AR-T22 |
+| The drop-and-hurt same-tick fact | `src/combat_scene/thrown.rs` | AR-T26 |
+| `carl_prog_dyn_thrown_triple` and `carl_prog_dyn_llama_pack` | `src/carl_prog_fixtures.rs` | AR-T23, AR-T24; AR-T25 through the `cine` CI probes |
+
+Headless and capture observer `CINE01_MOMENT` lines (explicit `--cine-showcase=on`) come from the pre-simulation feed and are not tick-ordered against the `COMBAT_EVENT` lines; consumers filter by prefix. `--audience=off` together with `--f01-audience` is a parse error. Co-op watch item: a goblin last hit by a companion-driven hero and then killed by the player's credited stick is dropped by the CA-29 filter (a missed moment, never a false one); revisit with AR-Q4 if the playtest shows missed moments in co-op.
+
+Evidence: [`docs/evidence/audience-run/`](../evidence/audience-run/README.md). Notes recorded by the implementation (AR-IMP-n) are in the PR body.

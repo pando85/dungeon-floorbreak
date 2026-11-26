@@ -893,6 +893,45 @@ case "$mode" in
       grep -q '^CINE01_SLOWMO end=Completed' "$log" || { echo "CINE-T12: $framing did not complete the moment" >&2; exit 1; }
       echo "CINE_T12_OK: $framing $(grep '^CINE01_SLOWMO end' "$log" | head -n 1)"
     done
+    # AUDIENCE-RUN (AR-T23..AR-T25): the showcase moment lines. The headless observer lines (presentation OFF, no
+    # CINE01_SLOWMO line) of the party fixtures and the existing llama, core, boss and blast fixtures equal the
+    # committed files, the authoritative lines are the same with the showcase on and off (CINE is an observer), and
+    # a run is the same twice. An empty committed file is a probe that must produce no moment.
+    showcase_dir=docs/evidence/audience-run
+    showcase_probes=(
+      "carl_prog_dyn_thrown_triple|--party-fixture carl_prog_dyn_thrown_triple"
+      "carl_prog_dyn_llama_pack|--party-fixture carl_prog_dyn_llama_pack"
+      "carl_prog_dyn_llama_core|--party-fixture carl_prog_dyn_llama_core"
+      "carl_prog_dyn_core_kill|--party-fixture carl_prog_dyn_core_kill"
+      "carl_prog_dyn_boss|--party-fixture carl_prog_dyn_boss"
+      "qa_blast_breakup|--fixture qa_blast_breakup"
+    )
+    auth_lines() { grep -E '^(COMBAT_EVENT|COMBAT_STATE|PARTY_STATE)' "$1" || true; }
+    for spec in "${showcase_probes[@]}"; do
+      IFS='|' read -r name flags <<<"$spec"
+      # shellcheck disable=SC2086
+      "$bin" --headless-floor01-smoke $flags --cine-showcase=on > "$out/showcase_${name}.log"
+      # shellcheck disable=SC2086
+      "$bin" --headless-floor01-smoke $flags --cine-showcase=on > "$out/showcase_${name}_again.log"
+      # shellcheck disable=SC2086
+      "$bin" --headless-floor01-smoke $flags > "$out/showcase_${name}_off.log"
+      { grep '^CINE01_MOMENT' "$out/showcase_${name}.log" || true; } > "$out/showcase_${name}.moments"
+      { grep '^CINE01_MOMENT' "$out/showcase_${name}_again.log" || true; } > "$out/showcase_${name}_again.moments"
+      cmp -s "$out/showcase_${name}.moments" "$out/showcase_${name}_again.moments" || { echo "showcase probe $name is not deterministic" >&2; exit 1; }
+      diff "$showcase_dir/moments_${name}.txt" "$out/showcase_${name}.moments" || { echo "showcase probe $name differs from $showcase_dir/moments_${name}.txt" >&2; exit 1; }
+      if grep -q '^CINE01_SLOWMO' "$out/showcase_${name}.log"; then echo "showcase probe $name printed a slow-motion line on a headless run" >&2; exit 1; fi
+      cmp -s <(auth_lines "$out/showcase_${name}.log") <(auth_lines "$out/showcase_${name}_off.log") || { echo "showcase probe $name: the authoritative lines differ with the showcase on" >&2; exit 1; }
+      if grep -q '^CINE01_MOMENT' "$out/showcase_${name}_off.log"; then echo "showcase probe $name printed a moment with the showcase off" >&2; exit 1; fi
+      echo "SHOWCASE_OK: $name moments=$(wc -l < "$out/showcase_${name}.moments") $(head -n 1 "$out/showcase_${name}.moments")"
+    done
+    # The windowed llama slam: the same moment and the slow motion over it (the windowed run prints the real-time
+    # numbers of the slow motion, which vary, so only the moment line is compared).
+    log="$out/cine_showcase_cp05_llama_slam.log"
+    cine_run "$log" --scale 3 --fixture cp05_llama_slam --cine-showcase=on --cinematic-finishes=on --exit-after-ticks 230
+    diff "$showcase_dir/moments_cp05_llama_slam.txt" <(grep '^CINE01_MOMENT' "$log") || { echo "cp05_llama_slam moment differs from $showcase_dir/moments_cp05_llama_slam.txt" >&2; exit 1; }
+    grep -q '^CINE01_SLOWMO start' "$log" || { echo "CINE: the llama slam never started the slow motion" >&2; exit 1; }
+    grep -q '^CINE01_SLOWMO end=Completed' "$log" || { echo "CINE: the llama slam did not return to full speed (Completed)" >&2; exit 1; }
+    echo "SHOWCASE_SLOWMO_OK: cp05_llama_slam $(grep '^CINE01_MOMENT' "$log")"
     ;;
   replay)
     # PTR-R1: the replay viewer on a synthetic recording (never a human session).

@@ -1,0 +1,9 @@
+COMBAT_EVENT tick=4 kind=special_started hero=0 capability=special_thrown_charge
+COMBAT_EVENT tick=45 kind=charge_thrown charge=0 x=416 y=138
+COMBAT_EVENT tick=83 kind=charge_landed charge=0 x=511 y=92
+COMBAT_EVENT tick=195 kind=blast charge=0
+COMBAT_EVENT tick=195 kind=enemy_defeated target=0 cause=explosion charge=0 credit_player=0 point_blank instigator=0
+COMBAT_EVENT tick=195 kind=enemy_defeated target=1 cause=explosion charge=0 credit_player=0 point_blank instigator=0
+COMBAT_EVENT tick=195 kind=enemy_defeated target=2 cause=explosion charge=0 credit_player=0 point_blank instigator=0
+COMBAT_STATE fixture=carl_prog_dyn_thrown_triple seed=0xca10049 tick=330 elapsed=330 hero_hp=4 deaths=0 enemies=e0=345.000/0,e1=665.001/0,e2=677.001/0 hash=ba94d207f46b4ee4
+PARTY_STATE fixture=carl_prog_dyn_thrown_triple mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=cee28f1ee914b7aa

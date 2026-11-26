@@ -24,11 +24,13 @@
 
 use std::collections::VecDeque;
 
+use crate::boss::BOSS_ENEMY_ID;
 use crate::cine::{
     CineCause, CineEvent, CineTuning, CinematicEvaluator, CinematicMoment, FrameContext, FramePlan,
     PlannerState, PresentationSettings, RequestOutcome, SlowMoPlanner,
 };
 use crate::combat::{CombatEvent, MoveId};
+use crate::pile_boss::PILE_BOSS_ID;
 
 /// How many launch kicks are remembered for the launch proof. A contact must
 /// follow its kick within the flight of one goblin, so a handful is plenty.
@@ -54,6 +56,10 @@ fn is_companion_credited(event: &CineEvent, companion_driven: [bool; 2]) -> bool
         CineCause::ShoreBlock { player }
         | CineCause::ShoreBlockEdge { player }
         | CineCause::DropHazard { player } => Some(player),
+        // CA-29 (AUDIENCE-RUN): a thrown blast names its owner. `Blast` must
+        // never sit next to `Melee | Other`, or an AI-driven Carl's blast
+        // would reach the evaluator.
+        CineCause::Blast { player, .. } => player,
         CineCause::Melee | CineCause::Other => None,
     };
     instigator.is_some_and(driven) || named.is_some_and(driven)
@@ -77,6 +83,9 @@ pub struct CineAdapter {
     cancel: bool,
     emitted: u32,
     target: Option<u32>,
+    /// AUDIENCE-RUN bridge: `(first showcase target id, count)` from the
+    /// authoritative combat state (the llamas), set by the scene each tick.
+    showcase: Option<(u32, u32)>,
 }
 
 impl CineAdapter {
@@ -93,7 +102,27 @@ impl CineAdapter {
             cancel: false,
             emitted: 0,
             target: None,
+            showcase: None,
         }
+    }
+
+    /// The showcase species' target ids (`first..first + count`; the llamas
+    /// follow the goblins in the combat target id space). Read from the
+    /// simulation's state, never from presentation. Only used while the
+    /// tuning has `showcase_feats` on.
+    pub fn set_showcase_targets(&mut self, first: u32, count: u32) {
+        self.showcase = Some((first, count));
+    }
+
+    /// Whether `target` is a showcase species (a llama in v1): in the id
+    /// range, and never a boss (AR-AD16, AR-AD25).
+    fn is_showcase_target(&self, target: u32) -> bool {
+        self.evaluator.tuning().showcase_feats
+            && target != BOSS_ENEMY_ID
+            && target != PILE_BOSS_ID
+            && self
+                .showcase
+                .is_some_and(|(first, count)| target >= first && target - first < count)
     }
 
     pub fn settings(&self) -> PresentationSettings {
@@ -184,6 +213,12 @@ impl CineAdapter {
         if let Some(mapped) = CineEvent::from_combat(event) {
             if is_companion_credited(&mapped, companion_driven) {
                 return;
+            }
+            if let CineEvent::Defeated { tick, target, .. } = mapped
+                && self.is_showcase_target(target)
+            {
+                self.pending
+                    .push(CineEvent::ShowcaseTarget { tick, target });
             }
             self.pending.push(mapped);
         }
@@ -639,6 +674,129 @@ mod tests {
         assert!(!is_companion_credited(
             &CineEvent::HeroHurt { tick: 1, player: 0 },
             [true, true]
+        ));
+    }
+
+    // ---- AUDIENCE-RUN -----------------------------------------------------
+
+    const SHOWCASE: CineTuning = CineTuning::DEFAULT.with_showcase(true);
+
+    fn blast(tick: u64, target: u32) -> CombatEvent {
+        defeat(
+            tick,
+            target,
+            DefeatCause::Explosion {
+                charge: 7,
+                player: Some(0),
+                point_blank: false,
+            },
+            None,
+        )
+    }
+
+    fn throw(tick: u64) -> CombatEvent {
+        CombatEvent::ChargeThrown {
+            tick,
+            charge: 7,
+            x: 511,
+            y: 100,
+        }
+    }
+
+    /// Four goblins (ids 0..=3) and a llama (id 4) in one thrown blast.
+    fn stick_and_llama() -> Vec<CombatEvent> {
+        let mut events = vec![throw(100)];
+        events.extend((0..5).map(|t| blast(250, t)));
+        events
+    }
+
+    #[test]
+    fn showcase_targets_are_bridged_only_when_on() {
+        let bridged = |a: &CineAdapter| {
+            a.pending
+                .iter()
+                .filter(|e| matches!(e, CineEvent::ShowcaseTarget { .. }))
+                .count()
+        };
+        // Off: no bridge, and the thrown blast is nothing (main).
+        let mut off = CineAdapter::with_tuning(PresentationSettings::OFF, CineTuning::DEFAULT);
+        off.set_showcase_targets(4, 1);
+        for e in &stick_and_llama() {
+            off.push(e);
+        }
+        assert_eq!(bridged(&off), 0);
+        assert!(off.flush().is_empty());
+        // On: the llama-range defeat gets the bridge, once, and the moment is
+        // the legendary stick-and-llama.
+        let mut on = CineAdapter::with_tuning(PresentationSettings::OFF, SHOWCASE);
+        on.set_showcase_targets(4, 1);
+        for e in &stick_and_llama() {
+            on.push(e);
+        }
+        assert_eq!(bridged(&on), 1);
+        let out = on.flush();
+        assert_eq!(out.len(), 1);
+        assert_eq!(
+            (out[0].moment.score, out[0].moment.tier),
+            (8, CineTier::Legendary)
+        );
+        assert!(out[0].moment.feats.thrown_multi && out[0].moment.feats.showcase_bonus);
+        // Neither boss id is ever bridged, even inside the range.
+        let mut a = CineAdapter::with_tuning(PresentationSettings::OFF, SHOWCASE);
+        a.set_showcase_targets(0, u32::MAX);
+        a.push(&blast(5, BOSS_ENEMY_ID));
+        a.push(&blast(5, PILE_BOSS_ID));
+        assert_eq!(bridged(&a), 0);
+        // Without the range from the scene nothing is a showcase target.
+        let mut a = CineAdapter::with_tuning(PresentationSettings::OFF, SHOWCASE);
+        a.push(&blast(5, 4));
+        assert_eq!(bridged(&a), 0);
+    }
+
+    #[test]
+    fn a_companion_driven_thrown_blast_never_reaches_the_evaluator() {
+        let run = |driven: [bool; 2]| {
+            let mut a = CineAdapter::with_tuning(PresentationSettings::OFF, SHOWCASE);
+            a.set_showcase_targets(10, 1);
+            let events: Vec<CombatEvent> = std::iter::once(throw(100))
+                .chain((0..3).map(|t| blast(250, t)))
+                .collect();
+            for e in &events {
+                a.push_driven(e, driven);
+            }
+            let bridged = a
+                .pending
+                .iter()
+                .filter(|e| matches!(e, CineEvent::ShowcaseTarget { .. }))
+                .count();
+            (a.flush().len(), bridged)
+        };
+        assert_eq!(run([false, false]).0, 1, "a human Carl's thrown triple");
+        assert_eq!(run([true, false]).0, 0, "an AI-driven Carl's never");
+        assert_eq!(
+            run([false, true]).0,
+            1,
+            "an AI-driven Donut does not gate Carl"
+        );
+        // A companion-credited llama defeat pushes no bridge event either.
+        let mut a = CineAdapter::with_tuning(PresentationSettings::OFF, SHOWCASE);
+        a.set_showcase_targets(10, 1);
+        a.push_driven(&defeat(30, 10, MELEE, Some(0)), [true, false]);
+        assert!(a.pending.is_empty());
+        a.push_driven(&defeat(30, 10, MELEE, Some(0)), [false, false]);
+        assert_eq!(a.pending.len(), 2);
+        assert!(is_companion_credited(
+            &CineEvent::Defeated {
+                tick: 1,
+                target: 1,
+                cause: CineCause::Blast {
+                    player: Some(0),
+                    charge: 7
+                },
+                instigator: None,
+                slot: None
+            },
+            [true, false]
         ));
     }
 }
