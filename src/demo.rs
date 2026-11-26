@@ -819,19 +819,19 @@ mod tests {
     fn the_attempt_counts_respawns_and_restarts_without_hashing_them() {
         let kit = load_hall(root()).unwrap();
         let mut run = sim(&kit, 0);
-        assert_eq!(run.combat.attempt(), 1);
+        assert_eq!(run.combat.hud_try(), 1);
         autopilot_steps(&mut run, 200);
         let hash = run.combat.state_hash(&run.scene);
         run.combat.respawns += 5;
         assert_eq!(run.combat.state_hash(&run.scene), hash, "not hashed");
         run.combat.respawns -= 5;
         run.combat.respawn(&mut run.scene);
-        assert_eq!((run.combat.respawns, run.combat.attempt()), (1, 2));
+        assert_eq!((run.combat.respawns, run.combat.hud_try()), (1, 2));
         run.combat.respawn(&mut run.scene);
-        assert_eq!(run.combat.attempt(), 3);
+        assert_eq!(run.combat.hud_try(), 3);
         run.combat.restart(&mut run.scene);
         assert_eq!((run.combat.restarts, run.combat.respawns), (1, 2));
-        assert_eq!(run.combat.attempt(), 4, "a restart keeps the respawns");
+        assert_eq!(run.combat.hud_try(), 4, "a restart keeps the respawns");
     }
 
     /// The interactive demo runs the live party (Donut is a real companion

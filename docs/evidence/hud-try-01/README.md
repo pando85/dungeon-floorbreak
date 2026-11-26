@@ -8,7 +8,7 @@ Before this change the location strip of a `--scene f01_late` room showed `TRY n
 (held-Select restart or a party-defeat retry). A death followed by the DEMO-01 checkpoint respawn (and a Select tap
 respawn) kept the same number, so a room with one death still read `TRY 1` (pre-existing since #270).
 
-**Adopted default HT-AD1:** every attempt start counts. `CombatState::attempt` = 1 (the room's entry) + `restarts`
+**Adopted default HT-AD1:** every attempt start counts. `CombatState::hud_try` = 1 (the room's entry) + `restarts`
 + `respawns` (each checkpoint respawn, after a defeat or a Select tap). A restart does not reset the respawn count, so
 the number only goes up within a room. The new `respawns` counter is not hashed and is read only by the HUD.
 Unchanged: `restarts` (and with it the CF02 temperament draw), the room-clear panel's deaths and restarts,

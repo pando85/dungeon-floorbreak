@@ -1662,7 +1662,7 @@ impl HudRuntime {
     }
 
     /// F01-HUD-ROOM: the attempt the location text counts (HUD-TRY-01, HT-AD1:
-    /// `CombatState::attempt`, 1 + the room's restarts + its checkpoint
+    /// `CombatState::hud_try`, 1 + the room's restarts + its checkpoint
     /// respawns). Bumps the revision only on a change, and only in a room.
     pub fn set_attempt(&mut self, attempt: u32) {
         if self.attempt != attempt {
