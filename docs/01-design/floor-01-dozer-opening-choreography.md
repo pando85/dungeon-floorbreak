@@ -1,6 +1,6 @@
 # F01-CHASE-DIRECTOR-01: Murder Dozer opening, playable cinematic choreography
 
-**Status:** encounter direction and an agent implementation specification. It is **not implemented and not playtest-approved**. It enhances the approved ENV-02 route **without replacing its geometry, asset contracts or controller grammar**. The existing Floor 01 design authorities still govern narrative and ability decisions.
+**Status:** encounter direction and an agent implementation specification. It is implemented as a labelled playable greybox by ACT1-B (the integration plan's section 17.1) and **not playtest-approved**. It enhances the approved ENV-02 route **without replacing its geometry, asset contracts or controller grammar**. The existing Floor 01 design authorities still govern narrative and ability decisions.
 
 **Goal:** a player should think "we barely survived that thing", and should remember it when the later, optional Dozer revenge in room 3 comes. Fear and scale come from **real-time play**, not from a noninteractive cutscene.
 

@@ -513,6 +513,36 @@ fn print_the_chase_tables() {
         let s = sim(case);
         println!("    (\"{}\", {:#018x}),", case.name(), s.hash());
     }
+    for case in all_cases() {
+        let s = sim(case);
+        let at = |pick: &dyn Fn(&DozerEvent) -> bool| {
+            s.first(pick).map_or("-".into(), |t| t.to_string())
+        };
+        println!(
+            "ACT1_FIXTURE name={} room=act1_chase ticks={} exit={} respawns={} wheel_hits={} ai_rescues={} rescue_spots(pocket,behind,lane,tunnel)=({},{},{},{}) rumble={} emerged={} tell={} committed={} impact={} brake={} wedged={} commit_front={} hash={:#018x}",
+            case.name(),
+            s.tick(),
+            s.complete(),
+            s.sim.combat.respawns,
+            s.wheel_hits(),
+            s.rescues(),
+            s.rescues_by_spot(RescueSpot::Pocket),
+            s.rescues_by_spot(RescueSpot::Behind),
+            s.rescues_by_spot(RescueSpot::Lane),
+            s.rescues_by_spot(RescueSpot::Tunnel),
+            at(&|e| matches!(e, DozerEvent::Rumble { .. })),
+            at(&|e| matches!(e, DozerEvent::Emerged { .. })),
+            at(&|e| *e == DozerEvent::ChargeTell),
+            at(&|e| *e == DozerEvent::ChargeCommitted),
+            at(&|e| *e == DozerEvent::BarrierImpact),
+            at(&|e| matches!(e, DozerEvent::BrakeStarted { .. })),
+            at(&|e| *e == DozerEvent::Wedged),
+            s.dozer()
+                .commit
+                .map_or("none".into(), |c| format!("{:.1}", c.front)),
+            s.hash()
+        );
+    }
     let _ = DozerState::Disabled;
 }
 
@@ -549,4 +579,66 @@ fn the_first_run_holds_across_delays_and_stalls() {
     }
     assert_eq!(runs, 96);
     println!("sweep: {runs} runs, {rescues} bot rescues in all, zero wheel contacts");
+}
+
+/// ACT1-AD9: the opening machine is drawn without riders (the shore goblins stand in for them):
+/// the presenter's rig is the rider-less rig, two parts short of the seated one.
+#[test]
+fn the_opening_machine_is_drawn_without_riders() {
+    use crate::dozer_art::rig_sprites;
+    let s = sim(Case::SoloFirstRun);
+    let w = &s.sim.scene.world;
+    let drawn = |seated: [bool; 2]| rig_sprites(s.dozer(), w.tick, false, seated);
+    assert_eq!(drawn([true, true]).len() - drawn([false, false]).len(), 2);
+    let art = crate::dozer_art::draw(&s.sim.combat, [w.hero.x, w.donut_body.x], w.tick).unwrap();
+    for sprite in drawn([false, false]) {
+        // (the wedge clips some sprites at the arch: compare the unclipped ones by sheet/frame)
+        assert!(
+            art.sprites.iter().any(|a| a.sheet == sprite.sheet
+                && a.frame == sprite.frame
+                && a.left == sprite.left),
+            "{sprite:?}"
+        );
+    }
+}
+
+/// Evidence helper (ignored): the per-tick trace of F13 at lag 448 (tick, hero columns, the
+/// machine's wheel front and state, the charge stage), for the schematic GIF.
+#[test]
+#[ignore = "evidence helper: prints the F13 lag 448 trace"]
+fn print_the_f13_trace() {
+    let lag = 448u16;
+    let held = f32::from(lag).min(LEASH_HOLD_PX);
+    let arm = 1888.0;
+    let mut sim = ChaseSim::new(&root(), Party::TwoPlayer).unwrap();
+    let exit = 2960.0;
+    while sim.tick() < MAX_TICKS && !sim.complete() {
+        let carl = sim.x_of(HeroId::Carl);
+        let (tc, td) = if sim.dozer().wedged() {
+            (exit, exit)
+        } else {
+            let donut = if carl < arm && !sim.dozer().armed_once() {
+                (carl - held).max(48.0)
+            } else {
+                POCKET_X - 40.0
+            };
+            (POCKET_X, donut)
+        };
+        let inputs = [
+            runner(&sim, HeroId::Carl, tc),
+            runner(&sim, HeroId::Donut, td),
+        ];
+        sim.step(inputs);
+        let d = sim.dozer();
+        println!(
+            "TRACE {} {:.1} {:.1} {:.1} {} {} {}",
+            sim.tick(),
+            sim.x_of(HeroId::Carl),
+            sim.x_of(HeroId::Donut),
+            d.wheel_front(),
+            d.state.name(),
+            d.charge.name(),
+            u8::from(d.barrier_hit())
+        );
+    }
 }

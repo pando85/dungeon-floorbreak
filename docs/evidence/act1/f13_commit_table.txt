@@ -1,0 +1,20 @@
+# ACT1-F13 commit table (lag = P2 behind the leader when the leader arms; the 2P camera leash holds the pair at most 447 px apart, so the 448 case is held at 440: ACT1-IMP-13)
+  lag   0: separation_at_arm=6 commit_tick=733 commit_front=1858.4 margin(carl,donut)=[Some(66), Some(66)] gap=225.7 hits=0
+  lag  96: separation_at_arm=99 commit_tick=764 commit_front=1858.4 margin(carl,donut)=[Some(66), Some(66)] gap=225.7 hits=0
+  lag 224: separation_at_arm=230 commit_tick=805 commit_front=1858.4 margin(carl,donut)=[Some(66), Some(66)] gap=225.7 hits=0
+  lag 448: separation_at_arm=444 commit_tick=987 commit_front=1858.4 margin(carl,donut)=[Some(66), Some(66)] gap=225.7 hits=0
+
+# Rescues by spot (pocket, behind, lane, tunnel) and wheel hits per fixture (F10, F10b, F15 and the rest)
+  act1_chase_solo_first_run            ticks=1377  rescues=0 (0, 0, 0, 0) hits=0 commit_front=Some(1857.606)
+  act1_chase_solo_first_run_donut      ticks=1359  rescues=0 (0, 0, 0, 0) hits=0 commit_front=Some(1857.606)
+  act1_chase_hull_cannot_be_hurt       ticks=1380  rescues=0 (0, 0, 0, 0) hits=0 commit_front=Some(1858.0227)
+  act1_chase_2p_together               ticks=1345  rescues=0 (0, 0, 0, 0) hits=0 commit_front=Some(1858.4395)
+  act1_chase_2p_lag_0                  ticks=1347  rescues=0 (0, 0, 0, 0) hits=0 commit_front=Some(1858.4395)
+  act1_chase_2p_lag_96                 ticks=1378  rescues=0 (0, 0, 0, 0) hits=0 commit_front=Some(1858.4395)
+  act1_chase_2p_lag_224                ticks=1419  rescues=0 (0, 0, 0, 0) hits=0 commit_front=Some(1858.4395)
+  act1_chase_2p_lag_448                ticks=1601  rescues=0 (0, 0, 0, 0) hits=0 commit_front=Some(1858.4395)
+  act1_chase_skip_pocket               ticks=2025  rescues=1 (1, 0, 0, 0) hits=21 commit_front=Some(1857.1892)
+  act1_chase_solo_bot_carl_active      ticks=1461  rescues=2 (2, 0, 0, 0) hits=0 commit_front=Some(1857.0896)
+  act1_chase_solo_bot_donut_active     ticks=1359  rescues=0 (0, 0, 0, 0) hits=0 commit_front=Some(1857.1892)
+  act1_chase_no_charge_path            ticks=1510  rescues=0 (0, 0, 0, 0) hits=0 commit_front=None
+sweep: 96 runs, 56 bot rescues in all, zero wheel contacts

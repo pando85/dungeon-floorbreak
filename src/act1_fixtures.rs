@@ -234,6 +234,10 @@ pub fn story() -> (CarlProgFlags, DonutProgFlags) {
     Loadout::Story.flags()
 }
 
+/// The column the chase's `watch` pilot holds at: the follow bot trails 48 px behind, so Donut stands past
+/// the trigger (1072) and the rearmost hero wakes the machine.
+pub const WATCH_X: f32 = 1130.0;
+
 /// The jab's reach in px: Carl closes inside it and presses.
 const JAB_REACH: f32 = 30.0;
 /// Carl presses the jab every this many ticks.
@@ -284,6 +288,9 @@ pub enum Pilot {
     /// The chase (ACT1-B): Carl runs to the alcove, waits there until the machine is wedged and
     /// walks to the exit (the F10 script).
     Hide,
+    /// The chase (ACT1-B): Carl runs to [`WATCH_X`] (just past the trigger) and holds there, so a
+    /// capture sees the machine come out of the window behind him.
+    Watch,
     /// The chase (ACT1-B): Carl runs on to the closed barricade and waits (the F14 skip); after
     /// the respawn he plays the `Hide` script.
     Skip,
@@ -297,8 +304,9 @@ impl Pilot {
             "strike" => Ok(Self::Strike),
             "hide" => Ok(Self::Hide),
             "skip" => Ok(Self::Skip),
+            "watch" => Ok(Self::Watch),
             other => Err(format!(
-                "--act1-pilot {other:?}: expected walk, donut, strike, hide or skip"
+                "--act1-pilot {other:?}: expected walk, donut, strike, hide, skip or watch"
             )),
         }
     }
@@ -309,7 +317,7 @@ impl Pilot {
             Self::Walk => true,
             Self::Donut => matches!(room, Act1Room::Guild),
             Self::Strike => matches!(room, Act1Room::Shore),
-            Self::Hide | Self::Skip => matches!(room, Act1Room::Chase),
+            Self::Hide | Self::Skip | Self::Watch => matches!(room, Act1Room::Chase),
         }
     }
 }
@@ -323,6 +331,10 @@ pub fn pilot(kind: Pilot, combat: &CombatState, scene: &SceneSim, exit_x: f32) -
         Pilot::Donut => walk_in(donut.x, exit_x),
         Pilot::Walk => clear_and_exit(combat, scene, exit_x),
         Pilot::Strike => strike_input(combat, scene, exit_x),
+        Pilot::Watch => {
+            let carl = scene.world.body(HeroId::Carl);
+            crate::act1_chase_fixtures::Runner { target: WATCH_X }.input(carl.x, carl.grounded)
+        }
         Pilot::Hide | Pilot::Skip => {
             let wedged = crate::dozer_art::dozer_of(combat).is_some_and(|d| d.wedged());
             let skipping = kind == Pilot::Skip && combat.respawns == 0;

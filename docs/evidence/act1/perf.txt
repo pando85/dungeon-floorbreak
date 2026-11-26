@@ -1,0 +1,49 @@
+# ACT1-B frame time: the chase (act1_chase, the F10 script via --act1-pilot hide) against room 3 (dozer, dozer:run), real Bevy window under xvfb-run at 1x, gore preset 4, debug build, AutoNoVsync, no audio. NOT a real-display or handheld frame time; gpu_ms and tick_us are lower bounds. cpu="AMD Ryzen 9 5950X 16-Core Processor"
+# chase 640x360 run 1 frames=1380 loadavg_before="2.17 2.88 3.76"
+FLOOR1_PERF_MEM rss_mib=543.9 peak_rss_mib=543.9 entities=9269 death_sprites_spawned=840 peak_visible_death_sprites=0
+FLOOR1_PERF_CPU_GPU gpu_ms_mean=1.158 gpu_ms_p95=1.882 gpu_ms_max=4.645 tick_us_mean=17.3 tick_us_p95=27.0 tick_us_max=48.1 death_sync_us_mean=23.8 death_sync_us_p95=31.4 death_sync_us_max=51.7 gpu_passes=4
+FLOOR1_PERF frames=1380 median_ms=16.64 p95_ms=19.13 p99_ms=21.57 mean_ms=16.67 max_ms=24.42 lighting=on window=640x360 present=AutoNoVsync warmup_frames=120
+# dozer 640x360 run 1 frames=345 loadavg_before="2.70 2.96 3.78"
+FLOOR1_PERF_MEM rss_mib=524.4 peak_rss_mib=524.4 entities=5631 death_sprites_spawned=842 peak_visible_death_sprites=0
+FLOOR1_PERF_CPU_GPU gpu_ms_mean=0.685 gpu_ms_p95=1.310 gpu_ms_max=1.405 tick_us_mean=70.6 tick_us_p95=304.4 tick_us_max=441.7 death_sync_us_mean=23.9 death_sync_us_p95=27.1 death_sync_us_max=39.1 gpu_passes=4
+FLOOR1_PERF frames=345 median_ms=16.63 p95_ms=18.70 p99_ms=19.45 mean_ms=16.67 max_ms=19.98 lighting=on window=640x360 present=AutoNoVsync warmup_frames=120
+# chase 640x360 run 2 frames=1380 loadavg_before="1.92 2.74 3.68"
+FLOOR1_PERF_MEM rss_mib=552.5 peak_rss_mib=552.5 entities=9269 death_sprites_spawned=840 peak_visible_death_sprites=0
+FLOOR1_PERF_CPU_GPU gpu_ms_mean=1.130 gpu_ms_p95=1.974 gpu_ms_max=7.871 tick_us_mean=17.6 tick_us_p95=26.9 tick_us_max=54.4 death_sync_us_mean=23.7 death_sync_us_p95=28.7 death_sync_us_max=55.1 gpu_passes=4
+FLOOR1_PERF frames=1380 median_ms=16.65 p95_ms=19.10 p99_ms=22.57 mean_ms=16.67 max_ms=26.59 lighting=on window=640x360 present=AutoNoVsync warmup_frames=120
+# dozer 640x360 run 2 frames=345 loadavg_before="2.16 2.77 3.68"
+FLOOR1_PERF_MEM rss_mib=520.1 peak_rss_mib=520.1 entities=5631 death_sprites_spawned=842 peak_visible_death_sprites=0
+FLOOR1_PERF_CPU_GPU gpu_ms_mean=0.886 gpu_ms_p95=1.745 gpu_ms_max=2.188 tick_us_mean=75.6 tick_us_p95=317.2 tick_us_max=484.0 death_sync_us_mean=24.0 death_sync_us_p95=29.3 death_sync_us_max=38.4 gpu_passes=4
+FLOOR1_PERF frames=345 median_ms=16.62 p95_ms=18.93 p99_ms=19.40 mean_ms=16.68 max_ms=20.41 lighting=on window=640x360 present=AutoNoVsync warmup_frames=120
+# chase 640x360 run 3 frames=1380 loadavg_before="3.92 3.13 3.77"
+FLOOR1_PERF_MEM rss_mib=534.4 peak_rss_mib=534.4 entities=9269 death_sprites_spawned=840 peak_visible_death_sprites=0
+FLOOR1_PERF_CPU_GPU gpu_ms_mean=1.121 gpu_ms_p95=2.082 gpu_ms_max=4.483 tick_us_mean=25.7 tick_us_p95=47.2 tick_us_max=81.1 death_sync_us_mean=24.2 death_sync_us_p95=32.7 death_sync_us_max=88.5 gpu_passes=4
+FLOOR1_PERF frames=1380 median_ms=16.75 p95_ms=21.21 p99_ms=25.35 mean_ms=17.12 max_ms=31.95 lighting=on window=640x360 present=AutoNoVsync warmup_frames=120
+# dozer 640x360 run 3 frames=345 loadavg_before="5.06 3.39 3.85"
+FLOOR1_PERF_MEM rss_mib=517.5 peak_rss_mib=517.5 entities=5631 death_sprites_spawned=842 peak_visible_death_sprites=0
+FLOOR1_PERF_CPU_GPU gpu_ms_mean=0.797 gpu_ms_p95=1.406 gpu_ms_max=3.442 tick_us_mean=79.5 tick_us_p95=306.5 tick_us_max=437.8 death_sync_us_mean=24.6 death_sync_us_p95=31.2 death_sync_us_max=117.5 gpu_passes=4
+FLOOR1_PERF frames=345 median_ms=16.64 p95_ms=20.09 p99_ms=23.62 mean_ms=16.68 max_ms=26.66 lighting=on window=640x360 present=AutoNoVsync warmup_frames=120
+# chase 640x400 run 1 frames=1380 loadavg_before="4.41 3.41 3.84"
+FLOOR1_PERF_MEM rss_mib=559.4 peak_rss_mib=559.4 entities=9269 death_sprites_spawned=840 peak_visible_death_sprites=0
+FLOOR1_PERF_CPU_GPU gpu_ms_mean=0.515 gpu_ms_p95=1.179 gpu_ms_max=2.387 tick_us_mean=21.9 tick_us_p95=31.2 tick_us_max=127.7 death_sync_us_mean=23.2 death_sync_us_p95=27.7 death_sync_us_max=42.4 gpu_passes=4
+FLOOR1_PERF frames=1380 median_ms=16.64 p95_ms=19.40 p99_ms=19.95 mean_ms=16.67 max_ms=35.56 lighting=on window=640x400 present=AutoNoVsync warmup_frames=120
+# dozer 640x400 run 1 frames=345 loadavg_before="3.97 3.35 3.81"
+FLOOR1_PERF_MEM rss_mib=535.0 peak_rss_mib=535.0 entities=5631 death_sprites_spawned=842 peak_visible_death_sprites=0
+FLOOR1_PERF_CPU_GPU gpu_ms_mean=0.647 gpu_ms_p95=1.135 gpu_ms_max=2.409 tick_us_mean=75.1 tick_us_p95=315.9 tick_us_max=346.0 death_sync_us_mean=24.3 death_sync_us_p95=30.7 death_sync_us_max=38.8 gpu_passes=4
+FLOOR1_PERF frames=345 median_ms=16.68 p95_ms=19.14 p99_ms=19.87 mean_ms=16.67 max_ms=20.68 lighting=on window=640x400 present=AutoNoVsync warmup_frames=120
+# chase 640x400 run 2 frames=1380 loadavg_before="3.79 3.35 3.80"
+FLOOR1_PERF_MEM rss_mib=547.0 peak_rss_mib=547.0 entities=9269 death_sprites_spawned=840 peak_visible_death_sprites=0
+FLOOR1_PERF_CPU_GPU gpu_ms_mean=1.085 gpu_ms_p95=2.001 gpu_ms_max=7.645 tick_us_mean=18.3 tick_us_p95=28.4 tick_us_max=58.3 death_sync_us_mean=23.0 death_sync_us_p95=26.5 death_sync_us_max=41.0 gpu_passes=4
+FLOOR1_PERF frames=1380 median_ms=16.60 p95_ms=19.43 p99_ms=21.67 mean_ms=16.67 max_ms=23.36 lighting=on window=640x400 present=AutoNoVsync warmup_frames=120
+# dozer 640x400 run 2 frames=345 loadavg_before="3.44 3.29 3.77"
+FLOOR1_PERF_MEM rss_mib=535.9 peak_rss_mib=535.9 entities=5631 death_sprites_spawned=842 peak_visible_death_sprites=0
+FLOOR1_PERF_CPU_GPU gpu_ms_mean=0.467 gpu_ms_p95=0.999 gpu_ms_max=1.120 tick_us_mean=80.0 tick_us_p95=325.3 tick_us_max=404.6 death_sync_us_mean=23.0 death_sync_us_p95=26.8 death_sync_us_max=36.7 gpu_passes=4
+FLOOR1_PERF frames=345 median_ms=16.54 p95_ms=19.31 p99_ms=19.74 mean_ms=16.66 max_ms=22.37 lighting=on window=640x400 present=AutoNoVsync warmup_frames=120
+# chase 640x400 run 3 frames=1380 loadavg_before="3.26 3.26 3.75"
+FLOOR1_PERF_MEM rss_mib=552.8 peak_rss_mib=552.8 entities=9269 death_sprites_spawned=840 peak_visible_death_sprites=0
+FLOOR1_PERF_CPU_GPU gpu_ms_mean=1.224 gpu_ms_p95=2.001 gpu_ms_max=4.529 tick_us_mean=17.3 tick_us_p95=26.2 tick_us_max=53.0 death_sync_us_mean=22.9 death_sync_us_p95=26.3 death_sync_us_max=83.1 gpu_passes=4
+FLOOR1_PERF frames=1380 median_ms=16.65 p95_ms=18.95 p99_ms=20.92 mean_ms=16.67 max_ms=23.78 lighting=on window=640x400 present=AutoNoVsync warmup_frames=120
+# dozer 640x400 run 3 frames=345 loadavg_before="2.99 3.20 3.72"
+FLOOR1_PERF_MEM rss_mib=533.5 peak_rss_mib=533.5 entities=5631 death_sprites_spawned=842 peak_visible_death_sprites=0
+FLOOR1_PERF_CPU_GPU gpu_ms_mean=0.872 gpu_ms_p95=1.500 gpu_ms_max=2.503 tick_us_mean=71.4 tick_us_p95=306.1 tick_us_max=578.1 death_sync_us_mean=23.8 death_sync_us_p95=27.5 death_sync_us_max=37.7 gpu_passes=4
+FLOOR1_PERF frames=345 median_ms=16.64 p95_ms=18.61 p99_ms=18.78 mean_ms=16.67 max_ms=21.49 lighting=on window=640x400 present=AutoNoVsync warmup_frames=120

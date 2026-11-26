@@ -1486,7 +1486,13 @@ pub fn draw(combat: &CombatState, heroes_x: [f32; 2], tick: u64) -> Option<Dozer
     let d = dozer_of(combat)?;
     let mut sprites = puffs(d, tick);
     if d.state.emerged() {
-        let seated = [Seat::RiderA, Seat::RiderB].map(|seat| combat.seat_taken(seat));
+        // ACT1-AD9: the opening machine carries no riders in the greybox (the shore goblins stand in
+        // for them); a room without a crew would otherwise draw both seats.
+        let seated = if d.has_charge() {
+            [false; 2]
+        } else {
+            [Seat::RiderA, Seat::RiderB].map(|seat| combat.seat_taken(seat))
+        };
         sprites.extend(rig_sprites(d, tick, hero_near(d, heroes_x), seated));
     }
     sprites.extend(fx_sprites(combat, d, heroes_x, tick));

@@ -2008,7 +2008,7 @@ fn parse_args_full(
         };
         if !kind.fits(room) {
             return Err(format!(
-                "--act1-pilot {kind:?} does not fit the room {}: strike plays in act1_shore, donut in act1_guild, hide and skip in act1_chase, walk in any",
+                "--act1-pilot {kind:?} does not fit the room {}: strike plays in act1_shore, donut in act1_guild, hide, skip and watch in act1_chase, walk in any",
                 room.id()
             ));
         }
