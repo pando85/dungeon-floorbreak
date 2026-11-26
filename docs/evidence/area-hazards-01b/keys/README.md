@@ -22,6 +22,7 @@ From the repository root, run:
 | File | Shows |
 |---|---|
 | `keys_x8.png` | The two frozen keys at 8x: `acid_splash_key` (the splash crown, frame 2) and `corrosion_key` (the floor-face corrosion sample) |
+| `corrosion_key_old_vs_new_x8.png` | Three face tiles under a pool edge at 8x, alternately mirrored as in the scene. Top: the first corrosion key, whose five evenly spaced pits tile into a sawtooth. Bottom: the redrawn key (HZB-AD18), with three unequal bites and offset trails |
 | `gate_room4_640x360.png` | Room 4 at 1x, with: <ul><li>teal pools (HZB-AD1) and a slime-green slime standing on one of them;</li><li>Carl's hurt frame inside the splash crown;</li><li>a second splash on its own;</li><li>corrosion under two pools.</li></ul> |
 | `gate_room4_right_x3.png` | The slime, pool, splash and corrosion area of room 4 at 3x |
 | `gate_room6_640x360.png` | Room 6 at 1x: <ul><li>the **old** green pool under a slime, for comparison;</li><li>the teal pool under a slime, with corrosion;</li><li>a teal pool with Carl inside the splash crown.</li></ul> |
@@ -36,4 +37,4 @@ From the repository root, run:
 - **Corrosion.** It reads as old dry stains, never as liquid.
 - **F1.** The dark tape backing keeps the dashes and the hot band readable on lit brick, with no loss on dark brick.
 
-`SHA256SUMS` lists the checksum of every image.
+The gate images were regenerated with the redrawn corrosion key (HZB-AD18); the verdict is unchanged. `SHA256SUMS` lists the checksum of every image.
