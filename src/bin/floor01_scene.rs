@@ -2299,8 +2299,9 @@ fn step_hud(hud: &mut HudRuntime, sim: &SceneSim, combat: Option<&CombatState>) 
     hud.set_donut_mana(combat.and_then(CombatState::donut_mana_view));
     if let Some(combat) = combat {
         hud.set_empty_press(combat.donut_mana_tuning().empty_press);
-        // F01-HUD-ROOM: the attempt counter (inert outside a room).
-        hud.set_attempt(combat.restarts + 1);
+        // F01-HUD-ROOM: the attempt counter (inert outside a room). HUD-TRY-01
+        // (HT-AD1): a checkpoint respawn is an attempt too.
+        hud.set_attempt(combat.hud_try());
     }
     // HUD-DEBT-03: the boss strip reads the simulation's boss state.
     match combat.and_then(|c| c.boss.as_ref()) {

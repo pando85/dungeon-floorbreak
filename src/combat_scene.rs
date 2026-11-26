@@ -1029,6 +1029,10 @@ pub struct CombatState {
     /// Restarts so far (a defeat's automatic one and manual ones). Not hashed:
     /// the party layer watches it to return the swap to Carl.
     pub restarts: u32,
+    /// HUD-TRY-01: DEMO-01 checkpoint respawns so far (after a defeat or a
+    /// Select tap). Not hashed and read by nothing but the HUD's attempt
+    /// counter ([`Self::hud_try`]); a restart does not reset it.
+    pub respawns: u32,
     /// The tick the last goblin tell started in this attempt (tell spacing).
     pub last_tell_start: Option<u64>,
     /// Ticks stepped over every attempt, restarts included (attempt-local ticks
@@ -1166,6 +1170,7 @@ impl CombatState {
             defeated_ticks: 0,
             deaths: 0,
             restarts: 0,
+            respawns: 0,
             last_tell_start: None,
             elapsed: 0,
             events: Vec::new(),
@@ -1355,6 +1360,16 @@ impl CombatState {
         })
     }
 
+    /// HUD-TRY-01 (adopted HT-AD1): the HUD's `TRY n` number. Every attempt
+    /// start counts: the room's entry (1), each checkpoint respawn and each
+    /// restart (a held-Select or defeat restart, `restarts`). It is a display
+    /// count only, distinct from the CF02 attempt index (`restarts`, which the
+    /// temperament draw reads). Neither counter is hashed, so it moves no pin.
+    pub fn hud_try(&self) -> u32 {
+        1u32.saturating_add(self.restarts)
+            .saturating_add(self.respawns)
+    }
+
     /// DEMO-01: true once after a respawn (the presentation resets Carl's
     /// animation). Presentation only, never hashed.
     pub fn take_respawned(&mut self) -> bool {
@@ -1421,6 +1436,7 @@ impl CombatState {
         // DM-B (DM-Q13): a checkpoint respawn restarts the wait at its tick.
         self.reflex.reset(scene.world.tick);
         self.respawned = true;
+        self.respawns = self.respawns.saturating_add(1);
         self.log(CombatEvent::Respawn {
             tick: scene.world.tick,
             checkpoint: checkpoint as u32,

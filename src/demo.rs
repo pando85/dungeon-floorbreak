@@ -812,6 +812,28 @@ mod tests {
         assert!(!run.combat.take_respawned());
     }
 
+    /// HUD-TRY-01 (HT-AD1): the HUD's attempt counts every attempt start: the
+    /// entry, each checkpoint respawn and each restart, and none of it reaches
+    /// the state hash.
+    #[test]
+    fn the_attempt_counts_respawns_and_restarts_without_hashing_them() {
+        let kit = load_hall(root()).unwrap();
+        let mut run = sim(&kit, 0);
+        assert_eq!(run.combat.hud_try(), 1);
+        autopilot_steps(&mut run, 200);
+        let hash = run.combat.state_hash(&run.scene);
+        run.combat.respawns += 5;
+        assert_eq!(run.combat.state_hash(&run.scene), hash, "not hashed");
+        run.combat.respawns -= 5;
+        run.combat.respawn(&mut run.scene);
+        assert_eq!((run.combat.respawns, run.combat.hud_try()), (1, 2));
+        run.combat.respawn(&mut run.scene);
+        assert_eq!(run.combat.hud_try(), 3);
+        run.combat.restart(&mut run.scene);
+        assert_eq!((run.combat.restarts, run.combat.respawns), (1, 2));
+        assert_eq!(run.combat.hud_try(), 4, "a restart keeps the respawns");
+    }
+
     /// The interactive demo runs the live party (Donut is a real companion
     /// hero): a respawn stands her up beside Carl with full health too.
     #[test]
