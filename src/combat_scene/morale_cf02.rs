@@ -18,7 +18,7 @@
 //! Its state enters the state hash only then.
 
 use super::CombatState;
-use crate::cf02::{Force, SpectacularCause};
+use crate::cf02::{Cf02Tuning, Force, SpectacularCause};
 use crate::combat::{
     CombatEvent, DefeatCause, EnemyAi, ForceTier, Phase, ReactionKind, carl_move, donut_move,
 };
@@ -120,6 +120,22 @@ impl CombatState {
         self.cf02_seed.unwrap_or(self.fixture.seed)
     }
 
+    /// The Q58 draws of goblin `index`; a DR-C rider keeps its roster
+    /// temperament (DZ-Q20) and draws the rest as usual.
+    fn crew_draw(&self, index: usize, t: &Cf02Tuning, seed: u64) -> Draw {
+        let mut draw = morale::draw_goblin_covering(
+            t,
+            seed,
+            self.restarts,
+            index as u32,
+            self.temperament_cover,
+        );
+        if let Some(mount) = self.crew_of(index) {
+            draw.temperament = mount.temperament;
+        }
+        draw
+    }
+
     /// Q57, Q58: (re)build every goblin's morale for the attempt `self.restarts`.
     pub(super) fn spawn_morale(&mut self) {
         self.morale_feed.clear();
@@ -129,15 +145,7 @@ impl CombatState {
         };
         let seed = self.morale_seed();
         let draws: Vec<Draw> = (0..self.enemies.len())
-            .map(|i| {
-                morale::draw_goblin_covering(
-                    t,
-                    seed,
-                    self.restarts,
-                    i as u32,
-                    self.temperament_cover,
-                )
-            })
+            .map(|i| self.crew_draw(i, t, seed))
             .collect();
         self.morale = Some(MoraleRuntime {
             seed,
@@ -167,13 +175,7 @@ impl CombatState {
         let Some(t) = self.cf02.filter(|_| self.morale.is_some()) else {
             return;
         };
-        let draw = morale::draw_goblin_covering(
-            t,
-            self.morale_seed(),
-            self.restarts,
-            index as u32,
-            self.temperament_cover,
-        );
+        let draw = self.crew_draw(index, t, self.morale_seed());
         let goblin_health = self.enemies[index].health;
         let is_engineer = self.enemies[index].is_engineer();
         if let Some(m) = self.morale.as_mut() {

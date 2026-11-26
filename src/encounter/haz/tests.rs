@@ -1494,3 +1494,39 @@ fn dozer_rule_6_no_boss_supplier_in_a_dozer_room() {
         6,
     );
 }
+
+#[test]
+fn dozer_rule_7_the_crew_rides_the_one_machine() {
+    // No carrier: the dozer entry is gone.
+    dozer_rule(
+        |v| {
+            v["roster"].as_array_mut().unwrap().remove(0);
+        },
+        7,
+    );
+    // A rider stands at its carrier's column.
+    dozer_rule(|v| v["roster"][1]["x"] = json!(64), 7);
+    // Each seat once.
+    dozer_rule(|v| v["roster"][2]["mount"]["seat"] = json!("rider_a"), 7);
+    // Only a goblin rides, and only the dozer carries.
+    dozer_rule(|v| v["roster"][1]["kind"] = json!("llama"), 7);
+    dozer_rule(|v| v["roster"][1]["mount"]["carrier"] = json!("hoarder"), 7);
+    // The DZ-Q20 values belong to a mount and a mount needs them all.
+    dozer_rule(
+        |v| {
+            v["roster"][1].as_object_mut().unwrap().remove("mount");
+        },
+        7,
+    );
+    dozer_rule(
+        |v| {
+            v["roster"][1]
+                .as_object_mut()
+                .unwrap()
+                .remove("dzq20_land_dx");
+        },
+        7,
+    );
+    // A rider has no wake gate.
+    dozer_rule(|v| v["roster"][1]["trigger_x"] = json!(400), 7);
+}

@@ -1,6 +1,6 @@
 {
   "schema": "floor01-encounter-v1",
-  "status": "DOZER-CORE and DR-B data (ENEMY-GAMEPLAY-DOZER sections 5, 6 and 9, docs/01-design/enemy-gameplay-dozer.md, DZ-AD12): the chase and the stop frame (DZ-Q18, DZ-Q19: a weight_rig prop and its falling_mass hazard, the Boiler engine as data only); the crew is DR-C. The dozer block holds the machine's room data (DZ-Q11, DZ-Q13, DZ-Q14, DZ-Q22); its lintel is the tunnel's solid. Every number is a tuning knob. Coordinates are layout pixels, y down, like the room file.",
+  "status": "DOZER-CORE and DR-B data (ENEMY-GAMEPLAY-DOZER sections 5, 6 and 9, docs/01-design/enemy-gameplay-dozer.md, DZ-AD12): the chase and the stop frame (DZ-Q18, DZ-Q19: a weight_rig prop and its falling_mass hazard, the Boiler engine as data only) and the crew (DR-C, DZ-Q20, DZ-Q21: two mounted goblins carried aboard until the machine is disabled; the exit is not gated by them). The dozer block holds the machine's room data (DZ-Q11, DZ-Q13, DZ-Q14, DZ-Q22); its lintel is the tunnel's solid. Every number is a tuning knob. Coordinates are layout pixels, y down, like the room file.",
   "id": "F01-DOZER-ENC",
   "room_file": "f01_dozer.room.json",
   "room_id": "F01-DOZER",
@@ -41,7 +41,9 @@
   ],
   "links": [],
   "roster": [
-    { "id": "dozer", "kind": "dozer", "x": 32, "beat": "R1" }
+    { "id": "dozer", "kind": "dozer", "x": 32, "beat": "R1" },
+    { "id": "rider_a", "kind": "goblin", "x": 32, "beat": "R1", "mount": { "carrier": "dozer", "seat": "rider_a" }, "dzq20_land_dx": 32, "dzq20_down_ticks": 45, "dzq20_nudge_px": 32, "dzq20_max_nudges": 2, "temperament": "brawler" },
+    { "id": "rider_b", "kind": "goblin", "x": 32, "beat": "R1", "mount": { "carrier": "dozer", "seat": "rider_b" }, "dzq20_land_dx": 72, "dzq20_down_ticks": 45, "dzq20_nudge_px": 32, "dzq20_max_nudges": 2, "temperament": "coward" }
   ],
   "gates": [],
   "vantages": [],

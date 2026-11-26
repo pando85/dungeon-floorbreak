@@ -40,3 +40,11 @@ plan=dozer:close_call companion="set=cf02_free" F01_DOZER_NAV ticks=498 state=es
 plan=dozer:wait companion="set=cf02_free" F01_DOZER_NAV ticks=498 state=escaped nav_rebuilds=62 hazard_feed_errors=0 wheel_hits=0 rescues=[0, 0]
 plan=dozer:brace companion="set=cf02_free" F01_DOZER_NAV ticks=490 state=disabled nav_rebuilds=46 hazard_feed_errors=0 wheel_hits=0 rescues=[0, 0]
 plan=none companion="set=cf02_free inactive" F01_DOZER_NAV ticks=344 state=escaped nav_rebuilds=0 hazard_feed_errors=0 wheel_hits=0 rescues=[0, 0]
+# DR-B A/B (#287 re-review): the tick cost of the remnant nav filter, main (before DR-B) vs the DR-B head, dozer:close_call, 499 frames at 640x360, debug profile, load average 8 to 10; reps 1 and 2 discarded as warm-up; tick_us per run
+rep main_tick_us_mean main_tick_us_p95 pr_tick_us_mean pr_tick_us_p95
+3 61.8 313.3 67.7 318.8
+4 63.1 306.7 68.7 311.1
+5 76.0 336.7 70.3 316.3
+6 74.4 325.2 82.1 333.9
+7 71.3 313.7 82.6 334.8
+# median paired difference (PR - main): about +5.9 us mean, +5.5 us p95; within the run-to-run noise at this load (rep 5 runs the other way)

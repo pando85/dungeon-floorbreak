@@ -2693,6 +2693,7 @@ mod tests {
         // frame lands, and is in it from the landing on.
         let mut hidden_ticks = 0u64;
         let mut landed_at = None;
+        let mut nav_tops = Vec::new();
         for _ in 0..1500 {
             if scene.world.complete {
                 break;
@@ -2727,6 +2728,20 @@ mod tests {
             let inputs = party.hero_inputs(slots);
             scene.set_drive(party.drive(true));
             combat.step_party(&mut scene, inputs);
+            // The open anchors of the partner's nav over the remnant's middle
+            // (x 680) after the step: their standing heights.
+            let graph = combat.companion_nav_graph().expect("the partner's nav");
+            let tops: Vec<f32> = graph
+                .anchors()
+                .filter(|a| graph.anchor_open(*a))
+                .filter(|a| {
+                    graph
+                        .anchor_span(*a)
+                        .is_some_and(|(l, r)| l <= 680.0 && r >= 680.0)
+                })
+                .filter_map(|a| graph.anchor_pos(a).map(|(_, y)| y))
+                .collect();
+            nav_tops.push((scene.world.tick, hides, tops));
             for hero in [HeroId::Carl, HeroId::Donut] {
                 if combat.hurt_ticks_of(hero) > 0 {
                     hurts += 1;
@@ -2772,6 +2787,26 @@ mod tests {
                 Some(crate::shore::PLAYER_ONE)
             )
         );
+        // #287 re-review: the nav graph itself, not only the env flag. The
+        // remnant's top (the frame fixtures' rule: an intact solid over 640..720
+        // resting on the walking line).
+        let floor = d.floor_y;
+        let remnant = scene
+            .world
+            .solids
+            .iter()
+            .filter(|b| b.intact && b.rect.left < 720.0 && b.rect.right() > 640.0)
+            .filter(|b| b.rect.bottom <= floor + 0.5)
+            .map(|b| b.rect.top())
+            .fold(f32::MIN, f32::max);
+        assert!(remnant > floor, "no remnant in the lane");
+        for (tick, hides, tops) in &nav_tops {
+            let on_remnant = tops.iter().any(|t| (t - remnant).abs() <= 0.5);
+            assert_eq!(
+                on_remnant, !hides,
+                "tick {tick}: hidden {hides}, the nav's anchors over x 680 {tops:?}, the remnant top {remnant}"
+            );
+        }
         assert!(disabled_at.is_some(), "never disabled");
         assert_eq!(d.stats.wheel_hits, 0);
         assert_eq!(hurts, 0, "hurt ticks");

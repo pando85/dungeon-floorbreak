@@ -885,6 +885,39 @@ fn dozer_err(rule: u8, ids: &[&str], reason: impl Into<String>) -> EncounterErro
     }
 }
 
+/// DR-C (section 8, DZ-Q20), rule 7: a mounted entry rides the room's one
+/// machine (the roster holds a `dozer` entry), stands at the machine's column
+/// (its roster `x` is the dozer entry's), and each seat is taken at most once.
+fn check_crew(roster: &[RosterEntry], dozers: &[&RosterEntry], errs: &mut Vec<EncounterError>) {
+    let riders: Vec<&RosterEntry> = roster.iter().filter(|e| e.mount.is_some()).collect();
+    for (i, r) in riders.iter().enumerate() {
+        let Some(m) = r.mount else { continue };
+        match dozers.first() {
+            None => errs.push(dozer_err(
+                7,
+                &[&r.id],
+                "a mounted entry needs the room's dozer entry (its carrier)",
+            )),
+            Some(d) if d.x != r.x => errs.push(dozer_err(
+                7,
+                &[&r.id, &d.id],
+                "a rider's x is its carrier's (the dozer entry's x)",
+            )),
+            Some(_) => {}
+        }
+        if let Some(other) = riders[..i]
+            .iter()
+            .find(|o| o.mount.is_some_and(|om| om.seat == m.seat))
+        {
+            errs.push(dozer_err(
+                7,
+                &[&other.id, &r.id],
+                format!("seat {} is taken twice", m.seat.name()),
+            ));
+        }
+    }
+}
+
 /// DOZER-CORE and DR-B: the rules of the Dozer note's section 9 (1 to 6; 3 and
 /// 5 read the stop frames, the `weight_rig` props with their owned
 /// `falling_mass` footprints). A no-op for a sidecar with neither a `dozer`
@@ -892,6 +925,7 @@ fn dozer_err(rule: u8, ids: &[&str], reason: impl Into<String>) -> EncounterErro
 pub(super) fn check_dozer(inp: &HazInput<'_>, errs: &mut Vec<EncounterError>) {
     use crate::dozer::rules;
     let dozers: Vec<&RosterEntry> = inp.roster.iter().filter(|e| e.kind.is_dozer()).collect();
+    check_crew(inp.roster, &dozers, errs);
     let block = inp.raw.dozer.as_ref();
     if dozers.is_empty() && block.is_none() {
         return;

@@ -122,7 +122,7 @@ fn mid_window(w: &ReleaseWindow) -> Result<u64, String> {
 
 /// Step `st` with nothing pressed until the machine commits to the chase;
 /// returns the first chase tick.
-fn to_chase(st: &mut Stage) -> Result<u64, String> {
+pub(super) fn to_chase(st: &mut Stage) -> Result<u64, String> {
     for _ in 0..600 {
         st.step_slots([RawInput::NONE; 2]);
         if st.dozer().state == DozerState::CommittedChase {
@@ -183,7 +183,7 @@ fn glances(st: &Stage) -> Vec<(u64, i32)> {
 }
 
 /// The exit's centre (the pilots run to it).
-fn exit_x(st: &Stage) -> f32 {
+pub(super) fn exit_x(st: &Stage) -> f32 {
     let exit = st.run.loaded.encounter.exit;
     (exit.x + exit.w / 2) as f32
 }
@@ -360,7 +360,7 @@ pub fn dz_frame_window_sweep(root: &Path) -> Result<(u64, SweepReport), String> 
 /// 400 lands ahead of the machine: no stun, no glance; the remnant lies in the
 /// lane and the chasing machine rolls over it (tread overrun) on its walking
 /// line; Carl waits at the brace, runs at the close call and the room
-/// completes untouched.
+/// completes untouched. The crew never leaves the machine (DR-C).
 pub fn dz_frame_early_miss(root: &Path) -> Result<u64, String> {
     let mut st = Stage::new(
         root,
@@ -390,6 +390,12 @@ pub fn dz_frame_early_miss(root: &Path) -> Result<u64, String> {
         });
         let d = st.dozer();
         ensure!(d.floor_y == floor, "the machine left its walking line");
+        // DR-C: a miss never disables the machine, so the crew stays aboard.
+        ensure!(
+            super::crew::all_carried(&st.sim.combat),
+            "a rider left the machine on {}",
+            st.tick()
+        );
         if d.state == DozerState::CommittedChase && frame_state(&st.sim) == MassState::Landed {
             // The hull over the remnant's x span (640..720).
             let hull = d.push_box();

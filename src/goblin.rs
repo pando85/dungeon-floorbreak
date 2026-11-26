@@ -526,6 +526,18 @@ impl Goblin {
         self.cf02.map_or(DOWNED_TICKS, |t| t.q04_downed_ticks)
     }
 
+    /// DZ-Q20 (DR-C): a rider lands from the Dozer already in the CF02 knockdown
+    /// state with `ticks` left in `Downed` (lying plus the get-up), then runs its
+    /// ordinary AI. A landing longer than the whole knockdown starts it at 0.
+    pub(crate) fn knock_down_for(&mut self, ticks: u16) {
+        self.mode = GoblinMode::Downed;
+        self.down_ticks = (self.downed_ticks() + GETUP_TICKS).saturating_sub(ticks);
+        self.vx = 0.0;
+        self.vy = 0.0;
+        self.hold_left = 0;
+        self.hold_used = false;
+    }
+
     /// CF02-Q03: lying on the floor (`Downed`, before the get-up). Under
     /// `cf02_rules` only; it narrows the hurtbox and pauses under a Q38 hold.
     /// Read by the COMPANION view builder (Q15: assist pounce on a lying goblin).

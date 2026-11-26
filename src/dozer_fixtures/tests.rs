@@ -20,18 +20,18 @@ fn replay(name: &str, mut f: impl FnMut(&Path) -> Result<u64, String>, committed
 
 /// The committed fold of the nine seeds' final hashes per `(mode, plan)`.
 const K5_HASHES: [(Mode, Plan, u64); 12] = [
-    (Mode::CarlSolo, Plan::Run, 0xdda9e71d2f2aa12c),
-    (Mode::CarlSolo, Plan::Stall, 0xb78b766f20f20e32),
-    (Mode::CarlSolo, Plan::CloseCall, 0x0f8f6c8e5f853ff0),
-    (Mode::CarlSolo, Plan::Wait, 0xc5bd5b4294fa1631),
-    (Mode::DonutSolo, Plan::Run, 0xd556d0ea51de811c),
-    (Mode::DonutSolo, Plan::Stall, 0xf6bd2ff1c1071b06),
-    (Mode::DonutSolo, Plan::CloseCall, 0xcdce6d58debd6c59),
-    (Mode::DonutSolo, Plan::Wait, 0x75ea11e51b16d716),
-    (Mode::TwoPlayer, Plan::Run, 0x33a107c684aae594),
-    (Mode::TwoPlayer, Plan::Stall, 0xde7f745a8a878470),
-    (Mode::TwoPlayer, Plan::CloseCall, 0xe911e5cea5d72e78),
-    (Mode::TwoPlayer, Plan::Wait, 0xf5f0202eb509c5fa),
+    (Mode::CarlSolo, Plan::Run, 0x91a2edd3267eb68f),
+    (Mode::CarlSolo, Plan::Stall, 0xea39b87fa67dc1cd),
+    (Mode::CarlSolo, Plan::CloseCall, 0x7e05509cd6581b8f),
+    (Mode::CarlSolo, Plan::Wait, 0x4f5c29befa7dea42),
+    (Mode::DonutSolo, Plan::Run, 0x3752981d69ebc9eb),
+    (Mode::DonutSolo, Plan::Stall, 0x7854bfd94ab9288d),
+    (Mode::DonutSolo, Plan::CloseCall, 0x7dbe9c4b76ff613e),
+    (Mode::DonutSolo, Plan::Wait, 0xf8c2ddac414bc67d),
+    (Mode::TwoPlayer, Plan::Run, 0x33cb1fce84a6fdc7),
+    (Mode::TwoPlayer, Plan::Stall, 0x0732509820863b93),
+    (Mode::TwoPlayer, Plan::CloseCall, 0xfd8f460c4c862407),
+    (Mode::TwoPlayer, Plan::Wait, 0x757de1a073844255),
 ];
 
 /// One mode's 36 cells, twice: every hard assert holds, the replays agree
@@ -156,7 +156,7 @@ fn dz_rescue_leader_in_tunnel_replays() {
     replay(
         "dz_rescue_leader_in_tunnel",
         dz_rescue_leader_in_tunnel,
-        0xfcd7ff3e3337b100,
+        0xe753b488533b39a6,
     );
 }
 
@@ -165,7 +165,7 @@ fn dz_rescue_at_leader_apex_replays() {
     replay(
         "dz_rescue_at_leader_apex",
         dz_rescue_at_leader_apex,
-        0xb6eb14a3bd96f9e1,
+        0xa61577cded2248fa,
     );
 }
 
@@ -174,13 +174,13 @@ fn dz_rescue_lane_spot_replays() {
     replay(
         "dz_rescue_lane_spot",
         dz_rescue_lane_spot,
-        0xa701b6ac9609b958,
+        0xec4d6980723b7b36,
     );
 }
 
 #[test]
 fn dz_rescue_no_loop_replays() {
-    replay("dz_rescue_no_loop", dz_rescue_no_loop, 0x31609a771f2cb5e4);
+    replay("dz_rescue_no_loop", dz_rescue_no_loop, 0xdd0e7a5a0f61738e);
 }
 
 #[test]
@@ -188,7 +188,7 @@ fn dz_rescue_behind_axle_replays() {
     replay(
         "dz_rescue_behind_axle",
         dz_rescue_behind_axle,
-        0xa8bdcdd00c0fc5d7,
+        0x1e909024663360cb,
     );
 }
 
@@ -199,13 +199,13 @@ fn dz_escaped_wheel_off_replays() {
     replay(
         "dz_escaped_wheel_off",
         dz_escaped_wheel_off,
-        0x105a687ac644ed18,
+        0x124c2560d63a5642,
     );
 }
 
 #[test]
 fn dz_stop_face_safe_replays() {
-    replay("dz_stop_face_safe", dz_stop_face_safe, 0xae9b549d492a6469);
+    replay("dz_stop_face_safe", dz_stop_face_safe, 0xc8675d5587259f47);
 }
 
 #[test]
@@ -219,7 +219,7 @@ fn dz_visible_lead_replays() {
             smallest = Some((lead, at));
             Ok(h)
         },
-        0x88de13eafb0950ad,
+        0xb55091b6de38a3c8,
     );
     let (lead, at) = smallest.unwrap();
     println!("dz_visible_lead: the smallest lead is {lead} ticks (Carl at x {at})");
@@ -230,17 +230,17 @@ fn dz_visible_lead_replays() {
 
 #[test]
 fn dz_hull_clang_replays() {
-    replay("dz_hull_clang", dz_hull_clang, 0x25a6992b83b2f80e);
+    replay("dz_hull_clang", dz_hull_clang, 0xf364908cb41367ee);
 }
 
 #[test]
 fn dz_wheel_strike_replays() {
-    replay("dz_wheel_strike", dz_wheel_strike, 0x8ec5b7585a974814);
+    replay("dz_wheel_strike", dz_wheel_strike, 0x95497d74188ff262);
 }
 
 #[test]
 fn dz_blast_on_hull_replays() {
-    replay("dz_blast_on_hull", dz_blast_on_hull, 0x0b741d20b920182d);
+    replay("dz_blast_on_hull", dz_blast_on_hull, 0xa47f54985ee8bf3e);
 }
 
 fn no_jump_over(case: &str, committed: u64) {
@@ -265,29 +265,29 @@ fn no_jump_over(case: &str, committed: u64) {
 
 #[test]
 fn dz_no_jump_over_carl() {
-    no_jump_over("carl", 0xdf742acfa0d5b755);
+    no_jump_over("carl", 0xf5cf87623c5cb63f);
 }
 
 #[test]
 fn dz_no_jump_over_donut() {
-    no_jump_over("donut", 0x4d27a0d526a1563f);
+    no_jump_over("donut", 0xe4dfeb47dd4b2419);
 }
 
 #[test]
 fn dz_no_jump_over_donut_boosted() {
-    no_jump_over("donut_boosted", 0xa0ddc258815404d3);
+    no_jump_over("donut_boosted", 0x29188b69b2ab52dd);
 }
 
 // ------------------------------------------------------------ DOZR-07 --
 
 #[test]
 fn dz_retry_dormant_replays() {
-    replay("dz_retry_dormant", dz_retry_dormant, 0xcb22aefaa5c28294);
+    replay("dz_retry_dormant", dz_retry_dormant, 0x385114c2a5441bc3);
 }
 
 #[test]
 fn dz_retry_chase_replays() {
-    replay("dz_retry_chase", dz_retry_chase, 0xf7fd47269efb78ab);
+    replay("dz_retry_chase", dz_retry_chase, 0x888a3bc74ebc2f3e);
 }
 
 // ------------------------------------------------- DR-B, DOZR-02 to 04 --
@@ -311,7 +311,7 @@ fn dz_frame_window_sweep_replays() {
     let r = replay_with(
         "dz_frame_window_sweep",
         frame::dz_frame_window_sweep,
-        0x561a6d0dfad7dfb3,
+        0xa1d6a0c28486dbbb,
     );
     println!("dz_frame_window_sweep: {r:?}");
     let t = crate::dozer::DozerTuning::active();
@@ -323,7 +323,7 @@ fn dz_frame_early_miss_replays() {
     replay(
         "dz_frame_early_miss",
         frame::dz_frame_early_miss,
-        0x90b05ac9d9465359,
+        0xfaff1a6c60104892,
     );
 }
 
@@ -332,7 +332,7 @@ fn dz_frame_disable_once_replays() {
     let r = replay_with(
         "dz_frame_disable_once",
         frame::dz_frame_disable_once,
-        0x66d93588a9cd694f,
+        0xfb38882a666a83d6,
     );
     println!("dz_frame_disable_once: released on R {r}");
 }
@@ -342,7 +342,7 @@ fn dz_frame_rear_glance_replays() {
     let front = replay_with(
         "dz_frame_rear_glance",
         frame::dz_frame_rear_glance,
-        0x394c8156471ae547,
+        0xe9a74a2daaa936f0,
     );
     println!("dz_frame_rear_glance: the glance at front {front}");
 }
@@ -352,7 +352,7 @@ fn dz_frame_dynamite_replays() {
     let r = replay_with(
         "dz_frame_dynamite",
         frame::dz_frame_dynamite,
-        0x52c11204d1e93648,
+        0xe61692ba0bcba6d0,
     );
     println!("dz_frame_dynamite: released on R {r}");
 }
@@ -362,7 +362,81 @@ fn dz_frame_missile_replays() {
     let r = replay_with(
         "dz_frame_missile",
         frame::dz_frame_missile,
-        0x27ade85a4e873d28,
+        0x99084fa4f4351760,
     );
     println!("dz_frame_missile: released on R {r}");
+}
+
+// ------------------------------------------------- DR-C, DOZR-06 and 07 --
+
+#[test]
+fn dz_crew_bounded_replays() {
+    let spots = replay_with("dz_crew_bounded", crew::dz_crew_bounded, 0x9662385c797c8658);
+    println!("dz_crew_bounded: landed at {spots:?} (plain A, B; nudged A, B)");
+}
+
+#[test]
+fn dz_respawn_after_disable_replays() {
+    replay(
+        "dz_respawn_after_disable",
+        crew::dz_respawn_after_disable,
+        0x8ff597d554b704d8,
+    );
+}
+
+#[test]
+fn dz_retry_stunned_replays() {
+    replay(
+        "dz_retry_stunned",
+        crew::dz_retry_stunned,
+        0xb9172884d5b16681,
+    );
+}
+
+#[test]
+fn dz_retry_disabled_replays() {
+    replay(
+        "dz_retry_disabled",
+        crew::dz_retry_disabled,
+        0x26df30727dd00b4e,
+    );
+}
+
+/// The committed fold of the nine seeds' final hashes per solo mode.
+const CREW_HASHES: [(Mode, u64); 2] = [
+    (Mode::CarlSolo, 0x6ea71fa5fe6e9a9b),
+    (Mode::DonutSolo, 0x7fe33291845521f9),
+];
+
+/// The companion crew pilots: every seed disables the machine and completes
+/// with at most 3 living enemies and no stuck hero, twice, and the fold of
+/// each mode matches.
+#[test]
+fn dz_crew_companion_pilots() {
+    let mut mismatches = Vec::new();
+    for (mode, committed) in CREW_HASHES {
+        let mut folds = [Vec::new(), Vec::new()];
+        for seed in SEEDS {
+            for (pass, fold_of) in folds.iter_mut().enumerate() {
+                let r =
+                    crew::dz_crew_companion(&root(), mode, seed).unwrap_or_else(|e| panic!("{e}"));
+                r.check().unwrap_or_else(|e| panic!("{e}"));
+                fold_of.push(r.hash);
+                if pass == 0 {
+                    println!("{}", r.line());
+                }
+            }
+        }
+        assert_eq!(
+            folds[0],
+            folds[1],
+            "dz_crew {}: the replay differs",
+            mode.name()
+        );
+        let got = fold(folds[0].iter().copied());
+        if got != committed {
+            mismatches.push(format!("dz_crew_{}: hash {got:#018x}", mode.name()));
+        }
+    }
+    assert!(mismatches.is_empty(), "{}", mismatches.join("\n"));
 }

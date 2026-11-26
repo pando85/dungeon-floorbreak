@@ -273,7 +273,7 @@ A blow on a solo bot never takes its last HP (`solo_last_hp_guard`, a rule for e
 
 - **Riders:** rider A (GOB-01 variant A, temperament brawler) and rider B (variant B, coward) are ordinary roster goblins with a new optional field `mount: { carrier: "dozer", seat: "rider_a" | "rider_b" }`.
   - A mounted goblin is **carried**: not drawn by the goblin presenter (the DOZ-01 rider frames draw it), not a target, no collision, no morale, no tells.
-  - Its state hashes as "carried" only.
+  - Its state hashes as one "carried" word, plus its CF02 morale entry, which stays frozen while it is carried (adopted default, #289 review finding 1: the frozen entry is deterministic and restored by a retry, so it stays in the hash rather than moving every Dozer pin again).
 - **Dismount** at the end of `impact_stunned`, 48 ticks after the landing:
   - Rider A lands at the wheel front + 32 and rider B at + 72, on the floor, facing the heroes.
   - They start in the existing CF02 knockdown (down) state for **45 ticks**, then run ordinary goblin AI.
@@ -325,7 +325,7 @@ All at seeds 0..8. Every fixture replays twice with a committed hash. No existin
 | DOZR-04 | `dz_frame_dynamite`, `dz_frame_missile` (DR-B) | One stick releases at once and the disable credits the thrower; two missiles release; nothing releases on a pin without the capability |
 | DOZR-05 | `dz_hull_clang`, `dz_wheel_strike`, `dz_blast_on_hull`, `dz_no_jump_over_{carl,donut,donut_boosted}` | Clangs only, no state change. A jump at the wheel, at every 4 px of approach, either dies on the wheel or is pushed back onto it. No hero is ever above the push box or behind the machine |
 | DOZR-06 | `dz_crew_bounded` (DR-C) | Two riders dismount at the stated spots (or their nudged spots), never off-screen; at most 3 living enemies; no rider without a disable |
-| DOZR-07 | `dz_retry_{dormant,chase,stunned,disabled}` (defeat retry), `dz_respawn_after_disable` (checkpoint respawn) | A retry from each phase gives a post-retry hash equal to a fresh attempt's. The respawn restores the machine and the frame, carries the living riders and keeps the dead dead |
+| DOZR-07 | `dz_retry_{dormant,chase,stunned,disabled}` (defeat retry), `dz_respawn_after_disable` (checkpoint respawn) | A retry from each phase restores the pristine machine, the hanging frame, no remnant and the carried crew, and the next 400 ticks of a Run plan trace (the Dozer hash, both hero x positions, the carried flags and the riders' own mix, per tick) equal a fresh attempt's; this is not the full state hash. The respawn restores the machine and the frame, carries the living riders and keeps the dead dead |
 | Escape end | `dz_escaped_wheel_off`, `dz_stop_face_safe` | A hero pressed at the drawn stop (body 984..1008) during the brake is not touched once its left edge is at or past `stop_x`. After the brake, a hero walking back to the parked wheel is not hurt. The AI is never evicted from the tunnel mouth |
 | DOZR-08 | the mode matrix above; real two-pad play | The same route and rules in every mode; a real two-pad run is **NOT RUN** unless done |
 | DOZR-09 | DR-D | Frame time at 640x360 and 640x400 (`--perf-frames`, nav rebuild count), a human session, recognition and retry speed |
@@ -464,6 +464,7 @@ Only if DOZER-CORE's counts fire the DZ-Q24 trigger. The content is section 7.5.
 
 - **Files:** the roster `mount` field and its validator rule in `src/encounter.rs`; the carried-goblin exclusion and the dismount in the goblin spawn path (`src/combat_scene.rs`, following the FA-Q20 wake-gate code where it can); the sidecar entries.
 - **Acceptance:** DOZR-06, `dz_respawn_after_disable`, and companion-mode crew pilots at seeds 0..8 (no hero stuck more than 300 ticks).
+- **Status:** implemented (merged, game-feel review pending once merged); see [floor01-scene.md](../03-tech/floor01-scene.md#room-3s-crew-dr-c). Adopted defaults: the 45 knockdown ticks include the get-up; a spot overlaps a hero when the centres are less than 24 px apart (the two half widths); the heroes are Carl, plus Donut while the party is live; the companion pilots release on the middle of the window + (seed − 4) and odd seeds linger 240 ticks after the disable before running.
 
 ### DR-D, timing, art and evidence (depends on DR-C, and on DOZ-02 when it lands)
 
