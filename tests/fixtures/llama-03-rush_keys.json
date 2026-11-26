@@ -1,0 +1,18 @@
+{
+  "asset_id": "llama-03-rush",
+  "format": "pixelart-keys-v1",
+  "keys": {
+    "1": {
+      "sha256": "679aed02cea0a1b3dc06079541f2dc1f00581c2cea951c3b791e67a043aebad0"
+    },
+    "2": {
+      "sha256": "497ab1783f27d9950c6af871adb75fb3582e03c495bed4e7f1e683ce8044b18d"
+    },
+    "4": {
+      "sha256": "ed02311e814ee1e71496071c8d40c7402a1b85de383d5c3538d7542fccc114d2"
+    },
+    "8": {
+      "sha256": "ec3c6cc177964c4107a3f6be79228841ee0bd02f2ac13483255969110a251e79"
+    }
+  }
+}
