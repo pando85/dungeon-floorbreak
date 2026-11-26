@@ -1,7 +1,7 @@
 Local check list on the final head of REST-WIRE PR 2 (debug build, no GitHub CI wait):
 cargo fmt --all -- --check                                  OK
 cargo clippy --locked --all-targets -- -D warnings          OK (no warnings)
-cargo test --locked --all-targets --no-fail-fast            OK: lib 3745 passed, 0 failed, 33 ignored (evidence helpers); floor01_scene bin and every other target passed
+cargo test --locked --all-targets --no-fail-fast            OK: lib 3748 passed, 0 failed, 34 ignored (evidence helpers); floor01_scene bin and every other target passed
 python3 scripts/check_docs.py                               OK
 scripts/ci_floor01_combat.sh headless                       OK (F01_LATE_HEADLESS_OK lists the twelve rooms; F01_REST_REFUGE_HEADLESS_OK with smoke hash 0x0c3f798dc16f07f0 unchanged; F01_REST_CAMP_HEADLESS_OK and F01_REST_AFTERMATH_HEADLESS_OK; every committed DP and legacy replay byte-identical)
 scripts/ci_floor01_combat.sh render (xvfb 1920x1080x24)     OK
