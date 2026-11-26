@@ -17,6 +17,14 @@ fn refuge() -> RestRun {
     launch(&root(), RestRoom::Refuge).expect("the refuge launches")
 }
 
+fn camp() -> RestRun {
+    launch(&root(), RestRoom::Camp).expect("the camp launches")
+}
+
+fn aftermath() -> RestRun {
+    launch(&root(), RestRoom::Aftermath).expect("the aftermath launches")
+}
+
 fn scene_of(run: &RestRun) -> SceneSim {
     SceneSim::new_at(&run.kit, 360, run.fixture.carl_x).unwrap()
 }
@@ -239,20 +247,134 @@ fn rest_refuge_reward_zone_sits_at_the_box() {
     assert_eq!(labels.len(), decor(RestRoom::Refuge).len());
 }
 
-/// `jump_reach_boost` requires `primary_ranged`: Donut starts with the biscuit, or the
-/// trigger would be spent without granting and the room would seal on every restart.
+/// `jump_reach_boost` requires `primary_ranged`: Donut starts with the biscuit in all three
+/// rooms, or the refuge's trigger would be spent without granting and seal the room on every
+/// restart (and the aftermath's blink lane would have no Donut mana to spend).
 #[test]
 fn rest_refuge_starts_with_the_biscuit() {
-    let run = refuge();
-    let mut scene = scene_of(&run);
     let (carl, donut) = Loadout::Story.flags();
-    for flags in [(carl, donut), Default::default()] {
-        let combat = combat_for(&run, &mut scene, flags.0, flags.1, None).unwrap();
+    for room in RestRoom::ALL {
+        let run = launch(&root(), room).unwrap();
+        let mut scene = scene_of(&run);
+        for flags in [(carl, donut), Default::default()] {
+            let combat = combat_for(&run, &mut scene, flags.0, flags.1, None).unwrap();
+            assert!(
+                combat.donut_mana_view().is_some(),
+                "{}: Donut's mana is unlocked at tick 0",
+                room.id()
+            );
+            assert!(combat.story_holds(crate::story_unlock::PRIMARY_RANGED));
+        }
+    }
+}
+
+/// REST-B and REST-C: both sidecars validate (an empty roster under `reach_exit`, no lock,
+/// no gated surface, the room pins of the story table, no ceiling slab and no surface above
+/// the 42 px free height), and the camp's crates and the aftermath's bench are decor only
+/// (REST-IMP-8: the validator's lane rule rejects a 32 px or 24 px deck).
+#[test]
+fn rest_camp_and_aftermath_sidecars_validate() {
+    for (run, id, pin) in [
+        (camp(), "F01-REST-CAMP-ENC", "f01_pin_post_pile_boss"),
+        (aftermath(), "F01-REST-AFTERMATH-ENC", "f01_late_mastery"),
+    ] {
+        let loaded = &run.loaded;
+        assert_eq!(loaded.encounter.id, id);
+        assert_eq!(loaded.encounter.goal, crate::encounter::Goal::ReachExit);
+        assert!(loaded.encounter.roster.is_empty());
+        assert_eq!(loaded.encounter.story_pin, pin);
+        assert!(StoryTable::active().has_room_pin(pin), "{pin}: a room pin");
+        assert!(loaded.encounter.locks.is_empty(), "no lock");
+        assert!(run.door().is_none());
+        assert_eq!(loaded.ceiling_px, None, "no lane ceiling");
+        assert!(loaded.room.platforms.is_empty(), "no surface at all");
         assert!(
-            combat.donut_mana_view().is_some(),
-            "Donut's mana is unlocked at tick 0"
+            loaded.encounter.effective_gates.is_empty() && loaded.encounter.vantages.is_empty()
         );
-        assert!(combat.story_holds(crate::story_unlock::PRIMARY_RANGED));
+        // No slab in the kit: no full-width solid hangs in the lane (the 32 px top wall of
+        // the room's frame is the only full-width solid above the floor).
+        assert!(
+            !run.kit
+                .solid_rects
+                .iter()
+                .any(|s| s.w >= run.kit.width && s.y > 0 && s.y + s.h < run.kit.base_walk_line_y),
+            "no ceiling slab"
+        );
+    }
+    // The heavy bag is an inert static on the walking line, mirrored by the decor rectangle
+    // (REST-AD12: never solid, never blocking).
+    let run = aftermath();
+    let statics = &run.loaded.encounter.statics;
+    assert_eq!(statics.len(), 1);
+    assert_eq!(statics[0].id, "heavy_bag");
+    assert_eq!(statics[0].rect.bottom(), run.loaded.room.floor_y);
+    let bag = decor(RestRoom::Aftermath)
+        .iter()
+        .find(|d| d.label == "heavy_bag")
+        .expect("the bag decor");
+    assert_eq!(bag.rect, statics[0].rect);
+    let env = combat_of(&run, &mut scene_of(&run)).unwrap();
+    assert!(
+        env.env().unwrap().solids().is_empty(),
+        "the aftermath has no env solid: the bag never blocks"
+    );
+}
+
+/// The decor tables of the camp and the aftermath stand on the floor inside their room, with
+/// unique labels, and sit where the design puts them (the checkpoint under the central
+/// light, the blink lane's two floor marks 112 px apart, chalk over the last 128 px).
+#[test]
+fn rest_camp_and_aftermath_decor_sits_where_the_design_puts_it() {
+    for room in RestRoom::ALL {
+        let run = launch(&root(), room).unwrap();
+        let mut labels: Vec<&str> = decor(room).iter().map(|d| d.label).collect();
+        labels.sort_unstable();
+        labels.dedup();
+        assert_eq!(labels.len(), decor(room).len(), "{}", room.id());
+        for d in decor(room) {
+            assert!(
+                d.rect.x >= 0 && d.rect.right() <= run.kit.width,
+                "{} {}",
+                room.id(),
+                d.label
+            );
+        }
+    }
+    let rect = |room, label: &str| {
+        decor(room)
+            .iter()
+            .find(|d| d.label == label)
+            .unwrap_or_else(|| panic!("{label}"))
+            .rect
+    };
+    let camp = camp();
+    let checkpoint = camp.loaded.encounter.checkpoint;
+    let light = rect(RestRoom::Camp, "camp_light");
+    assert!(
+        light.x >= checkpoint.x && light.right() <= checkpoint.right(),
+        "the checkpoint sits under the central light"
+    );
+    let chalk = rect(RestRoom::Camp, "chalk");
+    assert_eq!(chalk.w, 128);
+    assert_eq!(
+        chalk.right(),
+        camp.loaded.encounter.exit.x,
+        "the last 128 px"
+    );
+    let left = rect(RestRoom::Aftermath, "blink_lane_left");
+    let right = rect(RestRoom::Aftermath, "blink_lane_right");
+    assert_eq!(left.x, BLINK_LANE_X.0);
+    assert_eq!(right.right(), BLINK_LANE_X.1);
+    assert_eq!(BLINK_LANE_X.1 - BLINK_LANE_X.0, 112, "the 112 px blink");
+    for room in [RestRoom::Camp, RestRoom::Aftermath] {
+        for d in decor(room) {
+            assert!(
+                d.rect.bottom() <= 580,
+                "{}: {} stands on or above the walking line",
+                room.id(),
+                d.label
+            );
+        }
     }
 }
 
@@ -360,6 +482,34 @@ fn rest_refuge_flagless_smoke_is_sealed() {
     assert_eq!(again, combat.state_hash(&scene));
 }
 
+/// The camp and the aftermath are not sealed: a flagless walk right reaches the exit under
+/// the plain constructor (no flag, no door, no grant), and the same walk twice gives the same
+/// hash.
+#[test]
+fn rest_camp_and_aftermath_flagless_smokes_reach_the_exit() {
+    for room in [RestRoom::Camp, RestRoom::Aftermath] {
+        let hash = || {
+            let run = launch(&root(), room).unwrap();
+            let mut scene = scene_of(&run);
+            let mut combat = combat_of(&run, &mut scene).unwrap();
+            for tick in 1..=SMOKE_TICKS {
+                combat.step(&mut scene, run.fixture.input(tick));
+            }
+            assert!(scene.world.complete, "{}: the exit is reached", room.id());
+            assert!(
+                !combat
+                    .events
+                    .iter()
+                    .any(|e| matches!(e, crate::combat::CombatEvent::CapabilityGranted { .. })),
+                "{}: a quiet room grants nothing",
+                room.id()
+            );
+            combat.state_hash(&scene)
+        };
+        assert_eq!(hash(), hash(), "{}", room.id());
+    }
+}
+
 /// Under the Story flags a scripted crossing (Donut active, the shelf jump) reaches the
 /// exit: the box grants, the shelf opens the door, the exit is reached.
 #[test]
@@ -370,13 +520,19 @@ fn rest_refuge_story_smoke_reaches_the_exit() {
     assert_eq!(o.doors.len(), 1);
 }
 
-/// The room's scenes and ids line up with the manifest's names.
+/// The rooms' scenes and ids line up with the manifest's names.
 #[test]
-fn the_refuge_scene_names_match_the_manifest() {
+fn the_rest_scene_names_match_the_manifest() {
     let manifest = crate::f01_late::Manifest::load(&root()).unwrap();
-    let row = manifest.room(RestRoom::Refuge.id()).unwrap();
-    assert_eq!(row.scene.name(), RestRoom::Refuge.scene_name());
-    assert_eq!(row.title, "The Wrong Restaurant");
-    assert_eq!(row.milestone, "greybox");
-    assert_eq!(row.scene.rest(), Some(RestRoom::Refuge));
+    for (room, title) in [
+        (RestRoom::Refuge, "The Wrong Restaurant"),
+        (RestRoom::Camp, "The Survivors' Camp"),
+        (RestRoom::Aftermath, "After the Juicer"),
+    ] {
+        let row = manifest.room(room.id()).unwrap();
+        assert_eq!(row.scene.name(), room.scene_name());
+        assert_eq!(row.title, title);
+        assert_eq!(row.milestone, "greybox");
+        assert_eq!(row.scene.rest(), Some(room));
+    }
 }

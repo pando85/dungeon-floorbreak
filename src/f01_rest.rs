@@ -1,13 +1,17 @@
 //! REST-WIRE: the quiet rooms of the late-Floor-1 run
 //! (`docs/01-design/floor-01-quiet-setpieces-and-transitions.md` section G,
-//! `docs/07-agents/floor-01-quiet-setpieces-workorder.md`). This first step (REST-A,
-//! REST-AD11) lands the **refuge**, room 1 `rest_refuge`, "The Wrong Restaurant":
+//! `docs/07-agents/floor-01-quiet-setpieces-workorder.md`). Three rooms (REST-AD1,
+//! REST-AD11): the **refuge** (REST-A, room 1 `rest_refuge`, "The Wrong Restaurant"),
 //! listed right after the corral so the Light on Your Feet grant of the story table
-//! (`f01_safe_room_reward_found`, REST-AD3) happens in play before the Hoarder. The
-//! camp and the aftermath are the second step's; [`RestRoom`] is ready for them.
+//! (`f01_safe_room_reward_found`, REST-AD3) happens in play before the Hoarder; the
+//! **camp** (REST-B, `rest_camp`, "The Survivors' Camp"), after the Ring; and the
+//! **aftermath** (REST-C, `rest_aftermath`, "After the Juicer"), between the Juicer and
+//! the mastery arena. The camp and the aftermath grant nothing: each runs under a room
+//! pin of the story table (the post-Hoarder pin and the mastery pin), like the Ring
+//! rooms, so a carried ledger never duplicates an unlock (REST-AD3).
 //!
-//! It launches through `--scene f01_late --f01-room rest_refuge` (and walks in
-//! `--f01-run`): no scene arm of its own, like the Ring rooms (KR22).
+//! They launch through `--scene f01_late --f01-room <id>` (and walk in `--f01-run`):
+//! no scene arm of their own, like the Ring rooms (KR22).
 //!
 //! Bevy-free. [`launch`] loads the room and its sidecar through the one room parser
 //! ([`crate::encounter::load`], the whole validation: the `hero_on_surface` lock, the
@@ -18,28 +22,31 @@
 //! the sidecar. [`combat_for`] builds the combat state the scene, the fixtures and the
 //! PLAYTRACE verifier share:
 //!
-//! * no enemy, no hazard, no prop: the env runtime carries the one **staff door**, a
-//!   latched `hero_on_surface` lock (REST-AD5, REST-AD6): a full-height solid at the
-//!   exit that stays until Donut stands grounded on the shelf (the 128 px platform 2,
-//!   boosted Donut only), then stays open for the attempt;
+//! * no enemy, no hazard, no prop: in the refuge the env runtime carries the one
+//!   **staff door**, a latched `hero_on_surface` lock (REST-AD5, REST-AD6): a
+//!   full-height solid at the exit that stays until Donut stands grounded on the shelf
+//!   (the 128 px platform 2, boosted Donut only), then stays open for the attempt. The
+//!   camp and the aftermath have no lock and no platform (REST-IMP-8);
 //! * Donut starts with the biscuit and a full pool (`DonutSetup::unlocked(8)`, like the
 //!   corral and the Ring rooms). It is **mandatory**: `jump_reach_boost` requires
 //!   `primary_ranged`, and a trigger whose guard fails is spent without granting, which
 //!   would seal the refuge on every restart;
-//! * the story: the room holds nothing at entry and **arms** the reward trigger
+//! * the story: the refuge holds nothing at entry and **arms** the reward trigger
 //!   `f01_safe_room_reward_found` through [`SceneKind::RestRefuge`] under the Donut
 //!   program flags (the Story loadout; under All the boost is held and the trigger is
 //!   spent). The sidecar's `story_pin` is a neutral label with no table row, like the
 //!   corral's (checked here to stay so). A **flagless launch arms nothing, so the door
-//!   never opens: the room is sealed by design** ([`entry_line`] says `boost=none`);
+//!   never opens: the room is sealed by design** ([`entry_line`] says `boost=none`). The
+//!   camp and the aftermath name room pins (checked here to be room pins) and arm
+//!   nothing;
 //! * the exit is the sidecar's `exit` (`goal: reach_exit`), beyond the door.
 //!
 //! The decor tables ([`decor`]) are presentation only (REST-AD10, REST-AD16): flat
 //! labelled rectangles the binary draws; never solids, never in the sim, never hashed.
 //!
-//! The room and the sidecar are pinned ([`REFUGE_ROOM_HASH`],
-//! [`REFUGE_ENCOUNTER_HASH`]): [`launch`] refuses an edited file, a test pins each
-//! constant to its file, and an edit is a deliberate re-pin here.
+//! Each room and sidecar is pinned ([`REFUGE_ROOM_HASH`], [`CAMP_ENCOUNTER_HASH`], ...):
+//! [`launch`] refuses an edited file, a test pins each constant to its file, and an
+//! edit is a deliberate re-pin here.
 
 use std::path::Path;
 
@@ -58,15 +65,30 @@ use crate::story_unlock::{SceneKind, StorySetup, StoryTable};
 /// The refuge's sidecar and room file.
 pub const REFUGE_ENCOUNTER_PATH: &str = "assets/levels/floor01/f01_rest_refuge.encounter.json";
 pub const REFUGE_ROOM_PATH: &str = "assets/levels/floor01/f01_rest_refuge.room.json";
+/// The camp's sidecar and room file (REST-B).
+pub const CAMP_ENCOUNTER_PATH: &str = "assets/levels/floor01/f01_rest_camp.encounter.json";
+pub const CAMP_ROOM_PATH: &str = "assets/levels/floor01/f01_rest_camp.room.json";
+/// The aftermath's sidecar and room file (REST-C).
+pub const AFTERMATH_ENCOUNTER_PATH: &str =
+    "assets/levels/floor01/f01_rest_aftermath.encounter.json";
+pub const AFTERMATH_ROOM_PATH: &str = "assets/levels/floor01/f01_rest_aftermath.room.json";
 
 /// FNV-1a 64 of the room file and of the sidecar (the files live under
 /// `assets/levels`, so the hashes are constants, the Boiler's precedent).
 pub const REFUGE_ROOM_HASH: u64 = 0x9530_9fd0_8a4b_5554;
 pub const REFUGE_ENCOUNTER_HASH: u64 = 0xee94_f77c_d985_cf26;
+pub const CAMP_ROOM_HASH: u64 = 0x82ac_9d19_a66e_503d;
+pub const CAMP_ENCOUNTER_HASH: u64 = 0x0e29_7196_531c_54e4;
+pub const AFTERMATH_ROOM_HASH: u64 = 0x1fa7_f8e2_d2e3_4425;
+pub const AFTERMATH_ENCOUNTER_HASH: u64 = 0x0705_5b07_4962_3490;
 /// The `data_pins()` keys, scoped to the `rest_refuge` room by
 /// [`crate::f01_late::pin_applies`].
 pub const REFUGE_ROOM_PIN_KEY: &str = "f01_rest_refuge_room";
 pub const REFUGE_ENCOUNTER_PIN_KEY: &str = "f01_rest_refuge_encounter";
+pub const CAMP_ROOM_PIN_KEY: &str = "f01_rest_camp_room";
+pub const CAMP_ENCOUNTER_PIN_KEY: &str = "f01_rest_camp_encounter";
+pub const AFTERMATH_ROOM_PIN_KEY: &str = "f01_rest_aftermath_room";
+pub const AFTERMATH_ENCOUNTER_PIN_KEY: &str = "f01_rest_aftermath_encounter";
 
 /// A fixture seed is only recorded: the room has no random draw, but the companion
 /// draws its temperament from `--cf02-seed`.
@@ -88,21 +110,26 @@ pub const STAFF_DOOR: &str = "staff_door";
 /// The refuge's reward box column (the story table's zone, REST-AD4): x range.
 pub const REWARD_ZONE_X: (i32, i32) = (1200, 1240);
 
-/// One of the quiet rooms (REST-AD1). Only the refuge is listed by this step; the
-/// camp and the aftermath join in REST-WIRE's second PR.
+/// One of the quiet rooms (REST-AD1), in run order.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum RestRoom {
     /// Room 1, REST-A: the fast-food refuge with the staff door.
     Refuge,
+    /// Room 9, REST-B: the survivors' camp, after the Ring.
+    Camp,
+    /// Room 11, REST-C: the quiet after the Juicer, before the mastery arena.
+    Aftermath,
 }
 
 impl RestRoom {
-    pub const ALL: [RestRoom; 1] = [RestRoom::Refuge];
+    pub const ALL: [RestRoom; 3] = [RestRoom::Refuge, RestRoom::Camp, RestRoom::Aftermath];
 
     /// The manifest id (`--f01-room`).
     pub const fn id(self) -> &'static str {
         match self {
             Self::Refuge => "rest_refuge",
+            Self::Camp => "rest_camp",
+            Self::Aftermath => "rest_aftermath",
         }
     }
 
@@ -110,6 +137,8 @@ impl RestRoom {
     pub const fn scene_name(self) -> &'static str {
         match self {
             Self::Refuge => "f01_rest_refuge",
+            Self::Camp => "f01_rest_camp",
+            Self::Aftermath => "f01_rest_aftermath",
         }
     }
 
@@ -120,12 +149,16 @@ impl RestRoom {
     pub const fn encounter_path(self) -> &'static str {
         match self {
             Self::Refuge => REFUGE_ENCOUNTER_PATH,
+            Self::Camp => CAMP_ENCOUNTER_PATH,
+            Self::Aftermath => AFTERMATH_ENCOUNTER_PATH,
         }
     }
 
     pub const fn room_path(self) -> &'static str {
         match self {
             Self::Refuge => REFUGE_ROOM_PATH,
+            Self::Camp => CAMP_ROOM_PATH,
+            Self::Aftermath => AFTERMATH_ROOM_PATH,
         }
     }
 
@@ -133,6 +166,8 @@ impl RestRoom {
     pub const fn room_hash(self) -> u64 {
         match self {
             Self::Refuge => REFUGE_ROOM_HASH,
+            Self::Camp => CAMP_ROOM_HASH,
+            Self::Aftermath => AFTERMATH_ROOM_HASH,
         }
     }
 
@@ -140,6 +175,8 @@ impl RestRoom {
     pub const fn encounter_hash(self) -> u64 {
         match self {
             Self::Refuge => REFUGE_ENCOUNTER_HASH,
+            Self::Camp => CAMP_ENCOUNTER_HASH,
+            Self::Aftermath => AFTERMATH_ENCOUNTER_HASH,
         }
     }
 
@@ -147,6 +184,8 @@ impl RestRoom {
     pub const fn room_pin_key(self) -> &'static str {
         match self {
             Self::Refuge => REFUGE_ROOM_PIN_KEY,
+            Self::Camp => CAMP_ROOM_PIN_KEY,
+            Self::Aftermath => AFTERMATH_ROOM_PIN_KEY,
         }
     }
 
@@ -154,6 +193,8 @@ impl RestRoom {
     pub const fn encounter_pin_key(self) -> &'static str {
         match self {
             Self::Refuge => REFUGE_ENCOUNTER_PIN_KEY,
+            Self::Camp => CAMP_ENCOUNTER_PIN_KEY,
+            Self::Aftermath => AFTERMATH_ENCOUNTER_PIN_KEY,
         }
     }
 
@@ -161,6 +202,8 @@ impl RestRoom {
     pub const fn marker(self) -> &'static str {
         match self {
             Self::Refuge => "F01_REST_REFUGE",
+            Self::Camp => "F01_REST_CAMP",
+            Self::Aftermath => "F01_REST_AFTERMATH",
         }
     }
 }
@@ -200,10 +243,43 @@ const REFUGE_DECOR: [Decor; 8] = [
     ),
 ];
 
+/// The camp's greybox decor (REST-B, REST-AD10): the entrance marker (`ring_marker_a`
+/// once its sprite is wired), four anonymous survivor figures (flat grey, no faces),
+/// the central light over the checkpoint, the crate stack (REST-IMP-8: a decor
+/// rectangle, not a platform) and the chalk marks over the last 128 px.
+const CAMP_DECOR: [Decor; 8] = [
+    d("ring_marker_a", 220, 524, 24, 56),
+    d("sentry", 512, 532, 16, 48),
+    d("crate_stack", 704, 548, 64, 32),
+    d("camp_light", 752, 500, 16, 24),
+    d("repair", 872, 536, 16, 44),
+    d("seated", 1032, 552, 16, 28),
+    d("map_table", 1192, 534, 16, 46),
+    d("chalk", 1328, 548, 128, 32),
+];
+
+/// The aftermath's greybox decor (REST-C, REST-AD10, REST-AD12): the wrecked-gym
+/// egress, the heavy bag (it mirrors the sidecar's inert static), the two chalk marks
+/// of the 112 px blink lane (floor ticks, never solids) and the arena's circular
+/// grooves on the back wall.
+const AFTERMATH_DECOR: [Decor; 5] = [
+    d("mirror_wreck", 224, 484, 288, 96),
+    d("heavy_bag", 624, 516, 32, 64),
+    d("blink_lane_left", 768, 572, 4, 8),
+    d("blink_lane_right", 876, 572, 4, 8),
+    d("grooves", 1088, 420, 192, 160),
+];
+
+/// The blink lane's x range (REST-C, REST-AD12): the floor marks of the optional
+/// Puddle Jumper test; no solid in or after it.
+pub const BLINK_LANE_X: (i32, i32) = (768, 880);
+
 /// The decor of a room (presentation only).
 pub const fn decor(room: RestRoom) -> &'static [Decor] {
     match room {
         RestRoom::Refuge => &REFUGE_DECOR,
+        RestRoom::Camp => &CAMP_DECOR,
+        RestRoom::Aftermath => &AFTERMATH_DECOR,
     }
 }
 
@@ -261,13 +337,22 @@ pub fn launch(root: &Path, room: RestRoom) -> Result<RestRun, String> {
             room.encounter_hash()
         ));
     }
-    // The refuge's pin is a label (like the corral's): a table row under it would be held.
     match room {
+        // The refuge's pin is a label (like the corral's): a table row under it would be held.
         RestRoom::Refuge => {
             if StoryTable::active().has_pin(&loaded.encounter.story_pin) {
                 return Err(format!(
                     "{path}: the story pin {:?} has rows in the story table; the refuge holds \
                      nothing at entry (REST-AD3)",
+                    loaded.encounter.story_pin
+                ));
+            }
+        }
+        // The camp and the aftermath run under a room pin (the Ring rooms' rule).
+        RestRoom::Camp | RestRoom::Aftermath => {
+            if !StoryTable::active().has_room_pin(&loaded.encounter.story_pin) {
+                return Err(format!(
+                    "{path}: unknown or non-room story pin {:?}",
                     loaded.encounter.story_pin
                 ));
             }
@@ -329,6 +414,14 @@ pub fn launch(root: &Path, room: RestRoom) -> Result<RestRun, String> {
                 "REST-WIRE: the refuge (a quiet dining room, the reward box, the staff shelf and \
                  the staff door); greybox, no art yet"
             }
+            RestRoom::Camp => {
+                "REST-WIRE: the survivors' camp (a quiet room under the post-Hoarder pin, no lock, \
+                 no platform); greybox, no art yet"
+            }
+            RestRoom::Aftermath => {
+                "REST-WIRE: the aftermath of the Juicer (a quiet room under the mastery pin, no \
+                 lock, a heavy bag and a blink lane); greybox, no art yet"
+            }
         },
         seed: FIXTURE_SEED,
         carl_x: start,
@@ -353,10 +446,22 @@ pub fn launch(root: &Path, room: RestRoom) -> Result<RestRun, String> {
 
 /// The story setup of a quiet room under a run's story flags. The refuge is the
 /// [`SceneKind::RestRefuge`] one: it holds nothing and arms the reward trigger under
-/// the Donut program (REST-AD3), the corral's pattern.
-pub fn story_setup(room: RestRoom, carl: CarlProgFlags, donut: DonutProgFlags) -> StorySetup {
+/// the Donut program (REST-AD3), the corral's pattern. The camp and the aftermath
+/// are the Ring rooms' pattern: the room's pin by id on the CF02 scene kind, which
+/// arms nothing (REST-B and REST-C grant nothing).
+pub fn story_setup(
+    room: RestRoom,
+    pin: &str,
+    carl: CarlProgFlags,
+    donut: DonutProgFlags,
+) -> Result<StorySetup, String> {
     match room {
-        RestRoom::Refuge => crate::donut_prog::story_setup(carl, donut, SceneKind::RestRefuge),
+        RestRoom::Refuge => Ok(crate::donut_prog::story_setup(
+            carl,
+            donut,
+            SceneKind::RestRefuge,
+        )),
+        RestRoom::Camp | RestRoom::Aftermath => crate::f01_boiler::story_setup(pin, carl, donut),
     }
 }
 
@@ -374,7 +479,12 @@ pub fn combat_for(
 ) -> Result<CombatState, String> {
     let mut combat = CombatState::new(run.fixture, &run.kit, scene)?
         .with_donut(DonutSetup::unlocked(8))
-        .try_with_story(story_setup(run.room, carl, donut))
+        .try_with_story(story_setup(
+            run.room,
+            &run.loaded.encounter.story_pin,
+            carl,
+            donut,
+        )?)
         .map_err(|e| e.to_string())?
         .with_demo(run.rules)
         .with_cf02()
@@ -396,10 +506,11 @@ pub fn combat_of(run: &RestRun, scene: &mut SceneSim) -> Result<CombatState, Str
     )
 }
 
-/// The console line of a launch. `lock` is `closed|open|none` (the staff door);
-/// `boost` is `held` when the ledger holds Donut's `jump_reach_boost`, `armed` when
-/// the reward trigger is armed and unfired, and `none` when neither (a flagless
-/// launch: the door can never open, the room is sealed by design).
+/// The console line of a launch. `lock` is `closed|open|none` (the staff door). In the
+/// refuge, `boost` is `held` when the ledger holds Donut's `jump_reach_boost`, `armed`
+/// when the reward trigger is armed and unfired, and `none` when neither (a flagless
+/// launch: the door can never open, the room is sealed by design). The camp and the
+/// aftermath have no door and no boost to find, so their line carries no `boost` field.
 pub fn entry_line(run: &RestRun, combat: &CombatState) -> String {
     let e = &run.loaded.encounter;
     let room = &run.loaded.room;
@@ -413,16 +524,22 @@ pub fn entry_line(run: &RestRun, combat: &CombatState) -> String {
         }
         _ => "none",
     };
-    let boost = if combat.story_holds(crate::donut_prog::JUMP_REACH_BOOST) {
-        "held"
-    } else if combat.story_zone_armed(1) {
-        "armed"
-    } else {
-        "none"
+    let boost = match run.room {
+        RestRoom::Refuge => {
+            let boost = if combat.story_holds(crate::donut_prog::JUMP_REACH_BOOST) {
+                "held"
+            } else if combat.story_zone_armed(1) {
+                "armed"
+            } else {
+                "none"
+            };
+            format!(" boost={boost}")
+        }
+        RestRoom::Camp | RestRoom::Aftermath => String::new(),
     };
     format!(
         "{}_ENTRY room={} encounter={} pin={} spawn_carl={} spawn_donut={} \
-         checkpoints={:?} goal={:?} roster={} lock={lock} boost={boost} env=live greybox=true \
+         checkpoints={:?} goal={:?} roster={} lock={lock}{boost} env=live greybox=true \
          room_hash={:#018x} sidecar_hash={:#018x}",
         run.room.marker(),
         e.room_id,
@@ -440,10 +557,14 @@ pub fn entry_line(run: &RestRun, combat: &CombatState) -> String {
 
 /// The pins `playtrace::live::data_pins` stamps (scoped to their room by
 /// [`crate::f01_late::pin_applies`]).
-pub const fn data_pins() -> [(&'static str, u64); 2] {
+pub const fn data_pins() -> [(&'static str, u64); 6] {
     [
         (REFUGE_ROOM_PIN_KEY, REFUGE_ROOM_HASH),
         (REFUGE_ENCOUNTER_PIN_KEY, REFUGE_ENCOUNTER_HASH),
+        (CAMP_ROOM_PIN_KEY, CAMP_ROOM_HASH),
+        (CAMP_ENCOUNTER_PIN_KEY, CAMP_ENCOUNTER_HASH),
+        (AFTERMATH_ROOM_PIN_KEY, AFTERMATH_ROOM_HASH),
+        (AFTERMATH_ENCOUNTER_PIN_KEY, AFTERMATH_ENCOUNTER_HASH),
     ]
 }
 

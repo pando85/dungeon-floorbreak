@@ -388,7 +388,7 @@ pub(super) fn check_f01_source(
         }
         ("boss", Some("juicer")) if reset.name == crate::boss_scene::BOSS01_SCENE.name => Ok(()),
         (crate::f01_late::SESSION_SOURCE, _) => Err(bad(
-            "the f01_room source replays the corral, refuge, boiler, hoarder, dozer, hazards, ring and mastery rooms only"
+            "the f01_room source replays the corral, refuge, camp, aftermath, boiler, hoarder, dozer, hazards, ring and mastery rooms only"
                 .to_owned(),
         )),
         (source, _) if labelled => Err(bad(format!(
@@ -445,6 +445,8 @@ fn rebuild_f01_room(manifest: &SessionManifest, root: &Path) -> Result<Reset, Ve
         Some(
             "corral"
                 | "rest_refuge"
+                | "rest_camp"
+                | "rest_aftermath"
                 | "boiler"
                 | "hoarder"
                 | "dozer"
@@ -459,7 +461,7 @@ fn rebuild_f01_room(manifest: &SessionManifest, root: &Path) -> Result<Reset, Ve
         return Err(VerifyFailure::new(
             "unsupported_source",
             format!(
-                "the {} source replays the corral, refuge, Boiler, Hoarder, Dozer, hazard, Ring and mastery rooms under the CF02 rules",
+                "the {} source replays the corral, refuge, camp, aftermath, Boiler, Hoarder, Dozer, hazard, Ring and mastery rooms under the CF02 rules",
                 crate::f01_late::SESSION_SOURCE
             ),
         ));
@@ -501,7 +503,7 @@ fn rebuild_f01_room(manifest: &SessionManifest, root: &Path) -> Result<Reset, Ve
             crate::f01_late::corral_start(root, reset.view_height, carl, donut, reset.cf02_seed)
                 .map(|(_, scene, combat)| (scene, combat))
         }
-        Some(id @ "rest_refuge") => crate::f01_late::rest_start(
+        Some(id @ ("rest_refuge" | "rest_camp" | "rest_aftermath")) => crate::f01_late::rest_start(
             root,
             crate::f01_rest::RestRoom::from_id(id).expect("a quiet room id"),
             reset.view_height,

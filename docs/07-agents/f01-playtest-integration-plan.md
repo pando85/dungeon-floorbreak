@@ -539,7 +539,7 @@ The modes are identical in route and rules (#176 BOIL-09, #178 HOARD-08 and HAZ-
 
 ```text
 cargo run --release --bin floor01_scene -- --scene f01_late --scale 2
-    [--f01-room corral|hoarder|boiler|dozer|hazards|ring_court|ring_split|juicer|mastery]   # jump to a listed room with its story pin
+    [--f01-room corral|rest_refuge|hoarder|boiler|dozer|hazards|ring_court|ring_split|rest_camp|juicer|rest_aftermath|mastery]   # jump to a listed room with its story pin
     [--f01-loadout story|all]                                   # story implies --carl-prog --donut-prog; all = TEST LOADOUT
     [--companion cf02_free|cf02_assist]                         # AI partner profile (default cf02_free)
     [--debug-combat] [--no-record]                              # recording is on by default (PLAYTRACE)

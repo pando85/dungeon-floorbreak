@@ -50,8 +50,8 @@ try refuse $S --f01-run --cf02-seed 3
 # `--ring-pilot` (the evidence pilot of the Ring rooms) is refused outside them.
 for room in ring_court ring_split; do try ok $S --f01-run --f01-room "$room"; done
 try refuse $S --f01-room hoarder --ring-pilot
-# CORRAL-F: room 0 (the corral) is the first listed room; DR-A lists room 3 (the dozer).
-for room in corral hoarder boiler dozer hazards ring_court ring_split juicer mastery; do try ok $S --f01-room "$room"; done
+# CORRAL-F: room 0 (the corral) is the first listed room; DR-A lists room 3 (the dozer); REST-WIRE lists the three quiet rooms.
+for room in corral rest_refuge hoarder boiler dozer hazards ring_court ring_split rest_camp juicer rest_aftermath mastery; do try ok $S --f01-room "$room"; done
 # No committed room is unlisted any more: an unknown id is refused.
 try refuse $S --f01-room cellar
 # RING-A/B wire: the Ring rooms launch only through f01_late (KR22: no scene of their own).

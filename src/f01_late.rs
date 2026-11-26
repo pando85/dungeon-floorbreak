@@ -51,7 +51,7 @@ pub const MANIFEST_PATH: &str = "assets/levels/f01_late/manifest.json";
 /// hash is a constant, pinned to the file by a test and compared by every
 /// replay of a recorded room. A step that lists a room (CORRAL-WIRE, RING-A
 /// wire, HRD-A2, CORRAL-F, DR-A, ...) re-pins it on purpose.
-pub const MANIFEST_HASH: u64 = 0x2b71_0fb5_1da7_e2f1;
+pub const MANIFEST_HASH: u64 = 0xb42f_2f31_5436_e7d2;
 /// The fixture-only stub trigger the story-order tie skips by name.
 pub const STUB_TRIGGER: &str = "carl_prog_find_zone_stub";
 /// The `data_pins()` key.
@@ -78,7 +78,7 @@ pub const fn data_pins() -> [(&'static str, u64); 1] {
 /// stamps nor needs them, so a later edit of the manifest (every room step) or of
 /// the Boiler files (BOIL-B/C wire) fails only the recordings it can change; a
 /// Juicer recording needs the manifest hash and not the Boiler's.
-pub const SCOPED_PIN_KEYS: [&str; 21] = [
+pub const SCOPED_PIN_KEYS: [&str; 25] = [
     f01_boiler::ROOM_PIN_KEY,
     f01_boiler::ENCOUNTER_PIN_KEY,
     f01_boiler::fixes::PIN_KEY,
@@ -99,6 +99,10 @@ pub const SCOPED_PIN_KEYS: [&str; 21] = [
     f01_corral::ENCOUNTER_PIN_KEY,
     f01_rest::REFUGE_ROOM_PIN_KEY,
     f01_rest::REFUGE_ENCOUNTER_PIN_KEY,
+    f01_rest::CAMP_ROOM_PIN_KEY,
+    f01_rest::CAMP_ENCOUNTER_PIN_KEY,
+    f01_rest::AFTERMATH_ROOM_PIN_KEY,
+    f01_rest::AFTERMATH_ENCOUNTER_PIN_KEY,
     MANIFEST_PIN_KEY,
 ];
 
@@ -129,6 +133,12 @@ pub fn pin_applies(key: &str, room: Option<&str>) -> bool {
         }
         f01_rest::REFUGE_ROOM_PIN_KEY | f01_rest::REFUGE_ENCOUNTER_PIN_KEY => {
             room == Some(RestRoom::Refuge.id())
+        }
+        f01_rest::CAMP_ROOM_PIN_KEY | f01_rest::CAMP_ENCOUNTER_PIN_KEY => {
+            room == Some(RestRoom::Camp.id())
+        }
+        f01_rest::AFTERMATH_ROOM_PIN_KEY | f01_rest::AFTERMATH_ENCOUNTER_PIN_KEY => {
+            room == Some(RestRoom::Aftermath.id())
         }
         MANIFEST_PIN_KEY => room.is_some(),
         _ => true,
@@ -180,6 +190,12 @@ pub enum RoomScene {
     /// `--scene f01_late` only, listed right after the corral.
     #[serde(rename = "f01_rest_refuge")]
     RestRefuge,
+    /// REST-WIRE: the survivors' camp (REST-B), listed after the Ring.
+    #[serde(rename = "f01_rest_camp")]
+    RestCamp,
+    /// REST-WIRE: the quiet room after the Juicer (REST-C), before the mastery arena.
+    #[serde(rename = "f01_rest_aftermath")]
+    RestAftermath,
 }
 
 impl RoomScene {
@@ -197,6 +213,8 @@ impl RoomScene {
             Self::RingSplit => RingRoom::Split.scene_name(),
             Self::Corral => f01_corral::SCENE_NAME,
             Self::RestRefuge => RestRoom::Refuge.scene_name(),
+            Self::RestCamp => RestRoom::Camp.scene_name(),
+            Self::RestAftermath => RestRoom::Aftermath.scene_name(),
         }
     }
 
@@ -204,6 +222,8 @@ impl RoomScene {
     pub const fn rest(self) -> Option<RestRoom> {
         match self {
             Self::RestRefuge => Some(RestRoom::Refuge),
+            Self::RestCamp => Some(RestRoom::Camp),
+            Self::RestAftermath => Some(RestRoom::Aftermath),
             _ => None,
         }
     }
@@ -442,6 +462,8 @@ fn check_rules(row: &RoomRow) -> Result<(), String> {
         | RoomScene::RingCourt
         | RoomScene::RingSplit
         | RoomScene::RestRefuge
+        | RoomScene::RestCamp
+        | RoomScene::RestAftermath
         | RoomScene::Corral => row.rules == RoomRules::Cf02,
         RoomScene::Boss => row.rules == RoomRules::Boss,
     };
@@ -896,7 +918,9 @@ mod tests {
                 "hazards",
                 "ring_court",
                 "ring_split",
+                "rest_camp",
                 "juicer",
+                "rest_aftermath",
                 "mastery"
             ]
         );
@@ -1030,7 +1054,7 @@ mod tests {
         assert!(unknown.starts_with("unknown room"), "{unknown}");
         assert!(
             unknown.contains(
-                "corral, rest_refuge, hoarder, boiler, dozer, hazards, ring_court, ring_split, juicer, mastery"
+                "corral, rest_refuge, hoarder, boiler, dozer, hazards, ring_court, ring_split, rest_camp, juicer, rest_aftermath, mastery"
             ),
             "{unknown}"
         );
@@ -1041,7 +1065,7 @@ mod tests {
         assert!(unlisted.starts_with("unlisted room"), "{unlisted}");
         assert!(
             unlisted.contains(
-                "corral, rest_refuge, hoarder, boiler, dozer, hazards, ring_court, ring_split, juicer, mastery"
+                "corral, rest_refuge, hoarder, boiler, dozer, hazards, ring_court, ring_split, rest_camp, juicer, rest_aftermath, mastery"
             ),
             "{unlisted}"
         );
@@ -1240,6 +1264,65 @@ mod tests {
         let err = mutate(|order| {
             let from = index(order, "rest_refuge");
             order[from].grants[0].trigger = Some("pile_boss_f01_defeated".into());
+        })
+        .unwrap_err();
+        assert!(!err.is_empty());
+    }
+
+    /// REST-WIRE: the twelve rooms of the run are listed in story order, the camp after the
+    /// Ring and the aftermath after the Juicer (KR12 holds: the aftermath's pin is the
+    /// mastery pin, whose grants are all earlier), and neither grants anything.
+    #[test]
+    fn the_rest_rooms_are_listed_in_story_order() {
+        let m = manifest();
+        assert_eq!(
+            m.listed(),
+            [
+                "corral",
+                "rest_refuge",
+                "hoarder",
+                "boiler",
+                "dozer",
+                "hazards",
+                "ring_court",
+                "ring_split",
+                "rest_camp",
+                "juicer",
+                "rest_aftermath",
+                "mastery"
+            ]
+        );
+        let order: Vec<&str> = m.story_order.iter().map(|o| o.id.as_str()).collect();
+        let at = |id: &str| order.iter().position(|o| *o == id).unwrap();
+        assert!(at("ring_split") < at("rest_camp") && at("rest_camp") < at("juicer"));
+        assert!(at("juicer") < at("rest_aftermath") && at("rest_aftermath") < at("mastery"));
+        for (id, pin, scene) in [
+            ("rest_camp", "f01_pin_post_pile_boss", RoomScene::RestCamp),
+            (
+                "rest_aftermath",
+                "f01_late_mastery",
+                RoomScene::RestAftermath,
+            ),
+        ] {
+            let row = m.room(id).unwrap();
+            assert_eq!(row.scene, scene);
+            assert_eq!(
+                (row.rules, row.milestone.as_str()),
+                (RoomRules::Cf02, "greybox")
+            );
+            assert_eq!(m.pins_of(id), [pin]);
+            assert!(
+                m.story_order[at(id)].grants.is_empty(),
+                "{id} grants nothing"
+            );
+        }
+        assert_eq!(m.room("rest_camp").unwrap().title, "The Survivors' Camp");
+        assert_eq!(m.room("rest_aftermath").unwrap().title, "After the Juicer");
+        // A pin that holds more than the camp's position allows is refused (KR12): the
+        // mastery pin on the camp would hold the Juicer's grants before the Juicer.
+        let err = mutate(|order| {
+            let at = index(order, "rest_camp");
+            order[at].pins = vec!["f01_late_mastery".into()];
         })
         .unwrap_err();
         assert!(!err.is_empty());
@@ -1561,7 +1644,9 @@ mod tests {
                     "hazards",
                     "mastery",
                     "ring_court",
-                    "ring_split"
+                    "ring_split",
+                    "rest_camp",
+                    "rest_aftermath"
                 ]
                 .contains(&row.id.as_str()),
                 "{}: add its sidecar-pin tie above",
@@ -1667,6 +1752,20 @@ mod tests {
                         f01_rest::REFUGE_ENCOUNTER_PIN_KEY,
                     ],
                 ),
+                (
+                    "rest_camp",
+                    [
+                        f01_rest::CAMP_ROOM_PIN_KEY,
+                        f01_rest::CAMP_ENCOUNTER_PIN_KEY,
+                    ],
+                ),
+                (
+                    "rest_aftermath",
+                    [
+                        f01_rest::AFTERMATH_ROOM_PIN_KEY,
+                        f01_rest::AFTERMATH_ENCOUNTER_PIN_KEY,
+                    ],
+                ),
             ]
             .into_iter()
             .find(|(_, keys)| keys.contains(&key))
@@ -1684,6 +1783,8 @@ mod tests {
             Some("ring_split"),
             Some("corral"),
             Some("rest_refuge"),
+            Some("rest_camp"),
+            Some("rest_aftermath"),
         ] {
             for key in SCOPED_PIN_KEYS {
                 let covered = match owner(key) {

@@ -278,6 +278,23 @@ pub fn data_pins() -> Vec<(&'static str, u64)> {
             crate::f01_rest::REFUGE_ENCOUNTER_PIN_KEY,
             crate::f01_rest::REFUGE_ENCOUNTER_HASH,
         ),
+        // REST-WIRE (REST-B, REST-C): the camp's and the aftermath's room and sidecar pins.
+        (
+            crate::f01_rest::CAMP_ROOM_PIN_KEY,
+            crate::f01_rest::CAMP_ROOM_HASH,
+        ),
+        (
+            crate::f01_rest::CAMP_ENCOUNTER_PIN_KEY,
+            crate::f01_rest::CAMP_ENCOUNTER_HASH,
+        ),
+        (
+            crate::f01_rest::AFTERMATH_ROOM_PIN_KEY,
+            crate::f01_rest::AFTERMATH_ROOM_HASH,
+        ),
+        (
+            crate::f01_rest::AFTERMATH_ENCOUNTER_PIN_KEY,
+            crate::f01_rest::AFTERMATH_ENCOUNTER_HASH,
+        ),
         // CF02-FU-C2F U3: the microarena's room file.
         (
             crate::cf02::arena::ROOM_PIN_KEY,

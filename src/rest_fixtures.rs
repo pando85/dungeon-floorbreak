@@ -1,6 +1,7 @@
 //! REST-WIRE scenario fixtures (`docs/01-design/floor-01-quiet-setpieces-and-transitions.md`
-//! section G.9): the refuge room (`rest_refuge`) driven by scripted party inputs on the
-//! launched room, deterministic, seeded and fixed-tick. Each fixture runs twice and must
+//! section G.9): the refuge (`rest_refuge`), the camp (`rest_camp`) and the aftermath
+//! (`rest_aftermath`) driven by scripted party inputs on the launched room, deterministic,
+//! seeded and fixed-tick. Each fixture runs twice and must
 //! end on an identical state hash; the final hashes are pinned here (new constants, nothing
 //! moves). Bevy-free.
 //!
@@ -18,12 +19,14 @@ use crate::combat::CombatEvent;
 use crate::combat_scene::CombatState;
 use crate::companion::profile::ProfileSetId;
 use crate::corridor::SceneSim;
+use crate::donut_mana::ManaEvent;
 use crate::donut_prog::DonutProgFlags;
 use crate::f01_late::Loadout;
 use crate::f01_rest::{self, RestRoom, RestRun};
 use crate::input::{RawInput, SlotInputs};
 use crate::party::{HeroId, PROVISIONAL_TUNING, PadId, PartyState, PartyTuning, UncontrolledHero};
 use crate::prototype::HERO_HALF_HEIGHT;
+use crate::story_unlock::LedgerSnapshot;
 use std::path::Path;
 
 /// The fixed-tick budget of every fixture.
@@ -50,7 +53,7 @@ pub const BOT: UncontrolledHero = UncontrolledHero::FollowAndJumpBot;
 /// The default of a room scene: `cf02_free`.
 pub const FREE: UncontrolledHero = UncontrolledHero::Companion(ProfileSetId::Cf02Free);
 
-/// A launched refuge with a party, stepped the way the interactive scene steps it.
+/// A launched quiet room with a party, stepped the way the interactive scene steps it.
 pub struct RestSim {
     pub run: RestRun,
     pub scene: SceneSim,
@@ -63,9 +66,12 @@ pub struct RestSim {
     pub door_stance: Vec<(f32, i32, bool)>,
     /// Whether both heroes were inside the camera view on the first door-opening tick.
     pub both_in_view_at_door: Option<bool>,
+    /// The ledger the room started with (after any carry), for "the ledger did not move".
+    pub start_snapshot: Option<LedgerSnapshot>,
 }
 
 impl RestSim {
+    /// The refuge.
     pub fn new(
         root: &Path,
         view_h: i32,
@@ -73,9 +79,26 @@ impl RestSim {
         donut: DonutProgFlags,
         party: Party,
     ) -> Result<Self, String> {
-        let run = f01_rest::launch(root, RestRoom::Refuge)?;
+        Self::new_in(root, RestRoom::Refuge, view_h, carl, donut, party, None)
+    }
+
+    /// Any quiet room, optionally entered with a carried ledger (the run's relaunch).
+    pub fn new_in(
+        root: &Path,
+        room: RestRoom,
+        view_h: i32,
+        carl: CarlProgFlags,
+        donut: DonutProgFlags,
+        party: Party,
+        carry: Option<&LedgerSnapshot>,
+    ) -> Result<Self, String> {
+        let run = f01_rest::launch(root, room)?;
         let mut scene = SceneSim::new_at(&run.kit, view_h, run.fixture.carl_x)?;
-        let combat = f01_rest::combat_for(&run, &mut scene, carl, donut, Some(SEED))?;
+        let mut combat = f01_rest::combat_for(&run, &mut scene, carl, donut, Some(SEED))?;
+        if let Some(snapshot) = carry {
+            combat.carry_story(snapshot).map_err(|e| e.to_string())?;
+        }
+        let start_snapshot = combat.story_snapshot();
         let uncontrolled = match party {
             Party::Solo { uncontrolled } => uncontrolled,
             Party::TwoPlayer => BOT,
@@ -99,6 +122,7 @@ impl RestSim {
             grant_x: Vec::new(),
             door_stance: Vec::new(),
             both_in_view_at_door: None,
+            start_snapshot,
         })
     }
 
@@ -191,7 +215,9 @@ impl RestSim {
 
     /// Whether Donut stands on the shelf (platform 2) now.
     pub fn donut_on_shelf(&self) -> bool {
-        let shelf = self.run.loaded.room.platforms[2].rect;
+        let Some(shelf) = self.run.loaded.room.platforms.get(2).map(|p| p.rect) else {
+            return false;
+        };
         let body = self.scene.world.body(HeroId::Donut);
         let foot = self.scene.world.layout_height() - (body.y - HERO_HALF_HEIGHT).round() as i32;
         body.grounded && foot == shelf.y && (shelf.x as f32..shelf.right() as f32).contains(&body.x)
@@ -237,6 +263,14 @@ pub struct Outcome {
     pub donut_on_shelf: bool,
     /// The receipts of the final ledger.
     pub receipts: usize,
+    /// The final ledger equals the one the room started with (a quiet room grants nothing).
+    pub ledger_unchanged: bool,
+    /// `(tick, from_x, to_x)` of each resolved blink (Puddle Jumper).
+    pub blinks: Vec<(u64, i32, i32)>,
+    /// Blinks rejected, fizzled or cancelled.
+    pub blink_failures: usize,
+    /// `(tick, mana left)` of each mana spend.
+    pub spends: Vec<(u64, u8)>,
 }
 
 impl Outcome {
@@ -253,12 +287,48 @@ impl Outcome {
             both_in_view: sim.both_in_view_at_door,
             donut_on_shelf: sim.donut_on_shelf(),
             receipts: sim.combat.story_snapshot().map_or(0, |s| s.receipts.len()),
+            ledger_unchanged: sim.combat.story_snapshot() == sim.start_snapshot,
+            blinks: sim
+                .combat
+                .events
+                .iter()
+                .filter_map(|e| match *e {
+                    CombatEvent::BlinkResolved {
+                        tick, from_x, to_x, ..
+                    } => Some((tick, from_x, to_x)),
+                    _ => None,
+                })
+                .collect(),
+            blink_failures: sim
+                .combat
+                .events
+                .iter()
+                .filter(|e| {
+                    matches!(
+                        e,
+                        CombatEvent::SpecialRejected { hero: 1, .. }
+                            | CombatEvent::BlinkFizzled { .. }
+                            | CombatEvent::BlinkCancelled { .. }
+                    )
+                })
+                .count(),
+            spends: sim
+                .combat
+                .events
+                .iter()
+                .filter_map(|e| match *e {
+                    CombatEvent::Mana(ManaEvent::ManaSpent { tick, left, .. }) => {
+                        Some((tick, left))
+                    }
+                    _ => None,
+                })
+                .collect(),
         }
     }
 }
 
-/// The scripted cases (REST-WIRE section G.9; the camp and aftermath cases are the
-/// second step's).
+/// The scripted cases (REST-WIRE section G.9): the refuge's seven, then the camp's two and
+/// the aftermath's three.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Case {
     /// Companion off. Carl active walks right (Donut follows), stops at the door, swaps,
@@ -277,10 +347,21 @@ pub enum Case {
     BaseDonutCannotOpen,
     /// Grant, a checkpoint respawn, a fixture restart, a second crossing.
     RetryKeepsTheGrant,
+    /// The camp under the post-Hoarder pin, solo: Carl walks to the exit.
+    CampCrossingSolo,
+    /// The camp, two players: both walk to the exit.
+    CampCrossing2P,
+    /// The aftermath entered with a post-Juicer ledger (all four capabilities with
+    /// receipts): Carl walks to the exit and nothing is granted twice.
+    AftermathNoDuplicateUnlock,
+    /// The aftermath, Story loadout: Donut walks to the blink lane and blinks across it.
+    AftermathBlinkLane,
+    /// The aftermath with no story flag (base moves only): Carl walks to the exit.
+    AftermathCrossingBaseMoves,
 }
 
 impl Case {
-    pub const ALL: [Case; 7] = [
+    pub const ALL: [Case; 12] = [
         Case::SoloCarlSwap,
         Case::SoloDonut,
         Case::TwoPlayer,
@@ -288,6 +369,11 @@ impl Case {
         Case::GrantOnceAtTheBox,
         Case::BaseDonutCannotOpen,
         Case::RetryKeepsTheGrant,
+        Case::CampCrossingSolo,
+        Case::CampCrossing2P,
+        Case::AftermathNoDuplicateUnlock,
+        Case::AftermathBlinkLane,
+        Case::AftermathCrossingBaseMoves,
     ];
 
     pub const fn name(self) -> &'static str {
@@ -299,6 +385,22 @@ impl Case {
             Case::GrantOnceAtTheBox => "rest_refuge_grant_once_at_the_box",
             Case::BaseDonutCannotOpen => "rest_refuge_base_donut_cannot_open",
             Case::RetryKeepsTheGrant => "rest_refuge_retry_keeps_the_grant",
+            Case::CampCrossingSolo => "rest_camp_crossing_solo",
+            Case::CampCrossing2P => "rest_camp_crossing_2p",
+            Case::AftermathNoDuplicateUnlock => "rest_aftermath_no_duplicate_unlock",
+            Case::AftermathBlinkLane => "rest_aftermath_blink_lane",
+            Case::AftermathCrossingBaseMoves => "rest_aftermath_crossing_base_moves",
+        }
+    }
+
+    /// The quiet room the case runs in.
+    pub const fn room(self) -> RestRoom {
+        match self {
+            Case::CampCrossingSolo | Case::CampCrossing2P => RestRoom::Camp,
+            Case::AftermathNoDuplicateUnlock
+            | Case::AftermathBlinkLane
+            | Case::AftermathCrossingBaseMoves => RestRoom::Aftermath,
+            _ => RestRoom::Refuge,
         }
     }
 }
@@ -402,8 +504,8 @@ fn swap() -> RawInput {
     }
 }
 
-/// The evidence pilots of the refuge (`floor01_scene --rest-pilot MODE`): a scripted run
-/// that stands a hero in every beat of the room for the captures. Each is a pure function
+/// The evidence pilots of the quiet rooms (`floor01_scene --rest-pilot MODE`): a scripted
+/// run that stands a hero in every beat of the room for the captures. Each is a pure function
 /// of the finished state (the party swap on the first tick is the pilot's own press).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Pilot {
@@ -415,6 +517,11 @@ pub enum Pilot {
     /// Swap to Donut and jump at the shelf from a column before the box: a base jump, which
     /// does not reach the 128 px shelf (the "before" of the before/after strip).
     BaseJump,
+    /// Any quiet room: Carl walks right to the exit (the camp's entrance, the walk).
+    Walk,
+    /// The aftermath: swap to Donut on the first tick, walk to the blink lane's near mark,
+    /// blink across it, walk on to the exit.
+    Blink,
 }
 
 impl Pilot {
@@ -423,9 +530,21 @@ impl Pilot {
             "donut" => Ok(Self::Donut),
             "carl_door" => Ok(Self::CarlDoor),
             "base_jump" => Ok(Self::BaseJump),
+            "walk" => Ok(Self::Walk),
+            "blink" => Ok(Self::Blink),
             other => Err(format!(
-                "--rest-pilot {other:?}: expected donut, carl_door or base_jump"
+                "--rest-pilot {other:?}: expected donut, carl_door, base_jump, walk or blink"
             )),
+        }
+    }
+
+    /// Whether the pilot plays in `room`: the refuge pilots need the staff door and the
+    /// shelf, the blink the aftermath's lane, the walk any quiet room.
+    pub const fn fits(self, room: RestRoom) -> bool {
+        match self {
+            Self::Donut | Self::CarlDoor | Self::BaseJump => matches!(room, RestRoom::Refuge),
+            Self::Walk => true,
+            Self::Blink => matches!(room, RestRoom::Aftermath),
         }
     }
 }
@@ -450,8 +569,9 @@ pub fn shelf_input(x: f32, grounded: bool, door_open: bool, takeoff: f32, exit_x
     input
 }
 
-/// The next input of a [`Pilot`], a pure function of the finished state.
-pub fn pilot(kind: Pilot, combat: &CombatState, scene: &SceneSim) -> RawInput {
+/// The next input of a [`Pilot`], a pure function of the finished state. `exit_x` is the
+/// middle of the room's exit (the walk and the blink pilots read it).
+pub fn pilot(kind: Pilot, combat: &CombatState, scene: &SceneSim, exit_x: f32) -> RawInput {
     let donut = scene.world.body(HeroId::Donut);
     let carl = scene.world.body(HeroId::Carl);
     let open = combat
@@ -462,6 +582,24 @@ pub fn pilot(kind: Pilot, combat: &CombatState, scene: &SceneSim) -> RawInput {
     match kind {
         Pilot::Donut if swap_now => swap(),
         Pilot::BaseJump if swap_now => swap(),
+        Pilot::Blink if swap_now => swap(),
+        Pilot::Walk => RawInput {
+            move_x: walk(carl.x, exit_x),
+            ..RawInput::NONE
+        },
+        Pilot::Blink => {
+            // Walk to the lane's near mark, settle, press once (the blink carries her out of
+            // the window, so one press lands); past the lane, walk to the exit.
+            let near = f01_rest::BLINK_LANE_X.0 as f32;
+            let mut input = RawInput::NONE;
+            if donut.x > near + 4.0 {
+                input.move_x = walk(donut.x, exit_x);
+            } else {
+                input.move_x = walk(donut.x, near);
+                input.ability = input.move_x == 0.0 && donut.grounded && scene.world.tick % 20 == 0;
+            }
+            input
+        }
         Pilot::Donut => shelf_input(donut.x, donut.grounded, open, SHELF_TAKEOFF_X, 1536.0),
         Pilot::CarlDoor => RawInput {
             move_x: walk(carl.x, DOOR_WAIT_X),
@@ -628,7 +766,153 @@ fn drive(root: &Path, case: Case) -> Result<RestSim, String> {
             Ok(sim)
         }
         Case::RetryKeepsTheGrant => retry_keeps_the_grant(root),
+        Case::CampCrossingSolo => {
+            let mut sim = RestSim::new_in(root, RestRoom::Camp, 360, carl, donut, solo_bot, None)?;
+            walk_to_the_exit(&mut sim, 1200);
+            Ok(sim)
+        }
+        Case::CampCrossing2P => {
+            let mut sim = RestSim::new_in(
+                root,
+                RestRoom::Camp,
+                360,
+                carl,
+                donut,
+                Party::TwoPlayer,
+                None,
+            )?;
+            let ex = exit_x(&sim);
+            while sim.tick() < 1200 && !sim.complete() {
+                let walk_in = |x: f32| RawInput {
+                    move_x: walk(x, ex),
+                    ..RawInput::NONE
+                };
+                let inputs = [
+                    walk_in(sim.x_of(HeroId::Carl)),
+                    walk_in(sim.x_of(HeroId::Donut)),
+                ];
+                sim.step(inputs);
+            }
+            Ok(sim)
+        }
+        Case::AftermathNoDuplicateUnlock => {
+            let carry = post_juicer_snapshot(root)?;
+            let mut sim = RestSim::new_in(
+                root,
+                RestRoom::Aftermath,
+                360,
+                carl,
+                donut,
+                solo_bot,
+                Some(&carry),
+            )?;
+            walk_to_the_exit(&mut sim, 1200);
+            Ok(sim)
+        }
+        Case::AftermathBlinkLane => {
+            let mut sim =
+                RestSim::new_in(root, RestRoom::Aftermath, 360, carl, donut, solo_bot, None)?;
+            let ex = exit_x(&sim);
+            sim.step([swap(), RawInput::NONE]);
+            let mut pressed = false;
+            let mut settled = 0u32;
+            while sim.tick() < 1500 && !sim.complete() {
+                let body = sim.scene.world.body(HeroId::Donut);
+                let mut input = RawInput::NONE;
+                if pressed {
+                    // Walk on to the exit once the blink has landed.
+                    input.move_x = walk(body.x, ex);
+                } else {
+                    input.move_x = walk(body.x, f01_rest::BLINK_LANE_X.0 as f32);
+                    if input.move_x == 0.0 && body.grounded {
+                        // Stopped at the lane's near mark, facing right: let her settle, press.
+                        settled += 1;
+                        if settled > 20 {
+                            input.ability = true;
+                            pressed = true;
+                        }
+                    }
+                }
+                sim.step([input, RawInput::NONE]);
+            }
+            Ok(sim)
+        }
+        Case::AftermathCrossingBaseMoves => {
+            let mut sim = RestSim::new_in(
+                root,
+                RestRoom::Aftermath,
+                360,
+                carl_off,
+                donut_off,
+                solo_bot,
+                None,
+            )?;
+            walk_to_the_exit(&mut sim, 1200);
+            Ok(sim)
+        }
     }
+}
+
+/// Solo Carl walks right to the exit's middle (the other hero is the follow-and-jump bot).
+fn walk_to_the_exit(sim: &mut RestSim, budget: u64) {
+    let ex = exit_x(sim);
+    while sim.tick() < budget && !sim.complete() {
+        let input = RawInput {
+            move_x: walk(sim.x_of(HeroId::Carl), ex),
+            ..RawInput::NONE
+        };
+        sim.step([input, RawInput::NONE]);
+    }
+}
+
+/// A post-Juicer ledger the way the run builds it: Light on Your Feet from a refuge
+/// crossing, then (each room carries the ledger on) the Hoarder's dynamite and the Juicer's
+/// fist and blink. A snapshot replaces the ledger it is carried into, so the rooms' snapshots
+/// are united here in the order the run meets them: the held set sorted and deduplicated,
+/// the receipts in the order they were earned (every capability with its receipt, so a
+/// second grant would show).
+pub fn post_juicer_snapshot(root: &Path) -> Result<LedgerSnapshot, String> {
+    let refuge = drive(root, Case::SoloDonut)?
+        .combat
+        .story_snapshot()
+        .ok_or("the refuge ran no story")?;
+    let hoarder = crate::f01_late_fixtures::hoarder_defeat(root)?
+        .snapshot()
+        .ok_or("the Hoarder ran no story")?;
+    // The Juicer room carries the Hoarder's ledger on: its snapshot holds both rooms' grants.
+    let juicer = crate::f01_late_fixtures::juicer_relaunch(root, Loadout::Story, Some(&hoarder))?
+        .combat
+        .story_snapshot()
+        .ok_or("the Juicer ran no story")?;
+    let mut held: Vec<_> = refuge.held.iter().chain(&juicer.held).cloned().collect();
+    held.sort_by(|a, b| (a.hero, &a.capability).cmp(&(b.hero, &b.capability)));
+    held.dedup();
+    let mut receipts = refuge.receipts.clone();
+    receipts.extend(
+        juicer
+            .receipts
+            .iter()
+            .filter(|r| !receipts.iter().any(|seen| seen.capability == r.capability))
+            .cloned()
+            .collect::<Vec<_>>(),
+    );
+    let merged = LedgerSnapshot {
+        version: refuge.version,
+        held,
+        receipts,
+    };
+    // The aftermath accepts it as is (every id and hero checked by the ledger's restore).
+    let (carl, donut) = story();
+    RestSim::new_in(
+        root,
+        RestRoom::Aftermath,
+        360,
+        carl,
+        donut,
+        Party::Solo { uncontrolled: BOT },
+        Some(&merged),
+    )?;
+    Ok(merged)
 }
 
 /// The retry case: a crossing, a checkpoint respawn (keeps the grant and the open door),
@@ -675,8 +959,9 @@ fn retry_keeps_the_grant(root: &Path) -> Result<RestSim, String> {
     Ok(sim)
 }
 
-/// The pinned final state hash of each case (new constants, REST-WIRE).
-pub const PINNED: [(&str, u64); 7] = [
+/// The pinned final state hash of each case (new constants, REST-WIRE: the refuge's seven
+/// from the first PR, the camp's and the aftermath's five from the second).
+pub const PINNED: [(&str, u64); 12] = [
     ("rest_refuge_solo_carl_swap", 0x7fe5_e491_2b4f_3e00),
     ("rest_refuge_solo_donut", 0x115a_4858_7b20_34ed),
     ("rest_refuge_2p", 0x34ae_daa9_3266_dce4),
@@ -684,6 +969,11 @@ pub const PINNED: [(&str, u64); 7] = [
     ("rest_refuge_grant_once_at_the_box", 0x747c_440c_3df2_923f),
     ("rest_refuge_base_donut_cannot_open", 0x82d7_00ff_7896_5938),
     ("rest_refuge_retry_keeps_the_grant", 0xa59f_a59b_24f9_3285),
+    ("rest_camp_crossing_solo", 0x6f22_985f_dd47_69bc),
+    ("rest_camp_crossing_2p", 0x5a4e_d69b_33c4_d6af),
+    ("rest_aftermath_no_duplicate_unlock", 0x3d31_2cbe_23e3_d9af),
+    ("rest_aftermath_blink_lane", 0xe501_b168_4cb9_4004),
+    ("rest_aftermath_crossing_base_moves", 0x9873_c442_4d91_916b),
 ];
 
 #[cfg(test)]
@@ -763,7 +1053,7 @@ mod tests {
             let mut sim =
                 RestSim::new(&root(), 360, carl, donut, Party::Solo { uncontrolled: BOT }).unwrap();
             while sim.tick() < 420 && !sim.complete() {
-                let input = pilot(kind, &sim.combat, &sim.scene);
+                let input = pilot(kind, &sim.combat, &sim.scene, 1536.0);
                 sim.step([input, RawInput::NONE]);
                 let b = sim.scene.world.body(HeroId::Donut);
                 if sim.tick().is_multiple_of(4) && sim.tick() >= 240 {
@@ -789,7 +1079,7 @@ mod tests {
             let mut sim =
                 RestSim::new(&root(), 360, carl, donut, Party::Solo { uncontrolled: BOT }).unwrap();
             while sim.tick() < ticks && !sim.complete() {
-                let input = pilot(kind, &sim.combat, &sim.scene);
+                let input = pilot(kind, &sim.combat, &sim.scene, 1536.0);
                 sim.step([input, RawInput::NONE]);
             }
             sim
@@ -894,6 +1184,108 @@ mod tests {
         assert!(o.doors.is_empty() && o.exit_tick.is_none());
         assert_eq!(o.ticks, 1500);
         assert_eq!(o.receipts, 0);
+    }
+
+    /// The camp: no grant, no damage, no door, the exit inside 1200 ticks, and the ledger is
+    /// the post-Hoarder pin's (dynamite and Light on Your Feet held, no receipt), solo and 2P.
+    #[test]
+    fn rest_camp_crossings_reach_the_exit_and_hold_the_pin() {
+        let solo = outcome(Case::CampCrossingSolo);
+        let duo = outcome(Case::CampCrossing2P);
+        for (name, o) in [("solo", &solo), ("2p", &duo)] {
+            assert!(
+                o.exit_tick.is_some_and(|t| t <= 1200),
+                "{name}: {:?}",
+                o.exit_tick
+            );
+            assert!(o.grants.is_empty() && o.doors.is_empty(), "{name}");
+            assert_eq!(o.damage, 0, "{name}");
+            assert!(o.ledger_unchanged, "{name}: a quiet room grants nothing");
+            assert_eq!(
+                o.receipts, 0,
+                "{name}: the pin holds, nothing was earned here"
+            );
+        }
+        let (carl, donut) = story();
+        let sim = RestSim::new_in(
+            &root(),
+            RestRoom::Camp,
+            360,
+            carl,
+            donut,
+            Party::Solo { uncontrolled: BOT },
+            None,
+        )
+        .unwrap();
+        let mut held: Vec<(u8, String)> = sim
+            .start_snapshot
+            .as_ref()
+            .expect("the camp runs a story runtime")
+            .held
+            .iter()
+            .map(|h| (h.hero, h.capability.clone()))
+            .collect();
+        held.sort();
+        assert_eq!(
+            held,
+            [
+                (0, "special_thrown_charge".to_owned()),
+                (1, "jump_reach_boost".to_owned())
+            ],
+            "the post-Hoarder pin"
+        );
+    }
+
+    /// The aftermath entered with a post-Juicer ledger (four capabilities, four receipts)
+    /// grants nothing and leaves the ledger as it came: no duplicate unlock (REST-AD3).
+    #[test]
+    fn rest_aftermath_no_duplicate_unlock() {
+        let carry = post_juicer_snapshot(&root()).unwrap();
+        assert_eq!(carry.held.len(), 4, "{:?}", carry.held);
+        assert_eq!(carry.receipts.len(), 4, "{:?}", carry.receipts);
+        let o = outcome(Case::AftermathNoDuplicateUnlock);
+        assert!(o.exit_tick.is_some_and(|t| t <= 1200), "{:?}", o.exit_tick);
+        assert!(o.grants.is_empty(), "{:?}", o.grants);
+        assert!(o.ledger_unchanged, "the exit snapshot equals the carry");
+        assert_eq!(o.receipts, 4);
+        assert_eq!(o.damage, 0);
+    }
+
+    /// Donut blinks across the 112 px lane: the blink is accepted and resolves 112 px on, no
+    /// rejection, fizzle or cancel, mana spent by the normal rule, the heroes still walk on
+    /// to the exit (no solid in or after the lane).
+    #[test]
+    fn rest_aftermath_blink_lane() {
+        let o = outcome(Case::AftermathBlinkLane);
+        assert_eq!(o.blinks.len(), 1, "{:?}", o.blinks);
+        assert_eq!(o.blink_failures, 0);
+        let (_, from, to) = o.blinks[0];
+        assert!(
+            (f01_rest::BLINK_LANE_X.0 - 8..=f01_rest::BLINK_LANE_X.0 + 8).contains(&from),
+            "she blinks from the lane's near mark: {from}"
+        );
+        assert_eq!(
+            to - from,
+            112,
+            "the whole 112 px, collision-safe: {from} -> {to}"
+        );
+        assert!(to <= f01_rest::BLINK_LANE_X.1 + 8);
+        assert_eq!(o.spends.len(), 1, "{:?}", o.spends);
+        assert_eq!(
+            o.spends[0].1, 6,
+            "two charges of eight (the Puddle Jumper cost)"
+        );
+        assert!(o.exit_tick.is_some(), "no solid in or after the lane");
+        assert_eq!(o.damage, 0);
+    }
+
+    /// Base moves only (no story flag): the aftermath is crossed by walking.
+    #[test]
+    fn rest_aftermath_crossing_base_moves() {
+        let o = outcome(Case::AftermathCrossingBaseMoves);
+        assert!(o.exit_tick.is_some_and(|t| t <= 1200), "{:?}", o.exit_tick);
+        assert!(o.grants.is_empty() && o.blinks.is_empty());
+        assert_eq!(o.damage, 0);
     }
 
     /// A respawn keeps the grant and the open door; a restart drops both and re-arms the

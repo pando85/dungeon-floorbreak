@@ -1,6 +1,6 @@
 {
   "schema": "f01-late-manifest-v1",
-  "status": "PT-SCENE (docs/07-agents/f01-playtest-integration-plan.md section 4.7, section 8, KR12). The rooms of the late-Floor-1 playtest slice that can be launched with `--scene f01_late --f01-room <id>`. A room is listed only once it has landed; later steps append their rows (CORRAL-F listed corral first, at milestone greybox, once CORRAL-AUTO passed: the floor run starts in room 0; DR-A listed dozer, between boiler and hazards, at milestone greybox; DOZ-02 moved it to setpiece once its damage states, crew, rear gate, buffer stop and stop frame art were wired; RING-A/B wire listed ring_court and ring_split, between hazards and juicer; PT-MASTERY listed mastery; HAZ-A2b listed hazards; PTG-AD1 unlisted hoarder, PR-E (FA-Q24) lists it again: it reverses PTG-AD1, and the room is also reachable as `--scene f01_hoarder`; REST-WIRE (REST-A) listed rest_refuge, the fast-food refuge, right after the corral and turned the story-order point refuge_light_feet into its room row (the Light on Your Feet grant happens in the room now; the camp and the aftermath rows follow in the second REST-WIRE step)) and re-pin the manifest hash in src/f01_late.rs. `unlisted_rooms` holds rooms that launch by id with `--f01-room` but are not listed: no floor run (`--f01-run`) walks them and the listed set is unchanged (plan section 14.7; CORRAL-WIRE held corral there until CORRAL-F listed it, and it is empty now). `story_order` is the static order of every slice room and grant point, listed or not, that the KR12 pin test reads: no room pin holds a capability whose grant point comes later.",
+  "status": "PT-SCENE (docs/07-agents/f01-playtest-integration-plan.md section 4.7, section 8, KR12). The rooms of the late-Floor-1 playtest slice that can be launched with `--scene f01_late --f01-room <id>`. A room is listed only once it has landed; later steps append their rows (CORRAL-F listed corral first, at milestone greybox, once CORRAL-AUTO passed: the floor run starts in room 0; DR-A listed dozer, between boiler and hazards, at milestone greybox; DOZ-02 moved it to setpiece once its damage states, crew, rear gate, buffer stop and stop frame art were wired; RING-A/B wire listed ring_court and ring_split, between hazards and juicer; PT-MASTERY listed mastery; HAZ-A2b listed hazards; PTG-AD1 unlisted hoarder, PR-E (FA-Q24) lists it again: it reverses PTG-AD1, and the room is also reachable as `--scene f01_hoarder`; REST-WIRE (REST-A) listed rest_refuge, the fast-food refuge, right after the corral and turned the story-order point refuge_light_feet into its room row (the Light on Your Feet grant happens in the room now; the camp and the aftermath rows follow in the second REST-WIRE step; REST-WIRE (REST-B, REST-C) then listed rest_camp, the survivors' camp, after ring_split and rest_aftermath, the quiet room after the Juicer, before mastery, each with its story-order room row and no grant: the run is twelve rooms, labelled playable greybox, their art separate work orders) and re-pin the manifest hash in src/f01_late.rs. `unlisted_rooms` holds rooms that launch by id with `--f01-room` but are not listed: no floor run (`--f01-run`) walks them and the listed set is unchanged (plan section 14.7; CORRAL-WIRE held corral there until CORRAL-F listed it, and it is empty now). `story_order` is the static order of every slice room and grant point, listed or not, that the KR12 pin test reads: no room pin holds a capability whose grant point comes later.",
   "rooms": [
     {
       "id": "corral",
@@ -59,11 +59,25 @@
       "milestone": "greybox"
     },
     {
+      "id": "rest_camp",
+      "title": "The Survivors' Camp",
+      "scene": "f01_rest_camp",
+      "rules": "cf02_rules",
+      "milestone": "greybox"
+    },
+    {
       "id": "juicer",
       "title": "The Juicer",
       "scene": "boss_f01",
       "rules": "boss",
       "milestone": "boss"
+    },
+    {
+      "id": "rest_aftermath",
+      "title": "After the Juicer",
+      "scene": "f01_rest_aftermath",
+      "rules": "cf02_rules",
+      "milestone": "greybox"
     },
     {
       "id": "mastery",
@@ -84,10 +98,12 @@
     { "id": "hazards", "kind": "room", "pins": ["f01_pin_post_pile_boss"], "grants": [] },
     { "id": "ring_court", "kind": "room", "pins": ["f01_pin_post_pile_boss"], "grants": [] },
     { "id": "ring_split", "kind": "room", "pins": ["f01_pin_post_pile_boss"], "grants": [] },
+    { "id": "rest_camp", "kind": "room", "pins": ["f01_pin_post_pile_boss"], "grants": [] },
     { "id": "juicer", "kind": "room", "pins": ["f01_dynamite_held", "f01_donut_boss_held"], "grants": [
       { "capability": "fist_reinforced", "trigger": "brute_boss_f01_defeated" },
       { "capability": "special_short_blink", "trigger": "brute_boss_f01_defeated" }
     ] },
+    { "id": "rest_aftermath", "kind": "room", "pins": ["f01_late_mastery"], "grants": [] },
     { "id": "mastery", "kind": "room", "pins": ["f01_late_mastery"], "grants": [] }
   ]
 }

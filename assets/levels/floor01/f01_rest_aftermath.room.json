@@ -1,0 +1,26 @@
+{
+  "schema": "floor01-demo-hall-v1",
+  "status": "REST-WIRE greybox room (docs/01-design/floor-01-quiet-setpieces-and-transitions.md section G, REST-C, room 11 of the floor run): geometry only, composed at load time from approved Floor 01 kit pieces by camera_lab::layout (no new art, not an authored level; the gym and arena dressing are separate later orders), launched as the room rest_aftermath of --scene f01_late (src/f01_rest.rs). The goal and the optional heavy bag live in f01_rest_aftermath.encounter.json, validated by src/encounter.rs.",
+  "scenarios": [
+    {
+      "id": "F01-REST-AFTERMATH",
+      "name": "After the Juicer",
+      "subtitle": "Floor 01 refuge: a wrecked gym, a heavy bag and the way to the arena",
+      "act": 2,
+      "setting": "dry-catacomb",
+      "width": 1280,
+      "height": 660,
+      "floor": 580,
+      "spawn": { "carl": 112, "donut": 80 },
+      "camera_intro": 112,
+      "platforms": [],
+      "props": [],
+      "enemies": [],
+      "hazards": [],
+      "goal_x": 1224,
+      "purpose": "A 1280 px quiet room (REST-C, REST-AD12, REST-AD13): one continuous ground lane, no enemy, no hazard, no lock. The plan's optional 24 px bench cannot be a platform (the validator's lane rule), so it is decor (REST-IMP-8). The wrecked-gym decor, the 112 px blink lane marked on the floor and the circular grooves are decor rectangles in src/f01_rest.rs; the heavy bag is an inert sidecar static (a hit_target without a machine).",
+      "expected": "Spawns, the checkpoint before the exit, the exit and the heavy bag come from f01_rest_aftermath.encounter.json; this file holds geometry only. The room grants nothing: the mastery pin the room carries already holds the Juicer's grants, so no duplicate unlock fires.",
+      "coop": "Solo or two players: the route is base movement for every class; the blink lane is an optional Puddle Jumper test for Donut and never blocks."
+    }
+  ]
+}

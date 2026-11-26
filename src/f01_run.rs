@@ -596,7 +596,8 @@ mod tests {
             next_room(&manifest, "rest_refuge").unwrap(),
             NextStep::Room(manifest.room("hoarder").unwrap().clone())
         );
-        // The listed rooms in story order, REST-WIRE (REST-A): ten rooms.
+        // The listed rooms in story order, REST-WIRE (REST-A, REST-B, REST-C): twelve rooms,
+        // the camp after the Ring, the aftermath after the Juicer, mastery ends the run.
         assert_eq!(
             seen,
             [
@@ -608,10 +609,29 @@ mod tests {
                 "hazards",
                 "ring_court",
                 "ring_split",
+                "rest_camp",
                 "juicer",
+                "rest_aftermath",
                 "mastery"
             ]
         );
+        assert_eq!(
+            next_room(&manifest, "ring_split").unwrap(),
+            NextStep::Room(manifest.room("rest_camp").unwrap().clone())
+        );
+        assert_eq!(
+            next_room(&manifest, "rest_camp").unwrap(),
+            NextStep::Room(manifest.room("juicer").unwrap().clone())
+        );
+        assert_eq!(
+            next_room(&manifest, "juicer").unwrap(),
+            NextStep::Room(manifest.room("rest_aftermath").unwrap().clone())
+        );
+        assert_eq!(
+            next_room(&manifest, "rest_aftermath").unwrap(),
+            NextStep::Room(manifest.room("mastery").unwrap().clone())
+        );
+        assert_eq!(next_room(&manifest, "mastery").unwrap(), NextStep::FloorEnd);
         assert!(next_room(&manifest, "cellar").is_err(), "unknown");
     }
 
@@ -651,12 +671,14 @@ mod tests {
                 "hazards",
                 "ring_court",
                 "ring_split",
+                "rest_camp",
                 "juicer",
+                "rest_aftermath",
                 "mastery"
             ]
         );
-        assert_eq!(room_index(&manifest, "dozer"), Some((5, 11)));
-        assert_eq!(room_index(&manifest, "cellar"), Some((6, 11)));
+        assert_eq!(room_index(&manifest, "dozer"), Some((5, 13)));
+        assert_eq!(room_index(&manifest, "cellar"), Some((6, 13)));
     }
 
     #[test]
@@ -886,7 +908,7 @@ mod tests {
         };
         let (facts, panel, decision) = on_exit(&input).unwrap();
         assert_eq!(facts.grants, [(0, "special_thrown_charge".to_owned())]);
-        assert!(panel.heading.starts_with("ROOM 3/10 CLEARED"));
+        assert!(panel.heading.starts_with("ROOM 3/12 CLEARED"));
         let Decision::Relaunch { room, argv: next } = decision else {
             panic!("the Hoarder leads on");
         };
@@ -916,7 +938,7 @@ mod tests {
         let end = ExitInput {
             room: last,
             tally: RunTally {
-                rooms: 9,
+                rooms: 11,
                 ..RunTally::default()
             },
             ..input
@@ -924,7 +946,7 @@ mod tests {
         let (_, panel, decision) = on_exit(&end).unwrap();
         assert_eq!(decision, Decision::Quit);
         assert_eq!(panel.heading, "FLOOR 1 SLICE FINISHED");
-        assert!(panel.lines[2].contains("10 of 10 listed rooms"));
+        assert!(panel.lines[2].contains("12 of 12 listed rooms"));
         assert!(
             on_exit(&ExitInput {
                 room: "cellar",
@@ -961,7 +983,7 @@ mod tests {
         assert!(
             panel
                 .heading
-                .starts_with("ROOM 1/10 CLEARED: THE INFERNAL CORRAL"),
+                .starts_with("ROOM 1/12 CLEARED: THE INFERNAL CORRAL"),
             "{}",
             panel.heading
         );
@@ -1049,7 +1071,7 @@ mod tests {
         assert!(
             panel
                 .heading
-                .starts_with("ROOM 2/10 CLEARED: THE WRONG RESTAURANT"),
+                .starts_with("ROOM 2/12 CLEARED: THE WRONG RESTAURANT"),
             "{}",
             panel.heading
         );
@@ -1121,19 +1143,24 @@ mod tests {
             | RoomScene::Hazards
             | RoomScene::Mastery
             | RoomScene::RestRefuge
+            | RoomScene::RestCamp
+            | RoomScene::RestAftermath
             | RoomScene::RingCourt
             | RoomScene::RingSplit => {
                 let (_, mut combat) = match row.scene {
-                    // REST-WIRE: the refuge, room 1 (its trigger arms under the Story flags).
-                    RoomScene::RestRefuge => crate::f01_late::rest_start(
-                        &root(),
-                        row.scene.rest().expect("a quiet-room scene"),
-                        360,
-                        carl,
-                        donut,
-                        None,
-                    )
-                    .map(|(_, s, c)| (s, c)),
+                    // REST-WIRE: the quiet rooms (the refuge arms its trigger under the Story
+                    // flags; the camp and the aftermath run under their room pins).
+                    RoomScene::RestRefuge | RoomScene::RestCamp | RoomScene::RestAftermath => {
+                        crate::f01_late::rest_start(
+                            &root(),
+                            row.scene.rest().expect("a quiet-room scene"),
+                            360,
+                            carl,
+                            donut,
+                            None,
+                        )
+                        .map(|(_, s, c)| (s, c))
+                    }
                     // RING-A/B wire: the two Ring rooms of the run.
                     RoomScene::RingCourt | RoomScene::RingSplit => crate::f01_late::ring_start(
                         &root(),
@@ -1245,13 +1272,13 @@ mod tests {
         assert_eq!(tally.rooms, 1);
         let next = manifest.room("boiler").unwrap();
         let panel = room_clear_panel(&manifest, &facts, tally, next, true, "REC", false);
-        assert!(panel.heading.starts_with("ROOM 3/10 CLEARED: THE HOARDER"));
+        assert!(panel.heading.starts_with("ROOM 3/12 CLEARED: THE HOARDER"));
         assert!(panel.lines[1].contains("special_thrown_charge (Carl)"));
         assert!(panel.lines[3].contains("Goblin Boiler (story ledger carried)"));
         assert!(panel.lines.last().unwrap().starts_with("Facts only"));
         let end = floor_end_panel(&manifest, &facts, tally, &held_of(&hoarder.combat), "REC");
         assert_eq!(end.heading, "FLOOR 1 SLICE FINISHED");
-        assert!(end.lines[2].contains("1 of 10 listed rooms"));
+        assert!(end.lines[2].contains("1 of 12 listed rooms"));
         assert!(end.lines[3].starts_with("Carl holds: special_thrown_charge"));
         // The real floor end: the last room's facts and the held list after the
         // Juicer's grants (the longest lines the panel draws today).

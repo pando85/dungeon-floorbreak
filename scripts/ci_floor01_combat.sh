@@ -511,8 +511,8 @@ case "$mode" in
     # headless smoke of each room and loadout replays identically twice and names
     # its room; the story loadout of the Boiler differs from the plain room (the
     # pin holds dynamite and Light on Your Feet), and the plain room is unchanged.
-    late_lines() { "$bin" --headless-floor01-smoke --scene f01_late "$@" | grep -E '^(F01_LATE_ENTRY|F01_(BOILER|HOARDER|DOZER|HAZARDS|MASTERY|RING_COURT|RING_SPLIT|CORRAL|REST_REFUGE)_(ENTRY|SMOKE_OK)|COMBAT_STATE)'; }
-    for late_args in "--f01-room boiler" "--f01-room boiler --f01-loadout all" "--f01-room juicer" "--f01-room juicer --f01-loadout all" "--f01-room hoarder" "--f01-room hoarder --f01-loadout all" "--f01-room dozer" "--f01-room dozer --f01-loadout all" "--f01-room hazards" "--f01-room hazards --f01-loadout all" "--f01-room mastery" "--f01-room mastery --f01-loadout all" "--f01-room mastery --cf02-seed 7" "--f01-room ring_court" "--f01-room ring_court --f01-loadout all" "--f01-room ring_split" "--f01-room ring_split --cf02-seed 7" "--f01-room corral" "--f01-room corral --f01-loadout all" "--f01-room corral --cf02-seed 7" "--f01-room rest_refuge" "--f01-room rest_refuge --f01-loadout all" "--f01-room rest_refuge --cf02-seed 7"; do
+    late_lines() { "$bin" --headless-floor01-smoke --scene f01_late "$@" | grep -E '^(F01_LATE_ENTRY|F01_(BOILER|HOARDER|DOZER|HAZARDS|MASTERY|RING_COURT|RING_SPLIT|CORRAL|REST_REFUGE|REST_CAMP|REST_AFTERMATH)_(ENTRY|SMOKE_OK)|COMBAT_STATE)'; }
+    for late_args in "--f01-room boiler" "--f01-room boiler --f01-loadout all" "--f01-room juicer" "--f01-room juicer --f01-loadout all" "--f01-room hoarder" "--f01-room hoarder --f01-loadout all" "--f01-room dozer" "--f01-room dozer --f01-loadout all" "--f01-room hazards" "--f01-room hazards --f01-loadout all" "--f01-room mastery" "--f01-room mastery --f01-loadout all" "--f01-room mastery --cf02-seed 7" "--f01-room ring_court" "--f01-room ring_court --f01-loadout all" "--f01-room ring_split" "--f01-room ring_split --cf02-seed 7" "--f01-room corral" "--f01-room corral --f01-loadout all" "--f01-room corral --cf02-seed 7" "--f01-room rest_refuge" "--f01-room rest_refuge --f01-loadout all" "--f01-room rest_refuge --cf02-seed 7" "--f01-room rest_camp" "--f01-room rest_camp --f01-loadout all" "--f01-room rest_camp --cf02-seed 7" "--f01-room rest_aftermath" "--f01-room rest_aftermath --f01-loadout all" "--f01-room rest_aftermath --cf02-seed 7"; do
       # shellcheck disable=SC2086
       late_a="$(late_lines $late_args)"
       # shellcheck disable=SC2086
@@ -601,6 +601,25 @@ case "$mode" in
       exit 1
     fi
     echo "F01_REST_REFUGE_HEADLESS_OK: $(grep '^F01_REST_REFUGE_SMOKE_OK' <<<"$refuge_story")"
+    # REST-WIRE (REST-B, REST-C): the camp (after the Ring) and the aftermath (after the Juicer) are quiet
+    # rooms with no enemy and no lock: the entry line reports lock=none, their fixed-tick smoke walks right to
+    # the exit, and each loads under both loadouts. The camp's story pin (dynamite and the boost) is a different
+    # ledger from the all loadout, so those two are different runs.
+    camp_story="$(late_lines --f01-room rest_camp)"
+    camp_all="$(late_lines --f01-room rest_camp --f01-loadout all)"
+    aftermath_story="$(late_lines --f01-room rest_aftermath)"
+    aftermath_all="$(late_lines --f01-room rest_aftermath --f01-loadout all)"
+    if ! grep -q '^F01_REST_CAMP_SMOKE_OK .* env=live slot_enemies=0 enemies=0 ' <<<"$camp_story" \
+      || ! grep -q '^F01_REST_CAMP_ENTRY .* roster=0 lock=none env=live ' <<<"$camp_story" \
+      || ! grep -q '^F01_REST_CAMP_ENTRY .* roster=0 lock=none env=live ' <<<"$camp_all" \
+      || ! grep -q '^F01_REST_AFTERMATH_SMOKE_OK .* env=live slot_enemies=0 enemies=0 ' <<<"$aftermath_story" \
+      || ! grep -q '^F01_REST_AFTERMATH_ENTRY .* roster=0 lock=none env=live ' <<<"$aftermath_story" \
+      || ! grep -q '^F01_REST_AFTERMATH_ENTRY .* roster=0 lock=none env=live ' <<<"$aftermath_all"; then
+      echo "the f01_late camp or aftermath did not load as a quiet room (no enemy, no lock) with its smoke marker" >&2
+      exit 1
+    fi
+    echo "F01_REST_CAMP_HEADLESS_OK: $(grep '^F01_REST_CAMP_SMOKE_OK' <<<"$camp_story")"
+    echo "F01_REST_AFTERMATH_HEADLESS_OK: $(grep '^F01_REST_AFTERMATH_SMOKE_OK' <<<"$aftermath_story")"
     # The direct scenes name the same room, load their slot roster (the Hoarder's one slot enemy, the hazard room's
     # two slimes) and replay identically twice.
     for direct in f01_hoarder:F01_HOARDER:slot_enemies=1 f01_dozer:F01_DOZER:slot_enemies=1 f01_hazards:F01_HAZARDS:slot_enemies=2; do
@@ -702,7 +721,7 @@ case "$mode" in
       exit 1
     fi
     echo "F01_HAZ_TACTICAL_OK: second sticker baited over the slime, no Rot hurt, room cleared, final hash 8e10bd0986d23ad9 (the filmed run), twice identical"
-    echo "F01_LATE_HEADLESS_OK: corral, rest_refuge, hoarder, boiler, dozer, hazards, ring_court, ring_split, juicer and mastery (listed), story and all, each twice identical"
+    echo "F01_LATE_HEADLESS_OK: corral, rest_refuge, hoarder, boiler, dozer, hazards, ring_court, ring_split, rest_camp, juicer, rest_aftermath and mastery (listed), story and all, each twice identical"
     ;;
   render)
     for f in "${fixtures[@]}"; do
