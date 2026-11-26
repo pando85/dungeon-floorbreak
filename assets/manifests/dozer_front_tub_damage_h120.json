@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "id": "dozer_front_tub_damage_h120_v0",
+  "type": "vehicle_part",
+  "source_path": "assets/source/enemies/dozer/dozer_front_tub_damage_h120.ase",
+  "grid_source": "assets/source/enemies/dozer/dozer_front_tub_damage_h120.grid.json",
+  "output_atlas": "generated/art/dozer_front_tub_damage_h120.png",
+  "output_metadata": "generated/art/dozer_front_tub_damage_h120.json",
+  "palette_id": "dozer-floor01-v0",
+  "frame_size": [
+    65,
+    86
+  ],
+  "pivot": [
+    0,
+    81
+  ],
+  "animation_tags": [
+    "pitch_0",
+    "pitch_1",
+    "disabled"
+  ],
+  "required_alpha": true,
+  "owner": "AI-authored vehicle enemy and set-piece art (fan-concept layer: Goblin Murder Dozer; runtime role IP-neutral large pursuit machine and its stop frame)",
+  "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+  "provenance": {
+    "origin": "DOZ-02 hull front, rider tub box with the lip crumpled where the frame struck, pitched with the hull (pitch_0, pitch_1, level)",
+    "generator": "Design and keys: DOZ-02 design step, deterministic output of scripts/author_dozer_doz02.py built on the DOZ-01 construction (scripts/author_dozer_doz01.py). No image-model raster output, no tracing, no resampling. Independent review pending",
+    "generated_art": true,
+    "input_reference_ids": [
+      "floor-01-opening-concept-references-v1"
+    ]
+  },
+  "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
+  "review_status": "prototype_fixture_unapproved",
+  "dozer": {
+    "status": "DOZ-02 design keys, awaiting execution and independent review; not wired into any Bevy binary",
+    "spec": "docs/02-art/doz-02-dozer-damage-spec.md",
+    "tick_hz": 60,
+    "hold_preview_ms": 100,
+    "frames": [
+      {
+        "index": 0,
+        "tag": "pitch_0",
+        "ticks": 6,
+        "duration_ms": 100
+      },
+      {
+        "index": 1,
+        "tag": "pitch_1",
+        "ticks": 6,
+        "duration_ms": 100
+      },
+      {
+        "index": 2,
+        "tag": "disabled",
+        "ticks": null,
+        "duration_ms": 100
+      }
+    ]
+  }
+}

@@ -1,0 +1,175 @@
+{
+  "format": "dozer-damage-v0",
+  "status": "DOZ-02 design keys; the remaining frames, the export and the Bevy wiring follow the execution brief; independent review pending",
+  "spec": "docs/02-art/doz-02-dozer-damage-spec.md",
+  "coordinates": "as dozer_rig_h120.json: px from the rig origin O, x forward (mirror when facing left), y up; prop parts: px from the room's stop-frame rectangles (layout px, y down in the room file)",
+  "replaces": {
+    "wheel": {
+      "atlas": "dozer_wheel_jammed_h120",
+      "tag": "jammed",
+      "anchor": "wheel (axle)",
+      "states": [
+        "impact_stunned",
+        "disabled"
+      ]
+    },
+    "hull_body": {
+      "atlas": "dozer_hull_damage_h120",
+      "anchor": "hull_body",
+      "states": [
+        "impact_stunned",
+        "disabled"
+      ]
+    },
+    "hull_front_cab": {
+      "atlas": "dozer_front_cab_damage_h120",
+      "anchor": [
+        -75,
+        85
+      ],
+      "frame_size": [
+        60,
+        23
+      ],
+      "pivot": [
+        0,
+        22
+      ]
+    },
+    "hull_front_tub": {
+      "atlas": "dozer_front_tub_damage_h120",
+      "anchor": [
+        19,
+        23
+      ],
+      "frame_size": [
+        65,
+        86
+      ],
+      "pivot": [
+        0,
+        81
+      ]
+    },
+    "yoke": {
+      "atlas": "dozer_yoke_damage_h120",
+      "tag": "bent",
+      "anchor": "yoke (axle)",
+      "states": [
+        "impact_stunned",
+        "disabled"
+      ]
+    }
+  },
+  "pitch": {
+    "rule": "each hull column moves up by round(amp * (2 - 6 * (x + 84) / 167)) px (half away from zero), x = the column's rig x; the tread, wheel and yoke stay on the floor",
+    "frames": {
+      "pitch_0": 1.0,
+      "pitch_1": 0.5,
+      "disabled": 0.0
+    },
+    "rider_seat_dy": {
+      "pitch_0": {
+        "engineer": 1,
+        "rider_a": -2,
+        "rider_b": -3
+      },
+      "pitch_1": {
+        "engineer": 0,
+        "rider_a": -1,
+        "rider_b": -2
+      },
+      "disabled": {
+        "engineer": 0,
+        "rider_a": 0,
+        "rider_b": 0
+      }
+    }
+  },
+  "timing": {
+    "tick_hz": 60,
+    "impact_stunned": {
+      "ticks": 48,
+      "hull": [
+        [
+          "pitch_0",
+          0,
+          5
+        ],
+        [
+          "pitch_1",
+          6,
+          11
+        ],
+        [
+          "disabled",
+          12,
+          47
+        ]
+      ],
+      "wheel": "jammed from tick 0",
+      "yoke": "bent from tick 0",
+      "hit_spark": "vfx_hit_spark_metal at the tub lip crumple, tick 0",
+      "steam_leak": "steam burst (3 puffs, every 6 ticks) from the leak emitter, ticks 0..47",
+      "stack": "one black puff on tick 0, then none (the stack is knocked crooked)",
+      "riders": "lurch forward (DOZ-01 keys) offset by rider_seat_dy of the hull frame shown"
+    },
+    "disabled": {
+      "hull": "disabled",
+      "wheel": "jammed",
+      "yoke": "bent",
+      "steam_leak": "one steam_0..steam_2 puff every 40 ticks (slow, thin)",
+      "stack": "one black_3..black_5 wisp every 60 ticks",
+      "driver": "slumped hold (execution: the pot over his eyes)"
+    }
+  },
+  "emitters": {
+    "steam_leak": [
+      6,
+      91
+    ],
+    "stack_crooked": [
+      8,
+      144
+    ]
+  },
+  "stop_frame": {
+    "atlas": "prop_stop_frame",
+    "pivot": [
+      8,
+      59
+    ],
+    "frame_size": [
+      96,
+      60
+    ],
+    "anchor": "the hanging mass rectangle's bottom-left pixel (falls with it); the pulley frame stays at the raised anchor in every state",
+    "frames": {
+      "raised": "Supported, Weakened",
+      "pulley": "every state, at the raised anchor"
+    },
+    "remnant": {
+      "atlas": "prop_stop_frame_remnant",
+      "pivot": [
+        0,
+        15
+      ],
+      "anchor": "the remnant rectangle's bottom-left pixel",
+      "frames": {
+        "landed": "early miss and rear glance",
+        "landed_hit": "after a hit (the bar is in the wheel)"
+      }
+    },
+    "brace": {
+      "atlas": "prop_stop_frame_brace",
+      "pivot": [
+        0,
+        63
+      ],
+      "anchor": "the prop target rectangle's bottom-left pixel",
+      "frames": {
+        "intact": "Supported"
+      }
+    }
+  }
+}

@@ -1,0 +1,163 @@
+{
+ "format": "pixel-grid-v1",
+ "canvas": [
+  16,
+  64
+ ],
+ "pivot": [
+  0,
+  63
+ ],
+ "palette": [
+  {
+   "key": "K",
+   "name": "outline_plum",
+   "rgba": "#1b1124ff"
+  },
+  {
+   "key": "0",
+   "name": "iron_0",
+   "rgba": "#121220ff"
+  },
+  {
+   "key": "1",
+   "name": "iron_1",
+   "rgba": "#1e2032ff"
+  },
+  {
+   "key": "3",
+   "name": "iron_3",
+   "rgba": "#3f445eff"
+  },
+  {
+   "key": "4",
+   "name": "iron_4",
+   "rgba": "#575e7aff"
+  },
+  {
+   "key": "5",
+   "name": "iron_5",
+   "rgba": "#78809aff"
+  },
+  {
+   "key": "6",
+   "name": "iron_6",
+   "rgba": "#a3abbfff"
+  },
+  {
+   "key": "7",
+   "name": "iron_glint",
+   "rgba": "#dde2ecff",
+   "accent": true
+  },
+  {
+   "key": "c",
+   "name": "copper_1",
+   "rgba": "#3a1a14ff"
+  },
+  {
+   "key": "g",
+   "name": "copper_3",
+   "rgba": "#823e1eff"
+  },
+  {
+   "key": "h",
+   "name": "copper_4",
+   "rgba": "#a85626ff"
+  },
+  {
+   "key": "i",
+   "name": "copper_5",
+   "rgba": "#cc7332ff"
+  },
+  {
+   "key": "S",
+   "name": "brass_4",
+   "rgba": "#bc9a3aff"
+  }
+ ],
+ "layers": [
+  "brace"
+ ],
+ "frames": [
+  {
+   "duration_ms": 100,
+   "cels": {
+    "brace": [
+     "........4.......",
+     "........4.......",
+     ".......KKK......",
+     ".......KKK......",
+     "........5.......",
+     "...KKKK5KKK3K...",
+     "..K666KKKK333K..",
+     ".KK33K3333333KK.",
+     "..K000KKK0000K..",
+     "..KKKK55KKKKKK..",
+     ".K3330K3K3333KK.",
+     ".K3110K3K31117K.",
+     ".K3110K3K31110K.",
+     ".K3100KKK00010K.",
+     ".K30KKiiiKKK30K.",
+     ".K30KhchhcgK30K.",
+     ".K30KhchhcgK30K.",
+     ".K30KhchhcgK30K.",
+     ".K30KhchhcgK30K.",
+     ".K30KhchhcgK30K.",
+     ".K30KhchhcgK30K.",
+     ".K30KhchhcgK30K.",
+     ".K30KccccccK00K.",
+     ".K0KKKKKKKKKK0K.",
+     ".K0K73333333K0K.",
+     ".K0KKKKKKKKKK0K.",
+     ".K30KiiiiiiK30K.",
+     ".K30KhchhcgK30K.",
+     ".K30KhchhcgK30K.",
+     ".K30KhchhcgK30K.",
+     ".K30KhchhcgK30K.",
+     ".K30KhchhcgK30K.",
+     ".K30KhchhcgK30K.",
+     ".K30KhchhcgK30K.",
+     ".K30KhchhcgK30K.",
+     ".K30K0SS00KK30K.",
+     ".K30K00SS00K30K.",
+     ".K30KS00SS0K30K.",
+     ".K30KSS00SSK30K.",
+     ".K30K0SS00SK30K.",
+     ".K30K00SS00K30K.",
+     ".K30KK00SS0K30K.",
+     ".K30KhchhcgK30K.",
+     ".K30KhchhcgK30K.",
+     ".K30KhchhcgK30K.",
+     ".K30KhchhcgK30K.",
+     ".K30KhchhcgK30K.",
+     ".K30KhchhcgK30K.",
+     ".K30KhchhcgK30K.",
+     ".K30KhchhcgK30K.",
+     ".K30KhchhcgK30K.",
+     ".K30KccccccK00K.",
+     ".K0KKKKKKKKKK0K.",
+     ".K0K73333333K0K.",
+     ".K0KKKKKKKKKK0K.",
+     ".K30KiiiiiiK30K.",
+     ".K30KhhhhhgK30K.",
+     ".K30KhhhhhgK30K.",
+     ".K30KhhhhhgK30K.",
+     ".K30KhhhhhgK30K.",
+     ".K30KhhhhhgK30K.",
+     ".K70KhhhhhgK30K.",
+     ".K00KgggggKK00K.",
+     "..KKKKKKKKKKKK.."
+    ]
+   }
+  }
+ ],
+ "tags": [
+  {
+   "name": "intact",
+   "from": 0,
+   "to": 0,
+   "direction": "forward"
+  }
+ ]
+}

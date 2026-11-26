@@ -1,0 +1,197 @@
+{
+ "format": "pixel-grid-v1",
+ "canvas": [
+  99,
+  99
+ ],
+ "pivot": [
+  49,
+  49
+ ],
+ "palette": [
+  {
+   "key": "K",
+   "name": "outline_plum",
+   "rgba": "#1b1124ff"
+  },
+  {
+   "key": "2",
+   "name": "iron_2",
+   "rgba": "#2c3046ff"
+  },
+  {
+   "key": "3",
+   "name": "iron_3",
+   "rgba": "#3f445eff"
+  },
+  {
+   "key": "4",
+   "name": "iron_4",
+   "rgba": "#575e7aff"
+  },
+  {
+   "key": "Q",
+   "name": "rust_0",
+   "rgba": "#2a1612ff"
+  },
+  {
+   "key": "W",
+   "name": "rust_1",
+   "rgba": "#4a2318ff"
+  },
+  {
+   "key": "E",
+   "name": "rust_2",
+   "rgba": "#6c321eff"
+  },
+  {
+   "key": "T",
+   "name": "rust_3",
+   "rgba": "#914524ff"
+  },
+  {
+   "key": "Y",
+   "name": "rust_4",
+   "rgba": "#b55f2cff"
+  },
+  {
+   "key": "L",
+   "name": "brass_1",
+   "rgba": "#43331aff"
+  },
+  {
+   "key": "M",
+   "name": "brass_2",
+   "rgba": "#6a5224ff"
+  },
+  {
+   "key": "N",
+   "name": "brass_3",
+   "rgba": "#93752eff"
+  },
+  {
+   "key": "S",
+   "name": "brass_4",
+   "rgba": "#bc9a3aff"
+  }
+ ],
+ "layers": [
+  "wheel"
+ ],
+ "frames": [
+  {
+   "duration_ms": 100,
+   "cels": {
+    "wheel": [
+     "...................................................................................................",
+     "...................................................................................................",
+     "...................................................................................................",
+     ".......................................................K...........................................",
+     "..................................................KKKKK4K..........................................",
+     "................................................KK444444K..........................................",
+     "...............................................K44444422K..........................................",
+     ".........................KK....................K4333322K................KK.........................",
+     "........................K33K..................KKK3332KK................K33K........................",
+     "........................K333K................K4443222K................K433K........................",
+     ".........................K333K...............K4444222K...............K443K.........................",
+     ".........................K333WKK............K444442222K............KK4432K.........................",
+     ".........................K3333WWK...........K444442222K...........K444432K.........................",
+     ".........................K3333QQQK.......KKKK444432222KKKK.......K4444322K.........................",
+     ".........................K33333QQQK...KKK33333333333333333KKK...K44444322K.........................",
+     ".........................K33333QQQ3KKK33333333333233333333333KKK444443222K.........................",
+     "..........................K3333333333333222222222E2222222223333344444222K..........................",
+     "..........................K33333333333222EEEEEEEEEEEEEEEEE22233333443222K..........................",
+     "..........................K33333333322EEEEEEEEEEE3EEEEEEEEEEE22333332222K...................KKK....",
+     "..........................K333333222EEEEEE333333333333333EEEWWW222333222K...............KKKKYYYK...",
+     "..........................K3333322EEEEE333333333323333333333WWWWW2233332K............KKKYYYYTTTTK..",
+     "..........................K33322EEEE333333EEEEE4222EEEWWW333333WWWW22333K........KKKKYYYTTTTTTEEK..",
+     ".........................K33322EEE33333EEEEEEEE4222EEEWWWWWW33333WWW22333K...KKKKYYYTTTTTTEEEWEWK..",
+     "........................K3332EEEE3333EEEEEEEEEE4222EEWWWWWWWWW3333WWWW2333KKKYYYYTTTTTEEEEEWWWWK...",
+     ".......................K3322EEE33332EEEEEEEEEEE4222EEWWWWWWWWW423333WWW223YYYTTTTTEEEEEEWWWKKKK....",
+     "..............KK......K3322EEE3334222EEEEEEEEEE4222EEWWWWWWWW4222W333WYYYTTTTTTEEEEEWWWWKKK........",
+     ".............K44KKKKKK3322EEE333EE422EEEEEEEEEE4222EEWWWWWWW4422WWYYYYTTTTTEEEEEWWWWKKKK4K.........",
+     ".............K44444443332EEE333EEE4422EEEEEEEEE4222EEWWWWWWW422YYYTTTTTEEEEEEWWWKKKK443444K........",
+     "............K44444443332EEE33EEEEEE4222EEEEWWWW4222WWWWWWWWYYYTTTTTTEEEEEWWWKKKK44444433344KK......",
+     "............K3344444332EEE33EEEEEEEE422EWWWWWWW4222WWWWYYYYTTTTTEEEEEWWWWKKK23344444333322444K.....",
+     "...........K22233443322EE333EEEEEEEE4222WWWWWWW4222YYYYTTTTTEEEEEEWWWKKKK3WW22334433222222244K.....",
+     "...........K2222233332EE333EEEEEEEEEE422WWWWWWW4YYYTTTTTTEEEEEWWWKKKKWWW333WW233332QQQ2KKKKKK......",
+     "............K22222332EEE33EEEEEEEEEEW4422WWWYYYTTTTTTEEEEEWWWWKKKWWWWWWWW33WWW23322QQQK............",
+     ".............K2223322EE334EEEEEEEEWWWW42YYYYTTTTTEEEEEEWWWKKKKWWWWWWWWWWW433WW22332QQK.............",
+     "..............K22332EE333244EEEEEWWWWYYYTTTTTEEEEEEWWWKKKK2WWWWWWWWWWWW442333WW23322K..............",
+     "...............K3332EE3322244EEEEYYYTTTTTTEEEEEWWWWKKKW4222WWWWWWWWWWW4422233WW2333K...............",
+     "...............K332EE333E2222YYYYTTTTTEEEEEWWWWKKKKWWWW422WWWWWWWWWW442222W333WW233K...............",
+     "...............K332EE33EEEYYYTTTTTEEEEEEWWWKKKK4222WWW4222WWWWWWWW442222WWWW33WW233K...............",
+     "..............K332EEE3YYYTTTTTTEEEEEWWWKKKK2WWW4222WWW422WWWWWWWW442222WWWWW33WWW233K..............",
+     "..............K332YYYYTTTTTEEEEEWWWWKKKWW4422WW42S2WW422WWWWWWW442222WWWWWWWW33WW233K..............",
+     "...........KKKYYYYTTTTTEEEEEEWWWKKKK44WWWW422SSSSSSSSS22WWWWW442222WWWWWWWWQQ33WW223K..............",
+     ".......KKKKYYYTTTTTTEEEEEWWWKKKKWW222244WWWSSSSSSSSSSSSNWWW442222WWWWWWWQQQQQ33WWW233K.............",
+     "......KYYYYTTTTTEEEEEWWWWKKKEWWWWWW222244WSSSSSSSMSSSSSNNW442222WWWWWQQQQQQQQQ33WW233K.............",
+     ".....KYTTTTTEEEEEEWWWKKKKEEEWWWWWWWWW2222SSSSSMMMMMMMSNNNN2222WWWWWQQQQQQQQQQQ33WW233K.............",
+     ".....KTTEEEEEEWWWKKKKEEEEEEEWWWWWWWWWWW22SSSSMMMMMMMMMNNNN22WWWWQQQQQQQQQQQQQQ33WW233KKK...........",
+     ".....KEEEEWWWWKKKEE33EEEEEEEWWWWWWWWWWWWSSSSMMMMMMMMMMMNNNNWWQQQQQQQQQQQQQQQQQ33WW233444KKK........",
+     "......KWWWKKKK332EE33WWWWWWEWWWWWWWWWWWWSSSMMMMMMMMMMMLLNNMQQQQQQQQQQQQQQQQQQQ33QQ233444444KK......",
+     "...KKKWKKKQQ44332EE334444444444444444444SSSMMMMMMMMMLLLLMMM444444444444444444433QQ23344444444KKK...",
+     ".KK34444444444332EE332222222222222222222SSSMMMMMMMMLLLLLMMM222222222222222222233QQ23344444444443KK.",
+     "K333333333333332EE332222222222222222222SSSMMMMMMMLLLLLLLLMMM222222222222222222233QQ233444444444433K",
+     ".KK32222222222332EE332222222222222222222SSSMMMMMLLLLLLLLMMM222222222222222222233QQ23322222222223KK.",
+     "...KKK22222222332WW33WWWWWWWWWWWWWWWWWWWSSSMMMMLLLLLLLLLMMMQQQQQQQQQQQQQQQQQQQ33QQ23322222222KKK...",
+     "......KK222222332WW33WWWWWWWWWWWWWWWWWWWSNNMMLLLLLLLLLLLMMMQQQQQQQQQQQQQQQQQQQ33QQ233222222KK......",
+     "........KKK222332WW33WWWWWWWWWWWWWWWWWW4NNNNLLLLLLLLLLLMMMM4QQQQQQQQQQQQQQQQQQ33QQ233222KKK........",
+     "...........KKK332WW33WWWWWWWWWWWWWWWW4422NNNNLLLLLLLLLMMMM2244QQQQQQQQQQQQQQQQ33QQ233KKK...........",
+     ".............K332WW33WWWWWWWWWWWWWW442222NNNNMLLLLLLLMMMMM222244QQQQQQQQQQQQQQ33QQ233K.............",
+     ".............K332WW33WWWWWWWWWWWW442222WWWNNMMMMMLMMMMMMMQQQ222244QQQQQQQQQQQQ33QQ233K.............",
+     ".............K332WWW33WWWWWWWWWW442222WWWWWNMMMMMMMMMMMMQQQQQ222244QQQQQQQQQQ33QQQ233K.............",
+     "..............K322WW33WWWWWWWW442222WWWWWW422MMMMMMMMM22QQQQQQQ222244QQQQQQQQ33QQ223K..............",
+     "..............K332WW33WWWWWW442222WWWWWWW4422QQ42M2QQ422QQQQQQQQQ222244QQQQQQ33QQ233K..............",
+     "..............K332WWW33WWW442222WWWWWWWWW422QQQ4222QQQ422QQQQQQQQQQ222244QQQ33QQQ233K..............",
+     "...............K332WW33WW442222WWWWWWWWW4222QQQ4222QQQ4222QQQQQQQQQQ222244QQ33QQ233K...............",
+     "...............K332WW33342222WWWWWWWWWWW422QQQQ4222QQQQ422QQQQQQQQQQQQ22224333QQ233K...............",
+     "...............K3332WW33222WWWWWWWWWWWW4222QQQQ4222QQQQ4222QQQQQQQQQQQQQ22233QQ2333K...............",
+     "..............K44332WW3332WWWWWWWWWWWWW422QQQQQ4222QQQQQ422QQQQQQQQQQQQQQ2333QQ23344K..............",
+     ".............K4443322WW33WWWWWWWWWWWWW422QQQQQQ4222QQQQQ4422QQQQQQQQQQQQQQ33QQ2233444K.............",
+     "............K44444332WWW33WWWWWWWWWWW4422QQQQQQ4222QQQQQQ422QQQQQQQQQQQQQ33QQQ23344444K............",
+     "...........K4444443332WW333WWWWWWWWWW422QQQQQQQ4222QQQQQQQ422QQQQQQQQQQQ333QQ2333444444K...........",
+     "...........K44444323322WW333WWWWWWWW4222QQQQQQQ4222QQQQQQQ4222QQQQQQQQQ333QQ22332344444K...........",
+     "..........K444432222332WWW33WWWWWWWQ422QQQQQQQQ4222QQQQQQQQ422QQQQQQQQQ33QQQ23322Q234444K..........",
+     ".........K44433222223332WWW33WWWWWQ4222QQQQQQQQ4222QQQQQQQQ4222QQQQQQQ33QQQ233322QQ233444K.........",
+     "........K4433222222223332WWW333WWW4422QQQQQQQQQ4222QQQQQQQQQ422QQQQQ333QQQ233322QQQQW23344K........",
+     ".......K33322222KKKKKK3322WWW333W4422QQQQQQQQQQ4222QQQQQQQQQ4422QQQ333QQQ2233KKKKKKWWW22333K.......",
+     ".......K33KKKKKK......K3322WWW3334222QQQQQQQQQQ4222QQQQQQQQQQ4222Q333QQQ2233K......KKKKKK33K.......",
+     "........KK.............K3322WWW33332QQQQQQQQQQQ4222QQQQQQQQQQQ423333QQQ2233K.............KK........",
+     "........................K3332WWWW3333QQQQQQQQQQ4222QQQQQQQQQQQ3333QQQQ2333K........................",
+     ".........................K33322WWW33333QQQQQQQQ4222QQQQQQQQQ33333QQQ22333K.........................",
+     "..........................K33322WWWW333333QQQQQ4222QQQQQQ333333QQQQ22333K..........................",
+     "..........................K4333322WWWQQ333333333323333333333QQQQQ2233333K..........................",
+     "..........................K444333222WQQQQQ333333333333333QQQQQQ222333333K..........................",
+     "..........................KQ4443333322QQQQQQQQQQQ3QQQQQQQQQQQ22333333333K..........................",
+     "..........................KQQQ43233333222QQQQQQQQQQQQQQQQQ22233333333333K..........................",
+     "..........................KQQ43222233333222222222Q2222222223333333333333K..........................",
+     ".........................KWQ4432222KKK33333333333233333333333KKK333333333K.........................",
+     ".........................KWW432222K...KKK33333333333333333KKK...K33333333K.........................",
+     ".........................KW443222K.......KKKK444432222KKKK.......K3333333K.........................",
+     ".........................K443222K...........K444432222K...........K333333K.........................",
+     ".........................K4422KK............K444432222K............KK3333K.........................",
+     ".........................K432K...............K4443222K...............K333K.........................",
+     "........................K332K................K4443222K................K333K........................",
+     "........................K33K.................K4443222K.................K33K........................",
+     ".........................KK...................K44322K...................KK.........................",
+     "..............................................K44322K..............................................",
+     "...............................................K432K...............................................",
+     "...............................................K432K...............................................",
+     "...............................................K333K...............................................",
+     "................................................K3K................................................",
+     "................................................K3K................................................",
+     ".................................................K................................................."
+    ]
+   }
+  }
+ ],
+ "tags": [
+  {
+   "name": "jammed",
+   "from": 0,
+   "to": 0,
+   "direction": "forward"
+  }
+ ]
+}
