@@ -511,8 +511,8 @@ case "$mode" in
     # headless smoke of each room and loadout replays identically twice and names
     # its room; the story loadout of the Boiler differs from the plain room (the
     # pin holds dynamite and Light on Your Feet), and the plain room is unchanged.
-    late_lines() { "$bin" --headless-floor01-smoke --scene f01_late "$@" | grep -E '^(F01_LATE_ENTRY|F01_(BOILER|HOARDER|DOZER|HAZARDS|MASTERY|RING_COURT|RING_SPLIT|CORRAL)_(ENTRY|SMOKE_OK)|COMBAT_STATE)'; }
-    for late_args in "--f01-room boiler" "--f01-room boiler --f01-loadout all" "--f01-room juicer" "--f01-room juicer --f01-loadout all" "--f01-room hoarder" "--f01-room hoarder --f01-loadout all" "--f01-room dozer" "--f01-room dozer --f01-loadout all" "--f01-room hazards" "--f01-room hazards --f01-loadout all" "--f01-room mastery" "--f01-room mastery --f01-loadout all" "--f01-room mastery --cf02-seed 7" "--f01-room ring_court" "--f01-room ring_court --f01-loadout all" "--f01-room ring_split" "--f01-room ring_split --cf02-seed 7" "--f01-room corral" "--f01-room corral --f01-loadout all" "--f01-room corral --cf02-seed 7"; do
+    late_lines() { "$bin" --headless-floor01-smoke --scene f01_late "$@" | grep -E '^(F01_LATE_ENTRY|F01_(BOILER|HOARDER|DOZER|HAZARDS|MASTERY|RING_COURT|RING_SPLIT|CORRAL|REST_REFUGE)_(ENTRY|SMOKE_OK)|COMBAT_STATE)'; }
+    for late_args in "--f01-room boiler" "--f01-room boiler --f01-loadout all" "--f01-room juicer" "--f01-room juicer --f01-loadout all" "--f01-room hoarder" "--f01-room hoarder --f01-loadout all" "--f01-room dozer" "--f01-room dozer --f01-loadout all" "--f01-room hazards" "--f01-room hazards --f01-loadout all" "--f01-room mastery" "--f01-room mastery --f01-loadout all" "--f01-room mastery --cf02-seed 7" "--f01-room ring_court" "--f01-room ring_court --f01-loadout all" "--f01-room ring_split" "--f01-room ring_split --cf02-seed 7" "--f01-room corral" "--f01-room corral --f01-loadout all" "--f01-room corral --cf02-seed 7" "--f01-room rest_refuge" "--f01-room rest_refuge --f01-loadout all" "--f01-room rest_refuge --cf02-seed 7"; do
       # shellcheck disable=SC2086
       late_a="$(late_lines $late_args)"
       # shellcheck disable=SC2086
@@ -587,6 +587,20 @@ case "$mode" in
       exit 1
     fi
     echo "F01_CORRAL_HEADLESS_OK: $(grep '^F01_CORRAL_SMOKE_OK' <<<"$corral_state")"
+    # REST-WIRE (REST-A): the refuge is listed right after the corral. It has no enemy; the staff door
+    # is closed at the start; under the story loadout the reward trigger is armed (boost=armed), under the
+    # TEST LOADOUT the boost is held (boost=held), and its fixed-tick smoke walks right, so the sealed room
+    # ends at the door. The two loadouts are different runs.
+    refuge_story="$(late_lines --f01-room rest_refuge)"
+    refuge_all="$(late_lines --f01-room rest_refuge --f01-loadout all)"
+    if ! grep -q '^F01_REST_REFUGE_SMOKE_OK .* env=live slot_enemies=0 enemies=0 ' <<<"$refuge_story" \
+      || ! grep -q '^F01_REST_REFUGE_ENTRY .* roster=0 lock=closed boost=armed ' <<<"$refuge_story" \
+      || ! grep -q '^F01_REST_REFUGE_ENTRY .* roster=0 lock=closed boost=held ' <<<"$refuge_all" \
+      || [[ "$(grep '^COMBAT_STATE' <<<"$refuge_story")" == "$(grep '^COMBAT_STATE' <<<"$refuge_all")" ]]; then
+      echo "the f01_late refuge did not load its closed staff door and its armed (story) or held (all) boost, or its loadouts are the same run" >&2
+      exit 1
+    fi
+    echo "F01_REST_REFUGE_HEADLESS_OK: $(grep '^F01_REST_REFUGE_SMOKE_OK' <<<"$refuge_story")"
     # The direct scenes name the same room, load their slot roster (the Hoarder's one slot enemy, the hazard room's
     # two slimes) and replay identically twice.
     for direct in f01_hoarder:F01_HOARDER:slot_enemies=1 f01_dozer:F01_DOZER:slot_enemies=1 f01_hazards:F01_HAZARDS:slot_enemies=2; do
@@ -688,7 +702,7 @@ case "$mode" in
       exit 1
     fi
     echo "F01_HAZ_TACTICAL_OK: second sticker baited over the slime, no Rot hurt, room cleared, final hash 8e10bd0986d23ad9 (the filmed run), twice identical"
-    echo "F01_LATE_HEADLESS_OK: corral, hoarder, boiler, dozer, hazards, ring_court, ring_split, juicer and mastery (listed), story and all, each twice identical"
+    echo "F01_LATE_HEADLESS_OK: corral, rest_refuge, hoarder, boiler, dozer, hazards, ring_court, ring_split, juicer and mastery (listed), story and all, each twice identical"
     ;;
   render)
     for f in "${fixtures[@]}"; do

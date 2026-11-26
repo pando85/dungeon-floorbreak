@@ -268,6 +268,14 @@ pub enum EnvSolidKind {
     /// until it breaks. `EnvSolid::prop` is the prop's index. Blocks bolts, globs
     /// and bodies like any solid; heroes jump and stand on it (48 px).
     PartitionWall,
+    /// REST-WIRE (REST-AD5): a `hero_on_surface` lock's solid (the refuge's staff
+    /// door). It stands until the named hero first stands grounded on the named room
+    /// platform, then **stays gone** for the attempt (latched): the opened flag is
+    /// the env runtime's own state (`lock` indexes its surface locks, not the
+    /// sidecar's), kept by a checkpoint respawn and a defeat respawn, reset by a
+    /// fixture restart, and hashed only in a room that has such a lock.
+    /// `EnvSolid::prop` is the lock's index in the sidecar.
+    SurfaceLock { lock: u16 },
 }
 
 impl EnvSolidKind {
@@ -285,7 +293,8 @@ impl EnvSolidKind {
             | Self::Gate { .. }
             | Self::Soffit
             | Self::ShutterStack
-            | Self::PartitionWall => false,
+            | Self::PartitionWall
+            | Self::SurfaceLock { .. } => false,
         }
     }
 }
@@ -465,6 +474,22 @@ pub struct EnvRuntime {
     acid_prev_up: Option<Vec<bool>>,
     /// HAZ-FU: the knobs of this run.
     fu: HazFu,
+    /// REST-WIRE: the `hero_on_surface` locks, in sidecar order (empty in every other
+    /// room). Their opened flags are hashed only when this is not empty.
+    surface_locks: Vec<SurfaceLockRt>,
+}
+
+/// REST-WIRE: the runtime of one `hero_on_surface` lock.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct SurfaceLockRt {
+    /// The lock's index in the sidecar.
+    lock: u16,
+    /// The party index of the hero it waits on.
+    hero: u8,
+    /// The room platform (layout px, y down).
+    platform: IRect,
+    /// Latched once the hero stood on the platform.
+    opened: bool,
 }
 
 impl EnvRuntime {
@@ -499,6 +524,7 @@ impl EnvRuntime {
         }
         let links = LinkGraph::new(link_list)?;
         let mut stickers: Vec<StickerRt> = Vec::new();
+        let mut surface_locks: Vec<SurfaceLockRt> = Vec::new();
         for (i, p) in enc.props.iter().enumerate() {
             let index = u16::try_from(i).map_err(|_| "too many props".to_owned())?;
             let incoming = links.incoming(index);
@@ -680,7 +706,31 @@ impl EnvRuntime {
         for (i, lock) in enc.locks.iter().enumerate() {
             // A new `LockEvent` variant fails to compile here: this step must say
             // what it does with it.
-            let LockEvent::EnemyDefeated { roster } = lock.opens_on;
+            let roster = match lock.opens_on {
+                LockEvent::EnemyDefeated { roster } => roster,
+                LockEvent::HeroOnSurface { hero, .. } => {
+                    // REST-WIRE: a latched lock the env runtime owns (no slot enemy).
+                    let platform = lock
+                        .surface_rect
+                        .ok_or_else(|| format!("lock {}: no surface rectangle", lock.id))?;
+                    let lock_index = u16::try_from(i).map_err(|_| "too many locks".to_owned())?;
+                    solids.push(EnvSolid {
+                        rect: lock.solid,
+                        prop: Some(lock_index),
+                        kind: EnvSolidKind::SurfaceLock {
+                            lock: u16::try_from(surface_locks.len())
+                                .map_err(|_| "too many locks".to_owned())?,
+                        },
+                    });
+                    surface_locks.push(SurfaceLockRt {
+                        lock: lock_index,
+                        hero,
+                        platform,
+                        opened: false,
+                    });
+                    continue;
+                }
+            };
             let target = enc
                 .roster
                 .get(roster)
@@ -792,6 +842,7 @@ impl EnvRuntime {
             partner_knobs: Default::default(),
             acid_prev_up: None,
             fu: HazFu::from_tuning(slime::active()),
+            surface_locks,
         })
     }
 
@@ -1012,6 +1063,10 @@ impl EnvRuntime {
         }
         self.hazards = self.pristine_hazards.clone();
         self.prev.clear();
+        // REST-WIRE: a fixture restart closes a surface lock again.
+        for lock in &mut self.surface_locks {
+            lock.opened = false;
+        }
     }
 
     /// CORRAL-D (CD-AD10): a checkpoint respawn. Every prop goes back to its first
@@ -1021,6 +1076,8 @@ impl EnvRuntime {
     /// one that stands in or past its column would freeze it inside a solid and let
     /// it spit and rush through. Only a restart restores the screen.
     pub fn reset_keeping_partitions(&mut self) {
+        // REST-WIRE: a surface lock stays open through a checkpoint respawn.
+        let opened: Vec<bool> = self.surface_locks.iter().map(|l| l.opened).collect();
         let kept: Vec<(usize, Partition)> = self
             .props
             .iter()
@@ -1036,6 +1093,9 @@ impl EnvRuntime {
             // count again (the hits stay).
             part.forget_hit_tokens();
             self.props[i].machine = Machine::Partition(Box::new(part));
+        }
+        for (lock, was) in self.surface_locks.iter_mut().zip(opened) {
+            lock.opened = was;
         }
     }
 
@@ -1318,6 +1378,13 @@ impl EnvRuntime {
             | EnvSolidKind::ShutterStack
             | EnvSolidKind::PartitionWall => s.prop.and_then(|p| self.props.get(usize::from(p))),
             EnvSolidKind::Lock { .. } | EnvSolidKind::Gate { .. } => return false,
+            // REST-WIRE: the latched surface lock stands until it opened.
+            EnvSolidKind::SurfaceLock { lock } => {
+                return self
+                    .surface_locks
+                    .get(usize::from(lock))
+                    .is_some_and(|l| !l.opened);
+            }
             // HAZ-A2: a soffit always stands; the exit gate defaults to closed (the
             // scene opens it when the roster is clear). Neither has a prop.
             EnvSolidKind::Soffit | EnvSolidKind::ExitGate => return true,
@@ -1841,6 +1908,37 @@ impl EnvRuntime {
             mix(0x4143_4944_0001); // "ACID"
             self.acid.mix_into(&mut *mix);
         }
+        // REST-WIRE: the latched flags, only in a room that has a surface lock, so
+        // every other room's hash is unchanged.
+        if !self.surface_locks.is_empty() {
+            mix(0x5355_5246_0001); // "SURF"
+            for lock in &self.surface_locks {
+                mix(u64::from(lock.lock));
+                mix(u64::from(lock.opened));
+            }
+        }
+    }
+
+    /// REST-WIRE: the `hero_on_surface` locks as `(solid, opened)`, in sidecar order
+    /// (the HUD's swap hint and the door's drawing read it).
+    pub fn surface_doors(&self) -> Vec<(IRect, bool)> {
+        self.solids
+            .iter()
+            .filter_map(|s| match s.kind {
+                EnvSolidKind::SurfaceLock { lock } => Some((
+                    s.rect,
+                    self.surface_locks
+                        .get(usize::from(lock))
+                        .is_some_and(|l| l.opened),
+                )),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// REST-WIRE: whether each `hero_on_surface` lock has opened, in sidecar order.
+    pub fn surface_locks_open(&self) -> Vec<bool> {
+        self.surface_locks.iter().map(|l| l.opened).collect()
     }
 
     /// ` env=<prop>:<state>,...` for the state line.
@@ -1873,6 +1971,14 @@ impl EnvRuntime {
                     format!("{}:rot_{}", p.index, state)
                 }
             })
+            .chain(self.surface_locks.iter().map(|l| {
+                // REST-WIRE: only a room with a surface lock names it.
+                format!(
+                    "lock{}:{}",
+                    l.lock,
+                    if l.opened { "open" } else { "closed" }
+                )
+            }))
             .collect();
         format!(" env={}", parts.join(","))
     }
@@ -2227,6 +2333,7 @@ impl CombatState {
                 // HAZ-A2: the exit opens on the tick the roster is clear
                 // (CORRAL-WIRE: on the tick its named llamas are all down).
                 EnvSolidKind::ExitGate => !cleared,
+                // REST-WIRE: the latched surface lock (`solid_intact` reads the flag).
                 _ => env.solid_intact(i),
             };
             scene.world.solids[start + i].intact = intact;
@@ -2985,11 +3092,45 @@ impl CombatState {
         bodies
     }
 
+    /// REST-WIRE (REST-AD5): open each closed `hero_on_surface` lock whose hero
+    /// stands grounded on its platform this tick: the body's grounded flag (the one
+    /// the scene reads everywhere), its feet on the platform's top (layout y) and its
+    /// pivot inside the platform's top span. Latched: a lock never closes again until
+    /// a fixture restart. Logs one [`CombatEvent::SurfaceLockOpened`] per opening.
+    fn step_surface_locks(&mut self, scene: &SceneSim, tick: u64) {
+        let layout_h = scene.world.layout_height();
+        let mut opened: Vec<(u16, u8)> = Vec::new();
+        if let Some(env) = self.env.as_mut() {
+            for lock in env.surface_locks.iter_mut().filter(|l| !l.opened) {
+                let Some(&id) = HeroId::ALL.get(usize::from(lock.hero)) else {
+                    continue;
+                };
+                let body = scene.world.body(id);
+                if !body.grounded {
+                    continue;
+                }
+                let foot = layout_h - (body.y - HERO_HALF_HEIGHT).round() as i32;
+                let x = body.x.round() as i32;
+                let top = lock.platform;
+                if foot == top.y && x >= top.x && x < top.right() {
+                    lock.opened = true;
+                    opened.push((lock.lock, lock.hero));
+                }
+            }
+        }
+        for (lock, hero) in opened {
+            self.log(CombatEvent::SurfaceLockOpened { tick, lock, hero });
+        }
+    }
+
     /// The env step: see the module docs for the order.
     pub(super) fn step_env(&mut self, scene: &mut SceneSim, tick: u64) {
         if self.env.is_none() {
             return;
         }
+        // REST-WIRE: a hero standing on a surface lock's platform opens it (latched),
+        // before the sync below makes its solid stand or not.
+        self.step_surface_locks(scene, tick);
         // The first step appends the solids (KR6); the sync rewrites `intact`
         // again after the prop step below.
         self.env_sync_solids(scene);
@@ -3274,6 +3415,7 @@ impl CombatState {
                 EnvSolidKind::Remnant
                 | EnvSolidKind::Lock { .. }
                 | EnvSolidKind::Gate { .. }
+                | EnvSolidKind::SurfaceLock { .. }
                 | EnvSolidKind::Soffit
                 | EnvSolidKind::ExitGate => {}
                 // CORRAL-D: a launched body is no physical hero hit on the partition

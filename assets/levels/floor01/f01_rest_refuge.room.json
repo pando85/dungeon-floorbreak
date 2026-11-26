@@ -1,0 +1,31 @@
+{
+  "schema": "floor01-demo-hall-v1",
+  "status": "REST-WIRE greybox room (docs/01-design/floor-01-quiet-setpieces-and-transitions.md section G, REST-A, room 1 of the floor run): geometry only, composed at load time from approved Floor 01 kit pieces by camera_lab::layout (no new art, not an authored level; the fast-food refuge art is the separate AREA-FASTFOOD-01 work order), launched as the room rest_refuge of --scene f01_late (src/f01_rest.rs). The staff door lock and the reach_exit goal live in f01_rest_refuge.encounter.json, validated by src/encounter.rs.",
+  "scenarios": [
+    {
+      "id": "F01-REST-REFUGE",
+      "name": "The Wrong Restaurant",
+      "subtitle": "Floor 01 refuge: a quiet dining room, a box on the floor and a staff shelf",
+      "act": 1,
+      "setting": "dry-catacomb",
+      "width": 1600,
+      "height": 660,
+      "floor": 580,
+      "spawn": { "carl": 112, "donut": 80 },
+      "camera_intro": 112,
+      "ceiling_px": 228,
+      "platforms": [
+        { "x": 464, "y": 516, "w": 96, "h": 16 },
+        { "x": 560, "y": 500, "w": 128, "h": 16 },
+        { "x": 1296, "y": 452, "w": 96, "h": 16 }
+      ],
+      "props": [],
+      "enemies": [],
+      "hazards": [],
+      "goal_x": 1528,
+      "purpose": "A 1600 px quiet room (REST-A, REST-AD4): no enemy, no hazard. Platform 0 is the 64 px play deck and platform 1 the 80 px slide top (both Carl-class and optional; the validator's lane rule needs 52 px of clearance under a deck, so the plan's 32 and 48 px decks became 64 and 80 px, and the slide top is 128 px wide so base Donut's running jump lands on it, REST-IMP-1). Platform 2 is the 128 px staff shelf, boosted-Donut only: the reward box at x 1200..1240 (the story table's grant column) comes first, so Donut always holds the boost when she can first reach the shelf. Standing on the shelf opens the 16 px staff door (a sidecar lock) that seals the exit under the 228 px ceiling slab.",
+      "expected": "Spawns, the checkpoint, the exit and the staff door come from f01_rest_refuge.encounter.json; this file holds geometry only. The ceiling is the DP-Q45 slab at 228 px above the walking line. The room is completable under the Story or All loadout only (a flagless launch is sealed by design).",
+      "coop": "Solo with a swap, or two players: Carl cannot reach the shelf; Donut with the boost can. In solo, standing Carl at the door long enough shows the SWAP TO DONUT hint."
+    }
+  ]
+}

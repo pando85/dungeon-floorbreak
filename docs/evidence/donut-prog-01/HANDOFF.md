@@ -8,7 +8,7 @@ Everything below is merged behind flags (`--donut-prog`, `--donut-light-feet`, `
 | --- | --- |
 | `floor01_scene --cf02 --donut-light-feet` | Light on Your Feet held from tick 0 (microarena, no 128 px surface: feel only) |
 | `floor01_scene --cf02 --donut-puddle` (P2 on a pad) | the blink: Circle/B with the stick away from a threat |
-| `floor01_scene --donut-prog` | the grants: the boost at the safe-room placeholder zone, the blink on the Juicer's defeat |
+| `floor01_scene --donut-prog` | the grants: the blink on the Juicer's defeat; the boost's zone is armed in the `rest_refuge` room since REST-WIRE (the legacy corridor arms nothing; `--donut-light-feet` still holds the boost there) |
 | `floor01_scene --party-fixture donut_prog_arena_blink_cornered` (headless, or `--capture-sequence`) | the AI Donut's escape |
 
 ## Every GIF (real Bevy renders, `SHA256SUMS`)

@@ -39,7 +39,13 @@
 //! * **locks**: a solid that stays closed until a named event (an exit that is
 //!   solid until the arena is clear). The target must exist, be neither
 //!   optional nor missing, the closed solid may not wall a hero off from it, and
-//!   the exit is checked with every lock open.
+//!   the exit is checked with every lock open. REST-WIRE adds the event
+//!   `hero_on_surface` (`target` `carl` or `donut`, plus a room platform
+//!   `surface`): the lock opens when the hero stands on that platform and stays
+//!   open. The surface must exist, not overlap the protected spawn, and be
+//!   reachable by the target's strongest class (Carl, boosted Donut) with every
+//!   lock closed, or the lock could never open. A room with an empty roster is
+//!   valid under `reach_exit` (the quiet rooms).
 //! * the room file keeps its `props`, `enemies` and `hazards` arrays **empty**.
 //!
 //! Disclosed limits: the reachability uses the height classes and flat-jump
@@ -69,6 +75,7 @@ use crate::env_prop::{
     ValveConfig,
 };
 use crate::hero_damage::HeroDamagePolicy;
+use crate::party::HeroId;
 use crate::rot_sticker::{Orientation, Track, TrackError};
 use crate::slime::AcidPatchSpec;
 
@@ -427,6 +434,12 @@ impl Goal {
 pub enum LockEvent {
     /// The roster entry at this index of [`Encounter::roster`] is defeated.
     EnemyDefeated { roster: usize },
+    /// REST-WIRE (REST-AD5): opens on the first fixed tick hero `hero` (the
+    /// party index: Carl 0, Donut 1) stands grounded on the room platform
+    /// `surface` (an index of the room's `platforms`), and **stays open**
+    /// (latched) for the attempt. No new button: standing on the shelf is the
+    /// act.
+    HeroOnSurface { hero: u8, surface: usize },
 }
 
 /// A solid that stays closed until a named event (an exit that is solid until
@@ -437,6 +450,10 @@ pub struct Lock {
     pub id: String,
     pub solid: IRect,
     pub opens_on: LockEvent,
+    /// The room platform's rectangle of a [`LockEvent::HeroOnSurface`] lock (layout
+    /// px, y down): the top span and height the env step tests the hero's feet
+    /// against. `None` for every other event.
+    pub surface_rect: Option<IRect>,
 }
 
 impl Lock {
@@ -973,6 +990,29 @@ pub enum EncounterError {
         zone: &'static str,
     },
     LockOutOfBounds(String),
+    /// REST-WIRE: a `hero_on_surface` lock without its `surface`, or an
+    /// `enemy_defeated` lock that names one.
+    LockSurfaceField {
+        lock: String,
+        reason: &'static str,
+    },
+    /// REST-WIRE: the lock's `surface` is not a platform of the room.
+    LockUnknownSurface {
+        lock: String,
+        surface: usize,
+    },
+    /// REST-WIRE: the lock's surface overlaps the protected spawn.
+    LockSurfaceOnProtected {
+        lock: String,
+        surface: usize,
+    },
+    /// REST-WIRE: the target class cannot reach the lock's surface with every
+    /// lock closed: the lock could never open.
+    LockSurfaceUnreachable {
+        lock: String,
+        hero: ReachHero,
+        surface: usize,
+    },
     /// A static entry is unknown, misplaced or too tall.
     StaticInvalid {
         id: String,
@@ -1237,6 +1277,23 @@ impl std::fmt::Display for EncounterError {
                 write!(f, "lock {lock} overlaps the protected {zone}")
             }
             LockOutOfBounds(l) => write!(f, "lock {l} is outside the play area or off the lane"),
+            LockSurfaceField { lock, reason } => write!(f, "lock {lock}: {reason}"),
+            LockUnknownSurface { lock, surface } => {
+                write!(f, "lock {lock} waits on the unknown platform {surface}")
+            }
+            LockSurfaceOnProtected { lock, surface } => write!(
+                f,
+                "lock {lock} waits on platform {surface}, which overlaps the protected spawn"
+            ),
+            LockSurfaceUnreachable {
+                lock,
+                hero,
+                surface,
+            } => write!(
+                f,
+                "lock {lock} (closed): {} cannot reach platform {surface}, so it never opens",
+                hero.name()
+            ),
             StaticInvalid { id, reason } => write!(f, "static {id}: {reason}"),
             LockTargetUnreachable { lock, hero, state } => write!(
                 f,
@@ -1615,6 +1672,9 @@ impl RawRoster {
 struct RawOpensOn {
     event: String,
     target: String,
+    /// REST-WIRE: the room platform a `hero_on_surface` lock waits on.
+    #[serde(default)]
+    surface: Option<usize>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -2857,24 +2917,76 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
         if !seen_ids.insert(l.id.as_str()) {
             errs.push(E::DuplicateId(l.id.clone()));
         }
-        if l.opens_on.event != "enemy_defeated" {
-            errs.push(E::LockUnknownEvent(l.opens_on.event.clone()));
-            continue;
-        }
-        let Some(target) = roster.iter().position(|e| e.id == l.opens_on.target) else {
-            errs.push(E::LockUnknownTarget {
-                lock: l.id.clone(),
-                target: l.opens_on.target.clone(),
-            });
-            continue;
-        };
-        if roster[target].optional {
-            errs.push(E::LockOptionalTarget {
-                lock: l.id.clone(),
-                target: l.opens_on.target.clone(),
-            });
-        }
         let solid = IRect::from(&l.solid);
+        let (opens_on, surface_rect) = match l.opens_on.event.as_str() {
+            "enemy_defeated" => {
+                if l.opens_on.surface.is_some() {
+                    errs.push(E::LockSurfaceField {
+                        lock: l.id.clone(),
+                        reason: "an enemy_defeated lock names no surface",
+                    });
+                }
+                let Some(target) = roster.iter().position(|e| e.id == l.opens_on.target) else {
+                    errs.push(E::LockUnknownTarget {
+                        lock: l.id.clone(),
+                        target: l.opens_on.target.clone(),
+                    });
+                    continue;
+                };
+                if roster[target].optional {
+                    errs.push(E::LockOptionalTarget {
+                        lock: l.id.clone(),
+                        target: l.opens_on.target.clone(),
+                    });
+                }
+                (LockEvent::EnemyDefeated { roster: target }, None)
+            }
+            // REST-WIRE: standing on a room platform opens the lock (latched).
+            "hero_on_surface" => {
+                let hero = match l.opens_on.target.as_str() {
+                    "carl" => HeroId::Carl,
+                    "donut" => HeroId::Donut,
+                    _ => {
+                        errs.push(E::LockUnknownTarget {
+                            lock: l.id.clone(),
+                            target: l.opens_on.target.clone(),
+                        });
+                        continue;
+                    }
+                };
+                let Some(surface) = l.opens_on.surface else {
+                    errs.push(E::LockSurfaceField {
+                        lock: l.id.clone(),
+                        reason: "a hero_on_surface lock needs its surface",
+                    });
+                    continue;
+                };
+                let Some(platform) = room.platforms.get(surface) else {
+                    errs.push(E::LockUnknownSurface {
+                        lock: l.id.clone(),
+                        surface,
+                    });
+                    continue;
+                };
+                if overlaps(platform.rect, protected_spawn) {
+                    errs.push(E::LockSurfaceOnProtected {
+                        lock: l.id.clone(),
+                        surface,
+                    });
+                }
+                (
+                    LockEvent::HeroOnSurface {
+                        hero: hero.index() as u8,
+                        surface,
+                    },
+                    Some(platform.rect),
+                )
+            }
+            _ => {
+                errs.push(E::LockUnknownEvent(l.opens_on.event.clone()));
+                continue;
+            }
+        };
         if !within_play(room, solid) || solid.bottom() != room.floor_y {
             errs.push(E::LockOutOfBounds(l.id.clone()));
         }
@@ -2889,7 +3001,8 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
         locks.push(Lock {
             id: l.id.clone(),
             solid,
-            opens_on: LockEvent::EnemyDefeated { roster: target },
+            opens_on,
+            surface_rect,
         });
     }
 
@@ -3136,27 +3249,66 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
             }
         }
         // Locks: closed, no hero may be walled off from the enemy it waits on.
+        // Every closed lock (a surface lock included) is a solid of the graph.
         if !locks.is_empty() {
-            let checks: Vec<LockCheck> = locks
+            let closed: Vec<IRect> = locks.iter().map(|l| l.solid).collect();
+            let checks: Vec<(usize, LockCheck)> = locks
                 .iter()
-                .map(|l| {
-                    let LockEvent::EnemyDefeated { roster: r } = l.opens_on;
-                    LockCheck {
-                        solid: l.solid,
-                        perch: roster[r].perch,
-                        x: roster[r].x,
-                        trigger_x: roster[r].trigger_x,
-                    }
+                .enumerate()
+                .filter_map(|(i, l)| match l.opens_on {
+                    LockEvent::EnemyDefeated { roster: r } => Some((
+                        i,
+                        LockCheck {
+                            perch: roster[r].perch,
+                            x: roster[r].x,
+                            trigger_x: roster[r].trigger_x,
+                        },
+                    )),
+                    LockEvent::HeroOnSurface { .. } => None,
                 })
                 .collect();
-            for (lock, hero, state, why) in
-                locked_unreachable(room, classes, &props, &changeable, &static_solids, &checks)
-            {
-                let lock = locks[lock].id.clone();
+            let only: Vec<LockCheck> = checks.iter().map(|(_, c)| c.clone()).collect();
+            for (k, hero, state, why) in locked_unreachable(
+                room,
+                classes,
+                &props,
+                &changeable,
+                &static_solids,
+                &closed,
+                &only,
+            ) {
+                let lock = locks[checks[k].0].id.clone();
                 errs.push(match why {
                     LockFailure::Target => E::LockTargetUnreachable { lock, hero, state },
                     LockFailure::Trigger => E::LockTriggerUnreachable { lock, hero, state },
                 });
+            }
+            // REST-WIRE: the surface a lock waits on must be reachable by the
+            // target's strongest class with every lock closed, or it never opens.
+            for (i, l) in locks.iter().enumerate() {
+                if let LockEvent::HeroOnSurface { hero, surface } = l.opens_on {
+                    let class = if usize::from(hero) == HeroId::Carl.index() {
+                        ReachHero::Carl
+                    } else {
+                        ReachHero::DonutBoosted
+                    };
+                    if !surface_reachable_closed(
+                        room,
+                        classes,
+                        &props,
+                        &changeable,
+                        &static_solids,
+                        &closed,
+                        class,
+                        surface,
+                    ) {
+                        errs.push(E::LockSurfaceUnreachable {
+                            lock: locks[i].id.clone(),
+                            hero: class,
+                            surface,
+                        });
+                    }
+                }
             }
         }
         // KR3 clause 4: the per-side bypass proof of every closed shutter.
@@ -3585,11 +3737,11 @@ fn floor_node_at(nodes: &[Node], x: i32) -> Option<usize> {
     nodes.iter().position(|n| n.floor && x >= n.x0 && x < n.x1)
 }
 
-/// A lock for the closed-lock reachability check: its closed solid, where its
-/// target enemy stands (`perch`, `x`) and the column that wakes it
-/// (`trigger_x`).
+/// A lock for the closed-lock reachability check: where its target enemy stands
+/// (`perch`, `x`) and the column that wakes it (`trigger_x`). Every closed lock's
+/// solid is a solid of the graph, passed separately.
+#[derive(Clone)]
 struct LockCheck {
-    solid: IRect,
     perch: Option<usize>,
     x: i32,
     trigger_x: Option<i32>,
@@ -3614,13 +3766,14 @@ fn locked_unreachable(
     props: &[Prop],
     changeable: &[usize],
     statics: &[IRect],
+    closed: &[IRect],
     locks: &[LockCheck],
 ) -> Vec<(usize, ReachHero, u16, LockFailure)> {
     let mut bad = Vec::new();
     for hero in ReachHero::ALL {
         for state in 0..(1u16 << changeable.len()) {
             let mut solids = state_solids(props, changeable, state, statics);
-            solids.extend(locks.iter().map(|l| l.solid));
+            solids.extend(closed.iter().copied());
             let cut_only = shutter_cuts(props, changeable, state);
             let graph = nodes_for(room, c, hero, &solids, &cut_only);
             let Some(start) = floor_node_at(&graph.nodes, hero.spawn_x(room)) else {
@@ -3645,6 +3798,31 @@ fn locked_unreachable(
         }
     }
     bad
+}
+
+/// REST-WIRE: with every lock closed (`closed`, every lock's solid), whether `hero`
+/// reaches the platform `surface` from its spawn in every state of the changeable
+/// props. A surface lock whose surface fails this never opens.
+#[allow(clippy::too_many_arguments)]
+fn surface_reachable_closed(
+    room: &Room,
+    c: &HeightClasses,
+    props: &[Prop],
+    changeable: &[usize],
+    statics: &[IRect],
+    closed: &[IRect],
+    hero: ReachHero,
+    surface: usize,
+) -> bool {
+    (0..(1u16 << changeable.len())).all(|state| {
+        let mut solids = state_solids(props, changeable, state, statics);
+        solids.extend(closed.iter().copied());
+        let cut_only = shutter_cuts(props, changeable, state);
+        let graph = nodes_for(room, c, hero, &solids, &cut_only);
+        floor_node_at(&graph.nodes, hero.spawn_x(room)).is_some_and(|start| {
+            reachable_from(room, c, hero, &graph, start)[graph.platform(surface)]
+        })
+    })
 }
 
 /// Why the per-side proof of a closed shutter fails.
@@ -6263,5 +6441,189 @@ mod partition_tests {
         v["props"][0]["remnant"] = json!({ "x": 100, "y": 564, "w": 16, "h": 16 });
         let errs = errors(&v);
         assert!(errs.iter().any(|e| e.contains("protected")), "{errs:?}");
+    }
+}
+
+/// REST-WIRE: the `hero_on_surface` lock, on the refuge's sidecar (the staff door).
+#[cfg(test)]
+mod surface_lock_tests {
+    use super::*;
+    use serde_json::{Value, json};
+
+    const PATH: &str = "assets/levels/floor01/f01_rest_refuge.encounter.json";
+
+    fn root() -> &'static Path {
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+    }
+
+    fn loaded() -> Loaded {
+        load(root(), PATH).unwrap_or_else(|e| {
+            panic!(
+                "{}",
+                e.iter()
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>()
+                    .join("; ")
+            )
+        })
+    }
+
+    fn sidecar() -> Value {
+        let text = std::fs::read_to_string(root().join(PATH)).unwrap();
+        serde_json::from_str(&text).unwrap()
+    }
+
+    fn ctx() -> Context {
+        let l = loaded();
+        Context {
+            room: l.room,
+            classes: l.classes,
+            ceiling_px: l.ceiling_px,
+        }
+    }
+
+    fn result(v: &Value) -> Result<Encounter, Vec<EncounterError>> {
+        parse_sidecar(&v.to_string(), &ctx())
+    }
+
+    fn errors(v: &Value) -> Vec<EncounterError> {
+        result(v).expect_err("the edited sidecar must be rejected")
+    }
+
+    fn has(errs: &[EncounterError], pred: impl Fn(&EncounterError) -> bool) -> bool {
+        errs.iter().any(pred)
+    }
+
+    /// The staff door parses as a latched `hero_on_surface` lock on Donut and platform 2,
+    /// carrying the platform's rectangle for the env step's footing test.
+    #[test]
+    fn the_staff_door_parses_as_a_hero_on_surface_lock() {
+        let l = loaded();
+        let enc = &l.encounter;
+        assert_eq!(enc.locks.len(), 1);
+        let lock = &enc.locks[0];
+        assert_eq!(
+            lock.opens_on,
+            LockEvent::HeroOnSurface {
+                hero: 1,
+                surface: 2
+            }
+        );
+        assert_eq!(lock.surface_rect, Some(l.room.platforms[2].rect));
+        assert_eq!(enc.lock_solids(&[false]), [lock.solid]);
+        assert!(enc.lock_solids(&[true]).is_empty(), "open: no solid");
+        assert!(
+            enc.locks_opened_by(0).is_empty(),
+            "no roster entry opens it"
+        );
+        // An empty roster under `reach_exit` is valid (the quiet rooms, REST-AD13).
+        assert!(enc.roster.is_empty() && enc.goal == Goal::ReachExit);
+        // Carl on the play deck is a valid reading too.
+        let mut v = sidecar();
+        v["locks"][0]["opens_on"] =
+            json!({ "event": "hero_on_surface", "target": "carl", "surface": 0 });
+        let ok = result(&v).expect("Carl reaches the play deck");
+        assert_eq!(
+            ok.locks[0].opens_on,
+            LockEvent::HeroOnSurface {
+                hero: 0,
+                surface: 0
+            }
+        );
+    }
+
+    #[test]
+    fn a_hero_on_surface_lock_names_a_real_hero_surface_and_event() {
+        let edit = |opens_on: Value| {
+            let mut v = sidecar();
+            v["locks"][0]["opens_on"] = opens_on;
+            errors(&v)
+        };
+        let errs = edit(json!({ "event": "hero_on_surface", "target": "donut", "surface": 9 }));
+        assert!(has(&errs, |e| matches!(
+            e,
+            EncounterError::LockUnknownSurface { surface: 9, .. }
+        )));
+        let errs = edit(json!({ "event": "hero_on_surface", "target": "donut" }));
+        assert!(has(&errs, |e| matches!(
+            e,
+            EncounterError::LockSurfaceField { .. }
+        )));
+        let errs = edit(json!({ "event": "hero_on_surface", "target": "mongo", "surface": 2 }));
+        assert!(has(&errs, |e| matches!(
+            e,
+            EncounterError::LockUnknownTarget { .. }
+        )));
+        // An enemy_defeated lock names no surface.
+        let errs = edit(json!({ "event": "enemy_defeated", "target": "g1", "surface": 2 }));
+        assert!(has(&errs, |e| matches!(
+            e,
+            EncounterError::LockSurfaceField { .. }
+        )));
+        // The display text of the new errors names the lock.
+        for e in &errs {
+            assert!(!e.to_string().is_empty());
+        }
+    }
+
+    /// The shelf is boosted-Donut only: a lock that waits on Carl there could never open, and
+    /// a wall closed before the shelf walls Donut off from it.
+    #[test]
+    fn the_target_must_be_able_to_reach_the_surface_with_every_lock_closed() {
+        let mut v = sidecar();
+        v["locks"][0]["opens_on"] =
+            json!({ "event": "hero_on_surface", "target": "carl", "surface": 2 });
+        let errs = errors(&v);
+        assert!(
+            has(&errs, |e| matches!(
+                e,
+                EncounterError::LockSurfaceUnreachable {
+                    hero: ReachHero::Carl,
+                    surface: 2,
+                    ..
+                }
+            )),
+            "{errs:?}"
+        );
+        // A full-height wall left of the shelf (a second lock on the play deck).
+        let mut v = sidecar();
+        v["locks"].as_array_mut().unwrap().push(json!({
+            "id": "wall",
+            "solid": { "x": 1160, "y": 352, "w": 16, "h": 228 },
+            "opens_on": { "event": "hero_on_surface", "target": "carl", "surface": 0 }
+        }));
+        let errs = errors(&v);
+        assert!(
+            has(&errs, |e| matches!(
+                e,
+                EncounterError::LockSurfaceUnreachable {
+                    hero: ReachHero::DonutBoosted,
+                    surface: 2,
+                    ..
+                }
+            )),
+            "{errs:?}"
+        );
+        assert!(
+            !has(&errs, |e| matches!(
+                e,
+                EncounterError::LockSurfaceUnreachable { surface: 0, .. }
+            )),
+            "Carl still reaches the deck left of the wall"
+        );
+    }
+
+    #[test]
+    fn a_surface_inside_the_protected_spawn_is_refused() {
+        // The deck itself lies inside it: a lock waiting on the deck is refused.
+        let mut v = sidecar();
+        v["protected_spawn"] = json!({ "x": 440, "y": 484, "w": 208, "h": 96 });
+        v["locks"][0]["opens_on"] =
+            json!({ "event": "hero_on_surface", "target": "carl", "surface": 0 });
+        let errs = errors(&v);
+        assert!(has(&errs, |e| matches!(
+            e,
+            EncounterError::LockSurfaceOnProtected { surface: 0, .. }
+        )));
     }
 }

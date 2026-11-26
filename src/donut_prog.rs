@@ -482,9 +482,13 @@ mod tests {
         assert_eq!(boss.holds(), [JUMP_REACH_BOOST], "DP-Q09 boss pin");
         assert_eq!(boss.grant_heroes(), Some(&[1u8][..]));
         assert_eq!(boss.trigger_ids(), ["brute_boss_f01_defeated"]);
+        // REST-WIRE (REST-AD3, REST-AD18): the corridor arms nothing; the refuge holds
+        // nothing and arms the safe-room reward trigger.
         let corridor = story_setup(CarlProgFlags::OFF, prog, SceneKind::Corridor);
-        assert!(corridor.holds().is_empty());
-        assert_eq!(corridor.trigger_ids(), ["f01_safe_room_reward_found"]);
+        assert!(corridor.is_inert());
+        let refuge = story_setup(CarlProgFlags::OFF, prog, SceneKind::RestRefuge);
+        assert!(refuge.holds().is_empty());
+        assert_eq!(refuge.trigger_ids(), ["f01_safe_room_reward_found"]);
         // Start flags grant the `requires` closure and arm nothing.
         let puddle = DonutProgFlags {
             puddle: true,

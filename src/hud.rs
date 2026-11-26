@@ -199,6 +199,9 @@ pub enum LabelId {
     PuddleJumper,
     /// CP-Q43: the grant notice of Carl's reinforced fist (the `notices` row).
     HeavyFist,
+    /// REST-WIRE (REST-AD7): the solo hint at the refuge's closed staff door.
+    /// Presentation only, never hashed; not a grant notice.
+    SwapToDonut,
 }
 
 impl LabelId {
@@ -224,6 +227,7 @@ impl LabelId {
             Self::LightFeet => "LIGHT FEET",
             Self::PuddleJumper => "PUDDLE JUMPER",
             Self::HeavyFist => "HEAVY FIST",
+            Self::SwapToDonut => "SWAP TO DONUT",
         }
     }
 
@@ -239,7 +243,7 @@ impl LabelId {
     }
 
     /// Every label, in declaration order (the closed set the width checks iterate).
-    pub const ALL: [Self; 20] = [
+    pub const ALL: [Self; 21] = [
         Self::Punch,
         Self::Kick,
         Self::Swat,
@@ -260,6 +264,7 @@ impl LabelId {
         Self::LightFeet,
         Self::PuddleJumper,
         Self::HeavyFist,
+        Self::SwapToDonut,
     ];
 
     /// The labels that can sit above the special socket (at most 33 px, HA2-AD1).
@@ -284,7 +289,8 @@ impl LabelId {
             | Self::GoblinBoom
             | Self::LightFeet
             | Self::PuddleJumper
-            | Self::HeavyFist => false,
+            | Self::HeavyFist
+            | Self::SwapToDonut => false,
         }
     }
 
@@ -1258,6 +1264,18 @@ impl NoticeQueue {
         }
     }
 
+    /// REST-WIRE: withdraw a headline (a hint whose condition ended): it leaves
+    /// the screen at once and leaves the queue. Other headlines are untouched.
+    pub fn cancel(&mut self, headline: LabelId) {
+        if self.active.is_some_and(|a| a.headline == headline) {
+            self.active = None;
+        }
+        if self.pending == Some(headline) {
+            self.pending = None;
+        }
+        self.pending_grants.retain(|g| *g != headline);
+    }
+
     fn start(&mut self, headline: LabelId) {
         self.active = Some(NoticeView {
             headline,
@@ -1424,7 +1442,24 @@ pub struct HudRuntime {
     pending_feats: Vec<ChainFeat>,
     /// The heroes' x positions (scene units) for authored cues, `[Carl, Donut]`.
     hero_x: [i32; 2],
+    /// REST-WIRE (REST-AD7): the refuge's staff door as the scene reports it (`None`
+    /// in every other room), and the consecutive ticks Carl has stood in front of it.
+    rest_door: Option<RestDoorView>,
+    swap_hint_ticks: u16,
 }
+
+/// REST-WIRE: what the HUD needs of the refuge's staff door: its left edge (layout
+/// px) and whether it has opened. Fed by the scene; presentation only.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RestDoorView {
+    pub left_x: i32,
+    pub open: bool,
+}
+
+/// REST-AD7: Carl counts as "at the door" within this many px left of its edge.
+pub const SWAP_HINT_REACH_PX: i32 = 96;
+/// REST-AD7: the consecutive fixed ticks at the door before `SWAP TO DONUT` shows.
+pub const SWAP_HINT_TICKS: u16 = 90;
 
 /// The cosmetic state of the boss strip: the slide, the damage chip and the
 /// exit delay. Presentation only, never read by the simulation.
@@ -1478,6 +1513,8 @@ impl HudRuntime {
             audience_inputs: Vec::new(),
             pending_feats: Vec::new(),
             hero_x: [0; 2],
+            rest_door: None,
+            swap_hint_ticks: 0,
         }
     }
 
@@ -1525,6 +1562,36 @@ impl HudRuntime {
     /// cues. Call once per tick before [`Self::step`].
     pub fn set_hero_x(&mut self, carl: i32, donut: i32) {
         self.hero_x = [carl, donut];
+    }
+
+    /// REST-WIRE: the refuge's staff door (`None` in every other room). Call once
+    /// per tick before [`Self::step`], with [`Self::set_hero_x`].
+    pub fn set_rest_door(&mut self, door: Option<RestDoorView>) {
+        self.rest_door = door;
+    }
+
+    /// REST-AD7: the solo swap hint. In solo (Carl driven by a player, Donut by the
+    /// AI), with the staff door closed and Carl's x within [`SWAP_HINT_REACH_PX`]
+    /// left of its edge for [`SWAP_HINT_TICKS`] consecutive ticks, the notice
+    /// `SWAP TO DONUT` is offered; it is withdrawn the moment the door opens, Donut
+    /// becomes the active hero or the party is two-player. Never hashed.
+    fn step_swap_hint(&mut self) {
+        let solo_carl =
+            matches!(self.party.carl, Control::Player(_)) && self.party.donut == Control::Ai;
+        let at_door = self.rest_door.is_some_and(|door| {
+            let x = self.hero_x[0];
+            !door.open && x <= door.left_x && x >= door.left_x - SWAP_HINT_REACH_PX
+        });
+        if solo_carl && at_door {
+            self.swap_hint_ticks = self.swap_hint_ticks.saturating_add(1);
+        } else {
+            self.swap_hint_ticks = 0;
+        }
+        if self.swap_hint_ticks >= SWAP_HINT_TICKS {
+            self.notices.offer(LabelId::SwapToDonut);
+        } else {
+            self.notices.cancel(LabelId::SwapToDonut);
+        }
     }
 
     /// Each hero's viewer view, `[Carl, Donut]` (`None` while locked).
@@ -1934,6 +2001,7 @@ impl HudRuntime {
         self.carl_health = carl_health;
         self.donut_health = donut_health;
         self.step_boss_hud(engaged, boss_down, restarted);
+        self.step_swap_hint();
         self.step_audience();
         if self.visual_key() != before {
             self.revision += 1;
@@ -2415,6 +2483,85 @@ mod tests {
         forced.set_party(party);
         assert_eq!(forced.plate_glyphs(), [GlyphSet::Xbox; 2]);
         assert_eq!(forced.revision(), start);
+    }
+
+    /// REST-WIRE (REST-AD7): the solo swap hint reads only the door, Carl's column
+    /// and who drives whom; it shows after 90 consecutive ticks at the closed door
+    /// (96 px left of its edge), never in 2P or with Donut active, and clears when
+    /// the door opens or the swap happens.
+    #[test]
+    fn the_swap_hint_shows_only_for_solo_carl_at_the_closed_door() {
+        let closed = Some(RestDoorView {
+            left_x: 1440,
+            open: false,
+        });
+        let solo_carl = PartyView::default();
+        let solo_donut = PartyView {
+            carl: Control::Ai,
+            donut: Control::Player(1),
+            ..PartyView::default()
+        };
+        let two_player = PartyView {
+            carl: Control::Player(1),
+            donut: Control::Player(2),
+            ..PartyView::default()
+        };
+        let mut hud = HudRuntime::new(HudConfig::default());
+        let headline = |hud: &HudRuntime| hud.real_inputs().notice.map(|n| n.headline);
+        let tick = |hud: &mut HudRuntime| hud.step(HERO_HEALTH, DONUT_HEALTH, &[], 0);
+        hud.set_party(solo_carl);
+        hud.set_hero_x(1400, 1000);
+        hud.set_rest_door(closed);
+        for _ in 0..SWAP_HINT_TICKS - 1 {
+            tick(&mut hud);
+        }
+        assert_eq!(headline(&hud), None, "not before 90 consecutive ticks");
+        tick(&mut hud);
+        assert_eq!(headline(&hud), Some(LabelId::SwapToDonut));
+        // The swap clears it at once.
+        hud.set_party(solo_donut);
+        tick(&mut hud);
+        assert_eq!(headline(&hud), None, "cleared on the swap");
+        // Carl back and waiting again: the count starts over (it was reset).
+        hud.set_party(solo_carl);
+        for _ in 0..SWAP_HINT_TICKS - 1 {
+            tick(&mut hud);
+        }
+        assert_eq!(headline(&hud), None);
+        // Leaving the 96 px reach resets the count.
+        hud.set_hero_x(1300, 1000);
+        tick(&mut hud);
+        hud.set_hero_x(1400, 1000);
+        tick(&mut hud);
+        assert_eq!(headline(&hud), None, "the count restarted");
+        // The door opening clears a shown hint.
+        let mut hud = HudRuntime::new(HudConfig::default());
+        hud.set_party(solo_carl);
+        hud.set_hero_x(1440, 1000);
+        hud.set_rest_door(closed);
+        for _ in 0..SWAP_HINT_TICKS {
+            tick(&mut hud);
+        }
+        assert_eq!(headline(&hud), Some(LabelId::SwapToDonut));
+        hud.set_rest_door(Some(RestDoorView {
+            left_x: 1440,
+            open: true,
+        }));
+        tick(&mut hud);
+        assert_eq!(headline(&hud), None, "cleared when the door opens");
+        // 2P never shows it; neither does a room without the door.
+        for (party, door) in [(two_player, closed), (solo_carl, None)] {
+            let mut hud = HudRuntime::new(HudConfig::default());
+            hud.set_party(party);
+            hud.set_hero_x(1440, 1000);
+            hud.set_rest_door(door);
+            for _ in 0..SWAP_HINT_TICKS * 2 {
+                tick(&mut hud);
+            }
+            assert_eq!(headline(&hud), None);
+        }
+        // It is a plain headline, never a grant notice.
+        assert!(!LabelId::SwapToDonut.is_grant());
     }
 
     #[test]

@@ -1,0 +1,1 @@
+rest_refuge K8 carl: 14/14 edges land, exit walk (Some(448), Some(448)) ticks | donut_base: 14/14 edges land, exit walk (Some(410), Some(410)) ticks | donut_boosted: 16/16 edges land, exit walk (Some(410), Some(410)) ticks

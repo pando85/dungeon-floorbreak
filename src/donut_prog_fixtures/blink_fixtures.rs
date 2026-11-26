@@ -91,8 +91,8 @@ pub(super) fn at(tick: u64, raw: RawInput) -> (u64, u64, RawInput) {
 pub(super) enum Story {
     /// `--donut-puddle`: the blink (and the boost it requires) held from tick 0.
     Puddle,
-    /// The blink held and the safe-room placeholder zone (1200..1240, Donut's
-    /// pivot) still unfired.
+    /// The blink held and the safe-room reward zone (1200..1240, Donut's pivot, armed in
+    /// the `rest_refuge` scene kind since REST-WIRE) still unfired.
     PuddleAndZone,
     /// The blink and Carl's thrown charge held.
     PuddleAndDynamite,
@@ -221,7 +221,7 @@ impl Rig {
                     table,
                     &["donut_prog"],
                     &["donut_puddle"],
-                    SceneKind::Corridor,
+                    SceneKind::RestRefuge,
                 )
             }
             Story::PuddleAndDynamite => program_setup(

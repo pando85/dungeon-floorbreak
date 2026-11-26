@@ -39,6 +39,7 @@ use crate::donut_mana::DonutSetup;
 use crate::donut_prog::DonutProgFlags;
 use crate::f01_boiler::{self, BoilerRun, Roster};
 use crate::f01_corral;
+use crate::f01_rest::{self, RestRoom};
 use crate::f01_ring::{self, RingRoom};
 use crate::story_unlock::{Storage, StoryTable};
 use crate::{f01_dozer, f01_hazards, f01_hoarder, f01_mastery};
@@ -50,7 +51,7 @@ pub const MANIFEST_PATH: &str = "assets/levels/f01_late/manifest.json";
 /// hash is a constant, pinned to the file by a test and compared by every
 /// replay of a recorded room. A step that lists a room (CORRAL-WIRE, RING-A
 /// wire, HRD-A2, CORRAL-F, DR-A, ...) re-pins it on purpose.
-pub const MANIFEST_HASH: u64 = 0x5a29_871b_5b47_bb85;
+pub const MANIFEST_HASH: u64 = 0x2b71_0fb5_1da7_e2f1;
 /// The fixture-only stub trigger the story-order tie skips by name.
 pub const STUB_TRIGGER: &str = "carl_prog_find_zone_stub";
 /// The `data_pins()` key.
@@ -77,7 +78,7 @@ pub const fn data_pins() -> [(&'static str, u64); 1] {
 /// stamps nor needs them, so a later edit of the manifest (every room step) or of
 /// the Boiler files (BOIL-B/C wire) fails only the recordings it can change; a
 /// Juicer recording needs the manifest hash and not the Boiler's.
-pub const SCOPED_PIN_KEYS: [&str; 19] = [
+pub const SCOPED_PIN_KEYS: [&str; 21] = [
     f01_boiler::ROOM_PIN_KEY,
     f01_boiler::ENCOUNTER_PIN_KEY,
     f01_boiler::fixes::PIN_KEY,
@@ -96,6 +97,8 @@ pub const SCOPED_PIN_KEYS: [&str; 19] = [
     f01_ring::SPLIT_ENCOUNTER_PIN_KEY,
     f01_corral::ROOM_PIN_KEY,
     f01_corral::ENCOUNTER_PIN_KEY,
+    f01_rest::REFUGE_ROOM_PIN_KEY,
+    f01_rest::REFUGE_ENCOUNTER_PIN_KEY,
     MANIFEST_PIN_KEY,
 ];
 
@@ -123,6 +126,9 @@ pub fn pin_applies(key: &str, room: Option<&str>) -> bool {
         }
         f01_corral::ROOM_PIN_KEY | f01_corral::ENCOUNTER_PIN_KEY => {
             room == Some(f01_corral::ROOM_ID)
+        }
+        f01_rest::REFUGE_ROOM_PIN_KEY | f01_rest::REFUGE_ENCOUNTER_PIN_KEY => {
+            room == Some(RestRoom::Refuge.id())
         }
         MANIFEST_PIN_KEY => room.is_some(),
         _ => true,
@@ -170,6 +176,10 @@ pub enum RoomScene {
     /// CORRAL-WIRE, CW-AD1).
     #[serde(rename = "f01_corral")]
     Corral,
+    /// REST-WIRE: room 1, the refuge ("The Wrong Restaurant"); launched through
+    /// `--scene f01_late` only, listed right after the corral.
+    #[serde(rename = "f01_rest_refuge")]
+    RestRefuge,
 }
 
 impl RoomScene {
@@ -186,6 +196,15 @@ impl RoomScene {
             Self::RingCourt => RingRoom::Court.scene_name(),
             Self::RingSplit => RingRoom::Split.scene_name(),
             Self::Corral => f01_corral::SCENE_NAME,
+            Self::RestRefuge => RestRoom::Refuge.scene_name(),
+        }
+    }
+
+    /// The quiet room this scene runs, if it is one (REST-WIRE).
+    pub const fn rest(self) -> Option<RestRoom> {
+        match self {
+            Self::RestRefuge => Some(RestRoom::Refuge),
+            _ => None,
         }
     }
 
@@ -368,6 +387,16 @@ impl Manifest {
                     ring.id()
                 ));
             }
+            // REST-WIRE: a quiet-room scene runs the room of its own id only.
+            if let Some(rest) = row.scene.rest()
+                && row.id != rest.id()
+            {
+                return Err(format!(
+                    "manifest: room {:?} names the scene of {:?}",
+                    row.id,
+                    rest.id()
+                ));
+            }
         }
         for (i, row) in self.unlisted_rooms.iter().enumerate() {
             if self.unlisted_rooms[..i].iter().any(|r| r.id == row.id)
@@ -412,6 +441,7 @@ fn check_rules(row: &RoomRow) -> Result<(), String> {
         | RoomScene::Mastery
         | RoomScene::RingCourt
         | RoomScene::RingSplit
+        | RoomScene::RestRefuge
         | RoomScene::Corral => row.rules == RoomRules::Cf02,
         RoomScene::Boss => row.rules == RoomRules::Boss,
     };
@@ -770,6 +800,23 @@ pub fn ring_start(
     Ok((run, scene, combat))
 }
 
+/// Launch a quiet room and build its scene and combat state (REST-WIRE), the shared
+/// constructor of the binary and the verifier. The room has no goblin, so the seed is
+/// only the companion's CF02 draw.
+pub fn rest_start(
+    root: &Path,
+    room: RestRoom,
+    view_height: i32,
+    carl: CarlProgFlags,
+    donut: DonutProgFlags,
+    cf02_seed: Option<u64>,
+) -> Result<(f01_rest::RestRun, SceneSim, CombatState), String> {
+    let run = f01_rest::launch(root, room)?;
+    let mut scene = SceneSim::new_at(&run.kit, view_height, run.fixture.carl_x)?;
+    let combat = f01_rest::combat_for(&run, &mut scene, carl, donut, cf02_seed)?;
+    Ok((run, scene, combat))
+}
+
 /// Launch room 0, the Infernal Corral, and build its scene and combat state
 /// (CORRAL-WIRE), the shared constructor of the binary and the verifier. Its
 /// goblins draw their temperaments from `--cf02-seed`.
@@ -842,6 +889,7 @@ mod tests {
             m.listed(),
             [
                 "corral",
+                "rest_refuge",
                 "hoarder",
                 "boiler",
                 "dozer",
@@ -852,6 +900,16 @@ mod tests {
                 "mastery"
             ]
         );
+        // REST-WIRE (REST-A): the refuge is listed right after the corral at milestone
+        // `greybox`, under the CF02 rules, on its own scene.
+        let refuge = m.room("rest_refuge").unwrap();
+        assert_eq!(refuge.scene, RoomScene::RestRefuge);
+        assert_eq!(
+            (refuge.rules, refuge.milestone.as_str()),
+            (RoomRules::Cf02, "greybox")
+        );
+        assert_eq!(refuge.title, "The Wrong Restaurant");
+        assert_eq!(m.rooms[1].id, "rest_refuge", "right after the corral");
         // FA-Q24 (reverses PTG-AD1): the Hoarder is listed first in the story, and the
         // default room stays the Boiler.
         assert_eq!(m.default_room().id, "boiler");
@@ -972,7 +1030,7 @@ mod tests {
         assert!(unknown.starts_with("unknown room"), "{unknown}");
         assert!(
             unknown.contains(
-                "corral, hoarder, boiler, dozer, hazards, ring_court, ring_split, juicer, mastery"
+                "corral, rest_refuge, hoarder, boiler, dozer, hazards, ring_court, ring_split, juicer, mastery"
             ),
             "{unknown}"
         );
@@ -983,7 +1041,7 @@ mod tests {
         assert!(unlisted.starts_with("unlisted room"), "{unlisted}");
         assert!(
             unlisted.contains(
-                "corral, hoarder, boiler, dozer, hazards, ring_court, ring_split, juicer, mastery"
+                "corral, rest_refuge, hoarder, boiler, dozer, hazards, ring_court, ring_split, juicer, mastery"
             ),
             "{unlisted}"
         );
@@ -1146,13 +1204,45 @@ mod tests {
         );
         // Light on Your Feet moved to after the Hoarder breaks the pre pin.
         let err = mutate(|order| {
-            let from = index(order, "refuge_light_feet");
+            let from = index(order, "rest_refuge");
             let grant = order[from].grants.remove(0);
             let at = index(order, "boiler");
             order[at].grants.push(grant);
         })
         .unwrap_err();
         assert!(err.contains("jump_reach_boost"), "{err}");
+    }
+
+    /// REST-WIRE (KR12): `rest_refuge` is a room row (it replaced the point
+    /// `refuge_light_feet`) carrying the boost grant, listed after the corral and before the
+    /// Hoarder, whose pin holds the boost it granted. Moving the grant past the Hoarder, or
+    /// dropping the row's tie to the trigger, fails the order rule.
+    #[test]
+    fn the_refuge_row_carries_the_boost_before_the_hoarder() {
+        let m = manifest();
+        let at = |id: &str| m.story_order.iter().position(|o| o.id == id).unwrap();
+        assert!(at("corral") < at("rest_refuge") && at("rest_refuge") < at("hoarder"));
+        assert!(
+            m.story_order.iter().all(|o| o.id != "refuge_light_feet"),
+            "the point became the room row"
+        );
+        assert_eq!(m.story_order[at("rest_refuge")].kind, OrderKind::Room);
+        // The grant row after the Hoarder fails the pre-boss pin (KR12).
+        let err = mutate(|order| {
+            let from = index(order, "rest_refuge");
+            let grant = order[from].grants.remove(0);
+            let to = index(order, "boiler");
+            order[to].grants.push(grant);
+        })
+        .unwrap_err();
+        assert!(err.contains("jump_reach_boost"), "{err}");
+        // A trigger name that does not grant the boost is refused.
+        let err = mutate(|order| {
+            let from = index(order, "rest_refuge");
+            order[from].grants[0].trigger = Some("pile_boss_f01_defeated".into());
+        })
+        .unwrap_err();
+        assert!(!err.is_empty());
     }
 
     #[test]
@@ -1418,6 +1508,38 @@ mod tests {
             assert!(combat.story_ledger().unwrap().receipts().is_empty());
             assert_eq!(m.room(room.id()).unwrap().scene.ring(), Some(room));
         }
+        // REST-WIRE (REST-A): the refuge names no pin row (its sidecar's label is none, so
+        // it holds nothing at entry) and carries the Light on Your Feet grant (KR12: the
+        // grant precedes the Hoarder's pin, which holds the boost).
+        let rest_row = m
+            .story_order
+            .iter()
+            .find(|o| o.id == "rest_refuge")
+            .unwrap();
+        assert!(m.pins_of("rest_refuge").is_empty());
+        assert_eq!(rest_row.grants.len(), 1);
+        assert_eq!(
+            (
+                rest_row.grants[0].capability.as_str(),
+                rest_row.grants[0].trigger.as_deref()
+            ),
+            ("jump_reach_boost", Some("f01_safe_room_reward_found"))
+        );
+        {
+            let (run, _, combat) =
+                rest_start(&root(), RestRoom::Refuge, 360, story.0, story.1, None).unwrap();
+            assert!(
+                !table().has_pin(&run.loaded.encounter.story_pin),
+                "a neutral label"
+            );
+            // The Story flags arm the reward trigger and hold nothing.
+            assert!(held_of(&combat).is_empty());
+            assert!(combat.story_zone_armed(1));
+            assert_eq!(
+                m.room("rest_refuge").unwrap().scene.rest(),
+                Some(RestRoom::Refuge)
+            );
+        }
         // CORRAL-F: room 0 names no pin (KC11) and its sidecar's label is no
         // table pin (CW-AD3), so the story loadout runs it with no story runtime:
         // nothing held in the ledger, nothing armed, the biscuit read through.
@@ -1432,6 +1554,7 @@ mod tests {
             assert!(
                 [
                     "corral",
+                    "rest_refuge",
                     "boiler",
                     "hoarder",
                     "dozer",
@@ -1537,6 +1660,13 @@ mod tests {
                     "corral",
                     [f01_corral::ROOM_PIN_KEY, f01_corral::ENCOUNTER_PIN_KEY],
                 ),
+                (
+                    "rest_refuge",
+                    [
+                        f01_rest::REFUGE_ROOM_PIN_KEY,
+                        f01_rest::REFUGE_ENCOUNTER_PIN_KEY,
+                    ],
+                ),
             ]
             .into_iter()
             .find(|(_, keys)| keys.contains(&key))
@@ -1553,6 +1683,7 @@ mod tests {
             Some("ring_court"),
             Some("ring_split"),
             Some("corral"),
+            Some("rest_refuge"),
         ] {
             for key in SCOPED_PIN_KEYS {
                 let covered = match owner(key) {

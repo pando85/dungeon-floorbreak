@@ -80,6 +80,14 @@ impl CombatState {
             })
     }
 
+    /// REST-WIRE: whether a zone trigger reading `hero`'s pivot is armed and has not
+    /// fired yet (the refuge's `boost=armed` entry line).
+    pub fn story_zone_armed(&self, hero: u8) -> bool {
+        self.story
+            .as_ref()
+            .is_some_and(|story| !story.unfired_zones(hero).is_empty())
+    }
+
     /// The ledger of a run under the story flags (`None` without them).
     pub fn story_ledger(&self) -> Option<&UnlockLedger> {
         self.story.as_ref().map(StoryRuntime::ledger)

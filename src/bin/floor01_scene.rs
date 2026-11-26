@@ -88,8 +88,8 @@ use dungeon_floorbreak::{
     env_kit::{
         EnvKit, IRect, PieceDraw, animation_frame, parallax_copies, parallax_start, to_world_y,
     },
-    f01_boiler, f01_corral, f01_dozer, f01_hazards, f01_hoarder, f01_late, f01_mastery, f01_ring,
-    f01_run,
+    f01_boiler, f01_corral, f01_dozer, f01_hazards, f01_hoarder, f01_late, f01_mastery, f01_rest,
+    f01_ring, f01_run,
     feel::{LLAMA_GLOB_MOUTH_DX, LLAMA_GLOB_MOUTH_DY, LLAMA_GLOB_SPEED},
     goblin::{AttackPhase, GoblinMode},
     gore::{DEATH_VARIANTS, DeathArt, GorePreset, LLAMA_VARIANT, Sheet},
@@ -391,11 +391,21 @@ struct Args {
     f01_ring: Option<f01_ring::RingRoom>,
     /// The launched Ring room (`main` fills it right after parsing).
     ring_run: Option<Box<f01_ring::RingRun>>,
+    /// REST-WIRE: `--scene f01_late --f01-room rest_refuge`, the fast-food refuge
+    /// (no scene of its own, like the Ring rooms). Under the room rules; a playable
+    /// greybox (the AREA-FASTFOOD-01 art is a separate work order).
+    f01_rest: Option<f01_rest::RestRoom>,
+    /// The launched quiet room (`main` fills it right after parsing).
+    rest_run: Option<Box<f01_rest::RestRun>>,
     /// AREA-RINGS-01 evidence: `--ring-pilot` plays a Ring room's scripted run with
     /// the library pilot (`f01_ring_fixtures::pilot`: the step, the walkway, the
     /// fight, the exit) instead of the walk-right script, so a capture can stand the
     /// hero in every zone. The Ring rooms have no `--room-pilot`. Scripted runs only.
     ring_pilot: bool,
+    /// REST-WIRE evidence: `--rest-pilot donut|carl_door|base_jump` plays the refuge's scripted
+    /// run (`rest_fixtures::pilot`) instead of the walk-right script, so a capture can stand a
+    /// hero in every beat. Scripted runs only.
+    rest_pilot: Option<dungeon_floorbreak::rest_fixtures::Pilot>,
     /// CORRAL-WIRE: `--scene f01_late --f01-room corral`, room 0 (the Infernal
     /// Corral). The first listed room since CORRAL-F (plan section 14.7; it
     /// launched unlisted under CORRAL-WIRE).
@@ -519,7 +529,11 @@ impl Args {
     /// terms switch it off for the scripted room and ring pilots, so every
     /// evidence script that passes `--f01-run` keeps its output.
     fn run_broadcast_default(&self) -> bool {
-        self.f01_run && self.live_input() && self.room_pilot.is_none() && !self.ring_pilot
+        self.f01_run
+            && self.live_input()
+            && self.room_pilot.is_none()
+            && !self.ring_pilot
+            && self.rest_pilot.is_none()
     }
 
     /// AUDIENCE-RUN: whether the per-hero viewer counts are enabled for this
@@ -636,6 +650,7 @@ impl Args {
             || self.f01_hazards
             || self.f01_mastery
             || self.f01_ring.is_some()
+            || self.f01_rest.is_some()
             || self.f01_corral
             || self.f01_dozer
     }
@@ -839,6 +854,8 @@ fn resolve_boiler_args(parsed: &mut Args) -> Result<(), String> {
         (f01_mastery::SCENE_NAME, f01_mastery::ROOM_NAME)
     } else if let Some(ring) = parsed.f01_ring {
         (ring.scene_name(), ring.id())
+    } else if let Some(rest) = parsed.f01_rest {
+        (rest.scene_name(), rest.id())
     } else if parsed.f01_corral {
         (f01_corral::SCENE_NAME, f01_corral::ROOM_ID)
     } else if parsed.f01_dozer {
@@ -1038,6 +1055,7 @@ fn resolve_f01_late_args(parsed: &mut Args) -> Result<(), String> {
         f01_late::RoomScene::RingCourt | f01_late::RoomScene::RingSplit => {
             parsed.f01_ring = row.scene.ring();
         }
+        f01_late::RoomScene::RestRefuge => parsed.f01_rest = row.scene.rest(),
         f01_late::RoomScene::Corral => parsed.f01_corral = true,
         f01_late::RoomScene::Dozer => parsed.f01_dozer = true,
         f01_late::RoomScene::Boss => {
@@ -1543,7 +1561,10 @@ fn parse_args_full(
         mastery_run: None,
         f01_ring: None,
         ring_run: None,
+        f01_rest: None,
+        rest_run: None,
         ring_pilot: false,
+        rest_pilot: None,
         f01_corral: false,
         corral_run: None,
         f01_dozer: false,
@@ -1726,6 +1747,12 @@ fn parse_args_full(
                 parsed.f01_room = Some(value.clone());
             }
             "--ring-pilot" => parsed.ring_pilot = true,
+            "--rest-pilot" => {
+                let value = iter
+                    .next()
+                    .ok_or("--rest-pilot needs donut, carl_door or base_jump")?;
+                parsed.rest_pilot = Some(dungeon_floorbreak::rest_fixtures::Pilot::parse(value)?);
+            }
             "--room-pilot" => {
                 let value = iter
                     .next()
@@ -1898,6 +1925,16 @@ fn parse_args_full(
     resolve_f01_late_args(&mut parsed)?;
     resolve_boiler_args(&mut parsed)?;
     resolve_refuge_args(&mut parsed)?;
+    if parsed.rest_pilot.is_some() {
+        if parsed.f01_rest.is_none() {
+            return Err(
+                "--rest-pilot needs the refuge (--scene f01_late --f01-room rest_refuge)".into(),
+            );
+        }
+        if parsed.room_pilot.is_some() || parsed.ring_pilot {
+            return Err("--rest-pilot replaces --room-pilot and --ring-pilot".into());
+        }
+    }
     if parsed.ring_pilot {
         if parsed.f01_ring.is_none() {
             return Err("--ring-pilot needs a Ring room (--scene f01_late --f01-room ring_court or ring_split)".into());
@@ -2428,6 +2465,16 @@ fn step_hud(hud: &mut HudRuntime, sim: &SceneSim, combat: Option<&CombatState>) 
     // AUDIENCE-01: the heroes' columns, for authored anticipation cues (read
     // only; the observer is inert while the audience is locked).
     hud.set_hero_x(sim.world.hero.x as i32, sim.world.donut.x as i32);
+    // REST-WIRE (REST-AD7): the refuge's staff door, for the solo swap hint (read only).
+    hud.set_rest_door(
+        combat
+            .and_then(|c| c.env())
+            .and_then(|env| env.surface_doors().first().copied())
+            .map(|(rect, open)| dungeon_floorbreak::hud::RestDoorView {
+                left_x: rect.x,
+                open,
+            }),
+    );
     // HUD-DEBT-02: Donut's real mana (None while the biscuit is locked).
     hud.set_donut_mana(combat.and_then(CombatState::donut_mana_view));
     if let Some(combat) = combat {
@@ -2518,6 +2565,12 @@ fn build_scene(
             let combat =
                 f01_ring::combat_for(run, &mut sim, args.carl, args.donut, args.cf02.seed)?;
             (sim, combat)
+        } else if let Some(run) = &args.rest_run {
+            // REST-WIRE: the refuge, the verifier's constructor.
+            let mut sim = SceneSim::new_at(kit, view_height(args.deck), fixture.carl_x)?;
+            let combat =
+                f01_rest::combat_for(run, &mut sim, args.carl, args.donut, args.cf02.seed)?;
+            (sim, combat)
         } else if let Some(run) = &args.corral_run {
             // CORRAL-WIRE: room 0, the verifier's constructor.
             let mut sim = SceneSim::new_at(kit, view_height(args.deck), fixture.carl_x)?;
@@ -2542,6 +2595,7 @@ fn build_scene(
             || args.hazards_run.is_some()
             || args.mastery_run.is_some()
             || args.ring_run.is_some()
+            || args.rest_run.is_some()
             || args.corral_run.is_some()
             || args.dozer_run.is_some()
         {
@@ -2565,6 +2619,7 @@ fn build_scene(
             && args.hazards_run.is_none()
             && args.mastery_run.is_none()
             && args.ring_run.is_none()
+            && args.rest_run.is_none()
             && args.corral_run.is_none()
             && args.dozer_run.is_none()
         {
@@ -2634,6 +2689,17 @@ fn build_scene(
                 party.hero_inputs(slots)
             } else if let Some(pilot) = aligned_pilot {
                 aligned_routed(args, pilot, &combat, &mut sim, &mut party)
+            } else if let Some(kind) = args.rest_pilot {
+                // REST-WIRE evidence: the refuge pilot's slot input routed through the party
+                // (its first press is the solo swap to Donut), like the aligned pilots.
+                let slots = [
+                    dungeon_floorbreak::rest_fixtures::pilot(kind, &combat, &sim),
+                    RawInput::default(),
+                ];
+                let hurt = combat.hurt_ticks_of(party.controlled_hero()) > 0;
+                party.request_swap(slots[0].swap, hurt);
+                sim.set_drive(party.drive(true));
+                party.hero_inputs(slots)
             } else if args.room_pilot.is_some() {
                 scripted_inputs(args, fixture, &sim, &combat)
             } else {
@@ -2720,6 +2786,9 @@ fn scripted_input(
     if let Some(pilot) = args.room_pilot {
         // EVID-ROOM: the scripted pilot of a room scene (slot 0; slot 1 below).
         pilot.inputs(combat, sim, room_exit_x(args))[0]
+    } else if let (Some(kind), Some(_)) = (args.rest_pilot, &args.rest_run) {
+        // REST-WIRE evidence: the refuge pilots (a pure function of the finished state).
+        dungeon_floorbreak::rest_fixtures::pilot(kind, combat, sim)
     } else if let (true, Some(run)) = (args.ring_pilot, &args.ring_run) {
         // AREA-RINGS-01 evidence: the Ring library pilot (a pure function of the state).
         dungeon_floorbreak::f01_ring_fixtures::pilot(
@@ -2751,6 +2820,8 @@ fn room_exit_x(args: &Args) -> f32 {
     } else if let Some(run) = &args.hazards_run {
         run.loaded.encounter.exit
     } else if let Some(run) = &args.ring_run {
+        run.loaded.encounter.exit
+    } else if let Some(run) = &args.rest_run {
         run.loaded.encounter.exit
     } else if let Some(run) = &args.corral_run {
         run.loaded.encounter.exit
@@ -3180,6 +3251,34 @@ fn main() -> ExitCode {
             }
         }
     }
+    // REST-WIRE: load the refuge and its sidecar. The entry line reads the room's tick-0
+    // state (the staff door and the boost), so a throwaway combat state is built the way
+    // the scene builds it, with the run's carried ledger applied.
+    if let Some(room) = args.f01_rest {
+        let launched = f01_rest::launch(&root, room).and_then(|run| {
+            let mut scene = SceneSim::new_at(&run.kit, 360, run.fixture.carl_x)?;
+            let mut combat =
+                f01_rest::combat_for(&run, &mut scene, args.carl, args.donut, args.cf02.seed)?;
+            if let Some(snapshot) = &args.f01_carry {
+                combat
+                    .carry_story(snapshot)
+                    .map_err(|e| format!("--f01-carry: {e}"))?;
+            }
+            let line = f01_rest::entry_line(&run, &combat);
+            Ok((run, line))
+        });
+        match launched {
+            Ok((run, line)) => {
+                println!("{line}");
+                args.fixture = Some(run.fixture);
+                args.rest_run = Some(Box::new(run));
+            }
+            Err(error) => {
+                eprintln!("floor01_scene: {error}");
+                return ExitCode::from(2);
+            }
+        }
+    }
     // CORRAL-WIRE: load room 0 and its sidecar.
     if args.f01_corral {
         match f01_corral::launch(&root) {
@@ -3231,6 +3330,8 @@ fn main() -> ExitCode {
     } else if let Some(run) = &args.mastery_run {
         Ok(run.kit.clone())
     } else if let Some(run) = &args.ring_run {
+        Ok(run.kit.clone())
+    } else if let Some(run) = &args.rest_run {
         Ok(run.kit.clone())
     } else if let Some(run) = &args.corral_run {
         Ok(run.kit.clone())
@@ -4054,6 +4155,9 @@ fn recording_manifest(
     } else if let Some(ring) = args.f01_ring {
         // RING-A/B wire: and the two Ring rooms, under their own fixture names.
         (f01_late::SESSION_SOURCE, ring.scene_name())
+    } else if let Some(rest) = args.f01_rest {
+        // REST-WIRE: and the refuge, under its fixture name.
+        (f01_late::SESSION_SOURCE, rest.scene_name())
     } else if args.f01_corral {
         // CORRAL-WIRE: and room 0, under its fixture name.
         (f01_late::SESSION_SOURCE, f01_corral::SCENE_NAME)
@@ -4569,6 +4673,7 @@ fn run_window(
                 gym_art::sync_gym_art,
                 corral_art::sync_corral_art,
                 corral_art::sync_partition_art,
+                sync_rest_door,
             )
                 .chain(),
             update_lighting,
@@ -5246,6 +5351,12 @@ fn setup(
             z.min(kit.actor_z - 0.01),
             layers_of("prop"),
         );
+    }
+
+    // REST-WIRE: the refuge's flat labelled greybox decor and its staff door (no art yet:
+    // AREA-FASTFOOD-01 is a separate work order). Presentation only.
+    if let Some(run) = args.rest_run.as_ref() {
+        spawn_rest_greybox(&mut commands, run, kit, height, layers_of("prop"));
     }
 
     // HAZ-B: the slimes, the Rot Stickers, the acid strip, the warning ring and the
@@ -7630,6 +7741,86 @@ fn sync_dust_visuals(
     }
 }
 
+/// REST-WIRE: the refuge's staff door sprite (a solid greybox rectangle while closed,
+/// hidden once the latched lock opened). Presentation only.
+#[derive(Component)]
+struct RestDoorSprite;
+
+/// The colour of a refuge decor rectangle by its label (flat, no art).
+fn rest_decor_colour(label: &str) -> Color {
+    match label {
+        "reward_box" => Color::srgb(0.86, 0.68, 0.22),
+        "counter" => Color::srgb(0.40, 0.46, 0.52),
+        "shelf_hatch" => Color::srgb(0.55, 0.58, 0.62),
+        l if l.starts_with("booth") => Color::srgb(0.30, 0.38, 0.55),
+        _ => Color::srgb(0.58, 0.72, 0.80),
+    }
+}
+
+/// REST-WIRE: the decor table of a quiet room as flat rectangles behind the actors,
+/// and its staff door in front of the lane while closed. Never a solid, never read by
+/// the simulation.
+fn spawn_rest_greybox(
+    commands: &mut Commands,
+    run: &f01_rest::RestRun,
+    kit: &EnvKit,
+    height: i32,
+    layers: RenderLayers,
+) {
+    for decor in f01_rest::decor(run.room) {
+        let rect = decor.rect;
+        println!(
+            "F01_REST_DECOR room={} label={} rect={},{},{},{}",
+            run.room.id(),
+            decor.label,
+            rect.x,
+            rect.y,
+            rect.w,
+            rect.h
+        );
+        commands.spawn((
+            Sprite::from_color(
+                rest_decor_colour(decor.label),
+                Vec2::new(rect.w as f32, rect.h as f32),
+            ),
+            Anchor::TOP_LEFT,
+            Transform::from_xyz(rect.x as f32, to_world_y(height, rect.y), kit.actor_z - 0.2),
+            layers.clone(),
+        ));
+    }
+    if let Some(door) = run.door() {
+        commands.spawn((
+            RestDoorSprite,
+            Sprite::from_color(
+                Color::srgb(0.46, 0.30, 0.20),
+                Vec2::new(door.w as f32, door.h as f32),
+            ),
+            Anchor::TOP_LEFT,
+            Transform::from_xyz(door.x as f32, to_world_y(height, door.y), kit.actor_z - 0.1),
+            layers,
+        ));
+    }
+}
+
+/// REST-WIRE: the staff door disappears when its latched lock opens.
+fn sync_rest_door(combat: Res<Combat>, mut doors: Query<&mut Visibility, With<RestDoorSprite>>) {
+    let open = combat
+        .0
+        .as_ref()
+        .and_then(|c| c.env())
+        .and_then(|env| env.surface_doors().first().map(|(_, open)| *open));
+    let Some(open) = open else {
+        return;
+    };
+    for mut visibility in &mut doors {
+        *visibility = if open {
+            Visibility::Hidden
+        } else {
+            Visibility::Inherited
+        };
+    }
+}
+
 /// DEATH-C: the ENV-02 shore and block as the simulation has them (hits, block
 /// state, block height, landing). Reads the simulation only.
 #[allow(clippy::type_complexity)]
@@ -9066,6 +9257,7 @@ fn headless_smoke(kit: &EnvKit, args: &Args, actors: &Actors, root: &Path) -> Re
         || args.hazards_run.is_some()
         || args.mastery_run.is_some()
         || args.ring_run.is_some()
+        || args.rest_run.is_some()
         || args.corral_run.is_some()
         || args.dozer_run.is_some()
     {
@@ -9223,6 +9415,15 @@ fn headless_slot_room(
             },
             run.loaded.encounter.story_pin.clone(),
             f01_ring::SMOKE_TICKS,
+        )
+    } else if let Some(run) = &args.rest_run {
+        (
+            run.room.id(),
+            match run.room {
+                f01_rest::RestRoom::Refuge => "F01_REST_REFUGE_SMOKE_OK",
+            },
+            run.loaded.encounter.story_pin.clone(),
+            f01_rest::SMOKE_TICKS,
         )
     } else if let Some(run) = &args.corral_run {
         (
@@ -11947,7 +12148,7 @@ mod tests {
         let error = args(&["--scene", "f01_late", "--f01-room", "cellar"]).expect_err("unknown");
         assert!(
             error.contains(
-                "corral, hoarder, boiler, dozer, hazards, ring_court, ring_split, juicer, mastery"
+                "corral, rest_refuge, hoarder, boiler, dozer, hazards, ring_court, ring_split, juicer, mastery"
             ),
             "{error}"
         );
@@ -12161,6 +12362,93 @@ mod tests {
                 }
                 assert_eq!(manifest.reset.start_hash, library.state_hash(&scene));
             }
+        }
+    }
+
+    /// REST-WIRE (REST-A): the refuge is a listed room of `--scene f01_late` right after the
+    /// corral (no scene arm of its own). It implies `cf02_rules`, takes a seed, records
+    /// under the late-Floor-1 source with its own fixture name, stamps its own room pins and
+    /// the manifest's, starts on the verifier's constructor (`f01_late::rest_start`), and a
+    /// floor run walks into it from the corral.
+    #[test]
+    fn the_refuge_resolves_through_the_late_launcher_and_the_run() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let actors =
+            Actors::load(root, FrameSource::GridSource, true, false, false, false).unwrap();
+        let room = f01_rest::RestRoom::Refuge;
+        let id = room.id();
+        let late = args(&["--scene", "f01_late", "--f01-room", id]).unwrap();
+        assert!(late.f01_late && late.cf02.rules && !late.demo);
+        assert_eq!(late.f01_rest, Some(room));
+        assert!(late.f01_ring.is_none() && !late.f01_corral && !late.f01_hoarder);
+        assert!(late.f01_room_scene() && !late.arena_room());
+        assert_eq!(late.f01_room.as_deref(), Some(id));
+        assert!(late.carl.prog && late.donut.prog && late.donut_biscuit);
+        assert!(late.recording_enabled());
+        // The default uncontrolled hero of a room scene is the `cf02_free` companion.
+        assert_eq!(
+            late.uncontrolled_hero(),
+            UncontrolledHero::Companion(ProfileSetId::Cf02Free)
+        );
+        for flag in ["--cf02", "--demo", "--autopilot", "--cf02-engineer"] {
+            assert!(
+                args(&["--scene", "f01_late", "--f01-room", id, flag]).is_err(),
+                "{flag}"
+            );
+        }
+        assert!(
+            args(&["--scene", room.scene_name()]).is_err(),
+            "no scene arm"
+        );
+        // The run: the corral first, the refuge second (REST-WIRE), with its title in the HUD.
+        let refuge_run = args(&["--scene", "f01_late", "--f01-run", "--f01-room", id]).unwrap();
+        assert!(refuge_run.f01_run && refuge_run.f01_rest == Some(room));
+        assert_eq!(
+            refuge_run.f01_hud,
+            Some(("The Wrong Restaurant".to_owned(), false))
+        );
+        for list in [
+            &["--scene", "f01_late", "--f01-room", id][..],
+            &[
+                "--scene",
+                "f01_late",
+                "--f01-room",
+                id,
+                "--f01-loadout",
+                "all",
+            ][..],
+            &["--scene", "f01_late", "--f01-room", id, "--cf02-seed", "7"][..],
+        ] {
+            let mut run = args(list).unwrap();
+            let launched = f01_rest::launch(root, room).unwrap();
+            run.fixture = Some(launched.fixture);
+            let kit = launched.kit.clone();
+            run.rest_run = Some(Box::new(launched));
+            let (_, scene, library) =
+                f01_late::rest_start(root, room, 360, run.carl, run.donut, run.cf02.seed).unwrap();
+            let mut hud = new_hud(&run, &kit, &actors);
+            let (sim, _, combat, _, _) = build_scene(&kit, &run, &actors, root, &mut hud).unwrap();
+            let combat = combat.expect("a combat state");
+            assert_eq!(
+                combat.state_hash(&sim),
+                library.state_hash(&scene),
+                "{list:?}"
+            );
+            assert_eq!(sim.world.state_hash(), scene.world.state_hash(), "{list:?}");
+            let party = run.live_party();
+            let manifest = recording_manifest(&run, &sim, Some(&combat), &party, root);
+            assert_eq!(manifest.reset.source, f01_late::SESSION_SOURCE);
+            assert_eq!(manifest.reset.name, room.scene_name());
+            assert_eq!(manifest.reset.f01_room.as_deref(), Some(id));
+            assert_eq!(manifest.reset.cf02_seed, run.cf02.seed);
+            for key in f01_late::SCOPED_PIN_KEYS {
+                assert_eq!(
+                    manifest.content_hashes.contains_key(key),
+                    f01_late::pin_applies(key, Some(id)),
+                    "{key}"
+                );
+            }
+            assert_eq!(manifest.reset.start_hash, library.state_hash(&scene));
         }
     }
 
@@ -12726,7 +13014,7 @@ mod tests {
         assert!(
             error.contains("unknown room")
                 && error.contains(
-                    "corral, hoarder, boiler, dozer, hazards, ring_court, ring_split, juicer, mastery"
+                    "corral, rest_refuge, hoarder, boiler, dozer, hazards, ring_court, ring_split, juicer, mastery"
                 ),
             "{error}"
         );

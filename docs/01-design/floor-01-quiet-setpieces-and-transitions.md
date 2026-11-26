@@ -393,7 +393,8 @@ PLAYTRACE: `f01_rest_refuge_recording_verifies`, `f01_rest_camp_recording_verifi
 
 ### G.11 Status
 
-- This PR: design only.
+- **REST-WIRE status (PR 1, REST-A).** Landed as a **labelled playable greybox**: `rest_refuge` is listed right after the corral (run of ten rooms), with the `hero_on_surface` lock and its latched env solid, `SceneKind::RestRefuge` and the retargeted story row, the refuge room and sidecar, `src/f01_rest.rs`, the binary and PLAYTRACE arms, the `SWAP TO DONUT` hint and seven refuge fixtures. The decor (counter, booths, windows, reward box, shelf hatch) is flat rectangles; the door is a rectangle; the AREA-FASTFOOD-01 art is not started. The play deck and the slide top are 64 px and 80 px (not the 32 and 48 px of G.3): the validator's lane rule needs 52 px of clearance under a deck (REST-IMP-1). The A2 fallback (REST-Q1: drop the lock in a one-line sidecar change) stays available if the swap beat plays badly. Camp and aftermath: PR 2.
+- This design PR: design only.
 - After the two REST-WIRE PRs merge: REST-A, REST-B and REST-C are **"merged, game-feel review pending"**, milestone `greybox`. Their art (AREA-FASTFOOD-01, AREA-CAMP-01) is not started.
 
 ### G.12 Horizon, tone and rights
