@@ -1,0 +1,33 @@
+# AREA-CAMP-01 execution measurements (scripts/make_camp01_sheets.py)
+camp_figure_repair 24x36 opaque=404 colours=17 mean_luma=30.9
+camp_figure_seated 20x30 opaque=339 colours=13 mean_luma=32.6
+camp_toy_cart 18x12 opaque=106 colours=13 mean_luma=80.2
+camp_map_table 44x30 opaque=468 colours=14 mean_luma=57.5
+camp_figure_map 20x46 opaque=511 colours=13 mean_luma=26.9
+camp_motifs 48x48 opaque=243 colours=3 mean_luma=93.5
+camp_chalk_tally 24x40 opaque=177 colours=3 mean_luma=148.3
+camp_chalk_floor 128x16 opaque=108 colours=2 mean_luma=95.6
+aft_bench_bent 48x20 opaque=387 colours=14 mean_luma=65.5
+aft_sand_spill 40x8 opaque=120 colours=6 mean_luma=108.4
+aft_lane_chalk 116x16 opaque=126 colours=2 mean_luma=103.5
+aft_groove_rings 160x160 opaque=1845 colours=4 mean_luma=50.3
+camp_figure_sentry mean_luma=30.7 (target <= 45)
+camp_figure_repair mean_luma=30.9 (target <= 45)
+camp_figure_seated mean_luma=32.6 (target <= 45)
+camp_figure_map mean_luma=26.9 (target <= 45)
+R1 camp_motifs at (1420, 364): 243 of 243 opaque pixels are not under any structure or prop piece (100.0 % visible; target >= 90 %)
+R2 camp_chalk_floor: 108 pixels, 0 on a plinth face (target 0), 60 on rows 573..576 in front of the plinths
+R2 aft_lane_chalk: 126 pixels, 0 on a plinth face (target 0), 86 on rows 573..576 in front of the plinths
+sway_table ticks=38
+KEY camp_hearth sha256=5b865eafbf8084089b41885b8472bb8c2e5942c5f8dfba80bb8bc041d54a80d7
+KEY camp_fire_0 sha256=202d28085eb8adfb35a6a418f5b45209d0da8f55579d0d3778713f60fd136183
+KEY camp_fire_1 sha256=6ba5e378695b32e5319fc35b494208b5c8a6fcf9513febc90344368f0b335e6d
+KEY camp_fire_2 sha256=f30897d15a789ef3ebd465a9938c6bbc4bf03a98ddc7ff6b9a5214b13a145e71
+KEY camp_fire_3 sha256=3fb86df4eac3277425061a07ae10163355627f9aacd0f1cc780906dd26891a42
+KEY camp_figure_sentry sha256=ec7c8551f0992bde008fb2e1fb176feb8636b66c93db1fffff841acb5ee72d10
+KEY aft_mirror_wreck sha256=a5a77dd983d54e62c15d5c44575800175c7991cb51b063825a3d80fa5ba752e8
+KEY aft_heavy_bag_rest sha256=4daab707361f941a48986dd059d3b8c06da68af600bb45f567e3caa5e8cd3dce
+KEY aft_heavy_bag_r1 sha256=6fa4bbcaee78314431cc6e0693374b2aeb8cdaa83423d66887076ab71435eb51
+KEY aft_heavy_bag_r2 sha256=b9ae0d5cf988ba809ae8bf8c7c72b417c9966269f2d15e78460696abcd38f3d3
+KEY aft_heavy_bag_l1 sha256=35d5a888f84f95a51507e6fb3926182f160376f15a1ce66a7709a4627493579a
+KEY aft_heavy_bag_l2 sha256=53a928388c9873e956f00f08a9fbc555af5da01c2ead86c7c74ad8f4792ca06c

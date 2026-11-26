@@ -157,6 +157,8 @@ mod corral_art;
 #[path = "floor01_scene/dozer_art.rs"]
 mod dozer_art;
 // AREA-FASTFOOD-01: the refuge's staff door, Light on Your Feet box, sparkle and bell (presenter frames).
+#[path = "floor01_scene/camp_art.rs"]
+mod camp_art;
 #[path = "floor01_scene/fastfood_art.rs"]
 mod fastfood_art;
 
@@ -417,7 +419,7 @@ struct Args {
     /// fight, the exit) instead of the walk-right script, so a capture can stand the
     /// hero in every zone. The Ring rooms have no `--room-pilot`. Scripted runs only.
     ring_pilot: bool,
-    /// REST-WIRE evidence: `--rest-pilot donut|carl_door|base_jump|walk|blink` plays a quiet room's scripted
+    /// REST-WIRE evidence: `--rest-pilot donut|carl_door|base_jump|walk|blink|punch` plays a quiet room's scripted
     /// run (`rest_fixtures::pilot`) instead of the walk-right script, so a capture can stand a
     /// hero in every beat. Scripted runs only.
     rest_pilot: Option<dungeon_floorbreak::rest_fixtures::Pilot>,
@@ -1781,9 +1783,9 @@ fn parse_args_full(
             }
             "--ring-pilot" => parsed.ring_pilot = true,
             "--rest-pilot" => {
-                let value = iter
-                    .next()
-                    .ok_or("--rest-pilot needs donut, carl_door, base_jump, walk or blink")?;
+                let value = iter.next().ok_or(
+                    "--rest-pilot needs donut, carl_door, base_jump, walk, blink or punch",
+                )?;
                 parsed.rest_pilot = Some(dungeon_floorbreak::rest_fixtures::Pilot::parse(value)?);
             }
             "--act1-pilot" => {
@@ -1983,7 +1985,7 @@ fn parse_args_full(
             && !kind.fits(room)
         {
             return Err(format!(
-                "--rest-pilot {kind:?} does not fit the room {}: donut, carl_door and base_jump play in rest_refuge, blink in rest_aftermath, walk in any quiet room",
+                "--rest-pilot {kind:?} does not fit the room {}: donut, carl_door and base_jump play in rest_refuge, blink and punch in rest_aftermath, walk in any quiet room",
                 room.id()
             ));
         }
@@ -4854,7 +4856,7 @@ fn run_window(
                 gym_art::sync_gym_art,
                 corral_art::sync_corral_art,
                 corral_art::sync_partition_art,
-                fastfood_art::sync_fastfood_art,
+                (fastfood_art::sync_fastfood_art, camp_art::sync_bag_art),
                 sync_act1_door,
                 sync_act1_chase,
             )
@@ -5539,38 +5541,54 @@ fn setup(
         );
     }
 
-    // REST-WIRE: the camp's and the aftermath's flat labelled greybox decor (their art is a later
-    // work order). The refuge is dressed by AREA-FASTFOOD-01: its kit pieces come from the dressing
-    // and its staff door, box, sparkle and bell are the presenter's sprites. Presentation only.
+    // REST-WIRE: the quiet rooms. The refuge is dressed by AREA-FASTFOOD-01 (its kit pieces come from
+    // the dressing and its staff door, box, sparkle and bell are the presenter's sprites); the camp and
+    // the aftermath are dressed by AREA-CAMP-01 (the aftermath's heavy bag is the presenter's sprite).
+    // Presentation only.
     if let Some(run) = args.rest_run.as_ref() {
-        if run.room == f01_rest::RestRoom::Refuge {
-            if let (Some((_, door)), Some((_, pickup))) = (
-                handles
-                    .iter()
-                    .find(|(n, _)| n == dungeon_floorbreak::fastfood_kit::DOOR_ATLAS),
-                handles
-                    .iter()
-                    .find(|(n, _)| n == dungeon_floorbreak::fastfood_kit::PICKUP_ATLAS),
-            ) {
-                let prop_z = kit
-                    .pieces
-                    .iter()
-                    .filter(|p| p.layer == "prop")
-                    .map(|p| p.z)
-                    .fold(kit.actor_z - 1.0, f32::max)
-                    + 0.001;
-                fastfood_art::spawn(
-                    &mut commands,
-                    door,
-                    pickup,
-                    height,
-                    kit.actor_z - 0.1,
-                    prop_z.min(kit.actor_z - 0.01),
-                    layers_of("prop"),
-                );
+        let prop_z = kit
+            .pieces
+            .iter()
+            .filter(|p| p.layer == "prop")
+            .map(|p| p.z)
+            .fold(kit.actor_z - 1.0, f32::max)
+            + 0.001;
+        match run.room {
+            f01_rest::RestRoom::Refuge => {
+                if let (Some((_, door)), Some((_, pickup))) = (
+                    handles
+                        .iter()
+                        .find(|(n, _)| n == dungeon_floorbreak::fastfood_kit::DOOR_ATLAS),
+                    handles
+                        .iter()
+                        .find(|(n, _)| n == dungeon_floorbreak::fastfood_kit::PICKUP_ATLAS),
+                ) {
+                    fastfood_art::spawn(
+                        &mut commands,
+                        door,
+                        pickup,
+                        height,
+                        kit.actor_z - 0.1,
+                        prop_z.min(kit.actor_z - 0.01),
+                        layers_of("prop"),
+                    );
+                }
             }
-        } else {
-            spawn_rest_greybox(&mut commands, run, kit, height, layers_of("prop"));
+            f01_rest::RestRoom::Camp => {}
+            f01_rest::RestRoom::Aftermath => {
+                if let Some((_, bag)) = handles
+                    .iter()
+                    .find(|(n, _)| n == dungeon_floorbreak::camp_kit::BAG_ATLAS)
+                {
+                    camp_art::spawn(
+                        &mut commands,
+                        bag,
+                        height,
+                        prop_z.min(kit.actor_z - 0.01),
+                        layers_of("prop"),
+                    );
+                }
+            }
         }
     }
 
@@ -7990,50 +8008,6 @@ fn sync_dust_visuals(
             }
             None => *visibility = Visibility::Hidden,
         }
-    }
-}
-
-/// The colour of a quiet-room decor rectangle by its label (flat, no art).
-fn rest_decor_colour(label: &str) -> Color {
-    match label {
-        "reward_box" => Color::srgb(0.86, 0.68, 0.22),
-        "counter" => Color::srgb(0.40, 0.46, 0.52),
-        "shelf_hatch" => Color::srgb(0.55, 0.58, 0.62),
-        l if l.starts_with("booth") => Color::srgb(0.30, 0.38, 0.55),
-        _ => Color::srgb(0.58, 0.72, 0.80),
-    }
-}
-
-/// REST-WIRE: the decor table of the camp and the aftermath as flat rectangles behind the
-/// actors (the refuge is drawn by `fastfood_art`). Never a solid, never read by the
-/// simulation.
-fn spawn_rest_greybox(
-    commands: &mut Commands,
-    run: &f01_rest::RestRun,
-    kit: &EnvKit,
-    height: i32,
-    layers: RenderLayers,
-) {
-    for decor in f01_rest::decor(run.room) {
-        let rect = decor.rect;
-        println!(
-            "F01_REST_DECOR room={} label={} rect={},{},{},{}",
-            run.room.id(),
-            decor.label,
-            rect.x,
-            rect.y,
-            rect.w,
-            rect.h
-        );
-        commands.spawn((
-            Sprite::from_color(
-                rest_decor_colour(decor.label),
-                Vec2::new(rect.w as f32, rect.h as f32),
-            ),
-            Anchor::TOP_LEFT,
-            Transform::from_xyz(rect.x as f32, to_world_y(height, rect.y), kit.actor_z - 0.2),
-            layers.clone(),
-        ));
     }
 }
 

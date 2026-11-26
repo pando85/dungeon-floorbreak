@@ -1,0 +1,17 @@
+# still_name view_left view_top (landmarks: the kit's lit model slid over the still's wall rows)
+aft_egress 0 292 trimmed_abs_err=0.44 designer_torch_landmark_left=0 diff=+0
+aft_entry_swing 0 292 trimmed_abs_err=0.58
+aft_grooves 640 292 trimmed_abs_err=0.51
+aft_lane 632 292 trimmed_abs_err=0.59 designer_torch_landmark_left=607 diff=+25
+aft_punch_l1 260 292 trimmed_abs_err=0.40
+aft_punch_late 260 292 trimmed_abs_err=0.42
+aft_punch_r1 260 292 trimmed_abs_err=0.42
+aft_punch_r1b 260 292 trimmed_abs_err=0.46
+aft_punch_r2 260 292 trimmed_abs_err=0.55
+aft_punch_rest 260 292 trimmed_abs_err=0.42
+aft_wreck 262 292 trimmed_abs_err=0.58 designer_torch_landmark_left=237 diff=+25
+camp_entrance 0 292 trimmed_abs_err=0.46 designer_torch_landmark_left=0 diff=+0
+camp_exit 879 292 trimmed_abs_err=0.50
+camp_figures 508 292 trimmed_abs_err=0.47 designer_torch_landmark_left=483 diff=+25
+camp_hearth 632 292 trimmed_abs_err=0.53 designer_torch_landmark_left=607 diff=+25
+camp_sentry 262 292 trimmed_abs_err=0.41 designer_torch_landmark_left=237 diff=+25

@@ -544,7 +544,17 @@ pub enum Pilot {
     /// The aftermath: swap to Donut on the first tick, walk to the blink lane's near mark,
     /// blink across it, walk on to the exit.
     Blink,
+    /// The aftermath (AREA-CAMP-01 evidence): Carl walks to the heavy bag and punches it every
+    /// [`PUNCH_EVERY`] ticks (the bag is an inert hit target; the pilot shows its presenter's
+    /// hit sway in a window still).
+    Punch,
 }
+
+/// The column Carl stands on to punch the bag (`Pilot::Punch`): his jab's fist box starts 16 px
+/// ahead of him and is 6 px wide, so it reaches the bag's rect (x 624..656) from x 602.
+pub const PUNCH_X: f32 = 608.0;
+/// Ticks between the punches of `Pilot::Punch`.
+pub const PUNCH_EVERY: u64 = 40;
 
 impl Pilot {
     pub fn parse(name: &str) -> Result<Self, String> {
@@ -554,19 +564,20 @@ impl Pilot {
             "base_jump" => Ok(Self::BaseJump),
             "walk" => Ok(Self::Walk),
             "blink" => Ok(Self::Blink),
+            "punch" => Ok(Self::Punch),
             other => Err(format!(
-                "--rest-pilot {other:?}: expected donut, carl_door, base_jump, walk or blink"
+                "--rest-pilot {other:?}: expected donut, carl_door, base_jump, walk, blink or punch"
             )),
         }
     }
 
     /// Whether the pilot plays in `room`: the refuge pilots need the staff door and the
-    /// shelf, the blink the aftermath's lane, the walk any quiet room.
+    /// shelf, the blink the aftermath's lane, the punch its bag, the walk any quiet room.
     pub const fn fits(self, room: RestRoom) -> bool {
         match self {
             Self::Donut | Self::CarlDoor | Self::BaseJump => matches!(room, RestRoom::Refuge),
             Self::Walk => true,
-            Self::Blink => matches!(room, RestRoom::Aftermath),
+            Self::Blink | Self::Punch => matches!(room, RestRoom::Aftermath),
         }
     }
 }
@@ -621,6 +632,14 @@ pub fn pilot(kind: Pilot, combat: &CombatState, scene: &SceneSim, exit_x: f32) -
                 input.ability =
                     input.move_x == 0.0 && donut.grounded && scene.world.tick.is_multiple_of(20);
             }
+            input
+        }
+        Pilot::Punch => {
+            let mut input = RawInput {
+                move_x: walk(carl.x, PUNCH_X),
+                ..RawInput::NONE
+            };
+            input.attack = input.move_x == 0.0 && scene.world.tick.is_multiple_of(PUNCH_EVERY);
             input
         }
         Pilot::Donut => shelf_input(donut.x, donut.grounded, open, SHELF_TAKEOFF_X, 1536.0),

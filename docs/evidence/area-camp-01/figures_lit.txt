@@ -1,0 +1,7 @@
+# gate note G2: the four survivor figures on the lit 640x360 window stills
+# (a) lit mean luma of the figure  (b) mean luma of the 2 px ring outside it  (c) |b - a| over its top 40 % rows
+# (d) Carl's lit mean luma in the same still (difference-mask estimate)  targets: a <= 45, a < d, c >= 20
+camp_figure_sentry still=camp_entrance (a)=27.3 (a_top40)=30.5 (b)=61.3 (b_top40)=69.1 (c)=38.6 (d)=103.9 targets a<=45:ok a<d:ok c>=20:ok -> PASS
+camp_figure_repair still=camp_sentry (a)=24.0 (a_top40)=21.1 (b)=43.4 (b_top40)=46.2 (c)=25.1 (d)=89.7 targets a<=45:ok a<d:ok c>=20:ok -> PASS
+camp_figure_seated still=camp_exit (a)=30.8 (a_top40)=20.5 (b)=48.8 (b_top40)=50.1 (c)=29.5 (d)=102.1 targets a<=45:ok a<d:ok c>=20:ok -> PASS
+camp_figure_map still=camp_hearth (a)=26.2 (a_top40)=25.0 (b)=75.7 (b_top40)=95.7 (c)=70.7 (d)=104.3 targets a<=45:ok a<d:ok c>=20:ok -> PASS
