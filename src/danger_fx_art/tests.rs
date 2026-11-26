@@ -37,6 +37,9 @@ fn the_tag_table_matches_the_manifests() {
             if *t == BLAST_WAVE {
                 let ticks: Vec<u64> = rows.iter().map(|f| f["ticks"].as_u64().unwrap()).collect();
                 assert_eq!(ticks, WAVE_TICKS);
+            } else if *t == SLAM_DUST {
+                let ticks: Vec<u64> = rows.iter().map(|f| f["ticks"].as_u64().unwrap()).collect();
+                assert_eq!(ticks, DUST_TICKS);
             } else if *t == SPLASH {
                 let ticks: Vec<u64> = rows.iter().map(|f| f["ticks"].as_u64().unwrap()).collect();
                 assert_eq!(ticks, SPLASH_TICKS);
@@ -423,7 +426,7 @@ fn view(id: HeroId, x: f32, floor: f32) -> HeroView {
 fn the_gate_follows_the_sims_gate_over_its_collider() {
     let floor = 100.0;
     let mut b = crate::boss::Boss::new(boss::builtin(), floor);
-    let open = gate(&b).unwrap();
+    let open = gate(&b, 0).unwrap();
     assert_eq!((open.frame, open.layer), (GATE_RAISED.first, Layer::Back));
     let ctx = BossCtx {
         heroes: [
@@ -438,7 +441,7 @@ fn the_gate_follows_the_sims_gate_over_its_collider() {
         let _ = b.step(&ctx);
     }
     assert!(b.gate_closed());
-    let closed = gate(&b).unwrap();
+    let closed = gate(&b, 1 + GATE_IMPACT_AGE).unwrap();
     assert_eq!(
         (closed.frame, closed.layer),
         (GATE_CLOSED.first, Layer::Gate)
@@ -449,6 +452,164 @@ fn the_gate_follows_the_sims_gate_over_its_collider() {
         (0, 100, solid as i32, 224),
         "the closed gate's collider: x 0..solid_x, floor up 224 px"
     );
+}
+
+/// F01-SIM-TICKS: the gate drops on the close tick (four frames, 2 ticks each), the
+/// closed grate and its slam dust start on close + 8, the dust plays its 20 ticks
+/// once from the gate's arena face, and nothing of it draws before the close.
+#[test]
+fn the_gate_drops_from_its_close_tick_and_slams_dust_on_the_impact() {
+    let floor = 100.0;
+    let mut b = crate::boss::Boss::new(boss::builtin(), floor);
+    let mut closed_on = None;
+    for tick in 40..120u64 {
+        let ctx = BossCtx {
+            heroes: [
+                view(HeroId::Carl, 200.0, floor),
+                view(HeroId::Donut, 60.0, floor),
+            ],
+            solids: &[],
+            solo: false,
+            tick,
+        };
+        let out = b.step(&ctx);
+        if out
+            .events
+            .iter()
+            .any(|e| matches!(e, CombatEvent::BossEngaged { .. }))
+        {
+            closed_on = Some(tick);
+            break;
+        }
+        assert_eq!(gate(&b, tick).unwrap().frame, GATE_RAISED.first);
+        assert_eq!(gate_dust(&b, tick), None);
+    }
+    let t = closed_on.expect("the gate closes");
+    assert_eq!(b.gate_closed_tick(), Some(t));
+    assert_eq!(GATE_IMPACT_AGE, 8);
+    let frames: Vec<usize> = (t..t + 10).map(|k| gate(&b, k).unwrap().frame).collect();
+    assert_eq!(frames, [2, 2, 3, 3, 4, 4, 5, 5, 0, 0]);
+    for k in t..t + 10 {
+        assert_eq!(gate(&b, k).unwrap().layer, Layer::Gate);
+    }
+    assert!(Sheet::Gate.frames() == 6);
+    for k in t..t + 8 {
+        assert_eq!(gate_dust(&b, k), None, "no dust before the impact");
+    }
+    let first = gate_dust(&b, t + 8).expect("the impact throws dust");
+    assert_eq!(first.sheet, Sheet::SlamDust);
+    assert_eq!(first.frame, 0);
+    assert_eq!(first.layer, Layer::Dust);
+    assert!(!first.flip_x, "it rolls into the arena");
+    assert_eq!(
+        (first.x + DUST_PIVOT_X, first.y),
+        (GATE_W, 100),
+        "pivot column on the gate's arena face, on the floor"
+    );
+    assert_eq!(gate_dust(&b, t + 9).unwrap().frame, 0);
+    assert_eq!(gate_dust(&b, t + 10).unwrap().frame, DUST_KEY_FRAME);
+    assert_eq!(gate_dust(&b, t + 8 + 19).unwrap().frame, 4);
+    assert_eq!(gate_dust(&b, t + 8 + 20), None, "played once");
+}
+
+/// F01-SIM-TICKS: the slam dust plays once over 20 ticks (2, 3, 4, 5, 6) and a
+/// mirrored plume keeps its pivot column on the impact edge.
+#[test]
+fn the_slam_dust_plays_once_and_mirrors_about_its_pivot() {
+    assert_eq!(DUST_TICKS.iter().sum::<u64>(), 20);
+    assert_eq!(Sheet::SlamDust.frame_size(), (DUST_W, DUST_H));
+    let seen: Vec<Option<usize>> = (0..21).map(dust_frame).collect();
+    assert_eq!(seen[0], Some(0));
+    assert_eq!(seen[2], Some(1));
+    assert_eq!(seen[5], Some(2));
+    assert_eq!(seen[9], Some(3));
+    assert_eq!(seen[14], Some(4));
+    assert_eq!(seen[19], Some(4));
+    assert_eq!(seen[20], None);
+    let right = slam_dust(848, 40, 1, 0).unwrap();
+    let left = slam_dust(783, 40, -1, 0).unwrap();
+    assert_eq!((right.x + DUST_PIVOT_X, right.flip_x), (848, false));
+    // Mirrored, the cell's column c lands on the screen column w - 1 - c.
+    assert_eq!((left.x + DUST_W - 1 - DUST_PIVOT_X, left.flip_x), (783, true));
+    assert!(Layer::Dust > Layer::Floor && Layer::Dust < Layer::Splash);
+}
+
+/// F01-SIM-TICKS: in the Boiler, the weight's landing tick is the scene tick on
+/// which it lands, and the landing dust draws both plumes from that very tick, at
+/// the remnant's two edges on its floor, for 20 ticks, never before.
+#[test]
+fn the_boiler_weight_throws_its_landing_dust_on_the_landing_tick() {
+    const WEIGHT: usize = 1;
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let (_run, mut scene, mut combat) = crate::f01_late::boiler_start(
+        &root,
+        360,
+        crate::carl_prog::CarlProgFlags::OFF,
+        crate::donut_prog::DonutProgFlags::OFF,
+        None,
+    )
+    .expect("the Boiler launches");
+    for token in 1..=2 {
+        combat.env_stimulate(
+            WEIGHT,
+            crate::env_prop::Stimulus::MeleeHit {
+                token,
+                player: 0,
+                weight: 1,
+            },
+            0,
+        );
+    }
+    let layout_h = scene.world.layout_height();
+    let dust_of = |c: &CombatState, tick: u64| -> Vec<FxDraw> {
+        draws(c, layout_h, tick)
+            .into_iter()
+            .filter(|d| d.sheet == Sheet::SlamDust)
+            .collect()
+    };
+    let mut landed_on = None;
+    let mut landed_events = Vec::new();
+    for _ in 0..400 {
+        combat.step_party(&mut scene, [RawInput::NONE, RawInput::NONE]);
+        let tick = scene.world.tick;
+        landed_events.extend(combat.take_new_events().iter().filter_map(|e| match e {
+            CombatEvent::PropPhase {
+                tick,
+                prop,
+                phase: crate::combat::PropPhase::Landed,
+                ..
+            } if *prop as usize == WEIGHT => Some(*tick),
+            _ => None,
+        }));
+        let mass = combat.env().unwrap().mass(WEIGHT).unwrap();
+        if mass.remnant().is_some() {
+            landed_on = Some(tick);
+            break;
+        }
+        assert_eq!(mass.landed_tick(), None);
+        assert!(dust_of(&combat, tick).is_empty(), "no dust before the landing");
+    }
+    let t = landed_on.expect("the weight lands");
+    let mass = combat.env().unwrap().mass(WEIGHT).unwrap();
+    assert_eq!(mass.landed_tick(), Some(t), "the landing step's scene tick");
+    assert_eq!(landed_events, [t], "the same tick as the one Landed event");
+    let remnant = mass.remnant().unwrap();
+    let floor = layout_h - remnant.bottom();
+    let at = dust_of(&combat, t);
+    assert_eq!(at.len(), 2, "one plume on each side");
+    let right = at.iter().find(|d| !d.flip_x).unwrap();
+    let left = at.iter().find(|d| d.flip_x).unwrap();
+    assert_eq!(
+        (right.x + DUST_PIVOT_X, right.y, right.frame),
+        (remnant.x + remnant.w, floor, 0)
+    );
+    assert_eq!(
+        (left.x + DUST_W - 1 - DUST_PIVOT_X, left.y, left.frame),
+        (remnant.x - 1, floor, 0)
+    );
+    assert_eq!(dust_of(&combat, t + 2)[0].frame, DUST_KEY_FRAME);
+    assert_eq!(dust_of(&combat, t + 19).len(), 2);
+    assert!(dust_of(&combat, t + 20).is_empty(), "played once");
 }
 
 /// Rendering never changes authoritative state: a run that calls every function

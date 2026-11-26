@@ -48,6 +48,8 @@ SPEC = "docs/02-art/floor01-danger-fx-spec.md"
 HZB_SPEC = H.SPEC
 # The room exit door has its own spec (ROOM-PORTALS-01); the other sheets share SPEC.
 EXIT_SPEC = "docs/02-art/floor01-room-exit-spec.md"
+# F01-SIM-TICKS: the gate drop and the slam dust have their own spec.
+TICKS_SPEC = "docs/02-art/f01-sim-ticks-spec.md"
 GRID_DIR_REL = "assets/source/props/floor01"
 MANIFESTS = ROOT / "assets/manifests"
 
@@ -458,9 +460,113 @@ def gate_raised() -> Canvas:
     return cv
 
 
+# F01-SIM-TICKS (spec docs/02-art/f01-sim-ticks-spec.md): the drop, played once from the
+# simulation's close tick. The grate falls from the raised height (teeth tips 200 px above
+# the floor) on the Boiler weight's gravity, 4 px per tick squared: ``200 - 2 t^2`` at t = 2,
+# 4, 6, 8 ticks, 2 ticks per frame; the closed frame (the impact) follows on tick 8. The jamb
+# is drawn from the first drop frame: the collider is solid from the close tick on.
+GATE_DROP_TICKS = 2
+GATE_DROP_HEIGHTS = [200 - 2 * (GATE_DROP_TICKS * (k + 1)) ** 2 for k in range(4)]  # 192, 168, 128, 72
+
+
+def gate_drop(height: int) -> Canvas:
+    """The grate falling: the closed grate lifted ``height`` px (a rigid shift of its rows, so
+    the rust and the grime ride with the bars), the jamb in place."""
+    grate_only = Canvas(GW_, GH)
+    gate_grate(grate_only, 0)
+    cv = Canvas(GW_, GH)
+    for y in range(GH - height):
+        cv.p[y] = grate_only.p[y + height][:]
+    gate_jamb(cv)
+    return cv
+
+
 def gate_assets() -> list[TagSpec]:
     return [("gate_closed", [(gate_closed(), None)], "hold"),
-            ("gate_raised", [(gate_raised(), None)], "hold")]
+            ("gate_raised", [(gate_raised(), None)], "hold"),
+            ("gate_drop", [(gate_drop(h), GATE_DROP_TICKS) for h in GATE_DROP_HEIGHTS], "once")]
+
+
+# ============================================================ SLAM DUST ====
+# F01-SIM-TICKS (spec docs/02-art/f01-sim-ticks-spec.md): the floor dust a heavy mass throws
+# when it slams down (the Boiler weight on its landing tick, the room 5 gate on its impact).
+# 44 x 20, pivot (4, 19): the pivot column is the impact edge (columns 0..3 tuck under the
+# object's base), the bottom row stands on the walking line, the plume rolls toward +x (the
+# presenter mirrors it for the other side). Five frames played once, 20 ticks: a flat burst
+# hugging the floor, the rolling head (the key), the billow, the thinning cloud, the settle.
+# Catacomb stone dust in the kit's warm stone ramp (the blast wave's settling puffs use the
+# same entries) with iron grit; no glow, no sparkle, no colour of its own.
+DW, DH = 44, 20
+DUST_PIVOT = (4, DH - 1)
+DUST_TICKS = [2, 3, 4, 5, 6]
+DUST_KEY = 1  # the rolling head
+
+
+def cloud(cv: Canvas, lobes: list[tuple[float, float, float, float]], cols: tuple[str, str, str],
+          breakup: int, seed: int) -> None:
+    """A dust cloud: the union of the ellipses ``lobes`` (cx, cy, rx, ry), each pixel in the
+    lit, body or shade entry of ``cols`` by where it sits on its nearest lobe (lit up and to
+    the left, toward the torches; shade low and to the right). ``breakup`` percent of 2 x 2
+    cells away from the floor row are left open (a thinning cloud has holes, not dither)."""
+    for y in range(DH):
+        for x in range(DW):
+            best = None
+            for lx, ly, rx, ry in lobes:
+                dx, dy = (x + 0.5 - lx) / rx, (y + 0.5 - ly) / ry
+                d = dx * dx + dy * dy
+                if d <= 1.0 and (best is None or d < best[0]):
+                    best = (d, dx, dy)
+            if best is None:
+                continue
+            if breakup and y < DH - 2 and h32(x // 2, y // 2, seed) % 100 < breakup:
+                continue
+            _d, dx, dy = best
+            tone = 0.8 * dy + 0.4 * dx
+            cv.set(x, y, cols[0] if tone < -0.35 else cols[2] if tone > 0.45 else cols[1])
+
+
+def grit(cv: Canvas, chunks: list[tuple[int, int, int]]) -> None:
+    """Thrown grit: 2 x 2 (2 x 1 unless ``tall``) mortar chunks, a dark edge under a stone top."""
+    for x, y, tall in chunks:
+        cv.set(x, y, "stone_03")
+        cv.set(x + 1, y, "iron_03")
+        if tall:
+            cv.set(x, y + 1, "iron_03")
+            cv.set(x + 1, y + 1, "iron_01")
+
+
+def dust_frames() -> list[Frame]:
+    lit, mid, low = ("stone_07", "stone_06", "stone_05"), ("stone_06", "stone_05", "stone_04"), \
+        ("stone_05", "stone_04", "stone_03")
+    plan = [
+        # f0 burst (2 ticks): a flat, fast jet hugging the floor; the first grit flies ahead.
+        ([(6, 17, 5, 3), (12, 17.5, 5.5, 2.5), (19, 18.2, 5, 1.9), (25, 18.6, 3.5, 1.5)], lit, 0,
+         [(29, 15, 1), (33, 17, 0)]),
+        # f1 roll (3 ticks) KEY: the front curls up into a rolling head; grit arcs over it.
+        ([(5, 16.5, 5, 3.6), (12, 15.8, 6, 4.3), (20, 15.2, 6, 4.9), (27, 16, 5, 4),
+          (29, 12.8, 3.2, 2.8), (33, 17.8, 3.5, 2.2)], lit, 0, [(36, 9, 1), (39, 14, 1), (31, 7, 0)]),
+        # f2 billow (4 ticks): puffed up and slowing, the grit down on the floor ahead.
+        ([(6, 15.5, 5, 4.5), (13, 13.8, 6, 6), (21, 13.2, 6.5, 6.2), (29, 14.2, 6, 5.6),
+          (35, 16.4, 4.5, 3.6), (39, 18.2, 3, 1.8)], mid, 4, [(41, 18, 1)]),
+        # f3 thin (5 ticks): risen, darker and torn into separate puffs.
+        ([(8, 13.2, 4.2, 4), (16.5, 11, 4.8, 4.8), (26, 10.4, 5, 4.6), (34.5, 12.6, 4, 3.6),
+          (40, 17.4, 2.8, 2.3), (15, 18.6, 7, 1.5)], low, 0, [(41, 18, 1)]),
+        # f4 settle (6 ticks): three high wisps fading and a haze line on the floor.
+        ([(14, 8.6, 3.8, 2.4), (24.5, 7.8, 4.6, 2.8), (33.5, 9.6, 3.4, 2.3), (18, 18.7, 14, 1.4)],
+         ("stone_04", "stone_04", "stone_03"), 0, []),
+    ]
+    out: list[Frame] = []
+    for i, (lobes, cols, breakup, chunks) in enumerate(plan):
+        cv = Canvas(DW, DH)
+        cloud(cv, lobes, cols, breakup, 60 + i)
+        grit(cv, chunks)
+        drop_isolated(cv)
+        out.append((cv, DUST_TICKS[i]))
+    return out
+
+
+def dust_assets() -> list[TagSpec]:
+    return [("slam_dust", dust_frames(), "once")]
 
 
 # ================================================================== EXIT ====
@@ -636,6 +742,7 @@ def assets() -> dict[str, tuple[list[TagSpec], tuple[int, int]]]:
         out[f"dfx_ring_r{r}"] = (ring_assets(r), (c, c))
         out[f"dfx_wave_r{r}"] = (wave_assets(r), (c, c))
     out["dfx_gate"] = (gate_assets(), (0, GH - 1))
+    out["dfx_slam_dust"] = (dust_assets(), DUST_PIVOT)
     out["dfx_exit"] = (exit_assets(), (0, EH - 1))
     out.update(H.assets())  # AREA-HAZARDS-01B: the splash, the corrosion decals, the Rot marks
     return out
@@ -644,14 +751,15 @@ def assets() -> dict[str, tuple[list[TagSpec], tuple[int, int]]]:
 # Frozen design keys (grid frame index): the acid idle key, both march rings, the reach
 # frame of both waves, the closed gate.
 FROZEN = {"dfx_acid": [0], "dfx_ring_r48": [0], "dfx_ring_r64": [0], "dfx_wave_r48": [3],
-          "dfx_wave_r64": [3], "dfx_gate": [0], "dfx_exit": [0, 1], **H.FROZEN}
+          "dfx_wave_r64": [3], "dfx_gate": [0], "dfx_exit": [0, 1], "dfx_slam_dust": [DUST_KEY], **H.FROZEN}
 TITLES = {
     "dfx_acid": "acid pool strip (idle, draining)",
     "dfx_ring_r48": "blast reach ring, 48 px (march, hot)",
     "dfx_ring_r64": "blast reach ring, 64 px (march, hot)",
     "dfx_wave_r48": "blast wave to the 48 px reach",
     "dfx_wave_r64": "blast wave to the 64 px reach",
-    "dfx_gate": "room 5 entrance gate (closed, raised)",
+    "dfx_gate": "room 5 entrance gate (closed, raised, drop)",
+    "dfx_slam_dust": "slam dust (Boiler weight landing, room 5 gate impact)",
     "dfx_exit": "room exit door, rooms 2, 4, 4a, 4b and 6 (closed, open)",
     **H.TITLES,
 }
@@ -663,12 +771,14 @@ SCENES = {
     "dfx_wave_r48": ([(1, 520, 40), (3, 660, 40)], False),
     "dfx_wave_r64": ([(1, 520, 56), (3, 700, 56)], False),
     "dfx_gate": ([(0, 560, 0), (1, 640, 0)], False),
+    "dfx_slam_dust": ([(1, 520, 0), (2, 600, 0)], False),
     "dfx_exit": ([(0, 520, 0), (1, 660, 0)], False),
     **H.SCENES,
 }
 STRIPS = {"dfx_acid": ["acid_idle", "acid_drain"], "dfx_ring_r48": ["ring_march", "ring_hot"],
           "dfx_ring_r64": ["ring_march", "ring_hot"], "dfx_wave_r48": ["blast_wave"],
-          "dfx_wave_r64": ["blast_wave"], "dfx_gate": ["gate_closed", "gate_raised"],
+          "dfx_wave_r64": ["blast_wave"], "dfx_gate": ["gate_closed", "gate_raised", "gate_drop"],
+          "dfx_slam_dust": ["slam_dust"],
           "dfx_exit": ["exit_closed", "exit_open"], **H.STRIPS}
 
 
@@ -761,10 +871,15 @@ def manifest_of(name: str, tags: list[TagSpec], grid: dict) -> dict:
     acid = name == "dfx_acid"
     exit_door = name == "dfx_exit"
     hazard = name in H.HAZARD_SHEETS  # AREA-HAZARDS-01B sheets
+    dust = name == "dfx_slam_dust"  # F01-SIM-TICKS
+    gate = name == "dfx_gate"
     ring = name.startswith("dfx_ring")
-    spec = EXIT_SPEC if exit_door else (HZB_SPEC if hazard else SPEC)
-    if hazard:
+    spec = EXIT_SPEC if exit_door else TICKS_SPEC if dust else (HZB_SPEC if hazard else SPEC)
+    if hazard or dust:
         review = "independent top-tier art review pending"
+    elif gate:
+        review = ("independent top-tier review passed on the closed and raised frames; the F01-SIM-TICKS "
+                  "drop frames await their review")
     elif acid or ring:
         review = "independent top-tier review passed on the first version; the AREA-HAZARDS-01B change awaits its review"
     else:
@@ -787,6 +902,8 @@ def manifest_of(name: str, tags: list[TagSpec], grid: dict) -> dict:
         refs = [spec, "assets/source/terrain/floor01/floor01_catacomb_kit.json"]
     if exit_door:
         refs += [SPEC, "assets/source/props/floor01/dfx_gate.grid.json"]
+    if gate or dust:
+        refs += [TICKS_SPEC] if gate else [SPEC]
     wall_pivot = [0, 0]
     for f in frames:
         if f["tag"].endswith("_w"):
@@ -795,10 +912,17 @@ def manifest_of(name: str, tags: list[TagSpec], grid: dict) -> dict:
         generator = ("designed by Claude Opus (spec, keys); executed by Claude Sonnet (remaining frames, "
                      "export, validators); independent art-director review by a separate Claude Opus agent "
                      "pending. No concept pixels copied, no image-model raster output, no tracing, no resampling")
+    elif dust:
+        generator = ("designed and executed by Claude Opus (spec, key, frames); independent art-director review "
+                     "by a separate Claude Opus agent pending. No concept pixels copied, no image-model raster "
+                     "output, no tracing, no resampling")
     else:
         generator = ("designed and executed by Claude Opus (spec, keys, frames); independent art-director review "
                      "by a separate Claude Opus agent. No concept pixels copied, no image-model raster output, "
                      "no tracing, no resampling")
+    if gate:
+        generator += ("; the drop frames (F01-SIM-TICKS) designed and executed by Claude Opus, their independent "
+                      "review pending")
     generator += ("; the grate reuses the room 5 gate's drawing code (dfx_gate)" if exit_door else "")
     if acid:
         generator += "; recoloured to the teal ramp, rows unchanged (adopted default HZB-AD1, executed by Claude Sonnet)"

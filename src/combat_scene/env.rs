@@ -1526,7 +1526,7 @@ impl EnvRuntime {
                     }),
                     None => {}
                 },
-                Machine::Mass(m) => match m.step(&mass_bodies) {
+                Machine::Mass(m) => match m.step_at(tick, &mass_bodies) {
                     Some(MassEdge::FallStarted) => out.events.push(CombatEvent::PropPhase {
                         tick,
                         prop,

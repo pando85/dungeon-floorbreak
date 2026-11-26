@@ -1,0 +1,12 @@
+{
+  "asset_id": "f01-dfx-slam-dust",
+  "format": "pixelart-keys-v1",
+  "keys": {
+    "1": {
+      "sha256": "226d6e980edd11e0044c301bef41aaf3ca3fbf8609c4563e677ba871cc76b18f"
+    }
+  },
+  "layers": [
+    "body"
+  ]
+}

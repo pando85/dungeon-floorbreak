@@ -59,6 +59,8 @@ The wave is a full circle: the simulation tests a circle (bodies are hit by dist
 
 **Sim state it draws:** `gate_closed` over `{0, floor, 28, 224}` (the gate collider up to the arena ceiling) while `Boss::gate_closed()`; `gate_raised` (rail and teeth hanging 24 rows under the top of the doorway, behind the actors) while the gate is `Open` (before the party is in) and once `Released` (after the defeat).
 
+**F01-SIM-TICKS** ([spec](f01-sim-ticks-spec.md)) added the tag `gate_drop` (frames 2..5, 2 ticks each: the closed grate falling from the raised height) and the slam dust on its impact: the closed gate draws the drop for 8 ticks from `Boss::gate_closed_tick()`, then `gate_closed`. Frames 0 and 1 and the frozen key are unchanged.
+
 **Design.** A drop grate: five 3 px cold-steel bars (`stone_cold_04` lit, `stone_cold_03`, `stone_cold_01` shade) with 2 px gaps, four riveted cross straps and a heavier bottom rail, every bar ending in a tapering spike that bites the floor on row 223, a jamb channel on the arena side (x 24..27, warm `iron_*`, a bolt every 32 rows), short rust runs (`copper_03`/`copper_02`) under some rivets and grime darkening toward the floor. Cold steel separates it from the warm brick at 1x (the Goblin Workshop kit's "interactive steel is cold" rule); it reads as a lock-in, not a door.
 
 The room exit door of rooms 2, 4 and 6 draws the same grate 64 px wide (shared drawing code; this sheet stays byte-identical): [floor01-room-exit-spec.md](floor01-room-exit-spec.md).
@@ -101,13 +103,13 @@ All kit sheets use named entries of the Floor 01 kit palette, values exact: 23 d
 | DFX-AD4 | The ring turns solid hot for the last 6 ticks (`RING_HOT_TICKS`), from the ticks left the sim already keeps | Escalation without a new timer |
 | DFX-AD5 | The wave plays for every charge whose outer radius has a canvas: the dynamite (64), the Rot Sticker and the Boiler drum (48) | One rule: blast art matches the sim radius everywhere |
 | DFX-AD6 | The wave is a full circle, also across the floor face | The sim's test is a circle; hiding the lower half would understate the reach on a ledge |
-| DFX-AD7 | The gate has no drop animation; it snaps between raised and closed | The sim closes it on one tick and keeps no close tick; an animation needs one (follow-up) |
+| DFX-AD7 | The gate has no drop animation; it snaps between raised and closed. **Superseded by ST-AD9** ([F01-SIM-TICKS](f01-sim-ticks-spec.md)): the sim keeps the close tick and the gate drops over 8 ticks | The sim closed it on one tick and kept no close tick; an animation needed one |
 | DFX-AD8 | Gate in the kit's cold steel ramp with rust from the copper ramp | Separates the barrier from the warm brick at 1x |
 | DFX-AD9 | Design and execution in one pass; the silhouette gate is folded into the independent review | Orchestrator brief; difficulty 2 per sheet |
 | DFX-AD10 | The acid canvas is 80 px (the HAZ-Q18 maximum) and is cropped from both caps | Exact footprint at every width without scaling |
 
 ## 8. Follow-ups (gaps, not done here)
 
-- A gate drop animation (needs the closing tick from the simulation, or a render-local memory that a replay seek would not reproduce).
+- ~~A gate drop animation~~: done by [F01-SIM-TICKS](f01-sim-ticks-spec.md) from the simulation's close tick.
 - The spent sticker's drip and an acid entry splash are still code-drawn or absent.
 - Done in this PR: the committed Boiler GIFs (`docs/evidence/f01-boiler`) and the hazard first look were regenerated with the wave and ring art (two byte-identical passes, state hashes unchanged).
