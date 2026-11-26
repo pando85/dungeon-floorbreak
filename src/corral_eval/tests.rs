@@ -30,6 +30,7 @@ fn spec(stage: Stage, seat: Seat, policy: PolicyId, x: i32) -> RunSpec {
         phase: [(0, 0), (0, 0)],
         jump_offset: 0,
         horizon: HORIZON_TICKS,
+        partition: PartitionVariant::Absent,
     }
 }
 
@@ -329,9 +330,9 @@ fn corral_auto_the_corral_gate_passes() {
         "{:?}",
         gate.corral_best_counterexample
     );
-    // Every named start and grid column is valid: 12 named starts x 2
-    // facings x (5 fixed + 56 offsets) plus 47 grid columns x 2 facings x
-    // (5 fixed + 2 offsets) = 1,464 + 658 groups.
+    // Every named start and grid column is valid. CORRAL-D: the sweep runs three
+    // partition variants (`absent`, `intact`, `broken`), and each start exists
+    // only where its surface does (`start_exists`).
     let full = SweepConfig::full();
     assert_eq!(config.jump_offsets, full.jump_offsets);
     assert!(config.grid && config.reported);
@@ -341,8 +342,8 @@ fn corral_auto_the_corral_gate_passes() {
         .into_iter()
         .filter(|&(x, rise)| start_name(x, rise) == "grid")
         .count();
-    assert_eq!(grid_only, 47, "the grid columns that are not named starts");
-    assert_eq!(gate.corral_groups, 2_122, "{}", gate.corral_groups);
+    assert_eq!(grid_only, 51, "the grid columns that are not named starts");
+    assert_eq!(gate.corral_groups, 6_460, "{}", gate.corral_groups);
     assert!(
         records
             .iter()

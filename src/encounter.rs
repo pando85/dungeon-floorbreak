@@ -65,7 +65,8 @@ use serde::Deserialize;
 use crate::camera_lab::room::{EnemyKind, IRect, Room, parse_rooms};
 use crate::env_hazard::{HazardClass, HazardSet, HazardSetError, HazardSpec, HazardWindow};
 use crate::env_prop::{
-    FallingMassConfig, STEP_OVER_PX, ShutterConfig, ShutterInitial, SlideConfig, ValveConfig,
+    FallingMassConfig, PartitionConfig, STEP_OVER_PX, ShutterConfig, ShutterInitial, SlideConfig,
+    ValveConfig,
 };
 use crate::hero_damage::HeroDamagePolicy;
 use crate::rot_sticker::{Orientation, Track, TrackError};
@@ -356,6 +357,10 @@ pub enum PropKind {
     /// RING-B core (KR3): a portcullis in an arch under a platform slab. Closed,
     /// it is a cut for every class and never a standable node.
     Shutter,
+    /// CORRAL-D: the breakable rotten-timber partition across the corral's lane.
+    /// Standing, it is a 16 x 48 solid that blocks bolts and globs; a rush
+    /// contact or three distinct hero hits break it into its 16 px remnant.
+    Partition,
 }
 
 impl PropKind {
@@ -366,6 +371,7 @@ impl PropKind {
             "drum" => Self::Drum,
             "rot_sticker" => Self::RotSticker,
             "shutter" => Self::Shutter,
+            "partition" => Self::Partition,
             _ => return None,
         })
     }
@@ -534,6 +540,9 @@ pub struct Prop {
     pub track: Option<StickerLayout>,
     /// A shutter's knobs (RING-B core). `target` is its closed rectangle.
     pub shutter: Option<ShutterConfig>,
+    /// A partition's knobs (CORRAL-D). `target` is its standing rectangle and
+    /// `remnant` the low solid it leaves.
+    pub partition: Option<PartitionConfig>,
 }
 
 /// A rot sticker's track as authored in the sidecar (layout px, y down): the
@@ -1380,6 +1389,13 @@ struct RawValve {
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
+struct RawPartition {
+    break_hits: Option<u8>,
+    shove_min_impulse_px_s: Option<u16>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct RawShutter {
     initial: String,
     arm_x: Option<i32>,
@@ -1408,6 +1424,7 @@ struct RawProp {
     valve: Option<RawValve>,
     track: Option<RawTrack>,
     shutter: Option<RawShutter>,
+    partition: Option<RawPartition>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -1942,7 +1959,44 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
         if kind != PropKind::Shutter && p.shutter.is_some() {
             errs.push(field("only a shutter has a shutter object"));
         }
+        if kind != PropKind::Partition && p.partition.is_some() {
+            errs.push(field("only a partition has a partition object"));
+        }
         match kind {
+            PropKind::Partition => {
+                if p.hang_px.is_some() || p.blast_radius_px.is_some() || p.valve.is_some() {
+                    errs.push(field(
+                        "a partition has no hang_px, blast_radius_px or valve",
+                    ));
+                }
+                if !p.solid_intact {
+                    errs.push(field(
+                        "a partition needs solid_intact (it stands as a solid)",
+                    ));
+                }
+                if p.partition.is_none() {
+                    errs.push(field("a partition needs a partition object"));
+                }
+                if target.bottom() != room.floor_y {
+                    errs.push(field("a partition stands on the walking line"));
+                }
+                match remnant {
+                    Some(r) => {
+                        if !within_play(room, r) || r.bottom() != room.floor_y {
+                            errs.push(E::PropOutOfBounds(p.id.clone()));
+                        }
+                        // The remnant is a step, never a wall (STEP_OVER_PX), and lies
+                        // under the screen's own footprint.
+                        if r.h > STEP_OVER_PX || r.h <= 0 {
+                            errs.push(field("a partition's remnant is a step: 1..=16 px high"));
+                        }
+                        if r.x != target.x || r.w != target.w {
+                            errs.push(field("a partition's remnant has the screen's own x range"));
+                        }
+                    }
+                    None => errs.push(field("a partition needs a low remnant")),
+                }
+            }
             PropKind::Shutter => {
                 if p.hang_px.is_some()
                     || remnant.is_some()
@@ -2079,6 +2133,7 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
             valve: None,
             track,
             shutter: None,
+            partition: None,
         });
     }
     let prop_pos: BTreeMap<String, usize> = props
@@ -2197,7 +2252,7 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
             PropKind::WeightRig => Some(HazardClass::FallingMass),
             PropKind::Drum => Some(HazardClass::Blast),
             // A shutter is never a hazard volume: it hurts nobody (KR5).
-            PropKind::Shutter => None,
+            PropKind::Shutter | PropKind::Partition => None,
             PropKind::RotSticker => {
                 // HAZ never authors a damage-dealing volume for a sticker: its
                 // damage comes only from its BlastCharge (no double blast).
@@ -2225,7 +2280,7 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
         } else if hazards.iter().any(|h| h.owner == Some(pos)) {
             errs.push(E::HazardOwnerMismatch {
                 prop: raw_prop.id.clone(),
-                reason: "a shutter owns no hazard".into(),
+                reason: "a shutter or a partition owns no hazard".into(),
             });
         }
         if kind == PropKind::Shutter
@@ -2269,6 +2324,23 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
                         Err(reason) => errs.push(bad(reason)),
                     }
                 }
+            }
+        }
+        if kind == PropKind::Partition {
+            let rp = raw_prop.partition.as_ref();
+            let d = PartitionConfig::DEFAULT;
+            let cfg = PartitionConfig {
+                break_hits: rp.and_then(|v| v.break_hits).unwrap_or(d.break_hits),
+                shove_min_impulse_px_s: rp
+                    .and_then(|v| v.shove_min_impulse_px_s)
+                    .unwrap_or(d.shove_min_impulse_px_s),
+            };
+            match cfg.validate() {
+                Ok(()) => props[pos].partition = Some(cfg),
+                Err(reason) => errs.push(E::PropFields {
+                    prop: raw_prop.id.clone(),
+                    reason,
+                }),
             }
         }
         if kind == PropKind::Valve {
@@ -6071,5 +6143,125 @@ mod shutter_tests {
             )),
             "{errs:?}"
         );
+    }
+}
+
+/// CORRAL-D: the corral sidecar's partition prop and what the validator refuses.
+#[cfg(test)]
+mod partition_tests {
+    use super::*;
+    use serde_json::{Value, json};
+
+    fn root() -> &'static Path {
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+    }
+
+    fn loaded() -> Loaded {
+        load(root(), crate::f01_corral::ENCOUNTER_PATH).unwrap_or_else(|e| {
+            panic!(
+                "{}",
+                e.iter()
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>()
+                    .join("; ")
+            )
+        })
+    }
+
+    fn sidecar() -> Value {
+        let text = std::fs::read_to_string(root().join(crate::f01_corral::ENCOUNTER_PATH)).unwrap();
+        serde_json::from_str(&text).unwrap()
+    }
+
+    fn errors(v: &Value) -> Vec<String> {
+        let l = loaded();
+        let ctx = Context {
+            room: l.room,
+            classes: l.classes,
+            ceiling_px: l.ceiling_px,
+        };
+        match parse_sidecar(&v.to_string(), &ctx) {
+            Ok(_) => Vec::new(),
+            Err(e) => e.iter().map(ToString::to_string).collect(),
+        }
+    }
+
+    #[test]
+    fn the_corral_sidecar_holds_the_sheets_partition() {
+        let l = loaded();
+        let p = &l.encounter.props[0];
+        assert_eq!(p.kind, PropKind::Partition);
+        assert_eq!(p.target, IRect::new(1392, 532, 16, 48));
+        assert!(p.solid_intact);
+        assert_eq!(p.remnant, Some(IRect::new(1392, 564, 16, 16)));
+        assert_eq!(p.partition, Some(PartitionConfig::DEFAULT));
+        assert!(l.encounter.hazards.is_empty(), "it owns no hazard");
+        // One changeable prop: two states (standing, broken) times three classes,
+        // and every class reaches the exit in both (the route is never blocked).
+        assert_eq!(l.encounter.reach.len(), 3 * 2);
+        assert!(
+            l.encounter.reach.iter().all(|r| r.lane && r.exit),
+            "{:?}",
+            l.encounter.reach
+        );
+        assert!(errors(&sidecar()).is_empty());
+    }
+
+    #[test]
+    fn the_validator_refuses_a_malformed_partition() {
+        type Edit = fn(&mut Value);
+        let cases: [(&str, Edit); 7] = [
+            ("needs a partition object", |v| {
+                v["props"][0].as_object_mut().unwrap().remove("partition");
+            }),
+            ("needs solid_intact", |v| {
+                v["props"][0]["solid_intact"] = json!(false)
+            }),
+            ("needs a low remnant", |v| {
+                v["props"][0].as_object_mut().unwrap().remove("remnant");
+            }),
+            ("a step: 1..=16 px high", |v| {
+                v["props"][0]["remnant"] = json!({ "x": 1392, "y": 556, "w": 16, "h": 24 });
+            }),
+            ("the screen's own x range", |v| {
+                v["props"][0]["remnant"] = json!({ "x": 1396, "y": 564, "w": 16, "h": 16 });
+            }),
+            ("stands on the walking line", |v| {
+                v["props"][0]["target"] = json!({ "x": 1392, "y": 500, "w": 16, "h": 48 });
+            }),
+            ("break_hits must be", |v| {
+                v["props"][0]["partition"] = json!({ "break_hits": 1 });
+            }),
+        ];
+        for (what, edit) in cases {
+            let mut v = sidecar();
+            edit(&mut v);
+            let errs = errors(&v);
+            assert!(errs.iter().any(|e| e.contains(what)), "{what}: {errs:?}");
+        }
+        // Only a partition has a partition object.
+        let mut v = sidecar();
+        v["props"][0]["kind"] = json!("drum");
+        v["props"][0]["blast_radius_px"] = json!(48);
+        let errs = errors(&v);
+        assert!(
+            errs.iter()
+                .any(|e| e.contains("only a partition has a partition object")),
+            "{errs:?}"
+        );
+        // Unknown knobs are refused (the raw structs deny unknown fields).
+        let mut v = sidecar();
+        v["props"][0]["partition"]["break_by_missile"] = json!(true);
+        assert!(!errors(&v).is_empty());
+    }
+
+    #[test]
+    fn a_partition_never_sits_on_a_protected_zone() {
+        let mut v = sidecar();
+        // Onto the spawn: refused like every prop with a solid.
+        v["props"][0]["target"] = json!({ "x": 100, "y": 532, "w": 16, "h": 48 });
+        v["props"][0]["remnant"] = json!({ "x": 100, "y": 564, "w": 16, "h": 16 });
+        let errs = errors(&v);
+        assert!(errs.iter().any(|e| e.contains("protected")), "{errs:?}");
     }
 }

@@ -145,6 +145,7 @@ fn encounter_of(run: &HazardsRun, l: &Layout) -> Encounter {
                 start: st.start,
             }),
             shutter: None,
+            partition: None,
         });
     }
     enc

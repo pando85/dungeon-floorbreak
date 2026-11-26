@@ -10,6 +10,10 @@
 //!   the idle frames and this keeps only the dust and dirt (the stand-in body stays as the missing-atlas
 //!   fallback).
 //!
+//! * The goblin partition (CORRAL-D, `HEAT-AD1`): the three frames of the AREA-HEAT-01
+//!   atlas `floor01_heat_partition` (intact, weakened, broken), the frame of the
+//!   prop's state, drawn with the art's solid core on the collider.
+//!
 //! **Presentation only and no new art**: it reads the combat state through a
 //! shared reference and writes only its own sprites, so nothing here reaches the
 //! simulation, the replay or the state hash.
@@ -168,5 +172,99 @@ pub(super) fn sync_corral_art(
                 None => *visibility = Visibility::Hidden,
             },
         }
+    }
+}
+
+/// CORRAL-D (`HEAT-AD1`): the partition's presenter state: the prop it reads, the
+/// atlas rect of each state frame and the canvas's top-left (layout px, y down).
+#[derive(Resource)]
+pub(super) struct PartitionArt {
+    prop: usize,
+    rects: [[i32; 4]; 3],
+    origin: (i32, i32),
+}
+
+#[derive(Component)]
+pub(super) struct PartitionSprite;
+
+/// Spawn the partition's sprite (hidden until the first sync) when the room has a
+/// partition prop and the heat contract holds its three frames. Returns whether
+/// the presenter is live. `z` is just above the dressing's props and below the
+/// actors.
+pub(super) fn spawn_partition(
+    commands: &mut Commands,
+    texture: &Handle<Image>,
+    encounter: &dungeon_floorbreak::encounter::Encounter,
+    z: f32,
+    layers: RenderLayers,
+) -> bool {
+    let Some((prop, target)) = encounter
+        .props
+        .iter()
+        .enumerate()
+        .find(|(_, p)| p.kind == dungeon_floorbreak::encounter::PropKind::Partition)
+        .map(|(i, p)| (i, p.target))
+    else {
+        return false;
+    };
+    let root = std::env::current_dir().unwrap_or_default();
+    let rects = match dungeon_floorbreak::heat_kit::partition_atlas_rects(&root) {
+        Ok(rects) => rects,
+        Err(e) => {
+            println!("CORRAL_PARTITION not drawn: {e}");
+            return false;
+        }
+    };
+    let origin = dungeon_floorbreak::heat_kit::partition_origin(target);
+    commands.spawn((
+        PartitionSprite,
+        Sprite {
+            image: texture.clone(),
+            rect: Some(Rect::new(0.0, 0.0, 1.0, 1.0)),
+            ..default()
+        },
+        Anchor::TOP_LEFT,
+        Transform::from_xyz(origin.0 as f32, 0.0, z),
+        Visibility::Hidden,
+        layers,
+    ));
+    commands.insert_resource(PartitionArt {
+        prop,
+        rects,
+        origin,
+    });
+    println!(
+        "CORRAL_PARTITION drawn at ({}, {}) from the heat atlas, three states (prototype art, owner review pending)",
+        origin.0, origin.1
+    );
+    true
+}
+
+/// Show the frame of the partition's state. Presentation only: it reads the prop
+/// through a shared reference and writes only its own sprite.
+pub(super) fn sync_partition_art(
+    sim: Res<Sim>,
+    combat: Res<Combat>,
+    art: Option<Res<PartitionArt>>,
+    mut sprite_q: Query<(&mut Transform, &mut Sprite, &mut Visibility), With<PartitionSprite>>,
+) {
+    let (Some(art), Some(state)) = (art, combat.0.as_ref()) else {
+        return;
+    };
+    let Some(part) = state.env().and_then(|env| env.partition(art.prop)) else {
+        return;
+    };
+    let r = art.rects[part.state() as usize];
+    let layout_h = sim.0.world.layout_height();
+    for (mut transform, mut sprite, mut visibility) in &mut sprite_q {
+        sprite.rect = Some(Rect::new(
+            r[0] as f32,
+            r[1] as f32,
+            (r[0] + r[2]) as f32,
+            (r[1] + r[3]) as f32,
+        ));
+        transform.translation.x = art.origin.0 as f32;
+        transform.translation.y = (layout_h - art.origin.1) as f32;
+        *visibility = Visibility::Inherited;
     }
 }

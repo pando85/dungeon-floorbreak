@@ -4,6 +4,8 @@
 
 CORRAL-F lists room 0 as the **first room** of `assets/levels/f01_late/manifest.json` at milestone `greybox` (the `corral` row moved from `unlisted_rooms` to `rooms[0]`; `unlisted_rooms` is now empty). A bare `--f01-run` starts in the corral, and its exit relaunches into the Hoarder. Out of scope and not run here: CORRAL-D (the partition), LLAMA-03 (rush art), AREA-HEAT-01.
 
+**Superseded in part by CORRAL-D ([`../corral-d/`](../corral-d/README.md)).** Everything below was captured before the partition existed. With the screen standing, B stops at the pen and the pilots' fights run later: the rush ticks quoted below (tell 742, commit 774, contact 791) and the capture and session hashes are the pre-CORRAL-D ones, and the `corral_rush` plan's first rush now bonks the screen on tick 673 instead of hitting Carl. `pilot_hashes.txt` and the unit-test pins are re-pinned; the stills, [`captures.txt`](captures.txt) and [`playtrace_sessions.txt`](playtrace_sessions.txt) stay as the record of that earlier head. MAG-09 and the breakage half of MAG-13 are covered by the CORRAL-D fixtures.
+
 Every run below is a scripted pilot or a fixture, never a human. Window runs are xvfb runs of the debug binary at `--scale 1` (the PLAYTRACE recordings with `--no-audio`; the captures with `scripts/room_capture.sh`'s own flags).
 
 ## Prerequisites from the #280 review
@@ -39,7 +41,7 @@ The 640x360 and 640x400 hashes differ from each other because the view height is
 | MAG-06 | PASS | `a_bolt_pressed_on_20_or_21_interrupts_the_tell_and_22_lands_in_the_commit`, `an_interrupted_tell_raises_both_cooldowns_to_30`, `a_lethal_hit_in_the_commit_downs_the_llama_in_place_with_no_contact`. In the recorded sessions the dock llama's spit tell is interrupted (`LlamaInterrupted` on 801) and the room still clears. |
 | MAG-07 | PASS | `corral_eval::tests::corral_auto_m2_heights_real_globs_and_rushes`, `a_floor_donut_is_never_spat_at_the_llama_walks_into_the_128_trigger_and_rushes`, `a_hopping_floor_donut_is_never_spat_at_and_a_tell_starts_only_on_a_grounded_tick`, `carl_on_the_floor_is_spat_at_and_not_rushed_beyond_the_trigger`. |
 | MAG-08 | PASS | `a_lane_end_outside_the_view_starts_no_tell`, `a_dormant_llama_holds_until_a_living_hero_is_within_320_then_wakes_and_rushes`, `the_solo_bias_makes_the_llama_target_the_controlled_donut`; `corral_route_m0_m3_every_pilot_reaches_the_exit` checks that both M2 llamas wake and attack. |
-| MAG-09 | NOT RUN | CORRAL-D (the partition) is out of scope; the CORRAL-AUTO partition variants stay `not_run`. |
+| MAG-09 | NOT RUN here; covered by CORRAL-D | Out of scope of CORRAL-F; the partition fixtures and the three CORRAL-AUTO partition variants are in [`../corral-d/`](../corral-d/README.md). |
 | MAG-10 | PASS | `corral_auto_press_edges_and_mana_accounting_close_on_every_run`; the report's "Mana accounting closes on every run" is `pass`. This PR changes no mana or cast value. |
 | MAG-11 | PASS (gate); margin open (OQ3) | The CORRAL-AUTO corral gate: KC19 decisive variant `pass` (2122 groups judged, 0 failing), CRL-Q35 invariant `pass`, KC19 with the reflex off `pass`. Diagnostic, not gated: 3204 of 12732 gated parked M2 runs defeat the llama of their own level (`layer_static_clear`, OQ3). |
 | MAG-12 | PASS (scripted); 2-pad run NOT RUN | `corral_route_m0_m3_every_pilot_reaches_the_exit` (solo Carl, solo Donut, two players, seeds 0..3) and the gate probe below (with the `cf02_free` companion); the report's mobile Donut, Carl melee and 2P co-op victories on M2 are `pass`. A real two-pad session is NOT RUN. |

@@ -13,7 +13,9 @@
 //! barriers and the ceiling slab are identical with and without it, and the
 //! state hash is equal on every tick. The goblin partition is **not** placed
 //! here (`HEAT-AD1`): its three frames are in the contract as a state group and
-//! CORRAL-D's presenter draws them. Spec: `docs/02-art/area-heat-01-spec.md`.
+//! CORRAL-D's presenter draws the frame of the prop's state
+//! ([`partition_piece`], [`partition_origin`]; the Bevy half is the scene's
+//! `corral_art`). Spec: `docs/02-art/area-heat-01-spec.md`.
 
 use std::path::Path;
 
@@ -30,6 +32,54 @@ pub const ROOM_ID: &str = "corral";
 /// The dressing block of room 0 in the heat contract.
 pub fn dressing(root: &Path) -> Result<Dressing, EnvError> {
     dressing_in(root, HEAT_CONTRACT, ROOM_ID)
+}
+
+/// CORRAL-D (`HEAT-AD1`): the three state frames of the goblin partition, in
+/// [`PartitionState`] order: intact, weakened (after one or two counted hero
+/// hits) and broken (the 16 px remnant). One 40 x 48 canvas each in the atlas
+/// `floor01_heat_partition`.
+pub const PARTITION_PIECES: [&str; 3] = [
+    "heat_partition_intact",
+    "heat_partition_weakened",
+    "heat_partition_broken",
+];
+
+/// The atlas image of the partition frames.
+pub const PARTITION_ATLAS: &str = "generated/art/floor01_heat_partition.png";
+
+/// `CD-AD1`: the canvas margin left of the solid core. The spec (section 6)
+/// draws the 16 x 48 solid in canvas columns 12..27, so the canvas's top-left is
+/// the prop's collider top-left minus this: (1392 - 12, 532) = (1380, 532).
+pub const PARTITION_MARGIN_X: i32 = 12;
+/// The canvas, and the solid core inside it (columns of the canvas).
+pub const PARTITION_CANVAS: (i32, i32) = (40, 48);
+pub const PARTITION_CORE: (i32, i32) = (12, 28);
+
+/// The frame piece of a partition state (presentation only).
+pub const fn partition_piece(state: crate::env_prop::PartitionState) -> &'static str {
+    PARTITION_PIECES[state as usize]
+}
+
+/// The canvas's top-left (layout px, y down) for the partition whose standing
+/// solid is `target`: the solid core of the art sits exactly on the collider.
+pub const fn partition_origin(target: RoomRect) -> (i32, i32) {
+    (target.x - PARTITION_MARGIN_X, target.y)
+}
+
+/// The atlas rectangle `[x, y, w, h]` of each state frame, from the heat
+/// contract (`PARTITION_PIECES` order).
+pub fn partition_atlas_rects(root: &Path) -> Result<[[i32; 4]; 3], String> {
+    let contract = load_contract(root, HEAT_CONTRACT).map_err(|e| e.to_string())?;
+    let mut out = [[0; 4]; 3];
+    for (slot, id) in out.iter_mut().zip(PARTITION_PIECES) {
+        let piece = contract
+            .pieces
+            .iter()
+            .find(|p| p.id == id)
+            .ok_or_else(|| format!("the heat contract has no piece {id}"))?;
+        *slot = piece.rect;
+    }
+    Ok(out)
 }
 
 /// The env kit of room 0: the room's composition with its own authored steps
@@ -344,6 +394,113 @@ mod tests {
     /// composed layout of room 0, plain and dressed, for
     /// `scripts/measure_heat01.py` (the Python lit renderer of the kit).
     ///
+    /// The partition's source grid: the three 40 x 48 frames side by side.
+    fn partition_rows() -> Vec<Vec<char>> {
+        let grid: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(
+                root().join("assets/source/props/floor01/heat_partition.grid.json"),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        grid["frames"][0]["cels"]["main"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|r| r.as_str().unwrap().chars().collect())
+            .collect()
+    }
+
+    /// `CD-AD1`: the art's solid core sits on the collider. The sidecar's partition
+    /// solid is x 1392..1408; the canvas is 40 px wide with the core in columns
+    /// 12..27 (spec section 6), so the canvas's top-left is the collider's minus
+    /// the 12 px margin: (1380, 532), where `HEAT-AD1` says the frames swap. The
+    /// margin (rope tails, straw, debris, the sill) is visual only.
+    #[test]
+    fn the_partition_art_core_sits_exactly_on_the_collider() {
+        let run = crate::f01_corral::launch(root()).unwrap();
+        let prop = run
+            .loaded
+            .encounter
+            .props
+            .iter()
+            .find(|p| p.kind == crate::encounter::PropKind::Partition)
+            .expect("the corral sidecar has its partition");
+        let target = prop.target;
+        assert_eq!((target.x, target.w, target.h), (1392, 16, 48));
+        assert_eq!(target.bottom(), run.loaded.room.floor_y);
+        assert_eq!(partition_origin(target), (1380, 532));
+        let rows = partition_rows();
+        assert_eq!(rows.len(), PARTITION_CANVAS.1 as usize);
+        let (core_l, core_r) = (PARTITION_CORE.0 as usize, PARTITION_CORE.1 as usize);
+        assert_eq!(core_r - core_l, target.w as usize, "16 core columns");
+        let opaque = |state: usize, row: usize, col: usize| {
+            rows[row][state * PARTITION_CANVAS.0 as usize + col] != '.'
+        };
+        for state in 0..2 {
+            // The standing screen: its cap row is the core exactly, and every row
+            // of the 48 px has core pixels (no gap in the drawn screen).
+            let cap: Vec<usize> = (0..PARTITION_CANVAS.0 as usize)
+                .filter(|&c| opaque(state, 0, c))
+                .collect();
+            assert_eq!(
+                (cap.first().copied(), cap.last().copied()),
+                (Some(core_l), Some(core_r - 1)),
+                "state {state}: the cap is the collider's 16 columns"
+            );
+            for row in 0..48 {
+                assert!(
+                    (core_l..core_r).any(|c| opaque(state, row, c)),
+                    "state {state} row {row}: core pixels"
+                );
+            }
+        }
+        // The broken frame: the remnant's flat top is canvas row 32, i.e. y 564 =
+        // the sidecar remnant's top, across the whole core (HEAT-AD3).
+        let remnant = prop.remnant.expect("a partition has its remnant");
+        assert_eq!(remnant.y, partition_origin(target).1 + 32, "HEAT-AD3");
+        assert!(
+            (core_l..core_r).all(|c| opaque(2, 32, c)),
+            "the flat top spans the core"
+        );
+        for row in 0..29 {
+            assert!(
+                (0..PARTITION_CANVAS.0 as usize).all(|c| !opaque(2, row, c)),
+                "broken row {row}: nothing above the splinters"
+            );
+        }
+    }
+
+    /// The three state frames come from the contract in state order and the
+    /// presenter's frame is a pure function of the prop's state.
+    #[test]
+    fn the_partition_frames_follow_the_prop_state() {
+        use crate::env_prop::PartitionState::{Broken, Intact, Weakened};
+        assert_eq!(partition_piece(Intact), "heat_partition_intact");
+        assert_eq!(partition_piece(Weakened), "heat_partition_weakened");
+        assert_eq!(partition_piece(Broken), "heat_partition_broken");
+        let rects = partition_atlas_rects(root()).unwrap();
+        assert_eq!(
+            rects,
+            [[0, 0, 40, 48], [40, 0, 40, 48], [80, 0, 40, 48]],
+            "one 40 x 48 canvas per state, side by side"
+        );
+    }
+
+    /// The presenter adds nothing to the simulation: the partition is not a kit
+    /// piece of the room, and the dressed and plain launch keep the same prop
+    /// state, solids and hash (the dressing never touched it, `HEAT-AD1`).
+    #[test]
+    fn the_dressing_still_does_not_place_the_partition() {
+        let (_, dressed) = kits();
+        assert!(
+            dressed
+                .pieces
+                .iter()
+                .all(|p| !p.piece.starts_with("heat_partition"))
+        );
+    }
+
     /// `HEAT_LAYOUT_DIR=<dir> cargo test --lib -- --ignored dump_heat_layouts`
     #[test]
     #[ignore = "evidence helper: writes the composed layouts for the Python measurements"]

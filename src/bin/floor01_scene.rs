@@ -1839,10 +1839,12 @@ fn parse_args_full(
         // CORRAL-F: the corral's pilots play room 0, and room 0 takes only its own pilots.
         let corral_plan = matches!(
             pilot.plan,
-            room_pilots::Plan::Corral | room_pilots::Plan::CorralRush
+            room_pilots::Plan::Corral
+                | room_pilots::Plan::CorralRush
+                | room_pilots::Plan::CorralPartition
         );
         if corral_plan != parsed.f01_corral {
-            return Err("--room-pilot corral and corral_rush need the corral (--f01-room corral), and the corral takes only its own plans".into());
+            return Err("--room-pilot corral, corral_rush and corral_partition need the corral (--f01-room corral), and the corral takes only its own plans".into());
         }
         // DR-A: the `dozer:*` plans play room 3, and room 3 takes only them.
         if pilot.plan.is_dozer() != parsed.f01_dozer {
@@ -1923,6 +1925,7 @@ fn parse_args_full(
                     | room_pilots::Plan::Boiler
                     | room_pilots::Plan::Corral
                     | room_pilots::Plan::CorralRush
+                    | room_pilots::Plan::CorralPartition
             ) {
                 match parsed.cf02.seed {
                     Some(seed) if seed != aligned.seed => {
@@ -4393,6 +4396,7 @@ fn run_window(
                 room_exit_art::sync_room_exit,
                 gym_art::sync_gym_art,
                 corral_art::sync_corral_art,
+                corral_art::sync_partition_art,
             )
                 .chain(),
             update_lighting,
@@ -5048,6 +5052,27 @@ fn setup(
             kit.foreground_z,
             layers_of("prop"),
             layers_of("foreground"),
+        );
+    }
+
+    // CORRAL-D (`HEAT-AD1`): room 0's breakable partition, the frame of the prop's state
+    // from the heat atlas (above the dressing's props, below the actors). Presentation only.
+    if let Some(run) = args.corral_run.as_ref()
+        && let Some((_, texture)) = handles.iter().find(|(n, _)| n == "floor01_heat_partition")
+    {
+        let z = kit
+            .pieces
+            .iter()
+            .filter(|p| p.layer == "prop")
+            .map(|p| p.z)
+            .fold(kit.actor_z - 1.0, f32::max)
+            + 0.001;
+        corral_art::spawn_partition(
+            &mut commands,
+            &texture.clone(),
+            &run.loaded.encounter,
+            z.min(kit.actor_z - 0.01),
+            layers_of("prop"),
         );
     }
 

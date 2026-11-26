@@ -2110,6 +2110,205 @@ impl Slide {
 }
 
 // ---------------------------------------------------------------------------
+// CORRAL-D: the breakable partition.
+// ---------------------------------------------------------------------------
+
+/// CRL-Q30: three distinct physical hero hits break the partition.
+pub const PARTITION_BREAK_HITS: u8 = 3;
+/// The most hits a partition may ask (the hit tokens are kept in a list).
+pub const PARTITION_MAX_BREAK_HITS: u8 = 8;
+/// CD-AD3: the slowest enemy shove that breaks the partition (px/s). The rush
+/// is 240 px/s, so a rush contact always breaks it; the 160 px/s floor is the
+/// other props' launch and shove threshold (BOILC-AD2).
+pub const PARTITION_SHOVE_MIN_IMPULSE_PX_S: u16 = 160;
+
+/// The partition's tunables (the sidecar's `partition` object).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PartitionConfig {
+    /// Distinct physical hero hits (one per move instance) that break it.
+    pub break_hits: u8,
+    /// The slowest enemy shove (the llama's rush) that breaks it at once.
+    pub shove_min_impulse_px_s: u16,
+}
+
+impl PartitionConfig {
+    pub const DEFAULT: Self = Self {
+        break_hits: PARTITION_BREAK_HITS,
+        shove_min_impulse_px_s: PARTITION_SHOVE_MIN_IMPULSE_PX_S,
+    };
+
+    pub fn validate(&self) -> Result<(), String> {
+        if !(2..=PARTITION_MAX_BREAK_HITS).contains(&self.break_hits) {
+            return Err(format!(
+                "break_hits must be 2..={PARTITION_MAX_BREAK_HITS} (a hit that breaks at once is a shove)"
+            ));
+        }
+        if self.shove_min_impulse_px_s == 0 {
+            return Err("shove_min_impulse_px_s must be above 0".into());
+        }
+        Ok(())
+    }
+}
+
+impl Default for PartitionConfig {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
+/// The partition's states: `Intact` (no counted hit), `Weakened` (one or two
+/// counted hits, still standing) and `Broken` (its 16 px remnant stands).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PartitionState {
+    Intact,
+    Weakened,
+    Broken,
+}
+
+impl PartitionState {
+    const fn code(self) -> u64 {
+        self as u64
+    }
+}
+
+/// CORRAL-D: the rotten timber screen across the corral's lane (sheet
+/// `enemy-gameplay-llama-rush.md` section 10, CRL-Q30, DV-9).
+///
+/// * a **melee hit** of a distinct move instance counts one (the per-move
+///   weight is not read: three *distinct* hits, CD-AD2); the third breaks it;
+/// * an enemy **shove** at or above the threshold (a rush contact) breaks it at
+///   once, on the tick of the contact;
+/// * a projectile (Magic Missile), a launched body, a blast and a prop contact
+///   are `NotAccepted`: nothing but a body hit or a rush damages it (DV-9).
+///
+/// A broken partition stays broken for the attempt (`reset` restores it).
+#[derive(Debug, Clone)]
+pub struct Partition {
+    cfg: PartitionConfig,
+    state: PartitionState,
+    hits: u8,
+    tokens: Vec<u32>,
+    /// Set on the offer that broke it, taken by the step that applies the
+    /// remnant-lift rule (the same tick).
+    just_broken: bool,
+    initiator: Option<u32>,
+}
+
+impl Partition {
+    pub fn new(cfg: PartitionConfig) -> Result<Self, String> {
+        cfg.validate()?;
+        Ok(Self {
+            cfg,
+            state: PartitionState::Intact,
+            hits: 0,
+            tokens: Vec::new(),
+            just_broken: false,
+            initiator: None,
+        })
+    }
+
+    pub fn config(&self) -> &PartitionConfig {
+        &self.cfg
+    }
+    pub fn state(&self) -> PartitionState {
+        self.state
+    }
+    /// Counted hits so far (0 once restored).
+    pub fn hits(&self) -> u8 {
+        self.hits
+    }
+    pub fn is_standing(&self) -> bool {
+        self.state != PartitionState::Broken
+    }
+    pub fn is_broken(&self) -> bool {
+        self.state == PartitionState::Broken
+    }
+    /// The player credited with the break, if any.
+    pub fn initiator(&self) -> Option<u32> {
+        self.initiator
+    }
+    pub fn reset(&mut self) {
+        *self = Self::new(self.cfg).expect("a built partition has a valid config");
+    }
+
+    /// Setup only (the CORRAL-AUTO `broken` variant): the partition as authored
+    /// pre-broken. Never called mid-run.
+    pub fn set_broken_for_setup(&mut self) {
+        self.state = PartitionState::Broken;
+        self.hits = self.cfg.break_hits;
+        self.just_broken = false;
+    }
+
+    /// Whether the last offer broke it and the remnant lift is still due; the
+    /// flag clears.
+    pub fn take_just_broken(&mut self) -> bool {
+        std::mem::take(&mut self.just_broken)
+    }
+
+    pub fn offer(&mut self, stimulus: Stimulus) -> Offer {
+        if self.state == PartitionState::Broken {
+            return Offer::Ignored(Ignored::AlreadyActivated);
+        }
+        match stimulus {
+            Stimulus::MeleeHit { token, player, .. } => {
+                if self.tokens.contains(&token) {
+                    return Offer::Ignored(Ignored::Duplicate);
+                }
+                self.tokens.push(token);
+                self.hits += 1;
+                if self.hits >= self.cfg.break_hits {
+                    self.broken_by(Some(player))
+                } else {
+                    self.state = PartitionState::Weakened;
+                    Offer::Progress {
+                        progress: self.hits,
+                    }
+                }
+            }
+            Stimulus::Shove {
+                impulse_px_s,
+                credit,
+                ..
+            } => {
+                if impulse_px_s < self.cfg.shove_min_impulse_px_s {
+                    return Offer::Ignored(Ignored::ShoveTooWeak);
+                }
+                self.broken_by(credit)
+            }
+            Stimulus::PropContact { depth, .. } => {
+                if depth >= MAX_CHAIN_DEPTH {
+                    return Offer::Ignored(Ignored::ChainTooDeep);
+                }
+                Offer::Ignored(Ignored::NotAccepted)
+            }
+            Stimulus::Projectile { .. }
+            | Stimulus::LaunchedBody { .. }
+            | Stimulus::Blast { .. } => Offer::Ignored(Ignored::NotAccepted),
+        }
+    }
+
+    fn broken_by(&mut self, initiator: Option<u32>) -> Offer {
+        self.state = PartitionState::Broken;
+        self.just_broken = true;
+        self.initiator = initiator;
+        Offer::Triggered {
+            initiator,
+            depth: 0,
+        }
+    }
+
+    pub fn mix_into(&self, mix: &mut impl FnMut(u64)) {
+        mix(self.state.code());
+        mix(u64::from(self.hits));
+        mix(self.initiator.map_or(0, |p| u64::from(p) + 1));
+        mix(self.tokens.len() as u64);
+        for t in &self.tokens {
+            mix(u64::from(*t));
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // BOIL-D: the fuel drum and the prop link graph.
 // ---------------------------------------------------------------------------
 
@@ -5074,5 +5273,179 @@ mod drum_link_tests {
             v.offer(LinkGraph::contact(0, None, MAX_CHAIN_DEPTH - 1)),
             Offer::Ignored(Ignored::ChainTooDeep)
         );
+    }
+}
+
+#[cfg(test)]
+mod partition_tests {
+    use super::*;
+
+    fn melee(token: u32) -> Stimulus {
+        Stimulus::MeleeHit {
+            token,
+            player: 0,
+            weight: 1,
+        }
+    }
+
+    fn shove(id: u32, speed: u16) -> Stimulus {
+        Stimulus::Shove {
+            shove_id: id,
+            impulse_px_s: speed,
+            source: 7,
+            credit: None,
+        }
+    }
+
+    fn partition() -> Partition {
+        Partition::new(PartitionConfig::DEFAULT).unwrap()
+    }
+
+    /// CRL-Q30: three distinct physical hits break it; the first two weaken it.
+    #[test]
+    fn three_distinct_hits_break_it_and_the_first_two_weaken_it() {
+        let mut p = partition();
+        assert_eq!(p.state(), PartitionState::Intact);
+        assert_eq!(p.offer(melee(1)), Offer::Progress { progress: 1 });
+        assert_eq!(p.state(), PartitionState::Weakened);
+        assert_eq!(p.offer(melee(2)), Offer::Progress { progress: 2 });
+        assert_eq!(p.state(), PartitionState::Weakened);
+        assert!(p.is_standing());
+        assert_eq!(
+            p.offer(melee(3)),
+            Offer::Triggered {
+                initiator: Some(0),
+                depth: 0
+            }
+        );
+        assert_eq!(p.state(), PartitionState::Broken);
+        assert!(p.is_broken() && !p.is_standing());
+        assert!(p.take_just_broken(), "the remnant lift is due once");
+        assert!(!p.take_just_broken());
+        // A broken partition counts nothing more.
+        assert_eq!(p.offer(melee(4)), Offer::Ignored(Ignored::AlreadyActivated));
+        assert_eq!(p.hits(), 3);
+    }
+
+    /// One move instance counts once, however many ticks its box overlaps.
+    #[test]
+    fn one_move_instance_counts_once() {
+        let mut p = partition();
+        assert_eq!(p.offer(melee(9)), Offer::Progress { progress: 1 });
+        for _ in 0..5 {
+            assert_eq!(p.offer(melee(9)), Offer::Ignored(Ignored::Duplicate));
+        }
+        assert_eq!(p.hits(), 1);
+        // The per-move weight is not read: a heavy move is still one hit (CD-AD2).
+        let heavy = Stimulus::MeleeHit {
+            token: 10,
+            player: 0,
+            weight: 2,
+        };
+        assert_eq!(p.offer(heavy), Offer::Progress { progress: 2 });
+    }
+
+    /// A rush contact breaks it at once; a slower shove does not.
+    #[test]
+    fn a_rush_shove_breaks_it_at_once_and_a_weak_one_does_not() {
+        let mut p = partition();
+        assert_eq!(
+            p.offer(shove(1, PARTITION_SHOVE_MIN_IMPULSE_PX_S - 1)),
+            Offer::Ignored(Ignored::ShoveTooWeak)
+        );
+        assert_eq!(p.state(), PartitionState::Intact);
+        assert!(!p.take_just_broken());
+        assert_eq!(
+            p.offer(shove(2, 240)),
+            Offer::Triggered {
+                initiator: None,
+                depth: 0
+            }
+        );
+        assert_eq!(p.state(), PartitionState::Broken);
+        assert!(p.take_just_broken());
+    }
+
+    /// DV-9: a missile, a launched body, a blast and a prop contact do nothing.
+    #[test]
+    fn nothing_but_a_body_hit_or_a_rush_damages_it() {
+        let mut p = partition();
+        for stimulus in [
+            Stimulus::Projectile {
+                projectile_id: 1,
+                owner: Some(1),
+                weight: 9,
+            },
+            Stimulus::LaunchedBody {
+                launch_id: 1,
+                impulse_px_s: 900,
+                initiator: None,
+            },
+            Stimulus::Blast {
+                blast_id: 1,
+                owner: None,
+                depth: 0,
+            },
+            Stimulus::PropContact {
+                source: 0,
+                initiator: None,
+                depth: 1,
+            },
+        ] {
+            assert_eq!(p.offer(stimulus), Offer::Ignored(Ignored::NotAccepted));
+        }
+        assert_eq!(
+            p.offer(Stimulus::PropContact {
+                source: 0,
+                initiator: None,
+                depth: MAX_CHAIN_DEPTH
+            }),
+            Offer::Ignored(Ignored::ChainTooDeep)
+        );
+        assert_eq!((p.state(), p.hits()), (PartitionState::Intact, 0));
+    }
+
+    #[test]
+    fn reset_restores_it_and_the_hash_follows_the_state() {
+        let hash = |p: &Partition| {
+            let mut h = 0u64;
+            p.mix_into(&mut |v| h = h.rotate_left(7) ^ v.wrapping_mul(0x9e37_79b9_7f4a_7c15));
+            h
+        };
+        let fresh = partition();
+        let mut p = partition();
+        p.offer(melee(1));
+        assert_ne!(hash(&p), hash(&fresh));
+        p.offer(shove(1, 240));
+        assert_ne!(hash(&p), hash(&fresh));
+        p.reset();
+        assert_eq!(hash(&p), hash(&fresh));
+        assert_eq!(p.state(), PartitionState::Intact);
+        // The setup write: authored pre-broken.
+        p.set_broken_for_setup();
+        assert!(p.is_broken());
+        assert!(!p.take_just_broken(), "a setup break lifts nobody");
+    }
+
+    #[test]
+    fn the_config_is_bounded() {
+        for bad in [
+            PartitionConfig {
+                break_hits: 1,
+                ..PartitionConfig::DEFAULT
+            },
+            PartitionConfig {
+                break_hits: PARTITION_MAX_BREAK_HITS + 1,
+                ..PartitionConfig::DEFAULT
+            },
+            PartitionConfig {
+                shove_min_impulse_px_s: 0,
+                ..PartitionConfig::DEFAULT
+            },
+        ] {
+            assert!(Partition::new(bad).is_err(), "{bad:?}");
+        }
+        assert!(PartitionConfig::DEFAULT.validate().is_ok());
+        assert_eq!(PartitionConfig::DEFAULT.break_hits, 3);
     }
 }

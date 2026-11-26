@@ -24,6 +24,10 @@
 //!   [`room::WIRED_NAME`] through the existing name hook (KC15), so the room and
 //!   the CORRAL-C gate read one definition. [`launch`] refuses a sidecar whose
 //!   llamas are not at the columns that definition is authored for;
+//! * **the partition** (CORRAL-D, `pen_partition`): the sidecar's one prop, the optional
+//!   rush-breakable timber screen at 1392..1408 (sheet section 10). It runs through the env
+//!   runtime ([`env_runtime`] builds it from the sidecar like any prop) and is on in every launch
+//!   of the room, `--f01-run` included;
 //! * **the M3 gate** (CRL-Q26, DV-3): a full-height solid at 2048..2064 that
 //!   stands until **both** M2 llamas are defeated and opens on the second defeat
 //!   tick (an [`crate::combat_scene::EnvSolidKind::ExitGate`] that waits on the
@@ -64,7 +68,7 @@ pub const ROOM_PATH: &str = room::ROOM_PATH;
 /// FNV-1a 64 of the room file and of the sidecar (the Boiler's precedent: the
 /// files live under `assets/levels`, so the hashes are constants).
 pub const ROOM_HASH: u64 = 0x5ccf_c53b_8eee_3702;
-pub const ENCOUNTER_HASH: u64 = 0x7161_1549_3c07_e42f;
+pub const ENCOUNTER_HASH: u64 = 0xc642_7d89_07c3_b8a7;
 /// The `data_pins()` keys, scoped to the `corral` room.
 pub const ROOM_PIN_KEY: &str = "f01_corral_room";
 pub const ENCOUNTER_PIN_KEY: &str = "f01_corral_encounter";
@@ -121,7 +125,7 @@ pub fn m3_gate_rect(floor_y: i32, ceiling: i32) -> IRect {
     IRect::new(M3_GATE_X, floor_y - ceiling, M3_GATE_W, ceiling)
 }
 
-/// The env runtime of a launched room: no prop, the goblins' wake gates and,
+/// The env runtime of a launched room: the sidecar's partition prop, the goblins' wake gates and,
 /// with the switch on, the M3 gate on the M2 llamas.
 pub fn env_runtime(run: &CorralRun) -> Result<EnvRuntime, String> {
     let env = EnvRuntime::new(&run.loaded.encounter)?
@@ -343,7 +347,7 @@ pub fn entry_line(run: &CorralRun) -> String {
     format!(
         "{MARKER}_ENTRY room={} encounter={} pin={} spawn_carl={} spawn_donut={} \
          checkpoints={:?} goal={:?} roster={} goblins={} llamas={} m3_gate={} listed=true \
-         env=live room_hash={:#018x} sidecar_hash={:#018x}",
+         partition={} env=live room_hash={:#018x} sidecar_hash={:#018x}",
         e.room_id,
         e.id,
         e.story_pin,
@@ -358,6 +362,18 @@ pub fn entry_line(run: &CorralRun) -> String {
             let llamas: Vec<String> = l.iter().map(|i| i.to_string()).collect();
             format!("{}..{}_on_llamas_{}", r.x, r.right(), llamas.join("+"))
         }),
+        // CORRAL-D: the optional rush-breakable partition (`off` for a sidecar without it).
+        run.loaded
+            .encounter
+            .props
+            .iter()
+            .find(|p| p.kind == crate::encounter::PropKind::Partition)
+            .map_or("off".to_owned(), |p| format!(
+                "{}..{}_{}px",
+                p.target.x,
+                p.target.right(),
+                p.target.h
+            )),
         run.loaded.room_hash,
         run.loaded.sidecar_hash,
     )

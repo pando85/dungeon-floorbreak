@@ -1870,6 +1870,9 @@ pub enum PropPhase {
     Landed,
     /// BOIL-D: a fuel drum's blast went off (its tell is a `Warning`).
     Detonated,
+    /// CORRAL-D: the corral's partition broke (a rush contact or the third hero
+    /// hit): its remnant stands.
+    Broken,
 }
 
 impl PropPhase {
@@ -1882,6 +1885,7 @@ impl PropPhase {
             Self::Falling => "falling",
             Self::Landed => "landed",
             Self::Detonated => "detonated",
+            Self::Broken => "broken",
         }
     }
 }

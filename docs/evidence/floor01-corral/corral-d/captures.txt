@@ -1,0 +1,10 @@
+# CORRAL-D native captures (xvfb, debug build, --scale 1): scripts/room_capture.sh corral PLAN FIRST:STEP:COUNT OUTDIR [--deck]
+# window_hash is the last COMBAT_STATE of the window run, headless_hash the --headless-floor01-smoke run to the same tick
+== states-360 (plan corral_partition: intact 640, weakened 660 (first jab counted on 652), broken 680 (B's rush bonks the screen on 673))
+ROOM_CAPTURE room=corral plan=corral_partition frames=3 first_tick=640 step=20 last_tick=680 window_hash=695ec7bb8d87d29e headless_hash=695ec7bb8d87d29e timed_hash=skipped match=yes
+== states-400
+ROOM_CAPTURE room=corral plan=corral_partition frames=3 first_tick=640 step=20 last_tick=680 window_hash=ee87d18930055c68 headless_hash=ee87d18930055c68 timed_hash=skipped match=yes
+== seq-360 (weakened to broken, every 2nd tick 646..688)
+ROOM_CAPTURE room=corral plan=corral_partition frames=22 first_tick=646 step=2 last_tick=688 window_hash=ef6f45866d409610 headless_hash=ef6f45866d409610 timed_hash=skipped match=yes
+== seq-400
+ROOM_CAPTURE room=corral plan=corral_partition frames=22 first_tick=646 step=2 last_tick=688 window_hash=699f3f5d01359b88 headless_hash=699f3f5d01359b88 timed_hash=skipped match=yes

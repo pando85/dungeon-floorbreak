@@ -112,6 +112,13 @@ pub enum Plan {
     /// it never fights B or A. Only valid in the corral, solo; its partner is the
     /// follow-and-jump bot (it never attacks, so B lives to rush: [`corral_rush_tuning`]).
     CorralRush,
+    /// CORRAL-D: the partition's three states in the run. Carl clears M0 and M1 with the corral
+    /// pilot, walks to [`CORRAL_PARTITION_HIT_X`], the face of the screen, and jabs it every
+    /// [`CORRAL_PARTITION_JAB_TICKS`] ticks: the screen stands, is weakened by the first hit, and
+    /// B's rush (or the third jab) breaks it. An evidence plan, not a clear (it never fights B or
+    /// A); its partner is the follow-and-jump bot ([`corral_rush_tuning`]). Only valid in the
+    /// corral, solo.
+    CorralPartition,
     /// DR-A (room 3): run to the exit (`dozer:run`). Only valid in the Dozer's room, solo.
     DozerRun,
     /// DR-A (room 3): hold at [`crate::dozer_fixtures::HOLD_X`] until the wheel is
@@ -145,6 +152,14 @@ pub enum Plan {
 /// (the column of `a_parked_carl_inside_b_trigger_is_rushed_by_b`).
 pub const CORRAL_PARK_X: f32 = (crate::corral_fixtures::room::B_X - 112) as f32;
 
+/// Where [`Plan::CorralPartition`] walks to: Carl's 20 px body ends against the screen's left face
+/// (1392) at 1382, so his jab reaches it (he stops within the walk deadzone of it, at 1378 or later).
+pub const CORRAL_PARTITION_HIT_X: f32 = 1382.0;
+/// Past this column (the entry shelf ends at 1216) [`Plan::CorralPartition`] no longer hops.
+pub const CORRAL_PARTITION_NO_HOP_X: f32 = 1300.0;
+/// The ticks between two jabs of [`Plan::CorralPartition`].
+pub const CORRAL_PARTITION_JAB_TICKS: u64 = 24;
+
 impl Plan {
     pub const fn name(self) -> &'static str {
         match self {
@@ -160,6 +175,7 @@ impl Plan {
             Self::Hoarder => "hoarder",
             Self::Corral => "corral",
             Self::CorralRush => "corral_rush",
+            Self::CorralPartition => "corral_partition",
             Self::DozerRun => "dozer:run",
             Self::DozerCloseCall => "dozer:close_call",
             Self::DozerWait => "dozer:wait",
@@ -400,6 +416,7 @@ impl RoomPilot {
             "hoarder" => Plan::Hoarder,
             "corral" => Plan::Corral,
             "corral_rush" => Plan::CorralRush,
+            "corral_partition" => Plan::CorralPartition,
             "hazards" | "boiler" => {
                 return Err(format!(
                     "--room-pilot {plan} is an aligned plan: {plan}:WHO:{}SEED",
@@ -408,7 +425,7 @@ impl RoomPilot {
             }
             other => {
                 return Err(format!(
-                    "unknown --room-pilot plan {other:?} (expected direct, valve, chain, mastery, juicer, hoarder, corral, corral_rush, haz_spectacular or haz_tactical, optionally :2p, or mastery|juicer|hazards|corral:WHO:SEED, hoarder:carl_solo:SEED, or boiler:WHO:direct|both:SEED)"
+                    "unknown --room-pilot plan {other:?} (expected direct, valve, chain, mastery, juicer, hoarder, corral, corral_rush, corral_partition, haz_spectacular or haz_tactical, optionally :2p, or mastery|juicer|hazards|corral:WHO:SEED, hoarder:carl_solo:SEED, or boiler:WHO:direct|both:SEED)"
                 ));
             }
         };
@@ -421,7 +438,11 @@ impl RoomPilot {
                 ));
             }
         };
-        if matches!(plan, Plan::Hoarder | Plan::Corral | Plan::CorralRush) && two_player {
+        if matches!(
+            plan,
+            Plan::Hoarder | Plan::Corral | Plan::CorralRush | Plan::CorralPartition
+        ) && two_player
+        {
             return Err(format!(
                 "--room-pilot {} is a solo plan (no :2p)",
                 plan.name()
@@ -488,7 +509,7 @@ impl RoomPilot {
             }
             Plan::Boiler => unreachable!("the live Boiler pilot is aligned only (aligned_inputs)"),
             Plan::Hoarder => unreachable!("the Hoarder's pilot is aligned only (aligned_inputs)"),
-            Plan::Corral | Plan::CorralRush => {
+            Plan::Corral | Plan::CorralRush | Plan::CorralPartition => {
                 unreachable!("the corral's pilots are aligned only (aligned_inputs)")
             }
             Plan::DozerRun | Plan::DozerCloseCall | Plan::DozerWait => {
@@ -511,7 +532,7 @@ impl RoomPilot {
 const fn plain_aligned(plan: Plan) -> bool {
     matches!(
         plan,
-        Plan::Mastery | Plan::Hoarder | Plan::Corral | Plan::CorralRush
+        Plan::Mastery | Plan::Hoarder | Plan::Corral | Plan::CorralRush | Plan::CorralPartition
     )
 }
 
@@ -566,7 +587,7 @@ pub fn aligned_tuning(plan: Plan, who: AlignedWho) -> PartyTuning {
         Plan::Hoarder => crate::hoarder_fixtures::room_party_tuning(),
         // CORRAL-F: the corral fixture's party; the rush plan's partner never attacks.
         Plan::Corral => corral_who(who).tuning(),
-        Plan::CorralRush => corral_rush_tuning(),
+        Plan::CorralRush | Plan::CorralPartition => corral_rush_tuning(),
         _ => crate::f01_mastery_fixtures::tuning(who.mastery()),
     }
 }
@@ -635,12 +656,17 @@ impl RoomPilot {
             };
             return [input, RawInput::NONE];
         }
-        if matches!(self.plan, Plan::Corral | Plan::CorralRush) {
+        if matches!(
+            self.plan,
+            Plan::Corral | Plan::CorralRush | Plan::CorralPartition
+        ) {
             // CORRAL-F: the corral fixture's run (`f01_corral_fixtures::run`), tick for tick.
             use crate::f01_corral_fixtures as corral;
             let route = corral::Route::with_exit(exit_x);
             let mut input = if self.plan == Plan::CorralRush {
                 corral_rush(&route, combat, sim, controlled)
+            } else if self.plan == Plan::CorralPartition {
+                corral_partition(&route, combat, sim, controlled)
             } else {
                 corral::pilot(&route, combat, sim, controlled)
             };
@@ -726,6 +752,42 @@ fn corral_rush(
         raw
     } else {
         RawInput::NONE
+    }
+}
+
+/// CORRAL-D: [`Plan::CorralPartition`]: the corral pilot while M0's goblins or the M1 llama live,
+/// then the walk to [`CORRAL_PARTITION_HIT_X`] (no hop over the screen) and a jab every
+/// [`CORRAL_PARTITION_JAB_TICKS`] ticks (one press per move instance: each jab is one counted hit).
+fn corral_partition(
+    route: &crate::f01_corral_fixtures::Route,
+    combat: &CombatState,
+    sim: &SceneSim,
+    hero: HeroId,
+) -> RawInput {
+    let m1 = combat
+        .llamas
+        .iter()
+        .any(|l| l.alive() && l.corral.is_none());
+    let goblins = combat.enemies.iter().any(|g| g.alive());
+    if m1 || goblins {
+        return crate::f01_corral_fixtures::pilot(route, combat, sim, hero);
+    }
+    let x = sim.world.body(hero).x;
+    if x < CORRAL_PARTITION_HIT_X - WALK_DEADZONE {
+        // Walk up to the face (hopping the entry shelf on the way); past the shelf never
+        // hop: the screen is what this plan is about.
+        let mut raw = walk_to(sim, CORRAL_PARTITION_HIT_X);
+        raw.attack = false;
+        raw.ability = false;
+        if x > CORRAL_PARTITION_NO_HOP_X {
+            raw.jump = false;
+        }
+        raw
+    } else {
+        RawInput {
+            attack: sim.world.tick.is_multiple_of(CORRAL_PARTITION_JAB_TICKS),
+            ..RawInput::NONE
+        }
     }
 }
 
@@ -2072,7 +2134,8 @@ mod tests {
     fn the_corral_rush_plan_parks_carl_and_b_rushes_him_in_the_room() {
         use crate::combat::CombatEvent;
         let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        // The first rush (tell 742, commit 774, contact 791) lands before Carl's first defeat.
+        // CORRAL-D: the first rush (tell 634, commit 666) ends on the intact partition between
+        // them (tick 673), which breaks; the next one reaches Carl. Nobody is defeated by 800.
         let (_, _, combat) = replay_corral(&root, "corral_rush", 800);
         let commits: Vec<u32> = combat
             .events
@@ -2098,10 +2161,12 @@ mod tests {
         assert!(combat.llamas[1].alive(), "the plan never fights B");
     }
 
-    /// LLAMA-03 (B5): in the launched corral room the `corral_rush` plan's first rush draws, at the standard
-    /// 112 px trigger, the tick map's frames: the tell starts on 742 (`brace_in`), 750 is a scrape beat, the
-    /// commit tick 774 draws the push (the commit tick already has `active` 1), 790 the reach, and the contact
-    /// tick 791 already draws the skid (recover elapsed 0). It reads the finished state only.
+    /// LLAMA-03 (B5), CORRAL-D: in the launched corral room the `corral_rush` plan's first rush draws, at the
+    /// 52 px column Carl is parked on (112 px left of B, with the intact partition between them), the tick map's
+    /// frames: the tell starts on 634 (`brace_in`), 642 is a scrape beat, the commit tick 666 draws the push, 668
+    /// the reach, and the box meets the partition on 673: the bonk tick draws the LLAMA-01 hurt frame (bonk elapsed
+    /// 0) while the partition breaks on that same tick, and 685 (elapsed 12) the blown stand. Before CORRAL-D the
+    /// tell started on 742 (B walked up to the 112 px trigger) and the rush reached Carl and drew the skid on 791. It reads the finished state only.
     #[test]
     fn the_corral_rush_plan_draws_the_llama_rush_tick_map() {
         use crate::combat_anim::llama_rush_pose::{RushFrame, llama_rush_frame};
@@ -2111,17 +2176,55 @@ mod tests {
             drawn.insert(tick, llama_rush_frame(&combat.llamas[1]));
         });
         for (tick, want) in [
-            (742, RushFrame::Rush(0)),
-            (750, RushFrame::Rush(2)),
-            (774, RushFrame::Rush(6)),
-            (790, RushFrame::Rush(7)),
-            (791, RushFrame::Rush(8)),
+            (634, RushFrame::Rush(0)),
+            (642, RushFrame::Rush(2)),
+            (666, RushFrame::Rush(6)),
+            (668, RushFrame::Rush(7)),
+            (673, RushFrame::Base(11)),
+            (684, RushFrame::Base(11)),
+            (685, RushFrame::Rush(9)),
         ] {
             assert_eq!(drawn[&tick], Some(want), "tick {tick}");
         }
         assert_eq!(
-            drawn[&741], None,
+            drawn[&633], None,
             "before the tell the llama is not in a rush"
+        );
+    }
+
+    /// CORRAL-D: the `corral_partition` plan parses like the other corral plans and shows the
+    /// partition in all three states in the launched room: it stands, Carl's first jab weakens it
+    /// and the rush of B breaks it on 673, each state long enough for a capture at 1x to see it.
+    #[test]
+    fn the_corral_partition_plan_shows_the_screen_standing_weakened_and_broken() {
+        use crate::env_prop::PartitionState;
+        let plan = RoomPilot::parse("corral_partition").unwrap();
+        assert_eq!(plan.plan, Plan::CorralPartition);
+        assert_eq!(plan.label(), "corral_partition");
+        assert_eq!(plan.tuning(), Some(corral_rush_tuning()));
+        assert!(RoomPilot::parse("corral_partition:2p").is_err());
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let mut seen: Vec<(u64, PartitionState)> = Vec::new();
+        let (_, _, combat) = replay_corral_observed(&root, "corral_partition", 900, |tick, c| {
+            let state = c.env().unwrap().partition(0).unwrap().state();
+            if seen.last().is_none_or(|&(_, s)| s != state) {
+                seen.push((tick, state));
+            }
+        });
+        // The first jab lands on 652 (weakened for 21 ticks), B's rush bonks the screen on 673.
+        assert_eq!(
+            seen,
+            [
+                (1, PartitionState::Intact),
+                (652, PartitionState::Weakened),
+                (673, PartitionState::Broken)
+            ]
+        );
+        assert!(
+            !combat
+                .events
+                .iter()
+                .any(|e| matches!(e, crate::combat::CombatEvent::HeroDefeated { .. }))
         );
     }
 

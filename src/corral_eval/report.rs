@@ -12,9 +12,10 @@ use serde_json::{Value, json};
 
 use super::policy::PolicyId;
 use super::{
-    Evasion, HORIZON_TICKS, POLICY_VERSION, RunRecord, Seat, Stage, SweepConfig, Terminal,
-    start_name, surface_name,
+    Evasion, HORIZON_TICKS, POLICY_VERSION, PartitionVariant, RunRecord, Seat, Stage, SweepConfig,
+    Terminal, start_name, surface_name,
 };
+use crate::env_prop::StimulusKind;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Outcome {
@@ -210,6 +211,63 @@ fn layer_rows(runs: &[&RunRecord], key: impl Fn(&RunRecord) -> String) -> Vec<La
         }
     }
     rows.into_values().collect()
+}
+
+/// The corral M2 runs of each partition variant (CORRAL-D): how many ran, the
+/// KC19 verdict on the decisive variant, and the CRL-Q35 invariant's breaches.
+fn partition_json(records: &[RunRecord]) -> Value {
+    let mut out = serde_json::Map::new();
+    for variant in PartitionVariant::ALL {
+        let runs: Vec<RunRecord> = records
+            .iter()
+            .filter(|r| r.spec.stage == Stage::CorralM2 && r.spec.partition == variant)
+            .cloned()
+            .collect();
+        if runs.is_empty() {
+            out.insert(variant.name().to_owned(), json!("not_run"));
+            continue;
+        }
+        let (kc19, failing, groups, _) = kc19(&runs, &[Stage::CorralM2], Evasion::Reflex);
+        let gated = |r: &&RunRecord| {
+            r.spec.policy.is_stationary_gate()
+                && matches!(r.spec.seat, Seat::SoloDonutParked | Seat::SoloDonutAssist)
+                && r.terminal != Terminal::InvalidSetup
+        };
+        let breaches = runs
+            .iter()
+            .filter(gated)
+            .filter(|r| {
+                if r.spec.seat == Seat::SoloDonutParked {
+                    r.both_llamas_defeated()
+                } else {
+                    r.both_llamas_defeated() && r.all_defeated_by_donut()
+                }
+            })
+            .count();
+        let count = |t: Terminal| runs.iter().filter(|r| r.terminal == t).count();
+        out.insert(
+            variant.name().to_owned(),
+            json!({
+                "runs": runs.len(),
+                "invalid_setup": count(Terminal::InvalidSetup),
+                "victories": count(Terminal::Victory),
+                "kc19_decisive_parked_reflex": kc19.name(),
+                "kc19_groups": groups,
+                "kc19_failing_groups": failing.len(),
+                "crlq35_breaches": breaches,
+                "partition_breaks": runs.iter().filter(|r| r.partition_break.is_some()).count(),
+                "partition_breaks_by_rush": runs
+                    .iter()
+                    .filter(|r| r.partition_break == Some(StimulusKind::Shove))
+                    .count(),
+                "partition_breaks_by_hero_hits": runs
+                    .iter()
+                    .filter(|r| r.partition_break == Some(StimulusKind::MeleeHit))
+                    .count(),
+            }),
+        );
+    }
+    Value::Object(out)
 }
 
 fn layer_json(rows: &[LayerRow]) -> Value {
@@ -757,11 +815,7 @@ pub fn summary_json(records: &[RunRecord], config: &SweepConfig, targeting: Opti
         "runs": records.len(),
         "counting_unit": "fixtures (seeds do not vary gameplay)",
         "stages": config.stages().iter().map(|s| s.name()).collect::<Vec<_>>(),
-        "partition_variants": {
-            "absent": "run",
-            "intact": "not_run (CORRAL-D has not built the partition)",
-            "broken": "not_run (CORRAL-D has not built the partition)",
-        },
+        "partition_variants": partition_json(records),
         "carl_only_llama_targeting_baseline": targeting,
         "corral_gate": {
             "passes": gate.corral_passes(),
@@ -819,7 +873,7 @@ pub fn report_md(records: &[RunRecord], config: &SweepConfig, targeting: Option<
     );
     let _ = writeln!(
         out,
-        "Policy version {POLICY_VERSION}, horizon {} ticks, {} runs. The unit is a fixture (start x surface x facing x attack phase x reflex x seat x policy), never a seed: seeds do not vary gameplay. The corral stages run on `f01_corral.room.json` with the CORRAL-B rush and llama party targeting; the baselines run on the corridor kit with today's legacy llamas (no rush, no cover). Partition variants `intact` and `broken` are `not_run` until CORRAL-D.\n",
+        "Policy version {POLICY_VERSION}, horizon {} ticks, {} runs. The unit is a fixture (start x surface x facing x attack phase x reflex x seat x policy), never a seed: seeds do not vary gameplay. The corral stages run on `f01_corral.room.json` with the CORRAL-B rush and llama party targeting; the baselines run on the corridor kit with today's legacy llamas (no rush, no cover). Partition variants (CORRAL-D): `absent` is the cut path, `intact` the shipped room and `broken` the pre-broken remnant; the counts are in the table below.\n",
         config.horizon,
         records.len(),
     );
@@ -862,7 +916,31 @@ pub fn report_md(records: &[RunRecord], config: &SweepConfig, targeting: Option<
     );
     let _ = writeln!(
         out,
-        "`layer_static_clear` by start surface (open question 3, owner-level):\n\n| Surface | Gated parked runs | Clears | B defeated by Donut | A defeated by Donut |\n| --- | ---: | ---: | ---: | ---: |"
+        "Partition variants (CORRAL-D), corral M2 runs, KC19 judged on the decisive variant (Carl parked, reflex on):\n\n| Variant | Runs | Invalid starts | Victories | KC19 groups | KC19 failing | CRL-Q35 breaches | Partition breaks (rush / hero hits) |\n| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |"
+    );
+    if let Value::Object(variants) = partition_json(records) {
+        for (name, v) in variants {
+            if v.is_string() {
+                let _ = writeln!(out, "| {name} | not run | | | | | | |");
+            } else {
+                let _ = writeln!(
+                    out,
+                    "| {name} | {} | {} | {} | {} | {} | {} | {} / {} |",
+                    v["runs"],
+                    v["invalid_setup"],
+                    v["victories"],
+                    v["kc19_groups"],
+                    v["kc19_failing_groups"],
+                    v["crlq35_breaches"],
+                    v["partition_breaks_by_rush"],
+                    v["partition_breaks_by_hero_hits"],
+                );
+            }
+        }
+    }
+    let _ = writeln!(
+        out,
+        "\n`layer_static_clear` by start surface (open question 3, owner-level):\n\n| Surface | Gated parked runs | Clears | B defeated by Donut | A defeated by Donut |\n| --- | ---: | ---: | ---: | ---: |"
     );
     for row in &gate.layer_static_by_surface {
         let _ = writeln!(

@@ -6,7 +6,7 @@
 #
 #   ROOM   hoarder | boiler | dozer | hazards | mastery | juicer | corral   (--scene f01_late --f01-room ROOM)
 #   PLAN   direct | valve | chain | mastery | juicer | haz_spectacular | haz_tactical | corral |
-#          corral_rush, optionally ":2p" (not the corral's), or dozer:run | dozer:close_call |
+#          corral_rush | corral_partition, optionally ":2p" (not the corral's), or dozer:run | dozer:close_call |
 #          dozer:wait | dozer:brace | dozer:retry | dozer:crew (solo only, aligned: the cf02_free partner), or an aligned library pilot
 #          WHO:SEED (mastery:, juicer:, hazards:, corral:) or WHO:direct|both:SEED (boiler:)
 #          (--room-pilot, src/room_pilots.rs; mastery, juicer, the haz_, the corral and the dozer
