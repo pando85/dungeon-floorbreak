@@ -21,11 +21,11 @@ RUST = ROOT / "src/camp_kit.rs"
 SIZES = {
     "aft_bench_bent": (48, 20), "aft_groove_rings": (160, 160), "aft_heavy_bag_l1": (40, 122), "aft_heavy_bag_l2":
     (40, 122), "aft_heavy_bag_r1": (40, 122), "aft_heavy_bag_r2": (40, 122), "aft_heavy_bag_rest": (40, 122),
-    "aft_lane_chalk": (116, 12), "aft_mirror_wreck": (160, 72), "aft_sand_spill": (40, 8), "camp_chalk_floor":
-    (128, 12), "camp_chalk_tally": (24, 40), "camp_figure_map": (20, 46), "camp_figure_repair": (24, 36),
+    "aft_lane_chalk": (116, 16), "aft_mirror_wreck": (160, 72), "aft_sand_spill": (40, 8), "camp_chalk_floor":
+    (128, 16), "camp_chalk_tally": (24, 40), "camp_figure_map": (20, 46), "camp_figure_repair": (24, 36),
     "camp_figure_seated": (20, 30), "camp_figure_sentry": (20, 48), "camp_fire_0": (20, 26), "camp_fire_1":
     (20, 26), "camp_fire_2": (20, 26), "camp_fire_3": (20, 26), "camp_hearth": (96, 64), "camp_map_table":
-    (44, 30), "camp_motifs": (80, 48), "camp_toy_cart": (18, 12)
+    (44, 30), "camp_motifs": (48, 48), "camp_toy_cart": (18, 12)
 }
 # The twelve key frames: frozen at the silhouette gate (gate/measurements.txt `KEY` lines). A key change is a design change.
 KEY_SHA = {
@@ -46,15 +46,15 @@ KEY_SHA = {
 EXEC_SHA = {
     "aft_bench_bent": "c3494fd21524f5dbe34b6d6b0acdf4b17f89830b6deac2a5b148485661f99a87",
     "aft_groove_rings": "20d62f51d5492f1c779f32a309f57e3765ef8ac00688f0db6c676484db06127f",
-    "aft_lane_chalk": "fc71fd886b79044912ac5ad68b504f9b52559436f094dfe55d9b31d93a0f768a",
+    "aft_lane_chalk": "3e0b8b278804d2c318fbf728f819dcda5e24d47a6202c311e4cdfe69e1d62a15",
     "aft_sand_spill": "f414d6c2daef065a93c2ec4141be5871e07465be953a78f971915f9182b8ba15",
-    "camp_chalk_floor": "924dc49c188668fc0b5d15d0437932818188e70201f582eae5dc2c286e2efc4c",
+    "camp_chalk_floor": "1ad76fce2b327a82d90588c7bbd23cd40d5c37262d0b9a103fead59473d6ac76",
     "camp_chalk_tally": "474e714c41d7f6fb20561b4bbb266b6f1da3428bd6444e65d32809826f3a8588",
     "camp_figure_map": "7d00580e37d3608489414c3ee583f70c3e2093eb80d125eb9d83fac6650f1c84",
     "camp_figure_repair": "f493a080529af22a1f5b537faa7ece5e4b23a17a6db95e7d99fc5c182cc92e39",
     "camp_figure_seated": "36e1fbf6f022df878e2ac07496b71883afc8e6f68754b0aac3c20d7e23170b97",
     "camp_map_table": "24f839326237961ccf33f6d01244f82d3e6a5faa3e4c4eb45559b1ff492ead84",
-    "camp_motifs": "aba4c76818c6bd3fb4c9230ba379e8a5799973329f3062b808c5556af8df80f4",
+    "camp_motifs": "68c8249fc7374ed990ec44a58543b94887c528a55421a9442f1f9c9f82de2f9d",
     "camp_toy_cart": "5507d9b4e7a002f68cc2c0b399c57aab597d2838f6ba1fb92f15aecbb76620c4",
 }
 OPENINGS = {"rest_camp": [(184, 335), (520, 671), (856, 1007), (1192, 1343)],
@@ -332,6 +332,32 @@ class CampKitTest(unittest.TestCase):
                         for a, b in OPENINGS[room]:
                             self.assertFalse(a <= p["x"] + x <= b, (room, p["piece"], x, y))
 
+    def test_chalk_is_pale_with_a_dark_under_stroke_and_off_the_plinths(self):
+        """Review R2 (CAMP-AD26): chalk is stone 8 over a mortar under-stroke; a pixel on a plinth's columns is only
+        allowed on rows 573..576 (piece rows 12..15). The composed-layout occupancy test is in `camp_kit`."""
+        for pid, plinth in (("camp_chalk_floor", camp.CAMP_PLINTH), ("aft_lane_chalk", camp.AFT_PLINTH)):
+            img = self.pieces[pid]
+            self.assertEqual(img.h, 16, pid)
+            for y in range(img.h):
+                for x in range(img.w):
+                    p = img.px[y][x]
+                    if p is None:
+                        continue
+                    self.assertIn(p, (("stone", 8), ("mortar", 3)), (pid, x, y))
+                    if y < camp.CHALK_LOW:
+                        self.assertFalse(any(a <= x <= b for a, b in plinth), (pid, x, y))
+
+    def test_the_motifs_cluster_sits_right_of_the_last_pier(self):
+        place = next(p for p in placements("camp", "rest_camp") if p["piece"] == "camp_motifs")
+        img = self.pieces["camp_motifs"]
+        self.assertEqual((img.w, img.h), (48, 48))
+        self.assertGreaterEqual(place["x"], 1414)
+        self.assertLessEqual(place["x"] + 47, 1467)
+        self.assertLessEqual(place["y"] + 47, 430, "above torch 1472 (top 432)")
+        ramps = {p[0] for row in img.px for p in row if p}
+        self.assertEqual(ramps, {"brick", "stone"})
+        self.assertTrue(all(6 <= p[1] <= 8 for row in img.px for p in row if p))
+
     def test_floor_decals_are_structure_in_the_decks_back_half(self):
         for kit, room in (("camp", "rest_camp"), ("aft", "rest_aftermath")):
             contract = load(CAMP_CONTRACT if kit == "camp" else AFT_CONTRACT)
@@ -342,12 +368,11 @@ class CampKitTest(unittest.TestCase):
                     continue
                 if p["y"] < 573 and p["y"] + img.h > 561:
                     self.assertEqual(layer[p["piece"]], "structure", p["piece"])
-        for pid in ("camp_chalk_floor", "aft_lane_chalk"):                   # strokes at most 3 px tall
+        for pid in ("camp_chalk_floor", "aft_lane_chalk"):                   # chalk strokes at most 3 px tall (R2)
             img = self.pieces[pid]
             for x in range(img.w):
-                col = [y for y in range(img.h) if img.px[y][x] is not None]
-                if pid == "aft_lane_chalk":
-                    self.assertLessEqual(len(col), 3, (pid, x))
+                col = [y for y in range(img.h) if img.px[y][x] is not None and img.px[y][x][0] == "stone"]
+                self.assertLessEqual(len(col), 3, (pid, x))                 # chalk only; the under-stroke is mortar
 
 
 def camp_inherited():

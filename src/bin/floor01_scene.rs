@@ -5544,7 +5544,7 @@ fn setup(
     // REST-WIRE: the quiet rooms. The refuge is dressed by AREA-FASTFOOD-01 (its kit pieces come from
     // the dressing and its staff door, box, sparkle and bell are the presenter's sprites); the camp and
     // the aftermath are dressed by AREA-CAMP-01 (the aftermath's heavy bag is the presenter's sprite).
-    // Presentation only. Only an undressed room keeps the flat labelled greybox decor.
+    // Presentation only.
     if let Some(run) = args.rest_run.as_ref() {
         let prop_z = kit
             .pieces

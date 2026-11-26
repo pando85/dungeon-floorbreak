@@ -5,7 +5,7 @@
  "status": "proposed - AREA-CAMP-01 kit (docs/02-art/area-camp-01-spec.md); independent review pending; not owner-approved",
  "extension_note": "Inherits palette, layers, coordinates, walking-line rule and lighting schema from the ENV-01 contract through the gym kit. Adds the quiet aftermath atlases for Floor 01 room 10 (rest_aftermath): no tiles, nothing collidable, no new palette colour, no new emitter. The heavy bag is drawn by the presenter.",
  "palette_use": {
-  "floor01_aft_wreck": 32,
+  "floor01_aft_wreck": 33,
   "floor01_aft_bag": 19,
   "floor01_aft_grooves": 4
  },
@@ -104,7 +104,7 @@
     0,
     92,
     116,
-    12
+    16
    ],
    "role": "structure",
    "layer": "structure",

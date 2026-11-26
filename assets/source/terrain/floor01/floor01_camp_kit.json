@@ -7,7 +7,7 @@
  "palette_use": {
   "floor01_camp_hearth": 25,
   "floor01_camp_figures": 36,
-  "floor01_camp_wall": 7,
+  "floor01_camp_wall": 6,
   "floor01_camp_fire": 6
  },
  "atlases": {
@@ -198,7 +198,7 @@
    "rect": [
     0,
     0,
-    80,
+    48,
     48
    ],
    "role": "backwall",
@@ -219,7 +219,7 @@
    "id": "camp_chalk_tally",
    "atlas": "floor01_camp_wall",
    "rect": [
-    80,
+    48,
     0,
     24,
     40
@@ -245,7 +245,7 @@
     0,
     48,
     128,
-    12
+    16
    ],
    "role": "structure",
    "layer": "structure",
@@ -430,8 +430,8 @@
     {
      "layer": "backwall_decal",
      "piece": "camp_motifs",
-     "x": 1344,
-     "y": 384
+     "x": 1420,
+     "y": 364
     },
     {
      "layer": "backwall_decal",

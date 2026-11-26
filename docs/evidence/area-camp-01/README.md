@@ -22,11 +22,11 @@ xvfb-run -a -s '-screen 0 1920x1080x24' floor01_scene --no-audio --no-record --s
 | `camp_sentry` | camp, `walk`, 161 | 262 | the sentry at the pilaster, the crates and the hearth in the distance |
 | `camp_figures` | camp, `walk`, 241 | 508 | the crates, the hearth and its fire, the repair figure in window B3, the seated figure and the toy cart at the right |
 | `camp_hearth` | camp, `walk`, 281 | 632 | the hearth with the fire lit (gate note G8), the repair, seated and map figures, the trestle |
-| `camp_exit` | camp, `walk`, 361 | 879 | the map table and figure, the strength motifs, the chalk tally and the floor arrows toward the portal |
+| `camp_exit` | camp, `walk`, 361 | 879 | the map table and figure, the chalk tally and the strength motifs (a kettlebell, a bar and a flexed arm painted on the exposed brick right of the last pier, review R1), and the chalk arrowheads toward the portal on the visible floor and in front of the plinths (review R2) |
 | `aft_entry_swing` | aftermath, `walk`, 21 | 0 | the egress (tyres, bench, the wreck); the bag's cap at the right edge during the entry swing |
 | `aft_egress` | aftermath, `walk`, 41 | 0 | the same view after the swing |
 | `aft_wreck` | aftermath, `walk`, 161 | 262 | the torn mirror wreck, the bricked bay with the girder run, the bag at rest, the sand under it |
-| `aft_lane` | aftermath, `walk`, 281 | 632 | the plate tree and the chalk ticks and chevron of the blink lane |
+| `aft_lane` | aftermath, `walk`, 281 | 632 | the plate tree and the blink lane: two chalk ticks in front of the plinths and chevrons and dashes on the visible floor between them (review R2) |
 | `aft_grooves` | aftermath, `walk`, 349 | 640 | the grooves round the exit portal |
 | `aft_punch_*` | aftermath, `punch`, 163 to 194 | 260 | Carl standing at the bag and jabbing it: `rest` at 163, then the hit sway (`r1` 166, `r2` 170, `r1` 176, `l1` 184, `r1` 194). Cropped in `bag_sway_window_x4.png` |
 
@@ -60,6 +60,8 @@ xvfb-run -a -s '-screen 0 1920x1080x24' floor01_scene --no-audio --no-record --s
 - **Gate notes G1, G3, G4.** The girder run meets both pier shadow columns (`camp_kit` test `the_girder_run_meets_both_piers`), the map figure's hand lies on the table's end (x 1152..1153), the cart is 7 empty columns from the seated figure.
 - **Bricked bay (CAMP-A5, gate note G7).** No background pixel shows over x 488..743, y 352..559; the undressed room shows parallax in that span (`camp_kit` test).
 - **Lights (CAMP-A7).** The camp trades four torches (a flame and a pool each) for the fire's two lights: minus 8, plus 2. The aftermath changes none. Both stay inside `MAX_LIGHTS` (`camp_kit` test).
+- **Review R1 (motifs visible).** 243 of 243 opaque pixels of `camp_motifs` at (1420, 364) are not under any structure, prop or collision piece of the composed camp (100 %, target at least 90 %; the first placement at (1344, 384) showed two fragments behind the arch). `camp_kit` test `the_strength_motifs_are_visible_on_exposed_brick`; also in `measurements.txt`.
+- **Review R2 (chalk off the plinths).** 0 of 108 pixels of `camp_chalk_floor` and 0 of 126 of `aft_lane_chalk` lie on a plinth face (60 and 86 are on rows 573..576, in front of the plinths; CAMP-AD26). `camp_kit` test `no_chalk_pixel_is_on_a_plinth_face`.
 - **Keys.** The twelve key frames are byte-identical to the pins in `gate/measurements.txt` (`tests/test_art_camp01.py`).
 
 ## Gate sheets (`gate/`)

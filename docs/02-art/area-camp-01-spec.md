@@ -70,7 +70,7 @@ Most of the props are reuse. The design step stops at this spec and the keys. Wo
 | 720..815 | **the hearth**, over the checkpoint | 4, the protected central light |
 | 856..1007 | repair: a kneeling figure mending gear in window B3 | 2, gear repair |
 | 1008..1191 | a seated figure with a salvage toy cart; the map trestle with a standing figure | 2, the childlike aid, the hand-drawn maps |
-| 1344..1455 | strength motifs painted on the wall; chalk arrows on the floor (1320..1447) | 5, toward gym territory |
+| 1420..1467 | strength motifs painted on the exposed brick right of the last pier (CAMP-AD25); chalk arrows on the floor (1320..1447) | 5, toward gym territory |
 
 **`rest_aftermath`** (width 1280, checkpoint {1056, 484, 48, 96}, exit {1200, 484, 64, 96}):
 
@@ -124,9 +124,9 @@ K = key (frozen, drawn here). E = executor (drawn in `scripts/author_camp01.py` 
 | `camp_toy_cart` | E | 18 x 12 | prop | (1048, 548) | a salvage toy: a tin-can body, bottle-cap wheels and a string. The childlike prop of beat 2 |
 | `camp_map_table` | E | 44 x 30 | prop | (1112, 530) | a trestle; the map is pale `stone` with ink-dark lines, blots and pins. No words |
 | `camp_figure_map` | E | 20 x 46 | prop | (1152, 514) | standing, one hand on the table (listed after the table, so the hand draws over its end; gate note G3, CAMP-AD16), leaning over the map |
-| `camp_motifs` | E | 80 x 48 | backwall_decal | (1344, 384) | crude painted kettlebell, bar and flexed arm in `brick` 6..8 and chalk `stone` 8; above torch 1376's top (448) |
+| `camp_motifs` | E | 48 x 48 | backwall_decal | (1420, 364) | crude painted kettlebell, bar and flexed arm in `brick` 6..8 and chalk `stone` 8, packed side by side on the exposed brick right of the last pier, above the portal and clear of torch 1472 and the tally; at least 90 % of its pixels show (a test; the first placement at (1344, 384) was hidden behind the arch: review R1, CAMP-AD25) |
 | `camp_chalk_tally` | E | 24 x 40 | backwall_decal | (1404, 488) | chalk tallies and an arrow on the wall beside the exit door (x 1432) |
-| `camp_chalk_floor` | E | 128 x 12 | structure | (1320, 561) | chalk arrows on the floor's back half toward the exit; `structure`, so it draws above the deck (FF-AD26) |
+| `camp_chalk_floor` | E | 128 x 16 | structure | (1320, 561) | pale chalk arrowheads and dashes toward the exit, on the visible floor between the pier plinths and, where they cross a plinth's columns, on rows 573..576 in front of it (review R2, CAMP-AD26); each stroke has a 1 px dark under-stroke; `structure`, so it draws above the deck (FF-AD26) |
 
 **`rest_aftermath`**
 
@@ -138,7 +138,7 @@ K = key (frozen, drawn here). E = executor (drawn in `scripts/author_camp01.py` 
 | `aft_mirror_wreck` | K | 160 x 72 | prop | (368, 488) | its tall leaning panel sits at x 422..490 over the B1 pier and the wall; low parts only elsewhere; the torch columns 400..415 and 496..511 are clear above y 504 |
 | `aft_heavy_bag` | K | 40 x 122, 5 frames | prop | (620, 450) | hook at (640, 450) under the girder. The body matches the sim's hit rect {624, 516, 32, 64}. Drawn by the presenter (section 7) |
 | `aft_sand_spill` | E | 40 x 8 | structure | (622, 562) | the sand the split seam has spilled; `structure` on the deck's back half |
-| `aft_lane_chalk` | E | 116 x 12 | structure | (766, 561) | two chalk ticks at x 768 and 876..879 and a dashed chevron between them: the blink lane's ends |
+| `aft_lane_chalk` | E | 116 x 16 | structure | (766, 561) | two chalk ticks at x 768..771 and 876..879 (both inside a plinth's columns, so on rows 573..576) and chevrons and dashes between them on the visible floor: the blink lane's ends (review R2, CAMP-AD26) |
 | `aft_groove_rings` | E | 160 x 160 | backwall_decal | (1120, 400) | concentric arcs cut into the wall around the exit door, drawn with the rings kit's arc generator; dark `mortar` cuts with a 1 px `stone` 7 lit lip |
 | `torch_pool_b_m` | R | (opening) | backwall_decal | (1112, 348) | re-placed after the grooves (section 4) |
 | `gym_plate_tree` | R | 28 x 36 | prop | (1000, 524) | a spare plate tree past the lane's far end, stripped of its plates; window B3, ≤ 40 |
@@ -346,5 +346,7 @@ The twelve executor pieces (E) are `camp_figure_repair`, `camp_figure_seated`, `
 | CAMP-AD22 | A new evidence pilot `--rest-pilot punch` (aftermath only) | the entry swing runs while the bag is at the view's edge, so a hit fixture is the only way to show the sway in a window still |
 | CAMP-AD23 | The window-rule and torch-clearance tests cover the dressing's own `prop` and `structure` placements; a wall decal sits behind a torch, and the composer's `torch_pool_*` decals are not floor decals | the reused lean-to and marker are the Ring's own pieces; the decals are wall washes |
 | CAMP-AD24 | The drawn view lefts of the design stage (237, 483, 607) are 25 px short; the measured ones are 262, 508 and 632 | landmark match against the lit model, confirmed by the sentry's spear |
+| CAMP-AD25 | Review R1: the strength motifs are a 48 x 48 cluster at (1420, 364) on exposed brick, not the 80 x 48 piece at (1344, 384) that the arch and the capital covered; a `camp_kit` test requires at least 90 % of its opaque pixels to show (measured 100 %) | at 1x only two fragments of the first placement showed (CAMP-A12) |
+| CAMP-AD26 | Review R2: no chalk pixel lies on a pier plinth's face. The chalk marks sit on the visible floor between the plinths; a mark that must cross a plinth's columns (both blink-lane ticks and some arrowheads) is drawn on rows 573..576, just in front of it, a small deviation from "the deck's back half"; chalk is `stone` 8 over a 1 px `mortar` under-stroke, strokes at most 3 px tall | the chalk read as painted on a vertical stone face, and was nearly invisible on the warm-lit floor |
 
 Gate recommendations adopted for the open questions (CAMP-Q1..6): Q1 the four figures stay anonymous and faceless until a separate narrative and art order after the REST-Q2 review; Q2 no crate animation in this order (a bounded, presentation-only drag of `ring_crates_b` may follow the owner's static-camp review); Q3 no idles (if wanted later: a 1 px two-frame breathing idle for the seated and map figures only; no sentry head turn); Q4 the sim stays inert on Floor 01 and the bag's presentation sway satisfies the "usable" half of REST-C-02 (a stronger reaction needs wider r3/l3 frames, a key change); Q5 no audio; Q6 no fallen tube (CAMP-AD9 stands).

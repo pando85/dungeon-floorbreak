@@ -39,6 +39,10 @@ fn kits(room: RestRoom) -> (EnvKit, EnvKit) {
     (plain, dressed)
 }
 
+fn overlaps(a: IRect, b: IRect) -> bool {
+    a.x < b.right() && a.right() > b.x && a.y < b.bottom() && a.bottom() > b.y
+}
+
 // ------------------------------------------------------------------ CAMP-A1: presentation only
 
 /// CAMP-A1: the dressing changes no collider, spawn, exit, view or walking line, no blink
@@ -392,6 +396,7 @@ fn coverage(
     contract: &str,
     tile_layers: &[&str],
     piece_layers: &[&str],
+    skip: &[&str],
 ) -> Vec<Vec<bool>> {
     let mut cache = BTreeMap::new();
     let mut covered = vec![vec![false; kit.width as usize]; 580];
@@ -420,7 +425,7 @@ fn coverage(
     for p in kit
         .pieces
         .iter()
-        .filter(|p| piece_layers.contains(&p.layer.as_str()))
+        .filter(|p| piece_layers.contains(&p.layer.as_str()) && !skip.contains(&p.piece.as_str()))
     {
         let rect = [p.rect.x, p.rect.y, p.rect.w, p.rect.h];
         paint(p.x, p.y, opaque_rect(&mut cache, contract, &p.atlas, rect));
@@ -450,12 +455,12 @@ const ALL_PIECES: [&str; 4] = ["backwall_decal", "structure", "prop", "foregroun
 #[test]
 fn no_background_shows_in_the_bricked_bay() {
     let (plain, dressed) = kits(RestRoom::Aftermath);
-    let before = coverage(&plain, AFTERMATH_CONTRACT, &ALL_TILES, &ALL_PIECES);
+    let before = coverage(&plain, AFTERMATH_CONTRACT, &ALL_TILES, &ALL_PIECES, &[]);
     assert!(
         !gaps(&before, 488, 744, 352, 560).is_empty(),
         "the undressed bay shows the parallax"
     );
-    let after = coverage(&dressed, AFTERMATH_CONTRACT, &ALL_TILES, &ALL_PIECES);
+    let after = coverage(&dressed, AFTERMATH_CONTRACT, &ALL_TILES, &ALL_PIECES, &[]);
     let g = gaps(&after, 488, 744, 352, 560);
     assert!(
         g.is_empty(),
@@ -471,7 +476,7 @@ fn no_background_shows_in_the_bricked_bay() {
 #[test]
 fn the_girder_run_meets_both_piers() {
     let (_, dressed) = kits(RestRoom::Aftermath);
-    let structure = coverage(&dressed, AFTERMATH_CONTRACT, &[], &["structure"]);
+    let structure = coverage(&dressed, AFTERMATH_CONTRACT, &[], &["structure"], &[]);
     let girders: Vec<&crate::env_kit::PieceDraw> = dressed
         .pieces
         .iter()
@@ -504,6 +509,118 @@ fn the_girder_run_meets_both_piers() {
     for (y, row) in structure.iter().enumerate().take(450).skip(441) {
         assert!(row[548], "row {y}: the left end");
         assert!(row[716], "row {y}: the right pier starts at x 716");
+    }
+}
+
+/// Review R1 (CAMP-AD25): at least 90 % of the strength motifs' opaque pixels show: none lies under a
+/// structure, prop or collision piece of the composed camp (the arch and the pier draw over a wall decal).
+/// The cluster also stays clear of the torch columns, the portal and the tally.
+#[test]
+fn the_strength_motifs_are_visible_on_exposed_brick() {
+    let (_, dressed) = kits(RestRoom::Camp);
+    let covered = coverage(
+        &dressed,
+        CAMP_CONTRACT,
+        &["collision"],
+        &["structure", "prop", "foreground"],
+        &[],
+    );
+    let contract = load_contract(&root(), CAMP_CONTRACT).unwrap();
+    let place = camp_dressing(&root())
+        .unwrap()
+        .place
+        .into_iter()
+        .find(|p| p.piece == "camp_motifs")
+        .unwrap();
+    let def = contract
+        .pieces
+        .iter()
+        .find(|c| c.id == "camp_motifs")
+        .unwrap();
+    let mut cache = BTreeMap::new();
+    let px = opaque_rect(&mut cache, CAMP_CONTRACT, &def.atlas, def.rect);
+    let (mut total, mut hidden) = (0, 0);
+    for (dy, row) in px.iter().enumerate() {
+        for (dx, &on) in row.iter().enumerate() {
+            if on {
+                total += 1;
+                hidden += usize::from(covered[place.y as usize + dy][place.x as usize + dx]);
+            }
+        }
+    }
+    assert!(total > 100, "{total} opaque pixels");
+    assert!(
+        hidden * 10 <= total,
+        "{hidden} of {total} motif pixels are covered"
+    );
+    // Clear of every torch rect, the tally's rect and the portal frame (rule 10.2).
+    let r = IRect {
+        x: place.x,
+        y: place.y,
+        w: def.rect[2],
+        h: def.rect[3],
+    };
+    for t in dressed.pieces.iter().filter(|p| p.piece == "torch_wall") {
+        let tr = IRect {
+            x: t.x,
+            y: t.y,
+            w: 16,
+            h: 56,
+        };
+        assert!(!overlaps(r, tr), "the motifs reach the torch at {}", t.x);
+    }
+    for id in ["camp_chalk_tally", "guild_portal_closed"] {
+        let p = dressed.pieces.iter().find(|p| p.piece == id).unwrap();
+        let pr = IRect {
+            x: p.x,
+            y: p.y,
+            w: p.rect.w,
+            h: p.rect.h,
+        };
+        assert!(!overlaps(r, pr), "the motifs reach {id}");
+    }
+}
+
+/// Review R2 (CAMP-AD26): no chalk pixel lies on a plinth's or a pier's face: every opaque pixel of the
+/// floor chalk and the lane chalk is on visible floor (not under any other structure or prop piece: the plinths are
+/// structure pieces; the deck's own collision tiles are the floor the chalk lies on).
+#[test]
+fn no_chalk_pixel_is_on_a_plinth_face() {
+    for (room, chalk) in [
+        (RestRoom::Camp, "camp_chalk_floor"),
+        (RestRoom::Aftermath, "aft_lane_chalk"),
+    ] {
+        let (_, dressed) = kits(room);
+        let covered = coverage(
+            &dressed,
+            contract_path(room),
+            &[],
+            &["structure", "prop", "foreground"],
+            &["camp_chalk_floor", "aft_lane_chalk", "aft_sand_spill"],
+        );
+        let p = dressed.pieces.iter().find(|p| p.piece == chalk).unwrap();
+        let mut cache = BTreeMap::new();
+        let px = opaque_rect(
+            &mut cache,
+            contract_path(room),
+            &p.atlas,
+            [p.rect.x, p.rect.y, p.rect.w, p.rect.h],
+        );
+        let mut n = 0;
+        for (dy, row) in px.iter().enumerate() {
+            for (dx, &on) in row.iter().enumerate() {
+                if on {
+                    n += 1;
+                    let (x, y) = (p.x as usize + dx, p.y as usize + dy);
+                    assert!(
+                        !covered[y][x],
+                        "{chalk} has a pixel on a plinth face at ({x}, {y})"
+                    );
+                }
+            }
+        }
+        assert!(n > 60, "{chalk}: {n} chalk pixels");
+        assert!(p.y + p.rect.h <= 577, "{chalk} ends by y 576 (CAMP-AD26)");
     }
 }
 

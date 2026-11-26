@@ -1188,43 +1188,43 @@ def _stroke(c: Pix, pts: list, ramp: str, v: int, seed: str, gap: float = 0.1, w
 
 
 def camp_motifs() -> Pix:
-    """80 x 48: crude strength motifs painted on the brick: a kettlebell, a bar with plates, a flexed arm. Brick
-    paint (brick 7..9) with a chalk outline (stone 8); strokes only, so the wall shows through."""
-    c = Pix(80, 48)
-    # kettlebell: a round body and a handle arch
-    for a in range(0, 360, 6):
-        x = round(13 + 9.5 * math.cos(math.radians(a)))
-        y = round(32 + 8.5 * math.sin(math.radians(a)))
-        if rnd("kb", a) > 0.12:
-            c.put(x, y, "brick", 8)
+    """48 x 48 (review R1, CAMP-AD25): crude strength motifs painted on exposed brick right of the last pier: a
+    kettlebell, a bar with plates and a flexed arm, packed side by side. Brick paint (brick 6..8) with a one-pixel chalk
+    edge (stone 8); strokes only, so the wall shows through."""
+    c = Pix(48, 48)
+    # kettlebell (x 0..15): a round body and a handle arch
+    for a in range(0, 360, 7):
+        x = round(8 + 6.5 * math.cos(math.radians(a)))
+        y = round(34 + 6.0 * math.sin(math.radians(a)))
+        if rnd("kb", a) > 0.1:
+            c.put(x, y, "brick", 6)
             c.put(x + 1, y, "brick", 7)
-    for a in range(200, 341, 5):
-        x = round(13 + 7 * math.cos(math.radians(a)))
-        y = round(21 + 6 * math.sin(math.radians(a)))
-        c.put(x, y, "brick", 8)
+            if a in range(200, 300, 7):
+                c.put(x, y - 1, "stone", 8)
+    for a in range(200, 341, 6):
+        x = round(8 + 5 * math.cos(math.radians(a)))
+        y = round(25 + 4.5 * math.sin(math.radians(a)))
+        c.put(x, y, "brick", 6)
         c.put(x, y + 1, "brick", 7)
-    for a in range(20, 160, 14):                                           # a chalk glint on the body
-        c.put(round(13 + 6.5 * math.cos(math.radians(a))), round(32 + 5.5 * math.sin(math.radians(a))), "stone", 8)
-    # barbell: bar, two plate stacks, collars
-    _stroke(c, [(28, 31), (54, 30)], "brick", 8, "bar", 0.06, 2)
-    for px in (30, 50):
-        _stroke(c, [(px, 20), (px + 1, 40)], "brick", 8, f"pl{px}", 0.08, 3)
-        _stroke(c, [(px + 4, 23), (px + 4, 37)], "brick", 7, f"pm{px}", 0.1, 2)
-    _stroke(c, [(29, 19), (32, 19)], "stone", 8, "pc1", 0.0)
-    _stroke(c, [(49, 19), (52, 19)], "stone", 8, "pc2", 0.0)
-    # flexed arm: forearm up, a bicep bump, the fist
-    _stroke(c, [(60, 42), (62, 31), (66, 25)], "brick", 8, "arm1", 0.07, 3)
-    _stroke(c, [(66, 25), (70, 22), (74, 25), (73, 30), (68, 31)], "brick", 8, "arm2", 0.08, 2)
-    for a in range(180, 361, 12):                                          # the bicep peak
-        x = round(70 + 5 * math.cos(math.radians(a)))
-        y = round(24 + 4 * math.sin(math.radians(a)))
-        c.put(x, y, "stone", 8)
-    c.box(58, 38, 63, 41, "brick", 9)                                      # the fist
-    c.put(58, 38, "brick", 7)
-    # paint drips
-    for (x, y, n) in ((9, 40, 4), (17, 41, 3), (33, 41, 4), (55, 39, 3), (66, 33, 4)):
+    c.put(5, 21, "stone", 8)
+    c.put(6, 20, "stone", 8)
+    # barbell (x 17..31): bar and two plate stacks
+    _stroke(c, [(17, 34), (31, 33)], "brick", 7, "bar", 0.06, 2)
+    for px in (19, 29):
+        _stroke(c, [(px, 25), (px + 1, 42)], "brick", 6, f"pl{px}", 0.08, 2)
+        _stroke(c, [(px + 3 if px < 25 else px - 3, 28), (px + 3 if px < 25 else px - 3, 39)], "brick", 7,
+                f"pm{px}", 0.1, 1)
+        c.put(px, 24, "stone", 8)
+    # flexed arm (x 33..47): forearm up, a bicep bump, the fist
+    _stroke(c, [(38, 43), (39, 34), (42, 29)], "brick", 6, "arm1", 0.07, 2)
+    _stroke(c, [(42, 29), (44, 26), (46, 28), (46, 33), (42, 34)], "brick", 6, "arm2", 0.08, 2)
+    for a in range(190, 351, 14):                                          # the bicep peak, a chalk edge
+        c.put(round(44 + 3 * math.cos(math.radians(a))), round(27 + 2.5 * math.sin(math.radians(a))), "stone", 8)
+    c.box(35, 40, 39, 43, "brick", 7)                                      # the fist
+    c.put(35, 40, "stone", 8)
+    for (x, y, n) in ((6, 41, 3), (13, 42, 2), (19, 43, 2), (31, 43, 3), (41, 35, 2)):   # paint drips
         for k in range(n):
-            c.put(x, y + k, "brick", 7)
+            c.put(x, y + k, "brick", 6)
     return c
 
 
@@ -1244,22 +1244,52 @@ def camp_chalk_tally() -> Pix:
     return c
 
 
+# The pier plinths cover the deck's back half (y 550..571) under every pier. Chalk goes on the visible floor between
+# them; where a mark must cross a plinth's columns it is drawn on rows 573..576, just in front of the plinth (review R2,
+# CAMP-AD26). Piece-local columns of the plinths (the composed layout's opaque structure at rows 561..571).
+CAMP_CHALK_X = 1320
+CAMP_PLINTH = ((40, 99), (116, 127))          # x 1360..1419 and the portal frame 1436..1447
+AFT_CHALK_X = 766
+AFT_PLINTH = ((0, 13), (54, 113))             # x 766..779 and 820..879
+CHALK_LOW = 12                                # piece row of y 573: the first row in front of the plinths
+CHALK_H = 16                                  # the chalk pieces span y 561..576
+
+
+def _chalk_free(x: int, plinth: tuple) -> bool:
+    return not any(a <= x <= b for a, b in plinth)
+
+
+def _chalk_px(c: Pix, x: int, y: int, plinth: tuple) -> None:
+    """A pale chalk pixel (stone 8) with a 1 px darker floor-tone under-stroke below it; nothing on a plinth face."""
+    if y < CHALK_LOW and not _chalk_free(x, plinth):
+        return
+    c.put(x, y, "stone", 8)
+    if c.get(x, y + 1) is None and y + 1 < c.h and (y + 1 >= CHALK_LOW or _chalk_free(x, plinth)):
+        c.put(x, y + 1, "mortar", 3)
+
+
+def _chalk_chevron(c: Pix, x: int, plinth: tuple) -> None:
+    """A 3 x 3 arrowhead pointing right: on the floor if its columns are free, else in front of the plinth."""
+    r = 4 if all(_chalk_free(x + i, plinth) for i in range(3)) else CHALK_LOW
+    for (dx, dy) in ((0, 0), (1, 1), (2, 1), (0, 2)):
+        _chalk_px(c, x + dx, r + dy, plinth)
+
+
+def _chalk_dashes(c: Pix, x0: int, x1: int, plinth: tuple, skip: list) -> None:
+    for x in range(x0, x1 + 1):
+        if (x // 4) % 2 == 0 and not any(a <= x <= b for a, b in skip) and rnd("dash", x) > 0.08:
+            row = 5 if _chalk_free(x, plinth) else CHALK_LOW + 1
+            _chalk_px(c, x, row, plinth)
+
+
 def camp_chalk_floor() -> Pix:
-    """128 x 12: chalk chevrons and a dashed line on the deck's back half, pointing right to the exit. Strokes
-    are at most 3 px tall (the lane rule, spec 10.3)."""
-    c = Pix(128, 12)
-    for k in range(5):
-        x = 6 + k * 24
-        for i in range(3):
-            c.put(x + i, 3 + i, "stone", 7 if i != 1 else 8)
-            c.put(x + i, 7 - i, "stone", 7 if i != 1 else 8)
-        c.put(x + 3, 5, "stone", 8)
-    for x in range(10, 126):
-        if (x // 6) % 2 == 0 and x % 24 not in range(0, 8) and rnd("dash", x) > 0.1:
-            c.put(x, 5, "stone", 6)
-    for x in range(0, 128, 9):
-        if rnd("dust", x) > 0.5:
-            c.put(x, 9, "stone", 4)
+    """128 x 16: chalk arrowheads and dashes pointing right to the exit, on the visible floor between the plinths and
+    in front of them (rows 573..576). A chalk stroke is at most 3 px tall; each has a 1 px dark under-stroke."""
+    c = Pix(128, CHALK_H)
+    xs = (6, 24, 54, 78, 102)
+    for x in xs:
+        _chalk_chevron(c, x, CAMP_PLINTH)
+    _chalk_dashes(c, 10, 116, CAMP_PLINTH, [(x - 2, x + 5) for x in xs])
     return c
 
 
@@ -1314,21 +1344,17 @@ def aft_sand_spill() -> Pix:
 
 
 def aft_lane_chalk() -> Pix:
-    """116 x 12: the blink lane's two chalk ticks (x 768..771 and 876..879) and a dashed chevron between them.
-    Every stroke is at most 3 px tall."""
-    c = Pix(116, 12)
+    """116 x 16: the blink lane's two chalk ticks (x 768..771 and 876..879, both inside a plinth's columns, so drawn on
+    rows 573..576) and chevrons and dashes between them on the visible floor. Strokes at most 3 px tall."""
+    c = Pix(116, CHALK_H)
     for x0 in (2, 110):
-        for y in (3, 4, 5):
+        for y in (CHALK_LOW, CHALK_LOW + 1, CHALK_LOW + 2):
             for x in range(x0, x0 + 4):
-                c.put(x, y, "stone", 8 if y == 4 else 7)
-    for k in range(4):                                                     # dashed chevrons
-        x = 16 + k * 22
-        for i in range(3):
-            c.put(x + i, 3 + i, "stone", 7)
-            c.put(x + i, 7 - i, "stone", 7)
-    for x in range(10, 108):
-        if (x // 5) % 2 == 1 and x % 22 not in range(14, 22) and rnd("ld", x) > 0.08:
-            c.put(x, 5, "stone", 5)
+                _chalk_px(c, x, y, AFT_PLINTH)
+    xs = (18, 30, 42, 62, 80, 98)
+    for x in xs:
+        _chalk_chevron(c, x, AFT_PLINTH)
+    _chalk_dashes(c, 8, 106, AFT_PLINTH, [(x - 2, x + 5) for x in xs] + [(0, 8), (106, 115)])
     return c
 
 
@@ -1438,7 +1464,7 @@ CAMP_REMOVE_AT = [("prop", "torch_wall", 368, 448), ("backwall_decal", "torch_po
 CART_X = 1048                           # gate note G4: the opaque gap to the seated figure is 4..8 px (measured below)
 MAP_FIGURE_AT = (1152, 514)             # gate note G3: its reaching hand draws over the table's top (x 1152..1157)
 CAMP_PLACE = [
-    ("backwall_decal", "camp_motifs", 1344, 384), ("backwall_decal", "camp_chalk_tally", 1404, 488),
+    ("backwall_decal", "camp_motifs", 1420, 364), ("backwall_decal", "camp_chalk_tally", 1404, 488),
     ("structure", "camp_chalk_floor", 1320, 561),
     ("prop", "ring_marker_a", 156, 504), ("prop", "ring_camp_a", 352, 488), ("prop", "camp_figure_sentry", 500, 512),
     ("prop", "ring_crates_b", 652, 532), ("prop", "camp_hearth", 720, 496), ("prop", "camp_fire", 758, 526),

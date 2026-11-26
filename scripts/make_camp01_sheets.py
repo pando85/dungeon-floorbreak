@@ -311,6 +311,49 @@ def carl_luma(lum, rgb, model, view, carl_x):
     return float(lum[box][sel].mean())
 
 
+# ------------------------------------------------------------------------------------------- R1 and R2
+def occupancy(room: str, layout_dir: Path, skip=()) -> np.ndarray:
+    """Opaque pixels of every structure, prop and foreground piece of the dressed layout (the wall decals and the
+    deck's collision tiles are not counted: a decal is what the arch and the pier cover, the deck is the floor)."""
+    import env_kit as ek  # noqa: PLC0415
+    kit = ek.load_kit(ROOMS[room][1])
+    lay = json.loads((layout_dir / f"{room}.dressed.layout.json").read_text(encoding="utf-8"))
+    occ = np.zeros((ROOM_H, ROOMS[room][2]), dtype=bool)
+    for layer in ("structure", "prop", "foreground"):
+        for p in lay["piece_layers"].get(layer, []):
+            if p["piece"] in skip:
+                continue
+            d = kit.pieces[p["piece"]]
+            a = np.asarray(kit.crop(d["atlas"], d["rect"]).convert("RGBA"))[..., 3] > 0
+            h, w = a.shape
+            x0, y0, x1, y1 = max(p["x"], 0), max(p["y"], 0), min(p["x"] + w, occ.shape[1]), min(p["y"] + h, ROOM_H)
+            if x1 > x0 and y1 > y0:
+                occ[y0:y1, x0:x1] |= a[y0 - p["y"]:y1 - p["y"], x0 - p["x"]:x1 - p["x"]]
+    return occ
+
+
+def visibility(layout_dir: Path) -> list[str]:
+    """Reviews R1 and R2: the share of the motifs' pixels that show, and the chalk pixels on a plinth face."""
+    pieces = camp.all_pieces()
+    out = []
+    occ = occupancy("rest_camp", layout_dir, skip=("camp_chalk_floor",))
+    m = pieces["camp_motifs"]
+    at = next(p for p in camp.CAMP_PLACE if p[1] == "camp_motifs")
+    total = [(x, y) for y in range(m.h) for x in range(m.w) if m.px[y][x]]
+    hidden = sum(1 for x, y in total if occ[at[3] + y, at[2] + x])
+    out.append(f"R1 camp_motifs at ({at[2]}, {at[3]}): {len(total) - hidden} of {len(total)} opaque pixels are not under any "
+               f"structure or prop piece ({100 * (len(total) - hidden) / len(total):.1f} % visible; target >= 90 %)")
+    for room, pid in (("rest_camp", "camp_chalk_floor"), ("rest_aftermath", "aft_lane_chalk")):
+        occ = occupancy(room, layout_dir, skip=("camp_chalk_floor", "aft_lane_chalk", "aft_sand_spill"))
+        at = next(p for p in (camp.CAMP_PLACE + camp.AFT_PLACE) if p[1] == pid)
+        img = pieces[pid]
+        px = [(x, y) for y in range(img.h) for x in range(img.w) if img.px[y][x]]
+        bad = sum(1 for x, y in px if occ[at[3] + y, at[2] + x])
+        low = sum(1 for x, y in px if y >= camp.CHALK_LOW)
+        out.append(f"R2 {pid}: {len(px)} pixels, {bad} on a plinth face (target 0), {low} on rows 573..576 in front of the plinths")
+    return out
+
+
 # ------------------------------------------------------------------------------------------- main
 def main(argv: list[str]) -> int:
     out_dir = Path(argv[0])
@@ -344,6 +387,8 @@ def main(argv: list[str]) -> int:
         meas.append(f"{pid} {img.w}x{img.h} opaque={n} colours={len(cols)} mean_luma={camp.mean_luma(img):.1f}")
     for pid in camp.FIGURES:
         meas.append(f"{pid} mean_luma={camp.mean_luma(pieces[pid]):.1f} (target <= 45)")
+    if layout_dir is not None:
+        meas += visibility(layout_dir)
     meas.append(f"sway_table ticks={len(camp.SWAY_TABLE)}")
     meas += [f"KEY {pid} sha256={sha}" for pid, sha in camp.key_sha().items()]
     (out_dir / "measurements.txt").write_text("\n".join(meas) + "\n", encoding="utf-8")
