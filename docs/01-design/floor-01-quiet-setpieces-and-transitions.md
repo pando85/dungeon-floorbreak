@@ -139,7 +139,7 @@ Opening / Murder Dozer (#179, slot S0) → first goblins → Guild / biscuit
 
 ## F. Implementation and ownership strategy *(adapted)*
 
-1. **REST-WIRE** (one medium-tier PR, section G.10): the three greybox rooms in the run, the grant move, the staff-door lock event, fixtures, pins and evidence. Under "go with all" all three land together instead of REST-A first, REST-B after the Ring stabilizes and REST-C after the Juicer: the Ring rooms and the Juicer's ledger grant are already on main.
+1. **REST-WIRE** (medium tier, two PRs in sequence, REST-AD11, section G.10): **PR 1 (REST-A)** lands the refuge room listed in the manifest after the corral, the grant move with the DP fixture retarget, the staff-door lock event and the swap hint, with the refuge fixtures and evidence; **PR 2 (REST-B and REST-C)** lands the camp and the aftermath, their decor and the full twelve-room run walk. The order keeps the riskiest work first; under "go with all" both land for the playtest, since the Ring rooms and the Juicer's ledger grant are already on main. PR 1 must list the refuge, or the boost would be unobtainable in `--f01-run` between the two PRs.
 2. **AREA-FASTFOOD-01** (art, separate): the original 1990s restaurant kit (section G.7).
 3. **AREA-CAMP-01** (art, separate): the camp interior, reusing AREA-RINGS-01's camp prop family; survivor figures only after narrative review (REST-Q2).
 4. **Integration QA** stays inside REST-WIRE: solo Carl-active, solo Donut-active and 2P fixtures; checkpoint retry; story-flag idempotence; replay; Bevy captures at 640×360/400 and 1080p.
@@ -260,13 +260,14 @@ REST-B and REST-C have no lock and no gated surface: the route is base movement 
 - **Exit:** reaching the exit zone ends the room; the room-clear panel (facts only: time, tries, no kills) confirms the relaunch. A REST room has `goal: reach_exit` and an empty roster, so the panel needs no roster facts (REST-AD13).
 - **Checkpoint:** one per room (positions above), with the existing policy: a defeat respawns there and keeps state. In practice a REST room has no damage source. No heal or mana refill beyond what the checkpoint policy already does (REST-AD8).
 - **The staff door (REST-AD5, REST-AD6):** a sidecar lock whose `opens_on` is the new event `{"event": "hero_on_surface", "target": "donut", "surface": 2}`. It opens on the first fixed tick on which hero 1 is **grounded on platform 2** and stays open for the rest of the attempt; a checkpoint respawn keeps it open, a fixture restart (R / Select hold) closes it again with the rest of the room start, which also drops the boost (G.1), so the box re-grants it on the way to the shelf. Its opened state is sim state: it is hashed when the room has such a lock and mixes nothing otherwise, so every other room's hash is unchanged.
-- **Solo hint (REST-AD7):** in solo, if Carl is the active hero, the staff door is closed and Carl has stood within 96 px left of it for 90 ticks, the HUD shows the headline `SWAP TO DONUT` (a new presentation-only `LabelId`, never hashed). It clears when the door opens or the swap happens. 2P shows no hint.
+- **Loadouts:** the refuge is only completable under the Story or All loadout. Under Story the trigger is armed and the box grants the boost; under All the boost is held and the trigger is spent. A flagless launch (no story flags: `combat_of`, a bare module smoke, ad-hoc tools) arms nothing, so the door never opens and the room is **sealed by design**; the entry line says so (`boost=none`). `--scene f01_late` always resolves to Story or All. All three rooms start with Donut's biscuit unlocked (`DonutSetup::unlocked(8)`, as the Ring rooms and the corral): the boost requires `primary_ranged`, and a trigger whose guard fails is spent without granting, which would seal the refuge.
+- **Solo hint (REST-AD7):** in solo, if Carl is the active hero, the staff door is closed and Carl has stood within 96 px left of it for 90 ticks, the HUD shows the headline `SWAP TO DONUT` (a new presentation-only `LabelId`, never hashed). It clears when the door opens or the swap happens. 2P shows no hint. The hint may never show when the autonomous companion (`cf02_free`) jumps to the shelf and opens the door first; that is intended (the door is latched and the beat still lands).
 
 ### G.5 The grant: data change and pins
 
-**Data change (REST-AD3, REST-AD4).** In `story_unlocks_v0.json` the row `f01_safe_room_reward_found` keeps its id, kind, zone (hero 1, x 1200..1240, y ±100000), grants, flag and `cp_q`. Only `armed_in` changes, `["corridor"]` → `["rest_refuge"]`, and the `provenance` text gains one sentence recording the move. `SceneKind` gains `RestRefuge` (serde `rest_refuge`): no pin row carries it; the refuge's story setup is `for_scene(RestRefuge)` under the program flags, which holds nothing and arms this trigger. This is the KC9 "swap": a single row moves, so no duplicate trigger id is added and no stub trigger is needed (the room is authored around the existing column).
+**Data change (REST-AD3, REST-AD4).** In `story_unlocks_v0.json` the row `f01_safe_room_reward_found` keeps its id, kind, zone (hero 1, x 1200..1240, y ±100000), grants, flag and `cp_q`. Only `armed_in` changes, `["corridor"]` → `["rest_refuge"]`, and the table file's top-level `provenance` string gains one sentence recording the move (trigger rows have no provenance field of their own). `SceneKind` gains `RestRefuge` (serde `rest_refuge`): no pin row carries it; the refuge's story setup is `for_scene(RestRefuge)` under the program flags, which holds nothing and arms this trigger. This is the KC9 "swap": a single row moves, so no duplicate trigger id is added and no stub trigger is needed (the room is authored around the existing column).
 
-**Why the zone numbers stay.** DP-A's fixtures (`donut_prog_story_unlocks`, `donut_prog_grant_survives_retry`, `donut_prog_primary_mapping`, `donut_prog_grants_2p`, and the blink fixture story `PuddleAndZone`) relied on the corridor arming. They now arm the same row by id (`StorySetup::with_trigger("f01_safe_room_reward_found")`). Same row, same zone, same source string, and the runtime hash covers the ledger only, so **their state hashes stay byte-identical**, and so do the receipt-source assertions. Only the structural assertions about where the row is armed change: `story_unlock` tests (`safe.armed_in == [Corridor]`), `donut_prog` tests (the corridor setup's `trigger_ids()`), and the closure test in `donut_prog_fixtures` that builds a corridor setup.
+**Why the zone numbers stay.** DP-A's fixtures (`donut_prog_story_unlocks`, `donut_prog_grant_survives_retry`, `donut_prog_primary_mapping`, `donut_prog_grants_2p`, the closure test in `donut_prog_fixtures`, and the blink fixture story `PuddleAndZone`) relied on the corridor arming. They are **rebuilt on `SceneKind::RestRefuge`** in place of `SceneKind::Corridor`: under the new table that scene arms exactly the row the corridor armed, with the same flag filtering, so each setup is semantically identical (a `--carl-prog`-only setup stays inert, which the closure test asserts). `StorySetup::with_trigger` is **not** used: it pushes the row whatever the hero flags are, which would give the closure test's carl-only setup a runtime and break its assertion. **Why the hashes stay byte-identical:** `UnlockLedger::hash_into` mixes only the held `(hero, id)` pairs and the receipts' hero, capability and tick, never the scene, the source string or the armed trigger list; same row, same zone, same ticks. The receipt-source assertions stay too. The blink stories `Puddle` and `PuddleAndDynamite` stay on `Corridor` (they arm nothing that matters), and the assertions that the corridor is inert under `--carl-prog` (`carl_prog`, `story_unlock`) pass untouched. Only the structural assertions about where the row is armed change: the `story_unlock` test (`safe.armed_in == [Corridor]`) and the `donut_prog` test (the corridor setup's `trigger_ids()`). If any DP fixture hash or committed DP replay line moves, the implementation stops and reports.
 
 **Behaviour change, recorded.** The legacy story corridor (`--donut-prog` outside `--scene f01_late`) **stops granting the boost**; `--donut-light-feet` still holds it there. The Hoarder's direct launch still pins it (R4). `f01_pin_pre_pile_boss` is unchanged; it is no longer the only source of the boost in a run, which settles the K9 "provisional" note in play without a data change (REST-AD3).
 
@@ -275,9 +276,10 @@ REST-B and REST-C have no lock and no gated surface: the route is base movement 
 | Pin | Change | Reason |
 | --- | --- | --- |
 | `story_unlock::TABLE_HASH` | re-pinned | the `armed_in` and `provenance` text of one row. Every PLAYTRACE recording stamps the table as its `story_unlocks` content pin, so **any local recording made before REST-WIRE fails strict verification with a content mismatch**; this is expected and stated in the PR |
-| `f01_late::MANIFEST_HASH` | re-pinned (from `0x5a29_871b_5b47_bb85`) | three `rooms` rows and three `story_order` rows; late-floor recordings made before it fail strict verification the same way |
+| `f01_late::MANIFEST_HASH` | re-pinned (from `0x5a29_871b_5b47_bb85`) | three `rooms` rows, three `story_order` rows and one REST-WIRE sentence in the manifest's `status` history (re-pinned once per REST-WIRE PR); every late-floor recording made before it fails strict verification the same way |
 | `f01_rest` room and sidecar hashes | new, six | the three `*.room.json` and three `*.encounter.json` files, pinned in the module like `f01_ring` |
 | `f01_late::SCOPED_PIN_KEYS` | 19 → 25 entries | six scoped keys `f01_rest_{refuge,camp,aftermath}_{room,encounter}`; `pin_applies` maps each to its room id |
+| `playtrace::live::data_pins()` | +6 entries | the six `f01_rest` pins are stamped; the length and count assertions on the list move with them |
 | height classes, tuning, goldens | **unchanged** | no physics value moves; the DP fixture hashes above are asserted unchanged |
 
 ### G.6 New code surfaces (for REST-WIRE)
@@ -312,10 +314,10 @@ The greybox uses the existing Floor 01 kit and flat labelled rectangles. Every R
 | REST-AD8 | Checkpoints keep the existing policy; no heal or refill | #187 "no healing invention" |
 | REST-AD9 | REST-B reuses `f01_pin_post_pile_boss`; REST-C reuses `f01_late_mastery` | no new pin rows; KR12 holds |
 | REST-AD10 | Survivors and sentry are static labelled markers; no NPC AI, no dialogue | #187 F step 3 |
-| REST-AD11 | All three rooms land in one PR (REST-WIRE) at milestone `greybox` | "go with all"; the dependencies are on main |
+| REST-AD11 | REST-WIRE lands as two PRs at milestone `greybox`: PR 1 the refuge (listed in the manifest), the lock, the grant move and the DP retarget; PR 2 the camp, the aftermath and the twelve-room run walk | the riskiest work first; the review sized one PR as too large for the playtest deadline |
 | REST-AD12 | The heavy bag is a non-solid `hit_target` static if one works without a machine; otherwise decor | no new combat system |
 | REST-AD13 | A REST room has an empty roster under `reach_exit`; if the validator rejects that, it is allowed for `reach_exit` only, with a test | quiet rooms have no enemies |
-| REST-AD14 | AUDIENCE-RUN runs unchanged in REST rooms (no kills, so no kill reactions) | no special case |
+| REST-AD14 | AUDIENCE-RUN runs unchanged in REST rooms: no kills, so no awards; decay runs as tuned (after 480 steps without an award it removes 23‰ of the excess over the 250 baseline every 60 steps, so a 75 to 120 s crossing keeps roughly 21 % down to 7 % of the excess); the floor stays the baseline and the peak counter is kept. The refuge is the first live room and starts at the baseline, so it loses nothing; the aftermath drains the Juicer peak before the mastery room | no special case; REST-Q10 asks the owner |
 | REST-AD15 | The camp interior art is a new row AREA-CAMP-01, reusing the AREA-RINGS-01 camp family | separate art order |
 | REST-AD16 | The box is non-collidable decor; the grant column covers any height at the box | "finding matches the event" |
 | REST-AD17 | No door notice; the door's disappearance and the existing `LIGHT FEET` notice carry the beat | restrained HUD |
@@ -332,6 +334,7 @@ The greybox uses the existing Floor 01 kit and flat labelled rectangles. Every R
 | REST-Q7 | Does the Ball of Swine replace or follow `mastery`, and where does REST-C exit then? | #192 integration | REST-C → `mastery` |
 | REST-Q8 | Slot order once #179, #189 R-regions and #191 land | their integration steps | slots S0 to S4 |
 | REST-Q9 | Should 2P also get a door hint? | owner, after the playtest | no |
+| REST-Q10 | Should audience decay freeze in rooms with an empty roster (the REST rooms), so the aftermath keeps the Juicer peak? | owner, game feel | decay runs (REST-AD14); data-ready, not implemented |
 
 ### G.9 Tests and fixtures (names and expected results)
 
@@ -342,10 +345,14 @@ Library and data tests:
 | `story_unlock::tests::the_safe_room_trigger_is_armed_in_the_refuge_only` (replaces the `armed_in == [Corridor]` assertion) | `armed_in == [RestRefuge]`; zone and grants unchanged |
 | `story_unlock::tests::the_data_file_is_pinned_and_valid` (existing) | passes with the new `TABLE_HASH` |
 | `donut_prog::tests::no_flag_is_no_story_and_each_flag_maps_to_its_setup` (updated) | the corridor setup arms nothing; the `RestRefuge` setup holds nothing and arms `f01_safe_room_reward_found` |
-| the DP fixture hash and assertion tests (`donut_prog_story_unlocks`, `donut_prog_grant_survives_retry`, `donut_prog_primary_mapping`, `donut_prog_grants_2p`, the `PuddleAndZone` blink fixtures) | **unchanged state hashes and events** (grant at tick 246 for `donut_prog_story_unlocks`, receipt source `f01_safe_room_reward_found`) |
+| the DP fixture hash and assertion tests (`donut_prog_story_unlocks`, `donut_prog_grant_survives_retry`, `donut_prog_primary_mapping`, `donut_prog_grants_2p`, the closure test, the `PuddleAndZone` blink fixtures), rebuilt on `SceneKind::RestRefuge` | **unchanged state hashes and events** (grant at tick 246 for `donut_prog_story_unlocks`, receipt source `f01_safe_room_reward_found`) |
 | `f01_late::tests::*manifest*` and `check_story_order` tests (updated indices) | new `MANIFEST_HASH`; KR12 passes; `rest_refuge` is a room row carrying the boost grant |
 | `f01_late::tests::the_rest_rooms_are_listed_in_story_order` | the twelve ids of G.2 in order |
 | `encounter::tests::a_hero_on_surface_lock_parses_and_validates` | parses; rejects an unknown hero, a bad surface index, a surface the hero cannot reach, a lock on a protected zone |
+| `f01_rest::tests::rest_refuge_starts_with_the_biscuit` | Donut's mana is unlocked at tick 0 in all three rooms (the boost's `primary_ranged` guard) |
+| `f01_rest::tests::rest_refuge_entry_line_reports_the_boost` | `boost=armed` under Story, `boost=held` under All, `boost=none` flagless |
+| `f01_rest::tests::rest_refuge_flagless_smoke_is_sealed` | the flagless smoke walks right and ends with the exit **not** reached and the door closed |
+| `f01_rest::tests::rest_refuge_story_smoke_reaches_the_exit` | under the Story flags a scripted crossing with the shelf jump reaches the exit |
 | `f01_rest::tests::rest_refuge_sidecar_validates` | all gates hold; platform 2's effective class is `donut_boosted` (no bypass); vantage `lane_ceiling` accepted; `ceiling_px` 228 |
 | `f01_rest::tests::rest_refuge_shelf_is_boosted_only` | the physics replay (`encounter_physics`) lands boosted Donut on platform 2; base Donut and Carl do not |
 | `f01_rest::tests::rest_refuge_staff_door_seals_the_room` | with the lock closed the exit is unreachable for every class and 2P; with it open, reachable for all |
@@ -361,9 +368,10 @@ Scenario fixtures (`src/rest_fixtures.rs`, deterministic, seeded, each also run 
 
 | Fixture | Script | Expected result |
 | --- | --- | --- |
-| `rest_refuge_solo_carl_swap` | Carl active runs right; AI Donut follows; Carl stops at the door; swap; Donut jumps onto the shelf; both walk out | one `CapabilityGranted { hero 1, jump_reach_boost }` when Donut's pivot enters x 1200..1240; the door opens on the shelf tick; exit reached; no damage event |
-| `rest_refuge_solo_donut` | Donut active from the start | the same grant; door open; AI Carl follows through; exit |
+| `rest_refuge_solo_carl_swap` | companion pinned off (`--companion off`, the follow-and-jump bot); Carl active runs right; Donut follows; Carl stops at the door; swap; Donut jumps onto the shelf; both walk out | one `CapabilityGranted { hero 1, jump_reach_boost }` when Donut's pivot enters x 1200..1240; the door opens on the shelf tick; exit reached; no damage event |
+| `rest_refuge_solo_donut` | companion pinned off; Donut active from the start | the same grant; door open; AI Carl follows through; exit |
 | `rest_refuge_2p` | P1 Carl, P2 Donut | the same; both heroes in the camera at the door |
+| `rest_refuge_solo_companion_crossing` | the default autonomous companion (`cf02_free`); Carl active walks right to the exit | the exit is reached; exactly one grant; Donut is never left on the shelf when Carl exits (the goal or the follow AI brings her down); the hint may or may not show |
 | `rest_refuge_grant_once_at_the_box` | Donut walks back and forth across the column | exactly one grant, no second receipt |
 | `rest_refuge_base_donut_cannot_open` | a story setup with the trigger **not** armed; Donut jumps at the shelf repeatedly | no grant, the door stays closed, the exit is not reached |
 | `rest_refuge_retry_keeps_the_grant` | grant, a defeat retry or checkpoint respawn, then a fixture restart and a second crossing | after the respawn: the boost is held, no second receipt (`rearm`), the door stays open; after the restart: no boost, the door closed, the trigger armed; the second crossing grants exactly once again and opens the door |
@@ -378,7 +386,7 @@ PLAYTRACE: `f01_rest_refuge_recording_verifies`, `f01_rest_camp_recording_verifi
 
 1. Captures at 640×360, 640×400 and 1920×1080 of: the refuge threshold (F-A0), the `LIGHT FEET` notice at the box, Donut on the shelf with the door open, the camp entrance with the marker and the markers, the aftermath blink lane.
 2. A before/after strip of the 128 px shelf: base Donut failing (`rest_refuge_base_donut_cannot_open`), boosted Donut landing.
-3. The run walk: the `entry_line` of each room of a full `--f01-run` from the corral to mastery (scripted or by the walk test output), showing the twelve rooms in order.
+3. The run walk: the `entry_line` of each room of a full `--f01-run` from the corral to mastery (scripted or by the walk test output), showing the rooms in order (PR 1: ten rooms with the refuge; PR 2: all twelve), with the AUDIENCE-RUN viewer count at each REST room's entry and exit (REST-AD14, REST-Q10).
 4. The PLAYTRACE verify lines of the three new rooms.
 5. The full local check list results on the final head.
 6. A real two-pad run: **NOT RUN** unless a human does it. The game-feel verdict is the owner's.
@@ -386,7 +394,7 @@ PLAYTRACE: `f01_rest_refuge_recording_verifies`, `f01_rest_camp_recording_verifi
 ### G.11 Status
 
 - This PR: design only.
-- After REST-WIRE merges: REST-A, REST-B and REST-C are **"merged, game-feel review pending"**, milestone `greybox`. Their art (AREA-FASTFOOD-01, AREA-CAMP-01) is not started.
+- After the two REST-WIRE PRs merge: REST-A, REST-B and REST-C are **"merged, game-feel review pending"**, milestone `greybox`. Their art (AREA-FASTFOOD-01, AREA-CAMP-01) is not started.
 
 ### G.12 Horizon, tone and rights
 
