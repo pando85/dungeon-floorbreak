@@ -153,6 +153,19 @@ impl RoomRig {
                 combat,
                 room_party(),
             )
+        } else if let Some(rest) = crate::f01_rest::RestRoom::from_id(room) {
+            // REST-WIRE: a quiet room, the same way.
+            let (run, scene, combat) =
+                f01_late::rest_start(&root(), rest, view_h, carl, donut, seed)
+                    .expect("the quiet room launches");
+            (
+                f01_late::SESSION_SOURCE,
+                run.fixture.name,
+                true,
+                scene,
+                combat,
+                room_party(),
+            )
         } else if let Some(ring) = crate::f01_ring::RingRoom::from_id(room) {
             // RING-A/B wire: a Ring room, the same way.
             let (run, scene, combat) =
@@ -643,6 +656,265 @@ fn record_ring_evidence_sessions() {
     }
 }
 
+/// REST-WIRE (REST-A): a live-shaped session of the refuge (Story loadout, the solo
+/// crossing: the box grants, the swap, the shelf opens the door, the exit) verifies strict
+/// at both view heights, stamps its own room pins and the manifest's and no other room's,
+/// and a relabelled room, loadout or seed is another run. Replaying the recording rebuilds
+/// the door and the ledger, so the door-open event and the grant are part of the proof.
+#[test]
+fn f01_rest_refuge_recording_verifies() {
+    use crate::f01_rest::RestRoom;
+    use crate::party::HeroId;
+    use crate::rest_fixtures::DonutScript;
+    for view_h in [360, 400] {
+        for (loadout, seed) in [(Loadout::Story, Some(5)), (Loadout::All, None)] {
+            let dir = TempDir::new("f01-rest");
+            let mut rig =
+                RoomRig::build_view(&dir.0, "rest_refuge", Some(loadout), seed, None, view_h);
+            let exit = rig.combat.env().map(|_| 1536.0).unwrap();
+            let mut script = DonutScript::default();
+            let mut swapped = false;
+            for _ in 0..700 {
+                if rig.scene.world.complete {
+                    break;
+                }
+                let input = if !swapped {
+                    swapped = true;
+                    RawInput {
+                        swap: true,
+                        ..RawInput::NONE
+                    }
+                } else {
+                    let body = rig.scene.world.body(HeroId::Donut);
+                    let open = rig
+                        .combat
+                        .env()
+                        .and_then(|e| e.surface_locks_open().first().copied())
+                        .unwrap_or(false);
+                    script.decide(body.x, body.grounded, open, rig.scene.world.tick, exit)
+                };
+                rig.step(input);
+            }
+            assert!(
+                rig.scene.world.complete,
+                "{loadout:?} {view_h}: the exit is reached"
+            );
+            let door = rig
+                .combat
+                .events
+                .iter()
+                .filter(|e| matches!(e, CombatEvent::SurfaceLockOpened { .. }))
+                .count();
+            assert_eq!(door, 1, "the door opened once");
+            let granted = rig
+                .combat
+                .events
+                .iter()
+                .filter(|e| matches!(e, CombatEvent::CapabilityGranted { .. }))
+                .count();
+            assert_eq!(
+                granted,
+                usize::from(loadout == Loadout::Story),
+                "Story grants, All holds"
+            );
+            let manifest = rig.rec.finish("test").expect("finished");
+            let session = dir.0.join(manifest.session_id);
+            let report = verify(&session).unwrap_or_else(|e| panic!("{loadout:?} {view_h}: {e}"));
+            assert_eq!(report.scope, VerifyScope::Full);
+            println!(
+                "REST_REFUGE_VERIFY loadout={} view={view_h} ticks={} state_hashes={} scope={:?} build={}",
+                loadout.name(),
+                report.ticks,
+                report.state_hashes,
+                report.scope,
+                report.build
+            );
+            let loaded = read_session(&session, false).unwrap();
+            assert_eq!(loaded.manifest.reset.name, RestRoom::Refuge.scene_name());
+            assert_eq!(
+                loaded.manifest.reset.f01_room.as_deref(),
+                Some("rest_refuge")
+            );
+            assert_scoped_stamps(&loaded, "rest_refuge");
+            if let Some(seed) = seed {
+                tamper_manifest(&session, |m| m.reset.cf02_seed = Some(seed + 1));
+                assert!(verify(&session).is_err(), "another seed is another run");
+                tamper_manifest(&session, |m| m.reset.cf02_seed = Some(seed));
+                verify(&session).expect("restored");
+            }
+            tamper_manifest(&session, |m| m.reset.f01_room = Some("corral".into()));
+            assert!(verify(&session).is_err(), "relabelled");
+        }
+    }
+}
+
+/// REST-WIRE (REST-AD14): the refuge is the first live room of the run (the audience goes
+/// live when the run leaves the corral) and starts at the baseline; a quiet crossing has no
+/// kill, so no award and, within the 480-step decay delay, no decay either: the viewers
+/// leave the room at the baseline. The test steps the real HUD observer through the
+/// scripted crossing and prints the evidence line (REST-Q10 stays open: whether decay
+/// should freeze in quiet rooms is the owner's call, nothing is frozen here).
+#[test]
+fn the_refuge_runs_the_audience_at_the_baseline_and_decay_runs_unchanged() {
+    use crate::hud::{HudConfig, HudRuntime};
+    use crate::party::HeroId;
+    use crate::rest_fixtures::DonutScript;
+    let dir = TempDir::new("f01-rest-audience");
+    let mut rig = RoomRig::start(&dir.0, "rest_refuge", Loadout::Story);
+    let mut hud = HudRuntime::new(HudConfig::default());
+    hud.resume_audience([(250, 250), (250, 250)])
+        .expect("the audience goes live");
+    let entry = hud.audience_carry().expect("live");
+    let mut script = DonutScript::default();
+    let mut ticks = 0u64;
+    let mut max_current = 0u64;
+    for tick in 1..=700u64 {
+        let input = if tick == 1 {
+            RawInput {
+                swap: true,
+                ..RawInput::NONE
+            }
+        } else {
+            let body = rig.scene.world.body(HeroId::Donut);
+            let open = rig
+                .combat
+                .env()
+                .and_then(|e| e.surface_locks_open().first().copied())
+                .unwrap_or(false);
+            script.decide(body.x, body.grounded, open, tick, 1536.0)
+        };
+        rig.step(input);
+        hud.set_hero_x(
+            rig.scene.world.hero.x as i32,
+            rig.scene.world.donut.x as i32,
+        );
+        hud.step(
+            rig.scene.world.hero.health,
+            rig.scene.world.donut.health,
+            &rig.combat.events,
+            rig.combat.dropped_events,
+        );
+        ticks = tick;
+        if let Some(c) = hud.audience_carry() {
+            max_current = max_current.max(c[0].0).max(c[1].0);
+        }
+        if rig.scene.world.complete {
+            break;
+        }
+    }
+    assert!(rig.scene.world.complete, "the crossing reaches the exit");
+    let exit = hud.audience_carry().expect("live");
+    println!(
+        "AUDIENCE_RUN room=rest_refuge entry=carl:{}/{} donut:{}/{} exit=carl:{}/{} donut:{}/{} ticks={ticks} (current/peak; baseline 250, no kill, no award)",
+        entry[0].0, entry[0].1, entry[1].0, entry[1].1, exit[0].0, exit[0].1, exit[1].0, exit[1].1
+    );
+    assert_eq!(
+        entry,
+        [(250, 250), (250, 250)],
+        "the first live room starts at the baseline"
+    );
+    assert_eq!(
+        exit, entry,
+        "no award, and decay has not started inside the delay"
+    );
+    assert_eq!(max_current, 250);
+}
+
+/// REST-WIRE evidence helper (ignored, writes only under `REST_REC_DIR`): records the
+/// refuge's scripted sessions so the replay viewer can render the room with the heroes in
+/// every beat, at both view heights, and prints the session ids and the ticks worth a
+/// capture. `solo_donut` is the Story crossing (swap at tick 1, the shelf, the exit),
+/// `carl_door` has Carl walk to the closed door and wait (the hint) and `base_donut` is a
+/// flagless run where base Donut jumps at the shelf from a spread of columns and fails.
+///
+/// `REST_REC_DIR=<dir> cargo test --lib -- --ignored record_rest_evidence_sessions --nocapture`
+#[test]
+#[ignore = "evidence helper: records the refuge sessions the replay viewer renders"]
+fn record_rest_evidence_sessions() {
+    use crate::party::HeroId;
+    use crate::rest_fixtures::{DonutScript, walk};
+    let Ok(base) = std::env::var("REST_REC_DIR") else {
+        return;
+    };
+    let swap = RawInput {
+        swap: true,
+        ..RawInput::NONE
+    };
+    for view_h in [360, 400] {
+        for kind in ["solo_donut", "carl_door", "base_donut"] {
+            let dir = PathBuf::from(&base).join(format!("{kind}_{view_h}"));
+            std::fs::create_dir_all(&dir).unwrap();
+            let loadout = (kind != "base_donut").then_some(Loadout::Story);
+            let mut rig = RoomRig::build_view(&dir, "rest_refuge", loadout, None, None, view_h);
+            let mut script = if kind == "base_donut" {
+                DonutScript::base_probe()
+            } else {
+                DonutScript::default()
+            };
+            let (mut grant, mut door, mut exit, mut at_door) = (0u64, 0u64, 0u64, 0u64);
+            let ticks = if kind == "solo_donut" { 500 } else { 560 };
+            for tick in 1..=ticks {
+                let carl = rig.scene.world.body(HeroId::Carl).x;
+                let donut = rig.scene.world.body(HeroId::Donut);
+                let open = rig
+                    .combat
+                    .env()
+                    .and_then(|e| e.surface_locks_open().first().copied())
+                    .unwrap_or(false);
+                let input = match kind {
+                    "carl_door" => RawInput {
+                        move_x: walk(carl, crate::rest_fixtures::DOOR_WAIT_X),
+                        ..RawInput::NONE
+                    },
+                    _ if tick == 1 => swap,
+                    _ => script.decide(donut.x, donut.grounded, open, tick, 1536.0),
+                };
+                rig.step(input);
+                if grant == 0
+                    && rig
+                        .combat
+                        .events
+                        .iter()
+                        .any(|e| matches!(e, CombatEvent::CapabilityGranted { .. }))
+                {
+                    grant = tick;
+                }
+                if door == 0
+                    && rig
+                        .combat
+                        .events
+                        .iter()
+                        .any(|e| matches!(e, CombatEvent::SurfaceLockOpened { .. }))
+                {
+                    door = tick;
+                }
+                if exit == 0 && rig.scene.world.complete {
+                    exit = tick;
+                }
+                if kind == "carl_door"
+                    && at_door == 0
+                    && (carl - crate::rest_fixtures::DOOR_WAIT_X).abs() <= 3.0
+                {
+                    at_door = tick;
+                }
+                if rig.scene.world.complete {
+                    break;
+                }
+            }
+            let manifest = rig.rec.finish("test").expect("finished");
+            let report = verify(&dir.join(&manifest.session_id)).expect("verifies strict");
+            println!(
+                "REST_SESSION kind={kind} view={view_h} session={} ticks={} state_hashes={} scope={:?} grant_tick={grant} door_tick={door} exit_tick={exit} carl_at_door_tick={at_door} combat_hash={:#018x}",
+                manifest.session_id,
+                report.ticks,
+                report.state_hashes,
+                report.scope,
+                rig.combat.state_hash(&rig.scene)
+            );
+        }
+    }
+}
+
 /// CORRAL-WIRE/CORRAL-F: a recorded room-0 session (launched by id) verifies
 /// strict from its descriptor, under both loadouts and a seed; its llamas are
 /// the CORRAL-C ones and another room's label or seed is another run.
@@ -694,6 +966,7 @@ fn a_hoarder_or_hazard_recording_needs_its_room_pins_and_no_other() {
         "ring_court",
         "ring_split",
         "corral",
+        "rest_refuge",
     ] {
         let (_dir, session) = record("f01-room-pins", room, Loadout::Story, 200);
         for key in f01_late::SCOPED_PIN_KEYS {
@@ -977,6 +1250,7 @@ fn only_the_listed_rooms_sessions_may_carry_their_own_room() {
         ("ring_court", "f01_ring_court"),
         ("ring_split", "f01_ring_split"),
         ("corral", "f01_corral"),
+        ("rest_refuge", "f01_rest_refuge"),
     ] {
         assert!(ok(&reset(
             f01_late::SESSION_SOURCE,
@@ -1012,6 +1286,7 @@ fn only_the_listed_rooms_sessions_may_carry_their_own_room() {
             "ring_court",
             "ring_split",
             "corral",
+            "rest_refuge",
             "juicer",
         ] {
             assert!(

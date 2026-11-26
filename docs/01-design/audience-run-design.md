@@ -24,11 +24,11 @@ Every rule below uses only facts the authoritative event stream already carries,
 | Death presentation | Per-species finishes, including `llama_exploded` (point-blank blast), `llama_decapitated` (edge), `llama_crushed` (block), `llama_slammed` (heavy hit), `llama_down` (routine) | `src/death.rs`, `src/death_present.rs` (#272) |
 | Floor run | One room per launch (K17); a relaunch carries `--f01-room`, `--f01-carry` (ledger) and `--f01-run-tally` and keeps every other flag | `src/f01_run.rs` |
 
-Room order (`assets/levels/f01_late/manifest.json`): `corral`, `hoarder`, `boiler`, `dozer`, `hazards`, `ring_court`, `ring_split`, `juicer` (boss), `mastery`. Llamas live in the corral (three) and in mastery (two). Carl's dynamite (`special_thrown_charge`) is granted by the Hoarder's defeat, so it is usable from the boiler on, and in mastery through its pin.
+Room order (`assets/levels/f01_late/manifest.json`): `corral`, `rest_refuge` (REST-WIRE, a quiet room with no kill), `hoarder`, `boiler`, `dozer`, `hazards`, `ring_court`, `ring_split`, `juicer` (boss), `mastery`. Llamas live in the corral (three) and in mastery (two). Carl's dynamite (`special_thrown_charge`) is granted by the Hoarder's defeat, so it is usable from the boiler on, and in mastery through its pin.
 
 ## 2. The unlock beat (deliverable 1)
 
-**Adopted (AR-AD1): the broadcast goes live when the run leaves the Infernal Corral.** The corral (room 1 of 9) plays with no viewer decoration. Every run room listed after the corral (`hoarder` onward) has both counts live.
+**Adopted (AR-AD1): the broadcast goes live when the run leaves the Infernal Corral.** The corral (room 1 of 10) plays with no viewer decoration. Every run room listed after the corral (the refuge `rest_refuge` onward) has both counts live; N is the current run length (10 after REST-WIRE's first step, 12 after its second). The refuge is a quiet room with no kill, so no award happens there and decay runs unchanged (REST-AD14; REST-Q10 asks whether it should freeze).
 
 Why this beat:
 
@@ -166,7 +166,7 @@ No new art or wiring is needed. DEATH-D (#108), LLAMA-DEATH-WIRE (#272) and the 
 
 | ID | Adopted value | Why |
 | --- | --- | --- |
-| AR-AD1 | The unlock beat is the corral exit. The audience is live in every `--f01-run` room whose manifest row comes after `corral`. The rule is positional and fails closed if `corral` is not listed. | Section 2 |
+| AR-AD1 | The unlock beat is the corral exit (the refuge onward, room 1 of N). The audience is live in every `--f01-run` room whose manifest row comes after `corral`. The rule is positional and fails closed if `corral` is not listed. | Section 2 |
 | AR-AD2 | The corral's room-clear panel gets one fact line, only when the audience will be live next: `broadcast: live from the next room (viewers per hero)`. No number on any panel. The plates appear at the next room's first tick, at the carried or baseline counts, with no count-up from zero. | An explicit, calm reveal that stays inside the facts-only panel rule |
 | AR-AD3 | `--f01-audience C:P:D:Q` carries the current count and the peak per hero at the exit tick. The decay remainder is dropped. Validation is `peak >= current >= 250`. | The smallest carry that keeps what the player sees |
 | AR-AD4 | A live room started without a carry starts at the baseline of 250 for both heroes. | Same as `unlock()` |

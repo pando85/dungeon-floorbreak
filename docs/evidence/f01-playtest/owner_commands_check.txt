@@ -17,7 +17,7 @@
 [ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room ring_split
 [ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room juicer
 [ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room mastery
-[refuse] refused (exit 2): floor01_scene: --f01-room: unknown room "cellar" (listed rooms: corral, hoarder, boiler, dozer, hazards, ring_court, ring_split, juicer, mastery) :: floor01_scene --scene f01_late --scale 2 --f01-room cellar
+[refuse] refused (exit 2): floor01_scene: --f01-room: unknown room "cellar" (listed rooms: corral, rest_refuge, hoarder, boiler, dozer, hazards, ring_court, ring_split, juicer, mastery) :: floor01_scene --scene f01_late --scale 2 --f01-room cellar
 [refuse] refused (exit 2): floor01_scene: unknown scene "f01_ring_court" (expected boss_f01, combat_lab, f01_boiler, f01_hoarder, f01_dozer, f01_hazards, f01_late, refuge_guild) :: floor01_scene --scene f01_ring_court --scale 2
 [ok] ok :: floor01_scene --scene f01_hoarder --scale 2
 [ok] ok :: floor01_scene --scene f01_dozer --scale 2

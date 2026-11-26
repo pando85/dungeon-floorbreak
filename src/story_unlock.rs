@@ -30,7 +30,7 @@ pub const TABLE_JSON: &str = include_str!("../assets/data/gameplay/story_unlocks
 
 /// The committed FNV-1a 64 content hash of [`TABLE_JSON`]. Editing the file
 /// without updating this value fails [`StoryTable::pinned`] and the pin test.
-pub const TABLE_HASH: u64 = 0x00f9_0eb3_7c41_fd8a;
+pub const TABLE_HASH: u64 = 0xf41a_f63c_e01b_a84f;
 
 /// The schema version [`StoryTable`] accepts.
 pub const SCHEMA_VERSION: u32 = 1;
@@ -122,6 +122,12 @@ pub enum SceneKind {
     /// only, read through, and grants nothing), so a story setup for it holds
     /// and arms nothing; a row that names it is a deliberate table change.
     Corral,
+    /// REST-WIRE: room 1, the refuge (`rest_refuge`, "The Wrong Restaurant"). Only
+    /// the trigger `f01_safe_room_reward_found` is armed in it (REST-AD3: the
+    /// reward column of the old story corridor moved here); no pin row carries the
+    /// scene, so a setup for it holds nothing and arms that one trigger under the
+    /// program flags (the Donut program), exactly what the corridor armed before.
+    RestRefuge,
 }
 
 /// How a data event id is matched against the combat events.
@@ -1486,7 +1492,6 @@ mod tests {
         );
         let safe = t.trigger("f01_safe_room_reward_found").unwrap();
         assert_eq!(safe.grants, ["jump_reach_boost"]);
-        assert_eq!(safe.armed_in, [SceneKind::Corridor]);
         let zone = safe.zone.unwrap();
         assert_eq!(zone.hero, 1);
         assert!(
@@ -1498,6 +1503,26 @@ mod tests {
                 .iter()
                 .any(|f| f.flag == "donut_prog" && f.heroes == [1])
         );
+    }
+
+    /// REST-WIRE (REST-AD3): the reward column is armed in the refuge room only. The
+    /// old story corridor arms nothing under the Donut program (REST-AD18), and
+    /// `RestRefuge` arms exactly this one row, holding nothing.
+    #[test]
+    fn the_safe_room_trigger_is_armed_in_the_refuge_only() {
+        let t = table();
+        let safe = t.trigger("f01_safe_room_reward_found").unwrap();
+        assert_eq!(safe.armed_in, [SceneKind::RestRefuge]);
+        let donut = StorySetup::for_scene(t, &["donut_prog"], &[], SceneKind::RestRefuge);
+        assert!(donut.holds().is_empty());
+        assert_eq!(donut.trigger_ids(), ["f01_safe_room_reward_found"]);
+        let corridor = StorySetup::for_scene(t, &["donut_prog"], &[], SceneKind::Corridor);
+        assert!(corridor.is_inert(), "the corridor arms nothing any more");
+        // The refuge is as inert as the corridor was without the Donut program.
+        for flags in [&[][..], &["carl_prog"][..]] {
+            let setup = StorySetup::for_scene(t, flags, &[], SceneKind::RestRefuge);
+            assert!(setup.is_inert(), "{flags:?}");
+        }
     }
 
     #[test]

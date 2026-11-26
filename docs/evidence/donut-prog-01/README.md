@@ -6,7 +6,7 @@ Headless replays of the `donut_prog_*` fixtures (`replays/headless_<fixture>.txt
 identically, equals its committed file (unit test and the `headless` loop of
 `scripts/ci_floor01_combat.sh`) and has its golden pinned in `src/donut_prog_fixtures.rs`.
 Placeholder status: the real safe-room (I-08) reward pickup and the Hoarder content are
-later work, so the fixtures use the placeholder zone `f01_safe_room_reward_found` in the
+later work, so the fixtures use the placeholder zone `f01_safe_room_reward_found` (armed in the `rest_refuge` scene kind since REST-WIRE; the fixtures run it in the corridor world, the recorded hashes unchanged) in the
 corridor run and the boss arena. DP-A has no presentation and no simulation rule: it adds
 rows, flags, triggers and data, so a render-loop replay is added by the first DONUT-PROG PR
 that draws something (DP-D).

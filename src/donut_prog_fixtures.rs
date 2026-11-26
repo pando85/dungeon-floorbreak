@@ -56,11 +56,16 @@ const DONUT_PROG: DonutProgFlags = DonutProgFlags {
 pub fn story_setup(fixture: &str) -> StorySetup {
     match fixture {
         // The story corridor run under `--donut-prog`: the guild zone (the
-        // biscuit, `DonutSetup`) and the safe-room placeholder zone.
+        // biscuit, `DonutSetup`) and the safe-room reward zone. REST-WIRE (REST-AD3,
+        // REST-AD18): the zone is armed in the `rest_refuge` scene kind now, not in the
+        // corridor (which arms nothing under `--donut-prog`); these fixtures run in the
+        // corridor world on purpose and arm the row through `SceneKind::RestRefuge`,
+        // which under the table arms exactly the row the corridor armed, with the same
+        // flag filtering (nothing held, nothing armed without the Donut program).
         "donut_prog_story_unlocks"
         | "donut_prog_grant_survives_retry"
         | "donut_prog_primary_mapping" => {
-            program_setup(CarlProgFlags::OFF, DONUT_PROG, SceneKind::Corridor)
+            program_setup(CarlProgFlags::OFF, DONUT_PROG, SceneKind::RestRefuge)
         }
         // The boss pin and the Juicer trigger, Donut's program only.
         "donut_prog_boss_pins" => program_setup(CarlProgFlags::OFF, DONUT_PROG, SceneKind::Boss),
@@ -119,7 +124,9 @@ const STORY_BASE: Fixture = base(
 );
 
 /// DP-Q01, DP-Q02, DP-Q06: the biscuit at the guild zone, then
-/// `jump_reach_boost` exactly once at the safe-room placeholder zone, with one
+/// `jump_reach_boost` exactly once at the safe-room reward zone (armed in the
+/// `rest_refuge` scene kind since REST-WIRE, REST-AD3: the fixture still runs in the
+/// corridor world and arms the row through `SceneKind::RestRefuge`), with one
 /// `CapabilityGranted { hero 1 }` on the first tick her pivot is inside. P2's
 /// Circle/B presses (before and after the grant) emit nothing.
 pub const DONUT_PROG_STORY_UNLOCKS: PartyFixture = PartyFixture {
@@ -278,7 +285,7 @@ fn grants_2p_setup() -> StorySetup {
             .expect("the evidence table parses")
             .leak()
     });
-    StorySetup::for_scene(table, &["donut_prog"], &[], SceneKind::Corridor)
+    StorySetup::for_scene(table, &["donut_prog"], &[], SceneKind::RestRefuge)
 }
 
 const FIZZLE_BASE: Fixture = Fixture {
@@ -758,7 +765,8 @@ mod tests {
 
     /// DP-Q01, DP-Q02, DP-Q06 (the story corridor run, simulation and events
     /// only): the biscuit at the guild zone on the existing tick, then the
-    /// jump boost exactly once at the safe-room placeholder zone.
+    /// jump boost exactly once at the safe-room reward zone (armed in the `rest_refuge`
+    /// scene kind, REST-WIRE).
     #[test]
     fn donut_prog_story_unlocks() {
         let sim = named("donut_prog_story_unlocks");
@@ -1114,8 +1122,9 @@ mod tests {
         let (_, _, both_words) = juicer(true, true, false);
         assert!(carl_words.len() < both_words.len());
         // The safe-room zone: armed by the Donut program only, one grant, and
-        // only with the biscuit read through (the `requires` guard).
-        let corridor = |carl: bool, biscuit: bool| {
+        // only with the biscuit read through (the `requires` guard). REST-WIRE: armed in
+        // the refuge scene kind (not `with_trigger`, which would arm it under any flags).
+        let refuge = |carl: bool, biscuit: bool| {
             let setup = program_setup(
                 CarlProgFlags {
                     prog: carl,
@@ -1125,7 +1134,7 @@ mod tests {
                     prog: !carl,
                     ..DonutProgFlags::OFF
                 },
-                SceneKind::Corridor,
+                SceneKind::RestRefuge,
             );
             let mut runtime = StoryRuntime::new(&setup)?;
             let view = ReadThrough {
@@ -1137,14 +1146,14 @@ mod tests {
             assert!(again.is_empty(), "a trigger is consumed, never re-armed");
             Some((first.len(), runtime.debug_log().len()))
         };
-        assert_eq!(corridor(false, true), Some((1, 0)));
+        assert_eq!(refuge(false, true), Some((1, 0)));
         assert_eq!(
-            corridor(false, false),
+            refuge(false, false),
             Some((0, 1)),
             "without the biscuit the entry is skipped and the trigger is spent"
         );
         assert_eq!(
-            corridor(true, true),
+            refuge(true, true),
             None,
             "`--carl-prog` never evaluates the safe-room zone"
         );

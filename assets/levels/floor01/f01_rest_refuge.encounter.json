@@ -1,0 +1,34 @@
+{
+  "schema": "floor01-encounter-v1",
+  "status": "REST-WIRE data (docs/01-design/floor-01-quiet-setpieces-and-transitions.md section G, REST-A, REST-AD1..AD18): the refuge, a quiet room with an empty roster under goal reach_exit (REST-AD13). The staff door is a lock that opens when Donut stands on platform 2 (hero_on_surface, REST-AD5, REST-AD6). Validated by src/encounter.rs, launched as the room rest_refuge of --scene f01_late (src/f01_rest.rs). Greybox hypotheses; every number is a tuning knob. Coordinates are layout pixels, y down, like the room file.",
+  "id": "F01-REST-REFUGE-ENC",
+  "room_file": "f01_rest_refuge.room.json",
+  "room_id": "F01-REST-REFUGE",
+  "story_pin": "f01_pin_refuge_entry",
+  "goal": "reach_exit",
+  "grants": [],
+  "max_living": 0,
+  "locks": [
+    {
+      "id": "staff_door",
+      "solid": { "x": 1440, "y": 352, "w": 16, "h": 228 },
+      "opens_on": { "event": "hero_on_surface", "target": "donut", "surface": 2 }
+    }
+  ],
+  "platform_slab_px": 12,
+  "protected_spawn": { "x": 16, "y": 484, "w": 208, "h": 96 },
+  "checkpoint": { "x": 1104, "y": 484, "w": 48, "h": 96 },
+  "exit": { "x": 1504, "y": 484, "w": 64, "h": 96 },
+  "props": [],
+  "hazards": [],
+  "links": [],
+  "roster": [],
+  "gates": [
+    { "surface": 0, "class": "carl" },
+    { "surface": 1, "class": "carl" },
+    { "surface": 2, "class": "donut_boosted" }
+  ],
+  "vantages": [
+    { "surface": 2, "counter": "lane_ceiling" }
+  ]
+}

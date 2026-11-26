@@ -1,0 +1,1 @@
+AUDIENCE_RUN room=rest_refuge entry=carl:250/250 donut:250/250 exit=carl:250/250 donut:250/250 ticks=414 (current/peak; baseline 250, no kill, no award)

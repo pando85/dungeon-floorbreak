@@ -1680,6 +1680,15 @@ pub enum CombatEvent {
         hero: u8,
         capability: &'static str,
     },
+    /// REST-WIRE, appended (REST-AD5): a `hero_on_surface` lock opened because hero
+    /// `hero` (the party index) first stood on its platform; `lock` is the lock's
+    /// sidecar index. One per opening, never again until a fixture restart. Only a
+    /// room with such a lock emits it.
+    SurfaceLockOpened {
+        tick: u64,
+        lock: u16,
+        hero: u8,
+    },
     /// DONUT-MOBILITY-01 DM-B, appended: Donut's cat reflex evaded one
     /// evadable attack instance (DM-Q19). `source` is the attacker's target id
     /// (a goblin index, or the goblin count plus the llama index), as in
@@ -2309,6 +2318,13 @@ impl CombatEvent {
                 mix(u64::from(hero));
                 mix(crate::donut_mana::content_hash(capability));
             }
+            // REST-WIRE: "SLOP".
+            Self::SurfaceLockOpened { tick, lock, hero } => {
+                mix(0x534c_4f50);
+                mix(tick);
+                mix(u64::from(lock));
+                mix(u64::from(hero));
+            }
             // DONUT-MOBILITY-01 DM-B: "DMEV" and "DMAR", in their own range;
             // only a run with an armed reflex ever emits them.
             Self::HeroEvaded {
@@ -2839,6 +2855,10 @@ impl fmt::Display for CombatEvent {
             } => write!(
                 f,
                 "COMBAT_EVENT tick={tick} kind=capability_granted hero={hero} capability={capability}"
+            ),
+            Self::SurfaceLockOpened { tick, lock, hero } => write!(
+                f,
+                "COMBAT_EVENT tick={tick} kind=surface_lock_opened lock={lock} hero={hero}"
             ),
             Self::HeroEvaded {
                 tick,

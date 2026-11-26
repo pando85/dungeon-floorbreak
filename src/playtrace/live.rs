@@ -269,6 +269,15 @@ pub fn data_pins() -> Vec<(&'static str, u64)> {
             crate::f01_corral::ENCOUNTER_PIN_KEY,
             crate::f01_corral::ENCOUNTER_HASH,
         ),
+        // REST-WIRE: the refuge's room and sidecar pins, scoped to `rest_refuge`.
+        (
+            crate::f01_rest::REFUGE_ROOM_PIN_KEY,
+            crate::f01_rest::REFUGE_ROOM_HASH,
+        ),
+        (
+            crate::f01_rest::REFUGE_ENCOUNTER_PIN_KEY,
+            crate::f01_rest::REFUGE_ENCOUNTER_HASH,
+        ),
         // CF02-FU-C2F U3: the microarena's room file.
         (
             crate::cf02::arena::ROOM_PIN_KEY,

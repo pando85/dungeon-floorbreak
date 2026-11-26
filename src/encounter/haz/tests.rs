@@ -1271,7 +1271,7 @@ fn a_wave_room_with_a_slime_and_no_pocket_is_still_refused() {
 /// hash is its pin. The existing negative tests above pass unedited.
 #[test]
 fn non_wave_sidecars_validate_identically() {
-    let pins: [(&str, u64); 6] = [
+    let pins: [(&str, u64); 7] = [
         (BOILER_ENCOUNTER_PATH, crate::f01_boiler::ENCOUNTER_HASH),
         (HAZARDS_ENCOUNTER_PATH, crate::f01_hazards::ENCOUNTER_HASH),
         (
@@ -1291,6 +1291,11 @@ fn non_wave_sidecars_validate_identically() {
         (
             crate::f01_dozer::ENCOUNTER_PATH,
             crate::f01_dozer::ENCOUNTER_HASH,
+        ),
+        // REST-WIRE: the refuge (an empty roster under `reach_exit`).
+        (
+            crate::f01_rest::REFUGE_ENCOUNTER_PATH,
+            crate::f01_rest::REFUGE_ENCOUNTER_HASH,
         ),
     ];
     let mut seen = 0;

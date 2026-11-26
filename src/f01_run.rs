@@ -585,11 +585,32 @@ mod tests {
             seen.push(row.id);
         }
         assert_eq!(seen, manifest.listed());
-        // CORRAL-F: the run starts in room 0 and walks on to the Hoarder.
+        // CORRAL-F: the run starts in room 0; REST-WIRE: it walks on to the refuge, and the
+        // refuge to the Hoarder.
         assert_eq!(first_room(&manifest).id, "corral");
         assert_eq!(
             next_room(&manifest, "corral").unwrap(),
+            NextStep::Room(manifest.room("rest_refuge").unwrap().clone())
+        );
+        assert_eq!(
+            next_room(&manifest, "rest_refuge").unwrap(),
             NextStep::Room(manifest.room("hoarder").unwrap().clone())
+        );
+        // The listed rooms in story order, REST-WIRE (REST-A): ten rooms.
+        assert_eq!(
+            seen,
+            [
+                "corral",
+                "rest_refuge",
+                "hoarder",
+                "boiler",
+                "dozer",
+                "hazards",
+                "ring_court",
+                "ring_split",
+                "juicer",
+                "mastery"
+            ]
         );
         assert!(next_room(&manifest, "cellar").is_err(), "unknown");
     }
@@ -606,7 +627,7 @@ mod tests {
             "id": "cellar", "title": "A Made-Up Room", "scene": "f01_boiler",
             "rules": "cf02_rules", "milestone": "greybox"
         });
-        rooms.insert(4, made_up);
+        rooms.insert(5, made_up);
         let order = value["story_order"].as_array_mut().unwrap();
         let at = order.iter().position(|o| o["id"] == "dozer").unwrap();
         let mut row = order[at].clone();
@@ -622,6 +643,7 @@ mod tests {
             seen,
             [
                 "corral",
+                "rest_refuge",
                 "hoarder",
                 "boiler",
                 "dozer",
@@ -633,8 +655,8 @@ mod tests {
                 "mastery"
             ]
         );
-        assert_eq!(room_index(&manifest, "dozer"), Some((4, 10)));
-        assert_eq!(room_index(&manifest, "cellar"), Some((5, 10)));
+        assert_eq!(room_index(&manifest, "dozer"), Some((5, 11)));
+        assert_eq!(room_index(&manifest, "cellar"), Some((6, 11)));
     }
 
     #[test]
@@ -864,7 +886,7 @@ mod tests {
         };
         let (facts, panel, decision) = on_exit(&input).unwrap();
         assert_eq!(facts.grants, [(0, "special_thrown_charge".to_owned())]);
-        assert!(panel.heading.starts_with("ROOM 2/9 CLEARED"));
+        assert!(panel.heading.starts_with("ROOM 3/10 CLEARED"));
         let Decision::Relaunch { room, argv: next } = decision else {
             panic!("the Hoarder leads on");
         };
@@ -894,7 +916,7 @@ mod tests {
         let end = ExitInput {
             room: last,
             tally: RunTally {
-                rooms: 8,
+                rooms: 9,
                 ..RunTally::default()
             },
             ..input
@@ -902,7 +924,7 @@ mod tests {
         let (_, panel, decision) = on_exit(&end).unwrap();
         assert_eq!(decision, Decision::Quit);
         assert_eq!(panel.heading, "FLOOR 1 SLICE FINISHED");
-        assert!(panel.lines[2].contains("9 of 9 listed rooms"));
+        assert!(panel.lines[2].contains("10 of 10 listed rooms"));
         assert!(
             on_exit(&ExitInput {
                 room: "cellar",
@@ -912,11 +934,11 @@ mod tests {
         );
     }
 
-    /// CORRAL-F: the corral's exit relaunches the run into the Hoarder with the
-    /// corral's ledger carried, and the Hoarder accepts it (her pin is unioned in,
-    /// so she starts as she does from her pin alone).
+    /// CORRAL-F, REST-WIRE: the corral's exit relaunches the run into the refuge (room 1)
+    /// with the corral's (empty) ledger carried, and the refuge accepts it: it arms the
+    /// reward trigger under the Story flags and holds nothing.
     #[test]
-    fn the_corral_exit_relaunches_into_the_hoarder_with_its_ledger() {
+    fn the_corral_exit_relaunches_into_the_refuge() {
         let manifest = manifest();
         let (carl, donut) = Loadout::Story.flags();
         let (_, _, corral) =
@@ -939,21 +961,21 @@ mod tests {
         assert!(
             panel
                 .heading
-                .starts_with("ROOM 1/9 CLEARED: THE INFERNAL CORRAL"),
+                .starts_with("ROOM 1/10 CLEARED: THE INFERNAL CORRAL"),
             "{}",
             panel.heading
         );
         assert!(
-            panel.lines[3].contains("The Hoarder (story ledger carried)"),
+            panel.lines[3].contains("The Wrong Restaurant (story ledger carried)"),
             "{:?}",
             panel.lines
         );
         let Decision::Relaunch { room, argv: next } = decision else {
             panic!("the corral leads on");
         };
-        assert_eq!(room, "hoarder");
+        assert_eq!(room, "rest_refuge");
         let at = next.iter().position(|a| a == "--f01-room").unwrap();
-        assert_eq!(next[at + 1], "hoarder");
+        assert_eq!(next[at + 1], "rest_refuge");
         let carry = next.iter().position(|a| a == FLAG_CARRY).unwrap();
         let snapshot = decode_carry(&next[carry + 1]).unwrap();
         // The corral runs no story runtime (its pin is empty, KC11): the run
@@ -968,11 +990,90 @@ mod tests {
         // room carries nothing (review finding F4 of #283).
         assert_eq!(None, carry_for(Loadout::Story, RoomScene::Boiler, &corral));
         assert_eq!(None, carry_for(Loadout::All, RoomScene::Corral, &corral));
+        // The refuge accepts the empty ledger and keeps its reward trigger armed.
+        let (_, _, mut refuge) = crate::f01_late::rest_start(
+            &root(),
+            crate::f01_rest::RestRoom::Refuge,
+            360,
+            carl,
+            donut,
+            None,
+        )
+        .unwrap();
+        refuge.carry_story(&snapshot).unwrap();
+        assert!(refuge.story_zone_armed(1), "the box can still grant");
+        let tally = next.iter().position(|a| a == FLAG_TALLY).unwrap();
+        assert_eq!(RunTally::parse(&next[tally + 1]).unwrap().rooms, 1);
+    }
+
+    /// REST-WIRE (REST-A): a refuge crossing's exit snapshot holds Donut's boost with
+    /// exactly one receipt (the grant of the box), the run carries it on the relaunch,
+    /// and the Hoarder starts from it (her pin holds the boost too: the carry unions in).
+    #[test]
+    fn the_refuge_exit_carries_light_on_your_feet_into_the_hoarder() {
+        use crate::rest_fixtures::Case;
+        let manifest = manifest();
+        let (carl, donut) = Loadout::Story.flags();
+        let crossing = crate::rest_fixtures::run_sim(&root(), Case::SoloDonut).unwrap();
+        let combat: &CombatState = &crossing.combat;
+        let snapshot = combat
+            .story_snapshot()
+            .expect("a refuge runs a story runtime");
+        assert_eq!(snapshot.held.len(), 1, "{:?}", snapshot.held);
+        assert_eq!(snapshot.receipts.len(), 1, "exactly one receipt");
+        assert_eq!(snapshot.receipts[0].capability, "jump_reach_boost");
+        assert_eq!(snapshot.receipts[0].source, "f01_safe_room_reward_found");
+        let argv = argv(&["floor01_scene", "--scene", "f01_late", "--f01-run"]);
+        let input = ExitInput {
+            manifest: &manifest,
+            room: "rest_refuge",
+            loadout: Loadout::Story,
+            combat,
+            carried: Some(&LedgerSnapshot {
+                version: snapshot.version,
+                held: Vec::new(),
+                receipts: Vec::new(),
+            }),
+            tally: RunTally::default(),
+            argv: &argv,
+            recording: "REC",
+            audience: None,
+            audience_enabled: false,
+        };
+        let (facts, panel, decision) = on_exit(&input).unwrap();
+        assert_eq!(
+            facts.grants,
+            [(1, "jump_reach_boost".to_owned())],
+            "the grant is the refuge's"
+        );
+        assert!(
+            panel
+                .heading
+                .starts_with("ROOM 2/10 CLEARED: THE WRONG RESTAURANT"),
+            "{}",
+            panel.heading
+        );
+        let Decision::Relaunch { room, argv: next } = decision else {
+            panic!("the refuge leads on");
+        };
+        assert_eq!(room, "hoarder");
+        let carry = next.iter().position(|a| a == FLAG_CARRY).unwrap();
+        assert_eq!(decode_carry(&next[carry + 1]).unwrap(), snapshot);
+        // The Hoarder accepts the carried ledger: one boost, one receipt, nothing doubled.
         let (_, _, mut hoarder) =
             crate::f01_late::hoarder_start(&root(), 360, carl, donut).unwrap();
-        let (_, _, plain) = crate::f01_late::hoarder_start(&root(), 360, carl, donut).unwrap();
         hoarder.carry_story(&snapshot).unwrap();
-        assert_eq!(hoarder.story_snapshot(), plain.story_snapshot());
+        let carried = hoarder.story_snapshot().unwrap();
+        assert!(
+            carried
+                .receipts
+                .iter()
+                .filter(|r| r.capability == "jump_reach_boost")
+                .count()
+                == 1,
+            "{carried:?}"
+        );
+        assert!(hoarder.story_holds(crate::donut_prog::JUMP_REACH_BOOST));
         let tally = next.iter().position(|a| a == FLAG_TALLY).unwrap();
         assert_eq!(RunTally::parse(&next[tally + 1]).unwrap().rooms, 1);
     }
@@ -1019,9 +1120,20 @@ mod tests {
             | RoomScene::Dozer
             | RoomScene::Hazards
             | RoomScene::Mastery
+            | RoomScene::RestRefuge
             | RoomScene::RingCourt
             | RoomScene::RingSplit => {
                 let (_, mut combat) = match row.scene {
+                    // REST-WIRE: the refuge, room 1 (its trigger arms under the Story flags).
+                    RoomScene::RestRefuge => crate::f01_late::rest_start(
+                        &root(),
+                        row.scene.rest().expect("a quiet-room scene"),
+                        360,
+                        carl,
+                        donut,
+                        None,
+                    )
+                    .map(|(_, s, c)| (s, c)),
                     // RING-A/B wire: the two Ring rooms of the run.
                     RoomScene::RingCourt | RoomScene::RingSplit => crate::f01_late::ring_start(
                         &root(),
@@ -1068,7 +1180,7 @@ mod tests {
             let (combat, snapshot) = room_run(row, carry.as_ref());
             let facts = RoomFacts::of(row, &combat, carry.as_ref());
             grants.push((row.id.clone(), facts.grants.clone()));
-            if row.id != "hoarder" && row.id != "corral" {
+            if !["hoarder", "corral", "rest_refuge"].contains(&row.id.as_str()) {
                 assert!(
                     combat.story_holds(SPECIAL_THROWN_CHARGE),
                     "dynamite carried into {}",
@@ -1133,20 +1245,21 @@ mod tests {
         assert_eq!(tally.rooms, 1);
         let next = manifest.room("boiler").unwrap();
         let panel = room_clear_panel(&manifest, &facts, tally, next, true, "REC", false);
-        assert!(panel.heading.starts_with("ROOM 2/9 CLEARED: THE HOARDER"));
+        assert!(panel.heading.starts_with("ROOM 3/10 CLEARED: THE HOARDER"));
         assert!(panel.lines[1].contains("special_thrown_charge (Carl)"));
         assert!(panel.lines[3].contains("Goblin Boiler (story ledger carried)"));
         assert!(panel.lines.last().unwrap().starts_with("Facts only"));
         let end = floor_end_panel(&manifest, &facts, tally, &held_of(&hoarder.combat), "REC");
         assert_eq!(end.heading, "FLOOR 1 SLICE FINISHED");
-        assert!(end.lines[2].contains("1 of 9 listed rooms"));
+        assert!(end.lines[2].contains("1 of 10 listed rooms"));
         assert!(end.lines[3].starts_with("Carl holds: special_thrown_charge"));
         // The real floor end: the last room's facts and the held list after the
         // Juicer's grants (the longest lines the panel draws today).
         let last = manifest.rooms.last().unwrap();
         let mut carry = hoarder.snapshot();
-        // The rooms after the corral and the Hoarder (CORRAL-F: room 0 first).
-        for row in &manifest.rooms[2..manifest.rooms.len() - 1] {
+        // The rooms after the corral, the refuge and the Hoarder (CORRAL-F: room 0 first,
+        // REST-WIRE: the refuge second).
+        for row in &manifest.rooms[3..manifest.rooms.len() - 1] {
             carry = room_run(row, carry.as_ref()).1;
         }
         let (mastery, _) = room_run(last, carry.as_ref());

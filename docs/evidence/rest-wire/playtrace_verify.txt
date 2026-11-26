@@ -1,0 +1,4 @@
+REST_REFUGE_VERIFY loadout=story view=360 ticks=414 state_hashes=414 scope=Full build=identical
+REST_REFUGE_VERIFY loadout=all view=360 ticks=414 state_hashes=414 scope=Full build=identical
+REST_REFUGE_VERIFY loadout=story view=400 ticks=414 state_hashes=414 scope=Full build=identical
+REST_REFUGE_VERIFY loadout=all view=400 ticks=414 state_hashes=414 scope=Full build=identical

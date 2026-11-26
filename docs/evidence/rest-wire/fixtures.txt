@@ -1,0 +1,7 @@
+REST_FIXTURE name=rest_refuge_solo_carl_swap ticks=641 exit_tick=Some(641) grants=[(369, 1, "jump_reach_boost")] doors=[(597, 1)] damage=0 receipts=1 final_hash=0x7fe5e4912b4f3e00
+REST_FIXTURE name=rest_refuge_solo_donut ticks=414 exit_tick=Some(414) grants=[(326, 1, "jump_reach_boost")] doors=[(370, 1)] damage=0 receipts=1 final_hash=0x115a48587b2034ed
+REST_FIXTURE name=rest_refuge_2p ticks=413 exit_tick=Some(413) grants=[(325, 1, "jump_reach_boost")] doors=[(369, 1)] damage=0 receipts=1 final_hash=0x34aedaa93266dce4
+REST_FIXTURE name=rest_refuge_solo_companion_crossing ticks=750 exit_tick=Some(750) grants=[(398, 1, "jump_reach_boost")] doors=[(687, 1)] damage=0 receipts=1 final_hash=0x028f78b3a3b28847
+REST_FIXTURE name=rest_refuge_grant_once_at_the_box ticks=478 exit_tick=None grants=[(326, 1, "jump_reach_boost")] doors=[] damage=0 receipts=1 final_hash=0x747c440c3df2923f
+REST_FIXTURE name=rest_refuge_base_donut_cannot_open ticks=1500 exit_tick=None grants=[] doors=[] damage=0 receipts=0 final_hash=0x82d700ff78965938
+REST_FIXTURE name=rest_refuge_retry_keeps_the_grant ticks=414 exit_tick=Some(414) grants=[(326, 1, "jump_reach_boost"), (326, 1, "jump_reach_boost")] doors=[(370, 1), (370, 1)] damage=0 receipts=1 final_hash=0xa59fa59b24f93285
