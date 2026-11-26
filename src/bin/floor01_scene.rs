@@ -5720,10 +5720,22 @@ fn setup(
         );
     }
 
-    // TROG-A: the troglodyte room's labelled stand-in bodies, telegraphs and decor (no art yet:
-    // the atlases are the work order's first cut). Presentation only.
+    // TROG-A: the troglodyte room's atlas bodies (labelled rectangles where the atlas is
+    // missing), telegraphs and decor. Presentation only.
     if let (Some(run), Some(state)) = (args.trog_run.as_ref(), combat.0.as_ref()) {
-        trog_art::spawn(&mut commands, run, state, kit, height, layers_of("prop"));
+        trog_art::spawn(
+            &mut commands,
+            &asset_server,
+            &mut layouts,
+            &mut combat_handles,
+            run,
+            state,
+            kit,
+            height,
+            layers_of("prop"),
+            layers_of("actors"),
+            args.debug_combat,
+        );
     }
 
     // HAZ-B: the slimes, the Rot Stickers, the acid strip, the warning ring and the

@@ -579,7 +579,7 @@ pub struct Trog {
     wake: Option<WakeCause>,
     /// The hero it follows, and the committed target while it attacks.
     target: Option<HeroId>,
-    attack_tick: u16,
+    pub(crate) attack_tick: u16,
     /// The scene tick the current tell started (the evade stamp).
     tell_start_tick: u64,
     commit: Commit,
@@ -591,7 +591,7 @@ pub struct Trog {
     /// The Basher's interrupt budget: the tick of the last interrupt or flinch.
     last_react: Option<u64>,
     /// The Pygmy's height above the walking line this tick.
-    lift: f32,
+    pub(crate) lift: f32,
     /// The Pygmy's leap met a solid and holds its x until it lands.
     leap_blocked: bool,
 }

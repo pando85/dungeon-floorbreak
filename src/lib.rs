@@ -140,4 +140,5 @@ pub mod slime;
 pub mod story_unlock;
 pub mod thrown_charge;
 pub mod trog;
+pub mod trog_art;
 pub mod trog_fixtures;
