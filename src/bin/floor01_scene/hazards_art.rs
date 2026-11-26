@@ -4,7 +4,8 @@
 //! acid strip, the ring at the Rot blast radius and the drip a spent sticker
 //! leaves (code-drawn, labelled stand-ins), and, under `--debug-combat`, the
 //! slimes' and stickers' boxes. The acid strip and the ring dots are skipped
-//! where the F01 danger FX art draws them instead (`danger_fx_art`). **Presentation only**: every system reads the
+//! where the F01 danger FX art draws them instead (`danger_fx_art`), and the drip
+//! where the AREA-HAZARDS-01B drip art does (`hazard_decals`). **Presentation only**: every system reads the
 //! combat state through a shared reference and writes only its own sprites, so
 //! nothing here reaches the simulation, the replay or the state hash (the pure
 //! half proves it with a state-hash test).
@@ -208,6 +209,7 @@ pub(super) fn sync_hazard_art(
     combat: Res<Combat>,
     art: Option<Res<HazardArt>>,
     danger: Option<Res<super::danger_fx_art::DangerFxArt>>,
+    decals: Option<Res<super::hazard_decals::HazardDecalArt>>,
     mut memo: Local<Vec<SlimeMemo>>,
     mut slime_sprites: Query<
         (&SlimeSprite, &mut Transform, &mut Sprite, &mut Visibility),
@@ -287,6 +289,9 @@ pub(super) fn sync_hazard_art(
     // and the ring dots where its atlas loaded (and the ring's radius has a canvas).
     let acid_art = danger.as_ref().is_some_and(|d| d.draws_acid());
     let ring_art = danger.as_ref().is_some_and(|d| d.draws_rot_ring());
+    // AREA-HAZARDS-01B: the spent drip art replaces the code-drawn drip (the stand-in and its
+    // label remain only where the drip atlas is missing).
+    let drip_art = decals.as_ref().is_some_and(|d| d.draws_drip());
     let drawn: Vec<_> = state
         .env()
         .map(|env| pieces(env, layout_h, tick))
@@ -295,7 +300,7 @@ pub(super) fn sync_hazard_art(
         .filter(|p| match p.tone {
             Tone::Acid | Tone::AcidLip => !acid_art,
             Tone::Ring => !ring_art,
-            Tone::Drip => true,
+            Tone::Drip => !drip_art,
         })
         .collect();
     for (piece_id, mut transform, mut sprite, mut visibility) in &mut piece_sprites {

@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "id": "f01_dfx_rot_nest_candidate_v0",
+  "type": "prop_animation",
+  "source_path": "assets/source/props/floor01/dfx_rot_nest.ase",
+  "grid_source": "assets/source/props/floor01/dfx_rot_nest.grid.json",
+  "output_atlas": "generated/art/f01-dfx-rot-nest.png",
+  "output_metadata": "generated/art/f01-dfx-rot-nest.json",
+  "palette_id": "rot-sticker-floor01-v1",
+  "frame_size": [
+    32,
+    12
+  ],
+  "pivot": [
+    16,
+    0
+  ],
+  "animation_tags": [
+    "nest"
+  ],
+  "required_alpha": true,
+  "owner": "AI-authored Floor 1 danger FX (fan-concept layer; runtime ids IP-neutral dfx_*)",
+  "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+  "provenance": {
+    "origin": "F01 danger FX Rot nest, ceiling, drawn from explicit primitives in named palette entries by scripts/author_hazard_decals.py via author_danger_fx.py; palette: ROT-01 entries only (adopted default HZB-AD5)",
+    "generator": "designed by Claude Opus (spec, keys); executed by Claude Sonnet (remaining frames, export, validators); independent art-director review by a separate Claude Opus agent pending. No concept pixels copied, no image-model raster output, no tracing, no resampling",
+    "generated_art": true,
+    "input_reference_ids": [
+      "docs/02-art/area-hazards-01b-spec.md",
+      "assets/source/characters/rot_sticker/rot_01.grid.json"
+    ]
+  },
+  "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
+  "review_status": "prototype_fixture_unapproved",
+  "prop_kit": {
+    "status": "1 frames drawn; independent top-tier art review pending, owner art and game-feel review pending; drawn by presentation-only wiring in src/hazard_decals.rs",
+    "spec": "docs/02-art/area-hazards-01b-spec.md",
+    "tick_hz": 60,
+    "hold_preview_ms": 100,
+    "playback": {
+      "nest": "hold"
+    },
+    "frames": [
+      {
+        "index": 0,
+        "name": "nest_0",
+        "tag": "nest",
+        "ticks": null,
+        "duration_ms": 100,
+        "pivot": [
+          16,
+          0
+        ],
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "w": 32,
+          "h": 12
+        },
+        "content": [
+          3,
+          0,
+          28,
+          11
+        ],
+        "sha256": "88f57a9ba33a47ec8c2a1812b185d7d7e4511ea10b7595cf48904bf9753b0c25"
+      }
+    ]
+  }
+}

@@ -13,12 +13,12 @@ sys.path.insert(0, str(ROOT))
 
 import author_danger_fx as fx  # noqa: E402
 import author_gwkit_keys as keys  # noqa: E402
+import author_hazard_decals as hz  # noqa: E402
 from scripts.pixelart import validators  # noqa: E402
 from scripts.pixelart.config import load_config  # noqa: E402
 
 PROPS = ROOT / "assets/source/props/floor01"
 MANIFESTS = ROOT / "assets/manifests"
-SLIME = ROOT / "assets/source/characters/slime/slime_01.grid.json"
 
 # Canvas, pivot and tags (name -> frame count) per grid: spec section 2.
 SPEC = {
@@ -44,9 +44,10 @@ class DangerFxSourcesTest(unittest.TestCase):
         cls.pal = fx.palette()
 
     def test_grids_configs_and_manifests_reproduce_byte_for_byte(self) -> None:
-        self.assertEqual(sorted(self.built), sorted(SPEC))
+        # The AREA-HAZARDS-01B sheets are listed and checked in tests/test_art_hazard_decals.py.
+        self.assertEqual(sorted(self.built), sorted(set(SPEC) | set(hz.HAZARD_SHEETS)))
         for name, (tags, pivot) in self.built.items():
-            grid = fx.to_grid(tags, pivot, self.pal)
+            grid = fx.to_grid(tags, pivot, self.pal, hz.key_map(name))
             self.assertEqual(json.dumps(grid, indent=1) + "\n", (PROPS / f"{name}.grid.json").read_text(), name)
             cfg = json.dumps(fx.config_of(name, tags, grid), indent=2) + "\n"
             self.assertEqual(cfg, (PROPS / f"{name}.pixelart.json").read_text(), name)
@@ -65,12 +66,12 @@ class DangerFxSourcesTest(unittest.TestCase):
 
     def test_palette_entries_are_named_and_valued_exactly(self) -> None:
         kit = keys.kit_palette()
-        slime = {p["name"]: p["rgba"] for p in load(SLIME)["palette"]}
+        ramp = dict(hz.ACID_RAMP)  # HZB-AD1: the acid has its own teal ramp
         kit_names: set[str] = set()
         for name in SPEC:
             for p in load(PROPS / f"{name}.grid.json")["palette"]:
                 if name == "dfx_acid":
-                    self.assertEqual(slime.get(p["name"]), p["rgba"], p["name"])
+                    self.assertEqual(ramp.get(p["name"]), p["rgba"], p["name"])
                 else:
                     self.assertEqual(kit.get(p["name"]), p["rgba"], p["name"])
                     kit_names.add(p["name"])

@@ -1,0 +1,88 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "f01-dfx-acid-splash",
+  "title": "F01 danger FX acid entry splash (dimple, rise, crown, break, settle)",
+  "grid": "assets/source/props/floor01/dfx_acid_splash.grid.json",
+  "manifest": "assets/manifests/f01-dfx-acid-splash.json",
+  "frame_size": [
+    32,
+    24
+  ],
+  "pivot": [
+    16,
+    23
+  ],
+  "contact_row": null,
+  "tick_hz": 60,
+  "hold_ms": 100,
+  "facing": "left",
+  "tags": {
+    "splash": {
+      "playback": "once",
+      "contact": "free",
+      "frames": [
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          3
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          3,
+          4
+        ],
+        [
+          4,
+          4
+        ]
+      ]
+    }
+  },
+  "rules": {
+    "max_colors": 63,
+    "max_isolated_per_frame": 0,
+    "max_orphans_per_frame": 28,
+    "unique_frames": true,
+    "frozen_keys": {
+      "fixture": "tests/fixtures/f01-dfx-acid-splash_keys.json",
+      "frames": [
+        2
+      ],
+      "layers": [
+        "body"
+      ]
+    }
+  },
+  "scene": {
+    "shadow": false,
+    "actors": [
+      {
+        "frame": 0,
+        "x": 500,
+        "lift": 0
+      },
+      {
+        "frame": 2,
+        "x": 580,
+        "lift": 0
+      },
+      {
+        "frame": 4,
+        "x": 660,
+        "lift": 0
+      }
+    ]
+  },
+  "review": {
+    "strip_name": "03_state_strip.png",
+    "strip_tags": [
+      "splash"
+    ]
+  }
+}

@@ -2,6 +2,8 @@
 
 Prototype art (`review_status: prototype_fixture_unapproved`); nothing here approves art, tuning or game feel. Spec: [floor01-danger-fx-spec.md](../../02-art/floor01-danger-fx-spec.md). The independent top-tier art-director review passed (fix round applied); the owner's art and game-feel review are pending.
 
+**AREA-HAZARDS-01B** ([evidence](../area-hazards-01b/README.md)) recoloured the acid to its own teal ramp (HZB-AD1: the rows are unchanged, only the ten palette entries moved) and backed the rings' outer band row with the dark tape `flame_00` (HZB-AD2). The `dfx_acid`, `dfx_ring_r48` and `dfx_ring_r64` folders, their review packs and every still and the GIF in `scene/` were regenerated with that art; every capture line keeps its window and headless state hashes, only the PNG checksums moved.
+
 Everything is drawn from the committed grid sources by `scripts/author_danger_fx.py`, exported by `bash scripts/export_assets.sh` and rendered by the shared toolkit (`python3 -m scripts.pixelart evidence` and `review-pack`); the in-scene stills and the GIF in `scene/` are real windowed captures of `floor01_scene` (the Bevy presentation), each ending on the same state hash as its headless replay.
 
 ## Regenerate
@@ -38,7 +40,7 @@ bash scripts/make_f01_danger_fx_evidence.sh         # scene/: stills at 640x360 
 | `dfx_wave_r64` | 135 x 135 | (67, 67) | 6 | detonated charge with a 64 px outer radius (thrown dynamite) -> `blast_wave` |
 | `dfx_gate` | 28 x 224 | (0, 223) | 2 | boss gate Closed -> `gate_closed` over `{0, floor, 28, 224}`; Open or Released -> `gate_raised` (24 rows under the lintel, behind the actors) |
 
-Frozen keys (`tests/fixtures/f01-dfx-*_keys.json`): acid 0, both rings 0, both waves 3 (the reach frame), gate 0.
+Frozen keys (`tests/fixtures/f01-dfx-*_keys.json`): acid 0 (unchanged by HZB-AD1: the digest is of rows), both rings 0 (re-pinned for HZB-AD2), both waves 3 (the reach frame), gate 0.
 
 ## In-scene stills (`scene/`)
 
@@ -71,6 +73,6 @@ Room 4 (`--f01-room hazards --room-pilot haz_spectacular`): the slime under the 
 
 ## Not covered
 
-- The gate's drop is a snap (the simulation closes it on one tick and keeps no close tick); the spent sticker's drip stays code-drawn. See the spec's follow-ups.
+- The gate's drop is a snap (the simulation closes it on one tick and keeps no close tick). The spent sticker's drip is drawn by the AREA-HAZARDS-01B art now (the code-drawn stand-in remains only as the missing-atlas fallback). See the spec's follow-ups.
 - The committed Boiler GIFs and the hazard first look were regenerated in this PR (two passes byte-identical each, capture lines and pilot hashes unchanged): the drum's chain clips and the first look now show the danger FX art.
 - Human pad play, 2P captures and a real-GPU frame time were not run.

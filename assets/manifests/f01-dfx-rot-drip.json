@@ -1,0 +1,388 @@
+{
+  "schema_version": 1,
+  "id": "f01_dfx_rot_drip_candidate_v0",
+  "type": "prop_animation",
+  "source_path": "assets/source/props/floor01/dfx_rot_drip.ase",
+  "grid_source": "assets/source/props/floor01/dfx_rot_drip.grid.json",
+  "output_atlas": "generated/art/f01-dfx-rot-drip.png",
+  "output_metadata": "generated/art/f01-dfx-rot-drip.json",
+  "palette_id": "rot-sticker-floor01-v1",
+  "frame_size": [
+    8,
+    16
+  ],
+  "pivot": [
+    4,
+    0
+  ],
+  "animation_tags": [
+    "drip_run_c",
+    "drip_drop_c",
+    "drip_run_w",
+    "drip_drop_w"
+  ],
+  "required_alpha": true,
+  "owner": "AI-authored Floor 1 danger FX (fan-concept layer; runtime ids IP-neutral dfx_*)",
+  "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+  "provenance": {
+    "origin": "F01 danger FX spent Rot Sticker drip (ceiling and wall, run and drop), drawn from explicit primitives in named palette entries by scripts/author_hazard_decals.py via author_danger_fx.py; palette: ROT-01 entries only (adopted default HZB-AD5)",
+    "generator": "designed by Claude Opus (spec, keys); executed by Claude Sonnet (remaining frames, export, validators); independent art-director review by a separate Claude Opus agent pending. No concept pixels copied, no image-model raster output, no tracing, no resampling",
+    "generated_art": true,
+    "input_reference_ids": [
+      "docs/02-art/area-hazards-01b-spec.md",
+      "assets/source/characters/rot_sticker/rot_01.grid.json"
+    ]
+  },
+  "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
+  "review_status": "prototype_fixture_unapproved",
+  "prop_kit": {
+    "status": "14 frames drawn; independent top-tier art review pending, owner art and game-feel review pending; drawn by presentation-only wiring in src/hazard_decals.rs",
+    "spec": "docs/02-art/area-hazards-01b-spec.md",
+    "tick_hz": 60,
+    "hold_preview_ms": 100,
+    "playback": {
+      "drip_run_c": "once",
+      "drip_drop_c": "loop",
+      "drip_run_w": "once",
+      "drip_drop_w": "loop"
+    },
+    "frames": [
+      {
+        "index": 0,
+        "name": "drip_run_c_0",
+        "tag": "drip_run_c",
+        "ticks": 6,
+        "duration_ms": 100,
+        "pivot": [
+          4,
+          0
+        ],
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "w": 8,
+          "h": 16
+        },
+        "content": [
+          1,
+          0,
+          6,
+          1
+        ],
+        "sha256": "e7f79856f4b60841df3c7d6e75b70eba4ae21a5628b91499596c11dc165d865f"
+      },
+      {
+        "index": 1,
+        "name": "drip_run_c_1",
+        "tag": "drip_run_c",
+        "ticks": 6,
+        "duration_ms": 100,
+        "pivot": [
+          4,
+          0
+        ],
+        "rect": {
+          "x": 8,
+          "y": 0,
+          "w": 8,
+          "h": 16
+        },
+        "content": [
+          1,
+          0,
+          6,
+          3
+        ],
+        "sha256": "fc3f6c69193ec3dc910bbd861ce514f1101323fa753ad87f15e50808783e83d9"
+      },
+      {
+        "index": 2,
+        "name": "drip_run_c_2",
+        "tag": "drip_run_c",
+        "ticks": 6,
+        "duration_ms": 100,
+        "pivot": [
+          4,
+          0
+        ],
+        "rect": {
+          "x": 16,
+          "y": 0,
+          "w": 8,
+          "h": 16
+        },
+        "content": [
+          1,
+          0,
+          6,
+          8
+        ],
+        "sha256": "7f7844bffdbde17ca148b92da74faa1cb4b8609434cc81896138a0fcf0da7740"
+      },
+      {
+        "index": 3,
+        "name": "drip_run_c_3",
+        "tag": "drip_run_c",
+        "ticks": 6,
+        "duration_ms": 100,
+        "pivot": [
+          4,
+          0
+        ],
+        "rect": {
+          "x": 24,
+          "y": 0,
+          "w": 8,
+          "h": 16
+        },
+        "content": [
+          1,
+          0,
+          6,
+          12
+        ],
+        "sha256": "e8f7c94ceea18f642df3eef385febec4ef96166dba373f5cdabb477ea1c61a70"
+      },
+      {
+        "index": 4,
+        "name": "drip_drop_c_0",
+        "tag": "drip_drop_c",
+        "ticks": 20,
+        "duration_ms": 333,
+        "pivot": [
+          4,
+          0
+        ],
+        "rect": {
+          "x": 32,
+          "y": 0,
+          "w": 8,
+          "h": 16
+        },
+        "content": [
+          1,
+          0,
+          6,
+          14
+        ],
+        "sha256": "e44bcfe68eae591e4fa67f1bbd710790a3e469966c7222a2577631bf5495b201"
+      },
+      {
+        "index": 5,
+        "name": "drip_drop_c_1",
+        "tag": "drip_drop_c",
+        "ticks": 20,
+        "duration_ms": 333,
+        "pivot": [
+          4,
+          0
+        ],
+        "rect": {
+          "x": 40,
+          "y": 0,
+          "w": 8,
+          "h": 16
+        },
+        "content": [
+          1,
+          0,
+          6,
+          15
+        ],
+        "sha256": "3ed3ffc1dd9d3c6f1e2ee19cb5af342e8dbff827cf9cc4c40b69e15bb9190e3a"
+      },
+      {
+        "index": 6,
+        "name": "drip_drop_c_2",
+        "tag": "drip_drop_c",
+        "ticks": 20,
+        "duration_ms": 333,
+        "pivot": [
+          4,
+          0
+        ],
+        "rect": {
+          "x": 48,
+          "y": 0,
+          "w": 8,
+          "h": 16
+        },
+        "content": [
+          1,
+          0,
+          6,
+          12
+        ],
+        "sha256": "11426c91fa744c4b1be5697b358d6d30f8bec275fdacf31e5f44a5efd9bf3dd6"
+      },
+      {
+        "index": 7,
+        "name": "drip_run_w_0",
+        "tag": "drip_run_w",
+        "ticks": 6,
+        "duration_ms": 100,
+        "pivot": [
+          0,
+          0
+        ],
+        "rect": {
+          "x": 56,
+          "y": 0,
+          "w": 8,
+          "h": 16
+        },
+        "content": [
+          0,
+          0,
+          2,
+          2
+        ],
+        "sha256": "a355c2859cc6e8aa12ca8349a89f4ed3d2a426975f1676fc6987527486befa71"
+      },
+      {
+        "index": 8,
+        "name": "drip_run_w_1",
+        "tag": "drip_run_w",
+        "ticks": 6,
+        "duration_ms": 100,
+        "pivot": [
+          0,
+          0
+        ],
+        "rect": {
+          "x": 64,
+          "y": 0,
+          "w": 8,
+          "h": 16
+        },
+        "content": [
+          0,
+          0,
+          2,
+          3
+        ],
+        "sha256": "ab1feaedc1d52ef6ae1f67cbe1ba6be14228e00011a53c4a4bee23ce0e8ca6cc"
+      },
+      {
+        "index": 9,
+        "name": "drip_run_w_2",
+        "tag": "drip_run_w",
+        "ticks": 6,
+        "duration_ms": 100,
+        "pivot": [
+          0,
+          0
+        ],
+        "rect": {
+          "x": 72,
+          "y": 0,
+          "w": 8,
+          "h": 16
+        },
+        "content": [
+          0,
+          0,
+          2,
+          8
+        ],
+        "sha256": "a069164ee39cabf8ad12e9c3d2fd072782e93d7a97b8be3be3aa6a8fd26ae956"
+      },
+      {
+        "index": 10,
+        "name": "drip_run_w_3",
+        "tag": "drip_run_w",
+        "ticks": 6,
+        "duration_ms": 100,
+        "pivot": [
+          0,
+          0
+        ],
+        "rect": {
+          "x": 80,
+          "y": 0,
+          "w": 8,
+          "h": 16
+        },
+        "content": [
+          0,
+          0,
+          2,
+          12
+        ],
+        "sha256": "6fa393a8bb4f3b8ca46dd7950e0ed8a6ade7a529d960cdcb7fb37fbf58c5cc23"
+      },
+      {
+        "index": 11,
+        "name": "drip_drop_w_0",
+        "tag": "drip_drop_w",
+        "ticks": 20,
+        "duration_ms": 333,
+        "pivot": [
+          0,
+          0
+        ],
+        "rect": {
+          "x": 88,
+          "y": 0,
+          "w": 8,
+          "h": 16
+        },
+        "content": [
+          0,
+          0,
+          2,
+          14
+        ],
+        "sha256": "2c20e30d4ad54fa10b919f4543797cac722e1c90def59fd6c3097dfb67e98f36"
+      },
+      {
+        "index": 12,
+        "name": "drip_drop_w_1",
+        "tag": "drip_drop_w",
+        "ticks": 20,
+        "duration_ms": 333,
+        "pivot": [
+          0,
+          0
+        ],
+        "rect": {
+          "x": 96,
+          "y": 0,
+          "w": 8,
+          "h": 16
+        },
+        "content": [
+          0,
+          0,
+          2,
+          15
+        ],
+        "sha256": "31aad7c0109ee8e371781f6906b14fbe7762d8c40c1cf94321e8757174e11562"
+      },
+      {
+        "index": 13,
+        "name": "drip_drop_w_2",
+        "tag": "drip_drop_w",
+        "ticks": 20,
+        "duration_ms": 333,
+        "pivot": [
+          0,
+          0
+        ],
+        "rect": {
+          "x": 104,
+          "y": 0,
+          "w": 8,
+          "h": 16
+        },
+        "content": [
+          0,
+          0,
+          2,
+          12
+        ],
+        "sha256": "90e0da7e7531d54a7722e7a81c27582bc7f4d490f56680f96df0c4123dbb8827"
+      }
+    ]
+  }
+}

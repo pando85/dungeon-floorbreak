@@ -11,53 +11,53 @@
  "palette": [
   {
    "key": "#",
-   "name": "outline_murk",
-   "rgba": "#121a0bff"
+   "name": "acid_outline",
+   "rgba": "#061418ff"
   },
   {
    "key": "$",
-   "name": "gel_0_deep",
-   "rgba": "#222f14ff"
+   "name": "acid_0_deep",
+   "rgba": "#0d3034ff"
   },
   {
    "key": "%",
-   "name": "gel_1_shade",
-   "rgba": "#3a5219ff"
+   "name": "acid_1_shade",
+   "rgba": "#124c50ff"
   },
   {
    "key": "&",
-   "name": "gel_2_mid",
-   "rgba": "#5d861cff"
+   "name": "acid_2_mid",
+   "rgba": "#197a7eff"
   },
   {
    "key": "'",
-   "name": "gel_3_light",
-   "rgba": "#8eba24ff"
+   "name": "acid_3_light",
+   "rgba": "#2eb2a8ff"
   },
   {
    "key": "(",
-   "name": "gel_4_lit",
-   "rgba": "#bddb37ff"
+   "name": "acid_4_lit",
+   "rgba": "#78e2d4ff"
   },
   {
    "key": ")",
-   "name": "sheen_torch",
-   "rgba": "#dcef7cff"
+   "name": "acid_sheen",
+   "rgba": "#c6f8eeff"
   },
   {
    "key": "*",
-   "name": "acid_hot",
-   "rgba": "#f0e61eff"
+   "name": "acid_fizz",
+   "rgba": "#eafffaff"
   },
   {
    "key": "+",
-   "name": "bone_gel_lit",
-   "rgba": "#b4be62ff"
+   "name": "fume_lit",
+   "rgba": "#a4c4c0ff"
   },
   {
    "key": ",",
-   "name": "bone_gel_dark",
-   "rgba": "#7d893cff"
+   "name": "fume_dark",
+   "rgba": "#587a78ff"
   }
  ],
  "layers": [

@@ -1,8 +1,10 @@
 //! F01 danger FX: the Bevy half of the danger art (the acid pool, the blast reach
-//! rings, the blast wave and the room 5 gate). The pure half is
-//! `dungeon_floorbreak::danger_fx_art`; this file only draws its list with one pool
+//! rings, the blast wave, the room 5 gate and the acid entry splash). The pure half
+//! is `dungeon_floorbreak::danger_fx_art`; this file only draws its list with one pool
 //! of sprites, each a source rectangle of its sheet's atlas (the acid is cropped
-//! to the pool's live width). A missing atlas (`bash scripts/export_assets.sh` was
+//! to the pool's live width), and, AREA-HAZARDS-01B, the splash cue
+//! (`dungeon_floorbreak::acid_splash`) with its own small pool, so a splash can never
+//! push a warning ring out of the shared pool. A missing atlas (`bash scripts/export_assets.sh` was
 //! not run) prints one `DANGER_FX missing` line and that visual keeps its
 //! code-drawn stand-in (the acid strip, the ring dots, the gate slab) or, for the
 //! wave, the VFX-01 burst alone. **Presentation only**: it reads the combat state
@@ -11,14 +13,32 @@
 //! with a state-hash test).
 
 use super::*;
+use dungeon_floorbreak::acid_splash::{AcidSplashes, SLOTS, SPRITES_PER_SPLASH};
 use dungeon_floorbreak::danger_fx_art::{
     FxDraw, Layer as FxLayer, MAX_DRAWS, Sheet as FxSheet, acid_drawn, draws, rot_ring_sheet,
 };
 use dungeon_floorbreak::env_kit::ATLAS_ASSET_PREFIX;
+use dungeon_floorbreak::party::HeroId;
 
 /// One pooled danger FX sprite.
 #[derive(Component, Clone, Copy)]
 pub(super) struct DangerSprite(usize);
+
+/// One pooled acid splash sprite (a splash is a crown and a cropped lip).
+#[derive(Component, Clone, Copy)]
+pub(super) struct SplashSprite(usize);
+
+/// The splash cue state (render-local; read-only from the event log).
+#[derive(Resource, Default)]
+pub(super) struct SplashCueRes {
+    cues: AcidSplashes,
+}
+
+/// z of the splash: a hair above the highest actor sprite (Carl and Donut, `CARL_Z_OFFSET`),
+/// under the warning rings. The spec's numeric hint (`blast_z - 0.004`) cannot hold with its
+/// own intent: the blast layer lies 0.455 *under* the actors (`BLAST_BELOW_ACTORS` plus the
+/// wave's 0.005), so the splash takes the stated intent, above every actor.
+const SPLASH_ABOVE_ACTORS: f32 = CARL_Z_OFFSET + 0.005;
 
 /// The atlases that loaded and the z of each layer.
 #[derive(Resource)]
@@ -28,6 +48,7 @@ pub(super) struct DangerFxArt {
     floor_z: f32,
     blast_z: f32,
     gate_z: f32,
+    splash_z: f32,
     tell_z: f32,
 }
 
@@ -98,6 +119,23 @@ pub(super) fn spawn(
         sheets.len(),
         FxSheet::ALL.len()
     );
+    if let Some((_, splash)) = sheets.iter().find(|(s, _)| *s == FxSheet::Splash) {
+        for i in 0..SLOTS * SPRITES_PER_SPLASH {
+            commands.spawn((
+                SplashSprite(i),
+                Sprite {
+                    image: splash.clone(),
+                    rect: Some(Rect::new(0.0, 0.0, 1.0, 1.0)),
+                    ..default()
+                },
+                Transform::from_xyz(0.0, 0.0, kit.actor_z + SPLASH_ABOVE_ACTORS),
+                Visibility::Hidden,
+                layers.clone(),
+            ));
+            *entities += 1;
+        }
+        commands.insert_resource(SplashCueRes::default());
+    }
     if let Some((_, texture)) = sheets.first() {
         for i in 0..MAX_DRAWS {
             commands.spawn((
@@ -130,6 +168,7 @@ pub(super) fn spawn(
         blast_z: draw_z(DrawLayer::Blast, 0, actor_z, wall_z) - 0.005,
         // The closed gate: the stand-in slab's z.
         gate_z: actor_z + BOSS_Z_OFFSET,
+        splash_z: actor_z + SPLASH_ABOVE_ACTORS,
         // The rings are warnings: above everything, never hidden.
         tell_z: kit.foreground_z + 0.1,
     });
@@ -139,6 +178,7 @@ fn layer_z(art: &DangerFxArt, layer: FxLayer) -> f32 {
     match layer {
         FxLayer::Back => art.back_z,
         FxLayer::Floor => art.floor_z,
+        FxLayer::Splash => art.splash_z,
         FxLayer::Blast => art.blast_z,
         FxLayer::Gate => art.gate_z,
         FxLayer::Tell => art.tell_z,
@@ -165,17 +205,80 @@ pub(super) fn sync_danger_fx(
                 if sprite.image != **image {
                     sprite.image = (*image).clone();
                 }
-                // The source rectangle: the frame's cell (one row of equal
-                // cells), cropped to `src_x..src_x + w`.
-                let (cell_w, _) = d.sheet.frame_size();
-                let left = (d.frame as i32 * cell_w + d.src_x) as f32;
-                sprite.rect = Some(Rect::new(left, 0.0, left + d.w as f32, d.h as f32));
-                sprite.custom_size = Some(Vec2::new(d.w as f32, d.h as f32));
-                // World px, y up: the draw gives the bottom-left; the sprite is centred.
-                transform.translation.x = d.x as f32 + d.w as f32 / 2.0;
-                transform.translation.y = d.y as f32 + d.h as f32 / 2.0;
-                // A distinct z per pool slot: no draw order is left to a tie.
-                transform.translation.z = layer_z(&art, d.layer) + slot.0 as f32 * 0.0001;
+                place(
+                    d,
+                    layer_z(&art, d.layer) + slot.0 as f32 * 0.0001,
+                    &mut transform,
+                    &mut sprite,
+                );
+                *visibility = Visibility::Inherited;
+            }
+            None => *visibility = Visibility::Hidden,
+        }
+    }
+}
+
+/// Aim one pooled sprite at `d`: the source rectangle (one row of equal cells; the
+/// frame's cell, cropped to `src_x..src_x + w` and `src_y..src_y + h`), mirrored when
+/// `flip_x`, with the bottom-left at world `(x, y)` (the sprite is centred) and a
+/// distinct `z` per pool slot, so no draw order is left to a tie.
+fn place(d: &FxDraw, z: f32, transform: &mut Transform, sprite: &mut Sprite) {
+    let (cell_w, _) = d.sheet.frame_size();
+    let left = (d.frame as i32 * cell_w + d.src_x) as f32;
+    sprite.rect = Some(Rect::new(
+        left,
+        d.src_y as f32,
+        left + d.w as f32,
+        (d.src_y + d.h) as f32,
+    ));
+    sprite.flip_x = d.flip_x;
+    sprite.custom_size = Some(Vec2::new(d.w as f32, d.h as f32));
+    transform.translation.x = d.x as f32 + d.w as f32 / 2.0;
+    transform.translation.y = d.y as f32 + d.h as f32 / 2.0;
+    transform.translation.z = z;
+}
+
+/// AREA-HAZARDS-01B: the acid entry splashes. Reads the event log and the live pool
+/// rectangles through shared references and writes only its own sprites.
+pub(super) fn sync_acid_splash(
+    sim: Res<Sim>,
+    combat: Res<Combat>,
+    art: Option<Res<DangerFxArt>>,
+    cues: Option<ResMut<SplashCueRes>>,
+    mut sprites: Query<(&SplashSprite, &mut Transform, &mut Sprite, &mut Visibility)>,
+) {
+    let (Some(art), Some(mut cues), Some(state)) = (art, cues, combat.0.as_ref()) else {
+        return;
+    };
+    let Some(image) = art.image(FxSheet::Splash) else {
+        return;
+    };
+    let world = &sim.0.world;
+    let tick = world.tick;
+    cues.cues
+        .step(tick, state, |hero: HeroId| world.body(hero).x);
+    let list: Vec<FxDraw> = state
+        .env()
+        .map(|env| {
+            cues.cues
+                .view(tick, env, world.layout_height())
+                .iter()
+                .flat_map(|d| d.sprites())
+                .collect()
+        })
+        .unwrap_or_default();
+    for (slot, mut transform, mut sprite, mut visibility) in &mut sprites {
+        match list.get(slot.0) {
+            Some(d) => {
+                if sprite.image != *image {
+                    sprite.image = image.clone();
+                }
+                place(
+                    d,
+                    art.splash_z + slot.0 as f32 * 0.0001,
+                    &mut transform,
+                    &mut sprite,
+                );
                 *visibility = Visibility::Inherited;
             }
             None => *visibility = Visibility::Hidden,

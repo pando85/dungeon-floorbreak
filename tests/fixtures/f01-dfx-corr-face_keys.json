@@ -1,0 +1,12 @@
+{
+  "asset_id": "f01-dfx-corr-face",
+  "format": "pixelart-keys-v1",
+  "keys": {
+    "0": {
+      "sha256": "1db6a15b0de41bdc269812520cac2f0750e57aba54099752795e8865c3116e09"
+    }
+  },
+  "layers": [
+    "body"
+  ]
+}

@@ -133,6 +133,9 @@ mod danger_fx_art;
 mod env_prop_art;
 #[path = "floor01_scene/gym_art.rs"]
 mod gym_art;
+// AREA-HAZARDS-01B: the corrosion, Rot nest and spent drip decals.
+#[path = "floor01_scene/hazard_decals.rs"]
+mod hazard_decals;
 #[path = "floor01_scene/hazards_art.rs"]
 mod hazards_art;
 // FA-Q23 (HRD-P): the Hoarder's stand-in presentation (HOARD-01 frames, labelled greybox).
@@ -4326,6 +4329,8 @@ fn run_window(
                 env_prop_art::sync_prop_art,
                 hazards_art::sync_hazard_art,
                 danger_fx_art::sync_danger_fx,
+                danger_fx_art::sync_acid_splash,
+                hazard_decals::sync_hazard_decals,
                 hazards_art::sync_hazard_debug,
                 hoarder_art::sync_hoarder_art,
                 dozer_art::sync_dozer_art,
@@ -4988,6 +4993,17 @@ fn setup(
             &mut combat_handles,
             layers_of("actors"),
             kit,
+            &mut combat_entities,
+        );
+        // AREA-HAZARDS-01B: the corrosion under the acid, the Rot nests and the spent
+        // sticker's drip (presentation only; nothing for a room without acid or stickers).
+        hazard_decals::spawn(
+            &mut commands,
+            &asset_server,
+            &mut combat_handles,
+            layers_of("actors"),
+            kit,
+            state,
             &mut combat_entities,
         );
     }

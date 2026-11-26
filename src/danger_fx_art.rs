@@ -16,6 +16,12 @@
 //!   gate's collider while the simulation's gate is closed, the raised grate's
 //!   rail and teeth under the lintel otherwise.
 //!
+//! AREA-HAZARDS-01B adds the acid **entry splash** sheet ([`Sheet::Splash`], its
+//! sprites are made by the stateful cue in [`crate::acid_splash`], not by [`draws`])
+//! and recolours the acid to the teal ramp (HZB-AD1) and backs the rings' outer row
+//! with the dark tape (HZB-AD2); both are art-only changes (spec
+//! `docs/02-art/area-hazards-01b-spec.md`).
+//!
 //! **Presentation only.** Nothing here mutates a state, draws a random number or
 //! is hashed, replayed or read back by the simulation: a run that calls every
 //! function here each tick has the same state hash as one that never does (a
@@ -49,6 +55,8 @@ pub enum Sheet {
     WaveR48,
     WaveR64,
     Gate,
+    /// AREA-HAZARDS-01B: the acid entry splash (5 frames, played once).
+    Splash,
 }
 
 /// One animation tag of a sheet: its first frame, frame count and ticks per
@@ -92,6 +100,14 @@ pub const WAVE_REACH_FRAME: usize = 3;
 pub const BLAST_WAVE: Tag = tag("blast_wave", 0, WAVE_TICKS.len(), 0);
 pub const GATE_CLOSED: Tag = tag("gate_closed", 0, 1, 0);
 pub const GATE_RAISED: Tag = tag("gate_raised", 1, 1, 0);
+/// The acid entry splash plays once: ticks per frame (the manifest's `ticks`), 16 in all.
+pub const SPLASH_TICKS: [u64; 5] = [2, 3, 3, 4, 4];
+/// The splash frame of the key (`crown`).
+pub const SPLASH_KEY_FRAME: usize = 2;
+pub const SPLASH: Tag = tag("splash", 0, SPLASH_TICKS.len(), 0);
+/// The splash canvas: 32 x 24, pivot (16, 23) on the patch's walking line.
+pub const SPLASH_W: i32 = 32;
+pub const SPLASH_H: i32 = 24;
 
 /// The ring turns into one solid hot band for this many ticks before the blast.
 pub const RING_HOT_TICKS: u64 = 6;
@@ -108,13 +124,14 @@ pub const GATE_H: i32 = 224;
 pub const GATE_RAISED_ROWS: i32 = 24;
 
 impl Sheet {
-    pub const ALL: [Self; 6] = [
+    pub const ALL: [Self; 7] = [
         Self::Acid,
         Self::RingR48,
         Self::RingR64,
         Self::WaveR48,
         Self::WaveR64,
         Self::Gate,
+        Self::Splash,
     ];
 
     /// The manifest under `assets/manifests/` (without `.json`).
@@ -126,6 +143,7 @@ impl Sheet {
             Self::WaveR48 => "f01-dfx-wave-r48",
             Self::WaveR64 => "f01-dfx-wave-r64",
             Self::Gate => "f01-dfx-gate",
+            Self::Splash => "f01-dfx-acid-splash",
         }
     }
 
@@ -138,6 +156,7 @@ impl Sheet {
             Self::WaveR48 => "generated/art/f01-dfx-wave-r48.png",
             Self::WaveR64 => "generated/art/f01-dfx-wave-r64.png",
             Self::Gate => "generated/art/f01-dfx-gate.png",
+            Self::Splash => "generated/art/f01-dfx-acid-splash.png",
         }
     }
 
@@ -146,7 +165,7 @@ impl Sheet {
         match self {
             Self::RingR48 | Self::WaveR48 => Some(48),
             Self::RingR64 | Self::WaveR64 => Some(64),
-            Self::Acid | Self::Gate => None,
+            Self::Acid | Self::Gate | Self::Splash => None,
         }
     }
 
@@ -157,6 +176,7 @@ impl Sheet {
             Some(r) => (2 * (r + 3) + 1, 2 * (r + 3) + 1),
             None => match self {
                 Self::Gate => (GATE_W, GATE_H),
+                Self::Splash => (SPLASH_W, SPLASH_H),
                 _ => (ACID_W, ACID_H),
             },
         }
@@ -169,6 +189,7 @@ impl Sheet {
             Self::RingR48 | Self::RingR64 => &[RING_MARCH, RING_HOT],
             Self::WaveR48 | Self::WaveR64 => &[BLAST_WAVE],
             Self::Gate => &[GATE_CLOSED, GATE_RAISED],
+            Self::Splash => &[SPLASH],
         }
     }
 
@@ -213,6 +234,9 @@ pub enum Layer {
     Back,
     /// The acid on the floor: with the hazard pieces, under the slime and the actors.
     Floor,
+    /// The acid entry splash: above every actor sprite, below the blast layer and the
+    /// rings (AREA-HAZARDS-01B, spec section 4.2).
+    Splash,
     /// The blast wave: the blast layer, under the VFX-01 burst and every actor.
     Blast,
     /// The closed gate: the boss encounter's z (the stand-in slab's).
@@ -221,13 +245,17 @@ pub enum Layer {
     Tell,
 }
 
-/// One sprite: `frame` of `sheet`, the cell's columns `src_x..src_x + w` (the
-/// whole cell unless cropped), its bottom-left at world `(x, y)`, `w` x `h` px.
+/// One sprite: `frame` of `sheet`, the cell's columns `src_x..src_x + w` and rows
+/// `src_y..src_y + h` (the whole cell unless cropped), mirrored about its own
+/// vertical axis when `flip_x` (the crop is taken from the unmirrored cell), its
+/// bottom-left at world `(x, y)`, `w` x `h` px.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct FxDraw {
     pub sheet: Sheet,
     pub frame: usize,
     pub src_x: i32,
+    pub src_y: i32,
+    pub flip_x: bool,
     pub x: i32,
     pub y: i32,
     pub w: i32,
@@ -248,6 +276,8 @@ pub fn centred(sheet: Sheet, frame: usize, centre: (f32, f32), layer: Layer) -> 
         sheet,
         frame,
         src_x: 0,
+        src_y: 0,
+        flip_x: false,
         x: centre.0.round() as i32 - c,
         y: centre.1.round() as i32 - r,
         w,
@@ -279,6 +309,19 @@ pub fn wave_frame(age: u64) -> Option<usize> {
     None
 }
 
+/// The splash frame `age` ticks after the entry (0 on the event tick); `None` once
+/// its 16 ticks are over.
+pub fn splash_frame(age: u64) -> Option<usize> {
+    let mut left = age;
+    for (frame, ticks) in SPLASH_TICKS.into_iter().enumerate() {
+        if left < ticks {
+            return Some(frame);
+        }
+        left -= ticks;
+    }
+    None
+}
+
 /// The acid sprites of one pool whose current layout rectangle is `x..x + w`
 /// with its bottom on world row `bottom`: the left part of the canvas from its
 /// left cap, the right part from its right cap (and, past 80 px, middle columns),
@@ -295,6 +338,8 @@ fn acid_strip(x: i32, w: i32, bottom: i32, frame: usize, out: &mut Vec<FxDraw>) 
             sheet: Sheet::Acid,
             frame,
             src_x,
+            src_y: 0,
+            flip_x: false,
             x: at,
             y: bottom,
             w: cols,
@@ -403,6 +448,8 @@ pub fn gate(boss: &Boss) -> Option<FxDraw> {
         sheet: Sheet::Gate,
         frame: tag.first,
         src_x: 0,
+        src_y: 0,
+        flip_x: false,
         x: 0,
         y: floor,
         w: GATE_W,

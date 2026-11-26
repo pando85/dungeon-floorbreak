@@ -65,7 +65,7 @@ The room exit door of rooms 2, 4 and 6 draws the same grate 64 px wide (shared d
 
 ## 3. Palette
 
-All kit sheets use named entries of the Floor 01 kit palette, values exact: 23 distinct kit colours across the five kit sheets (at most 63). The acid uses ten named entries of the SLIME-01 gel ramp (`outline_murk`, `gel_0_deep` .. `gel_4_lit`, `sheen_torch`, `acid_hot`, `bone_gel_lit`, `bone_gel_dark`), values exact as in `slime_01.grid.json` (adopted default DFX-AD1: the kit has no acid green, only the dark `lichen` ramp, and the pool must be the same fluid as the slime that stands in it). Alpha is binary in every source.
+All kit sheets use named entries of the Floor 01 kit palette, values exact: 23 distinct kit colours across the five kit sheets (at most 63). The acid uses ten named entries of the SLIME-01 gel ramp (`outline_murk`, `gel_0_deep` .. `gel_4_lit`, `sheen_torch`, `acid_hot`, `bone_gel_lit`, `bone_gel_dark`), values exact as in `slime_01.grid.json` (adopted default DFX-AD1: the kit has no acid green, only the dark `lichen` ramp, and the pool must be the same fluid as the slime that stands in it). **Superseded for the acid by HZB-AD1** ([area-hazards-01b-spec.md](area-hazards-01b-spec.md)): the acid has its own teal ramp (`ACID_RAMP` in `author_danger_fx.py`) with the same ten entries in the same order, so every acid row is unchanged. Alpha is binary in every source.
 
 ## 4. What stays code-drawn
 
@@ -95,7 +95,7 @@ All kit sheets use named entries of the Floor 01 kit palette, values exact: 23 d
 
 | ID | Default | Why |
 | --- | --- | --- |
-| DFX-AD1 | The acid uses the SLIME-01 gel ramp (named, exact), not the kit ramps | The kit has no acid green; the pool is the slime's own fluid and must match it at 1x |
+| DFX-AD1 | The acid uses the SLIME-01 gel ramp (named, exact), not the kit ramps. **The acid half is superseded by HZB-AD1** (teal ramp). The open findings F1 (the ring tape vanished on lit brick) and F5 (the acid merged into its slime) are addressed by HZB-AD2 (dark tape backing) and HZB-AD1 | The kit has no acid green; the pool is the slime's own fluid and must match it at 1x. At 1x the slime merged into its pool, so the acid became its own substance |
 | DFX-AD2 | Rings and waves are drawn natively per sim radius (48, 64); another radius keeps the stand-in | Integer art never stretches; the art must match the sim's reach or not claim it |
 | DFX-AD3 | Carl's landed, burning stick shows its 64 px reach ring in normal play (before: only the `--debug-combat` dots); not while it flies | The danger must read before it hurts; the landing point is not settled in flight. Game-feel call for the owner |
 | DFX-AD4 | The ring turns solid hot for the last 6 ticks (`RING_HOT_TICKS`), from the ticks left the sim already keeps | Escalation without a new timer |

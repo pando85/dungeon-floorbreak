@@ -37,6 +37,9 @@ fn the_tag_table_matches_the_manifests() {
             if *t == BLAST_WAVE {
                 let ticks: Vec<u64> = rows.iter().map(|f| f["ticks"].as_u64().unwrap()).collect();
                 assert_eq!(ticks, WAVE_TICKS);
+            } else if *t == SPLASH {
+                let ticks: Vec<u64> = rows.iter().map(|f| f["ticks"].as_u64().unwrap()).collect();
+                assert_eq!(ticks, SPLASH_TICKS);
             } else if t.ticks > 0 {
                 assert!(rows.iter().all(|f| f["ticks"] == t.ticks), "{}", t.name);
             } else {
@@ -487,4 +490,25 @@ fn drawing_never_changes_the_state_hash() {
         assert_eq!(plain.events().len(), drawn.events().len(), "tick {k}");
     }
     assert!(!plain.provokes().is_empty() || !plain.blasts().is_empty());
+}
+
+/// AREA-HAZARDS-01B: the splash plays once over 16 ticks (2, 3, 3, 4, 4), its key is
+/// frame 2 and its canvas is 32 x 24.
+#[test]
+fn the_splash_plays_once_over_sixteen_ticks() {
+    assert_eq!(SPLASH_TICKS.iter().sum::<u64>(), 16);
+    assert_eq!(SPLASH_KEY_FRAME, 2);
+    assert_eq!(Sheet::Splash.frame_size(), (32, 24));
+    assert_eq!(Sheet::Splash.frames(), 5);
+    let seen: Vec<Option<usize>> = (0..17).map(splash_frame).collect();
+    assert_eq!(seen[0], Some(0));
+    assert_eq!(seen[2], Some(1));
+    assert_eq!(seen[5], Some(2));
+    assert_eq!(seen[8], Some(3));
+    assert_eq!(seen[12], Some(4));
+    assert_eq!(seen[15], Some(4));
+    assert_eq!(seen[16], None, "played once, then gone");
+    assert!(Layer::Splash > Layer::Floor && Layer::Splash < Layer::Blast);
+    // The 40-sprite pool is shared by the existing visuals only: the splash has its own.
+    assert_eq!(MAX_DRAWS, 40);
 }

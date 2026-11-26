@@ -1,0 +1,12 @@
+{
+  "asset_id": "f01-dfx-acid-splash",
+  "format": "pixelart-keys-v1",
+  "keys": {
+    "2": {
+      "sha256": "2d9b21060549721931a4d45e9374fb528b121339d7be5f78922a5cfdff882a77"
+    }
+  },
+  "layers": [
+    "body"
+  ]
+}
