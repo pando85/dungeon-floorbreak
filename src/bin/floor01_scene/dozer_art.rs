@@ -1,6 +1,7 @@
 //! DR-A: the Bevy half of room 3's presentation (the Dozer revenge). The pure half is
 //! `dungeon_floorbreak::dozer_art`; this file only draws what it returns: the approved DOZ-01 rig
-//! (hull, tread, riders, front, wheel, yoke), its smoke and steam puffs, and the labelled
+//! (hull, tread, riders, front, wheel, yoke), its smoke and steam puffs, the DR-D effects (the
+//! metal hit-spark and the ENV-02 splinter burst), and the labelled
 //! code-drawn stand-ins of the rear gate, the buffer stop and the damage marker (DZ-AD13: until
 //! DOZ-02). The machine itself is never a box.
 //! **Presentation only**: the sync system reads the combat state through a shared reference and
@@ -9,8 +10,8 @@
 
 use super::*;
 use dungeon_floorbreak::dozer_art::{
-    Layer as StandInLayer, MAX_PUFFS, MAX_STAND_INS, MAX_TAGS, Part, Sheet as DozerSheet, TAG_TEXT,
-    draw,
+    FX_Z, Layer as StandInLayer, MAX_FX, MAX_PUFFS, MAX_STAND_INS, MAX_TAGS, Part,
+    Sheet as DozerSheet, TAG_TEXT, draw,
 };
 use dungeon_floorbreak::env_kit::ATLAS_ASSET_PREFIX;
 
@@ -40,14 +41,17 @@ pub(super) struct DozerArt {
     rig_z: f32,
     back_z: f32,
     front_z: f32,
+    /// The DR-D effects: in front of every actor and the front stand-ins, under the tags.
+    fx_z: f32,
     tag_z: f32,
     /// The "STAND-IN" tag image's size (px).
     tag_size: Vec2,
 }
 
-/// The z step between two rig layers (the rig's `z` is 0..=7).
+/// The z step between two rig layers (the rig's `z` is 0..=7; the effects, `FX_Z`, draw at
+/// `fx_z` instead).
 const RIG_Z_STEP: f32 = 0.001;
-const SPRITE_POOL: usize = Part::ALL.len() + MAX_PUFFS;
+const SPRITE_POOL: usize = Part::ALL.len() + MAX_PUFFS + MAX_FX;
 
 fn atlas_present(path: &str) -> bool {
     std::env::current_dir().is_ok_and(|root| root.join(path).is_file())
@@ -73,7 +77,7 @@ pub(super) fn spawn(
     entities: &mut usize,
 ) {
     println!(
-        "DRA_ART DOZ-01 rig ({} parts, {MAX_PUFFS} puffs), labelled stand-ins for the gate, the buffer stop and damage until DOZ-02",
+        "DRA_ART DOZ-01 rig ({} parts, {MAX_PUFFS} puffs, {MAX_FX} effects: hit-spark, splinter burst), labelled stand-ins for the gate, the buffer stop and damage until DOZ-02",
         Part::ALL.len()
     );
     let actor_z = kit.actor_z;
@@ -111,6 +115,7 @@ pub(super) fn spawn(
         back_z: actor_z - 0.5,
         // In front of every actor (Carl is +0.1, a glob +0.2).
         front_z: actor_z + 0.3,
+        fx_z: actor_z + 0.305,
         tag_z: actor_z + 0.31,
         tag_size: text
             .as_ref()
@@ -196,12 +201,15 @@ pub(super) fn sync_dozer_art(
         match (entry, atlas) {
             (Some(s), Some(a)) => {
                 let (x, y) = s.centre();
-                // Later entries draw over earlier ones with the same rig z (puffs come first).
-                transform.translation = Vec3::new(
-                    x,
-                    y,
-                    art.rig_z + f32::from(s.z) * RIG_Z_STEP + slot.0 as f32 * 0.00001,
-                );
+                // Later entries draw over earlier ones with the same rig z (puffs come
+                // first). The DR-D effects draw in front of every actor: a burst on the
+                // brace or a spark on the hull is where the hero's fist is.
+                let base = if s.z == FX_Z {
+                    art.fx_z
+                } else {
+                    art.rig_z + f32::from(s.z) * RIG_Z_STEP
+                };
+                transform.translation = Vec3::new(x, y, base + slot.0 as f32 * 0.00001);
                 sprite.image = a.image.clone();
                 sprite.texture_atlas = Some(TextureAtlas {
                     layout: a.layout.clone(),

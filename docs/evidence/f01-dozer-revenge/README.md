@@ -1,4 +1,4 @@
-# DR-A, DR-B and DR-C evidence: room 3, the Dozer revenge ("The Machine Remembers")
+# DR-A to DR-D evidence: room 3, the Dozer revenge ("The Machine Remembers")
 
 Real windowed Bevy captures (`floor01_scene`, 640 x 360 and 640 x 400 virtual frames) of `--scene f01_late --f01-room dozer` under the story loadout: Carl under the pilot, Donut the autonomous `cf02_free` AI partner (`COMPANION_CONFIG: set=cf02_free`, the mode a player of the room sees). The machine is drawn with the approved **DOZ-01** rig (hull, tread, riders, front cab and tub, spiked wheel, yoke, smoke and steam puffs; [`../doz-01`](../doz-01/README.md)); there is **no box stand-in** for it. The rear gate, the buffer stop and the damage marker are code-drawn **labelled stand-ins** with a `STAND-IN` tag until DOZ-02 draws them (DZ-AD13); since DR-B so are the stop frame, its chain, its floor shadow, the brace (intact, weakened, snapped), the remnant and the rear glance. Nothing here approves tuning, art or game feel.
 
@@ -8,11 +8,11 @@ The input is the room pilot `dozer:close_call` (`src/room_pilots.rs`, `dozer_esc
 
 ```bash
 cargo build --locked --bin floor01_scene --bin playtrace && bash scripts/export_assets.sh
-bash scripts/make_dozer_revenge_evidence.sh   # needs xvfb-run, ImageMagick and ffmpeg; ~6 minutes
+bash scripts/make_dozer_revenge_evidence.sh   # needs xvfb-run, ImageMagick and ffmpeg; ~25 minutes
 python3 scripts/check_docs.py                 # verifies SHA256SUMS
 ```
 
-`perf.txt` is made on its own with `scripts/room_perf.sh dozer dozer:close_call 499` (three runs per view, plus `--deck` for 640 x 400) and the `F01_DOZER_NAV` line of the headless room smoke (`--f01-room dozer --room-pilot <plan> --exit-after-ticks 520`).
+`perf.txt` is made on its own with `scripts/room_perf.sh dozer dozer:close_call 499` (three runs per view, plus `--deck` for 640 x 400; since DR-D also the three-build A/B of `dozer:close_call`, `dozer:brace`, `dozer:crew` and `dozer:retry`, each build run from its own worktree with `BIN` and `OUT`) and the `F01_DOZER_NAV` line of the headless room smoke (`--f01-room dozer --room-pilot <plan> --exit-after-ticks 520`).
 
 ## Stills (tick of the `dozer:close_call` run)
 
@@ -49,9 +49,36 @@ The two roster goblins of room 3 (`rider_a`, brawler, and `rider_b`, coward) rid
 
 `reversal_640x360.gif` is ticks 297 to 489, every 4th tick (49 frames, 10 frames a second, 0.4x game speed): the second jab, the warning, the fall, the stun, the disable and the run.
 
+## DR-D: effects, retry and crew
+
+**Effects (INT DOZER-ROOM, audit-art work order 15).** The presenter now draws the DOZ-01 metal hit-spark (`vfx_hit_spark_metal`) on the hull face for each non-blast clang (a melee hit or a Magic Missile) and the ENV-02 splinter burst (`floor01_splinter_burst`) on the brace cleat for each counted brace hit and the release, and twice in the rear gate as the machine emerges (DRD-AD1, DRD-AD2; [floor01-scene.md](../../03-tech/floor01-scene.md#room-3s-effects-retry-and-crew-captures-dr-d)). They draw in front of the actors. Since DR-D the DR-B stills show them too: `brace_release_*.png` (318) has the release burst (released on 315) on the brace. The burst is sparse wood flecks of the ENV-02 palette and reads weakly over the brick at 1x (a note for the owner and DOZ-02, not a defect of this wiring).
+
+**Retry (`dozer:retry`, the #289 review finding 4).** Carl stands at x 480 until the wheel takes him (one blow, DZ-Q04), respawns at the checkpoint, walks into the trigger, stands while the gate rumbles and runs once the machine is out. Timeline: defeat 273 (`wheel_hit`, `hero_defeated`), checkpoint respawn 322 (49 ticks, 0.82 s, after the defeat; the world tick runs on), rumble 343 (by the trigger), out of the gate 433 (the gate bursts on 433 to 452), exit 756. Defeat to the next chase is 160 ticks (2.7 s); respawn to the next chase is 111 ticks (1.85 s), of which 90 are the rumble. The HUD title still reads `TRY 1` after a respawn: the try count is of defeat retries (restarts), and a checkpoint respawn is not one.
+
+| Name | Tick | What the frame shows |
+| --- | --- | --- |
+| `retry_caught_*.png` | 270 | The wheel closes on Carl, who holds at x 480. |
+| `retry_down_*.png` | 300 | Carl is down, his health empty; the machine rolls on. |
+| `retry_respawn_*.png` | 330 | Carl back at the checkpoint by the gate stand-in, full health; the machine is gone. |
+| `retry_gate_*.png` | 438 | The machine leaves the rear gate again; the gate's sparse splinter flecks over the wheel; Carl runs. |
+| `retry_escape_*.png` | 520 | Carl and Donut run ahead of the machine. |
+
+`retry_640x360.gif` is ticks 246 to 780, every 6th tick (90 frames, 10 frames a second, 0.6x game speed).
+
+**Rider fight (`dozer:crew`, finding 4).** The `dozer:brace` reversal, then the CF02 fight of the `direct` plan against the two dismounted riders, then the exit. Timeline: released 315, stunned 352, disabled 400 (both riders dismount), Carl's haymaker puts rider B down on 463, Donut's first missile hits rider A on 488, Carl's jab puts rider A down on 515 and also clangs on the disabled hull (the hit-spark, 515 to 520), Donut's second missile clangs on the hull on 523 (a second spark), exit 693. Nobody is hurt or run over (`the_dozer_retry_and_crew_pilots_finish_room_3`).
+
+| Name | Tick | What the frame shows |
+| --- | --- | --- |
+| `crew_dismount_*.png` | 410 | The machine disabled, both riders down (crouched) beside the wheel, Donut next to them; Carl comes back from the right. |
+| `crew_fight_*.png` | 452 | Carl fights the two riders in front of the wheel; Donut behind him. |
+| `crew_clang_*.png` | 516 | Rider B lies on the floor, rider A goes down; the small metal hit-spark of the jab's clang at Carl's fist, in front of the wheel; a Donut missile flies in from the right. |
+| `crew_exit_*.png` | 600 | Both riders down on the floor; Carl and Donut walk away from the dead machine to the exit. |
+
+`crew_640x360.gif` is ticks 396 to 692, every 4th tick (75 frames, 10 frames a second, 0.4x game speed).
+
 ## Read-only presentation
 
-- `capture_lines.txt`: one `DOZER_STILL` line per still and size, one `DOZER_GIF` line per GIF. Every capture ran in the window under `xvfb-run` and headless to the same last tick: `window_hash == headless_hash` (`hash_match=yes`) for all 22 stills and both GIFs.
+- `capture_lines.txt`: one `DOZER_STILL` line per still and size, one `DOZER_GIF` line per GIF. Every capture ran in the window under `xvfb-run` and headless to the same last tick: `window_hash == headless_hash` (`hash_match=yes`) for all 40 stills (20 names at two sizes) and the four GIFs.
 - Every still was captured in two full passes; the PNGs of the two passes are byte-identical (`passes_byte_identical=yes`).
 - The unit test `dozer_art::tests::drawing_never_changes_the_state_hash` runs the room with and without calling the presenter every tick and compares the state hash on every tick; `the_frame_stand_ins_follow_the_frame_and_the_rear_glance` (DR-B) does the same through a release, a landing and a rear glance, and checks every frame, brace, shadow, remnant and glance label.
 
@@ -72,16 +99,28 @@ The frame interval is the xvfb present pace, not a real-display frame time. The 
 
 **Nav rebuild count, with the partner active.** The `cf02_free` partner's hazard feed (the wheel's nav rows) changed **63** times in `dozer:run` (344 ticks), **62** in `dozer:close_call` (498 ticks), **62** in `dozer:wait` (498 ticks) and **46** in `dozer:brace` (490 ticks: the machine stops on 352), with `hazard_feed_errors=0`, `wheel_hits=0` and no rescue (`F01_DOZER_NAV` lines in `perf.txt`). The machine is a hazard the partner's nav reads; the rows are filled into a reused buffer (`Dozer::nav_rows_into`), so a tick allocates nothing for them. The no-pilot smoke reads 0 (`COMPANION_CONFIG: set=cf02_free inactive`): its scripted walk runs the legacy follower, not the partner, and is a CI smoke, not the mode a player sees. The unit test `the_dozer_pilots_escape_room_3` asserts the count of every dozer pilot is above 0 (the #282 review R2). The earlier claim of this README (0 rebuilds, "CA2-FU-HAZ U-1 stays open") was measured with the follower by mistake and was wrong.
 
+**DR-C and DR-D A/B (the #289 review finding 3, DOZER-PERF-01).** Three debug builds ran in turn on the same machine, five reps each of `dozer:close_call` (499 frames) and `dozer:brace` (491 frames) at 640 x 360: `predrc` (main before DR-C, f2087869), `main` (the DR-C merge, 49b1b0fe) and `drd` (this head). Reps 1 to 4 ran at load average 1.6 to 3.3, rep 5 at 6.9 to 10.9; the raw per-run numbers are the `DR-C/DR-D A/B` table at the end of `perf.txt`. Median paired differences:
+
+| Plan | Step | Sim tick mean | Sim tick p95 | Frame median |
+| --- | --- | --- | --- | --- |
+| `dozer:close_call` | DR-C (main against predrc) | -1.4 us (-2.0 %) | -1.0 us (-0.3 %) | -0.05 ms |
+| `dozer:close_call` | DR-D (drd against main) | +3.3 us (+4.8 %) | +10.9 us (+3.5 %) | +0.02 ms |
+| `dozer:brace` | DR-C (main against predrc) | +2.1 us (+3.4 %) | +10.6 us (+3.5 %) | +0.05 ms |
+| `dozer:brace` | DR-D (drd against main) | +2.2 us (+3.5 %) | -1.5 us (-0.5 %) | -0.03 ms |
+
+DR-C costs nothing in the escape (the riders are carried and out of play) and a few us in the brace run, where the two dismounted goblins walk and plan from tick 400. DR-D reads a few us more on the tick mean in both, but it changes no simulation code on these two plans (the effects are presentation outside the tick, the two new pilots are not run here, and the four pooled effect sprites, 5561 to 5565 entities, are drawn outside it), so that residual is not this PR's tick work: it is within the run-to-run spread of a rep (the brace p95 goes the other way) and probably build layout or noise. No step moves the frame median. A debug build under xvfb is no benchmark, and nothing here is profiled; DOZER-PERF-01 stays a measure-again item for a release build on a real display. The new `dozer:crew` and `dozer:retry` plans have no main counterpart; their runs (two per plan at 640 x 360 and one `--deck`, at load average 5.8 to 10.9) read a frame median of 16.3 to 18.6 ms and a tick mean of 61 to 113 us, in line with the other plans at that load. Their nav lines (the headless smoke stops at 600 ticks) read 46 rebuilds for `dozer:crew` (the machine stops on 352, as in `dozer:brace`) and 64 for `dozer:retry`, both with `hazard_feed_errors=0`; `close_call` (62) and `brace` (46) are unchanged.
+
 ## NOT RUN and limits
 
 - **Human pad evaluation: NOT RUN.** Game feel is the owner's; nothing here was played on a pad.
 - **Real-display frame time and release build: NOT RUN.** The numbers above are debug under xvfb.
-- **Two players, solo Donut, the wipe and retry in the window, a rider fight on camera and later rooms (DR-D): NOT RUN** (out of scope). The two-pad and Donut-missile releases are fixtures (`dz_frame_missile`, `dz_frame_dynamite`), not captures.
+- **Two players, solo Donut and a two-hero wipe: NOT RUN.** The two-pad and Donut-missile releases are fixtures (`dz_frame_missile`, `dz_frame_dynamite`), not captures; the retry captured here is Carl's own defeat and checkpoint respawn with the partner alive, not a party wipe and restart (that path is the fixtures `dz_retry_stunned`, `dz_retry_disabled`).
+- **The DOZ-02 art (gate, buffer stop, damage states): NOT RUN here.** Its key design is draft PR #291; the stand-ins stay until its execution lands.
 - The pilots are not players: they never misjudge the gap.
 - **Stand-in limits (the #287 review notes).** The stand-in pools' caps (`MAX_STAND_INS` 24, `MAX_TAGS` 6 in `dozer_art.rs`) are checked by `debug_assert!` only, so a release build would not catch an overflow; the current worst case fits. The grey frame and remnant stand-ins (FrameIron) read weakly against the dark wheel at 1x; left to DOZ-02 and the owner.
 
 ## Rights and provenance
 
 - DOZ-01 rig: designed by Claude Opus, size decided by a separate Claude Opus agent, executed by Claude Sonnet, reviewed by independent Claude Opus agents and approved by the owner ([`../doz-01`](../doz-01/README.md)); the riders reuse GOB-01 goblin pixels.
-- DR-A wiring, the labelled stand-ins and these captures: Claude Opus, as assigned by the orchestrator's brief. DR-B (the frame, the brace and glance stand-ins, the `dozer:brace` pilot and the reversal captures): Claude Opus, as assigned by the orchestrator's brief; the stand-ins are code-drawn rectangles, no new art.
+- DR-A wiring, the labelled stand-ins and these captures: Claude Opus, as assigned by the orchestrator's brief. DR-B (the frame, the brace and glance stand-ins, the `dozer:brace` pilot and the reversal captures): Claude Opus, as assigned by the orchestrator's brief; the stand-ins are code-drawn rectangles, no new art. DR-D (the effect wiring, the `dozer:retry` and `dozer:crew` pilots, these captures and the perf A/B): Claude Opus, as assigned by the orchestrator's brief; no new art: the hit-spark is the approved DOZ-01 `vfx_hit_spark_metal` sheet and the burst is the approved ENV-02 `floor01_splinter_burst` sheet.
 - Original fan-concept art published under the owner-reported `ART-PUBLICATION-ALL-V1` scope (`docs/04-production/rights-and-release.md`). No third-party assets.

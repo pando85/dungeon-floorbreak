@@ -128,6 +128,17 @@ pub enum Plan {
     /// fallback, once the wheel is [`crate::dozer_fixtures::CLOSE_GAP_PX`] away). Only valid in
     /// the Dozer's room, solo, and only aligned (it keeps the first chase tick).
     DozerBrace,
+    /// DR-D (room 3, the #289 review finding 4 retry capture): Carl walks to
+    /// [`crate::dozer_fixtures::HOLD_X`] and stands there until the wheel takes him (one blow,
+    /// DZ-Q04); after the room's defeat respawn he walks into the trigger, waits while the rear
+    /// gate rumbles and runs to the exit once the machine is out (`dozer:retry`). Only valid
+    /// in the Dozer's room, solo, and only aligned.
+    DozerRetry,
+    /// DR-D (room 3, the #289 review finding 4 crew capture): the `dozer:brace` pilot until the
+    /// machine is disabled, then Carl fights the dismounted riders (the CF02 fight of the
+    /// `direct` plan) and walks to the exit (`dozer:crew`). Only valid in the Dozer's room,
+    /// solo, and only aligned.
+    DozerCrew,
 }
 
 /// Where [`Plan::CorralRush`] parks Carl: 112 px left of B, inside her 128 px trigger
@@ -153,6 +164,8 @@ impl Plan {
             Self::DozerCloseCall => "dozer:close_call",
             Self::DozerWait => "dozer:wait",
             Self::DozerBrace => "dozer:brace",
+            Self::DozerRetry => "dozer:retry",
+            Self::DozerCrew => "dozer:crew",
         }
     }
 
@@ -160,7 +173,12 @@ impl Plan {
     pub const fn is_dozer(self) -> bool {
         matches!(
             self,
-            Self::DozerRun | Self::DozerCloseCall | Self::DozerWait | Self::DozerBrace
+            Self::DozerRun
+                | Self::DozerCloseCall
+                | Self::DozerWait
+                | Self::DozerBrace
+                | Self::DozerRetry
+                | Self::DozerCrew
         )
     }
 }
@@ -285,9 +303,11 @@ impl RoomPilot {
                 "close_call" => Plan::DozerCloseCall,
                 "wait" => Plan::DozerWait,
                 "brace" => Plan::DozerBrace,
+                "retry" => Plan::DozerRetry,
+                "crew" => Plan::DozerCrew,
                 other => {
                     return Err(format!(
-                        "bad --room-pilot {value:?} (expected dozer:run, dozer:close_call, dozer:wait or dozer:brace; solo only{})",
+                        "bad --room-pilot {value:?} (expected dozer:run, dozer:close_call, dozer:wait, dozer:brace, dozer:retry or dozer:crew; solo only{})",
                         if other.ends_with("2p") {
                             ", no :2p"
                         } else {
@@ -474,7 +494,9 @@ impl RoomPilot {
             Plan::DozerRun | Plan::DozerCloseCall | Plan::DozerWait => {
                 self.dozer_input(combat, sim, exit_x)
             }
-            Plan::DozerBrace => unreachable!("the brace pilot is aligned only (aligned_inputs)"),
+            Plan::DozerBrace | Plan::DozerRetry | Plan::DozerCrew => {
+                unreachable!("the brace, retry and crew pilots are aligned only (aligned_inputs)")
+            }
         };
         let donut = if self.two_player {
             arena::donut_pilot(combat, sim)
@@ -579,6 +601,10 @@ impl RoomPilot {
                 RawInput::NONE
             } else if self.plan == Plan::DozerBrace {
                 dozer_brace(combat, sim, exit_x, memory)
+            } else if self.plan == Plan::DozerRetry {
+                dozer_retry(combat, sim, exit_x)
+            } else if self.plan == Plan::DozerCrew {
+                dozer_crew(combat, sim, exit_x, memory)
             } else {
                 self.dozer_input(combat, sim, exit_x)
             };
@@ -1182,6 +1208,47 @@ fn dozer_brace(
     RawInput {
         attack: jab,
         ..RawInput::NONE
+    }
+}
+
+/// DR-D: the `dozer:retry` pilot. Before the first defeat Carl walks to
+/// [`crate::dozer_fixtures::HOLD_X`] and stands there (the wheel takes him); once the room has
+/// counted a defeat (`deaths`, kept across the respawn) he walks on from the respawn column into
+/// the trigger, stands while the gate rumbles until the machine is out of it again (the gate's
+/// splinter bursts are on screen) and then runs to the exit. Stateless.
+fn dozer_retry(combat: &CombatState, sim: &SceneSim, exit_x: f32) -> RawInput {
+    use crate::dozer::DozerState;
+    use crate::dozer_fixtures::HOLD_X;
+    if combat.deaths > 0 {
+        let rumbling = crate::dozer_art::dozer_of(combat)
+            .is_some_and(|d| matches!(d.state, DozerState::Approaching { .. }));
+        return if rumbling {
+            RawInput::NONE
+        } else {
+            walk_to(sim, exit_x)
+        };
+    }
+    if (sim.world.hero.x - HOLD_X).abs() >= WALK_DEADZONE {
+        return walk_to(sim, HOLD_X);
+    }
+    RawInput::NONE
+}
+
+/// DR-D: the `dozer:crew` pilot. The `dozer:brace` pilot until the machine is disabled; then
+/// the CF02 fight against the dismounted riders while one lives, and the walk to the exit.
+fn dozer_crew(
+    combat: &CombatState,
+    sim: &SceneSim,
+    exit_x: f32,
+    memory: &mut AlignedMemory,
+) -> RawInput {
+    use crate::dozer::DozerState;
+    let disabled =
+        crate::dozer_art::dozer_of(combat).is_some_and(|d| d.state == DozerState::Disabled);
+    if disabled {
+        fight_or_walk(combat, sim, exit_x)
+    } else {
+        dozer_brace(combat, sim, exit_x, memory)
     }
 }
 
@@ -2588,6 +2655,8 @@ mod tests {
             ("dozer:close_call", Plan::DozerCloseCall),
             ("dozer:wait", Plan::DozerWait),
             ("dozer:brace", Plan::DozerBrace),
+            ("dozer:retry", Plan::DozerRetry),
+            ("dozer:crew", Plan::DozerCrew),
         ] {
             let pilot = RoomPilot::parse(value).unwrap();
             assert_eq!(pilot.plan, plan);
@@ -2667,6 +2736,99 @@ mod tests {
                 d.state.name(),
                 scene.world.hero.x,
                 scene.world.donut_body.x
+            );
+        }
+    }
+    /// DR-D (the #289 review finding 4 captures), stepped like an aligned pilot with the
+    /// `cf02_free` partner: `dozer:retry` is run over once (one blow, DZ-Q04), respawns at the
+    /// checkpoint, waits for the machine to leave the gate again and escapes; `dozer:crew`
+    /// reverses the chase, puts both dismounted riders down and leaves with nobody run over.
+    #[test]
+    fn the_dozer_retry_and_crew_pilots_finish_room_3() {
+        use crate::combat::CombatEvent;
+        use crate::dozer::{DozerEvent, DozerState};
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let (carl, donut) = Loadout::Story.flags();
+        for plan in [Plan::DozerRetry, Plan::DozerCrew] {
+            let (run, mut scene, mut combat) =
+                crate::f01_late::dozer_start(&root, 360, carl, donut, None).unwrap();
+            let exit = run.loaded.encounter.exit;
+            let exit_x = (exit.x + exit.w / 2) as f32;
+            let pilot = RoomPilot::parse(plan.name()).unwrap();
+            let mut party = crate::party::PartyState::new(pilot.tuning().unwrap());
+            let mut memory = AlignedMemory::default();
+            for _ in 0..2000 {
+                if scene.world.complete {
+                    break;
+                }
+                let slots = pilot.aligned_inputs(
+                    &combat,
+                    &scene,
+                    party.controlled_hero(),
+                    exit_x,
+                    &mut memory,
+                );
+                let hurt = combat.hurt_ticks_of(party.controlled_hero()) > 0;
+                party.request_swap(slots[0].swap, hurt);
+                let inputs = party.hero_inputs(slots);
+                scene.set_drive(party.drive(true));
+                combat.step_party(&mut scene, inputs);
+            }
+            assert!(scene.world.complete, "{}: no exit", plan.name());
+            // The whole run is in the log (the ring never dropped an event).
+            assert!(combat.events.len() < crate::combat_scene::EVENT_LOG_CAP);
+            let emerged = combat
+                .events
+                .iter()
+                .filter(|e| {
+                    matches!(
+                        e,
+                        CombatEvent::Dozer {
+                            event: DozerEvent::Emerged { .. },
+                            ..
+                        }
+                    )
+                })
+                .count();
+            let defeated = combat
+                .events
+                .iter()
+                .filter(|e| matches!(e, CombatEvent::EnemyDefeated { .. }))
+                .count();
+            let d = crate::dozer_art::dozer_of(&combat).unwrap();
+            if plan == Plan::DozerRetry {
+                assert_eq!(combat.deaths, 1);
+                // The machine's stats restart with the respawn; the log keeps the blow.
+                let blows = combat
+                    .events
+                    .iter()
+                    .filter(|e| {
+                        matches!(
+                            e,
+                            CombatEvent::Dozer {
+                                event: DozerEvent::WheelHit { .. },
+                                ..
+                            }
+                        )
+                    })
+                    .count();
+                assert_eq!((blows, d.stats.wheel_hits), (1, 0));
+                assert_eq!(
+                    emerged, 2,
+                    "the machine leaves the gate again after the respawn"
+                );
+            } else {
+                assert_eq!(combat.deaths, 0);
+                assert_eq!(d.stats.wheel_hits, 0);
+                assert_eq!(d.state, DozerState::Disabled);
+                assert_eq!(defeated, 2, "both riders down");
+            }
+            println!(
+                "DOZER_PILOT plan={} ticks={} deaths={} emerged={emerged} riders_down={defeated} state={}",
+                plan.name(),
+                scene.world.tick,
+                combat.deaths,
+                d.state.name()
             );
         }
     }

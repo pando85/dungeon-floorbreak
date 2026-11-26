@@ -31,6 +31,13 @@
 //!   the rear deck and tips off behind the exhaust). Every stand-in's label
 //!   says so and the presenter draws a `STAND-IN` tag over each.
 //!
+//! - DR-D (INT DOZER-ROOM, audit-art WO 15) adds the room's **effects**
+//!   ([`fx_sprites`]): the DOZ-01 metal hit-spark where a non-blast clang meets the
+//!   hull, and the ENV-02 `timber_splinter_burst` on the brace cleat at each
+//!   counted hit and at the release, and in the rear gate as the machine bursts
+//!   out. Effects read this attempt's event log only (a retry never replays an
+//!   earlier attempt's effect, nor its rear glance).
+//!
 //! **No box stand-in for the machine**: every machine pixel comes from the
 //! DOZ-01 atlases. The rumble draws no machine (it is still behind the gate).
 //!
@@ -44,7 +51,7 @@
 //! its bottom-left corner on whole pixels.
 
 use crate::camera_lab::room::IRect;
-use crate::combat::CombatEvent;
+use crate::combat::{CombatEvent, PropPhase};
 use crate::combat_scene::dozer::DozerEnemy;
 use crate::combat_scene::{CombatState, EnvRuntime};
 use crate::dozer::{Dozer, DozerEvent, DozerState, EscapePhase};
@@ -64,10 +71,15 @@ pub enum Sheet {
     Wheel,
     Yoke,
     Smoke,
+    /// DR-D (INT DOZER-ROOM): the shared DOZ-01 metal hit-spark (rig part
+    /// `hit_spark`, z 8).
+    Spark,
+    /// DR-D (INT DOZER-ROOM): the ENV-02 `timber_splinter_burst` piece.
+    Splinter,
 }
 
 impl Sheet {
-    pub const ALL: [Self; 8] = [
+    pub const ALL: [Self; 10] = [
         Self::Hull,
         Self::Tread,
         Self::Riders,
@@ -76,6 +88,8 @@ impl Sheet {
         Self::Wheel,
         Self::Yoke,
         Self::Smoke,
+        Self::Spark,
+        Self::Splinter,
     ];
 
     /// The exported atlas (the manifest's `output_atlas`).
@@ -89,6 +103,8 @@ impl Sheet {
             Self::Wheel => "generated/art/dozer_wheel_h120.png",
             Self::Yoke => "generated/art/dozer_yoke_h120.png",
             Self::Smoke => "generated/art/dozer_smoke.png",
+            Self::Spark => "generated/art/vfx_hit_spark_metal.png",
+            Self::Splinter => "generated/art/floor01_splinter_burst.png",
         }
     }
 
@@ -103,6 +119,8 @@ impl Sheet {
             Self::Wheel => (99, 99),
             Self::Yoke => (64, 44),
             Self::Smoke => (24, 24),
+            Self::Spark => (16, 16),
+            Self::Splinter => (48, 48),
         }
     }
 
@@ -114,6 +132,8 @@ impl Sheet {
             Self::Riders => 19,
             Self::Wheel => 5,
             Self::Smoke => 11,
+            Self::Spark => 3,
+            Self::Splinter => 4,
         }
     }
 
@@ -128,6 +148,8 @@ impl Sheet {
             Self::Wheel => (49, 49),
             Self::Yoke => (54, 30),
             Self::Smoke => (12, 12),
+            Self::Spark => (8, 8),
+            Self::Splinter => (24, 24),
         }
     }
 }
@@ -287,6 +309,24 @@ pub const BUFFER_H_PX: i32 = 24;
 pub const LANE_H_PX: i32 = 228;
 /// The gate rattles 1 px each way, a step every this many ticks.
 pub const GATE_SHAKE_TICKS: u64 = 2;
+
+/// DR-D (INT DOZER-ROOM): the hit-spark plays star, burst, fade, 2 ticks each
+/// (the rig's `timing`).
+pub const SPARK_FRAME_TICKS: u64 = 2;
+/// The `timber_splinter_burst`: 4 frames of 67 ms, 4 ticks each at 60 Hz.
+pub const SPLINTER_FRAME_TICKS: u64 = 4;
+/// DRD-AD1: the spark's height above the walking line (a hero's chest, where
+/// a jab meets the hull).
+pub const SPARK_CHEST_PX: i32 = 24;
+/// DRD-AD2: the gate bursts as the machine comes out: two splinter bursts on
+/// the gate's centre line at these heights, the second
+/// [`GATE_BURST_STAGGER`] ticks after the first.
+pub const GATE_BURST_Y: [i32; 2] = [40, 88];
+pub const GATE_BURST_STAGGER: u64 = 4;
+/// The rig's `z` of the effects (the `hit_spark` row): over every part.
+pub const FX_Z: u8 = 8;
+/// The most effect sprites [`draw`] returns (the presenter's pool).
+pub const MAX_FX: usize = 4;
 
 /// One atlas sprite: its sheet and frame, its bottom-left corner (world px,
 /// y up) and its draw order (the rig's z).
@@ -922,16 +962,142 @@ pub fn frame_stand_ins(
     }
 }
 
-/// The tick and wheel front of the latest rear glance in the combat log, if
+/// The events of the current attempt, newest first. Ticks are attempt-local
+/// (a defeat retry counts from 1 again), so the scan stops at the latest
+/// `Restart`: an effect of an earlier attempt is never drawn again when the
+/// new attempt reaches the same tick.
+fn attempt_events(combat: &CombatState) -> impl Iterator<Item = &CombatEvent> {
+    combat
+        .events
+        .iter()
+        .rev()
+        .take_while(|e| !matches!(e, CombatEvent::Restart { .. }))
+}
+
+/// The tick and wheel front of the latest rear glance of this attempt, if
 /// any (the log is a bounded ring; the glance plays for [`GLANCE_TICKS`]).
 pub fn last_glance(combat: &CombatState) -> Option<(u64, i32)> {
-    combat.events.iter().rev().find_map(|e| match *e {
+    attempt_events(combat).find_map(|e| match *e {
         CombatEvent::Dozer {
             tick,
             event: DozerEvent::Glance { front_x },
         } => Some((tick, front_x)),
         _ => None,
     })
+}
+
+/// An effect sprite with its pivot pixel on `(x, y)` (world px, y up).
+fn fx_at(sheet: Sheet, frame: u64, (x, y): (i32, i32)) -> SpriteDraw {
+    let (_, h) = sheet.frame_size();
+    let (px, py) = sheet.pivot();
+    SpriteDraw {
+        sheet,
+        frame: frame as u8,
+        left: x - px,
+        bottom: y - (h as i32 - 1 - py),
+        z: FX_Z,
+    }
+}
+
+/// The frame of an effect `age` ticks old, while it plays.
+fn fx_frame(sheet: Sheet, frame_ticks: u64, age: u64) -> Option<u64> {
+    let frame = age / frame_ticks;
+    (frame < u64::from(sheet.frames())).then_some(frame)
+}
+
+/// The world centre of the stop frame's brace cleat (the prop's hit target):
+/// the splinter burst's anchor, "the centre of the break".
+pub fn brace_centre(d: &Dozer, env: &EnvRuntime) -> Option<(i32, i32)> {
+    let mass = env.mass(FRAME_PROP)?;
+    let b = env.prop_target(FRAME_PROP)?;
+    let floor = d.floor_y.round() as i32;
+    let bottom = floor + mass.config().footprint.bottom() - b.bottom();
+    Some((b.x + b.w / 2, bottom + b.h / 2))
+}
+
+/// DRD-AD1: where a non-blast clang (a melee hit or a Magic Missile) sparks:
+/// on the hull face nearest the hero nearest the hull (the rear face of the push box for a hit from behind, the
+/// wheel front for one from ahead), at chest height. `Clang` carries the
+/// player slot, not the hero, and one pad may drive either hero.
+pub fn spark_point(d: &Dozer, heroes_x: [f32; 2]) -> (i32, i32) {
+    let left = d.push_box().left;
+    let right = d.wheel_front();
+    let gap = |x: f32| (left - x).max(x - right).max(0.0);
+    let x = heroes_x
+        .into_iter()
+        .min_by(|a, b| gap(*a).total_cmp(&gap(*b)))
+        .unwrap_or(left)
+        .clamp(left, right);
+    (x.round() as i32, d.floor_y.round() as i32 + SPARK_CHEST_PX)
+}
+
+/// DR-D (INT DOZER-ROOM, audit-art WO 15): the room's effects, newest first,
+/// at most [`MAX_FX`]:
+/// - the DOZ-01 **hit-spark** for each non-blast clang on the hull (a blast's
+///   clang has its own blast art), for 3 frames of 2 ticks;
+/// - the ENV-02 **splinter burst** on the brace cleat for each counted hit on
+///   the stop frame's brace and for its release (one burst a tick);
+/// - two splinter bursts in the **rear gate** as the machine emerges.
+///
+/// A function of this attempt's event log, the machine and the tick only.
+pub fn fx_sprites(
+    combat: &CombatState,
+    d: &Dozer,
+    heroes_x: [f32; 2],
+    tick: u64,
+) -> Vec<SpriteDraw> {
+    let floor = d.floor_y.round() as i32;
+    let brace = combat.env().and_then(|env| brace_centre(d, env));
+    let gate_x = (GATE_X.0 + GATE_X.1) / 2;
+    let mut out = Vec::new();
+    let mut brace_tick = None;
+    for e in attempt_events(combat) {
+        if out.len() >= MAX_FX {
+            break;
+        }
+        match *e {
+            CombatEvent::Dozer {
+                tick: at,
+                event: DozerEvent::Clang { blast: false, .. },
+            } if at <= tick => {
+                if let Some(frame) = fx_frame(Sheet::Spark, SPARK_FRAME_TICKS, tick - at) {
+                    out.push(fx_at(Sheet::Spark, frame, spark_point(d, heroes_x)));
+                }
+            }
+            CombatEvent::PropHit { tick: at, prop, .. }
+            | CombatEvent::PropPhase {
+                tick: at,
+                prop,
+                phase: PropPhase::Released,
+                ..
+            } if usize::from(prop) == FRAME_PROP && at <= tick && brace_tick != Some(at) => {
+                brace_tick = Some(at);
+                let (Some(anchor), Some(frame)) = (
+                    brace,
+                    fx_frame(Sheet::Splinter, SPLINTER_FRAME_TICKS, tick - at),
+                ) else {
+                    continue;
+                };
+                out.push(fx_at(Sheet::Splinter, frame, anchor));
+            }
+            CombatEvent::Dozer {
+                tick: at,
+                event: DozerEvent::Emerged { .. },
+            } if at <= tick => {
+                for (n, y) in GATE_BURST_Y.into_iter().enumerate() {
+                    let Some(age) = (tick - at).checked_sub(n as u64 * GATE_BURST_STAGGER) else {
+                        continue;
+                    };
+                    if let Some(frame) = fx_frame(Sheet::Splinter, SPLINTER_FRAME_TICKS, age) {
+                        out.push(fx_at(Sheet::Splinter, frame, (gate_x, floor + y)));
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    out.truncate(MAX_FX);
+    out
 }
 
 /// A hero is within [`YELL_RANGE_PX`] of the wheel front (its body's left
@@ -953,6 +1119,7 @@ pub fn draw(combat: &CombatState, heroes_x: [f32; 2], tick: u64) -> Option<Dozer
         let seated = [Seat::RiderA, Seat::RiderB].map(|seat| combat.seat_taken(seat));
         sprites.extend(rig_sprites(d, tick, hero_near(d, heroes_x), seated));
     }
+    sprites.extend(fx_sprites(combat, d, heroes_x, tick));
     let (mut stand_ins, mut tags) = stand_ins(d, tick);
     if let Some(env) = combat.env() {
         frame_stand_ins(d, env, last_glance(combat), tick, &mut stand_ins, &mut tags);
