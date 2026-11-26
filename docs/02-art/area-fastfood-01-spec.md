@@ -320,7 +320,7 @@ The checks below were run on the execution head, with their actual results. Ever
 | --- | --- |
 | `cargo fmt --all -- --check` | clean |
 | `cargo clippy --locked --all-targets -- -D warnings` | clean |
-| `cargo test --locked --all-targets --no-fail-fast` | 3880 passed, 0 failed, 35 ignored |
+| `cargo test --locked --all-targets --no-fail-fast` | 3913 passed, 0 failed, 36 ignored (after the rebase onto ACT1-A) |
 | `fastfood_kit` tests (21, one ignored evidence helper) | FF-A1 (launched room identical with and without the dressing), FF-A2 (the `COMBAT_STATE` hash equal on every tick of the Story solo-Donut crossing and of a Carl walk), FF-A3 and FF-A4 (frame selection over the `rest_refuge_solo_donut` ticks, a fixture restart, a checkpoint respawn, the `All` loadout), FF-A7 (light budget, net minus 8 plus 6), the `remove_at` and placement rules, the floor decals above the collision layer (F1), no background in either bay (F5) |
 | `python3 scripts/env_kit.py validate --contract ...floor01_fastfood_kit.json` | VALID (112 pieces) |
 | `python3 scripts/validate_assets.py` | exit 0, 0 invalid |
