@@ -13,6 +13,7 @@ Status: prototype, review pending (`prototype_fixture_unapproved`). Not wired in
 | File | Role |
 | --- | --- |
 | `keys/carl_portrait.grid.json`, `keys/system_crt_face.grid.json` | Frozen top-tier keys, byte-identical copies. Not edited. |
+| `keys/hud_art_02_keycaps.grid.json`, `keys/hud_art_02_chips.grid.json`, `keys/hud_art_02_notice_plate.grid.json` | HUD-ART-02 design keys (key cap `key_j` and `key_arrow_right`, `chip_dynamite`, `chip_puddle`, the notice backing plate), frozen design inputs for the [HUD-ART-02 spec](../../../docs/02-art/hud-art-02-spec.md). Not wired into the atlas yet. |
 | `hud_portrait_carl.grid.json` | The Carl key's pixels (names `carl_*`, colours subset of `carl_h52`). Pivot set to the bottom row; 11 lone 1 px details re-keyed to same-colour accent aliases (`*_detail`) so strict lint passes. Colours and positions unchanged (tested). |
 | `hud_system_crt.grid.json` | The CRT key (`idle`, `blink`, `notice`), palette names aligned to the spec tokens (`metal_hi`, `crt_face_hi`), lone 1 px details re-keyed as above. Colours and positions unchanged (tested). |
 | `hud_portrait_donut.grid.json` | 28x28, 1:1 crop of `assets/source/characters/donut/donut_h40.grid.json` frame 0 at x 14..41, y 4..31 (crown inside row 0, eyes on rows 12 to 17). Four edge pixels repainted to remove orphans: (0,21) O, (27,21) o, (10,27) C, (23,27) C. `donut_h40` palette only. |
@@ -46,6 +47,9 @@ Sonnet. Independent top-tier review: pending. Rights scope: `ART-PUBLICATION-ALL
 ```text
 7d13f3d2a5b4ef4e604a3bcea2be4b558eb41b7da51e9769cd4d32361ecaf306  keys/carl_portrait.grid.json
 b5ec5a51332bcb3dc6641a0dd95f08e7d2817bb812f16f4a63a9387cc8dc71a3  keys/system_crt_face.grid.json
+4d1cba4b870327af755ec660e34c23f9b1f0bda46f94a03fe92a29e636cef6c6  keys/hud_art_02_chips.grid.json
+6bcaed3b355fda18afa9c0f0acbb89174d4aeb5e3989c940d2a7f24a2b5495fd  keys/hud_art_02_keycaps.grid.json
+87bb7511e524da0cfdb2306f09ec2eaead3fe44452f79731b2286c11703d2fa5  keys/hud_art_02_notice_plate.grid.json
 6cf8e71880d6339bf79e4240d740b5fcac11abe399ccb5e5a12c2654ddaddd1b  hud_glyphs.grid.json
 899aa74b769465a1243a603290e0f78ba150f32e77d25da30eed71f85cc08d87  hud_hybrid_a.grid.json
 fbb647ff7ef6f014ea626e839571b9ac9a1bdc6cd92d3de75b90e4120308e310  hud_icons.grid.json
