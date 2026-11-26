@@ -1,0 +1,27 @@
+{
+  "schema": "floor01-demo-hall-v1",
+  "status": "ACT1 greybox room (docs/01-design/floor-01-act-01-integration.md section 4.3, ACT1-A, GUILD-BEAT-01): geometry only, composed at load time from approved Floor 01 kit pieces by camera_lab::layout (no new art, not an authored level), launched as the room act1_guild of --scene f01_late (src/f01_act1.rs). The door lock and the reach_exit goal live in f01_act1_guild.encounter.json, validated by src/encounter.rs.",
+  "scenarios": [
+    {
+      "id": "F01-ACT1-GUILD",
+      "name": "The Guild Door",
+      "subtitle": "Floor 01 Act I: a short interior, a guide and a door that waits for Donut",
+      "act": 1,
+      "setting": "dry-catacomb",
+      "width": 640,
+      "height": 660,
+      "floor": 580,
+      "spawn": { "carl": 112, "donut": 80 },
+      "camera_intro": 112,
+      "ceiling_px": 228,
+      "platforms": [],
+      "props": [],
+      "enemies": [],
+      "hazards": [],
+      "goal_x": 584,
+      "purpose": "A 640 px quiet interior (ACT1-A, I-04, GUILD-BEAT-01): no enemy, no hazard, no platform. The guide stands as decor at x 380; Donut's pivot entering x 336..376 grants the biscuit (the scene's DonutSetup guild zone, not a prop of this file). The 16 px guild door (a sidecar lock) seals the exit under the 228 px ceiling slab until her mana is unlocked.",
+      "expected": "Spawns, the checkpoint, the exit and the door come from f01_act1_guild.encounter.json; this file holds geometry only. The ceiling is the DP-Q45 slab at 228 px above the walking line.",
+      "coop": "Solo with a swap, or two players: the door waits for Donut to walk past the guide; with the companion trailing, Carl waits at the door and the companion walks the zone."
+    }
+  ]
+}

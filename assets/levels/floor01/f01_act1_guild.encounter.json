@@ -1,0 +1,28 @@
+{
+  "schema": "floor01-encounter-v1",
+  "status": "ACT1-A data (docs/01-design/floor-01-act-01-integration.md section 4.3, ACT1-AD1..AD19, GUILD-BEAT-01): the guild interior, an empty roster under goal reach_exit. The guild door is a lock that opens while Donut's mana is unlocked (donut_unlocked). Validated by src/encounter.rs, launched as the room act1_guild of --scene f01_late (src/f01_act1.rs). The story pin is a label with no table row. Greybox hypotheses; every number is a tuning knob. Coordinates are layout pixels, y down, like the room file.",
+  "id": "F01-ACT1-GUILD-ENC",
+  "room_file": "f01_act1_guild.room.json",
+  "room_id": "F01-ACT1-GUILD",
+  "story_pin": "f01_pin_act1_guild_entry",
+  "goal": "reach_exit",
+  "grants": [],
+  "max_living": 0,
+  "locks": [
+    {
+      "id": "guild_door",
+      "solid": { "x": 528, "y": 336, "w": 16, "h": 244 },
+      "opens_on": { "event": "donut_unlocked" }
+    }
+  ],
+  "platform_slab_px": 12,
+  "protected_spawn": { "x": 16, "y": 484, "w": 208, "h": 96 },
+  "checkpoint": { "x": 64, "y": 484, "w": 48, "h": 96 },
+  "exit": { "x": 560, "y": 484, "w": 64, "h": 96 },
+  "props": [],
+  "hazards": [],
+  "links": [],
+  "roster": [],
+  "gates": [],
+  "vantages": []
+}

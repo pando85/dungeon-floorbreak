@@ -1689,6 +1689,15 @@ pub enum CombatEvent {
         lock: u16,
         hero: u8,
     },
+    /// ACT1-A, appended (GUILD-BEAT-01): a `donut_unlocked` lock opened on this tick
+    /// because Donut's mana is unlocked from here on; `lock` is the lock's sidecar
+    /// index. One per opening (the biscuit's tick; a defeat retry that keeps the
+    /// unlock logs none, a fixture restart that closed it logs the next opening).
+    /// Only a room with such a lock emits it.
+    ManaLockOpened {
+        tick: u64,
+        lock: u16,
+    },
     /// DONUT-MOBILITY-01 DM-B, appended: Donut's cat reflex evaded one
     /// evadable attack instance (DM-Q19). `source` is the attacker's target id
     /// (a goblin index, or the goblin count plus the llama index), as in
@@ -2325,6 +2334,12 @@ impl CombatEvent {
                 mix(u64::from(lock));
                 mix(u64::from(hero));
             }
+            // ACT1-A: "MLOP".
+            Self::ManaLockOpened { tick, lock } => {
+                mix(0x4d4c_4f50);
+                mix(tick);
+                mix(u64::from(lock));
+            }
             // DONUT-MOBILITY-01 DM-B: "DMEV" and "DMAR", in their own range;
             // only a run with an armed reflex ever emits them.
             Self::HeroEvaded {
@@ -2859,6 +2874,10 @@ impl fmt::Display for CombatEvent {
             Self::SurfaceLockOpened { tick, lock, hero } => write!(
                 f,
                 "COMBAT_EVENT tick={tick} kind=surface_lock_opened lock={lock} hero={hero}"
+            ),
+            Self::ManaLockOpened { tick, lock } => write!(
+                f,
+                "COMBAT_EVENT tick={tick} kind=mana_lock_opened lock={lock}"
             ),
             Self::HeroEvaded {
                 tick,

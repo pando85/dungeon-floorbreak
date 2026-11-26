@@ -387,9 +387,12 @@ fn the_grants_fixture_raises_both_notices_and_equips_the_socket() {
             _ => {}
         }
     }
+    // ACT1-A (ACT1-AD12): the biscuit zone's `UnlockGranted` (tick 50) raises `MAGIC MISSILE`
+    // before the two Donut program grants.
     assert_eq!(
         notices,
         [
+            (50, crate::hud::LabelId::MagicMissile),
             (246, crate::hud::LabelId::LightFeet),
             (246 + 136 + 30, crate::hud::LabelId::PuddleJumper)
         ]

@@ -202,6 +202,10 @@ pub enum LabelId {
     /// REST-WIRE (REST-AD7): the solo hint at the refuge's closed staff door.
     /// Presentation only, never hashed; not a grant notice.
     SwapToDonut,
+    /// ACT1-A (ACT1-AD12): the notice of Donut's biscuit (`primary_ranged`, a read-through
+    /// capability with no ledger receipt and no `notices` row), raised by the `UnlockGranted`
+    /// mana event of the Guild zone. Presentation only, never hashed.
+    MagicMissile,
 }
 
 impl LabelId {
@@ -228,6 +232,7 @@ impl LabelId {
             Self::PuddleJumper => "PUDDLE JUMPER",
             Self::HeavyFist => "HEAVY FIST",
             Self::SwapToDonut => "SWAP TO DONUT",
+            Self::MagicMissile => "MAGIC MISSILE",
         }
     }
 
@@ -243,7 +248,7 @@ impl LabelId {
     }
 
     /// Every label, in declaration order (the closed set the width checks iterate).
-    pub const ALL: [Self; 21] = [
+    pub const ALL: [Self; 22] = [
         Self::Punch,
         Self::Kick,
         Self::Swat,
@@ -265,6 +270,7 @@ impl LabelId {
         Self::PuddleJumper,
         Self::HeavyFist,
         Self::SwapToDonut,
+        Self::MagicMissile,
     ];
 
     /// The labels that can sit above the special socket (at most 33 px, HA2-AD1).
@@ -290,7 +296,8 @@ impl LabelId {
             | Self::LightFeet
             | Self::PuddleJumper
             | Self::HeavyFist
-            | Self::SwapToDonut => false,
+            | Self::SwapToDonut
+            | Self::MagicMissile => false,
         }
     }
 
@@ -300,7 +307,11 @@ impl LabelId {
     pub const fn is_grant(self) -> bool {
         matches!(
             self,
-            Self::GoblinBoom | Self::HeavyFist | Self::LightFeet | Self::PuddleJumper
+            Self::GoblinBoom
+                | Self::HeavyFist
+                | Self::LightFeet
+                | Self::PuddleJumper
+                | Self::MagicMissile
         )
     }
 
@@ -372,6 +383,11 @@ pub fn notice_for_event(event: &CombatEvent) -> Option<LabelId> {
             ..
         } if *capability == crate::donut_prog::SPECIAL_SHORT_BLINK.as_str() => {
             Some(LabelId::PuddleJumper)
+        }
+        // ACT1-A (ACT1-AD12): Donut's biscuit. A read-through capability has no
+        // `CapabilityGranted`, so the notice comes from the mana event of the Guild zone.
+        CombatEvent::Mana(crate::donut_mana::ManaEvent::UnlockGranted { .. }) => {
+            Some(LabelId::MagicMissile)
         }
         CombatEvent::EnemyDefeated { force, .. } => NOTICE_TRIGGERS
             .iter()
@@ -2572,8 +2588,8 @@ mod tests {
                 assert_ne!(a.text(), b.text());
             }
         }
-        // The grant notices all appear in the set.
-        assert!(LabelId::ALL.iter().filter(|l| l.is_grant()).count() == 4);
+        // The grant notices all appear in the set: the four `notices` rows and ACT1-A's biscuit.
+        assert!(LabelId::ALL.iter().filter(|l| l.is_grant()).count() == 5);
     }
 
     /// HUD-ART-02 (AT-8): `--glyphs=keyboard` forces P1's plate only; P2 keeps its
@@ -3909,6 +3925,31 @@ mod tests {
         );
         assert_eq!(LabelId::for_socket_text("BOOM"), Some(LabelId::Boom));
         assert_eq!(LabelId::for_socket_text("ZOOM"), None);
+    }
+
+    /// ACT1-A (ACT1-AD12): the biscuit's `UnlockGranted` raises the `MAGIC MISSILE` notice (a
+    /// grant notice that the queue keeps), at most 13 characters and inside the notice frame.
+    #[test]
+    fn the_biscuit_raises_the_magic_missile_notice() {
+        let event = CombatEvent::Mana(crate::donut_mana::ManaEvent::UnlockGranted {
+            tick: 5,
+            hero: 1,
+            unlock: crate::donut_mana::Unlock::PrimaryRanged,
+        });
+        assert_eq!(notice_for_event(&event), Some(LabelId::MagicMissile));
+        assert_eq!(LabelId::MagicMissile.text(), "MAGIC MISSILE");
+        assert!(LabelId::MagicMissile.text().len() <= 13);
+        assert!(LabelId::MagicMissile.is_grant() && !LabelId::MagicMissile.is_socket_label());
+        let layout = HudLayout::new(360, 288);
+        assert!(
+            text_width_px(HudFont::Jersey, LabelId::MagicMissile.text()) <= layout.notice.w - 14
+        );
+        let mut hud = HudRuntime::new(HudConfig::default());
+        hud.step(4, 4, &[event], 0);
+        let shown = hud.snapshot().notice.expect("the notice starts at once");
+        assert_eq!(shown.headline, LabelId::MagicMissile);
+        // A defeat notice does not replace a grant notice (the queue's rule).
+        assert_eq!(LabelId::for_notice_text("MAGIC MISSILE"), None);
     }
 
     /// DP-Q12: on the Juicer tick with both programs on, the two notices queue in

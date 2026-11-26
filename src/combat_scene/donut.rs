@@ -322,6 +322,12 @@ impl CombatState {
             .then_some((kit.mana.mana(), kit.tuning.mana_max))
     }
 
+    /// ACT1-A: whether Donut's mana is unlocked (the biscuit): the one state the
+    /// guild door (`EnvSolidKind::ManaLock`) and the fixtures read. Read-only.
+    pub fn donut_unlocked(&self) -> bool {
+        self.donut_kit.mana.unlocked()
+    }
+
     /// The running swat or pounce, for the presentation and the tests.
     pub fn donut_move_view(&self) -> Option<MoveView> {
         self.donut_kit.moves.view()

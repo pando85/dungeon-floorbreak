@@ -88,8 +88,8 @@ use dungeon_floorbreak::{
     env_kit::{
         EnvKit, IRect, PieceDraw, animation_frame, parallax_copies, parallax_start, to_world_y,
     },
-    f01_boiler, f01_corral, f01_dozer, f01_hazards, f01_hoarder, f01_late, f01_mastery, f01_rest,
-    f01_ring, f01_run,
+    f01_act1, f01_boiler, f01_corral, f01_dozer, f01_hazards, f01_hoarder, f01_late, f01_mastery,
+    f01_rest, f01_ring, f01_run,
     feel::{LLAMA_GLOB_MOUTH_DX, LLAMA_GLOB_MOUTH_DY, LLAMA_GLOB_SPEED},
     goblin::{AttackPhase, GoblinMode},
     gore::{DEATH_VARIANTS, DeathArt, ENGINEER_VARIANT, GorePreset, LLAMA_VARIANT, Sheet},
@@ -401,6 +401,14 @@ struct Args {
     f01_rest: Option<f01_rest::RestRoom>,
     /// The launched quiet room (`main` fills it right after parsing).
     rest_run: Option<Box<f01_rest::RestRun>>,
+    /// ACT1-A: `--scene f01_late --f01-room act1_shore` (or `act1_guild`), Act I's shore and
+    /// guild (no scene of its own). Under the room rules; a playable greybox.
+    f01_act1: Option<f01_act1::Act1Room>,
+    /// The launched Act I room (`main` fills it right after parsing).
+    act1_run: Option<Box<f01_act1::Act1Run>>,
+    /// ACT1-A evidence: `--act1-pilot walk|donut|strike` plays an Act I room's scripted run
+    /// (`act1_fixtures::pilot`) instead of the walk-right script. Scripted runs only.
+    act1_pilot: Option<dungeon_floorbreak::act1_fixtures::Pilot>,
     /// AREA-RINGS-01 evidence: `--ring-pilot` plays a Ring room's scripted run with
     /// the library pilot (`f01_ring_fixtures::pilot`: the step, the walkway, the
     /// fight, the exit) instead of the walk-right script, so a capture can stand the
@@ -539,6 +547,7 @@ impl Args {
             && self.room_pilot.is_none()
             && !self.ring_pilot
             && self.rest_pilot.is_none()
+            && self.act1_pilot.is_none()
     }
 
     /// AUDIENCE-RUN: whether the per-hero viewer counts are enabled for this
@@ -656,6 +665,7 @@ impl Args {
             || self.f01_mastery
             || self.f01_ring.is_some()
             || self.f01_rest.is_some()
+            || self.f01_act1.is_some()
             || self.f01_corral
             || self.f01_dozer
     }
@@ -861,6 +871,8 @@ fn resolve_boiler_args(parsed: &mut Args) -> Result<(), String> {
         (ring.scene_name(), ring.id())
     } else if let Some(rest) = parsed.f01_rest {
         (rest.scene_name(), rest.id())
+    } else if let Some(act1) = parsed.f01_act1 {
+        (act1.scene_name(), act1.id())
     } else if parsed.f01_corral {
         (f01_corral::SCENE_NAME, f01_corral::ROOM_ID)
     } else if parsed.f01_dozer {
@@ -898,8 +910,10 @@ fn resolve_boiler_args(parsed: &mut Args) -> Result<(), String> {
     // argument rules (`driven`) honest until then, like the lab.
     parsed.fixture = Some(&PENDING_FIXTURE);
     // The post-Hoarder state: Donut holds the biscuit with a full pool (the
-    // Hoarder's room is the post-corral state, with the biscuit held too).
-    parsed.donut_biscuit = true;
+    // Hoarder's room is the post-corral state, with the biscuit held too). ACT1-A: the Act I
+    // rooms are the exception: Donut starts locked (the guild's biscuit is earned in play), so
+    // only a flag that implies the biscuit sets it (ACT1-AD13).
+    parsed.donut_biscuit = parsed.f01_act1.is_none() || parsed.donut.implies_biscuit();
     // A live run without a script is the player's. FIX-TOOL: `--exit-after-ticks` alone (no
     // room pilot) is a scripted exit, not a script: the run stays the player's.
     parsed.manual = !(parsed.headless
@@ -1063,6 +1077,9 @@ fn resolve_f01_late_args(parsed: &mut Args) -> Result<(), String> {
         f01_late::RoomScene::RestRefuge
         | f01_late::RoomScene::RestCamp
         | f01_late::RoomScene::RestAftermath => parsed.f01_rest = row.scene.rest(),
+        f01_late::RoomScene::Act1Shore | f01_late::RoomScene::Act1Guild => {
+            parsed.f01_act1 = row.scene.act1();
+        }
         f01_late::RoomScene::Corral => parsed.f01_corral = true,
         f01_late::RoomScene::Dozer => parsed.f01_dozer = true,
         f01_late::RoomScene::Boss => {
@@ -1573,6 +1590,9 @@ fn parse_args_full(
         rest_run: None,
         ring_pilot: false,
         rest_pilot: None,
+        f01_act1: None,
+        act1_run: None,
+        act1_pilot: None,
         f01_corral: false,
         corral_run: None,
         f01_dozer: false,
@@ -1760,6 +1780,12 @@ fn parse_args_full(
                     .next()
                     .ok_or("--rest-pilot needs donut, carl_door, base_jump, walk or blink")?;
                 parsed.rest_pilot = Some(dungeon_floorbreak::rest_fixtures::Pilot::parse(value)?);
+            }
+            "--act1-pilot" => {
+                let value = iter
+                    .next()
+                    .ok_or("--act1-pilot needs walk, donut or strike")?;
+                parsed.act1_pilot = Some(dungeon_floorbreak::act1_fixtures::Pilot::parse(value)?);
             }
             "--room-pilot" => {
                 let value = iter
@@ -1964,6 +1990,31 @@ fn parse_args_full(
         if parsed.f01_run {
             return Err(
                 "--rest-pilot is a one-room evidence pilot: drop --f01-run (a floor run relaunches into the next room)"
+                    .into(),
+            );
+        }
+    }
+    if let Some(kind) = parsed.act1_pilot {
+        let Some(room) = parsed.f01_act1 else {
+            return Err(
+                "--act1-pilot needs an Act I room (--scene f01_late --f01-room act1_shore or act1_guild)"
+                    .into(),
+            );
+        };
+        if !kind.fits(room) {
+            return Err(format!(
+                "--act1-pilot {kind:?} does not fit the room {}: strike plays in act1_shore, donut in act1_guild, walk in either",
+                room.id()
+            ));
+        }
+        if parsed.room_pilot.is_some() || parsed.ring_pilot || parsed.rest_pilot.is_some() {
+            return Err("--act1-pilot replaces --room-pilot, --ring-pilot and --rest-pilot".into());
+        }
+        // A floor run relaunches the binary per room and keeps every other flag, so a pilot
+        // would play on in the next room's launch: the pilot is for one scripted room only.
+        if parsed.f01_run {
+            return Err(
+                "--act1-pilot is a one-room evidence pilot: drop --f01-run (a floor run relaunches into the next room)"
                     .into(),
             );
         }
@@ -2609,6 +2660,12 @@ fn build_scene(
             let combat =
                 f01_rest::combat_for(run, &mut sim, args.carl, args.donut, args.cf02.seed)?;
             (sim, combat)
+        } else if let Some(run) = &args.act1_run {
+            // ACT1-A: an Act I room, the verifier's constructor.
+            let mut sim = SceneSim::new_at(kit, view_height(args.deck), fixture.carl_x)?;
+            let combat =
+                f01_act1::combat_for(run, &mut sim, args.carl, args.donut, args.cf02.seed)?;
+            (sim, combat)
         } else if let Some(run) = &args.corral_run {
             // CORRAL-WIRE: room 0, the verifier's constructor.
             let mut sim = SceneSim::new_at(kit, view_height(args.deck), fixture.carl_x)?;
@@ -2634,6 +2691,7 @@ fn build_scene(
             || args.mastery_run.is_some()
             || args.ring_run.is_some()
             || args.rest_run.is_some()
+            || args.act1_run.is_some()
             || args.corral_run.is_some()
             || args.dozer_run.is_some()
         {
@@ -2658,6 +2716,7 @@ fn build_scene(
             && args.mastery_run.is_none()
             && args.ring_run.is_none()
             && args.rest_run.is_none()
+            && args.act1_run.is_none()
             && args.corral_run.is_none()
             && args.dozer_run.is_none()
         {
@@ -2727,6 +2786,22 @@ fn build_scene(
                 party.hero_inputs(slots)
             } else if let Some(pilot) = aligned_pilot {
                 aligned_routed(args, pilot, &combat, &mut sim, &mut party)
+            } else if let Some(kind) = args.act1_pilot {
+                // ACT1-A evidence: the Act I pilot's slot input routed through the party (the
+                // guild pilot's first press is the solo swap to Donut).
+                let slots = [
+                    dungeon_floorbreak::act1_fixtures::pilot(
+                        kind,
+                        &combat,
+                        &sim,
+                        room_exit_x(args),
+                    ),
+                    RawInput::default(),
+                ];
+                let hurt = combat.hurt_ticks_of(party.controlled_hero()) > 0;
+                party.request_swap(slots[0].swap, hurt);
+                sim.set_drive(party.drive(true));
+                party.hero_inputs(slots)
             } else if let Some(kind) = args.rest_pilot {
                 // REST-WIRE evidence: the refuge pilot's slot input routed through the party
                 // (its first press is the solo swap to Donut), like the aligned pilots.
@@ -2832,6 +2907,9 @@ fn scripted_input(
     } else if let (Some(kind), Some(_)) = (args.rest_pilot, &args.rest_run) {
         // REST-WIRE evidence: the refuge pilots (a pure function of the finished state).
         dungeon_floorbreak::rest_fixtures::pilot(kind, combat, sim, room_exit_x(args))
+    } else if let (Some(kind), Some(_)) = (args.act1_pilot, &args.act1_run) {
+        // ACT1-A evidence: the Act I pilots (a pure function of the finished state).
+        dungeon_floorbreak::act1_fixtures::pilot(kind, combat, sim, room_exit_x(args))
     } else if let (true, Some(run)) = (args.ring_pilot, &args.ring_run) {
         // AREA-RINGS-01 evidence: the Ring library pilot (a pure function of the state).
         dungeon_floorbreak::f01_ring_fixtures::pilot(
@@ -2865,6 +2943,8 @@ fn room_exit_x(args: &Args) -> f32 {
     } else if let Some(run) = &args.ring_run {
         run.loaded.encounter.exit
     } else if let Some(run) = &args.rest_run {
+        run.loaded.encounter.exit
+    } else if let Some(run) = &args.act1_run {
         run.loaded.encounter.exit
     } else if let Some(run) = &args.corral_run {
         run.loaded.encounter.exit
@@ -3322,6 +3402,34 @@ fn main() -> ExitCode {
             }
         }
     }
+    // ACT1-A: load the Act I room and its sidecar. The entry line reads the room's tick-0
+    // state (the door and the biscuit), so a throwaway combat state is built the way the scene
+    // builds it, with the run's carried (empty) ledger applied.
+    if let Some(room) = args.f01_act1 {
+        let launched = f01_act1::launch(&root, room).and_then(|run| {
+            let mut scene = SceneSim::new_at(&run.kit, 360, run.fixture.carl_x)?;
+            let mut combat =
+                f01_act1::combat_for(&run, &mut scene, args.carl, args.donut, args.cf02.seed)?;
+            if let Some(snapshot) = &args.f01_carry {
+                combat
+                    .carry_story(snapshot)
+                    .map_err(|e| format!("--f01-carry: {e}"))?;
+            }
+            let line = f01_act1::entry_line(&run, &combat);
+            Ok((run, line))
+        });
+        match launched {
+            Ok((run, line)) => {
+                println!("{line}");
+                args.fixture = Some(run.fixture);
+                args.act1_run = Some(Box::new(run));
+            }
+            Err(error) => {
+                eprintln!("floor01_scene: {error}");
+                return ExitCode::from(2);
+            }
+        }
+    }
     // CORRAL-WIRE: load room 0 and its sidecar.
     if args.f01_corral {
         match f01_corral::launch(&root) {
@@ -3375,6 +3483,8 @@ fn main() -> ExitCode {
     } else if let Some(run) = &args.ring_run {
         Ok(run.kit.clone())
     } else if let Some(run) = &args.rest_run {
+        Ok(run.kit.clone())
+    } else if let Some(run) = &args.act1_run {
         Ok(run.kit.clone())
     } else if let Some(run) = &args.corral_run {
         Ok(run.kit.clone())
@@ -4201,6 +4311,9 @@ fn recording_manifest(
     } else if let Some(rest) = args.f01_rest {
         // REST-WIRE: and the refuge, under its fixture name.
         (f01_late::SESSION_SOURCE, rest.scene_name())
+    } else if let Some(act1) = args.f01_act1 {
+        // ACT1-A: and the Act I rooms, under their fixture names.
+        (f01_late::SESSION_SOURCE, act1.scene_name())
     } else if args.f01_corral {
         // CORRAL-WIRE: and room 0, under its fixture name.
         (f01_late::SESSION_SOURCE, f01_corral::SCENE_NAME)
@@ -4494,9 +4607,25 @@ fn run_window(
     let cine_settings = args.cinematic_settings();
     let camera = scene_camera_of(&kit, &args, &sim, combat.as_ref(), window_size);
     let lighting_on = !args.no_lighting && kit.lighting.is_some();
-    let mordecai = if args.refuge && !args.refuge_empty {
+    // ACT1-A (ACT1-AD11): the guild's guide is Mordecai's existing `mordecai_h44` sprite on the
+    // refuge's mark (x 380, facing left), at the guide decor's column. Presentation only.
+    let act1_guide = args
+        .act1_run
+        .as_ref()
+        .filter(|run| run.room == f01_act1::Act1Room::Guild)
+        .and_then(|run| {
+            f01_act1::decor(run.room)
+                .iter()
+                .find(|d| d.label == "guide")
+        })
+        .map(|d| d.rect.x + d.rect.w / 2);
+    let mordecai = if (args.refuge && !args.refuge_empty) || act1_guide.is_some() {
         match refuge::Room::load(root).and_then(|room| room.mordecai(root)) {
-            Ok(found) => found.map(|m| {
+            Ok(found) => found.map(|mut m| {
+                if let Some(x) = act1_guide {
+                    m.x = x;
+                    m.facing = refuge::Facing::Left;
+                }
                 let spec = ActorSpec {
                     name: "MORDECAI",
                     width: m.frame_w,
@@ -4717,6 +4846,7 @@ fn run_window(
                 corral_art::sync_corral_art,
                 corral_art::sync_partition_art,
                 sync_rest_door,
+                sync_act1_door,
             )
                 .chain(),
             update_lighting,
@@ -5403,6 +5533,19 @@ fn setup(
     // AREA-FASTFOOD-01 is a separate work order). Presentation only.
     if let Some(run) = args.rest_run.as_ref() {
         spawn_rest_greybox(&mut commands, run, kit, height, layers_of("prop"));
+    }
+
+    // ACT1-A: the Act I rooms' flat labelled greybox decor and the guild door (no art yet:
+    // ACT1-Q7). Presentation only.
+    if let Some(run) = args.act1_run.as_ref() {
+        spawn_act1_greybox(
+            &mut commands,
+            run,
+            kit,
+            height,
+            layers_of("prop"),
+            mordecai.0.is_some(),
+        );
     }
 
     // HAZ-B: the slimes, the Rot Stickers, the acid strip, the warning ring and the
@@ -7870,6 +8013,88 @@ fn sync_rest_door(combat: Res<Combat>, mut doors: Query<&mut Visibility, With<Re
     }
 }
 
+/// ACT1-A: the guild door sprite (a solid greybox rectangle while Donut's mana is locked,
+/// hidden once it unlocks). Presentation only.
+#[derive(Component)]
+struct Act1DoorSprite;
+
+/// The colour of an Act I decor rectangle by its label (flat, no art).
+fn act1_decor_colour(label: &str) -> Color {
+    match label {
+        // The machine wedged in the arch: dark, it is not lethal and not in the sim.
+        "wedged_dozer" => Color::srgb(0.28, 0.24, 0.22),
+        // The guide: a plain muted figure (ACT1-AD11: the sprite is the allowed upgrade).
+        "guide" => Color::srgb(0.62, 0.52, 0.34),
+        _ => Color::srgb(0.58, 0.72, 0.80),
+    }
+}
+
+/// ACT1-A: the decor table of an Act I room as flat rectangles behind the actors, and the
+/// guild door in front of the lane while closed. Never a solid, never read by the
+/// simulation (the door's solid is the env runtime's).
+fn spawn_act1_greybox(
+    commands: &mut Commands,
+    run: &f01_act1::Act1Run,
+    kit: &EnvKit,
+    height: i32,
+    layers: RenderLayers,
+    guide_sprite: bool,
+) {
+    for decor in f01_act1::decor(run.room) {
+        let rect = decor.rect;
+        println!(
+            "F01_ACT1_DECOR room={} label={} rect={},{},{},{}",
+            run.room.id(),
+            decor.label,
+            rect.x,
+            rect.y,
+            rect.w,
+            rect.h
+        );
+        // The guide is Mordecai's sprite when it is loaded; the rectangle is the fallback.
+        if guide_sprite && decor.label == "guide" {
+            continue;
+        }
+        commands.spawn((
+            Sprite::from_color(
+                act1_decor_colour(decor.label),
+                Vec2::new(rect.w as f32, rect.h as f32),
+            ),
+            Anchor::TOP_LEFT,
+            Transform::from_xyz(rect.x as f32, to_world_y(height, rect.y), kit.actor_z - 0.2),
+            layers.clone(),
+        ));
+    }
+    if let Some(door) = run.door() {
+        commands.spawn((
+            Act1DoorSprite,
+            Sprite::from_color(
+                Color::srgb(0.46, 0.30, 0.20),
+                Vec2::new(door.w as f32, door.h as f32),
+            ),
+            Anchor::TOP_LEFT,
+            Transform::from_xyz(door.x as f32, to_world_y(height, door.y), kit.actor_z - 0.1),
+            layers,
+        ));
+    }
+}
+
+/// ACT1-A: the guild door disappears when Donut's mana unlocks (the env solid follows the same
+/// state one tick later).
+fn sync_act1_door(combat: Res<Combat>, mut doors: Query<&mut Visibility, With<Act1DoorSprite>>) {
+    let Some(state) = combat.0.as_ref() else {
+        return;
+    };
+    let open = state.donut_unlocked();
+    for mut visibility in &mut doors {
+        *visibility = if open {
+            Visibility::Hidden
+        } else {
+            Visibility::Inherited
+        };
+    }
+}
+
 /// DEATH-C: the ENV-02 shore and block as the simulation has them (hits, block
 /// state, block height, landing). Reads the simulation only.
 #[allow(clippy::type_complexity)]
@@ -9319,6 +9544,7 @@ fn headless_smoke(kit: &EnvKit, args: &Args, actors: &Actors, root: &Path) -> Re
         || args.mastery_run.is_some()
         || args.ring_run.is_some()
         || args.rest_run.is_some()
+        || args.act1_run.is_some()
         || args.corral_run.is_some()
         || args.dozer_run.is_some()
     {
@@ -9487,6 +9713,16 @@ fn headless_slot_room(
             },
             run.loaded.encounter.story_pin.clone(),
             f01_rest::SMOKE_TICKS,
+        )
+    } else if let Some(run) = &args.act1_run {
+        (
+            run.room.id(),
+            match run.room {
+                f01_act1::Act1Room::Shore => "F01_ACT1_SHORE_SMOKE_OK",
+                f01_act1::Act1Room::Guild => "F01_ACT1_GUILD_SMOKE_OK",
+            },
+            run.loaded.encounter.story_pin.clone(),
+            f01_act1::SMOKE_TICKS,
         )
     } else if let Some(run) = &args.corral_run {
         (
@@ -12285,10 +12521,14 @@ mod tests {
         assert!(late.recording_enabled());
         let run = args(&["--scene", "f01_late", "--f01-room", id, "--f01-run"]).unwrap();
         assert!(run.f01_run && run.f01_corral);
+        // ACT1-F: the run starts in the first Act I room, and the corral follows the guild.
         let first = args(&["--scene", "f01_late", "--f01-run"]).unwrap();
-        assert!(first.f01_corral && first.f01_room.as_deref() == Some(id));
+        assert!(!first.f01_corral && first.f01_room.as_deref() == Some("act1_shore"));
+        assert_eq!(first.f01_hud, Some(("The Rotten Shore".to_owned(), false)));
+        let direct = args(&["--scene", "f01_late", "--f01-run", "--f01-room", id]).unwrap();
+        assert!(direct.f01_corral);
         assert_eq!(
-            first.f01_hud,
+            direct.f01_hud,
             Some(("The Infernal Corral".to_owned(), false))
         );
         for flag in ["--cf02", "--demo", "--autopilot", "--cf02-engineer"] {
@@ -12550,6 +12790,152 @@ mod tests {
             ])
             .is_err()
         );
+    }
+
+    /// ACT1-A: the two Act I rooms (the first rooms of the run, before the corral) are listed
+    /// rooms of `--scene f01_late` (no scene arm of their own). They imply `cf02_rules`, take a
+    /// seed, record under the late-Floor-1 source with their own fixture names, stamp their own
+    /// room pins and the manifest's, start on the verifier's constructor
+    /// (`f01_late::act1_start`), keep Donut locked under the Story loadout (the biscuit flag is
+    /// set only by a flag that implies it) and a floor run starts in the shore.
+    #[test]
+    fn the_act1_rooms_resolve_through_the_late_launcher_and_the_run() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let actors =
+            Actors::load(root, FrameSource::GridSource, true, false, false, false).unwrap();
+        for room in f01_act1::Act1Room::ALL {
+            let id = room.id();
+            let late = args(&["--scene", "f01_late", "--f01-room", id]).unwrap();
+            assert!(late.f01_late && late.cf02.rules && !late.demo);
+            assert_eq!(late.f01_act1, Some(room));
+            assert!(late.f01_rest.is_none() && !late.f01_corral && !late.f01_hoarder);
+            assert!(late.f01_room_scene() && !late.arena_room());
+            assert_eq!(late.f01_room.as_deref(), Some(id));
+            assert!(late.carl.prog && late.donut.prog);
+            assert!(
+                !late.donut_biscuit,
+                "Donut starts locked under Story (ACT1-AD13)"
+            );
+            assert!(late.recording_enabled());
+            assert_eq!(
+                late.uncontrolled_hero(),
+                UncontrolledHero::Companion(ProfileSetId::Cf02Free)
+            );
+            let all = args(&[
+                "--scene",
+                "f01_late",
+                "--f01-room",
+                id,
+                "--f01-loadout",
+                "all",
+            ])
+            .unwrap();
+            assert!(all.donut_biscuit, "the All loadout implies the biscuit");
+            for flag in ["--cf02", "--demo", "--autopilot", "--cf02-engineer"] {
+                assert!(
+                    args(&["--scene", "f01_late", "--f01-room", id, flag]).is_err(),
+                    "{flag}"
+                );
+            }
+            assert!(
+                args(&["--scene", room.scene_name()]).is_err(),
+                "no scene arm"
+            );
+            let run = args(&["--scene", "f01_late", "--f01-run", "--f01-room", id]).unwrap();
+            assert!(run.f01_run && run.f01_act1 == Some(room));
+            let title = match room {
+                f01_act1::Act1Room::Shore => "The Rotten Shore",
+                f01_act1::Act1Room::Guild => "The Guild Door",
+            };
+            assert_eq!(run.f01_hud, Some((title.to_owned(), false)));
+            for list in [
+                &["--scene", "f01_late", "--f01-room", id][..],
+                &[
+                    "--scene",
+                    "f01_late",
+                    "--f01-room",
+                    id,
+                    "--f01-loadout",
+                    "all",
+                ][..],
+                &["--scene", "f01_late", "--f01-room", id, "--cf02-seed", "7"][..],
+            ] {
+                let mut run = args(list).unwrap();
+                let launched = f01_act1::launch(root, room).unwrap();
+                run.fixture = Some(launched.fixture);
+                let kit = launched.kit.clone();
+                run.act1_run = Some(Box::new(launched));
+                let (_, scene, library) =
+                    f01_late::act1_start(root, room, 360, run.carl, run.donut, run.cf02.seed)
+                        .unwrap();
+                let mut hud = new_hud(&run, &kit, &actors);
+                let (sim, _, combat, _, _) =
+                    build_scene(&kit, &run, &actors, root, &mut hud).unwrap();
+                let combat = combat.expect("a combat state");
+                assert_eq!(
+                    combat.state_hash(&sim),
+                    library.state_hash(&scene),
+                    "{list:?}"
+                );
+                assert_eq!(sim.world.state_hash(), scene.world.state_hash(), "{list:?}");
+                let party = run.live_party();
+                let manifest = recording_manifest(&run, &sim, Some(&combat), &party, root);
+                assert_eq!(manifest.reset.source, f01_late::SESSION_SOURCE);
+                assert_eq!(manifest.reset.name, room.scene_name());
+                assert_eq!(manifest.reset.f01_room.as_deref(), Some(id));
+                assert_eq!(manifest.reset.cf02_seed, run.cf02.seed);
+                for key in f01_late::SCOPED_PIN_KEYS {
+                    assert_eq!(
+                        manifest.content_hashes.contains_key(key),
+                        f01_late::pin_applies(key, Some(id)),
+                        "{key}"
+                    );
+                }
+                assert_eq!(manifest.reset.start_hash, library.state_hash(&scene));
+            }
+        }
+    }
+
+    /// The Act I evidence pilot is a one-room scripted run: it needs an Act I room, fits its own
+    /// room and is refused with `--f01-run`.
+    #[test]
+    fn the_act1_pilot_is_a_one_room_evidence_pilot() {
+        let base = ["--scene", "f01_late", "--f01-room"];
+        let with = |room: &'static str, pilot: &'static str| {
+            let mut v = base.to_vec();
+            v.extend([room, "--act1-pilot", pilot]);
+            args(&v)
+        };
+        assert!(with("act1_shore", "strike").unwrap().act1_pilot.is_some());
+        assert!(with("act1_guild", "donut").is_ok());
+        assert!(with("act1_shore", "walk").is_ok() && with("act1_guild", "walk").is_ok());
+        assert!(
+            with("act1_guild", "strike")
+                .unwrap_err()
+                .contains("does not fit")
+        );
+        assert!(
+            with("act1_shore", "donut")
+                .unwrap_err()
+                .contains("does not fit")
+        );
+        assert!(
+            with("hoarder", "walk")
+                .unwrap_err()
+                .contains("needs an Act I room")
+        );
+        assert!(with("act1_shore", "nope").is_err());
+        let err = args(&[
+            "--scene",
+            "f01_late",
+            "--f01-run",
+            "--f01-room",
+            "act1_shore",
+            "--act1-pilot",
+            "walk",
+        ])
+        .expect_err("a pilot cannot ride a floor run");
+        assert!(err.contains("drop --f01-run"), "{err}");
     }
 
     /// REST-WIRE: the three quiet rooms (the refuge right after the corral, the camp after
@@ -12992,8 +13378,8 @@ mod tests {
             carry.as_str(),
         ])
         .unwrap();
-        // CORRAL-F: the first listed room is the corral.
-        assert_eq!(ok.f01_room.as_deref(), Some("corral"));
+        // ACT1-F: the first listed room is the shore.
+        assert_eq!(ok.f01_room.as_deref(), Some("act1_shore"));
     }
 
     /// F01-RUN: a carried room's tick-0 state is the verifier's (the room's

@@ -251,12 +251,12 @@ pub fn relaunch_argv(
 
 /// The ledger a relaunch carries: the room's snapshot under the story loadout,
 /// nothing under the TEST LOADOUT (every room holds everything; adopted
-/// F01RUN-AD2). Only the corral (`RoomScene::Corral`), the one story room
-/// with no story runtime (its pin holds nothing and arms nothing, KC11),
-/// carries the empty ledger when it has no snapshot, so the next room starts
-/// from its own pin and the panel states the story chain (CORRAL-F, adopted
-/// CF-AD3). Any other room without a snapshot carries nothing, so a future
-/// story-less room never claims a carried ledger by accident.
+/// F01RUN-AD2). Only a **story-less** scene ([`RoomScene::story_less`]: the corral, the
+/// one story room with no story runtime (its pin holds nothing and arms nothing, KC11),
+/// and the Act I rooms, ACT1-AD1) carries the empty ledger when it has no snapshot, so
+/// the next room starts from its own pin and the panel states the story chain (CORRAL-F,
+/// adopted CF-AD3; ACT1-A). Any other room without a snapshot carries nothing, so a
+/// future story room never claims a carried ledger by accident.
 pub fn carry_for(
     loadout: Loadout,
     scene: RoomScene,
@@ -264,7 +264,7 @@ pub fn carry_for(
 ) -> Option<LedgerSnapshot> {
     match loadout {
         Loadout::Story => combat.story_snapshot().or_else(|| {
-            (scene == RoomScene::Corral).then(|| LedgerSnapshot {
+            scene.story_less().then(|| LedgerSnapshot {
                 version: crate::story_unlock::SNAPSHOT_VERSION,
                 held: Vec::new(),
                 receipts: Vec::new(),
@@ -389,6 +389,27 @@ fn new_grants(now: Option<&LedgerSnapshot>, before: Option<&LedgerSnapshot>) -> 
         .collect()
 }
 
+/// The capability Donut's biscuit grants: a **read-through** (it is read from her mana, never
+/// stored in the ledger, so it has no receipt, ACT1-AD12).
+pub const BISCUIT_CAPABILITY: &str = "primary_ranged";
+
+/// The grants of a finished room: the ledger receipts the carried ledger did not have, plus
+/// the biscuit (`(1, primary_ranged)`) when the room's combat log holds the
+/// `ManaEvent::UnlockGranted` of its guild zone (ACT1-AD12).
+fn room_grants(combat: &CombatState, carried: Option<&LedgerSnapshot>) -> Vec<(u8, String)> {
+    let mut grants = new_grants(combat.story_snapshot().as_ref(), carried);
+    let biscuit = combat.events.iter().any(|e| {
+        matches!(
+            e,
+            crate::combat::CombatEvent::Mana(crate::donut_mana::ManaEvent::UnlockGranted { .. })
+        )
+    });
+    if biscuit {
+        grants.push((1, BISCUIT_CAPABILITY.to_owned()));
+    }
+    grants
+}
+
 impl RoomFacts {
     /// Read the facts of `row`'s room from its finished combat state and the
     /// ledger the run carried into it.
@@ -399,7 +420,7 @@ impl RoomFacts {
             ticks: combat.elapsed,
             deaths: combat.deaths,
             restarts: combat.restarts,
-            grants: new_grants(combat.story_snapshot().as_ref(), carried),
+            grants: room_grants(combat, carried),
         }
     }
 }
@@ -585,9 +606,18 @@ mod tests {
             seen.push(row.id);
         }
         assert_eq!(seen, manifest.listed());
-        // CORRAL-F: the run starts in room 0; REST-WIRE: it walks on to the refuge, and the
-        // refuge to the Hoarder.
-        assert_eq!(first_room(&manifest).id, "corral");
+        // ACT1-F (CORRAL-F): the run starts in the first Act I room, walks the shore, the guild
+        // and the corral; REST-WIRE: it walks on from the corral to the refuge, and the refuge
+        // to the Hoarder.
+        assert_eq!(first_room(&manifest).id, "act1_shore");
+        assert_eq!(
+            next_room(&manifest, "act1_shore").unwrap(),
+            NextStep::Room(manifest.room("act1_guild").unwrap().clone())
+        );
+        assert_eq!(
+            next_room(&manifest, "act1_guild").unwrap(),
+            NextStep::Room(manifest.room("corral").unwrap().clone())
+        );
         assert_eq!(
             next_room(&manifest, "corral").unwrap(),
             NextStep::Room(manifest.room("rest_refuge").unwrap().clone())
@@ -596,11 +626,14 @@ mod tests {
             next_room(&manifest, "rest_refuge").unwrap(),
             NextStep::Room(manifest.room("hoarder").unwrap().clone())
         );
-        // The listed rooms in story order, REST-WIRE (REST-A, REST-B, REST-C): twelve rooms,
-        // the camp after the Ring, the aftermath after the Juicer, mastery ends the run.
+        // The listed rooms in story order, ACT1-A and REST-WIRE (REST-A, REST-B, REST-C):
+        // fourteen rooms, the shore and the guild first, the camp after the Ring, the aftermath
+        // after the Juicer, mastery ends the run.
         assert_eq!(
             seen,
             [
+                "act1_shore",
+                "act1_guild",
                 "corral",
                 "rest_refuge",
                 "hoarder",
@@ -647,21 +680,23 @@ mod tests {
             "id": "cellar", "title": "A Made-Up Room", "scene": "f01_boiler",
             "rules": "cf02_rules", "milestone": "greybox"
         });
-        rooms.insert(5, made_up);
+        rooms.insert(7, made_up);
         let order = value["story_order"].as_array_mut().unwrap();
         let at = order.iter().position(|o| o["id"] == "dozer").unwrap();
         let mut row = order[at].clone();
         row["id"] = "cellar".into();
         order.insert(at + 1, row);
         let manifest = Manifest::from_json(&value.to_string(), StoryTable::active()).unwrap();
-        assert_eq!(first_room(&manifest).id, "corral");
-        let mut seen = vec!["corral".to_owned()];
+        assert_eq!(first_room(&manifest).id, "act1_shore");
+        let mut seen = vec!["act1_shore".to_owned()];
         while let NextStep::Room(row) = next_room(&manifest, seen.last().unwrap()).unwrap() {
             seen.push(row.id);
         }
         assert_eq!(
             seen,
             [
+                "act1_shore",
+                "act1_guild",
                 "corral",
                 "rest_refuge",
                 "hoarder",
@@ -677,8 +712,8 @@ mod tests {
                 "mastery"
             ]
         );
-        assert_eq!(room_index(&manifest, "dozer"), Some((5, 13)));
-        assert_eq!(room_index(&manifest, "cellar"), Some((6, 13)));
+        assert_eq!(room_index(&manifest, "dozer"), Some((7, 15)));
+        assert_eq!(room_index(&manifest, "cellar"), Some((8, 15)));
     }
 
     #[test]
@@ -788,9 +823,13 @@ mod tests {
     fn the_audience_is_live_only_after_the_corral() {
         let manifest = manifest();
         let listed = manifest.listed();
-        assert_eq!(listed[0], "corral");
-        assert!(!audience_live_in(&manifest, "corral"));
-        for room in &listed[1..] {
+        // ACT1-A: the Act I rooms come first, so the broadcast is off in them as in the corral.
+        let corral = listed.iter().position(|r| *r == "corral").unwrap();
+        assert_eq!(listed[..corral], ["act1_shore", "act1_guild"]);
+        for room in &listed[..=corral] {
+            assert!(!audience_live_in(&manifest, room), "{room}");
+        }
+        for room in &listed[corral + 1..] {
             assert!(audience_live_in(&manifest, room), "{room}");
         }
         assert!(!audience_live_in(&manifest, "cellar"), "unlisted room");
@@ -908,7 +947,14 @@ mod tests {
         };
         let (facts, panel, decision) = on_exit(&input).unwrap();
         assert_eq!(facts.grants, [(0, "special_thrown_charge".to_owned())]);
-        assert!(panel.heading.starts_with("ROOM 3/12 CLEARED"));
+        let (at, count) = room_index(&manifest, "hoarder").unwrap();
+        assert!(
+            panel
+                .heading
+                .starts_with(&format!("ROOM {at}/{count} CLEARED")),
+            "{}",
+            panel.heading
+        );
         let Decision::Relaunch { room, argv: next } = decision else {
             panic!("the Hoarder leads on");
         };
@@ -938,7 +984,7 @@ mod tests {
         let end = ExitInput {
             room: last,
             tally: RunTally {
-                rooms: 11,
+                rooms: u32::try_from(manifest.rooms.len() - 1).unwrap(),
                 ..RunTally::default()
             },
             ..input
@@ -946,7 +992,12 @@ mod tests {
         let (_, panel, decision) = on_exit(&end).unwrap();
         assert_eq!(decision, Decision::Quit);
         assert_eq!(panel.heading, "FLOOR 1 SLICE FINISHED");
-        assert!(panel.lines[2].contains("12 of 12 listed rooms"));
+        let total = manifest.rooms.len();
+        assert!(
+            panel.lines[2].contains(&format!("{total} of {total} listed rooms")),
+            "{}",
+            panel.lines[2]
+        );
         assert!(
             on_exit(&ExitInput {
                 room: "cellar",
@@ -980,10 +1031,11 @@ mod tests {
         };
         let (facts, panel, decision) = on_exit(&input).unwrap();
         assert!(facts.grants.is_empty(), "the corral grants nothing (KC11)");
+        let (at, count) = room_index(&manifest, "corral").unwrap();
         assert!(
             panel
                 .heading
-                .starts_with("ROOM 1/12 CLEARED: THE INFERNAL CORRAL"),
+                .starts_with(&format!("ROOM {at}/{count} CLEARED: THE INFERNAL CORRAL")),
             "{}",
             panel.heading
         );
@@ -1028,6 +1080,152 @@ mod tests {
         assert_eq!(RunTally::parse(&next[tally + 1]).unwrap().rooms, 1);
     }
 
+    /// ACT1-T02: each Act I exit carries the empty ledger under Story (a story-less scene), the
+    /// next room accepts it (the corral too: `carry_story` takes an empty snapshot where no
+    /// story runtime runs), and under the All loadout nothing is carried.
+    #[test]
+    fn act1_carry_is_empty_and_accepted() {
+        let (carl, donut) = Loadout::Story.flags();
+        for scene in [
+            RoomScene::Act1Shore,
+            RoomScene::Act1Guild,
+            RoomScene::Corral,
+        ] {
+            assert!(scene.story_less());
+            let row = manifest()
+                .rooms
+                .iter()
+                .find(|r| r.scene == scene)
+                .unwrap()
+                .clone();
+            let (combat, snapshot) = room_run(&row, None);
+            let snapshot = snapshot.expect("a story-less room carries the empty ledger");
+            assert!(
+                snapshot.held.is_empty() && snapshot.receipts.is_empty(),
+                "{}",
+                row.id
+            );
+            assert_eq!(carry_for(Loadout::All, scene, &combat), None, "{}", row.id);
+            // The next room accepts it.
+            let (_, _, mut corral) =
+                crate::f01_late::corral_start(&root(), 360, carl, donut, None).unwrap();
+            corral.carry_story(&snapshot).unwrap();
+            let (_, _, mut shore) = crate::f01_late::act1_start(
+                &root(),
+                crate::f01_act1::Act1Room::Shore,
+                360,
+                carl,
+                donut,
+                None,
+            )
+            .unwrap();
+            shore.carry_story(&snapshot).unwrap();
+        }
+        // A story room that is not story-less never claims a carried ledger by accident.
+        assert!(!RoomScene::Boiler.story_less());
+    }
+
+    /// ACT1-A: the run walks the Act I rooms: the shore's exit relaunches into the guild, the
+    /// guild's (with the biscuit on its panel) into the corral, each carrying the empty ledger
+    /// (ACT1-T12, the walk of the first rooms).
+    #[test]
+    fn the_guild_exit_relaunches_into_the_corral() {
+        let manifest = manifest();
+        let argv = argv(&["floor01_scene", "--scene", "f01_late", "--f01-run"]);
+        // The shore leads to the guild.
+        let shore_row = manifest.room("act1_shore").unwrap().clone();
+        let (shore, snapshot) = room_run(&shore_row, None);
+        let shore_input = ExitInput {
+            manifest: &manifest,
+            room: "act1_shore",
+            loadout: Loadout::Story,
+            combat: &shore,
+            carried: None,
+            tally: RunTally::default(),
+            argv: &argv,
+            recording: "REC",
+            audience: None,
+            audience_enabled: true,
+        };
+        let (facts, panel, decision) = on_exit(&shore_input).unwrap();
+        assert!(facts.grants.is_empty(), "the shore grants nothing");
+        let (at, count) = room_index(&manifest, "act1_shore").unwrap();
+        assert_eq!((at, count), (1, 14));
+        assert!(
+            panel
+                .heading
+                .starts_with("ROOM 1/14 CLEARED: THE ROTTEN SHORE"),
+            "{}",
+            panel.heading
+        );
+        assert!(
+            panel.lines[3].contains("The Guild Door (story ledger carried)"),
+            "{:?}",
+            panel.lines
+        );
+        let Decision::Relaunch { room, argv: next } = decision else {
+            panic!("the shore leads on");
+        };
+        assert_eq!(room, "act1_guild");
+        assert!(next.iter().any(|a| a == FLAG_CARRY));
+        assert!(
+            !panel.lines.contains(&BROADCAST_LINE.to_owned()),
+            "no broadcast before the corral"
+        );
+        // The guild leads to the corral; its panel names the biscuit (a read-through grant).
+        let guild_row = manifest.room("act1_guild").unwrap().clone();
+        let (guild, _) = room_run(&guild_row, snapshot.as_ref());
+        let guild_input = ExitInput {
+            room: "act1_guild",
+            combat: &guild,
+            carried: snapshot.as_ref(),
+            ..shore_input
+        };
+        let (facts, panel, decision) = on_exit(&guild_input).unwrap();
+        assert_eq!(facts.grants, [(1, "primary_ranged".to_owned())]);
+        assert!(
+            panel.lines[1].contains("primary_ranged (Donut)"),
+            "{:?}",
+            panel.lines
+        );
+        assert!(
+            panel
+                .heading
+                .starts_with("ROOM 2/14 CLEARED: THE GUILD DOOR"),
+            "{}",
+            panel.heading
+        );
+        assert!(
+            panel.lines[3].contains("The Infernal Corral (story ledger carried)"),
+            "{:?}",
+            panel.lines
+        );
+        let Decision::Relaunch { room, argv: next } = decision else {
+            panic!("the guild leads on");
+        };
+        assert_eq!(room, "corral");
+        let carry = next.iter().position(|a| a == FLAG_CARRY).unwrap();
+        let carried = decode_carry(&next[carry + 1]).unwrap();
+        assert!(
+            carried.held.is_empty() && carried.receipts.is_empty(),
+            "the ledger never holds the biscuit"
+        );
+        let (carl, donut) = Loadout::Story.flags();
+        let (_, _, mut corral) =
+            crate::f01_late::corral_start(&root(), 360, carl, donut, None).unwrap();
+        corral.carry_story(&carried).unwrap();
+        // Under the All loadout the guild's panel states the TEST LOADOUT and carries nothing.
+        let all = ExitInput {
+            loadout: Loadout::All,
+            ..guild_input
+        };
+        let (_, panel, Decision::Relaunch { argv: next, .. }) = on_exit(&all).unwrap() else {
+            panic!("relaunch");
+        };
+        assert!(!next.iter().any(|a| a == FLAG_CARRY));
+        assert!(panel.lines[3].contains("TEST LOADOUT, nothing carried"));
+    }
+
     /// REST-WIRE (REST-A): a refuge crossing's exit snapshot holds Donut's boost with
     /// exactly one receipt (the grant of the box), the run carries it on the relaunch,
     /// and the Hoarder starts from it (her pin holds the boost too: the carry unions in).
@@ -1069,9 +1267,11 @@ mod tests {
             "the grant is the refuge's"
         );
         assert!(
-            panel
-                .heading
-                .starts_with("ROOM 2/12 CLEARED: THE WRONG RESTAURANT"),
+            panel.heading.starts_with(&format!(
+                "ROOM {}/{} CLEARED: THE WRONG RESTAURANT",
+                room_index(&manifest, "rest_refuge").unwrap().0,
+                manifest.rooms.len()
+            )),
             "{}",
             panel.heading
         );
@@ -1131,12 +1331,36 @@ mod tests {
                     .unwrap()
                     .combat
             }
-            // CORRAL-F: room 0 opens the run, so nothing is carried into it.
-            RoomScene::Corral => {
-                assert!(carry.is_none(), "the corral is the run's first room");
-                crate::f01_late::corral_start(&root(), 360, carl, donut, None)
+            // ACT1-A: the Act I rooms open the run. The shore opens it (nothing carried); the
+            // guild is read after its crossing, so its panel fact (the biscuit) shows.
+            RoomScene::Act1Shore => {
+                assert!(carry.is_none(), "the shore is the run's first room");
+                crate::f01_late::act1_start(
+                    &root(),
+                    crate::f01_act1::Act1Room::Shore,
+                    360,
+                    carl,
+                    donut,
+                    None,
+                )
+                .unwrap()
+                .2
+            }
+            RoomScene::Act1Guild => {
+                assert!(carry.is_none_or(|c| c.held.is_empty() && c.receipts.is_empty()));
+                crate::act1_fixtures::run_sim(&root(), crate::act1_fixtures::Case::GuildSoloDonut)
                     .unwrap()
-                    .2
+                    .combat
+            }
+            // The corral follows the Act I rooms: an empty carry (ACT1-A), accepted.
+            RoomScene::Corral => {
+                assert!(carry.is_none_or(|c| c.held.is_empty() && c.receipts.is_empty()));
+                let (_, _, mut corral) =
+                    crate::f01_late::corral_start(&root(), 360, carl, donut, None).unwrap();
+                if let Some(snapshot) = carry {
+                    corral.carry_story(snapshot).unwrap();
+                }
+                corral
             }
             RoomScene::Boiler
             | RoomScene::Dozer
@@ -1406,7 +1630,15 @@ mod tests {
             let (combat, snapshot) = room_run(row, carry.as_ref());
             let facts = RoomFacts::of(row, &combat, carry.as_ref());
             grants.push((row.id.clone(), facts.grants.clone()));
-            if !["hoarder", "corral", "rest_refuge"].contains(&row.id.as_str()) {
+            if ![
+                "act1_shore",
+                "act1_guild",
+                "hoarder",
+                "corral",
+                "rest_refuge",
+            ]
+            .contains(&row.id.as_str())
+            {
                 assert!(
                     combat.story_holds(SPECIAL_THROWN_CHARGE),
                     "dynamite carried into {}",
@@ -1437,6 +1669,7 @@ mod tests {
             .iter()
             .map(|row| {
                 let g: Vec<(u8, String)> = match row.id.as_str() {
+                    "act1_guild" => vec![(1, BISCUIT_CAPABILITY.to_owned())],
                     "hoarder" => vec![(0, SPECIAL_THROWN_CHARGE.as_str().to_owned())],
                     "juicer" => vec![
                         (0, FIST_REINFORCED.as_str().to_owned()),
@@ -1471,21 +1704,33 @@ mod tests {
         assert_eq!(tally.rooms, 1);
         let next = manifest.room("boiler").unwrap();
         let panel = room_clear_panel(&manifest, &facts, tally, next, true, "REC", false);
-        assert!(panel.heading.starts_with("ROOM 3/12 CLEARED: THE HOARDER"));
+        let (at, count) = room_index(&manifest, "hoarder").unwrap();
+        assert!(
+            panel
+                .heading
+                .starts_with(&format!("ROOM {at}/{count} CLEARED: THE HOARDER")),
+            "{}",
+            panel.heading
+        );
         assert!(panel.lines[1].contains("special_thrown_charge (Carl)"));
         assert!(panel.lines[3].contains("Goblin Boiler (story ledger carried)"));
         assert!(panel.lines.last().unwrap().starts_with("Facts only"));
         let end = floor_end_panel(&manifest, &facts, tally, &held_of(&hoarder.combat), "REC");
         assert_eq!(end.heading, "FLOOR 1 SLICE FINISHED");
-        assert!(end.lines[2].contains("1 of 12 listed rooms"));
+        assert!(
+            end.lines[2].contains(&format!("1 of {} listed rooms", manifest.rooms.len())),
+            "{}",
+            end.lines[2]
+        );
         assert!(end.lines[3].starts_with("Carl holds: special_thrown_charge"));
         // The real floor end: the last room's facts and the held list after the
         // Juicer's grants (the longest lines the panel draws today).
         let last = manifest.rooms.last().unwrap();
         let mut carry = hoarder.snapshot();
-        // The rooms after the corral, the refuge and the Hoarder (CORRAL-F: room 0 first,
-        // REST-WIRE: the refuge second).
-        for row in &manifest.rooms[3..manifest.rooms.len() - 1] {
+        // The rooms after the Hoarder (ACT1-F: the Act I rooms and the corral first,
+        // REST-WIRE: the refuge before her).
+        let after_hoarder = room_index(&manifest, "hoarder").unwrap().0;
+        for row in &manifest.rooms[after_hoarder..manifest.rooms.len() - 1] {
             carry = room_run(row, carry.as_ref()).1;
         }
         let (mastery, _) = room_run(last, carry.as_ref());

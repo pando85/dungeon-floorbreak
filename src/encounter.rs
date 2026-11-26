@@ -440,6 +440,10 @@ pub enum LockEvent {
     /// (latched) for the attempt. No new button: standing on the shelf is the
     /// act.
     HeroOnSurface { hero: u8, surface: usize },
+    /// ACT1-A (GUILD-BEAT-01): open exactly while Donut's mana is unlocked. The state is
+    /// read from her mana each fixed tick (never a stored flag): the biscuit unlocks it,
+    /// a defeat retry keeps it, a fixture restart restores the declared start.
+    DonutUnlocked,
 }
 
 /// A solid that stays closed until a named event (an exit that is solid until
@@ -991,7 +995,8 @@ pub enum EncounterError {
     },
     LockOutOfBounds(String),
     /// REST-WIRE: a `hero_on_surface` lock without its `surface`, or an
-    /// `enemy_defeated` lock that names one.
+    /// `enemy_defeated` lock that names one (ACT1-A: a `donut_unlocked` lock that names a
+    /// target or a surface).
     LockSurfaceField {
         lock: String,
         reason: &'static str,
@@ -1671,6 +1676,9 @@ impl RawRoster {
 #[serde(deny_unknown_fields)]
 struct RawOpensOn {
     event: String,
+    /// The roster entry (`enemy_defeated`) or hero (`hero_on_surface`) the lock waits
+    /// on; absent for a `donut_unlocked` lock (ACT1-A).
+    #[serde(default)]
     target: String,
     /// REST-WIRE: the room platform a `hero_on_surface` lock waits on.
     #[serde(default)]
@@ -2982,6 +2990,23 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
                     Some(platform.rect),
                 )
             }
+            // ACT1-A (GUILD-BEAT-01): Donut's unlocked mana opens the lock; it names no
+            // target and no surface.
+            "donut_unlocked" => {
+                if !l.opens_on.target.is_empty() {
+                    errs.push(E::LockSurfaceField {
+                        lock: l.id.clone(),
+                        reason: "a donut_unlocked lock names no target",
+                    });
+                }
+                if l.opens_on.surface.is_some() {
+                    errs.push(E::LockSurfaceField {
+                        lock: l.id.clone(),
+                        reason: "a donut_unlocked lock names no surface",
+                    });
+                }
+                (LockEvent::DonutUnlocked, None)
+            }
             _ => {
                 errs.push(E::LockUnknownEvent(l.opens_on.event.clone()));
                 continue;
@@ -3264,7 +3289,7 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
                             trigger_x: roster[r].trigger_x,
                         },
                     )),
-                    LockEvent::HeroOnSurface { .. } => None,
+                    LockEvent::HeroOnSurface { .. } | LockEvent::DonutUnlocked => None,
                 })
                 .collect();
             let only: Vec<LockCheck> = checks.iter().map(|(_, c)| c.clone()).collect();

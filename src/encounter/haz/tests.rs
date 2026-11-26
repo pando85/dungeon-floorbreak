@@ -1271,7 +1271,7 @@ fn a_wave_room_with_a_slime_and_no_pocket_is_still_refused() {
 /// hash is its pin. The existing negative tests above pass unedited.
 #[test]
 fn non_wave_sidecars_validate_identically() {
-    let pins: [(&str, u64); 9] = [
+    let pins: [(&str, u64); 11] = [
         (BOILER_ENCOUNTER_PATH, crate::f01_boiler::ENCOUNTER_HASH),
         (HAZARDS_ENCOUNTER_PATH, crate::f01_hazards::ENCOUNTER_HASH),
         (
@@ -1304,6 +1304,16 @@ fn non_wave_sidecars_validate_identically() {
         (
             crate::f01_rest::AFTERMATH_ENCOUNTER_PATH,
             crate::f01_rest::AFTERMATH_ENCOUNTER_HASH,
+        ),
+        // ACT1-A: the shore (two goblins under `defeat_roster`) and the guild (an empty roster,
+        // the `donut_unlocked` door).
+        (
+            crate::f01_act1::SHORE_ENCOUNTER_PATH,
+            crate::f01_act1::SHORE_ENCOUNTER_HASH,
+        ),
+        (
+            crate::f01_act1::GUILD_ENCOUNTER_PATH,
+            crate::f01_act1::GUILD_ENCOUNTER_HASH,
         ),
     ];
     let mut seen = 0;

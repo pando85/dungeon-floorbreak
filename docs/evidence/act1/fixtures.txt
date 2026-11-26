@@ -1,0 +1,15 @@
+ACT1_FIXTURE name=act1_shore_solo_carl room=act1_shore ticks=274 exit=true defeats=[(0, Melee), (1, Melee)] unlocks=[] door_events=[] casts=0 door_stands=None hash=0x95e35090e54b78c9
+ACT1_FIXTURE name=act1_shore_block_kill room=act1_shore ticks=358 exit=true defeats=[(0, ShoreBlock { player: 0 }), (1, Melee)] unlocks=[] door_events=[] casts=0 door_stands=None hash=0xa41ef2b49b852c09
+ACT1_FIXTURE name=act1_shore_2p room=act1_shore ticks=274 exit=true defeats=[(0, Melee), (1, Melee)] unlocks=[] door_events=[] casts=0 door_stands=None hash=0x16c4c3c9806acf0f
+ACT1_FIXTURE name=act1_shore_solo_companion room=act1_shore ticks=274 exit=true defeats=[(0, Melee), (1, Melee)] unlocks=[] door_events=[] casts=0 door_stands=None hash=0xf354ef2951b7e634
+ACT1_FIXTURE name=act1_shore_retry_from_post_chase room=act1_shore ticks=175 exit=false defeats=[] unlocks=[] door_events=[] casts=0 door_stands=None hash=0x34c3de61bae43a0d
+ACT1_FIXTURE name=act1_guild_solo_carl room=act1_guild ticks=149 exit=true defeats=[] unlocks=[(89, 1)] door_events=[89] casts=0 door_stands=Some(false) hash=0xbd2d56f9249f656d
+ACT1_FIXTURE name=act1_guild_solo_donut room=act1_guild ticks=137 exit=true defeats=[] unlocks=[(77, 1)] door_events=[77] casts=0 door_stands=Some(false) hash=0x01a71c047d66e4de
+ACT1_FIXTURE name=act1_guild_2p room=act1_guild ticks=136 exit=true defeats=[] unlocks=[(76, 1)] door_events=[76] casts=0 door_stands=Some(false) hash=0xb3b28a6be8ebe3fa
+ACT1_FIXTURE name=act1_guild_companion_crossing room=act1_guild ticks=142 exit=true defeats=[] unlocks=[(123, 1)] door_events=[123] casts=0 door_stands=Some(false) hash=0x10ef660e1004b6ac
+ACT1_FIXTURE name=act1_guild_retry_keeps_the_biscuit room=act1_guild ticks=138 exit=true defeats=[] unlocks=[(77, 1), (78, 1)] door_events=[77, 78] casts=0 door_stands=Some(false) hash=0x2d19a67dc8a00293
+ACT1_FIXTURE name=act1_guild_all_loadout_is_open room=act1_guild ticks=142 exit=true defeats=[] unlocks=[] door_events=[] casts=0 door_stands=Some(false) hash=0xf5c5224dc5a8cd95
+ACT1_BLOCK_KILL COMBAT_EVENT tick=163 kind=shore_broken player=0
+ACT1_BLOCK_KILL COMBAT_EVENT tick=199 kind=shore_landed
+ACT1_BLOCK_KILL COMBAT_EVENT tick=199 kind=enemy_defeated target=0 cause=shore_block credit_player=0
+ACT1_BLOCK_KILL COMBAT_EVENT tick=263 kind=enemy_defeated target=1

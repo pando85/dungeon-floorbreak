@@ -295,6 +295,23 @@ pub fn data_pins() -> Vec<(&'static str, u64)> {
             crate::f01_rest::AFTERMATH_ENCOUNTER_PIN_KEY,
             crate::f01_rest::AFTERMATH_ENCOUNTER_HASH,
         ),
+        // ACT1-A: the shore's and the guild's room and sidecar pins, each scoped to its room.
+        (
+            crate::f01_act1::SHORE_ROOM_PIN_KEY,
+            crate::f01_act1::SHORE_ROOM_HASH,
+        ),
+        (
+            crate::f01_act1::SHORE_ENCOUNTER_PIN_KEY,
+            crate::f01_act1::SHORE_ENCOUNTER_HASH,
+        ),
+        (
+            crate::f01_act1::GUILD_ROOM_PIN_KEY,
+            crate::f01_act1::GUILD_ROOM_HASH,
+        ),
+        (
+            crate::f01_act1::GUILD_ENCOUNTER_PIN_KEY,
+            crate::f01_act1::GUILD_ENCOUNTER_HASH,
+        ),
         // CF02-FU-C2F U3: the microarena's room file.
         (
             crate::cf02::arena::ROOM_PIN_KEY,

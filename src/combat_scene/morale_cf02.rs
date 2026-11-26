@@ -132,6 +132,8 @@ impl CombatState {
         );
         if let Some(mount) = self.crew_of(index) {
             draw.temperament = mount.temperament;
+        } else if let Some(forced) = self.temperament_forced.get(index) {
+            draw.temperament = *forced;
         }
         draw
     }

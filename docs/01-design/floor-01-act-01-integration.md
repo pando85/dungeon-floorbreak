@@ -1,6 +1,6 @@
 # Floor 01 Act I in the floor run (ACT1-PLAN)
 
-**Status:** design and integration plan, **not implemented**. Docs only. Nothing here is playtested or accepted. After its implementation PRs merge, the status is "merged, game-feel review pending".
+**Status:** design and integration plan. **ACT1-A** (the run plumbing, the shore and the guild) is implemented as a labelled playable greybox (section 17); **ACT1-B** (the chase and the opening profile) is **not implemented**. Nothing here is playtested or accepted. After its implementation PRs merge, the status is "merged, game-feel review pending".
 
 **Owner decision (2026-11-25, cited for every adopted default below):** "Go with all because I could not test it until next week" and "Ensure that everything ends on main for testing all together next week". Every owner-gated Floor 1 item is authorized under adopted defaults recorded by ID. Everything must be reachable in `--scene f01_late --f01-run` in story order. New behaviour is on by default where the spec allows. Large unfinished items land as a labelled playable greybox.
 
@@ -587,3 +587,40 @@ All are adopted under the owner decision of 2026-11-25. The owner may change any
   - No new art, text, audio or third-party material.
   - Every drawn piece is an existing committed asset (the DOZ-01 rig, the ENV-02 splinter burst, `mordecai_h44`) or a greybox rectangle.
   - Character names remain the replaceable fan-concept layer: room ids, events and data use neutral names (`guide`, `pocket`, `opening`).
+
+## 17. ACT1 status and implementation notes (ACT1-A)
+
+**What landed (ACT1-A).** The run is fourteen rooms: `act1_shore`, `act1_guild`, `corral`, and the rest as before.
+
+- **Run plumbing.**
+  - `Manifest::validate` enforces ACT1-F in place of CORRAL-F.
+  - `RoomScene::{Act1Shore, Act1Guild}` and `RoomScene::story_less()`.
+  - `carry_for` returns the empty ledger for every story-less scene.
+  - The run panel reports the biscuit as the grant `(Donut, primary_ranged)`.
+  - The `MANIFEST_HASH` re-pin.
+- **Rooms.**
+  - `src/f01_act1.rs` with `Act1Room::{Shore, Guild}`, the room and sidecar files, and the decor tables.
+  - `LockEvent::DonutUnlocked` and `EnvSolidKind::ManaLock`, with no stored flag and no hash term.
+  - The appended combat event `ManaLockOpened`.
+  - `LabelId::MagicMissile`, the `MAGIC MISSILE` notice (cut order 1 not needed: no golden moved).
+  - The binary, PLAYTRACE and CI arms.
+  - The fixtures ACT1-F01 to F08 (`src/act1_fixtures.rs`) and the tests T01 to T04 and T12.
+- **Greybox.** Both rooms are flat rectangles (the wedged machine is labelled decor; the guide is the existing `mordecai_h44` sprite, ACT1-AD11), no audio, no dressing.
+- **Not in ACT1-A.** The chase room, the opening profile, `LockEvent::DozerContact`, ACT1-F10 to F18 and T10, T11, `LabelId::GetIntoTheAlcove` (all ACT1-B). `Act1Room` has no `Chase` variant yet.
+- **Pins.** `MANIFEST_HASH` re-pinned (`0xb42f_2f31_5436_e7d2` to `0x9f2e_dc09_b49e_0f08`); four new room and sidecar pins; `SCOPED_PIN_KEYS` 25 to 29. `TABLE_HASH`, `dozer::TUNING_HASH`, every DP, room 3 and golden hash are unchanged.
+
+**Implementation defaults (ACT1-IMP).** Each fills a gap the design left open, with the smallest option consistent with it. The owner may change any of them.
+
+| ID | Gap | Adopted default |
+| --- | --- | --- |
+| ACT1-IMP-1 | Section 4.2 names `temperament` on the shore's roster rows, but the sidecar format carries a temperament on a mounted entry only (`deny_unknown_fields`; the validator refuses it elsewhere). | The sidecar rows carry `id`, `kind`, `x`, `beat` and `delay_ticks`. The module constant `f01_act1::SHORE_TEMPERAMENTS` (brawler, coward) is applied through the new `CombatState::with_goblin_temperaments`, which overrides the seeded draw's temperament only (empty everywhere else, so no other room moves). |
+| ACT1-IMP-2 | The post-chase checkpoint (centre 56) lies behind Carl's start (112), and the respawn columns must ascend. | A checkpoint behind the start is the only respawn column of the room (a retry puts the party at 56 in the shore and at 88 in the guild). A checkpoint ahead keeps the usual start then checkpoint pair. |
+| ACT1-IMP-3 | The design names `goal_x` as the exit centre. | The room parser derives the exit as `goal_x - 24`, 64 px wide, so `goal_x` is 752 (shore) and 584 (guild): the exit rectangles are the design's `{728, 484, 64, 96}` and `{560, 484, 64, 96}`. |
+| ACT1-IMP-4 | The design lists no sidecar form for an event with no target. | `RawOpensOn.target` defaults to the empty string. A `donut_unlocked` lock must leave it and `surface` empty; any other event with no target now fails as an unknown target instead of a missing field (still refused, a different error class). |
+| ACT1-IMP-5 | The `guild_door` lock needed a log fact for "the door's open event". | A `CombatEvent::ManaLockOpened { tick, lock }` is appended and logged once per opening (first step records the state, so a room that starts unlocked logs none). It is hashed like every event and never mixed into the room state. |
+| ACT1-IMP-6 | Story setup of a story-less Act I room. | `SceneKind::Corral`'s setup (no pin row, no trigger), so `story_unlock.rs` and its table are untouched. |
+| ACT1-IMP-7 | The guild guide's draw. | The existing `mordecai_h44` sprite, drawn exactly as the refuge draws him (the refuge's Mordecai mark, standing at the guide decor's column x 380, facing left, with his contact shadow); presentation only. The labelled rectangle is the fallback when the atlas is not loaded. No new art. |
+| ACT1-IMP-8 | ACT1-F04 "a party defeat". | The fixture calls `CombatState::respawn` (the call a party defeat makes), the REST retry fixtures' precedent, and asserts the respawn column and the restored goblins. |
+| ACT1-IMP-9 | A scripted capture of the Act I rooms. | `--act1-pilot walk|donut|strike` (the `--rest-pilot` pattern); never with `--f01-run`. |
+
+**Horizon-fit.** Unchanged from section 16: no new button, verb or ability. The biscuit is the approved first Donut unlock, now in a room.
