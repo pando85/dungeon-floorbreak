@@ -475,6 +475,11 @@ pub trait SlotEnemy: fmt::Debug + Send + Sync {
         None
     }
 
+    /// DR-B: a falling mass landed this tick with `footprint` (world, y up)
+    /// and its landing did not hit this enemy's victim rect. Cosmetic sub-events
+    /// only (the Dozer's rear glance); the default ignores it.
+    fn env_landing_missed(&mut self, _footprint: Rect, _tick: u64, _out: &mut SlotOut) {}
+
     /// Whether a pile's hits count against this enemy's room yet (HRD-C: the
     /// Hoarder's piles take a hit only once she is out of her Reveal,
     /// HRDC-AD4). The default: always.

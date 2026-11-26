@@ -1409,6 +1409,72 @@ fn dozer_rule_2_the_chase_lane_is_clear() {
     dozer_rule(|v| v["dozer"]["dzq22_lintel"]["x"] = json!(1010), 2);
 }
 
+/// The index of the stop frame prop and its falling mass in the sidecar.
+fn frame_of(v: &Value) -> (usize, usize) {
+    let p = v["props"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .position(|p| p["kind"] == "weight_rig")
+        .expect("room 3 has a stop frame");
+    let h = v["hazards"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .position(|h| h["class"] == "falling_mass")
+        .expect("the frame owns a falling mass");
+    (p, h)
+}
+
+#[test]
+fn dozer_rule_3_the_frame_misses_the_parked_machine_and_hangs_over_it() {
+    // The footprint inside the resting envelope (stop_x - 252 .. stop_x + 4).
+    dozer_rule(
+        |v| {
+            let (_, h) = frame_of(v);
+            v["hazards"][h]["rect"]["x"] = json!(760);
+            v["hazards"][h]["telegraph_rect"]["x"] = json!(760);
+        },
+        3,
+    );
+    // A hang under the push box top + 8 (168).
+    let errs = dozer_rule(
+        |v| {
+            let (p, _) = frame_of(v);
+            v["props"][p]["hang_px"] = json!(160);
+        },
+        3,
+    );
+    assert!(text(&errs).contains("168"), "{}", text(&errs));
+    // A frame without `hang_px` is reported by the rule itself (#287 review F5).
+    let errs = dozer_rule(
+        |v| {
+            let (p, _) = frame_of(v);
+            v["props"][p].as_object_mut().unwrap().remove("hang_px");
+        },
+        3,
+    );
+    assert!(text(&errs).contains("needs `hang_px`"), "{}", text(&errs));
+}
+
+#[test]
+fn dozer_rule_5_the_useful_release_window_is_long_enough() {
+    // The brace so far left that the waiting hero stands on the footprint's
+    // edge: the machine reaches her almost as soon as a landing could hit.
+    let errs = dozer_rule(
+        |v| {
+            let (p, _) = frame_of(v);
+            v["props"][p]["target"]["x"] = json!(620);
+        },
+        5,
+    );
+    assert!(
+        text(&errs).contains("under the minimum 45"),
+        "{}",
+        text(&errs)
+    );
+}
+
 #[test]
 fn dozer_rule_4_the_passage_and_the_lintel() {
     // A passage too low for a hero.

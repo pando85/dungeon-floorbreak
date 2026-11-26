@@ -53,7 +53,7 @@ The special does something only where the hero holds it: Carl's dynamite from ro
 | Room | Command suffix | Gate status |
 | --- | --- | --- |
 | 2, the Goblin Boiler | `--f01-room boiler` (also `--scene f01_boiler`) | listed |
-| 3, the Dozer revenge | `--f01-room dozer` (also `--scene f01_dozer`) | listed (greybox, DR-A): the approved DOZ-01 machine; the rear gate, the buffer stop and the damage marker are labelled stand-ins until DOZ-02; room pilots `--room-pilot dozer:run`, `dozer:close_call`, `dozer:wait` |
+| 3, the Dozer revenge | `--f01-room dozer` (also `--scene f01_dozer`) | listed (greybox, DR-A): the approved DOZ-01 machine; the rear gate, the buffer stop and the damage marker are labelled stand-ins until DOZ-02. DR-B: the stop frame (jab the brace at x 832 twice, one stick of dynamite, or two Magic Missiles; it lands 37 ticks later and stuns the machine on its front), drawn with labelled frame, brace, shadow, remnant and glance stand-ins; room pilots `--room-pilot dozer:run`, `dozer:close_call`, `dozer:wait`, `dozer:brace` (the reversal) |
 | 4, slimes and Rot Stickers | `--f01-room hazards` | listed |
 | 5, the Juicer | `--f01-room juicer` (also `--scene boss_f01 --carl-prog --donut-prog`) | listed |
 | 6, the mastery arena | `--f01-room mastery` | listed |

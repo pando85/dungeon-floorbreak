@@ -430,6 +430,14 @@ pub struct EnvRuntime {
     /// M1 left standing. `None` in every other room (the whole roster). Run
     /// configuration set by [`Self::with_llama_gate`]; never hashed.
     gate_llamas: Option<Vec<usize>>,
+    /// DR-B (`enemy-gameplay-dozer.md` section 6): a falling mass's remnant does
+    /// not exist before the landing, so the partner's nav graph is built without
+    /// it until then (a non-intact solid is a "destroyed" one to the nav, which
+    /// splits the floor's anchors under it and reroutes the partner, #287 review
+    /// F1). Room 3 only ([`Self::with_remnants_on_landing`]); every other room
+    /// keeps the remnant in the nav from the start and builds as before. Run
+    /// configuration; never hashed.
+    remnants_on_landing: bool,
     /// FA-Q20: the wake gate of each enemy of the room's roster, in enemy index
     /// order (the goblins, then the Engineers); empty when no entry has one.
     /// Run configuration the combat state takes in [`CombatState::with_env`]
@@ -750,6 +758,7 @@ impl EnvRuntime {
             floor_layout: None,
             defeat_roster: enc.goal == Goal::DefeatRoster,
             gate_llamas: None,
+            remnants_on_landing: false,
             wake_gates: Vec::new(),
             partner_knobs: Default::default(),
             acid_prev_up: None,
@@ -800,6 +809,44 @@ impl EnvRuntime {
     }
 
     /// The llamas the exit gate waits on (`None`: the whole roster).
+    /// DR-B: a falling mass's remnant enters the partner's nav only once it
+    /// has landed (see the field).
+    pub fn with_remnants_on_landing(mut self) -> Self {
+        self.remnants_on_landing = true;
+        self
+    }
+
+    /// DR-B: whether world solid `world_index` is a falling mass's remnant that
+    /// has not landed and stays out of the partner's nav (only with
+    /// [`Self::with_remnants_on_landing`]).
+    pub(crate) fn nav_hides(&self, world_index: usize) -> bool {
+        if !self.remnants_on_landing {
+            return false;
+        }
+        let Some(i) = self
+            .solid_start
+            .and_then(|start| world_index.checked_sub(start))
+        else {
+            return false;
+        };
+        let Some(s) = self.solids.get(i) else {
+            return false;
+        };
+        let mass = s
+            .prop
+            .and_then(|p| self.props.get(usize::from(p)))
+            .is_some_and(|p| matches!(p.machine, Machine::Mass(_)));
+        s.kind == EnvSolidKind::Remnant && mass && !self.solid_intact(i)
+    }
+
+    /// Whether any world solid stays out of the partner's nav now.
+    pub(crate) fn nav_hides_any(&self) -> bool {
+        self.remnants_on_landing
+            && self
+                .solid_start
+                .is_some_and(|start| (start..start + self.solids.len()).any(|w| self.nav_hides(w)))
+    }
+
     pub fn gate_llamas(&self) -> Option<&[usize]> {
         self.gate_llamas.as_deref()
     }
@@ -985,6 +1032,11 @@ impl EnvRuntime {
             Machine::Mass(m) => Some(m.state()),
             _ => None,
         }
+    }
+
+    /// Prop `index`'s hit target (layout px, y down), live or not.
+    pub fn prop_target(&self, index: usize) -> Option<IRect> {
+        self.props.get(index).map(|p| p.target)
     }
 
     pub fn mass(&self, index: usize) -> Option<&FallingMass> {
@@ -2787,6 +2839,30 @@ impl CombatState {
             .as_mut()
             .expect("checked above")
             .step(tick, &bodies);
+        // DR-B: the masses that landed this tick, their footprints (world) and
+        // the slot victims their landing hit (the rest may draw a glance).
+        let landings: Vec<(Rect, Vec<u32>)> = {
+            let env = self.env.as_ref().expect("checked above");
+            out.events
+                .iter()
+                .filter_map(|e| match *e {
+                    CombatEvent::PropPhase {
+                        prop,
+                        phase: PropPhase::Landed,
+                        ..
+                    } => env.mass(usize::from(prop)).map(|m| {
+                        let hit = out
+                            .hits
+                            .iter()
+                            .filter(|h| h.prop == prop && h.victim.team == Team::Enemy)
+                            .map(|h| h.victim.id)
+                            .collect();
+                        (world_rect(layout_h, m.config().footprint), hit)
+                    }),
+                    _ => None,
+                })
+                .collect()
+        };
         for event in out.events {
             self.log(event);
         }
@@ -2832,6 +2908,9 @@ impl CombatState {
         }
         if !slot_hits.is_empty() {
             self.slot_env_hits(scene, &slot_hits, tick);
+        }
+        if !landings.is_empty() {
+            self.slot_env_landings(scene, &landings, tick);
         }
         // BOIL-D: the edges of the tick reach their linked props, after the
         // hits they caused (a landing kills, then it reaches the drum).

@@ -24,8 +24,12 @@
 //! - **labelled stand-ins** ([`StandIn`]) for the environment pieces DOZ-02
 //!   will draw (DZ-AD13): the rear gate (still, shaking in the rumble, burst
 //!   once the machine is out) and the drawn 16 px buffer stop, plus a marker
-//!   for a damage state (unreachable before DR-B). Every stand-in's label says
-//!   so and the presenter draws a `STAND-IN` tag over each.
+//!   for a damage state; DR-B adds the **stop frame** ([`frame_stand_ins`]):
+//!   the hanging frame and its chain, the warning shake, the fall, the floor
+//!   shadow of the warning, the landed remnant, the brace cleat on the back
+//!   wall (intact, weakened, snapped) and the **rear glance** (the frame strikes
+//!   the rear deck and tips off behind the exhaust). Every stand-in's label
+//!   says so and the presenter draws a `STAND-IN` tag over each.
 //!
 //! **No box stand-in for the machine**: every machine pixel comes from the
 //! DOZ-01 atlases. The rumble draws no machine (it is still behind the gate).
@@ -39,9 +43,12 @@
 //! Coordinates are world px, y up, like the simulation; a sprite is placed by
 //! its bottom-left corner on whole pixels.
 
-use crate::combat_scene::CombatState;
+use crate::camera_lab::room::IRect;
+use crate::combat::CombatEvent;
 use crate::combat_scene::dozer::DozerEnemy;
-use crate::dozer::{Dozer, DozerState, EscapePhase};
+use crate::combat_scene::{CombatState, EnvRuntime};
+use crate::dozer::{Dozer, DozerEvent, DozerState, EscapePhase};
+use crate::env_prop::MassState;
 use crate::prototype::{HERO_HALF_WIDTH, TICK_SECONDS};
 
 /// One DOZ-01 atlas: a single row of frames (`generated/art`, exported by
@@ -311,6 +318,10 @@ pub enum Tone {
     HazardYellow,
     HazardBlack,
     Jam,
+    FrameIron,
+    FrameChain,
+    BraceWood,
+    FrameShadow,
 }
 
 impl Tone {
@@ -322,6 +333,10 @@ impl Tone {
             Self::HazardYellow => [0xd8, 0xa8, 0x30, 0xff],
             Self::HazardBlack => [0x22, 0x1e, 0x1c, 0xff],
             Self::Jam => [0x8a, 0x2a, 0x22, 0xff],
+            Self::FrameIron => [0x46, 0x4a, 0x50, 0xff],
+            Self::FrameChain => [0x6e, 0x6a, 0x64, 0xff],
+            Self::BraceWood => [0x6a, 0x48, 0x2c, 0xff],
+            Self::FrameShadow => [0x10, 0x0c, 0x0a, 0x90],
         }
     }
 }
@@ -352,11 +367,31 @@ pub const GATE_SHAKE_LABEL: &str = "rear gate shaking (stand-in until DOZ-02)";
 pub const GATE_BURST_LABEL: &str = "rear gate burst (stand-in until DOZ-02)";
 pub const BUFFER_LABEL: &str = "buffer stop (stand-in until DOZ-02)";
 pub const DAMAGE_LABEL: &str = "jammed wheel (stand-in until DOZ-02)";
+pub const FRAME_LABEL: &str = "stop frame (stand-in until DOZ-02)";
+pub const FRAME_WARN_LABEL: &str = "stop frame warning shake (stand-in until DOZ-02)";
+pub const FRAME_FALL_LABEL: &str = "stop frame falling (stand-in until DOZ-02)";
+pub const FRAME_SHADOW_LABEL: &str = "stop frame floor shadow (stand-in until DOZ-02)";
+pub const REMNANT_LABEL: &str = "landed frame remnant (stand-in until DOZ-02)";
+pub const BRACE_LABEL: &str = "brace cleat (stand-in until DOZ-02)";
+pub const BRACE_WEAK_LABEL: &str = "brace cleat weakened (stand-in until DOZ-02)";
+pub const BRACE_SNAPPED_LABEL: &str = "brace cleat snapped (stand-in until DOZ-02)";
+pub const GLANCE_LABEL: &str = "rear glance (stand-in until DOZ-02)";
+
+/// The room's stop frame: prop 0 of the sidecar (`f01_dozer::STOP_FRAME_PROP`).
+pub const FRAME_PROP: usize = crate::f01_dozer::STOP_FRAME_PROP;
+/// The warning shake: 1 px each way, a step every this many ticks (2 frames).
+pub const FRAME_SHAKE_TICKS: u64 = 3;
+/// The rear glance plays this many ticks from the landing (strike, tip, off).
+pub const GLANCE_TICKS: u64 = 18;
+/// The floor shadow's drawn height.
+pub const SHADOW_H_PX: i32 = 4;
+/// The chain's drawn width.
+pub const CHAIN_W_PX: i32 = 2;
 
 /// The most stand-in rectangles [`draw`] returns (the presenter's pool).
-pub const MAX_STAND_INS: usize = 16;
+pub const MAX_STAND_INS: usize = 24;
 /// The most `STAND-IN` tags.
-pub const MAX_TAGS: usize = 3;
+pub const MAX_TAGS: usize = 6;
 /// The tag's text (the 3 x 5 label font has every glyph).
 pub const TAG_TEXT: &str = "STAND-IN";
 
@@ -726,6 +761,171 @@ pub fn stand_ins(d: &Dozer, tick: u64) -> (Vec<StandIn>, Vec<(i32, i32)>) {
     (out, tags)
 }
 
+/// DR-B: the stop frame and its brace (labelled stand-ins until DOZ-02), read
+/// from the env runtime's falling mass, and the rear glance for
+/// [`GLANCE_TICKS`] after a [`DozerEvent::Glance`] (`glance`: its tick and
+/// wheel front). Layout rects (y down) map to world px through the footprint,
+/// which rests on the machine's walking line.
+pub fn frame_stand_ins(
+    d: &Dozer,
+    env: &EnvRuntime,
+    glance: Option<(u64, i32)>,
+    tick: u64,
+    out: &mut Vec<StandIn>,
+    tags: &mut Vec<(i32, i32)>,
+) {
+    let Some(mass) = env.mass(FRAME_PROP) else {
+        return;
+    };
+    let floor = d.floor_y.round() as i32;
+    let footprint = mass.config().footprint;
+    // World bottom of a layout rect.
+    let bottom = |r: IRect| floor + footprint.bottom() - r.bottom();
+    let state = mass.state();
+    let piece = |r: IRect, dx: i32, tone, layer, label| StandIn {
+        left: r.x + dx,
+        bottom: bottom(r),
+        w: r.w,
+        h: r.h,
+        tone,
+        layer,
+        label,
+    };
+    // The brace cleat on the back wall (the prop's hit target).
+    if let Some(b) = env.prop_target(FRAME_PROP) {
+        match state {
+            MassState::Supported => {
+                out.push(piece(b, 0, Tone::BraceWood, Layer::Back, BRACE_LABEL));
+            }
+            MassState::Weakened => {
+                out.push(piece(b, 0, Tone::BraceWood, Layer::Back, BRACE_WEAK_LABEL));
+                let crack = IRect::new(b.x, b.y + b.h / 2 - 1, b.w, 3);
+                out.push(piece(crack, 0, Tone::Jam, Layer::Back, BRACE_WEAK_LABEL));
+            }
+            _ => {
+                // Snapped: the stubs stay, the middle is gone.
+                let top = IRect::new(b.x, b.y, b.w, b.h / 4);
+                let foot = b.h / 3;
+                let low = IRect::new(b.x, b.bottom() - foot, b.w, foot);
+                out.push(piece(
+                    top,
+                    0,
+                    Tone::BraceWood,
+                    Layer::Back,
+                    BRACE_SNAPPED_LABEL,
+                ));
+                out.push(piece(
+                    low,
+                    0,
+                    Tone::BraceWood,
+                    Layer::Back,
+                    BRACE_SNAPPED_LABEL,
+                ));
+            }
+        }
+        tags.push((b.x - 8, bottom(b) + b.h + 4));
+    }
+    // The frame: hanging (with its chain to the lane ceiling), shaking in the
+    // warning, falling; then the landed remnant.
+    let (label, dx) = match state {
+        MassState::Supported | MassState::Weakened => (FRAME_LABEL, 0),
+        MassState::Released => (
+            FRAME_WARN_LABEL,
+            if (tick / FRAME_SHAKE_TICKS).is_multiple_of(2) {
+                1
+            } else {
+                -1
+            },
+        ),
+        MassState::Falling | MassState::Landed => (FRAME_FALL_LABEL, 0),
+    };
+    if let Some(m) = mass.mass_rect() {
+        if state != MassState::Falling {
+            let ceiling = floor + LANE_H_PX;
+            let top = bottom(m) + m.h;
+            out.push(StandIn {
+                left: m.x + m.w / 2 - CHAIN_W_PX / 2 + dx,
+                bottom: top,
+                w: CHAIN_W_PX,
+                h: (ceiling - top).max(0),
+                tone: Tone::FrameChain,
+                layer: Layer::Front,
+                label,
+            });
+        }
+        out.push(piece(m, dx, Tone::FrameIron, Layer::Front, label));
+        tags.push((m.x, bottom(m) + m.h + 4));
+    }
+    if let Some(shadow) = mass.telegraph_rect() {
+        let s = IRect::new(
+            shadow.x,
+            shadow.bottom() - SHADOW_H_PX,
+            shadow.w,
+            SHADOW_H_PX,
+        );
+        out.push(piece(
+            s,
+            0,
+            Tone::FrameShadow,
+            Layer::Front,
+            FRAME_SHADOW_LABEL,
+        ));
+    }
+    if let Some(r) = mass.remnant() {
+        out.push(piece(r, 0, Tone::FrameIron, Layer::Back, REMNANT_LABEL));
+        if glance.is_none_or(|(at, _)| tick >= at + GLANCE_TICKS) {
+            tags.push((r.x, bottom(r) + r.h + 4));
+        }
+    }
+    // The rear glance: the frame strikes the rear deck (flat), tips over its
+    // back edge (on end), and drops off behind the exhaust onto its remnant.
+    if let Some((at, front_x)) = glance.filter(|(at, _)| (*at..*at + GLANCE_TICKS).contains(&tick))
+    {
+        let k = (tick - at) as i32;
+        let n = GLANCE_TICKS as i32;
+        let hull = d.push_box_at(front_x as f32 - d.tuning.wheel_front());
+        let (deck_x, deck_y) = (hull.left.round() as i32, hull.top().round() as i32);
+        let w = footprint.w;
+        let (left, bot, gw, gh) = match k * 3 / n {
+            0 => (deck_x + 8, deck_y, w, 8),
+            1 => (deck_x - 8, deck_y - 16, 16, w / 2),
+            _ => {
+                let rest = footprint.x;
+                let j = k - 2 * n / 3;
+                let span = n - 2 * n / 3;
+                (
+                    deck_x - 16 + (rest - deck_x + 16) * j / span,
+                    deck_y - 16 - (deck_y - 16 - floor) * j * j / (span * span),
+                    w,
+                    8,
+                )
+            }
+        };
+        out.push(StandIn {
+            left,
+            bottom: bot,
+            w: gw,
+            h: gh,
+            tone: Tone::FrameIron,
+            layer: Layer::Front,
+            label: GLANCE_LABEL,
+        });
+        tags.push((left, bot + gh + 4));
+    }
+}
+
+/// The tick and wheel front of the latest rear glance in the combat log, if
+/// any (the log is a bounded ring; the glance plays for [`GLANCE_TICKS`]).
+pub fn last_glance(combat: &CombatState) -> Option<(u64, i32)> {
+    combat.events.iter().rev().find_map(|e| match *e {
+        CombatEvent::Dozer {
+            tick,
+            event: DozerEvent::Glance { front_x },
+        } => Some((tick, front_x)),
+        _ => None,
+    })
+}
+
 /// A hero is within [`YELL_RANGE_PX`] of the wheel front (its body's left
 /// edge, heroes ahead of the axle only).
 pub fn hero_near(d: &Dozer, heroes_x: [f32; 2]) -> bool {
@@ -744,7 +944,11 @@ pub fn draw(combat: &CombatState, heroes_x: [f32; 2], tick: u64) -> Option<Dozer
     if d.state.emerged() {
         sprites.extend(rig_sprites(d, tick, hero_near(d, heroes_x)));
     }
-    let (stand_ins, tags) = stand_ins(d, tick);
+    let (mut stand_ins, mut tags) = stand_ins(d, tick);
+    if let Some(env) = combat.env() {
+        frame_stand_ins(d, env, last_glance(combat), tick, &mut stand_ins, &mut tags);
+    }
+    debug_assert!(stand_ins.len() <= MAX_STAND_INS && tags.len() <= MAX_TAGS);
     Some(DozerArt {
         sprites,
         stand_ins,

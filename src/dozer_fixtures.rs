@@ -216,6 +216,18 @@ pub fn start_flags(
     flags: (CarlProgFlags, DonutProgFlags),
     edit: impl FnOnce(&mut Dozer),
 ) -> Result<(PartyFixtureSim, DozerRun), String> {
+    start_kit(root, mode, seed, flags, DonutSetup::unlocked(8), edit)
+}
+
+/// [`start_flags`] with Donut's kit given (DR-B: a run without the biscuit).
+pub fn start_kit(
+    root: &Path,
+    mode: Mode,
+    seed: u64,
+    flags: (CarlProgFlags, DonutProgFlags),
+    kit: DonutSetup,
+    edit: impl FnOnce(&mut Dozer),
+) -> Result<(PartyFixtureSim, DozerRun), String> {
     let run = f01_dozer::launch(root)?;
     let mut scene = crate::corridor::SceneSim::new_at(&run.kit, 360, run.fixture.carl_x)?;
     let spawn = spawn_from_roster(
@@ -237,8 +249,14 @@ pub fn start_flags(
     let slot =
         SlotSet::new(vec![Box::new(enemy.with_dozer(dozer))], false).map_err(|e| e.to_string())?;
     let (carl, donut) = flags;
-    let combat =
-        f01_dozer::combat_seeded(run.fixture, &run, &mut scene, carl, donut, slot, Some(seed))?;
+    let combat = f01_dozer::combat_seeded_kit(
+        run.fixture,
+        &run,
+        &mut scene,
+        (carl, donut, kit),
+        slot,
+        Some(seed),
+    )?;
     let fixture = party_fixture(&run, mode);
     Ok((PartyFixtureSim::from_parts(scene, combat, fixture), run))
 }
@@ -335,6 +353,10 @@ pub struct K5Report {
     /// (the rescue-then-regroup cycles of section 7.3).
     pub rescue_regroup_cycles: u32,
     pub hazard_feed_changes: u32,
+    /// DOZR-01: stimuli on the stop frame (its brace included) during the run.
+    pub frame_hits: u32,
+    /// DOZR-01: the stop frame still hangs (`Supported`) at the end.
+    pub frame_hanging: bool,
     /// Every hero alive and out of reach at completion.
     pub out_of_reach: bool,
     pub final_state: &'static str,
@@ -384,6 +406,15 @@ pub fn cruise_settle_ticks() -> u32 {
     } else {
         (surplus / p.accel).ceil() as u32
     }
+}
+
+/// The stimuli the frame prop took (its brace included).
+fn count_frame_hits(sim: &PartyFixtureSim, frame: usize) -> u32 {
+    sim.combat
+        .events
+        .iter()
+        .filter(|e| matches!(e, CombatEvent::PropHit { prop, .. } if usize::from(*prop) == frame))
+        .count() as u32
 }
 
 /// Run one cell of the matrix.
@@ -564,6 +595,10 @@ pub fn run_k5(root: &Path, mode: Mode, plan: Plan, seed: u64) -> Result<K5Report
             wheel_hits[hero.index()] += 1;
         }
     }
+    let frame = crate::f01_dozer::STOP_FRAME_PROP;
+    let frame_hits = count_frame_hits(&sim, frame);
+    let frame_hanging = sim.combat.env().and_then(|e| e.mass_state(frame))
+        == Some(crate::env_prop::MassState::Supported);
     let d = dozer_of(&sim);
     let s = d.stats;
     Ok(K5Report {
@@ -589,6 +624,8 @@ pub fn run_k5(root: &Path, mode: Mode, plan: Plan, seed: u64) -> Result<K5Report
         toward_regroups,
         rescue_regroup_cycles,
         hazard_feed_changes: sim.combat.companion_stats().hazard_feed_changes,
+        frame_hits,
+        frame_hanging,
         out_of_reach,
         final_state: d.state.name(),
         hash: sim.state_hash(),
@@ -634,6 +671,10 @@ impl K5Report {
                 "a hero was stuck",
             ),
             (self.pinned_holds > 0, "the machine held on a pinned hero"),
+            (
+                self.frame_hits > 0 || !self.frame_hanging,
+                "DOZR-01: the run touched the frame or the brace",
+            ),
         ];
         let failed: Vec<&str> = fails.iter().filter(|(f, _)| *f).map(|(_, m)| *m).collect();
         if failed.is_empty() {
@@ -655,7 +696,7 @@ impl K5Report {
              max_speed={:.1} settled_cruise={:.1} behind_axle={} max_stuck={:?} \
              band_ticks[catch_up,cruise,mercy]={:?} rescues[carl,donut]={:?} lane={} tunnel={} \
              pinned={} chase_regroups={} toward_regroups={} rescue_regroup_cycles={} \
-             feed_changes={} end={} hash={:016x}",
+             feed_changes={} frame_hits={} frame_hanging={} end={} hash={:016x}",
             self.name(),
             self.complete_tick,
             self.hurts,
@@ -675,6 +716,8 @@ impl K5Report {
             self.toward_regroups,
             self.rescue_regroup_cycles,
             self.hazard_feed_changes,
+            self.frame_hits,
+            self.frame_hanging,
             self.final_state,
             self.hash
         )
@@ -790,6 +833,7 @@ pub fn unboosted_flags() -> (CarlProgFlags, DonutProgFlags) {
 
 /// A staged scenario: the sim with the heroes put where the fixture wants
 /// them, and the machine's sub-events so far.
+#[derive(Clone)]
 pub struct Stage {
     pub sim: PartyFixtureSim,
     pub run: DozerRun,
@@ -809,7 +853,26 @@ impl Stage {
         carl_x: f32,
         donut_x: f32,
     ) -> Result<Self, String> {
-        let (mut sim, run) = start_flags(root, mode, 0, flags, edit)?;
+        Self::with_kit(
+            root,
+            mode,
+            (flags, DonutSetup::unlocked(8)),
+            edit,
+            carl_x,
+            donut_x,
+        )
+    }
+
+    /// [`Self::new`] with Donut's kit given (DR-B).
+    pub fn with_kit(
+        root: &Path,
+        mode: Mode,
+        (flags, kit): ((CarlProgFlags, DonutProgFlags), DonutSetup),
+        edit: impl FnOnce(&mut Dozer),
+        carl_x: f32,
+        donut_x: f32,
+    ) -> Result<Self, String> {
+        let (mut sim, run) = start_kit(root, mode, 0, flags, kit, edit)?;
         if mode == Mode::DonutSolo {
             sim.party.request_swap(true, false);
         }
@@ -1815,6 +1878,8 @@ pub fn dz_retry_chase(root: &Path) -> Result<u64, String> {
     }
     Ok(fold([fresh.hash(), retried.hash()]))
 }
+
+pub mod frame;
 
 #[cfg(test)]
 mod tests;

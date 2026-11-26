@@ -1823,7 +1823,7 @@ fn parse_args_full(
         }
         // DR-A: the `dozer:*` plans play room 3, and room 3 takes only them.
         if pilot.plan.is_dozer() != parsed.f01_dozer {
-            return Err("--room-pilot dozer:run, dozer:close_call and dozer:wait need the Dozer's room (--f01-room dozer or --scene f01_dozer), and that room takes only them".into());
+            return Err("--room-pilot dozer:run, dozer:close_call, dozer:wait and dozer:brace need the Dozer's room (--f01-room dozer or --scene f01_dozer), and that room takes only them".into());
         }
         // PT-GATE-E: the hazards library pilot plays the hazards room, the Boiler's the Boiler.
         if (pilot.plan == room_pilots::Plan::Hazards && !parsed.f01_hazards)
@@ -11323,7 +11323,7 @@ mod tests {
             args(&list)
         };
         let room3 = ["--scene", "f01_late", "--f01-room", "dozer"];
-        for plan in ["dozer:run", "dozer:close_call", "dozer:wait"] {
+        for plan in ["dozer:run", "dozer:close_call", "dozer:wait", "dozer:brace"] {
             assert_eq!(
                 with(&room3, plan).unwrap().room_pilot.unwrap().label(),
                 plan

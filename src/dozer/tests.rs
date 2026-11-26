@@ -156,6 +156,74 @@ fn the_release_window_of_the_room_3_frame_is_at_least_the_minimum() {
     );
 }
 
+/// DR-B: the hit set of the window holds the useful set (the useful set adds
+/// the hero's recovery), and in room 3 the hit window opens with the wheel
+/// front near the section 6 estimate (about 537 at the release).
+#[test]
+fn the_hit_window_holds_the_useful_window() {
+    let t = DozerTuning::active();
+    let w = release_window(
+        &t.revenge(),
+        &StopFrame {
+            footprint_x0: 640.0,
+            footprint_x1: 720.0,
+            land_delay_ticks: 37,
+            emerge_front_x: 32.0,
+        },
+        832.0,
+        u32::from(t.dzq23_melee_recovery_ticks),
+    );
+    assert!(w.hit_ticks >= w.ticks, "{w:?}");
+    assert_eq!(w.hit_first_tick, w.first_tick, "{w:?}");
+    assert!(w.hit_last_tick >= w.last_tick, "{w:?}");
+    assert!((500.0..580.0).contains(&w.first_front), "{w:?}");
+}
+
+/// DR-B (DOZR-04): the stun carries the release's credit, once, only from the
+/// chase.
+#[test]
+fn a_falling_mass_stuns_the_chase_once_with_its_credit() {
+    let mut d = chasing(600.0);
+    let mut out = DozerOut::default();
+    assert!(d.apply_falling_mass(Some(1), &mut out));
+    assert_eq!(
+        out.events,
+        vec![DozerEvent::Stunned {
+            front_x: 600,
+            by: Some(1)
+        }]
+    );
+    assert!(!d.apply_falling_mass(Some(0), &mut out), "stunned once");
+    assert_eq!(out.events.len(), 1);
+}
+
+/// DR-B (DZ-AD7): a footprint over the hull behind the front collider is a
+/// glance; one ahead of the machine, or a parked machine, is nothing.
+#[test]
+fn a_landing_on_the_rear_hull_is_a_glance() {
+    let footprint = |x0: f32| Rect {
+        left: x0,
+        bottom: 0.0,
+        width: 80.0,
+        height: 96.0,
+    };
+    let d = chasing(900.0);
+    let floor = d.floor_y;
+    let on = |x0: f32| Rect {
+        bottom: floor,
+        ..footprint(x0)
+    };
+    assert_eq!(
+        d.glance(on(640.0)),
+        Some(DozerEvent::Glance { front_x: 900 }),
+        "the rear deck"
+    );
+    assert_eq!(d.glance(on(1000.0)), None, "ahead of the machine");
+    let mut parked = d.clone();
+    parked.state = DozerState::Escaped(EscapePhase::Idle);
+    assert_eq!(parked.glance(on(640.0)), None, "the parked machine");
+}
+
 // ---------------------------------------------------------------- the step --
 
 #[test]

@@ -50,6 +50,7 @@ use crate::goblin::GoblinMode;
 use crate::input::RawInput;
 use crate::llama::LlamaMode;
 use crate::party::HeroId;
+use crate::prototype::Block;
 use crate::prototype::{HERO_HALF_HEIGHT, HERO_HALF_WIDTH, HeroMotion, Rect, TICK_SECONDS};
 
 /// The profile file, parsed and hash-pinned once per process (CA-39).
@@ -181,6 +182,10 @@ pub(crate) struct CompanionRuntime {
     /// The graph could not be built for this level: the follow-and-jump bot
     /// stays in charge of movement (tried once per attempt).
     nav_failed: bool,
+    /// DR-B: a reused buffer of the solids the nav is built over when the env
+    /// keeps some out of it ([`super::EnvRuntime::nav_hides`]); empty and unused
+    /// in every other room. Derived, never hashed.
+    nav_view: Vec<Block>,
     /// COMPANION-AI-02 CA2-B2: the goal layer's state per hero (hashed only for
     /// a hero it steers).
     autonomy: [AutonomyState; 2],
@@ -234,6 +239,7 @@ impl Default for CompanionRuntime {
             last_trace: [None; 2],
             nav: None,
             nav_failed: false,
+            nav_view: Vec::new(),
             autonomy: [AutonomyState::new(), AutonomyState::new()],
             autonomous: [false; 2],
             reserve: Vec::new(),
@@ -1150,7 +1156,8 @@ impl CombatState {
         if self.companion.nav_failed {
             return;
         }
-        let solids = &scene.world.solids;
+        let mut view = std::mem::take(&mut self.companion.nav_view);
+        let solids = self.nav_solids(scene, &mut view);
         // DP-B: the physics Donut has now (the boosted launch while held); the
         // graph is rebuilt on the tick it changes and never otherwise.
         let config = NavConfig::for_motion(scene.drive().tuning.donut_motion)
@@ -1173,6 +1180,30 @@ impl CombatState {
         if !ok {
             self.companion.nav = None;
             self.companion.nav_failed = true;
+        }
+        self.companion.nav_view = view;
+    }
+
+    /// DR-B: the solids the partner's nav is built over: the scene's, without
+    /// the ones the env keeps out of it (a falling mass's remnant before its
+    /// landing in room 3, [`super::EnvRuntime::nav_hides`]). Every other room
+    /// borrows the scene's solids unchanged; room 3 fills `view` (a reused
+    /// buffer, so a tick allocates nothing once it has grown).
+    fn nav_solids<'a>(&self, scene: &'a SceneSim, view: &'a mut Vec<Block>) -> &'a [Block] {
+        let solids = &scene.world.solids;
+        match self.env.as_ref() {
+            Some(env) if env.nav_hides_any() => {
+                view.clear();
+                view.extend(
+                    solids
+                        .iter()
+                        .enumerate()
+                        .filter(|(i, _)| !env.nav_hides(*i))
+                        .map(|(_, b)| b.clone()),
+                );
+                view
+            }
+            _ => solids,
         }
     }
 
@@ -1199,10 +1230,15 @@ impl CombatState {
         };
         let rects = hazards.len();
         let tick = self.companion.tick;
+        let mut view = std::mem::take(&mut self.companion.nav_view);
+        let solids = self.nav_solids(scene, &mut view);
         let Some(nav) = &mut self.companion.nav else {
+            self.companion.nav_view = view;
             return;
         };
-        match nav.set_hazards(hazards, &scene.world.solids) {
+        let fed = nav.set_hazards(hazards, solids);
+        self.companion.nav_view = view;
+        match fed {
             Ok(true) => {
                 self.companion.stats.hazard_feed_changes += 1;
                 self.companion.push_event(CompanionEvent::HazardFeed {

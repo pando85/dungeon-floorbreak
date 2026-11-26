@@ -14,7 +14,9 @@
 //! * Its nav rows ([`SlotEnemy::nav_rects`]) join the hazard feed after the
 //!   slime and sticker rows.
 //! * A falling mass (the stop frame of DR-B) on its front collider during the
-//!   chase stuns it once ([`SlotEnemy::apply_env`]).
+//!   chase stuns it once ([`SlotEnemy::apply_env`]), credited to the release's
+//!   initiator; a landing on the hull behind the collider is the rear glance
+//!   ([`SlotEnemy::env_landing_missed`]).
 //! * It never supplies the `boss` feed and is never a companion target.
 //!
 //! The registry row is `dozer` ([`KIND`], the roster kind string).
@@ -188,11 +190,17 @@ impl SlotEnemy for DozerEnemy {
             return None;
         }
         let mut dout = DozerOut::default();
-        if !self.dozer.apply_falling_mass(&mut dout) {
+        if !self.dozer.apply_falling_mass(hit.initiator, &mut dout) {
             return None;
         }
         Self::emit(out, tick, dout.events);
         Some(Self::untouched())
+    }
+
+    /// DR-B (DZ-AD7): a landing that missed the front collider but met the
+    /// hull is the rear glance (a sub-event, no state change).
+    fn env_landing_missed(&mut self, footprint: Rect, tick: u64, out: &mut SlotOut) {
+        Self::emit(out, tick, self.dozer.glance(footprint));
     }
 
     fn nav_rects(&self, layout_h: i32, out: &mut Vec<NavRect>) {

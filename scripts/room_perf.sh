@@ -5,7 +5,7 @@
 #   scripts/room_perf.sh ROOM PLAN FRAMES [more floor01_scene flags]
 #
 #   ROOM    hoarder | boiler | dozer | hazards | mastery   (--scene f01_late --f01-room ROOM)
-#   PLAN    direct | valve | chain | mastery | dozer:run | dozer:close_call | dozer:wait   (--room-pilot, src/room_pilots.rs; solo only)
+#   PLAN    direct | valve | chain | mastery | dozer:run | dozer:close_call | dozer:wait | dozer:brace   (--room-pilot, src/room_pilots.rs; solo only)
 #   FRAMES  measured frames = pilot ticks (one sim tick per frame, from tick 0, after a
 #           120-frame warm-up that does not step the room)
 #
