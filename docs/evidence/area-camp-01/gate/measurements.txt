@@ -1,0 +1,33 @@
+camp_hearth 96x64 opaque=2590 bbox=(2,8)-(93,63) colours=25 max_luma=139 transparent_px=3554
+camp_fire_0 20x26 opaque=236 bbox=(3,1)-(17,25) colours=6 max_luma=250 transparent_px=284
+camp_fire_1 20x26 opaque=243 bbox=(2,0)-(17,25) colours=6 max_luma=250 transparent_px=277
+camp_fire_2 20x26 opaque=237 bbox=(1,2)-(17,25) colours=6 max_luma=250 transparent_px=283
+camp_fire_3 20x26 opaque=223 bbox=(3,0)-(16,25) colours=6 max_luma=250 transparent_px=297
+camp_figure_sentry 20x48 opaque=528 bbox=(1,0)-(16,47) colours=20 max_luma=128 transparent_px=432
+aft_mirror_wreck 160x72 opaque=3399 bbox=(3,10)-(157,71) colours=20 max_luma=154 transparent_px=8121
+aft_heavy_bag_rest 40x122 opaque=1686 bbox=(6,0)-(34,121) colours=19 max_luma=158 transparent_px=3194
+aft_heavy_bag_r1 40x122 opaque=1686 bbox=(8,0)-(36,121) colours=19 max_luma=158 transparent_px=3194
+aft_heavy_bag_r2 40x122 opaque=1685 bbox=(9,0)-(38,120) colours=19 max_luma=158 transparent_px=3195
+aft_heavy_bag_l1 40x122 opaque=1686 bbox=(4,0)-(32,121) colours=19 max_luma=158 transparent_px=3194
+aft_heavy_bag_l2 40x122 opaque=1686 bbox=(2,0)-(30,121) colours=19 max_luma=158 transparent_px=3194
+camp_figure_sentry mean_luma=30.7 (target <= 45: never brighter than the heroes)
+aft_mirror_wreck torch_column_pixels_above_row_16=0 (target 0)
+aft_heavy_bag_rest sway=+0 body_x=6..34 hook_row0=[19, 20, 21]
+aft_heavy_bag_r1 sway=+2 body_x=8..36 hook_row0=[19, 20, 21]
+aft_heavy_bag_r2 sway=+4 body_x=9..38 hook_row0=[19, 20, 21]
+aft_heavy_bag_l1 sway=-2 body_x=4..32 hook_row0=[19, 20, 21]
+aft_heavy_bag_l2 sway=-4 body_x=2..30 hook_row0=[19, 20, 21]
+sway_table ticks=38 frames=rrrrrrrrrrrrrr....llllllll....rrrr....
+all keys: 54 distinct palette entries (per-atlas budget 63)
+KEY camp_hearth sha256=5b865eafbf8084089b41885b8472bb8c2e5942c5f8dfba80bb8bc041d54a80d7
+KEY camp_fire_0 sha256=202d28085eb8adfb35a6a418f5b45209d0da8f55579d0d3778713f60fd136183
+KEY camp_fire_1 sha256=6ba5e378695b32e5319fc35b494208b5c8a6fcf9513febc90344368f0b335e6d
+KEY camp_fire_2 sha256=f30897d15a789ef3ebd465a9938c6bbc4bf03a98ddc7ff6b9a5214b13a145e71
+KEY camp_fire_3 sha256=3fb86df4eac3277425061a07ae10163355627f9aacd0f1cc780906dd26891a42
+KEY camp_figure_sentry sha256=ec7c8551f0992bde008fb2e1fb176feb8636b66c93db1fffff841acb5ee72d10
+KEY aft_mirror_wreck sha256=a5a77dd983d54e62c15d5c44575800175c7991cb51b063825a3d80fa5ba752e8
+KEY aft_heavy_bag_rest sha256=4daab707361f941a48986dd059d3b8c06da68af600bb45f567e3caa5e8cd3dce
+KEY aft_heavy_bag_r1 sha256=6fa4bbcaee78314431cc6e0693374b2aeb8cdaa83423d66887076ab71435eb51
+KEY aft_heavy_bag_r2 sha256=b9ae0d5cf988ba809ae8bf8c7c72b417c9966269f2d15e78460696abcd38f3d3
+KEY aft_heavy_bag_l1 sha256=35d5a888f84f95a51507e6fb3926182f160376f15a1ce66a7709a4627493579a
+KEY aft_heavy_bag_l2 sha256=53a928388c9873e956f00f08a9fbc555af5da01c2ead86c7c74ad8f4792ca06c
