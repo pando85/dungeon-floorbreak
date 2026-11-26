@@ -98,17 +98,17 @@
       "duration_ms": 100,
       "cels": {
         "art": [
-          "........H..",
-          "........H..",
-          "..H....HpH.",
-          ".HpH....H..",
-          "..H.....H..",
           "...........",
-          "..KKKKKKK..",
-          ".KMHHHHHMK.",
-          "KmMHpppHMmK",
-          ".KmMMMMMmK.",
-          "..KKKKKKK.."
+          "........H..",
+          ".......HHM.",
+          ".......HpM.",
+          "........M..",
+          "...........",
+          "...........",
+          ".KKKKKKKKK.",
+          "KMHHHMMMMmK",
+          "KMMMMMMMmmK",
+          ".KKKKKKKKK."
         ]
       }
     }

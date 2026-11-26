@@ -1,6 +1,6 @@
 # HUD-ART-02: keyboard glyphs, special chips, Donut plate (T07), notice backing plate
 
-Status: **keys drawn, execution done, review pending.** Extends the hybrid HUD A ([native spec](hybrid-hud-a-native-spec.md)); everything not named here keeps that spec. Presentation only: no gameplay state, no hash, no input semantics change. Review status of every new region: `prototype_fixture_unapproved` until the independent art review and the owner's batch review.
+Status: **keys drawn, execution done, `chip_puddle` redrawn after review (re-export and re-review pending).** Extends the hybrid HUD A ([native spec](hybrid-hud-a-native-spec.md)); everything not named here keeps that spec. Presentation only: no gameplay state, no hash, no input semantics change. Review status of every new region: `prototype_fixture_unapproved` until the independent art review and the owner's batch review.
 
 Scope (art audit, section 10, row 7): a keyboard key-cap glyph set (HUD-DEBT-05 leftover, audit H5), special chips for the dynamite and the blink (audit H3), a Donut plate layout that shows `BLINK` (T07, F01-FU-B10), a notice backing plate for dark scenes (CP-B2-FU-NOTICE, audit H4). AUDIENCE-01-A1 is out of scope (HA2-AD5).
 
@@ -16,6 +16,7 @@ Scope (art audit, section 10, row 7): a keyboard key-cap glyph set (HUD-DEBT-05 
 | **HA2-AD4** (keyboard glyphs) | **Square key caps, 11x11**, one per keyboard key the HUD or a prompt can name: `key_j` (Primary), `key_k` (Physical), `key_l` (Special), `key_q` (Swap), `key_space` (Jump, 19x11 wide cap), `key_left`, `key_right`, `key_down` (movement). A new `GlyphSet::Keyboard` maps Primary to J, Physical to K, Special to L. The binding map is one Bevy-free table that the keyboard adapter also reads (section 3) | The keyboard set mirrors the pad set (four face buttons plus the swap and the stick directions). The cap shape (square, cut corners, lit bevel, a two-row skirt) differs from the round pad disks in silhouette, not only in the letter, so a player sees at once which device the HUD is talking about |
 | **HA2-AD4b** (presenter) | **Last-used device on P1 only.** P1's glyph set becomes `Keyboard` on the first tick with a non-neutral keyboard input and returns to the pad family of P1's pad (vendor rule, unchanged) on the first tick with a non-neutral input from that pad. A tick with both keeps the current set. With no input yet the set stays the default (`Xbox`), so every scripted capture keeps its glyphs. P2 never shows keyboard glyphs. `--glyphs=keyboard` forces P1's set (P2 keeps its pad family) | The keyboard drives P1 only (`PadSlots::take_inputs`). Controller-first: the pad family is the default and the fallback. The state lives in the HUD runtime and `PartyView` only (hash-neutral) |
 | **HA2-AD5** | **AUDIENCE-01-A1 arrows: not in this order.** AUDIENCE stays locked by default; no owner verdict exists on the arrows | Out of the slice's readability need |
+| **HA2-AD6** (AI plate) | **The AI companion plate keeps the 72 px track and leaves +124..+145 empty.** No socket label, no glyph | Review F5. HA2-AD1's one track length on every state is what keeps the plate still when Donut changes between human and AI control. The AI plate has no socket and no glyphs ([native spec](hybrid-hud-a-native-spec.md), "AI plates show no glyphs"), so a label there would name a button nobody presses. The empty span is the visible difference between "you drive this" and "the companion drives this". If a later order adds `LB SWAP` to the AI plate, it takes this span |
 
 ## 2. Glyph list
 
@@ -68,7 +69,7 @@ The wide `key_space` cap keeps every row and stretches the face, the bevel and t
 ### 2.2 Chips
 
 - `chip_dynamite`: one upright stick (ink outline, `hp_red_hi` lit left column, `hp_red` body, `hp_red_lo` shade column), a `brass_dark` paper band across its middle, a 2 px `brass` fuse and an `amber` spark cross with a `text_white` core (accent). Red is allowed: the dynamite is danger.
-- `chip_puddle`: a flat glowing puddle (ink outline, `magenta` body, `magenta_dk` near edge, `magenta_hi` lit far rim, a 3 px `crt_face_hi` core, accent) with two `magenta_hi` twinkles above it (a tall one right, a small one left). The magenta family matches the in-world puddle VFX without using its keys.
+- `chip_puddle`: one rising drop over a flat puddle. The puddle is a filled lens the full 11 px wide and 4 rows tall (ink outline, `magenta` body, a `magenta_hi` sheen on the left of the far edge, `magenta_dk` on the right of the near edge), with no dark interior and no ring. The drop is a single 3 px teardrop (`magenta_hi`, a `crt_face_hi` accent core, `magenta` shade on the right), off-centre right at x 7..9, rows 1..4. **No paired features and no closed ring with a dark centre:** the first key (two twinkles over a lozenge) read as a second System face next to the CRT (review F1), so the chip must never offer two eye-like marks on one axis or a mouth-like opening. The magenta family matches the in-world puddle VFX without using its keys.
 - Both use HUD tokens only. No new palette entry.
 
 ### 2.3 The item well (code-drawn)
@@ -130,7 +131,9 @@ Layering (existing z bands): notice plate `Z_FRAME`; well rects `Z_BAR`; chip an
 
 Room captures from this branch's build (`--scene f01_late --f01-loadout all`, tick 240, 1x) were measured for mean world luminance (rows 52 to h-56): **darkest `hazards` (45.1 at 640x360, 43.5 at 640x400), brightest `dozer` (75.5 / 70.4)**; `boiler` 49.5, `mastery` 47.3, `corral` 73.1. The keys were composited at 1x onto both rooms at both sizes: Carl's plate with `key_j`/`key_k`/`key_l`, Donut's human plate (from a `hoarder` `direct:2p` capture) with the 72 px track and `BLINK`, and the notice plate with its well (puddle in `hazards`, dynamite in `dozer`; the headline pixels are the game's own 1x notice renders).
 
-Result: **pass at 1x on all four frames.** `BLINK` reads, the 8 segments count, the caps read as keyboard keys and differ from the disks by shape, both chips read (stick and fuse; puddle and twinkles), and the notice reads as a plate. Notice edge contrast against the band under it: new `metal_hi` rim 4.6 to 4.7:1, old outer `hud_ink` row 1.1:1, old `magenta` ring 4.2 to 4.4:1. Images: [design-gate evidence](../evidence/hud-art-02/design-gate/README.md).
+Result: **pass at 1x on all four frames.** `BLINK` reads, the 8 segments count, the caps read as keyboard keys and differ from the disks by shape, both chips read (stick and fuse; puddle and drop), and the notice reads as a plate. Notice edge contrast against the band under it: new `metal_hi` rim 4.6 to 4.7:1, old outer `hud_ink` row 1.1:1, old `magenta` ring 4.2 to 4.4:1. Images: [design-gate evidence](../evidence/hud-art-02/design-gate/README.md).
+
+After review F1 the redrawn `chip_puddle` was re-gated at 1x in the notice well, next to the System face, on `hazards` (darkest) and `dozer` (brightest) at both sizes: one drop over a flat puddle, no face reading.
 
 ## 8. Acceptance targets (independent art review)
 
@@ -160,5 +163,5 @@ The keys are frozen design inputs. The production sources are written by `script
 ## 10. Open questions
 
 - HA2-Q1: whether the item chips should also appear on a future pause or loadout screen (no such screen exists).
-- HA2-Q2: the owner's verdict on the deviation in HA2-AD2 (chip on the notice, glyph in the socket). If the owner wants the chip in the socket, the fallback is the chip in the socket with the button glyph moved into the label line (`[L] BLINK`), which needs a 47 px label slot and therefore a 58 px track.
+- HA2-Q2: the owner's verdict on the deviation in HA2-AD2 (chip on the notice, glyph in the socket). If the owner wants the chip in the socket, the fallback is the chip in the socket with the button glyph moved into the label line (`[L] BLINK`), which needs a 47 px label slot and therefore a 58 px track. **Recommendation for the owner (designer and independent art review agree): keep HA2-AD2 and do not adopt the fallback.** The socket stays controller truth, a 58 px track would shrink the segments until they no longer count at 1x, and the chip is learned at the grant beside its own headline. This holds only with the redrawn `chip_puddle` (review F1), which no longer reads as a face beside the System's CRT.
 - HA2-Q3: whether the movement caps should show `A`/`D` instead of the arrows on keyboards where the player uses WASD (the table already lists both; the HUD shows the primary key).

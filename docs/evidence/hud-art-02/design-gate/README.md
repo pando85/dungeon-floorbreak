@@ -16,6 +16,7 @@ How they were made:
 | `donut-plate-blink-4x.png` | Donut's human plate, short track, `BLINK` above the socket |
 | `hazards-360-puddle-before-notice-3x.png`, `hazards-360-puddle-after-notice-3x.png` | the current notice frame and the new plate with the puddle well, darkest room |
 | `dozer-400-dynamite-before-notice-3x.png`, `dozer-400-dynamite-after-notice-3x.png` | the same with the dynamite well, brightest room, 640x400 |
+| `dozer-400-puddle-after-notice-3x.png` | the puddle well in the brightest room, next to the System face (AT-10) |
 | `hazards-360-puddle-after-1x.png`, `hazards-400-puddle-after-1x.png`, `dozer-360-dynamite-after-1x.png`, `dozer-400-dynamite-after-1x.png` | full frames at 1x |
 
 Notice edge contrast against the median background just outside the notice: new `metal_hi` rim 4.7:1 (`hazards`) and 4.6 to 4.7:1 (`dozer`); the current outer `hud_ink` row 1.1:1 and `magenta` ring 4.2 to 4.4:1.

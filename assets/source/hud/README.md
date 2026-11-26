@@ -48,7 +48,7 @@ Sonnet. Independent top-tier review: pending. Rights scope: `ART-PUBLICATION-ALL
 ```text
 7d13f3d2a5b4ef4e604a3bcea2be4b558eb41b7da51e9769cd4d32361ecaf306  keys/carl_portrait.grid.json
 b5ec5a51332bcb3dc6641a0dd95f08e7d2817bb812f16f4a63a9387cc8dc71a3  keys/system_crt_face.grid.json
-4d1cba4b870327af755ec660e34c23f9b1f0bda46f94a03fe92a29e636cef6c6  keys/hud_art_02_chips.grid.json
+d97f2fb477ef8fde4837a753642edba3a69d9d9083057cae21e6d1ca9f24e81b  keys/hud_art_02_chips.grid.json
 6bcaed3b355fda18afa9c0f0acbb89174d4aeb5e3989c940d2a7f24a2b5495fd  keys/hud_art_02_keycaps.grid.json
 87bb7511e524da0cfdb2306f09ec2eaead3fe44452f79731b2286c11703d2fa5  keys/hud_art_02_notice_plate.grid.json
 6529ecc4ecb513686e6156cd304bd4c26ce3de0b943933f6b9561102725f2bf6  hud_chips.grid.json
