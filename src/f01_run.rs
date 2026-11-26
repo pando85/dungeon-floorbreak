@@ -1011,7 +1011,7 @@ mod tests {
     /// and the Hoarder starts from it (her pin holds the boost too: the carry unions in).
     #[test]
     fn the_refuge_exit_carries_light_on_your_feet_into_the_hoarder() {
-        use crate::rest_fixtures::{Case, RestSim};
+        use crate::rest_fixtures::Case;
         let manifest = manifest();
         let (carl, donut) = Loadout::Story.flags();
         let crossing = crate::rest_fixtures::run_sim(&root(), Case::SoloDonut).unwrap();
@@ -1074,7 +1074,6 @@ mod tests {
             "{carried:?}"
         );
         assert!(hoarder.story_holds(crate::donut_prog::JUMP_REACH_BOOST));
-        let _ = RestSim::tick; // keep the fixture type in scope for readers
         let tally = next.iter().position(|a| a == FLAG_TALLY).unwrap();
         assert_eq!(RunTally::parse(&next[tally + 1]).unwrap().rooms, 1);
     }

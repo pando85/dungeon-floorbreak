@@ -1934,6 +1934,14 @@ fn parse_args_full(
         if parsed.room_pilot.is_some() || parsed.ring_pilot {
             return Err("--rest-pilot replaces --room-pilot and --ring-pilot".into());
         }
+        // A floor run relaunches the binary per room and keeps every other flag, so a pilot
+        // would play on in the next room's launch: the pilot is for one scripted room only.
+        if parsed.f01_run {
+            return Err(
+                "--rest-pilot is a one-room evidence pilot: drop --f01-run (a floor run relaunches into the next room)"
+                    .into(),
+            );
+        }
     }
     if parsed.ring_pilot {
         if parsed.f01_ring.is_none() {
@@ -12363,6 +12371,54 @@ mod tests {
                 assert_eq!(manifest.reset.start_hash, library.state_hash(&scene));
             }
         }
+    }
+
+    /// The refuge's evidence pilot is a one-room scripted run: it needs the refuge and is
+    /// refused with `--f01-run`, `--room-pilot` and `--ring-pilot`.
+    #[test]
+    fn the_rest_pilot_is_a_one_room_evidence_pilot() {
+        let ok = args(&[
+            "--scene",
+            "f01_late",
+            "--f01-room",
+            "rest_refuge",
+            "--rest-pilot",
+            "donut",
+        ])
+        .unwrap();
+        assert!(ok.rest_pilot.is_some());
+        let err = args(&[
+            "--scene",
+            "f01_late",
+            "--f01-run",
+            "--f01-room",
+            "rest_refuge",
+            "--rest-pilot",
+            "donut",
+        ])
+        .expect_err("a pilot cannot ride a floor run");
+        assert!(err.contains("drop --f01-run"), "{err}");
+        let err = args(&[
+            "--scene",
+            "f01_late",
+            "--f01-room",
+            "boiler",
+            "--rest-pilot",
+            "donut",
+        ])
+        .expect_err("needs the refuge");
+        assert!(err.contains("needs the refuge"), "{err}");
+        assert!(
+            args(&[
+                "--scene",
+                "f01_late",
+                "--f01-room",
+                "rest_refuge",
+                "--rest-pilot",
+                "nope"
+            ])
+            .is_err()
+        );
     }
 
     /// REST-WIRE (REST-A): the refuge is a listed room of `--scene f01_late` right after the

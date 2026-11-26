@@ -552,6 +552,8 @@ fn drive(root: &Path, case: Case) -> Result<RestSim, String> {
             let mut sim = RestSim::new(root, 360, carl, donut, Party::Solo { uncontrolled: FREE })?;
             let ex = exit_x(&sim);
             let mut script = DonutScript::default();
+            // REST-IMP-7: the free companion did not open the door by herself, so the script
+            // adds a human swap at the closed door (as the hint asks) and a swap back.
             // 0: Carl walks; 1: Donut active (swapped at the closed door, a human after the
             // hint); 2: swapped back to Carl once the door is open.
             let mut phase = 0u8;
