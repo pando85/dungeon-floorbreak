@@ -1,0 +1,48 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "eng-02-keys",
+  "title": "ENG-02 Goblin Engineer get-up keys (docs/02-art/eng-02-spec.md); 2 frames, appended to the ENG-01 atlas as frames 18 and 19",
+  "grid": "assets/source/characters/goblin/engineer/eng_02_keys.grid.json",
+  "frame_size": [64, 56],
+  "pivot": [28, 55],
+  "contact_row": 55,
+  "tick_hz": 60,
+  "hold_ms": 100,
+  "facing": "right",
+  "tags": {
+    "getup": {
+      "playback": "once",
+      "contact": "grounded",
+      "frames": [[0, 10], [1, 12]]
+    }
+  },
+  "roles": {
+    "idle": "getup"
+  },
+  "rules": {
+    "max_colors": 20,
+    "max_isolated_per_frame": 0,
+    "max_orphans_per_frame": 9,
+    "layers_disjoint": [["body", "prop"]],
+    "canvas_margin": [0, 0, 0, 0],
+    "unique_frames": true,
+    "frozen_keys": {
+      "fixture": "tests/fixtures/eng-02_keys.json",
+      "frames": [0, 1],
+      "layers": ["body", "prop"]
+    },
+    "bbox": [
+      {"id": "E2-height-cap", "frames": [0, 1], "min_top": 13},
+      {"id": "E2-sit-low", "frames": [0], "min_top": 26, "max_top": 28},
+      {"id": "E2-shove-pot-lifted", "frames": [1], "min_top": 15, "max_top": 17},
+      {"id": "E2-handle-back", "frames": [0, 1], "max_left": 11}
+    ],
+    "key_counts": [
+      {"id": "E2-sit-eyes-hidden", "frames": [0], "key": "e", "min": 0, "max": 0},
+      {"id": "E2-sit-teeth-show", "frames": [0], "key": "w", "min": 2},
+      {"id": "E2-shove-eyes-back", "frames": [1], "key": "e", "min": 3},
+      {"id": "E2-pot-glint-one", "frames": [0, 1], "key": "7", "min": 1, "max": 1},
+      {"id": "E2-pot-mass", "frames": [0, 1], "key": "5", "min": 40}
+    ]
+  }
+}
