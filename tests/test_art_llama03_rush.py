@@ -121,6 +121,19 @@ class ReadabilityTests(unittest.TestCase):
         paw = [x for y in range(60, 72) for x in range(44, 60) if f["scrape"][y][x] == "h"]
         self.assertTrue(paw and min(paw) <= 52, "the near fore hoof is drawn back under the chest")
 
+    def test_the_scrape_hind_hooves_stay_on_the_brace_footprint(self) -> None:
+        """Gate K2 / spec rule 5: rows 66 to 71, columns 0 to 39 of the scrape equal the brace's."""
+        f = frames()
+        for y in range(66, 72):
+            self.assertEqual(f["scrape"][y][:40], f["brace"][y][:40], f"row {y}")
+
+    def test_the_winded_tongue_hangs_below_the_jaw(self) -> None:
+        """Gate K1: the gum-coloured tongue (key g) of the recover key reaches 2 px below the jaw line."""
+        rows = frames()["recover_skid"]
+        g = [y for y, r in enumerate(rows) for ch in r if ch == "g"]
+        self.assertGreaterEqual(len(g), 7)
+        self.assertGreaterEqual(max(g), 56)
+
     def test_lint_orphans_isolated_and_pockets(self) -> None:
         import author_llama01 as rig
         for name, rows in frames().items():

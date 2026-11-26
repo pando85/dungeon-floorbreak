@@ -65,7 +65,7 @@ use dungeon_floorbreak::{
         CombatAnimators, GOBLIN_VARIANTS, SpriteClips, carl_above_goblin,
         cf02::ActingArt,
         dynamite::{ring_points, stick_frame},
-        goblin_variant,
+        goblin_variant, llama_rush_pose,
     },
     combat_lab::{
         self, EntryPoint, LabCatalog, LabConfig, LabRun,
@@ -3225,6 +3225,10 @@ struct CombatArt {
     goblins: [SpriteClips; GOBLIN_VARIANTS],
     /// The Bad Llama atlas (LLAMA-01).
     llama: SpriteClips,
+    /// LLAMA-03: the Bad Llama rush atlas, drawn instead of the stand-in body during a corral rush. `None`
+    /// (with one `LLAMA_RUSH_ART fallback` log line) when it is missing or invalid: the scene then keeps the
+    /// CORRAL-E stand-in body and never fails.
+    llama_rush: Option<SpriteClips>,
     /// ENEMY-GAMEPLAY-ENGINEER: the ENG-01 atlas, loaded for a `cf02_rules` run
     /// (the only runs that can have an Engineer).
     engineer: Option<SpriteClips>,
@@ -3260,6 +3264,16 @@ impl Actors {
                     SpriteClips::load_goblin(root, 1, source)?,
                 ],
                 llama: SpriteClips::load_llama(root, source)?,
+                llama_rush: match SpriteClips::load_llama_rush(root, source) {
+                    Ok(clips) => {
+                        println!("LLAMA_RUSH_ART on frames={}", clips.frame_count);
+                        Some(clips)
+                    }
+                    Err(error) => {
+                        println!("LLAMA_RUSH_ART fallback to the stand-in body: {error}");
+                        None
+                    }
+                },
                 engineer: if cf02 {
                     Some(SpriteClips::load_engineer(root, source)?)
                 } else {
@@ -3558,6 +3572,18 @@ struct GoblinSprite {
 #[derive(Component)]
 struct LlamaSprite {
     index: usize,
+}
+
+/// LLAMA-03: the two image and layout pairs of a llama sprite, stored once at spawn: the LLAMA-01 atlas and
+/// the rush atlas (`llama_rush_h64`, same frame size and pivot). `sync_llama_visuals` swaps the sprite's image
+/// and atlas layout between them in place (same entity, flip, flash tint and z). Absent when the rush atlas
+/// is missing: the stand-in body is drawn then.
+#[derive(Resource)]
+struct LlamaRushLook {
+    base_image: Handle<Image>,
+    base_layout: Handle<TextureAtlasLayout>,
+    rush_image: Handle<Image>,
+    rush_layout: Handle<TextureAtlasLayout>,
 }
 
 /// One pooled spit glob sprite (the `spit` frames of the llama atlas), drawn
@@ -4825,6 +4851,16 @@ fn setup(
             let texture: Handle<Image> = asset_server.load(clips.atlas_asset.clone());
             combat_handles.push((clips.atlas_asset.clone(), texture.clone()));
             let layout = layout_of(clips);
+            if let Some(rush) = art.llama_rush.as_ref() {
+                let rush_image: Handle<Image> = asset_server.load(rush.atlas_asset.clone());
+                combat_handles.push((rush.atlas_asset.clone(), rush_image.clone()));
+                commands.insert_resource(LlamaRushLook {
+                    base_image: texture.clone(),
+                    base_layout: layout.clone(),
+                    rush_image,
+                    rush_layout: layout_of(rush),
+                });
+            }
             for index in 0..state.llamas.len() {
                 commands.spawn((
                     LlamaSprite { index },
@@ -7249,6 +7285,7 @@ fn sync_llama_visuals(
     combat: Res<Combat>,
     anim: Res<Anim>,
     setup: Res<Setup>,
+    rush_look: Option<Res<LlamaRushLook>>,
     mut llamas: Query<(&LlamaSprite, &mut Transform, &mut Sprite), Without<GlobSprite>>,
     mut globs: Query<
         (&GlobSprite, &mut Transform, &mut Sprite, &mut Visibility),
@@ -7276,11 +7313,18 @@ fn sync_llama_visuals(
             CombatAnimators::llama_foot_y(llama),
             flip,
         );
-        // CORRAL-E (CRL-Q38): the rush stand-in's brace, charge and bonk lean.
+        // LLAMA-03: during a corral rush the llama draws the rush atlas (the bonk's first ticks, the LLAMA-01
+        // hurt frame); without the rush atlas the CORRAL-E stand-in body (the idle frames) stays.
+        let rush_frame = rush_look
+            .as_ref()
+            .and_then(|_| llama_rush_pose::llama_rush_frame(llama));
+        // CORRAL-E (CRL-Q38): the rush stand-in's brace, charge and bonk lean (LLAMA-03: only the bonk's, the
+        // art's poses carry the brace and the charge).
         let cx = cx
-            + dungeon_floorbreak::combat_anim::rush_stand_in::rush_stand_in(
+            + dungeon_floorbreak::combat_anim::rush_stand_in::rush_stand_in_art(
                 llama,
                 CombatAnimators::llama_foot_y(llama),
+                rush_look.is_some(),
             )
             .map_or(0.0, |s| s.lean_px as f32);
         let lying = matches!(llama.mode, LlamaMode::Down | LlamaMode::Corpse);
@@ -7300,8 +7344,30 @@ fn sync_llama_visuals(
         } else {
             Color::WHITE
         };
+        // Which atlas and frame: a rush-atlas frame, or the LLAMA-01 atlas with the hurt frame (bonk) or the
+        // animator's own pose.
+        let (use_rush, frame) = match rush_frame {
+            Some(llama_rush_pose::RushFrame::Rush(i)) => (true, i),
+            Some(llama_rush_pose::RushFrame::Base(i)) => (false, i),
+            None => (false, pose.frame),
+        };
+        if let Some(look) = rush_look.as_ref() {
+            let (image, layout) = if use_rush {
+                (&look.rush_image, &look.rush_layout)
+            } else {
+                (&look.base_image, &look.base_layout)
+            };
+            if sprite.image != *image {
+                sprite.image = image.clone();
+            }
+            if let Some(atlas) = sprite.texture_atlas.as_mut()
+                && atlas.layout != *layout
+            {
+                atlas.layout = layout.clone();
+            }
+        }
         if let Some(atlas) = sprite.texture_atlas.as_mut() {
-            atlas.index = pose.frame;
+            atlas.index = frame;
         }
     }
     // The glob is drawn with the llama's pivot, as the spawn contract says: the

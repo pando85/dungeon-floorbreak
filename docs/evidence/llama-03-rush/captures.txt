@@ -1,0 +1,7 @@
+# LLAMA-03 native captures (xvfb, debug build, --scale 1): scripts/room_capture.sh corral corral_rush 736:2:50 OUTDIR [flags]
+== --f01-run (the floor run, B3)
+ROOM_CAPTURE room=corral plan=corral_rush frames=50 first_tick=736 step=2 last_tick=834 window_hash=064cec1667cb6ad0 headless_hash=064cec1667cb6ad0 timed_hash=skipped match=yes
+== no extra flag
+ROOM_CAPTURE room=corral plan=corral_rush frames=50 first_tick=736 step=2 last_tick=834 window_hash=064cec1667cb6ad0 headless_hash=064cec1667cb6ad0 timed_hash=skipped match=yes
+== --deck
+ROOM_CAPTURE room=corral plan=corral_rush frames=50 first_tick=736 step=2 last_tick=834 window_hash=75050600d2a33492 headless_hash=75050600d2a33492 timed_hash=skipped match=yes

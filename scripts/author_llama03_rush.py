@@ -4,7 +4,9 @@
 Usage:
 
     python3 scripts/author_llama03_rush.py keys [--check]
+    python3 scripts/author_llama03_rush.py atlas [--check]
     python3 scripts/author_llama03_rush.py gate
+    python3 scripts/author_llama03_rush.py evidence
 
 ``keys`` (re)writes ``assets/source/characters/llama/rush/llama_rush_keys.grid.json``: the four design keys of
 ``docs/02-art/llama-03-rush-spec.md`` on the LLAMA-01 frame contract (96 x 72, pivot (44, 71), contact row 71, the
@@ -12,9 +14,14 @@ Usage:
 frames 1, 2, 4 and 8 of the ten-frame rush atlas (spec section 4); ``tests/fixtures/llama-03-rush_keys.json`` freezes
 them under those atlas indices. ``--check`` compares instead of writing.
 
-``gate`` writes the silhouette gate into ``docs/evidence/llama-03-rush/``: the keys next to the LLAMA-01 idle and spit
+``evidence`` writes ``contact-sheet.png`` and ``rush.gif`` of the ten-frame atlas into the same folder and refreshes
+``SHA256SUMS``. ``gate`` writes the silhouette gate into ``docs/evidence/llama-03-rush/``: the keys next to the LLAMA-01 idle and spit
 silhouettes, Carl, Donut and a goblin (black and in colour, 1x and 4x), the keys on the Infernal Corral at 1x and 3x,
 and the lane mock.
+
+``atlas`` (re)writes ``llama_rush_h64.grid.json``: the ten frames of the rush atlas (spec section 4), the four keys above
+plus six in-betweens (``BRACE_IN``, ``COIL``, ``RUN_GATHER``, ``RUN_PUSH``, ``RUN_REACH``, ``RECOVER_BLOWN``). The keys come
+byte-identical from the key grid; ``keys`` and ``freeze`` are never rerun after the silhouette gate (K1 and K2).
 
 Construction: every body pixel is rasterized by the LLAMA-01 parametric rig (``scripts/author_llama01.py``) from the
 pose dicts below plus the rig's literal face stamps and two new ones (``EYES['squint']``, ``TONGUE``). No concept
@@ -47,6 +54,8 @@ EYES = dict(L.EYES) | {
     "squint": ["KKK.", ".KKK", "..K."],      # winded squint: lid down over the eye, no white
 }
 GLOW = set(L.GLOW)
+# Gate K1: the winded tongue hangs 2 px below the jaw line (a panting tongue, not a red snarl); gum `g` only.
+TONGUE = ["gK", "ggK", "ggK", "KgK", ".K"]
 
 
 def hooves(**kw):
@@ -85,11 +94,12 @@ BRACE = L.shifted(
 SCRAPE = L.shifted(
     BRACE,
     rump=(28, 40), chest=(49, 43.5), belly=(41, 47, 8, 4.0), haunch=(27, 41, 6.5, 7.0), shoulder=(50, 45.5, 5.5, 7.0),
-    near_hind=[(28, 44, 4.5), (33, 51, 3.0), (26, 59, 2.1), (28, 67, 1.3)],
-    far_hind=[(33, 44, 3.5), (37, 51, 2.5), (31, 59, 1.9), (33, 67, 1.2)],
+    # Gate K2: the hind hooves stay planted on the brace footprint (rule 5); only the hip end follows the rock.
+    near_hind=[(28, 44, 4.5), (32.5, 51, 3.0), (25, 59, 2.1), (27, 67, 1.3)],
+    far_hind=[(33, 44, 3.5), (36.5, 51, 2.5), (30, 59, 1.9), (32, 67, 1.2)],
     near_front=[(51, 48.5, 3.6), (56, 54, 2.4), (54, 61, 2.1), (51, 67, 1.3)],
     far_front=[(55, 48.5, 3.0), (59, 54, 2.2), (63, 60, 1.9), (66, 67, 1.2)],
-    **hooves(near_hind=(28, 69), far_hind=(33, 69), near_front=(50, 69), far_front=(66, 69)),
+    **hooves(near_hind=(27, 69), far_hind=(32, 69), near_front=(50, 69), far_front=(66, 69)),
     **L.move_head(BRACE, dx=1, dy=1),
 )
 SCRAPE["neck"] = ((52, 40.5),) + tuple(L.mv(q, 1, 1) for q in BRACE["neck"][1:])
@@ -141,10 +151,77 @@ RECOVER_SKID = L.shifted(
     ear_near=((68, 40), (65, 42.5), (62.5, 45.5)), ear_far=((70, 39.5), (67.5, 42), (65.5, 45)), ear_ring=True,
     tail=((20, 44), (15, 52), (-1, 0.5)),
     eye="squint", eye_at=(67, 41), nostril=(79, 47),
-    extra=[(77, 53, ["gK", "ggK", ".KK"])],              # the tongue lolled out of the open mouth corner
+    extra=[(77, 53, TONGUE)],                           # the tongue lolled out of the open mouth corner (gate K1)
 )
 
 KEYS = [("brace", BRACE, 1), ("scrape", SCRAPE, 2), ("run_contact", RUN_CONTACT, 4), ("recover_skid", RECOVER_SKID, 8)]
+
+# --------------------------------------------------------------------------- the six in-betweens (executor step)
+# Recipes of the execution brief with the silhouette-gate corrections B1 (far legs of the run in-betweens) and B6 (the
+# K1 tongue on the blown frame). All of them are rig poses over the keys; no new colour, no literal pixel copy.
+HEAD = ("neck", "neck_r", "skull", "muzzle", "jaw", "ear_near", "ear_far")
+HIND = ("near_hind", "far_hind", "near_hind_hoof", "far_hind_hoof")
+BODY_NO_HIND = tuple(k for k in L.INBETWEEN_BODY if k not in HIND)
+
+# 0: body and head halfway between the idle and the brace (hind legs already braced): the head on its way down.
+BRACE_IN = L.shifted(BRACE, **L.mean_pose(L.IDLE, BRACE, BODY_NO_HIND + HEAD),
+                     teeth=[("clench", (72, 31))], eye_at=(64, 26), nostril=(77, 28), mouth=None, mouth_line=None,
+                     eye="angry", ear_ring=True, extra=[(58, 28, ["K"])])
+# 3: the brace 1 px lower, head drawn back 2 px: the gather before the launch.
+COIL = L.shifted(BRACE, **L.move_body(BRACE, 1), **L.move_head(BRACE, dx=-2, dy=1),
+                 tail=((21, 38), (12, 31), (-0.5, -1)), extra=[(56, 44, ["s", "ss", ".s"])])
+# 5: near fore vertical under the shoulder, near hind swinging under; the far hind toes off (gate B1).
+RUN_GATHER = L.shifted(
+    RUN_CONTACT,
+    near_front=[(54, 48, 3.6), (56, 54, 2.4), (57, 60, 2.1), (58, 67, 1.3)],
+    far_front=[(56, 48, 3.0), (61, 53, 2.2), (65, 57, 1.9), (67, 63, 1.2)],
+    near_hind=[(30, 45, 4.5), (36, 51, 3.0), (33, 57, 2.1), (38, 62, 1.3)],
+    far_hind=[(35, 45, 3.5), (36, 52, 2.5), (30, 59, 1.9), (26, 67, 1.2)],
+    **hooves(near_front=(58, 69), far_front=(67, 65), near_hind=(39, 64), far_hind=(25, 69)),
+)
+# 6: near hind planted under the barrel, far hind swinging forward, both fores folded up (gate B1).
+RUN_PUSH = L.shifted(
+    RUN_CONTACT, rump=(30, 42), chest=(52, 42), belly=(43, 47, 8, 3.8), haunch=(29, 43, 6.5, 6.5),
+    shoulder=(53, 44, 5.5, 7.0),
+    near_hind=[(30, 46, 4.5), (36, 52, 3.0), (34, 59, 2.1), (38, 67, 1.3)],
+    far_hind=[(35, 46, 3.5), (38, 52, 2.5), (34, 58, 1.9), (31, 63, 1.2)],
+    near_front=[(54, 47, 3.6), (59, 52, 2.4), (61, 58, 2.1), (58, 62, 1.3)],
+    far_front=[(56, 47, 3.0), (60, 52, 2.2), (64, 56, 1.9), (64, 61, 1.2)],
+    **hooves(near_hind=(38, 69), far_hind=(31, 65), near_front=(57, 64), far_front=(65, 63)),
+    **L.move_head(RUN_CONTACT, dy=-1),
+)
+# 7: far fore striking under the chest, near fore reaching, near hind kicked back (gate B1).
+RUN_REACH = L.shifted(
+    RUN_CONTACT, rump=(30, 41), chest=(52, 42), shoulder=(53, 44, 5.5, 7.0),
+    near_hind=[(30, 45, 4.5), (26, 51, 3.0), (20, 56, 2.1), (15, 61, 1.3)],
+    far_hind=[(35, 45, 3.5), (40, 51, 2.5), (38, 57, 1.9), (41, 62, 1.2)],
+    near_front=[(54, 47, 3.6), (61, 51, 2.4), (67, 55, 2.1), (71, 61, 1.3)],
+    far_front=[(56, 47, 3.0), (60, 53, 2.2), (62, 59, 1.9), (63, 67, 1.2)],
+    **hooves(near_hind=(13, 63), far_hind=(42, 64), near_front=(72, 63), far_front=(63, 69)),
+    **L.move_head(RUN_CONTACT, dx=1, dy=-1),
+    extra=[(31, 51, ["s"]), (30, 52, ["s"]), (29, 53, ["s"])],
+)
+# 9: the stop is over: legs back under, the head hanging 2 px lower, the K1 tongue out, the squint (gate B6).
+RECOVER_BLOWN = L.shifted(
+    RECOVER_SKID, rump=(28, 45), chest=(49, 41), belly=(39, 48, 8, 4.0), haunch=(27, 47, 6.5, 6.5),
+    shoulder=(50, 43, 5.5, 7.0),
+    near_front=[(51, 46, 3.6), (55, 53, 2.4), (58, 60, 2.1), (60, 67, 1.3)],
+    far_front=[(54, 46, 3.0), (59, 53, 2.2), (63, 60, 1.9), (65, 67, 1.2)],
+    near_hind=[(28, 49, 4.5), (35, 55, 3.0), (29, 61, 2.1), (30, 67, 1.3)],
+    far_hind=[(33, 49, 3.5), (39, 55, 2.5), (34, 61, 1.9), (35, 67, 1.2)],
+    **hooves(near_front=(60, 69), far_front=(65, 69), near_hind=(30, 69), far_hind=(35, 69)),
+    **L.move_head(RECOVER_SKID, dx=-1, dy=2),
+    extra=[(76, 55, TONGUE)],
+)
+
+# The ten frames of the rush atlas, in atlas order: (name, pose, tag, duration ms for the preview).
+ATLAS = [("brace_in", BRACE_IN), ("brace", BRACE), ("scrape", SCRAPE), ("coil", COIL),
+         ("run_contact", RUN_CONTACT), ("run_gather", RUN_GATHER), ("run_push", RUN_PUSH),
+         ("run_reach", RUN_REACH), ("recover_skid", RECOVER_SKID), ("recover_blown", RECOVER_BLOWN)]
+ATLAS_TAGS = [("rush_brace", 0, 3), ("rush_run", 4, 7), ("rush_recover", 8, 9)]
+ATLAS_MS = [67, 67, 67, 67, 50, 50, 50, 50, 167, 500]    # 4 ticks, 3 ticks, 10 ticks, a review hold
+ATLAS_GRID = RUSH_DIR / "llama_rush_h64.grid.json"
+ATLAS_ASE = RUSH_DIR / "llama_rush_h64.ase"
 
 
 def render(pose: dict) -> list[str]:
@@ -169,6 +246,15 @@ def keys_grid() -> dict:
         "format": "pixel-grid-v1", "canvas": list(CANVAS), "pivot": list(PIVOT),
         "palette": palette_json(), "layers": ["body"], "frames": frames,
         "tags": [{"name": n, "from": i, "to": i, "direction": "forward"} for i, (n, _p, _a) in enumerate(KEYS)],
+    }
+
+
+def atlas_grid() -> dict:
+    frames = [{"duration_ms": ATLAS_MS[i], "cels": {"body": render(pose)}} for i, (_n, pose) in enumerate(ATLAS)]
+    return {
+        "format": "pixel-grid-v1", "canvas": list(CANVAS), "pivot": list(PIVOT),
+        "palette": palette_json(), "layers": ["body"], "frames": frames,
+        "tags": [{"name": n, "from": a, "to": b, "direction": "forward"} for n, a, b in ATLAS_TAGS],
     }
 
 
@@ -204,13 +290,30 @@ def report(rows: list[str], label: str) -> dict:
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("mode", choices=("keys", "gate"))
+    ap.add_argument("mode", choices=("keys", "atlas", "gate", "evidence"))
     ap.add_argument("--check", action="store_true")
     a = ap.parse_args(argv)
     if a.mode == "gate":
         import llama03_rush_gate as gate
         for path in gate.write_all(keys_grid()):
             print(f"wrote {path.relative_to(ROOT)}")
+        return 0
+    if a.mode == "evidence":
+        import llama03_rush_gate as gate
+        for path in gate.write_atlas_evidence(atlas_grid()) + [gate.write_sums()]:
+            print(f"wrote {path.relative_to(ROOT)}")
+        return 0
+    if a.mode == "atlas":
+        grid = atlas_grid()
+        for i, (name, _p) in enumerate(ATLAS):
+            report(grid["frames"][i]["cels"]["body"], f"frame {i} {name:13s}")
+        text = dump(grid)
+        if a.check:
+            ok = ATLAS_GRID.is_file() and ATLAS_GRID.read_text() == text
+            print("up to date" if ok else f"differs: {ATLAS_GRID.name}")
+            return 0 if ok else 1
+        ATLAS_GRID.write_text(text, encoding="utf-8")
+        print(f"wrote {ATLAS_GRID.relative_to(ROOT)}")
         return 0
     grid = keys_grid()
     for i, (name, _p, atlas) in enumerate(KEYS):

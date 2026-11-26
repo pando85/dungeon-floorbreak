@@ -1,0 +1,63 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "llama-03-rush",
+  "title": "LLAMA-03 Bad Llama rush (brace, scrape, run, recover) (docs/02-art/llama-03-rush-spec.md); 10 frames, 4 frozen keys, 6 executor in-betweens",
+  "grid": "assets/source/characters/llama/rush/llama_rush_h64.grid.json",
+  "manifest": "assets/manifests/llama_rush_h64.json",
+  "frame_size": [96, 72],
+  "pivot": [44, 71],
+  "contact_row": 71,
+  "tick_hz": 60,
+  "hold_ms": 500,
+  "facing": "right",
+  "tags": {
+    "rush_brace": {"playback": "loop", "contact": "grounded", "frames": [[0, 4], [1, 4], [2, 4], [3, 4]]},
+    "rush_run": {"playback": "loop", "contact": "grounded", "frames": [[4, 3], [5, 3], [6, 3], [7, 3]]},
+    "rush_recover": {"playback": "hold", "contact": "grounded", "frames": [[8, 10], [9, null]]}
+  },
+  "rules": {
+    "max_colors": 17,
+    "max_isolated_per_frame": 0,
+    "max_orphans_per_frame": 9,
+    "canvas_margin": [0, 0, 0, 0],
+    "unique_frames": true,
+    "holes": {"connectivity": 4, "allow": [
+        {"frames": [8, 9], "pixels": [[14, 44]], "reason": "tail-mane pinhole (left of column 25, above row 47), the two enclosed-pocket kinds of the LLAMA-01 rig that spec section 9 A8 allows; verified by the PR #295 independent silhouette gate (no pocket outside these kinds)"},
+        {"frames": [1, 2], "pixels": [[15, 38]], "reason": "tail-mane pinhole (left of column 25, above row 47), the two enclosed-pocket kinds of the LLAMA-01 rig that spec section 9 A8 allows; verified by the PR #295 independent silhouette gate (no pocket outside these kinds)"},
+        {"frames": [0], "pixels": [[16, 37]], "reason": "tail-mane pinhole (left of column 25, above row 47), the two enclosed-pocket kinds of the LLAMA-01 rig that spec section 9 A8 allows; verified by the PR #295 independent silhouette gate (no pocket outside these kinds)"},
+        {"frames": [4, 5, 6, 7], "pixels": [[17, 40]], "reason": "tail-mane pinhole (left of column 25, above row 47), the two enclosed-pocket kinds of the LLAMA-01 rig that spec section 9 A8 allows; verified by the PR #295 independent silhouette gate (no pocket outside these kinds)"},
+        {"frames": [1], "pixels": [[17, 40], [18, 40]], "reason": "tail-mane pinhole (left of column 25, above row 47), the two enclosed-pocket kinds of the LLAMA-01 rig that spec section 9 A8 allows; verified by the PR #295 independent silhouette gate (no pocket outside these kinds)"},
+        {"frames": [0], "pixels": [[19, 40]], "reason": "tail-mane pinhole (left of column 25, above row 47), the two enclosed-pocket kinds of the LLAMA-01 rig that spec section 9 A8 allows; verified by the PR #295 independent silhouette gate (no pocket outside these kinds)"},
+        {"frames": [3, 4, 5, 6, 7], "pixels": [[21, 32]], "reason": "tail-mane pinhole (left of column 25, above row 47), the two enclosed-pocket kinds of the LLAMA-01 rig that spec section 9 A8 allows; verified by the PR #295 independent silhouette gate (no pocket outside these kinds)"},
+        {"frames": [4, 5, 6, 7], "pixels": [[21, 40]], "reason": "tail-mane pinhole (left of column 25, above row 47), the two enclosed-pocket kinds of the LLAMA-01 rig that spec section 9 A8 allows; verified by the PR #295 independent silhouette gate (no pocket outside these kinds)"},
+        {"frames": [0, 1, 2], "pixels": [[22, 31]], "reason": "tail-mane pinhole (left of column 25, above row 47), the two enclosed-pocket kinds of the LLAMA-01 rig that spec section 9 A8 allows; verified by the PR #295 independent silhouette gate (no pocket outside these kinds)"},
+        {"frames": [6], "pixels": [[23, 36]], "reason": "tail-mane pinhole (left of column 25, above row 47), the two enclosed-pocket kinds of the LLAMA-01 rig that spec section 9 A8 allows; verified by the PR #295 independent silhouette gate (no pocket outside these kinds)"},
+        {"frames": [0, 1, 2, 3], "pixels": [[29, 66], [29, 67], [29, 68], [30, 68]], "reason": "gap between two touching hooves (4 px or fewer, rows 64 and below), the two enclosed-pocket kinds of the LLAMA-01 rig that spec section 9 A8 allows; verified by the PR #295 independent silhouette gate (no pocket outside these kinds)"},
+        {"frames": [9], "pixels": [[32, 66], [32, 67], [32, 68], [33, 68]], "reason": "gap between two touching hooves (4 px or fewer, rows 64 and below), the two enclosed-pocket kinds of the LLAMA-01 rig that spec section 9 A8 allows; verified by the PR #295 independent silhouette gate (no pocket outside these kinds)"},
+        {"frames": [6], "pixels": [[33, 64]], "reason": "gap between two touching hooves (4 px or fewer, rows 64 and below), the two enclosed-pocket kinds of the LLAMA-01 rig that spec section 9 A8 allows; verified by the PR #295 independent silhouette gate (no pocket outside these kinds)"},
+        {"frames": [8], "pixels": [[33, 67], [33, 68], [34, 68]], "reason": "gap between two touching hooves (4 px or fewer, rows 64 and below), the two enclosed-pocket kinds of the LLAMA-01 rig that spec section 9 A8 allows; verified by the PR #295 independent silhouette gate (no pocket outside these kinds)"},
+        {"frames": [9], "pixels": [[62, 66], [62, 67], [62, 68], [63, 68]], "reason": "gap between two touching hooves (4 px or fewer, rows 64 and below), the two enclosed-pocket kinds of the LLAMA-01 rig that spec section 9 A8 allows; verified by the PR #295 independent silhouette gate (no pocket outside these kinds)"},
+        {"frames": [1, 3], "pixels": [[63, 67], [63, 68], [64, 68]], "reason": "gap between two touching hooves (4 px or fewer, rows 64 and below), the two enclosed-pocket kinds of the LLAMA-01 rig that spec section 9 A8 allows; verified by the PR #295 independent silhouette gate (no pocket outside these kinds)"},
+        {"frames": [8], "pixels": [[73, 68]], "reason": "gap between two touching hooves (4 px or fewer, rows 64 and below), the two enclosed-pocket kinds of the LLAMA-01 rig that spec section 9 A8 allows; verified by the PR #295 independent silhouette gate (no pocket outside these kinds)"}
+    ]},
+    "frozen_keys": {
+      "fixture": "tests/fixtures/llama-03-rush_keys.json",
+      "frames": [1, 2, 4, 8],
+      "layers": ["body"]
+    },
+    "bbox": [
+      {"id": "A3-brace-in-head-coming-down", "frames": [0], "min_top": 14, "bottom": 71},
+      {"id": "A3-rush-head-low", "frames": [1, 2, 3, 4, 5, 6, 7], "min_top": 20, "bottom": 71},
+      {"id": "A3-recover-low", "frames": [8, 9], "min_top": 28, "bottom": 71}
+    ],
+    "key_counts": [
+      {"id": "A2-no-glow-r", "frames": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], "key": "r", "max": 0},
+      {"id": "A2-no-glow-R", "frames": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], "key": "R", "max": 0},
+      {"id": "A2-no-glow-O", "frames": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], "key": "O", "max": 0},
+      {"id": "A2-no-glow-Y", "frames": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], "key": "Y", "max": 0},
+      {"id": "A6-teeth", "frames": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], "key": "T", "min": 6},
+      {"id": "A6-eye", "frames": [0, 1, 2, 3, 4, 5, 6, 7], "key": "e", "min": 2},
+      {"id": "A6-squint", "frames": [8, 9], "key": "e", "max": 0}
+    ]
+  }
+}

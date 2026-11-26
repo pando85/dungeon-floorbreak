@@ -1945,6 +1945,17 @@ mod tests {
     /// (the `f01_late` constructor at the pilot's seed, the pilot's party, the story loadout): the
     /// party hash, the combat hash and the combat state.
     fn replay_corral(root: &Path, plan: &str, ticks: u64) -> (u64, u64, CombatState) {
+        replay_corral_observed(root, plan, ticks, |_, _| {})
+    }
+
+    /// [`replay_corral`] calling `observe(tick, combat)` after each of the `ticks` steps (`tick` is the
+    /// 1-based step count, the tick number a capture of that step carries).
+    fn replay_corral_observed(
+        root: &Path,
+        plan: &str,
+        ticks: u64,
+        mut observe: impl FnMut(u64, &CombatState),
+    ) -> (u64, u64, CombatState) {
         let pilot = RoomPilot::parse(plan).unwrap();
         let seed = pilot.aligned.unwrap().seed;
         let (carl, donut) = crate::f01_late::Loadout::Story.flags();
@@ -1953,7 +1964,7 @@ mod tests {
         let exit_x = crate::f01_corral_fixtures::Route::of(&run).exit_x;
         let mut party = crate::party::PartyState::new(pilot.tuning().unwrap());
         let mut memory = AlignedMemory::default();
-        for _ in 0..ticks {
+        for tick in 1..=ticks {
             let slots = pilot.aligned_inputs(
                 &combat,
                 &scene,
@@ -1970,6 +1981,7 @@ mod tests {
             if combat.restarts != restarts {
                 party.restart();
             }
+            observe(tick, &combat);
         }
         (
             crate::party_scene::party_hash(&combat, &scene, &party),
@@ -2084,6 +2096,33 @@ mod tests {
         );
         assert!(!combat.llamas[0].alive(), "M1 was cleared first");
         assert!(combat.llamas[1].alive(), "the plan never fights B");
+    }
+
+    /// LLAMA-03 (B5): in the launched corral room the `corral_rush` plan's first rush draws, at the standard
+    /// 112 px trigger, the tick map's frames: the tell starts on 742 (`brace_in`), 750 is a scrape beat, the
+    /// commit tick 774 draws the push (the commit tick already has `active` 1), 790 the reach, and the contact
+    /// tick 791 already draws the skid (recover elapsed 0). It reads the finished state only.
+    #[test]
+    fn the_corral_rush_plan_draws_the_llama_rush_tick_map() {
+        use crate::combat_anim::llama_rush_pose::{RushFrame, llama_rush_frame};
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let mut drawn: std::collections::BTreeMap<u64, Option<RushFrame>> = Default::default();
+        replay_corral_observed(&root, "corral_rush", 800, |tick, combat| {
+            drawn.insert(tick, llama_rush_frame(&combat.llamas[1]));
+        });
+        for (tick, want) in [
+            (742, RushFrame::Rush(0)),
+            (750, RushFrame::Rush(2)),
+            (774, RushFrame::Rush(6)),
+            (790, RushFrame::Rush(7)),
+            (791, RushFrame::Rush(8)),
+        ] {
+            assert_eq!(drawn[&tick], Some(want), "tick {tick}");
+        }
+        assert_eq!(
+            drawn[&741], None,
+            "before the tell the llama is not in a rush"
+        );
     }
 
     /// FA-Q24: the room 1 pilot parses, labels back and refuses what it cannot play; the plain

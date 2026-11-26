@@ -192,6 +192,75 @@ def write_corral(keys_grid: dict) -> list[Path]:
     return [out1, out3, brace, run]
 
 
+NAMES = ["brace_in", "brace", "scrape", "coil", "run_contact", "run_gather", "run_push", "run_reach",
+         "recover_skid", "recover_blown"]
+KEY_FRAMES = (1, 2, 4, 8)
+# The timed animation (spec section 3): tell 32 ticks, one 24-tick run (active 1..24), recover 40 ticks.
+TELL_SLOTS = [0, 1, 2, 1, 2, 1, 2, 3]
+RUN_CYCLE = [6, 7, 4, 5]
+GIF_BG = (46, 38, 58, 255)
+GIF_FLOOR = (28, 24, 36, 255)
+
+
+def write_atlas_evidence(atlas_grid: dict) -> list[Path]:
+    """``contact-sheet.png`` (the ten frames, labelled, a 1x row above an x4 row) and ``rush.gif`` (x3, 60 Hz tick
+    windows merged into whole-frame durations)."""
+    import sys
+    if str(ROOT) not in sys.path:
+        sys.path.insert(0, str(ROOT))
+    EVIDENCE.mkdir(parents=True, exist_ok=True)
+    imgs = _images(atlas_grid)
+    w, h = imgs[0].size
+    # --- contact sheet: 1x row, then a 5 x 2 grid at x4, each cell labelled
+    k, cols = 4, 5
+    cell_w, cell_h, label = w * k, h * k, 14
+    width = cols * cell_w + (cols + 1) * 4
+    row1_h = h + label + 8
+    height = row1_h + 2 * (cell_h + label + 4) + 8
+    sheet = Image.new("RGB", (width, height), LABEL_BG)
+    d = ImageDraw.Draw(sheet)
+    for i, im in enumerate(imgs):
+        x = 4 + i * (w + 4)
+        sheet.paste(im, (x, label), im)
+        d.text((x + 1, 1), f"{i}", fill=LABEL_FG)
+    d.text((width - 260, 1), "1x row; x4 below (yellow = frozen key)", fill=LABEL_FG)
+    for i, im in enumerate(imgs):
+        cx, cy = 4 + (i % cols) * (cell_w + 4), row1_h + (i // cols) * (cell_h + label + 4)
+        big = im.resize((cell_w, cell_h), Image.NEAREST)
+        sheet.paste(big, (cx, cy + label), big)
+        d.line((cx, cy + label + (71 + 1) * k - 1, cx + cell_w, cy + label + (71 + 1) * k - 1), fill=(0, 190, 210))
+        tag = ("rush_brace", "rush_run", "rush_recover")[0 if i < 4 else 1 if i < 8 else 2]
+        d.text((cx + 2, cy + 1), f"{i:02d} {NAMES[i]} ({tag})" + ("  KEY" if i in KEY_FRAMES else ""),
+               fill=(255, 215, 0) if i in KEY_FRAMES else LABEL_FG)
+    sheet_path = EVIDENCE / "contact-sheet.png"
+    sheet.save(sheet_path)
+    # --- GIF: per-tick frame list, merged into runs
+    ticks = [TELL_SLOTS[min(t // 4, 7)] for t in range(32)]
+    ticks += [RUN_CYCLE[(a // 3) % 4] for a in range(1, 25)]
+    ticks += [8] * 10 + [9] * 30
+    runs: list[list[int]] = []
+    for f in ticks:
+        if runs and runs[-1][0] == f:
+            runs[-1][1] += 1
+        else:
+            runs.append([f, 1])
+    scale = 3
+    frames, durations, acc = [], [], 0.0
+    for f, n in runs:
+        canvas = Image.new("RGBA", (w * scale, h * scale + 6), GIF_BG)
+        ImageDraw.Draw(canvas).rectangle((0, h * scale, w * scale, h * scale + 6), fill=GIF_FLOOR)
+        big = imgs[f].resize((w * scale, h * scale), Image.NEAREST)
+        canvas.paste(big, (0, 0), big)
+        frames.append(canvas.convert("RGB"))
+        # whole 10 ms units, carrying the rounding so the loop stays 96 ticks (1600 ms) long
+        acc += n * 1000 / 60
+        ms = max(10, round(acc / 10) * 10 - sum(durations))
+        durations.append(ms)
+    gif_path = EVIDENCE / "rush.gif"
+    frames[0].save(gif_path, save_all=True, append_images=frames[1:], duration=durations, loop=0, optimize=False)
+    return [sheet_path, gif_path]
+
+
 def write_sums() -> Path:
     out = EVIDENCE / "SHA256SUMS"
     lines = [f"{hashlib.sha256(p.read_bytes()).hexdigest()}  {p.name}" for p in sorted(EVIDENCE.glob("*.png"))]

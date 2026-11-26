@@ -6,7 +6,9 @@
 //! * The rush stand-in (CRL-Q38): the brace lean, hoof scrape, charge trail, stop
 //!   dust and bonk burst of `dungeon_floorbreak::combat_anim::rush_stand_in`, drawn
 //!   with a pool of code-drawn rectangles over the reused LLAMA-01 idle frames
-//!   (the lean is applied by `sync_llama_visuals`). LLAMA-03 replaces it.
+//!   (the lean is applied by `sync_llama_visuals`). LLAMA-03 draws the body from the rush atlas instead of
+//!   the idle frames and this keeps only the dust and dirt (the stand-in body stays as the missing-atlas
+//!   fallback).
 //!
 //! **Presentation only and no new art**: it reads the combat state through a
 //! shared reference and writes only its own sprites, so nothing here reaches the
@@ -14,7 +16,9 @@
 
 use super::*;
 use dungeon_floorbreak::camera_lab::room::IRect as RoomRect;
-use dungeon_floorbreak::combat_anim::rush_stand_in::{MAX_PIECES, PALETTE, Piece, rush_stand_in};
+use dungeon_floorbreak::combat_anim::rush_stand_in::{
+    MAX_PIECES, PALETTE, Piece, rush_stand_in_art,
+};
 
 /// The grate's iron: the backing and the bars (greybox, no art).
 const GATE_BACKING: Color = Color::srgba(0.09, 0.08, 0.10, 0.82);
@@ -119,6 +123,7 @@ pub(super) fn sync_corral_art(
     sim: Res<Sim>,
     combat: Res<Combat>,
     art: Option<Res<CorralArt>>,
+    rush_look: Option<Res<LlamaRushLook>>,
     mut sprites: Query<(&CorralSprite, &mut Transform, &mut Sprite, &mut Visibility)>,
 ) {
     let (Some(art), Some(state)) = (art, combat.0.as_ref()) else {
@@ -133,7 +138,12 @@ pub(super) fn sync_corral_art(
     };
     let mut pieces: Vec<Piece> = Vec::new();
     for llama in &state.llamas {
-        if let Some(s) = rush_stand_in(llama, CombatAnimators::llama_foot_y(llama)) {
+        // LLAMA-03: with the rush art drawing the body, the stand-in keeps only the dust and dirt.
+        if let Some(s) = rush_stand_in_art(
+            llama,
+            CombatAnimators::llama_foot_y(llama),
+            rush_look.is_some(),
+        ) {
             pieces.extend(s.pieces);
         }
     }

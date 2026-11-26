@@ -52,6 +52,9 @@ pub const BONK_ROCK_TICKS: u16 = 8;
 pub const SCRAPE_PERIOD: u16 = 8;
 /// The hind hoof sits this far behind the pivot (the body's back third).
 pub const HIND_HOOF_PX: i32 = 14;
+/// LLAMA-03 (LL3-AD3): the pawing near fore hoof of the `scrape` frame sits this far ahead of the pivot
+/// (frame column 50 less pivot column 44); the scrape gouge and its flecks start there when the art is on.
+pub const SCRAPE_HOOF_PX: i32 = 6;
 /// Puffs in the charge trail (one per 4 active ticks).
 pub const TRAIL_PUFFS: u16 = 6;
 /// The settling trail and the bonk burst last this many ticks.
@@ -103,6 +106,12 @@ pub const MAX_PIECES: usize = 2 * TRAIL_PUFFS as usize + 4;
 /// the llama is not in a rush (every legacy llama, every spit, every non-attack
 /// mode).
 pub fn rush_stand_in(llama: &Llama, foot_y: f32) -> Option<RushStandIn> {
+    rush_stand_in_art(llama, foot_y, false)
+}
+
+/// [`rush_stand_in`] for a scene that may draw the LLAMA-03 rush art: with `art_on` the body lean of the tell and
+/// the committed rush is 0 and the scrape gouge and flecks start at the pawing fore hoof ([`SCRAPE_HOOF_PX`]).
+pub fn rush_stand_in_art(llama: &Llama, foot_y: f32, art_on: bool) -> Option<RushStandIn> {
     if llama.mode != LlamaMode::Attack {
         return None;
     }
@@ -111,6 +120,12 @@ pub fn rush_stand_in(llama: &Llama, foot_y: f32) -> Option<RushStandIn> {
     let x = llama.x.round() as i32;
     let foot = foot_y.round() as i32;
     let hind = x - dir * HIND_HOOF_PX;
+    // The scrape's dirt starts under the hind hoof (the stand-in) or the pawing fore hoof (the art).
+    let paw = if art_on {
+        x + dir * SCRAPE_HOOF_PX
+    } else {
+        hind
+    };
     let front = x + dir * LLAMA_HALF_WIDTH.round() as i32;
     let mut pieces = Vec::new();
     let lean_px = match rush.phase {
@@ -127,8 +142,8 @@ pub fn rush_stand_in(llama: &Llama, foot_y: f32) -> Option<RushStandIn> {
             };
             if rush.tick >= 4 && beat < SCRAPE_PERIOD / 2 {
                 let reach = i32::from(beat) + 2;
-                // The gouge grows backward under the hind hoof.
-                let (left, w) = span(hind, -dir, reach + 2);
+                // The gouge grows backward under the scraping hoof.
+                let (left, w) = span(paw, -dir, reach + 2);
                 pieces.push(Piece {
                     x: left,
                     y: foot,
@@ -139,7 +154,7 @@ pub fn rush_stand_in(llama: &Llama, foot_y: f32) -> Option<RushStandIn> {
                 // Two flecks kicked back and up, higher as the scrape runs.
                 for (k, rise) in [(1, 1), (2, 3)] {
                     pieces.push(Piece {
-                        x: hind - dir * (reach + 2 * k),
+                        x: paw - dir * (reach + 2 * k),
                         y: foot + rise + i32::from(beat) / 2,
                         w: 1,
                         h: 1,
@@ -158,11 +173,11 @@ pub fn rush_stand_in(llama: &Llama, foot_y: f32) -> Option<RushStandIn> {
                     tone: Tone::Dust,
                 });
             }
-            -dir * lean
+            if art_on { 0 } else { -dir * lean }
         }
         RushPhase::Committed => {
             trail(&mut pieces, hind, foot, dir, rush.active, 0);
-            dir * CHARGE_LEAN_PX
+            if art_on { 0 } else { dir * CHARGE_LEAN_PX }
         }
         RushPhase::Recover => {
             let age = settle_age(llama, rush.left);
@@ -201,17 +216,20 @@ pub fn rush_stand_in(llama: &Llama, foot_y: f32) -> Option<RushStandIn> {
     })
 }
 
+/// The profile's recover and bonk lengths in ticks of `llama` (0 and 0 without a corral profile): the data the
+/// stand-in's settle age and the LLAMA-03 pose map ([`super::llama_rush_pose`]) both read.
+pub(super) fn corral_ticks(llama: &Llama) -> (u16, u16) {
+    llama.corral.as_ref().map_or((0, 0), |c| {
+        (c.profile.crlq09_recover_ticks, c.profile.crlq10_bonk_ticks)
+    })
+}
+
 /// Ticks since the recover or the bonk began: its length less what is left.
 fn settle_age(llama: &Llama, left: u16) -> u16 {
+    let (recover, bonk) = corral_ticks(llama);
     let total = match llama.rush_state().map(|r| r.phase) {
-        Some(RushPhase::Bonk) => llama
-            .corral
-            .as_ref()
-            .map_or(0, |c| c.profile.crlq10_bonk_ticks),
-        _ => llama
-            .corral
-            .as_ref()
-            .map_or(0, |c| c.profile.crlq09_recover_ticks),
+        Some(RushPhase::Bonk) => bonk,
+        _ => recover,
     };
     total.saturating_sub(left)
 }
@@ -403,10 +421,157 @@ mod tests {
         assert!(later.pieces.is_empty());
     }
 
-    /// CRL-Q38: the stand-in never brings back the throat glow: every rush phase
-    /// keeps the idle frames of the llama pose.
+    /// With the rush art on, the body lean of the tell and the committed rush is 0 (LL3-AD2) and the scrape
+    /// gouge and flecks start at the pawing fore hoof, `SCRAPE_HOOF_PX` ahead of the pivot (LL3-AD3); the 3 x 3
+    /// puff stays behind the hind hoof, and every other phase draws what it drew.
+    #[test]
+    fn with_the_art_on_the_lean_is_zero_and_the_gouge_starts_at_the_paw() {
+        let tell = llama_rush::active().crlq06_tell_ticks;
+        let active = llama_rush::active().crlq07_active_ticks;
+        let p = llama_rush::active();
+        for dir in [-1i8, 1] {
+            let d = i32::from(dir);
+            let mut scrapes = 0;
+            for tick in 0..tell {
+                let llama = llama_in(dir, RushPhase::Tell, tick, 0, 0);
+                let on = rush_stand_in_art(&llama, FOOT, true).unwrap();
+                let off = rush_stand_in_art(&llama, FOOT, false).unwrap();
+                assert_eq!(on.lean_px, 0, "tell tick {tick}");
+                assert_eq!(on.pieces.len(), off.pieces.len(), "same beat, tick {tick}");
+                for q in on.pieces.iter().filter(|q| q.tone == Tone::Scrape) {
+                    scrapes += 1;
+                    // The gouge starts at the paw and grows backward (-dir).
+                    let paw = X as i32 + d * SCRAPE_HOOF_PX;
+                    let (near, far) = (q.x + q.w, q.x);
+                    let start = if dir > 0 { near } else { far };
+                    assert_eq!(start, paw, "tick {tick}: the gouge starts at x + dir * 6");
+                    assert_eq!(q.y, FOOT as i32);
+                }
+                // The flecks sit behind the paw, higher as the scrape runs.
+                for q in on.pieces.iter().filter(|q| q.tone == Tone::Fleck) {
+                    assert!((q.x - (X as i32 + d * SCRAPE_HOOF_PX)) * d < 0, "{q:?}");
+                }
+                // The puff stays where it was (behind the hind hoof).
+                let dust = |s: &RushStandIn| {
+                    s.pieces
+                        .iter()
+                        .filter(|q| q.tone == Tone::Dust)
+                        .copied()
+                        .collect::<Vec<_>>()
+                };
+                assert_eq!(
+                    dust(&on),
+                    dust(&off),
+                    "tell tick {tick}: the puff is unchanged"
+                );
+            }
+            assert!(scrapes >= 3, "{scrapes}");
+            for n in 1..=active {
+                let llama = llama_in(dir, RushPhase::Committed, 0, n, 0);
+                let on = rush_stand_in_art(&llama, FOOT, true).unwrap();
+                let off = rush_stand_in_art(&llama, FOOT, false).unwrap();
+                assert_eq!(on.lean_px, 0, "active {n}");
+                assert_eq!(on.pieces, off.pieces, "the trail is unchanged, active {n}");
+            }
+            // Recover and bonk are the stand-in's, art on or off (the bonk rock stays).
+            for (phase, left) in [
+                (RushPhase::Recover, p.crlq09_recover_ticks),
+                (RushPhase::Recover, 1),
+                (RushPhase::Bonk, p.crlq10_bonk_ticks),
+                (RushPhase::Bonk, 1),
+            ] {
+                let llama = llama_in(dir, phase, 0, 0, left);
+                assert_eq!(
+                    rush_stand_in_art(&llama, FOOT, true),
+                    rush_stand_in_art(&llama, FOOT, false),
+                    "{phase:?} {left}"
+                );
+            }
+        }
+    }
+
+    /// Art off keeps `rush_stand_in` exactly as it was (the missing-atlas fallback).
+    #[test]
+    fn with_the_art_off_the_stand_in_is_the_old_stand_in() {
+        for dir in [-1i8, 1] {
+            for (phase, tick, active, left) in [
+                (RushPhase::Tell, 9, 0, 0),
+                (RushPhase::Committed, 0, 7, 0),
+                (RushPhase::Recover, 0, 0, 30),
+                (RushPhase::Bonk, 0, 0, 55),
+            ] {
+                let llama = llama_in(dir, phase, tick, active, left);
+                assert_eq!(
+                    rush_stand_in(&llama, FOOT),
+                    rush_stand_in_art(&llama, FOOT, false)
+                );
+            }
+        }
+    }
+
+    /// LLAMA-03 (A10, replacing CRL-Q38's `a_rush_never_shows_the_throat_glow`): walking a rush through all
+    /// four phases, every drawn frame is a rush-atlas frame or the LLAMA-01 hurt frame (11), never an
+    /// `attack_tell` or `attack_swing` frame (7 to 10) of LLAMA-01.
     #[test]
     fn a_rush_never_shows_the_throat_glow() {
+        use super::super::llama_rush_pose::{BASE_HURT_FRAME, RushFrame, llama_rush_frame};
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        let source = crate::actor_sprite::FrameSource::GridSource;
+        let base = super::super::SpriteClips::load_llama(root, source).expect("the LLAMA-01 clips");
+        let hurt = base.frame_in("hurt", 0);
+        assert_eq!(
+            hurt, BASE_HURT_FRAME,
+            "the bonk's Base frame is the LLAMA-01 hurt frame"
+        );
+        let p = llama_rush::active();
+        let glow_frames: Vec<usize> = ["attack_tell", "attack_swing"]
+            .into_iter()
+            .flat_map(|tag| {
+                let (first, count) = base.tag(tag);
+                first..first + count
+            })
+            .collect();
+        assert_eq!(glow_frames, vec![7, 8, 9, 10]);
+        let mut seen = std::collections::BTreeSet::new();
+        for dir in [-1i8, 1] {
+            let mut walk = |llama: Llama| {
+                let frame = llama_rush_frame(&llama).expect("a rush is drawn");
+                match frame {
+                    RushFrame::Rush(i) => assert!(i < 10, "{frame:?}"),
+                    RushFrame::Base(i) => {
+                        assert_eq!(i, hurt, "only the hurt frame comes from LLAMA-01");
+                        assert!(!glow_frames.contains(&i));
+                    }
+                }
+                seen.insert(frame);
+            };
+            for tick in 0..p.crlq06_tell_ticks {
+                walk(llama_in(dir, RushPhase::Tell, tick, 0, 0));
+            }
+            for n in 1..=p.crlq07_active_ticks {
+                walk(llama_in(dir, RushPhase::Committed, 0, n, 0));
+            }
+            for left in (1..=p.crlq09_recover_ticks).rev() {
+                walk(llama_in(dir, RushPhase::Recover, 0, 0, left));
+            }
+            for left in (1..=p.crlq10_bonk_ticks).rev() {
+                walk(llama_in(dir, RushPhase::Bonk, 0, 0, left));
+            }
+        }
+        // The whole atlas is reachable and the bonk's hurt frame is drawn.
+        for i in 0..10 {
+            assert!(
+                seen.contains(&RushFrame::Rush(i)),
+                "rush frame {i} is never drawn"
+            );
+        }
+        assert!(seen.contains(&RushFrame::Base(BASE_HURT_FRAME)));
+    }
+
+    /// The missing-atlas fallback keeps CRL-Q38's rule: `llama_pose` holds the LLAMA-01 idle frames through
+    /// the whole rush, never the throat glow or the spit swing.
+    #[test]
+    fn the_fallback_body_never_shows_the_throat_glow() {
         let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
         let clips = super::super::SpriteClips::load_llama(
             root,

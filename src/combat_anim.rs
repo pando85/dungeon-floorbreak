@@ -85,6 +85,9 @@ pub const GOBLIN_SLAMMED_MANIFESTS: [&str; 2] =
     ["goblin_a_slammed_h36.json", "goblin_b_slammed_h36.json"];
 /// The Bad Llama atlas (LLAMA-01, 96 x 72 frames, pivot (44, 71)).
 pub const LLAMA_MANIFEST: &str = "llama-01.json";
+/// LLAMA-03: the Bad Llama rush atlas (10 frames, same 96 x 72 frame and pivot as
+/// LLAMA-01; `rush_brace`, `rush_run` and `rush_recover`).
+pub const LLAMA_RUSH_MANIFEST: &str = "llama_rush_h64.json";
 /// ENEMY-GAMEPLAY-ENGINEER: the Goblin Engineer atlas (ENG-01, 64 x 56 frames,
 /// pivot (28, 55), 18 frames).
 pub const ENGINEER_MANIFEST: &str = "eng_01.json";
@@ -359,6 +362,7 @@ impl SpriteClips {
             Kind::CarlMelee => carl_ticks(&manifest, &tags, frame_count).map_err(err)?,
             Kind::Goblin => goblin_ticks(&manifest, frame_count).map_err(err)?,
             Kind::Llama => llama_ticks(&manifest, frame_count).map_err(err)?,
+            Kind::LlamaRush => llama_rush_ticks(&manifest, frame_count).map_err(err)?,
             Kind::Cf02Carl => cf02_carl_ticks(&manifest, frame_count).map_err(err)?,
             Kind::Cf02Donut => cf02_donut_ticks(&manifest, frame_count).map_err(err)?,
             Kind::Cf02Goblin => cf02_goblin_ticks(&manifest, frame_count).map_err(err)?,
@@ -438,6 +442,19 @@ impl SpriteClips {
             LLAMA_SHADOW_FOOTPRINT,
             source,
             Kind::Llama,
+        )
+    }
+
+    /// LLAMA-03: the Bad Llama rush atlas. Its frames are chosen by the rush state
+    /// ([`llama_rush_pose`]), so every frame is a hold.
+    pub fn load_llama_rush(root: &Path, source: FrameSource) -> Result<Self, String> {
+        Self::load(
+            root,
+            "LLAMA_RUSH",
+            LLAMA_RUSH_MANIFEST,
+            LLAMA_SHADOW_FOOTPRINT,
+            source,
+            Kind::LlamaRush,
         )
     }
 
@@ -674,6 +691,8 @@ enum Kind {
     CarlMelee,
     Goblin,
     Llama,
+    /// LLAMA-03: the rush atlas (`rush_poses`).
+    LlamaRush,
     /// CF02-I: the ART-CARL-CF02 sheet (`cf02_acting.frames`).
     Cf02Carl,
     /// CF02-I: the ART-DONUT-CF02 sheet (`cf02.moves`).
@@ -685,6 +704,24 @@ enum Kind {
     /// CARL-PROG-01 CP-B2: the ANIM-CARL-03 dynamite sheet
     /// (`dynamite.moves.dynamite_throw.frames`, then the moving frames).
     CarlDynamite,
+}
+
+/// LLAMA-03: the rush atlas has [`llama_rush_pose::RUSH_FRAMES`] frames, each held by the rush state (no ticks of
+/// its own); the manifest carries the `rush_poses` tick map.
+fn llama_rush_ticks(
+    manifest: &serde_json::Value,
+    frame_count: usize,
+) -> Result<(Vec<Option<u32>>, Vec<String>), String> {
+    if frame_count != llama_rush_pose::RUSH_FRAMES {
+        return Err(format!(
+            "the rush atlas has {} frames, the atlas lists {frame_count}",
+            llama_rush_pose::RUSH_FRAMES
+        ));
+    }
+    if !manifest["rush_poses"].is_object() {
+        return Err("rush_poses missing".into());
+    }
+    Ok((vec![None; frame_count], Vec::new()))
 }
 
 /// Per-frame ticks of the ENG-01 atlas: the idle loop is 38 ticks (frames 0 to 2:
@@ -2110,6 +2147,8 @@ pub fn carl_above_goblin(carl_active: bool, goblin_swinging: bool) -> bool {
 
 pub mod cf02;
 pub mod dynamite;
+/// LLAMA-03: which rush-atlas frame a rushing llama draws.
+pub mod llama_rush_pose;
 /// CORRAL-E (CRL-Q38): the code-drawn rush stand-in.
 pub mod rush_stand_in;
 
