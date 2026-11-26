@@ -113,18 +113,37 @@ class Arc:
         self.fallen = ()
         # gate C4: boxes (x0, y0, x1, y1, drop) where the stone drops further, behind an actor's head line
         self.local_dark = ()
+        # spec section 8 / RNG-AD22: piece-local centres of the torch pools the piece overlaps. Stone within
+        # TORCH_R[0] px of a centre rises two steps, within TORCH_R[1] px one step (dithered edge), capped at
+        # stone 5 and never lowered, so the legs pick up the pool the brick around them shows.
+        self.torch_lit = ()
+        # piece-local x spans (inclusive) kept free of lichen: no green within 16 px of a goblin's x (gate K4)
+        self.lichen_clear = ()
         self.__dict__.update(kw)
 
 
+# Torch pool cores (layout px): the composer's pool decal top-left plus (122, 128), the centre of the pool's
+# warm core (all four pool variants put it within 6 px of this offset).
+POOL_CORE = (122, 128)
+TORCH_R = (48.0, 100.0)
+
+
+def pools_local(place: tuple, pools: tuple) -> tuple:
+    """Piece-local pool centres of the pool decals ``pools`` (top-left, layout px) for a piece at ``place``."""
+    return tuple((px + POOL_CORE[0] - place[0], py + POOL_CORE[1] - place[1]) for px, py in pools)
+
+
+ARC_A_AT, ARC_B_AT, ARC_LM_AT = (1012, 400), (324, 400), (1680, 356)
 ARC_W, ARC_H = 408, 164
-ARC_A = Arc(w=ARC_W, h=ARC_H, cx=204.0, cy=212.0)
+# 4a: the bay torch at 976 (pool 872/364) and the free torch moved to 1432 (pool 1328/348, RNG-AD20)
+ARC_A = Arc(w=ARC_W, h=ARC_H, cx=204.0, cy=212.0, torch_lit=pools_local(ARC_A_AT, ((872, 364), (1328, 348))))
 # ring_arc_wall_b: the same geometry with its own break (left), seeds, cracks and one chain stub
 ARC_B = Arc(w=ARC_W, h=ARC_H, cx=204.0, cy=212.0, seed="b",
             brk={"outer": (-51.0, -31.0), "notch": (-48.0, -33.5), "inner": (-46.5, -35.0)},
             chains=((20.0, 4, -1),),
             cracks=((52.0, 204.0, 12, -0.8), (14.0, 188.0, 10, 0.6), (-24.0, 158.0, 9, -0.7),
                     (38.0, 174.0, 8, 0.5), (-62.0, 198.0, 11, 0.9), (68.0, 160.0, 7, -0.5)),
-            lichen_rows=30)
+            lichen_rows=30, torch_lit=pools_local(ARC_B_AT, ((168, 364),)))
 # ring_relief_landmark: the one full ring, 208 x 208. The outer circumference is entirely inside rows
 # 0..203 (spec gate C2a: the deck back row hides y >= 560 and the soffit hides y < 352 of a piece placed at
 # y 356), so r_out is 102. Same band order, pitches and bevels as the key, interior transparent (C2b).
@@ -136,7 +155,13 @@ ARC_LM = Arc(w=208, h=208, cx=LM_CX, cy=LM_CY, seed="lm", keystone=False,
              chains=(), cracks=((-58.0, 100.0, 9, 0.9), (-12.0, 90.0, 7, -0.6), (22.0, 76.0, 6, 0.7),
                                 (-120.0, 92.0, 8, 0.5), (130.0, 98.0, 8, -0.8), (170.0, 74.0, 6, 0.4)),
             chip_range=(-1790, 1790), lichen_rows=26, lift=(-0.9, 0.2), crown_deg=0.0,
-             local_dark=((146, 150, 190, 200, 3),))
+             # gate C4 (behind the goblin at x 1824, piece-local x about 144): recomputed by execution per band
+             # after the move to 1680 (RNG-AD20); empty until then
+             local_dark=(),
+             # 4a: the bay-1680 torch moved to 1648 (pool 1544/364) and the bay torch at 1936 (pool 1832/364)
+             torch_lit=pools_local(ARC_LM_AT, ((1544, 364), (1832, 364))),
+             # the goblin at x 1824 stands at piece-local x 144 since the move to 1680 (RNG-AD20)
+             lichen_clear=((127, 161),))
 
 
 def R(g: Arc, *key) -> float:
@@ -297,6 +322,8 @@ def _arc_weather(c: Pix, g: Arc) -> None:
     for y in range(c.h - g.lichen_rows, c.h):
         for x in range(c.w):
             here = c.get(x, y)
+            if any(x0 <= x <= x1 for x0, x1 in g.lichen_clear):
+                continue
             if here and here[0] == "stone" and R(g, "li", x // 2, y // 2) > 0.95 and R(g, "li2", x, y) > 0.35:
                 c.put(x, y, "lichen", 1 if R(g, "li3", x, y) > 0.5 else 0)
 
@@ -347,6 +374,24 @@ def _arc_value_shift(c: Pix, g: Arc) -> None:
             if a_deg < g.crown_deg and (r >= g.outer[0] or g.notch[0] <= r < g.notch[1]):
                 drop += g.crown_extra
             c.px[y][x] = ("stone", min(g.cap, max(1, p[1] - drop)))
+    _torch_bake(c, g)
+
+
+def _torch_bake(c: Pix, g: Arc) -> None:
+    """Spec section 8 / RNG-AD22: the torch pools light the ring stone they overlap (+2 near, +1 far, a 12 px
+    dithered edge on each radius), capped at stone 5 and never lowered."""
+    if not g.torch_lit:
+        return
+    for y in range(c.h):
+        for x in range(c.w):
+            p = c.px[y][x]
+            if p is None or p[0] != "stone":
+                continue
+            d = min(math.hypot(x + 0.5 - tx, y + 0.5 - ty) for tx, ty in g.torch_lit)
+            n = R(g, "torch", x, y)
+            add = sum(1 for rad in TORCH_R if d < rad - 12 or (d < rad and n < (rad - d) / 12))
+            if add and p[1] < 5:
+                c.px[y][x] = ("stone", min(5, p[1] + add))
 
 
 def ring_arc(g: Arc) -> Pix:
@@ -362,8 +407,8 @@ def ring_arc_wall_b() -> Pix:
 
 
 # =============================================================================================
-# ring_shutter_closed (spec section 6). 32 x 68, prop. A dressed stone slab on iron straps with an
-# iron-shod toothed lower edge; the moving frames are row crops of this key keyed off Shutter::edge_px.
+# ring_shutter_closed (spec section 6). 32 x 68, prop. A dressed stone slab in running bond with one iron
+# band and an iron-shod toothed lower edge; the moving frames are row crops of this key keyed off Shutter::edge_px.
 # =============================================================================================
 SH_W, SH_H = 32, 68
 SH_COURSES = (0, 17, 34, 51)     # four 17 px courses: one course per 17 px of travel, slices stay 4 px
@@ -395,22 +440,24 @@ def ring_shutter_closed() -> Pix:
     for y in range(3):
         for x in range(SH_W):
             c.put(x, y, "mortar", y)
-    # two iron straps with rivets (K2: dark iron, rivet highlights capped at 1 px of iron 5)
-    for sx in (6, 23):
-        for y in range(3, SH_H - 8):
-            c.put(sx, y, "iron", 3)
-            c.put(sx + 1, y, "iron", 2)
-            c.put(sx + 2, y, "iron", 1)
-        for ry in (5, 22, 39, 56):
-            c.put(sx + 1, ry, "iron", 5)
-            c.put(sx + 1, ry + 1, "iron", 1)
+    # RNG-AD23 (review finding 6): no vertical straps, they framed the slab like a barred door leaf. Each
+    # course is cut into dressed blocks in running bond (a dark joint, the block to its right lit on its left
+    # arris), so the face reads as masonry: a slab, not a leaf.
+    for course, top in enumerate(SH_COURSES):
+        joints = (15,) if course % 2 == 0 else (7, 23)
+        for jx in joints:
+            for y in range(max(top + 1, 3), min(top + 17, SH_H - 8)):
+                c.put(jx, y, "mortar", 1)
+                p = c.px[y][jx + 1]
+                if p is not None and p[0] == "stone":
+                    c.put(jx + 1, y, "stone", p[1] + 1)
     for y in range(3, SH_H - 8):                                        # K2: stone 2..3 body, stone 4 at most
         for x in range(SH_W):
             p = c.px[y][x]
             if p is not None and p[0] == "stone" and p[1] > 4:
                 c.px[y][x] = ("stone", 4)
-    # K3: no carved mark on the slab. Course 2 is plain dressed stone with one horizontal iron band across the
-    # full width (horizontal = slab, vertical-only = door) and a rivet every 6 px.
+    # K3: no carved mark on the slab. Course 2 carries one horizontal iron band across the full width
+    # (horizontal = slab, vertical-only = door) with a rivet every 6 px; it hides that course's block joint.
     for x in range(1, SH_W - 1):
         c.put(x, 24, "iron", 3)
         c.put(x, 25, "iron", 2)
@@ -674,68 +721,58 @@ def silhouette_seated(c: Pix, x: int, y_base: int, h: int = 14) -> None:
 
 
 # --------------------------------------------------------------------------------- keystone and shield
+KS_W, KS_H = 24, 30
+KS_BITE = 6                     # the bottom rows that lie on the door arch's apex stone (RNG-AD21)
+
+
 def ring_keystone_crowned() -> Pix:
-    """48 x 40. The entry landmark: a tall keystone with a crown of three blunt points (the right one snapped
-    off, a fracture face), flanked by two short side voussoirs. No emblem."""
-    c = Pix(48, 40)
-    edge = lambda y: 14 + ((y - 10) * 3) // 29                          # noqa: E731  slanted keystone sides
-    for y in range(16, 40):                                             # side voussoirs, running bond
-        for side in (0, 1):
-            for x in range(0, edge(y) - 1):
-                xx = x if side == 0 else 47 - x
-                if y < 16 + (11 - x) // 4:
-                    continue
-                course = 0 if y < 28 else 1
-                joint_x = (6, 3)[course] if side == 0 else (41, 44)[course]
-                v = 2.8 + (rnd("ks", side, course, x // 7) - 0.5) * 0.7
-                if y == 28 or xx == joint_x:
-                    c.put(xx, y, "mortar", 2)
-                    continue
-                if y == 16 + (11 - x) // 4:
-                    v += 0.9
-                c.gput(xx, y, "stone", clamp(v, 1.0, 5.0), "ks")
-    for y in range(10, 40):                                             # the keystone body
-        for x in range(edge(y), 48 - edge(y)):
-            v = 3.6 + (rnd("kk", y // 6) - 0.5) * 0.5
-            if x == edge(y):
-                v += 1.0
-            if x == 47 - edge(y):
-                v -= 1.0
-            if y == 24:
-                c.put(x, y, "mortar", 2)
+    """24 x 30, prop (RNG-AD21). The entry landmark: an oversized keystone that *is* the apex stone of the
+    entry door's arch. Its bottom ``KS_BITE`` rows (10 px wide) cover the door's apex voussoir, the tapered body
+    rises 15 px above the arch on the bricked-up bay, and a crown of three blunt points tops it (the right one
+    snapped off, a pale fracture face). No side voussoirs and no flat top, so it never reads as a ledge. No
+    emblem."""
+    c = Pix(KS_W, KS_H)
+    left = lambda y: 4 + ((y - 9) * 3) // 20                            # noqa: E731  16 px at row 9, 10 at 29
+    right = lambda y: 19 - ((y - 9) * 3) // 20                          # noqa: E731
+    for y in range(9, KS_H):                                            # the tapered body
+        for x in range(left(y), right(y) + 1):
+            if x in (left(y), right(y)):
+                c.put(x, y, "mortar", 1)                                # dark outline against the brick
                 continue
+            v = 4.1 + (rnd("kk", y // 5) - 0.5) * 0.4                   # the value of the door's arch stones
+            if x == left(y) + 1:
+                v += 1.0                                                # lit left arris
+            elif x == right(y) - 1:
+                v -= 0.9
             c.gput(x, y, "stone", clamp(v, 1.0, 5.0), "kk")
-        c.put(edge(y) - 1, y, "mortar", 1)                              # dark outline against the side blocks
-        c.put(47 - edge(y), y, "mortar", 1)
-    # the crown: three blunt points (triangular, overlapping at the base). The right point is snapped off
-    for tx, top in ((17.5, 3), (24.0, 0), (30.5, 4)):
-        for y in range(top, 10):
-            hw = 1.0 + (y - top) * 0.55
+    for x in range(left(KS_H - 1), right(KS_H - 1) + 1):               # the bed joint on the door's arch
+        c.put(x, KS_H - 1, "mortar", 1)
+    # the crown: three blunt points overlapping at the base (row 8), clipped to the body's top width
+    for tx, top in ((7.5, 2), (11.5, 0), (15.5, 3)):
+        for y in range(top, 9):
+            hw = 1.0 + (y - top) * 0.5
             for x in range(int(round(tx - hw)), int(round(tx + hw)) + 1):
-                if not (14 - 1 <= x <= 34):
+                if not (left(9) <= x <= right(9)):
                     continue
-                v = 3.9
-                if x <= int(round(tx - hw)) + 1 or y == top:
-                    v += 1.1                                              # lit left slope and tip
-                if x >= int(round(tx + hw)) - 1:
+                v = 4.1
+                if x <= int(round(tx - hw)) or y == top:
+                    v += 1.1                                            # lit left slope and tip
+                elif x >= int(round(tx + hw)):
                     v -= 1.0
                 c.gput(x, y, "stone", clamp(v, 1.0, 5.0), "kc")
+    for x, y in ((9, 6), (9, 7), (13, 6), (13, 7), (13, 8)):           # the valleys between the points
+        if c.px[y][x] is not None:
+            c.put(x, y, "mortar", 2)
     # the right point is snapped: the fracture runs from its inner top down to the outer side
-    for x in range(27, 35):
-        line = 6.0 + (x - 27) * 0.55
-        for y in range(2, 10):
+    for x in range(14, 21):
+        line = 4.0 + (x - 14) * 0.6
+        for y in range(0, 9):
             if c.px[y][x] is None:
                 continue
             if y < line:
                 c.px[y][x] = None
             elif y < line + 1.2:
-                c.put(x, y, "stone", 5)                                  # the fresh, pale fracture edge
-            elif y < line + 2.2:
-                c.put(x, y, "mortar", 3)
-    for y in range(8, 10):                                              # the crown's base course
-        for x in range(13, 35):
-            if c.px[y][x] is not None:
-                c.put(x, y, "mortar", 2) if y == 9 and x % 3 == 0 else None
+                c.put(x, y, "stone", 5)                                 # the fresh, pale fracture edge
     return c
 
 
@@ -1486,7 +1523,8 @@ BASE_CATACOMB = ROOT / "assets/source/terrain/floor01/floor01_catacomb_kit.json"
 
 # piece id -> (role, layer)
 WALL_PIECES = ("ring_arc_wall_a", "ring_arc_wall_b", "ring_relief_landmark", "ring_arc_upper_a", "ring_arc_upper_b",
-               "ring_keystone_crowned", "ring_shield_notched", "ring_breach_r3")
+               "ring_shield_notched", "ring_breach_r3")
+# ring_keystone_crowned is a prop (RNG-AD21): it is drawn after door_timber, over the door's apex stone
 STRUCTURE_PIECES = ("ring_soffit", "ring_ledge_mid", "ring_ledge_end_l", "ring_ledge_end_r", "ring_shutter_jamb_l",
                     "ring_shutter_jamb_r")
 ROLES = {pid: ("backwall", "backwall_decal") for pid in WALL_PIECES}
@@ -1524,24 +1562,55 @@ def upper_places(room: str) -> list[tuple]:
     return [("backwall_decal", "ring_arc_upper_" + "ab"[n % 2], 256 * n, 292) for n in range(ROOM_W[room] // 256)]
 
 
+# RNG-AD20: the court's ground bay at x 1680 is suppressed (both piers, the arch ring, threshold and chain: a lone
+# pier would carry half an arch springing into nothing) and its opening bricked up, so the full ring sits on brick. The
+# bay's left torch moves 48 px left of the ring (1696 -> 1648) and the free torch out of the great arc's right
+# leg (1344 -> 1432); both keep their animation phase, so the emitter count is unchanged.
+# RNG-AD21: the court's entry bay opening (x 80..288) is bricked up behind the door; the keystone is the door's
+# apex stone. 4b keeps its bay and has no keystone.
+def _at(layer, piece, x, y, frame_offset=None):
+    d = {"layer": layer, "piece": piece, "x": x, "y": y}
+    if frame_offset is not None:
+        d["frame_offset"] = frame_offset
+    return d
+
+
+COURT_REMOVE_AT = [
+    _at("structure", "pier_l", 1680, 304), _at("structure", "arch_ring_a", 1696, 304),
+    _at("structure", "pier_r", 1904, 304), _at("structure", "arch_threshold", 1744, 544),
+    _at("structure", "arch_chain", 1760, 384),
+    _at("structure", "arch_threshold", 112, 544),           # RNG-AD21: the blind entry arch has no open sill
+    _at("prop", "torch_wall", 1696, 448), _at("backwall_decal", "torch_pool_b", 1592, 364),
+    _at("prop", "torch_wall", 1344, 432), _at("backwall_decal", "torch_pool_b_m", 1240, 348),
+]
+COURT_TORCHES = [
+    _at("backwall_decal", "torch_pool_b", 1544, 364), _at("prop", "torch_wall", 1648, 448, 3),
+    _at("backwall_decal", "torch_pool_b_m", 1328, 348), _at("prop", "torch_wall", 1432, 432, 1),
+]
+# the two bricked-up ground openings (the composer's OPENING mask lies inside cols c0+2..c0+14, rows 22..35)
+COURT_FILL = [{"x": 80, "y": 352, "w": 208, "h": 208}, {"x": 1712, "y": 352, "w": 208, "h": 208}]
+KEYSTONE_AT = (228, 466)                 # bottom rows on door_timber's apex stone (layout x 235..244, y 490..495)
+
+
 def dressing() -> dict:
     court = (
-        [("backwall_decal", "ring_keystone_crowned", 216, 440), ("backwall_decal", "ring_arc_wall_a", 1012, 400),
-         ("backwall_decal", "ring_relief_landmark", 1656, 356), ("backwall_decal", "ring_shield_notched", 1256, 524)]
+        [("backwall_decal", "ring_arc_wall_a", *ARC_A_AT),
+         ("backwall_decal", "ring_relief_landmark", *ARC_LM_AT), ("backwall_decal", "ring_shield_notched", 1256, 524)]
         + upper_places("ring_court") + soffit_places("ring_court") + ledge_places("ring_court")
         + [("structure", "ring_shutter_jamb_l", 1192, 512), ("structure", "ring_shutter_jamb_r", 1232, 512),
            ("prop", "ring_shutter_housing", 1192, 512),
-           ("prop", "ring_fallen_voussoir_a", 1328, FB - 16), ("prop", "ring_fallen_voussoir_b", 1358, FB - 14)])
+           ("prop", "ring_fallen_voussoir_a", 1328, FB - 16), ("prop", "ring_fallen_voussoir_b", 1358, FB - 14),
+           ("prop", "ring_keystone_crowned", *KEYSTONE_AT)])
     split = (
-        [("backwall_decal", "ring_keystone_crowned", 216, 440), ("backwall_decal", "ring_arc_wall_b", 324, 400),
-         ("backwall_decal", "ring_breach_r3", 896, 380)]
+        [("backwall_decal", "ring_arc_wall_b", *ARC_B_AT), ("backwall_decal", "ring_breach_r3", 896, 380)]
         + upper_places("ring_split") + soffit_places("ring_split") + ledge_places("ring_split")
         + [("prop", "ring_camp_a", 744, 488), ("prop", "ring_crates_b", 992, FB - 28),
            ("prop", "ring_marker_a", 1048, 504)])
     return {
-        "ring_court": {"remove": [], "place": [{"layer": l, "piece": p, "x": x, "y": y} for l, p, x, y in court],
+        "ring_court": {"remove": [], "remove_at": COURT_REMOVE_AT, "backwall_fill": COURT_FILL,
+                       "place": COURT_TORCHES + [_at(*t) for t in court],
                        "parallax": {"parallax_far": "ring_tiers_far", "parallax_mid": "ring_tiers_mid"}},
-        "ring_split": {"remove": [], "place": [{"layer": l, "piece": p, "x": x, "y": y} for l, p, x, y in split],
+        "ring_split": {"remove": [], "place": [_at(*t) for t in split],
                        "parallax": {"parallax_far": "ring_camp_far", "parallax_mid": "ring_tiers_mid"}},
     }
 
@@ -1603,7 +1672,9 @@ def contract(rects_by_atlas: dict) -> dict:
             "R1_rings": "rooms 4a ring_court and 4b ring_split only: arcs, the full ring and the breach are "
                         "backwall_decal over the brick, props stand on the floor back line (y 560), the soffit tiles "
                         "lie exactly over the ceiling slab (y 336..352), ledge fronts lie on the platform rects, "
-                        "the shutter pieces are drawn by the presenter, never placed.",
+                        "the shutter pieces are drawn by the presenter, never placed. remove_at drops exact "
+                        "composer instances (each matches one piece) and backwall_fill bricks up a rect with the "
+                        "composer's own brick tile ids (RNG-AD20, RNG-AD21); neither touches the collision layer.",
         },
     }
 

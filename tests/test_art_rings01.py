@@ -16,7 +16,7 @@ PROPS = ROOT / "assets/source/props/floor01"
 CONTRACT = ROOT / "assets/source/terrain/floor01/floor01_rings_kit.json"
 SIZES = {  # spec section 5 (crates_b is 56 x 28 after gate C5)
     "ring_arc_wall_a": (408, 164), "ring_arc_wall_b": (408, 164), "ring_relief_landmark": (208, 208),
-    "ring_arc_upper_a": (256, 44), "ring_arc_upper_b": (256, 44), "ring_keystone_crowned": (48, 40),
+    "ring_arc_upper_a": (256, 44), "ring_arc_upper_b": (256, 44), "ring_keystone_crowned": (24, 30),
     "ring_shield_notched": (32, 40), "ring_breach_r3": (176, 112), "ring_soffit": (32, 16),
     "ring_ledge_mid": (32, 16), "ring_ledge_end_l": (8, 16), "ring_ledge_end_r": (8, 16),
     "ring_shutter_jamb_l": (8, 68), "ring_shutter_jamb_r": (8, 68), "ring_shutter_housing": (48, 6),
@@ -27,10 +27,11 @@ SIZES = {  # spec section 5 (crates_b is 56 x 28 after gate C5)
     "ring_crates_b": (56, 28), "ring_marker_a": (24, 56), "ring_tiers_far": (440, 232),
     "ring_tiers_mid": (344, 232), "ring_camp_far": (440, 232),
 }
-# The keys after the gate edits K1..K4: frozen from here on (sha256 of the piece's pixel grid).
+# The keys after the gate edits K1..K4 and the review-fix round (RNG-AD22 torch bake on the arc, RNG-AD23
+# running-bond shutter): frozen from here on (sha256 of the piece's pixel grid).
 KEY_SHA = {
-    "ring_arc_wall_a": "a9c99dc39eee459f0d91be0e59c66053f16c70349a0f783d0b6ee6a952e7a23d",
-    "ring_shutter_closed": "2683ac9a8488d9ef566e5fef7b63a961ac3245580cd3477133db4e5d9987e9f1",
+    "ring_arc_wall_a": "4ba8c24d0f41a3100c59e30d47814c9b95ed8a8c64c6af9d690fc794d12d93e3",
+    "ring_shutter_closed": "b68e9b33fcea6aabaa08cea5e25b76863bbc6727251741c2b1020c64a54fba02",
     "ring_camp_a": "52fa622a013f313262af1699cb082a5b56bf44de1043fae32017e49a541acce4",
 }
 ROOM_W = {"ring_court": 2048, "ring_split": 1152}
@@ -135,11 +136,17 @@ class RingsKitTest(unittest.TestCase):
     def test_dressing_places_known_pieces_in_their_layers_inside_the_room(self):
         kit = load(CONTRACT)
         layer = {p["id"]: p["layer"] for p in kit["pieces"]}
+        base = {p["id"]: p["layer"] for p in load(rings.BASE_CATACOMB)["pieces"]}
         for room, d in kit["room_dressing"].items():
             self.assertEqual(d["remove"], [])
             soffit = sorted(p["x"] for p in d["place"] if p["piece"] == "ring_soffit")
             self.assertEqual(soffit, list(range(0, ROOM_W[room], 32)), room)
             for p in d["place"]:
+                if not p["piece"].startswith("ring_"):
+                    # only the moved composer torches and their pools (RNG-AD20), in the composer's own layers
+                    self.assertIn(p["piece"], ("torch_wall", "torch_pool_b", "torch_pool_b_m"), (room, p))
+                    self.assertEqual(base[p["piece"]], p["layer"], p)
+                    continue
                 self.assertEqual(layer[p["piece"]], p["layer"], p)
                 w, h = SIZES[p["piece"]]
                 self.assertTrue(0 <= p["x"] and p["x"] + w <= ROOM_W[room], (room, p))
@@ -155,15 +162,23 @@ class RingsKitTest(unittest.TestCase):
             self.assertEqual(set(d["parallax"]), {"parallax_far", "parallax_mid"})
         court = {(p["piece"], p["x"], p["y"]) for p in kit["room_dressing"]["ring_court"]["place"]}
         split = {(p["piece"], p["x"], p["y"]) for p in kit["room_dressing"]["ring_split"]["place"]}
-        for want in (("ring_arc_wall_a", 1012, 400), ("ring_relief_landmark", 1656, 356),
-                     ("ring_shield_notched", 1256, 524), ("ring_keystone_crowned", 216, 440),
+        for want in (("ring_arc_wall_a", 1012, 400), ("ring_relief_landmark", 1680, 356),
+                     ("ring_shield_notched", 1256, 524), ("ring_keystone_crowned", 228, 466),
                      ("ring_shutter_jamb_l", 1192, 512), ("ring_shutter_jamb_r", 1232, 512),
                      ("ring_shutter_housing", 1192, 512), ("ring_fallen_voussoir_a", 1328, 544),
                      ("ring_fallen_voussoir_b", 1358, 546)):
             self.assertIn(want, court)
         for want in (("ring_arc_wall_b", 324, 400), ("ring_breach_r3", 896, 380), ("ring_camp_a", 744, 488),
-                     ("ring_crates_b", 992, 532), ("ring_marker_a", 1048, 504), ("ring_keystone_crowned", 216, 440)):
+                     ("ring_crates_b", 992, 532), ("ring_marker_a", 1048, 504)):
             self.assertIn(want, split)
+        # RNG-AD21: one keystone, a prop on 4a's door apex; 4b has none
+        self.assertEqual(layer["ring_keystone_crowned"], "prop")
+        self.assertNotIn("ring_keystone_crowned", {p for p, _, _ in split})
+        # RNG-AD20/AD21: the bay at 1680 is suppressed and both 4a openings are bricked up
+        court_d = kit["room_dressing"]["ring_court"]
+        self.assertIn({"layer": "structure", "piece": "pier_l", "x": 1680, "y": 304}, court_d["remove_at"])
+        self.assertEqual(court_d["backwall_fill"], [{"x": 80, "y": 352, "w": 208, "h": 208},
+                                                    {"x": 1712, "y": 352, "w": 208, "h": 208}])
         # ledge fronts: 32 px tiles and two 8 px caps per platform rect
         for room, plats in rings.PLATFORMS.items():
             places = kit["room_dressing"][room]["place"]
@@ -202,6 +217,8 @@ class RingsKitTest(unittest.TestCase):
             if pid == "ring_breach_r3":
                 continue                                    # the far camp seen through the hole (gate C1 lists the arcs, ring, keystone, shield)
             self.assertLessEqual(longest_run(pieces[pid], lambda p: p[0] == "stone" and p[1] >= 6), 12, pid)
+        # the keystone is a prop since RNG-AD21 but stays in gate C1's list
+        self.assertLessEqual(longest_run(pieces["ring_keystone_crowned"], lambda p: p[0] == "stone" and p[1] >= 6), 12)
         # the ledge fronts: a continuous full-width lit top arris of stone 7, a 4 px mortar 0..1 underside
         mid = pieces["ring_ledge_mid"]
         self.assertTrue(all(mid.px[0][x] == ("stone", 7) for x in range(32)))
@@ -270,6 +287,8 @@ class RingsKitTest(unittest.TestCase):
         goblins = {"ring_court": (1424, 1824), "ring_split": (560, 848)}
         for room, d in kit["room_dressing"].items():
             for p in d["place"]:
+                if p["piece"] not in pieces:
+                    continue                                # the moved composer torches carry no lichen
                 img = pieces[p["piece"]]
                 for y in range(img.h):
                     for x in range(img.w):

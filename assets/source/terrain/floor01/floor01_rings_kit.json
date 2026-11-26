@@ -120,11 +120,11 @@
    "rect": [
     208,
     328,
-    48,
-    40
+    24,
+    30
    ],
-   "role": "backwall",
-   "layer": "backwall_decal",
+   "role": "prop",
+   "layer": "prop",
    "collidable": false,
    "anchor": [
     0,
@@ -134,14 +134,13 @@
    "grid_snap": 1,
    "grammar": [
     "A"
-   ],
-   "decal": true
+   ]
   },
   {
    "id": "ring_shield_notched",
    "atlas": "floor01_ring_wall",
    "rect": [
-    256,
+    232,
     328,
     32,
     40
@@ -1007,12 +1006,108 @@
  "room_dressing": {
   "ring_court": {
    "remove": [],
+   "remove_at": [
+    {
+     "layer": "structure",
+     "piece": "pier_l",
+     "x": 1680,
+     "y": 304
+    },
+    {
+     "layer": "structure",
+     "piece": "arch_ring_a",
+     "x": 1696,
+     "y": 304
+    },
+    {
+     "layer": "structure",
+     "piece": "pier_r",
+     "x": 1904,
+     "y": 304
+    },
+    {
+     "layer": "structure",
+     "piece": "arch_threshold",
+     "x": 1744,
+     "y": 544
+    },
+    {
+     "layer": "structure",
+     "piece": "arch_chain",
+     "x": 1760,
+     "y": 384
+    },
+    {
+     "layer": "structure",
+     "piece": "arch_threshold",
+     "x": 112,
+     "y": 544
+    },
+    {
+     "layer": "prop",
+     "piece": "torch_wall",
+     "x": 1696,
+     "y": 448
+    },
+    {
+     "layer": "backwall_decal",
+     "piece": "torch_pool_b",
+     "x": 1592,
+     "y": 364
+    },
+    {
+     "layer": "prop",
+     "piece": "torch_wall",
+     "x": 1344,
+     "y": 432
+    },
+    {
+     "layer": "backwall_decal",
+     "piece": "torch_pool_b_m",
+     "x": 1240,
+     "y": 348
+    }
+   ],
+   "backwall_fill": [
+    {
+     "x": 80,
+     "y": 352,
+     "w": 208,
+     "h": 208
+    },
+    {
+     "x": 1712,
+     "y": 352,
+     "w": 208,
+     "h": 208
+    }
+   ],
    "place": [
     {
      "layer": "backwall_decal",
-     "piece": "ring_keystone_crowned",
-     "x": 216,
-     "y": 440
+     "piece": "torch_pool_b",
+     "x": 1544,
+     "y": 364
+    },
+    {
+     "layer": "prop",
+     "piece": "torch_wall",
+     "x": 1648,
+     "y": 448,
+     "frame_offset": 3
+    },
+    {
+     "layer": "backwall_decal",
+     "piece": "torch_pool_b_m",
+     "x": 1328,
+     "y": 348
+    },
+    {
+     "layer": "prop",
+     "piece": "torch_wall",
+     "x": 1432,
+     "y": 432,
+     "frame_offset": 1
     },
     {
      "layer": "backwall_decal",
@@ -1023,7 +1118,7 @@
     {
      "layer": "backwall_decal",
      "piece": "ring_relief_landmark",
-     "x": 1656,
+     "x": 1680,
      "y": 356
     },
     {
@@ -1595,6 +1690,12 @@
      "piece": "ring_fallen_voussoir_b",
      "x": 1358,
      "y": 546
+    },
+    {
+     "layer": "prop",
+     "piece": "ring_keystone_crowned",
+     "x": 228,
+     "y": 466
     }
    ],
    "parallax": {
@@ -1605,12 +1706,6 @@
   "ring_split": {
    "remove": [],
    "place": [
-    {
-     "layer": "backwall_decal",
-     "piece": "ring_keystone_crowned",
-     "x": 216,
-     "y": 440
-    },
     {
      "layer": "backwall_decal",
      "piece": "ring_arc_wall_b",
@@ -2003,6 +2098,6 @@
   }
  },
  "usage_rules": {
-  "R1_rings": "rooms 4a ring_court and 4b ring_split only: arcs, the full ring and the breach are backwall_decal over the brick, props stand on the floor back line (y 560), the soffit tiles lie exactly over the ceiling slab (y 336..352), ledge fronts lie on the platform rects, the shutter pieces are drawn by the presenter, never placed."
+  "R1_rings": "rooms 4a ring_court and 4b ring_split only: arcs, the full ring and the breach are backwall_decal over the brick, props stand on the floor back line (y 560), the soffit tiles lie exactly over the ceiling slab (y 336..352), ledge fronts lie on the platform rects, the shutter pieces are drawn by the presenter, never placed. remove_at drops exact composer instances (each matches one piece) and backwall_fill bricks up a rect with the composer's own brick tile ids (RNG-AD20, RNG-AD21); neither touches the collision layer."
  }
 }

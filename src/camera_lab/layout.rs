@@ -75,6 +75,40 @@ fn letter(a: i32, b: i32, c: i32, n: u32) -> char {
     (b'a' + (hash(a, b, c) % n) as u8) as char
 }
 
+/// The composer's brick tile id of backwall cell (`col`, `row`) in a room whose
+/// deck front row is `fr` (bands by row, letters by the run hash), or `None`
+/// outside the brick rows 2..fr-1. Room dressings that brick up an opening use
+/// it so the fill is the same wall the composer lays.
+pub(crate) fn backwall_brick_id(col: i32, row: i32, fr: i32) -> Option<String> {
+    if !(2..fr - 1).contains(&row) || col < 1 {
+        return None;
+    }
+    let extra = (fr - 19).max(0);
+    let upper_rows = 4 + (extra * 6 + 5) / 10;
+    let upper_end = 4 + upper_rows; // exclusive
+    let (band, hi) = if row < 4 {
+        ("brick_top", 4)
+    } else if row < upper_end {
+        ("brick_upper", 4)
+    } else if row < fr - 6 {
+        ("brick_mid", 4)
+    } else if row < fr - 4 {
+        ("brick_lower", 4)
+    } else if row < fr - 2 {
+        ("brick_low", 4)
+    } else {
+        ("base_course", 2)
+    };
+    let run = (col + 3) / 4;
+    let k = ((col + 3) % 4) + 1;
+    let l = if band == "base_course" {
+        letter(run, row, 1, hi)
+    } else {
+        letter(run, row, 2, hi)
+    };
+    Some(format!("{band}_{l}_{k}"))
+}
+
 /// Rows and columns of a layout.
 struct Grid {
     cols: usize,
@@ -229,32 +263,11 @@ pub fn compose(room: &Room, base_layout: &Value) -> (Value, Plan) {
 
     // ------------------------------------------------------------- backwall
     let mut backwall = Grid::new(cols, rows);
-    let extra = (fr - 19).max(0);
-    let upper_rows = 4 + (extra * 6 + 5) / 10;
-    let upper_end = 4 + upper_rows; // exclusive
     for row in 2..(fr - 1) {
-        let (band, hi) = if row < 4 {
-            ("brick_top", 4)
-        } else if row < upper_end {
-            ("brick_upper", 4)
-        } else if row < fr - 6 {
-            ("brick_mid", 4)
-        } else if row < fr - 4 {
-            ("brick_lower", 4)
-        } else if row < fr - 2 {
-            ("brick_low", 4)
-        } else {
-            ("base_course", 2)
-        };
         for col in 1..(cols as i32 - 1) {
-            let run = (col + 3) / 4;
-            let k = ((col + 3) % 4) + 1;
-            let l = if band == "base_course" {
-                letter(run, row, 1, hi)
-            } else {
-                letter(run, row, 2, hi)
-            };
-            backwall.set(col, row, format!("{band}_{l}_{k}"));
+            if let Some(id) = backwall_brick_id(col, row, fr) {
+                backwall.set(col, row, id);
+            }
         }
     }
     // Ground arch openings show the parallax gallery.

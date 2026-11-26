@@ -5,8 +5,10 @@
 //! ([`crate::f01_boiler::compose_kit_hooked`]); this module then applies the
 //! room's `room_dressing` block of the rings contract
 //! (`floor01_rings_kit.json`, which extends the opening kit and through it
-//! ENV-01): it removes listed pieces, appends the placements per layer and swaps
-//! the two parallax strips. Pieces never produce solids (only collidable tiles
+//! ENV-01): it removes listed pieces (by id, or one exact instance by
+//! `remove_at`), bricks up listed backwall rects with the composer's own brick
+//! tiles (`backwall_fill`), appends the placements per layer and swaps the two
+//! parallax strips. Pieces never produce solids (only collidable tiles
 //! of the collision layer do), so the dressing is **presentation only**: the
 //! tests below prove the solids, spawn, exit, views, walking line, blink
 //! barriers and the ceiling slab are identical with and without it, and the
@@ -32,12 +34,33 @@ pub struct Placement {
     pub piece: String,
     pub x: i32,
     pub y: i32,
+    /// Animation phase of an animated piece (a moved torch keeps its phase).
+    #[serde(default)]
+    pub frame_offset: Option<usize>,
+}
+
+/// A backwall rect (layout px, multiples of the 16 px tile) whose empty cells
+/// the dressing fills with the composer's brick (RNG-AD20/AD21: a bricked-up
+/// arch opening).
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
+pub struct FillRect {
+    pub x: i32,
+    pub y: i32,
+    pub w: i32,
+    pub h: i32,
 }
 
 /// One room's `room_dressing` block.
 #[derive(Debug, Clone, Deserialize)]
 pub struct Dressing {
     pub remove: Vec<String>,
+    /// Exact composer instances to drop (layer, piece, x, y); each must match
+    /// exactly one piece.
+    #[serde(default)]
+    pub remove_at: Vec<Placement>,
+    /// Backwall rects to brick up.
+    #[serde(default)]
+    pub backwall_fill: Vec<FillRect>,
     pub place: Vec<Placement>,
     /// Parallax layer name to the piece that replaces its strip.
     pub parallax: BTreeMap<String, String>,
@@ -59,9 +82,11 @@ pub fn dressing(root: &Path, room_id: &str) -> Result<Dressing, EnvError> {
 }
 
 /// Apply `dressing` to a composed `env-kit-layout-v2` value: drop the removed
-/// pieces from every piece layer, append the placements in order, then swap the
-/// parallax strips.
-pub fn dress(layout: &mut Value, dressing: &Dressing) {
+/// pieces from every piece layer and the `remove_at` instances from theirs,
+/// brick up the `backwall_fill` rects, append the placements in order, then swap
+/// the parallax strips. Returns the number of `remove_at` entries that matched
+/// no piece (zero for a valid dressing).
+pub fn dress(layout: &mut Value, dressing: &Dressing) -> usize {
     if let Some(layers) = layout["piece_layers"].as_object_mut() {
         for list in layers.values_mut() {
             if let Some(list) = list.as_array_mut() {
@@ -73,19 +98,62 @@ pub fn dress(layout: &mut Value, dressing: &Dressing) {
             }
         }
     }
+    let mut missed = 0;
+    for r in &dressing.remove_at {
+        let hit = layout["piece_layers"][r.layer.as_str()]
+            .as_array_mut()
+            .and_then(|list| {
+                let at = list.iter().position(|p| {
+                    p["piece"].as_str() == Some(r.piece.as_str())
+                        && p["x"].as_i64() == Some(r.x.into())
+                        && p["y"].as_i64() == Some(r.y.into())
+                })?;
+                Some(list.remove(at))
+            });
+        if hit.is_none() {
+            missed += 1;
+        }
+    }
+    if !dressing.backwall_fill.is_empty() {
+        let fr = (layout["base_walk_line_y"].as_i64().unwrap_or(0) as i32 - 4) / 16;
+        if let Some(rows) = layout["tile_layers"]["backwall"].as_array_mut() {
+            for f in &dressing.backwall_fill {
+                for row in f.y / 16..(f.y + f.h) / 16 {
+                    let Some(cells) = rows.get_mut(row as usize).and_then(Value::as_array_mut)
+                    else {
+                        continue;
+                    };
+                    for col in f.x / 16..(f.x + f.w) / 16 {
+                        if let Some(cell) = cells.get_mut(col as usize)
+                            && cell.is_null()
+                            && let Some(id) =
+                                crate::camera_lab::layout::backwall_brick_id(col, row, fr)
+                        {
+                            *cell = json!(id);
+                        }
+                    }
+                }
+            }
+        }
+    }
     for p in &dressing.place {
         let list = &mut layout["piece_layers"][p.layer.as_str()];
         if !list.is_array() {
             *list = json!([]);
         }
         if let Some(list) = list.as_array_mut() {
-            list.push(json!({"piece": p.piece, "x": p.x, "y": p.y}));
+            let mut v = json!({"piece": p.piece, "x": p.x, "y": p.y});
+            if let Some(f) = p.frame_offset {
+                v["frame_offset"] = json!(f);
+            }
+            list.push(v);
         }
     }
     for (layer, piece) in &dressing.parallax {
         layout["parallax_layers"][layer.as_str()]["piece"] = json!(piece);
     }
     layout["kit_contract"] = json!(RINGS_CONTRACT);
+    missed
 }
 
 /// The env kit of a Ring room: the room's composition (CF02 steps cleared,
@@ -95,8 +163,10 @@ pub fn compose_ring_kit(root: &Path, room: &Room, room_id: &str) -> Result<EnvKi
     let contract = load_contract(root, RINGS_CONTRACT).map_err(|e| e.to_string())?;
     let dressing = dressing(root, room_id).map_err(|e| e.to_string())?;
     crate::f01_boiler::compose_kit_hooked(root, room, &[], Some(contract), |layout| {
-        dress(layout, &dressing);
-        Ok(())
+        match dress(layout, &dressing) {
+            0 => Ok(()),
+            n => Err(format!("{room_id}: {n} remove_at entries match no piece")),
+        }
     })
 }
 
@@ -147,7 +217,18 @@ mod tests {
             assert_eq!(dressed.blink_barriers, plain.blink_barriers, "{room:?}");
             assert_eq!((dressed.width, dressed.height), (plain.width, plain.height));
             assert_eq!(dressed.collidable_cells, plain.collidable_cells, "{room:?}");
-            assert_eq!(dressed.tiles.len(), plain.tiles.len(), "{room:?}");
+            // Only the backwall fill adds tiles (brick, never collidable).
+            let d = dressing(root(), room.id()).unwrap();
+            let filled: usize = d
+                .backwall_fill
+                .iter()
+                .map(|f| ((f.w / 16) * (f.h / 16)) as usize)
+                .sum();
+            assert!(dressed.tiles.len() >= plain.tiles.len(), "{room:?}");
+            assert!(
+                dressed.tiles.len() <= plain.tiles.len() + filled,
+                "{room:?}"
+            );
             assert_eq!(dressed.actor_z, plain.actor_z, "{room:?}");
             assert_eq!(dressed.deck_top_px, plain.deck_top_px, "{room:?}");
             // The dressing did happen.
@@ -232,6 +313,72 @@ mod tests {
                 );
             }
         }
+    }
+
+    /// RNG-AD20/AD21: every `remove_at` entry names exactly one composer piece,
+    /// and the bricked-up rects leave no empty backwall cell: the full ring and
+    /// the 4a entry door have brick behind them, no gallery.
+    #[test]
+    fn removals_match_one_piece_and_the_fills_leave_no_hole() {
+        for room in RingRoom::ALL {
+            let d = dressing(root(), room.id()).unwrap();
+            let mut plain = None;
+            crate::f01_boiler::compose_kit_hooked(root(), &room_of(room), &[], None, |layout| {
+                plain = Some(layout.clone());
+                Ok(())
+            })
+            .unwrap();
+            let plain = plain.unwrap();
+            for r in &d.remove_at {
+                let n = plain["piece_layers"][r.layer.as_str()]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .filter(|p| {
+                        p["piece"].as_str() == Some(r.piece.as_str())
+                            && p["x"].as_i64() == Some(r.x.into())
+                            && p["y"].as_i64() == Some(r.y.into())
+                    })
+                    .count();
+                assert_eq!(n, 1, "{room:?}: remove_at {r:?}");
+            }
+            let (_, dressed) = kits(room);
+            for f in &d.backwall_fill {
+                assert_eq!((f.x % 16, f.y % 16, f.w % 16, f.h % 16), (0, 0, 0, 0));
+                for row in f.y / 16..(f.y + f.h) / 16 {
+                    for col in f.x / 16..(f.x + f.w) / 16 {
+                        assert!(
+                            dressed
+                                .tiles
+                                .iter()
+                                .any(|t| t.layer == "backwall" && t.col == col && t.row == row),
+                            "{room:?}: backwall hole at ({col}, {row}) inside {f:?}"
+                        );
+                    }
+                }
+            }
+        }
+        // The full ring's interior and the 4a entry door lie inside a fill.
+        let court = dressing(root(), RingRoom::Court.id()).unwrap();
+        let inside = |x: i32, y: i32, w: i32, h: i32| {
+            court
+                .backwall_fill
+                .iter()
+                .any(|f| x >= f.x && y >= f.y && x + w <= f.x + f.w && y + h <= f.y + f.h)
+        };
+        let ring = court
+            .place
+            .iter()
+            .find(|p| p.piece == "ring_relief_landmark")
+            .unwrap();
+        assert!(
+            inside(ring.x + 32, ring.y + 32, 144, 144),
+            "the ring's inside is brick"
+        );
+        assert!(
+            inside(208, 496, 64, 64),
+            "the entry door has brick behind it"
+        );
     }
 
     /// RNG-AD4 / KR9: the soffit tiles cover the room's full width at y 336..352,
@@ -320,7 +467,7 @@ mod tests {
                     Some(contract),
                     |layout| {
                         if dressed {
-                            dress(layout, &d);
+                            assert_eq!(dress(layout, &d), 0);
                         }
                         layout["kit_contract"] = json!(RINGS_CONTRACT);
                         out = Some(layout.clone());
@@ -342,18 +489,35 @@ mod tests {
         }
     }
 
-    /// No new light emitter: the dressed and the undressed room gather the same
-    /// lights (the rings parallax strips carry the opening kit's torch offsets).
+    /// No new light emitter. The torches keep their count (RNG-AD20 moves two,
+    /// it adds or drops none), the parallax strips light every camera stop like
+    /// the opening kit's (the rings strips carry its torch offsets), and the only
+    /// room emitters that go are the gallery lights of the suppressed bay's arch
+    /// ring: that opening is bricked up.
     #[test]
     fn the_light_emitter_count_is_unchanged() {
-        use crate::lighting::{MAX_LIGHTS, ViewRect};
+        use crate::lighting::ViewRect;
+        let contract = load_contract(root(), RINGS_CONTRACT).unwrap();
         for room in RingRoom::ALL {
             let (plain, dressed) = kits(room);
+            let d = dressing(root(), room.id()).unwrap();
+            let removed_lights: usize = d
+                .remove_at
+                .iter()
+                .filter(|r| r.piece != "torch_wall")
+                .filter_map(|r| contract.pieces.iter().find(|c| c.id == r.piece))
+                .map(|c| c.lights.len())
+                .sum();
             let count = |kit: &EnvKit| {
                 let scene = kit.lighting.as_ref().expect("the room is lit");
+                let room_emitters = scene.emitters.iter().filter(|e| e.strip.is_none());
+                let torches = room_emitters
+                    .clone()
+                    .filter(|e| e.id.starts_with("torch_wall/"))
+                    .count();
+                let others = room_emitters.count() - torches;
                 let view = kit.views["abc_640x360"];
-                let mut total = 0;
-                // Sweep the camera across the room so every strip and torch is counted.
+                let mut strips = Vec::new();
                 let mut x = 0;
                 while x + view.w <= kit.width {
                     let (g, dropped) = scene.gather(
@@ -366,13 +530,17 @@ mod tests {
                         },
                         0,
                     );
-                    assert!(g.lights.len() <= MAX_LIGHTS);
-                    total += g.lights.len() * 1000 + dropped;
+                    assert_eq!(dropped, 0);
+                    strips.push((g.far_end, g.mid_end));
                     x += 128;
                 }
-                total
+                (torches, others, strips)
             };
-            assert_eq!(count(&dressed), count(&plain), "{room:?}");
+            let (pt, po, ps) = count(&plain);
+            let (dt, d_o, ds) = count(&dressed);
+            assert_eq!(dt, pt, "{room:?}: torch emitters");
+            assert_eq!(d_o + removed_lights, po, "{room:?}: other room emitters");
+            assert_eq!(ds, ps, "{room:?}: parallax emitters per camera stop");
             // And the parallax strips were swapped to the ring pieces.
             let strips: Vec<&str> = dressed.strips.iter().map(|s| s.piece.as_str()).collect();
             assert!(
