@@ -41,6 +41,19 @@ pub struct TrogSim {
     /// The uncontrolled hero parked in the protected spawn each tick (`None`: free).
     pub parked: Option<HeroId>,
     pub solo_donut: bool,
+    /// What the scene looked like at each `Tell` (the view and the target), in log order.
+    pub tell_log: Vec<TellFact>,
+}
+
+/// One `Tell` as the scene saw it: the enemy's idle hurtbox x range, the camera view the slot
+/// step read, and the target hero's pivot x (TROG-F07's in-view and protected-spawn rules).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct TellFact {
+    pub tick: u64,
+    pub enemy: usize,
+    pub body: (f32, f32),
+    pub view: (f32, f32),
+    pub target_x: f32,
 }
 
 impl TrogSim {
@@ -82,6 +95,7 @@ impl TrogSim {
             party: state,
             parked,
             solo_donut: false,
+            tell_log: Vec::new(),
         })
     }
 
@@ -93,7 +107,9 @@ impl TrogSim {
         let drive = self.party.drive(true);
         self.scene.set_drive(drive);
         let restarts = self.combat.restarts;
+        let seen = self.combat.events.len() as u64 + self.combat.dropped_events as u64;
         self.combat.step_party(&mut self.scene, hero);
+        self.log_tells(seen);
         let respawned = self.combat.take_respawned();
         if self.combat.restarts != restarts || respawned {
             self.party.restart();
@@ -102,6 +118,44 @@ impl TrogSim {
             let body = self.scene.world.body_mut(id);
             body.x = PARK_X;
             body.vx = 0.0;
+        }
+    }
+
+    /// Record the `Tell`s logged since the event counter `seen`.
+    fn log_tells(&mut self, seen: u64) {
+        let from = seen.saturating_sub(self.combat.dropped_events as u64) as usize;
+        let tells: Vec<(u64, usize, HeroId)> = self.combat.events
+            [from.min(self.combat.events.len())..]
+            .iter()
+            .filter_map(|e| match *e {
+                CombatEvent::Trog {
+                    tick,
+                    enemy,
+                    act: TrogAct::Tell { target },
+                } => Some((
+                    tick,
+                    (enemy - crate::combat_scene::trog::TROG_ID_BASE) as usize,
+                    target,
+                )),
+                _ => None,
+            })
+            .collect();
+        for (tick, enemy, target) in tells {
+            let t = crate::trog::TrogTuning::active();
+            let trog = self.trog(enemy);
+            let b = &t.species(trog.species).hurt_idle;
+            let (x0, x1) = if trog.facing >= 0 {
+                (trog.x + f32::from(b.x0), trog.x + f32::from(b.x1))
+            } else {
+                (trog.x - f32::from(b.x1), trog.x - f32::from(b.x0))
+            };
+            self.tell_log.push(TellFact {
+                tick,
+                enemy,
+                body: (x0, x1),
+                view: self.scene.view_x(),
+                target_x: self.x_of(target),
+            });
         }
     }
 
@@ -504,6 +558,7 @@ pub struct Report {
     pub hero_defeats: usize,
     pub hurts: Vec<(u64, HeroId)>,
     pub acts: Vec<(u64, usize, TrogAct)>,
+    pub tells: Vec<TellFact>,
 }
 
 impl Report {
@@ -517,6 +572,7 @@ impl Report {
             hero_defeats: sim.hero_defeats(),
             hurts: sim.hurts(),
             acts: sim.acts(),
+            tells: sim.tell_log.clone(),
         }
     }
 

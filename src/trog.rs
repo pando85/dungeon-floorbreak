@@ -800,14 +800,31 @@ impl Trog {
         let left = sp.strike_start.saturating_sub(self.attack_tick);
         let rect = match self.species {
             Species::Pygmy => {
-                // The box at the landing (the last strike tick's pivot is its own).
-                let landing = self.commit.landing_x;
-                rect_of(
-                    &sp.hitbox,
-                    landing,
-                    self.facing,
-                    self.foot_y + f32::from(sp.apex_px),
-                )
+                // The x-union of every strike-tick box along the committed arc, from the
+                // take-off to the landing (the report covers the whole sweep, not only the
+                // landing box), at the apex's height.
+                let n = sp.air_ticks();
+                let (start, landing) = (self.commit.start_x, self.commit.landing_x);
+                let lift = self.foot_y + f32::from(sp.apex_px);
+                let mut union: Option<Rect> = None;
+                for a in sp.strike_start..=sp.strike_end {
+                    let k = a - sp.tell_ticks;
+                    let px = start + (landing - start) * f32::from(k) / f32::from(n);
+                    let r = rect_of(&sp.hitbox, px, self.facing, lift);
+                    union = Some(match union {
+                        None => r,
+                        Some(u) => {
+                            let (left, right) = (u.left.min(r.left), u.right().max(r.right()));
+                            Rect {
+                                left,
+                                bottom: u.bottom,
+                                width: right - left,
+                                height: u.height,
+                            }
+                        }
+                    });
+                }
+                union?
             }
             Species::Basher => self.commit.rect?,
             Species::Virtuoso => clip_band(
@@ -973,7 +990,7 @@ impl Trog {
 
     /// Whether `h` can be struck at all: its hurtbox can meet the attack band in y (TROG-AD17)
     /// and lies inside the leash's reach in x (TROG-AD31).
-    fn is_candidate(&self, t: &TrogTuning, h: &HeroView) -> bool {
+    pub fn is_candidate(&self, t: &TrogTuning, h: &HeroView) -> bool {
         let sp = t.species(self.species);
         let (lo, hi) = (
             self.foot_y + f32::from(sp.hitbox.y0),

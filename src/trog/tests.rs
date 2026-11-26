@@ -979,3 +979,54 @@ fn trog_virtuoso_raised_donut() {
         }
     )));
 }
+
+/// TROG-AD27: the target is kept until another hero is `trogq05_target_switch_px` (24) nearer,
+/// and switches at once when the kept hero leaves the candidate pool.
+#[test]
+fn the_target_hysteresis_holds_at_23_and_switches_at_24() {
+    // Carl is the only hero outside the protected spawn: it follows him (distance 80).
+    let mut s = Sim::awake(Species::Basher, 700.0, 620.0, 80.0);
+    s.step();
+    assert_eq!(s.trog.target(), Some(HeroId::Carl));
+    // Donut steps out 23 px nearer than Carl: the target stays.
+    s.heroes[1] = donut(643.0);
+    s.step();
+    assert_eq!(
+        s.trog.target(),
+        Some(HeroId::Carl),
+        "23 px nearer is not enough"
+    );
+    // 24 px nearer: it switches.
+    s.heroes[1] = donut(644.0);
+    s.step();
+    assert_eq!(
+        s.trog.target(),
+        Some(HeroId::Donut),
+        "24 px nearer takes the target"
+    );
+    // The kept hero leaving the candidate pool switches at once, margin or not.
+    let mut gone = Sim::awake(Species::Basher, 700.0, 620.0, 80.0);
+    gone.step();
+    gone.heroes[1] = donut(643.0);
+    gone.heroes[0] = away();
+    gone.step();
+    assert_eq!(gone.trog.target(), Some(HeroId::Donut));
+}
+
+/// The companion's threat row reports the whole sweep of the Pygmy's strike boxes, not only the
+/// landing box.
+#[test]
+fn the_pygmy_threat_covers_the_whole_committed_arc() {
+    let mut s = Sim::awake(Species::Pygmy, 640.0, 560.0, 80.0);
+    s.run_until(5, |g| g.state == State::Tell);
+    let (rect, left) = s.trog.threat(t(), &[]).expect("a threat while it tells");
+    assert_eq!(left, t().pygmy.strike_start - s.trog.attack_tick());
+    let landing = s.trog.landing_x();
+    // Facing left: the landing box is landing - 32..landing - 14; the early boxes lie right of it.
+    assert!(rect.left <= landing - 32.0 + 8.0, "{rect:?}");
+    assert!(rect.right() > landing - 14.0 + 40.0, "{rect:?}");
+    assert!(
+        rect.width > 18.0 * 3.0,
+        "wider than three landing boxes: {rect:?}"
+    );
+}

@@ -84,3 +84,75 @@ fn a_roster_kind_other_than_a_troglodyte_is_refused_not_dropped() {
     let error = trogs_only(&roster).expect_err("a slime is refused");
     assert!(error.contains("troglodytes only"), "{error}");
 }
+
+/// The T3 platform against the real room file (TROG-AD35): its slab bottom clears the
+/// Virtuoso's band top, the tongue from the leash start runs under it, and a Carl standing on it
+/// is not a Virtuoso candidate.
+#[test]
+fn the_t3_platform_stands_over_the_tongue_in_the_real_room() {
+    use crate::trog::{Spawn, Species, Trog, TrogTuning};
+    let run = launch(&root(), TrogRoom::Run).unwrap();
+    let room = &run.loaded.room;
+    let platform = room.platforms[0].rect;
+    let slab = run.loaded.encounter.platform_slab_px;
+    let t = TrogTuning::active();
+    let sp = t.species(Species::Virtuoso);
+    // The platform is 64 above the floor and its slab bottom 52 above it.
+    assert_eq!(room.floor_y - platform.y, 64);
+    let slab_bottom = room.floor_y - (platform.y + slab);
+    assert_eq!(slab_bottom, 52);
+    assert!(
+        slab_bottom >= i32::from(sp.hitbox.y1),
+        "the band (top 46) passes under the slab"
+    );
+    // The tongue from the leash start (2016) facing left spans 1939..1960, under 1920..1984.
+    let vir = run
+        .loaded
+        .encounter
+        .roster
+        .iter()
+        .find(|e| e.kind.trog() == Some(Species::Virtuoso))
+        .unwrap();
+    let leash_min = vir.x - i32::from(sp.leash_px);
+    assert_eq!(leash_min, 2016);
+    let (a, b) = (
+        leash_min - i32::from(sp.hitbox.x1),
+        leash_min - i32::from(sp.hitbox.x0),
+    );
+    assert_eq!((a, b), (1939, 1960));
+    assert!(a >= platform.x && b <= platform.right());
+    // A Carl on the platform (x 1952, feet 64 up) is not a candidate; on the floor he is.
+    let floor = SceneSim::new_at(&run.kit, 360, run.fixture.carl_x)
+        .unwrap()
+        .world
+        .hero_foot_y();
+    let trog = Trog::new(
+        t,
+        &Spawn {
+            species: Species::Virtuoso,
+            index: 2,
+            x: vir.x as f32,
+            floor_y: floor,
+            trigger_x: vir.trigger_x.map(|x| x as f32),
+            delay_ticks: 0,
+            protected: (16.0, 224.0),
+        },
+    );
+    let carl_at = |x: f32, foot: f32| crate::boss::HeroView {
+        id: crate::party::HeroId::Carl,
+        present: true,
+        x,
+        foot_y: foot,
+        grounded: true,
+        hurt: crate::prototype::Rect {
+            left: x - 12.0,
+            bottom: foot,
+            width: 24.0,
+            height: 52.0,
+        },
+        vulnerable: true,
+        bot: false,
+    };
+    assert!(!trog.is_candidate(t, &carl_at(1952.0, floor + 64.0)));
+    assert!(trog.is_candidate(t, &carl_at(1952.0, floor)));
+}

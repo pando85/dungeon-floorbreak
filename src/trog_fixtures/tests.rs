@@ -81,23 +81,25 @@ fn assert_run_rules(r: &Report, sim: &TrogSim, name: &str) {
     assert!(r.exit_tick.is_some(), "{name}: the exit is reached");
     assert_eq!(r.hero_defeats, 0, "{name}: no hero defeat");
     assert_eq!(sim.living().len(), 0, "{name}: all three defeated");
-    // Every proximity Wake and every Tell starts with the enemy fully in view, and no tell
-    // starts against a target in the protected spawn: the domain proves the gates, the scene
-    // run proves the log (a hit wake is allowed anywhere and carries its cause).
-    for (_, e, act) in &r.acts {
-        if let TrogAct::Tell { target } = act {
-            assert!(*e < 3, "{name}: {target:?}");
-        }
-    }
+    // Every Tell starts with the enemy's whole body inside the view the slot step read, and
+    // never against a target standing in the protected spawn (the scene run proves the log; a
+    // hit wake is allowed anywhere and carries its cause).
     let protected = sim.run.loaded.encounter.protected_spawn;
-    for (tick, e, act) in &r.acts {
-        if matches!(act, TrogAct::Tell { .. }) {
-            // No enemy of the room can see the spawn: its spawn column is far from it.
-            assert!(
-                sim.trog(*e).spawn_x() > protected.right() as f32 + 64.0,
-                "{name} {tick}"
-            );
-        }
+    let (p0, p1) = (protected.x as f32, protected.right() as f32);
+    assert_eq!(
+        r.tells.len(),
+        r.count(|a| matches!(a, TrogAct::Tell { .. }))
+    );
+    assert!(!r.tells.is_empty(), "{name}: the run has tells");
+    for t in &r.tells {
+        assert!(
+            t.body.0 >= t.view.0 && t.body.1 <= t.view.1,
+            "{name}: tell {t:?} starts with the body outside the view"
+        );
+        assert!(
+            !(p0..=p1).contains(&t.target_x),
+            "{name}: tell {t:?} names a target in the protected spawn"
+        );
     }
 }
 
