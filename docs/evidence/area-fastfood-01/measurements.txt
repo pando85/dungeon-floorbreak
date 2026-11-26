@@ -1,0 +1,26 @@
+G7 door_closed (view left 960, top 292): panel interior x 1441..1454 y 368..527 mean luma 47.8; wall field x 1408..1435 same rows mean luma 72.3; difference 24.5 (unlit-estimate target 25: not met; accepted by the independent review as FF-AD31, ratio 0.66 under the scene ambient, no key change)
+G7 rail outline (stone_cold 0, x 1436) darker than both neighbours on 160 of 160 rows (unbroken)
+R10.1 play_area: deck stand line (y 513) best 8 px run luma 157 at x 464; brightest unmasked rival run within 64 px luma 113 at (416, 561); stand line is brighter by 44 (OK)
+R10.1 play_area: slide top stand line (y 497) best 8 px run luma 157 at x 560; brightest unmasked rival run within 64 px luma 113 at (559, 561); stand line is brighter by 44 (OK)
+R10.1 window: slide top stand line (y 497) best 8 px run luma 157 at x 620; brightest unmasked rival run within 64 px luma 113 at (687, 561); stand line is brighter by 44 (OK)
+R10.1 box_full: shelf stand line (y 449) best 8 px run luma 173 at x 1383; brightest unmasked rival run within 64 px luma 95 at (1368, 407); stand line is brighter by 77 (OK)
+R10.1 door_closed: shelf stand line (y 449) best 8 px run luma 173 at x 1383; brightest unmasked rival run within 64 px luma 96 at (1368, 407); stand line is brighter by 77 (OK)
+R10.1 door_open: shelf stand line (y 449) best 8 px run luma 172 at x 1383; brightest unmasked rival run within 64 px luma 95 at (1368, 407); stand line is brighter by 77 (OK)
+R10.1 door_rising_376: shelf stand line (y 449) best 8 px run luma 172 at x 1383; brightest unmasked rival run within 64 px luma 95 at (1368, 407); stand line is brighter by 77 (OK)
+BOX box_full (ff_reward_box_full_b): mean luma of the box's opaque pixels 84.9; the 4 px ring around its rect on the checker floor 52.1; difference 32.7 (under 12 -> GLINT_TICKS 24 to 16)
+BOX door_closed (ff_reward_box_empty): mean luma of the box's opaque pixels 53.2; the 4 px ring around its rect on the checker floor 53.8; difference -0.7 (under 12 -> GLINT_TICKS 24 to 16)
+LIGHTS worst 640 px view (model, step 8 px): dressed 28 (at left 224), plain greybox 31; MAX_LIGHTS 64; the Rust test fastfood_kit::tests::the_refuge_lights_stay_inside_the_light_budget proves the kit's own count and the net minus 8 plus 6
+ATLAS floor01_ff_door canvas [336, 228] colours 17 (max 63)
+ATLAS floor01_ff_pickup canvas [96, 40] colours 16 (max 63)
+ATLAS floor01_ff_wall canvas [256, 156] colours 23 (max 63)
+ATLAS floor01_ff_structure canvas [320, 436] colours 20 (max 63)
+ATLAS floor01_ff_props canvas [256, 76] colours 26 (max 63)
+ATLAS floor01_ff_rock canvas [168, 192] colours 11 (max 63)
+KEY ff_staff_door_closed 9a90146011e4544d0ba177411497d86b8816109a5e53f5b979ba9681c20d532a
+KEY ff_staff_door_open 284f7d9d167a68df234217ac63d0bdbcc7647e05e6aceafdf701080e2c08a5d6
+KEY ff_reward_box_full_a 034c4fea7072651c6db8fc5079ad928ddc7af4d0d75a25e71f4120cf8b912dec
+KEY ff_reward_box_full_b c43b3f781963820397bb2383fcc92181aa5af1dfafcdc84076233d9001a701f1
+KEY ff_reward_box_empty 023f61643c72f6f29108bc2bf03e1029eef213c0603a8235cb1742d0db783f2b
+KEY ff_pass_ledge 15e47b581d9ac25cf03907ada7959fb60c1a1a5baefa36444f5e78d73bae165f
+KEY ff_wainscot_a 540d9f490a96e34b4a60d39045fb34046d56831ded9f831a57a6ce11bbcb9dfe
+KEY ff_floor_checker_a fdb2dae81412e821ed0a01c84be53405cada140703a5e007002d66a2c9434147

@@ -156,6 +156,9 @@ mod corral_art;
 // DR-A and DOZ-02: room 3's machine (the DOZ-01 rig and its damage states) and its room pieces.
 #[path = "floor01_scene/dozer_art.rs"]
 mod dozer_art;
+// AREA-FASTFOOD-01: the refuge's staff door, Light on Your Feet box, sparkle and bell (presenter frames).
+#[path = "floor01_scene/fastfood_art.rs"]
+mod fastfood_art;
 
 /// Draw order above the actor plane. Carl is drawn above every goblin, except
 /// that a goblin in its smear or impact is drawn over him (its club lands on
@@ -4845,7 +4848,7 @@ fn run_window(
                 gym_art::sync_gym_art,
                 corral_art::sync_corral_art,
                 corral_art::sync_partition_art,
-                sync_rest_door,
+                fastfood_art::sync_fastfood_art,
                 sync_act1_door,
             )
                 .chain(),
@@ -5529,10 +5532,39 @@ fn setup(
         );
     }
 
-    // REST-WIRE: the refuge's flat labelled greybox decor and its staff door (no art yet:
-    // AREA-FASTFOOD-01 is a separate work order). Presentation only.
+    // REST-WIRE: the camp's and the aftermath's flat labelled greybox decor (their art is a later
+    // work order). The refuge is dressed by AREA-FASTFOOD-01: its kit pieces come from the dressing
+    // and its staff door, box, sparkle and bell are the presenter's sprites. Presentation only.
     if let Some(run) = args.rest_run.as_ref() {
-        spawn_rest_greybox(&mut commands, run, kit, height, layers_of("prop"));
+        if run.room == f01_rest::RestRoom::Refuge {
+            if let (Some((_, door)), Some((_, pickup))) = (
+                handles
+                    .iter()
+                    .find(|(n, _)| n == dungeon_floorbreak::fastfood_kit::DOOR_ATLAS),
+                handles
+                    .iter()
+                    .find(|(n, _)| n == dungeon_floorbreak::fastfood_kit::PICKUP_ATLAS),
+            ) {
+                let prop_z = kit
+                    .pieces
+                    .iter()
+                    .filter(|p| p.layer == "prop")
+                    .map(|p| p.z)
+                    .fold(kit.actor_z - 1.0, f32::max)
+                    + 0.001;
+                fastfood_art::spawn(
+                    &mut commands,
+                    door,
+                    pickup,
+                    height,
+                    kit.actor_z - 0.1,
+                    prop_z.min(kit.actor_z - 0.01),
+                    layers_of("prop"),
+                );
+            }
+        } else {
+            spawn_rest_greybox(&mut commands, run, kit, height, layers_of("prop"));
+        }
     }
 
     // ACT1-A: the Act I rooms' flat labelled greybox decor and the guild door (no art yet:
@@ -7933,12 +7965,7 @@ fn sync_dust_visuals(
     }
 }
 
-/// REST-WIRE: the refuge's staff door sprite (a solid greybox rectangle while closed,
-/// hidden once the latched lock opened). Presentation only.
-#[derive(Component)]
-struct RestDoorSprite;
-
-/// The colour of a refuge decor rectangle by its label (flat, no art).
+/// The colour of a quiet-room decor rectangle by its label (flat, no art).
 fn rest_decor_colour(label: &str) -> Color {
     match label {
         "reward_box" => Color::srgb(0.86, 0.68, 0.22),
@@ -7949,9 +7976,9 @@ fn rest_decor_colour(label: &str) -> Color {
     }
 }
 
-/// REST-WIRE: the decor table of a quiet room as flat rectangles behind the actors,
-/// and its staff door in front of the lane while closed. Never a solid, never read by
-/// the simulation.
+/// REST-WIRE: the decor table of the camp and the aftermath as flat rectangles behind the
+/// actors (the refuge is drawn by `fastfood_art`). Never a solid, never read by the
+/// simulation.
 fn spawn_rest_greybox(
     commands: &mut Commands,
     run: &f01_rest::RestRun,
@@ -7979,37 +8006,6 @@ fn spawn_rest_greybox(
             Transform::from_xyz(rect.x as f32, to_world_y(height, rect.y), kit.actor_z - 0.2),
             layers.clone(),
         ));
-    }
-    if let Some(door) = run.door() {
-        commands.spawn((
-            RestDoorSprite,
-            Sprite::from_color(
-                Color::srgb(0.46, 0.30, 0.20),
-                Vec2::new(door.w as f32, door.h as f32),
-            ),
-            Anchor::TOP_LEFT,
-            Transform::from_xyz(door.x as f32, to_world_y(height, door.y), kit.actor_z - 0.1),
-            layers,
-        ));
-    }
-}
-
-/// REST-WIRE: the staff door disappears when its latched lock opens.
-fn sync_rest_door(combat: Res<Combat>, mut doors: Query<&mut Visibility, With<RestDoorSprite>>) {
-    let open = combat
-        .0
-        .as_ref()
-        .and_then(|c| c.env())
-        .and_then(|env| env.surface_doors().first().map(|(_, open)| *open));
-    let Some(open) = open else {
-        return;
-    };
-    for mut visibility in &mut doors {
-        *visibility = if open {
-            Visibility::Hidden
-        } else {
-            Visibility::Inherited
-        };
     }
 }
 

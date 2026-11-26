@@ -1,0 +1,21 @@
+door_closed solid_coverage=3648/3648 (target: all)
+door_open lane_pixels_opaque=0/3552 rows 4..225 (target: 0)
+door_open opaque_panel_rows=[0, 1, 2, 3, 226, 227] (lip rows 0..3, sill rows 226..227)
+door_closed colours=15 max_luma=154
+door_open colours=13 max_luma=114
+ff_reward_box_full_a opaque=515 mean_luma=137 top_row=0 bottom_row_opaque=26
+ff_reward_box_full_b opaque=511 mean_luma=136 top_row=2 bottom_row_opaque=26
+ff_reward_box_empty opaque=600 mean_luma=85 top_row=0 bottom_row_opaque=26
+pass_ledge rows 0..15 opaque: True
+pass_ledge brightest_row=1 (y 449) luma=250
+ff_wainscot_a max_luma=135 colours=7
+ff_floor_checker_a max_luma=201 colours=5
+stand line luma flame5=250; door max=154; wainscot max=135
+KEY ff_staff_door_closed 9a90146011e4544d0ba177411497d86b8816109a5e53f5b979ba9681c20d532a
+KEY ff_staff_door_open 284f7d9d167a68df234217ac63d0bdbcc7647e05e6aceafdf701080e2c08a5d6
+KEY ff_reward_box_full_a 034c4fea7072651c6db8fc5079ad928ddc7af4d0d75a25e71f4120cf8b912dec
+KEY ff_reward_box_full_b c43b3f781963820397bb2383fcc92181aa5af1dfafcdc84076233d9001a701f1
+KEY ff_reward_box_empty 023f61643c72f6f29108bc2bf03e1029eef213c0603a8235cb1742d0db783f2b
+KEY ff_pass_ledge 15e47b581d9ac25cf03907ada7959fb60c1a1a5baefa36444f5e78d73bae165f
+KEY ff_wainscot_a 540d9f490a96e34b4a60d39045fb34046d56831ded9f831a57a6ce11bbcb9dfe
+KEY ff_floor_checker_a fdb2dae81412e821ed0a01c84be53405cada140703a5e007002d66a2c9434147
