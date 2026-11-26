@@ -244,7 +244,7 @@ class Eng02SheetTests(unittest.TestCase):
             for p in layer_pix(f["cels"], "pot"):
                 expected.pop(p, None)
             got = layer_pix(f["cels"], "body")
-            cleaned = {(x, y) for x, y, _o, _n in info["cleaned_orphans"]}
+            cleaned = {(x, y) for x, y, _o, _n in info["cleaned_orphans"]} | set(e2.POT_GAP_FILL.get(i, []))
             diff = {p for p in set(expected) | set(got) if expected.get(p) != got.get(p)}
             self.assertEqual(diff, cleaned, i)                    # only the recorded orphan clean-ups differ
 
@@ -269,7 +269,17 @@ class Eng02SheetTests(unittest.TestCase):
             self.assertLessEqual(max(xs), 35 + 2, i)                           # right end at the eye outline, 2 px overlap at most
             self.assertGreaterEqual(min(xs), 0, i)
         origins = {i: e2.POT_ORIGINS[i] for i in range(3)}
-        self.assertEqual(origins, {0: (6, 33), 1: (6, 36), 2: (28, 41)})      # no origin was moved
+        self.assertEqual(origins, {0: (6, 33), 1: (6, 36), 2: (28, 40)})      # frame 2 moved up 1 px (review fix)
+
+    def test_e2_4_remains_pot_top_row_is_the_head_top_outline_row(self):
+        a_body = layer_pix(self.death_a["frames"][2]["cels"], "body")
+        pot = layer_pix(self.death["frames"][2]["cels"], "pot")
+        x0, x1 = min(x for x, _ in pot), max(x for x, _ in pot)
+        head_top = min(y for (x, y) in a_body if x >= x0 and a_body[(x, y)] != ".")        # the GOB head's top outline row
+        self.assertEqual(min(y for _x, y in pot), head_top)
+        body = layer_pix(self.death["frames"][2]["cels"], "body")
+        # no body pixel pokes above the pot's top row within the pot's columns (the old ear nub)
+        self.assertFalse([p for p in body if x0 <= p[0] <= x1 and p[1] < head_top])
 
     def test_e2_4_prop_layer_only_in_the_decap_frames(self):
         for i, f in enumerate(self.death["frames"]):

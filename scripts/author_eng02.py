@@ -518,7 +518,8 @@ def clean_orphans(layers: dict[str, Pix], inherited: set, limit: int = MAX_ORPHA
 
 
 # --------------------------------------------------------------------------- death poses (spec section 8)
-POT_ORIGINS = {0: (6, 33), 1: (6, 36), 2: (28, 41)}      # flat_pot() origins, crush frames 0 to 2
+POT_GAP_FILL = {2: [(37, 43)]}                           # outline pixel closing the pinhole between the pot's handle and pan (frame 2, V17)
+POT_ORIGINS = {0: (6, 33), 1: (6, 36), 2: (28, 40)}      # flat_pot() origins, crush frames 0 to 2 (frame 2: moved up 1 px, review fix, section 13)
 WRENCH_BEHIND = 2                                        # right edge of the wrench this many px behind the rearmost belt pixel
 WRENCH_SLIDE = 2                                         # it may slide back this many more px to clear the body outline
 
@@ -550,6 +551,8 @@ def death_frame(i: int) -> tuple[dict[str, list[str]], dict]:
         pot = pot_at(i)
         for p in pot:
             body.pop(p, None)
+        for p in POT_GAP_FILL.get(i, []):
+            body[p] = "K"
     hip = rearmost(belt) if belt else None
     if hip is None:                                                    # frame 5: no belt; the rearmost rag pixel
         rag = [p for p, ch in body.items() if ch in "rtu"]
