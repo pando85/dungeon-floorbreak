@@ -34,8 +34,12 @@ Follow `AGENTS.md`, [the orchestration guide](agent-orchestration.md) (speed mod
 **Coordination on current main:**
 
 - **The Juicer is frozen.** Room `juicer`, scene `boss_f01`, `assets/data/bosses/brute_boss_f01.json`, its gate, its goldens and its data pins must not move. A move is a stop condition.
-- **No forks of shared code.** The trog family is one slot kind with three profiles. Do not clone the boss controller, the llama machine or the goblin AI. Do not add trog logic to companion files: the feed is the two default trait methods and an appended `EntityKind::Slot` (plan 5.8).
+- **No forks of shared code.** The trog family is one slot kind with three profiles. Do not clone the boss controller, the llama machine or the goblin AI. Do not add trog logic to companion files. The feed consists of:
+  - the two default trait methods;
+  - an appended `EntityKind::Slot`;
+  - its one data-free `mode_for` arm in `src/companion/autonomy.rs`, a copy of the Goblin arm (plan 5.8).
 - **No silent rewrites** of Playtrace, the render replay, CF02, the camera or `corral_eval`'s corral output (byte-identical, plan 7.2).
+- **`SlotStepCtx` constructors.** The appended `last_tell_start` field must be set in every struct literal. At the plan's base these are `step_slot_enemies` in `src/combat_scene/slot.rs` and the test helper `step_ctx` in `src/combat_scene/pile_boss.rs`. Re-grep `SlotStepCtx {` at the branch point and list every hit in the PR (plan 12.1).
 - **Each PR re-pins `MANIFEST_HASH` once** from main's value at its branch point (`0xd213_db6d_b329_d342` at the time of this plan). Rebase and re-count if another manifest PR lands first.
 
 ## Deliverables, mapped onto the PRs
@@ -43,9 +47,9 @@ Follow `AGENTS.md`, [the orchestration guide](agent-orchestration.md) (speed mod
 | #191 item | Deliverable | Evidence / pass condition | PR |
 | --- | --- | --- | --- |
 | TR-A0 audit | The audit above, recorded as a short "what main holds" note in the PR body | Real file paths and the commands run | TROG-A |
-| TR-B1 Pygmy | Coil, committed leap and landing recovery (plan 5.2), leash, interrupt | TROG-T03, F01, F02 (positive control) | TROG-A |
+| TR-B1 Pygmy | Coil, committed leap on the airborne-pivot parabola, and landing recovery (plan 5.2), leash, interrupt. The landing is punished low: the CF02 stomp or the pounce, then a jab in Rest (TROG-AD22) | TROG-T03, F01, F02 (positive control) | TROG-A |
 | TR-B2 Basher | Heavy tell, smash, 20-tick recovery, the interrupt window and budget, no magic immunity | TROG-F03, F04 | TROG-A |
-| TR-B3 Virtuoso | Feint, lash and retract, with the band clipped at solids and the dead zone inside +56 | TROG-F05 (the +0/+32/+64 matrix), F06 | TROG-A |
+| TR-B3 Virtuoso | Feint, lash and retract, with the band clipped at solids and the dead zone inside +56. It targets only a hero its band can reach, so it never tells at a grounded Donut (TROG-AD17, TROG-Q13) | TROG-F05 (the +0/+32/+64 matrix), F06 | TROG-A |
 | TR-C level | `trog_run` (#191 T0..T3) listed after `rest_camp`; the run grows to 16 rooms | TROG-F07, F08, T04, T05; Bevy captures | TROG-A |
 | TR-D mixed | `trog_strength`, the bench partition, the Basher's smash shove and rule (b), or the declared static fallback | TROG-F09..F15 | TROG-B |
 | TR-E gym threshold | The hand-off: the room-clear panel, then relaunch into the unchanged `boss_f01`. The reception and turnstile are the arena's zone A (no new room) | TROG-T06 run walk; boss fixtures unchanged (F17) | TROG-B |
@@ -84,9 +88,13 @@ The greybox rooms do not wait for it. Its sprites must not change any sim value:
 
 ## Technical guardrails
 
+- **Wake and target truth.** A proximity wake and every tell need the enemy fully in view. A hit on a Dormant trog wakes it into Rest, and the cause is logged (TROG-AD21). A tell names only a hero whose hurtbox can meet the attack band (TROG-AD17).
 - **Commit at tell start.** Facing, landing x, smash rect and line are fixed on the tell's first tick. One blow per hero per attack instance, no tracking. A blow before its active window is a hard failure (plan 7.3 row 5).
 - **Interrupts key on `HitSource`, never on poise.** Bolts never interrupt the Basher or the Virtuoso. The Basher's window and budget stop a stunlock (plan 5.2).
-- **The bench breaks only by collision:** a hero's melee tokens or the Basher's smash rect overlapping it by at least 12 px. Never by proximity, a timer or a script; never more than once; always credited.
+- **The bench breaks only by collision:** a hero's melee tokens or the Basher's smash rect overlapping it by at least 12 px.
+  - Never by proximity, a timer or a script, and never more than once.
+  - Always attributed: the shove's `credit` is the baiting hero's player, or `None` for the bot (TROG-AD26).
+  - Rule (b) obeys every tell gate.
 - **No rescue, no teleport, no invincibility.** A bot stuck behind the bench is reported, not moved.
 - **Tick order is unchanged:** scene, then slot, then env. A broken bench stops colliding on the next tick (plan 5.7).
 - **The restore rules of plan section 10:** a respawn sends living troglodytes home and keeps the bench's state; a restart rebuilds all.
@@ -97,7 +105,7 @@ The greybox rooms do not wait for it. Its sprites must not change any sim value:
 
 1. Does each species **commit in one direction** at its tell start, so a hero who moves during the tell is not hit? (TROG-02, 06)
 2. Can solo Carl and solo Donut each beat each species with ordinary moves in a short fight, with no immunity and no stunlock? (TROG-03, 05, 07)
-3. Does the Virtuoso's tongue truly pass over grounded Donut, hit her mid-hop, and stop at solids? (TROG-06)
+3. Does the Virtuoso's tongue truly pass over grounded Donut, hit her mid-hop, and stop at solids? Does it pick Carl over a nearer grounded Donut? (TROG-06)
 4. In the Test of Strength, are two tells ever live on one hero at once? Is there always a safe response? (TROG-08)
 5. Does the bench break only from a real overlap or a hero's hands, at most once, with the right credit? Can the room be cleared with the bench untouched? (TROG-09, 10)
 6. Does the run walk `rest_camp` → `trog_run` → `trog_strength` → `juicer` with the ledger unchanged, and does the unchanged boss scene take over its own gate? (TROG-11)

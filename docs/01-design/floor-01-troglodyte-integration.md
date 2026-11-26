@@ -73,6 +73,7 @@
    - Data: one tuning file `assets/data/gameplay/enemy_trog_v0.json` with its own pin.
    - Sidecar kinds: `trog_pygmy`, `trog_basher`, `trog_virtuoso`.
    - Every attack commits at its tell start. Every attack hits each hero at most once, and none tracks after its tell starts.
+   - A troglodyte targets only a hero its attack band can reach (TROG-AD17). It tells only while fully in view, and its wake records whether proximity or a hit caused it (TROG-AD21).
 3. **The bench knock uses the corral partition, not new physics.**
    - The bench is an 80 px "bench stack" partition prop. It breaks after 3 hero melee tokens, or at once to the Basher's smash shove.
    - The Basher smashes it only from a true hitbox overlap: either a normal smash, or a **bench smash** that rule (b) starts when the Basher is walk-blocked by the bench with a grounded hero in the bait zone.
@@ -125,14 +126,15 @@ Both rooms share these properties:
 | Pocket | x | Contents | Teaches |
 | --- | --- | --- | --- |
 | T0 approach | 0..320 | Spawn and checkpoint. Knuckle-mark and impact decor; a far "slam" decor beat (no audio path, TROG-Q7). No enemy can see the spawn. | The area's identity |
-| T1 the low hunter | 320..896 | **`pyg_a`** at 640: `trigger_x` 400, leash 448..832. A **32 px low refuge** static at x 352..416. An optional second Pygmy, `pyg_b` at 784, is not authored by default (TROG-Q1). | Coil, leap, punish the landing |
+| T1 the low hunter | 320..896 | **`pyg_a`** at 640: `trigger_x` 400, leash 448..832. A **32 px low refuge** static at x 352..416. An optional second Pygmy, `pyg_b` at 784, is not authored by default (TROG-Q1). | Coil, leap; punish the landing low (Carl's CF02 stomp, Donut's pounce), then jab it as it stands up (TROG-AD22) |
 | T2 the fist-shaped hole | 896..1696 | **`bas_a`** at 1376: `trigger_x` 1120, leash 1280..1472. It emerges in front of the fist-shaped hole (decor at 1376). Flat lane, no shelf. | Read the overhead tell, punish the 20-tick recovery |
 | T3 the bell and the tongue | 1696..2304 | A **32 px step** static at x 1840..1904. A **64 px platform** at x 1920..1984 (slab 12, exactly 52 clear). **`vir_a`** at 2144: `trigger_x` 1776, leash 2016..2272. The exit is at x 2256..2304. | Line control, two answers (in under the tongue, or over the top) |
 
 **Why each surface is truthful.**
 
 - **The T1 refuge** (feet at 32) lies outside the Pygmy's leash, and a leap is clamped to the leash.
-  - A Pygmy landing at 448 facing left strikes x 416..434, so a hero standing on the refuge at 368..400 is never hit.
+  - A Pygmy landing at 448 facing left strikes x 416..434 at the furthest (its earlier strike ticks are further right). A hero (half-width 12) is safe with its pivot at 404 or less, which covers a hero standing fully on the refuge (pivot 364..404).
+  - A hero overhanging the refuge's right edge (pivot 405..427) can still be struck. The refuge is safe only when the hero is actually on it.
   - From the refuge, Donut's bolts fly at 48..54, above the Pygmy's idle hurtbox (top 33), and Carl's jab box (feet + 29..35) passes over it too.
   - The refuge is therefore a breather, not a turret.
 - **The T3 step** (feet at 32) is the stair to the platform. It lies outside the tongue's reach: from the leash start 2016 facing left, the tongue band spans x 1939..1960. The height truth of a +32 stand (both heroes inside the band y 36..46: Carl 32..84, Donut 32..56) is tested in TROG-F05's fixture geometry, not here.
@@ -149,7 +151,7 @@ Both rooms share these properties:
 | Retreat shelf (`shelf`) | 288..352 | 48, static `solid` | #191's "short optional retreat shelf" |
 | **`vir_a`** (Virtuoso) | spawn 496, leash 368..624 | floor | `trigger_x` 240; engages first |
 | **`bench_stack`** (partition prop) | 640..672 | **80**, solid while `Intact` or `Weakened` | `break_hits` 3, `shove_min_impulse_px_s` 160; remnant x 640..672, h 16 (not a solid) |
-| **`bas_a`** (Basher) | spawn 776, leash 680..872 | floor | walk-blocked by the bench at pivot 696 (body front +24 = 672) |
+| **`bas_a`** (Basher) | spawn 776, leash 680..872 | floor | `trigger_x` 600 (TROG-AD23); walk-blocked by the bench at pivot 696 (body front +24 = 672) |
 | Exit apron | 960..1024 | floor | exit rect x 976, w 48 |
 
 **Reading the room.**
@@ -159,11 +161,19 @@ Both rooms share these properties:
   - climb it (80 px, Carl's class limit; the corral bumper precedent);
   - break it by hand (3 melee tokens, while the Virtuoso can reach the bait zone);
   - bait the Basher's smash, so the bench breaks in one hit and the Basher is in its 20-tick recovery right in front of you (#191 beats 3 and 4).
-- Ignoring the bench and fighting straight through must stay viable (TROG-10). Climb, drop at x 680+, fight the Basher on open floor.
+- Ignoring the bench and fighting straight through must stay viable (TROG-10).
+  - Climb, cross the bench top, and drop **past the Basher's body**, at x 736 or more. A Basher blocked at 696 facing left has its body at 672..722.
+  - Then fight it on open floor with the pivot at 736 or more. To aim at a hero whose hurtbox starts at 724 or later, a Basher facing left needs its pivot past 748, so its smash rect starts past 707 and never reaches the bench (672).
+  - A drop between the bench and the Basher (x 680..735) puts the hero in a smash whose rect overlaps the bench by 12 px or more. That is the far-face case of 5.4: allowed, and it breaks the bench.
+- **The Basher wakes at x 600** (TROG-AD23). A hero who fights the Virtuoso left of 600 keeps the Basher Dormant behind the bench. Once a hero crosses 600, the Basher needs 160 ticks (80 px at 0.5 px per tick) to reach the bench face.
 - **The bait zone** is the floor strip x 600..640, left of the bench (section 5.4).
 - **The tongue is clipped at the first standing solid.**
   - From the leash start at 368 facing left, the band x 291..312 is cut at the shelf face (352), so the shelf is a true retreat.
   - Facing right from 624, the band reaches x 680..701 only once the bench is broken. While the bench stands, it is cut at 640.
+- **The Virtuoso's leash ends touch the solids and never enter them** (TROG-AD24: the walk body is the idle and walk hurtbox, stepped against standing solids).
+  - At 624 facing right, the body is x 610..640, touching the bench face.
+  - At 368 facing left, the body is x 352..382, touching the shelf face.
+  - The wider lash pose (−14..26) never occurs facing right at 624 while the bench stands, because the clipped band is empty there, so no tell can start.
 
 ## 5. The troglodyte family on ENEMY-SLOT
 
@@ -197,7 +207,7 @@ Every value is an adopted default (TROG-AD3) unless marked "from the manifest". 
 
 **Hurtboxes.** Each state uses the manifest box of its tag:
 
-- idle and walk;
+- idle and walk, also used in Dormant, Approach and Rest. Its x range is also the walk body that collides with standing solids (TROG-AD24);
 - tell (the feint, for the Virtuoso);
 - active (leap, smash, lash and strike);
 - recover (land, for the Pygmy);
@@ -210,7 +220,9 @@ Every value is an adopted default (TROG-AD3) unless marked "from the manifest". 
 ```mermaid
 stateDiagram-v2
     [*] --> Dormant
-    Dormant --> Approach: trigger_x crossed by a hero and fully in view (Wake)
+    Dormant --> Approach: trigger_x crossed by a hero and fully in view (Wake, cause Proximity)
+    Dormant --> Rest: a hit, blast or contact (Wake, cause Hit)
+    Dormant --> Down: hp 0
     Approach --> Tell: target eligible, token_free, tell gap met (Tell, commit)
     Tell --> Active: tell window ends (Launch / Smash / Lash)
     Tell --> Hurt: an interrupting hit (Interrupted)
@@ -230,14 +242,23 @@ stateDiagram-v2
 
 **Dormant.**
 
-- The enemy stands, does not attack and does not count as an attacker. It is hurtable, so a hit wakes it.
-- **Wake** needs both: a hero's pivot has crossed `trigger_x` (either hero), and the whole idle hurtbox is inside the view. The view rule enforces #191's "only after its tell can be seen" (TROG-AD6).
+- The enemy stands, does not attack and does not count as an attacker. It stays hurtable.
+- A wake has one of two **causes**, which the `Wake` event and the state hash record (TROG-AD21):
+  - **Proximity.** A hero's pivot has crossed `trigger_x` (either hero), and the whole idle hurtbox is inside the view. The enemy goes to Approach.
+  - **Hit.** A hit, blast or contact reaches it while Dormant, for example a 240 px bolt into a partly off-screen enemy. The hit deals its damage, and the enemy goes to **Rest** (no flinch, no tell), or to Down at hp 0. The view rule does not apply to this wake, because the player chose to strike first.
+- The view rule enforces #191's "only after its tell can be seen" (TROG-AD6). A hit-woken enemy is still covered: no tell starts unless its whole hurtbox is in view (the eligibility rule below).
 
-**Approach.** Walk toward the target until it is **eligible**, never leaving the leash. A leash end is a wall for the enemy.
+**Approach.** Walk toward the target until it is **eligible**, never leaving the leash. A leash end is a wall for the enemy, and so is a standing solid: the walk body (the idle and walk hurtbox's x range) stops at a solid face (TROG-AD24).
 
-- **The target** is the nearest living hero in x, tie to Donut (the smaller hurtbox, #191 section 7: attacks do not single out Carl).
+- **The target** (TROG-AD17, amended): the nearest living hero in x, outside `protected_spawn`, **whose current hurtbox can meet the species' attack band** in y (relative to the enemy's feet). Ties go to Donut (the smaller hurtbox, #191 section 7: attacks do not single out Carl). The bands are:
+  - Pygmy y 13..33 (its grounded box);
+  - Basher y 0..14 (a hero touching the floor band);
+  - Virtuoso y 36..46: Carl with his feet below 46 (on the floor or the 32 step, not on the 64 platform), or Donut with her feet at 13..45 (airborne, on the step or on a stand). A grounded Donut (hurtbox 0..24) is **never** a Virtuoso target while another candidate exists.
+- **No candidate.** If no hero meets the band, the target is the nearest living hero outside `protected_spawn`. The enemy positions on it but never becomes eligible, so it never tells at a hero it cannot hit. For the Virtuoso and a lone grounded Donut, that means holding at `standoff_px`. This is reported (TROG-Q13).
+- The target is re-chosen every Approach tick and fixed at the tell start.
 - **Eligible** means all of these hold:
   - the target is outside `protected_spawn`;
+  - the enemy's whole current hurtbox is inside the view (`trogq03_wake_margin_px`), whatever woke it;
   - the attack's committed geometry can overlap the target's current hurtbox (the truth rule);
   - for the Pygmy, the target's pivot is within `trigger_px` 160;
   - for the Basher, the target's hurtbox overlaps `open_band` and touches the floor band y 0..14;
@@ -258,6 +279,10 @@ stateDiagram-v2
   - It is airborne from 24 to 34 (11 ticks) on a fixed parabola of apex 16 px from its x to the landing x, at a constant horizontal speed of (landing − start) / 11 px per tick.
   - It is stepped against solids: if a solid face is in the way, it stops at the face and lands there.
   - It lands at 35.
+  - **Boxes in the air** (TROG-AD25). The sim pivot follows the parabola. With k = tick − 24 (0..11), the pivot's height is round(4 · 16 · k · (11 − k) / 121). Over the strike ticks 27..34 (k 3..10), that gives 13, 15, 16, 16, 15, 13, 10, 5.
+  - Every Pygmy box in the air (the hitbox x 14..32, y 13..33 and the leap hurtbox) is measured from this **airborne pivot**, in x and y, and the frame is drawn at it. The art's in-frame lift is part of the frame, and the presenter adds no other offset.
+  - So the strike box covers ground y 26..46 at k 3 and 18..38 at k 10. A grounded Donut (top 24) can be struck only on ticks 33 and 34. Carl (top 52) can be struck on every strike tick.
+  - The landing x committed at the tell start is the pivot x at k 11.
 - **Basher.** It stands still.
 - **Virtuoso.** It stands still. The band is clipped each strike tick at the first standing solid on that tick (env solids included, so a bench broken this tick still clips; the one-tick lag of 5.7).
 - **A blow** is one `HeroBlow { damage 1, knock as data }` per hero per attack instance (`source` = the enemy's target id; `from_x` = its pivot), for any hero whose hurtbox overlaps the live hitbox on a strike or impact tick. A hero inside DM-B's evade window is skipped (`evade`, all three attacks are evadable, TROG-AD9). Heroes inside invulnerability frames take no damage.
@@ -270,7 +295,7 @@ stateDiagram-v2
 | Species | In Tell | In Approach, Rest | In Active, Recover |
 | --- | --- | --- | --- |
 | Pygmy | any hit **interrupts** | any hit flinches (Hurt) | damage only (committed) |
-| Basher | `CarlMelee` or `DonutPounce` interrupts **only in ticks 0..17** of the tell and only if no interrupt happened in the last 120 ticks; otherwise damage only | the same budget as a flinch | damage only |
+| Basher | `CarlMelee` or `DonutPounce` interrupts **only in ticks 0..17** of the tell and only if no interrupt happened in the last 120 ticks; otherwise damage only. `MagicMissile` and `DonutSwat`: damage only | `CarlMelee` or `DonutPounce` flinches only if no interrupt or flinch happened in the last 120 ticks (a flinch spends the same budget); otherwise damage only. `MagicMissile` and `DonutSwat`: **no reaction**, damage only | damage only |
 | Virtuoso | `CarlMelee` or `DonutPounce` interrupts; `MagicMissile` and `DonutSwat` deal damage only | any hit flinches | damage only |
 
 - **Why the Basher has a budget.** Without it, Carl's 14-tick jab loop could chain interrupts and keep it from ever attacking. With it, the late tell is a committed smash that must be dodged (TROG-05, "no repeated stunlock").
@@ -309,13 +334,19 @@ The corral partition already has a 48 px target. TROG-B's first check: if `env_p
 
 1. **Three distinct hero melee tokens.** Every hero melee stimulus the corral partition already accepts counts; the implementer records which Donut moves count.
 2. **A Basher smash** whose impact rectangle overlaps the bench's rectangle by at least `bench_min_overlap_px` 12 on an impact tick. The adapter pushes one `SlotStimulus { prop, Shove { impulse_px_s: 200, source: the Basher's target id, credit } }`, the Hoarder's path. At most one shove is sent per smash instance.
+   - **`credit`** (TROG-AD26), following `env_prop`'s rule ("the player of the hero the shove baited, `None` when the target was a bot"):
+     - a bench smash takes the player of the **baiting hero**: the hero that met rule (b)'s bait condition at the tell start, the nearest to the Basher's pivot, with ties to Donut;
+     - a normal smash at the far face takes the player of its committed target;
+     - it is `None` when that hero is the companion bot.
+   - The `BenchSmash` event names the baiting hero's id either way, so a bot bait is still attributed in the log.
 3. **Nothing else.** Bolts, blasts and launched bodies are `NotAccepted` (the solid stops a bolt, which then counts as blocked).
 
 **The bench smash (rule b).** Rule (b) starts a normal smash tell with the bench as its committed target when all of these hold:
 
 - the Basher is in Approach;
 - its walk toward the target is blocked within 4 px by a partition prop whose `EnvTarget.solid` is true;
-- a living hero stands on the room floor (feet within 2 px of 580), on the bench's side away from the Basher, with its pivot within `bait_px` 96 of the Basher's pivot.
+- a living hero stands on the room floor (feet within 2 px of 580), on the bench's side away from the Basher, with its pivot within `bait_px` 96 of the Basher's pivot;
+- the ordinary tell gates hold, because a bench smash is a tell: `token_free` (`MAX_ATTACKERS`, `TELL_SPACING`), the 24-tick trog tell gap (5.3), and the whole hurtbox in view. It sets `tell_started` and holds the token like any smash.
 
 **The geometry.** A Basher blocked at pivot 696 facing left:
 
@@ -366,16 +397,16 @@ This is #191's own "static, traversable bench" path, landed as a labelled greybo
 
 | Code | Act |
 | --- | --- |
-| 1 | Wake |
-| 2 | Tell |
+| 1 | Wake { cause: Proximity = 0, Hit = 1 } |
+| 2 | Tell { target: the hero's stable id; in a bench smash, the baiting hero's } |
 | 3 | Launch |
 | 4 | Land |
 | 5 | Strike |
 | 6 | Whiff |
 | 7 | Interrupted |
-| 8 | BenchSmash |
+| 8 | BenchSmash { bait: the baiting hero's stable id } |
 
-The codes are appended and hashed like every combat event.
+The codes are appended and hashed like every combat event. A payload is hashed after its code.
 
 **Event order inside one enemy step:**
 
@@ -388,7 +419,7 @@ The codes are appended and hashed like every combat event.
 
 The partition's break event comes later in the same tick, from `step_env`.
 
-**The state hash.** `mix_into` folds the species, state, state tick, hp, facing, committed geometry (landing x or line), leash band, interrupt budget, per-instance hit mask and position. Only rooms and fixtures that hold a trog have one, so every existing golden, fixture hash and replay stays byte-identical. Asserting that is a stop condition.
+**The state hash.** `mix_into` folds the species, state, state tick, hp, facing, wake cause, committed target and geometry (landing x, smash rect or line), leash band, interrupt budget, per-instance hit mask and position. Only rooms and fixtures that hold a trog have one, so every existing golden, fixture hash and replay stays byte-identical. Asserting that is a stop condition.
 
 ### 5.7 Tick order (the ACT1 one-tick-lag lesson, stated up front)
 
@@ -406,7 +437,10 @@ A per-room opt-in **slot feed**, on in both trog rooms and off everywhere else (
 
 - **Kind.** `EntityKind::Slot` is appended, keyed by `StableEntityId { kind: Slot, index: slot index, spawn_serial }`.
 - **Hooks.** `SlotEnemy` gains `companion_target()` (the hurt rect) and `companion_threat()` (the committed hitbox plus the ticks until it is live). Both default to `None`, so no existing enemy changes.
-- **Effect.** The AI aims, casts and dodges against troglodytes with its existing targeting and threat rules, with no new behaviour code in the companion files (KC7).
+- **Effect.** The AI aims, casts and dodges against troglodytes with its existing targeting and threat rules. There is no trog-specific behaviour code in the companion files (KC7).
+- **The one required companion edit.** `src/companion/autonomy.rs` `mode_for` matches `t.id.kind` exhaustively, so the appended kind needs an arm. It is kind-generic and data-free, a copy of the Goblin arm: `Cast` when `cast_ok` and the target is standing or staggered; no mode when the target is airborne (a leaping Pygmy); `Pounce` otherwise.
+- The goblin-only director rules (`src/companion/director.rs`, the `EntityKind::Goblin` checks) do not apply to `Slot`, and no arm is added there.
+- The implementer greps every `match` on `EntityKind` at the branch point and lists them in the PR. Any arm beyond `mode_for` must also be a data-free copy, or it is a stop condition.
 - **No rescue.** There are no rescue spots and no teleport (the ACT1 rescue-loop lesson). A bot that stays behind the intact bench, or misses a jump, is reported, never moved.
 - **Guarantees.** Every existing `companion_ai` golden is unchanged, because no existing room turns the feed on.
 
@@ -451,21 +485,21 @@ Module tests live in `src/trog.rs`. The fixtures live in `src/trog_fixtures.rs`;
 | ID | Test / fixture | Expected | Feasibility | PR | #191 |
 | --- | --- | --- | --- | --- | --- |
 | TROG-T01 | `trog_tuning_loads_and_validates` | the pin matches; each out-of-range value names its field | data only | A | |
-| TROG-T02 | `trog_boxes_match_the_manifests` | every hitbox, hurtbox and window in 5.1 equals `trog-0{1,2,3}.json` | the values were copied from the manifests | A | 01 |
+| TROG-T02 | `trog_boxes_match_the_manifests` | Every hitbox, hurtbox and window in 5.1 equals `trog-0{1,2,3}.json`. **Taught-punish overlap** (D1 of the #309 review): these must overlap the Pygmy's boxes in y, and a box change that breaks one fails the test: <br>• the CF02 stomp box (y 0..10, from `cf02_combat_v0.json`) and Donut's pounce (y 0..17) against the `land` hurtbox (y 0..15); <br>• Carl's jab (y 29..35) against the idle hurtbox (y 0..33) used in Rest. <br>The test also records, as asserted non-overlaps, that the jab, the haymaker (27..38), the push kick (18..28) and the bolt band (16..22) cannot meet `land`. | the values were copied from the manifests and the move tables | A | 01 |
 | TROG-T03 | `trog_commit_at_tell_start` (domain) | moving the target after the tell start changes neither the landing x, the smash rect nor the line; one blow per hero per instance | pure function of the state at tell start | A | 02, 06 |
 | TROG-T04 | `trog_rooms_listed_and_carry` | TROG-R1 accepts the order and rejects a swap, a trog room after `juicer` and a gap before `juicer`; the ledger entering `juicer` equals the camp's exit ledger | listing rule plus an unchanged pin | A, B | 11 |
 | TROG-T05 | `trog_sidecars_validate` | both sidecars valid; V1..V5 each reject a minimal broken sidecar | | A, B | |
-| TROG-F01 | `trog_pygmy_dodge_and_punish` (Carl scripted) | Carl walks away during the 24-tick tell: `Whiff`; he jabs during the 14-tick land: Pygmy defeated in 2 jabs; 0 damage | Carl runs 3.08 px/tick, so 74 px in 24 ticks, more than the 18 px hitbox plus his 24 px body | A | 02, 03 |
+| TROG-F01 | `trog_pygmy_dodge_and_punish` (Carl scripted, `cf02_rules` on) | Setup: the Pygmy commits a left leap to landing x L at Carl's pivot. <br>1. Carl runs away during the 24-tick tell and stops with his pivot at L − 48, facing it: `Whiff`. <br>2. He presses the stomp on tick 35 (the first land tick); it hits on stomp tick 9 = land tick 9 of 0..13: 1 damage, no reaction (the Pygmy is committed in Recover). <br>3. After the stomp (ends at tick 61) he steps 4 px in and jabs in Rest: the hit flinches it, hp 0. <br>Pygmy defeated in **one cycle (stomp + jab)**; Carl takes 0 damage. | Whiff: the strike box at the landing is L − 32..L − 14, and Carl's hurtbox at L − 48 is L − 60..L − 36, clear by 4 px; 48 px takes 16 of the 24 tell ticks. <br>Stomp: the 6 px root step puts Carl at L − 42, so the box is L − 36..L − 16 against `land` L − 20..L + 14 (4 px; y 0..10 against 0..15). <br>Jab: from L − 38 the box is L − 22..L − 16 against idle L − 21..L + 14 (5 px; y 29..35 against 0..33). | A | 02, 03 |
 | TROG-F02 | `trog_pygmy_stationary_donut` (positive control) | Donut planted on the floor at 432 (right of the refuge, inside the Pygmy's strike reach from 448), facing +1, casting whenever the target is in line: Pygmy defeated, at most 1 HP lost | its hurtbox (top 33) is in the bolt band 16..22; any hit cancels the coil; her range 240 reaches it from x 672, before it can tell at 592 (trigger 160) | A | 14 |
-| TROG-F03 | `trog_basher_flank_and_punish` (Carl) | Carl steps out during the tell (`Whiff`), then lands 2 jabs per 20-tick recovery: defeated within 2 cycles; one interrupt in the first 18 tell ticks and none within 120 ticks after | a jab hits at tick 5 and the next at tick 19, so 2 per window; HP 4 | A | 04, 05 |
+| TROG-F03 | `trog_basher_flank_and_punish` (Carl) | Cycle 1: Carl jabs inside tell ticks 0..17, for exactly one `Interrupted` and 1 damage. <br>On later tells he does not jab in the tell. He steps out (`Whiff`) and lands **at least 1 jab per 20-tick recovery**. <br>Defeated within 4 tells in all; no `Interrupted` within 120 ticks of the first; Carl takes 0 damage. | A jab is active from its tick 3. Out of the smash rect, Carl's pivot is at least 53 from the Basher's (the rect ends at +41, plus his half-width 12). The recover hurtbox front is +30, so the jab (+16..22) needs a step of about 2 px in (to a pivot distance of 51 or less), then hits 3 ticks after the press. A second jab in the same recovery is possible only from exactly 53 and is not asserted. HP 4 = 1 interrupt plus at least 3 recoveries. | A | 04, 05 |
 | TROG-F04 | `trog_basher_bolts_do_not_interrupt` | 4 bolts defeat it; none interrupts a tell; damage 1 each | | A | 05 |
-| TROG-F05 | `trog_virtuoso_elevations` (a fixture room with a 32 px step and a 64 px platform inside the tongue's reach) | grounded Carl (0..52): hit; grounded Donut (0..24): **not hit**, the band passes over her; Donut with her feet at 13..45: hit; on the 32 step both heroes hit; on the 64 platform neither | hurtbox truth only; no homing | A | 06 |
-| TROG-F06 | `trog_virtuoso_solo_carl`, `trog_virtuoso_solo_donut` | each defeats it (Carl: drop off the platform inside the dead zone and jab; Donut: bolts from the floor after a whiff) with at most 2 HP lost | dead zone below +56; retract window 18 ticks | A | 07 |
-| TROG-F07 | `trog_run_solo_carl`, `trog_run_solo_donut`, `trog_run_2p`, `trog_run_solo_companion` | exit reached; no hero defeat in the scripted runs; no tell starts against a target in `protected_spawn`; every `Wake` is fully in view | geometry of 4.1 | A | 11, 12 |
+| TROG-F05 | `trog_virtuoso_elevations` (a fixture room with a 32 px step and a 64 px platform inside the tongue's reach; the line is committed by a setup write, so target choice does not apply) | grounded Carl (0..52): hit; grounded Donut (0..24): **not hit**, the band passes over her; Donut with her feet at 13..45: hit; on the 32 step both heroes hit; on the 64 platform neither | hurtbox truth only; no homing | A | 06 |
+| TROG-F06 | `trog_virtuoso_solo_carl`, `trog_virtuoso_raised_donut`, `trog_virtuoso_target_choice`, and the reported `trog_virtuoso_grounded_donut` | **solo_carl:** Carl drops off the platform inside the dead zone and jabs; defeated with at most 2 HP lost. <br>**raised_donut:** Donut solo on a +32 stand (fixture geometry), so she is a target. She dodges each committed line by a hop timed to the feint (feet above 46 on strike ticks 32..37) and bolts during the 18-tick retract (her bolts fly at 48..54, under the hurtbox top 60); defeated with at most 2 HP lost. <br>**target_choice:** with Carl and Donut both present and a grounded Donut nearer, every `Tell` names Carl; with Donut on the stand and nearer, it names Donut. <br>**grounded_donut** (reported, TROG-Q13): a lone grounded Donut is never told at; she defeats it from the floor with 0 HP lost. Only "no `Tell` targets an unreachable hero" is asserted. | dead zone below +56; retract window 18 ticks; the band rule of 5.2 (TROG-AD17) | A | 07 |
+| TROG-F07 | `trog_run_solo_carl`, `trog_run_solo_donut`, `trog_run_2p`, `trog_run_solo_companion` | exit reached; no hero defeat in the scripted runs; no tell starts against a target in `protected_spawn`; every **proximity** `Wake` and every `Tell` starts with the enemy fully in view; a hit `Wake` is allowed anywhere and logged with its cause | geometry of 4.1; the wake causes of 5.2 (TROG-AD21) | A | 11, 12 |
 | TROG-F08 | `trog_run_retry` | a party defeat in T2: the checkpoint respawn rebuilds the living Basher at its spawn and keeps a defeated Pygmy down; a fixture restart rebuilds all; identical hash on the double run | `slot_respawn` and `SlotRuntime::reset` | A | 13 |
-| TROG-F09 | `trog_strength_direct` (Carl climbs, then fights; companion off) | both defeated; the bench is untouched (`Intact`) | climb of 80 px = Carl's class limit (the corral bumper) | B | 10 |
-| TROG-F10 | `trog_strength_bait` (Carl stands at 616 after the Virtuoso is down) | exactly one `BenchSmash`; the partition is `Broken` by the Basher's shove (source = its id); Carl is not hit; Carl punishes the recovery | 5.4 geometry: impact 655..672, overlap 17 | B | 09 |
-| TROG-F11 | `trog_strength_bench_by_hand` | 3 Carl jabs from 620: `Broken`, credited to Carl; no `BenchSmash` | partition `break_hits` 3 | B | 09 |
+| TROG-F09 | `trog_strength_direct` (Carl climbs, then fights; companion off) | The script: <br>1. Carl defeats the Virtuoso left of x 600 (the Basher stays Dormant). <br>2. He walks to the bench face and climbs; he is on the floor of the bait zone for under 20 ticks, long before the Basher, woken at 600, can reach 696 (160 ticks). <br>3. He jumps off the bench top and lands at x 736 or more, past the Basher's body. <br>4. He fights with his pivot at 736 or more. <br>Both defeated; the bench is **`Intact`**; no `BenchSmash`. | Climb of 80 px = Carl's class limit (the corral bumper). Rule (b) needs a hero on the floor; Carl is on the bench top or right of it. A smash aimed at a hurtbox starting at 724 or later has its rect at 707 or later (4.2). | B | 10 |
+| TROG-F10 | `trog_strength_bait` (Carl stands at 616 after the Virtuoso is down) | exactly one `BenchSmash` (bait = Carl); the partition is `Broken` by the Basher's shove (source = its id, credit = Carl's player); Carl is not hit; Carl punishes the recovery | 5.4 geometry: impact 655..672, overlap 17; Carl's hurtbox ends at 628 | B | 09 |
+| TROG-F11 | `trog_strength_bench_by_hand` | Preconditions: the Virtuoso is **Down** first (scripted as in F10), and Carl stays left of 600 until then, so the Basher is Dormant. <br>Carl walks to pivot 620; crossing 600 is the Basher's proximity `Wake` at tick W. <br>He makes 3 separate jabs (each press after the previous jab ends, so no haymaker chain), the first pressed by W + 10. All land by W + 45. <br>Result: `Broken` on the third, credited to Carl; no `BenchSmash`. | Partition `break_hits` 3. From 620, the jab box 636..642 meets the bench (640..672). The Basher needs 160 ticks from 776 to the blocked pivot 696, and a `Broken` bench blocks nothing, so rule (b) can never start. | B | 09 |
 | TROG-F12 | `trog_strength_no_break_from_far_side` | Donut fights the Basher from x 720 and 760: the bench stays solid; no `BenchSmash` | open band inside the hitbox (5.4) | B | 09 |
 | TROG-F13 | `trog_strength_tell_gap` | the Basher and the Virtuoso both eligible: tell starts at least 24 ticks apart; no tick where both hitboxes are live on the same hero | 5.3 | B | 08 |
 | TROG-F14 | `trog_strength_retry_and_respawn` | after a respawn the bench keeps `Broken` (CD-AD10) and the living trogs are at their spawns; after a restart the bench is `Intact` | the existing partition and slot rules | B | 13 |
@@ -505,6 +539,7 @@ The evaluator reuses `corral_eval`'s policy, reflex and report machinery as a ne
 - From the bench top, bolts fly at 96 or higher and miss both.
 - From right of the bench, a bolt toward the Virtuoso is stopped by the bench the same way.
 - So no stationary spot, including a hop in place, can damage both while the bench stands.
+- The Virtuoso alone is beatable by a grounded stationary Donut (TROG-AD17: it never tells at her). G1 therefore counts only on the bench and the Basher, and that is enough for row 1.
 
 **G2 (who breaks the bench).** The bench breaks only from:
 
@@ -523,7 +558,8 @@ Bolts and blasts are `NotAccepted`. No natural start is in the bait zone or at t
 5. **System failures (hard):**
    - a blow before its active window;
    - a tell against a target in `protected_spawn`;
-   - a `Wake` while not fully in view;
+   - a **proximity** `Wake`, or any `Tell`, while the enemy is not fully in view (a hit `Wake` is exempt and logged with its cause, TROG-AD21);
+   - a `Tell` whose target's hurtbox cannot meet the species' band (TROG-AD17);
    - a trog outside its leash;
    - a bench break with no hero act and no rule (b);
    - a different log or hash on the double run;
@@ -533,6 +569,8 @@ Bolts and blasts are `NotAccepted`. No natural start is in the bait zone or at t
 
 - The bait-zone and far-face rows. A stationary bait-zone clear is the skill answer, not degenerate (TROG-Q3).
 - T1..T3 stationary rows from their natural starts (T2: 1056, 1280; T3: 1760, the step 1872 and the platform 1952).
+- **The grounded-Donut row** (TROG-Q13), for T3's floor starts and the Test of Strength's near side. A grounded stationary Donut is never a Virtuoso target, so the Virtuoso never tells at her and she can defeat it alone from the floor. The row reports the Virtuoso's defeats by Donut credit, the tells (expected 0) and the damage taken.
+  - It does not weaken G1 or row 1: the bench still stops every bolt toward the Basher. The gate's hard row rests on the Basher, not the Virtuoso.
 - The bench-broken variant.
 
 **Feasibility.** G1 is arithmetic on fixed boxes, so the hard row cannot be failed by tuning drift without a box or leash change, and TROG-T02 pins the boxes. Row 4 is feasible from TROG-F09/F10 (Carl) and a Donut that jumps the bench (her apex of 114.92 or 137.95 clears 80).
@@ -600,7 +638,11 @@ PLAYTRACE gets descriptor rooms, replay and live dispatch arms (the REST pattern
 - **Adapter:** `src/combat_scene/trog.rs`, the `SlotEnemy` impl and three `SLOT_KINDS` rows.
   - It implements `apply_hit`, `apply_blast`, `apply_contact`, `death_body`, `holds_token`, `companion_target` and `companion_threat`.
   - It reads `last_tell_start` (the appended ctx field).
-- **Companion:** `EntityKind::Slot` and the per-room opt-in feed (5.8).
+  - **Every `SlotStepCtx` constructor gets the field.** At `d6051bdd` there are two struct literals:
+    - `step_slot_enemies` in `src/combat_scene/slot.rs` (around line 394), which passes the scene's value;
+    - the test helper `step_ctx` in `src/combat_scene/pile_boss.rs` (around line 489), which passes `None`.
+  - The implementer re-greps `SlotStepCtx {` across `src/` and `tests/` at the branch point and lists every hit in the PR.
+- **Companion:** `EntityKind::Slot`, its data-free `mode_for` arm in `src/companion/autonomy.rs` (5.8), and the per-room opt-in feed.
 - **Presentation:**
   - the TROG-01/02/03 atlases wired into the scene's draw path, with the tag per state and facing, labelled "art review pending";
   - a labelled rectangle per hurtbox if an atlas fails to load;
@@ -637,7 +679,7 @@ PLAYTRACE gets descriptor rooms, replay and live dispatch arms (the REST pattern
 
 - **Order.** TROG-A, then TROG-B. Each re-pins `MANIFEST_HASH` once, from main's value at its branch point. If another manifest PR lands in between, rebase and re-count.
 - **Hot files.**
-  - `src/f01_late.rs`, `src/f01_run.rs`, the manifest, `src/encounter.rs`, `src/scene_enemy.rs` (one appended ctx field, two default trait methods), the companion view kinds, `src/bin/floor01_scene.rs` and the PLAYTRACE dispatch.
+  - `src/f01_late.rs`, `src/f01_run.rs`, the manifest, `src/encounter.rs`, `src/scene_enemy.rs` (one appended ctx field, two default trait methods), the `SlotStepCtx` constructors (`src/combat_scene/slot.rs`, `src/combat_scene/pile_boss.rs`), the companion view kinds and `src/companion/autonomy.rs` (`mode_for`), `src/bin/floor01_scene.rs` and the PLAYTRACE dispatch.
   - TROG-B also touches `src/combat_scene/env.rs` only if the partition needs it, and `src/corral_eval/` only through the policy generalisation.
 - **Stop and report** (do not improvise) if:
   - a golden, a CF02, DP, DOZR, Juicer or `companion_ai` hash, or the corral report moves;
@@ -657,21 +699,27 @@ All are adopted under the owner decisions of 2026-11-24 and 2026-11-25. The owne
 | TROG-AD3 | The numbers of 5.1 (HP 2/4/3, damage 1, rests 40/30/36, knock values, leap 64..160, apex 16, standoff 66) | Short fights (#191 "both characters can kill quickly", "no excessive 4 HP grind"); the windows are the art's own |
 | TROG-AD4 | Hitboxes, hurtboxes and windows copied from the TROG manifests, with a drift test | #191 "verify real hurtboxes"; art and sim cannot drift silently |
 | TROG-AD5 | The leash is a spawn-relative half-width in tuning (192 / 96 / 128); no sidecar schema change | The sidecar is `deny_unknown_fields`; one value per species is enough for two rooms |
-| TROG-AD6 | Wake on `trigger_x` crossed by a hero **and** the whole hurtbox in view | #191 "activates only after its tell can be seen" |
+| TROG-AD6 | A proximity wake needs `trigger_x` crossed by a hero **and** the whole hurtbox in view; every tell needs the whole hurtbox in view, whatever the wake cause (amended by AD21) | #191 "activates only after its tell can be seen" |
 | TROG-AD7 | Commit at tell start: facing, landing x, smash rect and line; one blow per hero per instance; no tracking | The ACT1 commit-timing lesson; TROG-02, TROG-06 |
 | TROG-AD8 | A 24-tick trog-to-trog tell gap via an appended `last_tell_start` ctx field; fallback to `TELL_SPACING` | #191 "one real safe response" (5.3) |
 | TROG-AD9 | All three attacks are evadable by the DM-B reflex | The reflex is the game's existing cat dodge; no enemy is exempt without a reason |
 | TROG-AD10 | Interrupts keyed by `HitSource` (5.2 table): bolts never interrupt the Basher or the Virtuoso; the Basher has an 18-tick window and a 120-tick budget | Poise equals damage and cannot tell sources apart; no stunlock and no free ranged cancel (TROG-05, TROG-14) |
-| TROG-AD11 | The bench is an 80 px partition prop (`break_hits` 3, shove 160) and the Basher's smash shoves at 200 with a 12 px overlap minimum; rule (b) baits it | The existing CORRAL-D interface; "only actual collision", "at most once", hero-attributed (TROG-09) |
+| TROG-AD11 | The bench is an 80 px partition prop (`break_hits` 3, shove 160) and the Basher's smash shoves at 200 with a 12 px overlap minimum; rule (b) baits it and obeys every tell gate (`token_free`, the 24-tick gap, in view) | The existing CORRAL-D interface; "only actual collision", "at most once", hero-attributed (TROG-09) |
 | TROG-AD12 | The declared static fallback of 5.4 | #191's own fallback; keeps T4 playable if the partition cannot carry it |
 | TROG-AD13 | The Test of Strength has Basher + Virtuoso only; no Pygmy reinforcement | #191 "optional only if human trials show clear threat separation" |
 | TROG-AD14 | T5 is the Juicer arena's zone A (reception, turnstile); no duplicate room | AREA-GYM-01 already dresses it; the boss scene owns its entry |
 | TROG-AD15 | Dynamite damages troglodytes and interrupts them | It is held; no artificial immunity |
 | TROG-AD16 | A per-room companion slot feed (targets and threats); no rescue, no teleport, no invincibility | The ACT1 rescue-loop lesson; KC7 (no trog code in companion files) |
-| TROG-AD17 | Target choice: the nearest living hero in x, tie to Donut | #191 "attacks should not target Carl alone" |
+| TROG-AD17 | Target choice (amended, review D3): the nearest living hero in x, outside `protected_spawn`, whose hurtbox can meet the species' attack band in y; tie to Donut; with no such hero, the nearest is followed but never told at | #191 "attacks should not target Carl alone" and "an observable, reachable actual living hero"; a grounded Donut must not absorb the Virtuoso in co-op |
 | TROG-AD18 | The gate is the invariant (row 1) plus KC19 (row 2) on the Test of Strength; T1..T3 are reported | The mixed fight is the spam risk; T1 is the positive control |
 | TROG-AD19 | No death profile, gore or slow motion added; the `down` frame holds | #191 section 7; death-profile design is a separate art and design decision |
 | TROG-AD20 | The TROG atlases are wired at runtime with the label "art review pending" (`prototype_fixture_unapproved`) | "Ensure everything ends on main"; an independent art review stays open |
+| TROG-AD21 | Wake causes `Proximity` and `Hit`, recorded in the `Wake` event and the state hash. A hit, blast or contact on a Dormant trog deals its damage and sends it to Rest (no tell). Gate row 5 and TROG-F07 check the view only for proximity wakes and for every tell | Review D2: a 240 px bolt can legitimately strike a partly off-screen trog; the tell-in-view rule keeps #191's intent |
+| TROG-AD22 | The T1 lesson is "punish the landing low": Carl's CF02 stomp (box y 0..10, startup 9, inside the 14-tick land) or Donut's pounce (y 0..17), then a jab in Rest against the 33 px idle box. The jab, haymaker, push kick and bolt cannot meet `land` (y 0..15), and TROG-T02 asserts both facts | Review D1: the jab passes over the landing; the stomp and the pounce are the existing low verbs (no new verb) |
+| TROG-AD23 | `bas_a` in `trog_strength` has `trigger_x` 600 | Review nit 1: a defined wake; a hero who fights the Virtuoso left of 600 keeps the Basher Dormant; crossing 600 leaves 160 ticks before it reaches the bench |
+| TROG-AD24 | The walk body is the idle and walk hurtbox's x range, stepped against standing solids like a leash end; the Virtuoso's leash ends (368, 624) touch the shelf and bench faces exactly | Review nit 10; the Basher's walk-block at 696 already assumes it |
+| TROG-AD25 | The Pygmy's airborne boxes are measured from its airborne pivot, on the integer parabola of 5.2; the presenter adds no other offset | Review nit 5: an unambiguous landing and strike geometry |
+| TROG-AD26 | A bench-smash shove's `credit` is the baiting hero's player (the far-face smash: its target's player), `None` for the bot; `BenchSmash` names the baiting hero either way | Review nit 4; `env_prop`'s own credit rule |
 
 ## 14. Open questions (TROG-Q, non-blocking)
 
@@ -689,6 +737,7 @@ All are adopted under the owner decisions of 2026-11-24 and 2026-11-25. The owne
 | TROG-Q10 | The Juicer's 36 HP feel after this lead-in (TROG-16) | Unchanged; a separate boss-balance PR if the owner asks |
 | TROG-Q11 | A sidecar leash field if a later room needs a non-default leash | Tuning leash only |
 | TROG-Q12 | Does the Virtuoso's tongue dead zone (inside +56) read clearly at 1x, or does it need a body-contact shove? | The dead zone, as the art draws it |
+| TROG-Q13 | A grounded Donut is never hit by the Virtuoso (its band y 36..46 passes over her 24 px hurtbox), so a solo floor Donut beats it unthreatened. Is the Virtuoso acceptable as "Carl's problem", or does it need a low lash variant? | Accepted as Carl's problem; reported in `trog_eval` (7.3) and TROG-F06; a low lash would be a separate design and art question |
 
 ## 15. Deviations (flagged)
 
@@ -726,7 +775,7 @@ The art pipeline applies: top-tier design, then Sonnet execution, then an indepe
   - The three enemies add tactical depth with existing verbs: dodge and punish, read low and high, use terrain.
   - The bench is a bounded terrain-combat interaction on the corral's existing partition.
   - The reference path's Juicer step is unchanged. The direction still fits, and no horizon edit is needed.
-- **Tone.** The troglodytes are heavy, ugly and dangerous; Carl wins by reading them and timing a plain punch, not by bravado. The gym is a grimy strip-mall joke in a catacomb, with no fanfare. There is no slow motion, no gore escalation and no boss bar.
+- **Tone.** The troglodytes are heavy, ugly and dangerous; Carl wins by reading them and timing a plain stomp or punch, not by bravado. The gym is a grimy strip-mall joke in a catacomb, with no fanfare. There is no slow motion, no gore escalation and no boss bar.
 - **Rights.**
   - No new art, text, audio or third-party material is added by this plan.
   - The TROG sprites are the committed, owner-selected family art, still under independent review.
