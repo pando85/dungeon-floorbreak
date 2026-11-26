@@ -1,7 +1,7 @@
-Local check list on the final code head of ACT1-A (debug build, no GitHub CI wait; head d5fff8e3, later commits are evidence and docs only):
+Local check list on the final code head of ACT1-A (debug build, no GitHub CI wait; review-fix head 7c324eb5, later commits are evidence and docs only):
 cargo fmt --all -- --check                                  OK
 cargo clippy --locked --all-targets -- -D warnings          OK (no warnings)
-cargo test --locked --all-targets --no-fail-fast            OK: 3891 passed, 0 failed, 35 ignored (evidence helpers) over every target; lib 3777 passed
+cargo test --locked --all-targets --no-fail-fast            OK: 3893 passed, 0 failed, 35 ignored (evidence helpers) over every target; lib 3779 passed
 python3 scripts/check_docs.py                               OK
 scripts/ci_floor01_combat.sh headless                       OK (F01_LATE_HEADLESS_OK lists the fourteen rooms; F01_ACT1_SHORE_HEADLESS_OK and F01_ACT1_GUILD_HEADLESS_OK; every committed DP, DOZR and legacy replay byte-identical)
 scripts/ci_floor01_combat.sh render (xvfb 1920x1080x24)     OK
