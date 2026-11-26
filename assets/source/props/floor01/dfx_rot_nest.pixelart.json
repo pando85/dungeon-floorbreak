@@ -1,0 +1,53 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "f01-dfx-rot-nest",
+  "title": "F01 danger FX Rot nest, ceiling",
+  "grid": "assets/source/props/floor01/dfx_rot_nest.grid.json",
+  "manifest": "assets/manifests/f01-dfx-rot-nest.json",
+  "frame_size": [
+    32,
+    12
+  ],
+  "pivot": [
+    16,
+    0
+  ],
+  "contact_row": null,
+  "tick_hz": 60,
+  "hold_ms": 100,
+  "facing": "left",
+  "tags": {
+    "nest": {
+      "playback": "hold",
+      "contact": "free",
+      "frames": [
+        [
+          0,
+          null
+        ]
+      ]
+    }
+  },
+  "rules": {
+    "max_colors": 63,
+    "max_isolated_per_frame": 0,
+    "max_orphans_per_frame": 15,
+    "unique_frames": true
+  },
+  "scene": {
+    "shadow": false,
+    "actors": [
+      {
+        "frame": 0,
+        "x": 560,
+        "lift": 120
+      }
+    ]
+  },
+  "review": {
+    "strip_name": "03_state_strip.png",
+    "strip_tags": [
+      "nest"
+    ]
+  }
+}

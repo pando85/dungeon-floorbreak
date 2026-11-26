@@ -24,7 +24,7 @@
   "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
   "provenance": {
     "origin": "F01 danger FX blast reach ring, 64 px (march, hot), drawn from explicit primitives in named palette entries by scripts/author_danger_fx.py",
-    "generator": "designed and executed by Claude Opus (spec, keys, frames); independent art-director review by a separate Claude Opus agent. No concept pixels copied, no image-model raster output, no tracing, no resampling",
+    "generator": "designed and executed by Claude Opus (spec, keys, frames); independent art-director review by a separate Claude Opus agent. No concept pixels copied, no image-model raster output, no tracing, no resampling; outer band row backed with flame_00 (adopted default HZB-AD2, executed by Claude Sonnet)",
     "generated_art": true,
     "input_reference_ids": [
       "docs/02-art/floor01-danger-fx-spec.md",
@@ -34,7 +34,7 @@
   "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
   "review_status": "prototype_fixture_unapproved",
   "prop_kit": {
-    "status": "4 frames drawn; independent top-tier review passed, owner art and game-feel review pending; drawn by presentation-only wiring in src/danger_fx_art.rs",
+    "status": "4 frames drawn; independent top-tier review passed on the first version; the AREA-HAZARDS-01B change awaits its review, owner art and game-feel review pending; drawn by presentation-only wiring in src/danger_fx_art.rs",
     "spec": "docs/02-art/floor01-danger-fx-spec.md",
     "tick_hz": 60,
     "hold_preview_ms": 100,
@@ -65,7 +65,7 @@
           132,
           132
         ],
-        "sha256": "6bb3bdb592a3f87b87843dd348b1ab94709d8a3bc961f15001579db7da1172c9"
+        "sha256": "22d3171ba7dc2e8388e58979c8b528cbaffc58ee2fad47da6204081c6bd838c3"
       },
       {
         "index": 1,
@@ -89,7 +89,7 @@
           132,
           132
         ],
-        "sha256": "70b3ab4dd29410545f576f629fb0a69729b7ca20f320b419f1642af8bb2bef62"
+        "sha256": "378f282eb43a0641b29c49e8667d74d8cd902aec76248506be7d8b0132c6ef31"
       },
       {
         "index": 2,
@@ -113,7 +113,7 @@
           132,
           132
         ],
-        "sha256": "ba537511b0d75a9412f625a700db8d68365f32dd4a5816882b489fda05a0fcd1"
+        "sha256": "b4f9d876f81383bd271d99558419f7482da5cac191f1c8d5645db06cc5d04905"
       },
       {
         "index": 3,
@@ -137,7 +137,7 @@
           132,
           132
         ],
-        "sha256": "5f2a373c26eecc6b00613962fe707eb067bd2a0959a90342a28566c2254cbef1"
+        "sha256": "1ddc0aa2fb970677c410d07a4f809bc80ea95153241ffde01e28f6e44ffa596f"
       }
     ]
   }

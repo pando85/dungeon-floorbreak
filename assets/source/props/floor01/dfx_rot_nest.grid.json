@@ -1,0 +1,75 @@
+{
+ "format": "pixel-grid-v1",
+ "canvas": [
+  32,
+  12
+ ],
+ "pivot": [
+  16,
+  0
+ ],
+ "palette": [
+  {
+   "key": "K",
+   "name": "outline_soot",
+   "rgba": "#0d0a10ff"
+  },
+  {
+   "key": "a",
+   "name": "shell_0_deep",
+   "rgba": "#1c1722ff"
+  },
+  {
+   "key": "b",
+   "name": "shell_1_shade",
+   "rgba": "#2b2230ff"
+  },
+  {
+   "key": "c",
+   "name": "shell_2_mid",
+   "rgba": "#3f3243ff"
+  },
+  {
+   "key": "x",
+   "name": "rot_olive",
+   "rgba": "#4e4a28ff"
+  },
+  {
+   "key": "m",
+   "name": "rib_dead",
+   "rgba": "#5a1218ff"
+  }
+ ],
+ "layers": [
+  "body"
+ ],
+ "frames": [
+  {
+   "duration_ms": 100,
+   "cels": {
+    "body": [
+     "...aaaaaaaaaaaaaaaaaaaaaaaaaa...",
+     "...KbbbbbbbbKKcbKKKcbKKcbbbbK...",
+     "....KKbbbaKKmcKKKKcKKccKxcbK....",
+     "......KbxxccbbcKKcKKcmbcKxK.....",
+     ".......KKcKbbbaKcKccKKbK........",
+     "........xx.KbbxcbKcbK.x.........",
+     "........xx..KKxKKKxK..xx........",
+     "........x....xx...xx..x.........",
+     "........a....xx...x...a.........",
+     ".............x....a.............",
+     ".............x..................",
+     ".............a.................."
+    ]
+   }
+  }
+ ],
+ "tags": [
+  {
+   "name": "nest",
+   "from": 0,
+   "to": 0,
+   "direction": "forward"
+  }
+ ]
+}

@@ -1,0 +1,136 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "f01-dfx-rot-drip",
+  "title": "F01 danger FX spent Rot Sticker drip (ceiling and wall, run and drop)",
+  "grid": "assets/source/props/floor01/dfx_rot_drip.grid.json",
+  "manifest": "assets/manifests/f01-dfx-rot-drip.json",
+  "frame_size": [
+    8,
+    16
+  ],
+  "pivot": [
+    4,
+    0
+  ],
+  "contact_row": null,
+  "tick_hz": 60,
+  "hold_ms": 100,
+  "facing": "left",
+  "tags": {
+    "drip_run_c": {
+      "playback": "once",
+      "contact": "free",
+      "frames": [
+        [
+          0,
+          6
+        ],
+        [
+          1,
+          6
+        ],
+        [
+          2,
+          6
+        ],
+        [
+          3,
+          6
+        ]
+      ]
+    },
+    "drip_drop_c": {
+      "playback": "loop",
+      "contact": "free",
+      "frames": [
+        [
+          4,
+          20
+        ],
+        [
+          5,
+          20
+        ],
+        [
+          6,
+          20
+        ]
+      ]
+    },
+    "drip_run_w": {
+      "playback": "once",
+      "contact": "free",
+      "frames": [
+        [
+          7,
+          6
+        ],
+        [
+          8,
+          6
+        ],
+        [
+          9,
+          6
+        ],
+        [
+          10,
+          6
+        ]
+      ]
+    },
+    "drip_drop_w": {
+      "playback": "loop",
+      "contact": "free",
+      "frames": [
+        [
+          11,
+          20
+        ],
+        [
+          12,
+          20
+        ],
+        [
+          13,
+          20
+        ]
+      ]
+    }
+  },
+  "rules": {
+    "max_colors": 63,
+    "max_isolated_per_frame": 0,
+    "max_orphans_per_frame": 5,
+    "unique_frames": true
+  },
+  "scene": {
+    "shadow": false,
+    "actors": [
+      {
+        "frame": 0,
+        "x": 520,
+        "lift": 120
+      },
+      {
+        "frame": 3,
+        "x": 600,
+        "lift": 120
+      },
+      {
+        "frame": 7,
+        "x": 680,
+        "lift": 120
+      }
+    ]
+  },
+  "review": {
+    "strip_name": "03_state_strip.png",
+    "strip_tags": [
+      "drip_run_c",
+      "drip_drop_c",
+      "drip_run_w",
+      "drip_drop_w"
+    ]
+  }
+}

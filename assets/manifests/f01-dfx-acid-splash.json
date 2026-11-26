@@ -1,0 +1,166 @@
+{
+  "schema_version": 1,
+  "id": "f01_dfx_acid_splash_candidate_v0",
+  "type": "prop_animation",
+  "source_path": "assets/source/props/floor01/dfx_acid_splash.ase",
+  "grid_source": "assets/source/props/floor01/dfx_acid_splash.grid.json",
+  "output_atlas": "generated/art/f01-dfx-acid-splash.png",
+  "output_metadata": "generated/art/f01-dfx-acid-splash.json",
+  "palette_id": "hz01b-acid-teal-v1",
+  "frame_size": [
+    32,
+    24
+  ],
+  "pivot": [
+    16,
+    23
+  ],
+  "animation_tags": [
+    "splash"
+  ],
+  "required_alpha": true,
+  "owner": "AI-authored Floor 1 danger FX (fan-concept layer; runtime ids IP-neutral dfx_*)",
+  "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+  "provenance": {
+    "origin": "F01 danger FX acid entry splash (dimple, rise, crown, break, settle), drawn from explicit primitives in named palette entries by scripts/author_hazard_decals.py via author_danger_fx.py; palette: the teal acid ramp (adopted default HZB-AD1)",
+    "generator": "designed by Claude Opus (spec, keys); executed by Claude Sonnet (remaining frames, export, validators); independent art-director review by a separate Claude Opus agent pending. No concept pixels copied, no image-model raster output, no tracing, no resampling",
+    "generated_art": true,
+    "input_reference_ids": [
+      "docs/02-art/area-hazards-01b-spec.md",
+      "assets/source/props/floor01/hz01b_keys/acid_splash_key.grid.json"
+    ]
+  },
+  "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
+  "review_status": "prototype_fixture_unapproved",
+  "prop_kit": {
+    "status": "5 frames drawn; independent top-tier art review pending, owner art and game-feel review pending; drawn by presentation-only wiring in src/acid_splash.rs",
+    "spec": "docs/02-art/area-hazards-01b-spec.md",
+    "tick_hz": 60,
+    "hold_preview_ms": 100,
+    "playback": {
+      "splash": "once"
+    },
+    "frames": [
+      {
+        "index": 0,
+        "name": "splash_0",
+        "tag": "splash",
+        "ticks": 2,
+        "duration_ms": 33,
+        "pivot": [
+          16,
+          23
+        ],
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "w": 32,
+          "h": 24
+        },
+        "content": [
+          0,
+          12,
+          31,
+          20
+        ],
+        "sha256": "a589698c0668ddf4fcebd289ed1f6abfa7598e3784755e57709e45053e2dd9b8"
+      },
+      {
+        "index": 1,
+        "name": "splash_1",
+        "tag": "splash",
+        "ticks": 3,
+        "duration_ms": 50,
+        "pivot": [
+          16,
+          23
+        ],
+        "rect": {
+          "x": 32,
+          "y": 0,
+          "w": 32,
+          "h": 24
+        },
+        "content": [
+          0,
+          9,
+          31,
+          20
+        ],
+        "sha256": "e7f2c01c446e2d64c8b67ca47911c0f69568a750c37ecba3c79cacec700cc6e1"
+      },
+      {
+        "index": 2,
+        "name": "splash_2",
+        "tag": "splash",
+        "ticks": 3,
+        "duration_ms": 50,
+        "pivot": [
+          16,
+          23
+        ],
+        "rect": {
+          "x": 64,
+          "y": 0,
+          "w": 32,
+          "h": 24
+        },
+        "content": [
+          0,
+          1,
+          31,
+          20
+        ],
+        "sha256": "2d9b21060549721931a4d45e9374fb528b121339d7be5f78922a5cfdff882a77"
+      },
+      {
+        "index": 3,
+        "name": "splash_3",
+        "tag": "splash",
+        "ticks": 4,
+        "duration_ms": 67,
+        "pivot": [
+          16,
+          23
+        ],
+        "rect": {
+          "x": 96,
+          "y": 0,
+          "w": 32,
+          "h": 24
+        },
+        "content": [
+          0,
+          0,
+          31,
+          20
+        ],
+        "sha256": "96184036ddffddba8a5ff0b957006d37066afaeb38719ec7b7be057ddf780618"
+      },
+      {
+        "index": 4,
+        "name": "splash_4",
+        "tag": "splash",
+        "ticks": 4,
+        "duration_ms": 67,
+        "pivot": [
+          16,
+          23
+        ],
+        "rect": {
+          "x": 128,
+          "y": 0,
+          "w": 32,
+          "h": 24
+        },
+        "content": [
+          0,
+          14,
+          31,
+          20
+        ],
+        "sha256": "6f7f3704e16615706fe0f640f7725399fb03c98a25899d924382515c13290055"
+      }
+    ]
+  }
+}

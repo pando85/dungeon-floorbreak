@@ -17,7 +17,10 @@
 //! (`review_status: prototype_fixture_unapproved`); the timing below is the
 //! sheet's playback retime of held frames, not a redraw (K10). The ring, the acid
 //! strip and the drip are **code-drawn stand-ins**, labelled as such, shown in
-//! every build until approved hazard VFX art exists (HAZ-Q38).
+//! every build until approved hazard VFX art exists (HAZ-Q38). The acid strip and
+//! the ring are replaced by the danger FX art ([`crate::danger_fx_art`]) and the drip
+//! by the AREA-HAZARDS-01B drip art ([`crate::hazard_decals`]) wherever their atlases
+//! load; the stand-ins and their labels remain as the missing-atlas fallback only.
 //!
 //! Coordinates are world px, y up, like the simulation.
 
@@ -289,8 +292,9 @@ pub enum Tone {
 impl Tone {
     pub const fn rgba(self) -> [u8; 4] {
         match self {
-            Self::Acid => [0x7a, 0xa8, 0x2a, 0xc8],
-            Self::AcidLip => [0xc4, 0xee, 0x5a, 0xff],
+            // HZB-AD1: the teal ramp's acid_2_mid (#197a7e) and acid_4_lit (#78e2d4), alphas kept.
+            Self::Acid => [0x19, 0x7a, 0x7e, 0xc8],
+            Self::AcidLip => [0x78, 0xe2, 0xd4, 0xff],
             Self::Ring => [0xff, 0x6a, 0x2a, 0xe0],
             Self::Drip => [0x5c, 0x6a, 0x22, 0xd0],
         }

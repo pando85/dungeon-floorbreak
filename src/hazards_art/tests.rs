@@ -323,3 +323,30 @@ fn a_sticker_charge_is_owned_by_the_env_and_a_free_charge_is_not() {
         "the dynamite slot is the index after every authored charge"
     );
 }
+
+/// HZB-AD1: the acid stand-in tones are the teal ramp's `acid_2_mid` and `acid_4_lit` (the
+/// colours of `dfx_acid`'s own palette), with the alphas they had.
+#[test]
+fn the_acid_stand_in_tones_are_the_teal_ramp() {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("assets/source/props/floor01/dfx_acid.grid.json");
+    let grid: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+    let rgb = |name: &str| -> [u8; 3] {
+        let hex = grid["palette"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|p| p["name"] == name)
+            .unwrap_or_else(|| panic!("{name} is in the dfx_acid palette"))["rgba"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        let byte = |i: usize| u8::from_str_radix(&hex[i..i + 2], 16).unwrap();
+        [byte(1), byte(3), byte(5)]
+    };
+    let [r, g, b, a] = Tone::Acid.rgba();
+    assert_eq!(([r, g, b], a), (rgb("acid_2_mid"), 0xc8));
+    let [r, g, b, a] = Tone::AcidLip.rgba();
+    assert_eq!(([r, g, b], a), (rgb("acid_4_lit"), 0xff));
+}

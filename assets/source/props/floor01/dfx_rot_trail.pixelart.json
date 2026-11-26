@@ -1,0 +1,53 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "f01-dfx-rot-trail",
+  "title": "F01 danger FX Rot track scuff",
+  "grid": "assets/source/props/floor01/dfx_rot_trail.grid.json",
+  "manifest": "assets/manifests/f01-dfx-rot-trail.json",
+  "frame_size": [
+    16,
+    3
+  ],
+  "pivot": [
+    8,
+    0
+  ],
+  "contact_row": null,
+  "tick_hz": 60,
+  "hold_ms": 100,
+  "facing": "left",
+  "tags": {
+    "trail": {
+      "playback": "hold",
+      "contact": "free",
+      "frames": [
+        [
+          0,
+          null
+        ]
+      ]
+    }
+  },
+  "rules": {
+    "max_colors": 63,
+    "max_isolated_per_frame": 0,
+    "max_orphans_per_frame": 5,
+    "unique_frames": true
+  },
+  "scene": {
+    "shadow": false,
+    "actors": [
+      {
+        "frame": 0,
+        "x": 560,
+        "lift": 120
+      }
+    ]
+  },
+  "review": {
+    "strip_name": "03_state_strip.png",
+    "strip_tags": [
+      "trail"
+    ]
+  }
+}

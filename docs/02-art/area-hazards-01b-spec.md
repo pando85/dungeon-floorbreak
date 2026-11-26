@@ -1,6 +1,6 @@
 # AREA-HAZARDS-01B: acid palette, entry splash, corrosion and Rot marks (design spec)
 
-**Status:** design spec, the palette decisions (HZB-AD1, HZB-AD2) and two frozen keys (the acid entry splash crown and the floor-face corrosion sample). The 1x readability gate passed on the room 4 and room 6 backgrounds (section 9). Execution (remaining frames, export, manifests, validators, presenter wiring and captures) has not started. Not owner-approved.
+**Status:** design spec, the palette decisions (HZB-AD1, HZB-AD2) and two frozen keys (the acid entry splash crown and the floor-face corrosion sample). The 1x readability gate passed on the room 4 and room 6 backgrounds (section 9). Executed: the remaining frames, the sources, manifests and fixtures, the validators and tests, the two pure presenters with their Bevy halves, and the room 4 and room 6 window captures are in [the evidence folder](../evidence/area-hazards-01b/README.md); execution defaults HZB-AD9 to HZB-AD16 are recorded in section 10. Owner art review pending. Not owner-approved.
 
 **Route.** Difficulty score 1 (small effects and decals, one new animated effect), class Easy, route **C**: this spec plus one hero key, the splash ([routing by difficulty](../07-agents/pixel-art-pipeline.md#routing-by-difficulty)). One corrosion sample is also frozen so that the decal language is fixed before execution. Work order AREA-HAZARDS-01B is the follow-up to [AREA-HAZARDS-01](../07-agents/floor-01-area-kits-plan.md) (kit plan line 21) and the open findings F1 and F5 of the [danger FX spec](floor01-danger-fx-spec.md) (backlog `F01-FU-B10`, `DANGER-FX-RING`). The work appears in rooms 4 (`f01_hazards`) and 6 (`mastery`).
 
@@ -284,7 +284,7 @@ The new teal entries and `flame_00` (already a kit entry) keep every danger FX a
     - A CVD strip.
     - A `SHA256SUMS` file.
 
-## 8. Execution list (not done here)
+## 8. Execution list (done; evidence in the evidence README)
 
 1. Recolour `dfx_acid` (HZB-AD1) and the stand-in tones.
 2. Apply the ring backing (HZB-AD2) and re-pin the ring fixtures.
@@ -323,6 +323,19 @@ The composites approximate the scene light with a flat multiply: 0.9 on the dim 
 | HZB-AD6 | Ceiling nests only; wall nests are deferred. Both drip orientations are drawn | No authored room has a wall sticker, but the drip stand-in already supports walls |
 | HZB-AD7 | Hand-drawn keys live in `hz01b_keys/*.grid.json`, are loaded verbatim by the author script and are pinned by frozen-key fixtures | The keys stay the single source for the frozen frames |
 | HZB-AD8 | Corrosion and nest marks are permanent from room load. They are dressing, not state | No sim coupling; deterministic from authored data |
+
+### 10.1 Execution defaults
+
+| ID | Decision | Reason |
+|---|---|---|
+| HZB-AD9 | The Rot nest and its track scuff are two grids, `dfx_rot_nest` (32 x 12) and `dfx_rot_trail` (16 x 3), not two tags of one grid | An atlas is one row of equal cells, so one canvas size per grid. The tags are `nest` and `trail` as in section 3 |
+| HZB-AD10 | The splash z is a hair above the highest actor sprite (Carl and Donut, `actor_z + 0.105`), under the rings. "Below Blast" in the section 3 table and the section 4.2 order does not hold in the scene | In the scene the blast layer lies 0.455 **under** the actors, so a z next to it would hide the splash behind Carl's boots. The intent ("above every actor sprite, below the Tell") is kept; the blast wave still draws under the actors as before |
+| HZB-AD11 | The splash and the decals have their own sprite pools (8 for the splash: a crown and a cropped lip per slot; one per static decal and one per sticker for the decals), not the 40-sprite danger FX pool | A splash can never push a warning ring out of the shared pool, and the rim crop of rows 16..23 needs two sprites per splash |
+| HZB-AD12 | An acid `EnvironmentKill` (the lethal landing) triggers the splash like `EnvironmentHurt` | The defeat event carries the acid class and the patch, so a goblin killed by the pool splashes whatever `fu.acid_hurt_event` says. The only remaining gap is an invulnerable entry, which produces no event |
+| HZB-AD13 | The scuff skips a position when it is **16 px or less** from the nest (the nest is 26 px wide, so a scuff at exactly 16 px would sit under its edge). Room 6's 16 px track has a nest and no scuff | Keeps the scuffs clear of the nest. The room 4 tracks get 5 and 2 scuffs |
+| HZB-AD14 | The const entry stain is keyed by the combat fixture's name (`f01_hazards`), on the walking line of the room's first acid patch | The decals need no room data and no new JSON; room 4's layout note asks for the stain at x 150 |
+| HZB-AD15 | In frames 1 and 3 the sheet tips are one row taller than the table's "near" rows (right tip row 9 and left row 12 in frame 1; right row 11 and left row 13 in frame 3), and the drops of frame 3 clamp at the canvas edge | The readability gate's note: the crown must not shrink next to a 52 px hero. The table says "near" and these stay within one row |
+| HZB-AD16 | The wall drip sheet is authored with the ceiling pivot (4, 0) in the grid; the manifest records the wall pivot (0, 0) on its `_w` frames and the presenter applies it | A grid has one pivot; the wall pivot is per tag in the manifest |
 
 ## 11. Open questions
 

@@ -10,9 +10,12 @@ The design, the frozen keys and the acceptance targets are in
 Every pixel is drawn from explicit primitives (distance bands, angular dashes,
 rectangles and a tiny integer hash for the broken patterns) in named palette
 entries: the Floor 01 kit ramps (``floor01_catacomb_kit.json``) and, for the acid
-only, the SLIME-01 gel ramp (``slime_01.grid.json``), because the pool is the
-slime's own fluid (spec, adopted default DFX-AD1). No concept pixel is cropped,
-traced or resampled; no image-model raster output.
+family, the teal ``ACID_RAMP`` (AREA-HAZARDS-01B, adopted default HZB-AD1, which
+supersedes the SLIME-01 borrow of DFX-AD1: the acid is its own substance). The splash,
+the corrosion decals and the Rot marks of AREA-HAZARDS-01B are drawn by
+``scripts/author_hazard_decals.py`` and written by this script's ``build`` with the
+other sheets (spec ``docs/02-art/area-hazards-01b-spec.md``). No concept pixel is
+cropped, traced or resampled; no image-model raster output.
 
 The rings and waves are generated **per sim radius** (48 px: the Rot Sticker and the
 Boiler drum; 64 px: the thrown dynamite's outer ring), so the drawn edge sits on the
@@ -35,13 +38,14 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import author_gwkit_keys as K  # noqa: E402
+import author_hazard_decals as H  # noqa: E402
 from author_gwkit_keys import Canvas  # noqa: E402
 
 ROOT = K.ROOT
 OUT = K.OUT
-SLIME_GRID = ROOT / "assets/source/characters/slime/slime_01.grid.json"
 HOLD_MS = 100
 SPEC = "docs/02-art/floor01-danger-fx-spec.md"
+HZB_SPEC = H.SPEC
 # The room exit door has its own spec (ROOM-PORTALS-01); the other sheets share SPEC.
 EXIT_SPEC = "docs/02-art/floor01-room-exit-spec.md"
 GRID_DIR_REL = "assets/source/props/floor01"
@@ -68,12 +72,14 @@ def h32(a: int, b: int, c: int) -> int:
 
 
 def palette() -> dict[str, str]:
-    """The kit palette, then the SLIME-01 gel entries the acid uses (named as in its grid)."""
+    """The kit palette, the teal acid ramp (HZB-AD1) and the ROT-01 entries the Rot marks use."""
     pal = K.kit_palette()
-    slime = json.loads(SLIME_GRID.read_text())
-    for p in slime["palette"]:
-        if p["name"] in ACID_COLOURS:
-            pal[p["name"]] = p["rgba"]
+    for name, rgba in H.ACID_RAMP:
+        assert name not in pal, name
+        pal[name] = rgba
+    for name, rgba in H.rot_palette().items():
+        assert name not in pal, name
+        pal[name] = rgba
     return pal
 
 
@@ -84,13 +90,11 @@ def palette() -> dict[str, str]:
 # exactly the volume's x range at every drain step.
 AW, AH = 80, 10
 SURF = 4  # the surface row (the volume's top row)
-ACID_COLOURS = ("outline_murk", "gel_0_deep", "gel_1_shade", "gel_2_mid", "gel_3_light",
-                "gel_4_lit", "sheen_torch", "acid_hot", "bone_gel_lit", "bone_gel_dark")
 
 
 def acid_body(cv: Canvas, drain: bool) -> None:
-    lit, mid, shade, deep = (("gel_2_mid", "gel_1_shade", "gel_0_deep", "gel_0_deep") if drain
-                             else ("gel_3_light", "gel_2_mid", "gel_1_shade", "gel_0_deep"))
+    lit, mid, shade, deep = (("acid_2_mid", "acid_1_shade", "acid_0_deep", "acid_0_deep") if drain
+                             else ("acid_3_light", "acid_2_mid", "acid_1_shade", "acid_0_deep"))
     for x in range(AW):
         # the meniscus: the surface row is 2 px in from each end, row 5 one in.
         edge = min(x, AW - 1 - x)
@@ -100,7 +104,7 @@ def acid_body(cv: Canvas, drain: bool) -> None:
             if y == SURF + 1 and edge < 1:
                 continue
             if y == AH - 1 or (edge == 0) or (y == SURF + 1 and edge == 1) or (y == SURF and edge == 2):
-                c = "outline_murk"
+                c = "acid_outline"
             elif y == SURF:
                 c = lit
             else:
@@ -120,7 +124,7 @@ def acid_body(cv: Canvas, drain: bool) -> None:
 def acid_frame(phase: int, drain: bool) -> Canvas:
     cv = Canvas(AW, AH)
     acid_body(cv, drain)
-    sheen = "gel_3_light" if drain else "sheen_torch"
+    sheen = "acid_3_light" if drain else "acid_sheen"
     # the rolling sheen: 3 px streaks on the surface, moving 2 px right per frame.
     for x0 in range(3, AW - 6, 11):
         x = x0 + (2 * phase) % 6
@@ -131,34 +135,34 @@ def acid_frame(phase: int, drain: bool) -> Canvas:
     if not drain:
         for x0 in range(9, AW - 9, 23):
             x = x0 + (phase * 5) % 9
-            cv.set(x, SURF + 1, "acid_hot")
-            cv.set(x + 1, SURF + 1, "gel_4_lit")
+            cv.set(x, SURF + 1, "acid_fizz")
+            cv.set(x + 1, SURF + 1, "acid_4_lit")
     # bubbles: each site cycles rise (2 px dome on the surface), swell (3 px), pop (fume).
     sites = [7, 22, 36, 51, 66] if not drain else [12, 30, 47, 63]
     for i, sx in enumerate(sites):
         step = (phase + i) % 4
         if step == 1:  # rise
-            cv.set(sx, SURF - 1, "gel_4_lit")
-            cv.set(sx + 1, SURF - 1, "gel_3_light")
+            cv.set(sx, SURF - 1, "acid_4_lit")
+            cv.set(sx + 1, SURF - 1, "acid_3_light")
         elif step == 2:  # swell
-            cv.set(sx - 1, SURF - 1, "gel_3_light")
-            cv.set(sx, SURF - 1, "sheen_torch" if not drain else "gel_4_lit")
-            cv.set(sx + 1, SURF - 1, "gel_4_lit")
-            cv.set(sx, SURF - 2, "gel_4_lit")
-            cv.set(sx + 1, SURF - 2, "gel_3_light")
+            cv.set(sx - 1, SURF - 1, "acid_3_light")
+            cv.set(sx, SURF - 1, "acid_sheen" if not drain else "acid_4_lit")
+            cv.set(sx + 1, SURF - 1, "acid_4_lit")
+            cv.set(sx, SURF - 2, "acid_4_lit")
+            cv.set(sx + 1, SURF - 2, "acid_3_light")
         elif step == 3:  # pop: a 2 px fume wisp drifting up
-            fume = "bone_gel_lit" if not drain else "bone_gel_dark"
+            fume = "fume_lit" if not drain else "fume_dark"
             cv.set(sx + 1, SURF - 2, fume)
             cv.set(sx + 1, SURF - 3, fume)
-            cv.set(sx + 2, SURF - 3, "bone_gel_dark")
+            cv.set(sx + 2, SURF - 3, "fume_dark")
     if drain:
         # evaporation: more fumes over the whole pool, rising one row per frame.
         for i, x0 in enumerate(range(5, AW - 8, 11)):
             x = x0 + h32(i, phase, 9) % 4
             y = SURF - 1 - (phase + i) % 2
-            cv.set(x, y, "bone_gel_dark")
-            cv.set(x + 1, y - 1, "bone_gel_dark")
-            cv.set(x + 1, y - 2, "bone_gel_lit")
+            cv.set(x, y, "fume_dark")
+            cv.set(x + 1, y - 1, "fume_dark")
+            cv.set(x + 1, y - 2, "fume_lit")
     return cv
 
 
@@ -198,7 +202,11 @@ def ring_march(r: int, phase: int) -> Canvas:
             continue
         # every yellow dash carries a 2 px tooth pointing at the centre: "inside is the blast".
         inner = r - 3 if (i % 2 == 1 and 0.24 <= f < 0.42) else r - 1
-        if inner <= d < r + 1:
+        if r <= d < r + 1:
+            # HZB-AD2: the outer band row is the dark tape backing in both dash colours, so
+            # the dashes keep an edge on the lit brick (finding F1).
+            cv.set(x, y, "flame_00")
+        elif inner <= d < r:
             cv.set(x, y, "flame_02" if i % 2 == 0 else "brass_05")
         elif r + 1 <= d < r + 2 or inner - 1 <= d < inner:
             cv.set(x, y, "iron_00")
@@ -210,7 +218,9 @@ def ring_hot(r: int, flicker: int) -> Canvas:
     n = 2 * (r + MARGIN) + 1
     c = r + MARGIN
     cv = Canvas(n, n)
-    outer, inner = ("flame_03", "flame_04") if flicker == 0 else ("flame_04", "flame_05")
+    # HZB-AD2: the outer row is the dark tape backing (``flame_00``) in both flicker frames; the
+    # inner row flickers flame_04 / flame_05.
+    outer, inner = "flame_00", ("flame_04" if flicker == 0 else "flame_05")
     for x, y, d, _a in polar(cv, c):
         if r <= d < r + 1:
             cv.set(x, y, outer)
@@ -627,13 +637,14 @@ def assets() -> dict[str, tuple[list[TagSpec], tuple[int, int]]]:
         out[f"dfx_wave_r{r}"] = (wave_assets(r), (c, c))
     out["dfx_gate"] = (gate_assets(), (0, GH - 1))
     out["dfx_exit"] = (exit_assets(), (0, EH - 1))
+    out.update(H.assets())  # AREA-HAZARDS-01B: the splash, the corrosion decals, the Rot marks
     return out
 
 
 # Frozen design keys (grid frame index): the acid idle key, both march rings, the reach
 # frame of both waves, the closed gate.
 FROZEN = {"dfx_acid": [0], "dfx_ring_r48": [0], "dfx_ring_r64": [0], "dfx_wave_r48": [3],
-          "dfx_wave_r64": [3], "dfx_gate": [0], "dfx_exit": [0, 1]}
+          "dfx_wave_r64": [3], "dfx_gate": [0], "dfx_exit": [0, 1], **H.FROZEN}
 TITLES = {
     "dfx_acid": "acid pool strip (idle, draining)",
     "dfx_ring_r48": "blast reach ring, 48 px (march, hot)",
@@ -642,6 +653,7 @@ TITLES = {
     "dfx_wave_r64": "blast wave to the 64 px reach",
     "dfx_gate": "room 5 entrance gate (closed, raised)",
     "dfx_exit": "room exit door, rooms 2, 4, 4a, 4b and 6 (closed, open)",
+    **H.TITLES,
 }
 # Evidence scene rows: (frame, x of the pivot column, lift).
 SCENES = {
@@ -652,14 +664,20 @@ SCENES = {
     "dfx_wave_r64": ([(1, 520, 56), (3, 700, 56)], False),
     "dfx_gate": ([(0, 560, 0), (1, 640, 0)], False),
     "dfx_exit": ([(0, 520, 0), (1, 660, 0)], False),
+    **H.SCENES,
 }
 STRIPS = {"dfx_acid": ["acid_idle", "acid_drain"], "dfx_ring_r48": ["ring_march", "ring_hot"],
           "dfx_ring_r64": ["ring_march", "ring_hot"], "dfx_wave_r48": ["blast_wave"],
           "dfx_wave_r64": ["blast_wave"], "dfx_gate": ["gate_closed", "gate_raised"],
-          "dfx_exit": ["exit_closed", "exit_open"]}
+          "dfx_exit": ["exit_closed", "exit_open"], **H.STRIPS}
 
 
-def to_grid(tags: list[TagSpec], pivot: tuple[int, int], pal: dict[str, str]) -> dict:
+def to_grid(tags: list[TagSpec], pivot: tuple[int, int], pal: dict[str, str],
+            fixed: dict[str, str] | None = None) -> dict:
+    """The ``pixel-grid-v1`` source of one sheet. Keys are assigned in palette order, unless
+    ``fixed`` (name -> key character) pins them: the acid family keeps the key characters of
+    ``ACID_RAMP`` (so every frozen key is a verbatim row copy) and the Rot marks keep the
+    ROT-01 grid's."""
     flat: list[Frame] = []
     tag_rows = []
     for name, frames, _playback in tags:
@@ -676,7 +694,7 @@ def to_grid(tags: list[TagSpec], pivot: tuple[int, int], pal: dict[str, str]) ->
     names.sort(key=order.index)
     if len(names) > len(K.KEYS):
         raise SystemExit("too many colours")
-    key_of = {n: K.KEYS[i] for i, n in enumerate(names)}
+    key_of = {n: K.KEYS[i] for i, n in enumerate(names)} if fixed is None else {n: fixed[n] for n in names}
     w, h = flat[0][0].w, flat[0][0].h
     frames_out = []
     for cv, ticks in flat:
@@ -705,10 +723,14 @@ def config_of(name: str, tags: list[TagSpec], grid: dict) -> dict:
     import pixel_grid_to_ase as pg
     rep = pg.lint_grid(grid)
     w, h = grid["canvas"]
+    orphans = max(rep["orphan_count_per_frame"])
+    if name in H.HAZARD_SHEETS:  # spec 9: the largest measured frame plus 2, at most 32
+        orphans = min(orphans + 2, 32)
     rules: dict = {"max_colors": 63, "max_isolated_per_frame": 0,
-                   "max_orphans_per_frame": max(rep["orphan_count_per_frame"]), "unique_frames": True,
-                   "frozen_keys": {"fixture": f"tests/fixtures/{asset_stem(name)}_keys.json",
-                                   "frames": FROZEN[name], "layers": ["body"]}}
+                   "max_orphans_per_frame": orphans, "unique_frames": True}
+    if name in FROZEN:
+        rules["frozen_keys"] = {"fixture": f"tests/fixtures/{asset_stem(name)}_keys.json",
+                                "frames": FROZEN[name], "layers": ["body"]}
     actors, shadow = SCENES[name]
     return {
         "format": "pixelart-asset-v1", "asset_id": asset_stem(name),
@@ -738,11 +760,53 @@ def manifest_of(name: str, tags: list[TagSpec], grid: dict) -> dict:
                        "sha256": frame_digest(grid["frames"][i]["cels"], ["body"])})
     acid = name == "dfx_acid"
     exit_door = name == "dfx_exit"
-    spec = EXIT_SPEC if exit_door else SPEC
-    review = "independent top-tier review passed"
-    # The acid uses only the SLIME-01 gel ramp (named entries, values exact), so it
-    # carries the slime's palette id; the kit sheets carry the kit's (DFX-AD1).
-    palette_note = "slime-floor01-v1" if acid else "floor01-catacomb-v2"
+    hazard = name in H.HAZARD_SHEETS  # AREA-HAZARDS-01B sheets
+    ring = name.startswith("dfx_ring")
+    spec = EXIT_SPEC if exit_door else (HZB_SPEC if hazard else SPEC)
+    if hazard:
+        review = "independent top-tier art review pending"
+    elif acid or ring:
+        review = "independent top-tier review passed on the first version; the AREA-HAZARDS-01B change awaits its review"
+    else:
+        review = "independent top-tier review passed"
+    # The acid family carries the teal ramp's palette id (HZB-AD1), the Rot marks ROT-01's; the
+    # kit sheets carry the kit's.
+    palette_note = H.palette_id(name) or "floor01-catacomb-v2"
+    used = ""
+    if hazard and name in H.ROT_FAMILY:
+        used = "ROT-01 entries only (adopted default HZB-AD5)"
+        refs = [HZB_SPEC, H.ROT_GRID_REL]
+    elif hazard:
+        used = "the teal acid ramp (adopted default HZB-AD1)" + (
+            "; the dry subset only (HZB-AD4)" if name != "dfx_acid_splash" else "")
+        refs = [HZB_SPEC] + H.KEY_FILES.get(name, [])
+    elif acid:
+        used = "the teal acid ramp (adopted default HZB-AD1)"
+        refs = [SPEC, HZB_SPEC]
+    else:
+        refs = [spec, "assets/source/terrain/floor01/floor01_catacomb_kit.json"]
+    if exit_door:
+        refs += [SPEC, "assets/source/props/floor01/dfx_gate.grid.json"]
+    wall_pivot = [0, 0]
+    for f in frames:
+        if f["tag"].endswith("_w"):
+            f["pivot"] = wall_pivot
+    if hazard:
+        generator = ("designed by Claude Opus (spec, keys); executed by Claude Sonnet (remaining frames, "
+                     "export, validators); independent art-director review by a separate Claude Opus agent "
+                     "pending. No concept pixels copied, no image-model raster output, no tracing, no resampling")
+    else:
+        generator = ("designed and executed by Claude Opus (spec, keys, frames); independent art-director review "
+                     "by a separate Claude Opus agent. No concept pixels copied, no image-model raster output, "
+                     "no tracing, no resampling")
+    generator += ("; the grate reuses the room 5 gate's drawing code (dfx_gate)" if exit_door else "")
+    if acid:
+        generator += "; recoloured to the teal ramp, rows unchanged (adopted default HZB-AD1, executed by Claude Sonnet)"
+    if ring:
+        generator += "; outer band row backed with flame_00 (adopted default HZB-AD2, executed by Claude Sonnet)"
+    wiring = ("src/room_exit_art.rs" if exit_door else "src/acid_splash.rs" if name == "dfx_acid_splash"
+              else "src/hazard_decals.rs" if hazard else "src/danger_fx_art.rs")
+    tail = f"; palette: {used}" if used else ""
     return {
         "schema_version": 1, "id": f"{stem.replace('-', '_')}_candidate_v0", "type": "prop_animation",
         "source_path": f"{GRID_DIR_REL}/{name}.ase", "grid_source": f"{GRID_DIR_REL}/{name}.grid.json",
@@ -752,17 +816,11 @@ def manifest_of(name: str, tags: list[TagSpec], grid: dict) -> dict:
         "owner": "AI-authored Floor 1 danger FX (fan-concept layer; runtime ids IP-neutral dfx_*)",
         "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
         "provenance": {
-            "origin": f"F01 danger FX {TITLES[name]}, drawn from explicit primitives in named palette entries "
-                      "by scripts/author_danger_fx.py",
-            "generator": "designed and executed by Claude Opus (spec, keys, frames); independent art-director review "
-                         "by a separate Claude Opus agent. No concept pixels copied, no image-model raster output, "
-                         "no tracing, no resampling"
-                         + ("; the grate reuses the room 5 gate's drawing code (dfx_gate)" if exit_door else "")
-                         + ("; palette: the SLIME-01 gel ramp only (adopted default DFX-AD1)" if acid else ""),
+            "origin": f"F01 danger FX {TITLES[name]}, drawn from explicit primitives in named palette "
+                      f"entries by scripts/{'author_hazard_decals.py via ' if hazard else ''}author_danger_fx.py{tail}",
+            "generator": generator,
             "generated_art": True,
-            "input_reference_ids": [spec, "assets/source/terrain/floor01/floor01_catacomb_kit.json"]
-            + (["assets/source/characters/slime/slime_01.grid.json"] if acid else [])
-            + ([SPEC, "assets/source/props/floor01/dfx_gate.grid.json"] if exit_door else []),
+            "input_reference_ids": refs,
         },
         "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; "
                    "no public reuse license; no game/asset-pack distribution rights",
@@ -770,7 +828,7 @@ def manifest_of(name: str, tags: list[TagSpec], grid: dict) -> dict:
         "prop_kit": {
             "status": f"{len(flat)} frames drawn; {review}, owner art and game-feel review "
                       "pending; drawn by presentation-only "
-                      f"wiring in {'src/room_exit_art.rs' if exit_door else 'src/danger_fx_art.rs'}",
+                      f"wiring in {wiring}",
             "spec": spec, "tick_hz": 60, "hold_preview_ms": HOLD_MS,
             "playback": {tag: p for tag, _f, p in tags},
             "frames": frames,
@@ -783,7 +841,7 @@ def build(out: Path, meta: bool = False) -> list[Path]:
     out.mkdir(parents=True, exist_ok=True)
     written = []
     for name, (tags, pivot) in assets().items():
-        grid = to_grid(tags, pivot, pal)
+        grid = to_grid(tags, pivot, pal, H.key_map(name))
         path = out / f"{name}.grid.json"
         path.write_text(json.dumps(grid, indent=1) + "\n")
         written.append(path)

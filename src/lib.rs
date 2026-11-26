@@ -1,5 +1,6 @@
 //! Pure, headless-friendly contracts for Dungeon Floorbreak.
 
+pub mod acid_splash;
 pub mod acting;
 pub mod actor_sprite;
 pub mod agility;
@@ -85,6 +86,7 @@ pub mod goblin;
 pub mod gore;
 pub mod gym_art;
 pub mod gym_kit;
+pub mod hazard_decals;
 pub mod hazards_art;
 pub mod hazards_fixtures;
 pub mod hero_damage;

@@ -1,0 +1,46 @@
+{
+ "format": "pixel-grid-v1",
+ "canvas": [
+  16,
+  3
+ ],
+ "pivot": [
+  8,
+  0
+ ],
+ "palette": [
+  {
+   "key": "a",
+   "name": "shell_0_deep",
+   "rgba": "#1c1722ff"
+  },
+  {
+   "key": "x",
+   "name": "rot_olive",
+   "rgba": "#4e4a28ff"
+  }
+ ],
+ "layers": [
+  "body"
+ ],
+ "frames": [
+  {
+   "duration_ms": 100,
+   "cels": {
+    "body": [
+     "..aa.x..aaa..xa.",
+     ".a..xx..a..aa...",
+     "........x......."
+    ]
+   }
+  }
+ ],
+ "tags": [
+  {
+   "name": "trail",
+   "from": 0,
+   "to": 0,
+   "direction": "forward"
+  }
+ ]
+}
