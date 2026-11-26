@@ -596,7 +596,8 @@ pub fn pilot(kind: Pilot, combat: &CombatState, scene: &SceneSim, exit_x: f32) -
                 input.move_x = walk(donut.x, exit_x);
             } else {
                 input.move_x = walk(donut.x, near);
-                input.ability = input.move_x == 0.0 && donut.grounded && scene.world.tick % 20 == 0;
+                input.ability =
+                    input.move_x == 0.0 && donut.grounded && scene.world.tick.is_multiple_of(20);
             }
             input
         }
