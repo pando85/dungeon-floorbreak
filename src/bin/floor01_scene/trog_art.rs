@@ -75,6 +75,7 @@ pub(super) fn spawn(
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
     handles: &mut Vec<(String, Handle<Image>)>,
+    room: f01_trog::TrogRoom,
     state: &CombatState,
     kit: &EnvKit,
     actor_layers: RenderLayers,
@@ -106,10 +107,15 @@ pub(super) fn spawn(
         ));
         sheets[species_index(species)] = Some((texture, layout));
     }
+    // `decor=dressed` when the trog contract has a dressing block for the room, `plain` otherwise
+    // (a stage 2 room launches plain until its block lands, TROG-ART-AD19); no flat decor either way.
+    let dressed = std::env::current_dir()
+        .is_ok_and(|root| dungeon_floorbreak::trog_kit::is_dressed(&root, room));
     println!(
-        "F01_TROG_ART atlases={} rectangles={} decor=dressed art_review=pending (prototype_fixture_unapproved)",
+        "F01_TROG_ART atlases={} rectangles={} decor={} art_review=pending (prototype_fixture_unapproved)",
         sheets.iter().filter(|s| s.is_some()).count(),
         if rects_always { "always" } else { "fallback" },
+        if dressed { "dressed" } else { "plain" },
     );
     let n = state.slot_enemies().len();
     commands.insert_resource(TrogArt {

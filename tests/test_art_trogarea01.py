@@ -193,6 +193,7 @@ class TrogKitTest(unittest.TestCase):
         self.assertEqual({(r["layer"], r["piece"], r["x"], r["y"]) for r in d["remove_at"]}, set(trog.RUN_REMOVE_AT))
         self.assertEqual({(r["layer"], r["piece"], r["x"], r["y"]) for r in d["remove_at"]},
                          {("structure", "arch_chain", 224, 384), ("structure", "arch_chain", 1232, 384),
+                          ("structure", "arch_threshold", 208, 544), ("structure", "arch_threshold", 1216, 544),
                           ("prop", "torch_wall", 2240, 432), ("backwall_decal", "torch_pool_a", 2136, 348)})
         self.assertEqual(d["backwall_fill"], [{"x": 176, "y": 352, "w": 208, "h": 208},
                                               {"x": 1184, "y": 352, "w": 208, "h": 208}])

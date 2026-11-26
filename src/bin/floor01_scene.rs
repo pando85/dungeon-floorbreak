@@ -5722,12 +5722,13 @@ fn setup(
 
     // TROG-A: the troglodyte room's atlas bodies (labelled rectangles where the atlas is
     // missing), telegraphs and decor. Presentation only.
-    if let (Some(_), Some(state)) = (args.trog_run.as_ref(), combat.0.as_ref()) {
+    if let (Some(run), Some(state)) = (args.trog_run.as_ref(), combat.0.as_ref()) {
         trog_art::spawn(
             &mut commands,
             &asset_server,
             &mut layouts,
             &mut combat_handles,
+            run.room,
             state,
             kit,
             layers_of("actors"),

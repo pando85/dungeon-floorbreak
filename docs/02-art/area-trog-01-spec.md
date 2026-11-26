@@ -94,6 +94,7 @@ Neither room gains a solid. Every dressing piece is non-collidable decor; the lo
 **`trog_run`**:
 - `remove_at`:
   - `structure arch_chain (224, 384)` and `structure arch_chain (1232, 384)`: the catenaries of the two bricked bays would hang across the slam crack and the fist hole;
+  - `structure arch_threshold (208, 544)` and `structure arch_threshold (1216, 544)`: the composer's blue window sills of the two bricked bays (cold skirting under warm brick, and a 4 px lip on the refuge face); the `backwall_fill` brick shows down to the deck (TROG-ART-AD20, review R2);
   - `prop torch_wall (2240, 432)` and `backwall_decal torch_pool_a (2136, 348)`: the composer places two torches at x 2240 (y 432 and 448); the upper one and its pool go (TROG-ART-AD7).
 - `backwall_fill`: `{176, 352, 208, 208}` and `{1184, 352, 208, 208}`. Bays 1 and 4 are bricked across both pier inner columns, so no background shows through the piers (FF-AD29).
 - `parallax`: empty.
@@ -315,7 +316,7 @@ Executed by Claude Sonnet from the frozen keys and the gate's binding notes G1..
 | `floor01_trog_run_wall` | 176 x 136 | 12 | `trog_fist_hole` (backwall decal), `trog_knuckle_marks` (backwall decal), `trog_slam_crack` (backwall decal) |
 | `floor01_trog_run_props` | 128 x 104 | 34 | `trog_bell` (prop), `trog_impact_crater` (structure), and the three executor pieces `trog_step_mid` 16 x 32, `trog_step_end_l` and `trog_step_end_r` 8 x 32 (structure) |
 
-Pieces sit in the atlas at their exact size with 8 px padding. The step pieces are the AREA-HEAT-01 shelf body one stone step darker below the arris row, each with exactly one transparent pixel and no `stone` above index 7 below row 0 (section 5; the code is the gate's rule, reproduced as `end_of` and `darken`). The contract is `assets/source/terrain/floor01/floor01_trog_kit.json` (extends the gym kit, no inherited key redeclared, nothing collidable, manifests `floor01_trog_run_wall.json` and `floor01_trog_run_props.json`, status `prototype_fixture_unapproved`). Its `room_dressing.trog_run` is exactly sections 4 and 5: four `remove_at` (both bricked bays' catenaries, the upper torch at x 2240 and its pool), two `backwall_fill` rects, an empty `parallax`, and 15 placements (three decals, then structure, then the bell). Every `remove_at` matches exactly one composer piece.
+Pieces sit in the atlas at their exact size with 8 px padding. The step pieces are the AREA-HEAT-01 shelf body one stone step darker below the arris row, each with exactly one transparent pixel and no `stone` above index 7 below row 0 (section 5; the code is the gate's rule, reproduced as `end_of` and `darken`). The contract is `assets/source/terrain/floor01/floor01_trog_kit.json` (extends the gym kit, no inherited key redeclared, nothing collidable, manifests `floor01_trog_run_wall.json` and `floor01_trog_run_props.json`, status `prototype_fixture_unapproved`). Its `room_dressing.trog_run` is exactly sections 4 and 5: six `remove_at` (both bricked bays' catenaries and blue sills, the upper torch at x 2240 and its pool), two `backwall_fill` rects, an empty `parallax`, and 15 placements (three decals, then structure, then the bell). Every `remove_at` matches exactly one composer piece.
 
 **Wiring.** `src/trog_kit.rs` composes the room through `f01_boiler::compose_kit_hooked` + `ring_kit::dress_with` (an unmatched entry is an error) and pushes the DP-Q45 ceiling slab and the sidecar's `solid` statics in one shared `lane_solids`, for the dressed and the plain composition alike. `f01_trog::launch` is `launch_with(root, room, true)`; `launch_with(.., false)` is the plain TROG-A composition. The binary no longer draws the flat decor (`f01_trog::decor` stays as data; the `F01_TROG_RUN_ENTRY` line is unchanged; the `F01_TROG_ART` line prints `decor=dressed` and the `F01_TROG_DECOR` lines are gone, the camp's REST precedent).
 
@@ -324,7 +325,7 @@ Pieces sit in the atlas at their exact size with 8 px padding. The step pieces a
 | Id | Test |
 | --- | --- |
 | A1 | solids (slab and statics included), spawn, exit, views, walking line, blink barriers, collision cells and tiles, actor z and deck are identical with and without the dressing; the launched rooms and their hashes and statics too; the state hash is equal on all 500 ticks of the smoke script |
-| A3 | `dress_with` returns 0; each `remove_at` drops exactly one composer piece; an unmatched entry is an error; the torch at (2240, 448) and the open windows' chains stay |
+| A3 | `dress_with` returns 0; each of the six `remove_at` drops exactly one composer piece, the bays' sills included; an unmatched entry is an error; the torch at (2240, 448) and the open windows' chains stay |
 | A5 (G5) | the undressed bays' background span (x 144..1503 pier to pier, y 352..559) lies inside the `backwall_fill` rects; the dressed layout shows no background in either bay |
 | A6 (G5) | the 11 dressing placements that touch y 561..579 (ten step pieces and the crater) are on a layer above `collision` |
 | A4 | no `prop` pixel in an open window above y 520, from the real pixels |
@@ -364,6 +365,8 @@ Pieces sit in the atlas at their exact size with 8 px padding. The step pieces a
 | G7 (static fallback piece) | not needed unless TROG-B fires TROG-AD12 |
 | G8 (stage gating) | applied: TROG-A is on main, stage 1 only; the room JSON, sidecar statics (refuge 352..415, bell step 1840..1903), pier x and openings were re-read on the landed files and equal sections 2 to 5 |
 
+Stage 2 rooms launch plain until their `room_dressing` block lands (AD19).
+
 **Adopted defaults of the executor** (the owner may change any in a follow-up PR):
 
 | Id | Default | Reason |
@@ -373,6 +376,8 @@ Pieces sit in the atlas at their exact size with 8 px padding. The step pieces a
 | TROG-ART-AD15 | The binary draws none of `f01_trog::decor` and prints `decor=dressed`; the `F01_TROG_DECOR` lines are removed | nothing consumes them; every troglodyte room is dressed (the REST precedent) |
 | TROG-ART-AD16 | The troglodytes' pose and position on a still are measured by masked normalised cross-correlation of the atlas frames; a still is gated when an idle frame (0..2) is in view | the pose is not logged and the idle loop picks frame 0, 1 or 2 by tick; every match is pixel-exact (ncc 1.00 on the gated stills) |
 | TROG-ART-AD17 | New pilot ticks for stills TROG-A did not take: 20 (`t0_spawn`), 440 (`basher_dormant`), 840 (`virtuoso_dormant`) | the dormant poses the gate needs; TROG-A's nine other ticks keep its names and its hashes |
-| TROG-ART-AD18 | A piece's lit mean in a window still counts only the pixels visible in the layout and explained by the lit model (|L* difference| at most 12) | Carl, Donut, the HUD and effects must not enter a dressing piece's mean |
+| TROG-ART-AD18 | A piece's lit mean in a window still counts only the pixels visible in the layout and explained by the lit model (|L* difference| at most 12) | Carl, Donut, the HUD and effects must not enter a dressing piece's mean; `lit_read.txt` prints the dropped pixel counts per piece. A downed troglodyte (atlas tag `down`) is not counted as an actor (G6) |
+| TROG-ART-AD19 | `trog_kit::dressing_of` returns `Option`: a troglodyte room whose contract has no `room_dressing` block composes plain (`launch` stays `launch_with(.., true)`), and the binary prints `decor=dressed` or `decor=plain` from `trog_kit::is_dressed`; no flat decor is drawn either way. A malformed block is still an error. Stage 2 rooms launch plain until their block lands | review R1: a room without a block (TROG-B's `trog_strength`, which also runs on the static bench fallback, TROG-AD12, so stage 2 follows G7) must not fail to launch; tested with a synthetic room id |
+| TROG-ART-AD20 | The composer's blue `arch_threshold` sills of the two bricked bays, (208, 544) and (1216, 544), are removed | review R2: in a bricked bay the moonlit sill reads as a cold band under warm brick and leaves a 4 px blue lip on the refuge face; the fill already covers y 352..559. The camp aftermath's B2 sill is a kit-wide owner call, not this PR |
 
 No design problem was found: no key needed a change, and no placement contradicted the landed geometry.

@@ -130,7 +130,7 @@ fn the_dressing_does_not_change_the_state_hash() {
 #[test]
 fn every_remove_at_matches_exactly_one_piece() {
     let d = dressing();
-    assert_eq!(d.remove_at.len(), 4);
+    assert_eq!(d.remove_at.len(), 6);
     let (plain, dressed) = kits();
     for r in &d.remove_at {
         let count = |kit: &EnvKit| {
@@ -174,6 +174,15 @@ fn every_remove_at_matches_exactly_one_piece() {
             .collect::<Vec<_>>()
     };
     assert_eq!(torches(2240), vec![448], "one torch stays at 2240");
+    for x in [208, 1216] {
+        assert!(
+            !dressed
+                .pieces
+                .iter()
+                .any(|p| p.piece == "arch_threshold" && (p.x, p.y) == (x, 544)),
+            "the bricked bay's blue sill at {x} is gone (AD20)"
+        );
+    }
     for x in [224, 1232] {
         assert!(
             !dressed
@@ -584,4 +593,43 @@ fn dump_trog_layouts() {
         )
         .unwrap();
     }
+}
+
+/// TROG-ART-AD19: a room whose contract has no `room_dressing` block launches plain (stage 2 rooms
+/// until their block lands); a malformed block is still an error and `trog_run` still dresses.
+#[test]
+fn a_room_without_a_dressing_block_composes_plain() {
+    let contract: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(root().join(TROG_CONTRACT)).unwrap())
+            .unwrap();
+    assert!(
+        dressing_from(&contract, "trog_synthetic")
+            .unwrap()
+            .is_none()
+    );
+    assert!(dressing_from(&contract, RUN_ROOM).unwrap().is_some());
+    let mut null_block = contract.clone();
+    null_block["room_dressing"]["trog_synthetic"] = serde_json::Value::Null;
+    assert!(
+        dressing_from(&null_block, "trog_synthetic")
+            .unwrap()
+            .is_none()
+    );
+    let mut bad = contract.clone();
+    bad["room_dressing"]["trog_synthetic"] = json!({"place": 3});
+    assert!(dressing_from(&bad, "trog_synthetic").is_err());
+
+    let loaded = f01_trog::launch_with(&root(), ROOM, false).unwrap().loaded;
+    let plain = compose_by_id(&root(), &loaded, "trog_synthetic", true).unwrap();
+    let plain_ref = compose_by_id(&root(), &loaded, RUN_ROOM, false).unwrap();
+    assert_eq!(
+        format!("{:?}", plain.pieces),
+        format!("{:?}", plain_ref.pieces)
+    );
+    let dressed = compose_by_id(&root(), &loaded, RUN_ROOM, true).unwrap();
+    assert_ne!(
+        format!("{:?}", dressed.pieces),
+        format!("{:?}", plain.pieces)
+    );
+    assert!(is_dressed(&root(), ROOM));
 }

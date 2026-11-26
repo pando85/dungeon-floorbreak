@@ -161,10 +161,11 @@ def contact(pieces, scale: int, labels: bool, width: int = 560) -> Image.Image:
     spots = []
     for pid, img in pieces:
         w, h = img.width, img.height
-        if x + w + pad > width and x > 0:
+        cell = max(w, -(-len(pid) * 6 // scale)) if labels else w       # a cell is at least as wide as its label
+        if x + cell + pad > width and x > 0:
             x, y, row_h = 0, y + row_h + pad + label_h, 0
         spots.append((pid, img, x + pad, y + pad + label_h))
-        x += w + pad
+        x += cell + pad
         row_h = max(row_h, h)
     total_h = y + row_h + 2 * pad + label_h
     out = Image.new("RGBA", (max(width, x + pad) * scale, total_h * scale), BG)
@@ -208,7 +209,11 @@ def layout_diagram(still: Path, view: tuple, sizes: dict) -> Image.Image:
             continue
         col = {"backwall_decal": (255, 90, 60, 255), "prop": (255, 210, 90, 255)}.get(p["layer"], (200, 160, 70, 255))
         d.rectangle((x0, y0, x0 + w * 2 - 1, y0 + h * 2 - 1), outline=col)
-        if w * h >= 400:
+        if p["piece"].startswith("trog_step_"):                 # one label per run, on its left end
+            if p["piece"] == "trog_step_end_l":
+                name = "refuge face 352..415" if p["x"] < 1000 else "bell step face 1840..1903"
+                d.text((x0, y0 - 12), name, fill=col)
+        elif w * h >= 400:
             d.text((x0 + 3, y0 + 3), p["piece"], fill=col)
     for key, (_, x) in TROGS.items():
         d.line((sx(x), sy(520), sx(x), sy(580)), fill=(255, 255, 255, 200))
@@ -333,6 +338,15 @@ def match_sprite(lum: np.ndarray, species: str):
     return best[1], best[2], best[3], best[4], best[0]
 
 
+def pose_tag(species: str, frame_index: int) -> str:
+    """The atlas tag (`idle`, `walk`, `attack_*`, `hurt`, `down`) of a frame, from the exported atlas JSON."""
+    meta = json.loads((ROOT / f"generated/art/{SPECIES_OF[species]}.json").read_text(encoding="utf-8"))["meta"]
+    for t in meta["frameTags"]:
+        if t["from"] <= frame_index <= t["to"]:
+            return t["name"]
+    return "?"
+
+
 def trog_mask(species: str, frame_index: int, mirrored: bool) -> Image.Image:
     fr = sprite_frames(species)[frame_index]
     return fr.transpose(Image.FLIP_LEFT_RIGHT) if mirrored else fr
@@ -372,6 +386,7 @@ def lit_read(out_dir: Path, stills: dict, views: dict, room) -> list[str]:
         ml = lstar(model)
         lum = luma(still.astype(np.float32))
         actors = []
+        occluders = []
         found = []
         for species in sorted(TROGS):
             fi, mirrored, x0m, y0m, ncc = match_sprite(lum, species)
@@ -386,19 +401,30 @@ def lit_read(out_dir: Path, stills: dict, views: dict, room) -> list[str]:
                 mask[y0:y1, x0:x1] = alpha[y0 - y0m:y1 - y0m, x0 - x0m:x1 - x0m] * 255
             share = int((mask > 0).sum()) / int(alpha.sum())
             idle = fi in IDLE_FRAMES
+            tag = pose_tag(species, fi)
             if share < 0.5:
-                found.append(f"  {species}: located (frame {fi}, ncc {ncc:.2f}) but only {100 * share:.0f} % of the "
+                found.append(f"  {species}: located (frame {fi}, {tag}, ncc {ncc:.2f}) but only {100 * share:.0f} % of the "
                              f"mask is in view (< 50 %): not counted")
                 continue
             ys, xs = np.nonzero(mask)
             box = (int(xs.min()), int(ys.min()), int(xs.max()) + 1, int(ys.max()) + 1)
             r = readability(still_img, Image.fromarray(mask, "L"), [box], ring=6)[0]
-            actors.append((species, r, mask, idle))
-            found.append(f"  {species}: frame {fi}{' mirrored' if mirrored else ''} at screen ({x0m},{y0m}) ncc={ncc:.2f}, "
-                         f"{100 * share:.0f} % of the mask in view, {'idle' if idle else 'attack/walk pose'}: "
-                         f"actor_L={r['actor_mean_L']} surround_L={r['surround_mean_L']} delta_L={r['delta_L']} "
-                         f"edge_dL={r['silhouette_edge_mean_abs_dL']} edge_samples={r['edge_samples']} "
-                         f"{'PASS' if r['silhouette_edge_mean_abs_dL'] >= 15 else ('FAIL edge_dL < 15' if idle else 'reported (edge_dL < 15 in a pose that is not gated)')}")
+            living = tag != "down"
+            occluders.append(mask)
+            if living:
+                actors.append((species, r, mask, idle))
+            if idle:
+                verdict = "PASS" if r["silhouette_edge_mean_abs_dL"] >= 15 else "FAIL edge_dL < 15"
+            elif not living:
+                verdict = "down: not counted (G6 counts living troglodytes only)"
+            else:
+                verdict = ("reported" if r["silhouette_edge_mean_abs_dL"] >= 15
+                           else "reported (edge_dL < 15 in a pose that is not gated)")
+            found.append(f"  {species}: frame {fi} ({tag}){' mirrored' if mirrored else ''} at screen ({x0m},{y0m}) "
+                         f"ncc={ncc:.2f}, {100 * share:.0f} % of the mask in view, "
+                         f"{'idle' if idle else tag + ' pose'}: actor_L={r['actor_mean_L']} "
+                         f"surround_L={r['surround_mean_L']} delta_L={r['delta_L']} "
+                         f"edge_dL={r['silhouette_edge_mean_abs_dL']} edge_samples={r['edge_samples']} {verdict}")
             if idle:
                 worst["edge"].append((r["silhouette_edge_mean_abs_dL"], name, species))
         gated = any(a[3] for a in actors)
@@ -422,10 +448,13 @@ def lit_read(out_dir: Path, stills: dict, views: dict, room) -> list[str]:
             x0, y0 = it["x"] - left, it["y"] - top
             ax0, ay0, ax1, ay1 = max(0, x0), max(0, y0), min(VIEW_W, x0 + w), min(VIEW_H, y0 + h)
             sel[ay0:ay1, ax0:ax1] = vis[ay0 - y0:ay1 - y0, ax0 - x0:ax1 - x0]
-            for _, _, mk in actors:
+            shown = int(sel.sum())
+            for mk in occluders:
                 sel &= mk == 0
+            kept_vis = int(sel.sum())
             sel &= np.abs(sl - ml) <= 12
             n = int(sel.sum())
+            dropped = f"dropped {shown - kept_vis} under a troglodyte, {kept_vis - n} not explained by the lit model"
             if n < 12:
                 continue
             mean = float(sl[sel].mean())
@@ -440,9 +469,9 @@ def lit_read(out_dir: Path, stills: dict, views: dict, room) -> list[str]:
                 verdict = f"FAIL (over by {mean - base:.1f} L*, {'key' if is_key else 'executor'} piece)"
             if gated and base is not None:
                 worst["pieces"].append((mean - base, name, it["piece"], verdict))
-            lines.append(f"  piece {it['piece']}@({it['x']},{it['y']}): mean_L={mean:.1f} px={n} vs lowest actor L* "
+            lines.append(f"  piece {it['piece']}@({it['x']},{it['y']}): mean_L={mean:.1f} px={n} of {shown} in view ({dropped}) vs lowest actor L* "
                          f"{'-' if base is None else format(base, '.1f')} {verdict}")
-        overview.append((name, still_img, [mk for _, _, mk in actors]))
+        overview.append((name, still_img, occluders))
     if worst["pieces"]:
         margin, name, pid, verdict = max(worst["pieces"])
         lines.append(f"summary: thinnest piece margin on the gated stills: {pid} in {name}: {margin:+.1f} L* "

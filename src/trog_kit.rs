@@ -27,9 +27,42 @@ pub const TROG_CONTRACT: &str = "assets/source/terrain/floor01/floor01_trog_kit.
 /// The room id of the run's dressing block.
 pub const RUN_ROOM: &str = "trog_run";
 
-/// The dressing block of a troglodyte room.
-pub fn dressing_of(root: &Path, room: TrogRoom) -> Result<Dressing, crate::env_kit::EnvError> {
-    dressing_in(root, TROG_CONTRACT, room.id())
+/// The dressing block of the room `room_id` in a parsed contract: `None` when the contract has no
+/// block (or a null one) for it, an error when the block is malformed.
+pub fn dressing_from(
+    contract: &serde_json::Value,
+    room_id: &str,
+) -> Result<Option<Dressing>, crate::env_kit::EnvError> {
+    let block = &contract["room_dressing"][room_id];
+    if block.is_null() {
+        return Ok(None);
+    }
+    serde_json::from_value(block.clone())
+        .map(Some)
+        .map_err(|e| {
+            crate::env_kit::EnvError::Parse(format!("{TROG_CONTRACT} room_dressing.{room_id}: {e}"))
+        })
+}
+
+fn read_contract(root: &Path) -> Result<serde_json::Value, crate::env_kit::EnvError> {
+    let path = root.join(TROG_CONTRACT);
+    let text = std::fs::read_to_string(&path)
+        .map_err(|e| crate::env_kit::EnvError::Io(format!("{}: {e}", path.display())))?;
+    serde_json::from_str(&text)
+        .map_err(|e| crate::env_kit::EnvError::Parse(format!("{}: {e}", path.display())))
+}
+
+/// The dressing block of a troglodyte room (`None`: the room is not dressed yet and launches plain).
+pub fn dressing_of(
+    root: &Path,
+    room: TrogRoom,
+) -> Result<Option<Dressing>, crate::env_kit::EnvError> {
+    dressing_from(&read_contract(root)?, room.id())
+}
+
+/// Whether the room has a dressing block (the binary prints `decor=dressed|plain` from it).
+pub fn is_dressed(root: &Path, room: TrogRoom) -> bool {
+    dressing_of(root, room).is_ok_and(|d| d.is_some())
 }
 
 /// The dressing block of the run.
@@ -38,25 +71,39 @@ pub fn run_dressing(root: &Path) -> Result<Dressing, crate::env_kit::EnvError> {
 }
 
 /// The room's composition **before** the lane solids: dressed (the trog contract's dressing block,
-/// an unmatched `remove_at` entry is an error) or plain (the Boiler's catacomb kit).
+/// an unmatched `remove_at` entry is an error) or plain (the Boiler's catacomb kit). A room whose
+/// contract has no `room_dressing` block composes plain even when `dressed` is asked for: stage 2
+/// rooms launch plain until their block lands (TROG-ART-AD19).
 pub fn compose(
     root: &Path,
     loaded: &Loaded,
     room: TrogRoom,
     dressed: bool,
 ) -> Result<EnvKit, String> {
-    if !dressed {
+    compose_by_id(root, loaded, room.id(), dressed)
+}
+
+/// [`compose`] for a room id.
+pub fn compose_by_id(
+    root: &Path,
+    loaded: &Loaded,
+    room_id: &str,
+    dressed: bool,
+) -> Result<EnvKit, String> {
+    let dressing = if dressed {
+        dressing_from(&read_contract(root).map_err(|e| e.to_string())?, room_id)
+            .map_err(|e| e.to_string())?
+    } else {
+        None
+    };
+    let Some(dressing) = dressing else {
         return crate::f01_boiler::compose_kit(root, &loaded.room);
-    }
+    };
     let contract = load_contract(root, TROG_CONTRACT).map_err(|e| e.to_string())?;
-    let dressing = dressing_of(root, room).map_err(|e| e.to_string())?;
     crate::f01_boiler::compose_kit_hooked(root, &loaded.room, &[], Some(contract), |layout| {
         match dress_with(layout, &dressing, TROG_CONTRACT) {
             0 => Ok(()),
-            n => Err(format!(
-                "{}: {n} remove_at entries match no piece",
-                room.id()
-            )),
+            n => Err(format!("{room_id}: {n} remove_at entries match no piece")),
         }
     })
 }

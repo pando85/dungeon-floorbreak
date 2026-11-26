@@ -1145,6 +1145,7 @@ OWNER = ("AI-authored environment pixel art (AREA-TROG-01: design spec and keys 
 
 # -- the dressing of `trog_run` (spec section 4) -------------------------------------------------------------
 RUN_REMOVE_AT = [("structure", "arch_chain", 224, 384), ("structure", "arch_chain", 1232, 384),
+                 ("structure", "arch_threshold", 208, 544), ("structure", "arch_threshold", 1216, 544),   # AD20
                  ("prop", "torch_wall", 2240, 432), ("backwall_decal", "torch_pool_a", 2136, 348)]
 RUN_FILL = [{"x": 176, "y": 352, "w": 208, "h": 208}, {"x": 1184, "y": 352, "w": 208, "h": 208}]
 

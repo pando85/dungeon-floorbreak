@@ -221,6 +221,18 @@
      "y": 384
     },
     {
+     "layer": "structure",
+     "piece": "arch_threshold",
+     "x": 208,
+     "y": 544
+    },
+    {
+     "layer": "structure",
+     "piece": "arch_threshold",
+     "x": 1216,
+     "y": 544
+    },
+    {
      "layer": "prop",
      "piece": "torch_wall",
      "x": 2240,

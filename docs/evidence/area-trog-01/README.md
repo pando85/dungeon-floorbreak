@@ -20,14 +20,14 @@ xvfb-run -a -s '-screen 0 1920x1080x24' floor01_scene --no-audio --no-record --s
 | `pygmy_dormant` | 80 | 11, 292 | the same bay and the refuge with Carl and Donut, the Pygmy asleep |
 | `pygmy_tell` | 125 | 101, 260 | the Pygmy's coil, the refuge face and the crater under it |
 | `pygmy_leap` | 144 | 95, 240 | mid-leap over the crater |
-| `pygmy_land` | 152 | 96, 260 | the landing: the Pygmy down beside the crater it dug |
+| `pygmy_land` | 152 | 96, 260 | the Pygmy down by the refuge after its leap; the crater of earlier landings is at its spawn behind it |
 | `basher_dormant` | 440 | 764, 292 | T2: the fist-shaped hole in bricked bay 4 behind the Basher's spawn, the Basher in front of it, never inside it |
 | `basher_tell` | 520 | 949, 292 | the overhead tell in front of the hole |
 | `basher_smash` | 543 | 949, 292 | the smash |
 | `virtuoso_dormant` | 840 | 1623, 228 | T3: the bell on its bracket, the bell step face, the Virtuoso standing |
 | `virtuoso_tell` | 870 | 1664, 292 | the feint, with the bell and the step |
 | `virtuoso_lash` | 893 | 1664, 292 | the lash |
-| `exit_open` | 960 | 1664, 292 | the troglodytes beaten, the exit open |
+| `exit_open` | 960 | 1664, 292 | the troglodytes beaten (the downed Virtuoso is not counted in the lit read), the exit open |
 
 ## Offline sheets and measurements
 
