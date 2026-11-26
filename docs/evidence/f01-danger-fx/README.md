@@ -2,6 +2,8 @@
 
 Prototype art (`review_status: prototype_fixture_unapproved`); nothing here approves art, tuning or game feel. Spec: [floor01-danger-fx-spec.md](../../02-art/floor01-danger-fx-spec.md). The independent top-tier art-director review passed (fix round applied); the owner's art and game-feel review are pending.
 
+**F01-SIM-TICKS** ([spec](../../02-art/f01-sim-ticks-spec.md), [evidence](../f01-sim-ticks/README.md)) added the four `gate_drop` frames to `dfx_gate`: its `dfx_gate` folder and review pack were regenerated (frames 0 and 1 and the frozen key are unchanged). The `gate_*` stills in `scene/` predate the drop and the slam dust and were not recaptured (the HUD has changed since; a recapture would move every still); the drop and the dust are captured in the F01-SIM-TICKS evidence.
+
 **AREA-HAZARDS-01B** ([evidence](../area-hazards-01b/README.md)) recoloured the acid to its own teal ramp (HZB-AD1: the rows are unchanged, only the ten palette entries moved) and backed the rings' outer band row with the dark tape `flame_00` (HZB-AD2). The `dfx_acid`, `dfx_ring_r48` and `dfx_ring_r64` folders, their review packs and every still and the GIF in `scene/` were regenerated with that art; every capture line keeps its window and headless state hashes, only the PNG checksums moved.
 
 Everything is drawn from the committed grid sources by `scripts/author_danger_fx.py`, exported by `bash scripts/export_assets.sh` and rendered by the shared toolkit (`python3 -m scripts.pixelart evidence` and `review-pack`); the in-scene stills and the GIF in `scene/` are real windowed captures of `floor01_scene` (the Bevy presentation), each ending on the same state hash as its headless replay.
@@ -38,7 +40,7 @@ bash scripts/make_f01_danger_fx_evidence.sh         # scene/: stills at 640x360 
 | `dfx_ring_r64` | 135 x 135 | (67, 67) | 4 | Carl's stick landed and burning -> `ring_march`; last 6 ticks of the fuse -> `ring_hot` |
 | `dfx_wave_r48` | 103 x 103 | (51, 51) | 6 | detonated charge with a 48 px outer radius (Rot Sticker, Boiler drum) -> `blast_wave` once from `detonate_tick` (2, 2, 2, 6, 5, 5 ticks) |
 | `dfx_wave_r64` | 135 x 135 | (67, 67) | 6 | detonated charge with a 64 px outer radius (thrown dynamite) -> `blast_wave` |
-| `dfx_gate` | 28 x 224 | (0, 223) | 2 | boss gate Closed -> `gate_closed` over `{0, floor, 28, 224}`; Open or Released -> `gate_raised` (24 rows under the lintel, behind the actors) |
+| `dfx_gate` | 28 x 224 | (0, 223) | 6 | boss gate Closed -> `gate_drop` (frames 2..5, 2 ticks each) for 8 ticks from the close tick, then `gate_closed` over `{0, floor, 28, 224}`; Open or Released -> `gate_raised` (24 rows under the lintel, behind the actors) |
 
 Frozen keys (`tests/fixtures/f01-dfx-*_keys.json`): acid 0 (unchanged by HZB-AD1: the digest is of rows), both rings 0 (re-pinned for HZB-AD2), both waves 3 (the reach frame), gate 0.
 
@@ -58,7 +60,7 @@ Room 4 (`--f01-room hazards --room-pilot haz_spectacular`): the slime under the 
 | `dyn_wave_front` | 636 | the dynamite blast, the wave on its way out |
 | `dyn_wave_reach` | 641 | the 64 px wave on its reach frame, the chained sticker's ring hot |
 | `gate_raised` | 8 | room 5 before the party is in: the raised gate's teeth under the lintel |
-| `gate_closed` | 30 | the closed gate over its collider |
+| `gate_closed` | 30 | the closed gate over its collider (captured before F01-SIM-TICKS: a current run also shows the slam dust of the gate's impact on this tick, see below) |
 | `gate_crash` | 140 | the Juicer crashed against the closed gate |
 
 `dynamite_beat_640x360.gif`: ticks 516..670, every 2 ticks at game speed (landing, the burning ring, the hot ring, the 64 px wave, the chained sticker's ring and its 48 px wave).

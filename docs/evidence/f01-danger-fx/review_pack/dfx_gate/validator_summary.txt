@@ -1,4 +1,4 @@
-pixelart validate: f01-dfx-gate (2 frames)
+pixelart validate: f01-dfx-gate (6 frames)
   PASS    V01 structure
   PASS    V02 tags
   PASS    V03 tick table

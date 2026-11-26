@@ -530,7 +530,10 @@ fn the_slam_dust_plays_once_and_mirrors_about_its_pivot() {
     let left = slam_dust(783, 40, -1, 0).unwrap();
     assert_eq!((right.x + DUST_PIVOT_X, right.flip_x), (848, false));
     // Mirrored, the cell's column c lands on the screen column w - 1 - c.
-    assert_eq!((left.x + DUST_W - 1 - DUST_PIVOT_X, left.flip_x), (783, true));
+    assert_eq!(
+        (left.x + DUST_W - 1 - DUST_PIVOT_X, left.flip_x),
+        (783, true)
+    );
     assert!(Layer::Dust > Layer::Floor && Layer::Dust < Layer::Splash);
 }
 
@@ -587,7 +590,10 @@ fn the_boiler_weight_throws_its_landing_dust_on_the_landing_tick() {
             break;
         }
         assert_eq!(mass.landed_tick(), None);
-        assert!(dust_of(&combat, tick).is_empty(), "no dust before the landing");
+        assert!(
+            dust_of(&combat, tick).is_empty(),
+            "no dust before the landing"
+        );
     }
     let t = landed_on.expect("the weight lands");
     let mass = combat.env().unwrap().mass(WEIGHT).unwrap();
