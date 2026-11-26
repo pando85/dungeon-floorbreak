@@ -5,3 +5,4 @@ corral_partition_missile_blocked ticks=400 state_hash=0x326cf8a3eaad48ac
 corral_partition_glob_blocked ticks=240 state_hash=0xae1344a323579c5a
 corral_partition_remnant_bolt_passes ticks=80 state_hash=0xc834cede8e8eccd3
 corral_partition_retry_restores ticks=41 state_hash=0x6babc6eeefcc0287
+corral_partition_respawn_keeps_broken ticks=0 state_hash=0x3da4ad1fe511f2dc

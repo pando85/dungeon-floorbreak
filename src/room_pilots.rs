@@ -2192,6 +2192,32 @@ mod tests {
         );
     }
 
+    /// CORRAL-D (CD-AD10, the #298 review F1): in the `corral_rush` run Carl dies twice with B in or
+    /// past the screen's column (B at 1412 after the second rush) and respawns; the broken screen
+    /// stays broken (no wall is rebuilt around B) until the run ends.
+    #[test]
+    fn a_checkpoint_respawn_keeps_the_broken_partition_in_the_corral_rush_run() {
+        use crate::env_prop::PartitionState;
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let mut after_break: Vec<PartitionState> = Vec::new();
+        let (_, _, combat) = replay_corral_observed(&root, "corral_rush", 1800, |tick, c| {
+            if tick >= 673 {
+                after_break.push(c.env().unwrap().partition(0).unwrap().state());
+            }
+        });
+        assert!(
+            combat
+                .events
+                .iter()
+                .any(|e| matches!(e, crate::combat::CombatEvent::Respawn { .. })),
+            "the run respawns Carl"
+        );
+        assert!(
+            after_break.iter().all(|s| *s == PartitionState::Broken),
+            "the screen never stands again after the rush broke it"
+        );
+    }
+
     /// CORRAL-D: the `corral_partition` plan parses like the other corral plans and shows the
     /// partition in all three states in the launched room: it stands, Carl's first jab weakens it
     /// and the rush of B breaks it on 673, each state long enough for a capture at 1x to see it.

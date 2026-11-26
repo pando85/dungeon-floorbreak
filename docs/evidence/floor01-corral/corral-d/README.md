@@ -28,13 +28,14 @@ The seven fixtures of sheet section 15 are `src/corral_eval/partition_fixtures.r
 | --- | --- |
 | `corral_partition_rush_break` | B (tell 33, commit 65) rushes a Donut at 1376: tick 78 `LlamaRushEnd { Partition }`, `PropHit { Shove }` and `PropPhase { broken }` on that same tick, B bonked at pivot 1436, no `HeroHurt`; the remnant stands and the screen's solid is off at the end of the tick; a bolt then reaches B (tick 84) |
 | `corral_partition_near_miss` | B's leash minimum set 4 px short (1440): the rush ends `Miss` at 1440, no prop event, the screen still stands 600 ticks on |
-| `corral_partition_carl_breaks` | one jab counts one hit (progress 1, weakened), two more break it (progress 3, one `broken`); a further jab on the remnant counts nothing. `corral_partition_donut_swat_counts_the_same_way`: three swats |
+| `corral_partition_carl_breaks` | one jab counts one hit (progress 1, weakened), two more break it (progress 3, one `broken`); a further jab on the remnant counts nothing. `corral_partition_donut_pounce_counts_the_same_way`: three pounces |
 | `corral_partition_missile_blocked` | eight bolts (all 8 mana spent): the screen stays intact with 0 hits and no prop event, B unhurt |
 | `corral_partition_glob_blocked` | with the screen B does not spit at the shelf Donut (the glob path is not clear, CRL-Q11) where with no screen it spits and hits her; a glob forced out at B's mouth dies on the face, hurts nobody and is no stimulus |
 | `corral_partition_remnant_bolt_passes` | authored pre-broken: the remnant is 1392..1408 x 16 px and a floor bolt passes over it to B |
-| `corral_partition_retry_restores` | a restart and a checkpoint respawn after the break restore the standing screen, its wall solid at once and the env hash bit for bit |
+| `corral_partition_retry_restores` | a restart after the break restores the standing screen, its wall solid at once and the env hash bit for bit |
+| `corral_partition_respawn_keeps_broken` (CD-AD10) | a checkpoint respawn keeps a weakened or broken screen; with B placed in the old wall column no wall is rebuilt around it, B moves off the column and the screen never stands again; a restart then restores it |
 
-Also pinned: `corral_partition_is_jumpable_and_standable_by_both_heroes` (DV-10: Carl and Donut each cross it, and stand on its 48 px top), `..._a_hero_on_top_drops_onto_the_remnant_when_it_breaks`, `..._break_lifts_a_hero_that_overlaps_the_remnant`, `heat_kit::tests::the_partition_art_core_sits_exactly_on_the_collider` and `room_pilots::tests::the_corral_partition_plan_shows_the_screen_standing_weakened_and_broken`.
+Also pinned: `corral_partition_every_named_hero_move_counts_one_hit` (Carl's jab, haymaker and push kick; Donut's pounce, and her swat through the hit-box intake), `a_checkpoint_respawn_keeps_the_broken_partition_in_the_corral_rush_run`, `corral_partition_is_jumpable_and_standable_by_both_heroes` (DV-10: Carl and Donut each cross it, and stand on its 48 px top), `..._a_hero_on_top_drops_onto_the_remnant_when_it_breaks`, `..._break_lifts_a_hero_that_overlaps_the_remnant`, `heat_kit::tests::the_partition_art_core_sits_exactly_on_the_collider` and `room_pilots::tests::the_corral_partition_plan_shows_the_screen_standing_weakened_and_broken`.
 
 ## In-scene stills and the break sequence (1x)
 
@@ -68,7 +69,7 @@ KC19 on the decisive variant 6,460 groups, 0 failing; the CRL-Q35 invariant, the
 | --- | --- | --- | --- |
 | `f01_corral::ENCOUNTER_HASH` (the `f01_corral_encounter` data pin) | `0x7161_1549_3c07_e42f` | `0xc642_7d89_07c3_b8a7` | the sidecar gains its prop (and the status text) |
 | The room 0 combat state hash, env hash block and state-line token | no prop | the partition's state is mixed (`env=0:partition_Intact`) | a new machine in the room; every room-0 replay moves |
-| `corral_room_pilots_pin_their_final_hashes_at_seed_0` and `corral-f/pilot_hashes.txt` | carl_solo gate 863, exit 971; donut_solo 862, 973; companion 1017, 1125 | carl_solo 1006, 1109; donut_solo 1202, 1313; companion 981, 1092 (all undefeated) | B cannot walk past the screen and the bolts it blocks make the scripted fights run later (Donut solo by 340 ticks); the four hashes are re-pinned, `corral_rush` ends with 1 death (was 2) |
+| `corral_room_pilots_pin_their_final_hashes_at_seed_0` and `corral-f/pilot_hashes.txt` | carl_solo gate 863, exit 971; donut_solo 862, 973; companion 1017, 1125 | carl_solo 1006, 1109; donut_solo 1202, 1313; companion 981, 1092 (all undefeated) | B cannot walk past the screen and the bolts it blocks make the scripted fights run later (Donut solo by 340 ticks); the four hashes are re-pinned, `corral_rush` ends with 1 death (was 2) and its hash is `1100063bb81c0a27` (CD-AD10: the screen stays broken across its respawns) |
 | `the_corral_rush_plan_draws_the_llama_rush_tick_map` | tell 742, contact 791 | tell 634, commit 666, bonk on the screen 673 | the `corral_rush` plan's first rush now ends on the screen |
 | CORRAL-AUTO `POLICY_VERSION` and the gate counts | 2; 2,122 groups; 47 grid-only columns | 3; 6,460 groups; 51 | the variants and the four partition-top and remnant-top grid starts |
 
@@ -87,6 +88,7 @@ Unchanged and verified: `MANIFEST_HASH`, `TABLE_HASH`, every legacy golden and e
 | CD-AD7 | The CORRAL-AUTO `broken` variant is a tick-0 setup write (exempt like the other setup writes, F11); the partition-top and remnant-top starts are judged on the pivot column alone (her body overhangs the 16 px top); a start exists only in the variant that has its surface | the sheet's M2-06 and M2-G rows |
 | CD-AD8 | A new evidence plan `corral_partition` (Carl jabs the screen) shows the three states in the run; the `corral_rush` plan is unchanged apart from its re-based tick map | the three states cannot all be shown by the rush alone |
 | CD-AD9 | The break plays the existing wall-break cue; no splinter or dust VFX of its own (the bonk dust of the rush stand-in plays) | cue reuse, no new art or sound |
+| CD-AD10 | A checkpoint respawn keeps the partition's state (a broken or weakened screen stays so); only a restart (retry) restores it. The #298 review reproduced the defect of restoring on respawn in the `corral_rush` run: B at 1412 inside the rebuilt wall, frozen, spitting and rushing through it | A respawn does not send a llama home (it keeps its position), like a blown charge stays blown and a spent sticker spent; the sheet only requires a reset on retry |
 
 ## Open notes (non-blocking)
 

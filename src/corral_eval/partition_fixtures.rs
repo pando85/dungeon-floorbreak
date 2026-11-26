@@ -36,7 +36,7 @@ use crate::party_scene::PartyFixtureSim;
 use crate::prototype::HERO_HALF_HEIGHT;
 
 /// The sheet's seven fixtures.
-pub const FIXTURES: [&str; 7] = [
+pub const FIXTURES: [&str; 8] = [
     "corral_partition_rush_break",
     "corral_partition_near_miss",
     "corral_partition_carl_breaks",
@@ -44,6 +44,7 @@ pub const FIXTURES: [&str; 7] = [
     "corral_partition_glob_blocked",
     "corral_partition_remnant_bolt_passes",
     "corral_partition_retry_restores",
+    "corral_partition_respawn_keeps_broken",
 ];
 
 /// The partition's faces (layout x).
@@ -362,17 +363,17 @@ fn carl_breaks() -> PartyFixtureSim {
     sim
 }
 
-/// Donut's swat counts like Carl's jab (the pounce and the swat are physical hits).
-fn donut_swat_breaks() -> PartyFixtureSim {
+/// Donut's pounce (her Physical press) counts like Carl's jab: three pounces break it.
+fn donut_pounce_breaks() -> PartyFixtureSim {
     let mut sim = rig(PartitionVariant::Intact, 1100.0, 1380, 0);
     hold_llama(&mut sim, B);
     hold_llama(&mut sim, 1);
-    let swat = RawInput {
+    let pounce = RawInput {
         physical: true,
         ..RawInput::NONE
     };
     for _ in 0..3 {
-        step(&mut sim, RawInput::NONE, swat);
+        step(&mut sim, RawInput::NONE, pounce);
         for _ in 0..50 {
             idle(&mut sim);
         }
@@ -380,7 +381,7 @@ fn donut_swat_breaks() -> PartyFixtureSim {
     assert_eq!(
         prop_hits(&sim).iter().map(|h| h.2).collect::<Vec<_>>(),
         vec![1, 2, 3],
-        "three swats"
+        "three pounces"
     );
     assert_eq!(partition_state(&sim), Some(PartitionState::Broken));
     sim
@@ -568,9 +569,8 @@ fn remnant_bolt_passes() -> PartyFixtureSim {
     sim
 }
 
-/// `corral_partition_retry_restores`: after the break a restart (the evaluator's
-/// rig) and a checkpoint respawn (the launched room, which has the demo rules)
-/// each bring the standing screen back.
+/// `corral_partition_retry_restores`: after the break a restart brings the standing
+/// screen back, its wall solid at once and the env hash bit for bit.
 fn retry_restores() -> PartyFixtureSim {
     let fresh_env = env_hash(&rig(PartitionVariant::Intact, 1378.0, 1100, 0));
     let mut sim = rig(PartitionVariant::Intact, 1378.0, 1100, 0);
@@ -605,19 +605,36 @@ fn retry_restores() -> PartyFixtureSim {
     }
     assert_eq!(partition_hits(&sim), 1, "a clean count");
 
-    // The checkpoint respawn of the launched room (design 6: props restore).
+    sim
+}
+
+/// `corral_partition_respawn_keeps_broken` (CD-AD10): a checkpoint respawn keeps
+/// the partition's state; llama B, which a respawn does not send home, stands
+/// past the column and is never walled in. Only a restart restores the screen.
+fn respawn_keeps_broken() -> PartyFixtureSim {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let (carl, donut) = crate::f01_late::Loadout::Story.flags();
     let (_run, mut scene, mut combat) =
         crate::f01_late::corral_start(&root, 360, carl, donut, Some(0)).unwrap();
-    let hits = |combat: &crate::combat_scene::CombatState| {
+    let state = |combat: &crate::combat_scene::CombatState| {
         combat
             .env()
             .and_then(|e| e.partition(usize::from(PROP)))
             .map(|p| (p.state(), p.hits()))
     };
-    assert_eq!(hits(&combat), Some((PartitionState::Intact, 0)));
-    for token in 1..=3 {
+    let wall_intact = |combat: &crate::combat_scene::CombatState,
+                       scene: &crate::corridor::SceneSim| {
+        let env = combat.env().unwrap();
+        let i = env
+            .solids()
+            .iter()
+            .position(|s| s.kind == crate::combat_scene::EnvSolidKind::PartitionWall)
+            .unwrap();
+        scene.world.solids[env.solid_range().start + i].intact
+    };
+    assert_eq!(state(&combat), Some((PartitionState::Intact, 0)));
+    // A weakened screen keeps its two hits across a respawn.
+    for token in 1..=2 {
         combat.env_stimulate(
             usize::from(PROP),
             crate::env_prop::Stimulus::MeleeHit {
@@ -629,20 +646,55 @@ fn retry_restores() -> PartyFixtureSim {
         );
     }
     combat.step(&mut scene, RawInput::NONE);
-    assert_eq!(hits(&combat), Some((PartitionState::Broken, 3)));
+    assert_eq!(state(&combat), Some((PartitionState::Weakened, 2)));
     combat.respawn(&mut scene);
-    assert_eq!(hits(&combat), Some((PartitionState::Intact, 0)), "respawn");
-    let env = combat.env().unwrap();
-    let wall = env
-        .solids()
-        .iter()
-        .position(|s| s.kind == crate::combat_scene::EnvSolidKind::PartitionWall)
-        .unwrap();
-    assert!(
-        scene.world.solids[env.solid_range().start + wall].intact,
-        "the wall solid stands again at once on the respawn"
+    assert_eq!(
+        state(&combat),
+        Some((PartitionState::Weakened, 2)),
+        "weakened kept"
     );
-    sim
+    // Break it, with B past the column (the review's corral_rush case: B at 1412).
+    combat.env_stimulate(
+        usize::from(PROP),
+        crate::env_prop::Stimulus::MeleeHit {
+            token: 3,
+            player: 0,
+            weight: 1,
+        },
+        2,
+    );
+    combat.step(&mut scene, RawInput::NONE);
+    assert_eq!(state(&combat), Some((PartitionState::Broken, 3)));
+    // Setup writes for the scenario: B stands inside the old wall column, awake.
+    let b = 1;
+    combat.llamas[b].x = 1412.0;
+    combat.llamas[b].corral.as_mut().unwrap().activation = crate::llama_rush::Activation::Awake;
+    combat.respawn(&mut scene);
+    assert_eq!(
+        state(&combat),
+        Some((PartitionState::Broken, 3)),
+        "a checkpoint respawn keeps it broken"
+    );
+    assert!(!wall_intact(&combat, &scene), "no wall is rebuilt around B");
+    // Carl is back at the checkpoint; put him 80 px left of B's column (setup write) so B's rush
+    // has a target on the far side of where the wall stood.
+    scene.world.hero.x = 1330.0;
+    // Over the next 600 ticks the screen never stands again, B is free to move (it
+    // walks toward the respawned heroes) and nothing fires through a wall.
+    let mut min_x = combat.llamas[b].x;
+    for _ in 0..600 {
+        combat.step(&mut scene, RawInput::NONE);
+        min_x = min_x.min(combat.llamas[b].x);
+        assert!(!wall_intact(&combat, &scene));
+    }
+    assert!(min_x < 1392.0, "B moved off the column: min x {min_x}");
+    assert_eq!(state(&combat), Some((PartitionState::Broken, 3)));
+    // A restart restores it, bit for bit.
+    combat.restart(&mut scene);
+    assert_eq!(state(&combat), Some((PartitionState::Intact, 0)), "restart");
+    assert!(wall_intact(&combat, &scene));
+    // The sim returned is the evaluator rig's (the launched room has no party sim).
+    rig(PartitionVariant::Intact, 1378.0, 1100, 0)
 }
 
 /// The env runtime's own hash block.
@@ -665,6 +717,7 @@ pub fn run(name: &str) -> PartyFixtureSim {
         "corral_partition_glob_blocked" => glob_blocked(),
         "corral_partition_remnant_bolt_passes" => remnant_bolt_passes(),
         "corral_partition_retry_restores" => retry_restores(),
+        "corral_partition_respawn_keeps_broken" => respawn_keeps_broken(),
         other => panic!("no partition fixture {other}"),
     }
 }
@@ -685,8 +738,8 @@ fn corral_partition_carl_breaks_on_the_third_distinct_hit() {
 }
 
 #[test]
-fn corral_partition_donut_swat_counts_the_same_way() {
-    donut_swat_breaks();
+fn corral_partition_donut_pounce_counts_the_same_way() {
+    donut_pounce_breaks();
 }
 
 #[test]
@@ -707,6 +760,11 @@ fn corral_partition_remnant_bolt_passes_over_it() {
 #[test]
 fn corral_partition_retry_restores_the_screen() {
     retry_restores();
+}
+
+#[test]
+fn corral_partition_respawn_keeps_broken() {
+    respawn_keeps_broken();
 }
 
 /// The height of a hero's feet above the walking line, and whether it stands.
@@ -878,4 +936,80 @@ fn corral_partition_fixtures_write_their_replays_when_asked() {
         ));
     }
     std::fs::write(dir.join("fixtures.txt"), index).unwrap();
+}
+
+/// F3: every hero move the sheet names lands one counted hit: Carl's jab, haymaker
+/// and push kick, Donut's pounce (her Physical press) and swat (the Primary press
+/// when she cannot cast, here the hit box of `env_donut_melee`). One move instance
+/// counts once however long its box overlaps the screen.
+#[test]
+fn corral_partition_every_named_hero_move_counts_one_hit() {
+    use crate::combat::MoveId;
+    let started = |sim: &PartyFixtureSim, id: MoveId| {
+        events(sim)
+            .iter()
+            .filter(|e| matches!(e, CombatEvent::MoveStarted { move_id, .. } if *move_id == id))
+            .count()
+    };
+    let progress = |sim: &PartyFixtureSim| prop_hits(sim).iter().map(|h| h.2).collect::<Vec<_>>();
+    // Carl: a jab, then the haymaker chained off it (a second Primary press during the
+    // jab), then a push kick (Physical): three different moves, three hits.
+    let mut sim = rig(PartitionVariant::Intact, 1378.0, 1100, 0);
+    sim.scene.world.hero.facing = 1;
+    hold_llama(&mut sim, B);
+    hold_llama(&mut sim, 1);
+    step(&mut sim, press_attack(), RawInput::NONE);
+    for _ in 0..4 {
+        idle(&mut sim);
+    }
+    step(&mut sim, press_attack(), RawInput::NONE);
+    for _ in 0..60 {
+        idle(&mut sim);
+    }
+    assert!(started(&sim, MoveId::Jab) >= 1 && started(&sim, MoveId::Haymaker) >= 1);
+    assert_eq!(
+        progress(&sim),
+        vec![1, 2],
+        "the jab and the haymaker count one each"
+    );
+    let physical = RawInput {
+        physical: true,
+        ..RawInput::NONE
+    };
+    step(&mut sim, physical, RawInput::NONE);
+    for _ in 0..60 {
+        idle(&mut sim);
+    }
+    assert!(started(&sim, MoveId::PushKick) >= 1, "the push kick ran");
+    assert_eq!(
+        progress(&sim),
+        vec![1, 2, 3],
+        "the push kick counts one hit"
+    );
+    assert_eq!(partition_state(&sim), Some(PartitionState::Broken));
+    // Donut's swat: a hit box over the screen for several ticks of one instance counts once,
+    // a new instance counts again.
+    let mut sim = rig(PartitionVariant::Intact, 1100.0, 1380, 0);
+    hold_llama(&mut sim, B);
+    hold_llama(&mut sim, 1);
+    let layout_h = sim.scene.world.layout_height();
+    let face = crate::prototype::Rect {
+        left: 1380.0,
+        bottom: (layout_h - 580) as f32,
+        width: 24.0,
+        height: 30.0,
+    };
+    let tick = sim.scene.world.tick;
+    for _ in 0..5 {
+        sim.combat
+            .env_donut_melee_for_test(&sim.scene, face, 1, tick);
+    }
+    assert_eq!(
+        progress(&sim),
+        vec![1],
+        "five ticks of one swat are one hit"
+    );
+    sim.combat
+        .env_donut_melee_for_test(&sim.scene, face, 2, tick);
+    assert_eq!(progress(&sim), vec![1, 2]);
 }

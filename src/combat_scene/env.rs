@@ -1014,6 +1014,28 @@ impl EnvRuntime {
         self.prev.clear();
     }
 
+    /// CORRAL-D (CD-AD10): a checkpoint respawn. Every prop goes back to its first
+    /// state **except the partition**, which keeps its state (a broken or weakened
+    /// screen stays so), like a blown charge stays blown and a spent sticker stays
+    /// spent. A llama is not sent home by a respawn, so rebuilding the wall around
+    /// one that stands in or past its column would freeze it inside a solid and let
+    /// it spit and rush through. Only a restart restores the screen.
+    pub fn reset_keeping_partitions(&mut self) {
+        let kept: Vec<(usize, Partition)> = self
+            .props
+            .iter()
+            .enumerate()
+            .filter_map(|(i, p)| match &p.machine {
+                Machine::Partition(part) => Some((i, (**part).clone())),
+                _ => None,
+            })
+            .collect();
+        self.reset();
+        for (i, part) in kept {
+            self.props[i].machine = Machine::Partition(Box::new(part));
+        }
+    }
+
     /// HAZ-A2: a full restart of the hazards: every sticker latched at its
     /// start (spent included), every pool full.
     pub fn reset_hazards(&mut self) {
@@ -1340,8 +1362,9 @@ impl EnvRuntime {
                 // switch, no hit target); a missile stops on its slices.
                 Machine::Shutter(_) => false,
                 // CORRAL-D: the standing screen is a melee target (Carl's and
-                // Donut's physical hits); a missile never reaches it (it stops on
-                // the solid, `env_missile_hit` only takes piles).
+                // Donut's physical hits). A bolt that reaches it is consumed by
+                // `env_missile_hit` and its `Projectile` is refused (`NotAccepted`,
+                // nothing is logged), so a missile never damages it (DV-9).
                 Machine::Partition(part) => part.is_standing(),
             })
             .map(|p| (p.index, p.target))
@@ -1509,8 +1532,12 @@ impl EnvRuntime {
                 Machine::Rot | Machine::Shutter(_) => 0,
                 // A bank has one weight: the trigger itself.
                 Machine::Bank(_) => 1,
-                // The break is the last counted hit (or the rush's one).
-                Machine::Partition(part) => part.hits().max(1),
+                // The progress of the hit that broke it: the third hero hit, or 1 for the
+                // rush's single shove (F4: never the hits an earlier jab left behind).
+                Machine::Partition(part) => match stimulus {
+                    Stimulus::Shove { .. } => 1,
+                    _ => part.hits(),
+                },
             },
         };
         events.push(CombatEvent::PropHit {
@@ -2077,6 +2104,15 @@ impl CombatState {
     pub(super) fn env_reset(&mut self) {
         if let Some(env) = self.env.as_mut() {
             env.reset();
+        }
+        self.env_drum_charges();
+    }
+
+    /// [`Self::env_reset`] for a checkpoint respawn: the partition keeps its state
+    /// (CD-AD10, [`EnvRuntime::reset_keeping_partitions`]).
+    pub(super) fn env_reset_for_respawn(&mut self) {
+        if let Some(env) = self.env.as_mut() {
+            env.reset_keeping_partitions();
         }
         self.env_drum_charges();
     }
