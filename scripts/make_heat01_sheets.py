@@ -16,6 +16,7 @@ Reads ``OUT_DIR/scene_*_640x360.png`` (the runtime captures of ``make_heat01_evi
   (``scripts/heat01_view.py``, needs LAYOUT_DIR) and written to ``drawn_views.txt``;
 - ``before_after_pen_entry_x1.png`` / ``_x3.png`` and ``before_after_dock_x1.png`` / ``_x3.png`` (when the
   ``scene_before_*`` stills exist): the undressed room (origin/main) beside the dressed room;
+- ``crop_wall_b_dock_x1.png`` / ``_x4.png``: the dock bloom ``heat_scorch_wall_b`` in place, before beside after;
 - ``scorch_wall_runtime_before_after_x1.png`` / ``_x3.png``: the runtime pen entry cropped to x 10..149, y 150..289,
   before beside after, and ``crop_n1_plume_right_x12.png``: the plume's top-right bricks beside the right torch
   pool's offset bricks (gate note N1).
@@ -35,7 +36,6 @@ import author_heat01 as heat  # noqa: E402
 
 BG = (58, 54, 66, 255)
 W_LINE, FB = 580, 560
-VIEW_TOP = 289          # the drawn view top of the 640 x 360 view (spec section 2)
 STEPS = ((1120, 548, 96, 32), (1856, 500, 32, 80), (1888, 548, 416, 32))
 
 
@@ -78,16 +78,18 @@ def labelled(img: Image.Image, text: str, scale: int = 1) -> Image.Image:
     return out
 
 
-def drawn_views(out_dir: Path, layout_dir: Path | None) -> dict[str, int]:
-    """The drawn view left of each 640 x 360 still, from landmarks (pen_entry: the entry shelf's edges at screen
-    x 82..177 give 1038 exactly; the others by matching the lit model, +-1 px)."""
-    views = {"pen_entry": 1038}
+def drawn_views(out_dir: Path, layout_dir: Path | None) -> dict[str, tuple[int, int]]:
+    """The drawn view (left, top) of each 640 x 360 still, from landmarks (pen_entry: the entry shelf's edges at
+    screen x 82..177 and the base course's top mortar row at screen row 255 give (1038, 289) exactly; the others
+    by a 2D match against the lit model, ``scripts/heat01_view.py``). Without LAYOUT_DIR the cached
+    ``drawn_views.txt`` is read."""
+    views = {"pen_entry": (1038, 289)}
     cache = out_dir / "drawn_views.txt"
     if layout_dir is None:
         if cache.is_file():
             for line in cache.read_text(encoding="utf-8").splitlines():
-                name, _, left = line.partition(" ")
-                views[name] = int(left)
+                name, left, top = line.split()
+                views[name] = (int(left), int(top))
         return views
     import heat01_view as hv  # noqa: PLC0415
     strip = hv.room_strip(layout_dir)
@@ -96,18 +98,19 @@ def drawn_views(out_dir: Path, layout_dir: Path | None) -> dict[str, int]:
         name = still.name.removeprefix("scene_").removesuffix("_640x360.png")
         if name.startswith("before_"):
             continue
-        left, err = hv.locate(strip, still)
-        views[name] = 1038 if name == "pen_entry" else left
-        lines.append(f"{name} {views[name]}")
+        left, top, _err = hv.locate(strip, still)
+        views[name] = (1038, 289) if name == "pen_entry" else (left, top)
+        lines.append(f"{name} {views[name][0]} {views[name][1]}")
     cache.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return views
 
 
-def layout_diagram(still: Path, left: int, contract: dict, sizes: dict) -> Image.Image:
+def layout_diagram(still: Path, view: tuple, contract: dict, sizes: dict) -> Image.Image:
+    left, top = view
     img = Image.open(still).convert("RGBA").resize((1280, 720), Image.NEAREST)
     bands = Image.new("RGBA", img.size, (0, 0, 0, 0))
     for (y0, y1) in ((532, 539), (500, 507)):                      # the glob bands, tinted (blended, not painted)
-        ImageDraw.Draw(bands).rectangle((0, (y0 - VIEW_TOP) * 2, 1279, (y1 - VIEW_TOP) * 2 - 1), fill=(255, 160, 40, 70))
+        ImageDraw.Draw(bands).rectangle((0, (y0 - top) * 2, 1279, (y1 - top) * 2 - 1), fill=(255, 160, 40, 70))
     img.alpha_composite(bands)
     d = ImageDraw.Draw(img)
 
@@ -115,7 +118,7 @@ def layout_diagram(still: Path, left: int, contract: dict, sizes: dict) -> Image
         return (x - left) * 2
 
     def sy(y):
-        return (y - VIEW_TOP) * 2
+        return (y - top) * 2
 
     for y, label, col in ((W_LINE, "walking line W 580", (120, 255, 120)), (FB, "floor back line FB 560", (120, 200, 255))):
         d.line((0, sy(y), 1279, sy(y)), fill=col + (255,), width=1)
@@ -216,6 +219,18 @@ def main(argv: list[str]) -> int:
         box = (74, 181, 138, 231)
         b, a = Image.open(pen_before).convert("RGBA").crop(box), Image.open(pen_after).convert("RGBA").crop(box)
         pair(b, a, 12, ("before", "after")).save(out_dir / "crop_n1_plume_right_x12.png")
+    dock = out_dir / "scene_dock_640x360.png"
+    before_dock = out_dir / "scene_before_dock_640x360.png"
+    if dock.is_file() and "dock" in views:
+        # the dock bloom in place (narrow key check of heat_scorch_wall_b): world x 1888..2018, y 470..560, at the
+        # still's drawn view
+        left, top = views["dock"]
+        box = (1888 - left, 470 - top, 2018 - left, 560 - top)
+        a = Image.open(dock).convert("RGBA").crop(box)
+        b = Image.open(before_dock).convert("RGBA").crop(box) if before_dock.is_file() else a
+        text = ("before (origin/main)", "after (wall_b in place)")
+        pair(b, a, 1, text).save(out_dir / "crop_wall_b_dock_x1.png")
+        pair(b, a, 4, text).save(out_dir / "crop_wall_b_dock_x4.png")
     print(f"sheets in {out_dir}")
     return 0
 

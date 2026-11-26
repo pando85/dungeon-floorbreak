@@ -30,6 +30,8 @@ KEY_SHA = {
     "heat_scorch_wall_a": "8ea5958749d9662742cb1e7ebd843213f853f4648dd4cdc281f2278fc03b4b78",
     "heat_scorch_floor_a": "30261053739064530cbb0adc4ce6d637b3888a51bda0720656a29ec9e4b2456d",
 }
+# Frozen after execution: wall_b with the review's foot_x 16 (HEAT-AD20).
+PIECE_SHA = {"heat_scorch_wall_b": "2c04b99a89fe1453557cf45d6fa8dca3d4bfd48d768d24da9d21dc62f88e0288"}
 # Spec section 5 placements (the pieces `heat_scorch_wall_c` and `heat_trace_wall_a` have no free span: AD12).
 WALLS = {"heat_scorch_wall_a": [(1088, 464)], "heat_scorch_wall_b": [(1920, 480)]}
 NOT_PLACED = ("heat_scorch_wall_c", "heat_trace_wall_a")
@@ -516,18 +518,15 @@ class HeatKitTest(unittest.TestCase):
             for q in img.px[y]:
                 self.assertTrue(q is None or q[0] in ("stone", "mortar", "flame"), (y, q))
 
-    @unittest.expectedFailure
-    def test_wall_b_foot_is_narrower_than_the_widest_row_by_1_6x(self):
-        """OPEN DESIGN NOTE (the spec's parameter set for wall_b, section 5): the foot row stands on a bond phase
-        that puts the core between two bricks, so the foot row is 32 px wide and the row above it 16 px; the widest
-        row is also 32 px, not the 1.6x of the acceptance. Not tuned here (the parameters are the designer's). When
-        the designer re-parametrises ``SW_B`` this test starts to pass: remove the decorator."""
+    def test_wall_b_r_checks(self):
+        """HEAT-AD20 (review F2): ``SW_B.foot_x`` 16 puts the core inside the bottom-row brick 8..23, so the foot
+        is 16 px and the widest row 32 px (2.0x); no hole, no floater, edge runs short, no brick below 3."""
         widths = self.wall_checks(heat.SW_B, "heat_scorch_wall_b")
+        self.assertEqual(widths, [0, 16, 16, 32, 32, 32, 32, 16])
         self.assertGreaterEqual(max(widths), 1.6 * widths[-1])
-
-    def test_wall_b_other_r_checks_hold(self):
-        # everything but the foot ratio: no hole, no floater, edge runs short, no brick below 3, no embers
-        self.wall_checks(heat.SW_B, "heat_scorch_wall_b")
+        img = pieces_of("floor01_heat_wall")["heat_scorch_wall_b"]
+        self.assertFalse(any(q and q[0] == "flame" for row in img.px for q in row), "no embers")
+        self.assertEqual(hashlib.sha256(json.dumps(img.px).encode()).hexdigest(), PIECE_SHA["heat_scorch_wall_b"])
 
     def test_wall_decal_rows_over_the_base_course_are_stone_mortar_or_flame(self):
         pieces = all_pieces()

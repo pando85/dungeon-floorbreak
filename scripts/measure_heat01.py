@@ -112,47 +112,54 @@ def walkable_lines(dir_: Path, kit) -> list[str]:
 
 def runtime_walkable(stills: Path, layout_dir: Path) -> list[str]:
     """C2 on the runtime pixels: the same check on the window captures (the dressed stills at 640 x 360). The
-    drawn view left of each still comes from ``drawn_views.txt`` (landmarks, ``scripts/heat01_view.py``) and the
-    top is 289. The arris is the platform's own columns (6 px inset) of its first rows; the rival is the brightest
+    drawn view (left, top) of each still comes from ``drawn_views.txt`` (landmarks and a 2D match,
+    ``scripts/heat01_view.py``). The arris is the platform's own columns (6 px inset) of its first rows; the rival is the brightest
     13 px run in the same columns within +-48 px. Pixels that differ from the lit model of the static room by more
     than 40 grey levels (the actors, the torch flames and their bloom, the HUD) are not candidates."""
     import numpy as np  # noqa: PLC0415
     import heat01_view as hv  # noqa: PLC0415
     views = {}
     for line in (stills / "drawn_views.txt").read_text(encoding="utf-8").splitlines():
-        name, _, left = line.partition(" ")
-        views[name] = int(left)
+        name, left, top = line.split()
+        views[name] = (int(left), int(top))
     strip = hv.room_strip(layout_dir)
+    pools = pool_mask(load_layout(layout_dir, "plain"))
     out = []
     for name in ("m0_goblins", "m1_throat", "pen_entry", "pen_rails", "dock", "m3_exit", "bare_run"):
         path = stills / f"scene_{name}_640x360.png"
         if name not in views or not path.is_file():
             continue
-        left = views[name]
+        left, vtop = views[name]
         img = Image.open(path).convert("RGB")
         px = img.load()
         still_g = np.asarray(img.convert("L"), dtype=np.int16)
-        model_g = strip[:, left:left + 640].astype(np.int16)
+        model_g = strip[vtop:vtop + 360, left:left + 640].astype(np.int16)
         static = np.abs(still_g - model_g) <= 40
         for plat, x0, x1, py in TOPS:
             a, b = max(x0, left) - left + 6, min(x1, left + 640) - left - 6
             if b - a < min(x1 - x0 - 12, 40):          # a platform cut by the view edge is not measured
                 continue
-            sy = py - VIEW_TOP
+            sy = py - vtop
             top_l = max(run_means(img, sy + dy, a, b) for dy in (0, 1))
-            rival, ry = 0.0, 0
-            for y in range(max(0, sy - 48), min(img.height, sy + 48, W - 24 - VIEW_TOP)):
+            rival, ry, outside, oy = 0.0, 0, 0.0, 0
+            for y in range(max(0, sy - 48), min(img.height, sy + 48, W - 24 - vtop)):
                 if sy - 1 <= y <= sy + 3:
                     continue
-                ls = [srgb_to_lab_l(px[x, y])[0] if static[y, x] and not _flame(px[x, y]) else 0.0
-                      for x in range(a, b)]
+                ok = [static[y, x] and not _flame(px[x, y]) for x in range(a, b)]
+                ls = [srgb_to_lab_l(px[x, y])[0] if o else 0.0 for x, o in zip(range(a, b), ok)]
+                lo = [v if not pools[vtop + y][left + x] else 0.0 for x, v in zip(range(a, b), ls)]
                 for i in range(max(1, len(ls) - 12)):
                     v = sum(ls[i:i + 13]) / len(ls[i:i + 13])
                     if v > rival:
                         rival, ry = v, y
-            out.append(f"WALKABLE_TOP source=runtime still={name} platform={plat} view_left={left} "
+                    w = sum(lo[i:i + 13]) / len(lo[i:i + 13])
+                    if w > outside:
+                        outside, oy = w, y
+            out.append(f"WALKABLE_TOP source=runtime still={name} platform={plat} view_left={left} view_top={vtop} "
                        f"arris_screen_x={a}..{b} top_arris_run_L={top_l:.1f} brightest_rival_run_L={rival:.1f} "
-                       f"at_world_y={ry + VIEW_TOP} brightest={'top' if top_l >= rival else 'rival'}")
+                       f"at_world_y={ry + vtop} brightest={'top' if top_l >= rival else 'rival'} "
+                       f"rival_outside_torch_pool_L={outside:.1f} at_world_y={oy + vtop} "
+                       f"C2_with_pool_exemption={'holds' if top_l >= outside else 'FAILS'}")
     return out
 
 

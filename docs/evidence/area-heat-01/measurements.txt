@@ -20,7 +20,7 @@ ACTOR_SEPARATION actor=goblin x=1110 layout=dressed actor_L=28.8 ring_L=23.1 dL=
 ACTOR_SEPARATION actor=goblin x=1488 layout=plain actor_L=32.1 ring_L=35.8 dL=-3.6 contrast=1.07 edge_dL=19.5
 ACTOR_SEPARATION actor=goblin x=1488 layout=dressed actor_L=32.1 ring_L=35.8 dL=-3.6 contrast=1.07 edge_dL=20.1
 ACTOR_SEPARATION actor=goblin x=1968 layout=plain actor_L=28.1 ring_L=20.3 dL=7.8 contrast=1.79 edge_dL=15.5
-ACTOR_SEPARATION actor=goblin x=1968 layout=dressed actor_L=28.1 ring_L=19.0 dL=9.1 contrast=1.88 edge_dL=15.5
+ACTOR_SEPARATION actor=goblin x=1968 layout=dressed actor_L=28.1 ring_L=19.1 dL=9.0 contrast=1.87 edge_dL=15.9
 ACTOR_SEPARATION actor=carl x=1078 layout=plain actor_L=39.8 ring_L=29.7 dL=10.1 contrast=1.89 edge_dL=15.5
 ACTOR_SEPARATION actor=carl x=1078 layout=dressed actor_L=39.8 ring_L=28.0 dL=11.8 contrast=1.98 edge_dL=16.8
 ACTOR_SEPARATION actor=carl x=1110 layout=plain actor_L=39.3 ring_L=25.1 dL=14.2 contrast=2.2 edge_dL=14.8
@@ -28,18 +28,18 @@ ACTOR_SEPARATION actor=carl x=1110 layout=dressed actor_L=39.3 ring_L=22.6 dL=16
 ACTOR_SEPARATION actor=carl x=1488 layout=plain actor_L=43.7 ring_L=33.6 dL=10.1 contrast=1.8 edge_dL=17.7
 ACTOR_SEPARATION actor=carl x=1488 layout=dressed actor_L=43.7 ring_L=33.7 dL=10.0 contrast=1.79 edge_dL=17.9
 ACTOR_SEPARATION actor=carl x=1968 layout=plain actor_L=38.3 ring_L=20.3 dL=18.0 contrast=2.56 edge_dL=15.3
-ACTOR_SEPARATION actor=carl x=1968 layout=dressed actor_L=38.3 ring_L=18.8 dL=19.5 contrast=2.68 edge_dL=14.3
+ACTOR_SEPARATION actor=carl x=1968 layout=dressed actor_L=38.3 ring_L=19.6 dL=18.8 contrast=2.62 edge_dL=14.5
 WALKABLE_TOP source=lit_model platform=shelf layout=plain top_arris_run_L=30.4 brightest_rival_run_L=59.0 at_y=525 brightest=rival
 WALKABLE_TOP source=lit_model platform=dock layout=plain top_arris_run_L=36.6 brightest_rival_run_L=58.3 at_y=508 brightest=rival
 WALKABLE_TOP source=lit_model platform=bumper layout=plain top_arris_run_L=31.9 brightest_rival_run_L=41.1 at_y=477 brightest=rival
 WALKABLE_TOP source=lit_model platform=shelf layout=dressed top_arris_run_L=52.3 brightest_rival_run_L=59.0 at_y=525 brightest=rival
 WALKABLE_TOP source=lit_model platform=dock layout=dressed top_arris_run_L=47.9 brightest_rival_run_L=58.3 at_y=508 brightest=rival
 WALKABLE_TOP source=lit_model platform=bumper layout=dressed top_arris_run_L=54.8 brightest_rival_run_L=41.1 at_y=477 brightest=top
-WALKABLE_TOP source=runtime still=pen_entry platform=shelf view_left=1038 arris_screen_x=88..172 top_arris_run_L=53.7 brightest_rival_run_L=54.7 at_world_y=525 brightest=rival
-WALKABLE_TOP source=runtime still=dock platform=dock view_left=1610 arris_screen_x=284..634 top_arris_run_L=63.6 brightest_rival_run_L=37.5 at_world_y=529 brightest=top
-WALKABLE_TOP source=runtime still=dock platform=bumper view_left=1610 arris_screen_x=252..272 top_arris_run_L=34.0 brightest_rival_run_L=32.0 at_world_y=498 brightest=top
-WALKABLE_TOP source=runtime still=m3_exit platform=dock view_left=1680 arris_screen_x=214..618 top_arris_run_L=42.0 brightest_rival_run_L=37.5 at_world_y=529 brightest=top
-WALKABLE_TOP source=runtime still=m3_exit platform=bumper view_left=1680 arris_screen_x=182..202 top_arris_run_L=34.0 brightest_rival_run_L=32.0 at_world_y=498 brightest=top
+WALKABLE_TOP source=runtime still=pen_entry platform=shelf view_left=1038 view_top=289 arris_screen_x=88..172 top_arris_run_L=53.7 brightest_rival_run_L=54.7 at_world_y=525 brightest=rival rival_outside_torch_pool_L=44.3 at_world_y=513 C2_with_pool_exemption=holds
+WALKABLE_TOP source=runtime still=dock platform=dock view_left=1610 view_top=260 arris_screen_x=284..634 top_arris_run_L=44.9 brightest_rival_run_L=42.3 at_world_y=516 brightest=top rival_outside_torch_pool_L=42.3 at_world_y=516 C2_with_pool_exemption=holds
+WALKABLE_TOP source=runtime still=dock platform=bumper view_left=1610 view_top=260 arris_screen_x=252..272 top_arris_run_L=54.8 brightest_rival_run_L=39.3 at_world_y=477 brightest=top rival_outside_torch_pool_L=0.0 at_world_y=260 C2_with_pool_exemption=holds
+WALKABLE_TOP source=runtime still=m3_exit platform=dock view_left=1680 view_top=260 arris_screen_x=214..618 top_arris_run_L=47.8 brightest_rival_run_L=39.8 at_world_y=532 brightest=top rival_outside_torch_pool_L=39.8 at_world_y=532 C2_with_pool_exemption=holds
+WALKABLE_TOP source=runtime still=m3_exit platform=bumper view_left=1680 view_top=260 arris_screen_x=182..202 top_arris_run_L=54.8 brightest_rival_run_L=39.3 at_world_y=477 brightest=top rival_outside_torch_pool_L=0.0 at_world_y=260 C2_with_pool_exemption=holds
 PARTITION_VS_OPENING source=gate_composite(CORRAL-D pending) state=intact partition_L=25.5 behind_L=26.5 dL=-1.1 mean_hue_diff_deg=80
 PARTITION_VS_OPENING source=gate_composite(CORRAL-D pending) state=weakened partition_L=24.9 behind_L=26.5 dL=-1.6 mean_hue_diff_deg=81
 PARTITION_VS_OPENING source=gate_composite(CORRAL-D pending) state=broken partition_L=24.5 behind_L=36.6 dL=-12.2 mean_hue_diff_deg=4

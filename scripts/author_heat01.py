@@ -375,8 +375,9 @@ SW_PLUME = dict(
     embers=((-3, 93, 0), (0, 94, 1), (2, 92, 0), (5, 94, 0)),   # (dx from foot_x, row, flame index)
 )
 # wall_b (48 x 64 at (1920, 480)): behind the dock's head band, so no brick darker than index 3, no base course,
-# no crazing, no embers (the dock is llama A's glob height). Spec section 5.
-SW_B = dict(SW_PLUME, foot_x=22.0, lean=0.2, sig0=3.5, sig_grow=0.22, amp=3.4, amp_top=0.25, fade_top=24,
+# no crazing, no embers (the dock is llama A's glob height). Spec section 5. foot_x is 16 (HEAT-AD20, the review's
+# F2): the spec's 22 put the core on the joint between the two bottom-row bricks, so the foot was 32 px wide.
+SW_B = dict(SW_PLUME, foot_x=16.0, lean=0.2, sig0=3.5, sig_grow=0.22, amp=3.4, amp_top=0.25, fade_top=24,
             thr=1.2, x_min=0, w=48, h=64, rows=64, seed="wall_b", bands=["lower"] * 4 + ["low"] * 4,
             head_row=0, lo_head=3, lo_above=3, base_y0=None, crazing=(), embers=())
 # wall_c (32 x 48 at x % 32 == 0, y 512): a small low lick, four `low` brick rows over a base course that only
