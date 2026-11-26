@@ -998,6 +998,11 @@ pub struct CombatState {
     /// cover the whole bag (0: the plain Q58 draw, every other room). Not hashed:
     /// its effect is in the drawn temperaments, which are.
     temperament_cover: usize,
+    /// ACT1-A: the temperament of the leading goblins, by index, instead of the seeded
+    /// draw (empty: the plain draw, the state of every other room). The shore's two
+    /// goblins are authored as a brawler and a coward (ACT1-IMP-1). Configuration,
+    /// not hashed: it only chooses the draw's temperament.
+    temperament_forced: Vec<crate::cf02::Temperament>,
     morale: Option<MoraleRuntime>,
     morale_feed: Vec<CombatEvent>,
     /// ENEMY-GAMEPLAY-ENGINEER: the pinned engineer knobs (constant for the run).
@@ -1157,6 +1162,7 @@ impl CombatState {
                 || fixture.room == FixtureRoom::Arena,
             cf02_seed: None,
             temperament_cover: 0,
+            temperament_forced: Vec::new(),
             morale: None,
             morale_feed: Vec::new(),
             engineer: engineer::active(),
@@ -1261,6 +1267,16 @@ impl CombatState {
     #[must_use]
     pub fn with_temperament_cover(mut self, cover: usize) -> Self {
         self.temperament_cover = cover;
+        self.reset_attempt();
+        self
+    }
+
+    /// ACT1-A: goblin `i` takes `forced[i]` as its temperament for every attempt (the rest
+    /// of its draw is the seeded bag's, like a DR-C rider's). Rebuilds the attempt's
+    /// morale.
+    #[must_use]
+    pub fn with_goblin_temperaments(mut self, forced: &[crate::cf02::Temperament]) -> Self {
+        self.temperament_forced = forced.to_vec();
         self.reset_attempt();
         self
     }

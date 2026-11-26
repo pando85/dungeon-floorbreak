@@ -1,0 +1,26 @@
+{
+  "schema": "floor01-demo-hall-v1",
+  "status": "ACT1 greybox room (docs/01-design/floor-01-act-01-integration.md section 4.2, ACT1-A): geometry only, composed at load time from approved Floor 01 kit pieces by camera_lab::layout (no new art, not an authored level; the ENV-02 dressing of the Act I rooms is a separate later work order), launched as the room act1_shore of --scene f01_late (src/f01_act1.rs). The two goblins and the defeat_roster goal live in f01_act1_shore.encounter.json, validated by src/encounter.rs.",
+  "scenarios": [
+    {
+      "id": "F01-ACT1-SHORE",
+      "name": "The Rotten Shore",
+      "subtitle": "Floor 01 Act I: the first two goblins and a rotten beam over the shore",
+      "act": 1,
+      "setting": "dry-catacomb",
+      "width": 976,
+      "height": 660,
+      "floor": 580,
+      "spawn": { "carl": 112, "donut": 80 },
+      "camera_intro": 112,
+      "platforms": [],
+      "props": [],
+      "enemies": [],
+      "hazards": [],
+      "goal_x": 752,
+      "purpose": "A 976 px open lane (ACT1-A, I-03): two goblins at x 528 and 568, no prop, no hazard, no platform. The rotten shore strike column is the fixture's (Fixture::shore_dx, the CP-03 rules), not a prop of this file. The wedged machine of the chase is a decor rectangle at the left edge (presentation only, ACT1-AD10).",
+      "expected": "Spawns, the checkpoint, the exit and the roster come from f01_act1_shore.encounter.json; this file holds geometry only. The exit opens when both goblins are defeated, by any credited cause.",
+      "coop": "Solo with the companion, or two players: Carl punches, kicks or drops the rotten beam on the first goblin; Donut has no missile here (the biscuit comes in the next room)."
+    }
+  ]
+}

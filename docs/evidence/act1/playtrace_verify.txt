@@ -1,0 +1,8 @@
+ACT1_GUILD_VERIFY loadout=story view=360 ticks=142 state_hashes=142 scope=Full build=identical
+ACT1_SHORE_VERIFY loadout=story view=360 ticks=274 state_hashes=274 scope=Full build=identical
+ACT1_GUILD_VERIFY loadout=all view=360 ticks=142 state_hashes=142 scope=Full build=identical
+ACT1_GUILD_VERIFY loadout=story view=400 ticks=142 state_hashes=142 scope=Full build=identical
+ACT1_SHORE_VERIFY loadout=all view=360 ticks=236 state_hashes=236 scope=Full build=identical
+ACT1_GUILD_VERIFY loadout=all view=400 ticks=142 state_hashes=142 scope=Full build=identical
+ACT1_SHORE_VERIFY loadout=story view=400 ticks=274 state_hashes=274 scope=Full build=identical
+ACT1_SHORE_VERIFY loadout=all view=400 ticks=236 state_hashes=236 scope=Full build=identical

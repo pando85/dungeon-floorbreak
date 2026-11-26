@@ -276,6 +276,14 @@ pub enum EnvSolidKind {
     /// fixture restart, and hashed only in a room that has such a lock.
     /// `EnvSolid::prop` is the lock's index in the sidecar.
     SurfaceLock { lock: u16 },
+    /// ACT1-A (GUILD-BEAT-01): a `donut_unlocked` lock's solid (the guild door). It
+    /// stands exactly while Donut's mana is locked: the combat state reads her mana
+    /// each fixed tick ([`CombatState::env_sync_solids`]), so there is **no stored
+    /// flag and no hash term** (a pure function of state the hash already holds): the
+    /// biscuit opens it, a defeat retry keeps it open, a fixture restart closes it.
+    /// `lock` indexes the runtime's mana locks; `EnvSolid::prop` is the lock's index
+    /// in the sidecar.
+    ManaLock { lock: u16 },
 }
 
 impl EnvSolidKind {
@@ -294,7 +302,8 @@ impl EnvSolidKind {
             | Self::Soffit
             | Self::ShutterStack
             | Self::PartitionWall
-            | Self::SurfaceLock { .. } => false,
+            | Self::SurfaceLock { .. }
+            | Self::ManaLock { .. } => false,
         }
     }
 }
@@ -477,6 +486,11 @@ pub struct EnvRuntime {
     /// REST-WIRE: the `hero_on_surface` locks, in sidecar order (empty in every other
     /// room). Their opened flags are hashed only when this is not empty.
     surface_locks: Vec<SurfaceLockRt>,
+    /// ACT1-A: the `donut_unlocked` locks' last seen state per lock (`None` before the
+    /// first step), only to log the tick each one first opens. Not hashed and never
+    /// reset by a respawn or a restart: it follows the mana every tick, so it never
+    /// re-logs an unlock a retry kept.
+    mana_locks: Vec<(u16, Option<bool>)>,
 }
 
 /// REST-WIRE: the runtime of one `hero_on_surface` lock.
@@ -525,6 +539,7 @@ impl EnvRuntime {
         let links = LinkGraph::new(link_list)?;
         let mut stickers: Vec<StickerRt> = Vec::new();
         let mut surface_locks: Vec<SurfaceLockRt> = Vec::new();
+        let mut mana_locks: Vec<(u16, Option<bool>)> = Vec::new();
         for (i, p) in enc.props.iter().enumerate() {
             let index = u16::try_from(i).map_err(|_| "too many props".to_owned())?;
             let incoming = links.incoming(index);
@@ -730,6 +745,20 @@ impl EnvRuntime {
                     });
                     continue;
                 }
+                LockEvent::DonutUnlocked => {
+                    // ACT1-A: the combat state reads Donut's mana each tick (no flag).
+                    let lock_index = u16::try_from(i).map_err(|_| "too many locks".to_owned())?;
+                    solids.push(EnvSolid {
+                        rect: lock.solid,
+                        prop: Some(lock_index),
+                        kind: EnvSolidKind::ManaLock {
+                            lock: u16::try_from(mana_locks.len())
+                                .map_err(|_| "too many locks".to_owned())?,
+                        },
+                    });
+                    mana_locks.push((lock_index, None));
+                    continue;
+                }
             };
             let target = enc
                 .roster
@@ -843,6 +872,7 @@ impl EnvRuntime {
             acid_prev_up: None,
             fu: HazFu::from_tuning(slime::active()),
             surface_locks,
+            mana_locks,
         })
     }
 
@@ -1388,6 +1418,9 @@ impl EnvRuntime {
             // HAZ-A2: a soffit always stands; the exit gate defaults to closed (the
             // scene opens it when the roster is clear). Neither has a prop.
             EnvSolidKind::Soffit | EnvSolidKind::ExitGate => return true,
+            // ACT1-A: stands until Donut's mana is unlocked, which the combat state
+            // reads (`env_sync_solids`); the runtime alone defaults to closed.
+            EnvSolidKind::ManaLock { .. } => return true,
         };
         match (s.kind, prop.map(|p| &p.machine)) {
             (EnvSolidKind::Remnant, Some(Machine::Mass(m))) => m.state() == MassState::Landed,
@@ -1936,6 +1969,16 @@ impl EnvRuntime {
             .collect()
     }
 
+    /// ACT1-A: the `donut_unlocked` locks as their solid rectangles, in sidecar order (the
+    /// door's drawing reads them with [`CombatState::donut_unlocked`]).
+    pub fn mana_doors(&self) -> Vec<IRect> {
+        self.solids
+            .iter()
+            .filter(|s| matches!(s.kind, EnvSolidKind::ManaLock { .. }))
+            .map(|s| s.rect)
+            .collect()
+    }
+
     /// REST-WIRE: whether each `hero_on_surface` lock has opened, in sidecar order.
     pub fn surface_locks_open(&self) -> Vec<bool> {
         self.surface_locks.iter().map(|l| l.opened).collect()
@@ -2296,6 +2339,7 @@ impl CombatState {
         let layout_h = scene.world.layout_height();
         let dynamic = SlotSolids::of(&self.slot);
         let cleared = self.exit_gate_open();
+        let mana_unlocked = self.donut_kit.mana.unlocked();
         let Some(env) = self.env.as_mut() else {
             return;
         };
@@ -2333,6 +2377,8 @@ impl CombatState {
                 // HAZ-A2: the exit opens on the tick the roster is clear
                 // (CORRAL-WIRE: on the tick its named llamas are all down).
                 EnvSolidKind::ExitGate => !cleared,
+                // ACT1-A: the guild door stands while Donut's mana is locked.
+                EnvSolidKind::ManaLock { .. } => !mana_unlocked,
                 // REST-WIRE: the latched surface lock (`solid_intact` reads the flag).
                 _ => env.solid_intact(i),
             };
@@ -3123,6 +3169,26 @@ impl CombatState {
         }
     }
 
+    /// ACT1-A (GUILD-BEAT-01): log the tick each `donut_unlocked` lock first opens (its
+    /// solid itself is a pure function of Donut's mana, see
+    /// [`EnvSolidKind::ManaLock`]). The first step only records the state, so a room
+    /// that starts unlocked (the All loadout) logs no opening.
+    fn step_mana_locks(&mut self, tick: u64) {
+        let unlocked = self.donut_kit.mana.unlocked();
+        let mut opened: Vec<u16> = Vec::new();
+        if let Some(env) = self.env.as_mut() {
+            for (lock, seen) in &mut env.mana_locks {
+                if *seen == Some(false) && unlocked {
+                    opened.push(*lock);
+                }
+                *seen = Some(unlocked);
+            }
+        }
+        for lock in opened {
+            self.log(CombatEvent::ManaLockOpened { tick, lock });
+        }
+    }
+
     /// The env step: see the module docs for the order.
     pub(super) fn step_env(&mut self, scene: &mut SceneSim, tick: u64) {
         if self.env.is_none() {
@@ -3131,6 +3197,8 @@ impl CombatState {
         // REST-WIRE: a hero standing on a surface lock's platform opens it (latched),
         // before the sync below makes its solid stand or not.
         self.step_surface_locks(scene, tick);
+        // ACT1-A: the guild door's opening is logged on the tick Donut's mana unlocks.
+        self.step_mana_locks(tick);
         // The first step appends the solids (KR6); the sync rewrites `intact`
         // again after the prop step below.
         self.env_sync_solids(scene);
@@ -3416,6 +3484,7 @@ impl CombatState {
                 | EnvSolidKind::Lock { .. }
                 | EnvSolidKind::Gate { .. }
                 | EnvSolidKind::SurfaceLock { .. }
+                | EnvSolidKind::ManaLock { .. }
                 | EnvSolidKind::Soffit
                 | EnvSolidKind::ExitGate => {}
                 // CORRAL-D: a launched body is no physical hero hit on the partition

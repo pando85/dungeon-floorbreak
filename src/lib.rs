@@ -1,6 +1,7 @@
 //! Pure, headless-friendly contracts for Dungeon Floorbreak.
 
 pub mod acid_splash;
+pub mod act1_fixtures;
 pub mod acting;
 pub mod actor_sprite;
 pub mod agility;
@@ -66,6 +67,7 @@ pub mod env_hazard;
 pub mod env_kit;
 pub mod env_prop;
 pub mod env_prop_art;
+pub mod f01_act1;
 pub mod f01_boiler;
 pub mod f01_corral;
 pub mod f01_corral_fixtures;

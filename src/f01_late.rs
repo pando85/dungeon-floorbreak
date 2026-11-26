@@ -37,6 +37,7 @@ use crate::combat_scene::CombatState;
 use crate::corridor::SceneSim;
 use crate::donut_mana::DonutSetup;
 use crate::donut_prog::DonutProgFlags;
+use crate::f01_act1::{self, Act1Room};
 use crate::f01_boiler::{self, BoilerRun, Roster};
 use crate::f01_corral;
 use crate::f01_rest::{self, RestRoom};
@@ -51,7 +52,7 @@ pub const MANIFEST_PATH: &str = "assets/levels/f01_late/manifest.json";
 /// hash is a constant, pinned to the file by a test and compared by every
 /// replay of a recorded room. A step that lists a room (CORRAL-WIRE, RING-A
 /// wire, HRD-A2, CORRAL-F, DR-A, ...) re-pins it on purpose.
-pub const MANIFEST_HASH: u64 = 0xb42f_2f31_5436_e7d2;
+pub const MANIFEST_HASH: u64 = 0x9f2e_dc09_b49e_0f08;
 /// The fixture-only stub trigger the story-order tie skips by name.
 pub const STUB_TRIGGER: &str = "carl_prog_find_zone_stub";
 /// The `data_pins()` key.
@@ -78,7 +79,7 @@ pub const fn data_pins() -> [(&'static str, u64); 1] {
 /// stamps nor needs them, so a later edit of the manifest (every room step) or of
 /// the Boiler files (BOIL-B/C wire) fails only the recordings it can change; a
 /// Juicer recording needs the manifest hash and not the Boiler's.
-pub const SCOPED_PIN_KEYS: [&str; 25] = [
+pub const SCOPED_PIN_KEYS: [&str; 29] = [
     f01_boiler::ROOM_PIN_KEY,
     f01_boiler::ENCOUNTER_PIN_KEY,
     f01_boiler::fixes::PIN_KEY,
@@ -103,6 +104,10 @@ pub const SCOPED_PIN_KEYS: [&str; 25] = [
     f01_rest::CAMP_ENCOUNTER_PIN_KEY,
     f01_rest::AFTERMATH_ROOM_PIN_KEY,
     f01_rest::AFTERMATH_ENCOUNTER_PIN_KEY,
+    f01_act1::SHORE_ROOM_PIN_KEY,
+    f01_act1::SHORE_ENCOUNTER_PIN_KEY,
+    f01_act1::GUILD_ROOM_PIN_KEY,
+    f01_act1::GUILD_ENCOUNTER_PIN_KEY,
     MANIFEST_PIN_KEY,
 ];
 
@@ -139,6 +144,12 @@ pub fn pin_applies(key: &str, room: Option<&str>) -> bool {
         }
         f01_rest::AFTERMATH_ROOM_PIN_KEY | f01_rest::AFTERMATH_ENCOUNTER_PIN_KEY => {
             room == Some(RestRoom::Aftermath.id())
+        }
+        f01_act1::SHORE_ROOM_PIN_KEY | f01_act1::SHORE_ENCOUNTER_PIN_KEY => {
+            room == Some(Act1Room::Shore.id())
+        }
+        f01_act1::GUILD_ROOM_PIN_KEY | f01_act1::GUILD_ENCOUNTER_PIN_KEY => {
+            room == Some(Act1Room::Guild.id())
         }
         MANIFEST_PIN_KEY => room.is_some(),
         _ => true,
@@ -196,6 +207,14 @@ pub enum RoomScene {
     /// REST-WIRE: the quiet room after the Juicer (REST-C), before the mastery arena.
     #[serde(rename = "f01_rest_aftermath")]
     RestAftermath,
+    /// ACT1-A: Act I's shore ("The Rotten Shore"); launched through `--scene f01_late`
+    /// only, listed before the corral.
+    #[serde(rename = "f01_act1_shore")]
+    Act1Shore,
+    /// ACT1-A: Act I's guild ("The Guild Door", GUILD-BEAT-01), listed after the shore
+    /// and before the corral.
+    #[serde(rename = "f01_act1_guild")]
+    Act1Guild,
 }
 
 impl RoomScene {
@@ -215,7 +234,25 @@ impl RoomScene {
             Self::RestRefuge => RestRoom::Refuge.scene_name(),
             Self::RestCamp => RestRoom::Camp.scene_name(),
             Self::RestAftermath => RestRoom::Aftermath.scene_name(),
+            Self::Act1Shore => Act1Room::Shore.scene_name(),
+            Self::Act1Guild => Act1Room::Guild.scene_name(),
         }
+    }
+
+    /// The Act I room this scene runs, if it is one (ACT1-A).
+    pub const fn act1(self) -> Option<Act1Room> {
+        match self {
+            Self::Act1Shore => Some(Act1Room::Shore),
+            Self::Act1Guild => Some(Act1Room::Guild),
+            _ => None,
+        }
+    }
+
+    /// Whether the scene has no story runtime: the corral (KC11) and the Act I rooms
+    /// (ACT1-AD1). Its sidecar's `story_pin` is a label with no table row, and a Story
+    /// run carries an empty ledger into it ([`crate::f01_run`]).
+    pub const fn story_less(self) -> bool {
+        matches!(self, Self::Corral | Self::Act1Shore | Self::Act1Guild)
     }
 
     /// The quiet room this scene runs, if it is one (REST-WIRE).
@@ -436,17 +473,59 @@ impl Manifest {
             }
             check_rules(row)?;
         }
-        // CORRAL-F (plan section 14.7): room 0 is listed, and listed first (the
-        // floor run starts in the corral and walks on to the Hoarder).
-        match self.rooms.iter().position(|r| r.id == f01_corral::ROOM_ID) {
-            Some(0) if self.rooms[0].scene == RoomScene::Corral => {}
-            _ => {
-                return Err(
-                    "manifest: the corral (room 0) must be the first listed room (CORRAL-F)".into(),
-                );
-            }
-        }
+        self.check_act1_first()?;
         check_story_order(&self.story_order, table)
+    }
+}
+
+impl Manifest {
+    /// ACT1-F (replaces CORRAL-F, `docs/01-design/floor-01-act-01-integration.md` section 6.1):
+    /// every listed Act I room precedes the corral, in the fixed order of
+    /// [`Act1Room::ALL`] (chase, shore, guild: any listed subset keeps it), the corral is
+    /// listed directly after the last listed Act I room and no Act I room is listed after it.
+    /// With no Act I room listed the rule is CORRAL-F: the corral is the first listed room.
+    fn check_act1_first(&self) -> Result<(), String> {
+        const RULE: &str = "ACT1-F (CORRAL-F)";
+        let Some(corral) = self.rooms.iter().position(|r| r.id == f01_corral::ROOM_ID) else {
+            return Err(format!(
+                "manifest: the corral must be listed after the Act I rooms and before every other \
+                 room ({RULE})"
+            ));
+        };
+        if self.rooms[corral].scene != RoomScene::Corral {
+            return Err(format!(
+                "manifest: the corral names the wrong scene ({RULE})"
+            ));
+        }
+        let mut last_rank = None;
+        for row in &self.rooms[..corral] {
+            let Some(act1) = row.scene.act1() else {
+                return Err(format!(
+                    "manifest: room {:?} is listed before the corral but is not an Act I room \
+                     ({RULE}): the corral directly follows the last Act I room",
+                    row.id
+                ));
+            };
+            let rank = Act1Room::ALL.iter().position(|r| *r == act1);
+            if rank <= last_rank {
+                return Err(format!(
+                    "manifest: Act I room {:?} is out of order ({RULE}): the order is {}",
+                    row.id,
+                    Act1Room::ALL.map(Act1Room::id).join(", ")
+                ));
+            }
+            last_rank = rank;
+        }
+        if let Some(row) = self.rooms[corral + 1..]
+            .iter()
+            .find(|r| r.scene.act1().is_some())
+        {
+            return Err(format!(
+                "manifest: Act I room {:?} is listed after the corral ({RULE})",
+                row.id
+            ));
+        }
+        Ok(())
     }
 }
 
@@ -464,6 +543,8 @@ fn check_rules(row: &RoomRow) -> Result<(), String> {
         | RoomScene::RestRefuge
         | RoomScene::RestCamp
         | RoomScene::RestAftermath
+        | RoomScene::Act1Shore
+        | RoomScene::Act1Guild
         | RoomScene::Corral => row.rules == RoomRules::Cf02,
         RoomScene::Boss => row.rules == RoomRules::Boss,
     };
@@ -471,6 +552,16 @@ fn check_rules(row: &RoomRow) -> Result<(), String> {
         return Err(format!(
             "manifest: room {:?} runs under the wrong rules for its scene (K17)",
             row.id
+        ));
+    }
+    // ACT1-F: an Act I scene runs the room of its own id only.
+    if let Some(act1) = row.scene.act1()
+        && row.id != act1.id()
+    {
+        return Err(format!(
+            "manifest: room {:?} names the scene of {:?}",
+            row.id,
+            act1.id()
         ));
     }
     // CORRAL-F: the corral scene runs room 0 only.
@@ -839,6 +930,23 @@ pub fn rest_start(
     Ok((run, scene, combat))
 }
 
+/// Launch an Act I room and build its scene and combat state (ACT1-A), the shared
+/// constructor of the binary and the verifier. The shore's goblins and the companion draw
+/// from `--cf02-seed`.
+pub fn act1_start(
+    root: &Path,
+    room: Act1Room,
+    view_height: i32,
+    carl: CarlProgFlags,
+    donut: DonutProgFlags,
+    cf02_seed: Option<u64>,
+) -> Result<(f01_act1::Act1Run, SceneSim, CombatState), String> {
+    let run = f01_act1::launch(root, room)?;
+    let mut scene = SceneSim::new_at(&run.kit, view_height, run.fixture.carl_x)?;
+    let combat = f01_act1::combat_for(&run, &mut scene, carl, donut, cf02_seed)?;
+    Ok((run, scene, combat))
+}
+
 /// Launch room 0, the Infernal Corral, and build its scene and combat state
 /// (CORRAL-WIRE), the shared constructor of the binary and the verifier. Its
 /// goblins draw their temperaments from `--cf02-seed`.
@@ -910,6 +1018,8 @@ mod tests {
         assert_eq!(
             m.listed(),
             [
+                "act1_shore",
+                "act1_guild",
                 "corral",
                 "rest_refuge",
                 "hoarder",
@@ -933,7 +1043,7 @@ mod tests {
             (RoomRules::Cf02, "greybox")
         );
         assert_eq!(refuge.title, "The Wrong Restaurant");
-        assert_eq!(m.rooms[1].id, "rest_refuge", "right after the corral");
+        assert_eq!(m.rooms[3].id, "rest_refuge", "right after the corral");
         // FA-Q24 (reverses PTG-AD1): the Hoarder is listed first in the story, and the
         // default room stays the Boiler.
         assert_eq!(m.default_room().id, "boiler");
@@ -962,10 +1072,11 @@ mod tests {
             assert_eq!(m.room(id).unwrap().rules, RoomRules::Cf02, "{id}");
         }
         assert_eq!(m.room("juicer").unwrap().rules, RoomRules::Boss);
-        // CORRAL-F (plan section 14.7): room 0 is listed first, at milestone
-        // `greybox`, and launches the same way it did unlisted (CORRAL-WIRE).
+        // ACT1-F (CORRAL-F, plan section 14.7): the corral is listed right after the Act I
+        // rooms, at milestone `greybox`, and launches the same way it did unlisted
+        // (CORRAL-WIRE).
         let corral = m.room("corral").unwrap();
-        assert_eq!(m.rooms[0].id, "corral");
+        assert_eq!(m.rooms[2].id, "corral");
         assert_eq!(corral.scene, RoomScene::Corral);
         assert_eq!(corral.rules, RoomRules::Cf02);
         assert_eq!(corral.milestone, "greybox");
@@ -993,23 +1104,109 @@ mod tests {
         m
     }
 
-    /// CORRAL-F: the corral is the first listed room, its scene runs room 0
-    /// only, and an unlisted row (none is committed) is still checked: not also
-    /// listed, in the story order, under the rules of its scene (K17).
+    /// ACT1-F (CORRAL-F): the Act I rooms are listed first in their order, the corral directly
+    /// after them, no Act I room after it; the corral scene runs room 0 only, and an unlisted
+    /// row (none is committed) is still checked: not also listed, in the story order, under
+    /// the rules of its scene (K17).
     #[test]
     fn the_corral_is_listed_first_and_the_unlisted_rows_are_checked() {
         let base = manifest();
-        let corral = base.rooms[0].clone();
-        let mut m = base.clone();
-        m.rooms.remove(0);
-        assert!(m.validate(table()).unwrap_err().contains("CORRAL-F"));
+        let corral = base.rooms[2].clone();
+        assert_eq!(corral.id, "corral");
+        assert!(base.validate(table()).is_ok());
+        // The Act I rooms swapped: out of order.
         let mut m = base.clone();
         m.rooms.swap(0, 1);
-        assert!(m.validate(table()).is_err());
+        let err = m.validate(table()).unwrap_err();
+        assert!(err.contains("out of story order"), "{err}");
+        // Story order is checked first (the story order lists the shore before the guild), so
+        // swap the rows of the order too: ACT1-F alone then rejects the swap.
         let mut m = base.clone();
-        m.rooms.remove(0);
+        m.rooms.swap(0, 1);
+        m.story_order.swap(0, 1);
+        let err = m.validate(table()).unwrap_err();
+        assert!(
+            err.contains("ACT1-F (CORRAL-F)") && err.contains("out of order"),
+            "{err}"
+        );
+        // The corral first, the Act I rooms after it: an Act I room listed after the corral.
+        let mut m = base.clone();
+        let shore = m.rooms.remove(0);
+        m.rooms.insert(2, shore);
+        let at = m
+            .story_order
+            .iter()
+            .position(|o| o.id == "act1_shore")
+            .unwrap();
+        let row = m.story_order.remove(at);
+        let after = m.story_order.iter().position(|o| o.id == "corral").unwrap();
+        m.story_order.insert(after + 1, row);
+        let err = m.validate(table()).unwrap_err();
+        assert!(err.contains("ACT1-F (CORRAL-F)"), "{err}");
+        // A non-Act-I room between the Act I rooms and the corral.
+        let mut m = base.clone();
+        let refuge = m.rooms.remove(3);
+        m.rooms.insert(2, refuge);
+        let at = m
+            .story_order
+            .iter()
+            .position(|o| o.id == "rest_refuge")
+            .unwrap();
+        let row = m.story_order.remove(at);
+        let before = m.story_order.iter().position(|o| o.id == "corral").unwrap();
+        m.story_order.insert(before, row);
+        let err = m.validate(table()).unwrap_err();
+        assert!(
+            err.contains("ACT1-F (CORRAL-F)") && err.contains("not an Act I room"),
+            "{err}"
+        );
+        // The corral missing (every Act I room stays): rejected.
+        let mut m = base.clone();
+        m.rooms.remove(2);
+        m.story_order.retain(|o| o.id != "corral");
+        assert!(
+            m.validate(table())
+                .unwrap_err()
+                .contains("ACT1-F (CORRAL-F)")
+        );
+        // With no Act I room listed the rule is CORRAL-F: the corral first, and nothing else
+        // may precede it.
+        let mut m = base.clone();
+        m.rooms.drain(..2);
+        m.story_order.retain(|o| !o.id.starts_with("act1_"));
+        // (the guild row carried the biscuit grant: put it back as a point so the order holds)
+        m.story_order.insert(
+            0,
+            OrderRow {
+                id: "guild_biscuit".into(),
+                kind: OrderKind::Point,
+                pins: Vec::new(),
+                grants: vec![GrantRow {
+                    capability: "primary_ranged".into(),
+                    trigger: None,
+                }],
+            },
+        );
+        assert!(m.validate(table()).is_ok(), "{:?}", m.validate(table()));
+        m.rooms.swap(0, 1);
+        assert!(m.validate(table()).is_err());
+        // An Act I scene runs the room of its own id only.
+        let mut m = base.clone();
+        m.rooms[0].scene = RoomScene::Act1Guild;
+        assert!(
+            m.validate(table())
+                .unwrap_err()
+                .contains("names the scene of")
+        );
+        // The corral unlisted (an unlisted launchable row) while the Act I rooms stay: ACT1-F.
+        let mut m = base.clone();
+        m.rooms.remove(2);
         m.unlisted_rooms.push(corral.clone());
-        assert!(m.validate(table()).unwrap_err().contains("CORRAL-F"));
+        assert!(
+            m.validate(table())
+                .unwrap_err()
+                .contains("ACT1-F (CORRAL-F)")
+        );
         // DR-A: the listed dozer cannot also be an unlisted row.
         let mut m = base.clone();
         let mut dozer = corral.clone();
@@ -1269,7 +1466,7 @@ mod tests {
         assert!(!err.is_empty());
     }
 
-    /// REST-WIRE: the twelve rooms of the run are listed in story order, the camp after the
+    /// REST-WIRE: the rooms of the run are listed in story order (fourteen since ACT1-A), the camp after the
     /// Ring and the aftermath after the Juicer (KR12 holds: the aftermath's pin is the
     /// mastery pin, whose grants are all earlier), and neither grants anything.
     #[test]
@@ -1278,6 +1475,8 @@ mod tests {
         assert_eq!(
             m.listed(),
             [
+                "act1_shore",
+                "act1_guild",
                 "corral",
                 "rest_refuge",
                 "hoarder",
@@ -1326,6 +1525,87 @@ mod tests {
         })
         .unwrap_err();
         assert!(!err.is_empty());
+    }
+
+    /// ACT1-T01: the Act I rooms are listed first in story order (the chase joins in ACT1-B),
+    /// the corral directly after them, each a `greybox` room of its own scene under the CF02
+    /// rules with a room row and no pin in the story order.
+    #[test]
+    fn the_act1_rooms_are_listed_first_in_story_order() {
+        let m = manifest();
+        assert_eq!(&m.listed()[..3], ["act1_shore", "act1_guild", "corral"]);
+        let order: Vec<&str> = m.story_order.iter().map(|o| o.id.as_str()).collect();
+        assert_eq!(&order[..3], ["act1_shore", "act1_guild", "corral"]);
+        for (id, scene, title) in [
+            ("act1_shore", RoomScene::Act1Shore, "The Rotten Shore"),
+            ("act1_guild", RoomScene::Act1Guild, "The Guild Door"),
+        ] {
+            let row = m.room(id).unwrap();
+            assert_eq!(row.scene, scene);
+            assert_eq!(row.title, title);
+            assert_eq!(
+                (row.rules, row.milestone.as_str()),
+                (RoomRules::Cf02, "greybox")
+            );
+            assert!(scene.story_less() && scene.act1().is_some());
+            assert!(m.pins_of(id).is_empty(), "{id} names no pin");
+            assert_eq!(
+                m.story_order[index(&m.story_order, id)].kind,
+                OrderKind::Room
+            );
+            assert!(m.launchable(id).is_ok() && !m.is_unlisted(id));
+        }
+        assert!(RoomScene::Corral.story_less() && !RoomScene::RestRefuge.story_less());
+        // The biscuit point became the guild's room row (KR12): a read-through grant, no trigger.
+        assert!(!order.contains(&"guild_biscuit"));
+        let guild = &m.story_order[index(&m.story_order, "act1_guild")];
+        assert_eq!(guild.grants.len(), 1);
+        assert_eq!(
+            (
+                guild.grants[0].capability.as_str(),
+                guild.grants[0].trigger.as_deref()
+            ),
+            ("primary_ranged", None)
+        );
+        assert!(
+            m.story_order[index(&m.story_order, "act1_shore")]
+                .grants
+                .is_empty()
+        );
+        // The shore's name resolves to its room module.
+        assert_eq!(
+            m.room("act1_shore").unwrap().scene.act1(),
+            Some(Act1Room::Shore)
+        );
+        assert_eq!(
+            m.room("act1_guild").unwrap().scene.act1(),
+            Some(Act1Room::Guild)
+        );
+        // The recordings of both rooms are consistent descriptors.
+        let flags = (CarlProgFlags::default(), DonutProgFlags::default());
+        assert!(check_descriptor(&m, "act1_shore", None, flags.0, flags.1).is_ok());
+        assert!(check_descriptor(&m, "act1_guild", None, flags.0, flags.1).is_ok());
+    }
+
+    /// KR12, ACT1-A: `act1_guild` is a room row granting `primary_ranged` before the corral
+    /// (the biscuit, read-through); moving the grant after the corral (or giving the guild a
+    /// trigger the table does not know) is refused or changes nothing the table holds.
+    #[test]
+    fn the_guild_row_grants_the_biscuit_before_the_corral() {
+        let m = manifest();
+        let at = |id: &str| index(&m.story_order, id);
+        assert!(at("act1_guild") < at("corral"));
+        assert!(m.pins_of("act1_guild").is_empty());
+        // A pin that holds the biscuit on the shore (before the guild grants it) is refused.
+        let err = mutate(|order| {
+            let shore = index(order, "act1_shore");
+            order[shore].pins = vec!["f01_pin_pre_pile_boss".into()];
+        })
+        .unwrap_err();
+        assert!(
+            err.contains("jump_reach_boost") || err.contains("primary_ranged"),
+            "{err}"
+        );
     }
 
     #[test]
@@ -1646,7 +1926,9 @@ mod tests {
                     "ring_court",
                     "ring_split",
                     "rest_camp",
-                    "rest_aftermath"
+                    "rest_aftermath",
+                    "act1_shore",
+                    "act1_guild"
                 ]
                 .contains(&row.id.as_str()),
                 "{}: add its sidecar-pin tie above",
@@ -1766,6 +2048,20 @@ mod tests {
                         f01_rest::AFTERMATH_ENCOUNTER_PIN_KEY,
                     ],
                 ),
+                (
+                    "act1_shore",
+                    [
+                        f01_act1::SHORE_ROOM_PIN_KEY,
+                        f01_act1::SHORE_ENCOUNTER_PIN_KEY,
+                    ],
+                ),
+                (
+                    "act1_guild",
+                    [
+                        f01_act1::GUILD_ROOM_PIN_KEY,
+                        f01_act1::GUILD_ENCOUNTER_PIN_KEY,
+                    ],
+                ),
             ]
             .into_iter()
             .find(|(_, keys)| keys.contains(&key))
@@ -1785,6 +2081,8 @@ mod tests {
             Some("rest_refuge"),
             Some("rest_camp"),
             Some("rest_aftermath"),
+            Some("act1_shore"),
+            Some("act1_guild"),
         ] {
             for key in SCOPED_PIN_KEYS {
                 let covered = match owner(key) {

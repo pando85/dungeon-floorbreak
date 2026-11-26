@@ -386,9 +386,16 @@ pub(super) fn check_f01_source(
         {
             Ok(())
         }
+        // ACT1-A: the Act I rooms.
+        (crate::f01_late::SESSION_SOURCE, Some(id))
+            if crate::f01_act1::Act1Room::from_id(id)
+                .is_some_and(|r| reset.name == r.scene_name()) =>
+        {
+            Ok(())
+        }
         ("boss", Some("juicer")) if reset.name == crate::boss_scene::BOSS01_SCENE.name => Ok(()),
         (crate::f01_late::SESSION_SOURCE, _) => Err(bad(
-            "the f01_room source replays the corral, refuge, camp, aftermath, boiler, hoarder, dozer, hazards, ring and mastery rooms only"
+            "the f01_room source replays the Act I rooms, corral, refuge, camp, aftermath, boiler, hoarder, dozer, hazards, ring and mastery rooms only"
                 .to_owned(),
         )),
         (source, _) if labelled => Err(bad(format!(
@@ -443,7 +450,9 @@ fn rebuild_f01_room(manifest: &SessionManifest, root: &Path) -> Result<Reset, Ve
     if !matches!(
         room,
         Some(
-            "corral"
+            "act1_shore"
+                | "act1_guild"
+                | "corral"
                 | "rest_refuge"
                 | "rest_camp"
                 | "rest_aftermath"
@@ -461,7 +470,7 @@ fn rebuild_f01_room(manifest: &SessionManifest, root: &Path) -> Result<Reset, Ve
         return Err(VerifyFailure::new(
             "unsupported_source",
             format!(
-                "the {} source replays the corral, refuge, camp, aftermath, Boiler, Hoarder, Dozer, hazard, Ring and mastery rooms under the CF02 rules",
+                "the {} source replays the Act I, corral, refuge, camp, aftermath, Boiler, Hoarder, Dozer, hazard, Ring and mastery rooms under the CF02 rules",
                 crate::f01_late::SESSION_SOURCE
             ),
         ));
@@ -499,6 +508,15 @@ fn rebuild_f01_room(manifest: &SessionManifest, root: &Path) -> Result<Reset, Ve
             crate::f01_late::mastery_start(root, reset.view_height, carl, donut, reset.cf02_seed)
                 .map(|(_, scene, combat)| (scene, combat))
         }
+        Some(id @ ("act1_shore" | "act1_guild")) => crate::f01_late::act1_start(
+            root,
+            crate::f01_act1::Act1Room::from_id(id).expect("an Act I room id"),
+            reset.view_height,
+            carl,
+            donut,
+            reset.cf02_seed,
+        )
+        .map(|(_, scene, combat)| (scene, combat)),
         Some("corral") => {
             crate::f01_late::corral_start(root, reset.view_height, carl, donut, reset.cf02_seed)
                 .map(|(_, scene, combat)| (scene, combat))

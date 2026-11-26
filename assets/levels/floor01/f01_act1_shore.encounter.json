@@ -1,0 +1,25 @@
+{
+  "schema": "floor01-encounter-v1",
+  "status": "ACT1-A data (docs/01-design/floor-01-act-01-integration.md section 4.2, ACT1-AD1..AD19): the rotten shore, two goblins under goal defeat_roster, no lock, no prop, no hazard, no platform. The exit opens when both are defeated by any credited cause. Validated by src/encounter.rs, launched as the room act1_shore of --scene f01_late (src/f01_act1.rs). The story pin is a label with no table row. Greybox hypotheses; every number is a tuning knob. Coordinates are layout pixels, y down, like the room file.",
+  "id": "F01-ACT1-SHORE-ENC",
+  "room_file": "f01_act1_shore.room.json",
+  "room_id": "F01-ACT1-SHORE",
+  "story_pin": "f01_pin_act1_shore_entry",
+  "goal": "defeat_roster",
+  "grants": [],
+  "max_living": 2,
+  "locks": [],
+  "platform_slab_px": 12,
+  "protected_spawn": { "x": 16, "y": 484, "w": 208, "h": 96 },
+  "checkpoint": { "x": 32, "y": 484, "w": 48, "h": 96 },
+  "exit": { "x": 728, "y": 484, "w": 64, "h": 96 },
+  "props": [],
+  "hazards": [],
+  "links": [],
+  "roster": [
+    { "id": "gob_a", "kind": "goblin", "x": 528, "beat": "I03", "delay_ticks": 0 },
+    { "id": "gob_b", "kind": "goblin", "x": 568, "beat": "I03", "delay_ticks": 1 }
+  ],
+  "gates": [],
+  "vantages": []
+}

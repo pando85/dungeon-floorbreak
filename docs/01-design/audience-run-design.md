@@ -28,12 +28,12 @@ Room order (`assets/levels/f01_late/manifest.json`): `corral`, `rest_refuge` (RE
 
 ## 2. The unlock beat (deliverable 1)
 
-**Adopted (AR-AD1): the broadcast goes live when the run leaves the Infernal Corral.** The corral (the run's first room) plays with no viewer decoration. Every run room listed after the corral (the refuge `rest_refuge` onward, the camp `rest_camp` and the aftermath `rest_aftermath` included) has both counts live; N is the current run length, read from the manifest. The refuge, the camp and the aftermath are quiet rooms with no kill, so no award happens there and decay runs unchanged (REST-AD14; REST-Q10 asks whether it should freeze).
+**Adopted (AR-AD1): the broadcast goes live when the run leaves the Infernal Corral.** The corral (the third room of the run since ACT1-A, after the two Act I rooms) and the Act I rooms before it play with no viewer decoration. Every run room listed after the corral (the refuge `rest_refuge` onward, the camp `rest_camp` and the aftermath `rest_aftermath` included) has both counts live; N is the current run length, read from the manifest. The refuge, the camp and the aftermath are quiet rooms with no kill, so no award happens there and decay runs unchanged (REST-AD14; REST-Q10 asks whether it should freeze).
 
 Why this beat:
 
 - **It keeps "No counters at Floor 01 start".** The run starts at the corral, which is the start of Floor 01 for the playtest. Spec line 11 and acceptance item 1 of AUDIENCE-01 stay true.
-- **It is "explicit" and "later".** The unlock is a single named step (`broadcast_live`, the audience's own flag, F15), announced on the corral's room-clear panel ([AR-AD2](#7-adopted-values-ar-ad1ar-ad25)). It comes after the opening material, as the spec's candidate asked: the Tutorial Guild point (`guild_biscuit`) and the corral's llama baptism.
+- **It is "explicit" and "later".** The unlock is a single named step (`broadcast_live`, the audience's own flag, F15), announced on the corral's room-clear panel ([AR-AD2](#7-adopted-values-ar-ad1ar-ad25)). It comes after the opening material, as the spec's candidate asked: the Tutorial Guild room (`act1_guild`, the old `guild_biscuit` point) and the corral's llama baptism.
 - **It stays separate from the biscuit and mana unlocks.** `broadcast_live` is not a story-ledger capability and is not granted by any capability event. The ledger, `story_order` and the room pins do not change.
 - **It never lands in combat.** A room transition is a calm moment behind a confirm panel. A mid-room trigger (for example, the first llama rush tell) was rejected: danger tells outrank spectator effects (AUDIENCE-01 rule), and a counter appearing during a rush would be read as part of the threat.
 - **It is reachable for the playtest.** Eight of nine rooms show the counts, including the boss room and mastery, where dynamite and llamas meet.
@@ -166,7 +166,7 @@ No new art or wiring is needed. DEATH-D (#108), LLAMA-DEATH-WIRE (#272) and the 
 
 | ID | Adopted value | Why |
 | --- | --- | --- |
-| AR-AD1 | The unlock beat is the corral exit (the refuge onward, room 1 of N). The audience is live in every `--f01-run` room whose manifest row comes after `corral`. The rule is positional and fails closed if `corral` is not listed. | Section 2 |
+| AR-AD1 | The unlock beat is the corral exit (the refuge onward, room 3 of N, N = 14 since ACT1-A: the run length is read from the manifest). The audience is live in every `--f01-run` room whose manifest row comes after `corral`. The rule is positional and fails closed if `corral` is not listed. | Section 2 |
 | AR-AD2 | The corral's room-clear panel gets one fact line, only when the audience will be live next: `broadcast: live from the next room (viewers per hero)`. No number on any panel. The plates appear at the next room's first tick, at the carried or baseline counts, with no count-up from zero. | An explicit, calm reveal that stays inside the facts-only panel rule |
 | AR-AD3 | `--f01-audience C:P:D:Q` carries the current count and the peak per hero at the exit tick. The decay remainder is dropped. Validation is `peak >= current >= 250`. | The smallest carry that keeps what the player sees |
 | AR-AD4 | A live room started without a carry starts at the baseline of 250 for both heroes. | Same as `unlock()` |

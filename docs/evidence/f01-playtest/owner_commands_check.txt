@@ -8,6 +8,8 @@
 [ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-run --f01-room ring_court
 [ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-run --f01-room ring_split
 [refuse] refused (exit 2): floor01_scene: --ring-pilot needs a Ring room (--scene f01_late --f01-room ring_court or ring_split) :: floor01_scene --scene f01_late --scale 2 --f01-room hoarder --ring-pilot
+[ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room act1_shore
+[ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room act1_guild
 [ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room corral
 [ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room rest_refuge
 [ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room hoarder
@@ -20,7 +22,13 @@
 [ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room juicer
 [ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room rest_aftermath
 [ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room mastery
-[refuse] refused (exit 2): floor01_scene: --f01-room: unknown room "cellar" (listed rooms: corral, rest_refuge, hoarder, boiler, dozer, hazards, ring_court, ring_split, rest_camp, juicer, :: floor01_scene --scene f01_late --scale 2 --f01-room cellar
+[ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-run --f01-room act1_guild
+[ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room act1_shore --act1-pilot strike
+[ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room act1_guild --act1-pilot donut
+[refuse] refused (exit 2): floor01_scene: --act1-pilot Strike does not fit the room act1_guild: strike plays in act1_shore, donut in act1_guild, walk in either :: floor01_scene --scene f01_late --scale 2 --f01-room act1_guild --act1-pilot strike
+[refuse] refused (exit 2): floor01_scene: --act1-pilot needs an Act I room (--scene f01_late --f01-room act1_shore or act1_guild) :: floor01_scene --scene f01_late --scale 2 --f01-room hoarder --act1-pilot walk
+[refuse] refused (exit 2): floor01_scene: --act1-pilot is a one-room evidence pilot: drop --f01-run (a floor run relaunches into the next room) :: floor01_scene --scene f01_late --scale 2 --f01-run --f01-room act1_shore --act1-pilot walk
+[refuse] refused (exit 2): floor01_scene: --f01-room: unknown room "cellar" (listed rooms: act1_shore, act1_guild, corral, rest_refuge, hoarder, boiler, dozer, hazards, ring_court, ring_s :: floor01_scene --scene f01_late --scale 2 --f01-room cellar
 [refuse] refused (exit 2): floor01_scene: unknown scene "f01_ring_court" (expected boss_f01, combat_lab, f01_boiler, f01_hoarder, f01_dozer, f01_hazards, f01_late, refuge_guild) :: floor01_scene --scene f01_ring_court --scale 2
 [ok] ok :: floor01_scene --scene f01_hoarder --scale 2
 [ok] ok :: floor01_scene --scene f01_dozer --scale 2

@@ -153,6 +153,19 @@ impl RoomRig {
                 combat,
                 room_party(),
             )
+        } else if let Some(act1) = crate::f01_act1::Act1Room::from_id(room) {
+            // ACT1-A: an Act I room, the same way.
+            let (run, scene, combat) =
+                f01_late::act1_start(&root(), act1, view_h, carl, donut, seed)
+                    .expect("the Act I room launches");
+            (
+                f01_late::SESSION_SOURCE,
+                run.fixture.name,
+                true,
+                scene,
+                combat,
+                room_party(),
+            )
         } else if let Some(rest) = crate::f01_rest::RestRoom::from_id(room) {
             // REST-WIRE: a quiet room, the same way.
             let (run, scene, combat) =
@@ -807,6 +820,105 @@ fn quiet_room_recording_verifies(room: crate::f01_rest::RestRoom, label: &str, e
     }
 }
 
+/// ACT1-A: a live-shaped session of an Act I room verifies strict at both view heights under
+/// both loadouts and a seed (Carl fights the shore's goblins and walks out; in the guild he
+/// walks right and the companion walks the zone), stamps its own room pins and the manifest's
+/// and no other room's, and a relabelled room, loadout or seed is another run.
+fn act1_room_recording_verifies(room: crate::f01_act1::Act1Room, label: &str) {
+    for view_h in [360, 400] {
+        for (loadout, seed) in [(Loadout::Story, Some(5)), (Loadout::All, None)] {
+            let dir = TempDir::new(&format!("f01-act1-{}", room.id()));
+            let mut rig = RoomRig::build_view(&dir.0, room.id(), Some(loadout), seed, None, view_h);
+            let exit_x = {
+                let e = f01_late::act1_start(
+                    &root(),
+                    room,
+                    view_h,
+                    rig_carl(loadout),
+                    rig_donut(loadout),
+                    seed,
+                )
+                .expect("launches")
+                .0
+                .loaded
+                .encounter
+                .exit;
+                (e.x + e.w / 2) as f32
+            };
+            for _ in 0..1800 {
+                if rig.scene.world.complete {
+                    break;
+                }
+                let input = crate::act1_fixtures::clear_and_exit(&rig.combat, &rig.scene, exit_x);
+                rig.step(input);
+            }
+            assert!(
+                rig.scene.world.complete,
+                "{loadout:?} {view_h}: the exit is reached"
+            );
+            let unlocks = rig
+                .combat
+                .events
+                .iter()
+                .filter(|e| {
+                    matches!(
+                        e,
+                        CombatEvent::Mana(crate::donut_mana::ManaEvent::UnlockGranted { .. })
+                    )
+                })
+                .count();
+            let expect =
+                usize::from(room == crate::f01_act1::Act1Room::Guild && loadout == Loadout::Story);
+            assert_eq!(
+                unlocks, expect,
+                "{loadout:?}: the biscuit grants once in the guild only"
+            );
+            let manifest = rig.rec.finish("test").expect("finished");
+            let session = dir.0.join(manifest.session_id);
+            let report = verify(&session).unwrap_or_else(|e| panic!("{loadout:?} {view_h}: {e}"));
+            assert_eq!(report.scope, VerifyScope::Full);
+            println!(
+                "{label}_VERIFY loadout={} view={view_h} ticks={} state_hashes={} scope={:?} build={}",
+                loadout.name(),
+                report.ticks,
+                report.state_hashes,
+                report.scope,
+                report.build
+            );
+            let loaded = read_session(&session, false).unwrap();
+            assert_eq!(loaded.manifest.reset.name, room.scene_name());
+            assert_eq!(loaded.manifest.reset.f01_room.as_deref(), Some(room.id()));
+            assert_scoped_stamps(&loaded, room.id());
+            if let Some(seed) = seed {
+                tamper_manifest(&session, |m| m.reset.cf02_seed = Some(seed + 1));
+                assert!(verify(&session).is_err(), "another seed is another run");
+                tamper_manifest(&session, |m| m.reset.cf02_seed = Some(seed));
+                verify(&session).expect("restored");
+            }
+            tamper_manifest(&session, |m| m.reset.f01_room = Some("corral".into()));
+            assert!(verify(&session).is_err(), "relabelled");
+        }
+    }
+}
+
+fn rig_carl(loadout: Loadout) -> crate::carl_prog::CarlProgFlags {
+    loadout.flags().0
+}
+
+fn rig_donut(loadout: Loadout) -> crate::donut_prog::DonutProgFlags {
+    loadout.flags().1
+}
+
+#[test]
+fn f01_act1_shore_recording_verifies() {
+    act1_room_recording_verifies(crate::f01_act1::Act1Room::Shore, "ACT1_SHORE");
+}
+
+#[test]
+fn f01_act1_guild_recording_verifies() {
+    act1_room_recording_verifies(crate::f01_act1::Act1Room::Guild, "ACT1_GUILD");
+}
+
 #[test]
 fn f01_rest_camp_recording_verifies() {
     quiet_room_recording_verifies(crate::f01_rest::RestRoom::Camp, "REST_CAMP", 1488.0);
@@ -1146,6 +1258,8 @@ fn a_hoarder_or_hazard_recording_needs_its_room_pins_and_no_other() {
         "rest_refuge",
         "rest_camp",
         "rest_aftermath",
+        "act1_shore",
+        "act1_guild",
     ] {
         let (_dir, session) = record("f01-room-pins", room, Loadout::Story, 200);
         for key in f01_late::SCOPED_PIN_KEYS {
@@ -1432,6 +1546,8 @@ fn only_the_listed_rooms_sessions_may_carry_their_own_room() {
         ("rest_refuge", "f01_rest_refuge"),
         ("rest_camp", "f01_rest_camp"),
         ("rest_aftermath", "f01_rest_aftermath"),
+        ("act1_shore", "f01_act1_shore"),
+        ("act1_guild", "f01_act1_guild"),
     ] {
         assert!(ok(&reset(
             f01_late::SESSION_SOURCE,
@@ -1470,6 +1586,8 @@ fn only_the_listed_rooms_sessions_may_carry_their_own_room() {
             "rest_refuge",
             "rest_camp",
             "rest_aftermath",
+            "act1_shore",
+            "act1_guild",
             "juicer",
         ] {
             assert!(
