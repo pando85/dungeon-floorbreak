@@ -61,7 +61,7 @@ use crate::combat_scene::{CombatState, EnvRuntime};
 use crate::dozer::{Dozer, DozerEvent, DozerState, EscapePhase};
 use crate::encounter::Seat;
 use crate::env_prop::MassState;
-use crate::prototype::{HERO_HALF_WIDTH, TICK_SECONDS};
+use crate::prototype::{HERO_HALF_WIDTH, Rect, TICK_SECONDS};
 
 /// One DOZ-01 atlas: a single row of frames (`generated/art`, exported by
 /// `scripts/export_assets.sh` from `assets/manifests/dozer_*.json`).
@@ -106,10 +106,12 @@ pub enum Sheet {
     Buffer,
     /// DOZ-02: the haul line (`h`, `v`, `idler`).
     Haul,
+    /// DOZ-02: the tunnel lintel tiles (`mouth`, `fill`).
+    Lintel,
 }
 
 impl Sheet {
-    pub const ALL: [Self; 25] = [
+    pub const ALL: [Self; 26] = [
         Self::Hull,
         Self::Tread,
         Self::Riders,
@@ -135,6 +137,7 @@ impl Sheet {
         Self::Gate,
         Self::Buffer,
         Self::Haul,
+        Self::Lintel,
     ];
 
     /// The exported atlas (the manifest's `output_atlas`).
@@ -165,6 +168,7 @@ impl Sheet {
             Self::Gate => "generated/art/env_dozer_gate.png",
             Self::Buffer => "generated/art/env_dozer_buffer.png",
             Self::Haul => "generated/art/env_dozer_haul.png",
+            Self::Lintel => "generated/art/env_dozer_lintel.png",
         }
     }
 
@@ -192,7 +196,7 @@ impl Sheet {
             Self::StopGlance => (88, 88),
             Self::StopRemnant => (80, 16),
             Self::StopBrace => (16, 64),
-            Self::Gate => (32, 32),
+            Self::Gate | Self::Lintel => (32, 32),
             Self::Buffer => (16, 24),
             Self::Haul => (12, 12),
         }
@@ -209,7 +213,7 @@ impl Sheet {
             | Self::YokeBent
             | Self::Buffer => 1,
             Self::HullDamage | Self::FrontCabDamage | Self::FrontTubDamage | Self::Haul => 3,
-            Self::Slump | Self::StopRemnant => 2,
+            Self::Slump | Self::StopRemnant | Self::Lintel => 2,
             Self::StopShadow | Self::StopGlance | Self::StopBrace | Self::Gate => 4,
             Self::StopFrame => 5,
             Self::Tumble => 6,
@@ -249,7 +253,7 @@ impl Sheet {
             Self::Haul => (0, 11),
             Self::StopGlance => (44, 44),
             Self::StopBrace => (0, 63),
-            Self::Gate => (0, 31),
+            Self::Gate | Self::Lintel => (0, 31),
         }
     }
 }
@@ -464,6 +468,8 @@ pub struct SpriteDraw {
     pub alpha: u8,
     /// Rows cut from the top of the frame (the gate's last tile ends at the lane ceiling).
     pub crop_top: u8,
+    /// Columns cut from the right of the frame (the lintel's last tile ends at its edge).
+    pub crop_right: u8,
 }
 
 impl SpriteDraw {
@@ -477,6 +483,7 @@ impl SpriteDraw {
             z,
             alpha: 255,
             crop_top: 0,
+            crop_right: 0,
         }
     }
 
@@ -496,7 +503,7 @@ impl SpriteDraw {
     /// The sprite's visible size: the frame less the cropped rows.
     pub fn visible(&self) -> (u32, u32) {
         let (w, h) = self.sheet.frame_size();
-        (w, h - u32::from(self.crop_top))
+        (w - u32::from(self.crop_right), h - u32::from(self.crop_top))
     }
 
     /// The sprite's visible centre (world px, y up).
@@ -952,6 +959,36 @@ pub fn puffs(d: &Dozer, tick: u64) -> Vec<SpriteDraw> {
     out
 }
 
+/// The tunnel lintel (DZ-Q22), drawn: `mouth` tiles along the 112 px underside and `fill` tiles from there up to
+/// the lane ceiling, over the layout rect `lintel` (x, y, w, h; y down) on the walking line `walk_line_y`, with the
+/// world walking line at `floor`. The last column and row of tiles are cropped to the rect. A static piece: the
+/// presenter spawns it once.
+pub fn lintel_sprites(floor: i32, walk_line_y: i32, lintel: IRect) -> Vec<SpriteDraw> {
+    let (bottom, top) = (walk_line_y - lintel.bottom(), walk_line_y - lintel.y);
+    let mut out = Vec::new();
+    let mut y = bottom;
+    let mut row = 0;
+    while y < top {
+        let mut x = 0;
+        while x < lintel.w {
+            let mut tile = SpriteDraw::new(
+                Sheet::Lintel,
+                u8::from(row > 0),
+                lintel.x + x,
+                floor + y,
+                Z_BACK,
+            );
+            tile.crop_top = (y + GATE_TILE_PX - top).clamp(0, GATE_TILE_PX - 1) as u8;
+            tile.crop_right = (x + GATE_TILE_PX - lintel.w).clamp(0, GATE_TILE_PX - 1) as u8;
+            out.push(tile);
+            x += GATE_TILE_PX;
+        }
+        y += GATE_TILE_PX;
+        row += 1;
+    }
+    out
+}
+
 /// The rear gate and the buffer stop (DOZ-02 atlases): the gate is `GATE_TILE_PX` tiles stacked from the
 /// walking line to the lane ceiling (the last one cropped), closed until the rumble, shaking through it
 /// and burst from the emergence on; the buffer stop is drawn only (DZ-AD4).
@@ -1101,7 +1138,7 @@ pub fn frame_sprites(
         let (lo, hi) = (u64::from(SHADOW_ALPHA.0), u64::from(SHADOW_ALPHA.1));
         let alpha = lo + (hi - lo) * age / warning;
         out.push(
-            SpriteDraw::at_pivot(Sheet::StopShadow, size, (footprint.x, floor), Z_FRONT)
+            SpriteDraw::at_pivot(Sheet::StopShadow, size, (footprint.x, floor), Z_BACK)
                 .with_alpha(alpha as u8),
         );
     }
@@ -1119,10 +1156,31 @@ pub fn frame_sprites(
             MassState::Released => 2 + ((tick / FRAME_SHAKE_TICKS) % 2) as u8,
             MassState::Falling | MassState::Landed => 4,
         };
+        let (mut left, mut base) = (m.x, bottom(m));
+        // A fall that will glance off the rear hull (the pure predicate on the machine now: the footprint
+        // meets the hull but not the front collider) ends on the rear deck, sliding over to where the strike
+        // frame begins, instead of dropping in front of the hull and popping onto the deck (DZ2-Q2).
+        if state == MassState::Falling {
+            let fp = Rect {
+                left: footprint.x as f32,
+                bottom: floor as f32,
+                width: footprint.w as f32,
+                height: footprint.h as f32,
+            };
+            if d.glance(fp).is_some() && !d.impact_collider().overlaps(fp) {
+                let hull = d.push_box();
+                let deck = hull.top().round() as i32 - GLANCE_DECK_DROP_PX;
+                let strike_left = hull.left.round() as i32 + GLANCE_INSET_PX;
+                let start = bottom(cfg.hanging);
+                let t = ((start - base).max(0) as f32 / (start - deck).max(1) as f32).min(1.0);
+                left += ((strike_left - left) as f32 * t).round() as i32;
+                base = base.max(deck);
+            }
+        }
         out.push(SpriteDraw::at_pivot(
             Sheet::StopFrame,
             frame,
-            (m.x, bottom(m)),
+            (left, base),
             Z_FRONT,
         ));
     }

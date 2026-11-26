@@ -484,7 +484,7 @@ def glance_frames(k: int) -> list[Image.Image]:
     """The rear glance tick by tick (the strike at tick 0): the machine chasing on lit Floor 1, the frame falling
     behind it, the beam striking the rear deck, tipping off behind the exhaust and the remnant dropping in; the
     machine keeps chasing with its live parts. Composed from the atlases with the presenter's placement rules
-    (``src/dozer_art.rs``: GLANCE_*, the haul line) and a chase at 160 px/s; the hull's rear is at the footprint's
+    (``src/dozer_art.rs``: GLANCE_*, the haul line, the fall ending on the deck) and a chase at 160 px/s; the hull's rear is at the footprint's
     x + 60 on the strike tick."""
     floor = gr.Floor()
     vx = floor.view[0]
@@ -545,7 +545,11 @@ def glance_frames(k: int) -> list[Image.Image]:
             n = t + 8 + 1                                # falling ticks done after this one, 1..8
             drop = FRAME_LIFT * n * n // 64
             entries.append((shadows[3], (0, 3), foot_x, 0))
-            entries.append((frame_img["falling"], (8, 59), foot_x, FRAME_LIFT - drop))
+            # the presenter's glancing fall: it ends on the rear deck (108) and slides to the strike's start
+            lift = max(FRAME_LIFT - drop, 108)
+            slide = min(1.0, (FRAME_LIFT - lift) / (FRAME_LIFT - 108))
+            strike_left = o_x - 84 + 8
+            entries.append((frame_img["falling"], (8, 59), foot_x + round((strike_left - foot_x) * slide), lift))
         entries.append((machine, (ox, fy), o_x, 0))
         if t >= 0:
             hull_left = o_x - 84
@@ -593,7 +597,7 @@ def reversal_gif(frames_dir: Path, path: Path, crop: tuple[int, int, int, int] |
 
 
 BEVY_STILLS = ("gate_closed", "gate_shake", "brace_weakened", "warning", "fall", "impact_pitch0", "impact_pitch1",
-               "impact_tumble", "impact_lying", "disabled", "gate_burst", "crew_fight")
+               "impact_tumble", "impact_lying", "disabled", "disabled_machine", "gate_burst", "crew_fight", "exit_tunnel")
 BEVY_CROPS = ("brace_weakened", "warning", "fall", "impact_pitch0", "impact_pitch1", "impact_tumble", "impact_lying",
               "disabled")
 

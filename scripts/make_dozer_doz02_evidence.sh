@@ -41,6 +41,8 @@ stills=(
   brace:disabled:410
   retry:gate_burst:438
   crew:crew_fight:452
+  crew:exit_tunnel:660
+  brace:disabled_machine:364
 )
 sizes=(640x360:--scale:1 640x400:--deck:--scale:1)
 lines="$caps/capture_lines.txt"

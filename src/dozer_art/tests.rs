@@ -411,6 +411,13 @@ fn the_frame_sprites_follow_the_frame_and_the_rear_glance() {
         {
             warn_frames.push(f.frame);
         }
+        // The warning's floor shadow lies behind the actors (their feet stay clear of it).
+        assert!(
+            art.sprites
+                .iter()
+                .filter(|s| s.sheet == Sheet::StopShadow)
+                .all(|s| s.z == Z_BACK)
+        );
         // The pulley stays on the ceiling anchor, in every state.
         assert_eq!(
             art.sprites
@@ -867,4 +874,102 @@ fn the_rig_draws_a_rider_only_while_it_is_carried() {
     let mut bare = sim.combat.clone();
     bare = bare.with_crew(Vec::new());
     assert!(bare.seat_taken(Seat::RiderA) && bare.seat_taken(Seat::RiderB));
+}
+
+/// DOZ-02 (DZ-Q22): the tunnel lintel is drawn: `mouth` tiles along the 112 px underside, `fill` tiles up to the
+/// lane ceiling, cropped to the rect (304 x 116 px over x 1040).
+#[test]
+fn the_tunnel_lintel_is_drawn_from_its_rect() {
+    let floor = 100;
+    let tiles = lintel_sprites(floor, 580, IRect::new(1040, 352, 304, 116));
+    assert_eq!(tiles.len(), 10 * 4);
+    assert!(
+        tiles
+            .iter()
+            .all(|t| t.sheet == Sheet::Lintel && t.z == Z_BACK)
+    );
+    for t in &tiles {
+        assert_eq!(t.frame, u8::from(t.bottom > floor + 112), "{t:?}");
+        assert!(
+            t.left >= 1040 && t.left + t.visible().0 as i32 <= 1344,
+            "{t:?}"
+        );
+        assert!(
+            t.bottom >= floor + 112 && t.bottom + t.visible().1 as i32 <= floor + 228,
+            "{t:?}"
+        );
+    }
+    // The tiles cover the rect exactly: 304 x 116 px.
+    let area: u32 = tiles.iter().map(|t| t.visible().0 * t.visible().1).sum();
+    assert_eq!(area, 304 * 116);
+    // The mouth's lowest tile row sits on the 112 px clear height.
+    assert_eq!(tiles.iter().map(|t| t.bottom).min(), Some(floor + 112));
+}
+
+/// DOZ-02 (DZ2-Q2): a fall that will glance off the rear hull ends on the rear deck and slides to where the strike
+/// frame begins, so the beam never drops in front of the hull and pops up onto it.
+#[test]
+fn a_glancing_fall_ends_on_the_deck() {
+    use crate::dozer_fixtures::{Stage, chase_at};
+    use crate::env_prop::Stimulus;
+    use crate::f01_late::Loadout;
+    let mut st = Stage::new(
+        &root(),
+        Mode::TwoPlayer,
+        Loadout::Story.flags(),
+        chase_at(800.0),
+        1100.0,
+        1150.0,
+    )
+    .unwrap();
+    let tick = st.tick();
+    st.sim.combat.env_stimulate(
+        FRAME_PROP,
+        Stimulus::Blast {
+            blast_id: 9002,
+            owner: Some(crate::shore::PLAYER_ONE),
+            depth: 0,
+        },
+        tick,
+    );
+    let mut falling = Vec::new();
+    let mut strike = None;
+    for _ in 0..120 {
+        let tick = st.tick();
+        let world = &st.sim.scene.world;
+        let art = draw(&st.sim.combat, [world.hero.x, world.donut_body.x], tick).unwrap();
+        let d = dozer_of(&st.sim.combat).unwrap();
+        let deck = d.push_box().top().round() as i32 - GLANCE_DECK_DROP_PX;
+        if let Some(f) = art
+            .sprites
+            .iter()
+            .find(|s| s.sheet == Sheet::StopFrame && s.frame == 4)
+        {
+            falling.push((*f, deck, d.push_box().left.round() as i32 + GLANCE_INSET_PX));
+        }
+        if strike.is_none()
+            && let Some(g) = art
+                .sprites
+                .iter()
+                .find(|s| s.sheet == Sheet::StopGlance && s.frame == 0)
+        {
+            strike = Some((*g, deck));
+        }
+        st.step(RawInput::NONE);
+    }
+    assert!(!falling.is_empty() && strike.is_some());
+    // Every falling frame stays on or above the rear deck, and the last one is on it, within the strike's reach.
+    for (f, deck, _) in &falling {
+        assert!(f.bottom >= *deck, "{f:?} under the deck {deck}");
+    }
+    let (last, deck, left) = *falling.last().unwrap();
+    assert_eq!(last.bottom, deck);
+    let (g, _) = strike.unwrap();
+    // The strike frame's beam spans pivot x -40..+40: its left end is the clamp's target (within the hull's drift
+    // of the last ticks).
+    assert!(
+        (g.left + 44 - 40 - left).abs() <= 8,
+        "{} vs {left}",
+        g.left + 4
+    );
 }

@@ -5088,12 +5088,32 @@ fn setup(
 
     // DR-A and DOZ-02: the Dozer's rig and its damage states, its smoke, the crew's tumbles, the rear
     // gate, the buffer stop and the stop frame, only in room 3 (presentation only).
-    if args.dozer_run.is_some() {
+    if let Some(run) = &args.dozer_run {
+        // The tunnel lintel's tiles and the Guild door piece they sit behind.
+        let lintel = run
+            .loaded
+            .encounter
+            .dozer
+            .as_ref()
+            .map_or_else(Vec::new, |site| {
+                dungeon_floorbreak::dozer_art::lintel_sprites(
+                    to_world_y(height, kit.base_walk_line_y) as i32,
+                    kit.base_walk_line_y,
+                    site.lintel,
+                )
+            });
+        let door = kit
+            .pieces
+            .iter()
+            .find(|p| p.piece == dungeon_floorbreak::room_exit_art::PORTAL_PIECE)
+            .map(|p| (p.z, layers_of(&p.layer)));
         dozer_art::spawn(
             &mut commands,
             &asset_server,
             &mut layouts,
             layers_of("actors"),
+            &lintel,
+            door,
             kit,
             &mut combat_handles,
             &mut combat_entities,

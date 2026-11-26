@@ -59,6 +59,8 @@ pub(super) fn spawn(
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
     layers: RenderLayers,
+    lintel: &[SpriteDraw],
+    door: Option<(f32, RenderLayers)>,
     kit: &EnvKit,
     handles: &mut Vec<(String, Handle<Image>)>,
     entities: &mut usize,
@@ -95,6 +97,10 @@ pub(super) fn spawn(
         });
     }
     let rig_z = actor_z + GOBLIN_Z_OFFSET - 40.0 * GOBLIN_Z_STEP;
+    let lintel_atlas = sheets
+        .iter()
+        .find(|a| a.sheet == DozerSheet::Lintel)
+        .map(|a| (a.image.clone(), a.layout.clone()));
     commands.insert_resource(DozerArt {
         sheets,
         rig_z,
@@ -103,6 +109,35 @@ pub(super) fn spawn(
         front_z: actor_z + 0.3,
         fx_z: actor_z + 0.305,
     });
+    // The tunnel lintel (DZ-Q22), a static piece: the tiles sit just behind the Guild door piece's depth and in its
+    // render layer (the structure's lighting), so the door's own cap stays in front of the stone.
+    if let Some((image, layout)) = lintel_atlas {
+        let (z, lintel_layers) =
+            door.map_or((actor_z - 0.5, layers.clone()), |(z, l)| (z - 0.001, l));
+        for tile in lintel {
+            let (x, y) = tile.centre();
+            let (vw, vh) = tile.visible();
+            let mut sprite = Sprite::from_atlas_image(
+                image.clone(),
+                TextureAtlas {
+                    layout: layout.clone(),
+                    index: usize::from(tile.frame),
+                },
+            );
+            let (w, h) = tile.sheet.frame_size();
+            if tile.crop_top > 0 || tile.crop_right > 0 {
+                sprite.rect = Some(Rect::new(
+                    0.0,
+                    f32::from(tile.crop_top),
+                    (w - u32::from(tile.crop_right)) as f32,
+                    h as f32,
+                ));
+                sprite.custom_size = Some(Vec2::new(vw as f32, vh as f32));
+            }
+            commands.spawn((sprite, Transform::from_xyz(x, y, z), lintel_layers.clone()));
+            *entities += 1;
+        }
+    }
     for index in 0..SPRITE_POOL {
         commands.spawn((
             DozerSprite(index),
@@ -155,9 +190,14 @@ pub(super) fn sync_dozer_art(
                 // A cropped tile (the gate's last) shows its bottom rows only; a faded one (the
                 // warning's floor shadow) tints its alpha.
                 let (w, h) = s.sheet.frame_size();
-                if s.crop_top > 0 {
+                if s.crop_top > 0 || s.crop_right > 0 {
                     let (vw, vh) = s.visible();
-                    sprite.rect = Some(Rect::new(0.0, f32::from(s.crop_top), w as f32, h as f32));
+                    sprite.rect = Some(Rect::new(
+                        0.0,
+                        f32::from(s.crop_top),
+                        (w - u32::from(s.crop_right)) as f32,
+                        h as f32,
+                    ));
                     sprite.custom_size = Some(Vec2::new(vw as f32, vh as f32));
                 } else {
                     sprite.rect = None;
