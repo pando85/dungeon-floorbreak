@@ -245,9 +245,9 @@ Worked cases. The units are px and ticks at 60 Hz. Carl runs 185 px/s (3.08 px/t
 
 | Case | Wheel front | `walk_ticks` | `wheel_ticks` | Result |
 | --- | --- | --- | --- | --- |
-| **First run.** The rearmost trigger at 1072, the emergence gap about 449, held by the 185 catch-up; both heroes run into the pocket and stop. The front is about 1623 on their arrival, then closes at 185, then 160 once the gap is under 260 | commit at about **1841..1856** (rule 4 is the last to hold) | 0 | about 61..66 | commits with gap 216..231. The tell ends near front 1952, the wheel passes the pocket on charge tick about 30 and hits the barricade on tick 90 at the latest, then runs on to `stop_x` |
+| **First run.** The rearmost trigger at 1072, the emergence gap about 449, held by the 185 catch-up; both heroes run into the pocket and stop. The front is about 1623 on their arrival, then closes at 185, then 160 once the gap is under 260 | commit at about **1841..1856** (rule 4 is the last to hold) | 0 | about 66 at both speeds (rule 4 pins the tell end at about 1952) | commits with gap 216..231. The tell ends near front 1952, the wheel passes the pocket on charge tick about 30 and hits the barricade on tick 90 at the latest, then runs on to `stop_x` |
 | The rearmost hero at 1888, gap exactly 140 | 1736 | | | rule 4 fails (1736 + 96 + 360 = 2192 < 2312): no commit yet. If that hero then hides, the first-run row applies |
-| The leader waits at the barricade (x 2300), the rearmost hero in the pocket | 1856 | leader 52 (to centre 2140) | 66 | rule 3 fails (52 + 20 > 66) and only gets worse as the front advances: no charge, the cruise path. The leader is safe only by walking back into the pocket before the cruise front reaches it (F14 otherwise) |
+| Carl (185 px/s) waits at the barricade (x 2300), the other hero in the pocket | 1856 | Carl 52 (to 2140, the nearest in-pocket pivot, 2152 − 12) | 66 | rule 3 fails (52 + 20 > 66) and only gets worse as the front advances: no charge, the cruise path. Carl is safe only by walking back into the pocket before the cruise front reaches him (F14 otherwise). With Donut (207 px/s) the walk is about 46 ticks, at the rule-3 boundary (46 + 20 against about 65..66), so the fixtures put Carl at the barricade |
 | Both at the barricade (x 2300), front already at 2160 | 2160 | n/a | n/a | rule 3 fails, no charge. The cruise reaches them unless they went back while the front was left of the pocket |
 | P2 448 px behind the leader when the leader arms (P2 at about 1440) | follows P2 | | | the trigger and the band both follow the rearmost hero, so once both hide the first-run row applies unchanged; the leader's walk-back from the barricade fails as in the third row |
 
@@ -266,14 +266,14 @@ A charge from gap 140 never catches a hero who keeps running on an open lane (DO
   - **Tick order (one-tick lag).** `step_party` runs the scene step (hero physics and collision), then `step_slot_enemies` (the machine), then `step_env` (the locks). So the machine reports `BarrierImpact` in its slot step, `step_env` opens the lock in the same tick, and heroes first collide with the opened state on the **next** tick. The presentation hides the lag. The machine ignores solids, so its own motion is unaffected. No global step is reordered.
   - There is **no** env-side `opened` flag and no extra hash term. REST's surface locks keep their flags across a respawn (`EnvRuntime::reset_keeping_partitions`); this lock has none to keep, so a defeat retry, a checkpoint respawn and a fixture restart all close it by construction (the machine is `dormant` again).
   - Only the machine opens it. Heroes cannot break it or jump it (276 px tall).
-  - **Pinned at the barricade.** A hero caught between the push box and the closed barricade gets room 3's `PinnedHold`, then the wheel test: a defeat and a checkpoint respawn, never a stall (ACT1-F14).
+  - **At the closed barricade.** A hero standing at the closed barricade is reached by the wheel first (the wheel front leads the push box by 88 px): a `WheelHit` defeat and a checkpoint respawn, never a stall. `PinnedHold` applies only to a hero above wheel height inside the push box (ACT1-F14).
 - **Wedge (`wedge: true`).** When the room-3 strain at `stop_x` ends, the machine enters `Escaped(Idle)` and the event `Wedged` fires. From then on:
   - the wheel is already off at `Idle` (room 3's `wheel_lethal`); the wedge also turns the push box and the nav rows off, so the heroes, who are *behind* the machine in this room (in the pocket), walk past it to the exit;
   - its clang hurtbox stays, so melee still sparks and does no harm.
   - The presentation draws the hull in the S5 arch window. The greybox clips and darkens the side-on rig, because the end-on art is ACT1-Q3.
   - In room 3 (`wedge` absent) `Idle` is unchanged.
 - **Timbers.** `TimberSmashed { id }` fires once per id and attempt, on the first tick the wheel front reaches the timber's x. It drives the existing ENV-02 splinter burst (DR-D's presentation) and nothing else.
-- **Humps and the ledge.** These are 16 px lane statics of kind `solid` (ACT1-AD17). Heroes step over them; the machine ignores solids, and the presentation may flatten the humps; the sim does not.
+- **Humps and the ledge.** These are 16 px lane statics of kind `solid` (ACT1-AD17). Heroes hop over them (16 px; no step-up is assumed); the machine ignores solids, and the presentation may flatten the humps; the sim does not.
 
 ### 5.5 The AI partner (solo)
 
@@ -283,7 +283,7 @@ A charge from gap 140 never catches a hero who keeps running on an open lane (DO
 **Who has a rescue cause.**
 
 - `rescue()` **skips a hero in the pocket** (section 5.4), exactly as the wheel test and the push-out do. A bot waiting in the pocket is never relocated.
-- A bot whose body right edge is ≤ `o + dzq02_push_box.x0 − dzq17 zone margin` (fully behind the hull) has **no** rescue cause. `BehindAxle` applies only while the bot's body overlaps the hull span. So a bot placed behind the hull is not re-placed on the next tick.
+- A bot whose body right edge is ≤ `o + dzq02_push_box.x0 − dzq17 zone margin` (fully behind the hull) has **no** rescue cause. `BehindAxle` applies only while the bot's body overlaps the hull span, tested with the strict `Rect::overlaps`, so a bot that `push_out` left touching the hull's rear has no cause. So a bot placed behind the hull is not re-placed on the next tick.
 - Room 3 (`revenge`) keeps today's causes unchanged.
 
 **Which spot, before `BarrierImpact`.**
@@ -291,7 +291,7 @@ A charge from gap 140 never catches a hero who keeps running on an open lane (DO
 | Situation (a bot hero, solo, wheel lethal, a rescue cause as above) | Spot | Value |
 | --- | --- | --- |
 | The pocket's left edge is still ahead of the wheel front by at least the rescue band plus a body width | `RescueSpot::Pocket` (new, appended) | Centre of the pocket, feet on the ledge |
-| The wheel front is at or past the pocket's left edge | `RescueSpot::Behind` (new, appended) | `o + dzq02_push_box.x0 − dzq17 zone margin − HERO_HALF_WIDTH`, on the lane |
+| Otherwise (the front is within the rescue band plus a body width of the pocket's left edge, or at or past it) | `RescueSpot::Behind` (new, appended) | `o + dzq02_push_box.x0 − dzq17 zone margin − HERO_HALF_WIDTH`, on the lane |
 
 - `Pocket` and `Behind` are **exempt** from the 120-tick spacing check.
 - If the chosen spot is outside the view margin, the other of the two is used. If both are outside, `Pocket` is used: it is authored on the route and the camera follows the leader.
@@ -441,13 +441,13 @@ Module tests live in `src/f01_act1.rs`. The fixtures live in `src/act1_fixtures.
 | ACT1-F11 | `act1_chase_hull_cannot_be_hurt` | melee on the hull: `Clang` only, `hp()` constant, no stun, no state change | B | 02 |
 | ACT1-F12 | `act1_chase_2p_together` | both in the pocket; zero wheel contacts | B | 05 |
 | ACT1-F13 | `act1_chase_2p_lag_{0,96,224,448}` (P2 that far behind the leader when the leader arms; both heroes run and hide in the pocket) | zero wheel contacts; in every case the commit front lies in 1841..1932 (the trigger and the band follow the rearmost hero, so the lag only changes when the leader arrives); `BarrierImpact` within the charge; recorded commit tick, commit front and margin per hero, per case | B | 06 |
-| ACT1-F14 | `act1_chase_skip_pocket` (a hero waits at the barricade) | no charge (rule 3 fails); the cruise pins that hero against the closed barricade: `PinnedHold`, then the wheel defeat; respawn at 1008; the barricade closed again (`barrier_hit` false); the machine `dormant`; the hint shows; no softlock | B | 07, 09 |
+| ACT1-F14 | `act1_chase_skip_pocket` (Carl, 185 px/s, waits at the barricade; Donut is on the rule-3 boundary, section 5.3) | no charge (rule 3 fails); a `WheelHit` defeat before the front reaches the barricade (no `BarrierImpact`, no `PinnedHold`); respawn at 1008; the barricade still closed (`barrier_hit` false); the machine `dormant`; the hint shows; no softlock | B | 07, 09 |
 | ACT1-F15 | `act1_chase_solo_bot_{carl,donut}_active` (default companion) | zero wheel contacts on the bot; rescue counts reported by spot | B | 06 |
 | ACT1-F16 | `act1_chase_no_charge_path` (2P): P1 waits in the pocket; P2 shadows the front (body left edge 100..130 px ahead, walking at the machine's band speed) from the emergence into the pocket, so rule 2 (gap ≥ 140) never holds | no `ChargeTell`; `PocketEntered` ×2; the cruise passes the pocket; `BarrierImpact`, `Wedged`, exit; zero `WheelHit` | B | 07 |
 | ACT1-F17 | `act1_chase_presentation_is_read_only` | the same inputs with presentation disabled (no decor, no notices, no splinters) give the same event log and hash | B | 12 |
 | ACT1-F18 | `room3_unchanged_by_the_opening` | every DOZR fixture hash and replay equals its committed value | B | |
 | ACT1-T10 | `opening_validation_rules` | O1..O10 each rejects a minimal broken sidecar (O3 with a `ledge` naming a missing or non-`solid` static); the revenge rules still reject a lintel-less `revenge` block | B | |
-| ACT1-T11 | `the_charge_commit_rule` and `the_charge_runs_through_the_barricade` (domain unit tests) | rule 5.3 table rows above, including rule 4's boundary (front 1855 vs 1856 at 160 px/s), the walk-back and the pocket-behind-the-wheel case; the instant charge speed; the impact on the charge's last tick; a run past `BarrierImpact` to `stop_x`; the defensive overshoot with a synthetic tuning that has no barricade in reach; the rescue cause rules of section 5.5 (pocket skip, fully behind the hull) and the spot fallbacks; the pocket test's y conversion | B | 04, 06 |
+| ACT1-T11 | `the_charge_commit_rule` and `the_charge_runs_through_the_barricade` (domain unit tests) | rule 5.3 table rows above, including rule 4's boundary (front 1855 vs 1856 at 160 px/s), the walk-back and the pocket-behind-the-wheel case; the instant charge speed; the impact on the charge's last tick; a run past `BarrierImpact` to `stop_x`; the defensive overshoot with a synthetic tuning that has no barricade in reach; a run to `BarrierImpact`, then a party respawn (`slot_respawn`) and a fixture restart: `barrier_hit()` false, `dormant`, the `dozer_contact` solid present again; the rescue cause rules of section 5.5 (pocket skip, fully behind the hull) and the spot fallbacks; the pocket test's y conversion | B | 04, 06 |
 | ACT1-T12 | `act1_run_walk` | a Story `--f01-run` walk from the first Act I room through the corral: entry lines in order, empty carries, guild grant on the panel | A, B | 11 |
 
 CHDIR-10 (resolutions and scaling) and CHDIR-12's audio half are evidence items (section 11). CHDIR-11 is ACT1-T12 plus the PLAYTRACE verify tests.
