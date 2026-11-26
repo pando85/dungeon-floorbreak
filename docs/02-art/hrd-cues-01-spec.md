@@ -31,7 +31,7 @@ Both cues are **presentation only**: they are derived from state the simulation 
 
 ## 2. Cue behaviour and timing
 
-Ticks are 60 Hz scene ticks. "Lead x" is the largest x of the present heroes: Carl always, Donut only while `SceneSim::party_live()` (the simulation's own present set for the gate; the companion bot does not trigger the stir).
+Ticks are 60 Hz scene ticks. "Lead x" is the largest x of the present heroes: Carl always, Donut while `SceneSim::party_live()`, the companion bot included (the simulation's own present set for the gate; `hoarder_art::lead_x`). The presenter does not exclude a defeated hero as the sim's gate does; in Dormant that is negligible.
 
 ### 2.1 Stir levels (HRD-Q05)
 
@@ -123,7 +123,7 @@ For `out_age` a in 0..7 and k in 0..3 with dx = 0, 2, 14, 16: x = post.x + dx + 
 | HRDC-AD4 | Unchanged rule; its cue is the `shored` post while she is not out and the `give` beat when she comes out | Explains the dead hits with plain carpentry and teaches "now" at the moment it becomes true |
 | HC-AD1 | The stir frames are a rigid column lift of `sealed_back` with an unchanged front lip | No re-shading, so no texture boil; the lip hides the stretch; the frozen sealed key stays the source |
 | HC-AD2 | Two levels: S1 period 72 (heave 6, slump 4), S2 period 36 (heave_hi 8, slump 4) | One heave on the trigger tick and usually no second one on a straight run (at `RUN_SPEED` 185 px/s the 192 px walk from 240 to 432 takes about 62 ticks, under one period); a hesitant player sees it repeat. A hard heave covers the 8 settle ticks; 2P waiting keeps escalated |
-| HC-AD3 | Lead x = Carl, plus Donut while the party is live (the bot is not counted) | Matches the sim's present set for the gate |
+| HC-AD3 | Lead x = Carl, plus Donut while the party is live, the companion bot included (`hoarder_art::lead_x`; the stir follows the same present set that crosses the gate, so S1, S2 and the gate never disagree about who is near) | Matches the sim's present set for the gate |
 | HC-AD4 | Breath phase anchored to the first tick the presenter sees the level (render-local memo, cleared when the tick goes backwards) | First breath on the trigger tick; same memo pattern as `out_age` |
 | HC-AD5 | Stir and give grit reuse the R7 dust motes (colour, size, `mote_z`); 3 (S1), 5 (S2), 4 (give) | One dust language in the room; no new colour or sprite; within `MAX_MOTES` |
 | HC-AD6 | `shored` on every tick she is not out, Dormant and Reveal, first attempt and retries | The rule it explains holds on all those ticks |

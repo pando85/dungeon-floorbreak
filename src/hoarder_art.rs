@@ -237,6 +237,16 @@ pub enum Stir {
     Engaged,
 }
 
+/// The lead hero x of the stir (spec section 2.1, HC-AD3): Carl's x, or the larger of Carl's and Donut's
+/// while the party is live (the companion bot included, the sim's own present set for the gate).
+pub fn lead_x(carl_x: f32, donut_x: f32, party_live: bool) -> f32 {
+    if party_live {
+        carl_x.max(donut_x)
+    } else {
+        carl_x
+    }
+}
+
 /// S0/S1/S2 from the boss and the lead hero x (Carl, plus Donut while the party is live; `None` =
 /// no hero), without hysteresis. See [`stir_level_held`].
 pub fn stir_level(boss: &PileBoss, lead_x: Option<f32>) -> Stir {

@@ -17,7 +17,7 @@ from PIL import Image, ImageDraw
 # crop boxes on the 1920x1080 frames (left, top, right, bottom): the visible part of the mound, the post and its stack
 BOXES = {
     "s1": (1320, 640, 1920, 1000),
-    "s2": (1260, 700, 1920, 1060),
+    "s2": (0, 700, 660, 1080),         # left is set per frame from the camera, see FOLLOW
     "give": (1500, 330, 1920, 900),
 }
 TICKS = {
@@ -25,6 +25,9 @@ TICKS = {
     "s2": [107, 108, 110, 112, 114, 115],
     "give": [205, 206, 208, 210, 213, 214, 216],
 }
+# The S2 sequence pans with Carl, so its crop follows the mound: the box's left edge is the mound's centre column (world x 608, the
+# boss home) on screen at 3x (world x less the camera x of that tick, from the run.log's FLOOR1_SCENE_STATE line) less half the box.
+FOLLOW = {"s2": 608}
 NAMES = {"s1": "stir_s1", "s2": "stir_s2", "give": "give"}
 
 
@@ -35,13 +38,32 @@ def frames(directory: Path) -> dict[int, Path]:
     return found
 
 
+def cameras(directory: Path) -> dict[int, int]:
+    """The camera x (world px) of each tick, from the window run's FLOOR1_SCENE_STATE lines."""
+    cams = {}
+    for line in (directory / "run.log").read_text().splitlines():
+        m = re.match(r"FLOOR1_SCENE_STATE tick=(\d+) .* cam=(-?\d+),", line)
+        if m:
+            cams[int(m.group(1))] = int(m.group(2))
+    return cams
+
+
+def box_for(key: str, tick: int, cams: dict[int, int]) -> tuple[int, int, int, int]:
+    left, top, right, bottom = BOXES[key]
+    if key in FOLLOW:
+        width = right - left
+        left = max(0, min(1920 - width, (FOLLOW[key] - cams[tick]) * 3 - width // 2))
+        right = left + width
+    return left, top, right, bottom
+
+
 def main(argv: list[str]) -> int:
     *dirs, out = argv
     out = Path(out)
     for key, directory in zip(("s1", "s2", "give"), dirs):
         seq = frames(Path(directory))
-        box = BOXES[key]
-        crops = {t: Image.open(p).convert("RGB").crop(box) for t, p in seq.items()}
+        cams = cameras(Path(directory)) if key in FOLLOW else {}
+        crops = {t: Image.open(p).convert("RGB").crop(box_for(key, t, cams)) for t, p in seq.items()}
         w, h = crops[next(iter(crops))].size
         cells = []
         for t in TICKS[key]:

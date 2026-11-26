@@ -1007,12 +1007,11 @@ fn seen_of(rig: &Rig, memo: &mut HoarderMemo, tick: u64) -> Seen {
     let hidden = matches!(boss.mode(), PileMode::Dormant | PileMode::Reveal);
     let mut look = memo.observe(boss.hp(), boss.alive(), tick);
     look.out_age = memo.observe_out(hidden, tick);
-    let carl = rig.carl_x();
-    let lead = if rig.scene.party_live() {
-        carl.max(rig.scene.world.body(crate::party::HeroId::Donut).x)
-    } else {
-        carl
-    };
+    let lead = lead_x(
+        rig.carl_x(),
+        rig.scene.world.body(crate::party::HeroId::Donut).x,
+        rig.scene.party_live(),
+    );
     let level = stir_level_held(boss, Some(lead), memo.stir_held());
     look.stir = memo.observe_stir(level, tick);
     let art = art_of(rig, tick, look);
@@ -1260,4 +1259,32 @@ fn hovering_on_the_stir_line_does_not_restart_the_breath() {
     assert_eq!(run(15, 223.0), None, "under x 224 the stir ends");
     assert_eq!(run(16, 230.0), None, "and needs the line again");
     assert_eq!(run(17, 240.0), Some((Stir::Approach, 0)));
+}
+
+/// A6: Donut's x counts only while the party is live (the companion bot included); Carl's always does.
+#[test]
+fn the_lead_x_counts_donut_only_while_the_party_is_live() {
+    assert_eq!(lead_x(300.0, 400.0, false), 300.0, "no party: Carl's x");
+    assert_eq!(
+        lead_x(300.0, 400.0, true),
+        400.0,
+        "Donut ahead in a live party"
+    );
+    assert_eq!(
+        lead_x(300.0, 200.0, true),
+        300.0,
+        "Carl ahead in a live party"
+    );
+    assert_eq!(lead_x(300.0, 400.0, false), lead_x(300.0, -50.0, false));
+    // The shipped rule drives the line: a Donut at x 240 starts S1 only while the party is live.
+    let rig = Rig::new(&root(), clear_plan()).unwrap();
+    let boss = rig.boss().boss();
+    assert_eq!(
+        stir_level(boss, Some(lead_x(100.0, 240.0, true))),
+        Stir::Approach
+    );
+    assert_eq!(
+        stir_level(boss, Some(lead_x(100.0, 240.0, false))),
+        Stir::None
+    );
 }

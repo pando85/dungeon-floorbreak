@@ -27,7 +27,7 @@ Expected phase, frame and age of each chosen still (`floor_*` is the floor run o
 | `shored_last` | 205 | the last Reveal tick: post still `shored` |
 | `give_0`, `floor_give_0` | 206 | out age 0: post frame 4 (`give`), the R7 burst (12 motes) plus the 4 give motes |
 | `give_2` | 208 | out age 2: `give`, burst and give motes |
-| `give_7` | 213 | out age 7, the last give tick: `give`, 4 give motes rising |
+| `give_7` | 213 | out age 7, the last give tick: `give`, 4 give motes falling (sifting out of the straps) |
 | `intact_after`, `floor_intact_after` | 216 | out age 10: the machine's `intact` frame, no motes |
 
 Strips and GIFs (x3 crops of the 1920x1080 frames, nearest-neighbour only; the window already renders at 3x; the GIFs play every tick of the sequence at 100 ms, 6x slower than the game):
@@ -39,6 +39,8 @@ Strips and GIFs (x3 crops of the 1920x1080 frames, nearest-neighbour only; the w
 | `strip_give.png`, `give.gif` | the post: ticks 205 (shored), 206, 208, 210, 213 (give), 214, 216 (intact) |
 
 Readability: the stir reads in motion (the strips and GIFs); one still shows it only against the rest frame. The shored post is darker and banded; the give beat reads as the straps springing, and the straps vanish when it ends on tick 214 (an owner note, gate note N2).
+
+**Captured before the rebase.** The stills, GIFs and capture lines were produced before the branch was rebased onto 4b8bff4f (#294); #294 touches only the corral and ring kits, which are not on the Hoarder room's draw path. The independent review re-verified on head `2ec3a27b`: all 24 headless still hashes (12 ticks, direct and `--f01-run`) equal the committed lines, and three window sequences (give, S1, S2 in the floor run) report `match=yes` with byte-identical pixels. The S2 strip and GIF crop follow the camera pan (the box is centred on the mound's screen position each tick, from the run's `FLOOR1_SCENE_STATE` camera x).
 
 [`capture_lines.txt`](capture_lines.txt) has one `HRDCUE_SEQUENCE` line per sequence (plan, size) and one `HRDCUE_STILL` line per still and size, pasted below. [`SHA256SUMS`](SHA256SUMS) is verified by `python3 scripts/check_docs.py`. Regenerate with `bash scripts/make_hrd_cues_evidence.sh` (needs the debug `floor01_scene` binary, the exported atlases, xvfb-run, ImageMagick and Pillow).
 
