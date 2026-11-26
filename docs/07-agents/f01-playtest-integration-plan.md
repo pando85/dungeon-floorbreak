@@ -972,7 +972,7 @@ The Ring edits none of `src/bin/floor01_scene.rs`, `src/combat_scene.rs`, `src/c
 9. "Pause closure on blocked player motion" leaves enemies unspecified; KR4 sets one hold rule for every living body.
 10. The work order's RING-C "safe heroic contact" names no mechanism; the hold rule is that mechanism, and no `HeroBlow` source is needed.
 
-**In #187 (camp):** REST-B beat 1 shows lanterns "beyond the final maze gateway" and a sentry, which overlaps the Ring's reveal (KR14). REST-B opens on the shared marker at its entrance and keeps the far view to the Ring (section 16). **In #179 (Dozer opening):** no conflict; its arm-and-commit lag cases are reused for RING-09 (KR18).
+**In #187 (camp):** REST-B beat 1 shows lanterns "beyond the final maze gateway" and a sentry, which overlaps the Ring's reveal (KR14). REST-B opens on the shared marker at its entrance and keeps the far view to the Ring (section 16). **In #179 (Dozer opening):** no conflict; its arm-and-commit lag cases are reused for RING-09 (KR18). #179's content is now on main as [the Dozer opening choreography](../01-design/floor-01-dozer-opening-choreography.md) (section 17).
 
 ### 15.9 Horizon, tone and rights
 
@@ -984,7 +984,7 @@ The Ring edits none of `src/bin/floor01_scene.rs`, `src/combat_scene.rs`, `src/c
 
 The owner draft #187 is carried onto main, adapted, in [Floor 01 Quiet Setpieces and Transitions](../01-design/floor-01-quiet-setpieces-and-transitions.md) and its [workorder](floor-01-quiet-setpieces-workorder.md). Under the owner decision of 2026-11-25 ("go with all"), its three rooms join the run through **REST-WIRE**, two PRs in sequence (REST-AD11): PR 1 the refuge (listed in the manifest after the corral), the lock, the grant move and the DP fixture retarget; PR 2 the camp, the aftermath and the twelve-room run walk; the design document's section G holds every number. This section records only what this plan owns.
 
-- **Run order (REST-AD2):** corral → **`rest_refuge`** → hoarder → boiler → dozer → hazards → ring_court → ring_split → **`rest_camp`** → juicer → **`rest_aftermath`** → mastery. The documentation-only slots S0 (#179 opening), S1 (Scatterers), S2 (further #189 Ring regions), S3 (#191 troglodytes and gym approach) and S4 (#192 Ball of Swine) get no manifest row until their own steps.
+- **Run order (REST-AD2):** corral → **`rest_refuge`** → hoarder → boiler → dozer → hazards → ring_court → ring_split → **`rest_camp`** → juicer → **`rest_aftermath`** → mastery. Slot S0 (#179 opening) is planned by ACT1-PLAN (section 17); the documentation-only slots S1 (Scatterers), S2 (further #189 Ring regions), S3 (#191 troglodytes and gym approach) and S4 (#192 Ball of Swine) get no manifest row until their own steps.
 - **KC9 settled:** the refuge arms the existing `f01_safe_room_reward_found` row through a new `SceneKind::RestRefuge` (`armed_in` changes from the corridor; the zone stays). `f01_pin_pre_pile_boss` is unchanged; the legacy `--donut-prog` corridor stops granting the boost.
 - **KR12:** `rest_refuge` becomes a room row of the story order carrying the grant (it replaces the point `refuge_light_feet`); `rest_camp` carries `f01_pin_post_pile_boss`; `rest_aftermath` carries `f01_late_mastery`. No pin holds a later grant.
 - **KR15 settled:** `rest_camp` follows `ring_split`; the shared marker `ring_marker_a` stands at its entrance (KR14).
@@ -993,3 +993,17 @@ The owner draft #187 is carried onto main, adapted, in [Floor 01 Quiet Setpieces
 - **Hot files:** `src/story_unlock.rs` and `src/combat_scene/story.rs` (section 7), `src/encounter.rs` and `src/combat_scene/env.rs` (the `hero_on_surface` lock), `src/f01_late.rs`, `assets/levels/f01_late/manifest.json`, `src/bin/floor01_scene.rs` and the PLAYTRACE dispatch: REST-WIRE queues behind any open step on them.
 - **Status after merge:** "merged, game-feel review pending", milestone `greybox`. Art follows as AREA-FASTFOOD-01 and AREA-CAMP-01.
 - **Horizon:** no new button or ability; the refuge makes an approved grant felt once, the camp and the aftermath grant nothing. The direction is unchanged.
+
+## 17. ACT1: Act I at the start of the run (owner draft #179 and GUILD-BEAT-01)
+
+The owner draft #179 is carried onto main, adapted, as [the Dozer opening choreography](../01-design/floor-01-dozer-opening-choreography.md) and its [work order](floor-01-dozer-opening-workorder.md). [The Act I integration plan](../01-design/floor-01-act-01-integration.md) holds every number. Under the owner decision of 2026-11-25 ("go with all"), Act I joins the run as three greybox rooms **before** the corral, in two PRs: ACT1-A (the shore, the guild and the run plumbing), then ACT1-B (the chase). This section records only what this plan owns.
+
+- **Run order:** **`act1_chase`** → **`act1_shore`** → **`act1_guild`** → corral → rest_refuge → … (ACT1-AD1). CORRAL-F becomes ACT1-F: the listed Act I rooms come first, in that order, and the corral directly follows.
+- **The machine:** the chase reuses DOZER-CORE with a second profile `opening` from a new tuning file. Room 3's `TUNING_HASH`, sidecar, fixtures and goldens do not move (Dozer note section 4.4).
+- **Fairness (replaces #179's fail-open):** the charge arms on the leader and commits only when every living hero can reach the pocket (integration plan section 5.3). Without a commit the cruise still breaks the barricade. KR18's position bound for the Ring shutter is the same idea.
+- **GUILD-BEAT-01 and KR12:** the story-order point `guild_biscuit` becomes the room row `act1_guild`, which keeps the read-through `primary_ranged` grant. `TABLE_HASH` is unchanged and no pin holds a later grant.
+- **Pins:** `MANIFEST_HASH` once per PR, seven new room, sidecar and tuning pins, `SCOPED_PIN_KEYS` +4 then +3, PLAYTRACE `data_pins()` the same. `dozer::PIN_KEY` also applies to `act1_chase`. Strict verification of older late-floor recordings fails after each manifest re-pin.
+- **AUDIENCE-RUN:** off in the Act I rooms with no code change (positional `AUDIENCE_UNLOCK_AFTER`).
+- **Hot files:** the REST-WIRE list, plus `src/dozer.rs`, `src/combat_scene/dozer.rs` and `src/encounter/haz.rs` for ACT1-B. REST-WIRE PR 2 and ACT1 rebase on whichever lands first.
+- **Status after merge:** "merged, game-feel review pending", milestone `greybox`. Audio, the end-on wedge art and the ENV-02 dressing stay open (ACT1-Q2, Q3, Q7).
+- **Horizon:** no new button or ability. The biscuit moves from a run point into a room, and the chase teaches "too strong to kill yet". The direction is unchanged.

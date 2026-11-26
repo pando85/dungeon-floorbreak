@@ -1,6 +1,6 @@
 # Floor 01 — Act I playable combat beats (design proposal v0.1)
 
-**Status:** DRAFT FOR OWNER REVIEW, **not approved** level topology, enemy AI, timing, magic balance, co-op camera, implementation, or literal novel events. Prepared 2026-11-18 as the first detailed pass on the three-act combat-first structure.
+**Status:** DRAFT FOR OWNER REVIEW, **not approved** level topology, enemy AI, timing, magic balance, co-op camera, implementation, or literal novel events. Prepared 2026-11-18 as the first detailed pass on the three-act combat-first structure. **Run integration (2026-11-25):** I-01 to I-04 are planned as three greybox run rooms before the corral (`act1_chase`, `act1_shore`, `act1_guild`) in [the Act I integration plan](floor-01-act-01-integration.md). That plan splits the chase from CP-01 to CP-03 at the post-chase checkpoint (its section 15) and defines GUILD-BEAT-01.
 
 **Design promise:** **"Kill, kill, kill"** means frequent *satisfying and varied* combat, not compulsory kill quotas or never allowing the player to recover. The first act goes **panic -> retaliation -> newly earned magic -> positional combat confidence**. Its purpose is to prove the core action feels amazing without making the game a lock-and-key platform puzzler. The ordinary punch/kick kill must be fun before environmental tricks.
 
