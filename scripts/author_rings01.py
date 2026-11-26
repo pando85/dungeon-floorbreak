@@ -138,8 +138,9 @@ def pools_local(place: tuple, pools: tuple) -> tuple:
 
 ARC_A_AT, ARC_B_AT, ARC_LM_AT = (1012, 400), (324, 400), (1680, 356)
 ARC_W, ARC_H = 408, 164
-# 4a: the bay torch at 976 (pool 872/364) and the free torch moved to 1432 (pool 1328/348, RNG-AD20)
-ARC_A = Arc(w=ARC_W, h=ARC_H, cx=204.0, cy=212.0, torch_lit=pools_local(ARC_A_AT, ((872, 364), (1328, 348))))
+# 4a: the bay torch at 976 (pool 872/364) and the free torch raised over the broken right leg at (1360, 368)
+# (pool 1256/284, RNG-AD24)
+ARC_A = Arc(w=ARC_W, h=ARC_H, cx=204.0, cy=212.0, torch_lit=pools_local(ARC_A_AT, ((872, 364), (1256, 284))))
 # ring_arc_wall_b: the same geometry with its own break (left), seeds, cracks and one chain stub
 ARC_B = Arc(w=ARC_W, h=ARC_H, cx=204.0, cy=212.0, seed="b",
             brk={"outer": (-51.0, -31.0), "notch": (-48.0, -33.5), "inner": (-46.5, -35.0)},
@@ -161,8 +162,8 @@ ARC_LM = Arc(w=208, h=208, cx=LM_CX, cy=LM_CY, seed="lm", keystone=False,
              # gate C4 (behind the goblin at x 1824, piece-local x about 144): recomputed by execution per band
              # after the move to 1680 (RNG-AD20); empty until then
              local_dark=((112, 160, 180, 204, (3, 3, 2)),),
-             # 4a: the bay-1680 torch moved to 1648 (pool 1544/364) and the bay torch at 1936 (pool 1832/364)
-             torch_lit=pools_local(ARC_LM_AT, ((1544, 364), (1832, 364))),
+             # 4a: the bay-1680 torch moved to 1656 (pool 1552/364, RNG-AD24) and the bay torch at 1936 (pool 1832/364)
+             torch_lit=pools_local(ARC_LM_AT, ((1552, 364), (1832, 364))),
              # the goblin at x 1824 stands at piece-local x 144 since the move to 1680 (RNG-AD20)
              lichen_clear=((127, 161),))
 
@@ -1592,8 +1593,12 @@ def upper_places(room: str) -> list[tuple]:
 
 # RNG-AD20: the court's ground bay at x 1680 is suppressed (both piers, the arch ring, threshold and chain: a lone
 # pier would carry half an arch springing into nothing) and its opening bricked up, so the full ring sits on brick. The
-# bay's left torch moves 48 px left of the ring (1696 -> 1648) and the free torch out of the great arc's right
-# leg (1344 -> 1432); both keep their animation phase, so the emitter count is unchanged.
+# bay's left torch moves beside the ring and the free torch off the great arc's right leg; both keep their animation
+# phase, so the emitter count is unchanged.
+# RNG-AD24: final torch spots. The bay torch stands at (1656, 448), 10..19 px left of the ring's edge: at 1648 its
+# pool's warm core lit the brick under the Donut shelf brighter than the shelf's top arris (C1). The free torch hangs
+# high over the broken right leg at (1360, 368), 16 px under the soffit: at (1432, 432) its pool core sat right behind
+# the goblin at x 1424 (dL* -1.4 against 2.1 on plain brick).
 # RNG-AD21: the court's entry bay opening (x 80..288) is bricked up behind the door; the keystone is the door's
 # apex stone. 4b keeps its bay and has no keystone.
 def _at(layer, piece, x, y, frame_offset=None):
@@ -1612,8 +1617,8 @@ COURT_REMOVE_AT = [
     _at("prop", "torch_wall", 1344, 432), _at("backwall_decal", "torch_pool_b_m", 1240, 348),
 ]
 COURT_TORCHES = [
-    _at("backwall_decal", "torch_pool_b", 1544, 364), _at("prop", "torch_wall", 1648, 448, 3),
-    _at("backwall_decal", "torch_pool_b_m", 1328, 348), _at("prop", "torch_wall", 1432, 432, 1),
+    _at("backwall_decal", "torch_pool_b", 1552, 364), _at("prop", "torch_wall", 1656, 448, 3),
+    _at("backwall_decal", "torch_pool_b_m", 1256, 284), _at("prop", "torch_wall", 1360, 368, 1),
 ]
 # the two bricked-up ground openings (the composer's OPENING mask lies inside cols c0+2..c0+14, rows 22..35)
 COURT_FILL = [{"x": 80, "y": 352, "w": 208, "h": 208}, {"x": 1712, "y": 352, "w": 208, "h": 208}]

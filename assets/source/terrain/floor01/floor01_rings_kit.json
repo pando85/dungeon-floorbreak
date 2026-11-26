@@ -1086,27 +1086,27 @@
     {
      "layer": "backwall_decal",
      "piece": "torch_pool_b",
-     "x": 1544,
+     "x": 1552,
      "y": 364
     },
     {
      "layer": "prop",
      "piece": "torch_wall",
-     "x": 1648,
+     "x": 1656,
      "y": 448,
      "frame_offset": 3
     },
     {
      "layer": "backwall_decal",
      "piece": "torch_pool_b_m",
-     "x": 1328,
-     "y": 348
+     "x": 1256,
+     "y": 284
     },
     {
      "layer": "prop",
      "piece": "torch_wall",
-     "x": 1432,
-     "y": 432,
+     "x": 1360,
+     "y": 368,
      "frame_offset": 1
     },
     {

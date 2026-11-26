@@ -27,10 +27,10 @@ SIZES = {  # spec section 5 (crates_b is 56 x 28 after gate C5)
     "ring_crates_b": (56, 28), "ring_marker_a": (24, 56), "ring_tiers_far": (440, 232),
     "ring_tiers_mid": (344, 232), "ring_camp_far": (440, 232),
 }
-# The keys after the gate edits K1..K4 and the review-fix round (RNG-AD22 torch bake on the arc, RNG-AD23
-# running-bond shutter): frozen from here on (sha256 of the piece's pixel grid).
+# The keys after the gate edits K1..K4 and the review-fix rounds (RNG-AD22 torch bake on the arc, re-baked for the
+# RNG-AD24 torch spot; RNG-AD23 running-bond shutter): frozen from here on (sha256 of the piece's pixel grid).
 KEY_SHA = {
-    "ring_arc_wall_a": "4ba8c24d0f41a3100c59e30d47814c9b95ed8a8c64c6af9d690fc794d12d93e3",
+    "ring_arc_wall_a": "abc9afdeba3e1b406fdb1050907b5e23e3231ecca7133f2350eef3c7fc9a17bb",
     "ring_shutter_closed": "b68e9b33fcea6aabaa08cea5e25b76863bbc6727251741c2b1020c64a54fba02",
     "ring_camp_a": "52fa622a013f313262af1699cb082a5b56bf44de1043fae32017e49a541acce4",
 }
