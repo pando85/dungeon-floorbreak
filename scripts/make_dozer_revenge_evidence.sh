@@ -16,6 +16,13 @@
 # while it lands on the machine, and runs once it is stunned) is captured the same way (stills `brace_*`, twice, both
 # sizes, hash-checked) with a reversal GIF; the frame, the brace, its shadow and the remnant are labelled stand-ins. Perf is scripts/room_perf.sh (perf.txt, run on its own).
 #
+# DR-D (the #289 review finding 4 and INT DOZER-ROOM): two more aligned pilots are captured the same way. `dozer:retry`
+# (src/room_pilots.rs `dozer_retry`: Carl stands at x 480 until the wheel takes him, respawns at the checkpoint, walks
+# into the trigger, waits while the gate rumbles and runs once the machine is out) gives the stills `retry_*` and a
+# retry GIF; `dozer:crew` (`dozer_crew`: the brace reversal, then the CF02 fight against the two dismounted riders and
+# the exit) gives `crew_*` and a crew GIF. These stills also show the DR-D effects: the DOZ-01 metal hit-spark of a
+# non-blast clang on the hull (a melee hit or a Magic Missile) and the ENV-02 splinter burst on the brace (`brace_release`) and in the rear gate.
+#
 # Needs the debug binaries (cargo build --locked --bin floor01_scene --bin playtrace), the exported atlases (bash
 # scripts/export_assets.sh: generated/art/dozer_*.png), xvfb-run, flock, ImageMagick and ffmpeg.
 #   BIN=<floor01_scene> (default ./target/debug/floor01_scene)   PT=<playtrace> (default ./target/debug/playtrace)
@@ -44,9 +51,21 @@ brace=dozer:brace
 # and 315 (the release, R 204), the frame falls from 344 and lands on 352 on the wheel front at x 728 (impact_stunned,
 # by player 0), the machine is disabled on 400, and the room completes on 490.
 brace_stills=(brace_release:318 brace_fall:348 brace_stun:353 brace_disabled:404 brace_run:440)
+retry=dozer:retry
+# DR-D, the retry pilot's timeline: the chase as in close_call until the wheel takes Carl at x 480 on 273 (one blow,
+# hero_defeated), the checkpoint respawn on 322 (the world tick runs on: no restart), the rumble on 343 (by the trigger),
+# the machine out of the gate on 433 (the gate's splinter bursts on 433..452), and the exit on 756.
+retry_stills=(retry_caught:270 retry_down:300 retry_respawn:330 retry_gate:438 retry_escape:520)
+crew=dozer:crew
+# DR-D, the crew pilot's timeline: the brace reversal as in dozer:brace (released on 315, stunned on 352, disabled on
+# 400), the riders dismount and fight; Carl's haymaker puts rider B down on 463, his jab puts rider A down on 515 and
+# clangs on the disabled hull (the hit-spark, 515..520), and the exit on 693.
+crew_stills=(crew_dismount:410 crew_fight:452 crew_clang:516 crew_exit:600)
 all_stills=()
 for still in "${stills[@]}"; do all_stills+=("$plan:$still"); done
 for still in "${brace_stills[@]}"; do all_stills+=("$brace:$still"); done
+for still in "${retry_stills[@]}"; do all_stills+=("$retry:$still"); done
+for still in "${crew_stills[@]}"; do all_stills+=("$crew:$still"); done
 sizes=(640x360:--scale:1 640x400:--deck:--scale:1)
 lines="$caps/capture_lines.txt"
 : > "$lines"
@@ -121,6 +140,26 @@ rev_match=no
 [[ -n "$rev_window" && "$rev_window" == "$rev_headless" ]] && rev_match=yes
 [[ "$rev_match" == yes ]] || fail=1
 echo "DOZER_GIF name=reversal plan=$brace ticks=297..489 step=4 frames=$(find "$rev_dir" -name 'frame_*.png' | wc -l) size=640x360 partner=$rev_partner window_hash=$rev_window headless_hash=$rev_headless hash_match=$rev_match" >> "$out/capture_lines.txt"
+# DR-D, the retry GIF (ticks 246..780 every 6th tick: caught, down, respawn, rumble, out of the gate, escape) and the crew
+# GIF (ticks 396..692 every 4th tick: disabled, the dismounted riders' fight, the clang, the exit), 640x360, 10 fps.
+dr_gif() {
+  local name="$1" gplan="$2" spec="$3" ticks="$4" dir="$caps/gif-$1"
+  bash scripts/room_capture.sh dozer "$gplan" "$spec" "$dir" --scale 1 > "$dir.txt" 2> "$dir.err" || fail=1
+  ffmpeg -loglevel error -y -framerate 10 -pattern_type glob -i "$dir/frame_*.png" \
+    -vf "split[a][b];[a]palettegen=max_colors=128:stats_mode=diff[p];[b][p]paletteuse=dither=none" \
+    "$out/${name}_640x360.gif"
+  local w h p m=no step
+  w="$(sed -E 's/.* window_hash=([0-9a-f]+).*/\1/' "$dir.txt")"
+  h="$(sed -E 's/.* headless_hash=([0-9a-f]+).*/\1/' "$dir.txt")"
+  p="$(sed -nE 's/^COMPANION_CONFIG: set=//p' "$dir/run.log" | tr ' ' '_')"
+  [[ "$p" == cf02_free ]] || fail=1
+  [[ -n "$w" && "$w" == "$h" ]] && m=yes
+  [[ "$m" == yes ]] || fail=1
+  IFS=: read -r _ step _ <<<"$spec"
+  echo "DOZER_GIF name=$name plan=$gplan ticks=$ticks step=$step frames=$(find "$dir" -name 'frame_*.png' | wc -l) size=640x360 partner=$p window_hash=$w headless_hash=$h hash_match=$m" >> "$out/capture_lines.txt"
+}
+dr_gif retry "$retry" "246:6:90" "246..780"
+dr_gif crew "$crew" "396:4:75" "396..692"
 # One recorded PLAYTRACE session of room 3 (since DR-B the reversal pilot `dozer:brace`, real window, ticks 0 to 520: the
 # frame lands on the machine on 352 and the room completes on 490), verified strict (scope=full) with the replay rebuild
 # of the late-Floor-1 source.

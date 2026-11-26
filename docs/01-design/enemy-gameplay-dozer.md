@@ -470,6 +470,7 @@ Only if DOZER-CORE's counts fire the DZ-Q24 trigger. The content is section 7.5.
 
 - **Files:** `docs/evidence/f01-dozer-revenge/`, the DOZ-02 atlases in `src/dozer_art.rs`, data tuning only.
 - **Acceptance:** DOZR-08 (2P NOT RUN allowed), DOZR-09, the three doc captures with real frames, milestone `setpiece` (re-pin listed).
+- **Status:** the effects, captures and perf half is implemented in this step (game-feel review pending); see [floor01-scene.md](../03-tech/floor01-scene.md#room-3s-effects-retry-and-crew-captures-dr-d). It wires the DOZ-01 hit-spark and the ENV-02 splinter burst into room 3 (INT DOZER-ROOM), adds the `dozer:retry` and `dozer:crew` window captures, and re-measures DOZR-09 as an A/B of pre-DR-C, main and this step (DOZER-PERF-01). Adopted defaults: DRD-AD1, a non-blast clang (a melee hit or a Magic Missile) sparks on the hull face nearest the hero nearest the hull, 24 px over the floor, for every such clang; DRD-AD2, the gate burst is two splinter bursts at 40 and 88 px, 4 ticks apart, on the emerge tick. **Deferred to the DOZ-02 execution PR:** the gate, buffer stop and damage-state frames replacing the stand-ins, and the milestone `setpiece` with its `MANIFEST_HASH` re-pin (the milestone stays `greybox` while stand-ins are drawn). **NOT RUN:** a real two-pad run (DOZR-08), a human session and human recognition and retry times (DOZR-09).
 
 ### Cut order inside the track
 

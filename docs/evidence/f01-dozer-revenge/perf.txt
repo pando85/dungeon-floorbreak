@@ -48,3 +48,39 @@ rep main_tick_us_mean main_tick_us_p95 pr_tick_us_mean pr_tick_us_p95
 6 74.4 325.2 82.1 333.9
 7 71.3 313.7 82.6 334.8
 # median paired difference (PR - main): about +5.9 us mean, +5.5 us p95; within the run-to-run noise at this load (rep 5 runs the other way)
+# DR-C/DR-D A/B (#289 review finding 3, DOZER-PERF-01): three builds run in turn, one run each per rep: predrc = main at f2087869 (before DR-C), main = the DR-C merge 49b1b0fe (#289), drd = this head (DR-D). Debug profile, xvfb, 640x360 unless --deck, the cf02_free partner active, 120 warm-up frames. Load average after each run in the last column of each build; reps 1 to 4 ran at 1.6 to 3.3 (one brace run of rep 4 at 5.9), rep 5 at 6.9 to 10.9 (another job shared the machine); the medians of the paired differences discount rep 5. Per run: frame median ms, tick_us mean, tick_us p95.
+## dozer:close_call 499 frames
+rep predrc_median_ms predrc_tick_us_mean predrc_tick_us_p95 predrc_load main_median_ms main_tick_us_mean main_tick_us_p95 main_load drd_median_ms drd_tick_us_mean drd_tick_us_p95 drd_load
+1 16.38 70.2 316.3 2.38 16.22 68.8 315.3 2.47 16.24 72.1 326.2 2.30
+2 16.36 66.9 306.7 2.42 16.31 68.1 308.6 2.20 16.37 69.9 320.3 1.92
+3 16.29 67.1 303.1 2.11 16.35 69.4 312.5 1.94 16.28 76.1 324.2 1.81
+4 16.29 84.4 326.6 2.19 16.29 68.9 312.3 2.38 16.23 72.6 320.2 2.63
+5 16.76 105.7 421.6 7.21 16.30 95.4 354.0 7.47 16.40 87.4 344.2 6.87
+# median paired difference main - predrc: tick_us_mean -1.40 (-2.0 %), tick_us_p95 -1.00 (-0.3 %), median_ms -0.05 (-0.3 %)
+# median paired difference drd - main: tick_us_mean +3.30 (+4.8 %), tick_us_p95 +10.90 (+3.5 %), median_ms +0.02 (+0.1 %)
+## dozer:brace 491 frames
+rep predrc_median_ms predrc_tick_us_mean predrc_tick_us_p95 predrc_load main_median_ms main_tick_us_mean main_tick_us_p95 main_load drd_median_ms drd_tick_us_mean drd_tick_us_p95 drd_load
+1 16.36 61.3 302.4 2.17 16.35 62.5 307.0 3.14 16.30 63.7 309.0 2.81
+2 16.30 59.2 299.1 1.94 16.26 60.7 307.9 1.90 16.23 62.9 304.4 1.56
+3 16.21 60.6 297.9 1.65 16.33 62.7 308.5 1.98 16.28 62.3 298.5 1.83
+4 16.34 77.6 325.5 3.21 16.39 86.3 350.1 3.26 16.91 94.8 371.1 5.88
+5 16.78 87.5 330.4 7.13 18.03 104.2 398.0 10.89 18.24 107.3 396.5 10.12
+# median paired difference main - predrc: tick_us_mean +2.10 (+3.4 %), tick_us_p95 +10.60 (+3.5 %), median_ms +0.05 (+0.3 %)
+# median paired difference drd - main: tick_us_mean +2.20 (+3.5 %), tick_us_p95 -1.50 (-0.5 %), median_ms -0.03 (-0.2 %)
+## --deck (640x400), one run per build, load average 6.0 to 7.4 (single runs: noise, not a comparison)
+predrc dozer:close_call 499 median_ms=16.34 p95_ms=20.07 tick_us_mean=68.7 tick_us_p95=317.4 gpu_ms_mean=1.923 load=7.36
+main dozer:close_call 499 median_ms=16.71 p95_ms=20.85 tick_us_mean=85.1 tick_us_p95=342.6 gpu_ms_mean=1.934 load=6.77
+drd dozer:close_call 499 median_ms=16.38 p95_ms=19.75 tick_us_mean=74.4 tick_us_p95=316.7 gpu_ms_mean=1.964 load=6.02
+## the DR-D pilots, drd only (no main counterpart: the plans are new), load average 5.8 to 10.9
+drd dozer:crew 694 flags=none rep=1 median_ms=17.94 p95_ms=31.99 tick_us_mean=101.3 tick_us_p95=376.2 gpu_ms_mean=1.902 load=10.51
+drd dozer:crew 694 flags=none rep=2 median_ms=16.30 p95_ms=20.47 tick_us_mean=61.3 tick_us_p95=300.1 gpu_ms_mean=1.873 load=8.91
+drd dozer:crew 694 flags=--deck rep=1 median_ms=16.50 p95_ms=20.87 tick_us_mean=71.0 tick_us_p95=293.7 gpu_ms_mean=2.060 load=6.21
+drd dozer:retry 757 flags=none rep=1 median_ms=16.37 p95_ms=20.97 tick_us_mean=77.4 tick_us_p95=315.0 gpu_ms_mean=1.969 load=10.94
+drd dozer:retry 757 flags=none rep=2 median_ms=18.57 p95_ms=27.39 tick_us_mean=113.2 tick_us_p95=453.3 gpu_ms_mean=1.931 load=9.00
+drd dozer:retry 757 flags=--deck rep=1 median_ms=18.10 p95_ms=25.26 tick_us_mean=104.1 tick_us_p95=379.2 gpu_ms_mean=2.049 load=5.75
+# entities (FLOOR1_PERF_MEM, close_call 640x360): predrc 5553, main 5561 (+8: the DR-C crew), drd 5565 (+4: the effect pool, MAX_FX)
+# DR-D nav rebuild count (headless room smoke, this head; the smoke stops at 600 ticks, before the crew and retry exits on 693 and 756; the retry's wheel_hits=0 is the machine's count since the checkpoint respawn on 322, which resets the machine's stats (the defeat's hit on 273 is before it); close_call and brace match the DR-B lines above)
+plan=dozer:crew companion="set=cf02_free" F01_DOZER_NAV ticks=600 state=disabled nav_rebuilds=46 hazard_feed_errors=0 wheel_hits=0 rescues=[0, 0]
+plan=dozer:retry companion="set=cf02_free" F01_DOZER_NAV ticks=600 state=committed_chase nav_rebuilds=64 hazard_feed_errors=0 wheel_hits=0 rescues=[0, 0]
+plan=dozer:close_call companion="set=cf02_free" F01_DOZER_NAV ticks=498 state=escaped nav_rebuilds=62 hazard_feed_errors=0 wheel_hits=0 rescues=[0, 0]
+plan=dozer:brace companion="set=cf02_free" F01_DOZER_NAV ticks=490 state=disabled nav_rebuilds=46 hazard_feed_errors=0 wheel_hits=0 rescues=[0, 0]

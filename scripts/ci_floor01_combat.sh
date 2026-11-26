@@ -636,10 +636,11 @@ case "$mode" in
     # PT-GATE-C1: the aligned room pilots (`mastery|juicer:WHO:SEED`) run the library fixture's party and seed
     # through the live party: each replays identically twice and prints its ROOM_PILOT_STATE (the fixture hash,
     # asserted equal to the library's for every (who, seed) by the unit tests). PT-GATE-E adds the hazards
-    # (`hazards:WHO:SEED`) and the Boiler's live room (`boiler:WHO:direct|both:SEED`).
+    # (`hazards:WHO:SEED`) and the Boiler's live room (`boiler:WHO:direct|both:SEED`). DR-D (the #292 review F4) adds
+    # room 3's reversal, retry and crew pilots (`dozer:brace|retry|crew`: the aligned partner, no seed).
     for aligned in mastery:donut_by_swap:3 mastery:companion:5 juicer:carl_solo:0 juicer:companion:2 \
       hazards:carl_solo:0 hazards:donut_by_swap:4 boiler:carl_solo:direct:0 boiler:companion:both:5 \
-      hoarder:carl_solo:2; do
+      hoarder:carl_solo:2 dozer:brace dozer:retry dozer:crew; do
       aligned_room="${aligned%%:*}"
       aligned_a="$("$bin" --headless-floor01-smoke --scene f01_late --f01-room "$aligned_room" --room-pilot "$aligned" --capture-tick 1500 | grep '^ROOM_PILOT_STATE')"
       aligned_b="$("$bin" --headless-floor01-smoke --scene f01_late --f01-room "$aligned_room" --room-pilot "$aligned" --capture-tick 1500 | grep '^ROOM_PILOT_STATE')"
@@ -648,7 +649,7 @@ case "$mode" in
         exit 1
       fi
     done
-    echo "F01_ALIGNED_PILOTS_OK: 9 aligned room pilots, each twice identical"
+    echo "F01_ALIGNED_PILOTS_OK: 12 aligned room pilots, each twice identical"
     # PT-GATE-D, retargeted by FA-Q21 (`hazfu05`): room 4's spectacular route baits R1, then one dynamite thrown from column
     # 648 chains R2 over the slime S2 (a Chain provoke of sticker 1, R2's blast 8 ticks after the stick's), exactly one
     # throw, no Rot hurt, the exit is reached (the scene stops before tick 1500), the final hash is the filmed run's and

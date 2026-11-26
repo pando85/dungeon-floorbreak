@@ -28,7 +28,14 @@ fn the_sheets_and_the_rig_are_the_files() {
         assert_eq!(m["frame_size"], serde_json::json!([w, h]), "{name}");
         let (px, py) = sheet.pivot();
         assert_eq!(m["pivot"], serde_json::json!([px, py]), "{name}");
-        let frames = m["dozer"]["frames"].as_array().unwrap().len() as u32;
+        // The ENV-02 splinter burst is a kit piece: its frames are its grid's.
+        let frames = match m["dozer"]["frames"].as_array() {
+            Some(frames) => frames.len(),
+            None => json(&root.join(m["grid_source"].as_str().unwrap()))["frames"]
+                .as_array()
+                .unwrap()
+                .len(),
+        } as u32;
         assert_eq!(frames, sheet.frames(), "{name}");
     }
     let rig = json(&root.join("assets/source/enemies/dozer/dozer_rig_h120.json"));
@@ -51,6 +58,27 @@ fn the_sheets_and_the_rig_are_the_files() {
         assert_eq!(row["z"], u64::from(part.z()), "{key}");
         let (px, py) = part.sheet().pivot();
         assert_eq!(row["pivot"], serde_json::json!([px, py]), "{key}");
+    }
+    // The hit-spark is the rig's `hit_spark` row (z 8, 2 ticks a frame); the
+    // splinter burst's 67 ms frames are 4 ticks at 60 Hz.
+    let spark = parts.iter().find(|p| p["part"] == "hit_spark").unwrap();
+    assert_eq!(spark["z"], u64::from(FX_Z));
+    assert_eq!(spark["atlas"], "vfx_hit_spark_metal");
+    assert_eq!(
+        rig["timing"]["frame_ticks"]["vfx_hit_spark_metal"],
+        serde_json::json!([SPARK_FRAME_TICKS; 3].to_vec())
+    );
+    let kit = json(&root.join("assets/source/terrain/floor01/floor01_opening_kit.json"));
+    let burst = kit
+        .pointer("/pieces")
+        .and_then(|p| p.as_array())
+        .and_then(|p| p.iter().find(|p| p["id"] == "timber_splinter_burst"))
+        .expect("the ENV-02 kit lists timber_splinter_burst");
+    assert_eq!(burst["atlas"], "floor01_splinter_burst");
+    assert_eq!(burst["anchor"], serde_json::json!([24, 24]));
+    for f in burst["animation"]["frames"].as_array().unwrap() {
+        let ms = f["duration"].as_u64().unwrap();
+        assert_eq!((ms * 60 + 500) / 1000, SPLINTER_FRAME_TICKS);
     }
     for (name, (x, y)) in [
         ("stack", STACK),
@@ -224,6 +252,7 @@ fn drawing_never_changes_the_state_hash() {
     let mut states = std::collections::BTreeSet::new();
     let mut yelled = false;
     let mut tags_seen = 0;
+    let mut gate_bursts = 0;
     for _ in 0..2400 {
         if drawn.scene.world.complete {
             break;
@@ -257,6 +286,11 @@ fn drawing_never_changes_the_state_hash() {
             .any(|s| s.sheet == Sheet::Riders && s.frame == rider::A_YELL_1)
             && d.state == DozerState::CommittedChase;
         tags_seen = tags_seen.max(art.tags.len());
+        // DR-D: the gate bursts as the machine comes out (two staggered bursts).
+        for s in art.sprites.iter().filter(|s| s.sheet == Sheet::Splinter) {
+            assert_eq!(s.left + 24, (GATE_X.0 + GATE_X.1) / 2);
+            gate_bursts += 1;
+        }
         let input = scripted(d, drawn.scene.world.hero.x, exit_x);
         let input_plain = scripted(
             crate::dozer_fixtures::dozer_of(&plain),
@@ -285,6 +319,7 @@ fn drawing_never_changes_the_state_hash() {
         assert!(states.contains(state), "{state} not drawn: {states:?}");
     }
     assert!(yelled, "the riders yell at the close call");
+    assert_eq!(gate_bursts, 2 * 4 * SPLINTER_FRAME_TICKS as usize);
     // The gate, the buffer stop, the brace and the hanging frame.
     assert_eq!(tags_seen, 4);
 }
@@ -312,6 +347,7 @@ fn the_frame_stand_ins_follow_the_frame_and_the_rear_glance() {
     let mut twin = st.clone();
     let mut labels = std::collections::BTreeSet::new();
     let mut glance_pieces = 0;
+    let mut splinters = 0;
     for k in 0..240u64 {
         let tick = st.tick();
         if k == 2 || k == 4 {
@@ -345,6 +381,15 @@ fn the_frame_stand_ins_follow_the_frame_and_the_rear_glance() {
             .iter()
             .filter(|p| p.label == GLANCE_LABEL)
             .count();
+        // DR-D: the splinter burst sits on the centre of the brace (its pivot).
+        let d = dozer_of(&st.sim.combat).unwrap();
+        let brace = brace_centre(d, st.sim.combat.env().unwrap()).unwrap();
+        for s in art.sprites.iter().filter(|s| s.sheet == Sheet::Splinter) {
+            assert_eq!((s.left + 24, s.bottom + 23), brace, "tick {tick}");
+            assert_eq!(s.z, FX_Z);
+            splinters += 1;
+        }
+        assert!(art.sprites.len() <= Part::ALL.len() + MAX_PUFFS + MAX_FX);
         st.step(RawInput::NONE);
         twin.step(RawInput::NONE);
         assert_eq!(st.hash(), twin.hash(), "tick {tick}");
@@ -363,6 +408,85 @@ fn the_frame_stand_ins_follow_the_frame_and_the_rear_glance() {
         assert!(labels.contains(label), "{label} not drawn: {labels:?}");
     }
     assert_eq!(glance_pieces, GLANCE_TICKS as usize);
+    // The melee hit and the blast's release: one 4-frame burst each.
+    assert_eq!(splinters, 2 * 4 * SPLINTER_FRAME_TICKS as usize);
+}
+
+/// DR-D: a melee clang sparks on the hull face nearest the hitter, at chest
+/// height, for 3 frames of 2 ticks (a blast's clang does not); a defeat retry
+/// (a `Restart` in the log) forgets every effect and the rear glance of the
+/// earlier attempt, whose ticks the new attempt counts again.
+#[test]
+fn a_melee_clang_sparks_on_the_hull_face_and_a_retry_forgets_it() {
+    use crate::dozer_fixtures::{Stage, idle_at_rest};
+    let flags = crate::f01_late::Loadout::Story.flags();
+    let st = Stage::new(
+        &root(),
+        Mode::CarlSolo,
+        flags,
+        idle_at_rest(),
+        600.0,
+        1180.0,
+    )
+    .unwrap();
+    let d = dozer_of(&st.sim.combat).unwrap().clone();
+    let floor = d.floor_y.round() as i32;
+    let rear = d.push_box().left;
+    let front = d.wheel_front();
+    let at = st.tick();
+    let clang = |blast| CombatEvent::Dozer {
+        tick: at,
+        event: DozerEvent::Clang {
+            player: crate::shore::PLAYER_ONE,
+            blast,
+        },
+    };
+    let sparks = |c: &CombatState, heroes: [f32; 2], tick: u64| -> Vec<SpriteDraw> {
+        draw(c, heroes, tick)
+            .unwrap()
+            .sprites
+            .into_iter()
+            .filter(|s| s.sheet == Sheet::Spark)
+            .collect()
+    };
+    let mut c = st.sim.combat.clone();
+    c.events.push(clang(true));
+    assert!(sparks(&c, [rear - 30.0, 1180.0], at).is_empty(), "a blast");
+    c.events.push(clang(false));
+    let behind = [rear - 30.0, 1180.0];
+    for age in 0..8u64 {
+        let drawn = sparks(&c, behind, at + age);
+        if age < 3 * SPARK_FRAME_TICKS {
+            assert_eq!(drawn.len(), 1, "age {age}");
+            let s = drawn[0];
+            assert_eq!(u64::from(s.frame), age / SPARK_FRAME_TICKS);
+            assert_eq!(
+                (s.left + 8, s.bottom + 7),
+                (rear.round() as i32, floor + SPARK_CHEST_PX)
+            );
+        } else {
+            assert!(drawn.is_empty(), "age {age}");
+        }
+    }
+    // From ahead (Donut nearer): the wheel front.
+    let s = sparks(&c, [rear - 300.0, front + 20.0], at)[0];
+    assert_eq!(s.left + 8, front.round() as i32);
+    // A retry: the same tick of the next attempt draws nothing.
+    c.events.push(CombatEvent::Restart {
+        tick: at + 1,
+        deaths: 1,
+    });
+    assert!(sparks(&c, behind, at).is_empty());
+    c.events.push(CombatEvent::Dozer {
+        tick: at,
+        event: DozerEvent::Glance { front_x: 600 },
+    });
+    assert_eq!(last_glance(&c), Some((at, 600)));
+    c.events.push(CombatEvent::Restart {
+        tick: at + 2,
+        deaths: 2,
+    });
+    assert_eq!(last_glance(&c), None);
 }
 
 /// DR-C: the rig draws a rider on the hull while it is carried and stops on
