@@ -562,6 +562,7 @@ All are adopted under the owner decision of 2026-11-25. The owner may change any
 | ACT1-Q7 | ENV-02 dressing of the three rooms (the art kit on the greybox) | Greybox kit, decor rectangles |
 | ACT1-Q8 | Guild dialogue, the skip / fast advance for repeat play (I-04) and the book chronology | No text, nothing to skip |
 | ACT1-Q9 | The #179 first-run duration hypothesis (25–40 s) and the reach margin, after a human session | Values above |
+| ACT1-Q10 | After a hero's defeat in the chase the machine keeps running through the defeat delay and visibly breaks the barricade before the respawn closes it again (ACT1-IMP-11). Should the defeat presentation show the break, or should the camera hold on the downed hero? | The break is shown; nothing in the sim changes |
 
 ## 15. Deviations (flagged)
 
@@ -660,4 +661,4 @@ All are adopted under the owner decision of 2026-11-25. The owner may change any
 - The commit front is 1856 to 1859 in every run (rule 4 is the last to hold at the cruise): the "first run" row of section 5.3 holds. With the default companion as the bot the commit margin of Donut is 49 ticks (she trails), still above the 20-tick reserve.
 - 96 solo runs (either hero active, the follow bot or the default companion, four start delays, six stalls) have zero wheel contacts and no respawn.
 - With Carl active and the default companion, Donut was rescued into the pocket twice (cause `off_screen` before the tell, cause `charge` at the tell); every other solo run has zero rescues.
-- While a defeated hero overlaps the wheel the machine's `WheelHit` repeats every tick (room 3's behaviour, ACT1-F14 logs 21).
+- While a defeated hero overlaps the wheel the machine's `WheelHit` repeats every tick (room 3's behaviour): ACT1-F14 logs 21 events, which are two episodes (the bot, then Carl). The evidence reports both counts.

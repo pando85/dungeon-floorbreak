@@ -30,6 +30,30 @@ fn timber(id: u8) -> impl Fn(&DozerEvent) -> bool {
     move |e| matches!(e, DozerEvent::TimberSmashed { id: i } if *i == id)
 }
 
+/// N3: a run's bot rescues are few (F15: at most two; the sweep's stalls with the default
+/// companion reach three), each to the pocket or behind the hull.
+fn assert_rescues_bounded(s: &ChaseSim, what: &str, limit: usize) {
+    assert!(s.rescues() <= limit, "{what}: {} rescues", s.rescues());
+    for (t, e) in &s.log {
+        if let DozerEvent::AiRescue { spot, cause, .. } = e {
+            assert!(
+                matches!(spot, RescueSpot::Pocket | RescueSpot::Behind),
+                "{what}: spot {spot:?}"
+            );
+            // The `Charge` cause exists only on the tell's first tick, and puts the bot in the pocket.
+            if *cause == crate::dozer::RescueCause::Charge {
+                assert_eq!(*spot, RescueSpot::Pocket, "{what}");
+                assert!(
+                    s.log
+                        .iter()
+                        .any(|(tt, ev)| tt == t && *ev == DozerEvent::ChargeTell),
+                    "{what}: a Charge rescue off the tell tick {t}"
+                );
+            }
+        }
+    }
+}
+
 /// Every case runs twice to an identical final hash, pinned here (ACT1-B: new constants).
 #[test]
 fn every_case_is_deterministic_and_pinned() {
@@ -84,12 +108,17 @@ fn assert_first_run(s: &ChaseSim, name: &str) {
         2,
         "{name}"
     );
-    let tell = s.first(|e| *e == DozerEvent::ChargeTell).unwrap();
+    let committed = s.first(|e| *e == DozerEvent::ChargeCommitted).unwrap();
+    let impact = s.first(|e| *e == DozerEvent::BarrierImpact).unwrap();
     for hero in HeroId::ALL {
         let t = s
             .first(|e| matches!(e, DozerEvent::PocketEntered { hero: h } if *h == hero))
             .unwrap_or_else(|| panic!("{name}: {hero:?} never entered the pocket"));
-        assert!(t > 0 && tell > 0);
+        // Each hero is in before the charge starts and before the impact.
+        assert!(
+            t <= committed && t < impact,
+            "{name}: {hero:?} entered at {t}"
+        );
     }
     assert_eq!(
         s.count(|e| matches!(e, DozerEvent::BrakeStarted { .. })),
@@ -268,14 +297,20 @@ fn act1_chase_skip_pocket() {
             .iter()
             .any(|(_, e)| matches!(e, DozerEvent::PinnedHold { .. }))
     );
-    // The machine keeps running through the defeat delay (ACT1-IMP-11): the impact, if any, follows
-    // the hit; the respawn then rebuilds the machine.
-    if let Some(impact) = before.iter().find(|(_, e)| *e == DozerEvent::BarrierImpact) {
-        assert!(
-            impact.0 > carl_hit,
-            "the wheel hit precedes the barricade impact"
-        );
-    }
+    // The machine keeps running through the defeat delay (ACT1-IMP-11): the impact follows the hit
+    // and precedes the respawn, which then rebuilds the machine.
+    let impact = before
+        .iter()
+        .find(|(_, e)| *e == DozerEvent::BarrierImpact)
+        .expect("IMP-11: the machine runs on through the defeat delay")
+        .0;
+    assert!(
+        carl_hit < impact && impact < respawn_tick,
+        "{carl_hit} < {impact} < {respawn_tick}"
+    );
+    // The 21 `WheelHit` events are two episodes (the bot and Carl), logged every tick while a
+    // downed hero lies under the wheel.
+    assert_eq!(s.wheel_hit_episodes(), 2);
     let view = s.respawn_view.expect("the respawn view");
     assert_eq!(view.machine, "dormant");
     assert!(!view.barrier_hit, "barrier_hit is false after the respawn");
@@ -361,7 +396,9 @@ fn act1_chase_solo_bot_carl_and_donut_active() {
         let s = sim(case);
         assert!(s.complete(), "{}", case.name());
         assert_eq!(s.wheel_hits(), 0, "{}", case.name());
+        assert_eq!(s.wheel_hit_episodes(), 0);
         assert_eq!(s.sim.combat.respawns, 0);
+        assert_rescues_bounded(&s, case.name().as_str(), 2);
         assert_eq!(s.rescues_by_spot(RescueSpot::Lane), 0, "{}", case.name());
         assert_eq!(
             s.rescues_by_spot(RescueSpot::Tunnel),
@@ -396,7 +433,23 @@ fn act1_chase_no_charge_path() {
     ));
     assert_eq!(s.dozer().charges_used(), 0);
     assert!(s.dozer().wedged() && !s.barricade_stands());
-    // The shadow stayed in the 100..130 band while the wheel passed the pocket.
+    // The shadow stayed in the 100..130 band from the moment it closed in until it entered the
+    // pocket (the first sample is the emergence gap, before it has closed).
+    let closed: Vec<f32> = s
+        .donut_gap
+        .iter()
+        .map(|(_, g)| *g)
+        .skip_while(|g| *g > 130.0)
+        .collect();
+    assert!(
+        closed.len() > 300,
+        "the shadow held for {} ticks",
+        closed.len()
+    );
+    assert!(
+        closed.iter().all(|g| (100.0..=130.0).contains(g)),
+        "{closed:?}"
+    );
 }
 
 /// ACT1-F17: the presentation is read-only: drawing the machine and the hint every tick leaves
@@ -497,7 +550,7 @@ fn print_the_chase_tables() {
     for case in all_cases() {
         let s = sim(case);
         println!(
-            "  {:<36} ticks={:<5} rescues={} ({}, {}, {}, {}) hits={} commit_front={:?}",
+            "  {:<36} ticks={:<5} rescues={} ({}, {}, {}, {}) hit_events={} hit_episodes={} commit_front={:?}",
             case.name(),
             s.tick(),
             s.rescues(),
@@ -506,6 +559,7 @@ fn print_the_chase_tables() {
             s.rescues_by_spot(RescueSpot::Lane),
             s.rescues_by_spot(RescueSpot::Tunnel),
             s.wheel_hits(),
+            s.wheel_hit_episodes(),
             s.dozer().commit.map(|c| c.front)
         );
     }
@@ -519,12 +573,13 @@ fn print_the_chase_tables() {
             s.first(pick).map_or("-".into(), |t| t.to_string())
         };
         println!(
-            "ACT1_FIXTURE name={} room=act1_chase ticks={} exit={} respawns={} wheel_hits={} ai_rescues={} rescue_spots(pocket,behind,lane,tunnel)=({},{},{},{}) rumble={} emerged={} tell={} committed={} impact={} brake={} wedged={} commit_front={} hash={:#018x}",
+            "ACT1_FIXTURE name={} room=act1_chase ticks={} exit={} respawns={} wheel_hit_events={} wheel_hit_episodes={} ai_rescues={} rescue_spots(pocket,behind,lane,tunnel)=({},{},{},{}) rumble={} emerged={} tell={} committed={} impact={} brake={} wedged={} commit_front={} hash={:#018x}",
             case.name(),
             s.tick(),
             s.complete(),
             s.sim.combat.respawns,
             s.wheel_hits(),
+            s.wheel_hit_episodes(),
             s.rescues(),
             s.rescues_by_spot(RescueSpot::Pocket),
             s.rescues_by_spot(RescueSpot::Behind),
@@ -571,6 +626,7 @@ fn the_first_run_holds_across_delays_and_stalls() {
                     assert_eq!(s.sim.combat.respawns, 0, "{what}");
                     assert_eq!(s.rescues_by_spot(RescueSpot::Tunnel), 0, "{what}");
                     assert_eq!(s.rescues_by_spot(RescueSpot::Lane), 0, "{what}");
+                    assert_rescues_bounded(&s, &what, 3);
                     rescues += s.rescues();
                     runs += 1;
                 }

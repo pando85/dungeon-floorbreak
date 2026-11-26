@@ -78,6 +78,9 @@ pub struct ChaseSim {
     pub hint_seen: bool,
     /// The first respawn's view (the tick after it).
     pub respawn_view: Option<RespawnView>,
+    /// While the machine chases and Donut is outside the pocket: `(tick, Donut's body left edge
+    /// minus the wheel front)` (F16's shadow gap).
+    pub donut_gap: Vec<(u64, f32)>,
 }
 
 impl ChaseSim {
@@ -96,6 +99,7 @@ impl ChaseSim {
             arm_separation: None,
             hint_seen: false,
             respawn_view: None,
+            donut_gap: Vec::new(),
         })
     }
 
@@ -116,6 +120,30 @@ impl ChaseSim {
         self.collect();
         if self.arm_separation.is_none() && self.dozer().armed_once() {
             self.arm_separation = Some((self.x_of(HeroId::Carl) - self.x_of(HeroId::Donut)).abs());
+        }
+        {
+            let d = self.dozer();
+            let donut = self.sim.scene.world.body(HeroId::Donut);
+            if d.state == DozerState::CommittedChase
+                && d.pocket_of(&crate::boss::HeroView {
+                    id: HeroId::Donut,
+                    present: true,
+                    x: donut.x,
+                    foot_y: donut.y - crate::prototype::HERO_HALF_HEIGHT,
+                    grounded: true,
+                    hurt: crate::dozer::body_rect(
+                        donut.x,
+                        donut.y - crate::prototype::HERO_HALF_HEIGHT,
+                    ),
+                    vulnerable: true,
+                    bot: false,
+                })
+                .is_none()
+            {
+                let gap = donut.x - crate::prototype::HERO_HALF_WIDTH - d.wheel_front();
+                let tick = self.tick();
+                self.donut_gap.push((tick, gap));
+            }
         }
         let hint = f01_act1::alcove_hint_live(&self.sim.combat, self.tick());
         self.hint_seen |= hint;
@@ -169,6 +197,23 @@ impl ChaseSim {
 
     pub fn wheel_hits(&self) -> usize {
         self.count(|e| matches!(e, DozerEvent::WheelHit { .. }))
+    }
+
+    /// Distinct wheel-hit episodes: a hero lying under the wheel logs a `WheelHit` every tick (room
+    /// 3's behaviour), so consecutive ticks of one hero count once.
+    pub fn wheel_hit_episodes(&self) -> usize {
+        let mut last: [Option<u64>; 2] = [None; 2];
+        let mut episodes = 0;
+        for (t, e) in &self.log {
+            if let DozerEvent::WheelHit { hero } = e {
+                let i = hero.index();
+                if last[i].is_none_or(|l| *t > l + 1) {
+                    episodes += 1;
+                }
+                last[i] = Some(*t);
+            }
+        }
+        episodes
     }
 
     pub fn rescues(&self) -> usize {
