@@ -851,7 +851,7 @@ fn the_camp_and_the_aftermath_carry_the_audience_through() {
             "the carry resumes exactly"
         );
         let mut ticks = 0u64;
-        let mut highest = 0u64;
+        let mut highest = [0u64; 2];
         for tick in 1..=1200u64 {
             let x = rig.scene.world.body(HeroId::Carl).x;
             rig.step(RawInput {
@@ -870,7 +870,9 @@ fn the_camp_and_the_aftermath_carry_the_audience_through() {
             );
             ticks = tick;
             if let Some(c) = hud.audience_carry() {
-                highest = highest.max(c[0].0).max(c[1].0);
+                for hero in 0..2 {
+                    highest[hero] = highest[hero].max(c[hero].0);
+                }
             }
             if rig.scene.world.complete {
                 break;
@@ -890,11 +892,14 @@ fn the_camp_and_the_aftermath_carry_the_audience_through() {
             exit[1].0,
             exit[1].1
         );
-        assert!(
-            highest <= 1_400,
-            "{}: nothing awards viewers here",
-            room.id()
-        );
+        for (hero, high) in highest.iter().enumerate() {
+            assert!(
+                *high <= entry[hero].0,
+                "{} hero {hero}: nothing awards viewers here ({high} > {})",
+                room.id(),
+                entry[hero].0
+            );
+        }
         for (hero, (now, peak)) in exit.iter().enumerate() {
             assert!(
                 *now <= entry[hero].0,

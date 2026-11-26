@@ -28,7 +28,7 @@ Room order (`assets/levels/f01_late/manifest.json`): `corral`, `rest_refuge` (RE
 
 ## 2. The unlock beat (deliverable 1)
 
-**Adopted (AR-AD1): the broadcast goes live when the run leaves the Infernal Corral.** The corral (room 1 of 12) plays with no viewer decoration. Every run room listed after the corral (the refuge `rest_refuge` onward, the camp `rest_camp` and the aftermath `rest_aftermath` included) has both counts live; N is the current run length (12 since REST-WIRE's second step). The refuge, the camp and the aftermath are quiet rooms with no kill, so no award happens there and decay runs unchanged (REST-AD14; REST-Q10 asks whether it should freeze).
+**Adopted (AR-AD1): the broadcast goes live when the run leaves the Infernal Corral.** The corral (the run's first room) plays with no viewer decoration. Every run room listed after the corral (the refuge `rest_refuge` onward, the camp `rest_camp` and the aftermath `rest_aftermath` included) has both counts live; N is the current run length, read from the manifest. The refuge, the camp and the aftermath are quiet rooms with no kill, so no award happens there and decay runs unchanged (REST-AD14; REST-Q10 asks whether it should freeze).
 
 Why this beat:
 

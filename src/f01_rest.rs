@@ -1,7 +1,7 @@
 //! REST-WIRE: the quiet rooms of the late-Floor-1 run
 //! (`docs/01-design/floor-01-quiet-setpieces-and-transitions.md` section G,
 //! `docs/07-agents/floor-01-quiet-setpieces-workorder.md`). Three rooms (REST-AD1,
-//! REST-AD11): the **refuge** (REST-A, room 1 `rest_refuge`, "The Wrong Restaurant"),
+//! REST-AD11): the **refuge** (REST-A, `rest_refuge`, "The Wrong Restaurant"),
 //! listed right after the corral so the Light on Your Feet grant of the story table
 //! (`f01_safe_room_reward_found`, REST-AD3) happens in play before the Hoarder; the
 //! **camp** (REST-B, `rest_camp`, "The Survivors' Camp"), after the Ring; and the
@@ -75,11 +75,11 @@ pub const AFTERMATH_ROOM_PATH: &str = "assets/levels/floor01/f01_rest_aftermath.
 
 /// FNV-1a 64 of the room file and of the sidecar (the files live under
 /// `assets/levels`, so the hashes are constants, the Boiler's precedent).
-pub const REFUGE_ROOM_HASH: u64 = 0x9530_9fd0_8a4b_5554;
+pub const REFUGE_ROOM_HASH: u64 = 0xfd3e_18aa_e5ce_2f26;
 pub const REFUGE_ENCOUNTER_HASH: u64 = 0xee94_f77c_d985_cf26;
-pub const CAMP_ROOM_HASH: u64 = 0x82ac_9d19_a66e_503d;
+pub const CAMP_ROOM_HASH: u64 = 0x7e23_ffa3_e953_74a5;
 pub const CAMP_ENCOUNTER_HASH: u64 = 0x0e29_7196_531c_54e4;
-pub const AFTERMATH_ROOM_HASH: u64 = 0x1fa7_f8e2_d2e3_4425;
+pub const AFTERMATH_ROOM_HASH: u64 = 0xf03f_55e7_20c8_f408;
 pub const AFTERMATH_ENCOUNTER_HASH: u64 = 0x0705_5b07_4962_3490;
 /// The `data_pins()` keys, scoped to the `rest_refuge` room by
 /// [`crate::f01_late::pin_applies`].
@@ -113,11 +113,11 @@ pub const REWARD_ZONE_X: (i32, i32) = (1200, 1240);
 /// One of the quiet rooms (REST-AD1), in run order.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum RestRoom {
-    /// Room 1, REST-A: the fast-food refuge with the staff door.
+    /// REST-A: the fast-food refuge with the staff door.
     Refuge,
-    /// Room 9, REST-B: the survivors' camp, after the Ring.
+    /// REST-B: the survivors' camp, after the Ring and before the Juicer.
     Camp,
-    /// Room 11, REST-C: the quiet after the Juicer, before the mastery arena.
+    /// REST-C: the quiet after the Juicer, before the mastery arena.
     Aftermath,
 }
 

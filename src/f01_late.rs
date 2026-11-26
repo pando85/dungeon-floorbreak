@@ -186,7 +186,7 @@ pub enum RoomScene {
     /// CORRAL-WIRE, CW-AD1).
     #[serde(rename = "f01_corral")]
     Corral,
-    /// REST-WIRE: room 1, the refuge ("The Wrong Restaurant"); launched through
+    /// REST-WIRE: the refuge ("The Wrong Restaurant"); launched through
     /// `--scene f01_late` only, listed right after the corral.
     #[serde(rename = "f01_rest_refuge")]
     RestRefuge,

@@ -265,6 +265,8 @@ pub struct Outcome {
     pub receipts: usize,
     /// The final ledger equals the one the room started with (a quiet room grants nothing).
     pub ledger_unchanged: bool,
+    /// The ledger at the end of the run (compare it with the carry that was passed in).
+    pub final_snapshot: Option<LedgerSnapshot>,
     /// `(tick, from_x, to_x)` of each resolved blink (Puddle Jumper).
     pub blinks: Vec<(u64, i32, i32)>,
     /// Blinks rejected, fizzled or cancelled.
@@ -288,6 +290,7 @@ impl Outcome {
             donut_on_shelf: sim.donut_on_shelf(),
             receipts: sim.combat.story_snapshot().map_or(0, |s| s.receipts.len()),
             ledger_unchanged: sim.combat.story_snapshot() == sim.start_snapshot,
+            final_snapshot: sim.combat.story_snapshot(),
             blinks: sim
                 .combat
                 .events
@@ -855,7 +858,7 @@ fn drive(root: &Path, case: Case) -> Result<RestSim, String> {
 }
 
 /// Solo Carl walks right to the exit's middle (the other hero is the follow-and-jump bot).
-fn walk_to_the_exit(sim: &mut RestSim, budget: u64) {
+pub fn walk_to_the_exit(sim: &mut RestSim, budget: u64) {
     let ex = exit_x(sim);
     while sim.tick() < budget && !sim.complete() {
         let input = RawInput {
@@ -1248,8 +1251,72 @@ mod tests {
         assert!(o.exit_tick.is_some_and(|t| t <= 1200), "{:?}", o.exit_tick);
         assert!(o.grants.is_empty(), "{:?}", o.grants);
         assert!(o.ledger_unchanged, "the exit snapshot equals the carry");
+        assert_eq!(
+            o.final_snapshot.as_ref(),
+            Some(&carry),
+            "the final ledger is the carry that was passed in, held and receipts"
+        );
         assert_eq!(o.receipts, 4);
         assert_eq!(o.damage, 0);
+    }
+
+    /// REST-C-01: a checkpoint retry in the middle of the aftermath leaves the carried ledger
+    /// as it came (four capabilities, four receipts); a fixture restart restores the carried
+    /// held set (receipts cleared by the ledger's restart rule); nothing is ever granted.
+    #[test]
+    fn rest_aftermath_retry_and_restart_keep_the_carried_ledger() {
+        let carry = post_juicer_snapshot(&root()).unwrap();
+        let (carl, donut) = story();
+        let mut sim = RestSim::new_in(
+            &root(),
+            RestRoom::Aftermath,
+            360,
+            carl,
+            donut,
+            Party::Solo { uncontrolled: BOT },
+            Some(&carry),
+        )
+        .unwrap();
+        let ex = exit_x(&sim);
+        while sim.tick() < 200 {
+            let input = RawInput {
+                move_x: walk(sim.x_of(HeroId::Carl), ex),
+                ..RawInput::NONE
+            };
+            sim.step([input, RawInput::NONE]);
+        }
+        assert_eq!(sim.combat.story_snapshot().as_ref(), Some(&carry));
+        // A checkpoint retry (the defeat path of a demo-rules room).
+        sim.combat.respawn(&mut sim.scene);
+        sim.combat.take_respawned();
+        sim.party.restart();
+        assert_eq!(
+            sim.combat.story_snapshot().as_ref(),
+            Some(&carry),
+            "after a retry"
+        );
+        assert_eq!(sim.combat.story_snapshot().unwrap().receipts.len(), 4);
+        // A fixture restart (R / Select held) restores the room's declared start state: the
+        // carried held set (the carry became the start, `carry_in`), with the attempt's
+        // receipts cleared (the ledger's restart rule for every room, REST-IMP-12). Nothing
+        // is granted again and nothing is armed.
+        sim.combat.restart(&mut sim.scene);
+        sim.party.restart();
+        let restored = sim.combat.story_snapshot().unwrap();
+        assert_eq!(
+            restored.held, carry.held,
+            "after a restart: the carried held set"
+        );
+        assert!(
+            restored.receipts.is_empty(),
+            "the restart clears the receipts"
+        );
+        assert!(sim.grants().is_empty(), "no grant fires");
+        walk_to_the_exit(&mut sim, 1800);
+        assert!(sim.complete());
+        let o = Outcome::of(&sim);
+        assert!(o.grants.is_empty(), "{:?}", o.grants);
+        assert_eq!(o.final_snapshot.unwrap().held, carry.held);
     }
 
     /// Donut blinks across the 112 px lane: the blink is accepted and resolves 112 px on, no

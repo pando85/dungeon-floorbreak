@@ -1198,6 +1198,205 @@ mod tests {
         (combat, snapshot)
     }
 
+    /// The carry of the run up to and including `last`, built room by room through the same
+    /// constructors the relaunch uses (each room's snapshot carried into the next).
+    fn carry_up_to(manifest: &Manifest, last: &str) -> LedgerSnapshot {
+        let mut carry: Option<LedgerSnapshot> = None;
+        for row in &manifest.rooms {
+            carry = room_run(row, carry.as_ref()).1;
+            if row.id == last {
+                break;
+            }
+        }
+        carry.expect("the run carries a ledger")
+    }
+
+    /// REST-C-03: the ledger passes through the camp and the aftermath untouched. A camp
+    /// crossing entered with `ring_split`'s ledger leaves with exactly that ledger (nothing
+    /// granted, no receipt added or dropped), the exit's relaunch argv carries it into the
+    /// Juicer, and the Juicer launches from it with the Hoarder's dynamite still one receipt.
+    #[test]
+    fn the_camp_and_aftermath_carry_their_ledger_through() {
+        use crate::f01_rest::RestRoom;
+        use crate::rest_fixtures::{BOT, Party, RestSim, walk_to_the_exit};
+        let manifest = manifest();
+        let (carl, donut) = Loadout::Story.flags();
+        let argv = argv(&["floor01_scene", "--scene", "f01_late", "--f01-run"]);
+        // ring_split exit -> camp.
+        let carry = carry_up_to(&manifest, "ring_split");
+        assert_eq!(
+            carry_for(
+                Loadout::Story,
+                RoomScene::RingSplit,
+                &room_run(manifest.room("ring_split").unwrap(), Some(&carry)).0
+            ),
+            Some(carry.clone()),
+            "the Ring's exit hands the ledger on unchanged"
+        );
+        let mut camp = RestSim::new_in(
+            &root(),
+            RestRoom::Camp,
+            360,
+            carl,
+            donut,
+            Party::Solo { uncontrolled: BOT },
+            Some(&carry),
+        )
+        .unwrap();
+        walk_to_the_exit(&mut camp, 1200);
+        assert!(camp.complete(), "the camp is crossed");
+        assert_eq!(camp.combat.story_snapshot(), Some(carry.clone()));
+        let input = ExitInput {
+            manifest: &manifest,
+            room: "rest_camp",
+            loadout: Loadout::Story,
+            combat: &camp.combat,
+            carried: Some(&carry),
+            tally: RunTally::default(),
+            argv: &argv,
+            recording: "REC",
+            audience: None,
+            audience_enabled: false,
+        };
+        let (facts, _, decision) = on_exit(&input).unwrap();
+        assert!(facts.grants.is_empty(), "the camp grants nothing");
+        let Decision::Relaunch { room, argv: next } = decision else {
+            panic!("the camp leads on");
+        };
+        assert_eq!(room, "juicer");
+        let at = next.iter().position(|a| a == FLAG_CARRY).unwrap();
+        assert_eq!(
+            decode_carry(&next[at + 1]).unwrap(),
+            carry,
+            "carried unchanged"
+        );
+        // The Juicer launches from the camp's ledger and still holds one dynamite receipt.
+        let juicer = juicer_relaunch(&root(), Loadout::Story, Some(&carry)).unwrap();
+        let after = juicer.combat.story_snapshot().unwrap();
+        for receipt in &carry.receipts {
+            assert!(after.receipts.contains(receipt), "{receipt:?} kept");
+        }
+        assert_eq!(
+            after
+                .receipts
+                .iter()
+                .filter(|r| r.capability == SPECIAL_THROWN_CHARGE.as_str())
+                .count(),
+            1
+        );
+    }
+
+    /// REST-C-03: juicer exit -> aftermath -> mastery. The aftermath, entered with the Juicer's
+    /// ledger (every capability with its receipt), grants nothing and leaves it unchanged; its
+    /// exit relaunches into the mastery arena carrying it, and the arena accepts it with no
+    /// extra receipt.
+    #[test]
+    fn the_aftermath_exit_relaunches_into_mastery() {
+        use crate::f01_rest::RestRoom;
+        use crate::rest_fixtures::{BOT, Party, RestSim, walk_to_the_exit};
+        let manifest = manifest();
+        let (carl, donut) = Loadout::Story.flags();
+        let argv = argv(&["floor01_scene", "--scene", "f01_late", "--f01-run"]);
+        let camp_carry = carry_up_to(&manifest, "rest_camp");
+        let juicer = juicer_relaunch(&root(), Loadout::Story, Some(&camp_carry)).unwrap();
+        let carry = carry_for(Loadout::Story, RoomScene::Boss, &juicer.combat)
+            .expect("the Juicer carries a ledger");
+        assert!(carry.receipts.len() >= 3, "{:?}", carry.receipts);
+        let mut aftermath = RestSim::new_in(
+            &root(),
+            RestRoom::Aftermath,
+            360,
+            carl,
+            donut,
+            Party::Solo { uncontrolled: BOT },
+            Some(&carry),
+        )
+        .unwrap();
+        walk_to_the_exit(&mut aftermath, 1200);
+        assert!(aftermath.complete(), "the aftermath is crossed");
+        assert_eq!(aftermath.combat.story_snapshot(), Some(carry.clone()));
+        let input = ExitInput {
+            manifest: &manifest,
+            room: "rest_aftermath",
+            loadout: Loadout::Story,
+            combat: &aftermath.combat,
+            carried: Some(&carry),
+            tally: RunTally::default(),
+            argv: &argv,
+            recording: "REC",
+            audience: None,
+            audience_enabled: false,
+        };
+        let (facts, _, decision) = on_exit(&input).unwrap();
+        assert!(facts.grants.is_empty(), "nothing is granted twice");
+        let Decision::Relaunch { room, argv: next } = decision else {
+            panic!("the aftermath leads on");
+        };
+        assert_eq!(room, "mastery");
+        let at = next.iter().position(|a| a == FLAG_CARRY).unwrap();
+        let carried = decode_carry(&next[at + 1]).unwrap();
+        assert_eq!(carried, carry);
+        // The arena accepts it: no receipt added, none dropped.
+        let (_, _, mut mastery) =
+            crate::f01_late::mastery_start(&root(), 360, carl, donut, None).unwrap();
+        mastery.carry_story(&carried).unwrap();
+        assert_eq!(mastery.story_snapshot().unwrap().receipts, carry.receipts);
+    }
+
+    /// Evidence helper (ignored): the carried chain of the whole run, one line per room: the
+    /// ledger carried in, the ledger handed on through the relaunch argument and whether the
+    /// room changed it. The quiet rooms are walked to their exit first.
+    #[test]
+    #[ignore = "evidence helper: prints the carried chain of the floor run"]
+    fn print_the_carried_run_chain() {
+        use crate::f01_rest::RestRoom;
+        use crate::rest_fixtures::{BOT, Party, RestSim, walk_to_the_exit};
+        let manifest = manifest();
+        let (carl, donut) = Loadout::Story.flags();
+        let n = manifest.rooms.len();
+        let mut carry: Option<LedgerSnapshot> = None;
+        let size = |c: &Option<LedgerSnapshot>| {
+            c.as_ref()
+                .map_or((0, 0), |c| (c.held.len(), c.receipts.len()))
+        };
+        for (i, row) in manifest.rooms.iter().enumerate() {
+            let carried_in = size(&carry);
+            let handed = match row.scene.rest() {
+                // The camp and the aftermath are walked to their exit; the other rooms are read
+                // at their start through the shared constructors (the refuge's own crossing is
+                // covered by its fixtures; its boost is the Hoarder's pin here).
+                Some(room) if room != RestRoom::Refuge => {
+                    let mut sim = RestSim::new_in(
+                        &root(),
+                        room,
+                        360,
+                        carl,
+                        donut,
+                        Party::Solo { uncontrolled: BOT },
+                        carry.as_ref(),
+                    )
+                    .unwrap();
+                    walk_to_the_exit(&mut sim, 1200);
+                    assert!(sim.complete(), "{} is crossed", row.id);
+                    carry_for(Loadout::Story, row.scene, &sim.combat)
+                }
+                _ => room_run(row, carry.as_ref()).1,
+            };
+            let (held, receipts) = size(&handed);
+            println!(
+                "RUN_CHAIN {}/{n} room={} carried_in=held:{},receipts:{} handed_on=held:{},receipts:{} unchanged={}",
+                i + 1,
+                row.id,
+                carried_in.0,
+                carried_in.1,
+                held,
+                receipts,
+                handed == carry
+            );
+            carry = handed;
+        }
+    }
+
     #[test]
     fn the_hoarders_dynamite_survives_every_listed_room_of_the_run() {
         let manifest = manifest();

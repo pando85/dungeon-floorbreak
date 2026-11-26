@@ -1,6 +1,6 @@
 {
   "schema": "floor01-demo-hall-v1",
-  "status": "REST-WIRE greybox room (docs/01-design/floor-01-quiet-setpieces-and-transitions.md section G, REST-B, room 9 of the floor run): geometry only, composed at load time from approved Floor 01 kit pieces by camera_lab::layout (no new art, not an authored level; the camp interior art is the separate AREA-CAMP-01 work order), launched as the room rest_camp of --scene f01_late (src/f01_rest.rs). The goal lives in f01_rest_camp.encounter.json, validated by src/encounter.rs.",
+  "status": "REST-WIRE greybox room (docs/01-design/floor-01-quiet-setpieces-and-transitions.md section G, REST-B, the camp between the Ring and the Juicer): geometry only, composed at load time from approved Floor 01 kit pieces by camera_lab::layout (no new art, not an authored level; the camp interior art is the separate AREA-CAMP-01 work order), launched as the room rest_camp of --scene f01_late (src/f01_rest.rs). The goal lives in f01_rest_camp.encounter.json, validated by src/encounter.rs.",
   "scenarios": [
     {
       "id": "F01-REST-CAMP",

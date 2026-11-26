@@ -1,0 +1,12 @@
+RUN_CHAIN 1/12 room=corral carried_in=held:0,receipts:0 handed_on=held:0,receipts:0 unchanged=false
+RUN_CHAIN 2/12 room=rest_refuge carried_in=held:0,receipts:0 handed_on=held:0,receipts:0 unchanged=true
+RUN_CHAIN 3/12 room=hoarder carried_in=held:0,receipts:0 handed_on=held:2,receipts:1 unchanged=false
+RUN_CHAIN 4/12 room=boiler carried_in=held:2,receipts:1 handed_on=held:2,receipts:1 unchanged=true
+RUN_CHAIN 5/12 room=dozer carried_in=held:2,receipts:1 handed_on=held:2,receipts:1 unchanged=true
+RUN_CHAIN 6/12 room=hazards carried_in=held:2,receipts:1 handed_on=held:2,receipts:1 unchanged=true
+RUN_CHAIN 7/12 room=ring_court carried_in=held:2,receipts:1 handed_on=held:2,receipts:1 unchanged=true
+RUN_CHAIN 8/12 room=ring_split carried_in=held:2,receipts:1 handed_on=held:2,receipts:1 unchanged=true
+RUN_CHAIN 9/12 room=rest_camp carried_in=held:2,receipts:1 handed_on=held:2,receipts:1 unchanged=true
+RUN_CHAIN 10/12 room=juicer carried_in=held:2,receipts:1 handed_on=held:4,receipts:3 unchanged=false
+RUN_CHAIN 11/12 room=rest_aftermath carried_in=held:4,receipts:3 handed_on=held:4,receipts:3 unchanged=true
+RUN_CHAIN 12/12 room=mastery carried_in=held:4,receipts:3 handed_on=held:4,receipts:3 unchanged=true
