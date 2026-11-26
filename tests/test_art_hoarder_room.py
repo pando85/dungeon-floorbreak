@@ -16,12 +16,23 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 import author_floor01_kit as kit  # noqa: E402
 import author_hoarder_room as room  # noqa: E402
+import author_hrd_cues as cues  # noqa: E402
 import pixel_grid_to_ase as pg  # noqa: E402
 
 KIT_COLOURS = {v.lower() for ramp in kit.RAMPS.values() for v in ramp}
 # SHA-256 of the RGBA sequence of the design stage's hero key (the mound `sealed`, back and front layers)
 HERO_BACK = "23094d01a8c5bb87411b868197f00e3a51806b138a859f97c04f8da77762ce7b"
 HERO_FRONT = "8b0ce67239a067d2c2cf5a690862193640eeaaeb6345fe48c4df8acad4183e6e"
+# HRD-CUES-01 A1: the RGBA sequence hashes of the frames that existed before the cues (taken from the grids of main
+# before the HRD-CUES-01 branch; palette-independent, because the cue frames re-lettered the palette keys)
+OLD_FRAMES = {
+    ("hoarder_mound", 0): HERO_BACK,
+    ("hoarder_mound", 1): HERO_FRONT,
+    ("hoarder_mound", 2): "fea45a016c9e627a0bec135ec175da0cefa62f2bc917646a00e4135f85c8bb58",
+    ("hoarder_post_b", 0): "19e2a17fab7d5f262f90308e76b7d3ac6969ee299882d24678235eea2fd58599",
+    ("hoarder_post_b", 1): "c0406009bfde6e79cb059135d21983ce4a18decf274d021ba5d4087dfc5d43ce",
+    ("hoarder_post_b", 2): "2ae5fdbd24cd1dbce69e9b9640afafced9e8e19be98439f19a4b5811677cc353",
+}
 
 
 def load(name: str) -> dict:
@@ -141,7 +152,8 @@ class RoomKitTests(unittest.TestCase):
                 best = max(best, run)
             return best
 
-        for name, frames in (("hoarder_mound", (0, 2)), ("hoarder_heap", (0, 1, 2)), ("hoarder_post_b", (0, 1, 2))):
+        for name, frames in (("hoarder_mound", (0, 2, 3, 4, 5)), ("hoarder_heap", (0, 1, 2)),
+                              ("hoarder_post_b", (0, 1, 2, 3, 4))):
             grid = load(name)
             for f in frames:
                 self.assertLess(longest_flat_top(pixels(grid, f)), 12, f"{name} frame {f}: a ragged top, no flat line")
@@ -152,11 +164,89 @@ class RoomKitTests(unittest.TestCase):
     def test_post_has_no_label_and_no_shelf(self) -> None:
         """The post is a thin upright: the timber is at most 12 px wide at every row above the shim (spec section 7)."""
         post = load("hoarder_post_b")
-        for f in range(3):
+        for f in range(5):
             px = pixels(post, f)
             for y in range(0, 60):
                 width = sum(1 for c in px[y] if c)
                 self.assertLessEqual(width, 14, f"frame {f} row {y}")
+    # ---------------------------------------------------------------- HRD-CUES-01 (docs/02-art/hrd-cues-01-spec.md)
+
+    def test_a1_cue_keys_are_frozen_and_the_old_frames_are_unchanged(self) -> None:
+        """A1: the two frozen keys match their fixtures (`author_hrd_cues.py --check`), and every frame that existed
+        before the cues is the same RGBA sequence as on main (hashed on resolved RGBA, not raw cels)."""
+        self.assertEqual(cues.main(["--check"]), 0)
+        for (name, frame), expected in OLD_FRAMES.items():
+            self.assertEqual(sequence_hash(pixels(load(name), frame)), expected, f"{name} frame {frame}")
+
+    def test_a2_the_stir_frames_are_a_rigid_lift_of_the_sealed_back_frame(self) -> None:
+        """A2: under the hinge row a stir frame equals `sealed_back`; above it every column is `sealed_back` taken from
+        `lift` rows lower (a source row above the canvas is transparent, not clamped), apart from outline pixels and
+        the grit specks."""
+        mound = load("hoarder_mound")
+        back, front = pixels(mound, 0), pixels(mound, 1)
+        h, w = len(back), len(back[0])
+        outline = kit.RAMPS["mortar"][0].lower()
+        stone7, stone3 = kit.RAMPS["stone"][7].lower(), kit.RAMPS["stone"][3].lower()
+        for frame, kind in enumerate(room.STIR_KINDS, start=3):
+            px = pixels(mound, frame)
+            grit = {}
+            for dx, over in room.STIR_GRIT[kind]:
+                x = room.PIVOT[0] + dx
+                top = next(y for y in range(h) if px[y][x])
+                self.assertEqual((px[top][x], px[top + 1][x]), (stone7, stone3), f"{kind} grit at {x}")
+                grit[x] = {top, top + 1}
+            for x in range(w):
+                lip = next((y for y in range(h) if front[y][x]), None)
+                lift = room.stir_lift(x, kind) if lip is not None else 0
+                hinge = min(71, (lip or 0) + abs(lift) + 1)
+                for y in range(h):
+                    if y in grit.get(x, ()):
+                        continue
+                    if y >= hinge:
+                        self.assertEqual(px[y][x], back[y][x], f"{kind} ({x},{y}) under the hinge")
+                        continue
+                    if px[y][x] == outline:
+                        continue
+                    src = min(y + lift, hinge) if lift >= 0 else y + lift
+                    expected = back[src][x] if 0 <= src < h else None
+                    self.assertEqual(px[y][x], expected, f"{kind} ({x},{y}) lift {lift}")
+
+    def test_a3_nothing_reaches_row_zero_and_the_front_lip_hides_the_seam(self) -> None:
+        """A3: no stir frame has an opaque pixel on row 0. A3b: every pixel at or under the lip's top row that differs
+        from `sealed_back` is covered by an opaque `sealed_front` pixel."""
+        mound = load("hoarder_mound")
+        back, front = pixels(mound, 0), pixels(mound, 1)
+        for frame in (3, 4, 5):
+            px = pixels(mound, frame)
+            self.assertFalse(any(px[0]), f"frame {frame} row 0")
+            for x in range(len(back[0])):
+                lip = next((y for y in range(len(back)) if front[y][x]), None)
+                if lip is None:
+                    continue
+                for y in range(lip, len(back)):
+                    if px[y][x] != back[y][x]:
+                        self.assertIsNotNone(front[y][x], f"frame {frame} ({x},{y}) differs under the lip uncovered")
+
+    def test_a4_the_shored_post_has_no_pale_split_and_two_iron_straps(self) -> None:
+        """A4: `shored` has no `wood` 5 pixel in the split's columns 4..10, rows 14..51; iron 4 across columns 2..13 at
+        rows 18 and 40; and its mean ramp index is lower than `intact`'s."""
+        post = load("hoarder_post_b")
+        px = pixels(post, 3)
+        pale = kit.RAMPS["wood"][5].lower()
+        for y in range(14, 52):
+            for x in range(4, 11):
+                self.assertNotEqual(px[y][x], pale, f"pale wood at ({x},{y})")
+        iron4 = kit.RAMPS["iron"][4].lower()
+        for y in (18, 40):
+            self.assertEqual(px[y][2:14], [iron4] * 12, f"strap row {y}")
+        idx = {v.lower(): i for ramp in kit.RAMPS.values() for i, v in enumerate(ramp)}
+
+        def mean(frame: int) -> float:
+            vals = [idx[c] for r in pixels(post, frame) for c in r if c]
+            return sum(vals) / len(vals)
+
+        self.assertLess(mean(3), mean(0))
+        self.assertTrue(any(c == pale for r in pixels(post, 4)[14:52] for c in r[4:11]), "give keeps the split")
 
     def test_door_and_gate_states_differ_and_open_states_are_clear(self) -> None:
         door, gate = load("hoarder_door"), load("hoarder_gate")

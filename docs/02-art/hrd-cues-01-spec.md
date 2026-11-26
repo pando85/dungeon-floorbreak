@@ -1,6 +1,6 @@
 # HRD-CUES-01: the Hoarder's pre-wake stir and the J-B post's "not yet" (design spec)
 
-**Status:** design spec and keys. Every cue frame is authored in the room kit sources (`hoarder_mound` frames 3..5, `hoarder_post_b` frames 3 and 4), two of them frozen as keys. The presenter does not draw them yet; the wiring, tests and window captures are the execution step. Design gate: [docs/evidence/hrd-cues-01-design](../evidence/hrd-cues-01-design/README.md). Independent art-director review pending; owner art and game-feel review pending. Not owner-approved.
+**Status:** keys, frames, wiring, tests and evidence done. Every cue frame is authored in the room kit sources (`hoarder_mound` frames 3..5, `hoarder_post_b` frames 3 and 4), two of them frozen as keys; the presenter draws them (on by default, presentation only). Design gate: [docs/evidence/hrd-cues-01-design](../evidence/hrd-cues-01-design/README.md). Runtime evidence: [docs/evidence/hrd-cues-01](../evidence/hrd-cues-01/README.md). Independent Opus review pending; owner art review pending, game-feel review pending. Not owner-approved.
 
 **Scope.** Two small tells in Floor 1 room 1, the Hoarder (audit row X9):
 
@@ -38,13 +38,13 @@ Ticks are 60 Hz scene ticks. "Lead x" is the largest x of the present heroes: Ca
 | Level | Condition (every tick) | Breath period | Back-layer frame by phase | Motes |
 | --- | --- | --- | --- | --- |
 | **S0** none | not S1 or S2 | none | `sealed_back` (0) | none |
-| **S1** approach | `mode() == Dormant`, `gate() == Open { crossed: None }`, lead x >= `hrdq05_stir_x` (240) | 72 | phase 0..5 `stir_heave` (3), 6..9 `stir_slump` (5), 10..71 `sealed_back` (0) | 3 (S1 table) |
+| **S1** approach | `mode() == Dormant`, `gate() == Open { crossed: None }`, lead x >= `hrdq05_stir_x` (240); once active it holds until the lead x drops under 224 (HC-AD11) | 72 | phase 0..5 `stir_heave` (3), 6..9 `stir_slump` (5), 10..71 `sealed_back` (0) | 3 (S1 table) |
 | **S2** engaged | `mode() == Dormant`, `gate() == Open { crossed: Some(_) }` | 36 | phase 0..7 `stir_heave_hi` (4), 8..11 `stir_slump` (5), 12..35 `sealed_back` (0) | 5 (S2 table) |
 
-- **Phase** = (scene tick - first tick the presenter saw the current level) mod period. The anchor is render-local (`HoarderMemo`), so the first breath fires on the tick the level starts: a hero stepping past x 240 sees the heap heave at once, and the crossing of x 432 starts a hard heave that covers the 8 settle ticks before the gate drops (solo). A level change re-anchors; a tick that goes backwards (restart, retry) clears the memo, like `out_age`.
+- **Phase** = (scene tick - first tick the presenter saw the current level) mod period. The anchor is render-local (`HoarderMemo`), so the first breath fires on the tick the level starts: a hero stepping past x 240 sees the heap heave at once, and the crossing of x 432 starts a hard heave that covers the 8 settle ticks before the gate drops (solo). A level change re-anchors; a tick that goes backwards (restart, retry) clears the memo, like `out_age`. **Hysteresis (HC-AD11):** once S1 is active it stays active, with the same anchor, until the lead hero is under x 224 (`STIR_HOLD_PX` = 16 under `hrdq05_stir_x`), so a hero hovering on the line at x 240 does not restart the breath; dropping under 224 ends the stir and reaching 240 again starts a fresh breath at age 0.
 - **The front lip stays `sealed_front` (1)** in every stir frame. The lift's stretched rows are under it, so it hides the seam.
 - **The stir stops on the Reveal's first tick** (mode leaves Dormant) and R7 takes over. On a retry she is Dormant again and the stir returns by the same rules (the retry Reveal is shorter, the stir is not).
-- In 2P, S2 lasts as long as the gate waits for the second player: the heap keeps heaving every 36 ticks. In solo it lasts the 8 settle ticks: one heave.
+- In 2P, S2 lasts as long as the gate waits for the second player: the heap keeps heaving every 36 ticks. In solo it lasts exactly the 8 settle ticks (`hrdq41_settle_ticks`, the Reveal starts at the crossing + 8): one heave, and solo play only ever shows `stir_heave_hi`, never the S2 slump or the S2 motes after phase 7.
 
 ### 2.2 Post states ("not yet", HRDC-AD4)
 
@@ -122,15 +122,16 @@ For `out_age` a in 0..7 and k in 0..3 with dx = 0, 2, 14, 16: x = post.x + dx + 
 | HRD-Q05 | The stir cue starts when the lead present hero reaches `hrdq05_stir_x` (240, existing data); it is a breathing heap (lift, slump, grit), presentation only | The design names x 240 and "presentation only"; a breath reads as alive under junk without showing her |
 | HRDC-AD4 | Unchanged rule; its cue is the `shored` post while she is not out and the `give` beat when she comes out | Explains the dead hits with plain carpentry and teaches "now" at the moment it becomes true |
 | HC-AD1 | The stir frames are a rigid column lift of `sealed_back` with an unchanged front lip | No re-shading, so no texture boil; the lip hides the stretch; the frozen sealed key stays the source |
-| HC-AD2 | Two levels: S1 period 72 (heave 6, slump 4), S2 period 36 (heave_hi 8, slump 4) | About two breaths on the walk from 240 to 432; a hard heave covers the 8 settle ticks; 2P waiting keeps escalated |
+| HC-AD2 | Two levels: S1 period 72 (heave 6, slump 4), S2 period 36 (heave_hi 8, slump 4) | One heave on the trigger tick and usually no second one on a straight run (at `RUN_SPEED` 185 px/s the 192 px walk from 240 to 432 takes about 62 ticks, under one period); a hesitant player sees it repeat. A hard heave covers the 8 settle ticks; 2P waiting keeps escalated |
 | HC-AD3 | Lead x = Carl, plus Donut while the party is live (the bot is not counted) | Matches the sim's present set for the gate |
 | HC-AD4 | Breath phase anchored to the first tick the presenter sees the level (render-local memo, cleared when the tick goes backwards) | First breath on the trigger tick; same memo pattern as `out_age` |
 | HC-AD5 | Stir and give grit reuse the R7 dust motes (colour, size, `mote_z`); 3 (S1), 5 (S2), 4 (give) | One dust language in the room; no new colour or sprite; within `MAX_MOTES` |
 | HC-AD6 | `shored` on every tick she is not out, Dormant and Reveal, first attempt and retries | The rule it explains holds on all those ticks |
 | HC-AD7 | `give` for 8 ticks from her first out tick, only over `intact`; then the machine's frames | A beat as long as two R7 bursts; a real hit always wins |
 | HC-AD8 | No reactive cue on a refused post hit; bolts keep passing the post | A refused hit leaves no trace in the sim; detecting it needs a new observer field (HC-OQ1). The ambient cue covers the case |
-| HC-AD9 | On by default wherever the Hoarder room is drawn, including `--scene f01_late --f01-run`; no flag | Presentation only: no simulation, replay, hash or input change to gate |
+| HC-AD9 | On by default wherever the Hoarder room is drawn, including `--scene f01_late --f01-run`; no flag | Presentation only: no simulation, replay, hash or input change to gate; the existing flag gating protects authoritative behaviour, and this cue changes none |
 | HC-AD10 | Cue frames appended: mound 3..5, post 3..4 | Existing frames, fixtures and stills stay byte-identical |
+| HC-AD11 | Hysteresis: once S1 is active it holds until the lead hero is under x 224 (16 px under `hrdq05_stir_x`); the hold lives in the render-local memo (`HoarderMemo::stir_held`, `stir_level_held`) | A hero hovering at x 240 would otherwise re-anchor the breath on every crossing and heave rapidly (design gate note N1); presentation only, no sim read changes |
 
 ## 8. Open questions (not adopted)
 
@@ -146,9 +147,9 @@ For `out_age` a in 0..7 and k in 0..3 with dx = 0, 2, 14, 16: x = post.x + dx + 
 
 ## 10. Evidence plan
 
-- Directory `docs/evidence/hrd-cues-01/` with README and `SHA256SUMS`, made by extending `scripts/make_hoarder_presentation_evidence.sh` (or a sibling script), stills at 640 x 360 and 1920 x 1080:
-  - direct plan: `stir_s1` (a tick with Carl between x 240 and 432 on a heave phase), `stir_s2` (the crossing tick + 3), `shored` (a Reveal tick), `give` (out tick + 2), `intact_after` (out tick + 10);
-  - floor run (`--scene f01_late --f01-run`): one S1 heave still and one `shored` still in the Hoarder room at gameplay scale.
-- A short GIF or contact strip of one S1 breath and one S2 breath (enlarged x3 crop of the mound) and of the give beat.
+- Directory `docs/evidence/hrd-cues-01/` with README and `SHA256SUMS`, made by `scripts/make_hrd_cues_evidence.sh`, stills at 640 x 360 and 1920 x 1080. Because the cue ages are render-local, each cue is captured as a **one-tick-per-frame sequence that starts just before the cue is active** (a single-tick capture would show every age at 0), and the stills are picked from the sequence by tick:
+  - direct plan (`--room-pilot hoarder:carl_solo:0`): S1 heave, slump and motes, S2 heave, `shored`, `give` ages 0, 2 and 7, `intact_after` (out tick + 10);
+  - floor run (`--scene f01_late --f01-run`, the same plan): the S1 heave, S2 heave, `shored`, `give` and `intact_after` stills in the Hoarder room at gameplay scale.
+- Contact strips and GIFs of one S1 breath, one S2 breath and the give beat (x3 crop of the mound and of the post; the window already renders at 3x, no resampling).
 - Every capture line ends with `window_hash == headless_hash`; capture lines are kept next to the stills.
 - The design gate composite stays in [docs/evidence/hrd-cues-01-design](../evidence/hrd-cues-01-design/README.md); it is not runtime evidence.
