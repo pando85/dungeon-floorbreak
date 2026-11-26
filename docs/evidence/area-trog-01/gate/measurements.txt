@@ -1,0 +1,125 @@
+trog_fist_hole 64x80 opaque=2453 bbox=(0,1)-(63,64) colours=11 max_luma=113 transparent_px=2667
+trog_bell 40x64 opaque=611 bbox=(0,2)-(37,63) colours=15 max_luma=128 transparent_px=1949
+trog_knuckle_marks 96x40 opaque=514 bbox=(7,3)-(95,38) colours=8 max_luma=113 transparent_px=3326
+trog_slam_crack 48x48 opaque=766 bbox=(0,5)-(47,42) colours=8 max_luma=113 transparent_px=1538
+trog_impact_crater 72x20 opaque=616 bbox=(5,2)-(65,17) colours=9 max_luma=110 transparent_px=824
+trog_threshold 80x19 opaque=860 bbox=(0,0)-(79,18) colours=14 max_luma=128 transparent_px=660
+trog_mirror_shards 96x74 opaque=7102 bbox=(0,0)-(95,73) colours=20 max_luma=122 transparent_px=2
+trog_bench_intact 32x80 opaque=2558 bbox=(0,0)-(31,79) colours=25 max_luma=154 transparent_px=2
+trog_bench_weakened 32x80 opaque=2558 bbox=(0,0)-(31,79) colours=31 max_luma=177 transparent_px=2
+trog_bench_broken 32x80 opaque=399 bbox=(0,64)-(31,79) colours=16 max_luma=158 transparent_px=2161
+trog_bench_debris_0 112x96 opaque=286 bbox=(37,22)-(72,95) colours=14 max_luma=177 transparent_px=10466
+trog_bench_debris_1 112x96 opaque=454 bbox=(19,15)-(74,95) colours=14 max_luma=177 transparent_px=10298
+trog_bench_debris_2 112x96 opaque=616 bbox=(7,14)-(77,95) colours=14 max_luma=177 transparent_px=10136
+trog_bench_debris_3 112x96 opaque=415 bbox=(0,23)-(80,95) colours=14 max_luma=177 transparent_px=10337
+trog_bench_debris_4 112x96 opaque=80 bbox=(6,49)-(83,95) colours=12 max_luma=177 transparent_px=10672
+trog_bench_debris_5 112x96 opaque=72 bbox=(0,93)-(89,95) colours=11 max_luma=177 transparent_px=10680
+trog_bench_intact drawn bbox=(0, 0, 31, 79) (target (0, 0, 31, 79) = world {640,500,32,80}): ok
+trog_bench_weakened drawn bbox=(0, 0, 31, 79) (target (0, 0, 31, 79) = world {640,500,32,80}): ok
+trog_bench_broken drawn bbox=(0, 64, 31, 79) (target (0, 64, 31, 79) = world {640,564,32,16}): ok
+trog_bench_intact row0 walkable arris: [('brick', 9)] (target one entry, brick 9)
+trog_bench_debris_5 settled litter rows 93..95 (target within 93..95)
+trog_fist_hole void rows 6..47 = world 446..487 (the Basher's sprite top at spawn is world 493)
+trog_threshold pixels over the plinth (cols >= 20, rows < 11)=0 (target 0)
+all keys: 51 distinct palette entries (per-atlas budget 63)
+KEY trog_fist_hole sha256=8633c21d8a0a1106a54c67216e7025d190fcd0dba56a2bac7760eefeb626a2fe
+KEY trog_bell sha256=55073b24ed83939760046dc69159b7b1d1dd376cc2db2bd66044d097d3872a3d
+KEY trog_knuckle_marks sha256=08ef5614592edab894bef8367bd90006f21d9f9c724202aff93d805bb69d6ec1
+KEY trog_slam_crack sha256=b211a5c896d29dbdb15451034211002441275a527621cb3fd6e0dfaf988034f8
+KEY trog_impact_crater sha256=562c6783b1e33613e2b83e14b530ebe78eaba272c6e39fd65e48120f8daa6a25
+KEY trog_threshold sha256=5169396ee926cb91a2873ada9abb76b4a179d9c9ee5a5dba140520c83b4996fd
+KEY trog_mirror_shards sha256=8d41fec088e3034f97c17ca8452c25f74fcdea1e42c076b15ab4ff141a6ff53d
+KEY trog_bench_intact sha256=6c10c65bc747af81e4e0398646a7d024ac6c6a2e1b2b887544a156df639a17fc
+KEY trog_bench_weakened sha256=30bd51e0ebc4189c82298be1f25c2ef9d04f9220bd3edba4f24f1dfa6405fb4f
+KEY trog_bench_broken sha256=d73a20e656c417cf16203b157e5fbd407f0c22787ba92d770873b825ed8ef8c3
+KEY trog_bench_debris_0 sha256=b39ea020d3f29a98af52128cdfe941fe971f50302e04faaa85e4d1f5d1fee29e
+KEY trog_bench_debris_1 sha256=a257dc74606385f4a74512608c3d1a736fdce506a73ccd92cd6961f9cca0bbf0
+KEY trog_bench_debris_2 sha256=78bfa600bb34a16ccd026a3ae0975f2b3937f838eee5d09cbdc0fde000f4d1cd
+KEY trog_bench_debris_3 sha256=762ab7aa3cfd078f0e0369f6d6a1e2dd67de2c22069258bc73ee0558d11cf256
+KEY trog_bench_debris_4 sha256=b120548f00b4eff1e7f062191b946f7fe71699102cded089200f25ec0b947ebc
+KEY trog_bench_debris_5 sha256=8efbb0efbaabbae57d8783ea2b465ea58ee4741a95588e70b216de322f80643b
+visibility run backwall_decal trog_slam_crack @(296,400): 766/766 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility run backwall_decal trog_knuckle_marks @(272,488): 514/514 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility run backwall_decal trog_fist_hole @(1312,440): 2453/2453 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility run prop trog_bell @(1800,420): 611/611 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility run structure trog_impact_crater @(560,560): 616/616 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility run structure trog_step_end_l @(352,548): 255/255 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility run structure trog_step_mid @(360,548): 511/511 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility run structure trog_step_mid @(376,548): 511/511 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility run structure trog_step_mid @(392,548): 511/511 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility run structure trog_step_end_r @(408,548): 255/255 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility run structure trog_step_end_l @(1840,548): 255/255 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility run structure trog_step_mid @(1848,548): 511/511 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility run structure trog_step_mid @(1864,548): 511/511 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility run structure trog_step_mid @(1880,548): 511/511 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility run structure trog_step_end_r @(1896,548): 255/255 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+read run_t1 lit carl@180: actor_L=41.2 surround_L=28.0 delta_L=13.2 edge_dL=16.3
+read run_t1 lit pygmy@640: actor_L=28.1 surround_L=21.9 delta_L=6.2 edge_dL=16.2
+read run_t1 unlit carl@180: actor_L=41.6 surround_L=33.4 delta_L=8.1 edge_dL=17.4
+read run_t1 unlit pygmy@640: actor_L=29.3 surround_L=27.3 delta_L=1.9 edge_dL=23.8
+piece run_t1 lit trog_slam_crack@(296,400): mean_L=17.4 px=766
+piece run_t1 lit trog_knuckle_marks@(272,488): mean_L=20.0 px=514
+piece run_t1 lit trog_impact_crater@(560,560): mean_L=18.8 px=614
+piece run_t1 lit trog_step_end_l@(352,548): mean_L=17.3 px=255
+piece run_t1 lit trog_step_mid@(360,548): mean_L=19.4 px=511
+piece run_t1 lit trog_step_mid@(376,548): mean_L=20.9 px=511
+piece run_t1 lit trog_step_mid@(392,548): mean_L=22.4 px=511
+piece run_t1 lit trog_step_end_r@(408,548): mean_L=21.8 px=255
+brightest new piece run_t1 lit: trog_step_mid mean_L=22.4
+read run_t2 lit carl@1210: actor_L=42.2 surround_L=31.5 delta_L=10.7 edge_dL=17.8
+read run_t2 lit basher@1376: actor_L=33.2 surround_L=29.7 delta_L=3.5 edge_dL=22.3
+read run_t2 unlit carl@1210: actor_L=41.6 surround_L=34.0 delta_L=7.6 edge_dL=18.7
+read run_t2 unlit basher@1376: actor_L=33.1 surround_L=32.7 delta_L=0.4 edge_dL=25.9
+piece run_t2 lit trog_fist_hole@(1312,440): mean_L=12.1 px=2453
+brightest new piece run_t2 lit: trog_fist_hole mean_L=12.1
+read run_t3 lit carl@1760: actor_L=41.6 surround_L=27.8 delta_L=13.9 edge_dL=16.4
+read run_t3 lit virtuoso@2144: actor_L=25.4 surround_L=22.8 delta_L=2.6 edge_dL=17.1
+read run_t3 unlit carl@1760: actor_L=41.6 surround_L=31.9 delta_L=9.6 edge_dL=16.0
+read run_t3 unlit virtuoso@2144: actor_L=26.2 surround_L=25.9 delta_L=0.3 edge_dL=20.6
+piece run_t3 lit trog_bell@(1800,420): mean_L=24.3 px=611
+piece run_t3 lit trog_step_end_l@(1840,548): mean_L=16.8 px=255
+piece run_t3 lit trog_step_mid@(1848,548): mean_L=18.3 px=511
+piece run_t3 lit trog_step_mid@(1864,548): mean_L=18.8 px=511
+piece run_t3 lit trog_step_mid@(1880,548): mean_L=19.1 px=511
+piece run_t3 lit trog_step_end_r@(1896,548): mean_L=17.7 px=255
+brightest new piece run_t3 lit: trog_bell mean_L=24.3
+visibility strength backwall_decal trog_mirror_shards @(792,470): 7102/7102 = 100.0% behind architecture (target >= 90), 96.7% with the props in front; backwall_null_px=0 (target 0) ok
+visibility strength prop trog_bench_intact @(640,500): 2558/2558 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility strength structure trog_threshold @(672,561): 860/860 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility strength structure trog_shelf48_end_l @(288,532): 383/383 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility strength structure trog_shelf48_mid @(296,532): 767/767 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility strength structure trog_shelf48_mid @(312,532): 767/767 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility strength structure trog_shelf48_mid @(328,532): 767/767 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility strength structure trog_shelf48_end_r @(344,532): 383/383 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+read strength_entry lit carl@560: actor_L=41.0 surround_L=28.2 delta_L=12.8 edge_dL=13.6
+read strength_entry lit virtuoso@496: actor_L=25.7 surround_L=25.3 delta_L=0.4 edge_dL=20.2
+read strength_entry unlit carl@560: actor_L=41.6 surround_L=31.8 delta_L=9.8 edge_dL=14.7
+read strength_entry unlit virtuoso@496: actor_L=26.2 surround_L=27.7 delta_L=-1.5 edge_dL=23.9
+piece strength_entry lit trog_shelf48_end_l@(288,532): mean_L=20.0 px=383
+piece strength_entry lit trog_shelf48_mid@(296,532): mean_L=21.8 px=767
+piece strength_entry lit trog_shelf48_mid@(312,532): mean_L=22.2 px=767
+piece strength_entry lit trog_shelf48_mid@(328,532): mean_L=22.4 px=767
+piece strength_entry lit trog_shelf48_end_r@(344,532): mean_L=20.6 px=383
+brightest new piece strength_entry lit: trog_shelf48_mid mean_L=22.4
+read strength_bench lit carl@560: actor_L=41.0 surround_L=27.9 delta_L=13.2 edge_dL=13.6
+read strength_bench lit virtuoso@496: actor_L=25.5 surround_L=19.9 delta_L=5.5 edge_dL=17.0
+read strength_bench lit basher@776: actor_L=32.9 surround_L=21.4 delta_L=11.5 edge_dL=17.0
+read strength_bench unlit carl@560: actor_L=41.6 surround_L=32.2 delta_L=9.4 edge_dL=14.8
+read strength_bench unlit virtuoso@496: actor_L=26.2 surround_L=23.3 delta_L=2.9 edge_dL=20.7
+read strength_bench unlit basher@776: actor_L=33.1 surround_L=24.2 delta_L=9.0 edge_dL=20.7
+piece strength_bench lit trog_mirror_shards@(792,470): mean_L=12.2 px=6981
+piece strength_bench lit gym_fluoro_cold@(820,450): mean_L=47.9 px=224
+piece strength_bench lit gym_dumbbell_rack@(812,532): mean_L=21.0 px=730
+piece strength_bench lit gym_plate_tree@(892,524): mean_L=12.9 px=554
+piece strength_bench lit trog_bench_intact@(640,500): mean_L=23.4 px=2558
+piece strength_bench lit gym_girder@(892,440): mean_L=16.2 px=319
+piece strength_bench lit gym_girder@(756,440): mean_L=18.7 px=319
+piece strength_bench lit gym_girder@(788,440): mean_L=19.0 px=319
+piece strength_bench lit gym_girder@(820,440): mean_L=19.8 px=319
+piece strength_bench lit gym_girder@(852,440): mean_L=18.6 px=319
+piece strength_bench lit gym_girder@(884,440): mean_L=16.6 px=319
+piece strength_bench lit gym_mat_a@(760,561): mean_L=16.7 px=430
+piece strength_bench lit gym_mat_b@(808,561): mean_L=22.6 px=1055
+piece strength_bench lit gym_mat_a@(856,561): mean_L=22.1 px=1055
+piece strength_bench lit trog_threshold@(672,561): mean_L=21.9 px=818
+brightest new piece strength_bench lit: gym_fluoro_cold mean_L=47.9
