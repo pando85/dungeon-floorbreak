@@ -1,0 +1,14 @@
+# AREA-HEAT-01 gate measurements (author_heat01.py keys and gate composite; L* is CIE L* of the composited 1x pixels)
+KEY_SHA heat_partition_intact 316ba5fa894f1e9eff499ada194aa4e2443a778247f7b32e264c7947467e5d30 40x48 colours 19
+KEY_SHA heat_partition_weakened 102a72bf8f4e8feedf7194ba397319f25f2ff81afba470e2d4f253e9028e46eb 40x48 colours 20
+KEY_SHA heat_partition_broken 3e7f7445d2321cd39bef1f5b15368d949628bd934bbd8d93a5bd240f488f7007 40x48 colours 15
+KEY_SHA heat_scorch_wall_a fd35e8198a759892c02f4c6f26551337b50f069fe0a85e723f34eea2d4303fd3 64x96 colours 8
+KEY_SHA heat_scorch_floor_a 30261053739064530cbb0adc4ce6d637b3888a51bda0720656a29ec9e4b2456d 72x12 colours 6
+intact: mean L* 25.6 (behind 25.1); top row L* 63.9; px above top 0; margin px above row 44 6
+weakened: mean L* 25.0 (behind 25.1); top row L* 63.9; px above top 0; margin px above row 44 11
+broken: mean L* 24.9 (behind 35.0); top row L* 65.1; px above top 9; margin px above row 44 0
+deck within 64 px: L* p95 52.0
+wall_a coverage 16.0%
+wall_a darkest brick index rows>=60: 3
+wall_a embers [(36, 92), (28, 93), (33, 94), (25, 95)]
+floor_a coverage 39.9%
