@@ -66,9 +66,12 @@ PALETTE = [
 ]
 KEYS = [p[0] for p in PALETTE]
 TAGS = [("idle", 0, 2), ("walk", 3, 8), ("attack_tell", 9, 10), ("attack_ram", 11, 12), ("attack_recover", 13, 13),
-        ("hurt", 14, 14), ("down", 15, 17)]
-TICKS = [14, 10, 14, 6, 6, 6, 6, 6, 6, 8, 24, 3, 6, 18, 12, 5, 10, 0]      # 60 Hz; 0 = held last frame (state-driven)
-KEY_FRAMES = (0, 3, 10, 12, 13, 14, 17)
+        ("hurt", 14, 14), ("down", 15, 17), ("getup", 18, 19), ("attack_ram_run", 20, 21)]
+# 60 Hz; 0 = held last frame (state-driven). Frames 18 to 21 are ENG-02 (docs/02-art/eng-02-spec.md section 6): the
+# get-up keys at 10 and 12 ticks (the q04 get-up window), the ram-run pair at 4 ticks a frame of the ram clock.
+TICKS = [14, 10, 14, 6, 6, 6, 6, 6, 6, 8, 24, 3, 6, 18, 12, 5, 10, 0, 10, 12, 4, 4]
+KEY_FRAMES = (0, 3, 10, 12, 13, 14, 17)             # the ENG-01 keys, frozen in tests/fixtures/eng-01_keys.json
+ENG02_KEY_FRAMES = (18, 19)                          # the ENG-02 get-up keys, frozen in tests/fixtures/eng-02_keys.json
 
 # Part blocks of key 0 (inclusive x0, y0, x1, y1). In-betweens and keys move these as whole blocks wherever the spec
 # says "offset"; nothing is rotated or rescaled.
@@ -469,9 +472,17 @@ def f_down(n: int) -> dict:
     return c.cels()
 
 
-def build_frames() -> list[dict]:
+def build_frames_eng01() -> list[dict]:
+    """ENG-01 frames 0 to 17 (frozen; unchanged by ENG-02)."""
     return [frame_idle0(), f_idle(1), f_idle(2)] + [f_walk(n) for n in range(3, 9)] + [
         f_tell9(), f_tell10(), f_ram11(), f_ram12(), f_recover13(), f_hurt14(), f_down(15), f_down(16), f_down(17)]
+
+
+def build_frames() -> list[dict]:
+    """Frames 0 to 17 plus ENG-02's 18 to 21 (the get-up keys byte for byte, then the ram-run pair)."""
+    sys.path.insert(0, str(ROOT / "scripts"))
+    import author_eng02 as eng02                         # noqa: E402  (eng02 imports this module: import it late)
+    return build_frames_eng01() + eng02.atlas_frames()
 
 
 def duration_ms(ticks: int) -> int:
@@ -500,12 +511,12 @@ def dump(grid: dict) -> str:
 # --------------------------------------------------------------------------- manifest
 TAG_OF = {n: name for name, a, b in TAGS for n in range(a, b + 1)}
 PLAYBACK = {"idle": "loop", "walk": "loop", "attack_tell": "once", "attack_ram": "once", "attack_recover": "once",
-            "hurt": "once", "down": "hold"}
+            "hurt": "once", "down": "hold", "getup": "once", "attack_ram_run": "loop"}
 
 
 def manifest() -> dict:
     frames = [{"index": n, "tag": TAG_OF[n], "ticks": TICKS[n] or None, "duration_ms": duration_ms(TICKS[n]),
-               "author": "key" if n in KEY_FRAMES else "sonnet"} for n in range(len(TICKS))]
+               "author": "key" if n in KEY_FRAMES + ENG02_KEY_FRAMES else "sonnet"} for n in range(len(TICKS))]
     return {
         "schema_version": 1,
         "id": "engineer_goblin_h40_candidate_v1",
@@ -526,10 +537,13 @@ def manifest() -> dict:
             "origin": ("ENG-01 standalone Goblin Engineer at 40 px idle height: 7 frozen keys (atlas frames 0, 3, 10, 12, 13, 14, 17, "
                        "fixture tests/fixtures/eng-01_keys.json) plus 11 in-betweens built by scripts/author_eng01.py from key 0 "
                        "pixel blocks, GOB-01 A frames 16 and 20 to 22, the DOZ-01 rider's pointing arm and a few rule-drawn shapes; "
-                       "layers body and prop"),
+                       "layers body and prop. ENG-02 (docs/02-art/eng-02-spec.md) appends frames 18 and 19, the two frozen "
+                       "get-up keys (fixture tests/fixtures/eng-02_keys.json, copied byte for byte), and frames 20 and 21, the "
+                       "ram-run pair: frame 12's blocks with the ENG-01 walk 7 and walk 6 legs"),
             "generator": ("Spec and hero key 0: Claude Opus. Remaining keys, in-betweens, atlas, validators and evidence: Claude Sonnet, "
-                          "composed by scripts/author_eng01.py. Independent review pending. No image-model raster output, no tracing, "
-                          "no resampling"),
+                          "composed by scripts/author_eng01.py. ENG-02 keys 18 and 19 and its spec: Claude Opus; its design gate: "
+                          "Claude Opus (independent); frames 20 and 21: Claude Sonnet via scripts/author_eng02.py. Independent "
+                          "review pending. No image-model raster output, no tracing, no resampling"),
             "generated_art": True,
             "input_reference_ids": ["assets/concept/floor-01/opening/02-goblin-trio-reference-crop.png"],
         },
@@ -537,8 +551,8 @@ def manifest() -> dict:
                     "no game/asset-pack distribution rights"),
         "review_status": "prototype_fixture_unapproved",
         "eng": {
-            "status": "keys and in-betweens drawn; independent review pending; Bevy integration pending; 18 frames, 7 of them keys; "
-                      "not wired into any Bevy binary",
+            "status": "keys and in-betweens drawn; 22 frames (ENG-01 frames 0 to 17, ENG-02 frames 18 to 21: the get-up pair and "
+                      "the ram-run pair); wired into the Bevy scene; independent review pending",
             "spec": "docs/02-art/eng-01-spec.md",
             "opaque_height_idle": 40,
             "tick_hz": TICK_HZ,
@@ -548,6 +562,10 @@ def manifest() -> dict:
             "playback": PLAYBACK,
             "key_frames": sorted(KEY_FRAMES),
             "key_fixture": "tests/fixtures/eng-01_keys.json",
+            "eng02": {"spec": "docs/02-art/eng-02-spec.md", "key_frames": list(ENG02_KEY_FRAMES),
+                      "key_fixture": "tests/fixtures/eng-02_keys.json",
+                      "ram_run_cycle": [12, 20, 21, 20], "ram_run_ticks_per_frame": 4,
+                      "getup_ticks": [10, 12]},
             "walk_speed_px_per_s": 40,
             "attack_ticks": {"tell": [0, 31], "ram": [32, 40], "hitbox_active": [35, 40], "recover": [41, 58]},
             "boxes_px_from_pivot": BOXES,

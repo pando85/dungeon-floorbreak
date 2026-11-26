@@ -20,12 +20,13 @@
     "idle": "getup"
   },
   "rules": {
-    "max_colors": 20,
+    "max_colors": 17,
     "max_isolated_per_frame": 0,
     "max_orphans_per_frame": 9,
     "layers_disjoint": [["body", "prop"]],
     "canvas_margin": [0, 0, 0, 0],
     "unique_frames": true,
+    "holes": true,
     "frozen_keys": {
       "fixture": "tests/fixtures/eng-02_keys.json",
       "frames": [0, 1],

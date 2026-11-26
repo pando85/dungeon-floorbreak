@@ -1,7 +1,7 @@
 {
   "format": "pixelart-asset-v1",
   "asset_id": "eng-01",
-  "title": "ENG-01 Goblin Engineer readability set (docs/02-art/eng-01-spec.md); 18 frames, 7 frozen keys",
+  "title": "ENG-01 Goblin Engineer readability set (docs/02-art/eng-01-spec.md) plus the ENG-02 get-up and ram-run frames (docs/02-art/eng-02-spec.md); 22 frames, 7 frozen ENG-01 keys and 2 frozen ENG-02 keys",
   "grid": "assets/source/characters/goblin/engineer/eng_01.grid.json",
   "frame_size": [
     64,
@@ -129,6 +129,34 @@
           null
         ]
       ]
+    },
+    "getup": {
+      "playback": "once",
+      "contact": "grounded",
+      "frames": [
+        [
+          18,
+          10
+        ],
+        [
+          19,
+          12
+        ]
+      ]
+    },
+    "attack_ram_run": {
+      "playback": "loop",
+      "contact": "grounded",
+      "frames": [
+        [
+          20,
+          4
+        ],
+        [
+          21,
+          4
+        ]
+      ]
     }
   },
   "roles": {
@@ -140,7 +168,7 @@
     "defeat": "down"
   },
   "rules": {
-    "max_colors": 20,
+    "max_colors": 17,
     "max_isolated_per_frame": 0,
     "max_orphans_per_frame": 9,
     "layers_disjoint": [
@@ -209,7 +237,11 @@
           14,
           15,
           16,
-          17
+          17,
+          18,
+          19,
+          20,
+          21
         ],
         "min_top": 13
       },
@@ -313,6 +345,50 @@
         "min_top": 39,
         "max_top": 41,
         "max_width": 54
+      },
+      {
+        "id": "E2-sit-low",
+        "frames": [
+          18
+        ],
+        "min_top": 26,
+        "max_top": 28
+      },
+      {
+        "id": "E2-shove-pot-lifted",
+        "frames": [
+          19
+        ],
+        "min_top": 15,
+        "max_top": 17
+      },
+      {
+        "id": "E2-handle-back",
+        "frames": [
+          18,
+          19
+        ],
+        "max_left": 11
+      },
+      {
+        "id": "E2-ram-run-passing",
+        "frames": [
+          20
+        ],
+        "min_top": 20,
+        "max_top": 22,
+        "bottom": 55,
+        "min_right": 51
+      },
+      {
+        "id": "E2-ram-run-contact",
+        "frames": [
+          21
+        ],
+        "min_top": 21,
+        "max_top": 23,
+        "bottom": 55,
+        "min_right": 51
       }
     ],
     "key_counts": [
@@ -376,7 +452,11 @@
           13,
           14,
           15,
-          16
+          16,
+          18,
+          19,
+          20,
+          21
         ],
         "key": "7",
         "min": 1,
@@ -411,10 +491,41 @@
           14,
           15,
           16,
-          17
+          17,
+          18,
+          19,
+          20,
+          21
         ],
         "key": "5",
         "min": 40
+      },
+      {
+        "id": "E2-sit-eyes-hidden",
+        "frames": [
+          18
+        ],
+        "key": "e",
+        "min": 0,
+        "max": 0
+      },
+      {
+        "id": "E2-sit-teeth-show",
+        "frames": [
+          18
+        ],
+        "key": "w",
+        "min": 2
+      },
+      {
+        "id": "E2-shove-eyes-back",
+        "frames": [
+          19,
+          20,
+          21
+        ],
+        "key": "e",
+        "min": 3
       }
     ],
     "manifest_tick_rows": "eng.frames",

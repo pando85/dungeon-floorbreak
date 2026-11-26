@@ -36,9 +36,9 @@ use crate::death::{DeathProfiles, SlamPose, slam_pose_for};
 use crate::feel::{GROUND_FRICTION, KNOCK_GRAVITY};
 use crate::goblin::GoblinMode;
 use crate::gore::{
-    Cf02GoreBudget, DEATH_VARIANTS, DeathArt, GorePreset, LLAMA_VARIANT, Mass, PartClass,
-    PresentationRng, PresetSheets, Settle, SpinClass, Ttl, keeps_stream_item, lowest_below_centre,
-    part_center_for_anchor, pose_anchor_world, rest_angle, scale_count,
+    Cf02GoreBudget, DEATH_VARIANTS, DeathArt, ENGINEER_VARIANT, GorePreset, LLAMA_VARIANT, Mass,
+    PartClass, PartThrow, PresentationRng, PresetSheets, Settle, SpinClass, Ttl, keeps_stream_item,
+    lowest_below_centre, part_center_for_anchor, pose_anchor_world, rest_angle, scale_count,
 };
 use crate::llama::{LLAMA_HALF_HEIGHT, LlamaMode};
 use crate::prototype::TICK_SECONDS;
@@ -418,49 +418,68 @@ impl<T> Pool<T> {
 
 /// The species keys of the death profiles the presenter draws.
 const GOBLIN_SPECIES: &str = "goblin";
-/// ENEMY-GAMEPLAY-ENGINEER (ENG-G-Q21): the Goblin Engineer's species. v1 draws
-/// every defeat as the ENG-01 `down` frames (the goblin sprite adapter shows them),
-/// so each recipe maps to `engineer_down`.
+/// ENEMY-GAMEPLAY-ENGINEER (ENG-G-Q21): the Goblin Engineer's species. ENG-02: each
+/// recipe has its own finish (`engineer_slammed`, `engineer_exploded`,
+/// `engineer_decapitated`, `engineer_crushed`, `engineer_knockback_down`), drawn
+/// from his own death art ([`ENGINEER_VARIANT`]) when the run has it.
 const ENGINEER_SPECIES: &str = "goblin_engineer";
 const LLAMA_SPECIES: &str = "llama";
 
-/// The Bad Llama's death art and its composed sheets for the active preset
-/// (LLAMA-02-DEATH). It is a separate set with its own frame sizes and part
-/// indices; every piece, decal and pose carries the `variant` that says whose
-/// set it belongs to ([`LLAMA_VARIANT`] for the llama, 0 and 1 for the goblins).
-struct LlamaDeath {
+/// A species' death art and its composed sheets for the active preset: the Bad
+/// Llama (LLAMA-02-DEATH) and the Goblin Engineer (ENG-02). Each is a separate set
+/// with its own part indices; every piece, decal and pose carries the `variant`
+/// that says whose set it belongs to ([`LLAMA_VARIANT`], [`ENGINEER_VARIANT`], or 0
+/// and 1 for the goblins).
+struct SpeciesDeath {
     art: Arc<DeathArt>,
     sheets: PresetSheets,
 }
 
+/// The species sets of a presenter, after the two goblin variants.
+#[derive(Default)]
+struct SpeciesSets {
+    llama: Option<SpeciesDeath>,
+    engineer: Option<SpeciesDeath>,
+}
+
 /// The art a `variant` is drawn from (field-wise, so a pool can stay borrowed).
-fn art_for<'a>(
-    goblin: &'a DeathArt,
-    llama: &'a Option<LlamaDeath>,
-    variant: usize,
-) -> &'a DeathArt {
-    match llama {
-        Some(l) if variant == LLAMA_VARIANT => &l.art,
-        _ => goblin,
-    }
+/// The Engineer's variant draws the Engineer art when it is loaded; only a run
+/// without it falls back to the goblin set (an Engineer target then gets its
+/// goblin variant in `begin_death`, so this arm is never reached with one).
+fn art_for<'a>(goblin: &'a DeathArt, sets: &'a SpeciesSets, variant: usize) -> &'a DeathArt {
+    let loaded = match variant {
+        LLAMA_VARIANT => sets.llama.as_ref(),
+        ENGINEER_VARIANT => sets.engineer.as_ref(),
+        _ => None,
+    };
+    loaded.map_or(goblin, |s| &s.art)
 }
 
 /// The set a decal of a death of `variant` is drawn from: blood, stains and
-/// pools are identical in both goblin sets (variant 0); the llama has its own.
+/// pools are identical in both goblin sets and the Engineer's (variant 0); the
+/// llama has its own.
 const fn decal_set(variant: usize) -> usize {
     if variant == LLAMA_VARIANT { variant } else { 0 }
+}
+
+/// The goblin set a `variant` falls back to when its own art is not loaded (the
+/// goblin variants are themselves; any other variant draws as goblin A).
+const fn goblin_set(variant: usize) -> usize {
+    if variant < DEATH_VARIANTS { variant } else { 0 }
 }
 
 /// The composed sheets a `variant` is drawn from.
 fn sheets_for<'a>(
     goblins: &'a [PresetSheets; DEATH_VARIANTS],
-    llama: &'a Option<LlamaDeath>,
+    sets: &'a SpeciesSets,
     variant: usize,
 ) -> &'a PresetSheets {
-    match llama {
-        Some(l) if variant == LLAMA_VARIANT => &l.sheets,
-        _ => &goblins[variant.min(DEATH_VARIANTS - 1)],
-    }
+    let loaded = match variant {
+        LLAMA_VARIANT => sets.llama.as_ref(),
+        ENGINEER_VARIANT => sets.engineer.as_ref(),
+        _ => None,
+    };
+    loaded.map_or(&goblins[goblin_set(variant)], |s| &s.sheets)
 }
 
 /// `--death-lab-edge`: a block kill read as a block-edge cut by the same
@@ -684,6 +703,47 @@ pub static EXPLOSION_TABLES: [ExplosionTable; 4] = [
     },
 ];
 
+/// ENG-02: the Engineer's explosive breakup (spec section 9): the goblin tables with
+/// his own part lists, every other field equal to the goblin row. Preset 1 keeps
+/// the sprite, with its pot; presets 2 to 4 throw the bare head, the wrench and the
+/// pot (never the potted `head`, a `club` or a `pineapple`).
+pub static ENGINEER_EXPLOSION_TABLES: [ExplosionTable; 4] = [
+    ExplosionTable {
+        parts: &[],
+        ..EXPLOSION_TABLES[0]
+    },
+    ExplosionTable {
+        parts: &["head_bare", "torso_upper", "wrench", "pot"],
+        ..EXPLOSION_TABLES[1]
+    },
+    ExplosionTable {
+        parts: &[
+            "head_bare",
+            "torso_upper",
+            "arm_near",
+            "leg_far",
+            "wrench",
+            "pot",
+        ],
+        ..EXPLOSION_TABLES[2]
+    },
+    ExplosionTable {
+        parts: &[
+            "head_bare",
+            "torso_upper",
+            "torso_lower",
+            "arm_near",
+            "arm_far",
+            "leg_near",
+            "leg_far",
+            "ear",
+            "wrench",
+            "pot",
+        ],
+        ..EXPLOSION_TABLES[3]
+    },
+];
+
 /// The table of `preset`.
 pub fn explosion_table(preset: GorePreset) -> &'static ExplosionTable {
     &EXPLOSION_TABLES[preset.level() as usize - 1]
@@ -799,13 +859,13 @@ pub static LLAMA_EXPLOSION_TABLES: [ExplosionTable; 4] = [
     },
 ];
 
-/// The explosion table of a death set `variant` (goblin A or B, or the llama)
-/// at `preset`.
+/// The explosion table of a death set `variant` (goblin A or B, the llama or the
+/// Engineer) at `preset`.
 pub fn explosion_table_of(variant: usize, preset: GorePreset) -> &'static ExplosionTable {
-    if variant == LLAMA_VARIANT {
-        &LLAMA_EXPLOSION_TABLES[preset.level() as usize - 1]
-    } else {
-        explosion_table(preset)
+    match variant {
+        LLAMA_VARIANT => &LLAMA_EXPLOSION_TABLES[preset.level() as usize - 1],
+        ENGINEER_VARIANT => &ENGINEER_EXPLOSION_TABLES[preset.level() as usize - 1],
+        _ => explosion_table(preset),
     }
 }
 
@@ -854,9 +914,11 @@ impl Finish {
     pub fn from_id(id: &str) -> Self {
         match id {
             "goblin_crushed" | "brute_crushed" => Self::Crushed,
-            // ENG-G-Q21: v1 keeps the ENG-01 `down` frames (blood is added, the
-            // sprite the scene draws stays), like `llama_down`.
-            "goblin_knockback_down" | "brute_ko_timber" | "engineer_down" => Self::Knockback,
+            // ENG-G-Q21: the routine knockback keeps the ENG-01 `down` frames (blood is
+            // added, the sprite the scene draws stays), like `llama_down`.
+            "goblin_knockback_down" | "brute_ko_timber" | "engineer_knockback_down" => {
+                Self::Knockback
+            }
             "goblin_decapitated" => Self::Decapitated,
             // The llama: the crush plays the same pose sequence, the slam its
             // own, and `llama_down` keeps the LLAMA-01 `down` frames like the
@@ -871,8 +933,14 @@ impl Finish {
             "llama_decapitated" => Self::Decapitated,
             "llama_exploded" => Self::Exploded,
             "goblin_exploded" => Self::Exploded,
+            // ENG-02: the Engineer's own finishes play the goblin scripts with the
+            // Engineer set (the flat pot under the block, the potted head, the pot
+            // and the wrench as parts).
+            "engineer_crushed" => Self::Crushed,
+            "engineer_decapitated" => Self::Decapitated,
+            "engineer_exploded" => Self::Exploded,
             // The pose is picked from the defeat's events (`slam_pose_for`).
-            "goblin_slammed" => Self::GoblinSlammed(SlamPose::Flung),
+            "goblin_slammed" | "engineer_slammed" => Self::GoblinSlammed(SlamPose::Flung),
             // FA-Q23 (HRD sheet section 10): every recipe of the Hoarder (`pile_boss`) maps to her
             // HOARD-01 `down` frames 13 to 15, which the room's own presenter draws
             // (`hoarder_art`). The generic presenter adds nothing: no gibs, no dismemberment, no
@@ -880,6 +948,20 @@ impl Finish {
             "pile_boss_down" => Self::NoArt,
             _ => Self::NoArt,
         }
+    }
+
+    /// ENG-02 evidence lab (`--death-lab-engineer`): the finish an Engineer plays for a lab `name`
+    /// (`crushed`, `decapitated`, `exploded`, `slammed_stomped`, `slammed_wall`, `slammed_flung`).
+    pub fn lab_engineer(name: &str) -> Option<Self> {
+        Some(match name {
+            "crushed" => Self::Crushed,
+            "decapitated" => Self::Decapitated,
+            "exploded" => Self::Exploded,
+            "slammed_stomped" => Self::GoblinSlammed(SlamPose::Stomped),
+            "slammed_wall" => Self::GoblinSlammed(SlamPose::WallCrumple),
+            "slammed_flung" => Self::GoblinSlammed(SlamPose::Flung),
+            _ => return None,
+        })
     }
 
     /// Whether the finish replaces the goblin sprite with a death pose.
@@ -1126,6 +1208,8 @@ struct Death {
     /// The floor x of the block edge that cut the neck (a `ShoreBlockEdge`).
     edge_splat_x: Option<f32>,
     landed: Option<u64>,
+    /// ENG-02: the slammed Engineer's pot and wrench have been launched (exactly once per death).
+    slam_launched: bool,
     done_after: u64,
     /// The tick the corpse started to fade out because too many settled
     /// corpses were visible (`MAX_SETTLED_CORPSES`).
@@ -1173,6 +1257,7 @@ impl Death {
             impact: None,
             edge_splat_x: None,
             landed: None,
+            slam_launched: false,
             done_after: 0,
             retire_since: None,
         }
@@ -1249,8 +1334,8 @@ const RAD_TO_DEG: f32 = 57.295_78;
 pub struct DeathPresenter {
     art: Arc<DeathArt>,
     sheets: [PresetSheets; DEATH_VARIANTS],
-    /// The Bad Llama's art and sheets, when the run has llamas.
-    llama: Option<LlamaDeath>,
+    /// The Bad Llama's and the Engineer's art and sheets, when the run has them.
+    sets: SpeciesSets,
     profiles: &'static DeathProfiles,
     /// The species key of the goblin targets (tests swap it to check a species
     /// without art); the llama's is [`LLAMA_SPECIES`].
@@ -1290,6 +1375,9 @@ pub struct DeathPresenter {
     /// every block kill as a block-edge cut. Presentation only: the
     /// simulation, its log and its hash never see it.
     lab_edge: bool,
+    /// ENG-02 evidence lab (`--death-lab-engineer`): every Engineer defeat plays this finish, whatever recipe
+    /// the defeat would pick (the Floor 1 pilots only ever kill him with a jab). Presentation only.
+    lab_engineer: Option<Finish>,
 }
 
 impl DeathPresenter {
@@ -1322,7 +1410,7 @@ impl DeathPresenter {
         Ok(Self {
             art,
             sheets,
-            llama: None,
+            sets: SpeciesSets::default(),
             profiles: DeathProfiles::builtin(),
             species: GOBLIN_SPECIES,
             engineers: Vec::new(),
@@ -1353,6 +1441,7 @@ impl DeathPresenter {
             slam_overlay: false,
             transient_until: None,
             lab_edge: false,
+            lab_engineer: None,
         })
     }
 
@@ -1365,6 +1454,15 @@ impl DeathPresenter {
     #[must_use]
     pub fn with_lab_edge(mut self) -> Self {
         self.lab_edge = true;
+        self
+    }
+
+    /// ENG-02 evidence lab: play `finish` for every Engineer defeat (`Finish::lab_engineer`). Presentation
+    /// only: the events the simulation logged and hashed are untouched; a window run ends on the same
+    /// `COMBAT_STATE` hash as the headless run without the flag.
+    #[must_use]
+    pub fn with_lab_engineer(mut self, finish: Finish) -> Self {
+        self.lab_engineer = Some(finish);
         self
     }
 
@@ -1404,7 +1502,19 @@ impl DeathPresenter {
             return Err("the llama death art has the wrong variant".into());
         }
         let sheets = art.compose(self.preset)?;
-        self.llama = Some(LlamaDeath { art, sheets });
+        self.sets.llama = Some(SpeciesDeath { art, sheets });
+        Ok(self)
+    }
+
+    /// ENG-02: add the Goblin Engineer's death art (`eng_death_h36`, `eng_death_parts`): his crush, decapitation and
+    /// explosion are drawn from it, and a slam launches its pot and wrench. Without it an Engineer's defeat plays
+    /// the goblin set (variant A or B by index).
+    pub fn with_engineer(mut self, art: Arc<DeathArt>) -> Result<Self, String> {
+        if art.variant != ENGINEER_VARIANT {
+            return Err("the Engineer death art has the wrong variant".into());
+        }
+        let sheets = art.compose(self.preset)?;
+        self.sets.engineer = Some(SpeciesDeath { art, sheets });
         Ok(self)
     }
 
@@ -1412,14 +1522,19 @@ impl DeathPresenter {
         self.preset
     }
 
-    /// The art of `variant` (goblin A or B, or the llama).
+    /// The art of `variant` (goblin A or B, the llama or the Engineer).
     pub fn art_of(&self, variant: usize) -> &DeathArt {
-        art_for(&self.art, &self.llama, variant)
+        art_for(&self.art, &self.sets, variant)
     }
 
     /// Whether the run has the llama death art.
     pub fn has_llama(&self) -> bool {
-        self.llama.is_some()
+        self.sets.llama.is_some()
+    }
+
+    /// Whether the run has the Engineer death art.
+    pub fn has_engineer(&self) -> bool {
+        self.sets.engineer.is_some()
     }
 
     pub fn art(&self) -> &DeathArt {
@@ -1431,9 +1546,9 @@ impl DeathPresenter {
         &self.sheets[0]
     }
 
-    /// The composed sheets of goblin `variant` (0 = A, 1 = B).
+    /// The composed sheets of death set `variant` (0 = goblin A, 1 = B, the llama, the Engineer).
     pub fn sheets_of(&self, variant: usize) -> &PresetSheets {
-        sheets_for(&self.sheets, &self.llama, variant)
+        sheets_for(&self.sheets, &self.sets, variant)
     }
 
     pub fn stats(&self) -> PresenterStats {
@@ -1506,7 +1621,7 @@ impl DeathPresenter {
                 return None;
             }
             let frame = d.finish.pose_frame(self.clock.saturating_sub(d.start))?;
-            let art = art_for(&self.art, &self.llama, d.variant);
+            let art = art_for(&self.art, &self.sets, d.variant);
             let meta = art.poses.get(frame)?;
             let hazard_anchor = meta
                 .hazard_over()
@@ -1910,18 +2025,24 @@ impl DeathPresenter {
         let goblins = obs.goblins.len();
         let (x, ground_y, facing, variant, species) = if (target as usize) < goblins {
             let g = &obs.goblins[target as usize];
+            let engineer = self.engineers.contains(&target);
             (
                 g.x,
                 g.ground_y,
                 g.facing,
-                goblin_variant(target as usize),
-                if self.engineers.contains(&target) {
+                // ENG-02: an Engineer plays his own set when the run has it.
+                if engineer && self.sets.engineer.is_some() {
+                    ENGINEER_VARIANT
+                } else {
+                    goblin_variant(target as usize)
+                },
+                if engineer {
                     ENGINEER_SPECIES
                 } else {
                     self.species
                 },
             )
-        } else if self.llama.is_some()
+        } else if self.sets.llama.is_some()
             && let Some(l) = obs.llamas.get(target as usize - goblins)
         {
             (l.x, l.ground_y, l.facing, LLAMA_VARIANT, LLAMA_SPECIES)
@@ -1934,6 +2055,11 @@ impl DeathPresenter {
             // CF02-D (Q21): the pose comes from the defeat's same-tick events.
             finish = Finish::GoblinSlammed(slam_pose_for(events, target));
         }
+        if species == ENGINEER_SPECIES
+            && let Some(lab) = self.lab_engineer
+        {
+            finish = lab;
+        }
         let flip = facing < 0;
         let mut x = x;
         // A crushed llama's pose is drawn with its mirrored `hit_origin` under
@@ -1942,7 +2068,7 @@ impl DeathPresenter {
         // only, the simulated body does not move).
         if variant == LLAMA_VARIANT
             && let (DefeatCause::ShoreBlock { .. }, Some(block)) = (cause, obs.block_x)
-            && let Some(art) = self.llama.as_ref().map(|l| &l.art)
+            && let Some(art) = self.sets.llama.as_ref().map(|l| &l.art)
             && let Some((hx, _)) = art.pose(0).anchor("hit_origin")
         {
             let dx = hx as f32 + 0.5 - art.pose_pivot.0 as f32;
@@ -2089,7 +2215,7 @@ impl DeathPresenter {
                 self.parts.free(slot);
                 continue;
             }
-            let art = art_for(&self.art, &self.llama, part.variant);
+            let art = art_for(&self.art, &self.sets, part.variant);
             let meta = &art.parts[part.meta];
             if let PartState::Resting { since } = part.state {
                 if expired(meta.ttl, since, clock) {
@@ -2097,7 +2223,7 @@ impl DeathPresenter {
                 }
                 continue;
             }
-            let hull = &sheets_for(&self.sheets, &self.llama, part.variant)
+            let hull = &sheets_for(&self.sheets, &self.sets, part.variant)
                 .parts
                 .hull[part.frame];
             if hull.is_empty() {
@@ -2224,7 +2350,7 @@ impl DeathPresenter {
                 .iter()
                 .filter(|(_, d)| {
                     expired(
-                        art_for(&self.art, &self.llama, d.variant).parts[d.meta].ttl,
+                        art_for(&self.art, &self.sets, d.variant).parts[d.meta].ttl,
                         d.born,
                         clock,
                     )
@@ -2250,7 +2376,7 @@ impl DeathPresenter {
             return;
         };
         let variant = self.deaths[slot].variant;
-        let part = &art_for(&self.art, &self.llama, variant).parts[meta_index];
+        let part = &art_for(&self.art, &self.sets, variant).parts[meta_index];
         let ground_y = self.deaths[slot].ground_y;
         match contact {
             Contact::DropLanded { x, .. } => {
@@ -2325,7 +2451,7 @@ impl DeathPresenter {
         spin_dps: f32,
         flip: bool,
     ) -> bool {
-        let art = art_for(&self.art, &self.llama, death.variant);
+        let art = art_for(&self.art, &self.sets, death.variant);
         let Some(index) = art.part_index(id) else {
             return false;
         };
@@ -2382,9 +2508,9 @@ impl DeathPresenter {
             transient_until: self.transient_until,
             variant: death.variant,
         };
-        let (goblin_art, llama_art, now) = (&self.art, &self.llama, self.clock);
+        let (goblin_art, sets, now) = (&self.art, &self.sets, self.clock);
         self.parts.spawn_ranked(part, now, |p| {
-            ttl_rank(art_for(goblin_art, llama_art, p.variant).parts[p.meta].ttl)
+            ttl_rank(art_for(goblin_art, sets, p.variant).parts[p.meta].ttl)
         });
         self.stats.parts_spawned += 1;
         self.stats.peak_parts = self.stats.peak_parts.max(self.parts.live());
@@ -2428,9 +2554,9 @@ impl DeathPresenter {
             return false;
         };
         let _ = meta;
-        let (goblin_art, llama_art, now) = (&self.art, &self.llama, self.clock);
+        let (goblin_art, sets, now) = (&self.art, &self.sets, self.clock);
         self.floor_decals.spawn_ranked(decal, now, |d| {
-            ttl_rank(art_for(goblin_art, llama_art, d.variant).parts[d.meta].ttl)
+            ttl_rank(art_for(goblin_art, sets, d.variant).parts[d.meta].ttl)
         });
         self.stats.floor_decals_spawned += 1;
         self.stats.peak_floor_decals = self.stats.peak_floor_decals.max(self.floor_decals.live());
@@ -2449,14 +2575,14 @@ impl DeathPresenter {
         // Decals are the same in both goblin sets: they stay variant 0 (the
         // sheet and digest they always had); only the llama has its own.
         let variant = decal_set(variant);
-        let art = art_for(&self.art, &self.llama, variant);
+        let art = art_for(&self.art, &self.sets, variant);
         let index = art.part_index(id)?;
         let meta = &art.parts[index];
         if !meta.allowed_at(self.preset) {
             return None;
         }
         let cell = art.part_cell;
-        let bbox = sheets_for(&self.sheets, &self.llama, variant).parts.bbox[meta.frame]?;
+        let bbox = sheets_for(&self.sheets, &self.sets, variant).parts.bbox[meta.frame]?;
         // Horizontal: the named anchor pixel on `x`; vertical: the lowest
         // opaque row on the floor line.
         let anchor = meta
@@ -2511,9 +2637,9 @@ impl DeathPresenter {
             decal.scale = fresh.scale;
             return;
         }
-        let (goblin_art, llama_art, now) = (&self.art, &self.llama, self.clock);
+        let (goblin_art, sets, now) = (&self.art, &self.sets, self.clock);
         let (slot, seq) = self.floor_decals.spawn_ranked(fresh, now, |d| {
-            ttl_rank(art_for(goblin_art, llama_art, d.variant).parts[d.meta].ttl)
+            ttl_rank(art_for(goblin_art, sets, d.variant).parts[d.meta].ttl)
         });
         death.pools[which] = Some((slot, seq));
         self.stats.floor_decals_spawned += 1;
@@ -2559,7 +2685,7 @@ impl DeathPresenter {
             return;
         }
         let variant = decal_set(variant);
-        let art = art_for(&self.art, &self.llama, variant);
+        let art = art_for(&self.art, &self.sets, variant);
         let Some(index) = art.part_index(id) else {
             return;
         };
@@ -2658,11 +2784,17 @@ impl DeathPresenter {
             self.llama_crush_burst(d);
         }
         if age == 0 {
-            // The club leaves the hand.
-            let hand = self.pose_point(d, 0, "hand_near");
+            // The club leaves the hand; the Engineer's wrench (ENG2-AD10) leaves the back hip, with the
+            // club's draws.
+            let (held, from) = if d.variant == ENGINEER_VARIANT {
+                ("wrench", "hip_back")
+            } else {
+                ("club", "hand_near")
+            };
+            let hand = self.pose_point(d, 0, from);
             let (vx, vy) = (d.away * d.rng.range(90.0, 150.0), d.rng.range(120.0, 180.0));
             let spin = -d.away * d.rng.range(540.0, 900.0);
-            self.launch(d, "club", Some("grip"), hand, (vx, vy), 0.0, spin, d.flip);
+            self.launch(d, held, Some("grip"), hand, (vx, vy), 0.0, spin, d.flip);
             // 16 to 20 drops: the mouth and the two squeeze points.
             let drops = self.preset.drop_quarters();
             for (anchor, lo, hi, local) in [
@@ -2998,10 +3130,10 @@ impl DeathPresenter {
                 // The set of this death (goblin A, or the llama: its own
                 // frame, pivot and parts); a cheap handle, so `launch` may
                 // borrow the presenter.
-                let art = Arc::clone(if d.variant == LLAMA_VARIANT {
-                    self.llama.as_ref().map_or(&self.art, |l| &l.art)
-                } else {
-                    &self.art
+                let art = Arc::clone(match d.variant {
+                    LLAMA_VARIANT => self.sets.llama.as_ref().map_or(&self.art, |l| &l.art),
+                    ENGINEER_VARIANT => self.sets.engineer.as_ref().map_or(&self.art, |e| &e.art),
+                    _ => &self.art,
                 });
                 let pivot = art.pose_pivot;
                 let origin_of = |art: &DeathArt, id: &str| {
@@ -3297,6 +3429,51 @@ impl DeathPresenter {
                 }
             }
         }
+        // ENG-02: the Engineer's pot and wrench, after every other draw of this tick.
+        self.engineer_slam_launch(d, age);
+    }
+
+    /// ENG-02 (spec section 7): a slammed Engineer's pot pops off and his wrench leaves the belt, as two parts
+    /// from the launch points of `death_poses.spawner_hints.slam` (measured on the slammed impact cel). Stomped
+    /// and wall crumple launch at age 0, where the slammed cel (which wears no pot) replaces the sprite on the same
+    /// tick; the flung body launches on the first tick it is not airborne (the landing), because the airborne
+    /// base sprite is ENG-01 frame 14, which still wears the pot: at most one pot is visible on every tick. Once
+    /// per death; the draws follow `script_knockback`'s on that tick.
+    fn engineer_slam_launch(&mut self, d: &mut Death, age: u64) {
+        let Finish::GoblinSlammed(pose) = d.finish else {
+            return;
+        };
+        let ready = match pose {
+            SlamPose::Flung => d.landed.is_some(),
+            SlamPose::Stomped | SlamPose::WallCrumple => age == 0,
+        };
+        if d.variant != ENGINEER_VARIANT || d.slam_launched || !ready {
+            return;
+        }
+        let key = match pose {
+            SlamPose::Stomped => "stomped",
+            SlamPose::WallCrumple => "wall",
+            SlamPose::Flung => "flung",
+        };
+        let art = self.art_of(d.variant);
+        let Some(hint) = art.slam_launch.get(key).cloned() else {
+            return;
+        };
+        let pivot = art.pose_pivot;
+        d.slam_launched = true;
+        let world =
+            |p: [i32; 2]| pose_anchor_world(pivot, (p[0], p[1]), d.foot_x, d.ground_y, d.flip);
+        let (pot_at, wrench_at) = (world(hint.pot_launch), world(hint.wrench_launch));
+        let throw = |rng: &mut PresentationRng, away: f32, t: &PartThrow| {
+            let vx = away * rng.range(t.vx_away[0], t.vx_away[1]);
+            let vy = rng.range(t.vy_up[0], t.vy_up[1]);
+            let spin = if rng.coin() { t.spin_dps } else { -t.spin_dps };
+            ((vx, vy), spin)
+        };
+        let (vel, spin) = throw(&mut d.rng, d.away, &hint.pot);
+        self.launch(d, "pot", None, pot_at, vel, 0.0, spin, d.flip);
+        let (vel, spin) = throw(&mut d.rng, d.away, &hint.wrench);
+        self.launch(d, "wrench", Some("grip"), wrench_at, vel, 0.0, spin, d.flip);
     }
 
     /// Q43: separate up to `count` arms from the body (the manifest's preset
@@ -7306,5 +7483,374 @@ mod tests {
             v
         };
         assert!(names(SlamPose::WallCrumple).contains(&"cf02_wall_slam_kill"));
+    }
+
+    // ============================================================= ENG-02 ====
+
+    fn engineer_art() -> Arc<DeathArt> {
+        Arc::new(DeathArt::load_engineer(Path::new(env!("CARGO_MANIFEST_DIR"))).unwrap())
+    }
+
+    /// The cf02 presenter with the Engineer death art and goblin 0 an Engineer.
+    fn engineer_presenter(preset: GorePreset) -> DeathPresenter {
+        let mut p = cf02_presenter(preset)
+            .with_engineer(engineer_art())
+            .unwrap();
+        p.engineers = vec![0];
+        p
+    }
+
+    /// Part ids of `p`, each read from the art of its own set.
+    fn set_part_ids(p: &DeathPresenter) -> Vec<String> {
+        p.parts()
+            .map(|(_, part)| p.art_of(part.variant).parts[part.meta].id.clone())
+            .collect()
+    }
+
+    fn engineer_defeat(p: &mut DeathPresenter, cause: DefeatCause, force: ForceTier, ticks: u64) {
+        let goblins = [goblin_at(484.0)];
+        p.step(&[defeat(139, 0, cause, force)], obs(&goblins));
+        for _ in 1..ticks {
+            p.step(&[], obs(&goblins));
+        }
+    }
+
+    #[test]
+    fn e2_6_each_engineer_recipe_resolves_to_its_finish() {
+        let profiles = DeathProfiles::cf02();
+        let melee = DefeatCause::Melee;
+        let cases: [(DefeatCause, ForceTier, &str, Finish); 5] = [
+            (
+                melee,
+                ForceTier::Heavy,
+                "engineer_slammed",
+                Finish::GoblinSlammed(SlamPose::Flung),
+            ),
+            (
+                BLAST_PB,
+                ForceTier::Catastrophic,
+                "engineer_exploded",
+                Finish::Exploded,
+            ),
+            (
+                EDGE,
+                ForceTier::Heavy,
+                "engineer_decapitated",
+                Finish::Decapitated,
+            ),
+            (
+                BLOCK,
+                ForceTier::Routine,
+                "engineer_crushed",
+                Finish::Crushed,
+            ),
+            (
+                melee,
+                ForceTier::Routine,
+                "engineer_knockback_down",
+                Finish::Knockback,
+            ),
+        ];
+        for (cause, force, id, finish) in cases {
+            let selection = profiles.select(ENGINEER_SPECIES, cause, force);
+            assert_eq!(selection.finish, id, "{cause:?} {force:?}");
+            assert_eq!(Finish::from_id(id), finish, "{id}");
+        }
+        // The species fallback is the routine knockback, never a removed id.
+        assert_eq!(
+            profiles.species(ENGINEER_SPECIES).unwrap().fallback_finish,
+            "engineer_knockback_down"
+        );
+    }
+
+    /// Whether any text file under `dir` contains `needle`.
+    fn tree_contains(dir: &Path, needle: &str, found: &mut Vec<PathBuf>) {
+        for entry in std::fs::read_dir(dir).unwrap().flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                tree_contains(&path, needle, found);
+                continue;
+            }
+            let text_like = matches!(
+                path.extension().and_then(|e| e.to_str()),
+                Some("rs" | "json" | "toml" | "ron" | "txt" | "md" | "csv")
+            );
+            if text_like && std::fs::read_to_string(&path).is_ok_and(|text| text.contains(needle)) {
+                found.push(path);
+            }
+        }
+    }
+
+    #[test]
+    fn e2_6_the_removed_pre_eng02_finish_id_is_gone_from_src_and_assets() {
+        // The needle is built at run time so this test never contains it.
+        let needle = ["engineer", "down"].join("_");
+        let mut found = Vec::new();
+        for dir in ["src", "assets"] {
+            tree_contains(&root().join(dir), &needle, &mut found);
+        }
+        assert!(found.is_empty(), "{found:?}");
+        assert_eq!(Finish::from_id(&needle), Finish::NoArt);
+    }
+
+    #[test]
+    fn an_engineer_death_resolves_the_engineer_sheets_not_a_goblin_variant() {
+        let mut p = engineer_presenter(GorePreset::Full);
+        assert!(p.has_engineer());
+        // The set: 27 parts and the pot and wrench, against the goblin's 26.
+        assert_eq!(p.art_of(ENGINEER_VARIANT).parts.len(), 27);
+        assert_eq!(p.art_of(0).parts.len(), 26);
+        assert!(p.art_of(ENGINEER_VARIANT).part_index("pot").is_some());
+        assert!(p.art_of(0).part_index("pot").is_none());
+        assert!(!std::ptr::eq(p.sheets_of(ENGINEER_VARIANT), p.sheets_of(0)));
+        assert_eq!(p.sheets_of(ENGINEER_VARIANT).parts.frames, 27);
+        // A crush of the Engineer plays the Engineer's poses.
+        engineer_defeat(&mut p, BLOCK, ForceTier::Routine, 4);
+        let pose = p.pose_of(0).expect("the crush pose");
+        assert_eq!(pose.variant, ENGINEER_VARIANT);
+        // Without the Engineer art he plays the goblin set of his index (never a
+        // silent clamp onto another set's sheets).
+        let mut plain = cf02_presenter(GorePreset::Full);
+        plain.engineers = vec![0];
+        engineer_defeat(&mut plain, BLOCK, ForceTier::Routine, 4);
+        assert_eq!(plain.pose_of(0).unwrap().variant, goblin_variant(0));
+        assert!(std::ptr::eq(
+            plain.sheets_of(ENGINEER_VARIANT),
+            plain.sheets_of(0)
+        ));
+        // The goblin and the llama keep their own.
+        assert!(!std::ptr::eq(p.sheets_of(1), p.sheets_of(0)));
+    }
+
+    #[test]
+    fn e2_7_an_engineer_crush_launches_one_wrench_and_no_club() {
+        for preset in GorePreset::ALL {
+            let mut p = engineer_presenter(preset);
+            engineer_defeat(&mut p, BLOCK, ForceTier::Routine, 30);
+            let ids = set_part_ids(&p);
+            assert_eq!(count(&ids, "wrench"), 1, "{preset:?}");
+            assert_eq!(count(&ids, "club"), 0, "{preset:?}");
+            assert_eq!(
+                count(&ids, "pot"),
+                0,
+                "the flat pot is in the pose, not a part"
+            );
+        }
+        // A goblin crush is unchanged: one club, no wrench.
+        let goblin = run_crush(GorePreset::Full, 30);
+        assert_eq!(count(&part_ids(&goblin), "club"), 1);
+        assert_eq!(count(&part_ids(&goblin), "wrench"), 0);
+    }
+
+    #[test]
+    fn e2_7_an_engineer_decapitation_throws_the_potted_head() {
+        for preset in GorePreset::ALL {
+            let mut p = engineer_presenter(preset);
+            engineer_defeat(&mut p, EDGE, ForceTier::Heavy, 20);
+            let ids = set_part_ids(&p);
+            assert_eq!(count(&ids, "head"), 1, "{preset:?}");
+            assert_eq!(count(&ids, "head_bare"), 0, "{preset:?}");
+            assert_eq!(count(&ids, "club"), 0, "{preset:?}");
+        }
+        // The head part is the potted one: it fills the cell where the bare head does not.
+        let p = engineer_presenter(GorePreset::Full);
+        let width = |id: &str| {
+            let art = p.art_of(ENGINEER_VARIANT);
+            let frame = art.parts[art.part_index(id).unwrap()].frame;
+            p.sheets_of(ENGINEER_VARIANT).parts.bbox[frame]
+                .unwrap()
+                .width()
+        };
+        assert!(width("head") >= 30 && width("head_bare") < width("head"));
+    }
+
+    #[test]
+    fn e2_7_an_engineer_explosion_throws_the_pot_and_the_bare_head() {
+        let charges = charge_484();
+        for preset in GorePreset::ALL {
+            let mut p = engineer_presenter(preset);
+            let goblins = [GoblinView {
+                mode: GoblinMode::Airborne,
+                ..goblin_at(484.0)
+            }];
+            let ob = Observation {
+                charges: &charges,
+                env_origins: &[],
+                ..obs(&goblins)
+            };
+            p.step(&[defeat(60, 0, BLAST_PB, ForceTier::Catastrophic)], ob);
+            for _ in 1..40 {
+                p.step(&[], ob);
+            }
+            let ids = set_part_ids(&p);
+            let table = explosion_table_of(ENGINEER_VARIANT, preset);
+            for part in table.parts {
+                assert!(count(&ids, part) >= 1, "{preset:?} {part}: {ids:?}");
+            }
+            for banned in ["head", "club", "club_stick", "pineapple"] {
+                assert_eq!(count(&ids, banned), 0, "{preset:?} {banned}");
+            }
+            if preset >= GorePreset::Reduced {
+                assert_eq!(count(&ids, "pot"), 1, "{preset:?}");
+                assert_eq!(count(&ids, "head_bare"), 1, "{preset:?}");
+                assert_eq!(count(&ids, "wrench"), 1, "{preset:?}");
+            }
+        }
+        // The lists are the spec's; preset 4 has ten parts like the goblin's.
+        assert_eq!(
+            ENGINEER_EXPLOSION_TABLES[3].parts.len(),
+            EXPLOSION_TABLES[3].parts.len()
+        );
+        assert!(ENGINEER_EXPLOSION_TABLES[0].parts.is_empty());
+        assert_eq!(
+            ENGINEER_EXPLOSION_TABLES[1].parts,
+            ["head_bare", "torso_upper", "wrench", "pot"]
+        );
+    }
+
+    /// One slammed Engineer: `lead` events and the observed mode per tick (`airborne` ticks first, for a
+    /// flung body); returns, per tick after the defeat, the pots in the world (a launched part) and whether the
+    /// base sprite wears one (ENG-01 frame 14 while a flung body is airborne; no other tick, the slammed cel
+    /// replaces it).
+    fn slam_pots(
+        lead: &[CombatEvent],
+        airborne: u64,
+        ticks: u64,
+    ) -> (Vec<(usize, bool)>, DeathPresenter) {
+        let mut p = engineer_presenter(GorePreset::Full);
+        let mut out = Vec::new();
+        let mut events = lead.to_vec();
+        events.push(defeat(60, 0, DefeatCause::Melee, ForceTier::Heavy));
+        for tick in 0..ticks {
+            let mode = if tick < airborne {
+                GoblinMode::Airborne
+            } else {
+                GoblinMode::Down
+            };
+            let goblins = [GoblinView {
+                mode,
+                ..goblin_at(484.0)
+            }];
+            p.step(if tick == 0 { &events } else { &[] }, obs(&goblins));
+            let pose = p.slam_pose_of(0);
+            let base_pot = pose == Some(SlamPose::Flung) && mode == GoblinMode::Airborne;
+            out.push((count(&set_part_ids(&p), "pot"), base_pot));
+        }
+        (out, p)
+    }
+
+    #[test]
+    fn at_most_one_pot_is_visible_on_every_tick_of_every_slam_pose() {
+        use crate::combat::MoveId;
+        let cases: [(&str, &[CombatEvent], u64, SlamPose); 3] = [
+            ("stomped", &[hit_on(MoveId::Stomp, 0)], 0, SlamPose::Stomped),
+            ("wall", &[slam_on(0)], 0, SlamPose::WallCrumple),
+            ("flung", &[], 14, SlamPose::Flung),
+        ];
+        for (name, lead, airborne, pose) in cases {
+            let (pots, p) = slam_pots(lead, airborne, 90);
+            assert_eq!(p.slam_pose_of(0), Some(pose), "{name}");
+            for (tick, (part_pots, base_pot)) in pots.iter().enumerate() {
+                assert!(
+                    part_pots + usize::from(*base_pot) <= 1,
+                    "{name}: tick {tick} shows {part_pots} part pot(s) and the base pot {base_pot}"
+                );
+            }
+            // The pot is launched exactly once and stays on the floor.
+            assert_eq!(pots.last().unwrap().0, 1, "{name}");
+            assert!(
+                pots.windows(2).all(|w| w[1].0 >= w[0].0),
+                "{name}: never launched twice"
+            );
+            let ids = set_part_ids(&p);
+            assert_eq!(
+                (count(&ids, "pot"), count(&ids, "wrench")),
+                (1, 1),
+                "{name}"
+            );
+            // The flung body keeps its pot through the whole flight (the base sprite) and launches it on the landing.
+            if name == "flung" {
+                assert!(
+                    pots[..14].iter().all(|(n, base)| *n == 0 && *base),
+                    "airborne"
+                );
+                assert_eq!(pots[14].0, 1, "the landing tick launches the pot");
+            } else {
+                assert_eq!(pots[1].0, 1, "{name}: launched at age 0");
+            }
+        }
+    }
+
+    #[test]
+    fn an_engineer_slam_reads_the_launch_points_of_the_manifest() {
+        let art = engineer_art();
+        let mut poses: Vec<_> = art.slam_launch.keys().cloned().collect();
+        poses.sort();
+        assert_eq!(poses, ["flung", "stomped", "wall"]);
+        // The points lie on the 64 x 56 frame, on the impact cel: head above the belt.
+        for hint in art.slam_launch.values() {
+            for point in [hint.pot_launch, hint.wrench_launch] {
+                assert!((0..64).contains(&point[0]) && (0..56).contains(&point[1]));
+            }
+        }
+        // A goblin set has none.
+        assert!(
+            DeathArt::load(Path::new(env!("CARGO_MANIFEST_DIR")))
+                .unwrap()
+                .slam_launch
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn the_engineer_art_leaves_goblin_slams_and_crushes_unchanged() {
+        // With the Engineer art loaded, a goblin target (not in `engineers`) draws exactly as before.
+        let plain = run_crush(GorePreset::Full, 40).digest();
+        let mut with = presenter(GorePreset::Full)
+            .with_engineer(engineer_art())
+            .unwrap();
+        with.engineers = vec![7];
+        let goblins = [goblin_at(484.0)];
+        with.step(
+            &[defeat(139, 0, BLOCK, ForceTier::Catastrophic)],
+            obs(&goblins),
+        );
+        for _ in 1..40 {
+            with.step(&[], obs(&goblins));
+        }
+        assert_eq!(plain, with.digest());
+    }
+
+    #[test]
+    fn the_engineer_lab_plays_the_named_finish_for_a_jab_kill() {
+        for (name, want) in [
+            ("crushed", Finish::Crushed),
+            ("decapitated", Finish::Decapitated),
+            ("exploded", Finish::Exploded),
+            ("slammed_stomped", Finish::GoblinSlammed(SlamPose::Stomped)),
+            ("slammed_wall", Finish::GoblinSlammed(SlamPose::WallCrumple)),
+            ("slammed_flung", Finish::GoblinSlammed(SlamPose::Flung)),
+        ] {
+            assert_eq!(Finish::lab_engineer(name), Some(want), "{name}");
+            let mut p = engineer_presenter(GorePreset::Full).with_lab_engineer(want);
+            let goblins = [goblin_at(484.0)];
+            // A routine jab: the recipe alone would be the knockback.
+            p.step(
+                &[defeat(10, 0, DefeatCause::Melee, ForceTier::Routine)],
+                obs(&goblins),
+            );
+            assert_eq!(p.deaths[0].finish, want, "{name}");
+            assert_eq!(p.deaths[0].variant, ENGINEER_VARIANT, "{name}");
+        }
+        assert_eq!(Finish::lab_engineer("knockback"), None);
+        assert_eq!(Finish::lab_engineer(""), None);
+        // A goblin is untouched by the flag.
+        let mut p = presenter(GorePreset::Full).with_lab_engineer(Finish::Crushed);
+        let goblins = [goblin_at(484.0)];
+        p.step(
+            &[defeat(10, 0, DefeatCause::Melee, ForceTier::Routine)],
+            obs(&goblins),
+        );
+        assert_eq!(p.deaths[0].finish, Finish::Knockback);
     }
 }

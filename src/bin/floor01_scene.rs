@@ -77,7 +77,7 @@ use dungeon_floorbreak::{
     companion::profile::ProfileSetId,
     corridor::{CorridorWorld, Scenario, SceneSim},
     death_present::{
-        DeathPresenter, DrawLayer, FLOOR_DECAL_POOL_CAPACITY, FLOOR_DECAL_POOL_SLOTS,
+        DeathPresenter, DrawLayer, FLOOR_DECAL_POOL_CAPACITY, FLOOR_DECAL_POOL_SLOTS, Finish,
         PART_POOL_CAPACITY, PART_POOL_SLOTS, WALL_DECAL_POOL_CAPACITY, WALL_DECAL_POOL_SLOTS,
         blast_vfx_frame, charge_draw_frame, draw_z, explosion_table,
     },
@@ -92,7 +92,7 @@ use dungeon_floorbreak::{
     f01_run,
     feel::{LLAMA_GLOB_MOUTH_DX, LLAMA_GLOB_MOUTH_DY, LLAMA_GLOB_SPEED},
     goblin::{AttackPhase, GoblinMode},
-    gore::{DEATH_VARIANTS, DeathArt, GorePreset, LLAMA_VARIANT, Sheet},
+    gore::{DEATH_VARIANTS, DeathArt, ENGINEER_VARIANT, GorePreset, LLAMA_VARIANT, Sheet},
     hud::{EventCursor, GlyphSet, HudConfig, HudLayout, HudPreview, HudRuntime, SpecialPhase},
     hud_adapter::{HudPlugin, HudState},
     hud_settings::{HudSettings, parse_switch},
@@ -250,6 +250,10 @@ struct Args {
     /// Remove it when a simulation cause can behead a llama (precedent:
     /// DEATH-D removed `--death-lab-finish` once the goblin had one).
     death_lab_edge: bool,
+    /// Evidence lab (ENG-02, `--death-lab-engineer NAME`): the presenter plays this finish for every Engineer
+    /// defeat (`DeathPresenter::with_lab_engineer`; the Floor 1 pilots only ever kill him with a jab). Presentation
+    /// only: the simulation, its log and its hash are untouched. Not a recording run.
+    death_lab_engineer: Option<Finish>,
     /// HUD-HYBRID-A-01: draw a labelled HUD preview fixture. Presentation
     /// only: it never reaches the simulation, the combat state or a replay.
     hud_preview: Option<HudPreview>,
@@ -509,6 +513,7 @@ impl Args {
             && self.camera_test_room.is_none()
             && !self.death_stress
             && !self.death_lab_edge
+            && self.death_lab_engineer.is_none()
             && !self.audience_probe
             && self.list_fixtures.is_none()
     }
@@ -1495,6 +1500,7 @@ fn parse_args_full(
         death_stress: false,
         death_trace: false,
         death_lab_edge: false,
+        death_lab_engineer: None,
         hud_preview: None,
         glyphs: None,
         hud_settings,
@@ -1780,6 +1786,14 @@ fn parse_args_full(
             "--death-stress" => parsed.death_stress = true,
             "--death-trace" => parsed.death_trace = true,
             "--death-lab-edge" => parsed.death_lab_edge = true,
+            "--death-lab-engineer" => {
+                let value = iter.next().ok_or("--death-lab-engineer needs a finish")?;
+                parsed.death_lab_engineer = Some(Finish::lab_engineer(value).ok_or_else(|| {
+                    format!(
+                        "bad --death-lab-engineer {value:?} (expected crushed, decapitated, exploded, slammed_stomped, slammed_wall or slammed_flung)"
+                    )
+                })?);
+            }
             "--camera" => {
                 let value = iter.next().ok_or("--camera needs a mode")?;
                 parsed.camera = Some(CameraChoice::parse(value)?);
@@ -2243,11 +2257,16 @@ fn death_presenter(root: &Path, args: &Args) -> Result<DeathPresenter, String> {
     let art = Arc::new(DeathArt::load(root)?);
     let variant_b = DeathArt::load_variant(root, 1)?;
     let death = DeathPresenter::with_variants(art, &variant_b, args.gore_preset)?
-        .with_llama(Arc::new(DeathArt::load_llama(root)?))?;
-    Ok(if args.death_lab_edge {
+        .with_llama(Arc::new(DeathArt::load_llama(root)?))?
+        .with_engineer(Arc::new(DeathArt::load_engineer(root)?))?;
+    let death = if args.death_lab_edge {
         death.with_lab_edge()
     } else {
         death
+    };
+    Ok(match args.death_lab_engineer {
+        Some(finish) => death.with_lab_engineer(finish),
+        None => death,
     })
 }
 
@@ -4992,6 +5011,8 @@ fn setup(
                 acting.goblins.iter().map(&mut load).collect();
             let slammed_textures: Vec<Handle<Image>> =
                 acting.slammed.iter().map(&mut load).collect();
+            // ENG-02: the Engineer's slammed sheet (his own belt and no weapon).
+            let engineer_slammed_texture = load(&acting.engineer_slammed);
             for index in 0..state.enemies.len() {
                 let variant = goblin_variant(index);
                 let z = kit.actor_z + GOBLIN_Z_OFFSET - index as f32 * GOBLIN_Z_STEP;
@@ -5006,13 +5027,14 @@ fn setup(
                     Visibility::Hidden,
                     layers_of("actors"),
                 ));
+                let (slammed_clips, slammed_texture) = if state.enemies[index].is_engineer() {
+                    (&acting.engineer_slammed, &engineer_slammed_texture)
+                } else {
+                    (&acting.slammed[variant], &slammed_textures[variant])
+                };
                 commands.spawn((
                     GoblinSlammedSprite { index },
-                    sprite(
-                        &acting.slammed[variant],
-                        &slammed_textures[variant],
-                        "slammed_stomped",
-                    ),
+                    sprite(slammed_clips, slammed_texture, "slammed_stomped"),
                     Transform::from_xyz(0.0, 0.0, z),
                     Visibility::Hidden,
                     layers_of("actors"),
@@ -5584,9 +5606,12 @@ fn setup(
                 RenderAssetUsages::default(),
             ))
         };
-        // Goblin A, goblin B and (with the llama art) the llama: one sheet each.
-        let variants = if presenter.has_llama() {
-            DEATH_VARIANTS + 1
+        // Goblin A, goblin B, (with the llama art) the llama and (with the Engineer art) the
+        // Engineer: one sheet each, at the presenter's variant indices.
+        let variants = if presenter.has_engineer() {
+            ENGINEER_VARIANT + 1
+        } else if presenter.has_llama() {
+            LLAMA_VARIANT + 1
         } else {
             DEATH_VARIANTS
         };
@@ -8086,17 +8111,29 @@ fn sync_cf02_acting_visuals(
     let mut hide_slammed: Vec<usize> = Vec::new();
     for (goblin, mut transform, mut sprite, mut visibility) in &mut slammed {
         let index = goblin.index;
-        let (Some(pose), Some(g)) = (
-            art.goblin_slammed_pose(index, slam_of(index)),
-            state.enemies.get(index),
-        ) else {
+        let Some(g) = state.enemies.get(index) else {
             *visibility = Visibility::Hidden;
             continue;
         };
-        let variant = goblin_variant(index);
+        // ENG-02: an Engineer draws his own slammed sheet (the belt, no pot: the pot is a launched part).
+        let (pose, slammed_clips) = if g.is_engineer() {
+            (
+                art.engineer_slammed_pose(index, slam_of(index)),
+                &cf02.art.engineer_slammed,
+            )
+        } else {
+            (
+                art.goblin_slammed_pose(index, slam_of(index)),
+                &cf02.art.slammed[goblin_variant(index)],
+            )
+        };
+        let Some(pose) = pose else {
+            *visibility = Visibility::Hidden;
+            continue;
+        };
         let flip = g.facing < 0;
         let (cx, cy) = actor_center(
-            cf02.art.slammed[variant].spec,
+            slammed_clips.spec,
             g.x + art.goblin_draw_dx(index) as f32,
             g.y - ENEMY_HALF_HEIGHT,
             flip,
@@ -10276,6 +10313,49 @@ mod tests {
             .is_err()
         );
         assert!(args(&["--fixture", "cp03_shore_kill", "--death-trace"]).is_err());
+        // ENG-02: the Engineer evidence lab names one of the six finishes and is never a recording run.
+        assert!(args(&["--death-lab-engineer"]).is_err());
+        assert!(args(&["--death-lab-engineer", "knockback"]).is_err());
+        assert!(
+            args(&["--death-lab-engineer", "crushed"])
+                .unwrap()
+                .death_lab_engineer
+                == Some(Finish::Crushed)
+        );
+        for name in [
+            "crushed",
+            "decapitated",
+            "exploded",
+            "slammed_stomped",
+            "slammed_wall",
+            "slammed_flung",
+        ] {
+            assert!(
+                args(&[
+                    "--scene",
+                    "f01_late",
+                    "--f01-room",
+                    "boiler",
+                    "--death-lab-engineer",
+                    name
+                ])
+                .is_ok(),
+                "{name}"
+            );
+        }
+        assert!(
+            !args(&[
+                "--scene",
+                "f01_late",
+                "--f01-room",
+                "boiler",
+                "--death-lab-engineer",
+                "crushed",
+                "--manual"
+            ])
+            .unwrap()
+            .recording_enabled()
+        );
         // LLAMA-DEATH-WIRE: the block-edge evidence lab needs a fixture and is
         // never a recording run.
         assert!(args(&["--death-lab-edge"]).is_err());

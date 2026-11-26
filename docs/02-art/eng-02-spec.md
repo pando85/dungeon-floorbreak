@@ -1,6 +1,6 @@
 # ENG-02: Goblin Engineer completion art, design spec
 
-**Status:** design step done; the independent design gate ruled FREEZE-with-notes. The two get-up keys are frozen as committed (`tests/fixtures/eng-02_keys.json`), and the validator passes (14 pass, 3 skipped). The gate found two design defects in the rules: the crush pot placement (section 8) and the flung-slam launch timing (section 7). Both are fixed in this spec. Execution is pending: the ram run, the slammed sheet, the death poses, the parts sheet, the wiring, the tests and the evidence. After that comes the independent review of the finished frames.
+**Status:** executed. The design step is done and the independent design gate ruled FREEZE-with-notes (the two get-up keys are frozen as committed, `tests/fixtures/eng-02_keys.json`; its two design defects, the crush pot placement of section 8 and the flung launch timing of section 7, are fixed in this spec). The executor (Claude Sonnet) built the ram run, the slammed sheet, the death poses, the parts sheet, the wiring, the tests and the evidence; the deviations it recorded are under "Executor notes" at the end. **Owner art review pending, game-feel review pending, independent review of the finished frames pending.** Evidence: [`../evidence/eng-02/README.md`](../evidence/eng-02/README.md).
 
 ENG-02 is the art order of [design sheet section 10](../01-design/enemy-gameplay-engineer.md#10-frames-per-state-and-the-missing-art-order-eng-02) (audit row E5). Today every Engineer death recipe falls back to `engineer_down`, which shows ENG-01 frames 15 to 17. This order gives each recipe its own art. It also replaces the get-up stand-in (frame 13, `attack_recover`), and it adds a ram run so the held frame 12 stops sliding.
 
@@ -419,7 +419,8 @@ The gate took the recommended answer for each question. The owner may change any
 - `eng_slammed_h36` and `eng_death_h36`: grid, `.ase` and `.pixelart.json` under `assets/source/characters/goblin/engineer/`
 - `eng_death_parts`: the same three source files, in the same folder
 - manifests `assets/manifests/eng_slammed_h36.json`, `eng_death_h36.json` and `eng_death_parts.json`
-- the generated atlases
+- the generated atlases (`generated/art/`, not committed: `bash scripts/export_assets.sh`)
+- `scripts/eng02_evidence.py` and `scripts/make_eng02_evidence.sh`, and `docs/evidence/eng-02/`
 
 **Changed by execution:**
 
@@ -437,5 +438,29 @@ Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope (see `do
 
 - Design, size and palette decisions, and the two keys: Claude Opus.
 - Design gate: FREEZE-with-notes by a separate, independent Claude Opus agent. Its two design defects (crush pot placement, flung launch timing) are fixed in this spec.
-- Execution: pending.
-- Independent review of the finished frames: pending.
+- Execution: Claude Sonnet (frames 20 and 21, the slammed, death and parts sheets, the manifests, the validators, the wiring, the tests and the evidence).
+- Independent review of the finished frames: pending (a separate top-tier agent).
+
+## 18. Executor notes
+
+Written by the executor (Claude Sonnet). Each item is a deviation from, or a reading of, the spec above; none changes a key, a palette or a design rule, and none sends anything back to design except where it says so.
+
+**ENG2-X1: the belt strap of death frames 3 and 4 is on the `weapon` layer (carried to `body`).** In GOB-02 A the 18 px strap run of the two decapitation cels (and the outline pixel at its right end) is drawn on the `weapon` layer, with the club. Section 8 says to drop that layer; doing so cuts a transparent slit through the torso (rows 43 and 47, open to the right). The executor carries the strap run and its end outline to `body` and recolours it with `belt_recolour()`, with no buckle (section 7 pins none in frames 3 to 5, and the rule is applied to the `body` layer as authored). Slammed frames have no such strap (their weapon layer is the club only). The gate's note that frames 3 to 5 "have no strap run" is true of `body` only.
+
+**ENG2-X2: orphan clean-ups (V06, at most 9 per frame, section 13).** The belt rhythm (`u u t`) leaves single `t` and `u` pixels, which count as orphans. Death frames 0, 3 and 4 were over the limit. The first body-layer orphan that is not inherited from the GOB source cel is recoloured to the commonest key among its neighbours (a belt pixel only among `u`, `t`, `r`), until the frame passes. Applied, in order: frame 0 `(6, 36) s -> K` (a skin pixel leaking past the pot's handle outline); frame 3 `(14, 43) u -> r`, `(24, 43) t -> r`; frame 4 `(12, 47) t -> r`, `(21, 47) t -> r`, `(24, 47) t -> r`. Pinned by a test (`cleaned_orphans`). The slammed sheet's `max_orphans_per_frame` is 9 (the GOB sheet's 0 predates the belt rhythm; frame 2 has 6).
+
+**ENG2-X3: the stowed wrench of frames 3 and 4.** It is the ENG-01 `WRENCH` block with its bottom row on the belt row and its right edge 2 px behind the rearmost belt pixel, which is ENG-01 key 0's own relation (the block's bottom row, 42, is the belt row; the spec text "1 row below" reads as the same thing). In both cels the torso's rear outline is further back than the belt, so the wrench slides back 2 px more to clear the body: 4 px behind the belt's first pixel, 3 px behind the strap's end outline. Frame 5 (the collapsed body) has no belt, and its box would cross gore pixels, so the wrench is **omitted in frame 5** (section 8 allows it; recorded here and pinned by a test).
+
+**ENG2-X4: ram-run legs.** The walk legs are the sources, as binding. Walk 7 has no 2 row thigh to add (its torso is unmoved, so its legs start on row 47): frame 20's thighs extend 1 row up (to row 46, under the lifted hem on row 45); frame 21's extend 2 rows (to row 47). The foot x values of section 6 are approximate: frame 20's lifted near foot ends at x 32 and its planted far foot at x 36 (the spec text has them the other way round); frame 21's trailing near foot ends at x 28 (the spec says about 30) and its forward far foot at x 40. No foot was moved.
+
+**ENG2-X5: crush pot origins.** (6, 33), (6, 36) and (28, 41) met every target; none was moved. The pancake leaves a few skin pixels of the head showing in the gap between its handle and its pan in frames 0 and 1 (the handle is a separate strip); it reads as the brow under the iron.
+
+**ENG2-X6: slam launch points.** `pot_launch` is the top outline pixel (a `K` with nothing above it, no lower than the head centre) nearest the centroid of the cel's mouth and teeth pixels (`w` and `o`); `wrench_launch` is the rearmost belt pixel (`u` or `t` with another belt pixel beside it), or, for a cel with no belt (the stomped and flung impact cels have no strap), the rearmost rag pixel (`r`, `t`, `u`). Measured: stomped (cel 0) pot (16, 40), wrench (18, 54); wall (cel 2) pot (39, 32), wrench (19, 39); flung (cel 4, the landing) pot (18, 45), wrench (23, 52). The velocities and spins of section 7 are in the same manifest block and are read by the presenter from it.
+
+**ENG2-X7: the flung launch tick.** The presenter does not see the animators, so it launches the flung pot and wrench on the first tick the observed goblin is no longer airborne (the landing), which is the tick `cf02::slammed_pose` starts returning Some. A test steps all three poses and checks that at most one pot is visible on every tick (the part, or ENG-01 frame 14 while a flung body is airborne), and that the pot is launched once.
+
+**ENG2-X8: the evidence lab flag.** No Floor 1 pilot kills the Engineer with anything but a jab (the knockback finish), and none lets his ram run for more than a tick (a scan of the 90 aligned boiler and mastery pilots, 9 seeds each, found no frame 12, 20 or 21). `floor01_scene --death-lab-engineer NAME` (`crushed`, `decapitated`, `exploded`, `slammed_stomped`, `slammed_wall`, `slammed_flung`) makes the presenter play that finish for every Engineer defeat, as `--death-lab-edge` does for the llama. Presentation only: a window run ends on the same `COMBAT_STATE` hash as the headless run. The ram run is captured in the CF02 arena fixture `eng_jump_over_ram`.
+
+**ENG2-X9: the V17 allowlist.** The three get-up key pockets are listed with the gate's rulings (section 5). The death sheet's frames 1, 4 and 5 and the parts sheet's `torso_lower`, `decal_wall_spatter` and `decal_wall_spatter_b` carry enclosed pockets that are inherited verbatim from GOB-02 A (the same pixels are enclosed in the source composite); each is listed with its source frame, as the gate required. Nothing the executor added creates a pocket.
+
+**ENG2-X10: other config changes.** The parts config has a canvas margin of 0 (the potted `head` and `head_dead` and the `pot` fill their 32 px cell width) and its 28 px part cap is 32 for those three. `tests/test_art_eng01.py` skips the pot-identity check on frame 19 (the far fist covers a few pot pixels by design) and expects the wrench on frames 19 to 21. The test that greps for the removed finish id renamed `a_dive_from_the_perch_knocks_the_waiting_engineer_down` (a Rust test name in `src/cf02_fixtures/engineer_tests.rs`) to `..._to_the_floor`, because the name contained the string.

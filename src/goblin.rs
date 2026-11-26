@@ -507,6 +507,11 @@ impl Goblin {
         (self.is_engineer() && self.mode == GoblinMode::Attack).then_some(self.eng.phase)
     }
 
+    /// Ram ticks the Engineer has run so far (`None` outside the ram): the ENG-02 ram-run frames cycle by it.
+    pub fn ram_age(&self) -> Option<u16> {
+        (self.engineer_phase() == Some(EngineerPhase::Ram)).then_some(self.eng.ram_ticks)
+    }
+
     /// The Engineer's attack state (idle for a common goblin).
     pub fn engineer_state(&self) -> &EngineerState {
         &self.eng

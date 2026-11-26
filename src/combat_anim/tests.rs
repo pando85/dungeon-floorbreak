@@ -1454,3 +1454,120 @@ fn only_the_defeated_hero_is_downed_for_the_i_frame_cue() {
     }
     assert!(seen, "Donut was defeated in the fixture");
 }
+
+// ------------------------------------------------- ENG-02 (Engineer) ------
+
+fn engineer_clips() -> SpriteClips {
+    SpriteClips::load_engineer(root(), FrameSource::GridSource).unwrap()
+}
+
+fn engineer_frame(ram_age: Option<u16>) -> EngineerFrame {
+    EngineerFrame {
+        phase: None,
+        bonk_age: None,
+        bonk_hurt_ticks: 0,
+        lying_ticks: 40,
+        ram_age,
+    }
+}
+
+#[test]
+fn the_engineer_atlas_has_22_frames_with_the_getup_and_ram_run_tags() {
+    let clips = engineer_clips();
+    assert_eq!(clips.frame_count, ENGINEER_FRAMES);
+    assert_eq!(clips.tag("getup"), (18, 2));
+    assert_eq!(clips.tag("attack_ram_run"), (20, 2));
+    // Frames 18 to 21 are held by state (the get-up by the lying age, the ram run by the ram age).
+    assert!((18..22).all(|f| clips.ticks[f].is_none()));
+    assert_eq!(clips.ticks[0], Some(14));
+    assert_eq!(clips.ticks[8], Some(6));
+    // The slammed sheet shares the CF02 goblin tags and indices.
+    let slammed = SpriteClips::load_engineer_slammed(root(), FrameSource::GridSource).unwrap();
+    assert_eq!(slammed.frame_count, 6);
+    assert_eq!(slammed.tag("slammed_wall"), (2, 2));
+    assert_eq!(slammed.ticks[0], Some(8));
+}
+
+#[test]
+fn the_engineer_getup_shows_the_sit_then_the_shove_and_holds_the_shove() {
+    let clips = engineer_clips();
+    let at = |down_ticks: u16| {
+        let input = GoblinInput {
+            mode: GoblinMode::Downed,
+            down_ticks,
+            engineer: Some(engineer_frame(None)),
+            ..goblin_input()
+        };
+        engineer_pose(&clips, &input, &input.engineer.unwrap())
+    };
+    // Lying: the ENG-01 down frames, unchanged (frame 15 for 5 ticks, then 16).
+    assert_eq!(at(0).frame, 15);
+    assert_eq!(at(4).frame, 15);
+    assert_eq!(at(5).frame, 16);
+    assert_eq!(at(39).frame, 16);
+    // The get-up: age = down_ticks - lying_ticks; the sit (18) for 10 ticks, then the shove (19).
+    for age in 0..GETUP_SIT_TICKS {
+        assert_eq!(
+            (at(40 + age).tag, at(40 + age).frame),
+            ("getup", 18),
+            "age {age}"
+        );
+    }
+    for age in GETUP_SIT_TICKS..22 {
+        assert_eq!(
+            (at(40 + age).tag, at(40 + age).frame),
+            ("getup", 19),
+            "age {age}"
+        );
+    }
+    // A defensive clamp: the shove is held if the window ever outlasts its 22 ticks.
+    for age in [22, 23, 40, 200] {
+        assert_eq!(at(40 + age).frame, 19, "age {age}");
+    }
+}
+
+#[test]
+fn the_engineer_ram_cycles_the_braced_frame_and_the_run_frames_by_ram_age() {
+    use crate::engineer::EngineerPhase;
+    let clips = engineer_clips();
+    let at = |age: u16| {
+        let e = EngineerFrame {
+            phase: Some(EngineerPhase::Ram),
+            ..engineer_frame(Some(age))
+        };
+        let input = GoblinInput {
+            mode: GoblinMode::Attack,
+            engineer: Some(e),
+            ..goblin_input()
+        };
+        engineer_pose(&clips, &input, &e).frame
+    };
+    // [12, 20, 21, 20] at 4 ticks a frame, then around again.
+    let want = [12, 20, 21, 20];
+    for age in 0..40u16 {
+        assert_eq!(
+            at(age),
+            want[usize::from(age / RAM_FRAME_TICKS) % 4],
+            "age {age}"
+        );
+    }
+    // Launch (11) and recover (13) are unchanged.
+    for (phase, frame) in [(EngineerPhase::Launch, 11), (EngineerPhase::Recover, 13)] {
+        let e = EngineerFrame {
+            phase: Some(phase),
+            ..engineer_frame(None)
+        };
+        let input = GoblinInput {
+            mode: GoblinMode::Attack,
+            engineer: Some(e),
+            ..goblin_input()
+        };
+        assert_eq!(engineer_pose(&clips, &input, &e).frame, frame, "{phase:?}");
+    }
+}
+
+#[test]
+fn engineer_ticks_accepts_only_the_22_frame_atlas() {
+    assert!(engineer_ticks(22).is_ok());
+    assert!(engineer_ticks(18).is_err());
+}

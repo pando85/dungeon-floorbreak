@@ -1,0 +1,403 @@
+{
+  "schema_version": 1,
+  "id": "eng_death_h36_candidate_v1",
+  "type": "character_animation",
+  "source_path": "assets/source/characters/goblin/engineer/eng_death_h36.ase",
+  "grid_source": "assets/source/characters/goblin/engineer/eng_death_h36.grid.json",
+  "output_atlas": "generated/art/eng_death_h36.png",
+  "output_metadata": "generated/art/eng_death_h36.json",
+  "palette_id": "eng-death-floor01-v0",
+  "frame_size": [
+    64,
+    56
+  ],
+  "pivot": [
+    28,
+    55
+  ],
+  "animation_tags": [
+    "crush_contact",
+    "crushed_remains",
+    "decap_contact",
+    "headless_collapse"
+  ],
+  "required_alpha": true,
+  "owner": "AI-authored enemy art (fan-concept layer: Floor 1 Goblin Engineer; runtime role IP-neutral foreman, pot-ram placeholder)",
+  "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+  "provenance": {
+    "origin": "ENG-02 Goblin Engineer completion art (docs/02-art/eng-02-spec.md): cels derived by scripts/author_eng02.py from committed GOB-02 A, GOB-01 A CF02 and ENG-01 cels with the spec's belt, buckle, pot and wrench rules; no image-model output, no tracing",
+    "generator": "Design, spec and the two get-up keys: Claude Opus. Design gate: Claude Opus (independent). Execution, atlases, manifests, validators and evidence: Claude Sonnet. Independent review pending",
+    "generated_art": true,
+    "input_reference_ids": [
+      "floor-01-opening-concept-references-v1"
+    ]
+  },
+  "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
+  "review_status": "prototype_fixture_unapproved",
+  "death_poses": {
+    "spec": "docs/02-art/eng-02-spec.md",
+    "variant": "ENG",
+    "tick_hz": 60,
+    "hold_preview_ms": 100,
+    "status": "executor pass complete; independent review pending; wired into the Bevy presenter",
+    "facing": "right",
+    "mirror": "x' = 56 - x around the pivot column, anchors included",
+    "key_frames": [],
+    "layers": [
+      "body",
+      "prop",
+      "pot",
+      "gore"
+    ],
+    "default_preset": 4,
+    "playback": {
+      "crush_contact": "once",
+      "crushed_remains": "hold",
+      "decap_contact": "once",
+      "headless_collapse": "hold"
+    },
+    "frames": [
+      {
+        "index": 0,
+        "tag": "crush_contact",
+        "ticks": 3,
+        "duration_ms": 50,
+        "author": "executor",
+        "anchors": {
+          "hit_origin": [
+            28,
+            33
+          ],
+          "hand_near": [
+            55,
+            48
+          ],
+          "mouth": [
+            49,
+            43
+          ],
+          "squeeze_back": [
+            6,
+            54
+          ],
+          "squeeze_front": [
+            46,
+            54
+          ],
+          "hip_back": [
+            12,
+            49
+          ]
+        }
+      },
+      {
+        "index": 1,
+        "tag": "crush_contact",
+        "ticks": 3,
+        "duration_ms": 50,
+        "author": "executor",
+        "anchors": {
+          "hit_origin": [
+            28,
+            36
+          ],
+          "hand_near": [
+            55,
+            48
+          ],
+          "mouth": [
+            49,
+            46
+          ],
+          "squeeze_back": [
+            6,
+            54
+          ],
+          "squeeze_front": [
+            46,
+            54
+          ],
+          "hip_back": [
+            12,
+            49
+          ]
+        }
+      },
+      {
+        "index": 2,
+        "tag": "crushed_remains",
+        "ticks": null,
+        "duration_ms": 100,
+        "author": "executor",
+        "anchors": {
+          "pool_origin": [
+            29,
+            55
+          ],
+          "hip_back": [
+            15,
+            52
+          ]
+        }
+      },
+      {
+        "index": 3,
+        "tag": "decap_contact",
+        "ticks": 4,
+        "duration_ms": 67,
+        "author": "executor",
+        "anchors": {
+          "neck": [
+            23,
+            31
+          ],
+          "hit_origin": [
+            24,
+            31
+          ],
+          "jet_base": [
+            23,
+            30
+          ],
+          "hand_near": [
+            12,
+            23
+          ],
+          "hip_back": [
+            14,
+            43
+          ]
+        }
+      },
+      {
+        "index": 4,
+        "tag": "headless_collapse",
+        "ticks": 6,
+        "duration_ms": 100,
+        "author": "executor",
+        "anchors": {
+          "neck": [
+            21,
+            35
+          ],
+          "hit_origin": [
+            22,
+            35
+          ],
+          "jet_base": [
+            21,
+            34
+          ],
+          "hand_near": [
+            14,
+            30
+          ],
+          "hip_back": [
+            12,
+            47
+          ]
+        }
+      },
+      {
+        "index": 5,
+        "tag": "headless_collapse",
+        "ticks": null,
+        "duration_ms": 100,
+        "author": "executor",
+        "anchors": {
+          "neck": [
+            17,
+            50
+          ],
+          "pool_origin": [
+            12,
+            55
+          ],
+          "hip_back": [
+            19,
+            53
+          ]
+        }
+      }
+    ],
+    "spawner_hints": {
+      "crush": {
+        "drops": [
+          16,
+          20
+        ],
+        "drops_from": {
+          "mouth": [
+            6,
+            8
+          ],
+          "squeeze_back": [
+            5,
+            6
+          ],
+          "squeeze_front": [
+            5,
+            6
+          ]
+        },
+        "splat_s_per_death_max": 8,
+        "gibs": {
+          "gib_flesh_a": 1,
+          "gib_flesh_b": 1,
+          "gib_bone": 1
+        },
+        "ticks": {
+          "pose_1": 3,
+          "pose_2": 6,
+          "splat_m_and_pool_1": 4,
+          "wall_spatter": 8,
+          "pool_2": 20,
+          "pool_3": 60
+        },
+        "wall_spatter": {
+          "variants": [
+            "decal_wall_spatter",
+            "decal_wall_spatter_b"
+          ],
+          "mirrored": "seeded"
+        },
+        "wrench": 1
+      },
+      "decapitation": {
+        "ticks": {
+          "pose_4": 4,
+          "pose_5": 10,
+          "pool_1": 14,
+          "pool_2": 40,
+          "pool_3": 100,
+          "wall_spatter": 4
+        },
+        "jet_drops": {
+          "every_ticks": 3,
+          "per_emit": 2,
+          "for_ticks": 30
+        }
+      },
+      "explosive": {
+        "gibs": 8,
+        "drops": 24,
+        "wall_spatter": "both variants, one each side",
+        "pools_under": 2,
+        "settle": "irregular: seeded 90 degree rotations, piled and overlapping, never an even row"
+      },
+      "slam": {
+        "note": "Engineer only (ENG2-AD6, ENG2-AD20): the pot and the wrench are launched parts; points are frame pixels of the 64 x 56 pivot (28, 55) frame, measured on the slammed impact cel",
+        "poses": {
+          "stomped": {
+            "frame": 0,
+            "pot_launch": [
+              16,
+              40
+            ],
+            "wrench_launch": [
+              18,
+              54
+            ],
+            "pot": {
+              "vx_away": [
+                20,
+                50
+              ],
+              "vy_up": [
+                150,
+                210
+              ],
+              "spin_dps": 720
+            },
+            "wrench": {
+              "vx_away": [
+                -30,
+                60
+              ],
+              "vy_up": [
+                110,
+                170
+              ],
+              "spin_dps": 900
+            },
+            "timing": "age 0"
+          },
+          "wall": {
+            "frame": 2,
+            "pot_launch": [
+              39,
+              32
+            ],
+            "wrench_launch": [
+              19,
+              39
+            ],
+            "pot": {
+              "vx_away": [
+                -80,
+                -40
+              ],
+              "vy_up": [
+                160,
+                220
+              ],
+              "spin_dps": 720
+            },
+            "wrench": {
+              "vx_away": [
+                -30,
+                60
+              ],
+              "vy_up": [
+                110,
+                170
+              ],
+              "spin_dps": 900
+            },
+            "timing": "age 0"
+          },
+          "flung": {
+            "frame": 4,
+            "pot_launch": [
+              18,
+              45
+            ],
+            "wrench_launch": [
+              23,
+              52
+            ],
+            "pot": {
+              "vx_away": [
+                120,
+                170
+              ],
+              "vy_up": [
+                90,
+                140
+              ],
+              "spin_dps": 720
+            },
+            "wrench": {
+              "vx_away": [
+                -30,
+                60
+              ],
+              "vy_up": [
+                110,
+                170
+              ],
+              "spin_dps": 900
+            },
+            "timing": "first tick the slammed pose is shown (the landing)"
+          }
+        }
+      }
+    },
+    "base_spec": "docs/02-art/gob-02-death-spec.md",
+    "always_shown_layers": [
+      "body",
+      "prop",
+      "pot"
+    ]
+  }
+}
