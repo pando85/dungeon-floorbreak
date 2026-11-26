@@ -1000,10 +1000,10 @@ The owner draft #179 is carried onto main, adapted, as [the Dozer opening choreo
 
 - **Run order:** **`act1_chase`** → **`act1_shore`** → **`act1_guild`** → corral → rest_refuge → … (ACT1-AD1). CORRAL-F becomes ACT1-F: the listed Act I rooms come first, in that order, and the corral directly follows.
 - **The machine:** the chase reuses DOZER-CORE with a second profile `opening` from a new tuning file. Room 3's `TUNING_HASH`, sidecar, fixtures and goldens do not move (Dozer note section 4.4).
-- **Fairness (replaces #179's fail-open):** the charge arms on the leader and commits only when every living hero can reach the pocket (integration plan section 5.3). Without a commit the cruise still breaks the barricade. KR18's position bound for the Ring shutter is the same idea.
+- **Fairness (replaces #179's fail-open):** the charge arms on the leader and commits only when every living hero can reach the pocket and the charge reaches the barricade (integration plan section 5.3). Without a commit the cruise still breaks the barricade. KR18's position bound for the Ring shutter is the same idea.
 - **GUILD-BEAT-01 and KR12:** the story-order point `guild_biscuit` becomes the room row `act1_guild`, which keeps the read-through `primary_ranged` grant. `TABLE_HASH` is unchanged and no pin holds a later grant.
-- **Pins:** `MANIFEST_HASH` once per PR, seven new room, sidecar and tuning pins, `SCOPED_PIN_KEYS` +4 then +3, PLAYTRACE `data_pins()` the same. `dozer::PIN_KEY` also applies to `act1_chase`. Strict verification of older late-floor recordings fails after each manifest re-pin.
+- **Pins:** `MANIFEST_HASH` once per PR, seven new room, sidecar and tuning pins, `SCOPED_PIN_KEYS` 25 → 29 → 32 (+4 then +3, from main after REST-WIRE PR 2), PLAYTRACE `data_pins()` the same. `dozer::PIN_KEY` also applies to `act1_chase`. Strict verification of older late-floor recordings fails after each manifest re-pin.
 - **AUDIENCE-RUN:** off in the Act I rooms with no code change (positional `AUDIENCE_UNLOCK_AFTER`).
-- **Hot files:** the REST-WIRE list, plus `src/dozer.rs`, `src/combat_scene/dozer.rs` and `src/encounter/haz.rs` for ACT1-B. REST-WIRE PR 2 and ACT1 rebase on whichever lands first.
+- **Hot files:** the REST-WIRE list, plus `src/dozer.rs`, `src/combat_scene/dozer.rs` and `src/encounter/haz.rs` for ACT1-B. REST-WIRE PR 2 is merged; the run grows from 12 to 14 (ACT1-A) and 15 (ACT1-B) rooms.
 - **Status after merge:** "merged, game-feel review pending", milestone `greybox`. Audio, the end-on wedge art and the ENV-02 dressing stay open (ACT1-Q2, Q3, Q7).
 - **Horizon:** no new button or ability. The biscuit moves from a run point into a room, and the chase teaches "too strong to kill yet". The direction is unchanged.

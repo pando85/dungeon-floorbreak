@@ -20,9 +20,9 @@ The plan reuses the merged DOZER-CORE machine of room 3 ([Dozer gameplay note](e
 - [the integration plan](../07-agents/f01-playtest-integration-plan.md) section 17;
 - [the REST plan](floor-01-quiet-setpieces-and-transitions.md) section G, the pattern this section copies.
 
-## 1. What main holds today (checked at `a3dd07b2`)
+## 1. What main holds today (checked at `2aff8a70`)
 
-- **The run.** `--f01-run` walks the listed rooms of `assets/levels/f01_late/manifest.json` in row order. It is one room per launch: on a room exit it shows a facts-only room-clear panel, and on confirm it relaunches with the next room and the carried story ledger. The first room is `manifest.rooms[0]`. Ten rooms are listed: corral, rest_refuge, hoarder, boiler, dozer, hazards, ring_court, ring_split, juicer, mastery. REST-WIRE PR 2 (camp and aftermath) is in flight and adds two.
+- **The run.** `--f01-run` walks the listed rooms of `assets/levels/f01_late/manifest.json` in row order. It is one room per launch: on a room exit it shows a facts-only room-clear panel, and on confirm it relaunches with the next room and the carried story ledger. The first room is `manifest.rooms[0]`. Twelve rooms are listed: corral, rest_refuge, hoarder, boiler, dozer, hazards, ring_court, ring_split, rest_camp, juicer, rest_aftermath, mastery (REST-WIRE PR 2 listed the camp and the aftermath). Room and sidecar `status` strings name no run position since that PR, so inserting rooms ahead never rewrites them.
 - **CORRAL-F** (`Manifest::validate`): "the corral (room 0) must be the first listed room". The corral scene runs room `corral` only. AUDIENCE-RUN goes live in every room listed **after** the corral (`AUDIENCE_UNLOCK_AFTER`). The rule is positional, so rooms listed before the corral have no audience with no code change.
 - **Story-less rooms.** The corral has no story runtime (KC11). Its sidecar `story_pin` is a label with no table row. `carry_for` returns an empty ledger snapshot for the corral under the Story loadout, and `carry_story` accepts an empty snapshot in a story-less room.
 - **The biscuit already exists in code.**
@@ -81,16 +81,15 @@ The plan reuses the merged DOZER-CORE machine of room 3 ([Dozer gameplay note](e
 | **2** | **`act1_guild`** | **`f01_act1_guild`** | **The Guild Door** | **greybox** | **none (`f01_pin_act1_guild_entry`)** | **`primary_ranged` (the biscuit, read-through)** | ACT1-A |
 | 3 | `corral` | `f01_corral` | The Infernal Corral | greybox | none | none |  |
 | 4 | `rest_refuge` | `f01_rest_refuge` | The Wrong Restaurant | greybox | none | `jump_reach_boost` |  |
-| 5.. | hoarder, boiler, dozer, hazards, ring_court, ring_split, (rest_camp), juicer, (rest_aftermath), mastery | unchanged | | | | | |
+| 5.. | hoarder, boiler, dozer, hazards, ring_court, ring_split, rest_camp, juicer, rest_aftermath, mastery | unchanged | | | | | |
 
 Run length:
 
 | State of main | Listed rooms |
 | --- | --- |
-| Today | 10 |
-| After REST-WIRE PR 2 | 12 |
-| After ACT1-A | +2 (12, or 14 with REST PR 2) |
-| After ACT1-B | +1 (13, or 15 with REST PR 2) |
+| Today (REST-WIRE PR 2 merged) | 12 |
+| After ACT1-A | 14 |
+| After ACT1-B | 15 |
 
 The pacing map of the [REST plan section D](floor-01-quiet-setpieces-and-transitions.md#d-connected-floor-01-pacing-map-adapted) already places "Opening / Murder Dozer → first goblins → Guild / biscuit" before the corral as slot S0. This plan fills slot S0 (REST-Q8, partially answered).
 
@@ -114,14 +113,16 @@ Width **3008**. It is the route from S1 to the S5 arch, x 0..2944, plus a 64 px 
 | Trigger | `dzq11_trigger_x` **1072**, crossed by the **rearmost** living hero (ACT1-AD6) | ENV-02 `trigger_chase_start` 1072 |
 | S3 low ceiling | Decor only: the soffit `{976, 272, 704, 96}` (underside y 368, 212 px clear). It is not a solid; no jump reaches it (ACT1-AD8) | ENV-02 option R |
 | Timber sets | Decor plus events: `timber_a` at x 1104, `timber_b` at x 1424, each `{x, 456, 80, 104}`. Not solids | ENV-02 `timber_set_a/b` |
-| Humps | Platforms `{1168, 564, 64, 16}` and `{1456, 564, 64, 16}` | ENV-02 humps, one tile |
+| Humps | Sidecar statics of kind `solid`: `hump_a` `{1168, 564, 64, 16}` and `hump_b` `{1456, 564, 64, 16}` (ACT1-AD17) | ENV-02 humps, one tile |
 | Charge arm | `arm_x` **1888** (data, opening tuning) | ENV-02 charge trigger |
-| Pocket ledge | Platform `{2064, 564, 96, 16}`. Pocket rect `{2072, 460, 80, 104}` (feet on the ledge top y 564, 104 px clear) | ENV-02 `safe_pocket_alcove` |
+| Pocket ledge | Sidecar static of kind `solid`: `alcove_ledge` `{2064, 564, 96, 16}` (ACT1-AD17). Pocket rect `{2072, 460, 80, 104}` (feet on the ledge top y 564, 104 px clear) | ENV-02 `safe_pocket_alcove` |
+| Alcove decor | Decor `alcove` `{2072, 460, 80, 104}`: a lit recess drawn **behind** the heroes, the brightest shape in S4, so the player reads the pocket as the way out (#179 C4) | ENV-02 `safe_pocket_alcove` |
 | Barricade | Lock `barricade`: solid `{2312, 304, 80, 276}`, `opens_on: dozer_contact` (section 5.4). Drawn as the ENV-02 full-height barricade x 2304..2400 | ENV-02 blocker [2312, 32, 80, 276] |
 | Wedge | `dzq14_stop_x` **2856** (the S5 arch's right edge). The machine wedges there (section 5.4) | ENV-02 wedge [2664, 70, 192, 218] |
 | Exit | `{2928, 484, 64, 96}` | It lies past `stop_x` + 48 + 16 (the past-stop rescue spot, DZ-Q17) |
 | Roster | One `dozer` entry, x 888, beat `I02`. No riders, no goblins (ACT1-AD9) | |
 | Goal | `reach_exit`. `max_living` 1 | |
+| Platforms | None: a 16 px room platform fails the lane rule (`PlatformBlocksLane`, REST-IMP-8: 52 px clear under a 12 px slab), so every low step is a lane static | |
 
 Sidecar `dozer` block (section 5.6 has the new fields):
 
@@ -133,13 +134,13 @@ Sidecar `dozer` block (section 5.6 has the new fields):
   "dzq11_idle_trigger_ticks": 216000,
   "dzq13_emerge_front_x": 888,
   "dzq14_stop_x": 2856,
-  "pockets": [{ "id": "alcove", "rect": { "x": 2072, "y": 460, "w": 80, "h": 104 }, "ledge": 2 }],
+  "pockets": [{ "id": "alcove", "rect": { "x": 2072, "y": 460, "w": 80, "h": 104 }, "ledge": "alcove_ledge" }],
   "timbers": [{ "id": "timber_a", "x": 1104 }, { "id": "timber_b", "x": 1424 }],
   "wedge": true
 }
 ```
 
-`dzq22_lintel` is absent here: the opening has no tunnel. `ledge: 2` is the index of the ledge platform in the room's `platforms`.
+`dzq22_lintel` is absent here: the opening has no tunnel. `ledge` names the id of the `solid` static the pocket stands on. The sidecar's `statics` list holds `hump_a`, `hump_b` and `alcove_ledge`.
 
 ### 4.2 `act1_shore` (I-03, Carl's first revenge)
 
@@ -164,7 +165,7 @@ Width **640**, `ceiling_px` **228** (an interior; the REST refuge's slab rule).
 | Entry | Spawn Carl 112, Donut 80. Checkpoint `{64, 484, 48, 96}` | |
 | The guide | Decor `guide` `{368, 536, 24, 44}`, centred on the `refuge_guild` Mordecai mark (x 380). The binary may draw the existing `mordecai_h44` sprite there; a labelled rectangle is the fallback (ACT1-AD11) | Presentation only, never in the sim |
 | Guild zone | `DonutSetup.guild_zone` = **(336, 376)**: Donut's pivot entering x 336..376 grants the biscuit | Donut's existing unlock trigger |
-| Door lock | Lock `guild_door`: solid `{528, 336, 16, 244}` (slab underside to floor), `opens_on: { "event": "donut_unlocked" }` (section 6.4) | Carl cannot leave without Donut's biscuit, even when the companion trails |
+| Door lock | Lock `guild_door`: solid `{528, 336, 16, 244}`, `opens_on: { "event": "donut_unlocked" }` (section 6.4). Its top meets the underside of the 228 ceiling slab (y 336) on purpose, so no jump clears it. The REST staff door is `y 352, h 228`; both end at the floor 580 | Carl cannot leave without Donut's biscuit, even when the companion trails |
 | Exit | `{560, 484, 64, 96}` | |
 | Roster | Empty. Goal `reach_exit` (REST's empty-roster rule) | |
 | Text | None. No dialogue, no quotes, no tutorial screen. The beat is the walk past the guide, the notice and the changed prompt (I-04: brief, noncombat) | Rights |
@@ -194,6 +195,8 @@ The new file `assets/data/gameplay/enemy_dozer_opening_v0.json` holds the openin
 
 The #179 draft's "130 px/s against 145" are stale ENV-02 hypotheses. Carl runs 185 on main, and DOZ-01's values above replace them.
 
+**Profile loading.** `Dozer::new` keeps calling `DozerTuning::active()` for room 3. The existing constructor `Dozer::with_tuning(tuning, site, exit_left, floor_y)` takes an explicit tuning, and `combat_scene/dozer.rs::build` switches to it, choosing the tuning from `site.profile`: `revenge` passes `DozerTuning::active()` exactly as `Dozer::new` does today, `opening` passes the tuning loaded from `enemy_dozer_opening_v0.json` (shared machine values from `enemy_dozer_v0.json`, opening values from the new file). Room 3's construction path, `TUNING_HASH` and fixtures are untouched.
+
 ### 5.2 States
 
 The opening adds **no** top-level `DozerState`. `CommittedChase` gains a sub-state that exists only when the profile has a `dzq10_charge` block:
@@ -205,20 +208,21 @@ stateDiagram-v2
     Approaching --> Cruise: emerge at front 888
     state CommittedChase {
         Cruise --> Tell: commit rule (5.3), once per attempt
-        Tell --> Charge: 36 ticks (speed held)
-        Charge --> Overshoot: 90 ticks
+        Tell --> Charge: 36 ticks (speed held), ChargeCommitted, speed set to 240 at once
+        Charge --> Overshoot: 90 ticks without BarrierImpact (unreachable while rule 4 holds)
         Overshoot --> Strain: 24 ticks, slide 4
         Strain --> Cruise: 90 ticks
     }
-    CommittedChase --> Escaped_Brake: front reaches stop_x 2856 (any sub-state)
+    CommittedChase --> Escaped_Brake: front reaches stop_x 2856 (any sub-state, a charge past BarrierImpact emits ChargeEnded here)
     Escaped_Brake --> Escaped_Strain: 24 ticks
     Escaped_Strain --> Wedged_Idle: 90 ticks (event Wedged)
 ```
 
-- **Charge.** The machine moves at 240 px/s on a straight line. It never steers or reacquires, and it has no homing.
-- **Overshoot and strain.** When the 90 charge ticks end before `stop_x`, the machine brakes and strains in the lane as DOZ-01 steps 3 to 4 describe. The wheel stays lethal (`dzq14_lethal_in_brake`). Then it resumes cruise (step 5).
+- **Charge.** At `ChargeCommitted` the speed is set to 240 px/s **instantly**: no `dzq09` accel ramp, so rule 3's `wheel_ticks` is exact. The machine moves on a straight line. It never steers or reacquires, and it has no homing.
+- **Through the barricade (ACT1-AD18).** Once `BarrierImpact` has fired, `Charge` ignores `max_ticks` and runs at the charge speed to `stop_x`. Then room 3's `Escaped(Brake → Strain → Idle)` follows, plus `Wedged`. `ChargeEnded` is emitted at `stop_x`. So a normal run has exactly one `BrakeStarted`, and the wedge beat keeps the charge's momentum (#179 C7, "cannot turn and wedges").
+- **Overshoot and strain (defensive only).** When the 90 charge ticks end before `BarrierImpact`, `ChargeEnded` fires and the machine brakes and strains in the lane as DOZ-01 steps 3 to 4 describe, the wheel lethal (`dzq14_lethal_in_brake`), then resumes cruise (step 5). Rule 4 of section 5.3 makes this unreachable in the opening room; it stays for a profile whose charge has no barricade in reach, and a domain unit test (ACT1-T11) covers it.
 - **`stop_x`.** Reaching it ends every sub-state. The room-3 brake and strain follow, then `Idle` with the wedge (section 5.4).
-- **Barricade.** If the charge reaches the barricade, the lock opens on contact and the charge continues (section 5.4).
+- **Barricade.** The cruise or the charge opens the lock on contact and runs on (section 5.4).
 - **No idle wake (ACT1-AD7).** `dzq11_idle_trigger_ticks` 216000 (an hour) keeps S1's false calm. A party standing still is not chased. Nothing ahead of the trigger can lock, so this cannot softlock.
 
 ### 5.3 The commit rule and the fairness math
@@ -226,57 +230,78 @@ stateDiagram-v2
 #179 named the real risk: "leader crosses x 1888" kills a trailing P2. Its preferred experiment, policy 1, is adopted: the arm is visual only, and the commit needs **every** living hero (ACT1-AD5). `ChargeArmed` fires once when the **leading** living hero first reaches `arm_x`; it drives the windup presentation only. The tell (the commit) starts on the first fixed tick, during `Cruise` and while no charge has been used in this attempt, at which **all** of these hold:
 
 1. **Every** living hero has `x ≥ arm_x` (#179 policy 1: both are in the preparation band).
-2. The gap from the rearmost living hero's body left edge to the wheel front is **≥ 140** (the DOZ-01 gate).
+2. The gap is **≥ 140** (the DOZ-01 gate). The gap here is the **minimum body left edge over all living heroes** minus the wheel front. It is not `Dozer::gap()`, which counts only heroes ahead of the axle and returns `None` otherwise; a hero behind the front gives a negative gap and fails the rule.
 3. **Every** living hero can reach the pocket before the wheel does: for each hero `h`, `walk_ticks(h) + reach_margin_ticks ≤ wheel_ticks`.
    - `walk_ticks(h)` is the hero's horizontal distance to the nearest x at which its whole body lies inside the pocket's x span, divided by that hero's own run speed per tick (its `HeroMotion`). It is 0 when the body is already inside.
-   - `wheel_ticks` is the number of ticks the wheel front needs to reach the pocket's left edge: 36 tell ticks at the current speed, then 240 px/s.
+   - `wheel_ticks` is the number of ticks the wheel front needs to reach the pocket's left edge: 36 tell ticks at the current speed, then 240 px/s from the first charge tick (the speed is set instantly, section 5.2).
    - A hero past the pocket (waiting at the barricade) walks back. A hero behind the wheel front makes rule 2 fail.
+4. **The charge reaches the barricade:** `front + 36 × v_now / 60 + dzq10_charge.speed_px_s × max_ticks / 60 ≥ barricade.x`, where `barricade.x` is the `dozer_contact` lock solid's left edge (2312). With `v_now` 160..185 px/s this needs a front of about **1856..1841**. On the tick the front reaches `barricade.x`, the impact test runs before the `max_ticks` test, so a charge that reaches it on its last tick still counts.
+
+The commit window is therefore `[barricade.x − reach, pocket.x − 140]`: today front **1841..1932** at 185 px/s (1856..1932 at 160, 1862..1932 at the mercy speed 150). Validation rule O9 keeps it non-empty at the slowest band speed.
 
 If the rule never holds, **no charge happens**. The cruise continues and the pocket protects at every speed. The cruise reaches the barricade, opens it and runs on to the wedge. So there is no forced lethal charge and no softlock, and no fail-open timer is needed. This replaces ENV-02's 8 s scripted-charge guard and #179's fallback 2 (ACT1-AD5, flagged in section 15).
 
-Worked cases. The units are px and ticks at 60 Hz. Carl runs 185 px/s (3.08 px/tick). The body half width is 12.
+Worked cases. The units are px and ticks at 60 Hz. Carl runs 185 px/s (3.08 px/tick). The body half width is 12. The pocket's x span is 2072..2152.
 
-| Case at commit | Wheel front | Hero must reach | `walk_ticks` | `wheel_ticks` | Margin |
-| --- | --- | --- | --- | --- | --- |
-| Rearmost hero at 1888, gap exactly 140 | 1736 | body inside 2072..2152: centre 2084 | 64 | 36 (front to 1832) + 60 = 96 | 32 ≥ 20 commits |
-| Leader waiting at the barricade (x 2300), the rearmost as above | 1736 | centre 2140 | 52 | 96 | 44 commits |
-| Both at the barricade (x 2300), front already at 2160 | 2160 | pocket behind the wheel | n/a | n/a | rule 3 fails, no charge. The cruise reaches them unless they went back while the front was left of the pocket |
-| P2 448 px behind the leader when the leader arms (P2 at about 1440) | follows P2 (band on the rearmost gap) | | | | no commit until P2 ≥ 1888 with gap ≥ 140 and rule 3. The leader's walk-back (52) fits |
+| Case | Wheel front | `walk_ticks` | `wheel_ticks` | Result |
+| --- | --- | --- | --- | --- |
+| **First run.** The rearmost trigger at 1072, the emergence gap about 449, held by the 185 catch-up; both heroes run into the pocket and stop. The front is about 1623 on their arrival, then closes at 185, then 160 once the gap is under 260 | commit at about **1841..1856** (rule 4 is the last to hold) | 0 | about 61..66 | commits with gap 216..231. The tell ends near front 1952, the wheel passes the pocket on charge tick about 30 and hits the barricade on tick 90 at the latest, then runs on to `stop_x` |
+| The rearmost hero at 1888, gap exactly 140 | 1736 | | | rule 4 fails (1736 + 96 + 360 = 2192 < 2312): no commit yet. If that hero then hides, the first-run row applies |
+| The leader waits at the barricade (x 2300), the rearmost hero in the pocket | 1856 | leader 52 (to centre 2140) | 66 | rule 3 fails (52 + 20 > 66) and only gets worse as the front advances: no charge, the cruise path. The leader is safe only by walking back into the pocket before the cruise front reaches it (F14 otherwise) |
+| Both at the barricade (x 2300), front already at 2160 | 2160 | n/a | n/a | rule 3 fails, no charge. The cruise reaches them unless they went back while the front was left of the pocket |
+| P2 448 px behind the leader when the leader arms (P2 at about 1440) | follows P2 | | | the trigger and the band both follow the rearmost hero, so once both hide the first-run row applies unchanged; the leader's walk-back from the barricade fails as in the third row |
 
 A charge from gap 140 never catches a hero who keeps running on an open lane (DOZ-01: the gap shrinks to about 72 over 90 ticks). The danger is the barricade ahead, and that is what makes the pocket the answer.
 
 ### 5.4 Pocket, barricade, wedge, timbers
 
-- **Pocket (authored depth refuge).** A hero is *in the pocket* when its body's x span lies inside the pocket rect's x span (2072..2152) and its feet are at or above the ledge top (y ≤ 564). A hero jumping inside the pocket stays protected.
-  - The wheel test and the push-out skip a hero in the pocket.
+- **Pocket (authored depth refuge).** A hero is *in the pocket* when its body's x span lies inside the pocket rect's x span (2072..2152) and its feet are at or above the ledge top (layout y ≤ 564, y down). A hero jumping inside the pocket stays protected.
+  - **Coordinates.** The test is in layout (room) px, y down. `HeroView` positions are world px, y up, so the machine converts explicitly with `layout y = layout_h − world y` (the conversion `Dozer::nav_rows_into` already uses) before comparing; a unit test pins one hero standing on the ledge (in) and one on the lane in front of it (out).
+  - The wheel test, the push-out and the AI rescue (section 5.5) all skip a hero in the pocket.
   - This is not invulnerability anywhere else, and it is not a generic cover rule.
   - The event `PocketEntered { hero }` fires the first time each hero enters per attempt.
   - The pocket fits both heroes: 80 px against two 24 px bodies.
-- **Barricade lock (`LockEvent::DozerContact`).** The lock solid stands until the first tick on which the machine's wheel front reaches the solid's left edge (front ≥ 2312). The lock opens **in that same tick, before collision**, and the event `BarrierImpact` fires.
+- **Barricade lock (`LockEvent::DozerContact`).** The lock is open **iff** the room's dozer reports `barrier_hit()` (ACT1-AD19).
+  - `barrier_hit` is a bool in `Dozer` state. The machine sets it in its slot step on the first tick its wheel front reaches the solid's left edge (front ≥ 2312) and emits `BarrierImpact`. It is mixed by `Dozer::mix_into` and reset by `slot_respawn` and by a fixture restart.
+  - **Tick order (one-tick lag).** `step_party` runs the scene step (hero physics and collision), then `step_slot_enemies` (the machine), then `step_env` (the locks). So the machine reports `BarrierImpact` in its slot step, `step_env` opens the lock in the same tick, and heroes first collide with the opened state on the **next** tick. The presentation hides the lag. The machine ignores solids, so its own motion is unaffected. No global step is reordered.
+  - There is **no** env-side `opened` flag and no extra hash term. REST's surface locks keep their flags across a respawn (`EnvRuntime::reset_keeping_partitions`); this lock has none to keep, so a defeat retry, a checkpoint respawn and a fixture restart all close it by construction (the machine is `dormant` again).
   - Only the machine opens it. Heroes cannot break it or jump it (276 px tall).
-  - Unlike REST's `hero_on_surface` lock, it is **not latched**. A defeat retry, a checkpoint respawn and a fixture restart all close it again, because they reset the machine to `dormant`.
+  - **Pinned at the barricade.** A hero caught between the push box and the closed barricade gets room 3's `PinnedHold`, then the wheel test: a defeat and a checkpoint respawn, never a stall (ACT1-F14).
 - **Wedge (`wedge: true`).** When the room-3 strain at `stop_x` ends, the machine enters `Escaped(Idle)` and the event `Wedged` fires. From then on:
   - the wheel is already off at `Idle` (room 3's `wheel_lethal`); the wedge also turns the push box and the nav rows off, so the heroes, who are *behind* the machine in this room (in the pocket), walk past it to the exit;
   - its clang hurtbox stays, so melee still sparks and does no harm.
   - The presentation draws the hull in the S5 arch window. The greybox clips and darkens the side-on rig, because the end-on art is ACT1-Q3.
   - In room 3 (`wedge` absent) `Idle` is unchanged.
 - **Timbers.** `TimberSmashed { id }` fires once per id and attempt, on the first tick the wheel front reaches the timber's x. It drives the existing ENV-02 splinter burst (DR-D's presentation) and nothing else.
-- **Humps.** These are ordinary 16 px platforms. The machine ignores solids, and the presentation may flatten them; the sim does not.
+- **Humps and the ledge.** These are 16 px lane statics of kind `solid` (ACT1-AD17). Heroes step over them; the machine ignores solids, and the presentation may flatten the humps; the sim does not.
 
 ### 5.5 The AI partner (solo)
 
 - No `BossThreat` (Dozer note R-4: the bot would jump into the wheel). The layer-1 nav rows stay, cut around the pocket rect, so the planner may stand in the pocket.
-- The layer-2 rescue keeps room 3's rules but changes the **spot order** while the profile has a charge and the barricade stands:
+- The layer-2 rescue keeps room 3's rules with three changes while the profile has a charge block (ACT1-AD14).
 
-| Situation (a bot hero, solo, wheel lethal, rescue cause as room 3) | Spot | Value |
+**Who has a rescue cause.**
+
+- `rescue()` **skips a hero in the pocket** (section 5.4), exactly as the wheel test and the push-out do. A bot waiting in the pocket is never relocated.
+- A bot whose body right edge is ≤ `o + dzq02_push_box.x0 − dzq17 zone margin` (fully behind the hull) has **no** rescue cause. `BehindAxle` applies only while the bot's body overlaps the hull span. So a bot placed behind the hull is not re-placed on the next tick.
+- Room 3 (`revenge`) keeps today's causes unchanged.
+
+**Which spot, before `BarrierImpact`.**
+
+| Situation (a bot hero, solo, wheel lethal, a rescue cause as above) | Spot | Value |
 | --- | --- | --- |
 | The pocket's left edge is still ahead of the wheel front by at least the rescue band plus a body width | `RescueSpot::Pocket` (new, appended) | Centre of the pocket, feet on the ledge |
 | The wheel front is at or past the pocket's left edge | `RescueSpot::Behind` (new, appended) | `o + dzq02_push_box.x0 − dzq17 zone margin − HERO_HALF_WIDTH`, on the lane |
-| After `BarrierImpact` | room 3's order (lane spot, then the past-stop spot) | unchanged |
 
-- **During `Tell` and `Charge`,** a bot that is not in the pocket is rescued into it on the tell's first tick, with the cause `Charge`, a new appended `RescueCause`. This avoids a later near-wheel rescue. The bot may still walk out; then the table above applies.
+- `Pocket` and `Behind` are **exempt** from the 120-tick spacing check.
+- If the chosen spot is outside the view margin, the other of the two is used. If both are outside, `Pocket` is used: it is authored on the route and the camera follows the leader.
+- `RescueSpot::Tunnel` (room 3's past-stop spot at `stop_x + 48`) is **never** used before `BarrierImpact`: it lies past the closed barricade.
+
+**After `BarrierImpact`:** room 3's order (the lane spot, then the past-stop spot), unchanged.
+
+- **During `Tell` and `Charge`,** a bot that is not in the pocket is rescued into it on the tell's first tick, with the cause `Charge`, a new appended `RescueCause`. This avoids a later near-wheel rescue. The bot may still walk out; then the rules above apply.
 - **Append only.** `RescueSpot` and `RescueCause` keep their existing discriminants (`Lane` 0, `Tunnel` 1; `Near`, `BehindAxle`, `OffScreen`).
-- **Targets.** The fixtures assert **zero** wheel contacts on a bot in solo Carl-active and Donut-active runs. They report rescue counts; there is no CA2-style budget (ACT1-Q5). If zero cannot be reached with these spots, stop and escalate as a CA2-style named append (section 12.4).
+- **Targets.** The fixtures assert **zero** wheel contacts on a bot in solo Carl-active (ACT1-F10, F15) and Donut-active (ACT1-F10b, F15) runs, and **zero** `AiRescue` for a bot that reached the pocket before `ChargeTell` (ACT1-F10). They report the other rescue counts by spot; there is no CA2-style budget (ACT1-Q5). If zero cannot be reached with these spots, stop and escalate as a CA2-style named append (section 12.4).
 
 ### 5.6 Sidecar block and validation
 
@@ -287,30 +312,34 @@ A charge from gap 140 never catches a hero who keeps running on an open lane (DO
 | `profile` | `"revenge"` or `"opening"` | `revenge` | `opening` |
 | `dzq11_trigger_by` | `"lead"` or `"rearmost"` | `lead` | `rearmost` |
 | `dzq22_lintel` | rect, **now optional** | required by `revenge` | absent |
-| `pockets` | list of `{ id, rect, ledge }` | empty | one |
+| `pockets` | list of `{ id, rect, ledge }`; `ledge` is the id of a `solid` static in the same sidecar | empty | one |
 | `timbers` | list of `{ id, x }` | empty | two |
 | `wedge` | bool | false | true |
 
 `DozerSite.lintel` becomes `Option<IRect>`. The `revenge` validation errors when it is `None`. `f01_dozer` reads it as before.
 
-Validation branches on the profile. `revenge` keeps rules 1 to 4 exactly. `opening` replaces rules 2 and 4 with O1 to O8 (rule 1, the trigger between the gate and `stop_x`, still applies):
+Validation branches on the profile. `revenge` keeps rules 1 to 4 exactly. `opening` replaces rules 2 and 4 with O1 to O10 (rule 1, the trigger between the gate and `stop_x`, still applies):
 
 | Rule | Check |
 | --- | --- |
 | O1 | The opening tuning has a `dzq10_charge` block, and the sidecar has at least one pocket and exactly one `dozer_contact` lock |
 | O2 | `emerge_front_x < trigger_x < arm_x < pocket.x`, and every timber x lies in `(emerge_front_x, arm_x)`, strictly increasing, with unique ids |
-| O3 | Each pocket: `ledge` names a platform whose top equals the pocket rect's bottom; width ≥ 4 × `HERO_HALF_WIDTH` (two bodies); clear height ≥ 2 × `HERO_HALF_HEIGHT` + 8; the pocket lies right of `arm_x` and left of the barricade |
+| O3 | Each pocket: `ledge` names a `solid` static whose top equals the pocket rect's bottom; width ≥ 4 × `HERO_HALF_WIDTH` (two bodies); clear height ≥ 2 × `HERO_HALF_HEIGHT` + 8; the pocket lies right of `arm_x` and left of the barricade |
 | O4 | The barricade lock solid lies after the pocket and at least 256 px before `stop_x` (`RUN_OUT_CLEAR_PX`); it reaches the floor and is taller than any hero jump (the gate classes) |
 | O5 | `exit.x ≥ stop_x + dzq17_rescue_past_stop_px + dzq17_rescue_exit_margin_px` |
-| O6 | No other solid on the lane between the emergence front and `stop_x` is taller than 16 px (`REMNANT_MAX_PX`): the humps and the ledge pass, the barricade is the only exception |
+| O6 | No other solid (static, platform, prop or lock) on the lane between the emergence front and `stop_x` is taller than 16 px (`REMNANT_MAX_PX`): the hump and ledge statics pass, the barricade lock is the only exception |
 | O7 | No `dzq22_lintel` and no crew (`mount`) entries in an `opening` room |
 | O8 | With the barricade closed the exit is unreachable for every class and 2P; open, it is reachable (the existing lock checks) |
+| O9 | The commit window is non-empty: `barricade.x − (36 × dzq08_mercy_px_s / 60 + speed_px_s × max_ticks / 60) ≤ pocket.x − min_gap_px` (rule 4 of section 5.3 at the slowest band speed; today 1862 ≤ 1932) |
+| O10 | The pocket centre lies left of `barricade.x − HERO_HALF_WIDTH` (a pocket rescue never puts a body in the barricade) |
 
 ### 5.7 Events and the state hash
 
 Appended `DozerEvent` variants: codes 13 `ChargeArmed`, 14 `ChargeTell`, 15 `ChargeCommitted`, 16 `ChargeEnded { by_ticks }`, 17 `TimberSmashed { id }`, 18 `PocketEntered { hero }`, 19 `BarrierImpact`, 20 `Wedged`. Each one has a `mix_into`.
 
-The machine mixes the charge sub-state, the used-charge flag, the per-hero pocket flags, the smashed-timber bits and the wedge flag into the hash **only when the profile has a charge block**. Room 3's fixture hashes, DOZR replays and goldens therefore stay byte-identical, and the brief makes that a stop condition. The barricade lock's opened flag is mixed by the env runtime only in a room that has a `dozer_contact` lock (the REST rule).
+`ChargeEnded { by_ticks }` carries the charge's tick count. It fires at `stop_x` after a `BarrierImpact`, or at `max_ticks` on the defensive overshoot path (section 5.2).
+
+The machine mixes the charge sub-state, the used-charge flag, `barrier_hit`, the per-hero pocket flags, the smashed-timber bits and the wedge flag into the hash **only when the profile has a charge block**. Room 3's fixture hashes, DOZR replays and goldens therefore stay byte-identical, and the brief makes that a stop condition. The barricade lock is a pure function of `barrier_hit` (section 5.4), so the env runtime adds no flag and no hash term for it.
 
 ## 6. Entry and exit contracts with the run
 
@@ -343,7 +372,8 @@ The machine mixes the charge sub-state, the used-charge flag, the per-hero pocke
 
 `LockEvent::DonutUnlocked` is appended to the `#[non_exhaustive]` enum, with sidecar `"opens_on": { "event": "donut_unlocked" }` and no target.
 
-- **Open state.** On every fixed tick, before collision, the lock is open exactly when Donut's mana is unlocked. It is a pure function of state the hash already holds, so the lock needs no new hashed flag.
+- **Open state.** `sync`/`step_env` reads `DonutMana::unlocked()` on every fixed tick, and the lock is open exactly when it is true. It is a pure function of state the hash already holds, so the lock needs no new hashed flag.
+- **Tick order (one-tick lag).** The scene step (collision) runs before `step_env`, so the door opens in the tick of `UnlockGranted` and is effective for collision from the **next** tick. No global step is reordered.
 - **Retry and restart.** A defeat retry keeps the unlock, so the door stays open. A fixture restart restores the locked start, so the door closes.
 - **Validation.** Allowed only in a room whose Donut setup can unlock: the validator accepts it, and the room module asserts that the guild zone is set under the Story setup. O8's reachability checks apply.
 
@@ -376,12 +406,12 @@ Fixed tick, no RNG beyond the existing seeded CF02 stream. Presentation (decor, 
 | Pin | ACT1-A | ACT1-B | Reason |
 | --- | --- | --- | --- |
 | `story_unlock::TABLE_HASH` | **unchanged** | **unchanged** | `primary_ranged` is read-through; no table row moves |
-| `f01_late::MANIFEST_HASH` | re-pin | re-pin | rooms rows, story-order rows and a `status` sentence each. Every committed or local late-floor PLAYTRACE recording made before a re-pin fails strict verification with a content mismatch (expected; say so in the PR) |
+| `f01_late::MANIFEST_HASH` | re-pin (from `0xb42f_2f31_5436_e7d2`) | re-pin | rooms rows, story-order rows and a `status` sentence each; the new room `status` strings name no run position (the REST-WIRE PR 2 rule). Every committed or local late-floor PLAYTRACE recording made before a re-pin fails strict verification with a content mismatch (expected; say so in the PR) |
 | `dozer::TUNING_HASH` (`enemy_dozer_v0.json`) | unchanged | **unchanged** | the opening values live in a new file |
 | `OPENING_TUNING_HASH` (`dozer_opening_tuning`) | | new | new file |
 | Act I room and sidecar hashes | new (4: shore and guild) | new (2: chase) | new files |
 | Room 3 sidecar and room hashes | unchanged | **unchanged** | the new `dozer` fields default; the file is untouched |
-| `SCOPED_PIN_KEYS` | +4 | +3 | today 21 → 25 → 28; with REST PR 2 first, 25 → 29 → 32. `pin_applies` maps each new key to its room. `dozer::PIN_KEY` now applies to `dozer` **and** `act1_chase` (the shared machine values); the scope test's owner map takes a list |
+| `SCOPED_PIN_KEYS` | +4 | +3 | today 25 (after REST-WIRE PR 2) → 29 → 32. `pin_applies` maps each new key to its room. `dozer::PIN_KEY` now applies to `dozer` **and** `act1_chase` (the shared machine values); the scope test's owner map takes a list |
 | `playtrace::live::data_pins()` | +4 | +3 | the new pins; update the length assertions |
 | Goldens, DP fixture hashes, room-3 DOZR fixture hashes, CF02 tuning, gate classes | unchanged | unchanged | asserted; a move is a stop condition |
 | Act I fixture final hashes | new | new | new fixtures |
@@ -398,25 +428,26 @@ Module tests live in `src/f01_act1.rs`. The fixtures live in `src/act1_fixtures.
 | ACT1-T02 | `act1_carry_is_empty_and_accepted` | Story: each Act I exit carries the empty snapshot; the corral accepts it; All: none | A | |
 | ACT1-T03 | `act1_shore_sidecar_validates`, `act1_guild_sidecar_validates`, `act1_chase_sidecar_validates` | valid; no surface above 42 px except the guild's slab; the story pins are not table rows | A, B | |
 | ACT1-T04 | `act1_guild_door_seals_until_the_biscuit` | locked: exit unreachable for every class and 2P; unlocked: reachable | A | |
-| ACT1-F01 | `act1_shore_solo_carl` (companion off) | both goblins defeated; the guild door opens; exit; no `UnlockGranted`; Donut never casts | A | |
+| ACT1-F01 | `act1_shore_solo_carl` (companion off) | both goblins defeated; exit; no `UnlockGranted`; Donut never casts | A | |
 | ACT1-F02 | `act1_shore_block_kill` | three strikes at local 367 while `gob_a` stands in 392..472: a credited defeat by the block | A | |
 | ACT1-F03 | `act1_shore_2p` and `act1_shore_solo_companion` (default `cf02_free`) | exit reached; Donut never casts (CF02-Q17) | A | |
 | ACT1-F04 | `act1_shore_retry_from_post_chase` | a party defeat respawns at the checkpoint (route 2640); goblins restored; no chase | A | 09 |
-| ACT1-F05 | `act1_guild_solo_carl` (companion off, swap to Donut), `act1_guild_solo_donut`, `act1_guild_2p` | exactly one `UnlockGranted { hero: 1 }` when Donut's pivot enters 336..376; door open that tick; exit; panel grants `(1, primary_ranged)`; HUD prompt switches | A | |
+| ACT1-F05 | `act1_guild_solo_carl` (companion off, swap to Donut), `act1_guild_solo_donut`, `act1_guild_2p` | exactly one `UnlockGranted { hero: 1 }` when Donut's pivot enters 336..376; the lock reports open in that tick and the door stops colliding from the next tick; exit; panel grants `(1, primary_ranged)`; HUD prompt switches | A | |
 | ACT1-F06 | `act1_guild_companion_crossing` (default companion, Carl active) | exactly one grant; exit; Carl is never sealed in | A | |
 | ACT1-F07 | `act1_guild_retry_keeps_the_biscuit` | after a defeat retry: unlocked, door open; after a fixture restart: locked, door closed; a second crossing grants once | A | |
 | ACT1-F08 | `act1_guild_all_loadout_is_open` | `unlocked(8)` at tick 0, door open, no `UnlockGranted` | A | |
-| ACT1-F10 | `act1_chase_solo_first_run` (Carl active, companion off, runs to the pocket, waits, exits) | event order: `Rumble`, `Emerged`, `TimberSmashed a`, `TimberSmashed b`, `ChargeArmed`, `ChargeTell`, `ChargeCommitted`, `PocketEntered` (both), `BarrierImpact`, (`ChargeEnded`), `BrakeStarted`, `Wedged`; exit; no hero defeat | B | 01, 03, 04, 08 |
+| ACT1-F10 | `act1_chase_solo_first_run`: Carl scripted (run right, hop into the pocket, wait, walk to the exit after `Wedged`); Donut is the follow bot (companion off) | two ordered subsequences: (a) `Rumble`, `Emerged`, `TimberSmashed a`, `TimberSmashed b`; (b) `ChargeArmed`, `ChargeTell`, `ChargeCommitted`, `PocketEntered` ×2 (either may come before `ChargeTell`), `BarrierImpact`, `ChargeEnded`, `BrakeStarted`, `Wedged`. Exactly one `BrakeStarted`. The commit front lies in 1841..1932 (rule 4). Zero `WheelHit`; `AiRescue` = 0 for the bot once it reached the pocket before `ChargeTell`; exit; no hero defeat | B | 01, 03, 04, 08 |
+| ACT1-F10b | `act1_chase_solo_first_run_donut`: the Donut-active twin (Donut scripted the same way, Carl the follow bot) | the same subsequences and counts as F10 | B | 01, 06 |
 | ACT1-F11 | `act1_chase_hull_cannot_be_hurt` | melee on the hull: `Clang` only, `hp()` constant, no stun, no state change | B | 02 |
 | ACT1-F12 | `act1_chase_2p_together` | both in the pocket; zero wheel contacts | B | 05 |
-| ACT1-F13 | `act1_chase_2p_lag_{0,96,224,448}` (P2 that far behind the leader when the leader arms) | no wheel contact on a hero who follows the script (run, hide); the commit tick waits for rule 5.3; recorded commit tick and margin per case | B | 06 |
-| ACT1-F14 | `act1_chase_skip_pocket` (a hero waits at the barricade) | that hero is defeated by the wheel; respawn at 1008; the barricade restored; the machine `dormant`; the hint shows; no softlock | B | 07, 09 |
+| ACT1-F13 | `act1_chase_2p_lag_{0,96,224,448}` (P2 that far behind the leader when the leader arms; both heroes run and hide in the pocket) | zero wheel contacts; in every case the commit front lies in 1841..1932 (the trigger and the band follow the rearmost hero, so the lag only changes when the leader arrives); `BarrierImpact` within the charge; recorded commit tick, commit front and margin per hero, per case | B | 06 |
+| ACT1-F14 | `act1_chase_skip_pocket` (a hero waits at the barricade) | no charge (rule 3 fails); the cruise pins that hero against the closed barricade: `PinnedHold`, then the wheel defeat; respawn at 1008; the barricade closed again (`barrier_hit` false); the machine `dormant`; the hint shows; no softlock | B | 07, 09 |
 | ACT1-F15 | `act1_chase_solo_bot_{carl,donut}_active` (default companion) | zero wheel contacts on the bot; rescue counts reported by spot | B | 06 |
-| ACT1-F16 | `act1_chase_no_charge_path` (a party that never satisfies rule 5.3) | no `ChargeTell`; the cruise opens the barricade and wedges; exit reached from the pocket | B | 07 |
+| ACT1-F16 | `act1_chase_no_charge_path` (2P): P1 waits in the pocket; P2 shadows the front (body left edge 100..130 px ahead, walking at the machine's band speed) from the emergence into the pocket, so rule 2 (gap ≥ 140) never holds | no `ChargeTell`; `PocketEntered` ×2; the cruise passes the pocket; `BarrierImpact`, `Wedged`, exit; zero `WheelHit` | B | 07 |
 | ACT1-F17 | `act1_chase_presentation_is_read_only` | the same inputs with presentation disabled (no decor, no notices, no splinters) give the same event log and hash | B | 12 |
 | ACT1-F18 | `room3_unchanged_by_the_opening` | every DOZR fixture hash and replay equals its committed value | B | |
-| ACT1-T10 | `opening_validation_rules` | O1..O8 each rejects a minimal broken sidecar; the revenge rules still reject a lintel-less `revenge` block | B | |
-| ACT1-T11 | `the_charge_commit_rule` (domain unit tests) | rule 5.3 table rows above, including the walk-back and the pocket-behind-the-wheel case | B | 04, 06 |
+| ACT1-T10 | `opening_validation_rules` | O1..O10 each rejects a minimal broken sidecar (O3 with a `ledge` naming a missing or non-`solid` static); the revenge rules still reject a lintel-less `revenge` block | B | |
+| ACT1-T11 | `the_charge_commit_rule` and `the_charge_runs_through_the_barricade` (domain unit tests) | rule 5.3 table rows above, including rule 4's boundary (front 1855 vs 1856 at 160 px/s), the walk-back and the pocket-behind-the-wheel case; the instant charge speed; the impact on the charge's last tick; a run past `BarrierImpact` to `stop_x`; the defensive overshoot with a synthetic tuning that has no barricade in reach; the rescue cause rules of section 5.5 (pocket skip, fully behind the hull) and the spot fallbacks; the pocket test's y conversion | B | 04, 06 |
 | ACT1-T12 | `act1_run_walk` | a Story `--f01-run` walk from the first Act I room through the corral: entry lines in order, empty carries, guild grant on the panel | A, B | 11 |
 
 CHDIR-10 (resolutions and scaling) and CHDIR-12's audio half are evidence items (section 11). CHDIR-11 is ACT1-T12 plus the PLAYTRACE verify tests.
@@ -427,14 +458,15 @@ CHDIR-10 (resolutions and scaling) and CHDIR-12's audio half are evidence items 
    - S1 at spawn;
    - the emergence at the S2 window;
    - a timber smash;
-   - the tell at `arm_x`;
+   - the lit `alcove` decor as the player approaches it, before the tell (the pocket must read as the way out);
+   - the tell;
    - both heroes in the pocket with the wheel passing;
    - the barricade impact;
    - the wedge;
    - the shore strike and the block kill;
    - the guild zone with the notice and the changed prompt.
 2. A seeded GIF of the solo chase (ACT1-F10) and one of a 2P lag-448 run (ACT1-F13), at 1x.
-3. The ACT1-F13 commit table (commit tick, margin per hero, per lag) as text.
+3. The ACT1-F13 commit table (commit tick, commit front, margin per hero, per lag) as text, plus the F10/F10b rescue counts by spot.
 4. The run walk: each room's entry line from `act1_chase` to `mastery`, in order.
 5. The PLAYTRACE verify lines.
 6. Frame time at 640×360 for `act1_chase` (`--perf-frames`), against room 3.
@@ -444,7 +476,7 @@ CHDIR-10 (resolutions and scaling) and CHDIR-12's audio half are evidence items 
 
 ### 12.1 ACT1-A: run plumbing, the shore and the guild
 
-- **Data:** manifest rows `act1_shore` and `act1_guild` before `corral`; the story-order change; the `status` sentence; the `MANIFEST_HASH` re-pin.
+- **Data:** manifest rows `act1_shore` and `act1_guild` before `corral`; the story-order change; the `status` sentence; the `MANIFEST_HASH` re-pin. The run grows from 12 to 14 rooms.
 - **Run rules:** ACT1-F in `validate`; `RoomScene::Act1Shore` and `Act1Guild`; `story_less()`; the `carry_for` generalization.
 - **Room module:** `src/f01_act1.rs` with `Act1Room { Chase, Shore, Guild }` (Chase unlisted and unbuilt until ACT1-B); `LockEvent::DonutUnlocked`; the room and sidecar files.
 - **Presentation:** the panel grant fact; the `MAGIC MISSILE` notice; the decor draw.
@@ -452,9 +484,9 @@ CHDIR-10 (resolutions and scaling) and CHDIR-12's audio half are evidence items 
 
 ### 12.2 ACT1-B: the chase
 
-- **Data:** the opening tuning file; the `RawDozer` fields and the optional lintel; the O1..O8 validation branch.
-- **Machine:** the charge sub-machine, commit rule, pocket, wedge, timbers and events in `src/dozer.rs`; `LockEvent::DozerContact`; `RescueSpot::{Pocket, Behind}` and `RescueCause::Charge`.
-- **Room:** the room and sidecar; the manifest row `act1_chase` first, the story-order row and a `MANIFEST_HASH` re-pin; `RoomScene::Act1Chase`; the binary and PLAYTRACE arms.
+- **Data:** the opening tuning file; the `RawDozer` fields and the optional lintel; the O1..O10 validation branch.
+- **Machine:** the charge sub-machine, commit rule, pocket, `barrier_hit`, wedge, timbers and events in `src/dozer.rs`; the profile choice in `combat_scene/dozer.rs::build`; `LockEvent::DozerContact`; `RescueSpot::{Pocket, Behind}` and `RescueCause::Charge`.
+- **Room:** the room and sidecar (lane statics, the alcove decor); the manifest row `act1_chase` first, the story-order row and a `MANIFEST_HASH` re-pin (the run grows from 14 to 15 rooms); `RoomScene::Act1Chase`; the binary and PLAYTRACE arms.
 - **Presentation:** the DOZ-01 rig reuse (room 3's draw path); the greybox wedge; splinters; the hint.
 - **Checks:** ACT1-F10..F18 and T10, T11; evidence.
 
@@ -482,7 +514,7 @@ Audio is not in scope (ACT1-Q2).
 
 ### 12.4 Sequencing and stop conditions
 
-- **Order.** ACT1-A, then ACT1-B. Each re-pins `MANIFEST_HASH` once. If REST-WIRE PR 2 merges first, rebase and re-count (section 9); the reverse also works.
+- **Order.** ACT1-A, then ACT1-B. Each re-pins `MANIFEST_HASH` once, starting from main's value after REST-WIRE PR 2 (`0xb42f_2f31_5436_e7d2`). If another manifest PR lands in between, rebase and re-count (section 9).
 - **Hot files.** `src/f01_late.rs`, `src/f01_run.rs`, the manifest, `src/encounter.rs`, `src/combat_scene/env.rs`, `src/bin/floor01_scene.rs` and the PLAYTRACE dispatch. ACT1-B also touches `src/dozer.rs`, `src/combat_scene/dozer.rs` and `src/encounter/haz.rs`.
 - **Stop and report** (do not improvise) if:
   - a room-3 DOZR hash, a golden or a DP hash moves;
@@ -501,18 +533,21 @@ All are adopted under the owner decision of 2026-11-25. The owner may change any
 | ACT1-AD2 | The chase/shore boundary is ENV-02's post-chase checkpoint (route 2640); the standard room-clear panel shows between them | DOZER-CORE resets the machine on every respawn; a split keeps CHDIR-09 without new respawn rules |
 | ACT1-AD3 | Titles "The First Chase", "The Rotten Shore", "The Guild Door" | Plain and literal, no franchise quote (antihero tone) |
 | ACT1-AD4 | Spawns Carl 72 / Donut 48 in the chase (ENV-02 spawn), Carl 112 / Donut 80 elsewhere | ENV-02 marker; REST pattern |
-| ACT1-AD5 | Commit rule of section 5.3 (all heroes past `arm_x`, gap ≥ 140, reach margin 20 ticks), one charge per attempt, no fail-open timer | #179 policy 1; DOZ-01 gate; no forced lethal charge |
+| ACT1-AD5 | Commit rule of section 5.3 (all heroes past `arm_x`, gap ≥ 140 from the rearmost body, reach margin 20 ticks, the charge reaches the barricade), one charge per attempt, no fail-open timer | #179 policy 1; DOZ-01 gate; no forced lethal charge; rule 4 keeps #179's standout beat (the wheel passes the alcove, then the barricade breaks, C5/C6) |
 | ACT1-AD6 | The chase trigger is crossed by the **rearmost** living hero | A leader alone never wakes the machine with P2 behind its emergence point |
-| ACT1-AD7 | No idle wake in the opening (216000 ticks) | #179 C0 "false calm, no forced tutorial"; no softlock is possible ahead of the trigger |
+| ACT1-AD7 | No idle wake in the opening (216000 ticks) | #179 C0 "false calm, no forced tutorial"; no softlock is possible ahead of the trigger. In 2P a human P2 who stays behind 1072 forever means no chase and a closed barricade: a stall by choice, not a softlock (QA should not file it) |
 | ACT1-AD8 | The S3 soffit is decor, not a solid | 212 px clear is above every jump; the machine ignores solids |
 | ACT1-AD9 | No riders on the opening machine in the greybox; the shore goblins stand in for the thrown riders | DR-C's crew is room 3's system; the riders are ACT1-Q6 |
 | ACT1-AD10 | The wedged machine in the shore room is decor | The machine is resolved in the chase room |
 | ACT1-AD11 | The guide is decor at the `refuge_guild` mark; the `mordecai_h44` sprite if drawable, else a labelled rectangle; no text | No invented dialogue; the beat stays brief (I-04) |
 | ACT1-AD12 | The guild panel lists the read-through grant; a `MAGIC MISSILE` notice on `UnlockGranted` | Every other grant has a notice; the ledger never holds `primary_ranged` |
 | ACT1-AD13 | Donut locked in the Act I rooms under Story and flagless; `unlocked(8)` under All or the light-feet / puddle flags | The flags already imply the biscuit (DP-Q06, DP-Q10) |
-| ACT1-AD14 | `RescueSpot::Pocket`, `RescueSpot::Behind` and `RescueCause::Charge` appended; the solo bot is put in the pocket at the tell | K5 without Donut invincibility (Dozer note section 7); DOZ-01 "the player must never fail because of the AI partner" |
+| ACT1-AD14 | `RescueSpot::Pocket`, `RescueSpot::Behind` and `RescueCause::Charge` appended; the solo bot is put in the pocket at the tell; no rescue cause in the pocket or fully behind the hull; the two new spots skip the spacing check and fall back to each other, never to `Tunnel` before `BarrierImpact` | K5 without Donut invincibility (Dozer note section 7); DOZ-01 "the player must never fail because of the AI partner" |
 | ACT1-AD15 | The opening values live in a new tuning file with its own pin | Room 3's `TUNING_HASH` and data stay untouched (Dozer note section 4.4) |
 | ACT1-AD16 | `stop_x` 2856 and the exit at 2928; the machine wedges at the S5 arch's right edge | ENV-02 wedge marker; the past-stop rescue spot fits before the exit |
+| ACT1-AD17 | The humps and the alcove ledge are 16 px sidecar statics of kind `solid`, not room platforms; the pocket's `ledge` names the static | A room platform needs 52 px clear under its slab (`PlatformBlocksLane`, REST-IMP-8); a lane static up to 48 px is the validator's low-step form (Hoarder `bank_a`) |
+| ACT1-AD18 | After `BarrierImpact` the charge ignores `max_ticks` and runs to `stop_x`, then brake, strain, `Idle` and `Wedged`; `ChargeEnded` at `stop_x` | One brake in a normal run; the wedge keeps the charge's momentum (#179 C7) |
+| ACT1-AD19 | The barricade is open iff `Dozer::barrier_hit()`; no env flag | Every respawn and restart path closes it by construction; REST's surface locks keep their flags across a respawn |
 
 ## 14. Open questions (ACT1-Q, non-blocking)
 
@@ -538,6 +573,7 @@ All are adopted under the owner decision of 2026-11-25. The owner may change any
 - **From DOZ-01.**
   - DOZ-01's state diagram allows repeated charges and a "stopped" state when Carl is pinned. The opening allows one charge, and the room-3 pinned rule stays as DOZER-CORE built it.
   - DOZ-01 suggests "Donut exempt or guaranteed to keep up". The opening uses the rescue spots instead (no invincibility, Dozer note section 7).
+  - DOZ-01's charge lasts 90 ticks, then overshoots. In the opening a charge that has broken the barricade runs on to `stop_x` and wedges (ACT1-AD18), and rule 4 only commits a charge that reaches the barricade, so the overshoot is a defensive path only.
 - **From the Act I beats doc.** Its line "keep chase, CP-01, CP-02 and CP-03 in the same scene" predates the run's one-room-per-launch model. The three rooms keep ENV-02's geometry and order.
 
 ## 16. Horizon, tone and rights

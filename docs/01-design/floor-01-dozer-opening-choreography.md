@@ -10,7 +10,7 @@
 
 1. **The machine exists.** Room 3's DOZER-CORE machine (`src/dozer.rs`, `src/combat_scene/dozer.rs`, the DOZ-01 rig at h120) is merged. The opening reuses it with a second profile `opening` and does not build a second vehicle (integration plan section 5).
 2. **Speeds.** The draft's "cruise about 130 px/s against Carl about 145 px/s" were early ENV-02 hypotheses. On main Carl runs 185 px/s. The opening uses DOZ-01 section 9's values instead: cruise 160, catch-up 185, mercy 150, a 36-tick tell, then a 240 px/s charge of at most 90 ticks, overshoot brake 24 ticks and strain 90 ticks.
-3. **Fairness.** The draft's preferred policy 1 (arm on the leader, commit on both) is adopted as a measured commit rule (integration plan section 5.3).
+3. **Fairness.** The draft's preferred policy 1 (arm on the leader, commit on both) is adopted as a measured commit rule (integration plan section 5.3). The rule also requires that the charge reaches the barricade, so the wheel always passes the alcove and then breaks the barricade in one committed run; after the impact the charge runs on to the wedge instead of overshooting (ACT1-AD18).
    - If the rule never holds, the machine does not charge: the cruise still breaks the barricade.
    - The draft kept the 8 s fail-open timer as a last resort. It is no longer needed, because nothing can softlock and nothing forces a lethal charge.
 4. **Rooms.** The `--f01-run` floor run loads one room per launch, and a respawn resets the machine. The opening is therefore two run rooms that meet at `checkpoint_post_chase` (route x 2640):
@@ -188,14 +188,14 @@ The ACT1 column names the headless fixture or test from [the integration plan se
 
 | ID | Scenario | Headless criteria | Human / native Bevy evidence | ACT1 |
 | --- | --- | --- | --- | --- |
-| CHDIR-01 | Uninterrupted solo first run | Trigger → timber → charge → pocket → barrier → wedge → checkpoint, deterministic | The player understands the danger and the refuge without a tutorial | F10 |
+| CHDIR-01 | Uninterrupted solo first run | Trigger → timber → charge → pocket → barrier → wedge → checkpoint, deterministic | The player understands the danger and the refuge without a tutorial | F10, F10b |
 | CHDIR-02 | Carl tries to damage or clear the Dozer | No vehicle HP drop; no jump through the wheel | Invulnerability shown by sparks, impact and continued motion | F11 |
 | CHDIR-03 | The two S3 humps and both timber sets | Timed movement; one break per authored id | Two distinct physical destruction beats, not an invisible instant path clear | F10 |
 | CHDIR-04 | The S4 committed charge | The tell precedes the fast wheel; no homing into the pocket | Charge direction and the safe pocket are understood before the reaction deadline | F10, T11 |
 | CHDIR-05 | P1 and P2 arrive together | Both fit the niche safely; no accidental collision or shield errors | Both silhouettes legible; the near miss is exciting | F12 |
 | CHDIR-06 | P2 behind by 96, 224 and 448 px | A reachable refuge; no **unavoidable** charged-wheel collision in otherwise legal play | Real two-pad camera and recovery | F13, F15, T11 |
 | CHDIR-07 | One player skips the pocket; a late retry | Fair failure and checkpoint; no griefing, no softlock; the optional hint after the failure | Failure teaches rather than feels arbitrary | F14, F16 |
-| CHDIR-08 | Barrier hit and wedge | Same-tick blocker removal; a single impact; safe past x 2640 | A big smash, then sudden relief and straight into the first fight | F10 |
+| CHDIR-08 | Barrier hit and wedge | Blocker removal in the impact tick (heroes collide with the open state from the next tick, integration plan section 5.4); a single impact; safe past x 2640 | A big smash, then sudden relief and straight into the first fight | F10 |
 | CHDIR-09 | Checkpoint and reset at x 1008 and x 2640 | Timbers, barricade and machine back to their start state after a chase retry; no chase after a post-chase retry | Fast retry; the long intro skipped | F14, ACT1-F04 |
 | CHDIR-10 | Both virtual resolutions and output scaling | No threat or warning cropped; no invalid zoom; no silhouette distortion | At speed at 640×360, 640×400 and 1080p / Deck-friendly | evidence |
 | CHDIR-11 | Playtrace capture and verification | The whole live attempt and its retries captured; the same events and state hashes on replay | Tick-aligned render evidence if supported | T12, PLAYTRACE verify |

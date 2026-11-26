@@ -25,7 +25,7 @@ Reuse the original source art and animation (the approved Dozer rig, the ENV-02 
 
 - **Merged, no conflict.** PR #174 (Carl progression), #175 (Donut progression), #176 (Goblin Boiler) and #178 (Hoarder, Dozer revenge, Slime-Rot) are merged. The Dozer revenge is room 3. The opening **reuses its machine** through a second profile; it does not fork it. Room 3's data, fixtures and goldens must stay byte-identical.
 - **Companion movement.** Companion movement and navigation are owned separately. The opening extends the existing solo rescue with two appended spots only (integration plan section 5.5).
-- **REST-WIRE PR 2** (camp and aftermath) edits the same manifest and pin lists. Whichever lands later rebases and re-pins.
+- **REST-WIRE PR 2** (camp and aftermath) is merged. ACT1-A and ACT1-B re-pin the manifest and the pin lists from its values.
 - **Do not silently rewrite** Playtrace, the render replay, CF02 or the camera.
 
 ## Deliverables, in dependency order
