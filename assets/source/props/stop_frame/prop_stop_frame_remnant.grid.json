@@ -1,0 +1,124 @@
+{
+ "format": "pixel-grid-v1",
+ "canvas": [
+  80,
+  16
+ ],
+ "pivot": [
+  0,
+  15
+ ],
+ "palette": [
+  {
+   "key": "K",
+   "name": "outline_plum",
+   "rgba": "#1b1124ff"
+  },
+  {
+   "key": "0",
+   "name": "iron_0",
+   "rgba": "#121220ff"
+  },
+  {
+   "key": "7",
+   "name": "iron_glint",
+   "rgba": "#dde2ecff",
+   "accent": true
+  },
+  {
+   "key": "Q",
+   "name": "rust_0",
+   "rgba": "#2a1612ff"
+  },
+  {
+   "key": "W",
+   "name": "rust_1",
+   "rgba": "#4a2318ff"
+  },
+  {
+   "key": "E",
+   "name": "rust_2",
+   "rgba": "#6c321eff"
+  },
+  {
+   "key": "T",
+   "name": "rust_3",
+   "rgba": "#914524ff"
+  },
+  {
+   "key": "Y",
+   "name": "rust_4",
+   "rgba": "#b55f2cff"
+  },
+  {
+   "key": "S",
+   "name": "brass_4",
+   "rgba": "#bc9a3aff"
+  }
+ ],
+ "layers": [
+  "remnant"
+ ],
+ "frames": [
+  {
+   "duration_ms": 100,
+   "cels": {
+    "remnant": [
+     ".........................................KKKKKKK................................",
+     ".................................KKKKKKKKYYYQYYYKKKKKK..........................",
+     ".........................KKKKKKKKYYYYYYYYEEYQEEEYYYYYYKKKKKK....................",
+     "..................KKKKKKKYYYYYYYYEEEEEEEEKKKKKKKEEEEEEYYYYYYKKKKKK..............",
+     "..........KKKKKKKKYYYYYYYEEEEEEEEKKKKKKKKQQYQQQQKKKKKKEEEEEEYYYYYYKKKKKK........",
+     ".KKKKKKKKKYYYYYYYYEEEEEEEKKKKKKKKQQQQQQQQWWYQWWWQQQQQQKKKKKKEEEEEEYYYYYYKKKKKKK.",
+     "KYYYYYYYYYEEEEEEEEKKKKKKKQQQQQQQQWWW7WWWWQQYQQQQW7WWWWQQQQQQKKKKKKEEEEEEYYYYYYEK",
+     "KYEEEEEEEEKKKKKKKKQQQQQQQWWWWW7WWQQQQQQQQYYYQYYYQQQQQQW7WWWWQQQQQQKKKKKKEEEEEEKK",
+     "KQKKKKKKKKSS00QQQQ7WWWWW7QQQQQQQQYYYYYYYYTTYQTTTYYYYYYQQQQQQW7WWWW00SS00KKKKKKQK",
+     ".KQQ00SS000SS0WWWWQQQQQQQYYYYYYYYTTTTTTTTQQYQQQQTTTTTTYYYYYYQQQQQQS00SS0SS00QQK.",
+     ".KQQS00SS000SSQQQQYYYYYYYTTTTTTTTQQQQQQQQKKKKKKKQQQQQQTTTTTTYYYYYYSS00SS0SS0QQK.",
+     ".KQQSKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKQQQTTTTTTYYYYYY00SSQQK.",
+     "KYYYKKYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYKKKQQQQQQTTTTTTYYYYYYEK",
+     "KYTTKTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTK..KKKKKKQQQQQQTTTTTTEK",
+     "KQQQKEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEKK........KKKKKKQQQQQQQK",
+     ".KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK...............KKKKKKK."
+    ]
+   }
+  },
+  {
+   "duration_ms": 100,
+   "cels": {
+    "remnant": [
+     ".........................................KKKKKKK................................",
+     ".................................KKKKKKKKYYYQYYYKKKKKK..........................",
+     ".........................KKKKKKKKYYYYYYYYEEYQEEEYYYYYYKKKKKK....................",
+     "..................KKKKKKKYYYYYYYYEEEEEEEEKKKKKKKEEEEEEYYYYYYKKKKKK..............",
+     "..........KKKKKKKKYYYYYYYEEEEEEEEKKKKKKKKQQYQQQQKKKKKKEEEEEEYYYYYYKKKKKK........",
+     ".KKKKKKKKKYYYYYYYYEEEEEEEKKKKKKKKQQQQQQQQWWYQWWWQQQQQQKKKKKKEEEEEEYYYYYYKKKKKKK.",
+     "KYYYYYYYYYEEEEEEEEKKKKKKKQQQQQQQQWWW7WWWWQQYQQQQW7WWWWQQQQQQKKKKKKEEEEEEYYYYYYEK",
+     "KYEEEEEEEEKKKKKKKKQQQQQQQWWWWW7WWQQQQQQQQYYYQYYYQQQQQQW7WWWWQQQQQQKKKKKKEEEEEEKK",
+     "KQKKKKKKKKSS00QQQQ7WWWWW7QQQQQQQQYYYYYYYYTTYQTTTYYYYYYQQQQQQW7WWWW00SS00KKKKKKQK",
+     ".KQQ00SS000SS0WWWWQQQQQQQYYYYYYYYTTTTTTTTQQYQQQQTTTTTTYYYYYYQQQQQQS00SS0SS00QQK.",
+     ".KQQS00SS000SSQQQQYYYYYYYTTTTTTTTQQQQQQQQKKKKKKKQQQQQQTTTTTTYYYYYYSS00SS0SS0QQK.",
+     ".KQQSS00SSYYYYYYYYTTTTTTTQQQQQQQQKKKKKKKK.......KKKKKKQQQQQQTTTTTTYYYYYY00SSQQK.",
+     "KYYYYYYYYYTTTTTTTTQQQQQQQKKKKKKKK.....................KKKKKKQQQQQQTTTTTTYYYYYYEK",
+     "KYTTTTTTTTQQQQQQQQKKKKKKK...................................KKKKKKQQQQQQTTTTTTEK",
+     "KQQQQQQQQQKKKKKKKK................................................KKKKKKQQQQQQQK",
+     ".KKKKKKKKK..............................................................KKKKKKK."
+    ]
+   }
+  }
+ ],
+ "tags": [
+  {
+   "name": "landed",
+   "from": 0,
+   "to": 0,
+   "direction": "forward"
+  },
+  {
+   "name": "landed_hit",
+   "from": 1,
+   "to": 1,
+   "direction": "forward"
+  }
+ ]
+}

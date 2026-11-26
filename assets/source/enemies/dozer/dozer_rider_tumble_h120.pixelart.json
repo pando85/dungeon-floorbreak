@@ -1,0 +1,85 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "dozer_rider_tumble_h120_v0",
+  "title": "DOZ-02 dozer_rider_tumble_h120",
+  "grid": "assets/source/enemies/dozer/dozer_rider_tumble_h120.grid.json",
+  "manifest": "assets/manifests/dozer_rider_tumble_h120.json",
+  "frame_size": [
+    64,
+    56
+  ],
+  "pivot": [
+    32,
+    55
+  ],
+  "tick_hz": 60,
+  "hold_ms": 100,
+  "tags": {
+    "rider_a_tumble_0": {
+      "playback": "once",
+      "contact": "free",
+      "frames": [
+        [
+          0,
+          6
+        ]
+      ]
+    },
+    "rider_a_tumble_1": {
+      "playback": "once",
+      "contact": "free",
+      "frames": [
+        [
+          1,
+          18
+        ]
+      ]
+    },
+    "rider_a_tumble_2": {
+      "playback": "once",
+      "contact": "free",
+      "frames": [
+        [
+          2,
+          12
+        ]
+      ]
+    },
+    "rider_b_tumble_0": {
+      "playback": "once",
+      "contact": "free",
+      "frames": [
+        [
+          3,
+          6
+        ]
+      ]
+    },
+    "rider_b_tumble_1": {
+      "playback": "once",
+      "contact": "free",
+      "frames": [
+        [
+          4,
+          18
+        ]
+      ]
+    },
+    "rider_b_tumble_2": {
+      "playback": "once",
+      "contact": "free",
+      "frames": [
+        [
+          5,
+          12
+        ]
+      ]
+    }
+  },
+  "rules": {
+    "max_colors": 24,
+    "max_isolated_per_frame": 0,
+    "max_orphans_per_frame": 9,
+    "unique_frames": true
+  }
+}

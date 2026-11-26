@@ -1,0 +1,93 @@
+{
+ "format": "pixel-grid-v1",
+ "canvas": [
+  80,
+  4
+ ],
+ "pivot": [
+  0,
+  3
+ ],
+ "palette": [
+  {
+   "key": "K",
+   "name": "outline_plum",
+   "rgba": "#1b1124ff"
+  }
+ ],
+ "layers": [
+  "shadow"
+ ],
+ "frames": [
+  {
+   "duration_ms": 133,
+   "cels": {
+    "shadow": [
+     "................................................................................",
+     "................................................................................",
+     "................................................................................",
+     "....................KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK...................."
+    ]
+   }
+  },
+  {
+   "duration_ms": 133,
+   "cels": {
+    "shadow": [
+     "................................................................................",
+     "................................................................................",
+     "................KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK................",
+     ".............KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK.............."
+    ]
+   }
+  },
+  {
+   "duration_ms": 117,
+   "cels": {
+    "shadow": [
+     "................................................................................",
+     ".............KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK.............",
+     "........KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK........",
+     "......KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK......."
+    ]
+   }
+  },
+  {
+   "duration_ms": 117,
+   "cels": {
+    "shadow": [
+     "...........KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK...........",
+     "...KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK...",
+     "KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK",
+     ".....KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK....."
+    ]
+   }
+  }
+ ],
+ "tags": [
+  {
+   "name": "s0",
+   "from": 0,
+   "to": 0,
+   "direction": "forward"
+  },
+  {
+   "name": "s1",
+   "from": 1,
+   "to": 1,
+   "direction": "forward"
+  },
+  {
+   "name": "s2",
+   "from": 2,
+   "to": 2,
+   "direction": "forward"
+  },
+  {
+   "name": "s3",
+   "from": 3,
+   "to": 3,
+   "direction": "forward"
+  }
+ ]
+}

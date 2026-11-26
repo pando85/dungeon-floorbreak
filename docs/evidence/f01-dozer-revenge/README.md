@@ -1,5 +1,7 @@
 # DR-A to DR-D evidence: room 3, the Dozer revenge ("The Machine Remembers")
 
+> **Updated by DOZ-02 (draft PR #291).** The stills, GIFs and capture lines below are the DR-A to DR-D captures as committed: they show the labelled stand-ins (gate, buffer stop, damage marker, frame, brace, glance) that DOZ-02 has since replaced with atlas art, and room 3 is now at milestone `setpiece`. The current captures of the same pilots are in [`../doz-02/`](../doz-02/README.md). Read every "stand-in" below as history.
+
 Real windowed Bevy captures (`floor01_scene`, 640 x 360 and 640 x 400 virtual frames) of `--scene f01_late --f01-room dozer` under the story loadout: Carl under the pilot, Donut the autonomous `cf02_free` AI partner (`COMPANION_CONFIG: set=cf02_free`, the mode a player of the room sees). The machine is drawn with the approved **DOZ-01** rig (hull, tread, riders, front cab and tub, spiked wheel, yoke, smoke and steam puffs; [`../doz-01`](../doz-01/README.md)); there is **no box stand-in** for it. The rear gate, the buffer stop and the damage marker are code-drawn **labelled stand-ins** with a `STAND-IN` tag until DOZ-02 draws them (DZ-AD13); since DR-B so are the stop frame, its chain, its floor shadow, the brace (intact, weakened, snapped), the remnant and the rear glance. Nothing here approves tuning, art or game feel.
 
 The input is the room pilot `dozer:close_call` (`src/room_pilots.rs`, `dozer_escape`): Carl walks to x 480, holds there until the wheel is 64 px away, then runs to the exit. Carl's input is a function of the simulation state only (DRA-AD2: stateless). The pilot is **aligned** (DRA-AD5, the #282 review F1): the party is the `cf02_free` partner's, so Donut is driven by the AI partner, not by the legacy follower; the room takes no `--cf02-seed` (the aligned seed 0 is nominal), like a player's run. Every capture is reproducible.
@@ -115,7 +117,7 @@ DR-C costs nothing in the escape (the riders are carried and out of play) and a 
 - **Human pad evaluation: NOT RUN.** Game feel is the owner's; nothing here was played on a pad.
 - **Real-display frame time and release build: NOT RUN.** The numbers above are debug under xvfb.
 - **Two players, solo Donut and a two-hero wipe: NOT RUN.** The two-pad and Donut-missile releases are fixtures (`dz_frame_missile`, `dz_frame_dynamite`), not captures; the retry captured here is Carl's own defeat and checkpoint respawn with the partner alive, not a party wipe and restart (that path is the fixtures `dz_retry_stunned`, `dz_retry_disabled`).
-- **The DOZ-02 art (gate, buffer stop, damage states): NOT RUN here.** Its key design is draft PR #291; the stand-ins stay until its execution lands.
+- **The DOZ-02 art (gate, buffer stop, damage states): NOT RUN here; since done.** The stand-ins were replaced by DOZ-02's execution (draft PR #291); see [`../doz-02/`](../doz-02/README.md).
 - The pilots are not players: they never misjudge the gap.
 - **Stand-in limits (the #287 review notes).** The stand-in pools' caps (`MAX_STAND_INS` 24, `MAX_TAGS` 6 in `dozer_art.rs`) are checked by `debug_assert!` only, so a release build would not catch an overflow; the current worst case fits. The grey frame and remnant stand-ins (FrameIron) read weakly against the dark wheel at 1x; left to DOZ-02 and the owner.
 

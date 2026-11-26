@@ -355,7 +355,7 @@ All at seeds 0..8. Every fixture replays twice with a committed hash. No existin
 | DZ-AD10 | No HP to lose (a fixed `hp()`, `alive()` always true), no health bar, no `EnemyDefeated`; the disable is a `CombatEvent::Dozer` sub-event; the jammed wheel is no longer lethal |
 | DZ-AD11 | Crew: two carried roster goblins dismount on the disable; the driver stays in the cab |
 | DZ-AD12 | **PR split amends plan section 4.5 file ownership:** the room and sidecar files move from DR-A into DOZER-CORE, because plan acceptance 3 asks for K5 fixtures *in the revenge room*. DR-A becomes the scene arm, the listing and the presentation |
-| DZ-AD13 | DR-A wires the approved DOZ-01 rig as the presentation (no box stand-in for the machine); only the frame, the damage states and the environment pieces are labelled stand-ins until DOZ-02 |
+| DZ-AD13 | DR-A wires the approved DOZ-01 rig as the presentation (no box stand-in for the machine); only the frame, the damage states and the environment pieces are labelled stand-ins until DOZ-02; DOZ-02 wired its art in and removed every stand-in (see floor01-scene.md, Room 3's DOZ-02 art) |
 | DZ-AD14 | No camera rule change; fairness is the `dz_visible_lead` metric |
 | DZ-AD15 | The gap is measured to the rearmost living hero ahead of the axle, with the cruise fallback of DZ-Q25 |
 | DZ-AD16 | The wheel never hurts a hero outside the sim view |

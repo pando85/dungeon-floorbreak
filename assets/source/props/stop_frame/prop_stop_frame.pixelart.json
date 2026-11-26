@@ -1,0 +1,75 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "prop_stop_frame_v0",
+  "title": "DOZ-02 prop_stop_frame",
+  "grid": "assets/source/props/stop_frame/prop_stop_frame.grid.json",
+  "manifest": "assets/manifests/prop_stop_frame.json",
+  "frame_size": [
+    96,
+    60
+  ],
+  "pivot": [
+    8,
+    59
+  ],
+  "tick_hz": 60,
+  "hold_ms": 100,
+  "tags": {
+    "raised": {
+      "playback": "once",
+      "contact": "free",
+      "frames": [
+        [
+          0,
+          6
+        ]
+      ]
+    },
+    "pulley": {
+      "playback": "once",
+      "contact": "free",
+      "frames": [
+        [
+          1,
+          6
+        ]
+      ]
+    },
+    "warn_0": {
+      "playback": "once",
+      "contact": "free",
+      "frames": [
+        [
+          2,
+          3
+        ]
+      ]
+    },
+    "warn_1": {
+      "playback": "once",
+      "contact": "free",
+      "frames": [
+        [
+          3,
+          3
+        ]
+      ]
+    },
+    "falling": {
+      "playback": "once",
+      "contact": "free",
+      "frames": [
+        [
+          4,
+          8
+        ]
+      ]
+    }
+  },
+  "rules": {
+    "max_colors": 24,
+    "max_isolated_per_frame": 0,
+    "max_orphans_per_frame": 9,
+    "unique_frames": true
+  }
+}

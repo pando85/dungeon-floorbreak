@@ -50,7 +50,7 @@ pub const MANIFEST_PATH: &str = "assets/levels/f01_late/manifest.json";
 /// hash is a constant, pinned to the file by a test and compared by every
 /// replay of a recorded room. A step that lists a room (CORRAL-WIRE, RING-A
 /// wire, HRD-A2, CORRAL-F, DR-A, ...) re-pins it on purpose.
-pub const MANIFEST_HASH: u64 = 0xa333_83ff_7398_9d01;
+pub const MANIFEST_HASH: u64 = 0x5a29_871b_5b47_bb85;
 /// The fixture-only stub trigger the story-order tie skips by name.
 pub const STUB_TRIGGER: &str = "carl_prog_find_zone_stub";
 /// The `data_pins()` key.
@@ -862,9 +862,10 @@ mod tests {
         // RING-A/B wire (RINGW-AD1): rooms 4a and 4b are listed at milestone `greybox`.
         assert_eq!(m.room("ring_court").unwrap().scene, RoomScene::RingCourt);
         assert_eq!(m.room("ring_split").unwrap().scene, RoomScene::RingSplit);
-        // DR-A: room 3 is listed at milestone `greybox`, after the Boiler.
+        // DR-A listed room 3 after the Boiler at milestone `greybox`; DOZ-02 (its art wired) moved it to `setpiece`.
         assert_eq!(m.room("dozer").unwrap().scene, RoomScene::Dozer);
-        for id in ["ring_court", "ring_split", "dozer"] {
+        assert_eq!(m.room("dozer").unwrap().milestone, "setpiece");
+        for id in ["ring_court", "ring_split"] {
             assert_eq!(m.room(id).unwrap().milestone, "greybox", "{id}");
         }
         assert!(m.story_order.iter().any(|o| o.id == "hoarder"));

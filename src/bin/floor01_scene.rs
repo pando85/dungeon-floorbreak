@@ -153,7 +153,7 @@ mod room_exit_art;
 // CORRAL-WIRE and CORRAL-E: room 0's M3 gate grate and the rush stand-in (greybox).
 #[path = "floor01_scene/corral_art.rs"]
 mod corral_art;
-// DR-A: room 3's machine (the DOZ-01 rig) and its labelled environment stand-ins.
+// DR-A and DOZ-02: room 3's machine (the DOZ-01 rig and its damage states) and its room pieces.
 #[path = "floor01_scene/dozer_art.rs"]
 mod dozer_art;
 
@@ -5086,15 +5086,34 @@ fn setup(
         );
     }
 
-    // DR-A: the Dozer's DOZ-01 rig, its smoke, and the labelled stand-ins of the rear gate, the
-    // buffer stop and damage (until DOZ-02), only in room 3 (presentation only).
-    if args.dozer_run.is_some() {
+    // DR-A and DOZ-02: the Dozer's rig and its damage states, its smoke, the crew's tumbles, the rear
+    // gate, the buffer stop and the stop frame, only in room 3 (presentation only).
+    if let Some(run) = &args.dozer_run {
+        // The tunnel lintel's tiles and the Guild door piece they sit behind.
+        let lintel = run
+            .loaded
+            .encounter
+            .dozer
+            .as_ref()
+            .map_or_else(Vec::new, |site| {
+                dungeon_floorbreak::dozer_art::lintel_sprites(
+                    to_world_y(height, kit.base_walk_line_y) as i32,
+                    kit.base_walk_line_y,
+                    site.lintel,
+                )
+            });
+        let door = kit
+            .pieces
+            .iter()
+            .find(|p| p.piece == dungeon_floorbreak::room_exit_art::PORTAL_PIECE)
+            .map(|p| (p.z, layers_of(&p.layer)));
         dozer_art::spawn(
             &mut commands,
             &asset_server,
             &mut layouts,
-            &mut images,
             layers_of("actors"),
+            &lintel,
+            door,
             kit,
             &mut combat_handles,
             &mut combat_entities,

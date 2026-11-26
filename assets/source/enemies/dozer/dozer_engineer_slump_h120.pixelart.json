@@ -1,0 +1,45 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "dozer_engineer_slump_h120_v0",
+  "title": "DOZ-02 dozer_engineer_slump_h120",
+  "grid": "assets/source/enemies/dozer/dozer_engineer_slump_h120.grid.json",
+  "manifest": "assets/manifests/dozer_engineer_slump_h120.json",
+  "frame_size": [
+    64,
+    56
+  ],
+  "pivot": [
+    28,
+    55
+  ],
+  "tick_hz": 60,
+  "hold_ms": 100,
+  "tags": {
+    "engineer_slump_0": {
+      "playback": "once",
+      "contact": "free",
+      "frames": [
+        [
+          0,
+          30
+        ]
+      ]
+    },
+    "engineer_slump_1": {
+      "playback": "once",
+      "contact": "free",
+      "frames": [
+        [
+          1,
+          30
+        ]
+      ]
+    }
+  },
+  "rules": {
+    "max_colors": 24,
+    "max_isolated_per_frame": 0,
+    "max_orphans_per_frame": 9,
+    "unique_frames": true
+  }
+}

@@ -1,0 +1,146 @@
+{
+ "format": "pixel-grid-v1",
+ "canvas": [
+  12,
+  12
+ ],
+ "pivot": [
+  0,
+  11
+ ],
+ "palette": [
+  {
+   "key": "K",
+   "name": "outline_plum",
+   "rgba": "#1b1124ff"
+  },
+  {
+   "key": "2",
+   "name": "iron_2",
+   "rgba": "#2c3046ff"
+  },
+  {
+   "key": "3",
+   "name": "iron_3",
+   "rgba": "#3f445eff"
+  },
+  {
+   "key": "4",
+   "name": "iron_4",
+   "rgba": "#575e7aff"
+  },
+  {
+   "key": "5",
+   "name": "iron_5",
+   "rgba": "#78809aff"
+  },
+  {
+   "key": "L",
+   "name": "brass_1",
+   "rgba": "#43331aff"
+  },
+  {
+   "key": "M",
+   "name": "brass_2",
+   "rgba": "#6a5224ff"
+  },
+  {
+   "key": "N",
+   "name": "brass_3",
+   "rgba": "#93752eff"
+  },
+  {
+   "key": "S",
+   "name": "brass_4",
+   "rgba": "#bc9a3aff"
+  },
+  {
+   "key": "Z",
+   "name": "brass_5",
+   "rgba": "#e0c25aff",
+   "accent": true
+  }
+ ],
+ "layers": [
+  "haul"
+ ],
+ "frames": [
+  {
+   "duration_ms": 100,
+   "cels": {
+    "haul": [
+     "............",
+     "............",
+     "............",
+     "............",
+     "..54..54....",
+     "54KK54KK....",
+     "..32..32....",
+     "............",
+     "............",
+     "............",
+     "............",
+     "............"
+    ]
+   }
+  },
+  {
+   "duration_ms": 100,
+   "cels": {
+    "haul": [
+     ".....5......",
+     ".....4......",
+     "....5K3.....",
+     "....4K2.....",
+     ".....5......",
+     ".....4......",
+     "....5K3.....",
+     "....4K2.....",
+     "............",
+     "............",
+     "............",
+     "............"
+    ]
+   }
+  },
+  {
+   "duration_ms": 100,
+   "cels": {
+    "haul": [
+     "...KKKKKK...",
+     "..KSSSSSNK..",
+     ".KSSSSSSNMK.",
+     "KSSSSSSNNNLK",
+     "KSSSSSNNNNMK",
+     "KSSSNZKNNNLK",
+     "KSSNNKLNMMLK",
+     "KSNNNNNMMMLK",
+     "KMNNNNMMMMLK",
+     ".KMNMMMMMLK.",
+     "..KLLLLLLK..",
+     "...KKKKKK..."
+    ]
+   }
+  }
+ ],
+ "tags": [
+  {
+   "name": "h",
+   "from": 0,
+   "to": 0,
+   "direction": "forward"
+  },
+  {
+   "name": "v",
+   "from": 1,
+   "to": 1,
+   "direction": "forward"
+  },
+  {
+   "name": "idler",
+   "from": 2,
+   "to": 2,
+   "direction": "forward"
+  }
+ ]
+}
