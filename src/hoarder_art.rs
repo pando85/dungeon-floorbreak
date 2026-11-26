@@ -318,7 +318,11 @@ impl Prop {
     /// How many frames the atlas has, in one row.
     pub const fn frames(self) -> u32 {
         match self {
-            Self::Mound | Self::Post | Self::Heap => 3,
+            // HRD-CUES-01: the mound's three `stir_*` back frames (3..5) and the post's `shored` and
+            // `give` frames (3, 4) are in the atlases; the presenter does not draw them yet.
+            Self::Mound => 6,
+            Self::Post => 5,
+            Self::Heap => 3,
             Self::Bank => 6,
             Self::Stack => 4,
             Self::Door | Self::Gate => 2,

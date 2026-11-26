@@ -18,13 +18,17 @@
  "animation_tags": [
   "intact",
   "cracked",
-  "broken"
+  "broken",
+  "shored",
+  "give"
  ],
  "required_alpha": true,
  "frame_names": [
   "intact",
   "cracked",
-  "broken"
+  "broken",
+  "shored",
+  "give"
  ],
  "collision_role": "target",
  "owner": "AI-authored environment pixel art (AREA-HOARDER-01: design spec and mound hero key Claude Opus, execution Claude Sonnet; independent review pending)",
@@ -33,7 +37,7 @@
  "review_status": "prototype_fixture_unapproved",
  "provenance": {
   "origin": "Original pixel-grid-v1 room kit piece of the Floor 1 Hoarder room (docs/02-art/hoarder-hoard-02.md section 7) on the floor01-catacomb-v2 ramps; rule-based shapes and a hash noise, nothing cropped, traced or resampled from concept art",
-  "generator": "scripts/author_hoarder_room.py: the lair mound `sealed` hero key by Claude Opus, every other piece and state by Claude Sonnet; independent review pending; no image-model raster output",
+  "generator": "scripts/author_hoarder_room.py: the lair mound `sealed` hero key by Claude Opus, every other piece and state by Claude Sonnet; independent review pending; no image-model raster output; HRD-CUES-01 `shored` (frozen key) and `give` frames by Claude Opus",
   "generated_art": true,
   "input_reference_ids": [
    "floor01-catacomb-kit/env-kit-v2 (owner-approved ENV-01 kit, 2026-11-16)"

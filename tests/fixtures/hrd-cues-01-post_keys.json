@@ -1,0 +1,12 @@
+{
+  "format": "pixelart-keys-v1",
+  "asset_id": "hrd-cues-01-post",
+  "layers": [
+    "main"
+  ],
+  "keys": {
+    "3": {
+      "sha256": "4670b2ac0f8637f8e4832a72898f80c493d8ea1654fce3f9190bf5cc323619fe"
+    }
+  }
+}
