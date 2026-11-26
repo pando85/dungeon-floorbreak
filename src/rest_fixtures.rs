@@ -92,7 +92,26 @@ impl RestSim {
         party: Party,
         carry: Option<&LedgerSnapshot>,
     ) -> Result<Self, String> {
-        let run = f01_rest::launch(root, room)?;
+        Self::from_run(
+            f01_rest::launch(root, room)?,
+            view_h,
+            carl,
+            donut,
+            party,
+            carry,
+        )
+    }
+
+    /// A party on an already launched room (the plain-kit launch of
+    /// [`f01_rest::launch_with`] included).
+    pub fn from_run(
+        run: RestRun,
+        view_h: i32,
+        carl: CarlProgFlags,
+        donut: DonutProgFlags,
+        party: Party,
+        carry: Option<&LedgerSnapshot>,
+    ) -> Result<Self, String> {
         let mut scene = SceneSim::new_at(&run.kit, view_h, run.fixture.carl_x)?;
         let mut combat = f01_rest::combat_for(&run, &mut scene, carl, donut, Some(SEED))?;
         if let Some(snapshot) = carry {

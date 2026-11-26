@@ -540,6 +540,1051 @@ def measurements() -> list[str]:
     return out
 
 
+# =============================================================================================
+# EXECUTION: the remaining pieces of spec section 5 (new functions only; the eight keys above stay
+# byte-identical). Rules: palette ``floor01-catacomb-v2`` only, at most 63 colours per atlas, 1-bit alpha,
+# every piece but the declared opaque tile pieces holds at least one transparent pixel, no ``flame`` 5 or
+# ``copper`` 8 run of 8 px or more outside the three stand lines and the strip tubes (spec 10.1).
+# Seeds come from ``rnd("<piece id>", ...)`` through ``_r``.
+# =============================================================================================
+def _r(pid: str, *key) -> float:
+    return rnd(pid, *key)
+
+
+def _clear_corners(c: Pix, n: int = 1) -> None:
+    for k in range(n):
+        for x in range(n - k):
+            for cx, cy in ((x, k), (c.w - 1 - x, k), (x, c.h - 1 - k), (c.w - 1 - x, c.h - 1 - k)):
+                c.clear(cx, cy)
+
+
+def _grain(x: int, y: int, base: float, seed: str, lo: int, hi: int) -> int:
+    return int(clamp(_steel(x, y, base, seed), lo, hi))
+
+
+# ---- wall: tiles, wainscot, decals -------------------------------------------------------------
+def ff_wainscot_b() -> Pix:
+    """32 x 32, the wainscot field of ``ff_wainscot_a`` with a different chip pattern: the same trim and the same
+    8 px tiles, other tile values, chips at hashed positions and one hairline crack. Never two in a row."""
+    c = Pix(32, 32)
+    for x in range(32):
+        c.put(x, 0, "gal", 10)
+        c.put(x, 1, "gal", 8)
+        c.put(x, 2, "gal", 4)
+        for y in range(3, 32):
+            tx, ty = x % 8, (y - 3) % 8
+            tile = (x // 8, (y - 3) // 8)
+            if tx == 7 or ty == 7:
+                v = 3
+            elif tx == 0 or ty == 0:
+                v = 9
+            else:
+                v = 7 if _r("ff_wainscot_b", "tile", *tile) > 0.3 else 8
+                if _r("ff_wainscot_b", "chip", *tile) > 0.55:
+                    cx = 2 + int(_r("ff_wainscot_b", "cx", *tile) * 4)
+                    cy = 2 + int(_r("ff_wainscot_b", "cy", *tile) * 4)
+                    if (tx, ty) == (cx, cy) or (tx, ty) == (cx + 1, cy):
+                        v = 5
+            c.put(x, y, "gal", v)
+    for k in range(5):                                # one hairline crack down a tile face
+        c.put(19 + (k // 2), 6 + k * 2, "gal", 4)
+        c.put(19 + (k // 2), 7 + k * 2, "gal", 4)
+    return c
+
+
+def ff_wall_tile_a() -> Pix:
+    """32 x 32 opaque wall tile: a pale field of 8 px tiles, ``gal`` 8/9 faces on ``gal`` 6 grout, sparse
+    ``stone_cold`` 4 highlights. No white wall field (rule 10.2); the field stays mid-value (rule 10.3)."""
+    c = Pix(32, 32)
+    for y in range(32):
+        for x in range(32):
+            tx, ty = x % 8, y % 8
+            tile = (x // 8, y // 8)
+            if tx == 7 or ty == 7:
+                c.put(x, y, "gal", 6)
+                continue
+            v = 9 if _r("ff_wall_tile_a", "face", *tile) > 0.5 else 8
+            if tx >= 5 and ty >= 5 and bayer(x, y) > 0.5:
+                v -= 1                                  # a step of shade toward the lower right corner
+            c.put(x, y, "gal", v)
+    for tx in range(4):
+        for ty in range(4):
+            if _r("ff_wall_tile_a", "hi", tx, ty) > 0.72:
+                c.put(tx * 8 + 1, ty * 8 + 1, "stone_cold", 4)
+    return c
+
+
+def _checker_px(c: Pix, x: int, y: int) -> None:
+    row = y // 6
+    tx, ty = x % 8, y % 6
+    pale = ((x // 8) + row) % 2 == 0
+    if tx == 7 or ty == 5:
+        c.put(x, y, "gal", 4)
+    elif pale:
+        c.put(x, y, "stone", 10 if ty < 4 else 9)
+    else:
+        c.put(x, y, "gal", 6 if ty < 4 else 5)
+
+
+def ff_floor_checker_edge() -> Pix:
+    """32 x 12 at (256, 561): the checker's broken left edge. Same 8 px grid and parity as ``ff_floor_checker_a``
+    (world tile parity continues): the top row is gone up to x 13, the bottom row up to x 5, two loose tiles
+    lie in the gap."""
+    c = Pix(32, 12)
+    for y in range(12):
+        for x in range(32):
+            gone = x < 14 if y < 6 else x < 6
+            if y < 2 and x in (14, 15):
+                gone = True
+            if y > 9 and x in (6, 7):
+                gone = True
+            if not gone:
+                _checker_px(c, x, y)
+    for x in range(5, 10):                            # loose cream tile
+        for y, v in ((1, 10), (2, 10), (3, 9)):
+            c.put(x, y, "stone", v)
+    for x in range(10, 13):                           # loose dark tile
+        for y, v in ((3, 6), (4, 6), (5, 5)):
+            c.put(x, y, "gal", v)
+    return c
+
+
+def ff_floor_spill() -> Pix:
+    """48 x 12 at (168, 561): three loose cream tiles of 3 x 2 px (18 px of tile) on the hot side, each with a
+    one-pixel shadow."""
+    c = Pix(48, 12)
+    for x0, y0 in ((4, 4), (21, 7), (38, 5)):
+        for dx in range(3):
+            c.put(x0 + dx, y0, "stone", 10)
+            c.put(x0 + dx, y0 + 1, "stone", 9)
+        for dx in range(1, 4):
+            c.put(x0 + dx, y0 + 2, "gal", 3)
+    return c
+
+
+def ff_tile_seam() -> Pix:
+    """8 x 192 at (376, 368): the tile wall's torn left edge over the stone pier's right face. Column 7 is the
+    grout bead, column 6 the lit edge of the last whole tile, columns 2..5 the torn remnants (a hashed depth per
+    row), a grout line every 8 rows."""
+    c = Pix(8, 192)
+    for y in range(192):
+        grout = y % 8 == 7
+        c.put(7, y, "gal", 4)
+        c.put(6, y, "gal", 3 if grout else 9)
+        depth = 1 + int(_r("ff_tile_seam", "d", y // 4) * 4)       # remnant columns torn off, 1..4
+        for x in range(5, 1, -1):
+            if (5 - x) < depth + 0:
+                if grout:
+                    c.put(x, y, "gal", 3)
+                else:
+                    c.put(x, y, "gal", 8 if x == 5 else (7 if x == 4 else 6))
+        if depth >= 3:
+            c.put(5 - depth + 1, y, "gal", 9 if not grout else 3)
+        if _r("ff_tile_seam", "chip", y) > 0.93:
+            c.put(1, y, "gal", 5)
+    return c
+
+
+# ---- wall: canopy, hatch, panel, chute ---------------------------------------------------------
+def ff_counter_canopy() -> Pix:
+    """128 x 40 at (704, 400): a backlit blank panel over the counter. ``gal`` 5..7 frame, a ``gal`` 9/10 field,
+    three abstract food-like blobs in ``brass`` / ``copper``, no words and no glyphs. Nothing brighter than
+    ``brass`` 5 (it lies within 64 px of the slide-top stand line)."""
+    c = Pix(128, 40)
+    for y in range(40):
+        for x in range(128):
+            edge = x in (0, 127) or y in (0, 39)
+            edge2 = x in (1, 126) or y in (1, 38)
+            if edge:
+                c.put(x, y, "gal", 5)
+            elif edge2:
+                c.put(x, y, "gal", 7 if y in (1,) or x == 1 else 6)
+            else:
+                v = 9 if bayer(x, y) > 0.45 + 0.35 * (y / 40) else 10
+                c.put(x, y, "gal", v)
+    # blob 1 (x 20..43): a stacked round form: bun-like dome, a dark band, a base
+    def ell(cx, cy, rx, ry, ramp, v, top_only=False, bot_only=False):
+        for y in range(int(cy - ry), int(cy + ry) + 1):
+            for x in range(int(cx - rx), int(cx + rx) + 1):
+                d = ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2
+                if d <= 1.0 and not (top_only and y > cy) and not (bot_only and y < cy):
+                    c.put(x, y, ramp, v)
+    ell(32, 17, 12, 7, "copper", 5, top_only=True)
+    ell(32, 17, 12, 7, "copper", 4, bot_only=True)
+    for x in range(21, 44):
+        c.put(x, 18, "brass", 4)
+        c.put(x, 19, "brass", 3)
+    for x in range(23, 41):
+        c.put(x, 20, "copper", 4)
+    for dx, dy in ((-6, -4), (-2, -5), (3, -4), (6, -3)):
+        c.put(32 + dx, 17 + dy, "brass", 5)
+    # blob 2 (x 52..75): a bundle of thin vertical forms in a cone
+    for k in range(7):
+        x0 = 54 + k * 3
+        top = 9 + (abs(k - 3) * 2)
+        for y in range(top, 28):
+            c.put(x0, y, "brass", 4 if (y + k) % 4 else 5)
+            c.put(x0 + 1, y, "brass", 3)
+    for x in range(51, 76):
+        c.put(x, 27, "gal", 5)
+        c.put(x, 28, "gal", 4)
+    # blob 3 (x 88..110): a tapered cup with a rounded top
+    for y in range(13, 29):
+        half = 8 - (y - 13) * 3 // 16
+        for x in range(99 - half, 99 + half + 1):
+            c.put(x, y, "gal", 7 if x < 99 else 6)
+        c.put(99 - half, y, "gal", 8)
+    ell(99, 11, 9, 4, "copper", 5, top_only=True)
+    for x in range(91, 108):
+        c.put(x, 19, "brass", 4)
+        c.put(x, 20, "brass", 3)
+    _clear_corners(c, 1)
+    return c
+
+
+def ff_service_hatch() -> Pix:
+    """80 x 48 at (1304, 400): the dark kitchen opening over the ledge. ``iron`` 0..2 interior, a ``gal`` 5..8
+    frame and sill, shelf and jar silhouettes in ``iron`` 3..4 and **one** dim ``copper`` 5 heat-lamp glow row.
+    Never brighter than the ledge's stand line (nothing above ``gal`` 8 and ``copper`` 5)."""
+    c = Pix(80, 48)
+    for y in range(48):
+        for x in range(80):
+            edge_t = y in (0, 1)
+            if y == 0:
+                c.put(x, y, "gal", 7)
+            elif y == 1:
+                c.put(x, y, "gal", 5)
+            elif x in (0, 79):
+                c.put(x, y, "gal", 6 if x == 0 else 4)
+            elif x in (1, 78):
+                c.put(x, y, "gal", 4)
+            elif y >= 46:
+                c.put(x, y, "gal", 8 if y == 46 else 4)
+            else:
+                t = y / 46.0
+                v = 0 if bayer(x, y) > 0.55 * (0.35 + t) else 1
+                if t > 0.7 and bayer(x, y) > 0.5:
+                    v = 2
+                c.put(x, y, "iron", v)
+    for x in range(8, 72):                            # the heat-lamp glow: one dim row (copper 5)
+        c.put(x, 7, "copper", 5)
+    for x in range(12, 68, 2):
+        c.put(x, 8, "copper", 3)
+    for y0, x0, x1 in ((22, 6, 40), (36, 30, 74)):    # shelf lines
+        for x in range(x0, x1):
+            c.put(x, y0, "iron", 4)
+            c.put(x, y0 + 1, "iron", 3)
+    for jx, jy, jw, jh in ((10, 15, 5, 7), (18, 17, 4, 5), (34, 16, 6, 6), (46, 29, 5, 7), (58, 30, 7, 6)):
+        for y in range(jy, jy + jh):
+            for x in range(jx, jx + jw):
+                c.put(x, y, "iron", 3 if x == jx else 2)
+        for x in range(jx, jx + jw):
+            c.put(x, jy, "iron", 4)
+    _clear_corners(c, 1)
+    return c
+
+
+def ff_under_panel() -> Pix:
+    """96 x 60 at (1296, 468): the tiled panel under the ledge (the counter's back face), 8 px tiles of
+    ``gal`` 6/7 on ``gal`` 3 grout, shaded under the ledge."""
+    c = Pix(96, 60)
+    for y in range(60):
+        for x in range(96):
+            tx, ty = x % 8, y % 8
+            tile = (x // 8, y // 8)
+            if tx == 7 or ty == 7:
+                v = 3
+            elif tx == 0 or ty == 0:
+                v = 8
+            else:
+                v = 6 if _r("ff_under_panel", "t", *tile) > 0.3 else 7
+            if y < 3:
+                v = max(2, v - 3 + y)                  # the ledge's shadow
+            if y >= 57:
+                v = max(2, v - 2)
+            c.put(x, y, "gal", v)
+    for x in (0, 95):
+        for y in range(60):
+            c.put(x, y, "gal", 4 if x == 0 else 3)
+    _clear_corners(c, 2)
+    return c
+
+
+def ff_slide_chute() -> Pix:
+    """64 x 64 at (688, 496): the slide curving down from the slide top's right end behind the counter end.
+    ``brass`` 3 and 4 only (rule 10.1: no ``flame`` 5 run), a band of 7 px along a quadratic ease."""
+    c = Pix(64, 64)
+    pts = [(63.0 * t / 255.0, 6.0 + 48.0 * (t / 255.0) ** 1.9) for t in range(256)]
+    for y in range(64):
+        for x in range(64):
+            best, side = 1e9, 0.0
+            for px, py in pts[::3]:
+                d = math.hypot(x - px, y - py)
+                if d < best:
+                    best, side = d, (y - py)
+            if best <= 3.6:
+                v = 4 if (side < 0 and best > 1.2) else 3
+                if best > 2.6 and side >= 0:
+                    v = 3
+                if side < 0 and best <= 1.2 and bayer(x, y) > 0.5:
+                    v = 4
+                c.put(x, y, "brass", v)
+    return c
+
+
+# ---- structure: ceiling, skins, posts, window --------------------------------------------------
+def ff_ceiling_tile() -> Pix:
+    """32 x 16 opaque at y 336: an acoustic drop-ceiling panel, ``gal`` 7..9 face with hashed pinholes, a
+    ``gal`` 4 T-bar left and right, a lit lip on row 13, the shadowed slab underside on the bottom row."""
+    c = Pix(32, 16)
+    for y in range(16):
+        for x in range(32):
+            if y == 0:
+                v = 5
+            elif y == 1:
+                v = 3
+            elif y == 15:
+                v = 2
+            elif y == 14:
+                v = 4
+            elif y == 13:
+                v = 6
+            elif x == 0:
+                v = 4
+            elif x == 31:
+                v = 3
+            else:
+                v = 8 if bayer(x, y) > 0.35 else 7
+                if _r("ff_ceiling_tile", "hole", x // 2, y // 2) > 0.86 and (x + y) % 2 == 0:
+                    v = 6
+            c.put(x, y, "gal", v)
+    return c
+
+
+def ff_soffit_stone() -> Pix:
+    """32 x 16 opaque at y 336 outside the restaurant: the slab in the catacomb's own stone, ``stone`` 3..5."""
+    c = Pix(32, 16)
+    for y in range(16):
+        for x in range(32):
+            n = vnoise(x, y, 7.0, 5.0, "ff_soffit_stone")
+            v = 3.8 + (n - 0.5) * 2.4 + (bayer(x, y) - 0.5) * 0.9
+            v = clamp(math.floor(v + 0.5), 3, 5)
+            if y == 15:
+                v = 2
+            elif y == 14:
+                v = 3
+            c.put(x, y, "stone", v)
+    for y in range(0, 14):
+        if y % 7 != 3:
+            c.put(15, y, "stone", 2)
+    return c
+
+
+def _skin(w: int) -> Pix:
+    """A play-structure skin over a plank tile (spec 9.2, FF-AD10, gate note G8): rows 0..15 opaque across the
+    width. Row 0 ``brass`` 3, row 1 ``flame`` 5 (the stand line), rows 2..3 ``brass`` 4, rows 4..11 the face
+    (``brass`` 5/4 by Bayer, at most 5), row 12 ``brass`` 3, rows 13..14 ``brass`` 2, row 15 ``stone_cold`` 0.
+    End caps on columns 0 and w-1 are ``brass`` 3 (rows 2..14, so the stand line runs the full width)."""
+    c = Pix(w, 16)
+    for x in range(w):
+        c.put(x, 0, "brass", 3)
+        c.put(x, 1, "flame", 5)
+        c.put(x, 2, "brass", 4)
+        c.put(x, 3, "brass", 4)
+        for y in range(4, 12):
+            c.put(x, y, "brass", 5 if bayer(x, y) > 0.5 else 4)
+        c.put(x, 12, "brass", 3)
+        c.put(x, 13, "brass", 2)
+        c.put(x, 14, "brass", 2)
+        c.put(x, 15, "stone_cold", 0)
+    for x in (0, w - 1):
+        for y in range(2, 15):
+            c.put(x, y, "brass", 3)
+    return c
+
+
+def ff_deck_skin() -> Pix:
+    return _skin(96)
+
+
+def ff_slide_top_skin() -> Pix:
+    return _skin(128)
+
+
+def ff_play_posts() -> Pix:
+    """224 x 52 at (464, 528): two posts under each skin and a net panel between them, all dimmer than the skins'
+    faces (``gal`` 4..7, ``brass`` 2..3, the net ``gal`` 5). Deck posts at piece x 6..11 and 84..89, slide posts
+    at 104..109 and 210..215."""
+    c = Pix(224, 52)
+    posts = ((6, 84), (104, 210))
+    nets = ((12, 83), (110, 209))
+    for x0 in (p for pair in posts for p in pair):
+        for y in range(52):
+            for dx, v in enumerate((7, 6, 6, 5, 5, 4)):
+                c.put(x0 + dx, y, "gal", v)
+        for y in range(0, 14):                         # the foam pad on the upper post
+            for dx in range(6):
+                c.put(x0 + dx, y, "brass", 3 if dx < 2 else 2)
+        for dx in range(-2, 8):                       # base plate
+            c.put(x0 + dx, 50, "gal", 5)
+            c.put(x0 + dx, 51, "gal", 3)
+    for x0, x1 in nets:
+        for x in range(x0, x1 + 1):
+            c.put(x, 3, "brass", 2)
+            c.put(x, 4, "brass", 2)
+            c.put(x, 33, "brass", 2)
+            for y in range(5, 33):
+                if (x + y) % 4 == 0 or (x - y) % 4 == 0:
+                    c.put(x, y, "gal", 5)
+    return c
+
+
+def ff_window_frame() -> Pix:
+    """160 x 160 at (900, 384): the window over bay B's opening. A 6 px stainless frame, two mullions (x 52..57
+    and 102..107), a sill on rows 144..159 (y 528..543, it covers the wainscot row behind it), glass glints in the
+    three panes. The panes are transparent: the rock shows through."""
+    c = Pix(160, 160)
+
+    def steel(x, y, base, lo=4, hi=9):
+        return _grain(x, y, base, "ff_window_frame", lo, hi)
+
+    for y in range(160):
+        for x in range(160):
+            border = y < 6 or x < 6 or x > 153
+            if border and y < 144:
+                if y == 0 or x == 0 or x == 159:
+                    v = 9
+                elif y == 1 or x == 1 or x == 158:
+                    v = 8
+                elif y == 5 or x == 5 or x == 154:
+                    v = 4
+                else:
+                    v = steel(x, y, 6.6)
+                c.put(x, y, "gal", v)
+    for x0 in (52, 102):                              # mullions
+        for y in range(6, 144):
+            for dx, v in enumerate((8, 7, 6, 6, 5, 4)):
+                c.put(x0 + dx, y, "gal", v)
+    for y in range(144, 160):                         # sill
+        for x in range(160):
+            if y == 144:
+                v = 10
+            elif y == 145:
+                v = 9
+            elif y in (146, 147):
+                v = 8
+            elif y == 148:
+                v = 4
+            elif y == 159:
+                v = 2
+            else:
+                v = steel(x, y, 6.2, 5, 8)
+            c.put(x, y, "gal", v)
+    for x in range(160):
+        c.put(x, 159, "stone_cold", 0)
+    for px0, px1 in ((6, 51), (58, 101), (108, 153)):  # glass glints
+        for k in range(6):
+            c.put(px0 + 8 + k, 14 + k, "gal", 9)
+        for k in range(3):
+            c.put(px0 + 17 + k, 14 + k, "gal", 9)
+    _clear_corners(c, 1)
+    return c
+
+
+# ---- props -------------------------------------------------------------------------------------
+def ff_light_strip() -> Pix:
+    """48 x 6 at y 352: a fluorescent tube under a ``gal`` housing. The tube is ``copper`` 8 on rows 3 and 4 only
+    (a strip tube is allowed the run of rule 10.1). The light entry is in the contract."""
+    c = Pix(48, 6)
+    for x in range(2, 46):
+        c.put(x, 0, "gal", 5)
+    for x in range(1, 47):
+        c.put(x, 1, "gal", 7)
+    for x in range(48):
+        c.put(x, 2, "gal", 4)
+    for x in range(3, 45):
+        c.put(x, 3, "copper", 8)
+        c.put(x, 4, "copper", 8)
+    for y in (3, 4):
+        for x in (1, 2, 45, 46):
+            c.put(x, y, "gal", 5)
+    for x in range(5, 43):
+        c.put(x, 5, "copper", 5)
+    return c
+
+
+def ff_counter_a() -> Pix:
+    """128 x 36 at (704, 524): the order counter. A ``gal`` 8..10 stainless top on rows 0..3 (darker than every
+    stand line), a blue tiled front, a ``brass`` 3/4 kick strip, and a blank register block (no screen glyphs)
+    set into the front."""
+    c = Pix(128, 36)
+    for x in range(128):
+        c.put(x, 0, "gal", 10)
+        c.put(x, 1, "gal", 9)
+        c.put(x, 2, "gal", 8)
+        c.put(x, 3, "gal", 4)
+    for y in range(4, 31):
+        for x in range(128):
+            tx, ty = x % 8, (y - 4) % 8
+            tile = (x // 8, (y - 4) // 8)
+            if tx == 7 or ty == 7:
+                v = 3
+            elif tx == 0 or ty == 0:
+                v = 7
+            else:
+                v = 6 if _r("ff_counter_a", "t", *tile) > 0.3 else 5
+            c.put(x, y, "gal", v)
+    for x in range(96, 120):                          # the blank register block
+        for y in range(7, 23):
+            edge = x in (96, 119) or y in (7, 22)
+            c.put(x, y, "iron", 1 if edge else 3)
+    for x in range(99, 117):
+        for y in range(10, 17):
+            c.put(x, y, "iron", 2)
+    for x in range(100, 116, 3):                      # blank keys: three dim pads, no glyph
+        for dx in range(2):
+            c.put(x + dx, 19, "iron", 4)
+            c.put(x + dx, 20, "iron", 4)
+    for x in range(128):
+        c.put(x, 31, "gal", 2)
+        c.put(x, 32, "brass", 4)
+        c.put(x, 33, "brass", 3)
+        c.put(x, 34, "brass", 3)
+        c.put(x, 35, "iron", 1)
+    for x in (0, 127):
+        for y in range(1, 31):
+            c.put(x, y, "gal", 4 if x == 0 else 3)
+    _clear_corners(c, 1)
+    return c
+
+
+BALL_PALETTE = (("brass", 4), ("brass", 4), ("brass", 4), ("gal", 8), ("gal", 8), ("brick", 6))
+
+
+def ff_ball_pit() -> Pix:
+    """96 x 12 at (560, 548): the pit's rim and a heap of single-pixel balls in 2 x 2 clusters (``brass`` 4,
+    ``gal`` 8, ``brick`` 6; one ``brass`` 5 glint each on the yellow ones) under the slide top. The rim is at
+    most 12 rows."""
+    c = Pix(96, 12)
+    for x in range(96):                               # the rim
+        c.put(x, 6, "gal", 8)
+        c.put(x, 7, "gal", 6)
+        for y in (8, 9, 10):
+            c.put(x, y, "gal", 6 if bayer(x, y) > 0.5 else 5)
+        c.put(x, 11, "gal", 3)
+    for y in range(6, 12):
+        c.put(0, y, "gal", 4)
+        c.put(95, y, "gal", 3)
+    for cx in range(3, 93, 2):                        # the heap of balls: 2 x 2 clusters
+        h = int(5.6 * math.sin(math.pi * (cx - 3) / 90.0) ** 0.7 + 0.5)
+        for cy in range(6 - h, 6, 2):
+            ramp, v = BALL_PALETTE[int(_r("ff_ball_pit", cx, cy) * len(BALL_PALETTE)) % len(BALL_PALETTE)]
+            for dx in range(2):
+                for dy in range(2):
+                    if cy + dy < 6:
+                        c.put(cx + dx, cy + dy, ramp, v)
+            if ramp == "brass" and cy + 0 < 6:
+                c.put(cx, cy, "brass", 5)
+    return c
+
+
+def ff_stray_ball() -> Pix:
+    """6 x 6 at (1012, 554): one static yellow ball, ``brass`` 4 with a ``brass`` 2 shade and a single ``brass`` 6
+    glint."""
+    c = Pix(6, 6)
+    rows = (".XXXX.", "XXXXXX", "XXXXXX", "XXXXXX", "XXXXXX", ".XXXX.")
+    for y, row in enumerate(rows):
+        for x, ch in enumerate(row):
+            if ch == "X":
+                v = 4
+                if x >= 4 or y >= 4:
+                    v = 2 if (x + y) >= 7 else 3
+                c.put(x, y, "brass", v)
+    c.put(1, 1, "brass", 6)
+    c.put(2, 1, "brass", 5)
+    c.put(1, 2, "brass", 5)
+    return c
+
+
+def ff_bin() -> Pix:
+    """20 x 32 at (400, 528): a stainless bin with a swing flap and no text. ``gal`` 3..10 only (rows are darker
+    than every stand line)."""
+    c = Pix(20, 32)
+    for y in range(32):
+        for x in range(20):
+            if y < 4:                                  # the lid
+                if 1 <= x <= 18:
+                    c.put(x, y, "gal", (10, 9, 8, 4)[y])
+            elif 1 <= x <= 18:
+                v = _grain(x, y, 6.2, "ff_bin", 4, 8)
+                if x == 1:
+                    v = 9
+                elif x == 2:
+                    v = 8
+                elif x == 18:
+                    v = 3
+                elif x == 17:
+                    v = 4
+                if y >= 29:
+                    v = max(2, v - 2)
+                c.put(x, y, "gal", v)
+    for x in range(4, 16):                             # the swing flap: a dark rounded door with a lit lip
+        for y in range(9, 18):
+            c.put(x, y, "gal", 2 if y > 9 else 8)
+        c.put(x, 18, "gal", 3)
+    for x in (4, 15):
+        for y in range(9, 19):
+            c.put(x, y, "gal", 4)
+    for x in (9, 10):
+        c.put(x, 8, "gal", 9)                          # hinge pin
+    for x in range(2, 18):
+        c.put(x, 31, "stone_cold", 0)
+    for x in (1, 18):
+        c.put(x, 30, "gal", 3)
+        c.put(x, 31, "stone_cold", 0)
+    return c
+
+
+def ff_booth_a() -> Pix:
+    """112 x 40 at (912, 520): two benches and a table. Blue vinyl ``gal`` 6..8, a ``brass`` 3/4 table edge (the
+    table top is ``gal`` 9 at most), ``stone_cold`` chrome legs."""
+    c = Pix(112, 40)
+
+    def bench(x0: int, left: bool) -> None:
+        bx0, bx1 = (x0, x0 + 12) if left else (x0 - 12 + 1, x0 + 1)
+        for y in range(3, 38):                        # the backrest
+            for x in range(bx0, bx1):
+                edge = (x == bx0) if left else (x == bx1 - 1)
+                v = 8 if edge else (_grain(x, y, 6.6, "ff_booth_a", 6, 7))
+                if y == 3:
+                    v = 8
+                c.put(x, y, "gal", v)
+        sx0, sx1 = (x0, x0 + 30) if left else (x0 - 29, x0 + 1)
+        for y in range(23, 30):                       # the seat cushion
+            for x in range(sx0, sx1):
+                v = 7 if y < 25 else (6 if y < 28 else 5)
+                if y == 23:
+                    v = 8
+                c.put(x, y, "gal", v)
+        for y in range(30, 39):                       # base
+            for x in range(sx0 + 1, sx1 - 1):
+                c.put(x, y, "gal", 3 if y > 31 else 4)
+    bench(0, True)
+    bench(111, False)
+    for x in range(32, 80):                           # the table top and its brass edge
+        c.put(x, 15, "gal", 9)
+        c.put(x, 16, "gal", 8)
+        c.put(x, 17, "brass", 4)
+        c.put(x, 18, "brass", 3)
+    for y in range(19, 37):                           # chrome pedestal
+        for dx, v in enumerate((4, 3, 3, 2)):
+            c.put(54 + dx, y, "stone_cold", v)
+    for x in range(46, 66):
+        c.put(x, 37, "stone_cold", 3)
+        c.put(x, 38, "stone_cold", 1)
+        c.put(x, 39, "stone_cold", 0)
+    for x in range(1, 111):
+        if c.get(x, 39) is None and (x < 28 or x > 84):
+            c.put(x, 39, "stone_cold", 0)
+    _clear_corners(c, 1)
+    return c
+
+
+# ---- presenter-only: the bell, the sparkle -----------------------------------------------------
+def _bell(frame: str) -> Pix:
+    """8 x 6 service bell (gate note G8): ``gal`` 6..10 dome, ``brass`` 4 base, a ``gal`` 10 glint, no ``flame``
+    and no ``copper``. ``ding_a`` pushes the plunger 1 px down; ``ding_b`` is idle plus two 1 px ``gal`` 10
+    ticks beside the dome on row 1."""
+    c = Pix(8, 6)
+    plunger_row = 1 if frame == "ding_a" else 0
+    c.put(3, plunger_row, "gal", 8)
+    c.put(4, plunger_row, "gal", 8)
+    for x in range(2, 6):
+        if not (frame == "ding_a" and x in (3, 4)):
+            c.put(x, 1, "gal", 9 if x < 4 else 8)
+    for x in range(1, 7):
+        c.put(x, 2, "gal", 8)
+        c.put(x, 3, "gal", 7 if x < 4 else 6)
+    c.put(2, 2, "gal", 10)
+    for x in range(8):
+        c.put(x, 4, "brass", 4)
+    for x in range(1, 7):
+        c.put(x, 5, "brass", 3)
+    if frame == "ding_b":
+        c.put(0, 1, "gal", 10)
+        c.put(7, 1, "gal", 10)
+    return c
+
+
+def ff_bell_idle() -> Pix:
+    return _bell("idle")
+
+
+def ff_bell_ding_a() -> Pix:
+    return _bell("ding_a")
+
+
+def ff_bell_ding_b() -> Pix:
+    return _bell("ding_b")
+
+
+def _spark(c: Pix, pts) -> None:
+    for x, y, ramp, v in pts:
+        c.put(x, y, ramp, v)
+
+
+def ff_reward_sparkle_a() -> Pix:
+    """16 x 16, grant tick burst frame 1: a small 4-arm cross (``flame`` 5 centre, ``brass`` 6 arms) and two
+    single ``brass`` 6 motes: 7 px."""
+    c = Pix(16, 16)
+    _spark(c, [(8, 8, "flame", 5), (7, 8, "brass", 6), (9, 8, "brass", 6), (8, 7, "brass", 6), (8, 9, "brass", 6),
+               (5, 5, "brass", 6), (11, 10, "brass", 6)])
+    return c
+
+
+def ff_reward_sparkle_b() -> Pix:
+    """Frame 2: the cross at full size (``brass`` 6 inner arms, ``flame`` 4 outer arms): 9 px."""
+    c = Pix(16, 16)
+    _spark(c, [(8, 8, "flame", 5), (7, 8, "brass", 6), (9, 8, "brass", 6), (8, 7, "brass", 6), (8, 9, "brass", 6),
+               (6, 8, "flame", 4), (10, 8, "flame", 4), (8, 6, "flame", 4), (8, 10, "flame", 4)])
+    return c
+
+
+def ff_reward_sparkle_c() -> Pix:
+    """Frame 3: the burst scattered and fading: four ``brass`` 6 motes and a ``flame`` 4 centre: 5 px."""
+    c = Pix(16, 16)
+    _spark(c, [(8, 8, "flame", 4), (3, 4, "brass", 6), (12, 5, "brass", 6), (11, 12, "brass", 6),
+               (4, 11, "brass", 6)])
+    return c
+
+
+# ---- rock ---------------------------------------------------------------------------------------
+def ff_rock_fill() -> Pix:
+    """152 x 192 at (904, 352): raw rock behind the restaurant window (bay B's opening only, FF-AD16): ``stone``
+    2..5 and ``stone_cold`` with damp ``lichen`` seams. The four corners are transparent (the arch's stone covers
+    them)."""
+    c = Pix(152, 192)
+    for y in range(192):
+        for x in range(152):
+            n = vnoise(x, y, 11.0, 8.0, "ff_rock_fill")
+            m = vnoise(x, y, 4.0, 3.0, "ff_rock_fill_m")
+            v = 3.1 + (n - 0.5) * 3.2 + (m - 0.5) * 1.1 + (bayer(x, y) - 0.5) * 0.7
+            v = int(clamp(math.floor(v + 0.5), 1, 5))
+            ramp = "stone"
+            if vnoise(x, y, 17.0, 13.0, "ff_rock_fill_c") > 0.8:
+                ramp, v = "stone_cold", int(clamp(v - 1, 1, 3))
+            # fault seams: thin dark lines along slanted ridges
+            ridge = abs(vnoise(x + y * 0.35, y, 23.0, 40.0, "ff_rock_fill_s") - 0.5)
+            if ridge < 0.006:
+                ramp, v = "stone", 0 if bayer(x, y) > 0.3 else 1
+            # damp: lichen runs down a few seams
+            damp = abs(vnoise(x - y * 0.2, y, 19.0, 55.0, "ff_rock_fill_l") - 0.5)
+            if damp < 0.008 and _r("ff_rock_fill", "lichen", x, y // 3) > 0.35:
+                ramp, v = "lichen", 0 if _r("ff_rock_fill", "lv", x, y) > 0.5 else 1
+            c.put(x, y, ramp, v)
+    for k in range(2):
+        for x in range(2 - k):
+            for cx, cy in ((x, k), (151 - x, k), (x, 191 - k), (151 - x, 191 - k)):
+                c.clear(cx, cy)
+    return c
+
+
+# =============================================================================================
+# Atlases, manifests, the contract and the room dressing (the heat and ring precedents)
+# =============================================================================================
+def _rise(k: int):
+    return lambda: door_raised(RISE[k - 1])
+
+
+ATLASES = {
+    "floor01_ff_door": {
+        "stem": "ff_door", "width": 24 * 14,
+        "pieces": ([("ff_staff_door_closed", ff_staff_door_closed)]
+                   + [(f"ff_staff_door_rise_{k:02d}", _rise(k)) for k in range(1, 13)]
+                   + [("ff_staff_door_open", ff_staff_door_open)]),
+    },
+    "floor01_ff_pickup": {
+        "stem": "ff_pickup", "width": 96,
+        "pieces": [("ff_reward_box_full_a", ff_reward_box_full_a), ("ff_reward_box_full_b", ff_reward_box_full_b),
+                   ("ff_reward_box_empty", ff_reward_box_empty), ("ff_reward_sparkle_a", ff_reward_sparkle_a),
+                   ("ff_reward_sparkle_b", ff_reward_sparkle_b), ("ff_reward_sparkle_c", ff_reward_sparkle_c),
+                   ("ff_bell_idle", ff_bell_idle), ("ff_bell_ding_a", ff_bell_ding_a),
+                   ("ff_bell_ding_b", ff_bell_ding_b)],
+    },
+    "floor01_ff_wall": {
+        "stem": "ff_wall", "width": 256,
+        "pieces": [("ff_wainscot_a", ff_wainscot_a), ("ff_wainscot_b", ff_wainscot_b),
+                   ("ff_wall_tile_a", ff_wall_tile_a), ("ff_floor_checker_a", ff_floor_checker_a),
+                   ("ff_floor_checker_edge", ff_floor_checker_edge), ("ff_floor_spill", ff_floor_spill),
+                   ("ff_counter_canopy", ff_counter_canopy), ("ff_slide_chute", ff_slide_chute),
+                   ("ff_service_hatch", ff_service_hatch), ("ff_under_panel", ff_under_panel)],
+    },
+    "floor01_ff_structure": {
+        "stem": "ff_structure", "width": 320,
+        "pieces": [("ff_pass_ledge", ff_pass_ledge), ("ff_tile_seam", ff_tile_seam),
+                   ("ff_ceiling_tile", ff_ceiling_tile), ("ff_soffit_stone", ff_soffit_stone),
+                   ("ff_deck_skin", ff_deck_skin), ("ff_slide_top_skin", ff_slide_top_skin),
+                   ("ff_play_posts", ff_play_posts), ("ff_window_frame", ff_window_frame)],
+    },
+    "floor01_ff_props": {
+        "stem": "ff_props", "width": 256,
+        "pieces": [("ff_light_strip", ff_light_strip), ("ff_counter_a", ff_counter_a), ("ff_ball_pit", ff_ball_pit),
+                   ("ff_stray_ball", ff_stray_ball), ("ff_bin", ff_bin), ("ff_booth_a", ff_booth_a)],
+    },
+    "floor01_ff_rock": {
+        "stem": "ff_rock", "width": 152,
+        "pieces": [("ff_rock_fill", ff_rock_fill)],
+    },
+}
+PRESENTER_PIECES = ({pid for pid, _ in ATLASES["floor01_ff_door"]["pieces"]}
+                    | {pid for pid, _ in ATLASES["floor01_ff_pickup"]["pieces"]})
+KEY_PIECE_IDS = ("ff_staff_door_closed", "ff_staff_door_open", "ff_reward_box_full_a", "ff_reward_box_full_b",
+                 "ff_reward_box_empty", "ff_pass_ledge", "ff_wainscot_a", "ff_floor_checker_a")
+
+CONTRACT = ROOT / "assets/source/terrain/floor01/floor01_fastfood_kit.json"
+MANIFESTS = ROOT / "assets/manifests"
+EXTENDS = "assets/source/terrain/floor01/floor01_opening_kit.json"
+OWNER = ("AI-authored environment pixel art (AREA-FASTFOOD-01: design spec, keys and silhouette gate Claude Opus; "
+         "execution Claude Sonnet; independent review pending)")
+LAYER_OF_ATLAS = {"floor01_ff_wall": ("backwall", "backwall_decal"), "floor01_ff_structure": ("structure", "structure"),
+                  "floor01_ff_props": ("prop", "prop"), "floor01_ff_rock": ("backwall", "backwall_decal"),
+                  "floor01_ff_door": ("prop", "prop"), "floor01_ff_pickup": ("prop", "prop")}
+STRIP_LIGHT = {"id": "tube", "offset": [24, 3], "colour": "#d8e4ff", "radius": 150, "intensity": 0.24,
+               "group": "scene", "glow": {"radius": 14, "additive": 0.08}}   # spec 8: steady, no flicker, no floor projection
+STATE_OF = {"ff_staff_door_closed": ("ff_staff_door", "closed", None), "ff_staff_door_open": ("ff_staff_door", "open", None),
+            "ff_reward_box_full_a": ("ff_reward_box", "full_a", None), "ff_reward_box_full_b": ("ff_reward_box", "full_b", None),
+            "ff_reward_box_empty": ("ff_reward_box", "empty", None),
+            "ff_bell_idle": ("ff_bell", "idle", None), "ff_bell_ding_a": ("ff_bell", "ding_a", None),
+            "ff_bell_ding_b": ("ff_bell", "ding_b", None)}
+STATE_OF.update({f"ff_staff_door_rise_{k:02d}": ("ff_staff_door", "rising", k) for k in range(1, 13)})
+STATE_OF.update({f"ff_reward_sparkle_{s}": ("ff_reward_box", "sparkle", i + 1) for i, s in enumerate("abc")})
+
+# Spec section 5 placements (room layout px, top-left). Presenter pieces (door, box, sparkle, bell) are NOT placed.
+HATCH = (1304, 400, 80, 48)
+CANOPY = (704, 400, 128, 40)
+UNDER = (1296, 468, 96, 60)
+WALL_TILE_X = list(range(384, 832 - 31, 32)) + list(range(1152, 1440 - 31, 32))     # whole 32 px cells of 384..831, 1136..1439
+WALL_TILE_Y = list(range(368, 497, 32))
+
+
+def _hits(x: int, y: int, w: int, h: int, r: tuple) -> bool:
+    return x < r[0] + r[2] and x + w > r[0] and y < r[1] + r[3] and y + h > r[1]
+
+
+def wainscot_places() -> list[tuple]:
+    """Gate note G8: ``ff_wainscot_b`` at every tile index n with n % 3 == 2, counted from x 288."""
+    return [("backwall_decal", "ff_wainscot_b" if n % 3 == 2 else "ff_wainscot_a", 288 + 32 * n, 528)
+            for n in range(36)]
+
+
+def wall_tile_places() -> list[tuple]:
+    return [("backwall_decal", "ff_wall_tile_a", x, y) for y in WALL_TILE_Y for x in WALL_TILE_X
+            if not any(_hits(x, y, 32, 32, r) for r in (HATCH, CANOPY, UNDER))]
+
+
+REMOVE_AT = [  # spec section 8: the dining-room torches, their pools and the grime (each matches one composer piece)
+    ("prop", "torch_wall", 336, 448), ("prop", "torch_wall", 848, 176), ("prop", "torch_wall", 848, 448),
+    ("prop", "torch_wall", 1088, 448),
+    ("backwall_decal", "torch_pool_a_m", 232, 364), ("backwall_decal", "torch_pool_a", 744, 92),
+    ("backwall_decal", "torch_pool_a_m", 744, 364), ("backwall_decal", "torch_pool_a", 984, 364),
+    ("backwall_decal", "grime_a", 600, 376),
+]
+BACKWALL_FILL = [{"x": 264, "y": 352, "w": 40, "h": 192}]       # bay A's opening behind the restaurant (264..303)
+
+
+def places() -> list[tuple]:
+    p = [("backwall_decal", "ff_rock_fill", 904, 352)]
+    p += wall_tile_places()
+    p += wainscot_places()
+    p += [("backwall_decal", "ff_floor_checker_a", 288 + 32 * n, 561) for n in range(36)]
+    p += [("backwall_decal", "ff_floor_checker_edge", 256, 561), ("backwall_decal", "ff_floor_spill", 168, 561),
+          ("backwall_decal", "ff_counter_canopy", 704, 400), ("backwall_decal", "ff_slide_chute", 688, 496),
+          ("backwall_decal", "ff_service_hatch", 1304, 400), ("backwall_decal", "ff_under_panel", 1296, 468)]
+    p += [("structure", "ff_tile_seam", 376, 368)]
+    p += [("structure", "ff_ceiling_tile", 288 + 32 * n, 336) for n in range(36)]
+    p += [("structure", "ff_soffit_stone", x, 336) for x in list(range(0, 288, 32)) + list(range(1440, 1600, 32))]
+    p += [("structure", "ff_deck_skin", 464, 512), ("structure", "ff_slide_top_skin", 560, 496),
+          ("structure", "ff_play_posts", 464, 528), ("structure", "ff_window_frame", 900, 384),
+          ("structure", "ff_pass_ledge", 1296, 448)]
+    p += [("prop", "ff_light_strip", x, 352) for x in (400, 592, 784, 976, 1168, 1360)]
+    p += [("prop", "ff_counter_a", 704, 524), ("prop", "ff_ball_pit", 560, 548), ("prop", "ff_stray_ball", 1012, 554),
+          ("prop", "ff_bin", 400, 528), ("prop", "ff_booth_a", 912, 520)]
+    return p
+
+
+def _at(layer, piece, x, y):
+    return {"layer": layer, "piece": piece, "x": x, "y": y}
+
+
+def dressing() -> dict:
+    return {"rest_refuge": {"remove": [], "remove_at": [_at(*r) for r in REMOVE_AT],
+                            "backwall_fill": BACKWALL_FILL, "place": [_at(*t) for t in places()], "parallax": {}}}
+
+
+def pack(pieces: list[tuple[str, Pix]], width: int) -> tuple[Pix, dict]:
+    """Shelf packing, left to right: a piece's rect holds exactly its pixels (a key stays byte-identical)."""
+    x = y = shelf = 0
+    placed = []
+    for pid, img in pieces:
+        if x + img.w > width:
+            x, y, shelf = 0, y + shelf, 0
+        placed.append((pid, img, x, y))
+        x += img.w
+        shelf = max(shelf, img.h)
+    sheet = Pix(width, y + shelf)
+    rects = {}
+    for pid, img, px, py in placed:
+        for yy in range(img.h):
+            for xx in range(img.w):
+                if img.px[yy][xx] is not None:
+                    sheet.px[py + yy][px + xx] = img.px[yy][xx]
+        rects[pid] = [px, py, img.w, img.h]
+    return sheet, rects
+
+
+def build_pieces(name: str) -> list[tuple[str, Pix]]:
+    return [(pid, fn()) for pid, fn in ATLASES[name]["pieces"]]
+
+
+def build(name: str):
+    pieces = build_pieces(name)
+    sheet, rects = pack(pieces, ATLASES[name]["width"])
+    return kit.grid_from([sheet], layer_names=["main"], durations=[100], pivot=(0, 0)), rects, dict(pieces)
+
+
+def _opaque(img: Pix) -> bool:
+    return all(p is not None for row in img.px for p in row)
+
+
+def piece_entry(pid: str, atlas: str, rect: list, img: Pix) -> dict:
+    role, layer = LAYER_OF_ATLAS[atlas]
+    entry = {"id": pid, "atlas": atlas, "rect": rect, "role": role, "layer": layer, "collidable": False,
+             "anchor": [0, 0], "anchor_name": "top_left (room placement, spec section 5)", "grid_snap": 1,
+             "grammar": ["A"]}
+    if layer == "backwall_decal":
+        entry["decal"] = True
+    if _opaque(img):
+        entry["opaque"] = True          # a tile piece with no transparent pixel (FF-AD16): env_kit checks it fully opaque
+    if pid in STATE_OF:
+        group, state, frame = STATE_OF[pid]
+        entry["state_of"] = {"group": group, "state": state}
+        if frame is not None:
+            entry["state_of"]["frame"] = frame
+    if pid == "ff_light_strip":
+        entry["lights"] = [STRIP_LIGHT]
+    return entry
+
+
+def contract(rects_by_atlas: dict, imgs: dict) -> dict:
+    atlases, pieces, palette_use = {}, [], {}
+    for name, spec in ATLASES.items():
+        stem = spec["stem"]
+        atlases[name] = {"grid": f"assets/source/props/floor01/{stem}.grid.json",
+                         "manifest": f"assets/manifests/{name}.json",
+                         "image": f"generated/art/{name}.png", "metadata": f"generated/art/{name}.json"}
+        palette_use[name] = rects_by_atlas[name]["colours"]
+        for pid, _ in spec["pieces"]:
+            pieces.append(piece_entry(pid, name, rects_by_atlas[name]["rects"][pid], imgs[pid]))
+    return {
+        "format": "env-kit-v2",
+        "kit_id": "floor01_fastfood",
+        "extends": EXTENDS,
+        "status": "proposed - AREA-FASTFOOD-01 kit (docs/02-art/area-fastfood-01-spec.md); independent review "
+                  "pending; not owner-approved",
+        "extension_note": "Inherits palette, layers, draw order, coordinates, walking-line rule and lighting schema "
+                          "from the ENV-01 contract through the opening kit. Adds six decor atlases and the "
+                          "fast-food refuge pieces for Floor 01 room 1 (rest_refuge, 'The Wrong Restaurant'); no "
+                          "tiles, nothing collidable, no new palette colour. The only emitters are the six "
+                          "ceiling strips (spec section 8); the dressing removes the four dining-room torches "
+                          "and their pools.",
+        "palette_use": palette_use,
+        "atlases": atlases,
+        "tiles": [],
+        "pieces": pieces,
+        "state_groups": {
+            "ff_staff_door": {
+                "states": ["closed", "rising", "open"], "anchor": [1436, 352],
+                "note": "the staff door (spec section 6), 14 pre-baked 24 x 228 frames: closed, the 12 rising crops "
+                        "door_raised(RISE[k-1]) and open. The dressing does NOT place it: the presenter draws it at "
+                        "(1436, 352) from the lock's state (gate note G4), because the drawn art must equal the "
+                        "16 x 228 solid of the lock (REST-AD6). Presentation only."},
+            "ff_reward_box": {
+                "states": ["full_a", "full_b", "empty", "sparkle"], "anchor": [1204, 556],
+                "note": "the Light on Your Feet pickup (spec section 7), 32 x 24 frames at (1204, 556): full_a and "
+                        "full_b alternate on a presentation timer, empty iff Donut holds the boost, and the three "
+                        "16 x 16 sparkle frames are drawn over empty at (1212, 554) for the 12 ticks after the "
+                        "grant. The dressing does NOT place it (REST-AD16). Presentation only."},
+            "ff_bell": {
+                "states": ["idle", "ding_a", "ding_b"], "anchor": [1380, 442],
+                "note": "the service bell (spec section 6), 8 x 6 frames at (1380, 442): idle, then ding_a, ding_b, "
+                        "ding_a for 4 ticks each from the door-open tick. The dressing does NOT place it. "
+                        "Presentation only."},
+        },
+        "room_dressing": dressing(),
+        "usage_rules": {
+            "R1_rest_refuge": "room 1 `rest_refuge` only: the dressing never adds or moves a tile or a solid; wall "
+                              "decals sit on the world bond; props stand on the floor back line (y 560); nothing "
+                              "is placed over the lock rect x 1440..1455 (the door is drawn by the presenter); "
+                              "the three platform skins sit on their plank tiles' grid rows and are opaque over "
+                              "the whole tile with the stand line on row 1.",
+        },
+    }
+
+
+def manifest(name: str, canvas: list) -> dict:
+    stem = ATLASES[name]["stem"]
+    return {
+        "schema_version": 1,
+        "id": f"{name}_v1",
+        "type": "decor_atlas",
+        "source_path": f"assets/source/props/floor01/{stem}.ase",
+        "grid_source": f"assets/source/props/floor01/{stem}.grid.json",
+        "output_atlas": f"generated/art/{name}.png",
+        "output_metadata": f"generated/art/{name}.json",
+        "palette_id": "floor01-catacomb-v2",
+        "frame_size": canvas,
+        "pivot": [0, 0],
+        "animation_tags": [],
+        "required_alpha": True,
+        "kit_contract": "assets/source/terrain/floor01/floor01_fastfood_kit.json",
+        "owner": OWNER,
+        "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+        "license": "Original repo-specific environment art; no standalone asset reuse license; no game/asset-pack "
+                   "distribution rights",
+        "review_status": "prototype_fixture_unapproved",
+        "provenance": {
+            "origin": "Original pixel-grid-v1 fast-food refuge pieces for Floor 1 room 1 (AREA-FASTFOOD-01 on the "
+                      "ENV-01 kit); rule-based shapes and ramps, nothing cropped, traced or resampled from concept "
+                      "art; no text, logos, brands or likenesses",
+            "generator": "Deterministic authoring script scripts/author_ff01.py written by AI agents (spec and keys "
+                         "designed by Claude Opus; execution by Claude Sonnet); no image-model raster output",
+            "generated_art": True,
+            "input_reference_ids": [
+                "floor01-catacomb-kit/env-kit-v2 (owner-approved ENV-01 kit, 2026-11-16)",
+                "floor-01-art-atlas-v1/04-fast-food-refuge (mood reference only; no pixel cropped, traced or "
+                "resampled)",
+            ],
+        },
+    }
+
+
+def write_kit() -> dict:
+    out, imgs = {}, {}
+    for name, spec in ATLASES.items():
+        grid, rects, pieces = build(name)
+        imgs.update(pieces)
+        path = SRC / f"{spec['stem']}.grid.json"
+        path.write_text(json.dumps(grid, indent=1) + "\n", encoding="utf-8")
+        subprocess.run([sys.executable, str(ROOT / "scripts" / "pixel_grid_to_ase.py"), "build", str(path),
+                        str(SRC / f"{spec['stem']}.ase")], check=True)
+        print(f"{name}: {grid['canvas']} {len(grid['palette'])} colours")
+        out[name] = {"rects": rects, "canvas": grid["canvas"], "colours": len(grid["palette"])}
+        (MANIFESTS / f"{name}.json").write_text(json.dumps(manifest(name, grid["canvas"]), indent=1) + "\n",
+                                                encoding="utf-8")
+    CONTRACT.write_text(json.dumps(contract(out, imgs), indent=1) + "\n", encoding="utf-8")
+    return out
+
+
 def to_image(img: Pix, silhouette: bool = False):
     from PIL import Image
     out = Image.new("RGBA", (img.w, img.h), (0, 0, 0, 0))
@@ -636,5 +1681,7 @@ def gate(out_dir: Path, views: dict) -> None:
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "gate":
         gate(Path(sys.argv[2]), GATE_VIEWS)
+    elif len(sys.argv) > 1 and sys.argv[1] == "kit":
+        write_kit()
     else:
         write()

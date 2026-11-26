@@ -556,6 +556,11 @@ def validate_contract(kit: Kit) -> None:
             low, high = _alpha_extrema(kit.crop(piece["atlas"], rect))
             if role == "parallax_far":
                 check(low == 255, f"piece {pid}: the far parallax strip must be fully opaque")
+            elif piece.get("opaque") is True:
+                # A tile piece declared opaque (AREA-FASTFOOD-01: wainscot, checker, wall tile, ceiling tile, the
+                # platform skins, the closed door) covers its rect completely instead of holding a transparent pixel.
+                check(low == 255 and high == 255,
+                      f"piece {pid}: declared opaque but holds a transparent pixel")
             else:
                 check(low == 0 and high == 255,
                       f"piece {pid}: decor pieces must use (1-bit) alpha and be non-empty")

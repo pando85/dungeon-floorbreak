@@ -312,10 +312,17 @@ pub fn env_runtime(run: &RestRun) -> Result<EnvRuntime, String> {
     Ok(EnvRuntime::new(&run.loaded.encounter)?.in_room(run.loaded.room.floor_y, &[], None))
 }
 
-/// Load a quiet room and its sidecar, compose its kit and build the fixture. No
-/// dressing exists yet (AREA-FASTFOOD-01 is a separate work order), so the kit is the
-/// plain greybox composition of the Boiler.
+/// Load a quiet room and its sidecar, compose its kit and build the fixture. The refuge
+/// is dressed with the AREA-FASTFOOD-01 kit ([`crate::fastfood_kit`]); the camp and the
+/// aftermath keep the plain greybox composition of the Boiler (a later work order).
 pub fn launch(root: &Path, room: RestRoom) -> Result<RestRun, String> {
+    launch_with(root, room, true)
+}
+
+/// [`launch`] with the refuge's dressing switched: `dressed = false` composes the refuge
+/// like the camp and the aftermath (the plain kit), for the tests that prove the dressing
+/// is presentation only.
+pub fn launch_with(root: &Path, room: RestRoom, dressed: bool) -> Result<RestRun, String> {
     let path = room.encounter_path();
     let loaded = encounter::load(root, path).map_err(|errors| {
         format!(
@@ -363,7 +370,12 @@ pub fn launch(root: &Path, room: RestRoom) -> Result<RestRun, String> {
             "{path}: a quiet room has an empty roster (REST-AD13)"
         ));
     }
-    let mut kit = crate::f01_boiler::compose_kit(root, &loaded.room)?;
+    let mut kit = match room {
+        RestRoom::Refuge if dressed => {
+            crate::fastfood_kit::compose_fastfood_kit(root, &loaded.room)?
+        }
+        _ => crate::f01_boiler::compose_kit(root, &loaded.room)?,
+    };
     if kit.base_walk_line_y != loaded.room.floor_y {
         return Err(format!(
             "the kit's walking line {} is not the room's floor {}",

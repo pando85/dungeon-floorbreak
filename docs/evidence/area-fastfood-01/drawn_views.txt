@@ -1,0 +1,11 @@
+box_full 757 292
+box_grant 822 292
+door_closed 960 292
+door_open 960 292
+door_rising_371 944 292
+door_rising_373 951 292
+door_rising_376 960 292
+exit 960 292
+play_area 130 292
+threshold 0 292
+window 620 292

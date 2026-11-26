@@ -83,6 +83,7 @@ pub mod f01_rest;
 pub mod f01_ring;
 pub mod f01_ring_fixtures;
 pub mod f01_run;
+pub mod fastfood_kit;
 pub mod feel;
 pub mod follower;
 pub mod goblin;
