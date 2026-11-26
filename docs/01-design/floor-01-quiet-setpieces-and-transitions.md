@@ -100,7 +100,7 @@ No forced talk, cutscene, dialogue choice or stat purchase. The safe-room budget
 The owner draft's map, with what exists on main and the open slots (section G.2):
 
 ```text
-Opening / Murder Dozer (#179, slot S0) → first goblins → Guild / biscuit
+Opening / Murder Dozer (slot S0: act1_chase) → first goblins (act1_shore) → Guild / biscuit (act1_guild)
      → Infernal Corral (room `corral`, #181)
      → [REST-A: FAST-FOOD / DONUT JUMP REWARD]       room `rest_refuge`
      → Scatterers (slot S1) / Hoarder                room `hoarder`
@@ -167,7 +167,7 @@ No new geometry system, camera rewrite, companion mobility, dialogue system, NPC
 
 | Run index | Room id | Scene | Title (REST-AD1) | Milestone | Story pin at entry | Grants in play |
 | --- | --- | --- | --- | --- | --- | --- |
-| *slot S0* | (#179 Dozer opening) | — | — | not scheduled | — | — |
+| *slot S0* | `act1_chase`, `act1_shore`, `act1_guild` | `f01_act1_*` | see the [Act I integration plan](floor-01-act-01-integration.md#3-run-order) | greybox, planned (ACT1-PLAN) | none | `primary_ranged` at the guild |
 | 0 | `corral` | `f01_corral` | The Infernal Corral | greybox | none (biscuit read through) | none |
 | **1** | **`rest_refuge`** | **`f01_rest_refuge`** | **The Wrong Restaurant** | **greybox** | **none (`f01_pin_refuge_entry`, no table row)** | **`jump_reach_boost` at the box** |
 | *slot S1* | (Scatterers) | — | — | deferred (K14) | — | — |
@@ -332,7 +332,7 @@ The greybox uses the existing Floor 01 kit and flat labelled rectangles. Every R
 | REST-Q5 | The rolling yellow ball gag | AREA-FASTFOOD-01 review | not in the greybox |
 | REST-Q6 | What "the gauntlet interrupts more strongly" means on the bag | combat design | REST-AD12 |
 | REST-Q7 | Does the Ball of Swine replace or follow `mastery`, and where does REST-C exit then? | #192 integration | REST-C → `mastery` |
-| REST-Q8 | Slot order once #179, #189 R-regions and #191 land | their integration steps | slots S0 to S4 |
+| REST-Q8 | Slot order once #179, #189 R-regions and #191 land | their integration steps | slots S0 to S4; S0 is placed by the [Act I integration plan](floor-01-act-01-integration.md) (three rooms before the corral) |
 | REST-Q9 | Should 2P also get a door hint? | owner, after the playtest | no |
 | REST-Q10 | Should audience decay freeze in rooms with an empty roster (the REST rooms), so the aftermath keeps the Juicer peak? | owner, game feel | decay runs (REST-AD14); data-ready, not implemented |
 

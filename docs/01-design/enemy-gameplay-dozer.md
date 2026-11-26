@@ -57,7 +57,7 @@
   - `src/f01_run.rs` (#270): a listed room joins `--f01-run` in manifest order;
   - `assets/levels/f01_late/manifest.json`: `story_order` already holds `dozer` between `boiler` and `hazards` with `f01_pin_post_pile_boss`.
 - **Backlog [CA2-FU-HAZ](../04-production/backlog.md) U-1:** a moving wheel would rebuild the nav graph every tick; ruling 6 of #220 says DOZER-CORE feeds a swept envelope over its lead time, rounded outward to 16 px. Section 7 does exactly that.
-- **Not touched:** owner drafts #179 (the opening chase choreography) and #187 (quiet setpieces). CHASE-01 keeps its own values on the same core (section 4.4).
+- **Not touched:** owner drafts #179 (the opening chase choreography, since carried onto main as [the Dozer opening choreography](floor-01-dozer-opening-choreography.md)) and #187 (quiet setpieces). CHASE-01 keeps its own values on the same core (section 4.4).
 
 ## 2. Reconciliation: DOZ-01 section 9, the revenge doc and K5
 
@@ -154,6 +154,7 @@ DOZER-CORE builds the machine once, with every value per profile.
 - It appends the `charge` sub-machine to `dozer.rs`: tell, charge, brake, strain and the 140 px gate. With a `charge` block present, the K5 "≤ 185" invariant does not apply to the charge speed.
 - Nothing in room 3's profile, fixtures or goldens may move when CHASE-01 lands.
 - CHASE-01 also decides its own AI answer to the charge: the `BossThreat` question of R-4 comes back there.
+- **Planned:** [the Act I integration plan](floor-01-act-01-integration.md) section 5 specifies the `opening` profile, the commit rule, the pocket, the barricade lock, the wedge and the AI answer (no `BossThreat`; appended rescue spots).
 
 ## 5. Room 3 geometry (DZ-Q22; data in `f01_dozer.room.json` and its sidecar)
 
