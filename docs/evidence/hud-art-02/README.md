@@ -2,7 +2,7 @@
 
 Real Bevy window captures of the HUD-ART-02 build (`floor01_scene`, debug, xvfb, `--no-audio --scale 1`), replacing the designer's mock composites in [`design-gate/`](design-gate/README.md). Spec: [hud-art-02-spec.md](../../02-art/hud-art-02-spec.md). Status: execution done, independent review pending, owner art review pending. Every new region is `prototype_fixture_unapproved`.
 
-Every capture below ran with the window hash equal to the headless hash (`match=yes`, all lines in [`capture_lines.txt`](capture_lines.txt)); `:2p` plans also with the timed live-loop hash. The `--glyphs=keyboard` and the default (pad) run of the same room end on the same hash, so the glyph switch is hash-neutral.
+The `dozer` frames and `at2_rim_contrast.txt` were regenerated after rebasing onto #287 (DR-B changed the dozer room's world pixels and window hashes; the HUD pixels are unchanged). Every capture below ran with the window hash equal to the headless hash (`match=yes`, all lines in [`capture_lines.txt`](capture_lines.txt)); `:2p` plans also with the timed live-loop hash. The `--glyphs=keyboard` and the default (pad) run of the same room end on the same hash, so the glyph switch is hash-neutral.
 
 ## Commands
 
@@ -29,7 +29,7 @@ python3 scripts/make_hud_art_02_evidence.py at2 OUT.txt FRAME:ROOM ...       # A
 | File | Shows |
 | --- | --- |
 | `new-regions-sheet-1x.png`, `new-regions-sheet-8x.png` | the eight key caps and two chips at 1x and 8x, under the existing pad disks |
-| `carl-{hazards,dozer}-{360,400}-{kb,pad}-{1x,crop3x}.png` | Carl's plate with caps (`kb`, `--glyphs=keyboard`) and with the default Xbox glyphs (`pad`): full frame at 1x and a 3x crop of the plate. Mean world luminance (rows 52 to h-56): `hazards` 43.7 / 42.2, `dozer` 75.4 / 70.4 (360 / 400) |
+| `carl-{hazards,dozer}-{360,400}-{kb,pad}-{1x,crop3x}.png` | Carl's plate with caps (`kb`, `--glyphs=keyboard`) and with the default Xbox glyphs (`pad`): full frame at 1x and a 3x crop of the plate. Mean world luminance (rows 52 to h-56): `hazards` 43.7 / 42.2, `dozer` 75.9 / 70.8 (360 / 400) |
 | `two-player-{hazards,boiler}-{360,400}-{kb,pad}-{1x,crop2x}.png` | both plates in a `:2p` room (`hazards direct:2p`, the darkest room, and `boiler direct:2p`): Donut's human plate with the 72 px track and `BLINK` (ready), and with `kb` only Carl's (P1's) plate has caps, Donut (P2) keeps her pad glyphs |
 | `donut-blink-{ready,windup,cooling,ready2}-{360,400}-crop4x.png` | Donut's plate: ready (amber label, untinted socket), windup (muted: `amber_dim` label, tinted socket with the zig-zag), cooling (muted with the 1 px underline), ready again (with the brass ready flash). `donut-blink-{ready,cooling}-*-1x.png` are the full frames |
 | `notice-goblin-boom-hoarder-{360,400}-{1x,crop3x}.png` | `GOBLIN BOOM` with the dynamite well, over the Hoarder's room |
