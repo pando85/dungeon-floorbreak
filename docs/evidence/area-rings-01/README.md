@@ -40,31 +40,30 @@ The Ring rooms have no `--room-pilot`, and the walk-right script stops at the cl
 
 | Gate edit | Target | Measured |
 | --- | --- | --- |
-| K1 `ring_arc_wall_a` | arc opaque mean L* at most 31; stone 7 and 8 absent; stone 6 at most 3 % | mean L* 24.2 (crown rows 19.4, leg rows 28.4; the torch bake of RNG-AD22 lifts the legs in their pools); stone 7 and 8 absent; stone 6 on 1.72 % |
+| K1 `ring_arc_wall_a` | arc opaque mean L* at most 31; stone 7 and 8 absent; stone 6 at most 3 % | mean L* 24.1 (crown rows 20.2, leg rows 27.2; the torch bake of RNG-AD22 lifts the legs in their pools); stone 7 and 8 absent; stone 6 on 1.72 % |
 | K2 `ring_shutter_closed` | key mean L* at most 19, at least 8 below the brick beside it | key mean L* 17.9 (before K2: 24.8), slab stone only 19.2; brick beside the shutter 28.5, so the key is 10.6 below it and the slab stone 9.3 below |
 
 `measurements.txt` (`python3 scripts/measure_rings01.py DIR`: the kit's own method, `scripts/env_kit_light.py`, with the real composed layouts, plain against dressed; mean CIE L* of the actor pixels minus a 6 px ring around the actor box):
 
 | Gate constraint | Measured |
 | --- | --- |
-| C4 Carl on the walkway at x 1216 | dL* **20.6** dressed, 15.3 on the plain room (the kit's accepted value is about 8.6) |
+| C4 Carl on the walkway at x 1216 | dL* **20.5** dressed, 15.3 on the plain room (the kit's accepted value is about 8.6) |
 | C4 goblin at x 1824 in front of the full ring (now at ring-local x about 144) | **9.5** dressed, 8.3 on plain brick in the same light. `local_dark` of `ARC_LM` is recomputed after the move to 1680: a per-band drop (3, 3, 2 steps) over piece-local x 112..180, y 160..204 with an 8 px dithered falloff, applied after the torch bake, so there is no hard-edged wedge. The first attempt (3, 2, 2 steps, applied before the bake) read 8.2, just under plain brick |
 | the other goblins (4b x 560 and 848) | 8.1 and 9.6 dressed against 6.8 and 6.5 plain |
-| **goblin at 4a x 1424** | **-1.4 dressed, 2.1 plain: worse than plain brick.** The cause is not ring stone: the design fix round moved the torch to x 1432 (y 432), and its pool lights the wall right behind that goblin. Returned to the designer |
-| C1 walkable tops | the top arris is the brightest 13 px run within 64 px on four of five platforms (step 44.5 against 40.6, walkway 39.7 against 38.9, route 46.7 against 39.7, R3 ledge 40.8 against 39.7). **The Donut shelf reads 52.6 against 53.0**: the torch moved to x 1432 lights the brick at y 501, so a torch-pool brick row beats the arris by 0.4 L* in this render. Returned to the designer |
+| goblin at 4a x 1424 | no worse than plain brick | **4.1** dressed, 2.1 plain (the final torch spots of RNG-AD24: the free torch at (1360, 368) and the one at (1656, 448)) |
+| C1 walkable tops | the top arris is the brightest 13 px run within 64 px | true on all five platforms (step 44.5 against 40.6, walkway 40.6 against 38.9, shelf 50.8 against 41.9, route 46.7 against 39.7, R3 ledge 40.8 against 39.7) |
 
 ## Design fix round: what the new captures show
 
 - **The bricked-up entry arch** keeps its `arch_ring_a`, so its two gallery lights still fall on it. In `scene_entry_keystone_*` it reads as a lit blind arch of brick with the chain swag, not as a glowing hole: the infill is the same brick as the wall, and no gallery colour shows through.
 - **4b** keeps the composer door on the pier and has no keystone, as intended (`scene_arc_route_*`).
-- **The great arc's legs** take the torch bake in the pools of the torches: the right leg (`scene_after_walkway_*`) reads as lit stone where it meets the pool of the torch at x 1432, no longer as a flat dark cut-out.
+- **The great arc's legs** take the torch bake in the pools of the torches: the legs read as lit stone in their pools, no longer as flat dark cut-outs. **The torches (RNG-AD24):** the raised torch at (1360, 368) reads as a wall torch over the broken leg, clear of the soffit and of the arc's shoulder (`scene_walkway_under_arc_*`, `scene_after_walkway_*`); the torch at (1656, 448) stands clear of the ring's left edge (`scene_ring_goblin_*`).
 - **The full ring** (`scene_ring_goblin_*`, `scene_full_ring_*`) sits entirely on brick at 1680..1888 with its whole circumference visible and a transparent interior: it reads as a carved ring.
 - **The shutter** is a running-bond masonry slab with an iron band and shoe and no straps. Owner question (not blocking): if it still reads door-like, the next step is to lower the band to the shoe.
 
 ## Design notes returned to the designer (not decided here)
 
-1. The goblin at 4a x 1424 separates -1.4 and the Donut shelf's arris loses to torch-pool brick by 0.4 L*, both because of the torch moved to x 1432 (y 432).
-2. The bedroll's curl line is faint at 1x (accepted by the review, no action).
+None open from this round. The bedroll's curl line is faint at 1x (accepted by the review, no action).
 
 ## NOT RUN
 

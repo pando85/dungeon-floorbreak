@@ -1,6 +1,6 @@
-arc_a opaque mean L* (all pixels): 24.2  [gate target <= 31; before K1: 35 crown, 39 legs]
-arc_a crown rows 0..49 mean L*: 19.4; leg rows 104..163 mean L*: 28.4
-arc_a stone share of opaque pixels (%): {1: 4.52, 2: 9.95, 3: 19.68, 4: 21.74, 5: 20.9, 6: 1.72}  [target: 7 and 8 absent, 6 <= 3]
+arc_a opaque mean L* (all pixels): 24.1  [gate target <= 31; before K1: 35 crown, 39 legs]
+arc_a crown rows 0..49 mean L*: 20.2; leg rows 104..163 mean L*: 27.2
+arc_a stone share of opaque pixels (%): {1: 4.41, 2: 9.36, 3: 18.4, 4: 27.31, 5: 17.32, 6: 1.72}  [target: 7 and 8 absent, 6 <= 3]
 shutter key opaque mean L* (the gate's measure; before K2: 24.8): 17.9  [gate target <= 19]
 shutter slab stone only (rows 3..59) mean L*: 19.2
 court brick beside the shutter (lit still) mean L*: 28.5  => key 10.6 below the brick, slab stone 9.3 below  [gate target >= 8]
