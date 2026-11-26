@@ -1,6 +1,6 @@
 # DOZ-02: Dozer damage states and the stop frame, design spec
 
-**Status:** design keys drawn (section 6); silhouette gate **PASS with notes** (section 11); the remaining frames, the export, the evidence and the Bevy wiring follow in an execution step (section 7); independent review pending; owner game-feel review after that. Nothing here is wired into Bevy: the room still draws the labelled stand-ins of `src/dozer_art.rs`.
+**Status:** design keys drawn (section 6); silhouette gate **PASS with notes** (section 11); the remaining frames, the export, the evidence and the Bevy wiring are done in the execution step (sections 7 and 13), room 3 is at milestone `setpiece`; independent review pending; owner art and game-feel review after that.
 
 Inputs:
 
@@ -145,7 +145,7 @@ All keys are committed grid sources made by `scripts/author_dozer_doz02.py` (det
 | Remnant | `prop_stop_frame_remnant`, `landed`, `landed_hit` | The beam bowed 5 px at a kink, 16 px tall, lying flat |
 | Brace, intact | `prop_stop_frame_brace`, `intact` | The release target: a hazard band, the chain wrap and the horn |
 
-## 7. The execution step (summary)
+## 7. The execution step (summary; done, see section 13)
 
 The remaining frames of section 4 (warn, falling, shadow, glance, brace weakened and snapped, the gate, the buffer, the lintel, the haul tiles, the tumbles, the slump), the export, the validators and tests, the evidence (a contact sheet, enlarged frames, the reversal and the glance at gameplay scale, a frame and state diagram), the Bevy wiring that replaces each labelled stand-in of `src/dozer_art.rs`, and the f01_late manifest's `dozer` milestone flip from `greybox` to `setpiece` with its `MANIFEST_HASH` re-pin. New frames extend the authoring script (one generator for every DOZ-02 source); the design keys of section 6 do not change without a design decision.
 
@@ -208,6 +208,9 @@ Any "no" sends the keys back to design before execution starts. The verdict is r
 | DZ2-AD6 | The haul line runs from the pulley along the ceiling to an idler above the brace, then down to the cleat | Shows the cause and effect: hit the brace, the chain lets go, the frame falls |
 | DZ2-AD7 | The 48-tick `impact_stunned` schedule and the `disabled` emitter rates of section 4.1 | Short enough to keep the melee window, slow enough that disabled reads as dead |
 | DZ2-AD8 | The tie bar of the frame ends up in the wheel (`landed_hit` remnant has no bar) | One object explains the jam |
+| DZ2-AD9 | The riders' tumble arc ends at the column where the simulation's goblin lands on the disable tick (the wheel front plus `dzq20_land_dx`: A 32, B 72), not at the design's 28 / 36 px of forward travel; 12 px high, 24 ticks airborne, the poses at 6 and 24 ticks, the lying pose held until the goblin takes over (see DZ2-Q1) | The design's forward travel ends on top of the wheel; the simulation's landing is past its front, and a hand-off between them would jump 100 px |
+| DZ2-AD10 | The haul tiles share a 12 x 12 atlas cell (8 x 8 of chain content, the idler fills it) and the validator allows 12 orphans per frame for them only | An atlas needs one frame size; the unoutlined chain pattern leaves 6 single-key pixels per link repeat |
+| DZ2-AD11 | The gate, lintel mouth and fill tiles carry a few transparent pixels (chipped jambs, a chipped stone, a feathered shadow edge); the glance beam is redrawn column by column; the shadow frames are explicit row widths | The asset validator requires every frame to hold transparent and opaque pixels; the squeeze of a column turn drops a column here and there (a rivet column never) |
 
 ## 13. Design notes
 
@@ -215,7 +218,19 @@ Any "no" sends the keys back to design before execution starts. The verdict is r
 - **N-2.** The DOZ-01 wheel and hull also fail the default validator config (frame in two tags, colour count); this is pre-existing and not changed here.
 - **N-3.** The haul line in the lit compositions is drawn by the review script; the tile set is an execution item (section 4.5).
 - **N-4.** The frame hangs 168 px above the floor (the gameplay sheet's hang height). In the room's 228 px lane the sling and pulley have 60 px; in a taller corridor the haul line must be extended, not the sling.
-- **N-5.** In the lit compositions the driver in `disabled` is the DOZ-01 `engineer_hold` key, a stand-in until the slump frames exist.
+- **N-5.** In the lit compositions the driver in `disabled` is the DOZ-01 `engineer_hold` key, a stand-in until the slump frames exist. **Closed in execution:** `engineer_slump_0/1` exist and the lit after scene uses them.
+
+### Execution notes (Claude Sonnet) and questions for the designer
+
+Done: every frame of section 4 (warn, falling, the shadow, the glance, the brace states, the gate, the buffer stop, the lintel, the haul tiles, the tumbles, the slump), the contract fields (`stop_frame.warning`, `falling`, `glance`, `brace.swing`, `room_pieces`, `crew`), the export, the tests (`tests/test_art_dozer_doz02.py`, `src/dozer_art/tests.rs`), the evidence, the wiring in `src/dozer_art.rs` and the room 3 milestone flip to `setpiece` (`MANIFEST_HASH` re-pinned: the manifest file changed, nothing else moved).
+
+- **Gate notes.** G-4: the lit scenes are restaged so no light lands on the cab, the stack, the yoke or the bar (the staging comment in the review script lists the torches and the distant lamps); the Bevy wiring draws the room's own lighting, nothing is added to the machine. G-3: the remnant and the landing dust keep a tight contact (the dust puffs sit 6 px up at the beam ends). G-5: the slump frames exist and read as alive and dazed (pot over the eyes, no eye pixel, a 1 px breath). G-1 and G-2 stay as the gate left them (quiet hull damage at 1x; the hub). The cracks still read faintly at 1x: the gate's cheap levers (a second steam puff or a darker crack outline) were not used.
+- **DZ2-Q1 (tumble reach).** The design's forward travel (28 px for A, 36 for B) lands the riders on top of the wheel (the wheel spans rig x 76..172, the seats are at 38 and 66), while the simulation lands the dismounted goblin 32 and 72 px past the wheel front on the disable tick. Adopted DZ2-AD9: the arc keeps the design's height, duration and poses but ends at the simulation's landing. Designer: confirm, or move the landing data.
+- **DZ2-Q2 (glance continuity).** In the Bevy presenter (the DR-B behaviour kept) the falling frame descends at the footprint to the floor and the strike frame `glance_0` begins on the deck from the landing tick, so for a rear glance the beam is drawn on the floor under the hull's rear one tick and on the deck the next. The composed `doz02_glance_*.gif` shows the same. A follow-up could end the fall on the deck by calling the pure `Dozer::glance` predicate during the fall. No capture exists: the room has no late-release pilot.
+- **DZ2-Q3 (the lost helmet).** Section 5 asks for a 4 x 3 px helmet on its own arc, but riders A and B wear none (B has a headband, the pot is the driver's). Skipped: the pineapple that the GOB-01 poses already throw is the loose object.
+- **DZ2-Q4 (tunnel lintel).** `env_dozer_lintel` is drawn and tested but not wired: the room's lintel is a solid drawn by the Floor 1 kit, and the execution brief's wiring table lists no lintel.
+- **Tumble frames** are the GOB-01 `hurt`, `knockback` (mirrored) and `down` poses whole (no rotation, no new pixels); the two riders overlap for about 15 ticks of the arc (A overtakes B), which reads as a tangle of thrown goblins.
+- The rider landing in the presenter is the unnudged `front + land_dx`; when a hero stands on the spot the simulation's goblin lands up to 64 px further right, so the lying rider can pop that far on the disable tick.
 
 ## 14. Files
 
@@ -226,6 +241,9 @@ Any "no" sends the keys back to design before execution starts. The verdict is r
 | `assets/source/props/stop_frame/prop_stop_frame*.*` | The stop frame, the remnant and the brace |
 | `assets/source/enemies/dozer/dozer_damage_h120.json` | The damage contract (`dozer-damage-v0`) |
 | `assets/manifests/dozer_*` and `prop_stop_frame*.json` | Provenance manifests |
-| `scripts/make_dozer_doz02_review.py` | The evidence renders |
+| `scripts/make_dozer_doz02_review.py` | The evidence renders (contact sheets, frames at x6, the key sheet, the lit scenes, the state diagram, the glance GIFs, the reversal GIFs from the Bevy frames, `SHA256SUMS`) |
+| `scripts/make_dozer_doz02_evidence.sh` | The Bevy captures: the damage states of the `dozer:brace`, `dozer:retry` and `dozer:crew` pilots at 640 x 360 and 640 x 400, twice, hash-matched, and the reversal frames |
+| `src/dozer_art.rs`, `src/dozer_art/tests.rs`, `src/bin/floor01_scene/dozer_art.rs` | The presenter: the damage states, the crew, the room pieces and the stop frame as atlas sprites |
+| `assets/source/props/dozer_room/` | The gate, buffer stop, lintel and haul sources |
 | `tests/test_art_dozer_doz02.py` | The tests |
 | `docs/evidence/doz-02/` | Contact sheets, the key sheet, the lit before and after scenes, the gate verdict |

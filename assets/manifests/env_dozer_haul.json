@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "id": "env_dozer_haul_v0",
+  "type": "prop_animation",
+  "source_path": "assets/source/props/dozer_room/env_dozer_haul.ase",
+  "grid_source": "assets/source/props/dozer_room/env_dozer_haul.grid.json",
+  "output_atlas": "generated/art/env_dozer_haul.png",
+  "output_metadata": "generated/art/env_dozer_haul.json",
+  "palette_id": "dozer-floor01-v0",
+  "frame_size": [
+    12,
+    12
+  ],
+  "pivot": [
+    0,
+    11
+  ],
+  "animation_tags": [
+    "h",
+    "v",
+    "idler"
+  ],
+  "required_alpha": true,
+  "owner": "AI-authored vehicle enemy and set-piece art (fan-concept layer: Goblin Murder Dozer; runtime role IP-neutral large pursuit machine and its stop frame)",
+  "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+  "provenance": {
+    "origin": "DOZ-02 haul line of the stop frame: 8 px chain runs (h, v) and the 12 px idler pulley",
+    "generator": "Design and hero keys: DOZ-02 design step; the remaining frames: DOZ-02 execution step; both the deterministic output of scripts/author_dozer_doz02.py built on the DOZ-01 construction (scripts/author_dozer_doz01.py) and the GOB-01 goblin pixels (crew frames). No image-model raster output, no tracing, no resampling. Independent review pending",
+    "generated_art": true,
+    "input_reference_ids": [
+      "floor-01-opening-concept-references-v1"
+    ]
+  },
+  "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
+  "review_status": "prototype_fixture_unapproved",
+  "dozer": {
+    "status": "DOZ-02 design keys and execution frames, wired into room 3's presenter (src/dozer_art.rs); independent review pending",
+    "spec": "docs/02-art/doz-02-dozer-damage-spec.md",
+    "tick_hz": 60,
+    "hold_preview_ms": 100,
+    "frames": [
+      {
+        "index": 0,
+        "tag": "h",
+        "ticks": null,
+        "duration_ms": 100
+      },
+      {
+        "index": 1,
+        "tag": "v",
+        "ticks": null,
+        "duration_ms": 100
+      },
+      {
+        "index": 2,
+        "tag": "idler",
+        "ticks": null,
+        "duration_ms": 100
+      }
+    ]
+  }
+}

@@ -1,7 +1,7 @@
 {
   "format": "pixelart-asset-v1",
   "asset_id": "prop_stop_frame_remnant_v0",
-  "title": "DOZ-02 prop_stop_frame_remnant (design keys)",
+  "title": "DOZ-02 prop_stop_frame_remnant",
   "grid": "assets/source/props/stop_frame/prop_stop_frame_remnant.grid.json",
   "manifest": "assets/manifests/prop_stop_frame_remnant.json",
   "frame_size": [

@@ -153,7 +153,7 @@ mod room_exit_art;
 // CORRAL-WIRE and CORRAL-E: room 0's M3 gate grate and the rush stand-in (greybox).
 #[path = "floor01_scene/corral_art.rs"]
 mod corral_art;
-// DR-A: room 3's machine (the DOZ-01 rig) and its labelled environment stand-ins.
+// DR-A and DOZ-02: room 3's machine (the DOZ-01 rig and its damage states) and its room pieces.
 #[path = "floor01_scene/dozer_art.rs"]
 mod dozer_art;
 
@@ -5086,14 +5086,13 @@ fn setup(
         );
     }
 
-    // DR-A: the Dozer's DOZ-01 rig, its smoke, and the labelled stand-ins of the rear gate, the
-    // buffer stop and damage (until DOZ-02), only in room 3 (presentation only).
+    // DR-A and DOZ-02: the Dozer's rig and its damage states, its smoke, the crew's tumbles, the rear
+    // gate, the buffer stop and the stop frame, only in room 3 (presentation only).
     if args.dozer_run.is_some() {
         dozer_art::spawn(
             &mut commands,
             &asset_server,
             &mut layouts,
-            &mut images,
             layers_of("actors"),
             kit,
             &mut combat_handles,

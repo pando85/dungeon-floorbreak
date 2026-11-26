@@ -1,7 +1,7 @@
 {
   "format": "pixelart-asset-v1",
   "asset_id": "dozer_hull_damage_h120_v0",
-  "title": "DOZ-02 dozer_hull_damage_h120 (design keys)",
+  "title": "DOZ-02 dozer_hull_damage_h120",
   "grid": "assets/source/enemies/dozer/dozer_hull_damage_h120.grid.json",
   "manifest": "assets/manifests/dozer_hull_damage_h120.json",
   "frame_size": [

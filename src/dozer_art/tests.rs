@@ -182,36 +182,57 @@ fn the_chase_rattles_the_hull_and_the_riders_late_never_the_wheel() {
     }
 }
 
+/// The gate and the buffer stop are atlas sprites (DOZ-02): eight gate tiles stack to the lane ceiling
+/// with the last one cropped, the frame follows the machine's state, and nothing is a code-drawn rectangle.
 #[test]
-fn every_stand_in_is_labelled_and_the_machine_has_none() {
+fn the_room_pieces_are_atlas_sprites() {
     let (sim, _) = start(&root(), Mode::CarlSolo, 0).unwrap();
     let base = crate::dozer_fixtures::dozer_of(&sim).clone();
-    for state in [
-        DozerState::Dormant { ticks: 0 },
-        DozerState::Approaching { ticks_left: 40 },
-        DozerState::CommittedChase,
-        DozerState::Escaped(EscapePhase::Brake { k: 3 }),
-        DozerState::Escaped(EscapePhase::Strain { ticks_left: 50 }),
-        DozerState::Escaped(EscapePhase::Idle),
-        DozerState::ImpactStunned { ticks_left: 10 },
-        DozerState::Disabled,
+    for (state, gate_frame) in [
+        (DozerState::Dormant { ticks: 0 }, 0),
+        (DozerState::Approaching { ticks_left: 40 }, 1),
+        (DozerState::CommittedChase, 3),
+        (DozerState::Escaped(EscapePhase::Brake { k: 3 }), 3),
+        (
+            DozerState::Escaped(EscapePhase::Strain { ticks_left: 50 }),
+            3,
+        ),
+        (DozerState::Escaped(EscapePhase::Idle), 3),
+        (DozerState::ImpactStunned { ticks_left: 10 }, 3),
+        (DozerState::Disabled, 3),
     ] {
         let mut d = base.clone();
         d.state = state;
-        let (pieces, tags) = stand_ins(&d, 7);
-        assert!(pieces.len() <= MAX_STAND_INS && tags.len() <= MAX_TAGS);
-        assert!(!tags.is_empty());
-        for p in &pieces {
-            assert!(p.label.contains("stand-in until DOZ-02"), "{p:?}");
-            // Only the gate, the buffer stop and the damage marker: nothing is drawn over
-            // the machine's body except the jam bar of a damage state.
-            let gate_or_buffer = p.left + p.w <= 80 || p.left >= BUFFER_X.0;
-            assert!(gate_or_buffer || p.label == DAMAGE_LABEL, "{p:?}");
-        }
+        let mut pieces = Vec::new();
+        room_pieces(&d, 0, &mut pieces);
+        let gate: Vec<_> = pieces.iter().filter(|p| p.sheet == Sheet::Gate).collect();
+        assert_eq!(gate.len(), 8, "{state:?}");
+        assert!(gate.iter().all(|t| t.frame == gate_frame && t.z == Z_BACK));
+        let height: u32 = gate.iter().map(|t| t.visible().1).sum();
+        assert_eq!(
+            height, LANE_H_PX as u32,
+            "the gate stops at the lane ceiling"
+        );
+        assert_eq!(gate.iter().filter(|t| t.crop_top > 0).count(), 1);
+        let buffer: Vec<_> = pieces.iter().filter(|p| p.sheet == Sheet::Buffer).collect();
+        assert_eq!(buffer.len(), 1);
+        assert_eq!(buffer[0].left, BUFFER_X.0);
+        assert_eq!(buffer[0].bottom, d.floor_y.round() as i32);
+        assert_eq!(pieces.len(), 9);
         assert!(puffs(&d, 7).len() <= MAX_PUFFS);
     }
-    // The label font draws the tag.
-    assert!(crate::label_font::text_pixels(TAG_TEXT).is_some());
+    // The rumble shakes the gate: shake_0 then shake_1, 3 ticks each.
+    let mut d = base.clone();
+    d.state = DozerState::Approaching { ticks_left: 40 };
+    let frame_at = |tick| {
+        let mut p = Vec::new();
+        room_pieces(&d, tick, &mut p);
+        p[0].frame
+    };
+    assert_eq!(
+        (0..12).map(frame_at).collect::<Vec<_>>(),
+        [1, 1, 1, 2, 2, 2, 1, 1, 1, 2, 2, 2]
+    );
 }
 
 /// One run through every reachable state: hold at the close call's column until
@@ -251,7 +272,6 @@ fn drawing_never_changes_the_state_hash() {
     let exit_x = (exit.x + exit.w / 2) as f32;
     let mut states = std::collections::BTreeSet::new();
     let mut yelled = false;
-    let mut tags_seen = 0;
     let mut gate_bursts = 0;
     for _ in 0..2400 {
         if drawn.scene.world.complete {
@@ -267,10 +287,11 @@ fn drawing_never_changes_the_state_hash() {
             DozerState::Escaped(EscapePhase::Idle) => "idle",
             other => other.name(),
         });
+        // The rig's own parts (z 1..=7, the tumbling crew's Z_TUMBLE): none before the emergence.
         let machine = art
             .sprites
             .iter()
-            .filter(|s| s.sheet != Sheet::Smoke)
+            .filter(|s| (1..=7).contains(&s.z) || s.z == Z_TUMBLE)
             .count();
         assert_eq!(machine > 0, d.state.emerged(), "{}", art.state);
         assert!(
@@ -285,7 +306,6 @@ fn drawing_never_changes_the_state_hash() {
             .iter()
             .any(|s| s.sheet == Sheet::Riders && s.frame == rider::A_YELL_1)
             && d.state == DozerState::CommittedChase;
-        tags_seen = tags_seen.max(art.tags.len());
         // DR-D: the gate bursts as the machine comes out (two staggered bursts).
         for s in art.sprites.iter().filter(|s| s.sheet == Sheet::Splinter) {
             assert_eq!(s.left + 24, (GATE_X.0 + GATE_X.1) / 2);
@@ -320,17 +340,14 @@ fn drawing_never_changes_the_state_hash() {
     }
     assert!(yelled, "the riders yell at the close call");
     assert_eq!(gate_bursts, 2 * 4 * SPLINTER_FRAME_TICKS as usize);
-    // The gate, the buffer stop, the brace and the hanging frame.
-    assert_eq!(tags_seen, 4);
 }
 
-/// DR-B: the stop frame's stand-ins follow the frame through every state (the
-/// brace intact, weakened and snapped; the hanging frame and chain, the warning
-/// shake and its floor shadow, the fall, the remnant) and the rear glance
-/// plays after a late landing. Every piece is labelled, the pools hold, and
-/// drawing never changes the hash.
+/// DR-B and DOZ-02: the stop frame's sprites follow the frame through every state (the brace intact,
+/// weakened, snapped and swinging; the hanging frame on its pulley and haul line, the warning shake and its
+/// growing floor shadow, the fall, the remnant and its dust) and the rear glance plays after a late
+/// landing. The pools hold, and drawing never changes the hash.
 #[test]
-fn the_frame_stand_ins_follow_the_frame_and_the_rear_glance() {
+fn the_frame_sprites_follow_the_frame_and_the_rear_glance() {
     use crate::dozer_fixtures::{Stage, chase_at};
     use crate::env_prop::Stimulus;
     use crate::f01_late::Loadout;
@@ -345,9 +362,11 @@ fn the_frame_stand_ins_follow_the_frame_and_the_rear_glance() {
     )
     .unwrap();
     let mut twin = st.clone();
-    let mut labels = std::collections::BTreeSet::new();
-    let mut glance_pieces = 0;
+    let mut seen = std::collections::HashSet::new();
+    let mut glance_beams = 0;
+    let mut glance_shadows = 0;
     let mut splinters = 0;
+    let mut warn_frames = Vec::new();
     for k in 0..240u64 {
         let tick = st.tick();
         if k == 2 || k == 4 {
@@ -371,16 +390,36 @@ fn the_frame_stand_ins_follow_the_frame_and_the_rear_glance() {
         }
         let world = &st.sim.scene.world;
         let art = draw(&st.sim.combat, [world.hero.x, world.donut_body.x], tick).unwrap();
-        assert!(art.stand_ins.len() <= MAX_STAND_INS && art.tags.len() <= MAX_TAGS);
-        for p in &art.stand_ins {
-            assert!(p.label.contains("stand-in until DOZ-02"), "{p:?}");
-            labels.insert(p.label);
+        for s in &art.sprites {
+            assert!(u32::from(s.frame) < s.sheet.frames(), "{s:?}");
+            seen.insert((s.sheet, s.frame));
         }
-        glance_pieces += art
-            .stand_ins
+        glance_beams += art
+            .sprites
             .iter()
-            .filter(|p| p.label == GLANCE_LABEL)
+            .filter(|s| s.sheet == Sheet::StopGlance && s.frame < 3)
             .count();
+        glance_shadows += art
+            .sprites
+            .iter()
+            .filter(|s| s.sheet == Sheet::StopGlance && s.frame == 3)
+            .count();
+        if let Some(f) = art
+            .sprites
+            .iter()
+            .find(|s| s.sheet == Sheet::StopFrame && (2..=3).contains(&s.frame))
+        {
+            warn_frames.push(f.frame);
+        }
+        // The pulley stays on the ceiling anchor, in every state.
+        assert_eq!(
+            art.sprites
+                .iter()
+                .filter(|s| s.sheet == Sheet::StopFrame && s.frame == 1)
+                .count(),
+            1,
+            "tick {tick}"
+        );
         // DR-D: the splinter burst sits on the centre of the brace (its pivot).
         let d = dozer_of(&st.sim.combat).unwrap();
         let brace = brace_centre(d, st.sim.combat.env().unwrap()).unwrap();
@@ -389,27 +428,320 @@ fn the_frame_stand_ins_follow_the_frame_and_the_rear_glance() {
             assert_eq!(s.z, FX_Z);
             splinters += 1;
         }
-        assert!(art.sprites.len() <= Part::ALL.len() + MAX_PUFFS + MAX_FX);
+        assert!(art.sprites.len() <= MAX_SPRITES);
         st.step(RawInput::NONE);
         twin.step(RawInput::NONE);
         assert_eq!(st.hash(), twin.hash(), "tick {tick}");
     }
-    for label in [
-        BRACE_LABEL,
-        BRACE_WEAK_LABEL,
-        BRACE_SNAPPED_LABEL,
-        FRAME_LABEL,
-        FRAME_WARN_LABEL,
-        FRAME_SHADOW_LABEL,
-        FRAME_FALL_LABEL,
-        REMNANT_LABEL,
-        GLANCE_LABEL,
+    for (sheet, frame) in [
+        (Sheet::StopBrace, 0),
+        (Sheet::StopBrace, 1),
+        (Sheet::StopBrace, 2),
+        (Sheet::StopBrace, 3),
+        (Sheet::StopFrame, 0),
+        (Sheet::StopFrame, 1),
+        (Sheet::StopFrame, 2),
+        (Sheet::StopFrame, 3),
+        (Sheet::StopFrame, 4),
+        (Sheet::StopShadow, 0),
+        (Sheet::StopShadow, 1),
+        (Sheet::StopShadow, 2),
+        (Sheet::StopShadow, 3),
+        (Sheet::StopRemnant, 0),
+        (Sheet::Haul, 0),
+        (Sheet::Haul, 1),
+        (Sheet::Haul, 2),
+        (Sheet::StopGlance, 0),
+        (Sheet::StopGlance, 1),
+        (Sheet::StopGlance, 2),
+        (Sheet::StopGlance, 3),
     ] {
-        assert!(labels.contains(label), "{label} not drawn: {labels:?}");
+        assert!(
+            seen.contains(&(sheet, frame)),
+            "{sheet:?} {frame} not drawn"
+        );
     }
-    assert_eq!(glance_pieces, GLANCE_TICKS as usize);
+    // Landing dust: the smoke atlas in front of the actors.
+    assert!(seen.contains(&(Sheet::Smoke, SMOKE_STEAM_FIRST)));
+    // The warning alternates warn_0 and warn_1 every 3 ticks.
+    assert!(warn_frames.windows(2).any(|w| w[0] != w[1]));
+    let mut runs: Vec<usize> = Vec::new();
+    for (n, f) in warn_frames.iter().enumerate() {
+        if n > 0 && *f == warn_frames[n - 1] {
+            *runs.last_mut().unwrap() += 1;
+        } else {
+            runs.push(1);
+        }
+    }
+    // Every complete run of a warning frame is 3 ticks (the first and the last may be cut by the
+    // warning's edges).
+    assert!(runs.len() >= 8, "{runs:?}");
+    assert!(runs[1..runs.len() - 1].iter().all(|r| *r == 3), "{runs:?}");
+    assert_eq!(glance_beams, GLANCE_TICKS as usize);
+    assert_eq!(
+        glance_shadows, 8,
+        "the shadow lies under the first two frames"
+    );
     // The melee hit and the blast's release: one 4-frame burst each.
     assert_eq!(splinters, 2 * 4 * SPLINTER_FRAME_TICKS as usize);
+}
+
+/// DOZ-02: the presenter's constants are the contract's numbers.
+#[test]
+fn the_damage_contract_is_the_presenters() {
+    let c = json(&root().join("assets/source/enemies/dozer/dozer_damage_h120.json"));
+    assert_eq!(c["format"], "dozer-damage-v0");
+    let hull = c["timing"]["impact_stunned"]["hull"].as_array().unwrap();
+    assert_eq!(
+        hull[0],
+        serde_json::json!(["pitch_0", 0, PITCH_TICKS[0] - 1])
+    );
+    assert_eq!(
+        hull[1],
+        serde_json::json!([
+            "pitch_1",
+            PITCH_TICKS[0],
+            PITCH_TICKS[0] + PITCH_TICKS[1] - 1
+        ])
+    );
+    assert_eq!(hull[2][1], PITCH_TICKS[0] + PITCH_TICKS[1]);
+    for (n, state) in ["pitch_0", "pitch_1", "disabled"].into_iter().enumerate() {
+        let seats = &c["pitch"]["rider_seat_dy"][state];
+        assert_eq!(
+            [
+                seats["engineer"].as_i64(),
+                seats["rider_a"].as_i64(),
+                seats["rider_b"].as_i64()
+            ],
+            SEAT_DY[n].map(|v| Some(i64::from(v))),
+            "{state}"
+        );
+    }
+    assert_eq!(
+        c["emitters"]["steam_leak"],
+        serde_json::json!([STEAM_LEAK.0, STEAM_LEAK.1])
+    );
+    assert_eq!(
+        c["emitters"]["stack_crooked"],
+        serde_json::json!([STACK_CROOKED.0, STACK_CROOKED.1])
+    );
+    let sf = &c["stop_frame"];
+    assert_eq!(sf["warning"]["alternate_ticks"], FRAME_SHAKE_TICKS);
+    let glance = sf["glance"]["frames"].as_array().unwrap();
+    for (n, f) in glance.iter().enumerate() {
+        assert_eq!(f["ticks"], GLANCE_FRAME_TICKS[n]);
+        assert_eq!(
+            f["offset"],
+            serde_json::json!([GLANCE_OFFSETS[n].0, GLANCE_OFFSETS[n].1])
+        );
+    }
+    assert_eq!(GLANCE_FRAME_TICKS.iter().sum::<u64>(), GLANCE_TICKS);
+    assert_eq!(sf["brace"]["swing"]["ticks_each"], BRACE_SWING_TICKS);
+    assert_eq!(sf["brace"]["swing"]["for_ticks"], BRACE_SWING_FOR);
+    let tumble = &c["crew"]["tumble"];
+    assert_eq!(tumble["start_tick"]["rider_a"], TUMBLE_START[0]);
+    assert_eq!(tumble["start_tick"]["rider_b"], TUMBLE_START[1]);
+    assert_eq!(tumble["airborne_ticks"], TUMBLE_AIR_TICKS);
+    assert_eq!(c["crew"]["slump"]["ticks_each"], SLUMP_FRAME_TICKS);
+    assert_eq!(c["room_pieces"]["gate"]["tile_px"], GATE_TILE_PX);
+    // The roster's landing columns (DZ-Q20) are the tumble's ends.
+    let encounter = json(&root().join("assets/levels/floor01/f01_dozer.encounter.json"));
+    for (n, id) in ["rider_a", "rider_b"].into_iter().enumerate() {
+        let row = encounter["roster"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|r| r["id"] == id)
+            .unwrap();
+        assert_eq!(row["dzq20_land_dx"], TUMBLE_LAND_DX[n], "{id}");
+    }
+    // The contract's glance anchor is the presenter's rule at rig scale: the beam's left end 8 px in from the
+    // push box's rear, the beam centre 40 px on, its bottom on the deck.
+    let rear = -84;
+    assert_eq!(
+        c["stop_frame"]["glance"]["anchor_rig"][0],
+        rear + GLANCE_INSET_PX + 40
+    );
+}
+
+/// DOZ-02: a struck machine draws the damage atlases on the contract's schedule: the pitch frames (6 + 6
+/// ticks, then level) on the hull, cab and tub, the jammed wheel and the bent yoke from the first tick,
+/// the seats on the pitch, the crew thrown out and the driver slumped.
+#[test]
+fn a_struck_machine_draws_the_damage_atlases_on_the_schedule() {
+    let (sim, _) = start(&root(), Mode::CarlSolo, 0).unwrap();
+    let mut d = crate::dozer_fixtures::dozer_of(&sim).clone();
+    d.o = 700.0;
+    let total = d.tuning.dzq15_stunned_ticks;
+    assert_eq!(total, 48);
+    let floor = d.floor_y as i32;
+    for age in 0..=u64::from(total) {
+        d.state = if age < u64::from(total) {
+            DozerState::ImpactStunned {
+                ticks_left: total - age as u16,
+            }
+        } else {
+            DozerState::Disabled
+        };
+        assert_eq!(stun_age(&d), Some(age));
+        let sprites = rig_sprites(&d, age, false, [true; 2]);
+        let pitch = pitch_frame(age);
+        assert_eq!(
+            pitch,
+            if age < 6 {
+                0
+            } else if age < 12 {
+                1
+            } else {
+                2
+            }
+        );
+        let find = |sheet: Sheet| sprites.iter().find(|s| s.sheet == sheet);
+        for sheet in [
+            Sheet::HullDamage,
+            Sheet::FrontCabDamage,
+            Sheet::FrontTubDamage,
+        ] {
+            assert_eq!(find(sheet).unwrap().frame, pitch, "{sheet:?} age {age}");
+        }
+        assert_eq!(find(Sheet::WheelJammed).unwrap().frame, 0);
+        assert_eq!(find(Sheet::YokeBent).unwrap().frame, 0);
+        for undamaged in [
+            Sheet::Hull,
+            Sheet::FrontCab,
+            Sheet::FrontTub,
+            Sheet::Wheel,
+            Sheet::Yoke,
+        ] {
+            assert!(find(undamaged).is_none(), "{undamaged:?} age {age}");
+        }
+        // The tread holds still on the floor (never the hull's pitch).
+        assert_eq!(find(Sheet::Tread).unwrap().bottom, floor);
+        // The seats follow the pitch: the hull's seat rows move with the columns under them.
+        let engineer = if age >= LURCH_TICKS {
+            find(Sheet::Slump).unwrap()
+        } else {
+            sprites
+                .iter()
+                .find(|s| s.sheet == Sheet::Riders && s.frame == rider::ENGINEER_LURCH_FORWARD)
+                .unwrap()
+        };
+        assert_eq!(
+            engineer.bottom,
+            floor + Part::Engineer.anchor().1 + SEAT_DY[usize::from(pitch)][0]
+        );
+        assert_eq!(age >= LURCH_TICKS, find(Sheet::Slump).is_some());
+        for (i, start) in TUMBLE_START.into_iter().enumerate() {
+            let tumbling = sprites
+                .iter()
+                .any(|s| s.sheet == Sheet::Tumble && (usize::from(s.frame) / 3 == i));
+            assert_eq!(tumbling, age >= start, "rider {i} age {age}");
+            let lurching = sprites.iter().any(|s| {
+                s.sheet == Sheet::Riders
+                    && s.frame == [rider::A_LURCH_FORWARD, rider::B_LURCH_FORWARD][i]
+            });
+            assert_eq!(lurching, age < start, "rider {i} age {age}");
+        }
+    }
+}
+
+/// DOZ-02 (DZ2-Q1): a thrown rider leaves its seat, peaks 12 px above the line from seat to landing, and lies
+/// on the floor at the column where the simulation's goblin lands (the wheel front plus `dzq20_land_dx`),
+/// in the three poses at 6, 24 and every tick after.
+#[test]
+fn a_thrown_rider_ends_where_the_goblin_lands() {
+    let (sim, _) = start(&root(), Mode::CarlSolo, 0).unwrap();
+    let mut d = crate::dozer_fixtures::dozer_of(&sim).clone();
+    d.o = 700.0;
+    d.state = DozerState::Disabled;
+    let floor = d.floor_y.round() as i32;
+    let seat = (
+        700 + Part::RiderA.anchor().0,
+        floor + Part::RiderA.anchor().1,
+    );
+    assert!(tumble_sprite(&d, 0, TUMBLE_START[0] - 1, seat).is_none());
+    let mut poses = Vec::new();
+    let mut highest = 0;
+    for t in 0..40 {
+        let s = tumble_sprite(&d, 0, TUMBLE_START[0] + t, seat).unwrap();
+        assert_eq!(s.sheet, Sheet::Tumble);
+        assert_eq!(s.z, Z_TUMBLE);
+        poses.push(s.frame);
+        highest = highest.max(s.bottom - floor);
+    }
+    assert_eq!(poses[0], 0);
+    assert_eq!(poses[TUMBLE_POSE_TICKS as usize - 1], 0);
+    assert_eq!(poses[TUMBLE_POSE_TICKS as usize], 1);
+    assert_eq!(poses[TUMBLE_AIR_TICKS as usize - 1], 1);
+    assert_eq!(poses[TUMBLE_AIR_TICKS as usize], 2);
+    assert!(
+        highest <= seat.1 - floor + TUMBLE_ARC_UP_PX as i32,
+        "{highest}"
+    );
+    for (rider, dx) in TUMBLE_LAND_DX.into_iter().enumerate() {
+        let a = Part::ALL[3 + rider].anchor();
+        let seat = (700 + a.0, floor + a.1);
+        let s = tumble_sprite(&d, rider, TUMBLE_START[rider] + 40, seat).unwrap();
+        // Pivot x is 32 px in from the left; the feet are on the walking line.
+        assert_eq!(s.left + 32, (d.wheel_front() + dx as f32).round() as i32);
+        assert_eq!(s.bottom, floor);
+        assert_eq!(u32::from(s.frame), 2 + 3 * rider as u32);
+    }
+}
+
+/// DOZ-02: the struck machine's steam and smoke: a puff every 6 ticks from the boiler crack over the stun
+/// and one black puff from the knocked stack on the first tick; a disabled machine gives one thin puff
+/// every 40 ticks and one wisp every 60, nothing else.
+#[test]
+fn the_leak_and_the_stack_follow_the_damage_schedule() {
+    let (sim, _) = start(&root(), Mode::CarlSolo, 0).unwrap();
+    let mut d = crate::dozer_fixtures::dozer_of(&sim).clone();
+    d.o = 700.0;
+    let total = d.tuning.dzq15_stunned_ticks;
+    let count = |d: &Dozer, tick: u64, first: u8, last: u8| {
+        puffs(d, tick)
+            .iter()
+            .filter(|p| (first..=last).contains(&p.frame))
+            .count()
+    };
+    let black = SMOKE_BLACK_FIRST;
+    let steam = SMOKE_STEAM_FIRST;
+    for age in 0..u64::from(total) {
+        d.state = DozerState::ImpactStunned {
+            ticks_left: total - age as u16,
+        };
+        let drawn = puffs(&d, age);
+        assert!(drawn.len() <= MAX_PUFFS);
+        // A steam puff is born every 6 ticks and lives 15: two or three alive at any time.
+        let alive = count(&d, age, steam, steam + 4);
+        assert!((2..=3).contains(&alive) || age < 12, "age {age}: {alive}");
+        assert_eq!(
+            count(&d, age, black, black + 5),
+            usize::from(age < BLACK_LIFE)
+        );
+    }
+    d.state = DozerState::Disabled;
+    let mut steam_puffs = 0;
+    let mut wisps = 0;
+    for tick in 0..120u64 {
+        let drawn = puffs(&d, tick);
+        assert!(drawn.len() <= 2);
+        steam_puffs += usize::from(tick % DISABLED_STEAM_EVERY == 0);
+        wisps += usize::from(tick % DISABLED_WISP_EVERY == 0);
+        for p in drawn {
+            // Only steam_0..2 and black_3..5 (thin and slow).
+            assert!(
+                (steam..=steam + 2).contains(&p.frame)
+                    || (black + 3..=black + 5).contains(&p.frame),
+                "tick {tick}: frame {}",
+                p.frame
+            );
+        }
+    }
+    assert_eq!((steam_puffs, wisps), (3, 2));
+    assert_eq!(count(&d, 0, steam, steam), 1);
+    assert_eq!(count(&d, 0, black + 3, black + 3), 1);
+    assert_eq!(count(&d, 20, steam, black + 5), 0);
 }
 
 /// DR-D: a melee clang sparks on the hull face nearest the hitter, at chest
@@ -501,7 +833,7 @@ fn the_rig_draws_a_rider_only_while_it_is_carried() {
         let seated = [Seat::RiderA, Seat::RiderB].map(|s| c.seat_taken(s));
         rig_sprites(d, 0, false, seated)
             .iter()
-            .filter(|s| s.sheet == Sheet::Riders)
+            .filter(|s| matches!(s.sheet, Sheet::Riders | Sheet::Slump | Sheet::Tumble))
             .count()
     };
     let r = root();

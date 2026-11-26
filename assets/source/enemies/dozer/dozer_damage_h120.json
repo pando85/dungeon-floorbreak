@@ -1,6 +1,6 @@
 {
   "format": "dozer-damage-v0",
-  "status": "DOZ-02 design keys; the remaining frames, the export and the Bevy wiring follow the execution brief; independent review pending",
+  "status": "DOZ-02 design keys and execution frames, wired into room 3's presenter (src/dozer_art.rs); independent review pending",
   "spec": "docs/02-art/doz-02-dozer-damage-spec.md",
   "coordinates": "as dozer_rig_h120.json: px from the rig origin O, x forward (mirror when facing left), y up; prop parts: px from the room's stop-frame rectangles (layout px, y down in the room file)",
   "replaces": {
@@ -146,7 +146,113 @@
     "anchor": "the hanging mass rectangle's bottom-left pixel (falls with it); the pulley frame stays at the raised anchor in every state",
     "frames": {
       "raised": "Supported, Weakened",
-      "pulley": "every state, at the raised anchor"
+      "pulley": "every state, at the raised anchor",
+      "warn_0": "Released, first 3 ticks of each 6 (shifted 1 px left)",
+      "warn_1": "Released, last 3 ticks of each 6 (shifted 1 px right)",
+      "falling": "Falling (8 ticks)"
+    },
+    "warning": {
+      "ticks": 30,
+      "alternate_ticks": 3,
+      "frames": [
+        "warn_0",
+        "warn_1"
+      ],
+      "shadow": {
+        "atlas": "prop_stop_frame_shadow",
+        "pivot": [
+          0,
+          3
+        ],
+        "frames": [
+          "s0",
+          "s1",
+          "s2",
+          "s3"
+        ],
+        "ticks_each": [
+          8,
+          8,
+          7,
+          7
+        ],
+        "size_px": [
+          [
+            40,
+            1
+          ],
+          [
+            53,
+            2
+          ],
+          [
+            67,
+            3
+          ],
+          [
+            80,
+            4
+          ]
+        ],
+        "alpha": [
+          0.3,
+          0.6
+        ],
+        "anchor": "the footprint's bottom-left pixel (80 x 4 canvas)"
+      }
+    },
+    "falling": {
+      "ticks": 8,
+      "pulley": "stays at the raised anchor"
+    },
+    "glance": {
+      "atlas": "prop_stop_frame_glance",
+      "pivot": [
+        44,
+        44
+      ],
+      "frame_size": [
+        88,
+        88
+      ],
+      "anchor": "the beam centre on the rear deck contact point",
+      "anchor_rig": [
+        -36,
+        116
+      ],
+      "frames": [
+        {
+          "tag": "glance_0",
+          "ticks": 4,
+          "offset": [
+            0,
+            0
+          ],
+          "deg": 0,
+          "fx": "vfx_hit_spark_metal at the contact on the deck"
+        },
+        {
+          "tag": "glance_1",
+          "ticks": 4,
+          "offset": [
+            -6,
+            0
+          ],
+          "deg": -15
+        },
+        {
+          "tag": "glance_2",
+          "ticks": 6,
+          "offset": [
+            -16,
+            -8
+          ],
+          "deg": -35
+        }
+      ],
+      "shadow": "the shadow frame under the beam, alpha 0.45",
+      "then": "the remnant landed drops in behind the machine; the hull shows no damage overlay",
+      "method": "the beam redrawn column by column (no resampling; the lengthwise squeeze drops columns, a rivet column is never dropped)"
     },
     "remnant": {
       "atlas": "prop_stop_frame_remnant",
@@ -168,8 +274,120 @@
       ],
       "anchor": "the prop target rectangle's bottom-left pixel",
       "frames": {
-        "intact": "Supported"
+        "intact": "Supported",
+        "weakened": "Weakened (one hit of two)",
+        "snapped": "Released onward",
+        "snapped_swing": "Released onward, alternate"
+      },
+      "swing": {
+        "ticks_each": 8,
+        "for_ticks": 48,
+        "then": "snapped (still)"
       }
+    }
+  },
+  "room_pieces": {
+    "gate": {
+      "atlas": "env_dozer_gate",
+      "tile_px": 32,
+      "stack": "tiles from the walking line up to the lane ceiling (228 px; the last tile is cropped)",
+      "x": [
+        0,
+        32
+      ],
+      "frames": {
+        "closed": "dormant and every state before the rumble",
+        "shake_0": "approaching, alternate with shake_1 every 3 ticks",
+        "shake_1": "approaching",
+        "burst": "from the emergence on"
+      },
+      "solid": false
+    },
+    "buffer": {
+      "atlas": "env_dozer_buffer",
+      "size_px": [
+        16,
+        24
+      ],
+      "x": [
+        1008,
+        1024
+      ],
+      "anchor": "the pivot pixel on the walking line at x 1008",
+      "solid": false
+    },
+    "lintel": {
+      "atlas": "env_dozer_lintel",
+      "tile_px": 32,
+      "frames": [
+        "mouth",
+        "fill"
+      ],
+      "clear_px": 112,
+      "inner_shadow_px": 8,
+      "wired": "no (the room's solid lintel is drawn by the Floor 1 kit)"
+    },
+    "haul": {
+      "atlas": "env_dozer_haul",
+      "frame_px": [
+        12,
+        12
+      ],
+      "content_px": 8,
+      "frames": {
+        "h": "horizontal run",
+        "v": "vertical run",
+        "idler": "corner pulley above the brace"
+      },
+      "route": "the pulley stub along the ceiling to the idler over the brace, then down to the horn"
+    }
+  },
+  "crew": {
+    "tumble": {
+      "atlas": "dozer_rider_tumble_h120",
+      "pivot": [
+        32,
+        55
+      ],
+      "frames": {
+        "rider_a": [
+          "rider_a_tumble_0",
+          "rider_a_tumble_1",
+          "rider_a_tumble_2"
+        ],
+        "rider_b": [
+          "rider_b_tumble_0",
+          "rider_b_tumble_1",
+          "rider_b_tumble_2"
+        ]
+      },
+      "start_tick": {
+        "rider_a": 12,
+        "rider_b": 16
+      },
+      "airborne_ticks": 24,
+      "arc_up_px": 12,
+      "tumble_0_ticks": 6,
+      "design_forward_px": {
+        "rider_a": 28,
+        "rider_b": 36
+      },
+      "runtime_landing": "the arc ends at the wheel front plus the roster's dzq20_land_dx (A 32, B 72), where the simulation's goblin lands on the disable tick (DZ2-Q1)",
+      "then": "tumble_2 held on the floor until the disable tick; the simulation's goblin takes over"
+    },
+    "slump": {
+      "atlas": "dozer_engineer_slump_h120",
+      "pivot": [
+        28,
+        55
+      ],
+      "frames": [
+        "engineer_slump_0",
+        "engineer_slump_1"
+      ],
+      "ticks_each": 30,
+      "from": "impact_stunned tick 12 and every disabled tick (loop)",
+      "before": "engineer_lurch_forward on ticks 0..11"
     }
   }
 }

@@ -1,0 +1,128 @@
+{
+ "format": "pixel-grid-v1",
+ "canvas": [
+  16,
+  24
+ ],
+ "pivot": [
+  0,
+  23
+ ],
+ "palette": [
+  {
+   "key": "K",
+   "name": "outline_plum",
+   "rgba": "#1b1124ff"
+  },
+  {
+   "key": "0",
+   "name": "iron_0",
+   "rgba": "#121220ff"
+  },
+  {
+   "key": "1",
+   "name": "iron_1",
+   "rgba": "#1e2032ff"
+  },
+  {
+   "key": "2",
+   "name": "iron_2",
+   "rgba": "#2c3046ff"
+  },
+  {
+   "key": "3",
+   "name": "iron_3",
+   "rgba": "#3f445eff"
+  },
+  {
+   "key": "4",
+   "name": "iron_4",
+   "rgba": "#575e7aff"
+  },
+  {
+   "key": "5",
+   "name": "iron_5",
+   "rgba": "#78809aff"
+  },
+  {
+   "key": "6",
+   "name": "iron_6",
+   "rgba": "#a3abbfff"
+  },
+  {
+   "key": "7",
+   "name": "iron_glint",
+   "rgba": "#dde2ecff",
+   "accent": true
+  },
+  {
+   "key": "c",
+   "name": "copper_1",
+   "rgba": "#3a1a14ff"
+  },
+  {
+   "key": "g",
+   "name": "copper_3",
+   "rgba": "#823e1eff"
+  },
+  {
+   "key": "h",
+   "name": "copper_4",
+   "rgba": "#a85626ff"
+  },
+  {
+   "key": "i",
+   "name": "copper_5",
+   "rgba": "#cc7332ff"
+  },
+  {
+   "key": "S",
+   "name": "brass_4",
+   "rgba": "#bc9a3aff"
+  }
+ ],
+ "layers": [
+  "buffer"
+ ],
+ "frames": [
+  {
+   "duration_ms": 100,
+   "cels": {
+    "buffer": [
+     ".....K5551K.....",
+     ".....K5551K.....",
+     ".....KS0S0K.....",
+     ".....K0S0SK.....",
+     ".....KS0S0K.....",
+     ".....K5431K.....",
+     ".....K5431K.....",
+     ".KKKKKKKKKKKKKK.",
+     "KiiiiiiiiiiiiicK",
+     "KihhchhhhhhcggcK",
+     "KihhchhhhhhcggcK",
+     "KiSSc0SS00Sc00cK",
+     "Ki0SS00SS00SS0cK",
+     "Ki00SS00SS00SScK",
+     "KiS00SS00SS00ScK",
+     "KiSS00SS00SS00cK",
+     "KihhhhhhhhhgggcK",
+     "KihhchhhhhhcggcK",
+     "KihhchhhhhhcggcK",
+     "KKKKKKKKKKKKKKKK",
+     "6666666666666663",
+     "6333333333333333",
+     "0722222222222270",
+     "0000000000000000"
+    ]
+   }
+  }
+ ],
+ "tags": [
+  {
+   "name": "idle",
+   "from": 0,
+   "to": 0,
+   "direction": "forward"
+  }
+ ]
+}

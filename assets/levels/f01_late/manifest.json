@@ -1,6 +1,6 @@
 {
   "schema": "f01-late-manifest-v1",
-  "status": "PT-SCENE (docs/07-agents/f01-playtest-integration-plan.md section 4.7, section 8, KR12). The rooms of the late-Floor-1 playtest slice that can be launched with `--scene f01_late --f01-room <id>`. A room is listed only once it has landed; later steps append their rows (CORRAL-F listed corral first, at milestone greybox, once CORRAL-AUTO passed: the floor run starts in room 0; DR-A listed dozer, between boiler and hazards; RING-A/B wire listed ring_court and ring_split, between hazards and juicer; PT-MASTERY listed mastery; HAZ-A2b listed hazards; PTG-AD1 unlisted hoarder, PR-E (FA-Q24) lists it again: it reverses PTG-AD1, and the room is also reachable as `--scene f01_hoarder`) and re-pin the manifest hash in src/f01_late.rs. `unlisted_rooms` holds rooms that launch by id with `--f01-room` but are not listed: no floor run (`--f01-run`) walks them and the listed set is unchanged (plan section 14.7; CORRAL-WIRE held corral there until CORRAL-F listed it, and it is empty now). `story_order` is the static order of every slice room and grant point, listed or not, that the KR12 pin test reads: no room pin holds a capability whose grant point comes later.",
+  "status": "PT-SCENE (docs/07-agents/f01-playtest-integration-plan.md section 4.7, section 8, KR12). The rooms of the late-Floor-1 playtest slice that can be launched with `--scene f01_late --f01-room <id>`. A room is listed only once it has landed; later steps append their rows (CORRAL-F listed corral first, at milestone greybox, once CORRAL-AUTO passed: the floor run starts in room 0; DR-A listed dozer, between boiler and hazards, at milestone greybox; DOZ-02 moved it to setpiece once its damage states, crew, rear gate, buffer stop and stop frame art were wired; RING-A/B wire listed ring_court and ring_split, between hazards and juicer; PT-MASTERY listed mastery; HAZ-A2b listed hazards; PTG-AD1 unlisted hoarder, PR-E (FA-Q24) lists it again: it reverses PTG-AD1, and the room is also reachable as `--scene f01_hoarder`) and re-pin the manifest hash in src/f01_late.rs. `unlisted_rooms` holds rooms that launch by id with `--f01-room` but are not listed: no floor run (`--f01-run`) walks them and the listed set is unchanged (plan section 14.7; CORRAL-WIRE held corral there until CORRAL-F listed it, and it is empty now). `story_order` is the static order of every slice room and grant point, listed or not, that the KR12 pin test reads: no room pin holds a capability whose grant point comes later.",
   "rooms": [
     {
       "id": "corral",
@@ -28,7 +28,7 @@
       "title": "The Machine Remembers",
       "scene": "f01_dozer",
       "rules": "cf02_rules",
-      "milestone": "greybox"
+      "milestone": "setpiece"
     },
     {
       "id": "hazards",

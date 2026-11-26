@@ -439,10 +439,11 @@ def frame_raster() -> "ad.Raster":
     return ad.Raster(w, h, FRAME_PIVOT[0], FRAME_PIVOT[1], 1.0)
 
 
-def stop_frame_raised() -> list[list[str]]:
+def stop_frame_raised(slack: bool = False) -> list[list[str]]:
     """The hanging press frame: a riveted rust-primer I-beam (flanges and web) with hazard stencils at both
     ends, the round tie bar slung under it on two straps, two lifting lugs, a V sling of chain to one hook and
-    the hook's chain up to the block."""
+    the hook's chain up to the block. ``slack`` is the ``falling`` frame (execution): both sling legs bow 2 px
+    outward, the hook chain hangs in a loose S and a motion streak trails above each lug."""
     rs = frame_raster()
     rs.capsule((2.6, 2.4), (77.4, 2.4), 1.6, RUST, mode="cyl_h", y0=0.8, y1=4.0, outline=True)
     straps = [rs.rect(11, 3.5, 15, 6.6, IRON, level=2, outline=True),
@@ -471,12 +472,93 @@ def stop_frame_raised() -> list[list[str]]:
     rs.put(HOOK[0], HOOK[1], "K", {hook})
     rows = [r[:] for r in rs.key]
     hx, hy = rs.to_px(*HOOK)
+    lug_cols = []
     for i, lx in enumerate(LUGS):
         c, r = rs.to_px(lx, 19.6)
-        chain_line(rows, (c, r - 1), (hx - 2 if i == 0 else hx + 2, hy + 1))
+        p0, p1 = (c, r - 1), (hx - 2 if i == 0 else hx + 2, hy + 1)
+        if slack:
+            mid = ((p0[0] + p1[0]) // 2 + (-SLING_BOW if i == 0 else SLING_BOW), (p0[1] + p1[1]) // 2)
+            chain_line(rows, p0, mid)
+            chain_line(rows, mid, p1)
+        else:
+            chain_line(rows, p0, p1)
+        lug_cols.append((c, r))
     _c, rb = rs.to_px(CENTRE_X, BLOCK[1])
-    chain_v(rows, hx, rb + 1, hy - 3, phase=1)
+    if slack:
+        for n, r in enumerate(range(rb + 1, hy - 2)):                       # the loose S of the hook chain
+            off = HOOK_S[n % len(HOOK_S)]
+            for k, key in enumerate(CHAIN_V[(n + 1) % 4]):
+                if key != ".":
+                    rows[r][hx - 1 + k + off] = key
+        for c, r in lug_cols:                                               # a streak above each lug
+            for rr in range(r - 8, r - 2):
+                assert rows[rr][c + 1] == ".", (c + 1, rr)
+                rows[rr][c + 1] = "3"
+    else:
+        chain_v(rows, hx, rb + 1, hy - 3, phase=1)
     return ad.despeckle(rows)
+
+
+SLING_BOW = 2
+HOOK_S = (0, 1, 1, 0, -1, -1, 0)
+
+
+def shift_x(rows: list[list[str]], dx: int) -> list[list[str]]:
+    """Translate every pixel ``dx`` columns (no resampling); a pixel leaving the canvas is an error."""
+    h, w = len(rows), len(rows[0])
+    out = [["."] * w for _ in range(h)]
+    for r in range(h):
+        for c in range(w):
+            if rows[r][c] != ".":
+                if not 0 <= c + dx < w:
+                    raise ValueError(f"column {c} leaves the canvas at shift {dx}")
+                out[r][c + dx] = rows[r][c]
+    return out
+
+
+# dust motes shaken loose by the warning: 2 or 3 px of `5`/`4` beside each lug (frame px, key); the two
+# warning frames carry different sets, so the pair flickers as it alternates every 3 ticks
+WARN_MOTES = {
+    0: (((12, 41), "5"), ((11, 41), "4"), ((12, 42), "4"), ((83, 38), "5"), ((84, 38), "4")),
+    1: (((11, 43), "5"), ((12, 43), "4"), ((84, 40), "5"), ((83, 41), "4"), ((84, 41), "4")),
+}
+
+
+def stop_frame_warn(i: int) -> list[list[str]]:
+    """``warn_0`` / ``warn_1``: the raised key 1 px left / right, with dust motes (execution)."""
+    rows = shift_x(stop_frame_raised(), -1 if i == 0 else 1)
+    for (c, r), k in WARN_MOTES[i]:
+        assert rows[r][c] == ".", (i, c, r)
+        rows[r][c] = k
+    return rows
+
+
+def stop_frame_falling() -> list[list[str]]:
+    """``falling`` (execution): the raised key with the sling slack and a motion streak above each lug."""
+    return stop_frame_raised(slack=True)
+
+
+# ------------------------------------------------------------------ the floor shadow (execution)
+
+SHADOW_CANVAS = (80, 4)
+SHADOW_PIVOT = (0, 3)
+# Row widths (top to bottom) of the four shadow frames: the warning grows it 40 x 1 -> 80 x 4 px (alpha 0.3 -> 0.6)
+SHADOW_ROWS = ((40,), (48, 53), (54, 64, 67), (58, 74, 80, 70))
+
+
+def centred_rows(canvas_w: int, widths: tuple[int, ...], canvas_h: int, key: str = "K") -> list[list[str]]:
+    """Rows of ``key`` with the given widths, each centred on the canvas, stacked on the canvas bottom."""
+    rows = [["."] * canvas_w for _ in range(canvas_h)]
+    for j, w in enumerate(widths):
+        r = canvas_h - len(widths) + j
+        c0 = (canvas_w - w) // 2
+        for c in range(c0, c0 + w):
+            rows[r][c] = key
+    return rows
+
+
+def shadow_frame(i: int) -> list[list[str]]:
+    return centred_rows(SHADOW_CANVAS[0], SHADOW_ROWS[i], SHADOW_CANVAS[1])
 
 
 def stop_frame_pulley() -> list[list[str]]:
@@ -589,6 +671,327 @@ def brace_intact() -> list[list[str]]:
     return ad.despeckle(rows)
 
 
+# ------------------------------------------------------------------ the rear glance (execution, section 4.3)
+
+GLANCE_CANVAS = (88, 88)
+GLANCE_PIVOT = (44, 44)                    # the beam's centre
+GLANCE_DEG = (0, 15, 35)                   # glance_0..2: the left end tips toward the rear (down)
+GLANCE_DROP0 = 2                           # glance_0 sits 2 px lower than the raised key
+GLANCE_SHADOW = (64, 3)
+GLANCE_OFFSETS = ((0, 0), (-6, 0), (-16, -8))   # px from the strike position (x forward, y up) per frame
+# The strike position in rig px (x from O, y up): the beam's centre over the hull's rear deck, its left end 8 px in
+# from the rear of the push box (x -84) and its bottom on the rear deck (the cab roof, 108: 12 px under the push
+# box's top): the presenter's rule at rig scale.
+GLANCE_ANCHOR_RIG = (-36, 116)
+
+
+def beam_rows() -> list[list[str]]:
+    """The 80 x 16 press beam of the raised key (flanges, web, rivets, stencils), without lugs and sling."""
+    rows = stop_frame_raised()
+    px, py = FRAME_PIVOT
+    return [r[px:px + FRAME_W] for r in rows[py - 15:py + 1]]
+
+
+def glance_beam(deg: float, drop: int = 0) -> list[list[str]]:
+    """The beam turned ``deg`` degrees about its centre, the left end down, redrawn column by column: the output
+    column x takes the source column round((x - c) / cos), shifted by round((39.5 - u) * sin) rows. The lengthwise
+    squeeze drops a source column here and there; a column that carries a rivet is never dropped, so the rivet
+    row stays one clean line (no resampling, no new pixels, no new colours)."""
+    beam = beam_rows()
+    w, h = FRAME_W, len(beam)
+    cw, ch = GLANCE_CANVAS
+    a = math.radians(deg)
+    cos, sin = math.cos(a), math.sin(a)
+    cx = cw // 2                                   # the pivot column; the beam's centre sits between 43 and 44
+    mid = cx - 0.5
+    out = [["."] * cw for _ in range(ch)]
+    src = {}
+    for x in range(cw):
+        u = math.floor((x - mid) / cos + (w - 1) / 2 + 0.5 + 1e-9)
+        if 0 <= u < w:
+            src[x] = u
+    for u in range(w):
+        if any(beam[r][u] == "7" for r in range(h)):
+            src[math.floor(mid + (u - (w - 1) / 2) * cos + 0.5 + 1e-9)] = u
+    for x, u in src.items():
+        top = cx - h // 2 + round(((w - 1) / 2 - u) * sin) + drop
+        for r in range(h):
+            if beam[r][u] != ".":
+                out[top + r][x] = beam[r][u]
+    return ad.despeckle(out)
+
+
+def glance_shadow() -> list[list[str]]:
+    cw, ch = GLANCE_CANVAS
+    w, h = GLANCE_SHADOW
+    rows = [["."] * cw for _ in range(ch)]
+    for j, ww in enumerate((w - 14, w, w - 8)):
+        c0 = (cw - ww) // 2
+        for c in range(c0, c0 + ww):
+            rows[ch - h + j][c] = "K"
+    return rows
+
+
+# ------------------------------------------------------------------ the brace states (execution, section 4.4)
+
+def brace_state(state: str) -> list[list[str]]:
+    """``weakened`` (one hit of two): the horn bent 2 px down, the haul chain's wrap slipped 2 px, a 3 px crack in
+    ``K`` across the post. ``snapped``: the horn broken off (a 4 x 3 piece lies at the plate foot), the chain end
+    hanging free; ``snapped_swing`` is the same with the chain's lower half 1 px over."""
+    rows = brace_intact()
+    w, h = BRACE_CANVAS
+    horn_rows = range(5, 9)
+    if state == "weakened":
+        moved = {(c, r): rows[r][c] for r in horn_rows for c in range(8, w) if rows[r][c] != "."}
+        for (c, r) in moved:
+            rows[r][c] = "."
+        for (c, r), k in moved.items():
+            rows[r + 2][c] = k
+        for r in (5, 6):                                    # the chain still runs into the slipped wrap
+            for c in (7, 8, 9):
+                rows[r][c] = CHAIN_V[(r + 1) % 4][c - 7]
+        for c, r in ((6, 18), (7, 18), (8, 19)):            # the crack across the post
+            if rows[r][c] != ".":
+                rows[r][c] = "K"
+        return ad.despeckle(rows)
+    for r in horn_rows:                                      # the horn and its wrap are gone
+        for c in range(w):
+            rows[r][c] = "."
+    for c, r, k in ((6, 8, "K"), (7, 8, "4"), (8, 8, "3"), (9, 8, "K")):      # the stub of the stem
+        rows[r][c] = k
+    swing = 1 if state == "snapped_swing" else 0
+    for r in range(0, 16):                                   # the chain hangs free down the post
+        for k, key in enumerate(CHAIN_V[r % 4]):
+            if key != ".":
+                c = 7 + k + (swing if r >= 9 else 0)
+                rows[r][c] = key
+    for c, r, k in ((12, 61, "4"), (13, 61, "3"), (14, 61, "3"), (15, 61, "K"),
+                    (12, 62, "K"), (13, 62, "2"), (14, 62, "2"), (15, 62, "K"),
+                    (12, 63, "K"), (13, 63, "K"), (14, 63, "K")):             # the broken horn on the floor
+        rows[r][c] = k
+    return ad.despeckle(rows)
+
+
+# ------------------------------------------------------------------ the room pieces (execution, section 4.5)
+
+ENV_DIR = ROOT / "assets/source/props/dozer_room"
+GATE_TILE = 32
+DUST = (("5", "4"), ("4", "5"))
+
+
+def gate_tile(state: str) -> list[list[str]]:
+    """The rear gate, one 32 x 32 tile (stacked up the lane): two riveted iron doors on a centre seam, a cross
+    bar with a brass hasp, rust runs. ``shake_0`` / ``shake_1`` move the doors 1 px left / right (the jambs stay)
+    and shake dust loose; ``burst`` shows the doors bent outward at the jambs and the bar snapped."""
+    n = GATE_TILE
+    rows = [["."] * n for _ in range(n)]
+    for r in range(n):
+        rows[r][0], rows[r][n - 1] = "K", "K"
+        rows[r][1], rows[r][n - 2] = "5", "1"
+    doors = [["."] * n for _ in range(n)]
+    for r in range(n):
+        for c in range(2, n - 2):
+            left = c < n // 2
+            edge = c in (2, n // 2 + 1)
+            shade = "4" if edge else ("3" if (c % 7) else "2")
+            if c in (n // 2 - 2, n - 3):
+                shade = "2"
+            doors[r][c] = shade if left or c >= n // 2 else shade
+        doors[r][n // 2 - 1], doors[r][n // 2] = "K", "K"
+    for r in (4, 26):                                            # rivet rows
+        for c in (5, 10, 21, 26):
+            doors[r][c] = "7"
+    for r in range(12, 20):                                      # the cross bar
+        for c in range(2, n - 2):
+            doors[r][c] = {12: "K", 13: "5", 14: "4", 15: "3", 16: "3", 17: "2", 18: "1", 19: "K"}[r]
+    for c in range(13, 19):                                      # the brass hasp
+        for r in range(13, 19):
+            doors[r][c] = "K" if c in (13, 18) or r in (13, 18) else ("S" if (c + r) % 2 else "N")
+    doors[15][15] = doors[15][16] = "K"
+    for r in range(20, 31):                                      # rust runs below the bar
+        for c in (6, 7):
+            doors[r][c] = "W" if r < 27 else "E"
+        if r < 25:
+            doors[r][23] = "E"
+    for r in range(3, 11):
+        doors[r][14] = "W" if r % 2 else "E"
+    if state == "burst":
+        out = [["."] * n for _ in range(n)]
+        for r in range(n):
+            lean = 5 + round(1.5 * math.sin(r * 0.55))           # the bent left leaf
+            for c in range(1, lean):
+                out[r][c] = "4" if c == lean - 1 else ("3" if c > 2 else "5")
+            out[r][lean] = "K"
+            lean2 = n - 6 - round(1.5 * math.sin(r * 0.55 + 1.3))  # the bent right leaf
+            for c in range(lean2 + 1, n - 1):
+                out[r][c] = "2" if c == lean2 + 1 else ("3" if c < n - 3 else "1")
+            out[r][lean2] = "K"
+        for r in range(12, 20):                                  # the snapped bar: two stubs, ragged ends
+            for c in range(1, 10 + (r % 3)):
+                out[r][c] = {12: "K", 13: "5", 14: "4", 15: "3", 16: "3", 17: "2", 18: "1", 19: "K"}[r]
+            for c in range(n - 10 - ((r + 1) % 3), n - 1):
+                out[r][c] = {12: "K", 13: "5", 14: "4", 15: "3", 16: "3", 17: "2", 18: "1", 19: "K"}[r]
+        for r in (4, 26):
+            out[r][3] = out[r][n - 4] = "7"
+        for r in range(1, n):                                    # jambs
+            out[r][0], out[r][n - 1] = "K", "K"
+        out[0][0] = out[0][n - 1] = "K"
+        return ad.despeckle(out)
+    if state in ("shake_0", "shake_1"):
+        dx = -1 if state == "shake_0" else 1
+        moved = [["."] * n for _ in range(n)]
+        for r in range(n):
+            for c in range(2, n - 2):
+                if 2 <= c + dx < n - 2:
+                    moved[r][c + dx] = doors[r][c]
+            moved[r][2 if dx > 0 else n - 3] = doors[r][2 if dx > 0 else n - 3]
+        doors = moved
+    for r in range(n):
+        for c in range(2, n - 2):
+            if doors[r][c] != ".":
+                rows[r][c] = doors[r][c]
+    for c, r in ((0, 9), (0, 10), (n - 1, 22), (n - 1, 23)):     # chipped jambs (the tile is never fully opaque)
+        rows[r][c] = "."
+    if state in ("shake_0", "shake_1"):
+        i = 0 if state == "shake_0" else 1
+        for (c, r), k in zip(((9, 8), (10, 9), (22, 23), (23, 23), (22, 24))[i * 2:], ("5", "4", "5")):
+            rows[r][c] = k
+    return ad.despeckle(rows)
+
+
+BUFFER_CANVAS = (16, 24)
+BUFFER_PIVOT = (0, 23)
+
+
+def buffer_stop() -> list[list[str]]:
+    """The drawn buffer stop (16 x 24): an iron foot, a timber block with an S/0 hazard band, and an 8 px warning
+    post with a hazard cap. Never a solid (DZ-AD4)."""
+    w, h = BUFFER_CANVAS
+    rs = ad.Raster(w, h, 0, h - 1, 1.0)
+    foot = rs.rect(0, 0, 16, 4, IRON, mode="cyl_h", outline=True)
+    block = rs.rect(1, 4, 15, 16, COPPER, mode="cyl_v", outline=True)
+    post = rs.rect(6, 16, 10, 24, IRON, mode="cyl_v", outline=True)
+    rs.render()
+    block_set, post_set = {block}, {post}
+    for c in range(12):                                          # hazard band across the block
+        for r in range(5):
+            rs.put(2 + c + 0.5, 8 + r + 0.5, "S" if ((c + r) // 2) % 2 == 0 else "0", block_set)
+    for x in (4.0, 11.0):                                        # timber grain
+        rs.vline(x, 5, 7, "c", block_set)
+        rs.vline(x, 13, 15, "c", block_set)
+    for c in range(4):                                           # hazard cap on the post
+        for r in range(3):
+            rs.put(6 + c + 0.5, 19 + r + 0.5, "S" if (c + r) % 2 == 0 else "0", post_set)
+    rs.put(1.5, 1.5, "7", {foot}); rs.put(14.5, 1.5, "7", {foot})
+    return ad.despeckle(rs.key)
+
+
+LINTEL_TILE = 32
+
+
+def lintel_tile(kind: str) -> list[list[str]]:
+    """The tunnel mouth's lintel (32 x 32 tiles, tileable along x): ``mouth`` is the bottom course (stone face,
+    a timber header with rivets, then 8 px of inner shadow in ``K``), ``fill`` the stone courses above it."""
+    n = LINTEL_TILE
+    rows = [["."] * n for _ in range(n)]
+
+    def stone(r0: int, r1: int, offset: int) -> None:
+        for r in range(r0, r1):
+            for c in range(n):
+                k = "3" if (c + r) % 5 else "4"
+                if r in (r0, r0 + 1):
+                    k = "5" if r == r0 else "4"
+                if r == r1 - 1:
+                    k = "1"
+                if (c - offset) % 16 in (0, 15):
+                    k = "0" if (c - offset) % 16 == 0 else "2"
+                rows[r][c] = k
+    if kind == "fill":
+        stone(0, 16, 0)
+        stone(16, 32, 8)
+        for c, r in ((5, 6), (6, 6), (21, 9), (22, 9), (12, 23), (13, 23), (28, 27)):
+            rows[r][c] = "2"
+        for c, r in ((9, 3), (25, 22)):
+            rows[r][c] = "5"
+        for c, r in ((20, 5), (21, 5), (21, 6)):                 # a chipped stone (the tile is never fully opaque)
+            rows[r][c] = "."
+        return rows
+    stone(0, 16, 0)
+    for r in range(16, 24):                                      # the timber header
+        for c in range(n):
+            rows[r][c] = {16: "K", 17: "i", 18: "h", 19: "h", 20: "g", 21: "g", 22: "f", 23: "K"}[r]
+    for c in range(3, n, 8):
+        rows[19][c] = "7"
+        rows[20][c] = "N"
+    for c in range(n):                                           # the mouth's inner shadow, 8 px, K fading to iron-0
+        for r in range(24, 32):
+            rows[r][c] = "K" if r < 29 or (c + r) % 2 == 0 else ("0" if r < 31 else ".")
+    return rows
+
+
+HAUL_CANVAS = (12, 12)
+HAUL_PIVOT = (0, 11)
+
+
+def haul_tile(kind: str) -> list[list[str]]:
+    """The haul line (execution of DZ2-AD6): ``h`` an 8 px run of horizontal chain and ``v`` an 8 px run of
+    vertical chain (the authoring chain pattern, unoutlined, 8 x 8 of content in the top left of the 12 x 12
+    atlas cell), ``idler`` the 12 x 12 brass idler pulley at the corner above the brace."""
+    rows = [["."] * 12 for _ in range(12)]
+    if kind == "h":
+        chain_h(rows, 5, 0, 7, phase=0)
+    elif kind == "v":
+        chain_v(rows, 5, 0, 7, phase=0)
+    else:
+        rs = ad.Raster(12, 12, 0, 11, 1.0)
+        rs.disc(6.0, 6.0, 5.4, BRASS, outline=True)
+        rs.render()
+        rs.put(6.0, 6.0, "L")
+        rs.put(5.0, 7.0, "Z")
+        rows = [r[:] for r in rs.key]
+        rows[5][6] = rows[6][5] = "K"
+    return rows
+
+
+# ------------------------------------------------------------------ the crew (execution, section 5)
+
+CREW_CANVAS = ad.RIDER_CANVAS            # (64, 56)
+TUMBLE_PIVOT = (32, 55)                  # bottom centre
+TUMBLE_GOB_FRAMES = (16, 19, 20)         # GOB-01: hurt (thrown), knockback (airborne, mirrored), down (on its back)
+
+
+def mirror_x(rows: list[list[str]]) -> list[list[str]]:
+    return [r[::-1] for r in rows]
+
+
+def tumble_frame(variant: str, i: int) -> list[list[str]]:
+    """``tumble_0`` thrown out of the seat (GOB-01 hurt: head back, arms out); ``tumble_1`` mid-air, turned about 90
+    degrees head first (GOB-01 knockback, mirrored so he flies forward); ``tumble_2`` on his back on the floor
+    (GOB-01 down). The GOB-01 pixels are used whole: no rotation, no resampling, no new pixels."""
+    rows = [r[:] for r in ad._goblin(variant, TUMBLE_GOB_FRAMES[i])]
+    return mirror_x(rows) if i == 1 else rows
+
+
+def engineer_slump(i: int) -> list[list[str]]:
+    """The driver slumped (execution): the ``engineer_hold`` build with the head dropped 2 px forward and 1 px down,
+    the pot slid down over his eyes (no eye pixel shows), the arms off the levers; ``engineer_slump_1`` lifts the
+    chest and head 1 px (breathing)."""
+    rows = ad._canvas()
+    torso = ad.torso_px("a", weapon=False)
+    head = ad.head_px("a", "grin")
+    ad._paint(rows, torso, 0, 1)
+    ad._paint(rows, head, 2, 3)
+    ad._paint(rows, ad.pot_px(lift=-6, dx=2), 0, 0)
+    rows = ad.despeckle(rows)
+    if i == 1:
+        out = [r[:] for r in rows]
+        for y in range(46, -1, -1):
+            out[y] = rows[y + 1][:] if y + 1 < len(rows) else out[y]
+        out[47] = rows[47][:]
+        return out
+    return rows
+
+
 # ------------------------------------------------------------------ grids
 
 TICK_HZ = ad.TICK_HZ
@@ -616,7 +1019,26 @@ STEMS = {
                                 "bar (landed, a miss) or without it (landed_hit: the bar is in the wheel)"),
     "prop_stop_frame_brace": ("prop_stop_frame_brace_v0", "prop_animation", PROP_DIR,
                               "DOZ-02 brace cleat on the back wall: timber post, straps, hazard band and the horn "
-                              "cleat holding the haul chain (intact)"),
+                              "cleat holding the haul chain (intact), the weakened and the snapped states"),
+    "prop_stop_frame_shadow": ("prop_stop_frame_shadow_v0", "prop_animation", PROP_DIR,
+                               "DOZ-02 floor shadow of the stop frame's warning, 80 x 4: a dark ellipse in four sizes "
+                               "(40 x 1 to 80 x 4)"),
+    "prop_stop_frame_glance": ("prop_stop_frame_glance_v0", "prop_animation", PROP_DIR,
+                               "DOZ-02 rear glance, 88 x 88: the press beam striking the rear deck, tipping off "
+                               "behind the exhaust (0, 15 and 35 degrees, redrawn column by column) and its shadow"),
+    "env_dozer_gate": ("env_dozer_gate_v0", "prop_animation", ENV_DIR,
+                       "DOZ-02 rear gate of room 3, one 32 x 32 tile stacked up the lane: closed, shaking and burst"),
+    "env_dozer_buffer": ("env_dozer_buffer_v0", "prop_animation", ENV_DIR,
+                         "DOZ-02 drawn buffer stop of room 3, 16 x 24 (never a solid)"),
+    "env_dozer_lintel": ("env_dozer_lintel_v0", "prop_animation", ENV_DIR,
+                         "DOZ-02 tunnel mouth lintel tiles, 32 x 32: the mouth course and the stone fill above it"),
+    "env_dozer_haul": ("env_dozer_haul_v0", "prop_animation", ENV_DIR,
+                       "DOZ-02 haul line of the stop frame: 8 px chain runs (h, v) and the 12 px idler pulley"),
+    "dozer_rider_tumble_h120": ("dozer_rider_tumble_h120_v0", "vehicle_part", DOZER_DIR,
+                                "DOZ-02 riders A and B thrown out of the tub: three poses each, GOB-01 pixels whole"),
+    "dozer_engineer_slump_h120": ("dozer_engineer_slump_h120_v0", "vehicle_part", DOZER_DIR,
+                                  "DOZ-02 the driver slumped in the disabled cab: pot over his eyes, two breathing "
+                                  "frames"),
 }
 FRAME_NAMES = ("pitch_0", "pitch_1", "disabled")
 FRAME_TICKS: dict[str, list[int | None]] = {
@@ -625,9 +1047,17 @@ FRAME_TICKS: dict[str, list[int | None]] = {
     "dozer_front_cab_damage_h120": [6, 6, HOLD],
     "dozer_front_tub_damage_h120": [6, 6, HOLD],
     "dozer_yoke_damage_h120": [HOLD],
-    "prop_stop_frame": [HOLD, HOLD],
+    "prop_stop_frame": [HOLD, HOLD, 3, 3, 8],
     "prop_stop_frame_remnant": [HOLD, HOLD],
-    "prop_stop_frame_brace": [HOLD],
+    "prop_stop_frame_brace": [HOLD, HOLD, 8, 8],
+    "prop_stop_frame_shadow": [8, 8, 7, 7],
+    "prop_stop_frame_glance": [4, 4, 6, HOLD],
+    "env_dozer_gate": [HOLD, 3, 3, HOLD],
+    "env_dozer_buffer": [HOLD],
+    "env_dozer_lintel": [HOLD, HOLD],
+    "env_dozer_haul": [HOLD, HOLD, HOLD],
+    "dozer_rider_tumble_h120": [6, 18, 12, 6, 18, 12],
+    "dozer_engineer_slump_h120": [30, 30],
 }
 
 
@@ -653,12 +1083,37 @@ def build_grids() -> dict[str, dict]:
     yoke, ypiv = yoke_damaged()
     grids["dozer_yoke_damage_h120"] = _grid("dozer_yoke_damage_h120", "yoke", [yoke], (len(yoke[0]), len(yoke)),
                                             ypiv, ["bent"])
-    grids["prop_stop_frame"] = _grid("prop_stop_frame", "frame", [stop_frame_raised(), stop_frame_pulley()],
-                                     FRAME_CANVAS, FRAME_PIVOT, ["raised", "pulley"])
+    grids["prop_stop_frame"] = _grid("prop_stop_frame", "frame",
+                                     [stop_frame_raised(), stop_frame_pulley(), stop_frame_warn(0),
+                                      stop_frame_warn(1), stop_frame_falling()],
+                                     FRAME_CANVAS, FRAME_PIVOT, ["raised", "pulley", "warn_0", "warn_1", "falling"])
     grids["prop_stop_frame_remnant"] = _grid("prop_stop_frame_remnant", "remnant", [remnant(True), remnant(False)],
                                              REMNANT_CANVAS, REMNANT_PIVOT, ["landed", "landed_hit"])
-    grids["prop_stop_frame_brace"] = _grid("prop_stop_frame_brace", "brace", [brace_intact()], BRACE_CANVAS,
-                                           BRACE_PIVOT, ["intact"])
+    grids["prop_stop_frame_brace"] = _grid(
+        "prop_stop_frame_brace", "brace",
+        [brace_intact()] + [brace_state(t) for t in ("weakened", "snapped", "snapped_swing")], BRACE_CANVAS,
+        BRACE_PIVOT, ["intact", "weakened", "snapped", "snapped_swing"])
+    grids["prop_stop_frame_shadow"] = _grid("prop_stop_frame_shadow", "shadow", [shadow_frame(i) for i in range(4)],
+                                            SHADOW_CANVAS, SHADOW_PIVOT, ["s0", "s1", "s2", "s3"])
+    grids["prop_stop_frame_glance"] = _grid(
+        "prop_stop_frame_glance", "glance",
+        [glance_beam(d, GLANCE_DROP0 if d == 0 else 0) for d in GLANCE_DEG] + [glance_shadow()], GLANCE_CANVAS,
+        GLANCE_PIVOT, ["glance_0", "glance_1", "glance_2", "shadow"])
+    gate_tags = ["closed", "shake_0", "shake_1", "burst"]
+    grids["env_dozer_gate"] = _grid("env_dozer_gate", "gate", [gate_tile(t) for t in gate_tags],
+                                    (GATE_TILE, GATE_TILE), (0, GATE_TILE - 1), gate_tags)
+    grids["env_dozer_buffer"] = _grid("env_dozer_buffer", "buffer", [buffer_stop()], BUFFER_CANVAS, BUFFER_PIVOT,
+                                      ["idle"])
+    grids["env_dozer_lintel"] = _grid("env_dozer_lintel", "lintel", [lintel_tile("mouth"), lintel_tile("fill")],
+                                      (LINTEL_TILE, LINTEL_TILE), (0, LINTEL_TILE - 1), ["mouth", "fill"])
+    grids["env_dozer_haul"] = _grid("env_dozer_haul", "haul", [haul_tile(t) for t in ("h", "v", "idler")],
+                                    HAUL_CANVAS, HAUL_PIVOT, ["h", "v", "idler"])
+    grids["dozer_rider_tumble_h120"] = _grid(
+        "dozer_rider_tumble_h120", "riders", [tumble_frame(v, i) for v in "ab" for i in range(3)], CREW_CANVAS,
+        TUMBLE_PIVOT, [f"rider_{v}_tumble_{i}" for v in "ab" for i in range(3)])
+    grids["dozer_engineer_slump_h120"] = _grid("dozer_engineer_slump_h120", "engineer",
+                                               [engineer_slump(0), engineer_slump(1)], CREW_CANVAS,
+                                               ad.RIDER_PIVOT, ["engineer_slump_0", "engineer_slump_1"])
     return grids
 
 
@@ -672,8 +1127,8 @@ def damage_contract(grids: dict[str, dict]) -> dict:
         return {name: pitch_dy(x, amp) for name, (x, _y) in seats.items()}
     return {
         "format": "dozer-damage-v0",
-        "status": "DOZ-02 design keys; the remaining frames, the export and the Bevy wiring follow the execution "
-                  "brief; independent review pending",
+        "status": "DOZ-02 design keys and execution frames, wired into room 3's presenter (src/dozer_art.rs); "
+                  "independent review pending",
         "spec": "docs/02-art/doz-02-dozer-damage-spec.md",
         "coordinates": "as dozer_rig_h120.json: px from the rig origin O, x forward (mirror when facing left), y up; "
                        "prop parts: px from the room's stop-frame rectangles (layout px, y down in the room file)",
@@ -718,23 +1173,78 @@ def damage_contract(grids: dict[str, dict]) -> dict:
             "atlas": "prop_stop_frame", "pivot": list(FRAME_PIVOT), "frame_size": list(FRAME_CANVAS),
             "anchor": "the hanging mass rectangle's bottom-left pixel (falls with it); the pulley frame stays at the "
                       "raised anchor in every state",
-            "frames": {"raised": "Supported, Weakened", "pulley": "every state, at the raised anchor"},
+            "frames": {"raised": "Supported, Weakened", "pulley": "every state, at the raised anchor",
+                       "warn_0": "Released, first 3 ticks of each 6 (shifted 1 px left)",
+                       "warn_1": "Released, last 3 ticks of each 6 (shifted 1 px right)",
+                       "falling": "Falling (8 ticks)"},
+            "warning": {"ticks": 30, "alternate_ticks": 3, "frames": ["warn_0", "warn_1"],
+                        "shadow": {"atlas": "prop_stop_frame_shadow", "pivot": list(SHADOW_PIVOT),
+                                   "frames": ["s0", "s1", "s2", "s3"], "ticks_each": [8, 8, 7, 7],
+                                   "size_px": [[max(w), len(w)] for w in SHADOW_ROWS],
+                                   "alpha": [0.3, 0.6], "anchor": "the footprint's bottom-left pixel (80 x 4 canvas)"}},
+            "falling": {"ticks": 8, "pulley": "stays at the raised anchor"},
+            "glance": {"atlas": "prop_stop_frame_glance", "pivot": list(GLANCE_PIVOT),
+                       "frame_size": list(GLANCE_CANVAS), "anchor": "the beam centre on the rear deck contact point",
+                       "anchor_rig": list(GLANCE_ANCHOR_RIG),
+                       "frames": [{"tag": "glance_0", "ticks": 4, "offset": list(GLANCE_OFFSETS[0]), "deg": 0,
+                                   "fx": "vfx_hit_spark_metal at the contact on the deck"},
+                                  {"tag": "glance_1", "ticks": 4, "offset": list(GLANCE_OFFSETS[1]), "deg": -15},
+                                  {"tag": "glance_2", "ticks": 6, "offset": list(GLANCE_OFFSETS[2]), "deg": -35}],
+                       "shadow": "the shadow frame under the beam, alpha 0.45",
+                       "then": "the remnant landed drops in behind the machine; the hull shows no damage overlay",
+                       "method": "the beam redrawn column by column (no resampling; the lengthwise squeeze drops "
+                                 "columns, a rivet column is never dropped)"},
             "remnant": {"atlas": "prop_stop_frame_remnant", "pivot": list(REMNANT_PIVOT),
                         "anchor": "the remnant rectangle's bottom-left pixel",
                         "frames": {"landed": "early miss and rear glance", "landed_hit": "after a hit (the bar is in "
                                    "the wheel)"}},
             "brace": {"atlas": "prop_stop_frame_brace", "pivot": list(BRACE_PIVOT),
-                      "anchor": "the prop target rectangle's bottom-left pixel", "frames": {"intact": "Supported"}},
+                      "anchor": "the prop target rectangle's bottom-left pixel",
+                      "frames": {"intact": "Supported", "weakened": "Weakened (one hit of two)",
+                                 "snapped": "Released onward", "snapped_swing": "Released onward, alternate"},
+                      "swing": {"ticks_each": 8, "for_ticks": 48, "then": "snapped (still)"}},
+        },
+        "room_pieces": {
+            "gate": {"atlas": "env_dozer_gate", "tile_px": GATE_TILE, "stack": "tiles from the walking line up to the "
+                     "lane ceiling (228 px; the last tile is cropped)", "x": [0, 32],
+                     "frames": {"closed": "dormant and every state before the rumble", "shake_0": "approaching, "
+                                "alternate with shake_1 every 3 ticks", "shake_1": "approaching",
+                                "burst": "from the emergence on"}, "solid": False},
+            "buffer": {"atlas": "env_dozer_buffer", "size_px": list(BUFFER_CANVAS), "x": [1008, 1024],
+                       "anchor": "the pivot pixel on the walking line at x 1008", "solid": False},
+            "lintel": {"atlas": "env_dozer_lintel", "tile_px": LINTEL_TILE, "frames": ["mouth", "fill"],
+                       "clear_px": 112, "inner_shadow_px": 8,
+                       "wired": "no (the room's solid lintel is drawn by the Floor 1 kit)"},
+            "haul": {"atlas": "env_dozer_haul", "frame_px": list(HAUL_CANVAS), "content_px": 8,
+                     "frames": {"h": "horizontal run", "v": "vertical run", "idler": "corner pulley above the brace"},
+                     "route": "the pulley stub along the ceiling to the idler over the brace, then down to the horn"},
+        },
+        "crew": {
+            "tumble": {"atlas": "dozer_rider_tumble_h120", "pivot": list(TUMBLE_PIVOT),
+                       "frames": {"rider_a": ["rider_a_tumble_0", "rider_a_tumble_1", "rider_a_tumble_2"],
+                                  "rider_b": ["rider_b_tumble_0", "rider_b_tumble_1", "rider_b_tumble_2"]},
+                       "start_tick": {"rider_a": 12, "rider_b": 16},
+                       "airborne_ticks": 24, "arc_up_px": 12, "tumble_0_ticks": 6,
+                       "design_forward_px": {"rider_a": 28, "rider_b": 36},
+                       "runtime_landing": "the arc ends at the wheel front plus the roster's dzq20_land_dx (A 32, "
+                                          "B 72), where the simulation's goblin lands on the disable tick (DZ2-Q1)",
+                       "then": "tumble_2 held on the floor until the disable tick; the simulation's goblin takes over"},
+            "slump": {"atlas": "dozer_engineer_slump_h120", "pivot": list(ad.RIDER_PIVOT),
+                      "frames": ["engineer_slump_0", "engineer_slump_1"], "ticks_each": 30,
+                      "from": "impact_stunned tick 12 and every disabled tick (loop)",
+                      "before": "engineer_lurch_forward on ticks 0..11"},
         },
     }
+
 
 
 # ------------------------------------------------------------------ manifests
 
 LICENSE = ad.LICENSE
-GENERATOR = ("Design and keys: DOZ-02 design step, deterministic output of scripts/author_dozer_doz02.py built on "
-             "the DOZ-01 construction (scripts/author_dozer_doz01.py). No image-model raster output, no tracing, "
-             "no resampling. Independent review pending")
+GENERATOR = ("Design and hero keys: DOZ-02 design step; the remaining frames: DOZ-02 execution step; both the "
+             "deterministic output of scripts/author_dozer_doz02.py built on the DOZ-01 construction "
+             "(scripts/author_dozer_doz01.py) and the GOB-01 goblin pixels (crew frames). No image-model raster "
+             "output, no tracing, no resampling. Independent review pending")
 
 
 def manifest(stem: str, grid: dict) -> dict:
@@ -764,8 +1274,8 @@ def manifest(stem: str, grid: dict) -> dict:
         },
         "license": LICENSE,
         "review_status": "prototype_fixture_unapproved",
-        "dozer": {"status": "DOZ-02 design keys, awaiting execution and independent review; not wired into any "
-                            "Bevy binary",
+        "dozer": {"status": "DOZ-02 design keys and execution frames, wired into room 3's presenter "
+                            "(src/dozer_art.rs); independent review pending",
                   "spec": "docs/02-art/doz-02-dozer-damage-spec.md"},
     }
     names = [t["name"] for t in grid["tags"] if t["from"] == t["to"]]
@@ -780,6 +1290,9 @@ def manifest(stem: str, grid: dict) -> dict:
 # Validator colour limits: the toolkit default is 24; the hull carries the DOZ-01 vehicle palette (the DOZ-01 hull
 # body itself uses 29 keys), so the damaged hull is held to 30.
 MAX_COLORS = {"dozer_hull_damage_h120": 30}
+# The unoutlined chain pattern (CHAIN_V) leaves 6 single-key pixels per 4 px link repeat; the 8 px haul tiles hold
+# two repeats (DZ2-AD10). Every other DOZ-02 source keeps the limit of 9.
+MAX_ORPHANS = {"env_dozer_haul": 12}
 
 
 def validator_config(stem: str, grid: dict) -> dict:
@@ -789,12 +1302,12 @@ def validator_config(stem: str, grid: dict) -> dict:
                         "frames": [[t["from"], FRAME_TICKS[stem][t["from"]] or round(ad.HOLD_MS * TICK_HZ / 1000)]]}
             for t in grid["tags"]}
     return {"format": "pixelart-asset-v1", "asset_id": STEMS[stem][0],
-            "title": f"DOZ-02 {stem} (design keys)",
+            "title": f"DOZ-02 {stem}",
             "grid": f"{folder}/{stem}.grid.json", "manifest": f"assets/manifests/{stem}.json",
             "frame_size": grid["canvas"], "pivot": grid["pivot"], "tick_hz": TICK_HZ, "hold_ms": ad.HOLD_MS,
             "tags": tags,
             "rules": {"max_colors": MAX_COLORS.get(stem, 24), "max_isolated_per_frame": 0,
-                      "max_orphans_per_frame": 9, "unique_frames": True}}
+                      "max_orphans_per_frame": MAX_ORPHANS.get(stem, 9), "unique_frames": True}}
 
 
 def build_all() -> dict[Path, str]:

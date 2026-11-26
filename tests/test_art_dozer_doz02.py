@@ -20,6 +20,8 @@ from test_art_dozer_doz01 import mean_l  # noqa: E402
 
 DOZER = ROOT / "assets/source/enemies/dozer"
 PROPS = ROOT / "assets/source/props/stop_frame"
+ENV = ROOT / "assets/source/props/dozer_room"
+GOBLIN = ROOT / "assets/source/characters/goblin/goblin_a_h36.grid.json"
 FIRE = set("jknqz")
 BRIGHT_FIRE = set("qnz")
 PALETTE = {k: c for k, _n, c, _a in ad.ALL_PALETTE}
@@ -29,13 +31,23 @@ EXPECTED = {   # stem: (canvas, pivot, per-frame tags)
     "dozer_front_cab_damage_h120": ([60, 23], [0, 22], ["pitch_0", "pitch_1", "disabled"]),
     "dozer_front_tub_damage_h120": ([65, 86], [0, 81], ["pitch_0", "pitch_1", "disabled"]),
     "dozer_yoke_damage_h120": ([64, 44], [54, 30], ["bent"]),
-    "prop_stop_frame": ([96, 60], [8, 59], ["raised", "pulley"]),
+    "prop_stop_frame": ([96, 60], [8, 59], ["raised", "pulley", "warn_0", "warn_1", "falling"]),
     "prop_stop_frame_remnant": ([80, 16], [0, 15], ["landed", "landed_hit"]),
-    "prop_stop_frame_brace": ([16, 64], [0, 63], ["intact"]),
+    "prop_stop_frame_brace": ([16, 64], [0, 63], ["intact", "weakened", "snapped", "snapped_swing"]),
+    "prop_stop_frame_shadow": ([80, 4], [0, 3], ["s0", "s1", "s2", "s3"]),
+    "prop_stop_frame_glance": ([88, 88], [44, 44], ["glance_0", "glance_1", "glance_2", "shadow"]),
+    "env_dozer_gate": ([32, 32], [0, 31], ["closed", "shake_0", "shake_1", "burst"]),
+    "env_dozer_buffer": ([16, 24], [0, 23], ["idle"]),
+    "env_dozer_lintel": ([32, 32], [0, 31], ["mouth", "fill"]),
+    "env_dozer_haul": ([12, 12], [0, 11], ["h", "v", "idler"]),
+    "dozer_rider_tumble_h120": ([64, 56], [32, 55], [f"rider_{v}_tumble_{i}" for v in "ab" for i in range(3)]),
+    "dozer_engineer_slump_h120": ([64, 56], [28, 55], ["engineer_slump_0", "engineer_slump_1"]),
 }
 
 
 def folder(stem: str) -> Path:
+    if stem.startswith("env_"):
+        return ENV
     return PROPS if stem.startswith("prop_") else DOZER
 
 
@@ -109,7 +121,7 @@ class Sources(unittest.TestCase):
         for stem in EXPECTED:
             report = pg.lint_grid(load(stem))
             self.assertFalse(any(report["isolated_count_per_frame"]), stem)
-            self.assertTrue(all(n <= 9 for n in report["orphan_count_per_frame"]),
+            self.assertTrue(all(n <= a2.MAX_ORPHANS.get(stem, 9) for n in report["orphan_count_per_frame"]),
                             (stem, report["orphan_count_per_frame"]))
 
     def test_validator_configs(self) -> None:
@@ -118,6 +130,7 @@ class Sources(unittest.TestCase):
             self.assertEqual(cfg["format"], "pixelart-asset-v1")
             self.assertEqual(cfg["frame_size"], EXPECTED[stem][0])
             self.assertEqual(cfg["rules"]["max_colors"], 30 if stem == "dozer_hull_damage_h120" else 24)
+            self.assertEqual(cfg["rules"]["max_orphans_per_frame"], a2.MAX_ORPHANS.get(stem, 9))
             used = {c for i in range(len(load(stem)["frames"])) for c in keys(pg.composite_keys(load(stem), i))}
             self.assertLessEqual(len(used), cfg["rules"]["max_colors"], stem)
 
@@ -279,6 +292,156 @@ class StopFrame(unittest.TestCase):
         self.assertTrue(any(c != "." for c in rows[-1]))
 
 
+class ExecutionFrames(unittest.TestCase):
+    """The execution frames of spec section 10: warn, falling, the shadow, the glance, the brace states, the room
+    pieces, the tumbles and the slump."""
+
+    def test_warn_frames_are_the_raised_key_shifted_one_pixel(self) -> None:
+        raised = frame("prop_stop_frame", "raised")
+        for tag, dx in (("warn_0", -1), ("warn_1", 1)):
+            warn = frame("prop_stop_frame", tag)
+            shifted = {(x + dx, y): c for y, r in enumerate(raised) for x, c in enumerate(r) if c != "."}
+            have = {(x, y): c for y, r in enumerate(warn) for x, c in enumerate(r) if c != "."}
+            self.assertTrue(all(have.get(p) == c for p, c in shifted.items()), tag)
+            motes = {p: c for p, c in have.items() if p not in shifted}
+            self.assertTrue(2 <= len(motes) <= 6, (tag, len(motes)))
+            self.assertLessEqual(set(motes.values()), {"4", "5"}, tag)
+
+    def test_falling_keeps_the_mass_rectangle_and_bows_the_sling(self) -> None:
+        raised, fall = frame("prop_stop_frame", "raised"), frame("prop_stop_frame", "falling")
+        py = a2.FRAME_PIVOT[1]
+        self.assertEqual(fall[py - 15:], raised[py - 15:], "the mass rows are the raised key's")
+        top = (24, 38)                                  # the sling legs' rows
+        left = lambda rows: min(x for y in range(*top) for x, c in enumerate(rows[y]) if c != ".")  # noqa: E731
+        right = lambda rows: max(x for y in range(*top) for x, c in enumerate(rows[y]) if c != ".")  # noqa: E731
+        self.assertLessEqual(left(fall), left(raised) - 1)
+        self.assertGreaterEqual(right(fall), right(raised) + 1)
+        streaks = [(x, y) for y in range(len(fall)) for x in range(len(fall[0]))
+                   if fall[y][x] == "3" and raised[y][x] != "3"]
+        self.assertGreaterEqual(len(streaks), 12)
+
+    def test_shadow_grows_from_40x1_to_80x4(self) -> None:
+        sizes = []
+        for tag in ("s0", "s1", "s2", "s3"):
+            rows = frame("prop_stop_frame_shadow", tag)
+            px = opaque(rows)
+            self.assertEqual(set(keys(rows)), {"K"})
+            sizes.append((max(x for x, _y in px) - min(x for x, _y in px) + 1,
+                          max(y for _x, y in px) - min(y for _x, y in px) + 1))
+        self.assertEqual(sizes[0], (40, 1))
+        self.assertEqual(sizes[3], (80, 4))
+        self.assertEqual([s[1] for s in sizes], [1, 2, 3, 4])
+        self.assertEqual([s[0] for s in sizes], sorted(s[0] for s in sizes))
+
+    def test_glance_never_overlaps_the_wheels_lethal_circle(self) -> None:
+        axle = (124, 49)
+        ax, ay = a2.GLANCE_ANCHOR_RIG
+        for i, tag in enumerate(("glance_0", "glance_1", "glance_2")):
+            ox, oy = a2.GLANCE_OFFSETS[i]
+            for (x, y) in opaque(frame("prop_stop_frame_glance", tag)):
+                rx, ry = ax + ox + x - 44, ay + oy - (y - 44)
+                self.assertGreater(math.hypot(rx - axle[0], ry - axle[1]), 44, (tag, x, y))
+
+    def test_glance_beam_turns_a_whole_beam(self) -> None:
+        g0 = opaque(frame("prop_stop_frame_glance", "glance_0"))
+        self.assertEqual(max(x for x, _y in g0) - min(x for x, _y in g0) + 1, 80)
+        for tag, deg in (("glance_1", 15), ("glance_2", 35)):
+            px = opaque(frame("prop_stop_frame_glance", tag))
+            tilt = max(y for _x, y in px) - min(y for _x, y in px) + 1
+            self.assertGreater(tilt, 16 + int(80 * math.sin(math.radians(deg)) * 0.8), tag)
+            # the left end is the low one (it tips toward the rear)
+            left = [y for x, y in px if x < 44]
+            right = [y for x, y in px if x >= 44]
+            self.assertGreater(sum(left) / len(left), sum(right) / len(right), tag)
+        rivets = [sum(1 for k in keys(frame("prop_stop_frame_glance", t)) if k == "7") for t in
+                  ("glance_0", "glance_1", "glance_2")]
+        self.assertEqual(len(set(rivets)), 1, f"every rivet survives the turn: {rivets}")
+        self.assertEqual(set(keys(frame("prop_stop_frame_glance", "shadow"))), {"K"})
+
+    def test_brace_states(self) -> None:
+        intact, weak, snap, swing = (frame("prop_stop_frame_brace", t)
+                                     for t in ("intact", "weakened", "snapped", "snapped_swing"))
+        diff = lambda a, b: sum(1 for y in range(len(a)) for x in range(len(a[0])) if a[y][x] != b[y][x])  # noqa: E731
+        self.assertTrue(10 <= diff(intact, weak) <= 120, diff(intact, weak))
+        # the post below the horn is the intact post but for the 3 px crack
+        crack = [(x, y) for y in range(12, 22) for x in range(len(weak[0])) if weak[y][x] != intact[y][x]]
+        self.assertEqual(len(crack), 3)
+        self.assertTrue(all(weak[y][x] == "K" for x, y in crack))
+        self.assertTrue(any(c != "." for c in snap[0]) and any(c != "." for c in snap[-1]))
+        self.assertEqual(snap[:9], swing[:9], "the chain swings below the stub only")
+        self.assertNotEqual(snap, swing)
+        self.assertEqual(len({tuple(map(tuple, f)) for f in (intact, weak, snap, swing)}), 4)
+        horn = lambda rows: sum(1 for y in range(5, 9) for c in rows[y] if c in "36")  # noqa: E731
+        self.assertLess(horn(snap), horn(intact), "the horn is broken off")
+        self.assertTrue(any(snap[y][x] != "." for y in range(61, 64) for x in range(12, 16)), "horn on the floor")
+
+    def test_gate_tiles(self) -> None:
+        closed, burst = frame("env_dozer_gate", "closed"), frame("env_dozer_gate", "burst")
+        for tag in ("shake_0", "shake_1"):
+            shake = frame("env_dozer_gate", tag)
+            self.assertEqual([r[0] for r in shake], [r[0] for r in closed], "the jamb stays")
+            self.assertEqual([r[-1] for r in shake], [r[-1] for r in closed], "the jamb stays")
+            self.assertNotEqual(shake, closed)
+        self.assertLess(len(opaque(burst)), len(opaque(closed)))
+        for y in range(32):
+            self.assertTrue(all(burst[y][x] == "." for x in range(12, 20)), f"row {y}: the opening is clear")
+        for tag in ("closed", "shake_0", "shake_1", "burst"):
+            rows = frame("env_dozer_gate", tag)
+            self.assertTrue(set(keys(rows)) <= set(PALETTE), tag)
+
+    def test_buffer_stop(self) -> None:
+        rows = frame("env_dozer_buffer", "idle")
+        px = opaque(rows)
+        self.assertEqual(max(y for _x, y in px), 23)
+        self.assertEqual(min(y for _x, y in px), 0)
+        self.assertTrue({"S", "0"} <= set(keys(rows)), "the hazard band")
+        self.assertTrue(set(keys(rows)) <= set(PALETTE))
+
+    def test_lintel_tiles(self) -> None:
+        mouth, fill = frame("env_dozer_lintel", "mouth"), frame("env_dozer_lintel", "fill")
+        self.assertTrue(set(keys(mouth)) <= set(PALETTE) and set(keys(fill)) <= set(PALETTE))
+        self.assertTrue(all(c in ".K0" for y in range(24, 32) for c in mouth[y]), "8 px of inner shadow")
+        self.assertTrue(all(c != "." for y in range(0, 24) for c in mouth[y]), "stone and header are solid")
+
+    def test_haul_tiles(self) -> None:
+        h, v, idler = (frame("env_dozer_haul", t) for t in ("h", "v", "idler"))
+        self.assertTrue(all(sum(h[y][x] != "." for y in (4, 5, 6)) >= 1 for x in range(8)), "an unbroken run")
+        self.assertTrue(all(sum(v[y][x] != "." for x in (4, 5, 6)) >= 1 for y in range(8)), "an unbroken run")
+        self.assertTrue(all(c == "." for y in range(8, 12) for c in h[y]))
+        self.assertGreater(len(opaque(idler)), 80)
+        chain = set(keys(h)) | set(keys(v))
+        self.assertTrue(chain <= {k for row in a2.CHAIN_V for k in row if k != "."} | {"K"})
+        self.assertTrue(set(keys(idler)) <= set(PALETTE))
+
+    def test_tumbles_use_only_the_rider_palette(self) -> None:
+        gob = {e["key"] for g in (GOBLIN, GOBLIN.with_name("goblin_b_h36.grid.json"))
+               for e in json.loads(g.read_text(encoding="utf-8"))["palette"]}
+        for stem in ("dozer_rider_tumble_h120", "dozer_engineer_slump_h120"):
+            for t in load(stem)["tags"]:
+                rows = frame(stem, t["name"])
+                extra = set(keys(rows)) - gob - set(ad.RIDER_ENGINEER_KEYS if hasattr(ad, "RIDER_ENGINEER_KEYS") else ())
+                if stem == "dozer_rider_tumble_h120":
+                    self.assertFalse(extra, (t["name"], extra))
+        for i in range(3):
+            a, b = frame("dozer_rider_tumble_h120", f"rider_a_tumble_{i}"), frame("dozer_rider_tumble_h120",
+                                                                                  f"rider_b_tumble_{i}")
+            self.assertNotEqual(a, b, "rider B keeps the GOB-01 B overlay")
+        down = frame("dozer_rider_tumble_h120", "rider_a_tumble_2")
+        self.assertEqual(max(y for _x, y in opaque(down)), 55, "landed on the floor")
+
+    def test_slump_shows_no_eye(self) -> None:
+        eyes = {"e"}                                  # the goblin eye key (w is the teeth)
+        hold = pg.composite_keys(pg.load_grid(DOZER / "dozer_riders_h36.grid.json"),
+                                 next(t["from"] for t in pg.load_grid(DOZER / "dozer_riders_h36.grid.json")["tags"]
+                                      if t["name"] == "engineer_hold"))
+        self.assertTrue(set(keys(hold)) & eyes, "the alert driver shows an eye")
+        for tag in ("engineer_slump_0", "engineer_slump_1"):
+            self.assertFalse(set(keys(frame("dozer_engineer_slump_h120", tag))) & eyes, tag)
+        a, b = (frame("dozer_engineer_slump_h120", t) for t in ("engineer_slump_0", "engineer_slump_1"))
+        self.assertNotEqual(a, b)
+        self.assertLess(abs(len(opaque(a)) - len(opaque(b))), 40, "breathing is a 1 px lift, not a new pose")
+
+
 class Contract(unittest.TestCase):
     def contract(self) -> dict:
         return json.loads((DOZER / "dozer_damage_h120.json").read_text(encoding="utf-8"))
@@ -297,6 +460,23 @@ class Contract(unittest.TestCase):
         for state, amp in a2.PITCH_AMPS.items():
             for name in ("engineer", "rider_a", "rider_b"):
                 self.assertEqual(seats[state][name], a2.pitch_dy(rig[name][0], amp), (state, name))
+
+    def test_execution_timings(self) -> None:
+        c = self.contract()
+        sf = c["stop_frame"]
+        self.assertEqual((sf["warning"]["ticks"], sf["warning"]["alternate_ticks"]), (30, 3))
+        self.assertEqual(sum(sf["warning"]["shadow"]["ticks_each"]), 30)
+        self.assertEqual(sf["warning"]["shadow"]["size_px"], [[40, 1], [53, 2], [67, 3], [80, 4]])
+        self.assertEqual(sf["falling"]["ticks"], 8)
+        self.assertEqual([f["ticks"] for f in sf["glance"]["frames"]], [4, 4, 6])
+        self.assertEqual([f["offset"] for f in sf["glance"]["frames"]], [[0, 0], [-6, 0], [-16, -8]])
+        self.assertEqual(sf["brace"]["swing"], {"ticks_each": 8, "for_ticks": 48, "then": "snapped (still)"})
+        tumble = c["crew"]["tumble"]
+        self.assertEqual(tumble["start_tick"], {"rider_a": 12, "rider_b": 16})
+        self.assertEqual((tumble["airborne_ticks"], tumble["arc_up_px"]), (24, 12))
+        self.assertEqual(tumble["design_forward_px"], {"rider_a": 28, "rider_b": 36})
+        self.assertEqual(c["crew"]["slump"]["ticks_each"], 30)
+        self.assertFalse(c["room_pieces"]["gate"]["solid"] or c["room_pieces"]["buffer"]["solid"])
 
     def test_front_box_anchors_are_the_doz01_anchors(self) -> None:
         rig = {p["part"]: p for p in json.loads((DOZER / "dozer_rig_h120.json").read_text())["parts"]}

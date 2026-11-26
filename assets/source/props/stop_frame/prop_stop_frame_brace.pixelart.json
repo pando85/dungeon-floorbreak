@@ -1,7 +1,7 @@
 {
   "format": "pixelart-asset-v1",
   "asset_id": "prop_stop_frame_brace_v0",
-  "title": "DOZ-02 prop_stop_frame_brace (design keys)",
+  "title": "DOZ-02 prop_stop_frame_brace",
   "grid": "assets/source/props/stop_frame/prop_stop_frame_brace.grid.json",
   "manifest": "assets/manifests/prop_stop_frame_brace.json",
   "frame_size": [
@@ -22,6 +22,36 @@
         [
           0,
           6
+        ]
+      ]
+    },
+    "weakened": {
+      "playback": "once",
+      "contact": "free",
+      "frames": [
+        [
+          1,
+          6
+        ]
+      ]
+    },
+    "snapped": {
+      "playback": "once",
+      "contact": "free",
+      "frames": [
+        [
+          2,
+          8
+        ]
+      ]
+    },
+    "snapped_swing": {
+      "playback": "once",
+      "contact": "free",
+      "frames": [
+        [
+          3,
+          8
         ]
       ]
     }
