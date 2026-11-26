@@ -89,8 +89,13 @@ pub const LLAMA_MANIFEST: &str = "llama-01.json";
 /// LLAMA-01; `rush_brace`, `rush_run` and `rush_recover`).
 pub const LLAMA_RUSH_MANIFEST: &str = "llama_rush_h64.json";
 /// ENEMY-GAMEPLAY-ENGINEER: the Goblin Engineer atlas (ENG-01, 64 x 56 frames,
-/// pivot (28, 55), 18 frames).
+/// pivot (28, 55), 22 frames: ENG-01 frames 0 to 17, then the ENG-02 get-up pair
+/// (`getup`, 18 and 19) and the ram-run pair (`attack_ram_run`, 20 and 21)).
 pub const ENGINEER_MANIFEST: &str = "eng_01.json";
+/// ENG-02: the Engineer's slammed sheet (stomped, wall crumple, flung; the GOB A
+/// CF02 cels with the belt, no weapon), the same tags and frame indices as
+/// [`GOBLIN_SLAMMED_MANIFESTS`].
+pub const ENGINEER_SLAMMED_MANIFEST: &str = "eng_slammed_h36.json";
 /// Contact shadow of the llama: the 46 px standing box, pivot column 26 of it.
 pub const LLAMA_SHADOW_FOOTPRINT: (i32, i32) = (46, 26);
 /// Ground covered per `walk` frame: 4 px (the 40 px/s walk at 6 ticks a frame).
@@ -433,6 +438,18 @@ impl SpriteClips {
         )
     }
 
+    /// ENG-02: the Engineer's slammed sheet (stomped, wall crumple, flung).
+    pub fn load_engineer_slammed(root: &Path, source: FrameSource) -> Result<Self, String> {
+        Self::load(
+            root,
+            "ENGINEER_SLAMMED",
+            ENGINEER_SLAMMED_MANIFEST,
+            GOBLIN_SHADOW_FOOTPRINT,
+            source,
+            Kind::Cf02Goblin,
+        )
+    }
+
     /// The Bad Llama atlas (LLAMA-01).
     pub fn load_llama(root: &Path, source: FrameSource) -> Result<Self, String> {
         Self::load(
@@ -725,12 +742,14 @@ fn llama_rush_ticks(
 }
 
 /// Per-frame ticks of the ENG-01 atlas: the idle loop is 38 ticks (frames 0 to 2:
-/// 14, 10, 14), the walk loop 36 (frames 3 to 8: 6 each, exactly his 40 px/s
-/// contact plan); every other frame is held by the gameplay state.
+/// 14, 10, 14), the walk loop 36 (frames 3 to 8, 6 ticks each, exactly his 40 px/s contact
+/// plan); every other frame is held by the gameplay state, the ENG-02 get-up
+/// (frames 18 and 19, by the lying age) and ram-run (frames 20 and 21, by the ram
+/// age) included.
 fn engineer_ticks(frame_count: usize) -> Result<(Vec<Option<u32>>, Vec<String>), String> {
-    if frame_count != 18 {
+    if frame_count != ENGINEER_FRAMES {
         return Err(format!(
-            "ENG-01 has 18 frames, the atlas lists {frame_count}"
+            "ENG-01 and ENG-02 have {ENGINEER_FRAMES} frames, the atlas lists {frame_count}"
         ));
     }
     let mut ticks: Vec<Option<u32>> = vec![None; frame_count];
@@ -742,6 +761,9 @@ fn engineer_ticks(frame_count: usize) -> Result<(Vec<Option<u32>>, Vec<String>),
     }
     Ok((ticks, Vec::new()))
 }
+
+/// Frames of the Engineer atlas: ENG-01's 18 and ENG-02's four.
+pub const ENGINEER_FRAMES: usize = 22;
 
 /// CP-B2: ticks of the dynamite sheet: the nine standing frames hold their
 /// `duration_ticks`; the 36 moving frames follow the locomotion clock, so they
@@ -1161,13 +1183,38 @@ pub struct EngineerFrame {
     pub bonk_hurt_ticks: u16,
     /// Ticks a living Engineer lies before the get-up (CF02-Q04).
     pub lying_ticks: u16,
+    /// Ram ticks spent so far (`None` outside the ram): the ram frames cycle by
+    /// it ([`RAM_CYCLE`]).
+    pub ram_age: Option<u16>,
 }
+
+/// ENG-02: the frames of the ram, by ram age at [`RAM_FRAME_TICKS`] ticks a frame:
+/// the braced frame 12 (`attack_ram` 1), the passing frame 20 (`attack_ram_run` 0),
+/// the opposite contact 21 (`attack_ram_run` 1), and 20 again. The cycle reuses
+/// frame 20 for both passings (an accepted cheat flagged for the owner's game-feel
+/// review).
+pub const RAM_CYCLE: [(&str, usize); 4] = [
+    ("attack_ram", 1),
+    ("attack_ram_run", 0),
+    ("attack_ram_run", 1),
+    ("attack_ram_run", 0),
+];
+/// Ticks each frame of [`RAM_CYCLE`] shows.
+pub const RAM_FRAME_TICKS: u16 = 4;
+/// ENG-02: ticks of the get-up sit (`getup` 0, atlas frame 18) before the shove (`getup` 1, frame 19): 10 and 12
+/// make the 22 ticks of `q04_getup_ticks`.
+pub const GETUP_SIT_TICKS: u16 = 10;
 
 /// The Engineer's frame (design section 10): idle and walk loops; rear 9, point
 /// 10, launch 11, ram 12 (held), recover 13 (held); a bonk shows the hurt frame 14
 /// for its hurt ticks and the recover frame 13 for the daze; hurt, launched and
 /// airborne 14; a living lying body 15 then 16 held, the get-up 13; a defeat 15
 /// (5 ticks), 16 (10), then 17 held.
+///
+/// ENG-02: the get-up shows `getup` 0 (the sit, 18) for its first
+/// [`GETUP_SIT_TICKS`] ticks and `getup` 1 (the shove, 19) after, and holds the
+/// shove if the lying body outlasts the window; the ram cycles
+/// [`RAM_CYCLE`] by ram age.
 pub fn engineer_pose(clips: &SpriteClips, input: &GoblinInput, e: &EngineerFrame) -> ArtPose {
     use crate::engineer::EngineerPhase as P;
     let one = |tag: &'static str, index: usize| ArtPose {
@@ -1194,14 +1241,21 @@ pub fn engineer_pose(clips: &SpriteClips, input: &GoblinInput, e: &EngineerFrame
             if input.down_ticks < e.lying_ticks {
                 one("down", usize::from(input.down_ticks >= 5))
             } else {
-                one("attack_recover", 0)
+                // ENG-02: the get-up, sit then shove; a window that runs past 22
+                // ticks holds the shove.
+                let age = input.down_ticks - e.lying_ticks;
+                one("getup", usize::from(age >= GETUP_SIT_TICKS))
             }
         }
         GoblinMode::Attack => match e.phase {
             Some(P::Rear) => one("attack_tell", 0),
             Some(P::Point) => one("attack_tell", 1),
             Some(P::Launch) => one("attack_ram", 0),
-            Some(P::Ram) => one("attack_ram", 1),
+            Some(P::Ram) => {
+                let age = e.ram_age.unwrap_or(0) / RAM_FRAME_TICKS;
+                let (tag, index) = RAM_CYCLE[usize::from(age) % RAM_CYCLE.len()];
+                one(tag, index)
+            }
             Some(P::Recover) => one("attack_recover", 0),
             Some(P::Bonk) => {
                 if e.bonk_age.is_some_and(|age| age <= e.bonk_hurt_ticks) {
@@ -1645,6 +1699,7 @@ impl CombatAnimators {
             bonk_age: g.bonk_age(),
             bonk_hurt_ticks: tuning.engq13_hurt_ticks,
             lying_ticks: combat.cf02().map_or(DOWNED_TICKS, |t| t.q04_downed_ticks),
+            ram_age: g.ram_age(),
         })
     }
 
@@ -1718,6 +1773,16 @@ impl CombatAnimators {
             .slammed_pose(index, goblin_variant(index), slam)
     }
 
+    /// ENG-02: Engineer `index`'s slammed finish frame in the Engineer's own slammed
+    /// atlas when the death presenter chose `slam` for it.
+    pub fn engineer_slammed_pose(
+        &self,
+        index: usize,
+        slam: Option<crate::death::SlamPose>,
+    ) -> Option<ArtPose> {
+        self.acting.as_ref()?.engineer_slammed_pose(index, slam)
+    }
+
     /// Draw the fixture's Bad Llamas from `clips` (LLAMA-01).
     pub fn with_llama(mut self, clips: SpriteClips, combat: &CombatState) -> Self {
         self.llama = Some(clips);
@@ -1772,6 +1837,7 @@ impl CombatAnimators {
                         bonk_age: g.bonk_age(),
                         bonk_hurt_ticks: t.engq13_hurt_ticks,
                         lying_ticks: combat.cf02().map_or(DOWNED_TICKS, |c| c.q04_downed_ticks),
+                        ram_age: g.ram_age(),
                     });
         }
         self.llama_tracks = combat

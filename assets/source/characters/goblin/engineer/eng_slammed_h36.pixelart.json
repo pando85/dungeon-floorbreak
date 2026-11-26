@@ -1,0 +1,166 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "eng-slammed",
+  "title": "ENG-02 Goblin Engineer slammed sheet (docs/02-art/eng-02-spec.md section 7); 6 frames derived from the GOB A CF02 slammed cels",
+  "grid": "assets/source/characters/goblin/engineer/eng_slammed_h36.grid.json",
+  "manifest": "assets/manifests/eng_slammed_h36.json",
+  "frame_size": [
+    64,
+    56
+  ],
+  "pivot": [
+    28,
+    55
+  ],
+  "contact_row": 55,
+  "tick_hz": 60,
+  "hold_ms": 100,
+  "facing": "right",
+  "tags": {
+    "slammed_stomped": {
+      "playback": "hold",
+      "contact": "grounded",
+      "frames": [
+        [
+          0,
+          8
+        ],
+        [
+          1,
+          null
+        ]
+      ]
+    },
+    "slammed_wall": {
+      "playback": "hold",
+      "contact": "grounded",
+      "frames": [
+        [
+          2,
+          8
+        ],
+        [
+          3,
+          null
+        ]
+      ]
+    },
+    "slammed_flung": {
+      "playback": "hold",
+      "contact": "grounded",
+      "frames": [
+        [
+          4,
+          8
+        ],
+        [
+          5,
+          null
+        ]
+      ]
+    }
+  },
+  "roles": {},
+  "rules": {
+    "max_colors": 20,
+    "max_isolated_per_frame": 0,
+    "max_orphans_per_frame": 9,
+    "canvas_margin": [
+      1,
+      0,
+      1,
+      0
+    ],
+    "unique_frames": true,
+    "holes": true,
+    "manifest_tick_rows": "cf02_goblin.frames",
+    "manifest_tick_hz": "cf02_goblin.tick_hz",
+    "bbox": [
+      {
+        "id": "stomped-impact-low",
+        "frames": [
+          0
+        ],
+        "top": 36,
+        "bottom": 55
+      },
+      {
+        "id": "stomped-rest-low",
+        "frames": [
+          1
+        ],
+        "top": 37,
+        "bottom": 55
+      },
+      {
+        "id": "wall-impact-lowest-row-and-contact-column",
+        "frames": [
+          2
+        ],
+        "top": 21,
+        "bottom": 55,
+        "left": 16
+      },
+      {
+        "id": "wall-rest-smear-column",
+        "frames": [
+          3
+        ],
+        "top": 33,
+        "bottom": 55,
+        "left": 14
+      },
+      {
+        "id": "flung-impact-head-on-floor",
+        "frames": [
+          4
+        ],
+        "top": 35,
+        "bottom": 55
+      },
+      {
+        "id": "flung-rest-low-heap",
+        "frames": [
+          5
+        ],
+        "top": 40,
+        "bottom": 55
+      }
+    ]
+  },
+  "review": {
+    "strip_tags": [
+      "slammed_stomped",
+      "slammed_wall",
+      "slammed_flung"
+    ]
+  },
+  "scene": {
+    "actors": [
+      {
+        "frame": 0,
+        "x": 520
+      },
+      {
+        "frame": 1,
+        "x": 580
+      },
+      {
+        "frame": 2,
+        "x": 640
+      },
+      {
+        "frame": 3,
+        "x": 700
+      },
+      {
+        "frame": 4,
+        "x": 760
+      },
+      {
+        "frame": 5,
+        "x": 820
+      }
+    ]
+  }
+}

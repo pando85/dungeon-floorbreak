@@ -1,0 +1,16 @@
+{
+  "asset_id": "eng-02-keys",
+  "format": "pixelart-keys-v1",
+  "keys": {
+    "0": {
+      "sha256": "77821476cab9fdc3108b8d58d61969022bffdaf8c960683f05b691faf7c6afda"
+    },
+    "1": {
+      "sha256": "1ffe13dc89754a72c3e4f79bdc4ca31127e941e2d56b8b326010a506a932fd84"
+    }
+  },
+  "layers": [
+    "body",
+    "prop"
+  ]
+}

@@ -1,0 +1,141 @@
+{
+  "schema_version": 1,
+  "id": "eng_slammed_h36_candidate_v1",
+  "type": "character_animation",
+  "source_path": "assets/source/characters/goblin/engineer/eng_slammed_h36.ase",
+  "grid_source": "assets/source/characters/goblin/engineer/eng_slammed_h36.grid.json",
+  "output_atlas": "generated/art/eng_slammed_h36.png",
+  "output_metadata": "generated/art/eng_slammed_h36.json",
+  "palette_id": "eng-death-floor01-v0",
+  "frame_size": [
+    64,
+    56
+  ],
+  "pivot": [
+    28,
+    55
+  ],
+  "animation_tags": [
+    "slammed_stomped",
+    "slammed_wall",
+    "slammed_flung"
+  ],
+  "required_alpha": true,
+  "owner": "AI-authored enemy art (fan-concept layer: Floor 1 Goblin Engineer; runtime role IP-neutral foreman, pot-ram placeholder)",
+  "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+  "provenance": {
+    "origin": "ENG-02 Goblin Engineer completion art (docs/02-art/eng-02-spec.md): cels derived by scripts/author_eng02.py from committed GOB-02 A, GOB-01 A CF02 and ENG-01 cels with the spec's belt, buckle, pot and wrench rules; no image-model output, no tracing",
+    "generator": "Design, spec and the two get-up keys: Claude Opus. Design gate: Claude Opus (independent). Execution, atlases, manifests, validators and evidence: Claude Sonnet. Independent review pending",
+    "generated_art": true,
+    "input_reference_ids": [
+      "floor-01-opening-concept-references-v1"
+    ]
+  },
+  "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
+  "review_status": "prototype_fixture_unapproved",
+  "cf02_goblin": {
+    "spec": "docs/02-art/eng-02-spec.md",
+    "variant": "ENG",
+    "tick_hz": 60,
+    "hold_preview_ms": 100,
+    "facing": "right",
+    "mirror": "x' = 56 - x around the pivot column",
+    "status": "executor pass complete; independent review pending; wired into the Bevy scene through combat_anim::engineer_slammed_pose",
+    "layers": [
+      "body",
+      "gore"
+    ],
+    "key_frames": [],
+    "frames": [
+      {
+        "index": 0,
+        "name": "stomped_impact",
+        "tag": "slammed_stomped",
+        "ticks": 8,
+        "duration_ms": 133,
+        "author": "executor"
+      },
+      {
+        "index": 1,
+        "name": "stomped_rest",
+        "tag": "slammed_stomped",
+        "ticks": null,
+        "duration_ms": 100,
+        "author": "executor"
+      },
+      {
+        "index": 2,
+        "name": "wall_impact",
+        "tag": "slammed_wall",
+        "ticks": 8,
+        "duration_ms": 133,
+        "author": "executor"
+      },
+      {
+        "index": 3,
+        "name": "wall_rest",
+        "tag": "slammed_wall",
+        "ticks": null,
+        "duration_ms": 100,
+        "author": "executor"
+      },
+      {
+        "index": 4,
+        "name": "flung_impact",
+        "tag": "slammed_flung",
+        "ticks": 8,
+        "duration_ms": 133,
+        "author": "executor"
+      },
+      {
+        "index": 5,
+        "name": "flung_rest",
+        "tag": "slammed_flung",
+        "ticks": null,
+        "duration_ms": 100,
+        "author": "executor"
+      }
+    ],
+    "finishes": {
+      "stomped": {
+        "serves": "Q21 stomped (Hit{Stomp} or Hit{DiveStomp}), Q43",
+        "tag": "slammed_stomped",
+        "impact_frame": 0,
+        "rest_frame": 1,
+        "impact_hold_ticks": 8,
+        "after_taunt_hold": "the impact hold starts after any taunt hold",
+        "anchor": "belly on row 55; the body stays where it died (lethal knock 0 / 0)",
+        "scene_prop": "the stamping foot covers the belly in the scene (CF02-D); the pot pops off"
+      },
+      "wall": {
+        "serves": "Q21 wall crumple (WallSlam)",
+        "tag": "slammed_wall",
+        "impact_frame": 2,
+        "rest_frame": 3,
+        "impact_hold_ticks": 8,
+        "impact_anchor": "lowest-row anchored: the lowest opaque row is 55 although the body is airborne (the presenter lifts nothing)",
+        "contact_column": 16,
+        "rest_contact_column": 16,
+        "rest_smear_columns": [
+          14,
+          15
+        ],
+        "presenter_contract": "the presenter puts sprite column x16 of wall_impact, and column x16 of wall_rest (the slumped back), on the wall face; for facing left the column is mirrored (x' = 56 - x) and the wall is on the other side; no opaque pixel of wall_impact lies left of x16, and in wall_rest only gore-layer pixels (the smear at x14-15) do, drawn over the wall tile",
+        "club": "the wrench leaves the hip and the pot pops off; the presenter launches both parts"
+      },
+      "flung": {
+        "serves": "Q21 flung (lethal kick, Q06)",
+        "tag": "slammed_flung",
+        "impact_frame": 4,
+        "rest_frame": 5,
+        "impact_hold_ticks": 8,
+        "anchor": "head on row 55 (impact), body on row 55 (rest)",
+        "club": "the wrench and the pot launch on landing (ENG2-AD20); the airborne base sprite wears the pot"
+      }
+    },
+    "gore_layer": "the gore layer holds the blood pixels: a preset-4 reference only; preset 1 draws no blood sprites, so the presenter can hide it; gib quarters and separated parts (Q43) are particles from CF02-D, not frames here",
+    "pose_budget": "6 slammed frames (spec section 6: 11 per goblin sheet with the 5 acting frames)",
+    "base_sheet": "assets/manifests/goblin_a_slammed_h36.json",
+    "derivation": "GOB A slammed cels (CF02): weapon layer dropped, belt recoloured, buckle by the spec section 7 rule, gore kept; the pot and the wrench are launched parts (ENG2-AD6), launch points in eng_death_h36.json death_poses.spawner_hints.slam"
+  }
+}

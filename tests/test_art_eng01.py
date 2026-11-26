@@ -1,4 +1,4 @@
-"""ENG-01 Goblin Engineer (18 frames, 7 frozen keys): spec rules the shared pixel-art toolkit does not cover (the toolkit
+"""ENG-01 Goblin Engineer (22 frames: ENG-01 0 to 17 and the ENG-02 get-up and ram-run frames 18 to 21; 7 frozen keys): spec rules the shared pixel-art toolkit does not cover (the toolkit
 validators run with ``python3 -m scripts.pixelart validate assets/source/characters/goblin/engineer/eng_01.pixelart.json``)."""
 from __future__ import annotations
 
@@ -101,15 +101,17 @@ class Eng01SetTests(unittest.TestCase):
         ticks = [f["ticks"] for f in self.manifest["eng"]["frames"]]
         window = {n: sum(t or 0 for t in ticks[a:b + 1]) for n, a, b in ae.TAGS}
         self.assertEqual(window, {"idle": 38, "walk": 36, "attack_tell": 32, "attack_ram": 9, "attack_recover": 18,
-                                  "hurt": 12, "down": 15})
+                                  "hurt": 12, "down": 15, "getup": 22, "attack_ram_run": 8})
         self.assertIsNone(ticks[17])                         # the last down frame is held by state
-        self.assertEqual(len(self.frames), 18)
+        self.assertEqual(len(self.frames), 22)               # ENG-02 appended frames 18 to 21
         self.assertEqual(self.manifest["eng"]["attack_ticks"], {"tell": [0, 31], "ram": [32, 40],
                                                                 "hitbox_active": [35, 40], "recover": [41, 58]})
 
     def test_pot_rows_identical_in_every_frame(self):
         pot = {k: v for k, v in ae.PARTS["POT"].items()}
         for n, rows in enumerate(self.frames):
+            if n == 19:                                      # the ENG-02 shove: the far fist grips the handle (skin over iron)
+                continue
             dx, dy = self.pot_offset(rows)
             for (x, y), ch in pot.items():
                 self.assertEqual(rows[y + dy][x + dx], ch, (n, x, y))   # the pot is never redrawn, tilted or recoloured
@@ -148,7 +150,7 @@ class Eng01SetTests(unittest.TestCase):
     def test_wrench_stays_a_prop_and_leaves_the_down_frames(self):
         for n, f in enumerate(self.grid["frames"]):
             prop = [ch for r in f["cels"]["prop"] for ch in r if ch != "."]
-            self.assertEqual(bool(prop), n <= 14, n)         # dropped under him in 15 to 17
+            self.assertEqual(bool(prop), n <= 14 or n >= 19, n)   # dropped under him in 15 to 18; back on the shove (ENG2-AD18)
             used = {ch for r in f["cels"]["prop"] for ch in r}
             self.assertLessEqual(used, set(".K234567"), n)
 

@@ -199,7 +199,8 @@ class CommittedAllowlistTests(unittest.TestCase):
         for grid_path, entries in allow.items():
             self.assertTrue((ROOT / grid_path).is_file(), grid_path)
             for entry in entries:
-                self.assertIn("#148", entry["reason"])
+                # the CF02 pockets cite PR #148's review, the ENG-02 ones the ENG-02 design gate (PR #300)
+                self.assertTrue("#148" in entry["reason"] or "PR #300" in entry["reason"], entry["reason"])
 
     def test_goblin_cf02_sheets_are_clean_after_the_allowlist(self):
         base = ROOT / "assets/source/characters/goblin"

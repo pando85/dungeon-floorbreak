@@ -398,9 +398,44 @@ struct PartsSection {
     parts: Vec<PartMeta>,
 }
 
+/// ENG-02: how a launched part leaves a slammed Engineer (`death_poses.spawner_hints.slam.poses` of
+/// `eng_death_h36.json`, spec section 7): the launch point in frame pixels of the 64 x 56 pivot (28, 55) frame and
+/// the velocity and spin ranges (`vx_away` is multiplied by the presenter's away direction, `vy_up` is up).
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub struct PartThrow {
+    pub vx_away: [f32; 2],
+    pub vy_up: [f32; 2],
+    pub spin_dps: f32,
+}
+
+/// One slam pose's pot and wrench launches.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub struct SlamLaunch {
+    /// The slammed-sheet frame the points were measured on.
+    pub frame: usize,
+    pub pot_launch: [i32; 2],
+    pub wrench_launch: [i32; 2],
+    pub pot: PartThrow,
+    pub wrench: PartThrow,
+}
+
+#[derive(Deserialize, Default)]
+struct SlamHints {
+    #[serde(default)]
+    poses: BTreeMap<String, SlamLaunch>,
+}
+
+#[derive(Deserialize, Default)]
+struct SpawnerHints {
+    #[serde(default)]
+    slam: SlamHints,
+}
+
 #[derive(Deserialize)]
 struct PosesSection {
     frames: Vec<PoseMeta>,
+    #[serde(default)]
+    spawner_hints: SpawnerHints,
 }
 
 #[derive(Deserialize)]
@@ -650,11 +685,14 @@ impl GridFile {
 /// pixel-grid sources the sheets are composed from.
 #[derive(Debug)]
 pub struct DeathArt {
-    /// 0 = goblin variant A, 1 = variant B.
+    /// 0 = goblin variant A, 1 = variant B, [`LLAMA_VARIANT`], [`ENGINEER_VARIANT`].
     pub variant: usize,
     pub pose_frame_size: (i32, i32),
     pub pose_pivot: (i32, i32),
     pub poses: Vec<PoseMeta>,
+    /// ENG-02: the pot and wrench launches of a slammed Engineer by pose (`stomped`, `wall`, `flung`); empty for
+    /// every other set.
+    pub slam_launch: BTreeMap<String, SlamLaunch>,
     pub part_cell: (i32, i32),
     pub parts: Vec<PartMeta>,
     poses_grid: GridFile,
@@ -683,6 +721,11 @@ pub const PARTS_MANIFEST: &str = PARTS_MANIFESTS[0];
 pub const LLAMA_POSES_MANIFEST: &str = "assets/manifests/llama_death_h64.json";
 pub const LLAMA_PARTS_MANIFEST: &str = "assets/manifests/llama_death_parts.json";
 pub const LLAMA_VARIANT: usize = DEATH_VARIANTS;
+/// ENG-02: the Goblin Engineer's poses and parts (the goblin art with the pot and the wrench: `eng_death_h36`,
+/// `eng_death_parts`), after the llama so the goblin and llama variant indices do not move.
+pub const ENGINEER_POSES_MANIFEST: &str = "assets/manifests/eng_death_h36.json";
+pub const ENGINEER_PARTS_MANIFEST: &str = "assets/manifests/eng_death_parts.json";
+pub const ENGINEER_VARIANT: usize = DEATH_VARIANTS + 1;
 
 impl DeathArt {
     /// Read both manifests and the grid sources they name, below `root` (the
@@ -714,6 +757,17 @@ impl DeathArt {
         )
     }
 
+    /// ENG-02: the Goblin Engineer's death art (poses with the flat pot and the stowed wrench, the 27-part sheet with
+    /// the potted head), composed by the same code as the goblins'.
+    pub fn load_engineer(root: &Path) -> Result<Self, String> {
+        Self::load_manifests(
+            root,
+            ENGINEER_VARIANT,
+            ENGINEER_POSES_MANIFEST,
+            ENGINEER_PARTS_MANIFEST,
+        )
+    }
+
     fn load_manifests(
         root: &Path,
         variant: usize,
@@ -735,6 +789,7 @@ impl DeathArt {
             pose_frame_size: (poses.frame_size[0], poses.frame_size[1]),
             pose_pivot: (poses.pivot[0], poses.pivot[1]),
             poses: poses.section.frames,
+            slam_launch: poses.section.spawner_hints.slam.poses,
             part_cell: (parts.section.cell[0], parts.section.cell[1]),
             parts: parts.section.parts,
             poses_grid: grid(&poses.grid_source)?,

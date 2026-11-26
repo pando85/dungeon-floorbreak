@@ -1,0 +1,1046 @@
+{
+  "schema_version": 1,
+  "id": "eng_death_parts_v1",
+  "type": "character_animation",
+  "source_path": "assets/source/characters/goblin/engineer/eng_death_parts.ase",
+  "grid_source": "assets/source/characters/goblin/engineer/eng_death_parts.grid.json",
+  "output_atlas": "generated/art/eng_death_parts.png",
+  "output_metadata": "generated/art/eng_death_parts.json",
+  "palette_id": "eng-death-floor01-v0",
+  "frame_size": [
+    32,
+    32
+  ],
+  "pivot": [
+    16,
+    16
+  ],
+  "animation_tags": [
+    "head",
+    "torso_upper",
+    "head_dead",
+    "torso_lower",
+    "arm_near",
+    "arm_far",
+    "leg_near",
+    "leg_far",
+    "ear",
+    "gib_flesh_a",
+    "gib_flesh_b",
+    "gib_bone",
+    "gib_rag",
+    "drop_blood",
+    "decal_splat_s",
+    "decal_splat_m",
+    "decal_pool_1",
+    "decal_pool_2",
+    "decal_pool_3",
+    "decal_wall_spatter",
+    "decal_smear",
+    "decal_wall_spatter_b",
+    "decal_pool_3_r",
+    "pot",
+    "head_bare",
+    "head_bare_dead",
+    "wrench"
+  ],
+  "required_alpha": true,
+  "owner": "AI-authored enemy art (fan-concept layer: Floor 1 Goblin Engineer; runtime role IP-neutral foreman, pot-ram placeholder)",
+  "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+  "provenance": {
+    "origin": "ENG-02 Goblin Engineer completion art (docs/02-art/eng-02-spec.md): cels derived by scripts/author_eng02.py from committed GOB-02 A, GOB-01 A CF02 and ENG-01 cels with the spec's belt, buckle, pot and wrench rules; no image-model output, no tracing",
+    "generator": "Design, spec and the two get-up keys: Claude Opus. Design gate: Claude Opus (independent). Execution, atlases, manifests, validators and evidence: Claude Sonnet. Independent review pending",
+    "generated_art": true,
+    "input_reference_ids": [
+      "floor-01-opening-concept-references-v1"
+    ]
+  },
+  "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
+  "review_status": "prototype_fixture_unapproved",
+  "death_parts": {
+    "spec": "docs/02-art/eng-02-spec.md",
+    "variant": "ENG",
+    "cell": [
+      32,
+      32
+    ],
+    "pivot": [
+      16,
+      16
+    ],
+    "layers": [
+      "body",
+      "prop",
+      "gore"
+    ],
+    "mirror": "x' = 32 - x around the cell pivot",
+    "status": "executor pass complete; independent review pending; wired into the Bevy presenter",
+    "key_frames": [],
+    "preset_filter": {
+      "1": "clean parts and head",
+      "2": "wound (gore muted), clean, blood drops and s decals",
+      "3": "wound, clean, gib, blood (pools 1 and 2)",
+      "4": "all"
+    },
+    "parts": [
+      {
+        "id": "head",
+        "frame": 0,
+        "cell": [
+          32,
+          32
+        ],
+        "pivot": [
+          16,
+          16
+        ],
+        "anchors": {
+          "neck": [
+            15,
+            22
+          ]
+        },
+        "frame0_origin": [
+          29,
+          25
+        ],
+        "class": "wound",
+        "material": "goblin_flesh",
+        "presets": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "gore_layer": true,
+        "mass": "medium",
+        "spin": "fast",
+        "settle": "roll",
+        "bounce": 0.35,
+        "swap_on_first_contact": "head_dead",
+        "stain": "decal_splat_s",
+        "trail": "decal_smear",
+        "ttl": "keep"
+      },
+      {
+        "id": "torso_upper",
+        "frame": 1,
+        "cell": [
+          32,
+          32
+        ],
+        "pivot": [
+          16,
+          16
+        ],
+        "anchors": {
+          "neck": [
+            17,
+            10
+          ],
+          "waist": [
+            13,
+            22
+          ]
+        },
+        "frame0_origin": [
+          26,
+          36
+        ],
+        "class": "wound",
+        "material": "goblin_flesh",
+        "presets": [
+          2,
+          3,
+          4
+        ],
+        "gore_layer": true,
+        "mass": "heavy",
+        "spin": "slow",
+        "settle": "flop",
+        "bounce": 0.2,
+        "stain": "decal_splat_s",
+        "ttl": "keep"
+      },
+      {
+        "id": "head_dead",
+        "frame": 2,
+        "cell": [
+          32,
+          32
+        ],
+        "pivot": [
+          16,
+          16
+        ],
+        "anchors": {
+          "neck": [
+            15,
+            22
+          ]
+        },
+        "frame0_origin": [
+          29,
+          25
+        ],
+        "class": "wound",
+        "material": "goblin_flesh",
+        "presets": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "gore_layer": true,
+        "mass": "medium",
+        "spin": "fast",
+        "settle": "roll",
+        "bounce": 0.35,
+        "stain": "decal_splat_s",
+        "trail": "decal_smear",
+        "ttl": "keep"
+      },
+      {
+        "id": "torso_lower",
+        "frame": 3,
+        "cell": [
+          32,
+          32
+        ],
+        "pivot": [
+          16,
+          16
+        ],
+        "anchors": {
+          "waist": [
+            16,
+            13
+          ],
+          "hip_far": [
+            11,
+            19
+          ],
+          "hip_near": [
+            20,
+            19
+          ]
+        },
+        "frame0_origin": [
+          27,
+          44
+        ],
+        "class": "wound",
+        "material": "goblin_flesh",
+        "presets": [
+          4
+        ],
+        "gore_layer": true,
+        "mass": "heavy",
+        "spin": "slow",
+        "settle": "flop",
+        "bounce": 0.2,
+        "stain": "decal_splat_s",
+        "ttl": "keep"
+      },
+      {
+        "id": "arm_near",
+        "frame": 4,
+        "cell": [
+          32,
+          32
+        ],
+        "pivot": [
+          16,
+          16
+        ],
+        "anchors": {
+          "shoulder": [
+            14,
+            12
+          ]
+        },
+        "frame0_origin": [
+          37,
+          37
+        ],
+        "class": "wound",
+        "material": "goblin_flesh",
+        "presets": [
+          3,
+          4
+        ],
+        "gore_layer": true,
+        "mass": "light",
+        "spin": "fast",
+        "settle": "flop",
+        "bounce": 0.3,
+        "stain": "decal_splat_s",
+        "ttl": "long"
+      },
+      {
+        "id": "arm_far",
+        "frame": 5,
+        "cell": [
+          32,
+          32
+        ],
+        "pivot": [
+          16,
+          16
+        ],
+        "anchors": {
+          "shoulder": [
+            14,
+            12
+          ]
+        },
+        "frame0_origin": [
+          37,
+          37
+        ],
+        "class": "wound",
+        "material": "goblin_flesh",
+        "presets": [
+          3,
+          4
+        ],
+        "gore_layer": true,
+        "mass": "light",
+        "spin": "fast",
+        "settle": "flop",
+        "bounce": 0.3,
+        "stain": "decal_splat_s",
+        "ttl": "long"
+      },
+      {
+        "id": "leg_near",
+        "frame": 6,
+        "cell": [
+          32,
+          32
+        ],
+        "pivot": [
+          16,
+          16
+        ],
+        "anchors": {
+          "hip": [
+            14,
+            11
+          ],
+          "foot": [
+            16,
+            20
+          ]
+        },
+        "frame0_origin": [
+          33,
+          51
+        ],
+        "class": "wound",
+        "material": "goblin_flesh",
+        "presets": [
+          3,
+          4
+        ],
+        "gore_layer": true,
+        "mass": "medium",
+        "spin": "slow",
+        "settle": "flop",
+        "bounce": 0.25,
+        "stain": "decal_splat_s",
+        "ttl": "long"
+      },
+      {
+        "id": "leg_far",
+        "frame": 7,
+        "cell": [
+          32,
+          32
+        ],
+        "pivot": [
+          16,
+          16
+        ],
+        "anchors": {
+          "hip": [
+            16,
+            11
+          ],
+          "foot": [
+            16,
+            20
+          ]
+        },
+        "frame0_origin": [
+          22,
+          51
+        ],
+        "class": "wound",
+        "material": "goblin_flesh",
+        "presets": [
+          3,
+          4
+        ],
+        "gore_layer": true,
+        "mass": "medium",
+        "spin": "slow",
+        "settle": "flop",
+        "bounce": 0.25,
+        "stain": "decal_splat_s",
+        "ttl": "long"
+      },
+      {
+        "id": "ear",
+        "frame": 8,
+        "cell": [
+          32,
+          32
+        ],
+        "pivot": [
+          16,
+          16
+        ],
+        "anchors": {
+          "base": [
+            20,
+            17
+          ]
+        },
+        "frame0_origin": [
+          21,
+          22
+        ],
+        "class": "wound",
+        "material": "goblin_flesh",
+        "presets": [
+          4
+        ],
+        "gore_layer": true,
+        "mass": "light",
+        "spin": "slow",
+        "settle": "flutter",
+        "bounce": 0.2,
+        "ttl": "short"
+      },
+      {
+        "id": "gib_flesh_a",
+        "frame": 9,
+        "cell": [
+          32,
+          32
+        ],
+        "pivot": [
+          16,
+          16
+        ],
+        "anchors": {
+          "centre": [
+            16,
+            16
+          ]
+        },
+        "frame0_origin": null,
+        "class": "gib",
+        "material": "goblin_flesh",
+        "presets": [
+          3,
+          4
+        ],
+        "gore_layer": true,
+        "mass": "light",
+        "spin": "fast",
+        "settle": "bounce",
+        "bounce": 0.45,
+        "stain": "decal_splat_s",
+        "ttl": "short"
+      },
+      {
+        "id": "gib_flesh_b",
+        "frame": 10,
+        "cell": [
+          32,
+          32
+        ],
+        "pivot": [
+          16,
+          16
+        ],
+        "anchors": {
+          "centre": [
+            16,
+            16
+          ]
+        },
+        "frame0_origin": null,
+        "class": "gib",
+        "material": "goblin_flesh",
+        "presets": [
+          3,
+          4
+        ],
+        "gore_layer": true,
+        "mass": "light",
+        "spin": "fast",
+        "settle": "bounce",
+        "bounce": 0.45,
+        "stain": "decal_splat_s",
+        "ttl": "short"
+      },
+      {
+        "id": "gib_bone",
+        "frame": 11,
+        "cell": [
+          32,
+          32
+        ],
+        "pivot": [
+          16,
+          16
+        ],
+        "anchors": {
+          "centre": [
+            16,
+            16
+          ]
+        },
+        "frame0_origin": null,
+        "class": "gib",
+        "material": "bone",
+        "presets": [
+          4
+        ],
+        "gore_layer": false,
+        "mass": "light",
+        "spin": "fast",
+        "settle": "clatter",
+        "bounce": 0.4,
+        "ttl": "short"
+      },
+      {
+        "id": "gib_rag",
+        "frame": 12,
+        "cell": [
+          32,
+          32
+        ],
+        "pivot": [
+          16,
+          16
+        ],
+        "anchors": {
+          "centre": [
+            16,
+            16
+          ]
+        },
+        "frame0_origin": null,
+        "class": "clean",
+        "material": "rag",
+        "presets": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "gore_layer": false,
+        "mass": "light",
+        "spin": "slow",
+        "settle": "flutter",
+        "bounce": 0.1,
+        "ttl": "short"
+      },
+      {
+        "id": "drop_blood",
+        "frame": 13,
+        "cell": [
+          32,
+          32
+        ],
+        "pivot": [
+          16,
+          16
+        ],
+        "anchors": {
+          "centre": [
+            16,
+            16
+          ]
+        },
+        "frame0_origin": null,
+        "class": "blood",
+        "material": "blood",
+        "presets": [
+          2,
+          3,
+          4
+        ],
+        "gore_layer": true,
+        "mass": "light",
+        "spin": "none",
+        "settle": "static",
+        "bounce": 0.0,
+        "on_contact": "decal_splat_s",
+        "stain": "decal_splat_s",
+        "ttl": "short"
+      },
+      {
+        "id": "decal_splat_s",
+        "frame": 14,
+        "cell": [
+          32,
+          32
+        ],
+        "pivot": [
+          16,
+          16
+        ],
+        "anchors": {
+          "centre_bottom": [
+            16,
+            17
+          ]
+        },
+        "frame0_origin": null,
+        "class": "blood",
+        "material": "blood",
+        "presets": [
+          2,
+          3,
+          4
+        ],
+        "gore_layer": true,
+        "mass": "light",
+        "spin": "none",
+        "settle": "static",
+        "bounce": 0.0,
+        "floor_decal": true,
+        "ttl": "long"
+      },
+      {
+        "id": "decal_splat_m",
+        "frame": 15,
+        "cell": [
+          32,
+          32
+        ],
+        "pivot": [
+          16,
+          16
+        ],
+        "anchors": {
+          "centre_bottom": [
+            16,
+            17
+          ]
+        },
+        "frame0_origin": null,
+        "class": "blood",
+        "material": "blood",
+        "presets": [
+          3,
+          4
+        ],
+        "gore_layer": true,
+        "mass": "light",
+        "spin": "none",
+        "settle": "static",
+        "bounce": 0.0,
+        "floor_decal": true,
+        "ttl": "long"
+      },
+      {
+        "id": "decal_pool_1",
+        "frame": 16,
+        "cell": [
+          32,
+          32
+        ],
+        "pivot": [
+          16,
+          16
+        ],
+        "anchors": {
+          "centre_bottom": [
+            15,
+            17
+          ]
+        },
+        "frame0_origin": null,
+        "class": "blood",
+        "material": "blood",
+        "presets": [
+          3,
+          4
+        ],
+        "gore_layer": true,
+        "mass": "light",
+        "spin": "none",
+        "settle": "static",
+        "bounce": 0.0,
+        "floor_decal": true,
+        "ttl": "keep"
+      },
+      {
+        "id": "decal_pool_2",
+        "frame": 17,
+        "cell": [
+          32,
+          32
+        ],
+        "pivot": [
+          16,
+          16
+        ],
+        "anchors": {
+          "centre_bottom": [
+            15,
+            17
+          ]
+        },
+        "frame0_origin": null,
+        "class": "blood",
+        "material": "blood",
+        "presets": [
+          3,
+          4
+        ],
+        "gore_layer": true,
+        "mass": "light",
+        "spin": "none",
+        "settle": "static",
+        "bounce": 0.0,
+        "floor_decal": true,
+        "ttl": "keep"
+      },
+      {
+        "id": "decal_pool_3",
+        "frame": 18,
+        "cell": [
+          32,
+          32
+        ],
+        "pivot": [
+          16,
+          16
+        ],
+        "anchors": {
+          "seam_right": [
+            30,
+            17
+          ],
+          "centre_bottom": [
+            30,
+            17
+          ]
+        },
+        "frame0_origin": null,
+        "class": "blood",
+        "material": "blood",
+        "presets": [
+          4
+        ],
+        "gore_layer": true,
+        "mass": "light",
+        "spin": "none",
+        "settle": "static",
+        "bounce": 0.0,
+        "floor_decal": true,
+        "span": [
+          38,
+          4
+        ],
+        "pair": "decal_pool_3_r",
+        "pair_offset": [
+          30,
+          0
+        ],
+        "ttl": "keep"
+      },
+      {
+        "id": "decal_wall_spatter",
+        "frame": 19,
+        "cell": [
+          32,
+          32
+        ],
+        "pivot": [
+          16,
+          16
+        ],
+        "anchors": {
+          "origin": [
+            5,
+            24
+          ]
+        },
+        "frame0_origin": null,
+        "class": "blood",
+        "material": "blood",
+        "presets": [
+          4
+        ],
+        "gore_layer": true,
+        "mass": "light",
+        "spin": "none",
+        "settle": "static",
+        "bounce": 0.0,
+        "ttl": "keep"
+      },
+      {
+        "id": "decal_smear",
+        "frame": 20,
+        "cell": [
+          32,
+          32
+        ],
+        "pivot": [
+          16,
+          16
+        ],
+        "anchors": {
+          "start": [
+            7,
+            15
+          ]
+        },
+        "frame0_origin": null,
+        "class": "blood",
+        "material": "blood",
+        "presets": [
+          4
+        ],
+        "gore_layer": true,
+        "mass": "light",
+        "spin": "none",
+        "settle": "static",
+        "bounce": 0.0,
+        "floor_decal": true,
+        "ttl": "keep"
+      },
+      {
+        "id": "decal_wall_spatter_b",
+        "frame": 21,
+        "cell": [
+          32,
+          32
+        ],
+        "pivot": [
+          16,
+          16
+        ],
+        "anchors": {
+          "origin": [
+            16,
+            26
+          ]
+        },
+        "frame0_origin": null,
+        "class": "blood",
+        "material": "blood",
+        "presets": [
+          4
+        ],
+        "gore_layer": true,
+        "mass": "light",
+        "spin": "none",
+        "settle": "static",
+        "bounce": 0.0,
+        "ttl": "keep"
+      },
+      {
+        "id": "decal_pool_3_r",
+        "frame": 22,
+        "cell": [
+          32,
+          32
+        ],
+        "pivot": [
+          16,
+          16
+        ],
+        "anchors": {
+          "seam_left": [
+            1,
+            17
+          ],
+          "centre_bottom": [
+            0,
+            17
+          ]
+        },
+        "frame0_origin": null,
+        "class": "blood",
+        "material": "blood",
+        "presets": [
+          4
+        ],
+        "gore_layer": true,
+        "mass": "light",
+        "spin": "none",
+        "settle": "static",
+        "bounce": 0.0,
+        "floor_decal": true,
+        "span": [
+          38,
+          4
+        ],
+        "pair": "decal_pool_3",
+        "ttl": "keep"
+      },
+      {
+        "id": "pot",
+        "frame": 23,
+        "cell": [
+          32,
+          32
+        ],
+        "pivot": [
+          16,
+          16
+        ],
+        "anchors": {
+          "grip": [
+            2,
+            17
+          ]
+        },
+        "frame0_origin": [
+          28,
+          20
+        ],
+        "class": "clean",
+        "material": "iron",
+        "presets": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "gore_layer": false,
+        "mass": "medium",
+        "spin": "fast",
+        "settle": "clatter",
+        "bounce": 0.45,
+        "ttl": "keep"
+      },
+      {
+        "id": "head_bare",
+        "frame": 24,
+        "cell": [
+          32,
+          32
+        ],
+        "pivot": [
+          16,
+          16
+        ],
+        "anchors": {
+          "neck": [
+            11,
+            20
+          ]
+        },
+        "frame0_origin": [
+          33,
+          27
+        ],
+        "class": "wound",
+        "material": "goblin_flesh",
+        "presets": [
+          2,
+          3,
+          4
+        ],
+        "gore_layer": true,
+        "mass": "medium",
+        "spin": "fast",
+        "settle": "roll",
+        "bounce": 0.35,
+        "swap_on_first_contact": "head_bare_dead",
+        "stain": "decal_splat_s",
+        "trail": "decal_smear",
+        "ttl": "keep"
+      },
+      {
+        "id": "head_bare_dead",
+        "frame": 25,
+        "cell": [
+          32,
+          32
+        ],
+        "pivot": [
+          16,
+          16
+        ],
+        "anchors": {
+          "neck": [
+            11,
+            20
+          ]
+        },
+        "frame0_origin": [
+          33,
+          27
+        ],
+        "class": "wound",
+        "material": "goblin_flesh",
+        "presets": [
+          2,
+          3,
+          4
+        ],
+        "gore_layer": true,
+        "mass": "medium",
+        "spin": "fast",
+        "settle": "roll",
+        "bounce": 0.35,
+        "stain": "decal_splat_s",
+        "trail": "decal_smear",
+        "ttl": "keep"
+      },
+      {
+        "id": "wrench",
+        "frame": 26,
+        "cell": [
+          32,
+          32
+        ],
+        "pivot": [
+          16,
+          16
+        ],
+        "anchors": {
+          "grip": [
+            16,
+            20
+          ]
+        },
+        "frame0_origin": [
+          16,
+          38
+        ],
+        "class": "clean",
+        "material": "iron",
+        "presets": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "gore_layer": false,
+        "mass": "light",
+        "spin": "fast",
+        "settle": "clatter",
+        "bounce": 0.3,
+        "ttl": "keep"
+      }
+    ],
+    "base_spec": "docs/02-art/gob-02-death-spec.md",
+    "always_shown_layers": [
+      "body",
+      "prop",
+      "pot"
+    ]
+  }
+}

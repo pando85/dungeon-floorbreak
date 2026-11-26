@@ -428,7 +428,7 @@ fn a_hero_on_the_perch_is_not_a_target_and_he_holds_outside_the_slab() {
 }
 
 #[test]
-fn a_dive_from_the_perch_knocks_the_waiting_engineer_down() {
+fn a_dive_from_the_perch_knocks_the_waiting_engineer_to_the_floor() {
     let sim = replay_ticks("eng_perch_dive", 120);
     assert!(
         hits(&sim)

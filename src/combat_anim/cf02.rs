@@ -60,6 +60,8 @@ pub struct ActingArt {
     pub goblins: [SpriteClips; super::GOBLIN_VARIANTS],
     /// The goblin slammed sheets (stomped, wall crumple, flung) by variant.
     pub slammed: [SpriteClips; super::GOBLIN_VARIANTS],
+    /// ENG-02: the Engineer's slammed sheet (the same tags and frames, no weapon, the belt).
+    pub engineer_slammed: SpriteClips,
 }
 
 impl ActingArt {
@@ -75,6 +77,7 @@ impl ActingArt {
                 SpriteClips::load_goblin_slammed(root, 0, source)?,
                 SpriteClips::load_goblin_slammed(root, 1, source)?,
             ],
+            engineer_slammed: SpriteClips::load_engineer_slammed(root, source)?,
         })
     }
 }
@@ -580,11 +583,26 @@ impl ActingAnimators {
         variant: usize,
         slam: Option<SlamPose>,
     ) -> Option<ArtPose> {
+        self.slammed_pose_in(&self.art.slammed[variant], index, slam)
+    }
+
+    /// ENG-02: the Engineer's slammed finish frame, in its own slammed sheet (the same rule and indices as
+    /// [`Self::slammed_pose`]).
+    pub fn engineer_slammed_pose(&self, index: usize, slam: Option<SlamPose>) -> Option<ArtPose> {
+        self.slammed_pose_in(&self.art.engineer_slammed, index, slam)
+    }
+
+    fn slammed_pose_in(
+        &self,
+        clips: &SpriteClips,
+        index: usize,
+        slam: Option<SlamPose>,
+    ) -> Option<ArtPose> {
         let slam = slam?;
         let goblin = self.goblins.get(index)?;
         let dead_age = goblin.dead_age?;
         slammed_pose(
-            &self.art.slammed[variant],
+            clips,
             &SlamArtInput {
                 pose: slam,
                 mode: goblin.input.mode,
