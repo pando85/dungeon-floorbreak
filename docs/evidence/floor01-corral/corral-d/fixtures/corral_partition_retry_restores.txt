@@ -1,0 +1,11 @@
+COMBAT_EVENT tick=1 kind=move_started move=jab instance=1
+COMBAT_EVENT tick=4 kind=prop_hit prop=0 stimulus=MeleeHit progress=1 player=0
+COMBAT_EVENT tick=42 kind=move_started move=jab instance=2
+COMBAT_EVENT tick=45 kind=prop_hit prop=0 stimulus=MeleeHit progress=2 player=0
+COMBAT_EVENT tick=83 kind=move_started move=jab instance=3
+COMBAT_EVENT tick=86 kind=prop_hit prop=0 stimulus=MeleeHit progress=3 player=0
+COMBAT_EVENT tick=86 kind=prop_phase prop=0 phase=broken player=0
+COMBAT_EVENT tick=123 kind=restart deaths=0
+COMBAT_EVENT tick=1 kind=move_started move=jab instance=1
+COMBAT_EVENT tick=4 kind=prop_hit prop=0 stimulus=MeleeHit progress=1 player=0
+FIXTURE_END name=corral_partition_retry_restores tick=41 state_hash=0x6babc6eeefcc0287 env_hash=0x0c4f47e953dd3ec8

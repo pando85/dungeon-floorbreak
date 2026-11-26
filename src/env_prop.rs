@@ -2231,6 +2231,12 @@ impl Partition {
         *self = Self::new(self.cfg).expect("a built partition has a valid config");
     }
 
+    /// A checkpoint respawn restarts the heroes' move counters: forget which move instances were
+    /// counted (the counted hits stay), so the same token counts again.
+    pub fn forget_hit_tokens(&mut self) {
+        self.tokens.clear();
+    }
+
     /// Setup only (the CORRAL-AUTO `broken` variant): the partition as authored
     /// pre-broken. Never called mid-run.
     pub fn set_broken_for_setup(&mut self) {
@@ -5403,6 +5409,15 @@ mod partition_tests {
             Offer::Ignored(Ignored::ChainTooDeep)
         );
         assert_eq!((p.state(), p.hits()), (PartitionState::Intact, 0));
+    }
+
+    #[test]
+    fn forgetting_the_tokens_keeps_the_hits_and_lets_a_token_count_again() {
+        let mut p = partition();
+        p.offer(melee(1));
+        p.forget_hit_tokens();
+        assert_eq!(p.hits(), 1);
+        assert_eq!(p.offer(melee(1)), Offer::Progress { progress: 2 });
     }
 
     #[test]

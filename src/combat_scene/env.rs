@@ -1031,7 +1031,10 @@ impl EnvRuntime {
             })
             .collect();
         self.reset();
-        for (i, part) in kept {
+        for (i, mut part) in kept {
+            // A respawn restarts the heroes' move counters, so a token counted before it must
+            // count again (the hits stay).
+            part.forget_hit_tokens();
             self.props[i].machine = Machine::Partition(Box::new(part));
         }
     }

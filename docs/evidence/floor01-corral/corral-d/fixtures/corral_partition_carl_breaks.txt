@@ -1,0 +1,9 @@
+COMBAT_EVENT tick=1 kind=move_started move=jab instance=1
+COMBAT_EVENT tick=4 kind=prop_hit prop=0 stimulus=MeleeHit progress=1 player=0
+COMBAT_EVENT tick=42 kind=move_started move=jab instance=2
+COMBAT_EVENT tick=45 kind=prop_hit prop=0 stimulus=MeleeHit progress=2 player=0
+COMBAT_EVENT tick=83 kind=move_started move=jab instance=3
+COMBAT_EVENT tick=86 kind=prop_hit prop=0 stimulus=MeleeHit progress=3 player=0
+COMBAT_EVENT tick=86 kind=prop_phase prop=0 phase=broken player=0
+COMBAT_EVENT tick=124 kind=move_started move=jab instance=4
+FIXTURE_END name=corral_partition_carl_breaks tick=164 state_hash=0xe5f7e37b3ae90488 env_hash=0xa7e01565b6853ba0

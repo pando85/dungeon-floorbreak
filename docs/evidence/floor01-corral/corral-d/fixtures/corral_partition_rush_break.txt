@@ -1,0 +1,9 @@
+COMBAT_EVENT tick=33 kind=llama_rush_tell llama=0
+COMBAT_EVENT tick=65 kind=llama_rush_commit llama=0
+COMBAT_EVENT tick=78 kind=llama_rush_end llama=0 end=partition
+COMBAT_EVENT tick=78 kind=prop_hit prop=0 stimulus=Shove progress=1
+COMBAT_EVENT tick=78 kind=prop_phase prop=0 phase=broken
+COMBAT_EVENT tick=79 kind=move_started move=magic_missile instance=1
+COMBAT_EVENT tick=83 kind=mana_spent hero=1 left=7
+COMBAT_EVENT tick=84 kind=hit move=magic_missile instance=1 target=0 damage=1 health_left=2 hit_stop=2
+FIXTURE_END name=corral_partition_rush_break tick=84 state_hash=0x051c6fa9b4428165 env_hash=0x08de96e4a16bfdd3

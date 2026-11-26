@@ -1,4 +1,4 @@
-//! CORRAL-D: the seven partition fixtures of the sheet (section 15,
+//! CORRAL-D: the partition fixtures of the sheet (seven, plus CD-AD10's respawn fixture) (section 15,
 //! `enemy-gameplay-llama-rush.md`), run on the real party simulation with the
 //! room's real sidecar prop (the evaluator's rig: [`build`] with the `intact`,
 //! `broken` or `absent` [`PartitionVariant`]).
@@ -35,7 +35,7 @@ use crate::party::HeroId;
 use crate::party_scene::PartyFixtureSim;
 use crate::prototype::HERO_HALF_HEIGHT;
 
-/// The sheet's seven fixtures.
+/// The sheet's seven fixtures and the eighth, CD-AD10's respawn fixture.
 pub const FIXTURES: [&str; 8] = [
     "corral_partition_rush_break",
     "corral_partition_near_miss",
@@ -611,7 +611,7 @@ fn retry_restores() -> PartyFixtureSim {
 /// `corral_partition_respawn_keeps_broken` (CD-AD10): a checkpoint respawn keeps
 /// the partition's state; llama B, which a respawn does not send home, stands
 /// past the column and is never walled in. Only a restart restores the screen.
-fn respawn_keeps_broken() -> PartyFixtureSim {
+fn respawn_keeps_broken() -> Replay {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let (carl, donut) = crate::f01_late::Loadout::Story.flags();
     let (_run, mut scene, mut combat) =
@@ -653,11 +653,13 @@ fn respawn_keeps_broken() -> PartyFixtureSim {
         Some((PartitionState::Weakened, 2)),
         "weakened kept"
     );
-    // Break it, with B past the column (the review's corral_rush case: B at 1412).
+    // F6: the dedup record is cleared by the respawn (the hero's move counter restarts), so a
+    // token that was counted before it counts again. Break it with token 1, B past the column
+    // (the review's corral_rush case: B at 1412).
     combat.env_stimulate(
         usize::from(PROP),
         crate::env_prop::Stimulus::MeleeHit {
-            token: 3,
+            token: 1,
             player: 0,
             weight: 1,
         },
@@ -693,8 +695,35 @@ fn respawn_keeps_broken() -> PartyFixtureSim {
     combat.restart(&mut scene);
     assert_eq!(state(&combat), Some((PartitionState::Intact, 0)), "restart");
     assert!(wall_intact(&combat, &scene));
-    // The sim returned is the evaluator rig's (the launched room has no party sim).
-    rig(PartitionVariant::Intact, 1378.0, 1100, 0)
+    let mut env_hash = 0u64;
+    combat.env().unwrap().mix_into(&mut |v| {
+        env_hash = env_hash.rotate_left(5) ^ v.wrapping_mul(0x9e37_79b9_7f4a_7c15)
+    });
+    Replay {
+        events: combat.events.iter().map(ToString::to_string).collect(),
+        tick: scene.world.tick,
+        state_hash: combat.state_hash(&scene),
+        env_hash,
+    }
+}
+
+/// What a fixture leaves behind for the evidence writer and the determinism test:
+/// its COMBAT_EVENT lines, the tick it ended on and the final hashes.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Replay {
+    pub events: Vec<String>,
+    pub tick: u64,
+    pub state_hash: u64,
+    pub env_hash: u64,
+}
+
+fn replay_of(sim: &PartyFixtureSim) -> Replay {
+    Replay {
+        events: sim.combat.events.iter().map(ToString::to_string).collect(),
+        tick: sim.scene.world.tick,
+        state_hash: sim.state_hash(),
+        env_hash: env_hash(sim),
+    }
 }
 
 /// The env runtime's own hash block.
@@ -708,8 +737,11 @@ fn env_hash(sim: &PartyFixtureSim) -> u64 {
 }
 
 /// Run one fixture by name (the final sim, for the evidence writer).
-pub fn run(name: &str) -> PartyFixtureSim {
-    match name {
+pub fn run(name: &str) -> Replay {
+    if name == "corral_partition_respawn_keeps_broken" {
+        return respawn_keeps_broken();
+    }
+    replay_of(&match name {
         "corral_partition_rush_break" => rush_break(),
         "corral_partition_near_miss" => near_miss(),
         "corral_partition_carl_breaks" => carl_breaks(),
@@ -717,9 +749,8 @@ pub fn run(name: &str) -> PartyFixtureSim {
         "corral_partition_glob_blocked" => glob_blocked(),
         "corral_partition_remnant_bolt_passes" => remnant_bolt_passes(),
         "corral_partition_retry_restores" => retry_restores(),
-        "corral_partition_respawn_keeps_broken" => respawn_keeps_broken(),
         other => panic!("no partition fixture {other}"),
-    }
+    })
 }
 
 #[test]
@@ -893,15 +924,7 @@ fn corral_partition_fixtures_are_deterministic() {
     for name in FIXTURES {
         let a = run(name);
         let b = run(name);
-        assert_eq!(a.state_hash(), b.state_hash(), "{name}");
-        let lines = |s: &PartyFixtureSim| {
-            s.combat
-                .events
-                .iter()
-                .map(ToString::to_string)
-                .collect::<Vec<_>>()
-        };
-        assert_eq!(lines(&a), lines(&b), "{name}");
+        assert_eq!(a, b, "{name}");
     }
 }
 
@@ -918,21 +941,19 @@ fn corral_partition_fixtures_write_their_replays_when_asked() {
     for name in FIXTURES {
         let sim = run(name);
         let mut text = String::new();
-        for e in &sim.combat.events {
-            text.push_str(&e.to_string());
+        for e in &sim.events {
+            text.push_str(e);
             text.push('\n');
         }
         text.push_str(&format!(
             "FIXTURE_END name={name} tick={} state_hash={:#018x} env_hash={:#018x}\n",
-            sim.scene.world.tick,
-            sim.state_hash(),
-            env_hash(&sim)
+            sim.tick, sim.state_hash, sim.env_hash
         ));
-        std::fs::write(dir.join(format!("{name}.log")), &text).unwrap();
+        // `.txt`: a `*.log` file is gitignored.
+        std::fs::write(dir.join(format!("{name}.txt")), &text).unwrap();
         index.push_str(&format!(
             "{name} ticks={} state_hash={:#018x}\n",
-            sim.scene.world.tick,
-            sim.state_hash()
+            sim.tick, sim.state_hash
         ));
     }
     std::fs::write(dir.join("fixtures.txt"), index).unwrap();

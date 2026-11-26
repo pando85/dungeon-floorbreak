@@ -1,0 +1,10 @@
+COMBAT_EVENT tick=33 kind=llama_rush_tell llama=0
+COMBAT_EVENT tick=65 kind=llama_rush_commit llama=0
+COMBAT_EVENT tick=77 kind=llama_rush_end llama=0 end=miss
+COMBAT_EVENT tick=267 kind=llama_rush_tell llama=0
+COMBAT_EVENT tick=299 kind=llama_rush_commit llama=0
+COMBAT_EVENT tick=299 kind=llama_rush_end llama=0 end=miss
+COMBAT_EVENT tick=489 kind=llama_rush_tell llama=0
+COMBAT_EVENT tick=521 kind=llama_rush_commit llama=0
+COMBAT_EVENT tick=521 kind=llama_rush_end llama=0 end=miss
+FIXTURE_END name=corral_partition_near_miss tick=677 state_hash=0x073551ae48506c6e env_hash=0x3ff17fab23c83b3c

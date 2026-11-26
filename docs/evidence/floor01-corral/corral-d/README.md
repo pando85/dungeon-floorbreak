@@ -22,7 +22,7 @@ Every run below is a scripted pilot or a fixture, never a human. Window runs are
 
 ## Fixtures
 
-The seven fixtures of sheet section 15 are `src/corral_eval/partition_fixtures.rs`, on the evaluator's real-party rig with the room's real sidecar prop. Their replays (COMBAT_EVENT lines and the final hashes) are in [`fixtures/`](fixtures/), regenerated with `CORRAL_D_EVIDENCE_DIR=<dir> cargo test --lib corral_partition_fixtures_write_their_replays_when_asked`.
+The eight fixtures (the seven of sheet section 15 and CD-AD10's respawn fixture) are `src/corral_eval/partition_fixtures.rs`, on the evaluator's real-party rig with the room's real sidecar prop (the respawn fixture runs in the launched room). Their replays (COMBAT_EVENT lines and the final hashes, one `.txt` each) are in [`fixtures/`](fixtures/), regenerated with `CORRAL_D_EVIDENCE_DIR=<dir> cargo test --lib corral_partition_fixtures_write_their_replays_when_asked`.
 
 | Fixture | Result |
 | --- | --- |
