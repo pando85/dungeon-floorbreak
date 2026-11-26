@@ -1,0 +1,34 @@
+{
+ "schema_version": 1,
+ "id": "floor01_heat_props_v1",
+ "type": "decor_atlas",
+ "source_path": "assets/source/props/floor01/heat_props.ase",
+ "grid_source": "assets/source/props/floor01/heat_props.grid.json",
+ "output_atlas": "generated/art/floor01_heat_props.png",
+ "output_metadata": "generated/art/floor01_heat_props.json",
+ "palette_id": "floor01-catacomb-v2",
+ "frame_size": [
+  128,
+  36
+ ],
+ "pivot": [
+  0,
+  0
+ ],
+ "animation_tags": [],
+ "required_alpha": true,
+ "kit_contract": "assets/source/terrain/floor01/floor01_heat_kit.json",
+ "owner": "AI-authored environment pixel art (AREA-HEAT-01: design spec and keys Claude Opus; gate verdicts and K2/K3/R1..R8 edits Claude Opus; execution Claude Sonnet; independent review pending)",
+ "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+ "license": "Original repo-specific environment art; no standalone asset reuse license; no game/asset-pack distribution rights",
+ "review_status": "prototype_fixture_unapproved",
+ "provenance": {
+  "origin": "Original pixel-grid-v1 scorched-corral pieces for Floor 1 room 0 (AREA-HEAT-01 on the ENV-01 kit); rule-based shapes and ramps, nothing cropped, traced or resampled from concept art; no text, logos or likenesses",
+  "generator": "Deterministic authoring script scripts/author_heat01.py written by AI agents (keys, spec and gate edits designed by Claude Opus; execution by Claude Sonnet); no image-model raster output",
+  "generated_art": true,
+  "input_reference_ids": [
+   "floor01-catacomb-kit/env-kit-v2 (owner-approved ENV-01 kit, 2026-11-16)",
+   "floor-01-art-atlas-v1/03-bad-llamas-scorched-corridor (mood reference only; no pixel cropped, traced or resampled)"
+  ]
+ }
+}

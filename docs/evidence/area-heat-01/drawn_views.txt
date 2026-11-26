@@ -1,0 +1,7 @@
+bare_run 28
+dock 1610
+m0_goblins 0
+m1_throat 478
+m3_exit 1680
+pen_entry 1038
+pen_rails 1190

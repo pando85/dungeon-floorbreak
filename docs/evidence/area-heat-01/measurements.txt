@@ -1,0 +1,45 @@
+# AREA-HEAT-01 measurements: the kit's lit model (scripts/env_kit_light.py) on the composed layouts of room 0, plain and dressed; runtime lines read the window captures (make_heat01_evidence.sh)
+FREE_SPANS rows 464..543 (wall_a, wall_b) unpooled brick outside the bay openings, 16 px or wider: [(1112, 1144), (1912, 2320)]
+FREE_SPANS rows 512..559 (wall_c) unpooled brick outside the bay openings, 16 px or wider: [(1112, 1152), (1912, 2320)]
+FREE_SPANS rows 544..559 (trace) unpooled brick outside the bay openings, 16 px or wider: [(1096, 1160), (1896, 2320)]
+POOL_OVERLAP piece=heat_scorch_wall_a at=(1088, 464) on_bond=True opaque_px=2120 pooled_px=96 placed=yes
+POOL_OVERLAP piece=heat_scorch_wall_b at=(1920, 480) on_bond=True opaque_px=1408 pooled_px=0 placed=yes
+POOL_OVERLAP piece=heat_trace_wall_a at=(392, 544) on_bond=False opaque_px=74 pooled_px=74 placed=no
+POOL_OVERLAP piece=heat_trace_wall_a at=(384, 544) on_bond=True opaque_px=74 pooled_px=74 placed=no
+POOL_OVERLAP piece=heat_scorch_wall_c at=(1056, 512) on_bond=True opaque_px=920 pooled_px=913 placed=no
+POOL_OVERLAP piece=heat_scorch_wall_c at=(1088, 512) on_bond=True opaque_px=920 pooled_px=193 placed=no
+POOL_OVERLAP piece=heat_scorch_wall_c at=(1120, 512) on_bond=True opaque_px=920 pooled_px=0 placed=no
+POOL_OVERLAP piece=heat_scorch_wall_c at=(1152, 512) on_bond=True opaque_px=920 pooled_px=610 placed=no
+POOL_OVERLAP piece=heat_scorch_wall_c at=(1184, 512) on_bond=True opaque_px=920 pooled_px=920 placed=no
+A8_WALL_COVERAGE max=8.28% at_window_x=512 cap=18% ok
+A8_FLOOR_COVERAGE max=11.42% at_window_x=896 cap=25% ok
+ACTOR_SEPARATION actor=goblin x=1078 layout=plain actor_L=29.1 ring_L=28.5 dL=0.6 contrast=1.35 edge_dL=21.4
+ACTOR_SEPARATION actor=goblin x=1078 layout=dressed actor_L=29.1 ring_L=26.9 dL=2.2 contrast=1.42 edge_dL=18.3
+ACTOR_SEPARATION actor=goblin x=1110 layout=plain actor_L=28.8 ring_L=25.1 dL=3.8 contrast=1.53 edge_dL=16.6
+ACTOR_SEPARATION actor=goblin x=1110 layout=dressed actor_L=28.8 ring_L=23.1 dL=5.7 contrast=1.64 edge_dL=17.1
+ACTOR_SEPARATION actor=goblin x=1488 layout=plain actor_L=32.1 ring_L=35.8 dL=-3.6 contrast=1.07 edge_dL=19.5
+ACTOR_SEPARATION actor=goblin x=1488 layout=dressed actor_L=32.1 ring_L=35.8 dL=-3.6 contrast=1.07 edge_dL=20.1
+ACTOR_SEPARATION actor=goblin x=1968 layout=plain actor_L=28.1 ring_L=20.3 dL=7.8 contrast=1.79 edge_dL=15.5
+ACTOR_SEPARATION actor=goblin x=1968 layout=dressed actor_L=28.1 ring_L=19.0 dL=9.1 contrast=1.88 edge_dL=15.5
+ACTOR_SEPARATION actor=carl x=1078 layout=plain actor_L=39.8 ring_L=29.7 dL=10.1 contrast=1.89 edge_dL=15.5
+ACTOR_SEPARATION actor=carl x=1078 layout=dressed actor_L=39.8 ring_L=28.0 dL=11.8 contrast=1.98 edge_dL=16.8
+ACTOR_SEPARATION actor=carl x=1110 layout=plain actor_L=39.3 ring_L=25.1 dL=14.2 contrast=2.2 edge_dL=14.8
+ACTOR_SEPARATION actor=carl x=1110 layout=dressed actor_L=39.3 ring_L=22.6 dL=16.7 contrast=2.41 edge_dL=15.2
+ACTOR_SEPARATION actor=carl x=1488 layout=plain actor_L=43.7 ring_L=33.6 dL=10.1 contrast=1.8 edge_dL=17.7
+ACTOR_SEPARATION actor=carl x=1488 layout=dressed actor_L=43.7 ring_L=33.7 dL=10.0 contrast=1.79 edge_dL=17.9
+ACTOR_SEPARATION actor=carl x=1968 layout=plain actor_L=38.3 ring_L=20.3 dL=18.0 contrast=2.56 edge_dL=15.3
+ACTOR_SEPARATION actor=carl x=1968 layout=dressed actor_L=38.3 ring_L=18.8 dL=19.5 contrast=2.68 edge_dL=14.3
+WALKABLE_TOP source=lit_model platform=shelf layout=plain top_arris_run_L=30.4 brightest_rival_run_L=59.0 at_y=525 brightest=rival
+WALKABLE_TOP source=lit_model platform=dock layout=plain top_arris_run_L=36.6 brightest_rival_run_L=58.3 at_y=508 brightest=rival
+WALKABLE_TOP source=lit_model platform=bumper layout=plain top_arris_run_L=31.9 brightest_rival_run_L=41.1 at_y=477 brightest=rival
+WALKABLE_TOP source=lit_model platform=shelf layout=dressed top_arris_run_L=52.3 brightest_rival_run_L=59.0 at_y=525 brightest=rival
+WALKABLE_TOP source=lit_model platform=dock layout=dressed top_arris_run_L=47.9 brightest_rival_run_L=58.3 at_y=508 brightest=rival
+WALKABLE_TOP source=lit_model platform=bumper layout=dressed top_arris_run_L=54.8 brightest_rival_run_L=41.1 at_y=477 brightest=top
+WALKABLE_TOP source=runtime still=pen_entry platform=shelf view_left=1038 arris_screen_x=88..172 top_arris_run_L=53.7 brightest_rival_run_L=54.7 at_world_y=525 brightest=rival
+WALKABLE_TOP source=runtime still=dock platform=dock view_left=1610 arris_screen_x=284..634 top_arris_run_L=63.6 brightest_rival_run_L=37.5 at_world_y=529 brightest=top
+WALKABLE_TOP source=runtime still=dock platform=bumper view_left=1610 arris_screen_x=252..272 top_arris_run_L=34.0 brightest_rival_run_L=32.0 at_world_y=498 brightest=top
+WALKABLE_TOP source=runtime still=m3_exit platform=dock view_left=1680 arris_screen_x=214..618 top_arris_run_L=42.0 brightest_rival_run_L=37.5 at_world_y=529 brightest=top
+WALKABLE_TOP source=runtime still=m3_exit platform=bumper view_left=1680 arris_screen_x=182..202 top_arris_run_L=34.0 brightest_rival_run_L=32.0 at_world_y=498 brightest=top
+PARTITION_VS_OPENING source=gate_composite(CORRAL-D pending) state=intact partition_L=25.5 behind_L=26.5 dL=-1.1 mean_hue_diff_deg=80
+PARTITION_VS_OPENING source=gate_composite(CORRAL-D pending) state=weakened partition_L=24.9 behind_L=26.5 dL=-1.6 mean_hue_diff_deg=81
+PARTITION_VS_OPENING source=gate_composite(CORRAL-D pending) state=broken partition_L=24.5 behind_L=36.6 dL=-12.2 mean_hue_diff_deg=4
