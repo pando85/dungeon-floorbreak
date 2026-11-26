@@ -33,7 +33,7 @@ Room order (`assets/levels/f01_late/manifest.json`): `corral`, `hoarder`, `boile
 Why this beat:
 
 - **It keeps "No counters at Floor 01 start".** The run starts at the corral, which is the start of Floor 01 for the playtest. Spec line 11 and acceptance item 1 of AUDIENCE-01 stay true.
-- **It is "explicit" and "later".** The unlock is a single named step (`broadcast_live`, the audience's own flag, F15), announced on the corral's room-clear panel ([AR-AD2](#7-adopted-values-ar-ad1ar-ad24)). It comes after the opening material, as the spec's candidate asked: the Tutorial Guild point (`guild_biscuit`) and the corral's llama baptism.
+- **It is "explicit" and "later".** The unlock is a single named step (`broadcast_live`, the audience's own flag, F15), announced on the corral's room-clear panel ([AR-AD2](#7-adopted-values-ar-ad1ar-ad25)). It comes after the opening material, as the spec's candidate asked: the Tutorial Guild point (`guild_biscuit`) and the corral's llama baptism.
 - **It stays separate from the biscuit and mana unlocks.** `broadcast_live` is not a story-ledger capability and is not granted by any capability event. The ledger, `story_order` and the room pins do not change.
 - **It never lands in combat.** A room transition is a calm moment behind a confirm panel. A mid-room trigger (for example, the first llama rush tell) was rejected: danger tells outrank spectator effects (AUDIENCE-01 rule), and a counter appearing during a rush would be read as part of the threat.
 - **It is reachable for the playtest.** Eight of nine rooms show the counts, including the boss room and mastery, where dynamite and llamas meet.
@@ -68,6 +68,8 @@ The run starts a new process for each room (K17), and AUDIENCE-01 keeps its stat
 
 The **run default** predicate is `f01_run && live_input() && room_pilot.is_none() && !ring_pilot`. `live_input()` already excludes headless, replay, scenario, fixture without `--manual`, autopilot, capture, perf, view-trace, HUD preview and the audience probe. The two extra terms make the default off for scripted room pilots, so every evidence script that passes `--f01-run` (`make_heat01_evidence.sh`, `make_rings01_evidence.sh`, `make_hrd_cues_evidence.sh`, the `ci_floor01_combat.sh` corral entry) stays byte-identical. An explicit flag always wins over the default.
 
+Showcase slow motion is also live in the corral, where the audience is still locked; only the plates wait for the unlock (the corral's three llamas can trigger `CINE-SHOWCASE-KILL`).
+
 `--cinematic-finishes` (the presentation switch) is not changed. Showcase feats are **evaluator rules**. Whether a moment actually slows time is still decided by `PresentationSettings`, which is on for live play.
 
 ## 4. Showcase feats for CINE-01 (deliverable 3)
@@ -94,19 +96,20 @@ What the stream does **not** prove, and so stays out (fail closed):
 
 | Evidence ID | Kind | Required observable facts | Score | Base targets |
 | --- | --- | --- | ---: | ---: |
-| `CINE-THROWN-MULTI` | primary | On the completing tick, at least **3** (`thrown_multi_min_kills`) distinct non-boss targets are defeated by `Explosion { charge: c, player: Some(p) }`. `c` must have a recorded **deliberate throw** in this attempt: a `ChargeThrown { charge: c }` on a tick with no `HeroHurt { hero: p }`. All other eligibility rules apply: `p` is clean for 90 ticks, cooldown, not locked, not companion-driven (CA-29). | **5** | 3 |
+| `CINE-THROWN-MULTI` | primary | On the completing tick, at least **3** (`thrown_multi_min_kills`) distinct non-boss targets (goblins, Engineers **and llamas**; never the Juicer or the Hoarder) are defeated by `Explosion { charge: c, player: Some(p) }`. `c` must have a recorded **deliberate throw** in this attempt: a `ChargeThrown { charge: c }` on a tick with no `HeroHurt { hero: p }`. All other eligibility rules apply: `p` is clean for 90 ticks, cooldown, not locked, not companion-driven (CA-29). | **5** | 3 |
 | `CINE-SHOWCASE-KILL` | primary | On the completing tick, `p` is credited with the defeat of a **showcase target**: a llama in v1, flagged by the adapter bridge `ShowcaseTarget { tick, target }`. Credit uses the existing rules: melee `instigator`, verified drop credit, or a credited thrown blast as above. | **5** | 1 |
 | `CINE-SHOWCASE-BONUS` | bonus | A showcase target is among `p`'s credited defeats in the scored chain, and the selected primary is **not** `CINE-SHOWCASE-KILL` | **+1** | n/a |
 
 Rules shared by the new feats (AR-AD9 to AR-AD17):
 
-1. **Credited thrown-blast defeats.** With showcase on, a defeat with `Explosion { charge: c, player: Some(p) }` and a recorded deliberate throw of `c` is credited to `p` as a new `DefeatKind::Blast`. Every other explosion stays uncredited, exactly as on main: authored charges, chained charges, stickers, world blasts, the QA profile, `player: None`, a dropped stick, or a charge with no recorded throw. A credited blast defeat counts toward `CINE-EXTRA-KILL` in any chain. It never counts as the melee half or the drop half of `CINE-MIXED-CHAIN`.
+1. **Credited thrown-blast defeats.** With showcase on, a defeat with `Explosion { charge: c, player: Some(p) }` and a recorded deliberate throw of `c` is credited to `p` as a new `DefeatKind::Blast`. Every other explosion stays uncredited, exactly as on main: authored charges, chained charges, stickers, world blasts, the QA profile, `player: None`, a dropped stick, or a charge with no recorded throw. A release on the same tick as a hurt of the owner counts as a drop (fail closed). A credited blast defeat counts toward `CINE-EXTRA-KILL` in any chain. It never counts as the melee half or the drop half of `CINE-MIXED-CHAIN`.
 2. **Primaries do not stack.** If several primaries hold, the selected one is the one with the **largest base**; ties go in the fixed order THROWN-MULTI, MIXED-CHAIN, PRECISION-EDGE, SHOWCASE-KILL. The score is that primary's score, plus `CINE-EXTRA-KILL` (credited defeats in the chain beyond the base, +1 each, max +2), plus `CINE-CONTACT-SETUP` (+2, unchanged), plus `CINE-SHOWCASE-BONUS` (+1). With showcase off, the largest-base rule gives exactly main's result: MIXED-CHAIN base 2 over PRECISION-EDGE base 1.
 3. **Completing tick.** The two new primaries need their defining defeats **on the tick being evaluated**: one blast's batch, or the llama's own defeat. A llama kill that was refused (for example, by the cooldown) can never resurface later as a goblin kill's moment. The existing primaries keep their 90-tick window rule.
 4. **Anchor.** The moment's `target`, which is the audience dedupe key and the planner's `finish_active` target, is the lowest showcase-target id of the batch when the selected primary is SHOWCASE-KILL. Otherwise it stays main's lowest credited target of the batch.
 5. **Thresholds, windows, cooldown and upgrade are unchanged:** ordinary at 5..7, legendary at 8+, 90/90/900/8 ticks. The thrown-charge record is cleared on `Restart` and on `Respawn`, together with the rest of the history.
-6. **The boss never triggers.** `BOSS_ENEMY_ID` stays `CineCause::Other`, is never a showcase target, and never counts toward the three blast kills. A boss defeated by a blast that also kills two goblins gives no moment.
-7. **Legendary paths.** Without a llama, THROWN-MULTI tops out at 5 + 2 = 7 (ordinary), so F4's statement "legendary only with a proven linked contact" still holds **for goblin-only chains**. A thrown blast that kills at least four goblins **and** a llama scores 5 + 2 + 1 = **8, legendary**. That is the run's "best one": it is possible in mastery, where llamas and dynamite meet.
+6. **The bosses never trigger.** `BOSS_ENEMY_ID` stays `CineCause::Other`, is never a showcase target, and never counts toward the three blast kills. A boss defeated by a blast that also kills two goblins gives no moment. The Hoarder's id (`PILE_BOSS_ID`) gets the same treatment in the bridge and in the THROWN-MULTI count (AR-AD25): it lies outside the llama id range and is never blast-defeated today, so this is only a guard against later changes.
+7. **Llama-only off switch.** `showcase_kill_score = 0` disables `CINE-SHOWCASE-KILL` as a primary (it is then never selected) and keeps `CINE-THROWN-MULTI` and `CINE-SHOWCASE-BONUS`. This is a tuning value (data), not a CLI flag, so the owner can switch llama slow motion off alone if AR-Q2 says it is too frequent.
+8. **Legendary paths.** Without a llama, THROWN-MULTI tops out at 5 + 2 = 7 (ordinary), so F4's statement "legendary only with a proven linked contact" still holds **for goblin-only chains**. A thrown blast that kills at least four goblins **and** a llama scores 5 + 2 + 1 = **8, legendary**. That is the run's "best one": it is possible in mastery, where llamas and dynamite meet.
 
 Worked scores:
 
@@ -114,19 +117,20 @@ Worked scores:
 | --- | ---: | --- |
 | Thrown stick kills 2 goblins | none | (no primary) |
 | Thrown stick kills 3 goblins | 5 | ordinary |
+| Thrown stick kills 2 goblins + 1 llama (3 targets) | 5 + 1 = 6 | ordinary |
 | Thrown stick kills 5 goblins | 5 + 2 = 7 | ordinary |
 | Thrown stick kills 3 goblins + 1 llama | 5 + 1 + 1 = 7 | ordinary |
 | Thrown stick kills 4 goblins + 1 llama | 5 + 2 + 1 = 8 | **legendary** |
 | Dropped stick (Carl hurt on the drop tick) kills 5 goblins | none | (no credit) |
 | Authored or chained charge kills 5 goblins | none | (T02) |
 | Carl's push kick kills a llama | 5 | ordinary |
-| Donut's missile kills a llama | 5, credited to hero 1 | ordinary |
+| Donut's missile kills a llama (Donut human-driven; a companion-driven Donut never triggers, CA-29) | 5, credited to hero 1 | ordinary |
 | Melee goblin, then a shore-block goblin, then a melee llama, inside 90 ticks | 5 + 1 + 1 = 7 | ordinary |
 | Juicer plus 2 goblins in one thrown blast | none | (boss excluded, 2 < 3) |
 
 ### 4.3 Amended CINE-01 text
 
-- **Rule 1** gains this sentence: "With showcase feats on (AUDIENCE-RUN), a deliberate thrown-dynamite blast that kills three or more enemies is a primary feat, and a credited llama kill is a primary feat; any other explosion still never triggers."
+- **Rule 1** gains this sentence: "With showcase feats on (AUDIENCE-RUN), a deliberate thrown-dynamite blast that kills three or more enemies is a primary feat, and a credited llama kill is a primary feat by owner decision (a *showcase species*: rare, dangerous charging enemies), an explicit exception to "necessary but not sufficient"; any other explosion still never triggers, and the bosses (the Juicer and the Hoarder) still never do."
 - **The example "Three ordinary enemies killed simultaneously by an environmental blast: no slow motion"** stays true. "Environmental" means authored or unowned. A deliberately thrown stick by a clean hero is the new exception.
 - **CINE-T02 is amended to:** "three routine kills / block-only / `qa_blast_breakup` `Explosion` defeats / an authored, chained, sticker or dropped charge's blast → no candidate, **with showcase on or off**. Only a deliberate thrown charge with a recorded `ChargeThrown` and an owner (`CINE-THROWN-MULTI`, at least 3 kills) is a blast primary, and only under `showcase_feats`."
 - **The "bonuses alone never qualify" sentence** stays true. SHOWCASE-BONUS and EXTRA-KILL never qualify on their own.
@@ -146,6 +150,8 @@ No new award constants. Everything reuses `audience::TUNING` (AR-AD18):
 | Boss defeat | Force tier and environmental bonus as usual (audience is not CINE; F8 limits CINE only) | `defeat()` |
 | Hero hurt, party defeat, Restart farming | Nothing (AUD-Q3 open; Restart restores) | unchanged |
 
+A dropped stick's kills still pay audience (factual credit through `credited_hero`, with the +900 bonus), though they never trigger CINE.
+
 For example, Carl's 4-goblin-and-llama legendary stick is worth five defeat awards, each with the +900 bonus, plus a chain award of 1,000. That is the largest single spike in the run, and so the most visible "UP" trend arrow.
 
 **The per-death-kind link is presentation-safe as built.** The audience award and the death finish read the **same authoritative pair**, `(DefeatCause, ForceTier)`, independently. A point-blank blast is catastrophic: it pays 1,800 and shows `llama_exploded` or `goblin_exploded`. A heavy push kick is heavy: it pays 500 and shows `llama_slammed`. The audience never reads `Finish`, `RecipeKind`, the gore preset, the cosmetic override flags or anything else from `death_present`. A test pins this down: gore preset 1 and preset 4 give the same `AUDIENCE_STATE` digest (AR-T17). No finish-driven award is added.
@@ -156,7 +162,7 @@ The CINE moment and the audience award are also one-way: the evaluator is a func
 
 No new art or wiring is needed. DEATH-D (#108), LLAMA-DEATH-WIRE (#272) and the cosmetic presenter (#97) already run in the windowed scene, the `--f01-run` rooms included. AUDIENCE-RUN only **captures** them in the run, with slow motion over them, as evidence ([section 10](#10-evidence-to-capture)). The planner's existing rule, that a moment plays only while its target's finish is active, is kept unchanged.
 
-## 7. Adopted values (AR-AD1..AR-AD24)
+## 7. Adopted values (AR-AD1..AR-AD25)
 
 | ID | Adopted value | Why |
 | --- | --- | --- |
@@ -168,11 +174,11 @@ No new art or wiring is needed. DEATH-D (#108), LLAMA-DEATH-WIRE (#272) and the 
 | AR-AD6 | `--audience[=on\|off]`: default on iff the run default predicate. Explicit `on` is allowed only with `--f01-run`. `off` locks everywhere and persists across relaunches. | Section 3 |
 | AR-AD7 | `--cine-showcase[=on\|off]`: default on iff the run default predicate. Explicit `on` is allowed on any path. `off` gives main's rules. | Section 3 |
 | AR-AD8 | The live adapter and the `AudienceFeatFeed` observer use the same `CineTuning`, including `showcase_feats` and the showcase-target bridge, so the chain feats of headless and fast-forward runs match the live loop's. | One rule set |
-| AR-AD9 | `CINE-THROWN-MULTI`: score 5, base 3, `thrown_multi_min_kills = 3`, all of them on one blast's tick | Section 4.2 |
-| AR-AD10 | Deliberate-throw proof: `ChargeThrown { charge: c }` on a tick without `HeroHurt` of the charge's owner. A drop never credits. Restart and Respawn clear the record. | Fail closed |
+| AR-AD9 | `CINE-THROWN-MULTI`: score 5, base 3, `thrown_multi_min_kills = 3`, all of them on one blast's tick. Llama blast defeats count toward the 3 (any distinct non-boss target). | Section 4.2 |
+| AR-AD10 | Deliberate-throw proof: `ChargeThrown { charge: c }` on a tick without `HeroHurt` of the charge's owner. A drop never credits. A release on the same tick as a hurt of the owner counts as a drop. Restart and Respawn clear the record. | Fail closed |
 | AR-AD11 | Authored, chained, sticker, world and QA blasts, and `player: None`, stay uncredited | Section 4.1 |
 | AR-AD12 | Credited thrown-blast defeats are `DefeatKind::Blast`: they count as extra kills and never complete MIXED-CHAIN | Keeps MIXED-CHAIN's meaning |
-| AR-AD13 | `CINE-SHOWCASE-KILL`: score 5, base 1, a credited llama defeat on the completing tick. The anchor is the lowest llama id of the batch. | The owner's "llama kills" |
+| AR-AD13 | `CINE-SHOWCASE-KILL`: score 5, base 1, a credited llama defeat on the completing tick. The anchor is the lowest llama id of the batch. `showcase_kill_score = 0` disables it alone (data, no flag). | The owner's "llama kills": a showcase-species exception to "necessary but not sufficient" |
 | AR-AD14 | `CINE-SHOWCASE-BONUS`: +1 when a llama is in the scored chain and the primary is not SHOWCASE-KILL | Makes stick-plus-llama the legendary showcase |
 | AR-AD15 | Primary selection: largest base wins; ties go in the order THROWN-MULTI, MIXED-CHAIN, PRECISION-EDGE, SHOWCASE-KILL. All primaries score 5, so they never stack. | Deterministic; equal to main when showcase is off |
 | AR-AD16 | The boss never: not credited, not a showcase target, never one of the 3 | CINE rule 1, F8, boss design section 5 |
@@ -181,9 +187,10 @@ No new art or wiring is needed. DEATH-D (#108), LLAMA-DEATH-WIRE (#272) and the 
 | AR-AD19 | Floor 01 authors no anticipation cue. The cue table is empty in the run. | F15 kept for cues |
 | AR-AD20 | No viewer number on the room-clear or floor-end panels | Facts-only panels, AUD-Q4 |
 | AR-AD21 | `CINE01_MOMENT` appends ` thrown_multi=1`, ` showcase_kill=1` and ` showcase_bonus=1`, each only when set and before ` upgrade=1`. Legacy lines stay byte-identical. | Goldens |
-| AR-AD22 | `AUDIENCE_STATE` prints only under `--audience-probe` or an explicit `--audience=on`. An explicit `--cine-showcase=on` on a headless or capture path prints observer `CINE01_MOMENT` lines, so party fixtures can show their moments. | Evidence without touching legacy output |
-| AR-AD23 | CA-29 is unchanged: a defeat credited to a companion-driven hero never triggers CINE, and audience credit stays factual | Existing rule |
+| AR-AD22 | `AUDIENCE_STATE` prints only under `--audience-probe` or an explicit `--audience=on`. An explicit `--cine-showcase=on` on a headless or capture path prints observer `CINE01_MOMENT` lines, so party fixtures can show their moments: the `AudienceFeatFeed` adapter runs when the audience is unlocked **or** `--cine-showcase=on` is explicit, pushes feats to the HUD only when unlocked, and keeps today's early return otherwise. Fixture evidence with an audience uses the existing `--audience-probe` (same cue for both gore presets); `--audience=on` stays tied to `--f01-run`. | Evidence without touching legacy output or F15 |
+| AR-AD23 | CA-29 is unchanged: a defeat credited to a companion-driven hero never triggers CINE, and audience credit stays factual. The adapter's `is_companion_credited` names the blast owner (`CineCause::Blast { player, .. } => player`), so an AI-driven Carl's thrown blast never reaches the evaluator. | Existing rule |
 | AR-AD24 | Per-death-kind presentation: no new art or wiring, only evidence; the planner's `finish_active` rule is unchanged | Section 6 |
+| AR-AD25 | The Hoarder (`PILE_BOSS_ID`) is excluded like the Juicer: never a showcase target, never one of the 3 blast kills. `push_driven` also skips the `ShowcaseTarget` push when the defeat itself is filtered as companion-credited. | Review finding 11, robustness |
 
 ## 8. Open questions (AR-Q1..AR-Q9)
 
@@ -209,13 +216,14 @@ Medium tier, one implementation PR. File by file:
    - Add `CineCause::Blast { player: Option<u32>, charge: u32 }`. `cine_cause` maps `Explosion` to it (the boss stays `Other`). Its sort component is `8`, the same as `Other`.
    - Add `CineEvent::ChargeThrown { tick, charge }`, mapped in `from_combat`, and `CineEvent::ShowcaseTarget { tick, target }`, an adapter bridge only.
    - Renumber the sort keys so `ChargeThrown` and `ShowcaseTarget` sort after `HeroHurt` and before `Defeated`. Existing events keep their relative order.
-   - Add `CineTuning` fields: `showcase_feats: bool` (false in `DEFAULT`), `thrown_multi_min_kills: u8 = 3`, `thrown_multi_score: u8 = 5`, `showcase_kill_score: u8 = 5`, `showcase_bonus: u8 = 1`. Add `CineTuning::with_showcase(bool)`.
+   - Add `CineTuning` fields: `showcase_feats: bool` (false in `DEFAULT`), `thrown_multi_min_kills: u8 = 3`, `thrown_multi_score: u8 = 5`, `showcase_kill_score: u8 = 5`, `showcase_bonus: u8 = 1`. Add `CineTuning::with_showcase(bool)`. Validation: `thrown_multi_score > 0`; `showcase_kill_score == 0` (SHOWCASE-KILL off) or `>= ordinary threshold`; `thrown_multi_min_kills >= 2`.
    - Add `DefeatKind::Blast` and a `showcase: bool` field on `DefeatEntry`.
    - Add a bounded record of thrown charges: `(charge, tick, owner_hurt_mask)`, at most one entry per charge index, cleared on Restart and Respawn.
    - Extend `credit_of`, `score_player` (primary selection by base, completing-tick checks, anchor, bonus) and `FeatSet` (`thrown_multi`, `showcase_kill`, `showcase_bonus`).
 2. **`src/cine_adapter.rs`**
    - Add `CineAdapter::set_showcase_targets(first: u32, count: u32)`. Before pushing a `Defeated` whose target is in range, `push` and `push_driven` push `ShowcaseTarget` for the same tick, only while `showcase_feats` is true.
    - Make `with_tuning` take the showcase tuning.
+   - CA-29: in `is_companion_credited`, map `CineCause::Blast { player, .. } => player`. Skip the `ShowcaseTarget` push when the defeat is filtered. Exclude `BOSS_ENEMY_ID` and `PILE_BOSS_ID` from the bridge.
 3. **`src/audience.rs`**
    - Add `AudienceState::resume(counts: [(u64, u64); 2]) -> Result<(), ResumeError>`: unlock with the given current and peak per hero, validated, then `begin_attempt()`. A second call is a no-op, like `unlock`.
 4. **`src/hud.rs`**
@@ -234,6 +242,7 @@ Medium tier, one implementation PR. File by file:
    - Fill the exit carry.
    - Extend `cine_moment_line`.
    - Print `AUDIENCE_STATE` per AR-AD22, and the headless observer moment lines.
+   - `AudienceFeatFeed::observe`: run the adapter when the audience is unlocked **or** `cine_showcase == Some(true)`; push `ChainFeat`s to the HUD only when unlocked; print observer `CINE01_MOMENT` lines only for an explicit `--cine-showcase=on` on a headless or capture path; keep today's early return when neither holds.
 7. **Fixtures:** add `carl_prog_dyn_thrown_triple` and `carl_prog_dyn_llama_pack` (party fixtures with the thrown charge held, next to `carl_prog_dyn_core_kill`), in `src/carl_prog_fixtures.rs`. Each gets its own `GOLDENS` row and its own committed replay under `docs/evidence/carl-prog-01/replays/`, and the registry grows from 32 to 34. Thrown charges kill only in the 20 px core (`cpq20_core_radius_px`), so the goblins stand tightly around the landing spot (x 511, as in `carl_prog_dyn_core_kill`). If the simulation cannot place three living bodies in the core, the implementer records that as a blocker. Changing the blast rules is not an allowed workaround.
 8. **CI:** extend `scripts/ci_floor01_combat.sh cine` with showcase probes and new committed evidence files under `docs/evidence/audience-run/`.
 9. **Docs:** the floor-run section of `docs/03-tech/floor01-scene.md` (flags), the owner commands in `docs/evidence/f01-playtest/README.md` and `scripts/check_f01_owner_commands.sh` (`--audience=off`, a direct `--f01-room hoarder` start), and the "implementation status" rows of both specs.
@@ -246,39 +255,41 @@ Medium tier, one implementation PR. File by file:
 | AR-T02 | `cine::ar_thrown_triple_is_one_ordinary_moment` | `ChargeThrown { c }` at t, three `Explosion { c, Some(0) }` defeats at t+150 → one moment: score 5, ordinary, `thrown_multi`, credited 0, target = lowest id, `extra_kills` 0 |
 | AR-T03 | `cine::ar_thrown_pair_is_not_a_feat` | Two kills → `None`, `Rejection::NoQualifyingFeat` |
 | AR-T04 | `cine::ar_four_goblins_and_a_llama_is_legendary` | Four goblins and a `ShowcaseTarget` llama on one blast → score 8, legendary, `thrown_multi`, `showcase_bonus`, `extra_kills` 2 |
-| AR-T05 | `cine::ar_a_dropped_stick_never_credits` | `ChargeThrown` with `HeroHurt { 0 }` on the same tick, a blast 150 ticks later killing 5 → `None` |
+| AR-T04b | `cine::ar_a_llama_counts_toward_the_three_blast_kills` | Two goblins and a `ShowcaseTarget` llama on one blast → score 6, ordinary, `thrown_multi`, `showcase_bonus`, `extra_kills` 0 |
+| AR-T05 | `cine::ar_a_dropped_stick_never_credits` | `ChargeThrown` with `HeroHurt { 0 }` on the same tick, a blast 150 ticks later killing 5 → `None`; sub-case: a t41 release with a hurt of the owner on the same tick → `None` |
 | AR-T06 | `cine::ar_unthrown_authored_or_ownerless_blasts_never_credit` | A charge with no `ChargeThrown`, an authored charge index with `Some(0)`, `player: None` → `None` with showcase on (amended T02) |
 | AR-T07 | `cine::ar_the_boss_never_counts` | Boss plus 2 goblins in one thrown blast → `None`; a `ShowcaseTarget` for `BOSS_ENEMY_ID` is ignored |
 | AR-T08 | `cine::ar_a_hurt_in_the_clean_window_vetoes_the_blast` | `HeroHurt { 0 }` 60 ticks before the blast → `None`, `NotClean` |
-| AR-T09 | `cine::ar_a_clean_credited_llama_kill_is_a_showcase_moment` | Melee llama kill (`instigator` 0) → score 5, `showcase_kill`, target = llama id; with `instigator` 1 → credited 1 |
+| AR-T09 | `cine::ar_a_clean_credited_llama_kill_is_a_showcase_moment` | Melee llama kill (`instigator` 0) → score 5, `showcase_kill`, target = llama id; with `instigator` 1 → credited 1; with `showcase_kill_score = 0` → `None` (and a thrown triple with a llama still scores 6 via THROWN-MULTI + SHOWCASE-BONUS) |
 | AR-T10 | `cine::ar_an_uncredited_llama_kill_is_nothing` | Llama killed by an authored blast or by `Environment` → `None` |
 | AR-T11 | `cine::ar_cooldown_and_no_stacking_hold_for_showcase` | Llama moment, then a thrown triple 300 ticks later → second `Cooldown`; melee + shore + llama melee in one window → 7 (5 + 1 + 1), not 10 |
 | AR-T12 | `cine::ar_restart_and_respawn_forget_the_throw` | `ChargeThrown`, `Restart` (or `Respawn`), then three blast kills of `c` → `None` |
 | AR-T13 | `cine::ar_blast_kills_are_extras_in_a_mixed_chain` | Melee + shore + one credited thrown-blast kill → 6, `mixed_chain`, `extra_kills` 1 |
 | AR-T14 | `cine::ar_showcase_choice_is_order_independent` | The same batch in shuffled orders → the same moment |
-| AR-T15 | `cine_adapter::showcase_targets_are_bridged_only_when_on` | With showcase off, no `ShowcaseTarget` is pushed and the moment equals main; with it on, the llama-range defeat gets the bridge |
+| AR-T15 | `cine_adapter::showcase_targets_are_bridged_only_when_on` | With showcase off, no `ShowcaseTarget` is pushed and the moment equals main; with it on, the llama-range defeat gets the bridge; `BOSS_ENEMY_ID` and `PILE_BOSS_ID` never do |
+| AR-T15b | `cine_adapter::a_companion_driven_thrown_blast_never_reaches_the_evaluator` | `companion_driven[0] = true`, showcase on, a thrown triple through `push_driven` → `None` (CA-29) |
 | AR-T16 | `audience::resume_carries_counts_and_starts_a_fresh_room` | `resume` → counts and peaks as given, empty dedupe, Restart restores the carried counts, Respawn keeps them, bad carries rejected |
 | AR-T17 | `floor01_scene::audience_digest_ignores_the_gore_preset` | The same fixture with `--audience=on`-equivalent setup at gore presets 1 and 4 → identical `AUDIENCE_STATE` digests |
 | AR-T18 | `f01_run::audience_carry_round_trips_and_is_replaced_on_relaunch` | `to_arg` and `parse` round-trip; `relaunch_argv` drops an old `--f01-audience` and writes the new one once |
 | AR-T19 | `f01_run::the_audience_is_live_only_after_the_corral` | `corral` → false; every later row → true; a manifest without `corral` → false everywhere |
 | AR-T20 | `f01_run::only_the_unlock_room_panel_announces_the_broadcast` | Corral panel with the audience enabled has the AR-AD2 line; with it disabled, and on every other panel, the lines equal main's; no panel shows a count |
 | AR-T21 | `floor01_scene::broadcast_defaults_are_on_only_for_a_live_f01_run` | On: `--scene f01_late --f01-run`. Off: the same with `--headless-floor01-smoke`, `--capture-tick 90`, `--ring-pilot --f01-room ring_court`, the HRD-CUES room pilot, `--audience=off`. Parse errors: `--audience=on` without `--f01-run`, `--f01-audience` without `--f01-run`, a bad carry |
-| AR-T22 | `floor01_scene::a_thrown_triple_reaches_the_audience_on_headless_and_live_paths` | The `carl_prog_dyn_thrown_triple` events through the live fan-out and through `AudienceFeatFeed` → the same `ChainFeat` (score 5) and the same digest |
+| AR-T22 | `floor01_scene::a_thrown_triple_reaches_the_audience_on_headless_and_live_paths` | The `carl_prog_dyn_thrown_triple` events through the live fan-out and through `AudienceFeatFeed` → the same `ChainFeat` (score 5) and the same digest; with the audience locked and `--cine-showcase=on` explicit, the feed still produces the moment (printed, not pushed to the HUD); with both off, the feed returns early as on main |
 | AR-T23 | Fixture `carl_prog_dyn_thrown_triple` (new) | Solo, thrown charge held, three goblins inside the ring at the landing spot → one `CINE01_MOMENT ... thrown_multi=1` (score 5) on the `Blast` tick with showcase on; none with it off; own hash row |
 | AR-T24 | Fixture `carl_prog_dyn_llama_pack` (new) | Four goblins and a passive llama in the ring → one legendary moment, score 8, `showcase_bonus=1`; `llama_exploded` finish; own hash row |
 | AR-T25 | Existing fixtures with `--cine-showcase=on` | `carl_prog_dyn_llama_core` → `showcase_kill=1`, score 5, target = llama id; `carl_prog_dyn_core_kill` → none; `carl_prog_dyn_boss` → none; `qa_blast_breakup` → none; `cp05_llama_slam` → `showcase_kill=1` (windowed: also `CINE01_SLOWMO start`). If a fixture's log shows a hurt of the credited hero inside the clean window, the expected result is no moment (`NotClean`): record the actual output and use another existing llama fixture for the positive case. Never adjust a rule to fit a fixture. |
 | AR-T26 | `thrown::a_drop_logs_the_hurt_and_the_throw_on_one_tick` | The sim fact AR-AD10 relies on: a hurt on t6..t40 logs `HeroHurt` and `ChargeThrown` on the same tick |
 
-**Pins that may move:** none of the legacy goldens. That covers `ci_floor01_combat.sh headless`, `cine` (the B3 and pileup lines at ticks 159 and 139), `render`, every `COMBAT_STATE` hash, and every committed evidence file. The only allowed changes are **additive**: the `GOLDENS` rows, committed replays and registry count (32 to 34) for the two new `carl_prog_dyn_*` fixtures, the new probes and committed files under `docs/evidence/audience-run/`, and the `from_combat` unit test's list of mapped events (it now includes `ChargeThrown`). Any other moved pin is a defect.
+**Pins that may move:** none of the legacy goldens. That covers `ci_floor01_combat.sh headless`, `cine` (the B3 and pileup lines at ticks 159 and 139), `render`, every `COMBAT_STATE` hash, and every committed evidence file. The only allowed changes are **additive**: the `GOLDENS` rows, committed replays and registry count (32 to 34) for the two new `carl_prog_dyn_*` fixtures, the new probes and committed files under `docs/evidence/audience-run/`, and the `from_combat` unit test's list of mapped events (it now includes `ChargeThrown`, and its `Explosion` assertion moves from `Other` to `Blast`). Any other moved pin is a defect.
 
 ## 10. Evidence to capture
 
 Commit everything under `docs/evidence/audience-run/`, with a README holding the exact commands and SHA-256 sums:
 
 1. **Showcase moment lines** (`--cine-showcase=on`; windowed with `--cinematic-finishes=on --exit-after-ticks N` for `cp05_llama_slam`, headless observer lines for the party fixtures): AR-T23 to AR-T25, with the `CINE01_SLOWMO start` line where the run is windowed.
-2. **Gore-preset parity:** preset 1 versus preset 4 on `carl_prog_dyn_llama_pack`, with identical `COMBAT_EVENT`, `CINE01_MOMENT` and `AUDIENCE_STATE` lines.
-3. **Run reveal stills** (640x360, scale 1 and 3): the corral room-clear panel with the broadcast line; the hoarder room's first frame with both plates at 250; a later room with carried counts (via a room pilot with `--audience=on`).
-4. **Slow motion over a per-kind finish in the run:** a `capture-sequence` or room-pilot GIF in mastery or the boiler with `--audience=on --cine-showcase=on --cinematic-finishes=on`, showing a thrown multi-kill (exploded finishes) and the spike trend on Carl's plate. If no pilot throws the stick, record that and capture the `carl_prog_dyn_llama_pack` fixture instead. **Never fake a run capture.**
+2. **Gore-preset parity:** `--party-fixture carl_prog_dyn_llama_pack --audience-probe --cine-showcase=on` at gore preset 1 versus preset 4 (the same probe cue in both), with identical `COMBAT_EVENT`, `CINE01_MOMENT` and `AUDIENCE_STATE` lines.
+3. **Run reveal stills** (640x360, scale 1 and 3): the corral room-clear panel with the broadcast line; the hoarder room's first frame with both plates at 250; a later room with carried counts (a room pilot with `--audience=on` and an explicit carry, for example `--f01-run --f01-room boiler --audience=on --f01-audience 1400:1900:600:800`).
+4. **Slow motion over a per-kind finish in the run:** a `capture-sequence` or room-pilot GIF in mastery or the boiler with `--audience=on --cine-showcase=on --cinematic-finishes=on`, showing a thrown multi-kill (exploded finishes) and the spike trend on Carl's plate. If no pilot throws the stick, record that and capture the `carl_prog_dyn_llama_pack` fixture instead, with `--audience-probe --cine-showcase=on --cinematic-finishes=on`. **Never fake a run capture.**
 5. **Restart and respawn:** a headless log showing the carried counts restored after `Restart` and kept after `Respawn`.
 6. **The opt-out:** `--audience=off --cine-showcase=off` in the run → no plates, and moment lines equal to main's.
 
