@@ -1671,12 +1671,18 @@ mod tests {
     /// or after +124 and clears the track's right end (+121) by 2 px.
     #[test]
     fn every_socket_label_fits_beside_donuts_track() {
-        for text in ["BOOM", "BLINK"] {
-            let label = LabelId::for_socket_text(text).expect("a socket label");
+        let mut socket_labels = 0;
+        for label in LabelId::ALL {
+            if !label.is_socket_label() {
+                continue;
+            }
+            socket_labels += 1;
+            assert_eq!(LabelId::for_socket_text(label.text()), Some(label));
             let width = text_width_px(HudFont::SilkRegular, label.text());
-            assert!(width <= SOCKET_LABEL_MAX_W, "{text}: {width} px");
-            assert!(SPECIAL_LABEL_RIGHT - width >= 124, "{text}");
+            assert!(width <= SOCKET_LABEL_MAX_W, "{label:?}: {width} px");
+            assert!(SPECIAL_LABEL_RIGHT - width >= 124, "{label:?}");
         }
+        assert_eq!(socket_labels, 2, "BOOM and BLINK");
         assert_eq!(text_width_px(HudFont::SilkRegular, "BLINK"), 27);
         assert_eq!(SPECIAL_LABEL_RIGHT - 27, 130);
         // The track outline (+50, 72 px) ends at +121.

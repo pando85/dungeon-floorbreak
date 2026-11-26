@@ -27,7 +27,7 @@ KEY_SHA256 = {
     "carl_portrait": "7d13f3d2a5b4ef4e604a3bcea2be4b558eb41b7da51e9769cd4d32361ecaf306",
     "system_crt_face": "b5ec5a51332bcb3dc6641a0dd95f08e7d2817bb812f16f4a63a9387cc8dc71a3",
     "hud_art_02_keycaps": "6bcaed3b355fda18afa9c0f0acbb89174d4aeb5e3989c940d2a7f24a2b5495fd",
-    "hud_art_02_chips": "4d1cba4b870327af755ec660e34c23f9b1f0bda46f94a03fe92a29e636cef6c6",
+    "hud_art_02_chips": "d97f2fb477ef8fde4837a753642edba3a69d9d9083057cae21e6d1ca9f24e81b",
     "hud_art_02_notice_plate": "87bb7511e524da0cfdb2306f09ec2eaead3fe44452f79731b2286c11703d2fa5",
 }
 REGION_NAMES = [

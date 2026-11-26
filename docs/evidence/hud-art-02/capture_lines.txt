@@ -18,10 +18,14 @@ FIXTURE_CAPTURE donut-blink-ready-360 fixture=donut_prog_arena_blink_tour tick=3
 FIXTURE_CAPTURE donut-blink-windup-360 fixture=donut_prog_arena_blink_tour tick=43 window_hash=609dbf0bfd4d4e34 headless_hash=609dbf0bfd4d4e34 match=yes
 FIXTURE_CAPTURE donut-blink-cooling-360 fixture=donut_prog_arena_blink_tour tick=200 window_hash=448df3a3533fb599 headless_hash=448df3a3533fb599 match=yes
 FIXTURE_CAPTURE donut-blink-ready2-360 fixture=donut_prog_arena_blink_tour tick=590 window_hash=8703b32facdc9e16 headless_hash=8703b32facdc9e16 match=yes
-FIXTURE_CAPTURE notice-puddle-fixture-360 fixture=donut_prog_grants_2p tick=430 window_hash=7af00fad37f136cd headless_hash=7af00fad37f136cd match=yes
 FIXTURE_CAPTURE donut-blink-ready-400 fixture=donut_prog_arena_blink_tour tick=30 window_hash=b845799dd6601867 headless_hash=b845799dd6601867 match=yes
 FIXTURE_CAPTURE donut-blink-windup-400 fixture=donut_prog_arena_blink_tour tick=43 window_hash=4750ddcf9f2003d0 headless_hash=4750ddcf9f2003d0 match=yes
 FIXTURE_CAPTURE donut-blink-cooling-400 fixture=donut_prog_arena_blink_tour tick=200 window_hash=63a5be6e8b440318 headless_hash=63a5be6e8b440318 match=yes
 FIXTURE_CAPTURE donut-blink-ready2-400 fixture=donut_prog_arena_blink_tour tick=590 window_hash=b9f9b19d2ddead13 headless_hash=b9f9b19d2ddead13 match=yes
-FIXTURE_CAPTURE notice-puddle-fixture-400 fixture=donut_prog_grants_2p tick=430 window_hash=ab255f2ebb271eda headless_hash=ab255f2ebb271eda match=yes
 juicer-scan ROOM_CAPTURE room=juicer plan=juicer frames=14 first_tick=3400 step=6 last_tick=3478 window_hash=0daf366da5383db0 headless_hash=0daf366da5383db0 timed_hash=skipped match=yes
+donut2p-hazards-360-kb ROOM_CAPTURE room=hazards plan=direct:2p frames=1 first_tick=240 step=1 last_tick=240 window_hash=35721bc2dc8cd849 headless_hash=35721bc2dc8cd849 timed_hash=35721bc2dc8cd849 match=yes
+donut2p-hazards-360-pad ROOM_CAPTURE room=hazards plan=direct:2p frames=1 first_tick=240 step=1 last_tick=240 window_hash=35721bc2dc8cd849 headless_hash=35721bc2dc8cd849 timed_hash=35721bc2dc8cd849 match=yes
+FIXTURE_CAPTURE notice-puddle-fixture-360 fixture=donut_prog_grants_2p tick=430 window_hash=7af00fad37f136cd headless_hash=7af00fad37f136cd match=yes
+donut2p-hazards-400-kb ROOM_CAPTURE room=hazards plan=direct:2p frames=1 first_tick=240 step=1 last_tick=240 window_hash=4292188b31e81987 headless_hash=4292188b31e81987 timed_hash=4292188b31e81987 match=yes
+donut2p-hazards-400-pad ROOM_CAPTURE room=hazards plan=direct:2p frames=1 first_tick=240 step=1 last_tick=240 window_hash=4292188b31e81987 headless_hash=4292188b31e81987 timed_hash=4292188b31e81987 match=yes
+FIXTURE_CAPTURE notice-puddle-fixture-400 fixture=donut_prog_grants_2p tick=430 window_hash=ab255f2ebb271eda headless_hash=ab255f2ebb271eda match=yes

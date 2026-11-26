@@ -232,9 +232,60 @@ impl LabelId {
     /// entry), the choice is data; a text the HUD has no entry for is `None`
     /// and the caller keeps the default.
     pub fn for_socket_text(text: &str) -> Option<Self> {
-        [Self::Boom, Self::Blink]
+        Self::ALL
             .into_iter()
+            .filter(|label| label.is_socket_label())
             .find(|label| text == label.text())
+    }
+
+    /// Every label, in declaration order (the closed set the width checks iterate).
+    pub const ALL: [Self; 20] = [
+        Self::Punch,
+        Self::Kick,
+        Self::Swat,
+        Self::Pounce,
+        Self::Missile,
+        Self::Companion,
+        Self::Launched,
+        Self::Flattened,
+        Self::BossIncoming,
+        Self::MainEvent,
+        Self::RoundTwo,
+        Self::FinalRound,
+        Self::NoSpotter,
+        Self::Knockout,
+        Self::Boom,
+        Self::GoblinBoom,
+        Self::Blink,
+        Self::LightFeet,
+        Self::PuddleJumper,
+        Self::HeavyFist,
+    ];
+
+    /// The labels that can sit above the special socket (at most 33 px, HA2-AD1).
+    /// An exhaustive match: a new label must decide here whether it is one.
+    pub const fn is_socket_label(self) -> bool {
+        match self {
+            Self::Boom | Self::Blink => true,
+            Self::Punch
+            | Self::Kick
+            | Self::Swat
+            | Self::Pounce
+            | Self::Missile
+            | Self::Companion
+            | Self::Launched
+            | Self::Flattened
+            | Self::BossIncoming
+            | Self::MainEvent
+            | Self::RoundTwo
+            | Self::FinalRound
+            | Self::NoSpotter
+            | Self::Knockout
+            | Self::GoblinBoom
+            | Self::LightFeet
+            | Self::PuddleJumper
+            | Self::HeavyFist => false,
+        }
     }
 
     /// A capability grant notice (the `notices` rows): the queue never lets a
@@ -2347,6 +2398,18 @@ mod tests {
         forced.set_party(party);
         assert_eq!(forced.plate_glyphs(), [GlyphSet::Xbox; 2]);
         assert_eq!(forced.revision(), start);
+    }
+
+    #[test]
+    fn the_label_set_is_closed_and_unique() {
+        for (i, a) in LabelId::ALL.iter().enumerate() {
+            for b in &LabelId::ALL[i + 1..] {
+                assert_ne!(a, b);
+                assert_ne!(a.text(), b.text());
+            }
+        }
+        // The grant notices all appear in the set.
+        assert!(LabelId::ALL.iter().filter(|l| l.is_grant()).count() == 4);
     }
 
     /// HUD-ART-02 (AT-8): `--glyphs=keyboard` forces P1's plate only; P2 keeps its

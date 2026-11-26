@@ -108,17 +108,17 @@
    "duration_ms": 100,
    "cels": {
     "art": [
-     "........n..",
-     "........n..",
-     "..n....n#n.",
-     ".n#n....n..",
-     "..n.....n..",
      "...........",
-     "..KKKKKKK..",
-     ".KmnnnnnmK.",
-     "KemnfffnmeK",
-     ".KemmmmmeK.",
-     "..KKKKKKK.."
+     "........n..",
+     ".......nnm.",
+     ".......n#m.",
+     "........m..",
+     "...........",
+     "...........",
+     ".KKKKKKKKK.",
+     "KmnnnmmmmeK",
+     "KmmmmmmmeeK",
+     ".KKKKKKKKK."
     ]
    }
   }
