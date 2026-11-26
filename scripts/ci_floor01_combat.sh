@@ -603,8 +603,7 @@ case "$mode" in
     echo "F01_REST_REFUGE_HEADLESS_OK: $(grep '^F01_REST_REFUGE_SMOKE_OK' <<<"$refuge_story")"
     # REST-WIRE (REST-B, REST-C): the camp (after the Ring) and the aftermath (after the Juicer) are quiet
     # rooms with no enemy and no lock: the entry line reports lock=none, their fixed-tick smoke walks right to
-    # the exit, and each loads under both loadouts. The camp's story pin (dynamite and the boost) is a different
-    # ledger from the all loadout, so those two are different runs.
+    # the exit, and each loads under both loadouts.
     camp_story="$(late_lines --f01-room rest_camp)"
     camp_all="$(late_lines --f01-room rest_camp --f01-loadout all)"
     aftermath_story="$(late_lines --f01-room rest_aftermath)"
