@@ -61,7 +61,7 @@ Frames 2..5 of the gate sheet, 2 ticks each: the closed grate (frame 0) lifted 1
 
 ## 4. Presenter rules (presentation only, hash-neutral)
 
-- **Boiler landing dust.** For every `FallingMass` with a `landed_tick` and a remnant, two plumes from the landing tick for 20 ticks: one rolling right from the remnant's right edge (`x + w`), one mirrored rolling left from its left edge (`x - 1`), both on the remnant's floor. Age 0 is the landing tick itself (the first presented frame after the landing step).
+- **Landing dust.** For every `FallingMass` with a `landed_tick` and a remnant (the Boiler weight in room 2, and also the Hoarder's J-B stack in room 1, where the pinned Hoarder and Donut mostly hide the plumes at 1x; accepted), two plumes from the landing tick for 20 ticks: one rolling right from the remnant's right edge (`x + w`), one mirrored rolling left from its left edge (`x - 1`), both on the remnant's floor. Age 0 is the landing tick itself (the first presented frame after the landing step).
 - **Gate drop.** While the gate is closed, its age is `tick - gate_closed_tick`: ages 0..7 draw `gate_drop` frames 2, 2, 3, 3, 4, 4, 5, 5 on the gate layer; from age 8 the closed frame. Without a close tick (a state built without stepping) the closed frame draws at once. The collider is solid from the close tick, as before; only the picture falls.
 - **Gate slam dust.** From age 8 (the grate's impact) for 20 ticks, one plume rolling into the arena from the gate's arena face (x 28) on the boss floor.
 - **Layer.** A new `Layer::Dust`, after `Floor` and before `Splash`; in Bevy `actor_z - 0.03`: over the props (`actor_z - 0.05`), under the actors.
@@ -76,7 +76,7 @@ Named entries of the Floor 01 kit palette, values exact: `stone_03`..`stone_07`,
 1. The frozen key is byte-identical to `tests/fixtures/f01-dfx-slam-dust_keys.json`; no isolated pixels; binary alpha; palette as section 5 (toolkit validators pass on both configs).
 2. Every drop frame is a pure vertical shift of the closed grate, its lowest row accelerating toward the floor, the jamb identical to the closed frame's (`tests/test_art_danger_fx.py`).
 3. Each tick is set exactly once, at the right tick, deterministically, and leaves every state hash unchanged (unit tests in `src/env_prop.rs` and `src/boss.rs`).
-4. The landing dust spawns on the landing tick, both plumes on the remnant's floor at its edges, and is gone at age 20; the gate draws raised before the close, the drop on ages 0..7, the closed grate and its dust from age 8, the dust gone at age 28 (`src/danger_fx_art/tests.rs`).
+4. A restart clears both ticks, so no drop or dust survives into the next attempt (`a_restart_clears_the_gate_drop_and_the_slam_dust`). The landing dust spawns on the landing tick, both plumes on the remnant's floor at its edges, and is gone at age 20; the gate draws raised before the close, the drop on ages 0..7, the closed grate and its dust from age 8, the dust gone at age 28 (`src/danger_fx_art/tests.rs`).
 5. At 1x (640 x 360) in the Boiler and in room 5: the dust reads as floor grit thrown by a heavy impact, not a magic effect or smoke; the gate reads as a grate dropped on the party.
 6. No state hash, golden or pin moves (`window_hash == headless_hash` on every capture; the full test suite and `ci_floor01_combat.sh headless` pass with no golden edits).
 7. No text, logos or third-party designs; no concept traced.
@@ -98,4 +98,4 @@ Named entries of the Floor 01 kit palette, values exact: `stone_03`..`stone_07`,
 ## 8. Open questions
 
 - Should the landing or the gate impact also shake the camera or play a sound? Out of scope here (camera and audio are separate work orders); the ticks now exist for them.
-- The right Boiler plume rolls over the drum's base, which stands right next to the remnant; the owner's art review decides whether it should be shortened there.
+- **ST-OQ1.** The right Boiler plume rolls over the drum's base, which stands flush with the remnant. For its 20 ticks it merges with the drum's orange band and with the bottom edge of the drum's warning box, which appears on the same tick in the `chain` plan. Suggested follow-up: clip a plume at the nearest prop standing within its 40 px reach, or drop that plume when a prop stands flush. The art is unchanged until the owner decides.

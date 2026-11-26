@@ -2,7 +2,7 @@
 
 Prototype art (`review_status: prototype_fixture_unapproved`); nothing here approves art, tuning or game feel. Spec: [f01-sim-ticks-spec.md](../../02-art/f01-sim-ticks-spec.md). Independent art-director review pending; owner art and game-feel review pending.
 
-The simulation now records two unhashed observer ticks, `FallingMass::landed_tick()` and `Boss::gate_closed_tick()`; the presentation draws the dust and the gate drop from them. The stills and GIFs in `scene/` are real windowed captures of `floor01_scene` (the Bevy presentation) at gameplay scale (640 x 360, `--scale 1`), one frame per tick. Each sequence was captured twice: every frame of the two passes is byte-identical, and each run's final window state hash equals its headless replay's (`capture_lines.txt`).
+The landing dust fires for every landed falling mass: the Boiler weight (captured here) and also the Hoarder's J-B stack in room 1, where the pinned Hoarder and Donut mostly hide it at 1x (accepted, spec section 4). The simulation now records two unhashed observer ticks, `FallingMass::landed_tick()` and `Boss::gate_closed_tick()`; the presentation draws the dust and the gate drop from them. The stills and GIFs in `scene/` are real windowed captures of `floor01_scene` (the Bevy presentation) at gameplay scale (640 x 360, `--scale 1`), one frame per tick. Each sequence was captured twice: every frame of the two passes is byte-identical, and each run's final window state hash equals its headless replay's (`capture_lines.txt`).
 
 ## Regenerate
 
@@ -57,5 +57,5 @@ The GIFs `boiler_landing_640x360.gif` and `gate_drop_640x360.gif` play the full 
 
 - `src/env_prop.rs`: `step_at_records_the_landing_tick_once_unhashed_and_reset_clears_it`.
 - `src/boss.rs`: `the_gate_records_its_close_tick_once_unhashed`.
-- `src/danger_fx_art/tests.rs`: `the_boiler_weight_throws_its_landing_dust_on_the_landing_tick`, `the_gate_drops_from_its_close_tick_and_slams_dust_on_the_impact`, `the_slam_dust_plays_once_and_mirrors_about_its_pivot`, the tag table and `drawing_never_changes_the_state_hash`.
+- `src/danger_fx_art/tests.rs`: `the_boiler_weight_throws_its_landing_dust_on_the_landing_tick`, `the_gate_drops_from_its_close_tick_and_slams_dust_on_the_impact`, `the_slam_dust_plays_once_and_mirrors_about_its_pivot`, `a_restart_clears_the_gate_drop_and_the_slam_dust`, the tag table and `drawing_never_changes_the_state_hash`.
 - `tests/test_art_danger_fx.py`: the sources re-derived byte for byte, `test_the_gate_drop_falls_from_the_raised_height_to_the_floor`, `test_the_slam_dust_stands_on_the_floor_and_rolls_away_from_the_impact`.

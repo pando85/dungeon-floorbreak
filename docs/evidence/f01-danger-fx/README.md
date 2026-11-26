@@ -60,7 +60,7 @@ Room 4 (`--f01-room hazards --room-pilot haz_spectacular`): the slime under the 
 | `dyn_wave_front` | 636 | the dynamite blast, the wave on its way out |
 | `dyn_wave_reach` | 641 | the 64 px wave on its reach frame, the chained sticker's ring hot |
 | `gate_raised` | 8 | room 5 before the party is in: the raised gate's teeth under the lintel |
-| `gate_closed` | 30 | the closed gate over its collider (captured before F01-SIM-TICKS: a current run also shows the slam dust of the gate's impact on this tick, see below) |
+| `gate_closed` | 30 | the closed gate over its collider (captured before F01-SIM-TICKS: a current run also shows the slam dust of the gate's impact on this tick, see above) |
 | `gate_crash` | 140 | the Juicer crashed against the closed gate |
 
 `dynamite_beat_640x360.gif`: ticks 516..670, every 2 ticks at game speed (landing, the burning ring, the hot ring, the 64 px wave, the chained sticker's ring and its 48 px wave).

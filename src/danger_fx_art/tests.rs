@@ -618,6 +618,84 @@ fn the_boiler_weight_throws_its_landing_dust_on_the_landing_tick() {
     assert!(dust_of(&combat, t + 20).is_empty(), "played once");
 }
 
+/// F01-SIM-TICKS (review finding 7): a restart rebuilds the boss and resets the
+/// masses, so neither the gate drop nor any slam dust survives into the next attempt.
+#[test]
+fn a_restart_clears_the_gate_drop_and_the_slam_dust() {
+    use crate::room_pilots::{Plan, RoomPilot};
+    let root = root();
+    let dust = |c: &CombatState, layout_h: i32, tick: u64| {
+        draws(c, layout_h, tick)
+            .into_iter()
+            .filter(|d| d.sheet == Sheet::SlamDust)
+            .count()
+    };
+    // Room 5: the juicer plan closes the gate; stop on the impact's dust.
+    let mut sim = crate::f01_late_fixtures::juicer_room(&root).unwrap();
+    let pilot = RoomPilot {
+        plan: Plan::Juicer,
+        two_player: false,
+        aligned: None,
+    };
+    let layout_h = sim.scene.world.layout_height();
+    let mut closed = None;
+    for _ in 0..600 {
+        let inputs = pilot.inputs(&sim.combat, &sim.scene, 0.0);
+        sim.step_slots(inputs);
+        closed = sim.combat.boss.as_ref().unwrap().gate_closed_tick();
+        if closed.is_some_and(|t| sim.scene.world.tick >= t + GATE_IMPACT_AGE) {
+            break;
+        }
+    }
+    let t = closed.expect("the juicer plan closes the gate");
+    assert_eq!(sim.scene.world.tick, t + GATE_IMPACT_AGE);
+    assert_eq!(dust(&sim.combat, layout_h, sim.scene.world.tick), 1);
+    sim.combat.restart(&mut sim.scene);
+    let boss = sim.combat.boss.as_ref().unwrap();
+    assert_eq!(boss.gate_closed_tick(), None);
+    let tick = sim.scene.world.tick;
+    assert_eq!(gate(boss, tick).unwrap().frame, GATE_RAISED.first);
+    assert_eq!(dust(&sim.combat, layout_h, tick), 0);
+    // The Boiler: land the weight, restart inside the dust's 20 ticks.
+    let (_run, mut scene, mut combat) = crate::f01_late::boiler_start(
+        &root,
+        360,
+        crate::carl_prog::CarlProgFlags::OFF,
+        crate::donut_prog::DonutProgFlags::OFF,
+        None,
+    )
+    .expect("the Boiler launches");
+    for token in 1..=2 {
+        combat.env_stimulate(
+            1,
+            crate::env_prop::Stimulus::MeleeHit {
+                token,
+                player: 0,
+                weight: 1,
+            },
+            0,
+        );
+    }
+    let layout_h = scene.world.layout_height();
+    for _ in 0..400 {
+        combat.step_party(&mut scene, [RawInput::NONE, RawInput::NONE]);
+        if combat
+            .env()
+            .unwrap()
+            .mass(1)
+            .unwrap()
+            .landed_tick()
+            .is_some()
+        {
+            break;
+        }
+    }
+    assert_eq!(dust(&combat, layout_h, scene.world.tick), 2);
+    combat.restart(&mut scene);
+    assert_eq!(combat.env().unwrap().mass(1).unwrap().landed_tick(), None);
+    assert_eq!(dust(&combat, layout_h, scene.world.tick), 0);
+}
+
 /// Rendering never changes authoritative state: a run that calls every function
 /// here on every tick has, at every tick, the state hash of a run that never does.
 #[test]
