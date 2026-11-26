@@ -1,6 +1,6 @@
-# REST-WIRE evidence: the refuge (REST-A, PR 1)
+# REST-WIRE evidence: the refuge, the camp and the aftermath (REST-A in PR 1, REST-B and REST-C in PR 2)
 
-Room 1 of the floor run, `rest_refuge` ("The Wrong Restaurant"), launched with `--scene f01_late --f01-room rest_refuge` and walked by `--f01-run` right after the corral. It is a **labelled playable greybox** (flat decor rectangles on the existing kit; the AREA-FASTFOOD-01 art is a separate later work order). Design: [floor-01-quiet-setpieces-and-transitions.md](../../01-design/floor-01-quiet-setpieces-and-transitions.md) section G. Owner decision of 2026-11-25 ("go with all"): everything on by default, reachable in story order. Game feel is the owner's call: nothing here is accepted.
+The three quiet rooms of the twelve-room floor run. The refuge, `rest_refuge` ("The Wrong Restaurant"), launched with `--scene f01_late --f01-room rest_refuge` and walked by `--f01-run` right after the corral. It is a **labelled playable greybox** (flat decor rectangles on the existing kit; the AREA-FASTFOOD-01 art is a separate later work order). Design: [floor-01-quiet-setpieces-and-transitions.md](../../01-design/floor-01-quiet-setpieces-and-transitions.md) section G. The camp (`rest_camp`, "The Survivors' Camp", after `ring_split`) and the aftermath (`rest_aftermath`, "After the Juicer", after the Juicer) are PR 2 and the same kind of labelled playable greybox (AREA-CAMP-01 and the gym and arena dressing are separate later orders). Owner decision of 2026-11-25 ("go with all"): everything on by default, reachable in story order. Game feel is the owner's call: nothing here is accepted.
 
 ## Files
 
@@ -11,11 +11,15 @@ Room 1 of the floor run, `rest_refuge` ("The Wrong Restaurant"), launched with `
 | `still_shelf_door_open_*.png` | Donut standing on the 128 px shelf, the staff door gone (opened on tick 370) | `--rest-pilot donut`, tick 376 |
 | `still_swap_hint_*.png` | Solo Carl waiting at the closed staff door: the `SWAP TO DONUT` notice | `--rest-pilot carl_door`, tick 560 |
 | `before_after_strip.png` (from `still_strip_*`) | Top row: a base jump from before the box peaks 13 px short of the shelf top. Bottom row: the boosted jump lands on the shelf and the door opens | `--rest-pilot base_jump` ticks 308, 324, 348; `--rest-pilot donut` ticks 336, 360, 374; `montage` |
+| `still_camp_*.png` | PR 2: the camp entrance (the `ring_marker_a` stand-in pole at x 220 and the sentry at x 512), the central light over the checkpoint (crate stack, light, repair figure), the chalk marks over the last 128 px | window, `--f01-room rest_camp --rest-pilot walk`, ticks 70, 200, 390 |
+| `still_aftermath_*.png` | PR 2: the wrecked-gym egress and the heavy bag, Donut at the blink lane's near mark and on the far side after the blink (tick 201 press, tick 207 arrival), the circular grooves at the exit | window, `--f01-room rest_aftermath --rest-pilot blink`, ticks 60, 196, 214, 300 |
+| `capture_lines_bc.txt` | PR 2: one `REST_STILL` line per camp and aftermath still and size, same checks as below | the commands below |
 | `capture_lines.txt` | One `REST_STILL` line per still and size: the window's `COMBAT_STATE` hash equals the headless hash of the same tick (`hash_match=yes`) and the two capture passes are byte-identical (`passes_byte_identical=yes`) | the commands below |
-| `run_walk.txt` | The entry line of each of the **ten** rooms of the floor run, in order, with the next room | `floor01_scene --headless-floor01-smoke --scene f01_late --f01-room ROOM` per manifest row |
-| `audience_run.txt` | AUDIENCE-RUN viewer counts at the refuge's entry and exit | `cargo test --lib -- the_refuge_runs_the_audience --nocapture` |
-| `playtrace_verify.txt` | The refuge's PLAYTRACE recording verifies strict at 360 and 400, under Story and All | `cargo test --lib -- f01_rest_refuge_recording_verifies --nocapture` |
-| `fixtures.txt` | The seven scripted fixtures: ticks, grants, door openings, damage, final hash | `cargo test --lib -- --ignored print_the_case_outcomes --nocapture` |
+| `run_walk.txt` | The entry line of each of the **twelve** rooms of the floor run, in order, with the next room. **These are per-room launches on the static pins** (one headless smoke per manifest row, no carry hand-off; the Juicer has no entry line of its own), not one carried `--f01-run` |
+| `run_chain.txt` | The carried chain through all twelve rooms: the ledger carried into each room and the ledger it hands on (the camp and the aftermath are walked to their exit first; the other rooms are read at their start through the shared constructors, so the refuge shows its start, not its crossing). The camp and the aftermath hand on exactly what they received | `cargo test --lib -- --ignored print_the_carried_run_chain --nocapture`; asserted by `the_camp_and_aftermath_carry_their_ledger_through` and `the_aftermath_exit_relaunches_into_mastery` | `floor01_scene --headless-floor01-smoke --scene f01_late --f01-room ROOM` per manifest row |
+| `audience_run.txt` | AUDIENCE-RUN viewer counts at the entry and exit of each quiet room (the refuge from the baseline; the camp and the aftermath resumed at a Ring-sized peak 1400/1900 and 600/800, the carry a run relaunch would hand on) | `cargo test --lib -- the_refuge_runs_the_audience the_camp_and_the_aftermath_carry --nocapture` |
+| `playtrace_verify.txt` | The PLAYTRACE recording of each quiet room verifies strict at 360 and 400, under Story and All (12 lines) | `cargo test --lib -- f01_rest_refuge_recording_verifies f01_rest_camp_recording_verifies f01_rest_aftermath_recording_verifies --nocapture` |
+| `fixtures.txt` | The twelve scripted fixtures (seven refuge, two camp, three aftermath): ticks, grants, door openings, damage, final hash | `cargo test --lib -- --ignored print_the_case_outcomes --nocapture` |
 | `physics_exact.txt` | K8 on the launched kit: every accepted edge of every class lands with the real integrator; the exit walk | `cargo test --lib -- rest_refuge_shelf_is_boosted_only --nocapture` |
 | `checks.txt` | The local check list on the final head | see below |
 | `SHA256SUMS` | Checksums of the files above | `sha256sum` |
@@ -28,7 +32,7 @@ xvfb-run -a -s '-screen 0 1920x1080x24' floor01_scene --no-audio --no-record --s
   --capture-sequence TICK:1:1 --capture-dir DIR
 ```
 
-`--rest-pilot` is the evidence pilot of the refuge (`rest_fixtures::pilot`, a pure function of the finished state; its first press is the solo swap to Donut). The pilot is for captures and headless runs only; a live run is played by a human.
+`--rest-pilot` is the evidence pilot of the quiet rooms (`rest_fixtures::pilot`, a pure function of the finished state; the Donut pilots start with the solo swap). `donut`, `carl_door` and `base_jump` play in the refuge, `walk` (Carl walks to the exit) in any quiet room, `blink` (Donut to the lane's near mark, one blink, on to the exit) in the aftermath. The pilot is for captures and headless runs only; a live run is played by a human. PR 2 stills use `--f01-room rest_camp|rest_aftermath` with `--rest-pilot walk|blink`, `--capture-sequence TICK:1:1`.
 
 ## Readings
 
@@ -38,6 +42,11 @@ xvfb-run -a -s '-screen 0 1920x1080x24' floor01_scene --no-audio --no-record --s
 - **Retry** (`rest_refuge_retry_keeps_the_grant`): a checkpoint respawn keeps the boost and the open door; a fixture restart drops both and re-arms the box; the second crossing grants once and opens the door once.
 - **AUDIENCE-RUN (REST-AD14, REST-Q10 open):** the refuge is the first live room and starts at the baseline (250); a quiet crossing has no kill, so no award; the 414 ticks are inside the 480-step decay delay, so the viewers leave at the baseline. Nothing is frozen; whether decay should freeze in quiet rooms is the owner's call.
 - **The hint** appears 90 ticks after Carl stood within 96 px of the door. The notice queue holds it behind a showing grant notice (`LIGHT FEET`), so it can start a little later than the 90th tick when Carl arrives while the notice is still on screen.
+
+- **The camp** (`rest_camp_crossing_solo`, `_2p`): no grant, no door, no damage, the exit on tick 432 solo and 396 in 2P; the ledger at the exit equals the post-Hoarder pin's (dynamite and Light on Your Feet held, no receipt). The crate stack is decor, not a platform (REST-IMP-8).
+- **The aftermath** (`rest_aftermath_no_duplicate_unlock`): entered with a post-Juicer ledger of four capabilities and four receipts, it grants nothing and the exit snapshot equals the carry (exit on tick 349). `rest_aftermath_crossing_base_moves` crosses it with no story flag (tick 349). `rest_aftermath_blink_lane`: Donut stops at x 767, presses the blink on tick 201, arrives at x 879 on tick 207 (112 px, no rejection, fizzle or cancel), mana spent once (8 to 6), the exit on tick 317. The heavy bag is an inert static (REST-IMP-9).
+- **The twelve-room run** (`run_walk.txt`): corral, rest_refuge, hoarder, boiler, dozer, hazards, ring_court, ring_split, rest_camp, juicer, rest_aftermath, mastery; the manifest-driven run needed no run code, only the manifest rows. The panels read ROOM n/12.
+- **AUDIENCE-RUN (REST-AD14, REST-Q10 open):** the camp and the aftermath are live (the rule is positional). **The audience lines are synthetic walk-throughs**: a pair resumed at a Ring-sized peak (1400/1900 and 600/800) walks straight to the exit in 432 and 349 ticks (about 7 s), which is inside the 480-step decay delay, so the counts leave as they entered. The 480-step decay (23 per mille of the excess every 60 steps, no award) is **not exercised**: a player who idles in either room for more than 8 s would see the counts decay unchanged (nothing is frozen), and the design expects 75 to 120 s in these rooms.
 
 ## Reproduce the check list
 
@@ -52,4 +61,4 @@ scripts/check_f01_owner_commands.sh
 
 ## NOT RUN
 
-A real two-pad run, a human session, the AREA-FASTFOOD-01 art, and the camp and aftermath rooms (REST-WIRE PR 2).
+A real two-pad run, a human session, the AREA-FASTFOOD-01 and AREA-CAMP-01 art and the gym and arena dressing.

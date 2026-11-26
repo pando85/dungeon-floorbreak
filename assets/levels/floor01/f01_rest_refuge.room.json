@@ -1,6 +1,6 @@
 {
   "schema": "floor01-demo-hall-v1",
-  "status": "REST-WIRE greybox room (docs/01-design/floor-01-quiet-setpieces-and-transitions.md section G, REST-A, room 1 of the floor run): geometry only, composed at load time from approved Floor 01 kit pieces by camera_lab::layout (no new art, not an authored level; the fast-food refuge art is the separate AREA-FASTFOOD-01 work order), launched as the room rest_refuge of --scene f01_late (src/f01_rest.rs). The staff door lock and the reach_exit goal live in f01_rest_refuge.encounter.json, validated by src/encounter.rs.",
+  "status": "REST-WIRE greybox room (docs/01-design/floor-01-quiet-setpieces-and-transitions.md section G, REST-A, the refuge after the corral): geometry only, composed at load time from approved Floor 01 kit pieces by camera_lab::layout (no new art, not an authored level; the fast-food refuge art is the separate AREA-FASTFOOD-01 work order), launched as the room rest_refuge of --scene f01_late (src/f01_rest.rs). The staff door lock and the reach_exit goal live in f01_rest_refuge.encounter.json, validated by src/encounter.rs.",
   "scenarios": [
     {
       "id": "F01-REST-REFUGE",

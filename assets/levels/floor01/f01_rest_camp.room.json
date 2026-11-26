@@ -1,0 +1,26 @@
+{
+  "schema": "floor01-demo-hall-v1",
+  "status": "REST-WIRE greybox room (docs/01-design/floor-01-quiet-setpieces-and-transitions.md section G, REST-B, the camp between the Ring and the Juicer): geometry only, composed at load time from approved Floor 01 kit pieces by camera_lab::layout (no new art, not an authored level; the camp interior art is the separate AREA-CAMP-01 work order), launched as the room rest_camp of --scene f01_late (src/f01_rest.rs). The goal lives in f01_rest_camp.encounter.json, validated by src/encounter.rs.",
+  "scenarios": [
+    {
+      "id": "F01-REST-CAMP",
+      "name": "The Survivors' Camp",
+      "subtitle": "Floor 01 refuge: a lantern, a few people who stayed, and a way on",
+      "act": 2,
+      "setting": "dry-catacomb",
+      "width": 1536,
+      "height": 660,
+      "floor": 580,
+      "spawn": { "carl": 112, "donut": 80 },
+      "camera_intro": 112,
+      "platforms": [],
+      "props": [],
+      "enemies": [],
+      "hazards": [],
+      "goal_x": 1480,
+      "purpose": "A 1536 px quiet room (REST-B, REST-AD13): one continuous ground lane, no enemy, no hazard, no lock and no platform: the plan's 32 px crate stack cannot be a platform (the validator's lane rule needs 52 px of clearance under a deck, and a deck above 42 px needs a lane ceiling), so the crates are a decor rectangle (REST-IMP-8). The entrance marker, the four survivor figures, the central light and the chalk marks are decor rectangles in src/f01_rest.rs.",
+      "expected": "Spawns, the checkpoint under the central light and the exit come from f01_rest_camp.encounter.json; this file holds geometry only. The room grants nothing; the post-Hoarder pin holds what the run carries.",
+      "coop": "Solo or two players: the route is base movement for every class; nothing here is gated."
+    }
+  ]
+}

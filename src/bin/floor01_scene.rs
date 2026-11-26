@@ -406,7 +406,7 @@ struct Args {
     /// fight, the exit) instead of the walk-right script, so a capture can stand the
     /// hero in every zone. The Ring rooms have no `--room-pilot`. Scripted runs only.
     ring_pilot: bool,
-    /// REST-WIRE evidence: `--rest-pilot donut|carl_door|base_jump` plays the refuge's scripted
+    /// REST-WIRE evidence: `--rest-pilot donut|carl_door|base_jump|walk|blink` plays a quiet room's scripted
     /// run (`rest_fixtures::pilot`) instead of the walk-right script, so a capture can stand a
     /// hero in every beat. Scripted runs only.
     rest_pilot: Option<dungeon_floorbreak::rest_fixtures::Pilot>,
@@ -1060,7 +1060,9 @@ fn resolve_f01_late_args(parsed: &mut Args) -> Result<(), String> {
         f01_late::RoomScene::RingCourt | f01_late::RoomScene::RingSplit => {
             parsed.f01_ring = row.scene.ring();
         }
-        f01_late::RoomScene::RestRefuge => parsed.f01_rest = row.scene.rest(),
+        f01_late::RoomScene::RestRefuge
+        | f01_late::RoomScene::RestCamp
+        | f01_late::RoomScene::RestAftermath => parsed.f01_rest = row.scene.rest(),
         f01_late::RoomScene::Corral => parsed.f01_corral = true,
         f01_late::RoomScene::Dozer => parsed.f01_dozer = true,
         f01_late::RoomScene::Boss => {
@@ -1756,7 +1758,7 @@ fn parse_args_full(
             "--rest-pilot" => {
                 let value = iter
                     .next()
-                    .ok_or("--rest-pilot needs donut, carl_door or base_jump")?;
+                    .ok_or("--rest-pilot needs donut, carl_door, base_jump, walk or blink")?;
                 parsed.rest_pilot = Some(dungeon_floorbreak::rest_fixtures::Pilot::parse(value)?);
             }
             "--room-pilot" => {
@@ -1939,11 +1941,20 @@ fn parse_args_full(
     resolve_f01_late_args(&mut parsed)?;
     resolve_boiler_args(&mut parsed)?;
     resolve_refuge_args(&mut parsed)?;
-    if parsed.rest_pilot.is_some() {
+    if let Some(kind) = parsed.rest_pilot {
         if parsed.f01_rest.is_none() {
             return Err(
-                "--rest-pilot needs the refuge (--scene f01_late --f01-room rest_refuge)".into(),
+                "--rest-pilot needs a quiet room (--scene f01_late --f01-room rest_refuge, rest_camp or rest_aftermath)"
+                    .into(),
             );
+        }
+        if let Some(room) = parsed.f01_rest
+            && !kind.fits(room)
+        {
+            return Err(format!(
+                "--rest-pilot {kind:?} does not fit the room {}: donut, carl_door and base_jump play in rest_refuge, blink in rest_aftermath, walk in any quiet room",
+                room.id()
+            ));
         }
         if parsed.room_pilot.is_some() || parsed.ring_pilot {
             return Err("--rest-pilot replaces --room-pilot and --ring-pilot".into());
@@ -2720,7 +2731,12 @@ fn build_scene(
                 // REST-WIRE evidence: the refuge pilot's slot input routed through the party
                 // (its first press is the solo swap to Donut), like the aligned pilots.
                 let slots = [
-                    dungeon_floorbreak::rest_fixtures::pilot(kind, &combat, &sim),
+                    dungeon_floorbreak::rest_fixtures::pilot(
+                        kind,
+                        &combat,
+                        &sim,
+                        room_exit_x(args),
+                    ),
                     RawInput::default(),
                 ];
                 let hurt = combat.hurt_ticks_of(party.controlled_hero()) > 0;
@@ -2815,7 +2831,7 @@ fn scripted_input(
         pilot.inputs(combat, sim, room_exit_x(args))[0]
     } else if let (Some(kind), Some(_)) = (args.rest_pilot, &args.rest_run) {
         // REST-WIRE evidence: the refuge pilots (a pure function of the finished state).
-        dungeon_floorbreak::rest_fixtures::pilot(kind, combat, sim)
+        dungeon_floorbreak::rest_fixtures::pilot(kind, combat, sim, room_exit_x(args))
     } else if let (true, Some(run)) = (args.ring_pilot, &args.ring_run) {
         // AREA-RINGS-01 evidence: the Ring library pilot (a pure function of the state).
         dungeon_floorbreak::f01_ring_fixtures::pilot(
@@ -9466,6 +9482,8 @@ fn headless_slot_room(
             run.room.id(),
             match run.room {
                 f01_rest::RestRoom::Refuge => "F01_REST_REFUGE_SMOKE_OK",
+                f01_rest::RestRoom::Camp => "F01_REST_CAMP_SMOKE_OK",
+                f01_rest::RestRoom::Aftermath => "F01_REST_AFTERMATH_SMOKE_OK",
             },
             run.loaded.encounter.story_pin.clone(),
             f01_rest::SMOKE_TICKS,
@@ -12236,7 +12254,7 @@ mod tests {
         let error = args(&["--scene", "f01_late", "--f01-room", "cellar"]).expect_err("unknown");
         assert!(
             error.contains(
-                "corral, rest_refuge, hoarder, boiler, dozer, hazards, ring_court, ring_split, juicer, mastery"
+                "corral, rest_refuge, hoarder, boiler, dozer, hazards, ring_court, ring_split, rest_camp, juicer, rest_aftermath, mastery"
             ),
             "{error}"
         );
@@ -12487,7 +12505,40 @@ mod tests {
             "donut",
         ])
         .expect_err("needs the refuge");
-        assert!(err.contains("needs the refuge"), "{err}");
+        assert!(err.contains("needs a quiet room"), "{err}");
+        // A pilot that does not fit the room is refused, a fitting one parses.
+        let err = args(&[
+            "--scene",
+            "f01_late",
+            "--f01-room",
+            "rest_camp",
+            "--rest-pilot",
+            "donut",
+        ])
+        .expect_err("the shelf pilot needs the refuge");
+        assert!(err.contains("does not fit"), "{err}");
+        assert!(
+            args(&[
+                "--scene",
+                "f01_late",
+                "--f01-room",
+                "rest_camp",
+                "--rest-pilot",
+                "walk",
+            ])
+            .is_ok()
+        );
+        assert!(
+            args(&[
+                "--scene",
+                "f01_late",
+                "--f01-room",
+                "rest_aftermath",
+                "--rest-pilot",
+                "blink",
+            ])
+            .is_ok()
+        );
         assert!(
             args(&[
                 "--scene",
@@ -12501,90 +12552,96 @@ mod tests {
         );
     }
 
-    /// REST-WIRE (REST-A): the refuge is a listed room of `--scene f01_late` right after the
-    /// corral (no scene arm of its own). It implies `cf02_rules`, takes a seed, records
+    /// REST-WIRE: the three quiet rooms (the refuge right after the corral, the camp after
+    /// the Ring, the aftermath after the Juicer) are listed rooms of `--scene f01_late` (no
+    /// scene arm of their own). It implies `cf02_rules`, takes a seed, records
     /// under the late-Floor-1 source with its own fixture name, stamps its own room pins and
     /// the manifest's, starts on the verifier's constructor (`f01_late::rest_start`), and a
     /// floor run walks into it from the corral.
     #[test]
-    fn the_refuge_resolves_through_the_late_launcher_and_the_run() {
+    fn the_rest_rooms_resolve_through_the_late_launcher_and_the_run() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR"));
         let actors =
             Actors::load(root, FrameSource::GridSource, true, false, false, false).unwrap();
-        let room = f01_rest::RestRoom::Refuge;
-        let id = room.id();
-        let late = args(&["--scene", "f01_late", "--f01-room", id]).unwrap();
-        assert!(late.f01_late && late.cf02.rules && !late.demo);
-        assert_eq!(late.f01_rest, Some(room));
-        assert!(late.f01_ring.is_none() && !late.f01_corral && !late.f01_hoarder);
-        assert!(late.f01_room_scene() && !late.arena_room());
-        assert_eq!(late.f01_room.as_deref(), Some(id));
-        assert!(late.carl.prog && late.donut.prog && late.donut_biscuit);
-        assert!(late.recording_enabled());
-        // The default uncontrolled hero of a room scene is the `cf02_free` companion.
-        assert_eq!(
-            late.uncontrolled_hero(),
-            UncontrolledHero::Companion(ProfileSetId::Cf02Free)
-        );
-        for flag in ["--cf02", "--demo", "--autopilot", "--cf02-engineer"] {
-            assert!(
-                args(&["--scene", "f01_late", "--f01-room", id, flag]).is_err(),
-                "{flag}"
-            );
-        }
-        assert!(
-            args(&["--scene", room.scene_name()]).is_err(),
-            "no scene arm"
-        );
-        // The run: the corral first, the refuge second (REST-WIRE), with its title in the HUD.
-        let refuge_run = args(&["--scene", "f01_late", "--f01-run", "--f01-room", id]).unwrap();
-        assert!(refuge_run.f01_run && refuge_run.f01_rest == Some(room));
-        assert_eq!(
-            refuge_run.f01_hud,
-            Some(("The Wrong Restaurant".to_owned(), false))
-        );
-        for list in [
-            &["--scene", "f01_late", "--f01-room", id][..],
-            &[
-                "--scene",
-                "f01_late",
-                "--f01-room",
-                id,
-                "--f01-loadout",
-                "all",
-            ][..],
-            &["--scene", "f01_late", "--f01-room", id, "--cf02-seed", "7"][..],
-        ] {
-            let mut run = args(list).unwrap();
-            let launched = f01_rest::launch(root, room).unwrap();
-            run.fixture = Some(launched.fixture);
-            let kit = launched.kit.clone();
-            run.rest_run = Some(Box::new(launched));
-            let (_, scene, library) =
-                f01_late::rest_start(root, room, 360, run.carl, run.donut, run.cf02.seed).unwrap();
-            let mut hud = new_hud(&run, &kit, &actors);
-            let (sim, _, combat, _, _) = build_scene(&kit, &run, &actors, root, &mut hud).unwrap();
-            let combat = combat.expect("a combat state");
+        for room in f01_rest::RestRoom::ALL {
+            let id = room.id();
+            let late = args(&["--scene", "f01_late", "--f01-room", id]).unwrap();
+            assert!(late.f01_late && late.cf02.rules && !late.demo);
+            assert_eq!(late.f01_rest, Some(room));
+            assert!(late.f01_ring.is_none() && !late.f01_corral && !late.f01_hoarder);
+            assert!(late.f01_room_scene() && !late.arena_room());
+            assert_eq!(late.f01_room.as_deref(), Some(id));
+            assert!(late.carl.prog && late.donut.prog && late.donut_biscuit);
+            assert!(late.recording_enabled());
+            // The default uncontrolled hero of a room scene is the `cf02_free` companion.
             assert_eq!(
-                combat.state_hash(&sim),
-                library.state_hash(&scene),
-                "{list:?}"
+                late.uncontrolled_hero(),
+                UncontrolledHero::Companion(ProfileSetId::Cf02Free)
             );
-            assert_eq!(sim.world.state_hash(), scene.world.state_hash(), "{list:?}");
-            let party = run.live_party();
-            let manifest = recording_manifest(&run, &sim, Some(&combat), &party, root);
-            assert_eq!(manifest.reset.source, f01_late::SESSION_SOURCE);
-            assert_eq!(manifest.reset.name, room.scene_name());
-            assert_eq!(manifest.reset.f01_room.as_deref(), Some(id));
-            assert_eq!(manifest.reset.cf02_seed, run.cf02.seed);
-            for key in f01_late::SCOPED_PIN_KEYS {
-                assert_eq!(
-                    manifest.content_hashes.contains_key(key),
-                    f01_late::pin_applies(key, Some(id)),
-                    "{key}"
+            for flag in ["--cf02", "--demo", "--autopilot", "--cf02-engineer"] {
+                assert!(
+                    args(&["--scene", "f01_late", "--f01-room", id, flag]).is_err(),
+                    "{flag}"
                 );
             }
-            assert_eq!(manifest.reset.start_hash, library.state_hash(&scene));
+            assert!(
+                args(&["--scene", room.scene_name()]).is_err(),
+                "no scene arm"
+            );
+            // The run: each room walks in with its title in the HUD.
+            let refuge_run = args(&["--scene", "f01_late", "--f01-run", "--f01-room", id]).unwrap();
+            assert!(refuge_run.f01_run && refuge_run.f01_rest == Some(room));
+            let title = match room {
+                f01_rest::RestRoom::Refuge => "The Wrong Restaurant",
+                f01_rest::RestRoom::Camp => "The Survivors' Camp",
+                f01_rest::RestRoom::Aftermath => "After the Juicer",
+            };
+            assert_eq!(refuge_run.f01_hud, Some((title.to_owned(), false)));
+            for list in [
+                &["--scene", "f01_late", "--f01-room", id][..],
+                &[
+                    "--scene",
+                    "f01_late",
+                    "--f01-room",
+                    id,
+                    "--f01-loadout",
+                    "all",
+                ][..],
+                &["--scene", "f01_late", "--f01-room", id, "--cf02-seed", "7"][..],
+            ] {
+                let mut run = args(list).unwrap();
+                let launched = f01_rest::launch(root, room).unwrap();
+                run.fixture = Some(launched.fixture);
+                let kit = launched.kit.clone();
+                run.rest_run = Some(Box::new(launched));
+                let (_, scene, library) =
+                    f01_late::rest_start(root, room, 360, run.carl, run.donut, run.cf02.seed)
+                        .unwrap();
+                let mut hud = new_hud(&run, &kit, &actors);
+                let (sim, _, combat, _, _) =
+                    build_scene(&kit, &run, &actors, root, &mut hud).unwrap();
+                let combat = combat.expect("a combat state");
+                assert_eq!(
+                    combat.state_hash(&sim),
+                    library.state_hash(&scene),
+                    "{list:?}"
+                );
+                assert_eq!(sim.world.state_hash(), scene.world.state_hash(), "{list:?}");
+                let party = run.live_party();
+                let manifest = recording_manifest(&run, &sim, Some(&combat), &party, root);
+                assert_eq!(manifest.reset.source, f01_late::SESSION_SOURCE);
+                assert_eq!(manifest.reset.name, room.scene_name());
+                assert_eq!(manifest.reset.f01_room.as_deref(), Some(id));
+                assert_eq!(manifest.reset.cf02_seed, run.cf02.seed);
+                for key in f01_late::SCOPED_PIN_KEYS {
+                    assert_eq!(
+                        manifest.content_hashes.contains_key(key),
+                        f01_late::pin_applies(key, Some(id)),
+                        "{key}"
+                    );
+                }
+                assert_eq!(manifest.reset.start_hash, library.state_hash(&scene));
+            }
         }
     }
 
@@ -13150,7 +13207,7 @@ mod tests {
         assert!(
             error.contains("unknown room")
                 && error.contains(
-                    "corral, rest_refuge, hoarder, boiler, dozer, hazards, ring_court, ring_split, juicer, mastery"
+                    "corral, rest_refuge, hoarder, boiler, dozer, hazards, ring_court, ring_split, rest_camp, juicer, rest_aftermath, mastery"
                 ),
             "{error}"
         );

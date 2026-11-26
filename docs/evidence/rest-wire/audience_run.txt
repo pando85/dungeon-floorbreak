@@ -1,1 +1,3 @@
 AUDIENCE_RUN room=rest_refuge entry=carl:250/250 donut:250/250 exit=carl:250/250 donut:250/250 ticks=414 (current/peak; baseline 250, no kill, no award)
+AUDIENCE_RUN room=rest_camp entry=carl:1400/1900 donut:600/800 exit=carl:1400/1900 donut:600/800 ticks=432 (current/peak; baseline 250, no kill, no award)
+AUDIENCE_RUN room=rest_aftermath entry=carl:1400/1900 donut:600/800 exit=carl:1400/1900 donut:600/800 ticks=349 (current/peak; baseline 250, no kill, no award)

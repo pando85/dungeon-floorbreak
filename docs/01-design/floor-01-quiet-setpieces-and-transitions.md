@@ -219,11 +219,11 @@ y580 SSSSSSSSSSSSSS ............................. CC .. [BOX] ..................
 
 The door spans the walking line to the slab, so nobody jumps over it (boosted apex from the shelf would be 266 px, above the 228 px slab). The shelf's left edge is 56 px past the grant column, so Donut always holds the boost when she can first reach it. Nothing within reach of the shelf is higher than the floor, so base Donut (104) and Carl (80) cannot chain onto it (the validator's bypass check proves it).
 
-**REST-B `rest_camp`** (width 1536, no `ceiling_px`: no surface above 42 px):
+**REST-B `rest_camp`** (width 1536, no `ceiling_px`, no platform: no surface at all):
 
 | Item | Rect / value | Purpose |
 | --- | --- | --- |
-| platform 0: crate stack | {704, 548, 64, 16} (32 px) | gate `carl`; optional step |
+| crate stack (decor) | {704, 548, 64, 32}, non-collidable | no platform: the validator's lane rule rejects a 32 px deck (REST-IMP-8) |
 | entrance marker (decor) | 24 × 56 at x 232, on the floor | `ring_marker_a` once its sprite is wired; a greybox pole-and-lantern rect until then (KR14) |
 | survivor markers (decor) | four flat grey figures: sentry 16 × 48 at x 520 facing left; repair 16 × 44 at x 880; seated 16 × 28 at x 1040; map table figure 16 × 46 at x 1200 | labelled greybox, no faces, non-collidable, static |
 | central light (decor) | lantern at x 760 | the anchor of beat 4 |
@@ -232,7 +232,7 @@ The door spans the walking line to the slab, so nobody jumps over it (boosted ap
 
 ```text
 x:   0      232     520      704 768    880   1040  1200          1456 1536
-y580 SSSSSSS M ...... s ....... [crates] L/CC . r ..... t ..... m ......... EEEE
+y580 SSSSSSS M ...... s ....... [crates:decor] L/CC . r ..... t ..... m ......... EEEE
      spawn  marker  sentry     step     light  repair seated map         exit (chalk)
 ```
 
@@ -240,8 +240,8 @@ y580 SSSSSSS M ...... s ....... [crates] L/CC . r ..... t ..... m ......... EEEE
 
 | Item | Rect / value | Purpose |
 | --- | --- | --- |
-| C1 egress decor | x 224..512: cracked mirrors, wrecked bench and weights (decor) | the fight's consequence |
-| heavy bag | `statics` entry `hit_target` {624, 452, 32, 64} if a standalone hit target needs no machine; otherwise decor (REST-AD12) | optional gauntlet test, non-solid, never blocks |
+| C1 egress decor | x 224..512: cracked mirrors, wrecked bench and weights (decor; the bench is decor, not a 24 px platform, REST-IMP-8) | the fight's consequence |
+| heavy bag | `statics` entry `hit_target` {624, 516, 32, 64} (bottom on the walking line; the plan's y 452 floats) if a standalone hit target needs no machine; otherwise decor (REST-AD12). Landed as an inert static, REST-IMP-9 | optional gauntlet test, non-solid, never blocks |
 | blink lane | x 768..880 (112 px), floor chalk marks at both ends (decor) | optional Puddle Jumper test; no solid in or after it |
 | checkpoint | {1056, 484, 48, 96} | C3, before the exit |
 | exit | {1200, 484, 64, 96} | circular grooves on the back wall (decor) |
@@ -394,6 +394,7 @@ PLAYTRACE: `f01_rest_refuge_recording_verifies`, `f01_rest_camp_recording_verifi
 ### G.11 Status
 
 - **REST-WIRE status (PR 1, REST-A).** Landed as a **labelled playable greybox**: `rest_refuge` is listed right after the corral (run of ten rooms), with the `hero_on_surface` lock and its latched env solid, `SceneKind::RestRefuge` and the retargeted story row, the refuge room and sidecar, `src/f01_rest.rs`, the binary and PLAYTRACE arms, the `SWAP TO DONUT` hint and seven refuge fixtures. The decor (counter, booths, windows, reward box, shelf hatch) is flat rectangles; the door is a rectangle; the AREA-FASTFOOD-01 art is not started. The play deck and the slide top are 64 px and 80 px (not the 32 and 48 px of G.3): the validator's lane rule needs 52 px of clearance under a deck (REST-IMP-1). REST-IMP-7: the `cf02_free` companion did not open the door by herself in the fixture run, so `rest_refuge_solo_companion_crossing` scripts a human swap at the closed door and a swap back. The A2 fallback (REST-Q1: drop the lock in a one-line sidecar change) stays available if the swap beat plays badly. Camp and aftermath: PR 2.
+- **REST-WIRE status (PR 2, REST-B and REST-C).** Landed as **labelled playable greybox**: `rest_camp` (after `ring_split`) and `rest_aftermath` (after the Juicer, before `mastery`) are listed, the run is **twelve rooms** (corral, rest_refuge, hoarder, boiler, dozer, hazards, ring_court, ring_split, rest_camp, juicer, rest_aftermath, mastery), on by default. Each has its room file, sidecar, story-order room row (pins `f01_pin_post_pile_boss` and `f01_late_mastery`, no grant), decor table (flat rectangles), binary and PLAYTRACE arms and fixtures; the camp and the aftermath grant nothing, the aftermath enters with the Juicer's ledger and grants nothing twice, and the audience counts and the story ledger carry through both. The AREA-CAMP-01 art, the gym and arena dressing and any REST audio are not started. Adopted defaults of the implementation: **REST-IMP-8:** neither room has a platform. The plan's 32 px crate stack (camp) and 24 px bench (aftermath) fail the validator's lane rule (a deck needs 52 px of clearance under it, i.e. 64 px of rise) and a 64 px deck would need a lane ceiling the rooms do not have (DP-Q45: no surface above 42 px without one), so crates and bench are decor rectangles. **REST-IMP-9:** the heavy bag is the sidecar's inert `hit_target` static (validated, no env behaviour, never solid) at {624, 516, 32, 64}: its bottom stands on the walking line as the validator requires (the plan's y 452 floats), mirrored by a `heavy_bag` decor rectangle. **REST-IMP-10:** `goal_x` is 1480 (camp) and 1224 (aftermath) so each room's derived exit is the planned {1456, ...} and {1200, ...} (IMP-2); the entry line of the camp and the aftermath reports `lock=none` and no `boost` field. **REST-Q6 stays open:** the heavy bag is inert (no solid, no reaction, no feedback) until a presentation-only hit response exists; the "usable" half of REST-C-02 is unmet and the bag is only a placed target. **REST-IMP-12:** a fixture restart in a room entered with a carried ledger restores the carried held set and clears the receipts (the ledger's restart rule for every room, not new here); a checkpoint retry keeps the whole ledger. Neither can grant anything in the quiet rooms. **REST-IMP-11:** `rest_aftermath_no_duplicate_unlock` unites the rooms' snapshots by hand (a carry replaces the ledger it enters) in run order: refuge boost, Hoarder dynamite, Juicer fist and blink, four receipts.
 - This design PR: design only.
 - After the two REST-WIRE PRs merge: REST-A, REST-B and REST-C are **"merged, game-feel review pending"**, milestone `greybox`. Their art (AREA-FASTFOOD-01, AREA-CAMP-01) is not started.
 

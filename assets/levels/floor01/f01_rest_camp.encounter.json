@@ -1,0 +1,22 @@
+{
+  "schema": "floor01-encounter-v1",
+  "status": "REST-WIRE data (docs/01-design/floor-01-quiet-setpieces-and-transitions.md section G, REST-B, REST-AD1..AD18): the survivors' camp, a quiet room with an empty roster under goal reach_exit (REST-AD13) and no lock. Validated by src/encounter.rs, launched as the room rest_camp of --scene f01_late (src/f01_rest.rs). Greybox hypotheses; every number is a tuning knob. Coordinates are layout pixels, y down, like the room file.",
+  "id": "F01-REST-CAMP-ENC",
+  "room_file": "f01_rest_camp.room.json",
+  "room_id": "F01-REST-CAMP",
+  "story_pin": "f01_pin_post_pile_boss",
+  "goal": "reach_exit",
+  "grants": [],
+  "max_living": 0,
+  "locks": [],
+  "platform_slab_px": 12,
+  "protected_spawn": { "x": 16, "y": 484, "w": 208, "h": 96 },
+  "checkpoint": { "x": 744, "y": 484, "w": 48, "h": 96 },
+  "exit": { "x": 1456, "y": 484, "w": 64, "h": 96 },
+  "props": [],
+  "hazards": [],
+  "links": [],
+  "roster": [],
+  "gates": [],
+  "vantages": []
+}

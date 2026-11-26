@@ -748,6 +748,183 @@ fn f01_rest_refuge_recording_verifies() {
     }
 }
 
+/// REST-WIRE (REST-B, REST-C): a live-shaped session of a no-lock quiet room (Carl walks to
+/// the exit: nothing to fight, nothing to open) verifies strict at both view heights under
+/// both loadouts and a seed, stamps its own room pins and the manifest's and no other room's,
+/// and a relabelled room, loadout or seed is another run.
+fn quiet_room_recording_verifies(room: crate::f01_rest::RestRoom, label: &str, exit_x: f32) {
+    use crate::party::HeroId;
+    for view_h in [360, 400] {
+        for (loadout, seed) in [(Loadout::Story, Some(5)), (Loadout::All, None)] {
+            let dir = TempDir::new(&format!("f01-rest-quiet-{}", room.id()));
+            let mut rig = RoomRig::build_view(&dir.0, room.id(), Some(loadout), seed, None, view_h);
+            for _ in 0..1200 {
+                if rig.scene.world.complete {
+                    break;
+                }
+                let x = rig.scene.world.body(HeroId::Carl).x;
+                rig.step(RawInput {
+                    move_x: crate::rest_fixtures::walk(x, exit_x),
+                    ..RawInput::NONE
+                });
+            }
+            assert!(
+                rig.scene.world.complete,
+                "{loadout:?} {view_h}: the exit is reached"
+            );
+            let granted = rig
+                .combat
+                .events
+                .iter()
+                .filter(|e| matches!(e, CombatEvent::CapabilityGranted { .. }))
+                .count();
+            assert_eq!(granted, 0, "a quiet room grants nothing");
+            let manifest = rig.rec.finish("test").expect("finished");
+            let session = dir.0.join(manifest.session_id);
+            let report = verify(&session).unwrap_or_else(|e| panic!("{loadout:?} {view_h}: {e}"));
+            assert_eq!(report.scope, VerifyScope::Full);
+            println!(
+                "{label}_VERIFY loadout={} view={view_h} ticks={} state_hashes={} scope={:?} build={}",
+                loadout.name(),
+                report.ticks,
+                report.state_hashes,
+                report.scope,
+                report.build
+            );
+            let loaded = read_session(&session, false).unwrap();
+            assert_eq!(loaded.manifest.reset.name, room.scene_name());
+            assert_eq!(loaded.manifest.reset.f01_room.as_deref(), Some(room.id()));
+            assert_scoped_stamps(&loaded, room.id());
+            if let Some(seed) = seed {
+                tamper_manifest(&session, |m| m.reset.cf02_seed = Some(seed + 1));
+                assert!(verify(&session).is_err(), "another seed is another run");
+                tamper_manifest(&session, |m| m.reset.cf02_seed = Some(seed));
+                verify(&session).expect("restored");
+            }
+            tamper_manifest(&session, |m| m.reset.f01_room = Some("corral".into()));
+            assert!(verify(&session).is_err(), "relabelled");
+        }
+    }
+}
+
+#[test]
+fn f01_rest_camp_recording_verifies() {
+    quiet_room_recording_verifies(crate::f01_rest::RestRoom::Camp, "REST_CAMP", 1488.0);
+}
+
+#[test]
+fn f01_rest_aftermath_recording_verifies() {
+    quiet_room_recording_verifies(
+        crate::f01_rest::RestRoom::Aftermath,
+        "REST_AFTERMATH",
+        1232.0,
+    );
+}
+
+/// REST-WIRE (REST-AD14, AR-AD1): the audience carries through the camp and the aftermath. A
+/// viewer pair resumed at a Ring-like peak enters each quiet room, nothing in the room
+/// awards or kills (current never rises, the peak never moves), the exit carry is a valid
+/// `--f01-audience` value, and the next room resumes exactly it. Decay runs unchanged
+/// (REST-Q10 stays open): the printed lines say what each room cost.
+#[test]
+fn the_camp_and_the_aftermath_carry_the_audience_through() {
+    use crate::f01_run::AudienceCarry;
+    use crate::hud::{HudConfig, HudRuntime};
+    use crate::party::HeroId;
+    let mut carry = AudienceCarry {
+        carl: (1_400, 1_900),
+        donut: (600, 800),
+    };
+    for (room, exit_x) in [
+        (crate::f01_rest::RestRoom::Camp, 1488.0f32),
+        (crate::f01_rest::RestRoom::Aftermath, 1232.0f32),
+    ] {
+        let dir = TempDir::new("f01-rest-audience-carry");
+        let mut rig = RoomRig::start(&dir.0, room.id(), Loadout::Story);
+        let mut hud = HudRuntime::new(HudConfig::default());
+        hud.resume_audience(carry.counts())
+            .expect("the audience resumes live");
+        let entry = hud.audience_carry().expect("live");
+        assert_eq!(
+            AudienceCarry::from_counts(entry),
+            carry,
+            "the carry resumes exactly"
+        );
+        let mut ticks = 0u64;
+        let mut highest = [0u64; 2];
+        for tick in 1..=1200u64 {
+            let x = rig.scene.world.body(HeroId::Carl).x;
+            rig.step(RawInput {
+                move_x: crate::rest_fixtures::walk(x, exit_x),
+                ..RawInput::NONE
+            });
+            hud.set_hero_x(
+                rig.scene.world.hero.x as i32,
+                rig.scene.world.donut.x as i32,
+            );
+            hud.step(
+                rig.scene.world.hero.health,
+                rig.scene.world.donut.health,
+                &rig.combat.events,
+                rig.combat.dropped_events,
+            );
+            ticks = tick;
+            if let Some(c) = hud.audience_carry() {
+                for hero in 0..2 {
+                    highest[hero] = highest[hero].max(c[hero].0);
+                }
+            }
+            if rig.scene.world.complete {
+                break;
+            }
+        }
+        assert!(rig.scene.world.complete, "{}: the crossing ends", room.id());
+        let exit = hud.audience_carry().expect("live");
+        println!(
+            "AUDIENCE_RUN room={} entry=carl:{}/{} donut:{}/{} exit=carl:{}/{} donut:{}/{} ticks={ticks} (current/peak; baseline 250, no kill, no award)",
+            room.id(),
+            entry[0].0,
+            entry[0].1,
+            entry[1].0,
+            entry[1].1,
+            exit[0].0,
+            exit[0].1,
+            exit[1].0,
+            exit[1].1
+        );
+        for (hero, high) in highest.iter().enumerate() {
+            assert!(
+                *high <= entry[hero].0,
+                "{} hero {hero}: nothing awards viewers here ({high} > {})",
+                room.id(),
+                entry[hero].0
+            );
+        }
+        for (hero, (now, peak)) in exit.iter().enumerate() {
+            assert!(
+                *now <= entry[hero].0,
+                "{} hero {hero}: current only decays",
+                room.id()
+            );
+            assert!(
+                *now >= 250,
+                "{} hero {hero}: never below the baseline",
+                room.id()
+            );
+            assert_eq!(
+                *peak,
+                entry[hero].1,
+                "{} hero {hero}: the peak is kept",
+                room.id()
+            );
+        }
+        // The exit carry is a valid relaunch value and the next room resumes it.
+        let next = AudienceCarry::from_counts(exit);
+        assert_eq!(AudienceCarry::parse(&next.to_arg()).unwrap(), next);
+        carry = next;
+    }
+}
+
 /// REST-WIRE (REST-AD14): the refuge is the first live room of the run (the audience goes
 /// live when the run leaves the corral) and starts at the baseline; a quiet crossing has no
 /// kill, so no award and, within the 480-step decay delay, no decay either: the viewers
@@ -967,6 +1144,8 @@ fn a_hoarder_or_hazard_recording_needs_its_room_pins_and_no_other() {
         "ring_split",
         "corral",
         "rest_refuge",
+        "rest_camp",
+        "rest_aftermath",
     ] {
         let (_dir, session) = record("f01-room-pins", room, Loadout::Story, 200);
         for key in f01_late::SCOPED_PIN_KEYS {
@@ -1251,6 +1430,8 @@ fn only_the_listed_rooms_sessions_may_carry_their_own_room() {
         ("ring_split", "f01_ring_split"),
         ("corral", "f01_corral"),
         ("rest_refuge", "f01_rest_refuge"),
+        ("rest_camp", "f01_rest_camp"),
+        ("rest_aftermath", "f01_rest_aftermath"),
     ] {
         assert!(ok(&reset(
             f01_late::SESSION_SOURCE,
@@ -1287,6 +1468,8 @@ fn only_the_listed_rooms_sessions_may_carry_their_own_room() {
             "ring_split",
             "corral",
             "rest_refuge",
+            "rest_camp",
+            "rest_aftermath",
             "juicer",
         ] {
             assert!(

@@ -1,11 +1,10 @@
-Local check list on the final head of REST-WIRE PR 1 (debug build, no GitHub CI wait):
+Local check list on the final head of REST-WIRE PR 2 (debug build, no GitHub CI wait):
 cargo fmt --all -- --check                                  OK
 cargo clippy --locked --all-targets -- -D warnings          OK (no warnings)
-cargo test --locked --all-targets --no-fail-fast            OK: lib 3720 passed, 0 failed, 33 ignored (evidence helpers); floor01_scene bin 83 passed; integration tests all passed
+cargo test --locked --all-targets --no-fail-fast            OK: lib 3748 passed, 0 failed, 34 ignored (evidence helpers); floor01_scene bin and every other target passed
 python3 scripts/check_docs.py                               OK
-scripts/ci_floor01_combat.sh headless                       OK (F01_LATE_HEADLESS_OK lists the ten rooms; F01_REST_REFUGE_HEADLESS_OK; every committed DP and legacy replay byte-identical)
+scripts/ci_floor01_combat.sh headless                       OK (F01_LATE_HEADLESS_OK lists the twelve rooms; F01_REST_REFUGE_HEADLESS_OK with smoke hash 0x0c3f798dc16f07f0 unchanged; F01_REST_CAMP_HEADLESS_OK and F01_REST_AFTERMATH_HEADLESS_OK; every committed DP and legacy replay byte-identical)
 scripts/ci_floor01_combat.sh render (xvfb 1920x1080x24)     OK
-scripts/check_f01_owner_commands.sh                         OK (0 FAILED lines; the unknown-room refusal now lists the ten rooms)
-validate_assets.py / art unittests                          not run: no art or asset beyond assets/levels and assets/data was touched
+scripts/check_f01_owner_commands.sh                         OK (0 FAILED lines; the loop also launches rest_refuge, rest_camp and rest_aftermath; the unknown-room refusal lists the twelve rooms)
+validate_assets.py / art unittests                          not run: no art or asset beyond assets/levels was touched
 Real two-pad run                                            NOT RUN
-Re-run after the review nits (TABLE_HASH re-pinned to 0xf41a_f63c_e01b_a84f, --rest-pilot refused with --f01-run): all of the above green again.
