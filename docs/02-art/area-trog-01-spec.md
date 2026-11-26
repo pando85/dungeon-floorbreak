@@ -1,6 +1,6 @@
 # AREA-TROG-01: the troglodyte territory and the Test of Strength, design spec
 
-**Status:** design spec and frozen keys (prototype art, silhouette gate pending, not owner-approved). This order dresses the two troglodyte rooms of the [TROG plan](../01-design/floor-01-troglodyte-integration.md):
+**Status:** design spec and frozen keys; the independent silhouette gate froze all sixteen keys (FREEZE-with-notes G1..G8, section 16). **Stage 1 (`trog_run`) is executed** (kit, dressing, wiring, evidence; prototype art, independent art review pending, not owner-approved); stage 2 (`trog_strength`) waits for TROG-B. This order dresses the two troglodyte rooms of the [TROG plan](../01-design/floor-01-troglodyte-integration.md):
 - `trog_run` (plan 4.1, #191 T0..T3: the approach, the low hunter, the fist-shaped hole, the bell and the tongue), landed as a greybox by TROG-A;
 - `trog_strength` (plan 4.2, #191 T4: the Test of Strength and its bench stack), landed by TROG-B.
 
@@ -304,4 +304,75 @@ Adopted under the owner's design-defaults authorization (AGENTS.md, 2026-11-19);
 
 ## 16. Execution record
 
-Empty until execution.
+### 16.1 Stage 1: `trog_run` (executed on top of TROG-A, #310)
+
+Executed by Claude Sonnet from the frozen keys and the gate's binding notes G1..G8; designed by Claude Opus, gated by an independent Claude Opus. **Prototype art, independent art review pending, not owner-approved.** Stage 2 (`trog_strength`: the 48 px shelf, the threshold, the shards, the bench presenter and its debris burst) is **not** executed: TROG-B is not on main (gate note G8). No stage-2 piece is authored, wired or tested here beyond the sixteen key pins, which stay in the art unittest.
+
+**Pieces and atlases** (`scripts/author_trogarea01.py`: new functions below the keys, which are byte-identical; `python3 scripts/author_trogarea01.py` writes grids, `.ase`, manifests and the contract):
+
+| Atlas | Canvas | Colours | Pieces (layer) |
+| --- | --- | --- | --- |
+| `floor01_trog_run_wall` | 176 x 136 | 12 | `trog_fist_hole` (backwall decal), `trog_knuckle_marks` (backwall decal), `trog_slam_crack` (backwall decal) |
+| `floor01_trog_run_props` | 128 x 104 | 34 | `trog_bell` (prop), `trog_impact_crater` (structure), and the three executor pieces `trog_step_mid` 16 x 32, `trog_step_end_l` and `trog_step_end_r` 8 x 32 (structure) |
+
+Pieces sit in the atlas at their exact size with 8 px padding. The step pieces are the AREA-HEAT-01 shelf body one stone step darker below the arris row, each with exactly one transparent pixel and no `stone` above index 7 below row 0 (section 5; the code is the gate's rule, reproduced as `end_of` and `darken`). The contract is `assets/source/terrain/floor01/floor01_trog_kit.json` (extends the gym kit, no inherited key redeclared, nothing collidable, manifests `floor01_trog_run_wall.json` and `floor01_trog_run_props.json`, status `prototype_fixture_unapproved`). Its `room_dressing.trog_run` is exactly sections 4 and 5: four `remove_at` (both bricked bays' catenaries, the upper torch at x 2240 and its pool), two `backwall_fill` rects, an empty `parallax`, and 15 placements (three decals, then structure, then the bell). Every `remove_at` matches exactly one composer piece.
+
+**Wiring.** `src/trog_kit.rs` composes the room through `f01_boiler::compose_kit_hooked` + `ring_kit::dress_with` (an unmatched entry is an error) and pushes the DP-Q45 ceiling slab and the sidecar's `solid` statics in one shared `lane_solids`, for the dressed and the plain composition alike. `f01_trog::launch` is `launch_with(root, room, true)`; `launch_with(.., false)` is the plain TROG-A composition. The binary no longer draws the flat decor (`f01_trog::decor` stays as data; the `F01_TROG_RUN_ENTRY` line is unchanged; the `F01_TROG_ART` line prints `decor=dressed` and the `F01_TROG_DECOR` lines are gone, the camp's REST precedent).
+
+**Tests** (`cargo test --lib trog_kit`, `tests/test_art_trogarea01.py`):
+
+| Id | Test |
+| --- | --- |
+| A1 | solids (slab and statics included), spawn, exit, views, walking line, blink barriers, collision cells and tiles, actor z and deck are identical with and without the dressing; the launched rooms and their hashes and statics too; the state hash is equal on all 500 ticks of the smoke script |
+| A3 | `dress_with` returns 0; each `remove_at` drops exactly one composer piece; an unmatched entry is an error; the torch at (2240, 448) and the open windows' chains stay |
+| A5 (G5) | the undressed bays' background span (x 144..1503 pier to pier, y 352..559) lies inside the `backwall_fill` rects; the dressed layout shows no background in either bay |
+| A6 (G5) | the 11 dressing placements that touch y 561..579 (ten step pieces and the crater) are on a layer above `collision` |
+| A4 | no `prop` pixel in an open window above y 520, from the real pixels |
+| clearance | no new `trog_*` prop or structure pixel inside a remaining `torch_wall` rect |
+| A7 | the worst 640 px view stays within `MAX_LIGHTS`, net minus two lights |
+| 9.4 | the step faces cover the two sidecar statics edge to edge, down to the walking line |
+| A10 (G4) | the sixteen key pins equal the name and digest of `gate/measurements.txt` (not the raw line), and the eight key grids are byte-identical |
+| A11 | sizes, at most 63 colours per atlas, 1-bit alpha, one transparent pixel per piece, kit palette only |
+
+`dump_trog_layouts` (ignored) writes the composed layouts for the sheets.
+
+**Evidence** (`docs/evidence/area-trog-01/`): twelve window stills at 640 x 360 and 1920 x 1080, each captured twice (byte-identical), window `COMBAT_STATE` hash equal to the headless hash at every still, and equal to TROG-A's hash on the nine stills it also captured (same pilot, tick and size). Drawn views measured from landmarks. The lit read and visibility on the real stills:
+
+- **A12 (G6), gated stills** (a troglodyte in an idle pose in view): `t0_spawn`, `pygmy_dormant`, `basher_dormant`, `virtuoso_dormant`. The troglodytes are located on each still by masked normalised cross-correlation of the atlas frames (the pose and position are not logged; every gated match has ncc 1.00). Result: every dressing piece's lit mean L* is below the lowest in-view troglodyte's actor L*, and every edge_dL is at least 15.
+
+  | Gated still | Troglodyte (idle frame) | actor L* | edge_dL | Pieces in view (lit mean L*) |
+  | --- | --- | --- | --- | --- |
+  | `t0_spawn` | Pygmy (2) | 29.0 | 18.1 | slam crack 17.5, knuckle marks 20.0, step faces 17.3..22.2, crater 19.1 |
+  | `pygmy_dormant` | Pygmy (1) | 28.2 | 19.3 | slam crack 17.3, knuckle marks 20.0, step faces 14.2..21.8, crater 19.1 |
+  | `basher_dormant` | Basher (1) | 33.6 | 25.7 | fist hole 12.5 |
+  | `virtuoso_dormant` | Virtuoso (2) | 25.4 | 18.6 | bell 24.1, bell step faces under 22.2 |
+
+  The thinnest margin of the run is **the bell against the Virtuoso: 24.1 against 25.4 (1.3 L*)**, as the gate predicted; it passes, so no owner note on Q6 is raised by a failure. Attack and walk poses are measured and reported, not gated (`lit_read.txt`): the Pygmy 27.8..31.3 (edge_dL 15.1..38.9), the Basher 32.8..35.3 (24.1..25.0) and the Virtuoso 25.7..29.2 (16.8..17.9) against the same dressing, all passing.
+- **A13:** all 15 placed pieces are 100 % visible behind the architecture and with the props in front, `backwall_null_px` 0.
+- **Drawn views** (`drawn_views.txt`): the lit model slid over each still's wall rows, trimmed error 0.25..0.67, cross-checked on the torch flames (flame centre = placement x + 7.5, mean offset +0.1..+2.2 px).
+
+**Gate notes G1..G8 and the open ends.**
+
+| Note | Status |
+| --- | --- |
+| G1 (torch above the bench) | stage 2, not executed |
+| G2 (debris start from the event log) | stage 2, not executed |
+| G3 (breaker direction) | stage 2, not executed; TROG-ART-Q2 stays open until TROG-B lands |
+| G4 (pin format) | executed: the art unittest compares the name and digest |
+| G5 (A5, A6 wording) | executed as the gate worded them (table above) |
+| G6 (A12 executable) | executed on stage 1 (above); no key failed |
+| G7 (static fallback piece) | not needed unless TROG-B fires TROG-AD12 |
+| G8 (stage gating) | applied: TROG-A is on main, stage 1 only; the room JSON, sidecar statics (refuge 352..415, bell step 1840..1903), pier x and openings were re-read on the landed files and equal sections 2 to 5 |
+
+**Adopted defaults of the executor** (the owner may change any in a follow-up PR):
+
+| Id | Default | Reason |
+| --- | --- | --- |
+| TROG-ART-AD13 | Stage 1 ships alone: no stage-2 piece, atlas or contract block is authored | G8: the strength room and its bench numbers are not on main; unwired pieces would be dead code without tests |
+| TROG-ART-AD14 | Two atlases for stage 1, `floor01_trog_run_wall` and `floor01_trog_run_props`, 8 px padding; the crater and the step pieces are `structure` inside the props atlas (per-piece layer override, the camp pattern) | the brief's atlas split; floor pieces draw above the deck (A6) |
+| TROG-ART-AD15 | The binary draws none of `f01_trog::decor` and prints `decor=dressed`; the `F01_TROG_DECOR` lines are removed | nothing consumes them; every troglodyte room is dressed (the REST precedent) |
+| TROG-ART-AD16 | The troglodytes' pose and position on a still are measured by masked normalised cross-correlation of the atlas frames; a still is gated when an idle frame (0..2) is in view | the pose is not logged and the idle loop picks frame 0, 1 or 2 by tick; every match is pixel-exact (ncc 1.00 on the gated stills) |
+| TROG-ART-AD17 | New pilot ticks for stills TROG-A did not take: 20 (`t0_spawn`), 440 (`basher_dormant`), 840 (`virtuoso_dormant`) | the dormant poses the gate needs; TROG-A's nine other ticks keep its names and its hashes |
+| TROG-ART-AD18 | A piece's lit mean in a window still counts only the pixels visible in the layout and explained by the lit model (|L* difference| at most 12) | Carl, Donut, the HUD and effects must not enter a dressing piece's mean |
+
+No design problem was found: no key needed a change, and no placement contradicted the landed geometry.

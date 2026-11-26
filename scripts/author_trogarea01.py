@@ -1067,6 +1067,236 @@ def to_image(img: Pix, silhouette: bool = False):
     return out
 
 
+# =============================================================================================
+# Execution (spec sections 5, 13 and 16): the executor pieces, the atlases, the manifests, the contract.
+# The keys above stay untouched. Stage 1 dresses `trog_run`; the stage-2 pieces (the 48 px shelf, the
+# threshold, the shards, the bench and its debris) wait for TROG-B and have no atlas yet.
+# =============================================================================================
+import author_heat01 as heat  # noqa: E402  (AREA-HEAT-01: the shelf body the step faces derive from)
+
+
+def end_of(body: "heat.Pix", left: bool) -> "heat.Pix":
+    """One 8 px end of a step or shelf face: half of its mid, the outer two columns one step darker below
+    row 0, a ``stone`` 6 corner on row 0 and the bottom outer corner cleared (spec section 5)."""
+    h = body.h
+    c = heat.Pix(8, h)
+    x0 = 8 if left else 0
+    for y in range(h):
+        for x in range(8):
+            q = body.get(x0 + x, y)
+            if q is None and (x0 + x, y) == (15, h - 1):
+                q = ("stone", 2)
+            c.px[y][x] = q
+    for y in range(1, h):
+        for x in ((0, 1) if left else (6, 7)):
+            q = c.px[y][x]
+            if q is not None:
+                c.put(x, y, q[0], q[1] - 1)
+    c.put(0 if left else 7, 0, "stone", 6)
+    c.clear(0 if left else 7, h - 1)
+    return c
+
+
+def darken(p: "heat.Pix") -> "heat.Pix":
+    """One stone step darker below the arris row (TROG-ART-AD5): the face never outshines a troglodyte."""
+    for y in range(1, p.h):
+        for x in range(p.w):
+            q = p.px[y][x]
+            if q is not None and q[0] == "stone":
+                p.px[y][x] = ("stone", max(0, q[1] - 1))
+    return p
+
+
+def trog_step_mid() -> "heat.Pix":
+    return darken(heat._shelf_body())
+
+
+def trog_step_end_l() -> "heat.Pix":
+    return end_of(trog_step_mid(), True)
+
+
+def trog_step_end_r() -> "heat.Pix":
+    return end_of(trog_step_mid(), False)
+
+
+FLOOR_Y = 580
+STEP_RUNS = ((352, 548), (1840, 548))     # the low refuge and the bell step (sidecar statics, x0 and top y)
+
+# The run atlases (stage 1): stem = the source file stem under assets/source/props/floor01.
+ATLASES = {
+    "floor01_trog_run_wall": {"stem": "trog_run_wall", "width": 176, "pieces": [
+        ("trog_fist_hole", trog_fist_hole), ("trog_knuckle_marks", trog_knuckle_marks),
+        ("trog_slam_crack", trog_slam_crack)]},
+    "floor01_trog_run_props": {"stem": "trog_run_props", "width": 128, "pieces": [
+        ("trog_bell", trog_bell), ("trog_impact_crater", trog_impact_crater), ("trog_step_mid", trog_step_mid),
+        ("trog_step_end_l", trog_step_end_l), ("trog_step_end_r", trog_step_end_r)]},
+}
+LAYER_OF_ATLAS = {"floor01_trog_run_wall": ("backwall", "backwall_decal"), "floor01_trog_run_props": ("prop", "prop")}
+# Floor-level pieces draw above the collision deck (FF-AD26): the crater and the step faces are `structure`.
+LAYER_OVERRIDE = {"trog_impact_crater": ("structure", "structure"), "trog_step_mid": ("structure", "structure"),
+                  "trog_step_end_l": ("structure", "structure"), "trog_step_end_r": ("structure", "structure")}
+PAD = 8
+EXEC_PIECES = ("trog_step_mid", "trog_step_end_l", "trog_step_end_r")
+KEY_PIECE_IDS = tuple(pid for pieces in KEYS.values() for pid, _ in pieces)
+CONTRACT = ROOT / "assets/source/terrain/floor01/floor01_trog_kit.json"
+MANIFESTS = ROOT / "assets/manifests"
+OWNER = ("AI-authored environment pixel art (AREA-TROG-01: design spec and keys Claude Opus, silhouette gate "
+         "Claude Opus (independent); execution Claude Sonnet; independent review pending)")
+
+# -- the dressing of `trog_run` (spec section 4) -------------------------------------------------------------
+RUN_REMOVE_AT = [("structure", "arch_chain", 224, 384), ("structure", "arch_chain", 1232, 384),
+                 ("prop", "torch_wall", 2240, 432), ("backwall_decal", "torch_pool_a", 2136, 348)]
+RUN_FILL = [{"x": 176, "y": 352, "w": 208, "h": 208}, {"x": 1184, "y": 352, "w": 208, "h": 208}]
+
+
+def _step_run(x0: int, y: int) -> list:
+    """end_l, three mids, end_r side by side: 8 + 3 * 16 + 8 = 64 px, the static's width."""
+    return [("structure", "trog_step_end_l", x0, y), ("structure", "trog_step_mid", x0 + 8, y),
+            ("structure", "trog_step_mid", x0 + 24, y), ("structure", "trog_step_mid", x0 + 40, y),
+            ("structure", "trog_step_end_r", x0 + 56, y)]
+
+
+RUN_PLACE = [
+    ("backwall_decal", "trog_slam_crack", *SLAM_AT), ("backwall_decal", "trog_knuckle_marks", *MARKS_AT),
+    ("backwall_decal", "trog_fist_hole", *HOLE_AT),
+    *_step_run(*STEP_RUNS[0]), ("structure", "trog_impact_crater", *CRATER_AT), *_step_run(*STEP_RUNS[1]),
+    ("prop", "trog_bell", *BELL_AT),
+]
+
+
+def _at(layer, piece, x, y):
+    return {"layer": layer, "piece": piece, "x": x, "y": y}
+
+
+def dressing() -> dict:
+    return {"trog_run": {"remove": [], "remove_at": [_at(*r) for r in RUN_REMOVE_AT], "backwall_fill": RUN_FILL,
+                         "place": [_at(*t) for t in RUN_PLACE], "parallax": {}}}
+
+
+def build_pieces(name: str) -> list:
+    return [(pid, fn()) for pid, fn in ATLASES[name]["pieces"]]
+
+
+def _pack(pieces: list, width: int, pad: int = 0):
+    """Shelf packing, left to right: a piece's rect holds exactly its pixels (a key stays byte-identical)."""
+    x = y = shelf = 0
+    placed = []
+    for pid, img in pieces:
+        if x + img.w > width:
+            x, y, shelf = 0, y + shelf + pad, 0
+        placed.append((pid, img, x, y))
+        x += img.w + pad
+        shelf = max(shelf, img.h)
+    sheet = Pix(width, y + shelf)
+    rects = {}
+    for pid, img, px, py in placed:
+        for yy in range(img.h):
+            for xx in range(img.w):
+                if img.px[yy][xx] is not None:
+                    sheet.px[py + yy][px + xx] = img.px[yy][xx]
+        rects[pid] = [px, py, img.w, img.h]
+    return sheet, rects
+
+
+def piece_entry(pid: str, atlas: str, rect: list) -> dict:
+    role, layer = LAYER_OVERRIDE.get(pid) or LAYER_OF_ATLAS[atlas]
+    entry = {"id": pid, "atlas": atlas, "rect": rect, "role": role, "layer": layer, "collidable": False,
+             "anchor": [0, 0], "anchor_name": "top_left (room placement, spec section 5)", "grid_snap": 1,
+             "grammar": ["A"]}
+    if layer == "backwall_decal":
+        entry["decal"] = True
+    return entry
+
+
+def contract(rects: dict, colours: dict) -> dict:
+    atlases, pieces = {}, []
+    for name, spec in ATLASES.items():
+        atlases[name] = {"grid": f"assets/source/props/floor01/{spec['stem']}.grid.json",
+                         "manifest": f"assets/manifests/{name}.json", "image": f"generated/art/{name}.png",
+                         "metadata": f"generated/art/{name}.json"}
+        for pid, _ in spec["pieces"]:
+            pieces.append(piece_entry(pid, name, rects[name][pid]))
+    return {
+        "format": "env-kit-v2", "kit_id": "floor01_trog",
+        "extends": "assets/source/terrain/floor01/floor01_gym_kit.json",
+        "status": "proposed - AREA-TROG-01 kit (docs/02-art/area-trog-01-spec.md); independent review pending; "
+                  "not owner-approved",
+        "extension_note": (
+            "Inherits palette, layers, draw order, coordinates, walking-line rule and lighting schema from the "
+            "ENV-01 contract through the gym kit. Adds the troglodyte territory atlases for Floor 01 room "
+            "`trog_run` (stage 1): no tiles, nothing collidable, no new palette colour, no new emitter. The "
+            "dressing bricks up bays 1 and 4, removes two chains and one torch with its pool; the stage-2 "
+            "strength room adds its own block."),
+        "palette_use": {n: colours[n] for n in ATLASES},
+        "atlases": atlases, "tiles": [], "pieces": pieces,
+        "room_dressing": dressing(),
+        "usage_rules": {"R1_trog_run": (
+            "room `trog_run` only: the dressing never adds or moves a tile or a solid; bays 1 and 4 are bricked up "
+            "across both pier columns; nothing stands across an open window above y 520; floor pieces (the crater "
+            "and the step faces) are `structure` so they draw above the deck")},
+    }
+
+
+def manifest(name: str, canvas: list, stem: str) -> dict:
+    return {
+        "schema_version": 1, "id": f"{name}_v1", "type": "decor_atlas",
+        "source_path": f"assets/source/props/floor01/{stem}.ase",
+        "grid_source": f"assets/source/props/floor01/{stem}.grid.json",
+        "output_atlas": f"generated/art/{name}.png", "output_metadata": f"generated/art/{name}.json",
+        "palette_id": "floor01-catacomb-v2", "frame_size": canvas, "pivot": [0, 0],
+        "animation_tags": [], "required_alpha": True,
+        "kit_contract": "assets/source/terrain/floor01/floor01_trog_kit.json",
+        "owner": OWNER, "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+        "license": "Original repo-specific environment art; no standalone asset reuse license; no game/asset-pack "
+                   "distribution rights",
+        "review_status": "prototype_fixture_unapproved",
+        "provenance": {
+            "origin": "Original pixel-grid-v1 pieces for the Floor 1 troglodyte run (AREA-TROG-01 on the ENV-01 "
+                      "kit); rule-based shapes and ramps, the step faces derived from the AREA-HEAT-01 shelf body; "
+                      "nothing cropped, traced or resampled from concept art; no text, logos, brands, faces or "
+                      "likenesses",
+            "generator": "Deterministic authoring script scripts/author_trogarea01.py written by AI agents (spec "
+                         "and keys designed by Claude Opus; execution by Claude Sonnet); no image-model raster "
+                         "output",
+            "generated_art": True,
+            "input_reference_ids": [
+                "floor01-catacomb-kit/env-kit-v2 (owner-approved ENV-01 kit, 2026-11-16)",
+                "floor-01-art-atlas-v1 troglodyte territory panel (mood reference only; no pixel cropped, traced "
+                "or resampled)"]},
+    }
+
+
+def write_kit() -> None:
+    """Write every stage-1 atlas grid + .ase, manifest and the contract."""
+    rects, colours = {}, {}
+    for name, spec in ATLASES.items():
+        sheet, r = _pack(build_pieces(name), spec["width"], PAD)
+        rects[name] = r
+        grid = kit.grid_from([sheet], layer_names=["main"], durations=[100], pivot=(0, 0))
+        path = SRC / f"{spec['stem']}.grid.json"
+        path.write_text(json.dumps(grid, indent=1) + "\n", encoding="utf-8")
+        subprocess.run([sys.executable, str(ROOT / "scripts" / "pixel_grid_to_ase.py"), "build", str(path),
+                        str(SRC / f"{spec['stem']}.ase")], check=True)
+        colours[name] = len(grid["palette"])
+        (MANIFESTS / f"{name}.json").write_text(
+            json.dumps(manifest(name, grid["canvas"], spec["stem"]), indent=1) + "\n", encoding="utf-8")
+        print(f"{name}: {grid['canvas']} {len(grid['palette'])} colours")
+    CONTRACT.write_text(json.dumps(contract(rects, colours), indent=1) + "\n", encoding="utf-8")
+
+
+def all_pieces() -> dict:
+    """{piece id: Pix} for every stage-1 piece (keys and executor pieces)."""
+    out = {}
+    for name in ATLASES:
+        out.update(dict(build_pieces(name)))
+    return out
+
+
+def mean_luma(img) -> float:
+    vals = [_luma(*p) for row in img.px for p in row if p]
+    return sum(vals) / len(vals)
+
+
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "keys":
         for pid, sha in key_sha().items():
@@ -1075,3 +1305,4 @@ if __name__ == "__main__":
         print("\n".join(measurements()))
     else:
         write()
+        write_kit()

@@ -23,8 +23,9 @@
 //!   full pool (`DonutSetup::unlocked(8)`, plan 6.3);
 //! * the companion sees the troglodytes through the per-room slot feed (TROG-AD16).
 //!
-//! The decor ([`decor`]) is presentation only: flat labelled rectangles the binary draws; never
-//! a solid, never in the sim, never hashed.
+//! The decor ([`decor`]) is presentation only: flat labelled rectangles, never a solid, never in
+//! the sim, never hashed. AREA-TROG-01 dresses the room ([`crate::trog_kit`]); the table stays as
+//! data and the binary no longer draws it for a dressed room.
 //!
 //! Each room and sidecar is pinned ([`RUN_ROOM_HASH`], [`RUN_ENCOUNTER_HASH`]): [`launch`]
 //! refuses an edited file, a test pins each constant to its file, and an edit is a deliberate
@@ -38,8 +39,8 @@ use crate::combat_scene::{CombatState, DemoRules, EnemySpawn, EnvRuntime, Fixtur
 use crate::corridor::SceneSim;
 use crate::donut_mana::DonutSetup;
 use crate::donut_prog::DonutProgFlags;
-use crate::encounter::{self, Loaded, RosterKind, StaticKind};
-use crate::env_kit::{EnvKit, IRect as KitRect};
+use crate::encounter::{self, Loaded, RosterKind};
+use crate::env_kit::EnvKit;
 use crate::input::RawInput;
 use crate::scene_enemy::{SlotRoom, spawn_from_roster};
 
@@ -164,9 +165,9 @@ const fn d(label: &'static str, x: i32, y: i32, w: i32, h: i32) -> Decor {
     }
 }
 
-/// The run room's decor (plan 4.1, presentation only until AREA-TROG-01): the knuckle marks and
-/// the far "slam" beat of T0 (no audio path, TROG-Q7), the fist-shaped hole behind T2's Basher
-/// and the bell of T3. Their labels are the names the binary draws.
+/// The run room's greybox decor (plan 4.1; data only since AREA-TROG-01 dressed the room): the
+/// knuckle marks and the far "slam" beat of T0 (no audio path, TROG-Q7), the fist-shaped hole
+/// behind T2's Basher and the bell of T3.
 const RUN_DECOR: [Decor; 5] = [
     d("knuckle_marks", 120, 520, 96, 40),
     d("slam_mark", 264, 480, 40, 100),
@@ -212,8 +213,16 @@ fn trogs_only(roster: &[encounter::RosterEntry]) -> Result<(), String> {
     }
 }
 
-/// Load a troglodyte room, compose its kit and build the fixture and rules.
+/// Load a troglodyte room, compose its kit and build the fixture and rules. The room is dressed
+/// with the AREA-TROG-01 kit ([`crate::trog_kit`]).
 pub fn launch(root: &Path, room: TrogRoom) -> Result<TrogRun, String> {
+    launch_with(root, room, true)
+}
+
+/// [`launch`] with the dressing switched: `dressed = false` composes the room with the plain
+/// Boiler kit (the TROG-A greybox composition), for the tests that prove the dressing is
+/// presentation only.
+pub fn launch_with(root: &Path, room: TrogRoom, dressed: bool) -> Result<TrogRun, String> {
     let path = room.encounter_path();
     let loaded = encounter::load(root, path).map_err(|errors| {
         format!(
@@ -244,37 +253,7 @@ pub fn launch(root: &Path, room: TrogRoom) -> Result<TrogRun, String> {
         ));
     }
     trogs_only(&loaded.encounter.roster)?;
-    let mut kit = crate::f01_boiler::compose_kit(root, &loaded.room)?;
-    if kit.base_walk_line_y != loaded.room.floor_y {
-        return Err(format!(
-            "the kit's walking line {} is not the room's floor {}",
-            kit.base_walk_line_y, loaded.room.floor_y
-        ));
-    }
-    // DP-Q45 / DM-Q27 / KR9: the room's lane ceiling slab (see the Boiler).
-    let ceiling = loaded
-        .ceiling_px
-        .ok_or_else(|| format!("{path}: a troglodyte room needs a lane ceiling (DP-Q45)"))?;
-    kit.solid_rects.push(KitRect {
-        x: 0,
-        y: kit.base_walk_line_y - ceiling - 16,
-        w: kit.width,
-        h: 16,
-    });
-    // The plain `solid` statics (the low refuge and the bell step) are physical lane steps.
-    for st in loaded
-        .encounter
-        .statics
-        .iter()
-        .filter(|st| st.kind == StaticKind::Solid && st.slide.is_none())
-    {
-        kit.solid_rects.push(KitRect {
-            x: st.rect.x,
-            y: st.rect.y,
-            w: st.rect.w,
-            h: st.rect.h,
-        });
-    }
+    let mut kit = crate::trog_kit::compose_room_kit(root, &loaded, room, dressed)?;
     kit.blink_barriers = loaded.room.kit_blink_barriers();
     let start = loaded.room.spawn_carl;
     let checkpoint = loaded.encounter.checkpoint;
