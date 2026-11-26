@@ -5,7 +5,7 @@ These are review renders for the [DOZ-02 design spec](../../02-art/doz-02-dozer-
 Status:
 
 - **Design keys:** drawn (spec section 6). Routing score 4 of 4, Hard (spec section 1).
-- **Silhouette gate:** **PENDING.** A fresh design-tier agent who did not draw the keys must answer the three questions below; the verdict is recorded here and in spec section 11.
+- **Silhouette gate:** **PASS with notes** (an independent Claude Opus agent who did not draw the keys; verdict below and in spec section 11). Execution may start; the notes are carried into it.
 - **Execution:** pending (spec section 7): the remaining frames, the export, the wiring.
 - **Review:** pending, independent.
 
@@ -15,11 +15,19 @@ Gate pack: `doz02_lit_before_640x360.png` and `doz02_lit_after_640x360.png` (jud
 
 | Question | Verdict |
 | --- | --- |
-| 1. Does the disabled machine read as the DOZ-01 Dozer, broken and harmless? | PENDING |
-| 2. Does the jammed wheel read as stopped and not lethal? | PENDING |
-| 3. Does the remnant read as a fallen press frame? | PENDING |
+| 1. Does the disabled machine read as the DOZ-01 Dozer, broken and harmless? | **PASS.** The silhouette below the stack is the DOZ-01 machine; at 1x the knocked stack, the steam puff, the dark yoke lamp and the barred wheel say "broken". The boiler crack, the cab dent and the 3 px tub crumple are 1 px detail that reads at 2x to 4x but only faintly at 1x (note G-1). |
+| 2. Does the jammed wheel read as stopped and not lethal? | **PASS.** The clearest reversal of the set: the spike ring drops from the brightest object on screen to a dull slate star that sinks into the arch shadow, and the rusty tie bar through the spokes explains the stop in one glance. The three missing spikes register at 1x only at the top (note G-2). |
+| 3. Does the remnant read as a fallen press frame? | **PASS.** Same rust beam, rivet row and end stencils as the raised key, now bowed and lying in the lane; it reads as the thing that fell, not as a step or a platform. The upward bow gives a slight speed-bump hump at 1x (note G-3). |
 
 Any "no" sends the keys back to design before execution starts.
+
+**Overall: PASS with notes.** Reviewer: an independent Claude Opus agent (did not draw the keys), judged at 1x first, then at 4x and 8x crops. No blocking design defect. Non-blocking notes for the execution step and the final review:
+
+- **G-1 (hull damage at 1x).** The hull damage is quiet at gameplay scale; the "broken" read leans on the stack, the steam and the wheel. Acceptable because the spec keeps the silhouette, and the `impact_stunned` pitch and the emitters add motion. Do not add brightness or new colours to compensate; if the owner wants it louder, a second steam puff or a darker crack outline is the cheaper lever.
+- **G-2 (wheel).** The brass hub stays the brightest spot on the wheel, but it sits on the tie bar and reinforces the jam point rather than the threat. Keep it.
+- **G-3 (remnant).** In the execution `landed` dust and any runtime capture, keep the contact shadow tight under the bow so the arch reads as a bent beam, not a ramp.
+- **G-4 (composition artifacts, not key defects).** In `doz02_lit_after_640x360.png` a Floor 1 wall-torch flame is composited over the cab deck in front of the driver, and a background orange point light lands on the tie bar's upper end; at 1x both read as fire on a disabled machine, against rule 2. The keys carry no fire pixels. The execution evidence and the Bevy wiring must draw wall-torch flames behind the machine (or frame the capture so no torch sits behind the cab) and confirm no light coincides with the bar.
+- **G-5 (stand-in driver).** The driver in the after scene is the alert `engineer_hold` stand-in (N-5); the slump frames must land before the owner review, since the alert face undercuts "harmless".
 
 ## Regenerate
 

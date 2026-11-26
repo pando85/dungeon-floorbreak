@@ -1,6 +1,6 @@
 # DOZ-02: Dozer damage states and the stop frame, design spec
 
-**Status:** design keys drawn (section 6); silhouette gate **PENDING** (section 11); the remaining frames, the export, the evidence and the Bevy wiring follow in an execution step (section 7); independent review pending; owner game-feel review after that. Nothing here is wired into Bevy: the room still draws the labelled stand-ins of `src/dozer_art.rs`.
+**Status:** design keys drawn (section 6); silhouette gate **PASS with notes** (section 11); the remaining frames, the export, the evidence and the Bevy wiring follow in an execution step (section 7); independent review pending; owner game-feel review after that. Nothing here is wired into Bevy: the room still draws the labelled stand-ins of `src/dozer_art.rs`.
 
 Inputs:
 
@@ -186,13 +186,15 @@ Rules every frame must keep:
 4. The remnant is no taller than 16 px and reads as a fallen beam, not a step or a platform.
 5. The crew tumble and the slump read as comic and alive.
 
-**Silhouette gate (PENDING).** A fresh design-tier agent who did not draw the keys answers three questions from the gate pack (`docs/evidence/doz-02/`: `doz02_lit_before_640x360.png`, `doz02_lit_after_640x360.png` at 1x, `doz02_key_sheet_x4.png`, and this spec):
+**Silhouette gate (PASS with notes).** A fresh design-tier agent who did not draw the keys answers three questions from the gate pack (`docs/evidence/doz-02/`: `doz02_lit_before_640x360.png`, `doz02_lit_after_640x360.png` at 1x, `doz02_key_sheet_x4.png`, and this spec):
 
 1. Does the disabled machine read as the DOZ-01 Dozer, broken and harmless?
 2. Does the jammed wheel read as stopped and not lethal?
 3. Does the remnant read as a fallen press frame?
 
 Any "no" sends the keys back to design before execution starts. The verdict is recorded in `docs/evidence/doz-02/README.md` and here.
+
+**Verdict: PASS with notes**, by an independent Claude Opus agent who did not draw the keys (judged at 1x first, then enlarged). 1: PASS, the DOZ-01 silhouette holds and the stack, steam, dark lamp and barred wheel read as broken and harmless; the crack, dent and tub crumple are faint at 1x. 2: PASS, the ring drops from the brightest object to a dull star and the tie bar explains the stop. 3: PASS, the bowed rust beam with the end stencils reads as the frame that fell, not a step. No blocking design defect; execution may start. The non-blocking notes G-1 to G-5 (quiet hull damage at 1x, the hub, the remnant's contact shadow, a wall-torch flame and a point light composited onto the disabled machine in the after scene, the alert stand-in driver) are listed in the evidence README and carry into the execution step.
 
 ## 12. Adopted defaults
 
