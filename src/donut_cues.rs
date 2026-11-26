@@ -194,6 +194,14 @@ fn attacker_side(
             .and_then(|e| e.as_any())
             .and_then(|a| a.downcast_ref::<crate::combat_scene::slime::SlimeEnemy>())
             .map(|s| s.slime().x),
+        // TROG-A: a troglodyte's blow; `source` is its slot target id.
+        EvadeSource::TrogBlow => combat
+            .slot_enemies()
+            .iter()
+            .find(|e| e.target_id() == source)
+            .and_then(|e| e.as_any())
+            .and_then(|a| a.downcast_ref::<crate::combat_scene::trog::TrogEnemy>())
+            .map(|t| t.trog().x),
     };
     match x {
         Some(x) if x < donut_x => -1,

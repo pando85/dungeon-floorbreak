@@ -89,7 +89,7 @@ use dungeon_floorbreak::{
         EnvKit, IRect, PieceDraw, animation_frame, parallax_copies, parallax_start, to_world_y,
     },
     f01_act1, f01_boiler, f01_corral, f01_dozer, f01_hazards, f01_hoarder, f01_late, f01_mastery,
-    f01_rest, f01_ring, f01_run,
+    f01_rest, f01_ring, f01_run, f01_trog,
     feel::{LLAMA_GLOB_MOUTH_DX, LLAMA_GLOB_MOUTH_DY, LLAMA_GLOB_SPEED},
     goblin::{AttackPhase, GoblinMode},
     gore::{DEATH_VARIANTS, DeathArt, ENGINEER_VARIANT, GorePreset, LLAMA_VARIANT, Sheet},
@@ -139,6 +139,8 @@ mod gym_art;
 mod hazard_decals;
 #[path = "floor01_scene/hazards_art.rs"]
 mod hazards_art;
+#[path = "floor01_scene/trog_art.rs"]
+mod trog_art;
 // FA-Q23 (HRD-P): the Hoarder's stand-in presentation (HOARD-01 frames, labelled greybox).
 #[path = "floor01_scene/hoarder_art.rs"]
 mod hoarder_art;
@@ -411,6 +413,14 @@ struct Args {
     f01_act1: Option<f01_act1::Act1Room>,
     /// The launched Act I room (`main` fills it right after parsing).
     act1_run: Option<Box<f01_act1::Act1Run>>,
+    /// TROG-A: `--scene f01_late --f01-room trog_run`, the troglodyte run (no scene of its own).
+    /// Under the room rules; a playable greybox.
+    f01_trog: Option<f01_trog::TrogRoom>,
+    /// The launched troglodyte room (`main` fills it right after parsing).
+    trog_run: Option<Box<f01_trog::TrogRun>>,
+    /// TROG-A evidence: `--trog-pilot carl|donut` plays the troglodyte run's scripted run
+    /// (`trog_fixtures::pilot`) instead of the walk-right script. Scripted runs only.
+    trog_pilot: Option<dungeon_floorbreak::trog_fixtures::Pilot>,
     /// ACT1-A evidence: `--act1-pilot walk|donut|strike` plays an Act I room's scripted run
     /// (`act1_fixtures::pilot`) instead of the walk-right script. Scripted runs only.
     act1_pilot: Option<dungeon_floorbreak::act1_fixtures::Pilot>,
@@ -553,6 +563,7 @@ impl Args {
             && !self.ring_pilot
             && self.rest_pilot.is_none()
             && self.act1_pilot.is_none()
+            && self.trog_pilot.is_none()
     }
 
     /// AUDIENCE-RUN: whether the per-hero viewer counts are enabled for this
@@ -671,6 +682,7 @@ impl Args {
             || self.f01_ring.is_some()
             || self.f01_rest.is_some()
             || self.f01_act1.is_some()
+            || self.f01_trog.is_some()
             || self.f01_corral
             || self.f01_dozer
     }
@@ -878,6 +890,8 @@ fn resolve_boiler_args(parsed: &mut Args) -> Result<(), String> {
         (rest.scene_name(), rest.id())
     } else if let Some(act1) = parsed.f01_act1 {
         (act1.scene_name(), act1.id())
+    } else if let Some(trog) = parsed.f01_trog {
+        (trog.scene_name(), trog.id())
     } else if parsed.f01_corral {
         (f01_corral::SCENE_NAME, f01_corral::ROOM_ID)
     } else if parsed.f01_dozer {
@@ -1087,6 +1101,7 @@ fn resolve_f01_late_args(parsed: &mut Args) -> Result<(), String> {
         | f01_late::RoomScene::Act1Guild => {
             parsed.f01_act1 = row.scene.act1();
         }
+        f01_late::RoomScene::TrogRun => parsed.f01_trog = row.scene.trog(),
         f01_late::RoomScene::Corral => parsed.f01_corral = true,
         f01_late::RoomScene::Dozer => parsed.f01_dozer = true,
         f01_late::RoomScene::Boss => {
@@ -1599,7 +1614,10 @@ fn parse_args_full(
         rest_pilot: None,
         f01_act1: None,
         act1_run: None,
+        f01_trog: None,
+        trog_run: None,
         act1_pilot: None,
+        trog_pilot: None,
         f01_corral: false,
         corral_run: None,
         f01_dozer: false,
@@ -1793,6 +1811,10 @@ fn parse_args_full(
                     .next()
                     .ok_or("--act1-pilot needs walk, donut or strike")?;
                 parsed.act1_pilot = Some(dungeon_floorbreak::act1_fixtures::Pilot::parse(value)?);
+            }
+            "--trog-pilot" => {
+                let value = iter.next().ok_or("--trog-pilot needs carl or donut")?;
+                parsed.trog_pilot = Some(dungeon_floorbreak::trog_fixtures::Pilot::parse(value)?);
             }
             "--room-pilot" => {
                 let value = iter
@@ -2022,6 +2044,30 @@ fn parse_args_full(
         if parsed.f01_run {
             return Err(
                 "--act1-pilot is a one-room evidence pilot: drop --f01-run (a floor run relaunches into the next room)"
+                    .into(),
+            );
+        }
+    }
+    if parsed.trog_pilot.is_some() {
+        if parsed.f01_trog.is_none() {
+            return Err(
+                "--trog-pilot needs a troglodyte room (--scene f01_late --f01-room trog_run)"
+                    .into(),
+            );
+        }
+        if parsed.room_pilot.is_some()
+            || parsed.ring_pilot
+            || parsed.rest_pilot.is_some()
+            || parsed.act1_pilot.is_some()
+        {
+            return Err(
+                "--trog-pilot replaces --room-pilot, --ring-pilot, --rest-pilot and --act1-pilot"
+                    .into(),
+            );
+        }
+        if parsed.f01_run {
+            return Err(
+                "--trog-pilot is a one-room evidence pilot: drop --f01-run (a floor run relaunches into the next room)"
                     .into(),
             );
         }
@@ -2677,6 +2723,12 @@ fn build_scene(
             let combat =
                 f01_act1::combat_for(run, &mut sim, args.carl, args.donut, args.cf02.seed)?;
             (sim, combat)
+        } else if let Some(run) = &args.trog_run {
+            // TROG-A: a troglodyte room, the verifier's constructor.
+            let mut sim = SceneSim::new_at(kit, view_height(args.deck), fixture.carl_x)?;
+            let combat =
+                f01_trog::combat_for(run, &mut sim, args.carl, args.donut, args.cf02.seed)?;
+            (sim, combat)
         } else if let Some(run) = &args.corral_run {
             // CORRAL-WIRE: room 0, the verifier's constructor.
             let mut sim = SceneSim::new_at(kit, view_height(args.deck), fixture.carl_x)?;
@@ -2703,6 +2755,7 @@ fn build_scene(
             || args.ring_run.is_some()
             || args.rest_run.is_some()
             || args.act1_run.is_some()
+            || args.trog_run.is_some()
             || args.corral_run.is_some()
             || args.dozer_run.is_some()
         {
@@ -2728,6 +2781,7 @@ fn build_scene(
             && args.ring_run.is_none()
             && args.rest_run.is_none()
             && args.act1_run.is_none()
+            && args.trog_run.is_none()
             && args.corral_run.is_none()
             && args.dozer_run.is_none()
         {
@@ -2797,6 +2851,23 @@ fn build_scene(
                 party.hero_inputs(slots)
             } else if let Some(pilot) = aligned_pilot {
                 aligned_routed(args, pilot, &combat, &mut sim, &mut party)
+            } else if let (Some(kind), Some(run)) = (args.trog_pilot, &args.trog_run) {
+                // TROG-A evidence: the troglodyte pilot's slot input routed through the party
+                // (the Donut pilot's first press is the solo swap).
+                let slots = [
+                    dungeon_floorbreak::trog_fixtures::pilot(
+                        kind,
+                        &combat,
+                        &sim,
+                        &run.loaded.encounter.statics,
+                        room_exit_x(args),
+                    ),
+                    RawInput::default(),
+                ];
+                let hurt = combat.hurt_ticks_of(party.controlled_hero()) > 0;
+                party.request_swap(slots[0].swap, hurt);
+                sim.set_drive(party.drive(true));
+                party.hero_inputs(slots)
             } else if let Some(kind) = args.act1_pilot {
                 // ACT1-A evidence: the Act I pilot's slot input routed through the party (the
                 // guild pilot's first press is the solo swap to Donut).
@@ -2918,6 +2989,15 @@ fn scripted_input(
     } else if let (Some(kind), Some(_)) = (args.rest_pilot, &args.rest_run) {
         // REST-WIRE evidence: the refuge pilots (a pure function of the finished state).
         dungeon_floorbreak::rest_fixtures::pilot(kind, combat, sim, room_exit_x(args))
+    } else if let (Some(kind), Some(run)) = (args.trog_pilot, &args.trog_run) {
+        // TROG-A evidence: the troglodyte pilots (a pure function of the finished state).
+        dungeon_floorbreak::trog_fixtures::pilot(
+            kind,
+            combat,
+            sim,
+            &run.loaded.encounter.statics,
+            room_exit_x(args),
+        )
     } else if let (Some(kind), Some(_)) = (args.act1_pilot, &args.act1_run) {
         // ACT1-A evidence: the Act I pilots (a pure function of the finished state).
         dungeon_floorbreak::act1_fixtures::pilot(kind, combat, sim, room_exit_x(args))
@@ -2956,6 +3036,8 @@ fn room_exit_x(args: &Args) -> f32 {
     } else if let Some(run) = &args.rest_run {
         run.loaded.encounter.exit
     } else if let Some(run) = &args.act1_run {
+        run.loaded.encounter.exit
+    } else if let Some(run) = &args.trog_run {
         run.loaded.encounter.exit
     } else if let Some(run) = &args.corral_run {
         run.loaded.encounter.exit
@@ -3441,6 +3523,33 @@ fn main() -> ExitCode {
             }
         }
     }
+    // TROG-A: load the troglodyte room and its sidecar. The entry line reads the room's tick-0
+    // state, so a throwaway combat state is built the way the scene builds it (the run's carried
+    // ledger applied), which also proves the carry is accepted.
+    if let Some(room) = args.f01_trog {
+        let launched = f01_trog::launch(&root, room).and_then(|run| {
+            let mut scene = SceneSim::new_at(&run.kit, 360, run.fixture.carl_x)?;
+            let mut combat =
+                f01_trog::combat_for(&run, &mut scene, args.carl, args.donut, args.cf02.seed)?;
+            if let Some(snapshot) = &args.f01_carry {
+                combat
+                    .carry_story(snapshot)
+                    .map_err(|e| format!("--f01-carry: {e}"))?;
+            }
+            Ok(run)
+        });
+        match launched {
+            Ok(run) => {
+                println!("{}", f01_trog::entry_line(&run));
+                args.fixture = Some(run.fixture);
+                args.trog_run = Some(Box::new(run));
+            }
+            Err(error) => {
+                eprintln!("floor01_scene: {error}");
+                return ExitCode::from(2);
+            }
+        }
+    }
     // CORRAL-WIRE: load room 0 and its sidecar.
     if args.f01_corral {
         match f01_corral::launch(&root) {
@@ -3496,6 +3605,8 @@ fn main() -> ExitCode {
     } else if let Some(run) = &args.rest_run {
         Ok(run.kit.clone())
     } else if let Some(run) = &args.act1_run {
+        Ok(run.kit.clone())
+    } else if let Some(run) = &args.trog_run {
         Ok(run.kit.clone())
     } else if let Some(run) = &args.corral_run {
         Ok(run.kit.clone())
@@ -4325,6 +4436,9 @@ fn recording_manifest(
     } else if let Some(act1) = args.f01_act1 {
         // ACT1-A: and the Act I rooms, under their fixture names.
         (f01_late::SESSION_SOURCE, act1.scene_name())
+    } else if let Some(trog) = args.f01_trog {
+        // TROG-A: and the troglodyte rooms, under their fixture names.
+        (f01_late::SESSION_SOURCE, trog.scene_name())
     } else if args.f01_corral {
         // CORRAL-WIRE: and room 0, under its fixture name.
         (f01_late::SESSION_SOURCE, f01_corral::SCENE_NAME)
@@ -4819,6 +4933,7 @@ fn run_window(
     // After Bevy's window-exit systems: closing the window with its X writes `AppExit` in
     // `Last`, and the session must be finished in the same frame (FIX-TOOL).
     .add_systems(Last, finish_recording.after(bevy::window::ExitSystems))
+    .add_systems(Update, trog_art::sync_trog_art)
     .add_systems(
         Update,
         (
@@ -5603,6 +5718,12 @@ fn setup(
             layers_of("prop"),
             mordecai.0.is_some(),
         );
+    }
+
+    // TROG-A: the troglodyte room's labelled stand-in bodies, telegraphs and decor (no art yet:
+    // the atlases are the work order's first cut). Presentation only.
+    if let (Some(run), Some(state)) = (args.trog_run.as_ref(), combat.0.as_ref()) {
+        trog_art::spawn(&mut commands, run, state, kit, height, layers_of("prop"));
     }
 
     // HAZ-B: the slimes, the Rot Stickers, the acid strip, the warning ring and the
@@ -9625,6 +9746,7 @@ fn headless_smoke(kit: &EnvKit, args: &Args, actors: &Actors, root: &Path) -> Re
         || args.ring_run.is_some()
         || args.rest_run.is_some()
         || args.act1_run.is_some()
+        || args.trog_run.is_some()
         || args.corral_run.is_some()
         || args.dozer_run.is_some()
     {
@@ -9804,6 +9926,15 @@ fn headless_slot_room(
             },
             run.loaded.encounter.story_pin.clone(),
             f01_act1::SMOKE_TICKS,
+        )
+    } else if let Some(run) = &args.trog_run {
+        (
+            run.room.id(),
+            match run.room {
+                f01_trog::TrogRoom::Run => "F01_TROG_RUN_SMOKE_OK",
+            },
+            run.loaded.encounter.story_pin.clone(),
+            f01_trog::SMOKE_TICKS,
         )
     } else if let Some(run) = &args.corral_run {
         (
@@ -12575,7 +12706,7 @@ mod tests {
         let error = args(&["--scene", "f01_late", "--f01-room", "cellar"]).expect_err("unknown");
         assert!(
             error.contains(
-                "corral, rest_refuge, hoarder, boiler, dozer, hazards, ring_court, ring_split, rest_camp, juicer, rest_aftermath, mastery"
+                "corral, rest_refuge, hoarder, boiler, dozer, hazards, ring_court, ring_split, rest_camp, trog_run, juicer, rest_aftermath, mastery"
             ),
             "{error}"
         );
@@ -13692,7 +13823,7 @@ mod tests {
         assert!(
             error.contains("unknown room")
                 && error.contains(
-                    "corral, rest_refuge, hoarder, boiler, dozer, hazards, ring_court, ring_split, rest_camp, juicer, rest_aftermath, mastery"
+                    "corral, rest_refuge, hoarder, boiler, dozer, hazards, ring_court, ring_split, rest_camp, trog_run, juicer, rest_aftermath, mastery"
                 ),
             "{error}"
         );

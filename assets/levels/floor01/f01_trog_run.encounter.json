@@ -1,0 +1,30 @@
+{
+  "schema": "floor01-encounter-v1",
+  "status": "TROG-A data (docs/01-design/floor-01-troglodyte-integration.md sections 4.1 and 5.5, TROG-AD1..AD34): the troglodyte run, one Pygmy, one Basher and one Virtuoso on ENEMY-SLOT under goal defeat_roster, a 32 px low refuge at T1 and a 32 px step at T3 as sidecar statics of kind solid. The roster is three beats of one enemy (max_living 3, TROG-AD38). Validated by src/encounter.rs (the TROG-V rules), launched as the room trog_run of --scene f01_late (src/f01_trog.rs). Greybox hypotheses; every number is a tuning knob. Coordinates are layout pixels, y down, like the room file.",
+  "id": "F01-TROG-RUN-ENC",
+  "room_file": "f01_trog_run.room.json",
+  "room_id": "F01-TROG-RUN",
+  "story_pin": "f01_pin_post_pile_boss",
+  "goal": "defeat_roster",
+  "grants": [],
+  "max_living": 3,
+  "locks": [],
+  "platform_slab_px": 12,
+  "protected_spawn": { "x": 16, "y": 484, "w": 208, "h": 96 },
+  "checkpoint": { "x": 32, "y": 484, "w": 48, "h": 96 },
+  "exit": { "x": 2224, "y": 484, "w": 64, "h": 96 },
+  "props": [],
+  "hazards": [],
+  "links": [],
+  "roster": [
+    { "id": "pyg_a", "kind": "trog_pygmy", "x": 640, "beat": "T1", "trigger_x": 400, "delay_ticks": 0 },
+    { "id": "bas_a", "kind": "trog_basher", "x": 1376, "beat": "T2", "trigger_x": 1120, "delay_ticks": 0 },
+    { "id": "vir_a", "kind": "trog_virtuoso", "x": 2144, "beat": "T3", "trigger_x": 1776, "delay_ticks": 0 }
+  ],
+  "gates": [{ "surface": 0, "class": "carl" }],
+  "vantages": [],
+  "statics": [
+    { "id": "refuge", "kind": "solid", "rect": { "x": 352, "y": 548, "w": 64, "h": 32 } },
+    { "id": "bell_step", "kind": "solid", "rect": { "x": 1840, "y": 548, "w": 64, "h": 32 } }
+  ]
+}

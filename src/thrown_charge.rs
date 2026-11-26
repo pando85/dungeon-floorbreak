@@ -776,6 +776,8 @@ mod tests {
             ("slot test dummy", crate::scene_enemy::testing::DUMMY_SOURCE),
             // DOZER-CORE: the revenge machine's wheel.
             ("dozer wheel", crate::dozer::DOZER_SOURCE_ID),
+            // TROG-A: the troglodytes' blows.
+            ("troglodyte", crate::trog::TROG_SOURCE_ID),
         ];
         let low = |id: u32| id & 0xFFFF;
         for (i, (name, id)) in ids.iter().enumerate() {

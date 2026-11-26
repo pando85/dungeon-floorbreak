@@ -1,0 +1,16 @@
+RUN_CHAIN 1/16 room=act1_chase carried_in=held:0,receipts:0 handed_on=held:0,receipts:0 unchanged=false
+RUN_CHAIN 2/16 room=act1_shore carried_in=held:0,receipts:0 handed_on=held:0,receipts:0 unchanged=true
+RUN_CHAIN 3/16 room=act1_guild carried_in=held:0,receipts:0 handed_on=held:0,receipts:0 unchanged=true
+RUN_CHAIN 4/16 room=corral carried_in=held:0,receipts:0 handed_on=held:0,receipts:0 unchanged=true
+RUN_CHAIN 5/16 room=rest_refuge carried_in=held:0,receipts:0 handed_on=held:0,receipts:0 unchanged=true
+RUN_CHAIN 6/16 room=hoarder carried_in=held:0,receipts:0 handed_on=held:2,receipts:1 unchanged=false
+RUN_CHAIN 7/16 room=boiler carried_in=held:2,receipts:1 handed_on=held:2,receipts:1 unchanged=true
+RUN_CHAIN 8/16 room=dozer carried_in=held:2,receipts:1 handed_on=held:2,receipts:1 unchanged=true
+RUN_CHAIN 9/16 room=hazards carried_in=held:2,receipts:1 handed_on=held:2,receipts:1 unchanged=true
+RUN_CHAIN 10/16 room=ring_court carried_in=held:2,receipts:1 handed_on=held:2,receipts:1 unchanged=true
+RUN_CHAIN 11/16 room=ring_split carried_in=held:2,receipts:1 handed_on=held:2,receipts:1 unchanged=true
+RUN_CHAIN 12/16 room=rest_camp carried_in=held:2,receipts:1 handed_on=held:2,receipts:1 unchanged=true
+RUN_CHAIN 13/16 room=trog_run carried_in=held:2,receipts:1 handed_on=held:2,receipts:1 unchanged=true
+RUN_CHAIN 14/16 room=juicer carried_in=held:2,receipts:1 handed_on=held:4,receipts:3 unchanged=false
+RUN_CHAIN 15/16 room=rest_aftermath carried_in=held:4,receipts:3 handed_on=held:4,receipts:3 unchanged=true
+RUN_CHAIN 16/16 room=mastery carried_in=held:4,receipts:3 handed_on=held:4,receipts:3 unchanged=true

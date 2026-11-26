@@ -326,6 +326,17 @@ pub fn data_pins() -> Vec<(&'static str, u64)> {
             crate::f01_act1::GUILD_ENCOUNTER_PIN_KEY,
             crate::f01_act1::GUILD_ENCOUNTER_HASH,
         ),
+        // TROG-A: the troglodyte tuning and the run room's room and sidecar pins, each scoped to
+        // `trog_run` by `f01_late::pin_applies`.
+        (crate::trog::PIN_KEY, crate::trog::TUNING_HASH),
+        (
+            crate::f01_trog::RUN_ROOM_PIN_KEY,
+            crate::f01_trog::RUN_ROOM_HASH,
+        ),
+        (
+            crate::f01_trog::RUN_ENCOUNTER_PIN_KEY,
+            crate::f01_trog::RUN_ENCOUNTER_HASH,
+        ),
         // CF02-FU-C2F U3: the microarena's room file.
         (
             crate::cf02::arena::ROOM_PIN_KEY,

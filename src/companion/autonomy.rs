@@ -896,6 +896,17 @@ impl<'a> Ctx<'a> {
                     HuntMode::Pounce
                 }),
             EntityKind::Llama => (self.cast_ok && standing_or_staggered).then_some(HuntMode::Cast),
+            // TROG-A: a slot enemy, data-free (the goblin's rule): a cast while it stands or
+            // staggers, nothing while it is airborne (a leaping Pygmy), a pounce otherwise.
+            EntityKind::Slot => {
+                if self.cast_ok && standing_or_staggered {
+                    Some(HuntMode::Cast)
+                } else if matches!(t.state, TargetState::Airborne) {
+                    None
+                } else {
+                    Some(HuntMode::Pounce)
+                }
+            }
             EntityKind::Goblin => {
                 if self.cast_ok && standing_or_staggered {
                     Some(HuntMode::Cast)

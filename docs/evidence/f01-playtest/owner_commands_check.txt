@@ -20,6 +20,7 @@
 [ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room ring_court
 [ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room ring_split
 [ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room rest_camp
+[ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room trog_run
 [ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room juicer
 [ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room rest_aftermath
 [ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room mastery

@@ -216,6 +216,11 @@ fn body_x(e: &RosterEntry) -> (i32, i32) {
             }
         }
         RosterKind::Room(_) => (e.x - ENEMY_BODY.0 / 2, e.x + ENEMY_BODY.0 / 2),
+        // TROG-A: a sleeper's idle hurtbox (it spawns facing left).
+        RosterKind::Trog(species) => {
+            let b = &crate::trog::TrogTuning::active().species(species).hurt_idle;
+            (e.x - i32::from(b.x1), e.x - i32::from(b.x0))
+        }
         // DOZER-CORE: the parked machine, push box rear to spike tips, with its
         // wheel front at the entry's x.
         RosterKind::Dozer => {

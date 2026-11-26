@@ -74,6 +74,7 @@ pub mod slime;
 mod slot;
 mod story;
 mod thrown;
+pub mod trog;
 use self::carl_cf02::{CarlCf02, CarlCf02Plan};
 use self::companion::CompanionRuntime;
 pub use self::env::{ENV_SOURCE_ID, EnvRuntime, EnvSolidKind};
@@ -1040,6 +1041,9 @@ pub struct CombatState {
     pub respawns: u32,
     /// The tick the last goblin tell started in this attempt (tell spacing).
     pub last_tell_start: Option<u64>,
+    /// TROG-A (TROG-AD16): the room feeds its slot enemies to the companion's targeting and
+    /// dodge ([`Self::with_slot_feed`]). A room setting, never hashed; off everywhere else.
+    pub(crate) slot_feed: bool,
     /// Ticks stepped over every attempt, restarts included (attempt-local ticks
     /// start again at 1 after a restart; this does not).
     pub elapsed: u64,
@@ -1178,6 +1182,7 @@ impl CombatState {
             restarts: 0,
             respawns: 0,
             last_tell_start: None,
+            slot_feed: false,
             elapsed: 0,
             events: Vec::new(),
             dropped_events: 0,
@@ -1223,6 +1228,15 @@ impl CombatState {
     pub fn with_demo(mut self, rules: &'static DemoRules) -> Self {
         self.demo = Some(rules);
         self.reset_attempt();
+        self
+    }
+
+    /// TROG-A (TROG-AD16): the companion's targeting and dodge see this room's slot enemies
+    /// that implement `companion_target` and `companion_threat` (a per-room opt-in, like the
+    /// llama feed). No existing room turns it on.
+    #[must_use]
+    pub fn with_slot_feed(mut self) -> Self {
+        self.slot_feed = true;
         self
     }
 

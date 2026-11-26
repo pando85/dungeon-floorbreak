@@ -366,6 +366,9 @@ pub struct SlotStepCtx<'a> {
     /// DM-Q17 lists as evadable (the slime's lunge). `None` in a step that has
     /// no reflex to lend (the pile boss' own tests, fixtures of other kinds).
     pub evade: Option<&'a std::cell::RefCell<crate::agility::EvadeGate>>,
+    /// TROG-A (TROG-AD8): the scene's last tell start (any enemy), so a troglodyte can keep
+    /// its tell gap. `None` in a step with no scene (the pile boss' own tests).
+    pub last_tell_start: Option<u64>,
 }
 
 // ------------------------------------------------------------- the trait
@@ -500,6 +503,18 @@ pub trait SlotEnemy: fmt::Debug + Send + Sync {
     /// default: none.
     fn nav_rects(&self, _layout_h: i32, _out: &mut Vec<crate::env_hazard::NavRect>) {}
 
+    /// TROG-A: the companion's target row of this enemy (feeding rooms only; see
+    /// `CombatState::with_slot_feed`). The default: none, so no existing enemy changes.
+    fn companion_target(&self) -> Option<CompanionTarget> {
+        None
+    }
+
+    /// TROG-A: the companion's threat row of this enemy's committed attack (feeding rooms
+    /// only). The default: none.
+    fn companion_threat(&self) -> Option<CompanionThreat> {
+        None
+    }
+
     /// Fixture and test inspection: the concrete enemy behind the trait object
     /// (`downcast_ref`). The default is `None`: nothing is exposed.
     fn as_any(&self) -> Option<&dyn std::any::Any> {
@@ -536,6 +551,30 @@ pub struct SlotDeathBody {
     /// (or a species whose finish has no art yet) draws nothing, and the
     /// simulation is untouched.
     pub species: &'static str,
+}
+
+/// TROG-A (TROG-AD16): what the companion's targeting sees of a slot enemy in a room that feeds
+/// it (a data-free copy of a goblin's target row).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CompanionTarget {
+    pub x: f32,
+    pub foot_y: f32,
+    pub hp: u8,
+    pub state: crate::companion::view::TargetState,
+}
+
+/// TROG-A (TROG-AD16): what the companion's dodge sees of a slot enemy's committed attack (a
+/// data-free copy of a goblin's threat row).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CompanionThreat {
+    pub x: f32,
+    pub foot_y: f32,
+    pub facing: i8,
+    pub tell_tick: u16,
+    pub tell_len: u16,
+    pub impact_tick: u16,
+    pub aimed_at: Option<HeroId>,
+    pub swing_x: Option<(f32, f32)>,
 }
 
 /// One roster entry as the slot builds it from. Fields the slot does not
@@ -594,6 +633,19 @@ pub static SLOT_KINDS: &[SlotKindDef] = &[
         name: crate::combat_scene::dozer::KIND,
         build: crate::combat_scene::dozer::build,
     },
+    // TROG-A: the troglodyte family, one adapter and three species rows.
+    SlotKindDef {
+        name: "trog_pygmy",
+        build: crate::combat_scene::trog::build_pygmy,
+    },
+    SlotKindDef {
+        name: "trog_basher",
+        build: crate::combat_scene::trog::build_basher,
+    },
+    SlotKindDef {
+        name: "trog_virtuoso",
+        build: crate::combat_scene::trog::build_virtuoso,
+    },
 ];
 
 /// The roster kind names the slot never builds: the existing goblin and
@@ -621,6 +673,7 @@ fn entry_kind_name(entry: &RosterEntry) -> &'static str {
         RosterKind::Room(kind) => kind_name(kind),
         RosterKind::Slime => "slime",
         RosterKind::Dozer => "dozer",
+        RosterKind::Trog(species) => species.kind_name(),
     }
 }
 

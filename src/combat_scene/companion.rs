@@ -1842,6 +1842,27 @@ impl CombatState {
                 });
             }
         }
+        // TROG-A (TROG-AD16): the slot enemies of a feeding room, after the llamas, by slot index.
+        if self.slot_feed {
+            for (index, e) in self.slot.enemies.iter().enumerate() {
+                let Some(t) = e.companion_threat() else {
+                    continue;
+                };
+                threats.push(ThreatView {
+                    id: slot_id(index),
+                    x: t.x,
+                    foot_y: t.foot_y,
+                    facing: t.facing,
+                    tell_tick: t.tell_tick,
+                    tell_len: t.tell_len,
+                    impact_tick: t.impact_tick,
+                    aimed_at: t.aimed_at,
+                    guarded: false,
+                    in_view: view.in_view(t.x),
+                    swing_x: t.swing_x,
+                });
+            }
+        }
         threats
     }
 
@@ -1962,6 +1983,25 @@ impl CombatState {
                 });
             }
         }
+        // TROG-A (TROG-AD16): the slot enemies of a feeding room, after the llamas.
+        if self.slot_feed {
+            for (index, e) in self.slot.enemies.iter().enumerate() {
+                let Some(c) = e.companion_target() else {
+                    continue;
+                };
+                targets.push(TargetView {
+                    id: slot_id(index),
+                    x: c.x,
+                    foot_y: c.foot_y,
+                    hp: c.hp,
+                    state: c.state,
+                    guarded: false,
+                    in_view: view.in_view(c.x),
+                    carl_hit: false,
+                    carl_hit_age: None,
+                });
+            }
+        }
         targets
     }
 }
@@ -2044,6 +2084,15 @@ pub(crate) fn engaged_set(set: &ProfileSet, view: &CompanionView) -> Vec<StableE
         .filter(|t| t.hp > 0 && leader_engages(set, leader, t))
         .map(|t| t.id)
         .collect()
+}
+
+/// A slot enemy's stable id (TROG-A; serial 0 like the llama's).
+pub(super) fn slot_id(index: usize) -> StableEntityId {
+    StableEntityId {
+        kind: EntityKind::Slot,
+        index: index as u32,
+        spawn_serial: 0,
+    }
 }
 
 /// A llama's stable id (serial 0: no respawn in 01A fixtures, CA-28).

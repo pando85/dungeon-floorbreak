@@ -259,15 +259,19 @@ pub enum EvadeSource {
     /// HAZ-B (DM-Q17 list, HAZ-Q15): the slime's lunge. Its body contact, the
     /// acid patch and the Rot blast stay unlisted and never evaded (DM-Q18).
     SlimeLunge,
+    /// TROG-A (TROG-AD9): the troglodytes' blows (the Pygmy's leap, the Basher's smash, the
+    /// Virtuoso's tongue). Its key is `(slot target id, tell start tick)`.
+    TrogBlow,
 }
 
 impl EvadeSource {
     /// Every evadable source, in tag order.
-    pub const ALL: [Self; 4] = [
+    pub const ALL: [Self; 5] = [
         Self::GoblinSwing,
         Self::EngineerRam,
         Self::LlamaGlob,
         Self::SlimeLunge,
+        Self::TrogBlow,
     ];
 
     /// The stable name written to logs.
@@ -277,6 +281,7 @@ impl EvadeSource {
             Self::EngineerRam => "engineer_ram",
             Self::LlamaGlob => "llama_glob",
             Self::SlimeLunge => "slime_lunge",
+            Self::TrogBlow => "trog_blow",
         }
     }
 
@@ -286,6 +291,7 @@ impl EvadeSource {
             Self::EngineerRam => 2,
             Self::LlamaGlob => 3,
             Self::SlimeLunge => 4,
+            Self::TrogBlow => 5,
         }
     }
 }
@@ -870,14 +876,20 @@ mod tests {
     }
 
     #[test]
-    fn the_allow_list_is_exactly_four_sources_with_distinct_names() {
-        assert_eq!(EvadeSource::ALL.len(), 4);
+    fn the_allow_list_is_exactly_five_sources_with_distinct_names() {
+        assert_eq!(EvadeSource::ALL.len(), 5);
         let names: Vec<_> = EvadeSource::ALL.iter().map(|s| s.name()).collect();
         assert_eq!(
             names,
-            ["goblin_swing", "engineer_ram", "llama_glob", "slime_lunge"]
+            [
+                "goblin_swing",
+                "engineer_ram",
+                "llama_glob",
+                "slime_lunge",
+                "trog_blow"
+            ]
         );
         let tags: Vec<_> = EvadeSource::ALL.iter().map(|s| s.tag()).collect();
-        assert_eq!(tags, [1, 2, 3, 4]);
+        assert_eq!(tags, [1, 2, 3, 4, 5]);
     }
 }
