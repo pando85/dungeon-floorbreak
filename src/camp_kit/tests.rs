@@ -300,9 +300,17 @@ fn every_placed_piece_exists_and_lies_inside_the_room() {
 #[test]
 fn the_bag_is_not_placed_and_the_camp_fire_is_animated_and_lit() {
     let d = aftermath_dressing(&root()).unwrap();
-    assert!(d.place.iter().all(|p| !BAG_PIECES.contains(&p.piece.as_str())));
+    assert!(
+        d.place
+            .iter()
+            .all(|p| !BAG_PIECES.contains(&p.piece.as_str()))
+    );
     let (_, aft) = kits(RestRoom::Aftermath);
-    assert!(aft.pieces.iter().all(|p| !p.piece.starts_with("aft_heavy_bag")));
+    assert!(
+        aft.pieces
+            .iter()
+            .all(|p| !p.piece.starts_with("aft_heavy_bag"))
+    );
     let contract = load_contract(&root(), AFTERMATH_CONTRACT).unwrap();
     for id in BAG_PIECES {
         let def = contract.pieces.iter().find(|c| c.id == id).unwrap();
@@ -320,7 +328,11 @@ fn the_bag_is_not_placed_and_the_camp_fire_is_animated_and_lit() {
         fire.frames.iter().map(|f| f.1).collect::<Vec<_>>(),
         vec![110, 90, 130, 100]
     );
-    let hearth = camp.pieces.iter().find(|p| p.piece == "camp_hearth").unwrap();
+    let hearth = camp
+        .pieces
+        .iter()
+        .find(|p| p.piece == "camp_hearth")
+        .unwrap();
     assert!(
         camp.pieces.iter().position(|p| p.piece == "camp_fire")
             > camp.pieces.iter().position(|p| p.piece == "camp_hearth"),
@@ -465,7 +477,11 @@ fn the_girder_run_meets_both_piers() {
         .iter()
         .filter(|p| p.piece == "gym_girder")
         .collect();
-    assert_eq!(girders.len(), 6, "five visible girders and the one under the fifth");
+    assert_eq!(
+        girders.len(),
+        6,
+        "five visible girders and the one under the fifth"
+    );
     let first = girders.iter().map(|g| g.x).min().unwrap();
     assert_eq!(first, 548);
     // The sixth girder is listed before the fifth, so the fifth draws over it.
@@ -485,9 +501,9 @@ fn the_girder_run_meets_both_piers() {
         &g[..g.len().min(5)]
     );
     // The run ends where the right pier's shadow column starts (x 716): no brick sliver.
-    for y in 441..450 {
-        assert!(structure[y][548], "row {y}: the left end");
-        assert!(structure[y][716], "row {y}: the right pier starts at x 716");
+    for (y, row) in structure.iter().enumerate().take(450).skip(441) {
+        assert!(row[548], "row {y}: the left end");
+        assert!(row[716], "row {y}: the right pier starts at x 716");
     }
 }
 
@@ -550,7 +566,10 @@ fn no_prop_pixel_stands_in_an_opening_above_y_520() {
                     if on && y < 520 && openings.iter().any(|&(a, b)| (a..=b).contains(&x)) {
                         // The reused lean-to and marker are the Ring's own (spec 5: R); they
                         // never stand in an opening.
-                        panic!("{room:?}: {} has an opaque pixel at ({x}, {y}) in an opening", p.piece);
+                        panic!(
+                            "{room:?}: {} has an opaque pixel at ({x}, {y}) in an opening",
+                            p.piece
+                        );
                     }
                 }
             }
@@ -567,7 +586,11 @@ fn no_new_piece_covers_a_remaining_torch() {
         let (_, dressed) = kits(room);
         let contract = load_contract(&root(), contract_path(room)).unwrap();
         let mut cache = BTreeMap::new();
-        let torches: Vec<_> = dressed.pieces.iter().filter(|p| p.piece == "torch_wall").collect();
+        let torches: Vec<_> = dressed
+            .pieces
+            .iter()
+            .filter(|p| p.piece == "torch_wall")
+            .collect();
         assert!(!torches.is_empty());
         for p in dressed
             .pieces
@@ -575,7 +598,12 @@ fn no_new_piece_covers_a_remaining_torch() {
             .filter(|p| p.piece.starts_with("camp_") || p.piece.starts_with("aft_"))
             .filter(|p| p.layer == "prop" || p.layer == "structure")
         {
-            let px = opaque_rect(&mut cache, contract_path(room), &p.atlas, [p.rect.x, p.rect.y, p.rect.w, p.rect.h]);
+            let px = opaque_rect(
+                &mut cache,
+                contract_path(room),
+                &p.atlas,
+                [p.rect.x, p.rect.y, p.rect.w, p.rect.h],
+            );
             for (dy, row) in px.iter().enumerate() {
                 for (dx, &on) in row.iter().enumerate() {
                     let (x, y) = (p.x + dx as i32, p.y + dy as i32);
@@ -645,7 +673,12 @@ fn the_lights_stay_inside_the_light_budget() {
 
 // ------------------------------------------------------------------ CAMP-A8: the bag
 
-fn run(state: &mut BagSway, ticks: std::ops::Range<u64>, overlap: bool, x: i32) -> Vec<&'static str> {
+fn run(
+    state: &mut BagSway,
+    ticks: std::ops::Range<u64>,
+    overlap: bool,
+    x: i32,
+) -> Vec<&'static str> {
     ticks.map(|t| bag_frame(state, t, overlap, x, 1)).collect()
 }
 
@@ -656,9 +689,11 @@ fn the_sway_table_has_38_ticks_and_ends_at_rest() {
     assert_eq!(&SWAY_TABLE[4..10], ["r2"; 6]);
     assert_eq!(&SWAY_TABLE[18..26], ["l1"; 8]);
     assert_eq!(SWAY_TABLE[37], "rest");
-    assert!(SWAY_TABLE.iter().all(|f| BAG_PIECES
-        .iter()
-        .any(|p| p.ends_with(&format!("_{f}")))));
+    assert!(
+        SWAY_TABLE
+            .iter()
+            .all(|f| BAG_PIECES.iter().any(|p| p.ends_with(&format!("_{f}"))))
+    );
 }
 
 /// CAMP-A8 1+2: the entry swing plays the table exactly once, from the first observed tick (not
@@ -667,7 +702,11 @@ fn the_sway_table_has_38_ticks_and_ends_at_rest() {
 fn the_entry_swing_plays_the_table_once_then_rests() {
     let mut s = BagSway::default();
     let frames = run(&mut s, 5..80, false, 640);
-    assert_eq!(&frames[..38], SWAY_TABLE.as_slice(), "from the first observed tick");
+    assert_eq!(
+        &frames[..38],
+        SWAY_TABLE.as_slice(),
+        "from the first observed tick"
+    );
     assert!(frames[38..].iter().all(|f| *f == "rest"));
     // From tick 0 too.
     let mut s = BagSway::default();
@@ -682,16 +721,30 @@ fn a_rising_edge_restarts_the_table_and_a_held_overlap_does_not() {
     let mut s = BagSway::default();
     run(&mut s, 0..60, false, 600);
     assert_eq!(bag_frame(&mut s, 60, false, 600, 1), "rest");
-    assert_eq!(bag_frame(&mut s, 61, true, 600, 1), "r1", "rising edge, a push from the left");
-    let rest: Vec<_> = (62..100).map(|t| bag_frame(&mut s, t, true, 600, 1)).collect();
-    assert_eq!(&rest[..37], &SWAY_TABLE[1..], "the held overlap plays on, no retrigger");
+    assert_eq!(
+        bag_frame(&mut s, 61, true, 600, 1),
+        "r1",
+        "rising edge, a push from the left"
+    );
+    let rest: Vec<_> = (62..100)
+        .map(|t| bag_frame(&mut s, t, true, 600, 1))
+        .collect();
+    assert_eq!(
+        &rest[..37],
+        &SWAY_TABLE[1..],
+        "the held overlap plays on, no retrigger"
+    );
     assert!(rest[37..].iter().all(|f| *f == "rest"));
     // Release and hit again: restarts at once, even mid-swing.
     assert_eq!(bag_frame(&mut s, 100, false, 600, 1), "rest");
     assert_eq!(bag_frame(&mut s, 101, true, 600, 1), "r1");
     assert_eq!(bag_frame(&mut s, 105, true, 600, 1), "r2");
     assert_eq!(bag_frame(&mut s, 106, false, 600, 1), "r2");
-    assert_eq!(bag_frame(&mut s, 107, true, 600, 1), "r1", "restarted mid-swing");
+    assert_eq!(
+        bag_frame(&mut s, 107, true, 600, 1),
+        "r1",
+        "restarted mid-swing"
+    );
 }
 
 /// CAMP-A8 5: a push from the right mirrors the frames; a tie follows the attacker's facing.
@@ -726,7 +779,11 @@ fn a_left_push_mirrors_the_frames() {
 fn a_backwards_tick_resets_to_rest() {
     let mut s = BagSway::default();
     run(&mut s, 100..110, false, 640);
-    assert_eq!(bag_frame(&mut s, 109, false, 640, 1), "r2", "inside the entry swing");
+    assert_eq!(
+        bag_frame(&mut s, 109, false, 640, 1),
+        "r2",
+        "inside the entry swing"
+    );
     assert_eq!(bag_frame(&mut s, 20, false, 640, 1), "rest", "rewound");
     assert!(run(&mut s, 21..80, false, 640).iter().all(|f| *f == "rest"));
     // A held overlap across a rewind does not fire.
@@ -748,7 +805,11 @@ fn the_selection_is_idempotent_per_tick_and_survives_skipped_ticks() {
     assert_eq!(bag_frame(&mut s, 60, true, 600, 1), "r1");
     for _ in 0..3 {
         assert_eq!(bag_frame(&mut s, 60, true, 600, 1), "r1");
-        assert_eq!(bag_frame(&mut s, 60, false, 600, 1), "r1", "no edge re-evaluation");
+        assert_eq!(
+            bag_frame(&mut s, 60, false, 600, 1),
+            "r1",
+            "no edge re-evaluation"
+        );
     }
     // The overlap flag of the repeated tick did not count: the held overlap on 61 is no edge.
     assert_eq!(bag_frame(&mut s, 61, true, 600, 1), "r1");
@@ -808,7 +869,10 @@ fn the_bag_rect_is_the_sidecars_hit_target_in_world_space() {
         height: 20.0,
     };
     assert!(r.overlaps(hero));
-    assert!(!r.overlaps(Rect { left: 700.0, ..hero }));
+    assert!(!r.overlaps(Rect {
+        left: 700.0,
+        ..hero
+    }));
     assert_eq!(bag_piece_index("l2"), 4);
     assert_eq!(bag_piece_index("rest"), 0);
 }
@@ -822,7 +886,10 @@ fn dump_camp_layouts() {
         return;
     };
     std::fs::create_dir_all(&dir).unwrap();
-    for (room, id) in [(RestRoom::Camp, CAMP_ROOM), (RestRoom::Aftermath, AFTERMATH_ROOM)] {
+    for (room, id) in [
+        (RestRoom::Camp, CAMP_ROOM),
+        (RestRoom::Aftermath, AFTERMATH_ROOM),
+    ] {
         let run = f01_rest::launch_with(&root(), room, false).unwrap();
         for dressed in [false, true] {
             let contract = load_contract(&root(), contract_path(room)).unwrap();
@@ -843,7 +910,10 @@ fn dump_camp_layouts() {
                 },
             )
             .unwrap();
-            let name = format!("{id}.{}.layout.json", if dressed { "dressed" } else { "plain" });
+            let name = format!(
+                "{id}.{}.layout.json",
+                if dressed { "dressed" } else { "plain" }
+            );
             std::fs::write(
                 std::path::Path::new(&dir).join(name),
                 serde_json::to_string(&out.unwrap()).unwrap(),
@@ -866,8 +936,15 @@ fn the_punch_pilot_hits_the_bag_and_the_presenter_swings() {
     let (carl, donut) = Loadout::Story.flags();
     let run = f01_rest::launch(&root(), RestRoom::Aftermath).unwrap();
     let height = run.kit.height;
-    let mut sim = RestSim::from_run(run, 360, carl, donut, Party::Solo { uncontrolled: BOT }, None)
-        .unwrap();
+    let mut sim = RestSim::from_run(
+        run,
+        360,
+        carl,
+        donut,
+        Party::Solo { uncontrolled: BOT },
+        None,
+    )
+    .unwrap();
     let bag = bag_rect_world(height);
     let mut sway = BagSway::default();
     let (mut edges, mut prev, mut swung_after_entry) = (0, false, false);

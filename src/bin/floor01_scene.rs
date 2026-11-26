@@ -1783,9 +1783,9 @@ fn parse_args_full(
             }
             "--ring-pilot" => parsed.ring_pilot = true,
             "--rest-pilot" => {
-                let value = iter
-                    .next()
-                    .ok_or("--rest-pilot needs donut, carl_door, base_jump, walk, blink or punch")?;
+                let value = iter.next().ok_or(
+                    "--rest-pilot needs donut, carl_door, base_jump, walk, blink or punch",
+                )?;
                 parsed.rest_pilot = Some(dungeon_floorbreak::rest_fixtures::Pilot::parse(value)?);
             }
             "--act1-pilot" => {
@@ -4856,8 +4856,7 @@ fn run_window(
                 gym_art::sync_gym_art,
                 corral_art::sync_corral_art,
                 corral_art::sync_partition_art,
-                fastfood_art::sync_fastfood_art,
-                camp_art::sync_bag_art,
+                (fastfood_art::sync_fastfood_art, camp_art::sync_bag_art),
                 sync_act1_door,
                 sync_act1_chase,
             )

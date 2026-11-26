@@ -46,12 +46,16 @@ pub fn aftermath_dressing(root: &Path) -> Result<Dressing, crate::env_kit::EnvEr
 fn compose(root: &Path, room: &Room, contract_path: &str, room_id: &str) -> Result<EnvKit, String> {
     let contract = load_contract(root, contract_path).map_err(|e| e.to_string())?;
     let dressing = dressing_in(root, contract_path, room_id).map_err(|e| e.to_string())?;
-    crate::f01_boiler::compose_kit_hooked(root, room, &[], Some(contract), |layout| {
-        match dress_with(layout, &dressing, contract_path) {
+    crate::f01_boiler::compose_kit_hooked(
+        root,
+        room,
+        &[],
+        Some(contract),
+        |layout| match dress_with(layout, &dressing, contract_path) {
             0 => Ok(()),
             n => Err(format!("{room_id}: {n} remove_at entries match no piece")),
-        }
-    })
+        },
+    )
 }
 
 /// The env kit of the camp: the room's composition with the camp dressing applied. An
