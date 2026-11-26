@@ -577,7 +577,9 @@ mod tests {
         assert!(!sim.combat.reflex().armed(), "the hurt disarmed the reflex");
     }
 
-    /// CORRAL-F (the #283 review F1, plan section 14.7 gate 4): the committed
+    /// CORRAL-F (the #283 review F1, plan section 14.7 gate 4), re-pinned by CORRAL-D (the
+    /// partition changes the room's scripted fights: B cannot walk past the screen, so the
+    /// pilots clear later and the env token and hash gain the partition): the committed
     /// final state of the corral room pilots at seed 0, the library run that
     /// `--room-pilot corral:WHO:0` replays tick for tick. `hash` is the combat
     /// state hash on the exit tick (the binary's `COMBAT_STATE` at
@@ -590,24 +592,24 @@ mod tests {
         let pins = [
             (
                 Who::CarlSolo,
-                863,
-                971,
-                0x4741_f633_0738_da2d,
-                0xe527_2ae3_991c_4393,
+                1006,
+                1109,
+                0xf553_2afb_1de7_c2ee,
+                0x4c1e_99fd_bb63_8b14,
             ),
             (
                 Who::DonutSolo,
-                862,
-                973,
-                0x2e22_29c9_12c8_597d,
-                0x0c61_02c8_e521_9ca3,
+                1202,
+                1313,
+                0x1de6_c53c_dbea_5a19,
+                0xdd59_d709_90b6_2a9f,
             ),
             (
                 Who::Companion,
-                1017,
-                1125,
-                0x9118_8a00_ffd7_3a6b,
-                0x66f7_e2f4_ca52_54d1,
+                981,
+                1092,
+                0x664b_9a77_7ed9_43e8,
+                0x131b_a155_6f1c_1ade,
             ),
         ];
         for (who, gate, exit, hash, party_hash) in pins {

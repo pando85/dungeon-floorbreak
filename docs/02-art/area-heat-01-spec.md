@@ -1,6 +1,6 @@
 # AREA-HEAT-01: the scorched corral kit of Floor 01 room 0, design spec
 
-**Status:** design spec, five keys (`heat_partition_intact`, `_weakened`, `_broken`, `heat_scorch_wall_a`, `heat_scorch_floor_a`) and the executed kit: the other sixteen pieces in four atlases, the `floor01_heat_kit.json` contract, the room 0 dressing in `f01_corral::launch` (on by default in `--scene f01_late --f01-run`), tests, measurements and in-scene captures (section 16). The first silhouette gate passed the partition with K2 and K3 and `heat_scorch_floor_a` as drawn, sent `heat_scorch_wall_a` back for a redraw under R1..R8, and the narrow re-gate froze all five keys (section 15, `HEAT-AD11`). Evidence is in [`docs/evidence/area-heat-01/`](../evidence/area-heat-01/README.md). The partition is **not** visible in-scene until CORRAL-D (`HEAT-AD1`). Open design notes are in section 16. Not owner-approved; owner art review pending. Launch target: `floor01_scene --scene f01_late --f01-run` (room 0 `corral` is the first room of the run).
+**Status:** design spec, five keys (`heat_partition_intact`, `_weakened`, `_broken`, `heat_scorch_wall_a`, `heat_scorch_floor_a`) and the executed kit: the other sixteen pieces in four atlases, the `floor01_heat_kit.json` contract, the room 0 dressing in `f01_corral::launch` (on by default in `--scene f01_late --f01-run`), tests, measurements and in-scene captures (section 16). The first silhouette gate passed the partition with K2 and K3 and `heat_scorch_floor_a` as drawn, sent `heat_scorch_wall_a` back for a redraw under R1..R8, and the narrow re-gate froze all five keys (section 15, `HEAT-AD11`). Evidence is in [`docs/evidence/area-heat-01/`](../evidence/area-heat-01/README.md). The partition is placed in-scene by CORRAL-D from the prop's state, not by the dressing (`HEAT-AD1`, `CD-AD1`; `docs/evidence/floor01-corral/corral-d/`). Open design notes are in section 16. Not owner-approved; owner art review pending. Launch target: `floor01_scene --scene f01_late --f01-run` (room 0 `corral` is the first room of the run).
 
 **Route:** difficulty score 2, a new environment kit on the approved ENV-01 language, with a state-keyed hero key (the partition): route **B + silhouette gate** ([routing by difficulty](../07-agents/pixel-art-pipeline.md#routing-by-difficulty)). The design step stops at this spec and the keys. Work order: AREA-HEAT-01 (pipeline order batch 3, [pixel-art pipeline](../07-agents/pixel-art-pipeline.md)).
 
@@ -54,7 +54,7 @@ Carl is 52 px, about 1.8 m. All coordinates are **room layout pixels** (top-left
 | Goblins (M0) | x 336, 416 | |
 | Llama B (pen) | x 1488, leash 1248..1830 | stops at 1428 while the partition stands |
 | Llama A (dock) | x 1968 | |
-| Partition solid (CORRAL-D, not built) | 1392, 532, 16, 48 | KC17; the art anchor is (1380, 532) |
+| Partition solid (CORRAL-D, built: sidecar prop `pen_partition`) | 1392, 532, 16, 48 | KC17; the art anchor is (1380, 532), the canvas's 12 px margin left of the solid core (`CD-AD1`) |
 
 ## 3. Room layout (zones, left to right)
 
@@ -73,7 +73,7 @@ Coverage caps, measured over every 640 px window of the room: heat wall decals c
 - **Mechanism (`HEAT-AD2`):** the kit is a **dressing pass** on the Broken Ring precedent. `floor01_heat_kit.json` is an `env-kit-v2` contract that extends the opening kit and carries one `room_dressing` block, `corral` (`remove` [], `place`, `parallax` {}). `f01_corral::launch` builds the kit through `f01_boiler::compose_kit_hooked` with the room's own steps, the heat contract and the dressing hook. No room or encounter JSON changes.
 - **Never a collider.** No piece adds, moves or removes a solid. These stay byte-identical with and without the dressing: solids (the ceiling slab, the steps, the walls), spawn, exit, checkpoint, views, walking line, blink barriers, the pinned room and sidecar hashes, and the `COMBAT_STATE` hash on every tick.
 - **Step fronts** are `structure` pieces laid exactly on the step rects at y 548 (32 rows: the top band and the front). They replace the composer's plain step look and do not change the collision tiles.
-- **The partition is not placed by the dressing (`HEAT-AD1`).** Its three frames are drawn, exported and named in a `state_groups.heat_partition` entry. CORRAL-D's presenter draws them at (1380, 532) from the prop's state.
+- **The partition is not placed by the dressing (`HEAT-AD1`).** Its three frames are drawn, exported and named in a `state_groups.heat_partition` entry. CORRAL-D's presenter (`corral_art::sync_partition_art`, the pure half `heat_kit::partition_piece` and `partition_origin`) draws the frame of the prop's state at (1380, 532).
 
 ## 5. Piece list
 
@@ -223,7 +223,7 @@ Done in the execution stage (checks and numbers in section 16):
 3. `f01_corral::launch`: builds the kit through `compose_heat_kit` with the room's steps (`launch_with(root, false)` is the plain composition the tests compare against).
 4. Evidence in `docs/evidence/area-heat-01/`: native stills of M0, M1, the pen (entry scorch, rails), the dock and M3 in three sizes, a bare `--f01-run` proof, before/after pairs, a contact sheet at 1x and 4x, layout diagrams, the capture lines, the measurements, README and `SHA256SUMS`.
 
-Not done, by design: placing the partition (CORRAL-D, `HEAT-AD1`).
+Not done by the dressing, by design: placing the partition (done by CORRAL-D's presenter, `HEAT-AD1`).
 
 ## 14. Files
 
@@ -243,7 +243,7 @@ Not done, by design: placing the partition (CORRAL-D, `HEAT-AD1`).
 
 | ID | Adopted default | Reason |
 | --- | --- | --- |
-| HEAT-AD1 | All three partition states are drawn and exported now, but the dressing does **not** place the partition in room 0 until CORRAL-D lands. CORRAL-D is scheduled immediately after `heatart`; until then the partition is gate-composite only. CORRAL-D's presenter swaps the frames at (1380, 532): `weakened` after the first counted hero hit (hits 1 and 2), `broken` on the third hit or a rush contact. | Drawn geometry must equal the collider: a drawn screen without its 16 x 48 solid would lie to the player (bolts and globs would pass through what looks like cover). |
+| HEAT-AD1 | All three partition states are drawn and exported now, but the dressing does **not** place the partition in room 0 until CORRAL-D lands. CORRAL-D is scheduled immediately after `heatart`; until then the partition is gate-composite only. CORRAL-D's presenter swaps the frames at (1380, 532): `weakened` after the first counted hero hit (hits 1 and 2), `broken` on the third hit or a rush contact. **Done (CORRAL-D, `CD-AD1`):** the collider (the sidecar prop's 16 x 48 target) is authoritative and the art's solid core, canvas columns 12..27, sits exactly on it: the canvas is placed at the collider's top-left minus 12 px; the rest of the 40 px canvas is visual margin (rope tails, straw, debris and the sill). `heat_kit::tests::the_partition_art_core_sits_exactly_on_the_collider` pins it. | Drawn geometry must equal the collider: a drawn screen without its 16 x 48 solid would lie to the player (bolts and globs would pass through what looks like cover). |
 | HEAT-AD2 | The kit is a contract dressing pass (`floor01_heat_kit.json`, `room_dressing.corral`) applied in `f01_corral::launch` through `compose_kit_hooked`. No room or encounter JSON edit. | The Broken Ring precedent; the pinned hashes stay. |
 | HEAT-AD3 | The partition remnant is the canvas rows 32..47 (16 px, flat pale top). | The prop core's remnant height; the drawn top equals the remnant-lift rule's surface. |
 | HEAT-AD4 | No new hue or value; embers are `flame` 0..1 only. | Not a lava biome (the design doc's presentation row). |
@@ -269,7 +269,7 @@ Not done, by design: placing the partition (CORRAL-D, `HEAT-AD1`).
 | --- | --- | --- |
 | HEAT-OQ1 | Who draws the M3 gate grate (x 2048..2064, code-drawn greybox)? | Out of this kit; the grate stays code-drawn. |
 | HEAT-OQ2 | Should the ceiling slab (y 336..352) get a soffit like the Ring's? | No soffit; the composer's brick shows. |
-| HEAT-OQ3 | The partition can only be seen in-scene after CORRAL-D. | Gate composites only (`HEAT-AD1`). |
+| HEAT-OQ3 | ~~The partition can only be seen in-scene after CORRAL-D.~~ Answered: it is in-scene since CORRAL-D (in-scene stills of the three states in `docs/evidence/floor01-corral/corral-d/`); its lit read in the run is part of the owner art review. | Gate composites were the only view until then (`HEAT-AD1`). |
 | HEAT-OQ4 | Soot on the bay piers? | None; piers are composer structure and stay clean in this kit. |
 | HEAT-OQ5 | Game feel: is the pen's density enough "the corral fights back", or does the owner want heavier burn? | The caps of section 3; the owner reviews after merge. |
 

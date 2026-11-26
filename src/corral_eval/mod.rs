@@ -32,9 +32,12 @@
 //! P0..P2 written at tick 0 as per-llama `(cooldown, rush_cooldown)`, the
 //! reflex (`off` / `reflex`, DM-B: the gate is decided on `reflex`) and the
 //! seat (the decisive `isolated` one parks Carl; the companion one is
-//! reported). The partition variants `intact` and `broken` are `not_run`
-//! until CORRAL-D builds the partition. Seeds do not vary gameplay, so the
-//! report counts **fixtures**, never seeds.
+//! reported). The partition variants (CORRAL-D, [`PartitionVariant`]) `absent`
+//! (the cut path), `intact` (the shipped room) and `broken` (authored
+//! pre-broken, the 16 px remnant standing) run on the M2 stage: the env runtime
+//! of the real sidecar supplies the partition, and every start group is judged
+//! per variant. Seeds do not vary gameplay, so the report counts **fixtures**,
+//! never seeds.
 //!
 //! **Gate** ([`report::Gate`], asserted by the `corral_auto_*` tests from
 //! CORRAL-C on): KC19 on the decisive variant, the CRL-Q35 geometric
@@ -71,8 +74,9 @@ use self::policy::{Aim, HeroInputs, HeroObs, LlamaObs, Obs, Policy, PolicyId, Ro
 /// Bump when a policy, a stage or a metric definition changes. 2: CORRAL-C
 /// (the room stages, the parked seat, the aimed, turret and jump-cast
 /// policies, the `(cooldown, rush_cooldown)` phases, the reflex variant, the
-/// CRL-Q35 invariant and the system-failure checks).
-pub const POLICY_VERSION: u32 = 2;
+/// CRL-Q35 invariant and the system-failure checks). 3: CORRAL-D (the
+/// partition variants and the partition-top and remnant-top starts).
+pub const POLICY_VERSION: u32 = 3;
 /// The isolated M2 attempt horizon (CORRAL-AUTO section 3): 30 s at 60 Hz.
 pub const HORIZON_TICKS: u64 = 1800;
 /// The corridor kit the baseline stages run on.
@@ -198,6 +202,74 @@ static PINCER_BASE: Fixture = stage_fixture(
     0xC0AA_0003,
     &[llama(240), llama(640)],
 );
+
+// ------------------------------------------------------------- partition --
+
+/// The corral's partition variant (spec section 11, CORRAL-D). Only the M2
+/// stage has one; the baselines and M1 run [`Self::Absent`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub enum PartitionVariant {
+    /// No partition: the cut path (the sidecar's prop is not built).
+    #[default]
+    Absent,
+    /// The shipped room: the 16 x 48 screen stands at tick 0.
+    Intact,
+    /// Authored pre-broken: the 16 px remnant stands (a tick-0 setup write).
+    Broken,
+}
+
+impl PartitionVariant {
+    pub const ALL: [PartitionVariant; 3] = [
+        PartitionVariant::Absent,
+        PartitionVariant::Intact,
+        PartitionVariant::Broken,
+    ];
+
+    pub const fn name(self) -> &'static str {
+        match self {
+            PartitionVariant::Absent => "absent",
+            PartitionVariant::Intact => "intact",
+            PartitionVariant::Broken => "broken",
+        }
+    }
+
+    /// The run id's suffix; empty for `Absent`, so every run id that existed
+    /// before CORRAL-D is unchanged.
+    const fn id_suffix(self) -> &'static str {
+        match self {
+            PartitionVariant::Absent => "",
+            PartitionVariant::Intact => ".pt-intact",
+            PartitionVariant::Broken => ".pt-broken",
+        }
+    }
+}
+
+/// The partition's surfaces as starts: the top of the standing screen (48 px)
+/// and the top of its remnant (16 px), both over the screen's 16 px column.
+pub const PARTITION_TOP_RISE: i32 = 48;
+pub const REMNANT_TOP_RISE: i32 = 16;
+
+/// Whether `(x, rise)` is a start on one of the partition's own tops.
+pub fn is_partition_surface(x: i32, rise: i32) -> bool {
+    matches!(rise, PARTITION_TOP_RISE | REMNANT_TOP_RISE)
+        && (PARTITION_X.0..PARTITION_X.1).contains(&x)
+}
+
+/// The partition's columns (the sidecar prop's `target`).
+pub const PARTITION_X: (i32, i32) = (1392, 1408);
+
+/// Whether the start `(x, rise)` exists under `variant`: the screen's top only
+/// while it stands, the remnant's only once broken, and no floor column inside
+/// the screen's footprint while it stands or its remnant lies.
+pub fn start_exists(variant: PartitionVariant, x: i32, rise: i32) -> bool {
+    let on_column = (PARTITION_X.0 - 10..PARTITION_X.1 + 10).contains(&x);
+    match rise {
+        PARTITION_TOP_RISE => variant == PartitionVariant::Intact && is_partition_surface(x, rise),
+        REMNANT_TOP_RISE => variant == PartitionVariant::Broken && is_partition_surface(x, rise),
+        0 => variant == PartitionVariant::Absent || !on_column,
+        _ => true,
+    }
+}
 
 // ----------------------------------------------------------------- seats --
 
@@ -334,6 +406,8 @@ pub struct RunSpec {
     /// `stationary_jump_cast` only: Primary press tick minus Jump press tick.
     pub jump_offset: i8,
     pub horizon: u64,
+    /// The corral's partition variant (CORRAL-D); `Absent` off the M2 stage.
+    pub partition: PartitionVariant,
 }
 
 impl RunSpec {
@@ -360,7 +434,7 @@ impl RunSpec {
     /// evasion, column, surface, facing). KC19 judges a group, not a single run.
     pub fn group_id(&self) -> String {
         format!(
-            "{}.{}.{}.{}.x{}.h{}.f{}",
+            "{}.{}.{}.{}.x{}.h{}.f{}{}",
             self.stage.name(),
             self.seat.name(),
             self.policy_label(),
@@ -368,6 +442,7 @@ impl RunSpec {
             self.donut_x,
             self.donut_rise,
             if self.facing >= 0 { "r" } else { "l" },
+            self.partition.id_suffix(),
         )
     }
 }
@@ -491,6 +566,9 @@ pub struct RunRecord {
     pub rush_contacts: u32,
     pub rush_misses: u32,
     pub rush_bonks: u32,
+    /// CORRAL-D (diagnostic): what broke the partition this run, if it broke:
+    /// the rush (`Shove`) or hero hits (`MeleeHit`). A pre-broken run has none.
+    pub partition_break: Option<crate::env_prop::StimulusKind>,
     /// Spit hits on Donut / on Carl (`HeroHurt` events).
     pub donut_hurt_events: u32,
     pub carl_hurt_events: u32,
@@ -580,6 +658,8 @@ impl RunRecord {
 pub struct Kits {
     pub corridor: EnvKit,
     pub corral: EnvKit,
+    /// The room's sidecar: its one prop is the partition (CORRAL-D).
+    pub encounter: crate::encounter::Encounter,
 }
 
 impl Kits {
@@ -594,9 +674,16 @@ impl Kits {
 
 /// Load the corridor kit (baselines) and the corral room kit.
 pub fn load_kits(root: &Path) -> Result<Kits, String> {
+    let loaded = crate::encounter::load(root, crate::f01_corral::ENCOUNTER_PATH).map_err(|e| {
+        e.iter()
+            .map(ToString::to_string)
+            .collect::<Vec<_>>()
+            .join("; ")
+    })?;
     Ok(Kits {
         corridor: load_kit(root)?,
         corral: room::load_kit(root)?,
+        encounter: loaded.encounter,
     })
 }
 
@@ -623,12 +710,15 @@ fn surface_at(sim: &PartyFixtureSim, x: f32, half: f32, feet: f32) -> bool {
         .collect();
     spans.sort_by(|a, b| a.0.total_cmp(&b.0));
     let mut covered = x - half;
-    for (l, r) in spans {
+    for &(l, r) in &spans {
         if l <= covered {
             covered = covered.max(r);
         }
     }
-    covered >= x + half
+    // At least one surface under the pivot itself (a zero half-width start is
+    // otherwise covered by nothing at all).
+    spans.iter().any(|&(l, r)| l <= x && x <= r)
+        && covered >= x + half
         && !solids.iter().any(|b| {
             b.intact
                 && b.rect.left < x + half
@@ -654,13 +744,27 @@ pub fn build(kits: &Kits, spec: &RunSpec) -> Result<PartyFixtureSim, String> {
             ));
         }
     }
-    let scene = SceneSim::new_at(kit, VIEW_H, carl_x)?;
+    let mut scene = SceneSim::new_at(kit, VIEW_H, carl_x)?;
     // Review L1: the CF02 rules and Donut's biscuit are declared on the state,
     // not detected from the fixture's name.
-    let combat = CombatState::new(fixture.base, kit, &scene)?
+    let mut combat = CombatState::new(fixture.base, kit, &scene)?
         .with_cf02()
         .with_donut(fixture.donut);
+    // CORRAL-D: the partition comes from the room's real sidecar through the env
+    // runtime (the same prop, solids and rush contact the launched room has); the
+    // `absent` variant builds no env, as before.
+    let with_partition =
+        spec.stage == Stage::CorralM2 && spec.partition != PartitionVariant::Absent;
+    if with_partition {
+        let env = crate::combat_scene::EnvRuntime::new(&kits.encounter)?;
+        combat = combat.with_env(env);
+        combat.sync_env(&mut scene);
+    }
     let mut sim = PartyFixtureSim::from_parts(scene, combat, fixture);
+    // Setup (tick 0): the `broken` variant is authored pre-broken (F11).
+    if with_partition && spec.partition == PartitionVariant::Broken {
+        sim.combat.set_partition_broken_for_setup(&mut sim.scene);
+    }
     // Setup (tick 0): the parked seat (spec section 11, NB2).
     if spec.seat == Seat::SoloDonutParked {
         sim.park_uncontrolled();
@@ -671,7 +775,15 @@ pub fn build(kits: &Kits, spec: &RunSpec) -> Result<PartyFixtureSim, String> {
         // Setup (tick 0): Carl is the tested hero; his facing.
         sim.scene.world.hero.facing = spec.facing;
     } else {
-        if spec.stage.is_corral() && !surface_at(&sim, spec.donut_x as f32, 10.0, feet) {
+        // A start on the partition's own 16 px top is judged on her pivot column
+        // alone (the sheet's pivots stand on its edge, her body overhangs it);
+        // every other start needs her whole 20 px body on its surface.
+        let half = if is_partition_surface(spec.donut_x, spec.donut_rise) {
+            0.0
+        } else {
+            10.0
+        };
+        if spec.stage.is_corral() && !surface_at(&sim, spec.donut_x as f32, half, feet) {
             return Err(format!(
                 "no surface {} px up under Donut's column {}",
                 spec.donut_rise, spec.donut_x
@@ -859,6 +971,7 @@ pub fn run(kits: &Kits, spec: &RunSpec) -> RunRecord {
         rush_contacts: 0,
         rush_misses: 0,
         rush_bonks: 0,
+        partition_break: None,
         donut_hurt_events: 0,
         carl_hurt_events: 0,
         donut_rush_hurts: 0,
@@ -907,6 +1020,7 @@ pub fn run(kits: &Kits, spec: &RunSpec) -> RunRecord {
     let mut last_hit_donut = vec![false; llamas];
     // Absolute index of the next unread event (the log drops from the front).
     let mut seen = 0usize;
+    let mut last_prop_hit: Option<crate::env_prop::StimulusKind> = None;
     let mut displacement = 0.0f32;
     let mut last = start;
     // The walking line (Carl stands on it at setup in every stage).
@@ -1034,6 +1148,11 @@ pub fn run(kits: &Kits, spec: &RunSpec) -> RunRecord {
                     }
                 }
                 CombatEvent::HeroEvaded { .. } => record.evades += 1,
+                CombatEvent::PropHit { kind, .. } => last_prop_hit = Some(kind),
+                CombatEvent::PropPhase {
+                    phase: crate::combat::PropPhase::Broken,
+                    ..
+                } => record.partition_break = last_prop_hit,
                 _ => {}
             }
         }
@@ -1131,14 +1250,15 @@ const fn start(id: &'static str, x: i32, rise: i32, facing: i8) -> Start {
 /// M1-A and M1-B (the positive control).
 pub const M1_STARTS: [Start; 2] = [start("M1-A", 608, 0, 1), start("M1-B", 560, 0, 1)];
 
-/// The named M2 starts of spec section 11. M2-06 (the partition top) needs the
-/// partition (CORRAL-D) and is `not_run`.
-pub const M2_STARTS: [Start; 12] = [
+/// The named M2 starts of spec section 11. M2-06 is the partition's top, so it
+/// exists only in the `intact` variant ([`start_exists`]).
+pub const M2_STARTS: [Start; 13] = [
     start("M2-01", 1072, 0, 1),
     start("M2-02", 1168, 32, 1),
     start("M2-03", 1204, 32, 1),
     start("M2-04", 1248, 0, 1),
     start("M2-05", 1376, 0, 1),
+    start("M2-06", 1400, PARTITION_TOP_RISE, 1),
     start("M2-07", 1424, 0, 1),
     start("M2-08", 1640, 0, -1),
     start("M2-09", 1840, 0, -1),
@@ -1161,6 +1281,8 @@ pub fn start_name(x: i32, rise: i32) -> &'static str {
 pub fn surface_name(x: i32, rise: i32) -> &'static str {
     match rise {
         0 => "floor",
+        PARTITION_TOP_RISE => "partition",
+        REMNANT_TOP_RISE => "remnant",
         r if r == room::BUMPER.2 => "bumper",
         _ if x < room::BUMPER.0 => "shelf",
         _ => "dock",
@@ -1170,7 +1292,9 @@ pub fn surface_name(x: i32, rise: i32) -> &'static str {
 /// The M2-G grid (spec section 11, step 16): the floor, the shelf, the bumper
 /// top and the dock, each column wholly on its surface (Donut's 20 px wide
 /// collider: no floor column inside the entry shelf, the bumper's middle
-/// column only). The partition-top and remnant rows need CORRAL-D.
+/// column only), plus the partition's own tops: the screen's 48 px top (the
+/// `intact` variant) and its remnant's 16 px top (the `broken` variant), at the
+/// screen's two edge columns ([`start_exists`] keeps each to its variant).
 pub fn m2_grid() -> Vec<(i32, i32)> {
     let (shelf_l, shelf_r, _) = room::ENTRY_SHELF;
     let mut out = Vec::new();
@@ -1185,6 +1309,11 @@ pub fn m2_grid() -> Vec<(i32, i32)> {
     out.push(((room::BUMPER.0 + room::BUMPER.1) / 2, 80));
     for x in (1904..=2032).step_by(16) {
         out.push((x, 32));
+    }
+    for rise in [PARTITION_TOP_RISE, REMNANT_TOP_RISE] {
+        for x in (PARTITION_X.0..=PARTITION_X.1).step_by(16) {
+            out.push((x, rise));
+        }
     }
     out
 }
@@ -1201,6 +1330,8 @@ pub struct SweepConfig {
     pub corral: bool,
     /// Add the M2-G grid to the named starts.
     pub grid: bool,
+    /// The corral's partition variants run on the M2 stage (CORRAL-D).
+    pub partitions: Vec<PartitionVariant>,
     /// The jump-cast offsets run on the named starts (the grid runs `aimed`,
     /// 0 and 45 only).
     pub jump_offsets: Vec<i8>,
@@ -1221,6 +1352,7 @@ impl SweepConfig {
             baseline_phases: vec![0, 45, 89],
             corral: true,
             grid: true,
+            partitions: PartitionVariant::ALL.to_vec(),
             jump_offsets: policy::JUMP_OFFSETS.collect(),
             facings: vec![1, -1],
             evasions: Evasion::ALL.to_vec(),
@@ -1251,6 +1383,7 @@ impl SweepConfig {
             baseline_phases: vec![0, 89],
             corral: false,
             grid: false,
+            partitions: vec![PartitionVariant::Absent],
             jump_offsets: Vec::new(),
             facings: vec![1, -1],
             evasions: vec![Evasion::Off],
@@ -1306,6 +1439,7 @@ impl SweepConfig {
                                     phase,
                                     jump_offset: 0,
                                     horizon: self.horizon,
+                                    partition: PartitionVariant::Absent,
                                 });
                             };
                             for policy in [
@@ -1334,7 +1468,7 @@ impl SweepConfig {
     }
 
     fn corral_specs(&self, out: &mut Vec<RunSpec>) {
-        let spec = |stage, seat, policy, evasion, x, rise, facing, phase, o| RunSpec {
+        let spec = |stage, seat, policy, evasion, x, rise, facing, phase, o, partition| RunSpec {
             stage,
             seat,
             policy,
@@ -1345,6 +1479,7 @@ impl SweepConfig {
             phase,
             jump_offset: o,
             horizon: self.horizon,
+            partition,
         };
         // M1: the positive control, both M1 starts, the stationary policies.
         for &evasion in &self.evasions {
@@ -1365,6 +1500,7 @@ impl SweepConfig {
                             facing,
                             [(0, 0), (0, 0)],
                             0,
+                            PartitionVariant::Absent,
                         ));
                     }
                 }
@@ -1380,51 +1516,59 @@ impl SweepConfig {
                 }
             }
         }
-        for &evasion in &self.evasions {
-            for &(x, rise, named) in &starts {
-                for &facing in &self.facings {
-                    for phase in M2_PHASES {
-                        let push = |out: &mut Vec<RunSpec>, seat, policy, o| {
-                            out.push(spec(
-                                Stage::CorralM2,
-                                seat,
-                                policy,
-                                evasion,
-                                x,
-                                rise,
-                                facing,
-                                phase,
-                                o,
-                            ));
-                        };
-                        for policy in PolicyId::GATED_FIXED {
-                            push(out, Seat::SoloDonutParked, policy, 0);
-                        }
-                        let offsets: Vec<i8> = if named {
-                            self.jump_offsets.clone()
-                        } else {
-                            vec![0, 45]
-                        };
-                        for o in offsets {
-                            push(out, Seat::SoloDonutParked, PolicyId::StationaryJumpCast, o);
-                        }
-                        if self.reported {
-                            for policy in [PolicyId::StationaryCast, PolicyId::StationaryCastBurst]
-                            {
-                                push(out, Seat::SoloDonutAssist, policy, 0);
-                            }
-                            for policy in [PolicyId::HoldAttackTrivial, PolicyId::NoInteraction] {
+        for &variant in &self.partitions {
+            for &evasion in &self.evasions {
+                for &(x, rise, named) in &starts {
+                    if !start_exists(variant, x, rise) {
+                        continue;
+                    }
+                    for &facing in &self.facings {
+                        for phase in M2_PHASES {
+                            let push = |out: &mut Vec<RunSpec>, seat, policy, o| {
+                                out.push(spec(
+                                    Stage::CorralM2,
+                                    seat,
+                                    policy,
+                                    evasion,
+                                    x,
+                                    rise,
+                                    facing,
+                                    phase,
+                                    o,
+                                    variant,
+                                ));
+                            };
+                            for policy in PolicyId::GATED_FIXED {
                                 push(out, Seat::SoloDonutParked, policy, 0);
                             }
-                        }
-                        if named {
-                            // Movement success (spec section 11, gate item 4).
-                            push(out, Seat::SoloDonutParked, PolicyId::MobileCast, 0);
-                            push(out, Seat::TwoPlayer, PolicyId::CoopProbe, 0);
-                            // Solo Carl starts at the M2 entry (his column is
-                            // the start; Donut follows as the bot).
-                            if x == M2_STARTS[0].x && rise == 0 {
-                                push(out, Seat::SoloCarl, PolicyId::CarlMelee, 0);
+                            let offsets: Vec<i8> = if named {
+                                self.jump_offsets.clone()
+                            } else {
+                                vec![0, 45]
+                            };
+                            for o in offsets {
+                                push(out, Seat::SoloDonutParked, PolicyId::StationaryJumpCast, o);
+                            }
+                            if self.reported {
+                                for policy in
+                                    [PolicyId::StationaryCast, PolicyId::StationaryCastBurst]
+                                {
+                                    push(out, Seat::SoloDonutAssist, policy, 0);
+                                }
+                                for policy in [PolicyId::HoldAttackTrivial, PolicyId::NoInteraction]
+                                {
+                                    push(out, Seat::SoloDonutParked, policy, 0);
+                                }
+                            }
+                            if named {
+                                // Movement success (spec section 11, gate item 4).
+                                push(out, Seat::SoloDonutParked, PolicyId::MobileCast, 0);
+                                push(out, Seat::TwoPlayer, PolicyId::CoopProbe, 0);
+                                // Solo Carl starts at the M2 entry (his column is
+                                // the start; Donut follows as the bot).
+                                if x == M2_STARTS[0].x && rise == 0 {
+                                    push(out, Seat::SoloCarl, PolicyId::CarlMelee, 0);
+                                }
                             }
                         }
                     }
@@ -1462,6 +1606,7 @@ pub fn carl_only_targeting(kits: &Kits) -> Option<bool> {
         phase: [(0, 0), (0, 0)],
         jump_offset: 0,
         horizon: 90,
+        partition: PartitionVariant::Absent,
     };
     let mut sim = build(kits, &spec).ok()?;
     for _ in 0..spec.horizon {
@@ -1547,5 +1692,7 @@ pub fn run_all(kits: &Kits, specs: &[RunSpec]) -> Vec<RunRecord> {
     slots.into_iter().flatten().collect()
 }
 
+#[cfg(test)]
+mod partition_fixtures;
 #[cfg(test)]
 mod tests;

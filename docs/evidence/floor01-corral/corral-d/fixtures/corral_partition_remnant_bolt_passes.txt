@@ -1,0 +1,5 @@
+COMBAT_EVENT tick=1 kind=move_started move=magic_missile instance=1
+COMBAT_EVENT tick=5 kind=mana_spent hero=1 left=7
+COMBAT_EVENT tick=15 kind=hit move=magic_missile instance=1 target=0 damage=1 health_left=2 hit_stop=2
+COMBAT_EVENT tick=75 kind=mana_regained hero=1 now=8
+FIXTURE_END name=corral_partition_remnant_bolt_passes tick=80 state_hash=0xc834cede8e8eccd3 env_hash=0x3e48a80b1b741080

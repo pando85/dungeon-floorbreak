@@ -1,0 +1,3 @@
+# a bare floor run (--scene f01_late --f01-run): the entry line and the window's partition line
+F01_CORRAL_ENTRY room=F01-CORRAL encounter=F01-CORRAL-ENC pin=f01_pin_corral_entry spawn_carl=112 spawn_donut=80 checkpoints=[112, 1072] goal=ReachExit roster=5 goblins=2 llamas=3 m3_gate=2048..2064_on_llamas_1+2 listed=true partition=1392..1408_48px env=live room_hash=0x5ccfc53b8eee3702 sidecar_hash=0xc6427d8907c3b8a7
+CORRAL_PARTITION drawn at (1380, 532) from the heat atlas, three states (prototype art, owner review pending)

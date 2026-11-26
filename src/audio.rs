@@ -251,7 +251,8 @@ pub fn cues_from_combat_event(event: &CombatEvent) -> Vec<CueId> {
         CombatEvent::PropHit { .. } => vec![CueId::EnemyBodyCollision],
         CombatEvent::PropPhase { phase, .. } => match phase {
             PropPhase::Warning | PropPhase::Released => vec![CueId::Warning],
-            PropPhase::Venting => vec![CueId::WallBreak],
+            // CORRAL-D (cue reuse): the partition breaking is the wall break.
+            PropPhase::Venting | PropPhase::Broken => vec![CueId::WallBreak],
             PropPhase::Landed => vec![CueId::HeavyPropCrash],
             PropPhase::Spent | PropPhase::Falling | PropPhase::Detonated => Vec::new(),
         },

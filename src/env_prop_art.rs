@@ -650,7 +650,9 @@ pub fn sprites(
                     );
                 }
             }
-            PropKind::RotSticker | PropKind::Shutter => {}
+            // CORRAL-D: the partition is drawn from the heat kit's atlas by the corral's own
+            // presenter (`heat_kit::partition_frame`), not by the Boiler's.
+            PropKind::RotSticker | PropKind::Shutter | PropKind::Partition => {}
         }
     }
     // The hazard tells and the steam, from the same feed the companion reads.
@@ -921,7 +923,7 @@ pub fn pieces(enc: &Encounter, env: &EnvRuntime, tick: u64) -> Vec<Piece> {
                     });
                 }
             }
-            PropKind::RotSticker => {}
+            PropKind::RotSticker | PropKind::Partition => {}
         }
     }
     // The hazard tells and the steam, from the same feed the companion reads.

@@ -1428,8 +1428,9 @@ impl CombatState {
         self.restart_donut(scene.world.tick, RestartKind::CheckpointRestart);
         self.restart_story(RestartKind::CheckpointRestart);
         self.companion.reset();
-        // BOIL-B wire: a checkpoint respawn restores the props (design 6).
-        self.env_reset();
+        // BOIL-B wire: a checkpoint respawn restores the props (design 6), except the corral's
+        // partition, which keeps its state (CORRAL-D, CD-AD10).
+        self.env_reset_for_respawn();
         // HAZ-A2: a spent sticker stays spent, the others latch again.
         self.env_respawn_hazards();
         self.env_after_reset(scene);

@@ -78,8 +78,8 @@ use crate::encounter::{
 use crate::env_hazard::{HazardClass, HazardEdge, HazardSet, NavPhase, NavRect, Team, Victim};
 use crate::env_prop::{
     Drum, DrumConfig, DrumState, FallingMass, FallingMassConfig, Ignored, LinkEmit, LinkGraph,
-    MassBody, MassEdge, MassState, Offer, STEP_OVER_PX, Shutter, Slide, SlideEdge, SlideState,
-    Stimulus, Valve, ValveEdge, ValveState, remnant_lifts,
+    MassBody, MassEdge, MassState, Offer, Partition, STEP_OVER_PX, Shutter, Slide, SlideEdge,
+    SlideState, Stimulus, Valve, ValveEdge, ValveState, remnant_lifts,
 };
 use crate::goblin::{GoblinMode, WalkBarrier};
 use crate::hero_damage::HeroDamagePolicy;
@@ -123,6 +123,10 @@ enum Machine {
     /// authored. The moving shutter (its step, the arm rule, the pins) is RING-C
     /// wire's.
     Shutter(Box<Shutter>),
+    /// CORRAL-D: the corral's breakable timber partition (a standing solid, then
+    /// its 16 px remnant). Takes Carl's and Donut's melee hits and the llama's
+    /// rush; never a missile (DV-9).
+    Partition(Box<Partition>),
 }
 
 /// HRD-B: the J-A bank: the slide machine and the push of its moving mass
@@ -260,6 +264,10 @@ pub enum EnvSolidKind {
     /// would now block too; the one block is kept (RFA-AD1) so collision and nav
     /// see one rectangle. The moving shutter's solids are RING-C wire's.
     ShutterStack,
+    /// CORRAL-D: the partition while it stands (its 16 x 48 screen): intact
+    /// until it breaks. `EnvSolid::prop` is the prop's index. Blocks bolts, globs
+    /// and bodies like any solid; heroes jump and stand on it (48 px).
+    PartitionWall,
 }
 
 impl EnvSolidKind {
@@ -276,7 +284,8 @@ impl EnvSolidKind {
             | Self::Bank
             | Self::Gate { .. }
             | Self::Soffit
-            | Self::ShutterStack => false,
+            | Self::ShutterStack
+            | Self::PartitionWall => false,
         }
     }
 }
@@ -638,6 +647,26 @@ impl EnvRuntime {
                     });
                     Machine::Shutter(Box::new(shutter))
                 }
+                PropKind::Partition => {
+                    let cfg = p
+                        .partition
+                        .ok_or_else(|| format!("prop {}: a partition needs its config", p.id))?;
+                    let remnant = p
+                        .remnant
+                        .ok_or_else(|| format!("prop {}: a partition needs a remnant", p.id))?;
+                    // The standing screen, then the step it leaves (a `Remnant`).
+                    solids.push(EnvSolid {
+                        rect: p.target,
+                        prop: Some(index),
+                        kind: EnvSolidKind::PartitionWall,
+                    });
+                    solids.push(EnvSolid {
+                        rect: remnant,
+                        prop: Some(index),
+                        kind: EnvSolidKind::Remnant,
+                    });
+                    Machine::Partition(Box::new(Partition::new(cfg)?))
+                }
             };
             props.push(EnvProp {
                 index,
@@ -978,10 +1007,36 @@ impl EnvRuntime {
                     b.pushed.clear();
                 }
                 Machine::Shutter(s) => s.reset(),
+                Machine::Partition(part) => part.reset(),
             }
         }
         self.hazards = self.pristine_hazards.clone();
         self.prev.clear();
+    }
+
+    /// CORRAL-D (CD-AD10): a checkpoint respawn. Every prop goes back to its first
+    /// state **except the partition**, which keeps its state (a broken or weakened
+    /// screen stays so), like a blown charge stays blown and a spent sticker stays
+    /// spent. A llama is not sent home by a respawn, so rebuilding the wall around
+    /// one that stands in or past its column would freeze it inside a solid and let
+    /// it spit and rush through. Only a restart restores the screen.
+    pub fn reset_keeping_partitions(&mut self) {
+        let kept: Vec<(usize, Partition)> = self
+            .props
+            .iter()
+            .enumerate()
+            .filter_map(|(i, p)| match &p.machine {
+                Machine::Partition(part) => Some((i, (**part).clone())),
+                _ => None,
+            })
+            .collect();
+        self.reset();
+        for (i, mut part) in kept {
+            // A respawn restarts the heroes' move counters, so a token counted before it must
+            // count again (the hits stay).
+            part.forget_hit_tokens();
+            self.props[i].machine = Machine::Partition(Box::new(part));
+        }
     }
 
     /// HAZ-A2: a full restart of the hazards: every sticker latched at its
@@ -1051,6 +1106,43 @@ impl EnvRuntime {
         match &self.props.get(index)?.machine {
             Machine::Shutter(s) => Some(s),
             _ => None,
+        }
+    }
+
+    /// CORRAL-D: the partition machine, if prop `index` is a partition.
+    pub fn partition(&self, index: usize) -> Option<&Partition> {
+        match &self.props.get(index)?.machine {
+            Machine::Partition(p) => Some(p),
+            _ => None,
+        }
+    }
+
+    /// CORRAL-D: the index of the standing partition's wall solid in
+    /// `scene.world.solids` (the rush world's `partition`), once the sync appended
+    /// the solids. `None` for a room without a partition.
+    pub fn partition_world_index(&self) -> Option<usize> {
+        let start = self.solid_start?;
+        self.solids
+            .iter()
+            .position(|s| s.kind == EnvSolidKind::PartitionWall)
+            .map(|i| start + i)
+    }
+
+    /// CORRAL-D: the prop index of the room's partition.
+    pub fn partition_prop(&self) -> Option<u16> {
+        self.props
+            .iter()
+            .find(|p| matches!(p.machine, Machine::Partition(_)))
+            .map(|p| p.index)
+    }
+
+    /// CORRAL-D, setup only: the partition authored pre-broken (the CORRAL-AUTO
+    /// `broken` variant). The solids follow at the next sync.
+    pub fn break_partitions_for_setup(&mut self) {
+        for p in &mut self.props {
+            if let Machine::Partition(part) = &mut p.machine {
+                part.set_broken_for_setup();
+            }
         }
     }
 
@@ -1223,7 +1315,8 @@ impl EnvRuntime {
             EnvSolidKind::Remnant
             | EnvSolidKind::Drum
             | EnvSolidKind::Bank
-            | EnvSolidKind::ShutterStack => s.prop.and_then(|p| self.props.get(usize::from(p))),
+            | EnvSolidKind::ShutterStack
+            | EnvSolidKind::PartitionWall => s.prop.and_then(|p| self.props.get(usize::from(p))),
             EnvSolidKind::Lock { .. } | EnvSolidKind::Gate { .. } => return false,
             // HAZ-A2: a soffit always stands; the exit gate defaults to closed (the
             // scene opens it when the roster is clear). Neither has a prop.
@@ -1243,6 +1336,9 @@ impl EnvRuntime {
             (EnvSolidKind::ShutterStack, Some(Machine::Shutter(sh))) => {
                 sh.intact_slices() == sh.slice_count()
             }
+            // CORRAL-D: the screen stands until it breaks, its remnant from then on.
+            (EnvSolidKind::PartitionWall, Some(Machine::Partition(part))) => part.is_standing(),
+            (EnvSolidKind::Remnant, Some(Machine::Partition(part))) => part.is_broken(),
             _ => false,
         }
     }
@@ -1268,6 +1364,11 @@ impl EnvRuntime {
                 // RING-B wire: the static shutter takes no stimulus (KR4: no
                 // switch, no hit target); a missile stops on its slices.
                 Machine::Shutter(_) => false,
+                // CORRAL-D: the standing screen is a melee target (Carl's and
+                // Donut's physical hits). A bolt that reaches it is consumed by
+                // `env_missile_hit` and its `Projectile` is refused (`NotAccepted`,
+                // nothing is logged), so a missile never damages it (DV-9).
+                Machine::Partition(part) => part.is_standing(),
             })
             .map(|p| (p.index, p.target))
             .collect()
@@ -1289,6 +1390,8 @@ impl EnvRuntime {
                 Machine::Bank(b) => !b.removed && b.slide.state() == SlideState::Stable,
                 // A blast never moves a shutter (KR5: it hurts nobody, nothing breaks it).
                 Machine::Shutter(_) => false,
+                // DV-9: nothing but a body hit or a rush damages the partition.
+                Machine::Partition(_) => false,
             })
             .map(|p| (p.index, p.target))
             .collect()
@@ -1414,6 +1517,7 @@ impl EnvRuntime {
             Machine::Mass(m) => m.offer(stimulus),
             Machine::Drum { drum, .. } => drum.offer(stimulus),
             Machine::Rot | Machine::Shutter(_) => return None,
+            Machine::Partition(part) => part.offer(stimulus),
             Machine::Bank(b) if b.removed => {
                 return Some((Offer::Ignored(Ignored::NotAccepted), Vec::new()));
             }
@@ -1431,6 +1535,12 @@ impl EnvRuntime {
                 Machine::Rot | Machine::Shutter(_) => 0,
                 // A bank has one weight: the trigger itself.
                 Machine::Bank(_) => 1,
+                // The progress of the hit that broke it: the third hero hit, or 1 for the
+                // rush's single shove (F4: never the hits an earlier jab left behind).
+                Machine::Partition(part) => match stimulus {
+                    Stimulus::Shove { .. } => 1,
+                    _ => part.hits(),
+                },
             },
         };
         events.push(CombatEvent::PropHit {
@@ -1454,6 +1564,8 @@ impl EnvRuntime {
                 // HRD-B: the bank's shudder is its warning (the slide reuses the
                 // existing phase names: Warning, Falling, Landed).
                 Machine::Bank(_) => PropPhase::Warning,
+                // CORRAL-D: `partition_broken` (#181's name).
+                Machine::Partition(_) => PropPhase::Broken,
                 // A sticker takes its stimuli in its own step and a shutter none
                 // (`offer` returns above).
                 Machine::Rot | Machine::Shutter(_) => return Some((result, events)),
@@ -1574,6 +1686,26 @@ impl EnvRuntime {
                 // A drum's clock is its charge's (the scene steps it). RING-B wire:
                 // a static shutter never steps (RING-C wire steps the moving one).
                 Machine::Drum { .. } | Machine::Rot | Machine::Shutter(_) => {}
+                // CORRAL-D: the break tick: the remnant-lift rule (a hero whose body
+                // overlaps the remnant is lifted onto its top, in the same step that
+                // makes the remnant solid). Heroes cannot overlap the screen they
+                // stood beside, so this only guards a body the screen no longer holds.
+                Machine::Partition(part) => {
+                    if part.take_just_broken()
+                        && let Some(remnant) = self
+                            .solids
+                            .iter()
+                            .find(|s| s.prop == Some(prop) && s.kind == EnvSolidKind::Remnant)
+                            .map(|s| s.rect)
+                    {
+                        for l in remnant_lifts(remnant, &mass_bodies) {
+                            out.lifts.push(EnvLift {
+                                hero: l.victim.id,
+                                up_px: l.up_px,
+                            });
+                        }
+                    }
+                }
                 // HRD-B: the bank's slide, its push and its remnant lift.
                 Machine::Bank(b) => {
                     if b.removed {
@@ -1674,6 +1806,8 @@ impl EnvRuntime {
                 Machine::Rot | Machine::Bank(_) => {}
                 // RING-B wire: only a room with a shutter mixes it (no older hash moves).
                 Machine::Shutter(s) => s.mix_into(&mut *mix),
+                // CORRAL-D: only a room with a partition mixes it (room 0).
+                Machine::Partition(part) => part.mix_into(&mut *mix),
             }
         }
         for p in self.props.iter().filter(|p| p.pile && !p.pristine()) {
@@ -1721,6 +1855,9 @@ impl EnvRuntime {
                 Machine::Mass(m) => format!("{}:{:?}", p.index, m.state()),
                 Machine::Drum { drum, .. } => format!("{}:drum_{:?}", p.index, drum.state()),
                 Machine::Shutter(s) => format!("{}:shutter_{:?}", p.index, s.phase()),
+                Machine::Partition(part) => {
+                    format!("{}:partition_{:?}", p.index, part.state())
+                }
                 Machine::Rot => {
                     let state = self
                         .stickers
@@ -1819,6 +1956,16 @@ impl CombatState {
         self.env = Some(Box::new(env));
         self.reset_attempt();
         self
+    }
+
+    /// CORRAL-D, setup only (the CORRAL-AUTO `broken` variant): the partition authored
+    /// pre-broken, its remnant standing. A tick-0 write like the other setup writes
+    /// (F11); the solids follow at once.
+    pub fn set_partition_broken_for_setup(&mut self, scene: &mut SceneSim) {
+        if let Some(env) = self.env.as_mut() {
+            env.break_partitions_for_setup();
+        }
+        self.sync_env(scene);
     }
 
     /// HAZ-A2: every sticker's authored charge is appended **after the
@@ -1960,6 +2107,15 @@ impl CombatState {
     pub(super) fn env_reset(&mut self) {
         if let Some(env) = self.env.as_mut() {
             env.reset();
+        }
+        self.env_drum_charges();
+    }
+
+    /// [`Self::env_reset`] for a checkpoint respawn: the partition keeps its state
+    /// (CD-AD10, [`EnvRuntime::reset_keeping_partitions`]).
+    pub(super) fn env_reset_for_respawn(&mut self) {
+        if let Some(env) = self.env.as_mut() {
+            env.reset_keeping_partitions();
         }
         self.env_drum_charges();
     }
@@ -2438,7 +2594,12 @@ impl CombatState {
         let hit: Vec<u16> = env
             .live_targets()
             .into_iter()
-            .filter(|(p, t)| env.is_pile(*p) && world_rect(layout_h, *t).overlaps(boxed))
+            .filter(|(p, t)| {
+                // HRD-C: a pile; CORRAL-D: the corral's partition (her swat and pounce
+                // are physical hits, DV-9).
+                (env.is_pile(*p) || env.partition(usize::from(*p)).is_some())
+                    && world_rect(layout_h, *t).overlaps(boxed)
+            })
             .map(|(p, _)| p)
             .collect();
         for prop in hit {
@@ -3115,6 +3276,9 @@ impl CombatState {
                 | EnvSolidKind::Gate { .. }
                 | EnvSolidKind::Soffit
                 | EnvSolidKind::ExitGate => {}
+                // CORRAL-D: a launched body is no physical hero hit on the partition
+                // (it takes melee hits and the rush only): a wall for a flier.
+                EnvSolidKind::PartitionWall => {}
                 // RING-B wire: the static shutter is a wall for a flier (the
                 // existing CF02-B slam through `wall_stop`, KR4: no new damage);
                 // its face pin through this target is RING-C wire's (KR7).
@@ -3268,7 +3432,9 @@ mod tests {
     /// lock of one enemy, the derived exit gate of a whole roster) say so.
     #[test]
     fn the_two_exit_door_kinds_are_the_only_solids_that_open_on_a_defeat() {
-        use EnvSolidKind::{Bank, Drum, ExitGate, Gate, Lock, Remnant, ShutterStack, Soffit};
+        use EnvSolidKind::{
+            Bank, Drum, ExitGate, Gate, Lock, PartitionWall, Remnant, ShutterStack, Soffit,
+        };
         let doors: Vec<_> = [
             Remnant,
             Drum,
@@ -3278,6 +3444,7 @@ mod tests {
             Soffit,
             ExitGate,
             ShutterStack,
+            PartitionWall,
         ]
         .into_iter()
         .filter(|k| k.opens_on_defeat())

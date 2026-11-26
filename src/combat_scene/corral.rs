@@ -267,9 +267,15 @@ impl CombatState {
                 hittable: !self.hero_defeated && hero.invulnerable_ticks == 0 && !unseen,
             });
         }
+        // CORRAL-D: the standing partition's wall solid in the scene's solids (the
+        // synced env range); a rush that meets it breaks it (`apply_llama_step`).
+        let partition = self
+            .env
+            .as_deref()
+            .and_then(super::EnvRuntime::partition_world_index);
         let env = CorralEnv {
             solids: &scene.world.solids,
-            partition: None,
+            partition,
             max_x: x_max,
             view,
             heroes: &facts,
@@ -324,6 +330,31 @@ impl CombatState {
         }
         if let Some(end) = out.end {
             self.log(CombatEvent::LlamaRushEnd { tick, llama, end });
+        }
+        // CORRAL-D: the box met the standing partition: the rush stimulus breaks it
+        // on this same tick (the env step right after makes its remnant solid and
+        // lifts nobody the screen no longer holds). The shove is the attack
+        // instance, at the rush's own speed; nobody is credited.
+        if out.partition_hit
+            && let Some(speed) = self.llamas[index]
+                .corral
+                .as_ref()
+                .map(|c| c.profile.crlq07_speed_px_s)
+            && let Some(prop) = self
+                .env
+                .as_deref()
+                .and_then(super::EnvRuntime::partition_prop)
+        {
+            self.env_stimulate(
+                usize::from(prop),
+                crate::env_prop::Stimulus::Shove {
+                    shove_id: self.rush_seq,
+                    impulse_px_s: speed,
+                    source: llama,
+                    credit: None,
+                },
+                tick,
+            );
         }
     }
 }

@@ -1,0 +1,20 @@
+COMBAT_EVENT tick=1 kind=prop_hit prop=0 stimulus=MeleeHit progress=1 player=0
+COMBAT_EVENT tick=1 kind=prop_hit prop=0 stimulus=MeleeHit progress=2 player=0
+COMBAT_EVENT tick=1 kind=respawn checkpoint=0
+COMBAT_EVENT tick=2 kind=prop_hit prop=0 stimulus=MeleeHit progress=3 player=0
+COMBAT_EVENT tick=2 kind=prop_phase prop=0 phase=broken player=0
+COMBAT_EVENT tick=2 kind=respawn checkpoint=0
+COMBAT_EVENT tick=202 kind=llama_rush_tell llama=1
+COMBAT_EVENT tick=234 kind=llama_rush_commit llama=1
+COMBAT_EVENT tick=244 kind=hero_hurt source=19538 health_left=3
+COMBAT_EVENT tick=244 kind=llama_rush_end llama=1 end=contact_carl
+COMBAT_EVENT tick=250 kind=llama_tell llama=0
+COMBAT_EVENT tick=286 kind=llama_spit llama=0
+COMBAT_EVENT tick=318 kind=llama_tell llama=1
+COMBAT_EVENT tick=354 kind=llama_spit llama=1
+COMBAT_EVENT tick=358 kind=hero_hurt source=3 health_left=2
+COMBAT_EVENT tick=468 kind=llama_tell llama=1
+COMBAT_EVENT tick=504 kind=llama_spit llama=1
+COMBAT_EVENT tick=508 kind=hero_hurt source=3 health_left=1
+COMBAT_EVENT tick=602 kind=restart deaths=0
+FIXTURE_END name=corral_partition_respawn_keeps_broken tick=0 state_hash=0x01932cae9ca91369 env_hash=0x3ff17fab23c83b3c
