@@ -41,6 +41,10 @@ try ok $S
 try ok $S --f01-run
 try ok $S --f01-run --f01-loadout all
 try refuse $S --f01-run --cf02-seed 3
+# AREA-RINGS-01: a floor run can start in either Ring room (the kit renders through the one launch path), and
+# `--ring-pilot` (the evidence pilot of the Ring rooms) is refused outside them.
+for room in ring_court ring_split; do try ok $S --f01-run --f01-room "$room"; done
+try refuse $S --f01-room hoarder --ring-pilot
 # CORRAL-F: room 0 (the corral) is the first listed room; DR-A lists room 3 (the dozer).
 for room in corral hoarder boiler dozer hazards ring_court ring_split juicer mastery; do try ok $S --f01-room "$room"; done
 # No committed room is unlisted any more: an unknown id is refused.

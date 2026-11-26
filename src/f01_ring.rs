@@ -40,7 +40,8 @@
 //! authored, so the launched court is never an open arch the data does not
 //! describe); AD3 the roster honours FA-Q20's wake gates; AD4 the court's
 //! shutter draws as a labelled greybox stand-in (`env_prop_art::pieces`, KR17)
-//! until RING-D and AREA-RINGS-01; AD5 the rooms record under the
+//! until RING-D and AREA-RINGS-01 (now the stone shutter of `ring_shutter_art`;
+//! the stand-in remains only while the ring atlas is missing); AD5 the rooms record under the
 //! `f01_room` source with the fixture names `f01_ring_court` and
 //! `f01_ring_split`.
 
@@ -227,8 +228,16 @@ fn goblins_only(roster: &[encounter::RosterEntry]) -> Result<(), String> {
     }
 }
 
-/// Load a Ring room and its sidecar, compose its kit and build the fixture.
+/// Load a Ring room and its sidecar, compose its kit and build the fixture. The
+/// kit carries the AREA-RINGS-01 dressing ([`crate::ring_kit`], presentation only).
 pub fn launch(root: &Path, room: RingRoom) -> Result<RingRun, String> {
+    launch_with(root, room, true)
+}
+
+/// [`launch`] with the dressing switched on or off. The undressed kit is the
+/// plain composition of the greybox rooms; the tests prove the two differ in
+/// presentation only (solids, ceiling slab, views, walking line, state hash).
+pub fn launch_with(root: &Path, room: RingRoom, dressed: bool) -> Result<RingRun, String> {
     let path = room.encounter_path();
     let loaded = encounter::load(root, path).map_err(|errors| {
         format!(
@@ -256,7 +265,11 @@ pub fn launch(root: &Path, room: RingRoom) -> Result<RingRun, String> {
             loaded.encounter.story_pin
         ));
     }
-    let mut kit = crate::f01_boiler::compose_kit(root, &loaded.room)?;
+    let mut kit = if dressed {
+        crate::ring_kit::compose_ring_kit(root, &loaded.room, room.id())?
+    } else {
+        crate::f01_boiler::compose_kit(root, &loaded.room)?
+    };
     if kit.base_walk_line_y != loaded.room.floor_y {
         return Err(format!(
             "the kit's walking line {} is not the room's floor {}",
@@ -512,6 +525,46 @@ mod tests {
                 }
             }
             assert!(entry_line(&run).contains(&format!("{}_ENTRY", room.marker())));
+        }
+    }
+
+    /// AREA-RINGS-01 (the gym precedent
+    /// `gym_art::tests::the_dressing_and_the_presenter_do_not_change_the_state_hash`):
+    /// the dressing and the shutter presenter are presentation only. The state
+    /// hash is equal on every tick with the plain kit, with the dressed kit, and
+    /// with the dressed kit while the presenter's frame selector reads the
+    /// shutter on every tick.
+    #[test]
+    fn the_dressing_and_the_presenter_do_not_change_the_state_hash() {
+        use crate::ring_shutter_art::{PhaseClock, shutter_frame};
+        for room in RingRoom::ALL {
+            let hashes = |dressed: bool, present: bool| -> Vec<u64> {
+                let run = launch_with(&root(), room, dressed).unwrap();
+                let index = run
+                    .loaded
+                    .encounter
+                    .props
+                    .iter()
+                    .position(|p| p.kind == PropKind::Shutter);
+                let mut scene = SceneSim::new_at(&run.kit, 360, run.fixture.carl_x).unwrap();
+                let mut combat = combat_of(&run, &mut scene).unwrap();
+                let mut clock = PhaseClock::default();
+                let mut out = Vec::new();
+                for tick in 1..=SMOKE_TICKS {
+                    combat.step(&mut scene, run.fixture.input(tick));
+                    if present && let (Some(i), Some(env)) = (index, combat.env()) {
+                        let s = env.shutter(i).expect("the shutter prop");
+                        let t = clock.observe(s.phase(), tick);
+                        let _ = shutter_frame(s.footprint(), s.phase(), s.edge_px(), t);
+                    }
+                    out.push(combat.state_hash(&scene));
+                }
+                out
+            };
+            let plain = hashes(false, false);
+            assert_eq!(plain.len() as u64, SMOKE_TICKS);
+            assert_eq!(hashes(true, false), plain, "{room:?}: the dressed kit");
+            assert_eq!(hashes(true, true), plain, "{room:?}: the presenter");
         }
     }
 

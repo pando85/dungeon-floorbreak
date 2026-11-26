@@ -13,6 +13,8 @@ use super::*;
 use dungeon_floorbreak::encounter::Encounter;
 use dungeon_floorbreak::env_kit::ATLAS_ASSET_PREFIX;
 use dungeon_floorbreak::env_prop_art::{Layer, MAX_PIECES, MAX_SPRITES, Sheet, pieces, sprites};
+use dungeon_floorbreak::ring_shutter_art::{self, PhaseClock};
+use std::collections::BTreeMap;
 
 #[derive(Component, Clone, Copy)]
 pub(super) struct PropPiece(usize);
@@ -133,6 +135,7 @@ pub(super) fn sync_prop_art(
     sim: Res<Sim>,
     combat: Res<Combat>,
     art: Option<Res<PropArt>>,
+    ring_shutter: Option<Res<RingShutterArt>>,
     mut pieces_q: Query<(&PropPiece, &mut Transform, &mut Sprite, &mut Visibility)>,
     mut sprites_q: Query<
         (&PropSprite, &mut Transform, &mut Sprite, &mut Visibility),
@@ -151,6 +154,8 @@ pub(super) fn sync_prop_art(
     let drawn: Vec<_> = pieces(&art.encounter, env, world.tick)
         .into_iter()
         .filter(|p| p.sheet().is_none_or(|s| art.sheet(s).is_none()))
+        // AREA-RINGS-01: the stone shutter replaces the greybox stand-in.
+        .filter(|p| !(p.label == ring_shutter_art::STANDIN_LABEL && ring_shutter.is_some()))
         .collect();
     for (slot, mut transform, mut sprite, mut visibility) in &mut pieces_q {
         match drawn.get(slot.0) {
@@ -190,6 +195,155 @@ pub(super) fn sync_prop_art(
                     (layout_h - d.rect.bottom()) as f32 + d.rect.h as f32 / 2.0;
                 // A distinct z per pool slot: no draw order is left to a tie.
                 transform.translation.z = layer_z(&art, d.layer) + slot.0 as f32 * 0.0001;
+                *visibility = Visibility::Inherited;
+            }
+            None => *visibility = Visibility::Hidden,
+        }
+    }
+}
+
+/// One pooled sprite of the stone shutter's presenter (AREA-RINGS-01): the slab
+/// (`ring_shutter_closed`, cropped to its bottom `edge_px` rows while it moves) or
+/// one of the extras of spec section 6.
+#[derive(Component, Clone, Copy)]
+pub(super) struct RingShutterSprite(&'static str);
+
+/// The stone shutter's presenter state: the sidecar prop it reads, the atlas
+/// rects of its pieces and the presentation-side phase clock.
+#[derive(Resource)]
+pub(super) struct RingShutterArt {
+    /// The prop index of the shutter in the sidecar (`Shutter` of the env step).
+    index: usize,
+    rects: BTreeMap<&'static str, [i32; 4]>,
+    clock: PhaseClock,
+}
+
+/// Spawn the slab and the extras of the court's stone shutter, hidden. The slab
+/// sits just under the dressing's `ring_shutter_housing` (a prop-layer piece), so
+/// the housing draws over its top rows; the dust draws in the foreground layer.
+/// Returns whether the presenter is live (the sidecar has a shutter and the
+/// contract holds every piece).
+#[allow(clippy::too_many_arguments)]
+pub(super) fn spawn_ring_shutter(
+    commands: &mut Commands,
+    texture: &Handle<Image>,
+    encounter: &Encounter,
+    slab_z: f32,
+    foreground_z: f32,
+    prop_layers: RenderLayers,
+    foreground_layers: RenderLayers,
+) -> bool {
+    let Some(index) = encounter
+        .props
+        .iter()
+        .position(|p| p.kind == dungeon_floorbreak::encounter::PropKind::Shutter)
+    else {
+        return false;
+    };
+    let root = std::env::current_dir().unwrap_or_default();
+    let rects = match ring_shutter_art::atlas_rects(&root) {
+        Ok(rects) => rects,
+        Err(e) => {
+            println!("RING_SHUTTER not drawn: {e}");
+            return false;
+        }
+    };
+    for (n, (piece, r)) in rects.iter().enumerate() {
+        let is_dust = piece.starts_with("ring_shutter_dust");
+        commands.spawn((
+            RingShutterSprite(piece),
+            Sprite {
+                image: texture.clone(),
+                rect: Some(Rect::new(
+                    r[0] as f32,
+                    r[1] as f32,
+                    (r[0] + r[2]) as f32,
+                    (r[1] + r[3]) as f32,
+                )),
+                ..default()
+            },
+            Anchor::TOP_LEFT,
+            // A distinct z per piece: no draw order is left to a tie.
+            Transform::from_xyz(
+                0.0,
+                0.0,
+                if is_dust {
+                    foreground_z + 0.05 + n as f32 * 0.0001
+                } else {
+                    slab_z + n as f32 * 0.00001
+                },
+            ),
+            Visibility::Hidden,
+            if is_dust {
+                foreground_layers.clone()
+            } else {
+                prop_layers.clone()
+            },
+        ));
+    }
+    commands.insert_resource(RingShutterArt {
+        index,
+        rects,
+        clock: PhaseClock::default(),
+    });
+    println!(
+        "RING_SHUTTER stone shutter drawn from the ring atlas (prototype art, owner review pending)"
+    );
+    true
+}
+
+/// Show the slab and the extras of this tick (`ring_shutter_art::shutter_frame`).
+/// Presentation only: it reads the shutter through a shared reference and writes
+/// only its own sprites and clock.
+pub(super) fn sync_ring_shutter(
+    sim: Res<Sim>,
+    combat: Res<Combat>,
+    art: Option<ResMut<RingShutterArt>>,
+    mut sprites_q: Query<(
+        &RingShutterSprite,
+        &mut Transform,
+        &mut Sprite,
+        &mut Visibility,
+    )>,
+) {
+    let (Some(mut art), Some(state)) = (art, combat.0.as_ref()) else {
+        return;
+    };
+    let Some(shutter) = state.env().and_then(|env| env.shutter(art.index)) else {
+        return;
+    };
+    let world = &sim.0.world;
+    let layout_h = world.layout_height();
+    let ticks = art.clock.observe(shutter.phase(), world.tick);
+    let footprint = shutter.footprint();
+    let frame =
+        ring_shutter_art::shutter_frame(footprint, shutter.phase(), shutter.edge_px(), ticks);
+    for (piece, mut transform, mut sprite, mut visibility) in &mut sprites_q {
+        let r = art.rects[piece.0];
+        // Where the piece draws (layout px, top-left) and which of its atlas rows show.
+        let placed = if piece.0 == ring_shutter_art::SLAB {
+            (frame.crop_rows > 0).then(|| {
+                let rows = frame.crop_rows.min(r[3]);
+                (footprint.x, footprint.y, r[1] + r[3] - rows)
+            })
+        } else {
+            frame
+                .extras
+                .iter()
+                .find(|e| e.piece == piece.0)
+                .map(|e| (e.x, e.y, r[1]))
+        };
+        match placed {
+            Some((x, y, top_row)) => {
+                // The key's bottom `crop_rows` rows, top-anchored at the shutter rect.
+                sprite.rect = Some(Rect::new(
+                    r[0] as f32,
+                    top_row as f32,
+                    (r[0] + r[2]) as f32,
+                    (r[1] + r[3]) as f32,
+                ));
+                transform.translation.x = x as f32;
+                transform.translation.y = (layout_h - y) as f32;
                 *visibility = Visibility::Inherited;
             }
             None => *visibility = Visibility::Hidden,

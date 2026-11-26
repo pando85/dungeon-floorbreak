@@ -1,6 +1,6 @@
 # AREA-RINGS-01: the Broken Ring kit of Floor 01 rooms 4a and 4b, design spec
 
-**Status:** design spec and three keys frozen (`ring_arc_wall_a` hero key, `ring_shutter_closed`, `ring_camp_a`). Silhouette gate sheets are in [`docs/evidence/area-rings-01/gate/`](../evidence/area-rings-01/gate/), and the gate verdict is pending. Execution of the rest of the kit, the room dressing and the Bevy wiring is pending (section 13). Independent review is pending. Not owner-approved. Launch: `floor01_scene --scene f01_late --f01-run`, rooms 4a `ring_court` and 4b `ring_split`.
+**Status:** design spec and three keys (`ring_arc_wall_a` hero key, `ring_shutter_closed`, `ring_camp_a`), frozen after the silhouette gate's key edits K1..K4 (section 16). Silhouette gate sheets are in [`docs/evidence/area-rings-01/gate/`](../evidence/area-rings-01/gate/). The rest of the kit, the room dressing and the Bevy wiring are executed (section 13, evidence in [`docs/evidence/area-rings-01/`](../evidence/area-rings-01/README.md)). Independent review is pending. Not owner-approved. Launch: `floor01_scene --scene f01_late --f01-run`, rooms 4a `ring_court` and 4b `ring_split`.
 
 **Route:** difficulty score 2 (a new environment family on the approved ENV-01 kit language, plus a state-keyed shutter), route **B + silhouette gate** ([routing by difficulty](../07-agents/pixel-art-pipeline.md#routing-by-difficulty)). The design step stops at this spec and the three keys. Work order: AREA-RINGS-01 ([playtest integration plan](../07-agents/f01-playtest-integration-plan.md) section 15, row `AREA-RINGS-01`; KR2, KR9, KR14, KR16 and KR17). It also covers the drawing half of RING-D: shutter, soffit and landmark drawing.
 
@@ -64,7 +64,7 @@ Carl is 52 px, about 1.8 m. All coordinates are **room layout pixels** (top-left
 **4a, the Shutter Court.** The court reads as one walk *into* the broken ring:
 1. **Entry (x 0..1012).** The composer's ground arch bays and the gallery stay. The **crowned keystone** sits over the entry door: the first landmark, "you are entering something built".
 2. **The great arc (x 1012..1420).** `ring_arc_wall_a` frames the step, the walkway and the shutter. Its centre x 1216 is the shutter's centre. Its missing segment opens at about x 1300..1380, over the right end of the walkway. Two **fallen voussoirs** lie on the floor back line under the break. The **shutter** fills the arch under the walkway, between two **guide jambs** and under a **slot housing**. The **three-notch shield** is carved on the wall under the walkway, right of the shutter. Fight-relevant reading: the shutter is the darkest, most solid mass in the frame, and its iron shoe is the brightest line in it.
-3. **The full ring (x 1656..1864).** `ring_relief_landmark` is the one complete (broken) ring, entire in a 640 x 360 frame from the floor (KR9). The second goblin fights in front of it. The Donut shelf passes in front of its left side.
+3. **The full ring (x 1656..1864).** `ring_relief_landmark` is the one complete (broken) ring, entire in a 640 x 360 frame from the floor (KR9). The second goblin fights in front of it. The Donut shelf (x 1536..1632) ends 24 px left of the ring (x 1656) and does not overlap it (gate C6).
 4. **Exit (x 1864..2048).** Brick to the `dfx_exit` door.
 5. **Overhead, full width:** the **soffit band** at 336..352 and the **upper arcs** in the 44 px strip above it.
 
@@ -100,9 +100,9 @@ Carl is 52 px, about 1.8 m. All coordinates are **room layout pixels** (top-left
 
 | Piece | Atlas | Size | Layer | Placed at (x, y) | Design |
 | --- | --- | --- | --- | --- | --- |
-| `ring_arc_wall_a` **K** | `floor01_ring_wall` | 408 x 164 | backwall_decal | 4a: 1012, 400 | Three concentric courses of a ring whose centre is 48 px below the piece bottom. Bands, from outside in: outer voussoirs r 184..208 (joints every 7.5°, keystone 4 px proud); groove 3 px; notch band r 167..181 (a 4 px recess every 5°); groove 3 px; inner voussoirs r 148..164 (joints every 9°); cast shadow r 143..148 on the brick. The break is at +31..+51° from the apex, stepped per band, with fracture faces and a ragged mortar rim. The brick shows through the break. Two chain stubs hang at -21° and +17.5°; hairline cracks; lichen only in the bottom 34 rows. |
+| `ring_arc_wall_a` **K** | `floor01_ring_wall` | 408 x 164 | backwall_decal | 4a: 1012, 400 | Three concentric courses of a ring whose centre is 48 px below the piece bottom (stone values shifted one step down after the gate edit K1, section 16). Bands, from outside in: outer voussoirs r 184..208 (joints every 7.5°, keystone 4 px proud); groove 3 px; notch band r 167..181 (a 4 px recess every 5°); groove 3 px; inner voussoirs r 148..164 (joints every 9°); cast shadow r 143..148 on the brick. The break is at +31..+51° from the apex, stepped per band, with fracture faces and a ragged mortar rim. The brick shows through the break. Two chain stubs hang at -21° and +17.5°; hairline cracks; lichen only in the bottom 34 rows. |
 | `ring_arc_wall_b` | `floor01_ring_wall` | 408 x 164 | backwall_decal | 4b: 324, 400 | The same geometry, executed with its own parameters: the break at -48..-30° (left), its own crack and chip seeds, one chain stub at +20°. Not a mirror of `a` (the key light stays upper left). |
-| `ring_relief_landmark` | `floor01_ring_wall` | 208 x 208 | backwall_decal | 4a: 1656, 356 | The one full ring: the key's band profile scaled to r 104 (outer voussoirs 86..104, notch band 74..84, inner voussoirs 60..72). It encloses a recessed inner disc of `stone_cold` 1..2 with one concentric groove and a 10 px centre boss in `stone` 4..6. The missing segment is off-axis at the upper right (+40..+68°); three fallen blocks lie at its foot in the piece's lower right, inside the band. Top at y 356 = `W - 224`, under the soffit and below the KR9 limit of `W - 288`. |
+| `ring_relief_landmark` | `floor01_ring_wall` | 208 x 208 | backwall_decal | 4a: 1656, 356 | The one full ring (gate C2): the key's band order and pitches (7.5°, 5°, 9°) at r 102 (outer voussoirs 84..102, notch band 70..82, inner voussoirs 54..68, grooves 2 px, cast shadow 49..54), so its whole outer circumference lies in rows 0..203 of the piece: no outer-band pixel is hidden by the soffit (top at y 356 >= 352) or by the deck back row (bottom at y 559). The interior is transparent, exactly like the arcs (no disc, no boss). The missing segment is off-axis at the upper right (+40..+68°). Outer diameter 204 px (RNG-AD17). Top at y 356 = `W - 224`, below the KR9 limit of `W - 288`. |
 | `ring_arc_upper_a`, `_b` | `floor01_ring_wall` | 256 x 44 | backwall_decal | both rooms: x = 256 n, y 292 (a, b alternating) | The strip above the soffit: segments of two larger rings (r about 400) crossing as shallow arcs, outer voussoirs and notch band only, values one step darker than the key (in the soffit's shadow). Transparent elsewhere (brick shows). |
 | `ring_keystone_crowned` | `floor01_ring_wall` | 48 x 40 | backwall_decal | 4a and 4b: 216, 440 | Entry landmark (#189 landmark i): a tall keystone with a carved crown of three blunt points. The right point is snapped off and shows a fracture face. Two short side voussoirs. No emblem. |
 | `ring_shield_notched` | `floor01_ring_wall` | 32 x 40 | backwall_decal | 4a: 1256, 524 | #189 landmark ii: a plain shield shape in relief, with three V notches cut in its top edge, carved into a dressed panel on the wall under the walkway, right of the shutter. Stone 4..7, lit on its upper left arrises. |
@@ -118,7 +118,7 @@ Carl is 52 px, about 1.8 m. All coordinates are **room layout pixels** (top-left
 | `ring_shutter_dust_a`, `_b`, `_c` | `floor01_ring_shutter` | 48 x 10 | foreground | (x - 8, lower_edge_y - 6) | Scrape dust at the lower edge while moving, and a floor-contact puff on entering Closed. Stone 5..7 puffs, 1-bit. |
 | `ring_fallen_voussoir_a`, `_b` | `floor01_ring_camp` | 32 x 16, 24 x 14 | prop | 4a: 1328, FB - 16 / 1358, FB - 14 | Broken outer-band blocks lying on the floor, one on its side showing a notch. The same stone values as the key. |
 | `ring_camp_a` **K** | `floor01_ring_camp` | 144 x 72 | prop | 4b: 744, 488 | Section 11.2. |
-| `ring_crates_b` | `floor01_ring_camp` | 56 x 40 | prop | 4b: 992, 520 | Two salvage crates side by side with a coil of rope. It fills the floor below and right of the R3 ledge. Uses the key's crate rules. |
+| `ring_crates_b` | `floor01_ring_camp` | 56 x 28 | prop | 4b: 992, 532 | Two salvage crates side by side with a coil of rope and a canvas corner breaking the top edge. It fills the floor below and right of the R3 ledge. Uses the key's crate rules. At most 28 px tall (gate C5: a 40 px crate top at 520 would read as the R3 ledge's continuation). |
 | `ring_marker_a` | `floor01_ring_camp` | 24 x 56 | prop | 4b: 1048, 504 | **The shared REST-B marker (KR14):** a salvaged pole with a torn strip of the camp canvas tied at the top and the camp lantern hung below it. The lantern matches the key's lantern pixel for pixel. |
 | `ring_tiers_far` | `floor01_ring_parallax` | 440 x 232 | parallax_far | 4a | The far ring seen through the arches: curved colosseum-like tiers in `gal` 2..6 with arched openings, dark grates, and 6..8 single warm lamp pixels (`gal_warm` 5). No figures. It replaces `gallery_far`. |
 | `ring_tiers_mid` | `floor01_ring_parallax` | 344 x 232 | parallax_mid | 4a, 4b | A nearer curved arcade bridge with a balustrade, two stone-toned cloth strips, `gal` 3..7. It replaces `gallery_mid`. |
@@ -140,10 +140,10 @@ The presenter reads only `Shutter::phase()`, `edge_px()`, `lower_edge_y()` and `
 - **One key, no drawn intermediate frames:** every moving frame is an exact crop of `ring_shutter_closed`. Travel strip: [`shutter_travel_4x.png`](../evidence/area-rings-01/gate/shutter_travel_4x.png).
 - **Static court (`RNG-AD6`):** the court's shutter is static closed (`initial: closed`, `cycles` 0). In-scene it shows the closed key only. The moving phases are drawn, wired and unit-tested on a core `Shutter` driven through a full cycle. Their in-scene capture follows RING-C wire (`RNG-OQ3`).
 - **Key design (32 x 68):** four dressed courses of 17 px, so each course matches 17 px of travel:
-  - darker and cooler than the ring relief (stone 2..5);
+  - the darkest, heaviest mass in its frame (gate edit K2): slab body `stone` 2..3, `stone` 4 on the course arrises and the left arris, rivet highlights at most 1 px of `iron` 5, key mean L* at most 19 and at least 8 below the brick beside it;
   - a hard 1 px mortar outline on both sides;
-  - two iron straps with rivets;
-  - a small carved broken-ring roundel in the second course (the court's mark, not a glyph);
+  - two vertical iron straps with rivets, crossed by one horizontal `iron` 3..4 band with a rivet every 6 px in the second course (horizontal = slab, vertical-only = door, gate K3);
+  - **no carved mark of any kind** (K3 removed the roundel; the court's mark is the shield, RNG-AD9);
   - an 8-row iron shoe: lit top row, body, a bright scuffed sweep edge (iron 6, **the lower-edge cue**, #189), and four blunt teeth with transparent gaps;
   - top 3 rows: the slot shadow.
 
@@ -187,10 +187,10 @@ The dressing and the shutter presenter are read-only. The authoritative state is
 ## 10. Readability rules
 
 1. **The shutter is the strongest mass in its frame:**
-   - darker than the arc and the brick around it;
+   - the slab is the darkest mass within 64 px of it, darker than the arc and the brick around it;
    - outlined;
-   - its sweep edge is the brightest line within 64 px of it.
-2. **No arc band, notch or chain falls behind an actor's head line** (`W - 40 .. W - 60`) inside the lane between the step and the exit, except the arc legs at their outer x. The legs are lighter than the brick, so dark actors still separate.
+   - its sweep edge is the brightest line within the shutter column (x - 8 .. x + 40) above the deck (gate C6; the lit deck top and the torch-pool brick are brighter).
+2. **No arc band, notch or chain falls behind an actor's head line** (`W - 40 .. W - 60`) inside the lane between the step and the exit, except the arc legs at their outer x, and the full ring behind the goblin at x 1824 (exception governed by gate C4: the actor's separation on ring stone must be no worse than on plain brick in the same light; the landmark's band is darkened locally behind that head line, measured in the PR).
 3. **Arcs never read as arch openings:** they are always backed by the brick (transparent inside). Their legs end in the deck, and the break shows brick, never the gallery.
 4. **Camp props stay below `FB - 72` and never cover a floor node or an actor spawn.** The camp is behind the actors' layer.
 5. **Parallax tiers stay at least two values darker than the nearest lit brick,** so the opening reads as depth.
@@ -214,12 +214,14 @@ The dressing and the shutter presenter are read-only. The authoritative state is
 | Weathering | Six hairline crack polylines. Chipped outer arris pixels (transparent). Lichen 1 % in the bottom 34 rows. |
 | Grain | Rounded values with a sparse ±1 grain (7 % each way). No screen-wide ordered dither. |
 
+**Gate edit K1 (section 16):** every `stone` index of the key drops by one (floor 1, cap 6: 13 grain pixels that would land on 7 are held at 6), the outer and notch bands of the crown sector (|a| < 30° from the apex, the soffit's shadow) by one more. `mortar`, `iron` and `lichen` stay. The upper arcs take two steps and the other arcs the key's distribution. Measured: arc opaque mean L* 23.2 (was 31.4 unlit palette mean), stone 7 and 8 absent, stone 6 on 1.7 % of the opaque pixels.
+
 ### 11.2 Camp key: `ring_camp_a` (144 x 72)
 
 Read left to right:
 1. a salvaged pole with a lashing;
 2. a torn canvas lean-to: folds every ~9 px, its torn hem facing the lantern, the dark interior open at the floor;
-3. a dull green bedroll with two leather ties, rolled end to the left;
+3. a dull green bedroll (gate K4): a horizontal cylinder with flat top and bottom rows, squared ends, a lighter rolled end on the left with one dark curl line and two dark leather ties, more than half of its length outside the lean-to's dark interior;
 4. two stacked salvage crates with plank gaps, diagonal braces and iron corner brackets, and a strip of the canvas over the top crate's corner;
 5. the **camp lantern** on the top crate: brass frame, `flame` core, a 1-bit `gal_warm` spill;
 6. a tied cloth bundle and a dented pot.
@@ -247,7 +249,7 @@ See section 6.
 
 ## 13. Execution list
 
-1. Extend `scripts/author_rings01.py` with every non-key piece of section 5. **Keys stay byte-identical**; `ring_arc_wall_b` gets its own parameter set. Pack into five atlases: `floor01_ring_wall`, `_structure`, `_shutter`, `_camp`, `_parallax`. Write the manifests (`decor_atlas`, `prototype_fixture_unapproved`, provenance) and `floor01_rings_kit.json` (with `room_dressing` for both rooms).
+1. Extend `scripts/author_rings01.py` with every non-key piece of section 5. **Keys change only by K1..K4 (section 16), then stay byte-identical**; `ring_arc_wall_b` gets its own parameter set. Pack into five atlases: `floor01_ring_wall`, `_structure`, `_shutter`, `_camp`, `_parallax`. Write the manifests (`decor_atlas`, `prototype_fixture_unapproved`, provenance) and `floor01_rings_kit.json` (with `room_dressing` for both rooms).
 2. `src/ring_kit.rs`: a pure dressing loader, `dress()`, and the parallax swap, with tests (section 12.4).
 3. `f01_ring::launch`: build the room kit through the dressing hook.
 4. `src/bin/floor01_scene/env_prop_art.rs`: replace the stand-in with the shutter presenter (section 6). The pure frame selection goes in a headless module with the unit test of section 12.5.
@@ -260,13 +262,13 @@ See section 6.
 
 | File | Content |
 | --- | --- |
-| `scripts/author_rings01.py` | the authoring record (keys now; the rest at execution) |
-| `assets/source/props/floor01/ring_wall.grid.json` + `.ase` | `ring_arc_wall_a` key |
-| `assets/source/props/floor01/ring_shutter.grid.json` + `.ase` | `ring_shutter_closed` key |
-| `assets/source/props/floor01/ring_camp.grid.json` + `.ase` | `ring_camp_a` key |
-| `docs/evidence/area-rings-01/gate/` | silhouette gate sheets: keys and silhouettes at 1x and 4x, the shutter travel strip, the court composite at 1x and 2x and its before still |
-
-At execution, the key grids are packed into the five atlas grids of section 13. The single-key grids are then replaced by their atlases, and the keys' pixels are preserved.
+| `scripts/author_rings01.py` | the authoring record: every piece, the five atlases, the manifests, the contract and the gate sheets |
+| `assets/source/props/floor01/ring_{wall,structure,shutter,camp,parallax}.grid.json` + `.ase` | the five atlas sources (the three keys sit in `ring_wall`, `ring_shutter` and `ring_camp`, pixel for pixel) |
+| `assets/manifests/floor01_ring_*.json` | the five `decor_atlas` manifests, `prototype_fixture_unapproved` |
+| `assets/source/terrain/floor01/floor01_rings_kit.json` | the `env-kit-v2` contract: pieces and the per-room `room_dressing` |
+| `src/ring_kit.rs`, `src/ring_shutter_art.rs` | the pure dressing loader and the shutter frame selector (headless, tested); the Bevy half is `src/bin/floor01_scene/env_prop_art.rs` |
+| `scripts/make_rings01_evidence.sh`, `make_rings01_sheets.py`, `measure_rings01.py` | the capture script, the offline sheets and the lit-render measurements |
+| `docs/evidence/area-rings-01/` | the real captures, the sheets, the measurements and `gate/` (the gate sheets: keys and silhouettes at 1x and 4x, the shutter travel strip, the court composite, the measured K1/K2 numbers) |
 
 ## 15. Adopted defaults and open questions
 
@@ -288,6 +290,9 @@ At execution, the key grids are packed into the five atlas grids of section 13. 
 | RNG-AD14 | Distant survivors are `survivor_silhouette_a..d`: flat `gal` 0..1, at most 24 px, no faces, at most two per piece, only in `ring_breach_r3` and `ring_camp_far`. | KR14, KR16. |
 | RNG-AD15 | The concept's red hanging banners are dropped. Torn canvas in stone tones carries the cloth motif. | Distinct from the Ball of Swine arena (#189); no marks. |
 | RNG-AD16 | `door_timber` (composer, x 216) stays in both rooms under the crowned keystone. The composer's exit marker stays suppressed by `room_exit_art` (`dfx_exit`). | Reuse; the entry reads as a door into the ring. |
+| RNG-AD17 | The full ring's outer diameter is 204 px (r 102; the piece is 208 x 208 and its last four rows are empty), under #189's 250..400 px apparent diameter. | The soffit underside (`W - 228`) and the deck back row (`W - 20`) leave 208 px of clear height, and the gate's C2a needs the whole outer circumference visible. The divergence from #189 is recorded here; owner review under RNG-OQ5. |
+| RNG-AD18 | The Ring rooms take a `--ring-pilot` flag for evidence: the scripted run plays the library pilot (`f01_ring_fixtures::pilot`) instead of the walk-right script. It touches no sim state and exists only in scripted runs. | The Ring rooms have no `--room-pilot`, and the walk-right script stops at the closed shutter, so no capture could stand a hero at the full ring or the exit. |
+| RNG-AD19 | The ledge end caps are opaque (a darker return face and dark corner pixels), not transparent-cornered; the soffit, ledge, jamb, housing and shield pieces carry one nicked pixel so each holds the transparent pixel the kit validator requires. | The caps overlap the first and last 8 px of the run, so a transparent corner would show the square tile under it; the nick is a chip in the shadowed row. |
 
 | ID | Open question | Default until answered |
 | --- | --- | --- |
@@ -301,7 +306,8 @@ At execution, the key grids are packed into the five atlas grids of section 13. 
 
 | Step | Result |
 | --- | --- |
-| Keys and spec | Frozen. Every key validates: `scripts/validate_assets.py` has 0 invalid, the `test_art_*` suite passes (1055 tests, 1 skipped), and `scripts/check_docs.py` passes. |
-| Silhouette gate | Pending: a fresh top-tier agent compares the keys against the concept crop. |
-| Execution | Pending (section 13). |
+| Keys and spec | Drawn and frozen on the first pass; frozen again after the gate edits below. |
+| Silhouette gate | Verdict **FREEZE-with-notes** (a fresh top-tier agent compared the keys against the concept panel at 1x in the lit scene; the gate reviewer is the design authority for exactly the edits below, so no new design round was needed). **K1** `ring_arc_wall_a`: every `stone` index drops one step (floor 1), one more on the outer and notch bands of the crown sector, so the arc sits back behind the walkway. **K2** `ring_shutter_closed`: slab face base value 3.7..4.2 down to 2.2..2.7 (the darkest, heaviest mass in the frame). **K3** the shutter's carved roundel is removed (horizontal iron band instead: horizontal = slab, vertical-only = door). **K4** `ring_camp_a`: the bedroll redrawn as a horizontal cylinder mostly outside the lean-to's dark interior. Constraints **C1..C8** are applied in sections 5, 6, 10, 11, 13 and 15 (RNG-AD17) and checked below. Executor notes on K1 and K2: K1 holds stone at 6 or less (13 grain pixels of the key would land on 7), and K2's slab stone is held at 4 or less (the gate's "stone 4 on the arrises, 5 only on 1 px rivets"). The measured numbers are in `docs/evidence/area-rings-01/gate/measurements.txt`. |
+| Execution | Done: every piece of section 5 in `scripts/author_rings01.py`, the five atlases and manifests, `floor01_rings_kit.json`, `src/ring_kit.rs` (dressing and parallax swap through `f01_boiler::compose_kit_hooked`), `src/ring_shutter_art.rs` (the section 6 table and the phase clock), the scene presenter, `--ring-pilot` evidence flag (RNG-AD18) and the evidence under `docs/evidence/area-rings-01/`. Checks on the final head: `cargo fmt --check`, `cargo clippy --locked --all-targets -- -D warnings`, `cargo test --locked --all-targets --no-fail-fast` (3704 passed, 0 failed), `python3 scripts/check_docs.py`, `python3 scripts/validate_assets.py` (0 invalid), `test_art_*` (1072 tests, 1 skipped) and `test_pixelart_*` (111 tests), `scripts/env_kit.py validate --contract assets/source/terrain/floor01/floor01_rings_kit.json`, `bash scripts/export_assets.sh` twice (rc 0, tree clean after the second run), `scripts/ci_floor01_combat.sh headless` and `render` (hash equality), `scripts/check_f01_owner_commands.sh`, and 33 captures twice byte-identical with the window hash equal to the headless hash. |
+| Design notes returned | The crowned keystone floats in the bay opening, and the full ring is overlapped by the bay's pier and arch ring and shows the parallax gallery, not brick (see the evidence README). Not decided here. |
 | Independent review | Pending. |

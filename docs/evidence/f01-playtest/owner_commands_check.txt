@@ -2,6 +2,9 @@
 [ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-run
 [ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-run --f01-loadout all
 [refuse] refused (exit 2): floor01_scene: --f01-run takes no --cf02-seed: launch a seeded room on its own with --f01-room :: floor01_scene --scene f01_late --scale 2 --f01-run --cf02-seed 3
+[ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-run --f01-room ring_court
+[ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-run --f01-room ring_split
+[refuse] refused (exit 2): floor01_scene: --ring-pilot needs a Ring room (--scene f01_late --f01-room ring_court or ring_split) :: floor01_scene --scene f01_late --scale 2 --f01-room hoarder --ring-pilot
 [ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room corral
 [ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room hoarder
 [ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room boiler
