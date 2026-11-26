@@ -1,11 +1,11 @@
-Local check list on the final code head of ACT1-A (debug build, no GitHub CI wait; review-fix head 7c324eb5, later commits are evidence and docs only):
+Local check list on the final code head of ACT1-B (debug build, no GitHub CI wait; code head f64f01b2 (the review-fix head; rebased on main ddeedd3d), later commits are evidence and docs only):
 cargo fmt --all -- --check                                  OK
 cargo clippy --locked --all-targets -- -D warnings          OK (no warnings)
-cargo test --locked --all-targets --no-fail-fast            OK: 3893 passed, 0 failed, 35 ignored (evidence helpers) over every target; lib 3779 passed
-python3 scripts/check_docs.py                               OK
-scripts/ci_floor01_combat.sh headless                       OK (F01_LATE_HEADLESS_OK lists the fourteen rooms; F01_ACT1_SHORE_HEADLESS_OK and F01_ACT1_GUILD_HEADLESS_OK; every committed DP, DOZR and legacy replay byte-identical)
-scripts/ci_floor01_combat.sh render (xvfb 1920x1080x24)     OK
-scripts/check_f01_owner_commands.sh                         OK (0 FAILED lines; the loop also launches act1_shore and act1_guild, the Act I pilot refusals and the unknown-room refusal listing the fourteen rooms; one earlier run hit an xvfb-run teardown race while two xvfb sessions ran at once and passed on the rerun)
+cargo test --locked --all-targets --no-fail-fast            OK: 3954 passed, 0 failed, 38 ignored (evidence helpers) over every target; lib 3840 passed
+python3 scripts/check_docs.py                               OK (after this file's checksums were regenerated)
+scripts/ci_floor01_combat.sh headless                       OK (F01_LATE_HEADLESS_OK lists the fifteen rooms; F01_ACT1_CHASE_HEADLESS_OK, F01_ACT1_SHORE_HEADLESS_OK and F01_ACT1_GUILD_HEADLESS_OK; a bare floor run starts in the chase; every committed DP, DOZR and legacy replay byte-identical)
+scripts/ci_floor01_combat.sh render (xvfb 1920x1080x24)     OK (one run hit an unrelated cp01_single_goblin xvfb flake with an empty render output; the rerun passed)
+scripts/check_f01_owner_commands.sh                         OK (0 FAILED lines; the loop also launches act1_chase, the chase pilots and refusals and the unknown-room refusal listing the fifteen rooms; the first run failed only because the corral_eval binary was not linked into target/debug, the rerun passed)
 validate_assets.py / art unittests                          not run: no art or asset beyond assets/levels and assets/data was touched
 Real two-pad run                                            NOT RUN
 Human first-run time                                        NOT RUN

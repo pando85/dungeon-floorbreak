@@ -52,7 +52,7 @@ pub const MANIFEST_PATH: &str = "assets/levels/f01_late/manifest.json";
 /// hash is a constant, pinned to the file by a test and compared by every
 /// replay of a recorded room. A step that lists a room (CORRAL-WIRE, RING-A
 /// wire, HRD-A2, CORRAL-F, DR-A, ...) re-pins it on purpose.
-pub const MANIFEST_HASH: u64 = 0x9f2e_dc09_b49e_0f08;
+pub const MANIFEST_HASH: u64 = 0xd213_db6d_b329_d342;
 /// The fixture-only stub trigger the story-order tie skips by name.
 pub const STUB_TRIGGER: &str = "carl_prog_find_zone_stub";
 /// The `data_pins()` key.
@@ -79,7 +79,7 @@ pub const fn data_pins() -> [(&'static str, u64); 1] {
 /// stamps nor needs them, so a later edit of the manifest (every room step) or of
 /// the Boiler files (BOIL-B/C wire) fails only the recordings it can change; a
 /// Juicer recording needs the manifest hash and not the Boiler's.
-pub const SCOPED_PIN_KEYS: [&str; 29] = [
+pub const SCOPED_PIN_KEYS: [&str; 32] = [
     f01_boiler::ROOM_PIN_KEY,
     f01_boiler::ENCOUNTER_PIN_KEY,
     f01_boiler::fixes::PIN_KEY,
@@ -108,6 +108,9 @@ pub const SCOPED_PIN_KEYS: [&str; 29] = [
     f01_act1::SHORE_ENCOUNTER_PIN_KEY,
     f01_act1::GUILD_ROOM_PIN_KEY,
     f01_act1::GUILD_ENCOUNTER_PIN_KEY,
+    f01_act1::CHASE_ROOM_PIN_KEY,
+    f01_act1::CHASE_ENCOUNTER_PIN_KEY,
+    crate::dozer::OPENING_PIN_KEY,
     MANIFEST_PIN_KEY,
 ];
 
@@ -120,10 +123,16 @@ pub fn pin_applies(key: &str, room: Option<&str>) -> bool {
             room == Some("boiler")
         }
         f01_hoarder::ROOM_PIN_KEY | f01_hoarder::ENCOUNTER_PIN_KEY => room == Some("hoarder"),
-        // DR-A (DRA-AD1): the machine lives only in room 3, so its tuning pin is
-        // scoped with the room's files (no recording of another room needs it).
-        f01_dozer::ROOM_PIN_KEY | f01_dozer::ENCOUNTER_PIN_KEY | crate::dozer::PIN_KEY => {
-            room == Some("dozer")
+        // DR-A (DRA-AD1): the machine lives in room 3, so its room files are scoped to it
+        // (no recording of another room needs them).
+        f01_dozer::ROOM_PIN_KEY | f01_dozer::ENCOUNTER_PIN_KEY => room == Some("dozer"),
+        // ACT1-B: the shared machine values (`enemy_dozer_v0.json`) run in room 3 and in the
+        // chase, whose opening profile merges its own values over them.
+        crate::dozer::PIN_KEY => room == Some("dozer") || room == Some(Act1Room::Chase.id()),
+        // ACT1-B: the opening values run only in the chase.
+        crate::dozer::OPENING_PIN_KEY => room == Some(Act1Room::Chase.id()),
+        f01_act1::CHASE_ROOM_PIN_KEY | f01_act1::CHASE_ENCOUNTER_PIN_KEY => {
+            room == Some(Act1Room::Chase.id())
         }
         f01_hazards::ROOM_PIN_KEY | f01_hazards::ENCOUNTER_PIN_KEY => room == Some("hazards"),
         f01_mastery::ROOM_PIN_KEY | f01_mastery::ENCOUNTER_PIN_KEY => room == Some("mastery"),
@@ -207,6 +216,10 @@ pub enum RoomScene {
     /// REST-WIRE: the quiet room after the Juicer (REST-C), before the mastery arena.
     #[serde(rename = "f01_rest_aftermath")]
     RestAftermath,
+    /// ACT1-B: Act I's chase ("The First Chase", the Murder Dozer opening); launched
+    /// through `--scene f01_late` only, listed first.
+    #[serde(rename = "f01_act1_chase")]
+    Act1Chase,
     /// ACT1-A: Act I's shore ("The Rotten Shore"); launched through `--scene f01_late`
     /// only, listed before the corral.
     #[serde(rename = "f01_act1_shore")]
@@ -234,6 +247,7 @@ impl RoomScene {
             Self::RestRefuge => RestRoom::Refuge.scene_name(),
             Self::RestCamp => RestRoom::Camp.scene_name(),
             Self::RestAftermath => RestRoom::Aftermath.scene_name(),
+            Self::Act1Chase => Act1Room::Chase.scene_name(),
             Self::Act1Shore => Act1Room::Shore.scene_name(),
             Self::Act1Guild => Act1Room::Guild.scene_name(),
         }
@@ -242,6 +256,7 @@ impl RoomScene {
     /// The Act I room this scene runs, if it is one (ACT1-A).
     pub const fn act1(self) -> Option<Act1Room> {
         match self {
+            Self::Act1Chase => Some(Act1Room::Chase),
             Self::Act1Shore => Some(Act1Room::Shore),
             Self::Act1Guild => Some(Act1Room::Guild),
             _ => None,
@@ -252,7 +267,10 @@ impl RoomScene {
     /// (ACT1-AD1). Its sidecar's `story_pin` is a label with no table row, and a Story
     /// run carries an empty ledger into it ([`crate::f01_run`]).
     pub const fn story_less(self) -> bool {
-        matches!(self, Self::Corral | Self::Act1Shore | Self::Act1Guild)
+        matches!(
+            self,
+            Self::Corral | Self::Act1Chase | Self::Act1Shore | Self::Act1Guild
+        )
     }
 
     /// The quiet room this scene runs, if it is one (REST-WIRE).
@@ -543,6 +561,7 @@ fn check_rules(row: &RoomRow) -> Result<(), String> {
         | RoomScene::RestRefuge
         | RoomScene::RestCamp
         | RoomScene::RestAftermath
+        | RoomScene::Act1Chase
         | RoomScene::Act1Shore
         | RoomScene::Act1Guild
         | RoomScene::Corral => row.rules == RoomRules::Cf02,
@@ -1018,6 +1037,7 @@ mod tests {
         assert_eq!(
             m.listed(),
             [
+                "act1_chase",
                 "act1_shore",
                 "act1_guild",
                 "corral",
@@ -1043,7 +1063,7 @@ mod tests {
             (RoomRules::Cf02, "greybox")
         );
         assert_eq!(refuge.title, "The Wrong Restaurant");
-        assert_eq!(m.rooms[3].id, "rest_refuge", "right after the corral");
+        assert_eq!(m.rooms[4].id, "rest_refuge", "right after the corral");
         // FA-Q24 (reverses PTG-AD1): the Hoarder is listed first in the story, and the
         // default room stays the Boiler.
         assert_eq!(m.default_room().id, "boiler");
@@ -1076,7 +1096,7 @@ mod tests {
         // rooms, at milestone `greybox`, and launches the same way it did unlisted
         // (CORRAL-WIRE).
         let corral = m.room("corral").unwrap();
-        assert_eq!(m.rooms[2].id, "corral");
+        assert_eq!(m.rooms[3].id, "corral");
         assert_eq!(corral.scene, RoomScene::Corral);
         assert_eq!(corral.rules, RoomRules::Cf02);
         assert_eq!(corral.milestone, "greybox");
@@ -1111,15 +1131,15 @@ mod tests {
     #[test]
     fn the_corral_is_listed_first_and_the_unlisted_rows_are_checked() {
         let base = manifest();
-        let corral = base.rooms[2].clone();
+        let corral = base.rooms[3].clone();
         assert_eq!(corral.id, "corral");
         assert!(base.validate(table()).is_ok());
-        // The Act I rooms swapped: out of order.
+        // The Act I rooms swapped (the chase and the shore): out of order.
         let mut m = base.clone();
         m.rooms.swap(0, 1);
         let err = m.validate(table()).unwrap_err();
         assert!(err.contains("out of story order"), "{err}");
-        // Story order is checked first (the story order lists the shore before the guild), so
+        // Story order is checked first (the story order lists the chase before the shore), so
         // swap the rows of the order too: ACT1-F alone then rejects the swap.
         let mut m = base.clone();
         m.rooms.swap(0, 1);
@@ -1131,8 +1151,8 @@ mod tests {
         );
         // The corral first, the Act I rooms after it: an Act I room listed after the corral.
         let mut m = base.clone();
-        let shore = m.rooms.remove(0);
-        m.rooms.insert(2, shore);
+        let shore = m.rooms.remove(1);
+        m.rooms.insert(3, shore);
         let at = m
             .story_order
             .iter()
@@ -1145,8 +1165,8 @@ mod tests {
         assert!(err.contains("ACT1-F (CORRAL-F)"), "{err}");
         // A non-Act-I room between the Act I rooms and the corral.
         let mut m = base.clone();
-        let refuge = m.rooms.remove(3);
-        m.rooms.insert(2, refuge);
+        let refuge = m.rooms.remove(4);
+        m.rooms.insert(3, refuge);
         let at = m
             .story_order
             .iter()
@@ -1162,7 +1182,7 @@ mod tests {
         );
         // The corral missing (every Act I room stays): rejected.
         let mut m = base.clone();
-        m.rooms.remove(2);
+        m.rooms.remove(3);
         m.story_order.retain(|o| o.id != "corral");
         assert!(
             m.validate(table())
@@ -1172,7 +1192,7 @@ mod tests {
         // With no Act I room listed the rule is CORRAL-F: the corral first, and nothing else
         // may precede it.
         let mut m = base.clone();
-        m.rooms.drain(..2);
+        m.rooms.drain(..3);
         m.story_order.retain(|o| !o.id.starts_with("act1_"));
         // (the guild row carried the biscuit grant: put it back as a point so the order holds)
         m.story_order.insert(
@@ -1200,7 +1220,7 @@ mod tests {
         );
         // The corral unlisted (an unlisted launchable row) while the Act I rooms stay: ACT1-F.
         let mut m = base.clone();
-        m.rooms.remove(2);
+        m.rooms.remove(3);
         m.unlisted_rooms.push(corral.clone());
         assert!(
             m.validate(table())
@@ -1475,6 +1495,7 @@ mod tests {
         assert_eq!(
             m.listed(),
             [
+                "act1_chase",
                 "act1_shore",
                 "act1_guild",
                 "corral",
@@ -1533,10 +1554,17 @@ mod tests {
     #[test]
     fn the_act1_rooms_are_listed_first_in_story_order() {
         let m = manifest();
-        assert_eq!(&m.listed()[..3], ["act1_shore", "act1_guild", "corral"]);
+        assert_eq!(
+            &m.listed()[..4],
+            ["act1_chase", "act1_shore", "act1_guild", "corral"]
+        );
         let order: Vec<&str> = m.story_order.iter().map(|o| o.id.as_str()).collect();
-        assert_eq!(&order[..3], ["act1_shore", "act1_guild", "corral"]);
+        assert_eq!(
+            &order[..4],
+            ["act1_chase", "act1_shore", "act1_guild", "corral"]
+        );
         for (id, scene, title) in [
+            ("act1_chase", RoomScene::Act1Chase, "The First Chase"),
             ("act1_shore", RoomScene::Act1Shore, "The Rotten Shore"),
             ("act1_guild", RoomScene::Act1Guild, "The Guild Door"),
         ] {
@@ -1928,6 +1956,7 @@ mod tests {
                     "ring_split",
                     "rest_camp",
                     "rest_aftermath",
+                    "act1_chase",
                     "act1_shore",
                     "act1_guild"
                 ]
@@ -1986,8 +2015,8 @@ mod tests {
             if key == f01_boiler::fixes::PIN_KEY {
                 return Some("boiler");
             }
-            if key == crate::dozer::PIN_KEY {
-                return Some("dozer");
+            if key == crate::dozer::OPENING_PIN_KEY {
+                return Some("act1_chase");
             }
             [
                 (
@@ -2050,6 +2079,13 @@ mod tests {
                     ],
                 ),
                 (
+                    "act1_chase",
+                    [
+                        f01_act1::CHASE_ROOM_PIN_KEY,
+                        f01_act1::CHASE_ENCOUNTER_PIN_KEY,
+                    ],
+                ),
+                (
                     "act1_shore",
                     [
                         f01_act1::SHORE_ROOM_PIN_KEY,
@@ -2082,13 +2118,19 @@ mod tests {
             Some("rest_refuge"),
             Some("rest_camp"),
             Some("rest_aftermath"),
+            Some("act1_chase"),
             Some("act1_shore"),
             Some("act1_guild"),
         ] {
             for key in SCOPED_PIN_KEYS {
-                let covered = match owner(key) {
-                    Some(own) => room == Some(own),
-                    None => room.is_some(),
+                // ACT1-B: the shared machine values apply to room 3 and to the chase.
+                let covered = if key == crate::dozer::PIN_KEY {
+                    room == Some("dozer") || room == Some("act1_chase")
+                } else {
+                    match owner(key) {
+                        Some(own) => room == Some(own),
+                        None => room.is_some(),
+                    }
                 };
                 assert_eq!(pin_applies(key, room), covered, "{key} {room:?}");
                 assert_eq!(pin_is_scoped_out(key, room), !covered, "{key} {room:?}");

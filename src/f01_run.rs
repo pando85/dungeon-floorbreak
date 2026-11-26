@@ -606,10 +606,14 @@ mod tests {
             seen.push(row.id);
         }
         assert_eq!(seen, manifest.listed());
-        // ACT1-F (CORRAL-F): the run starts in the first Act I room, walks the shore, the guild
-        // and the corral; REST-WIRE: it walks on from the corral to the refuge, and the refuge
-        // to the Hoarder.
-        assert_eq!(first_room(&manifest).id, "act1_shore");
+        // ACT1-F (CORRAL-F): the run starts in the first Act I room (the chase, ACT1-B), walks
+        // the shore, the guild and the corral; REST-WIRE: it walks on from the corral to the
+        // refuge, and the refuge to the Hoarder.
+        assert_eq!(first_room(&manifest).id, "act1_chase");
+        assert_eq!(
+            next_room(&manifest, "act1_chase").unwrap(),
+            NextStep::Room(manifest.room("act1_shore").unwrap().clone())
+        );
         assert_eq!(
             next_room(&manifest, "act1_shore").unwrap(),
             NextStep::Room(manifest.room("act1_guild").unwrap().clone())
@@ -626,12 +630,13 @@ mod tests {
             next_room(&manifest, "rest_refuge").unwrap(),
             NextStep::Room(manifest.room("hoarder").unwrap().clone())
         );
-        // The listed rooms in story order, ACT1-A and REST-WIRE (REST-A, REST-B, REST-C):
-        // fourteen rooms, the shore and the guild first, the camp after the Ring, the aftermath
-        // after the Juicer, mastery ends the run.
+        // The listed rooms in story order, ACT1-A, ACT1-B and REST-WIRE (REST-A, REST-B,
+        // REST-C): fifteen rooms, the chase, the shore and the guild first, the camp after the
+        // Ring, the aftermath after the Juicer, mastery ends the run.
         assert_eq!(
             seen,
             [
+                "act1_chase",
                 "act1_shore",
                 "act1_guild",
                 "corral",
@@ -680,21 +685,22 @@ mod tests {
             "id": "cellar", "title": "A Made-Up Room", "scene": "f01_boiler",
             "rules": "cf02_rules", "milestone": "greybox"
         });
-        rooms.insert(7, made_up);
+        rooms.insert(8, made_up);
         let order = value["story_order"].as_array_mut().unwrap();
         let at = order.iter().position(|o| o["id"] == "dozer").unwrap();
         let mut row = order[at].clone();
         row["id"] = "cellar".into();
         order.insert(at + 1, row);
         let manifest = Manifest::from_json(&value.to_string(), StoryTable::active()).unwrap();
-        assert_eq!(first_room(&manifest).id, "act1_shore");
-        let mut seen = vec!["act1_shore".to_owned()];
+        assert_eq!(first_room(&manifest).id, "act1_chase");
+        let mut seen = vec!["act1_chase".to_owned()];
         while let NextStep::Room(row) = next_room(&manifest, seen.last().unwrap()).unwrap() {
             seen.push(row.id);
         }
         assert_eq!(
             seen,
             [
+                "act1_chase",
                 "act1_shore",
                 "act1_guild",
                 "corral",
@@ -712,8 +718,8 @@ mod tests {
                 "mastery"
             ]
         );
-        assert_eq!(room_index(&manifest, "dozer"), Some((7, 15)));
-        assert_eq!(room_index(&manifest, "cellar"), Some((8, 15)));
+        assert_eq!(room_index(&manifest, "dozer"), Some((8, 16)));
+        assert_eq!(room_index(&manifest, "cellar"), Some((9, 16)));
     }
 
     #[test]
@@ -825,7 +831,7 @@ mod tests {
         let listed = manifest.listed();
         // ACT1-A: the Act I rooms come first, so the broadcast is off in them as in the corral.
         let corral = listed.iter().position(|r| *r == "corral").unwrap();
-        assert_eq!(listed[..corral], ["act1_shore", "act1_guild"]);
+        assert_eq!(listed[..corral], ["act1_chase", "act1_shore", "act1_guild"]);
         for room in &listed[..=corral] {
             assert!(!audience_live_in(&manifest, room), "{room}");
         }
@@ -1125,6 +1131,76 @@ mod tests {
         assert!(!RoomScene::Boiler.story_less());
     }
 
+    /// ACT1-B: the chase is the run's first room: its exit relaunches into the shore carrying the
+    /// empty ledger under the Story loadout (a story-less scene), and nothing under All; the panel
+    /// reports no grant and the broadcast is off (the audience goes live after the corral).
+    #[test]
+    fn the_chase_exit_relaunches_into_the_shore() {
+        let manifest = manifest();
+        let argv = argv(&["floor01_scene", "--scene", "f01_late", "--f01-run"]);
+        let chase_row = manifest.room("act1_chase").unwrap().clone();
+        let (chase, snapshot) = room_run(&chase_row, None);
+        assert_eq!(first_room(&manifest).id, "act1_chase");
+        let snapshot = snapshot.expect("a story-less room carries the empty ledger");
+        assert!(snapshot.held.is_empty() && snapshot.receipts.is_empty());
+        let input = ExitInput {
+            manifest: &manifest,
+            room: "act1_chase",
+            loadout: Loadout::Story,
+            combat: &chase,
+            carried: None,
+            tally: RunTally::default(),
+            argv: &argv,
+            recording: "REC",
+            audience: None,
+            audience_enabled: true,
+        };
+        let (facts, panel, decision) = on_exit(&input).unwrap();
+        assert!(facts.grants.is_empty(), "the chase grants nothing");
+        assert_eq!(room_index(&manifest, "act1_chase"), Some((1, 15)));
+        assert!(
+            panel
+                .heading
+                .starts_with("ROOM 1/15 CLEARED: THE FIRST CHASE"),
+            "{}",
+            panel.heading
+        );
+        assert!(
+            panel.lines[3].contains("The Rotten Shore (story ledger carried)"),
+            "{:?}",
+            panel.lines
+        );
+        assert!(!panel.lines.contains(&BROADCAST_LINE.to_owned()));
+        let Decision::Relaunch { room, argv: next } = decision else {
+            panic!("the chase leads on");
+        };
+        assert_eq!(room, "act1_shore");
+        let carry = next.iter().position(|a| a == FLAG_CARRY).unwrap();
+        let carried = decode_carry(&next[carry + 1]).unwrap();
+        assert!(carried.held.is_empty() && carried.receipts.is_empty());
+        let (carl, donut) = Loadout::Story.flags();
+        let (_, _, mut shore) = crate::f01_late::act1_start(
+            &root(),
+            crate::f01_act1::Act1Room::Shore,
+            360,
+            carl,
+            donut,
+            None,
+        )
+        .unwrap();
+        shore.carry_story(&carried).unwrap();
+        // Under the All loadout nothing is carried.
+        let all = ExitInput {
+            loadout: Loadout::All,
+            ..input
+        };
+        let (_, panel, Decision::Relaunch { argv: next, .. }) = on_exit(&all).unwrap() else {
+            panic!("relaunch");
+        };
+        assert!(!next.iter().any(|a| a == FLAG_CARRY));
+        assert!(panel.lines[3].contains("TEST LOADOUT, nothing carried"));
+    }
+
     /// ACT1-A: the run walks the Act I rooms: the shore's exit relaunches into the guild, the
     /// guild's (with the biscuit on its panel) into the corral, each carrying the empty ledger
     /// (ACT1-T12, the walk of the first rooms).
@@ -1150,11 +1226,11 @@ mod tests {
         let (facts, panel, decision) = on_exit(&shore_input).unwrap();
         assert!(facts.grants.is_empty(), "the shore grants nothing");
         let (at, count) = room_index(&manifest, "act1_shore").unwrap();
-        assert_eq!((at, count), (1, 14));
+        assert_eq!((at, count), (2, 15));
         assert!(
             panel
                 .heading
-                .starts_with("ROOM 1/14 CLEARED: THE ROTTEN SHORE"),
+                .starts_with("ROOM 2/15 CLEARED: THE ROTTEN SHORE"),
             "{}",
             panel.heading
         );
@@ -1191,7 +1267,7 @@ mod tests {
         assert!(
             panel
                 .heading
-                .starts_with("ROOM 2/14 CLEARED: THE GUILD DOOR"),
+                .starts_with("ROOM 3/15 CLEARED: THE GUILD DOOR"),
             "{}",
             panel.heading
         );
@@ -1331,10 +1407,24 @@ mod tests {
                     .unwrap()
                     .combat
             }
-            // ACT1-A: the Act I rooms open the run. The shore opens it (nothing carried); the
-            // guild is read after its crossing, so its panel fact (the biscuit) shows.
+            // ACT1: the Act I rooms open the run. The chase opens it (nothing carried), the
+            // shore follows it with an empty carry; the guild is read after its crossing, so its
+            // panel fact (the biscuit) shows.
+            RoomScene::Act1Chase => {
+                assert!(carry.is_none(), "the chase is the run's first room");
+                crate::f01_late::act1_start(
+                    &root(),
+                    crate::f01_act1::Act1Room::Chase,
+                    360,
+                    carl,
+                    donut,
+                    None,
+                )
+                .unwrap()
+                .2
+            }
             RoomScene::Act1Shore => {
-                assert!(carry.is_none(), "the shore is the run's first room");
+                assert!(carry.is_none_or(|c| c.held.is_empty() && c.receipts.is_empty()));
                 crate::f01_late::act1_start(
                     &root(),
                     crate::f01_act1::Act1Room::Shore,
@@ -1631,6 +1721,7 @@ mod tests {
             let facts = RoomFacts::of(row, &combat, carry.as_ref());
             grants.push((row.id.clone(), facts.grants.clone()));
             if ![
+                "act1_chase",
                 "act1_shore",
                 "act1_guild",
                 "hoarder",

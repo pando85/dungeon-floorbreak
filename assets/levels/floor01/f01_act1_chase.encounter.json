@@ -1,0 +1,46 @@
+{
+  "schema": "floor01-encounter-v1",
+  "status": "ACT1-B data (docs/01-design/floor-01-act-01-integration.md section 4.1, ACT1-AD1..AD19): the first chase, one dozer under profile opening (DOZER-CORE with the opening tuning), a barricade lock that only the machine opens (dozer_contact), two humps and the pocket ledge as 16 px solid statics, goal reach_exit. Validated by src/encounter.rs (the opening rules O1..O10), launched as the room act1_chase of --scene f01_late (src/f01_act1.rs). The story pin is a label with no table row. Greybox hypotheses; every number is a tuning knob. Coordinates are layout pixels, y down, like the room file.",
+  "id": "F01-ACT1-CHASE-ENC",
+  "room_file": "f01_act1_chase.room.json",
+  "room_id": "F01-ACT1-CHASE",
+  "story_pin": "f01_pin_act1_chase_entry",
+  "goal": "reach_exit",
+  "grants": [],
+  "max_living": 1,
+  "locks": [
+    {
+      "id": "barricade",
+      "solid": { "x": 2312, "y": 304, "w": 80, "h": 276 },
+      "opens_on": { "event": "dozer_contact" }
+    }
+  ],
+  "platform_slab_px": 12,
+  "protected_spawn": { "x": 16, "y": 484, "w": 208, "h": 96 },
+  "checkpoint": { "x": 984, "y": 484, "w": 48, "h": 96 },
+  "exit": { "x": 2928, "y": 484, "w": 64, "h": 96 },
+  "props": [],
+  "hazards": [],
+  "links": [],
+  "roster": [
+    { "id": "dozer", "kind": "dozer", "x": 888, "beat": "I02" }
+  ],
+  "gates": [],
+  "vantages": [],
+  "statics": [
+    { "id": "hump_a", "kind": "solid", "rect": { "x": 1168, "y": 564, "w": 64, "h": 16 } },
+    { "id": "hump_b", "kind": "solid", "rect": { "x": 1456, "y": 564, "w": 64, "h": 16 } },
+    { "id": "alcove_ledge", "kind": "solid", "rect": { "x": 2064, "y": 564, "w": 96, "h": 16 } }
+  ],
+  "dozer": {
+    "profile": "opening",
+    "dzq11_trigger_x": 1072,
+    "dzq11_trigger_by": "rearmost",
+    "dzq11_idle_trigger_ticks": 216000,
+    "dzq13_emerge_front_x": 888,
+    "dzq14_stop_x": 2856,
+    "pockets": [{ "id": "alcove", "rect": { "x": 2072, "y": 460, "w": 80, "h": 104 }, "ledge": "alcove_ledge" }],
+    "timbers": [{ "id": "timber_a", "x": 1104 }, { "id": "timber_b", "x": 1424 }],
+    "wedge": true
+  }
+}

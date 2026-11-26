@@ -295,6 +295,20 @@ pub fn data_pins() -> Vec<(&'static str, u64)> {
             crate::f01_rest::AFTERMATH_ENCOUNTER_PIN_KEY,
             crate::f01_rest::AFTERMATH_ENCOUNTER_HASH,
         ),
+        // ACT1-B: the chase's room and sidecar pins and the opening tuning, each scoped to the
+        // chase (the shared machine values are `dozer::PIN_KEY`, registered with room 3).
+        (
+            crate::f01_act1::CHASE_ROOM_PIN_KEY,
+            crate::f01_act1::CHASE_ROOM_HASH,
+        ),
+        (
+            crate::f01_act1::CHASE_ENCOUNTER_PIN_KEY,
+            crate::f01_act1::CHASE_ENCOUNTER_HASH,
+        ),
+        (
+            crate::dozer::OPENING_PIN_KEY,
+            crate::dozer::OPENING_TUNING_HASH,
+        ),
         // ACT1-A: the shore's and the guild's room and sidecar pins, each scoped to its room.
         (
             crate::f01_act1::SHORE_ROOM_PIN_KEY,

@@ -1271,7 +1271,7 @@ fn a_wave_room_with_a_slime_and_no_pocket_is_still_refused() {
 /// hash is its pin. The existing negative tests above pass unedited.
 #[test]
 fn non_wave_sidecars_validate_identically() {
-    let pins: [(&str, u64); 11] = [
+    let pins: [(&str, u64); 12] = [
         (BOILER_ENCOUNTER_PATH, crate::f01_boiler::ENCOUNTER_HASH),
         (HAZARDS_ENCOUNTER_PATH, crate::f01_hazards::ENCOUNTER_HASH),
         (
@@ -1314,6 +1314,11 @@ fn non_wave_sidecars_validate_identically() {
         (
             crate::f01_act1::GUILD_ENCOUNTER_PATH,
             crate::f01_act1::GUILD_ENCOUNTER_HASH,
+        ),
+        // ACT1-B: the chase (a dozer under profile opening, the barricade lock).
+        (
+            crate::f01_act1::CHASE_ENCOUNTER_PATH,
+            crate::f01_act1::CHASE_ENCOUNTER_HASH,
         ),
     ];
     let mut seen = 0;
@@ -1552,4 +1557,230 @@ fn dozer_rule_7_the_crew_rides_the_one_machine() {
     );
     // A rider has no wake gate.
     dozer_rule(|v| v["roster"][1]["trigger_x"] = json!(400), 7);
+}
+
+// ------------------------------- ACT1-B: the opening profile's rules O1..O10 (ACT1-T10)
+
+fn chase_sidecar() -> Value {
+    let t = std::fs::read_to_string(root().join(crate::f01_act1::CHASE_ENCOUNTER_PATH)).unwrap();
+    serde_json::from_str(&t).unwrap()
+}
+
+fn chase_ctx() -> Context {
+    let l = load(root(), crate::f01_act1::CHASE_ENCOUNTER_PATH)
+        .unwrap_or_else(|e| panic!("{}", text(&e)));
+    Context {
+        room: l.room,
+        classes: l.classes,
+        ceiling_px: l.ceiling_px,
+    }
+}
+
+/// The edited chase sidecar's errors of opening rule `O<n>` (reported as DOZER rule 10 + n).
+fn opening_rule(edit: impl FnOnce(&mut Value), n: u8) -> Vec<EncounterError> {
+    let mut v = chase_sidecar();
+    edit(&mut v);
+    let errs = parse_sidecar(&v.to_string(), &chase_ctx())
+        .expect_err("the edited sidecar must be rejected");
+    let want = 10 + n;
+    let hits: Vec<EncounterError> = errs
+        .iter()
+        .filter(|e| matches!(e, EncounterError::Dozer { rule, .. } if *rule == want))
+        .cloned()
+        .collect();
+    assert!(!hits.is_empty(), "no O{n} error: {}", text(&errs));
+    assert!(
+        hits.iter()
+            .all(|e| e.to_string().contains(&format!("O{n}:"))),
+        "{}",
+        text(&hits)
+    );
+    hits
+}
+
+#[test]
+fn the_chase_room_passes_every_opening_rule() {
+    parse_sidecar(&chase_sidecar().to_string(), &chase_ctx())
+        .unwrap_or_else(|e| panic!("{}", text(&e)));
+}
+
+/// ACT1-T10 `opening_validation_rules`: O1 to O10 each reject a minimal broken sidecar.
+#[test]
+fn opening_validation_rules() {
+    // O1: a pocket, exactly one dozer_contact lock, and a lock without the block.
+    opening_rule(|v| v["dozer"]["pockets"] = json!([]), 1);
+    opening_rule(|v| v["locks"] = json!([]), 1);
+    opening_rule(
+        |v| {
+            let twin = json!({ "id": "barricade_b", "solid": { "x": 2400, "y": 304, "w": 16, "h": 276 },
+                               "opens_on": { "event": "dozer_contact" } });
+            v["locks"].as_array_mut().unwrap().push(twin);
+        },
+        1,
+    );
+    {
+        // A dozer_contact lock in a room with no dozer block at all.
+        let mut v = chase_sidecar();
+        v["roster"] = json!([]);
+        v["dozer"] = Value::Null;
+        let errs = parse_sidecar(&v.to_string(), &chase_ctx()).expect_err("no dozer block");
+        assert!(
+            errs.iter()
+                .any(|e| matches!(e, EncounterError::Dozer { rule: 11, .. })),
+            "{}",
+            text(&errs)
+        );
+    }
+    // O2: emerge < trigger < arm < pocket, the timbers inside (emerge, arm), strictly
+    // increasing, with unique ids.
+    opening_rule(|v| v["dozer"]["dzq11_trigger_x"] = json!(1900), 2);
+    opening_rule(|v| v["dozer"]["timbers"][1]["x"] = json!(1900), 2);
+    opening_rule(|v| v["dozer"]["timbers"][1]["x"] = json!(1104), 2);
+    opening_rule(|v| v["dozer"]["timbers"][1]["id"] = json!("timber_a"), 2);
+    // O3: the ledge names a solid static whose top is the pocket's bottom, the pocket fits two
+    // bodies and a hero and lies left of the barricade.
+    opening_rule(
+        |v| v["dozer"]["pockets"][0]["ledge"] = json!("no_such_static"),
+        3,
+    );
+    opening_rule(|v| v["dozer"]["pockets"][0]["ledge"] = json!("hump_a"), 3);
+    opening_rule(
+        |v| {
+            v["statics"][2]["kind"] = json!("hit_target");
+        },
+        3,
+    );
+    opening_rule(|v| v["dozer"]["pockets"][0]["rect"]["w"] = json!(40), 3);
+    opening_rule(
+        |v| {
+            v["dozer"]["pockets"][0]["rect"]["y"] = json!(512);
+            v["dozer"]["pockets"][0]["rect"]["h"] = json!(52);
+        },
+        3,
+    );
+    opening_rule(|v| v["dozer"]["pockets"][0]["rect"]["w"] = json!(280), 3);
+    // O4: the barricade stands 256 px before stop_x, reaches the floor and out-towers a jump.
+    opening_rule(|v| v["locks"][0]["solid"]["x"] = json!(2700), 4);
+    opening_rule(
+        |v| {
+            v["locks"][0]["solid"]["y"] = json!(400);
+            v["locks"][0]["solid"]["h"] = json!(150);
+        },
+        4,
+    );
+    opening_rule(
+        |v| {
+            v["locks"][0]["solid"]["y"] = json!(500);
+            v["locks"][0]["solid"]["h"] = json!(80);
+        },
+        4,
+    );
+    // O5: the exit lies past stop_x plus the past-stop spot and its margin.
+    opening_rule(|v| v["exit"]["x"] = json!(2896), 5);
+    // O6: nothing else on the lane is taller than 16 px.
+    opening_rule(
+        |v| {
+            v["statics"][0]["rect"]["y"] = json!(548);
+            v["statics"][0]["rect"]["h"] = json!(32);
+        },
+        6,
+    );
+    // O7: no lintel and no crew.
+    opening_rule(
+        |v| v["dozer"]["dzq22_lintel"] = json!({ "x": 2928, "y": 352, "w": 304, "h": 116 }),
+        7,
+    );
+    opening_rule(
+        |v| {
+            v["roster"].as_array_mut().unwrap().push(json!({
+                "id": "rider_a", "kind": "goblin", "x": 888, "beat": "I02",
+                "mount": { "carrier": "dozer", "seat": "rider_a" },
+                "dzq20_land_dx": 32, "dzq20_down_ticks": 45, "dzq20_nudge_px": 32,
+                "dzq20_max_nudges": 2, "temperament": "brawler"
+            }));
+        },
+        7,
+    );
+    // O9: the commit window is non-empty at the slowest band speed (2400 - 456 = 1944 > 1932).
+    opening_rule(|v| v["locks"][0]["solid"]["x"] = json!(2400), 9);
+    // O10: the pocket's centre lies left of the barricade by a body half width.
+    opening_rule(
+        |v| {
+            v["locks"][0]["solid"]["x"] = json!(2116);
+            v["locks"][0]["solid"]["w"] = json!(16);
+        },
+        10,
+    );
+    // The profile and the trigger rule are named strings.
+    let mut v = chase_sidecar();
+    v["dozer"]["profile"] = json!("chase");
+    assert!(parse_sidecar(&v.to_string(), &chase_ctx()).is_err());
+    let mut v = chase_sidecar();
+    v["dozer"]["dzq11_trigger_by"] = json!("front");
+    assert!(parse_sidecar(&v.to_string(), &chase_ctx()).is_err());
+}
+
+/// O8: with the barricade closed the exit is unreachable for every class and 2P; open, it is
+/// reachable (the existing lock checks hold the open half; the closed half is read from the
+/// route graphs).
+#[test]
+fn the_closed_barricade_seals_the_exit_for_every_class() {
+    let l = load(root(), crate::f01_act1::CHASE_ENCOUNTER_PATH)
+        .unwrap_or_else(|e| panic!("{}", text(&e)));
+    let graphs = crate::encounter::route_graphs(&l.room, &l.classes, &l.encounter);
+    let reaches = |g: &crate::encounter::RouteGraph| -> bool {
+        let (Some(spawn), Some(goal)) = (g.spawn, g.goal) else {
+            return false;
+        };
+        let mut seen = vec![false; g.nodes.len()];
+        seen[spawn] = true;
+        let mut stack = vec![spawn];
+        while let Some(i) = stack.pop() {
+            for &(a, b) in &g.edges {
+                if a == i && !seen[b] {
+                    seen[b] = true;
+                    stack.push(b);
+                }
+            }
+        }
+        seen[goal]
+    };
+    let (mut open, mut closed) = (0, 0);
+    for g in &graphs {
+        if g.locks_closed {
+            closed += 1;
+            assert!(
+                !reaches(g),
+                "{:?}: the exit is reachable with the barricade closed",
+                g.hero
+            );
+        } else {
+            open += 1;
+            assert!(
+                reaches(g),
+                "{:?}: the exit is unreachable with the barricade open",
+                g.hero
+            );
+        }
+    }
+    assert_eq!((open, closed), (3, 3), "every class, both ways");
+}
+
+/// A revenge block without its lintel is rejected (rule 4), and the opening's fields in a
+/// revenge block are refused (rule 1).
+#[test]
+fn a_lintel_less_revenge_block_is_rejected() {
+    dozer_rule(
+        |v| {
+            v["dozer"]
+                .as_object_mut()
+                .unwrap()
+                .remove("dzq22_lintel")
+                .map(drop)
+                .unwrap()
+        },
+        4,
+    );
+    dozer_rule(|v| v["dozer"]["wedge"] = json!(true), 1);
+    dozer_rule(|v| v["dozer"]["dzq11_trigger_by"] = json!("rearmost"), 1);
 }

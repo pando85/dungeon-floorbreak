@@ -113,7 +113,7 @@ pub fn launch(root: &Path) -> Result<DozerRun, String> {
             loaded.encounter.story_pin
         ));
     }
-    let Some(site) = loaded.encounter.dozer else {
+    let Some(site) = loaded.encounter.dozer.clone() else {
         return Err(format!("{ENCOUNTER_PATH}: no dozer block"));
     };
     let mut kit = crate::f01_boiler::compose_kit(root, &loaded.room)?;
@@ -135,7 +135,11 @@ pub fn launch(root: &Path) -> Result<DozerRun, String> {
     // DZ-Q22: the tunnel lintel, a solid from the passage's clear height up to
     // the ceiling. It stops nothing but a jump: the machine ignores solids and
     // brakes at `stop_x`.
-    let l = site.lintel;
+    let Some(l) = site.lintel else {
+        return Err(format!(
+            "{ENCOUNTER_PATH}: room 3's dozer block has no lintel"
+        ));
+    };
     kit.solid_rects.push(KitRect {
         x: l.x,
         y: l.y,
@@ -398,7 +402,10 @@ pub const fn data_pins() -> [(&'static str, u64); 3] {
 pub fn entry_line(run: &DozerRun) -> String {
     let e = &run.loaded.encounter;
     let room = &run.loaded.room;
-    let site = e.dozer.map(|s| (s.trigger_x, s.emerge_front_x, s.stop_x));
+    let site = e
+        .dozer
+        .as_ref()
+        .map(|s| (s.trigger_x, s.emerge_front_x, s.stop_x));
     format!(
         "F01_DOZER_ENTRY room={} encounter={} pin={} spawn_carl={} spawn_donut={} \
          checkpoints={:?} goal={:?} roster={} dozer={:?} room_hash={:#018x} sidecar_hash={:#018x}",

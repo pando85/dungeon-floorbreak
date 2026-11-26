@@ -203,7 +203,9 @@ pub(super) fn sync_dozer_art(
                     sprite.rect = None;
                     sprite.custom_size = None;
                 }
-                sprite.color = Color::srgba(1.0, 1.0, 1.0, f32::from(s.alpha) / 255.0);
+                // ACT1-B: the greybox wedge darkens the rig (ACT1-Q3: the end-on art is later).
+                let tint = if drawn.wedged { 0.42 } else { 1.0 };
+                sprite.color = Color::srgba(tint, tint, tint, f32::from(s.alpha) / 255.0);
                 *visibility = Visibility::Inherited;
             }
             _ => *visibility = Visibility::Hidden,

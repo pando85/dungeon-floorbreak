@@ -45,12 +45,16 @@ pub fn build(b: &SlotBuild<'_>) -> Result<Box<dyn SlotEnemy>, SlotError> {
         kind: KIND,
         reason: "a dozer builds from a sidecar roster".into(),
     })?;
-    let site = enc.dozer.ok_or_else(|| SlotError::Build {
+    let site = enc.dozer.clone().ok_or_else(|| SlotError::Build {
         kind: KIND,
         reason: "a dozer entry needs the sidecar's dozer block".into(),
     })?;
+    // ACT1-B: the profile picks the tuning: `revenge` is `DozerTuning::active()` exactly as
+    // `Dozer::new` reads it (room 3's construction path is unchanged), `opening` the opening
+    // tuning merged over the shared values.
+    let tuning = site.tuning();
     Ok(Box::new(DozerEnemy {
-        dozer: Dozer::new(site, enc.exit.x as f32, b.room.floor_y),
+        dozer: Dozer::with_tuning(tuning, site, enc.exit.x as f32, b.room.floor_y),
     }))
 }
 

@@ -450,7 +450,8 @@ fn rebuild_f01_room(manifest: &SessionManifest, root: &Path) -> Result<Reset, Ve
     if !matches!(
         room,
         Some(
-            "act1_shore"
+            "act1_chase"
+                | "act1_shore"
                 | "act1_guild"
                 | "corral"
                 | "rest_refuge"
@@ -508,7 +509,7 @@ fn rebuild_f01_room(manifest: &SessionManifest, root: &Path) -> Result<Reset, Ve
             crate::f01_late::mastery_start(root, reset.view_height, carl, donut, reset.cf02_seed)
                 .map(|(_, scene, combat)| (scene, combat))
         }
-        Some(id @ ("act1_shore" | "act1_guild")) => crate::f01_late::act1_start(
+        Some(id @ ("act1_chase" | "act1_shore" | "act1_guild")) => crate::f01_late::act1_start(
             root,
             crate::f01_act1::Act1Room::from_id(id).expect("an Act I room id"),
             reset.view_height,

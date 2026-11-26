@@ -51,10 +51,15 @@ try refuse $S --f01-run --cf02-seed 3
 for room in ring_court ring_split; do try ok $S --f01-run --f01-room "$room"; done
 try refuse $S --f01-room hoarder --ring-pilot
 # CORRAL-F: room 0 (the corral) is the first listed room; DR-A lists room 3 (the dozer); REST-WIRE lists the three quiet rooms; ACT1-A lists the shore and the guild before the corral.
-for room in act1_shore act1_guild corral rest_refuge hoarder boiler dozer hazards ring_court ring_split rest_camp juicer rest_aftermath mastery; do try ok $S --f01-room "$room"; done
+for room in act1_chase act1_shore act1_guild corral rest_refuge hoarder boiler dozer hazards ring_court ring_split rest_camp juicer rest_aftermath mastery; do try ok $S --f01-room "$room"; done
 # ACT1-A: a floor run can start in either Act I room, and `--act1-pilot` (the evidence pilot of the Act I rooms)
 # plays the room it fits and is refused elsewhere.
 try ok $S --f01-run --f01-room act1_guild
+# ACT1-B: the chase is the first listed room (a floor run starts in it) and has its own evidence pilots.
+try ok $S --f01-run --f01-room act1_chase
+try ok $S --f01-room act1_chase --act1-pilot hide
+try ok $S --f01-room act1_chase --act1-pilot skip
+try refuse $S --f01-room act1_shore --act1-pilot hide
 try ok $S --f01-room act1_shore --act1-pilot strike
 try ok $S --f01-room act1_guild --act1-pilot donut
 try refuse $S --f01-room act1_guild --act1-pilot strike
