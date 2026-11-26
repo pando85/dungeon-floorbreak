@@ -20,13 +20,13 @@ fn replay(name: &str, mut f: impl FnMut(&Path) -> Result<u64, String>, committed
 
 /// The committed fold of the nine seeds' final hashes per `(mode, plan)`.
 const K5_HASHES: [(Mode, Plan, u64); 12] = [
-    (Mode::CarlSolo, Plan::Run, 0xbe33c818aef32903),
-    (Mode::CarlSolo, Plan::Stall, 0x3b3ddcc93db8cf45),
-    (Mode::CarlSolo, Plan::CloseCall, 0xe98af802998ddced),
-    (Mode::CarlSolo, Plan::Wait, 0x9867953ddd91e789),
+    (Mode::CarlSolo, Plan::Run, 0xdda9e71d2f2aa12c),
+    (Mode::CarlSolo, Plan::Stall, 0xb78b766f20f20e32),
+    (Mode::CarlSolo, Plan::CloseCall, 0x0f8f6c8e5f853ff0),
+    (Mode::CarlSolo, Plan::Wait, 0xc5bd5b4294fa1631),
     (Mode::DonutSolo, Plan::Run, 0xd556d0ea51de811c),
     (Mode::DonutSolo, Plan::Stall, 0xf6bd2ff1c1071b06),
-    (Mode::DonutSolo, Plan::CloseCall, 0x5e5843377ce2db99),
+    (Mode::DonutSolo, Plan::CloseCall, 0xcdce6d58debd6c59),
     (Mode::DonutSolo, Plan::Wait, 0x75ea11e51b16d716),
     (Mode::TwoPlayer, Plan::Run, 0x33a107c684aae594),
     (Mode::TwoPlayer, Plan::Stall, 0xde7f745a8a878470),
@@ -180,7 +180,7 @@ fn dz_rescue_lane_spot_replays() {
 
 #[test]
 fn dz_rescue_no_loop_replays() {
-    replay("dz_rescue_no_loop", dz_rescue_no_loop, 0x9e8125bb33b55272);
+    replay("dz_rescue_no_loop", dz_rescue_no_loop, 0x31609a771f2cb5e4);
 }
 
 #[test]

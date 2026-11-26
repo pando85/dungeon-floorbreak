@@ -2689,9 +2689,31 @@ mod tests {
         let mut memory = AlignedMemory::default();
         let mut hurts = 0;
         let mut disabled_at = None;
+        // #287 review F1: the remnant stays out of the partner's nav until the
+        // frame lands, and is in it from the landing on.
+        let mut hidden_ticks = 0u64;
+        let mut landed_at = None;
         for _ in 0..1500 {
             if scene.world.complete {
                 break;
+            }
+            let hides = combat.env().unwrap().nav_hides_any();
+            let stunned = combat.events.iter().any(|e| {
+                matches!(
+                    e,
+                    CombatEvent::Dozer {
+                        event: DozerEvent::Stunned { .. },
+                        ..
+                    }
+                )
+            });
+            if scene.world.tick > 0 {
+                assert_eq!(hides, !stunned, "tick {}", scene.world.tick);
+            }
+            if hides {
+                hidden_ticks += 1;
+            } else if landed_at.is_none() && scene.world.tick > 0 {
+                landed_at = Some(scene.world.tick);
             }
             let slots = pilot.aligned_inputs(
                 &combat,
@@ -2734,6 +2756,15 @@ mod tests {
             d.state.name()
         );
         assert_eq!(stuns.len(), 1, "{stuns:?}");
+        assert!(
+            hidden_ticks > 300,
+            "the remnant was hidden for {hidden_ticks} ticks"
+        );
+        assert_eq!(
+            landed_at,
+            Some(stuns[0].0),
+            "the remnant joins the nav on the landing tick"
+        );
         assert_eq!(
             stuns[0],
             (

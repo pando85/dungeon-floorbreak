@@ -1446,6 +1446,15 @@ fn dozer_rule_3_the_frame_misses_the_parked_machine_and_hangs_over_it() {
         3,
     );
     assert!(text(&errs).contains("168"), "{}", text(&errs));
+    // A frame without `hang_px` is reported by the rule itself (#287 review F5).
+    let errs = dozer_rule(
+        |v| {
+            let (p, _) = frame_of(v);
+            v["props"][p].as_object_mut().unwrap().remove("hang_px");
+        },
+        3,
+    );
+    assert!(text(&errs).contains("needs `hang_px`"), "{}", text(&errs));
 }
 
 #[test]

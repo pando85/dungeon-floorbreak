@@ -292,9 +292,10 @@ pub fn combat_seeded_kit(
 
 /// DR-B: the env runtime of a launched room 3, the sidecar's stop frame (a
 /// `weight_rig` prop and its `falling_mass` hazard, DZ-Q18, DZ-Q19) and its
-/// remnant solid once it has landed.
+/// remnant solid once it has landed. The remnant is out of the partner's nav
+/// until the landing (section 6: no remnant before the fall; #287 review F1).
 pub fn env_runtime(run: &DozerRun) -> Result<crate::combat_scene::EnvRuntime, String> {
-    crate::combat_scene::EnvRuntime::new(&run.loaded.encounter)
+    Ok(crate::combat_scene::EnvRuntime::new(&run.loaded.encounter)?.with_remnants_on_landing())
 }
 
 /// DR-B: the index of the stop frame among the sidecar's props.

@@ -408,7 +408,6 @@ pub fn cruise_settle_ticks() -> u32 {
     }
 }
 
-/// Run one cell of the matrix.
 /// The stimuli the frame prop took (its brace included).
 fn count_frame_hits(sim: &PartyFixtureSim, frame: usize) -> u32 {
     sim.combat
@@ -418,6 +417,7 @@ fn count_frame_hits(sim: &PartyFixtureSim, frame: usize) -> u32 {
         .count() as u32
 }
 
+/// Run one cell of the matrix.
 pub fn run_k5(root: &Path, mode: Mode, plan: Plan, seed: u64) -> Result<K5Report, String> {
     let vary = Vary::of_seed(seed);
     let settle = cruise_settle_ticks();

@@ -1078,12 +1078,18 @@ pub(super) fn check_dozer(inp: &HazInput<'_>, errs: &mut Vec<EncounterError>) {
             ));
         }
         let min_hang = push.y1 + rules::HANG_OVER_PUSH_BOX_PX;
-        if p.hang_px.is_some_and(|h| h < min_hang) {
-            errs.push(dozer_err(
+        match p.hang_px {
+            None => errs.push(dozer_err(
+                3,
+                &[&p.id],
+                format!("a frame needs `hang_px` (at least {min_hang} px, the push box top + 8)"),
+            )),
+            Some(h) if h < min_hang => errs.push(dozer_err(
                 3,
                 &[&p.id],
                 format!("a frame hangs at least {min_hang} px (the push box top + 8)"),
-            ));
+            )),
+            Some(_) => {}
         }
         let hero_x =
             p.target.right() + rules::BRACE_STAND_OFF_PX + crate::prototype::HERO_HALF_WIDTH as i32;

@@ -37,9 +37,8 @@ plan=dozer:close_call
 # name:tick. Timeline of the pilot (the headless run's COMBAT_EVENT lines): the trigger and the rumble on tick 21 (the
 # gate shakes, 90 ticks), the machine emerges on 111 (off screen: the camera follows Carl at the hold column), the
 # chase bands catch_up, cruise from 132, mercy from 237 (the close call: the riders yell), cruise from 297, the brake
-# on 473 at the buffer stop, and the room completes on 477, the tick the first hero (since DR-B the AI partner Donut, who
-# now runs ahead of Carl) reaches the exit under the lintel (DV-8); the escape (strain) would follow on 478.
-stills=(trigger:30 chase:200 close_call:242 run:306 brake:474 exit:477)
+# on 473 at the buffer stop and the escape (strain) on 498, the tick the first hero reaches the exit under the lintel.
+stills=(trigger:30 chase:200 close_call:242 run:306 brake:476 exit:498)
 brace=dozer:brace
 # DR-B, the brace pilot's timeline (its headless COMBAT_EVENT lines): emerged on 111, Carl's jabs hit the brace on 303
 # and 315 (the release, R 204), the frame falls from 344 and lands on 352 on the wheel front at x 728 (impact_stunned,
@@ -93,9 +92,9 @@ for size in "${sizes[@]}"; do
     echo "DOZER_STILL name=$name plan=$splan tick=$tick size=$res partner=$partner window_hash=$window headless_hash=$headless hash_match=$match passes_byte_identical=$same sha256=$(sha256sum "$a" | cut -d' ' -f1)" >> "$out/capture_lines.txt"
   done
 done
-# The chase GIF: ticks 174..474 every 6th tick, 640x360, 10 frames per second (0.6x game speed).
+# The chase GIF: ticks 174..498 every 6th tick, 640x360, 10 frames per second (0.6x game speed).
 gif_dir="$caps/gif"
-bash scripts/room_capture.sh dozer "$plan" "174:6:51" "$gif_dir" --scale 1 > "$gif_dir.txt" 2> "$gif_dir.err" || fail=1
+bash scripts/room_capture.sh dozer "$plan" "174:6:55" "$gif_dir" --scale 1 > "$gif_dir.txt" 2> "$gif_dir.err" || fail=1
 ffmpeg -loglevel error -y -framerate 10 -pattern_type glob -i "$gif_dir/frame_*.png" \
   -vf "split[a][b];[a]palettegen=max_colors=128:stats_mode=diff[p];[b][p]paletteuse=dither=none" \
   "$out/chase_640x360.gif"
@@ -106,7 +105,7 @@ gif_partner="$(sed -nE 's/^COMPANION_CONFIG: set=//p' "$gif_dir/run.log" | tr ' 
 [[ "$gif_partner" == cf02_free ]] || fail=1
 [[ -n "$gif_window" && "$gif_window" == "$gif_headless" ]] && gif_match=yes
 [[ "$gif_match" == yes ]] || fail=1
-echo "DOZER_GIF name=chase plan=$plan ticks=174..474 step=6 frames=$(find "$gif_dir" -name 'frame_*.png' | wc -l) size=640x360 partner=$gif_partner window_hash=$gif_window headless_hash=$gif_headless hash_match=$gif_match" >> "$out/capture_lines.txt"
+echo "DOZER_GIF name=chase plan=$plan ticks=174..498 step=6 frames=$(find "$gif_dir" -name 'frame_*.png' | wc -l) size=640x360 partner=$gif_partner window_hash=$gif_window headless_hash=$gif_headless hash_match=$gif_match" >> "$out/capture_lines.txt"
 # DR-B, the reversal GIF: ticks 297..489 every 4th tick (the second jab, the warning, the fall, the stun, the disable and
 # the run), 640x360, 10 frames per second (0.4x game speed).
 rev_dir="$caps/gif-reversal"
@@ -122,15 +121,16 @@ rev_match=no
 [[ -n "$rev_window" && "$rev_window" == "$rev_headless" ]] && rev_match=yes
 [[ "$rev_match" == yes ]] || fail=1
 echo "DOZER_GIF name=reversal plan=$brace ticks=297..489 step=4 frames=$(find "$rev_dir" -name 'frame_*.png' | wc -l) size=640x360 partner=$rev_partner window_hash=$rev_window headless_hash=$rev_headless hash_match=$rev_match" >> "$out/capture_lines.txt"
-# One recorded PLAYTRACE session of room 3 (the same pilot, real window, ticks 0 to 520: the exit is reached on tick 477),
-# verified strict (scope=full) with the replay rebuild of the late-Floor-1 source.
+# One recorded PLAYTRACE session of room 3 (since DR-B the reversal pilot `dozer:brace`, real window, ticks 0 to 520: the
+# frame lands on the machine on 352 and the room completes on 490), verified strict (scope=full) with the replay rebuild
+# of the late-Floor-1 source.
 pt="${PT:-./target/debug/playtrace}"
 sdir="$caps/session"; slog="$caps/session.log"; mkdir -p "$sdir"
-xvfb-run -a -s '-screen 0 1280x720x24' "$BIN" --scale 1 --no-audio --scene f01_late --f01-room dozer --room-pilot "$plan" \
+xvfb-run -a -s '-screen 0 1280x720x24' "$BIN" --scale 1 --no-audio --scene f01_late --f01-room dozer --room-pilot "$brace" \
   --record --record-dir "$sdir" --exit-after-ticks 520 > "$slog" 2>&1 || true
 sid="$(ls "$sdir")"
 {
-  echo "== room=dozer plan=$plan label=$plan exit_after_ticks=520"
+  echo "== room=dozer plan=$brace label=$brace exit_after_ticks=520"
   grep -E '^F01_LATE_ENTRY' "$slog" | sed -E 's/^(F01_LATE_ENTRY room=[a-z]+).*(loadout=[a-z]+)$/\1 \2/'
   grep -E '^COMPANION_CONFIG' "$slog"
   grep '^PLAYTRACE_SAVED ' "$slog" | sed -E 's/^(PLAYTRACE_SAVED) session=[0-9a-f]+ (.*)/\1 \2/'
