@@ -5013,7 +5013,7 @@ fn setup(
                 acting.slammed.iter().map(&mut load).collect();
             // ENG-02: the Engineer's slammed sheet (his own belt and no weapon).
             let engineer_slammed_texture = load(&acting.engineer_slammed);
-            for index in 0..state.enemies.len() {
+            for (index, enemy) in state.enemies.iter().enumerate() {
                 let variant = goblin_variant(index);
                 let z = kit.actor_z + GOBLIN_Z_OFFSET - index as f32 * GOBLIN_Z_STEP;
                 commands.spawn((
@@ -5027,7 +5027,7 @@ fn setup(
                     Visibility::Hidden,
                     layers_of("actors"),
                 ));
-                let (slammed_clips, slammed_texture) = if state.enemies[index].is_engineer() {
+                let (slammed_clips, slammed_texture) = if enemy.is_engineer() {
                     (&acting.engineer_slammed, &engineer_slammed_texture)
                 } else {
                     (&acting.slammed[variant], &slammed_textures[variant])
