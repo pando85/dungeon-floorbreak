@@ -911,10 +911,10 @@ def ff_slide_top_skin() -> Pix:
     return _skin(128)
 
 
-def ff_play_posts() -> Pix:
-    """224 x 52 at (464, 528): two posts under each skin and a net panel between them, all dimmer than the skins'
-    faces (``gal`` 4..7, ``brass`` 2..3, the net ``gal`` 5). Deck posts at piece x 6..11 and 84..89, slide posts
-    at 104..109 and 210..215."""
+def _play_posts_below() -> Pix:
+    """The 224 x 52 post and net block that starts at y 528 (the first execution's ``ff_play_posts``): two posts under
+    each skin and a net panel between them, dimmer than the skins' faces (``gal`` 4..7, ``brass`` 2..3, the net
+    ``gal`` 5). Deck posts at x 6..11 and 84..89, slide posts at 104..109 and 210..215."""
     c = Pix(224, 52)
     posts = ((6, 84), (104, 210))
     nets = ((12, 83), (110, 209))
@@ -936,6 +936,35 @@ def ff_play_posts() -> Pix:
             for y in range(5, 33):
                 if (x + y) % 4 == 0 or (x - y) % 4 == 0:
                     c.put(x, y, "gal", 5)
+    return c
+
+
+POSTS_UP = 16                                           # rows added above the first execution's block (review F3)
+
+
+def ff_play_posts() -> Pix:
+    """224 x 68 at (464, 512) (review F3): the 52-row block of the first execution moved down by 16 rows
+    (byte-identical, rows 16..67), and the slide side's posts and net continued straight up to y 512 so the slide-top
+    skin (y 496..511) stands on its posts with no wall gap. Rows 0..15 under the deck skin (columns 0..95, which the
+    skin covers) are transparent. The slide side's top rail moves to new rows 0..1 (``brass`` 2); the net mesh and the
+    posts continue with the same column pattern and ramps; nothing is brighter than the skin face."""
+    c = Pix(224, 52 + POSTS_UP)
+    below = _play_posts_below()
+    for y in range(52):
+        for x in range(224):
+            c.px[y + POSTS_UP][x] = below.px[y][x]
+    for x0 in (104, 210):                               # the slide-side posts, straight up
+        for y in range(POSTS_UP):
+            for dx, v in enumerate((7, 6, 6, 5, 5, 4)):
+                c.put(x0 + dx, y, "gal", v)
+            for dx in range(6):                          # the foam pad runs on up
+                c.put(x0 + dx, y, "brass", 3 if dx < 2 else 2)
+    for x in range(110, 210):                           # the slide-side net
+        c.put(x, 0, "brass", 2)
+        c.put(x, 1, "brass", 2)
+        for y in range(2, POSTS_UP):
+            if (x + y) % 4 == 0 or (x - y) % 4 == 0:
+                c.put(x, y, "gal", 5)
     return c
 
 
@@ -1260,12 +1289,14 @@ def ff_reward_sparkle_c() -> Pix:
 
 # ---- rock ---------------------------------------------------------------------------------------
 def ff_rock_fill() -> Pix:
-    """152 x 192 at (904, 352): raw rock behind the restaurant window (bay B's opening only, FF-AD16): ``stone``
-    2..5 and ``stone_cold`` with damp ``lichen`` seams. The four corners are transparent (the arch's stone covers
-    them)."""
-    c = Pix(152, 192)
+    """168 x 192 at (904, 352): raw rock behind the restaurant window (bay B's opening only, FF-AD16): ``stone``
+    2..5 and ``stone_cold`` with damp ``lichen`` seams. The first 152 columns are the first execution's, pixel for
+    pixel; 16 columns are appended on the right (review F5) so the rock also fills the gap inside bay B's right pier
+    (x 1056..1071). The corners are transparent (the arch's stone covers them); the first execution's two right
+    corners at columns 150..151 stay transparent."""
+    c = Pix(168, 192)
     for y in range(192):
-        for x in range(152):
+        for x in range(168):
             n = vnoise(x, y, 11.0, 8.0, "ff_rock_fill")
             m = vnoise(x, y, 4.0, 3.0, "ff_rock_fill_m")
             v = 3.1 + (n - 0.5) * 3.2 + (m - 0.5) * 1.1 + (bayer(x, y) - 0.5) * 0.7
@@ -1284,7 +1315,7 @@ def ff_rock_fill() -> Pix:
             c.put(x, y, ramp, v)
     for k in range(2):
         for x in range(2 - k):
-            for cx, cy in ((x, k), (151 - x, k), (x, 191 - k), (151 - x, 191 - k)):
+            for cx, cy in ((x, k), (151 - x, k), (x, 191 - k), (151 - x, 191 - k), (167 - x, k), (167 - x, 191 - k)):
                 c.clear(cx, cy)
     return c
 
@@ -1332,7 +1363,7 @@ ATLASES = {
                    ("ff_stray_ball", ff_stray_ball), ("ff_bin", ff_bin), ("ff_booth_a", ff_booth_a)],
     },
     "floor01_ff_rock": {
-        "stem": "ff_rock", "width": 152,
+        "stem": "ff_rock", "width": 168,
         "pieces": [("ff_rock_fill", ff_rock_fill)],
     },
 }
@@ -1363,7 +1394,9 @@ STATE_OF.update({f"ff_reward_sparkle_{s}": ("ff_reward_box", "sparkle", i + 1) f
 HATCH = (1304, 400, 80, 48)
 CANOPY = (704, 400, 128, 40)
 UNDER = (1296, 468, 96, 60)
-WALL_TILE_X = list(range(384, 832 - 31, 32)) + list(range(1152, 1440 - 31, 32))     # whole 32 px cells of 384..831, 1136..1439
+# The full 32 px tile grid over 384..831 and 1136..1439 (review F4: the tiles run under the hatch, the canopy and the
+# under-panel). The cell at x 1120 lies behind bay B's right pier and shows only x 1136..1151.
+WALL_TILE_X = list(range(384, 832 - 31, 32)) + [1120] + list(range(1152, 1440 - 31, 32))
 WALL_TILE_Y = list(range(368, 497, 32))
 
 
@@ -1378,8 +1411,7 @@ def wainscot_places() -> list[tuple]:
 
 
 def wall_tile_places() -> list[tuple]:
-    return [("backwall_decal", "ff_wall_tile_a", x, y) for y in WALL_TILE_Y for x in WALL_TILE_X
-            if not any(_hits(x, y, 32, 32, r) for r in (HATCH, CANOPY, UNDER))]
+    return [("backwall_decal", "ff_wall_tile_a", x, y) for y in WALL_TILE_Y for x in WALL_TILE_X]
 
 
 REMOVE_AT = [  # spec section 8: the dining-room torches, their pools and the grime (each matches one composer piece)
@@ -1388,23 +1420,26 @@ REMOVE_AT = [  # spec section 8: the dining-room torches, their pools and the gr
     ("backwall_decal", "torch_pool_a_m", 232, 364), ("backwall_decal", "torch_pool_a", 744, 92),
     ("backwall_decal", "torch_pool_a_m", 744, 364), ("backwall_decal", "torch_pool_a", 984, 364),
     ("backwall_decal", "grime_a", 600, 376),
+    ("structure", "arch_chain", 912, 384),       # review F2: the catenary would hang across the window; bay A keeps its chain
 ]
-BACKWALL_FILL = [{"x": 264, "y": 352, "w": 40, "h": 192}]       # bay A's opening behind the restaurant (264..303)
+BACKWALL_FILL = [{"x": 264, "y": 352, "w": 56, "h": 192}]       # bay A's opening behind the restaurant (264..319: also the gap inside its right pier, review F5)
 
 
 def places() -> list[tuple]:
     p = [("backwall_decal", "ff_rock_fill", 904, 352)]
     p += wall_tile_places()
     p += wainscot_places()
-    p += [("backwall_decal", "ff_floor_checker_a", 288 + 32 * n, 561) for n in range(36)]
-    p += [("backwall_decal", "ff_floor_checker_edge", 256, 561), ("backwall_decal", "ff_floor_spill", 168, 561),
-          ("backwall_decal", "ff_counter_canopy", 704, 400), ("backwall_decal", "ff_slide_chute", 688, 496),
+    # the hatch, the canopy and the under-panel are placed after every wall tile, so they draw over the tiles (F4)
+    p += [("backwall_decal", "ff_counter_canopy", 704, 400), ("backwall_decal", "ff_slide_chute", 688, 496),
           ("backwall_decal", "ff_service_hatch", 1304, 400), ("backwall_decal", "ff_under_panel", 1296, 468)]
     p += [("structure", "ff_tile_seam", 376, 368)]
     p += [("structure", "ff_ceiling_tile", 288 + 32 * n, 336) for n in range(36)]
     p += [("structure", "ff_soffit_stone", x, 336) for x in list(range(0, 288, 32)) + list(range(1440, 1600, 32))]
+    # the floor decals are `structure` (F1) and come before the posts, so the posts' feet draw over the checker
+    p += [("structure", "ff_floor_checker_a", 288 + 32 * n, 561) for n in range(36)]
+    p += [("structure", "ff_floor_checker_edge", 256, 561), ("structure", "ff_floor_spill", 168, 561)]
     p += [("structure", "ff_deck_skin", 464, 512), ("structure", "ff_slide_top_skin", 560, 496),
-          ("structure", "ff_play_posts", 464, 528), ("structure", "ff_window_frame", 900, 384),
+          ("structure", "ff_play_posts", 464, 512), ("structure", "ff_window_frame", 900, 384),
           ("structure", "ff_pass_ledge", 1296, 448)]
     p += [("prop", "ff_light_strip", x, 352) for x in (400, 592, 784, 976, 1168, 1360)]
     p += [("prop", "ff_counter_a", 704, 524), ("prop", "ff_ball_pit", 560, 548), ("prop", "ff_stray_ball", 1012, 554),
@@ -1456,8 +1491,15 @@ def _opaque(img: Pix) -> bool:
     return all(p is not None for row in img.px for p in row)
 
 
+# Review F1 (the HEAT kit's precedent: its floor decals are `structure`): the checker floor, its broken edge and the spill
+# draw above the collision floor deck (draw order 4); a `backwall_decal` (order 3) would sit under it, invisible.
+FLOOR_DECALS = ("ff_floor_checker_a", "ff_floor_checker_edge", "ff_floor_spill")
+
+
 def piece_entry(pid: str, atlas: str, rect: list, img: Pix) -> dict:
     role, layer = LAYER_OF_ATLAS[atlas]
+    if pid in FLOOR_DECALS:
+        role, layer = "structure", "structure"
     entry = {"id": pid, "atlas": atlas, "rect": rect, "role": role, "layer": layer, "collidable": False,
              "anchor": [0, 0], "anchor_name": "top_left (room placement, spec section 5)", "grid_snap": 1,
              "grammar": ["A"]}

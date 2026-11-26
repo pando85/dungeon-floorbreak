@@ -216,7 +216,7 @@ def measure(out_dir: Path, views: dict, layout_dir: Path | None) -> list[str]:
         dark_rows = int((col < nb).sum())
         lines.append(f"G7 door_closed (view left {left}, top {top}): panel interior x 1441..1454 y 368..527 mean luma "
                      f"{panel:.1f}; wall field x 1408..1435 same rows mean luma {wall:.1f}; difference {diff:.1f} "
-                     f"(target >= 25: {'MET' if diff >= 25 else 'MISSED: a design note for the top tier, not tweaked'})")
+                     f"(unlit-estimate target 25: {'met' if diff >= 25 else 'not met; accepted by the independent review as FF-AD31, ratio ' + format(panel / wall, '.2f') + ' under the scene ambient, no key change'})")
         lines.append(f"G7 rail outline (stone_cold 0, x 1436) darker than both neighbours on {dark_rows} of "
                      f"{col.size} rows ({'unbroken' if dark_rows == col.size else 'broken on ' + str(col.size - dark_rows) + ' rows'})")
     # ---- rule 10.1 on the runtime stills (the lit model explains the room; actors, HUD and presenter art are masked)
@@ -254,6 +254,32 @@ def measure(out_dir: Path, views: dict, layout_dir: Path | None) -> list[str]:
                 lines.append(f"R10.1 {name}: {sname} stand line (y {y}) best 8 px run luma {stand:.0f} at x {sxx + left}; "
                              f"brightest unmasked rival run within 64 px luma {rival:.0f} at {where}; "
                              f"stand line is brighter by {stand - rival:.0f} ({'OK' if stand > rival else 'RIVAL BRIGHTER: design note'})")
+        # ---- review item 6: the box against a 4 px ring around its rect on the checker floor (gate: under 12 -> shorter glint)
+        for name, frame in (("box_full", "ff_reward_box_full_b"), ("door_closed", "ff_reward_box_empty")):
+            f = out_dir / f"scene_{name}_640x360.png"
+            if not f.is_file() or name not in views:
+                continue
+            left, top = views[name]
+            img = np.asarray(Image.open(f).convert("RGB"), dtype=np.float32)
+            lum = 0.2126 * img[..., 0] + 0.7152 * img[..., 1] + 0.0722 * img[..., 2]
+            ok = ~model_mask(lum, model[top:top + 360, left:left + 640])
+            bx, by = ff.BOX_AT
+            key = dict(ff.build_pieces("floor01_ff_pickup"))[frame]
+            inside, ring = [], []
+            for y in range(by - 4, by + 24 + 4):
+                for x in range(bx - 4, bx + 32 + 4):
+                    sx_, sy_ = x - left, y - top
+                    if not (0 <= sx_ < 640 and 0 <= sy_ < 360):
+                        continue
+                    if bx <= x < bx + 32 and by <= y < by + 24:
+                        if key.px[y - by][x - bx] is not None:
+                            inside.append(lum[sy_, sx_])
+                    elif y < 580 and ok[sy_, sx_]:
+                        ring.append(lum[sy_, sx_])
+            if inside and ring:
+                lines.append(f"BOX {name} ({frame}): mean luma of the box's opaque pixels {np.mean(inside):.1f}; the 4 px ring around "
+                             f"its rect on the checker floor {np.mean(ring):.1f}; difference {np.mean(inside) - np.mean(ring):.1f} "
+                             f"(under 12 -> GLINT_TICKS 24 to 16)")
         # ---- light count: the model's emitters in the worst 640 px view
         import env_kit as ek  # noqa: PLC0415
         import env_kit_light as lit  # noqa: PLC0415

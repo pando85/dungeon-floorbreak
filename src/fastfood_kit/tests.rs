@@ -188,7 +188,11 @@ fn every_placed_piece_exists_and_lies_inside_the_room() {
 fn every_remove_at_matches_exactly_one_piece() {
     let d = dressing(&root()).unwrap();
     let (plain, dressed) = kits();
-    assert_eq!(d.remove_at.len(), 9, "four torches, four pools, the grime");
+    assert_eq!(
+        d.remove_at.len(),
+        10,
+        "four torches, four pools, the grime and bay B's chain"
+    );
     for r in &d.remove_at {
         let count = |kit: &EnvKit| {
             kit.pieces
@@ -209,6 +213,21 @@ fn every_remove_at_matches_exactly_one_piece() {
             "the torch at ({x}, {y}) stays"
         );
     }
+    // Bay A keeps its catenary (the catacomb side); bay B's would hang across the window (review F2).
+    assert!(
+        dressed
+            .pieces
+            .iter()
+            .any(|p| p.piece == "arch_chain" && (p.x, p.y) == (160, 384)),
+        "bay A keeps its chain"
+    );
+    assert!(
+        !dressed
+            .pieces
+            .iter()
+            .any(|p| p.piece == "arch_chain" && (p.x, p.y) == (912, 384)),
+        "bay B's chain is gone"
+    );
     // An unmatched entry is an error, never silently skipped.
     let mut bad = dressing(&root()).unwrap();
     bad.remove_at[0].x += 1;
@@ -324,6 +343,141 @@ fn the_floor_decals_lie_in_the_decks_back_half() {
         n += 1;
     }
     assert_eq!(n, 36 + 2);
+}
+
+// ------------------------------------------------------------------ review F1 and F5
+
+/// Review F1: the checker floor, its broken edge and the spill draw **above** the collision
+/// layer (the floor deck), and the posts' feet draw over them (they are listed first).
+#[test]
+fn the_floor_decals_draw_above_the_collision_layer() {
+    let contract = load_contract(&root(), FASTFOOD_CONTRACT).unwrap();
+    let order = |name: &str| {
+        contract
+            .layers
+            .iter()
+            .find(|l| l.name == name)
+            .unwrap_or_else(|| panic!("layer {name}"))
+            .draw_order
+    };
+    let d = dressing(&root()).unwrap();
+    let floor: Vec<_> = d
+        .place
+        .iter()
+        .filter(|p| (561..=572).contains(&p.y))
+        .collect();
+    assert_eq!(floor.len(), 38, "36 checker tiles, the edge and the spill");
+    for p in &floor {
+        assert!(
+            order(&p.layer) > order("collision"),
+            "{} on {} is under the floor deck",
+            p.piece,
+            p.layer
+        );
+    }
+    let pos = |id: &str| d.place.iter().position(|p| p.piece == id).unwrap();
+    let last_floor = d
+        .place
+        .iter()
+        .rposition(|p| p.piece.starts_with("ff_floor_"))
+        .unwrap();
+    assert!(
+        last_floor < pos("ff_play_posts"),
+        "the posts' feet draw over the checker"
+    );
+}
+
+/// The opaque pixels of one atlas rect, from the committed pixel-grid source (no export
+/// needed): `rows[y][x]` is true where the cell is not transparent.
+fn opaque_rect(
+    cache: &mut std::collections::BTreeMap<String, Vec<Vec<u8>>>,
+    atlas: &str,
+    rect: [i32; 4],
+) -> Vec<Vec<bool>> {
+    use serde_json::Value;
+    if !cache.contains_key(atlas) {
+        // Follow the contract chain (fast-food, opening, catacomb) for the atlas's grid.
+        let mut path = FASTFOOD_CONTRACT.to_owned();
+        let grid = loop {
+            let v: Value =
+                serde_json::from_str(&std::fs::read_to_string(root().join(&path)).unwrap())
+                    .unwrap();
+            if let Some(g) = v["atlases"][atlas]["grid"].as_str() {
+                break g.to_owned();
+            }
+            path = v["extends"]
+                .as_str()
+                .unwrap_or_else(|| panic!("no grid for atlas {atlas}"))
+                .to_owned();
+        };
+        let g: Value =
+            serde_json::from_str(&std::fs::read_to_string(root().join(grid)).unwrap()).unwrap();
+        let layer = g["layers"][0].as_str().unwrap().to_owned();
+        let rows = g["frames"][0]["cels"][layer.as_str()]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|r| r.as_str().unwrap().bytes().collect())
+            .collect();
+        cache.insert(atlas.to_owned(), rows);
+    }
+    let rows = &cache[atlas];
+    (0..rect[3])
+        .map(|y| {
+            (0..rect[2])
+                .map(|x| rows[(rect[1] + y) as usize][(rect[0] + x) as usize] != b'.')
+                .collect()
+        })
+        .collect()
+}
+
+/// Review F5: no background (the gallery parallax) shows in either bay: every pixel of
+/// x 264..383 and x 904..1135, y 304..575 is covered by an opaque backwall tile, collision
+/// tile or piece of the dressed room (the pier's inner columns are transparent, so the
+/// bricked-up opening and the rock fill must reach them).
+#[test]
+fn no_background_shows_in_either_bay() {
+    let (_, dressed) = kits();
+    let mut cache = std::collections::BTreeMap::new();
+    let mut covered = vec![vec![false; dressed.width as usize]; 580];
+    let mut paint = |x0: i32, y0: i32, opaque: Vec<Vec<bool>>| {
+        for (dy, row) in opaque.iter().enumerate() {
+            for (dx, &on) in row.iter().enumerate() {
+                let (x, y) = (x0 + dx as i32, y0 + dy as i32);
+                if on && x >= 0 && y >= 0 && (y as usize) < covered.len() && x < dressed.width {
+                    covered[y as usize][x as usize] = true;
+                }
+            }
+        }
+    };
+    for t in &dressed.tiles {
+        let rect = [t.rect.x, t.rect.y, t.rect.w, t.rect.h];
+        paint(
+            t.col * dressed.tile,
+            t.row * dressed.tile,
+            opaque_rect(&mut cache, &t.atlas, rect),
+        );
+    }
+    for p in &dressed.pieces {
+        let rect = [p.rect.x, p.rect.y, p.rect.w, p.rect.h];
+        paint(p.x, p.y, opaque_rect(&mut cache, &p.atlas, rect));
+    }
+    for (name, x0, x1) in [("bay A", 264, 383), ("bay B", 904, 1135)] {
+        let mut gaps = Vec::new();
+        for (y, row) in covered.iter().enumerate().take(576).skip(304) {
+            for x in x0..=x1 {
+                if !row[x as usize] {
+                    gaps.push((x, y));
+                }
+            }
+        }
+        assert!(
+            gaps.is_empty(),
+            "{name}: {} uncovered pixels, first {:?}",
+            gaps.len(),
+            &gaps[..gaps.len().min(5)]
+        );
+    }
 }
 
 // ------------------------------------------------------------------ FF-A7: lights

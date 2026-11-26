@@ -203,6 +203,28 @@ class EnvKitTests(unittest.TestCase):
         with self.assertRaisesRegex(ek.KitError, "fully opaque"):
             ek.validate_contract(self.kit(images={"floor01_terrain": image}))
 
+    def test_opaque_option_is_opt_in_and_never_weakens_the_alpha_check(self) -> None:
+        """AREA-FASTFOOD-01 (FF-AD17): a piece declared ``opaque`` must be fully opaque, and a fully opaque decor
+        piece that is not declared still fails the one-transparent-pixel rule."""
+        contract = copy.deepcopy(self.base.contract)
+        pier = self.piece(contract, "pier_l")                      # holds transparent pixels
+        pier["opaque"] = True
+        with self.assertRaisesRegex(ek.KitError, "declared opaque but holds a transparent pixel"):
+            ek.validate_contract(self.kit(contract))
+        contract = copy.deepcopy(self.base.contract)
+        grime = self.piece(contract, "grime_a")
+        x, y, w, h = grime["rect"]
+        image = self.base.atlases[grime["atlas"]]["image"].copy()
+        colour = next(image.getpixel((x + i, y + j)) for j in range(h) for i in range(w)
+                      if image.getpixel((x + i, y + j))[3] == 255)
+        for j in range(h):
+            for i in range(w):
+                image.putpixel((x + i, y + j), colour)
+        with self.assertRaisesRegex(ek.KitError, "decor pieces must use"):
+            ek.validate_contract(self.kit(contract, images={grime["atlas"]: image}))
+        grime["opaque"] = True                                     # declared and fully opaque: accepted
+        ek.validate_contract(self.kit(contract, images={grime["atlas"]: image}))
+
     def test_misaligned_tile_rect_rejected(self) -> None:
         contract = copy.deepcopy(self.base.contract)
         contract["tiles"][1]["rect"][0] += 1

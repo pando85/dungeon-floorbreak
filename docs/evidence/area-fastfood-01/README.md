@@ -17,7 +17,7 @@ xvfb-run -a -s '-screen 0 1920x1080x24' floor01_scene --no-audio --no-record --s
 | Still | Pilot, tick | Drawn view left | What it shows |
 | --- | --- | --- | --- |
 | `threshold` | `donut`, 20 | 0 | the hot side: the catacomb, the two threshold torches, the timber door, the seam where the tile wall begins (F-A0) |
-| `play_area` | `donut`, 120 | 130 | the deck and slide-top skins, the posts and net, the pit, the chute, the counter and its canopy, the bin, the light strips |
+| `play_area` | `donut`, 120 | 130 | the checker floor, the deck and slide-top skins standing on their posts and net (no wall gap), the pit, the chute, the counter and its canopy, the bin, the light strips |
 | `window` | `donut`, 270 | 620 | bay B as a restaurant window onto raw rock, the booth, the stray ball |
 | `box_full` | `donut`, 312 | 757 | the full box, Donut approaching |
 | `box_grant` | `donut`, 332 | 822 | the grant: the box already spent (empty iff the boost is held) with sparkle frame 2 over it |
@@ -26,7 +26,7 @@ xvfb-run -a -s '-screen 0 1920x1080x24' floor01_scene --no-audio --no-record --s
 | `door_open` | `donut`, 392 | 960 | the open door (rails only), the bell idle at the ledge's end |
 | `exit` | `donut`, 408 | 960 | the vestibule: back to catacomb masonry and the closed portal (F-A4) |
 
-The lit scene is darker and cooler than the key sheets: the **full box and the spent box both read as dull olive at 1x** under the room's cool ambient (the box has no emitter, FF-AD6, FF-AD23). This is a note for the owner's art review (FF-A10), not a tweak.
+The lit scene is darker and cooler than the key sheets: both box frames read as olive at 1x under the floor-wide scene ambient (0.6, 0.62, 0.82), as every unlit `brass` on Floor 01 does. The full box still separates from the checker floor by 32.7 luma (below), so the glint period stays (FF-AD30). The hue is an owner note (FF-Q3, extended), not a tweak.
 
 ## Offline sheets
 
@@ -42,8 +42,10 @@ The lit scene is darker and cooler than the key sheets: the **full box and the s
 
 ## Measurements (`measurements.txt`)
 
-- **G7 (door against wall):** in the runtime `door_closed` still the door panel's interior (x 1441..1454, y 368..527) has mean luma 47.8 and the wall field beside it (x 1408..1435) 72.3: a difference of **24.5, a miss of the target 25 by 0.5**. The rail's `stone_cold` 0 outline is unbroken (darker than both neighbours on all 160 rows). Reported as a design note, not tweaked.
-- **Rule 10.1 (G2 metric) on the runtime stills:** each stand line is the brightest 8 px run in its 64 px envelope in every still where it is visible (the lit model explains the room, the actors, HUD and presenter art are masked, the three stand-line pieces are not counted as rivals). The unit test `tests/test_art_ff01.py` proves the same on the pixel model.
+- **G7 (door against wall), accepted:** in the runtime `door_closed` still the door panel's interior (x 1441..1454, y 368..527) has mean luma 47.8 and the wall field beside it (x 1408..1435) 72.3: a difference of 24.5 and a ratio of 0.66. The target 25 was an unlit estimate; the independent review accepted the measurement (FF-AD31). The rail's `stone_cold` 0 outline is unbroken (darker than both neighbours on all 160 rows).
+- **Rule 10.1 (G2 metric) on the runtime stills:** each stand line is the brightest 8 px run in its 64 px envelope in every still where it is visible, by 44 (deck, slide top; the checker floor is now the nearest rival) and 77 (shelf) luma steps. The lit model explains the room; the actors, HUD and presenter art are masked; the three stand-line pieces are not counted as rivals. `tests/test_art_ff01.py` proves the same on the pixel model.
+- **Box against the checker floor (review item 6):** the full box's opaque pixels (`box_full`) have mean luma 84.9 against 52.1 for a 4 px ring around its rect: 32.7, not under 12, so `GLINT_TICKS` stays 24. The spent box (`door_closed`) is 53.2 against 53.8: it recedes, as intended.
+- **Bays (review F5):** no background pixel shows in either bay (a `fastfood_kit` test over x 264..383 and 904..1135, y 304..575).
 - **Lights:** the worst 640 px view holds 28 lights (the greybox's: 31) against `MAX_LIGHTS` 64; the net change is minus 8 plus 6 (`fastfood_kit` test).
 
 ## Regenerating the gate sheets

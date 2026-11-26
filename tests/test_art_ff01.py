@@ -24,8 +24,8 @@ SIZES = {  # spec section 5 (the door and the box are the keys' canvases; the ri
     "ff_floor_checker_a": (32, 12), "ff_floor_checker_edge": (32, 12), "ff_floor_spill": (48, 12),
     "ff_tile_seam": (8, 192), "ff_ceiling_tile": (32, 16), "ff_soffit_stone": (32, 16), "ff_light_strip": (48, 6),
     "ff_counter_a": (128, 36), "ff_counter_canopy": (128, 40), "ff_deck_skin": (96, 16),
-    "ff_slide_top_skin": (128, 16), "ff_play_posts": (224, 52), "ff_slide_chute": (64, 64), "ff_ball_pit": (96, 12),
-    "ff_stray_ball": (6, 6), "ff_bin": (20, 32), "ff_window_frame": (160, 160), "ff_rock_fill": (152, 192),
+    "ff_slide_top_skin": (128, 16), "ff_play_posts": (224, 68), "ff_slide_chute": (64, 64), "ff_ball_pit": (96, 12),
+    "ff_stray_ball": (6, 6), "ff_bin": (20, 32), "ff_window_frame": (160, 160), "ff_rock_fill": (168, 192),
     "ff_booth_a": (112, 40), "ff_service_hatch": (80, 48), "ff_under_panel": (96, 60),
 }
 # The eight keys: frozen at the silhouette gate (gate/measurements.txt `KEY` lines). A key change is a design change.
@@ -53,6 +53,7 @@ REMOVE_AT = [  # spec section 8
     ("backwall_decal", "torch_pool_a_m", 232, 364), ("backwall_decal", "torch_pool_a", 744, 92),
     ("backwall_decal", "torch_pool_a_m", 744, 364), ("backwall_decal", "torch_pool_a", 984, 364),
     ("backwall_decal", "grime_a", 600, 376),
+    ("structure", "arch_chain", 912, 384),       # review F2: not across the window (bay A keeps its chain)
 ]
 OPAQUE = {"ff_staff_door_closed", "ff_wainscot_a", "ff_wainscot_b", "ff_wall_tile_a", "ff_floor_checker_a",
           "ff_ceiling_tile", "ff_soffit_stone", "ff_deck_skin", "ff_slide_top_skin"}
@@ -205,10 +206,10 @@ class FastFoodKitTest(unittest.TestCase):
         for a in kit["atlases"]:
             self.assertTrue(a.startswith("floor01_ff_"), a)
         layers = {p["id"]: p["layer"] for p in kit["pieces"]}
-        wall = {"ff_wainscot_a", "ff_wainscot_b", "ff_wall_tile_a", "ff_floor_checker_a", "ff_floor_checker_edge",
-                "ff_floor_spill", "ff_counter_canopy", "ff_slide_chute", "ff_service_hatch", "ff_under_panel",
+        wall = {"ff_wainscot_a", "ff_wainscot_b", "ff_wall_tile_a", "ff_counter_canopy", "ff_slide_chute", "ff_service_hatch", "ff_under_panel",
                 "ff_rock_fill"}
-        structure = {"ff_pass_ledge", "ff_tile_seam", "ff_ceiling_tile", "ff_soffit_stone", "ff_deck_skin",
+        structure = {"ff_floor_checker_a", "ff_floor_checker_edge", "ff_floor_spill",   # review F1: above the floor deck
+                     "ff_pass_ledge", "ff_tile_seam", "ff_ceiling_tile", "ff_soffit_stone", "ff_deck_skin",
                      "ff_slide_top_skin", "ff_play_posts", "ff_window_frame"}
         props = {"ff_light_strip", "ff_counter_a", "ff_ball_pit", "ff_stray_ball", "ff_bin", "ff_booth_a"}
         for pid in wall:
@@ -256,16 +257,16 @@ class FastFoodKitTest(unittest.TestCase):
         d = load(CONTRACT)["room_dressing"]["rest_refuge"]
         self.assertEqual([(r["layer"], r["piece"], r["x"], r["y"]) for r in d["remove_at"]], REMOVE_AT)
         self.assertEqual((d["remove"], d["parallax"]), ([], {}), "FF-AD16: no parallax swap")
-        self.assertEqual(d["backwall_fill"], [{"x": 264, "y": 352, "w": 40, "h": 192}])
+        self.assertEqual(d["backwall_fill"], [{"x": 264, "y": 352, "w": 56, "h": 192}])
 
     def test_dressing_equals_the_spec_list(self):
         got = {}
         for p in placements():
             got.setdefault(p["piece"], []).append((p["x"], p["y"], p["layer"]))
         want = {
-            "ff_floor_checker_a": [(288 + 32 * n, 561, "backwall_decal") for n in range(36)],
-            "ff_floor_checker_edge": [(256, 561, "backwall_decal")],
-            "ff_floor_spill": [(168, 561, "backwall_decal")],
+            "ff_floor_checker_a": [(288 + 32 * n, 561, "structure") for n in range(36)],
+            "ff_floor_checker_edge": [(256, 561, "structure")],
+            "ff_floor_spill": [(168, 561, "structure")],
             "ff_counter_canopy": [(704, 400, "backwall_decal")], "ff_slide_chute": [(688, 496, "backwall_decal")],
             "ff_service_hatch": [(1304, 400, "backwall_decal")], "ff_under_panel": [(1296, 468, "backwall_decal")],
             "ff_rock_fill": [(904, 352, "backwall_decal")],
@@ -273,7 +274,7 @@ class FastFoodKitTest(unittest.TestCase):
             "ff_ceiling_tile": [(288 + 32 * n, 336, "structure") for n in range(36)],
             "ff_soffit_stone": [(x, 336, "structure") for x in list(range(0, 288, 32)) + list(range(1440, 1600, 32))],
             "ff_deck_skin": [(464, 512, "structure")], "ff_slide_top_skin": [(560, 496, "structure")],
-            "ff_play_posts": [(464, 528, "structure")], "ff_window_frame": [(900, 384, "structure")],
+            "ff_play_posts": [(464, 512, "structure")], "ff_window_frame": [(900, 384, "structure")],
             "ff_pass_ledge": [(1296, 448, "structure")],
             "ff_light_strip": [(x, 352, "prop") for x in (400, 592, 784, 976, 1168, 1360)],
             "ff_counter_a": [(704, 524, "prop")], "ff_ball_pit": [(560, 548, "prop")],
@@ -283,14 +284,10 @@ class FastFoodKitTest(unittest.TestCase):
             "ff_wainscot_a": [(288 + 32 * n, 528, "backwall_decal") for n in range(36) if n % 3 != 2],
             "ff_wainscot_b": [(288 + 32 * n, 528, "backwall_decal") for n in range(36) if n % 3 == 2],
         }
-        rects = {"hatch": (1304, 400, 80, 48), "canopy": (704, 400, 128, 40), "under": (1296, 468, 96, 60)}
-        tiles = []
-        for y in range(368, 497, 32):
-            for x in list(range(384, 832, 32)) + list(range(1152, 1440, 32)):
-                if all(not (x < r[0] + r[2] and x + 32 > r[0] and y < r[1] + r[3] and y + 32 > r[1])
-                       for r in rects.values()):
-                    tiles.append((x, y, "backwall_decal"))
-        want["ff_wall_tile_a"] = tiles
+        # review F4: the full tile grid, also under the hatch, the canopy and the under-panel (the cell at x 1120 lies
+        # behind bay B's right pier and shows x 1136..1151)
+        want["ff_wall_tile_a"] = [(x, y, "backwall_decal") for y in range(368, 497, 32)
+                                  for x in list(range(384, 832, 32)) + [1120] + list(range(1152, 1440, 32))]
         self.assertEqual({k: sorted(v) for k, v in got.items()}, {k: sorted(v) for k, v in want.items()})
         # the wainscot never has two `_b` in a row, and the checker never leaves 288..1439
         order = [p["piece"] for p in sorted((p for p in placements() if p["piece"].startswith("ff_wainscot")),
@@ -514,6 +511,58 @@ class FastFoodKitTest(unittest.TestCase):
         pins = {line.split()[1]: line.split()[2] for line in (gate / "measurements.txt").read_text().splitlines()
                 if line.startswith("KEY ")}
         self.assertEqual(pins, KEY_SHA)
+
+    # ------------------------------------------------------------------ review fixes F1, F3, F4
+    def test_f1_the_floor_decals_draw_above_the_collision_layer_and_the_posts_feet_draw_over_them(self):
+        layers = {l["name"]: l["draw_order"] for l in load(ROOT / "assets/source/terrain/floor01/floor01_catacomb_kit.json")["layers"]}
+        pieces = {p["id"]: SIZES[p["id"]] for p in load(CONTRACT)["pieces"]}
+        floor = [p for p in placements() if 561 <= p["y"] <= 572]
+        self.assertEqual(len(floor), 38)
+        for p in floor:
+            self.assertGreater(layers[p["layer"]], layers["collision"], p)
+            self.assertEqual(p["layer"], "structure", p)
+        order = [p["piece"] for p in placements() if p["layer"] == "structure"]
+        last_floor = max(i for i, n in enumerate(order) if n.startswith(("ff_floor_checker", "ff_floor_spill")))
+        self.assertLess(last_floor, order.index("ff_play_posts"), "the posts' feet draw over the checker")
+        self.assertEqual(pieces["ff_play_posts"], (224, 68))
+
+    def test_f3_the_slide_top_stands_on_its_posts_with_no_wall_gap(self):
+        posts = ff.ff_play_posts()
+        self.assertEqual((posts.w, posts.h), (224, 68))
+        below = ff._play_posts_below()
+        for y in range(52):                              # rows 16..67 are the first execution's rows 0..51
+            self.assertEqual(posts.px[y + 16], below.px[y], y)
+        for y in range(16):                              # under the deck skin: nothing
+            self.assertTrue(all(posts.px[y][x] is None for x in range(96)), y)
+        for x0 in (104, 210):                            # the slide-side posts reach row 0 (y 512)
+            for y in range(16):
+                self.assertTrue(all(posts.px[y][x0 + dx] is not None for dx in range(6)), (x0, y))
+        self.assertTrue(all(posts.px[0][x] == ("brass", 2) for x in range(110, 210)), "the slide side's top rail")
+        pix = [p for row in posts.px for p in row if p]
+        self.assertTrue(all(luma(p) < luma(("brass", 5)) for p in pix), "dimmer than the skins' faces")
+        self.assertEqual(bright_runs(posts, 0, 0, 8, 201.0), [])
+        self.assertFalse(any(p in (("flame", 5), ("copper", 8)) for p in pix))
+        # the skin (y 496..511) and the posts (y 512..) meet: the posts' top row is the row under the skin
+        self.assertEqual(496 + 16, 512)
+
+    def test_f4_the_wall_tiles_run_under_the_hatch_the_canopy_and_the_under_panel(self):
+        order = [p["piece"] for p in placements() if p["layer"] == "backwall_decal"]
+        last_tile = max(i for i, n in enumerate(order) if n == "ff_wall_tile_a")
+        for pid in ("ff_counter_canopy", "ff_service_hatch", "ff_under_panel"):
+            self.assertGreater(order.index(pid), last_tile, f"{pid} draws over the tiles")
+        got = {(p["x"], p["y"]) for p in placements() if p["piece"] == "ff_wall_tile_a"}
+        for y in range(368, 497, 32):                    # no gap in the field of 384..831 and 1136..1439
+            for x in list(range(384, 832, 32)) + list(range(1136, 1440, 16)):
+                self.assertTrue(any(gx <= x < gx + 32 and gy == y for gx, gy in got), (x, y))
+
+    def test_f5_the_widened_rock_keeps_the_first_152_columns_pixel_for_pixel(self):
+        rock = ff.ff_rock_fill()
+        self.assertEqual((rock.w, rock.h), (168, 192))
+        cur = [[(ff.kit.colour_name(*px) if px else None) for px in row[:152]] for row in rock.px]
+        self.assertEqual(hashlib.sha256(json.dumps(cur).encode()).hexdigest(),
+                         "4d8641ed8376ce64c55a2714d617a0c5147c5c1ead515f2c570c244525ee19d4")
+        # the appended columns cover x 1056..1071 on the rows the right pier leaves open (y 416..527)
+        self.assertTrue(all(rock.px[y][x] is not None for y in range(64, 176) for x in range(152, 168)))
 
 
 if __name__ == "__main__":
