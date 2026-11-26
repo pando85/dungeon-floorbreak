@@ -588,7 +588,8 @@ enum Gate {
 }
 
 /// The encounter's whole simulation state. Everything here is hashed
-/// ([`Self::mix_into`]) except `charge_started`, a copy of the hashed clock;
+/// ([`Self::mix_into`]) except `charge_started`, a copy of the hashed clock,
+/// and `gate_closed_tick`, a copy of the scene tick at the hashed gate close;
 /// presentation never feeds back into it.
 #[derive(Debug, Clone)]
 pub struct Boss {
@@ -599,6 +600,10 @@ pub struct Boss {
     /// Not mixed into the hash: a copy of the hashed `clock` taken at a hashed
     /// mode change, so it adds no state of its own.
     charge_started: u64,
+    /// The combat tick on which the entrance gate closed (F01-SIM-TICKS), for
+    /// presentation. Not mixed into the hash: a copy of `BossCtx::tick` taken
+    /// at the hashed `Open -> Closed` change.
+    gate_closed_tick: Option<u64>,
     pub hp: u16,
     pub phase: u8,
     pub mode: BossMode,
@@ -638,6 +643,7 @@ impl Boss {
             floor_y,
             clock: 0,
             charge_started: 0,
+            gate_closed_tick: None,
             hp: data.hp_max,
             phase: 1,
             mode: BossMode::Dormant,
@@ -689,6 +695,13 @@ impl Boss {
     /// The entrance gate is closed (a collider at the left wall).
     pub fn gate_closed(&self) -> bool {
         matches!(self.gate, Gate::Closed)
+    }
+
+    /// The combat tick on which the entrance gate closed, once it closed in
+    /// [`Self::step`]; it stays set after the release. Presentation keys the
+    /// gate drop off it; it is not hashed.
+    pub fn gate_closed_tick(&self) -> Option<u64> {
+        self.gate_closed_tick
     }
 
     /// The gate and the exit are open (the boss is defeated).
@@ -1162,6 +1175,7 @@ impl Boss {
         let all_inside = living.iter().all(|h| h.x >= gate.inside_x);
         if elapsed >= u64::from(gate.settle_ticks) && all_inside && !living.is_empty() {
             self.gate = Gate::Closed;
+            self.gate_closed_tick = Some(ctx.tick);
             self.enter(BossMode::Neutral);
             out.events.push(CombatEvent::BossEngaged { tick: ctx.tick });
             for (index, rack) in self.racks.iter().enumerate() {
@@ -1976,6 +1990,43 @@ mod tests {
         dead.heroes[1].present = false;
         run(&mut boss, &dead, 20);
         assert!(boss.gate_closed());
+    }
+
+    /// F01-SIM-TICKS: the close records the scene tick of the close step,
+    /// once, deterministically, and outside the state hash.
+    #[test]
+    fn the_gate_records_its_close_tick_once_unhashed() {
+        let run = || {
+            let mut boss = Boss::new(data(), FLOOR);
+            let mut seen = Vec::new();
+            for tick in 500..540u64 {
+                let c = BossCtx {
+                    tick,
+                    ..ctx(120.0, 120.0)
+                };
+                let out = boss.step(&c);
+                let engaged = out
+                    .events
+                    .iter()
+                    .any(|e| matches!(e, CombatEvent::BossEngaged { .. }));
+                if engaged {
+                    assert_eq!(boss.gate_closed_tick(), Some(tick), "the close step");
+                }
+                seen.push(boss.gate_closed_tick());
+            }
+            (boss, seen)
+        };
+        let (boss, seen) = run();
+        let at = seen.iter().position(Option::is_some).expect("closes");
+        let tick = seen[at].expect("set");
+        assert!(boss.gate_closed());
+        assert!(seen[at..].iter().all(|t| *t == Some(tick)), "set once");
+        assert!(seen[..at].iter().all(Option::is_none));
+        assert_eq!(run().1, seen, "deterministic");
+        let mut copy = boss.clone();
+        copy.gate_closed_tick = None;
+        assert_eq!(hash_of(&copy), hash_of(&boss), "not hashed");
+        assert_eq!(Boss::new(data(), FLOOR).gate_closed_tick(), None);
     }
 
     #[test]

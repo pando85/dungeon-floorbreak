@@ -1,5 +1,6 @@
 //! F01 danger FX: the Bevy half of the danger art (the acid pool, the blast reach
-//! rings, the blast wave, the room 5 gate and the acid entry splash). The pure half
+//! rings, the blast wave, the room 5 gate and its drop, the slam dust and the acid
+//! entry splash). The pure half
 //! is `dungeon_floorbreak::danger_fx_art`; this file only draws its list with one pool
 //! of sprites, each a source rectangle of its sheet's atlas (the acid is cropped
 //! to the pool's live width), and, AREA-HAZARDS-01B, the splash cue
@@ -46,6 +47,7 @@ pub(super) struct DangerFxArt {
     sheets: Vec<(FxSheet, Handle<Image>)>,
     back_z: f32,
     floor_z: f32,
+    dust_z: f32,
     blast_z: f32,
     gate_z: f32,
     splash_z: f32,
@@ -79,7 +81,7 @@ impl DangerFxArt {
     /// The gate art replaces the code-drawn gate slab (only when the collider is
     /// the 28 px the canvas covers).
     pub(super) fn draws_gate(&self, boss: &dungeon_floorbreak::boss::Boss) -> bool {
-        self.has(FxSheet::Gate) && dungeon_floorbreak::danger_fx_art::gate(boss).is_some()
+        self.has(FxSheet::Gate) && dungeon_floorbreak::danger_fx_art::gate_drawn(boss)
     }
 }
 
@@ -164,6 +166,9 @@ pub(super) fn spawn(
         back_z: actor_z - 0.5,
         // The acid: the hazard pieces' z (under the slime and every actor).
         floor_z: actor_z - 0.045,
+        // F01-SIM-TICKS: the slam dust over the props (`actor_z - 0.05`) and the
+        // acid, under every actor.
+        dust_z: actor_z - 0.03,
         // The wave: on the blast layer just under the VFX-01 core burst.
         blast_z: draw_z(DrawLayer::Blast, 0, actor_z, wall_z) - 0.005,
         // The closed gate: the stand-in slab's z.
@@ -178,6 +183,7 @@ fn layer_z(art: &DangerFxArt, layer: FxLayer) -> f32 {
     match layer {
         FxLayer::Back => art.back_z,
         FxLayer::Floor => art.floor_z,
+        FxLayer::Dust => art.dust_z,
         FxLayer::Splash => art.splash_z,
         FxLayer::Blast => art.blast_z,
         FxLayer::Gate => art.gate_z,

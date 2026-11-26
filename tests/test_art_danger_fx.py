@@ -27,7 +27,8 @@ SPEC = {
     "dfx_ring_r64": ((135, 135), (67, 67), {"ring_march": 2, "ring_hot": 2}),
     "dfx_wave_r48": ((103, 103), (51, 51), {"blast_wave": 6}),
     "dfx_wave_r64": ((135, 135), (67, 67), {"blast_wave": 6}),
-    "dfx_gate": ((28, 224), (0, 223), {"gate_closed": 1, "gate_raised": 1}),
+    "dfx_gate": ((28, 224), (0, 223), {"gate_closed": 1, "gate_raised": 1, "gate_drop": 4}),
+    "dfx_slam_dust": ((44, 20), (4, 19), {"slam_dust": 5}),
     "dfx_exit": ((96, 136), (0, 135), {"exit_closed": 1, "exit_open": 1}),
 }
 WAVE_TICKS = [2, 2, 2, 6, 5, 5]
@@ -99,12 +100,54 @@ class DangerFxSourcesTest(unittest.TestCase):
 
     def test_the_gate_covers_its_collider_and_bites_the_floor(self) -> None:
         grid = load(PROPS / "dfx_gate.grid.json")
-        closed, raised = (f["cels"]["body"] for f in grid["frames"])
+        closed, raised, *drop = (f["cels"]["body"] for f in grid["frames"])
         self.assertEqual(len(closed[0]), 28)
         self.assertTrue(closed[0].strip("."), "the closed gate reaches the ceiling")
         self.assertTrue(closed[223].strip("."), "the teeth bite the floor on the last row")
         self.assertTrue(all(not row.strip(".") for row in raised[fx.GATE_RAISED_ROWS:]),
                         "the raised gate hangs only under the lintel")
+
+    def test_the_gate_drop_falls_from_the_raised_height_to_the_floor(self) -> None:
+        """F01-SIM-TICKS: four drop frames between the raised gate (lowest grate row 19) and
+        the closed one (row 219), the tips going down faster every frame (constant gravity),
+        the grate columns of each frame a pure vertical shift of the closed grate's, and the
+        jamb (columns 24..27) the closed frame's from the first drop frame."""
+        grid = load(PROPS / "dfx_gate.grid.json")
+        closed, raised, *drop = (f["cels"]["body"] for f in grid["frames"])
+        self.assertEqual(len(drop), 4)
+        self.assertEqual([f["duration_ms"] for f in grid["frames"][2:]], [33] * 4)
+
+        def tips(frame: list[str]) -> int:
+            return max(y for y, row in enumerate(frame) if row[:24].strip("."))
+
+        rows = [tips(raised)] + [tips(f) for f in drop] + [tips(closed)]
+        # 200 - 2 t^2 px above the closed position at t = 2, 4, 6, 8 ticks.
+        self.assertEqual(rows, [19, 27, 51, 91, 147, 219])
+        steps = [b - a for a, b in zip(rows, rows[1:])]
+        self.assertEqual(steps, sorted(steps), "it accelerates")
+        for frame, row in zip(drop, rows[1:-1]):
+            shift = 219 - row
+            for y in range(fx.GH):
+                self.assertEqual(frame[y][24:], closed[y][24:], f"jamb row {y}")
+                src = y + shift
+                want = closed[src][:24] if src < fx.GH else "." * 24
+                self.assertEqual(frame[y][:24], want, f"grate row {y} of the drop to row {row}")
+
+    def test_the_slam_dust_stands_on_the_floor_and_rolls_away_from_the_impact(self) -> None:
+        """F01-SIM-TICKS: every dust frame touches the walking line (the bottom row) or rises
+        off it in the late frames only, nothing is drawn left of the pivot column but the
+        4 px tucked under the object, and the 20 ticks play once."""
+        grid = load(PROPS / "dfx_slam_dust.grid.json")
+        frames = [f["cels"]["body"] for f in grid["frames"]]
+        self.assertEqual([f["duration_ms"] for f in grid["frames"]], [33, 50, 67, 83, 100])
+        pal = {p["key"]: p["name"] for p in grid["palette"]}
+        self.assertTrue(set(pal.values()) <= {f"stone_0{i}" for i in range(3, 8)} | {"iron_01", "iron_03"})
+        for i, frame in enumerate(frames):
+            self.assertTrue(frame[19].strip("."), f"frame {i} stands on the floor")
+            xs = [x for row in frame for x, k in enumerate(row) if k != "."]
+            self.assertLessEqual(min(xs), 4, f"frame {i} starts at the impact edge")
+        reach = [max(x for row in f for x, k in enumerate(row) if k != ".") for f in frames]
+        self.assertEqual(reach[:3], sorted(reach[:3]), "the front rolls out")
 
     def test_the_exit_opening_is_the_exit_gate_and_the_grate_bites_the_floor(self) -> None:
         """ROOM-PORTALS-01: the opening is the 64 x 96 exit gate collider (columns 16..79,

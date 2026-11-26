@@ -1,7 +1,7 @@
 {
   "format": "pixelart-asset-v1",
   "asset_id": "f01-dfx-gate",
-  "title": "F01 danger FX room 5 entrance gate (closed, raised)",
+  "title": "F01 danger FX room 5 entrance gate (closed, raised, drop)",
   "grid": "assets/source/props/floor01/dfx_gate.grid.json",
   "manifest": "assets/manifests/f01-dfx-gate.json",
   "frame_size": [
@@ -34,6 +34,28 @@
         [
           1,
           null
+        ]
+      ]
+    },
+    "gate_drop": {
+      "playback": "once",
+      "contact": "free",
+      "frames": [
+        [
+          2,
+          2
+        ],
+        [
+          3,
+          2
+        ],
+        [
+          4,
+          2
+        ],
+        [
+          5,
+          2
         ]
       ]
     }
@@ -72,7 +94,8 @@
     "strip_name": "03_state_strip.png",
     "strip_tags": [
       "gate_closed",
-      "gate_raised"
+      "gate_raised",
+      "gate_drop"
     ]
   }
 }

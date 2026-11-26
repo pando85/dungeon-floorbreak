@@ -834,6 +834,10 @@ pub struct FallingMass {
     evaluated: Vec<Victim>,
     initiator: Option<u32>,
     depth: u8,
+    /// The combat tick of the landing (F01-SIM-TICKS), for presentation.
+    /// Not mixed into the hash: a copy of the scene tick taken at the hashed
+    /// `Falling -> Landed` edge, so it adds no state of its own.
+    landed_tick: Option<u64>,
 }
 
 impl FallingMass {
@@ -853,6 +857,7 @@ impl FallingMass {
             evaluated: Vec::new(),
             initiator: None,
             depth: 0,
+            landed_tick: None,
         })
     }
 
@@ -888,6 +893,13 @@ impl FallingMass {
     /// The solid remnant, once landed.
     pub fn remnant(&self) -> Option<IRect> {
         (self.state == MassState::Landed).then_some(self.cfg.remnant)
+    }
+
+    /// The combat tick on which the mass landed, once it landed through
+    /// [`FallingMass::step_at`]; `None` before the landing and after a reset.
+    /// Presentation keys the landing dust off it; it is not hashed.
+    pub fn landed_tick(&self) -> Option<u64> {
+        self.landed_tick
     }
 
     /// The floor shadow the warning draws and the nav feed exports: the
@@ -1066,6 +1078,16 @@ impl FallingMass {
         })
     }
 
+    /// [`FallingMass::step`] on the combat tick `tick`: the same edges, and the
+    /// landing edge also records `tick` as [`FallingMass::landed_tick`].
+    pub fn step_at(&mut self, tick: u64, bodies: &[MassBody]) -> Option<MassEdge> {
+        let edge = self.step(bodies);
+        if matches!(edge, Some(MassEdge::Landed(_))) {
+            self.landed_tick = Some(tick);
+        }
+        edge
+    }
+
     /// One fixed tick, after the stimuli. `bodies` are the victims the landing
     /// would test; they are only read on the landing tick.
     pub fn step(&mut self, bodies: &[MassBody]) -> Option<MassEdge> {
@@ -1142,7 +1164,8 @@ impl FallingMass {
         }
     }
 
-    /// Fold the full state into a state hash.
+    /// Fold the full state into a state hash (all of it except
+    /// `landed_tick`, a copy of the scene tick at a hashed edge).
     pub fn mix_into(&self, mix: &mut impl FnMut(u64)) {
         mix(self.state.code());
         mix(u64::from(self.ticks_left));
@@ -3272,6 +3295,47 @@ mod falling_mass_tests {
         // evaluation runs on R+31.
         assert_eq!(edges, [(23, false), (31, true)]);
         assert_eq!(m.state(), MassState::Landed);
+    }
+
+    /// F01-SIM-TICKS: `step_at` records the scene tick of the landing edge,
+    /// exactly once, deterministically, and outside the state hash.
+    #[test]
+    fn step_at_records_the_landing_tick_once_unhashed_and_reset_clears_it() {
+        let run = || {
+            let mut m = mass();
+            m.offer(jab(1, 0));
+            m.offer(jab(2, 0));
+            let mut seen = Vec::new();
+            for tick in 1000..1040u64 {
+                let edge = m.step_at(tick, &[]);
+                if matches!(edge, Some(MassEdge::Landed(_))) {
+                    assert_eq!(m.landed_tick(), Some(tick), "set on the landing step");
+                }
+                seen.push(m.landed_tick());
+            }
+            (m, seen)
+        };
+        let (m, seen) = run();
+        // Landing evaluated on R + 31 (the 32nd step): None before, then the
+        // same value on every later step (set once, never moved).
+        assert!(seen[..31].iter().all(Option::is_none));
+        assert!(seen[31..].iter().all(|t| *t == Some(1031)));
+        // Deterministic: a second identical run records the same ticks.
+        assert_eq!(run().1, seen);
+        // Unhashed: the plain `step` twin has the same hash and no tick.
+        let mut twin = mass();
+        twin.offer(jab(1, 0));
+        twin.offer(jab(2, 0));
+        for _ in 0..40 {
+            twin.step(&[]);
+        }
+        assert_eq!(twin.landed_tick(), None);
+        assert_eq!(hash(&twin), hash(&m));
+        // A reset clears it like every other field.
+        let mut m = m;
+        m.reset();
+        assert_eq!(m.landed_tick(), None);
+        assert_eq!(m, mass());
     }
 
     #[test]

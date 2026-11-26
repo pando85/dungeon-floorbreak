@@ -73,7 +73,7 @@ for pass in 1 2; do
       capture "$room" "$plan" "$tick:1:1" "$dir" --scale "$scale"
       frame="$(find "$dir" -name 'frame_*.png')"
       [[ "$(identify -format '%wx%h' "$frame")" == "$res" ]] || { echo "bad size for $res: $frame" >&2; exit 1; }
-      grep -q '^DANGER_FX sheets=7/7' "$dir/run.log" || { echo "the danger FX atlases did not load: $dir/run.log" >&2; exit 1; }
+      grep -q '^DANGER_FX sheets=8/8' "$dir/run.log" || { echo "the danger FX atlases did not load: $dir/run.log" >&2; exit 1; }
       cp "$frame" "$caps/pass$pass-${name}_$res.png"
     done
   done

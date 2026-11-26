@@ -16,6 +16,14 @@
 //!   gate's collider while the simulation's gate is closed, the raised grate's
 //!   rail and teeth under the lintel otherwise.
 //!
+//! F01-SIM-TICKS (spec `docs/02-art/f01-sim-ticks-spec.md`) adds the gate's
+//! **drop**, played once from the simulation's close tick
+//! ([`Boss::gate_closed_tick`]), and the **slam dust** ([`Sheet::SlamDust`]) at the
+//! gate's impact and at both sides of the Boiler weight's remnant from its landing
+//! tick ([`crate::env_prop::FallingMass::landed_tick`]). Both ticks are unhashed
+//! copies of the scene tick at a hashed edge, so these one-shots read the
+//! simulation exactly as the wave reads `detonate_tick`.
+//!
 //! AREA-HAZARDS-01B adds the acid **entry splash** sheet ([`Sheet::Splash`], its
 //! sprites are made by the stateful cue in [`crate::acid_splash`], not by [`draws`])
 //! and recolours the acid to the teal ramp (HZB-AD1) and backs the rings' outer row
@@ -57,6 +65,9 @@ pub enum Sheet {
     Gate,
     /// AREA-HAZARDS-01B: the acid entry splash (5 frames, played once).
     Splash,
+    /// F01-SIM-TICKS: the slam dust of a heavy mass hitting the floor (5 frames,
+    /// played once).
+    SlamDust,
 }
 
 /// One animation tag of a sheet: its first frame, frame count and ticks per
@@ -100,6 +111,22 @@ pub const WAVE_REACH_FRAME: usize = 3;
 pub const BLAST_WAVE: Tag = tag("blast_wave", 0, WAVE_TICKS.len(), 0);
 pub const GATE_CLOSED: Tag = tag("gate_closed", 0, 1, 0);
 pub const GATE_RAISED: Tag = tag("gate_raised", 1, 1, 0);
+/// F01-SIM-TICKS: the gate drop, played once from the close tick, 2 ticks a frame
+/// (the grate's teeth `200 - 2 t^2` px above the floor at t = 2, 4, 6, 8).
+pub const GATE_DROP: Tag = tag("gate_drop", 2, 4, 2);
+/// The age (ticks after the close tick) of the gate's impact: the closed frame and
+/// the slam dust start here.
+pub const GATE_IMPACT_AGE: u64 = GATE_DROP.frames as u64 * GATE_DROP.ticks;
+/// The slam dust plays once: ticks per frame (the manifest's `ticks`), 20 in all.
+pub const DUST_TICKS: [u64; 5] = [2, 3, 4, 5, 6];
+/// The slam dust frame of the key (`roll`).
+pub const DUST_KEY_FRAME: usize = 1;
+pub const SLAM_DUST: Tag = tag("slam_dust", 0, DUST_TICKS.len(), 0);
+/// The slam dust canvas: 44 x 20, its pivot column 4 on the impact edge (columns
+/// 0..3 tuck under the object), its bottom row on the walking line; it rolls toward +x.
+pub const DUST_W: i32 = 44;
+pub const DUST_H: i32 = 20;
+pub const DUST_PIVOT_X: i32 = 4;
 /// The acid entry splash plays once: ticks per frame (the manifest's `ticks`), 16 in all.
 pub const SPLASH_TICKS: [u64; 5] = [2, 3, 3, 4, 4];
 /// The splash frame of the key (`crown`).
@@ -124,7 +151,7 @@ pub const GATE_H: i32 = 224;
 pub const GATE_RAISED_ROWS: i32 = 24;
 
 impl Sheet {
-    pub const ALL: [Self; 7] = [
+    pub const ALL: [Self; 8] = [
         Self::Acid,
         Self::RingR48,
         Self::RingR64,
@@ -132,6 +159,7 @@ impl Sheet {
         Self::WaveR64,
         Self::Gate,
         Self::Splash,
+        Self::SlamDust,
     ];
 
     /// The manifest under `assets/manifests/` (without `.json`).
@@ -144,6 +172,7 @@ impl Sheet {
             Self::WaveR64 => "f01-dfx-wave-r64",
             Self::Gate => "f01-dfx-gate",
             Self::Splash => "f01-dfx-acid-splash",
+            Self::SlamDust => "f01-dfx-slam-dust",
         }
     }
 
@@ -157,6 +186,7 @@ impl Sheet {
             Self::WaveR64 => "generated/art/f01-dfx-wave-r64.png",
             Self::Gate => "generated/art/f01-dfx-gate.png",
             Self::Splash => "generated/art/f01-dfx-acid-splash.png",
+            Self::SlamDust => "generated/art/f01-dfx-slam-dust.png",
         }
     }
 
@@ -165,7 +195,7 @@ impl Sheet {
         match self {
             Self::RingR48 | Self::WaveR48 => Some(48),
             Self::RingR64 | Self::WaveR64 => Some(64),
-            Self::Acid | Self::Gate | Self::Splash => None,
+            Self::Acid | Self::Gate | Self::Splash | Self::SlamDust => None,
         }
     }
 
@@ -177,6 +207,7 @@ impl Sheet {
             None => match self {
                 Self::Gate => (GATE_W, GATE_H),
                 Self::Splash => (SPLASH_W, SPLASH_H),
+                Self::SlamDust => (DUST_W, DUST_H),
                 _ => (ACID_W, ACID_H),
             },
         }
@@ -188,8 +219,9 @@ impl Sheet {
             Self::Acid => &[ACID_IDLE, ACID_DRAIN],
             Self::RingR48 | Self::RingR64 => &[RING_MARCH, RING_HOT],
             Self::WaveR48 | Self::WaveR64 => &[BLAST_WAVE],
-            Self::Gate => &[GATE_CLOSED, GATE_RAISED],
+            Self::Gate => &[GATE_CLOSED, GATE_RAISED, GATE_DROP],
             Self::Splash => &[SPLASH],
+            Self::SlamDust => &[SLAM_DUST],
         }
     }
 
@@ -234,6 +266,9 @@ pub enum Layer {
     Back,
     /// The acid on the floor: with the hazard pieces, under the slime and the actors.
     Floor,
+    /// F01-SIM-TICKS: the slam dust, over the props (the remnant, the drum) and the
+    /// acid, under every actor.
+    Dust,
     /// The acid entry splash: above every actor sprite, below the blast layer and the
     /// rings (AREA-HAZARDS-01B, spec section 4.2).
     Splash,
@@ -320,6 +355,76 @@ pub fn splash_frame(age: u64) -> Option<usize> {
         left -= ticks;
     }
     None
+}
+
+/// The slam dust frame `age` ticks after the impact (0 on the impact tick); `None`
+/// once its 20 ticks are over.
+pub fn dust_frame(age: u64) -> Option<usize> {
+    let mut left = age;
+    for (frame, ticks) in DUST_TICKS.into_iter().enumerate() {
+        if left < ticks {
+            return Some(frame);
+        }
+        left -= ticks;
+    }
+    None
+}
+
+/// The gate frame `age` ticks after the close tick: a drop frame for the first
+/// [`GATE_IMPACT_AGE`] ticks, then the closed grate.
+pub fn gate_closed_frame(age: u64) -> usize {
+    if age < GATE_IMPACT_AGE {
+        GATE_DROP.first + (age / GATE_DROP.ticks) as usize
+    } else {
+        GATE_CLOSED.first
+    }
+}
+
+/// One slam dust plume `age` ticks after an impact whose edge is the world column
+/// `edge` on the walking line `floor` (world y up), rolling toward `toward` (+1 or
+/// -1, mirrored for -1 so the pivot column stays on `edge`).
+pub fn slam_dust(edge: i32, floor: i32, toward: i8, age: u64) -> Option<FxDraw> {
+    let frame = dust_frame(age)?;
+    let flip_x = toward < 0;
+    let pivot = if flip_x {
+        DUST_W - 1 - DUST_PIVOT_X
+    } else {
+        DUST_PIVOT_X
+    };
+    Some(FxDraw {
+        sheet: Sheet::SlamDust,
+        frame,
+        src_x: 0,
+        src_y: 0,
+        flip_x,
+        x: edge - pivot,
+        y: floor,
+        w: DUST_W,
+        h: DUST_H,
+        layer: Layer::Dust,
+    })
+}
+
+/// The landing dust of every falling mass that landed (the Boiler weight): one plume
+/// from each side of its remnant, from the landing tick on. `layout_h` flips the
+/// room's layout rows (y down) into world rows (y up).
+pub fn landing_dust(env: &EnvRuntime, layout_h: i32, tick: u64) -> Vec<FxDraw> {
+    let mut out = Vec::new();
+    for i in 0..env.props() {
+        let Some(mass) = env.mass(i) else {
+            continue;
+        };
+        let (Some(landed), Some(remnant)) = (mass.landed_tick(), mass.remnant()) else {
+            continue;
+        };
+        let Some(age) = tick.checked_sub(landed) else {
+            continue;
+        };
+        let floor = layout_h - remnant.bottom();
+        out.extend(slam_dust(remnant.x + remnant.w, floor, 1, age));
+        out.extend(slam_dust(remnant.x - 1, floor, -1, age));
+    }
+    out
 }
 
 /// The acid sprites of one pool whose current layout rectangle is `x..x + w`
@@ -430,23 +535,34 @@ pub fn blast_wave(charge: &BlastCharge, tick: u64) -> Option<FxDraw> {
     Some(centred(sheet, frame, charge.centre(), Layer::Blast))
 }
 
-/// The room 5 gate: closed over `{0, floor, 28, 224}` (the gate collider up to the
-/// arena ceiling) while the
-/// simulation's gate is closed, raised (rail and teeth under the lintel) before
-/// and after. `None` when the collider is not the 28 px the canvas covers.
-pub fn gate(boss: &Boss) -> Option<FxDraw> {
-    if boss.data().gate.solid_x != GATE_W as f32 {
+/// Whether the gate art draws for this encounter: only when its collider is the
+/// 28 px the canvas covers (otherwise the stand-in slab draws).
+pub fn gate_drawn(boss: &Boss) -> bool {
+    boss.data().gate.solid_x == GATE_W as f32
+}
+
+/// The room 5 gate at `tick`: closed over `{0, floor, 28, 224}` (the gate collider
+/// up to the arena ceiling) while the simulation's gate is closed, after the drop
+/// frames of its first [`GATE_IMPACT_AGE`] ticks from the close tick; raised (rail
+/// and teeth under the lintel) before and after. `None` when the collider is not
+/// the 28 px the canvas covers.
+pub fn gate(boss: &Boss, tick: u64) -> Option<FxDraw> {
+    if !gate_drawn(boss) {
         return None;
     }
     let floor = boss.floor_y().round() as i32;
-    let (tag, layer) = if boss.gate_closed() {
-        (GATE_CLOSED, Layer::Gate)
+    let (frame, layer) = if boss.gate_closed() {
+        let age = boss
+            .gate_closed_tick()
+            .and_then(|t| tick.checked_sub(t))
+            .unwrap_or(GATE_IMPACT_AGE);
+        (gate_closed_frame(age), Layer::Gate)
     } else {
-        (GATE_RAISED, Layer::Back)
+        (GATE_RAISED.first, Layer::Back)
     };
     Some(FxDraw {
         sheet: Sheet::Gate,
-        frame: tag.first,
+        frame,
         src_x: 0,
         src_y: 0,
         flip_x: false,
@@ -458,6 +574,18 @@ pub fn gate(boss: &Boss) -> Option<FxDraw> {
     })
 }
 
+/// The slam dust of the gate's impact: one plume from the gate's arena face into
+/// the arena, [`GATE_IMPACT_AGE`] ticks after the close tick.
+pub fn gate_dust(boss: &Boss, tick: u64) -> Option<FxDraw> {
+    if !gate_drawn(boss) || !boss.gate_closed() {
+        return None;
+    }
+    let age = tick
+        .checked_sub(boss.gate_closed_tick()?)?
+        .checked_sub(GATE_IMPACT_AGE)?;
+    slam_dust(GATE_W, boss.floor_y().round() as i32, 1, age)
+}
+
 /// Everything this module draws for the combat state at `tick`, back to front by
 /// layer, at most [`MAX_DRAWS`].
 pub fn draws(state: &CombatState, layout_h: i32, tick: u64) -> Vec<FxDraw> {
@@ -465,10 +593,14 @@ pub fn draws(state: &CombatState, layout_h: i32, tick: u64) -> Vec<FxDraw> {
     if let Some(env) = state.env() {
         out.extend(acid(env, layout_h, tick));
         out.extend(rot_rings(env, tick));
+        out.extend(landing_dust(env, layout_h, tick));
     }
     out.extend(state.charges.iter().filter_map(|c| blast_wave(c, tick)));
     out.extend(dynamite_ring(state, tick));
-    out.extend(state.boss.as_ref().and_then(gate));
+    if let Some(boss) = state.boss.as_ref() {
+        out.extend(gate(boss, tick));
+        out.extend(gate_dust(boss, tick));
+    }
     out.sort_by_key(|d| d.layer);
     out.truncate(MAX_DRAWS);
     out
