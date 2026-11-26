@@ -2796,6 +2796,9 @@ mod tests {
                 .filter(|e| matches!(e, CombatEvent::EnemyDefeated { .. }))
                 .count();
             let d = crate::dozer_art::dozer_of(&combat).unwrap();
+            // HUD-TRY-01 (HT-AD1): the checkpoint respawn is the HUD's second try.
+            let attempt = if plan == Plan::DozerRetry { 2 } else { 1 };
+            assert_eq!(combat.attempt(), attempt, "{}: TRY", plan.name());
             if plan == Plan::DozerRetry {
                 assert_eq!(combat.deaths, 1);
                 // The machine's stats restart with the respawn; the log keeps the blow.
