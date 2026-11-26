@@ -393,9 +393,16 @@ pub(super) fn check_f01_source(
         {
             Ok(())
         }
+        // TROG-A: the troglodyte rooms.
+        (crate::f01_late::SESSION_SOURCE, Some(id))
+            if crate::f01_trog::TrogRoom::from_id(id)
+                .is_some_and(|r| reset.name == r.scene_name()) =>
+        {
+            Ok(())
+        }
         ("boss", Some("juicer")) if reset.name == crate::boss_scene::BOSS01_SCENE.name => Ok(()),
         (crate::f01_late::SESSION_SOURCE, _) => Err(bad(
-            "the f01_room source replays the Act I rooms, corral, refuge, camp, aftermath, boiler, hoarder, dozer, hazards, ring and mastery rooms only"
+            "the f01_room source replays the Act I rooms, corral, refuge, camp, aftermath, boiler, hoarder, dozer, hazards, ring, troglodyte and mastery rooms only"
                 .to_owned(),
         )),
         (source, _) if labelled => Err(bad(format!(
@@ -464,6 +471,7 @@ fn rebuild_f01_room(manifest: &SessionManifest, root: &Path) -> Result<Reset, Ve
                 | "mastery"
                 | "ring_court"
                 | "ring_split"
+                | "trog_run"
         )
     ) || !reset.cf02_rules
         || reset.demo
@@ -525,6 +533,15 @@ fn rebuild_f01_room(manifest: &SessionManifest, root: &Path) -> Result<Reset, Ve
         Some(id @ ("rest_refuge" | "rest_camp" | "rest_aftermath")) => crate::f01_late::rest_start(
             root,
             crate::f01_rest::RestRoom::from_id(id).expect("a quiet room id"),
+            reset.view_height,
+            carl,
+            donut,
+            reset.cf02_seed,
+        )
+        .map(|(_, scene, combat)| (scene, combat)),
+        Some(id @ "trog_run") => crate::f01_late::trog_start(
+            root,
+            crate::f01_trog::TrogRoom::from_id(id).expect("a troglodyte room id"),
             reset.view_height,
             carl,
             donut,

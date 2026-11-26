@@ -631,8 +631,8 @@ mod tests {
             NextStep::Room(manifest.room("hoarder").unwrap().clone())
         );
         // The listed rooms in story order, ACT1-A, ACT1-B and REST-WIRE (REST-A, REST-B,
-        // REST-C): fifteen rooms, the chase, the shore and the guild first, the camp after the
-        // Ring, the aftermath after the Juicer, mastery ends the run.
+        // REST-C) and TROG-A: sixteen rooms, the chase, the shore and the guild first, the camp after the
+        // Ring, the troglodyte run after the camp, the aftermath after the Juicer, mastery ends the run.
         assert_eq!(
             seen,
             [
@@ -648,6 +648,7 @@ mod tests {
                 "ring_court",
                 "ring_split",
                 "rest_camp",
+                "trog_run",
                 "juicer",
                 "rest_aftermath",
                 "mastery"
@@ -659,6 +660,10 @@ mod tests {
         );
         assert_eq!(
             next_room(&manifest, "rest_camp").unwrap(),
+            NextStep::Room(manifest.room("trog_run").unwrap().clone())
+        );
+        assert_eq!(
+            next_room(&manifest, "trog_run").unwrap(),
             NextStep::Room(manifest.room("juicer").unwrap().clone())
         );
         assert_eq!(
@@ -713,13 +718,14 @@ mod tests {
                 "ring_court",
                 "ring_split",
                 "rest_camp",
+                "trog_run",
                 "juicer",
                 "rest_aftermath",
                 "mastery"
             ]
         );
-        assert_eq!(room_index(&manifest, "dozer"), Some((8, 16)));
-        assert_eq!(room_index(&manifest, "cellar"), Some((9, 16)));
+        assert_eq!(room_index(&manifest, "dozer"), Some((8, 17)));
+        assert_eq!(room_index(&manifest, "cellar"), Some((9, 17)));
     }
 
     #[test]
@@ -1157,11 +1163,11 @@ mod tests {
         };
         let (facts, panel, decision) = on_exit(&input).unwrap();
         assert!(facts.grants.is_empty(), "the chase grants nothing");
-        assert_eq!(room_index(&manifest, "act1_chase"), Some((1, 15)));
+        assert_eq!(room_index(&manifest, "act1_chase"), Some((1, 16)));
         assert!(
             panel
                 .heading
-                .starts_with("ROOM 1/15 CLEARED: THE FIRST CHASE"),
+                .starts_with("ROOM 1/16 CLEARED: THE FIRST CHASE"),
             "{}",
             panel.heading
         );
@@ -1226,11 +1232,11 @@ mod tests {
         let (facts, panel, decision) = on_exit(&shore_input).unwrap();
         assert!(facts.grants.is_empty(), "the shore grants nothing");
         let (at, count) = room_index(&manifest, "act1_shore").unwrap();
-        assert_eq!((at, count), (2, 15));
+        assert_eq!((at, count), (2, 16));
         assert!(
             panel
                 .heading
-                .starts_with("ROOM 2/15 CLEARED: THE ROTTEN SHORE"),
+                .starts_with("ROOM 2/16 CLEARED: THE ROTTEN SHORE"),
             "{}",
             panel.heading
         );
@@ -1267,7 +1273,7 @@ mod tests {
         assert!(
             panel
                 .heading
-                .starts_with("ROOM 3/15 CLEARED: THE GUILD DOOR"),
+                .starts_with("ROOM 3/16 CLEARED: THE GUILD DOOR"),
             "{}",
             panel.heading
         );
@@ -1460,8 +1466,19 @@ mod tests {
             | RoomScene::RestCamp
             | RoomScene::RestAftermath
             | RoomScene::RingCourt
-            | RoomScene::RingSplit => {
+            | RoomScene::RingSplit
+            | RoomScene::TrogRun => {
                 let (_, mut combat) = match row.scene {
+                    // TROG-A: the troglodyte run, after the camp.
+                    RoomScene::TrogRun => crate::f01_late::trog_start(
+                        &root(),
+                        row.scene.trog().expect("a troglodyte scene"),
+                        360,
+                        carl,
+                        donut,
+                        None,
+                    )
+                    .map(|(_, s, c)| (s, c)),
                     // REST-WIRE: the quiet rooms (the refuge arms its trigger under the Story
                     // flags; the camp and the aftermath run under their room pins).
                     RoomScene::RestRefuge | RoomScene::RestCamp | RoomScene::RestAftermath => {
@@ -1577,13 +1594,51 @@ mod tests {
         let Decision::Relaunch { room, argv: next } = decision else {
             panic!("the camp leads on");
         };
-        assert_eq!(room, "juicer");
+        // TROG-A: the camp leads into the troglodyte run.
+        assert_eq!(room, "trog_run");
         let at = next.iter().position(|a| a == FLAG_CARRY).unwrap();
         assert_eq!(
             decode_carry(&next[at + 1]).unwrap(),
             carry,
             "carried unchanged"
         );
+        // TROG-T04: the troglodyte run hands the camp's ledger on unchanged (it grants nothing),
+        // and its exit relaunches into the Juicer.
+        let (_, _, mut trog) = crate::f01_late::trog_start(
+            &root(),
+            crate::f01_trog::TrogRoom::Run,
+            360,
+            carl,
+            donut,
+            None,
+        )
+        .unwrap();
+        trog.carry_story(&carry).unwrap();
+        assert_eq!(
+            carry_for(Loadout::Story, RoomScene::TrogRun, &trog),
+            Some(carry.clone()),
+            "the troglodyte run's exit hands the ledger on unchanged"
+        );
+        let trog_input = ExitInput {
+            manifest: &manifest,
+            room: "trog_run",
+            loadout: Loadout::Story,
+            combat: &trog,
+            carried: Some(&carry),
+            tally: RunTally::default(),
+            argv: &argv,
+            recording: "REC",
+            audience: None,
+            audience_enabled: false,
+        };
+        let (facts, _, decision) = on_exit(&trog_input).unwrap();
+        assert!(facts.grants.is_empty(), "the troglodyte run grants nothing");
+        let Decision::Relaunch { room, argv: next } = decision else {
+            panic!("the troglodyte run leads on");
+        };
+        assert_eq!(room, "juicer");
+        let at = next.iter().position(|a| a == FLAG_CARRY).unwrap();
+        assert_eq!(decode_carry(&next[at + 1]).unwrap(), carry);
         // The Juicer launches from the camp's ledger and still holds one dynamite receipt.
         let juicer = juicer_relaunch(&root(), Loadout::Story, Some(&carry)).unwrap();
         let after = juicer.combat.story_snapshot().unwrap();

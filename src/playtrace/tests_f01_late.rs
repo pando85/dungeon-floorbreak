@@ -166,6 +166,19 @@ impl RoomRig {
                 combat,
                 room_party(),
             )
+        } else if let Some(trog) = crate::f01_trog::TrogRoom::from_id(room) {
+            // TROG-A: a troglodyte room, the same way.
+            let (run, scene, combat) =
+                f01_late::trog_start(&root(), trog, view_h, carl, donut, seed)
+                    .expect("the troglodyte room launches");
+            (
+                f01_late::SESSION_SOURCE,
+                run.fixture.name,
+                true,
+                scene,
+                combat,
+                room_party(),
+            )
         } else if let Some(rest) = crate::f01_rest::RestRoom::from_id(room) {
             // REST-WIRE: a quiet room, the same way.
             let (run, scene, combat) =
@@ -910,6 +923,68 @@ fn act1_room_recording_verifies(room: crate::f01_act1::Act1Room, label: &str) {
             assert!(verify(&session).is_err(), "relabelled");
         }
     }
+}
+
+/// TROG-A: a recording of the troglodyte run verifies strictly at both view heights under
+/// both loadouts and a seed (Carl walks right over the low steps pressing the jab: the Pygmy
+/// wakes, commits and leaps), stamps its own room pins, the tuning pin and the manifest's and
+/// no other room's, and a relabelled room or seed is another run.
+fn trog_room_recording_verifies(room: crate::f01_trog::TrogRoom, label: &str) {
+    for view_h in [360, 400] {
+        for (loadout, seed) in [(Loadout::Story, Some(5)), (Loadout::All, None)] {
+            let dir = TempDir::new(&format!("f01-trog-{}", room.id()));
+            let mut rig = RoomRig::build_view(&dir.0, room.id(), Some(loadout), seed, None, view_h);
+            for tick in 0..900u64 {
+                let x = rig.scene.world.body(crate::party::HeroId::Carl).x;
+                // The low steps (the refuge 352..416, the bell step 1840..1904) are hopped.
+                let hop = [(352.0f32, 416.0f32), (1840.0, 1904.0)]
+                    .iter()
+                    .any(|(l, r)| x + 30.0 >= *l && x + 30.0 <= *r && x < *l);
+                rig.step(RawInput {
+                    move_x: if x < 700.0 { 1.0 } else { 0.0 },
+                    jump: hop,
+                    attack: tick % 20 == 5,
+                    ..RawInput::NONE
+                });
+            }
+            let manifest = rig.rec.finish("test").expect("finished");
+            let session = dir.0.join(manifest.session_id);
+            let report = verify(&session).unwrap_or_else(|e| panic!("{loadout:?} {view_h}: {e}"));
+            assert_eq!(report.scope, VerifyScope::Full);
+            println!(
+                "{label}_VERIFY loadout={} view={view_h} ticks={} state_hashes={} scope={:?} build={}",
+                loadout.name(),
+                report.ticks,
+                report.state_hashes,
+                report.scope,
+                report.build
+            );
+            let loaded = read_session(&session, false).unwrap();
+            assert_eq!(loaded.manifest.reset.name, room.scene_name());
+            assert_eq!(loaded.manifest.reset.f01_room.as_deref(), Some(room.id()));
+            assert_scoped_stamps(&loaded, room.id());
+            assert!(
+                loaded
+                    .manifest
+                    .content_hashes
+                    .contains_key(crate::trog::PIN_KEY),
+                "the tuning pin is stamped"
+            );
+            if let Some(seed) = seed {
+                tamper_manifest(&session, |m| m.reset.cf02_seed = Some(seed + 1));
+                assert!(verify(&session).is_err(), "another seed is another run");
+                tamper_manifest(&session, |m| m.reset.cf02_seed = Some(seed));
+                verify(&session).expect("restored");
+            }
+            tamper_manifest(&session, |m| m.reset.f01_room = Some("corral".into()));
+            assert!(verify(&session).is_err(), "relabelled");
+        }
+    }
+}
+
+#[test]
+fn f01_trog_run_recording_verifies() {
+    trog_room_recording_verifies(crate::f01_trog::TrogRoom::Run, "TROG_RUN");
 }
 
 fn rig_carl(loadout: Loadout) -> crate::carl_prog::CarlProgFlags {

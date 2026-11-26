@@ -401,6 +401,7 @@ impl CombatState {
                 view_x,
                 token_free,
                 evade: Some(&gate),
+                last_tell_start: self.last_tell_start,
             };
             let enemy = &mut self.slot.enemies[index];
             let (id, was_alive) = (enemy.target_id(), enemy.alive());

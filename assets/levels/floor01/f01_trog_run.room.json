@@ -1,0 +1,29 @@
+{
+  "schema": "floor01-demo-hall-v1",
+  "status": "TROG-A greybox room (docs/01-design/floor-01-troglodyte-integration.md section 4.1, the troglodyte run T0 to T3): geometry only, composed at load time from approved Floor 01 kit pieces by camera_lab::layout (no new art, not an authored level; the territory dressing is the separate AREA-TROG-01 work order), launched as the room trog_run of --scene f01_late (src/f01_trog.rs). The three troglodytes, the two low steps and the defeat_roster goal live in f01_trog_run.encounter.json, validated by src/encounter.rs.",
+  "scenarios": [
+    {
+      "id": "F01-TROG-RUN",
+      "name": "The Troglodyte Run",
+      "subtitle": "Floor 01 troglodyte territory: the Pygmy, the Basher and the Virtuoso, one at a time",
+      "act": 2,
+      "setting": "dry-catacomb",
+      "width": 2304,
+      "height": 660,
+      "floor": 580,
+      "spawn": { "carl": 112, "donut": 80 },
+      "camera_intro": 112,
+      "ceiling_px": 228,
+      "platforms": [
+        { "x": 1920, "y": 516, "w": 64, "h": 16 }
+      ],
+      "props": [],
+      "enemies": [],
+      "hazards": [],
+      "goal_x": 2272,
+      "purpose": "A 2304 px scrolling hall of four pockets on one continuous floor lane: T0 the approach (no enemy can see the spawn), T1 the low hunter (the Pygmy at 640 and a 32 px low refuge), T2 the fist-shaped hole (the Basher at 1376 on a flat lane) and T3 the bell and the tongue (a 32 px step, a 64 px platform and the Virtuoso at 2144). The steps and the enemies live in the encounter sidecar, the platform here.",
+      "expected": "Spawns, the checkpoint, the exit, the low steps and the roster come from f01_trog_run.encounter.json; this file holds geometry only. The exit opens when all three troglodytes are defeated.",
+      "coop": "Solo with the companion, or two players: every critical route is open to both heroes; the 64 px platform is a Carl-class vantage (Donut needs her boost), never a gate."
+    }
+  ]
+}

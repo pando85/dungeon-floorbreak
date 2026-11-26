@@ -42,6 +42,7 @@ use crate::f01_boiler::{self, BoilerRun, Roster};
 use crate::f01_corral;
 use crate::f01_rest::{self, RestRoom};
 use crate::f01_ring::{self, RingRoom};
+use crate::f01_trog::{self, TrogRoom};
 use crate::story_unlock::{Storage, StoryTable};
 use crate::{f01_dozer, f01_hazards, f01_hoarder, f01_mastery};
 
@@ -52,7 +53,7 @@ pub const MANIFEST_PATH: &str = "assets/levels/f01_late/manifest.json";
 /// hash is a constant, pinned to the file by a test and compared by every
 /// replay of a recorded room. A step that lists a room (CORRAL-WIRE, RING-A
 /// wire, HRD-A2, CORRAL-F, DR-A, ...) re-pins it on purpose.
-pub const MANIFEST_HASH: u64 = 0xd213_db6d_b329_d342;
+pub const MANIFEST_HASH: u64 = 0x828c_82a6_345b_0efe;
 /// The fixture-only stub trigger the story-order tie skips by name.
 pub const STUB_TRIGGER: &str = "carl_prog_find_zone_stub";
 /// The `data_pins()` key.
@@ -79,7 +80,7 @@ pub const fn data_pins() -> [(&'static str, u64); 1] {
 /// stamps nor needs them, so a later edit of the manifest (every room step) or of
 /// the Boiler files (BOIL-B/C wire) fails only the recordings it can change; a
 /// Juicer recording needs the manifest hash and not the Boiler's.
-pub const SCOPED_PIN_KEYS: [&str; 32] = [
+pub const SCOPED_PIN_KEYS: [&str; 35] = [
     f01_boiler::ROOM_PIN_KEY,
     f01_boiler::ENCOUNTER_PIN_KEY,
     f01_boiler::fixes::PIN_KEY,
@@ -111,6 +112,9 @@ pub const SCOPED_PIN_KEYS: [&str; 32] = [
     f01_act1::CHASE_ROOM_PIN_KEY,
     f01_act1::CHASE_ENCOUNTER_PIN_KEY,
     crate::dozer::OPENING_PIN_KEY,
+    f01_trog::RUN_ROOM_PIN_KEY,
+    f01_trog::RUN_ENCOUNTER_PIN_KEY,
+    crate::trog::PIN_KEY,
     MANIFEST_PIN_KEY,
 ];
 
@@ -154,6 +158,11 @@ pub fn pin_applies(key: &str, room: Option<&str>) -> bool {
         f01_rest::AFTERMATH_ROOM_PIN_KEY | f01_rest::AFTERMATH_ENCOUNTER_PIN_KEY => {
             room == Some(RestRoom::Aftermath.id())
         }
+        // TROG-A: the run room's own files, and the tuning of every troglodyte room.
+        f01_trog::RUN_ROOM_PIN_KEY | f01_trog::RUN_ENCOUNTER_PIN_KEY => {
+            room == Some(TrogRoom::Run.id())
+        }
+        crate::trog::PIN_KEY => room == Some(TrogRoom::Run.id()),
         f01_act1::SHORE_ROOM_PIN_KEY | f01_act1::SHORE_ENCOUNTER_PIN_KEY => {
             room == Some(Act1Room::Shore.id())
         }
@@ -228,6 +237,10 @@ pub enum RoomScene {
     /// and before the corral.
     #[serde(rename = "f01_act1_guild")]
     Act1Guild,
+    /// TROG-A: the troglodyte run ("The Troglodyte Run"); launched through `--scene f01_late`
+    /// only, listed after the survivors' camp and before the Juicer.
+    #[serde(rename = "f01_trog_run")]
+    TrogRun,
 }
 
 impl RoomScene {
@@ -250,6 +263,15 @@ impl RoomScene {
             Self::Act1Chase => Act1Room::Chase.scene_name(),
             Self::Act1Shore => Act1Room::Shore.scene_name(),
             Self::Act1Guild => Act1Room::Guild.scene_name(),
+            Self::TrogRun => TrogRoom::Run.scene_name(),
+        }
+    }
+
+    /// The troglodyte room this scene runs, if it is one (TROG-A).
+    pub const fn trog(self) -> Option<TrogRoom> {
+        match self {
+            Self::TrogRun => Some(TrogRoom::Run),
+            _ => None,
         }
     }
 
@@ -462,6 +484,16 @@ impl Manifest {
                     ring.id()
                 ));
             }
+            // TROG-A: a troglodyte scene runs the room of its own id only.
+            if let Some(trog) = row.scene.trog()
+                && row.id != trog.id()
+            {
+                return Err(format!(
+                    "manifest: room {:?} names the scene of {:?}",
+                    row.id,
+                    trog.id()
+                ));
+            }
             // REST-WIRE: a quiet-room scene runs the room of its own id only.
             if let Some(rest) = row.scene.rest()
                 && row.id != rest.id()
@@ -492,6 +524,7 @@ impl Manifest {
             check_rules(row)?;
         }
         self.check_act1_first()?;
+        self.check_trog_order()?;
         check_story_order(&self.story_order, table)
     }
 }
@@ -547,6 +580,70 @@ impl Manifest {
     }
 }
 
+impl Manifest {
+    /// TROG-R1 (`docs/01-design/floor-01-troglodyte-integration.md` section 6.1): the listed
+    /// troglodyte rooms keep the order of [`TrogRoom::ALL`] (`trog_run`, then `trog_strength`),
+    /// follow the survivors' camp when it is listed, are listed together with nothing between
+    /// them, and the last one directly precedes the Juicer. No troglodyte room is listed after
+    /// the Juicer, and a Juicer listed after a troglodyte room has none between.
+    fn check_trog_order(&self) -> Result<(), String> {
+        const RULE: &str = "TROG-R1";
+        let listed: Vec<(usize, TrogRoom)> = self
+            .rooms
+            .iter()
+            .enumerate()
+            .filter_map(|(i, r)| r.scene.trog().map(|t| (i, t)))
+            .collect();
+        if listed.is_empty() {
+            return Ok(());
+        }
+        let rank = |t: TrogRoom| TrogRoom::ALL.iter().position(|r| *r == t);
+        for pair in listed.windows(2) {
+            let ((a, ta), (b, tb)) = (pair[0], pair[1]);
+            if rank(ta) >= rank(tb) {
+                return Err(format!(
+                    "manifest: troglodyte room {:?} is out of order ({RULE}): the order is {}",
+                    self.rooms[b].id,
+                    TrogRoom::ALL.map(TrogRoom::id).join(", ")
+                ));
+            }
+            if b != a + 1 {
+                return Err(format!(
+                    "manifest: room {:?} is listed between troglodyte rooms ({RULE}): they are \
+                     listed together",
+                    self.rooms[a + 1].id
+                ));
+            }
+        }
+        let (first, _) = listed[0];
+        let (last, _) = listed[listed.len() - 1];
+        if let Some(camp) = self.rooms.iter().position(|r| r.id == RestRoom::Camp.id())
+            && first < camp
+        {
+            return Err(format!(
+                "manifest: troglodyte room {:?} is listed before the survivors' camp ({RULE})",
+                self.rooms[first].id
+            ));
+        }
+        if let Some(juicer) = self.rooms.iter().position(|r| r.scene == RoomScene::Boss) {
+            if last > juicer {
+                return Err(format!(
+                    "manifest: troglodyte room {:?} is listed after the Juicer ({RULE})",
+                    self.rooms[last].id
+                ));
+            }
+            if juicer != last + 1 {
+                return Err(format!(
+                    "manifest: room {:?} is listed between the last troglodyte room and the \
+                     Juicer ({RULE}): the Juicer directly follows it",
+                    self.rooms[last + 1].id
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
 /// K17: a room, listed or not, runs under the rules of its scene (the Juicer's
 /// boss rules, the CF02 rules everywhere else).
 fn check_rules(row: &RoomRow) -> Result<(), String> {
@@ -564,6 +661,7 @@ fn check_rules(row: &RoomRow) -> Result<(), String> {
         | RoomScene::Act1Chase
         | RoomScene::Act1Shore
         | RoomScene::Act1Guild
+        | RoomScene::TrogRun
         | RoomScene::Corral => row.rules == RoomRules::Cf02,
         RoomScene::Boss => row.rules == RoomRules::Boss,
     };
@@ -966,6 +1064,23 @@ pub fn act1_start(
     Ok((run, scene, combat))
 }
 
+/// Launch a troglodyte room and build its scene and combat state (TROG-A), the shared
+/// constructor of the binary and the verifier. The room has no goblin, so the seed is only the
+/// companion's CF02 draw.
+pub fn trog_start(
+    root: &Path,
+    room: TrogRoom,
+    view_height: i32,
+    carl: CarlProgFlags,
+    donut: DonutProgFlags,
+    cf02_seed: Option<u64>,
+) -> Result<(f01_trog::TrogRun, SceneSim, CombatState), String> {
+    let run = f01_trog::launch(root, room)?;
+    let mut scene = SceneSim::new_at(&run.kit, view_height, run.fixture.carl_x)?;
+    let combat = f01_trog::combat_for(&run, &mut scene, carl, donut, cf02_seed)?;
+    Ok((run, scene, combat))
+}
+
 /// Launch room 0, the Infernal Corral, and build its scene and combat state
 /// (CORRAL-WIRE), the shared constructor of the binary and the verifier. Its
 /// goblins draw their temperaments from `--cf02-seed`.
@@ -1049,6 +1164,7 @@ mod tests {
                 "ring_court",
                 "ring_split",
                 "rest_camp",
+                "trog_run",
                 "juicer",
                 "rest_aftermath",
                 "mastery"
@@ -1271,7 +1387,7 @@ mod tests {
         assert!(unknown.starts_with("unknown room"), "{unknown}");
         assert!(
             unknown.contains(
-                "corral, rest_refuge, hoarder, boiler, dozer, hazards, ring_court, ring_split, rest_camp, juicer, rest_aftermath, mastery"
+                "corral, rest_refuge, hoarder, boiler, dozer, hazards, ring_court, ring_split, rest_camp, trog_run, juicer, rest_aftermath, mastery"
             ),
             "{unknown}"
         );
@@ -1282,7 +1398,7 @@ mod tests {
         assert!(unlisted.starts_with("unlisted room"), "{unlisted}");
         assert!(
             unlisted.contains(
-                "corral, rest_refuge, hoarder, boiler, dozer, hazards, ring_court, ring_split, rest_camp, juicer, rest_aftermath, mastery"
+                "corral, rest_refuge, hoarder, boiler, dozer, hazards, ring_court, ring_split, rest_camp, trog_run, juicer, rest_aftermath, mastery"
             ),
             "{unlisted}"
         );
@@ -1507,6 +1623,7 @@ mod tests {
                 "ring_court",
                 "ring_split",
                 "rest_camp",
+                "trog_run",
                 "juicer",
                 "rest_aftermath",
                 "mastery"
@@ -1955,6 +2072,7 @@ mod tests {
                     "ring_court",
                     "ring_split",
                     "rest_camp",
+                    "trog_run",
                     "rest_aftermath",
                     "act1_chase",
                     "act1_shore",
@@ -2079,6 +2197,10 @@ mod tests {
                     ],
                 ),
                 (
+                    "trog_run",
+                    [f01_trog::RUN_ROOM_PIN_KEY, f01_trog::RUN_ENCOUNTER_PIN_KEY],
+                ),
+                (
                     "act1_chase",
                     [
                         f01_act1::CHASE_ROOM_PIN_KEY,
@@ -2117,6 +2239,7 @@ mod tests {
             Some("corral"),
             Some("rest_refuge"),
             Some("rest_camp"),
+            Some("trog_run"),
             Some("rest_aftermath"),
             Some("act1_chase"),
             Some("act1_shore"),
@@ -2126,6 +2249,9 @@ mod tests {
                 // ACT1-B: the shared machine values apply to room 3 and to the chase.
                 let covered = if key == crate::dozer::PIN_KEY {
                     room == Some("dozer") || room == Some("act1_chase")
+                } else if key == crate::trog::PIN_KEY {
+                    // TROG-A: the tuning applies to every troglodyte room.
+                    room == Some("trog_run")
                 } else {
                     match owner(key) {
                         Some(own) => room == Some(own),

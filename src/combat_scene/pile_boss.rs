@@ -496,6 +496,7 @@ mod tests {
             view_x: (0.0, 1152.0),
             token_free: true,
             evade: None,
+            last_tell_start: None,
         }
     }
 

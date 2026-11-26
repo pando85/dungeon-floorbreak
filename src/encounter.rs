@@ -80,6 +80,7 @@ use crate::rot_sticker::{Orientation, Track, TrackError};
 use crate::slime::AcidPatchSpec;
 
 mod haz;
+mod trog_v;
 
 pub const SCHEMA: &str = "floor01-encounter-v1";
 pub const BOILER_ENCOUNTER_PATH: &str = "assets/levels/floor01/f01_boiler.encounter.json";
@@ -632,6 +633,9 @@ pub enum RosterKind {
     /// DOZER-CORE: the room 3 revenge machine (a slot enemy, parked off-room
     /// behind the rear gate; `docs/01-design/enemy-gameplay-dozer.md`).
     Dozer,
+    /// TROG-A: a troglodyte (a slot enemy of one family, three species;
+    /// `docs/01-design/floor-01-troglodyte-integration.md` section 5.5).
+    Trog(crate::trog::Species),
 }
 
 impl RosterKind {
@@ -639,7 +643,15 @@ impl RosterKind {
     pub const fn room(self) -> Option<EnemyKind> {
         match self {
             Self::Room(k) => Some(k),
-            Self::Slime | Self::Dozer => None,
+            Self::Slime | Self::Dozer | Self::Trog(_) => None,
+        }
+    }
+
+    /// TROG-A: the species of a troglodyte entry.
+    pub const fn trog(self) -> Option<crate::trog::Species> {
+        match self {
+            Self::Trog(s) => Some(s),
+            _ => None,
         }
     }
 
@@ -1155,6 +1167,12 @@ pub enum EncounterError {
         ids: Vec<String>,
         reason: String,
     },
+    /// TROG-A: a rule of the troglodyte validator (V0 to V4, see `trog_v`).
+    Trog {
+        rule: &'static str,
+        ids: Vec<String>,
+        reason: String,
+    },
 }
 
 impl std::fmt::Display for EncounterError {
@@ -1258,6 +1276,9 @@ impl std::fmt::Display for EncounterError {
             }
             Dozer { rule, ids, reason } => {
                 write!(f, "DOZER rule {rule} [{}]: {reason}", ids.join(", "))
+            }
+            Trog { rule, ids, reason } => {
+                write!(f, "TROG rule {rule} [{}]: {reason}", ids.join(", "))
             }
             GateBypassed {
                 surface,
@@ -2670,6 +2691,15 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
             RosterKind::Slime
         } else if r.kind == "dozer" {
             RosterKind::Dozer
+        } else if let Some(species) = crate::trog::Species::from_kind(&r.kind) {
+            RosterKind::Trog(species)
+        } else if r.kind.starts_with("trog_") {
+            // TROG-A: an unknown troglodyte kind is refused with its name.
+            errs.push(E::RosterKind {
+                entry: r.id.clone(),
+                kind: r.kind.clone(),
+            });
+            continue;
         } else {
             match EnemyKind::parse(&r.kind).filter(|k| allowed(*k)) {
                 Some(k) => RosterKind::Room(k),
@@ -2693,8 +2723,8 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
                 errs.push(haz_roster("a slime needs a facing of 1 or -1"));
                 1
             }
-            (RosterKind::Room(_) | RosterKind::Dozer, None) => 1,
-            (RosterKind::Room(_) | RosterKind::Dozer, Some(_)) => {
+            (RosterKind::Room(_) | RosterKind::Dozer | RosterKind::Trog(_), None) => 1,
+            (RosterKind::Room(_) | RosterKind::Dozer | RosterKind::Trog(_), Some(_)) => {
                 errs.push(haz_roster("only a slime has a facing"));
                 1
             }
@@ -2763,7 +2793,17 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
             Some(p) => room.platforms[p].rect.y,
             None => room.floor_y,
         };
-        let body = if kind.is_slime() {
+        let body = if let Some(species) = kind.trog() {
+            // TROG-A: the sleeper's idle hurtbox (it spawns facing left), from the tuning.
+            let b = &crate::trog::TrogTuning::active().species(species).hurt_idle;
+            let (x0, x1) = (i32::from(b.x0), i32::from(b.x1));
+            IRect::new(
+                r.x - x1,
+                top - i32::from(b.y1),
+                x1 - x0,
+                i32::from(b.y1 - b.y0),
+            )
+        } else if kind.is_slime() {
             // The slime's idle hurtbox, mirrored by its facing.
             let b = &crate::slime::active().hazq05_hurtbox_idle;
             let (x0, x1) = (i32::from(b.x0), i32::from(b.x1));
@@ -3488,6 +3528,18 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
                 ("checkpoint", checkpoint),
                 ("exit", exit),
             ],
+        },
+        &mut errs,
+    );
+
+    // ---- TROG-A: the troglodyte rules V0 to V4 (a no-op without a troglodyte)
+    trog_v::check(
+        &trog_v::TrogInput {
+            room,
+            roster: &roster,
+            statics: &statics,
+            props: &props,
+            protected_spawn,
         },
         &mut errs,
     );

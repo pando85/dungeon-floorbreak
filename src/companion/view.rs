@@ -19,6 +19,9 @@ pub enum EntityKind {
     Goblin,
     Llama,
     Boss,
+    /// TROG-A (TROG-AD16): a slot enemy fed to the companion by a room that opts in
+    /// ([`crate::combat_scene::CombatState::with_slot_feed`]). The index is its slot index.
+    Slot,
 }
 
 /// A stable enemy id (CA-28): the slot index alone aliases after a respawn, so

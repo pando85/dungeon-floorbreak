@@ -1,0 +1,11 @@
+Local check list on the final code head of TROG-A (debug build, no GitHub CI wait; code head 92d4346a, main f37210cd; the evidence and docs lines after it do not change code; the review round added commits 8632f161 nits and 92d4346a atlas wiring):
+cargo fmt --all -- --check                                  OK
+cargo clippy --locked --all-targets -- -D warnings          OK (no warnings)
+cargo test --locked --all-targets --no-fail-fast            OK: 4046 passed, 0 failed, 40 ignored (evidence helpers) over every target; lib 3932 passed
+python3 scripts/check_docs.py                               OK
+scripts/ci_floor01_combat.sh headless                       OK (F01_LATE_HEADLESS_OK lists the sixteen rooms; F01_TROG_RUN_HEADLESS_OK; every committed DP, DOZR and legacy replay byte-identical)
+scripts/ci_floor01_combat.sh render (xvfb 1920x1080x24)     OK (after scripts/export_assets.sh in the worktree, which the render run needs)
+scripts/check_f01_owner_commands.sh                         OK (0 FAILED lines; the loop also launches trog_run)
+validate_assets.py / art unittests                          not run separately (no art manifest or asset was changed; scripts/export_assets.sh ran validate_assets.py and passed)
+Real two-pad run                                            NOT RUN
+Human first-run time                                        NOT RUN

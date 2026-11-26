@@ -1866,6 +1866,14 @@ pub enum CombatEvent {
         tick: u64,
         event: crate::dozer::DozerEvent,
     },
+    /// TROG-A, appended: a sub-event of a troglodyte (`enemy` is its slot target id). Its
+    /// defeat is the existing `EnemyDefeated` and its blows on heroes the existing
+    /// `HeroHurt`. Only a room that spawns one emits it.
+    Trog {
+        tick: u64,
+        enemy: u32,
+        act: crate::trog::TrogAct,
+    },
 }
 
 /// BOIL-B wire: the phases of an environmental prop that are logged
@@ -2528,6 +2536,13 @@ impl CombatEvent {
                 mix(tick);
                 event.mix_into(mix);
             }
+            // TROG-A: "TROG"; only a room with a troglodyte emits it.
+            Self::Trog { tick, enemy, act } => {
+                mix(0x5452_4f47);
+                mix(tick);
+                mix(u64::from(enemy));
+                act.mix_into(mix);
+            }
         }
     }
 }
@@ -3085,6 +3100,18 @@ impl fmt::Display for CombatEvent {
                     event.name()
                 )?;
                 let fields = event.fields();
+                if !fields.is_empty() {
+                    write!(f, " {fields}")?;
+                }
+                Ok(())
+            }
+            Self::Trog { tick, enemy, act } => {
+                write!(
+                    f,
+                    "COMBAT_EVENT tick={tick} kind=trog enemy={enemy} act={}",
+                    act.name()
+                )?;
+                let fields = act.fields();
                 if !fields.is_empty() {
                     write!(f, " {fields}")?;
                 }

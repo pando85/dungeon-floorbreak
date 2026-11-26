@@ -1271,7 +1271,7 @@ fn a_wave_room_with_a_slime_and_no_pocket_is_still_refused() {
 /// hash is its pin. The existing negative tests above pass unedited.
 #[test]
 fn non_wave_sidecars_validate_identically() {
-    let pins: [(&str, u64); 12] = [
+    let pins: [(&str, u64); 13] = [
         (BOILER_ENCOUNTER_PATH, crate::f01_boiler::ENCOUNTER_HASH),
         (HAZARDS_ENCOUNTER_PATH, crate::f01_hazards::ENCOUNTER_HASH),
         (
@@ -1319,6 +1319,11 @@ fn non_wave_sidecars_validate_identically() {
         (
             crate::f01_act1::CHASE_ENCOUNTER_PATH,
             crate::f01_act1::CHASE_ENCOUNTER_HASH,
+        ),
+        // TROG-A: the troglodyte run (three troglodytes, two low steps).
+        (
+            crate::f01_trog::RUN_ENCOUNTER_PATH,
+            crate::f01_trog::RUN_ENCOUNTER_HASH,
         ),
     ];
     let mut seen = 0;
