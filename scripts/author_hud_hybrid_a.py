@@ -6,7 +6,7 @@ Builds, from text only (no concept pixels, no resampling):
 * the per-asset ``pixel-grid-v1`` sources under ``assets/source/hud/``
   (``hud_portrait_carl``, ``hud_portrait_donut``, ``hud_system_crt``,
   ``hud_plate_frame``, ``hud_strip_3slice``, ``hud_notice_frame``, ``hud_glyphs``,
-  ``hud_icons``, ``hud_tags``),
+  ``hud_icons``, ``hud_tags``, ``hud_keycaps``, ``hud_chips``),
 * the combined single-frame atlas grid ``hud_hybrid_a.grid.json`` (one layer per
   asset group) that ``scripts/export_assets.sh`` turns into ``hud_hybrid_a.ase``
   and the exported ``hud_hybrid_a`` atlas PNG plus metadata,
@@ -166,20 +166,30 @@ def make_plate_frame() -> Canvas:
 
 
 def make_notice_frame() -> Canvas:
+    """HA2-AD3: the notice as a plate inside the same 204x32 rect.
+
+    Ring 0 ``hud_ink``, ring 1 a worn bevel (``metal_hi`` top and left, ``metal_mid`` bottom
+    and right, like the hero plates), ring 2 ``magenta`` (the System's colour), ring 3
+    ``hud_ink``, fill ``notice_bg``; the dotted ``magenta_dk`` rule sits on row +26.
+    """
     w, h = 204, 32
     c = Canvas(w, h)
-    c.rect(3, 3, w - 6, h - 6, "notice_bg")
-    for i, name in enumerate(("hud_ink", "magenta", "hud_ink")):
-        for xx in range(i, w - i):
-            c.set(xx, i, name)
-            c.set(xx, h - 1 - i, name)
-        for yy in range(i, h - i):
-            c.set(i, yy, name)
-            c.set(w - 1 - i, yy, name)
-    # dotted rule 3 px above the bottom edge: 2-on / 2-off (2 px dashes pass the orphan lint)
+    c.rect(4, 4, w - 8, h - 8, "notice_bg")
+    for i, name in enumerate(("hud_ink", None, "magenta", "hud_ink")):
+        x1, y1 = w - 1 - i, h - 1 - i
+        for xx in range(i, x1 + 1):
+            for yy in range(i, y1 + 1):
+                if xx not in (i, x1) and yy not in (i, y1):
+                    continue
+                if name:
+                    c.set(xx, yy, name)
+                else:
+                    # lit top row and left column; shaded right column and bottom row
+                    c.set(xx, yy, "metal_hi" if (yy == i or xx == i) else "metal_mid")
+    # dotted rule on row +26: 2-on / 2-off, x +4..+199 (2 px dashes pass the orphan lint)
     for xx in range(4, w - 4):
         if (xx // 2) % 2 == 0:
-            c.set(xx, h - 4, "magenta_dk")
+            c.set(xx, 26, "magenta_dk")
     return c
 
 
@@ -312,6 +322,96 @@ def tag(kind: str) -> Canvas:
         c.rect(0, 0, 32, 9, "cyan")
         c.rect(1, 1, 30, 7, "hud_ink")
     return c
+
+
+# --------------------------------------------------------------------------- HUD-ART-02 key caps and chips
+# Spec hud-art-02-spec.md section 2.1: square 11x11 key cap, 1 px cut corners, lit bevel (top, left),
+# a metal_light face, a metal_mid bottom lip and a two-row metal_dark skirt. ``key_j`` and
+# ``key_arrow_right`` are the frozen design keys (copied pixel-exact and tested); the other caps are
+# drawn here from the construction and the 5x5 symbols of section 2. ``key_space`` is the same cap
+# stretched to 19 px (every row keeps its caps; the face, bevel and skirt widen).
+CAP_BASE = [
+    ".KKKKKKKKK.",
+    "KHHHHHHHHMK",
+    "KHLLLLLLLMK",
+    "KHLLLLLLLMK",
+    "KHLLLLLLLMK",
+    "KHLLLLLLLMK",
+    "KHLLLLLLLMK",
+    "KMMMMMMMMMK",
+    "KrrrrrrrrrK",
+    "KrrrrrrrrrK",
+    ".KKKKKKKKK.",
+]
+CAP_LEGEND = {"K": "hud_ink", "H": "metal_hi", "L": "metal_light", "M": "metal_mid", "r": "metal_dark"}
+CAP_SYMBOLS = {  # 5x5 at cols 3..7, rows 2..6 of the cap; W is text_white
+    "key_k": ["W...W", "W..W.", "WWW..", "W..W.", "W...W"],
+    "key_l": ["W....", "W....", "W....", "W....", "WWWWW"],
+    "key_q": [".WWW.", "W...W", "W.W.W", "W..W.", ".WW.W"],
+    "key_left": ["..W..", ".W...", "WWWWW", ".W...", "..W.."],
+    "key_down": ["..W..", "..W..", "W.W.W", ".WWW.", "..W.."],
+}
+CAP_SPACE_SYMBOL = ["W.......W", "WWWWWWWWW"]  # 9x2 open bracket at cols 5..13, rows 5..6 of the wide cap
+# Frozen design keys the executor copies (cap tag in the key file -> our region name).
+CAP_KEYS = {"key_j": "key_j", "key_arrow_right": "key_right"}
+CAP_ORDER = ["key_j", "key_k", "key_l", "key_q", "key_space", "key_left", "key_right", "key_down"]
+CHIP_ORDER = ["chip_dynamite", "chip_puddle"]
+CAP_W = {"key_space": 19}
+
+
+def cap(symbol: list[str] | None, wide: int = 11) -> Canvas:
+    base = [r[:5] + r[5] * (wide - 10) + r[6:] for r in CAP_BASE] if wide > 11 else list(CAP_BASE)
+    c = Canvas(wide, 11)
+    c.stamp(0, 0, base, CAP_LEGEND)
+    if symbol:
+        x0, y0 = (3, 2) if wide == 11 else (5, 5)
+        c.stamp(x0, y0, symbol, {"W": "text_white"})
+    return c
+
+
+def key_canvas(doc: dict, frame: int) -> Canvas:
+    """A frozen key frame as a HUD-namespace canvas (palette names and colours are verified)."""
+    by_key = {e["key"]: e for e in doc["palette"]}
+    rows = key_flat(doc, frame)
+    c = Canvas(len(rows[0]), len(rows))
+    for y, row in enumerate(rows):
+        for x, ch in enumerate(row):
+            if ch == ".":
+                continue
+            e = by_key[ch]
+            assert HUD[e["name"]] + "ff" == e["rgba"], e
+            c.set(x, y, e["name"])
+    return c
+
+
+def key_tag_frames(doc: dict) -> dict[str, int]:
+    return {t["name"]: t["from"] for t in doc["tags"]}
+
+
+def cap_frames() -> list[tuple[str, Canvas]]:
+    keys = load(KEYS / "hud_art_02_keycaps.grid.json")
+    tags = key_tag_frames(keys)
+    frames: dict[str, Canvas] = {}
+    for key_tag, name in CAP_KEYS.items():
+        frames[name] = key_canvas(keys, tags[key_tag])
+    for name, sym in CAP_SYMBOLS.items():
+        frames[name] = cap(sym)
+    frames["key_space"] = cap(CAP_SPACE_SYMBOL, 19)
+    return [(n, frames[n]) for n in CAP_ORDER]
+
+
+def chip_frames() -> list[tuple[str, Canvas]]:
+    keys = load(KEYS / "hud_art_02_chips.grid.json")
+    tags = key_tag_frames(keys)
+    return [(n, key_canvas(keys, tags[n])) for n in CHIP_ORDER]
+
+
+def detail_grid(frames: list[tuple[str, Canvas]], w: int, h: int, spare: str) -> dict:
+    """Multi-frame source; lone 1 px details get same-colour accent aliases (lint level only)."""
+    rows = [pad_bottom(c, w, h) for _, c in frames]
+    pal = hud_palette([r for f in rows for r in f])
+    rows, pal = detail_aliases(rows, pal, spare)
+    return grid_doc((w, h), pal, {"art": rows}, tag_table([n for n, _ in frames]))
 
 
 # --------------------------------------------------------------------------- grid I/O
@@ -522,7 +622,7 @@ def make_portrait_donut() -> dict:
 CHARSET = ("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
            "!#$%&*+,-/:;<=>?@^_~|()[]{}")
 
-ATLAS_W, ATLAS_H = 208, 156
+ATLAS_W, ATLAS_H = 208, 168
 
 
 def regions_plan() -> list[tuple[str, str, int, tuple[int, int]]]:
@@ -552,6 +652,15 @@ def regions_plan() -> list[tuple[str, str, int, tuple[int, int]]]:
              ("viewer_down", "hud_viewer_down", 0, (67, 130))]
     for i, d in enumerate(VIEWER_DIGIT_ORDER):
         plan.append((f"viewer_digit_{d}", f"hud_viewer_digit_{d}", 0, (48 + i * 6, 140)))
+    # HUD-ART-02: eight key caps and two item chips in one row under the strips (the atlas grew by 12 rows;
+    # every existing region keeps its name, size and position)
+    x = 0
+    for i, n in enumerate(CAP_ORDER):
+        plan.append((n, "hud_keycaps", i, (x, 157)))
+        x += CAP_W.get(n, 11) + 1
+    for i, n in enumerate(CHIP_ORDER):
+        plan.append((n, "hud_chips", i, (x, 157)))
+        x += 12
     return plan
 
 
@@ -569,6 +678,10 @@ SOURCE_RECT = {
 SOURCE_RECT["viewer_eye"] = (0, 0, 9, 7)
 for _n in ["viewer_up", "viewer_down"] + [f"viewer_digit_{d}" for d in VIEWER_DIGIT_ORDER]:
     SOURCE_RECT[_n] = (0, 0, 5, 7)
+for _n in CAP_ORDER:
+    SOURCE_RECT[_n] = (0, 0, CAP_W.get(_n, 11), 11)
+for _n in CHIP_ORDER:
+    SOURCE_RECT[_n] = (0, 0, 11, 11)
 for _n in ("glyph_a", "glyph_b", "glyph_x", "glyph_y", "glyph_cross", "glyph_circle", "glyph_square",
            "glyph_triangle", "socket_locked"):
     SOURCE_RECT[_n] = (0, 0, 11, 11)
@@ -577,6 +690,7 @@ LAYER_OF = {
     "hud_plate_frame": "plate", "hud_portrait_carl": "portraits", "hud_portrait_donut": "portraits",
     "hud_notice_frame": "notice", "hud_system_crt": "crt", "hud_tags": "tags",
     "hud_icons": "icons", "hud_glyphs": "glyphs", "hud_strip_3slice": "strip",
+    "hud_keycaps": "keycaps", "hud_chips": "chips",
     **{n: "viewers" for n in VIEWER_SOURCES},
 }
 
@@ -599,6 +713,8 @@ def build_sources() -> dict[str, dict]:
     docs["hud_icons"] = multi_grid(icon_frames, 20, 20)
     docs.update(viewer_sources())
     docs["hud_tags"] = multi_grid([("p1", tag("p1")), ("p2", tag("p2")), ("ai", tag("ai"))], 32, 9)
+    docs["hud_keycaps"] = detail_grid(cap_frames(), 19, 11, "!#$%&*")
+    docs["hud_chips"] = detail_grid(chip_frames(), 11, 11, "!#$%&*")
     return docs
 
 
@@ -616,7 +732,8 @@ def build_atlas(docs: dict[str, dict]) -> tuple[dict, list[dict]]:
     palette: list[dict] = []
     charset = iter(CHARSET)
     layers = {n: [["."] * ATLAS_W for _ in range(ATLAS_H)] for n in
-              ("plate", "portraits", "notice", "crt", "tags", "icons", "glyphs", "strip", "viewers")}
+              ("plate", "portraits", "notice", "crt", "tags", "icons", "glyphs", "strip", "viewers",
+               "keycaps", "chips")}
     regions = []
     for name, asset, frame, (ax, ay) in regions_plan():
         sx, sy, w, h = SOURCE_RECT[name]
@@ -665,7 +782,8 @@ def file_sha(path: Path) -> str:
 
 
 def manifest_doc(regions: list[dict], atlas_doc: dict, docs: dict[str, dict]) -> dict:
-    keys = {k: file_sha(KEYS / f"{k}.grid.json") for k in ("carl_portrait", "system_crt_face")}
+    keys = {k: file_sha(KEYS / f"{k}.grid.json") for k in ("carl_portrait", "system_crt_face", "hud_art_02_keycaps", "hud_art_02_chips",
+                                          "hud_art_02_notice_plate")}
     return {
         "schema_version": 1,
         "id": "hud_hybrid_a_v1",
@@ -680,7 +798,8 @@ def manifest_doc(regions: list[dict], atlas_doc: dict, docs: dict[str, dict]) ->
         "animation_tags": [],
         "required_alpha": True,
         "owner": "AI-authored HUD art (HUD-HYBRID-A-01, hybrid A HUD: plates, strips, notice frame, glyphs, "
-                 "icons, tags, hero portraits, System CRT face; AUDIENCE-01 viewer eye, trend arrows and 5x7 digit masks)",
+                 "icons, tags, hero portraits, System CRT face; AUDIENCE-01 viewer eye, trend arrows and 5x7 digit masks; "
+                 "HUD-ART-02 keyboard key caps, item chips and the notice backing plate)",
         "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
         "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; "
                    "no public reuse license; no game/asset-pack distribution rights",
@@ -693,7 +812,12 @@ def manifest_doc(regions: list[dict], atlas_doc: dict, docs: dict[str, dict]) ->
                       "frame 0 (x 14..41, y 4..31) with four edge pixels repainted. Frames, strips, notice frame, "
                       "glyphs, icons and tags are original pixel-grid-v1 art written by scripts/author_hud_hybrid_a.py "
                       "from the design spec (sections 2, 3, 7). The AUDIENCE-01 viewer eye, arrows and digits are "
-                      "copied pixel-exact from the top-tier keys in the PR #118 design review. The HUD concept PNGs were never sampled, traced or cropped.",
+                      "copied pixel-exact from the top-tier keys in the PR #118 design review. HUD-ART-02: key_j, key_right, "
+                      "chip_dynamite and chip_puddle are the frozen top-tier keys (assets/source/hud/keys/hud_art_02_*), "
+                      "copied pixel-exact (lone 1 px details re-keyed to same-colour accent aliases for the strict lint); "
+                      "key_k, key_l, key_q, key_space, key_left and key_down are drawn from the spec's cap construction "
+                      "and 5x5 symbols; notice_frame is the HA2-AD3 plate, equal to the frozen notice-plate key. "
+                      "The HUD concept PNGs were never sampled, traced or cropped.",
             "generator": "Design and keys: Claude Opus. Execution (portrait crop, frames, glyphs, icons, tags, atlas, "
                          "validators, evidence): Claude Sonnet via scripts/author_hud_hybrid_a.py. "
                          "Independent review: pending, a separate top-tier agent. No image-model raster output.",
@@ -706,7 +830,7 @@ def manifest_doc(regions: list[dict], atlas_doc: dict, docs: dict[str, dict]) ->
             "atlas_size": [ATLAS_W, ATLAS_H],
             "regions": regions,
             "frame_counts": {"hud_portrait_carl": 1, "hud_portrait_donut": 1, "hud_system_crt": 3,
-                             "hud_glyphs": 9, "hud_tags": 3, "hud_icons": 6},
+                             "hud_glyphs": 9, "hud_tags": 3, "hud_icons": 6, "hud_keycaps": 8, "hud_chips": 2},
             "portrait_palettes": {"portrait_carl": "carl_h52 subset (names carl_*)",
                                   "portrait_donut": "donut_h40 subset (names donut_*)"},
             "hud_tokens": dict(sorted(HUD.items())),
@@ -720,6 +844,13 @@ def manifest_doc(regions: list[dict], atlas_doc: dict, docs: dict[str, dict]) ->
                 "viewer_*: AUDIENCE-01 part A, single-frame sources hud_viewer_*; eye 9x7 (brass, brass_hi, "
                 "hud_ink pupil), up 5x7 magenta_hi, down 5x7 amber (renderer tints amber_dim, untinted in "
                 "high contrast), digits 5x7 text_white masks (advance 6; K and M and + included)",
+                "key_*: HUD-ART-02 keyboard key caps (11x11, key_space 19x11), HUD tokens only, a lit metal bevel "
+                "with cut corners and a two-row metal_dark skirt; the renderer draws the cap for the keyboard "
+                "glyph set in the same place as a pad glyph. chip_*: 11x11 item chips for the grant notice well "
+                "(chip_dynamite on well_carl, chip_puddle on well_donut), drawn at notice +184,+10",
+                "notice_frame: HA2-AD3 plate (ink, metal bevel, magenta, ink ring, magenta_dk rule on row +26); "
+                "the 15x15 item well (hud_ink, brass ring, well_carl or well_donut fill) at notice +182,+8 is "
+                "code-drawn, not in the atlas",
                 "the decimal point is not in the atlas: the renderer draws it as a code-placed 1x1 rect on "
                 "digit row 6 with advance 2 (a lone pixel is not a sprite and fails the strict lint)",
             ],

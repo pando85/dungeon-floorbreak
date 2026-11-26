@@ -1,0 +1,31 @@
+carl-hazards-360-kb ROOM_CAPTURE room=hazards plan=hazards:carl_solo:0 frames=1 first_tick=240 step=1 last_tick=240 window_hash=cb9a45d37e08f12d headless_hash=cb9a45d37e08f12d timed_hash=skipped match=yes
+carl-dozer-360-kb ROOM_CAPTURE room=dozer plan=dozer:run frames=1 first_tick=240 step=1 last_tick=240 window_hash=352bc374ea601186 headless_hash=352bc374ea601186 timed_hash=skipped match=yes
+carl-hazards-360-pad ROOM_CAPTURE room=hazards plan=hazards:carl_solo:0 frames=1 first_tick=240 step=1 last_tick=240 window_hash=cb9a45d37e08f12d headless_hash=cb9a45d37e08f12d timed_hash=skipped match=yes
+carl-dozer-360-pad ROOM_CAPTURE room=dozer plan=dozer:run frames=1 first_tick=240 step=1 last_tick=240 window_hash=352bc374ea601186 headless_hash=352bc374ea601186 timed_hash=skipped match=yes
+notice-boom-360 ROOM_CAPTURE room=hoarder plan=hoarder:carl_solo:0 frames=1 first_tick=1275 step=1 last_tick=1275 window_hash=b309597db38d4248 headless_hash=b309597db38d4248 timed_hash=skipped match=yes
+notice-puddle-360 ROOM_CAPTURE room=juicer plan=juicer frames=3 first_tick=3376 step=2 last_tick=3380 window_hash=e12d1a4cd530912a headless_hash=e12d1a4cd530912a timed_hash=skipped match=yes
+carl-hazards-400-kb ROOM_CAPTURE room=hazards plan=hazards:carl_solo:0 frames=1 first_tick=240 step=1 last_tick=240 window_hash=b5b52125f817b353 headless_hash=b5b52125f817b353 timed_hash=skipped match=yes
+carl-dozer-400-kb ROOM_CAPTURE room=dozer plan=dozer:run frames=1 first_tick=240 step=1 last_tick=240 window_hash=750c20cfc5854dcd headless_hash=750c20cfc5854dcd timed_hash=skipped match=yes
+carl-hazards-400-pad ROOM_CAPTURE room=hazards plan=hazards:carl_solo:0 frames=1 first_tick=240 step=1 last_tick=240 window_hash=b5b52125f817b353 headless_hash=b5b52125f817b353 timed_hash=skipped match=yes
+carl-dozer-400-pad ROOM_CAPTURE room=dozer plan=dozer:run frames=1 first_tick=240 step=1 last_tick=240 window_hash=750c20cfc5854dcd headless_hash=750c20cfc5854dcd timed_hash=skipped match=yes
+notice-boom-400 ROOM_CAPTURE room=hoarder plan=hoarder:carl_solo:0 frames=1 first_tick=1275 step=1 last_tick=1275 window_hash=24e6d9a2ef3014af headless_hash=24e6d9a2ef3014af timed_hash=skipped match=yes
+notice-puddle-400 ROOM_CAPTURE room=juicer plan=juicer frames=3 first_tick=3376 step=2 last_tick=3380 window_hash=76dda693ac63ca12 headless_hash=76dda693ac63ca12 timed_hash=skipped match=yes
+donut2p-boiler-360-kb ROOM_CAPTURE room=boiler plan=direct:2p frames=1 first_tick=240 step=1 last_tick=240 window_hash=72b7777167e089b9 headless_hash=72b7777167e089b9 timed_hash=72b7777167e089b9 match=yes
+donut2p-boiler-360-pad ROOM_CAPTURE room=boiler plan=direct:2p frames=1 first_tick=240 step=1 last_tick=240 window_hash=72b7777167e089b9 headless_hash=72b7777167e089b9 timed_hash=72b7777167e089b9 match=yes
+donut2p-boiler-400-kb ROOM_CAPTURE room=boiler plan=direct:2p frames=1 first_tick=240 step=1 last_tick=240 window_hash=8f3b630cd5653781 headless_hash=8f3b630cd5653781 timed_hash=8f3b630cd5653781 match=yes
+donut2p-boiler-400-pad ROOM_CAPTURE room=boiler plan=direct:2p frames=1 first_tick=240 step=1 last_tick=240 window_hash=8f3b630cd5653781 headless_hash=8f3b630cd5653781 timed_hash=8f3b630cd5653781 match=yes
+FIXTURE_CAPTURE donut-blink-ready-360 fixture=donut_prog_arena_blink_tour tick=30 window_hash=99855920aab10c68 headless_hash=99855920aab10c68 match=yes
+FIXTURE_CAPTURE donut-blink-windup-360 fixture=donut_prog_arena_blink_tour tick=43 window_hash=609dbf0bfd4d4e34 headless_hash=609dbf0bfd4d4e34 match=yes
+FIXTURE_CAPTURE donut-blink-cooling-360 fixture=donut_prog_arena_blink_tour tick=200 window_hash=448df3a3533fb599 headless_hash=448df3a3533fb599 match=yes
+FIXTURE_CAPTURE donut-blink-ready2-360 fixture=donut_prog_arena_blink_tour tick=590 window_hash=8703b32facdc9e16 headless_hash=8703b32facdc9e16 match=yes
+FIXTURE_CAPTURE donut-blink-ready-400 fixture=donut_prog_arena_blink_tour tick=30 window_hash=b845799dd6601867 headless_hash=b845799dd6601867 match=yes
+FIXTURE_CAPTURE donut-blink-windup-400 fixture=donut_prog_arena_blink_tour tick=43 window_hash=4750ddcf9f2003d0 headless_hash=4750ddcf9f2003d0 match=yes
+FIXTURE_CAPTURE donut-blink-cooling-400 fixture=donut_prog_arena_blink_tour tick=200 window_hash=63a5be6e8b440318 headless_hash=63a5be6e8b440318 match=yes
+FIXTURE_CAPTURE donut-blink-ready2-400 fixture=donut_prog_arena_blink_tour tick=590 window_hash=b9f9b19d2ddead13 headless_hash=b9f9b19d2ddead13 match=yes
+juicer-scan ROOM_CAPTURE room=juicer plan=juicer frames=14 first_tick=3400 step=6 last_tick=3478 window_hash=0daf366da5383db0 headless_hash=0daf366da5383db0 timed_hash=skipped match=yes
+donut2p-hazards-360-kb ROOM_CAPTURE room=hazards plan=direct:2p frames=1 first_tick=240 step=1 last_tick=240 window_hash=35721bc2dc8cd849 headless_hash=35721bc2dc8cd849 timed_hash=35721bc2dc8cd849 match=yes
+donut2p-hazards-360-pad ROOM_CAPTURE room=hazards plan=direct:2p frames=1 first_tick=240 step=1 last_tick=240 window_hash=35721bc2dc8cd849 headless_hash=35721bc2dc8cd849 timed_hash=35721bc2dc8cd849 match=yes
+FIXTURE_CAPTURE notice-puddle-fixture-360 fixture=donut_prog_grants_2p tick=430 window_hash=7af00fad37f136cd headless_hash=7af00fad37f136cd match=yes
+donut2p-hazards-400-kb ROOM_CAPTURE room=hazards plan=direct:2p frames=1 first_tick=240 step=1 last_tick=240 window_hash=4292188b31e81987 headless_hash=4292188b31e81987 timed_hash=4292188b31e81987 match=yes
+donut2p-hazards-400-pad ROOM_CAPTURE room=hazards plan=direct:2p frames=1 first_tick=240 step=1 last_tick=240 window_hash=4292188b31e81987 headless_hash=4292188b31e81987 timed_hash=4292188b31e81987 match=yes
+FIXTURE_CAPTURE notice-puddle-fixture-400 fixture=donut_prog_grants_2p tick=430 window_hash=ab255f2ebb271eda headless_hash=ab255f2ebb271eda match=yes

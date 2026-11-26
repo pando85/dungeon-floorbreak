@@ -11,7 +11,7 @@ use crate::audience::{AudienceView, Trend, bounded_name, format_count};
 use crate::env_kit::IRect;
 use crate::hud::{
     AbilityRow, BOSS_BAR_INNER_W, Chip, Control, FaceFrame, Glyph, HP_BAR_INNER_W,
-    HP_FLASH_STEP_TICKS, HP_FLASH_TICKS, HpFlash, HudFont, HudLayout, HudSnapshot,
+    HP_FLASH_STEP_TICKS, HP_FLASH_TICKS, HpFlash, HudFont, HudLayout, HudSnapshot, LabelId,
     MANA_BAR_INNER_W, MANA_FLASH_TICKS, ManaView, PORTRAIT_CARL, PlateView, Rgb, SOCKET_W,
     SocketFlashKind, SpecialSlot, notice_dx, palette as p, text_width_px,
 };
@@ -73,10 +73,22 @@ pub enum FrameId {
     ViewerDigitK,
     ViewerDigitM,
     ViewerDigitPlus,
+    // HUD-ART-02: the keyboard key caps (the keyboard glyph set and the prompt
+    // caps) and the two item chips of the grant notice well.
+    KeyJ,
+    KeyK,
+    KeyL,
+    KeyQ,
+    KeySpace,
+    KeyLeft,
+    KeyRight,
+    KeyDown,
+    ChipDynamite,
+    ChipPuddle,
 }
 
 impl FrameId {
-    pub const ALL: [Self; 47] = [
+    pub const ALL: [Self; 57] = [
         Self::PlateFrame,
         Self::StripCapLeft,
         Self::StripMid,
@@ -124,6 +136,16 @@ impl FrameId {
         Self::ViewerDigitK,
         Self::ViewerDigitM,
         Self::ViewerDigitPlus,
+        Self::KeyJ,
+        Self::KeyK,
+        Self::KeyL,
+        Self::KeyQ,
+        Self::KeySpace,
+        Self::KeyLeft,
+        Self::KeyRight,
+        Self::KeyDown,
+        Self::ChipDynamite,
+        Self::ChipPuddle,
     ];
 
     /// The frame name in the atlas metadata.
@@ -176,6 +198,16 @@ impl FrameId {
             Self::ViewerDigitK => "viewer_digit_k",
             Self::ViewerDigitM => "viewer_digit_m",
             Self::ViewerDigitPlus => "viewer_digit_plus",
+            Self::KeyJ => "key_j",
+            Self::KeyK => "key_k",
+            Self::KeyL => "key_l",
+            Self::KeyQ => "key_q",
+            Self::KeySpace => "key_space",
+            Self::KeyLeft => "key_left",
+            Self::KeyRight => "key_right",
+            Self::KeyDown => "key_down",
+            Self::ChipDynamite => "chip_dynamite",
+            Self::ChipPuddle => "chip_puddle",
         }
     }
 
@@ -219,6 +251,16 @@ impl FrameId {
             | Self::ViewerDigitK
             | Self::ViewerDigitM
             | Self::ViewerDigitPlus => (5, 7),
+            Self::KeySpace => (19, 11),
+            Self::KeyJ
+            | Self::KeyK
+            | Self::KeyL
+            | Self::KeyQ
+            | Self::KeyLeft
+            | Self::KeyRight
+            | Self::KeyDown
+            | Self::ChipDynamite
+            | Self::ChipPuddle => (11, 11),
         }
     }
 
@@ -253,6 +295,14 @@ impl FrameId {
             Glyph::Circle => Self::GlyphCircle,
             Glyph::Square => Self::GlyphSquare,
             Glyph::Triangle => Self::GlyphTriangle,
+            Glyph::KeyJ => Self::KeyJ,
+            Glyph::KeyK => Self::KeyK,
+            Glyph::KeyL => Self::KeyL,
+            Glyph::KeyQ => Self::KeyQ,
+            Glyph::KeySpace => Self::KeySpace,
+            Glyph::KeyLeft => Self::KeyLeft,
+            Glyph::KeyRight => Self::KeyRight,
+            Glyph::KeyDown => Self::KeyDown,
         }
     }
 
@@ -267,6 +317,14 @@ impl FrameId {
                 | Self::GlyphCircle
                 | Self::GlyphSquare
                 | Self::GlyphTriangle
+                | Self::KeyJ
+                | Self::KeyK
+                | Self::KeyL
+                | Self::KeyQ
+                | Self::KeySpace
+                | Self::KeyLeft
+                | Self::KeyRight
+                | Self::KeyDown
         )
     }
 }
@@ -606,6 +664,10 @@ fn hatch(o: &mut Out, x: i32, y: i32, w: i32, h: i32) {
     }
 }
 
+/// One mana segment is 7 px wide and the pitch is 9 (HA2-AD1).
+const MANA_SEGMENT_W: i32 = 7;
+const MANA_SEGMENT_PITCH: i32 = 9;
+
 fn mana_row(o: &mut Out, s: &HudSnapshot, mana: ManaView, x: i32, y: i32) {
     let depleted = mana.fill_px == 0;
     o.frame(
@@ -636,13 +698,15 @@ fn mana_row(o: &mut Out, s: &HudSnapshot, mana: ManaView, x: i32, y: i32) {
     } else {
         p::METAL_LIGHT
     };
-    o.rect(Z_BAR, x + 50, y + 26, 96, 5, outline);
+    // HA2-AD1: the track is 72 px outer on every plate state (70 px inner: 8
+    // segments of 7 px with 2 px gaps, pitch 9).
+    o.rect(Z_BAR, x + 50, y + 26, MANA_BAR_INNER_W + 2, 5, outline);
     let (ix, iy) = (x + 51, y + 27);
     o.rect(Z_BAR, ix, iy, MANA_BAR_INNER_W, 3, p::HUD_INK);
     let fill = i32::from(mana.fill_px).min(MANA_BAR_INNER_W);
     for k in 0..8 {
-        let seg_x = k * 12;
-        let filled = (fill - seg_x).clamp(0, 10);
+        let seg_x = k * MANA_SEGMENT_PITCH;
+        let filled = (fill - seg_x).clamp(0, MANA_SEGMENT_W);
         if filled > 0 {
             o.rect(Z_BAR, ix + seg_x, iy, filled, 3, p::MANA[k as usize]);
         }
@@ -650,7 +714,7 @@ fn mana_row(o: &mut Out, s: &HudSnapshot, mana: ManaView, x: i32, y: i32) {
             Z_BAR,
             ix + seg_x + filled,
             iy,
-            10 - filled,
+            MANA_SEGMENT_W - filled,
             3,
             p::MANA_EMPTY,
         );
@@ -683,15 +747,17 @@ fn abilities_row(o: &mut Out, s: &HudSnapshot, view: &PlateView, x: i32, y: i32)
     }
 }
 
-/// CP-Q32: where the equipped special's label sits. The socket is 11 px wide
-/// and the row ends at +157, so the label has no room beside the glyph; it is
-/// right-aligned to the row end on the free row above it (+28, caps top +28,
-/// the mana row's height: only Donut's plate has a mana bar, and it ends at
-/// +146, left of any label that fits).
+/// CP-Q32, HA2-AD1: where the equipped special's label sits. The socket is 11 px
+/// wide and the row ends at +157, so the label has no room beside the glyph; it
+/// is right-aligned to the row end on the free row above it (+28, caps top +28,
+/// the mana row's height). Donut's 72 px track ends at +121, so the span
+/// +124..+157 is free on both plates and every socket label (at most 33 px) is
+/// drawn on both.
 const SPECIAL_LABEL_RIGHT: i32 = 157;
 const SPECIAL_LABEL_Y: i32 = 28;
-/// The right edge of Donut's mana track outline (`x + 50 + 96`).
-const MANA_TRACK_RIGHT: i32 = 146;
+/// The widest socket label that keeps the 2 px clear gap beside Donut's track
+/// (the track outline ends at +121, the label starts at +124 or later).
+pub const SOCKET_LABEL_MAX_W: i32 = 33;
 
 fn special_socket(
     o: &mut Out,
@@ -724,19 +790,15 @@ fn special_socket(
     };
     let text = chip.label.text();
     let tw = text_width_px(HudFont::SilkRegular, text);
-    // The label sits on the row above the socket. Donut's plate has her mana
-    // track there (it ends at +146): a label that would reach it is not drawn
-    // and the glyph and the underline carry the state (DP-D, recorded).
-    if view.mana.is_none() || SPECIAL_LABEL_RIGHT - tw > MANA_TRACK_RIGHT {
-        o.text(
-            Z_TEXT,
-            HudFont::SilkRegular,
-            text,
-            x + SPECIAL_LABEL_RIGHT - tw,
-            y + SPECIAL_LABEL_Y,
-            color,
-        );
-    }
+    // The label sits on the row above the socket, on both plates (HA2-AD1).
+    o.text(
+        Z_TEXT,
+        HudFont::SilkRegular,
+        text,
+        x + SPECIAL_LABEL_RIGHT - tw,
+        y + SPECIAL_LABEL_Y,
+        color,
+    );
     match (chip.muted, bar_px) {
         (true, Some(px)) => {
             o.rect(Z_FLASH, x + 147, y + 44, i32::from(px), 1, color);
@@ -959,6 +1021,73 @@ fn system(o: &mut Out, s: &HudSnapshot, layout: &HudLayout) {
             y + 15,
             p::AMBER,
         );
+        if let Some(well) = notice_well(notice.headline) {
+            // HA2-AD2: the item well, sliding with the notice (`dx` is in `x`).
+            o.rect(
+                Z_BAR,
+                x + NOTICE_WELL_X,
+                y + NOTICE_WELL_Y,
+                15,
+                15,
+                p::HUD_INK,
+            );
+            o.rect(
+                Z_BAR,
+                x + NOTICE_WELL_X + 1,
+                y + NOTICE_WELL_Y + 1,
+                13,
+                13,
+                p::BRASS,
+            );
+            o.rect(
+                Z_BAR,
+                x + NOTICE_WELL_X + 2,
+                y + NOTICE_WELL_Y + 2,
+                11,
+                11,
+                well.fill,
+            );
+            o.frame(
+                Z_ICON,
+                well.chip,
+                x + NOTICE_WELL_X + 2,
+                y + NOTICE_WELL_Y + 2,
+            );
+        }
+    }
+}
+
+/// HA2-AD2: the item well's top-left inside the notice (15x15; the chip sits
+/// 2 px inside it at +184,+10).
+pub const NOTICE_WELL_X: i32 = 182;
+pub const NOTICE_WELL_Y: i32 = 8;
+/// With a well the headline must end at or before notice +179 (172 px from +7);
+/// without one the existing 190 px limit holds.
+pub const NOTICE_HEADLINE_MAX_W_WITH_WELL: i32 = 172;
+
+/// The item well of a grant notice: its fill (the owner's well colour) and the
+/// chip drawn on it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct NoticeWell {
+    pub fill: Rgb,
+    pub chip: FrameId,
+}
+
+/// HA2-AD2: only the grants that equip the special socket get a well:
+/// `GOBLIN BOOM` the dynamite on `well_carl`, `PUDDLE JUMPER` the puddle on
+/// `well_donut`. `HEAVY FIST` and `LIGHT FEET` are passives and keep the
+/// full-width headline; the reconnect pause message never has a well.
+pub const fn notice_well(headline: LabelId) -> Option<NoticeWell> {
+    match headline {
+        LabelId::GoblinBoom => Some(NoticeWell {
+            fill: p::WELL_CARL,
+            chip: FrameId::ChipDynamite,
+        }),
+        LabelId::PuddleJumper => Some(NoticeWell {
+            fill: p::WELL_DONUT,
+            chip: FrameId::ChipPuddle,
+        }),
+        _ => None,
     }
 }
 
@@ -1051,10 +1180,44 @@ pub fn placeholder_rects(frame: FrameId, w: i32, h: i32) -> Vec<PlaceholderRect>
             v.push((0, h - 1, w, 1, p::HUD_INK));
         }
         FrameId::NoticeFrame => {
+            // HA2-AD3: ink, worn bevel (lit top and left), magenta, ink, fill.
             v.push((0, 0, w, h, p::HUD_INK));
-            v.push((1, 1, w - 2, h - 2, p::MAGENTA));
-            v.push((2, 2, w - 4, h - 4, p::HUD_INK));
-            v.push((3, 3, w - 6, h - 6, p::NOTICE_BG));
+            v.push((1, 1, w - 2, h - 2, p::METAL_MID));
+            v.push((1, 1, w - 2, 1, p::METAL_HI));
+            v.push((1, 1, 1, h - 2, p::METAL_HI));
+            v.push((2, 2, w - 4, h - 4, p::MAGENTA));
+            v.push((3, 3, w - 6, h - 6, p::HUD_INK));
+            v.push((4, 4, w - 8, h - 8, p::NOTICE_BG));
+        }
+        FrameId::KeyJ
+        | FrameId::KeyK
+        | FrameId::KeyL
+        | FrameId::KeyQ
+        | FrameId::KeySpace
+        | FrameId::KeyLeft
+        | FrameId::KeyRight
+        | FrameId::KeyDown => {
+            // A square cap: ink outline, lit bevel, face, lip and a two-row skirt.
+            v.push((0, 0, w, h, p::HUD_INK));
+            v.push((1, 1, w - 2, 1, p::METAL_HI));
+            v.push((1, 1, 1, h - 4, p::METAL_HI));
+            v.push((2, 2, w - 4, h - 6, p::METAL_LIGHT));
+            v.push((1, h - 4, w - 2, 1, p::METAL_MID));
+            v.push((1, h - 3, w - 2, 2, p::METAL_DARK));
+            v.push((w / 2 - 1, 4, 3, 3, p::TEXT_WHITE));
+        }
+        FrameId::ChipDynamite => {
+            v.push((3, 4, 5, 7, p::HUD_INK));
+            v.push((4, 5, 3, 5, p::HP_RED));
+            v.push((4, 7, 3, 1, p::BRASS_DARK));
+            v.push((5, 1, 1, 3, p::BRASS));
+            v.push((4, 0, 3, 1, p::AMBER));
+        }
+        FrameId::ChipPuddle => {
+            v.push((0, 6, w, 5, p::HUD_INK));
+            v.push((1, 7, w - 2, 3, p::MAGENTA));
+            v.push((4, 8, 3, 1, p::CRT_FACE_HI));
+            v.push((8, 1, 1, 4, p::MAGENTA_HI));
         }
         FrameId::PortraitCarl => v.push((0, 0, w, h, p::BRASS)),
         FrameId::PortraitDonut => v.push((0, 0, w, h, p::MAGENTA)),
@@ -1462,35 +1625,36 @@ mod tests {
             .collect()
     }
 
-    /// DP-Q33: a cooling socket is the muted glyph with a solid 1 px underline of
-    /// the cooldown width (no zig-zag), a ready one has neither, and a muted one
-    /// for want of mana keeps the zig-zag. The `BLINK` label does not fit beside
-    /// the mana track (27 px against the 11 px the row leaves), so the glyph and
-    /// the underline carry the state.
+    /// DP-Q33, HA2-AD1: a cooling socket is the muted glyph with a solid 1 px
+    /// underline of the cooldown width (no zig-zag), a ready one has neither, and
+    /// a muted one for want of mana keeps the zig-zag. The `BLINK` label is drawn
+    /// in every state (the 72 px track leaves the span +124..+157 free).
     #[test]
-    fn a_cooling_donut_socket_draws_the_underline_and_not_the_label() {
+    fn a_cooling_donut_socket_draws_the_underline_and_the_label() {
         let cooling = |px| SpecialSlot::Cooling {
             chip: blink_chip(true),
             bar_px: px,
         };
         for px in [1u8, 6, 11] {
-            let (list, layout) = donut_with_special(cooling(px), None, false, 94);
+            let (list, layout) = donut_with_special(cooling(px), None, false, 70);
             assert_eq!(underline(&list, &layout), vec![(0, i32::from(px))], "{px}");
-            assert!(!texts(&list).contains(&"BLINK"));
+            assert!(texts(&list).contains(&"BLINK"), "cooling {px}");
             assert!(frames(&list).contains(&FrameId::GlyphB));
         }
         let (ready, layout) =
-            donut_with_special(SpecialSlot::Equipped(blink_chip(false)), None, false, 94);
+            donut_with_special(SpecialSlot::Equipped(blink_chip(false)), None, false, 70);
         assert!(underline(&ready, &layout).is_empty(), "ready: no underline");
+        assert!(texts(&ready).contains(&"BLINK"));
         let (dry, layout) =
             donut_with_special(SpecialSlot::Equipped(blink_chip(true)), None, false, 12);
         // The zig-zag alternates rows: three of its six 2 px steps are on this one.
         assert_eq!(underline(&dry, &layout).len(), 3);
-        let (locked, _) = donut_with_special(SpecialSlot::Locked, None, false, 94);
+        assert!(texts(&dry).contains(&"BLINK"), "muted");
+        let (locked, _) = donut_with_special(SpecialSlot::Locked, None, false, 70);
         assert!(frames(&locked).contains(&FrameId::SocketLocked));
-        // The label would reach the track; Carl's plate (no track) still draws his.
         assert!(
-            SPECIAL_LABEL_RIGHT - text_width_px(HudFont::SilkRegular, "BLINK") <= MANA_TRACK_RIGHT
+            !texts(&locked).contains(&"BLINK"),
+            "a locked socket has no label"
         );
         assert!(
             texts(&carl_with_special(
@@ -1503,6 +1667,90 @@ mod tests {
         );
     }
 
+    /// HA2-AD1 (AT-3): every socket label is at most 33 px, so its left edge is at
+    /// or after +124 and clears the track's right end (+121) by 2 px.
+    #[test]
+    fn every_socket_label_fits_beside_donuts_track() {
+        let mut socket_labels = 0;
+        for label in LabelId::ALL {
+            if !label.is_socket_label() {
+                continue;
+            }
+            socket_labels += 1;
+            assert_eq!(LabelId::for_socket_text(label.text()), Some(label));
+            let width = text_width_px(HudFont::SilkRegular, label.text());
+            assert!(width <= SOCKET_LABEL_MAX_W, "{label:?}: {width} px");
+            assert!(SPECIAL_LABEL_RIGHT - width >= 124, "{label:?}");
+        }
+        assert_eq!(socket_labels, 2, "BOOM and BLINK");
+        assert_eq!(text_width_px(HudFont::SilkRegular, "BLINK"), 27);
+        assert_eq!(SPECIAL_LABEL_RIGHT - 27, 130);
+        // The track outline (+50, 72 px) ends at +121.
+        assert_eq!(50 + MANA_BAR_INNER_W + 2 - 1, 121);
+    }
+
+    /// HA2-AD1: `BLINK` is drawn on Donut's human plate at +130 (right edge +157,
+    /// caps top +28), exactly where Carl's `BOOM` sits, in every state.
+    #[test]
+    fn blink_is_drawn_on_donuts_human_plate_at_plus_130() {
+        for slot in [
+            SpecialSlot::Equipped(blink_chip(false)),
+            SpecialSlot::Equipped(blink_chip(true)),
+            SpecialSlot::Cooling {
+                chip: blink_chip(true),
+                bar_px: 6,
+            },
+        ] {
+            let (list, layout) = donut_with_special(slot, None, false, 35);
+            let label = list
+                .iter()
+                .find(|i| matches!(&i.kind, DrawKind::Text { text, .. } if text == "BLINK"))
+                .expect("BLINK");
+            assert_eq!(label.x - layout.donut_plate.x, 130);
+            assert_eq!(label.y - layout.donut_plate.y, 28);
+        }
+    }
+
+    /// HA2-AD1: the track is 72 px outer (+50..+121, rows +26..+30) with eight 7 px
+    /// segments on a pitch of 9, on every state; the fill is whole segments.
+    #[test]
+    fn the_mana_track_is_72_px_with_eight_segments_of_7_at_pitch_9() {
+        for (fill, full_segments) in [(0u8, 0), (9, 1), (18, 2), (26, 2), (35, 3), (70, 8)] {
+            let (list, layout) = donut_with_special(SpecialSlot::Locked, None, false, fill);
+            let (px, py) = (layout.donut_plate.x, layout.donut_plate.y);
+            assert!(list.iter().any(|i| i.x == px + 50
+                && i.y == py + 26
+                && matches!(i.kind, DrawKind::Rect { w: 72, h: 5, .. })));
+            for k in 0..8 {
+                let seg_x = px + 51 + k * 9;
+                let live: Vec<_> = list
+                    .iter()
+                    .filter(|i| {
+                        i.x == seg_x
+                            && i.y == py + 27
+                            && matches!(i.kind, DrawKind::Rect { h: 3, color, .. } if color == p::MANA[k as usize])
+                    })
+                    .collect();
+                let want = (i32::from(fill) - k * 9).clamp(0, 7);
+                match &live[..] {
+                    [] => assert_eq!(want, 0, "fill {fill} segment {k}"),
+                    [one] => assert!(
+                        matches!(one.kind, DrawKind::Rect { w, .. } if w == want),
+                        "fill {fill} segment {k}"
+                    ),
+                    _ => panic!("segment {k} drawn twice"),
+                }
+                if k < full_segments {
+                    assert!(!live.is_empty());
+                }
+            }
+            // Nothing of the track reaches past +121.
+            assert!(list.iter().all(|i| !(i.y == py + 27
+                && i.x >= px + 51
+                && matches!(i.kind, DrawKind::Rect { w, .. } if i.x + w > px + 121))));
+        }
+    }
+
     /// DP-Q33: the flash is a 1 px outline around the socket cell for the first
     /// six ticks, brass for ready and magenta for a refusal; reduced motion and
     /// the age past `MANA_FLASH_TICKS` draw none.
@@ -1511,7 +1759,7 @@ mod tests {
         use crate::hud::{SocketFlash, SocketFlashKind};
         let slot = SpecialSlot::Equipped(blink_chip(false));
         let outline = |flash, reduced| {
-            let (list, layout) = donut_with_special(slot, flash, reduced, 94);
+            let (list, layout) = donut_with_special(slot, flash, reduced, 70);
             let (cx, cy) = (layout.donut_plate.x + 146, layout.donut_plate.y + 33);
             list.iter()
                 .filter_map(|i| match i.kind {
@@ -1592,7 +1840,7 @@ mod tests {
 
     #[test]
     fn control_truth_no_b_circle_jump_or_ai_glyphs() {
-        for glyphs in [GlyphSet::Xbox, GlyphSet::DualSense] {
+        for glyphs in [GlyphSet::Xbox, GlyphSet::DualSense, GlyphSet::Keyboard] {
             for preview in std::iter::once(None).chain(HudPreview::ALL.into_iter().map(Some)) {
                 let mut real = crate::hud::test_inputs(4, 4);
                 real.carl_glyphs = glyphs;
@@ -1605,6 +1853,7 @@ mod tests {
                 let allowed = match glyphs {
                     GlyphSet::Xbox => [FrameId::GlyphX, FrameId::GlyphY],
                     GlyphSet::DualSense => [FrameId::GlyphSquare, FrameId::GlyphTriangle],
+                    GlyphSet::Keyboard => [FrameId::KeyJ, FrameId::KeyK],
                 };
                 assert!(glyph_frames.iter().all(|f| allowed.contains(f)));
                 // Two chips per player-controlled plate, none on an AI plate.
@@ -1890,7 +2139,7 @@ mod tests {
             ] {
                 let mut real = crate::hud::test_inputs(4, 4);
                 real.donut_magic = crate::hud::DonutMagic::Unlocked(crate::hud::ManaView {
-                    fill_px: 94,
+                    fill_px: 70,
                     depleted_age: None,
                 });
                 real.audience = [Some(carl_view), Some(donut_view)];
@@ -2248,6 +2497,158 @@ mod tests {
         assert_eq!(sockets, 2);
     }
 
+    /// The draw items of a notice with `headline` at `age`, on a 360 canvas.
+    fn notice_list(headline: LabelId, age: u16, reconnect: Option<u8>) -> Vec<DrawItem> {
+        let mut real = crate::hud::test_inputs(4, 4);
+        real.reconnect = reconnect;
+        real.notice = Some(crate::hud::NoticeView {
+            headline,
+            age_ticks: age,
+        });
+        let mut list = Vec::new();
+        build_draw_list(
+            &build_snapshot(&real, None, 0),
+            &HudLayout::new(360, 288),
+            &mut list,
+        );
+        list
+    }
+
+    fn chip_frames(list: &[DrawItem]) -> Vec<(FrameId, i32, i32)> {
+        list.iter()
+            .filter_map(|i| match i.kind {
+                DrawKind::Frame {
+                    frame: f @ (FrameId::ChipDynamite | FrameId::ChipPuddle),
+                    ..
+                } => Some((f, i.x, i.y)),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// HA2-AD2 (AT-9): the well is drawn only for `GOBLIN BOOM` (dynamite on
+    /// `well_carl`) and `PUDDLE JUMPER` (puddle on `well_donut`), at notice
+    /// +182,+8 (ink 15x15, brass 13x13, fill 11x11, chip at +184,+10), sliding
+    /// with the notice; every other headline and the reconnect message have none.
+    #[test]
+    fn the_item_well_is_drawn_only_for_the_two_special_grants() {
+        let layout = HudLayout::new(360, 288);
+        for (headline, fill, chip) in [
+            (LabelId::GoblinBoom, p::WELL_CARL, FrameId::ChipDynamite),
+            (LabelId::PuddleJumper, p::WELL_DONUT, FrameId::ChipPuddle),
+        ] {
+            for age in [0u16, 4, 8, 60, 130] {
+                let list = notice_list(headline, age, None);
+                let dx = notice_dx(age, false);
+                let (nx, ny) = (layout.notice.x + dx, layout.notice.y);
+                assert_eq!(
+                    chip_frames(&list),
+                    vec![(chip, nx + 184, ny + 10)],
+                    "{headline:?} age {age}"
+                );
+                let rect = |w: i32, color: Rgb, x: i32| {
+                    list.iter().any(|i| {
+                        i.x == nx + x
+                            && i.y == ny + x - 174
+                            && matches!(i.kind, DrawKind::Rect { w: rw, h, color: c } if rw == w && h == w && c == color)
+                    })
+                };
+                assert!(rect(15, p::HUD_INK, 182), "ink");
+                assert!(rect(13, p::BRASS, 183), "brass ring");
+                assert!(rect(11, fill, 184), "fill");
+            }
+        }
+        for headline in [
+            LabelId::HeavyFist,
+            LabelId::LightFeet,
+            LabelId::Launched,
+            LabelId::Flattened,
+            LabelId::BossIncoming,
+            LabelId::MainEvent,
+            LabelId::RoundTwo,
+            LabelId::FinalRound,
+            LabelId::NoSpotter,
+            LabelId::Knockout,
+        ] {
+            let list = notice_list(headline, 20, None);
+            assert!(chip_frames(&list).is_empty(), "{headline:?}");
+            assert_eq!(notice_well(headline), None);
+        }
+        // The reconnect pause message never has a well.
+        let list = notice_list(LabelId::GoblinBoom, 20, Some(1));
+        assert!(chip_frames(&list).is_empty());
+    }
+
+    /// HA2-AD2 (AT-9): a headline with a well ends at or before notice +179
+    /// (172 px from +7); the two well headlines fit with room to spare.
+    #[test]
+    fn well_headlines_end_at_or_before_plus_179() {
+        for label in [LabelId::GoblinBoom, LabelId::PuddleJumper] {
+            assert!(notice_well(label).is_some());
+            let width = text_width_px(HudFont::Jersey, label.text());
+            assert!(
+                width <= NOTICE_HEADLINE_MAX_W_WITH_WELL,
+                "{label:?}: {width}"
+            );
+            assert!(7 + width <= NOTICE_WELL_X - 3, "{label:?}");
+        }
+        assert_eq!(NOTICE_HEADLINE_MAX_W_WITH_WELL, 172);
+    }
+
+    /// HA2-AD4: the keyboard set draws the key caps J and K on the chips and L in
+    /// the socket, in the places the pad glyphs take, with the same muted tint.
+    #[test]
+    fn the_keyboard_set_draws_caps_where_the_pad_glyphs_go() {
+        let list = carl_with_special(equipped_chip(false), GlyphSet::Keyboard, false, true);
+        let f = frames(&list);
+        assert!(f.contains(&FrameId::KeyJ) && f.contains(&FrameId::KeyK));
+        assert!(f.contains(&FrameId::KeyL));
+        assert!(!f.iter().any(|f| matches!(
+            f,
+            FrameId::GlyphX | FrameId::GlyphY | FrameId::GlyphB | FrameId::GlyphA
+        )));
+        let layout = HudLayout::new(360, 288);
+        let cap = |frame| {
+            list.iter()
+                .find(|i| matches!(i.kind, DrawKind::Frame { frame: f, .. } if f == frame))
+                .map(|i| (i.x - layout.carl_plate.x, i.y - layout.carl_plate.y))
+        };
+        assert_eq!(cap(FrameId::KeyJ), Some((40, 34)));
+        assert_eq!(cap(FrameId::KeyK), Some((93, 34)));
+        assert_eq!(cap(FrameId::KeyL), Some((147, 34)));
+        // A muted socket tints the cap exactly like a pad glyph.
+        let muted = carl_with_special(equipped_chip(true), GlyphSet::Keyboard, false, true);
+        assert!(muted.iter().any(|i| matches!(
+            i.kind,
+            DrawKind::Frame { frame: FrameId::KeyL, tint: Some(t), .. } if t == p::AMBER_DIM
+        )));
+    }
+
+    /// HA2-AD4: the caps and chips have the spec sizes and no other frame uses them.
+    #[test]
+    fn key_caps_and_chips_have_the_spec_sizes() {
+        for f in [
+            FrameId::KeyJ,
+            FrameId::KeyK,
+            FrameId::KeyL,
+            FrameId::KeyQ,
+            FrameId::KeyLeft,
+            FrameId::KeyRight,
+            FrameId::KeyDown,
+            FrameId::ChipDynamite,
+            FrameId::ChipPuddle,
+        ] {
+            assert_eq!(f.size(), (11, 11), "{f:?}");
+        }
+        assert_eq!(FrameId::KeySpace.size(), (19, 11));
+        assert_eq!(FrameId::of_glyph(Glyph::KeyJ), FrameId::KeyJ);
+        assert_eq!(FrameId::of_glyph(Glyph::KeySpace), FrameId::KeySpace);
+        assert_eq!(FrameId::KeyRight.name(), "key_right");
+        assert_eq!(FrameId::ChipPuddle.name(), "chip_puddle");
+        assert!(FrameId::KeyDown.is_glyph() && !FrameId::ChipDynamite.is_glyph());
+        assert_eq!(FrameId::ALL.len(), 57);
+    }
+
     #[test]
     fn the_notice_slides_in_integer_pixels_and_never_overlaps_the_lane() {
         for age in 0..140 {
@@ -2317,11 +2718,11 @@ mod tests {
                 .collect::<Vec<_>>()
         };
         let full = rects_of(HudPreview::PostUnlock);
-        // 8 filled segments of 10 px, one per mana colour.
+        // 8 filled segments of 7 px (pitch 9), one per mana colour.
         for color in p::MANA {
             assert_eq!(
                 full.iter()
-                    .filter(|i| matches!(i.kind, DrawKind::Rect { w: 10, h: 3, color: c, .. } if c == color))
+                    .filter(|i| matches!(i.kind, DrawKind::Rect { w: 7, h: 3, color: c, .. } if c == color))
                     .count(),
                 1
             );
@@ -2329,11 +2730,11 @@ mod tests {
         let empty = rects_of(HudPreview::Depleted);
         // Depleted: a visible outline (not ink) around the track, and every
         // segment in the empty colour.
-        assert!(empty.iter().any(|i| matches!(i.kind, DrawKind::Rect { w: 96, h: 5, color, .. } if color == p::METAL_LIGHT || color == p::MAGENTA_HI)));
+        assert!(empty.iter().any(|i| matches!(i.kind, DrawKind::Rect { w: 72, h: 5, color, .. } if color == p::METAL_LIGHT || color == p::MAGENTA_HI)));
         assert_eq!(
             empty
                 .iter()
-                .filter(|i| matches!(i.kind, DrawKind::Rect { w: 10, h: 3, color, .. } if color == p::MANA_EMPTY))
+                .filter(|i| matches!(i.kind, DrawKind::Rect { w: 7, h: 3, color, .. } if color == p::MANA_EMPTY))
                 .count(),
             8
         );
@@ -2522,11 +2923,11 @@ mod tests {
         // track does too once the (normal-motion) magenta flash is not shown.
         assert!(high.iter().any(|i| matches!(i.kind, DrawKind::Rect { w: 22, h: 6, color, .. } if color == p::TEXT_WHITE)));
         let calm = hc_list_motion(Some(HudPreview::Depleted), 1, true, true);
-        assert!(calm.iter().any(|i| matches!(i.kind, DrawKind::Rect { w: 96, h: 5, color, .. } if color == p::TEXT_WHITE)));
+        assert!(calm.iter().any(|i| matches!(i.kind, DrawKind::Rect { w: 72, h: 5, color, .. } if color == p::TEXT_WHITE)));
         // A track that is not empty gets a metal_hi outline instead of ink.
         let post = hc_list(Some(HudPreview::PostUnlock), 4, true);
         assert!(post.iter().any(
-            |i| matches!(i.kind, DrawKind::Rect { w: 96, h: 5, color, .. } if color == p::METAL_HI)
+            |i| matches!(i.kind, DrawKind::Rect { w: 72, h: 5, color, .. } if color == p::METAL_HI)
         ));
         // Full HP fill is the lighter red.
         let full = hc_list(None, 4, true);

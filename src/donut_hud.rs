@@ -12,7 +12,7 @@
 //! Rules (`docs/02-art/donut-moveset-q10.md` section 4 and
 //! `docs/01-design/donut-mana-v0-proposal.md` section 4):
 //!
-//! - The fill is whole segments: `(mana * 94 + max / 2) / max` in integers.
+//! - The fill is whole segments: `(mana * 70 + max / 2) / max` in integers.
 //! - Chips appear only when `donut_moves` is on **and** `melee_live` is true.
 //! - Pre-biscuit: `SWAT` and `POUNCE`. After it: `MISSILE` and `POUNCE`, with
 //!   `MISSILE` muted at 0 mana. With the playtest `empty_press: "swat"` the
@@ -29,8 +29,9 @@ use crate::hud::{
     MANA_FLASH_TICKS, ManaView, SOCKET_W, SpecialSlot,
 };
 
-/// `round(mana / mana_max * 94)` in integers: no float ties at 2 and 6.
-/// 0, 12, 24, 35, 47, 59, 71, 82, 94 for `mana_max = 8`.
+/// `round(mana / mana_max * 70)` in integers (HA2-AD1: the 70 px inner track, 8
+/// segments of 7 px with 2 px gaps). Ties at 2 and 6 charges (17.5 and 52.5) round up.
+/// 0, 9, 18, 26, 35, 44, 53, 61, 70 for `mana_max = 8`.
 pub fn mana_fill_px(mana: u8, mana_max: u8) -> u8 {
     if mana_max == 0 {
         return 0;
@@ -221,20 +222,20 @@ mod tests {
     #[test]
     fn the_fill_table_for_0_to_8_is_pinned() {
         let table: Vec<u8> = (0..=8).map(|m| mana_fill_px(m, 8)).collect();
-        assert_eq!(table, [0, 12, 24, 35, 47, 59, 71, 82, 94]);
-        // Whole segments: strictly increasing, one step per charge, full is 94.
+        assert_eq!(table, [0, 9, 18, 26, 35, 44, 53, 61, 70]);
+        // Strictly increasing, one step per charge, full is 70.
         assert!(table.windows(2).all(|w| w[0] < w[1]));
         assert_eq!(mana_fill_px(8, 8), MANA_BAR_INNER_W as u8);
         // Above max clamps, a zero max is empty.
-        assert_eq!(mana_fill_px(20, 8), 94);
+        assert_eq!(mana_fill_px(20, 8), 70);
         assert_eq!(mana_fill_px(3, 0), 0);
     }
 
     #[test]
     fn the_integer_rule_matches_the_hud_float_rule_including_the_ties() {
-        // 2/8 and 6/8 of 94 are exactly 23.5 and 70.5: both rules round up.
+        // 2/8 and 6/8 of 70 are exactly 17.5 and 52.5: both rules round up.
         for m in 0..=8u32 {
-            let float = (m as f32 / 8.0 * 94.0).round() as u32;
+            let float = (m as f32 / 8.0 * 70.0).round() as u32;
             assert_eq!(u32::from(mana_fill_px(m as u8, 8)), float, "m = {m}");
         }
     }
@@ -249,7 +250,7 @@ mod tests {
         assert_eq!(
             donut_magic(&m, &t, None),
             DonutMagic::Unlocked(ManaView {
-                fill_px: 94,
+                fill_px: 70,
                 depleted_age: None
             })
         );
@@ -259,7 +260,7 @@ mod tests {
         assert_eq!(
             donut_magic(&m, &t, Some(3)),
             DonutMagic::Unlocked(ManaView {
-                fill_px: 35,
+                fill_px: 26,
                 depleted_age: None
             }),
             "the flash age only shows at 0"
@@ -378,7 +379,7 @@ mod tests {
         let no_actions = AbilityRow::NoActions {
             special: SpecialSlot::Locked,
         };
-        for magic in [DonutMagic::PreBiscuit, mana_view(0), mana_view(94)] {
+        for magic in [DonutMagic::PreBiscuit, mana_view(0), mana_view(70)] {
             assert_eq!(
                 donut_ability_row(
                     Control::Player(2),

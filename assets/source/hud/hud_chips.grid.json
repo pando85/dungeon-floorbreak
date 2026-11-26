@@ -1,0 +1,140 @@
+{
+ "format": "pixel-grid-v1",
+ "canvas": [
+  11,
+  11
+ ],
+ "pivot": [
+  0,
+  10
+ ],
+ "palette": [
+  {
+   "key": "K",
+   "name": "hud_ink",
+   "rgba": "#120c18ff"
+  },
+  {
+   "key": "d",
+   "name": "brass_dark",
+   "rgba": "#6a4a1cff"
+  },
+  {
+   "key": "B",
+   "name": "brass",
+   "rgba": "#b58a3aff"
+  },
+  {
+   "key": "A",
+   "name": "amber",
+   "rgba": "#ffc24aff"
+  },
+  {
+   "key": "W",
+   "name": "text_white",
+   "rgba": "#f4e6d2ff"
+  },
+  {
+   "key": "e",
+   "name": "magenta_dk",
+   "rgba": "#6e1a4cff"
+  },
+  {
+   "key": "m",
+   "name": "magenta",
+   "rgba": "#e0338fff"
+  },
+  {
+   "key": "n",
+   "name": "magenta_hi",
+   "rgba": "#ff6fc0ff"
+  },
+  {
+   "key": "f",
+   "name": "crt_face_hi",
+   "rgba": "#ffb3dcff"
+  },
+  {
+   "key": "p",
+   "name": "hp_red_lo",
+   "rgba": "#9a1a2cff"
+  },
+  {
+   "key": "P",
+   "name": "hp_red",
+   "rgba": "#d8283cff"
+  },
+  {
+   "key": "q",
+   "name": "hp_red_hi",
+   "rgba": "#ff5a5fff"
+  },
+  {
+   "key": "!",
+   "name": "text_white_detail",
+   "rgba": "#f4e6d2ff",
+   "accent": true
+  },
+  {
+   "key": "#",
+   "name": "crt_face_hi_detail",
+   "rgba": "#ffb3dcff",
+   "accent": true
+  }
+ ],
+ "layers": [
+  "art"
+ ],
+ "frames": [
+  {
+   "duration_ms": 100,
+   "cels": {
+    "art": [
+     "........A..",
+     ".......A!A.",
+     "......B.A..",
+     ".....B.....",
+     "..KKKBKK...",
+     "..KqPPpK...",
+     "..KqPPpK...",
+     "..KddddK...",
+     "..KqPPpK...",
+     "..KqPPpK...",
+     "..KKKKKK..."
+    ]
+   }
+  },
+  {
+   "duration_ms": 100,
+   "cels": {
+    "art": [
+     "...........",
+     "........n..",
+     ".......nnm.",
+     ".......n#m.",
+     "........m..",
+     "...........",
+     "...........",
+     ".KKKKKKKKK.",
+     "KmnnnmmmmeK",
+     "KmmmmmmmeeK",
+     ".KKKKKKKKK."
+    ]
+   }
+  }
+ ],
+ "tags": [
+  {
+   "name": "chip_dynamite",
+   "from": 0,
+   "to": 0,
+   "direction": "forward"
+  },
+  {
+   "name": "chip_puddle",
+   "from": 1,
+   "to": 1,
+   "direction": "forward"
+  }
+ ]
+}
