@@ -107,7 +107,7 @@ fn the_rig_parts_sit_on_their_anchors() {
     let mut d = crate::dozer_fixtures::dozer_of(&sim).clone();
     d.state = DozerState::Escaped(EscapePhase::Idle);
     d.o = 812.0;
-    let sprites = rig_sprites(&d, 0, false);
+    let sprites = rig_sprites(&d, 0, false, [true; 2]);
     assert_eq!(sprites.len(), Part::ALL.len());
     assert!(sprites.windows(2).all(|w| w[0].z <= w[1].z));
     let floor = d.floor_y as i32;
@@ -124,7 +124,7 @@ fn the_rig_parts_sit_on_their_anchors() {
         assert!(u32::from(s.frame) < s.sheet.frames(), "{s:?}");
     }
     // At rest there is no rattle: a later tick draws the same rig.
-    assert_eq!(rig_sprites(&d, 1, false), sprites);
+    assert_eq!(rig_sprites(&d, 1, false, [true; 2]), sprites);
 }
 
 #[test]
@@ -133,7 +133,7 @@ fn the_chase_rattles_the_hull_and_the_riders_late_never_the_wheel() {
     let mut d = crate::dozer_fixtures::dozer_of(&sim).clone();
     d.state = DozerState::CommittedChase;
     let bottoms = |tick| {
-        rig_sprites(&d, tick, false)
+        rig_sprites(&d, tick, false, [true; 2])
             .iter()
             .map(|s| s.bottom)
             .collect::<Vec<_>>()
@@ -363,4 +363,52 @@ fn the_frame_stand_ins_follow_the_frame_and_the_rear_glance() {
         assert!(labels.contains(label), "{label} not drawn: {labels:?}");
     }
     assert_eq!(glance_pieces, GLANCE_TICKS as usize);
+}
+
+/// DR-C: the rig draws a rider on the hull while it is carried and stops on
+/// the dismount tick (the goblin presenter draws it from then on), so a rider
+/// is never drawn twice; a checkpoint respawn seats the living rider again
+/// and leaves a dead rider's seat empty.
+#[test]
+fn the_rig_draws_a_rider_only_while_it_is_carried() {
+    use crate::dozer_fixtures::frame::{brace_pilot, brace_release_r};
+    let riders_drawn = |c: &CombatState| {
+        let d = dozer_of(c).unwrap();
+        let seated = [Seat::RiderA, Seat::RiderB].map(|s| c.seat_taken(s));
+        rig_sprites(d, 0, false, seated)
+            .iter()
+            .filter(|s| s.sheet == Sheet::Riders)
+            .count()
+    };
+    let r = root();
+    let (mut st, _) = brace_pilot(&r, brace_release_r(&r).unwrap()).unwrap();
+    for _ in 0..600 {
+        let disabled = dozer_of(&st.sim.combat).unwrap().state == DozerState::Disabled;
+        let carried = [0, 1].map(|i| st.sim.combat.is_carried(i));
+        assert_eq!(carried, [!disabled; 2], "tick {}", st.tick());
+        // The engineer, plus the riders aboard.
+        assert_eq!(
+            riders_drawn(&st.sim.combat),
+            if disabled { 1 } else { 3 },
+            "tick {}",
+            st.tick()
+        );
+        if disabled {
+            break;
+        }
+        st.step_slots([RawInput::NONE; 2]);
+    }
+    assert_eq!(riders_drawn(&st.sim.combat), 1, "never disabled");
+    // Rider B dies; the respawn seats rider A only.
+    st.sim.combat.enemies[1].health = 0;
+    st.sim.combat.enemies[1].mode = crate::goblin::GoblinMode::Corpse;
+    st.sim.combat.respawn(&mut st.sim.scene);
+    let c = &st.sim.combat;
+    assert!(c.seat_taken(Seat::RiderA) && !c.seat_taken(Seat::RiderB));
+    assert_eq!(riders_drawn(c), 2);
+    // A run without a crew keeps the DR-A/DR-B rig: both seats drawn.
+    let (sim, _) = start(&r, Mode::CarlSolo, 0).unwrap();
+    let mut bare = sim.combat.clone();
+    bare = bare.with_crew(Vec::new());
+    assert!(bare.seat_taken(Seat::RiderA) && bare.seat_taken(Seat::RiderB));
 }

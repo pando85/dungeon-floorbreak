@@ -808,7 +808,6 @@ impl EnvRuntime {
         self
     }
 
-    /// The llamas the exit gate waits on (`None`: the whole roster).
     /// DR-B: a falling mass's remnant enters the partner's nav only once it
     /// has landed (see the field).
     pub fn with_remnants_on_landing(mut self) -> Self {
@@ -847,6 +846,7 @@ impl EnvRuntime {
                 .is_some_and(|start| (start..start + self.solids.len()).any(|w| self.nav_hides(w)))
     }
 
+    /// The llamas the exit gate waits on (`None`: the whole roster).
     pub fn gate_llamas(&self) -> Option<&[usize]> {
         self.gate_llamas.as_deref()
     }

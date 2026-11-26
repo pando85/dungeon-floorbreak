@@ -63,6 +63,7 @@ pub(crate) use companion::path_crosses;
 pub(crate) use companion::with_profile_override;
 mod contacts_cf02;
 pub mod corral;
+pub(crate) mod crew;
 mod donut;
 pub mod dozer;
 mod env;
@@ -914,6 +915,12 @@ pub struct CombatState {
     /// from the room's roster. Run configuration, never hashed; empty in every
     /// run without a gated roster entry.
     wake_gates: Vec<Option<crate::goblin::WakeGate>>,
+    /// DR-C (DZ-Q20): the mount of enemy `i` (index order as `wake_gates`), from
+    /// the room's roster. Run configuration, never hashed; empty without a crew.
+    crew: Vec<Option<crate::encounter::Mount>>,
+    /// DR-C: enemy `i` rides the machine (hashed through the enemy's slot);
+    /// empty without a crew.
+    carried: Vec<bool>,
     /// FA-Q34, FA-Q35: the room's partner knobs (the Boiler's launch sets them). Run
     /// configuration, never hashed; both off everywhere else.
     partner_knobs: crate::companion::view::PartnerKnobs,
@@ -1117,6 +1124,8 @@ impl CombatState {
             fixture,
             enemies: Vec::new(),
             wake_gates: Vec::new(),
+            crew: Vec::new(),
+            carried: Vec::new(),
             partner_knobs: Default::default(),
             llamas: Vec::new(),
             globs: Vec::new(),
@@ -1384,6 +1393,8 @@ impl CombatState {
         self.clear_thrower();
         // ENEMY-SLOT: a living slot enemy returns to its spawn state.
         self.slot_respawn();
+        // DR-C: a living rider is carried again, a dead one stays dead.
+        self.crew_respawn();
         self.carl_cf02 = CarlCf02::default();
         self.input = InputFrame::default();
         self.donut_input = InputFrame::default();
@@ -1529,6 +1540,8 @@ impl CombatState {
             goblin.launch = Some(0);
         }
         self.retire_goblins_behind_start();
+        // DR-C: both riders are carried again (the machine is dormant).
+        self.carry_crew();
         // CF02-G (Q57, Q58): every goblin draws its temperament for this attempt.
         self.spawn_morale();
         // HAZ-A2: the Rot Stickers' charges follow the fixture's, then the
@@ -2014,6 +2027,8 @@ impl CombatState {
         self.step_llamas(scene, tick);
         self.step_globs(scene, tick);
         self.step_slot_enemies(scene, tick);
+        // DR-C: the riders land on the tick the machine is disabled.
+        self.step_crew(scene);
         self.resolve_contacts(scene, tick);
         self.step_shore(scene, tick);
         self.step_boss(scene, tick);
@@ -3533,8 +3548,8 @@ impl CombatState {
         if self.cf02.is_some() {
             self.carl_cf02.mix_into(&mut put);
         }
-        for goblin in &self.enemies {
-            goblin.mix_into(&mut put);
+        for index in 0..self.enemies.len() {
+            self.mix_enemy(index, &mut put);
         }
         // ENEMY-GAMEPLAY-ENGINEER: the ram stamps handed out, mixed only once one was.
         if self.ram_seq != 0 {

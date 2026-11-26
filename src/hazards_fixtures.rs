@@ -114,6 +114,7 @@ fn encounter_of(run: &HazardsRun, l: &Layout) -> Encounter {
             threatens: Vec::new(),
             allow_in_hazard: Vec::new(),
             optional: false,
+            mount: None,
         });
     }
     for (i, (x0, x1, link)) in l.acid.iter().enumerate() {

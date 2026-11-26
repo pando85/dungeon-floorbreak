@@ -464,6 +464,7 @@ Only if DOZER-CORE's counts fire the DZ-Q24 trigger. The content is section 7.5.
 
 - **Files:** the roster `mount` field and its validator rule in `src/encounter.rs`; the carried-goblin exclusion and the dismount in the goblin spawn path (`src/combat_scene.rs`, following the FA-Q20 wake-gate code where it can); the sidecar entries.
 - **Acceptance:** DOZR-06, `dz_respawn_after_disable`, and companion-mode crew pilots at seeds 0..8 (no hero stuck more than 300 ticks).
+- **Status:** implemented (merged, game-feel review pending once merged); see [floor01-scene.md](../03-tech/floor01-scene.md#room-3s-crew-dr-c). Adopted defaults: the 45 knockdown ticks include the get-up; a spot overlaps a hero when the centres are less than 24 px apart (the two half widths); the heroes are Carl, plus Donut while the party is live; the companion pilots release on the middle of the window + (seed − 4) and odd seeds linger 240 ticks after the disable before running.
 
 ### DR-D, timing, art and evidence (depends on DR-C, and on DOZ-02 when it lands)
 

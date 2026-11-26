@@ -48,6 +48,7 @@ use crate::combat::CombatEvent;
 use crate::combat_scene::dozer::DozerEnemy;
 use crate::combat_scene::{CombatState, EnvRuntime};
 use crate::dozer::{Dozer, DozerEvent, DozerState, EscapePhase};
+use crate::encounter::Seat;
 use crate::env_prop::MassState;
 use crate::prototype::{HERO_HALF_WIDTH, TICK_SECONDS};
 
@@ -487,7 +488,9 @@ pub fn rider_frames(state: DozerState, tick: u64, hero_near: bool) -> [u8; 3] {
 }
 
 /// The rig's atlas sprites at origin `o` on the walking line `floor_y`.
-pub fn rig_sprites(d: &Dozer, tick: u64, hero_near: bool) -> Vec<SpriteDraw> {
+/// `seated`: whether riders A and B are aboard (DR-C: a seat whose rider
+/// has dismounted, or stayed dead, is not drawn).
+pub fn rig_sprites(d: &Dozer, tick: u64, hero_near: bool, seated: [bool; 2]) -> Vec<SpriteDraw> {
     let o = d.o.round() as i32;
     let floor = d.floor_y.round() as i32;
     let distance = travelled(d);
@@ -503,6 +506,11 @@ pub fn rig_sprites(d: &Dozer, tick: u64, hero_near: bool) -> Vec<SpriteDraw> {
     );
     Part::ALL
         .into_iter()
+        .filter(|part| match part {
+            Part::RiderA => seated[0],
+            Part::RiderB => seated[1],
+            _ => true,
+        })
         .map(|part| {
             let sheet = part.sheet();
             let (_, h) = sheet.frame_size();
@@ -942,7 +950,8 @@ pub fn draw(combat: &CombatState, heroes_x: [f32; 2], tick: u64) -> Option<Dozer
     let d = dozer_of(combat)?;
     let mut sprites = puffs(d, tick);
     if d.state.emerged() {
-        sprites.extend(rig_sprites(d, tick, hero_near(d, heroes_x)));
+        let seated = [Seat::RiderA, Seat::RiderB].map(|seat| combat.seat_taken(seat));
+        sprites.extend(rig_sprites(d, tick, hero_near(d, heroes_x), seated));
     }
     let (mut stand_ins, mut tags) = stand_ins(d, tick);
     if let Some(env) = combat.env() {

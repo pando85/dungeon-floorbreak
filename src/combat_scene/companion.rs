@@ -1184,6 +1184,12 @@ impl CombatState {
         self.companion.nav_view = view;
     }
 
+    /// The partner's live nav graph (tests read what it sees).
+    #[cfg(test)]
+    pub(crate) fn companion_nav_graph(&self) -> Option<&crate::companion::nav::NavGraph> {
+        self.companion.nav.as_ref().map(NavDriver::graph)
+    }
+
     /// DR-B: the solids the partner's nav is built over: the scene's, without
     /// the ones the env keeps out of it (a falling mass's remnant before its
     /// landing in room 3, [`super::EnvRuntime::nav_hides`]). Every other room

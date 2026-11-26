@@ -7847,8 +7847,11 @@ fn sync_death_visuals(
     // A death pose replaces the goblin sprite; a retired corpse is drawn no
     // more and a retiring one fades out (the GOB-01 corpse sprite included).
     // DEATH-D: an exploded goblin (presets 2 to 4) is replaced by its pieces.
+    // DR-C: a rider carried by the Dozer is parked off the view and not drawn.
     let hide_goblin = |index: usize| {
-        presenter.pose_of(index as u32).is_some() || !presenter.draws_goblin(index as u32)
+        presenter.pose_of(index as u32).is_some()
+            || !presenter.draws_goblin(index as u32)
+            || state.is_carried(index)
     };
     for (goblin, mut visibility, mut sprite) in &mut goblins {
         *visibility = if hide_goblin(goblin.index) {
@@ -8170,12 +8173,14 @@ fn update_lighting(
                 ));
             };
             for (index, goblin) in combat.enemies.iter().enumerate() {
-                // No shadow under a goblin whose body is hidden (an explosion)
-                // or retired: nothing is drawn above it.
-                if death
-                    .0
-                    .as_ref()
-                    .is_some_and(|presenter| !presenter.draws_goblin(index as u32))
+                // No shadow under a goblin whose body is hidden (an explosion),
+                // retired or carried by the Dozer (DR-C): nothing is drawn
+                // above it.
+                if combat.is_carried(index)
+                    || death
+                        .0
+                        .as_ref()
+                        .is_some_and(|presenter| !presenter.draws_goblin(index as u32))
                 {
                     continue;
                 }

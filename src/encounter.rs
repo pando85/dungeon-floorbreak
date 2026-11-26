@@ -650,6 +650,42 @@ pub struct RosterEntry {
     pub allow_in_hazard: Vec<String>,
     /// A lock may not wait on an optional enemy.
     pub optional: bool,
+    /// DR-C (DZ-Q20): a goblin carried by the room's machine until its disable
+    /// (`None` for every other entry).
+    pub mount: Option<Mount>,
+}
+
+/// DR-C (DZ-Q20): a rider's seat on the machine.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Seat {
+    RiderA,
+    RiderB,
+}
+
+impl Seat {
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::RiderA => "rider_a",
+            Self::RiderB => "rider_b",
+        }
+    }
+}
+
+/// DR-C (`docs/01-design/enemy-gameplay-dozer.md` section 8, DZ-Q20): a roster
+/// goblin with `mount: { carrier: "dozer", seat }` rides the room's machine. It
+/// is carried (no body, no target, no morale) until the machine is disabled,
+/// then lands `land_dx` px right of the wheel front (nudged `nudge_px` right
+/// while it would overlap a hero, at most `max_nudges` times), lies down for
+/// `down_ticks` and runs the ordinary goblin AI with its fixed `temperament`.
+/// The carrier is always the room's `dozer` entry.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Mount {
+    pub seat: Seat,
+    pub land_dx: i32,
+    pub down_ticks: u16,
+    pub nudge_px: i32,
+    pub max_nudges: u8,
+    pub temperament: crate::cf02::Temperament,
 }
 
 /// Reachability of one hero class in one destruction state.
@@ -1462,6 +1498,99 @@ struct RawRoster {
     facing: Option<i8>,
     home: Option<i32>,
     linked_pool: Option<String>,
+    /// DR-C (DZ-Q20): the rider's carrier and seat, and its landing values.
+    mount: Option<RawMount>,
+    dzq20_land_dx: Option<i32>,
+    dzq20_down_ticks: Option<u16>,
+    dzq20_nudge_px: Option<i32>,
+    dzq20_max_nudges: Option<u8>,
+    temperament: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawMount {
+    carrier: String,
+    seat: String,
+}
+
+impl RawRoster {
+    /// DR-C (DZ-Q20): the entry's mount, or why it is refused (section 8 of
+    /// the Dozer note: only a goblin rides, the carrier is the `dozer`, every
+    /// landing value is given and positive, and a rider has no wake rule or
+    /// stand of its own).
+    fn mount(&self, kind: RosterKind) -> Result<Option<Mount>, String> {
+        let keys = self.dzq20_land_dx.is_some()
+            || self.dzq20_down_ticks.is_some()
+            || self.dzq20_nudge_px.is_some()
+            || self.dzq20_max_nudges.is_some()
+            || self.temperament.is_some();
+        let Some(m) = &self.mount else {
+            return if keys {
+                Err("the dzq20_* keys and temperament belong to a mounted entry".into())
+            } else {
+                Ok(None)
+            };
+        };
+        if kind != RosterKind::Room(EnemyKind::Goblin) {
+            return Err("only a goblin rides (mount)".into());
+        }
+        if m.carrier != "dozer" {
+            return Err(format!(
+                "a mount's carrier is \"dozer\", not {:?}",
+                m.carrier
+            ));
+        }
+        let seat = match m.seat.as_str() {
+            "rider_a" => Seat::RiderA,
+            "rider_b" => Seat::RiderB,
+            other => return Err(format!("unknown seat {other:?} (rider_a or rider_b)")),
+        };
+        if self.perch.is_some()
+            || self.gate.is_some()
+            || self.fallback_kind.is_some()
+            || self.trigger_x.is_some()
+            || self.delay_ticks != 0
+            || !self.threatens.is_empty()
+            || !self.allow_in_hazard.is_empty()
+        {
+            return Err(
+                "a mounted entry has no perch, gate, fallback_kind, trigger_x, delay_ticks, \
+                 threatens or allow_in_hazard (it rides the carrier)"
+                    .into(),
+            );
+        }
+        let (Some(land_dx), Some(down_ticks), Some(nudge_px), Some(max_nudges), Some(temperament)) = (
+            self.dzq20_land_dx,
+            self.dzq20_down_ticks,
+            self.dzq20_nudge_px,
+            self.dzq20_max_nudges,
+            self.temperament.as_deref(),
+        ) else {
+            return Err(
+                "a mounted entry needs dzq20_land_dx, dzq20_down_ticks, dzq20_nudge_px, \
+                 dzq20_max_nudges and temperament"
+                    .into(),
+            );
+        };
+        if land_dx <= 0 || down_ticks == 0 || nudge_px <= 0 {
+            return Err("dzq20_land_dx, dzq20_down_ticks and dzq20_nudge_px are positive".into());
+        }
+        let temperament = match temperament {
+            "brawler" => crate::cf02::Temperament::Brawler,
+            "coward" => crate::cf02::Temperament::Coward,
+            "show_off" => crate::cf02::Temperament::ShowOff,
+            other => return Err(format!("unknown temperament {other:?}")),
+        };
+        Ok(Some(Mount {
+            seat,
+            land_dx,
+            down_ticks,
+            nudge_px,
+            max_nudges,
+            temperament,
+        }))
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -2358,6 +2487,14 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
                 "a slime has no gate, fallback_kind or perch (it lives on the floor lane)",
             ));
         }
+        let mount = r.mount(kind).unwrap_or_else(|reason| {
+            errs.push(E::Dozer {
+                rule: 7,
+                ids: vec![r.id.clone()],
+                reason,
+            });
+            None
+        });
         if kind.is_dozer()
             && (r.gate.is_some()
                 || r.fallback_kind.is_some()
@@ -2421,8 +2558,9 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
             )
         };
         // DOZER-CORE: the machine is parked off-room behind the rear gate; its
-        // own rules (section 9 of the Dozer note) replace the body checks.
-        let parked_off_room = kind.is_dozer();
+        // own rules (section 9 of the Dozer note) replace the body checks. DR-C:
+        // a rider rides it (its body exists from the dismount on).
+        let parked_off_room = kind.is_dozer() || r.mount.is_some();
         if !parked_off_room && (body.x < room.play_x.0 || body.right() > room.play_x.1) {
             errs.push(E::RosterOutOfBounds(r.id.clone()));
         }
@@ -2482,10 +2620,15 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
             threatens: r.threatens.clone(),
             allow_in_hazard: r.allow_in_hazard.clone(),
             optional: r.optional,
+            mount,
         });
     }
     for (i, a) in roster.iter().enumerate() {
-        for b in &roster[i + 1..] {
+        // DR-C: a rider spawns at its carrier's disable, not by a wake rule.
+        for b in roster[i + 1..].iter().filter(|_| a.mount.is_none()) {
+            if b.mount.is_some() {
+                continue;
+            }
             let same = a.trigger_x == b.trigger_x
                 && a.delay_ticks.abs_diff(b.delay_ticks) < MIN_SPAWN_STAGGER_TICKS;
             if same {

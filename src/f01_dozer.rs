@@ -16,7 +16,10 @@
 //! The room's pin is the `F01Late` row the sidecar names
 //! (`f01_pin_post_pile_boss`), chosen by id; the room arms no trigger. DR-B adds
 //! the stop frame: the sidecar's `weight_rig` prop and its `falling_mass`
-//! hazard run on the env runtime ([`env_runtime`]).
+//! hazard run on the env runtime ([`env_runtime`]). DR-C adds the crew: the
+//! roster's two mounted goblins (`rider_a`, `rider_b`, DZ-Q20) are the fixture's
+//! enemies 0 and 1, carried aboard the machine from tick 0
+//! ([`CombatState::with_crew`]) and landing on the tick it is disabled.
 //!
 //! The room's content is pinned ([`ROOM_HASH`], [`ENCOUNTER_HASH`]): [`launch`]
 //! refuses an edited file, a test pins each constant to its file, and an edit
@@ -44,7 +47,7 @@ pub const ENCOUNTER_PATH: &str = "assets/levels/floor01/f01_dozer.encounter.json
 /// FNV-1a 64 of the room file and of the sidecar (the files live under
 /// `assets/levels`, so the hash is a constant, as in [`crate::f01_hoarder`]).
 pub const ROOM_HASH: u64 = 0xaf54_bc91_c52d_6f83;
-pub const ENCOUNTER_HASH: u64 = 0x43c1_3d0b_2743_f6ab;
+pub const ENCOUNTER_HASH: u64 = 0x3dd3_2eec_2779_bdda;
 /// The data pin keys of the room's files.
 pub const ROOM_PIN_KEY: &str = "f01_dozer_room";
 pub const ENCOUNTER_PIN_KEY: &str = "f01_dozer_encounter";
@@ -74,6 +77,8 @@ pub struct DozerRun {
     /// right of the start.
     pub rules: &'static DemoRules,
     pub loaded: Loaded,
+    /// DR-C: the mount of each fixture enemy (all of them are riders).
+    pub crew: Vec<Option<encounter::Mount>>,
 }
 
 /// Load the room, compose its kit (with the ceiling slab and the lintel) and
@@ -152,16 +157,36 @@ pub fn launch(root: &Path) -> Result<DozerRun, String> {
             return Err(format!("column {x} is not on the walking line"));
         }
     }
+    // DR-C: the crew. Every existing-kind entry of the roster is a mounted
+    // goblin; it stands at its roster column (parked off-room, carried).
+    let mut riders: Vec<crate::combat_scene::EnemySpawn> = Vec::new();
+    let mut crew = Vec::new();
+    for entry in &loaded.encounter.roster {
+        if entry.kind == encounter::RosterKind::Dozer {
+            continue;
+        }
+        let Some(mount) = entry.mount else {
+            return Err(format!(
+                "{ENCOUNTER_PATH}: roster {} is neither the machine nor a rider",
+                entry.id
+            ));
+        };
+        riders.push(crate::combat_scene::EnemySpawn {
+            x: entry.x,
+            ai: crate::combat::EnemyAi::Chase,
+        });
+        crew.push(Some(mount));
+    }
     // One small leak per launch: the combat state borrows its rules for `'static`.
     let rules: &'static DemoRules = Box::leak(Box::new(DemoRules {
         checkpoints: Box::leak(columns.into_boxed_slice()),
     }));
     let fixture: &'static Fixture = Box::leak(Box::new(Fixture {
         name: SCENE_NAME,
-        summary: "DOZER-CORE, DR-A and DR-B: room 3, the revenge machine's chase and the stop frame (greybox)",
+        summary: "DOZER-CORE, DR-A, DR-B and DR-C: room 3, the revenge machine's chase, the stop frame and the crew (greybox)",
         seed: FIXTURE_SEED,
         carl_x: start,
-        enemies: &[],
+        enemies: Box::leak(riders.into_boxed_slice()),
         shore_dx: None,
         boss: None,
         llamas: &[],
@@ -176,6 +201,7 @@ pub fn launch(root: &Path) -> Result<DozerRun, String> {
         fixture,
         rules,
         loaded,
+        crew,
     })
 }
 
@@ -207,6 +233,22 @@ pub fn slot_room(run: &DozerRun, scene: &SceneSim) -> SlotRoom {
     }
 }
 
+/// The machine through ENEMY-SLOT; the roster's existing kinds must be the
+/// crew [`launch`] already put in the fixture.
+fn slot_spawn(run: &DozerRun, scene: &SceneSim) -> Result<crate::scene_enemy::RosterSpawn, String> {
+    let spawn = spawn_from_roster(&run.loaded.encounter, slot_room(run, scene), false)
+        .map_err(|e| e.to_string())?;
+    if spawn.existing.len() != run.crew.len()
+        || spawn
+            .existing
+            .iter()
+            .any(|&i| run.loaded.encounter.roster[i].mount.is_none())
+    {
+        return Err("room 3's roster holds an existing kind that is not a rider".to_owned());
+    }
+    Ok(spawn)
+}
+
 /// The room's combat state at tick 0: the fixture, Donut with the biscuit and a
 /// full pool, the sidecar's pin under the program flags, the checkpoint rules,
 /// the CF02 rules and **the machine, spawned from the sidecar roster through
@@ -217,11 +259,7 @@ pub fn combat(
     carl: CarlProgFlags,
     donut: DonutProgFlags,
 ) -> Result<CombatState, String> {
-    let spawn = spawn_from_roster(&run.loaded.encounter, slot_room(run, scene), false)
-        .map_err(|e| e.to_string())?;
-    if !spawn.existing.is_empty() {
-        return Err("room 3's roster holds an existing kind (DR-C adds the crew)".to_owned());
-    }
+    let spawn = slot_spawn(run, scene)?;
     combat_with(run.fixture, run, scene, carl, donut, spawn.slot)
 }
 
@@ -281,8 +319,9 @@ pub fn combat_seeded_kit(
         combat = combat.with_cf02_seed(cf02_seed);
     }
     // DR-B: the stop frame is live (the env runtime before the slot, which a
-    // builder after it would mark as retried).
+    // builder after it would mark as retried). DR-C: the crew rides from tick 0.
     let mut combat = combat
+        .with_crew(run.crew.clone())
         .with_env(env_runtime(run)?)
         .with_slot_enemies(slot)
         .map_err(|e| e.to_string())?;
@@ -326,11 +365,7 @@ pub fn combat_for(
     donut: DonutProgFlags,
     cf02_seed: Option<u64>,
 ) -> Result<CombatState, String> {
-    let spawn = spawn_from_roster(&run.loaded.encounter, slot_room(run, scene), false)
-        .map_err(|e| e.to_string())?;
-    if !spawn.existing.is_empty() {
-        return Err("room 3's roster holds an existing kind (DR-C adds the crew)".to_owned());
-    }
+    let spawn = slot_spawn(run, scene)?;
     combat_seeded(run.fixture, run, scene, carl, donut, spawn.slot, cf02_seed)
 }
 
@@ -414,7 +449,7 @@ mod tests {
         assert_eq!(run.loaded.encounter.story_pin, PIN_POST_PILE_BOSS);
         let line = entry_line(&run);
         assert!(
-            line.starts_with("F01_DOZER_ENTRY room=F01-DOZER ") && line.contains("roster=1"),
+            line.starts_with("F01_DOZER_ENTRY room=F01-DOZER ") && line.contains("roster=3"),
             "{line}"
         );
         for (key, value) in data_pins() {
@@ -433,6 +468,10 @@ mod tests {
             }
         }
         assert_eq!(combat.slot_enemies().len(), 1);
+        // DR-C: the two riders are enemies 0 and 1, carried from tick 0.
+        assert_eq!(combat.enemies.len(), 2);
+        assert!(combat.is_carried(0) && combat.is_carried(1));
+        assert!(combat.enemies.iter().all(|g| !g.alive()));
         assert_eq!(combat.slot_enemies()[0].kind(), "dozer");
         assert!(combat.slot_enemies()[0].hurt_rects().is_empty());
         assert_eq!(scene.world.tick, 0);

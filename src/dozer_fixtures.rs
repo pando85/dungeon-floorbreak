@@ -359,6 +359,9 @@ pub struct K5Report {
     pub frame_hanging: bool,
     /// Every hero alive and out of reach at completion.
     pub out_of_reach: bool,
+    /// DR-C (DOZR-06): both riders stayed carried on every tick (no disable,
+    /// no rider).
+    pub crew_carried: bool,
     pub final_state: &'static str,
     pub hash: u64,
     pub ticks: u64,
@@ -449,6 +452,7 @@ pub fn run_k5(root: &Path, mode: Mode, plan: Plan, seed: u64) -> Result<K5Report
     let mut complete_tick = None;
     let mut out_of_reach = false;
     let mut seen_events = 0usize;
+    let mut crew_carried = true;
     for _ in 0..RUN_TICKS {
         let tick = sim.scene.world.tick + 1;
         let controlled = sim.party.controlled_hero();
@@ -483,6 +487,7 @@ pub fn run_k5(root: &Path, mode: Mode, plan: Plan, seed: u64) -> Result<K5Report
         let reach_before = Reach::of(dozer_of(&sim));
         let x_before = HeroId::ALL.map(|id| sim.scene.world.body(id).x);
         sim.step_slots(slots);
+        crew_carried &= crew::all_carried(&sim.combat);
         let d = dozer_of(&sim);
         max_speed = max_speed.max(d.speed);
         if d.band == Some(Band::Cruise) {
@@ -627,6 +632,7 @@ pub fn run_k5(root: &Path, mode: Mode, plan: Plan, seed: u64) -> Result<K5Report
         frame_hits,
         frame_hanging,
         out_of_reach,
+        crew_carried,
         final_state: d.state.name(),
         hash: sim.state_hash(),
         ticks: sim.scene.world.tick,
@@ -674,6 +680,10 @@ impl K5Report {
             (
                 self.frame_hits > 0 || !self.frame_hanging,
                 "DOZR-01: the run touched the frame or the brace",
+            ),
+            (
+                !self.crew_carried,
+                "DOZR-06: a rider left the machine without a disable",
             ),
         ];
         let failed: Vec<&str> = fails.iter().filter(|(f, _)| *f).map(|(_, m)| *m).collect();
@@ -867,12 +877,24 @@ impl Stage {
     pub fn with_kit(
         root: &Path,
         mode: Mode,
-        (flags, kit): ((CarlProgFlags, DonutProgFlags), DonutSetup),
+        flags_kit: ((CarlProgFlags, DonutProgFlags), DonutSetup),
         edit: impl FnOnce(&mut Dozer),
         carl_x: f32,
         donut_x: f32,
     ) -> Result<Self, String> {
-        let (mut sim, run) = start_kit(root, mode, 0, flags, kit, edit)?;
+        Self::seeded(root, mode, flags_kit, edit, (carl_x, donut_x), 0)
+    }
+
+    /// [`Self::with_kit`] under a CF02 seed (DR-C: the companion crew pilots).
+    pub fn seeded(
+        root: &Path,
+        mode: Mode,
+        (flags, kit): ((CarlProgFlags, DonutProgFlags), DonutSetup),
+        edit: impl FnOnce(&mut Dozer),
+        (carl_x, donut_x): (f32, f32),
+        seed: u64,
+    ) -> Result<Self, String> {
+        let (mut sim, run) = start_kit(root, mode, seed, flags, kit, edit)?;
         if mode == Mode::DonutSolo {
             sim.party.request_swap(true, false);
         }
@@ -1879,6 +1901,7 @@ pub fn dz_retry_chase(root: &Path) -> Result<u64, String> {
     Ok(fold([fresh.hash(), retried.hash()]))
 }
 
+pub mod crew;
 pub mod frame;
 
 #[cfg(test)]
