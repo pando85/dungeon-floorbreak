@@ -460,8 +460,65 @@ def post(state: str) -> Layer:
     return p
 
 
-POST_FRAMES = ["intact", "cracked", "broken"]
-POST_TAGS = [("intact", 0, 0), ("cracked", 1, 1), ("broken", 2, 2)]
+def post_timber(p: Layer, x: int, y: int) -> None:
+    """One pixel of the post's plain timber (the `post` body rule, without the split)."""
+    v = 3.2 + (rnd("post", x, y // 2) - 0.5) * 1.1
+    if x == 3:
+        v += 1.5
+    if x >= 11:
+        v -= 1.6
+    p.put(x, y, "wood", ci(v, 1, 5))
+
+
+def post_shored() -> Layer:
+    """HRD-CUES-01 `shored` (HRDC-AD4 "not yet", the frozen key): while she is Dormant or in the Reveal the post is
+    sound timber, one ramp step darker like the dressing (R6), with no pale split, held by two nailed iron straps and
+    a wedge driven under its foot. Nothing on it invites a hit."""
+    p = post("intact")
+    for y in range(14, 52):                     # plain timber over the split and its dark edges
+        for x in range(4, 11):
+            post_timber(p, x, y)
+    darken(p)
+    for y in (18, 40):
+        strap(p, 2, y, 13, seed="shore")
+    for x, y, c in ((12, 57, 5), (12, 58, 4), (13, 58, 3), (12, 59, 3), (13, 59, 2), (14, 59, 1)):
+        p.put(x, y, "wood", c)                  # the wedge under the lane-side foot
+    return p
+
+
+def post_give() -> Layer:
+    """HRD-CUES-01 `give`: the first ticks she is out. Her emergence shakes the room and the shoring springs: the
+    upper strap snaps and its end peels up and out, the lower strap slips and tilts, grit sifts out of the lashing,
+    and the pale split (the `intact` hittable cue) shows at full value."""
+    p = post("intact")
+    for x in range(2, 9):                       # upper strap: the left half still nailed on
+        p.put(x, 18, "iron", 4)
+        p.put(x, 19, "iron", 3)
+        p.put(x, 20, "iron", 2)
+    p.put(3, 19, "iron", 6)
+    p.put(7, 19, "iron", 6)
+    for i, (x, y) in enumerate(((9, 17), (10, 16), (11, 15), (12, 14), (13, 13))):   # the snapped end peels out
+        p.put(x, y, "iron", 4 if i % 2 else 5)
+        p.put(x, y + 1, "iron", 2)
+    for x in range(2, 14):                      # lower strap slipped 6 px and tilted
+        y = 46 + (x - 2) // 4
+        p.put(x, y, "iron", 4)
+        p.put(x, y + 1, "iron", 3)
+        p.put(x, y + 2, "iron", 2)
+    p.put(5, 47, "iron", 6)
+    p.put(10, 48, "iron", 6)
+    for x, y in ((0, 9), (1, 13), (14, 11), (15, 15)):   # grit out of the lashing: a lit speck over its shadow
+        p.put(x, y, "stone", 5)
+        p.put(x, y + 1, "stone", 2)
+    return p
+
+
+POST_FRAMES = ["intact", "cracked", "broken", "shored", "give"]
+POST_TAGS = [("intact", 0, 0), ("cracked", 1, 1), ("broken", 2, 2), ("shored", 3, 3), ("give", 4, 4)]
+
+
+def post_frames() -> list[Layer]:
+    return [post(s) for s in POST_FRAMES[:3]] + [post_shored(), post_give()]
 
 STACK_CANVAS = (128, 104)
 STACK_OY = 8            # rows 0..7 hold motion streaks and dust; the hanging body is rows 8..71
@@ -852,17 +909,72 @@ def mound_frames() -> list[Layer]:
                 front.px[y][x] = None
     outline(back)
     outline(front)
-    return [back, front, mound_opened()]
+    return [back, front, mound_opened(), *(mound_stir(back, front, k) for k in STIR_KINDS)]
 
 
-MOUND_FRAMES = ["sealed_back", "sealed_front", "opened"]
-MOUND_TAGS = [("sealed_back", 0, 0), ("sealed_front", 1, 1), ("opened", 2, 2)]
+# ------------------------------------------------------------- HRD-CUES-01 (docs/02-art/hrd-cues-01-spec.md) --
+# The pre-wake stir (HRD-Q05): the `sealed_back` layer breathes. Every column of it above a hinge row is moved rigidly
+# by a lift that falls off from the crown (|x - 88| <= reach -> lift px; up is positive), so the rag texture and the
+# items ride with it and nothing re-shades (no noise boil). The hinge sits under the front lip's top edge, so the
+# rows the lift stretches are hidden behind the unchanged `sealed_front` frame. `stir_heave` is the frozen key.
+STIR_KINDS = ("stir_heave", "stir_heave_hi", "stir_slump")
+# (left bands, right bands): (reach in |dx| from the crown column 88, lift px). The band edges never cut the
+# crate (dx about -40..-11), the brass frame (-6..14) or the iron pot (25..51): those ride rigidly; the 1 px jogs
+# fall on rag folds, the bent pipe and the broken bed rail.
+STIR_LIFTS = {
+    "stir_heave": (((10, 3), (40, 2), (56, 1)), ((14, 3), (24, 2), (52, 1))),
+    "stir_heave_hi": (((10, 5), (40, 4), (56, 2), (68, 1)), ((14, 5), (24, 4), (52, 2), (66, 1))),
+    "stir_slump": (((40, -1),), ((24, -1),)),
+}
+# Grit shaken loose on a heave: (dx from the crown column 88, px over the lifted surface); a lit stone speck over
+# its shadow pixel, never a lone pixel.
+STIR_GRIT = {
+    "stir_heave": ((-30, 3), (-12, 4), (16, 3)),
+    "stir_heave_hi": ((-40, 3), (-26, 5), (-8, 6), (20, 4)),
+    "stir_slump": (),
+}
+
+
+def stir_lift(x: int, kind: str) -> int:
+    d = abs(x - PIVOT[0])
+    for reach, lift in STIR_LIFTS[kind][x > PIVOT[0]]:
+        if d <= reach:
+            return lift
+    return 0
+
+
+def top_row(layer: Layer, x: int) -> int | None:
+    return next((y for y in range(layer.h) if layer.px[y][x] is not None), None)
+
+
+def mound_stir(back: Layer, front: Layer, kind: str) -> Layer:
+    p = Layer(W, H)
+    for x in range(W):
+        lip = top_row(front, x)
+        lift = stir_lift(x, kind) if lip is not None else 0
+        hinge = min(H - 1, (lip or 0) + abs(lift) + 1)
+        for y in range(H):
+            src = y
+            if y < hinge:
+                src = min(y + lift, hinge) if lift >= 0 else y + lift
+            p.px[y][x] = back.px[src][x] if 0 <= src < H else None
+    outline(p)
+    for dx, over in STIR_GRIT[kind]:
+        x = PIVOT[0] + dx
+        y = top_row(p, x) - over
+        p.put(x, y, "stone", 7)
+        p.put(x, y + 1, "stone", 3)
+    return p
+
+
+MOUND_FRAMES = ["sealed_back", "sealed_front", "opened", *STIR_KINDS]
+MOUND_TAGS = [("sealed_back", 0, 0), ("sealed_front", 1, 1), ("opened", 2, 2), ("stir", 3, 5)]
 
 # piece id -> (frames, frame names, tags, pivot, role). Roles (spec section 7): solid, target, dressing, door, gate.
 PIECES = {
     "hoarder_mound": (mound_frames, MOUND_FRAMES, MOUND_TAGS, PIVOT, "dressing"),
     "hoarder_bank_a": (bank_sheet, BANK_FRAMES, BANK_TAGS, (0, 47), "solid"),
-    "hoarder_post_b": (lambda: [post(s) for s in POST_FRAMES], POST_FRAMES, POST_TAGS, (0, 63), "target"),
+    "hoarder_post_b": (post_frames, POST_FRAMES, POST_TAGS, (0, 63), "target"),
     "hoarder_stack_b": (stack_sheet, STACK_FRAMES, STACK_TAGS, (0, STACK_CANVAS[1] - 1), "falling"),
     "hoarder_door": (lambda: [door(s) for s in DOOR_FRAMES], DOOR_FRAMES, DOOR_TAGS, (0, 227), "solid_door"),
     "hoarder_gate": (lambda: [gate(s) for s in GATE_FRAMES], GATE_FRAMES, GATE_TAGS, (0, 227), "solid_gate"),
@@ -886,6 +998,13 @@ SPEC_SIZES = {   # (canvas, collision rect (w, h) the sprite must match, or None
     "hoarder_mound": ((W, H), None), "hoarder_bank_a": (BANK_CANVAS, (64, 48)), "hoarder_post_b": (POST_CANVAS, (16, 64)),
     "hoarder_stack_b": (STACK_CANVAS, (128, 64 + STACK_LEG)), "hoarder_door": (DOOR_CANVAS, (16, 228)),
     "hoarder_gate": (DOOR_CANVAS, (16, 228)), "hoarder_heap": (HEAP_CANVAS, None),
+}
+
+
+CUE_CREDIT = {   # HRD-CUES-01 frames (docs/02-art/hrd-cues-01-spec.md)
+    "hoarder_mound": ("; HRD-CUES-01 `stir_*` frames (a rigid lift of `sealed_back`; frozen key `stir_heave`) "
+                      "by Claude Opus"),
+    "hoarder_post_b": "; HRD-CUES-01 `shored` (frozen key) and `give` frames by Claude Opus",
 }
 
 
@@ -916,7 +1035,7 @@ def piece_manifest(name: str, grid: dict) -> dict:
             "origin": ("Original pixel-grid-v1 room kit piece of the Floor 1 Hoarder room (docs/02-art/hoarder-hoard-02.md section 7) on the "
                        "floor01-catacomb-v2 ramps; rule-based shapes and a hash noise, nothing cropped, traced or resampled from concept art"),
             "generator": ("scripts/author_hoarder_room.py: the lair mound `sealed` hero key by Claude Opus, every other piece and state "
-                          "by Claude Sonnet; independent review pending; no image-model raster output"),
+                          "by Claude Sonnet; independent review pending; no image-model raster output" + CUE_CREDIT.get(name, "")),
             "generated_art": True,
             "input_reference_ids": ["floor01-catacomb-kit/env-kit-v2 (owner-approved ENV-01 kit, 2026-11-16)"],
         },

@@ -1,0 +1,12 @@
+{
+  "format": "pixelart-keys-v1",
+  "asset_id": "hrd-cues-01-mound",
+  "layers": [
+    "main"
+  ],
+  "keys": {
+    "3": {
+      "sha256": "bf33a3c65f237ce514c6253046b8674c9654b1c007a90c480c2a5fa3d1d5b6a0"
+    }
+  }
+}

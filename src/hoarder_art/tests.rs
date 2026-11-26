@@ -2,7 +2,9 @@ use super::*;
 use crate::combat::CombatEvent;
 use crate::hoarder_fixtures::{
     ClearPilot, Control, IDLE as IDLE_SLOTS, Plan, Rig, attack_input, carl_input, room_run,
+    run_input,
 };
+use crate::input::RawInput;
 use crate::pile_boss::PileEvent;
 use std::path::PathBuf;
 
@@ -299,12 +301,12 @@ fn the_room_kit_comes_from_the_sidecar_and_the_tuning() {
         props_of(&art, Prop::Post),
         [PropDraw {
             prop: Prop::Post,
-            frame: 0,
+            frame: POST_SHORED,
             x: 808,
             y: floor,
             layer: Layer::Prop
         }],
-        "the post intact on [808, 824) x [0, 64)"
+        "the post on [808, 824) x [0, 64), shored while she is not out (HRDC-AD4)"
     );
     // The stack's footprint is [752, 880) x [96, 160); its sprite starts 32 px lower with its strut.
     assert_eq!(
@@ -390,6 +392,8 @@ fn the_reveal_is_shadowed_and_lip_covered_then_she_is_out() {
                 if look.out_age.is_some_and(|a| a < OUT_BURST_TICKS) {
                     burst_ticks += 1;
                     assert!(!art.motes.is_empty());
+                } else if look.out_age.is_some_and(|a| a < GIVE_TICKS) {
+                    assert_eq!(art.motes.len(), 4, "the give motes after the burst");
                 } else {
                     assert!(art.motes.is_empty());
                 }
@@ -437,6 +441,8 @@ fn the_presenter_does_not_change_the_state_hash() {
         let mut plain = Rig::new(&root(), clear_plan()).unwrap();
         let (mut a, mut b) = (ClearPilot::new(seed), ClearPilot::new(seed));
         let mut look = HoarderLook::default();
+        let mut memo = HoarderMemo::default();
+        let mut stirs = std::collections::BTreeSet::new();
         for tick in 0..report.ticks {
             let (ia, ib) = (
                 a.input(&with_art.combat, &with_art.scene),
@@ -444,12 +450,24 @@ fn the_presenter_does_not_change_the_state_hash() {
             );
             with_art.step(carl_input(ia));
             plain.step(carl_input(ib));
+            // HRD-CUES-01: the stir level from the lead x, through the memo, drawn on every tick.
+            let level = stir_level_held(
+                with_art.boss().boss(),
+                Some(with_art.carl_x()),
+                memo.stir_held(),
+            );
+            look.stir = memo.observe_stir(level, tick);
+            stirs.insert(format!("{level:?}"));
             let _ = art_of(&with_art, tick, look);
             look.flash = tick % 7 == 0;
             look.defeated_age = (!with_art.boss().boss().alive()).then_some(tick % 40);
             look.out_age = Some(tick % 9);
             assert_eq!(with_art.hash(), plain.hash(), "seed {seed} tick {tick}");
         }
+        assert!(
+            stirs.contains("Approach") && stirs.contains("Engaged"),
+            "the run drives S1 and S2: {stirs:?}"
+        );
         assert_eq!(
             with_art.hash(),
             report.hash,
@@ -844,7 +862,7 @@ fn a_weakened_post_is_drawn_cracked_with_the_stack_still_hanging() {
     ))
     .unwrap();
     let post = IRect::new(808, 516, 16, 64);
-    let [p, s] = post_and_stack_from(post, Some(&mass), 580, 7, Some(12));
+    let [p, s] = post_and_stack_from(post, Some(&mass), 580, 7, Some(12), false, None);
     assert_eq!((p.frame, s.frame, s.x, s.y), (0, 0, 752, 64), "intact");
     let hit = Stimulus::MeleeHit {
         token: 1,
@@ -853,12 +871,420 @@ fn a_weakened_post_is_drawn_cracked_with_the_stack_still_hanging() {
     };
     assert_eq!(mass.offer(hit), Offer::Progress { progress: 1 });
     assert_eq!(mass.state(), MassState::Weakened);
-    let [p, s] = post_and_stack_from(post, Some(&mass), 580, 7, Some(12));
+    let [p, s] = post_and_stack_from(post, Some(&mass), 580, 7, Some(12), false, None);
     assert_eq!(
         (p.frame, s.frame, s.x, s.y, s.layer),
         (1, 0, 752, 64, Layer::Prop)
     );
     // No machine: the standing pair over the post.
-    let [p, s] = post_and_stack_from(post, None, 580, 7, None);
+    let [p, s] = post_and_stack_from(post, None, 580, 7, None, false, None);
     assert_eq!((p.frame, s.frame, s.x, s.y), (0, 0, 752, 64));
+}
+
+// ------------------------------------------------------------------ HRD-CUES-01 --
+
+/// A6: the stir's breath tables (spec section 2.1) at both edges of every window.
+#[test]
+fn the_stir_breath_picks_the_frames_of_the_spec() {
+    for (age, frame) in [
+        (0, 3),
+        (5, 3),
+        (6, 5),
+        (9, 5),
+        (10, 0),
+        (71, 0),
+        (72, 3),
+        (77, 3),
+        (78, 5),
+    ] {
+        assert_eq!(stir_back_frame(Stir::Approach, age), frame, "S1 age {age}");
+    }
+    for (age, frame) in [
+        (0, 4),
+        (7, 4),
+        (8, 5),
+        (11, 5),
+        (12, 0),
+        (35, 0),
+        (36, 4),
+        (44, 5),
+    ] {
+        assert_eq!(stir_back_frame(Stir::Engaged, age), frame, "S2 age {age}");
+    }
+    assert_eq!(stir_back_frame(Stir::None, 3), MOUND_BACK);
+    // The frames are the atlas's `stir` tag.
+    for f in [
+        MOUND_STIR_HEAVE,
+        MOUND_STIR_HEAVE_HI,
+        MOUND_STIR_SLUMP,
+        POST_SHORED,
+        POST_GIVE,
+    ] {
+        assert!(f >= 3);
+    }
+    assert!(u32::from(MOUND_STIR_SLUMP) < Prop::Mound.frames());
+    assert!(u32::from(POST_GIVE) < Prop::Post.frames());
+}
+
+/// A6: S0 under x 240, S1 from it (the lead hero only), no hero, no stir; HC-AD11: once S1 is held it stays
+/// until the lead is 16 px under the line.
+#[test]
+fn the_stir_level_follows_the_lead_x_with_hysteresis() {
+    let rig = Rig::new(&root(), clear_plan()).unwrap();
+    let boss = rig.boss().boss();
+    assert_eq!(boss.mode(), PileMode::Dormant);
+    assert_eq!(boss.tuning().hrdq05_stir_x, 240);
+    assert_eq!(stir_level(boss, Some(239.0)), Stir::None);
+    assert_eq!(stir_level(boss, Some(240.0)), Stir::Approach);
+    assert_eq!(stir_level(boss, Some(400.0)), Stir::Approach);
+    assert_eq!(stir_level(boss, None), Stir::None);
+    // Hysteresis: held keeps S1 down to x 224 and no further; not held starts at 240 only.
+    assert_eq!(stir_level_held(boss, Some(224.0), true), Stir::Approach);
+    assert_eq!(stir_level_held(boss, Some(223.9), true), Stir::None);
+    assert_eq!(stir_level_held(boss, Some(230.0), false), Stir::None);
+    assert_eq!(stir_level_held(boss, None, true), Stir::None);
+}
+
+/// The memo: first sight is age 0, a level change re-anchors, `Stir::None` forgets, a tick that goes
+/// backwards forgets (a retry), and `stir_held` is true only while S1 is stored (HC-AD11).
+#[test]
+fn the_stir_memo_anchors_on_the_first_tick_of_a_level() {
+    let mut memo = HoarderMemo::default();
+    memo.observe(30, true, 100);
+    assert_eq!(memo.observe_stir(Stir::None, 100), None);
+    assert!(!memo.stir_held());
+    memo.observe(30, true, 101);
+    assert_eq!(
+        memo.observe_stir(Stir::Approach, 101),
+        Some((Stir::Approach, 0))
+    );
+    assert!(memo.stir_held());
+    memo.observe(30, true, 150);
+    assert_eq!(
+        memo.observe_stir(Stir::Approach, 150),
+        Some((Stir::Approach, 49))
+    );
+    memo.observe(30, true, 151);
+    assert_eq!(
+        memo.observe_stir(Stir::Engaged, 151),
+        Some((Stir::Engaged, 0))
+    );
+    assert!(!memo.stir_held());
+    memo.observe(30, true, 160);
+    assert_eq!(
+        memo.observe_stir(Stir::Engaged, 160),
+        Some((Stir::Engaged, 9))
+    );
+    // Dropping to S0 forgets; the next S1 starts at age 0 again.
+    memo.observe(30, true, 161);
+    assert_eq!(memo.observe_stir(Stir::None, 161), None);
+    memo.observe(30, true, 162);
+    assert_eq!(
+        memo.observe_stir(Stir::Approach, 162),
+        Some((Stir::Approach, 0))
+    );
+    // A retry resets the scene tick: observe clears the stir before the level is folded in.
+    memo.observe(30, true, 3);
+    assert!(!memo.stir_held());
+    assert_eq!(
+        memo.observe_stir(Stir::Approach, 3),
+        Some((Stir::Approach, 0))
+    );
+}
+
+/// The stir's draw for one tick of a scripted run: the mound's back frame, the post frame, the mote count.
+struct Seen {
+    mode: PileMode,
+    stir: Option<(Stir, u64)>,
+    back: u8,
+    post: u8,
+    motes: usize,
+    out_age: Option<u64>,
+}
+
+fn seen_of(rig: &Rig, memo: &mut HoarderMemo, tick: u64) -> Seen {
+    let boss = rig.boss().boss();
+    let hidden = matches!(boss.mode(), PileMode::Dormant | PileMode::Reveal);
+    let mut look = memo.observe(boss.hp(), boss.alive(), tick);
+    look.out_age = memo.observe_out(hidden, tick);
+    let lead = lead_x(
+        rig.carl_x(),
+        rig.scene.world.body(crate::party::HeroId::Donut).x,
+        rig.scene.party_live(),
+    );
+    let level = stir_level_held(boss, Some(lead), memo.stir_held());
+    look.stir = memo.observe_stir(level, tick);
+    let art = art_of(rig, tick, look);
+    for p in &art.props {
+        assert!(
+            u32::from(p.frame) < p.prop.frames(),
+            "{:?} {}",
+            p.prop,
+            p.frame
+        );
+    }
+    assert!(
+        art.motes.len() <= MAX_MOTES,
+        "tick {tick}: {} motes",
+        art.motes.len()
+    );
+    Seen {
+        mode: boss.mode(),
+        stir: look.stir,
+        back: props_of(&art, Prop::Mound)
+            .iter()
+            .find(|p| p.layer == Layer::Back)
+            .unwrap()
+            .frame,
+        post: props_of(&art, Prop::Post)[0].frame,
+        motes: art.motes.len(),
+        out_age: look.out_age,
+    }
+}
+
+/// A6: the solo room pilot's whole walk: S1 from x 240 (heave on its first tick, breathing, motes at most
+/// 3), then S2 for the settle ticks (the strongest heave, at most 5 motes), the Reveal has no stir and no
+/// stir motes, the post is `shored` on every hidden tick, `give` for exactly 8 ticks out, then `intact`.
+#[test]
+fn the_solo_walk_in_shows_the_stir_then_shored_then_give() {
+    let mut rig = Rig::new(&root(), clear_plan()).unwrap();
+    let mut pilot = ClearPilot::new(0);
+    let mut memo = HoarderMemo::default();
+    let (mut s1, mut s2, mut reveal, mut give) = (0, 0, 0, 0);
+    let mut first_s1 = true;
+    let mut after_give = 0;
+    for _ in 0..500 {
+        let input = pilot.input(&rig.combat, &rig.scene);
+        rig.step(carl_input(input));
+        let tick = rig.scene.world.tick;
+        let seen = seen_of(&rig, &mut memo, tick);
+        match (seen.mode, seen.stir) {
+            (PileMode::Dormant, Some((Stir::Approach, age))) => {
+                s1 += 1;
+                assert!(rig.carl_x() >= 224.0, "S1 only from the line, held to 224");
+                assert!(seen.motes <= 3, "S1 has at most 3 motes");
+                assert_eq!(seen.back, stir_back_frame(Stir::Approach, age));
+                if first_s1 {
+                    first_s1 = false;
+                    assert_eq!(
+                        (age, seen.back),
+                        (0, MOUND_STIR_HEAVE),
+                        "the heave is on the trigger tick"
+                    );
+                    assert!(rig.carl_x() >= 240.0);
+                }
+            }
+            (PileMode::Dormant, Some((Stir::Engaged, age))) => {
+                s2 += 1;
+                assert!(seen.motes <= 5, "S2 has at most 5 motes");
+                assert_eq!(seen.back, stir_back_frame(Stir::Engaged, age));
+            }
+            (PileMode::Dormant, None) => assert_eq!(seen.back, MOUND_BACK),
+            (PileMode::Reveal, stir) => {
+                reveal += 1;
+                assert_eq!(stir, None, "no stir in the Reveal");
+                assert_eq!(seen.back, MOUND_BACK);
+            }
+            (mode, stir) => assert_eq!(stir, None, "{mode:?}"),
+        }
+        match seen.mode {
+            PileMode::Dormant | PileMode::Reveal => {
+                assert_eq!(seen.post, POST_SHORED, "tick {tick}")
+            }
+            _ => match seen.out_age {
+                Some(a) if a < GIVE_TICKS => {
+                    give += 1;
+                    assert_eq!(seen.post, POST_GIVE, "out age {a}");
+                    assert_eq!(seen.motes, 4 + if a < OUT_BURST_TICKS { 12 } else { 0 });
+                }
+                Some(_) => {
+                    after_give += 1;
+                    assert_eq!(seen.post, 0);
+                    assert_eq!(seen.motes, 0);
+                }
+                None => {}
+            },
+        }
+        if after_give > 20 {
+            break;
+        }
+    }
+    assert!(s1 > 20, "S1 breathed: {s1}");
+    assert_eq!(s2, 8, "solo S2 lasts the 8 settle ticks");
+    assert_eq!(reveal, 90);
+    assert_eq!(give, GIVE_TICKS);
+    assert!(after_give > 20);
+}
+
+/// 2P: S2 lasts while the gate waits for Donut, breathing every 36 ticks; no more than 5 motes.
+#[test]
+fn the_two_player_gate_wait_keeps_the_hard_stir() {
+    let plan = Plan {
+        carl_x: 428,
+        donut_x: 150,
+        ..Plan::carl_at(60.0)
+    }
+    .dormant()
+    .with_control(Control::TwoPlayer);
+    let mut rig = Rig::new(&root(), plan).unwrap();
+    let mut memo = HoarderMemo::default();
+    let (mut s2, mut frames, mut peak) = (0, std::collections::BTreeSet::new(), 0);
+    for _ in 0..200 {
+        let tick = rig.next_tick();
+        let carl = if tick < 40 {
+            run_input(1.0)
+        } else {
+            RawInput::NONE
+        };
+        rig.step([carl, RawInput::NONE]);
+        let seen = seen_of(&rig, &mut memo, rig.scene.world.tick);
+        if let (PileMode::Dormant, Some((Stir::Engaged, _))) = (seen.mode, seen.stir) {
+            s2 += 1;
+            frames.insert(seen.back);
+            peak = peak.max(seen.motes);
+        }
+    }
+    assert!(s2 > 100, "S2 holds while the gate waits: {s2}");
+    assert_eq!(
+        frames.into_iter().collect::<Vec<_>>(),
+        [MOUND_BACK, MOUND_STIR_HEAVE_HI, MOUND_STIR_SLUMP]
+    );
+    assert_eq!(peak, 5, "all five S2 motes show at the peak of the breath");
+}
+
+/// The stir motes are the spec's table: S1 never more than 3, S2 never more than 5, none before
+/// the breath's first ticks, the table's start positions, and a mote slides out and down.
+#[test]
+fn the_stir_motes_follow_the_spec_tables() {
+    assert!(stir_motes(Stir::None, 10, 608.0, 64.0).is_empty());
+    for age in 0..400 {
+        assert!(stir_motes(Stir::Approach, age, 608.0, 64.0).len() <= 3);
+        assert!(stir_motes(Stir::Engaged, age, 608.0, 64.0).len() <= 5);
+    }
+    // S1, phase 2: the first mote starts at home - 40, floor + 47; phase 5: the second joins.
+    let m = stir_motes(Stir::Approach, 2, 608.0, 64.0);
+    assert_eq!(m, [Mote { x: 568.0, y: 111.0 }]);
+    let m = stir_motes(Stir::Approach, 6, 608.0, 64.0);
+    assert_eq!(m.len(), 2);
+    assert_eq!(
+        m[0],
+        Mote {
+            x: 568.0 - 0.3 * 4.0,
+            y: 111.0 - 1.2 * 4.0
+        }
+    );
+    // The breath repeats every 72 ticks.
+    assert_eq!(
+        stir_motes(Stir::Approach, 2 + 72, 608.0, 64.0),
+        stir_motes(Stir::Approach, 2, 608.0, 64.0)
+    );
+    // Right-hand motes drift right.
+    let m = stir_motes(Stir::Approach, 2 + 9 + 4, 608.0, 64.0);
+    assert!(m.iter().any(|m| m.x > 608.0 + 12.0));
+}
+
+/// A post not out is `shored` (frame 3) while the machine stands; out ticks 0..7 are `give`, 8 on `intact`;
+/// a machine that has left `Supported` always wins. The give motes sit on the post's floor (B5: the
+/// `PropDraw` y is the bottom edge).
+#[test]
+fn the_post_cue_rules_and_the_give_motes() {
+    use crate::camera_lab::room::IRect;
+    use crate::env_prop::{FallingMass, FallingMassConfig, MassState, Offer, Stimulus};
+    let mut mass = FallingMass::new(FallingMassConfig::new(
+        IRect::new(752, 420, 128, 64),
+        IRect::new(752, 532, 128, 48),
+        IRect::new(752, 564, 128, 16),
+    ))
+    .unwrap();
+    let post = IRect::new(808, 516, 16, 64);
+    let frame = |mass: Option<&FallingMass>, not_out, age| {
+        post_and_stack_from(post, mass, 580, 7, None, not_out, age)[0]
+    };
+    assert_eq!(frame(Some(&mass), true, None).frame, POST_SHORED);
+    assert_eq!(
+        frame(None, true, None).frame,
+        POST_SHORED,
+        "a room without the machine"
+    );
+    for age in 0..GIVE_TICKS {
+        assert_eq!(
+            frame(Some(&mass), false, Some(age)).frame,
+            POST_GIVE,
+            "age {age}"
+        );
+    }
+    assert_eq!(frame(Some(&mass), false, Some(GIVE_TICKS)).frame, 0);
+    assert_eq!(frame(Some(&mass), false, None).frame, 0);
+    // B5: the post's bottom-left corner is its floor (layout y down: rect bottom 580 -> world y 0).
+    let drawn = frame(Some(&mass), false, Some(0));
+    assert_eq!((drawn.x, drawn.y), (808, 0));
+    let m = give_motes(&drawn, 0);
+    assert_eq!(m.len(), 4);
+    assert_eq!(m[0], Mote { x: 808.5, y: 54.0 });
+    assert_eq!(m[2], Mote { x: 822.5, y: 48.0 });
+    assert_eq!(give_motes(&drawn, 7)[0].y, 54.0 - 14.0);
+    // A qualifying hit inside the give window: the machine's `cracked` wins.
+    let hit = Stimulus::MeleeHit {
+        token: 1,
+        player: 0,
+        weight: 1,
+    };
+    assert_eq!(mass.offer(hit), Offer::Progress { progress: 1 });
+    assert_eq!(mass.state(), MassState::Weakened);
+    assert_eq!(frame(Some(&mass), false, Some(3)).frame, 1);
+    assert_eq!(
+        frame(Some(&mass), true, None).frame,
+        1,
+        "and never shored over a machine state"
+    );
+}
+
+/// HC-AD11: a lead hero hovering on the line (240, 230, 241, ...) keeps one S1 breath running; only dropping
+/// under x 224 ends it, and coming back starts a fresh breath at age 0.
+#[test]
+fn hovering_on_the_stir_line_does_not_restart_the_breath() {
+    let rig = Rig::new(&root(), clear_plan()).unwrap();
+    let boss = rig.boss().boss();
+    let mut memo = HoarderMemo::default();
+    let mut run = |tick: u64, x: f32| {
+        memo.observe(30, true, tick);
+        let level = stir_level_held(boss, Some(x), memo.stir_held());
+        memo.observe_stir(level, tick)
+    };
+    assert_eq!(run(10, 239.0), None);
+    assert_eq!(run(11, 240.0), Some((Stir::Approach, 0)));
+    assert_eq!(run(12, 232.0), Some((Stir::Approach, 1)));
+    assert_eq!(run(13, 241.0), Some((Stir::Approach, 2)), "no restart");
+    assert_eq!(run(14, 225.0), Some((Stir::Approach, 3)));
+    assert_eq!(run(15, 223.0), None, "under x 224 the stir ends");
+    assert_eq!(run(16, 230.0), None, "and needs the line again");
+    assert_eq!(run(17, 240.0), Some((Stir::Approach, 0)));
+}
+
+/// A6: Donut's x counts only while the party is live (the companion bot included); Carl's always does.
+#[test]
+fn the_lead_x_counts_donut_only_while_the_party_is_live() {
+    assert_eq!(lead_x(300.0, 400.0, false), 300.0, "no party: Carl's x");
+    assert_eq!(
+        lead_x(300.0, 400.0, true),
+        400.0,
+        "Donut ahead in a live party"
+    );
+    assert_eq!(
+        lead_x(300.0, 200.0, true),
+        300.0,
+        "Carl ahead in a live party"
+    );
+    assert_eq!(lead_x(300.0, 400.0, false), lead_x(300.0, -50.0, false));
+    // The shipped rule drives the line: a Donut at x 240 starts S1 only while the party is live.
+    let rig = Rig::new(&root(), clear_plan()).unwrap();
+    let boss = rig.boss().boss();
+    assert_eq!(
+        stir_level(boss, Some(lead_x(100.0, 240.0, true))),
+        Stir::Approach
+    );
+    assert_eq!(
+        stir_level(boss, Some(lead_x(100.0, 240.0, false))),
+        Stir::None
+    );
 }

@@ -29,7 +29,7 @@ use crate::combat_scene::CombatState;
 use crate::combat_scene::pile_boss::of;
 use crate::encounter::{Encounter, StaticKind};
 use crate::env_prop::{FallingMass, MassState, Slide, SlideState};
-use crate::pile_boss::PileMode;
+use crate::pile_boss::{Gate, PileBoss, PileMode};
 
 /// HOARD-02: 29 frames of 160 x 128 in one row, pivot (70, 127), authored facing right. Frames 0-15
 /// are the HOARD-01 frames unchanged; 16-28 are the shove, lunge, jam, pinned, get-up and emerge
@@ -115,6 +115,9 @@ pub struct HoarderLook {
     /// Ticks since the presenter first saw the J-B stack released (its 24-tick warning); `None`
     /// while it hangs, falls or has landed. Drives the stack's sag ([`stack_warning_offset`]).
     pub released_age: Option<u64>,
+    /// HRD-CUES-01: the pre-wake stir level and the ticks since the presenter first saw it; `None`
+    /// while there is no stir ([`Stir::None`]).
+    pub stir: Option<(Stir, u64)>,
 }
 
 /// The hit flash runs this many ticks after her hit points drop.
@@ -131,6 +134,8 @@ pub struct HoarderMemo {
     defeated_since: Option<u64>,
     out_since: Option<u64>,
     released_since: Option<u64>,
+    /// HRD-CUES-01: the stir level and the tick the presenter first saw it.
+    stir: Option<(Stir, u64)>,
     last_tick: Option<u64>,
 }
 
@@ -157,6 +162,7 @@ impl HoarderMemo {
             out_age: self.out_since.map(|since| tick.saturating_sub(since)),
             reveal_ticks: 0,
             released_age: self.released_since.map(|since| tick.saturating_sub(since)),
+            stir: None,
         }
     }
 
@@ -183,7 +189,120 @@ impl HoarderMemo {
         }
         self.released_since.map(|since| tick.saturating_sub(since))
     }
+
+    /// Fold in the stir level ([`stir_level_held`]) and return it with the ticks since the presenter
+    /// first saw that level (0 on the first tick; a different level re-anchors), or `None` for
+    /// [`Stir::None`] (which also forgets it). Call after [`Self::observe`] on the same tick; a
+    /// restart (a tick that went backwards) already cleared it.
+    pub fn observe_stir(&mut self, level: Stir, tick: u64) -> Option<(Stir, u64)> {
+        if level == Stir::None {
+            self.stir = None;
+            return None;
+        }
+        let since = match self.stir {
+            Some((stored, since)) if stored == level => since,
+            _ => tick,
+        };
+        self.stir = Some((level, since));
+        Some((level, tick.saturating_sub(since)))
+    }
+
+    /// Whether the memo holds the approach stir (S1) right now: the hysteresis input of
+    /// [`stir_level_held`] (HC-AD11).
+    pub fn stir_held(&self) -> bool {
+        matches!(self.stir, Some((Stir::Approach, _)))
+    }
 }
+
+/// HRD-CUES-01 mound back frames (the `stir` tag) and the post's `shored` and `give` frames.
+pub const MOUND_STIR_HEAVE: u8 = 3;
+pub const MOUND_STIR_HEAVE_HI: u8 = 4;
+pub const MOUND_STIR_SLUMP: u8 = 5;
+pub const POST_SHORED: u8 = 3;
+pub const POST_GIVE: u8 = 4;
+/// The give beat lasts this many ticks from her first out tick (HC-AD7).
+pub const GIVE_TICKS: u64 = 8;
+/// HC-AD11: once S1 is active it stays active until the lead hero is this many px under
+/// `hrdq05_stir_x`, so hovering on the line does not restart the breath.
+pub const STIR_HOLD_PX: f32 = 16.0;
+
+/// HRD-Q05 stir level (spec section 2.1).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Stir {
+    #[default]
+    None,
+    /// S1: a hero is in the approach (lead x at or over `hrdq05_stir_x`).
+    Approach,
+    /// S2: a hero has crossed the engage line and the gate has not closed yet.
+    Engaged,
+}
+
+/// The lead hero x of the stir (spec section 2.1, HC-AD3): Carl's x, or the larger of Carl's and Donut's
+/// while the party is live (the companion bot included, the sim's own present set for the gate).
+pub fn lead_x(carl_x: f32, donut_x: f32, party_live: bool) -> f32 {
+    if party_live {
+        carl_x.max(donut_x)
+    } else {
+        carl_x
+    }
+}
+
+/// S0/S1/S2 from the boss and the lead hero x (Carl, plus Donut while the party is live; `None` =
+/// no hero), without hysteresis. See [`stir_level_held`].
+pub fn stir_level(boss: &PileBoss, lead_x: Option<f32>) -> Stir {
+    stir_level_held(boss, lead_x, false)
+}
+
+/// [`stir_level`] with HC-AD11's hysteresis: `held` (the memo is already at S1,
+/// [`HoarderMemo::stir_held`]) keeps S1 until the lead x drops under `hrdq05_stir_x` less
+/// [`STIR_HOLD_PX`].
+pub fn stir_level_held(boss: &PileBoss, lead_x: Option<f32>, held: bool) -> Stir {
+    if boss.mode() != PileMode::Dormant {
+        return Stir::None;
+    }
+    match boss.gate() {
+        Gate::Open { crossed: Some(_) } => Stir::Engaged,
+        Gate::Open { crossed: None } => {
+            let line = f32::from(boss.tuning().hrdq05_stir_x);
+            let line = if held { line - STIR_HOLD_PX } else { line };
+            if lead_x.is_some_and(|x| x >= line) {
+                Stir::Approach
+            } else {
+                Stir::None
+            }
+        }
+        Gate::Closed | Gate::Released => Stir::None,
+    }
+}
+
+/// The mound's back frame for a stir level and its age: S1 breathes every 72 ticks (heave 6, slump
+/// 4), S2 every 36 (heave_hi 8, slump 4); the rest of each period is the resting `sealed_back`.
+pub const fn stir_back_frame(stir: Stir, age: u64) -> u8 {
+    match stir {
+        Stir::None => MOUND_BACK,
+        Stir::Approach => match age % STIR_PERIOD_S1 {
+            0..=5 => MOUND_STIR_HEAVE,
+            6..=9 => MOUND_STIR_SLUMP,
+            _ => MOUND_BACK,
+        },
+        Stir::Engaged => match age % STIR_PERIOD_S2 {
+            0..=7 => MOUND_STIR_HEAVE_HI,
+            8..=11 => MOUND_STIR_SLUMP,
+            _ => MOUND_BACK,
+        },
+    }
+}
+
+const STIR_PERIOD_S1: u64 = 72;
+const STIR_PERIOD_S2: u64 = 36;
+/// The stir motes (spec section 4.1): `(dx from the home column, start height over the floor)`.
+const STIR_MOTES_S1: [(i32, f32); 3] = [(-40, 47.0), (-20, 64.0), (12, 57.0)];
+const STIR_MOTES_S2: [(i32, f32); 5] =
+    [(-52, 43.0), (-34, 53.0), (-16, 61.0), (6, 59.0), (28, 53.0)];
+/// A stir mote lives this many ticks of its breath.
+const STIR_MOTE_TICKS: i64 = 20;
+/// The give motes' dx from the post's left edge (spec section 4.2).
+const GIVE_MOTE_DX: [f32; 4] = [0.0, 2.0, 14.0, 16.0];
 
 fn loop_frame(frames: &[u8], ticks: &[u64], tick: u64) -> u8 {
     let total: u64 = ticks.iter().sum();
@@ -318,7 +437,11 @@ impl Prop {
     /// How many frames the atlas has, in one row.
     pub const fn frames(self) -> u32 {
         match self {
-            Self::Mound | Self::Post | Self::Heap => 3,
+            // HRD-CUES-01: the mound's three `stir_*` back frames (3..5) and the post's `shored` and
+            // `give` frames (3, 4).
+            Self::Mound => 6,
+            Self::Post => 5,
+            Self::Heap => 3,
             Self::Bank => 6,
             Self::Stack => 4,
             Self::Door | Self::Gate => 2,
@@ -547,9 +670,10 @@ fn hanging_over(post: crate::camera_lab::room::IRect) -> crate::camera_lab::room
     }
 }
 
-/// The mound's sprites: the `sealed` back layer behind everything and the front lip in front of the
-/// actors while she is hidden (Dormant, Reveal); the low `opened` spill behind everything once she is out.
-fn mound_props(home: i32, floor_y: i32, hidden: bool) -> Vec<PropDraw> {
+/// The mound's sprites: the `sealed` back layer (`back_frame`: the resting frame or a `stir_*` frame) behind
+/// everything and the front lip in front of the actors while she is hidden (Dormant, Reveal); the low
+/// `opened` spill behind everything once she is out.
+fn mound_props(home: i32, floor_y: i32, hidden: bool, back_frame: u8) -> Vec<PropDraw> {
     let at = |frame, layer| PropDraw {
         prop: Prop::Mound,
         frame,
@@ -558,7 +682,7 @@ fn mound_props(home: i32, floor_y: i32, hidden: bool) -> Vec<PropDraw> {
         layer,
     };
     if hidden {
-        vec![at(MOUND_BACK, Layer::Back), at(MOUND_FRONT, Layer::Front)]
+        vec![at(back_frame, Layer::Back), at(MOUND_FRONT, Layer::Front)]
     } else {
         vec![at(MOUND_OPENED, Layer::Back)]
     }
@@ -631,12 +755,43 @@ fn reveal_motes(
     motes
 }
 
+/// HRD-CUES-01 stir motes (spec section 4.1): grit sliding off the flanks of the breathing heap. A
+/// pure function of the level and its age; at most 3 (S1) or 5 (S2) at once.
+fn stir_motes(stir: Stir, age: u64, home: f32, floor_y: f32) -> Vec<Mote> {
+    let (table, period): (&[(i32, f32)], u64) = match stir {
+        Stir::None => return Vec::new(),
+        Stir::Approach => (&STIR_MOTES_S1, STIR_PERIOD_S1),
+        Stir::Engaged => (&STIR_MOTES_S2, STIR_PERIOD_S2),
+    };
+    let phase = (age % period) as i64;
+    let mut motes = Vec::new();
+    for (k, &(dx, h)) in table.iter().enumerate() {
+        let a = phase - 2 - 3 * k as i64;
+        if !(0..STIR_MOTE_TICKS).contains(&a) {
+            continue;
+        }
+        let side = if dx < 0 { -1.0 } else { 1.0 };
+        motes.push(Mote {
+            x: home + dx as f32 + side * 0.3 * a as f32,
+            y: floor_y + h - 1.2 * a as f32,
+        });
+    }
+    motes
+}
+
+/// HRD-CUES-01 give motes (spec section 4.2): grit sifting out of the springing straps. `post` is the
+/// post's sprite (its bottom-left corner, `y` the floor).
+fn give_motes(post: &PropDraw, out_age: u64) -> Vec<Mote> {
+    (0..4)
+        .map(|k| Mote {
+            x: post.x as f32 + GIVE_MOTE_DX[k] + 0.5,
+            y: post.y as f32 + 54.0 - 3.0 * k as f32 - 2.0 * out_age as f32,
+        })
+        .collect()
+}
+
 /// Her sprite for this tick, or `None` while she is Dormant.
-fn hoarder_sprite(
-    boss: &crate::pile_boss::PileBoss,
-    tick: u64,
-    look: HoarderLook,
-) -> Option<HoarderDraw> {
+fn hoarder_sprite(boss: &PileBoss, tick: u64, look: HoarderLook) -> Option<HoarderDraw> {
     let mode = boss.mode();
     if mode == PileMode::Dormant {
         return None;
@@ -688,16 +843,39 @@ pub fn draw(
 
     // The room's dressing and the lair mound, behind everything.
     art.props.extend(heap_props(floor_y));
-    art.props.extend(mound_props(
-        i32::from(boss.tuning().hrdq19_home_x),
-        floor_y,
-        hidden,
-    ));
+    let home = i32::from(boss.tuning().hrdq19_home_x);
+    let back_frame = look
+        .stir
+        .map_or(MOUND_BACK, |(s, age)| stir_back_frame(s, age));
+    art.props
+        .extend(mound_props(home, floor_y, hidden, back_frame));
+    if let Some((stir, age)) = look.stir {
+        art.motes
+            .extend(stir_motes(stir, age, home as f32, boss.setup().floor_y));
+    }
 
     // The sidecar's statics: bank A (a solid) and the J-B post (a hit target) with the stack it
     // holds, each by its machine's state (HRD-B, HRD-C).
-    let (statics, shadow) =
-        static_props(encounter, combat.env(), layout_h, tick, look.released_age);
+    let (statics, shadow) = static_props(
+        encounter,
+        combat.env(),
+        layout_h,
+        tick,
+        look.released_age,
+        PostCue {
+            not_out: !boss.is_out(),
+            out_age: look.out_age,
+        },
+    );
+    // HRD-CUES-01: the give beat's grit, from the post sprite just placed.
+    if let Some(age) = look.out_age.filter(|a| *a < GIVE_TICKS) {
+        for post in statics
+            .iter()
+            .filter(|p| p.prop == Prop::Post && p.frame == POST_GIVE)
+        {
+            art.motes.extend(give_motes(post, age));
+        }
+    }
     art.props.extend(statics);
     art.shadow = shadow;
 
@@ -748,6 +926,8 @@ fn post_and_stack_from(
     layout_h: i32,
     tick: u64,
     released_age: Option<u64>,
+    not_out: bool,
+    out_age: Option<u64>,
 ) -> [PropDraw; 2] {
     let state = mass.map_or(MassState::Supported, FallingMass::state);
     let post_state = match state {
@@ -783,7 +963,25 @@ fn post_and_stack_from(
         }
         _ => {}
     }
-    [post_prop(post, post_state, layout_h), stack]
+    let mut post = post_prop(post, post_state, layout_h);
+    if post_state == PostState::Intact {
+        // HRDC-AD4: shored while she is not out, the give beat for its first ticks; a state the machine
+        // has left always wins.
+        if not_out {
+            post.frame = POST_SHORED;
+        } else if out_age.is_some_and(|age| age < GIVE_TICKS) {
+            post.frame = POST_GIVE;
+        }
+    }
+    [post, stack]
+}
+
+/// HRD-CUES-01: what the J-B post's cue needs besides its machine: whether she is not out (Dormant or
+/// the Reveal) and the ticks since she came out.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct PostCue {
+    not_out: bool,
+    out_age: Option<u64>,
 }
 
 /// Whether the room's J-B stack is released (its warning) this tick: the fact the presenter's memo
@@ -812,6 +1010,7 @@ fn static_props(
     layout_h: i32,
     tick: u64,
     released_age: Option<u64>,
+    cue: PostCue,
 ) -> (Vec<PropDraw>, Option<FloorShadow>) {
     let machines = env.map(|e| e.pile_props(encounter)).unwrap_or_default();
     let mut out = Vec::new();
@@ -834,6 +1033,8 @@ fn static_props(
                     layout_h,
                     tick,
                     released_age,
+                    cue.not_out,
+                    cue.out_age,
                 ));
                 if let Some(f) = mass.and_then(FallingMass::telegraph_rect) {
                     let (x, y, w, h) = world(f, layout_h);

@@ -12,8 +12,9 @@ use dungeon_floorbreak::encounter::Encounter;
 use dungeon_floorbreak::env_kit::ATLAS_ASSET_PREFIX;
 use dungeon_floorbreak::hoarder_art::{
     ATLAS, FRAME_SIZE, FRAMES, HoarderLook, HoarderMemo, Layer, MAX_MOTES, MAX_PROPS, Prop, Shade,
-    draw, stack_released,
+    draw, lead_x, stack_released, stir_level_held,
 };
+use dungeon_floorbreak::party::HeroId;
 
 /// Her pooled sprite.
 #[derive(Component, Clone, Copy)]
@@ -230,6 +231,14 @@ pub(super) fn sync_hoarder_art(
             );
             look.out_age = memo.observe_out(hidden, tick);
             look.released_age = memo.observe_released(stack_released(state, &art.encounter), tick);
+            // HRD-CUES-01: the lead hero is Carl, plus Donut while the party is live (the sim's gate view).
+            let lead = lead_x(
+                world.body(HeroId::Carl).x,
+                world.body(HeroId::Donut).x,
+                sim.0.party_live(),
+            );
+            let level = stir_level_held(enemy.boss(), Some(lead), memo.stir_held());
+            look.stir = memo.observe_stir(level, tick);
             look
         },
     );
