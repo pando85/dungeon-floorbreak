@@ -703,7 +703,7 @@ mod tests {
         }
     }
 
-    /// Four goblins (ids 0..4) and a llama (id 5) in one thrown blast.
+    /// Four goblins (ids 0..=3) and a llama (id 4) in one thrown blast.
     fn stick_and_llama() -> Vec<CombatEvent> {
         let mut events = vec![throw(100)];
         events.extend((0..5).map(|t| blast(250, t)));

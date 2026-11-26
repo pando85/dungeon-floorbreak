@@ -932,6 +932,9 @@ fn resolve_refuge_args(parsed: &mut Args) -> Result<(), String> {
 /// configuration, the story pin and the loadout come from the scene and the
 /// loadout, never from the flags that would set them by hand.
 fn resolve_f01_late_args(parsed: &mut Args) -> Result<(), String> {
+    if parsed.f01_audience.is_some() && parsed.audience == Some(false) {
+        return Err("--f01-audience carries viewer counts into a room, so it needs the audience on: drop --audience=off (or drop --f01-audience)".into());
+    }
     if !parsed.f01_late {
         if parsed.f01_room.is_some() || parsed.f01_loadout.is_some() {
             return Err("--f01-room and --f01-loadout need --scene f01_late".into());
@@ -2938,6 +2941,10 @@ impl AudienceFeatFeed {
         for emission in adapter.flush() {
             if self.explicit_showcase {
                 // Observer line (presentation OFF, so no CINE01_SLOWMO line).
+                // The feed runs in the pre-simulation, so on a headless or
+                // capture run these lines are NOT tick-ordered against the
+                // `COMBAT_EVENT` lines (those print afterwards, as one batch):
+                // consumers filter by the `CINE01_MOMENT` prefix.
                 println!("{}", cine_moment_line(&emission.moment));
             }
             if unlocked {
@@ -9809,6 +9816,17 @@ mod tests {
             ],
             &["--scene", "f01_late", "--f01-run", "--audience=maybe"],
             &["--scene", "f01_late", "--f01-run", "--cine-showcase=2"],
+            // `--audience=off` and a carry contradict each other
+            &[
+                "--scene",
+                "f01_late",
+                "--f01-run",
+                "--f01-room",
+                "boiler",
+                "--audience=off",
+                "--f01-audience",
+                "1400:1900:600:800",
+            ],
         ] {
             assert!(args(bad).is_err(), "{bad:?} must be refused");
         }

@@ -313,4 +313,6 @@ Implemented in the AUDIENCE-RUN PR (medium tier, from this design; review by a s
 | The drop-and-hurt same-tick fact | `src/combat_scene/thrown.rs` | AR-T26 |
 | `carl_prog_dyn_thrown_triple` and `carl_prog_dyn_llama_pack` | `src/carl_prog_fixtures.rs` | AR-T23, AR-T24; AR-T25 through the `cine` CI probes |
 
+Headless and capture observer `CINE01_MOMENT` lines (explicit `--cine-showcase=on`) come from the pre-simulation feed and are not tick-ordered against the `COMBAT_EVENT` lines; consumers filter by prefix. `--audience=off` together with `--f01-audience` is a parse error. Co-op watch item: a goblin last hit by a companion-driven hero and then killed by the player's credited stick is dropped by the CA-29 filter (a missed moment, never a false one); revisit with AR-Q4 if the playtest shows missed moments in co-op.
+
 Evidence: [`docs/evidence/audience-run/`](../evidence/audience-run/README.md). Notes recorded by the implementation (AR-IMP-n) are in the PR body.

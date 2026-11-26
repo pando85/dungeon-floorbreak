@@ -751,18 +751,26 @@ mod tests {
         }
         assert!(!audience_live_in(&manifest, "cellar"), "unlisted room");
         // A manifest without the corral row: nothing unlocks (fail closed).
+        // Built in memory: `Manifest::validate` refuses such a manifest on load
+        // (CORRAL-F), so the rule is pinned on the struct itself, and the load
+        // guard is pinned too.
+        let mut headless = self::manifest();
+        headless.rooms.retain(|r| r.id != "corral");
+        assert!(!headless.rooms.is_empty());
+        for row in &headless.rooms {
+            assert!(!audience_live_in(&headless, &row.id), "{}", row.id);
+        }
         let text = std::fs::read_to_string(root().join(crate::f01_late::MANIFEST_PATH)).unwrap();
         let mut value: serde_json::Value = serde_json::from_str(&text).unwrap();
-        let rooms = value["rooms"].as_array_mut().unwrap();
-        rooms.retain(|r| r["id"] != "corral");
-        let order = value["story_order"].as_array_mut().unwrap();
-        order.retain(|o| o["id"] != "corral");
-        if let Ok(manifest) = Manifest::from_json(&value.to_string(), StoryTable::active()) {
-            assert!(manifest.rooms.iter().all(|r| r.id != "corral"));
-            for row in &manifest.rooms {
-                assert!(!audience_live_in(&manifest, &row.id), "{}", row.id);
-            }
-        }
+        value["rooms"]
+            .as_array_mut()
+            .unwrap()
+            .retain(|r| r["id"] != "corral");
+        value["story_order"]
+            .as_array_mut()
+            .unwrap()
+            .retain(|o| o["id"] != "corral");
+        assert!(Manifest::from_json(&value.to_string(), StoryTable::active()).is_err());
     }
 
     #[test]
