@@ -89,6 +89,7 @@ pub mod gym_kit;
 pub mod hazard_decals;
 pub mod hazards_art;
 pub mod hazards_fixtures;
+pub mod heat_kit;
 pub mod hero_damage;
 pub mod hoarder_art;
 pub mod hoarder_fixtures;

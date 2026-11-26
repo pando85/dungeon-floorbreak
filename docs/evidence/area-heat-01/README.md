@@ -1,0 +1,52 @@
+# AREA-HEAT-01: the scorched corral kit (room 0)
+
+Evidence for [the AREA-HEAT-01 spec](../../02-art/area-heat-01-spec.md): the kit drawn and wired into room 0 `corral` of `--scene f01_late --f01-run`, the real captures, the offline sheets and the measurements. Prototype art (`prototype_fixture_unapproved`): the silhouette gate and its narrow re-gate froze the five keys (spec section 15), the independent review of the execution is pending, and nothing here is owner-approved. Owner art review pending; game feel is the owner's call.
+
+**The goblin partition is not in any runtime still.** It is drawn and exported, but the dressing does not place it until CORRAL-D (`HEAT-AD1`, `HEAT-OQ3`): drawn geometry must equal the 16 x 48 solid it will carry. Every partition image below is a **gate composite (CORRAL-D pending)**, not a runtime capture.
+
+## Real Bevy captures (`scene_*`)
+
+Every still is the real window of `scripts/room_capture.sh corral corral FIRST:STEP:COUNT` (`--scene f01_late --f01-room corral --room-pilot corral`, the library pilot), under xvfb, in three sizes: `640x360` (`--scale 1`), `1920x1080` (`--scale 3`) and the `640x400` deck view (`--deck --scale 1`). The still is the **last frame** of its sequence: the camera eases per rendered frame, so a still is defined by its whole sequence, not by its tick alone (a single-frame capture at the same tick draws another view). `scripts/make_heat01_evidence.sh` captured each one **twice** (two full passes) and the two PNGs are byte-identical; the window's final `COMBAT_STATE` hash equals the headless run's at the same tick for every line. [`capture_lines.txt`](capture_lines.txt) holds one `HEAT_STILL` line per still and size (23 lines: 6 stills in 3 sizes, the 4 before stills, the bare run): the sequence, the window hash, the headless hash, `hash_match=yes`, `passes_byte_identical=yes` and the file's SHA-256. The drawn view (left, top) of each 640 x 360 still (found from landmarks and a 2D match against the lit model, `scripts/heat01_view.py`; the logged `cam` is not the drawn view) is in [`drawn_views.txt`](drawn_views.txt): top 289 in `pen_entry`, 292 in `m0_goblins`, `m1_throat`, `pen_rails` and `bare_run`, **260 in `dock` and `m3_exit`**.
+
+| Still (sequence, tick) | Drawn view left (top) | What it shows |
+| --- | --- | --- |
+| `m0_goblins` (30:30:3, 90) | 0 (292) | M0: Carl, Donut, the goblins and the ash drift at x 288 (the spec's wall trace at x 392 has no free span and is not placed) |
+| `m1_throat` (330:30:2, 360) | 478 (292) | M1: the floor scorch at x 560, ash and the spit trace at x 880..980 |
+| `pen_entry` (420:30:4, 510) | 1038 (289) | the pen entry: the hero wall scorch behind the shelf's left corner, the entry shelf fronts, Carl, Donut, llama B |
+| `pen_rails` (600:30:3, 660) | 1190 (292) | the pen: the two rails, the broken rail, the debris and the floor scorches |
+| `dock` (780:30:3, 840) | 1610 (260) | the dock: the bumper, the dock fronts, the dock bloom (`heat_scorch_wall_b`) and llama A |
+| `m3_exit` (930:30:2, 960) | 1680 (260) | the threshold: dock fronts only, no decal |
+| `bare_run` (60:30:2, 90) | 28 (292) | a bare `--scene f01_late --f01-run` (no `--f01-room`, no pilot, Carl walks right): the dressing is visible by default |
+| `before_pen_entry`, `before_dock` | as above | the same sequences on a `floor01_scene` built from origin/main (the undressed room); the window hash equals the dressed run's at every tick (the dressing is presentation only). `scene_before_pen_entry_640x360.png` is byte-identical to `gate/scene_pen_before_1x.png` |
+
+## Offline sheets
+
+| File | Content |
+| --- | --- |
+| `contact_sheet_x1.png`, `contact_sheet_x4.png` | every piece of the kit at native size, and labelled at 4x |
+| `partition_states_x4.png` | the three partition frames at 4x (key pixels, unlit) |
+| `partition_states_with_actors_1x.png`, `_3x.png` | **gate composite (CORRAL-D pending), not runtime:** the three states at gameplay scale in the real pen still, beside Carl, Donut, a staged goblin (left) and llama B |
+| `layout_diagram_pen_x2.png`, `layout_diagram_dock_x2.png` | the schema at 2x over the real `pen_entry` and `dock` stills: the walking line W 580, the floor back line FB 560, the glob bands (532..538, 500..506), the head bands (524..560, 492..528), every dressing rect, the step rects, and the partition's clear zone x 1372..1428 with its art rect (1380, 532, 40 x 48) |
+| `before_after_pen_entry_x1.png`, `_x3.png`, `before_after_dock_x1.png`, `_x3.png` | the undressed room beside the dressed room (the `x3` pairs are the 1920 x 1080 stills side by side) |
+| `scorch_wall_runtime_before_after_x1.png`, `_x3.png` | the runtime `pen_entry` cropped to x 10..149, y 150..289, before beside after, beside the gate's composite `gate/scorch_wall_before_after_*.png` |
+| `crop_wall_b_dock_x1.png`, `_x4.png` | the dock bloom `heat_scorch_wall_b` in place in the `dock` still, before beside after (the narrow key check) |
+| `crop_n1_plume_right_x12.png` | gate note N1 at 12x: the plume's top-right bricks and the right torch pool's offset bricks, before beside after (world x 1112..1176, y 470..520) |
+| `measurements.txt` | the measurements below |
+| `gate/` | the silhouette gate sheets (`python3 scripts/author_heat01.py gate docs/evidence/area-heat-01/gate`), regenerated by the capture script; byte-identical to the committed gate sheets, because the keys did not change |
+
+## Measurements (`measurements.txt`)
+
+`python3 scripts/measure_heat01.py DIR OUT STILLS_DIR` with the composed layouts of room 0 from the ignored test `heat_kit::tests::dump_heat_layouts`. Actor separation and the model walkable-top lines use the kit's own lit model (`scripts/env_kit_light.py`, as `measure_rings01.py` does); the runtime walkable-top lines read the window captures. A failing number is a design note in the PR body, not a silent tweak.
+
+| Check | Measured |
+| --- | --- |
+| A8 wall decal coverage, worst 640 px window | 8.28 % (cap 18 %) |
+| A8 floor decal coverage, worst 640 px window | 11.42 % (cap 25 %) |
+| R6 goblin dL* against its 6 px ring, plain, dressed | x 1078: 0.6, 2.2; x 1110 (over the plume): 3.8, 5.7; x 1488: -3.6, -3.6; x 1968: 7.8, 9.1 |
+| R6 Carl, plain, dressed | x 1078: 10.1, 11.8; x 1110: 14.2, 16.7; x 1488: 10.1, **10.0**; x 1968: 18.0, 19.5 |
+| C2 walkable top, lit model, dressed: arris run L* against the brightest rival run within +-48 px | shelf 52.3 against **59.0** (rival: the torch-lit brick at y 525); dock 47.9 against **58.3**; bumper 54.8 against 41.1 |
+| C2 walkable top, runtime stills (each at its own view top), arris against the brightest rival; with the torch-pool brick exempt (`HEAT-AD21`) | shelf (`pen_entry`) 53.7 against **54.7**, 44.3 with the exemption (holds); dock 44.9 against 42.3 (`dock`) and 47.8 against 39.8 (`m3_exit`); bumper 54.8 against 39.3 (both stills) |
+| Partition against the opening behind it, gate composite (CORRAL-D pending) | intact L* 25.5 against 26.5 (dL* -1.1), mean hue difference 80 degrees; weakened 24.9 against 26.5 (-1.6), 81 degrees; broken 24.5 against 36.6 (-12.2), 4 degrees (the brick behind it) |
+| Free spans (unpooled brick outside the bay openings) | rows 464..543: x 1112..1143 (the pen entry) and 1912..2319 (the dock wall); rows 512..559: 1112..1151 and 1912..2319; rows 544..559: 1096..1159 and 1896..2319; nothing in M0 or M1 outside the bay openings |
+
+Numbers in bold miss their target; they are open design notes (spec section 16).

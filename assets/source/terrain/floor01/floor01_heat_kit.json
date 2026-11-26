@@ -1,0 +1,853 @@
+{
+ "format": "env-kit-v2",
+ "kit_id": "floor01_heat",
+ "extends": "assets/source/terrain/floor01/floor01_opening_kit.json",
+ "status": "proposed - AREA-HEAT-01 kit (docs/02-art/area-heat-01-spec.md); independent review pending; not owner-approved",
+ "extension_note": "Inherits palette, layers, draw order, coordinates, walking-line rule and lighting schema from the ENV-01 contract through the opening kit. Adds four decor atlases and the scorched-corral pieces for room 0 (the Infernal Corral); no tiles, nothing collidable, no new palette colour and no new light emitter.",
+ "palette_use": {
+  "floor01_heat_partition": 20,
+  "floor01_heat_wall": 17,
+  "floor01_heat_structure": 24,
+  "floor01_heat_props": 8
+ },
+ "atlases": {
+  "floor01_heat_partition": {
+   "grid": "assets/source/props/floor01/heat_partition.grid.json",
+   "manifest": "assets/manifests/floor01_heat_partition.json",
+   "image": "generated/art/floor01_heat_partition.png",
+   "metadata": "generated/art/floor01_heat_partition.json"
+  },
+  "floor01_heat_wall": {
+   "grid": "assets/source/props/floor01/heat_wall.grid.json",
+   "manifest": "assets/manifests/floor01_heat_wall.json",
+   "image": "generated/art/floor01_heat_wall.png",
+   "metadata": "generated/art/floor01_heat_wall.json"
+  },
+  "floor01_heat_structure": {
+   "grid": "assets/source/props/floor01/heat_structure.grid.json",
+   "manifest": "assets/manifests/floor01_heat_structure.json",
+   "image": "generated/art/floor01_heat_structure.png",
+   "metadata": "generated/art/floor01_heat_structure.json"
+  },
+  "floor01_heat_props": {
+   "grid": "assets/source/props/floor01/heat_props.grid.json",
+   "manifest": "assets/manifests/floor01_heat_props.json",
+   "image": "generated/art/floor01_heat_props.png",
+   "metadata": "generated/art/floor01_heat_props.json"
+  }
+ },
+ "tiles": [],
+ "pieces": [
+  {
+   "id": "heat_partition_intact",
+   "atlas": "floor01_heat_partition",
+   "rect": [
+    0,
+    0,
+    40,
+    48
+   ],
+   "role": "prop",
+   "layer": "prop",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (room placement, spec section 5)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ],
+   "state_of": {
+    "group": "heat_partition",
+    "state": "intact"
+   }
+  },
+  {
+   "id": "heat_partition_weakened",
+   "atlas": "floor01_heat_partition",
+   "rect": [
+    40,
+    0,
+    40,
+    48
+   ],
+   "role": "prop",
+   "layer": "prop",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (room placement, spec section 5)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ],
+   "state_of": {
+    "group": "heat_partition",
+    "state": "weakened"
+   }
+  },
+  {
+   "id": "heat_partition_broken",
+   "atlas": "floor01_heat_partition",
+   "rect": [
+    80,
+    0,
+    40,
+    48
+   ],
+   "role": "prop",
+   "layer": "prop",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (room placement, spec section 5)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ],
+   "state_of": {
+    "group": "heat_partition",
+    "state": "broken"
+   }
+  },
+  {
+   "id": "heat_scorch_wall_a",
+   "atlas": "floor01_heat_wall",
+   "rect": [
+    0,
+    0,
+    64,
+    96
+   ],
+   "role": "backwall",
+   "layer": "backwall_decal",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (room placement, spec section 5)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ],
+   "decal": true
+  },
+  {
+   "id": "heat_scorch_wall_b",
+   "atlas": "floor01_heat_wall",
+   "rect": [
+    64,
+    0,
+    48,
+    64
+   ],
+   "role": "backwall",
+   "layer": "backwall_decal",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (room placement, spec section 5)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ],
+   "decal": true
+  },
+  {
+   "id": "heat_scorch_wall_c",
+   "atlas": "floor01_heat_wall",
+   "rect": [
+    112,
+    0,
+    32,
+    48
+   ],
+   "role": "backwall",
+   "layer": "backwall_decal",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (room placement, spec section 5)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ],
+   "decal": true
+  },
+  {
+   "id": "heat_trace_wall_a",
+   "atlas": "floor01_heat_wall",
+   "rect": [
+    144,
+    0,
+    16,
+    16
+   ],
+   "role": "backwall",
+   "layer": "backwall_decal",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (room placement, spec section 5)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ],
+   "decal": true
+  },
+  {
+   "id": "heat_scorch_floor_a",
+   "atlas": "floor01_heat_structure",
+   "rect": [
+    0,
+    0,
+    72,
+    12
+   ],
+   "role": "structure",
+   "layer": "structure",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (room placement, spec section 5)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ]
+  },
+  {
+   "id": "heat_scorch_floor_b",
+   "atlas": "floor01_heat_structure",
+   "rect": [
+    72,
+    0,
+    48,
+    10
+   ],
+   "role": "structure",
+   "layer": "structure",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (room placement, spec section 5)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ]
+  },
+  {
+   "id": "heat_ash_floor_a",
+   "atlas": "floor01_heat_structure",
+   "rect": [
+    120,
+    0,
+    32,
+    6
+   ],
+   "role": "structure",
+   "layer": "structure",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (room placement, spec section 5)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ]
+  },
+  {
+   "id": "heat_ash_floor_b",
+   "atlas": "floor01_heat_structure",
+   "rect": [
+    0,
+    12,
+    24,
+    6
+   ],
+   "role": "structure",
+   "layer": "structure",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (room placement, spec section 5)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ]
+  },
+  {
+   "id": "heat_trace_spit_a",
+   "atlas": "floor01_heat_structure",
+   "rect": [
+    24,
+    12,
+    16,
+    6
+   ],
+   "role": "structure",
+   "layer": "structure",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (room placement, spec section 5)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ]
+  },
+  {
+   "id": "heat_trace_spit_b",
+   "atlas": "floor01_heat_structure",
+   "rect": [
+    40,
+    12,
+    12,
+    6
+   ],
+   "role": "structure",
+   "layer": "structure",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (room placement, spec section 5)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ]
+  },
+  {
+   "id": "heat_shelf_mid_a",
+   "atlas": "floor01_heat_structure",
+   "rect": [
+    52,
+    12,
+    16,
+    32
+   ],
+   "role": "structure",
+   "layer": "structure",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (room placement, spec section 5)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ]
+  },
+  {
+   "id": "heat_shelf_mid_b",
+   "atlas": "floor01_heat_structure",
+   "rect": [
+    68,
+    12,
+    16,
+    32
+   ],
+   "role": "structure",
+   "layer": "structure",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (room placement, spec section 5)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ]
+  },
+  {
+   "id": "heat_shelf_end_l",
+   "atlas": "floor01_heat_structure",
+   "rect": [
+    84,
+    12,
+    8,
+    32
+   ],
+   "role": "structure",
+   "layer": "structure",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (room placement, spec section 5)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ]
+  },
+  {
+   "id": "heat_shelf_end_r",
+   "atlas": "floor01_heat_structure",
+   "rect": [
+    92,
+    12,
+    8,
+    32
+   ],
+   "role": "structure",
+   "layer": "structure",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (room placement, spec section 5)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ]
+  },
+  {
+   "id": "heat_bumper",
+   "atlas": "floor01_heat_structure",
+   "rect": [
+    100,
+    12,
+    32,
+    80
+   ],
+   "role": "structure",
+   "layer": "structure",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (room placement, spec section 5)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ]
+  },
+  {
+   "id": "heat_pen_rail_a",
+   "atlas": "floor01_heat_props",
+   "rect": [
+    0,
+    0,
+    64,
+    28
+   ],
+   "role": "prop",
+   "layer": "prop",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (room placement, spec section 5)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ]
+  },
+  {
+   "id": "heat_pen_rail_b",
+   "atlas": "floor01_heat_props",
+   "rect": [
+    64,
+    0,
+    64,
+    28
+   ],
+   "role": "prop",
+   "layer": "prop",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (room placement, spec section 5)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ]
+  },
+  {
+   "id": "heat_timber_debris_a",
+   "atlas": "floor01_heat_props",
+   "rect": [
+    0,
+    28,
+    32,
+    8
+   ],
+   "role": "prop",
+   "layer": "prop",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (room placement, spec section 5)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ]
+  }
+ ],
+ "state_groups": {
+  "heat_partition": {
+   "states": [
+    "intact",
+    "weakened",
+    "broken"
+   ],
+   "note": "the goblin timber partition (spec section 6), three 40 x 48 frames. The dressing does NOT place it (HEAT-AD1): CORRAL-D's presenter draws the frame of the prop's state at (1380, 532) (presentation only; weakened after the first counted hit, broken on the third hit or a rush contact), because drawn geometry must equal the 16 x 48 solid it will carry"
+  }
+ },
+ "room_dressing": {
+  "corral": {
+   "remove": [],
+   "place": [
+    {
+     "layer": "backwall_decal",
+     "piece": "heat_scorch_wall_a",
+     "x": 1088,
+     "y": 464
+    },
+    {
+     "layer": "backwall_decal",
+     "piece": "heat_scorch_wall_b",
+     "x": 1920,
+     "y": 480
+    },
+    {
+     "layer": "structure",
+     "piece": "heat_scorch_floor_a",
+     "x": 1044,
+     "y": 561
+    },
+    {
+     "layer": "structure",
+     "piece": "heat_scorch_floor_a",
+     "x": 1456,
+     "y": 561
+    },
+    {
+     "layer": "structure",
+     "piece": "heat_scorch_floor_b",
+     "x": 560,
+     "y": 562
+    },
+    {
+     "layer": "structure",
+     "piece": "heat_scorch_floor_b",
+     "x": 1264,
+     "y": 562
+    },
+    {
+     "layer": "structure",
+     "piece": "heat_scorch_floor_b",
+     "x": 1680,
+     "y": 562
+    },
+    {
+     "layer": "structure",
+     "piece": "heat_ash_floor_a",
+     "x": 288,
+     "y": 563
+    },
+    {
+     "layer": "structure",
+     "piece": "heat_ash_floor_b",
+     "x": 880,
+     "y": 564
+    },
+    {
+     "layer": "structure",
+     "piece": "heat_ash_floor_b",
+     "x": 1792,
+     "y": 564
+    },
+    {
+     "layer": "structure",
+     "piece": "heat_trace_spit_a",
+     "x": 968,
+     "y": 564
+    },
+    {
+     "layer": "structure",
+     "piece": "heat_trace_spit_a",
+     "x": 1600,
+     "y": 564
+    },
+    {
+     "layer": "structure",
+     "piece": "heat_trace_spit_b",
+     "x": 1336,
+     "y": 565
+    },
+    {
+     "layer": "structure",
+     "piece": "heat_shelf_end_l",
+     "x": 1120,
+     "y": 548
+    },
+    {
+     "layer": "structure",
+     "piece": "heat_shelf_mid_a",
+     "x": 1128,
+     "y": 548
+    },
+    {
+     "layer": "structure",
+     "piece": "heat_shelf_mid_b",
+     "x": 1144,
+     "y": 548
+    },
+    {
+     "layer": "structure",
+     "piece": "heat_shelf_mid_a",
+     "x": 1160,
+     "y": 548
+    },
+    {
+     "layer": "structure",
+     "piece": "heat_shelf_mid_a",
+     "x": 1176,
+     "y": 548
+    },
+    {
+     "layer": "structure",
+     "piece": "heat_shelf_mid_b",
+     "x": 1192,
+     "y": 548
+    },
+    {
+     "layer": "structure",
+     "piece": "heat_shelf_end_r",
+     "x": 1208,
+     "y": 548
+    },
+    {
+     "layer": "structure",
+     "piece": "heat_shelf_mid_a",
+     "x": 1888,
+     "y": 548
+    },
+    {
+     "layer": "structure",
+     "piece": "heat_shelf_mid_b",
+     "x": 1904,
+     "y": 548
+    },
+    {
+     "layer": "structure",
+     "piece": "heat_shelf_mid_a",
+     "x": 1920,
+     "y": 548
+    },
+    {
+     "layer": "structure",
+     "piece": "heat_shelf_mid_a",
+     "x": 1936,
+     "y": 548
+    },
+    {
+     "layer": "structure",
+     "piece": "heat_shelf_mid_b",
+     "x": 1952,
+     "y": 548
+    },
+    {
+     "layer": "structure",
+     "piece": "heat_shelf_mid_a",
+     "x": 1968,
+     "y": 548
+    },
+    {
+     "layer": "structure",
+     "piece": "heat_shelf_mid_a",
+     "x": 1984,
+     "y": 548
+    },
+    {
+     "layer": "structure",
+     "piece": "heat_shelf_mid_a",
+     "x": 2000,
+     "y": 548
+    },
+    {
+     "layer": "structure",
+     "piece": "heat_shelf_mid_a",
+     "x": 2016,
+     "y": 548
+    },
+    {
+     "layer": "structure",
+     "piece": "heat_shelf_mid_b",
+     "x": 2032,
+     "y": 548
+    },
+    {
+     "layer": "structure",
+     "piece": "heat_shelf_mid_a",
+     "x": 2048,
+     "y": 548
+    },
+    {
+     "layer": "structure",
+     "piece": "heat_shelf_mid_a",
+     "x": 2064,
+     "y": 548
+    },
+    {
+     "layer": "structure",
+     "piece": "heat_shelf_mid_b",
+     "x": 2080,
+     "y": 548
+    },
+    {
+     "layer": "structure",
+     "piece": "heat_shelf_mid_a",
+     "x": 2096,
+     "y": 548
+    },
+    {
+     "layer": "structure",
+     "piece": "heat_shelf_mid_a",
+     "x": 2112,
+     "y": 548
+    },
+    {
+     "layer": "structure",
+     "piece": "heat_shelf_mid_a",
+     "x": 2128,
+     "y": 548
+    },
+    {
+     "layer": "structure",
+     "piece": "heat_shelf_mid_a",
+     "x": 2144,
+     "y": 548
+    },
+    {
+     "layer": "structure",
+     "piece": "heat_shelf_mid_b",
+     "x": 2160,
+     "y": 548
+    },
+    {
+     "layer": "structure",
+     "piece": "heat_shelf_mid_a",
+     "x": 2176,
+     "y": 548
+    },
+    {
+     "layer": "structure",
+     "piece": "heat_shelf_mid_a",
+     "x": 2192,
+     "y": 548
+    },
+    {
+     "layer": "structure",
+     "piece": "heat_shelf_mid_a",
+     "x": 2208,
+     "y": 548
+    },
+    {
+     "layer": "structure",
+     "piece": "heat_shelf_mid_a",
+     "x": 2224,
+     "y": 548
+    },
+    {
+     "layer": "structure",
+     "piece": "heat_shelf_mid_b",
+     "x": 2240,
+     "y": 548
+    },
+    {
+     "layer": "structure",
+     "piece": "heat_shelf_mid_a",
+     "x": 2256,
+     "y": 548
+    },
+    {
+     "layer": "structure",
+     "piece": "heat_shelf_mid_a",
+     "x": 2272,
+     "y": 548
+    },
+    {
+     "layer": "structure",
+     "piece": "heat_shelf_mid_a",
+     "x": 2288,
+     "y": 548
+    },
+    {
+     "layer": "structure",
+     "piece": "heat_bumper",
+     "x": 1856,
+     "y": 500
+    },
+    {
+     "layer": "prop",
+     "piece": "heat_pen_rail_a",
+     "x": 1240,
+     "y": 532
+    },
+    {
+     "layer": "prop",
+     "piece": "heat_pen_rail_a",
+     "x": 1720,
+     "y": 532
+    },
+    {
+     "layer": "prop",
+     "piece": "heat_pen_rail_b",
+     "x": 1560,
+     "y": 532
+    },
+    {
+     "layer": "prop",
+     "piece": "heat_timber_debris_a",
+     "x": 1316,
+     "y": 552
+    },
+    {
+     "layer": "prop",
+     "piece": "heat_timber_debris_a",
+     "x": 1648,
+     "y": 552
+    }
+   ],
+   "parallax": {}
+  }
+ },
+ "usage_rules": {
+  "R1_corral": "room 0 `corral` only: wall scorches are backwall_decal on the world bond (x % 32 == 0, y % 16 == 0) and outside every torch pool; floor decals lie in the deck's back half (y 561..572) and never on a step; the step fronts lie exactly on the step rects (their top row, stone 8, is the walkable arris); props stand on the floor back line (y 560); nothing at x 1372..1428 (the partition, CORRAL-D). The partition frames are drawn by the presenter, never placed."
+ }
+}

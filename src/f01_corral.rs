@@ -172,8 +172,16 @@ fn check_roster(roster: &[encounter::RosterEntry]) -> Result<Vec<usize>, String>
     Ok(gate)
 }
 
-/// Load room 0 and its sidecar, compose its kit and build the fixture.
+/// Load room 0 and its sidecar, compose its kit and build the fixture. The kit
+/// carries the AREA-HEAT-01 dressing ([`crate::heat_kit`], presentation only).
 pub fn launch(root: &Path) -> Result<CorralRun, String> {
+    launch_with(root, true)
+}
+
+/// [`launch`] with the dressing switched on or off. The undressed kit is the
+/// plain composition of the greybox room; the tests prove the two differ in
+/// presentation only (solids, ceiling slab, views, walking line, state hash).
+pub fn launch_with(root: &Path, dressed: bool) -> Result<CorralRun, String> {
     let loaded = encounter::load(root, ENCOUNTER_PATH).map_err(|errors| {
         format!(
             "{ENCOUNTER_PATH}: {}",
@@ -205,7 +213,11 @@ pub fn launch(root: &Path) -> Result<CorralRun, String> {
     if file_room.floor_y != loaded.room.floor_y || file_room.exit != loaded.room.exit {
         return Err("the corral room parses two ways".into());
     }
-    let mut kit = crate::f01_boiler::compose_kit_with_steps(root, &loaded.room, &steps)?;
+    let mut kit = if dressed {
+        crate::heat_kit::compose_heat_kit(root, &loaded.room, &steps)?
+    } else {
+        crate::f01_boiler::compose_kit_with_steps(root, &loaded.room, &steps)?
+    };
     if kit.base_walk_line_y != loaded.room.floor_y {
         return Err(format!(
             "the kit's walking line {} is not the room's floor {}",

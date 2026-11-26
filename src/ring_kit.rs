@@ -76,9 +76,15 @@ fn read_json(root: &Path, rel: &str) -> Result<Value, EnvError> {
 /// The dressing block of `room_id` (`ring_court`, `ring_split`) in the rings
 /// contract.
 pub fn dressing(root: &Path, room_id: &str) -> Result<Dressing, EnvError> {
-    let contract = read_json(root, RINGS_CONTRACT)?;
+    dressing_in(root, RINGS_CONTRACT, room_id)
+}
+
+/// The dressing block of `room_id` in the kit contract at `contract_path`
+/// (AREA-HEAT-01 reuses the dressing code with its own contract).
+pub fn dressing_in(root: &Path, contract_path: &str, room_id: &str) -> Result<Dressing, EnvError> {
+    let contract = read_json(root, contract_path)?;
     serde_json::from_value(contract["room_dressing"][room_id].clone())
-        .map_err(|e| EnvError::Parse(format!("{RINGS_CONTRACT} room_dressing.{room_id}: {e}")))
+        .map_err(|e| EnvError::Parse(format!("{contract_path} room_dressing.{room_id}: {e}")))
 }
 
 /// Apply `dressing` to a composed `env-kit-layout-v2` value: drop the removed
@@ -87,6 +93,12 @@ pub fn dressing(root: &Path, room_id: &str) -> Result<Dressing, EnvError> {
 /// the parallax strips. Returns the number of `remove_at` entries that matched
 /// no piece (zero for a valid dressing).
 pub fn dress(layout: &mut Value, dressing: &Dressing) -> usize {
+    dress_with(layout, dressing, RINGS_CONTRACT)
+}
+
+/// [`dress`] for the kit contract at `contract_path`: the layout's
+/// `kit_contract` names it.
+pub fn dress_with(layout: &mut Value, dressing: &Dressing, contract_path: &str) -> usize {
     if let Some(layers) = layout["piece_layers"].as_object_mut() {
         for list in layers.values_mut() {
             if let Some(list) = list.as_array_mut() {
@@ -152,7 +164,7 @@ pub fn dress(layout: &mut Value, dressing: &Dressing) -> usize {
     for (layer, piece) in &dressing.parallax {
         layout["parallax_layers"][layer.as_str()]["piece"] = json!(piece);
     }
-    layout["kit_contract"] = json!(RINGS_CONTRACT);
+    layout["kit_contract"] = json!(contract_path);
     missed
 }
 
@@ -487,6 +499,58 @@ mod tests {
                 .unwrap();
             }
         }
+    }
+
+    /// C3 evidence helper (ignored, writes only to `RING_DRESSING_DUMP`): every Ring
+    /// room's composed dressing (piece id, position, z, frame) and strips, plain
+    /// and dressed, one line each, so two builds can be compared with `diff`.
+    ///
+    /// `RING_DRESSING_DUMP=<file> cargo test --lib -- --ignored dump_ring_dressing`
+    #[test]
+    #[ignore = "evidence helper: writes the composed ring dressing for a byte comparison"]
+    fn dump_ring_dressing() {
+        let Ok(file) = std::env::var("RING_DRESSING_DUMP") else {
+            return;
+        };
+        let mut out = String::new();
+        for room in RingRoom::ALL {
+            let (plain, dressed) = kits(room);
+            for (kind, kit) in [("plain", &plain), ("dressed", &dressed)] {
+                for p in &kit.pieces {
+                    out += &format!(
+                        "{} {kind} piece {} {} x={} y={} z={:?} frame_offset={} rect={:?} frames={:?}\n",
+                        room.id(),
+                        p.layer,
+                        p.piece,
+                        p.x,
+                        p.y,
+                        p.z,
+                        p.frame_offset,
+                        p.rect,
+                        p.frames
+                    );
+                }
+                for s in &kit.strips {
+                    out += &format!(
+                        "{} {kind} strip {} {} x_origin={} y={} z={:?} rect={:?}\n",
+                        room.id(),
+                        s.layer,
+                        s.piece,
+                        s.x_origin,
+                        s.y,
+                        s.z,
+                        s.rect
+                    );
+                }
+                out += &format!(
+                    "{} {kind} tiles={} solids={:?}\n",
+                    room.id(),
+                    kit.tiles.len(),
+                    kit.solid_rects
+                );
+            }
+        }
+        std::fs::write(file, out).unwrap();
     }
 
     /// No new light emitter. The torches keep their count (RNG-AD20 moves two,

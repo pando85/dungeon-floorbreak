@@ -1,0 +1,32 @@
+# AREA-HEAT-01 gate measurements (author_heat01.py keys and gate composites; L* is CIE L* of 1x pixels;
+# partition rows use the unlit key pixels, wall-scorch actor rows use the lit-approximation composite)
+VIEW 1038 289  SCORCH_WALL_AT 1088 464
+KEY_SHA heat_partition_intact 0baf3cacb6ddb59e714f9608db946f880ccfdd3a6971e1792b0bee6bc1d33b70 40x48 colours 19
+KEY_SHA heat_partition_weakened ea9d8fc0cb5979b57c8f9dc609775843ff146b29b3ee551adece5ee6f6722183 40x48 colours 20
+KEY_SHA heat_partition_broken a371405cc02dc8eaec72fd719fa129840bf6d3ef696fb999af36d07c6ff7d780 40x48 colours 15
+KEY_SHA heat_scorch_wall_a 8ea5958749d9662742cb1e7ebd843213f853f4648dd4cdc281f2278fc03b4b78 64x96 colours 17
+KEY_SHA heat_scorch_floor_a 30261053739064530cbb0adc4ce6d637b3888a51bda0720656a29ec9e4b2456d 72x12 colours 6
+intact: mean L* 25.5 (behind 26.5); top row L* 63.9; px above top 0; margin px above row 44 6
+weakened: mean L* 24.9 (behind 26.5); top row L* 63.9; px above top 0; margin px above row 44 11
+broken: mean L* 24.5 (behind 36.6); top row L* 65.1; px above top 9; margin px above row 44 0
+deck within 64 px: L* p95 53.2
+wall_a coverage 34.5%; colours 17
+wall_a R4 brick px in rows 80..95: 0; base-course ramps ['flame', 'mortar', 'stone']; darkest stone 2
+wall_a R5 darkest brick rows>=60: 3; rows<60: 2; lightest brick per band mid/lower/low: none/5/7 (band bases 4.1/5.3/7.0, plain bevel arris +1.5; plume soot >= 0.65 everywhere)
+wall_a R2 foot row width 16, widest row 48 (ratio 3.00); longest edge run L 8 R 8 px; plume rows (2 px per char):
+  row 0 ................................
+  row 1 ................................
+  row 2 ........................########
+  row 3 ............################....
+  row 4 ........########################
+  row 5 ............################....
+  row 6 ........################........
+  row 7 ............################....
+  row 8 ........################........
+  row 9 ............########............
+wall_a R3 pixel rows with a hole inside the plume span: 0; base-course mortar-1 hairline px: 7
+wall_a embers [(30, 92, 0), (25, 93, 0), (28, 94, 1), (33, 94, 0)]
+wall_a R6 goblin at gate x 40 dL* vs 6 px ring: plain 2.5, with scorch 2.5
+wall_a R6 goblin over the plume x 72 dL* vs 6 px ring: plain 7.1, with scorch 8.5
+wall_a R6 carl at pen entry x 72 dL* vs 6 px ring: plain 17.0, with scorch 20.0
+floor_a coverage 39.9%
