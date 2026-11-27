@@ -1,14 +1,14 @@
-Local check list on the final code head of TROG-B (debug build, no GitHub CI wait; code head 69eeb1f3 on origin/main 06534e1e (AREA-TROG-01 stage 1, #311, rebased onto it); the evidence commit after it changes no code):
+Local check list on the final code head of TROG-B (debug build, no GitHub CI wait; code head a56bace2 (review fixes R1..R3, R5..R8 on 69eeb1f3) on origin/main 06534e1e (AREA-TROG-01 stage 1, #311, rebased onto it); the evidence commit after it changes no code):
 cargo fmt --all -- --check                                  OK
 cargo clippy --locked --all-targets -- -D warnings          OK (no warnings)
-cargo test --locked --all-targets --no-fail-fast            OK: 4077 passed, 0 failed, 42 ignored (evidence helpers) over every target; lib 3963 passed
+cargo test --locked --all-targets --no-fail-fast            OK: 4080 passed, 0 failed, 42 ignored (evidence helpers) over every target; lib 3966 passed
 python3 scripts/check_docs.py                               OK
 scripts/ci_floor01_combat.sh headless                       OK (F01_LATE_HEADLESS_OK lists the seventeen rooms; F01_TROG_STRENGTH_HEADLESS_OK; every committed DP, DOZR and legacy replay byte-identical)
 scripts/ci_floor01_combat.sh render (xvfb 1920x1080x24)     OK (after scripts/export_assets.sh in the worktree)
 scripts/check_f01_owner_commands.sh                         OK (0 FAILED lines; the loop also launches trog_strength and runs trog_eval --quick)
 python3 scripts/validate_assets.py                          OK (no art manifest or asset changed by this PR)
-trog_eval (full sweep)                                      exit 0: G-1 to G-5 all PASS, 6,345 runs, 3,009 double runs identical (eval/report.txt)
-trog_eval --quick                                           exit 0
+trog_eval (full sweep)                                      exit 0: G-1 to G-5 all PASS (G-1 and G-2 now also fail on any invalid_setup natural-start run; 0 here), 6,345 runs, 3,009 double runs identical (eval/report.txt)
+trog_eval --quick                                           exit 0 (header: PASS (partial: a row was not run), the positive control is not run in quick mode)
 corral_eval --out DIR before/after                          byte-identical (corral_eval_identity.txt; the corral_eval code is unchanged since)
 Real two-pad run                                            NOT RUN
 Human first-run time                                        NOT RUN
