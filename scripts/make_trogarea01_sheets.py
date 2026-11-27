@@ -37,12 +37,34 @@ CONTRACT = trog.CONTRACT
 ROWS = (64, 190)                      # the still's wall rows (no HUD, no actors)
 TOPS = range(196, 320)
 VIEW_W, VIEW_H = 640, 360
-OPENINGS = [(184, 335), (520, 671), (856, 1007), (1192, 1343), (1528, 1679), (2024, 2175)]
-BRICKED = [(184, 335), (1192, 1343)]
-# The troglodytes at their roster x (sidecar).
-TROGS = {"pygmy": ("trog_01", 640), "basher": ("trog_02", 1376), "virtuoso": ("trog_03", 2144)}
+# Per room: the openings, the bricked ones (the fill rect is a - 8 .. b + 48), the troglodytes at their roster x
+# (sidecar), the stills that get a layout diagram, and the placed pieces the lit read counts.
+CFG = {
+    "trog_run": {
+        "openings": [(184, 335), (520, 671), (856, 1007), (1192, 1343), (1528, 1679), (2024, 2175)],
+        "bricked": [(184, 335), (1192, 1343)],
+        "trogs": {"pygmy": ("trog_01", 640), "basher": ("trog_02", 1376), "virtuoso": ("trog_03", 2144)},
+        "diagrams": ("t0_spawn", "pygmy_land", "basher_dormant", "virtuoso_dormant"),
+        "counted": ("trog_",),
+    },
+    "trog_strength": {
+        "openings": [(56, 207), (392, 543), (728, 879)],
+        "bricked": [(728, 879)],
+        "trogs": {"basher": ("trog_02", 800), "virtuoso": ("trog_03", 496)},
+        "diagrams": ("strength_open", "strength_bench_beside", "strength_bench_climb"),
+        "counted": ("trog_", "gym_"),
+    },
+}
+OPENINGS, BRICKED, TROGS = CFG[ROOM]["openings"], CFG[ROOM]["bricked"], CFG[ROOM]["trogs"]
 FRAME = {"trog_01": (80, 56, 30, 55), "trog_02": (112, 88, 48, 87), "trog_03": (128, 88, 44, 87)}
 FLOOR = 580
+
+
+def use_room(room: str) -> None:
+    """Select the room the module-level helpers measure."""
+    global ROOM, OPENINGS, BRICKED, TROGS
+    ROOM = room
+    OPENINGS, BRICKED, TROGS = CFG[room]["openings"], CFG[room]["bricked"], CFG[room]["trogs"]
 
 
 # ------------------------------------------------------------------------------------------- inputs
@@ -122,11 +144,12 @@ def flame_landmarks(still: np.ndarray, torches: list, left: int, top: int) -> li
     return out
 
 
-def drawn_views(out_dir: Path, layout_dir: Path | None, stills: dict):
-    """{still name: (left, top)} and the lit model. Without LAYOUT_DIR the committed cache is read."""
+def drawn_views(out_dir: Path, layout_dir: Path | None, stills: dict, lines: list[str]):
+    """{still name: (left, top)} and the lit model of the current room; the lines of `drawn_views.txt` are appended
+    to `lines`. Without LAYOUT_DIR the committed cache is read."""
     views = {}
-    cache = out_dir / "drawn_views.txt"
     if layout_dir is None:
+        cache = out_dir / "drawn_views.txt"
         if cache.is_file():
             for line in cache.read_text(encoding="utf-8").splitlines():
                 if line and not line.startswith("#"):
@@ -139,8 +162,6 @@ def drawn_views(out_dir: Path, layout_dir: Path | None, stills: dict):
     img = lit.render_lit(kit, layout, [0, 0, cols * 16, rows * 16], 1)
     strip = np.asarray(img.convert("L"), dtype=np.float32)
     torches = [(p["x"], p["y"]) for p in layout["piece_layers"]["prop"] if p["piece"] == "torch_wall"]
-    lines = ["# still_name view_left view_top (landmarks: the kit's lit model slid over the still's wall rows; "
-             "flame check: |measured - predicted| of the torch flame centres, flame centre = placement x + 7.5)"]
     for name, f in sorted(stills.items()):
         still = out_dir / f"scene_{name}_640x360.png"
         left, top, err = locate(strip, still)
@@ -150,7 +171,6 @@ def drawn_views(out_dir: Path, layout_dir: Path | None, stills: dict):
         note = (f" torch_flames={len(marks)} mean_offset={sum(off) / len(off):+.2f}px max_abs={max(abs(o) for o in off):.2f}px"
                 if off else " torch_flames=0")
         lines.append(f"{name} {left} {top} trimmed_abs_err={err:.2f}{note}")
-    cache.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return views, (kit, layout)
 
 
@@ -179,6 +199,8 @@ def contact(pieces, scale: int, labels: bool, width: int = 560) -> Image.Image:
 
 
 def layout_diagram(still: Path, view: tuple, sizes: dict) -> Image.Image:
+    """The room schema at 2x over a still. Every label sits in a staggered band under the HUD (never over an actor
+    or a piece), on a dark plate with a tick down to what it names; the two line legends are at the bottom."""
     left, top = view
     img = Image.open(still).convert("RGBA").resize((1280, 720), Image.NEAREST)
     d = ImageDraw.Draw(img)
@@ -189,19 +211,20 @@ def layout_diagram(still: Path, view: tuple, sizes: dict) -> Image.Image:
     def sy(y):
         return (y - top) * 2
 
-    for y, label, col in ((580, "walking line W 580", (120, 255, 120)), (560, "floor back line 560", (120, 200, 255))):
+    labels: list[tuple[int, str, tuple]] = []           # (screen x, text, colour)
+    for y, col in ((580, (120, 255, 120)), (560, (120, 200, 255))):
         d.line((0, sy(y), 1279, sy(y)), fill=col + (255,), width=1)
-        d.text((560, sy(y) - 12), label, fill=col + (255,))
     for a, b in OPENINGS:
         bricked = (a, b) in BRICKED
         if not bricked:
             d.rectangle((sx(a), sy(304), sx(b + 1) - 1, sy(544)), outline=(90, 160, 255, 150))
             d.line((sx(a), sy(520), sx(b + 1) - 1, sy(520)), fill=(90, 160, 255, 220))
-            d.text((sx(a) + 3, sy(520) + 2), f"opening {a}..{b}: props start at y 520", fill=(120, 180, 255, 255))
+            labels.append((sx(a), f"open window {a}..{b}: props from y 520", (120, 180, 255, 255)))
         else:
             d.rectangle((sx(a - 8), sy(352), sx(b + 49) - 1, sy(560) - 1), outline=(255, 120, 90, 150))
-            d.text((sx(a - 8) + 3, sy(560) - 12), f"bricked: backwall_fill {a - 8}..{b + 48}, y 352..559",
-                   fill=(255, 150, 120, 255))
+            labels.append((sx(a - 8), f"bricked: fill {a - 8}..{b + 48}, y 352..559", (255, 150, 120, 255)))
+    runs = {("trog_step_end_l", 352): "refuge face 352..415", ("trog_step_end_l", 1840): "bell step face 1840..1903",
+            ("trog_shelf48_end_l", 288): "retreat shelf face 288..351", ("gym_mat_a", 760): "mats 760..903"}
     for p in trog.dressing()[ROOM]["place"]:
         w, h = sizes[p["piece"]]
         x0, y0 = sx(p["x"]), sy(p["y"])
@@ -209,15 +232,31 @@ def layout_diagram(still: Path, view: tuple, sizes: dict) -> Image.Image:
             continue
         col = {"backwall_decal": (255, 90, 60, 255), "prop": (255, 210, 90, 255)}.get(p["layer"], (200, 160, 70, 255))
         d.rectangle((x0, y0, x0 + w * 2 - 1, y0 + h * 2 - 1), outline=col)
-        if p["piece"].startswith("trog_step_"):                 # one label per run, on its left end
-            if p["piece"] == "trog_step_end_l":
-                name = "refuge face 352..415" if p["x"] < 1000 else "bell step face 1840..1903"
-                d.text((x0, y0 - 12), name, fill=col)
+        if p["piece"].startswith(("trog_step_", "trog_shelf48_", "gym_mat")):     # one label per run
+            if (p["piece"], p["x"]) in runs:
+                labels.append((x0, runs[(p["piece"], p["x"])], col))
         elif w * h >= 400:
-            d.text((x0 + 3, y0 + 3), p["piece"], fill=col)
+            labels.append((x0, p["piece"], col))
     for key, (_, x) in TROGS.items():
         d.line((sx(x), sy(520), sx(x), sy(580)), fill=(255, 255, 255, 200))
-        d.text((sx(x) + 3, sy(520)), f"{key} spawn x {x}", fill=(255, 255, 255, 255))
+        labels.append((sx(x), f"{key} spawn x {x}", (255, 255, 255, 255)))
+    # the band: rows of 13 px from y 120, a label's row is the first whose last label ends 6 px before its x
+    ends: list[int] = []
+    for x, text, col in sorted(labels):
+        if x > 1279:
+            continue
+        x = max(x, 2)
+        w = int(d.textlength(text)) + 6
+        row = next((i for i, e in enumerate(ends) if x >= e + 6), len(ends))
+        if row == len(ends):
+            ends.append(0)
+        ends[row] = x + w
+        y = 120 + row * 13
+        d.rectangle((x, y, x + w, y + 11), fill=(10, 8, 14, 215))
+        d.text((x + 3, y), text, fill=col)
+        d.line((x, y + 12, x, y + 16), fill=col)
+    for i, (text, col) in enumerate((("walking line W 580", (120, 255, 120)), ("floor back line 560", (120, 200, 255)))):
+        d.text((8, 676 + i * 13), text, fill=col + (255,))
     return img
 
 
@@ -352,14 +391,14 @@ def trog_mask(species: str, frame_index: int, mirrored: bool) -> Image.Image:
     return fr.transpose(Image.FLIP_LEFT_RIGHT) if mirrored else fr
 
 
-def lit_read(out_dir: Path, stills: dict, views: dict, room) -> list[str]:
+def lit_read(out_dir: Path, stills: dict, views: dict, room, header: bool = True):
     """TROG-ART-A12 on the real stills (spec 10.1, gate note G6): the sleeping troglodytes' actor L* and edge
     contrast (`lookdev_compose.readability`, ring 6) and every in-view dressing piece's lit mean L*, measured on the
     window still over the pixels the lit model explains (no actor, HUD or effect pixels)."""
     from lookdev_compose import readability  # noqa: PLC0415
     import env_kit_light as el  # noqa: PLC0415
     kit, layout = room
-    lines = ["# TROG-ART-A12 (spec 10.1, gate note G6) measured on the real 640x360 window stills",
+    head = ["# TROG-ART-A12 (spec 10.1, gate note G6) measured on the real 640x360 window stills",
              "# actor L* and edge_dL: lookdev_compose.readability(still, mask, box, ring=6); the troglodyte's pose and",
              "# position are not logged, so the mask is the species' atlas frame (both facings) that best matches the",
              "# still (masked normalised cross-correlation, ncc >= 0.55); a living troglodyte counts when >= 50 % of its",
@@ -370,7 +409,12 @@ def lit_read(out_dir: Path, stills: dict, views: dict, room) -> list[str]:
              "# attack and walk poses are measured and reported, not gated",
              "# verdict per piece: PASS (<= the lowest in-view troglodyte's actor L*), NOTE (key piece within 2.0 L*,",
              "# a non-blocking owner note tied to TROG-ART-Q6), FAIL"]
-    placed = [(n, it) for n, items in layout["piece_layers"].items() for it in items if it["piece"].startswith("trog_")]
+    lines = head if header else []
+    lines.append(f"## room {ROOM}")
+    counted = CFG[ROOM]["counted"]
+    # every new or reused dressing piece in view; the emissive cold tube is excluded (spec 10.1)
+    placed = [(n, it) for n, items in layout["piece_layers"].items() for it in items
+              if it["piece"].startswith(counted) and it["piece"] != "gym_fluoro_cold"]
     vis_cache = {}
     overview = []
     worst = {"pieces": [], "edge": []}
@@ -474,12 +518,12 @@ def lit_read(out_dir: Path, stills: dict, views: dict, room) -> list[str]:
         overview.append((name, still_img, occluders))
     if worst["pieces"]:
         margin, name, pid, verdict = max(worst["pieces"])
-        lines.append(f"summary: thinnest piece margin on the gated stills: {pid} in {name}: {margin:+.1f} L* "
+        lines.append(f"summary {ROOM}: thinnest piece margin on the gated stills: {pid} in {name}: {margin:+.1f} L* "
                      f"(<= 0 passes) {verdict}")
     if worst["edge"]:
         e, name, sp = min(worst["edge"])
-        lines.append(f"summary: lowest troglodyte edge_dL on the gated stills: {e} ({sp} in {name}; >= 15 passes)")
-    # the masks over the stills (x2), for review
+        lines.append(f"summary {ROOM}: lowest troglodyte edge_dL on the gated stills: {e} ({sp} in {name}; >= 15 passes)")
+    # the masks over the stills (x2), for review (the caller joins the rooms' cells)
     cells = []
     for name, im, masks in overview:
         if not masks:
@@ -493,12 +537,7 @@ def lit_read(out_dir: Path, stills: dict, views: dict, room) -> list[str]:
                 d.point((int(x), int(y)), fill=(0, 255, 120, 255))
         d.text((8, 8), name, fill=(255, 255, 0, 255))
         cells.append(big)
-    if cells:
-        sheet = Image.new("RGBA", (VIEW_W * 2 * 2 + 8, (VIEW_H * 2 + 8) * ((len(cells) + 1) // 2)), BG)
-        for i, c in enumerate(cells):
-            sheet.alpha_composite(c, ((i % 2) * (VIEW_W * 2 + 8), (i // 2) * (VIEW_H * 2 + 8)))
-        sheet.convert("RGB").save(out_dir / "lit_read_masks_x2.png")
-    return lines
+    return lines, cells
 
 
 # ------------------------------------------------------------------------------------------- main
@@ -510,25 +549,42 @@ def main(argv: list[str]) -> int:
     listed = list(imgs)
     contact([(p, imgs[p]) for p in listed], 1, False).save(out_dir / "contact_sheet_x1.png")
     contact([(p, imgs[p]) for p in listed], 4, True, 360).save(out_dir / "contact_sheet_x4.png")
-    stills = stills_of(out_dir)
-    views, room = drawn_views(out_dir, layout_dir, stills)
-    meas = ["# AREA-TROG-01 stage 1 execution measurements (scripts/make_trogarea01_sheets.py)"]
+    all_stills = stills_of(out_dir)
+    meas = ["# AREA-TROG-01 stages 1 and 2 execution measurements (scripts/make_trogarea01_sheets.py)"]
     for pid in trog.EXEC_PIECES:
         img = pieces[pid]
         cols = {p for row in img.px for p in row if p}
         n = sum(1 for row in img.px for p in row if p)
         meas.append(f"{pid} {img.w}x{img.h} opaque={n} colours={len(cols)} mean_luma={trog.mean_luma(img):.1f}")
-    if room is not None:
+    dv = ["# still_name view_left view_top (landmarks: the kit's lit model slid over the still's wall rows; "
+          "flame check: |measured - predicted| of the torch flame centres, flame centre = placement x + 7.5)"]
+    lit_lines, cells, first = [], [], True
+    for room_id in CFG:
+        use_room(room_id)
+        stills = {n: f for n, f in all_stills.items() if f["room"] == room_id}
+        views, room = drawn_views(out_dir, layout_dir, stills, dv)
+        if room is None:
+            continue
         kit, layout = room
-        sizes = {p["id"]: p["rect"][2:] for p in json.loads(CONTRACT.read_text(encoding="utf-8"))["pieces"]}
-        for name in ("t0_spawn", "pygmy_land", "basher_dormant", "virtuoso_dormant"):
+        sizes = {pid: d["rect"][2:] for pid, d in kit.pieces.items()}
+        for name in CFG[room_id]["diagrams"]:
             if name in views:
                 layout_diagram(out_dir / f"scene_{name}_640x360.png", views[name], sizes).save(
                     out_dir / f"layout_diagram_{name}_x2.png")
         meas += visibility(kit, layout)
         if views:
-            (out_dir / "lit_read.txt").write_text("\n".join(lit_read(out_dir, stills, views, room)) + "\n",
-                                                  encoding="utf-8")
+            lines, c = lit_read(out_dir, stills, views, room, header=first)
+            lit_lines += lines
+            cells += c
+            first = False
+    if layout_dir is not None:
+        (out_dir / "drawn_views.txt").write_text("\n".join(dv) + "\n", encoding="utf-8")
+        (out_dir / "lit_read.txt").write_text("\n".join(lit_lines) + "\n", encoding="utf-8")
+        if cells:
+            sheet = Image.new("RGBA", (VIEW_W * 2 * 2 + 8, (VIEW_H * 2 + 8) * ((len(cells) + 1) // 2)), BG)
+            for i, c in enumerate(cells):
+                sheet.alpha_composite(c, ((i % 2) * (VIEW_W * 2 + 8), (i // 2) * (VIEW_H * 2 + 8)))
+            sheet.convert("RGB").save(out_dir / "lit_read_masks_x2.png")
     meas += [f"KEY {pid} sha256={sha}" for pid, sha in trog.key_sha().items()]
     (out_dir / "measurements.txt").write_text("\n".join(meas) + "\n", encoding="utf-8")
     return 0

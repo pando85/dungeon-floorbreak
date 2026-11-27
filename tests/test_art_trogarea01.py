@@ -1,7 +1,7 @@
-"""AREA-TROG-01 stage 1: the troglodyte run (`trog_run`) kit of Floor 01 (sources, contract, manifests, sizes, palette,
-the dressing, the sixteen frozen key frames, the step faces, the window rule and the evidence numbers). Stage 2
-(`trog_strength`: the shelf, the threshold, the shards, the bench and its debris presenter) is not wired yet; its key
-frames are still pinned here because the design gate froze them with the run's."""
+"""AREA-TROG-01 stages 1 and 2: the troglodyte run (`trog_run`) and the Test of Strength (`trog_strength`) kit of Floor 01
+(sources, contract, manifests, sizes, palette, the dressing, the sixteen frozen key frames, the step and shelf faces, the
+window rule and the evidence numbers). The bench is the intact key placed statically (TROG-ART-AD-S2); the weakened,
+broken and debris keys are pinned but reserved for TROG-Q14 and neither packed nor wired."""
 import hashlib
 import json
 import re
@@ -21,6 +21,8 @@ EVIDENCE = ROOT / "docs/evidence/area-trog-01"
 SIZES = {
     "trog_fist_hole": (64, 80), "trog_bell": (40, 64), "trog_knuckle_marks": (96, 40), "trog_slam_crack": (48, 48),
     "trog_impact_crater": (72, 20), "trog_step_mid": (16, 32), "trog_step_end_l": (8, 32), "trog_step_end_r": (8, 32),
+    "trog_threshold": (80, 19), "trog_mirror_shards": (96, 74), "trog_bench_intact": (32, 80),
+    "trog_shelf48_mid": (16, 48), "trog_shelf48_end_l": (8, 48), "trog_shelf48_end_r": (8, 48),
 }
 # The sixteen key frames: frozen at the silhouette gate (gate/measurements.txt `KEY` lines). A key change is a design change.
 KEY_SHA = {
@@ -46,8 +48,12 @@ EXEC_SHA = {
     "trog_step_mid": "2e70563f39ea970b21f39fd23be2dc1049680df67f309e1d9dd80b210801175f",
     "trog_step_end_l": "8178d79ebbc27aeebc3525a283fe1f9994292969deb484aba7def91c27614ae6",
     "trog_step_end_r": "3ea26498d84c8c4b4552088fcdc173a9d361f0300c7925feb888f85db1e24754",
+    "trog_shelf48_mid": "323a5459390f50822da22c350b06e9f9cdec024d0398f20446c39e411901b302",
+    "trog_shelf48_end_l": "c5a33c888bc65163ed45d829ece07a375b5b390bb631710c5dacce7ed55af9b3",
+    "trog_shelf48_end_r": "16bb1a5a72a65d9026a7e9c13e64098e216ad56b24649a2ccce5cee459199172",
 }
-OPEN = [(520, 671), (856, 1007), (1528, 1679), (2024, 2175)]        # the openings that are not bricked up
+OPEN = [(520, 671), (856, 1007), (1528, 1679), (2024, 2175)]        # the run's openings that are not bricked up
+OPEN_STRENGTH = [(56, 207), (392, 543)]                             # the strength room's (bay 3, 728..879, is bricked)
 
 
 def load(path):
@@ -56,6 +62,12 @@ def load(path):
 
 def sha(img) -> str:
     return hashlib.sha256(json.dumps(img.px).encode()).hexdigest()
+
+
+def opaque_bbox(img):
+    pts = [(x, y) for y in range(img.h) for x in range(img.w) if img.px[y][x] is not None]
+    xs, ys = [p[0] for p in pts], [p[1] for p in pts]
+    return min(xs), max(xs), min(ys), max(ys)
 
 
 def gate_pins() -> dict:
@@ -172,8 +184,8 @@ class TrogKitTest(unittest.TestCase):
         for inherited in ("palette_id", "palette", "palette_policy", "tile_size", "coordinate_system", "layers",
                           "actor_draw_order", "actor_light_group", "roles", "walk_line", "lighting"):
             self.assertNotIn(inherited, kit)
-        self.assertNotIn("state_groups", kit, "stage 1: the bench and its debris are stage 2")
-        self.assertEqual(set(kit["room_dressing"]), {"trog_run"}, "stage 1 dresses trog_run only")
+        self.assertNotIn("state_groups", kit, "the bench is a static placement: no partition, no state group")
+        self.assertEqual(set(kit["room_dressing"]), {"trog_run", "trog_strength"})
         for p in kit["pieces"]:
             self.assertFalse(p["collidable"], p["id"])
             self.assertEqual(p["anchor"], [0, 0], p["id"])
@@ -182,11 +194,12 @@ class TrogKitTest(unittest.TestCase):
             self.assertRegex(a["manifest"], r"floor01_trog_")
         layers = {p["id"]: p["layer"] for p in kit["pieces"]}
         self.assertEqual({k for k, v in layers.items() if v == "structure"},
-                         {"trog_impact_crater", "trog_step_mid", "trog_step_end_l", "trog_step_end_r"},
+                         {"trog_impact_crater", "trog_step_mid", "trog_step_end_l", "trog_step_end_r", "trog_threshold",
+                          "trog_shelf48_mid", "trog_shelf48_end_l", "trog_shelf48_end_r"},
                          "the floor pieces draw above the collision deck")
         self.assertEqual({k for k, v in layers.items() if v == "backwall_decal"},
-                         {"trog_fist_hole", "trog_knuckle_marks", "trog_slam_crack"})
-        self.assertEqual(layers["trog_bell"], "prop")
+                         {"trog_fist_hole", "trog_knuckle_marks", "trog_slam_crack", "trog_mirror_shards"})
+        self.assertEqual({k for k, v in layers.items() if v == "prop"}, {"trog_bell", "trog_bench_intact"})
 
     def test_the_dressing_is_the_spec_sections_4_and_5(self):
         d = load(CONTRACT)["room_dressing"]["trog_run"]
@@ -213,10 +226,50 @@ class TrogKitTest(unittest.TestCase):
             self.assertIn(("trog_step_end_r", x0 + 56, 548), at)
         self.assertEqual(len(d["place"]), 15)
 
-    def test_the_stage_2_room_is_not_dressed_here(self):
-        text = (ROOT / "assets/source/terrain/floor01/floor01_trog_kit.json").read_text(encoding="utf-8")
-        for stage2 in ("trog_strength", "trog_bench", "trog_threshold", "trog_mirror_shards", "trog_shelf48"):
-            self.assertNotIn(stage2, text, stage2)
+    def test_the_strength_dressing_is_the_spec_sections_4_and_5(self):
+        d = load(CONTRACT)["room_dressing"]["trog_strength"]
+        self.assertEqual({(r["layer"], r["piece"], r["x"], r["y"]) for r in d["remove_at"]},
+                         set(trog.STRENGTH_REMOVE_AT))
+        self.assertEqual({(r["layer"], r["piece"], r["x"], r["y"]) for r in d["remove_at"]},
+                         {("structure", "arch_chain", 768, 384), ("structure", "arch_threshold", 752, 544),
+                          ("prop", "torch_wall", 48, 432), ("backwall_decal", "torch_pool_a_m", -56, 348),
+                          ("prop", "torch_wall", 960, 432), ("backwall_decal", "torch_pool_b", 856, 348),
+                          ("prop", "torch_wall", 664, 432), ("backwall_decal", "torch_pool_a", 560, 348),
+                          ("prop", "torch_wall", 328, 432), ("backwall_decal", "torch_pool_b", 224, 348)})
+        self.assertEqual(d["backwall_fill"], [{"x": 720, "y": 352, "w": 208, "h": 208}])
+        self.assertEqual(d["parallax"], {})
+        order = ["backwall_decal", "structure", "prop"]
+        layers = [p["layer"] for p in d["place"]]
+        self.assertEqual(layers, sorted(layers, key=order.index), "backwall decals, then structure, then props")
+        girders = [p["x"] for p in d["place"] if p["piece"] == "gym_girder"]
+        self.assertEqual(girders, [892, 756, 788, 820, 852, 884], "the first girder, drawn under the last, closes the gap")
+        props = [(p["piece"], p["x"], p["y"]) for p in d["place"] if p["layer"] == "prop"]
+        self.assertEqual(props, [("trog_bench_intact", 640, 500), ("gym_dumbbell_rack", 812, 532),
+                                 ("gym_fluoro_cold", 820, 450), ("gym_plate_tree", 892, 524)])
+        at = {(p["piece"], p["x"], p["y"]) for p in d["place"]}
+        for want in (("trog_mirror_shards", 792, 470), ("trog_threshold", 672, 561), ("gym_mat_a", 760, 561),
+                     ("gym_mat_b", 808, 561), ("gym_mat_a", 856, 561), ("trog_shelf48_end_l", 288, 532),
+                     ("trog_shelf48_end_r", 344, 532)):
+            self.assertIn(want, at)
+        for k in (8, 24, 40):
+            self.assertIn(("trog_shelf48_mid", 288 + k, 532), at)
+        self.assertEqual(len(d["place"]), 20)
+
+    def test_the_bench_is_one_static_key_and_the_other_bench_keys_are_reserved(self):
+        """TROG-ART-AD-S2: the bench is the intact key placed at the sidecar static's origin; the weakened, broken and
+        debris keys stay pinned (TROG-ART-A10) and are neither packed into an atlas nor named in the contract."""
+        enc = load(ROOT / "assets/levels/floor01/f01_trog_strength.encounter.json")
+        statics = {s["id"]: s["rect"] for s in enc["statics"]}
+        self.assertEqual(statics["bench"], {"x": 640, "y": 500, "w": 32, "h": 80})
+        self.assertEqual(statics["shelf"], {"x": 288, "y": 532, "w": 64, "h": 48})
+        x0, x1, y0, y1 = opaque_bbox(self.pieces["trog_bench_intact"])
+        self.assertEqual((640 + x0, 500 + y0, x1 - x0 + 1, y1 - y0 + 1), (640, 500, 32, 80))
+        text = CONTRACT.read_text(encoding="utf-8")
+        for reserved in ("trog_bench_weakened", "trog_bench_broken", "trog_bench_debris"):
+            self.assertNotIn(reserved, text, reserved)
+            self.assertNotIn(reserved, self.pieces)
+        d = load(CONTRACT)["room_dressing"]["trog_strength"]
+        self.assertEqual([p["piece"] for p in d["place"] if p["piece"].startswith("trog_bench")], ["trog_bench_intact"])
 
     # ------------------------------------------------------------------------------ the step faces (spec section 5)
     def test_every_step_piece_has_one_transparent_pixel_and_no_bright_stone_below_the_arris(self):
@@ -243,6 +296,19 @@ class TrogKitTest(unittest.TestCase):
                     self.assertEqual(q, ("stone", max(0, b[1] - 1)))
                 else:
                     self.assertEqual(q, b)
+
+    def test_the_shelf_run_is_the_sidecars_static_and_the_shelf_mid_has_three_courses(self):
+        x = trog.SHELF_RUN[0]
+        widths = {"trog_shelf48_end_l": 8, "trog_shelf48_end_r": 8, "trog_shelf48_mid": 16}
+        for _, pid, px, py in trog._shelf_run(*trog.SHELF_RUN):
+            self.assertEqual((px, py), (x, 532))
+            x += widths[pid]
+        self.assertEqual(x, 288 + 64)
+        self.assertEqual(trog.SHELF_RUN[1] + 48, trog.FLOOR_Y)
+        mid = self.pieces["trog_shelf48_mid"]
+        self.assertEqual((mid.w, mid.h), (16, 48))
+        for y in (22, 35):                                           # the bed joints of the three courses
+            self.assertTrue(all(p == ("mortar", 1) for p in mid.px[y] if p is not None), y)
 
     def test_the_step_runs_are_the_sidecars_statics(self):
         enc = load(ROOT / "assets/levels/floor01/f01_trog_run.encounter.json")
@@ -286,6 +352,18 @@ class TrogKitTest(unittest.TestCase):
                     for a, b in OPEN:
                         self.assertFalse(a <= p["x"] + x <= b, (p["piece"], x, y))
 
+    def test_no_strength_prop_pixel_stands_in_an_open_window_above_y_520(self):
+        for p in load(CONTRACT)["room_dressing"]["trog_strength"]["place"]:
+            if p["layer"] != "prop" or p["piece"] not in self.pieces:
+                continue
+            img = self.pieces[p["piece"]]
+            for y in range(img.h):
+                for x in range(img.w):
+                    if img.px[y][x] is None or p["y"] + y >= 520:
+                        continue
+                    for a, b in OPEN_STRENGTH:
+                        self.assertFalse(a <= p["x"] + x <= b, (p["piece"], x, y))
+
     def test_floor_pieces_are_structure_and_the_crater_is_inside_an_opening(self):
         contract = load(CONTRACT)
         layer = {p["id"]: p["layer"] for p in contract["pieces"]}
@@ -306,7 +384,7 @@ class TrogKitTest(unittest.TestCase):
             self.skipTest("the evidence has not been generated")
         text = meas.read_text(encoding="utf-8")
         vis = [l for l in text.splitlines() if l.startswith("visibility ")]
-        self.assertEqual(len(vis), 15, "one line per placed trog_ piece")
+        self.assertEqual(len(vis), 15 + 8, "one line per placed trog_ piece: 15 in the run, 8 in the strength room")
         for line in vis:
             self.assertTrue(line.endswith(" ok"), line)
             self.assertIn("backwall_null_px=0", line)
@@ -323,6 +401,7 @@ class TrogKitTest(unittest.TestCase):
             self.assertIn(" hash_match=yes ", line, line)
             self.assertIn(" passes_byte_identical=yes ", line, line)
             self.assertNotIn(" troga_match=no ", line, line)
+            self.assertNotIn(" trogb_match=no ", line, line)
 
 
 if __name__ == "__main__":
