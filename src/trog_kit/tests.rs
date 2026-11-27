@@ -634,13 +634,14 @@ fn strength_the_dressing_does_not_change_the_state_hash() {
     assert_eq!(hashes(true), plain);
 }
 
-/// TROG-ART-A3 for the strength room: eight `remove_at`, each dropping exactly one composer piece
+/// TROG-ART-A3 for the strength room: ten `remove_at`, each dropping exactly one composer piece
 /// (bay 3's chain and blue sill, the two end torches with their pools, the torch above the bench with
-/// its pool, gate note G1); `dress_with` reports zero unmatched.
+/// its pool, gate note G1, and the torch above the shelf with its pool, TROG-ART-AD-S7);
+/// `dress_with` reports zero unmatched.
 #[test]
 fn strength_every_remove_at_matches_exactly_one_piece() {
     let d = strength_dressing();
-    assert_eq!(d.remove_at.len(), 8);
+    assert_eq!(d.remove_at.len(), 10);
     let (plain, dressed) = kits_of(STRENGTH);
     for r in &d.remove_at {
         let count = |kit: &EnvKit| {
@@ -684,14 +685,17 @@ fn strength_every_remove_at_matches_exactly_one_piece() {
             .iter()
             .any(|p| p.piece == "arch_threshold" && (p.x, p.y) == (752, 544))
     );
-    // G1: no remaining torch flame column stands over the bench.
+    // G1 and AD-S7: no remaining torch flame column stands over the bench (x 640..671) or the shelf
+    // (x 288..351), the two standing surfaces a hero can be on.
     for t in dressed.pieces.iter().filter(|p| p.piece == "torch_wall") {
-        assert!(
-            t.x + 16 <= 640 || t.x >= 672,
-            "a torch at ({}, {}) stands over the bench",
-            t.x,
-            t.y
-        );
+        for (name, x0, x1) in [("bench", 640, 672), ("shelf", 288, 352)] {
+            assert!(
+                t.x + 16 <= x0 || t.x >= x1,
+                "a torch at ({}, {}) stands over the {name}",
+                t.x,
+                t.y
+            );
+        }
     }
 }
 
@@ -938,7 +942,7 @@ fn strength_no_prop_in_an_open_window_and_no_covered_torch() {
     }
 }
 
-/// TROG-ART-A7 for the strength room: minus three torches (a flame and a pool each), plus the cold
+/// TROG-ART-A7 for the strength room: minus four torches (a flame and a pool each), plus the cold
 /// tube's two lights; the worst 640 px view stays within `MAX_LIGHTS`.
 #[test]
 fn strength_the_lights_stay_inside_the_light_budget() {
@@ -949,9 +953,9 @@ fn strength_the_lights_stay_inside_the_light_budget() {
     let tubes = d.emitters.iter().filter(|e| e.id.contains("tube")).count();
     assert_eq!(tubes, 2, "the cold tube emits two lights");
     assert_eq!(
-        d.emitters.len() + 6,
+        d.emitters.len() + 8,
         p.emitters.len() + tubes,
-        "minus 6 (three torches), plus the tube"
+        "minus 8 (four torches), plus the tube"
     );
     let view = *dressed.views.values().next().unwrap();
     let mut worst = 0;

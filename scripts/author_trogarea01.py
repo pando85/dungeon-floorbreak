@@ -1226,6 +1226,7 @@ STRENGTH_REMOVE_AT = [
     ("prop", "torch_wall", 48, 432), ("backwall_decal", "torch_pool_a_m", -56, 348),  # the doubled end torches (AD7)
     ("prop", "torch_wall", 960, 432), ("backwall_decal", "torch_pool_b", 856, 348),
     ("prop", "torch_wall", 664, 432), ("backwall_decal", "torch_pool_a", 560, 348),   # G1: the torch above the bench
+    ("prop", "torch_wall", 328, 432), ("backwall_decal", "torch_pool_b", 224, 348),   # AD-S7: G1 again, over the shelf
 ]
 STRENGTH_FILL = [{"x": 720, "y": 352, "w": 208, "h": 208}]
 

@@ -234,7 +234,8 @@ class TrogKitTest(unittest.TestCase):
                          {("structure", "arch_chain", 768, 384), ("structure", "arch_threshold", 752, 544),
                           ("prop", "torch_wall", 48, 432), ("backwall_decal", "torch_pool_a_m", -56, 348),
                           ("prop", "torch_wall", 960, 432), ("backwall_decal", "torch_pool_b", 856, 348),
-                          ("prop", "torch_wall", 664, 432), ("backwall_decal", "torch_pool_a", 560, 348)})
+                          ("prop", "torch_wall", 664, 432), ("backwall_decal", "torch_pool_a", 560, 348),
+                          ("prop", "torch_wall", 328, 432), ("backwall_decal", "torch_pool_b", 224, 348)})
         self.assertEqual(d["backwall_fill"], [{"x": 720, "y": 352, "w": 208, "h": 208}])
         self.assertEqual(d["parallax"], {})
         order = ["backwall_decal", "structure", "prop"]

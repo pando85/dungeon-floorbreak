@@ -199,6 +199,8 @@ def contact(pieces, scale: int, labels: bool, width: int = 560) -> Image.Image:
 
 
 def layout_diagram(still: Path, view: tuple, sizes: dict) -> Image.Image:
+    """The room schema at 2x over a still. Every label sits in a staggered band under the HUD (never over an actor
+    or a piece), on a dark plate with a tick down to what it names; the two line legends are at the bottom."""
     left, top = view
     img = Image.open(still).convert("RGBA").resize((1280, 720), Image.NEAREST)
     d = ImageDraw.Draw(img)
@@ -209,19 +211,20 @@ def layout_diagram(still: Path, view: tuple, sizes: dict) -> Image.Image:
     def sy(y):
         return (y - top) * 2
 
-    for y, label, col in ((580, "walking line W 580", (120, 255, 120)), (560, "floor back line 560", (120, 200, 255))):
+    labels: list[tuple[int, str, tuple]] = []           # (screen x, text, colour)
+    for y, col in ((580, (120, 255, 120)), (560, (120, 200, 255))):
         d.line((0, sy(y), 1279, sy(y)), fill=col + (255,), width=1)
-        d.text((560, sy(y) - 12), label, fill=col + (255,))
     for a, b in OPENINGS:
         bricked = (a, b) in BRICKED
         if not bricked:
             d.rectangle((sx(a), sy(304), sx(b + 1) - 1, sy(544)), outline=(90, 160, 255, 150))
             d.line((sx(a), sy(520), sx(b + 1) - 1, sy(520)), fill=(90, 160, 255, 220))
-            d.text((sx(a) + 3, sy(520) + 2), f"opening {a}..{b}: props start at y 520", fill=(120, 180, 255, 255))
+            labels.append((sx(a), f"open window {a}..{b}: props from y 520", (120, 180, 255, 255)))
         else:
             d.rectangle((sx(a - 8), sy(352), sx(b + 49) - 1, sy(560) - 1), outline=(255, 120, 90, 150))
-            d.text((sx(a - 8) + 3, sy(560) - 12), f"bricked: backwall_fill {a - 8}..{b + 48}, y 352..559",
-                   fill=(255, 150, 120, 255))
+            labels.append((sx(a - 8), f"bricked: fill {a - 8}..{b + 48}, y 352..559", (255, 150, 120, 255)))
+    runs = {("trog_step_end_l", 352): "refuge face 352..415", ("trog_step_end_l", 1840): "bell step face 1840..1903",
+            ("trog_shelf48_end_l", 288): "retreat shelf face 288..351", ("gym_mat_a", 760): "mats 760..903"}
     for p in trog.dressing()[ROOM]["place"]:
         w, h = sizes[p["piece"]]
         x0, y0 = sx(p["x"]), sy(p["y"])
@@ -230,16 +233,30 @@ def layout_diagram(still: Path, view: tuple, sizes: dict) -> Image.Image:
         col = {"backwall_decal": (255, 90, 60, 255), "prop": (255, 210, 90, 255)}.get(p["layer"], (200, 160, 70, 255))
         d.rectangle((x0, y0, x0 + w * 2 - 1, y0 + h * 2 - 1), outline=col)
         if p["piece"].startswith(("trog_step_", "trog_shelf48_", "gym_mat")):     # one label per run
-            name = {("trog_step_end_l", 352): "refuge face 352..415", ("trog_step_end_l", 1840): "bell step face 1840..1903",
-                    ("trog_shelf48_end_l", 288): "retreat shelf face 288..351", ("gym_mat_a", 760): "mats 760..903"}.get(
-                (p["piece"], p["x"]))
-            if name:
-                d.text((x0, y0 - 12), name, fill=col)
+            if (p["piece"], p["x"]) in runs:
+                labels.append((x0, runs[(p["piece"], p["x"])], col))
         elif w * h >= 400:
-            d.text((x0 + 3, y0 + 3), p["piece"], fill=col)
+            labels.append((x0, p["piece"], col))
     for key, (_, x) in TROGS.items():
         d.line((sx(x), sy(520), sx(x), sy(580)), fill=(255, 255, 255, 200))
-        d.text((sx(x) + 3, sy(520)), f"{key} spawn x {x}", fill=(255, 255, 255, 255))
+        labels.append((sx(x), f"{key} spawn x {x}", (255, 255, 255, 255)))
+    # the band: rows of 13 px from y 120, a label's row is the first whose last label ends 6 px before its x
+    ends: list[int] = []
+    for x, text, col in sorted(labels):
+        if x > 1279:
+            continue
+        x = max(x, 2)
+        w = int(d.textlength(text)) + 6
+        row = next((i for i, e in enumerate(ends) if x >= e + 6), len(ends))
+        if row == len(ends):
+            ends.append(0)
+        ends[row] = x + w
+        y = 120 + row * 13
+        d.rectangle((x, y, x + w, y + 11), fill=(10, 8, 14, 215))
+        d.text((x + 3, y), text, fill=col)
+        d.line((x, y + 12, x, y + 16), fill=col)
+    for i, (text, col) in enumerate((("walking line W 580", (120, 255, 120)), ("floor back line 560", (120, 200, 255)))):
+        d.text((8, 676 + i * 13), text, fill=col + (255,))
     return img
 
 

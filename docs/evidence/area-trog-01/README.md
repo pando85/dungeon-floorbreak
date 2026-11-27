@@ -28,10 +28,10 @@ xvfb-run -a -s '-screen 0 1920x1080x24' floor01_scene --no-audio --no-record --s
 | `virtuoso_tell` | 870 | 1664, 292 | the feint, with the bell and the step |
 | `virtuoso_lash` | 893 | 1664, 292 | the lash |
 | `exit_open` | 960 | 1664, 292 | the troglodytes beaten (the downed Virtuoso is not counted in the lit read), the exit open |
-| `strength_open` | 30 (`trog_strength`) | 0, 292 | the Test of Strength's opening view: the 48 px retreat shelf's stone face, the bench stack beyond it, the Virtuoso asleep at 496 |
+| `strength_open` | 30 (`trog_strength`) | 0, 292 | the Test of Strength's opening view: the 48 px retreat shelf's stone face and the Virtuoso asleep at 496 (the view ends at x 639, so the bench, which starts at 640, is just off the right edge) |
 | `strength_virtuoso_tell` | 105 | 78, 292 | the Virtuoso's feint in front of the shelf |
-| `strength_bench_beside` | 230 | 231, 292 | Carl beside the intact bench; the threshold under its far side, the gym bay with the cold tube, the girders, the shards in their frame, the rack and the plate tree; the Basher asleep in front of the bay |
-| `strength_bench_climb` | 270 | 318, 292 | Carl on top of the bench |
+| `strength_bench_beside` | 230 | 231, 292 | Carl beside the intact bench; the threshold under its far side, the gym bay with the cold tube, the girders, the shards in their frame, the rack and the plate tree; the Basher asleep in front of the bay, the Virtuoso down at the left |
+| `strength_bench_climb` | 270 | 318, 292 | Carl landing on the bench top (his contact shadow is on the top) |
 | `strength_basher_tell` | 360 | 375, 292 | the Basher's overhead tell in front of the gym bay |
 | `strength_basher_smash` | 381 | 375, 292 | the smash |
 | `strength_exit_open` | 450 | 384, 292 | both defeated, the exit open |

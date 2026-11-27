@@ -41,8 +41,8 @@ mkdir -p "$caps" "$out"
 # their names (the strength stills are prefixed `strength_`): the hash must match theirs.
 #   t0_spawn          T0: the slam crack and the knuckle marks on bricked bay 1, the refuge face, Carl and Donut at the spawn
 #   *_dormant         a troglodyte asleep at its roster x (the gated stills of TROG-ART-A12)
-#   strength_open     the shelf face ahead, the bench beyond it, the Virtuoso asleep at 496
-#   strength_bench_*  Carl beside the bench, then on top of it: the threshold, the gym bay with the shards, the rack
+#   strength_open     the shelf face and the Virtuoso asleep at 496 (the bench, from x 640, is just off the right edge)
+#   strength_bench_*  Carl beside the bench, then landing on its top: the threshold, the gym bay with the shards, the rack
 stills=(
   trog_run:t0_spawn:20
   trog_run:pygmy_dormant:80
