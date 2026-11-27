@@ -30,6 +30,12 @@ Follow `AGENTS.md` and [the orchestration guide](agent-orchestration.md) (speed 
 - `src/bin/floor01_scene.rs`: the per-room dispatch (`RoomScene::Boss => ...`) and how the ledger `SceneKind` is chosen for a boss run.
 - `src/story_unlock.rs` and `assets/data/gameplay/story_unlocks_v0.json`: how `brute_boss_f01_defeated` is armed.
 - The `trog_eval` and `corral_eval` harnesses, which `bos_eval` copies.
+- **Room-18 plumbing (plan BOS-AD33):**
+  - `scripts/f01_run_smoke.sh`: the room-count default (17) and the `F01_BOS_SMOKE_OK` marker rule;
+  - `src/room_pilots.rs`: the per-room pilots (`juicer`, `mastery`);
+  - `src/playtrace/replay.rs`: the hard-coded "boss" source (`load_arena`, `BOSS01_SCENE`) and the label check `("boss", Some("juicer"))`;
+  - `story_setup` in `src/bin/floor01_scene.rs` (the `fixture == BOSS01_SCENE` test) and its replay twin.
+- Presentation: `src/hud_adapter.rs` (`EMBLEM_ASSET`), `src/boss_art.rs` (the sprite and the defeat presenter on `BOSS_ENEMY_ID`), `death.rs` (the species fallback).
 
 ### Coordination rules
 
@@ -51,12 +57,12 @@ Follow `AGENTS.md` and [the orchestration guide](agent-orchestration.md) (speed 
 |---|---|---|
 | 1 | `assets/data/bosses/ball_boss_f01.json` with the values of plan 5. `BossData` gains optional `arena.hero_right_wall_x` and `siege { warn_ticks, after_ticks, debris_damage, debris_launch }` | 5 |
 | 2 | Siege-gated alcove reachability, the `unreachable_ticks` counter, the warning notice, the siege flag on the charge, and debris on a siege crash | 6.1, 6.4 |
-| 3 | `boss_scene` builds the arena from the selected data: `hero_right_wall_x` drives the hero wall, the exit and `wall_block`; greybox arch outlines (no collision); the post and weight through the rack presenter; a 120x124 greybox ball body with a label | 4, 6.5 |
-| 4 | `RoomScene::Ball` (`"f01_ball"`) mapped to `RoomRules::Boss`; `--scene f01_ball` standalone; the run dispatch; ledger `SceneKind::F01Late` | 3 |
-| 5 | Manifest: room 18 `bos`, the story_order row, the appended `status` step, and `MANIFEST_HASH` re-pinned | 3, 10 |
-| 6 | `floor_end_panel`: the "FLOOR 1 CLEARED" heading after `bos`, plus the fact line from `hud.display_name` | 9.5 |
-| 7 | Fixtures F1..F16 | 9.2 |
-| 8 | `bos_eval` with rows G-0..G-5 and the validity rule | 9.3 |
+| 3 | `boss_scene` builds the arena from the selected data: `hero_right_wall_x` drives the hero wall, the exit and `wall_block`; greybox arch outlines (no collision); the post and weight through the rack presenter; a 120x124 greybox ball body with a label. The Juicer emblem, sprite and defeat presenter are **off** for `BossKind::Ball` (BOS-AD31) | 4, 6.5, 17 |
+| 4 | `RoomScene::Ball` (`"f01_ball"`) mapped to `RoomRules::Boss` (one new `check_rules` arm); `--scene f01_ball` standalone; the run dispatch with its **own fixture constant**; `story_setup` maps that fixture to `SceneKind::F01Late` with the mastery loadout; the replay's scene mapping matches; a `bos` pilot in `src/room_pilots.rs` | 3, BOS-AD33 |
+| 5 | Manifest: room 18 `bos`, the story_order row, the appended `status` step, and `MANIFEST_HASH` re-pinned; `scripts/f01_run_smoke.sh` default 18 and the `F01_BOS_SMOKE_OK` marker for `bos` (or a `juicer`-style exemption); the BOS-AD32 test data | 3, 10 |
+| 6 | `floor_end_panel`: the "FLOOR 1 CLEARED" heading after `bos`, plus the fact line from `hud.display_name`. The panel has no boss data today, so it reads the name from `boss::ball()` inside the function (no signature change) | 9.5 |
+| 7 | Fixtures F1..F18, including F8b, F17 (alcove edge) and F18 (PLAYTRACE `bos` round-trip, with `src/playtrace/replay.rs` gaining the Ball source and label; Juicer replay goldens unchanged) | 9.2 |
+| 8 | `bos_eval` with rows G-0..G-7 (G-6 and G-7 are solo, with the live M1 bot) and the validity rule. If G-6 or G-7 fails, switch on BOS-Q11 and record it | 9.3 |
 | 9 | Packet edits on lines 3, 7, 77, 83, 112 and 216, plus the new room-18 row and checklist item | 14 |
 | 10 | Evidence: a contact sheet or GIF of one bait-and-punish cycle, one siege, the weight drop, the exit opening and the floor-end panel, plus the `bos_eval` table and the F11 clear time in the PR body | |
 
@@ -65,10 +71,10 @@ Follow `AGENTS.md` and [the orchestration guide](agent-orchestration.md) (speed 
 - `cargo fmt --check`;
 - `cargo clippy --all-targets -- -D warnings`;
 - `cargo test`;
-- `bos_eval` (G-0 clears, and G-1..G-5 pass and are valid);
+- `bos_eval` (G-0 clears, and G-1..G-7 pass and are valid);
 - the existing Juicer, `trog_eval` and `corral_eval` evals still pass;
 - `python3 scripts/check_docs.py`;
-- a headless run smoke from `mastery` to the panel (F16).
+- `scripts/f01_run_smoke.sh` with 18 rooms, all `status=ok`, plus the in-process `on_exit(bos)` panel test (F16).
 
 ### Cut order (if BOS-A runs long)
 
