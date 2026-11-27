@@ -537,7 +537,10 @@ fn no_play_path_constructs_a_non_shipped_reflex_profile() {
 
 /// The CORRAL-AUTO evaluator (whose `off` variant builds the test-only reflex)
 /// is reachable only from its own binary and from tests: no play path names
-/// `corral_eval::` outside its `#[cfg(test)]` modules.
+/// `corral_eval::` outside its `#[cfg(test)]` modules. TROG-B's `trog_eval` is
+/// the second evaluator: it reuses the corral evaluator's `Evasion` variant and
+/// stationary policies, so its module and its binary are exempt like the
+/// corral's own, and are themselves reachable only from that binary and tests.
 #[test]
 fn only_the_evaluator_binary_and_tests_reach_the_corral_evaluator() {
     let mut stack = vec![root().join("src")];
@@ -549,12 +552,15 @@ fn only_the_evaluator_binary_and_tests_reach_the_corral_evaluator() {
         for entry in read {
             let path = entry.unwrap().path();
             if path.is_dir() {
-                if !path.ends_with("corral_eval") {
+                if !path.ends_with("corral_eval") && !path.ends_with("trog_eval") {
                     stack.push(path);
                 }
                 continue;
             }
-            if path.extension().is_none_or(|e| e != "rs") || path.ends_with("bin/corral_eval.rs") {
+            if path.extension().is_none_or(|e| e != "rs")
+                || path.ends_with("bin/corral_eval.rs")
+                || path.ends_with("bin/trog_eval.rs")
+            {
                 continue;
             }
             let name = path.file_name().unwrap().to_string_lossy().into_owned();

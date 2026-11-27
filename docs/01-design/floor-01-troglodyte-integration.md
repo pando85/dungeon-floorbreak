@@ -1,6 +1,6 @@
 # Floor 01 troglodyte run and the Test of Strength in the floor run (TROG-PLAN)
 
-**Status:** design and integration plan. **TROG-A** (the three enemies and `trog_run`, section 12.1) is implemented by its own PR; TROG-B (`trog_strength`, the bench, the gate) is not. Nothing here is playtested or accepted. Once an implementation PR merges, its part becomes "merged, game-feel review pending". The TROG-A implementation notes and the review fixes are TROG-AD27..AD38 (section 13) and section 15.1. Its execution order is [the troglodyte work order](../07-agents/floor-01-troglodyte-workorder.md).
+**Status:** design and integration plan. **TROG-A** (the three enemies and `trog_run`, section 12.1) and **TROG-B** (`trog_strength`, the gate and the hand-off, section 12.2) are implemented by their own PRs; TROG-B landed the **declared static fallback** for the bench at **80 px** (the validator refuses the 80 px partition, TROG-AD43; a static solid may reach 80 px, TROG-AD46) and its gate **passes every row** (section 7.3 and 15.2; under the first 48 px static G-1 and G-2 failed, kept as history in TROG-AD45). Nothing here is playtested or accepted. Once an implementation PR merges, its part becomes "merged, game-feel review pending". The TROG-A implementation notes and the review fixes are TROG-AD27..AD38 (section 13) and section 15.1; TROG-B's are TROG-AD42..AD47 and section 15.2. Its execution order is [the troglodyte work order](../07-agents/floor-01-troglodyte-workorder.md).
 
 **Owner decisions (cited for every adopted default below):**
 
@@ -77,7 +77,7 @@
 3. **The bench knock uses the corral partition, not new physics.**
    - The bench is an 80 px "bench stack" partition prop. It breaks after 3 hero melee tokens, or at once to the Basher's smash shove.
    - The Basher smashes it only from a true hitbox overlap: either a normal smash, or a **bench smash** that rule (b) starts when the Basher is walk-blocked by the bench with a grounded hero in the bait zone.
-   - If the partition cannot carry it, the declared fallback is a static 48 px bench, with the bench beat cut (section 5.4).
+   - If the partition cannot carry it, the declared fallback is an 80 px static bench (TROG-AD46), with the bench beat cut (section 5.4).
 4. **STATIONARY-DONUT gate for the Test of Strength** (TROG-14): no gated stationary policy can defeat both troglodytes from a natural start while the bench stands. The geometry proves it (section 7.3), and an evaluator stage asserts it. T1..T3 are reported, not gated; T1's Pygmy is the positive control.
 5. **No rescue, no teleport.** The companion gets a slot target and threat feed in these rooms and nothing else (TROG-AD16).
 6. **Hand-off.** The `trog_strength` exit shows the standard room-clear panel and relaunches into `juicer` (`boss_f01`) with the carried ledger. The boss scene's own x96 engage marker, 2P gate and checkpoint are the protected entry #191's T5 asks for.
@@ -144,6 +144,8 @@ Both rooms share these properties:
 - **The Virtuoso's leash** starts at 2016, so its body (x −16..14 facing left) never stands under the slab, whose 52 px clear is lower than its 66 px height.
 
 ### 4.2 `trog_strength` (#191 T4), width 1024
+
+> **As built (TROG-B).** The table below is the design with the 80 px `bench_stack` partition. The validator refuses that prop, so the shipped room is the declared static fallback of 5.4: the bench is an 80 px static `solid` at 640..672 (TROG-AD46), the Basher spawns at 800 (leash 704..896) and the exit is 944..1008 (TROG-AD42, TROG-AD43, section 15.2). Everything in this section about breaking the bench, the bait zone and the far face describes the cut design, kept as the intended shape if the bench becomes a partition again.
 
 | Element | x | Height | Rule |
 | --- | --- | --- | --- |
@@ -334,6 +336,8 @@ stateDiagram-v2
 
 The corral partition already has a 48 px target. TROG-B's first check: if `env_prop` or the sidecar validator rejects an 80 px partition, a target this wide, or this remnant, **stop and escalate**. Do not widen the prop rules on the side.
 
+**Result of the first check (TROG-B).** The sidecar validator **rejects** it: `ObstacleTooTall { prop: bench_stack, px: 80 }`, because a `solid_intact` prop may leave at most `MAX_LANE_OBSTACLE_PX` (48) px on the lane (`the_80_px_bench_stack_partition_is_refused_so_the_static_fallback_is_taken`). The prop rules were not widened; the declared fallback below is what landed (TROG-AD43).
+
 **How it breaks.** Three ways, all existing partition rules:
 
 1. **Three distinct hero melee tokens.** Every hero melee stimulus the corral partition already accepts counts; the implementer records which Donut moves count.
@@ -374,12 +378,14 @@ The tell is the ordinary 36-tick overhead tell; the player sees the same body la
 
 **The static fallback (declared, TROG-AD12).** If the stop condition above fires, or if the TROG-B gate fails and the fix is not a value change in this plan:
 
-- the bench becomes a 48 px static `solid` (the corral bumper form; heroes climb it);
+- the bench becomes an 80 px static `solid` (Carl's class limit and the corral bumper's height; heroes climb it; TROG-AD46 raised the first 48 px fallback);
 - the Basher's leash moves to 704..872, so it can never stand at the bench face;
 - rule (b) and the bench smash are cut;
 - section 7.3's G1 still holds, because bolts below 48 + 16 stop on the bench.
 
 This is #191's own "static, traversable bench" path, landed as a labelled greybox with the bench beat open.
+
+**The 48 px fallback's claim about G1 was wrong** (history, corrected by TROG-B's measurement; the shipped bench is 80 px, TROG-AD46): bolts below 48 + 16 px do not all stop on a 48 px bench. A bolt flies at feet + 16..22, so only a bolt released below feet 32 meets the bench; one released at feet 32..54 flies over it and still meets a troglodyte hurtbox (tops 58 to 70). G1 needs a bench at least as high as the tallest hurtbox (70 px): then every bolt either stops on it (feet below 64 for an 80 px bench) or flies above 80 over both bodies. The shipped 80 px static satisfies it: feet below 64 stop on the bench, and feet of 64 or more fly at 80 or above, over every hurtbox (70 or lower). See 7.3 and 15.2.
 
 ### 5.5 Sidecar and validation
 
@@ -545,6 +551,8 @@ The evaluator reuses `corral_eval`'s policy, reflex and report machinery as a ne
 - So no stationary spot, including a hop in place, can damage both while the bench stands.
 - The Virtuoso alone is beatable by a grounded stationary Donut (TROG-AD17: it never tells at her). G1 therefore counts only on the bench and the Basher, and that is enough for row 1.
 
+**G1 with the static bench (TROG-B measured, TROG-AD45, TROG-AD46).** With the first **48 px** static bench G1 did **not** hold (arithmetic in 5.4; history): from the far landing (x 720) the swept `stationary_jump_cast` at offsets 0 and 1 defeated **both** troglodytes in about 391 ticks with no damage taken (12 of 1,830 decisive runs, four start groups; 39 more of 720 grid runs), so G-1 and G-2 failed. With the shipped **80 px** static bench (70 <= H <= 80) a bolt below feet 64 stops on it and one from 64 up flies at 80 or above, over every hurtbox, so a stationary Donut can hit only the troglodyte on her own side; the bench top is the only spot on neither side and its bolts fly at 96 or higher. The full sweep (`docs/evidence/trog-b/eval/report.txt`, 6,345 runs, 3,009 double runs identical) passes **every row**: G-1 1,830 gated runs none defeated both; G-2 0 of 610 groups cleared; the grid (720 runs, bench tops at 80 included) finds no both-defeated run.
+
 **G2 (who breaks the bench).** The bench breaks only from:
 
 - a hero's melee;
@@ -597,7 +605,7 @@ The tick is fixed and no new RNG is added. Presentation (sprites, decor, the ben
 | `trog_strength` room and sidecar | | new (2) | new files |
 | `SCOPED_PIN_KEYS` | 32 → 35 | 35 → 37 | `pin_applies` maps the tuning key to both trog rooms (a list, as `dozer::PIN_KEY`) |
 | `playtrace::live::data_pins()` | +3 | +2 | update the length assertions |
-| `f01_late::MANIFEST_HASH` | re-pin (from `0xd213_db6d_b329_d342`) | re-pin | room, story-order and `status` rows. Every late-floor PLAYTRACE recording made before a re-pin fails strict verification (expected; say so in the PR) |
+| `f01_late::MANIFEST_HASH` | re-pin (from `0xd213_db6d_b329_d342`; landed `0x828c_82a6_345b_0efe`) | re-pin (landed `0x69da_957f_05d9_2834`) | room, story-order and `status` rows. Every late-floor PLAYTRACE recording made before a re-pin fails strict verification (expected; say so in the PR) |
 | `story_unlock::TABLE_HASH` | unchanged | unchanged | no grant, no trigger |
 | `brute_boss_f01.json`, the boss fixtures, goldens and gate tests | unchanged | unchanged | asserted; a move is a stop condition |
 | Corral partition, llama, corral_eval report | unchanged | unchanged | asserted |
@@ -660,6 +668,8 @@ PLAYTRACE gets descriptor rooms, replay and live dispatch arms (the REST pattern
 - **Bench:** the 80 px partition check (stop condition), the Basher's smash shove and rule (b), `BenchSmash`.
 - **Evaluator:** `trog_eval` with the stages and gate of 7.2 and 7.3, and the corral report byte-identity test.
 - **Checks:** TROG-F09..F15, T06; evidence items 1 (strength), 2, 3, 5 and 6.
+
+**As landed (TROG-B).** Room, run listing and re-pin, the hand-off, `trog_eval` with the gate and the corral byte-identity check, fixtures F09, F13, F14, F15 and T04..T06, and evidence items 1 (strength), 2 (cut), 3, 5 and 6 (NOT RUN) landed; the bench is the **static fallback** at 80 px (cut order 3 and 4 both taken, TROG-AD43, TROG-AD46), so F10, F11, F12, the far-face diagnostic and the bench debris presentation are cut, and the gate passes every row (15.2).
 
 **Cut order inside TROG-B** (cut from the top). Never cut the gate, the no-leak rule or the commit rule.
 
@@ -739,6 +749,12 @@ All are adopted under the owner decisions of 2026-11-24 and 2026-11-25. The owne
 | TROG-AD39 | The atlas frame map (presenter only, `src/trog_art.rs`): idle (0..=2, looped on the manifests' ticks) for Dormant, Rest and a standing Approach; walk (3..=6) while its x changed in the last 6 ticks; the tell is frame 7 for the manifest's onset ticks (6, 8, 6) and 8 after; the active window is frame 9 until the hitbox is live and 10 while it is; Recover 11; Hurt 12; Down plays 13, 14 on their ticks and holds 15 | The manifests' `playback` and ticks answer every case; the attack split follows the sim's own windows (launch 3, 3 and 2 ticks) |
 | TROG-AD40 | The art faces right; a facing of -1 mirrors the sprite and its pivot. The sprite stands its pivot on the troglodyte's pivot, the Pygmy's at its **airborne** pivot (AD25), so no other offset exists | The manifests' pivots; AD25 |
 | TROG-AD41 | The labelled hurtbox rectangle stays as the fallback where an atlas is missing (the export was not run) and, faint, behind `--debug-combat`; the stand-in telegraph of the committed hitbox stays in both. The atlases are the `prototype_fixture_unapproved` candidates: art review pending | A missing export must not hide the enemies; the telegraph is gameplay legibility the unreviewed art does not yet carry |
+| TROG-AD42 | `trog_strength`'s exit is x 944..1008 (`goal_x` 992), the last 64 px of the play area, because the walls take 16 px at each end; the plan's 976..1024 lies outside it (the AD34 rule). The gate's "exit apron" natural start is therefore 928 (the closed exit gate stands from 944) | `within_play` rejects an exit past `render - 16`; a start inside the closed gate solid is not a legal one |
+| TROG-AD43 | **The declared static fallback is taken** (AD12): the validator rejects the 80 px `bench_stack` partition (a `solid_intact` prop is at most 48 px), so the bench is a static `solid` at 640..672 (48 px first, **80 px since TROG-AD46**) and the shelf a 48 px static at 288..352; the Basher spawns at 800 (leash 704..896, a symmetric half-width of 96: the plan's "704..872" keeps the left end); rule (b), `BenchSmash` (code 8), the partition shove and fixtures F10, F11, F12 are cut; no `trog.rs`, adapter or `env.rs` code changed | The work order: "if either rejects it, switch to the static fallback and record it; do not widen the partition rules". The owner's instruction repeats it. The gate consequence is AD45; AD46 supersedes the bench height |
+| TROG-AD44 | `trog_eval` decisions: the stationary policies and the reflex variant are `corral_eval`'s (one generalisation, `LlamaObs::rect`, `None` for a llama, so the corral report is byte-identical); the phase variant P0..P2 is the roster's `delay_ticks` (`[0,0,0]`, `[30,60,15]`, `[60,0,45]` by roster index, the extra wait after a wake); the decisive seat parks Carl at x 80 inside the protected spawn; the `default` seat is the never-attacking follow-and-jump bot (reported); the co-op probe's Donut stands at 400 (a setup write: a Donut left at the spawn pins the shared screen and Carl cannot scroll on); the diagnostic grid is the aimed policies in the decisive variant | One generalisation of the llama policies (plan 7.2); the llama path keeps its exact behaviour |
+| TROG-AD45 | The gate is **not weakened**. Under AD43's first 48 px bench G-1 and G-2 failed with a measured counterexample (7.3; kept as history). Under AD46 (80 px) every row passes: `docs/evidence/trog-b/eval/report.txt` | "If the gate fails: stop and report the counterexample. Do not retune the bolt or Donut" (7.3); the plan author's decision took the static-height fix, not a gate narrowing |
+| TROG-AD46 | The bench is an **80 px static `solid`** (640..672, y 500; the shelf stays 48 px at 288..352). The validator gains `MAX_STATIC_SOLID_PX` 80, used **only** for a sidecar static of kind `solid`; `MAX_LANE_OBSTACLE_PX` stays 48 for a `solid_intact` prop and a remnant, so the 80 px partition is still refused. It supersedes AD43's "48 px static bench"; the rest of AD43's cuts (rule (b), `BenchSmash`, the partition shove, F10..F12) stand. The change is permissive only: no shipped sidecar changes its verdict. No data pin: the cap is a code constant, tested by `a_static_solid_is_at_most_80_px` | G1 needs 70 <= H <= 80: H of at least the tallest hurtbox (70) so no bolt over the bench meets a body, and H of at most Carl's class limit, under both heroes' 92 px ground jump and the follower's 88 px reach. A lower bench leaves a band of hop shots that cross it and still hit |
+| TROG-AD47 | `trog_eval` ties its two surfaces to the sidecar: `SHELF_RISE_PX` 48 and `BENCH_RISE_PX` 80 (the natural starts, the shelf and bench tops of the grid); a test asserts them equal to the sidecar's `shelf` and `bench` heights so they cannot drift | The bench-top natural start must exist at the bench's own height (no `invalid_setup`) |
 
 ## 14. Open questions (TROG-Q, non-blocking)
 
@@ -757,6 +773,8 @@ All are adopted under the owner decisions of 2026-11-24 and 2026-11-25. The owne
 | TROG-Q11 | A sidecar leash field if a later room needs a non-default leash | Tuning leash only |
 | TROG-Q12 | Does the Virtuoso's tongue dead zone (inside +56) read clearly at 1x, or does it need a body-contact shove? | The dead zone, as the art draws it |
 | TROG-Q13 | (Also the R5 remainder, TROG-AD31: a hero a **solid** cuts off, such as Carl behind the intact bench or on the T3 platform while a grounded Donut is followed, still draws the Virtuoso, which never tells at it.) A grounded Donut is never hit by the Virtuoso (its band y 36..46 passes over her 24 px hurtbox), so a solo floor Donut beats it unthreatened. Is the Virtuoso acceptable as "Carl's problem", or does it need a low lash variant? | Accepted as Carl's problem; reported in `trog_eval` (7.3) and TROG-F06; a low lash would be a separate design and art question |
+| TROG-Q14 | Should the sidecar validator let a **partition** prop be as high as Carl's class limit (80 px) while a prop stays at 48? It would restore the plan's `bench_stack` (rule (b), the bench smash, F10..F12). **Open, non-blocking**: the gate passes with the 80 px static (TROG-AD46), so this only restores the bench beat | Deferred; not in this PR |
+| TROG-Q15 | (Closed by TROG-AD46.) Is a hopping stationary Donut's over-the-bench shot acceptable? | Closed: the 80 px bench removes the shot, so it is neither accepted nor reported, and the gate is not narrowed |
 
 ## 15. Deviations (flagged)
 
@@ -775,6 +793,16 @@ All are adopted under the owner decisions of 2026-11-24 and 2026-11-25. The owne
 - **Fixture notes.** F01's "Carl at L - 48, facing it" and F02's "Donut planted at 432" are single setup writes (the llama sheet's F11 exemption). F06's `solo_carl` is measured inside the F07 solo-Carl run (the Virtuoso is fought from the floor, in its dead zone, and defeated with 0 HP lost) rather than from a platform drop. F05, F06 `raised_donut`, `target_choice` and `grounded_donut` are domain fixtures (`src/trog/tests.rs`) with the line committed by a setup write. F17 is the full suite: no committed golden moved.
 - **Platform.** A 64 px platform is not reachable by base Donut (the validator's class), so she stays on the floor of T3 (TROG-AD35). Her bolts from the platform fly over every troglodyte, as designed.
 - **Knock.** A blow knocks a hero about 60 px back (knock 150 to 220 px/s); a hero knocked past a leash's reach is no longer a target (TROG-AD31), so the Pygmy and the Basher hold at their leash ends.
+
+### 15.2 TROG-B implementation notes (deviations and results)
+
+- **The first check stopped the partition.** The 80 px `bench_stack` is refused by the sidecar validator (`ObstacleTooTall`, a `solid_intact` prop is at most 48 px); the declared fallback landed (TROG-AD43). The prop rules were not widened (the 80 px **static** cap is a separate, permissive rule, TROG-AD46). `docs/evidence/trog-b/` has the test names and the outputs.
+- **Cut by the fallback:** rule (b), the bench smash, `BenchSmash` (code 8, **not appended**: nothing logs a bench break, so the AREA-TROG-01 presenter has no break direction to read and its bench and debris presenters are cut by that order's own G7), the partition shove, fixtures F10, F11 and F12, the far-face diagnostic row and the bench debris presentation. TROG-F09 (Carl climbs the 80 px bench and fights the Basher on the far side) and F13..F15 and T06 landed.
+- **Shared code:** none touched beyond additive wiring (`RoomScene::TrogStrength`, `TrogRoom::Strength`, the manifest, the replay and live pin lists, the scripts) and `corral_eval`'s `LlamaObs::rect` (one field, `None` for a llama; the corral report is byte-identical, evidence file). No `trog.rs`, adapter, `env.rs` or companion change.
+- **Gate result.** Every row **passes** on the 80 px static bench (TROG-AD46; `docs/evidence/trog-b/eval/report.txt`, 6,345 runs, 3,009 double runs identical): G-1 (1,830 gated runs, none defeated both), G-2 (0 of 610 groups), G-3 (the T1 Pygmy positive control), G-4 (mobile Donut, Carl melee and the co-op probe each clear the room in 3 of 3 phases with 0 HP lost; both heroes cross the 80 px bench, the bench-top start exists) and G-5 (zero hard system failures). History: the first 48 px static bench failed G-1 and G-2 (a hop shot over the bench from x 720, 12 of 1,830 runs); the Virtuoso falls to no fixed gated policy from a natural start, the Basher to a Donut planted past the bench (reported, the credit rows and the grid).
+- **TROG-Q13 reading.** A grounded stationary Donut at the Virtuoso's side is the grid's `virtuoso_defeated_by_donut` (303 of 720 diagnostic runs): it defeats the Virtuoso from the floor and is never told at, as in `trog_run`.
+- **Fixture notes.** F09 is `clear_run` of the solo Carl policy (the shelf and the bench are hopped by `with_hop`): the Virtuoso is down before the Basher wakes (asserted from the log), the bench stands, no blow lands. F13 places Carl at 562 and Donut at 780 after the second player's join tick (a setup write, the join places Donut beside Carl) and asserts that tells start at least 24 ticks apart and that no hero ever stands under two live hitboxes. F14 is the respawn and restart of the room (the bench is a static: nothing to keep). F15's bot-stuck time is not measured (an 80 px static both heroes cross); reported as not measured.
+- **Evaluator limits.** The movement policies are closed loops on the state and are tuned to nothing; the grid and the pockets are reported, not gated; a real two-pad run and a human first-run time are **NOT RUN**; TROG-16 (the Juicer with and without the rack) is **NOT RUN** (no scripted or human run exists, no boss change).
 
 ## 16. Environment art (companion stub for the art queue: AREA-TROG-01)
 

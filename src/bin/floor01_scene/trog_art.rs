@@ -67,8 +67,20 @@ fn species_colour(species: Species) -> Color {
     }
 }
 
-/// The labelled stand-in bodies and their telegraphs (the room's decor is the AREA-TROG-01 dressing,
-/// composed into the kit: nothing is drawn here for it). A room without a troglodyte spawns nothing.
+/// The decor colour by label (flat, no art): only a **plain** (undressed) room draws any.
+fn decor_colour(label: &str) -> Color {
+    match label {
+        "shelf" | "bench" => Color::srgb(0.36, 0.28, 0.24),
+        "threshold" => Color::srgb(0.40, 0.46, 0.52),
+        _ => Color::srgb(0.58, 0.72, 0.80),
+    }
+}
+
+/// The labelled stand-in bodies and their telegraphs. A dressed room's decor is the AREA-TROG-01
+/// dressing composed into the kit (nothing is drawn here for it); a **plain** room (the Test of
+/// Strength until its stage 2 block lands, TROG-ART-AD19) draws its sidecar solids, the shelf and
+/// the 80 px bench, as flat labelled rectangles so the greybox reads. A room without a troglodyte
+/// spawns nothing.
 #[allow(clippy::too_many_arguments)]
 pub(super) fn spawn(
     commands: &mut Commands,
@@ -78,6 +90,8 @@ pub(super) fn spawn(
     room: f01_trog::TrogRoom,
     state: &CombatState,
     kit: &EnvKit,
+    height: i32,
+    layers: RenderLayers,
     actor_layers: RenderLayers,
     rects_always: bool,
 ) {
@@ -117,6 +131,20 @@ pub(super) fn spawn(
         if rects_always { "always" } else { "fallback" },
         if dressed { "dressed" } else { "plain" },
     );
+    if !dressed {
+        for decor in f01_trog::decor(room) {
+            let rect = decor.rect;
+            commands.spawn((
+                Sprite::from_color(
+                    decor_colour(decor.label),
+                    Vec2::new(rect.w as f32, rect.h as f32),
+                ),
+                Anchor::TOP_LEFT,
+                Transform::from_xyz(rect.x as f32, to_world_y(height, rect.y), kit.actor_z - 0.2),
+                layers.clone(),
+            ));
+        }
+    }
     let n = state.slot_enemies().len();
     commands.insert_resource(TrogArt {
         body_z: kit.actor_z + GOBLIN_Z_OFFSET - 32.0 * GOBLIN_Z_STEP,

@@ -149,6 +149,9 @@ pub struct LlamaObs {
     pub attack_tick: u16,
     /// The rush phase while a rush runs (a corral llama only).
     pub rush: Option<RushPhase>,
+    /// TROG-B: the target's own hurtbox (world px), for a slot enemy that is no llama (a
+    /// troglodyte, `trog_eval`). `None` for a llama: its body is the llama geometry.
+    pub rect: Option<Rect>,
 }
 
 impl LlamaObs {
@@ -166,7 +169,8 @@ impl LlamaObs {
         self.mode == LlamaMode::Attack && self.rush.is_none()
     }
     pub fn body(&self) -> Rect {
-        llama_body(self.x, self.feet, self.facing)
+        self.rect
+            .unwrap_or_else(|| llama_body(self.x, self.feet, self.facing))
     }
 }
 
@@ -852,6 +856,7 @@ mod tests {
             mode: LlamaMode::Neutral,
             attack_tick: 0,
             rush: None,
+            rect: None,
         }
     }
 
@@ -867,6 +872,25 @@ mod tests {
         o.llamas = vec![llama_at(500.0, 0.0)];
         assert!(p.act(&o).donut.attack, "in line and in reach");
         assert!(!p.act(&o).donut.attack, "the release tick");
+    }
+
+    /// TROG-B: a target that carries its own hurtbox (a troglodyte, `trog_eval`) is aimed at
+    /// by that box; a llama (`rect: None`) keeps the llama geometry.
+    #[test]
+    fn an_observed_targets_own_rect_replaces_the_llama_body() {
+        let a = aim();
+        let mut tall = llama_at(500.0, 0.0);
+        tall.rect = Some(Rect {
+            left: 480.0,
+            bottom: 60.0,
+            width: 40.0,
+            height: 10.0,
+        });
+        // The llama body at feet 0 is in the bolt's line; the own rect is 60 px up, above it.
+        assert!(a.bolt_hits(300.0, 1, 0.0, &[llama_at(500.0, 0.0)]));
+        assert!(!a.bolt_hits(300.0, 1, 0.0, &[tall]));
+        // Released from 50 px up, the bolt meets that rect.
+        assert!(a.bolt_hits(300.0, 1, 50.0, &[tall]));
     }
 
     #[test]

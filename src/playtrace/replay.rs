@@ -472,6 +472,7 @@ fn rebuild_f01_room(manifest: &SessionManifest, root: &Path) -> Result<Reset, Ve
                 | "ring_court"
                 | "ring_split"
                 | "trog_run"
+                | "trog_strength"
         )
     ) || !reset.cf02_rules
         || reset.demo
@@ -539,7 +540,7 @@ fn rebuild_f01_room(manifest: &SessionManifest, root: &Path) -> Result<Reset, Ve
             reset.cf02_seed,
         )
         .map(|(_, scene, combat)| (scene, combat)),
-        Some(id @ "trog_run") => crate::f01_late::trog_start(
+        Some(id @ ("trog_run" | "trog_strength")) => crate::f01_late::trog_start(
             root,
             crate::f01_trog::TrogRoom::from_id(id).expect("a troglodyte room id"),
             reset.view_height,

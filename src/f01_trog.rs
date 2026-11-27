@@ -2,22 +2,27 @@
 //! (`docs/01-design/floor-01-troglodyte-integration.md` sections 4 and 6, the work order
 //! `docs/07-agents/floor-01-troglodyte-workorder.md`). They launch through
 //! `--scene f01_late --f01-room <id>` and are listed in the floor run between the survivors'
-//! camp and the Juicer. TROG-A lands the first room, [`TrogRoom::Run`] (`trog_run`, #191's
-//! T0 to T3: the Pygmy, the Basher and the Virtuoso one at a time); `trog_strength` follows in
-//! TROG-B.
+//! camp and the Juicer. TROG-A landed the first room, [`TrogRoom::Run`] (`trog_run`, #191's
+//! T0 to T3: the Pygmy, the Basher and the Virtuoso one at a time); TROG-B adds
+//! [`TrogRoom::Strength`] (`trog_strength`, #191's T4, the Test of Strength: the Virtuoso, the
+//! Basher behind an 80 px static bench: the static fallback of plan 5.4 at Carl's class limit).
 //!
 //! Bevy-free. [`launch`] loads the room and its encounter sidecar through the one room parser
 //! ([`crate::encounter::load`], the whole validation, the TROG-V rules included), composes the
 //! kit exactly as the Boiler does ([`crate::f01_boiler::compose_kit`]) with the DP-Q45 lane
-//! ceiling, the sidecar's plain `solid` statics (the low refuge and the bell step) pushed in as
-//! lane steps (the ACT1-B form), and builds the fixture and the checkpoint rules from the
-//! sidecar. [`combat_for`] then builds the combat state the scene, the fixtures and the PLAYTRACE
+//! ceiling, the sidecar's plain `solid` statics (the low refuge, the bell step and the retreat
+//! shelf) pushed in as lane steps (the ACT1-B form), and builds the fixture and the checkpoint
+//! rules from the sidecar. [`combat_for`] then builds the combat state the scene, the fixtures and the PLAYTRACE
 //! verifier share:
 //!
 //! * the **troglodytes spawn from the sidecar roster through ENEMY-SLOT**
 //!   ([`crate::scene_enemy::spawn_from_roster`], the three `trog_*` kinds registered in
 //!   [`crate::scene_enemy::SLOT_KINDS`]); the room has no goblin;
 //! * the exit opens when the roster is clear (`defeat_roster`, the env step's derived gate);
+//! * the Test of Strength's **bench** is the plan's declared static fallback (TROG-AD12,
+//!   TROG-AD43) at 80 px (TROG-AD46): a sidecar static of kind `solid`, never a partition prop,
+//!   because the validator refuses a solid *prop* above 48 px; a static may reach 80 px
+//!   (`MAX_STATIC_SOLID_PX`);
 //! * the story: the room is a story room on the camp's pin (`f01_pin_post_pile_boss`), so it
 //!   carries the ledger unchanged and grants nothing (TROG-AD1); Donut holds the biscuit with a
 //!   full pool (`DonutSetup::unlocked(8)`, plan 6.3);
@@ -47,14 +52,22 @@ use crate::scene_enemy::{SlotRoom, spawn_from_roster};
 /// The run room's sidecar and room file.
 pub const RUN_ENCOUNTER_PATH: &str = "assets/levels/floor01/f01_trog_run.encounter.json";
 pub const RUN_ROOM_PATH: &str = "assets/levels/floor01/f01_trog_run.room.json";
+/// The Test of Strength's sidecar and room file (TROG-B).
+pub const STRENGTH_ENCOUNTER_PATH: &str = "assets/levels/floor01/f01_trog_strength.encounter.json";
+pub const STRENGTH_ROOM_PATH: &str = "assets/levels/floor01/f01_trog_strength.room.json";
 
 /// FNV-1a 64 of the room file and of the sidecar (the Boiler's precedent: the files live under
 /// `assets/levels`, so the hashes are constants).
 pub const RUN_ROOM_HASH: u64 = 0xe881_73c2_842f_8bc1;
 pub const RUN_ENCOUNTER_HASH: u64 = 0x0fc1_829d_0b5c_935c;
+/// The Test of Strength's pins (TROG-B).
+pub const STRENGTH_ROOM_HASH: u64 = 0x7be7_74b8_f39a_463c;
+pub const STRENGTH_ENCOUNTER_HASH: u64 = 0x858b_0a3b_f98f_1e67;
 /// The `data_pins()` keys, scoped to their room by [`crate::f01_late::pin_applies`].
 pub const RUN_ROOM_PIN_KEY: &str = "f01_trog_run_room";
 pub const RUN_ENCOUNTER_PIN_KEY: &str = "f01_trog_run_encounter";
+pub const STRENGTH_ROOM_PIN_KEY: &str = "f01_trog_strength_room";
+pub const STRENGTH_ENCOUNTER_PIN_KEY: &str = "f01_trog_strength_encounter";
 
 /// A fixture seed is only recorded (no rule of the room reads it; the companion draws from
 /// `--cf02-seed`).
@@ -79,15 +92,26 @@ pub const STORY_PIN: &str = "f01_pin_post_pile_boss";
 pub enum TrogRoom {
     /// #191's T0 to T3: the Pygmy, the Basher and the Virtuoso, one at a time.
     Run,
+    /// #191's T4, the Test of Strength: the Virtuoso, an 80 px bench and the Basher (TROG-B).
+    Strength,
 }
 
 impl TrogRoom {
-    pub const ALL: [TrogRoom; 1] = [TrogRoom::Run];
+    pub const ALL: [TrogRoom; 2] = [TrogRoom::Run, TrogRoom::Strength];
 
     /// The manifest id (`--f01-room`).
     pub const fn id(self) -> &'static str {
         match self {
             Self::Run => "trog_run",
+            Self::Strength => "trog_strength",
+        }
+    }
+
+    /// How many troglodytes the room's roster holds.
+    pub const fn roster_len(self) -> usize {
+        match self {
+            Self::Run => 3,
+            Self::Strength => 2,
         }
     }
 
@@ -95,6 +119,7 @@ impl TrogRoom {
     pub const fn scene_name(self) -> &'static str {
         match self {
             Self::Run => "f01_trog_run",
+            Self::Strength => "f01_trog_strength",
         }
     }
 
@@ -105,12 +130,14 @@ impl TrogRoom {
     pub const fn encounter_path(self) -> &'static str {
         match self {
             Self::Run => RUN_ENCOUNTER_PATH,
+            Self::Strength => STRENGTH_ENCOUNTER_PATH,
         }
     }
 
     pub const fn room_path(self) -> &'static str {
         match self {
             Self::Run => RUN_ROOM_PATH,
+            Self::Strength => STRENGTH_ROOM_PATH,
         }
     }
 
@@ -118,6 +145,7 @@ impl TrogRoom {
     pub const fn room_hash(self) -> u64 {
         match self {
             Self::Run => RUN_ROOM_HASH,
+            Self::Strength => STRENGTH_ROOM_HASH,
         }
     }
 
@@ -125,6 +153,7 @@ impl TrogRoom {
     pub const fn encounter_hash(self) -> u64 {
         match self {
             Self::Run => RUN_ENCOUNTER_HASH,
+            Self::Strength => STRENGTH_ENCOUNTER_HASH,
         }
     }
 
@@ -132,6 +161,7 @@ impl TrogRoom {
     pub const fn room_pin_key(self) -> &'static str {
         match self {
             Self::Run => RUN_ROOM_PIN_KEY,
+            Self::Strength => STRENGTH_ROOM_PIN_KEY,
         }
     }
 
@@ -139,6 +169,7 @@ impl TrogRoom {
     pub const fn encounter_pin_key(self) -> &'static str {
         match self {
             Self::Run => RUN_ENCOUNTER_PIN_KEY,
+            Self::Strength => STRENGTH_ENCOUNTER_PIN_KEY,
         }
     }
 
@@ -146,6 +177,7 @@ impl TrogRoom {
     pub const fn marker(self) -> &'static str {
         match self {
             Self::Run => "F01_TROG_RUN",
+            Self::Strength => "F01_TROG_STRENGTH",
         }
     }
 }
@@ -176,10 +208,21 @@ const RUN_DECOR: [Decor; 5] = [
     d("bell", 1744, 420, 40, 64),
 ];
 
+/// The Test of Strength's greybox decor (plan 4.2): the retreat shelf and the 80 px static bench
+/// (the sidecar's two solids) and the stone-to-tile threshold strip. The window draws it flat only
+/// while the room is plain (no AREA-TROG-01 dressing block yet, TROG-ART-AD19), so the solids are
+/// visible; a dressed room draws none.
+const STRENGTH_DECOR: [Decor; 3] = [
+    d("shelf", 288, 532, 64, 48),
+    d("bench", 640, 500, 32, 80),
+    d("threshold", 560, 572, 160, 8),
+];
+
 /// The decor of a room (presentation only).
 pub const fn decor(room: TrogRoom) -> &'static [Decor] {
     match room {
         TrogRoom::Run => &RUN_DECOR,
+        TrogRoom::Strength => &STRENGTH_DECOR,
     }
 }
 
@@ -280,6 +323,10 @@ pub fn launch_with(root: &Path, room: TrogRoom, dressed: bool) -> Result<TrogRun
             TrogRoom::Run => {
                 "TROG-A: the troglodyte run (the Pygmy, the Basher and the Virtuoso, one at a \
                  time); greybox, no art review yet"
+            }
+            TrogRoom::Strength => {
+                "TROG-B: the Test of Strength (the Virtuoso, an 80 px static bench and the \
+                 Basher); greybox, no art review yet"
             }
         },
         seed: FIXTURE_SEED,
@@ -382,10 +429,12 @@ pub fn entry_line(run: &TrogRun) -> String {
 
 /// The pins `playtrace::live::data_pins` stamps for this room (scoped to the room by
 /// [`crate::f01_late::pin_applies`]), and the tuning pin (scoped to every trog room).
-pub fn data_pins() -> [(&'static str, u64); 3] {
+pub fn data_pins() -> [(&'static str, u64); 5] {
     [
         (RUN_ROOM_PIN_KEY, RUN_ROOM_HASH),
         (RUN_ENCOUNTER_PIN_KEY, RUN_ENCOUNTER_HASH),
+        (STRENGTH_ROOM_PIN_KEY, STRENGTH_ROOM_HASH),
+        (STRENGTH_ENCOUNTER_PIN_KEY, STRENGTH_ENCOUNTER_HASH),
         (crate::trog::PIN_KEY, crate::trog::TUNING_HASH),
     ]
 }

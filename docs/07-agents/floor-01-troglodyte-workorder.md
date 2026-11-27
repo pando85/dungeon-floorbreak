@@ -76,6 +76,8 @@ Implement plan 12.2.
 
 The cut order is plan 12.2's.
 
+**Outcome (TROG-B PR).** The first action's check fired: the validator rejects the 80 px partition (a `solid_intact` prop is at most 48 px), so the **static fallback landed** (plan 5.4, TROG-AD43) with the bench beat cut. The first 48 px static bench failed gate rows G-1 and G-2 (a hopping stationary Donut shot over it); the plan author's decision raised the static bench to **80 px** (TROG-AD46, a permissive `MAX_STATIC_SOLID_PX` for sidecar statics only; the partition cap stays 48), and the gate implemented and asserted by `trog_eval` now **passes every row**. Restoring the bench beat with an 80 px partition is plan TROG-Q14 (open, non-blocking). Evidence: [docs/evidence/trog-b](../evidence/trog-b/README.md).
+
 ### AREA-TROG-01 (art pipeline: Opus design, Sonnet execution, Opus review)
 
 Queue it in the area kits plan. Plan section 16 lists:

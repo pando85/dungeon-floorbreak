@@ -1,0 +1,10 @@
+CORRAL_EVAL_IDENTITY: corral_eval --out DIR before the corral_eval change of this branch (built from this worktree with every other TROG-B change present; none touches corral_eval) and after it; the three files are byte-identical
+before (policy.rs and mod.rs untouched):
+  552ebb2a41d71de07bf5e1297b8f6a2d23d0fa90fab842e338b57933deff19e5  summary.json
+  137da44c44ab6960a1824aeec5a7eef36d0cd56b6b175c87f880bd870e91be94  runs.csv
+  a5de5d6e9220540c118f1353b635205572924adfd7db34be80bef05b70ad82bc  report.md
+after (TROG-B, LlamaObs::rect added, None for a llama):
+  552ebb2a41d71de07bf5e1297b8f6a2d23d0fa90fab842e338b57933deff19e5  summary.json
+  137da44c44ab6960a1824aeec5a7eef36d0cd56b6b175c87f880bd870e91be94  runs.csv
+  a5de5d6e9220540c118f1353b635205572924adfd7db34be80bef05b70ad82bc  report.md
+IDENTICAL: yes (the only differing line of the two stdout logs is the output directory's path)

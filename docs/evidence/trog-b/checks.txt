@@ -1,0 +1,14 @@
+Local check list on the final code head of TROG-B (debug build, no GitHub CI wait; code head 598abfbc on origin/main ec31bcbe (TROG-A, #310); the evidence commit after it changes no code):
+cargo fmt --all -- --check                                  OK
+cargo clippy --locked --all-targets -- -D warnings          OK (no warnings)
+cargo test --locked --all-targets --no-fail-fast            OK: 4064 passed, 0 failed, 41 ignored (evidence helpers) over every target; lib 3950 passed
+python3 scripts/check_docs.py                               OK (395 Markdown files, 992 JSON fixtures)
+scripts/ci_floor01_combat.sh headless                       OK (F01_LATE_HEADLESS_OK lists the seventeen rooms; F01_TROG_STRENGTH_HEADLESS_OK; every committed DP, DOZR and legacy replay byte-identical); run on code head bc31c57a, the next commit changes one test only
+scripts/ci_floor01_combat.sh render (xvfb 1920x1080x24)     OK (after scripts/export_assets.sh in the worktree); same head
+scripts/check_f01_owner_commands.sh                         OK (0 FAILED lines; the loop also launches trog_strength and runs trog_eval --quick); same head
+python3 scripts/validate_assets.py                          OK (no art manifest or asset changed; run for completeness)
+trog_eval (full sweep)                                      exit 1 by design under the static fallback: G-1 and G-2 FAIL, G-3 to G-5 pass (eval/report.txt)
+trog_eval --quick                                           exit 0
+corral_eval --out DIR before/after                          byte-identical (corral_eval_identity.txt)
+Real two-pad run                                            NOT RUN
+Human first-run time                                        NOT RUN

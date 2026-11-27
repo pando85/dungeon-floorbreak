@@ -934,14 +934,19 @@ fn trog_room_recording_verifies(room: crate::f01_trog::TrogRoom, label: &str) {
         for (loadout, seed) in [(Loadout::Story, Some(5)), (Loadout::All, None)] {
             let dir = TempDir::new(&format!("f01-trog-{}", room.id()));
             let mut rig = RoomRig::build_view(&dir.0, room.id(), Some(loadout), seed, None, view_h);
+            // The low steps are hopped: the run's refuge 352..416 and bell step 1840..1904, the
+            // Test of Strength's shelf 288..352 and bench 640..672 (TROG-B).
+            let (steps, stop_x): (&[(f32, f32)], f32) = match room {
+                crate::f01_trog::TrogRoom::Run => (&[(352.0, 416.0), (1840.0, 1904.0)], 700.0),
+                crate::f01_trog::TrogRoom::Strength => (&[(288.0, 352.0), (640.0, 672.0)], 760.0),
+            };
             for tick in 0..900u64 {
                 let x = rig.scene.world.body(crate::party::HeroId::Carl).x;
-                // The low steps (the refuge 352..416, the bell step 1840..1904) are hopped.
-                let hop = [(352.0f32, 416.0f32), (1840.0, 1904.0)]
+                let hop = steps
                     .iter()
                     .any(|(l, r)| x + 30.0 >= *l && x + 30.0 <= *r && x < *l);
                 rig.step(RawInput {
-                    move_x: if x < 700.0 { 1.0 } else { 0.0 },
+                    move_x: if x < stop_x { 1.0 } else { 0.0 },
                     jump: hop,
                     attack: tick % 20 == 5,
                     ..RawInput::NONE
@@ -985,6 +990,12 @@ fn trog_room_recording_verifies(room: crate::f01_trog::TrogRoom, label: &str) {
 #[test]
 fn f01_trog_run_recording_verifies() {
     trog_room_recording_verifies(crate::f01_trog::TrogRoom::Run, "TROG_RUN");
+}
+
+/// TROG-B (TROG-F16/TROG-17): the Test of Strength's recording verifies the same way.
+#[test]
+fn f01_trog_strength_recording_verifies() {
+    trog_room_recording_verifies(crate::f01_trog::TrogRoom::Strength, "TROG_STRENGTH");
 }
 
 fn rig_carl(loadout: Loadout) -> crate::carl_prog::CarlProgFlags {

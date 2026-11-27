@@ -1,0 +1,325 @@
+trog_eval policy_version=1 runs=6345 gate=PASS
+
+GATE (plan 7.3, the Test of Strength)
+  G-1 hard_invariant           PASS  1830 runs, none defeated both troglodytes by a Donut-credited hit
+  G-2 kc19                     PASS  610 start groups; 0 cleared both within 1800 ticks with at most 1 HP lost in half or more of the phases
+  G-3 positive_control         PASS  T1 from x 432, aimed stationary cast, 3 phases: victory/0hp victory/0hp victory/0hp
+  G-4 movement_success         PASS  mobile_cast 3/3 cleared, carl_melee 3/3 cleared, coop_probe 3/3 cleared
+  G-5 system_failures          PASS  0 failures over 6345 runs; 0 of 3009 double runs differ
+
+GATED GROUPS (natural starts, decisive variant: isolated seat, reflex on)
+  group | phases (terminal, defeated, donut hp lost, tells)
+  366 of 610 groups are quiet (no defeat, no tell, no damage in any phase) and are not listed
+  trog_strength.isolated.stationary_cast.reflex.x720.h0.fl | timeout/1/3/4  timeout/1/3/4  timeout/1/3/4
+  trog_strength.isolated.stationary_cast.reflex.x720.h0.fr | timeout/1/0/0  timeout/1/0/0  timeout/1/0/0
+  trog_strength.isolated.stationary_cast.reflex.x928.h0.fl | timeout/1/0/0  timeout/1/0/0  timeout/1/0/0
+  trog_strength.isolated.stationary_cast.reflex.x928.h0.fr | timeout/1/3/4  timeout/1/3/4  timeout/1/3/4
+  trog_strength.isolated.stationary_cast_aimed.reflex.x720.h0.fl | timeout/1/1/2  timeout/1/1/2  timeout/1/1/2
+  trog_strength.isolated.stationary_cast_aimed.reflex.x720.h0.fr | timeout/1/0/0  timeout/1/0/0  timeout/1/0/0
+  trog_strength.isolated.stationary_cast_aimed.reflex.x928.h0.fl | timeout/1/0/0  timeout/1/0/0  timeout/1/0/0
+  trog_strength.isolated.stationary_cast_aimed.reflex.x928.h0.fr | timeout/1/1/3  timeout/1/1/3  timeout/1/1/3
+  trog_strength.isolated.stationary_cast_burst.reflex.x720.h0.fl | timeout/1/3/4  timeout/1/2/4  timeout/1/3/4
+  trog_strength.isolated.stationary_cast_burst.reflex.x720.h0.fr | timeout/1/0/0  timeout/1/0/0  timeout/1/0/0
+  trog_strength.isolated.stationary_cast_burst.reflex.x928.h0.fl | timeout/1/0/0  timeout/1/0/0  timeout/1/0/0
+  trog_strength.isolated.stationary_cast_burst.reflex.x928.h0.fr | timeout/1/2/4  timeout/1/2/3  timeout/1/2/4
+  trog_strength.isolated.stationary_jump_cast.o-1.reflex.x720.h0.fl | timeout/1/0/1  timeout/1/0/1  timeout/1/0/1
+  trog_strength.isolated.stationary_jump_cast.o-1.reflex.x720.h0.fr | timeout/1/0/1  timeout/1/0/1  timeout/1/0/1
+  trog_strength.isolated.stationary_jump_cast.o-1.reflex.x928.h0.fl | timeout/1/0/0  timeout/1/0/0  timeout/1/0/0
+  trog_strength.isolated.stationary_jump_cast.o-1.reflex.x928.h0.fr | timeout/1/0/0  timeout/1/0/0  timeout/1/0/0
+  trog_strength.isolated.stationary_jump_cast.o-2.reflex.x720.h0.fl | timeout/1/0/1  timeout/1/0/1  timeout/1/0/1
+  trog_strength.isolated.stationary_jump_cast.o-2.reflex.x720.h0.fr | timeout/1/0/1  timeout/1/0/1  timeout/1/0/1
+  trog_strength.isolated.stationary_jump_cast.o-2.reflex.x928.h0.fl | timeout/1/0/0  timeout/1/0/0  timeout/1/0/0
+  trog_strength.isolated.stationary_jump_cast.o-2.reflex.x928.h0.fr | timeout/1/0/0  timeout/1/0/0  timeout/1/0/0
+  trog_strength.isolated.stationary_jump_cast.o-3.reflex.x720.h0.fl | timeout/1/0/1  timeout/1/0/1  timeout/1/0/1
+  trog_strength.isolated.stationary_jump_cast.o-3.reflex.x720.h0.fr | timeout/1/0/1  timeout/1/0/1  timeout/1/0/1
+  trog_strength.isolated.stationary_jump_cast.o-3.reflex.x928.h0.fl | timeout/1/0/0  timeout/1/0/0  timeout/1/0/0
+  trog_strength.isolated.stationary_jump_cast.o-3.reflex.x928.h0.fr | timeout/1/0/1  timeout/1/0/1  timeout/1/0/1
+  trog_strength.isolated.stationary_jump_cast.o0.reflex.x720.h0.fl | timeout/1/0/1  timeout/1/0/1  timeout/1/0/1
+  trog_strength.isolated.stationary_jump_cast.o0.reflex.x720.h0.fr | timeout/1/0/1  timeout/1/0/1  timeout/1/0/1
+  trog_strength.isolated.stationary_jump_cast.o0.reflex.x928.h0.fl | timeout/1/0/0  timeout/1/0/0  timeout/1/0/0
+  trog_strength.isolated.stationary_jump_cast.o0.reflex.x928.h0.fr | timeout/1/0/0  timeout/1/0/0  timeout/1/0/0
+  trog_strength.isolated.stationary_jump_cast.o1.reflex.x720.h0.fl | timeout/1/0/1  timeout/1/0/1  timeout/1/0/1
+  trog_strength.isolated.stationary_jump_cast.o1.reflex.x720.h0.fr | timeout/1/0/1  timeout/1/0/1  timeout/1/0/1
+  trog_strength.isolated.stationary_jump_cast.o1.reflex.x928.h0.fl | timeout/1/0/0  timeout/1/0/0  timeout/1/0/0
+  trog_strength.isolated.stationary_jump_cast.o1.reflex.x928.h0.fr | timeout/1/0/0  timeout/1/0/0  timeout/1/0/0
+  trog_strength.isolated.stationary_jump_cast.o10.reflex.x720.h0.fl | timeout/0/0/15  timeout/0/0/14  timeout/0/0/15
+  trog_strength.isolated.stationary_jump_cast.o10.reflex.x720.h0.fr | timeout/0/0/15  timeout/0/0/14  timeout/0/0/15
+  trog_strength.isolated.stationary_jump_cast.o10.reflex.x928.h0.fl | timeout/0/0/14  timeout/0/0/13  timeout/0/0/14
+  trog_strength.isolated.stationary_jump_cast.o10.reflex.x928.h0.fr | timeout/0/0/14  timeout/0/0/13  timeout/0/0/14
+  trog_strength.isolated.stationary_jump_cast.o11.reflex.x720.h0.fl | timeout/0/0/15  timeout/0/0/14  timeout/0/0/15
+  trog_strength.isolated.stationary_jump_cast.o11.reflex.x720.h0.fr | timeout/0/0/15  timeout/0/0/14  timeout/0/0/15
+  trog_strength.isolated.stationary_jump_cast.o11.reflex.x928.h0.fl | timeout/0/0/14  timeout/0/0/13  timeout/0/0/14
+  trog_strength.isolated.stationary_jump_cast.o11.reflex.x928.h0.fr | timeout/0/0/14  timeout/0/0/13  timeout/0/0/14
+  trog_strength.isolated.stationary_jump_cast.o12.reflex.x720.h0.fl | timeout/0/0/15  timeout/0/0/14  timeout/0/0/15
+  trog_strength.isolated.stationary_jump_cast.o12.reflex.x720.h0.fr | timeout/0/0/15  timeout/0/0/14  timeout/0/0/15
+  trog_strength.isolated.stationary_jump_cast.o12.reflex.x928.h0.fl | timeout/0/0/14  timeout/0/0/13  timeout/0/0/14
+  trog_strength.isolated.stationary_jump_cast.o12.reflex.x928.h0.fr | timeout/0/0/14  timeout/0/0/13  timeout/0/0/14
+  trog_strength.isolated.stationary_jump_cast.o13.reflex.x720.h0.fl | timeout/0/0/15  timeout/0/0/14  timeout/0/0/15
+  trog_strength.isolated.stationary_jump_cast.o13.reflex.x720.h0.fr | timeout/0/0/15  timeout/0/0/14  timeout/0/0/15
+  trog_strength.isolated.stationary_jump_cast.o13.reflex.x928.h0.fl | timeout/0/0/14  timeout/0/0/13  timeout/0/0/14
+  trog_strength.isolated.stationary_jump_cast.o13.reflex.x928.h0.fr | timeout/0/0/14  timeout/0/0/13  timeout/0/0/14
+  trog_strength.isolated.stationary_jump_cast.o14.reflex.x720.h0.fl | timeout/0/0/15  timeout/0/0/15  timeout/0/0/15
+  trog_strength.isolated.stationary_jump_cast.o14.reflex.x720.h0.fr | timeout/0/0/15  timeout/0/0/15  timeout/0/0/15
+  trog_strength.isolated.stationary_jump_cast.o14.reflex.x928.h0.fl | timeout/0/0/14  timeout/0/0/14  timeout/0/0/14
+  trog_strength.isolated.stationary_jump_cast.o14.reflex.x928.h0.fr | timeout/0/0/14  timeout/0/0/14  timeout/0/0/14
+  trog_strength.isolated.stationary_jump_cast.o15.reflex.x720.h0.fl | timeout/0/0/15  timeout/0/0/15  timeout/0/0/15
+  trog_strength.isolated.stationary_jump_cast.o15.reflex.x720.h0.fr | timeout/0/0/15  timeout/0/0/15  timeout/0/0/15
+  trog_strength.isolated.stationary_jump_cast.o15.reflex.x928.h0.fl | timeout/0/0/14  timeout/0/0/14  timeout/0/0/14
+  trog_strength.isolated.stationary_jump_cast.o15.reflex.x928.h0.fr | timeout/0/0/15  timeout/0/0/14  timeout/0/0/15
+  trog_strength.isolated.stationary_jump_cast.o16.reflex.x720.h0.fl | timeout/0/0/16  timeout/0/0/15  timeout/0/0/16
+  trog_strength.isolated.stationary_jump_cast.o16.reflex.x720.h0.fr | timeout/0/0/16  timeout/0/0/15  timeout/0/0/16
+  trog_strength.isolated.stationary_jump_cast.o16.reflex.x928.h0.fl | timeout/0/0/15  timeout/0/0/14  timeout/0/0/15
+  trog_strength.isolated.stationary_jump_cast.o16.reflex.x928.h0.fr | timeout/0/0/15  timeout/0/0/14  timeout/0/0/15
+  trog_strength.isolated.stationary_jump_cast.o17.reflex.x720.h0.fl | timeout/0/0/16  timeout/0/0/15  timeout/0/0/16
+  trog_strength.isolated.stationary_jump_cast.o17.reflex.x720.h0.fr | timeout/0/0/16  timeout/0/0/15  timeout/0/0/16
+  trog_strength.isolated.stationary_jump_cast.o17.reflex.x928.h0.fl | timeout/0/0/15  timeout/0/0/14  timeout/0/0/15
+  trog_strength.isolated.stationary_jump_cast.o17.reflex.x928.h0.fr | timeout/0/0/15  timeout/0/0/14  timeout/0/0/15
+  trog_strength.isolated.stationary_jump_cast.o18.reflex.x720.h0.fl | timeout/0/0/16  timeout/0/0/15  timeout/0/0/16
+  trog_strength.isolated.stationary_jump_cast.o18.reflex.x720.h0.fr | timeout/0/0/16  timeout/0/0/15  timeout/0/0/16
+  trog_strength.isolated.stationary_jump_cast.o18.reflex.x928.h0.fl | timeout/0/0/15  timeout/0/0/14  timeout/0/0/15
+  trog_strength.isolated.stationary_jump_cast.o18.reflex.x928.h0.fr | timeout/0/0/15  timeout/0/0/14  timeout/0/0/15
+  trog_strength.isolated.stationary_jump_cast.o19.reflex.x720.h0.fl | timeout/0/0/16  timeout/0/0/15  timeout/0/0/16
+  trog_strength.isolated.stationary_jump_cast.o19.reflex.x720.h0.fr | timeout/0/0/16  timeout/0/0/15  timeout/0/0/16
+  trog_strength.isolated.stationary_jump_cast.o19.reflex.x928.h0.fl | timeout/0/0/15  timeout/0/0/14  timeout/0/0/15
+  trog_strength.isolated.stationary_jump_cast.o19.reflex.x928.h0.fr | timeout/0/0/15  timeout/0/0/14  timeout/0/0/15
+  trog_strength.isolated.stationary_jump_cast.o2.reflex.x720.h0.fl | timeout/1/0/4  timeout/1/0/4  timeout/1/0/4
+  trog_strength.isolated.stationary_jump_cast.o2.reflex.x720.h0.fr | timeout/1/0/4  timeout/1/0/4  timeout/1/0/4
+  trog_strength.isolated.stationary_jump_cast.o2.reflex.x928.h0.fl | timeout/1/0/4  timeout/1/0/4  timeout/1/0/4
+  trog_strength.isolated.stationary_jump_cast.o2.reflex.x928.h0.fr | timeout/1/0/4  timeout/1/0/4  timeout/1/0/4
+  trog_strength.isolated.stationary_jump_cast.o20.reflex.x720.h0.fl | timeout/0/0/16  timeout/0/0/16  timeout/0/0/16
+  trog_strength.isolated.stationary_jump_cast.o20.reflex.x720.h0.fr | timeout/0/0/16  timeout/0/0/16  timeout/0/0/16
+  trog_strength.isolated.stationary_jump_cast.o20.reflex.x928.h0.fl | timeout/0/0/15  timeout/0/0/15  timeout/0/0/15
+  trog_strength.isolated.stationary_jump_cast.o20.reflex.x928.h0.fr | timeout/0/0/15  timeout/0/0/15  timeout/0/0/15
+  trog_strength.isolated.stationary_jump_cast.o21.reflex.x720.h0.fl | timeout/0/0/17  timeout/0/0/16  timeout/0/0/17
+  trog_strength.isolated.stationary_jump_cast.o21.reflex.x720.h0.fr | timeout/0/0/17  timeout/0/0/16  timeout/0/0/17
+  trog_strength.isolated.stationary_jump_cast.o21.reflex.x928.h0.fl | timeout/0/0/16  timeout/0/0/15  timeout/0/0/16
+  trog_strength.isolated.stationary_jump_cast.o21.reflex.x928.h0.fr | timeout/0/0/16  timeout/0/0/15  timeout/0/0/16
+  trog_strength.isolated.stationary_jump_cast.o22.reflex.x720.h0.fl | timeout/0/0/17  timeout/0/0/16  timeout/0/0/17
+  trog_strength.isolated.stationary_jump_cast.o22.reflex.x720.h0.fr | timeout/0/0/17  timeout/0/0/16  timeout/0/0/17
+  trog_strength.isolated.stationary_jump_cast.o22.reflex.x928.h0.fl | timeout/0/0/16  timeout/0/0/15  timeout/0/0/16
+  trog_strength.isolated.stationary_jump_cast.o22.reflex.x928.h0.fr | timeout/0/0/16  timeout/0/0/15  timeout/0/0/16
+  trog_strength.isolated.stationary_jump_cast.o23.reflex.x720.h0.fl | hero_defeat/0/4/8  timeout/0/0/16  hero_defeat/0/4/8
+  trog_strength.isolated.stationary_jump_cast.o23.reflex.x720.h0.fr | timeout/0/1/16  timeout/0/0/16  timeout/0/1/16
+  trog_strength.isolated.stationary_jump_cast.o23.reflex.x928.h0.fl | hero_defeat/0/4/7  timeout/0/0/15  hero_defeat/0/4/7
+  trog_strength.isolated.stationary_jump_cast.o23.reflex.x928.h0.fr | hero_defeat/0/4/7  timeout/0/0/15  hero_defeat/0/4/7
+  trog_strength.isolated.stationary_jump_cast.o24.reflex.x720.h0.fl | timeout/0/2/16  timeout/0/0/16  timeout/0/2/16
+  trog_strength.isolated.stationary_jump_cast.o24.reflex.x720.h0.fr | timeout/0/2/16  timeout/0/0/16  timeout/0/2/16
+  trog_strength.isolated.stationary_jump_cast.o24.reflex.x928.h0.fl | timeout/0/1/16  timeout/0/0/15  timeout/0/1/16
+  trog_strength.isolated.stationary_jump_cast.o24.reflex.x928.h0.fr | timeout/0/1/16  timeout/0/0/15  timeout/0/1/16
+  trog_strength.isolated.stationary_jump_cast.o25.reflex.x720.h0.fl | timeout/0/2/16  timeout/0/0/16  timeout/0/2/16
+  trog_strength.isolated.stationary_jump_cast.o25.reflex.x720.h0.fr | timeout/0/2/16  timeout/0/0/16  timeout/0/2/16
+  trog_strength.isolated.stationary_jump_cast.o25.reflex.x928.h0.fl | timeout/0/1/16  timeout/0/0/15  timeout/0/1/16
+  trog_strength.isolated.stationary_jump_cast.o25.reflex.x928.h0.fr | timeout/0/1/15  timeout/0/0/15  timeout/0/1/15
+  trog_strength.isolated.stationary_jump_cast.o26.reflex.x720.h0.fl | timeout/0/2/16  timeout/0/1/16  timeout/0/2/16
+  trog_strength.isolated.stationary_jump_cast.o26.reflex.x720.h0.fr | timeout/0/2/16  timeout/0/1/16  timeout/0/2/16
+  trog_strength.isolated.stationary_jump_cast.o26.reflex.x928.h0.fl | timeout/0/1/15  timeout/0/1/15  timeout/0/1/15
+  trog_strength.isolated.stationary_jump_cast.o26.reflex.x928.h0.fr | timeout/0/1/15  timeout/0/1/15  timeout/0/1/15
+  trog_strength.isolated.stationary_jump_cast.o27.reflex.x720.h0.fl | timeout/0/2/16  timeout/0/2/15  timeout/0/2/16
+  trog_strength.isolated.stationary_jump_cast.o27.reflex.x720.h0.fr | timeout/0/2/16  timeout/0/2/15  timeout/0/2/16
+  trog_strength.isolated.stationary_jump_cast.o27.reflex.x928.h0.fl | timeout/0/2/15  timeout/0/1/15  timeout/0/2/15
+  trog_strength.isolated.stationary_jump_cast.o27.reflex.x928.h0.fr | timeout/0/2/15  timeout/0/1/15  timeout/0/2/15
+  trog_strength.isolated.stationary_jump_cast.o28.reflex.x720.h0.fl | timeout/0/3/15  timeout/0/2/15  timeout/0/3/15
+  trog_strength.isolated.stationary_jump_cast.o28.reflex.x720.h0.fr | timeout/0/3/15  timeout/0/2/15  timeout/0/3/15
+  trog_strength.isolated.stationary_jump_cast.o28.reflex.x928.h0.fl | timeout/0/2/15  timeout/0/1/15  timeout/0/2/15
+  trog_strength.isolated.stationary_jump_cast.o28.reflex.x928.h0.fr | timeout/0/2/15  timeout/0/1/15  timeout/0/2/15
+  trog_strength.isolated.stationary_jump_cast.o29.reflex.x720.h0.fl | timeout/0/3/15  timeout/0/2/15  timeout/0/3/15
+  trog_strength.isolated.stationary_jump_cast.o29.reflex.x720.h0.fr | timeout/0/3/15  timeout/0/2/15  timeout/0/3/15
+  trog_strength.isolated.stationary_jump_cast.o29.reflex.x928.h0.fl | timeout/0/2/15  timeout/0/1/15  timeout/0/2/15
+  trog_strength.isolated.stationary_jump_cast.o29.reflex.x928.h0.fr | timeout/0/2/15  timeout/0/1/15  timeout/0/2/15
+  trog_strength.isolated.stationary_jump_cast.o3.reflex.x720.h0.fl | timeout/0/0/12  timeout/0/0/11  timeout/0/0/12
+  trog_strength.isolated.stationary_jump_cast.o3.reflex.x720.h0.fr | timeout/0/0/12  timeout/0/0/11  timeout/0/0/12
+  trog_strength.isolated.stationary_jump_cast.o3.reflex.x928.h0.fl | timeout/0/0/11  timeout/0/0/10  timeout/0/0/11
+  trog_strength.isolated.stationary_jump_cast.o3.reflex.x928.h0.fr | timeout/0/0/11  timeout/0/0/10  timeout/0/0/11
+  trog_strength.isolated.stationary_jump_cast.o30.reflex.x720.h0.fl | hero_defeat/0/4/13  timeout/0/2/15  hero_defeat/0/4/13
+  trog_strength.isolated.stationary_jump_cast.o30.reflex.x720.h0.fr | hero_defeat/0/4/13  timeout/0/2/15  hero_defeat/0/4/13
+  trog_strength.isolated.stationary_jump_cast.o30.reflex.x928.h0.fl | timeout/0/3/15  timeout/0/3/15  timeout/0/3/15
+  trog_strength.isolated.stationary_jump_cast.o30.reflex.x928.h0.fr | timeout/0/3/15  timeout/0/3/15  timeout/0/3/15
+  trog_strength.isolated.stationary_jump_cast.o31.reflex.x720.h0.fl | timeout/0/3/15  timeout/0/2/15  timeout/0/3/15
+  trog_strength.isolated.stationary_jump_cast.o31.reflex.x720.h0.fr | timeout/0/3/15  timeout/0/2/15  timeout/0/3/15
+  trog_strength.isolated.stationary_jump_cast.o31.reflex.x928.h0.fl | timeout/0/2/15  timeout/0/2/15  timeout/0/2/15
+  trog_strength.isolated.stationary_jump_cast.o31.reflex.x928.h0.fr | timeout/0/2/15  timeout/0/2/15  timeout/0/2/15
+  trog_strength.isolated.stationary_jump_cast.o32.reflex.x720.h0.fl | timeout/0/3/15  timeout/0/3/15  timeout/0/3/15
+  trog_strength.isolated.stationary_jump_cast.o32.reflex.x720.h0.fr | timeout/0/3/15  timeout/0/3/15  timeout/0/3/15
+  trog_strength.isolated.stationary_jump_cast.o32.reflex.x928.h0.fl | timeout/0/3/15  timeout/0/2/15  timeout/0/3/15
+  trog_strength.isolated.stationary_jump_cast.o32.reflex.x928.h0.fr | timeout/0/3/15  timeout/0/2/15  timeout/0/3/15
+  trog_strength.isolated.stationary_jump_cast.o33.reflex.x720.h0.fl | timeout/0/3/15  timeout/0/3/15  timeout/0/3/15
+  trog_strength.isolated.stationary_jump_cast.o33.reflex.x720.h0.fr | timeout/0/3/15  timeout/0/3/15  timeout/0/3/15
+  trog_strength.isolated.stationary_jump_cast.o33.reflex.x928.h0.fl | timeout/0/3/15  timeout/0/2/15  timeout/0/3/15
+  trog_strength.isolated.stationary_jump_cast.o33.reflex.x928.h0.fr | timeout/0/3/15  timeout/0/2/15  timeout/0/3/15
+  trog_strength.isolated.stationary_jump_cast.o34.reflex.x720.h0.fl | timeout/0/3/15  timeout/0/3/15  timeout/0/3/15
+  trog_strength.isolated.stationary_jump_cast.o34.reflex.x720.h0.fr | timeout/0/3/15  timeout/0/3/15  timeout/0/3/15
+  trog_strength.isolated.stationary_jump_cast.o34.reflex.x928.h0.fl | timeout/0/3/15  timeout/0/2/15  timeout/0/3/15
+  trog_strength.isolated.stationary_jump_cast.o34.reflex.x928.h0.fr | timeout/0/3/15  timeout/0/2/15  timeout/0/3/15
+  trog_strength.isolated.stationary_jump_cast.o35.reflex.x720.h0.fl | hero_defeat/0/4/14  timeout/0/3/14  hero_defeat/0/4/14
+  trog_strength.isolated.stationary_jump_cast.o35.reflex.x720.h0.fr | hero_defeat/0/4/14  timeout/0/3/14  hero_defeat/0/4/14
+  trog_strength.isolated.stationary_jump_cast.o35.reflex.x928.h0.fl | timeout/0/3/14  timeout/0/3/13  timeout/0/3/14
+  trog_strength.isolated.stationary_jump_cast.o35.reflex.x928.h0.fr | timeout/0/3/14  timeout/0/3/13  timeout/0/3/14
+  trog_strength.isolated.stationary_jump_cast.o36.reflex.x720.h0.fl | hero_defeat/0/4/14  timeout/0/3/14  hero_defeat/0/4/14
+  trog_strength.isolated.stationary_jump_cast.o36.reflex.x720.h0.fr | hero_defeat/0/4/14  timeout/0/3/14  hero_defeat/0/4/14
+  trog_strength.isolated.stationary_jump_cast.o36.reflex.x928.h0.fl | timeout/0/3/14  timeout/0/3/13  timeout/0/3/14
+  trog_strength.isolated.stationary_jump_cast.o36.reflex.x928.h0.fr | timeout/0/3/14  timeout/0/3/13  timeout/0/3/14
+  trog_strength.isolated.stationary_jump_cast.o37.reflex.x720.h0.fl | hero_defeat/0/4/14  timeout/0/3/14  hero_defeat/0/4/14
+  trog_strength.isolated.stationary_jump_cast.o37.reflex.x720.h0.fr | hero_defeat/0/4/14  timeout/0/3/14  hero_defeat/0/4/14
+  trog_strength.isolated.stationary_jump_cast.o37.reflex.x928.h0.fl | timeout/0/3/14  timeout/0/3/13  timeout/0/3/14
+  trog_strength.isolated.stationary_jump_cast.o37.reflex.x928.h0.fr | timeout/0/3/14  timeout/0/3/13  timeout/0/3/14
+  trog_strength.isolated.stationary_jump_cast.o38.reflex.x720.h0.fl | hero_defeat/0/4/14  timeout/0/3/14  hero_defeat/0/4/14
+  trog_strength.isolated.stationary_jump_cast.o38.reflex.x720.h0.fr | hero_defeat/0/4/14  timeout/0/3/14  hero_defeat/0/4/14
+  trog_strength.isolated.stationary_jump_cast.o38.reflex.x928.h0.fl | timeout/0/3/14  timeout/0/3/13  timeout/0/3/14
+  trog_strength.isolated.stationary_jump_cast.o38.reflex.x928.h0.fr | timeout/0/3/14  timeout/0/3/13  timeout/0/3/14
+  trog_strength.isolated.stationary_jump_cast.o39.reflex.x720.h0.fl | timeout/0/3/14  timeout/0/3/14  timeout/0/3/14
+  trog_strength.isolated.stationary_jump_cast.o39.reflex.x720.h0.fr | hero_defeat/0/4/14  timeout/0/3/14  hero_defeat/0/4/14
+  trog_strength.isolated.stationary_jump_cast.o39.reflex.x928.h0.fl | timeout/0/3/14  timeout/0/3/13  timeout/0/3/14
+  trog_strength.isolated.stationary_jump_cast.o39.reflex.x928.h0.fr | timeout/0/3/14  timeout/0/3/13  timeout/0/3/14
+  trog_strength.isolated.stationary_jump_cast.o4.reflex.x720.h0.fl | timeout/0/0/15  timeout/0/0/14  timeout/0/0/15
+  trog_strength.isolated.stationary_jump_cast.o4.reflex.x720.h0.fr | timeout/0/0/15  timeout/0/0/14  timeout/0/0/15
+  trog_strength.isolated.stationary_jump_cast.o4.reflex.x928.h0.fl | timeout/0/0/14  timeout/0/0/13  timeout/0/0/14
+  trog_strength.isolated.stationary_jump_cast.o4.reflex.x928.h0.fr | timeout/0/0/14  timeout/0/0/13  timeout/0/0/14
+  trog_strength.isolated.stationary_jump_cast.o40.reflex.x720.h0.fl | timeout/0/3/14  timeout/0/3/13  timeout/0/3/14
+  trog_strength.isolated.stationary_jump_cast.o40.reflex.x720.h0.fr | timeout/0/3/14  timeout/0/3/14  timeout/0/3/14
+  trog_strength.isolated.stationary_jump_cast.o40.reflex.x928.h0.fl | timeout/0/3/14  timeout/0/3/13  timeout/0/3/14
+  trog_strength.isolated.stationary_jump_cast.o40.reflex.x928.h0.fr | timeout/0/3/13  timeout/0/3/13  timeout/0/3/13
+  trog_strength.isolated.stationary_jump_cast.o41.reflex.x720.h0.fl | timeout/0/3/14  timeout/0/3/13  timeout/0/3/14
+  trog_strength.isolated.stationary_jump_cast.o41.reflex.x720.h0.fr | timeout/0/3/14  timeout/0/3/13  timeout/0/3/14
+  trog_strength.isolated.stationary_jump_cast.o41.reflex.x928.h0.fl | timeout/0/3/13  timeout/0/2/13  timeout/0/3/13
+  trog_strength.isolated.stationary_jump_cast.o41.reflex.x928.h0.fr | timeout/0/3/13  timeout/0/2/13  timeout/0/3/13
+  trog_strength.isolated.stationary_jump_cast.o42.reflex.x720.h0.fl | timeout/0/3/14  timeout/0/3/13  timeout/0/3/14
+  trog_strength.isolated.stationary_jump_cast.o42.reflex.x720.h0.fr | timeout/0/3/14  timeout/0/3/13  timeout/0/3/14
+  trog_strength.isolated.stationary_jump_cast.o42.reflex.x928.h0.fl | timeout/0/3/13  timeout/0/2/13  timeout/0/3/13
+  trog_strength.isolated.stationary_jump_cast.o42.reflex.x928.h0.fr | timeout/0/3/13  timeout/0/2/13  timeout/0/3/13
+  trog_strength.isolated.stationary_jump_cast.o43.reflex.x720.h0.fl | timeout/0/3/14  timeout/0/3/13  timeout/0/3/14
+  trog_strength.isolated.stationary_jump_cast.o43.reflex.x720.h0.fr | timeout/0/3/14  timeout/0/3/13  timeout/0/3/14
+  trog_strength.isolated.stationary_jump_cast.o43.reflex.x928.h0.fl | timeout/0/3/13  timeout/0/2/13  timeout/0/3/13
+  trog_strength.isolated.stationary_jump_cast.o43.reflex.x928.h0.fr | timeout/0/3/13  timeout/0/2/13  timeout/0/3/13
+  trog_strength.isolated.stationary_jump_cast.o44.reflex.x720.h0.fl | timeout/0/3/14  timeout/0/3/13  timeout/0/3/14
+  trog_strength.isolated.stationary_jump_cast.o44.reflex.x720.h0.fr | timeout/0/3/14  timeout/0/3/13  timeout/0/3/14
+  trog_strength.isolated.stationary_jump_cast.o44.reflex.x928.h0.fl | timeout/0/3/13  timeout/0/2/13  timeout/0/3/13
+  trog_strength.isolated.stationary_jump_cast.o44.reflex.x928.h0.fr | timeout/0/3/13  timeout/0/2/13  timeout/0/3/13
+  trog_strength.isolated.stationary_jump_cast.o45.reflex.x720.h0.fl | timeout/0/3/14  timeout/0/3/13  timeout/0/3/14
+  trog_strength.isolated.stationary_jump_cast.o45.reflex.x720.h0.fr | timeout/0/3/14  timeout/0/3/13  timeout/0/3/14
+  trog_strength.isolated.stationary_jump_cast.o45.reflex.x928.h0.fl | timeout/0/3/13  timeout/0/2/13  timeout/0/3/13
+  trog_strength.isolated.stationary_jump_cast.o45.reflex.x928.h0.fr | timeout/0/3/13  timeout/0/2/13  timeout/0/3/13
+  trog_strength.isolated.stationary_jump_cast.o46.reflex.x720.h0.fl | timeout/0/3/14  timeout/0/3/13  timeout/0/3/14
+  trog_strength.isolated.stationary_jump_cast.o46.reflex.x720.h0.fr | timeout/0/3/14  timeout/0/3/13  timeout/0/3/14
+  trog_strength.isolated.stationary_jump_cast.o46.reflex.x928.h0.fl | timeout/0/3/13  timeout/0/2/13  timeout/0/3/13
+  trog_strength.isolated.stationary_jump_cast.o46.reflex.x928.h0.fr | timeout/0/3/13  timeout/0/2/13  timeout/0/3/13
+  trog_strength.isolated.stationary_jump_cast.o47.reflex.x720.h0.fl | timeout/0/3/13  timeout/0/3/13  timeout/0/3/13
+  trog_strength.isolated.stationary_jump_cast.o47.reflex.x720.h0.fr | timeout/0/3/13  timeout/0/3/13  timeout/0/3/13
+  trog_strength.isolated.stationary_jump_cast.o47.reflex.x928.h0.fl | timeout/0/3/13  timeout/0/2/12  timeout/0/3/13
+  trog_strength.isolated.stationary_jump_cast.o47.reflex.x928.h0.fr | timeout/0/3/13  timeout/0/2/12  timeout/0/3/13
+  trog_strength.isolated.stationary_jump_cast.o48.reflex.x720.h0.fl | timeout/0/3/13  timeout/0/3/13  timeout/0/3/13
+  trog_strength.isolated.stationary_jump_cast.o48.reflex.x720.h0.fr | timeout/0/3/13  timeout/0/3/13  timeout/0/3/13
+  trog_strength.isolated.stationary_jump_cast.o48.reflex.x928.h0.fl | timeout/0/3/13  timeout/0/2/12  timeout/0/3/13
+  trog_strength.isolated.stationary_jump_cast.o48.reflex.x928.h0.fr | timeout/0/3/13  timeout/0/3/13  timeout/0/3/13
+  trog_strength.isolated.stationary_jump_cast.o49.reflex.x720.h0.fl | timeout/0/2/14  timeout/0/2/14  timeout/0/2/14
+  trog_strength.isolated.stationary_jump_cast.o49.reflex.x720.h0.fr | timeout/0/2/14  timeout/0/2/14  timeout/0/2/14
+  trog_strength.isolated.stationary_jump_cast.o49.reflex.x928.h0.fl | timeout/0/2/14  timeout/0/1/14  timeout/0/2/14
+  trog_strength.isolated.stationary_jump_cast.o49.reflex.x928.h0.fr | timeout/0/2/14  timeout/0/2/14  timeout/0/2/14
+  trog_strength.isolated.stationary_jump_cast.o5.reflex.x720.h0.fl | timeout/0/0/15  timeout/0/0/14  timeout/0/0/15
+  trog_strength.isolated.stationary_jump_cast.o5.reflex.x720.h0.fr | timeout/0/0/15  timeout/0/0/14  timeout/0/0/15
+  trog_strength.isolated.stationary_jump_cast.o5.reflex.x928.h0.fl | timeout/0/0/14  timeout/0/0/13  timeout/0/0/14
+  trog_strength.isolated.stationary_jump_cast.o5.reflex.x928.h0.fr | timeout/0/0/14  timeout/0/0/13  timeout/0/0/14
+  trog_strength.isolated.stationary_jump_cast.o50.reflex.x720.h0.fl | timeout/0/0/15  timeout/0/0/15  timeout/0/0/15
+  trog_strength.isolated.stationary_jump_cast.o50.reflex.x720.h0.fr | timeout/0/0/15  timeout/0/0/15  timeout/0/0/15
+  trog_strength.isolated.stationary_jump_cast.o50.reflex.x928.h0.fl | timeout/0/0/14  timeout/0/0/14  timeout/0/0/14
+  trog_strength.isolated.stationary_jump_cast.o50.reflex.x928.h0.fr | timeout/0/0/15  timeout/0/0/14  timeout/0/0/15
+  trog_strength.isolated.stationary_jump_cast.o51.reflex.x720.h0.fl | timeout/0/0/15  timeout/0/0/15  timeout/0/0/15
+  trog_strength.isolated.stationary_jump_cast.o51.reflex.x720.h0.fr | timeout/0/0/15  timeout/0/0/15  timeout/0/0/15
+  trog_strength.isolated.stationary_jump_cast.o51.reflex.x928.h0.fl | timeout/0/0/14  timeout/0/0/14  timeout/0/0/14
+  trog_strength.isolated.stationary_jump_cast.o51.reflex.x928.h0.fr | timeout/0/0/15  timeout/0/0/14  timeout/0/0/15
+  trog_strength.isolated.stationary_jump_cast.o52.reflex.x720.h0.fl | timeout/1/0/4  timeout/1/0/5  timeout/1/0/4
+  trog_strength.isolated.stationary_jump_cast.o52.reflex.x720.h0.fr | timeout/1/0/4  timeout/1/0/5  timeout/1/0/4
+  trog_strength.isolated.stationary_jump_cast.o52.reflex.x928.h0.fl | timeout/1/0/4  timeout/1/0/4  timeout/1/0/4
+  trog_strength.isolated.stationary_jump_cast.o52.reflex.x928.h0.fr | timeout/1/0/5  timeout/1/0/4  timeout/1/0/5
+  trog_strength.isolated.stationary_jump_cast.o6.reflex.x720.h0.fl | timeout/0/0/14  timeout/0/0/14  timeout/0/0/14
+  trog_strength.isolated.stationary_jump_cast.o6.reflex.x720.h0.fr | timeout/0/0/14  timeout/0/0/14  timeout/0/0/14
+  trog_strength.isolated.stationary_jump_cast.o6.reflex.x928.h0.fl | timeout/0/0/13  timeout/0/0/13  timeout/0/0/13
+  trog_strength.isolated.stationary_jump_cast.o6.reflex.x928.h0.fr | timeout/0/0/13  timeout/0/0/13  timeout/0/0/13
+  trog_strength.isolated.stationary_jump_cast.o7.reflex.x720.h0.fl | timeout/0/0/14  timeout/0/0/13  timeout/0/0/14
+  trog_strength.isolated.stationary_jump_cast.o7.reflex.x720.h0.fr | timeout/0/0/14  timeout/0/0/13  timeout/0/0/14
+  trog_strength.isolated.stationary_jump_cast.o7.reflex.x928.h0.fl | timeout/0/0/13  timeout/0/0/12  timeout/0/0/13
+  trog_strength.isolated.stationary_jump_cast.o7.reflex.x928.h0.fr | timeout/0/0/13  timeout/0/0/12  timeout/0/0/13
+  trog_strength.isolated.stationary_jump_cast.o8.reflex.x720.h0.fl | timeout/0/0/14  timeout/0/0/13  timeout/0/0/14
+  trog_strength.isolated.stationary_jump_cast.o8.reflex.x720.h0.fr | timeout/0/0/14  timeout/0/0/13  timeout/0/0/14
+  trog_strength.isolated.stationary_jump_cast.o8.reflex.x928.h0.fl | timeout/0/0/13  timeout/0/0/12  timeout/0/0/13
+  trog_strength.isolated.stationary_jump_cast.o8.reflex.x928.h0.fr | timeout/0/0/13  timeout/0/0/12  timeout/0/0/13
+  trog_strength.isolated.stationary_jump_cast.o9.reflex.x720.h0.fl | timeout/0/0/14  timeout/0/0/13  timeout/0/0/14
+  trog_strength.isolated.stationary_jump_cast.o9.reflex.x720.h0.fr | timeout/0/0/14  timeout/0/0/13  timeout/0/0/14
+  trog_strength.isolated.stationary_jump_cast.o9.reflex.x928.h0.fl | timeout/0/0/13  timeout/0/0/12  timeout/0/0/13
+  trog_strength.isolated.stationary_jump_cast.o9.reflex.x928.h0.fr | timeout/0/0/13  timeout/0/0/12  timeout/0/0/13
+  trog_strength.isolated.stationary_jump_cast_aimed.reflex.x720.h0.fl | timeout/1/0/0  timeout/1/0/0  timeout/1/0/0
+  trog_strength.isolated.stationary_jump_cast_aimed.reflex.x720.h0.fr | timeout/1/0/0  timeout/1/0/0  timeout/1/0/0
+  trog_strength.isolated.stationary_jump_cast_aimed.reflex.x928.h0.fl | timeout/1/0/0  timeout/1/0/0  timeout/1/0/0
+  trog_strength.isolated.stationary_jump_cast_aimed.reflex.x928.h0.fr | timeout/1/0/0  timeout/1/0/0  timeout/1/0/0
+  trog_strength.isolated.stationary_turret.reflex.x720.h0.fl | timeout/1/0/0  timeout/1/0/0  timeout/1/0/0
+  trog_strength.isolated.stationary_turret.reflex.x720.h0.fr | timeout/1/0/0  timeout/1/0/0  timeout/1/0/0
+  trog_strength.isolated.stationary_turret.reflex.x928.h0.fl | timeout/1/0/0  timeout/1/0/0  timeout/1/0/0
+  trog_strength.isolated.stationary_turret.reflex.x928.h0.fr | timeout/1/0/0  timeout/1/0/0  timeout/1/0/0
+
+MOVEMENT ROWS (reflex on, 2400 tick limit)
+  trog_strength.isolated.mobile_cast.reflex.x80.h0.fr.p0 victory ticks=313 defeated=2/2 donut_hp_lost=0 carl_hp_lost=0 tells=1 strikes=0 evades=1
+  trog_strength.isolated.mobile_cast.reflex.x80.h0.fr.p1 victory ticks=313 defeated=2/2 donut_hp_lost=0 carl_hp_lost=0 tells=1 strikes=0 evades=0
+  trog_strength.isolated.mobile_cast.reflex.x80.h0.fr.p2 victory ticks=313 defeated=2/2 donut_hp_lost=0 carl_hp_lost=0 tells=2 strikes=0 evades=1
+  trog_strength.carl_solo.carl_melee.reflex.x80.h0.fr.p0 victory ticks=396 defeated=2/2 donut_hp_lost=0 carl_hp_lost=0 tells=2 strikes=0 evades=0
+  trog_strength.carl_solo.carl_melee.reflex.x80.h0.fr.p1 victory ticks=407 defeated=2/2 donut_hp_lost=0 carl_hp_lost=0 tells=2 strikes=0 evades=0
+  trog_strength.carl_solo.carl_melee.reflex.x80.h0.fr.p2 victory ticks=398 defeated=2/2 donut_hp_lost=0 carl_hp_lost=0 tells=2 strikes=0 evades=0
+  trog_strength.two_player.coop_probe.reflex.x400.h0.fr.p0 victory ticks=320 defeated=2/2 donut_hp_lost=0 carl_hp_lost=0 tells=1 strikes=0 evades=0
+  trog_strength.two_player.coop_probe.reflex.x400.h0.fr.p1 victory ticks=336 defeated=2/2 donut_hp_lost=0 carl_hp_lost=0 tells=1 strikes=0 evades=0
+  trog_strength.two_player.coop_probe.reflex.x400.h0.fr.p2 victory ticks=320 defeated=2/2 donut_hp_lost=0 carl_hp_lost=0 tells=1 strikes=0 evades=0
+
+CREDIT (gated stationary policies, natural starts, decisive variant; TROG-Q13 and G1)
+  stationary_cast              runs=30 virtuoso_by_donut=0 basher_by_donut=12 both_by_donut=0 tells=24
+  stationary_cast_aimed        runs=30 virtuoso_by_donut=0 basher_by_donut=12 both_by_donut=0 tells=15
+  stationary_cast_burst        runs=30 virtuoso_by_donut=0 basher_by_donut=12 both_by_donut=0 tells=23
+  stationary_jump_cast         runs=1680 virtuoso_by_donut=0 basher_by_donut=84 both_by_donut=0 tells=8495
+  stationary_jump_cast_aimed   runs=30 virtuoso_by_donut=0 basher_by_donut=12 both_by_donut=0 tells=0
+  stationary_turret            runs=30 virtuoso_by_donut=0 basher_by_donut=12 both_by_donut=0 tells=0
+
+POCKETS (reported, not gated; decisive variant, all stationary policies)
+  trog_run_t1 x=384 rise=32 stationary_cast              runs=6 victories=0 donut_hp_lost_sum=0 tells=0
+  trog_run_t1 x=384 rise=32 stationary_cast_aimed        runs=6 victories=0 donut_hp_lost_sum=0 tells=0
+  trog_run_t1 x=384 rise=32 stationary_cast_burst        runs=6 victories=0 donut_hp_lost_sum=0 tells=0
+  trog_run_t1 x=384 rise=32 stationary_jump_cast         runs=336 victories=0 donut_hp_lost_sum=0 tells=0
+  trog_run_t1 x=384 rise=32 stationary_jump_cast_aimed   runs=6 victories=0 donut_hp_lost_sum=0 tells=0
+  trog_run_t1 x=384 rise=32 stationary_turret            runs=6 victories=0 donut_hp_lost_sum=0 tells=0
+  trog_run_t1 x=432 rise=0 stationary_cast              runs=6 victories=6 donut_hp_lost_sum=3 tells=10
+  trog_run_t1 x=432 rise=0 stationary_cast_aimed        runs=6 victories=6 donut_hp_lost_sum=3 tells=6
+  trog_run_t1 x=432 rise=0 stationary_cast_burst        runs=6 victories=4 donut_hp_lost_sum=11 tells=15
+  trog_run_t1 x=432 rise=0 stationary_jump_cast         runs=336 victories=80 donut_hp_lost_sum=850 tells=4152
+  trog_run_t1 x=432 rise=0 stationary_jump_cast_aimed   runs=6 victories=6 donut_hp_lost_sum=0 tells=0
+  trog_run_t1 x=432 rise=0 stationary_turret            runs=6 victories=6 donut_hp_lost_sum=0 tells=0
+  trog_run_t2 x=1056 rise=0 stationary_cast              runs=6 victories=0 donut_hp_lost_sum=0 tells=21
+  trog_run_t2 x=1056 rise=0 stationary_cast_aimed        runs=6 victories=0 donut_hp_lost_sum=0 tells=21
+  trog_run_t2 x=1056 rise=0 stationary_cast_burst        runs=6 victories=0 donut_hp_lost_sum=0 tells=21
+  trog_run_t2 x=1056 rise=0 stationary_jump_cast         runs=336 victories=0 donut_hp_lost_sum=0 tells=0
+  trog_run_t2 x=1056 rise=0 stationary_jump_cast_aimed   runs=6 victories=0 donut_hp_lost_sum=0 tells=1
+  trog_run_t2 x=1056 rise=0 stationary_turret            runs=6 victories=0 donut_hp_lost_sum=0 tells=1
+  trog_run_t2 x=1280 rise=0 stationary_cast              runs=6 victories=6 donut_hp_lost_sum=3 tells=6
+  trog_run_t2 x=1280 rise=0 stationary_cast_aimed        runs=6 victories=6 donut_hp_lost_sum=3 tells=6
+  trog_run_t2 x=1280 rise=0 stationary_cast_burst        runs=6 victories=6 donut_hp_lost_sum=3 tells=6
+  trog_run_t2 x=1280 rise=0 stationary_jump_cast         runs=336 victories=41 donut_hp_lost_sum=156 tells=3010
+  trog_run_t2 x=1280 rise=0 stationary_jump_cast_aimed   runs=6 victories=6 donut_hp_lost_sum=0 tells=0
+  trog_run_t2 x=1280 rise=0 stationary_turret            runs=6 victories=6 donut_hp_lost_sum=0 tells=0
+  trog_run_t3 x=1760 rise=0 stationary_cast              runs=6 victories=0 donut_hp_lost_sum=0 tells=1
+  trog_run_t3 x=1760 rise=0 stationary_cast_aimed        runs=6 victories=0 donut_hp_lost_sum=0 tells=1
+  trog_run_t3 x=1760 rise=0 stationary_cast_burst        runs=6 victories=0 donut_hp_lost_sum=0 tells=1
+  trog_run_t3 x=1760 rise=0 stationary_jump_cast         runs=336 victories=0 donut_hp_lost_sum=0 tells=0
+  trog_run_t3 x=1760 rise=0 stationary_jump_cast_aimed   runs=6 victories=0 donut_hp_lost_sum=0 tells=1
+  trog_run_t3 x=1760 rise=0 stationary_turret            runs=6 victories=0 donut_hp_lost_sum=0 tells=1
+  trog_run_t3 x=1872 rise=32 stationary_cast              runs=6 victories=0 donut_hp_lost_sum=0 tells=1
+  trog_run_t3 x=1872 rise=32 stationary_cast_aimed        runs=6 victories=0 donut_hp_lost_sum=0 tells=1
+  trog_run_t3 x=1872 rise=32 stationary_cast_burst        runs=6 victories=0 donut_hp_lost_sum=0 tells=1
+  trog_run_t3 x=1872 rise=32 stationary_jump_cast         runs=336 victories=0 donut_hp_lost_sum=0 tells=0
+  trog_run_t3 x=1872 rise=32 stationary_jump_cast_aimed   runs=6 victories=0 donut_hp_lost_sum=0 tells=1
+  trog_run_t3 x=1872 rise=32 stationary_turret            runs=6 victories=0 donut_hp_lost_sum=0 tells=1
+  trog_run_t3 x=1952 rise=64 stationary_cast              runs=6 victories=0 donut_hp_lost_sum=0 tells=0
+  trog_run_t3 x=1952 rise=64 stationary_cast_aimed        runs=6 victories=0 donut_hp_lost_sum=0 tells=0
+  trog_run_t3 x=1952 rise=64 stationary_cast_burst        runs=6 victories=0 donut_hp_lost_sum=0 tells=0
+  trog_run_t3 x=1952 rise=64 stationary_jump_cast         runs=336 victories=0 donut_hp_lost_sum=0 tells=0
+  trog_run_t3 x=1952 rise=64 stationary_jump_cast_aimed   runs=6 victories=0 donut_hp_lost_sum=0 tells=0
+  trog_run_t3 x=1952 rise=64 stationary_turret            runs=6 victories=0 donut_hp_lost_sum=0 tells=0
+
+GRID (16 px floor grid 240..928 plus the shelf and bench tops; reported, not gated)
+  runs=720 virtuoso_by_donut=264 basher_by_donut=246 both_by_donut=0 best_counterexample=null
+
+SYSTEM FAILURES (hard)
+  blow_before_window=0 tell_in_protected=0 offscreen=0 unreachable_target=0 outside_leash=0 double_run_mismatches=0 of 3009 double runs

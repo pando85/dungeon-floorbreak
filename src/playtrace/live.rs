@@ -337,6 +337,15 @@ pub fn data_pins() -> Vec<(&'static str, u64)> {
             crate::f01_trog::RUN_ENCOUNTER_PIN_KEY,
             crate::f01_trog::RUN_ENCOUNTER_HASH,
         ),
+        // TROG-B: the Test of Strength's room and sidecar pins, scoped to `trog_strength`.
+        (
+            crate::f01_trog::STRENGTH_ROOM_PIN_KEY,
+            crate::f01_trog::STRENGTH_ROOM_HASH,
+        ),
+        (
+            crate::f01_trog::STRENGTH_ENCOUNTER_PIN_KEY,
+            crate::f01_trog::STRENGTH_ENCOUNTER_HASH,
+        ),
         // CF02-FU-C2F U3: the microarena's room file.
         (
             crate::cf02::arena::ROOM_PIN_KEY,

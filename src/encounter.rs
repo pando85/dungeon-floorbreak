@@ -123,6 +123,10 @@ pub const MAX_ROSTER_WAVES: usize = 8;
 pub const MAX_PROPS: usize = 8;
 /// A landed remnant or a solid prop on the lane is at most this high.
 pub const MAX_LANE_OBSTACLE_PX: i32 = 48;
+/// TROG-B (TROG-AD46): the tallest sidecar static of kind `solid` (Carl's class limit, the
+/// corral bumper's precedent). A breakable prop and its remnant stay at
+/// [`MAX_LANE_OBSTACLE_PX`]; only a plain static solid may reach 80 px.
+pub const MAX_STATIC_SOLID_PX: i32 = 80;
 /// A hanging weight's lowest point is at least this far above the lane.
 pub const MIN_HANG_PX: i32 = 96;
 /// Contact margin of a landing link: the footprint grows by this on each side.
@@ -3189,9 +3193,9 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
         if !within_play(room, rect) || rect.bottom() != room.floor_y {
             errs.push(bad("must stand on the walking line inside the play area"));
         }
-        if kind == StaticKind::Solid && rect.h > MAX_LANE_OBSTACLE_PX {
+        if kind == StaticKind::Solid && rect.h > MAX_STATIC_SOLID_PX {
             errs.push(bad(&format!(
-                "a solid is at most {MAX_LANE_OBSTACLE_PX} px high"
+                "a solid is at most {MAX_STATIC_SOLID_PX} px high"
             )));
         }
         for (zone, protect) in [

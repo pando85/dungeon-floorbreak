@@ -2744,9 +2744,10 @@ mod tests {
             crate::encounter::parse_sidecar(&v.to_string(), &ctx)
                 .expect_err("the edited sidecar must be rejected")
         };
-        // Too tall for a lane obstacle.
+        // Too tall for a lane obstacle (a static solid is at most `MAX_STATIC_SOLID_PX`, 80 px
+        // since TROG-AD46; the test's 68 px was over the old 48 px cap).
         let errs = check(&|v| {
-            v["statics"][0]["rect"] = serde_json::json!({"x":352,"y":512,"w":64,"h":68})
+            v["statics"][0]["rect"] = serde_json::json!({"x":352,"y":496,"w":64,"h":84})
         });
         assert!(
             errs.iter()

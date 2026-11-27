@@ -851,6 +851,7 @@ fn observe(sim: &PartyFixtureSim) -> Obs {
                 mode: l.mode,
                 attack_tick: l.attack_tick,
                 rush: l.rush_state().map(|r| r.phase),
+                rect: None,
             })
             .collect(),
     }
