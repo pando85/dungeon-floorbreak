@@ -81,6 +81,14 @@ try ok $S --f01-room ring_court --ring-pilot
 try ok $S --f01-room dozer --room-pilot dozer:run
 try ok $S --f01-room hoarder --room-pilot hoarder:carl_solo:0
 try ok $S --f01-room corral --room-pilot corral_rush
+try ok $S --f01-run --cine-showcase=off
+try ok $S --f01-room hoarder --companion v0
+try ok $S --f01-room rest_refuge --rest-pilot carl_door
+try ok $S --f01-room rest_refuge --rest-pilot base_jump
+try ok $S --f01-room dozer --room-pilot dozer:close_call
+try ok $S --f01-room dozer --room-pilot dozer:wait
+try ok $S --f01-room dozer --room-pilot dozer:brace
+try ok $S --f01-room act1_shore --act1-pilot walk
 # The run can start in the middle of the floor (every later room still follows).
 try ok $S --f01-run --f01-room rest_camp
 try ok $S --f01-run --f01-room trog_strength

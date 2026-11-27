@@ -1,19 +1,14 @@
-PLAYTEST-READY-01 local checks. Base: origin/main 2ad4bfc8 (after #312); debug build, xvfb, no GPU.
-
-The head carrying this file adds only documentation, two scripts and the owner-command lines; no Rust source changed.
-
-
+PLAYTEST-READY-01 local checks. Base: origin/main e9a05b1c (after #313, AREA-TROG-01 stage 2); debug build, xvfb, no GPU.
+The head carrying this file adds only documentation, scripts and the owner-command lines; no Rust source changed, so the cargo results are those of the base's sources. All checks below were run after the rebase and after the review fixes (R1 to R13 of the #314 review).
 
 == cargo fmt --all -- --check
 exit 0
 
 == cargo clippy --locked --all-targets -- -D warnings
-    Finished `dev` profile [optimized + debuginfo] target(s) in 3m 20s
-rc=0
+exit 0
 
 == cargo test --locked --all-targets --no-fail-fast
-exit 0 (13 test binaries with results): 4080 passed, 0 failed, 42 ignored
-rc=0
+exit 0 (13 test binaries with results): 4090 passed, 0 failed, 42 ignored
 
 == python3 scripts/check_docs.py
 exit 0 ("Documentation checks passed")
@@ -29,20 +24,19 @@ CAMERA_RENDER_OK: FLOOR1_SCENE_STATE tick=230 hero=404.000,198.000 cam=104,296 h
 rc=0
 
 == scripts/check_f01_owner_commands.sh
-exit 0; 78 lines: 64 ok, 13 expected refusals, 1 other (the record-run.sh existence line); 16 lines new in this PR (pilots, run from the middle). Full list: docs/evidence/f01-playtest/owner_commands_check.txt
+exit 0; 86 lines: 72 ok, 13 expected refusals, 1 other (the record-run.sh existence line). Full list: docs/evidence/f01-playtest/owner_commands_check.txt
 
 == scripts/f01_run_smoke.sh (17 rooms, headless)
-exit 0; every room status=ok; see run_smoke.txt
+exit 0; every room status=ok with its own entry line and *_SMOKE_OK marker (the Juicer needs FLOOR1_HEADLESS_OK only); see run_smoke.txt. Negative tests: smoke_negative.txt
 
 == print_the_carried_run_chain (ignored helper of src/f01_run.rs)
 17 rooms; see carried_run_chain.txt
 
 == python3 scripts/validate_assets.py
 exit 0
-VALID: vfx_puddle_jumper_48_candidate_v0: 16 frames
 
 == python3 -m unittest discover -s tests -p 'test_art_*.py'
-Ran 1283 tests: OK (skipped=1)
+Ran 1286 tests: OK (skipped=1)
 
 == python3 -m unittest discover -s tests -p 'test_pixelart_*.py'
 Ran 111 tests: OK
@@ -51,4 +45,4 @@ Ran 111 tests: OK
 Ran 9 tests: OK
 
 == scripts/export_assets.sh twice
-both exit 0; sha256 of every file under generated/art (1119 files) identical between the two runs; git status shows only this PR's own changes (the export leaves the tree clean)
+both exit 0; sha256 of every file under generated/art (1121 files) identical between the two runs; git status shows only this PR's own changes (the export leaves the tree clean)

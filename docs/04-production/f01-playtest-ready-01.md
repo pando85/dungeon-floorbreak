@@ -2,7 +2,7 @@
 
 **What this is.** The one page to read before you play Floor 1 next week: how to start the game, the 17 rooms in the order the run walks them, what is missing and why, what to look at in each room, every default that was adopted for you to review, the open questions and the art notes collected by the reviewers. Nothing here is accepted. Every mechanic below is "merged, game-feel review pending" and every drawn room is "owner art review pending"; you decide what stays.
 
-**Scope of this head.** Written against `main` after #312 (TROG-B) with the AREA-TROG-01 stage 2 art (#313) in its fix round; its status is in [section 3](#3-missing-by-owner-decision-budget-order-2026-11-27). The older packet [`docs/evidence/f01-playtest/README.md`](../evidence/f01-playtest/README.md) (PT-GATE-D) still holds the K1 to K19 defaults, the scorecards and the gate checklist, but its launch section predates the 17-room run: use this page for launching. The smoke and check outputs behind this packet are in [`docs/evidence/playtest-ready-01/`](../evidence/playtest-ready-01/README.md).
+**Scope of this head.** Written against `main` after #313 (AREA-TROG-01 stage 2, `e9a05b1c`), the last PR before this one. The older packet [`docs/evidence/f01-playtest/README.md`](../evidence/f01-playtest/README.md) (PT-GATE-D) still holds the K1 to K19 defaults, the scorecards and the gate checklist, but its launch section predates the 17-room run: use this page for launching. The smoke and check outputs behind this packet are in [`docs/evidence/playtest-ready-01/`](../evidence/playtest-ready-01/README.md).
 
 **The floor ends at the mastery arena.** There is no floor exit and no Ball of Swine yet (section 3). After `mastery` the game shows the floor-end panel (a facts-only total of the run) and quits when you confirm.
 
@@ -21,7 +21,7 @@ cargo run --release --bin floor01_scene -- --scene f01_late --f01-room trog_stre
 cargo run --release --bin floor01_scene -- --scene f01_late --f01-run --f01-room rest_camp --scale 2
 ```
 
-**Flags the owner can use** (all of them are exercised by [`scripts/check_f01_owner_commands.sh`](../../scripts/check_f01_owner_commands.sh), 30 ticks each under xvfb, debug build; the release build takes the same arguments):
+**Flags the owner can use** (every flag and pilot below is exercised by [`scripts/check_f01_owner_commands.sh`](../../scripts/check_f01_owner_commands.sh), 30 ticks each under xvfb, debug build; the release build takes the same arguments):
 
 | Flag | What it does |
 | --- | --- |
@@ -68,11 +68,11 @@ The HUD strip shows `ROOM n/17` in the panels and the room title with `TRY n`. T
 | 8 | `dozer` "The Machine Remembers" (room 3) | The revenge machine (DOZER-CORE #279, DR-A to DR-D #282, #287, #289, #292): escape the wheel, brace the frame at x 832, the crew. | dressed: DOZ-01 rig, DOZ-02 damage states #291; room shell greybox |
 | 9 | `hazards` "Slimes and Rot Stickers" (room 4) | Three pockets: slime and acid, Rot Stickers, a crossover; nothing is reflex-evadable. | dressed: AREA-HAZARDS-01B #285 (teal acid, decals, splash), exit door #274 |
 | 10 | `ring_court` "The Shutter Court" (4a) | Closed shutter over a step and a walkway; the AI partner follows over the walkway (RINGW-F1 #278). #271. | dressed: AREA-RINGS-01 #290, exit door #274 |
-| 11 | `ring_split` "The Split Passage" (4b) | Branching passage, far camp visible through the breach. #271. | dressed: AREA-RINGS-01 #290 |
+| 11 | `ring_split` "The Split Passage" (4b) | Branching passage, far camp visible through the breach. #271. | dressed: AREA-RINGS-01 #290, exit door #274 |
 | 12 | `rest_camp` "The Survivors' Camp" | Quiet room: anonymous survivors, hearth, a heavy bag. REST-B #304. | dressed: AREA-CAMP-01 #308 |
 | 13 | `trog_run` "The Troglodyte Run" | Pygmy, Basher and Virtuoso one after another; T1 lesson: punish the landing low; T3 platform. TROG-A #310. | dressed: AREA-TROG-01 stage 1 #311 |
-| 14 | `trog_strength` "The Test of Strength" | An 80 px static bench between the Virtuoso and the Basher; the exit hands the ledger to the Juicer. TROG-B #312. | stage 2 art: #313 (see section 3); until it merges the room draws flat labelled shapes |
-| 15 | `juicer` "The Juicer" (room 5, boss) | The boss arena with the gym kit; dynamite, the gate, the grants (HEAVY FIST, PUDDLE JUMPER); an autonomous Donut fights too. | dressed: AREA-GYM-01 #275, gate drop #288, exit door #274 |
+| 14 | `trog_strength` "The Test of Strength" | An 80 px static bench between the Virtuoso and the Basher; the exit hands the ledger to the Juicer. TROG-B #312. | dressed: AREA-TROG-01 stage 2 #313 (bench, shelf, gym bay, shards, threshold, mats) |
+| 15 | `juicer` "The Juicer" (room 5, boss) | The boss arena with the gym kit; dynamite, the gate, the grants (HEAVY FIST, PUDDLE JUMPER); an autonomous Donut fights too. | dressed: AREA-GYM-01 #275 (its own exit door, GYM-AD2), gate drop #288 |
 | 16 | `rest_aftermath` "After the Juicer" | Quiet room: the wrecked gym, the heavy bag, a 112 px blink lane with no reward. REST-C #304. | dressed: AREA-CAMP-01 #308 |
 | 17 | `mastery` "The Mastery Arena" (room 6) | Everything is held; wave 1 brawl lane, wave 2 llama yard; the exit gate opens when the roster is down. **Last room: the floor ends here.** | greybox; the exit gate is drawn (#274), the room itself is not dressed |
 
@@ -87,7 +87,7 @@ The owner set the order on 2026-11-27 with 74 % of the weekly limit used: camp a
 
 Also not done, not on the budget list: the moving Ring shutter (RING-C wire; the court's shutter is static), audio for every new room (the game has no runtime audio path for them), named survivors and dialogue (REST-Q2), Interact (R1/RB is not implemented), the breakable bench (TROG-Q14), the optional Scatterers slot (K14).
 
-**AREA-TROG-01 stage 2 (#313).** The Test of Strength dressing (kit, static bench, shelf, gym bay, evidence) is a draft in its review fix round. At the time of writing it is **not merged**: the Test of Strength room is playable with flat labelled shapes for the bench, shelf and gym bay, and every art note for that room in section 7 comes from the #313 review of the draft. Status once it merges: "owner art review pending".
+**AREA-TROG-01 stage 2 (#313) is merged** (`e9a05b1c`, owner art review pending): the Test of Strength is dressed (the bench key as a static piece, shelf, gym bay, shards, threshold, mats). Review decisions: TROG-ART-AD-S7 removed the torch above the retreat shelf and AD-S8 accepted a 4 px seam. The weakened and broken bench keys and the debris are drawn but reserved for TROG-Q14, so the bench never breaks in play.
 
 ## 4. Playtest checklist
 
@@ -113,7 +113,7 @@ Two to four things per room. "Look" means judge with your eyes at 1x; "feel" mea
 
 ## 5. Adopted defaults to review
 
-You said "go with all" and to end everything on `main`, so the open design choices were adopted by the recommendation of a top-tier design analysis and recorded by ID. **None of them is accepted.** Change a value in a follow-up PR; the last column says where. This section lists the ones most likely to be felt (75 rows); the complete list of 442 adopted-default rows and 139 question rows since `bebd5948`, with the PR that adopted each one, is in [the appendix](f01-playtest-ready-01-adopted-defaults.md).
+You said "go with all" and to end everything on `main`, so the open design choices were adopted by the recommendation of a top-tier design analysis and recorded by ID. **None of them is accepted.** Change a value in a follow-up PR; the last column says where. This section lists the ones most likely to be felt (75 rows); the complete list of 449 adopted-default rows and 139 question rows since `bebd5948`, with the PR that adopted each one, is in [the appendix](f01-playtest-ready-01-adopted-defaults.md).
 
 | ID | Adopted value | PR | Change by |
 | --- | --- | --- | --- |
@@ -125,14 +125,14 @@ You said "go with all" and to end everything on `main`, so the open design choic
 | ACT1-AD1 | Three rooms `act1_chase`, `act1_shore`, `act1_guild` before the corral, milestone `greybox`, `cf02_rules`, story-less (owner-gated, authorised by go-with-all) | #303 | `assets/levels/f01_late/manifest.json` (room rows) |
 | ACT1-AD2 | The chase/shore boundary is ENV-02's post-chase checkpoint (route 2640); the standard room-clear panel shows between them | #303 | `assets/levels/floor01/f01_act1_*.encounter.json`; opening profile `assets/data/gameplay/enemy_dozer_opening_v0.json`; `src/f01_act1.rs` constants |
 | ACT1-AD5 | Commit rule of section 5.3 (all heroes past `arm_x`, gap ≥ 140 from the rearmost body, reach margin 20 ticks, the charge reaches the barricade), one charge per attempt, ... | #303 | `assets/data/gameplay/enemy_dozer_opening_v0.json` (commit rule values) |
-| ACT1-AD7 | No idle wake in the opening (216000 ticks) | #303 | `assets/data/gameplay/enemy_dozer_opening_v0.json` (idle wake) |
+| ACT1-AD7 | No idle wake in the opening (216000 ticks) | #303 | `dzq11_idle_trigger_ticks` in `assets/levels/floor01/f01_act1_chase.encounter.json` |
 | ACT1-AD9 | No riders on the opening machine in the greybox; the shore goblins stand in for the thrown riders (owner-gated, authorised by go-with-all) | #303 | `assets/levels/floor01/f01_act1_*.encounter.json`; opening profile `assets/data/gameplay/enemy_dozer_opening_v0.json`; `src/f01_act1.rs` constants |
 | ACT1-AD13 | Donut locked in the Act I rooms under Story and flagless; `unlocked(8)` under All or the light-feet / puddle flags (owner-gated, authorised by go-with-all) | #303 | Donut's setup per loadout in `src/f01_act1.rs` |
-| ACT1-AD16 | `stop_x` 2856 and the exit at 2928; the machine wedges at the S5 arch's right edge | #303 | `assets/data/gameplay/enemy_dozer_opening_v0.json` (`stop_x`); `f01_act1_chase.encounter.json` |
+| ACT1-AD16 | `stop_x` 2856 and the exit at 2928; the machine wedges at the S5 arch's right edge | #303 | `dzq14_stop_x` in `assets/levels/floor01/f01_act1_chase.encounter.json` |
 | ACT1-IMP-1 | The sidecar rows carry `id`, `kind`, `x`, `beat` and `delay_ticks`. The module constant `f01_act1::SHORE_TEMPERAMENTS` (brawler, coward) is applied through the new ... | #306 | `SHORE_TEMPERAMENTS` in `src/f01_act1.rs` |
 | ACT1-IMP-11 | F14 asserts that the `WheelHit` precedes any `BarrierImpact`, no `PinnedHold`, no tell, and that the respawn rebuilds the machine (dormant, `barrier_hit()` false, the ... | #307 | `assets/levels/floor01/f01_act1_*.encounter.json`; opening profile `assets/data/gameplay/enemy_dozer_opening_v0.json`; `src/f01_act1.rs` constants |
 | **Audience and showcase (from the corral on)** | | | |
-| AR-AD1 | The unlock beat is the corral exit (the refuge onward, room 4 of N, N = 15 since ACT1-B: the run length is read from the manifest). (owner-gated, authorised by go-with-all) | #297 | positional rule in `src/f01_run.rs` (the `corral` manifest row) |
+| AR-AD1 | The unlock beat is the corral exit (the refuge onward, room 4 of N, N = 17 now (15 when #297 merged): the run length is read from the manifest). (owner-gated, authorised by go-with-all) | #297 | positional rule in `src/f01_run.rs` (the `corral` manifest row) |
 | AR-AD7 | `--cine-showcase=on/off`: default on iff the run default predicate. Explicit `on` is allowed on any path. `off` gives main's rules. (owner-gated, authorised by go-with-all) | #297 | `--cine-showcase=off` flag; defaults in `src/f01_run.rs` |
 | AR-AD9 | `CINE-THROWN-MULTI`: score 5, base 3, `thrown_multi_min_kills = 3`, all of them on one blast's tick. | #297 | `thrown_multi_min_kills` in `CineTuning` (`src/cine.rs`) |
 | AR-AD13 | `CINE-SHOWCASE-KILL`: score 5, base 1, a credited llama defeat on the completing tick. The anchor is the lowest llama id of the batch. | #297 | `showcase_kill_score` in `CineTuning` (`src/cine.rs`); 0 switches it off |
@@ -158,9 +158,9 @@ You said "go with all" and to end everything on `main`, so the open design choic
 | FF-AD7 | Six steady cool strip lights replace the four dining-room torches; the threshold and vestibule torches stay | #305 | `assets/source/terrain/floor01/floor01_fastfood_kit.json`; pixels `scripts/author_ff01.py` |
 | FF-AD13 | One static stray ball, no rolling gag in this work order | #305 | `assets/source/terrain/floor01/floor01_fastfood_kit.json`; pixels `scripts/author_ff01.py` |
 | **Hoarder (room 6)** | | | |
-| HC-AD2 | Two levels: S1 period 72 (heave 6, slump 4), S2 period 36 (heave_hi 8, slump 4) | #296 | `assets/data/gameplay/enemy_pile_boss_v0.json` (`hrdq41_*`); `src/hoarder_art.rs` |
+| HC-AD2 | Two levels: S1 period 72 (heave 6, slump 4), S2 period 36 (heave_hi 8, slump 4) | #296 | constants in `src/hoarder_art.rs` (`MOUND_STIR_HEAVE`, `STIR_HOLD_PX`); `hrdq05_stir_x` in `assets/data/gameplay/enemy_pile_boss_v0.json` |
 | HC-AD8 | No reactive cue on a refused post hit; bolts keep passing the post | #296 | `assets/data/gameplay/enemy_pile_boss_v0.json` (`hrdq41_*`); `src/hoarder_art.rs` |
-| HC-AD11 | Hysteresis: once S1 is active it holds until the lead hero is under x 224 (16 px under `hrdq05_stir_x`); | #296 | `assets/data/gameplay/enemy_pile_boss_v0.json` (`hrdq41_*`); `src/hoarder_art.rs` |
+| HC-AD11 | Hysteresis: once S1 is active it holds until the lead hero is under x 224 (16 px under `hrdq05_stir_x`); | #296 | constants in `src/hoarder_art.rs` (`MOUND_STIR_HEAVE`, `STIR_HOLD_PX`); `hrdq05_stir_x` in `assets/data/gameplay/enemy_pile_boss_v0.json` |
 | **Dozer (room 8)** | | | |
 | DZ-AD1 | Placement: room 3 of the slice, between the Boiler and the Floor Lies (the Ring rooms 4a/4b follow the Floor Lies), with pin `f01_pin_post_pile_boss` (dynamite held) and ... (owner-gated, authorised by go-with-all) | #273 | `assets/levels/f01_late/manifest.json` (room order) |
 | DZ-AD2 | K5 amendment: no `BossThreat` supplier in a Dozer room; the AI rule is the three layers of section 7, with CA2-DZ pre-registered as the named CA2 append and triggered by ... | #273 | `assets/data/gameplay/enemy_dozer_v0.json` (`dzq*` keys); `assets/levels/floor01/f01_dozer.encounter.json` |
@@ -212,7 +212,7 @@ You said "go with all" and to end everything on `main`, so the open design choic
 | #179 Dozer opening choreography | #303 (the ACT1 plan, which carries it) with #306 and #307 (rooms 1 to 3), and the DOZER-CORE chain #273, #279, #282, #287, #289, #291, #292 | art for the three Act I rooms; riders on the opening machine (ACT1-Q6); audio (ACT1-Q2) |
 | #187 Rest spaces and transition beats | #301 (REST plan), #302 (refuge), #304 (camp, aftermath), #305 (fast-food kit), #308 (camp kit) | named survivors (REST-Q2), Interact, audio, the Scatterers slot |
 | #189 The Broken Ring | #271 (rooms wired), #277 (blast seam fix), #278 (partner crossing), #290 (kit; divergences recorded as RNG-AD1 to AD24) | the moving shutter (RING-C wire), further Ring regions |
-| #191 Troglodytes and the Test of Strength | #309 (plan), #310 (TROG-A), #311 (art stage 1), #312 (TROG-B), #313 (art stage 2, in fix round) | the breakable bench and its break art (TROG-Q14), audio, death profiles |
+| #191 Troglodytes and the Test of Strength | #309 (plan), #310 (TROG-A), #311 (art stage 1), #312 (TROG-B), #313 (art stage 2) | the breakable bench and its break art (TROG-Q14), audio, death profiles |
 | #192 Ball of Swine | nothing | the whole floor finale and exit (section 3) |
 
 ## 6. Open questions and the adopted recommendation
@@ -261,7 +261,7 @@ These come from the independent art-director reviews and the executors' risk not
 - **Broken Ring (10, 11).** The survivors in the breach are hard to see at 1x; the walkway's top edge is only just the brightest run; a torch hangs about 64 px above its neighbours; the ring's break ends hint at a spiral when enlarged; the shutter may still read door-like (lower the iron band to the shoe); the full ring risks reading as an arch.
 - **Camp (12) and aftermath (16).** The bag's entry swing plays off-screen and the sway is subtle (plus or minus 4 px); the grooves read as cables; the wreck glass reads as mesh or barbed wire; the repair figure is the weakest read; the plate tree reads as a speaker stack; one fire against four torches (does it read warm enough?).
 - **Troglodyte run (13).** The knuckle marks read as bats (a redraw is suggested); the crater reads as a hole rather than a dent; the Virtuoso is the weakest read because the troglodyte sprites (L* 25 to 33) are darker than Carl (about 41; Q6); the fist hole's loose brick reads as a second socket; the blue sill under the bricked bays is a kit-wide question.
-- **Test of Strength (14), from the #313 review.**
+- **Test of Strength (14), from the #313 review** (AD-S7 removed the shelf torch; AD-S8 accepted a 4 px seam).
   - **Bench:** it plays well (solid and dark with a lit top) but still reads as a cabinet or a doorway with a porthole and steps; the plate stack looks like walkable stairs.
   - **Mirror shards:** they read even more as a framed night-mountain painting.
   - **Threshold:** the stone-to-gym-tile story is weak; it shows as a small blue patch.

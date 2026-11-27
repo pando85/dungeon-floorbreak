@@ -7,17 +7,27 @@
 # `--f01-run` (a floor run relaunches the binary per room, and a piloted run cannot cross a boundary: ROOM-PILOT-RUN).
 # The carried hand-off between rooms is covered by the `f01_run` tests (`cargo test f01_run`) and the ignored helper
 # `print_the_carried_run_chain`.
-#   BIN=<floor01_scene> (default ./target/debug/floor01_scene)   Output: stdout (one RUN_SMOKE line per room).
+# The script fails (exit 1) when the manifest cannot be read, yields no rooms or a count other than the expected one,
+# when a launch fails, when the entry line does not name the requested room, or when the room's own marker
+# (`F01_<ROOM>_SMOKE_OK`, ROOM upper case) is missing. The Juicer (`boss_f01`) is the one documented exception: it
+# has no `*_SMOKE_OK` marker, so it needs `FLOOR1_HEADLESS_OK` and its entry line only.
+#   BIN=<floor01_scene> (default ./target/debug/floor01_scene)   MANIFEST=<manifest.json> (default the committed one)
+#   F01_RUN_ROOMS=<count> (default 17, the rooms of the floor run)   Output: stdout (one RUN_SMOKE line per room).
 set -uo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 bin="${BIN:-./target/debug/floor01_scene}"
-mapfile -t rooms < <(python3 - <<'PY'
-import json
-for row in json.load(open("assets/levels/f01_late/manifest.json"))["rooms"]:
+manifest="${MANIFEST:-assets/levels/f01_late/manifest.json}"
+expected="${F01_RUN_ROOMS:-17}"
+list="$(python3 - "$manifest" <<'PY'
+import json, sys
+for row in json.load(open(sys.argv[1]))["rooms"]:
     print(row["id"])
 PY
-)
+)" || { echo "RUN_SMOKE cannot read the room list from $manifest" >&2; exit 1; }
+mapfile -t rooms <<< "$list"
 n=${#rooms[@]}
+[[ -n "$list" ]] && (( n > 0 )) || { echo "RUN_SMOKE no rooms read from $manifest" >&2; exit 1; }
+(( n == expected )) || { echo "RUN_SMOKE expected $expected rooms, $manifest lists $n" >&2; exit 1; }
 fail=0
 for i in "${!rooms[@]}"; do
   room="${rooms[$i]}"
@@ -26,12 +36,14 @@ for i in "${!rooms[@]}"; do
   log="$(mktemp -t f01_run_smoke.XXXXXX)"
   timeout 300 "$bin" --headless-floor01-smoke --scene f01_late --f01-room "$room" > "$log" 2>&1
   code=$?
-  entry="$(grep -m1 '^F01_LATE_ENTRY' "$log" | cut -c1-200)"
+  entry="$(grep -m1 "^F01_LATE_ENTRY room=$room " "$log" | cut -c1-200)"
   ok="$(grep -c '^FLOOR1_HEADLESS_OK' "$log")"
-  marker="$(grep -m1 '_SMOKE_OK' "$log" | awk '{print $1}')"
+  want="F01_${room^^}_SMOKE_OK"
+  marker="$(grep -m1 "^$want" "$log" | awk '{print $1}')"
   hash="$(grep '^COMBAT_STATE' "$log" | tail -n 1 | grep -o 'hash=[0-9a-f]*' | head -n 1)"
   status=ok
   if [[ "$code" != 0 || "$ok" == 0 || -z "$entry" ]]; then status=FAILED; fail=1; fi
+  if [[ -z "$marker" && "$room" != juicer ]]; then status=FAILED; fail=1; fi
   echo "RUN_SMOKE $((i + 1))/$n room=$room next=$next status=$status exit=$code marker=${marker:--} ${hash:-hash=-}"
   echo "  $entry"
   rm -f "$log"

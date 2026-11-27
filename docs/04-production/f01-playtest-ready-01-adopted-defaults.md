@@ -1,34 +1,34 @@
 # Floor 1 playtest, adopted defaults and open questions (PLAYTEST-READY-01 appendix)
 
-Every adopted-default ID that entered the repository after `bebd5948` (the `docs(f01)` refresh of #269), one line each: the ID, the adopted value in one line, the merged PR that adopted it and where to change it. The owner's entry point is [f01-playtest-ready-01.md](f01-playtest-ready-01.md); its section 6 lists the defaults most likely to be felt. The value is the first cell of the spec row (shortened, never reworded); the spec row carries the reason. **Every value here is an adopted default, not an accepted decision**: the owner reviews game feel and art after merge and may change any value in a follow-up PR. Generated from the merged specs at head of main when the packet was written; if a spec row changes later, the spec is authoritative.
+Every adopted-default ID that entered the repository after `bebd5948` (the `docs(f01)` refresh of #269), one line each: the ID, the adopted value in one line, the merged PR that adopted it and where the family lives, as a pointer to the data file or code constants (a family pointer, not a per-row key; the spec row names the exact key). The owner's entry point is [f01-playtest-ready-01.md](f01-playtest-ready-01.md); its section 6 lists the defaults most likely to be felt. The value is the first cell of the spec row (shortened, never reworded); the spec row carries the reason. **Every value here is an adopted default, not an accepted decision**: the owner reviews game feel and art after merge and may change any value in a follow-up PR. Generated from the merged specs at head of main when the packet was written; if a spec row changes later, the spec is authoritative.
 
-Families that are art specs change in their kit JSON (placement) or authoring script (pixels); gameplay families change in the data file named in the last column, or in the named constants where no data file exists yet.
+Families that are art specs change in their kit JSON (placement) or authoring script (pixels); gameplay families live in the data file named in the last column, or in the named constants where no data file exists yet.
 
 ## Adopted defaults (AD and IMP IDs)
 
 ### F01HUD (1)
 
-| ID | Adopted value | PR | Change by |
+| ID | Adopted value | PR | Where the family lives (data file or code) |
 | --- | --- | --- | --- |
 | F01HUD-AD1 | The location strip shows the manifest room title and the attempt; the TEST LOADOUT tag shows only under `--f01-loadout all` | #270 | `src/combat_scene.rs` (`CombatState::hud_try`) and the HUD location strip |
 
 ### F01RUN (2)
 
-| ID | Adopted value | PR | Change by |
+| ID | Adopted value | PR | Where the family lives (data file or code) |
 | --- | --- | --- | --- |
 | F01RUN-AD2 | Under `--f01-loadout all` `carry_for` returns nothing: the test loadout carries nothing | #270 | `src/f01_run.rs`; `assets/levels/f01_late/manifest.json` (room order) |
 | F01RUN-AD3 | `--f01-run` takes no `--cf02-seed`; `--f01-carry` and `--f01-run-tally` need `--f01-run`; `--f01-carry` is refused under `--f01-loadout all` | #270 | `src/f01_run.rs`; `assets/levels/f01_late/manifest.json` (room order) |
 
 ### RINGW (2)
 
-| ID | Adopted value | PR | Change by |
+| ID | Adopted value | PR | Where the family lives (data file or code) |
 | --- | --- | --- | --- |
 | RINGW-AD1 | Both Ring rooms are listed in the manifest at milestone greybox, between hazards and the Juicer | #271 | `assets/levels/f01_late/manifest.json`; `src/f01_ring.rs`; `src/combat_scene/env.rs` |
 | RINGW-AD8 | The static shutter syncs as one block (its footprint), not 17 slices of 4 px | #277 | `assets/levels/f01_late/manifest.json`; `src/f01_ring.rs`; `src/combat_scene/env.rs` |
 
 ### LDW (5)
 
-| ID | Adopted value | PR | Change by |
+| ID | Adopted value | PR | Where the family lives (data file or code) |
 | --- | --- | --- | --- |
 | LDW-AD1 | Parts without a frame-0 origin (the llama gland) start at the throat; the lava drops leave from there too | #272 | constants in `src/death_present.rs` |
 | LDW-AD2 | Two wool tufts replace the goblin rags at every preset | #272 | constants in `src/death_present.rs` |
@@ -38,7 +38,7 @@ Families that are art specs change in their kit JSON (placement) or authoring sc
 
 ### DZ (25)
 
-| ID | Adopted value | PR | Change by |
+| ID | Adopted value | PR | Where the family lives (data file or code) |
 | --- | --- | --- | --- |
 | DZ-AD1 | Placement: room 3 of the slice, between the Boiler and the Floor Lies (the Ring rooms 4a/4b follow the Floor Lies), with pin `f01_pin_post_pile_boss` (dynamite held) and no grant. | #273 | `assets/data/gameplay/enemy_dozer_v0.json` (`dzq*` keys); `assets/levels/floor01/f01_dozer.encounter.json` |
 | DZ-AD2 | K5 amendment: no `BossThreat` supplier in a Dozer room; the AI rule is the three layers of section 7, with CA2-DZ pre-registered as the named CA2 append and triggered by the counts of section 7.5 | #273 | `assets/data/gameplay/enemy_dozer_v0.json` (`dzq*` keys); `assets/levels/floor01/f01_dozer.encounter.json` |
@@ -68,7 +68,7 @@ Families that are art specs change in their kit JSON (placement) or authoring sc
 
 ### EXIT (7)
 
-| ID | Adopted value | PR | Change by |
+| ID | Adopted value | PR | Where the family lives (data file or code) |
 | --- | --- | --- | --- |
 | EXIT-AD1 | One new doorway sheet instead of stretching the 28 px room 5 grate or the 16 px Hoarder door | #274 | `scripts/author_danger_fx.py`; `src/room_exit_art.rs` |
 | EXIT-AD2 | The Boiler and the Ring rooms (no exit gate) show the open frame | #274 | `scripts/author_danger_fx.py`; `src/room_exit_art.rs` |
@@ -80,7 +80,7 @@ Families that are art specs change in their kit JSON (placement) or authoring sc
 
 ### GYM (8)
 
-| ID | Adopted value | PR | Change by |
+| ID | Adopted value | PR | Where the family lives (data file or code) |
 | --- | --- | --- | --- |
 | GYM-AD1 | On the back wall at both ends, reaching each crash wall, because the `mirror_crack` VFX is anchored at the wall x and 40 px up; | #275 | `assets/source/terrain/floor01/floor01_gym_kit.json`; pixels `scripts/author_gym01.py` |
 | GYM-AD2 | The reused `guild_portal_closed` exit marker | #275 | `assets/source/terrain/floor01/floor01_gym_kit.json`; pixels `scripts/author_gym01.py` |
@@ -93,13 +93,13 @@ Families that are art specs change in their kit JSON (placement) or authoring sc
 
 ### RFA (1)
 
-| ID | Adopted value | PR | Change by |
+| ID | Adopted value | PR | Where the family lives (data file or code) |
 | --- | --- | --- | --- |
 | RFA-AD1 | Keep RINGW-AD8's single-block static shutter (reverting it would move the solid count and nav) | #277 | `src/combat_scene/env.rs` |
 
 ### RWF1 (3)
 
-| ID | Adopted value | PR | Change by |
+| ID | Adopted value | PR | Where the family lives (data file or code) |
 | --- | --- | --- | --- |
 | RWF1-AD1 | Escort when she is cut off from Carl by a barrier on his level (knob `fix_all.rwf1_cut_off_escort`, on in `cf02_free` only) | #278 | `assets/data/gameplay/companion_ai_v0.json` (`fix_all.rwf1_cut_off_escort`) |
 | RWF1-AD2 | Escort when she is up on such a barrier above Carl: she keeps heading for his surface, drift check waived | #278 | `assets/data/gameplay/companion_ai_v0.json` (`fix_all.rwf1_cut_off_escort`) |
@@ -107,7 +107,7 @@ Families that are art specs change in their kit JSON (placement) or authoring sc
 
 ### CW (5)
 
-| ID | Adopted value | PR | Change by |
+| ID | Adopted value | PR | Where the family lives (data file or code) |
 | --- | --- | --- | --- |
 | CW-AD1 | Room 0 launchable but unlisted, and the floor run refuses it (until CORRAL-F) | #280 | `assets/levels/f01_late/manifest.json`; `assets/levels/floor01/f01_corral.encounter.json`; `src/f01_corral.rs` |
 | CW-AD2 | The per-llama rush opt-ins, surface, facing, wake and leash stay in code (`corral_fixtures::room`), cross-checked against the sidecar | #280 | `assets/levels/f01_late/manifest.json`; `assets/levels/floor01/f01_corral.encounter.json`; `src/f01_corral.rs` |
@@ -117,7 +117,7 @@ Families that are art specs change in their kit JSON (placement) or authoring sc
 
 ### DRA (5)
 
-| ID | Adopted value | PR | Change by |
+| ID | Adopted value | PR | Where the family lives (data file or code) |
 | --- | --- | --- | --- |
 | DRA-AD1 | The dozer tuning pin applies to room `dozer` only (`pin_applies`, `SCOPED_PIN_KEYS`), so no other room's start hash moves | #282 | `src/f01_dozer.rs`, `src/room_pilots.rs`; `assets/levels/floor01/f01_dozer.encounter.json` |
 | DRA-AD2 | Carl's input in the three Dozer escape plans is stateless; the brace plan keeps the first chase tick | #282 | `src/f01_dozer.rs`, `src/room_pilots.rs`; `assets/levels/floor01/f01_dozer.encounter.json` |
@@ -127,7 +127,7 @@ Families that are art specs change in their kit JSON (placement) or authoring sc
 
 ### CF (3)
 
-| ID | Adopted value | PR | Change by |
+| ID | Adopted value | PR | Where the family lives (data file or code) |
 | --- | --- | --- | --- |
 | CF-AD3 | An inert story room (the corral) carries the empty story ledger so the next room starts from its own pin | #283 | `assets/levels/f01_late/manifest.json`; `src/f01_run.rs` |
 | CF-AD4 | The corral gets no render replay lines (the 153-line count is pinned); window = headless captures stand in | #283 | `assets/levels/f01_late/manifest.json`; `src/f01_run.rs` |
@@ -135,7 +135,7 @@ Families that are art specs change in their kit JSON (placement) or authoring sc
 
 ### CG (8)
 
-| ID | Adopted value | PR | Change by |
+| ID | Adopted value | PR | Where the family lives (data file or code) |
 | --- | --- | --- | --- |
 | CG-AD1 | Overlay, not redrawn frames. The gauntlet is a separate, full-cell overlay atlas per body sheet (same 48 x 56 cells, same frame order, same tags, same pivot), drawn on top of the bare Carl sprite. | #284 | `scripts/author_carl_gauntlet.py` and the overlay grids; spec only, no runtime knob |
 | CG-AD2 | Camera-near hand only (`near_arm` layer). The jab hand (`far_arm`) stays bare | #284 | `scripts/author_carl_gauntlet.py` and the overlay grids; spec only, no runtime knob |
@@ -148,7 +148,7 @@ Families that are art specs change in their kit JSON (placement) or authoring sc
 
 ### CG-EX (6)
 
-| ID | Adopted value | PR | Change by |
+| ID | Adopted value | PR | Where the family lives (data file or code) |
 | --- | --- | --- | --- |
 | CG-EX-AD1 | The overlay grids hold the `gauntlet` layer only (`carl_h52_<sheet>_gauntlet.grid.json`, palette = the 8 gauntlet keys). The body layers are not copied; | #284 | `scripts/author_carl_gauntlet.py` and the overlay grids; spec only, no runtime knob |
 | CG-EX-AD2 | CG-L2 judges the visible prop pixels (approved by independent Opus review, PR #284). The near arm is drawn over the prop layer, so a prop pixel under a near-arm pixel does not show; | #284 | `scripts/author_carl_gauntlet.py` and the overlay grids; spec only, no runtime knob |
@@ -159,7 +159,7 @@ Families that are art specs change in their kit JSON (placement) or authoring sc
 
 ### HZB (18)
 
-| ID | Adopted value | PR | Change by |
+| ID | Adopted value | PR | Where the family lives (data file or code) |
 | --- | --- | --- | --- |
 | HZB-AD1 | The acid becomes the teal ramp of section 5.1, a 1:1 remap of the ten `dfx_acid` entries. The slime keeps its green. This supersedes the acid half of DFX-AD1 | #285 | `scripts/author_hazard_decals.py`, `scripts/author_danger_fx.py`; `src/hazard_decals.rs` |
 | HZB-AD2 | The ring's outer band row becomes `flame_00` in `ring_march` (both dash colours) and `ring_hot`. Nothing else changes | #285 | `scripts/author_hazard_decals.py`, `scripts/author_danger_fx.py`; `src/hazard_decals.rs` |
@@ -182,7 +182,7 @@ Families that are art specs change in their kit JSON (placement) or authoring sc
 
 ### HA2 (7)
 
-| ID | Adopted value | PR | Change by |
+| ID | Adopted value | PR | Where the family lives (data file or code) |
 | --- | --- | --- | --- |
 | HA2-AD1 | Donut's mana track is 72 px outer on every plate state (8 segments of 7 px, 2 px gaps); the freed span holds the special label, right-aligned like Carl's BOOM | #286 | `assets/manifests/hud_hybrid_a_v1.json`; `src/hud_draw.rs`; `scripts/author_hud_hybrid_a.py` |
 | HA2-AD2 | The socket keeps the button glyph; the item chips (dynamite, puddle) sit in a new item well on the grant notice (deviation, fallback HA2-Q2) | #286 | `assets/manifests/hud_hybrid_a_v1.json`; `src/hud_draw.rs`; `scripts/author_hud_hybrid_a.py` |
@@ -194,7 +194,7 @@ Families that are art specs change in their kit JSON (placement) or authoring sc
 
 ### ST (9)
 
-| ID | Adopted value | PR | Change by |
+| ID | Adopted value | PR | Where the family lives (data file or code) |
 | --- | --- | --- | --- |
 | ST-AD1 | The two ticks are unhashed observer fields (`landed_tick`, `gate_closed_tick`), excluded from the state hash like `Boss::charge_started` | #288 | `docs/02-art/f01-sim-ticks-spec.md`; observer fields in `src/` (unhashed) |
 | ST-AD2 | The gate collider stays solid from the close tick; only the picture drops, over 8 ticks (four frames of 2 ticks, an accelerating fall) | #288 | `docs/02-art/f01-sim-ticks-spec.md`; observer fields in `src/` (unhashed) |
@@ -208,7 +208,7 @@ Families that are art specs change in their kit JSON (placement) or authoring sc
 
 ### RNG (24)
 
-| ID | Adopted value | PR | Change by |
+| ID | Adopted value | PR | Where the family lives (data file or code) |
 | --- | --- | --- | --- |
 | RNG-AD1 | The kit is a contract dressing pass (`floor01_rings_kit.json`, per-room `room_dressing`), applied by a pure `ring_kit.rs` from `f01_ring::launch`. No room or encounter JSON edit. | #290 | `assets/source/terrain/floor01/floor01_rings_kit.json`; pixels `scripts/author_rings01.py` |
 | RNG-AD2 | Parallax shows only through the composer's existing openings. The R3 camp view is an opaque breach decal. No backwall tile is cleared (amended by RNG-AD20/AD21: two 4a openings are bricked up again with the ... | #290 | `assets/source/terrain/floor01/floor01_rings_kit.json`; pixels `scripts/author_rings01.py` |
@@ -237,7 +237,7 @@ Families that are art specs change in their kit JSON (placement) or authoring sc
 
 ### DZ2 (11)
 
-| ID | Adopted value | PR | Change by |
+| ID | Adopted value | PR | Where the family lives (data file or code) |
 | --- | --- | --- | --- |
 | DZ2-AD1 | Separate damage atlases per part, replacing the live part one-for-one at the same anchor | #291 | `scripts/author_dozer_doz02.py`; `src/dozer_art.rs` (presentation only) |
 | DZ2-AD2 | The pitch rule of section 3, 3 hull frames (`pitch_0`, `pitch_1`, `disabled`) at 6/6/held ticks | #291 | `scripts/author_dozer_doz02.py`; `src/dozer_art.rs` (presentation only) |
@@ -253,20 +253,20 @@ Families that are art specs change in their kit JSON (placement) or authoring sc
 
 ### DRD (2)
 
-| ID | Adopted value | PR | Change by |
+| ID | Adopted value | PR | Where the family lives (data file or code) |
 | --- | --- | --- | --- |
 | DRD-AD1 | A non-blast clang sparks on the hull face nearest the hero nearest the hull, 24 px above the floor | #292 | `src/dozer_art.rs` (presentation only) |
 | DRD-AD2 | The gate burst is two splinter bursts, at 40 px and 88 px, 4 ticks apart, on the emerge tick | #292 | `src/dozer_art.rs` (presentation only) |
 
 ### HT (1)
 
-| ID | Adopted value | PR | Change by |
+| ID | Adopted value | PR | Where the family lives (data file or code) |
 | --- | --- | --- | --- |
 | HT-AD1 | TRY n counts every attempt start: room entry, each checkpoint respawn, each restart (one expression, `CombatState::hud_try`) | #293 | `CombatState::hud_try` in `src/combat_scene.rs` (one expression) |
 
 ### HEAT (21)
 
-| ID | Adopted value | PR | Change by |
+| ID | Adopted value | PR | Where the family lives (data file or code) |
 | --- | --- | --- | --- |
 | HEAT-AD1 | All three partition states are drawn and exported now, but the dressing does not place the partition in room 0 until CORRAL-D lands. CORRAL-D is scheduled immediately after `heatart`; | #294 | `assets/source/terrain/floor01/floor01_heat_kit.json`; pixels `scripts/author_heat01.py` |
 | HEAT-AD2 | The kit is a contract dressing pass (`floor01_heat_kit.json`, `room_dressing.corral`) applied in `f01_corral::launch` through `compose_kit_hooked`. No room or encounter JSON edit. | #294 | `assets/source/terrain/floor01/floor01_heat_kit.json`; pixels `scripts/author_heat01.py` |
@@ -292,7 +292,7 @@ Families that are art specs change in their kit JSON (placement) or authoring sc
 
 ### LL3 (10)
 
-| ID | Adopted value | PR | Change by |
+| ID | Adopted value | PR | Where the family lives (data file or code) |
 | --- | --- | --- | --- |
 | LL3-AD1 | A bonk shows the LLAMA-01 `hurt` frame (11) for its first 12 ticks, then `recover_blown` | #295 | `assets/data/gameplay/enemy_llama_rush_v0.json`; `src/combat_anim/rush_stand_in.rs`; art `docs/02-art/llama-03-rush-spec.md` |
 | LL3-AD2 | `lean_px` is 0 in tell and committed when the art is on; the bonk rock stays | #295 | `assets/data/gameplay/enemy_llama_rush_v0.json`; `src/combat_anim/rush_stand_in.rs`; art `docs/02-art/llama-03-rush-spec.md` |
@@ -307,7 +307,7 @@ Families that are art specs change in their kit JSON (placement) or authoring sc
 
 ### HC (11)
 
-| ID | Adopted value | PR | Change by |
+| ID | Adopted value | PR | Where the family lives (data file or code) |
 | --- | --- | --- | --- |
 | HC-AD1 | The stir frames are a rigid column lift of `sealed_back` with an unchanged front lip | #296 | `assets/data/gameplay/enemy_pile_boss_v0.json` (`hrdq41_*`); `src/hoarder_art.rs` |
 | HC-AD2 | Two levels: S1 period 72 (heave 6, slump 4), S2 period 36 (heave_hi 8, slump 4) | #296 | `assets/data/gameplay/enemy_pile_boss_v0.json` (`hrdq41_*`); `src/hoarder_art.rs` |
@@ -323,9 +323,9 @@ Families that are art specs change in their kit JSON (placement) or authoring sc
 
 ### AR (25)
 
-| ID | Adopted value | PR | Change by |
+| ID | Adopted value | PR | Where the family lives (data file or code) |
 | --- | --- | --- | --- |
-| AR-AD1 | The unlock beat is the corral exit (the refuge onward, room 4 of N, N = 15 since ACT1-B: the run length is read from the manifest). | #297 | code constants in `src/cine.rs` and `src/f01_run.rs` (`showcase_kill_score`, cooldown); no data file yet |
+| AR-AD1 | The unlock beat is the corral exit (the refuge onward, room 4 of N; N = 17 now, 15 when #297 merged: the run length is read from the manifest) | #297 | code constants in `src/cine.rs` and `src/f01_run.rs` (`showcase_kill_score`, cooldown); no data file yet |
 | AR-AD2 | The corral's room-clear panel gets one fact line, only when the audience will be live next: `broadcast: live from the next room (viewers per hero)`. No number on any panel. | #297 | code constants in `src/cine.rs` and `src/f01_run.rs` (`showcase_kill_score`, cooldown); no data file yet |
 | AR-AD3 | `--f01-audience C:P:D:Q` carries the current count and the peak per hero at the exit tick. The decay remainder is dropped. Validation is `peak >= current >= 250`. | #297 | code constants in `src/cine.rs` and `src/f01_run.rs` (`showcase_kill_score`, cooldown); no data file yet |
 | AR-AD4 | A live room started without a carry starts at the baseline of 250 for both heroes. | #297 | code constants in `src/cine.rs` and `src/f01_run.rs` (`showcase_kill_score`, cooldown); no data file yet |
@@ -353,7 +353,7 @@ Families that are art specs change in their kit JSON (placement) or authoring sc
 
 ### CD (10)
 
-| ID | Adopted value | PR | Change by |
+| ID | Adopted value | PR | Where the family lives (data file or code) |
 | --- | --- | --- | --- |
 | CD-AD1 | The sheet's collider (1392..1408 x 532..580) is authoritative and the art needs no change: the 40 x 48 canvas holds its solid core in columns 12..27 by spec, so it is placed at the collider's top-left minus ... | #298 | `assets/levels/floor01/f01_corral.encounter.json`; `assets/data/gameplay/enemy_llama_rush_v0.json` |
 | CD-AD2 | A counted hero hit is one hit whatever the move's support-hit weight (the reinforced haymaker, weight 2, still counts one): "three distinct hits" | #298 | `assets/levels/floor01/f01_corral.encounter.json`; `assets/data/gameplay/enemy_llama_rush_v0.json` |
@@ -368,7 +368,7 @@ Families that are art specs change in their kit JSON (placement) or authoring sc
 
 ### ENG2 (20)
 
-| ID | Adopted value | PR | Change by |
+| ID | Adopted value | PR | Where the family lives (data file or code) |
 | --- | --- | --- | --- |
 | ENG2-AD1 | ENG-G-Q24 (the owner's game-feel verdict on the Engineer before any art) is waived. | #300 | `scripts/author_eng02.py`; `src/death_present.rs` death profiles |
 | ENG2-AD2 | Route Easy, score 1. Only the get-up pair are design keys; everything else is a rule-based derivation. | #300 | `scripts/author_eng02.py`; `src/death_present.rs` death profiles |
@@ -393,7 +393,7 @@ Families that are art specs change in their kit JSON (placement) or authoring sc
 
 ### REST (18)
 
-| ID | Adopted value | PR | Change by |
+| ID | Adopted value | PR | Where the family lives (data file or code) |
 | --- | --- | --- | --- |
 | REST-AD1 | Room ids `rest_refuge`, `rest_camp`, `rest_aftermath`; scenes `f01_rest_*`; titles "The Wrong Restaurant", "The Survivors' Camp", "After the Juicer". "Meadow Lark" stays in design text, not in data | #301 | `assets/data/gameplay/story_unlocks_v0.json` (`armed_in`); `assets/levels/floor01/f01_rest_*.{room,encounter}.json`; `src/f01_rest.rs` |
 | REST-AD2 | Run order of section G.2; slots S0 to S4 are documentation only | #301 | `assets/data/gameplay/story_unlocks_v0.json` (`armed_in`); `assets/levels/floor01/f01_rest_*.{room,encounter}.json`; `src/f01_rest.rs` |
@@ -416,13 +416,13 @@ Families that are art specs change in their kit JSON (placement) or authoring sc
 
 ### REST-IMP (12)
 
-| ID | Adopted value | PR | Change by |
+| ID | Adopted value | PR | Where the family lives (data file or code) |
 | --- | --- | --- | --- |
 | REST-IMP-1 | the plan's play deck (32 px) and slide top (48 px) are rejected by the validator (`PlatformBlocksLane`: a deck needs 52 px of clearance under it, i.e. at least 64 px of rise with the 12 px slab). | #302 | `assets/data/gameplay/story_unlocks_v0.json` (`armed_in`); `assets/levels/floor01/f01_rest_*.{room,encounter}.json`; `src/f01_rest.rs` |
 | REST-IMP-2 | `goal_x` is 1528 (not 1536) so the room's derived exit is the brief's `{1504, 484, 64, 96}` (the room clamps `goal_x - 24`). | #302 | `assets/data/gameplay/story_unlocks_v0.json` (`armed_in`); `assets/levels/floor01/f01_rest_*.{room,encounter}.json`; `src/f01_rest.rs` |
 | REST-IMP-3 | `max_living` is 0 (the smallest valid value). The validator already accepts an empty roster under `reach_exit`, so no `encounter.rs` rule and no `an_empty_roster_is_valid_only_for_reach_exit` test were needed. | #302 | `assets/data/gameplay/story_unlocks_v0.json` (`armed_in`); `assets/levels/floor01/f01_rest_*.{room,encounter}.json`; `src/f01_rest.rs` |
-| REST-IMP-4 | PR 1 keeps `RestRoom` with `Refuge` only and `f01_rest::data_pins()` returns 2 entries (not 6); the camp and aftermath arrive with PR 2. `SCOPED_PIN_KEYS` 19 -> 21. | #302 | `assets/data/gameplay/story_unlocks_v0.json` (`armed_in`); `assets/levels/floor01/f01_rest_*.{room,encounter}.json`; `src/f01_rest.rs` |
-| REST-IMP-5 | the decor labels are the decor table's `label` fields (printed as `F01_REST_DECOR` lines and drawn as coloured rectangles); no on-screen text was added. | #302 | `assets/data/gameplay/story_unlocks_v0.json` (`armed_in`); `assets/levels/floor01/f01_rest_*.{room,encounter}.json`; `src/f01_rest.rs` |
+| REST-IMP-4 | PR 1 keeps `RestRoom` with `Refuge` only and `f01_rest::data_pins()` returns 2 entries (not 6); the camp and aftermath arrive with PR 2. `SCOPED_PIN_KEYS` 19 -> 21. (superseded by #308) | #302 | `assets/data/gameplay/story_unlocks_v0.json` (`armed_in`); `assets/levels/floor01/f01_rest_*.{room,encounter}.json`; `src/f01_rest.rs` |
+| REST-IMP-5 | the decor labels are the decor table's `label` fields (printed as `F01_REST_DECOR` lines and drawn as coloured rectangles); no on-screen text was added. (superseded by #308) | #302 | `assets/data/gameplay/story_unlocks_v0.json` (`armed_in`); `assets/levels/floor01/f01_rest_*.{room,encounter}.json`; `src/f01_rest.rs` |
 | REST-IMP-6 | a fixture restart resets the lock through `EnvRuntime::reset`; a respawn keeps it through `reset_keeping_partitions`. | #302 | `assets/data/gameplay/story_unlocks_v0.json` (`armed_in`); `assets/levels/floor01/f01_rest_*.{room,encounter}.json`; `src/f01_rest.rs` |
 | REST-IMP-7 | the `cf02_free` companion did not open the door by herself in the fixture run, so `rest_refuge_solo_companion_crossing` scripts a human swap at the closed door (as the hint asks) and a swap back ... | #302 | `assets/data/gameplay/story_unlocks_v0.json` (`armed_in`); `assets/levels/floor01/f01_rest_*.{room,encounter}.json`; `src/f01_rest.rs` |
 | REST-IMP-8 | neither room has a platform. The plan's 32 px crate stack and 24 px bench fail the validator's lane rule (a deck needs 52 px of clearance, so 64 px of rise), and a 64 px deck would need a lane ceiling (DP-Q45: ... | #304 | `assets/data/gameplay/story_unlocks_v0.json` (`armed_in`); `assets/levels/floor01/f01_rest_*.{room,encounter}.json`; `src/f01_rest.rs` |
@@ -433,7 +433,7 @@ Families that are art specs change in their kit JSON (placement) or authoring sc
 
 ### ACT1 (19)
 
-| ID | Adopted value | PR | Change by |
+| ID | Adopted value | PR | Where the family lives (data file or code) |
 | --- | --- | --- | --- |
 | ACT1-AD1 | Three rooms `act1_chase`, `act1_shore`, `act1_guild` before the corral, milestone `greybox`, `cf02_rules`, story-less | #303 | `assets/levels/floor01/f01_act1_*.encounter.json`; opening profile `assets/data/gameplay/enemy_dozer_opening_v0.json`; `src/f01_act1.rs` constants |
 | ACT1-AD2 | The chase/shore boundary is ENV-02's post-chase checkpoint (route 2640); the standard room-clear panel shows between them | #303 | `assets/levels/floor01/f01_act1_*.encounter.json`; opening profile `assets/data/gameplay/enemy_dozer_opening_v0.json`; `src/f01_act1.rs` constants |
@@ -457,7 +457,7 @@ Families that are art specs change in their kit JSON (placement) or authoring sc
 
 ### FF (31)
 
-| ID | Adopted value | PR | Change by |
+| ID | Adopted value | PR | Where the family lives (data file or code) |
 | --- | --- | --- | --- |
 | FF-AD1 | Route B + silhouette gate (score 2), up from the audit's C | #305 | `assets/source/terrain/floor01/floor01_fastfood_kit.json`; pixels `scripts/author_ff01.py` |
 | FF-AD2 | The door is a full-height stainless sliding panel that rises into the slab. No header or drum hangs in the lane; the mechanism is implied by the slab | #305 | `assets/source/terrain/floor01/floor01_fastfood_kit.json`; pixels `scripts/author_ff01.py` |
@@ -493,7 +493,7 @@ Families that are art specs change in their kit JSON (placement) or authoring sc
 
 ### ACT1-IMP (19)
 
-| ID | Adopted value | PR | Change by |
+| ID | Adopted value | PR | Where the family lives (data file or code) |
 | --- | --- | --- | --- |
 | ACT1-IMP-1 | The sidecar rows carry `id`, `kind`, `x`, `beat` and `delay_ticks`. The module constant `f01_act1::SHORE_TEMPERAMENTS` (brawler, coward) is applied through the new `CombatState::with_goblin_temperaments`, ... | #306 | `assets/levels/floor01/f01_act1_*.encounter.json`; opening profile `assets/data/gameplay/enemy_dozer_opening_v0.json`; `src/f01_act1.rs` constants |
 | ACT1-IMP-2 | A checkpoint behind the start is the only respawn column of the room (a retry puts the party at 56 in the shore and at 88 in the guild). A checkpoint ahead keeps the usual start then checkpoint pair. | #306 | `assets/levels/floor01/f01_act1_*.encounter.json`; opening profile `assets/data/gameplay/enemy_dozer_opening_v0.json`; `src/f01_act1.rs` constants |
@@ -517,7 +517,7 @@ Families that are art specs change in their kit JSON (placement) or authoring sc
 
 ### CAMP (26)
 
-| ID | Adopted value | PR | Change by |
+| ID | Adopted value | PR | Where the family lives (data file or code) |
 | --- | --- | --- | --- |
 | CAMP-AD1 | Route B + silhouette gate (score 2) | #308 | `assets/source/terrain/floor01/floor01_camp_kit.json` (placement); pixels `scripts/author_camp01.py` |
 | CAMP-AD2 | Two contracts: the camp extends the rings kit, the aftermath extends the gym kit (single-chain `extends`) | #308 | `assets/source/terrain/floor01/floor01_camp_kit.json` (placement); pixels `scripts/author_camp01.py` |
@@ -548,7 +548,7 @@ Families that are art specs change in their kit JSON (placement) or authoring sc
 
 ### TROG (47)
 
-| ID | Adopted value | PR | Change by |
+| ID | Adopted value | PR | Where the family lives (data file or code) |
 | --- | --- | --- | --- |
 | TROG-AD1 | Two rooms `trog_run` and `trog_strength` between `rest_camp` and `juicer`; greybox, `cf02_rules`, story pin `f01_pin_post_pile_boss` | #309 | `assets/data/gameplay/enemy_trog_v0.json`; `assets/levels/floor01/f01_trog_*.{room,encounter}.json` |
 | TROG-AD2 | Titles "The Troglodyte Run" and "The Test of Strength" | #309 | `assets/data/gameplay/enemy_trog_v0.json`; `assets/levels/floor01/f01_trog_*.{room,encounter}.json` |
@@ -598,9 +598,9 @@ Families that are art specs change in their kit JSON (placement) or authoring sc
 | TROG-AD46 | The bench is an 80 px static `solid` (640..672, y 500; the shelf stays 48 px at 288..352). The validator gains `MAX_STATIC_SOLID_PX` 80, used only for a plain (non-sliding) sidecar static of kind `solid`; | #312 | `assets/data/gameplay/enemy_trog_v0.json`; `assets/levels/floor01/f01_trog_*.{room,encounter}.json` |
 | TROG-AD47 | `trog_eval` ties its two surfaces to the sidecar: `SHELF_RISE_PX` 48 and `BENCH_RISE_PX` 80 (the natural starts, the shelf and bench tops of the grid); | #312 | `assets/data/gameplay/enemy_trog_v0.json`; `assets/levels/floor01/f01_trog_*.{room,encounter}.json` |
 
-### TROG-ART (20)
+### TROG-ART (27)
 
-| ID | Adopted value | PR | Change by |
+| ID | Adopted value | PR | Where the family lives (data file or code) |
 | --- | --- | --- | --- |
 | TROG-ART-AD1 | Route B + silhouette gate (score 3) | #311 | `assets/source/terrain/floor01/floor01_trog_kit.json`; pixels `scripts/author_trogarea01.py` |
 | TROG-ART-AD2 | One contract `floor01_trog_kit.json` for both rooms, extending the gym kit, applied with `ring_kit::dress_with` | #311 | `assets/source/terrain/floor01/floor01_trog_kit.json`; pixels `scripts/author_trogarea01.py` |
@@ -622,6 +622,13 @@ Families that are art specs change in their kit JSON (placement) or authoring sc
 | TROG-ART-AD18 | A piece's lit mean in a window still counts only the pixels visible in the layout and explained by the lit model ( | #311 | `assets/source/terrain/floor01/floor01_trog_kit.json`; pixels `scripts/author_trogarea01.py` |
 | TROG-ART-AD19 | `trog_kit::dressing_of` returns `Option`: a troglodyte room whose contract has no `room_dressing` block composes plain (`launch` stays `launch_with(.., true)`), and the binary prints `decor=dressed` or ... | #311 | `assets/source/terrain/floor01/floor01_trog_kit.json`; pixels `scripts/author_trogarea01.py` |
 | TROG-ART-AD20 | The composer's blue `arch_threshold` sills of the two bricked bays, (208, 544) and (1216, 544), are removed | #311 | `assets/source/terrain/floor01/floor01_trog_kit.json`; pixels `scripts/author_trogarea01.py` |
+| TROG-ART-AD-S2 | The bench is one statically placed `trog_bench_intact` at (640, 500) under TROG-AD46; the weakened, broken and debris keys are reserved for TROG-Q14 and not wired; | #313 | `assets/source/terrain/floor01/floor01_trog_kit.json`; pixels `scripts/author_trogarea01.py` |
+| TROG-ART-AD-S3 | The bricked bay 3's blue `arch_threshold` sill at (752, 544) is removed | #313 | `assets/source/terrain/floor01/floor01_trog_kit.json`; pixels `scripts/author_trogarea01.py` |
+| TROG-ART-AD-S4 | The bench key is folded into `floor01_trog_strength` instead of a second atlas | #313 | `assets/source/terrain/floor01/floor01_trog_kit.json`; pixels `scripts/author_trogarea01.py` |
+| TROG-ART-AD-S5 | The torch above the bench (664, 432) and its pool are removed (G1); the fallback of G1 (restore it if A12 fails) was not needed | #313 | `assets/source/terrain/floor01/floor01_trog_kit.json`; pixels `scripts/author_trogarea01.py` |
+| TROG-ART-AD-S6 | Seven strength stills with the TROG-B pilot at the ticks TROG-B used (30, 105, 270, 360, 381, 450) and one new tick, 230 (`strength_bench_beside`); a gated still is one with a living troglodyte in an idle pose | #313 | `assets/source/terrain/floor01/floor01_trog_kit.json`; pixels `scripts/author_trogarea01.py` |
+| TROG-ART-AD-S7 | The torch above the retreat shelf, `torch_wall (328, 432)`, and its pool `torch_pool_b (224, 348)` are removed (data only); the G1 clearance test covers the shelf as well as the bench | #313 | `assets/source/terrain/floor01/floor01_trog_kit.json`; pixels `scripts/author_trogarea01.py` |
+| TROG-ART-AD-S8 | The 4 px seam between the shelf face (ends x 351) and the pier-352 plinth (starts x 356) is accepted, not covered | #313 | `assets/source/terrain/floor01/floor01_trog_kit.json`; pixels `scripts/author_trogarea01.py` |
 
 ## Questions with an adopted recommendation (Q and OQ IDs)
 
@@ -851,4 +858,4 @@ Each question was raised in a spec or a PR with a recommended default; the orche
 | TROG-ART-Q5 | The static fallback bench (TROG-AD12, a 48 px solid) has no art -> if the fallback fires, the executor draws `trog_bench_low` 32 x 48 from the intact key's lower rows plus the cap, as an ... | #311 |
 | TROG-ART-Q6 | The troglodytes' mean value is low against their surround (`delta_L` 0.4..11.5 in the gate) and Carl is brighter than ... -> a rim or value pass on the TROG sprites in the troglodyte family's own review, not in this kit | #311 |
 
-Totals: 442 adopted-default rows (AD and IMP), 139 question rows.
+Totals: 449 adopted-default rows (AD and IMP), 139 question rows.

@@ -1,0 +1,18 @@
+Negative tests of scripts/f01_run_smoke.sh (each must exit 1; temporary inputs outside the repository).
+== MANIFEST=<missing file>
+RUN_SMOKE cannot read the room list from <missing>.json
+exit=1
+== MANIFEST=<no rooms>
+RUN_SMOKE no rooms read from <tmp>/empty_manifest.json
+exit=1
+== MANIFEST=<3 of 17 rooms>
+RUN_SMOKE expected 17 rooms, <tmp>/short_manifest.json lists 3
+exit=1
+== a launcher whose entry line names another room
+RUN_SMOKE 1/1 room=hoarder next=end status=FAILED exit=0 marker=F01_HOARDER_SMOKE_OK hash=-
+  
+exit=1
+== a launcher without the room's *_SMOKE_OK marker
+RUN_SMOKE 1/1 room=hoarder next=end status=FAILED exit=0 marker=- hash=-
+  F01_LATE_ENTRY room=hoarder title=x
+exit=1
