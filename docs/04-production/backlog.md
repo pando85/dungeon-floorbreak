@@ -77,6 +77,25 @@ Everything merged in #262 to #267 is "merged, game-feel review pending" (mechani
 - **Goblin Workshop (#264):** the hanging weight is redrawn as three iron slabs (a frozen-key change under the reviewer's authority). The denser plume (about 52 % coverage at alpha 0x90) washes out Carl's head and torso in the lane: owner note, alpha 0x80 is an easy fix. The torch stands under the weight (a level-composition call); boiler brightness stays the owner's call; landing dust still needs a sim change (`FallingMass` keeps no landing tick).
 - **Evidence gap:** unchanged; the 9 `room=hoarder` lines of `render_replay_lines.txt` are still stale and `scripts/make_f01_gate_d_replay.sh` was NOT RUN in #262 to #267.
 
+## Floor 1 finale and Act I art (batch 13, 2026-11-27)
+
+- **BOS-PLAN #315** (`39d77d9f`), merged (design adopted): the Ball of Swine integration plan for room 18 and the floor exit, carrying owner draft #192, which is not merged itself.
+- **BOS-A #316** (`d6d17d65`), merged, game-feel review pending:
+  - the Ball of Swine greybox arena (room 18);
+  - the floor exit and the FLOOR 1 CLEARED panel;
+  - `bos_eval` G-0..G-7;
+  - the run is now 18 rooms.
+
+  Open: **BOS-Q13**, the shove loop at pivots 116..140 can be farmed (the recommended fix is a shove cap before a forced recentre). Follow-ups: BOS-B, BOS-ART, BOS-C.
+- **AREA-ACT1-01 #317** (`7e3ceb4e`), owner art review pending: the chase, shore and guild are dressed with two new keys (the grant strongbox and the gallery breach). ACT1-ART-AD13..AD22 were adopted; AD22 relaxes the failing lit-read targets of ACT1-ART-Q7 into owner notes. Follow-ups: GUILD-BEAT-01 and GUILD-VERB-01.
+- **Post-reset queue:**
+  1. room polish (corral, dozer, hazards, mastery);
+  2. BOS-Q13 shove cap;
+  3. BOS-B, BOS-ART and BOS-C;
+  4. cleanup: the R4 `exit_open` capture nondeterminism, ROOM-PILOT-RUN and EVID-REFRESH-01;
+  5. GUILD-BEAT-01 and GUILD-VERB-01;
+  6. the V7 workshop wall.
+
 ## Floor 1 completion and the owner playtest (batch 12, 2026-11-27)
 
 **Owner decisions, recorded verbatim with the dates the orchestrator logged them.**
@@ -165,9 +184,9 @@ Derived from `docs/03-tech/floor01-scene.md`, the presenters in `src/` (`hoarder
 
 | Room | Enemies | Props and set pieces | Danger effects and tells | Stand-in or missing |
 | --- | --- | --- | --- | --- |
-| 1, the first chase (`act1_chase`, ACT1-B #307) | the DOZ-01 Murder Dozer rig (approved pixel art) on the opening profile | none: flat decor rectangles; ENV-02 splinter art for the timber and barricade bursts | the charge tell and wheel (presenter) | greybox (labelled): the wedge is a console-labelled dark rig, the whole room shell; no room art kit (post-reset queue) |
-| 2, the rotten shore (`act1_shore`, ACT1-A #306) | goblins GOB-01 (pixel art) | none | none | greybox: the room and the wedged machine decor |
-| 3, the guild door (`act1_guild`, ACT1-A #306) | none | the guide: the existing `mordecai_h44` sprite on flat decor; the door is a labelled sprite | the `MAGIC MISSILE` notice (HUD) | greybox: the room shell and the door |
+| 1, the first chase (`act1_chase`, ACT1-B #307) | the DOZ-01 Murder Dozer rig (approved pixel art) on the opening profile | AREA-ACT1-01 #317: catacomb and ENV-02 kit, the `act1_gallery_breach` key, timbers, barricade, alcove niche; ENV-02 splinter bursts | the charge tell and wheel (presenter) | dressed, owner art review pending (batch 13) |
+| 2, the rotten shore (`act1_shore`, ACT1-A #306) | goblins GOB-01 (pixel art) | AREA-ACT1-01 #317: ENV-02 shore, the wedged DOZ-01 rig | none | dressed, owner art review pending (batch 13) |
+| 3, the guild door (`act1_guild`, ACT1-A #306) | none | AREA-ACT1-01 #317: refuge kit hearth and furniture, guild portal, `act1_grant_box_closed/_open` key; the guide is `mordecai_h44` | the `MAGIC MISSILE` notice (HUD) | dressed, owner art review pending (batch 13); missing: GUILD-BEAT-01 (Mordecai idle/talk), GUILD-VERB-01 (interact verbs) |
 | 4, the Infernal Corral (`corral`, #276 #280 #283 #298) | goblins GOB-01, llamas LLAMA-01 with the LLAMA-03 rush art (pixel art, #295) | AREA-HEAT-01 kit (pixel art, #294): scorched pen, shelves, the partition in 3 states placed at (1380, 532) | the rush tell and bonk; the partition break reuses the wall-break cue | stand-in: the M3 grate (labelled greybox, HEAT-OQ1); no splinter VFX for the partition (CD-AD9) |
 | 5, the Wrong Restaurant (`rest_refuge`, #302) | none | AREA-FASTFOOD-01 kit (pixel art, #305): the staff door (14 pre-baked frames), the Light on Your Feet box, skins, strip lights | the `SWAP TO DONUT` hint (text), `LIGHT FEET` notice | no greybox label left; owner notes on olive brass and the lamp pair |
 | 6, the Hoarder (`hoarder`) | the Hoarder: HOARD-02 atlas, 29 frames (pixel art, #258) | AREA-HOARDER-01 kit (pixel art, #258; E6 polish #266): lair mound (sealed, opened), bank A (5 states), J-B post (3), stack (4: the landed frame shows the stack's junk, the falling strut is snapped to 20 px), exit door, entry gate, three heaps (heap b rim-lit) | her Reveal shadow tint, dust and first-hittable burst (presenter); the released stack's shudder and sag (presenter, #266); the stack's footprint floor shadow (code-drawn, HRD-C) | no STAND-IN label left; window stills of the shove, lunge, jam, warning, fall, pinned and get-up since #266; bank A's states after `stable` have no runtime still (offline composites only); the stir cue before she wakes and the post's not-yet cue are drawn since #296 (HC-AD1..AD11) |

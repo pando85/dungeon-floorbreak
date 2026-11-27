@@ -58,9 +58,9 @@ The HUD strip shows `ROOM n/17` in the panels and the room title with `TRY n`. T
 
 | # | Room id (legacy) | What it is | Art state |
 | ---: | --- | --- | --- |
-| 1 | `act1_chase` "The First Chase" (I-01/I-02) | The opening chase: a quiet lane, a rumble when the rearmost hero passes x 1072, the Murder Dozer emerges, cruises at 160 px/s, and charges only when it can be dodged (pocket, barricade lock, wedge at the end). ACT1-B #307. | greybox: flat decor, the DOZ-01 machine and ENV-02 splinters are real art; the wedge is a console-labelled dark rig |
-| 2 | `act1_shore` "The Rotten Shore" (I-03) | Carl's first revenge: two shore goblins (brawler, coward), the rotten shore, `defeat_roster`. Donut is locked: swat only. ACT1-A #306. | greybox |
-| 3 | `act1_guild` "The Guild Door" (I-04) | Walk to the guide; Donut's pivot in the zone grants the biscuit (`MAGIC MISSILE` notice) and opens the door in the same tick. ACT1-A #306. | greybox; the guide is the existing `mordecai_h44` sprite |
+| 1 | `act1_chase` "The First Chase" (I-01/I-02) | The opening chase: a quiet lane, a rumble when the rearmost hero passes x 1072, the Murder Dozer emerges, cruises at 160 px/s, and charges only when it can be dodged (pocket, barricade lock, wedge at the end). ACT1-B #307. | dressed (AREA-ACT1-01 #317, owner art review pending): catacomb and ENV-02 kit, the gallery breach key, timbers, barricade, alcove niche; the DOZ-01 machine and the wedge are pixel art |
+| 2 | `act1_shore` "The Rotten Shore" (I-03) | Carl's first revenge: two shore goblins (brawler, coward), the rotten shore, `defeat_roster`. Donut is locked: swat only. ACT1-A #306. | dressed (AREA-ACT1-01 #317, owner art review pending): ENV-02 shore, the wedged DOZ-01 rig |
+| 3 | `act1_guild` "The Guild Door" (I-04) | Walk to the guide; Donut's pivot in the zone grants the biscuit (`MAGIC MISSILE` notice) and opens the door in the same tick. ACT1-A #306. | dressed (AREA-ACT1-01 #317, owner art review pending): the refuge kit hearth and furniture, the guild portal, the grant strongbox key; the guide is the existing `mordecai_h44` sprite (no talk animation, GUILD-BEAT-01) |
 | 4 | `corral` "The Infernal Corral" (room 0) | Goblins, three llamas, the rush-breakable pen partition (CORRAL-D), the M3 grate that opens when both M2 llamas are down. CORRAL-C/WIRE/F/D #276, #280, #283, #298. | dressed: AREA-HEAT-01 #294, LLAMA-03 rush art #295; the M3 grate is a labelled greybox |
 | 5 | `rest_refuge` "The Wrong Restaurant" | Quiet room. Donut on the 128 px shelf opens the staff door; the box grants Light on Your Feet (the boost). REST-A #302. | dressed: AREA-FASTFOOD-01 #305 |
 | 6 | `hoarder` "The Hoarder" (room 1, boss) | Bank A, the entry gate, the lair mound, her 90-tick Reveal, swipe and shove, the J-B stack. Her defeat grants dynamite. | dressed: HOARD-02, AREA-HOARDER-01 (#258, #266), stir and "not yet" cues #296 |
@@ -82,7 +82,7 @@ The HUD strip shows `ROOM n/17` in the panels and the room title with `TRY n`. T
 The owner set the order on 2026-11-27 with 74 % of the weekly limit used: camp art, troglodytes, then this packet; **the rest comes after the weekly limit resets**:
 
 1. **The rest of the Ball of Swine finale.** BOS-A is a labelled greybox: the Tusklings and the bot's alcove-flee (BOS-B), the SWINE-01 art, arch and chain-weight props and the stairwell behind the exit (BOS-ART), and the wide arena, central gate, reliefs and cinematics (BOS-C) are deferred (#192, the owner draft, stays unmerged as the record of the original text).
-2. **Act I room art** (chase, shore, guild): rooms 1 to 3 are greybox.
+2. **Act I room art** (chase, shore, guild): done by AREA-ACT1-01 #317 (owner art review pending). Still missing: Mordecai's idle and talk animation (GUILD-BEAT-01) and the interact verbs (GUILD-VERB-01).
 3. **Room polish:** corral (M3 grate, brace readability), dozer, hazards, mastery dressing (the arena is undressed).
 4. **The V7 workshop wall** (backdrop of the Boiler) and **cleanup** (EVID-REFRESH-01, ART-HOLE-TRIAGE with the GOB-01 touch-up, LOS-UNIFY, ROOM-PILOT-RUN, DOZER-PERF-01, DOZER-NAV-01, HRD-D, HAZ-C/D).
 
@@ -211,7 +211,7 @@ You said "go with all" and to end everything on `main`, so the open design choic
 
 | Draft | Content now on `main` | Still missing |
 | --- | --- | --- |
-| #179 Dozer opening choreography | #303 (the ACT1 plan, which carries it) with #306 and #307 (rooms 1 to 3), and the DOZER-CORE chain #273, #279, #282, #287, #289, #291, #292 | art for the three Act I rooms; riders on the opening machine (ACT1-Q6); audio (ACT1-Q2) |
+| #179 Dozer opening choreography | #303 (the ACT1 plan, which carries it) with #306 and #307 (rooms 1 to 3), and the DOZER-CORE chain #273, #279, #282, #287, #289, #291, #292 | riders on the opening machine (ACT1-Q6); audio (ACT1-Q2); the Act I room art is done by #317 |
 | #187 Rest spaces and transition beats | #301 (REST plan), #302 (refuge), #304 (camp, aftermath), #305 (fast-food kit), #308 (camp kit) | named survivors (REST-Q2), Interact, audio, the Scatterers slot |
 | #189 The Broken Ring | #271 (rooms wired), #277 (blast seam fix), #278 (partner crossing), #290 (kit; divergences recorded as RNG-AD1 to AD24) | the moving shutter (RING-C wire), further Ring regions |
 | #191 Troglodytes and the Test of Strength | #309 (plan), #310 (TROG-A), #311 (art stage 1), #312 (TROG-B), #313 (art stage 2) | the breakable bench and its break art (TROG-Q14), audio, death profiles |
@@ -225,7 +225,7 @@ Each question is non-blocking; the right-hand side is what is in the game now.
 | --- | --- | --- |
 | ACT1-Q1 | Skip the room-clear panel between the Act I rooms? | Standard panel stays |
 | ACT1-Q10 | Show the barricade break after a defeat, or hold on the downed hero? | The break is shown |
-| ACT1-Q2, Q3, Q6, Q7 | Chase audio, end-on wedge art, riders, ENV-02 dressing | None: greybox |
+| ACT1-Q2, Q3, Q6, Q7 | Chase audio, end-on wedge art, riders, ENV-02 dressing | Q7 (ENV-02 dressing): done by #317; Q2, Q3, Q6: none |
 | ACT1-Q9 | The #179 first-run duration hypothesis (25 to 40 s) | Values as built, judged after a human session |
 | REST-Q1 | Does the shelf-opens-door beat read as a reveal or a roadblock? | Option A1 kept; A2 (drop the lock) is a one-line sidecar edit |
 | REST-Q2 | Which survivors, names, lines? | Four anonymous, faceless figures |
@@ -253,7 +253,7 @@ Each question is non-blocking; the right-hand side is what is in the game now.
 
 These come from the independent art-director reviews and the executors' risk notes. They are looks, not defects the reviewers could fix; each is yours to confirm or drop. Nothing is accepted.
 
-- **Act I rooms (1 to 3).** Greybox; no art notes. The wedge is a console-labelled dark rig.
+- **Act I rooms (1 to 3), AREA-ACT1-01 #317.** The S3 timber set can read as a gallows. The S4 alcove niche reads by its shape and its cold colour, and it is not the brightest shape. The guild grant box is dark beside the desk, and the hearth is brighter than Mordecai's face (ACT1-ART-AD22 relaxed these lit-read targets). The open bays keep the blue sill (ACT1-ART-AD19). On the shore, a torch flame sits close to the leaning beam. Mordecai has no idle or talk animation yet (GUILD-BEAT-01).
 - **Corral (4).** The scorch plume is subtle (HEAT-OQ5); the bumper reads as a crate; the llama's muzzle is drawn 17 px past its hitbox, the limp ear of the recover frames reads as a collar, and the rush silhouette reads as a hyena (accepted). The stand-in brace is faint at 1x (LLAMA-03 replaced it).
 - **Refuge, fast food (5).** The brass reads olive and the gilded box drifts to olive under the scene ambient; the checker floor is on the back half only; the booth is blue on blue; the ball pit reads as a dark tray with olive specks; the hatch reads like a dark monitor; the rock blobs read a little like holes; the lamp pair is weak for colour-blind players (FF-Q6).
 - **Hoarder (6).** The stir is subtle in a still; the shored straps are 3 px bands; in solo play only the strongest heave shows; heap b's rim light and the boxed-tray rubble cap are yours to judge; the warning may want a creak.
