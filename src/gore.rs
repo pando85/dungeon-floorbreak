@@ -726,6 +726,22 @@ pub const LLAMA_VARIANT: usize = DEATH_VARIANTS;
 pub const ENGINEER_POSES_MANIFEST: &str = "assets/manifests/eng_death_h36.json";
 pub const ENGINEER_PARTS_MANIFEST: &str = "assets/manifests/eng_death_parts.json";
 pub const ENGINEER_VARIANT: usize = DEATH_VARIANTS + 1;
+/// TROG-FX-01: the three troglodytes' death sets (Pygmy, Basher, Virtuoso) after the Engineer so no earlier variant
+/// index moves. Each has its own reference pose (the approved idle frame 0, which sets the pose frame and pivot the
+/// part origins are measured in) and parts sheet (the cuts of that frame, the gibs and the blood drop); the decals
+/// stay the goblin set's, like the Engineer's.
+pub const TROG_KINDS: usize = 3;
+pub const TROG_FIRST_VARIANT: usize = DEATH_VARIANTS + 2;
+pub const TROG_POSES_MANIFESTS: [&str; TROG_KINDS] = [
+    "assets/manifests/trog_pygmy_death_pose.json",
+    "assets/manifests/trog_basher_death_pose.json",
+    "assets/manifests/trog_virtuoso_death_pose.json",
+];
+pub const TROG_PARTS_MANIFESTS: [&str; TROG_KINDS] = [
+    "assets/manifests/trog_pygmy_death_parts.json",
+    "assets/manifests/trog_basher_death_parts.json",
+    "assets/manifests/trog_virtuoso_death_parts.json",
+];
 
 impl DeathArt {
     /// Read both manifests and the grid sources they name, below `root` (the
@@ -766,6 +782,18 @@ impl DeathArt {
             ENGINEER_POSES_MANIFEST,
             ENGINEER_PARTS_MANIFEST,
         )
+    }
+
+    /// TROG-FX-01: the death art of troglodyte `kind` (0 Pygmy, 1 Basher, 2 Virtuoso), composed by the same code as the
+    /// goblins'. Its variant index is `TROG_FIRST_VARIANT + kind`.
+    pub fn load_trog(root: &Path, kind: usize) -> Result<Self, String> {
+        let (Some(poses_path), Some(parts_path)) = (
+            TROG_POSES_MANIFESTS.get(kind),
+            TROG_PARTS_MANIFESTS.get(kind),
+        ) else {
+            return Err(format!("no troglodyte death kind {kind}"));
+        };
+        Self::load_manifests(root, TROG_FIRST_VARIANT + kind, poses_path, parts_path)
     }
 
     fn load_manifests(

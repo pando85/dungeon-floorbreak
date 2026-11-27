@@ -4,8 +4,9 @@
 //! atlas frames (the committed `prototype_fixture_unapproved` candidates, **art review pending**).
 //! The **labelled hurtbox rectangle** (the box the simulation hits, species colour, state tint)
 //! stays as the fallback where an atlas is missing (`scripts/export_assets.sh` was not run) and
-//! behind `--debug-combat`; the committed hitbox is drawn as a translucent stand-in telegraph while
-//! a troglodyte tells and strikes. The room's decor is the AREA-TROG-01 dressing, composed into the
+//! behind `--debug-combat`. The attack telegraph is the approved Goblin Workshop weight-shadow art cropped
+//! to the committed hitbox (TROG-FX-01, `dungeon_floorbreak::trog_art::tell_draw`); the translucent
+//! code-drawn box of the committed hitbox is the fallback where that atlas is missing. The room's decor is the AREA-TROG-01 dressing, composed into the
 //! kit (`dungeon_floorbreak::trog_kit`); this file draws none of it.
 //! **Presentation only**: every system reads the combat state through a shared reference and
 //! writes only its own sprites, so nothing here reaches the simulation, the replay or the state
@@ -14,6 +15,7 @@
 use super::*;
 use dungeon_floorbreak::combat_scene::trog::TrogEnemy;
 use dungeon_floorbreak::env_kit::ATLAS_ASSET_PREFIX;
+use dungeon_floorbreak::scene_enemy::SlotEnemy;
 use dungeon_floorbreak::trog::{Species, State, TrogTuning};
 use dungeon_floorbreak::trog_art::{self, MOVE_HOLD_TICKS, TrogLook};
 
@@ -37,6 +39,10 @@ pub(super) struct TrogMemo {
 #[derive(Component, Clone, Copy)]
 pub(super) struct TrogTelegraph(usize);
 
+/// One pooled tile of the telegraph art (TROG-FX-01): tile `.1` of slot index `.0`.
+#[derive(Component, Clone, Copy)]
+pub(super) struct TrogTellTile(usize, usize);
+
 #[derive(Resource)]
 pub(super) struct TrogArt {
     body_z: f32,
@@ -45,6 +51,8 @@ pub(super) struct TrogArt {
     atlas: [bool; 3],
     /// `--debug-combat`: the hurtbox rectangles draw over the atlas too.
     rects_always: bool,
+    /// The telegraph art (the approved weight-shadow sheet) is loaded; the stand-in box draws without it.
+    tell_art: bool,
 }
 
 fn species_index(species: Species) -> usize {
@@ -145,6 +153,28 @@ pub(super) fn spawn(
             ));
         }
     }
+    let tell_sheet = if atlas_present(trog_art::TELL_SHEET) {
+        let asset = trog_art::TELL_SHEET
+            .strip_prefix(ATLAS_ASSET_PREFIX)
+            .unwrap_or(trog_art::TELL_SHEET)
+            .to_owned();
+        let texture: Handle<Image> = asset_server.load(asset.clone());
+        handles.push((asset, texture.clone()));
+        let layout = layouts.add(TextureAtlasLayout::from_grid(
+            UVec2::new(trog_art::TELL_FRAME.0, trog_art::TELL_FRAME.1),
+            trog_art::TELL_FRAMES,
+            1,
+            None,
+            None,
+        ));
+        Some((texture, layout))
+    } else {
+        println!(
+            "F01_TROG_ART missing {} (run scripts/export_assets.sh): the translucent hitbox stays as the telegraph",
+            trog_art::TELL_SHEET
+        );
+        None
+    };
     let n = state.slot_enemies().len();
     commands.insert_resource(TrogArt {
         body_z: kit.actor_z + GOBLIN_Z_OFFSET - 32.0 * GOBLIN_Z_STEP,
@@ -155,6 +185,7 @@ pub(super) fn spawn(
             sheets[2].is_some(),
         ],
         rects_always,
+        tell_art: tell_sheet.is_some(),
     });
     for index in 0..n {
         let species = state.slot_enemies()[index]
@@ -188,6 +219,24 @@ pub(super) fn spawn(
                 actor_layers.clone(),
             ));
         }
+        if let Some((texture, layout)) = &tell_sheet {
+            for tile in 0..trog_art::TELL_MAX_PIECES {
+                commands.spawn((
+                    TrogTellTile(index, tile),
+                    Sprite::from_atlas_image(
+                        texture.clone(),
+                        TextureAtlas {
+                            layout: layout.clone(),
+                            index: 0,
+                        },
+                    ),
+                    Anchor::BOTTOM_LEFT,
+                    Transform::from_xyz(0.0, 0.0, kit.actor_z),
+                    Visibility::Hidden,
+                    actor_layers.clone(),
+                ));
+            }
+        }
         commands.spawn((
             TrogTelegraph(index),
             Sprite::from_color(Color::srgba(1.0, 0.25, 0.15, 0.3), Vec2::ONE),
@@ -199,15 +248,20 @@ pub(super) fn spawn(
 }
 
 /// Place the stand-in bodies and telegraphs from the simulation each frame.
-#[allow(clippy::type_complexity)]
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
 pub(super) fn sync_trog_art(
     sim: Res<Sim>,
     combat: Res<Combat>,
+    death: Res<Death>,
     art: Option<Res<TrogArt>>,
     mut memo: Local<Vec<TrogMemo>>,
     mut bodies: Query<
         (&TrogBody, &mut Transform, &mut Sprite, &mut Visibility),
-        (Without<TrogTelegraph>, Without<TrogAtlasSprite>),
+        (
+            Without<TrogTelegraph>,
+            Without<TrogAtlasSprite>,
+            Without<TrogTellTile>,
+        ),
     >,
     mut atlas_sprites: Query<
         (
@@ -216,11 +270,27 @@ pub(super) fn sync_trog_art(
             &mut Sprite,
             &mut Visibility,
         ),
-        (Without<TrogTelegraph>, Without<TrogBody>),
+        (
+            Without<TrogTelegraph>,
+            Without<TrogBody>,
+            Without<TrogTellTile>,
+        ),
     >,
     mut telegraphs: Query<
         (&TrogTelegraph, &mut Transform, &mut Sprite, &mut Visibility),
-        (Without<TrogBody>, Without<TrogAtlasSprite>),
+        (
+            Without<TrogBody>,
+            Without<TrogAtlasSprite>,
+            Without<TrogTellTile>,
+        ),
+    >,
+    mut tiles: Query<
+        (&TrogTellTile, &mut Transform, &mut Sprite, &mut Visibility),
+        (
+            Without<TrogBody>,
+            Without<TrogAtlasSprite>,
+            Without<TrogTelegraph>,
+        ),
     >,
 ) {
     let (Some(art), Some(state)) = (art, combat.0.as_ref()) else {
@@ -231,16 +301,24 @@ pub(super) fn sync_trog_art(
     let tick = sim.0.world.tick;
     // The atlas sprites: the frame the pure half picks, mirrored with the facing.
     for (id, mut transform, mut sprite, mut visibility) in &mut atlas_sprites {
-        let trog = state
+        let enemy = state
             .slot_enemies()
             .get(id.0)
             .and_then(|e| e.as_any())
-            .and_then(|a| a.downcast_ref::<TrogEnemy>())
-            .map(TrogEnemy::trog);
-        let Some(trog) = trog else {
+            .and_then(|a| a.downcast_ref::<TrogEnemy>());
+        let Some(trog) = enemy.map(TrogEnemy::trog) else {
             *visibility = Visibility::Hidden;
             continue;
         };
+        // TROG-FX-01: a point blank blast replaced the body with its own parts (gore presets 2 to 4).
+        if death
+            .0
+            .as_ref()
+            .is_some_and(|presenter| enemy.is_some_and(|e| presenter.hides(e.target_id())))
+        {
+            *visibility = Visibility::Hidden;
+            continue;
+        }
         if memo.len() <= id.0 {
             memo.resize(id.0 + 1, TrogMemo::default());
         }
@@ -283,6 +361,14 @@ pub(super) fn sync_trog_art(
             *visibility = Visibility::Hidden;
             continue;
         };
+        if death
+            .0
+            .as_ref()
+            .is_some_and(|presenter| enemy.is_some_and(|e| presenter.hides(e.target_id())))
+        {
+            *visibility = Visibility::Hidden;
+            continue;
+        }
         // Where the atlas draws this species the rectangle is hidden (shown, faint, under
         // `--debug-combat`); it is the visible body only where the atlas is missing.
         let atlas_drawn = art.atlas[species_index(trog.species)];
@@ -320,7 +406,43 @@ pub(super) fn sync_trog_art(
         }
         *visibility = Visibility::Inherited;
     }
+    // The telegraph art: the approved weight-shadow tile, cropped to the committed rectangle.
+    let draws: Vec<Option<trog_art::TellDraw>> = state
+        .slot_enemies()
+        .iter()
+        .map(|e| {
+            e.as_any()
+                .and_then(|a| a.downcast_ref::<TrogEnemy>())
+                .and_then(|e| trog_art::tell_draw(t, e.trog(), solids, tick))
+        })
+        .collect();
+    for (id, mut transform, mut sprite, mut visibility) in &mut tiles {
+        let draw = draws.get(id.0).copied().flatten();
+        let piece = draw.and_then(|d| trog_art::tell_pieces(d.width).get(id.1).map(|p| (d, *p)));
+        let Some((d, piece)) = piece else {
+            *visibility = Visibility::Hidden;
+            continue;
+        };
+        let (w, h) = (piece.width as f32, d.height);
+        sprite.rect = Some(bevy::math::Rect::new(
+            piece.src_x as f32,
+            0.0,
+            piece.src_x as f32 + w,
+            h,
+        ));
+        sprite.custom_size = Some(Vec2::new(w, h));
+        sprite.color = Color::srgba(1.0, 1.0, 1.0, f32::from(trog_art::TELL_ALPHA) / 255.0);
+        if let Some(atlas) = sprite.texture_atlas.as_mut() {
+            atlas.index = usize::from(d.frame);
+        }
+        transform.translation = Vec3::new(d.x.round() + piece.dx as f32, d.y.round(), art.tell_z);
+        *visibility = Visibility::Inherited;
+    }
     for (id, mut transform, mut sprite, mut visibility) in &mut telegraphs {
+        if art.tell_art {
+            *visibility = Visibility::Hidden;
+            continue;
+        }
         let threat = state
             .slot_enemies()
             .get(id.0)

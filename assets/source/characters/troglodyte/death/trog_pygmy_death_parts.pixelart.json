@@ -1,0 +1,134 @@
+{
+ "format": "pixelart-asset-v1",
+ "asset_id": "trog-pygmy-death-parts",
+ "title": "TROG-FX-01 Pygmy death parts sheet (docs/02-art/trog-fx-01-spec.md); 10 frames",
+ "grid": "assets/source/characters/troglodyte/death/trog_pygmy_death_parts.grid.json",
+ "manifest": "assets/manifests/trog_pygmy_death_parts.json",
+ "frame_size": [
+  32,
+  32
+ ],
+ "pivot": [
+  16,
+  16
+ ],
+ "contact_row": null,
+ "tick_hz": 60,
+ "hold_ms": 100,
+ "facing": "right",
+ "rules": {
+  "max_colors": 20,
+  "max_isolated_per_frame": 0,
+  "max_orphans_per_frame": 11,
+  "canvas_margin": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "unique_frames": true,
+  "holes": false
+ },
+ "tags": {
+  "head": {
+   "playback": "hold",
+   "contact": "free",
+   "frames": [
+    [
+     0,
+     null
+    ]
+   ]
+  },
+  "torso_upper": {
+   "playback": "hold",
+   "contact": "free",
+   "frames": [
+    [
+     1,
+     null
+    ]
+   ]
+  },
+  "torso_lower": {
+   "playback": "hold",
+   "contact": "free",
+   "frames": [
+    [
+     2,
+     null
+    ]
+   ]
+  },
+  "arm_near": {
+   "playback": "hold",
+   "contact": "free",
+   "frames": [
+    [
+     3,
+     null
+    ]
+   ]
+  },
+  "leg_near": {
+   "playback": "hold",
+   "contact": "free",
+   "frames": [
+    [
+     4,
+     null
+    ]
+   ]
+  },
+  "gib_flesh_a": {
+   "playback": "hold",
+   "contact": "free",
+   "frames": [
+    [
+     5,
+     null
+    ]
+   ]
+  },
+  "gib_flesh_b": {
+   "playback": "hold",
+   "contact": "free",
+   "frames": [
+    [
+     6,
+     null
+    ]
+   ]
+  },
+  "gib_bone": {
+   "playback": "hold",
+   "contact": "free",
+   "frames": [
+    [
+     7,
+     null
+    ]
+   ]
+  },
+  "gib_rag": {
+   "playback": "hold",
+   "contact": "free",
+   "frames": [
+    [
+     8,
+     null
+    ]
+   ]
+  },
+  "drop_blood": {
+   "playback": "hold",
+   "contact": "free",
+   "frames": [
+    [
+     9,
+     null
+    ]
+   ]
+  }
+ }
+}

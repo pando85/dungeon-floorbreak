@@ -34,6 +34,10 @@ const BUILTIN_JSON: &str = include_str!("../assets/data/death/species_death_prof
 const CF02_OVERLAY_JSON: &str =
     include_str!("../assets/data/death/species_death_profiles_cf02.json");
 
+/// TROG-FX-01: the troglodyte species rows (`add_species` only), embedded like the other overlays.
+const TROG_OVERLAY_JSON: &str =
+    include_str!("../assets/data/death/species_death_profiles_trog.json");
+
 /// What kind of lethal contact it was, coarser than [`DefeatCause`]: profiles
 /// speak in classes so a new cause maps onto an existing recipe.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Deserialize)]
@@ -269,6 +273,23 @@ impl DeathProfiles {
             Self::builtin()
                 .with_overlay(CF02_OVERLAY_JSON)
                 .expect("embedded cf02 death overlay")
+        })
+    }
+
+    /// TROG-FX-01: the troglodyte profiles (`trog_pygmy`, `trog_basher`, `trog_virtuoso`) added to the global profiles
+    /// (`cf02` false) or to the cf02-overlaid ones (`cf02` true). Neither source file changes: a presenter that has the
+    /// troglodyte death art reads these, every other run reads exactly what it read before.
+    pub fn with_trogs(cf02: bool) -> &'static Self {
+        static PLAIN: OnceLock<DeathProfiles> = OnceLock::new();
+        static OVERLAID: OnceLock<DeathProfiles> = OnceLock::new();
+        let (cell, base) = if cf02 {
+            (&OVERLAID, Self::cf02())
+        } else {
+            (&PLAIN, Self::builtin())
+        };
+        cell.get_or_init(|| {
+            base.with_overlay(TROG_OVERLAY_JSON)
+                .expect("embedded troglodyte death overlay")
         })
     }
 
@@ -1252,5 +1273,57 @@ mod tests {
             SlamPose::ALL.map(SlamPose::name),
             ["stomped", "wall_crumple", "flung"]
         );
+    }
+
+    #[test]
+    fn trog_the_troglodyte_overlay_adds_three_profiles_and_leaves_the_sources_alone() {
+        for cf02 in [false, true] {
+            let base = if cf02 {
+                DeathProfiles::cf02()
+            } else {
+                DeathProfiles::builtin()
+            };
+            let merged = DeathProfiles::with_trogs(cf02);
+            assert_eq!(merged.species.len(), base.species.len() + 3);
+            assert_eq!(merged.generic_fallback_finish, base.generic_fallback_finish);
+            for kind in ["pygmy", "basher", "virtuoso"] {
+                let id = format!("trog_{kind}");
+                let profile = merged.species(&id).expect("a profile per kind");
+                assert_eq!(profile.body_material, BodyMaterial::Organic);
+                assert_eq!(profile.fallback_finish, format!("{id}_down"));
+                let pick = |cause, force| {
+                    let s = merged.select(&id, cause, force);
+                    (s.finish.to_string(), s.kind, s.fallback, s.degraded)
+                };
+                // A point blank blast explodes it; a jab, a kick and a ring blast keep the down frames.
+                assert_eq!(
+                    pick(BLAST_PB, ForceTier::Catastrophic),
+                    (format!("{id}_exploded"), RecipeKind::Exploded, false, false)
+                );
+                for (cause, force, degraded) in [
+                    (MELEE, ForceTier::Routine, false),
+                    (MELEE, ForceTier::Heavy, false),
+                    (BLAST_RING, ForceTier::Heavy, true),
+                ] {
+                    assert_eq!(
+                        pick(cause, force),
+                        (
+                            format!("{id}_down"),
+                            RecipeKind::KnockbackDown,
+                            false,
+                            degraded
+                        ),
+                        "{id} {cause:?} {force:?}"
+                    );
+                }
+                // No troglodyte room has a crush or a shear: those take the fallback, never a head or a block.
+                for cause in [BLOCK, EDGE] {
+                    let (finish, ..) = pick(cause, ForceTier::Catastrophic);
+                    assert_eq!(finish, format!("{id}_down"), "{id} {cause:?}");
+                }
+            }
+            // The source profiles are what they were: no troglodyte row in either.
+            assert!(base.species("trog_basher").is_none());
+        }
     }
 }

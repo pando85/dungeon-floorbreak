@@ -17,7 +17,8 @@
 //! no other offset. The art faces right: a facing of -1 mirrors it (TROG-AD40: the pivot
 //! mirrors with the frame).
 
-use crate::prototype::Rect;
+use crate::env_prop_art::{FALL_SHADOW, FALL_SHADOW_TELL};
+use crate::prototype::{Block, Rect};
 use crate::trog::{Species, State, Trog, TrogTuning};
 
 /// The sheet's frames (one row).
@@ -156,6 +157,98 @@ pub fn sprite_rect(trog: &Trog, d: &TrogDraw) -> Rect {
         width: w as f32,
         height: h as f32,
     }
+}
+
+// ------------------------------------------------------------------ the attack telegraph (TROG-FX-01)
+
+/// TROG-FX-01: the telegraph of a committed attack is the approved Goblin Workshop weight-shadow sheet
+/// (`f01-gw-tell-shadow`, AREA-GOBLINWORKSHOP-01: a dark dithered floor patch that flashes through its tell
+/// and goes solid when the weight lands) cropped to the **exact committed rectangle** instead of a
+/// translucent code-drawn box. The sheet is 64 x 8 with three frames (the tell's two dither phases, the
+/// solid patch); its centre columns [`TELL_TILE_X`]..+[`TELL_TILE_W`] are a flat 8 x 8 tile of that
+/// pattern (full height, the dither period divides the width), repeated left to right and clipped on the
+/// last piece, so the drawn width is exactly the rectangle's and never overstates the threat. Timing is
+/// the simulation's: [`Trog::threat`] is `Some` for the tell and the active window, the patch is solid
+/// from the first tick the hitbox is live, and the dither flashes on the approved sheet's own clock
+/// ([`FALL_SHADOW_TELL`], 4 ticks a phase). A pure function of the domain state: nothing here reaches
+/// the simulation.
+pub const TELL_SHEET: &str = "generated/art/f01-gw-tell-shadow.png";
+/// One frame of the sheet.
+pub const TELL_FRAME: (u32, u32) = (64, 8);
+/// Frames of the sheet (the tell's two phases, then the solid patch).
+pub const TELL_FRAMES: u32 = 3;
+/// The tile's first column and width inside a frame.
+pub const TELL_TILE_X: u32 = 28;
+pub const TELL_TILE_W: u32 = 8;
+/// The largest number of tile pieces a telegraph needs (the Pygmy's whole leap path, [`TELL_MAX_PX`]).
+pub const TELL_MAX_PIECES: usize = 28;
+/// The widest rectangle drawn (`TELL_MAX_PIECES` tiles); a wider threat keeps its first tiles only.
+pub const TELL_MAX_PX: f32 = (TELL_MAX_PIECES as u32 * TELL_TILE_W) as f32;
+/// The patch's alpha: the Workshop weight shadow's (`env_prop_art::SHADOW_ALPHA`).
+pub const TELL_ALPHA: u8 = crate::env_prop_art::SHADOW_ALPHA;
+
+/// One drawn telegraph: the patch's bottom-left corner in world px (y up), its width, and the sheet frame.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct TellDraw {
+    pub x: f32,
+    pub y: f32,
+    pub width: f32,
+    pub height: f32,
+    /// The sheet frame: 0 and 1 flash through the tell, 2 is the solid patch of a live hitbox.
+    pub frame: u16,
+}
+
+/// The sheet frame of a telegraph at presenter `tick`: solid once the hitbox is live (`ticks_to_live`
+/// is 0), the flashing dither before.
+pub fn tell_frame(ticks_to_live: u16, tick: u64) -> u16 {
+    let tag = if ticks_to_live == 0 {
+        FALL_SHADOW
+    } else {
+        FALL_SHADOW_TELL
+    };
+    tag.frame_at(tick) as u16
+}
+
+/// The telegraph of `trog` at `tick`, `None` outside its tell and active window. The patch spans the
+/// committed rectangle's x extent exactly. The floor-level attacks (the Pygmy's leap path, the Basher's
+/// smash) sit on the floor under the rectangle; the Virtuoso's tongue band is mid-air, so its patch is
+/// centred on the band's height (rounded down, never above the band).
+pub fn tell_draw(t: &TrogTuning, trog: &Trog, solids: &[Block], tick: u64) -> Option<TellDraw> {
+    let (rect, left) = trog.threat(t, solids)?;
+    let height = TELL_FRAME.1 as f32;
+    let y = match trog.species {
+        Species::Pygmy | Species::Basher => trog.foot_y,
+        Species::Virtuoso => rect.bottom + ((rect.height - height) * 0.5).floor().max(0.0),
+    };
+    Some(TellDraw {
+        x: rect.left,
+        y,
+        width: rect.width.min(TELL_MAX_PX),
+        height,
+        frame: tell_frame(left, tick),
+    })
+}
+
+/// One tile piece of a telegraph: its source columns inside the sheet frame and its offset from the
+/// patch's left edge.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TellPiece {
+    pub src_x: u32,
+    pub dx: u32,
+    pub width: u32,
+}
+
+/// The pieces that cover exactly `width` px (rounded to whole pixels, at least one), 8 px each and the
+/// last clipped.
+pub fn tell_pieces(width: f32) -> Vec<TellPiece> {
+    let total = width.round().max(1.0) as u32;
+    (0..total.div_ceil(TELL_TILE_W))
+        .map(|k| TellPiece {
+            src_x: TELL_TILE_X,
+            dx: k * TELL_TILE_W,
+            width: (total - k * TELL_TILE_W).min(TELL_TILE_W),
+        })
+        .collect()
 }
 
 #[cfg(test)]

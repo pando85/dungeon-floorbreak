@@ -173,8 +173,10 @@ impl SlotEnemy for TrogEnemy {
         self.trog.holds_token()
     }
 
-    /// The `down` frame holds as the body: no death profile exists for a troglodyte key
-    /// (TROG-AD19), so the presenter draws nothing extra.
+    /// The `down` frame holds as the body. The presenter adds the species' death profile
+    /// (`trog_pygmy`, `trog_basher`, `trog_virtuoso`, TROG-FX-01: blood on a jab, the kind's own
+    /// parts on a point blank blast) when the run has the troglodyte death art, and nothing
+    /// otherwise (TROG-AD19).
     fn death_body(&self) -> Option<SlotDeathBody> {
         Some(SlotDeathBody {
             x: self.trog.x,
