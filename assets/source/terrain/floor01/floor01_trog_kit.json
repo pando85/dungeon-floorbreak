@@ -543,6 +543,18 @@
      "piece": "torch_pool_a",
      "x": 560,
      "y": 348
+    },
+    {
+     "layer": "prop",
+     "piece": "torch_wall",
+     "x": 328,
+     "y": 432
+    },
+    {
+     "layer": "backwall_decal",
+     "piece": "torch_pool_b",
+     "x": 224,
+     "y": 348
     }
    ],
    "backwall_fill": [
