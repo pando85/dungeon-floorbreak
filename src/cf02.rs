@@ -1241,6 +1241,17 @@ pub mod arena {
     }
 
     fn load_arena_with(root: &Path, extra_steps: &[IRect]) -> Result<EnvKit, String> {
+        load_arena_hooked(root, extra_steps, None, |_| Ok(()))
+    }
+
+    /// [`load_arena`] with a hook on the composed layout (before the kit is built) and an optional
+    /// merged contract in place of the CF02 one (AREA-POLISH-01: the mastery arena's dressing).
+    pub fn load_arena_hooked(
+        root: &Path,
+        extra_steps: &[IRect],
+        contract: Option<crate::env_kit::Contract>,
+        hook: impl FnOnce(&mut Value) -> Result<(), String>,
+    ) -> Result<EnvKit, String> {
         let path = root.join(ROOM_PATH);
         let text =
             std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
@@ -1277,8 +1288,12 @@ pub mod arena {
                 layout["tile_layers"]["collision"][face_row][col as usize] = Value::Null;
             }
         }
+        hook(&mut layout)?;
         let layout: Layout = serde_json::from_value(layout).map_err(|e| e.to_string())?;
-        let contract = merged_contract(root).map_err(|e| e.to_string())?;
+        let contract = match contract {
+            Some(c) => c,
+            None => merged_contract(root).map_err(|e| e.to_string())?,
+        };
         let mut kit = EnvKit::build(&contract, &layout).map_err(|e| e.to_string())?;
         // The scene's camera takes its vertical position from a named view: the
         // walking line 288 px below the top of the 640x360 view (308 px below the

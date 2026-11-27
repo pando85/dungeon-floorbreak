@@ -110,8 +110,15 @@ pub fn env_runtime(run: &MasteryRun) -> Result<EnvRuntime, String> {
     ))
 }
 
-/// Load the arena and its sidecar, compose its kit and build the fixture.
+/// Load the arena and its sidecar, compose its kit and build the fixture. The room is dressed with
+/// the AREA-POLISH-01 kit ([`crate::polish_kit`], presentation only).
 pub fn launch(root: &Path) -> Result<MasteryRun, String> {
+    launch_with(root, true)
+}
+
+/// [`launch`] with the dressing switched: `dressed = false` composes the arena with the plain CF02
+/// composition (the PT-MASTERY greybox), for the tests that prove the dressing is presentation only.
+pub fn launch_with(root: &Path, dressed: bool) -> Result<MasteryRun, String> {
     let loaded = encounter::load(root, ENCOUNTER_PATH).map_err(|errors| {
         format!(
             "{ENCOUNTER_PATH}: {}",
@@ -137,7 +144,7 @@ pub fn launch(root: &Path) -> Result<MasteryRun, String> {
     }
     // The arena's own composer: the geometry is the CF02-F microarena's, with
     // its parapet, perches, lane ceiling and blink barriers.
-    let kit = arena::load_arena(root)?;
+    let kit = crate::polish_kit::compose_mastery(root, dressed)?;
     let room = &loaded.room;
     if kit.base_walk_line_y != room.floor_y || room.floor_y != arena::FLOOR_Y {
         return Err(format!(

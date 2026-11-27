@@ -749,6 +749,12 @@
     "piece": "gym_exit_open",
     "x": 620,
     "y": 324
+   },
+   {
+    "layer": "structure",
+    "piece": "gym_gate_lintel",
+    "x": 592,
+    "y": 306
    }
   ]
  },

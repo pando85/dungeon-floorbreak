@@ -268,4 +268,41 @@ mod tests {
         assert!(g.lights.len() <= MAX_LIGHTS);
         assert!(g.lights.len() >= 6, "the three tube fixtures emit");
     }
+
+    /// AREA-POLISH-01 (the #263 review's F3 follow-up): a second `gym_gate_lintel` caps the exit door.
+    /// It spans the end-wall column up to the room's right edge, its bottom row sits on the door's
+    /// top row, it covers neither mirror bay's glass nor the right crack, and the gate's own lintel
+    /// is still the first placement.
+    #[test]
+    fn a_lintel_caps_the_exit_door() {
+        let kit = boss_scene::load_arena(root()).unwrap();
+        let lintels = rect(&kit, "gym_gate_lintel");
+        assert_eq!(lintels.len(), 2, "the gate's and the exit door's");
+        assert_eq!(
+            (lintels[0].x, lintels[0].y),
+            (0, 180),
+            "the gate's stays first"
+        );
+        let cap = lintels[1];
+        let door = rect(&kit, "gym_exit_closed")[0];
+        assert_eq!(cap.bottom(), door.y, "its bottom row on the door's top row");
+        assert!(
+            cap.x < door.x && cap.right() >= door.right(),
+            "it overhangs the door's jambs"
+        );
+        assert_eq!(cap.right(), 640, "it ends at the room's right edge");
+        // the right mirror bay's glass starts below the cap; the right crack (y 362..395) is clear
+        let bay = rect(&kit, "gym_mirror_bay")[1];
+        assert!(cap.bottom() <= bay.y);
+        assert!(cap.bottom() <= 362);
+        // presentation only: the cap is a structure piece, not a collider
+        assert_eq!(
+            dressing(root())
+                .unwrap()
+                .place
+                .last()
+                .map(|p| p.layer.as_str()),
+            Some("structure")
+        );
+    }
 }
