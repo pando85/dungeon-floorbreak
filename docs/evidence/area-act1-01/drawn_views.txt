@@ -1,0 +1,15 @@
+# the drawn view (left, top) of each still, measured against the lit render of the dressed room
+chase_s2_breach_heroes 450 292 trimmed_abs_err=0.30 logged_cam_x=461
+chase_s2_emergence 784 292 trimmed_abs_err=0.91 logged_cam_x=794
+chase_s3_after_first_smash 1298 292 trimmed_abs_err=0.75 logged_cam_x=1309
+chase_s3_timbers 1205 234 trimmed_abs_err=0.50 logged_cam_x=1216
+chase_s4_alcove 1575 292 trimmed_abs_err=0.78 logged_cam_x=1586
+chase_s5_after_defeat 1953 292 trimmed_abs_err=0.48 logged_cam_x=1962
+chase_s5_after_respawn 1788 276 trimmed_abs_err=0.46 logged_cam_x=1797
+chase_s5_barricade_broken 1790 276 trimmed_abs_err=0.44 logged_cam_x=1799
+chase_s5_barricade_intact 1790 276 trimmed_abs_err=0.55 logged_cam_x=1799
+chase_spawn 0 292 trimmed_abs_err=0.61 logged_cam_x=0
+chase_wedge 2368 292 trimmed_abs_err=0.41 logged_cam_x=2368
+guild_door_closed 0 292 trimmed_abs_err=0.38 logged_cam_x=0
+guild_door_open 0 292 trimmed_abs_err=0.62 logged_cam_x=0
+shore_spawn 0 292 trimmed_abs_err=0.56 logged_cam_x=0

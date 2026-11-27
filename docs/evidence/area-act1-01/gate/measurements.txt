@@ -1,0 +1,11 @@
+act1_grant_box_closed 24x28 opaque=478 bbox=(0,8)-(23,27) colours=13 max_luma=193 transparent_px=194
+act1_grant_box_open 24x28 opaque=625 bbox=(0,0)-(23,27) colours=17 max_luma=238 transparent_px=47
+act1_gallery_breach 192x218 opaque=36676 bbox=(0,0)-(191,217) colours=16 max_luma=90 transparent_px=5180
+act1_grant_box_closed floor contact row 27 = room y 579 (target 579): ok; x 340..363 (grant zone 336..376, guide drawn from 368)
+act1_grant_box_open floor contact row 27 = room y 579 (target 579): ok; x 340..363 (grant zone 336..376, guide drawn from 368)
+act1_gallery_breach void rows 8..217 = room y 350..559 (target: reaches 559); floor-row void x 712..871
+act1_gallery_breach core {736,422,112,138} void cover 1.000 (target 1.000)
+all keys: 31 distinct palette entries (per-atlas budget 63)
+KEY act1_grant_box_closed sha256=afcd32c654dec6d4126a5b7ba1b4ed86563621c4dd0947fd973fe694feaf058b
+KEY act1_grant_box_open sha256=e07f0a7e7fcef934c5f3e038410db8224817e391a9c1c2e6a730e3566d8a0dae
+KEY act1_gallery_breach sha256=e50a7f803bee66da91d43b6b4db1e4ae71d6a96c4089226a3f2613f512c7f3ef

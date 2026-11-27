@@ -973,3 +973,28 @@ fn a_glancing_fall_ends_on_the_deck() {
         g.left + 4
     );
 }
+
+/// ACT1-ART (AD10): the shore's wedged machine is the rig at the chase's wedge pose, re-based into
+/// the shore's columns, and it fits the shore decor rect {56, 440, 192, 140}: nothing left of
+/// x 56, nothing past the arch's right edge (local 248), nothing above the rect's top.
+#[test]
+fn the_shore_wedge_fits_the_decor_rect() {
+    let floor = 580.0;
+    let sprites = wedged_rig(floor);
+    assert!(sprites.len() >= Part::ALL.len() - 6, "the rig is drawn");
+    let (mut x0, mut x1, mut top) = (i32::MAX, i32::MIN, i32::MIN);
+    for s in &sprites {
+        let (vw, vh) = s.visible();
+        let left = s.left + i32::from(s.crop_left);
+        x0 = x0.min(left);
+        x1 = x1.max(left + vw as i32);
+        top = top.max(s.bottom + vh as i32);
+    }
+    assert!(x0 >= 56, "no sprite left of the decor rect: {x0}");
+    assert!(x1 <= 56 + 192, "no sprite past the arch's right edge: {x1}");
+    assert!(
+        top - 580 <= 140,
+        "no sprite above the decor rect: {}",
+        top - 580
+    );
+}

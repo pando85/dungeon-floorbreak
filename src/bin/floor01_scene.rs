@@ -163,6 +163,9 @@ mod dozer_art;
 mod camp_art;
 #[path = "floor01_scene/fastfood_art.rs"]
 mod fastfood_art;
+// AREA-ACT1-01: the act-1 rooms' timbers, barricade, grant box and portal overlay (presenter pieces).
+#[path = "floor01_scene/act1_art.rs"]
+mod act1_art;
 
 /// Draw order above the actor plane. Carl is drawn above every goblin, except
 /// that a goblin in its smear or impact is drawn over him (its club lands on
@@ -5047,8 +5050,7 @@ fn run_window(
                 corral_art::sync_corral_art,
                 corral_art::sync_partition_art,
                 (fastfood_art::sync_fastfood_art, camp_art::sync_bag_art),
-                sync_act1_door,
-                sync_act1_chase,
+                (sync_act1_door, sync_act1_chase, act1_art::sync_act1_art),
             )
                 .chain(),
             update_lighting,
@@ -5793,6 +5795,31 @@ fn setup(
             layers_of("prop"),
             mordecai.0.is_some(),
         );
+        // AREA-ACT1-01: a dressed room draws its timbers, barricade, grant box and portal overlay
+        // as presenter sprites (the flat rectangles above are skipped).
+        if run.dressed {
+            let prop_z = kit
+                .pieces
+                .iter()
+                .filter(|p| p.layer == "prop")
+                .map(|p| p.z)
+                .fold(kit.actor_z - 1.0, f32::max)
+                + 0.001;
+            let portal_z = kit
+                .pieces
+                .iter()
+                .find(|p| p.piece == "guild_portal_closed")
+                .map(|p| p.z);
+            act1_art::spawn(
+                &mut commands,
+                &handles,
+                run.room,
+                height,
+                prop_z.min(kit.actor_z - 0.01),
+                portal_z,
+                layers_of("prop"),
+            );
+        }
     }
 
     // TROG-A: the troglodyte room's atlas bodies (labelled rectangles where the atlas is
@@ -5936,6 +5963,22 @@ fn setup(
             kit,
             &mut combat_handles,
             &mut combat_entities,
+        );
+    } else if args
+        .act1_run
+        .as_ref()
+        .is_some_and(|run| run.room == f01_act1::Act1Room::Shore && run.dressed)
+    {
+        // AREA-ACT1-01 (ACT1-ART-AD10): the shore's wedged machine is the chase wedge's darkened,
+        // clipped DOZ-01 pose (`dozer_art::wedged_rig`), static, in place of the grey decor rect.
+        dozer_art::spawn_wedge(
+            &mut commands,
+            &asset_server,
+            &mut layouts,
+            layers_of("actors"),
+            &dungeon_floorbreak::dozer_art::wedged_rig(to_world_y(height, kit.base_walk_line_y)),
+            kit,
+            &mut combat_handles,
         );
     }
 
@@ -8356,6 +8399,12 @@ fn spawn_act1_greybox(
         if guide_sprite && decor.label == "guide" {
             continue;
         }
+        // AREA-ACT1-01: a dressed room draws no flat decor rectangle (the dressing, the presenter
+        // sprites and the wedge replace them); the guide's rectangle stays the fallback of a
+        // missing sprite.
+        if run.dressed && decor.label != "guide" {
+            continue;
+        }
         let mut entity = commands.spawn((
             Sprite::from_color(
                 act1_decor_colour(decor.label),
@@ -8373,6 +8422,10 @@ fn spawn_act1_greybox(
         {
             entity.insert(Act1TimberSprite(id));
         }
+    }
+    // The barricade and the door bar are the presenter's in a dressed room.
+    if run.dressed {
+        return;
     }
     if let Some(barricade) = run.barricade() {
         commands.spawn((

@@ -3,6 +3,7 @@
 pub mod acid_splash;
 pub mod act1_chase_fixtures;
 pub mod act1_fixtures;
+pub mod act1_kit;
 pub mod acting;
 pub mod actor_sprite;
 pub mod agility;

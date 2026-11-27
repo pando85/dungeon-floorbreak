@@ -10,7 +10,7 @@
 
 use super::*;
 use dungeon_floorbreak::dozer_art::{
-    FX_Z, MAX_SPRITES, Sheet as DozerSheet, SpriteDraw, Z_BACK, Z_FRONT, draw,
+    FX_Z, MAX_SPRITES, Sheet as DozerSheet, SpriteDraw, WEDGE_TINT, Z_BACK, Z_FRONT, draw,
 };
 use dungeon_floorbreak::env_kit::ATLAS_ASSET_PREFIX;
 
@@ -162,6 +162,86 @@ fn depth(art: &DozerArt, s: &SpriteDraw, slot: usize) -> f32 {
     base + slot as f32 * 0.00001
 }
 
+/// The crop and the tint of a drawn sprite. ACT1-B: the greybox wedge darkens the rig
+/// ([`dungeon_floorbreak::dozer_art::WEDGE_TINT`], ACT1-Q3: the end-on art is later).
+fn style(sprite: &mut Sprite, s: &SpriteDraw, wedged: bool) {
+    let (w, h) = s.sheet.frame_size();
+    if s.crop_top > 0 || s.crop_right > 0 || s.crop_left > 0 {
+        let (vw, vh) = s.visible();
+        sprite.rect = Some(Rect::new(
+            f32::from(s.crop_left),
+            f32::from(s.crop_top),
+            (w - u32::from(s.crop_right)) as f32,
+            h as f32,
+        ));
+        sprite.custom_size = Some(Vec2::new(vw as f32, vh as f32));
+    } else {
+        sprite.rect = None;
+        sprite.custom_size = None;
+    }
+    let tint = if wedged { WEDGE_TINT } else { 1.0 };
+    sprite.color = Color::srgba(tint, tint, tint, f32::from(s.alpha) / 255.0);
+}
+
+/// ACT1-ART: the shore's wedged machine, a static pose (no pool, no sync): each rig sprite of
+/// `dungeon_floorbreak::dozer_art::wedged_rig`, styled by the same [`style`] as the chase's wedge.
+pub(super) fn spawn_wedge(
+    commands: &mut Commands,
+    asset_server: &AssetServer,
+    layouts: &mut Assets<TextureAtlasLayout>,
+    layers: RenderLayers,
+    sprites: &[SpriteDraw],
+    kit: &EnvKit,
+    handles: &mut Vec<(String, Handle<Image>)>,
+) {
+    let rig_z = kit.actor_z + GOBLIN_Z_OFFSET - 40.0 * GOBLIN_Z_STEP;
+    let mut sheets: Vec<(DozerSheet, Handle<Image>, Handle<TextureAtlasLayout>)> = Vec::new();
+    for (slot, s) in sprites.iter().enumerate() {
+        if !atlas_present(s.sheet.path()) {
+            println!(
+                "ACT1_ART missing {} (run scripts/export_assets.sh): that wedge part is skipped",
+                s.sheet.path()
+            );
+            continue;
+        }
+        let known = sheets.iter().position(|(sheet, _, _)| *sheet == s.sheet);
+        let index = known.unwrap_or_else(|| {
+            let asset = asset_path(s.sheet.path());
+            let image: Handle<Image> = asset_server.load(asset.clone());
+            handles.push((asset, image.clone()));
+            let (w, h) = s.sheet.frame_size();
+            let layout = layouts.add(TextureAtlasLayout::from_grid(
+                UVec2::new(w, h),
+                s.sheet.frames(),
+                1,
+                None,
+                None,
+            ));
+            sheets.push((s.sheet, image, layout));
+            sheets.len() - 1
+        });
+        let (_, image, layout) = &sheets[index];
+        let mut sprite = Sprite::from_atlas_image(
+            image.clone(),
+            TextureAtlas {
+                layout: layout.clone(),
+                index: usize::from(s.frame),
+            },
+        );
+        style(&mut sprite, s, true);
+        let (x, y) = s.centre();
+        commands.spawn((
+            sprite,
+            Transform::from_xyz(
+                x,
+                y,
+                rig_z + f32::from(s.z) * RIG_Z_STEP + slot as f32 * 0.00001,
+            ),
+            layers.clone(),
+        ));
+    }
+}
+
 pub(super) fn sync_dozer_art(
     sim: Res<Sim>,
     combat: Res<Combat>,
@@ -189,23 +269,7 @@ pub(super) fn sync_dozer_art(
                 });
                 // A cropped tile (the gate's last) shows its bottom rows only; a faded one (the
                 // warning's floor shadow) tints its alpha.
-                let (w, h) = s.sheet.frame_size();
-                if s.crop_top > 0 || s.crop_right > 0 {
-                    let (vw, vh) = s.visible();
-                    sprite.rect = Some(Rect::new(
-                        0.0,
-                        f32::from(s.crop_top),
-                        (w - u32::from(s.crop_right)) as f32,
-                        h as f32,
-                    ));
-                    sprite.custom_size = Some(Vec2::new(vw as f32, vh as f32));
-                } else {
-                    sprite.rect = None;
-                    sprite.custom_size = None;
-                }
-                // ACT1-B: the greybox wedge darkens the rig (ACT1-Q3: the end-on art is later).
-                let tint = if drawn.wedged { 0.42 } else { 1.0 };
-                sprite.color = Color::srgba(tint, tint, tint, f32::from(s.alpha) / 255.0);
+                style(&mut sprite, s, drawn.wedged);
                 *visibility = Visibility::Inherited;
             }
             _ => *visibility = Visibility::Hidden,
