@@ -35,6 +35,30 @@
 [refuse] refused (exit 2): floor01_scene: --act1-pilot Strike does not fit the room act1_guild: strike plays in act1_shore, donut in act1_guild, hide, skip and watch in act1_chase, walk i :: floor01_scene --scene f01_late --scale 2 --f01-room act1_guild --act1-pilot strike
 [refuse] refused (exit 2): floor01_scene: --act1-pilot needs an Act I room (--scene f01_late --f01-room act1_chase, act1_shore or act1_guild) :: floor01_scene --scene f01_late --scale 2 --f01-room hoarder --act1-pilot walk
 [refuse] refused (exit 2): floor01_scene: --act1-pilot is a one-room evidence pilot: drop --f01-run (a floor run relaunches into the next room) :: floor01_scene --scene f01_late --scale 2 --f01-run --f01-room act1_shore --act1-pilot walk
+[ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room act1_chase --act1-pilot watch
+[ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room rest_refuge --rest-pilot donut
+[ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room rest_camp --rest-pilot walk
+[ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room rest_aftermath --rest-pilot punch
+[ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room rest_aftermath --rest-pilot blink
+[refuse] refused (exit 2): floor01_scene: --rest-pilot is a one-room evidence pilot: drop --f01-run (a floor run relaunches into the next room) :: floor01_scene --scene f01_late --scale 2 --f01-run --f01-room rest_aftermath --rest-pilot punch
+[ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room trog_run --trog-pilot carl
+[ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room trog_run --trog-pilot donut
+[refuse] refused (exit 2): floor01_scene: --trog-pilot needs a troglodyte room (--scene f01_late --f01-room trog_run) :: floor01_scene --scene f01_late --scale 2 --f01-room hoarder --trog-pilot carl
+[refuse] refused (exit 2): floor01_scene: --trog-pilot is a one-room evidence pilot: drop --f01-run (a floor run relaunches into the next room) :: floor01_scene --scene f01_late --scale 2 --f01-run --f01-room trog_run --trog-pilot carl
+[ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room ring_court --ring-pilot
+[ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room dozer --room-pilot dozer:run
+[ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room hoarder --room-pilot hoarder:carl_solo:0
+[ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room corral --room-pilot corral_rush
+[ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-run --cine-showcase=off
+[ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room hoarder --companion v0
+[ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room rest_refuge --rest-pilot carl_door
+[ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room rest_refuge --rest-pilot base_jump
+[ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room dozer --room-pilot dozer:close_call
+[ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room dozer --room-pilot dozer:wait
+[ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room dozer --room-pilot dozer:brace
+[ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room act1_shore --act1-pilot walk
+[ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-run --f01-room rest_camp
+[ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-run --f01-room trog_strength
 [refuse] refused (exit 2): floor01_scene: --f01-room: unknown room "cellar" (listed rooms: act1_chase, act1_shore, act1_guild, corral, rest_refuge, hoarder, boiler, dozer, hazards, ring_c :: floor01_scene --scene f01_late --scale 2 --f01-room cellar
 [refuse] refused (exit 2): floor01_scene: unknown scene "f01_ring_court" (expected boss_f01, combat_lab, f01_boiler, f01_hoarder, f01_dozer, f01_hazards, f01_late, refuge_guild) :: floor01_scene --scene f01_ring_court --scale 2
 [ok] ok :: floor01_scene --scene f01_hoarder --scale 2
