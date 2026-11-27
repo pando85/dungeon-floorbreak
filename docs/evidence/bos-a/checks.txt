@@ -1,10 +1,10 @@
 BOS-A local check list. Base: origin/main 39d77d9f (BOS-PLAN, #315). Run on the PR head's source (the evidence files of
 this directory excluded); the evaluator and window captures ran on the binaries of that source (two later edits changed
-test-only code, no behaviour).
+test-only code, no behaviour). Re-run in full after the review fixes (BOS-AD34 recentre, G-5 at the edge, push_heroes room).
 
 cargo fmt --all -- --check                                  ok
 cargo clippy --locked --all-targets -- -D warnings          ok (no warnings)
-cargo test --locked --all-targets --no-fail-fast            ok: 4109 passed, 0 failed, 43 ignored (lib 4036 incl. the BOS-A tests, floor01_scene bin 86+, integration tests)
+cargo test --locked --all-targets --no-fail-fast            ok: 4110 passed, 0 failed, 43 ignored (lib incl. the BOS-A tests, floor01_scene bin 86+, integration tests)
 python3 scripts/check_docs.py                               Documentation checks passed
 scripts/ci_floor01_combat.sh headless                       ok (every Juicer fixture golden and replay byte-identical; new F01_BOS_PILOT_OK, defeated, exit reached, twice identical)
 xvfb-run scripts/ci_floor01_combat.sh render                ok (window == headless for every fixture; CAMERA_RENDER_OK)
@@ -15,7 +15,7 @@ python3 -m unittest discover -s tests -p 'test_pixelart_*.py'  ok (rc 0)
 python3 -m unittest discover -s tests -p 'test_agent_cost_report.py'  ok (rc 0)
 python3 -m unittest discover -s tests -p 'test_floor01_scene_*.py'    ok (rc 0)
 scripts/export_assets.sh (twice)                            ok, git status identical before and after (clean tree)
-bos_eval (full, target/debug)                               GATE PASS: G-0 clears (t=1587), G-1..G-7 pass and are valid (bos_eval_report.txt); BOS-Q11 off
+bos_eval (full, target/debug)                               GATE PASS: G-0 clears (t=2083, 8 crashes), G-1..G-7 pass and are valid (bos_eval_report.txt); BOS-Q11 off
 bos_eval --q11 (BOS-Q11 forced on, informational)           GATE PASS, same rows (bos_eval_q11_on_report.txt)
 PLAYTRACE window replay of a recorded bos session           PLAYTRACE_REPLAY result=STRICT ticks=560 (the window loop equals the recorded headless run)
 
@@ -37,4 +37,4 @@ RUN_SMOKE 14/18 room=trog_strength next=juicer status=ok exit=0 marker=F01_TROG_
 RUN_SMOKE 15/18 room=juicer next=rest_aftermath status=ok exit=0 marker=- hash=9104040f4fddfb62
 RUN_SMOKE 16/18 room=rest_aftermath next=mastery status=ok exit=0 marker=F01_REST_AFTERMATH_SMOKE_OK hash=76d29a2d8e2449bc
 RUN_SMOKE 17/18 room=mastery next=bos status=ok exit=0 marker=F01_MASTERY_SMOKE_OK hash=7d2c626a4d883045
-RUN_SMOKE 18/18 room=bos next=end status=ok exit=0 marker=- hash=5ffa923c0ad3aac7
+RUN_SMOKE 18/18 room=bos next=end status=ok exit=0 marker=- hash=e9f0df8084a8a687

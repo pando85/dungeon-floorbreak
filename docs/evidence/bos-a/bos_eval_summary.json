@@ -6,17 +6,17 @@
   "rows": [
     {
       "boss_damage": 24,
-      "crashes": 1,
+      "crashes": 8,
       "debris_hits": 0,
       "defeated": true,
-      "defeated_at": 1587,
+      "defeated_at": 2083,
       "hero_hits": 1,
       "party_loss": 1,
       "pass": true,
       "restarts": 0,
       "row": "G-0",
       "setup": "carl_bait_punish (F11), the follower bot at his back",
-      "ticks": 1587,
+      "ticks": 2083,
       "valid": true
     },
     {
@@ -65,7 +65,7 @@
       "valid": true
     },
     {
-      "boss_damage": 11,
+      "boss_damage": 12,
       "crashes": 2,
       "debris_hits": 2,
       "defeated": false,
@@ -90,7 +90,7 @@
       "pass": true,
       "restarts": 1,
       "row": "G-5",
-      "setup": "Carl stationary jab at the left alcove mouth (pivot 105); Donut idle in the alcove (60)",
+      "setup": "Carl stationary jab at the left alcove edge (pivot 110, held at 107..110 after the turn step); Donut idle in the alcove (60)",
       "ticks": 7211,
       "valid": true
     },
@@ -110,12 +110,12 @@
       "valid": true
     },
     {
-      "boss_damage": 15,
+      "boss_damage": 14,
       "crashes": 3,
-      "debris_hits": 2,
+      "debris_hits": 3,
       "defeated": false,
       "defeated_at": null,
-      "hero_hits": 6,
+      "hero_hits": 5,
       "party_loss": 7,
       "pass": true,
       "restarts": 1,
@@ -150,7 +150,7 @@
       "pass": true,
       "restarts": 1,
       "row": "G-7a",
-      "setup": "solo: the player is Donut, casting from the right alcove at pivot 590; Carl is the live follower bot (M1)",
+      "setup": "solo: the player is Donut, casting from the right alcove at pivot 590; Carl is the live follower bot (M1), stranded on the far side (the decoy case is G-6)",
       "ticks": 7211,
       "valid": true
     },
@@ -160,27 +160,27 @@
       "debris_hits": 2,
       "defeated": false,
       "defeated_at": null,
-      "hero_hits": 7,
+      "hero_hits": 6,
       "party_loss": 7,
       "pass": true,
       "restarts": 1,
       "row": "G-7b",
-      "setup": "solo: the player is Donut, casting from the right alcove at pivot 560; Carl is the live follower bot (M1)",
+      "setup": "solo: the player is Donut, casting from the right alcove at pivot 560; Carl is the live follower bot (M1), stranded on the far side (the decoy case is G-6)",
       "ticks": 7211,
       "valid": true
     },
     {
-      "boss_damage": 17,
+      "boss_damage": 16,
       "crashes": 4,
       "debris_hits": 2,
       "defeated": false,
       "defeated_at": null,
-      "hero_hits": 7,
+      "hero_hits": 6,
       "party_loss": 7,
       "pass": true,
       "restarts": 1,
       "row": "G-7c",
-      "setup": "solo: the player is Donut, casting from the right alcove at pivot 540; Carl is the live follower bot (M1)",
+      "setup": "solo: the player is Donut, casting from the right alcove at pivot 540; Carl is the live follower bot (M1), stranded on the far side (the decoy case is G-6)",
       "ticks": 7211,
       "valid": true
     }

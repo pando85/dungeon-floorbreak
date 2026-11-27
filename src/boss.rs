@@ -257,6 +257,12 @@ pub struct SiegeData {
     /// unkillable decoy. Off unless the solo gate rows fail without it.
     #[serde(default)]
     pub ignore_bot_decoy: bool,
+    /// BOS-AD34 (closes BOS-Q12): after a Stun or a Pin the ball walks back toward
+    /// `arena.centre_x` at this many px per tick (0 or absent: it stays where it
+    /// stood), so a hero in the arch pocket gets the run room of the next bait
+    /// roll. It deals no damage; a hero in its shove range still gets the shove.
+    #[serde(default)]
+    pub recentre_px_per_tick: f32,
 }
 
 /// Every tunable of the encounter (design section 6).
@@ -731,6 +737,9 @@ pub struct Boss {
     /// BOS-AD20: the running or telegraphed roll is a siege roll. Hashed only
     /// when `data.siege` is Some.
     siege_roll: bool,
+    /// BOS-AD34: the ball is walking back to the centre after a Stun or a Pin.
+    /// Hashed only when `data.siege` is Some.
+    recentring: bool,
 }
 
 impl Boss {
@@ -774,6 +783,7 @@ impl Boss {
             defeated_cause_rack: false,
             unreachable_ticks: 0,
             siege_roll: false,
+            recentring: false,
         }
     }
 
@@ -1611,6 +1621,7 @@ impl Boss {
             BossMode::Stun => {
                 if self.mode_tick >= self.by_phase(d.crash.stun_by_phase) {
                     self.enter(BossMode::Neutral);
+                    self.recentring = self.recentre_speed() > 0.0;
                 }
             }
             BossMode::Roar => {
@@ -1633,6 +1644,7 @@ impl Boss {
             BossMode::Pinned => {
                 if self.mode_tick >= d.rack.pin_ticks {
                     self.enter(BossMode::Neutral);
+                    self.recentring = self.recentre_speed() > 0.0;
                 }
             }
         }
@@ -1684,6 +1696,9 @@ impl Boss {
             self.start_roar(ctx, out);
             return;
         }
+        if self.recentring && self.recentre_step(ctx) {
+            return;
+        }
         if d.siege.is_some() && self.siege_step(ctx, out) {
             return;
         }
@@ -1730,6 +1745,37 @@ impl Boss {
         if ahead > d.pound.range_px[1] {
             self.x = self.clamp_walk(self.x + f32::from(self.facing) * d.walk_px_s * TICK);
         }
+    }
+
+    /// BOS-AD34: the recentre speed (px per tick) of the data, 0 without a siege rule.
+    fn recentre_speed(&self) -> f32 {
+        self.data
+            .siege
+            .as_ref()
+            .map_or(0.0, |s| s.recentre_px_per_tick)
+    }
+
+    /// BOS-AD34: one tick of the walk back to the centre after a Stun or a Pin.
+    /// A target standing in the shove range still gets the shove (the caller goes
+    /// on); otherwise the ball steps toward `centre_x` and the walk ends on it.
+    /// Returns true when it took the tick.
+    fn recentre_step(&mut self, ctx: &BossCtx) -> bool {
+        let d = self.data;
+        let speed = self.recentre_speed();
+        if let Some(target) = self.target_view(ctx) {
+            let ahead = (target.x - self.x) * f32::from(self.facing);
+            if (d.pound.range_px[0]..=d.pound.range_px[1]).contains(&ahead) {
+                return false;
+            }
+        }
+        let to = d.arena.centre_x - self.x;
+        if to.abs() <= speed {
+            self.x = d.arena.centre_x;
+            self.recentring = false;
+        } else {
+            self.x = self.clamp_walk(self.x + to.signum() * speed);
+        }
+        true
     }
 
     /// BOS-AD20, BOS-AD27: the siege in Neutral. At the warning the ball stops
@@ -1906,8 +1952,16 @@ impl Boss {
             }
             let to_left = body.left - HERO_HALF_WIDTH - 1.0;
             let to_right = body.right() + HERO_HALF_WIDTH + 1.0;
-            let room_left = body.left - arena.left_wall_x;
-            let room_right = arena.right_wall_x - body.right();
+            // BOS-AD34 (review R4): with a siege rule the room is measured to the
+            // gate solid and the hero wall, not to the arches (the heroes walk
+            // past them), so nobody is pushed through the body.
+            let (lo, hi) = if self.data.siege.is_some() {
+                (self.data.gate.solid_x, arena.hero_right_wall())
+            } else {
+                (arena.left_wall_x, arena.right_wall_x)
+            };
+            let room_left = body.left - lo;
+            let room_right = hi - body.right();
             let nearer_left = (hero.x - to_left).abs() <= (to_right - hero.x).abs();
             let go_left = if nearer_left {
                 room_left >= min_room || room_right < min_room
@@ -1985,6 +2039,7 @@ impl Boss {
         if self.data.siege.is_some() {
             mix(u64::from(self.unreachable_ticks));
             mix(u64::from(self.siege_roll));
+            mix(u64::from(self.recentring));
         }
     }
 }

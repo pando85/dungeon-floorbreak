@@ -259,6 +259,7 @@ A gate is warranted.
 | F15 | over F11's run | phase stays 0; no Roar, Shockwave or DoublePound event | `queue_roar: false` |
 | F16 | run smoke: `scripts/f01_run_smoke.sh` lists 18 rooms, all `status=ok`; plus an in-process `on_exit(bos)` test that reaches `floor_end_panel` | pass | the smoke runs each room separately; a `bos` pilot in `src/room_pilots.rs` |
 | F17 | a hero at the alcove edge (pivot 110, mirror 530) through a bait crash on each side | 0 damage both sides | BOS-AD25: front overreach <= 4.3 px, hero edge 122 vs box 124 |
+| F19 | BOS-AD34: after a left crash the ball is back at 320 within 40 ticks of the stun ending (measured 35) and, with Carl stepped out into the pocket, the next `ChargeTell` follows and crashes with 0 damage | pass | the recentre walk; F11 asserts >= 3 crashes (measured 8) |
 | F18 | PLAYTRACE: record and replay a `bos` run | round-trip identical, label `("boss", Some("bos"))` or a new source, Ball fixture loaded; Juicer replay goldens unchanged | `src/playtrace/replay.rs` gains the Ball source (R3) |
 
 ### 9.3 Gate `bos_eval` (STATIONARY, BOS-AD22)
@@ -335,6 +336,7 @@ If one of these moves, BOS-A stops and reports. It does not re-pin.
 | BOS-Q8 | Siege warning text | data, "IT SNIFFS AT THE ARCH" (placeholder) |
 | BOS-Q9 | Should the weight re-arm within one attempt? | no: once per attempt |
 | BOS-Q10 | Should the arch crash hurt the ball (#192 "gate impact 3..4")? | no in BOS-A; the weight carries the environmental damage. BOS-B may add `crash.self_damage` |
+| BOS-Q12 | After a crash the ball stays at the crash pivot and the fight collapses into a shove loop (one roll per fight) | adopted: it recentres at 3.0 px/tick (BOS-AD34). With it F11 measures 8 crashes and a clear at tick 2083 |
 | BOS-Q11 | Should the siege counter ignore the M1 bot in solo? | only if G-6 or G-7 fails: then the counter treats the M1-protected bot as unreachable while the player-controlled hero is in an alcove (6.4) |
 
 ## 12. Cuts and deferrals from #192
@@ -416,4 +418,5 @@ These reuse what exists. No new concept art is needed.
 | BOS-AD31 | no Juicer emblem, sprite or death presenter for the Ball; the `rolling_brute` species has no death profile and uses the generic fallback (accepted for the greybox) | R8 |
 | BOS-AD32 | test data that may move without a stop: the order lists, room counts, label tables, exit-art test and smoke script | R9 |
 | BOS-AD33 | the room-18 run, smoke, replay and ledger plumbing (work order, F16, F18) | R3 |
+| BOS-AD34 | **the ball recentres after a crash** (closes BOS-Q12): after a Stun or a Pin it walks back toward `centre_x` at `siege.recentre_px_per_tick` 3.0 (about 35 ticks from a crash pivot), so a hero in the arch pocket gets the run room (pivot >= 312, gap >= 128) of the next bait roll; a target in shove range still gets the shove; gated on the siege data, hashed under the siege gate, the Juicer is unchanged; `push_heroes` measures side room to the gate solid and the hero wall under the siege gate; F19, and F11 asserts >= 3 crashes | BOS-A review R1, R3, R4 |
 | (nits) | weight centre 209 (R11); second #192 deviation (R12); CUT11 cell and the panel's data source (R13) | R11..R13 |

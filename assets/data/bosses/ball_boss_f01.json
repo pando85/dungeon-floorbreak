@@ -121,6 +121,7 @@
     "after_ticks": 120,
     "debris_damage": 2,
     "debris_launch": [0.0, 120.0],
-    "notice": "IT SNIFFS AT THE ARCH"
+    "notice": "IT SNIFFS AT THE ARCH",
+    "recentre_px_per_tick": 3.0
   }
 }

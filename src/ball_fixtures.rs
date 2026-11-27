@@ -10,9 +10,7 @@
 use std::path::Path;
 
 use crate::boss::{Boss, BossMode};
-use crate::boss_scene::{
-    BALL_FULL, BALL_STORY_PIN, Pilot, ball_hp, ball_story_setup, boss_base, load_ball_arena,
-};
+use crate::boss_scene::{BALL_FULL, Pilot, ball_hp, ball_story_setup, boss_base, load_ball_arena};
 use crate::combat::CombatEvent;
 use crate::combat_scene::{CombatState, Fixture};
 use crate::corridor::SceneSim;
@@ -31,18 +29,28 @@ pub const ALCOVE_LEFT_X: f32 = 80.0;
 pub const ALCOVE_RIGHT_X: f32 = 560.0;
 /// The jab period of the pilot: a first-clear player, not a frame-perfect bot.
 const SWING_PERIOD: u64 = 16;
+/// Where the pilot waits just outside an alcove (reachable pivots 111..529).
+const STEP_OUT_LEFT_X: f32 = 118.0;
+const STEP_OUT_RIGHT_X: f32 = 522.0;
 /// A hero this far (px, pivot to pivot) from the ball is outside its shove box.
 const SHOVE_CLEAR_PX: f32 = 118.0;
 /// The pilot walks past the engage line to this column to close the gate.
 const ENTER_X: f32 = 150.0;
+
+const fn run(dir: f32) -> RawInput {
+    RawInput {
+        move_x: dir,
+        ..RawInput::NONE
+    }
+}
 
 const fn toward(from: f32, to: f32) -> f32 {
     if to > from { 1.0 } else { -1.0 }
 }
 
 /// `carl_bait_punish` (BOS-AD22, F11): Carl runs into the alcove behind the arch
-/// the roll is aimed at, steps out to punish the crash and the shove's
-/// recovery, and steps out of the shove's box. A pure function of the state.
+/// the roll is aimed at, steps out to punish the crash (not the shove: it baits
+/// the next roll instead, BOS-AD34), and steps out of the shove's box. A pure function of the state.
 pub fn bait_pilot(tick: u64, combat: &CombatState, scene: &SceneSim, boss: &Boss) -> RawInput {
     let hero = &scene.world.hero;
     let x = hero.x;
@@ -96,11 +104,7 @@ pub fn bait_pilot(tick: u64, combat: &CombatState, scene: &SceneSim, boss: &Boss
             };
             let vulnerable = matches!(
                 boss.mode,
-                BossMode::Rebound
-                    | BossMode::Stun
-                    | BossMode::Pinned
-                    | BossMode::PoundRecover
-                    | BossMode::Flinch
+                BossMode::Rebound | BossMode::Stun | BossMode::Pinned | BossMode::Flinch
             );
             let gap = if x < body.left {
                 body.left - x
@@ -113,14 +117,21 @@ pub fn bait_pilot(tick: u64, combat: &CombatState, scene: &SceneSim, boss: &Boss
             if !vulnerable {
                 // Bait: stay at the edge of the shove's reach (never nearer
                 // than the box) and let the ball come or roll.
-                return if gap < 56.0 {
-                    RawInput {
+                if gap < 56.0 {
+                    return RawInput {
                         move_x: -side,
                         ..RawInput::NONE
-                    }
-                } else {
-                    idle
-                };
+                    };
+                }
+                // Out of the alcove once the ball has walked back far enough (BOS-AD34): a
+                // hero inside it is unreachable, so no roll could be baited.
+                if x <= 110.0 && (boss.x - STEP_OUT_LEFT_X).abs() >= 130.0 {
+                    return run(1.0);
+                }
+                if x >= 530.0 && (boss.x - STEP_OUT_RIGHT_X).abs() >= 130.0 {
+                    return run(-1.0);
+                }
+                return idle;
             }
             if gap > 18.0 {
                 return RawInput {
@@ -411,7 +422,6 @@ pub fn ball_relaunch(
             break;
         }
     }
-    let _ = BALL_STORY_PIN;
     Ok(sim)
 }
 
@@ -585,6 +595,12 @@ mod tests {
             c.rig.tally.crashes.len()
         );
         assert!((1200..=6000).contains(&at), "F11 clear at tick {at}");
+        // The fight's identity (BOS-AD34): the roll is baited again and again, not once.
+        assert!(
+            c.rig.tally.crashes.len() >= 3,
+            "F11: {} crashes",
+            c.rig.tally.crashes.len()
+        );
         assert!(c.rig.health_of(HeroId::Carl) >= 1 && c.rig.health_of(HeroId::Donut) >= 1);
         // F15: one phase, no roar, shockwave or double pound.
         assert!(c.phase_1 && c.no_ripple && c.no_forbidden_event);
@@ -794,7 +810,7 @@ mod tests {
 
     // F8b: a hide directly after a left crash.
     #[test]
-    fn f8b_the_siege_still_commits_after_a_crash_close_to_the_arch() {
+    fn f8b_the_siege_still_commits_after_a_crash_and_the_recentre() {
         // Donut baits a roll at the left arch and hides; Carl is already hidden.
         let mut rig = staged(448.0, -1, 80.0, 320.0);
         drive(
@@ -824,9 +840,70 @@ mod tests {
         }
         let x = stopped.expect("the warning came");
         println!("BOS-F8b warning_x={x}");
-        assert!((x - 276.0).abs() <= 2.0, "the ball stops at about 276: {x}");
+        // BOS-AD34: the ball walks back to the centre after the crash (3 px/tick, about 33
+        // ticks) and then stops at the warning; before it, the walk stopped at about 276.
+        assert!(
+            (x - 320.0).abs() <= 2.0,
+            "the ball stops at the centre: {x}"
+        );
         assert_eq!(rig.tally.crashes.len(), 2, "the siege roll still crashed");
         assert!(rig.tally.debris_hits >= 1);
+    }
+
+    // F19 (BOS-AD34, closes BOS-Q12): after a crash the ball walks back to the centre,
+    // so a hero in the arch pocket is baited again: the cycle repeats.
+    #[test]
+    fn f19_the_ball_recentres_after_a_crash_and_the_next_roll_follows() {
+        let mut rig = staged(448.0, -1, 320.0, 60.0);
+        let (mut stun_over, mut centred, mut stepped, mut second_tell) = (None, None, false, None);
+        for tick in 0..900u64 {
+            let b = rig.boss();
+            let x = rig.x_of(HeroId::Carl);
+            if stun_over.is_none() && !rig.tally.crashes.is_empty() && b.mode == BossMode::Neutral {
+                stun_over = Some(tick);
+            }
+            if centred.is_none() && stun_over.is_some() && (b.x - 320.0).abs() < 0.01 {
+                centred = Some(tick);
+            }
+            if stun_over.is_some() && b.mode == BossMode::ChargeTell && second_tell.is_none() {
+                second_tell = Some(tick);
+            }
+            // Carl runs for the alcove from the first tell, then steps out once the ball
+            // has walked back far enough, and waits in the pocket.
+            let carl = if second_tell.is_none() && stun_over.is_none() {
+                carl_runs(&rig)[0]
+            } else if stun_over.is_some() && second_tell.is_none() && (stepped || b.x >= 300.0) {
+                stepped = true;
+                if x < 125.0 { run(1.0) } else { IDLE }
+            } else {
+                carl_runs(&rig)[0]
+            };
+            rig.step([carl, IDLE]);
+            if rig.tally.crashes.len() == 2 {
+                break;
+            }
+        }
+        let (over, at) = (
+            stun_over.expect("the first stun ended"),
+            centred.expect("it recentred"),
+        );
+        println!(
+            "BOS-F19 stun_over={over} centred_after={} second_tell={second_tell:?}",
+            at - over
+        );
+        assert!(
+            at - over <= 40,
+            "back at the centre within 40 ticks: {}",
+            at - over
+        );
+        assert!(second_tell.is_some(), "the next roll was baited");
+        assert_eq!(rig.tally.crashes.len(), 2, "and it crashed");
+        assert_eq!(
+            rig.tally.party_loss, 0,
+            "the pocket hero ran for the alcove in time"
+        );
+        // The Juicer's data has no recentre speed: it stays where it stood.
+        assert!(crate::boss::builtin().siege.is_none());
     }
 
     // F9

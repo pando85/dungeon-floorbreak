@@ -169,10 +169,10 @@ pub fn rows() -> Vec<Row> {
         },
         Row {
             id: "G-5",
-            setup: "Carl stationary jab at the left alcove mouth (pivot 105); Donut idle in the alcove (60)"
+            setup: "Carl stationary jab at the left alcove edge (pivot 110, held at 107..110 after the turn step); Donut idle in the alcove (60)"
                 .into(),
             solo: false,
-            carl: plan(START_X, Some(105.0), 1.0, Act::Jab),
+            carl: plan(START_X, Some(106.9), 1.0, Act::Jab),
             donut: PARKED_LEFT,
             ranges: [Some(LEFT_ALCOVE), Some(LEFT_ALCOVE)],
         },
@@ -193,7 +193,7 @@ pub fn rows() -> Vec<Row> {
         out.push(Row {
             id: ["G-7a", "G-7b", "G-7c"][i],
             setup: format!(
-                "solo: the player is Donut, casting from the right alcove at pivot {p}; Carl is the live follower bot (M1)"
+                "solo: the player is Donut, casting from the right alcove at pivot {p}; Carl is the live follower bot (M1), stranded on the far side (the decoy case is G-6)"
             ),
             solo: true,
             carl: plan(130.0, None, 1.0, Act::Idle),
@@ -210,10 +210,22 @@ struct Hold {
     turned: bool,
 }
 
+impl Hold {
+    fn crossed(&self, start: f32, x: f32, target: f32) -> bool {
+        if target >= start {
+            x >= target
+        } else {
+            x <= target
+        }
+    }
+}
+
 fn drive_one(plan: &Plan, x: f32, facing: i8, hold: &mut Hold, tick: u64) -> RawInput {
+    // It walks until it has crossed its column (so a column just inside an alcove's edge
+    // is held after the turn step, never outside it).
     if let Some(target) = plan.target
         && !hold.turned
-        && (x - target).abs() > 2.0
+        && !hold.crossed(plan.start, x, target)
     {
         return RawInput {
             move_x: if target > x { 1.0 } else { -1.0 },
