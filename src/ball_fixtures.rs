@@ -9,7 +9,7 @@
 
 use std::path::Path;
 
-use crate::boss::{Boss, BossMode};
+use crate::boss::{Boss, BossMode, RackState};
 use crate::boss_scene::{BALL_FULL, Pilot, ball_hp, ball_story_setup, boss_base, load_ball_arena};
 use crate::combat::CombatEvent;
 use crate::combat_scene::{CombatState, Fixture};
@@ -155,6 +155,38 @@ pub fn bait_pilot(tick: u64, combat: &CombatState, scene: &SceneSim, boss: &Boss
 /// The column where Carl jabs the chain-weight post (x 64..80) from inside the
 /// left alcove (F10).
 pub const POST_X: f32 = 52.0;
+
+/// BOS-ART evidence pilot `bos_weight`: [`bait_pilot`] that first stands at [`POST_X`] in the left
+/// alcove and jabs the chain-weight post twice, then waits there (the siege rolls at the alcove and
+/// crashes into the arch) and jabs the third time on the crash, so the weight lands on the stunned
+/// ball (F10 with a solo Carl). It plays on as [`bait_pilot`] once the rack has dropped. Harness
+/// only: no fixture, golden or pin selects it. A pure function of the state.
+pub fn weight_pilot(tick: u64, combat: &CombatState, scene: &SceneSim, boss: &Boss) -> RawInput {
+    let x = scene.world.hero.x;
+    let live = boss.gate_closed() && !boss.released() && !combat.hero_defeated;
+    if let (true, RackState::Idle { hits }) = (live, boss.racks[0].state) {
+        let jab = RawInput {
+            attack: true,
+            move_x: 1.0,
+            ..RawInput::NONE
+        };
+        if hits < 2 {
+            if (x - POST_X).abs() > 3.0 {
+                return run(toward(x, POST_X));
+            }
+            return if tick.is_multiple_of(20) {
+                jab
+            } else {
+                RawInput::default()
+            };
+        }
+        if boss.mode == BossMode::Rebound {
+            return jab;
+        }
+        return RawInput::default();
+    }
+    bait_pilot(tick, combat, scene, boss)
+}
 
 const CLEAR_SOLO_BASE: Fixture = boss_base(
     "ball01_full_clear_solo",
@@ -985,6 +1017,41 @@ mod tests {
         assert_eq!(rig.boss().hp, 20, "the weight deals 4");
         assert_eq!(rig.tally.party_loss, 0, "the alcove heroes are untouched");
         assert_eq!(rig.boss().racks[0].state, RackState::Landed, "one shot");
+    }
+
+    /// BOS-ART (BOS-ART-AD11): the evidence pilot `bos_weight` hits the post twice, jabs the third
+    /// time on the crash and the weight pins the ball, with a solo Carl.
+    #[test]
+    fn the_weight_pilot_drops_the_weight_on_the_ball_with_a_solo_carl() {
+        static PARTY: PartyFixture = PartyFixture {
+            base: &CLEAR_SOLO_BASE,
+            two_player: false,
+            tuning: PROVISIONAL_TUNING,
+            script: &[],
+            pilot: Pilot::CarlWeight,
+            donut: DonutSetup::NONE,
+        };
+        let mut rig = Rig::new(root(), &PARTY).unwrap();
+        let (mut dropped, mut pinned, mut landed_at) = (None, 0u32, None);
+        for tick in 1..=500u64 {
+            rig.step_scripted();
+            let boss = rig.boss();
+            if matches!(boss.racks[0].state, RackState::Falling { .. }) && dropped.is_none() {
+                dropped = Some(tick);
+            }
+            if boss.racks[0].state == RackState::Landed && landed_at.is_none() {
+                landed_at = Some(tick);
+            }
+            pinned += u32::from(boss.mode == BossMode::Pinned);
+        }
+        println!(
+            "BOS-ART weight pilot dropped_at={dropped:?} landed_at={landed_at:?} pinned={pinned}"
+        );
+        assert!(
+            dropped.is_some() && landed_at.is_some(),
+            "the weight dropped and landed"
+        );
+        assert!(pinned >= 80, "the weight pinned the ball: {pinned} ticks");
     }
 
     // F12

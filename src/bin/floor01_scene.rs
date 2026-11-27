@@ -166,6 +166,9 @@ mod fastfood_art;
 // AREA-ACT1-01: the act-1 rooms' timbers, barricade, grant box and portal overlay (presenter pieces).
 #[path = "floor01_scene/act1_art.rs"]
 mod act1_art;
+// BOS-ART: the Ball of Swine's body, chain weight and open stairwell (presenter sprites).
+#[path = "floor01_scene/ball_art.rs"]
+mod ball_art;
 
 /// Draw order above the actor plane. Carl is drawn above every goblin, except
 /// that a goblin in its smear or impact is drawn over him (its club lands on
@@ -2150,7 +2153,10 @@ fn parse_args_full(
         // PT-GATE-A: the mastery and juicer plans play their own room and nothing else.
         if (pilot.plan == room_pilots::Plan::Mastery) != parsed.f01_mastery
             || (pilot.plan == room_pilots::Plan::Juicer) != juicer
-            || (pilot.plan == room_pilots::Plan::Bos) != bos
+            || matches!(
+                pilot.plan,
+                room_pilots::Plan::Bos | room_pilots::Plan::BosWeight
+            ) != bos
         {
             return Err("--room-pilot mastery needs --f01-room mastery, --room-pilot juicer needs --f01-room juicer and --room-pilot bos needs --f01-room bos, and each of those rooms takes only its own plan".into());
         }
@@ -2181,6 +2187,7 @@ fn parse_args_full(
                 room_pilots::Plan::Mastery
                     | room_pilots::Plan::Juicer
                     | room_pilots::Plan::Bos
+                    | room_pilots::Plan::BosWeight
                     | room_pilots::Plan::HazSpectacular
                     | room_pilots::Plan::HazTactical
             )
@@ -3659,7 +3666,8 @@ fn main() -> ExitCode {
         demo::load_hall(&root)
     } else if args.boss {
         if args.fixture == Some(boss_scene::BALL01_SCENE) {
-            boss_scene::load_ball_arena(&root)
+            // BOS-ART: the windowed scene draws the Ball's dressed arena (same solids).
+            boss_scene::load_ball_arena_dressed(&root)
         } else {
             boss_scene::load_arena(&root)
         }
@@ -5050,7 +5058,12 @@ fn run_window(
                 corral_art::sync_corral_art,
                 corral_art::sync_partition_art,
                 (fastfood_art::sync_fastfood_art, camp_art::sync_bag_art),
-                (sync_act1_door, sync_act1_chase, act1_art::sync_act1_art),
+                (
+                    sync_act1_door,
+                    sync_act1_chase,
+                    act1_art::sync_act1_art,
+                    ball_art::sync_ball_art,
+                ),
             )
                 .chain(),
             update_lighting,
@@ -6073,6 +6086,32 @@ fn setup(
                 }
             }
             commands.insert_resource(textures);
+        }
+        // BOS-ART: the Ball's dressed room draws its body, chain weight and stairwell from the
+        // exported atlases (the greybox above stays when they are missing).
+        if combat
+            .0
+            .as_ref()
+            .and_then(|c| c.boss.as_ref())
+            .is_some_and(|b| b.data().siege.is_some())
+            && kit.pieces.iter().any(|p| p.piece == "bos_post_cap")
+        {
+            let portal_z = kit
+                .pieces
+                .iter()
+                .find(|p| p.piece == dungeon_floorbreak::ball_kit::PORTAL_CLOSED_PIECE)
+                .map(|p| p.z);
+            ball_art::spawn(
+                &mut commands,
+                &asset_server,
+                &mut combat_handles,
+                &handles,
+                kit.actor_z,
+                portal_z,
+                height,
+                layers_of("actors"),
+                layers_of("prop"),
+            );
         }
     }
 
@@ -7920,6 +7959,7 @@ fn sync_boss_visuals(
     art: Res<BossArtRes>,
     textures: Option<Res<BossTextures>>,
     danger: Option<Res<danger_fx_art::DangerFxArt>>,
+    ball: Option<Res<ball_art::BallArt>>,
     mut walk: Local<WalkTrack>,
     mut pieces: Query<
         (&BossPiece, &mut Transform, &mut Sprite, &mut Visibility),
@@ -7951,6 +7991,11 @@ fn sync_boss_visuals(
     let greybox = data.siege.is_some();
     let has = |id: SheetId| !greybox && art.0.as_ref().is_some_and(|a| a.sheet(id).is_some());
     let has_art = has(SheetId::Base) && has(SheetId::Enc);
+    // BOS-ART: a live presenter draws the Ball itself, so the BOS-A greybox stand-ins are not
+    // drawn (`ball_art::greybox_shown`); the strut and the shove's ripple reuse the Juicer's art.
+    let dressed = ball.is_some();
+    let sheet_loaded = |id: SheetId| art.0.as_ref().is_some_and(|a| a.sheet(id).is_some());
+    let (strut_art, ripple_art) = (sheet_loaded(SheetId::Strut), sheet_loaded(SheetId::Vfx));
     for (piece, mut transform, mut sprite, mut visibility) in &mut pieces {
         let shown = match *piece {
             BossPiece::Body => match boss.hurtbox() {
@@ -8100,6 +8145,18 @@ fn sync_boss_visuals(
                 None => false,
             },
         };
+        use dungeon_floorbreak::ball_art::{Greybox, greybox_shown};
+        let shown = shown
+            && match *piece {
+                BossPiece::Body => greybox_shown(Greybox::Body, dressed, false),
+                BossPiece::Eye => greybox_shown(Greybox::Eye, dressed, false),
+                BossPiece::Rack(_) => greybox_shown(Greybox::Rack, dressed, false),
+                BossPiece::Strut => greybox_shown(Greybox::Strut, dressed, strut_art),
+                BossPiece::Ripple(_) => greybox_shown(Greybox::Ripple, dressed, ripple_art),
+                BossPiece::Arch(_) => greybox_shown(Greybox::Arch, dressed, false),
+                BossPiece::Label(_) => greybox_shown(Greybox::Label, dressed, false),
+                BossPiece::Gate => true,
+            };
         *visibility = if shown {
             Visibility::Inherited
         } else {
@@ -8109,7 +8166,9 @@ fn sync_boss_visuals(
     let (Some(art), Some(textures)) = (art.0.as_ref(), textures) else {
         return;
     };
-    if greybox {
+    // BOS-AD31 stands for the Juicer's body, emblem and effects; a dressed Ball reuses only its
+    // strut and the generic shove ripple, dust and debris (BOS-ART-AD7).
+    if greybox && !dressed {
         return;
     }
     // The gait: observed once per simulated tick, not per render frame.
@@ -8137,6 +8196,26 @@ fn sync_boss_visuals(
             gore_full,
         },
     );
+    let list: Vec<_> = if greybox {
+        let vfx = art.sheet(SheetId::Vfx);
+        let reused = |tag: &str| -> Vec<usize> {
+            vfx.map(|v| (0..8).filter_map(|n| v.tag_frame(tag, n)).collect())
+                .unwrap_or_default()
+        };
+        let allowed: Vec<usize> = ["shockwave_ripple", "pound_debris", "crash_dust"]
+            .into_iter()
+            .flat_map(reused)
+            .collect();
+        list.into_iter()
+            .filter(|d| match d.sheet {
+                SheetId::Strut => true,
+                SheetId::Vfx => allowed.contains(&d.frame),
+                _ => false,
+            })
+            .collect()
+    } else {
+        list
+    };
     let actor_z = setup.kit.actor_z;
     let mut drawn = list.iter();
     for (index, (mut transform, mut sprite, mut visibility)) in fx.iter_mut().enumerate() {
