@@ -1119,8 +1119,51 @@ def trog_step_end_r() -> "heat.Pix":
     return end_of(trog_step_mid(), False)
 
 
+def shelf48_body() -> "heat.Pix":
+    """The 48 px retreat shelf's mid (spec section 5): the heat shelf rule with a third course (courses at rows
+    10..21, 23..34 and 36..47, bed joints at 22 and 35, head joints alternating at x 0 and 8)."""
+    c = heat.Pix(16, 48)
+    for x in range(16):
+        c.put(x, 0, "stone", 8)
+        c.put(x, 1, "stone", 6)
+        c.put(x, 2, "stone", 6)
+        for y in range(3, 9):
+            c.put(x, y, "stone", 4 if heat.rnd("shelf", "grain", x, y) < 0.10 else 5)
+        c.put(x, 9, "mortar", 0)
+        c.put(x, 22, "mortar", 1)
+        c.put(x, 35, "mortar", 1)
+    for top, bot, joint in ((10, 21, 0), (23, 34, 8), (36, 47, 0)):
+        for y in range(top, bot + 1):
+            for x in range(16):
+                if x == joint:
+                    c.put(x, y, "mortar", 1)
+                elif y == top:
+                    c.put(x, y, "stone", 4)
+                elif y == bot:
+                    c.put(x, y, "stone", 2)
+                elif x == (joint + 1) % 16:
+                    c.put(x, y, "stone", 4)
+                else:
+                    c.put(x, y, "stone", 3)
+    c.clear(15, 47)
+    return c
+
+
+def trog_shelf48_mid() -> "heat.Pix":
+    return darken(shelf48_body())
+
+
+def trog_shelf48_end_l() -> "heat.Pix":
+    return end_of(trog_shelf48_mid(), True)
+
+
+def trog_shelf48_end_r() -> "heat.Pix":
+    return end_of(trog_shelf48_mid(), False)
+
+
 FLOOR_Y = 580
 STEP_RUNS = ((352, 548), (1840, 548))     # the low refuge and the bell step (sidecar statics, x0 and top y)
+SHELF_RUN = (288, 532)                    # the retreat shelf (sidecar static, x0 and top y)
 
 # The run atlases (stage 1): stem = the source file stem under assets/source/props/floor01.
 ATLASES = {
@@ -1130,13 +1173,24 @@ ATLASES = {
     "floor01_trog_run_props": {"stem": "trog_run_props", "width": 128, "pieces": [
         ("trog_bell", trog_bell), ("trog_impact_crater", trog_impact_crater), ("trog_step_mid", trog_step_mid),
         ("trog_step_end_l", trog_step_end_l), ("trog_step_end_r", trog_step_end_r)]},
+    # Stage 2: the strength room. The bench is the intact key only (TROG-ART-AD-S2: a static placed piece under
+    # TROG-AD46); its weakened, broken and debris keys stay pinned and are not packed (reserved for TROG-Q14).
+    "floor01_trog_strength": {"stem": "trog_strength", "width": 184, "pieces": [
+        ("trog_threshold", trog_threshold), ("trog_mirror_shards", trog_mirror_shards),
+        ("trog_bench_intact", trog_bench_intact), ("trog_shelf48_mid", trog_shelf48_mid),
+        ("trog_shelf48_end_l", trog_shelf48_end_l), ("trog_shelf48_end_r", trog_shelf48_end_r)]},
 }
-LAYER_OF_ATLAS = {"floor01_trog_run_wall": ("backwall", "backwall_decal"), "floor01_trog_run_props": ("prop", "prop")}
+LAYER_OF_ATLAS = {"floor01_trog_run_wall": ("backwall", "backwall_decal"), "floor01_trog_run_props": ("prop", "prop"),
+                  "floor01_trog_strength": ("backwall", "backwall_decal")}
 # Floor-level pieces draw above the collision deck (FF-AD26): the crater and the step faces are `structure`.
 LAYER_OVERRIDE = {"trog_impact_crater": ("structure", "structure"), "trog_step_mid": ("structure", "structure"),
-                  "trog_step_end_l": ("structure", "structure"), "trog_step_end_r": ("structure", "structure")}
+                  "trog_step_end_l": ("structure", "structure"), "trog_step_end_r": ("structure", "structure"),
+                  "trog_threshold": ("structure", "structure"), "trog_shelf48_mid": ("structure", "structure"),
+                  "trog_shelf48_end_l": ("structure", "structure"), "trog_shelf48_end_r": ("structure", "structure"),
+                  "trog_bench_intact": ("prop", "prop")}
 PAD = 8
-EXEC_PIECES = ("trog_step_mid", "trog_step_end_l", "trog_step_end_r")
+EXEC_PIECES = ("trog_step_mid", "trog_step_end_l", "trog_step_end_r", "trog_shelf48_mid", "trog_shelf48_end_l",
+               "trog_shelf48_end_r")
 KEY_PIECE_IDS = tuple(pid for pieces in KEYS.values() for pid, _ in pieces)
 CONTRACT = ROOT / "assets/source/terrain/floor01/floor01_trog_kit.json"
 MANIFESTS = ROOT / "assets/manifests"
@@ -1165,13 +1219,47 @@ RUN_PLACE = [
 ]
 
 
+# -- the dressing of `trog_strength` (spec sections 4 and 5, stage 2; gate note G1; TROG-ART-AD-S2, AD-S3) ---------
+STRENGTH_REMOVE_AT = [
+    ("structure", "arch_chain", 768, 384),                                            # bay 3's catenary
+    ("structure", "arch_threshold", 752, 544),                                        # AD-S3: no blue sill in the bricked bay
+    ("prop", "torch_wall", 48, 432), ("backwall_decal", "torch_pool_a_m", -56, 348),  # the doubled end torches (AD7)
+    ("prop", "torch_wall", 960, 432), ("backwall_decal", "torch_pool_b", 856, 348),
+    ("prop", "torch_wall", 664, 432), ("backwall_decal", "torch_pool_a", 560, 348),   # G1: the torch above the bench
+]
+STRENGTH_FILL = [{"x": 720, "y": 352, "w": 208, "h": 208}]
+
+
+def _shelf_run(x0: int, y: int) -> list:
+    """end_l, three mids, end_r side by side: 8 + 3 * 16 + 8 = 64 px, the shelf static's width."""
+    return [("structure", "trog_shelf48_end_l", x0, y), ("structure", "trog_shelf48_mid", x0 + 8, y),
+            ("structure", "trog_shelf48_mid", x0 + 24, y), ("structure", "trog_shelf48_mid", x0 + 40, y),
+            ("structure", "trog_shelf48_end_r", x0 + 56, y)]
+
+
+STRENGTH_PLACE = [
+    ("backwall_decal", "trog_mirror_shards", 792, 470),
+    # the girder run across bricked bay 3: the first girder, drawn under the last, closes the gap to the right pier
+    ("structure", "gym_girder", 892, 440), *[("structure", "gym_girder", x, 440) for x in (756, 788, 820, 852, 884)],
+    *_shelf_run(*SHELF_RUN),
+    ("structure", "gym_mat_a", 760, 561), ("structure", "gym_mat_b", 808, 561), ("structure", "gym_mat_a", 856, 561),
+    ("structure", "trog_threshold", *THR_AT),
+    ("prop", "trog_bench_intact", *BENCH_AT),                  # the 80 px static bench (TROG-AD46): the intact key
+    ("prop", "gym_dumbbell_rack", 812, 532), ("prop", "gym_fluoro_cold", 820, 450), ("prop", "gym_plate_tree", 892, 524),
+]
+
+
 def _at(layer, piece, x, y):
     return {"layer": layer, "piece": piece, "x": x, "y": y}
 
 
 def dressing() -> dict:
-    return {"trog_run": {"remove": [], "remove_at": [_at(*r) for r in RUN_REMOVE_AT], "backwall_fill": RUN_FILL,
-                         "place": [_at(*t) for t in RUN_PLACE], "parallax": {}}}
+    return {
+        "trog_run": {"remove": [], "remove_at": [_at(*r) for r in RUN_REMOVE_AT], "backwall_fill": RUN_FILL,
+                     "place": [_at(*t) for t in RUN_PLACE], "parallax": {}},
+        "trog_strength": {"remove": [], "remove_at": [_at(*r) for r in STRENGTH_REMOVE_AT],
+                          "backwall_fill": STRENGTH_FILL, "place": [_at(*t) for t in STRENGTH_PLACE], "parallax": {}},
+    }
 
 
 def build_pieces(name: str) -> list:
@@ -1224,17 +1312,23 @@ def contract(rects: dict, colours: dict) -> dict:
                   "not owner-approved",
         "extension_note": (
             "Inherits palette, layers, draw order, coordinates, walking-line rule and lighting schema from the "
-            "ENV-01 contract through the gym kit. Adds the troglodyte territory atlases for Floor 01 room "
-            "`trog_run` (stage 1): no tiles, nothing collidable, no new palette colour, no new emitter. The "
-            "dressing bricks up bays 1 and 4, removes two chains and one torch with its pool; the stage-2 "
-            "strength room adds its own block."),
+            "ENV-01 contract through the gym kit. Adds the troglodyte territory atlases for Floor 01 rooms "
+            "`trog_run` (stage 1) and `trog_strength` (stage 2): no tiles, nothing collidable, no new palette "
+            "colour, no new emitter (the strength room places the gym kit's own cold tube). The run's dressing "
+            "bricks up bays 1 and 4; the strength room's bricks up bay 3 and places the bench as a static "
+            "piece (TROG-AD46: its collision is the sidecar's 80 px solid, there is no partition)."),
         "palette_use": {n: colours[n] for n in ATLASES},
         "atlases": atlases, "tiles": [], "pieces": pieces,
         "room_dressing": dressing(),
-        "usage_rules": {"R1_trog_run": (
-            "room `trog_run` only: the dressing never adds or moves a tile or a solid; bays 1 and 4 are bricked up "
-            "across both pier columns; nothing stands across an open window above y 520; floor pieces (the crater "
-            "and the step faces) are `structure` so they draw above the deck")},
+        "usage_rules": {
+            "R1_trog_run": (
+                "room `trog_run` only: the dressing never adds or moves a tile or a solid; bays 1 and 4 are bricked "
+                "up across both pier columns; nothing stands across an open window above y 520; floor pieces (the "
+                "crater and the step faces) are `structure` so they draw above the deck"),
+            "R2_trog_strength": (
+                "room `trog_strength` only: the dressing never adds or moves a tile or a solid; bay 3 is bricked up "
+                "across both pier columns; the bench is placed at the sidecar static's rect; floor pieces (the "
+                "shelf face, the threshold and the mats) are `structure`")},
     }
 
 
@@ -1252,10 +1346,15 @@ def manifest(name: str, canvas: list, stem: str) -> dict:
                    "distribution rights",
         "review_status": "prototype_fixture_unapproved",
         "provenance": {
-            "origin": "Original pixel-grid-v1 pieces for the Floor 1 troglodyte run (AREA-TROG-01 on the ENV-01 "
-                      "kit); rule-based shapes and ramps, the step faces derived from the AREA-HEAT-01 shelf body; "
-                      "nothing cropped, traced or resampled from concept art; no text, logos, brands, faces or "
-                      "likenesses",
+            "origin": ("Original pixel-grid-v1 pieces for the Floor 1 Test of Strength (AREA-TROG-01 stage 2 on the "
+                       "ENV-01 kit); rule-based shapes and ramps, the shelf faces derived from the AREA-HEAT-01 shelf "
+                       "body, the bench stack and the mirror shards from the AREA-GYM-01 pixels; nothing cropped, "
+                       "traced or resampled from concept art; no text, logos, brands, faces or likenesses"
+                       if name == "floor01_trog_strength" else
+                       "Original pixel-grid-v1 pieces for the Floor 1 troglodyte run (AREA-TROG-01 on the ENV-01 "
+                       "kit); rule-based shapes and ramps, the step faces derived from the AREA-HEAT-01 shelf body; "
+                       "nothing cropped, traced or resampled from concept art; no text, logos, brands, faces or "
+                       "likenesses"),
             "generator": "Deterministic authoring script scripts/author_trogarea01.py written by AI agents (spec "
                          "and keys designed by Claude Opus; execution by Claude Sonnet); no image-model raster "
                          "output",
@@ -1268,7 +1367,7 @@ def manifest(name: str, canvas: list, stem: str) -> dict:
 
 
 def write_kit() -> None:
-    """Write every stage-1 atlas grid + .ase, manifest and the contract."""
+    """Write every atlas grid + .ase, manifest and the contract."""
     rects, colours = {}, {}
     for name, spec in ATLASES.items():
         sheet, r = _pack(build_pieces(name), spec["width"], PAD)
@@ -1286,7 +1385,7 @@ def write_kit() -> None:
 
 
 def all_pieces() -> dict:
-    """{piece id: Pix} for every stage-1 piece (keys and executor pieces)."""
+    """{piece id: Pix} for every piece of the run and the strength room (keys and executor pieces)."""
     out = {}
     for name in ATLASES:
         out.update(dict(build_pieces(name)))
