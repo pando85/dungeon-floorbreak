@@ -83,6 +83,10 @@ pub enum Plan {
     /// [`Pilot::CarlBait`]) and walks out. Only valid in the Ball's room, solo and
     /// unaligned (its partner is the follow-and-jump bot).
     Bos,
+    /// BOS-ART (evidence harness, room 18): [`Plan::Bos`] that also hits the chain-weight post
+    /// twice from the left alcove and a third time on the crash, so the weight lands on the stunned
+    /// ball ([`crate::ball_fixtures::weight_pilot`]). Only valid in the Ball's room, solo.
+    BosWeight,
     /// PT-GATE-D (room 4, the spectacular route): the mastery pilot clears pocket A, then
     /// throws dynamite so that its blast lights the latched Rot Sticker of pocket B
     /// ([`haz_spectacular`]). Only valid in the hazards room.
@@ -174,6 +178,7 @@ impl Plan {
             Self::Mastery => "mastery",
             Self::Juicer => "juicer",
             Self::Bos => "bos",
+            Self::BosWeight => "bos_weight",
             Self::HazSpectacular => "haz_spectacular",
             Self::HazTactical => "haz_tactical",
             Self::Hazards => "hazards",
@@ -418,6 +423,7 @@ impl RoomPilot {
             "mastery" => Plan::Mastery,
             "juicer" => Plan::Juicer,
             "bos" => Plan::Bos,
+            "bos_weight" => Plan::BosWeight,
             "haz_spectacular" => Plan::HazSpectacular,
             "haz_tactical" => Plan::HazTactical,
             "hoarder" => Plan::Hoarder,
@@ -432,7 +438,7 @@ impl RoomPilot {
             }
             other => {
                 return Err(format!(
-                    "unknown --room-pilot plan {other:?} (expected direct, valve, chain, mastery, juicer, bos, hoarder, corral, corral_rush, corral_partition, haz_spectacular or haz_tactical, optionally :2p, or mastery|juicer|hazards|corral:WHO:SEED, hoarder:carl_solo:SEED, or boiler:WHO:direct|both:SEED)"
+                    "unknown --room-pilot plan {other:?} (expected direct, valve, chain, mastery, juicer, bos, bos_weight, hoarder, corral, corral_rush, corral_partition, haz_spectacular or haz_tactical, optionally :2p, or mastery|juicer|hazards|corral:WHO:SEED, hoarder:carl_solo:SEED, or boiler:WHO:direct|both:SEED)"
                 ));
             }
         };
@@ -511,6 +517,13 @@ impl RoomPilot {
             )[0],
             Plan::Bos => crate::boss_scene::pilot_inputs(
                 Pilot::CarlBait,
+                [RawInput::NONE; 2],
+                sim.world.tick + 1,
+                combat,
+                sim,
+            )[0],
+            Plan::BosWeight => crate::boss_scene::pilot_inputs(
+                Pilot::CarlWeight,
                 [RawInput::NONE; 2],
                 sim.world.tick + 1,
                 combat,
@@ -2819,6 +2832,8 @@ mod tests {
             ("chain", Plan::Chain, false),
             ("mastery", Plan::Mastery, false),
             ("juicer", Plan::Juicer, false),
+            ("bos", Plan::Bos, false),
+            ("bos_weight", Plan::BosWeight, false),
         ] {
             let pilot = RoomPilot::parse(text).unwrap();
             assert_eq!((pilot.plan, pilot.two_player), (plan, two));

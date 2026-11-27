@@ -40,7 +40,7 @@ const WALL_H: f32 = 400.0;
 /// AREA-GYM-01: the room is drawn with the gym dressing (`crate::gym_kit`), which
 /// is presentation only (same solids, spawn, exit, views and walking line).
 pub fn load_arena(root: &Path) -> Result<EnvKit, String> {
-    arena(root, true, builtin())
+    arena(root, Look::Gym, builtin())
 }
 
 /// The Ball's arena (room 18, BOS-AD3): the locked 640 px boss arena, plain
@@ -48,22 +48,41 @@ pub fn load_arena(root: &Path) -> Result<EnvKit, String> {
 /// `hero_right_wall_x`. Presentation draws the greybox arches over it; they have
 /// no collider (BOS-AD14).
 pub fn load_ball_arena(root: &Path) -> Result<EnvKit, String> {
-    arena(root, false, ball())
+    arena(root, Look::Plain, ball())
+}
+
+/// BOS-ART: the Ball's arena with the room dressing of [`crate::ball_kit`] (the arches, the
+/// alcoves, the copper run, the chain weight's girder). Presentation only: the solids, spawn,
+/// exit, views and walking line are [`load_ball_arena`]'s. The sim and the replays keep the plain
+/// kit; the windowed scene draws this one.
+pub fn load_ball_arena_dressed(root: &Path) -> Result<EnvKit, String> {
+    arena(root, Look::Ball, ball())
 }
 
 /// The arena without the gym dressing (the plain catacomb composition): the
 /// reference the presentation-only tests compare [`load_arena`] with.
 pub fn load_arena_undressed(root: &Path) -> Result<EnvKit, String> {
-    arena(root, false, builtin())
+    arena(root, Look::Plain, builtin())
 }
 
-fn arena(root: &Path, dressed: bool, data: &BossData) -> Result<EnvKit, String> {
+/// Which dressing the arena kit is drawn with (presentation only).
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Look {
+    Plain,
+    Gym,
+    Ball,
+}
+
+fn arena(root: &Path, look: Look, data: &BossData) -> Result<EnvKit, String> {
     let path = root.join(ARENA_PATH);
     let text = std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
     let rooms = parse_rooms(&text)?;
     let room = rooms.first().ok_or("the arena file holds no room")?;
-    let mut kit =
-        crate::gym_kit::build_arena_kit(root, room, dressed).map_err(|e| e.to_string())?;
+    let mut kit = match look {
+        Look::Ball => crate::ball_kit::build_arena_kit(root, room),
+        _ => crate::gym_kit::build_arena_kit(root, room, look == Look::Gym),
+    }
+    .map_err(|e| e.to_string())?;
     let walk = kit.base_walk_line_y;
     // The kit's 16 px end walls go: the left side is the entrance gate (open
     // until the boss engages, a collider after), the right one is the wall.
@@ -222,6 +241,10 @@ pub enum Pilot {
     /// behind the arch the roll is aimed at, out to punish the crash
     /// ([`crate::ball_fixtures::bait_pilot`]). Only the Ball's fixtures select it.
     CarlBait,
+    /// BOS-ART (appended, evidence harness): [`Pilot::CarlBait`] that also drops the chain weight
+    /// on the stunned ball ([`crate::ball_fixtures::weight_pilot`]). Only the room pilot
+    /// `bos_weight` selects it.
+    CarlWeight,
 }
 
 pub(crate) const fn boss_base(
@@ -646,6 +669,9 @@ pub fn pilot_inputs(
         Pilot::Carl => slots[0] = carl_pilot(tick, combat, scene, boss, false),
         Pilot::CarlBait => {
             slots[0] = crate::ball_fixtures::bait_pilot(tick, combat, scene, boss);
+        }
+        Pilot::CarlWeight => {
+            slots[0] = crate::ball_fixtures::weight_pilot(tick, combat, scene, boss);
         }
         Pilot::CarlRack => slots[0] = carl_pilot(tick, combat, scene, boss, true),
         Pilot::Duo => {

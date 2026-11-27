@@ -1,0 +1,590 @@
+{
+ "format": "env-kit-v2",
+ "kit_id": "floor01_bos",
+ "extends": "assets/source/terrain/floor01/floor01_gym_kit.json",
+ "status": "proposed - BOS-ART kit (docs/02-art/bos-art-spec.md); independent review pending; not owner-approved",
+ "extension_note": "Inherits palette, layers, draw order, coordinates, walking-line rule and lighting schema from the ENV-01 contract through the gym kit (the gym kit's magenta tube is the limited UV, its girder the chain's beam). Adds one atlas, the chain weight (hung, landed, two chain tiles), and crops of existing structure pieces (the arch posts and the lintel): no tiles, nothing collidable, no new palette colour, no new emitter. The weight, its chains and the open stairwell are presenter sprites, not placed pieces.",
+ "palette_use": [
+  "floor01_bos_props"
+ ],
+ "atlases": {
+  "floor01_bos_props": {
+   "grid": "assets/source/props/floor01/bos_props.grid.json",
+   "manifest": "assets/manifests/floor01_bos_props.json",
+   "image": "generated/art/floor01_bos_props.png",
+   "metadata": "generated/art/floor01_bos_props.json"
+  }
+ },
+ "tiles": [],
+ "pieces": [
+  {
+   "id": "bos_weight_hung",
+   "atlas": "floor01_bos_props",
+   "rect": [
+    0,
+    0,
+    80,
+    36
+   ],
+   "role": "prop",
+   "layer": "prop",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "presenter sprite: bottom-left on the rack footprint while the weight hangs (never placed)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ]
+  },
+  {
+   "id": "bos_weight_landed",
+   "atlas": "floor01_bos_props",
+   "rect": [
+    80,
+    0,
+    80,
+    36
+   ],
+   "role": "prop",
+   "layer": "prop",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "presenter sprite: bottom-left on the rack footprint once dropped (never placed)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ]
+  },
+  {
+   "id": "bos_chain_v",
+   "atlas": "floor01_bos_props",
+   "rect": [
+    160,
+    0,
+    8,
+    16
+   ],
+   "role": "prop",
+   "layer": "prop",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "presenter tile: stacked from the shackle up to the girder (never placed)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ]
+  },
+  {
+   "id": "bos_chain_h",
+   "atlas": "floor01_bos_props",
+   "rect": [
+    240,
+    0,
+    16,
+    8
+   ],
+   "role": "prop",
+   "layer": "prop",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "presenter tile: the tie from the weight to the post (never placed)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ]
+  },
+  {
+   "id": "bos_post_cap",
+   "atlas": "floor01_structure",
+   "rect": [
+    6,
+    275,
+    28,
+    19
+   ],
+   "role": "structure",
+   "layer": "structure",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "crop of pier_l: the left 28 px of the lit capital (rows 131..149)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ]
+  },
+  {
+   "id": "bos_post_shaft",
+   "atlas": "floor01_structure",
+   "rect": [
+    14,
+    304,
+    24,
+    77
+   ],
+   "role": "structure",
+   "layer": "structure",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "crop of pier_l: 77 rows of the lit shaft, left 24 px (rows 160..236)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ]
+  },
+  {
+   "id": "bos_post_base",
+   "atlas": "floor01_structure",
+   "rect": [
+    4,
+    396,
+    28,
+    16
+   ],
+   "role": "structure",
+   "layer": "structure",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "crop of pier_l: the left 28 px of the base (rows 252..267)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ]
+  },
+  {
+   "id": "bos_lintel",
+   "atlas": "floor01_structure",
+   "rect": [
+    14,
+    314,
+    40,
+    12
+   ],
+   "role": "structure",
+   "layer": "structure",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "crop of pier_l: 40 x 12 of the lit shaft (rows 170..181)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ]
+  }
+ ],
+ "room_dressing": {
+  "bos": {
+   "remove": [],
+   "remove_at": [
+    {
+     "layer": "prop",
+     "piece": "torch_wall",
+     "x": 48,
+     "y": 272
+    },
+    {
+     "layer": "prop",
+     "piece": "torch_wall",
+     "x": 176,
+     "y": 288
+    },
+    {
+     "layer": "prop",
+     "piece": "torch_wall",
+     "x": 416,
+     "y": 288
+    },
+    {
+     "layer": "prop",
+     "piece": "torch_wall",
+     "x": 576,
+     "y": 272
+    },
+    {
+     "layer": "backwall_decal",
+     "piece": "torch_pool_b",
+     "x": -56,
+     "y": 188
+    },
+    {
+     "layer": "backwall_decal",
+     "piece": "torch_pool_a",
+     "x": 72,
+     "y": 204
+    },
+    {
+     "layer": "backwall_decal",
+     "piece": "torch_pool_a",
+     "x": 312,
+     "y": 204
+    },
+    {
+     "layer": "backwall_decal",
+     "piece": "torch_pool_a_m",
+     "x": 472,
+     "y": 188
+    },
+    {
+     "layer": "prop",
+     "piece": "door_timber",
+     "x": 216,
+     "y": 328
+    }
+   ],
+   "backwall_fill": [],
+   "place": [
+    {
+     "layer": "backwall_decal",
+     "piece": "alcove_niche",
+     "x": 30,
+     "y": 324
+    },
+    {
+     "layer": "backwall_decal",
+     "piece": "torch_pool_a",
+     "x": 18,
+     "y": 156
+    },
+    {
+     "layer": "backwall_decal",
+     "piece": "torch_pool_a",
+     "x": 406,
+     "y": 156
+    },
+    {
+     "layer": "structure",
+     "piece": "bos_post_base",
+     "x": 90,
+     "y": 404
+    },
+    {
+     "layer": "structure",
+     "piece": "bos_post_shaft",
+     "x": 92,
+     "y": 327
+    },
+    {
+     "layer": "structure",
+     "piece": "bos_post_cap",
+     "x": 90,
+     "y": 308
+    },
+    {
+     "layer": "structure",
+     "piece": "bos_post_base",
+     "x": 138,
+     "y": 404
+    },
+    {
+     "layer": "structure",
+     "piece": "bos_post_shaft",
+     "x": 140,
+     "y": 327
+    },
+    {
+     "layer": "structure",
+     "piece": "bos_post_cap",
+     "x": 138,
+     "y": 308
+    },
+    {
+     "layer": "structure",
+     "piece": "bos_post_base",
+     "x": 474,
+     "y": 404
+    },
+    {
+     "layer": "structure",
+     "piece": "bos_post_shaft",
+     "x": 476,
+     "y": 327
+    },
+    {
+     "layer": "structure",
+     "piece": "bos_post_cap",
+     "x": 474,
+     "y": 308
+    },
+    {
+     "layer": "structure",
+     "piece": "bos_lintel",
+     "x": 88,
+     "y": 296
+    },
+    {
+     "layer": "structure",
+     "piece": "bos_lintel",
+     "x": 128,
+     "y": 296
+    },
+    {
+     "layer": "structure",
+     "piece": "bos_lintel",
+     "x": 470,
+     "y": 296
+    },
+    {
+     "layer": "structure",
+     "piece": "bos_lintel",
+     "x": 510,
+     "y": 296
+    },
+    {
+     "layer": "prop",
+     "piece": "torch_wall",
+     "x": 122,
+     "y": 240
+    },
+    {
+     "layer": "prop",
+     "piece": "torch_wall",
+     "x": 510,
+     "y": 240
+    },
+    {
+     "layer": "structure",
+     "piece": "gym_girder",
+     "x": 128,
+     "y": 186
+    },
+    {
+     "layer": "structure",
+     "piece": "gym_girder",
+     "x": 160,
+     "y": 186
+    },
+    {
+     "layer": "structure",
+     "piece": "gym_girder",
+     "x": 192,
+     "y": 186
+    },
+    {
+     "layer": "structure",
+     "piece": "gym_girder",
+     "x": 224,
+     "y": 186
+    },
+    {
+     "layer": "structure",
+     "piece": "gym_girder",
+     "x": 256,
+     "y": 186
+    },
+    {
+     "layer": "prop",
+     "piece": "pipe_collar_ceiling",
+     "x": 24,
+     "y": 32
+    },
+    {
+     "layer": "prop",
+     "piece": "pipe_v",
+     "x": 32,
+     "y": 32
+    },
+    {
+     "layer": "prop",
+     "piece": "pipe_v",
+     "x": 32,
+     "y": 48
+    },
+    {
+     "layer": "prop",
+     "piece": "pipe_v",
+     "x": 32,
+     "y": 64
+    },
+    {
+     "layer": "prop",
+     "piece": "pipe_v",
+     "x": 32,
+     "y": 80
+    },
+    {
+     "layer": "prop",
+     "piece": "pipe_v",
+     "x": 32,
+     "y": 96
+    },
+    {
+     "layer": "prop",
+     "piece": "pipe_v_seam",
+     "x": 32,
+     "y": 112
+    },
+    {
+     "layer": "prop",
+     "piece": "pipe_v",
+     "x": 32,
+     "y": 128
+    },
+    {
+     "layer": "prop",
+     "piece": "pipe_v",
+     "x": 32,
+     "y": 144
+    },
+    {
+     "layer": "prop",
+     "piece": "pipe_v",
+     "x": 32,
+     "y": 160
+    },
+    {
+     "layer": "prop",
+     "piece": "pipe_v",
+     "x": 32,
+     "y": 176
+    },
+    {
+     "layer": "prop",
+     "piece": "pipe_v",
+     "x": 32,
+     "y": 192
+    },
+    {
+     "layer": "prop",
+     "piece": "pipe_v_seam",
+     "x": 32,
+     "y": 208
+    },
+    {
+     "layer": "prop",
+     "piece": "pipe_v",
+     "x": 32,
+     "y": 224
+    },
+    {
+     "layer": "prop",
+     "piece": "pipe_v",
+     "x": 32,
+     "y": 240
+    },
+    {
+     "layer": "prop",
+     "piece": "pipe_v",
+     "x": 32,
+     "y": 256
+    },
+    {
+     "layer": "prop",
+     "piece": "pipe_v",
+     "x": 32,
+     "y": 272
+    },
+    {
+     "layer": "prop",
+     "piece": "pipe_v",
+     "x": 32,
+     "y": 288
+    },
+    {
+     "layer": "prop",
+     "piece": "pipe_v_seam",
+     "x": 32,
+     "y": 304
+    },
+    {
+     "layer": "prop",
+     "piece": "pipe_v",
+     "x": 32,
+     "y": 320
+    },
+    {
+     "layer": "prop",
+     "piece": "pipe_v",
+     "x": 32,
+     "y": 336
+    },
+    {
+     "layer": "prop",
+     "piece": "pipe_v",
+     "x": 32,
+     "y": 352
+    },
+    {
+     "layer": "prop",
+     "piece": "pipe_v",
+     "x": 32,
+     "y": 368
+    },
+    {
+     "layer": "prop",
+     "piece": "pipe_v",
+     "x": 32,
+     "y": 384
+    },
+    {
+     "layer": "prop",
+     "piece": "pipe_v_seam",
+     "x": 32,
+     "y": 400
+    },
+    {
+     "layer": "prop",
+     "piece": "pipe_flange_v",
+     "x": 24,
+     "y": 224
+    },
+    {
+     "layer": "prop",
+     "piece": "pipe_bracket_v",
+     "x": 24,
+     "y": 264
+    },
+    {
+     "layer": "prop",
+     "piece": "valve_wheel",
+     "x": 24,
+     "y": 320
+    },
+    {
+     "layer": "prop",
+     "piece": "pipe_collar_floor",
+     "x": 24,
+     "y": 408
+    },
+    {
+     "layer": "prop",
+     "piece": "gym_fluoro_accent",
+     "x": 40,
+     "y": 290
+    },
+    {
+     "layer": "prop",
+     "piece": "gym_fluoro_accent",
+     "x": 572,
+     "y": 262
+    }
+   ],
+   "parallax": {}
+  }
+ },
+ "usage_rules": {
+  "R1_bos": "room `bos` only (the Ball's arena): the dressing never adds or moves a tile or a solid; the arch posts (24 px shafts with a cap and a base, cropped from the lit shaft of pier_l) stand on the gameplay posts' centres (104 and 152 on the left, 488 on the right, where the exit door's frame is the second post) and the lintels at 112 px over them; the four composer torches, their pools and the timber door are removed and two torches stand on the lintels (flames 164 px over the floor, clear of the alcoves, the lane and the weight); the copper run (rule C) stands in the left alcove between the gate and the post; the two magenta tubes are the limited UV",
+  "R2_presenter_pieces": "the weight, its chains and the open stairwell are drawn by the scene's presenter at the sim rects; they are not placed"
+ }
+}
