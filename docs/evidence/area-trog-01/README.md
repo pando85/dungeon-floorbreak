@@ -1,18 +1,18 @@
 # AREA-TROG-01: the troglodyte run and the Test of Strength (rooms `trog_run` and `trog_strength`)
 
-Evidence for [the AREA-TROG-01 spec](../../02-art/area-trog-01-spec.md). **Stage 1 (`trog_run`) is executed**: the kit drawn and wired into the room, the real window captures, the offline sheets and the measurements, plus the silhouette gate sheets of the design step (`gate/`). Stage 2 (`trog_strength`: the shelf, the threshold, the shards, the bench and its debris burst) waits for TROG-B and has no runtime evidence yet. Everything here is **prototype art** (`prototype_fixture_unapproved`): the independent art review is pending and **nothing is owner-approved**. Game feel and the owner's art review come after the merge.
+Evidence for [the AREA-TROG-01 spec](../../02-art/area-trog-01-spec.md). **Stage 1 (`trog_run`, merged as #311) and stage 2 (`trog_strength`) are executed**: the kit drawn and wired into both rooms, the real window captures, the offline sheets and the measurements, plus the silhouette gate sheets of the design step (`gate/`). In stage 2 the bench is the intact key placed statically on TROG-B's 80 px static solid (TROG-AD46, TROG-ART-AD-S2); the weakened, broken and debris keys are reserved for TROG-Q14 and appear in no still, atlas or contract. Everything here is **prototype art** (`prototype_fixture_unapproved`): the independent art review is pending and **nothing is owner-approved**. Game feel and the owner's art review come after the merge.
 
 ## Real Bevy captures (`scene_*`)
 
-Each still is TROG-A's capture command rendered in a real window under xvfb, in two sizes: `640x360` (`--scale 1`) and `1920x1080` (`--scale 3`):
+Each still is TROG-A's / TROG-B's capture command rendered in a real window under xvfb, in two sizes: `640x360` (`--scale 1`) and `1920x1080` (`--scale 3`):
 
 ```text
 xvfb-run -a -s '-screen 0 1920x1080x24' floor01_scene --no-audio --no-record --scale S \
-  --scene f01_late --f01-room trog_run --trog-pilot carl --companion off \
+  --scene f01_late --f01-room trog_run|trog_strength --trog-pilot carl --companion off \
   --capture-sequence TICK:1:1 --capture-dir DIR
 ```
 
-`scripts/make_trogarea01_evidence.sh` captured every still **twice** (two full passes): the two PNGs are byte-identical, and the window's final `COMBAT_STATE` hash equals the headless run's of the same tick (`hash_match=yes`): the art is presentation only. Where TROG-A ([`../trog/capture_lines.txt`](../trog/capture_lines.txt)) captured the same pilot, tick and size, the hash also equals TROG-A's (`troga_match=yes`, nine of the twelve stills; `n/a` for the three new ticks). [`capture_lines.txt`](capture_lines.txt) holds one `TROG_ART_STILL` line per still and size. The camera eases per frame, so the drawn view of each 640 x 360 still is **measured from landmarks** (the kit's lit model slid over the still's wall rows, `scripts/make_trogarea01_sheets.py`, cross-checked on the torch flames: flame centre = placement x + 7.5; the logged `cam` is not the drawn view) and is in [`drawn_views.txt`](drawn_views.txt).
+`scripts/make_trogarea01_evidence.sh` captured every still **twice** (two full passes): the two PNGs are byte-identical, and the window's final `COMBAT_STATE` hash equals the headless run's of the same tick (`hash_match=yes`): the art is presentation only. Where TROG-A ([`../trog/capture_lines.txt`](../trog/capture_lines.txt)) or TROG-B ([`../trog-b/capture_lines.txt`](../trog-b/capture_lines.txt)) captured the same pilot, tick and size, the hash also equals theirs (`troga_match=yes` on 18 lines, `trogb_match=yes` on 8, never `no`; `n/a` for the new ticks). [`capture_lines.txt`](capture_lines.txt) holds one `TROG_ART_STILL` line per still and size. The camera eases per frame, so the drawn view of each 640 x 360 still is **measured from landmarks** (the kit's lit model slid over the still's wall rows, `scripts/make_trogarea01_sheets.py`, cross-checked on the torch flames: flame centre = placement x + 7.5; the logged `cam` is not the drawn view) and is in [`drawn_views.txt`](drawn_views.txt).
 
 | Still | Pilot tick | Drawn view (left, top) | What it shows |
 | --- | --- | --- | --- |
@@ -28,13 +28,20 @@ xvfb-run -a -s '-screen 0 1920x1080x24' floor01_scene --no-audio --no-record --s
 | `virtuoso_tell` | 870 | 1664, 292 | the feint, with the bell and the step |
 | `virtuoso_lash` | 893 | 1664, 292 | the lash |
 | `exit_open` | 960 | 1664, 292 | the troglodytes beaten (the downed Virtuoso is not counted in the lit read), the exit open |
+| `strength_open` | 30 (`trog_strength`) | 0, 292 | the Test of Strength's opening view: the 48 px retreat shelf's stone face, the bench stack beyond it, the Virtuoso asleep at 496 |
+| `strength_virtuoso_tell` | 105 | 78, 292 | the Virtuoso's feint in front of the shelf |
+| `strength_bench_beside` | 230 | 231, 292 | Carl beside the intact bench; the threshold under its far side, the gym bay with the cold tube, the girders, the shards in their frame, the rack and the plate tree; the Basher asleep in front of the bay |
+| `strength_bench_climb` | 270 | 318, 292 | Carl on top of the bench |
+| `strength_basher_tell` | 360 | 375, 292 | the Basher's overhead tell in front of the gym bay |
+| `strength_basher_smash` | 381 | 375, 292 | the smash |
+| `strength_exit_open` | 450 | 384, 292 | both defeated, the exit open |
 
 ## Offline sheets and measurements
 
 | File | Content |
 | --- | --- |
-| `contact_sheet_x1.png`, `contact_sheet_x4.png` | every stage-1 piece at native size (labelled at 4x): the five keys of the run and the three executor step pieces |
-| `layout_diagram_t0_spawn_x2.png`, `layout_diagram_pygmy_land_x2.png`, `layout_diagram_basher_dormant_x2.png`, `layout_diagram_virtuoso_dormant_x2.png` | the schema at 2x over the real stills: the walking line W 580, the floor back line 560, the open windows with the y 520 limit, the bricked bays' fill rects, every dressing rect, the troglodytes' spawn x |
+| `contact_sheet_x1.png`, `contact_sheet_x4.png` | every piece of both rooms at native size (labelled at 4x): the keys of the run and of the strength room (the bench is the intact key only) and the executor step and shelf pieces |
+| `layout_diagram_t0_spawn_x2.png`, `layout_diagram_pygmy_land_x2.png`, `layout_diagram_basher_dormant_x2.png`, `layout_diagram_virtuoso_dormant_x2.png`, `layout_diagram_strength_open_x2.png`, `layout_diagram_strength_bench_beside_x2.png`, `layout_diagram_strength_bench_climb_x2.png` | the schema at 2x over the real stills: the walking line W 580, the floor back line 560, the open windows with the y 520 limit, the bricked bays' fill rects, every dressing rect, the troglodytes' spawn x (in the strength room the shelf face, the mats and the bench are labelled) |
 | `lit_read.txt`, `lit_read_masks_x2.png` | TROG-ART-A12 on the real stills (gate note G6): the troglodytes' actor L* and edge contrast and every dressing piece's lit mean L*; the masks over the stills |
 | `measurements.txt` | sizes, colours, mean luma of the executor pieces, the visibility of every placed piece (TROG-ART-A13) and the sixteen key pins |
 | `drawn_views.txt` | the measured view left and top of every 640 x 360 still, with the torch-flame cross-check |
@@ -52,8 +59,17 @@ xvfb-run -a -s '-screen 0 1920x1080x24' floor01_scene --no-audio --no-record --s
   | `virtuoso_dormant` | Virtuoso | 25.4 | 18.6 | bell 24.1, step faces under 22.2 |
 
   The thinnest margin is the bell against the Virtuoso (24.1 against 25.4, 1.3 L*). Attack and walk poses are reported, not gated, and also pass (`lit_read.txt`). Carl is brighter than any troglodyte (TROG-ART-Q6), which is not gated.
-- **TROG-ART-A13:** all 15 placed pieces are 100 % visible behind the architecture and with the props in front, and no backwall decal pixel is over a null tile.
-- **The keys:** the sixteen key pins in `measurements.txt` equal `gate/measurements.txt`; `tests/test_art_trogarea01.py` holds them and the eight key grids byte-identical.
+- **TROG-ART-A12 in the Test of Strength (gate note G6): passes.** Gated stills: `strength_open` (Virtuoso asleep), `strength_bench_beside` and `strength_bench_climb` (Basher asleep). Every new or reused dressing piece in view (the cold tube excluded, it is emissive) is below the lowest living troglodyte's actor L*:
+
+  | Gated still | Troglodyte | actor L* | edge_dL | Dressing in view, lit mean L* |
+  | --- | --- | --- | --- | --- |
+  | `strength_open` | Virtuoso | 25.7 | 21.0 | shelf face 20.2..22.5 |
+  | `strength_bench_beside` | Basher | 32.6 | 18.9 | bench 19.9, shards 11.9, threshold 18.1, rack 20.7, girders 17.0..19.5, mats 21.4..23.6, shelf face 19.8..22.4 |
+  | `strength_bench_climb` | Basher | 32.5 | 19.6 | bench 19.2, shards 11.9, threshold 17.5, rack 20.9, plate tree 13.1, girders 15.3..19.5, mats 19.1..22.3 |
+
+  The thinnest margin is the shelf's mid against the Virtuoso (22.5 against 25.7 in `strength_open`, 3.2 L*). The bench is at 19.2..19.9, well under the Basher, the Virtuoso and the shelf, so the torch removed above it (gate note G1) cost no read. The downed Virtuoso is not counted (it is `down`). Carl is not gated.
+- **TROG-ART-A13:** all 23 placed `trog_*` pieces (15 in the run, 8 in the strength room) are 100 % visible behind the architecture, and no backwall decal pixel is over a null tile; with the props in front the shards are 96.7 % visible (the rack) and everything else 100 %.
+- **The keys:** the sixteen key pins in `measurements.txt` equal `gate/measurements.txt`; `tests/test_art_trogarea01.py` holds them and the eight key grids byte-identical. The weakened, broken and debris keys stay pinned and are not packed (TROG-Q14).
 
 ## Gate sheets (`gate/`, the design step)
 

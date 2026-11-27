@@ -9,6 +9,7 @@
 # attack and walk poses are measured and reported, not gated
 # verdict per piece: PASS (<= the lowest in-view troglodyte's actor L*), NOTE (key piece within 2.0 L*,
 # a non-blocking owner note tied to TROG-ART-Q6), FAIL
+## room trog_run
 still t0_spawn tick=20 view_left=0 view_top=292 gated=yes
   pygmy: frame 2 (idle) mirrored at screen (590,232) ncc=1.00, 64 % of the mask in view, idle: actor_L=29.0 surround_L=22.9 delta_L=6.1 edge_dL=18.1 edge_samples=172 PASS
   piece trog_slam_crack@(296,400): mean_L=17.5 px=766 of 766 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 29.0 PASS
@@ -100,5 +101,114 @@ still exit_open tick=960 view_left=1664 view_top=292 gated=no
   piece trog_step_mid@(1864,548): mean_L=18.8 px=511 of 511 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* - n/a (no troglodyte measured)
   piece trog_step_mid@(1880,548): mean_L=19.1 px=511 of 511 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* - n/a (no troglodyte measured)
   piece trog_step_end_r@(1896,548): mean_L=17.8 px=255 of 255 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* - n/a (no troglodyte measured)
-summary: thinnest piece margin on the gated stills: trog_bell in virtuoso_dormant: -1.3 L* (<= 0 passes) PASS
-summary: lowest troglodyte edge_dL on the gated stills: 18.1 (pygmy in t0_spawn; >= 15 passes)
+summary trog_run: thinnest piece margin on the gated stills: trog_bell in virtuoso_dormant: -1.3 L* (<= 0 passes) PASS
+summary trog_run: lowest troglodyte edge_dL on the gated stills: 18.1 (pygmy in t0_spawn; >= 15 passes)
+## room trog_strength
+still strength_open tick=30 view_left=0 view_top=292 gated=yes
+  virtuoso: frame 2 (idle) mirrored at screen (412,200) ncc=1.00, 100 % of the mask in view, idle: actor_L=25.7 surround_L=26.0 delta_L=-0.3 edge_dL=21.0 edge_samples=408 PASS
+  piece trog_shelf48_end_l@(288,532): mean_L=20.2 px=383 of 383 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 25.7 PASS
+  piece trog_shelf48_mid@(296,532): mean_L=22.0 px=767 of 767 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 25.7 PASS
+  piece trog_shelf48_mid@(312,532): mean_L=22.4 px=767 of 767 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 25.7 PASS
+  piece trog_shelf48_mid@(328,532): mean_L=22.5 px=767 of 767 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 25.7 PASS
+  piece trog_shelf48_end_r@(344,532): mean_L=20.7 px=383 of 383 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 25.7 PASS
+still strength_virtuoso_tell tick=105 view_left=78 view_top=292 gated=no
+  virtuoso: frame 8 (attack_tell) mirrored at screen (299,200) ncc=1.00, 100 % of the mask in view, attack_tell pose: actor_L=26.0 surround_L=27.6 delta_L=-1.6 edge_dL=18.3 edge_samples=480 reported
+  piece trog_bench_intact@(640,500): mean_L=19.3 px=2558 of 2558 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 26.0 PASS
+  piece trog_shelf48_end_l@(288,532): mean_L=19.9 px=383 of 383 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 26.0 PASS
+  piece trog_shelf48_mid@(296,532): mean_L=21.7 px=767 of 767 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 26.0 PASS
+  piece trog_shelf48_mid@(312,532): mean_L=22.2 px=767 of 767 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 26.0 PASS
+  piece trog_shelf48_mid@(328,532): mean_L=22.4 px=767 of 767 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 26.0 PASS
+  piece trog_shelf48_end_r@(344,532): mean_L=20.7 px=383 of 383 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 26.0 PASS
+  piece trog_threshold@(672,561): mean_L=17.3 px=588 of 588 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 26.0 PASS
+still strength_bench_beside tick=230 view_left=231 view_top=292 gated=yes
+  basher: frame 0 (idle) mirrored at screen (505,200) ncc=1.00, 100 % of the mask in view, idle: actor_L=32.6 surround_L=21.4 delta_L=11.2 edge_dL=18.9 edge_samples=480 PASS
+  virtuoso: frame 13 (down) mirrored at screen (146,200) ncc=1.00, 100 % of the mask in view, down pose: actor_L=24.9 surround_L=24.4 delta_L=0.5 edge_dL=18.4 edge_samples=354 down: not counted (G6 counts living troglodytes only)
+  piece trog_mirror_shards@(792,470): mean_L=11.9 px=4928 of 5611 in view (dropped 683 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 32.6 PASS
+  piece trog_bench_intact@(640,500): mean_L=19.9 px=2558 of 2558 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 32.6 PASS
+  piece gym_dumbbell_rack@(812,532): mean_L=20.7 px=539 of 730 in view (dropped 191 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 32.6 PASS
+  piece gym_girder@(756,440): mean_L=17.0 px=319 of 319 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 32.6 PASS
+  piece gym_girder@(788,440): mean_L=18.2 px=319 of 319 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 32.6 PASS
+  piece gym_girder@(820,440): mean_L=19.5 px=319 of 319 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 32.6 PASS
+  piece gym_girder@(852,440): mean_L=19.0 px=190 of 190 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 32.6 PASS
+  piece trog_shelf48_end_l@(288,532): mean_L=19.8 px=383 of 383 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 32.6 PASS
+  piece trog_shelf48_mid@(296,532): mean_L=21.6 px=767 of 767 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 32.6 PASS
+  piece trog_shelf48_mid@(312,532): mean_L=22.2 px=767 of 767 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 32.6 PASS
+  piece trog_shelf48_mid@(328,532): mean_L=22.4 px=767 of 767 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 32.6 PASS
+  piece trog_shelf48_end_r@(344,532): mean_L=20.7 px=383 of 383 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 32.6 PASS
+  piece gym_mat_a@(760,561): mean_L=21.4 px=499 of 1055 in view (dropped 556 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 32.6 PASS
+  piece gym_mat_b@(808,561): mean_L=21.9 px=779 of 1055 in view (dropped 276 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 32.6 PASS
+  piece gym_mat_a@(856,561): mean_L=23.6 px=330 of 330 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 32.6 PASS
+  piece trog_threshold@(672,561): mean_L=18.1 px=860 of 860 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 32.6 PASS
+still strength_bench_climb tick=270 view_left=318 view_top=292 gated=yes
+  basher: frame 0 (idle) mirrored at screen (402,200) ncc=1.00, 100 % of the mask in view, idle: actor_L=32.5 surround_L=21.8 delta_L=10.7 edge_dL=19.6 edge_samples=480 PASS
+  virtuoso: frame 13 (down) mirrored at screen (59,200) ncc=1.00, 100 % of the mask in view, down pose: actor_L=24.9 surround_L=24.5 delta_L=0.4 edge_dL=17.1 edge_samples=354 down: not counted (G6 counts living troglodytes only)
+  piece trog_mirror_shards@(792,470): mean_L=11.9 px=6591 of 6868 in view (dropped 277 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 32.5 PASS
+  piece trog_bench_intact@(640,500): mean_L=19.2 px=2558 of 2558 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 32.5 PASS
+  piece gym_dumbbell_rack@(812,532): mean_L=20.9 px=730 of 730 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 32.5 PASS
+  piece gym_plate_tree@(892,524): mean_L=13.1 px=554 of 554 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 32.5 PASS
+  piece gym_girder@(892,440): mean_L=15.3 px=80 of 80 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 32.5 PASS
+  piece gym_girder@(756,440): mean_L=16.6 px=319 of 319 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 32.5 PASS
+  piece gym_girder@(788,440): mean_L=18.0 px=319 of 319 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 32.5 PASS
+  piece gym_girder@(820,440): mean_L=19.5 px=319 of 319 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 32.5 PASS
+  piece gym_girder@(852,440): mean_L=18.6 px=319 of 319 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 32.5 PASS
+  piece gym_girder@(884,440): mean_L=16.8 px=319 of 319 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 32.5 PASS
+  piece trog_shelf48_mid@(312,532): mean_L=22.6 px=479 of 479 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 32.5 PASS
+  piece trog_shelf48_mid@(328,532): mean_L=22.5 px=767 of 767 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 32.5 PASS
+  piece trog_shelf48_end_r@(344,532): mean_L=20.7 px=383 of 383 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 32.5 PASS
+  piece gym_mat_a@(760,561): mean_L=19.1 px=407 of 1055 in view (dropped 648 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 32.5 PASS
+  piece gym_mat_b@(808,561): mean_L=22.3 px=952 of 1055 in view (dropped 103 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 32.5 PASS
+  piece gym_mat_a@(856,561): mean_L=22.3 px=1055 of 1055 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 32.5 PASS
+  piece trog_threshold@(672,561): mean_L=17.5 px=860 of 860 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 32.5 PASS
+still strength_basher_tell tick=360 view_left=375 view_top=292 gated=no
+  basher: frame 8 (attack_tell) mirrored at screen (333,200) ncc=1.00, 100 % of the mask in view, attack_tell pose: actor_L=34.9 surround_L=25.4 delta_L=9.5 edge_dL=19.9 edge_samples=364 reported
+  virtuoso: frame 13 (down) mirrored at screen (2,200) ncc=1.00, 100 % of the mask in view, down pose: actor_L=24.9 surround_L=23.9 delta_L=0.9 edge_dL=15.7 edge_samples=354 down: not counted (G6 counts living troglodytes only)
+  piece trog_mirror_shards@(792,470): mean_L=11.7 px=6809 of 6868 in view (dropped 59 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 34.9 PASS
+  piece trog_bench_intact@(640,500): mean_L=19.2 px=2558 of 2558 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 34.9 PASS
+  piece gym_dumbbell_rack@(812,532): mean_L=20.8 px=730 of 730 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 34.9 PASS
+  piece gym_plate_tree@(892,524): mean_L=12.9 px=554 of 554 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 34.9 PASS
+  piece gym_girder@(892,440): mean_L=15.0 px=80 of 80 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 34.9 PASS
+  piece gym_girder@(756,440): mean_L=16.5 px=319 of 319 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 34.9 PASS
+  piece gym_girder@(788,440): mean_L=17.9 px=319 of 319 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 34.9 PASS
+  piece gym_girder@(820,440): mean_L=19.4 px=319 of 319 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 34.9 PASS
+  piece gym_girder@(852,440): mean_L=18.4 px=319 of 319 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 34.9 PASS
+  piece gym_girder@(884,440): mean_L=16.5 px=319 of 319 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 34.9 PASS
+  piece gym_mat_a@(760,561): mean_L=20.0 px=626 of 1055 in view (dropped 429 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 34.9 PASS
+  piece gym_mat_b@(808,561): mean_L=22.5 px=1055 of 1055 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 34.9 PASS
+  piece gym_mat_a@(856,561): mean_L=22.1 px=1055 of 1055 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 34.9 PASS
+  piece trog_threshold@(672,561): mean_L=18.1 px=738 of 860 in view (dropped 0 under a troglodyte, 122 not explained by the lit model) vs lowest actor L* 34.9 PASS
+still strength_basher_smash tick=381 view_left=375 view_top=292 gated=no
+  basher: frame 10 (attack_smash) mirrored at screen (333,200) ncc=1.00, 100 % of the mask in view, attack_smash pose: actor_L=32.7 surround_L=25.7 delta_L=7.0 edge_dL=20.8 edge_samples=392 reported
+  virtuoso: frame 13 (down) mirrored at screen (2,200) ncc=1.00, 100 % of the mask in view, down pose: actor_L=24.9 surround_L=24.1 delta_L=0.8 edge_dL=15.8 edge_samples=354 down: not counted (G6 counts living troglodytes only)
+  piece trog_mirror_shards@(792,470): mean_L=11.8 px=6865 of 6868 in view (dropped 3 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 32.7 PASS
+  piece trog_bench_intact@(640,500): mean_L=19.8 px=2558 of 2558 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 32.7 PASS
+  piece gym_dumbbell_rack@(812,532): mean_L=21.0 px=730 of 730 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 32.7 PASS
+  piece gym_plate_tree@(892,524): mean_L=13.0 px=554 of 554 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 32.7 PASS
+  piece gym_girder@(892,440): mean_L=15.1 px=80 of 80 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 32.7 PASS
+  piece gym_girder@(756,440): mean_L=17.0 px=319 of 319 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 32.7 PASS
+  piece gym_girder@(788,440): mean_L=18.2 px=319 of 319 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 32.7 PASS
+  piece gym_girder@(820,440): mean_L=19.5 px=319 of 319 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 32.7 PASS
+  piece gym_girder@(852,440): mean_L=18.6 px=319 of 319 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 32.7 PASS
+  piece gym_girder@(884,440): mean_L=16.7 px=319 of 319 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 32.7 PASS
+  piece gym_mat_a@(760,561): mean_L=21.0 px=610 of 1055 in view (dropped 445 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 32.7 PASS
+  piece gym_mat_b@(808,561): mean_L=22.6 px=1048 of 1055 in view (dropped 7 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 32.7 PASS
+  piece gym_mat_a@(856,561): mean_L=22.2 px=1055 of 1055 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 32.7 PASS
+  piece trog_threshold@(672,561): mean_L=17.5 px=603 of 860 in view (dropped 106 under a troglodyte, 151 not explained by the lit model) vs lowest actor L* 32.7 PASS
+still strength_exit_open tick=450 view_left=384 view_top=292 gated=no
+  basher: frame 13 (down) mirrored at screen (324,200) ncc=1.00, 100 % of the mask in view, down pose: actor_L=33.0 surround_L=29.6 delta_L=3.4 edge_dL=25.5 edge_samples=232 down: not counted (G6 counts living troglodytes only)
+  virtuoso: frame 13 (down) mirrored at screen (-7,200) ncc=1.00, 100 % of the mask in view, down pose: actor_L=24.9 surround_L=24.2 delta_L=0.7 edge_dL=15.5 edge_samples=354 down: not counted (G6 counts living troglodytes only)
+  piece trog_mirror_shards@(792,470): mean_L=11.9 px=6639 of 6868 in view (dropped 126 under a troglodyte, 103 not explained by the lit model) vs lowest actor L* - n/a (no troglodyte measured)
+  piece trog_bench_intact@(640,500): mean_L=19.9 px=2558 of 2558 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* - n/a (no troglodyte measured)
+  piece gym_dumbbell_rack@(812,532): mean_L=19.8 px=564 of 730 in view (dropped 0 under a troglodyte, 166 not explained by the lit model) vs lowest actor L* - n/a (no troglodyte measured)
+  piece gym_plate_tree@(892,524): mean_L=12.9 px=554 of 554 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* - n/a (no troglodyte measured)
+  piece gym_girder@(892,440): mean_L=15.0 px=80 of 80 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* - n/a (no troglodyte measured)
+  piece gym_girder@(756,440): mean_L=16.7 px=319 of 319 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* - n/a (no troglodyte measured)
+  piece gym_girder@(788,440): mean_L=18.0 px=319 of 319 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* - n/a (no troglodyte measured)
+  piece gym_girder@(820,440): mean_L=19.4 px=319 of 319 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* - n/a (no troglodyte measured)
+  piece gym_girder@(852,440): mean_L=18.4 px=319 of 319 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* - n/a (no troglodyte measured)
+  piece gym_girder@(884,440): mean_L=16.5 px=319 of 319 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* - n/a (no troglodyte measured)
+  piece gym_mat_a@(760,561): mean_L=15.1 px=503 of 1055 in view (dropped 333 under a troglodyte, 219 not explained by the lit model) vs lowest actor L* - n/a (no troglodyte measured)
+  piece gym_mat_b@(808,561): mean_L=20.4 px=669 of 1055 in view (dropped 0 under a troglodyte, 386 not explained by the lit model) vs lowest actor L* - n/a (no troglodyte measured)
+  piece gym_mat_a@(856,561): mean_L=21.8 px=939 of 1055 in view (dropped 0 under a troglodyte, 116 not explained by the lit model) vs lowest actor L* - n/a (no troglodyte measured)
+  piece trog_threshold@(672,561): mean_L=17.9 px=860 of 860 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* - n/a (no troglodyte measured)
+summary trog_strength: thinnest piece margin on the gated stills: trog_shelf48_mid in strength_open: -3.2 L* (<= 0 passes) PASS
+summary trog_strength: lowest troglodyte edge_dL on the gated stills: 18.9 (basher in strength_bench_beside; >= 15 passes)

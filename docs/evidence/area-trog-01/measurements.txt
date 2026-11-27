@@ -1,7 +1,10 @@
-# AREA-TROG-01 stage 1 execution measurements (scripts/make_trogarea01_sheets.py)
+# AREA-TROG-01 stages 1 and 2 execution measurements (scripts/make_trogarea01_sheets.py)
 trog_step_mid 16x32 opaque=511 colours=8 mean_luma=51.0
 trog_step_end_l 8x32 opaque=255 colours=10 mean_luma=48.1
 trog_step_end_r 8x32 opaque=255 colours=10 mean_luma=48.1
+trog_shelf48_mid 16x48 opaque=767 colours=8 mean_luma=47.1
+trog_shelf48_end_l 8x48 opaque=383 colours=10 mean_luma=44.5
+trog_shelf48_end_r 8x48 opaque=383 colours=10 mean_luma=44.0
 visibility trog_run backwall_decal trog_slam_crack @(296,400): 766/766 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
 visibility trog_run backwall_decal trog_knuckle_marks @(272,488): 514/514 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
 visibility trog_run backwall_decal trog_fist_hole @(1312,440): 2453/2453 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
@@ -17,6 +20,14 @@ visibility trog_run structure trog_step_mid @(1848,548): 511/511 = 100.0% behind
 visibility trog_run structure trog_step_mid @(1864,548): 511/511 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
 visibility trog_run structure trog_step_mid @(1880,548): 511/511 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
 visibility trog_run structure trog_step_end_r @(1896,548): 255/255 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility trog_strength backwall_decal trog_mirror_shards @(792,470): 7102/7102 = 100.0% behind architecture (target >= 90), 96.7% with the props in front; backwall_null_px=0 (target 0) ok
+visibility trog_strength prop trog_bench_intact @(640,500): 2558/2558 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility trog_strength structure trog_shelf48_end_l @(288,532): 383/383 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility trog_strength structure trog_shelf48_mid @(296,532): 767/767 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility trog_strength structure trog_shelf48_mid @(312,532): 767/767 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility trog_strength structure trog_shelf48_mid @(328,532): 767/767 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility trog_strength structure trog_shelf48_end_r @(344,532): 383/383 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility trog_strength structure trog_threshold @(672,561): 860/860 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
 KEY trog_fist_hole sha256=8633c21d8a0a1106a54c67216e7025d190fcd0dba56a2bac7760eefeb626a2fe
 KEY trog_bell sha256=55073b24ed83939760046dc69159b7b1d1dd376cc2db2bd66044d097d3872a3d
 KEY trog_knuckle_marks sha256=08ef5614592edab894bef8367bd90006f21d9f9c724202aff93d805bb69d6ec1

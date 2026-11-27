@@ -1,6 +1,6 @@
 # AREA-TROG-01: the troglodyte territory and the Test of Strength, design spec
 
-**Status:** design spec and frozen keys; the independent silhouette gate froze all sixteen keys (FREEZE-with-notes G1..G8, section 16). **Stage 1 (`trog_run`) is executed** (kit, dressing, wiring, evidence; prototype art, independent art review pending, not owner-approved); stage 2 (`trog_strength`) waits for TROG-B. This order dresses the two troglodyte rooms of the [TROG plan](../01-design/floor-01-troglodyte-integration.md):
+**Status:** design spec and frozen keys; the independent silhouette gate froze all sixteen keys (FREEZE-with-notes G1..G8, section 16). **Stage 1 (`trog_run`) is executed and merged (#311); stage 2 (`trog_strength`) is executed on the static bench TROG-B landed (#312, TROG-AD46)** (kit, dressing, wiring, evidence; prototype art, independent art review pending, not owner-approved). The bench is a statically placed key, not a partition: see the stage-2 amendment at the head of section 7 and section 16.2. This order dresses the two troglodyte rooms of the [TROG plan](../01-design/floor-01-troglodyte-integration.md):
 - `trog_run` (plan 4.1, #191 T0..T3: the approach, the low hunter, the fist-shaped hole, the bell and the tongue), landed as a greybox by TROG-A;
 - `trog_strength` (plan 4.2, #191 T4: the Test of Strength and its bench stack), landed by TROG-B.
 
@@ -9,8 +9,8 @@ The eight key sources are drawn by `scripts/author_trogarea01.py` (16 frozen fra
 - `trog_bell`, the bell of T3;
 - the wall marks `trog_knuckle_marks` and `trog_slam_crack`, and the floor decal `trog_impact_crater`;
 - the strength room's `trog_threshold` (stone turning to gym tile) and `trog_mirror_shards` (the plan's hanging mirror fragments);
-- the bench stack `trog_bench_{intact,weakened,broken}`, one frame per partition state;
-- the 6-frame debris burst `trog_bench_debris_0..5`.
+- the bench stack `trog_bench_{intact,weakened,broken}` (only `intact` is placed: TROG-ART-AD-S2);
+- the 6-frame debris burst `trog_bench_debris_0..5` (reserved for TROG-Q14, not wired).
 
 The gate sheets are in [`docs/evidence/area-trog-01/gate/`](../evidence/area-trog-01/README.md). The executor pieces, the contract, the dressing, the two presenters and the Bevy wiring are the execution (section 13). It runs in two stages, `trog_run` once TROG-A is on main and `trog_strength` once TROG-B is. Nothing here is owner-approved. Launch targets: `floor01_scene --scene f01_late --f01-room trog_run` and `--f01-room trog_strength`.
 
@@ -83,7 +83,7 @@ Most of the strength room is reuse of the gym kit. The design step stops at this
 | --- | --- | --- |
 | 0..224 | protected spawn; plain catacomb | arrival |
 | 288..351 | the **retreat shelf** face (48 px shelf art) | the Virtuoso's tongue stops at it |
-| 640..671 | the **bench stack** (presenter-drawn, three states) and its debris | the room's question |
+| 640..671 | the **bench stack** (the intact key, placed statically on the sidecar's 80 px solid) | the room's question |
 | 672..751 | the **threshold**: the stone floor turns into gym tile under the bench's far side | crossing into the test |
 | 720..927 | bay 3 bricked up: girders, the cold tube, the **mirror shards**, the rack and the plate tree; mats on the floor | the gym grafted onto stone |
 
@@ -101,13 +101,15 @@ Neither room gains a solid. Every dressing piece is non-collidable decor; the lo
 - `place`: section 5.
 
 **`trog_strength`**:
-- `remove_at`:
+- `remove_at` (eight entries, TROG-ART-AD-S2, AD-S3):
   - `structure arch_chain (768, 384)`: bay 3's catenary would hang across the mirror shards;
-  - `prop torch_wall (48, 432)` with `backwall_decal torch_pool_a_m (-56, 348)`, and `prop torch_wall (960, 432)` with `backwall_decal torch_pool_b (856, 348)`: the doubled torches at the room's two ends (TROG-ART-AD7).
+  - `structure arch_threshold (752, 544)`: the composer's blue window sill of the bricked bay (the stage-1 review's lesson, TROG-ART-AD20);
+  - `prop torch_wall (48, 432)` with `backwall_decal torch_pool_a_m (-56, 348)`, and `prop torch_wall (960, 432)` with `backwall_decal torch_pool_b (856, 348)`: the doubled torches at the room's two ends (TROG-ART-AD7);
+  - `prop torch_wall (664, 432)` with `backwall_decal torch_pool_a (560, 348)`: the middle torch of the three round pier 688, whose flame column (x 664..679) stood over the bench (gate note G1).
 - `backwall_fill`: `{720, 352, 208, 208}` (bay 3).
 - `parallax`: empty.
 - `place`: section 5.
-- **The bench is NOT placed.** It is a `state_groups` entry (frames `trog_bench_intact`, `_weakened`, `_broken`, origin (640, 500)) drawn by the bench presenter, and the debris burst is a second `state_groups` entry (frames `trog_bench_debris_0..5`, origin (600, 484)), like the heat partition and the camp bag (section 7).
+- **The bench is placed**, as one static `prop`: `trog_bench_intact` at (640, 500), exactly the sidecar bench static {640, 500, 32, 80} (TROG-AD46: an 80 px static solid, no partition, no `state_groups` entry). The weakened, broken and debris keys are reserved for TROG-Q14 (the bench break) and are not packed or wired.
 
 ## 5. Piece list
 
@@ -139,8 +141,8 @@ The 64 px platform at 1920..1983 is drawn by the composer's own ledge pieces (no
 | `gym_plate_tree` | R | 28 x 36 | prop | (892, 524) | at the bay's right end |
 | `gym_mat_a`, `gym_mat_b`, `gym_mat_a` | R | 48 x 22 | structure | (760, 561), (808, 561), (856, 561) | gym floor on the deck's back half, past the threshold |
 | `trog_threshold` | K | 80 x 19 | structure | (672, 561) | the stone deck turning into tile courses under the bench's far side; no pixel over the pier plinth (columns ≥ 20 start at row 11) |
-| *(presenter)* `trog_bench_*` | K | 32 x 80, 3 frames | prop (state group) | origin (640, 500) | section 7 |
-| *(presenter)* `trog_bench_debris_*` | K | 112 x 96, 6 frames | prop (state group) | origin (600, 484) | section 7 |
+| `trog_bench_intact` | K | 32 x 80 | prop | (640, 500) | the 80 px static bench; its drawn bounds equal the sidecar static (section 7) |
+| *(reserved)* `trog_bench_weakened`, `trog_bench_broken`, `trog_bench_debris_0..5` | K | 32 x 80, 32 x 80, 112 x 96 | none | none | frozen keys, pinned, not wired: TROG-Q14 (the bench break) |
 
 **Step and shelf faces (E).** The low refuge, the bell step and the retreat shelf are sidecar solids the composer does not draw. Their faces are new executor pieces, derived from the AREA-HEAT-01 shelf body (`author_heat01._shelf_body`, 16 x 32): the same arris, slab lip, courses and nick, one stone step darker (every `stone` index below row 0 lowered by 1, floored at 0; the arris row is kept) so they never outshine a troglodyte in the lit read (TROG-ART-AD5). The 32 px mid is the heat body itself (courses at rows 10..19 and 21..31, bed joint at 20). The 48 px mid adds a third course (courses at rows 10..21, 23..34 and 36..47, bed joints at 22 and 35, head joints alternating at x 0 and 8). An 8 px end is one half of its mid (the left end the mid's right half, the right end its left half), with its two outer columns one step darker below row 0, a `stone` 6 corner on row 0, and the bottom outer corner cleared. Each piece keeps exactly one transparent pixel. The design gate used scratch versions of these six pieces built by exactly this rule.
 
@@ -159,6 +161,8 @@ No new piece goes in an open window above y 520. No new piece crosses a remainin
 **`trog_mirror_shards` (96 x 74):** built from `gym_mirror_bay`'s own frame, clips, skirting and tape. The glass that is left (five polygons: the top-left sheet, a dagger from the seam clip, the right clip's shard, the taped corner and a shard in the bottom channel) is dark glass (`gal` 3..4, sheens `gal` 7). The missing glass shows the plywood backing (`mortar` 1/2) with glue dabs (`mortar` 3); broken edges are pale above and dark below, and fallen slivers lie in the bottom channel.
 
 ## 7. States and motion (presentation only)
+
+**Stage-2 amendment (TROG-AD46, TROG-ART-AD-S2).** TROG-B landed the bench as an 80 px **static solid** {640, 500, 32, 80}, not the plan's three-state partition: rule (b), the bench smash and the break are cut (TROG-Q14 is open). So the bench is **one statically placed `trog_bench_intact`** at (640, 500) (its drawn bounding box is exactly the static's rect, tested), and there is no bench presenter, no debris presenter, no `state_groups` entry and no partition lookup. The partition presenter and the debris burst below are **reserved for TROG-Q14** (kept as the frozen keys and this text, not built); TROG-ART-A8 and A9 are dropped with them, and gate notes G2, G3 and G7 are moot.
 
 **The bench stack, `trog_bench` (32 x 80, 3 frames).** It is `gym_bench` (44 x 18) turned on its end, the pad on the left and the legs to the right, with seven weight plates lying flat in its lower half (rows 48..79), one ratchet strap lashed diagonally round the whole stack and its own shadow filling the gaps:
 - `intact`: the drawn bbox is exactly the target {640, 500, 32, 80}. Row 0 is one walkable arris (`brick` 9) so the top reads as climbable (80 px, Carl's class limit);
@@ -188,7 +192,7 @@ No sound in this order (TROG-Q7, TROG-ART-Q3).
 
 ## 9. Collision and state
 
-1. Solids, spawns, checkpoints, exits, views, the walking line, the ceiling slab, the blink barriers and the bench's partition rect are identical with and without the dressing.
+1. Solids, spawns, checkpoints, exits, views, the walking line, the ceiling slab, the blink barriers and the bench's static rect are identical with and without the dressing.
 2. The bench and debris presenters read the partition state, the room tick and, for the burst's direction only, the break tick's events and the heroes' x. They write nothing back.
 3. The sim never reads art. The bench's collision is the sidecar's (plan 5.4); the drawn bounds equal it (section 7).
 4. Steps and shelves keep their sidecar heights: the art face of each covers exactly the solid's rect (x0..x1, y0..579).
@@ -239,8 +243,8 @@ The probe is not part of this PR. The executor replaces the stills with real win
 | TROG-ART-A5 | No background pixel in the bricked bays (run x 176..383 and 1184..1391, strength x 720..927; y 352..559) | unit test (the FF-AD29 test) |
 | TROG-ART-A6 | Every placement in y 561..579 is on `structure` | unit test |
 | TROG-ART-A7 | The worst 640 px view of each room stays at or under `MAX_LIGHTS` | test as `the_gym_lights_stay_inside_the_light_budget` |
-| TROG-ART-A8 | Bench presenter: the frame equals the partition state; the drawn bbox of each frame equals the target (`intact`, `weakened`) or the remnant (`broken`) | headless unit test on the frames and `bench_piece` |
-| TROG-ART-A9 | Debris presenter: hidden while standing; a rising edge of `Broken` plays frames 0..4 for 3/4/4/5/6 ticks then holds 5; a room that starts broken shows 5 only; a tick going backwards or a restore hides it; a left breaker mirrors | headless frame-selection test over a synthetic state sequence |
+| TROG-ART-A8 | *(dropped under TROG-AD46)* the bench is a static placement: its drawn bbox equals the sidecar bench static {640, 500, 32, 80} | `trog_kit` test `strength_the_shelf_and_the_bench_are_drawn_on_their_statics`, art unittest |
+| TROG-ART-A9 | *(dropped under TROG-AD46)* no debris presenter; the weakened, broken and debris keys are reserved for TROG-Q14 and appear in no atlas or contract entry | art unittest |
 | TROG-ART-A10 | Key frames byte-identical to the pins in `gate/measurements.txt` | art unittest |
 | TROG-ART-A11 | Palette: every piece on `floor01-catacomb-v2`, at most 63 colours per atlas, 1-bit alpha, at least one transparent pixel per piece | `validate_assets.py`, art unittests |
 | TROG-ART-A12 | Lit read (section 10.1) holds on the runtime stills: every dressing piece's lit mean L* ≤ the lowest in-view troglodyte's, every troglodyte's `edge_dL` ≥ 15 | the evidence script measures the window stills against the same masks |
@@ -381,3 +385,29 @@ Stage 2 rooms launch plain until their `room_dressing` block lands (AD19).
 | TROG-ART-AD20 | The composer's blue `arch_threshold` sills of the two bricked bays, (208, 544) and (1216, 544), are removed | review R2: in a bricked bay the moonlit sill reads as a cold band under warm brick and leaves a 4 px blue lip on the refuge face; the fill already covers y 352..559. The camp aftermath's B2 sill is a kit-wide owner call, not this PR |
 
 No design problem was found: no key needed a change, and no placement contradicted the landed geometry.
+
+### 16.2 Stage 2: `trog_strength` (executed on top of TROG-B, #312)
+
+Executed by Claude Sonnet from the frozen keys, the gate's binding notes and the stage-1 review's lessons; designed by Claude Opus, gated and reviewed (stage 1) by independent Claude Opus agents. **Prototype art, independent art review pending, not owner-approved.** Presentation only: no sim, room, sidecar, MANIFEST, TABLE, golden or playtrace pin moves; the sixteen keys are byte-identical.
+
+**What TROG-B changed** (#312, TROG-AD46). The bench is an 80 px **static solid** {640, 500, 32, 80} in the sidecar, with the 48 px shelf {288, 532, 64, 48} (both re-read on the landed files and equal to sections 2 to 5; the Basher spawns at 800 and its leash starts at 704, the Virtuoso at 496, the exit at 944). Rule (b), the bench smash and the partition are cut (TROG-Q14 is open). So the partition presenter, the debris burst, `state_groups`, `BenchSmash`, TROG-ART-A8/A9, `DebrisBurst`, `debris_frame` and gate notes G2, G3 and G7 are not built (section 7 amendment). `trog_art::spawn` (changed by #312) draws the flat decor rectangles only for a plain room; with the block below the room composes dressed and none are drawn.
+
+**Pieces and atlas.** One new atlas, `floor01_trog_strength` (184 x 162, 40 colours, manifest `floor01_trog_strength.json`): the keys `trog_threshold` (structure), `trog_mirror_shards` (backwall decal) and `trog_bench_intact` (prop), and three executor pieces `trog_shelf48_mid` 16 x 48, `trog_shelf48_end_l` and `trog_shelf48_end_r` 8 x 48 (structure; the 48 px rule of section 5, the gate's code). The bench is folded into this atlas as one 32 x 80 frame, the smaller change than a second one-frame atlas. The weakened, broken and debris keys stay in the author script and the pinned measurements and are in no atlas, manifest or contract entry (reserved for TROG-Q14). `room_dressing.trog_strength` is sections 4 and 5: eight `remove_at`, one `backwall_fill`, 20 placements (the shards; the girder run, the first girder under the last; the shelf face; the mats; the threshold; the bench; the rack, the cold tube and the plate tree).
+
+**Lessons applied.** No blue sill: the bricked bay's `arch_threshold` at (752, 544) is removed (the stage-1 review's R2). `dressing_of` is optional (AD19), so a room without a block still launches plain. The torch above the bench (664, 432) and its pool are removed (G1; no remaining torch flame column stands over the bench, tested). Floor pieces are `structure` (A6). Nothing hangs in an open window (A4).
+
+**Tests** (`cargo test --lib trog_kit`, `tests/test_art_trogarea01.py`): the strength set repeats the run's: the dressing changes no collider, spawn, exit, view, line, barrier or cell, nor the launched room, its hashes or statics, and the state hash is equal on 500 ticks (A1); eight `remove_at`, each dropping exactly one piece, the open bays keeping their sills and chains (A3); no background in the bricked bay, the undressed span lying inside the fill (A5); the ten floor placements above the deck (A6); no prop in an open window and no covered torch (A4); the light budget, minus six lights for the three torches and plus the tube's two (A7); the shelf faces cover the shelf static edge to edge; the placed bench key's opaque bounding box equals the sidecar bench static exactly (the stage-2 form of A8); and no weakened, broken, debris or `state_groups` entry is in the contract.
+
+**Evidence** (`docs/evidence/area-trog-01/`, README): seven window stills at 640 x 360 and 1920 x 1080 with the TROG-B pilot (`strength_*`), each captured twice and byte-identical, window hash equal to the headless hash on all 38 lines of both rooms, and equal to TROG-B's on the eight lines it shares (ticks 30, 270 and 360 at their sizes, 105, 381 and 450). Lit read (A12, gated on `strength_open`, `strength_bench_beside`, `strength_bench_climb`): every piece below the lowest living troglodyte, the thinnest margin the shelf mid against the Virtuoso (22.5 against 25.7, 3.2 L*), the bench 19.2..19.9, the shards 11.9; every troglodyte edge_dL at least 18.9. A13: all eight placed pieces 100 % visible behind the architecture, the shards 96.7 % with the rack in front.
+
+**Adopted defaults** (the owner may change any in a follow-up PR):
+
+| Id | Default | Reason |
+| --- | --- | --- |
+| TROG-ART-AD-S2 | The bench is one statically placed `trog_bench_intact` at (640, 500) under TROG-AD46; the weakened, broken and debris keys are reserved for TROG-Q14 and not wired; the partition presenter, debris presenter, `state_groups`, A8/A9 and gate notes G2, G3 and G7 are dropped | TROG-B landed an 80 px static solid, not a partition; the key's drawn bounds equal the static exactly |
+| TROG-ART-AD-S3 | The bricked bay 3's blue `arch_threshold` sill at (752, 544) is removed | the stage-1 review's R2 (AD20): a cold band under warm brick |
+| TROG-ART-AD-S4 | The bench key is folded into `floor01_trog_strength` instead of a second atlas | the smaller change: no extra manifest, source or contract entry |
+| TROG-ART-AD-S5 | The torch above the bench (664, 432) and its pool are removed (G1); the fallback of G1 (restore it if A12 fails) was not needed | the bench's lit mean stays 19.2..19.9 under the Basher (32.5) and the Virtuoso (25.7) |
+| TROG-ART-AD-S6 | Seven strength stills with the TROG-B pilot at the ticks TROG-B used (30, 105, 270, 360, 381, 450) and one new tick, 230 (`strength_bench_beside`); a gated still is one with a living troglodyte in an idle pose | the new tick gives the sleeping Basher beside the bench and the gym bay in one view; TROG-B's ticks keep their hashes |
+
+Owner notes carried from the gate for the review: the bench may read as a dark cabinet or doorway with a strap rather than an upended gym bench (its value is capped by the lit rule, TROG-ART-Q6); the plywood between the shards' glass corners may read as mountains at 1x. TROG-ART-Q5 (the static-fallback art `trog_bench_low`) is closed: the static bench is the full 80 px key.
