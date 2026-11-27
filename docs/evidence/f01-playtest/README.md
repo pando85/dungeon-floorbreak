@@ -59,6 +59,7 @@ The special does something only where the hero holds it: Carl's dynamite from ro
 | 4, slimes and Rot Stickers | `--f01-room hazards` | listed |
 | 5, the Juicer | `--f01-room juicer` (also `--scene boss_f01 --carl-prog --donut-prog`) | listed |
 | 6, the mastery arena | `--f01-room mastery` | listed |
+| 18, the Ball of Swine (BOS-A, the finale) | `--f01-room bos` (also `--scene f01_ball`) | listed, the last room: its exit leads to the `FLOOR 1 CLEARED` panel |
 | 1, the Hoarder | `--f01-room hoarder` (also `--scene f01_hoarder`) | listed (FA-Q24); prototype pixel art since PR #258 (owner art review pending), defeating room pilot `--room-pilot hoarder:carl_solo:SEED` (9 of 9) |
 | 4a and 4b, the Broken Ring | `--f01-room ring_court`, `--f01-room ring_split` | launchable (greybox geometry; Broken Ring prototype art since AREA-RINGS-01, owner art review pending), not gate-listed (RINGW-F1 fixed, game-feel review pending); the court's closed shutter is a dark stone slab under the walkway between two guide jambs: cross it over the step and the walkway. `--f01-run --f01-room ring_court` (or `ring_split`) starts a floor run inside the room |
 | 0, the Infernal Corral | `--f01-room corral` | listed (CORRAL-F, greybox), first room of `--f01-run`; room pilots `--room-pilot corral` (M0 to M3, `corral:WHO:SEED`) and `--room-pilot corral_rush` (B's rush on a parked Carl, an evidence plan) |

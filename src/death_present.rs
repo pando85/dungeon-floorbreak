@@ -1854,7 +1854,13 @@ impl DeathPresenter {
         let events = &combat.events[combat.events.len() - fresh..];
         if let Some(boss) = combat.boss.as_ref() {
             for event in events {
-                self.begin_boss_death(event, boss.x, boss.floor_y(), boss.facing < 0);
+                self.begin_boss_death(
+                    event,
+                    boss.data().species.as_str(),
+                    boss.x,
+                    boss.floor_y(),
+                    boss.facing < 0,
+                );
             }
         }
         // ENEMY-SLOT: a slot enemy's fall goes through the same death language
@@ -1974,9 +1980,19 @@ impl DeathPresenter {
     /// art exists the cosmetics are the goblin crush or knockback burst (dust
     /// and, at preset 4, blood and a pool) at the boss' feet; nothing here
     /// reaches the simulation. The finish chosen is kept for the trace.
-    fn begin_boss_death(&mut self, event: &CombatEvent, x: f32, ground_y: f32, flip: bool) {
+    ///
+    /// BOS-AD31: the species is the boss data's (`brute_boss` for the Juicer);
+    /// the Ball's `rolling_brute` has no profile and plays the generic fallback.
+    fn begin_boss_death(
+        &mut self,
+        event: &CombatEvent,
+        species: &str,
+        x: f32,
+        ground_y: f32,
+        flip: bool,
+    ) {
         if matches!(event, CombatEvent::EnemyDefeated { target, .. } if *target == crate::boss::BOSS_ENEMY_ID)
-            && let Some(id) = self.begin_species_death(event, "brute_boss", x, ground_y, flip)
+            && let Some(id) = self.begin_species_death(event, species, x, ground_y, flip)
         {
             self.boss_finish = Some(id);
         }

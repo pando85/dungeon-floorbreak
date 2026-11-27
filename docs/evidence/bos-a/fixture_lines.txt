@@ -1,0 +1,27 @@
+# BOS-A fixture tests (F1..F18) and the evaluator tests, `cargo test --lib -- ball_fixtures bos_eval a_recorded_bos_session an_exit_relaunches the_ball_exit_ends`
+# F2 = f01_late::the_manifest_lists_the_landed_rooms_in_story_order + f01_run::an_exit_relaunches..; F16 = scripts/f01_run_smoke.sh (18 rooms) + the_ball_exit_ends_the_floor_with_the_cleared_panel; F18 = a_recorded_bos_session_verifies_under_both_loadouts (+ a STRICT window replay of a recorded bos session)
+result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 4018 filtered out; finished in 0.57s
+ball_fixtures::tests::f10_three_post_hits_drop_the_weight_on_the_stunned_ball ... ok
+ball_fixtures::tests::f12_a_party_defeat_restarts_the_whole_encounter ... ok
+ball_fixtures::tests::f13_f14_the_exit_opens_on_a_real_defeat_and_grants_nothing ... ok
+ball_fixtures::tests::f17_the_alcove_edge_is_never_touched_by_a_bait_crash ... ok
+ball_fixtures::tests::f1_the_data_validates_and_the_juicer_is_unchanged ... ok
+ball_fixtures::tests::f3_f11_f15_the_solo_clear ... ok
+ball_fixtures::tests::f4_f6_a_hero_who_runs_from_the_tell_takes_no_damage_and_the_crash_follows ... ok
+ball_fixtures::tests::f5_a_hero_who_stands_in_the_roll_takes_exactly_one_hit_once ... ok
+ball_fixtures::tests::f7_the_stun_gives_at_least_two_punish_hits ... ok
+ball_fixtures::tests::f8_the_siege_warns_at_60_commits_at_120_and_drops_debris_on_the_alcove_only ... ok
+ball_fixtures::tests::f8b_the_siege_still_commits_after_a_crash_close_to_the_arch ... ok
+ball_fixtures::tests::f9_a_hero_who_steps_out_after_the_warning_cancels_the_siege ... ok
+bos_eval::tests::a_control_that_does_not_clear_fails_the_gate ... ok
+bos_eval::tests::a_vacuous_or_misplaced_row_is_invalid ... ok
+bos_eval::tests::bos_q11_is_off_in_the_committed_data_and_the_switch_runs ... ok
+bos_eval::tests::the_stationary_gate_passes_and_every_row_is_valid ... ok
+f01_run::tests::an_exit_relaunches_into_the_next_room_or_ends_the_floor ... ok
+f01_run::tests::the_ball_exit_ends_the_floor_with_the_cleared_panel ... ok
+playtrace::tests_f01_late::a_recorded_bos_session_verifies_under_both_loadouts ... ok
+# measured values
+BOS-F10 dropped_at=Some(102) pinned=89 boss_hp_after=20
+BOS-F11 clear_ticks=1587 party_loss=1 hero_hits=1 crashes=1
+BOS-F7 punish_hits=4
+BOS-F8b warning_x=275

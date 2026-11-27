@@ -593,7 +593,7 @@ impl Args {
         self.exit_after_ticks.is_some()
             && self.manual
             && self.room_pilot.is_none()
-            && (self.f01_room_scene() || (self.boss && self.f01_room.as_deref() == Some("juicer")))
+            && (self.f01_room_scene() || self.juicer_room())
     }
 
     /// Whether this run records a PLAYTRACE-01 session by default (tests).
@@ -668,7 +668,8 @@ impl Args {
 
     /// FA-Q08: this run is the Juicer's room (`--scene f01_late --f01-room juicer`), room 5.
     fn juicer_room(&self) -> bool {
-        self.boss && self.f01_room.as_deref() == Some("juicer")
+        // BOS-A: and the Ball's room (`bos`), the boss scene on its own data.
+        self.boss && matches!(self.f01_room.as_deref(), Some("juicer" | "bos"))
     }
 
     /// Whether this run is one of the `f01_late` room scenes with its own room
@@ -1109,6 +1110,11 @@ fn resolve_f01_late_args(parsed: &mut Args) -> Result<(), String> {
         f01_late::RoomScene::Boss => {
             parsed.boss = true;
             parsed.fixture = Some(boss_scene::BOSS01_SCENE);
+        }
+        // BOS-AD33: room 18 runs the boss scene on its own fixture constant.
+        f01_late::RoomScene::Ball => {
+            parsed.boss = true;
+            parsed.fixture = Some(boss_scene::BALL01_SCENE);
         }
     }
     Ok(())
@@ -1779,6 +1785,16 @@ fn parse_args_full(
                         parsed.boss = true;
                         parsed.fixture = Some(boss_scene::BOSS01_SCENE);
                     }
+                    // BOS-A: the Ball's arena standalone (live play and captures).
+                    "f01_ball" => {
+                        if parsed.fixture.is_some() || parsed.party_fixture.is_some() {
+                            return Err(
+                                "--scene f01_ball replaces --fixture and --party-fixture".into()
+                            );
+                        }
+                        parsed.boss = true;
+                        parsed.fixture = Some(boss_scene::BALL01_SCENE);
+                    }
                     "combat_lab" => parsed.lab_scene = true,
                     f01_boiler::SCENE_NAME => parsed.f01_boiler = true,
                     f01_hoarder::SCENE_NAME => parsed.f01_hoarder = true,
@@ -2086,15 +2102,17 @@ fn parse_args_full(
     }
     if let Some(pilot) = parsed.room_pilot {
         let juicer = parsed.boss && parsed.f01_room.as_deref() == Some("juicer");
+        let bos = parsed.boss && parsed.f01_room.as_deref() == Some("bos");
         if !(parsed.f01_boiler
             || parsed.f01_hoarder
             || parsed.f01_hazards
             || parsed.f01_mastery
             || parsed.f01_corral
             || parsed.f01_dozer
-            || juicer)
+            || juicer
+            || bos)
         {
-            return Err("--room-pilot needs a room scene: --scene f01_late with --f01-room corral, boiler, hoarder, dozer, hazards, mastery or juicer (or --scene f01_boiler, f01_hoarder, f01_dozer, f01_hazards)".into());
+            return Err("--room-pilot needs a room scene: --scene f01_late with --f01-room corral, boiler, hoarder, dozer, hazards, mastery, juicer or bos (or --scene f01_boiler, f01_hoarder, f01_dozer, f01_hazards)".into());
         }
         // CORRAL-F: the corral's pilots play room 0, and room 0 takes only its own pilots.
         let corral_plan = matches!(
@@ -2129,8 +2147,9 @@ fn parse_args_full(
         // PT-GATE-A: the mastery and juicer plans play their own room and nothing else.
         if (pilot.plan == room_pilots::Plan::Mastery) != parsed.f01_mastery
             || (pilot.plan == room_pilots::Plan::Juicer) != juicer
+            || (pilot.plan == room_pilots::Plan::Bos) != bos
         {
-            return Err("--room-pilot mastery needs --f01-room mastery and --room-pilot juicer needs --f01-room juicer, and each of those rooms takes only its own plan".into());
+            return Err("--room-pilot mastery needs --f01-room mastery, --room-pilot juicer needs --f01-room juicer and --room-pilot bos needs --f01-room bos, and each of those rooms takes only its own plan".into());
         }
         // PT-GATE-D: the room 4 route plays the hazards room and nothing else.
         if matches!(
@@ -2158,6 +2177,7 @@ fn parse_args_full(
                 pilot.plan,
                 room_pilots::Plan::Mastery
                     | room_pilots::Plan::Juicer
+                    | room_pilots::Plan::Bos
                     | room_pilots::Plan::HazSpectacular
                     | room_pilots::Plan::HazTactical
             )
@@ -2225,10 +2245,13 @@ fn parse_args_full(
     if parsed.boss && (parsed.demo || parsed.scenario.is_some() || parsed.reference_frame) {
         return Err("the boss arena replaces --demo, --scenario and --reference-frame".into());
     }
-    if parsed.boss && parsed.fixture == Some(boss_scene::BOSS01_SCENE) {
+    if parsed.boss
+        && (parsed.fixture == Some(boss_scene::BOSS01_SCENE)
+            || parsed.fixture == Some(boss_scene::BALL01_SCENE))
+    {
         // A live run without a script is the player's. FIX-TOOL: `--exit-after-ticks` alone
         // on the Juicer's room scene (no room pilot) is a scripted exit, not a script.
-        let room_exit = parsed.f01_room.as_deref() == Some("juicer") && parsed.room_pilot.is_none();
+        let room_exit = parsed.juicer_room() && parsed.room_pilot.is_none();
         parsed.manual = !(parsed.headless
             || parsed.capture_tick.is_some()
             || parsed.capture_sequence.is_some()
@@ -2567,6 +2590,10 @@ fn story_setup(args: &Args) -> StorySetup {
         SceneKind::Demo
     } else if fixture == boss_scene::BOSS01_SCENE {
         SceneKind::Boss
+    } else if fixture == boss_scene::BALL01_SCENE {
+        // BOS-AD13, BOS-AD33: the Ball's room is the `F01Late` label of the
+        // mastery pin, never `SceneKind::Boss` (no Juicer grant is re-fired).
+        return boss_scene::ball_story_setup(args.carl, args.donut);
     } else {
         return carl_prog_fixtures::story_setup(fixture.name);
     };
@@ -2622,6 +2649,12 @@ fn step_hud(hud: &mut HudRuntime, sim: &SceneSim, combat: Option<&CombatState>) 
     // ACT1-B: the chase's alcove hint after a checkpoint respawn (read only; false elsewhere).
     hud.set_alcove_hint(
         combat.is_some_and(|c| dungeon_floorbreak::f01_act1::alcove_hint_live(c, sim.world.tick)),
+    );
+    // BOS-A: the Ball's siege warning notice (read only; false in every other room).
+    hud.set_siege_warning(
+        combat
+            .and_then(|c| c.boss.as_ref())
+            .is_some_and(|boss| boss.siege_warning()),
     );
     // HUD-DEBT-02: Donut's real mana (None while the biscuit is locked).
     hud.set_donut_mana(combat.and_then(CombatState::donut_mana_view));
@@ -3622,7 +3655,11 @@ fn main() -> ExitCode {
     } else if args.demo {
         demo::load_hall(&root)
     } else if args.boss {
-        boss_scene::load_arena(&root)
+        if args.fixture == Some(boss_scene::BALL01_SCENE) {
+            boss_scene::load_ball_arena(&root)
+        } else {
+            boss_scene::load_arena(&root)
+        }
     } else if let Some(room) = args.camera_test_room {
         test_room_kit(&root, room)
     } else {
@@ -3711,6 +3748,42 @@ enum BossPiece {
     Strut,
     Gate,
     Ripple(usize),
+    /// BOS-A: a greybox arch outline of the Ball's room (two posts and a lintel
+    /// per arch, no collider; BOS-AD14).
+    Arch(usize),
+    /// BOS-A: one cell of the greybox ball's label.
+    Label(usize),
+}
+
+/// BOS-A: the greybox ball's label, a 3x5 pixel font (`.` empty, `#` filled).
+const BALL_LABEL: [[&str; 5]; 5] = [
+    ["###", "#..", "###", "..#", "###"],
+    ["#.#", "#.#", "#.#", "###", "#.#"],
+    ["###", ".#.", ".#.", ".#.", "###"],
+    ["#.#", "###", "###", "#.#", "#.#"],
+    ["###", "#..", "###", "#..", "###"],
+];
+/// The label's cell size in px, and the number of filled cells (the sprite pool).
+const BALL_LABEL_CELL: f32 = 4.0;
+const BALL_LABEL_CELLS: usize = 54;
+
+/// The `n`th filled cell of the label as `(column, row)` in cells from the
+/// label's top-left (letters 3 wide with a 1 cell gap).
+fn ball_label_cell(n: usize) -> Option<(usize, usize)> {
+    let mut seen = 0;
+    for (letter, rows) in BALL_LABEL.iter().enumerate() {
+        for (row, text) in rows.iter().enumerate() {
+            for (col, ch) in text.chars().enumerate() {
+                if ch == '#' {
+                    if seen == n {
+                        return Some((letter * 4 + col, row));
+                    }
+                    seen += 1;
+                }
+            }
+        }
+    }
+    None
 }
 
 /// One pooled sprite of the boss' art (the body, the racks, the effects): the
@@ -5891,6 +5964,39 @@ fn setup(
         for slot in 0..4 {
             piece(BossPiece::Ripple(slot), Color::srgb(0.95, 0.7, 0.2));
         }
+        // BOS-A: the Ball's greybox (arch outlines behind the actors, the label over
+        // the body); the Juicer's room spawns none.
+        if combat
+            .0
+            .as_ref()
+            .and_then(|c| c.boss.as_ref())
+            .is_some_and(|b| b.data().siege.is_some())
+        {
+            let mut greybox = |kind: BossPiece, colour: Color, z: f32| {
+                commands.spawn((
+                    kind,
+                    Sprite::from_color(colour, Vec2::ONE),
+                    Transform::from_xyz(0.0, 0.0, kit.actor_z + z),
+                    Visibility::Hidden,
+                    layers_of("actors"),
+                ));
+                combat_entities += 1;
+            };
+            for index in 0..6 {
+                greybox(
+                    BossPiece::Arch(index),
+                    Color::srgb(0.26, 0.24, 0.3),
+                    BOSS_Z_BACK,
+                );
+            }
+            for index in 0..BALL_LABEL_CELLS {
+                greybox(
+                    BossPiece::Label(index),
+                    Color::srgb(0.95, 0.88, 0.7),
+                    BOSS_Z_FRONT,
+                );
+            }
+        }
         if let Some(art) = boss_art.0.as_ref() {
             let mut textures = BossTextures::default();
             for sheet in art.sheets() {
@@ -7798,7 +7904,9 @@ fn sync_boss_visuals(
     let ripples: Vec<(f32, i8)> = boss.ripples().collect();
     // What the atlases cover is drawn from them (`boss_art::draws`); what a
     // missing atlas leaves out falls back to its placeholder rect.
-    let has = |id: SheetId| art.0.as_ref().is_some_and(|a| a.sheet(id).is_some());
+    // BOS-AD31: the Ball is a greybox: the Juicer's sprites and effects are off.
+    let greybox = data.siege.is_some();
+    let has = |id: SheetId| !greybox && art.0.as_ref().is_some_and(|a| a.sheet(id).is_some());
     let has_art = has(SheetId::Base) && has(SheetId::Enc);
     for (piece, mut transform, mut sprite, mut visibility) in &mut pieces {
         let shown = match *piece {
@@ -7893,6 +8001,46 @@ fn sync_boss_visuals(
                 // The F01 danger FX gate art replaces the slab when its atlas loaded.
                 boss.gate_closed() && !danger.as_ref().is_some_and(|d| d.draws_gate(boss))
             }
+            BossPiece::Arch(index) => {
+                let a = &data.arena;
+                let wall = if index < 3 {
+                    a.left_wall_x
+                } else {
+                    a.right_wall_x
+                };
+                let (left, width, bottom, height) = match index % 3 {
+                    0 => (wall - 32.0, 16.0, 0.0, 104.0),
+                    1 => (wall + 16.0, 16.0, 0.0, 104.0),
+                    _ => (wall - 32.0, 64.0, 104.0, 8.0),
+                };
+                set(
+                    &mut transform,
+                    dungeon_floorbreak::prototype::Rect {
+                        left,
+                        bottom: floor + bottom,
+                        width,
+                        height,
+                    },
+                );
+                greybox
+            }
+            BossPiece::Label(index) => match (greybox, boss.hurtbox(), ball_label_cell(index)) {
+                (true, Some(body), Some((col, row))) => {
+                    let cell = BALL_LABEL_CELL;
+                    let width = cell * 19.0;
+                    set(
+                        &mut transform,
+                        dungeon_floorbreak::prototype::Rect {
+                            left: body.left + (body.width - width) * 0.5 + col as f32 * cell,
+                            bottom: body.top() - 36.0 - (row as f32 + 1.0) * cell,
+                            width: cell,
+                            height: cell,
+                        },
+                    );
+                    true
+                }
+                _ => false,
+            },
             BossPiece::Ripple(slot) => match ripples.get(slot) {
                 Some(&(x, _)) => {
                     set(
@@ -7918,6 +8066,9 @@ fn sync_boss_visuals(
     let (Some(art), Some(textures)) = (art.0.as_ref(), textures) else {
         return;
     };
+    if greybox {
+        return;
+    }
     // The gait: observed once per simulated tick, not per render frame.
     let tick = sim.0.world.tick;
     if walk.tick != tick {
@@ -13744,7 +13895,15 @@ mod tests {
         let boiler = args(&["--scene", "f01_late", "--f01-room", "boiler"]).unwrap();
         assert!(boiler.f01_boiler && boiler.carl.prog);
         // The Juicer is the boss scene under the loadout.
-        let juicer = args(&["--scene", "f01_late", "--f01-room", "juicer"]).unwrap();
+        let juicer = args(&[
+            "--scene",
+            "f01_late",
+            "--f01-room",
+            "juicer",
+            "--f01-loadout",
+            "story",
+        ])
+        .unwrap();
         assert!(juicer.boss && !juicer.f01_boiler && !juicer.cf02.rules);
         assert_eq!(juicer.fixture, Some(boss_scene::BOSS01_SCENE));
         assert_eq!(juicer.f01_room.as_deref(), Some("juicer"));
@@ -14539,5 +14698,100 @@ mod tests {
         pads.sample(frame(a, true, false));
         live_special_tick(&mut sim, &mut combat, &mut pads, RawInput::NONE);
         assert_eq!(special_starts(&combat, 0), 1, "Carl threw the dynamite");
+    }
+    /// BOS-A: room 18 (`bos`) and `--scene f01_ball` run the boss scene on the Ball's own
+    /// fixture constant, never the Juicer's, with the `F01Late` mastery-pin story
+    /// (BOS-AD13, BOS-AD33), the Ball's arena (the hero wall at 608) and a room pilot of its own.
+    #[test]
+    fn the_ball_room_runs_on_its_own_fixture_story_and_arena() {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        let standalone = args(&["--scene", "f01_ball"]).unwrap();
+        assert!(standalone.boss && standalone.fixture == Some(boss_scene::BALL01_SCENE));
+        assert!(args(&["--scene", "f01_ball", "--fixture", "x"]).is_err());
+        let room = args(&[
+            "--scene",
+            "f01_late",
+            "--f01-room",
+            "bos",
+            "--f01-loadout",
+            "story",
+        ])
+        .unwrap();
+        assert!(room.boss && room.fixture == Some(boss_scene::BALL01_SCENE));
+        assert!(room.juicer_room() && room.f01_room.as_deref() == Some("bos"));
+        assert_ne!(boss_scene::BALL01_SCENE.name, boss_scene::BOSS01_SCENE.name);
+        // The Juicer's room is untouched.
+        let juicer = args(&[
+            "--scene",
+            "f01_late",
+            "--f01-room",
+            "juicer",
+            "--f01-loadout",
+            "story",
+        ])
+        .unwrap();
+        assert_eq!(juicer.fixture, Some(boss_scene::BOSS01_SCENE));
+        // The story is the F01Late label of the mastery pin: a held loadout, no armed trigger.
+        let story = story_setup(&room);
+        assert!(!story.is_inert(), "the mastery loadout is held");
+        assert!(
+            story.trigger_ids().is_empty(),
+            "the Juicer's trigger is never armed here"
+        );
+        assert!(
+            !story_setup(&juicer).trigger_ids().is_empty(),
+            "the Juicer arms its own"
+        );
+        // The Ball's arena: the hero wall and the exit at 608/612, the boss' right wall at 512.
+        let kit = boss_scene::load_ball_arena(root).unwrap();
+        assert!(
+            kit.solid_rects
+                .iter()
+                .any(|r| r.x == 608 && r.w == 32 && r.h >= 400)
+        );
+        assert_eq!(kit.exit.unwrap().x, 612);
+        // The pilot: `bos` only in the Ball's room, never in the Juicer's.
+        let pilot = args(&[
+            "--scene",
+            "f01_late",
+            "--f01-room",
+            "bos",
+            "--room-pilot",
+            "bos",
+            "--exit-after-ticks",
+            "10",
+        ]);
+        assert!(pilot.is_ok(), "{:?}", pilot.err());
+        assert!(
+            args(&[
+                "--scene",
+                "f01_late",
+                "--f01-room",
+                "juicer",
+                "--room-pilot",
+                "bos",
+                "--exit-after-ticks",
+                "10"
+            ])
+            .is_err()
+        );
+        assert!(
+            args(&[
+                "--scene",
+                "f01_late",
+                "--f01-room",
+                "bos",
+                "--room-pilot",
+                "juicer",
+                "--exit-after-ticks",
+                "10"
+            ])
+            .is_err()
+        );
+        // The greybox label: every filled cell has a sprite and no more.
+        assert!(
+            ball_label_cell(BALL_LABEL_CELLS - 1).is_some()
+                && ball_label_cell(BALL_LABEL_CELLS).is_none()
+        );
     }
 }

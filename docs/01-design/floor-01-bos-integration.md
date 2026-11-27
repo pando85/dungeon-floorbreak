@@ -1,6 +1,6 @@
 # Floor 01 finale: the Ball of Swine and the floor exit in the floor run (BOS-PLAN)
 
-**Status:** design and integration plan only. Nothing here is implemented, playtested or accepted. **BOS-A** (one Sonnet PR, section 13) builds it as a labelled playable greybox. After it merges, its status is "merged, game-feel review pending". The execution order is [the BOS work order](../07-agents/floor-01-bos-workorder.md).
+**Status:** design and integration plan. **BOS-A** (one Sonnet PR, section 13) builds it as a labelled playable greybox; its adopted defaults and measured numbers are in that PR's body and in `docs/evidence/bos-a/`. Nothing here is playtested or accepted: after it merges, its status is "merged, game-feel review pending". The execution order is [the BOS work order](../07-agents/floor-01-bos-workorder.md).
 
 **Owner decisions (cited for every adopted default below):**
 

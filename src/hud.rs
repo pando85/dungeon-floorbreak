@@ -211,6 +211,10 @@ pub enum LabelId {
     /// `act1_chase`, only after a hero defeat, never on a fresh run. Presentation only, never
     /// hashed; not a grant notice.
     GetIntoTheAlcove,
+    /// BOS-A (BOS-Q8): the siege warning of the Ball's room, shown while the ball
+    /// has turned to the alcove (the text is the boss data's `siege.notice`, a
+    /// placeholder). Presentation only, never hashed; not a grant notice.
+    ItSniffsAtTheArch,
 }
 
 impl LabelId {
@@ -239,6 +243,7 @@ impl LabelId {
             Self::SwapToDonut => "SWAP TO DONUT",
             Self::MagicMissile => "MAGIC MISSILE",
             Self::GetIntoTheAlcove => "GET INTO THE ALCOVE",
+            Self::ItSniffsAtTheArch => "IT SNIFFS AT THE ARCH",
         }
     }
 
@@ -254,7 +259,7 @@ impl LabelId {
     }
 
     /// Every label, in declaration order (the closed set the width checks iterate).
-    pub const ALL: [Self; 23] = [
+    pub const ALL: [Self; 24] = [
         Self::Punch,
         Self::Kick,
         Self::Swat,
@@ -278,6 +283,7 @@ impl LabelId {
         Self::SwapToDonut,
         Self::MagicMissile,
         Self::GetIntoTheAlcove,
+        Self::ItSniffsAtTheArch,
     ];
 
     /// The labels that can sit above the special socket (at most 33 px, HA2-AD1).
@@ -305,7 +311,8 @@ impl LabelId {
             | Self::HeavyFist
             | Self::SwapToDonut
             | Self::MagicMissile
-            | Self::GetIntoTheAlcove => false,
+            | Self::GetIntoTheAlcove
+            | Self::ItSniffsAtTheArch => false,
         }
     }
 
@@ -1472,6 +1479,8 @@ pub struct HudRuntime {
     swap_hint_ticks: u16,
     /// ACT1-B: the chase's alcove hint is live (the scene reports it each tick).
     alcove_hint: bool,
+    /// BOS-A: the Ball's siege warning is up (the scene reports it each tick).
+    siege_warning: bool,
 }
 
 /// ACT1-B: how long the alcove hint stays live after a checkpoint respawn in the chase.
@@ -1545,6 +1554,7 @@ impl HudRuntime {
             rest_door: None,
             swap_hint_ticks: 0,
             alcove_hint: false,
+            siege_warning: false,
         }
     }
 
@@ -1605,6 +1615,13 @@ impl HudRuntime {
     /// defeat). Call once per tick before [`Self::step`]. Never hashed.
     pub fn set_alcove_hint(&mut self, live: bool) {
         self.alcove_hint = live;
+    }
+
+    /// BOS-A: the Ball's siege warning (`IT SNIFFS AT THE ARCH`): the scene says
+    /// whether it is up ([`crate::boss::Boss::siege_warning`]). Call once per tick
+    /// before [`Self::step`]. Never hashed.
+    pub fn set_siege_warning(&mut self, live: bool) {
+        self.siege_warning = live;
     }
 
     /// REST-AD7: the solo swap hint. In solo (Carl driven by a player, Donut by the
@@ -1709,7 +1726,8 @@ impl HudRuntime {
             } else {
                 boss.slide
             },
-            emblem: Some(EmblemId(boss.emblem.clone())),
+            // BOS-AD31: a boss with no emblem key draws the generic plate.
+            emblem: (!boss.emblem.is_empty()).then(|| EmblemId(boss.emblem.clone())),
         })
     }
 
@@ -2043,6 +2061,11 @@ impl HudRuntime {
             self.notices.offer(LabelId::GetIntoTheAlcove);
         } else {
             self.notices.cancel(LabelId::GetIntoTheAlcove);
+        }
+        if self.siege_warning {
+            self.notices.offer(LabelId::ItSniffsAtTheArch);
+        } else {
+            self.notices.cancel(LabelId::ItSniffsAtTheArch);
         }
         self.step_audience();
         if self.visual_key() != before {

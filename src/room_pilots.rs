@@ -78,6 +78,11 @@ pub enum Plan {
     /// pilot ([`crate::boss_scene::pilot_inputs`] with [`Pilot::Carl`], jab phase 0)
     /// fights the boss and walks out. Only valid in the Juicer's room.
     Juicer,
+    /// BOS-A (room 18, `--f01-room bos`): solo Carl plays the Ball with
+    /// `carl_bait_punish` ([`crate::boss_scene::pilot_inputs`] with
+    /// [`Pilot::CarlBait`]) and walks out. Only valid in the Ball's room, solo and
+    /// unaligned (its partner is the follow-and-jump bot).
+    Bos,
     /// PT-GATE-D (room 4, the spectacular route): the mastery pilot clears pocket A, then
     /// throws dynamite so that its blast lights the latched Rot Sticker of pocket B
     /// ([`haz_spectacular`]). Only valid in the hazards room.
@@ -168,6 +173,7 @@ impl Plan {
             Self::Chain => "chain",
             Self::Mastery => "mastery",
             Self::Juicer => "juicer",
+            Self::Bos => "bos",
             Self::HazSpectacular => "haz_spectacular",
             Self::HazTactical => "haz_tactical",
             Self::Hazards => "hazards",
@@ -411,6 +417,7 @@ impl RoomPilot {
             "chain" => Plan::Chain,
             "mastery" => Plan::Mastery,
             "juicer" => Plan::Juicer,
+            "bos" => Plan::Bos,
             "haz_spectacular" => Plan::HazSpectacular,
             "haz_tactical" => Plan::HazTactical,
             "hoarder" => Plan::Hoarder,
@@ -425,7 +432,7 @@ impl RoomPilot {
             }
             other => {
                 return Err(format!(
-                    "unknown --room-pilot plan {other:?} (expected direct, valve, chain, mastery, juicer, hoarder, corral, corral_rush, corral_partition, haz_spectacular or haz_tactical, optionally :2p, or mastery|juicer|hazards|corral:WHO:SEED, hoarder:carl_solo:SEED, or boiler:WHO:direct|both:SEED)"
+                    "unknown --room-pilot plan {other:?} (expected direct, valve, chain, mastery, juicer, bos, hoarder, corral, corral_rush, corral_partition, haz_spectacular or haz_tactical, optionally :2p, or mastery|juicer|hazards|corral:WHO:SEED, hoarder:carl_solo:SEED, or boiler:WHO:direct|both:SEED)"
                 ));
             }
         };
@@ -497,6 +504,13 @@ impl RoomPilot {
             Plan::Mastery => crate::f01_mastery_fixtures::arena_pilot(combat, sim, HeroId::Carl),
             Plan::Juicer => crate::boss_scene::pilot_inputs(
                 Pilot::Carl,
+                [RawInput::NONE; 2],
+                sim.world.tick + 1,
+                combat,
+                sim,
+            )[0],
+            Plan::Bos => crate::boss_scene::pilot_inputs(
+                Pilot::CarlBait,
                 [RawInput::NONE; 2],
                 sim.world.tick + 1,
                 combat,

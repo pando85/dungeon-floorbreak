@@ -180,6 +180,10 @@ fn story_setup(
         SceneKind::CfArena
     } else if reset.demo || reset.source == "demo" {
         SceneKind::Demo
+    } else if boss && reset.name == crate::boss_scene::BALL01_SCENE.name {
+        // BOS-AD33: the Ball's room (the `F01Late` label of the mastery pin),
+        // by the rule of `story_setup` in `floor01_scene`.
+        return crate::boss_scene::ball_story_setup(carl, donut);
     } else if boss {
         SceneKind::Boss
     } else {
@@ -321,6 +325,10 @@ fn rebuild_scene(manifest: &SessionManifest, root: &Path) -> Result<Reset, Verif
             } else if reset.demo || reset.source == "demo" {
                 let kit = crate::demo::load_hall(root).map_err(unsupported)?;
                 (kit, crate::demo::fixture_for_beat(reset.demo_beat as usize))
+            } else if boss && reset.name == crate::boss_scene::BALL01_SCENE.name {
+                // BOS-AD33: the Ball's room, its own arena and fixture.
+                let kit = crate::boss_scene::load_ball_arena(root).map_err(unsupported)?;
+                (kit, crate::boss_scene::BALL01_SCENE)
             } else if boss {
                 let kit = crate::boss_scene::load_arena(root).map_err(unsupported)?;
                 (kit, crate::boss_scene::BOSS01_SCENE)
@@ -348,7 +356,7 @@ fn rebuild_scene(manifest: &SessionManifest, root: &Path) -> Result<Reset, Verif
 /// PT-SCENE: the room label is bound to the session source. Only a Boiler,
 /// Hoarder or hazard-room session (source `f01_room`, the room and its own
 /// fixture name: `boiler` / `f01_boiler`, `hoarder` / `f01_hoarder`, `hazards` /
-/// `f01_hazards`) and a Juicer session (source `boss`, room `juicer`, the boss
+/// `f01_hazards`) and a Juicer or Ball session (source `boss`, room `juicer` or `bos`, the boss
 /// scene's fixture) may carry a room, and the `f01_room` source needs one. A `--cf02`, `demo`, `fixture`,
 /// party-fixture, story or lab session that claims a room is another run
 /// wearing a label.
@@ -401,6 +409,8 @@ pub(super) fn check_f01_source(
             Ok(())
         }
         ("boss", Some("juicer")) if reset.name == crate::boss_scene::BOSS01_SCENE.name => Ok(()),
+        // BOS-AD33: the Ball's room (room 18).
+        ("boss", Some("bos")) if reset.name == crate::boss_scene::BALL01_SCENE.name => Ok(()),
         (crate::f01_late::SESSION_SOURCE, _) => Err(bad(
             "the f01_room source replays the Act I rooms, corral, refuge, camp, aftermath, boiler, hoarder, dozer, hazards, ring, troglodyte and mastery rooms only"
                 .to_owned(),

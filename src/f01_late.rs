@@ -53,7 +53,7 @@ pub const MANIFEST_PATH: &str = "assets/levels/f01_late/manifest.json";
 /// hash is a constant, pinned to the file by a test and compared by every
 /// replay of a recorded room. A step that lists a room (CORRAL-WIRE, RING-A
 /// wire, HRD-A2, CORRAL-F, DR-A, ...) re-pins it on purpose.
-pub const MANIFEST_HASH: u64 = 0x69da_957f_05d9_2834;
+pub const MANIFEST_HASH: u64 = 0xe93d_fd1c_84ba_336d;
 /// The fixture-only stub trigger the story-order tie skips by name.
 pub const STUB_TRIGGER: &str = "carl_prog_find_zone_stub";
 /// The `data_pins()` key.
@@ -198,6 +198,11 @@ pub enum RoomScene {
     /// `--scene boss_f01` (the Juicer).
     #[serde(rename = "boss_f01")]
     Boss,
+    /// BOS-AD11: `--scene f01_ball` (room 18, the Ball of Swine, `rolling_boss_f01`).
+    /// A scene of its own, never `Boss`: TROG-R1 finds the Juicer through
+    /// `scene == Boss`, and a second `Boss` room would break that rule.
+    #[serde(rename = "f01_ball")]
+    Ball,
     /// `--scene f01_hoarder` (HRD-A2b).
     #[serde(rename = "f01_hoarder")]
     Hoarder,
@@ -262,6 +267,7 @@ impl RoomScene {
         match self {
             Self::Boiler => "f01_boiler",
             Self::Boss => "boss_f01",
+            Self::Ball => "f01_ball",
             Self::Hoarder => "f01_hoarder",
             Self::Dozer => f01_dozer::SCENE_NAME,
             Self::Hazards => "f01_hazards",
@@ -678,7 +684,7 @@ fn check_rules(row: &RoomRow) -> Result<(), String> {
         | RoomScene::TrogRun
         | RoomScene::TrogStrength
         | RoomScene::Corral => row.rules == RoomRules::Cf02,
-        RoomScene::Boss => row.rules == RoomRules::Boss,
+        RoomScene::Boss | RoomScene::Ball => row.rules == RoomRules::Boss,
     };
     if !rules_ok {
         return Err(format!(
@@ -1183,9 +1189,29 @@ mod tests {
                 "trog_strength",
                 "juicer",
                 "rest_aftermath",
-                "mastery"
+                "mastery",
+                "bos"
             ]
         );
+        // BOS-A: the Ball of Swine is listed last, after the mastery arena, under the
+        // boss rules on its own scene (BOS-AD11); its story row is the mastery pin, no grant.
+        let bos = m.room("bos").unwrap();
+        assert_eq!(bos.scene, RoomScene::Ball);
+        assert_eq!(
+            (bos.rules, bos.milestone.as_str()),
+            (RoomRules::Boss, "greybox")
+        );
+        assert_eq!(bos.title, "The Ball of Swine");
+        assert_eq!(m.pins_of("bos"), ["f01_late_mastery"]);
+        assert!(
+            m.story_order
+                .iter()
+                .find(|o| o.id == "bos")
+                .unwrap()
+                .grants
+                .is_empty()
+        );
+        assert_eq!(m.listed().len(), 18);
         // REST-WIRE (REST-A): the refuge is listed right after the corral at milestone
         // `greybox`, under the CF02 rules, on its own scene.
         let refuge = m.room("rest_refuge").unwrap();
@@ -1403,7 +1429,7 @@ mod tests {
         assert!(unknown.starts_with("unknown room"), "{unknown}");
         assert!(
             unknown.contains(
-                "corral, rest_refuge, hoarder, boiler, dozer, hazards, ring_court, ring_split, rest_camp, trog_run, trog_strength, juicer, rest_aftermath, mastery"
+                "corral, rest_refuge, hoarder, boiler, dozer, hazards, ring_court, ring_split, rest_camp, trog_run, trog_strength, juicer, rest_aftermath, mastery, bos"
             ),
             "{unknown}"
         );
@@ -1414,7 +1440,7 @@ mod tests {
         assert!(unlisted.starts_with("unlisted room"), "{unlisted}");
         assert!(
             unlisted.contains(
-                "corral, rest_refuge, hoarder, boiler, dozer, hazards, ring_court, ring_split, rest_camp, trog_run, trog_strength, juicer, rest_aftermath, mastery"
+                "corral, rest_refuge, hoarder, boiler, dozer, hazards, ring_court, ring_split, rest_camp, trog_run, trog_strength, juicer, rest_aftermath, mastery, bos"
             ),
             "{unlisted}"
         );
@@ -1643,7 +1669,8 @@ mod tests {
                 "trog_strength",
                 "juicer",
                 "rest_aftermath",
-                "mastery"
+                "mastery",
+                "bos"
             ]
         );
         let order: Vec<&str> = m.story_order.iter().map(|o| o.id.as_str()).collect();

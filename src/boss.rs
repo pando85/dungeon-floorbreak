@@ -31,6 +31,7 @@ pub const BOSS_SOURCE_ID: u32 = 0x4255;
 /// The rack's source id in [`CombatEvent::HeroHurt`] (the falling stack).
 pub const RACK_SOURCE_ID: u32 = 0x5241;
 const BUILTIN_JSON: &str = include_str!("../assets/data/bosses/brute_boss_f01.json");
+const BALL_JSON: &str = include_str!("../assets/data/bosses/ball_boss_f01.json");
 const TICK: f32 = 1.0 / 60.0;
 
 // -------------------------------------------------------------------- data --
@@ -183,6 +184,18 @@ pub struct ArenaData {
     pub boss_spawn_x: f32,
     pub boss_spawn_facing: i8,
     pub walk_margin_px: f32,
+    /// BOS-AD15: where the heroes' right wall and the floor exit stand, when it
+    /// is not the boss' own right wall (the Ball's alcove lies between). Absent
+    /// on the Juicer, whose wall is `right_wall_x`.
+    #[serde(default)]
+    pub hero_right_wall_x: Option<f32>,
+}
+
+impl ArenaData {
+    /// The x of the heroes' right wall and the exit (BOS-AD15).
+    pub fn hero_right_wall(&self) -> f32 {
+        self.hero_right_wall_x.unwrap_or(self.right_wall_x)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
@@ -208,7 +221,42 @@ pub struct PhaseData {
 #[serde(deny_unknown_fields)]
 pub struct HudData {
     pub display_name: String,
+    /// The strip's emblem key. Absent (BOS-AD31) draws the generic plate: the
+    /// Juicer's emblem must not show on another boss.
+    #[serde(default)]
     pub emblem: String,
+}
+
+fn default_alcove_gap_px() -> f32 {
+    18.0
+}
+
+/// BOS-AD20: the siege rule against alcove camping (section 6.4 of the plan).
+/// Absent on the Juicer: its reachability, state and hashes are unchanged.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SiegeData {
+    /// Ticks without a reachable hero before the ball turns to the alcove.
+    pub warn_ticks: u16,
+    /// Ticks without a reachable hero before the siege roll commits.
+    pub after_ticks: u16,
+    /// Damage to every hero in the sieged alcove when the siege roll crashes.
+    pub debris_damage: u8,
+    /// Launch (`vx`, `vy`) of that debris.
+    pub debris_launch: [f32; 2],
+    /// The gap between an arch and its alcove (BOS-AD25): a hero is in the
+    /// left alcove at pivot `left_wall_x - alcove_gap_px` and below, in the
+    /// right one at `right_wall_x + alcove_gap_px` and above.
+    #[serde(default = "default_alcove_gap_px")]
+    pub alcove_gap_px: f32,
+    /// The notice text shown while the ball warns (BOS-Q8, a placeholder).
+    #[serde(default)]
+    pub notice: String,
+    /// BOS-Q11: in solo, the counter treats the AI hero as unreachable while the
+    /// player-controlled hero is in an alcove, so the bot cannot be an
+    /// unkillable decoy. Off unless the solo gate rows fail without it.
+    #[serde(default)]
+    pub ignore_bot_decoy: bool,
 }
 
 /// Every tunable of the encounter (design section 6).
@@ -241,6 +289,10 @@ pub struct BossData {
     pub ai_charge_jump_lead: u16,
     pub exit_slide_delay: u16,
     pub hud: HudData,
+    /// BOS-AD20: the siege rule. `None` (the Juicer) leaves every behaviour and
+    /// every hash as they were.
+    #[serde(default)]
+    pub siege: Option<SiegeData>,
 }
 
 impl BossData {
@@ -293,6 +345,16 @@ impl BossData {
         if self.arena.left_wall_x >= self.arena.right_wall_x {
             return Err("boss data: arena walls are out of order".to_owned());
         }
+        if self.arena.hero_right_wall() < self.arena.right_wall_x {
+            return Err("boss data: hero_right_wall_x lies inside the boss' right wall".to_owned());
+        }
+        if let Some(siege) = &self.siege
+            && !(siege.warn_ticks > 0 && siege.after_ticks > siege.warn_ticks)
+        {
+            return Err(
+                "boss data: siege warn_ticks must be above 0 and below after_ticks".to_owned(),
+            );
+        }
         Ok(())
     }
 
@@ -316,6 +378,18 @@ impl BossData {
 
 static BUILTIN: OnceLock<BossData> = OnceLock::new();
 static NO_RACKS: OnceLock<BossData> = OnceLock::new();
+static BALL: OnceLock<BossData> = OnceLock::new();
+static BALL_NO_RACKS: OnceLock<BossData> = OnceLock::new();
+
+/// Which data file the encounter runs on (BOS-AD2: one framework, two data
+/// files). The names are engine-neutral; the fan-concept names are data.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BossKind {
+    /// `brute_boss_f01`, room 5 (frozen).
+    Juicer,
+    /// `rolling_boss_f01`, room 18.
+    Ball,
+}
 
 /// How a fixture sets the encounter up (`Fixture::boss`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -325,16 +399,22 @@ pub struct BossSetup {
     /// The left rack is on (the data default). Off proves a fight winnable
     /// without racks: the strut is not there to hit.
     pub left_rack: bool,
+    /// The data file the boss runs on.
+    pub kind: BossKind,
 }
 
 impl BossSetup {
     /// A fresh boss for this setup on a floor at `floor_y`.
     pub fn boss(self, floor_y: f32) -> Boss {
+        let (base, cell) = match self.kind {
+            BossKind::Juicer => (builtin(), &NO_RACKS),
+            BossKind::Ball => (ball(), &BALL_NO_RACKS),
+        };
         let data = if self.left_rack {
-            builtin()
+            base
         } else {
-            NO_RACKS.get_or_init(|| {
-                let mut data = builtin().clone();
+            cell.get_or_init(|| {
+                let mut data = base.clone();
                 data.rack.left.enabled = false;
                 data
             })
@@ -343,6 +423,24 @@ impl BossSetup {
         boss.hp = boss.hp.min(self.hp);
         boss
     }
+}
+
+/// The Ball's data with BOS-Q11 forced `on` or off, whatever the committed file
+/// says (the evaluator's switch; the committed value is [`ball`]'s).
+pub fn ball_with_decoy_rule(on: bool) -> &'static BossData {
+    static VARIANTS: [OnceLock<BossData>; 2] = [OnceLock::new(), OnceLock::new()];
+    VARIANTS[usize::from(on)].get_or_init(|| {
+        let mut data = ball().clone();
+        if let Some(siege) = data.siege.as_mut() {
+            siege.ignore_bot_decoy = on;
+        }
+        data
+    })
+}
+
+/// The committed `rolling_boss_f01` data (the Ball, room 18), parsed once.
+pub fn ball() -> &'static BossData {
+    BALL.get_or_init(|| BossData::parse(BALL_JSON).expect("ball_boss_f01.json is valid"))
 }
 
 /// The committed `brute_boss_f01` data, parsed once. A malformed file is a
@@ -627,6 +725,12 @@ pub struct Boss {
     /// (solo regroup), and the player credited with the pin.
     pin_credit: u32,
     pub defeated_cause_rack: bool,
+    /// BOS-AD20: ticks in Neutral or Turn without a reachable hero. Hashed only
+    /// when `data.siege` is Some.
+    unreachable_ticks: u16,
+    /// BOS-AD20: the running or telegraphed roll is a siege roll. Hashed only
+    /// when `data.siege` is Some.
+    siege_roll: bool,
 }
 
 impl Boss {
@@ -668,6 +772,8 @@ impl Boss {
             gate: Gate::Open { crossed: None },
             pin_credit: 0,
             defeated_cause_rack: false,
+            unreachable_ticks: 0,
+            siege_roll: false,
         }
     }
 
@@ -1080,6 +1186,14 @@ impl Boss {
         if mode == BossMode::ChargeTell {
             self.charge_started = self.clock;
         }
+        // A siege roll ends in its crash: any other way out of the roll (a
+        // weight that pins the ball in the tell) drops the flag.
+        if !matches!(
+            mode,
+            BossMode::ChargeTell | BossMode::Charge | BossMode::Rebound
+        ) {
+            self.siege_roll = false;
+        }
     }
 
     /// The hero (if any) the boss may target: present and not out of reach
@@ -1093,7 +1207,81 @@ impl Boss {
             && hero.x >= right.ledge_x[0]
             && hero.x <= right.ledge_x[1]
             && hero.foot_y >= self.floor_y + right.ledge_height_px - 1.0;
-        !on_ledge
+        // BOS-AD18: a hero in an alcove is out of the ball's reach, but only
+        // when the encounter has a siege rule (the Juicer has none).
+        !on_ledge && self.alcove_side(hero.x).is_none()
+    }
+
+    /// BOS-AD25: the alcove (-1 left, +1 right) a hero at pivot `x` is in, only
+    /// when the encounter has a siege rule. The 18 px gap to the arch absorbs
+    /// the last charge tick's ram overreach.
+    fn alcove_side(&self, x: f32) -> Option<i8> {
+        let siege = self.data.siege.as_ref()?;
+        let arena = &self.data.arena;
+        if x <= arena.left_wall_x - siege.alcove_gap_px {
+            Some(-1)
+        } else if x >= arena.right_wall_x + siege.alcove_gap_px {
+            Some(1)
+        } else {
+            None
+        }
+    }
+
+    /// BOS-AD20: the siege warning is up (the ball has stopped and turned to the
+    /// alcove, and a hero who steps out now cancels the siege). Presentation
+    /// reads it for the notice; it is a function of the hashed counter.
+    pub fn siege_warning(&self) -> bool {
+        self.data.siege.as_ref().is_some_and(|s| {
+            self.unreachable_ticks >= s.warn_ticks
+                && matches!(self.mode, BossMode::Neutral | BossMode::Turn)
+        })
+    }
+
+    /// BOS-AD20: the siege counter (ticks in Neutral or Turn without a reachable
+    /// hero); 0 when the encounter has no siege rule.
+    pub fn unreachable_ticks(&self) -> u16 {
+        self.unreachable_ticks
+    }
+
+    /// The running or telegraphed roll is a siege roll (BOS-AD20).
+    pub fn siege_roll(&self) -> bool {
+        self.siege_roll
+    }
+
+    /// BOS-AD20: the siege counter, once per tick. A reachable hero resets it;
+    /// otherwise it counts while the ball is in Neutral or Turn (turn ticks
+    /// count). BOS-Q11 (data): in solo the AI hero does not count as reachable
+    /// while the player's hero is in an alcove.
+    fn siege_count(&mut self, ctx: &BossCtx) {
+        let Some(siege) = self.data.siege.as_ref() else {
+            return;
+        };
+        let present: Vec<&HeroView> = ctx.heroes.iter().filter(|h| h.present).collect();
+        let player_hides = present
+            .iter()
+            .any(|h| !h.bot && self.alcove_side(h.x).is_some());
+        let any_reachable = present.iter().any(|h| {
+            self.reachable(h) && !(siege.ignore_bot_decoy && ctx.solo && h.bot && player_hides)
+        });
+        if present.is_empty() || any_reachable {
+            self.unreachable_ticks = 0;
+        } else if matches!(self.mode, BossMode::Neutral | BossMode::Turn) {
+            self.unreachable_ticks = self.unreachable_ticks.saturating_add(1);
+        }
+    }
+
+    /// BOS-AD20: the alcove the siege turns to: the one holding the hero
+    /// nearest to the ball by pivot distance, a tie going left.
+    fn siege_side(&self, ctx: &BossCtx) -> Option<i8> {
+        ctx.heroes
+            .iter()
+            .filter(|h| h.present)
+            .filter_map(|h| {
+                self.alcove_side(h.x)
+                    .map(|side| ((h.x - self.x).abs(), side))
+            })
+            .min_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)))
+            .map(|(_, side)| side)
     }
 
     /// Q3 B: the nearest reachable hero, with hysteresis and the solo bias.
@@ -1149,6 +1337,7 @@ impl Boss {
             self.hit_stop -= 1;
         } else {
             self.cooldown = self.cooldown.saturating_sub(1);
+            self.siege_count(ctx);
             self.step_mode(ctx, &mut out);
         }
         self.push_heroes(ctx, &mut out);
@@ -1495,6 +1684,9 @@ impl Boss {
             self.start_roar(ctx, out);
             return;
         }
+        if d.siege.is_some() && self.siege_step(ctx, out) {
+            return;
+        }
         let Some(target) = self.target_view(ctx).copied() else {
             // Nobody reachable: walk to the centre and growl.
             let centre = d.arena.centre_x;
@@ -1538,6 +1730,47 @@ impl Boss {
         if ahead > d.pound.range_px[1] {
             self.x = self.clamp_walk(self.x + f32::from(self.facing) * d.walk_px_s * TICK);
         }
+    }
+
+    /// BOS-AD20, BOS-AD27: the siege in Neutral. At the warning the ball stops
+    /// where it stands and turns to the alcove; at the commit it starts a normal
+    /// roll tell (heading locked) flagged as a siege roll, bypassing the
+    /// distance, room and cooldown guards. Returns true when it took the tick.
+    fn siege_step(&mut self, ctx: &BossCtx, out: &mut BossOut) -> bool {
+        let Some(siege) = self.data.siege.as_ref() else {
+            return false;
+        };
+        if self.unreachable_ticks < siege.warn_ticks {
+            return false;
+        }
+        let (warn_done, commit_at) = (siege.warn_ticks, siege.after_ticks);
+        debug_assert!(warn_done > 0);
+        let Some(side) = self.siege_side(ctx) else {
+            return false;
+        };
+        if side != self.facing {
+            self.enter(BossMode::Turn);
+            return true;
+        }
+        if self.unreachable_ticks >= commit_at {
+            let d = self.data;
+            self.cooldown = self.by_phase(d.charge.cooldown_by_phase);
+            self.siege_roll = true;
+            self.enter(BossMode::ChargeTell);
+            let target = ctx
+                .heroes
+                .iter()
+                .filter(|h| h.present && self.alcove_side(h.x) == Some(side))
+                .map(|h| h.id)
+                .next()
+                .unwrap_or(HeroId::Carl);
+            out.events.push(CombatEvent::BossTell {
+                tick: ctx.tick,
+                mv: BossMove::Charge,
+                target,
+            });
+        }
+        true
     }
 
     fn pound_strike(&mut self, ctx: &BossCtx, out: &mut BossOut) {
@@ -1619,6 +1852,36 @@ impl Boss {
                 tick: ctx.tick,
                 wall: dir,
             });
+            if self.siege_roll {
+                self.siege_debris(ctx, dir, out);
+            }
+        }
+    }
+
+    /// BOS-AD20: a siege crash drops debris on every hero in the sieged alcove
+    /// (a bait crash never does). The counter and the flag reset.
+    fn siege_debris(&mut self, ctx: &BossCtx, dir: i8, out: &mut BossOut) {
+        self.siege_roll = false;
+        self.unreachable_ticks = 0;
+        let Some(siege) = self.data.siege.as_ref() else {
+            return;
+        };
+        let wall = if dir > 0 {
+            self.data.arena.right_wall_x
+        } else {
+            self.data.arena.left_wall_x
+        };
+        for hero in ctx.heroes.iter().filter(|h| h.present && h.vulnerable) {
+            if self.alcove_side(hero.x) == Some(dir) {
+                out.blows.push(HeroBlow {
+                    hero: hero.id,
+                    source: BOSS_SOURCE_ID,
+                    damage: siege.debris_damage,
+                    from_x: wall,
+                    knock_vx: siege.debris_launch[0],
+                    knock_vy: siege.debris_launch[1],
+                });
+            }
         }
     }
 
@@ -1717,6 +1980,12 @@ impl Boss {
             Gate::Released => mix(6),
         }
         mix(u64::from(self.defeated_cause_rack));
+        // BOS-AD20: the siege state is hashed only with the siege rule, so the
+        // Juicer's hashes do not move.
+        if self.data.siege.is_some() {
+            mix(u64::from(self.unreachable_ticks));
+            mix(u64::from(self.siege_roll));
+        }
     }
 }
 
