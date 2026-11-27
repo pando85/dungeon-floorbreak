@@ -63,11 +63,11 @@ xvfb-run -a -s '-screen 0 1920x1080x24' floor01_scene --no-audio --no-record --s
 
   | Gated still | Troglodyte | actor L* | edge_dL | Dressing in view, lit mean L* |
   | --- | --- | --- | --- | --- |
-  | `strength_open` | Virtuoso | 25.7 | 21.0 | shelf face 20.2..22.5 |
-  | `strength_bench_beside` | Basher | 32.6 | 18.9 | bench 19.9, shards 11.9, threshold 18.1, rack 20.7, girders 17.0..19.5, mats 21.4..23.6, shelf face 19.8..22.4 |
-  | `strength_bench_climb` | Basher | 32.5 | 19.6 | bench 19.2, shards 11.9, threshold 17.5, rack 20.9, plate tree 13.1, girders 15.3..19.5, mats 19.1..22.3 |
+  | `strength_open` | Virtuoso | 25.6 | 20.8 | shelf face 17.0..18.6 |
+  | `strength_bench_beside` | Basher | 32.6 | 18.9 | bench 19.9, shards 11.9, threshold 18.1, rack 20.7, girders 17.0..19.5, mats 21.4..23.6, shelf face 16.6..18.0 |
+  | `strength_bench_climb` | Basher | 32.5 | 19.6 | bench 19.2, shards 11.9, threshold 17.5, rack 20.9, plate tree 13.1, girders 15.3..19.5, mats 19.1..22.3, shelf face 17.0..18.7 |
 
-  The thinnest margin is the shelf's mid against the Virtuoso (22.5 against 25.7 in `strength_open`, 3.2 L*). The bench is at 19.2..19.9, well under the Basher, the Virtuoso and the shelf, so the torch removed above it (gate note G1) cost no read. The downed Virtuoso is not counted (it is `down`). Carl is not gated.
+  The thinnest margin is the shelf's mid against the Virtuoso (18.6 against 25.6 in `strength_open`, 7.0 L*; it was 3.2 L* before the torch above the shelf was removed, TROG-ART-AD-S7). The bench is at 19.2..19.9, well under the Basher (32.5) and the Virtuoso (25.6), so the torches removed above it and above the shelf (G1, AD-S7) cost no read. The downed Virtuoso is not counted (it is `down`). Carl is not gated.
 - **TROG-ART-A13:** all 23 placed `trog_*` pieces (15 in the run, 8 in the strength room) are 100 % visible behind the architecture, and no backwall decal pixel is over a null tile; with the props in front the shards are 96.7 % visible (the rack) and everything else 100 %.
 - **The keys:** the sixteen key pins in `measurements.txt` equal `gate/measurements.txt`; `tests/test_art_trogarea01.py` holds them and the eight key grids byte-identical. The weakened, broken and debris keys stay pinned and are not packed (TROG-Q14).
 

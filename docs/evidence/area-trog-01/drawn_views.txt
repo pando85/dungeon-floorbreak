@@ -11,10 +11,10 @@ t0_spawn 0 292 trimmed_abs_err=0.54 torch_flames=5 mean_offset=+1.37px max_abs=4
 virtuoso_dormant 1623 228 trimmed_abs_err=0.36 torch_flames=3 mean_offset=+0.29px max_abs=0.44px
 virtuoso_lash 1664 292 trimmed_abs_err=0.38 torch_flames=3 mean_offset=+0.31px max_abs=0.41px
 virtuoso_tell 1664 292 trimmed_abs_err=0.49 torch_flames=3 mean_offset=+0.29px max_abs=0.44px
-strength_basher_smash 375 292 trimmed_abs_err=0.71 torch_flames=2 mean_offset=+0.35px max_abs=0.53px
+strength_basher_smash 375 292 trimmed_abs_err=0.72 torch_flames=2 mean_offset=+0.35px max_abs=0.53px
 strength_basher_tell 375 292 trimmed_abs_err=0.37 torch_flames=2 mean_offset=+0.36px max_abs=0.56px
-strength_bench_beside 231 292 trimmed_abs_err=0.77 torch_flames=5 mean_offset=+1.38px max_abs=4.53px
-strength_bench_climb 318 292 trimmed_abs_err=0.47 torch_flames=4 mean_offset=+0.60px max_abs=1.62px
-strength_exit_open 384 292 trimmed_abs_err=0.70 torch_flames=2 mean_offset=+0.31px max_abs=0.33px
-strength_open 0 292 trimmed_abs_err=0.38 torch_flames=5 mean_offset=+1.28px max_abs=3.69px
-strength_virtuoso_tell 78 292 trimmed_abs_err=0.60 torch_flames=4 mean_offset=+1.67px max_abs=4.36px
+strength_bench_beside 231 292 trimmed_abs_err=0.94 torch_flames=4 mean_offset=+0.34px max_abs=0.56px
+strength_bench_climb 318 292 trimmed_abs_err=0.47 torch_flames=3 mean_offset=+0.33px max_abs=0.56px
+strength_exit_open 384 292 trimmed_abs_err=0.72 torch_flames=2 mean_offset=+0.31px max_abs=0.33px
+strength_open 0 292 trimmed_abs_err=0.37 torch_flames=4 mean_offset=+0.40px max_abs=0.56px
+strength_virtuoso_tell 78 292 trimmed_abs_err=0.65 torch_flames=3 mean_offset=+0.28px max_abs=0.53px
