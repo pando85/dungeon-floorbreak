@@ -205,6 +205,25 @@ impl RoomRig {
                 combat,
                 room_party(),
             )
+        } else if room == "bos" {
+            // BOS-AD33: the Ball's room: source `boss`, its own fixture, the `F01Late`
+            // label of the mastery pin.
+            let kit = crate::boss_scene::load_ball_arena(&root()).expect("the Ball arena");
+            let fixture = crate::boss_scene::BALL01_SCENE;
+            let scene = SceneSim::new_at(&kit, 360, fixture.carl_x).unwrap();
+            let combat = CombatState::new(fixture, &kit, &scene)
+                .unwrap()
+                .with_donut(DonutSetup::unlocked(8))
+                .try_with_story(crate::boss_scene::ball_story_setup(carl, donut))
+                .unwrap();
+            (
+                "boss",
+                fixture.name,
+                false,
+                scene,
+                combat,
+                PartyState::new(PROVISIONAL_TUNING),
+            )
         } else {
             let kit = crate::boss_scene::load_arena(&root()).expect("the boss arena");
             let fixture = crate::boss_scene::BOSS01_SCENE;
@@ -239,7 +258,7 @@ impl RoomRig {
             cf02_rules: cf02,
             cf02_seed: seed,
             view_height: view_h,
-            donut_biscuit: room != "juicer" || donut.implies_biscuit(),
+            donut_biscuit: !matches!(room, "juicer" | "bos") || donut.implies_biscuit(),
             carl_prog: carl.prog,
             carl_dynamite: carl.dynamite,
             carl_gauntlet: carl.gauntlet,
@@ -1439,6 +1458,90 @@ fn a_recorded_juicer_session_verifies_under_both_loadouts() {
     }
 }
 
+/// BOS-A evidence helper (ignored): records the Ball's siege (Carl runs in so the gate
+/// closes, then hides in the left alcove with the bot behind him) as a PLAYTRACE session
+/// under `$BOS_EVIDENCE_DIR`, and prints the session id and the ticks of the siege warning,
+/// the commit and the crash, for the replay-viewer window captures of `docs/evidence/bos-a`.
+#[test]
+#[ignore = "evidence helper: writes a Ball siege session to $BOS_EVIDENCE_DIR"]
+fn print_the_bos_siege_session() {
+    let base = PathBuf::from(std::env::var("BOS_EVIDENCE_DIR").expect("BOS_EVIDENCE_DIR"));
+    std::fs::create_dir_all(&base).unwrap();
+    let mut rig = RoomRig::start(&base, "bos", Loadout::Story);
+    let (mut warn, mut commit, mut crash) = (None, None, None);
+    let mut tell = None;
+    for tick in 1..=560u64 {
+        let x = rig.scene.world.hero.x;
+        let closed = rig.combat.boss.as_ref().unwrap().gate_closed();
+        let move_x = if !closed {
+            if x < 150.0 { 1.0 } else { 0.0 }
+        } else if x > 50.0 {
+            -1.0
+        } else {
+            0.0
+        };
+        rig.step(RawInput {
+            move_x,
+            ..RawInput::NONE
+        });
+        let boss = rig.combat.boss.as_ref().unwrap();
+        if tell.is_none() && boss.mode == crate::boss::BossMode::ChargeTell {
+            tell = Some(tick);
+        }
+        if warn.is_none() && boss.siege_warning() {
+            warn = Some(tick);
+        }
+        if commit.is_none() && boss.siege_roll() {
+            commit = Some(tick);
+        }
+        if crash.is_none() && boss.mode == crate::boss::BossMode::Rebound {
+            crash = Some(tick);
+        }
+    }
+    let manifest = rig.rec.finish("test").expect("finished");
+    println!(
+        "BOS_SIEGE_SESSION id={} first_tell={tell:?} warning={warn:?} commit={commit:?} first_crash={crash:?}",
+        manifest.session_id
+    );
+}
+
+/// BOS-A F18: a recorded Ball session (room 18) round-trips: the verifier
+/// rebuilds the Ball's arena, fixture and story (the `F01Late` mastery pin) from
+/// the descriptor and replays it tick for tick; the label is bound to the Ball's
+/// own fixture and the loadout to the flags.
+#[test]
+fn a_recorded_bos_session_verifies_under_both_loadouts() {
+    for loadout in [Loadout::Story, Loadout::All] {
+        let (_dir, session) = record("f01-bos", "bos", loadout, 700);
+        let loaded = read_session(&session, false).expect("the session reads");
+        assert_eq!(loaded.manifest.reset.source, "boss");
+        assert_eq!(loaded.manifest.reset.f01_room.as_deref(), Some("bos"));
+        assert_eq!(
+            loaded.manifest.reset.name,
+            crate::boss_scene::BALL01_SCENE.name
+        );
+        let report = verify(&session).unwrap_or_else(|e| panic!("{}: {e}", loadout.name()));
+        assert_eq!(report.ticks, 700, "{}", loadout.name());
+        let other = if loadout == Loadout::Story {
+            "all"
+        } else {
+            "story"
+        };
+        tamper_manifest(&session, |m| m.reset.f01_loadout = Some(other.into()));
+        let failure = verify(&session).expect_err("a relabelled loadout is another run");
+        assert_eq!(failure.code, "rules_mismatch", "{failure}");
+        // The Juicer's fixture name cannot carry the Ball's room label.
+        tamper_manifest(&session, |m| {
+            m.reset.f01_loadout = Some(loadout.name().into());
+            m.reset.name = crate::boss_scene::BOSS01_SCENE.name.to_owned();
+        });
+        assert!(
+            verify(&session).is_err(),
+            "a Ball session under the Juicer's name"
+        );
+    }
+}
+
 #[test]
 fn a_boiler_session_under_the_all_loadout_verifies() {
     let (_dir, session) = record("f01-boiler-all", "boiler", Loadout::All, 600);
@@ -1597,6 +1700,7 @@ fn a_session_of_another_source_cannot_claim_a_room() {
         (Some("ring_split"), None),
         (Some("corral"), None),
         (Some("juicer"), None),
+        (Some("bos"), None),
         (Some("boiler"), Some("story")),
         (Some("juicer"), Some("all")),
         (None, Some("story")),
@@ -1638,6 +1742,12 @@ fn only_the_listed_rooms_sessions_may_carry_their_own_room() {
         Some("story")
     )));
     assert!(ok(&reset("boss", boss_name, Some("juicer"), None)));
+    // BOS-AD33: the Ball's room wears its own fixture only; the Juicer's fixture
+    // cannot wear it and the Ball's cannot wear the Juicer's.
+    let ball_name = crate::boss_scene::BALL01_SCENE.name;
+    assert!(ok(&reset("boss", ball_name, Some("bos"), None)));
+    assert!(!ok(&reset("boss", boss_name, Some("bos"), None)));
+    assert!(!ok(&reset("boss", ball_name, Some("juicer"), None)));
     // HRD-A2b and HAZ-A2b: the two rooms on their own fixtures only.
     for (room, name) in [
         ("hoarder", "f01_hoarder"),
@@ -1673,6 +1783,7 @@ fn only_the_listed_rooms_sessions_may_carry_their_own_room() {
         )));
         assert!(!ok(&reset("demo", name, Some(room), None)));
         assert!(!ok(&reset("boss", boss_name, Some(room), None)));
+        assert!(!ok(&reset("boss", ball_name, Some(room), None)));
     }
     for source in ["demo", "fixture", "boss", "story", "party_fixture"] {
         assert!(ok(&reset(source, "x", None, None)), "{source} unlabelled");
@@ -1694,6 +1805,7 @@ fn only_the_listed_rooms_sessions_may_carry_their_own_room() {
             "act1_shore",
             "act1_guild",
             "juicer",
+            "bos",
         ] {
             assert!(
                 !ok(&reset(source, "x", Some(room), None)),

@@ -14,7 +14,7 @@
 
 use std::path::Path;
 
-use crate::boss::{Boss, BossMode, BossSetup, builtin};
+use crate::boss::{Boss, BossData, BossKind, BossMode, BossSetup, ball, builtin};
 use crate::camera_lab::room::parse_rooms;
 use crate::combat_scene::{CombatState, Fixture};
 use crate::corridor::SceneSim;
@@ -40,16 +40,24 @@ const WALL_H: f32 = 400.0;
 /// AREA-GYM-01: the room is drawn with the gym dressing (`crate::gym_kit`), which
 /// is presentation only (same solids, spawn, exit, views and walking line).
 pub fn load_arena(root: &Path) -> Result<EnvKit, String> {
-    arena(root, true)
+    arena(root, true, builtin())
+}
+
+/// The Ball's arena (room 18, BOS-AD3): the locked 640 px boss arena, plain
+/// catacomb (undressed), with the hero wall and the exit at the data's
+/// `hero_right_wall_x`. Presentation draws the greybox arches over it; they have
+/// no collider (BOS-AD14).
+pub fn load_ball_arena(root: &Path) -> Result<EnvKit, String> {
+    arena(root, false, ball())
 }
 
 /// The arena without the gym dressing (the plain catacomb composition): the
 /// reference the presentation-only tests compare [`load_arena`] with.
 pub fn load_arena_undressed(root: &Path) -> Result<EnvKit, String> {
-    arena(root, false)
+    arena(root, false, builtin())
 }
 
-fn arena(root: &Path, dressed: bool) -> Result<EnvKit, String> {
+fn arena(root: &Path, dressed: bool, data: &BossData) -> Result<EnvKit, String> {
     let path = root.join(ARENA_PATH);
     let text = std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
     let rooms = parse_rooms(&text)?;
@@ -57,7 +65,6 @@ fn arena(root: &Path, dressed: bool) -> Result<EnvKit, String> {
     let mut kit =
         crate::gym_kit::build_arena_kit(root, room, dressed).map_err(|e| e.to_string())?;
     let walk = kit.base_walk_line_y;
-    let data = builtin();
     // The kit's 16 px end walls go: the left side is the entrance gate (open
     // until the boss engages, a collider after), the right one is the wall.
     kit.solid_rects
@@ -71,7 +78,7 @@ fn arena(root: &Path, dressed: bool) -> Result<EnvKit, String> {
         h: 12,
     });
     kit.solid_rects.push(IRect {
-        x: data.arena.right_wall_x as i32,
+        x: data.arena.hero_right_wall() as i32,
         y: 32,
         w: WALL_W as i32,
         h: WALL_H as i32,
@@ -86,7 +93,7 @@ fn arena(root: &Path, dressed: bool) -> Result<EnvKit, String> {
     });
     // The exit lies behind the right wall; heroes reach it when the wall opens.
     kit.exit = Some(IRect {
-        x: data.arena.right_wall_x as i32 + 4,
+        x: data.arena.hero_right_wall() as i32 + 4,
         y: walk - 96,
         w: WALL_W as i32 - 4,
         h: 96,
@@ -133,7 +140,7 @@ fn gate_block(boss: &Boss) -> Block {
 fn wall_block(boss: &Boss) -> Block {
     Block {
         rect: Rect {
-            left: boss.data().arena.right_wall_x,
+            left: boss.data().arena.hero_right_wall(),
             bottom: boss.floor_y() - WALL_BELOW_FLOOR,
             width: WALL_W,
             height: WALL_H,
@@ -211,6 +218,10 @@ pub enum Pilot {
     /// (`crate::cf02::arena::donut_blink_pilot_window`). The separation run reports
     /// it beside the held rule and the no-blink control. Harness only.
     ArenaDuoBlinkWindow,
+    /// BOS-A (appended): `carl_bait_punish`, Carl plays the Ball: into the alcove
+    /// behind the arch the roll is aimed at, out to punish the crash
+    /// ([`crate::ball_fixtures::bait_pilot`]). Only the Ball's fixtures select it.
+    CarlBait,
 }
 
 pub(crate) const fn boss_base(
@@ -242,16 +253,33 @@ pub(crate) const fn boss_base(
 pub(crate) const FULL: BossSetup = BossSetup {
     hp: u16::MAX,
     left_rack: true,
+    kind: BossKind::Juicer,
 };
 /// Full HP and no racks (the strut is not there).
 pub(crate) const FULL_NO_RACKS: BossSetup = BossSetup {
     hp: u16::MAX,
     left_rack: false,
+    kind: BossKind::Juicer,
 };
 pub(crate) const fn hp(hp: u16) -> BossSetup {
     BossSetup {
         hp,
         left_rack: true,
+        kind: BossKind::Juicer,
+    }
+}
+/// The Ball at full HP with the chain weight on.
+pub(crate) const BALL_FULL: BossSetup = BossSetup {
+    hp: u16::MAX,
+    left_rack: true,
+    kind: BossKind::Ball,
+};
+/// The Ball at `hp` with the chain weight on.
+pub(crate) const fn ball_hp(hp: u16) -> BossSetup {
+    BossSetup {
+        hp,
+        left_rack: true,
+        kind: BossKind::Ball,
     }
 }
 
@@ -274,6 +302,38 @@ const SCENE_FIXTURE: Fixture = boss_base(
 /// The fixture behind `floor01_scene --scene boss_f01` (interactive play and
 /// captures). Not a replay fixture: it has no script and no committed golden.
 pub const BOSS01_SCENE: &Fixture = &SCENE_FIXTURE;
+
+const BALL_SCENE_FIXTURE: Fixture = boss_base(
+    "ball01_scene",
+    "The Floor 01 finale arena for live play (`--scene f01_ball`, room 18 `bos`): Carl at the entrance, the Ball dormant",
+    0x0B05_01FF,
+    56,
+    BALL_FULL,
+    7200,
+);
+/// The fixture behind `--scene f01_ball` and the run's room 18 (BOS-AD33): its
+/// own constant, never `BOSS01_SCENE`, so the ledger scene is the `F01Late` label
+/// of the mastery pin and the Juicer's story, goldens and replays stay as they
+/// were. Not a replay fixture: it has no script and no committed golden.
+pub const BALL01_SCENE: &Fixture = &BALL_SCENE_FIXTURE;
+
+/// The story pin the Ball's room holds at entry (BOS-AD12): the mastery pin.
+pub const BALL_STORY_PIN: &str = "f01_late_mastery";
+
+/// BOS-AD13, BOS-AD33: the story setup of the Ball's room. The ledger scene is
+/// the `F01Late` label of the mastery pin, never `SceneKind::Boss`, so no
+/// trigger is armed (the Juicer's grants are never re-fired).
+pub fn ball_story_setup(
+    carl: crate::carl_prog::CarlProgFlags,
+    donut: crate::donut_prog::DonutProgFlags,
+) -> crate::story_unlock::StorySetup {
+    crate::donut_prog::story_setup_pin(
+        carl,
+        donut,
+        crate::story_unlock::SceneKind::F01Late,
+        BALL_STORY_PIN,
+    )
+}
 
 /// The pound: Carl steps out of the tell, then punishes the recovery.
 pub const BOSS01_POUND_PUNISH: PartyFixture = PartyFixture {
@@ -584,6 +644,9 @@ pub fn pilot_inputs(
         | Pilot::ArenaDuoAhead => {}
         Pilot::ThrownCharge => slots[0] = thrower_pilot(tick, combat, scene, boss),
         Pilot::Carl => slots[0] = carl_pilot(tick, combat, scene, boss, false),
+        Pilot::CarlBait => {
+            slots[0] = crate::ball_fixtures::bait_pilot(tick, combat, scene, boss);
+        }
         Pilot::CarlRack => slots[0] = carl_pilot(tick, combat, scene, boss, true),
         Pilot::Duo => {
             slots[0] = carl_pilot(tick, combat, scene, boss, false);

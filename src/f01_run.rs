@@ -515,6 +515,9 @@ pub fn room_clear_panel(
     }
 }
 
+/// The id of the floor's last room, the Ball of Swine's (BOS-AD1).
+pub const BOS_ROOM_ID: &str = "bos";
+
 /// The floor-end panel after the last listed room.
 pub fn floor_end_panel(
     manifest: &Manifest,
@@ -561,8 +564,23 @@ pub fn floor_end_panel(
     }
     lines.push(format!("recording: {recording}"));
     lines.push("Facts only: no score, no rating.".to_owned());
+    // BOS-AD24: after the Ball's room the floor is cleared. The heading and the
+    // fact line read the boss data; the panel is only reachable through the
+    // exit, which opens only on a real defeat.
+    let heading = if facts.id == BOS_ROOM_ID {
+        lines.insert(
+            0,
+            format!(
+                "{} is down. The stairwell is open.",
+                crate::boss::ball().hud.display_name
+            ),
+        );
+        "FLOOR 1 CLEARED"
+    } else {
+        "FLOOR 1 SLICE FINISHED"
+    };
     PanelText {
-        heading: "FLOOR 1 SLICE FINISHED".to_owned(),
+        heading: heading.to_owned(),
         lines,
         hint: "Enter, A or Start: quit".to_owned(),
     }
@@ -631,9 +649,9 @@ mod tests {
             NextStep::Room(manifest.room("hoarder").unwrap().clone())
         );
         // The listed rooms in story order, ACT1-A, ACT1-B, REST-WIRE (REST-A, REST-B, REST-C),
-        // TROG-A and TROG-B: seventeen rooms, the chase, the shore and the guild first, the camp
-        // after the Ring, the troglodyte run and the Test of Strength after the camp, the
-        // aftermath after the Juicer, mastery ends the run.
+        // TROG-A, TROG-B and BOS-A: eighteen rooms, the chase, the shore and the guild first, the
+        // camp after the Ring, the troglodyte run and the Test of Strength after the camp, the
+        // aftermath after the Juicer, mastery, then the Ball of Swine ends the run.
         assert_eq!(
             seen,
             [
@@ -653,7 +671,8 @@ mod tests {
                 "trog_strength",
                 "juicer",
                 "rest_aftermath",
-                "mastery"
+                "mastery",
+                "bos"
             ]
         );
         assert_eq!(
@@ -680,7 +699,11 @@ mod tests {
             next_room(&manifest, "rest_aftermath").unwrap(),
             NextStep::Room(manifest.room("mastery").unwrap().clone())
         );
-        assert_eq!(next_room(&manifest, "mastery").unwrap(), NextStep::FloorEnd);
+        assert_eq!(
+            next_room(&manifest, "mastery").unwrap(),
+            NextStep::Room(manifest.room("bos").unwrap().clone())
+        );
+        assert_eq!(next_room(&manifest, "bos").unwrap(), NextStep::FloorEnd);
         assert!(next_room(&manifest, "cellar").is_err(), "unknown");
     }
 
@@ -728,11 +751,12 @@ mod tests {
                 "trog_strength",
                 "juicer",
                 "rest_aftermath",
-                "mastery"
+                "mastery",
+                "bos"
             ]
         );
-        assert_eq!(room_index(&manifest, "dozer"), Some((8, 18)));
-        assert_eq!(room_index(&manifest, "cellar"), Some((9, 18)));
+        assert_eq!(room_index(&manifest, "dozer"), Some((8, 19)));
+        assert_eq!(room_index(&manifest, "cellar"), Some((9, 19)));
     }
 
     #[test]
@@ -1010,13 +1034,23 @@ mod tests {
         };
         let (_, panel, decision) = on_exit(&end).unwrap();
         assert_eq!(decision, Decision::Quit);
-        assert_eq!(panel.heading, "FLOOR 1 SLICE FINISHED");
+        // BOS-AD24: the last room is the Ball of Swine's: the floor is cleared, and the
+        // panel's first line is the fact built from the boss data; the tally, held,
+        // recording and hint lines are the ones every floor-end panel has.
+        assert_eq!(last, "bos");
+        assert_eq!(panel.heading, "FLOOR 1 CLEARED");
+        assert_eq!(
+            panel.lines[0],
+            "THE BALL OF SWINE is down. The stairwell is open."
+        );
         let total = manifest.rooms.len();
         assert!(
-            panel.lines[2].contains(&format!("{total} of {total} listed rooms")),
+            panel.lines[3].contains(&format!("{total} of {total} listed rooms")),
             "{}",
-            panel.lines[2]
+            panel.lines[3]
         );
+        assert_eq!(panel.hint, "Enter, A or Start: quit");
+        assert!(panel.lines.last().unwrap().starts_with("Facts only"));
         assert!(
             on_exit(&ExitInput {
                 room: "cellar",
@@ -1170,11 +1204,11 @@ mod tests {
         };
         let (facts, panel, decision) = on_exit(&input).unwrap();
         assert!(facts.grants.is_empty(), "the chase grants nothing");
-        assert_eq!(room_index(&manifest, "act1_chase"), Some((1, 17)));
+        assert_eq!(room_index(&manifest, "act1_chase"), Some((1, 18)));
         assert!(
             panel
                 .heading
-                .starts_with("ROOM 1/17 CLEARED: THE FIRST CHASE"),
+                .starts_with("ROOM 1/18 CLEARED: THE FIRST CHASE"),
             "{}",
             panel.heading
         );
@@ -1239,11 +1273,11 @@ mod tests {
         let (facts, panel, decision) = on_exit(&shore_input).unwrap();
         assert!(facts.grants.is_empty(), "the shore grants nothing");
         let (at, count) = room_index(&manifest, "act1_shore").unwrap();
-        assert_eq!((at, count), (2, 17));
+        assert_eq!((at, count), (2, 18));
         assert!(
             panel
                 .heading
-                .starts_with("ROOM 2/17 CLEARED: THE ROTTEN SHORE"),
+                .starts_with("ROOM 2/18 CLEARED: THE ROTTEN SHORE"),
             "{}",
             panel.heading
         );
@@ -1280,7 +1314,7 @@ mod tests {
         assert!(
             panel
                 .heading
-                .starts_with("ROOM 3/17 CLEARED: THE GUILD DOOR"),
+                .starts_with("ROOM 3/18 CLEARED: THE GUILD DOOR"),
             "{}",
             panel.heading
         );
@@ -1417,6 +1451,12 @@ mod tests {
             }
             RoomScene::Boss => {
                 juicer_relaunch(&root(), Loadout::Story, carry)
+                    .unwrap()
+                    .combat
+            }
+            // BOS-A: the Ball's room, the Ball nearly dead, defeated by the pilot.
+            RoomScene::Ball => {
+                crate::ball_fixtures::ball_relaunch(&root(), Loadout::Story, carry)
                     .unwrap()
                     .combat
             }
@@ -1702,6 +1742,57 @@ mod tests {
                 .count(),
             1
         );
+    }
+
+    /// BOS-A F16 (in-process half): the Ball's exit (room 18) reaches the floor-end
+    /// panel. The room is played to its defeat and walked out of by the pilot; the exit
+    /// leads to `FloorEnd`, the panel says the floor is cleared and the argv does not
+    /// relaunch.
+    #[test]
+    fn the_ball_exit_ends_the_floor_with_the_cleared_panel() {
+        let manifest = manifest();
+        let mastery_carry = carry_up_to(&manifest, "mastery");
+        let ball =
+            crate::ball_fixtures::ball_relaunch(&root(), Loadout::Story, Some(&mastery_carry))
+                .unwrap();
+        assert!(
+            ball.combat.boss.as_ref().unwrap().released(),
+            "a real defeat"
+        );
+        let argv = argv(&["floor01_scene", "--scene", "f01_late", "--f01-run"]);
+        let input = ExitInput {
+            manifest: &manifest,
+            room: "bos",
+            loadout: Loadout::Story,
+            combat: &ball.combat,
+            carried: Some(&mastery_carry),
+            tally: RunTally {
+                rooms: 17,
+                ..RunTally::default()
+            },
+            argv: &argv,
+            recording: "REC",
+            audience: None,
+            audience_enabled: false,
+        };
+        let (facts, panel, decision) = on_exit(&input).unwrap();
+        assert_eq!(decision, Decision::Quit);
+        assert_eq!(facts.id, "bos");
+        assert!(facts.grants.is_empty(), "the Ball grants nothing");
+        assert_eq!(panel.heading, "FLOOR 1 CLEARED");
+        assert_eq!(
+            panel.lines[0],
+            "THE BALL OF SWINE is down. The stairwell is open."
+        );
+        assert!(
+            panel
+                .lines
+                .iter()
+                .any(|l| l.contains("18 of 18 listed rooms")),
+            "{:?}",
+            panel.lines
+        );
+        assert_eq!(next_room(&manifest, "bos").unwrap(), NextStep::FloorEnd);
     }
 
     /// REST-C-03: juicer exit -> aftermath -> mastery. The aftermath, entered with the Juicer's

@@ -25,6 +25,7 @@
 [ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room juicer
 [ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room rest_aftermath
 [ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room mastery
+[ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room bos
 [ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-run --f01-room act1_guild
 [ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-run --f01-room act1_chase
 [ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room act1_chase --act1-pilot hide

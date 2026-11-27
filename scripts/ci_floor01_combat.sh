@@ -775,7 +775,19 @@ case "$mode" in
       exit 1
     fi
     echo "F01_HAZ_TACTICAL_OK: second sticker baited over the slime, no Rot hurt, room cleared, final hash 8e10bd0986d23ad9 (the filmed run), twice identical"
-    echo "F01_LATE_HEADLESS_OK: act1_chase, act1_shore, act1_guild, corral, rest_refuge, hoarder, boiler, dozer, hazards, ring_court, ring_split, rest_camp, trog_run, trog_strength, juicer, rest_aftermath and mastery (listed), story and all, each twice identical"
+    # BOS-A: the Ball's room pilot (`--room-pilot bos`, `carl_bait_punish`) defeats the Ball, walks out through the opened
+    # wall (the scene stops before tick 3000, the exit reached) and the run replays identically twice.
+    bos_a="$("$bin" --headless-floor01-smoke --scene f01_late --f01-room bos --f01-loadout story --room-pilot bos --capture-tick 3000)"
+    bos_b="$("$bin" --headless-floor01-smoke --scene f01_late --f01-room bos --f01-loadout story --room-pilot bos --capture-tick 3000)"
+    bos_state="$(grep '^COMBAT_STATE ' <<<"$bos_a" | tail -n 1)"
+    if [[ "$bos_a" != "$bos_b" ]] || ! grep -q 'boss=0/24/defeated/p1' <<<"$bos_state" \
+      || ! grep -q '^FLOOR1_HEADLESS_OK' <<<"$bos_a" || ! grep -q 'hero_hp=[1-4] ' <<<"$bos_state"; then
+      echo "--room-pilot bos did not defeat the Ball with Carl alive and replay identically twice" >&2
+      echo "$bos_state" >&2
+      exit 1
+    fi
+    echo "F01_BOS_PILOT_OK: the Ball is defeated, Carl alive, the exit reached, final $(sed -E 's/.* (hash=[0-9a-f]+) .*/\1/' <<<"$bos_state"), twice identical"
+    echo "F01_LATE_HEADLESS_OK: act1_chase, act1_shore, act1_guild, corral, rest_refuge, hoarder, boiler, dozer, hazards, ring_court, ring_split, rest_camp, trog_run, trog_strength, juicer, rest_aftermath, mastery and bos (listed), story and all, each twice identical"
     ;;
   render)
     for f in "${fixtures[@]}"; do

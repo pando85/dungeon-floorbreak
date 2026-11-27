@@ -1,0 +1,40 @@
+BOS-A local check list. Base: origin/main 39d77d9f (BOS-PLAN, #315). Run on the PR head's source (the evidence files of
+this directory excluded); the evaluator and window captures ran on the binaries of that source (two later edits changed
+test-only code, no behaviour). Re-run in full after the review fixes (BOS-AD34 recentre, G-5 at the edge, push_heroes room).
+
+cargo fmt --all -- --check                                  ok
+cargo clippy --locked --all-targets -- -D warnings          ok (no warnings)
+cargo test --locked --all-targets --no-fail-fast            ok: 4110 passed, 0 failed, 43 ignored (lib incl. the BOS-A tests, floor01_scene bin 86+, integration tests)
+python3 scripts/check_docs.py                               Documentation checks passed
+scripts/ci_floor01_combat.sh headless                       ok (every Juicer fixture golden and replay byte-identical; new F01_BOS_PILOT_OK, defeated, exit reached, twice identical)
+xvfb-run scripts/ci_floor01_combat.sh render                ok (window == headless for every fixture; CAMERA_RENDER_OK)
+scripts/check_f01_owner_commands.sh                         ok (rc 0; one new line `--f01-room bos`)
+python3 scripts/validate_assets.py                          ok (rc 0)
+python3 -m unittest discover -s tests -p 'test_art_*.py'    ok (rc 0)
+python3 -m unittest discover -s tests -p 'test_pixelart_*.py'  ok (rc 0)
+python3 -m unittest discover -s tests -p 'test_agent_cost_report.py'  ok (rc 0)
+python3 -m unittest discover -s tests -p 'test_floor01_scene_*.py'    ok (rc 0)
+scripts/export_assets.sh (twice)                            ok, git status identical before and after (clean tree)
+bos_eval (full, target/debug)                               GATE PASS: G-0 clears (t=2083, 8 crashes), G-1..G-7 pass and are valid (bos_eval_report.txt); BOS-Q11 off
+bos_eval --q11 (BOS-Q11 forced on, informational)           GATE PASS, same rows (bos_eval_q11_on_report.txt)
+PLAYTRACE window replay of a recorded bos session           PLAYTRACE_REPLAY result=STRICT ticks=560 (the window loop equals the recorded headless run)
+
+scripts/f01_run_smoke.sh (18 rooms, all status=ok):
+RUN_SMOKE 1/18 room=act1_chase next=act1_shore status=ok exit=0 marker=F01_ACT1_CHASE_SMOKE_OK hash=d9eaa1df43eab99d
+RUN_SMOKE 2/18 room=act1_shore next=act1_guild status=ok exit=0 marker=F01_ACT1_SHORE_SMOKE_OK hash=fd98d3f642a7bd99
+RUN_SMOKE 3/18 room=act1_guild next=corral status=ok exit=0 marker=F01_ACT1_GUILD_SMOKE_OK hash=51a125a214ebedef
+RUN_SMOKE 4/18 room=corral next=rest_refuge status=ok exit=0 marker=F01_CORRAL_SMOKE_OK hash=74371bd7241a8297
+RUN_SMOKE 5/18 room=rest_refuge next=hoarder status=ok exit=0 marker=F01_REST_REFUGE_SMOKE_OK hash=0c3f798dc16f07f0
+RUN_SMOKE 6/18 room=hoarder next=boiler status=ok exit=0 marker=F01_HOARDER_SMOKE_OK hash=8409e630dc03e211
+RUN_SMOKE 7/18 room=boiler next=dozer status=ok exit=0 marker=F01_BOILER_SMOKE_OK hash=a9b5d990025a2b90
+RUN_SMOKE 8/18 room=dozer next=hazards status=ok exit=0 marker=F01_DOZER_SMOKE_OK hash=2f84388bbb673c30
+RUN_SMOKE 9/18 room=hazards next=ring_court status=ok exit=0 marker=F01_HAZARDS_SMOKE_OK hash=f5ca67351210519a
+RUN_SMOKE 10/18 room=ring_court next=ring_split status=ok exit=0 marker=F01_RING_COURT_SMOKE_OK hash=a3ce71a1aecd2d28
+RUN_SMOKE 11/18 room=ring_split next=rest_camp status=ok exit=0 marker=F01_RING_SPLIT_SMOKE_OK hash=0478466235f03a67
+RUN_SMOKE 12/18 room=rest_camp next=trog_run status=ok exit=0 marker=F01_REST_CAMP_SMOKE_OK hash=40e34a970e717d2f
+RUN_SMOKE 13/18 room=trog_run next=trog_strength status=ok exit=0 marker=F01_TROG_RUN_SMOKE_OK hash=256461c15ce97b67
+RUN_SMOKE 14/18 room=trog_strength next=juicer status=ok exit=0 marker=F01_TROG_STRENGTH_SMOKE_OK hash=59c82e0cfafe49f0
+RUN_SMOKE 15/18 room=juicer next=rest_aftermath status=ok exit=0 marker=- hash=9104040f4fddfb62
+RUN_SMOKE 16/18 room=rest_aftermath next=mastery status=ok exit=0 marker=F01_REST_AFTERMATH_SMOKE_OK hash=76d29a2d8e2449bc
+RUN_SMOKE 17/18 room=mastery next=bos status=ok exit=0 marker=F01_MASTERY_SMOKE_OK hash=7d2c626a4d883045
+RUN_SMOKE 18/18 room=bos next=end status=ok exit=0 marker=- hash=e9f0df8084a8a687

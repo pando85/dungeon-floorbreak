@@ -1,0 +1,127 @@
+{
+  "schema_version": 1,
+  "id": "rolling_boss_f01",
+  "species": "rolling_brute",
+  "hp_max": 24,
+  "phase_thresholds": [16, 8],
+  "walk_px_s": 60.0,
+  "turn_ticks": 12,
+  "poise_damage": 4,
+  "poise_window": 120,
+  "pound": {
+    "tell": 30,
+    "smear": 3,
+    "impact": 6,
+    "recover": 30,
+    "damage": 1,
+    "range_px": [40.0, 100.0],
+    "box": { "x": [56.0, 96.0], "y": [0.0, 28.0] },
+    "launch_px_s": [160.0, 200.0]
+  },
+  "shockwave": {
+    "speed": 150.0,
+    "reach": 120.0,
+    "height": 10.0,
+    "width": 12.0,
+    "origin_px": 50.0,
+    "damage": 1,
+    "from_phase": 2,
+    "hop_px_s": 140.0
+  },
+  "charge": {
+    "tell_by_phase": [36, 36, 36],
+    "speed_px_s": 260.0,
+    "box": { "x": [0.0, 64.0], "y": [0.0, 104.0] },
+    "damage": 1,
+    "launch": [220.0, 180.0],
+    "min_target_px": 128.0,
+    "min_room_px": 96.0,
+    "cooldown_by_phase": [150, 150, 150]
+  },
+  "crash": {
+    "stun_by_phase": [66, 66, 66],
+    "rebound_px": 24.0,
+    "ticks": 8
+  },
+  "double_pound": {
+    "step_ticks": 12,
+    "step_px_per_tick": 2.0,
+    "second_tell": 24
+  },
+  "roar": {
+    "ticks": 60,
+    "push_radius": 72.0,
+    "push_px": 48.0
+  },
+  "flinch": {
+    "ticks": 14,
+    "backstep_px": 24.0,
+    "backstep_ticks": 6
+  },
+  "body": {
+    "standing": { "x": [-60.0, 60.0], "y": [0.0, 124.0] },
+    "committed": { "x": [-60.0, 60.0], "y": [0.0, 124.0] },
+    "stun": { "x": [-60.0, 60.0], "y": [0.0, 124.0] },
+    "pinned": { "x": [-60.0, 60.0], "y": [0.0, 64.0] },
+    "push_px_per_tick": 6.0,
+    "min_side_room_px": 28.0
+  },
+  "rack": {
+    "fall_ticks": 36,
+    "boss_damage": 4,
+    "pin_ticks": 90,
+    "hero_damage": 1,
+    "hero_hop_px_s": 140.0,
+    "footprint_px": 80.0,
+    "footprint_centre_offset": 7.0,
+    "footprint_height": 24.0,
+    "strut_hits": 3,
+    "left": {
+      "enabled": true,
+      "strut": { "x": [64.0, 80.0], "y": [0.0, 64.0] }
+    },
+    "right": {
+      "enabled": false,
+      "ledge_x": [432.0, 480.0],
+      "ledge_height_px": 104.0,
+      "dwell_ticks": 12
+    }
+  },
+  "target": {
+    "switch_px": 24.0,
+    "ai_bias_px": 40.0
+  },
+  "fairness": { "min_tell": 24, "min_punish": 24 },
+  "arena": {
+    "ceiling_px": 224,
+    "left_wall_x": 128.0,
+    "right_wall_x": 512.0,
+    "centre_x": 320.0,
+    "boss_spawn_x": 448.0,
+    "boss_spawn_facing": -1,
+    "walk_margin_px": 64.0,
+    "hero_right_wall_x": 608.0
+  },
+  "gate": {
+    "engage_x": 140.0,
+    "inside_x": 112.0,
+    "settle_ticks": 8,
+    "regroup_ticks": 120,
+    "regroup_x": 112.0,
+    "solid_x": 28.0
+  },
+  "phase": { "queue_roar": false },
+  "ai_charge_jump_lead": 18,
+  "exit_slide_delay": 90,
+  "hud": {
+    "display_name": "THE BALL OF SWINE"
+  },
+  "siege": {
+    "warn_ticks": 60,
+    "after_ticks": 120,
+    "debris_damage": 2,
+    "debris_launch": [0.0, 120.0],
+    "notice": "IT SNIFFS AT THE ARCH",
+    "recentre_px_per_tick": 3.0
+  }
+}

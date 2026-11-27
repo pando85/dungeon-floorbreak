@@ -1,0 +1,15 @@
+bos_eval policy_version=1 hold_ticks=7200 bos_q11=true
+row    result  valid  defeated  loss boss_dmg hits debris crashes ticks  setup
+G-0    pass    valid  t=2083       1       24    1      0       8  2083  carl_bait_punish (F11), the follower bot at his back
+G-1    pass    valid  no           6       14    3      3       3  7211  Donut stationary cast in the left alcove (80); Carl idle in it (60)
+G-2    pass    valid  no           6       12    3      3       2  7211  the same in the right alcove (Donut 560, Carl 580)
+G-3    pass    valid  no           4       14    2      2       3  7211  split: Donut casts from the left alcove (80), Carl idles in the right (580)
+G-4    pass    valid  no           6       12    4      2       2  7211  Donut stationary cast in the lane (200); Carl idle in the left alcove (60)
+G-5    pass    valid  no           6        0    3      3       3  7211  Carl stationary jab at the left alcove edge (pivot 110, held at 107..110 after the turn step); Donut idle in the alcove (60)
+G-6a   pass    valid  no           7       14    4      3       3  7211  solo: the player is Donut, casting from the left alcove at pivot 50; Carl is the live follower bot (M1)
+G-6b   pass    valid  no           7       14    5      3       3  7211  solo: the player is Donut, casting from the left alcove at pivot 80; Carl is the live follower bot (M1)
+G-6c   pass    valid  no           7       14    5      3       3  7211  solo: the player is Donut, casting from the left alcove at pivot 100; Carl is the live follower bot (M1)
+G-7a   pass    valid  no           7        9    5      3       3  7211  solo: the player is Donut, casting from the right alcove at pivot 590; Carl is the live follower bot (M1), stranded on the far side (the decoy case is G-6)
+G-7b   pass    valid  no           7       12    6      2       4  7211  solo: the player is Donut, casting from the right alcove at pivot 560; Carl is the live follower bot (M1), stranded on the far side (the decoy case is G-6)
+G-7c   pass    valid  no           7       16    6      2       4  7211  solo: the player is Donut, casting from the right alcove at pivot 540; Carl is the live follower bot (M1), stranded on the far side (the decoy case is G-6)
+GATE PASS

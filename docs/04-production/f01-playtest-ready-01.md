@@ -1,17 +1,17 @@
 # Floor 1 playtest packet (PLAYTEST-READY-01): the owner's single entry point
 
-**What this is.** The one page to read before you play Floor 1 next week: how to start the game, the 17 rooms in the order the run walks them, what is missing and why, what to look at in each room, every default that was adopted for you to review, the open questions and the art notes collected by the reviewers. Nothing here is accepted. Every mechanic below is "merged, game-feel review pending" and every drawn room is "owner art review pending"; you decide what stays.
+**What this is.** The one page to read before you play Floor 1 next week: how to start the game, the 18 rooms in the order the run walks them, what is missing and why, what to look at in each room, every default that was adopted for you to review, the open questions and the art notes collected by the reviewers. Nothing here is accepted. Every mechanic below is "merged, game-feel review pending" and every drawn room is "owner art review pending"; you decide what stays.
 
 **Scope of this head.** Written against `main` after #313 (AREA-TROG-01 stage 2, `e9a05b1c`), the last PR before this one. The older packet [`docs/evidence/f01-playtest/README.md`](../evidence/f01-playtest/README.md) (PT-GATE-D) still holds the K1 to K19 defaults, the scorecards and the gate checklist, but its launch section predates the 17-room run: use this page for launching. The smoke and check outputs behind this packet are in [`docs/evidence/playtest-ready-01/`](../evidence/playtest-ready-01/README.md).
 
-**The floor ends at the mastery arena.** There is no floor exit and no Ball of Swine yet (section 3). After `mastery` the game shows the floor-end panel (a facts-only total of the run) and quits when you confirm.
+**The floor ends at the Ball of Swine arena (greybox), whose exit leads to the floor-end panel** (BOS-A, section 3). After `bos` the game shows the floor-end panel ("FLOOR 1 CLEARED", a facts-only total of the run) and quits when you confirm.
 
 ## 1. How to run
 
 Release build, from the repository root, after `bash scripts/export_assets.sh`:
 
 ```text
-# the whole floor in one session, 17 rooms, starts in act1_chase
+# the whole floor in one session, 18 rooms, starts in act1_chase
 cargo run --release --bin floor01_scene -- --scene f01_late --f01-run --scale 2
 
 # one room on its own (ids in section 2); the story pin of that room sets the loadout
@@ -52,7 +52,7 @@ cargo run --release --bin floor01_scene -- --scene f01_late --f01-run --f01-room
 
 **Old recordings.** Several PRs moved the manifest hash. A local PLAYTRACE recording made before them fails strict verification (`content_mismatch`): re-record. No committed session is affected.
 
-## 2. Run order: the 17 rooms
+## 2. Run order: the 18 rooms
 
 The HUD strip shows `ROOM n/17` in the panels and the room title with `TRY n`. The "legacy" column is the label older docs use ("room 4" for the hazards, and so on). Mechanic status is "merged, game-feel review pending" in every row; the art column says whether the room has a drawn kit (owner art review pending) or is still greybox (flat labelled shapes on the Floor 01 kit).
 
@@ -74,13 +74,14 @@ The HUD strip shows `ROOM n/17` in the panels and the room title with `TRY n`. T
 | 14 | `trog_strength` "The Test of Strength" | An 80 px static bench between the Virtuoso and the Basher; the exit hands the ledger to the Juicer. TROG-B #312. | dressed: AREA-TROG-01 stage 2 #313 (bench, shelf, gym bay, shards, threshold, mats) |
 | 15 | `juicer` "The Juicer" (room 5, boss) | The boss arena with the gym kit; dynamite, the gate, the grants (HEAVY FIST, PUDDLE JUMPER); an autonomous Donut fights too. | dressed: AREA-GYM-01 #275 (its own exit door, GYM-AD2), gate drop #288 |
 | 16 | `rest_aftermath` "After the Juicer" | Quiet room: the wrecked gym, the heavy bag, a 112 px blink lane with no reward. REST-C #304. | dressed: AREA-CAMP-01 #308 |
-| 17 | `mastery` "The Mastery Arena" (room 6) | Everything is held; wave 1 brawl lane, wave 2 llama yard; the exit gate opens when the roster is down. **Last room: the floor ends here.** | greybox; the exit gate is drawn (#274), the room itself is not dressed |
+| 17 | `mastery` "The Mastery Arena" (room 6) | Everything is held; wave 1 brawl lane, wave 2 llama yard; the exit gate opens when the roster is down. Leads into the Ball of Swine. | greybox; the exit gate is drawn (#274), the room itself is not dressed |
+| 18 | `bos` "The Ball of Swine" (the finale, `--scene f01_ball`) | The locked 640 px arena with two abstract arches and a hero alcove behind each. Bait the roll into an arch from the alcove, then punish the crash; hit the chain-weight post in the left alcove three times to drop it on the stunned ball; a hero who hides in an alcove is sieged (the ball sniffs, then rolls at the arch); after a crash the ball walks back to the centre so the roll can be baited again (BOS-AD34); a hero who stays within its shove range gets the shove loop instead. The exit opens only on a real defeat. BOS-A (the plan: `docs/01-design/floor-01-bos-integration.md`, from the owner draft #192). | greybox: the ball is a labelled body, the arches are outlines, no new art |
 
 ## 3. Missing, by owner decision (budget order 2026-11-27)
 
 The owner set the order on 2026-11-27 with 74 % of the weekly limit used: camp art, troglodytes, then this packet; **the rest comes after the weekly limit resets**:
 
-1. **Ball of Swine and the floor exit** (#192, the owner draft, is not merged and nothing of it is on `main`). The floor ends at `mastery` with the floor-end panel; there is no boss and no exit door out of the floor.
+1. **The rest of the Ball of Swine finale.** BOS-A is a labelled greybox: the Tusklings and the bot's alcove-flee (BOS-B), the SWINE-01 art, arch and chain-weight props and the stairwell behind the exit (BOS-ART), and the wide arena, central gate, reliefs and cinematics (BOS-C) are deferred (#192, the owner draft, stays unmerged as the record of the original text).
 2. **Act I room art** (chase, shore, guild): rooms 1 to 3 are greybox.
 3. **Room polish:** corral (M3 grate, brace readability), dozer, hazards, mastery dressing (the arena is undressed).
 4. **The V7 workshop wall** (backdrop of the Boiler) and **cleanup** (EVID-REFRESH-01, ART-HOLE-TRIAGE with the GOB-01 touch-up, LOS-UNIFY, ROOM-PILOT-RUN, DOZER-PERF-01, DOZER-NAV-01, HRD-D, HAZ-C/D).
@@ -109,7 +110,8 @@ Two to four things per room. "Look" means judge with your eyes at 1x; "feel" mea
 14. **`trog_strength`.** Feel: cross the 80 px bench (jump over), the Virtuoso is down before the Basher wakes at x 600; a stationary Donut can only hit the enemy on her side. Look: the bench, the shards and the threshold (see the art notes).
 15. **`juicer`.** Feel: dynamite on the boss, the autonomous Donut in the fight (she leaves Carl the kill). Look: the `HEAVY FIST` then `PUDDLE JUMPER` notices (the second notice never showed in one capture, check it in the Juicer), the gate drop, the narrow 20 px exit door.
 16. **`rest_aftermath`.** Look: the wrecked gym, the grooves, the bag (`--rest-pilot punch`). Feel: the 112 px blink lane has no reward: is it worth having?
-17. **`mastery`.** Feel: the "powerful enemies" waves with everything held; clear time. Check the floor-end panel after the exit, since there is nothing beyond it.
+17. **`mastery`.** Feel: the "powerful enemies" waves with everything held; clear time. The exit leads into the Ball of Swine.
+18. **`bos`.** Feel: the 36-tick roll tell and the run to the alcove (a roll is dodged only by the alcove; Carl's jump does not clear it), the punish of the crash (about 4 jab hits in the 66-tick stun) and the ball walking back to the centre afterwards (a pilot baits about 8 rolls in a clear), the shove's tell and recovery, the chain weight (hit the post twice early, bait the roll into the left arch, land the third hit during the crash), and the siege: stay in an alcove and the ball sniffs (`IT SNIFFS AT THE ARCH`), then rolls at the arch for 2 damage to heroes in it; stepping out cancels it. **BOS-Q13 (open):** after a left crash, a hero who stays at pivot 116..140 (in shove range, outside the alcove) keeps the ball shoving instead of recentring; stepping back during the 30-tick tell and punishing the recovery can be repeated indefinitely at 1 HP per mistake. Judge whether this shove loop feels like a cheap farm or a fair alternative to baiting rolls; the cheap fix is a shove cap before a forced recentre. Look: the greybox ball with its label, the arch outlines, the exit opening after the defeat and the `FLOOR 1 CLEARED` panel with its facts-only total.
 
 ## 5. Adopted defaults to review
 
@@ -213,7 +215,7 @@ You said "go with all" and to end everything on `main`, so the open design choic
 | #187 Rest spaces and transition beats | #301 (REST plan), #302 (refuge), #304 (camp, aftermath), #305 (fast-food kit), #308 (camp kit) | named survivors (REST-Q2), Interact, audio, the Scatterers slot |
 | #189 The Broken Ring | #271 (rooms wired), #277 (blast seam fix), #278 (partner crossing), #290 (kit; divergences recorded as RNG-AD1 to AD24) | the moving shutter (RING-C wire), further Ring regions |
 | #191 Troglodytes and the Test of Strength | #309 (plan), #310 (TROG-A), #311 (art stage 1), #312 (TROG-B), #313 (art stage 2) | the breakable bench and its break art (TROG-Q14), audio, death profiles |
-| #192 Ball of Swine | nothing | the whole floor finale and exit (section 3) |
+| #192 Ball of Swine | BOS-A greybox (room 18, the exit and the floor-end panel) | Tusklings, art, wide arena and cinematics deferred (section 3) |
 
 ## 6. Open questions and the adopted recommendation
 
