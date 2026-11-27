@@ -51,6 +51,12 @@ fn trog_gate_holds_for_the_fixed_stationary_policies() {
     // and the other starts are on the shelf, on the bench or past it.
     for r in e.recs().filter(|r| r.spec.policy.is_stationary_gate()) {
         assert!(!r.all_defeated_by_player(), "{}", r.run_id);
+        assert!(
+            !r.kill_by_player[0],
+            "{}: the Virtuoso fell to Donut",
+            r.run_id
+        );
+        assert_ne!(r.terminal, Terminal::InvalidSetup, "{}", r.run_id);
     }
 }
 
@@ -219,4 +225,66 @@ fn the_phase_variants_are_the_rosters_delay() {
         .map(|e| e.delay_ticks)
         .collect();
     assert_eq!(delays, [30, 60]);
+}
+
+/// Review R1: a natural-start run that never ran (`invalid_setup`) fails G-1 and G-2 and the
+/// count is shown, instead of passing vacuously. Here the shelf-top start is made illegal by a
+/// bench-sized start inside a solid, relabelled as a natural start.
+#[test]
+fn trog_gate_fails_when_a_natural_start_is_invalid() {
+    let mut s = one(
+        Stage::Strength,
+        Seat::Isolated,
+        EvalPolicy::Stationary(PolicyId::StationaryCast),
+        at(656, 0),
+        1,
+        0,
+    );
+    let mut record = run(&root(), &s);
+    assert_eq!(record.terminal, Terminal::InvalidSetup, "{}", record.note);
+    // Relabel it as the natural start it stands in for (a sidecar edit that moved the bench
+    // would make (656, 80) fail exactly this way).
+    s.start = at(656, BENCH_RISE_PX);
+    record.spec = s;
+    let judged = report::Evaluation::judge(
+        &SweepConfig {
+            strength: true,
+            pockets: false,
+            grid: false,
+            jump_sweep: false,
+            double_run: false,
+        },
+        vec![Checked {
+            record,
+            identical: None,
+        }],
+    );
+    let g1 = judged.gate.row("G-1").unwrap();
+    assert_eq!(g1.passes, Some(false), "{}", g1.detail);
+    assert!(
+        g1.detail.contains("1 of 1") && g1.detail.contains("invalid_setup"),
+        "{}",
+        g1.detail
+    );
+    let g2 = judged.gate.row("G-2").unwrap();
+    assert_eq!(g2.passes, Some(false), "{}", g2.detail);
+    assert!(g2.detail.contains("1 invalid_setup"), "{}", g2.detail);
+    assert!(judged.text().contains("invalid_setup"));
+    // The shipped sweep reports zero.
+    let g1 = quick().gate.row("G-1").unwrap();
+    assert!(g1.detail.contains("0 invalid_setup"), "{}", g1.detail);
+}
+
+/// Review R8: the quick sweep does not run the positive control, and its header says so.
+#[test]
+fn the_quick_report_says_the_positive_control_was_not_run() {
+    let text = quick().text();
+    assert!(
+        text.lines()
+            .next()
+            .unwrap()
+            .contains("PASS (partial: a row was not run)"),
+        "{}",
+        text.lines().next().unwrap()
+    );
 }

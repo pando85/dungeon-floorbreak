@@ -122,7 +122,7 @@ pub(super) fn spawn(
         sheets[species_index(species)] = Some((texture, layout));
     }
     // `decor=dressed` when the trog contract has a dressing block for the room, `plain` otherwise
-    // (a stage 2 room launches plain until its block lands, TROG-ART-AD19); no flat decor either way.
+    // (a stage 2 room launches plain until its block lands, TROG-ART-AD19): a plain room draws the flat decor stand-ins below, a dressed room draws none.
     let dressed = std::env::current_dir()
         .is_ok_and(|root| dungeon_floorbreak::trog_kit::is_dressed(&root, room));
     println!(

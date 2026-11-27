@@ -48,7 +48,7 @@ xvfb-run -a -s '-screen 0 1920x1080x24' floor01_scene --no-audio --no-record --s
 | T06 `trog_run_walk` | PASS | `run_walk.txt`, `run_chain.txt` |
 | F09 `trog_strength_direct` | PASS | Carl climbs the 80 px bench and defeats the Basher on the far side; the Virtuoso is down (tick 168) before the Basher wakes (238); no blow lands |
 | F10 bait, F11 bench by hand, F12 no break from the far side | **CUT** | the static fallback (TROG-AD43): nothing breaks |
-| F13 `trog_strength_tell_gap` | PASS | both eligible at once: tells at least 24 ticks apart, no hero under two live hitboxes |
+| F13 `trog_strength_tell_gap` | PASS | both eligible at once: tells at least 24 ticks apart; the same-hero half is structural and asserted geometrically (`trog_strength_live_hitboxes_cannot_overlap_one_hero`: the Virtuoso's clipped band ends at x 640, the Basher's smash starts at 663) |
 | F14 `trog_strength_retry_and_respawn` | PASS | the defeated Virtuoso stays down, the living Basher is back at 800 whole and asleep; a restart rebuilds both |
 | F15 2P and solo companion | PASS | both clear it with no hero defeat; the bot's stuck time behind the bench is **not measured** (an 80 px static both heroes cross) |
 | F16 `trog_strength_presentation_is_read_only` | PASS | F09's inputs with every presentation accessor read each tick give the same log and hash |

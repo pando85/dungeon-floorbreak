@@ -1,8 +1,8 @@
 trog_eval policy_version=1 runs=6345 gate=PASS
 
 GATE (plan 7.3, the Test of Strength)
-  G-1 hard_invariant           PASS  1830 runs, none defeated both troglodytes by a Donut-credited hit
-  G-2 kc19                     PASS  610 start groups; 0 cleared both within 1800 ticks with at most 1 HP lost in half or more of the phases
+  G-1 hard_invariant           PASS  1830 runs, 0 invalid_setup, none defeated both troglodytes by a Donut-credited hit
+  G-2 kc19                     PASS  610 start groups; 0 cleared both within 1800 ticks with at most 1 HP lost in half or more of the phases; 0 invalid_setup runs
   G-3 positive_control         PASS  T1 from x 432, aimed stationary cast, 3 phases: victory/0hp victory/0hp victory/0hp
   G-4 movement_success         PASS  mobile_cast 3/3 cleared, carl_melee 3/3 cleared, coop_probe 3/3 cleared
   G-5 system_failures          PASS  0 failures over 6345 runs; 0 of 3009 double runs differ

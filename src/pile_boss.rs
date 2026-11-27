@@ -2744,14 +2744,31 @@ mod tests {
             crate::encounter::parse_sidecar(&v.to_string(), &ctx)
                 .expect_err("the edited sidecar must be rejected")
         };
-        // Too tall for a lane obstacle (a static solid is at most `MAX_STATIC_SOLID_PX`, 80 px
-        // since TROG-AD46; the test's 68 px was over the old 48 px cap).
+        // Too tall for a lane obstacle (a sliding static solid stays at 48 px, TROG-AD46: only a
+        // plain static solid may be 80).
         let errs = check(&|v| {
-            v["statics"][0]["rect"] = serde_json::json!({"x":352,"y":496,"w":64,"h":84})
+            v["statics"][0]["rect"] = serde_json::json!({"x":352,"y":512,"w":64,"h":68})
         });
         assert!(
-            errs.iter()
-                .any(|e| matches!(e, crate::encounter::EncounterError::StaticInvalid { .. }))
+            errs.iter().any(|e| matches!(
+                e,
+                crate::encounter::EncounterError::StaticInvalid { reason, .. }
+                    if reason.contains("at most 48 px")
+            )),
+            "{errs:?}"
+        );
+        // TROG-AD46 (review R2): even 80 px, the plain static solid cap, is refused for a sliding
+        // static: it stays at 48 px.
+        let errs = check(&|v| {
+            v["statics"][0]["rect"] = serde_json::json!({"x":352,"y":500,"w":64,"h":80})
+        });
+        assert!(
+            errs.iter().any(|e| matches!(
+                e,
+                crate::encounter::EncounterError::StaticInvalid { reason, .. }
+                    if reason.contains("at most 48 px")
+            )),
+            "an 80 px sliding static is refused: {errs:?}"
         );
         // On the protected spawn.
         let errs = check(&|v| {

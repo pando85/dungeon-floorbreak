@@ -308,11 +308,8 @@ fn trog_strength_direct() {
         .iter()
         .find(|b| (b.rect.left, b.rect.width) == (640.0, 32.0) && b.intact);
     assert!(bench.is_some(), "the bench still stands");
-    // The Basher slept until the Virtuoso was down (its proximity wake came later).
-    let virtuoso_down = r.acts.iter().find_map(|(t, e, a)| {
-        (*e == 0 && matches!(a, TrogAct::Strike | TrogAct::Whiff)).then_some(*t)
-    });
-    let _ = virtuoso_down;
+    // The Basher slept until the Virtuoso was down (its proximity wake came later). The first
+    // defeat is asserted to be the Virtuoso's (target id of roster index 0).
     let defeats: Vec<u64> = sim
         .combat
         .events
@@ -321,8 +318,28 @@ fn trog_strength_direct() {
             CombatEvent::EnemyDefeated { tick, target, .. } => Some((*target, *tick)),
             _ => None,
         })
-        .map(|(_, t)| t)
+        .map(|(target, t)| {
+            assert!(
+                target == crate::combat_scene::trog::target_id(0)
+                    || target == crate::combat_scene::trog::target_id(1)
+            );
+            t
+        })
         .collect();
+    let first_target = sim
+        .combat
+        .events
+        .iter()
+        .find_map(|e| match e {
+            CombatEvent::EnemyDefeated { target, .. } => Some(*target),
+            _ => None,
+        })
+        .expect("a defeat");
+    assert_eq!(
+        first_target,
+        crate::combat_scene::trog::target_id(0),
+        "the Virtuoso falls first"
+    );
     let basher_wake = r
         .acts
         .iter()
@@ -340,8 +357,11 @@ fn trog_strength_direct() {
     );
 }
 
-/// TROG-F13: with both troglodytes eligible at once, tells start at least 24 ticks apart and no
-/// hero ever stands under two live hitboxes.
+/// TROG-F13, the tell-gap half: with both troglodytes eligible at once (one hero each), both tell
+/// and tells start at least 24 ticks apart. The "no hero under two live hitboxes" half is
+/// **structural** here and is asserted geometrically by
+/// `trog_strength_live_hitboxes_cannot_overlap_one_hero` (the two reaches never meet), so the
+/// run's `double_live` counter is a sanity check, not the proof.
 #[test]
 fn trog_strength_tell_gap() {
     let (r, sim) = twice(Case::StrengthTellGap);
@@ -362,7 +382,90 @@ fn trog_strength_tell_gap() {
             pair
         );
     }
-    assert_eq!(sim.double_live, 0, "no hero under two live hitboxes");
+    assert_eq!(
+        sim.double_live, 0,
+        "sanity: no hero under two live hitboxes in the run"
+    );
+}
+
+/// TROG-F13, the overlap half (review R3): no hero can stand under both troglodytes' live hitboxes
+/// because their reaches never meet. The Virtuoso's band, clipped by the standing 80 px bench and
+/// 48 px shelf at every pivot of its leash and both facings, never reaches past the bench's left
+/// face (x 640), and the Basher's committed smash rectangle never starts left of its leash
+/// start 704 minus its hitbox's far edge (x 663, over the bench's own column, where only a hero on top of it could stand). A hero on top of the bench (feet 80) is above
+/// both bands (the Virtuoso's 36..46 and the Basher's 0..14 from the floor).
+#[test]
+fn trog_strength_live_hitboxes_cannot_overlap_one_hero() {
+    use crate::prototype::{Block, Material, Rect};
+    use crate::trog::{Species, TrogTuning, clip_band};
+    let sim = TrogSim::for_room(
+        &root(),
+        TrogRoom::Strength,
+        Party::Solo { uncontrolled: BOT },
+        None,
+    )
+    .unwrap();
+    let floor = sim.foot_of_floor();
+    let solids: Vec<Block> = sim
+        .run
+        .loaded
+        .encounter
+        .statics
+        .iter()
+        .map(|s| Block {
+            rect: Rect {
+                left: s.rect.x as f32,
+                bottom: floor,
+                width: s.rect.w as f32,
+                height: s.rect.h as f32,
+            },
+            material: Material::Timber,
+            intact: true,
+        })
+        .collect();
+    let bench = sim
+        .run
+        .loaded
+        .encounter
+        .statics
+        .iter()
+        .find(|s| s.id == "bench")
+        .unwrap();
+    let t = TrogTuning::active();
+    let (vir, bas) = (t.species(Species::Virtuoso), t.species(Species::Basher));
+    let (vx, bx) = (
+        &sim.run.loaded.encounter.roster[0],
+        &sim.run.loaded.encounter.roster[1],
+    );
+    let mut vir_max_right = f32::MIN;
+    for x in (vx.x - i32::from(vir.leash_px))..=(vx.x + i32::from(vir.leash_px)) {
+        for facing in [1i8, -1] {
+            let band = crate::slime::world_box(&vir.hitbox, x as f32, facing, floor);
+            if let Some(b) = clip_band(band, x as f32, facing, &solids) {
+                vir_max_right = vir_max_right.max(b.right());
+            }
+        }
+    }
+    let mut bas_min_left = f32::MAX;
+    for x in (bx.x - i32::from(bas.leash_px))..=(bx.x + i32::from(bas.leash_px)) {
+        for facing in [1i8, -1] {
+            let r = crate::slime::world_box(&bas.hitbox, x as f32, facing, floor);
+            bas_min_left = bas_min_left.min(r.left);
+        }
+    }
+    assert!(
+        vir_max_right <= bench.rect.x as f32,
+        "the Virtuoso's clipped band ends at the bench face: {vir_max_right}"
+    );
+    assert!(
+        bas_min_left > bench.rect.x as f32,
+        "the Basher's smash starts right of the bench's left face: {bas_min_left}"
+    );
+    assert!(vir_max_right < bas_min_left, "the two reaches never meet");
+    // On top of the bench a hero is above both bands.
+    let top = floor + bench.rect.h as f32;
+    assert!(top > floor + f32::from(vir.hitbox.y1));
+    assert!(top > floor + f32::from(bas.hitbox.y1));
 }
 
 /// TROG-F15: two players, and one player with the default companion, clear it.
@@ -377,8 +480,8 @@ fn trog_strength_2p_and_solo_companion() {
         );
         assert_eq!(r.hero_defeats, 0, "{}", case.name());
         assert_eq!(sim.living().len(), 0, "{}", case.name());
-        // No rescue and no teleport: the bot is never placed by the fixture, and the room has
-        // no rescue spot (the stuck time is reported by the evidence line).
+        // No rescue and no teleport: the fixture never places a hero after setup and the room has
+        // no rescue spot (the room has no `place` output at all: only the Dozer emits one).
         assert!(
             r.tells
                 .iter()

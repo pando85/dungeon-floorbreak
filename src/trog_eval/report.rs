@@ -65,8 +65,13 @@ fn gated_stationary(r: &RunRecord, naturals: &[super::Start]) -> bool {
 /// A start group in which nothing happened in any phase: no defeat, no tell, no damage (a
 /// planted Donut out of everything's reach). Reported as a count, not as rows.
 fn quiet(runs: &[&RunRecord]) -> bool {
+    // A group that never ran (`invalid_setup`) is not quiet: it is listed (review R1).
     runs.iter().all(|r| {
-        r.defeated() == 0 && r.tells == 0 && r.donut_hp_lost() == 0 && r.carl_hp_lost() == 0
+        r.terminal != Terminal::InvalidSetup
+            && r.defeated() == 0
+            && r.tells == 0
+            && r.donut_hp_lost() == 0
+            && r.carl_hp_lost() == 0
     })
 }
 
@@ -314,7 +319,14 @@ impl Evaluation {
             out,
             "trog_eval policy_version={POLICY_VERSION} runs={} gate={}",
             self.records.len(),
-            if self.gate.passes() { "PASS" } else { "FAIL" }
+            match (
+                self.gate.passes(),
+                self.gate.rows.iter().any(|r| r.passes.is_none())
+            ) {
+                (false, _) => "FAIL",
+                (true, true) => "PASS (partial: a row was not run)",
+                (true, false) => "PASS",
+            }
         );
         let _ = writeln!(out, "\nGATE (plan 7.3, the Test of Strength)");
         for r in &self.gate.rows {
@@ -450,6 +462,14 @@ fn judge_gate(config: &SweepConfig, records: &[Checked]) -> Gate {
         .iter()
         .filter(|r| gated_stationary(r, &naturals))
         .collect();
+    // Review R1: a natural-start run that never ran says nothing about the invariant, so one
+    // fails the rows and the count is shown (a sidecar edit that moved the shelf or the bench
+    // must not turn G-1 and G-2 into a vacuous pass).
+    let invalid: Vec<&&RunRecord> = population
+        .iter()
+        .copied()
+        .filter(|r| r.terminal == Terminal::InvalidSetup)
+        .collect();
     let counterexamples: Vec<&&RunRecord> = population
         .iter()
         .copied()
@@ -462,13 +482,25 @@ fn judge_gate(config: &SweepConfig, records: &[Checked]) -> Gate {
             passes: None,
             detail: "the Test of Strength was not run".into(),
         }
+    } else if !invalid.is_empty() {
+        GateRow {
+            id: "G-1",
+            name: "hard_invariant",
+            passes: Some(false),
+            detail: format!(
+                "{} of {} gated natural-start runs are invalid_setup (e.g. {}): the invariant was not tested",
+                invalid.len(),
+                population.len(),
+                invalid[0].run_id
+            ),
+        }
     } else if counterexamples.is_empty() {
         GateRow {
             id: "G-1",
             name: "hard_invariant",
             passes: Some(true),
             detail: format!(
-                "{} runs, none defeated both troglodytes by a Donut-credited hit",
+                "{} runs, 0 invalid_setup, none defeated both troglodytes by a Donut-credited hit",
                 population.len()
             ),
         }
@@ -510,12 +542,15 @@ fn judge_gate(config: &SweepConfig, records: &[Checked]) -> Gate {
     rows.push(GateRow {
         id: "G-2",
         name: "kc19",
-        passes: config.strength.then_some(kc19_fail.is_empty()),
+        passes: config
+            .strength
+            .then_some(kc19_fail.is_empty() && invalid.is_empty()),
         detail: if config.strength {
             format!(
-                "{} start groups; {} cleared both within {HORIZON_TICKS} ticks with at most 1 HP lost in half or more of the phases",
+                "{} start groups; {} cleared both within {HORIZON_TICKS} ticks with at most 1 HP lost in half or more of the phases; {} invalid_setup runs",
                 groups.len(),
-                kc19_fail.len()
+                kc19_fail.len(),
+                invalid.len()
             )
         } else {
             "the Test of Strength was not run".into()

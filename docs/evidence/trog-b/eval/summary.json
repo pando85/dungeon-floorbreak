@@ -54,13 +54,13 @@
     "passes": true,
     "rows": [
       {
-        "detail": "1830 runs, none defeated both troglodytes by a Donut-credited hit",
+        "detail": "1830 runs, 0 invalid_setup, none defeated both troglodytes by a Donut-credited hit",
         "id": "G-1",
         "name": "hard_invariant",
         "passes": true
       },
       {
-        "detail": "610 start groups; 0 cleared both within 1800 ticks with at most 1 HP lost in half or more of the phases",
+        "detail": "610 start groups; 0 cleared both within 1800 ticks with at most 1 HP lost in half or more of the phases; 0 invalid_setup runs",
         "id": "G-2",
         "name": "kc19",
         "passes": true
