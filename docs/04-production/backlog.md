@@ -77,6 +77,34 @@ Everything merged in #262 to #267 is "merged, game-feel review pending" (mechani
 - **Goblin Workshop (#264):** the hanging weight is redrawn as three iron slabs (a frozen-key change under the reviewer's authority). The denser plume (about 52 % coverage at alpha 0x90) washes out Carl's head and torso in the lane: owner note, alpha 0x80 is an easy fix. The torch stands under the weight (a level-composition call); boiler brightness stays the owner's call; landing dust still needs a sim change (`FallingMass` keeps no landing tick).
 - **Evidence gap:** unchanged; the 9 `room=hoarder` lines of `render_replay_lines.txt` are still stale and `scripts/make_f01_gate_d_replay.sh` was NOT RUN in #262 to #267.
 
+## Floor 1 art completion (batch 14, 2026-11-27)
+
+The owner asked, "Work on them", meaning the remaining art. All 18 rooms now have art.
+
+- **BOS-ART #319** (`341a045d`):
+  - the SWINE-01 runtime atlas and presenter;
+  - the arena dressing;
+  - the iron chain-weight key (route B; the orchestrator's gate fix made it iron, BOS-ART-AD12);
+  - the stairwell exit.
+- **AREA-POLISH-01 #320** (`1efe6c4e`): reuse only.
+  - the mastery dressing;
+  - the dozer room shell;
+  - the corral M3 grate (`dfx_gate`) and the partition splinter bursts;
+  - the Juicer exit lintel.
+- **TROG-FX-01 #321** (`4fbfc468`): troglodyte death profiles per kind, and the telegraph as approved weight-shadow art.
+- **Status for all three:** owner art review pending. The owner notes are in the playtest packet.
+- **BOS-Q13** (the shove cap) was deliberately not built: per the #316 re-review, the owner judges it in play.
+- **Still open, drawn or needing wiring:**
+  - RING-C wire (the moving shutter);
+  - TROG-Q14 (the bench break);
+  - GUILD-BEAT-01 (Mordecai's idle and talk; needs new keys);
+  - GUILD-VERB-01;
+  - the camp figures are static;
+  - DOZ-02-FU F4–F7;
+  - BOS-B (Tusklings) and BOS-C;
+  - the V7 workshop wall;
+  - cleanup (R4 `exit_open`, ROOM-PILOT-RUN, EVID-REFRESH-01).
+
 ## Floor 1 finale and Act I art (batch 13, 2026-11-27)
 
 - **BOS-PLAN #315** (`39d77d9f`), merged (design adopted): the Ball of Swine integration plan for room 18 and the floor exit, carrying owner draft #192, which is not merged itself.
