@@ -470,6 +470,9 @@ pub struct SpriteDraw {
     pub crop_top: u8,
     /// Columns cut from the right of the frame (the lintel's last tile ends at its edge).
     pub crop_right: u8,
+    /// Columns cut from the left of the frame (ACT1-ART: the shore's wedged machine ends at the
+    /// decor rect's left edge).
+    pub crop_left: u8,
 }
 
 impl SpriteDraw {
@@ -484,6 +487,7 @@ impl SpriteDraw {
             alpha: 255,
             crop_top: 0,
             crop_right: 0,
+            crop_left: 0,
         }
     }
 
@@ -503,14 +507,17 @@ impl SpriteDraw {
     /// The sprite's visible size: the frame less the cropped rows.
     pub fn visible(&self) -> (u32, u32) {
         let (w, h) = self.sheet.frame_size();
-        (w - u32::from(self.crop_right), h - u32::from(self.crop_top))
+        (
+            w - u32::from(self.crop_left) - u32::from(self.crop_right),
+            h - u32::from(self.crop_top),
+        )
     }
 
     /// The sprite's visible centre (world px, y up).
     pub fn centre(&self) -> (f32, f32) {
         let (w, h) = self.visible();
         (
-            self.left as f32 + w as f32 / 2.0,
+            (self.left + i32::from(self.crop_left)) as f32 + w as f32 / 2.0,
             self.bottom as f32 + h as f32 / 2.0,
         )
     }
@@ -1480,6 +1487,104 @@ pub fn hero_near(d: &Dozer, heroes_x: [f32; 2]) -> bool {
         .any(|x| x - HERO_HALF_WIDTH - d.wheel_front() <= YELL_RANGE_PX)
 }
 
+/// ACT1-B: cut every sprite (the effects excepted) at the world column `right_edge`: the machine
+/// wedged in the arch shows no more than the arch's right edge.
+fn clip_right(sprites: &mut [SpriteDraw], right_edge: i32) {
+    for s in sprites {
+        if s.z == FX_Z {
+            continue;
+        }
+        let (w, _) = s.sheet.frame_size();
+        let right = s.left + (w - u32::from(s.crop_right)) as i32;
+        let excess = right - right_edge;
+        if excess > 0 {
+            s.crop_right = (u32::from(s.crop_right) + excess as u32)
+                .min(w - 1)
+                .min(255) as u8;
+        }
+    }
+}
+
+/// ACT1-ART (AREA-ACT1-01, ACT1-ART-AD10): the chase machine's wedge pose, the arch's right edge in
+/// the chase (the wheel front at `stop_x`, the dormant strain over), as the shore shows it one room
+/// later: the chase's x re-based by [`SHORE_SHIFT_X`].
+pub const WEDGE_EMERGE_FRONT_X: i32 = 888;
+pub const WEDGE_STOP_X: i32 = 2856;
+pub const SHORE_SHIFT_X: i32 = 2608;
+/// The shore's wedged machine is drawn darkened, as the chase wedge is (the presenter's tint).
+pub const WEDGE_TINT: f32 = 0.42;
+
+/// The wedged machine as the shore draws it: the rig sprites of the chase machine at its wedge
+/// pose (`rig_sprites` itself, no riders, the opening's tuning) clipped at the arch's right edge by
+/// the same [`clip_right`] as the chase wedge, then re-based into the shore's columns. Drawn
+/// darkened by the presenter ([`WEDGE_TINT`]). Static: the strain is over.
+pub fn wedged_rig(floor_y: f32) -> Vec<SpriteDraw> {
+    let mut site = crate::dozer::DozerSite::revenge(
+        0,
+        0,
+        WEDGE_EMERGE_FRONT_X,
+        WEDGE_STOP_X,
+        IRect::new(0, 0, 1, 1),
+    );
+    site.profile = crate::dozer::SiteProfile::Opening;
+    site.lintel = None;
+    site.wedge = true;
+    let tuning = site.tuning();
+    let mut d = Dozer::with_tuning(tuning, site, 0.0, floor_y);
+    d.o = (WEDGE_STOP_X as f32) - tuning.wheel_front();
+    d.state = DozerState::Escaped(EscapePhase::Idle);
+    let mut sprites = rig_sprites(&d, 0, false, [false; 2]);
+    clip_right(&mut sprites, WEDGE_STOP_X);
+    for s in &mut sprites {
+        s.left -= SHORE_SHIFT_X;
+    }
+    // The shore's decor rect {56, 440, 192, 140}: nothing left of its x, nothing above its top.
+    clip_left(&mut sprites, SHORE_WEDGE_RECT.x);
+    clip_top(&mut sprites, floor_y.round() as i32 + SHORE_WEDGE_RECT.h);
+    sprites
+}
+
+/// The shore's wedged machine: the decor rect the sprites are clipped to (layout px).
+pub const SHORE_WEDGE_RECT: IRect = IRect::new(56, 440, 192, 140);
+
+/// Cut the columns left of the world column `left_edge`; a sprite wholly left of it is dropped.
+fn clip_left(sprites: &mut Vec<SpriteDraw>, left_edge: i32) {
+    sprites.retain_mut(|s| {
+        if s.z == FX_Z {
+            return true;
+        }
+        let cut = left_edge - (s.left + i32::from(s.crop_left));
+        if cut <= 0 {
+            return true;
+        }
+        let (visible, _) = s.visible();
+        if cut >= visible as i32 {
+            return false;
+        }
+        s.crop_left = (i32::from(s.crop_left) + cut).min(255) as u8;
+        true
+    });
+}
+
+/// Cut the rows above the world row `top_edge` (y up); a sprite wholly above it is dropped.
+fn clip_top(sprites: &mut Vec<SpriteDraw>, top_edge: i32) {
+    sprites.retain_mut(|s| {
+        if s.z == FX_Z {
+            return true;
+        }
+        let (_, visible) = s.visible();
+        let cut = s.bottom + visible as i32 - top_edge;
+        if cut <= 0 {
+            return true;
+        }
+        if cut >= visible as i32 {
+            return false;
+        }
+        s.crop_top = (i32::from(s.crop_top) + cut).min(255) as u8;
+        true
+    });
+}
+
 /// Everything the presenter draws this tick. `heroes_x` are Carl's and
 /// Donut's body columns. `None` outside room 3 (no machine).
 pub fn draw(combat: &CombatState, heroes_x: [f32; 2], tick: u64) -> Option<DozerArt> {
@@ -1507,20 +1612,7 @@ pub fn draw(combat: &CombatState, heroes_x: [f32; 2], tick: u64) -> Option<Dozer
     }
     // ACT1-B: the greybox wedge clips the rig to the arch (its right edge is `stop_x`).
     if d.wedged() {
-        let arch_right = d.site.stop_x;
-        for s in &mut sprites {
-            if s.z == FX_Z {
-                continue;
-            }
-            let (w, _) = s.sheet.frame_size();
-            let right = s.left + (w - u32::from(s.crop_right)) as i32;
-            let excess = right - arch_right;
-            if excess > 0 {
-                s.crop_right = (u32::from(s.crop_right) + excess as u32)
-                    .min(w - 1)
-                    .min(255) as u8;
-            }
-        }
+        clip_right(&mut sprites, d.site.stop_x);
     }
     debug_assert!(
         sprites.len() - pieces <= MAX_PIECES && sprites.len() <= MAX_SPRITES,

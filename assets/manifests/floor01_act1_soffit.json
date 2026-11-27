@@ -1,0 +1,34 @@
+{
+ "schema_version": 1,
+ "id": "floor01_act1_soffit_v1",
+ "type": "decor_atlas",
+ "source_path": "assets/source/props/floor01/act1_soffit.ase",
+ "grid_source": "assets/source/props/floor01/act1_soffit.grid.json",
+ "output_atlas": "generated/art/floor01_act1_soffit.png",
+ "output_metadata": "generated/art/floor01_act1_soffit.json",
+ "palette_id": "floor01-catacomb-v2",
+ "frame_size": [
+  176,
+  408
+ ],
+ "pivot": [
+  0,
+  0
+ ],
+ "animation_tags": [],
+ "required_alpha": true,
+ "kit_contract": "assets/source/terrain/floor01/floor01_act1_kit.json",
+ "owner": "AI-authored environment pixel art (AREA-ACT1-01: design spec and keys Claude Opus, silhouette gate Claude Opus (the orchestrator, independent); execution Claude Sonnet; independent review pending)",
+ "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+ "license": "Original repo-specific environment art; no standalone asset reuse license; no game/asset-pack distribution rights",
+ "review_status": "prototype_fixture_unapproved",
+ "provenance": {
+  "origin": "The ENV-02 R soffit (collision rows 0..5, columns 61..104 of the opening route proposal) copied pixel for pixel from the ENV-01 and ENV-02 tile atlases, no new pixel; nothing cropped, traced or resampled from concept art; no text, logos, brands, faces or likenesses",
+  "generator": "Deterministic authoring script scripts/author_act1area01.py written by AI agents (spec and keys designed by Claude Opus; execution by Claude Sonnet); no image-model raster output",
+  "generated_art": true,
+  "input_reference_ids": [
+   "floor01-catacomb-kit/env-kit-v2 (owner-approved ENV-01 kit, 2026-11-16)",
+   "floor-01-art-atlas-v1 act-1 panels (mood reference only; no pixel cropped, traced or resampled)"
+  ]
+ }
+}

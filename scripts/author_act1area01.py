@@ -368,6 +368,387 @@ def to_image(img: Pix, silhouette: bool = False):
     return out
 
 
+# =============================================================================================
+# Execution (spec sections 5, 13 and 16): the executor pieces, the atlases, the manifests, the contract.
+# The keys above stay untouched (their pins are in docs/evidence/area-act1-01/gate/measurements.txt).
+# =============================================================================================
+import author_heat01 as heat  # noqa: E402  (AREA-HEAT-01: the shelf body the step faces derive from)
+import author_trogarea01 as trog  # noqa: E402  (AREA-TROG-01: the step rule, ``end_of`` and ``darken``)
+
+TERRAIN_GRID = ROOT / "assets/source/terrain/floor01/terrain.grid.json"
+SOFFIT_GRID = ROOT / "assets/source/terrain/floor01/soffit.grid.json"
+ENV02_LAYOUT = ROOT / "assets/levels/floor01/opening_route_proposal.json"
+CATACOMB_KIT = ROOT / "assets/source/terrain/floor01/floor01_catacomb_kit.json"
+OPENING_KIT = ROOT / "assets/source/terrain/floor01/floor01_opening_kit.json"
+REFUGE_KIT = ROOT / "assets/source/terrain/floor01/floor01_refuge_kit.json"
+SOFFIT_ROWS = range(0, 6)                      # ENV-02 layout rows 0..5 (room y 272..367)
+SOFFIT_COLS = range(61, 105)                   # columns 61..104 (room x 976..1679)
+SOFFIT_AT = (976, 272)
+SOFFIT_SLICES = (976, 1152, 1328, 1504)        # four 176 px slices
+SOFFIT_NOTCHED: list = []                      # slices that got the one cleared corner pixel (recorded)
+
+
+def _grid_pixels(path: Path) -> list:
+    """The atlas grid at ``path`` as rows of (ramp, index) or None, every colour checked against the palette."""
+    g = json.loads(path.read_text(encoding="utf-8"))
+    names = {}
+    for entry in g["palette"]:
+        ramp, _, idx = entry["name"].rpartition("_")
+        if ramp not in RAMPS or RAMPS[ramp][int(idx)] + "ff" != entry["rgba"]:
+            raise SystemExit(f"{path}: colour {entry['name']} {entry['rgba']} is not on floor01-catacomb-v2")
+        names[entry["key"]] = (ramp, int(idx))
+    layer = g["layers"][0]
+    return [[names[ch] if ch != "." else None for ch in row] for row in g["frames"][0]["cels"][layer]]
+
+
+def _tile_rects() -> dict:
+    """{tile id: (grid pixels name, rect)} for the terrain and soffit tiles of the catacomb and opening kits."""
+    out = {}
+    for kit_path in (CATACOMB_KIT, OPENING_KIT):
+        for t in json.loads(kit_path.read_text(encoding="utf-8"))["tiles"]:
+            out[t["id"]] = (t["atlas"], t["rect"])
+    return out
+
+
+def soffit_image() -> Pix:
+    """The ENV-02 R soffit (collision rows 0..5, columns 61..104) copied pixel for pixel: 704 x 96."""
+    layout = json.loads(ENV02_LAYOUT.read_text(encoding="utf-8"))
+    col = layout["tile_layers"]["collision"]
+    grids = {"floor01_terrain": _grid_pixels(TERRAIN_GRID), "floor01_soffit": _grid_pixels(SOFFIT_GRID)}
+    tiles = _tile_rects()
+    img = Pix(len(SOFFIT_COLS) * 16, len(SOFFIT_ROWS) * 16)
+    for r, row in enumerate(SOFFIT_ROWS):
+        for c, cc in enumerate(SOFFIT_COLS):
+            tid = col[row][cc]
+            if tid is None:
+                continue
+            atlas, (rx, ry, rw, rh) = tiles[tid]
+            for y in range(rh):
+                for x in range(rw):
+                    img.px[r * 16 + y][c * 16 + x] = grids[atlas][ry + y][rx + x]
+    return img
+
+
+def _soffit_slice(k: int) -> Pix:
+    full = soffit_image()
+    c = Pix(176, 96)
+    for y in range(96):
+        for x in range(176):
+            c.px[y][x] = full.px[y][k * 176 + x]
+    if all(p is not None for row in c.px for p in row):
+        c.clear(0, 0)                       # the one transparent pixel (every piece needs one), top-left
+        if k not in SOFFIT_NOTCHED:
+            SOFFIT_NOTCHED.append(k)
+    return c
+
+
+def act1_soffit_a() -> Pix:
+    return _soffit_slice(0)
+
+
+def act1_soffit_b() -> Pix:
+    return _soffit_slice(1)
+
+
+def act1_soffit_c() -> Pix:
+    return _soffit_slice(2)
+
+
+def act1_soffit_d() -> Pix:
+    return _soffit_slice(3)
+
+
+def _convert(p) -> Pix:
+    c = Pix(p.w, p.h)
+    for y in range(p.h):
+        for x in range(p.w):
+            c.px[y][x] = p.px[y][x]
+    return c
+
+
+def _step_body() -> "heat.Pix":
+    """The 16 x 16 hump face: the top 16 rows of the heat shelf body (arris, slab lip, shadow row and the first
+    course's head), one stone step darker (the trog step rule, TROG-ART-AD5), the transparent nick moved to
+    its bottom right corner (ACT1-ART-AD15)."""
+    src = heat._shelf_body()
+    c = heat.Pix(16, 16)
+    for y in range(16):
+        for x in range(16):
+            c.px[y][x] = src.px[y][x]
+    c.clear(15, 15)
+    return trog.darken(c)
+
+
+def act1_step_mid() -> Pix:
+    return _convert(_step_body())
+
+
+def act1_step_end_l() -> Pix:
+    return _convert(trog.end_of(_step_body(), True))
+
+
+def act1_step_end_r() -> Pix:
+    return _convert(trog.end_of(_step_body(), False))
+
+
+OPENING_DECAL_GRID = ROOT / "assets/source/terrain/floor01/opening_decal.grid.json"
+NICHE_RECT = (0, 0, 96, 96)                   # the ENV-02 `alcove_niche` rect in `floor01_opening_decal`
+
+
+def act1_alcove_niche() -> Pix:
+    """The ENV-02 ``alcove_niche`` pixels copied exactly (no new pixel). The contract validator refuses two pieces
+    on one atlas rect, so the `structure` re-declaration is a copy in the act-1 atlas (ACT1-ART-AD14)."""
+    rows = _grid_pixels(OPENING_DECAL_GRID)
+    x0, y0, w, h = NICHE_RECT
+    c = Pix(w, h)
+    for y in range(h):
+        for x in range(w):
+            c.px[y][x] = rows[y0 + y][x0 + x]
+    return c
+
+
+FLOOR_Y = 580
+HUMP_Y = 564
+STEP_RUNS = ((1168, 64), (1456, 64), (2064, 96))        # (x0, width): the two humps and the alcove ledge statics
+
+# The act-1 atlases (stem = the source file stem under assets/source/props/floor01).
+ATLASES = {
+    "floor01_act1_keys": {"stem": "act1_keys", "width": 192, "pieces": [
+        ("act1_gallery_breach", act1_gallery_breach), ("act1_grant_box_closed", lambda: act1_grant_box("closed")),
+        ("act1_grant_box_open", lambda: act1_grant_box("open"))]},
+    "floor01_act1_soffit": {"stem": "act1_soffit", "width": 176, "pieces": [
+        ("act1_soffit_a", act1_soffit_a), ("act1_soffit_b", act1_soffit_b), ("act1_soffit_c", act1_soffit_c),
+        ("act1_soffit_d", act1_soffit_d)]},
+    "floor01_act1_props": {"stem": "act1_props", "width": 104, "pieces": [
+        ("act1_alcove_niche", act1_alcove_niche),
+        ("act1_step_mid", act1_step_mid), ("act1_step_end_l", act1_step_end_l), ("act1_step_end_r", act1_step_end_r)]},
+}
+LAYER_OF_ATLAS = {"floor01_act1_keys": ("structure", "structure"), "floor01_act1_soffit": ("structure", "structure"),
+                  "floor01_act1_props": ("structure", "structure")}
+LAYER_OVERRIDE = {"act1_grant_box_closed": ("prop", "prop"), "act1_grant_box_open": ("prop", "prop")}
+PAD = 8
+EXEC_PIECES = ("act1_soffit_a", "act1_soffit_b", "act1_soffit_c", "act1_soffit_d", "act1_step_mid",
+               "act1_step_end_l", "act1_step_end_r", "act1_alcove_niche")
+KEY_PIECE_IDS = tuple(pid for pieces in KEYS.values() for pid, _ in pieces)
+CONTRACT = ROOT / "assets/source/terrain/floor01/floor01_act1_kit.json"
+MANIFESTS = ROOT / "assets/manifests"
+OWNER = ("AI-authored environment pixel art (AREA-ACT1-01: design spec and keys Claude Opus, silhouette gate "
+         "Claude Opus (the orchestrator, independent); execution Claude Sonnet; independent review pending)")
+REFUGE_ATLASES = ("floor01_refuge_hearth", "floor01_refuge_candle", "floor01_refuge_props", "floor01_refuge_wall")
+REFUGE_PIECES = ("refuge_hearth", "refuge_hearth_flue", "refuge_desk", "refuge_candle_flame", "refuge_stool",
+                 "refuge_barrel", "refuge_wall_map", "refuge_bookshelf")
+NICHE_LIGHTS = [{"id": "alcove_glow", "offset": [48, 56], "colour": "#f2b060", "radius": 96, "intensity": 0.4,
+                 "group": "scene"}]
+
+
+def _at(layer, piece, x, y):
+    return {"layer": layer, "piece": piece, "x": x, "y": y}
+
+
+def _step_run(x0: int, width: int) -> list:
+    """end_l, mids, end_r side by side: 8 + 16 n + 8 = width, the static's width, at y 564."""
+    n = (width - 16) // 16
+    out = [("structure", "act1_step_end_l", x0, HUMP_Y)]
+    out += [("structure", "act1_step_mid", x0 + 8 + 16 * i, HUMP_Y) for i in range(n)]
+    out.append(("structure", "act1_step_end_r", x0 + width - 8, HUMP_Y))
+    return out
+
+
+# -- the dressing of `act1_chase` (spec section 3.1) ---------------------------------------------------------------
+CHASE_REMOVE_AT = [
+    ("structure", "arch_threshold", 576, 544), ("structure", "arch_chain", 592, 384),                 # S2: bricked bay
+    ("prop", "torch_wall", 768, 448), ("prop", "torch_wall", 824, 432), ("prop", "torch_wall", 864, 448),
+    ("backwall_decal", "torch_pool_b", 664, 364), ("backwall_decal", "torch_pool_b", 720, 348),
+    ("backwall_decal", "torch_pool_a", 760, 364),                                                     # S2: pier_r torches
+    ("prop", "torch_wall", 1104, 448), ("prop", "torch_wall", 1160, 432), ("prop", "torch_wall", 1440, 448),
+    ("prop", "torch_wall", 1496, 432),                                                                # S3: inside a set
+    ("backwall_decal", "torch_pool_a", 1000, 364), ("backwall_decal", "torch_pool_b_m", 1056, 348),
+    ("backwall_decal", "torch_pool_b", 1336, 364), ("backwall_decal", "torch_pool_a_m", 1392, 348),
+    ("prop", "torch_wall", 2112, 448), ("backwall_decal", "torch_pool_a", 2008, 364),                 # S4: over the ledge
+]
+CHASE_FILL = [{"x": 584, "y": 352, "w": 152, "h": 208}]
+CHASE_PLACE = [
+    ("structure", "act1_gallery_breach", *BR_AT),
+    *[("structure", f"act1_soffit_{c}", x, SOFFIT_AT[1]) for c, x in zip("abcd", SOFFIT_SLICES)],
+    *_step_run(*STEP_RUNS[0]), *_step_run(*STEP_RUNS[1]),
+    ("structure", "act1_alcove_niche", 2064, 468),
+    *_step_run(*STEP_RUNS[2]),
+]
+
+# -- the dressing of `act1_shore` (spec section 3.2) ---------------------------------------------------------------
+SHORE_REMOVE_AT = [("prop", "torch_wall", 176, 448), ("backwall_decal", "torch_pool_b", 72, 364)]
+
+# -- the dressing of `act1_guild` (spec section 3.3) ---------------------------------------------------------------
+GUILD_REMOVE_AT = [("prop", "torch_wall", 48, 432), ("backwall_decal", "torch_pool_a_m", -56, 348)]
+GUILD_PLACE = [
+    ("backwall_decal", "refuge_hearth_flue", 80, 356 + 16 * i) for i in range(9)
+] + [
+    ("backwall_decal", "refuge_wall_map", 474, 484),
+    ("prop", "refuge_hearth", 64, 500), ("prop", "refuge_barrel", 8, 552), ("prop", "refuge_stool", 150, 562),
+    ("prop", "refuge_desk", 272, 554), ("prop", "refuge_candle_flame", 272 + 39, 554),
+    ("prop", "refuge_bookshelf", 474, 524),
+]
+
+
+def dressing() -> dict:
+    return {
+        "act1_chase": {"remove": [], "remove_at": [_at(*r) for r in CHASE_REMOVE_AT], "backwall_fill": CHASE_FILL,
+                       "place": [_at(*t) for t in CHASE_PLACE], "parallax": {}},
+        "act1_shore": {"remove": [], "remove_at": [_at(*r) for r in SHORE_REMOVE_AT], "backwall_fill": [],
+                       "place": [], "parallax": {}},
+        "act1_guild": {"remove": [], "remove_at": [_at(*r) for r in GUILD_REMOVE_AT], "backwall_fill": [],
+                       "place": [_at(*t) for t in GUILD_PLACE], "parallax": {}},
+    }
+
+
+def build_pieces(name: str) -> list:
+    return [(pid, fn()) for pid, fn in ATLASES[name]["pieces"]]
+
+
+def _pack(pieces: list, width: int, pad: int = 0):
+    """Shelf packing, left to right: a piece's rect holds exactly its pixels (a key stays byte-identical)."""
+    x = y = shelf = 0
+    placed = []
+    for pid, img in pieces:
+        if x + img.w > width:
+            x, y, shelf = 0, y + shelf + pad, 0
+        placed.append((pid, img, x, y))
+        x += img.w + pad
+        shelf = max(shelf, img.h)
+    sheet = Pix(width, y + shelf)
+    rects = {}
+    for pid, img, px, py in placed:
+        for yy in range(img.h):
+            for xx in range(img.w):
+                if img.px[yy][xx] is not None:
+                    sheet.px[py + yy][px + xx] = img.px[yy][xx]
+        rects[pid] = [px, py, img.w, img.h]
+    return sheet, rects
+
+
+def piece_entry(pid: str, atlas: str, rect: list) -> dict:
+    role, layer = LAYER_OVERRIDE.get(pid) or LAYER_OF_ATLAS[atlas]
+    return {"id": pid, "atlas": atlas, "rect": rect, "role": role, "layer": layer, "collidable": False,
+            "anchor": [0, 0], "anchor_name": "top_left (room placement, spec section 5)", "grid_snap": 1,
+            "grammar": ["A"]}
+
+
+def contract(rects: dict, colours: dict) -> dict:
+    refuge = json.loads(REFUGE_KIT.read_text(encoding="utf-8"))
+    atlases, pieces = {}, []
+    for name, spec in ATLASES.items():
+        atlases[name] = {"grid": f"assets/source/props/floor01/{spec['stem']}.grid.json",
+                         "manifest": f"assets/manifests/{name}.json", "image": f"generated/art/{name}.png",
+                         "metadata": f"generated/art/{name}.json"}
+        for pid, _ in spec["pieces"]:
+            entry = piece_entry(pid, name, rects[name][pid])
+            if pid == "act1_alcove_niche":
+                entry["lights"] = NICHE_LIGHTS
+            pieces.append(entry)
+    for name in REFUGE_ATLASES:                       # re-declared by the same definition (ACT1-ART-AD13)
+        atlases[name] = refuge["atlases"][name]
+    by_id = {p["id"]: p for p in refuge["pieces"]}
+    pieces += [by_id[pid] for pid in REFUGE_PIECES]
+    palette_use = {n: colours[n] for n in ATLASES}
+    palette_use.update({n: refuge["palette_use"][n] for n in REFUGE_ATLASES})
+    return {
+        "format": "env-kit-v2", "kit_id": "floor01_act1",
+        "extends": "assets/source/terrain/floor01/floor01_opening_kit.json",
+        "status": "proposed - AREA-ACT1-01 kit (docs/02-art/area-act1-01-spec.md); independent review pending; "
+                  "not owner-approved",
+        "extension_note": (
+            "Inherits palette, layers, draw order, coordinates, walking-line rule and lighting schema from the "
+            "ENV-01 contract through the opening kit (the timber sets, the full barricade, the alcove niche and the "
+            "guild portal are its pieces). Adds the act-1 atlases for Floor 01 rooms `act1_chase`, `act1_shore` and "
+            "`act1_guild`: no tiles, nothing collidable, no new palette colour. The refuge atlases and the refuge "
+            "pieces the guild uses are declared again by the same definitions (the contract chain has no sibling "
+            "reference, ACT1-ART-AD13). The chase's dressing bricks up the S2 bay behind the gallery breach; the "
+            "timbers, the barricade, the grant box and the guild portal's open overlay are presenter sprites, "
+            "not placed pieces."),
+        "palette_use": palette_use,
+        "atlases": atlases, "tiles": [], "pieces": pieces,
+        "room_dressing": dressing(),
+        "usage_rules": {
+            "R1_act1_chase": (
+                "room `act1_chase` only: the dressing never adds or moves a tile or a solid; the S2 bay 584..735 is "
+                "bricked up behind the breach; the soffit slices and the step faces are non-collidable `structure` "
+                "pieces on the sim rects; the timbers, the barricade and the machine are the presenter's"),
+            "R2_act1_shore": "room `act1_shore` only: one torch and its pool are removed; the wedge is the presenter's",
+            "R3_act1_guild": (
+                "room `act1_guild` only: the furniture is the refuge's; the hearth stands on the spawn side, clear of "
+                "the grant zone 336..376, the guide and the door; no piece on the ceiling slab y 336..351"),
+            "R4_presenter_pieces": (
+                "`act1_grant_box_closed` / `_open` are not placed: the scene draws them at (340, 552) from the "
+                "guild door's lock state")},
+    }
+
+
+def manifest(name: str, canvas: list, stem: str) -> dict:
+    origin = {
+        "floor01_act1_keys": "Original pixel-grid-v1 keys for the Floor 1 act-1 rooms (AREA-ACT1-01 on the ENV-01 kit): "
+                             "the gallery breach and the grant strongbox, rule-based shapes and ramps",
+        "floor01_act1_soffit": "The ENV-02 R soffit (collision rows 0..5, columns 61..104 of the opening route "
+                               "proposal) copied pixel for pixel from the ENV-01 and ENV-02 tile atlases, no new pixel",
+        "floor01_act1_props": "The hump and ledge faces (AREA-ACT1-01), derived from the AREA-HEAT-01 shelf body by the "
+                              "AREA-TROG-01 step rule",
+    }[name]
+    return {
+        "schema_version": 1, "id": f"{name}_v1", "type": "decor_atlas",
+        "source_path": f"assets/source/props/floor01/{stem}.ase",
+        "grid_source": f"assets/source/props/floor01/{stem}.grid.json",
+        "output_atlas": f"generated/art/{name}.png", "output_metadata": f"generated/art/{name}.json",
+        "palette_id": "floor01-catacomb-v2", "frame_size": canvas, "pivot": [0, 0],
+        "animation_tags": [], "required_alpha": True,
+        "kit_contract": "assets/source/terrain/floor01/floor01_act1_kit.json",
+        "owner": OWNER, "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+        "license": "Original repo-specific environment art; no standalone asset reuse license; no game/asset-pack "
+                   "distribution rights",
+        "review_status": "prototype_fixture_unapproved",
+        "provenance": {
+            "origin": origin + "; nothing cropped, traced or resampled from concept art; no text, logos, brands, "
+                               "faces or likenesses",
+            "generator": "Deterministic authoring script scripts/author_act1area01.py written by AI agents (spec "
+                         "and keys designed by Claude Opus; execution by Claude Sonnet); no image-model raster "
+                         "output",
+            "generated_art": True,
+            "input_reference_ids": [
+                "floor01-catacomb-kit/env-kit-v2 (owner-approved ENV-01 kit, 2026-11-16)",
+                "floor-01-art-atlas-v1 act-1 panels (mood reference only; no pixel cropped, traced or resampled)"]},
+    }
+
+
+def write_kit() -> None:
+    """Write every atlas grid + .ase, manifest and the contract."""
+    rects, colours = {}, {}
+    for name, spec in ATLASES.items():
+        sheet, r = _pack(build_pieces(name), spec["width"], PAD)
+        rects[name] = r
+        grid = kit.grid_from([sheet], layer_names=["main"], durations=[100], pivot=(0, 0))
+        path = SRC / f"{spec['stem']}.grid.json"
+        path.write_text(json.dumps(grid, indent=1) + "\n", encoding="utf-8")
+        subprocess.run([sys.executable, str(ROOT / "scripts" / "pixel_grid_to_ase.py"), "build", str(path),
+                        str(SRC / f"{spec['stem']}.ase")], check=True)
+        colours[name] = len(grid["palette"])
+        (MANIFESTS / f"{name}.json").write_text(
+            json.dumps(manifest(name, grid["canvas"], spec["stem"]), indent=1) + "\n", encoding="utf-8")
+        print(f"{name}: {grid['canvas']} {len(grid['palette'])} colours")
+    CONTRACT.write_text(json.dumps(contract(rects, colours), indent=1) + "\n", encoding="utf-8")
+    print(f"soffit slices with the one cleared corner pixel: {SOFFIT_NOTCHED}")
+
+
+def all_pieces() -> dict:
+    """{piece id: Pix} for every piece of the act-1 atlases (keys and executor pieces)."""
+    out = {}
+    for name in ATLASES:
+        out.update(dict(build_pieces(name)))
+    return out
+
+
+def mean_luma(img) -> float:
+    vals = [_luma(*p) for row in img.px for p in row if p]
+    return sum(vals) / len(vals)
+
+
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "keys":
         for pid, sha in key_sha().items():
@@ -376,3 +757,4 @@ if __name__ == "__main__":
         print("\n".join(measurements()))
     else:
         write()
+        write_kit()

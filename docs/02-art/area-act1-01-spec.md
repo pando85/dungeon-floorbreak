@@ -1,6 +1,6 @@
 # AREA-ACT1-01: the act-1 chase, the shore and the guild, design spec
 
-**Status:** design spec and two frozen keys, awaiting the independent silhouette gate. Nothing is executed or owner-approved. This order dresses the three act-1 rooms of the [act-1 integration plan](../01-design/floor-01-act-01-integration.md):
+**Status:** executed (section 16): the three rooms are dressed and wired; the silhouette gate passed with execution notes G1 to G6. **Owner art review pending**; nothing is owner-approved, and three lit-read targets fail (ACT1-ART-Q7). This order dresses the three act-1 rooms of the [act-1 integration plan](../01-design/floor-01-act-01-integration.md):
 - `act1_chase` (plan 4.1: the S2 emergence, the S3 timbers under the low soffit, the S4 alcove, the S5 barricade lock, the wedge and the arch);
 - `act1_shore` (plan 4.2: the wedged machine and the shore strike);
 - `act1_guild` (plan 4.3: the guide, the grant zone and the guild door).
@@ -270,9 +270,50 @@ Adopted under the owner's design-defaults authorization (AGENTS.md, 2026-11-19);
 | ACT1-ART-Q4 | Should the alcove light have a visible source (a lamp sprite)? | no: a flame would stand over the ledge, where the player waits | owner art review |
 | ACT1-ART-Q5 | Should the guild portal's lights switch to the open-state lights? | yes, in the presenter follow-up, if the overlay reads wrong | executor / review |
 | ACT1-ART-Q6 | Interact-verb wiring for the box and the guide | out of scope; follow-up **GUILD-VERB-01** | follow-up |
+| ACT1-ART-Q7 | Three lit-read targets of section 10 fail on the real stills (section 16): the alcove niche is not the brightest shape in S4 (mean L* 24.0 against `pier_l` 42.8, and no glow intensity or radius reaches it); the frozen grant box is darker than the desk (16.5 and 12.3 against 21.8 and 21.3); the hearth is not darker than Mordecai's face region (43.7 against 43.4 closed, 42.7 against 33.6 open) | relax 10.1 and 10.4 to what the art can do: S4 "the niche is the brightest **warm** shape" or a peak (90th-percentile) metric, and "box <= Donut" only, or, if the owner wants the read as written, a top-tier design change (a lit lamp source for the niche, a lighter box key, a smaller or dimmer hearth); no executor tuning can meet them | top-tier design and owner art review |
 
 **Horizon fit:** the kit changes no move, ability, unlock or gate. It dresses three rooms whose mechanics are on main, and the grant box shows a state the sim already has. The [progression horizon](../01-design/character-progression-horizon.md) still fits; it is not edited.
 
 ## 16. Execution record
 
-Not executed. Designed by Claude Opus (keys, spec, scratch gate composite). Execution: Claude Sonnet, on this branch.
+Designed by Claude Opus (keys, spec, scratch gate composite); silhouette gate by Claude Opus (the orchestrator, independent of the designer); executed by Claude Sonnet on this branch. Evidence: [docs/evidence/area-act1-01](../evidence/area-act1-01/README.md).
+
+**Gate notes (silhouette gate PASS with execution notes).**
+- **G1** (flat black rectangle behind the stove): it was the greybox `guide` rect of `f01_act1::decor`, drawn behind the hearth's column; a dressed room draws no flat decor rect (section 4), so no flat greybox rectangle remains in any still (the guide rectangle stays only as the fallback of a missing Mordecai sprite).
+- **G2** (torch on the stove pipe's tip): the torch `(48, 432)` and its pool `(-56, 348)` are removed as the spec says; the one in the gate composite was the surviving greybox torch. No torch is left on the pipe.
+- **G3** (blue sills under open bays): kept. The lesson of the trog run (TROG-ART-AD20) is "no blue sill under a **bricked** bay"; the only bricked bay of the act-1 rooms (S2, x 584..735) has its sill removed. The open bays are windows onto the far gallery and keep the composer's sill (ACT1-ART-AD19).
+- **G4** (the S3 timber set can read as a gallows): approved ENV-02 art, not changed; **owner note for the playtest packet** (`chase_s3_timbers`, `chase_s3_after_first_smash`).
+- **G5** (S3 torch removals and the timbers' read): the lit read keeps the timber set at `edge_dL` 21.6 against the soffit and piers (>= 10); the fallback torch is not used.
+- **G6** (the alcove glow brightest in S4): **fails**, see ACT1-ART-Q7; reported, not tuned.
+
+**Pieces and atlases** (`scripts/author_act1area01.py`, below the keys; the three keys are byte-identical to the pins of `gate/measurements.txt`):
+
+| Atlas | Pieces | Colours |
+| --- | --- | --- |
+| `floor01_act1_keys` (192 x 254) | `act1_gallery_breach`, `act1_grant_box_closed`, `act1_grant_box_open` | 31 |
+| `floor01_act1_soffit` (176 x 408) | `act1_soffit_a..d` (the ENV-02 R soffit, collision rows 0..5, columns 61..104, pixel for pixel; each slice carries one cleared corner pixel) | 14 |
+| `floor01_act1_props` (104 x 120) | `act1_alcove_niche` (the ENV-02 `alcove_niche` pixels, copied), `act1_step_mid`, `_end_l`, `_end_r` (16 x 16 hump faces) | 14 |
+
+The contract `assets/source/terrain/floor01/floor01_act1_kit.json` extends the opening kit, declares those atlases and the refuge atlases again, re-declares the eight refuge pieces the guild uses by the same definitions (same rects, anchors and lights) and holds the three `room_dressing` blocks of section 3. Every atlas is 63 colours or fewer, 1-bit alpha, every piece has a transparent pixel.
+
+**Code.** `src/act1_kit.rs` (`ACT1_CONTRACT`, `dressing_of`, `is_dressed`, `compose`, the pure presenter pieces and `presenter_rects`), `f01_act1::launch_with(root, room, dressed)` (`launch` is dressed; `Act1Run::dressed`), `src/bin/floor01_scene/act1_art.rs` (timbers, barricade, grant box, portal overlay), `dozer_art::wedged_rig` and the Bevy `spawn_wedge` (the shore's machine). `git diff origin/main -- src/f01_act1.rs` touches only the `launch_with` split, the compose call and the `dressed` field; the room, sidecar and encounter JSON and every pin are unchanged.
+
+**Tests.** `src/act1_kit/tests.rs` (16 tests): A1 (solids, statics, locks, triggers, spawns, checkpoints, exits, views and walking line identical with and without the dressing, in all three rooms), the state hash (500 ticks, three rooms), A3 (zero unmatched `remove_at`), A4, A5 (no background in the bricked bay or behind the breach), A6 (light trade and the worst 640 px view), the sim rects (breach, soffit, steps, timbers, barricade, niche, box, portal), the window rule, the torch clearance and the lookups; `dozer_art::tests::the_shore_wedge_fits_the_decor_rect`; `tests/test_art_act1area01.py` (22 tests: A7 key pins, executor pins, A8, the soffit and niche copies, the dressing of section 3, the refuge re-declarations, the evidence numbers).
+
+**Evidence.** Fourteen window stills at 640 x 360, each captured twice (byte-identical) with the window hash equal to the headless hash; the lit read and the visibility on the real stills (`measurements.txt`): visibility 100.0 % for all 39 placed pieces, `backwall_null_px=0`; S2 passes (heroes `edge_dL` 18.0 and 26.6, the machine 18.4, the void 2.2 L*); S3 passes (21.6); S4 and two guild readings fail (ACT1-ART-Q7).
+
+**Adopted defaults of the execution** (each changeable in a follow-up):
+
+| Id | Adopted default | Reason |
+| --- | --- | --- |
+| ACT1-ART-AD13 | The refuge atlases and the eight refuge pieces are declared again in the act-1 contract by the same definitions, with no pixel copy | the contract chain (`extends`) has no sibling reference; the loader merges one chain |
+| ACT1-ART-AD14 | `act1_alcove_niche` is a pixel-identical copy of the ENV-02 `alcove_niche` rect in `floor01_act1_props` (pinned equal by the art test), with the `alcove_glow` light | the contract validator refuses two pieces on one atlas rect, so a re-declaration on `structure` needs its own rect |
+| ACT1-ART-AD15 | The 16 x 16 step faces are the top 16 rows of the heat shelf body (arris, slab lip, shadow row, the first course's head), one stone step darker (the trog step rule), the transparent nick moved to the bottom right corner | a 16 px static; the shelf body's own nick (row 31) falls off the crop |
+| ACT1-ART-AD16 | A4 reads "every placement over y 561..579 draws above the collision layer": the 17 step faces are `structure`, the guild's refuge furniture stays `prop` (its layer in the refuge kit) | the literal "on structure" would move the hearth, barrel, stool, desk, candle and bookshelf, which stand on the walking line, off the prop layer |
+| ACT1-ART-AD17 | All four soffit slices carry the one cleared top-left pixel (the ENV-02 tiles are opaque) | every piece needs one transparent pixel; the trog step pieces' rule |
+| ACT1-ART-AD18 | The shore wedge is `dozer_art::wedged_rig`: the rig at the chase wedge's pose (`rig_sprites` itself, the opening's tuning), clipped by the chase wedge's `clip_right` (extracted, not forked), re-based by -2608 and cut at the decor rect's left and top (`SpriteDraw::crop_left`, a new field) | the rig is 255 x 160 px and the decor rect {56, 440, 192, 140}; the pose is static (the strain is over) |
+| ACT1-ART-AD19 | The open bays keep the composer's blue sill (gate note G3) | TROG-ART-AD20 removes the sill under a bricked bay only |
+| ACT1-ART-AD20 | The presenter sprites (timbers, barricade, box, portal overlay) draw at the z just above the highest prop piece and below the actors; the overlay a hair above the composer's closed portal | they are props of their rooms, and the actors stay in front |
+| ACT1-ART-AD21 | The 14 stills use `hide`, `watch`, `skip` and `strike`/`donut` at ticks of the ACT1 evidence where one exists (ten of 14 reuse its hashes) | the same captures keep the hash comparison |
+
+**Follow-ups** (recorded here and in the PR body; the backlog is the orchestrator's): GUILD-BEAT-01 (Mordecai's idle and talk animation), GUILD-VERB-01 (interact verbs for the box and the guide), ACT1-ART-Q1 to Q7.

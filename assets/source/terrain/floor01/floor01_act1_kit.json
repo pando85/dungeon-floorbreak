@@ -1,0 +1,1056 @@
+{
+ "format": "env-kit-v2",
+ "kit_id": "floor01_act1",
+ "extends": "assets/source/terrain/floor01/floor01_opening_kit.json",
+ "status": "proposed - AREA-ACT1-01 kit (docs/02-art/area-act1-01-spec.md); independent review pending; not owner-approved",
+ "extension_note": "Inherits palette, layers, draw order, coordinates, walking-line rule and lighting schema from the ENV-01 contract through the opening kit (the timber sets, the full barricade, the alcove niche and the guild portal are its pieces). Adds the act-1 atlases for Floor 01 rooms `act1_chase`, `act1_shore` and `act1_guild`: no tiles, nothing collidable, no new palette colour. The refuge atlases and the refuge pieces the guild uses are declared again by the same definitions (the contract chain has no sibling reference, ACT1-ART-AD13). The chase's dressing bricks up the S2 bay behind the gallery breach; the timbers, the barricade, the grant box and the guild portal's open overlay are presenter sprites, not placed pieces.",
+ "palette_use": {
+  "floor01_act1_keys": 31,
+  "floor01_act1_soffit": 14,
+  "floor01_act1_props": 14,
+  "floor01_refuge_hearth": 47,
+  "floor01_refuge_candle": 3,
+  "floor01_refuge_props": 31,
+  "floor01_refuge_wall": 31
+ },
+ "atlases": {
+  "floor01_act1_keys": {
+   "grid": "assets/source/props/floor01/act1_keys.grid.json",
+   "manifest": "assets/manifests/floor01_act1_keys.json",
+   "image": "generated/art/floor01_act1_keys.png",
+   "metadata": "generated/art/floor01_act1_keys.json"
+  },
+  "floor01_act1_soffit": {
+   "grid": "assets/source/props/floor01/act1_soffit.grid.json",
+   "manifest": "assets/manifests/floor01_act1_soffit.json",
+   "image": "generated/art/floor01_act1_soffit.png",
+   "metadata": "generated/art/floor01_act1_soffit.json"
+  },
+  "floor01_act1_props": {
+   "grid": "assets/source/props/floor01/act1_props.grid.json",
+   "manifest": "assets/manifests/floor01_act1_props.json",
+   "image": "generated/art/floor01_act1_props.png",
+   "metadata": "generated/art/floor01_act1_props.json"
+  },
+  "floor01_refuge_hearth": {
+   "grid": "assets/source/props/floor01/refuge_hearth.grid.json",
+   "manifest": "assets/manifests/floor01_refuge_hearth.json",
+   "image": "generated/art/floor01_refuge_hearth.png",
+   "metadata": "generated/art/floor01_refuge_hearth.json"
+  },
+  "floor01_refuge_candle": {
+   "grid": "assets/source/props/floor01/refuge_candle.grid.json",
+   "manifest": "assets/manifests/floor01_refuge_candle.json",
+   "image": "generated/art/floor01_refuge_candle.png",
+   "metadata": "generated/art/floor01_refuge_candle.json"
+  },
+  "floor01_refuge_props": {
+   "grid": "assets/source/props/floor01/refuge_props.grid.json",
+   "manifest": "assets/manifests/floor01_refuge_props.json",
+   "image": "generated/art/floor01_refuge_props.png",
+   "metadata": "generated/art/floor01_refuge_props.json"
+  },
+  "floor01_refuge_wall": {
+   "grid": "assets/source/props/floor01/refuge_wall.grid.json",
+   "manifest": "assets/manifests/floor01_refuge_wall.json",
+   "image": "generated/art/floor01_refuge_wall.png",
+   "metadata": "generated/art/floor01_refuge_wall.json"
+  }
+ },
+ "tiles": [],
+ "pieces": [
+  {
+   "id": "act1_gallery_breach",
+   "atlas": "floor01_act1_keys",
+   "rect": [
+    0,
+    0,
+    192,
+    218
+   ],
+   "role": "structure",
+   "layer": "structure",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (room placement, spec section 5)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ]
+  },
+  {
+   "id": "act1_grant_box_closed",
+   "atlas": "floor01_act1_keys",
+   "rect": [
+    0,
+    226,
+    24,
+    28
+   ],
+   "role": "prop",
+   "layer": "prop",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (room placement, spec section 5)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ]
+  },
+  {
+   "id": "act1_grant_box_open",
+   "atlas": "floor01_act1_keys",
+   "rect": [
+    32,
+    226,
+    24,
+    28
+   ],
+   "role": "prop",
+   "layer": "prop",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (room placement, spec section 5)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ]
+  },
+  {
+   "id": "act1_soffit_a",
+   "atlas": "floor01_act1_soffit",
+   "rect": [
+    0,
+    0,
+    176,
+    96
+   ],
+   "role": "structure",
+   "layer": "structure",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (room placement, spec section 5)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ]
+  },
+  {
+   "id": "act1_soffit_b",
+   "atlas": "floor01_act1_soffit",
+   "rect": [
+    0,
+    104,
+    176,
+    96
+   ],
+   "role": "structure",
+   "layer": "structure",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (room placement, spec section 5)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ]
+  },
+  {
+   "id": "act1_soffit_c",
+   "atlas": "floor01_act1_soffit",
+   "rect": [
+    0,
+    208,
+    176,
+    96
+   ],
+   "role": "structure",
+   "layer": "structure",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (room placement, spec section 5)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ]
+  },
+  {
+   "id": "act1_soffit_d",
+   "atlas": "floor01_act1_soffit",
+   "rect": [
+    0,
+    312,
+    176,
+    96
+   ],
+   "role": "structure",
+   "layer": "structure",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (room placement, spec section 5)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ]
+  },
+  {
+   "id": "act1_alcove_niche",
+   "atlas": "floor01_act1_props",
+   "rect": [
+    0,
+    0,
+    96,
+    96
+   ],
+   "role": "structure",
+   "layer": "structure",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (room placement, spec section 5)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ],
+   "lights": [
+    {
+     "id": "alcove_glow",
+     "offset": [
+      48,
+      56
+     ],
+     "colour": "#f2b060",
+     "radius": 96,
+     "intensity": 0.4,
+     "group": "scene"
+    }
+   ]
+  },
+  {
+   "id": "act1_step_mid",
+   "atlas": "floor01_act1_props",
+   "rect": [
+    0,
+    104,
+    16,
+    16
+   ],
+   "role": "structure",
+   "layer": "structure",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (room placement, spec section 5)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ]
+  },
+  {
+   "id": "act1_step_end_l",
+   "atlas": "floor01_act1_props",
+   "rect": [
+    24,
+    104,
+    8,
+    16
+   ],
+   "role": "structure",
+   "layer": "structure",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (room placement, spec section 5)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ]
+  },
+  {
+   "id": "act1_step_end_r",
+   "atlas": "floor01_act1_props",
+   "rect": [
+    40,
+    104,
+    8,
+    16
+   ],
+   "role": "structure",
+   "layer": "structure",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (room placement, spec section 5)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ]
+  },
+  {
+   "id": "refuge_hearth",
+   "atlas": "floor01_refuge_hearth",
+   "rect": [
+    0,
+    0,
+    80,
+    80
+   ],
+   "role": "prop",
+   "layer": "prop",
+   "collidable": false,
+   "anchor": [
+    40,
+    79
+   ],
+   "anchor_name": "bottom centre on the floor back line (view y 267, layout y 287)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ],
+   "animation": {
+    "tag": {
+     "name": "burn",
+     "from": 0,
+     "to": 3,
+     "direction": "forward"
+    },
+    "frames": [
+     {
+      "frame": {
+       "x": 0,
+       "y": 0,
+       "w": 80,
+       "h": 80
+      },
+      "duration": 120
+     },
+     {
+      "frame": {
+       "x": 80,
+       "y": 0,
+       "w": 80,
+       "h": 80
+      },
+      "duration": 120
+     },
+     {
+      "frame": {
+       "x": 160,
+       "y": 0,
+       "w": 80,
+       "h": 80
+      },
+      "duration": 120
+     },
+     {
+      "frame": {
+       "x": 240,
+       "y": 0,
+       "w": 80,
+       "h": 80
+      },
+      "duration": 120
+     }
+    ]
+   },
+   "lights": [
+    {
+     "id": "hearth_fire",
+     "offset": [
+      40,
+      58
+     ],
+     "colour": "#ffb060",
+     "radius": 230,
+     "intensity": 0.5,
+     "group": "scene",
+     "glow": {
+      "radius": 26,
+      "additive": 0.12
+     },
+     "flicker": [
+      1.0,
+      0.93,
+      1.05,
+      0.96
+     ]
+    },
+    {
+     "id": "hearth_floor",
+     "offset": [
+      40,
+      79
+     ],
+     "colour": "#ffb060",
+     "radius": 150,
+     "intensity": 0.32,
+     "group": "scene",
+     "project": "walk_line",
+     "project_dy": -4,
+     "squash_y": 0.3
+    }
+   ]
+  },
+  {
+   "id": "refuge_hearth_flue",
+   "atlas": "floor01_refuge_wall",
+   "rect": [
+    0,
+    100,
+    48,
+    16
+   ],
+   "role": "backwall",
+   "layer": "backwall_decal",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ],
+   "decal": true
+  },
+  {
+   "id": "refuge_desk",
+   "atlas": "floor01_refuge_props",
+   "rect": [
+    100,
+    0,
+    56,
+    26
+   ],
+   "role": "prop",
+   "layer": "prop",
+   "collidable": false,
+   "anchor": [
+    28,
+    25
+   ],
+   "anchor_name": "bottom centre on the floor back line (view y 267, layout y 287)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ]
+  },
+  {
+   "id": "refuge_candle_flame",
+   "atlas": "floor01_refuge_candle",
+   "rect": [
+    0,
+    0,
+    3,
+    2
+   ],
+   "role": "prop",
+   "layer": "prop",
+   "collidable": false,
+   "anchor": [
+    1,
+    0
+   ],
+   "anchor_name": "candle tip; placed at the desk's top-left + (39, 0)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ],
+   "animation": {
+    "tag": {
+     "name": "burn",
+     "from": 0,
+     "to": 3,
+     "direction": "forward"
+    },
+    "frames": [
+     {
+      "frame": {
+       "x": 0,
+       "y": 0,
+       "w": 3,
+       "h": 2
+      },
+      "duration": 120
+     },
+     {
+      "frame": {
+       "x": 3,
+       "y": 0,
+       "w": 3,
+       "h": 2
+      },
+      "duration": 120
+     },
+     {
+      "frame": {
+       "x": 6,
+       "y": 0,
+       "w": 3,
+       "h": 2
+      },
+      "duration": 120
+     },
+     {
+      "frame": {
+       "x": 9,
+       "y": 0,
+       "w": 3,
+       "h": 2
+      },
+      "duration": 120
+     }
+    ],
+    "note": "four identical frames: the sprite is static, only the light flickers (spec section 5)"
+   },
+   "lights": [
+    {
+     "id": "desk_candle",
+     "offset": [
+      1,
+      0
+     ],
+     "colour": "#ffc27a",
+     "radius": 44,
+     "intensity": 0.12,
+     "group": "scene",
+     "glow": {
+      "radius": 6,
+      "additive": 0.05
+     },
+     "flicker": [
+      1.0,
+      0.95,
+      1.03,
+      0.97
+     ]
+    }
+   ]
+  },
+  {
+   "id": "refuge_stool",
+   "atlas": "floor01_refuge_props",
+   "rect": [
+    0,
+    56,
+    14,
+    18
+   ],
+   "role": "prop",
+   "layer": "prop",
+   "collidable": false,
+   "anchor": [
+    7,
+    17
+   ],
+   "anchor_name": "bottom centre on the floor back line (view y 267, layout y 287)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ]
+  },
+  {
+   "id": "refuge_barrel",
+   "atlas": "floor01_refuge_props",
+   "rect": [
+    14,
+    56,
+    22,
+    28
+   ],
+   "role": "prop",
+   "layer": "prop",
+   "collidable": false,
+   "anchor": [
+    11,
+    27
+   ],
+   "anchor_name": "bottom centre on the floor back line (view y 267, layout y 287)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ]
+  },
+  {
+   "id": "refuge_wall_map",
+   "atlas": "floor01_refuge_wall",
+   "rect": [
+    96,
+    0,
+    32,
+    24
+   ],
+   "role": "backwall",
+   "layer": "backwall_decal",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ],
+   "decal": true
+  },
+  {
+   "id": "refuge_bookshelf",
+   "atlas": "floor01_refuge_props",
+   "rect": [
+    64,
+    0,
+    36,
+    56
+   ],
+   "role": "prop",
+   "layer": "prop",
+   "collidable": false,
+   "anchor": [
+    18,
+    55
+   ],
+   "anchor_name": "bottom centre on the floor back line (view y 267, layout y 287)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ]
+  }
+ ],
+ "room_dressing": {
+  "act1_chase": {
+   "remove": [],
+   "remove_at": [
+    {
+     "layer": "structure",
+     "piece": "arch_threshold",
+     "x": 576,
+     "y": 544
+    },
+    {
+     "layer": "structure",
+     "piece": "arch_chain",
+     "x": 592,
+     "y": 384
+    },
+    {
+     "layer": "prop",
+     "piece": "torch_wall",
+     "x": 768,
+     "y": 448
+    },
+    {
+     "layer": "prop",
+     "piece": "torch_wall",
+     "x": 824,
+     "y": 432
+    },
+    {
+     "layer": "prop",
+     "piece": "torch_wall",
+     "x": 864,
+     "y": 448
+    },
+    {
+     "layer": "backwall_decal",
+     "piece": "torch_pool_b",
+     "x": 664,
+     "y": 364
+    },
+    {
+     "layer": "backwall_decal",
+     "piece": "torch_pool_b",
+     "x": 720,
+     "y": 348
+    },
+    {
+     "layer": "backwall_decal",
+     "piece": "torch_pool_a",
+     "x": 760,
+     "y": 364
+    },
+    {
+     "layer": "prop",
+     "piece": "torch_wall",
+     "x": 1104,
+     "y": 448
+    },
+    {
+     "layer": "prop",
+     "piece": "torch_wall",
+     "x": 1160,
+     "y": 432
+    },
+    {
+     "layer": "prop",
+     "piece": "torch_wall",
+     "x": 1440,
+     "y": 448
+    },
+    {
+     "layer": "prop",
+     "piece": "torch_wall",
+     "x": 1496,
+     "y": 432
+    },
+    {
+     "layer": "backwall_decal",
+     "piece": "torch_pool_a",
+     "x": 1000,
+     "y": 364
+    },
+    {
+     "layer": "backwall_decal",
+     "piece": "torch_pool_b_m",
+     "x": 1056,
+     "y": 348
+    },
+    {
+     "layer": "backwall_decal",
+     "piece": "torch_pool_b",
+     "x": 1336,
+     "y": 364
+    },
+    {
+     "layer": "backwall_decal",
+     "piece": "torch_pool_a_m",
+     "x": 1392,
+     "y": 348
+    },
+    {
+     "layer": "prop",
+     "piece": "torch_wall",
+     "x": 2112,
+     "y": 448
+    },
+    {
+     "layer": "backwall_decal",
+     "piece": "torch_pool_a",
+     "x": 2008,
+     "y": 364
+    }
+   ],
+   "backwall_fill": [
+    {
+     "x": 584,
+     "y": 352,
+     "w": 152,
+     "h": 208
+    }
+   ],
+   "place": [
+    {
+     "layer": "structure",
+     "piece": "act1_gallery_breach",
+     "x": 696,
+     "y": 342
+    },
+    {
+     "layer": "structure",
+     "piece": "act1_soffit_a",
+     "x": 976,
+     "y": 272
+    },
+    {
+     "layer": "structure",
+     "piece": "act1_soffit_b",
+     "x": 1152,
+     "y": 272
+    },
+    {
+     "layer": "structure",
+     "piece": "act1_soffit_c",
+     "x": 1328,
+     "y": 272
+    },
+    {
+     "layer": "structure",
+     "piece": "act1_soffit_d",
+     "x": 1504,
+     "y": 272
+    },
+    {
+     "layer": "structure",
+     "piece": "act1_step_end_l",
+     "x": 1168,
+     "y": 564
+    },
+    {
+     "layer": "structure",
+     "piece": "act1_step_mid",
+     "x": 1176,
+     "y": 564
+    },
+    {
+     "layer": "structure",
+     "piece": "act1_step_mid",
+     "x": 1192,
+     "y": 564
+    },
+    {
+     "layer": "structure",
+     "piece": "act1_step_mid",
+     "x": 1208,
+     "y": 564
+    },
+    {
+     "layer": "structure",
+     "piece": "act1_step_end_r",
+     "x": 1224,
+     "y": 564
+    },
+    {
+     "layer": "structure",
+     "piece": "act1_step_end_l",
+     "x": 1456,
+     "y": 564
+    },
+    {
+     "layer": "structure",
+     "piece": "act1_step_mid",
+     "x": 1464,
+     "y": 564
+    },
+    {
+     "layer": "structure",
+     "piece": "act1_step_mid",
+     "x": 1480,
+     "y": 564
+    },
+    {
+     "layer": "structure",
+     "piece": "act1_step_mid",
+     "x": 1496,
+     "y": 564
+    },
+    {
+     "layer": "structure",
+     "piece": "act1_step_end_r",
+     "x": 1512,
+     "y": 564
+    },
+    {
+     "layer": "structure",
+     "piece": "act1_alcove_niche",
+     "x": 2064,
+     "y": 468
+    },
+    {
+     "layer": "structure",
+     "piece": "act1_step_end_l",
+     "x": 2064,
+     "y": 564
+    },
+    {
+     "layer": "structure",
+     "piece": "act1_step_mid",
+     "x": 2072,
+     "y": 564
+    },
+    {
+     "layer": "structure",
+     "piece": "act1_step_mid",
+     "x": 2088,
+     "y": 564
+    },
+    {
+     "layer": "structure",
+     "piece": "act1_step_mid",
+     "x": 2104,
+     "y": 564
+    },
+    {
+     "layer": "structure",
+     "piece": "act1_step_mid",
+     "x": 2120,
+     "y": 564
+    },
+    {
+     "layer": "structure",
+     "piece": "act1_step_mid",
+     "x": 2136,
+     "y": 564
+    },
+    {
+     "layer": "structure",
+     "piece": "act1_step_end_r",
+     "x": 2152,
+     "y": 564
+    }
+   ],
+   "parallax": {}
+  },
+  "act1_shore": {
+   "remove": [],
+   "remove_at": [
+    {
+     "layer": "prop",
+     "piece": "torch_wall",
+     "x": 176,
+     "y": 448
+    },
+    {
+     "layer": "backwall_decal",
+     "piece": "torch_pool_b",
+     "x": 72,
+     "y": 364
+    }
+   ],
+   "backwall_fill": [],
+   "place": [],
+   "parallax": {}
+  },
+  "act1_guild": {
+   "remove": [],
+   "remove_at": [
+    {
+     "layer": "prop",
+     "piece": "torch_wall",
+     "x": 48,
+     "y": 432
+    },
+    {
+     "layer": "backwall_decal",
+     "piece": "torch_pool_a_m",
+     "x": -56,
+     "y": 348
+    }
+   ],
+   "backwall_fill": [],
+   "place": [
+    {
+     "layer": "backwall_decal",
+     "piece": "refuge_hearth_flue",
+     "x": 80,
+     "y": 356
+    },
+    {
+     "layer": "backwall_decal",
+     "piece": "refuge_hearth_flue",
+     "x": 80,
+     "y": 372
+    },
+    {
+     "layer": "backwall_decal",
+     "piece": "refuge_hearth_flue",
+     "x": 80,
+     "y": 388
+    },
+    {
+     "layer": "backwall_decal",
+     "piece": "refuge_hearth_flue",
+     "x": 80,
+     "y": 404
+    },
+    {
+     "layer": "backwall_decal",
+     "piece": "refuge_hearth_flue",
+     "x": 80,
+     "y": 420
+    },
+    {
+     "layer": "backwall_decal",
+     "piece": "refuge_hearth_flue",
+     "x": 80,
+     "y": 436
+    },
+    {
+     "layer": "backwall_decal",
+     "piece": "refuge_hearth_flue",
+     "x": 80,
+     "y": 452
+    },
+    {
+     "layer": "backwall_decal",
+     "piece": "refuge_hearth_flue",
+     "x": 80,
+     "y": 468
+    },
+    {
+     "layer": "backwall_decal",
+     "piece": "refuge_hearth_flue",
+     "x": 80,
+     "y": 484
+    },
+    {
+     "layer": "backwall_decal",
+     "piece": "refuge_wall_map",
+     "x": 474,
+     "y": 484
+    },
+    {
+     "layer": "prop",
+     "piece": "refuge_hearth",
+     "x": 64,
+     "y": 500
+    },
+    {
+     "layer": "prop",
+     "piece": "refuge_barrel",
+     "x": 8,
+     "y": 552
+    },
+    {
+     "layer": "prop",
+     "piece": "refuge_stool",
+     "x": 150,
+     "y": 562
+    },
+    {
+     "layer": "prop",
+     "piece": "refuge_desk",
+     "x": 272,
+     "y": 554
+    },
+    {
+     "layer": "prop",
+     "piece": "refuge_candle_flame",
+     "x": 311,
+     "y": 554
+    },
+    {
+     "layer": "prop",
+     "piece": "refuge_bookshelf",
+     "x": 474,
+     "y": 524
+    }
+   ],
+   "parallax": {}
+  }
+ },
+ "usage_rules": {
+  "R1_act1_chase": "room `act1_chase` only: the dressing never adds or moves a tile or a solid; the S2 bay 584..735 is bricked up behind the breach; the soffit slices and the step faces are non-collidable `structure` pieces on the sim rects; the timbers, the barricade and the machine are the presenter's",
+  "R2_act1_shore": "room `act1_shore` only: one torch and its pool are removed; the wedge is the presenter's",
+  "R3_act1_guild": "room `act1_guild` only: the furniture is the refuge's; the hearth stands on the spawn side, clear of the grant zone 336..376, the guide and the door; no piece on the ceiling slab y 336..351",
+  "R4_presenter_pieces": "`act1_grant_box_closed` / `_open` are not placed: the scene draws them at (340, 552) from the guild door's lock state"
+ }
+}

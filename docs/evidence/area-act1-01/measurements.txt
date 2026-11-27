@@ -1,0 +1,236 @@
+# AREA-ACT1-01 measurements (scripts/make_act1area01_sheets.py)
+# the frozen keys' pins (equal gate/measurements.txt)
+KEY act1_grant_box_closed sha256=afcd32c654dec6d4126a5b7ba1b4ed86563621c4dd0947fd973fe694feaf058b
+KEY act1_grant_box_open sha256=e07f0a7e7fcef934c5f3e038410db8224817e391a9c1c2e6a730e3566d8a0dae
+KEY act1_gallery_breach sha256=e50a7f803bee66da91d43b6b4db1e4ae71d6a96c4089226a3f2613f512c7f3ef
+# A9 visibility: the share of each placed piece's opaque pixels that show behind the architecture
+visibility act1_chase structure act1_gallery_breach @(696,342): 36676/36676 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility act1_chase structure act1_soffit_a @(976,272): 16895/16895 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility act1_chase structure act1_soffit_b @(1152,272): 16895/16895 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility act1_chase structure act1_soffit_c @(1328,272): 16895/16895 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility act1_chase structure act1_soffit_d @(1504,272): 16895/16895 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility act1_chase structure act1_step_end_l @(1168,564): 127/127 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility act1_chase structure act1_step_mid @(1176,564): 255/255 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility act1_chase structure act1_step_mid @(1192,564): 255/255 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility act1_chase structure act1_step_mid @(1208,564): 255/255 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility act1_chase structure act1_step_end_r @(1224,564): 127/127 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility act1_chase structure act1_step_end_l @(1456,564): 127/127 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility act1_chase structure act1_step_mid @(1464,564): 255/255 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility act1_chase structure act1_step_mid @(1480,564): 255/255 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility act1_chase structure act1_step_mid @(1496,564): 255/255 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility act1_chase structure act1_step_end_r @(1512,564): 127/127 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility act1_chase structure act1_alcove_niche @(2064,468): 8102/8102 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility act1_chase structure act1_step_end_l @(2064,564): 127/127 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility act1_chase structure act1_step_mid @(2072,564): 255/255 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility act1_chase structure act1_step_mid @(2088,564): 255/255 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility act1_chase structure act1_step_mid @(2104,564): 255/255 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility act1_chase structure act1_step_mid @(2120,564): 255/255 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility act1_chase structure act1_step_mid @(2136,564): 255/255 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility act1_chase structure act1_step_end_r @(2152,564): 127/127 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility act1_chase bricked bay x 584..735 y 352..559: backwall_null_px=0 (target 0) ok
+visibility act1_guild backwall_decal refuge_hearth_flue @(80,356): 767/767 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility act1_guild backwall_decal refuge_hearth_flue @(80,372): 767/767 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility act1_guild backwall_decal refuge_hearth_flue @(80,388): 767/767 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility act1_guild backwall_decal refuge_hearth_flue @(80,404): 767/767 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility act1_guild backwall_decal refuge_hearth_flue @(80,420): 767/767 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility act1_guild backwall_decal refuge_hearth_flue @(80,436): 767/767 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility act1_guild backwall_decal refuge_hearth_flue @(80,452): 767/767 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility act1_guild backwall_decal refuge_hearth_flue @(80,468): 767/767 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility act1_guild backwall_decal refuge_hearth_flue @(80,484): 767/767 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility act1_guild backwall_decal refuge_wall_map @(474,484): 766/766 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility act1_guild prop refuge_hearth @(64,500): 5285/5285 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility act1_guild prop refuge_barrel @(8,552): 572/572 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility act1_guild prop refuge_stool @(150,562): 132/132 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility act1_guild prop refuge_desk @(272,554): 496/496 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility act1_guild prop refuge_candle_flame @(311,554): 4/4 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+visibility act1_guild prop refuge_bookshelf @(474,524): 1804/1804 = 100.0% behind architecture (target >= 90), 100.0% with the props in front; backwall_null_px=0 (target 0) ok
+# ACT1-ART-A9 (spec section 10) measured on the real 640x360 window stills
+# model: the lit render of the dressed layout plus the presenter pieces of the still's state; a pixel is
+# 'explained' when |L*(still) - L*(model)| <= 12; the others (actors, HUD, effects) are components
+# piece L*: mean CIE L* of a placed piece's visible, explained pixels (n >= 12); the torch flames and pools
+# are excluded; edge_dL: lookdev_compose.readability(still, mask, box, ring=6)
+still chase_spawn room=act1_chase tick=20 view_left=0 view_top=292 explained=99.0% components=3
+  component bbox=(125,240)-(152,291) px=779 room_x=125..152 actor_L=37.9 edge_dL=14.3
+  component bbox=(54,251)-(108,291) px=1352 room_x=54..108 actor_L=41.8 edge_dL=23.8
+  component bbox=(614,334)-(630,352) px=223 room_x=614..630 actor_L=27.9 edge_dL=36.1
+  piece pier_r@(400,304): mean_L=41.9 px=9559
+  piece pier_l@(512,304): mean_L=41.6 px=9454
+  piece pier_l@(176,304): mean_L=36.5 px=7531
+  piece pier_spill_l@(56,296): mean_L=30.1 px=3808
+  piece arch_ring_b@(528,304): mean_L=27.2 px=4045
+  piece arch_ring_a@(192,304): mean_L=25.2 px=8209
+  piece arch_threshold@(240,544): mean_L=17.6 px=2400
+  piece door_timber@(216,488): mean_L=17.2 px=3878
+still chase_s2_breach_heroes room=act1_chase tick=235 view_left=450 view_top=292 explained=98.9% components=3
+  component bbox=(336,238)-(364,291) px=754 room_x=786..814 actor_L=37.5 edge_dL=18.0
+  component bbox=(263,250)-(319,291) px=1275 room_x=713..769 actor_L=40.4 edge_dL=26.6
+  component bbox=(614,334)-(630,352) px=223 room_x=1064..1080 actor_L=27.9 edge_dL=36.1
+  piece pier_r@(400,304): mean_L=47.2 px=4194
+  piece pier_l@(512,304): mean_L=41.5 px=9456
+  piece arch_ring_b@(528,304): mean_L=24.0 px=4976
+  piece pier_l@(848,304): mean_L=20.2 px=5553
+  piece act1_soffit_a@(976,272): mean_L=16.7 px=1596
+  piece arch_ring_a@(864,304): mean_L=16.0 px=5237
+  piece arch_threshold@(912,544): mean_L=14.5 px=2752
+  piece pier_r@(1072,304): mean_L=12.6 px=535
+  S2 verdict (target 2, heroes): component room_x=786..814 in front of the breach edge_dL=18.0 (>= 15): PASS
+  S2 verdict (target 2, heroes): component room_x=713..769 in front of the breach edge_dL=26.6 (>= 15): PASS
+still chase_s2_emergence room=act1_chase tick=470 view_left=784 view_top=292 explained=92.7% components=5
+  component bbox=(8,118)-(30,131) px=165 room_x=792..814 actor_L=29.3 edge_dL=24.6
+  component bbox=(2,127)-(212,288) px=15213 room_x=786..996 actor_L=26.3 edge_dL=18.4
+  component bbox=(335,237)-(357,291) px=859 room_x=1119..1141 actor_L=38.3 edge_dL=16.6
+  component bbox=(276,248)-(321,291) px=1252 room_x=1060..1105 actor_L=47.8 edge_dL=28.3
+  component bbox=(614,334)-(630,352) px=223 room_x=1398..1414 actor_L=27.9 edge_dL=36.1
+  piece pier_l@(1184,304): mean_L=33.7 px=8498
+  piece pier_r@(1072,304): mean_L=28.6 px=7050
+  piece act1_step_mid@(1208,564): mean_L=24.5 px=255
+  piece act1_step_mid@(1192,564): mean_L=24.5 px=255
+  piece act1_step_mid@(1176,564): mean_L=23.5 px=255
+  piece act1_step_end_r@(1224,564): mean_L=22.4 px=127
+  piece act1_step_end_l@(1168,564): mean_L=21.2 px=127
+  piece arch_ring_b@(1200,304): mean_L=21.1 px=4215
+  S2 verdict (target 2, void): the breach void's lit mean L*=2.2 over 6405 px (<= 12): PASS
+  S2 verdict (target 2, machine): component room_x=786..996 (the rig) edge_dL=18.4 (>= 15): PASS
+still chase_s3_timbers room=act1_chase tick=480 view_left=1205 view_top=234 explained=99.1% components=3
+  component bbox=(261,200)-(322,238) px=1178 room_x=1466..1527 actor_L=45.2 edge_dL=23.6
+  component bbox=(331,227)-(363,285) px=909 room_x=1536..1568 actor_L=44.1 edge_dL=27.3
+  component bbox=(613,335)-(631,352) px=250 room_x=1818..1836 actor_L=26.9 edge_dL=38.1
+  piece pier_r@(1744,304): mean_L=36.2 px=11759
+  piece pier_l@(1184,304): mean_L=34.4 px=6564
+  piece pier_l@(1520,304): mean_L=32.0 px=8094
+  piece pier_r@(1408,304): mean_L=29.4 px=7548
+  piece act1_step_mid@(1192,564): mean_L=25.6 px=47
+  piece act1_step_mid@(1208,564): mean_L=24.9 px=255
+  piece arch_ring_a@(1536,304): mean_L=23.8 px=9234
+  piece act1_step_end_r@(1224,564): mean_L=22.7 px=127
+  S3 verdict (target 3): timber_set_intact@(1424,456) edge_dL=21.6 px=2159 (>= 10): PASS
+still chase_s3_after_first_smash room=act1_chase tick=510 view_left=1298 view_top=292 explained=99.1% components=3
+  component bbox=(264,213)-(321,250) px=1210 room_x=1562..1619 actor_L=44.6 edge_dL=24.5
+  component bbox=(336,238)-(365,291) px=656 room_x=1634..1663 actor_L=41.6 edge_dL=15.1
+  component bbox=(614,334)-(630,352) px=223 room_x=1912..1928 actor_L=27.9 edge_dL=36.1
+  piece pier_r@(1744,304): mean_L=41.6 px=9559
+  piece pier_l@(1856,304): mean_L=40.9 px=9456
+  piece pier_l@(1520,304): mean_L=34.6 px=8473
+  piece arch_ring_b@(1872,304): mean_L=31.1 px=3133
+  piece pier_r@(1408,304): mean_L=29.9 px=7738
+  piece arch_ring_a@(1536,304): mean_L=27.1 px=7107
+  piece act1_step_mid@(1496,564): mean_L=22.8 px=255
+  piece act1_step_end_r@(1512,564): mean_L=22.6 px=127
+still chase_s4_alcove room=act1_chase tick=600 view_left=1575 view_top=292 explained=99.1% components=3
+  component bbox=(336,239)-(360,292) px=699 room_x=1911..1935 actor_L=41.8 edge_dL=17.5
+  component bbox=(263,250)-(319,292) px=1401 room_x=1838..1894 actor_L=45.8 edge_dL=25.1
+  component bbox=(614,334)-(630,352) px=223 room_x=2189..2205 actor_L=27.9 edge_dL=36.1
+  piece pier_l@(1856,304): mean_L=42.8 px=8678
+  piece pier_r@(1744,304): mean_L=41.6 px=9559
+  piece pier_r@(2080,304): mean_L=40.5 px=4530
+  piece pier_l@(2192,304): mean_L=37.9 px=2561
+  piece act1_step_mid@(2136,564): mean_L=26.9 px=255
+  piece act1_step_end_r@(2152,564): mean_L=26.6 px=127
+  piece act1_step_mid@(2120,564): mean_L=25.1 px=255
+  piece arch_ring_a@(1536,304): mean_L=24.6 px=5778
+  S4 verdict (target 1): niche mean_L=24.0; the brightest other shape is pier_l at 42.8: FAIL (margin -18.8)
+  S4 info (not the spec's metric): 90th-percentile L*: niche 39.7; next pier_r 84.0
+still chase_s5_barricade_intact room=act1_chase tick=825 view_left=1790 view_top=276 explained=92.7% components=3
+  component bbox=(133,140)-(153,150) px=134 room_x=1923..1943 actor_L=27.6 edge_dL=22.3
+  component bbox=(79,149)-(357,304) px=18829 room_x=1869..2147 actor_L=28.7 edge_dL=20.9
+  component bbox=(614,334)-(630,352) px=223 room_x=2404..2420 actor_L=28.4 edge_dL=34.9
+  piece arch_ring_a@(1536,304): mean_L=49.7 px=102
+  piece pier_r@(1744,304): mean_L=45.7 px=5324
+  piece pier_r@(2080,304): mean_L=37.6 px=5234
+  piece pier_l@(2192,304): mean_L=37.3 px=10167
+  piece pier_l@(1856,304): mean_L=36.0 px=6212
+  piece act1_step_end_r@(2152,564): mean_L=27.1 px=127
+  piece act1_alcove_niche@(2064,468): mean_L=26.0 px=4660
+  piece act1_step_mid@(2136,564): mean_L=24.2 px=235
+still chase_s5_barricade_broken room=act1_chase tick=880 view_left=1790 view_top=276 explained=92.2% components=4
+  component bbox=(324,135)-(346,147) px=146 room_x=2114..2136 actor_L=29.8 edge_dL=19.0
+  component bbox=(278,141)-(560,304) px=20148 room_x=2068..2350 actor_L=30.1 edge_dL=21.0
+  component bbox=(555,174)-(572,192) px=152 room_x=2345..2362 actor_L=25.4 edge_dL=22.6
+  component bbox=(614,334)-(630,352) px=223 room_x=2404..2420 actor_L=28.4 edge_dL=35.0
+  piece arch_ring_a@(1536,304): mean_L=49.1 px=102
+  piece pier_r@(1744,304): mean_L=45.2 px=5324
+  piece pier_l@(1856,304): mean_L=39.6 px=10160
+  piece pier_l@(2192,304): mean_L=35.8 px=5864
+  piece pier_r@(2080,304): mean_L=32.3 px=4484
+  piece timber_barricade_full_smashed@(2304,304): mean_L=22.2 px=2877
+  piece act1_alcove_niche@(2064,468): mean_L=21.6 px=3838
+  piece arch_ring_b@(1872,304): mean_L=21.2 px=10682
+still chase_s5_after_defeat room=act1_chase tick=925 view_left=1953 view_top=292 explained=92.4% components=3
+  component bbox=(193,118)-(215,132) px=182 room_x=2146..2168 actor_L=31.1 edge_dL=14.5
+  component bbox=(122,127)-(398,292) px=19865 room_x=2075..2351 actor_L=29.2 edge_dL=19.6
+  component bbox=(614,334)-(630,352) px=223 room_x=2567..2583 actor_L=27.9 edge_dL=36.1
+  piece pier_r@(2416,304): mean_L=41.9 px=9567
+  piece pier_l@(2528,304): mean_L=41.9 px=9293
+  piece pier_l@(2192,304): mean_L=39.1 px=4992
+  piece arch_ring_a@(2544,304): mean_L=38.9 px=2152
+  piece pier_r@(2080,304): mean_L=35.1 px=3766
+  piece arch_ring_b@(2208,304): mean_L=25.7 px=8209
+  piece timber_barricade_full_smashed@(2304,304): mean_L=22.3 px=2768
+  piece act1_alcove_niche@(2064,468): mean_L=21.5 px=5463
+still chase_wedge room=act1_chase tick=1330 view_left=2368 view_top=292 explained=92.2% components=2
+  component bbox=(235,120)-(488,292) px=20285 room_x=2603..2856 actor_L=8.7 edge_dL=15.2
+  component bbox=(614,334)-(631,352) px=239 room_x=2982..2999 actor_L=27.0 edge_dL=31.1
+  piece pier_r@(2416,304): mean_L=41.6 px=9567
+  piece pier_l@(2528,304): mean_L=40.9 px=9448
+  piece pier_r@(2752,304): mean_L=36.5 px=5881
+  piece guild_portal_closed@(2904,444): mean_L=30.4 px=13092
+  piece arch_ring_b@(2208,304): mean_L=26.6 px=3927
+  piece arch_ring_a@(2544,304): mean_L=24.8 px=8209
+  piece timber_barricade_full_smashed@(2304,304): mean_L=24.3 px=1687
+  piece arch_threshold@(2256,544): mean_L=19.0 px=760
+still chase_s5_after_respawn room=act1_chase tick=1350 view_left=1788 view_top=276 explained=99.1% components=3
+  component bbox=(264,194)-(320,231) px=1021 room_x=2052..2108 actor_L=51.2 edge_dL=36.4
+  component bbox=(333,236)-(357,291) px=784 room_x=2121..2145 actor_L=45.0 edge_dL=17.2
+  component bbox=(614,334)-(630,352) px=223 room_x=2402..2418 actor_L=28.3 edge_dL=35.1
+  piece arch_ring_a@(1536,304): mean_L=51.8 px=171
+  piece pier_r@(1744,304): mean_L=45.2 px=5712
+  piece pier_l@(1856,304): mean_L=39.6 px=10160
+  piece pier_l@(2192,304): mean_L=37.3 px=10158
+  piece pier_r@(2080,304): mean_L=37.0 px=5234
+  piece act1_step_end_r@(2152,564): mean_L=26.6 px=127
+  piece act1_step_mid@(2136,564): mean_L=24.3 px=239
+  piece act1_alcove_niche@(2064,468): mean_L=24.2 px=6661
+still guild_door_closed room=act1_guild tick=60 view_left=0 view_top=292 explained=98.8% components=4
+  component bbox=(209,239)-(237,291) px=775 room_x=209..237 actor_L=39.4 edge_dL=17.4
+  component bbox=(357,244)-(401,292) px=1121 room_x=357..401 actor_L=35.9 edge_dL=22.0
+  component bbox=(253,251)-(307,291) px=1221 room_x=253..307 actor_L=42.3 edge_dL=24.4
+  component bbox=(614,334)-(631,352) px=239 room_x=614..631 actor_L=27.0 edge_dL=31.1
+  piece refuge_wall_map@(474,484): mean_L=57.8 px=766
+  piece refuge_hearth@(64,500): mean_L=43.7 px=5285
+  piece pier_l@(160,304): mean_L=37.0 px=8742
+  piece pier_r@(384,304): mean_L=34.1 px=9559
+  piece refuge_stool@(150,562): mean_L=32.9 px=132
+  piece refuge_hearth_flue@(80,484): mean_L=30.6 px=767
+  piece guild_portal_closed@(536,444): mean_L=30.2 px=13092
+  piece refuge_hearth_flue@(80,468): mean_L=29.3 px=767
+still guild_door_open room=act1_guild tick=112 view_left=0 view_top=292 explained=91.0% components=6
+  component bbox=(503,145)-(638,305) px=14760 room_x=503..638 actor_L=45.4 edge_dL=10.5
+  component bbox=(357,238)-(401,293) px=1323 room_x=357..401 actor_L=36.8 edge_dL=19.4
+  component bbox=(91,244)-(118,272) px=259 room_x=91..118 actor_L=56.6 edge_dL=16.9
+  component bbox=(432,251)-(486,293) px=1336 room_x=432..486 actor_L=41.9 edge_dL=20.7
+  component bbox=(405,321)-(607,351) px=3185 room_x=405..607 actor_L=32.9 edge_dL=33.5
+  component bbox=(614,334)-(631,352) px=239 room_x=614..631 actor_L=32.0 edge_dL=31.1
+  piece refuge_wall_map@(474,484): mean_L=56.8 px=744
+  piece refuge_hearth@(64,500): mean_L=42.7 px=5026
+  piece guild_portal_open@(536,444): mean_L=41.1 px=975
+  piece pier_l@(160,304): mean_L=37.3 px=8821
+  piece pier_r@(384,304): mean_L=33.8 px=9123
+  piece refuge_stool@(150,562): mean_L=33.1 px=132
+  piece refuge_hearth_flue@(80,484): mean_L=30.7 px=767
+  piece refuge_hearth_flue@(80,468): mean_L=29.4 px=767
+still shore_spawn room=act1_shore tick=20 view_left=0 view_top=292 explained=91.4% components=5
+  component bbox=(347,103)-(462,283) px=3731 room_x=347..462 actor_L=39.9 edge_dL=19.8
+  component bbox=(56,149)-(248,291) px=15990 room_x=56..248 actor_L=8.8 edge_dL=18.5
+  component bbox=(502,252)-(537,292) px=689 room_x=502..537 actor_L=34.4 edge_dL=22.9
+  component bbox=(542,253)-(578,292) px=733 room_x=542..578 actor_L=30.9 edge_dL=22.5
+  component bbox=(614,334)-(630,352) px=223 room_x=614..630 actor_L=27.9 edge_dL=36.1
+  piece pier_l@(496,304): mean_L=43.1 px=8765
+  piece pier_r@(384,304): mean_L=42.0 px=8279
+  piece pier_l@(160,304): mean_L=28.0 px=6161
+  piece pier_spill_l@(56,296): mean_L=27.0 px=3735
+  piece arch_ring_b@(512,304): mean_L=26.9 px=4128
+  piece arch_ring_a@(176,304): mean_L=18.8 px=7186
+  piece arch_threshold@(560,544): mean_L=17.8 px=1062
+  piece arch_threshold@(224,544): mean_L=17.0 px=2006
+guild guild_door_closed: box_L=16.5 desk_L=21.8 hearth_L=43.7 donut_L=42.3 (component 253,251-307,291) | box <= donut and >= desk: FAIL | mordecai_face_L=43.4 hearth_L=43.7 hearth <= face: FAIL
+guild guild_door_open: box_L=12.3 desk_L=21.3 hearth_L=42.7 donut_L=41.9 (component 432,251-486,293) | box <= donut and >= desk: FAIL | mordecai_face_L=33.6 hearth_L=42.7 hearth <= face: FAIL

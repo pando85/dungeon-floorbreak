@@ -22,9 +22,9 @@
 //!
 //! Bevy-free. [`launch`] loads the room and its sidecar through the one room parser
 //! ([`crate::encounter::load`], the whole validation, `donut_unlocked` lock included),
-//! composes the kit like the Boiler ([`crate::f01_boiler::compose_kit`], no dressing:
-//! the Act I art is a separate later work order, ACT1-Q7, so each room is a **labelled
-//! playable greybox**), pushes the guild's lane ceiling slab and builds the fixture and
+//! composes the kit like the Boiler ([`crate::f01_boiler::compose_kit`]) with the
+//! AREA-ACT1-01 dressing ([`crate::act1_kit`]; [`launch_with`] `false` is the plain
+//! **labelled greybox** composition), pushes the guild's lane ceiling slab and builds the fixture and
 //! the checkpoint rules from the sidecar. [`combat_for`] builds the combat state the
 //! scene, the fixtures and the PLAYTRACE verifier share:
 //!
@@ -42,7 +42,7 @@
 //!   `UnlockGranted` is emitted.
 //!
 //! The decor tables ([`decor`]) are presentation only (ACT1-AD10, ACT1-AD11): flat
-//! labelled rectangles the binary draws; never solids, never in the sim, never hashed.
+//! labelled rectangles the binary draws for a plain room (a dressed room draws none); never solids, never in the sim, never hashed.
 //!
 //! Each room and sidecar is pinned ([`SHORE_ROOM_HASH`], [`GUILD_ENCOUNTER_HASH`], ...):
 //! [`launch`] refuses an edited file, a test pins each constant to its file, and an edit
@@ -289,6 +289,9 @@ pub struct Act1Run {
     pub loaded: Loaded,
     /// The goblins' wake gates, in enemy index order (empty when none has one).
     pub wakes: Vec<Option<crate::goblin::WakeGate>>,
+    /// The room is composed with the AREA-ACT1-01 dressing (the scene then draws no flat decor
+    /// rectangle, timber, barricade or door bar). `false` for the plain greybox composition.
+    pub dressed: bool,
 }
 
 impl Act1Run {
@@ -327,10 +330,16 @@ pub fn env_runtime(run: &Act1Run) -> Result<EnvRuntime, String> {
         ))
 }
 
-/// Load an Act I room and its sidecar, compose its kit and build the fixture. No
-/// dressing exists yet (ACT1-Q7), so the kit is the plain greybox composition of the
-/// Boiler.
+/// Load an Act I room and its sidecar, compose its kit and build the fixture. The room is
+/// dressed with the AREA-ACT1-01 kit ([`crate::act1_kit`]).
 pub fn launch(root: &Path, room: Act1Room) -> Result<Act1Run, String> {
+    launch_with(root, room, true)
+}
+
+/// [`launch`] with the dressing switched: `dressed = false` composes the room with the plain
+/// Boiler kit (the ACT1-A greybox composition), for the tests that prove the dressing is
+/// presentation only.
+pub fn launch_with(root: &Path, room: Act1Room, dressed: bool) -> Result<Act1Run, String> {
     let path = room.encounter_path();
     let loaded = encounter::load(root, path).map_err(|errors| {
         format!(
@@ -368,7 +377,7 @@ pub fn launch(root: &Path, room: Act1Room) -> Result<Act1Run, String> {
         ));
     }
     check_shape(room, &loaded)?;
-    let mut kit = crate::f01_boiler::compose_kit(root, &loaded.room)?;
+    let mut kit = crate::act1_kit::compose(root, &loaded, room, dressed)?;
     if kit.base_walk_line_y != loaded.room.floor_y {
         return Err(format!(
             "the kit's walking line {} is not the room's floor {}",
@@ -479,6 +488,7 @@ pub fn launch(root: &Path, room: Act1Room) -> Result<Act1Run, String> {
         rules,
         loaded,
         wakes,
+        dressed: dressed && crate::act1_kit::is_dressed(root, room),
     })
 }
 
