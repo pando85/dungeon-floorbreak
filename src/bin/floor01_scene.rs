@@ -5728,11 +5728,9 @@ fn setup(
             &asset_server,
             &mut layouts,
             &mut combat_handles,
-            run,
+            run.room,
             state,
             kit,
-            height,
-            layers_of("prop"),
             layers_of("actors"),
             args.debug_combat,
         );

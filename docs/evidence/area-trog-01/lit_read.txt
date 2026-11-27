@@ -1,0 +1,104 @@
+# TROG-ART-A12 (spec 10.1, gate note G6) measured on the real 640x360 window stills
+# actor L* and edge_dL: lookdev_compose.readability(still, mask, box, ring=6); the troglodyte's pose and
+# position are not logged, so the mask is the species' atlas frame (both facings) that best matches the
+# still (masked normalised cross-correlation, ncc >= 0.55); a living troglodyte counts when >= 50 % of its
+# mask is inside the view
+# piece L*: mean CIE L* of the placed piece's visible pixels (visible in the layout, not explained away
+# by an actor, the HUD or an effect: |L*(still) - L*(lit model)| <= 12)
+# gated stills (G6): a troglodyte in an idle pose (atlas frames 0..2: dormant, rest, standing) is in view;
+# attack and walk poses are measured and reported, not gated
+# verdict per piece: PASS (<= the lowest in-view troglodyte's actor L*), NOTE (key piece within 2.0 L*,
+# a non-blocking owner note tied to TROG-ART-Q6), FAIL
+still t0_spawn tick=20 view_left=0 view_top=292 gated=yes
+  pygmy: frame 2 (idle) mirrored at screen (590,232) ncc=1.00, 64 % of the mask in view, idle: actor_L=29.0 surround_L=22.9 delta_L=6.1 edge_dL=18.1 edge_samples=172 PASS
+  piece trog_slam_crack@(296,400): mean_L=17.5 px=766 of 766 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 29.0 PASS
+  piece trog_knuckle_marks@(272,488): mean_L=20.0 px=514 of 514 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 29.0 PASS
+  piece trog_step_end_l@(352,548): mean_L=17.3 px=255 of 255 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 29.0 PASS
+  piece trog_step_mid@(360,548): mean_L=19.3 px=511 of 511 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 29.0 PASS
+  piece trog_step_mid@(376,548): mean_L=20.7 px=511 of 511 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 29.0 PASS
+  piece trog_step_mid@(392,548): mean_L=22.2 px=511 of 511 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 29.0 PASS
+  piece trog_step_end_r@(408,548): mean_L=21.6 px=255 of 255 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 29.0 PASS
+  piece trog_impact_crater@(560,560): mean_L=19.1 px=611 of 616 in view (dropped 5 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 29.0 PASS
+still pygmy_dormant tick=80 view_left=11 view_top=292 gated=yes
+  pygmy: frame 1 (idle) mirrored at screen (579,232) ncc=1.00, 97 % of the mask in view, idle: actor_L=28.2 surround_L=24.0 delta_L=4.2 edge_dL=19.3 edge_samples=223 PASS
+  piece trog_slam_crack@(296,400): mean_L=17.3 px=766 of 766 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 28.2 PASS
+  piece trog_knuckle_marks@(272,488): mean_L=20.0 px=486 of 514 in view (dropped 0 under a troglodyte, 28 not explained by the lit model) vs lowest actor L* 28.2 PASS
+  piece trog_step_end_l@(352,548): mean_L=14.2 px=233 of 255 in view (dropped 0 under a troglodyte, 22 not explained by the lit model) vs lowest actor L* 28.2 PASS
+  piece trog_step_mid@(360,548): mean_L=17.5 px=492 of 511 in view (dropped 0 under a troglodyte, 19 not explained by the lit model) vs lowest actor L* 28.2 PASS
+  piece trog_step_mid@(376,548): mean_L=20.4 px=511 of 511 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 28.2 PASS
+  piece trog_step_mid@(392,548): mean_L=21.8 px=511 of 511 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 28.2 PASS
+  piece trog_step_end_r@(408,548): mean_L=21.2 px=255 of 255 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 28.2 PASS
+  piece trog_impact_crater@(560,560): mean_L=19.1 px=611 of 616 in view (dropped 5 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 28.2 PASS
+still pygmy_tell tick=125 view_left=101 view_top=260 gated=no
+  pygmy: frame 8 (attack_tell) mirrored at screen (470,264) ncc=1.00, 100 % of the mask in view, attack_tell pose: actor_L=27.8 surround_L=22.8 delta_L=5.0 edge_dL=15.1 edge_samples=190 reported
+  piece trog_slam_crack@(296,400): mean_L=17.4 px=766 of 766 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 27.8 PASS
+  piece trog_knuckle_marks@(272,488): mean_L=19.9 px=514 of 514 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 27.8 PASS
+  piece trog_step_end_l@(352,548): mean_L=17.1 px=255 of 255 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 27.8 PASS
+  piece trog_step_mid@(360,548): mean_L=19.2 px=511 of 511 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 27.8 PASS
+  piece trog_step_mid@(376,548): mean_L=20.5 px=511 of 511 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 27.8 PASS
+  piece trog_step_mid@(392,548): mean_L=21.7 px=511 of 511 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 27.8 PASS
+  piece trog_step_end_r@(408,548): mean_L=20.5 px=255 of 255 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 27.8 PASS
+  piece trog_impact_crater@(560,560): mean_L=18.9 px=393 of 616 in view (dropped 223 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 27.8 PASS
+still pygmy_leap tick=144 view_left=95 view_top=240 gated=no
+  pygmy: frame 10 (attack_leap) mirrored at screen (390,268) ncc=1.00, 100 % of the mask in view, attack_leap pose: actor_L=29.7 surround_L=32.3 delta_L=-2.6 edge_dL=32.2 edge_samples=276 reported
+  piece trog_slam_crack@(296,400): mean_L=17.4 px=766 of 766 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 29.7 PASS
+  piece trog_knuckle_marks@(272,488): mean_L=19.9 px=514 of 514 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 29.7 PASS
+  piece trog_step_end_l@(352,548): mean_L=17.1 px=255 of 255 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 29.7 PASS
+  piece trog_step_mid@(360,548): mean_L=19.1 px=511 of 511 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 29.7 PASS
+  piece trog_step_mid@(376,548): mean_L=20.5 px=511 of 511 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 29.7 PASS
+  piece trog_step_mid@(392,548): mean_L=20.3 px=495 of 511 in view (dropped 0 under a troglodyte, 16 not explained by the lit model) vs lowest actor L* 29.7 PASS
+  piece trog_step_end_r@(408,548): mean_L=17.4 px=231 of 255 in view (dropped 0 under a troglodyte, 24 not explained by the lit model) vs lowest actor L* 29.7 PASS
+  piece trog_impact_crater@(560,560): mean_L=19.0 px=616 of 616 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 29.7 PASS
+still pygmy_land tick=152 view_left=96 view_top=260 gated=no
+  pygmy: frame 11 (attack_land) mirrored at screen (317,264) ncc=1.00, 100 % of the mask in view, attack_land pose: actor_L=31.3 surround_L=38.6 delta_L=-7.3 edge_dL=38.9 edge_samples=210 reported
+  piece trog_slam_crack@(296,400): mean_L=17.6 px=766 of 766 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 31.3 PASS
+  piece trog_knuckle_marks@(272,488): mean_L=20.2 px=514 of 514 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 31.3 PASS
+  piece trog_step_end_l@(352,548): mean_L=17.5 px=255 of 255 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 31.3 PASS
+  piece trog_step_mid@(360,548): mean_L=19.6 px=511 of 511 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 31.3 PASS
+  piece trog_step_mid@(376,548): mean_L=21.1 px=511 of 511 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 31.3 PASS
+  piece trog_step_mid@(392,548): mean_L=22.2 px=511 of 511 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 31.3 PASS
+  piece trog_step_end_r@(408,548): mean_L=21.3 px=244 of 255 in view (dropped 0 under a troglodyte, 11 not explained by the lit model) vs lowest actor L* 31.3 PASS
+  piece trog_impact_crater@(560,560): mean_L=19.0 px=616 of 616 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 31.3 PASS
+still basher_dormant tick=440 view_left=764 view_top=292 gated=yes
+  basher: frame 1 (idle) mirrored at screen (548,200) ncc=1.00, 99 % of the mask in view, idle: actor_L=33.6 surround_L=32.4 delta_L=1.2 edge_dL=27.2 edge_samples=439 PASS
+  piece trog_fist_hole@(1312,440): mean_L=12.5 px=2453 of 2453 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 33.6 PASS
+still basher_tell tick=520 view_left=949 view_top=292 gated=no
+  basher: frame 8 (attack_tell) mirrored at screen (335,200) ncc=1.00, 100 % of the mask in view, attack_tell pose: actor_L=35.3 surround_L=34.5 delta_L=0.9 edge_dL=26.4 edge_samples=364 reported
+  piece trog_fist_hole@(1312,440): mean_L=12.1 px=2402 of 2453 in view (dropped 51 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 35.3 PASS
+still basher_smash tick=543 view_left=949 view_top=292 gated=no
+  basher: frame 10 (attack_smash) mirrored at screen (335,200) ncc=1.00, 100 % of the mask in view, attack_smash pose: actor_L=32.8 surround_L=35.2 delta_L=-2.4 edge_dL=27.0 edge_samples=392 reported
+  piece trog_fist_hole@(1312,440): mean_L=12.3 px=2453 of 2453 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 32.8 PASS
+still virtuoso_dormant tick=840 view_left=1623 view_top=228 gated=yes
+  virtuoso: frame 2 (idle) mirrored at screen (409,264) ncc=1.00, 100 % of the mask in view, idle: actor_L=25.4 surround_L=23.9 delta_L=1.5 edge_dL=18.6 edge_samples=408 PASS
+  piece trog_bell@(1800,420): mean_L=24.1 px=611 of 611 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 25.4 PASS
+  piece trog_step_end_l@(1840,548): mean_L=16.8 px=255 of 255 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 25.4 PASS
+  piece trog_step_mid@(1848,548): mean_L=18.3 px=511 of 511 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 25.4 PASS
+  piece trog_step_mid@(1864,548): mean_L=18.8 px=511 of 511 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 25.4 PASS
+  piece trog_step_mid@(1880,548): mean_L=19.1 px=511 of 511 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 25.4 PASS
+  piece trog_step_end_r@(1896,548): mean_L=17.8 px=255 of 255 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 25.4 PASS
+still virtuoso_tell tick=870 view_left=1664 view_top=292 gated=no
+  virtuoso: frame 8 (attack_tell) mirrored at screen (355,200) ncc=1.00, 100 % of the mask in view, attack_tell pose: actor_L=25.7 surround_L=24.7 delta_L=1.1 edge_dL=16.8 edge_samples=480 reported
+  piece trog_bell@(1800,420): mean_L=24.1 px=611 of 611 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 25.7 PASS
+  piece trog_step_end_l@(1840,548): mean_L=16.8 px=255 of 255 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 25.7 PASS
+  piece trog_step_mid@(1848,548): mean_L=18.3 px=511 of 511 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 25.7 PASS
+  piece trog_step_mid@(1864,548): mean_L=18.8 px=511 of 511 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 25.7 PASS
+  piece trog_step_mid@(1880,548): mean_L=19.1 px=511 of 511 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 25.7 PASS
+  piece trog_step_end_r@(1896,548): mean_L=17.8 px=255 of 255 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 25.7 PASS
+still virtuoso_lash tick=893 view_left=1664 view_top=292 gated=no
+  virtuoso: frame 10 (attack_tongue) mirrored at screen (355,200) ncc=0.87, 100 % of the mask in view, attack_tongue pose: actor_L=27.5 surround_L=30.0 delta_L=-2.5 edge_dL=17.9 edge_samples=592 reported
+  piece trog_bell@(1800,420): mean_L=24.2 px=611 of 611 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 27.5 PASS
+  piece trog_step_end_l@(1840,548): mean_L=16.9 px=255 of 255 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 27.5 PASS
+  piece trog_step_mid@(1848,548): mean_L=18.4 px=511 of 511 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 27.5 PASS
+  piece trog_step_mid@(1864,548): mean_L=19.0 px=511 of 511 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 27.5 PASS
+  piece trog_step_mid@(1880,548): mean_L=19.3 px=511 of 511 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 27.5 PASS
+  piece trog_step_end_r@(1896,548): mean_L=18.0 px=255 of 255 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* 27.5 PASS
+still exit_open tick=960 view_left=1664 view_top=292 gated=no
+  virtuoso: frame 13 (down) mirrored at screen (355,200) ncc=0.72, 100 % of the mask in view, down pose: actor_L=29.2 surround_L=24.0 delta_L=5.2 edge_dL=16.9 edge_samples=354 down: not counted (G6 counts living troglodytes only)
+  piece trog_bell@(1800,420): mean_L=24.1 px=611 of 611 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* - n/a (no troglodyte measured)
+  piece trog_step_end_l@(1840,548): mean_L=16.8 px=255 of 255 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* - n/a (no troglodyte measured)
+  piece trog_step_mid@(1848,548): mean_L=18.3 px=511 of 511 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* - n/a (no troglodyte measured)
+  piece trog_step_mid@(1864,548): mean_L=18.8 px=511 of 511 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* - n/a (no troglodyte measured)
+  piece trog_step_mid@(1880,548): mean_L=19.1 px=511 of 511 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* - n/a (no troglodyte measured)
+  piece trog_step_end_r@(1896,548): mean_L=17.8 px=255 of 255 in view (dropped 0 under a troglodyte, 0 not explained by the lit model) vs lowest actor L* - n/a (no troglodyte measured)
+summary: thinnest piece margin on the gated stills: trog_bell in virtuoso_dormant: -1.3 L* (<= 0 passes) PASS
+summary: lowest troglodyte edge_dL on the gated stills: 18.1 (pygmy in t0_spawn; >= 15 passes)

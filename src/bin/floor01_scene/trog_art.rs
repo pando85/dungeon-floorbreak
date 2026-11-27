@@ -5,8 +5,8 @@
 //! The **labelled hurtbox rectangle** (the box the simulation hits, species colour, state tint)
 //! stays as the fallback where an atlas is missing (`scripts/export_assets.sh` was not run) and
 //! behind `--debug-combat`; the committed hitbox is drawn as a translucent stand-in telegraph while
-//! a troglodyte tells and strikes, and the room's decor is flat labelled rectangles (until
-//! AREA-TROG-01).
+//! a troglodyte tells and strikes. The room's decor is the AREA-TROG-01 dressing, composed into the
+//! kit (`dungeon_floorbreak::trog_kit`); this file draws none of it.
 //! **Presentation only**: every system reads the combat state through a shared reference and
 //! writes only its own sprites, so nothing here reaches the simulation, the replay or the state
 //! hash.
@@ -67,30 +67,17 @@ fn species_colour(species: Species) -> Color {
     }
 }
 
-/// The decor colour by label (flat, no art).
-fn decor_colour(label: &str) -> Color {
-    match label {
-        "knuckle_marks" | "impact_crater" => Color::srgb(0.22, 0.19, 0.18),
-        "slam_mark" => Color::srgb(0.30, 0.24, 0.20),
-        "fist_hole" => Color::srgb(0.10, 0.09, 0.10),
-        "bell" => Color::srgb(0.62, 0.52, 0.28),
-        _ => Color::srgb(0.58, 0.72, 0.80),
-    }
-}
-
-/// The decor table as flat rectangles behind the actors, the labelled stand-in bodies and their
-/// telegraphs. A room without a troglodyte spawns nothing.
+/// The labelled stand-in bodies and their telegraphs (the room's decor is the AREA-TROG-01 dressing,
+/// composed into the kit: nothing is drawn here for it). A room without a troglodyte spawns nothing.
 #[allow(clippy::too_many_arguments)]
 pub(super) fn spawn(
     commands: &mut Commands,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
     handles: &mut Vec<(String, Handle<Image>)>,
-    run: &f01_trog::TrogRun,
+    room: f01_trog::TrogRoom,
     state: &CombatState,
     kit: &EnvKit,
-    height: i32,
-    layers: RenderLayers,
     actor_layers: RenderLayers,
     rects_always: bool,
 ) {
@@ -120,33 +107,16 @@ pub(super) fn spawn(
         ));
         sheets[species_index(species)] = Some((texture, layout));
     }
+    // `decor=dressed` when the trog contract has a dressing block for the room, `plain` otherwise
+    // (a stage 2 room launches plain until its block lands, TROG-ART-AD19); no flat decor either way.
+    let dressed = std::env::current_dir()
+        .is_ok_and(|root| dungeon_floorbreak::trog_kit::is_dressed(&root, room));
     println!(
         "F01_TROG_ART atlases={} rectangles={} decor={} art_review=pending (prototype_fixture_unapproved)",
         sheets.iter().filter(|s| s.is_some()).count(),
         if rects_always { "always" } else { "fallback" },
-        f01_trog::decor(run.room).len()
+        if dressed { "dressed" } else { "plain" },
     );
-    for decor in f01_trog::decor(run.room) {
-        let rect = decor.rect;
-        println!(
-            "F01_TROG_DECOR room={} label={} rect={},{},{},{}",
-            run.room.id(),
-            decor.label,
-            rect.x,
-            rect.y,
-            rect.w,
-            rect.h
-        );
-        commands.spawn((
-            Sprite::from_color(
-                decor_colour(decor.label),
-                Vec2::new(rect.w as f32, rect.h as f32),
-            ),
-            Anchor::TOP_LEFT,
-            Transform::from_xyz(rect.x as f32, to_world_y(height, rect.y), kit.actor_z - 0.2),
-            layers.clone(),
-        ));
-    }
     let n = state.slot_enemies().len();
     commands.insert_resource(TrogArt {
         body_z: kit.actor_z + GOBLIN_Z_OFFSET - 32.0 * GOBLIN_Z_STEP,

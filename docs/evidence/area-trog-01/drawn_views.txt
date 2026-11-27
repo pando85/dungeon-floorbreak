@@ -1,0 +1,13 @@
+# still_name view_left view_top (landmarks: the kit's lit model slid over the still's wall rows; flame check: |measured - predicted| of the torch flame centres, flame centre = placement x + 7.5)
+basher_dormant 764 292 trimmed_abs_err=0.43 torch_flames=5 mean_offset=+1.48px max_abs=4.33px
+basher_smash 949 292 trimmed_abs_err=0.67 torch_flames=6 mean_offset=+2.22px max_abs=4.50px
+basher_tell 949 292 trimmed_abs_err=0.64 torch_flames=6 mean_offset=+1.93px max_abs=4.53px
+exit_open 1664 292 trimmed_abs_err=0.49 torch_flames=3 mean_offset=+0.29px max_abs=0.44px
+pygmy_dormant 11 292 trimmed_abs_err=0.60 torch_flames=5 mean_offset=+1.25px max_abs=4.20px
+pygmy_land 96 260 trimmed_abs_err=0.42 torch_flames=4 mean_offset=+0.12px max_abs=1.64px
+pygmy_leap 95 240 trimmed_abs_err=0.43 torch_flames=4 mean_offset=+1.86px max_abs=5.40px
+pygmy_tell 101 260 trimmed_abs_err=0.25 torch_flames=4 mean_offset=+1.23px max_abs=4.09px
+t0_spawn 0 292 trimmed_abs_err=0.54 torch_flames=5 mean_offset=+1.37px max_abs=4.36px
+virtuoso_dormant 1623 228 trimmed_abs_err=0.36 torch_flames=3 mean_offset=+0.29px max_abs=0.44px
+virtuoso_lash 1664 292 trimmed_abs_err=0.38 torch_flames=3 mean_offset=+0.31px max_abs=0.41px
+virtuoso_tell 1664 292 trimmed_abs_err=0.49 torch_flames=3 mean_offset=+0.29px max_abs=0.44px
