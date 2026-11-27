@@ -1,0 +1,34 @@
+RUN_SMOKE 1/17 room=act1_chase next=act1_shore status=ok exit=0 marker=F01_ACT1_CHASE_SMOKE_OK hash=d9eaa1df43eab99d
+  F01_LATE_ENTRY room=act1_chase title="The First Chase" scene=f01_act1_chase milestone=greybox loadout=story
+RUN_SMOKE 2/17 room=act1_shore next=act1_guild status=ok exit=0 marker=F01_ACT1_SHORE_SMOKE_OK hash=fd98d3f642a7bd99
+  F01_LATE_ENTRY room=act1_shore title="The Rotten Shore" scene=f01_act1_shore milestone=greybox loadout=story
+RUN_SMOKE 3/17 room=act1_guild next=corral status=ok exit=0 marker=F01_ACT1_GUILD_SMOKE_OK hash=51a125a214ebedef
+  F01_LATE_ENTRY room=act1_guild title="The Guild Door" scene=f01_act1_guild milestone=greybox loadout=story
+RUN_SMOKE 4/17 room=corral next=rest_refuge status=ok exit=0 marker=F01_CORRAL_SMOKE_OK hash=74371bd7241a8297
+  F01_LATE_ENTRY room=corral title="The Infernal Corral" scene=f01_corral milestone=greybox loadout=story
+RUN_SMOKE 5/17 room=rest_refuge next=hoarder status=ok exit=0 marker=F01_REST_REFUGE_SMOKE_OK hash=0c3f798dc16f07f0
+  F01_LATE_ENTRY room=rest_refuge title="The Wrong Restaurant" scene=f01_rest_refuge milestone=greybox loadout=story
+RUN_SMOKE 6/17 room=hoarder next=boiler status=ok exit=0 marker=F01_HOARDER_SMOKE_OK hash=8409e630dc03e211
+  F01_LATE_ENTRY room=hoarder title="The Hoarder" scene=f01_hoarder milestone=boss loadout=story
+RUN_SMOKE 7/17 room=boiler next=dozer status=ok exit=0 marker=F01_BOILER_SMOKE_OK hash=a9b5d990025a2b90
+  F01_LATE_ENTRY room=boiler title="Goblin Boiler" scene=f01_boiler milestone=setpiece loadout=story
+RUN_SMOKE 8/17 room=dozer next=hazards status=ok exit=0 marker=F01_DOZER_SMOKE_OK hash=2f84388bbb673c30
+  F01_LATE_ENTRY room=dozer title="The Machine Remembers" scene=f01_dozer milestone=setpiece loadout=story
+RUN_SMOKE 9/17 room=hazards next=ring_court status=ok exit=0 marker=F01_HAZARDS_SMOKE_OK hash=f5ca67351210519a
+  F01_LATE_ENTRY room=hazards title="Slimes and Rot Stickers" scene=f01_hazards milestone=greybox loadout=story
+RUN_SMOKE 10/17 room=ring_court next=ring_split status=ok exit=0 marker=F01_RING_COURT_SMOKE_OK hash=a3ce71a1aecd2d28
+  F01_LATE_ENTRY room=ring_court title="The Shutter Court" scene=f01_ring_court milestone=greybox loadout=story
+RUN_SMOKE 11/17 room=ring_split next=rest_camp status=ok exit=0 marker=F01_RING_SPLIT_SMOKE_OK hash=0478466235f03a67
+  F01_LATE_ENTRY room=ring_split title="The Split Passage" scene=f01_ring_split milestone=greybox loadout=story
+RUN_SMOKE 12/17 room=rest_camp next=trog_run status=ok exit=0 marker=F01_REST_CAMP_SMOKE_OK hash=40e34a970e717d2f
+  F01_LATE_ENTRY room=rest_camp title="The Survivors' Camp" scene=f01_rest_camp milestone=greybox loadout=story
+RUN_SMOKE 13/17 room=trog_run next=trog_strength status=ok exit=0 marker=F01_TROG_RUN_SMOKE_OK hash=256461c15ce97b67
+  F01_LATE_ENTRY room=trog_run title="The Troglodyte Run" scene=f01_trog_run milestone=greybox loadout=story
+RUN_SMOKE 14/17 room=trog_strength next=juicer status=ok exit=0 marker=F01_TROG_STRENGTH_SMOKE_OK hash=59c82e0cfafe49f0
+  F01_LATE_ENTRY room=trog_strength title="The Test of Strength" scene=f01_trog_strength milestone=greybox loadout=story
+RUN_SMOKE 15/17 room=juicer next=rest_aftermath status=ok exit=0 marker=- hash=9104040f4fddfb62
+  F01_LATE_ENTRY room=juicer title="The Juicer" scene=boss_f01 milestone=boss loadout=story
+RUN_SMOKE 16/17 room=rest_aftermath next=mastery status=ok exit=0 marker=F01_REST_AFTERMATH_SMOKE_OK hash=76d29a2d8e2449bc
+  F01_LATE_ENTRY room=rest_aftermath title="After the Juicer" scene=f01_rest_aftermath milestone=greybox loadout=story
+RUN_SMOKE 17/17 room=mastery next=end status=ok exit=0 marker=F01_MASTERY_SMOKE_OK hash=7d2c626a4d883045
+  F01_LATE_ENTRY room=mastery title="The Mastery Arena" scene=f01_mastery milestone=greybox loadout=story

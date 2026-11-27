@@ -66,6 +66,24 @@ try ok $S --f01-room act1_guild --act1-pilot donut
 try refuse $S --f01-room act1_guild --act1-pilot strike
 try refuse $S --f01-room hoarder --act1-pilot walk
 try refuse $S --f01-run --f01-room act1_shore --act1-pilot walk
+# PLAYTEST-READY-01: the evidence pilots of the owner packet (docs/04-production/f01-playtest-ready-01.md section 1).
+try ok $S --f01-room act1_chase --act1-pilot watch
+try ok $S --f01-room rest_refuge --rest-pilot donut
+try ok $S --f01-room rest_camp --rest-pilot walk
+try ok $S --f01-room rest_aftermath --rest-pilot punch
+try ok $S --f01-room rest_aftermath --rest-pilot blink
+try refuse $S --f01-run --f01-room rest_aftermath --rest-pilot punch
+try ok $S --f01-room trog_run --trog-pilot carl
+try ok $S --f01-room trog_run --trog-pilot donut
+try refuse $S --f01-room hoarder --trog-pilot carl
+try refuse $S --f01-run --f01-room trog_run --trog-pilot carl
+try ok $S --f01-room ring_court --ring-pilot
+try ok $S --f01-room dozer --room-pilot dozer:run
+try ok $S --f01-room hoarder --room-pilot hoarder:carl_solo:0
+try ok $S --f01-room corral --room-pilot corral_rush
+# The run can start in the middle of the floor (every later room still follows).
+try ok $S --f01-run --f01-room rest_camp
+try ok $S --f01-run --f01-room trog_strength
 # No committed room is unlisted any more: an unknown id is refused.
 try refuse $S --f01-room cellar
 # RING-A/B wire: the Ring rooms launch only through f01_late (KR22: no scene of their own).
