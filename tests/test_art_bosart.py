@@ -23,8 +23,8 @@ EVIDENCE = ROOT / "docs/evidence/bos-art"
 SIZES = {"bos_weight_hung": (80, 36), "bos_weight_landed": (80, 36), "bos_chain_v": (8, 16), "bos_chain_h": (16, 8)}
 # The key pins: the route-B draft as gated. A key change is a design change (the top tier re-gates it).
 KEY_SHA = {
-    "bos_weight_hung": "f0253362bef9cc8421ae99daad9c4291858482b9aa6457ca8c8226cce652da5d",
-    "bos_weight_landed": "b9fa7a78259e26e9ce9972f329bb50be9490a794c4ee9ff4e0c5b9dd0ed1ae20",
+    "bos_weight_hung": "e906ab4ad42872e996e83b8e6df648e0b7a2f6a63053db142cb7041a5363c3b2",
+    "bos_weight_landed": "d8e0ad61b7985c01bb0890ca66721383f960cf2d21d408a79ef1e7361fe6edda",
     "bos_chain_v": "d5f2796b9920cd0a668edb7839d507dd8c678f8ead1c7dac8922fe8f687873c4",
     "bos_chain_h": "43ba16d5d829d7e7afed7a6816087ea2e43a63a10019b95170c4d26411a97438",
 }
@@ -52,7 +52,7 @@ class BosArtTests(unittest.TestCase):
             ramp, _, idx = entry["name"].rpartition("_")
             self.assertIn(ramp, bos.RAMPS)
             self.assertEqual(bos.RAMPS[ramp][int(idx)] + "ff", entry["rgba"], entry["name"])
-            self.assertIn(ramp, ("iron", "brass"), "the weight is iron and brass only")
+            self.assertIn(ramp, ("iron", "stone_cold", "brass"), "cool iron, chain iron and brass only")
 
     def test_piece_sizes_and_the_weights_contact_row(self):
         for pid, fn in bos.PIECES:

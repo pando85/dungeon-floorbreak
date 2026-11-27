@@ -71,34 +71,35 @@ class Pix:
 
 # --------------------------------------------------------------------------------------------- the slab
 def _slab(c: Pix) -> None:
-    """The iron slab, rows 12..35 over the full width: chamfered top corners, a lit bevel, two brass straps."""
+    """The cool iron slab, rows 12..35 over the full width: chamfered top corners, a lit top arris, a dark underside row,
+    two brass straps (BOS-ART-AD12: ``stone_cold`` greys, so it reads as iron, not as a wooden chest)."""
     for y in range(SLAB_Y0, H):
         inset = {SLAB_Y0: 3, SLAB_Y0 + 1: 1}.get(y, 0)
         for x in range(inset, W - inset):
-            v = 4
+            v = 2
             if y == SLAB_Y0 + 1:
-                v = 6                                              # the lit top bevel
+                v = 4                                              # the lit top arris
             elif y == SLAB_Y0 + 2:
-                v = 5
+                v = 3
             elif y >= H - 8:
-                v = 3                                              # the underside falls into shade
+                v = 1                                              # the underside falls into shade
             if x >= W - 4:
                 v -= 1                                             # the right edge turns away from the light
             if x < 3:
                 v += 1                                             # the left edge catches it
-            if v == 4 and rnd("grain", x // 2, y) > 0.9:
-                v = 3                                              # cast-iron pitting
-            elif v == 4 and rnd("glint", x, y) > 0.97:
-                v = 5
-            c.put(x, y, "iron", v)
-        c.put(inset, y, "iron", 1)                                 # the outline, left and right
-        c.put(W - 1 - inset, y, "iron", 0)
+            if v == 2 and rnd("grain", x // 2, y) > 0.9:
+                v = 1                                              # cast-iron pitting
+            elif v == 2 and rnd("glint", x, y) > 0.97:
+                v = 3
+            c.put(x, y, "stone_cold", v)
+        c.put(inset, y, "stone_cold", 1)                           # the outline, left and right
+        c.put(W - 1 - inset, y, "stone_cold", 0)
     for x in range(3, W - 3):
-        c.put(x, SLAB_Y0, "iron", 6 if x < 40 else 5)              # the cut top face
+        c.put(x, SLAB_Y0, "stone_cold", 4)                         # the cut top face
     for x in range(W):
-        c.put(x, H - 1, "iron", 0)                                 # the floor contact row
+        c.put(x, H - 1, "stone_cold", 0)                           # the floor contact row, the darkest
     for x in range(20, 60):
-        c.put(x, SLAB_Y0 + 12, "iron", 2)                          # a cast seam
+        c.put(x, SLAB_Y0 + 12, "stone_cold", 1)                    # a cast seam
     for (x0, x1) in ((14, 19), (60, 65)):                          # brass straps
         for y in range(SLAB_Y0 + 2, H - 1):
             for x in range(x0, x1 + 1):
@@ -109,8 +110,8 @@ def _slab(c: Pix) -> None:
         c.put(x0 + 2, SLAB_Y0 + 6, "brass", 6)                     # strap rivets
         c.put(x0 + 2, SLAB_Y0 + 18, "brass", 5)
     for (x, y) in ((5, SLAB_Y0 + 5), (W - 6, SLAB_Y0 + 5), (5, H - 6), (W - 6, H - 6)):
-        c.put(x, y, "iron", 6)                                     # corner rivets
-        c.put(x, y + 1, "iron", 1)
+        c.put(x, y, "stone_cold", 4)                               # corner rivets
+        c.put(x, y + 1, "stone_cold", 0)
 
 
 def _collar(c: Pix, x0: int = COLLAR[0], y0: int = 4) -> None:
@@ -175,7 +176,7 @@ def weight_landed() -> Pix:
         _link(c, cx, cy, rx, ry)
     _collar(c, 56, 4)                                              # the collar thrown to one side, on its face
     for x in range(56, 76):
-        c.put(x, 11, "iron", 1)                                    # the heap's shadow on the slab's top face
+        c.put(x, 11, "stone_cold", 0)                               # the heap's shadow on the slab's top face
     return c
 
 

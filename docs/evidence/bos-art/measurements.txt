@@ -1,12 +1,12 @@
-bos_weight_hung 80x36 opaque=2086 bbox=(0,0)-(79,35) colours=13 max_luma=238 transparent_px=794
-bos_weight_landed 80x36 opaque=2238 bbox=(0,1)-(79,35) colours=13 max_luma=238 transparent_px=642
+bos_weight_hung 80x36 opaque=2086 bbox=(0,0)-(79,35) colours=16 max_luma=238 transparent_px=794
+bos_weight_landed 80x36 opaque=2238 bbox=(0,1)-(79,35) colours=15 max_luma=238 transparent_px=642
 bos_chain_v 8x16 opaque=48 bbox=(0,0)-(7,15) colours=3 max_luma=128 transparent_px=80
 bos_chain_h 16x8 opaque=48 bbox=(0,0)-(15,7) colours=3 max_luma=128 transparent_px=80
 bos_weight_hung slab rows 12..35 = 24 px tall x 80 wide (sim rack footprint 80 x 24): floor contact row 35 == 35: ok; slab opaque 1912
 bos_weight_landed slab rows 12..35 = 24 px tall x 80 wide (sim rack footprint 80 x 24): floor contact row 35 == 35: ok; slab opaque 1912
-all pieces: 13 distinct palette entries (per-atlas budget 63); ramps used ['brass', 'iron']
-KEY bos_weight_hung sha256=f0253362bef9cc8421ae99daad9c4291858482b9aa6457ca8c8226cce652da5d
-KEY bos_weight_landed sha256=b9fa7a78259e26e9ce9972f329bb50be9490a794c4ee9ff4e0c5b9dd0ed1ae20
+all pieces: 17 distinct palette entries (per-atlas budget 63); ramps used ['brass', 'iron', 'stone_cold']
+KEY bos_weight_hung sha256=e906ab4ad42872e996e83b8e6df648e0b7a2f6a63053db142cb7041a5363c3b2
+KEY bos_weight_landed sha256=d8e0ad61b7985c01bb0890ca66721383f960cf2d21d408a79ef1e7361fe6edda
 KEY bos_chain_v sha256=d5f2796b9920cd0a668edb7839d507dd8c678f8ead1c7dac8922fe8f687873c4
 KEY bos_chain_h sha256=43ba16d5d829d7e7afed7a6816087ea2e43a63a10019b95170c4d26411a97438
 DRESSING post c=104: cap y 308..327 shaft x 92..116 y 327..404 base y 404..420 (floor 420; gameplay post 96..112, top 308)

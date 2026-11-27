@@ -67,7 +67,7 @@ The composer's four torches (eight lights) are removed, two torches (four lights
 
 ## 6. The chain weight key (route B)
 
-`scripts/author_bosart.py`; pins and measurements in [`docs/evidence/bos-art/measurements.txt`](../evidence/bos-art/measurements.txt); the unlit x4 and 1x sheet is `docs/evidence/bos-art/contact_x4_weight.png`. Iron and brass only (13 colours of `floor01-catacomb-v2`, no new colour), light from the upper left, no text, no face, no symbol.
+`scripts/author_bosart.py`; pins and measurements in [`docs/evidence/bos-art/measurements.txt`](../evidence/bos-art/measurements.txt); the unlit x4 and 1x sheet is `docs/evidence/bos-art/contact_x4_weight.png`. Cool iron (`stone_cold` greys for the slab, `iron` for the chain and ring) and brass only (17 colours of `floor01-catacomb-v2`, no new colour), light from the upper left, no text, no face, no symbol.
 
 | Piece | Size | Content |
 |---|---|---|
@@ -93,6 +93,7 @@ The tier flow for this key: drafted by Claude Sonnet (route B), gate and review 
 | BOS-ART-AD9 | the right alcove is the exit door's bay and the right arch's second post is the door's frame | the composer places the door at 536 |
 | BOS-ART-AD10 | the four composer torches are removed and two torches stand on the lintels | no flame over an alcove or the lane; the room stays lit |
 | BOS-ART-AD11 | an evidence-only room pilot `bos_weight` (`Pilot::CarlWeight`) hits the post twice from the left alcove and a third time on the crash | the pinned still needs the weight dropped; no fixture, golden or pin selects it |
+| BOS-ART-AD12 | gate fix W1: the slab body and its rivets are recoloured from the warm `iron` ramp (it read as a wooden chest) to the cool `stone_cold` greys, with a lit top arris and a dark underside row; the brass straps and collar, the ring and the chain, the shape and the bbox are unchanged; the key is re-frozen and re-pinned | gate (Claude Opus) |
 
 ## 8. Open questions (BOS-ART-Q*)
 
