@@ -1,0 +1,11 @@
+STRENGTH_PILOT ticks=476 complete=true hero_defeats=0 hurts=0
+STRENGTH_PILOT_ACT tick=42 enemy=0 act=wake
+STRENGTH_PILOT_ACT tick=90 enemy=0 act=tell
+STRENGTH_PILOT_ACT tick=120 enemy=0 act=launch
+STRENGTH_PILOT_ACT tick=128 enemy=0 act=whiff
+STRENGTH_PILOT_ACT tick=238 enemy=1 act=wake
+STRENGTH_PILOT_ACT tick=340 enemy=1 act=tell
+STRENGTH_PILOT_ACT tick=376 enemy=1 act=launch
+STRENGTH_PILOT_ACT tick=387 enemy=1 act=whiff
+STRENGTH_PILOT_DEFEAT tick=168 target=0x1300
+STRENGTH_PILOT_DEFEAT tick=396 target=0x1301

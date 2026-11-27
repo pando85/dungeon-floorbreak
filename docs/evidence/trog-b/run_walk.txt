@@ -1,0 +1,17 @@
+F01_LATE_ENTRY room=act1_chase title="The First Chase" scene=f01_act1_chase milestone=greybox loadout=story
+F01_LATE_ENTRY room=act1_shore title="The Rotten Shore" scene=f01_act1_shore milestone=greybox loadout=story
+F01_LATE_ENTRY room=act1_guild title="The Guild Door" scene=f01_act1_guild milestone=greybox loadout=story
+F01_LATE_ENTRY room=corral title="The Infernal Corral" scene=f01_corral milestone=greybox loadout=story
+F01_LATE_ENTRY room=rest_refuge title="The Wrong Restaurant" scene=f01_rest_refuge milestone=greybox loadout=story
+F01_LATE_ENTRY room=hoarder title="The Hoarder" scene=f01_hoarder milestone=boss loadout=story
+F01_LATE_ENTRY room=boiler title="Goblin Boiler" scene=f01_boiler milestone=setpiece loadout=story
+F01_LATE_ENTRY room=dozer title="The Machine Remembers" scene=f01_dozer milestone=setpiece loadout=story
+F01_LATE_ENTRY room=hazards title="Slimes and Rot Stickers" scene=f01_hazards milestone=greybox loadout=story
+F01_LATE_ENTRY room=ring_court title="The Shutter Court" scene=f01_ring_court milestone=greybox loadout=story
+F01_LATE_ENTRY room=ring_split title="The Split Passage" scene=f01_ring_split milestone=greybox loadout=story
+F01_LATE_ENTRY room=rest_camp title="The Survivors' Camp" scene=f01_rest_camp milestone=greybox loadout=story
+F01_LATE_ENTRY room=trog_run title="The Troglodyte Run" scene=f01_trog_run milestone=greybox loadout=story
+F01_LATE_ENTRY room=trog_strength title="The Test of Strength" scene=f01_trog_strength milestone=greybox loadout=story
+F01_LATE_ENTRY room=juicer title="The Juicer" scene=boss_f01 milestone=boss loadout=story
+F01_LATE_ENTRY room=rest_aftermath title="After the Juicer" scene=f01_rest_aftermath milestone=greybox loadout=story
+F01_LATE_ENTRY room=mastery title="The Mastery Arena" scene=f01_mastery milestone=greybox loadout=story

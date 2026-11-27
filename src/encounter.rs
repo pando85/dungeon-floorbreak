@@ -123,6 +123,11 @@ pub const MAX_ROSTER_WAVES: usize = 8;
 pub const MAX_PROPS: usize = 8;
 /// A landed remnant or a solid prop on the lane is at most this high.
 pub const MAX_LANE_OBSTACLE_PX: i32 = 48;
+/// TROG-B (TROG-AD46): the tallest sidecar static of kind `solid` (Carl's class limit, the
+/// corral bumper's precedent). A breakable prop and its remnant stay at
+/// [`MAX_LANE_OBSTACLE_PX`], and so does a static solid that carries a `slide` (a moving mass
+/// behaves like a prop); only a plain, non-sliding static solid may reach 80 px.
+pub const MAX_STATIC_SOLID_PX: i32 = 80;
 /// A hanging weight's lowest point is at least this far above the lane.
 pub const MIN_HANG_PX: i32 = 96;
 /// Contact margin of a landing link: the footprint grows by this on each side.
@@ -476,8 +481,8 @@ impl Lock {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StaticKind {
     /// A solid that stays where it is (HRD-A1: Hoarder bank A until HRD-B turns
-    /// it into a prop). It stands on the lane and is at most
-    /// [`MAX_LANE_OBSTACLE_PX`] high.
+    /// it into a prop). It stands on the lane and is at most [`MAX_STATIC_SOLID_PX`] high
+    /// ([`MAX_LANE_OBSTACLE_PX`] when it carries a `slide`).
     Solid,
     /// A hit target that is not solid (HRD-A1: the J-B support post).
     HitTarget,
@@ -3189,10 +3194,14 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
         if !within_play(room, rect) || rect.bottom() != room.floor_y {
             errs.push(bad("must stand on the walking line inside the play area"));
         }
-        if kind == StaticKind::Solid && rect.h > MAX_LANE_OBSTACLE_PX {
-            errs.push(bad(&format!(
-                "a solid is at most {MAX_LANE_OBSTACLE_PX} px high"
-            )));
+        // TROG-AD46 (review R2): a plain static solid may be 80 px; a sliding one stays at 48.
+        let solid_cap = if st.slide.is_some() {
+            MAX_LANE_OBSTACLE_PX
+        } else {
+            MAX_STATIC_SOLID_PX
+        };
+        if kind == StaticKind::Solid && rect.h > solid_cap {
+            errs.push(bad(&format!("a solid is at most {solid_cap} px high")));
         }
         for (zone, protect) in [
             ("spawn", protected_spawn),

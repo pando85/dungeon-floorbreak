@@ -259,6 +259,8 @@ fn print_the_fixture_lines() {
     }
     let f = run_retry(&root()).unwrap();
     println!("TROG_FIXTURE trog_run_retry {f:?}");
+    let f = run_retry_strength(&root()).unwrap();
+    println!("TROG_FIXTURE trog_strength_retry {f:?}");
 }
 
 /// TROG-AD16: the companion sees the troglodytes through the per-room slot feed: her goal layer
@@ -284,4 +286,309 @@ fn the_companion_sees_the_troglodytes_through_the_slot_feed() {
         0,
         "without the feed she sees nothing to hunt"
     );
+}
+
+// ---------------------------------------------------------------- TROG-B
+
+/// TROG-F09: Carl solo clears the Test of Strength with the bench standing: the Virtuoso falls
+/// left of the Basher's trigger, Carl climbs the 80 px static bench and defeats the Basher on
+/// the far side.
+#[test]
+fn trog_strength_direct() {
+    let (r, sim) = twice(Case::StrengthDirect);
+    assert_eq!(sim.room, TrogRoom::Strength);
+    assert!(r.exit_tick.is_some(), "the exit is reached");
+    assert_eq!(r.hero_defeats, 0);
+    assert_eq!(sim.living().len(), 0, "both defeated");
+    // The bench is a static solid: it stands, whole, at the end.
+    let bench = sim
+        .scene
+        .world
+        .solids
+        .iter()
+        .find(|b| (b.rect.left, b.rect.width) == (640.0, 32.0) && b.intact);
+    assert!(bench.is_some(), "the bench still stands");
+    // The Basher slept until the Virtuoso was down (its proximity wake came later). The first
+    // defeat is asserted to be the Virtuoso's (target id of roster index 0).
+    let defeats: Vec<u64> = sim
+        .combat
+        .events
+        .iter()
+        .filter_map(|e| match e {
+            CombatEvent::EnemyDefeated { tick, target, .. } => Some((*target, *tick)),
+            _ => None,
+        })
+        .map(|(target, t)| {
+            assert!(
+                target == crate::combat_scene::trog::target_id(0)
+                    || target == crate::combat_scene::trog::target_id(1)
+            );
+            t
+        })
+        .collect();
+    let first_target = sim
+        .combat
+        .events
+        .iter()
+        .find_map(|e| match e {
+            CombatEvent::EnemyDefeated { target, .. } => Some(*target),
+            _ => None,
+        })
+        .expect("a defeat");
+    assert_eq!(
+        first_target,
+        crate::combat_scene::trog::target_id(0),
+        "the Virtuoso falls first"
+    );
+    let basher_wake = r
+        .acts
+        .iter()
+        .find_map(|(t, e, a)| (*e == 1 && matches!(a, TrogAct::Wake { .. })).then_some(*t))
+        .expect("the Basher woke");
+    assert!(
+        defeats[0] < basher_wake,
+        "the Virtuoso (down at {}) fell before the Basher woke ({basher_wake})",
+        defeats[0]
+    );
+    assert!(
+        r.acts.iter().all(|(_, _, a)| !matches!(a, TrogAct::Strike)),
+        "{:?}",
+        r.acts
+    );
+}
+
+/// TROG-F13, the tell-gap half: with both troglodytes eligible at once (one hero each), both tell
+/// and tells start at least 24 ticks apart. The "no hero under two live hitboxes" half is
+/// **structural** here and is asserted geometrically by
+/// `trog_strength_live_hitboxes_cannot_overlap_one_hero` (the two reaches never meet), so the
+/// run's `double_live` counter is a sanity check, not the proof.
+#[test]
+fn trog_strength_tell_gap() {
+    let (r, sim) = twice(Case::StrengthTellGap);
+    let tells: Vec<(u64, usize)> = r
+        .acts
+        .iter()
+        .filter_map(|(t, e, a)| matches!(a, TrogAct::Tell { .. }).then_some((*t, *e)))
+        .collect();
+    assert!(
+        tells.iter().any(|(_, e)| *e == 0) && tells.iter().any(|(_, e)| *e == 1),
+        "both troglodytes told: {:?}",
+        r.acts
+    );
+    for pair in tells.windows(2) {
+        assert!(
+            pair[1].0 - pair[0].0 >= 24,
+            "tells {:?} start less than 24 ticks apart",
+            pair
+        );
+    }
+    assert_eq!(
+        sim.double_live, 0,
+        "sanity: no hero under two live hitboxes in the run"
+    );
+}
+
+/// TROG-F13, the overlap half (review R3): no hero can stand under both troglodytes' live hitboxes
+/// because their reaches never meet. The Virtuoso's band, clipped by the standing 80 px bench and
+/// 48 px shelf at every pivot of its leash and both facings, never reaches past the bench's left
+/// face (x 640), and the Basher's committed smash rectangle never starts left of its leash
+/// start 704 minus its hitbox's far edge (x 663, over the bench's own column, where only a hero on top of it could stand). A hero on top of the bench (feet 80) is above
+/// both bands (the Virtuoso's 36..46 and the Basher's 0..14 from the floor).
+#[test]
+fn trog_strength_live_hitboxes_cannot_overlap_one_hero() {
+    use crate::prototype::{Block, Material, Rect};
+    use crate::trog::{Species, TrogTuning, clip_band};
+    let sim = TrogSim::for_room(
+        &root(),
+        TrogRoom::Strength,
+        Party::Solo { uncontrolled: BOT },
+        None,
+    )
+    .unwrap();
+    let floor = sim.foot_of_floor();
+    let solids: Vec<Block> = sim
+        .run
+        .loaded
+        .encounter
+        .statics
+        .iter()
+        .map(|s| Block {
+            rect: Rect {
+                left: s.rect.x as f32,
+                bottom: floor,
+                width: s.rect.w as f32,
+                height: s.rect.h as f32,
+            },
+            material: Material::Timber,
+            intact: true,
+        })
+        .collect();
+    let bench = sim
+        .run
+        .loaded
+        .encounter
+        .statics
+        .iter()
+        .find(|s| s.id == "bench")
+        .unwrap();
+    let t = TrogTuning::active();
+    let (vir, bas) = (t.species(Species::Virtuoso), t.species(Species::Basher));
+    let (vx, bx) = (
+        &sim.run.loaded.encounter.roster[0],
+        &sim.run.loaded.encounter.roster[1],
+    );
+    let mut vir_max_right = f32::MIN;
+    for x in (vx.x - i32::from(vir.leash_px))..=(vx.x + i32::from(vir.leash_px)) {
+        for facing in [1i8, -1] {
+            let band = crate::slime::world_box(&vir.hitbox, x as f32, facing, floor);
+            if let Some(b) = clip_band(band, x as f32, facing, &solids) {
+                vir_max_right = vir_max_right.max(b.right());
+            }
+        }
+    }
+    let mut bas_min_left = f32::MAX;
+    for x in (bx.x - i32::from(bas.leash_px))..=(bx.x + i32::from(bas.leash_px)) {
+        for facing in [1i8, -1] {
+            let r = crate::slime::world_box(&bas.hitbox, x as f32, facing, floor);
+            bas_min_left = bas_min_left.min(r.left);
+        }
+    }
+    assert!(
+        vir_max_right <= bench.rect.x as f32,
+        "the Virtuoso's clipped band ends at the bench face: {vir_max_right}"
+    );
+    assert!(
+        bas_min_left > bench.rect.x as f32,
+        "the Basher's smash starts right of the bench's left face: {bas_min_left}"
+    );
+    assert!(vir_max_right < bas_min_left, "the two reaches never meet");
+    // On top of the bench a hero is above both bands.
+    let top = floor + bench.rect.h as f32;
+    assert!(top > floor + f32::from(vir.hitbox.y1));
+    assert!(top > floor + f32::from(bas.hitbox.y1));
+}
+
+/// TROG-F15: two players, and one player with the default companion, clear it.
+#[test]
+fn trog_strength_2p_and_solo_companion() {
+    for case in [Case::Strength2P, Case::StrengthSoloCompanion] {
+        let (r, sim) = twice(case);
+        assert!(
+            r.exit_tick.is_some(),
+            "{}: the exit is reached",
+            case.name()
+        );
+        assert_eq!(r.hero_defeats, 0, "{}", case.name());
+        assert_eq!(sim.living().len(), 0, "{}", case.name());
+        // No rescue and no teleport: the fixture never places a hero after setup and the room has
+        // no rescue spot (the room has no `place` output at all: only the Dozer emits one).
+        assert!(
+            r.tells
+                .iter()
+                .all(|t| t.body.0 >= t.view.0 && t.body.1 <= t.view.1)
+        );
+    }
+}
+
+/// TROG-F14: respawn and restart in the Test of Strength.
+#[test]
+fn trog_strength_retry_and_respawn() {
+    let a = run_retry_strength(&root()).unwrap();
+    let b = run_retry_strength(&root()).unwrap();
+    assert_eq!(a, b, "identical hash on the double run");
+    assert!(
+        a.party_defeats >= 1,
+        "the party was defeated in front of the Basher"
+    );
+    assert!(
+        a.virtuoso_down,
+        "a defeated Virtuoso stays down across the respawn"
+    );
+    assert_eq!(
+        a.basher_state,
+        State::Dormant,
+        "the living Basher is asleep again"
+    );
+    assert_eq!(a.basher_hp, crate::trog::TrogTuning::active().basher.hp);
+    assert_eq!(a.basher_x, 800.0, "at its spawn");
+    assert!(a.restart_all_alive);
+    assert!(a.restart_states.iter().all(|s| *s == State::Dormant));
+}
+
+/// TROG-F16 in the Test of Strength: the same inputs as F09 while every presentation accessor is
+/// read each tick (hurtboxes, death bodies, decor, the entry line) give the same log and hash.
+#[test]
+fn trog_strength_presentation_is_read_only() {
+    let plain = run(&root(), Case::StrengthDirect).unwrap().0;
+    let mut sim = TrogSim::for_room(
+        &root(),
+        TrogRoom::Strength,
+        Party::Solo { uncontrolled: BOT },
+        Some(HeroId::Donut),
+    )
+    .unwrap();
+    let mut reads = 0usize;
+    let mut last = 0u64;
+    for _ in 0..MAX_TICKS {
+        if sim.complete() {
+            break;
+        }
+        for e in sim.combat.slot_enemies() {
+            reads += e.hurt_rects().len() + usize::from(e.death_body().is_some());
+        }
+        reads += f01_trog::decor(TrogRoom::Strength).len();
+        let _ = f01_trog::entry_line(&sim.run);
+        let raw = match sim.living().first().copied() {
+            Some(i) => {
+                let t = sim.trog(i).clone();
+                carl_vs(&sim.probe(), &t, &mut last)
+            }
+            None => moving(if sim.x_of(HeroId::Carl) < exit_x(&sim) {
+                1.0
+            } else {
+                0.0
+            }),
+        };
+        let raw = with_hop(&sim.probe(), HeroId::Carl, raw);
+        sim.step1(raw);
+    }
+    assert!(reads > 0);
+    assert_eq!(Report::of(plain.name, &sim).hash, plain.hash);
+    assert_eq!(Report::of(plain.name, &sim).acts, plain.acts);
+}
+
+#[test]
+#[ignore = "evidence helper: the carl pilot's event ticks in the Test of Strength"]
+fn print_the_strength_pilot_events() {
+    let mut sim = TrogSim::for_room(
+        &root(),
+        TrogRoom::Strength,
+        Party::Solo { uncontrolled: BOT },
+        None,
+    )
+    .unwrap();
+    let exit = sim.run.loaded.encounter.exit.x as f32 + 32.0;
+    let statics = sim.run.loaded.encounter.statics.clone();
+    for _ in 0..800 {
+        let raw = pilot(Pilot::Carl, &sim.combat, &sim.scene, &statics, exit);
+        sim.step1(raw);
+        if sim.complete() {
+            break;
+        }
+    }
+    println!(
+        "STRENGTH_PILOT ticks={} complete={} hero_defeats={} hurts={}",
+        sim.tick(),
+        sim.complete(),
+        sim.hero_defeats(),
+        sim.hurts().len()
+    );
+    for (t, e, a) in sim.acts() {
+        println!("STRENGTH_PILOT_ACT tick={t} enemy={e} act={}", a.name());
+    }
+    for e in &sim.combat.events {
+        if let CombatEvent::EnemyDefeated { tick, target, .. } = e {
+            println!("STRENGTH_PILOT_DEFEAT tick={tick} target={target:#x}");
+        }
+    }
 }

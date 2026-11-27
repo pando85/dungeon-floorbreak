@@ -511,8 +511,8 @@ case "$mode" in
     # headless smoke of each room and loadout replays identically twice and names
     # its room; the story loadout of the Boiler differs from the plain room (the
     # pin holds dynamite and Light on Your Feet), and the plain room is unchanged.
-    late_lines() { "$bin" --headless-floor01-smoke --scene f01_late "$@" | grep -E '^(F01_LATE_ENTRY|F01_(BOILER|HOARDER|DOZER|HAZARDS|MASTERY|RING_COURT|RING_SPLIT|CORRAL|REST_REFUGE|REST_CAMP|REST_AFTERMATH|ACT1_CHASE|ACT1_SHORE|ACT1_GUILD|TROG_RUN)_(ENTRY|SMOKE_OK)|COMBAT_STATE)'; }
-    for late_args in "--f01-room boiler" "--f01-room boiler --f01-loadout all" "--f01-room juicer" "--f01-room juicer --f01-loadout all" "--f01-room hoarder" "--f01-room hoarder --f01-loadout all" "--f01-room dozer" "--f01-room dozer --f01-loadout all" "--f01-room hazards" "--f01-room hazards --f01-loadout all" "--f01-room mastery" "--f01-room mastery --f01-loadout all" "--f01-room mastery --cf02-seed 7" "--f01-room ring_court" "--f01-room ring_court --f01-loadout all" "--f01-room ring_split" "--f01-room ring_split --cf02-seed 7" "--f01-room corral" "--f01-room corral --f01-loadout all" "--f01-room corral --cf02-seed 7" "--f01-room rest_refuge" "--f01-room rest_refuge --f01-loadout all" "--f01-room rest_refuge --cf02-seed 7" "--f01-room rest_camp" "--f01-room rest_camp --f01-loadout all" "--f01-room rest_camp --cf02-seed 7" "--f01-room rest_aftermath" "--f01-room rest_aftermath --f01-loadout all" "--f01-room rest_aftermath --cf02-seed 7" "--f01-room act1_chase" "--f01-room act1_chase --f01-loadout all" "--f01-room act1_chase --cf02-seed 7" "--f01-room act1_shore" "--f01-room act1_shore --f01-loadout all" "--f01-room act1_shore --cf02-seed 7" "--f01-room act1_guild" "--f01-room act1_guild --f01-loadout all" "--f01-room act1_guild --cf02-seed 7" "--f01-room trog_run" "--f01-room trog_run --f01-loadout all" "--f01-room trog_run --cf02-seed 7"; do
+    late_lines() { "$bin" --headless-floor01-smoke --scene f01_late "$@" | grep -E '^(F01_LATE_ENTRY|F01_(BOILER|HOARDER|DOZER|HAZARDS|MASTERY|RING_COURT|RING_SPLIT|CORRAL|REST_REFUGE|REST_CAMP|REST_AFTERMATH|ACT1_CHASE|ACT1_SHORE|ACT1_GUILD|TROG_RUN|TROG_STRENGTH)_(ENTRY|SMOKE_OK)|COMBAT_STATE)'; }
+    for late_args in "--f01-room boiler" "--f01-room boiler --f01-loadout all" "--f01-room juicer" "--f01-room juicer --f01-loadout all" "--f01-room hoarder" "--f01-room hoarder --f01-loadout all" "--f01-room dozer" "--f01-room dozer --f01-loadout all" "--f01-room hazards" "--f01-room hazards --f01-loadout all" "--f01-room mastery" "--f01-room mastery --f01-loadout all" "--f01-room mastery --cf02-seed 7" "--f01-room ring_court" "--f01-room ring_court --f01-loadout all" "--f01-room ring_split" "--f01-room ring_split --cf02-seed 7" "--f01-room corral" "--f01-room corral --f01-loadout all" "--f01-room corral --cf02-seed 7" "--f01-room rest_refuge" "--f01-room rest_refuge --f01-loadout all" "--f01-room rest_refuge --cf02-seed 7" "--f01-room rest_camp" "--f01-room rest_camp --f01-loadout all" "--f01-room rest_camp --cf02-seed 7" "--f01-room rest_aftermath" "--f01-room rest_aftermath --f01-loadout all" "--f01-room rest_aftermath --cf02-seed 7" "--f01-room act1_chase" "--f01-room act1_chase --f01-loadout all" "--f01-room act1_chase --cf02-seed 7" "--f01-room act1_shore" "--f01-room act1_shore --f01-loadout all" "--f01-room act1_shore --cf02-seed 7" "--f01-room act1_guild" "--f01-room act1_guild --f01-loadout all" "--f01-room act1_guild --cf02-seed 7" "--f01-room trog_run" "--f01-room trog_run --f01-loadout all" "--f01-room trog_run --cf02-seed 7" "--f01-room trog_strength" "--f01-room trog_strength --f01-loadout all" "--f01-room trog_strength --cf02-seed 7"; do
       # shellcheck disable=SC2086
       late_a="$(late_lines $late_args)"
       # shellcheck disable=SC2086
@@ -659,6 +659,18 @@ case "$mode" in
       exit 1
     fi
     echo "F01_TROG_RUN_HEADLESS_OK: $(grep '^F01_TROG_RUN_SMOKE_OK' <<<"$trog_story")"
+    # TROG-B: the Test of Strength (one Virtuoso, one Basher, a 48 px shelf and an 80 px static bench: the declared
+    # static fallback, TROG-AD43) loads with its smoke marker under both loadouts and the camp's story pin.
+    strength_story="$(late_lines --f01-room trog_strength)"
+    strength_all="$(late_lines --f01-room trog_strength --f01-loadout all)"
+    if ! grep -q '^F01_TROG_STRENGTH_SMOKE_OK .* pin=f01_pin_post_pile_boss env=live slot_enemies=2 enemies=0 ' <<<"$strength_story" \
+      || ! grep -q '^F01_TROG_STRENGTH_ENTRY .* roster=2 pygmies=0 bashers=1 virtuosos=1 statics=2 listed=true env=live ' <<<"$strength_story" \
+      || ! grep -q '^F01_TROG_STRENGTH_ENTRY .* roster=2 pygmies=0 bashers=1 virtuosos=1 statics=2 listed=true env=live ' <<<"$strength_all" \
+      || ! grep -q '^F01_TROG_STRENGTH_SMOKE_OK .* env=live slot_enemies=2 enemies=0 ' <<<"$strength_all"; then
+      echo "the f01_late Test of Strength did not load (two slot troglodytes, a shelf and a bench as statics) with its smoke marker" >&2
+      exit 1
+    fi
+    echo "F01_TROG_STRENGTH_HEADLESS_OK: $(grep '^F01_TROG_STRENGTH_SMOKE_OK' <<<"$strength_story")"
     echo "F01_ACT1_CHASE_HEADLESS_OK: $(grep '^F01_ACT1_CHASE_SMOKE_OK' <<<"$chase_story")"
     echo "F01_ACT1_SHORE_HEADLESS_OK: $(grep '^F01_ACT1_SHORE_SMOKE_OK' <<<"$shore_story")"
     echo "F01_ACT1_GUILD_HEADLESS_OK: $(grep '^F01_ACT1_GUILD_SMOKE_OK' <<<"$guild_story")"
@@ -763,7 +775,7 @@ case "$mode" in
       exit 1
     fi
     echo "F01_HAZ_TACTICAL_OK: second sticker baited over the slime, no Rot hurt, room cleared, final hash 8e10bd0986d23ad9 (the filmed run), twice identical"
-    echo "F01_LATE_HEADLESS_OK: act1_chase, act1_shore, act1_guild, corral, rest_refuge, hoarder, boiler, dozer, hazards, ring_court, ring_split, rest_camp, trog_run, juicer, rest_aftermath and mastery (listed), story and all, each twice identical"
+    echo "F01_LATE_HEADLESS_OK: act1_chase, act1_shore, act1_guild, corral, rest_refuge, hoarder, boiler, dozer, hazards, ring_court, ring_split, rest_camp, trog_run, trog_strength, juicer, rest_aftermath and mastery (listed), story and all, each twice identical"
     ;;
   render)
     for f in "${fixtures[@]}"; do

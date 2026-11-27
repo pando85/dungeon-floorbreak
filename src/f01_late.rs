@@ -53,7 +53,7 @@ pub const MANIFEST_PATH: &str = "assets/levels/f01_late/manifest.json";
 /// hash is a constant, pinned to the file by a test and compared by every
 /// replay of a recorded room. A step that lists a room (CORRAL-WIRE, RING-A
 /// wire, HRD-A2, CORRAL-F, DR-A, ...) re-pins it on purpose.
-pub const MANIFEST_HASH: u64 = 0x828c_82a6_345b_0efe;
+pub const MANIFEST_HASH: u64 = 0x69da_957f_05d9_2834;
 /// The fixture-only stub trigger the story-order tie skips by name.
 pub const STUB_TRIGGER: &str = "carl_prog_find_zone_stub";
 /// The `data_pins()` key.
@@ -80,7 +80,7 @@ pub const fn data_pins() -> [(&'static str, u64); 1] {
 /// stamps nor needs them, so a later edit of the manifest (every room step) or of
 /// the Boiler files (BOIL-B/C wire) fails only the recordings it can change; a
 /// Juicer recording needs the manifest hash and not the Boiler's.
-pub const SCOPED_PIN_KEYS: [&str; 35] = [
+pub const SCOPED_PIN_KEYS: [&str; 37] = [
     f01_boiler::ROOM_PIN_KEY,
     f01_boiler::ENCOUNTER_PIN_KEY,
     f01_boiler::fixes::PIN_KEY,
@@ -114,6 +114,8 @@ pub const SCOPED_PIN_KEYS: [&str; 35] = [
     crate::dozer::OPENING_PIN_KEY,
     f01_trog::RUN_ROOM_PIN_KEY,
     f01_trog::RUN_ENCOUNTER_PIN_KEY,
+    f01_trog::STRENGTH_ROOM_PIN_KEY,
+    f01_trog::STRENGTH_ENCOUNTER_PIN_KEY,
     crate::trog::PIN_KEY,
     MANIFEST_PIN_KEY,
 ];
@@ -162,7 +164,13 @@ pub fn pin_applies(key: &str, room: Option<&str>) -> bool {
         f01_trog::RUN_ROOM_PIN_KEY | f01_trog::RUN_ENCOUNTER_PIN_KEY => {
             room == Some(TrogRoom::Run.id())
         }
-        crate::trog::PIN_KEY => room == Some(TrogRoom::Run.id()),
+        // TROG-B: the Test of Strength's own files; the tuning applies to both rooms.
+        f01_trog::STRENGTH_ROOM_PIN_KEY | f01_trog::STRENGTH_ENCOUNTER_PIN_KEY => {
+            room == Some(TrogRoom::Strength.id())
+        }
+        crate::trog::PIN_KEY => {
+            room == Some(TrogRoom::Run.id()) || room == Some(TrogRoom::Strength.id())
+        }
         f01_act1::SHORE_ROOM_PIN_KEY | f01_act1::SHORE_ENCOUNTER_PIN_KEY => {
             room == Some(Act1Room::Shore.id())
         }
@@ -241,6 +249,10 @@ pub enum RoomScene {
     /// only, listed after the survivors' camp and before the Juicer.
     #[serde(rename = "f01_trog_run")]
     TrogRun,
+    /// TROG-B: the Test of Strength; launched through `--scene f01_late` only, listed after the
+    /// troglodyte run and directly before the Juicer.
+    #[serde(rename = "f01_trog_strength")]
+    TrogStrength,
 }
 
 impl RoomScene {
@@ -264,6 +276,7 @@ impl RoomScene {
             Self::Act1Shore => Act1Room::Shore.scene_name(),
             Self::Act1Guild => Act1Room::Guild.scene_name(),
             Self::TrogRun => TrogRoom::Run.scene_name(),
+            Self::TrogStrength => TrogRoom::Strength.scene_name(),
         }
     }
 
@@ -271,6 +284,7 @@ impl RoomScene {
     pub const fn trog(self) -> Option<TrogRoom> {
         match self {
             Self::TrogRun => Some(TrogRoom::Run),
+            Self::TrogStrength => Some(TrogRoom::Strength),
             _ => None,
         }
     }
@@ -662,6 +676,7 @@ fn check_rules(row: &RoomRow) -> Result<(), String> {
         | RoomScene::Act1Shore
         | RoomScene::Act1Guild
         | RoomScene::TrogRun
+        | RoomScene::TrogStrength
         | RoomScene::Corral => row.rules == RoomRules::Cf02,
         RoomScene::Boss => row.rules == RoomRules::Boss,
     };
@@ -1165,6 +1180,7 @@ mod tests {
                 "ring_split",
                 "rest_camp",
                 "trog_run",
+                "trog_strength",
                 "juicer",
                 "rest_aftermath",
                 "mastery"
@@ -1387,7 +1403,7 @@ mod tests {
         assert!(unknown.starts_with("unknown room"), "{unknown}");
         assert!(
             unknown.contains(
-                "corral, rest_refuge, hoarder, boiler, dozer, hazards, ring_court, ring_split, rest_camp, trog_run, juicer, rest_aftermath, mastery"
+                "corral, rest_refuge, hoarder, boiler, dozer, hazards, ring_court, ring_split, rest_camp, trog_run, trog_strength, juicer, rest_aftermath, mastery"
             ),
             "{unknown}"
         );
@@ -1398,7 +1414,7 @@ mod tests {
         assert!(unlisted.starts_with("unlisted room"), "{unlisted}");
         assert!(
             unlisted.contains(
-                "corral, rest_refuge, hoarder, boiler, dozer, hazards, ring_court, ring_split, rest_camp, trog_run, juicer, rest_aftermath, mastery"
+                "corral, rest_refuge, hoarder, boiler, dozer, hazards, ring_court, ring_split, rest_camp, trog_run, trog_strength, juicer, rest_aftermath, mastery"
             ),
             "{unlisted}"
         );
@@ -1624,6 +1640,7 @@ mod tests {
                 "ring_split",
                 "rest_camp",
                 "trog_run",
+                "trog_strength",
                 "juicer",
                 "rest_aftermath",
                 "mastery"
@@ -2073,6 +2090,7 @@ mod tests {
                     "ring_split",
                     "rest_camp",
                     "trog_run",
+                    "trog_strength",
                     "rest_aftermath",
                     "act1_chase",
                     "act1_shore",
@@ -2201,6 +2219,13 @@ mod tests {
                     [f01_trog::RUN_ROOM_PIN_KEY, f01_trog::RUN_ENCOUNTER_PIN_KEY],
                 ),
                 (
+                    "trog_strength",
+                    [
+                        f01_trog::STRENGTH_ROOM_PIN_KEY,
+                        f01_trog::STRENGTH_ENCOUNTER_PIN_KEY,
+                    ],
+                ),
+                (
                     "act1_chase",
                     [
                         f01_act1::CHASE_ROOM_PIN_KEY,
@@ -2240,6 +2265,7 @@ mod tests {
             Some("rest_refuge"),
             Some("rest_camp"),
             Some("trog_run"),
+            Some("trog_strength"),
             Some("rest_aftermath"),
             Some("act1_chase"),
             Some("act1_shore"),
@@ -2250,8 +2276,8 @@ mod tests {
                 let covered = if key == crate::dozer::PIN_KEY {
                     room == Some("dozer") || room == Some("act1_chase")
                 } else if key == crate::trog::PIN_KEY {
-                    // TROG-A: the tuning applies to every troglodyte room.
-                    room == Some("trog_run")
+                    // TROG-A / TROG-B: the tuning applies to every troglodyte room.
+                    room == Some("trog_run") || room == Some("trog_strength")
                 } else {
                     match owner(key) {
                         Some(own) => room == Some(own),

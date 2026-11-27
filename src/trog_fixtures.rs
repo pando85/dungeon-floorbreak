@@ -1,6 +1,6 @@
-//! TROG-A scenario fixtures (`docs/01-design/floor-01-troglodyte-integration.md` section 7.1):
-//! the troglodytes and `trog_run` driven by scripted party inputs on the launched room,
-//! deterministic, seeded and fixed-tick. Every fixture runs twice and must end on an identical
+//! TROG-A and TROG-B scenario fixtures (`docs/01-design/floor-01-troglodyte-integration.md`
+//! section 7.1): the troglodytes, `trog_run` and `trog_strength` driven by scripted party inputs
+//! on the launched room, deterministic, seeded and fixed-tick. Every fixture runs twice and must end on an identical
 //! state hash. Bevy-free.
 //!
 //! The scripts are **closed loops on the state** (the heroes' columns and the troglodytes'
@@ -34,6 +34,7 @@ pub const PARK_X: f32 = 80.0;
 
 /// A launched troglodyte room with a party, stepped the way the interactive scene steps it.
 pub struct TrogSim {
+    pub room: TrogRoom,
     pub run: TrogRun,
     pub scene: SceneSim,
     pub combat: CombatState,
@@ -43,6 +44,11 @@ pub struct TrogSim {
     pub solo_donut: bool,
     /// What the scene looked like at each `Tell` (the view and the target), in log order.
     pub tell_log: Vec<TellFact>,
+    /// The same for each **proximity** `Wake` (TROG-AD21): the view the slot step read.
+    pub wake_log: Vec<TellFact>,
+    /// Ticks on which a hero stood under two live troglodyte hitboxes (F13; counted by the
+    /// fixtures that check it).
+    pub double_live: u32,
 }
 
 /// One `Tell` as the scene saw it: the enemy's idle hurtbox x range, the camera view the slot
@@ -54,13 +60,57 @@ pub struct TellFact {
     pub body: (f32, f32),
     pub view: (f32, f32),
     pub target_x: f32,
+    /// The target's hurtbox can meet the species' attack band in y (TROG-AD17); `true` for a
+    /// wake.
+    pub meets_band: bool,
+}
+
+/// How a fixture or an evaluator run builds its room: the party seat, the setup writes (the
+/// per-enemy phase, the reflex) and the flags.
+#[derive(Debug, Clone)]
+pub struct SimSetup {
+    pub room: TrogRoom,
+    pub party: Party,
+    pub parked: Option<HeroId>,
+    pub carl: CarlProgFlags,
+    pub donut: DonutProgFlags,
+    /// Setup write (TROG-AD37): each roster entry's `delay_ticks`, the extra wait after a wake
+    /// (the evaluator's phase variant P0..P2). Empty: the sidecar's own values.
+    pub delays: Vec<u32>,
+    /// DM-B reflex profile of the party tuning (`None`: the shipped one).
+    pub reflex: Option<crate::agility::ReflexProfile>,
+}
+
+impl SimSetup {
+    /// The room under the Story flags and the shipped reflex.
+    pub fn story(room: TrogRoom, party: Party, parked: Option<HeroId>) -> Self {
+        let (carl, donut) = Loadout::Story.flags();
+        Self {
+            room,
+            party,
+            parked,
+            carl,
+            donut,
+            delays: Vec::new(),
+            reflex: None,
+        }
+    }
 }
 
 impl TrogSim {
     /// The run room under the Story flags.
     pub fn new(root: &Path, party: Party, parked: Option<HeroId>) -> Result<Self, String> {
-        let (carl, donut) = Loadout::Story.flags();
-        Self::with_flags(root, party, parked, carl, donut)
+        Self::for_room(root, TrogRoom::Run, party, parked)
+    }
+
+    /// A troglodyte room under the Story flags.
+    pub fn for_room(
+        root: &Path,
+        room: TrogRoom,
+        party: Party,
+        parked: Option<HeroId>,
+    ) -> Result<Self, String> {
+        Self::build(root, &SimSetup::story(room, party, parked))
     }
 
     pub fn with_flags(
@@ -70,25 +120,47 @@ impl TrogSim {
         carl: CarlProgFlags,
         donut: DonutProgFlags,
     ) -> Result<Self, String> {
-        let run = f01_trog::launch(root, TrogRoom::Run)?;
+        let mut setup = SimSetup::story(TrogRoom::Run, party, parked);
+        setup.carl = carl;
+        setup.donut = donut;
+        Self::build(root, &setup)
+    }
+
+    /// Launch the room and build the party around it.
+    pub fn build(root: &Path, setup: &SimSetup) -> Result<Self, String> {
+        let SimSetup {
+            room,
+            party,
+            parked,
+            carl,
+            donut,
+            ..
+        } = *setup;
+        let mut run = f01_trog::launch(root, room)?;
+        for (entry, delay) in run.loaded.encounter.roster.iter_mut().zip(&setup.delays) {
+            entry.delay_ticks = *delay;
+        }
         let mut scene = SceneSim::new_at(&run.kit, 360, run.fixture.carl_x)?;
         let combat = f01_trog::combat_for(&run, &mut scene, carl, donut, Some(SEED))?;
         let uncontrolled = match party {
             Party::Solo { uncontrolled } => uncontrolled,
             Party::TwoPlayer => BOT,
         };
-        let mut state = PartyState::new(
-            PartyTuning {
-                uncontrolled_hero: uncontrolled,
-                ..PROVISIONAL_TUNING
-            }
-            .with_cf02_swap(),
-        );
+        let mut tuning = PartyTuning {
+            uncontrolled_hero: uncontrolled,
+            ..PROVISIONAL_TUNING
+        }
+        .with_cf02_swap();
+        if let Some(reflex) = setup.reflex {
+            tuning.donut_reflex = reflex;
+        }
+        let mut state = PartyState::new(tuning);
         if party == Party::TwoPlayer {
             state.pad_connected(PadId(1));
             state.pad_start_pressed(PadId(2));
         }
         Ok(Self {
+            room,
             run,
             scene,
             combat,
@@ -96,6 +168,8 @@ impl TrogSim {
             parked,
             solo_donut: false,
             tell_log: Vec::new(),
+            wake_log: Vec::new(),
+            double_live: 0,
         })
     }
 
@@ -121,10 +195,10 @@ impl TrogSim {
         }
     }
 
-    /// Record the `Tell`s logged since the event counter `seen`.
+    /// Record the `Tell`s and the proximity `Wake`s logged since the event counter `seen`.
     fn log_tells(&mut self, seen: u64) {
         let from = seen.saturating_sub(self.combat.dropped_events as u64) as usize;
-        let tells: Vec<(u64, usize, HeroId)> = self.combat.events
+        let facts: Vec<(u64, usize, Option<HeroId>)> = self.combat.events
             [from.min(self.combat.events.len())..]
             .iter()
             .filter_map(|e| match *e {
@@ -135,12 +209,24 @@ impl TrogSim {
                 } => Some((
                     tick,
                     (enemy - crate::combat_scene::trog::TROG_ID_BASE) as usize,
-                    target,
+                    Some(target),
+                )),
+                CombatEvent::Trog {
+                    tick,
+                    enemy,
+                    act:
+                        TrogAct::Wake {
+                            cause: crate::trog::WakeCause::Proximity,
+                        },
+                } => Some((
+                    tick,
+                    (enemy - crate::combat_scene::trog::TROG_ID_BASE) as usize,
+                    None,
                 )),
                 _ => None,
             })
             .collect();
-        for (tick, enemy, target) in tells {
+        for (tick, enemy, target) in facts {
             let t = crate::trog::TrogTuning::active();
             let trog = self.trog(enemy);
             let b = &t.species(trog.species).hurt_idle;
@@ -149,13 +235,28 @@ impl TrogSim {
             } else {
                 (trog.x - f32::from(b.x1), trog.x - f32::from(b.x0))
             };
-            self.tell_log.push(TellFact {
+            let sp = t.species(trog.species);
+            let meets_band = target.is_none_or(|id| {
+                let hurt = CombatState::hurtbox(&self.scene, id);
+                let (lo, hi) = (
+                    trog.foot_y + f32::from(sp.hitbox.y0),
+                    trog.foot_y + f32::from(sp.hitbox.y1),
+                );
+                hurt.bottom < hi && hurt.top() > lo
+            });
+            let fact = TellFact {
                 tick,
                 enemy,
                 body: (x0, x1),
                 view: self.scene.view_x(),
-                target_x: self.x_of(target),
-            });
+                target_x: target.map_or(f32::NAN, |id| self.x_of(id)),
+                meets_band,
+            };
+            if target.is_some() {
+                self.tell_log.push(fact);
+            } else {
+                self.wake_log.push(fact);
+            }
         }
     }
 
@@ -271,21 +372,21 @@ impl TrogSim {
 
 // ----------------------------------------------------------------- inputs
 
-fn press() -> RawInput {
+pub fn press() -> RawInput {
     RawInput {
         attack: true,
         ..RawInput::NONE
     }
 }
 
-fn moving(dir: f32) -> RawInput {
+pub fn moving(dir: f32) -> RawInput {
     RawInput {
         move_x: dir,
         ..RawInput::NONE
     }
 }
 
-fn stomp() -> RawInput {
+pub fn stomp() -> RawInput {
     RawInput {
         physical: true,
         down: true,
@@ -619,10 +720,19 @@ pub enum Case {
     Run2P,
     /// F07: Carl solo with the default `cf02_free` companion.
     RunSoloCompanion,
+    /// F09 (TROG-B): `trog_strength`, Carl solo (Donut parked) defeats the Virtuoso left of
+    /// x 600, climbs the 80 px bench and defeats the Basher: the bench is passed, never broken.
+    StrengthDirect,
+    /// F13: both troglodytes eligible at once, one hero each (2P): the tell gap holds.
+    StrengthTellGap,
+    /// F15: P1 Carl and P2 Donut clear the Test of Strength.
+    Strength2P,
+    /// F15: Carl solo with the default `cf02_free` companion clears it.
+    StrengthSoloCompanion,
 }
 
 impl Case {
-    pub const ALL: [Case; 8] = [
+    pub const ALL: [Case; 12] = [
         Case::PygmyDodgeAndPunish,
         Case::PygmyStationaryDonut,
         Case::BasherFlankAndPunish,
@@ -631,7 +741,22 @@ impl Case {
         Case::RunSoloDonut,
         Case::Run2P,
         Case::RunSoloCompanion,
+        Case::StrengthDirect,
+        Case::StrengthTellGap,
+        Case::Strength2P,
+        Case::StrengthSoloCompanion,
     ];
+
+    /// The room the case runs in.
+    pub const fn room(self) -> TrogRoom {
+        match self {
+            Self::StrengthDirect
+            | Self::StrengthTellGap
+            | Self::Strength2P
+            | Self::StrengthSoloCompanion => TrogRoom::Strength,
+            _ => TrogRoom::Run,
+        }
+    }
 
     pub const fn name(self) -> &'static str {
         match self {
@@ -643,6 +768,10 @@ impl Case {
             Self::RunSoloDonut => "trog_run_solo_donut",
             Self::Run2P => "trog_run_2p",
             Self::RunSoloCompanion => "trog_run_solo_companion",
+            Self::StrengthDirect => "trog_strength_direct",
+            Self::StrengthTellGap => "trog_strength_tell_gap",
+            Self::Strength2P => "trog_strength_2p",
+            Self::StrengthSoloCompanion => "trog_strength_solo_companion",
         }
     }
 }
@@ -653,6 +782,21 @@ pub fn run(root: &Path, case: Case) -> Result<(Report, TrogSim), String> {
         Case::PygmyDodgeAndPunish | Case::BasherFlankAndPunish | Case::RunSoloCarl => {
             TrogSim::new(root, Party::Solo { uncontrolled: BOT }, Some(HeroId::Donut))?
         }
+        Case::StrengthDirect => TrogSim::for_room(
+            root,
+            TrogRoom::Strength,
+            Party::Solo { uncontrolled: BOT },
+            Some(HeroId::Donut),
+        )?,
+        Case::StrengthTellGap | Case::Strength2P => {
+            TrogSim::for_room(root, TrogRoom::Strength, Party::TwoPlayer, None)?
+        }
+        Case::StrengthSoloCompanion => TrogSim::for_room(
+            root,
+            TrogRoom::Strength,
+            Party::Solo { uncontrolled: FREE },
+            None,
+        )?,
         Case::PygmyStationaryDonut | Case::BasherBoltsDoNotInterrupt | Case::RunSoloDonut => {
             let mut s = TrogSim::new(root, Party::Solo { uncontrolled: BOT }, Some(HeroId::Carl))?;
             s.swap_to_donut();
@@ -668,7 +812,9 @@ pub fn run(root: &Path, case: Case) -> Result<(Report, TrogSim), String> {
         Case::BasherBoltsDoNotInterrupt => basher_bolts(&mut sim),
         Case::RunSoloCarl | Case::RunSoloCompanion => clear_run(&mut sim, HeroId::Carl),
         Case::RunSoloDonut => clear_run(&mut sim, HeroId::Donut),
-        Case::Run2P => clear_run_2p(&mut sim),
+        Case::Run2P | Case::Strength2P => clear_run_2p(&mut sim),
+        Case::StrengthDirect | Case::StrengthSoloCompanion => clear_run(&mut sim, HeroId::Carl),
+        Case::StrengthTellGap => strength_tell_gap(&mut sim),
     }
     Ok((Report::of(case.name(), &sim), sim))
 }
@@ -925,6 +1071,140 @@ fn clear_run_2p(sim: &mut TrogSim) {
         );
         sim.step([c, d]);
     }
+}
+
+// ------------------------------------------------------------- TROG-B
+
+/// How many troglodyte hitboxes are live on `hero` this tick (the committed hitbox of each
+/// troglodyte on a strike or impact tick, against the hero's hurtbox).
+pub fn live_hits_on(sim: &TrogSim, hero: HeroId) -> usize {
+    let t = crate::trog::TrogTuning::active();
+    let hurt = CombatState::hurtbox(&sim.scene, hero);
+    (0..sim.combat.slot_enemies().len())
+        .filter(|&i| {
+            sim.trog(i)
+                .live_hitbox(t, &sim.scene.world.solids)
+                .is_some_and(|b| b.overlaps(hurt))
+        })
+        .count()
+}
+
+/// F13. Both troglodytes eligible at once, one hero each: Carl on the floor in the Virtuoso's
+/// reach and Donut on the floor in the Basher's (setup writes, then no input). The run ends
+/// when each has told once (and its blow has resolved); every tick is checked for a hero under
+/// two live hitboxes.
+fn strength_tell_gap(sim: &mut TrogSim) {
+    // Carl faces the Virtuoso's tongue from its right (the dead zone is inside +56, the band
+    // 56..77): 66 px from its pivot at 496 puts his hurtbox in the band. Donut stands in the
+    // Basher's open band (x 24..38 from its pivot 800 facing left).
+    // The second player joins on the first tick (Donut is placed beside Carl then), so the
+    // setup writes come after it.
+    sim.step([RawInput::NONE, RawInput::NONE]);
+    sim.place(HeroId::Carl, 562.0, -1);
+    sim.place(HeroId::Donut, 780.0, 1);
+    let mut told = [false; 2];
+    for _ in 0..900 {
+        for (i, seen) in told.iter_mut().enumerate() {
+            *seen |= sim
+                .acts()
+                .iter()
+                .any(|(_, e, a)| *e == i && matches!(a, TrogAct::Tell { .. }));
+        }
+        if told == [true, true]
+            && sim.trog(0).state != State::Active
+            && sim.trog(1).state != State::Active
+        {
+            break;
+        }
+        sim.step([RawInput::NONE, RawInput::NONE]);
+        for hero in HeroId::ALL {
+            let n = live_hits_on(sim, hero);
+            if n > 1 {
+                sim.double_live += 1;
+            }
+        }
+    }
+}
+
+/// What F14 reports for the Test of Strength.
+#[derive(Debug, Clone, PartialEq)]
+pub struct StrengthRetryFacts {
+    pub party_defeats: usize,
+    /// After the checkpoint respawn: the Virtuoso (defeated first) stays down, the living Basher
+    /// stands at its spawn, whole and asleep again.
+    pub virtuoso_down: bool,
+    pub basher_state: State,
+    pub basher_hp: u16,
+    pub basher_x: f32,
+    /// After a fixture restart every troglodyte is rebuilt.
+    pub restart_states: Vec<State>,
+    pub restart_all_alive: bool,
+    pub hash: u64,
+}
+
+/// F14: Carl defeats the Virtuoso, a party defeat in front of the Basher, the checkpoint
+/// respawn, then a fixture restart. The bench is a static solid, so there is no state to keep.
+pub fn run_retry_strength(root: &Path) -> Result<StrengthRetryFacts, String> {
+    let mut sim = TrogSim::for_room(
+        root,
+        TrogRoom::Strength,
+        Party::Solo { uncontrolled: BOT },
+        Some(HeroId::Donut),
+    )?;
+    let mut last = 0u64;
+    sim.place(HeroId::Carl, 400.0, 1);
+    for _ in 0..MAX_TICKS {
+        if !sim.trog(0).alive() {
+            break;
+        }
+        let t = sim.trog(0).clone();
+        let raw = carl_vs(&sim.probe(), &t, &mut last);
+        let raw = with_hop(&sim.probe(), HeroId::Carl, raw);
+        sim.step1(raw);
+    }
+    if sim.trog(0).alive() {
+        return Err("the Virtuoso was not defeated".into());
+    }
+    // The Basher: Carl stands in front of it and takes every smash.
+    let bx = sim.trog(1).spawn_x();
+    sim.place(HeroId::Carl, bx - 40.0, 1);
+    for _ in 0..MAX_TICKS {
+        if sim.hero_defeats() > 0 {
+            break;
+        }
+        let gap = (bx - 40.0) - sim.x_of(HeroId::Carl);
+        sim.step1(if gap > 6.0 {
+            moving(1.0)
+        } else {
+            RawInput::NONE
+        });
+    }
+    let party_defeats = sim.hero_defeats();
+    for _ in 0..30 {
+        sim.step1(RawInput::NONE);
+    }
+    sim.combat.respawn(&mut sim.scene);
+    sim.party.restart();
+    sim.step1(RawInput::NONE);
+    let virtuoso_down = !sim.trog(0).alive();
+    let (basher_state, basher_hp, basher_x) = {
+        let b = sim.trog(1);
+        (b.state, b.hp, b.x)
+    };
+    sim.combat.restart(&mut sim.scene);
+    sim.party.restart();
+    sim.step1(RawInput::NONE);
+    let restart_states: Vec<State> = (0..2).map(|i| sim.trog(i).state).collect();
+    Ok(StrengthRetryFacts {
+        party_defeats,
+        virtuoso_down,
+        basher_state,
+        basher_hp,
+        basher_x,
+        restart_all_alive: sim.living().len() == 2,
+        restart_states,
+        hash: sim.hash(),
+    })
 }
 
 #[cfg(test)]

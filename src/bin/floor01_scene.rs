@@ -1101,7 +1101,9 @@ fn resolve_f01_late_args(parsed: &mut Args) -> Result<(), String> {
         | f01_late::RoomScene::Act1Guild => {
             parsed.f01_act1 = row.scene.act1();
         }
-        f01_late::RoomScene::TrogRun => parsed.f01_trog = row.scene.trog(),
+        f01_late::RoomScene::TrogRun | f01_late::RoomScene::TrogStrength => {
+            parsed.f01_trog = row.scene.trog();
+        }
         f01_late::RoomScene::Corral => parsed.f01_corral = true,
         f01_late::RoomScene::Dozer => parsed.f01_dozer = true,
         f01_late::RoomScene::Boss => {
@@ -5731,6 +5733,8 @@ fn setup(
             run.room,
             state,
             kit,
+            height,
+            layers_of("prop"),
             layers_of("actors"),
             args.debug_combat,
         );
@@ -9942,6 +9946,7 @@ fn headless_slot_room(
             run.room.id(),
             match run.room {
                 f01_trog::TrogRoom::Run => "F01_TROG_RUN_SMOKE_OK",
+                f01_trog::TrogRoom::Strength => "F01_TROG_STRENGTH_SMOKE_OK",
             },
             run.loaded.encounter.story_pin.clone(),
             f01_trog::SMOKE_TICKS,
@@ -12716,7 +12721,7 @@ mod tests {
         let error = args(&["--scene", "f01_late", "--f01-room", "cellar"]).expect_err("unknown");
         assert!(
             error.contains(
-                "corral, rest_refuge, hoarder, boiler, dozer, hazards, ring_court, ring_split, rest_camp, trog_run, juicer, rest_aftermath, mastery"
+                "corral, rest_refuge, hoarder, boiler, dozer, hazards, ring_court, ring_split, rest_camp, trog_run, trog_strength, juicer, rest_aftermath, mastery"
             ),
             "{error}"
         );
@@ -13833,7 +13838,7 @@ mod tests {
         assert!(
             error.contains("unknown room")
                 && error.contains(
-                    "corral, rest_refuge, hoarder, boiler, dozer, hazards, ring_court, ring_split, rest_camp, trog_run, juicer, rest_aftermath, mastery"
+                    "corral, rest_refuge, hoarder, boiler, dozer, hazards, ring_court, ring_split, rest_camp, trog_run, trog_strength, juicer, rest_aftermath, mastery"
                 ),
             "{error}"
         );

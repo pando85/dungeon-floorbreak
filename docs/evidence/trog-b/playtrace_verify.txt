@@ -1,0 +1,8 @@
+TROG_RUN_VERIFY loadout=all view=360 ticks=900 state_hashes=900 scope=Full build=identical
+TROG_RUN_VERIFY loadout=all view=400 ticks=900 state_hashes=900 scope=Full build=identical
+TROG_RUN_VERIFY loadout=story view=360 ticks=900 state_hashes=900 scope=Full build=identical
+TROG_RUN_VERIFY loadout=story view=400 ticks=900 state_hashes=900 scope=Full build=identical
+TROG_STRENGTH_VERIFY loadout=all view=360 ticks=900 state_hashes=900 scope=Full build=identical
+TROG_STRENGTH_VERIFY loadout=all view=400 ticks=900 state_hashes=900 scope=Full build=identical
+TROG_STRENGTH_VERIFY loadout=story view=360 ticks=900 state_hashes=900 scope=Full build=identical
+TROG_STRENGTH_VERIFY loadout=story view=400 ticks=900 state_hashes=900 scope=Full build=identical

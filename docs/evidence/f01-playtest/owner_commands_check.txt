@@ -21,6 +21,7 @@
 [ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room ring_split
 [ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room rest_camp
 [ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room trog_run
+[ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room trog_strength
 [ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room juicer
 [ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room rest_aftermath
 [ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room mastery
@@ -57,4 +58,5 @@
 [ok] ok :: floor01_scene --scene boss_f01 --carl-prog --donut-prog --scale 2
 [ok] ok :: floor01_scene --scene f01_boiler --scale 2
 [ok] ok :: corral_eval --out DIR
+[ok] ok :: trog_eval --quick --out DIR
 [exists] tools/record-run.sh is executable (the window recording itself was NOT RUN: needs a display, xdotool, ffmpeg and a human)

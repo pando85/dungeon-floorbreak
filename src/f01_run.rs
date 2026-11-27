@@ -630,9 +630,10 @@ mod tests {
             next_room(&manifest, "rest_refuge").unwrap(),
             NextStep::Room(manifest.room("hoarder").unwrap().clone())
         );
-        // The listed rooms in story order, ACT1-A, ACT1-B and REST-WIRE (REST-A, REST-B,
-        // REST-C) and TROG-A: sixteen rooms, the chase, the shore and the guild first, the camp after the
-        // Ring, the troglodyte run after the camp, the aftermath after the Juicer, mastery ends the run.
+        // The listed rooms in story order, ACT1-A, ACT1-B, REST-WIRE (REST-A, REST-B, REST-C),
+        // TROG-A and TROG-B: seventeen rooms, the chase, the shore and the guild first, the camp
+        // after the Ring, the troglodyte run and the Test of Strength after the camp, the
+        // aftermath after the Juicer, mastery ends the run.
         assert_eq!(
             seen,
             [
@@ -649,6 +650,7 @@ mod tests {
                 "ring_split",
                 "rest_camp",
                 "trog_run",
+                "trog_strength",
                 "juicer",
                 "rest_aftermath",
                 "mastery"
@@ -664,6 +666,10 @@ mod tests {
         );
         assert_eq!(
             next_room(&manifest, "trog_run").unwrap(),
+            NextStep::Room(manifest.room("trog_strength").unwrap().clone())
+        );
+        assert_eq!(
+            next_room(&manifest, "trog_strength").unwrap(),
             NextStep::Room(manifest.room("juicer").unwrap().clone())
         );
         assert_eq!(
@@ -719,13 +725,14 @@ mod tests {
                 "ring_split",
                 "rest_camp",
                 "trog_run",
+                "trog_strength",
                 "juicer",
                 "rest_aftermath",
                 "mastery"
             ]
         );
-        assert_eq!(room_index(&manifest, "dozer"), Some((8, 17)));
-        assert_eq!(room_index(&manifest, "cellar"), Some((9, 17)));
+        assert_eq!(room_index(&manifest, "dozer"), Some((8, 18)));
+        assert_eq!(room_index(&manifest, "cellar"), Some((9, 18)));
     }
 
     #[test]
@@ -1163,11 +1170,11 @@ mod tests {
         };
         let (facts, panel, decision) = on_exit(&input).unwrap();
         assert!(facts.grants.is_empty(), "the chase grants nothing");
-        assert_eq!(room_index(&manifest, "act1_chase"), Some((1, 16)));
+        assert_eq!(room_index(&manifest, "act1_chase"), Some((1, 17)));
         assert!(
             panel
                 .heading
-                .starts_with("ROOM 1/16 CLEARED: THE FIRST CHASE"),
+                .starts_with("ROOM 1/17 CLEARED: THE FIRST CHASE"),
             "{}",
             panel.heading
         );
@@ -1232,11 +1239,11 @@ mod tests {
         let (facts, panel, decision) = on_exit(&shore_input).unwrap();
         assert!(facts.grants.is_empty(), "the shore grants nothing");
         let (at, count) = room_index(&manifest, "act1_shore").unwrap();
-        assert_eq!((at, count), (2, 16));
+        assert_eq!((at, count), (2, 17));
         assert!(
             panel
                 .heading
-                .starts_with("ROOM 2/16 CLEARED: THE ROTTEN SHORE"),
+                .starts_with("ROOM 2/17 CLEARED: THE ROTTEN SHORE"),
             "{}",
             panel.heading
         );
@@ -1273,7 +1280,7 @@ mod tests {
         assert!(
             panel
                 .heading
-                .starts_with("ROOM 3/16 CLEARED: THE GUILD DOOR"),
+                .starts_with("ROOM 3/17 CLEARED: THE GUILD DOOR"),
             "{}",
             panel.heading
         );
@@ -1467,10 +1474,11 @@ mod tests {
             | RoomScene::RestAftermath
             | RoomScene::RingCourt
             | RoomScene::RingSplit
-            | RoomScene::TrogRun => {
+            | RoomScene::TrogRun
+            | RoomScene::TrogStrength => {
                 let (_, mut combat) = match row.scene {
-                    // TROG-A: the troglodyte run, after the camp.
-                    RoomScene::TrogRun => crate::f01_late::trog_start(
+                    // TROG-A / TROG-B: the troglodyte run and the Test of Strength, after the camp.
+                    RoomScene::TrogRun | RoomScene::TrogStrength => crate::f01_late::trog_start(
                         &root(),
                         row.scene.trog().expect("a troglodyte scene"),
                         360,
@@ -1636,7 +1644,48 @@ mod tests {
         let Decision::Relaunch { room, argv: next } = decision else {
             panic!("the troglodyte run leads on");
         };
-        assert_eq!(room, "juicer");
+        // TROG-B: the run leads into the Test of Strength.
+        assert_eq!(room, "trog_strength");
+        let at = next.iter().position(|a| a == FLAG_CARRY).unwrap();
+        assert_eq!(decode_carry(&next[at + 1]).unwrap(), carry);
+        // TROG-B (TROG-T04, TROG-T06): the Test of Strength hands the camp's ledger on unchanged
+        // (it grants nothing) and its exit relaunches into the unchanged Juicer.
+        let (_, _, mut strength) = crate::f01_late::trog_start(
+            &root(),
+            crate::f01_trog::TrogRoom::Strength,
+            360,
+            carl,
+            donut,
+            None,
+        )
+        .unwrap();
+        strength.carry_story(&carry).unwrap();
+        assert_eq!(
+            carry_for(Loadout::Story, RoomScene::TrogStrength, &strength),
+            Some(carry.clone()),
+            "the Test of Strength hands the ledger on unchanged"
+        );
+        let strength_input = ExitInput {
+            manifest: &manifest,
+            room: "trog_strength",
+            loadout: Loadout::Story,
+            combat: &strength,
+            carried: Some(&carry),
+            tally: RunTally::default(),
+            argv: &argv,
+            recording: "REC",
+            audience: None,
+            audience_enabled: false,
+        };
+        let (facts, _, decision) = on_exit(&strength_input).unwrap();
+        assert!(
+            facts.grants.is_empty(),
+            "the Test of Strength grants nothing"
+        );
+        let Decision::Relaunch { room, argv: next } = decision else {
+            panic!("the Test of Strength leads on");
+        };
+        assert_eq!(room, "juicer", "the hand-off into the Juicer");
         let at = next.iter().position(|a| a == FLAG_CARRY).unwrap();
         assert_eq!(decode_carry(&next[at + 1]).unwrap(), carry);
         // The Juicer launches from the camp's ledger and still holds one dynamite receipt.
