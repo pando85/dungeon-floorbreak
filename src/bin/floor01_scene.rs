@@ -5057,6 +5057,7 @@ fn run_window(
                 gym_art::sync_gym_art,
                 corral_art::sync_corral_art,
                 corral_art::sync_partition_art,
+                corral_art::sync_partition_burst,
                 (fastfood_art::sync_fastfood_art, camp_art::sync_bag_art),
                 (
                     sync_act1_door,
@@ -5673,11 +5674,16 @@ fn setup(
             .corral_run
             .as_ref()
             .and_then(|run| run.m3_gate.as_ref().map(|(rect, _)| *rect));
+        // AREA-POLISH-01 (HEAT-OQ1): the grate art stands on the dock (the solid the gate rests on).
+        let dock_top = gate.map_or(kit.base_walk_line_y, |g| {
+            dungeon_floorbreak::heat_kit::gate_dock_top(kit, g)
+        });
         corral_art::spawn(
             &mut commands,
             layers_of("actors"),
             kit.actor_z + 0.02,
             gate,
+            dock_top,
             rush_llamas,
         );
     }
@@ -5743,6 +5749,17 @@ fn setup(
             &run.loaded.encounter,
             z.min(kit.actor_z - 0.01),
             layers_of("prop"),
+        );
+        // AREA-POLISH-01 (CD-AD9 reversed): the splinter burst on the partition's break, in front
+        // of the actors like the Dozer's (the burst is a short effect, not a prop).
+        corral_art::spawn_partition_burst(
+            &mut commands,
+            &asset_server,
+            &mut layouts,
+            &mut combat_handles,
+            &run.loaded.encounter,
+            kit.actor_z + 0.305,
+            layers_of("actors"),
         );
     }
 

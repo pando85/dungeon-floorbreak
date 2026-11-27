@@ -55,7 +55,7 @@ pub(super) struct DangerFxArt {
 }
 
 impl DangerFxArt {
-    fn image(&self, sheet: FxSheet) -> Option<&Handle<Image>> {
+    pub(super) fn image(&self, sheet: FxSheet) -> Option<&Handle<Image>> {
         self.sheets
             .iter()
             .find(|(s, _)| *s == sheet)

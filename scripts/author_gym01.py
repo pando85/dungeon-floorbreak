@@ -741,6 +741,9 @@ PLACE = (
         ("gym_reception_desk", 46, 32), ("gym_turnstile", 110, 30), ("gym_dumbbell_rack", 228, 28),
         ("gym_bench", 296, 18), ("gym_plate_tree", 352, 36), ("gym_cable_tower", 440, 104), ("gym_tyres", 490, 18))]
     + [("prop", "gym_exit_closed", 620, 324), ("prop", "gym_exit_open", 620, 324)]
+    # AREA-POLISH-01: the same steel header caps the exit door (the #263 review's F3 follow-up); the
+    # 48 px piece spans x 592..639 over the end-wall column, its bottom row on the door's top (y 324).
+    + [("structure", "gym_gate_lintel", 592, 306)]
 )
 REMOVE = ["door_timber", "guild_portal_closed"]
 OWNER = ("AI-authored environment pixel art (AREA-GYM-01: design spec, mirror-bay hero key and execution "

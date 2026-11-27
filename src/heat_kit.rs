@@ -66,6 +66,122 @@ pub const fn partition_origin(target: RoomRect) -> (i32, i32) {
     (target.x - PARTITION_MARGIN_X, target.y)
 }
 
+/// AREA-POLISH-01 (CD-AD9, reversed): the ENV-02 `timber_splinter_burst` plays on the partition's
+/// break, as the act-1 barricade's does (`dozer_art::fx_sprites`). Presentation only: a function of
+/// the attempt's event log and the tick. Two bursts on the partition's centre line, the second
+/// [`BURST_STAGGER`] ticks after the first, each 4 frames of [`BURST_FRAME_TICKS`] ticks.
+pub const BURST_ATLAS: &str = "generated/art/floor01_splinter_burst.png";
+pub const BURST_FRAME_PX: u32 = 48;
+pub const BURST_FRAMES: u64 = 4;
+pub const BURST_FRAME_TICKS: u64 = 4;
+pub const BURST_STAGGER: u64 = 4;
+/// The bursts' centres above the partition's foot (px): the 48 px canvas is centred on them.
+pub const BURST_ABOVE_FOOT: [i32; 2] = [14, 36];
+
+/// One burst frame: its frame index and its centre (layout px, y down).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PartitionBurst {
+    pub frame: usize,
+    pub x: i32,
+    pub y: i32,
+}
+
+/// The bursts of the partition `prop` (an index of the sidecar's props, standing on `target`) at
+/// `tick`: the break event of the current attempt (the scan stops at the latest `Restart`, so an
+/// earlier attempt's burst is never drawn again) plays [`BURST_ABOVE_FOOT`]'s two bursts.
+pub fn partition_bursts(
+    combat: &crate::combat_scene::CombatState,
+    prop: usize,
+    target: RoomRect,
+    tick: u64,
+) -> Vec<PartitionBurst> {
+    use crate::combat::{CombatEvent, PropPhase};
+    let broke = combat
+        .events
+        .iter()
+        .rev()
+        .take_while(|e| !matches!(e, CombatEvent::Restart { .. }))
+        .find_map(|e| match *e {
+            CombatEvent::PropPhase {
+                tick,
+                prop: p,
+                phase: PropPhase::Broken,
+                ..
+            } if usize::from(p) == prop => Some(tick),
+            _ => None,
+        });
+    let Some(at) = broke.filter(|at| *at <= tick) else {
+        return Vec::new();
+    };
+    BURST_ABOVE_FOOT
+        .iter()
+        .enumerate()
+        .filter_map(|(n, above)| {
+            let age = (tick - at).checked_sub(n as u64 * BURST_STAGGER)?;
+            let frame = age / BURST_FRAME_TICKS;
+            (frame < BURST_FRAMES).then_some(PartitionBurst {
+                frame: frame as usize,
+                x: target.x + target.w / 2,
+                y: target.bottom() - above,
+            })
+        })
+        .collect()
+}
+
+/// AREA-POLISH-01 (HEAT-OQ1): the M3 gate's art is the approved room 5 gate grate (`dfx_gate`,
+/// #263), 28 x 224 per frame; its frame 0 is the grate down. The raised frame is not used: it hangs
+/// from the room 5 doorway's lintel, and the corral has no lintel over the gate (the raised grate
+/// would float), so an open gate draws nothing, as the greybox bars did (POLISH-AD4).
+pub const GATE_ART_W: i32 = crate::danger_fx_art::GATE_W;
+pub const GATE_ART_H: i32 = crate::danger_fx_art::GATE_H;
+
+/// The gate grate's draw: its atlas rectangle `[x, y, w, h]` and its top-left (layout px, y down).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct GateArtDraw {
+    pub src: [i32; 4],
+    pub left: i32,
+    pub top: i32,
+}
+
+/// The grate over the gate collider `gate` (full lane height, standing on the dock whose top is
+/// `dock_top`) while the gate stands (`open == false`): centred on the collider and top-aligned on
+/// its top, cropped at the dock's top (the rows below stand inside the stone). `None` once the gate
+/// is open.
+pub fn gate_art_draw(gate: RoomRect, dock_top: i32, open: bool) -> Option<GateArtDraw> {
+    (!open).then(|| GateArtDraw {
+        src: [0, 0, GATE_ART_W, (dock_top - gate.y).clamp(0, GATE_ART_H)],
+        left: gate.x + gate.w / 2 - GATE_ART_W / 2,
+        top: gate.y,
+    })
+}
+
+/// Whether the labelled greybox bars draw for the M3 gate: only while the gate stands **and** the
+/// approved grate art is not loaded (the missing-atlas fallback). With the art loaded no flat
+/// greybox is drawn, standing or open.
+pub const fn gate_greybox_drawn(art_loaded: bool, gate_standing: bool) -> bool {
+    !art_loaded && gate_standing
+}
+
+/// The top of the solid the gate stands on: the highest collision tile or solid of `kit` under the
+/// gate's columns (more than 64 px below its top, so the lane ceiling is not it), else the walking
+/// line. In the corral it is the dock, 32 px up.
+pub fn gate_dock_top(kit: &EnvKit, gate: RoomRect) -> i32 {
+    let under = |x: i32, w: i32, y: i32| x < gate.right() && gate.x < x + w && y > gate.y + 64;
+    kit.tiles
+        .iter()
+        .filter(|t| t.layer == "collision")
+        .filter(|t| under(t.rect.x, t.rect.w, t.rect.y))
+        .map(|t| t.rect.y)
+        .chain(
+            kit.solid_rects
+                .iter()
+                .filter(|r| under(r.x, r.w, r.y))
+                .map(|r| r.y),
+        )
+        .min()
+        .unwrap_or(kit.base_walk_line_y)
+}
+
 /// The atlas rectangle `[x, y, w, h]` of each state frame, from the heat
 /// contract (`PARTITION_PIECES` order).
 pub fn partition_atlas_rects(root: &Path) -> Result<[[i32; 4]; 3], String> {
@@ -539,5 +655,112 @@ mod tests {
             )
             .unwrap();
         }
+    }
+
+    // ------------------------------------------------------------------ AREA-POLISH-01
+
+    /// HEAT-OQ1: the gate art covers the collider's columns, stands on the dock and shows the grate
+    /// down (frame 0, cropped at the dock top).
+    #[test]
+    fn the_gate_art_covers_the_collider_and_stands_on_the_dock() {
+        let run = crate::f01_corral::launch(root()).unwrap();
+        let (gate, _) = run.m3_gate.clone().unwrap();
+        let dock = gate_dock_top(&run.kit, gate);
+        assert_eq!(
+            dock,
+            run.kit.base_walk_line_y - 32,
+            "the 32 px dock the gate stands on"
+        );
+        let down = gate_art_draw(gate, dock, false).unwrap();
+        assert_eq!(down.src, [0, 0, GATE_ART_W, dock - gate.y]);
+        assert_eq!(down.top, gate.y, "top-aligned on the collider's top");
+        assert_eq!(down.top + down.src[3], dock, "its foot on the dock's top");
+        assert!(down.left <= gate.x && down.left + GATE_ART_W >= gate.right());
+        assert_eq!(down.left + GATE_ART_W / 2, gate.x + gate.w / 2, "centred");
+        assert_eq!(
+            gate_art_draw(gate, dock, true),
+            None,
+            "an open gate draws nothing (POLISH-AD4)"
+        );
+        // the atlas the draw reads is the exported room 5 gate sheet: two cells at least
+        assert_eq!(
+            crate::danger_fx_art::Sheet::Gate.frame_size(),
+            (GATE_ART_W, GATE_ART_H)
+        );
+    }
+
+    /// No flat greybox draws for the gate when its art is loaded, whatever the gate's state.
+    #[test]
+    fn no_greybox_bar_draws_while_the_grate_art_is_loaded() {
+        for standing in [true, false] {
+            assert!(!gate_greybox_drawn(true, standing));
+        }
+        assert!(
+            gate_greybox_drawn(false, true),
+            "the missing-atlas fallback"
+        );
+        assert!(
+            !gate_greybox_drawn(false, false),
+            "an open gate draws nothing without art"
+        );
+    }
+
+    /// CD-AD9 (reversed): the partition's break plays two staggered bursts of 4 frames on its centre
+    /// line, nothing before the break, nothing after the 24 ticks, and a restart clears them.
+    #[test]
+    fn the_break_plays_two_staggered_bursts_and_a_restart_clears_them() {
+        use crate::combat::{CombatEvent, PropPhase};
+        let run = crate::f01_corral::launch(root()).unwrap();
+        let mut scene =
+            crate::corridor::SceneSim::new_at(&run.kit, 360, run.fixture.carl_x).unwrap();
+        let mut combat = crate::f01_corral::combat_of(&run, &mut scene).unwrap();
+        let target = run
+            .loaded
+            .encounter
+            .props
+            .iter()
+            .find(|p| p.kind == crate::encounter::PropKind::Partition)
+            .map(|p| p.target)
+            .unwrap();
+        let bursts =
+            |c: &crate::combat_scene::CombatState, tick| partition_bursts(c, 0, target, tick);
+        assert!(bursts(&combat, 100).is_empty(), "nothing before the break");
+        combat.events.push(CombatEvent::PropPhase {
+            tick: 100,
+            prop: 0,
+            phase: PropPhase::Broken,
+            player: None,
+        });
+        assert!(bursts(&combat, 99).is_empty());
+        let first = bursts(&combat, 100);
+        assert_eq!(first.len(), 1);
+        assert_eq!((first[0].frame, first[0].x), (0, target.x + target.w / 2));
+        assert_eq!(first[0].y, target.bottom() - BURST_ABOVE_FOOT[0]);
+        let two = bursts(&combat, 104);
+        assert_eq!(two.len(), 2);
+        assert_eq!((two[0].frame, two[1].frame), (1, 0));
+        assert_eq!(two[1].y, target.bottom() - BURST_ABOVE_FOOT[1]);
+        assert!(
+            two.iter()
+                .all(|b| b.y >= target.y - 24 && b.y <= target.bottom())
+        );
+        assert_eq!(
+            bursts(&combat, 115).len(),
+            2,
+            "the first is on its last frame"
+        );
+        assert_eq!(bursts(&combat, 116).len(), 1);
+        assert!(
+            bursts(&combat, 120).is_empty(),
+            "both are done after 24 ticks"
+        );
+        // another prop's break draws nothing here
+        assert!(partition_bursts(&combat, 1, target, 100).is_empty());
+        // an earlier attempt's break is never drawn again after a restart
+        combat.events.push(CombatEvent::Restart {
+            tick: 150,
+            deaths: 1,
+        });
+        assert!(bursts(&combat, 104).is_empty());
     }
 }

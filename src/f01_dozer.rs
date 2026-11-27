@@ -82,8 +82,15 @@ pub struct DozerRun {
 }
 
 /// Load the room, compose its kit (with the ceiling slab and the lintel) and
-/// build the fixture and rules.
+/// build the fixture and rules. The room shell is dressed with the AREA-POLISH-01 kit
+/// ([`crate::polish_kit`], presentation only).
 pub fn launch(root: &Path) -> Result<DozerRun, String> {
+    launch_with(root, true)
+}
+
+/// [`launch`] with the dressing switched: `dressed = false` composes the plain catacomb kit (the
+/// DOZER-CORE greybox shell), for the tests that prove the dressing is presentation only.
+pub fn launch_with(root: &Path, dressed: bool) -> Result<DozerRun, String> {
     let loaded = encounter::load(root, ENCOUNTER_PATH).map_err(|errors| {
         format!(
             "{ENCOUNTER_PATH}: {}",
@@ -116,7 +123,7 @@ pub fn launch(root: &Path) -> Result<DozerRun, String> {
     let Some(site) = loaded.encounter.dozer.clone() else {
         return Err(format!("{ENCOUNTER_PATH}: no dozer block"));
     };
-    let mut kit = crate::f01_boiler::compose_kit(root, &loaded.room)?;
+    let mut kit = crate::polish_kit::compose_dozer(root, &loaded, dressed)?;
     if kit.base_walk_line_y != loaded.room.floor_y {
         return Err(format!(
             "the kit's walking line {} is not the room's floor {}",

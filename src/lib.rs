@@ -125,6 +125,7 @@ pub mod party;
 pub mod party_scene;
 pub mod pile_boss;
 pub mod playtrace;
+pub mod polish_kit;
 pub mod prototype;
 pub mod refuge;
 pub mod rest_fixtures;
