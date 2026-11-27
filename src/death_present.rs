@@ -37,8 +37,9 @@ use crate::feel::{GROUND_FRICTION, KNOCK_GRAVITY};
 use crate::goblin::GoblinMode;
 use crate::gore::{
     Cf02GoreBudget, DEATH_VARIANTS, DeathArt, ENGINEER_VARIANT, GorePreset, LLAMA_VARIANT, Mass,
-    PartClass, PartThrow, PresentationRng, PresetSheets, Settle, SpinClass, Ttl, keeps_stream_item,
-    lowest_below_centre, part_center_for_anchor, pose_anchor_world, rest_angle, scale_count,
+    PartClass, PartThrow, PresentationRng, PresetSheets, Settle, SpinClass, TROG_FIRST_VARIANT,
+    TROG_KINDS, Ttl, keeps_stream_item, lowest_below_centre, part_center_for_anchor,
+    pose_anchor_world, rest_angle, scale_count,
 };
 use crate::llama::{LLAMA_HALF_HEIGHT, LlamaMode};
 use crate::prototype::TICK_SECONDS;
@@ -435,11 +436,39 @@ struct SpeciesDeath {
     sheets: PresetSheets,
 }
 
+/// TROG-FX-01: the troglodyte species keys (`trog::Species::kind_name`), in the order of the
+/// death sets (`TROG_FIRST_VARIANT + index`).
+pub const TROG_SPECIES: [&str; TROG_KINDS] = ["trog_pygmy", "trog_basher", "trog_virtuoso"];
+
+/// The death-set variant of a troglodyte species key, `None` for any other species.
+pub fn trog_variant(species: &str) -> Option<usize> {
+    TROG_SPECIES
+        .iter()
+        .position(|s| *s == species)
+        .map(|i| TROG_FIRST_VARIANT + i)
+}
+
 /// The species sets of a presenter, after the two goblin variants.
 #[derive(Default)]
 struct SpeciesSets {
     llama: Option<SpeciesDeath>,
     engineer: Option<SpeciesDeath>,
+    /// TROG-FX-01: the Pygmy, the Basher and the Virtuoso, at `TROG_FIRST_VARIANT + index`.
+    trogs: [Option<SpeciesDeath>; TROG_KINDS],
+}
+
+impl SpeciesSets {
+    /// The loaded set of a non-goblin `variant`.
+    fn of(&self, variant: usize) -> Option<&SpeciesDeath> {
+        match variant {
+            LLAMA_VARIANT => self.llama.as_ref(),
+            ENGINEER_VARIANT => self.engineer.as_ref(),
+            v if (TROG_FIRST_VARIANT..TROG_FIRST_VARIANT + TROG_KINDS).contains(&v) => {
+                self.trogs[v - TROG_FIRST_VARIANT].as_ref()
+            }
+            _ => None,
+        }
+    }
 }
 
 /// The art a `variant` is drawn from (field-wise, so a pool can stay borrowed).
@@ -447,12 +476,7 @@ struct SpeciesSets {
 /// without it falls back to the goblin set (an Engineer target then gets its
 /// goblin variant in `begin_death`, so this arm is never reached with one).
 fn art_for<'a>(goblin: &'a DeathArt, sets: &'a SpeciesSets, variant: usize) -> &'a DeathArt {
-    let loaded = match variant {
-        LLAMA_VARIANT => sets.llama.as_ref(),
-        ENGINEER_VARIANT => sets.engineer.as_ref(),
-        _ => None,
-    };
-    loaded.map_or(goblin, |s| &s.art)
+    sets.of(variant).map_or(goblin, |s| &s.art)
 }
 
 /// The set a decal of a death of `variant` is drawn from: blood, stains and
@@ -474,12 +498,8 @@ fn sheets_for<'a>(
     sets: &'a SpeciesSets,
     variant: usize,
 ) -> &'a PresetSheets {
-    let loaded = match variant {
-        LLAMA_VARIANT => sets.llama.as_ref(),
-        ENGINEER_VARIANT => sets.engineer.as_ref(),
-        _ => None,
-    };
-    loaded.map_or(&goblins[goblin_set(variant)], |s| &s.sheets)
+    sets.of(variant)
+        .map_or(&goblins[goblin_set(variant)], |s| &s.sheets)
 }
 
 /// `--death-lab-edge`: a block kill read as a block-edge cut by the same
@@ -859,12 +879,94 @@ pub static LLAMA_EXPLOSION_TABLES: [ExplosionTable; 4] = [
     },
 ];
 
-/// The explosion table of a death set `variant` (goblin A or B, the llama or the
-/// Engineer) at `preset`.
+/// TROG-FX-01: the troglodytes' explosive breakup, one row set per kind (spec section 4), the goblin
+/// tables with the kind's own part list and torso: preset 1 keeps the sprite (only the two rags fly),
+/// preset 2 throws the head and the upper torso (and the Virtuoso's bell), preset 3 adds an arm and a
+/// leg, preset 4 every cut. A kind lists only parts its sheet has (a part a sheet lacks is skipped:
+/// the Pygmy has no far arm or far leg, the Basher and the Pygmy carry no bell).
+pub static TROG_EXPLOSION_TABLES: [[ExplosionTable; 4]; TROG_KINDS] = [
+    [
+        ExplosionTable {
+            parts: &[],
+            ..EXPLOSION_TABLES[0]
+        },
+        ExplosionTable {
+            parts: &["head", "torso_upper"],
+            ..EXPLOSION_TABLES[1]
+        },
+        ExplosionTable {
+            parts: &["head", "torso_upper", "arm_near", "leg_near"],
+            ..EXPLOSION_TABLES[2]
+        },
+        ExplosionTable {
+            parts: &["head", "torso_upper", "torso_lower", "arm_near", "leg_near"],
+            ..EXPLOSION_TABLES[3]
+        },
+    ],
+    [
+        ExplosionTable {
+            parts: &[],
+            ..EXPLOSION_TABLES[0]
+        },
+        ExplosionTable {
+            parts: &["head", "torso_upper"],
+            ..EXPLOSION_TABLES[1]
+        },
+        ExplosionTable {
+            parts: &["head", "torso_upper", "arm_near", "leg_near"],
+            ..EXPLOSION_TABLES[2]
+        },
+        ExplosionTable {
+            parts: &[
+                "head",
+                "torso_upper",
+                "torso_lower",
+                "arm_near",
+                "arm_far",
+                "leg_near",
+                "leg_far",
+            ],
+            ..EXPLOSION_TABLES[3]
+        },
+    ],
+    [
+        ExplosionTable {
+            parts: &[],
+            ..EXPLOSION_TABLES[0]
+        },
+        ExplosionTable {
+            parts: &["head", "torso_upper", "bell"],
+            ..EXPLOSION_TABLES[1]
+        },
+        ExplosionTable {
+            parts: &["head", "torso_upper", "arm_near", "leg_near", "bell"],
+            ..EXPLOSION_TABLES[2]
+        },
+        ExplosionTable {
+            parts: &[
+                "head",
+                "torso_upper",
+                "torso_lower",
+                "arm_near",
+                "leg_near",
+                "leg_far",
+                "bell",
+            ],
+            ..EXPLOSION_TABLES[3]
+        },
+    ],
+];
+
+/// The explosion table of a death set `variant` (goblin A or B, the llama, the
+/// Engineer or a troglodyte) at `preset`.
 pub fn explosion_table_of(variant: usize, preset: GorePreset) -> &'static ExplosionTable {
+    let at = preset.level() as usize - 1;
     match variant {
-        LLAMA_VARIANT => &LLAMA_EXPLOSION_TABLES[preset.level() as usize - 1],
-        ENGINEER_VARIANT => &ENGINEER_EXPLOSION_TABLES[preset.level() as usize - 1],
+        LLAMA_VARIANT => &LLAMA_EXPLOSION_TABLES[at],
+        ENGINEER_VARIANT => &ENGINEER_EXPLOSION_TABLES[at],
+        v if (TROG_FIRST_VARIANT..TROG_FIRST_VARIANT + TROG_KINDS).contains(&v) => {
+            &TROG_EXPLOSION_TABLES[v - TROG_FIRST_VARIANT][at]
+        }
         _ => explosion_table(preset),
     }
 }
@@ -946,6 +1048,13 @@ impl Finish {
             // (`hoarder_art`). The generic presenter adds nothing: no gibs, no dismemberment, no
             // blood (a ruined person, not a target for spectacle), and she is not CINE-eligible.
             "pile_boss_down" => Self::NoArt,
+            // TROG-FX-01: a troglodyte keeps its approved `down` frames and gains blood (the
+            // knockback script); a point blank blast throws its own cut parts (the explosion
+            // script with the kind's set and table).
+            "trog_pygmy_down" | "trog_basher_down" | "trog_virtuoso_down" => Self::Knockback,
+            "trog_pygmy_exploded" | "trog_basher_exploded" | "trog_virtuoso_exploded" => {
+                Self::Exploded
+            }
             _ => Self::NoArt,
         }
     }
@@ -960,6 +1069,16 @@ impl Finish {
             "slammed_stomped" => Self::GoblinSlammed(SlamPose::Stomped),
             "slammed_wall" => Self::GoblinSlammed(SlamPose::WallCrumple),
             "slammed_flung" => Self::GoblinSlammed(SlamPose::Flung),
+            _ => return None,
+        })
+    }
+
+    /// TROG-FX-01 evidence lab (`--death-lab-trog`): the finish a troglodyte plays for a lab `name`
+    /// (`exploded` or `down`).
+    pub fn lab_trog(name: &str) -> Option<Self> {
+        Some(match name {
+            "exploded" => Self::Exploded,
+            "down" => Self::Knockback,
             _ => return None,
         })
     }
@@ -1337,6 +1456,8 @@ pub struct DeathPresenter {
     /// The Bad Llama's and the Engineer's art and sheets, when the run has them.
     sets: SpeciesSets,
     profiles: &'static DeathProfiles,
+    /// TROG-FX-01: the troglodyte death art is loaded (the profiles then carry the three troglodyte rows).
+    trog_profiles: bool,
     /// The species key of the goblin targets (tests swap it to check a species
     /// without art); the llama's is [`LLAMA_SPECIES`].
     species: &'static str,
@@ -1378,6 +1499,8 @@ pub struct DeathPresenter {
     /// ENG-02 evidence lab (`--death-lab-engineer`): every Engineer defeat plays this finish, whatever recipe
     /// the defeat would pick (the Floor 1 pilots only ever kill him with a jab). Presentation only.
     lab_engineer: Option<Finish>,
+    /// TROG-FX-01 evidence lab (`--death-lab-trog`): every troglodyte defeat plays this finish, whatever its cause.
+    lab_trog: Option<Finish>,
 }
 
 impl DeathPresenter {
@@ -1412,6 +1535,7 @@ impl DeathPresenter {
             sheets,
             sets: SpeciesSets::default(),
             profiles: DeathProfiles::builtin(),
+            trog_profiles: false,
             species: GOBLIN_SPECIES,
             engineers: Vec::new(),
             preset,
@@ -1442,6 +1566,7 @@ impl DeathPresenter {
             transient_until: None,
             lab_edge: false,
             lab_engineer: None,
+            lab_trog: None,
         })
     }
 
@@ -1474,7 +1599,11 @@ impl DeathPresenter {
     pub fn with_cf02(mut self, tuning: &'static Cf02Tuning) -> Self {
         self.cf02 = Some(tuning);
         if tuning.on(tuning.q36_death_overlay) {
-            self.profiles = DeathProfiles::cf02();
+            self.profiles = if self.trog_profiles {
+                DeathProfiles::with_trogs(true)
+            } else {
+                DeathProfiles::cf02()
+            };
             self.slam_overlay = true;
         }
         self.gore_budget = Cf02GoreBudget::from_tuning(tuning);
@@ -1516,6 +1645,34 @@ impl DeathPresenter {
         let sheets = art.compose(self.preset)?;
         self.sets.engineer = Some(SpeciesDeath { art, sheets });
         Ok(self)
+    }
+
+    /// TROG-FX-01: add the troglodytes' death art (Pygmy, Basher, Virtuoso: a pose and a parts sheet each) and their
+    /// profiles (`DeathProfiles::with_trogs`, in front of the global or the cf02 profiles). Their point blank blast
+    /// throws their own cut parts; every other defeat keeps the approved `down` frames and adds blood. Without it a
+    /// troglodyte's defeat draws nothing extra, exactly as before.
+    pub fn with_trogs(mut self, arts: [Arc<DeathArt>; TROG_KINDS]) -> Result<Self, String> {
+        for (index, art) in arts.into_iter().enumerate() {
+            if art.variant != TROG_FIRST_VARIANT + index {
+                return Err("a troglodyte death art has the wrong variant".into());
+            }
+            let sheets = art.compose(self.preset)?;
+            self.sets.trogs[index] = Some(SpeciesDeath { art, sheets });
+        }
+        self.trog_profiles = true;
+        self.profiles = DeathProfiles::with_trogs(self.slam_overlay);
+        Ok(self)
+    }
+
+    /// TROG-FX-01 evidence lab: play `finish` for every troglodyte defeat (`Finish::lab_trog`). Presentation only.
+    pub fn with_lab_trog(mut self, finish: Finish) -> Self {
+        self.lab_trog = Some(finish);
+        self
+    }
+
+    /// Whether the run has the troglodyte death art.
+    pub fn has_trogs(&self) -> bool {
+        self.sets.trogs.iter().all(Option::is_some)
     }
 
     pub fn preset(&self) -> GorePreset {
@@ -1876,6 +2033,7 @@ impl DeathPresenter {
                     body.x,
                     body.ground_y,
                     body.facing < 0,
+                    Some(target),
                 );
             }
         }
@@ -1992,7 +2150,7 @@ impl DeathPresenter {
         flip: bool,
     ) {
         if matches!(event, CombatEvent::EnemyDefeated { target, .. } if *target == crate::boss::BOSS_ENEMY_ID)
-            && let Some(id) = self.begin_species_death(event, species, x, ground_y, flip)
+            && let Some(id) = self.begin_species_death(event, species, x, ground_y, flip, None)
         {
             self.boss_finish = Some(id);
         }
@@ -2002,6 +2160,10 @@ impl DeathPresenter {
     /// death at `(x, ground_y)` (the boss' and the slot enemies' path); returns
     /// the finish id. ENEMY-SLOT: a species with no profile, or whose finish
     /// has no art yet, draws nothing (`None`); the simulation is untouched.
+    ///
+    /// TROG-FX-01: a troglodyte's death plays its own set (`trog_variant`), and a point blank
+    /// blast that replaces its body at gore presets 2 to 4 hides the sprite of the slot enemy
+    /// `slot` (`hides`), like an exploded goblin.
     fn begin_species_death(
         &mut self,
         event: &CombatEvent,
@@ -2009,6 +2171,7 @@ impl DeathPresenter {
         x: f32,
         ground_y: f32,
         flip: bool,
+        slot: Option<u32>,
     ) -> Option<String> {
         let CombatEvent::EnemyDefeated {
             tick, cause, force, ..
@@ -2018,8 +2181,20 @@ impl DeathPresenter {
         };
         let selection = self.profiles.select(species, cause, force);
         let finish_id = selection.finish.to_owned();
-        let finish = Finish::from_id(&finish_id);
-        self.spawn_synthetic(finish, x, ground_y, flip, tick);
+        let mut finish = Finish::from_id(&finish_id);
+        let variant = trog_variant(species).filter(|v| self.sets.of(*v).is_some());
+        if variant.is_some()
+            && let Some(lab) = self.lab_trog
+        {
+            finish = lab;
+        }
+        let start = self.spawn_synthetic_in(finish, variant, x, ground_y, flip, tick);
+        if let (Some(slot), Some(start), Finish::Exploded) = (slot, start, finish)
+            && variant.is_some()
+            && self.preset >= GorePreset::Reduced
+        {
+            self.exploded.push((slot, start));
+        }
         Some(finish_id)
     }
 
@@ -2144,7 +2319,8 @@ impl DeathPresenter {
         self.start_death(death);
     }
 
-    fn start_death(&mut self, death: Death) {
+    /// Start `death`; `false` when the pool refused it.
+    fn start_death(&mut self, death: Death) -> bool {
         if self.deaths.len() >= MAX_DEATHS {
             // Retire the oldest finished synthetic one, else refuse.
             if let Some(at) = self
@@ -2154,11 +2330,12 @@ impl DeathPresenter {
             {
                 self.deaths.remove(at);
             } else {
-                return;
+                return false;
             }
         }
         self.next_death_id += 1;
         self.deaths.push(death);
+        true
     }
 
     /// Stress and lab: a death with no goblin behind it (no pose override).
@@ -2171,12 +2348,27 @@ impl DeathPresenter {
         flip: bool,
         salt: u64,
     ) {
+        self.spawn_synthetic_in(finish, None, x, ground_y, flip, salt);
+    }
+
+    /// [`Self::spawn_synthetic`] in death set `variant` (a troglodyte's; `None`: the goblin
+    /// variant the salt picks). Returns the presenter tick the death starts on, `None` when the
+    /// pool refused it.
+    fn spawn_synthetic_in(
+        &mut self,
+        finish: Finish,
+        variant: Option<usize>,
+        x: f32,
+        ground_y: f32,
+        flip: bool,
+        salt: u64,
+    ) -> Option<u64> {
         let away = if flip { 1.0 } else { -1.0 };
         let mut death = Death::new(
             self.next_death_id,
             SYNTHETIC_TARGET,
             // Both variants in the stress, so both sheets are exercised.
-            (salt as usize / 3) % DEATH_VARIANTS,
+            variant.unwrap_or((salt as usize / 3) % DEATH_VARIANTS),
             finish,
             ForceTier::Catastrophic,
             self.clock + 1,
@@ -2193,7 +2385,8 @@ impl DeathPresenter {
             death.pool_scale = table.pool_scale;
             death.impact = Some((x, ground_y + BLAST_CENTRE_DY));
         }
-        self.start_death(death);
+        let start = death.start;
+        self.start_death(death).then_some(start)
     }
 
     /// Lab stress (`--death-stress`): keep the pools loaded by starting a
@@ -3146,11 +3339,7 @@ impl DeathPresenter {
                 // The set of this death (goblin A, or the llama: its own
                 // frame, pivot and parts); a cheap handle, so `launch` may
                 // borrow the presenter.
-                let art = Arc::clone(match d.variant {
-                    LLAMA_VARIANT => self.sets.llama.as_ref().map_or(&self.art, |l| &l.art),
-                    ENGINEER_VARIANT => self.sets.engineer.as_ref().map_or(&self.art, |e| &e.art),
-                    _ => &self.art,
-                });
+                let art = Arc::clone(self.sets.of(d.variant).map_or(&self.art, |set| &set.art));
                 let pivot = art.pose_pivot;
                 let origin_of = |art: &DeathArt, id: &str| {
                     art.part_index(id)
@@ -7868,5 +8057,223 @@ mod tests {
             obs(&goblins),
         );
         assert_eq!(p.deaths[0].finish, Finish::Knockback);
+    }
+
+    // =========================================================== TROG-FX-01 ====
+
+    const TROG_SLOT: u32 = crate::scene_enemy::SLOT_ID_MIN + 2;
+
+    fn trog_arts() -> [Arc<DeathArt>; TROG_KINDS] {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+        [0, 1, 2].map(|k| Arc::new(DeathArt::load_trog(root, k).unwrap()))
+    }
+
+    /// The presenter the floor run builds (cf02 overlay on) with the troglodyte death sets.
+    fn trog_presenter(preset: GorePreset) -> DeathPresenter {
+        cf02_presenter(preset).with_trogs(trog_arts()).unwrap()
+    }
+
+    /// A troglodyte `species` defeated at x 300 on the floor line 100, run for `ticks` presenter ticks.
+    fn trog_defeat(
+        p: &mut DeathPresenter,
+        species: &str,
+        cause: DefeatCause,
+        force: ForceTier,
+        ticks: u64,
+    ) {
+        let event = defeat(40, TROG_SLOT, cause, force);
+        p.begin_species_death(&event, species, 300.0, 100.0, false, Some(TROG_SLOT));
+        for _ in 0..ticks {
+            p.step(&[], obs(&[]));
+        }
+    }
+
+    #[test]
+    fn trog_every_kind_has_a_profile_a_death_set_and_a_table() {
+        let profiles = DeathProfiles::with_trogs(true);
+        for (kind, species) in TROG_SPECIES.iter().enumerate() {
+            assert!(profiles.species(species).is_some(), "{species}");
+            let variant = trog_variant(species).unwrap();
+            assert_eq!(variant, TROG_FIRST_VARIANT + kind);
+            // The blast row throws the kind's own parts, every other defeat keeps the down frames.
+            let blast = profiles.select(species, BLAST_PB, ForceTier::Catastrophic);
+            assert_eq!(blast.finish, format!("{species}_exploded"));
+            assert_eq!(Finish::from_id(blast.finish), Finish::Exploded);
+            let jab = profiles.select(species, DefeatCause::Melee, ForceTier::Routine);
+            assert_eq!(jab.finish, format!("{species}_down"));
+            assert_eq!(Finish::from_id(jab.finish), Finish::Knockback);
+        }
+        assert_eq!(trog_variant("goblin"), None);
+        assert_eq!(trog_variant("goblin_engineer"), None);
+        // A run without the troglodyte art keeps the profiles it always had (no troglodyte row).
+        assert!(
+            cf02_presenter(GorePreset::Full)
+                .profiles
+                .species("trog_basher")
+                .is_none()
+        );
+        let p = trog_presenter(GorePreset::Full);
+        assert!(p.has_trogs() && p.cf02_overlay());
+        assert!(p.profiles.species("trog_basher").is_some());
+        assert!(p.profiles.species("goblin_engineer").is_some());
+    }
+
+    #[test]
+    fn trog_the_parts_of_every_table_exist_in_the_kinds_sheet_and_fit_its_cell() {
+        let p = trog_presenter(GorePreset::Full);
+        for (kind, species) in TROG_SPECIES.iter().enumerate() {
+            let variant = TROG_FIRST_VARIANT + kind;
+            let art = p.art_of(variant);
+            assert_eq!(art.variant, variant, "{species}");
+            let sheets = p.sheets_of(variant);
+            for preset in GorePreset::ALL {
+                let table = explosion_table_of(variant, preset);
+                for id in table.parts {
+                    let at = art
+                        .part_index(id)
+                        .unwrap_or_else(|| panic!("{species} {preset:?}: no part {id}"));
+                    assert!(art.parts[at].frame0_origin.is_some(), "{species} {id}");
+                }
+                for (id, _) in table.gibs {
+                    assert!(art.part_index(id).is_some(), "{species} gib {id}");
+                }
+                for id in table.rag_ids {
+                    assert!(art.part_index(id).is_some(), "{species} rag {id}");
+                }
+                assert!(art.part_index(table.torso).is_some(), "{species} torso");
+            }
+            assert!(art.part_index("drop_blood").is_some(), "{species}");
+            // Every cut is drawn inside its cell, off the cell edge (the hull needs a margin).
+            for (index, meta) in art.parts.iter().enumerate() {
+                let bbox = sheets.parts.bbox[meta.frame]
+                    .unwrap_or_else(|| panic!("{species} {index}: empty"));
+                assert!(
+                    bbox.left >= 1
+                        && bbox.top >= 1
+                        && bbox.right < art.part_cell.0
+                        && bbox.bottom < art.part_cell.1,
+                    "{species} {}: {bbox:?}",
+                    meta.id
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn trog_a_point_blank_blast_throws_the_kinds_own_parts_and_hides_its_slot() {
+        let all = [
+            (0usize, "trog_pygmy"),
+            (1, "trog_basher"),
+            (2, "trog_virtuoso"),
+        ];
+        for preset in GorePreset::ALL {
+            for (kind, species) in all {
+                let mut p = trog_presenter(preset);
+                trog_defeat(&mut p, species, BLAST_PB, ForceTier::Catastrophic, 40);
+                let variant = TROG_FIRST_VARIANT + kind;
+                let ids = set_part_ids(&p);
+                let table = explosion_table_of(variant, preset);
+                for part in table.parts {
+                    assert!(
+                        count(&ids, part) >= 1,
+                        "{species} {preset:?} {part}: {ids:?}"
+                    );
+                }
+                // Only this kind's set draws (never a goblin or another kind's piece).
+                assert!(
+                    p.parts().all(|(_, part)| part.variant == variant),
+                    "{species} {preset:?}"
+                );
+                // The body is replaced from preset 2 on; preset 1 keeps the sprite.
+                p.step(&[], obs(&[]));
+                assert_eq!(
+                    p.hides(TROG_SLOT),
+                    preset >= GorePreset::Reduced,
+                    "{species} {preset:?}"
+                );
+                assert!(!p.hides(TROG_SLOT + 1), "{species} {preset:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn trog_a_jab_keeps_the_down_frames_and_adds_blood_in_the_kinds_set() {
+        for (kind, species) in TROG_SPECIES.iter().enumerate() {
+            let mut p = trog_presenter(GorePreset::Full);
+            trog_defeat(&mut p, species, DefeatCause::Melee, ForceTier::Routine, 20);
+            assert_eq!(p.deaths[0].finish, Finish::Knockback, "{species}");
+            assert_eq!(p.deaths[0].variant, TROG_FIRST_VARIANT + kind, "{species}");
+            assert!(!p.hides(TROG_SLOT), "{species}");
+            let ids = set_part_ids(&p);
+            assert!(count(&ids, "drop_blood") >= 1, "{species}: {ids:?}");
+            // Blood and gibs only, never a body part (the sprite stays).
+            assert!(
+                ids.iter().all(|id| {
+                    [
+                        "drop_blood",
+                        "gib_flesh_a",
+                        "gib_flesh_b",
+                        "gib_bone",
+                        "gib_rag",
+                    ]
+                    .contains(&id.as_str())
+                }),
+                "{species}: {ids:?}"
+            );
+            // A kick (heavy) and a ring blast degrade to the same finish.
+            for (cause, force) in [
+                (DefeatCause::Melee, ForceTier::Heavy),
+                (BLAST_RING, ForceTier::Heavy),
+            ] {
+                let mut q = trog_presenter(GorePreset::Full);
+                trog_defeat(&mut q, species, cause, force, 2);
+                assert_eq!(q.deaths[0].finish, Finish::Knockback, "{species} {cause:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn trog_without_the_death_art_a_troglodyte_defeat_draws_nothing() {
+        let mut p = cf02_presenter(GorePreset::Full);
+        let event = defeat(40, TROG_SLOT, BLAST_PB, ForceTier::Catastrophic);
+        p.begin_species_death(&event, "trog_basher", 300.0, 100.0, false, Some(TROG_SLOT));
+        for _ in 0..30 {
+            p.step(&[], obs(&[]));
+        }
+        assert_eq!(p.deaths.first().map(|d| d.finish), Some(Finish::NoArt));
+        assert_eq!(p.live_parts(), 0);
+        assert!(!p.hides(TROG_SLOT));
+    }
+
+    #[test]
+    fn trog_the_presenter_is_deterministic_and_the_set_does_not_move_the_goblin_digest() {
+        // The same defeat twice gives the same pieces (the seed is the attempt, tick and target).
+        let run = || {
+            let mut p = trog_presenter(GorePreset::Full);
+            trog_defeat(&mut p, "trog_basher", BLAST_PB, ForceTier::Catastrophic, 60);
+            p.parts()
+                .map(|(_, part)| (part.meta, part.x.to_bits(), part.y.to_bits()))
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(run(), run());
+        // A goblin defeat reads the same with and without the troglodyte sets.
+        let goblins = [goblin_at(484.0)];
+        let mut a = cf02_presenter(GorePreset::Full);
+        let mut b = trog_presenter(GorePreset::Full);
+        for p in [&mut a, &mut b] {
+            p.step(
+                &[defeat(60, 0, DefeatCause::Melee, ForceTier::Heavy)],
+                obs(&goblins),
+            );
+            for _ in 1..30 {
+                p.step(&[], obs(&goblins));
+            }
+        }
+        let key = |p: &DeathPresenter| {
+            p.parts()
+                .map(|(_, part)| (part.meta, part.x.to_bits(), part.y.to_bits()))
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(key(&a), key(&b));
     }
 }

@@ -1,0 +1,389 @@
+{
+  "schema_version": 1,
+  "id": "trog_pygmy_death_parts_v1",
+  "type": "character_animation",
+  "source_path": "assets/source/characters/troglodyte/death/trog_pygmy_death_parts.ase",
+  "grid_source": "assets/source/characters/troglodyte/death/trog_pygmy_death_parts.grid.json",
+  "output_atlas": "generated/art/trog_pygmy_death_parts.png",
+  "output_metadata": "generated/art/trog_pygmy_death_parts.json",
+  "palette_id": "trog-death-floor01-v0",
+  "frame_size": [
+    32,
+    32
+  ],
+  "pivot": [
+    16,
+    16
+  ],
+  "animation_tags": [
+    "head",
+    "torso_upper",
+    "torso_lower",
+    "arm_near",
+    "leg_near",
+    "gib_flesh_a",
+    "gib_flesh_b",
+    "gib_bone",
+    "gib_rag",
+    "drop_blood"
+  ],
+  "required_alpha": true,
+  "owner": "AI-authored enemy art (fan-concept layer: Floor 1 troglodyte Pygmy; runtime role IP-neutral)",
+  "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+  "provenance": {
+    "origin": "TROG-FX-01 (docs/02-art/trog-fx-01-spec.md): the Pygmy's death parts cut by scripts/author_trogfx01.py from the committed TROG idle frame 0 (parts re-tile the sprite; gibs and the blood drop are the GOB-02 cels recoloured); no image-model output, no tracing, no new key",
+    "generator": "Cut rules and spec: Claude Sonnet (execution tier, reuse of approved pixels). Independent review by Claude Opus pending",
+    "generated_art": true,
+    "input_reference_ids": [
+      "assets/concept/floor-01/enemies/floor01-troglodyte-family-approved.png"
+    ]
+  },
+  "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
+  "review_status": "prototype_fixture_unapproved",
+  "death_parts": {
+    "spec": "docs/02-art/trog-fx-01-spec.md",
+    "variant": "TROG",
+    "cell": [
+      32,
+      32
+    ],
+    "pivot": [
+      16,
+      16
+    ],
+    "layers": [
+      "body",
+      "prop",
+      "gore"
+    ],
+    "mirror": "x' = 32 - x around the cell pivot",
+    "status": "executor pass complete; independent review pending; wired into the Bevy presenter",
+    "key_frames": [],
+    "preset_filter": {
+      "1": "clean parts and head",
+      "2": "wound (gore muted), clean, blood drops",
+      "3": "wound, clean, gib, blood",
+      "4": "all"
+    },
+    "base_spec": "docs/02-art/gob-02-death-spec.md",
+    "always_shown_layers": [
+      "body",
+      "prop"
+    ],
+    "parts": [
+      {
+        "id": "head",
+        "frame": 0,
+        "cell": [
+          32,
+          32
+        ],
+        "pivot": [
+          16,
+          16
+        ],
+        "anchors": {},
+        "frame0_origin": [
+          37,
+          26
+        ],
+        "class": "wound",
+        "material": "troglodyte_flesh",
+        "presets": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "gore_layer": true,
+        "mass": "medium",
+        "spin": "fast",
+        "settle": "roll",
+        "bounce": 0.35,
+        "stain": "decal_splat_s",
+        "ttl": "keep"
+      },
+      {
+        "id": "torso_upper",
+        "frame": 1,
+        "cell": [
+          32,
+          32
+        ],
+        "pivot": [
+          16,
+          16
+        ],
+        "anchors": {},
+        "frame0_origin": [
+          25,
+          34
+        ],
+        "class": "wound",
+        "material": "troglodyte_flesh",
+        "presets": [
+          2,
+          3,
+          4
+        ],
+        "gore_layer": true,
+        "mass": "heavy",
+        "spin": "slow",
+        "settle": "flop",
+        "bounce": 0.2,
+        "stain": "decal_splat_s",
+        "ttl": "keep"
+      },
+      {
+        "id": "torso_lower",
+        "frame": 2,
+        "cell": [
+          32,
+          32
+        ],
+        "pivot": [
+          16,
+          16
+        ],
+        "anchors": {},
+        "frame0_origin": [
+          24,
+          47
+        ],
+        "class": "wound",
+        "material": "troglodyte_flesh",
+        "presets": [
+          4
+        ],
+        "gore_layer": true,
+        "mass": "heavy",
+        "spin": "slow",
+        "settle": "flop",
+        "bounce": 0.2,
+        "stain": "decal_splat_s",
+        "ttl": "keep"
+      },
+      {
+        "id": "arm_near",
+        "frame": 3,
+        "cell": [
+          32,
+          32
+        ],
+        "pivot": [
+          16,
+          16
+        ],
+        "anchors": {},
+        "frame0_origin": [
+          43,
+          46
+        ],
+        "class": "wound",
+        "material": "troglodyte_flesh",
+        "presets": [
+          3,
+          4
+        ],
+        "gore_layer": true,
+        "mass": "light",
+        "spin": "fast",
+        "settle": "flop",
+        "bounce": 0.3,
+        "stain": "decal_splat_s",
+        "ttl": "long"
+      },
+      {
+        "id": "leg_near",
+        "frame": 4,
+        "cell": [
+          32,
+          32
+        ],
+        "pivot": [
+          16,
+          16
+        ],
+        "anchors": {},
+        "frame0_origin": [
+          30,
+          51
+        ],
+        "class": "wound",
+        "material": "troglodyte_flesh",
+        "presets": [
+          3,
+          4
+        ],
+        "gore_layer": true,
+        "mass": "medium",
+        "spin": "slow",
+        "settle": "flop",
+        "bounce": 0.25,
+        "stain": "decal_splat_s",
+        "ttl": "long"
+      },
+      {
+        "id": "gib_flesh_a",
+        "frame": 5,
+        "cell": [
+          32,
+          32
+        ],
+        "pivot": [
+          16,
+          16
+        ],
+        "anchors": {
+          "centre": [
+            16,
+            16
+          ]
+        },
+        "frame0_origin": null,
+        "class": "gib",
+        "material": "troglodyte_flesh",
+        "presets": [
+          3,
+          4
+        ],
+        "gore_layer": true,
+        "mass": "light",
+        "spin": "fast",
+        "settle": "bounce",
+        "bounce": 0.45,
+        "stain": "decal_splat_s",
+        "ttl": "short"
+      },
+      {
+        "id": "gib_flesh_b",
+        "frame": 6,
+        "cell": [
+          32,
+          32
+        ],
+        "pivot": [
+          16,
+          16
+        ],
+        "anchors": {
+          "centre": [
+            16,
+            16
+          ]
+        },
+        "frame0_origin": null,
+        "class": "gib",
+        "material": "troglodyte_flesh",
+        "presets": [
+          3,
+          4
+        ],
+        "gore_layer": true,
+        "mass": "light",
+        "spin": "fast",
+        "settle": "bounce",
+        "bounce": 0.45,
+        "stain": "decal_splat_s",
+        "ttl": "short"
+      },
+      {
+        "id": "gib_bone",
+        "frame": 7,
+        "cell": [
+          32,
+          32
+        ],
+        "pivot": [
+          16,
+          16
+        ],
+        "anchors": {
+          "centre": [
+            16,
+            16
+          ]
+        },
+        "frame0_origin": null,
+        "class": "gib",
+        "material": "bone",
+        "presets": [
+          4
+        ],
+        "gore_layer": false,
+        "mass": "light",
+        "spin": "fast",
+        "settle": "clatter",
+        "bounce": 0.4,
+        "ttl": "short"
+      },
+      {
+        "id": "gib_rag",
+        "frame": 8,
+        "cell": [
+          32,
+          32
+        ],
+        "pivot": [
+          16,
+          16
+        ],
+        "anchors": {
+          "centre": [
+            16,
+            16
+          ]
+        },
+        "frame0_origin": null,
+        "class": "clean",
+        "material": "rag",
+        "presets": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "gore_layer": false,
+        "mass": "light",
+        "spin": "slow",
+        "settle": "flutter",
+        "bounce": 0.1,
+        "ttl": "short"
+      },
+      {
+        "id": "drop_blood",
+        "frame": 9,
+        "cell": [
+          32,
+          32
+        ],
+        "pivot": [
+          16,
+          16
+        ],
+        "anchors": {
+          "centre": [
+            16,
+            16
+          ]
+        },
+        "frame0_origin": null,
+        "class": "blood",
+        "material": "blood",
+        "presets": [
+          2,
+          3,
+          4
+        ],
+        "gore_layer": true,
+        "mass": "light",
+        "spin": "none",
+        "settle": "static",
+        "bounce": 0.0,
+        "on_contact": "decal_splat_s",
+        "stain": "decal_splat_s",
+        "ttl": "short"
+      }
+    ]
+  }
+}

@@ -1,0 +1,44 @@
+{
+ "format": "pixelart-asset-v1",
+ "asset_id": "trog-virtuoso-death-pose",
+ "title": "TROG-FX-01 Virtuoso death reference pose (docs/02-art/trog-fx-01-spec.md); 1 frame",
+ "grid": "assets/source/characters/troglodyte/death/trog_virtuoso_death_pose.grid.json",
+ "manifest": "assets/manifests/trog_virtuoso_death_pose.json",
+ "frame_size": [
+  128,
+  88
+ ],
+ "pivot": [
+  44,
+  87
+ ],
+ "contact_row": null,
+ "tick_hz": 60,
+ "hold_ms": 100,
+ "facing": "right",
+ "rules": {
+  "max_colors": 20,
+  "max_isolated_per_frame": 0,
+  "max_orphans_per_frame": 2,
+  "canvas_margin": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "unique_frames": true,
+  "holes": false
+ },
+ "tags": {
+  "idle0": {
+   "playback": "hold",
+   "contact": "free",
+   "frames": [
+    [
+     0,
+     null
+    ]
+   ]
+  }
+ }
+}

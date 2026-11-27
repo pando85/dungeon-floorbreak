@@ -92,7 +92,10 @@ use dungeon_floorbreak::{
     f01_rest, f01_ring, f01_run, f01_trog,
     feel::{LLAMA_GLOB_MOUTH_DX, LLAMA_GLOB_MOUTH_DY, LLAMA_GLOB_SPEED},
     goblin::{AttackPhase, GoblinMode},
-    gore::{DEATH_VARIANTS, DeathArt, ENGINEER_VARIANT, GorePreset, LLAMA_VARIANT, Sheet},
+    gore::{
+        DEATH_VARIANTS, DeathArt, ENGINEER_VARIANT, GorePreset, LLAMA_VARIANT, Sheet,
+        TROG_FIRST_VARIANT, TROG_KINDS,
+    },
     hud::{EventCursor, GlyphSet, HudConfig, HudLayout, HudPreview, HudRuntime, SpecialPhase},
     hud_adapter::{HudPlugin, HudState},
     hud_settings::{HudSettings, parse_switch},
@@ -267,6 +270,10 @@ struct Args {
     /// defeat (`DeathPresenter::with_lab_engineer`; the Floor 1 pilots only ever kill him with a jab). Presentation
     /// only: the simulation, its log and its hash are untouched. Not a recording run.
     death_lab_engineer: Option<Finish>,
+    /// Evidence lab (TROG-FX-01, `--death-lab-trog exploded|down`): the presenter plays this finish for every troglodyte
+    /// defeat (`DeathPresenter::with_lab_trog`; the pilots kill them with jabs, and a point blank blast is not in the
+    /// pilots). Presentation only: the simulation, its log and its hash are untouched. Not a recording run.
+    death_lab_trog: Option<Finish>,
     /// HUD-HYBRID-A-01: draw a labelled HUD preview fixture. Presentation
     /// only: it never reaches the simulation, the combat state or a replay.
     hud_preview: Option<HudPreview>,
@@ -553,6 +560,7 @@ impl Args {
             && !self.death_stress
             && !self.death_lab_edge
             && self.death_lab_engineer.is_none()
+            && self.death_lab_trog.is_none()
             && !self.audience_probe
             && self.list_fixtures.is_none()
     }
@@ -1574,6 +1582,7 @@ fn parse_args_full(
         death_trace: false,
         death_lab_edge: false,
         death_lab_engineer: None,
+        death_lab_trog: None,
         hud_preview: None,
         glyphs: None,
         hud_settings,
@@ -1900,6 +1909,12 @@ fn parse_args_full(
                     format!(
                         "bad --death-lab-engineer {value:?} (expected crushed, decapitated, exploded, slammed_stomped, slammed_wall or slammed_flung)"
                     )
+                })?);
+            }
+            "--death-lab-trog" => {
+                let value = iter.next().ok_or("--death-lab-trog needs a finish")?;
+                parsed.death_lab_trog = Some(Finish::lab_trog(value).ok_or_else(|| {
+                    format!("bad --death-lab-trog {value:?} (expected exploded or down)")
                 })?);
             }
             "--camera" => {
@@ -2454,13 +2469,27 @@ fn death_presenter(root: &Path, args: &Args) -> Result<DeathPresenter, String> {
     let death = DeathPresenter::with_variants(art, &variant_b, args.gore_preset)?
         .with_llama(Arc::new(DeathArt::load_llama(root)?))?
         .with_engineer(Arc::new(DeathArt::load_engineer(root)?))?;
+    // TROG-FX-01: the three troglodytes' death sets (parts cut from their approved idle frame).
+    let mut trogs = Vec::with_capacity(TROG_KINDS);
+    for kind in 0..TROG_KINDS {
+        trogs.push(Arc::new(DeathArt::load_trog(root, kind)?));
+    }
+    let death = death.with_trogs(
+        trogs
+            .try_into()
+            .map_err(|_| "the troglodyte death arts do not number three".to_string())?,
+    )?;
     let death = if args.death_lab_edge {
         death.with_lab_edge()
     } else {
         death
     };
-    Ok(match args.death_lab_engineer {
+    let death = match args.death_lab_engineer {
         Some(finish) => death.with_lab_engineer(finish),
+        None => death,
+    };
+    Ok(match args.death_lab_trog {
+        Some(finish) => death.with_lab_trog(finish),
         None => death,
     })
 }
@@ -6287,7 +6316,9 @@ fn setup(
         };
         // Goblin A, goblin B, (with the llama art) the llama and (with the Engineer art) the
         // Engineer: one sheet each, at the presenter's variant indices.
-        let variants = if presenter.has_engineer() {
+        let variants = if presenter.has_trogs() {
+            TROG_FIRST_VARIANT + TROG_KINDS
+        } else if presenter.has_engineer() {
             ENGINEER_VARIANT + 1
         } else if presenter.has_llama() {
             LLAMA_VARIANT + 1
@@ -11290,6 +11321,18 @@ mod tests {
             .is_err()
         );
         assert!(args(&["--fixture", "cp03_shore_kill", "--death-trace"]).is_err());
+        // TROG-FX-01: the troglodyte evidence lab names exploded or down and is never a recording run.
+        assert!(args(&["--death-lab-trog"]).is_err());
+        assert!(args(&["--death-lab-trog", "crushed"]).is_err());
+        assert!(
+            args(&["--death-lab-trog", "exploded"])
+                .unwrap()
+                .death_lab_trog
+                == Some(Finish::Exploded)
+        );
+        assert!(
+            args(&["--death-lab-trog", "down"]).unwrap().death_lab_trog == Some(Finish::Knockback)
+        );
         // ENG-02: the Engineer evidence lab names one of the six finishes and is never a recording run.
         assert!(args(&["--death-lab-engineer"]).is_err());
         assert!(args(&["--death-lab-engineer", "knockback"]).is_err());

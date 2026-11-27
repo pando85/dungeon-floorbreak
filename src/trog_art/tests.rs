@@ -271,3 +271,230 @@ fn drawing_never_changes_the_state_hash() {
     };
     assert_eq!(run(false), run(true));
 }
+
+// ------------------------------------------------------------------ TROG-FX-01: the attack telegraph
+
+/// Carl 80 px in front of a troglodyte at `x`, Donut far behind.
+fn heroes_before(x: f32) -> [crate::boss::HeroView; 2] {
+    let h = |id, x: f32, w: f32, hh: f32| crate::boss::HeroView {
+        id,
+        present: true,
+        x,
+        foot_y: 92.0,
+        grounded: true,
+        hurt: Rect {
+            left: x - w / 2.0,
+            bottom: 92.0,
+            width: w,
+            height: hh,
+        },
+        vulnerable: true,
+        bot: false,
+    };
+    [
+        h(crate::party::HeroId::Carl, x - 80.0, 24.0, 52.0),
+        h(crate::party::HeroId::Donut, 80.0, 20.0, 24.0),
+    ]
+}
+
+/// A troglodyte `species` stepped for `ticks` ticks against a Carl 80 px in front of it (so it has
+/// woken and committed an attack).
+fn tell_of(species: Species, ticks: u64) -> Trog {
+    let t = TrogTuning::active();
+    let mut trog = spawn(species);
+    let heroes = heroes_before(trog.x);
+    for tick in 1..ticks {
+        let ctx = TrogCtx {
+            tick,
+            heroes: &heroes,
+            solids: &[],
+            solo: true,
+            view_x: (0.0, 4000.0),
+            token_free: true,
+            last_tell_start: None,
+        };
+        trog.step(t, &ctx, &mut |_| false, &mut TrogStep::default());
+    }
+    trog
+}
+
+#[test]
+fn the_telegraph_sheet_is_the_approved_weight_shadow_sheet() {
+    let m: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string(format!(
+            "{}/assets/manifests/f01-gw-tell-shadow.json",
+            env!("CARGO_MANIFEST_DIR")
+        ))
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(m["output_atlas"].as_str().unwrap(), TELL_SHEET);
+    assert_eq!(
+        (
+            m["frame_size"][0].as_u64().unwrap() as u32,
+            m["frame_size"][1].as_u64().unwrap() as u32
+        ),
+        TELL_FRAME
+    );
+    assert_eq!(
+        m["prop_kit"]["frames"].as_array().unwrap().len() as u32,
+        TELL_FRAMES
+    );
+    // The tile is inside the frame and a whole number of dither periods wide.
+    assert!(TELL_TILE_X + TELL_TILE_W <= TELL_FRAME.0 && TELL_TILE_W.is_multiple_of(2));
+    // The approved sheet's own tags and clock: two flashing phases, then the solid patch.
+    assert_eq!(
+        (
+            FALL_SHADOW_TELL.first,
+            FALL_SHADOW_TELL.frames,
+            FALL_SHADOW_TELL.ticks
+        ),
+        (0, 2, 4)
+    );
+    assert_eq!(FALL_SHADOW.first, 2);
+}
+
+/// Every tile column of the grid source of the sheet is a flat 8 x 8 pattern: full height in the tell
+/// frames (rows 0 and 7 solid, the inside a checker) and all solid in the live frame, so the crop shows the
+/// approved pixels and nothing of the ellipse's rounded ends.
+#[test]
+fn the_tile_columns_are_a_flat_full_height_pattern_of_the_approved_frames() {
+    let g: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string(format!(
+            "{}/assets/source/props/floor01/gw_tell_shadow.grid.json",
+            env!("CARGO_MANIFEST_DIR")
+        ))
+        .unwrap(),
+    )
+    .unwrap();
+    for frame in 0..3usize {
+        let rows: Vec<&str> = g["frames"][frame]["cels"]["body"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|r| r.as_str().unwrap())
+            .collect();
+        for (y, row) in rows.iter().enumerate() {
+            let tile = &row[TELL_TILE_X as usize..(TELL_TILE_X + TELL_TILE_W) as usize];
+            if frame == 2 || y == 0 || y == 7 {
+                assert!(
+                    tile.chars().all(|c| c == '$'),
+                    "frame {frame} row {y}: {tile}"
+                );
+            } else {
+                // The dither: alternate columns, no gold tick key.
+                assert!(
+                    tile.chars().all(|c| c == '$' || c == '.'),
+                    "frame {frame} row {y}: {tile}"
+                );
+                assert_eq!(
+                    tile.chars().filter(|c| *c == '$').count(),
+                    4,
+                    "frame {frame} row {y}"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn the_pieces_cover_exactly_the_width_of_the_rectangle() {
+    for width in [1.0f32, 7.0, 8.0, 9.0, 17.0, 21.0, 64.0, 177.5, TELL_MAX_PX] {
+        let pieces = tell_pieces(width);
+        let total: u32 = pieces.iter().map(|p| p.width).sum();
+        assert_eq!(total, width.round() as u32, "{width}");
+        for (k, p) in pieces.iter().enumerate() {
+            assert_eq!(p.dx, k as u32 * TELL_TILE_W);
+            assert!(p.width >= 1 && p.width <= TELL_TILE_W);
+            assert_eq!(p.src_x, TELL_TILE_X);
+        }
+        assert!(pieces.len() <= TELL_MAX_PIECES, "{width}");
+    }
+}
+
+#[test]
+fn the_frame_follows_the_hitbox_not_the_art() {
+    // Dither before the hitbox is live (both phases, on the approved 4 tick clock), solid while it is.
+    assert_eq!(
+        (0..16).map(|k| tell_frame(5, k)).collect::<Vec<_>>(),
+        [0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1]
+    );
+    assert!((0..40).all(|k| tell_frame(0, k) == 2));
+}
+
+#[test]
+fn the_telegraph_exists_exactly_while_the_simulation_has_a_threat_and_spans_its_rectangle() {
+    let t = TrogTuning::active();
+    for species in Species::ALL {
+        let sp = t.species(species);
+        let mut trog = spawn(species);
+        // Outside the attack window: nothing.
+        assert_eq!(tell_draw(t, &trog, &[], 0), None, "{species:?} dormant");
+        let mut seen_tell = false;
+        let mut seen_live = false;
+        let mut cursor = spawn(species);
+        // Walk the machine until it has been through a tell and a live hitbox.
+        let heroes = heroes_before(cursor.x);
+        for tick in 1..700u64 {
+            let ctx = TrogCtx {
+                tick,
+                heroes: &heroes,
+                solids: &[],
+                solo: true,
+                view_x: (0.0, 4000.0),
+                token_free: true,
+                last_tell_start: None,
+            };
+            cursor.step(t, &ctx, &mut |_| false, &mut TrogStep::default());
+            let draw = tell_draw(t, &cursor, &[], tick);
+            let threat = cursor.threat(t, &[]);
+            // Present exactly when the simulation's threat is (tell and active), never otherwise.
+            assert_eq!(draw.is_some(), threat.is_some(), "{species:?} tick {tick}");
+            if let (Some(d), Some((rect, left))) = (draw, threat) {
+                assert_eq!(d.x, rect.left, "{species:?} tick {tick}");
+                assert_eq!(
+                    d.width,
+                    rect.width.min(TELL_MAX_PX),
+                    "{species:?} tick {tick}"
+                );
+                assert_eq!(d.frame == 2, left == 0, "{species:?} tick {tick}");
+                assert_eq!(d.height, TELL_FRAME.1 as f32);
+                // Floor attacks sit on the floor, the tongue band stays inside its own rectangle.
+                match species {
+                    Species::Pygmy | Species::Basher => assert_eq!(d.y, cursor.foot_y),
+                    Species::Virtuoso => {
+                        assert!(
+                            d.y >= rect.bottom
+                                && d.y + d.height <= rect.bottom + rect.height + 0.01
+                        );
+                    }
+                }
+                seen_tell |= left > 0;
+                seen_live |= left == 0;
+            }
+        }
+        trog.state = State::Tell;
+        assert!(
+            seen_tell && seen_live,
+            "{species:?}: tell {seen_tell} live {seen_live}"
+        );
+        // The tell is exactly the data's: the live window is `strike_start..=strike_end`.
+        assert!(sp.strike_start < sp.strike_end);
+    }
+}
+
+#[test]
+fn the_telegraph_is_a_pure_function_of_shared_references() {
+    let t = TrogTuning::active();
+    let trog = tell_of(Species::Basher, 40);
+    let hash = |trog: &Trog| {
+        let mut words = Vec::new();
+        trog.mix_into(&mut |v| words.push(v));
+        words
+    };
+    let before = hash(&trog);
+    for tick in 0..200 {
+        let _ = tell_draw(t, &trog, &[], tick);
+    }
+    assert_eq!(hash(&trog), before);
+}

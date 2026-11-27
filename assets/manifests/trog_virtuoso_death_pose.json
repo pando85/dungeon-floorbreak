@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "id": "trog_virtuoso_death_pose_v1",
+  "type": "character_animation",
+  "source_path": "assets/source/characters/troglodyte/death/trog_virtuoso_death_pose.ase",
+  "grid_source": "assets/source/characters/troglodyte/death/trog_virtuoso_death_pose.grid.json",
+  "output_atlas": "generated/art/trog_virtuoso_death_pose.png",
+  "output_metadata": "generated/art/trog_virtuoso_death_pose.json",
+  "palette_id": "trog-death-floor01-v0",
+  "frame_size": [
+    128,
+    88
+  ],
+  "pivot": [
+    44,
+    87
+  ],
+  "animation_tags": [
+    "idle0"
+  ],
+  "required_alpha": true,
+  "owner": "AI-authored enemy art (fan-concept layer: Floor 1 troglodyte Virtuoso; runtime role IP-neutral)",
+  "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+  "provenance": {
+    "origin": "TROG-FX-01 (docs/02-art/trog-fx-01-spec.md): the Virtuoso's death reference pose cut by scripts/author_trogfx01.py from the committed TROG idle frame 0 (parts re-tile the sprite; gibs and the blood drop are the GOB-02 cels recoloured); no image-model output, no tracing, no new key",
+    "generator": "Cut rules and spec: Claude Sonnet (execution tier, reuse of approved pixels). Independent review by Claude Opus pending",
+    "generated_art": true,
+    "input_reference_ids": [
+      "assets/concept/floor-01/enemies/floor01-troglodyte-family-approved.png"
+    ]
+  },
+  "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
+  "review_status": "prototype_fixture_unapproved",
+  "death_poses": {
+    "spec": "docs/02-art/trog-fx-01-spec.md",
+    "variant": "TROG",
+    "tick_hz": 60,
+    "hold_preview_ms": 100,
+    "facing": "right",
+    "mirror": "x' = W - x around the pivot column",
+    "layers": [
+      "body",
+      "prop",
+      "gore"
+    ],
+    "status": "executor pass complete; independent review pending; wired into the Bevy presenter",
+    "frames": [
+      {
+        "index": 0,
+        "tag": "idle0",
+        "ticks": null,
+        "duration_ms": 100,
+        "author": "executor",
+        "anchors": {}
+      }
+    ]
+  }
+}

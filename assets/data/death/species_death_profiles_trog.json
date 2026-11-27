@@ -1,0 +1,76 @@
+{
+  "schema_version": 2,
+  "comment": "TROG-FX-01 (docs/02-art/trog-fx-01-spec.md): the troglodyte death profiles, one per kind. Read as an overlay in front of whichever profiles the presenter has (the global file and the cf02 overlay stay byte-identical). A point blank blast explodes a troglodyte into its own parts; every other defeat keeps the approved `down` frames and adds blood (a ring blast, a kick and a jab degrade to the blunt row); crush, shear and the shore block have no recipe because no troglodyte room has such a cause, so they take the fallback. Presentation only: the finish is chosen from the defeat event and stored nowhere authoritative.",
+  "species": [],
+  "add_species": [
+    {
+      "id": "trog_pygmy",
+      "body_material": "organic",
+      "fallback_finish": "trog_pygmy_down",
+      "recipes": [
+        {
+          "kind": "exploded",
+          "finish": "trog_pygmy_exploded",
+          "causes": [
+            "blast"
+          ],
+          "min_force": "catastrophic"
+        },
+        {
+          "kind": "knockback_down",
+          "finish": "trog_pygmy_down",
+          "causes": [
+            "blunt"
+          ],
+          "min_force": "routine"
+        }
+      ]
+    },
+    {
+      "id": "trog_basher",
+      "body_material": "organic",
+      "fallback_finish": "trog_basher_down",
+      "recipes": [
+        {
+          "kind": "exploded",
+          "finish": "trog_basher_exploded",
+          "causes": [
+            "blast"
+          ],
+          "min_force": "catastrophic"
+        },
+        {
+          "kind": "knockback_down",
+          "finish": "trog_basher_down",
+          "causes": [
+            "blunt"
+          ],
+          "min_force": "routine"
+        }
+      ]
+    },
+    {
+      "id": "trog_virtuoso",
+      "body_material": "organic",
+      "fallback_finish": "trog_virtuoso_down",
+      "recipes": [
+        {
+          "kind": "exploded",
+          "finish": "trog_virtuoso_exploded",
+          "causes": [
+            "blast"
+          ],
+          "min_force": "catastrophic"
+        },
+        {
+          "kind": "knockback_down",
+          "finish": "trog_virtuoso_down",
+          "causes": [
+            "blunt"
+          ],
+          "min_force": "routine"
+        }
+      ]
+    }
+  ]
+}
