@@ -37,10 +37,11 @@ use crate::combat_scene::CombatState;
 use crate::corridor::SceneSim;
 use crate::donut_mana::DonutSetup;
 use crate::env_kit::to_world_y;
-use crate::f01_late::{Loadout, ring_start};
+use crate::env_prop::ShutterPhase;
+use crate::f01_late::{Loadout, ring_start_mode};
 pub use crate::f01_mastery_fixtures::STUCK_LIMIT;
 use crate::f01_mastery_fixtures::{APART_PX, pilot_with, tuning as mastery_tuning};
-use crate::f01_ring::{RingRoom, RingRun};
+use crate::f01_ring::{GateMode, RingRoom, RingRun};
 use crate::input::RawInput;
 use crate::party::{HeroId, PartyTuning};
 use crate::party_scene::{PartyFixture, PartyFixtureSim};
@@ -263,20 +264,45 @@ pub struct Report {
     pub under_the_shutter: bool,
     /// Whether `ability` was ever pressed (never: RING-06, no dynamite).
     pub ability_pressed: bool,
+    /// RING-C wire: closures the court's shutter armed, and whether it is open
+    /// again at the end (`None` in a room without a shutter).
+    pub shutter: Option<(u8, ShutterPhase)>,
     pub hash: u64,
     pub ticks: u64,
     pub events: Vec<CombatEvent>,
 }
 
-/// Start one run of `room` for `who` at seed `seed`.
+/// Start one run of `room` for `who` at seed `seed`: the court's moving
+/// shutter (RING-C wire) as authored.
 pub fn start(
     root: &Path,
     room: RingRoom,
     who: Who,
     seed: u64,
 ) -> Result<(PartyFixtureSim, RingRun), String> {
+    start_mode(root, room, who, seed, GateMode::Moving)
+}
+
+/// [`start`] with the RING-B static closed gate (`GateMode::Static`), the
+/// comparison the old fixtures of a closed shutter run under.
+pub fn start_static(
+    root: &Path,
+    room: RingRoom,
+    who: Who,
+    seed: u64,
+) -> Result<(PartyFixtureSim, RingRun), String> {
+    start_mode(root, room, who, seed, GateMode::Static)
+}
+
+fn start_mode(
+    root: &Path,
+    room: RingRoom,
+    who: Who,
+    seed: u64,
+    gate: GateMode,
+) -> Result<(PartyFixtureSim, RingRun), String> {
     let (carl, donut) = Loadout::Story.flags();
-    let (run, scene, combat) = ring_start(root, room, 360, carl, donut, Some(seed))?;
+    let (run, scene, combat) = ring_start_mode(root, room, 360, carl, donut, Some(seed), gate)?;
     let fixture: &'static PartyFixture = Box::leak(Box::new(PartyFixture {
         base: run.fixture,
         two_player: false,
@@ -290,7 +316,19 @@ pub fn start(
 
 /// Run one pilot for [`RUN_TICKS`] (or until the exit is reached).
 pub fn run(root: &Path, room: RingRoom, who: Who, seed: u64, high: bool) -> Result<Report, String> {
-    let (mut sim, ring) = start(root, room, who, seed)?;
+    run_mode(root, room, who, seed, high, GateMode::Moving)
+}
+
+/// [`run`] under a [`GateMode`] (`Static`: the RING-B closed gate).
+pub fn run_mode(
+    root: &Path,
+    room: RingRoom,
+    who: Who,
+    seed: u64,
+    high: bool,
+    gate: GateMode,
+) -> Result<Report, String> {
+    let (mut sim, ring) = start_mode(root, room, who, seed, gate)?;
     let route = Route::of(&ring, high);
     let walkway = (room == RingRoom::Court).then(|| {
         let p = ring.loaded.room.platforms[1].rect;
@@ -422,6 +460,11 @@ pub fn run(root: &Path, room: RingRoom, who: Who, seed: u64, high: bool) -> Resu
         climbed,
         under_the_shutter,
         ability_pressed,
+        shutter: sim
+            .combat
+            .env()
+            .and_then(|e| e.shutter(0))
+            .map(|s| (s.closures(), s.phase())),
         hash: sim.state_hash(),
         ticks: sim.scene.world.tick,
         events: sim.combat.events.clone(),
@@ -555,7 +598,15 @@ mod tests {
     #[test]
     fn ring_court_companion_crosses_the_walkway() {
         for seed in SEEDS {
-            let r = run(&root(), RingRoom::Court, Who::Companion, seed, false).unwrap();
+            let r = run_mode(
+                &root(),
+                RingRoom::Court,
+                Who::Companion,
+                seed,
+                false,
+                GateMode::Static,
+            )
+            .unwrap();
             assert!(r.walkway_crossing[1], "{}", r.line());
             assert!(!r.under_the_shutter, "{}", r.line());
             assert!(r.exit_tick.is_some(), "{}", r.line());
@@ -581,7 +632,17 @@ mod tests {
         for seed in SEEDS {
             let r = crate::combat_scene::with_profile_override(
                 |f| f.cf02_free.fix_all.rwf1_cut_off_escort = false,
-                || run(&root(), RingRoom::Court, Who::Companion, seed, false).unwrap(),
+                || {
+                    run_mode(
+                        &root(),
+                        RingRoom::Court,
+                        Who::Companion,
+                        seed,
+                        false,
+                        GateMode::Static,
+                    )
+                    .unwrap()
+                },
             );
             assert_eq!(r.hash, PRE_FIX[seed as usize], "{}", r.line());
             assert_eq!(r.walkway_crossing, [true, false], "{}", r.line());
@@ -600,7 +661,8 @@ mod tests {
         /// 6 s: the crossing (two jumps and a drop) takes about 4 s.
         const NEAR_FOLLOW_TICKS: u64 = 360;
         for seed in SEEDS {
-            let (mut sim, ring) = start(&root(), RingRoom::Court, Who::Companion, seed).unwrap();
+            let (mut sim, ring) =
+                start_static(&root(), RingRoom::Court, Who::Companion, seed).unwrap();
             let route = Route::of(&ring, false);
             let (s0, s1) = route.shutter.unwrap();
             let mid = (s0 + s1) * 0.5;
@@ -679,7 +741,7 @@ mod tests {
     #[test]
     fn ring_court_nav_plans_the_walkway_crossing() {
         use crate::companion::nav::{NavConfig, NavGraph, NavLevel, Unlocks};
-        let (sim, ring) = start(&root(), RingRoom::Court, Who::Companion, 0).unwrap();
+        let (sim, ring) = start_static(&root(), RingRoom::Court, Who::Companion, 0).unwrap();
         let layout_h = ring.kit.height;
         let feet = to_world_y(layout_h, ring.loaded.room.floor_y);
         let step = ring.loaded.room.platforms[0].rect;
@@ -728,7 +790,8 @@ mod tests {
     #[test]
     fn ring_court_shutter_stops_the_missile_and_slams_a_launched_goblin() {
         let cast = |donut_x: f32| {
-            let (mut sim, ring) = start(&root(), RingRoom::Court, Who::DonutSolo, 0).unwrap();
+            let (mut sim, ring) =
+                start_static(&root(), RingRoom::Court, Who::DonutSolo, 0).unwrap();
             // The swap to Donut, then place her and the first goblin.
             sim.step_slots([
                 RawInput {
@@ -768,7 +831,7 @@ mod tests {
         );
 
         // The slam: Carl right of the shutter, a goblin between him and its face.
-        let (mut sim, ring) = start(&root(), RingRoom::Court, Who::CarlSolo, 0).unwrap();
+        let (mut sim, ring) = start_static(&root(), RingRoom::Court, Who::CarlSolo, 0).unwrap();
         let s = ring.shutter().unwrap();
         sim.scene.world.hero.x = s.right() as f32 + 40.0;
         sim.scene.world.donut_body.x = 300.0;
@@ -800,7 +863,7 @@ mod tests {
         let profile =
             crate::thrown_charge::blast_profile(crate::carl_prog::CarlProgTuning::active());
         assert!(profile.los, "the thrown charge's blast respects solids");
-        let (sim, ring) = start(&root(), RingRoom::Court, Who::CarlSolo, 0).unwrap();
+        let (sim, ring) = start_static(&root(), RingRoom::Court, Who::CarlSolo, 0).unwrap();
         let s = ring.shutter().unwrap();
         let feet = to_world_y(ring.kit.height, ring.loaded.room.floor_y);
         let goblin = |x: f32| Rect {
@@ -838,7 +901,7 @@ mod tests {
     fn ring_court_a_sliced_shutter_and_its_walkway_seam_block_the_blast_line() {
         use crate::blast::line_of_sight;
         use crate::prototype::Block;
-        let (sim, ring) = start(&root(), RingRoom::Court, Who::CarlSolo, 0).unwrap();
+        let (sim, ring) = start_static(&root(), RingRoom::Court, Who::CarlSolo, 0).unwrap();
         let s = ring.shutter().unwrap();
         let feet = to_world_y(ring.kit.height, ring.loaded.room.floor_y);
         let (left, right) = (s.x as f32, s.right() as f32);
@@ -909,7 +972,7 @@ mod tests {
     /// floor line, so a hit there cannot be staged without moving one by hand.)
     #[test]
     fn ring_court_walkway_lane_stays_open_for_the_missile() {
-        let (sim, ring) = start(&root(), RingRoom::Court, Who::CarlSolo, 0).unwrap();
+        let (sim, ring) = start_static(&root(), RingRoom::Court, Who::CarlSolo, 0).unwrap();
         let walk = ring.loaded.room.platforms[1].rect;
         let s = ring.shutter().unwrap();
         let band = |feet: f32| Rect {

@@ -129,6 +129,8 @@ pub mod polish_kit;
 pub mod prototype;
 pub mod refuge;
 pub mod rest_fixtures;
+#[cfg(test)]
+mod ring_c_wire_tests;
 pub mod ring_fixtures;
 pub mod ring_kit;
 pub mod ring_shutter_art;

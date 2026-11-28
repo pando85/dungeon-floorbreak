@@ -77,9 +77,10 @@ use crate::encounter::{
 };
 use crate::env_hazard::{HazardClass, HazardEdge, HazardSet, NavPhase, NavRect, Team, Victim};
 use crate::env_prop::{
-    Drum, DrumConfig, DrumState, FallingMass, FallingMassConfig, Ignored, LinkEmit, LinkGraph,
-    MassBody, MassEdge, MassState, Offer, Partition, STEP_OVER_PX, Shutter, Slide, SlideEdge,
-    SlideState, Stimulus, Valve, ValveEdge, ValveState, remnant_lifts,
+    Drum, DrumConfig, DrumState, FaceHit, FallingMass, FallingMassConfig, Ignored, LinkEmit,
+    LinkGraph, MassBody, MassEdge, MassState, Offer, Partition, STEP_OVER_PX, Shutter, ShutterBody,
+    ShutterBodyState, ShutterPhase, Slide, SlideEdge, SlideState, Stimulus, Valve, ValveEdge,
+    ValveState, remnant_lifts,
 };
 use crate::goblin::{GoblinMode, WalkBarrier};
 use crate::hero_damage::HeroDamagePolicy;
@@ -118,10 +119,11 @@ enum Machine {
     Rot,
     /// HRD-B: the Hoarder's J-A bank (a sidecar static with a slide spec).
     Bank(Box<Bank>),
-    /// RING-B wire: a **static** shutter (`cycles` 0, KR3 clause 5): the machine
-    /// of RING-C core, never armed and never stepped, so its slices stand as
-    /// authored. The moving shutter (its step, the arm rule, the pins) is RING-C
-    /// wire's.
+    /// RING-B/C wire: the shutter machine of RING-C core. A **static** one
+    /// (`cycles` 0, KR3 clause 5) is never armed and never stepped, so its stack
+    /// stands as authored; a **moving** one (RING-C wire) is armed by the KR18
+    /// rule and stepped each tick in [`EnvRuntime::step`], its slices toggled
+    /// through the KR6 sync and its pins handed to the combat state.
     Shutter(Box<Shutter>),
     /// CORRAL-D: the corral's breakable timber partition (a standing solid, then
     /// its 16 px remnant). Takes Carl's and Donut's melee hits and the llama's
@@ -264,6 +266,13 @@ pub enum EnvSolidKind {
     /// would now block too; the one block is kept (RFA-AD1) so collision and nav
     /// see one rectangle. The moving shutter's solids are RING-C wire's.
     ShutterStack,
+    /// RING-C wire: one 4 px slice of a **moving** shutter (KR6: 68 / 4 = 17
+    /// slices, `slice` counted from the top of the arch). It stands once the
+    /// lower edge has passed its bottom ([`Shutter::slice_intact`]) and goes
+    /// again from the bottom when the shutter opens. `EnvSolid::prop` is the
+    /// shutter's prop index. All slices are `Material::Timber` (KR6), so the
+    /// companion's nav updates stay incremental through a full cycle.
+    ShutterSlice { slice: u16 },
     /// CORRAL-D: the partition while it stands (its 16 x 48 screen): intact
     /// until it breaks. `EnvSolid::prop` is the prop's index. Blocks bolts, globs
     /// and bodies like any solid; heroes jump and stand on it (48 px).
@@ -309,6 +318,7 @@ impl EnvSolidKind {
             | Self::Gate { .. }
             | Self::Soffit
             | Self::ShutterStack
+            | Self::ShutterSlice { .. }
             | Self::PartitionWall
             | Self::SurfaceLock { .. }
             | Self::ManaLock { .. }
@@ -377,6 +387,19 @@ pub struct EnvTick {
     /// The link contacts the edges of this tick hand on (BOIL-D), in prop
     /// order.
     pub fires: Vec<LinkFire>,
+    /// RING-C wire (KR4): the goblins a closing shutter pins this tick (one
+    /// token per enemy per closure), in prop order. The combat state writes the
+    /// public goblin fields; the machine never reads a goblin mode itself.
+    pub pins: Vec<EnvPin>,
+}
+
+/// RING-C wire: a pin to apply to an enemy (KR4): staggered for `ticks` with no
+/// damage.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct EnvPin {
+    pub victim: Victim,
+    pub prop: u16,
+    pub ticks: u16,
 }
 
 /// A prop edge an authored link carries to the props it reaches (BOIL-D).
@@ -449,6 +472,11 @@ pub struct EnvRuntime {
     /// The bodies of the last tick (the swept test's start). Not hashed: it is
     /// a function of the hashed positions.
     prev: Vec<(Victim, IRect)>,
+    /// RING-C wire: what each body is for a moving shutter (set by the combat
+    /// state before each step from the goblins' modes; not hashed, a function
+    /// of the hashed modes). A hero defaults to `Free`, any other body to
+    /// `Busy` (it holds the edge, is never pinned).
+    body_states: Vec<(Victim, ShutterBodyState)>,
     /// HAZ-A2: the Rot Stickers, in sidecar order (empty in every other room).
     stickers: Vec<StickerRt>,
     /// HAZ-A2: the acid patches and the slime each one drains with.
@@ -679,23 +707,26 @@ impl EnvRuntime {
                     let cfg = p
                         .shutter
                         .ok_or_else(|| format!("prop {}: a shutter needs its config", p.id))?;
-                    // RING-B wire runs the static gate only; the moving shutter's
-                    // step, arm rule and pins are RING-C wire's, so a moving one
-                    // is refused here, never silently left open.
-                    if !cfg.is_static() {
-                        return Err(format!(
-                            "prop {}: the env step runs a static shutter only (the moving shutter is RING-C wire's)",
-                            p.id
-                        ));
-                    }
                     let shutter =
                         Shutter::new(cfg, p.target).map_err(|e| format!("prop {}: {e}", p.id))?;
-                    // The static stack as one block (see `ShutterStack`).
-                    solids.push(EnvSolid {
-                        rect: shutter.footprint(),
-                        prop: Some(index),
-                        kind: EnvSolidKind::ShutterStack,
-                    });
+                    if cfg.is_static() {
+                        // The static stack as one block (see `ShutterStack`).
+                        solids.push(EnvSolid {
+                            rect: shutter.footprint(),
+                            prop: Some(index),
+                            kind: EnvSolidKind::ShutterStack,
+                        });
+                    } else {
+                        // RING-C wire (KR6): the moving stack as its slices, top
+                        // to bottom, each a block of `slice_px`.
+                        for k in 0..shutter.slice_count() {
+                            solids.push(EnvSolid {
+                                rect: shutter.slice_rect(k),
+                                prop: Some(index),
+                                kind: EnvSolidKind::ShutterSlice { slice: k as u16 },
+                            });
+                        }
+                    }
                     Machine::Shutter(Box::new(shutter))
                 }
                 PropKind::Partition => {
@@ -884,6 +915,7 @@ impl EnvRuntime {
             drum_charges: Vec::new(),
             solid_start: None,
             prev: Vec::new(),
+            body_states: Vec::new(),
             stickers,
             acid,
             acid_links,
@@ -1215,6 +1247,21 @@ impl EnvRuntime {
         }
     }
 
+    /// RING-C wire: say what each body is for a moving shutter before the next
+    /// [`Self::step`] (see the field). Presentation-free state.
+    pub fn set_body_states(&mut self, states: Vec<(Victim, ShutterBodyState)>) {
+        self.body_states = states;
+    }
+
+    /// RING-C wire (KR4): a launched enemy hit the face of shutter `prop`: its
+    /// pin token of this closure is spent.
+    pub fn shutter_face_hit(&mut self, prop: u16, victim: Victim) -> Option<FaceHit> {
+        match &mut self.props.get_mut(usize::from(prop))?.machine {
+            Machine::Shutter(s) => Some(s.face_hit(victim)),
+            _ => None,
+        }
+    }
+
     /// RING-B wire: the shutter machine, if prop `index` is a shutter.
     pub fn shutter(&self, index: usize) -> Option<&Shutter> {
         match &self.props.get(index)?.machine {
@@ -1430,6 +1477,7 @@ impl EnvRuntime {
             | EnvSolidKind::Drum
             | EnvSolidKind::Bank
             | EnvSolidKind::ShutterStack
+            | EnvSolidKind::ShutterSlice { .. }
             | EnvSolidKind::PartitionWall => s.prop.and_then(|p| self.props.get(usize::from(p))),
             EnvSolidKind::Lock { .. } | EnvSolidKind::Gate { .. } => return false,
             // REST-WIRE: the latched surface lock stands until it opened.
@@ -1459,6 +1507,9 @@ impl EnvRuntime {
             }
             (EnvSolidKind::ShutterStack, Some(Machine::Shutter(sh))) => {
                 sh.intact_slices() == sh.slice_count()
+            }
+            (EnvSolidKind::ShutterSlice { slice }, Some(Machine::Shutter(sh))) => {
+                sh.slice_intact(usize::from(slice))
             }
             // CORRAL-D: the screen stands until it breaks, its remnant from then on.
             (EnvSolidKind::PartitionWall, Some(Machine::Partition(part))) => part.is_standing(),
@@ -1735,6 +1786,40 @@ impl EnvRuntime {
                 }
             })
             .collect();
+        // RING-C wire: what a moving shutter sees (KR4, KR18). The living
+        // heroes' centres arm it; each body's state says whether it holds the
+        // edge and whether it can be pinned.
+        let hero_xs: Vec<i32> = bodies
+            .iter()
+            .filter(|(v, _)| v.team == Team::Hero)
+            .map(|(_, r)| r.x + r.w / 2)
+            .collect();
+        let shutter_bodies: Vec<ShutterBody> = if self
+            .props
+            .iter()
+            .any(|p| matches!(&p.machine, Machine::Shutter(s) if !s.config().is_static()))
+        {
+            mass_bodies
+                .iter()
+                .map(|b| {
+                    let state = self
+                        .body_states
+                        .iter()
+                        .find(|(v, _)| *v == b.victim)
+                        .map_or(
+                            if b.victim.team == Team::Hero {
+                                ShutterBodyState::Free
+                            } else {
+                                ShutterBodyState::Busy
+                            },
+                            |(_, st)| *st,
+                        );
+                    ShutterBody::new(*b, state)
+                })
+                .collect()
+        } else {
+            Vec::new()
+        };
         for p in &mut self.props {
             let prop = p.index;
             match &mut p.machine {
@@ -1807,9 +1892,30 @@ impl EnvRuntime {
                     }
                     None => {}
                 },
-                // A drum's clock is its charge's (the scene steps it). RING-B wire:
-                // a static shutter never steps (RING-C wire steps the moving one).
-                Machine::Drum { .. } | Machine::Rot | Machine::Shutter(_) => {}
+                // A drum's clock is its charge's (the scene steps it).
+                Machine::Drum { .. } | Machine::Rot => {}
+                // RING-C wire: a static shutter never steps; a moving one is armed
+                // when a hero has crossed `arm_x` and the trailing hero is near
+                // (KR18), then stepped once per tick with the bodies (the hold
+                // rule, the pins). The slices follow through the sync.
+                Machine::Shutter(sh) => {
+                    if sh.config().is_static() {
+                        continue;
+                    }
+                    if sh.phase() == ShutterPhase::Open
+                        && sh.config().arm_ready(sh.footprint(), &hero_xs)
+                    {
+                        sh.arm();
+                    }
+                    let t = sh.step(&shutter_bodies);
+                    for pin in t.pins {
+                        out.pins.push(EnvPin {
+                            victim: pin.victim,
+                            prop,
+                            ticks: pin.ticks,
+                        });
+                    }
+                }
                 // CORRAL-D: the break tick: the remnant-lift rule (a hero whose body
                 // overlaps the remnant is lifted onto its top, in the same step that
                 // makes the remnant solid). Heroes cannot overlap the screen they
@@ -3242,11 +3348,13 @@ impl CombatState {
         self.env_sync_solids(scene);
         let layout_h = scene.world.layout_height();
         let bodies = self.env_bodies(scene);
-        let out = self
-            .env
-            .as_mut()
-            .expect("checked above")
-            .step(tick, &bodies);
+        // RING-C wire: what the goblins are for a moving shutter (KR4).
+        let states = self.shutter_body_states();
+        let env = self.env.as_mut().expect("checked above");
+        if !states.is_empty() {
+            env.set_body_states(states);
+        }
+        let out = env.step(tick, &bodies);
         // DR-B: the masses that landed this tick, their footprints (world) and
         // the slot victims their landing hit (the rest may draw a glance).
         let landings: Vec<(Rect, Vec<u32>)> = {
@@ -3290,6 +3398,10 @@ impl CombatState {
             }
             body.grounded = true;
         }
+        // RING-C wire (KR4): the goblins a closing edge pinned, no damage.
+        for pin in &out.pins {
+            self.env_pin_goblin(pin);
+        }
         let mut slot_hits: Vec<SlotEnvHit> = Vec::new();
         for hit in out.hits {
             match hit.victim.team {
@@ -3332,6 +3444,55 @@ impl CombatState {
         self.env_sync_solids(scene);
         let view = self.env_view(layout_h);
         self.set_slot_env(view);
+    }
+
+    /// RING-C wire (KR4): what each living goblin is for a moving shutter. The
+    /// machine cannot see goblin modes, so this maps them: `Neutral` and
+    /// `Attack` are `Free` (they hold the edge and can be pinned); `Hurt` (a
+    /// staggered or pinned goblin: a pin never re-pins it), `Launched`, `Downed`
+    /// and `Airborne` are `Busy` (they hold the edge, are never pinned: a pin
+    /// never overwrites those modes); `Down` and `Corpse` are `Gone`. Llamas and
+    /// slot enemies are `Busy` (the Ring's rooms hold goblins only). Empty (the
+    /// runtime's defaults apply) when the room has no moving shutter.
+    fn shutter_body_states(&self) -> Vec<(Victim, ShutterBodyState)> {
+        let moving = self.env.as_ref().is_some_and(|e| {
+            (0..e.props()).any(|i| e.shutter(i).is_some_and(|s| !s.config().is_static()))
+        });
+        if !moving {
+            return Vec::new();
+        }
+        self.enemies
+            .iter()
+            .enumerate()
+            .filter(|(_, g)| g.alive())
+            .map(|(i, g)| {
+                let state = match g.mode {
+                    GoblinMode::Neutral | GoblinMode::Attack => ShutterBodyState::Free,
+                    GoblinMode::Hurt
+                    | GoblinMode::Launched
+                    | GoblinMode::Downed
+                    | GoblinMode::Airborne => ShutterBodyState::Busy,
+                    GoblinMode::Down | GoblinMode::Corpse => ShutterBodyState::Gone,
+                };
+                (Victim::enemy(i as u32), state)
+            })
+            .collect()
+    }
+
+    /// RING-C wire (KR4): a pin is the public goblin fields, written like a
+    /// contact stagger with no push and no damage: the goblin stands staggered
+    /// for `ticks`, its attack cancelled, its facing kept. A goblin that is not
+    /// standing any more (it was launched since the step read it) is left as it
+    /// is.
+    fn env_pin_goblin(&mut self, pin: &EnvPin) {
+        let Some(g) = self.enemies.get_mut(pin.victim.id as usize) else {
+            return;
+        };
+        if !matches!(g.mode, GoblinMode::Neutral | GoblinMode::Attack) {
+            return;
+        }
+        let ticks = u8::try_from(pin.ticks).unwrap_or(u8::MAX);
+        g.contact_stagger(-g.facing, ticks, 0.0, 0);
     }
 
     /// A hero in a volume: the one hurt path, with the volume's damage and
@@ -3491,6 +3652,7 @@ impl CombatState {
         let impulse = flier.speed.max(flier.stop.unwrap_or(0.0)).round();
         let impulse_px_s = impulse.clamp(0.0, f32::from(u16::MAX)) as u16;
         let mut struck: Vec<u16> = Vec::new();
+        let mut faces: Vec<u16> = Vec::new();
         for (prop, target) in env.live_targets() {
             if world_rect(layout_h, target).overlaps(flier.body) {
                 struck.push(prop);
@@ -3533,6 +3695,20 @@ impl CombatState {
                 // existing CF02-B slam through `wall_stop`, KR4: no new damage);
                 // its face pin through this target is RING-C wire's (KR7).
                 EnvSolidKind::ShutterStack => {}
+                // RING-C wire (KR4): a launched goblin that hits the moving
+                // shutter's face takes the existing slam (a wall for a flier); the
+                // hit spends its pin token of this closure, so no walk-in pin
+                // follows. No new damage, no stimulus.
+                EnvSolidKind::ShutterSlice { .. } => {
+                    if let Some(prop) = solid.prop {
+                        faces.push(prop);
+                    }
+                }
+            }
+        }
+        for prop in faces {
+            if let Some(env) = self.env.as_mut() {
+                env.shutter_face_hit(prop, Victim::enemy(flier.source));
             }
         }
         struck.sort_unstable();
@@ -3629,6 +3805,9 @@ impl CombatState {
 /// up), the launch it flies on, the hero credited with it and its speeds.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(super) struct LaunchedBody {
+    /// The goblin's index (its enemy victim id): the shutter's face hit spends
+    /// its pin token (RING-C wire, KR4).
+    pub source: u32,
     pub body: Rect,
     pub launch: u32,
     pub initiator: Option<u32>,
@@ -3683,7 +3862,8 @@ mod tests {
     #[test]
     fn the_two_exit_door_kinds_are_the_only_solids_that_open_on_a_defeat() {
         use EnvSolidKind::{
-            Bank, Drum, ExitGate, Gate, Lock, PartitionWall, Remnant, ShutterStack, Soffit,
+            Bank, Drum, ExitGate, Gate, Lock, PartitionWall, Remnant, ShutterSlice, ShutterStack,
+            Soffit,
         };
         let doors: Vec<_> = [
             Remnant,
@@ -3694,6 +3874,7 @@ mod tests {
             Soffit,
             ExitGate,
             ShutterStack,
+            ShutterSlice { slice: 3 },
             PartitionWall,
         ]
         .into_iter()
@@ -4584,15 +4765,34 @@ mod tests {
 
     // ---- the build rules
 
-    /// RING-B wire: the court's static closed shutter runs as 17 standing slices
-    /// of 4 px (KR6); a moving shutter is still an error here (RING-C wire's),
-    /// never a silently open arch.
+    /// RING-B/C wire: the static gate is one block (RINGW-AD8); the moving
+    /// shutter the court authors is 17 slices of 4 px (KR6), all Timber, none
+    /// standing while it is open.
     #[test]
-    fn a_static_shutter_runs_and_a_moving_one_is_an_error_not_a_silent_skip() {
+    fn a_static_shutter_is_one_block_and_a_moving_one_is_seventeen_slices() {
         use crate::env_prop::{ShutterConfig, ShutterInitial};
         use crate::ring_fixtures::COURT_ENCOUNTER_PATH;
         let court = load(&root(), COURT_ENCOUNTER_PATH).unwrap();
-        let env = EnvRuntime::new(&court.encounter).expect("the static gate runs");
+        let env = EnvRuntime::new(&court.encounter).expect("the moving shutter runs");
+        let slices: Vec<_> = env
+            .solids()
+            .iter()
+            .enumerate()
+            .filter(|(_, s)| matches!(s.kind, EnvSolidKind::ShutterSlice { .. }))
+            .collect();
+        assert_eq!(slices.len(), 17);
+        let target = court.encounter.props[0].target;
+        for (k, (i, s)) in slices.iter().enumerate() {
+            assert_eq!(
+                s.rect,
+                IRect::new(target.x, target.y + 4 * k as i32, target.w, 4)
+            );
+            assert!(!env.solid_intact(*i), "open: no slice stands");
+        }
+        assert!(env.token().contains("0:shutter_Open"), "{}", env.token());
+        let mut fixed = court.encounter.clone();
+        fixed.props[0].shutter = Some(ShutterConfig::defaults(ShutterInitial::Closed));
+        let env = EnvRuntime::new(&fixed.clone()).expect("the static gate runs");
         let stack: Vec<_> = env
             .solids()
             .iter()
@@ -4604,10 +4804,6 @@ mod tests {
         assert_eq!(stack[0].1.rect, court.encounter.props[0].target);
         assert!(env.live_targets().is_empty() && env.blast_targets().is_empty());
         assert!(env.token().contains("0:shutter_Closed"), "{}", env.token());
-        let mut moving = court.encounter.clone();
-        moving.props[0].shutter = Some(ShutterConfig::defaults(ShutterInitial::Open));
-        let err = EnvRuntime::new(&moving).expect_err("a moving shutter");
-        assert!(err.contains("RING-C"), "{err}");
     }
 
     #[test]
@@ -4812,6 +5008,7 @@ mod tests {
         assert!(!range.is_empty() && range.start > 0);
         // `gap` px between a 24 px box's right edge and `solid`'s left edge.
         let beside = |solid: Rect, gap: f32| LaunchedBody {
+            source: 0,
             body: Rect {
                 left: solid.left - gap - 24.0,
                 bottom: solid.bottom,
@@ -4863,6 +5060,7 @@ mod tests {
         assert!(remnant.intact);
         let before = events(&s).len();
         let body = LaunchedBody {
+            source: 0,
             body: Rect {
                 left: remnant.rect.left - 25.0,
                 bottom: remnant.rect.bottom,

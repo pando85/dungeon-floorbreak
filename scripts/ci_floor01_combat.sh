@@ -564,9 +564,10 @@ case "$mode" in
         exit 1
       fi
     done
-    # RING-A/B wire: the two Ring rooms load their two goblins; the court runs its
-    # static closed shutter in the env step, the split has none.
-    for ring_marker in "ring_court F01_RING_COURT static_closed" "ring_split F01_RING_SPLIT none"; do
+    # RING-A/B/C wire: the two Ring rooms load their two goblins; the court runs its
+    # moving shutter in the env step (RING-C wire), the split has none. The static gate of
+    # RING-B stays one flag away (--ring-static-gate) for comparison.
+    for ring_marker in "ring_court F01_RING_COURT moving" "ring_split F01_RING_SPLIT none"; do
       read -r ring_room ring_prefix ring_shutter <<<"$ring_marker"
       ring_state="$(late_lines --f01-room "$ring_room")"
       if ! grep -q "^${ring_prefix}_SMOKE_OK .* env=live slot_enemies=0 enemies=2 " <<<"$ring_state" \
@@ -575,6 +576,11 @@ case "$mode" in
         exit 1
       fi
     done
+    ring_static_state="$("$bin" --headless-floor01-smoke --scene f01_late --f01-room ring_court --ring-static-gate)"
+    if ! grep -q "^F01_RING_COURT_ENTRY .* goblins=2 shutter=static_closed " <<<"$ring_static_state"; then
+      echo "the f01_late ring_court --ring-static-gate did not restore the static closed shutter" >&2
+      exit 1
+    fi
     # CORRAL-F: room 0 is the corral (plan section 14.7); since ACT1-A it is listed right after the
     # Act I rooms (the chase, the shore and the guild), and a bare floor run starts in the chase. It loads M0's two goblins and the
     # three llamas and stands its M3 gate on the two M2 llamas; a floor run launched at it starts there.

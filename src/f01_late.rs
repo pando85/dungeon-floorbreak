@@ -1045,7 +1045,29 @@ pub fn ring_start(
     donut: DonutProgFlags,
     cf02_seed: Option<u64>,
 ) -> Result<(f01_ring::RingRun, SceneSim, CombatState), String> {
-    let run = f01_ring::launch(root, room)?;
+    ring_start_mode(
+        root,
+        room,
+        view_height,
+        carl,
+        donut,
+        cf02_seed,
+        f01_ring::GateMode::Moving,
+    )
+}
+
+/// [`ring_start`] under a [`f01_ring::GateMode`] (RING-C wire: `Static` is the
+/// RING-B closed gate, for comparison).
+pub fn ring_start_mode(
+    root: &Path,
+    room: RingRoom,
+    view_height: i32,
+    carl: CarlProgFlags,
+    donut: DonutProgFlags,
+    cf02_seed: Option<u64>,
+    gate: f01_ring::GateMode,
+) -> Result<(f01_ring::RingRun, SceneSim, CombatState), String> {
+    let run = f01_ring::launch_mode(root, room, true, gate)?;
     let mut scene = SceneSim::new_at(&run.kit, view_height, run.fixture.carl_x)?;
     let combat = f01_ring::combat_for(&run, &mut scene, carl, donut, cf02_seed)?;
     Ok((run, scene, combat))

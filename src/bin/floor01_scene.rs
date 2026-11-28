@@ -444,6 +444,10 @@ struct Args {
     /// fight, the exit) instead of the walk-right script, so a capture can stand the
     /// hero in every zone. The Ring rooms have no `--room-pilot`. Scripted runs only.
     ring_pilot: bool,
+    /// RING-C wire (RINGC-AD6): `--ring-static-gate` restores the RING-B static closed
+    /// shutter in the court, for comparison with the moving shutter that runs by default.
+    /// A floor run keeps it through its relaunches.
+    ring_static_gate: bool,
     /// REST-WIRE evidence: `--rest-pilot donut|carl_door|base_jump|walk|blink|punch` plays a quiet room's scripted
     /// run (`rest_fixtures::pilot`) instead of the walk-right script, so a capture can stand a
     /// hero in every beat. Scripted runs only.
@@ -1011,6 +1015,9 @@ fn resolve_f01_late_args(parsed: &mut Args) -> Result<(), String> {
         return Err("--f01-audience carries viewer counts into a room, so it needs the audience on: drop --audience=off (or drop --f01-audience)".into());
     }
     if !parsed.f01_late {
+        if parsed.ring_static_gate {
+            return Err("--ring-static-gate needs --scene f01_late".into());
+        }
         if parsed.f01_room.is_some() || parsed.f01_loadout.is_some() {
             return Err("--f01-room and --f01-loadout need --scene f01_late".into());
         }
@@ -1639,6 +1646,7 @@ fn parse_args_full(
         f01_rest: None,
         rest_run: None,
         ring_pilot: false,
+        ring_static_gate: false,
         rest_pilot: None,
         f01_act1: None,
         act1_run: None,
@@ -1838,6 +1846,7 @@ fn parse_args_full(
                 parsed.f01_room = Some(value.clone());
             }
             "--ring-pilot" => parsed.ring_pilot = true,
+            "--ring-static-gate" => parsed.ring_static_gate = true,
             "--rest-pilot" => {
                 let value = iter.next().ok_or(
                     "--rest-pilot needs donut, carl_door, base_jump, walk, blink or punch",
@@ -3534,7 +3543,12 @@ fn main() -> ExitCode {
     }
     // RING-A/B wire: load the Ring room and its sidecar.
     if let Some(room) = args.f01_ring {
-        match f01_ring::launch(&root, room) {
+        let gate = if args.ring_static_gate {
+            f01_ring::GateMode::Static
+        } else {
+            f01_ring::GateMode::Moving
+        };
+        match f01_ring::launch_mode(&root, room, true, gate) {
             Ok(run) => {
                 println!("{}", f01_ring::entry_line(&run));
                 args.fixture = Some(run.fixture);

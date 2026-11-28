@@ -410,9 +410,13 @@ mod tests {
             (walk.y + slab(), 68, l.room.floor_y)
         );
         assert!(t.x >= walk.x && t.right() <= walk.right());
-        // A static closed gate (KR3 clause 5), at the authored KR2 numbers.
+        // RING-C wire: a moving shutter (open, one closure, armed 192 px before
+        // the arch), at the authored KR2 numbers.
         let cfg = p.shutter.expect("a shutter has its config");
-        assert!(cfg.is_static());
+        assert!(!cfg.is_static());
+        assert_eq!(cfg.arm_x, Some(1008));
+        assert_eq!(cfg.cycles, 1);
+        assert_eq!(cfg.warning_ticks, 40);
         assert_eq!(cfg.speed_px_per_tick, 2);
         assert_eq!(cfg.closing_ticks(t.h), 34, "inside #189's 24 to 36");
         assert_eq!(t.h / i32::from(cfg.slice_px), 17, "17 slices of 4 px (KR6)");
