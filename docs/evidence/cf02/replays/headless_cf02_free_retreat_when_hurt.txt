@@ -47,5 +47,5 @@ COMBAT_EVENT tick=479 kind=goblin_interrupted goblin=4
 COMBAT_EVENT tick=480 kind=goblin_swing goblin=1
 COMBAT_EVENT tick=480 kind=hero_hurt source=1 health_left=1
 COMBAT_EVENT tick=480 kind=goblin_reaction goblin=2 reaction=taunt nerve=99
-COMBAT_STATE fixture=cf02_free_retreat_when_hurt seed=0xcf02fe07 tick=480 elapsed=480 hero_hp=1 deaths=0 enemies=e0=231.766/0,e1=157.933/2,e2=157.833/2,e3=184.966/2,e4=157.367/1,e5=157.100/2 hash=3877f3c99687d688
-PARTY_STATE fixture=cf02_free_retreat_when_hurt mode=solo controlled=Carl carl_hp=1 donut_hp=3 deaths=0 hash=025015c30e99827e
+COMBAT_STATE fixture=cf02_free_retreat_when_hurt seed=0xcf02fe07 tick=480 elapsed=480 hero_hp=1 deaths=0 enemies=e0=231.766/0,e1=157.933/2,e2=157.833/2,e3=184.966/2,e4=157.367/1,e5=157.100/2 hash=24c0b10100810770
+PARTY_STATE fixture=cf02_free_retreat_when_hurt mode=solo controlled=Carl carl_hp=1 donut_hp=3 deaths=0 hash=41502755dfe5edd6

@@ -173,7 +173,9 @@ pub struct Goblin {
     pub contact_ticks: u8,
     /// The player whose move last hit this goblin while it lived (a kick that
     /// launched it, a jab). It credits a later block as the instigator of the
-    /// defeat; it is read for the defeat event only. Player 0 (the only one in
+    /// defeat. INSTIGATOR-WINDOW: it is cleared when the goblin returns to
+    /// `Neutral` (the end of `Hurt` and of `Downed`, and the Engineer's
+    /// bonk/recover), so a hit long ago never credits an unrelated defeat. Player 0 (the only one in
     /// play) is not mixed into the state hash, because with one player
     /// `Some(0)` is already implied by a hashed `Hit`; any other player is
     /// mixed, so a second player's hit never hashes like Carl's.
@@ -799,6 +801,7 @@ impl Goblin {
                     self.down_ticks = 0;
                     self.vx = 0.0;
                     self.hurt_cooldown = HURT_COOLDOWN;
+                    self.hit_by = None; // INSTIGATOR-WINDOW
                 }
             }
             GoblinMode::Hurt => {
@@ -807,6 +810,7 @@ impl Goblin {
                 if self.stagger_left == 0 {
                     self.mode = GoblinMode::Neutral;
                     self.hurt_cooldown = HURT_COOLDOWN;
+                    self.hit_by = None; // INSTIGATOR-WINDOW
                 }
             }
             GoblinMode::Attack => {
@@ -959,6 +963,7 @@ impl Goblin {
                         self.attack_tick = 0;
                         self.swing_hit = false;
                         self.attack_cooldown = t.engq15_cooldown_ticks;
+                        self.hit_by = None; // INSTIGATOR-WINDOW (bonk credit ends)
                     } else {
                         self.eng.left -= 1;
                     }
@@ -2751,6 +2756,42 @@ mod tests {
             x1,
             line: FLOOR - ENEMY_HALF_HEIGHT,
         }
+    }
+
+    /// INSTIGATOR-WINDOW: `hit_by` ends when the goblin is `Neutral` again.
+    #[test]
+    fn hit_by_is_cleared_when_hurt_ends() {
+        let mut g = goblin_at(900.0);
+        g.mode = GoblinMode::Hurt;
+        g.stagger_left = 3;
+        g.hit_by = Some(1);
+        for _ in 0..2 {
+            tick(&mut g, 100.0, false);
+            assert_eq!((g.mode, g.hit_by), (GoblinMode::Hurt, Some(1)));
+        }
+        tick(&mut g, 100.0, false);
+        assert_eq!((g.mode, g.hit_by), (GoblinMode::Neutral, None));
+    }
+
+    /// INSTIGATOR-WINDOW: a lying goblin keeps its instigator through `Downed`
+    /// and a flight keeps crediting its kicker; both end at the get-up.
+    #[test]
+    fn hit_by_survives_the_flight_and_the_lying_and_ends_at_the_get_up() {
+        let mut g = goblin_at(900.0);
+        g.mode = GoblinMode::Downed;
+        g.down_ticks = 0;
+        g.hit_by = Some(0);
+        g.launch_by = None;
+        assert_eq!(g.flight_credit(), Some(0), "a slam credits the hitter");
+        g.launch_by = Some(1);
+        assert_eq!(g.flight_credit(), Some(1), "the kicker is credited");
+        g.launch_by = None;
+        for _ in 0..(DOWNED_TICKS + GETUP_TICKS - 1) {
+            tick(&mut g, 100.0, false);
+            assert_eq!((g.mode, g.hit_by), (GoblinMode::Downed, Some(0)));
+        }
+        tick(&mut g, 100.0, false);
+        assert_eq!((g.mode, g.hit_by), (GoblinMode::Neutral, None));
     }
 
     #[test]

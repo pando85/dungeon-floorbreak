@@ -16,5 +16,5 @@ COMBAT_EVENT tick=72 kind=goblin_tell goblin=0
 COMBAT_EVENT tick=74 kind=mana_spent hero=1 left=7
 COMBAT_EVENT tick=74 kind=hit move=magic_missile instance=1 target=0 damage=1 health_left=1 hit_stop=2
 COMBAT_EVENT tick=74 kind=goblin_interrupted goblin=0
-COMBAT_STATE fixture=q10_unlock_persists seed=0xd100007 tick=106 elapsed=290 hero_hp=4 deaths=1 enemies=e0=589.300/1 hash=c545e8c1103a4ce6
-PARTY_STATE fixture=q10_unlock_persists mode=2p controlled=Carl carl_hp=4 donut_hp=4 deaths=1 hash=3934047f0ef2189c
+COMBAT_STATE fixture=q10_unlock_persists seed=0xd100007 tick=106 elapsed=290 hero_hp=4 deaths=1 enemies=e0=589.300/1 hash=256b7918361a3160
+PARTY_STATE fixture=q10_unlock_persists mode=2p controlled=Carl carl_hp=4 donut_hp=4 deaths=1 hash=fbb296d7ee826006

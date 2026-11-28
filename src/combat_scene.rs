@@ -569,12 +569,14 @@ pub const CP03_SHORE_MISS: Fixture = Fixture {
 
 /// DEATH-B chain: Carl kicks a stationary goblin (tick 20); the kick also
 /// strikes the rotten shore (hit 1) and launches the living goblin, which
-/// flies into the hazard footprint and lies there. Two more jabs break the
-/// shore; the block lands on the goblin, which is defeated once: cause block,
-/// force catastrophic, and the kicker kept as the instigator. No teleport.
+/// flies into the hazard footprint, lies there and gets up. Two more jabs break
+/// the shore; the block lands on the goblin, which is defeated once: cause
+/// block, force catastrophic. INSTIGATOR-WINDOW: the goblin recovered before
+/// the block, so the kicker is no longer the instigator (it was before that
+/// change). No teleport.
 pub const CP03_KICK_BLOCK: Fixture = Fixture {
     name: "cp03_kick_block",
-    summary: "a kick launches the goblin under the shore; the block crushes it, the kicker kept",
+    summary: "a kick launches the goblin under the shore; it gets up, then the block crushes it",
     seed: 0x0C03_0003,
     carl_x: 400,
     enemies: &[EnemySpawn {
@@ -3976,7 +3978,7 @@ mod tests {
         ("cp02_kick_contact", 0x8bd0_1343_f47e_d9df),
         ("cp03_shore_kill", 0x098e_86cd_e2e6_b065),
         ("cp03_shore_miss", 0x317b_ead5_5c8a_6a73),
-        ("cp03_kick_block", 0x73e4_0916_1ce5_434f),
+        ("cp03_kick_block", 0xab32_4fe3_93e5_f1b6),
         ("cp03_goblin_pileup", 0x6a82_811d_8f31_c475),
         // DEATH-D: the two new pinned fixtures (the 13 above are unchanged).
         ("cp03_block_edge_decap", 0x13d9_8f79_0282_17e9),
@@ -5698,7 +5700,9 @@ mod tests {
                 target: 0,
                 cause: DefeatCause::ShoreBlock { player: 0 },
                 force: ForceTier::Catastrophic,
-                instigator: Some(0),
+                // INSTIGATOR-WINDOW: the goblin got up (about tick 80) long
+                // before the block (tick 179), so the kick no longer credits it.
+                instigator: None,
             }
         ));
         // The kick landed (one hit, not lethal); the block was the killer.
@@ -5785,18 +5789,66 @@ mod tests {
     };
 
     #[test]
-    fn d04_a_kick_then_the_block_credits_the_block_and_keeps_the_kicker() {
+    fn d04_a_kick_long_ago_does_not_credit_the_block() {
         let mut sim = sim_of(&KICK_THEN_BLOCK);
         sim.run_scripted(100);
-        assert_eq!(sim.combat.enemies[0].hit_by, Some(0));
         assert!(
             sim.combat.enemies[0].alive(),
             "the kick alone does not kill"
         );
+        assert_eq!(sim.combat.enemies[0].mode, GoblinMode::Neutral);
+        assert_eq!(
+            sim.combat.enemies[0].hit_by, None,
+            "INSTIGATOR-WINDOW: it recovered, so the kick no longer credits"
+        );
         assert!(defeats(&events_of(&sim)).is_empty());
-        // Stand the (recovered) goblin in the footprint, as a pushed enemy
-        // would be, then let the shore break and the block land.
+        // Stand the recovered goblin in the footprint, then let the shore
+        // break and the block land.
         sim.combat.enemies[0].x = 484.0;
+        sim.run_scripted(KICK_THEN_BLOCK.ticks - 100);
+        let events = events_of(&sim);
+        let lethal: Vec<_> = events
+            .iter()
+            .filter(|e| matches!(e, CombatEvent::EnemyDefeated { .. }))
+            .collect();
+        assert_eq!(lethal.len(), 1, "exactly one defeat event");
+        assert_eq!(
+            *lethal[0],
+            defeat_at(
+                lethal[0],
+                DefeatCause::ShoreBlock { player: 0 },
+                ForceTier::Catastrophic,
+                None
+            )
+        );
+        // The block, not the kick, is the lethal event: no melee defeat.
+        assert_eq!(hits(&events).len(), 1);
+    }
+
+    /// INSTIGATOR-WINDOW: a goblin the kicker put down and that is still lying
+    /// (`Downed`, not yet recovered) when the block lands keeps its instigator.
+    #[test]
+    fn d04_a_kick_into_the_block_while_downed_keeps_the_kicker() {
+        let mut sim = sim_of(&KICK_THEN_BLOCK);
+        sim.run_scripted(100);
+        let mut broken = false;
+        for _ in 0..200 {
+            sim.run_scripted(1);
+            if events_of(&sim)
+                .iter()
+                .any(|e| matches!(e, CombatEvent::ShoreBroken { .. }))
+            {
+                broken = true;
+                break;
+            }
+        }
+        assert!(broken, "the third hit breaks the shore");
+        // The block falls 36 ticks later; the goblin lies for 18 + 22 = 40.
+        let g = &mut sim.combat.enemies[0];
+        g.x = 484.0;
+        g.mode = GoblinMode::Downed;
+        g.down_ticks = 0;
+        g.hit_by = Some(0);
         sim.run_scripted(KICK_THEN_BLOCK.ticks - 100);
         let events = events_of(&sim);
         let lethal: Vec<_> = events
@@ -5813,8 +5865,6 @@ mod tests {
                 Some(0)
             )
         );
-        // The block, not the kick, is the lethal event: no melee defeat.
-        assert_eq!(hits(&events).len(), 1);
     }
 
     fn defeat_at(

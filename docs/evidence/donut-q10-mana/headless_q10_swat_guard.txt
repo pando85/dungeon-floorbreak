@@ -14,5 +14,5 @@ COMBAT_EVENT tick=184 kind=goblin_interrupted goblin=0
 COMBAT_EVENT tick=216 kind=goblin_tell goblin=0
 COMBAT_EVENT tick=242 kind=goblin_swing goblin=0
 COMBAT_EVENT tick=242 kind=hero_hurt source=0 health_left=2 hero=donut
-COMBAT_STATE fixture=q10_swat_guard seed=0xd100002 tick=300 elapsed=300 hero_hp=4 deaths=0 enemies=e0=431.634/2 hash=5b5f58f506006d35
-PARTY_STATE fixture=q10_swat_guard mode=solo controlled=Donut carl_hp=4 donut_hp=2 deaths=0 hash=67c23bf7826f3fab
+COMBAT_STATE fixture=q10_swat_guard seed=0xd100002 tick=300 elapsed=300 hero_hp=4 deaths=0 enemies=e0=431.634/2 hash=8359dfd1da35048b
+PARTY_STATE fixture=q10_swat_guard mode=solo controlled=Donut carl_hp=4 donut_hp=2 deaths=0 hash=985a1da4907c4771

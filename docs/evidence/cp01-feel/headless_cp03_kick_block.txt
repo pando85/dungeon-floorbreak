@@ -7,5 +7,5 @@ COMBAT_EVENT tick=140 kind=move_started move=jab instance=3
 COMBAT_EVENT tick=143 kind=shore_hit instance=3 hits=3
 COMBAT_EVENT tick=143 kind=shore_broken player=0
 COMBAT_EVENT tick=179 kind=shore_landed
-COMBAT_EVENT tick=179 kind=enemy_defeated target=0 cause=shore_block credit_player=0 instigator=0
-COMBAT_STATE fixture=cp03_kick_block seed=0xc030003 tick=260 elapsed=260 hero_hp=4 deaths=0 enemies=e0=493.667/0 hash=73e409161ce5434f shore=3/Broken/Landed block_bottom=0.00
+COMBAT_EVENT tick=179 kind=enemy_defeated target=0 cause=shore_block credit_player=0
+COMBAT_STATE fixture=cp03_kick_block seed=0xc030003 tick=260 elapsed=260 hero_hp=4 deaths=0 enemies=e0=493.667/0 hash=ab324fe393e5f1b6 shore=3/Broken/Landed block_bottom=0.00

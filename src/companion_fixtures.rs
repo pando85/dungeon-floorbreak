@@ -761,7 +761,7 @@ mod tests {
         ("cf02_assist_donut_guards_carls_back", 0x31dba7f55a0bc61a),
         ("cf02_assist_donut_flanks_two_goblins", 0xe567e5c22d30484b),
         ("companion_carl_interrupts_for_donut", 0x932624152d49df54),
-        ("companion_donut_supports_carl", 0x2d03dbced1ed5647),
+        ("companion_donut_supports_carl", 0x76a8b25087a909a9),
         ("companion_duo_no_ai", 0x7bbaea9a82c73afe),
         ("companion_swap_mid_move", 0xec01b32eeb394f8f),
         ("companion_arena_nav_perch_donut", 0x92d45ee04a2c1aea),

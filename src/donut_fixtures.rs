@@ -551,21 +551,21 @@ mod tests {
 
     const GOLDENS: [(&str, u64); 8] = [
         ("q10_swat_interrupt", 0x7151_31d0_374a_16c8),
-        ("q10_swat_guard", 0x67c2_3bf7_826f_3fab),
+        ("q10_swat_guard", 0x985a_1da4_907c_4771),
         ("q10_pounce_hit", 0xf7fe_d891_c0e2_f8c1),
         ("q10_pounce_miss", 0x4274_d6eb_4552_8cc1),
-        ("q10_dry_press", 0x141b_f5d9_6f2c_55a8),
+        ("q10_dry_press", 0x642f_dcab_7d6b_7c1a),
         ("q10_mana_regen", 0x7861_1a00_785e_f14e),
-        ("q10_unlock_persists", 0x3934_047f_0ef2_189c),
+        ("q10_unlock_persists", 0xfbb2_96d7_ee82_6006),
         ("q10_pounce_boss", 0xe2de_0452_dc5d_ede4),
     ];
 
     /// CF02-C1: the committed final hashes of the llama fixtures.
     const CF02_GOLDENS: [(&str, u64); 7] = [
-        ("cf02_llama_swat_interrupt", 0xbd69_2a6b_647a_2a41),
-        ("cf02_llama_swat_guard", 0x764d_bd2f_4024_0d1e),
+        ("cf02_llama_swat_interrupt", 0xc13a_9e97_74c4_9157),
+        ("cf02_llama_swat_guard", 0x4b21_a130_2b0c_65a8),
         ("cf02_llama_pounce", 0xb463_4446_27b7_960e),
-        ("cf02_llama_bolt_stops", 0x579f_344f_6826_3c67),
+        ("cf02_llama_bolt_stops", 0x45f0_545e_d974_61c1),
         ("cf02_donut_solo_llama", 0xe1ea_e0ff_ae9b_c431),
         ("cf02_donut_bailout", 0x50c5_db02_4da0_ce67),
         ("cf02_swap_eased_pan", 0xcb19_d498_fcbc_aee8),
