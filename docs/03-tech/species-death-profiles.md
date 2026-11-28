@@ -33,11 +33,11 @@ No existing golden hash changed. The event hash is unchanged for every earlier f
 
 ## Death profile data
 
-`assets/data/death/species_death_profiles.json`, embedded with `include_str!`, parsed by `death::DeathProfiles` (`src/death.rs`, Bevy-free). Schema version 1; unknown fields are rejected, so a `gore` field cannot be added by accident.
+`assets/data/death/species_death_profiles.json`, embedded with `include_str!`, parsed by `death::DeathProfiles` (`src/death.rs`, Bevy-free). Schema version 2 (`death::SCHEMA_VERSION`; the JSON example below shows the original schema-1 shape, see [Schema 2](#schema-2-death-d) for the current one); unknown fields are rejected, so a `gore` field cannot be added by accident.
 
 ```json
 {
-  "schema_version": 1,
+  "schema_version": 1,  // schema-1 example; the shipped file says 2
   "generic_fallback_finish": "generic_collapse",
   "species": [
     {
@@ -57,7 +57,7 @@ No existing golden hash changed. The event hash is unchanged for every earlier f
 * `recipes`: tried **in file order, first match wins**, so a species lists rarer, harder finishes first. A recipe matches when its `causes` contain the event's cause class (`blunt` for melee, `crush` for the block) and the event's `force` is at least `min_force`. `kind` is `knockback_down`, `crushed` or `slammed`; `finish` is the id the presentation layer draws.
 * `fallback_finish`: played when no recipe matches. An unknown species plays `generic_collapse`. Selection is total: it never fails and never invents a head or other part a species lacks.
 
-Shipped profiles: `goblin` (real, GOB-01), `llama` (real, LLAMA-01 and LLAMA-02-DEATH: `llama_crushed` for the falling block, `llama_slammed` for a lethal `heavy` blunt hit (recipe kind `slammed`, owner decision 2026-11-19: the slam rule) and `llama_down` for any other blunt hit and as the fallback, listed in that order so the first match wins), and two mock fixtures with no artwork, `skeleton_mock` (heavy blunt scatters, crush is a flat pile) and `slime_mock` (crush spreads; no knockback recipe, so a blunt defeat uses its fallback `slime_puddle`).
+Shipped profiles of the global file (as of 2026-11-28: `goblin`, `llama`, `skeleton_mock`, `slime_mock`, `brute_boss`; the Engineer, the Hoarder and the troglodytes come from the overlays below). Original text: `goblin` (real, GOB-01), `llama` (real, LLAMA-01 and LLAMA-02-DEATH: `llama_crushed` for the falling block, `llama_slammed` for a lethal `heavy` blunt hit (recipe kind `slammed`, owner decision 2026-11-19: the slam rule) and `llama_down` for any other blunt hit and as the fallback, listed in that order so the first match wins), and two mock fixtures with no artwork, `skeleton_mock` (heavy blunt scatters, crush is a flat pile) and `slime_mock` (crush spreads; no knockback recipe, so a blunt defeat uses its fallback `slime_puddle`).
 
 `DeathProfiles::select(species, cause, force)` and `select_for_event(species, &event)` return a `FinishSelection { finish, kind, fallback }`. They are pure: derived from the event, stored nowhere, hashed nowhere. Finish ids are not asserted to have art yet; DEATH-C maps them to poses and parts.
 
@@ -102,6 +102,23 @@ The llama rows equal the goblin rows with `llama_*` ids. `src/death.rs` pins eve
 | `goblin` | `{ "kind": "slammed", "finish": "goblin_slammed", "causes": ["blunt"], "min_force": "heavy" }` | a heavy (or catastrophic) blunt defeat is the slammed finish; a routine blunt kill keeps `goblin_knockback_down`; crush, shear and blast rows are unchanged |
 
 **`pile_boss` (FA-Q23, HRD sheet section 10).** The overlay's `add_species` also carries the Hoarder (the global file stays byte-identical): the five recipes and the fallback all select `pile_boss_down`, which `Finish::from_id` maps to `NoArt`. The generic presenter therefore draws nothing for her (no gibs, no dismemberment, no blood: "a ruined person, not a target for spectacle"); her own presenter (`hoarder_art`) draws HOARD-01's `down` frames 13 to 15. She is not CINE-eligible. A test pins every cause and force.
+
+**`goblin_engineer` (ENG-02).** The overlay's `add_species` also carries the Engineer: five recipes in file order, `engineer_slammed` (blunt, heavy), `engineer_exploded` (blast, catastrophic), `engineer_decapitated` (shear, heavy), `engineer_crushed` (crush, routine) and `engineer_knockback_down` (blunt, routine, the fallback). The global file stays byte-identical.
+
+## Troglodyte overlay (TROG-FX-01)
+
+`assets/data/death/species_death_profiles_trog.json` (embedded, schema version 2, `death::DeathProfiles::with_trogs`, `src/death.rs`) adds one profile per troglodyte kind in front of whichever profiles the presenter has (the global file and the cf02 overlay stay byte-identical). Spec: [TROG-FX-01](../02-art/trog-fx-01-spec.md). Presentation only: the finish is chosen from the defeat event and stored nowhere authoritative.
+
+| Species | Cause class | Min force | Finish | Notes |
+| --- | --- | --- | --- | --- |
+| `trog_pygmy` | blast | catastrophic | `trog_pygmy_exploded` | a point blank blast |
+| `trog_pygmy` | blunt | routine | `trog_pygmy_down` (also the fallback) | a ring blast, a kick and a jab degrade to this row |
+| `trog_basher` | blast | catastrophic | `trog_basher_exploded` | |
+| `trog_basher` | blunt | routine | `trog_basher_down` (also the fallback) | |
+| `trog_virtuoso` | blast | catastrophic | `trog_virtuoso_exploded` | |
+| `trog_virtuoso` | blunt | routine | `trog_virtuoso_down` (also the fallback) | |
+
+Crush, shear and the shore block have no troglodyte recipe because no troglodyte room has such a cause, so they take the fallback.
 
 A heavy ring blast (`Explosion { point_blank: false }`, force heavy) has no blast recipe and degrades along its ladder to the blunt class, so under the overlay it also selects `goblin_slammed` (degraded, played as the flung pose). That is the one non-melee row the overlay changes; a test pins it.
 

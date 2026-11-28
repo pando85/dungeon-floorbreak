@@ -1,6 +1,6 @@
 # AUDIENCE-01 — Agent work order: individual viewer counters
 
-**Status:** implementation/evidence work order for the **draft** AUDIENCE-01 PR. Owner approved the compact per-character direction, not final gameplay tuning. Read `AGENTS.md`, `docs/07-agents/chatgpt-hermes-image-pr.md`, `docs/02-art/individual-viewers-hud-v1.md`, `docs/02-art/hybrid-hud-a-native-spec.md`, `docs/03-tech/floor01-scene.md`, `docs/02-art/asset-pipeline.md`, `docs/01-design/floor-01-gameplay-progression-v0.md`.
+**Status:** implementation/evidence work order for the AUDIENCE-01 PR (**merged as #118**; status refreshed 2026-11-28, the intake steps below are historical). Owner approved the compact per-character direction, not final gameplay tuning. Read `AGENTS.md`, `docs/07-agents/chatgpt-hermes-image-pr.md`, `docs/02-art/individual-viewers-hud-v1.md`, `docs/02-art/hybrid-hud-a-native-spec.md`, `docs/03-tech/floor01-scene.md`, `docs/02-art/asset-pipeline.md`, `docs/01-design/floor-01-gameplay-progression-v0.md`.
 
 ## Intake (Hermes: same PR, no second PR)
 

@@ -40,7 +40,7 @@ A Linux-first, controller-first, side-scrolling action platformer design: expres
 
 ## Current next action
 
-Iterate the combat-first linear Floor 1 greybox (WORK-021): rightward movement, melee, goblins, timed bombs, breakable timber and mandatory climbs over steel. See [prototype brief](docs/04-production/linear-combat-greybox.md). Character art integration follows native source-asset review. **Do not generate a full campaign or lots of character art yet.**
+The playable prototype is the 18-room Floor 1 run, from the opening chase to the Ball of Swine and the floor-end panel (`cargo run --release --locked --bin floor01_scene -- --scene f01_late --f01-run`, after `bash scripts/export_assets.sh`). Its entry point for the owner is the [playtest packet](docs/04-production/f01-playtest-ready-01.md) (how to run, the room table, the checklist, the adopted defaults). Mechanics are merged with game-feel review pending and the art awaits owner review; nothing is accepted yet. The current top-priority work is in the [backlog](docs/04-production/backlog.md). The earlier combat-first WORK-021 greybox ([prototype brief](docs/04-production/linear-combat-greybox.md)) is the historical start of that run. Character art integration follows native source-asset review. **Do not generate a full campaign or lots of character art yet.**
 
 The first integrated Floor 1 corridor scene (COMP-01, pixel layers only, awaiting human playtest) is a separate binary: `cargo run --locked --bin floor01_scene` after `bash scripts/export_assets.sh`. See [floor01-scene.md](docs/03-tech/floor01-scene.md).
 

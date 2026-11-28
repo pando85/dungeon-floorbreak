@@ -4,7 +4,7 @@
 
 > **2026-11-17 combat-first priority:** The main fun is creative, satisfying, spectacular enemy kills. The vertical slice must prove **direct-hit feel**, **one authored environmental kill with an understandable causal chain**, and a **meaningful duo combat opportunity** in addition to terrain traversal. The older paired-corridor and two-parallel-path beats below are archived design hypotheses, not mandatory geometry. See [combat-first rule](../01-design/combat-first-encounter-design.md).
 
-**Status:** proposed test level, NOT implemented. Primary goal: prove *destruction changes decisions* and duo powers feel different, without losing controller readability.
+**Status (refreshed 2026-11-28):** this Inspection Corridor test level was never built as written and is an archived hypothesis. What exists instead is the WORK-021 greybox ([linear-combat-greybox.md](linear-combat-greybox.md)) and the playable 18-room Floor 1 run (`--scene f01_late --f01-run`, [playtest packet](f01-playtest-ready-01.md)), which is the de facto vertical slice; the text below is kept as the original proposal. Original status: proposed test level, NOT implemented. Primary goal: prove *destruction changes decisions* and duo powers feel different, without losing controller readability.
 
 ## Player-facing 5-minute experience
 

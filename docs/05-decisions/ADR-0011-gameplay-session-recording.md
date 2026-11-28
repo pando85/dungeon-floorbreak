@@ -1,6 +1,6 @@
 # ADR-0011: Automatic local gameplay session capture as first-class ML evidence
 
-- **Status:** Accepted (owner requirement, 2026-11-20); defaults PT-Q01..PT-Q16 adopted under the design-defaults directive; PT-A, PT-B and PT-C implemented; PT-D and PT-E pending
+- **Status:** Accepted (owner requirement, 2026-11-20); defaults PT-Q01..PT-Q16 adopted under the design-defaults directive; PT-A, PT-B, PT-C and PT-D implemented (PT-D merged as #161); PT-E pending (status line refreshed 2026-11-28; decision text unchanged)
 - **Date:** 2026-11-20
 - **Scope:** Development and internal playtest gameplay with a live input source (solo Carl, solo Donut, local 2P, demo, lab). Scripted, headless and CI paths are out of the default scope (PT-Q12).
 - **Owners:** game design / runtime / AUTOPLAY / companion AI.

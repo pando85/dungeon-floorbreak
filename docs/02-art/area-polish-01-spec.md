@@ -41,7 +41,7 @@ The rig, the rear gate, the lintel tiles, the buffer, the stop frame and the cre
 | bw | `wall_cavity` | (456, 424) | ENV-02, in the bricked bay |
 | st | `heat_scorch_floor_a` | (128, 561) | the corral's floor scorch where the machine comes out of the rear gate, between the piers |
 
-**Out of scope, recorded:** DOZ-02-FU F4 to F7 (faint hull damage at 1x) stays a follow-up of the rig and is not touched here.
+**Out of scope, recorded:** DOZ-02-FU F4 to F7 (faint hull damage at 1x and three related reads, [defined in the DOZ-02 spec section 15](doz-02-dozer-damage-spec.md#15-follow-ups-doz-02-fu-f4-to-f7)) stays a follow-up of the rig and is not touched here.
 
 ### 2.3 `corral` (room 4): the grate and the partition burst
 
@@ -78,7 +78,7 @@ Adopted under the owner's design-defaults authorization; the owner may change an
 | POLISH-Q2 | The Dozer's stop-frame torches at (664, 432) and (704, 448) stand over the frame's hazard rect (x 640..720) in x. They are the composer's, unchanged, and light the weight's telegraph; removing them would dim the hazard read. Keep, or remove with their pools? | keep |
 | POLISH-Q3 | The Juicer's cap carries the gate lintel's "gate slot shadow" on its bottom rows, which reads as a header shadow over a door. Does the owner want a dedicated exit header (a new key, a top-tier job)? | the reused cap |
 | POLISH-Q4 | The grate art is 28 px wide over a 16 px collider (6 px of jamb on each side), and its foot is a flat cut at the dock. Does the owner want a corral-specific portcullis with a lintel (a new key)? | the reused grate |
-| POLISH-Q5 | DOZ-02-FU F4 to F7 (faint hull damage at 1x) | stays recorded, out of scope |
+| POLISH-Q5 | DOZ-02-FU F4 to F7 (faint hull damage at 1x; [defined](doz-02-dozer-damage-spec.md#15-follow-ups-doz-02-fu-f4-to-f7)) | stays recorded, out of scope |
 
 ## 5. Acceptance targets
 
