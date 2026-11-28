@@ -263,6 +263,8 @@ Families that are art specs change in their kit JSON (placement) or authoring sc
 | ID | Adopted value | PR | Where the family lives (data file or code) |
 | --- | --- | --- | --- |
 | HT-AD1 | TRY n counts every attempt start: room entry, each checkpoint respawn, each restart (one expression, `CombatState::hud_try`) | #293 | `CombatState::hud_try` in `src/combat_scene.rs` (one expression) |
+| HUDTRY-AD2 | In a boss room the boss strip carries `TRY n` itself: Jersey, `amber_dim` (`amber` in high contrast), right-aligned on the boss-name line, ending at the bar's right edge (the boss strip replaces the location strip, so HT-AD1's count was invisible in rooms 15 and 18). The count is a separate field (`BossView::attempt`, `Some` only in a room), not parsed from the location text | HUD-TRY-02 | `boss_strip` in `src/hud_draw.rs`, `BossView::attempt` in `src/hud.rs` |
+| HUDTRY-AD3 | If the boss name and `TRY n` would overlap at 640x360 (name width + 8 px gap + text width > the 236 px bar), `TRY n` is dropped, never the name; both current names (THE JUICER, THE BALL OF SWINE) fit with `TRY 9` (asserted) | HUD-TRY-02 | `boss_try_text` in `src/hud_draw.rs` |
 
 ### HEAT (21)
 

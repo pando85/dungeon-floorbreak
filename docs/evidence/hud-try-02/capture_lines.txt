@@ -1,0 +1,2 @@
+HUDTRY_STILL name=bos_try1 room=bos pilot=bos_kick tick=238 size=640x360 window_hash=14230556e7475c3a headless_hash=14230556e7475c3a hash_match=yes bos_b_scene_tell_state_hash_equal=yes passes_byte_identical=yes sha256=22bcf1b1b5f6aac8c673ee2023496669dd28cffc34946c15c5563948f466712f
+HUDTRY_STILL name=juicer_try1 room=juicer pilot=juicer tick=300 size=640x360 window_hash=d18d5a6dbe3dcafe headless_hash=d18d5a6dbe3dcafe hash_match=yes passes_byte_identical=yes sha256=92871518ba74044932fddb3fe58e6c6fa4c5720ed5673f5c5ea6bee71c267564
