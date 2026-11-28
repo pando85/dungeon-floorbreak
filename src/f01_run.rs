@@ -962,6 +962,13 @@ mod tests {
         let with = floor_end_panel(&manifest, &facts, tally, &[], "REC", Some(carry));
         let without = floor_end_panel(&manifest, &facts, tally, &[], "REC", None);
         assert_eq!(with.heading, "FLOOR 1 CLEARED");
+        // Evidence (`docs/evidence/aud-fin-01/floor_end_panel.txt`): `cargo test --lib
+        // the_floor_end_panel_shows_the_viewers_at_the_exit -- --nocapture`.
+        println!("AUDFIN_PANEL heading={:?}", with.heading);
+        for line in &with.lines {
+            println!("AUDFIN_PANEL line={line:?}");
+        }
+        println!("AUDFIN_PANEL hint={:?}", with.hint);
         let at = with
             .lines
             .iter()
