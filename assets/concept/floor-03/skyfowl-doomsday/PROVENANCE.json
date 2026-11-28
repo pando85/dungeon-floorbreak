@@ -1,0 +1,27 @@
+{
+  "type": "original_concept_reference",
+  "project": "THE CRAWL (working title)",
+  "floor": 3,
+  "subject": "Medium Skyfowl Settlement / Remex impending crisis",
+  "status": "UNAPPROVED; high-resolution mood only; NOT native pixel art, gameplay evidence or accepted canon",
+  "created_utc_date": "2026-11-22",
+  "asset": "f03_city_false_harmony_original_concept.png",
+  "creator": "OpenAI image generation (original synthetic concept)",
+  "input_sources": [],
+  "source_asset": "/mnt/data/a_highly_detailed_pixel_art_cinematic_cityscape_in.png",
+  "prompt_summary": "Original widescreen 2D pixel-art mood vista of ivory skyfowl civic stonework, huge bird statues and banners, dark poor service alleys, warm night windows, artificial starfield trusses, distant violet-orange magical storm; no approved protagonist sprites or named NPCs.",
+  "book_related": "Fan-concept reinterpretation of Dungeon Crawler Carl floor 3; unofficial summaries checked for event chronology, not direct book text.",
+  "rights": "Refer to docs/04-production/rights-and-release.md; project owner-reported permission to publish fan-concept art in this repo is user-reported, not independent proof; no public playable-game release authorization.",
+  "required_after_import": [
+    "check canon and visual identity with owner",
+    "build new original editable source masters",
+    "verify native 640x360/640x400 readability with actual game sprites",
+    "run pipeline/provenance validators",
+    "independent top-tier art review"
+  ],
+  "storyboard": "scene_storyboard_mobile.html",
+  "generated_image_dimensions": [
+    1672,
+    941
+  ]
+}

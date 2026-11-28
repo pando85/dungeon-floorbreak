@@ -1,0 +1,120 @@
+{
+  "schema": "floor03-concept-bundle/1",
+  "purpose": "Manual import into PR #246, concept reference only",
+  "approval": "NOT_PRODUCTION_APPROVED",
+  "origin_archives": [
+    {
+      "label": "over_city",
+      "archive": "floor03_over_city_design_concepts_for_pr246.zip",
+      "sha256": "36be770ce03c2821e2236ade24168b6d9af3530dab62d52b0eb88db6dc90cb9b"
+    },
+    {
+      "label": "circus",
+      "archive": "floor03_circus_grimaldi_design_concepts_for_pr246.zip",
+      "sha256": "9bb077192f70ed063bc3886652281b30d8ad74686561e6daeff16c90b76bbdaf"
+    },
+    {
+      "label": "skyfowl_doomsday",
+      "archive": "floor03_skyfowl_doomsday_design_concepts_for_pr246.zip",
+      "sha256": "3b9afafcf0d389ac9b323acf8abe25ea9ffee79ff76d0c8d1a545ba31420c986"
+    }
+  ],
+  "files": [
+    {
+      "path": "assets/concept/floor-03/BUNDLE_IMPORT_README.md",
+      "bytes": 2842,
+      "sha256": "041a44ab6d5b8f81d31a1ba52747f8687422f7010262f0a67aec46d39082a374",
+      "archive": "bundle_metadata"
+    },
+    {
+      "path": "assets/concept/floor-03/README.md",
+      "bytes": 2472,
+      "sha256": "0a9a98944faef3ca3d6d66058fbfc9128933467d2558e95719a7152aee327b14",
+      "archive": "over_city"
+    },
+    {
+      "path": "assets/concept/floor-03/SHA256SUMS",
+      "bytes": 341,
+      "sha256": "443f3f7ad4750c1bd91e3df2a68bb0eac6c3064a22abe9c8858fc28088eec0b7",
+      "archive": "over_city"
+    },
+    {
+      "path": "assets/concept/floor-03/chapter_overview_mobile.html",
+      "bytes": 4984419,
+      "sha256": "309d296930be8fa0e9bef4f6ee94e7b414727873c2c0281432cecc2b8a814b05",
+      "archive": "over_city"
+    },
+    {
+      "path": "assets/concept/floor-03/circus/README.md",
+      "bytes": 3102,
+      "sha256": "f1f1139bb933748695bc66990da3531836172d5503239a976c6d56008aaf2b62",
+      "archive": "circus"
+    },
+    {
+      "path": "assets/concept/floor-03/circus/SHA256SUMS",
+      "bytes": 345,
+      "sha256": "0afb1785abe6de85d8043c1b4ca524190b82c15f2a1321d4a3c350481d85e743",
+      "archive": "circus"
+    },
+    {
+      "path": "assets/concept/floor-03/circus/big_top_environment_mood.png",
+      "bytes": 3530120,
+      "sha256": "8735dea82d238e11bb5249818a57affa8d2dbb53d9d2b93d3fcb0d0e3570bb40",
+      "archive": "circus"
+    },
+    {
+      "path": "assets/concept/floor-03/circus/circus_sequence_mobile.html",
+      "bytes": 8728,
+      "sha256": "6336ae370c1a17ea82ae0487c07ec79a22b405c919adaf6fd958b3228482cf4b",
+      "archive": "circus"
+    },
+    {
+      "path": "assets/concept/floor-03/circus/provenance.md",
+      "bytes": 1839,
+      "sha256": "eee4a2f93ce755133cefb9ea771357df0b54663aeb4112acdbc0409402ead86a",
+      "archive": "circus"
+    },
+    {
+      "path": "assets/concept/floor-03/over_city_first_key.png",
+      "bytes": 3732057,
+      "sha256": "519f9dae16d0555d01ab97699664f88cfada5e6b167aeba5b2f151bf4f466f49",
+      "archive": "over_city"
+    },
+    {
+      "path": "assets/concept/floor-03/provenance.md",
+      "bytes": 1711,
+      "sha256": "31bd52591ae7491fbaf5beab392641e1835120c4974e381d3dee6dfb3f517589",
+      "archive": "over_city"
+    },
+    {
+      "path": "assets/concept/floor-03/skyfowl-doomsday/PROVENANCE.json",
+      "bytes": 1619,
+      "sha256": "ce71c6ae1fae27b2717a19fee1fdda1a25595a326fb13503332263c1d02eab7a",
+      "archive": "skyfowl_doomsday"
+    },
+    {
+      "path": "assets/concept/floor-03/skyfowl-doomsday/README_IMPORT.md",
+      "bytes": 3532,
+      "sha256": "83277e1e1c1b9ee51dab86dacc9f1b2b6ddda1bc496c36922f7a8d4824f05f6c",
+      "archive": "skyfowl_doomsday"
+    },
+    {
+      "path": "assets/concept/floor-03/skyfowl-doomsday/SHA256SUMS",
+      "bytes": 370,
+      "sha256": "02dc8c1151782a323f2368ebb9489ec394762494a9c49c2a1bd00256e1e37bdb",
+      "archive": "skyfowl_doomsday"
+    },
+    {
+      "path": "assets/concept/floor-03/skyfowl-doomsday/f03_city_false_harmony_original_concept.png",
+      "bytes": 3460878,
+      "sha256": "bcf858b9b2d414e2ff6d7ddc923e67bd9ba7744a364d6a1e2c2ebc705aa82b6d",
+      "archive": "skyfowl_doomsday"
+    },
+    {
+      "path": "assets/concept/floor-03/skyfowl-doomsday/scene_storyboard_mobile.html",
+      "bytes": 15168,
+      "sha256": "f4a82be4c7780f02d70cb04238150dee5acb736c4642577fd387eb9d6b72a3bc",
+      "archive": "skyfowl_doomsday"
+    }
+  ]
+}
