@@ -5965,7 +5965,7 @@ mod shutter_tests {
     }
 
     #[test]
-    fn the_court_loads_with_its_static_closed_shutter() {
+    fn the_court_loads_with_its_moving_shutter_and_validates_as_a_static_gate_too() {
         let l = loaded();
         assert_eq!(l.room.id, "F01-RING-COURT");
         let e = &l.encounter;
@@ -5973,14 +5973,23 @@ mod shutter_tests {
         let p = &e.props[0];
         assert_eq!(p.kind, PropKind::Shutter);
         assert!(!p.solid_intact && p.remnant.is_none() && p.valve.is_none());
+        // RING-C wire: the court authors the moving shutter (RINGC-AD1).
         let cfg = p.shutter.unwrap();
-        assert!(cfg.is_static());
-        assert_eq!(cfg.initial, ShutterInitial::Closed);
+        assert!(!cfg.is_static());
+        assert_eq!(cfg.initial, ShutterInitial::Open);
+        assert_eq!(cfg.arm_x, Some(1008));
+        assert_eq!(cfg.blocked_window_ticks(p.target.h), 218);
         // One changeable prop: two states (open, closed) times three classes.
         assert_eq!(e.reach.len(), 3 * 2);
         assert!(e.hazards.is_empty() && e.links.is_empty());
         let text = std::fs::read_to_string(root().join(COURT_ROOM_PATH)).unwrap();
         assert_eq!(room_ceiling_px(&text, "F01-RING-COURT"), Some(228));
+        // The RING-B static gate (`--ring-static-gate`) is the same room, valid.
+        let fixed = with_knobs(json!({ "initial": "closed" }));
+        let e = result(&fixed).expect("the static gate validates");
+        let cfg = e.props[0].shutter.unwrap();
+        assert!(cfg.is_static());
+        assert_eq!(cfg.initial, ShutterInitial::Closed);
     }
 
     #[test]
@@ -6183,7 +6192,7 @@ mod shutter_tests {
         )));
         // Flush against both ends of the walkway is inside its range.
         for x in [1120, 1280] {
-            let mut v = sidecar();
+            let mut v = with_knobs(json!({ "initial": "closed" }));
             v["props"][0]["target"] = json!({ "x": x, "y": 512, "w": 32, "h": 68 });
             assert!(result(&v).is_ok(), "x {x}: {:?}", result(&v));
         }

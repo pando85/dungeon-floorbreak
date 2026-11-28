@@ -836,9 +836,10 @@ fn the_scorch_embers_fade_from_the_drum_detonation_tick() {
 /// changes the state hash.
 #[test]
 fn the_static_shutter_draws_its_greybox_stand_in_and_the_hash_stays() {
-    use crate::f01_ring::{RingRoom, combat_of, launch};
+    use crate::f01_ring::{GateMode, RingRoom, combat_of, launch, launch_mode};
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let run = launch(&root, RingRoom::Court).unwrap();
+    // RING-C wire: the static closed gate is the `--ring-static-gate` mode.
+    let run = launch_mode(&root, RingRoom::Court, true, GateMode::Static).unwrap();
     let mut scene = SceneSim::new_at(&run.kit, 360, run.fixture.carl_x).unwrap();
     let combat = combat_of(&run, &mut scene).unwrap();
     let before = combat.state_hash(&scene);

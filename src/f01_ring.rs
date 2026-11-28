@@ -13,15 +13,20 @@
 //! sidecar. [`combat_for`] builds the combat state the scene, the fixtures and
 //! the PLAYTRACE verifier share:
 //!
-//! * the court's **static closed shutter** (`initial: closed`, KR3 clause 5)
+//! * RING-C wire: the court's shutter is a **moving** shutter by default
+//!   (`initial: open`, `arm_x` 1008, RINGC-AD1 to AD8, `docs/03-tech/ring-c-wire.md`): the
+//!   env step arms it when a hero has crossed `arm_x` with the trailing hero within 320 px
+//!   (KR18), then it warns 40 ticks, closes in 34, stays closed 150 and opens in 34, once
+//!   (`cycles` 1), through 17 slices of 4 px synced as Timber blocks. [`GateMode::Static`]
+//!   (the `--ring-static-gate` flag) restores the RING-B gate for comparison;
+//! * the **static closed gate** of that mode (`initial: closed`, KR3 clause 5)
 //!   is an env prop of the env step: one block (its closed footprint,
 //!   RINGW-AD8 after review F5 of #271; since RING-FU-A a blast's line of
 //!   sight is blocked along slice seams too, and the one block is kept) appended to
 //!   `scene.world.solids` by the KR6 sync (Timber, so the companion's nav
 //!   updates stay incremental), standing for the whole attempt. Collision, the
 //!   goblin's `wall_stop` (the CF02-B slam), the Magic Missile and the
-//!   companion's `NavDriver::sync` read them unchanged. The moving shutter,
-//!   its arm rule and its pins are RING-C wire's;
+//!   companion's `NavDriver::sync` read them unchanged, moving or static;
 //! * the **two goblins of each sidecar** are the fixture's goblins, chasing, in
 //!   roster order; an entry's `trigger_x` and `delay_ticks` are its FA-Q20 wake
 //!   gate ([`crate::f01_boiler::wake_gate`], the one implementation);
@@ -55,6 +60,7 @@ use crate::donut_mana::DonutSetup;
 use crate::donut_prog::DonutProgFlags;
 use crate::encounter::{self, Loaded, PropKind, RosterKind};
 use crate::env_kit::{EnvKit, IRect as KitRect};
+use crate::env_prop::{ShutterConfig, ShutterInitial};
 use crate::goblin::WakeGate;
 use crate::input::RawInput;
 use crate::scene_enemy::{SlotRoom, spawn_from_roster};
@@ -170,7 +176,7 @@ impl RingRoom {
 }
 
 pub const COURT_ROOM_HASH: u64 = 0x4951_683c_b336_eefa;
-pub const COURT_ENCOUNTER_HASH: u64 = 0xde73_7bfb_7e64_45a7;
+pub const COURT_ENCOUNTER_HASH: u64 = 0x9b19_abdd_526c_7235;
 pub const SPLIT_ROOM_HASH: u64 = 0xa634_1e71_16e1_9601;
 pub const SPLIT_ENCOUNTER_HASH: u64 = 0x723d_48ff_1bb9_ffe4;
 pub const COURT_ROOM_PIN_KEY: &str = "f01_ring_court_room";
@@ -203,6 +209,16 @@ impl RingRun {
             .find(|p| p.kind == PropKind::Shutter)
             .map(|p| p.target)
     }
+
+    /// RING-C wire: the room's shutter config, if it has one.
+    pub fn shutter_config(&self) -> Option<ShutterConfig> {
+        self.loaded
+            .encounter
+            .props
+            .iter()
+            .find(|p| p.kind == PropKind::Shutter)
+            .and_then(|p| p.shutter)
+    }
 }
 
 /// The env runtime of a launched room: the sidecar's props (the court's static
@@ -228,6 +244,18 @@ fn goblins_only(roster: &[encounter::RosterEntry]) -> Result<(), String> {
     }
 }
 
+/// RING-C wire (RINGC-AD6): how the court's shutter runs. The sidecar authors a
+/// moving shutter; the flag restores the RING-B static closed gate so the two
+/// can be compared. A room without a shutter ignores it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum GateMode {
+    /// The sidecar as authored (on by default): the moving shutter.
+    #[default]
+    Moving,
+    /// The RING-B static closed gate (`--ring-static-gate`), for comparison.
+    Static,
+}
+
 /// Load a Ring room and its sidecar, compose its kit and build the fixture. The
 /// kit carries the AREA-RINGS-01 dressing ([`crate::ring_kit`], presentation only).
 pub fn launch(root: &Path, room: RingRoom) -> Result<RingRun, String> {
@@ -238,8 +266,20 @@ pub fn launch(root: &Path, room: RingRoom) -> Result<RingRun, String> {
 /// plain composition of the greybox rooms; the tests prove the two differ in
 /// presentation only (solids, ceiling slab, views, walking line, state hash).
 pub fn launch_with(root: &Path, room: RingRoom, dressed: bool) -> Result<RingRun, String> {
+    launch_mode(root, room, dressed, GateMode::Moving)
+}
+
+/// [`launch_with`] under a [`GateMode`]. `Static` replaces the shutter's
+/// validated moving config by the static closed defaults after the load, so the
+/// pinned sidecar and every validator run are the same in both modes.
+pub fn launch_mode(
+    root: &Path,
+    room: RingRoom,
+    dressed: bool,
+    gate: GateMode,
+) -> Result<RingRun, String> {
     let path = room.encounter_path();
-    let loaded = encounter::load(root, path).map_err(|errors| {
+    let mut loaded = encounter::load(root, path).map_err(|errors| {
         format!(
             "{path}: {}",
             errors
@@ -258,6 +298,13 @@ pub fn launch_with(root: &Path, room: RingRoom, dressed: bool) -> Result<RingRun
             loaded.sidecar_hash,
             room.encounter_hash()
         ));
+    }
+    if gate == GateMode::Static {
+        for p in &mut loaded.encounter.props {
+            if p.kind == PropKind::Shutter {
+                p.shutter = Some(ShutterConfig::defaults(ShutterInitial::Closed));
+            }
+        }
     }
     if !crate::story_unlock::StoryTable::active().has_room_pin(&loaded.encounter.story_pin) {
         return Err(format!(
@@ -320,7 +367,7 @@ pub fn launch_with(root: &Path, room: RingRoom, dressed: bool) -> Result<RingRun
         name: room.scene_name(),
         summary: match room {
             RingRoom::Court => {
-                "RING-A/B wire: the Shutter Court (static closed shutter, the walkway, two goblins)"
+                "RING-A/B/C wire: the Shutter Court (the shutter, the walkway, two goblins)"
             }
             RingRoom::Split => {
                 "RING-A/B wire: the split passage (two routes that rejoin, the view ledge, two goblins)"
@@ -402,7 +449,11 @@ pub fn entry_line(run: &RingRun) -> String {
         e.goal,
         e.roster.len(),
         run.fixture.enemies.len(),
-        run.shutter().map_or("none", |_| "static_closed"),
+        run.shutter_config().map_or("none", |c| if c.is_static() {
+            "static_closed"
+        } else {
+            "moving"
+        }),
         run.loaded.room_hash,
         run.loaded.sidecar_hash,
     )
@@ -501,26 +552,38 @@ mod tests {
             let mut scene = SceneSim::new_at(&run.kit, 360, run.fixture.carl_x).unwrap();
             let combat = combat_of(&run, &mut scene).unwrap();
             let env = combat.env().expect("the env step");
-            let stacks = env
+            let slices = env
                 .solids()
                 .iter()
-                .filter(|s| s.kind == EnvSolidKind::ShutterStack)
+                .filter(|s| matches!(s.kind, EnvSolidKind::ShutterSlice { .. }))
                 .count();
             match room {
                 RingRoom::Court => {
-                    assert_eq!(stacks, 1, "the static stack is one block");
+                    // RING-C wire: the moving shutter is 17 slices, Timber (KR6), none
+                    // standing while it is open; the static gate is the other mode.
+                    assert_eq!(slices, 17);
                     assert!(run.shutter().is_some());
-                    // It is in the world, standing, as Timber (KR6).
+                    assert!(!run.shutter_config().unwrap().is_static());
                     let range = env.solid_range();
-                    assert_eq!(range.len(), 1);
+                    assert_eq!(range.len(), 17);
                     for i in range {
                         let block = &scene.world.solids[i];
-                        assert!(block.intact);
+                        assert!(!block.intact);
                         assert_eq!(block.material, crate::prototype::Material::Timber);
                     }
+                    assert!(entry_line(&run).contains("shutter=moving"));
+                    let fixed = launch_mode(&root(), room, true, GateMode::Static).unwrap();
+                    assert!(fixed.shutter_config().unwrap().is_static());
+                    assert!(entry_line(&fixed).contains("shutter=static_closed"));
+                    let mut scene =
+                        SceneSim::new_at(&fixed.kit, 360, fixed.fixture.carl_x).unwrap();
+                    let combat = combat_of(&fixed, &mut scene).unwrap();
+                    let range = combat.env().unwrap().solid_range();
+                    assert_eq!(range.len(), 1, "the static stack is one block");
+                    assert!(scene.world.solids[range.start].intact);
                 }
                 RingRoom::Split => {
-                    assert_eq!(stacks, 0);
+                    assert_eq!(slices, 0);
                     assert!(run.shutter().is_none());
                 }
             }

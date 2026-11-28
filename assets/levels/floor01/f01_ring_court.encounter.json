@@ -1,6 +1,6 @@
 {
   "schema": "floor01-encounter-v1",
-  "status": "RING-A/B core data (FLOOR01-RINGS-01, docs/07-agents/f01-playtest-integration-plan.md section 15): greybox hypotheses, validated by src/encounter.rs, launched as the room ring_court of --scene f01_late since RING-A/B wire (src/f01_ring.rs: the static shutter runs in the env step, the roster spawns). The shutter is a STATIC closed gate (KR3 clause 5); the moving machine is RING-C core, its wire RING-C wire. Every number is a tuning knob. Coordinates are layout pixels, y down, like the room file.",
+  "status": "RING-A/B core data (FLOOR01-RINGS-01, docs/07-agents/f01-playtest-integration-plan.md section 15), RING-C wire: greybox hypotheses, validated by src/encounter.rs, launched as the room ring_court of --scene f01_late (src/f01_ring.rs). The shutter is a MOVING shutter (initial open, cycles 1): a hero that crosses arm_x 1008 (192 px before the arch) with the trailing hero within 320 px arms it, it warns 40 ticks, closes in 34 (68 px at 2 px/tick, 17 slices of 4 px), stays closed 150 and opens in 34, once per attempt (docs/03-tech/ring-c-wire.md, RINGC-AD1 to AD8). `--ring-static-gate` restores the RING-B static closed gate for comparison. Every number is a tuning knob. Coordinates are layout pixels, y down, like the room file.",
   "id": "F01-RING-COURT-ENC",
   "room_file": "f01_ring_court.room.json",
   "room_id": "F01-RING-COURT",
@@ -18,7 +18,7 @@
       "id": "shutter",
       "kind": "shutter",
       "target": { "x": 1200, "y": 512, "w": 32, "h": 68 },
-      "shutter": { "initial": "closed" }
+      "shutter": { "initial": "open", "arm_x": 1008 }
     }
   ],
   "hazards": [],

@@ -78,6 +78,9 @@ try ok $S --f01-room trog_run --trog-pilot donut
 try refuse $S --f01-room hoarder --trog-pilot carl
 try refuse $S --f01-run --f01-room trog_run --trog-pilot carl
 try ok $S --f01-room ring_court --ring-pilot
+try ok $S --f01-room ring_court --ring-static-gate
+try ok $S --f01-run --ring-static-gate
+try refuse --ring-static-gate
 try ok $S --f01-room dozer --room-pilot dozer:run
 try ok $S --f01-room hoarder --room-pilot hoarder:carl_solo:0
 try ok $S --f01-room corral --room-pilot corral_rush

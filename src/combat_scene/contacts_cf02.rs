@@ -156,6 +156,7 @@ impl CombatState {
         }
         let g = &self.enemies[source];
         let body = LaunchedBody {
+            source: source as u32,
             body: g.body(),
             launch: flier.launch,
             initiator: g.flight_credit(),
