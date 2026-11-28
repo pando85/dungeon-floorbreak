@@ -63,7 +63,7 @@ Named entries of the Floor 01 kit palette, values exact (38 colours, at most 63)
 | --- | --- | --- |
 | EXIT-AD1 | One new doorway sheet instead of stretching the 28 px room 5 grate or the 16 px Hoarder door | Both reused sheets are edge-on lane blockers of another width; integer art never stretches. The grate's design and drawing code are reused as they are |
 | EXIT-AD2 | The Boiler and the Ring rooms (no exit gate) show the open frame | Their exit is open from the start (`reach_exit`); a closed grate would lie |
-| EXIT-AD3 | The grate snaps from closed to open on the clear tick (no lift animation) | The simulation keeps no opening tick; a render-local memory would not survive a replay seek (the room 5 gate's DFX-AD7) |
+| EXIT-AD3 | The grate snaps from closed to open on the clear tick (no lift animation) | **Superseded by EXITL-AD1** (the simulation now keeps the opening tick). It held while the simulation kept no opening tick; a render-local memory would not survive a replay seek (the room 5 gate's DFX-AD7) |
 | EXIT-AD4 | The Guild door's two light emitters stay (its grille light now falls on the passage lamp, its floor spill on the threshold) | Lighting is presentation only and is derived from the kit at load; keeping it leaves the room's light budget and look unchanged around the exit |
 | EXIT-AD5 | Only rooms 2, 4, 4a, 4b and 6 swap the door; room 1 (its own door), room 5 and the gym (their own gates), the CF02 microarena (`--cf02`) and the other composed scenes keep theirs | The audit's scope (V13) plus the Ring rooms wired since; the CF02 arena shares room 6's geometry but has its own exit rule and evidence |
 | EXIT-AD6 | Design and execution in one pass; the silhouette gate is folded into the independent review | Orchestrator brief; the grate was already designed |
@@ -71,7 +71,28 @@ Named entries of the Floor 01 kit palette, values exact (38 colours, at most 63)
 
 ## 7. Follow-ups (gaps, not done here)
 
-- A lift animation needs the simulation's opening tick (the same follow-up as the room 5 gate drop).
+- ~~A lift animation needs the simulation's opening tick~~ **Done by EXIT-LIFT-01** (section 8).
 - No aligned room 4 route shows the closed grate in view (every route reaches the exit's view after the clear); the closed frame of room 4 is the same code path as room 6's and is held by the unit tests.
 - The Guild door piece is still the composer's exit marker in the CF02 microarena, the DEMO hall and the camera lab rooms.
-- Owner notes from the review: the grate snaps up on the clear tick while the last goblin's defeat presentation still staggers next to the door (about 25 ticks; a sim opening tick and a lift animation would answer it, not a render delay); at 1x the open passage is very dark and the lamp is a speck (lifting the passage's lower third and the floor spill one ramp step, same palette, would strengthen the exit pull).
+- Owner notes from the review: the grate snaps up on the clear tick while the last goblin's defeat presentation still staggers next to the door (about 25 ticks; a sim opening tick and a lift animation would answer it, not a render delay; **the lift is done, section 8**); at 1x the open passage is very dark and the lamp is a speck (lifting the passage's lower third and the floor spill one ramp step, same palette, would strengthen the exit pull).
+
+## 8. EXIT-LIFT-01: the lift animation
+
+The grate no longer snaps up. From the tick the exit gate opens it rises for 16 ticks and then rests in the raised frame. No new key and no new frame: the rise is a **rigid shift** of the closed frame's opening, clipped by the lintel (the technique of the room 5 gate drop, [F01-SIM-TICKS](f01-sim-ticks-spec.md)).
+
+- **Opening tick.** `EnvRuntime::exit_open_tick` is an unhashed observer field, a copy of the scene tick at the hashed edge (like `FallingMass::landed_tick` and `Boss::gate_closed_tick`). It is set by the env sync on the first tick it sees the `ExitGate` solid open after seeing it stand, and cleared when the gate stands again. A room that starts clear, a room without an exit gate (the Boiler and the Ring rooms) and a state built without stepping have none and draw the raised frame at once. No state hash, golden or pin moves.
+- **Drawing.** While the age (`tick - exit_open_tick`) is below `LIFT_TICKS` (16) the open frame is the base, and a second sprite crops the closed frame's opening columns (`x` 16..80) from row `40 + shift` down, its top on the opening's top (the lintel clips the rise), its bottom `shift` px above the walking line. `shift = round(80 * smoothstep(age / 16))`; 80 px is the closed grate lifted until its rail and teeth hang 16 rows under the lintel, the raised frame's grate. From age 16 the overlay is gone.
+- **Evidence:** [docs/evidence/exit-lift-01](../evidence/exit-lift-01/README.md).
+
+| ID | Default | Why |
+| --- | --- | --- |
+| EXITL-AD1 | 16 ticks, smoothstep eased, a rigid shift up into the lintel, from the simulation's opening tick | A hauled grate is slow to start and slow to settle; 16 ticks (0.27 s) stays inside the last goblin's defeat presentation (about 25 ticks) and short enough not to read as a wait |
+| EXITL-AD2 | The passage is passable from the opening tick, while the grate is still rising (gameplay unchanged; no collider eases) | Presentation may not change outcomes; with the 16 tick lift the hero cannot reach the bars before they have cleared the head in normal play |
+| EXITL-AD3 | Only exits with an `ExitGate` lift (rooms 4 and 6 and the corral's M3 gate); the Boiler (room 2) and the Ring rooms are open from the start and show the raised frame | EXIT-AD2: they have no gate, so there is no moment to animate |
+| EXITL-AD4 | The overlay is a crop of the existing closed frame, no baked frames | Lean: no new art, source, manifest or atlas change |
+| EXITL-AD5 | The passage lift (the owner note: lower third and floor spill one ramp step brighter) is not done here | It is a palette change of the frozen frames, not a shift; left for a pixel pass |
+
+Open questions:
+
+- **EXITL-Q1.** The crop carries the closed frame's own passage pixels between the bars, so the dark floor-shade pixels (rows 128..135) between the teeth ride up with the grate for 16 ticks. Suggested follow-up: bake lift frames in the sheet with the passage behind the grate taken from the open frame (the F01-SIM-TICKS approach), if the owner sees it at 1x.
+- **EXITL-Q2.** The lift ends at the raised frame without a settle bounce; a small ease-out settle is a pure timing change.

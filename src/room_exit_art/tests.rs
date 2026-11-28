@@ -190,12 +190,14 @@ fn check_cleared_run(
     let layout_h = drawn.scene.world.layout_height();
     let mut seen = [false; 2];
     let mut opened = None;
+    let mut lifted = 0u64;
     for k in 0..900u64 {
         let input = pilot(&drawn.combat, &drawn.scene, HeroId::Carl);
         assert_eq!(input, pilot(&plain.combat, &plain.scene, HeroId::Carl));
         plain.step_slots([input, RawInput::NONE]);
         drawn.step_slots([input, RawInput::NONE]);
-        let draw = exit_draw(&drawn.combat, exit, layout_h).expect("a 64 x 96 exit");
+        let tick = drawn.scene.world.tick;
+        let draw = exit_draw(&drawn.combat, exit, layout_h, tick).expect("a 64 x 96 exit");
         let block = gate_block(&drawn).expect("the room has an exit gate");
         assert_eq!(
             draw.frame == ExitFrame::Closed,
@@ -206,6 +208,40 @@ fn check_cleared_run(
         if draw.frame == ExitFrame::Open && opened.is_none() {
             opened = Some(drawn.scene.world.tick);
         }
+        // EXIT-LIFT-01: no lift (and no opening tick) before the gate opens; from the
+        // opening tick the lift follows the age, then it is gone.
+        match opened {
+            None => {
+                assert_eq!(draw.lift, None, "{name} tick {k}: no draw change before");
+                assert_eq!(drawn.combat.env().and_then(|e| e.exit_open_tick()), None);
+            }
+            Some(open) => {
+                assert_eq!(
+                    drawn.combat.env().and_then(|e| e.exit_open_tick()),
+                    Some(open),
+                    "{name} tick {k}: the opening tick is the first open tick"
+                );
+                let age = tick - open;
+                match draw.lift {
+                    Some(l) => {
+                        assert!(age < LIFT_TICKS, "{name} age {age}");
+                        assert_eq!(l.shift, lift_shift(age));
+                        // A rigid shift clipped by the lintel: the closed frame's opening
+                        // from the kept rows down, on the opening's top, `shift` above the
+                        // walking line; the whole opening on the opening tick.
+                        assert_eq!(l.src_y + l.h, EXIT_H);
+                        assert_eq!(l.y + l.h, draw.y + OPENING_H);
+                        assert_eq!((l.x, l.y), (exit.x, draw.y + l.shift));
+                        assert!(l.h >= RAISED_ROWS, "the teeth stay under the lintel");
+                        if age == 0 {
+                            assert_eq!((l.shift, l.h), (0, OPENING_H));
+                        }
+                        lifted += 1;
+                    }
+                    None => assert!(age >= LIFT_TICKS, "{name} age {age}: lifting"),
+                }
+            }
+        }
         assert_eq!(plain.state_hash(), drawn.state_hash(), "{name} tick {k}");
         assert_eq!(
             plain.combat.events.len(),
@@ -214,6 +250,10 @@ fn check_cleared_run(
         );
     }
     assert!(seen[0] && seen[1], "{name}: closed, then open ({opened:?})");
+    assert_eq!(
+        lifted, LIFT_TICKS,
+        "{name}: the lift lasts LIFT_TICKS ticks"
+    );
 }
 
 /// Rendering never changes authoritative state, and the drawn exit is the sim's gate
@@ -265,9 +305,13 @@ fn the_boiler_exit_is_open() {
         &combat,
         run.loaded.encounter.exit,
         scene.world.layout_height(),
+        0,
     )
     .unwrap();
     assert_eq!(draw.frame, ExitFrame::Open);
+    // EXIT-LIFT-01: a room without an exit gate never lifts.
+    assert_eq!(draw.lift, None);
+    assert_eq!(combat.env().and_then(|e| e.exit_open_tick()), None);
     assert!(!exit_closed(&combat));
     // World px, y up: the canvas's bottom row on the walking line.
     assert_eq!(
@@ -289,5 +333,26 @@ fn another_exit_size_is_not_drawn() {
     .unwrap();
     let mut exit = run.loaded.encounter.exit;
     exit.w = 48;
-    assert_eq!(exit_draw(&combat, exit, scene.world.layout_height()), None);
+    assert_eq!(
+        exit_draw(&combat, exit, scene.world.layout_height(), 0),
+        None
+    );
+}
+
+/// EXIT-LIFT-01 (EXITL-AD1): the lift offset by tick: it starts at 0 on the opening
+/// tick, is monotone and eased, never reaches the full rise before `LIFT_TICKS`, and
+/// is the full rise from then on.
+#[test]
+fn the_lift_offset_follows_the_age() {
+    assert_eq!(LIFT_TICKS, 16);
+    assert_eq!(LIFT_RISE, 80);
+    assert_eq!(lift_shift(0), 0);
+    assert_eq!(lift_shift(LIFT_TICKS), LIFT_RISE);
+    assert_eq!(lift_shift(LIFT_TICKS + 100), LIFT_RISE);
+    let shifts: Vec<i32> = (0..=LIFT_TICKS).map(lift_shift).collect();
+    assert!(shifts.windows(2).all(|w| w[0] <= w[1]), "{shifts:?}");
+    assert!(shifts[(LIFT_TICKS - 1) as usize] < LIFT_RISE, "{shifts:?}");
+    // Eased: the first and the last steps are shorter than the middle one.
+    let step = |a: usize| shifts[a + 1] - shifts[a];
+    assert!(step(0) < step(7) && step(15) < step(7), "{shifts:?}");
 }

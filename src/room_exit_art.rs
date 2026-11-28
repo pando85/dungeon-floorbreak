@@ -20,9 +20,12 @@
 //! **Presentation only.** Nothing here mutates a state, draws a random number or
 //! is hashed, replayed or read back by the simulation (a test steps a cleared run
 //! with and without drawing and compares the state hash on every tick). The grate
-//! snaps between its two frames on the tick the gate opens: the simulation keeps no
-//! opening tick, so a lift animation would need a render-local memory (adopted
-//! default EXIT-AD3, the room 5 gate's DFX-AD7).
+//! lifts over [`LIFT_TICKS`] from the tick the gate opens (EXIT-LIFT-01, EXITL-AD1): the
+//! simulation keeps that tick as an unhashed observer field
+//! (`EnvRuntime::exit_open_tick`, a copy of the scene tick at the hashed edge, like
+//! `Boss::gate_closed_tick`), so the lift survives a replay seek. Gameplay is
+//! unchanged: the passage is passable from the opening tick, while the grate is
+//! still visibly rising (EXITL-AD2).
 //!
 //! The art matches the simulation or is not drawn: the opening is drawn only for a
 //! 64 x 96 exit (the canvas's opening); another size keeps the Guild door.
@@ -46,6 +49,13 @@ pub const OPENING_W: i32 = 64;
 pub const OPENING_H: i32 = 96;
 /// The raised grate's rail and teeth hang this many rows under the lintel.
 pub const RAISED_ROWS: i32 = 16;
+/// EXIT-LIFT-01 (EXITL-AD1): the lift lasts this many ticks from the opening tick.
+pub const LIFT_TICKS: u64 = 16;
+/// The grate's total rise: the closed grate shifted up until its rail and teeth hang
+/// [`RAISED_ROWS`] under the lintel, the raised frame's grate.
+pub const LIFT_RISE: i32 = OPENING_H - RAISED_ROWS;
+/// The canvas rows above the opening (the cap, header, lintel and slot).
+pub const CAP_ROWS: i32 = EXIT_H - OPENING_H;
 /// The composer's wall torch piece (the ground torch at a room's end uses it).
 pub const TORCH_PIECE: &str = "torch_wall";
 
@@ -76,7 +86,8 @@ impl ExitFrame {
     }
 }
 
-/// The sprite: `frame` of the sheet, its bottom-left at world `(x, y)`, `w` x `h` px.
+/// The sprite: `frame` of the sheet, its bottom-left at world `(x, y)`, `w` x `h` px,
+/// and, while the grate lifts, the [`Lift`] overlay.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ExitDraw {
     pub frame: ExitFrame,
@@ -84,6 +95,36 @@ pub struct ExitDraw {
     pub y: i32,
     pub w: i32,
     pub h: i32,
+    pub lift: Option<Lift>,
+}
+
+/// The rising grate (EXIT-LIFT-01): a rigid shift of the closed frame's opening, drawn
+/// over the open frame and clipped by the lintel. The overlay is the closed frame's
+/// opening columns from `src_y` down (the rows the shift keeps under the lintel), its
+/// top on the opening's top; its bottom-left is at world `(x, y)`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Lift {
+    /// The rise so far in px (0 on the opening tick, [`LIFT_RISE`] when settled).
+    pub shift: i32,
+    /// The overlay's source rectangle in the closed frame (px, y down).
+    pub src_x: i32,
+    pub src_y: i32,
+    pub w: i32,
+    pub h: i32,
+    /// The overlay's bottom-left in world px (y up).
+    pub x: i32,
+    pub y: i32,
+}
+
+/// The grate's rise in px `age` ticks after the opening tick: a smoothstep from 0 to
+/// [`LIFT_RISE`] over [`LIFT_TICKS`] (slow to start, slow to settle, the weight of a
+/// hauled grate); [`LIFT_RISE`] from `LIFT_TICKS` on.
+pub fn lift_shift(age: u64) -> i32 {
+    if age >= LIFT_TICKS {
+        return LIFT_RISE;
+    }
+    let t = age as f32 / LIFT_TICKS as f32;
+    (LIFT_RISE as f32 * t * t * (3.0 - 2.0 * t)).round() as i32
 }
 
 /// Whether the room's exit gate stands now: the room has an exit gate (a
@@ -103,7 +144,7 @@ pub fn exit_closed(state: &CombatState) -> bool {
 /// layout is `layout_h` px tall: the opening on the exit's columns, the canvas's
 /// bottom row on the exit's bottom (the walking line). `None` when the exit is not
 /// the 64 x 96 opening the canvas is drawn for.
-pub fn exit_draw(state: &CombatState, exit: IRect, layout_h: i32) -> Option<ExitDraw> {
+pub fn exit_draw(state: &CombatState, exit: IRect, layout_h: i32, tick: u64) -> Option<ExitDraw> {
     if exit.w != OPENING_W || exit.h != OPENING_H {
         return None;
     }
@@ -112,12 +153,35 @@ pub fn exit_draw(state: &CombatState, exit: IRect, layout_h: i32) -> Option<Exit
     } else {
         ExitFrame::Open
     };
+    let (x, y) = (exit.x - JAMB_W, layout_h - (exit.y + exit.h));
+    // EXIT-LIFT-01: from the opening tick the grate rises for LIFT_TICKS (the gate's
+    // frame is already `Open`: the passage is passable while it rises).
+    let lift = state
+        .env()
+        .and_then(|env| env.exit_open_tick())
+        .filter(|_| frame == ExitFrame::Open)
+        .and_then(|open| {
+            let age = tick.saturating_sub(open);
+            (age < LIFT_TICKS).then(|| {
+                let shift = lift_shift(age);
+                Lift {
+                    shift,
+                    src_x: JAMB_W,
+                    src_y: CAP_ROWS + shift,
+                    w: OPENING_W,
+                    h: OPENING_H - shift,
+                    x: exit.x,
+                    y: y + shift,
+                }
+            })
+        });
     Some(ExitDraw {
         frame,
-        x: exit.x - JAMB_W,
-        y: layout_h - (exit.y + exit.h),
+        x,
+        y,
         w: EXIT_W,
         h: EXIT_H,
+        lift,
     })
 }
 
