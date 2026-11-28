@@ -5,7 +5,7 @@
     {
       "id": "F01-TROG-STRENGTH",
       "name": "The Test of Strength",
-      "subtitle": "Floor 01 gym threshold: the Virtuoso on the near side, the Basher behind an 80 px bench",
+      "subtitle": "Floor 01 gym threshold: the Virtuoso on the near side, the Basher behind an 80 px breakable bench",
       "act": 2,
       "setting": "dry-catacomb",
       "width": 1024,
@@ -19,9 +19,9 @@
       "enemies": [],
       "hazards": [],
       "goal_x": 992,
-      "purpose": "A 1024 px hall on one continuous floor lane: the spawn, a 48 px retreat shelf (288..352), the Virtuoso at 496, an 80 px static bench (640..672, y 500; the static fallback of plan 5.4 raised to Carl's class limit, TROG-AD43, TROG-AD46) and the Basher at 800 behind it, an exit apron at 944. The shelf, the bench and the enemies live in the encounter sidecar.",
-      "expected": "Spawns, the checkpoint, the exit, the shelf, the bench and the roster come from f01_trog_strength.encounter.json; this file holds geometry only. The exit opens when both troglodytes are defeated; the bench is climbed (an 80 px static).",
-      "coop": "Solo with the companion, or two players: every critical route is open to both heroes (an 80 px bench both heroes can cross)."
+      "purpose": "A 1024 px hall on one continuous floor lane: the spawn, a 48 px retreat shelf (288..352), the Virtuoso at 496, the 80 px bench_stack partition (640..672, y 500; Carl's class limit, TROG-Q14 resolved by TROGB-AD1) and the Basher at 776 behind it, an exit apron at 944. The shelf, the bench stack and the enemies live in the encounter sidecar.",
+      "expected": "Spawns, the checkpoint, the exit, the shelf, the bench stack and the roster come from f01_trog_strength.encounter.json; this file holds geometry only. The exit opens when both troglodytes are defeated; the bench is climbed, broken by three hero melee hits, or smashed by the Basher (rule b).",
+      "coop": "Solo with the companion, or two players: every critical route is open to both heroes (an 80 px bench both heroes can cross or break)."
     }
   ]
 }

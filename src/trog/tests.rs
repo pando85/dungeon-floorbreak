@@ -115,6 +115,7 @@ impl Sim {
             view_x: self.view,
             token_free: true,
             last_tell_start: self.last_tell,
+            faces: &[],
         };
         let mut out = TrogStep::default();
         let evade = self.evade;

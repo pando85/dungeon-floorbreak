@@ -39,7 +39,9 @@ fn quick() -> &'static report::Evaluation {
 
 /// G-1 and G-2 hold for every **fixed** gated stationary policy (the cast, the burst, the aimed
 /// cast, the turret and the aimed jump-cast) from the five natural starts, both facings, three
-/// phases, both reflex variants and both seats: none defeats both troglodytes.
+/// phases, both reflex variants and both seats: none defeats both troglodytes while the bench
+/// stands. (A `default` run whose following bot Carl baits the Basher breaks the bench by rule (b)
+/// and drops Donut off the bench top: that skill answer is reported, TROG-Q3, TROGB-AD1.)
 #[test]
 fn trog_gate_holds_for_the_fixed_stationary_policies() {
     let e = quick();
@@ -47,13 +49,19 @@ fn trog_gate_holds_for_the_fixed_stationary_policies() {
         let row = e.gate.row(id).expect("the row");
         assert_eq!(row.passes, Some(true), "{id}: {}", row.detail);
     }
-    // The Virtuoso falls to no natural-start fixed policy: from the spawn nothing is in range,
-    // and the other starts are on the shelf, on the bench or past it.
+    // The Virtuoso falls to no natural-start fixed policy while the bench stands: from the spawn
+    // nothing is in range, and the other starts are on the shelf, on the bench or past it. A run
+    // whose bench the Basher smashed (a following bot Carl in the bait zone, rule b) drops Donut off
+    // the bench top: that is the skill answer of TROG-Q3, reported (`bench_smashes`), not gated.
     for r in e.recs().filter(|r| r.spec.policy.is_stationary_gate()) {
-        assert!(!r.all_defeated_by_player(), "{}", r.run_id);
         assert!(
-            !r.kill_by_player[0],
-            "{}: the Virtuoso fell to Donut",
+            !r.all_defeated_by_player() || r.bench_smashes > 0,
+            "{}: both defeated with the bench standing",
+            r.run_id
+        );
+        assert!(
+            !r.kill_by_player[0] || r.bench_smashes > 0,
+            "{}: the Virtuoso fell to Donut with the bench standing",
             r.run_id
         );
         assert_ne!(r.terminal, Terminal::InvalidSetup, "{}", r.run_id);

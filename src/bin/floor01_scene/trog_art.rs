@@ -97,12 +97,22 @@ pub(super) fn spawn(
     handles: &mut Vec<(String, Handle<Image>)>,
     room: f01_trog::TrogRoom,
     state: &CombatState,
+    encounter: &dungeon_floorbreak::encounter::Encounter,
     kit: &EnvKit,
     height: i32,
     layers: RenderLayers,
     actor_layers: RenderLayers,
     rects_always: bool,
 ) {
+    spawn_bench(
+        commands,
+        asset_server,
+        handles,
+        encounter,
+        kit,
+        layers.clone(),
+        actor_layers.clone(),
+    );
     let mut sheets: [Option<(Handle<Image>, Handle<TextureAtlasLayout>)>; 3] = [None, None, None];
     for species in Species::ALL {
         let path = trog_art::atlas(species);
@@ -459,6 +469,185 @@ pub(super) fn sync_trog_art(
                 );
                 // Faint while it is only a tell, solid while the box is live.
                 sprite.color = Color::srgba(1.0, 0.2, 0.1, if left == 0 { 0.65 } else { 0.22 });
+                *visibility = Visibility::Inherited;
+            }
+            None => *visibility = Visibility::Hidden,
+        }
+    }
+}
+
+/// TROGB-AD1 (TROG-Q14): the bench stack's presenter state: the prop it reads, the atlas rectangle
+/// of each state frame and of each burst frame, and the canvas origins (layout px, y down).
+#[derive(Resource)]
+pub(super) struct BenchArt {
+    prop: usize,
+    bench_rects: [[i32; 4]; 3],
+    debris_rects: [[i32; 4]; 6],
+    bench_origin: (i32, i32),
+}
+
+#[derive(Component)]
+pub(super) struct BenchSprite;
+
+#[derive(Component)]
+pub(super) struct BenchDebrisSprite;
+
+fn atlas_rect(r: [i32; 4]) -> Rect {
+    Rect::new(
+        r[0] as f32,
+        r[1] as f32,
+        (r[0] + r[2]) as f32,
+        (r[1] + r[3]) as f32,
+    )
+}
+
+/// Spawn the bench stack's state sprite and its break burst sprite (both hidden until the first
+/// sync) when the room has a partition prop and the bench atlas is exported. Presentation only. The
+/// bench draws above the dressing's props and under the actors, the burst just above the actors.
+fn spawn_bench(
+    commands: &mut Commands,
+    asset_server: &AssetServer,
+    handles: &mut Vec<(String, Handle<Image>)>,
+    encounter: &dungeon_floorbreak::encounter::Encounter,
+    kit: &EnvKit,
+    layers: RenderLayers,
+    actor_layers: RenderLayers,
+) {
+    let Some((prop, target)) = encounter
+        .props
+        .iter()
+        .enumerate()
+        .find(|(_, p)| p.kind == dungeon_floorbreak::encounter::PropKind::Partition)
+        .map(|(i, p)| (i, p.target))
+    else {
+        return;
+    };
+    if !atlas_present(dungeon_floorbreak::trog_kit::BENCH_ATLAS) {
+        println!(
+            "F01_TROG_BENCH missing {} (run scripts/export_assets.sh): no bench art",
+            dungeon_floorbreak::trog_kit::BENCH_ATLAS
+        );
+        return;
+    }
+    let root = std::env::current_dir().unwrap_or_default();
+    let (bench_rects, debris_rects) = match dungeon_floorbreak::trog_kit::bench_atlas_rects(&root) {
+        Ok(rects) => rects,
+        Err(e) => {
+            println!("F01_TROG_BENCH not drawn: {e}");
+            return;
+        }
+    };
+    let asset = dungeon_floorbreak::trog_kit::BENCH_ATLAS
+        .strip_prefix(ATLAS_ASSET_PREFIX)
+        .unwrap_or(dungeon_floorbreak::trog_kit::BENCH_ATLAS)
+        .to_owned();
+    let texture: Handle<Image> = asset_server.load(asset.clone());
+    handles.push((asset, texture.clone()));
+    let prop_z = kit
+        .pieces
+        .iter()
+        .filter(|p| p.layer == "prop")
+        .map(|p| p.z)
+        .fold(kit.actor_z - 1.0, f32::max)
+        + 0.001;
+    let origin = dungeon_floorbreak::trog_kit::bench_origin(target);
+    commands.spawn((
+        BenchSprite,
+        Sprite {
+            image: texture.clone(),
+            rect: Some(Rect::new(0.0, 0.0, 1.0, 1.0)),
+            ..default()
+        },
+        Anchor::TOP_LEFT,
+        Transform::from_xyz(origin.0 as f32, 0.0, prop_z.min(kit.actor_z - 0.01)),
+        Visibility::Hidden,
+        layers.clone(),
+    ));
+    commands.spawn((
+        BenchDebrisSprite,
+        Sprite {
+            image: texture,
+            rect: Some(Rect::new(0.0, 0.0, 1.0, 1.0)),
+            ..default()
+        },
+        Anchor::TOP_LEFT,
+        Transform::from_xyz(
+            dungeon_floorbreak::trog_kit::DEBRIS_ORIGIN.0 as f32,
+            0.0,
+            kit.actor_z + 0.305,
+        ),
+        Visibility::Hidden,
+        actor_layers,
+    ));
+    commands.insert_resource(BenchArt {
+        prop,
+        bench_rects,
+        debris_rects,
+        bench_origin: origin,
+    });
+    println!(
+        "F01_TROG_BENCH drawn at ({}, {}) from the bench atlas: three states and the 6 frame break burst (prototype art, owner review pending)",
+        origin.0, origin.1
+    );
+}
+
+/// Show the frame of the bench's state and the break burst. Presentation only: it reads the
+/// partition and the event log through shared references and writes only its own sprites. The
+/// burst frame is a pure function of the break tick (the log) and the tick, so a run that skips
+/// frames draws the same one; its mirror is taken once per break and kept.
+#[allow(clippy::type_complexity)]
+pub(super) fn sync_bench_art(
+    sim: Res<Sim>,
+    combat: Res<Combat>,
+    art: Option<Res<BenchArt>>,
+    mut mirror_memo: Local<Option<(u64, bool)>>,
+    mut bench_q: Query<
+        (&mut Transform, &mut Sprite, &mut Visibility),
+        (With<BenchSprite>, Without<BenchDebrisSprite>),
+    >,
+    mut debris_q: Query<
+        (&mut Transform, &mut Sprite, &mut Visibility),
+        (With<BenchDebrisSprite>, Without<BenchSprite>),
+    >,
+) {
+    use dungeon_floorbreak::trog_kit;
+    let (Some(art), Some(state)) = (art, combat.0.as_ref()) else {
+        return;
+    };
+    let Some(part) = state.env().and_then(|env| env.partition(art.prop)) else {
+        return;
+    };
+    let layout_h = sim.0.world.layout_height();
+    let tick = sim.0.world.tick;
+    let bench_state = part.state();
+    let r = art.bench_rects[bench_state as usize];
+    for (mut transform, mut sprite, mut visibility) in &mut bench_q {
+        sprite.rect = Some(atlas_rect(r));
+        transform.translation.x = art.bench_origin.0 as f32;
+        transform.translation.y = (layout_h - art.bench_origin.1) as f32;
+        *visibility = Visibility::Inherited;
+    }
+    let broke_at = trog_kit::break_tick(&state.events, art.prop);
+    let mirror = match broke_at {
+        Some(at) => {
+            if mirror_memo.is_none_or(|(m, _)| m != at) {
+                let xs: Vec<f32> = HeroId::ALL.iter().map(|h| sim.0.world.body(*h).x).collect();
+                let flipped =
+                    trog_kit::break_mirror(trog_kit::break_was_smash(&state.events, at), &xs);
+                *mirror_memo = Some((at, flipped));
+            }
+            mirror_memo.is_some_and(|(_, flipped)| flipped)
+        }
+        None => false,
+    };
+    let frame = trog_kit::debris_frame(bench_state, broke_at, tick, mirror);
+    for (mut transform, mut sprite, mut visibility) in &mut debris_q {
+        match frame {
+            Some((index, flipped)) => {
+                sprite.rect = Some(atlas_rect(art.debris_rects[index]));
+                sprite.flip_x = flipped;
+                transform.translation.x = trog_kit::DEBRIS_ORIGIN.0 as f32;
+                transform.translation.y = (layout_h - trog_kit::DEBRIS_ORIGIN.1) as f32;
                 *visibility = Visibility::Inherited;
             }
             None => *visibility = Visibility::Hidden,

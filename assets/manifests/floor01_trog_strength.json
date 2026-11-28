@@ -9,7 +9,7 @@
  "palette_id": "floor01-catacomb-v2",
  "frame_size": [
   184,
-  162
+  130
  ],
  "pivot": [
   0,
@@ -23,7 +23,7 @@
  "license": "Original repo-specific environment art; no standalone asset reuse license; no game/asset-pack distribution rights",
  "review_status": "prototype_fixture_unapproved",
  "provenance": {
-  "origin": "Original pixel-grid-v1 pieces for the Floor 1 Test of Strength (AREA-TROG-01 stage 2 on the ENV-01 kit); rule-based shapes and ramps, the shelf faces derived from the AREA-HEAT-01 shelf body, the bench stack and the mirror shards from the AREA-GYM-01 pixels; nothing cropped, traced or resampled from concept art; no text, logos, brands, faces or likenesses",
+  "origin": "Original pixel-grid-v1 pieces for the Floor 1 Test of Strength (AREA-TROG-01 stage 2 on the ENV-01 kit); rule-based shapes and ramps, the shelf faces derived from the AREA-HEAT-01 shelf body and the mirror shards from the AREA-GYM-01 pixels; nothing cropped, traced or resampled from concept art; no text, logos, brands, faces or likenesses",
   "generator": "Deterministic authoring script scripts/author_trogarea01.py written by AI agents (spec and keys designed by Claude Opus; execution by Claude Sonnet); no image-model raster output",
   "generated_art": true,
   "input_reference_ids": [

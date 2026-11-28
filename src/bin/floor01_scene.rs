@@ -436,7 +436,7 @@ struct Args {
     f01_trog: Option<f01_trog::TrogRoom>,
     /// The launched troglodyte room (`main` fills it right after parsing).
     trog_run: Option<Box<f01_trog::TrogRun>>,
-    /// TROG-A evidence: `--trog-pilot carl|donut` plays the troglodyte run's scripted run
+    /// TROG-A evidence: `--trog-pilot carl|donut|bait` plays the troglodyte run's scripted run
     /// (`trog_fixtures::pilot`) instead of the walk-right script. Scripted runs only.
     trog_pilot: Option<dungeon_floorbreak::trog_fixtures::Pilot>,
     /// ACT1-A evidence: `--act1-pilot walk|donut|strike` plays an Act I room's scripted run
@@ -1863,7 +1863,9 @@ fn parse_args_full(
                 parsed.act1_pilot = Some(dungeon_floorbreak::act1_fixtures::Pilot::parse(value)?);
             }
             "--trog-pilot" => {
-                let value = iter.next().ok_or("--trog-pilot needs carl or donut")?;
+                let value = iter
+                    .next()
+                    .ok_or("--trog-pilot needs carl, donut or bait")?;
                 parsed.trog_pilot = Some(dungeon_floorbreak::trog_fixtures::Pilot::parse(value)?);
             }
             "--room-pilot" => {
@@ -2962,7 +2964,7 @@ fn build_scene(
                         kind,
                         &combat,
                         &sim,
-                        &run.loaded.encounter.statics,
+                        &run.loaded.encounter,
                         room_exit_x(args),
                     ),
                     RawInput::default(),
@@ -3098,7 +3100,7 @@ fn scripted_input(
             kind,
             combat,
             sim,
-            &run.loaded.encounter.statics,
+            &run.loaded.encounter,
             room_exit_x(args),
         )
     } else if let (Some(kind), Some(_)) = (args.act1_pilot, &args.act1_run) {
@@ -5084,7 +5086,7 @@ fn run_window(
     // After Bevy's window-exit systems: closing the window with its X writes `AppExit` in
     // `Last`, and the session must be finished in the same frame (FIX-TOOL).
     .add_systems(Last, finish_recording.after(bevy::window::ExitSystems))
-    .add_systems(Update, trog_art::sync_trog_art)
+    .add_systems(Update, (trog_art::sync_trog_art, trog_art::sync_bench_art))
     .add_systems(
         Update,
         (
@@ -5946,6 +5948,7 @@ fn setup(
             &mut combat_handles,
             run.room,
             state,
+            &run.loaded.encounter,
             kit,
             height,
             layers_of("prop"),

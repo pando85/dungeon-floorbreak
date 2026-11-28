@@ -3,11 +3,12 @@
  "kit_id": "floor01_trog",
  "extends": "assets/source/terrain/floor01/floor01_gym_kit.json",
  "status": "proposed - AREA-TROG-01 kit (docs/02-art/area-trog-01-spec.md); independent review pending; not owner-approved",
- "extension_note": "Inherits palette, layers, draw order, coordinates, walking-line rule and lighting schema from the ENV-01 contract through the gym kit. Adds the troglodyte territory atlases for Floor 01 rooms `trog_run` (stage 1) and `trog_strength` (stage 2): no tiles, nothing collidable, no new palette colour, no new emitter (the strength room places the gym kit's own cold tube). The run's dressing bricks up bays 1 and 4; the strength room's bricks up bay 3 and places the bench as a static piece (TROG-AD46: its collision is the sidecar's 80 px solid, there is no partition).",
+ "extension_note": "Inherits palette, layers, draw order, coordinates, walking-line rule and lighting schema from the ENV-01 contract through the gym kit. Adds the troglodyte territory atlases for Floor 01 rooms `trog_run` (stage 1) and `trog_strength` (stage 2): no tiles, nothing collidable, no new palette colour, no new emitter (the strength room places the gym kit's own cold tube). The run's dressing bricks up bays 1 and 4; the strength room's bricks up bay 3. The bench stack is the sidecar's 80 px partition prop (TROGB-AD1): its three states and the break burst are in `floor01_trog_bench` and are drawn by the presenter, never placed by the dressing.",
  "palette_use": {
   "floor01_trog_run_wall": 12,
   "floor01_trog_run_props": 34,
-  "floor01_trog_strength": 40
+  "floor01_trog_strength": 30,
+  "floor01_trog_bench": 31
  },
  "atlases": {
   "floor01_trog_run_wall": {
@@ -27,6 +28,12 @@
    "manifest": "assets/manifests/floor01_trog_strength.json",
    "image": "generated/art/floor01_trog_strength.png",
    "metadata": "generated/art/floor01_trog_strength.json"
+  },
+  "floor01_trog_bench": {
+   "grid": "assets/source/props/floor01/trog_bench_kit.grid.json",
+   "manifest": "assets/manifests/floor01_trog_bench.json",
+   "image": "generated/art/floor01_trog_bench.png",
+   "metadata": "generated/art/floor01_trog_bench.json"
   }
  },
  "tiles": [],
@@ -256,32 +263,10 @@
    "decal": true
   },
   {
-   "id": "trog_bench_intact",
-   "atlas": "floor01_trog_strength",
-   "rect": [
-    0,
-    82,
-    32,
-    80
-   ],
-   "role": "prop",
-   "layer": "prop",
-   "collidable": false,
-   "anchor": [
-    0,
-    0
-   ],
-   "anchor_name": "top_left (room placement, spec section 5)",
-   "grid_snap": 1,
-   "grammar": [
-    "A"
-   ]
-  },
-  {
    "id": "trog_shelf48_mid",
    "atlas": "floor01_trog_strength",
    "rect": [
-    40,
+    0,
     82,
     16,
     48
@@ -303,7 +288,7 @@
    "id": "trog_shelf48_end_l",
    "atlas": "floor01_trog_strength",
    "rect": [
-    64,
+    24,
     82,
     8,
     48
@@ -325,13 +310,211 @@
    "id": "trog_shelf48_end_r",
    "atlas": "floor01_trog_strength",
    "rect": [
-    80,
+    40,
     82,
     8,
     48
    ],
    "role": "structure",
    "layer": "structure",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (room placement, spec section 5)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ]
+  },
+  {
+   "id": "trog_bench_intact",
+   "atlas": "floor01_trog_bench",
+   "rect": [
+    0,
+    0,
+    32,
+    80
+   ],
+   "role": "prop",
+   "layer": "prop",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (room placement, spec section 5)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ]
+  },
+  {
+   "id": "trog_bench_weakened",
+   "atlas": "floor01_trog_bench",
+   "rect": [
+    40,
+    0,
+    32,
+    80
+   ],
+   "role": "prop",
+   "layer": "prop",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (room placement, spec section 5)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ]
+  },
+  {
+   "id": "trog_bench_broken",
+   "atlas": "floor01_trog_bench",
+   "rect": [
+    80,
+    0,
+    32,
+    80
+   ],
+   "role": "prop",
+   "layer": "prop",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (room placement, spec section 5)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ]
+  },
+  {
+   "id": "trog_bench_debris_0",
+   "atlas": "floor01_trog_bench",
+   "rect": [
+    120,
+    0,
+    112,
+    96
+   ],
+   "role": "prop",
+   "layer": "prop",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (room placement, spec section 5)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ]
+  },
+  {
+   "id": "trog_bench_debris_1",
+   "atlas": "floor01_trog_bench",
+   "rect": [
+    0,
+    104,
+    112,
+    96
+   ],
+   "role": "prop",
+   "layer": "prop",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (room placement, spec section 5)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ]
+  },
+  {
+   "id": "trog_bench_debris_2",
+   "atlas": "floor01_trog_bench",
+   "rect": [
+    120,
+    104,
+    112,
+    96
+   ],
+   "role": "prop",
+   "layer": "prop",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (room placement, spec section 5)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ]
+  },
+  {
+   "id": "trog_bench_debris_3",
+   "atlas": "floor01_trog_bench",
+   "rect": [
+    0,
+    208,
+    112,
+    96
+   ],
+   "role": "prop",
+   "layer": "prop",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (room placement, spec section 5)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ]
+  },
+  {
+   "id": "trog_bench_debris_4",
+   "atlas": "floor01_trog_bench",
+   "rect": [
+    120,
+    208,
+    112,
+    96
+   ],
+   "role": "prop",
+   "layer": "prop",
+   "collidable": false,
+   "anchor": [
+    0,
+    0
+   ],
+   "anchor_name": "top_left (room placement, spec section 5)",
+   "grid_snap": 1,
+   "grammar": [
+    "A"
+   ]
+  },
+  {
+   "id": "trog_bench_debris_5",
+   "atlas": "floor01_trog_bench",
+   "rect": [
+    0,
+    312,
+    112,
+    96
+   ],
+   "role": "prop",
+   "layer": "prop",
    "collidable": false,
    "anchor": [
     0,
@@ -664,12 +847,6 @@
     },
     {
      "layer": "prop",
-     "piece": "trog_bench_intact",
-     "x": 640,
-     "y": 500
-    },
-    {
-     "layer": "prop",
      "piece": "gym_dumbbell_rack",
      "x": 812,
      "y": 532
@@ -692,6 +869,6 @@
  },
  "usage_rules": {
   "R1_trog_run": "room `trog_run` only: the dressing never adds or moves a tile or a solid; bays 1 and 4 are bricked up across both pier columns; nothing stands across an open window above y 520; floor pieces (the crater and the step faces) are `structure` so they draw above the deck",
-  "R2_trog_strength": "room `trog_strength` only: the dressing never adds or moves a tile or a solid; bay 3 is bricked up across both pier columns; the bench is placed at the sidecar static's rect; floor pieces (the shelf face, the threshold and the mats) are `structure`"
+  "R2_trog_strength": "room `trog_strength` only: the dressing never adds or moves a tile or a solid; bay 3 is bricked up across both pier columns; the bench stack is drawn by the presenter at the partition prop's rect; floor pieces (the shelf face, the threshold and the mats) are `structure`"
  }
 }

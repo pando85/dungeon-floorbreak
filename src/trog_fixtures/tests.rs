@@ -20,6 +20,10 @@ fn twice(case: Case) -> (Report, TrogSim) {
     (a, sim)
 }
 
+fn bench_smashes(sim: &TrogSim) -> usize {
+    sim.bench_smashes().len()
+}
+
 fn tells(r: &Report, enemy: usize) -> usize {
     r.acts
         .iter()
@@ -300,7 +304,8 @@ fn trog_strength_direct() {
     assert!(r.exit_tick.is_some(), "the exit is reached");
     assert_eq!(r.hero_defeats, 0);
     assert_eq!(sim.living().len(), 0, "both defeated");
-    // The bench is a static solid: it stands, whole, at the end.
+    // The bench stack is never broken in F09: it stands, whole (Intact), at the end, and nothing
+    // logged a bench smash.
     let bench = sim
         .scene
         .world
@@ -308,6 +313,11 @@ fn trog_strength_direct() {
         .iter()
         .find(|b| (b.rect.left, b.rect.width) == (640.0, 32.0) && b.intact);
     assert!(bench.is_some(), "the bench still stands");
+    assert_eq!(
+        sim.bench_state(),
+        Some(crate::env_prop::PartitionState::Intact)
+    );
+    assert_eq!(bench_smashes(&sim), 0, "no BenchSmash");
     // The Basher slept until the Virtuoso was down (its proximity wake came later). The first
     // defeat is asserted to be the Virtuoso's (target id of roster index 0).
     let defeats: Vec<u64> = sim
@@ -388,6 +398,76 @@ fn trog_strength_tell_gap() {
     );
 }
 
+/// TROG-F10 (TROGB-AD1): Carl stands at 616 in the bait zone. The walk-blocked Basher smashes the
+/// bench: exactly one `BenchSmash` naming Carl, the partition is `Broken` by the shove and credited
+/// to Carl's player, Carl is not hit, and he defeats the Basher in its recovery.
+#[test]
+fn trog_strength_bait() {
+    let (r, sim) = twice(Case::StrengthBait);
+    let smashes = sim.bench_smashes();
+    assert_eq!(smashes.len(), 1, "exactly one BenchSmash: {smashes:?}");
+    assert_eq!(smashes[0].1, HeroId::Carl, "the bait is Carl");
+    assert_eq!(
+        sim.bench_state(),
+        Some(crate::env_prop::PartitionState::Broken)
+    );
+    assert_eq!(sim.bench_initiator(), Some(0), "credited to Carl's player");
+    assert!(
+        r.hurts.is_empty(),
+        "Carl is not hit by the bench smash: {:?}",
+        r.hurts
+    );
+    // The smash was a tell at the bench: the Tell names Carl and precedes the BenchSmash by the
+    // 39 attack ticks to the first strike tick.
+    let tell = r
+        .acts
+        .iter()
+        .find(|(_, e, a)| {
+            *e == 1
+                && matches!(
+                    a,
+                    TrogAct::Tell {
+                        target: HeroId::Carl
+                    }
+                )
+        })
+        .expect("a Tell at Carl")
+        .0;
+    assert_eq!(smashes[0].0 - tell, 39, "the impact tick");
+    assert!(!sim.trog(1).alive(), "Carl defeats the Basher afterwards");
+    assert_eq!(r.hero_defeats, 0);
+}
+
+/// TROG-F11 (TROGB-AD1): three separate jabs from pivot 620 break the bench by hand, credited to
+/// Carl, and the Basher never smashes it (no `BenchSmash`, rule (b) never starts).
+#[test]
+fn trog_strength_bench_by_hand() {
+    let (r, sim) = twice(Case::StrengthBenchByHand);
+    assert_eq!(
+        sim.bench_state(),
+        Some(crate::env_prop::PartitionState::Broken)
+    );
+    assert_eq!(sim.bench_initiator(), Some(0), "credited to Carl");
+    assert_eq!(bench_smashes(&sim), 0, "no BenchSmash");
+    assert!(r.hurts.is_empty(), "Carl is not hit: {:?}", r.hurts);
+}
+
+/// TROG-F12 (TROGB-AD1): Donut at 720 and 760 fights the Basher; the bench stays solid and nothing
+/// logs a `BenchSmash`.
+#[test]
+fn trog_strength_no_break_from_far_side() {
+    let (r, sim) = twice(Case::StrengthNoBreakFarSide);
+    assert_eq!(
+        sim.bench_state(),
+        Some(crate::env_prop::PartitionState::Intact)
+    );
+    assert_eq!(bench_smashes(&sim), 0, "no BenchSmash");
+    assert!(
+        r.count(|a| matches!(a, TrogAct::Tell { .. })) >= 1,
+        "the Basher fought Donut"
+    );
+}
+
 /// TROG-F13, the overlap half (review R3): no hero can stand under both troglodytes' live hitboxes
 /// because their reaches never meet. The Virtuoso's band, clipped by the standing 80 px bench and
 /// 48 px shelf at every pivot of its leash and both facings, never reaches past the bench's left
@@ -406,31 +486,29 @@ fn trog_strength_live_hitboxes_cannot_overlap_one_hero() {
     )
     .unwrap();
     let floor = sim.foot_of_floor();
-    let solids: Vec<Block> = sim
-        .run
-        .loaded
-        .encounter
+    let enc = &sim.run.loaded.encounter;
+    let bench = enc
+        .props
+        .iter()
+        .find(|p| p.id == "bench_stack")
+        .expect("the bench stack partition")
+        .target;
+    let solids: Vec<Block> = enc
         .statics
         .iter()
-        .map(|s| Block {
+        .map(|s| s.rect)
+        .chain([bench])
+        .map(|r| Block {
             rect: Rect {
-                left: s.rect.x as f32,
+                left: r.x as f32,
                 bottom: floor,
-                width: s.rect.w as f32,
-                height: s.rect.h as f32,
+                width: r.w as f32,
+                height: r.h as f32,
             },
             material: Material::Timber,
             intact: true,
         })
         .collect();
-    let bench = sim
-        .run
-        .loaded
-        .encounter
-        .statics
-        .iter()
-        .find(|s| s.id == "bench")
-        .unwrap();
     let t = TrogTuning::active();
     let (vir, bas) = (t.species(Species::Virtuoso), t.species(Species::Basher));
     let (vx, bx) = (
@@ -447,23 +525,25 @@ fn trog_strength_live_hitboxes_cannot_overlap_one_hero() {
         }
     }
     let mut bas_min_left = f32::MAX;
-    for x in (bx.x - i32::from(bas.leash_px))..=(bx.x + i32::from(bas.leash_px)) {
+    // The standing bench walk-blocks the body (idle hurtbox x -24 for the left facing) at 696.
+    let blocked = bench.right() + 24;
+    for x in (bx.x - i32::from(bas.leash_px)).max(blocked)..=(bx.x + i32::from(bas.leash_px)) {
         for facing in [1i8, -1] {
             let r = crate::slime::world_box(&bas.hitbox, x as f32, facing, floor);
             bas_min_left = bas_min_left.min(r.left);
         }
     }
     assert!(
-        vir_max_right <= bench.rect.x as f32,
+        vir_max_right <= bench.x as f32,
         "the Virtuoso's clipped band ends at the bench face: {vir_max_right}"
     );
     assert!(
-        bas_min_left > bench.rect.x as f32,
+        bas_min_left > bench.x as f32,
         "the Basher's smash starts right of the bench's left face: {bas_min_left}"
     );
     assert!(vir_max_right < bas_min_left, "the two reaches never meet");
     // On top of the bench a hero is above both bands.
-    let top = floor + bench.rect.h as f32;
+    let top = floor + bench.h as f32;
     assert!(top > floor + f32::from(vir.hitbox.y1));
     assert!(top > floor + f32::from(bas.hitbox.y1));
 }
@@ -510,7 +590,7 @@ fn trog_strength_retry_and_respawn() {
         "the living Basher is asleep again"
     );
     assert_eq!(a.basher_hp, crate::trog::TrogTuning::active().basher.hp);
-    assert_eq!(a.basher_x, 800.0, "at its spawn");
+    assert_eq!(a.basher_x, 776.0, "at its spawn");
     assert!(a.restart_all_alive);
     assert!(a.restart_states.iter().all(|s| *s == State::Dormant));
 }
@@ -568,9 +648,9 @@ fn print_the_strength_pilot_events() {
     )
     .unwrap();
     let exit = sim.run.loaded.encounter.exit.x as f32 + 32.0;
-    let statics = sim.run.loaded.encounter.statics.clone();
+    let encounter = sim.run.loaded.encounter.clone();
     for _ in 0..800 {
-        let raw = pilot(Pilot::Carl, &sim.combat, &sim.scene, &statics, exit);
+        let raw = pilot(Pilot::Carl, &sim.combat, &sim.scene, &encounter, exit);
         sim.step1(raw);
         if sim.complete() {
             break;
@@ -591,4 +671,86 @@ fn print_the_strength_pilot_events() {
             println!("STRENGTH_PILOT_DEFEAT tick={tick} target={target:#x}");
         }
     }
+}
+
+/// The window pilot of the bench smash (`--trog-pilot bait`) clears the Test of Strength through
+/// the bait: one `BenchSmash`, the bench broken by the Basher, no hero defeat, the exit reached.
+#[test]
+fn the_bait_pilot_clears_the_room_through_the_bench_smash() {
+    let mut sim = TrogSim::for_room(
+        &root(),
+        TrogRoom::Strength,
+        Party::Solo { uncontrolled: BOT },
+        Some(HeroId::Donut),
+    )
+    .unwrap();
+    let exit = sim.run.loaded.encounter.exit.x as f32 + 32.0;
+    let encounter = sim.run.loaded.encounter.clone();
+    for _ in 0..MAX_TICKS {
+        let raw = pilot(Pilot::Bait, &sim.combat, &sim.scene, &encounter, exit);
+        sim.step1(raw);
+        if sim.complete() {
+            break;
+        }
+    }
+    assert!(sim.complete(), "the exit is reached");
+    assert_eq!(sim.bench_smashes().len(), 1);
+    assert_eq!(sim.hero_defeats(), 0);
+    assert!(sim.hurts().is_empty(), "no blow lands");
+}
+
+/// TROG-F16 for the bench: the presenter's reads (the partition state, the break's cause, the
+/// burst frame, the bench piece) every tick of a baited run change no hash and no log.
+#[test]
+fn trog_strength_bait_presentation_is_read_only() {
+    use crate::trog_kit::{bench_piece, break_mirror, break_tick, break_was_smash, debris_frame};
+    let plain = run(&root(), Case::StrengthBait).unwrap().0;
+    let mut sim = TrogSim::for_room(
+        &root(),
+        TrogRoom::Strength,
+        Party::Solo { uncontrolled: BOT },
+        Some(HeroId::Donut),
+    )
+    .unwrap();
+    // Mirror the case's script while reading every presenter input each tick.
+    defeat_the_virtuoso(&mut sim);
+    sim.place(HeroId::Carl, 616.0, 1);
+    let mut last = 0u64;
+    let mut frames = Vec::new();
+    for _ in 0..MAX_TICKS {
+        if !sim.trog(1).alive() {
+            break;
+        }
+        let state = sim.bench_state().expect("the bench stack");
+        let _ = bench_piece(state);
+        let xs = [sim.x_of(HeroId::Carl), sim.x_of(HeroId::Donut)];
+        let at = break_tick(&sim.combat.events, 0);
+        let mirror = break_mirror(
+            at.is_some_and(|t| break_was_smash(&sim.combat.events, t)),
+            &xs,
+        );
+        frames.push(debris_frame(state, at, sim.tick(), mirror));
+        let raw = if state == crate::env_prop::PartitionState::Broken {
+            let t = sim.trog(1).clone();
+            let raw = carl_vs(&sim.probe(), &t, &mut last);
+            with_hop(&sim.probe(), HeroId::Carl, raw)
+        } else {
+            RawInput::NONE
+        };
+        sim.step1(raw);
+    }
+    assert_eq!(Report::of(plain.name, &sim).hash, plain.hash);
+    assert_eq!(Report::of(plain.name, &sim).acts, plain.acts);
+    // The burst played once, unmirrored (the Basher broke it), and ended on the litter.
+    let seen: Vec<(usize, bool)> = frames.iter().flatten().copied().collect();
+    assert!(
+        seen.iter().all(|(_, flipped)| !flipped),
+        "the smash keeps the leftward burst"
+    );
+    assert_eq!(seen.iter().map(|(f, _)| *f).max(), Some(5));
+    assert_eq!(
+        seen.iter().filter(|(f, _)| *f == 0).count(),
+        3,
+        "frame 0 lasts 3 ticks"
+    );
 }

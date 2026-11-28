@@ -1173,15 +1173,21 @@ ATLASES = {
     "floor01_trog_run_props": {"stem": "trog_run_props", "width": 128, "pieces": [
         ("trog_bell", trog_bell), ("trog_impact_crater", trog_impact_crater), ("trog_step_mid", trog_step_mid),
         ("trog_step_end_l", trog_step_end_l), ("trog_step_end_r", trog_step_end_r)]},
-    # Stage 2: the strength room. The bench is the intact key only (TROG-ART-AD-S2: a static placed piece under
-    # TROG-AD46); its weakened, broken and debris keys stay pinned and are not packed (reserved for TROG-Q14).
+    # Stage 2: the strength room. The bench stack no longer sits in this atlas (TROGB-AD1 restored the
+    # partition: the presenter draws its states from `floor01_trog_bench`).
     "floor01_trog_strength": {"stem": "trog_strength", "width": 184, "pieces": [
         ("trog_threshold", trog_threshold), ("trog_mirror_shards", trog_mirror_shards),
-        ("trog_bench_intact", trog_bench_intact), ("trog_shelf48_mid", trog_shelf48_mid),
+        ("trog_shelf48_mid", trog_shelf48_mid),
         ("trog_shelf48_end_l", trog_shelf48_end_l), ("trog_shelf48_end_r", trog_shelf48_end_r)]},
+    # TROG-Q14 resolved (TROGB-AD1): the bench stack's three partition states and the six debris frames,
+    # presented by the partition presenter and the break burst (spec section 7); never placed by the dressing.
+    "floor01_trog_bench": {"stem": "trog_bench_kit", "width": 240, "pieces": [
+        ("trog_bench_intact", trog_bench_intact), ("trog_bench_weakened", trog_bench_weakened),
+        ("trog_bench_broken", trog_bench_broken),
+        *[(f"trog_bench_debris_{f}", (lambda f=f: trog_bench_debris_frame(f))) for f in range(6)]]},
 }
 LAYER_OF_ATLAS = {"floor01_trog_run_wall": ("backwall", "backwall_decal"), "floor01_trog_run_props": ("prop", "prop"),
-                  "floor01_trog_strength": ("backwall", "backwall_decal")}
+                  "floor01_trog_strength": ("backwall", "backwall_decal"), "floor01_trog_bench": ("prop", "prop")}
 # Floor-level pieces draw above the collision deck (FF-AD26): the crater and the step faces are `structure`.
 LAYER_OVERRIDE = {"trog_impact_crater": ("structure", "structure"), "trog_step_mid": ("structure", "structure"),
                   "trog_step_end_l": ("structure", "structure"), "trog_step_end_r": ("structure", "structure"),
@@ -1245,7 +1251,6 @@ STRENGTH_PLACE = [
     *_shelf_run(*SHELF_RUN),
     ("structure", "gym_mat_a", 760, 561), ("structure", "gym_mat_b", 808, 561), ("structure", "gym_mat_a", 856, 561),
     ("structure", "trog_threshold", *THR_AT),
-    ("prop", "trog_bench_intact", *BENCH_AT),                  # the 80 px static bench (TROG-AD46): the intact key
     ("prop", "gym_dumbbell_rack", 812, 532), ("prop", "gym_fluoro_cold", 820, 450), ("prop", "gym_plate_tree", 892, 524),
 ]
 
@@ -1316,8 +1321,9 @@ def contract(rects: dict, colours: dict) -> dict:
             "ENV-01 contract through the gym kit. Adds the troglodyte territory atlases for Floor 01 rooms "
             "`trog_run` (stage 1) and `trog_strength` (stage 2): no tiles, nothing collidable, no new palette "
             "colour, no new emitter (the strength room places the gym kit's own cold tube). The run's dressing "
-            "bricks up bays 1 and 4; the strength room's bricks up bay 3 and places the bench as a static "
-            "piece (TROG-AD46: its collision is the sidecar's 80 px solid, there is no partition)."),
+            "bricks up bays 1 and 4; the strength room's bricks up bay 3. The bench stack is the sidecar's 80 px "
+            "partition prop (TROGB-AD1): its three states and the break burst are in `floor01_trog_bench` and are "
+            "drawn by the presenter, never placed by the dressing."),
         "palette_use": {n: colours[n] for n in ATLASES},
         "atlases": atlases, "tiles": [], "pieces": pieces,
         "room_dressing": dressing(),
@@ -1328,8 +1334,8 @@ def contract(rects: dict, colours: dict) -> dict:
                 "crater and the step faces) are `structure` so they draw above the deck"),
             "R2_trog_strength": (
                 "room `trog_strength` only: the dressing never adds or moves a tile or a solid; bay 3 is bricked up "
-                "across both pier columns; the bench is placed at the sidecar static's rect; floor pieces (the "
-                "shelf face, the threshold and the mats) are `structure`")},
+                "across both pier columns; the bench stack is drawn by the presenter at the partition prop's rect; "
+                "floor pieces (the shelf face, the threshold and the mats) are `structure`")},
     }
 
 
@@ -1349,9 +1355,14 @@ def manifest(name: str, canvas: list, stem: str) -> dict:
         "provenance": {
             "origin": ("Original pixel-grid-v1 pieces for the Floor 1 Test of Strength (AREA-TROG-01 stage 2 on the "
                        "ENV-01 kit); rule-based shapes and ramps, the shelf faces derived from the AREA-HEAT-01 shelf "
-                       "body, the bench stack and the mirror shards from the AREA-GYM-01 pixels; nothing cropped, "
+                       "body and the mirror shards from the AREA-GYM-01 pixels; nothing cropped, "
                        "traced or resampled from concept art; no text, logos, brands, faces or likenesses"
                        if name == "floor01_trog_strength" else
+                       "Original pixel-grid-v1 pieces for the Test of Strength's bench stack (AREA-TROG-01 stage 2, "
+                       "TROGB-AD1): the three partition states and the six frames of the break burst, the stack and "
+                       "the shards built from the AREA-GYM-01 pixels; rule-based shapes and ramps; nothing cropped, "
+                       "traced or resampled from concept art; no text, logos, brands, faces or likenesses"
+                       if name == "floor01_trog_bench" else
                        "Original pixel-grid-v1 pieces for the Floor 1 troglodyte run (AREA-TROG-01 on the ENV-01 "
                        "kit); rule-based shapes and ramps, the step faces derived from the AREA-HEAT-01 shelf body; "
                        "nothing cropped, traced or resampled from concept art; no text, logos, brands, faces or "

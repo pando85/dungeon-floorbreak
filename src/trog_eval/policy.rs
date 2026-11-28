@@ -3,7 +3,6 @@
 //! [`crate::trog_fixtures::donut_vs`], [`crate::trog_fixtures::with_hop`]). A policy reads only
 //! the finished state of the previous tick, never the future, and never writes game state.
 
-use crate::encounter::StaticKind;
 use crate::input::RawInput;
 use crate::party::HeroId;
 use crate::trog_fixtures::{TrogSim, carl_vs, donut_vs, moving, with_hop};
@@ -49,12 +48,7 @@ impl Brain {
             Some(i) => {
                 let t = sim.trog(i).clone();
                 let (lo, hi) = (donut.min(t.x), donut.max(t.x));
-                let step_between = probe.statics.iter().any(|st| {
-                    st.kind == StaticKind::Solid
-                        && st.rect.h > 16
-                        && (st.rect.x as f32) > lo
-                        && (st.rect.right() as f32) < hi
-                });
+                let step_between = probe.lane_steps().iter().any(|&(l, r)| l > lo && r < hi);
                 if step_between && sim.foot_of(HeroId::Donut) <= sim.foot_of_floor() + 20.0 {
                     // Cross it: walk on toward the troglodyte (the hop is `with_hop`'s).
                     moving(if t.x >= donut { 1.0 } else { -1.0 })
