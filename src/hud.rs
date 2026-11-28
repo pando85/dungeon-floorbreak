@@ -812,6 +812,9 @@ pub struct BossView {
     /// The boss' own 18x18 emblem key; `None` draws the generic skull plate
     /// (HUD-DEBT-03, `docs/02-art/floor-01-boss-design.md` section 4).
     pub emblem: Option<EmblemId>,
+    /// HUDTRY-AD2: the attempt the room counts (`TRY n`), drawn inside the boss
+    /// strip because the strip replaces the location strip; `None` outside a room.
+    pub attempt: Option<u32>,
 }
 
 /// The key of a boss emblem (`brute_boss_f01_emblem`).
@@ -1279,6 +1282,7 @@ fn apply_preview(snapshot: &mut HudSnapshot, preview: HudPreview, tick: u64) {
                     || (tick / WARNING_BLINK_TICKS).is_multiple_of(2),
                 slide_tick: BOSS_SLIDE_TICKS,
                 emblem: None,
+                attempt: None,
             });
             snapshot.notice = Some(NoticeView {
                 headline: LabelId::BossIncoming,
@@ -1865,6 +1869,7 @@ impl HudRuntime {
             },
             // BOS-AD31: a boss with no emblem key draws the generic plate.
             emblem: (!boss.emblem.is_empty()).then(|| EmblemId(boss.emblem.clone())),
+            attempt: self.room.is_some().then_some(self.attempt),
         })
     }
 

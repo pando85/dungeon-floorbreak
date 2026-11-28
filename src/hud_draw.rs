@@ -907,6 +907,19 @@ fn three_slice(o: &mut Out, r: IRect, left: FrameId, mid: FrameId, right: FrameI
     o.frame(Z_FRAME, right, r.x + r.w - 8, r.y);
 }
 
+/// The boss bar's outer width; the name line spans the same run.
+const BOSS_BAR_W: i32 = 236;
+/// Gap kept between the boss name and `TRY n` on the name line.
+const BOSS_TRY_GAP: i32 = 8;
+
+/// HUDTRY-AD2/AD3: the `TRY n` text of the boss strip, or `None` when it would
+/// crowd the boss name at 640x360 (the name always wins).
+pub fn boss_try_text(name: &str, attempt: u32) -> Option<String> {
+    let text = format!("TRY {attempt}");
+    let used = text_width_px(HudFont::Jersey, name) + BOSS_TRY_GAP;
+    (used + text_width_px(HudFont::Jersey, &text) <= BOSS_BAR_W).then_some(text)
+}
+
 fn boss_strip(o: &mut Out, s: &HudSnapshot, boss: &crate::hud::BossView, layout: &HudLayout) {
     let rest = layout.boss();
     let by = HudLayout::boss_y(boss.slide_tick, s.reduced_motion);
@@ -936,7 +949,24 @@ fn boss_strip(o: &mut Out, s: &HudSnapshot, boss: &crate::hud::BossView, layout:
         r.y + 4,
         p::TEXT_WHITE,
     );
-    o.rect(Z_BAR, r.x + 27, r.y + 16, 236, 7, p::HUD_INK);
+    if let Some(text) = boss.attempt.and_then(|n| boss_try_text(&boss.name, n)) {
+        // HUDTRY-AD2: right-aligned on the name line, ending at the bar's right edge.
+        let tw = text_width_px(HudFont::Jersey, &text);
+        o.text(
+            Z_TEXT,
+            HudFont::Jersey,
+            &text,
+            r.x + 27 + BOSS_BAR_W - tw,
+            r.y + 4,
+            // `amber_dim` is 4.2:1; high contrast uses `amber` (10.4:1).
+            if s.high_contrast {
+                p::AMBER
+            } else {
+                p::AMBER_DIM
+            },
+        );
+    }
+    o.rect(Z_BAR, r.x + 27, r.y + 16, BOSS_BAR_W, 7, p::HUD_INK);
     let (ix, iy) = (r.x + 28, r.y + 17);
     let fill = i32::from(boss.fill_px).min(BOSS_BAR_INNER_W);
     o.rect(Z_BAR, ix, iy, fill, 5, p::HP_RED);
@@ -2447,11 +2477,11 @@ mod tests {
         assert!(!texts(&list).contains(&"LAUNCHED!"));
     }
 
-    /// AUDFIN-AD8: the boss strip and the location strip share the centre band (the Hybrid-A
-    /// spec: the location strip shows "always, except while the boss strip shows"), so `TRY n`
-    /// stays hidden in the two boss rooms and shows again the moment the strip slides out.
+    /// AUDFIN-AD8 (amended by HUDTRY-AD2): the boss strip replaces the location strip (the
+    /// Hybrid-A spec), so the location text and its `TRY n` are not drawn while the boss strip
+    /// shows; the boss strip carries its own `TRY n` instead (see the tests below).
     #[test]
-    fn the_attempt_counter_stays_hidden_while_the_boss_strip_shows() {
+    fn the_location_strip_gives_way_to_the_boss_strip() {
         let mut real = crate::hud::test_inputs(4, 4);
         real.location = Some("THE BALL OF SWINE \u{b7} TRY 3".to_owned());
         let layout = HudLayout::new(360, 288);
@@ -2466,9 +2496,76 @@ mod tests {
             warning_bright: true,
             slide_tick: crate::hud::BOSS_SLIDE_TICKS,
             emblem: None,
+            attempt: None,
         });
         build_draw_list(&build_snapshot(&real, None, 0), &layout, &mut list);
         assert!(!texts(&list).iter().any(|t| t.contains("TRY")));
+    }
+
+    fn boss_view(name: &str, attempt: Option<u32>) -> crate::hud::BossView {
+        crate::hud::BossView {
+            name: name.to_owned(),
+            fill_px: 234,
+            chip_px: 0,
+            warning: false,
+            warning_bright: true,
+            slide_tick: crate::hud::BOSS_SLIDE_TICKS,
+            emblem: None,
+            attempt,
+        }
+    }
+
+    /// HUDTRY-AD2: the boss strip carries `TRY n` (dim, right-aligned on the name line) when
+    /// the room counts attempts, and no `TRY` text when it does not.
+    #[test]
+    fn the_boss_strip_draws_try_n_when_a_count_exists() {
+        let layout = HudLayout::new(360, 288);
+        let mut list = Vec::new();
+        let mut real = crate::hud::test_inputs(4, 4);
+        real.boss = Some(boss_view("THE BALL OF SWINE", Some(3)));
+        build_draw_list(&build_snapshot(&real, None, 0), &layout, &mut list);
+        assert_eq!(texts(&list).iter().filter(|t| **t == "TRY 3").count(), 1);
+        let try_item = list
+            .iter()
+            .find(|i| matches!(&i.kind, DrawKind::Text { text, .. } if text == "TRY 3"))
+            .unwrap();
+        let strip = layout.boss();
+        let tw = text_width_px(HudFont::Jersey, "TRY 3");
+        assert_eq!(
+            try_item.x + tw,
+            strip.x + 27 + 236,
+            "right-aligned to the bar"
+        );
+        real.boss = Some(boss_view("THE BALL OF SWINE", None));
+        build_draw_list(&build_snapshot(&real, None, 0), &layout, &mut list);
+        assert!(!texts(&list).iter().any(|t| t.contains("TRY")));
+    }
+
+    /// HUDTRY-AD3: both boss names fit beside `TRY 9` at 640x360 (the name is never dropped),
+    /// and a name too wide for the pair drops `TRY n` instead.
+    #[test]
+    fn both_boss_names_fit_beside_try_nine() {
+        for name in ["THE JUICER", "THE BALL OF SWINE"] {
+            assert_eq!(super::boss_try_text(name, 9).as_deref(), Some("TRY 9"));
+            let layout = HudLayout::new(360, 288);
+            let mut real = crate::hud::test_inputs(4, 4);
+            real.boss = Some(boss_view(name, Some(9)));
+            let mut list = Vec::new();
+            build_draw_list(&build_snapshot(&real, None, 0), &layout, &mut list);
+            let names = texts(&list);
+            assert!(names.contains(&name) && names.contains(&"TRY 9"));
+        }
+        let long = "THE BALL OF SWINE THE BALL OF SWINE";
+        assert_eq!(super::boss_try_text(long, 9), None);
+        let mut real = crate::hud::test_inputs(4, 4);
+        real.boss = Some(boss_view(long, Some(9)));
+        let mut list = Vec::new();
+        build_draw_list(
+            &build_snapshot(&real, None, 0),
+            &HudLayout::new(360, 288),
+            &mut list,
+        );
+        assert!(texts(&list).contains(&long) && !texts(&list).contains(&"TRY 9"));
     }
 
     #[test]
@@ -2975,6 +3072,7 @@ mod tests {
             warning_bright: true,
             slide_tick: crate::hud::BOSS_SLIDE_TICKS,
             emblem: Some(EmblemId("brute_boss_f01_emblem".to_owned())),
+            attempt: None,
         });
         let mut out = Vec::new();
         build_draw_list(
