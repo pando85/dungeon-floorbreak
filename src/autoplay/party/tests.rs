@@ -94,12 +94,12 @@ const PARTY_GOLDENS: [(&str, u64); 7] = [
 /// runs on the arena kit and is not part of this corridor-kit parity.
 const Q10_GOLDENS: [(&str, u64); 7] = [
     ("q10_swat_interrupt", 0x7151_31d0_374a_16c8),
-    ("q10_swat_guard", 0x67c2_3bf7_826f_3fab),
+    ("q10_swat_guard", 0x985a_1da4_907c_4771),
     ("q10_pounce_hit", 0xf7fe_d891_c0e2_f8c1),
     ("q10_pounce_miss", 0x4274_d6eb_4552_8cc1),
-    ("q10_dry_press", 0x141b_f5d9_6f2c_55a8),
+    ("q10_dry_press", 0x642f_dcab_7d6b_7c1a),
     ("q10_mana_regen", 0x7861_1a00_785e_f14e),
-    ("q10_unlock_persists", 0x3934_047f_0ef2_189c),
+    ("q10_unlock_persists", 0xfbb2_96d7_ee82_6006),
 ];
 
 fn live_reference(fixture: &'static PartyFixture) -> (u64, Vec<CombatEvent>) {

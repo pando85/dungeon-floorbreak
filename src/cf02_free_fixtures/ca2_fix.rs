@@ -5,11 +5,11 @@
 /// The closing arena's solo Carl row (`cf02_assist` partner) as it was before PR-A.
 const OLD_ARENA_CARL_SOLO: [u64; 9] = [
     0x7777_7d11_2fa1_50d7,
-    0xe399_d734_d95d_df83,
+    0x53e0_ac0e_5883_9ef9,
     0x5dcf_f6b2_8acc_9637,
-    0x7386_55ae_e984_ec68,
+    0xe4cc_eaf5_c85a_1476,
     0x6315_1d85_712a_a683,
-    0x14d8_c509_81c9_652b,
+    0x63a8_370c_de08_f4e1,
     0x8404_727c_6e86_fbf0,
     0x8855_c693_08a7_6f8e,
     0x15bf_6232_1dbb_4493,

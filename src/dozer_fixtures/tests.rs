@@ -404,7 +404,7 @@ fn dz_retry_disabled_replays() {
 
 /// The committed fold of the nine seeds' final hashes per solo mode.
 const CREW_HASHES: [(Mode, u64); 2] = [
-    (Mode::CarlSolo, 0x6ea71fa5fe6e9a9b),
+    (Mode::CarlSolo, 0x3a769674431a6449),
     (Mode::DonutSolo, 0x7fe33291845521f9),
 ];
 

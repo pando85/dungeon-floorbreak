@@ -367,7 +367,7 @@ const GOLDENS: [u64; 4] = [
     0xe0c6ba28a040bf88,
     0x532db55c2b81aaa2,
     0xd8f21303ceefa993,
-    0x8253563539477545,
+    0xbffbd79b13304e57,
 ];
 
 #[test]

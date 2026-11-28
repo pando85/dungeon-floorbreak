@@ -28,5 +28,5 @@ COMBAT_EVENT tick=392 kind=move_started move=pounce instance=6
 COMBAT_EVENT tick=392 kind=goblin_tell goblin=1
 COMBAT_EVENT tick=402 kind=hit move=pounce instance=6 target=1 damage=1 health_left=1 hit_stop=4
 COMBAT_EVENT tick=402 kind=goblin_interrupted goblin=1
-COMBAT_STATE fixture=cf02_free_split_two_goblins seed=0xcf02fe02 tick=420 elapsed=420 hero_hp=3 deaths=0 enemies=e0=162.000/1,e1=157.100/1 hash=8b37dbad497d4003
-PARTY_STATE fixture=cf02_free_split_two_goblins mode=solo controlled=Carl carl_hp=3 donut_hp=4 deaths=0 hash=8452e118b7766779
+COMBAT_STATE fixture=cf02_free_split_two_goblins seed=0xcf02fe02 tick=420 elapsed=420 hero_hp=3 deaths=0 enemies=e0=162.000/1,e1=157.100/1 hash=48b92053dd5bafb3
+PARTY_STATE fixture=cf02_free_split_two_goblins mode=solo controlled=Carl carl_hp=3 donut_hp=4 deaths=0 hash=f4f49161c212dca9

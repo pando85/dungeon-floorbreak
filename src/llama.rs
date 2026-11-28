@@ -183,8 +183,9 @@ pub struct Llama {
     pub hit_stop: u8,
     /// Ticks until the next tell may start.
     pub cooldown: u16,
-    /// The player whose move last hit it (read for the defeat only; slot 0 is
-    /// not mixed into the hash, like a goblin's).
+    /// The player whose move last hit it (read for the defeat; slot 0 is not
+    /// mixed into the hash, like a goblin's). INSTIGATOR-WINDOW: cleared when
+    /// the stagger ends and the llama is `Neutral` again.
     pub hit_by: Option<u32>,
     /// CF02-C1 (Q18): the light guard a Donut swat that interrupted a tell
     /// sets (Q10-06), so Donut alone cannot lock a llama. It clears after
@@ -382,6 +383,7 @@ impl Llama {
                 self.stagger_left = self.stagger_left.saturating_sub(1);
                 if self.stagger_left == 0 {
                     self.mode = LlamaMode::Neutral;
+                    self.hit_by = None; // INSTIGATOR-WINDOW
                 }
             }
             LlamaMode::Attack => {
@@ -536,6 +538,7 @@ impl Llama {
                 self.stagger_left = self.stagger_left.saturating_sub(1);
                 if self.stagger_left == 0 {
                     self.mode = LlamaMode::Neutral;
+                    self.hit_by = None; // INSTIGATOR-WINDOW
                 }
             }
             LlamaMode::Attack => self.spit_attack_tick(&mut out),
@@ -1019,6 +1022,19 @@ mod tests {
 
     fn tick(l: &mut Llama, hero_x: f32) -> LlamaStep {
         l.step(hero_x, true, &[], EDGE, VIEW)
+    }
+
+    /// INSTIGATOR-WINDOW: a llama's `hit_by` ends when its stagger does.
+    #[test]
+    fn hit_by_is_cleared_when_the_stagger_ends() {
+        let mut l = llama_at(900.0);
+        l.mode = LlamaMode::Hurt;
+        l.stagger_left = 2;
+        l.hit_by = Some(1);
+        tick(&mut l, 100.0);
+        assert_eq!((l.mode, l.hit_by), (LlamaMode::Hurt, Some(1)));
+        tick(&mut l, 100.0);
+        assert_eq!((l.mode, l.hit_by), (LlamaMode::Neutral, None));
     }
 
     #[test]

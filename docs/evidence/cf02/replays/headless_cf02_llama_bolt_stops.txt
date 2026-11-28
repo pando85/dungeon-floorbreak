@@ -13,5 +13,5 @@ COMBAT_EVENT tick=138 kind=llama_spit llama=0
 COMBAT_EVENT tick=151 kind=llama_tell llama=1
 COMBAT_EVENT tick=162 kind=hero_hurt source=0 health_left=2
 COMBAT_EVENT tick=187 kind=llama_spit llama=1
-COMBAT_STATE fixture=cf02_llama_bolt_stops seed=0xcf02c04 tick=200 elapsed=200 hero_hp=2 deaths=0 enemies= hash=b8d6ffd8083338d1 llamas=l0=522.000/2,l1=600.000/3
-PARTY_STATE fixture=cf02_llama_bolt_stops mode=2p controlled=Carl carl_hp=2 donut_hp=4 deaths=0 hash=579f344f68263c67
+COMBAT_STATE fixture=cf02_llama_bolt_stops seed=0xcf02c04 tick=200 elapsed=200 hero_hp=2 deaths=0 enemies= hash=95cca7f936b4c65b llamas=l0=522.000/2,l1=600.000/3
+PARTY_STATE fixture=cf02_llama_bolt_stops mode=2p controlled=Carl carl_hp=2 donut_hp=4 deaths=0 hash=45f0545ed97461c1

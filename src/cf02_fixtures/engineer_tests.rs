@@ -114,7 +114,7 @@ const ENGINEER_GOLDENS: [(&str, u64); 29] = [
     ("eng_run_out_of_range", 0x6c8c976b2f4c0aa3),
     ("eng_snap_rush", 0xc243b052854f723d),
     ("eng_point_interrupt_jab", 0x7bf2fb7b156c1388),
-    ("eng_point_interrupt_swat", 0x0cf9c19231fd3cab),
+    ("eng_point_interrupt_swat", 0x7cf0f56b0ba2e561),
     ("eng_parapet_bonk", 0x7fd7a7e7f1972f21),
     ("eng_parapet_gap_whiff", 0xb15bb77399979a27),
     ("eng_end_wall_bonk_kill", 0x1217716574c175ca),

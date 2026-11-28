@@ -872,12 +872,12 @@ mod tests {
     /// in `docs/evidence/cf02/replays` pin the same values through the CI loop).
     const GOLDENS: [(&str, u64); 9] = [
         ("cf02_free_explore_room", 0x6c70b2d943b87695),
-        ("cf02_free_split_two_goblins", 0x8452e118b7766779),
+        ("cf02_free_split_two_goblins", 0xf4f49161c212dca9),
         ("cf02_free_lone_claimed", 0xd469e7deac91c4be),
         ("cf02_free_finish_abandoned", 0x6157b6ebd088ec95),
-        ("cf02_free_outnumbered", 0xaaaaea1c9e79bde8),
-        ("cf02_free_carl_bolts", 0x8a85bbf67af09f9a),
-        ("cf02_free_retreat_when_hurt", 0x025015c30e99827e),
+        ("cf02_free_outnumbered", 0xb796ef44310e00da),
+        ("cf02_free_carl_bolts", 0x6fcfb1168ed82d14),
+        ("cf02_free_retreat_when_hurt", 0x41502755dfe5edd6),
         ("cf02_free_arena_direct", 0xe2a9e0bb633cef16),
         ("cf02_free_smug_clear", 0x721f5ea4a6ee72ec),
     ];

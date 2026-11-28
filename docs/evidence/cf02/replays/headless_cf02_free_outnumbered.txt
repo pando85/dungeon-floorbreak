@@ -31,5 +31,5 @@ COMBAT_EVENT tick=333 kind=enemy_defeated target=1
 COMBAT_EVENT tick=333 kind=goblin_reaction goblin=2 reaction=panic nerve=40
 COMBAT_EVENT tick=360 kind=move_started move=jab instance=11
 COMBAT_EVENT tick=390 kind=move_started move=jab instance=12
-COMBAT_STATE fixture=cf02_free_outnumbered seed=0xcf02fe05 tick=420 elapsed=420 hero_hp=4 deaths=0 enemies=e0=306.267/0,e1=234.866/0,e2=277.734/1 hash=e12090a22a219712
-PARTY_STATE fixture=cf02_free_outnumbered mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=aaaaea1c9e79bde8
+COMBAT_STATE fixture=cf02_free_outnumbered seed=0xcf02fe05 tick=420 elapsed=420 hero_hp=4 deaths=0 enemies=e0=306.267/0,e1=234.866/0,e2=277.734/1 hash=cef00717d8ebc854
+PARTY_STATE fixture=cf02_free_outnumbered mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=b796ef44310e00da

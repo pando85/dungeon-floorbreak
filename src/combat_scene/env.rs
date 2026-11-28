@@ -4221,7 +4221,8 @@ mod tests {
         assert_eq!(s.combat.enemies[0].health, health - 1, "T = {t}");
         assert!(s.combat.enemies[0].alive());
         assert!(defeats(&s).is_empty());
-        assert_eq!(s.combat.enemies[0].hit_by, Some(0), "the initiator is kept");
+        // INSTIGATOR-WINDOW: it staggered and recovered, so the initiator is spent.
+        assert_eq!(s.combat.enemies[0].hit_by, None, "the initiator is bounded");
     }
 
     /// K3 / DM-Q18: the steam hurts every hero by its data, Donut too, once

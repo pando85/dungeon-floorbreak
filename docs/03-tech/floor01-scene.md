@@ -451,7 +451,7 @@ Scope: `docs/07-agents/i03-goblin-death-implementation-handoff.md`. All four out
 | `cp02_kick_contact` | Carl at 400, stationary goblins at 432 and 472 | kick pressed on 20 (hit 33); contact on 47; 140 ticks | `8bd01343f47ed9df` |
 | `cp03_shore_kill` | Carl at 400, strike column 419, a stationary goblin at 484 (inside the footprint 444..524) | jabs pressed on 20, 60, 100 (shore hits 23, 63, 103); landing and defeat on 139; 200 ticks | `098e86cde2e6b065` |
 | `cp03_shore_miss` | as above with the goblin at 560 (outside) | the same jabs; landing on 139, no defeat; 200 ticks | `317bead55c8a6a73` |
-| `cp03_kick_block` (DEATH-B, new) | as `cp03_shore_kill` but the stationary goblin stands at 432 | kick pressed on 20 (hit 33: shore hit 1 and the living goblin launched into the footprint, no teleport), jabs on 100 and 140 (shore hits 103, 143); landing and defeat on 179 (block, catastrophic, instigator 0); 260 ticks | `73e409161ce5434f` |
+| `cp03_kick_block` (DEATH-B, new) | as `cp03_shore_kill` but the stationary goblin stands at 432 | kick pressed on 20 (hit 33: shore hit 1 and the living goblin launched into the footprint, no teleport), jabs on 100 and 140 (shore hits 103, 143); landing and defeat on 179 (block, catastrophic; no instigator after INSTIGATOR-WINDOW, the goblin got up first); 260 ticks | `ab324fe393e5f1b6` |
 
 ### Tuning values (all in `src/feel.rs`)
 

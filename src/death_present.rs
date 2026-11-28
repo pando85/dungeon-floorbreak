@@ -3933,7 +3933,7 @@ mod tests {
 
     const LAYOUT: &str = "assets/levels/floor01/corridor_abc_sample.json";
     const SHORE_KILL_HASH: u64 = 0x098e_86cd_e2e6_b065;
-    const KICK_BLOCK_HASH: u64 = 0x73e4_0916_1ce5_434f;
+    const KICK_BLOCK_HASH: u64 = 0xab32_4fe3_93e5_f1b6;
     const KICK_HASH: u64 = 0x9e13_d646_1914_9b71;
     const PILEUP_HASH: u64 = 0x6a82_811d_8f31_c475;
     const BLOCK_EDGE_DECAP_HASH: u64 = 0x13d9_8f79_0282_17e9;
