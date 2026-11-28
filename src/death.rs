@@ -62,16 +62,32 @@ impl CauseClass {
             DefeatCause::ShoreBlock { .. } | DefeatCause::DropHazard { .. } => &[Self::Crush],
             DefeatCause::ShoreBlockEdge { .. } => &[Self::Shear, Self::Crush],
             DefeatCause::Explosion { .. } => &[Self::Blast, Self::Blunt],
-            // BOIL-B wire (BOILBC-AD4): a falling mass crushes, a drum blasts,
-            // steam and the rest play the ordinary blunt finish.
+            // BOIL-B wire (BOILBC-AD4), refined by ENV-FINISH-A (ENVF-AD1, AD2): a falling
+            // mass, a pile slide and a vehicle wheel crush (a slide buries, a wheel rolls
+            // over), a drum blasts, steam and acid play the ordinary blunt finish (see
+            // `excluded_kinds`).
             DefeatCause::Environment { class, .. } => match class {
-                crate::env_hazard::HazardClass::FallingMass => &[Self::Crush, Self::Blunt],
-                crate::env_hazard::HazardClass::Blast => &[Self::Blast, Self::Blunt],
-                crate::env_hazard::HazardClass::Steam
-                | crate::env_hazard::HazardClass::Acid
+                crate::env_hazard::HazardClass::FallingMass
                 | crate::env_hazard::HazardClass::Slide
-                | crate::env_hazard::HazardClass::Wheel => &[Self::Blunt],
+                | crate::env_hazard::HazardClass::Wheel => &[Self::Crush, Self::Blunt],
+                crate::env_hazard::HazardClass::Blast => &[Self::Blast, Self::Blunt],
+                crate::env_hazard::HazardClass::Steam | crate::env_hazard::HazardClass::Acid => {
+                    &[Self::Blunt]
+                }
             },
+        }
+    }
+
+    /// ENVF-AD3: recipe kinds the selection skips for a cause. Steam and acid do not throw
+    /// a body, so they never play a `Slammed` finish whatever the force (the defeat event and
+    /// its force are untouched): the ordinary knockback and down plays instead.
+    pub const fn excluded_kinds(cause: DefeatCause) -> &'static [RecipeKind] {
+        match cause {
+            DefeatCause::Environment {
+                class: crate::env_hazard::HazardClass::Steam | crate::env_hazard::HazardClass::Acid,
+                ..
+            } => &[RecipeKind::Slammed],
+            _ => &[],
         }
     }
 }
@@ -394,8 +410,13 @@ impl DeathProfiles {
                 degraded: false,
             };
         };
+        let excluded = CauseClass::excluded_kinds(cause);
         for (rung, class) in CauseClass::ladder(cause).iter().enumerate() {
-            if let Some(recipe) = profile.recipes.iter().find(|r| r.accepts(*class, force)) {
+            if let Some(recipe) = profile
+                .recipes
+                .iter()
+                .find(|r| r.accepts(*class, force) && !excluded.contains(&r.kind))
+            {
                 return FinishSelection {
                     finish: &recipe.finish,
                     kind: recipe.kind,
@@ -818,6 +839,102 @@ mod tests {
         assert_eq!(CauseClass::ladder(EDGE), [Shear, Crush]);
         assert_eq!(CauseClass::ladder(BLAST_PB), [Blast, Blunt]);
         assert_eq!(CauseClass::ladder(BLAST_RING), [Blast, Blunt]);
+    }
+
+    fn env(class: crate::env_hazard::HazardClass) -> DefeatCause {
+        DefeatCause::Environment {
+            player: None,
+            prop: 0,
+            class,
+        }
+    }
+
+    /// ENVF-AD1..AD3: the six environment hazard classes and their ladders.
+    #[test]
+    fn env_finish_a_ladders_for_all_six_hazard_classes() {
+        use crate::env_hazard::HazardClass as H;
+        use CauseClass::{Blast, Blunt, Crush};
+        assert_eq!(CauseClass::ladder(env(H::FallingMass)), [Crush, Blunt]);
+        assert_eq!(CauseClass::ladder(env(H::Blast)), [Blast, Blunt]);
+        assert_eq!(CauseClass::ladder(env(H::Wheel)), [Crush, Blunt]);
+        assert_eq!(CauseClass::ladder(env(H::Slide)), [Crush, Blunt]);
+        assert_eq!(CauseClass::ladder(env(H::Steam)), [Blunt]);
+        assert_eq!(CauseClass::ladder(env(H::Acid)), [Blunt]);
+        for h in [H::Steam, H::Acid] {
+            assert_eq!(
+                CauseClass::excluded_kinds(env(h)),
+                [RecipeKind::Slammed],
+                "{h:?}"
+            );
+        }
+        for h in [H::FallingMass, H::Blast, H::Wheel, H::Slide] {
+            assert!(CauseClass::excluded_kinds(env(h)).is_empty(), "{h:?}");
+        }
+        assert!(CauseClass::excluded_kinds(MELEE).is_empty());
+    }
+
+    /// ENVF-AD3: a heavy acid or steam defeat of a goblin and of a llama never plays a slammed
+    /// finish (the cf02 overlay gives the goblin one; the llama has one in the global file),
+    /// while a heavy melee defeat still does.
+    #[test]
+    fn heavy_acid_and_steam_never_select_a_slammed_finish() {
+        use crate::env_hazard::HazardClass as H;
+        for profiles in [DeathProfiles::builtin(), DeathProfiles::cf02()] {
+            for species in ["goblin", "llama"] {
+                for h in [H::Acid, H::Steam] {
+                    for force in [ForceTier::Heavy, ForceTier::Catastrophic] {
+                        let s = profiles.select(species, env(h), force);
+                        assert_ne!(s.kind, RecipeKind::Slammed, "{species} {h:?} {force:?}");
+                        assert_eq!(s.kind, RecipeKind::KnockbackDown, "{species} {h:?}");
+                        assert!(!s.degraded && !s.fallback);
+                    }
+                }
+            }
+        }
+        let cf02 = DeathProfiles::cf02();
+        assert_eq!(
+            cf02.select("goblin", MELEE, ForceTier::Heavy).kind,
+            RecipeKind::Slammed
+        );
+        assert_eq!(
+            cf02.select("llama", MELEE, ForceTier::Heavy).kind,
+            RecipeKind::Slammed
+        );
+        assert_eq!(
+            cf02.select("goblin", env(H::Acid), ForceTier::Heavy).finish,
+            "goblin_knockback_down"
+        );
+        assert_eq!(
+            cf02.select("llama", env(H::Steam), ForceTier::Heavy).finish,
+            "llama_down"
+        );
+    }
+
+    /// ENVF-AD1, AD2: a wheel and a slide play the crushed finish where the species has one
+    /// at heavy force, and fall back to the blunt finish where it has none.
+    #[test]
+    fn wheel_and_slide_play_the_crushed_finish_or_fall_back_to_blunt() {
+        use crate::env_hazard::HazardClass as H;
+        for profiles in [DeathProfiles::builtin(), DeathProfiles::cf02()] {
+            for h in [H::Wheel, H::Slide] {
+                for (species, crushed) in [
+                    ("goblin", "goblin_crushed"),
+                    ("llama", "llama_crushed"),
+                    ("skeleton_mock", "skeleton_flat_pile"),
+                    ("slime_mock", "slime_spread"),
+                ] {
+                    let s = profiles.select(species, env(h), ForceTier::Heavy);
+                    assert_eq!(s.finish, crushed, "{species} {h:?}");
+                    assert_eq!(s.kind, RecipeKind::Crushed);
+                    assert!(!s.degraded && !s.fallback);
+                }
+                // The brute boss crushes only at catastrophic force: the blunt rung plays.
+                let s = profiles.select("brute_boss", env(h), ForceTier::Heavy);
+                assert_eq!(s.finish, "brute_ko_timber", "{h:?}");
+                assert_eq!(s.kind, RecipeKind::KnockbackDown);
+                assert!(s.degraded && !s.fallback);
+            }
+        }
     }
 
     /// (species, cause, force, finish, kind, degraded, fallback): the section
