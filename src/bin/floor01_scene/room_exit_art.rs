@@ -24,6 +24,10 @@ use dungeon_floorbreak::room_exit_art::{
 #[derive(Component)]
 pub(super) struct ExitSprite;
 
+/// EXIT-LIFT-01: the rising grate, a crop of the closed frame over the exit sprite.
+#[derive(Component)]
+pub(super) struct ExitLiftSprite;
+
 /// The sidecar exit the sprite is drawn around (layout px, y down).
 #[derive(Resource)]
 pub(super) struct RoomExitArt {
@@ -91,6 +95,17 @@ pub(super) fn spawn(
     let texture: Handle<Image> = asset_server.load(asset.to_owned());
     handles.push((asset.to_owned(), texture.clone()));
     commands.spawn((
+        ExitLiftSprite,
+        Sprite {
+            image: texture.clone(),
+            rect: Some(Rect::new(0.0, 0.0, 1.0, 1.0)),
+            ..default()
+        },
+        Transform::from_xyz(0.0, 0.0, z + 0.001),
+        Visibility::Hidden,
+        layer.clone(),
+    ));
+    commands.spawn((
         ExitSprite,
         Sprite {
             image: texture,
@@ -108,16 +123,29 @@ pub(super) fn spawn(
     commands.insert_resource(RoomExitArt { exit });
 }
 
+/// The parts the sync writes on each exit sprite.
+type ExitParts = (
+    &'static mut Transform,
+    &'static mut Sprite,
+    &'static mut Visibility,
+);
+
 pub(super) fn sync_room_exit(
     sim: Res<Sim>,
     combat: Res<Combat>,
     art: Option<Res<RoomExitArt>>,
-    mut sprites: Query<(&mut Transform, &mut Sprite, &mut Visibility), With<ExitSprite>>,
+    mut sprites: Query<ExitParts, (With<ExitSprite>, Without<ExitLiftSprite>)>,
+    mut lifts: Query<ExitParts, (With<ExitLiftSprite>, Without<ExitSprite>)>,
 ) {
     let (Some(art), Some(state)) = (art, combat.0.as_ref()) else {
         return;
     };
-    let draw = exit_draw(state, art.exit, sim.0.world.layout_height());
+    let draw = exit_draw(
+        state,
+        art.exit,
+        sim.0.world.layout_height(),
+        sim.0.world.tick,
+    );
     for (mut transform, mut sprite, mut visibility) in &mut sprites {
         let Some(d) = draw else {
             *visibility = Visibility::Hidden;
@@ -129,6 +157,24 @@ pub(super) fn sync_room_exit(
         // World px, y up: the draw gives the bottom-left; the sprite is centred.
         transform.translation.x = d.x as f32 + d.w as f32 / 2.0;
         transform.translation.y = d.y as f32 + d.h as f32 / 2.0;
+        *visibility = Visibility::Inherited;
+    }
+    // EXIT-LIFT-01: the rising grate, the closed frame's opening shifted up (rigid)
+    // and clipped by the lintel, over the open frame, from the opening tick.
+    for (mut transform, mut sprite, mut visibility) in &mut lifts {
+        let Some(l) = draw.and_then(|d| d.lift) else {
+            *visibility = Visibility::Hidden;
+            continue;
+        };
+        sprite.rect = Some(Rect::new(
+            l.src_x as f32,
+            l.src_y as f32,
+            (l.src_x + l.w) as f32,
+            (l.src_y + l.h) as f32,
+        ));
+        sprite.custom_size = Some(Vec2::new(l.w as f32, l.h as f32));
+        transform.translation.x = l.x as f32 + l.w as f32 / 2.0;
+        transform.translation.y = l.y as f32 + l.h as f32 / 2.0;
         *visibility = Visibility::Inherited;
     }
 }

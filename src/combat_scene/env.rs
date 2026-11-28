@@ -494,6 +494,16 @@ pub struct EnvRuntime {
     /// M1 left standing. `None` in every other room (the whole roster). Run
     /// configuration set by [`Self::with_llama_gate`]; never hashed.
     gate_llamas: Option<Vec<usize>>,
+    /// EXIT-LIFT-01 (EXITL-AD1): the scene tick on which the room's
+    /// [`EnvSolidKind::ExitGate`] was first seen open after being seen standing
+    /// (`exit_seen_closed`), for the exit grate's lift animation. An unhashed
+    /// observer field, a copy of the scene tick at a hashed edge (like
+    /// `FallingMass::landed_tick` and `Boss::gate_closed_tick`); a respawn that
+    /// closes the gate again clears it.
+    exit_open_tick: Option<u64>,
+    /// EXIT-LIFT-01: the exit gate has been seen standing (so a room that starts
+    /// clear never lifts a grate that was never down).
+    exit_seen_closed: bool,
     /// DR-B (`enemy-gameplay-dozer.md` section 6): a falling mass's remnant does
     /// not exist before the landing, so the partner's nav graph is built without
     /// it until then (a non-intact solid is a "destroyed" one to the nav, which
@@ -922,6 +932,8 @@ impl EnvRuntime {
             floor_layout: None,
             defeat_roster: enc.goal == Goal::DefeatRoster,
             gate_llamas: None,
+            exit_open_tick: None,
+            exit_seen_closed: false,
             remnants_on_landing: false,
             wake_gates: Vec::new(),
             partner_knobs: Default::default(),
@@ -1456,6 +1468,13 @@ impl EnvRuntime {
             });
         }
         feed
+    }
+
+    /// EXIT-LIFT-01: the scene tick the room's exit gate opened on (the first sync
+    /// that saw it open after seeing it stand), `None` while it stands, in a room
+    /// without one, or in a room that started clear. Unhashed.
+    pub fn exit_open_tick(&self) -> Option<u64> {
+        self.exit_open_tick
     }
 
     /// The runtime solids, in index order of the sync.
@@ -2487,6 +2506,20 @@ impl CombatState {
         };
         if env.solids.is_empty() {
             return;
+        }
+        // EXIT-LIFT-01: the opening tick of the exit gate, an unhashed copy of the
+        // scene tick at the edge (a gate that closes again clears it).
+        if env
+            .solids
+            .iter()
+            .any(|s| matches!(s.kind, EnvSolidKind::ExitGate))
+        {
+            if !cleared {
+                env.exit_seen_closed = true;
+                env.exit_open_tick = None;
+            } else if env.exit_seen_closed && env.exit_open_tick.is_none() {
+                env.exit_open_tick = Some(scene.world.tick);
+            }
         }
         let want: Vec<Rect> = env
             .solids
