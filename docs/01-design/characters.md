@@ -35,6 +35,12 @@
 - **Constraints:** charge needs obvious start/stop frames and safe recovery path; unbreakable critical geometry protected.
 - **Required animation tags:** idle, run, anticipation, charge, impact, hurt, celebrate.
 
+## Open questions
+
+| ID | Question | Recommendation | Status |
+| --- | --- | --- | --- |
+| CHAR-Q-CELEBRATE | The "Required animation tags" above list `celebrate` for Carl, Donut and Mongo, while CF02-Q74 ([tone limits](combat-fun-02-post-demo01-proposals.md)) bans "poise, flips or victory poses" for Carl, [`cf02-acting-spec.md`](../02-art/cf02-acting-spec.md) lists victory poses and fists raised above the head (they read as cheering) under "Explicitly avoided", and the [Carl bible](../02-art/carl-character-bible.md) allows `victory` only as "disbelief/irony more than conquering-hero chest-puffing". The two texts conflict, and no `celebrate` animation exists in the shipped Carl sheets. | Keep the tag but redefine it for Carl: a disbelief or irony beat per the Carl bible, with no victory pose. Decide Donut's and Mongo's `celebrate` separately under their own bibles. | **Open**, recorded 2026-11-28 by the stale-docs audit; not resolved here, owner or top-tier design decision needed |
+
 ## Balance matrix (qualitative first)
 
 | Ability | Demolitionist | Caster | Charger |

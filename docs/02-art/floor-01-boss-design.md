@@ -75,7 +75,7 @@ The defeat is the existing `EnemyDefeated` event with a cause and a force tier. 
 | --- | --- | --- | --- |
 | Melee | routine / heavy | `brute_ko_timber` (fallback) | JUICE-01 `hurt`, then `down` 13..15 (falls back like a felled tree). On the floor-impact frame: camera kick x2, a 120 px dust burst, the racks rattle, and at preset 4 the boils burst in red spatters with a spreading pool. No slow motion or cinematic pause. Play continues. |
 | Rack crush | catastrophic | `brute_crushed` | K-E `pinned` with the `dead` face under the landed stack. At preset 4: a pool from under the plates, boil spatter, and one fist twitch at +20 ticks. |
-| Explosive (later dynamite) | catastrophic | `brute_blown` | Needs a body-parts sheet, which is a separate order. Until then it falls back to `brute_ko_timber`. |
+| Explosive (dynamite) | catastrophic | `brute_blown` | Dynamite now exists (Carl's thrown stick, granted by the Hoarder and held in the Juicer room), but the `brute_boss` profile has no blast recipe and `brute_blown` has no art (it needs a body-parts sheet, a separate order). A blast degrades along its ladder to the blunt row and plays `brute_ko_timber`. |
 
 Presets 1 to 3 reduce the presentation only. The replay hash is identical at presets 1 and 4. The corpse stays, without collision or damage.
 

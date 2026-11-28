@@ -106,7 +106,7 @@ For area transitions, ramp the introduced visual novelty in stages:
 - [x] Areas/canon distinctions, reuse plan and caveats documented.
 - [x] Commit curated PNGs, provenance README and hashes; verified all 10 Git blobs against the original local reference files.
 - [x] Juicer Gym standalone art-direction panorama selected (not gameplay geometry).
-- [ ] Review/correct Ball of Swine arena at standalone concept composition scale.
+- [ ] Review/correct Ball of Swine arena at standalone concept composition scale. *Status 2026-11-28:* the standalone concept images are committed ([`ball-of-swine-arena/`](../../assets/concept/floor-01/ball-of-swine-arena/README.md)) and BOS-ART #319 dressed the locked 640 px arena in pixels from them ([spec](bos-art-spec.md), owner art review pending); the wide arena (central gate, reliefs, BOS-C) is deferred, so the box stays open until the owner reviews both.
 - [ ] Approved native editable environmental pixels produced for the relevant area.
 - [ ] Real Bevy screenshots at 640×360 and 640×400 with **approved Carl/Donut** and no blurred/scaled source art.
 - [ ] Deterministic collision/hazard/reachability tests (only where gameplay mechanics are introduced).

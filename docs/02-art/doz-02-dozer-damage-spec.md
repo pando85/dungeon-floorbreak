@@ -248,3 +248,16 @@ Done: every frame of section 4 (warn, falling, the shadow, the glance, the brace
 | `assets/source/props/dozer_room/` | The gate, buffer stop, lintel and haul sources |
 | `tests/test_art_dozer_doz02.py` | The tests |
 | `docs/evidence/doz-02/` | Contact sheets, the key sheet, the lit before and after scenes, the gate verdict |
+
+## 15. Follow-ups: DOZ-02-FU F4 to F7
+
+Defined here on 2026-11-28 from the "Follow-up for the designer: DOZ-02-FU" section of the body of PR #291 (DOZ-02), where they were first written; until then three docs cited them and none defined them. The names F1 to F3 and F8 to F11 in that PR are review fixes, not follow-ups. All four are open, not started, owner art review pending; the group is called "faint hull damage at 1x" in the backlog although F4, F6 and F7 are about staging, layering and tiling.
+
+| ID | Follow-up | Cheap levers named in #291 |
+| --- | --- | --- |
+| F4 | A wall-torch flame sits behind and above the disabled tub in the real room and reads as fire on the wreck at 1x (the G-4 issue again; the disable position is fixed). | Move that sconce, or accept it. |
+| F5 | The hull crack, cab dent and tub crumple stay faint at 1x (gate note G-1). | A darker crack core, a 1 px light rim on the crumple, a missing plate. |
+| F6 | The `landed_hit` remnant lies under the jammed wheel at `Z_BACK` and is about 70 % hidden (the gate judged it in front of the wheel). | Raise it above the wheel, or shift it by the wheel radius. |
+| F7 | The 32 px gate tile repeats the bar and lock, so seven tiles read as a ladder and the burst stack repeats stubs. | A bar-free upper tile variant. |
+
+Cited by [AREA-POLISH-01](area-polish-01-spec.md) (out of scope, POLISH-Q5) and the backlog. Any of them is a medium-tier art order after a top-tier note; none has an owner decision yet.

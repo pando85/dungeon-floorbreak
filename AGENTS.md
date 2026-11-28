@@ -80,7 +80,7 @@ Every art work order (characters, animation, environments, props, enemies, vehic
 
 ## First work order
 
-Continue from the right-scrolling combat WORK-021 greybox and the current top-priority work in `docs/04-production/backlog.md`. Do not begin with character illustrations, online networking, Steam integration or a complete loot system.
+Continue from the playable Floor 1 run (`--scene f01_late --f01-run`, 18 rooms; the WORK-021 greybox is its historical start), its entry point [`docs/04-production/f01-playtest-ready-01.md`](docs/04-production/f01-playtest-ready-01.md) and the current top-priority work in `docs/04-production/backlog.md`. Do not begin with character illustrations, online networking, Steam integration or a complete loot system.
 
 ## ChatGPT → Hermes mobile concept-image handoffs
 

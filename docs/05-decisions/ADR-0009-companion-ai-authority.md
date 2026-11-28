@@ -1,6 +1,6 @@
 # ADR-0009: Symmetric companion AI authority and intent-based commands
 
-- **Status:** Proposed (design-only PR; no runtime behavior adopted by this file)
+- **Status:** Proposed on 2026-11-20 (design-only PR; no runtime behavior adopted by this file). Refreshed 2026-11-28: the design is implemented by COMPANION-AI-01 and COMPANION-AI-02 (merged, game-feel review pending); the decision text below is unchanged and the owner has not re-ratified this ADR
 - **Date:** 2026-11-20
 - **Scope:** Floor 01 solo companion behavior and future command grammar; preserves [ADR-0005](ADR-0005-coop.md) and the [approved controller contract](../01-design/mvp-controller-contract.md).
 - **Detailed specification:** [Companion autonomy and command system](../03-tech/companion-ai-command-system.md).
