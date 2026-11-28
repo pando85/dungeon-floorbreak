@@ -1,7 +1,8 @@
 """AREA-TROG-01 stages 1 and 2: the troglodyte run (`trog_run`) and the Test of Strength (`trog_strength`) kit of Floor 01
 (sources, contract, manifests, sizes, palette, the dressing, the sixteen frozen key frames, the step and shelf faces, the
-window rule and the evidence numbers). The bench is the intact key placed statically (TROG-ART-AD-S2); the weakened,
-broken and debris keys are pinned but reserved for TROG-Q14 and neither packed nor wired."""
+window rule and the evidence numbers). The bench stack is the sidecar's 80 px partition (TROGB-AD1, TROG-Q14): its three
+state frames and the six debris frames are packed in `floor01_trog_bench` and drawn by the presenter, never placed by the
+dressing."""
 import hashlib
 import json
 import re
@@ -22,6 +23,7 @@ SIZES = {
     "trog_fist_hole": (64, 80), "trog_bell": (40, 64), "trog_knuckle_marks": (96, 40), "trog_slam_crack": (48, 48),
     "trog_impact_crater": (72, 20), "trog_step_mid": (16, 32), "trog_step_end_l": (8, 32), "trog_step_end_r": (8, 32),
     "trog_threshold": (80, 19), "trog_mirror_shards": (96, 74), "trog_bench_intact": (32, 80),
+    "trog_bench_weakened": (32, 80), "trog_bench_broken": (32, 80), **{f"trog_bench_debris_{f}": (112, 96) for f in range(6)},
     "trog_shelf48_mid": (16, 48), "trog_shelf48_end_l": (8, 48), "trog_shelf48_end_r": (8, 48),
 }
 # The sixteen key frames: frozen at the silhouette gate (gate/measurements.txt `KEY` lines). A key change is a design change.
@@ -184,7 +186,7 @@ class TrogKitTest(unittest.TestCase):
         for inherited in ("palette_id", "palette", "palette_policy", "tile_size", "coordinate_system", "layers",
                           "actor_draw_order", "actor_light_group", "roles", "walk_line", "lighting"):
             self.assertNotIn(inherited, kit)
-        self.assertNotIn("state_groups", kit, "the bench is a static placement: no partition, no state group")
+        self.assertNotIn("state_groups", kit, "the bench frames are the presenter's: no state group")
         self.assertEqual(set(kit["room_dressing"]), {"trog_run", "trog_strength"})
         for p in kit["pieces"]:
             self.assertFalse(p["collidable"], p["id"])
@@ -199,7 +201,8 @@ class TrogKitTest(unittest.TestCase):
                          "the floor pieces draw above the collision deck")
         self.assertEqual({k for k, v in layers.items() if v == "backwall_decal"},
                          {"trog_fist_hole", "trog_knuckle_marks", "trog_slam_crack", "trog_mirror_shards"})
-        self.assertEqual({k for k, v in layers.items() if v == "prop"}, {"trog_bell", "trog_bench_intact"})
+        self.assertEqual({k for k, v in layers.items() if v == "prop"}, {"trog_bell", "trog_bench_intact", "trog_bench_weakened", "trog_bench_broken",
+                          *{f"trog_bench_debris_{f}" for f in range(6)}})
 
     def test_the_dressing_is_the_spec_sections_4_and_5(self):
         d = load(CONTRACT)["room_dressing"]["trog_run"]
@@ -244,7 +247,7 @@ class TrogKitTest(unittest.TestCase):
         girders = [p["x"] for p in d["place"] if p["piece"] == "gym_girder"]
         self.assertEqual(girders, [892, 756, 788, 820, 852, 884], "the first girder, drawn under the last, closes the gap")
         props = [(p["piece"], p["x"], p["y"]) for p in d["place"] if p["layer"] == "prop"]
-        self.assertEqual(props, [("trog_bench_intact", 640, 500), ("gym_dumbbell_rack", 812, 532),
+        self.assertEqual(props, [("gym_dumbbell_rack", 812, 532),
                                  ("gym_fluoro_cold", 820, 450), ("gym_plate_tree", 892, 524)])
         at = {(p["piece"], p["x"], p["y"]) for p in d["place"]}
         for want in (("trog_mirror_shards", 792, 470), ("trog_threshold", 672, 561), ("gym_mat_a", 760, 561),
@@ -253,23 +256,27 @@ class TrogKitTest(unittest.TestCase):
             self.assertIn(want, at)
         for k in (8, 24, 40):
             self.assertIn(("trog_shelf48_mid", 288 + k, 532), at)
-        self.assertEqual(len(d["place"]), 20)
+        self.assertEqual(len(d["place"]), 19)
 
-    def test_the_bench_is_one_static_key_and_the_other_bench_keys_are_reserved(self):
-        """TROG-ART-AD-S2: the bench is the intact key placed at the sidecar static's origin; the weakened, broken and
-        debris keys stay pinned (TROG-ART-A10) and are neither packed into an atlas nor named in the contract."""
+    def test_the_bench_stack_frames_are_the_presenters_and_sit_on_the_partition_prop(self):
+        """TROGB-AD1: the three state frames are the partition prop's (target {640, 500, 32, 80}, remnant {640, 564, 32,
+        16}); the dressing places none of them; the burst frames are the 112 x 96 canvas of spec section 7."""
         enc = load(ROOT / "assets/levels/floor01/f01_trog_strength.encounter.json")
-        statics = {s["id"]: s["rect"] for s in enc["statics"]}
-        self.assertEqual(statics["bench"], {"x": 640, "y": 500, "w": 32, "h": 80})
-        self.assertEqual(statics["shelf"], {"x": 288, "y": 532, "w": 64, "h": 48})
-        x0, x1, y0, y1 = opaque_bbox(self.pieces["trog_bench_intact"])
-        self.assertEqual((640 + x0, 500 + y0, x1 - x0 + 1, y1 - y0 + 1), (640, 500, 32, 80))
-        text = CONTRACT.read_text(encoding="utf-8")
-        for reserved in ("trog_bench_weakened", "trog_bench_broken", "trog_bench_debris"):
-            self.assertNotIn(reserved, text, reserved)
-            self.assertNotIn(reserved, self.pieces)
+        self.assertEqual([s["id"] for s in enc["statics"]], ["shelf"], "the bench is no static any more")
+        prop = enc["props"][0]
+        self.assertEqual((prop["id"], prop["kind"]), ("bench_stack", "partition"))
+        self.assertEqual(prop["target"], {"x": 640, "y": 500, "w": 32, "h": 80})
+        self.assertEqual(prop["remnant"], {"x": 640, "y": 564, "w": 32, "h": 16})
+        for pid in ("trog_bench_intact", "trog_bench_weakened"):
+            x0, x1, y0, y1 = opaque_bbox(self.pieces[pid])
+            self.assertEqual((640 + x0, 500 + y0, x1 - x0 + 1, y1 - y0 + 1), (640, 500, 32, 80), pid)
+        x0, x1, y0, y1 = opaque_bbox(self.pieces["trog_bench_broken"])
+        self.assertEqual((640 + x0, 500 + y0, x1 - x0 + 1, y1 - y0 + 1), (640, 564, 32, 16))
+        atlas = {p["id"]: p["atlas"] for p in load(CONTRACT)["pieces"]}
+        for pid in [p for p, _ in trog.KEYS["trog_bench"]] + [p for p, _ in trog.KEYS["trog_bench_debris"]]:
+            self.assertEqual(atlas[pid], "floor01_trog_bench", pid)
         d = load(CONTRACT)["room_dressing"]["trog_strength"]
-        self.assertEqual([p["piece"] for p in d["place"] if p["piece"].startswith("trog_bench")], ["trog_bench_intact"])
+        self.assertEqual([p["piece"] for p in d["place"] if p["piece"].startswith("trog_bench")], [])
 
     # ------------------------------------------------------------------------------ the step faces (spec section 5)
     def test_every_step_piece_has_one_transparent_pixel_and_no_bright_stone_below_the_arris(self):

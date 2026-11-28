@@ -665,15 +665,15 @@ case "$mode" in
       exit 1
     fi
     echo "F01_TROG_RUN_HEADLESS_OK: $(grep '^F01_TROG_RUN_SMOKE_OK' <<<"$trog_story")"
-    # TROG-B: the Test of Strength (one Virtuoso, one Basher, a 48 px shelf and an 80 px static bench: the declared
-    # static fallback, TROG-AD43) loads with its smoke marker under both loadouts and the camp's story pin.
+    # TROG-B: the Test of Strength (one Virtuoso, one Basher, a 48 px shelf static and the 80 px bench_stack partition
+    # prop, TROGB-AD1) loads with its smoke marker under both loadouts and the camp's story pin.
     strength_story="$(late_lines --f01-room trog_strength)"
     strength_all="$(late_lines --f01-room trog_strength --f01-loadout all)"
     if ! grep -q '^F01_TROG_STRENGTH_SMOKE_OK .* pin=f01_pin_post_pile_boss env=live slot_enemies=2 enemies=0 ' <<<"$strength_story" \
-      || ! grep -q '^F01_TROG_STRENGTH_ENTRY .* roster=2 pygmies=0 bashers=1 virtuosos=1 statics=2 listed=true env=live ' <<<"$strength_story" \
-      || ! grep -q '^F01_TROG_STRENGTH_ENTRY .* roster=2 pygmies=0 bashers=1 virtuosos=1 statics=2 listed=true env=live ' <<<"$strength_all" \
+      || ! grep -q '^F01_TROG_STRENGTH_ENTRY .* roster=2 pygmies=0 bashers=1 virtuosos=1 statics=1 listed=true env=live ' <<<"$strength_story" \
+      || ! grep -q '^F01_TROG_STRENGTH_ENTRY .* roster=2 pygmies=0 bashers=1 virtuosos=1 statics=1 listed=true env=live ' <<<"$strength_all" \
       || ! grep -q '^F01_TROG_STRENGTH_SMOKE_OK .* env=live slot_enemies=2 enemies=0 ' <<<"$strength_all"; then
-      echo "the f01_late Test of Strength did not load (two slot troglodytes, a shelf and a bench as statics) with its smoke marker" >&2
+      echo "the f01_late Test of Strength did not load (two slot troglodytes, a shelf static) with its smoke marker" >&2
       exit 1
     fi
     echo "F01_TROG_STRENGTH_HEADLESS_OK: $(grep '^F01_TROG_STRENGTH_SMOKE_OK' <<<"$strength_story")"

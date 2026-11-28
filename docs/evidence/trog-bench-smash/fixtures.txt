@@ -1,0 +1,21 @@
+TROG_FIXTURE trog_pygmy_dodge_and_punish ticks=115 exit_tick=none defeats=1 hero_defeats=0 hurts=0 tells=1 whiffs=1 strikes=0 interrupted=0 hash=0x6523dc0c9ee9d698
+TROG_FIXTURE trog_pygmy_stationary_donut ticks=59 exit_tick=none defeats=1 hero_defeats=0 hurts=0 tells=0 whiffs=0 strikes=0 interrupted=0 hash=0xe9cb7a959754e446
+TROG_FIXTURE trog_basher_flank_and_punish ticks=336 exit_tick=none defeats=1 hero_defeats=0 hurts=0 tells=2 whiffs=1 strikes=0 interrupted=1 hash=0xee91a04c6f9e0cc2
+TROG_FIXTURE trog_basher_bolts_do_not_interrupt ticks=95 exit_tick=none defeats=1 hero_defeats=0 hurts=0 tells=0 whiffs=0 strikes=0 interrupted=0 hash=0xa48c9c3c0faf43a5
+TROG_FIXTURE trog_run_solo_carl ticks=997 exit_tick=997 defeats=3 hero_defeats=0 hurts=0 tells=3 whiffs=3 strikes=0 interrupted=0 hash=0x1fec517aee4df374
+TROG_FIXTURE trog_run_solo_donut ticks=763 exit_tick=763 defeats=3 hero_defeats=0 hurts=0 tells=1 whiffs=0 strikes=0 interrupted=1 hash=0xbea83f87b1d56303
+TROG_FIXTURE trog_run_2p ticks=777 exit_tick=777 defeats=3 hero_defeats=0 hurts=0 tells=2 whiffs=2 strikes=0 interrupted=0 hash=0x5e3d0ef199df2aa5
+TROG_FIXTURE trog_run_solo_companion ticks=997 exit_tick=997 defeats=3 hero_defeats=0 hurts=0 tells=3 whiffs=3 strikes=0 interrupted=0 hash=0x3fbf0020fd7f5ee4
+TROG_FIXTURE trog_strength_direct ticks=495 exit_tick=495 defeats=2 hero_defeats=0 hurts=0 tells=2 whiffs=2 strikes=0 interrupted=0 hash=0xc5b43c84925b61d8
+TROG_FIXTURE trog_strength_bait ticks=487 exit_tick=none defeats=2 hero_defeats=0 hurts=0 tells=2 whiffs=2 strikes=0 interrupted=0 hash=0x256db6669b627698
+TROG_FIXTURE trog_strength_bench_by_hand ticks=271 exit_tick=none defeats=1 hero_defeats=0 hurts=0 tells=1 whiffs=1 strikes=0 interrupted=0 hash=0xed6a783273723896
+TROG_FIXTURE trog_strength_no_break_from_far_side ticks=481 exit_tick=none defeats=1 hero_defeats=0 hurts=2 tells=4 whiffs=2 strikes=2 interrupted=0 hash=0x3f2fe4879e32c60b
+TROG_FIXTURE trog_strength_tell_gap ticks=64 exit_tick=none defeats=0 hero_defeats=0 hurts=1 tells=2 whiffs=0 strikes=1 interrupted=0 hash=0xcadb347d69e50fa1
+TROG_FIXTURE trog_strength_2p ticks=459 exit_tick=459 defeats=2 hero_defeats=0 hurts=0 tells=2 whiffs=2 strikes=0 interrupted=0 hash=0x2f3191322d4e3694
+TROG_FIXTURE trog_strength_solo_companion ticks=495 exit_tick=495 defeats=2 hero_defeats=0 hurts=0 tells=2 whiffs=2 strikes=0 interrupted=0 hash=0xca6ba0b56dcc410d
+TROG_FIXTURE trog_run_retry RetryFacts { party_defeats: 1, pygmy_down: true, basher_state: Dormant, basher_hp: 4, basher_x: 1376.0, restart_all_alive: true, restart_states: [Dormant, Dormant, Dormant], hash: 13379363581781758742 }
+TROG_FIXTURE trog_strength_retry StrengthRetryFacts { party_defeats: 1, virtuoso_down: true, basher_state: Dormant, basher_hp: 4, basher_x: 776.0, restart_states: [Dormant, Dormant], restart_all_alive: true, hash: 7430727311542451891 }
+test trog_fixtures::tests::print_the_fixture_lines ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 4121 filtered out; finished in 0.16s
+

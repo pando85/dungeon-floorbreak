@@ -250,6 +250,7 @@ fn drawing_never_changes_the_state_hash() {
                 view_x: (0.0, 4000.0),
                 token_free: true,
                 last_tell_start: None,
+                faces: &[],
             };
             let mut out = TrogStep::default();
             trog.step(t, &ctx, &mut |_| false, &mut out);
@@ -312,6 +313,7 @@ fn tell_of(species: Species, ticks: u64) -> Trog {
             view_x: (0.0, 4000.0),
             token_free: true,
             last_tell_start: None,
+            faces: &[],
         };
         trog.step(t, &ctx, &mut |_| false, &mut TrogStep::default());
     }
@@ -444,6 +446,7 @@ fn the_telegraph_exists_exactly_while_the_simulation_has_a_threat_and_spans_its_
                 view_x: (0.0, 4000.0),
                 token_free: true,
                 last_tell_start: None,
+                faces: &[],
             };
             cursor.step(t, &ctx, &mut |_| false, &mut TrogStep::default());
             let draw = tell_draw(t, &cursor, &[], tick);

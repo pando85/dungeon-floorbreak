@@ -61,8 +61,8 @@ pub const STRENGTH_ROOM_PATH: &str = "assets/levels/floor01/f01_trog_strength.ro
 pub const RUN_ROOM_HASH: u64 = 0xe881_73c2_842f_8bc1;
 pub const RUN_ENCOUNTER_HASH: u64 = 0x0fc1_829d_0b5c_935c;
 /// The Test of Strength's pins (TROG-B).
-pub const STRENGTH_ROOM_HASH: u64 = 0x7be7_74b8_f39a_463c;
-pub const STRENGTH_ENCOUNTER_HASH: u64 = 0x858b_0a3b_f98f_1e67;
+pub const STRENGTH_ROOM_HASH: u64 = 0xc6c1_6be0_cb87_1aad;
+pub const STRENGTH_ENCOUNTER_HASH: u64 = 0x037f_5984_8a5d_5a90;
 /// The `data_pins()` keys, scoped to their room by [`crate::f01_late::pin_applies`].
 pub const RUN_ROOM_PIN_KEY: &str = "f01_trog_run_room";
 pub const RUN_ENCOUNTER_PIN_KEY: &str = "f01_trog_run_encounter";

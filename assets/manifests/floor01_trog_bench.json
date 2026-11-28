@@ -1,0 +1,34 @@
+{
+ "schema_version": 1,
+ "id": "floor01_trog_bench_v1",
+ "type": "decor_atlas",
+ "source_path": "assets/source/props/floor01/trog_bench_kit.ase",
+ "grid_source": "assets/source/props/floor01/trog_bench_kit.grid.json",
+ "output_atlas": "generated/art/floor01_trog_bench.png",
+ "output_metadata": "generated/art/floor01_trog_bench.json",
+ "palette_id": "floor01-catacomb-v2",
+ "frame_size": [
+  240,
+  408
+ ],
+ "pivot": [
+  0,
+  0
+ ],
+ "animation_tags": [],
+ "required_alpha": true,
+ "kit_contract": "assets/source/terrain/floor01/floor01_trog_kit.json",
+ "owner": "AI-authored environment pixel art (AREA-TROG-01: design spec and keys Claude Opus, silhouette gate Claude Opus (independent); execution Claude Sonnet; independent review pending)",
+ "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+ "license": "Original repo-specific environment art; no standalone asset reuse license; no game/asset-pack distribution rights",
+ "review_status": "prototype_fixture_unapproved",
+ "provenance": {
+  "origin": "Original pixel-grid-v1 pieces for the Test of Strength's bench stack (AREA-TROG-01 stage 2, TROGB-AD1): the three partition states and the six frames of the break burst, the stack and the shards built from the AREA-GYM-01 pixels; rule-based shapes and ramps; nothing cropped, traced or resampled from concept art; no text, logos, brands, faces or likenesses",
+  "generator": "Deterministic authoring script scripts/author_trogarea01.py written by AI agents (spec and keys designed by Claude Opus; execution by Claude Sonnet); no image-model raster output",
+  "generated_art": true,
+  "input_reference_ids": [
+   "floor01-catacomb-kit/env-kit-v2 (owner-approved ENV-01 kit, 2026-11-16)",
+   "floor-01-art-atlas-v1 troglodyte territory panel (mood reference only; no pixel cropped, traced or resampled)"
+  ]
+ }
+}

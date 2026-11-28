@@ -19,13 +19,15 @@
 use crate::agility::{EvadeKey, EvadeSource, Verdict};
 use crate::combat::CombatEvent;
 use crate::companion::view::TargetState;
+use crate::env_prop::Stimulus;
 use crate::party::HeroId;
 use crate::prototype::Rect;
 use crate::scene_enemy::{
     CompanionTarget, CompanionThreat, HitSource, SLOT_ID_MIN, SlotBlast, SlotBuild, SlotContact,
     SlotDeathBody, SlotEnemy, SlotError, SlotHit, SlotHitResult, SlotOut, SlotStepCtx,
+    SlotStimulus,
 };
-use crate::trog::{HitKind, Spawn, Species, State, Trog, TrogCtx, TrogStep, TrogTuning};
+use crate::trog::{BenchFace, HitKind, Spawn, Species, State, Trog, TrogCtx, TrogStep, TrogTuning};
 
 /// The first troglodyte target id: above every other slot id of a trog room.
 pub const TROG_ID_BASE: u32 = SLOT_ID_MIN + 0x300;
@@ -191,6 +193,16 @@ impl SlotEnemy for TrogEnemy {
             return;
         }
         let t = TrogTuning::active();
+        // TROG-B: the standing breakable props of the room (the bench stack) the smash may shove.
+        let faces: Vec<BenchFace> = ctx
+            .env
+            .targets
+            .iter()
+            .map(|f| BenchFace {
+                prop: f.prop,
+                rect: f.rect,
+            })
+            .collect();
         let tctx = TrogCtx {
             tick: ctx.tick,
             heroes: &ctx.heroes,
@@ -199,6 +211,7 @@ impl SlotEnemy for TrogEnemy {
             view_x: ctx.view_x,
             token_free: ctx.token_free,
             last_tell_start: ctx.last_tell_start,
+            faces: &faces,
         };
         // The instance key's stamp is the tick the tell started (a strike never shares the
         // tick a tell starts on, so the stamp read here is the committed one).
@@ -223,6 +236,18 @@ impl SlotEnemy for TrogEnemy {
         self.emit(out, ctx.tick, &step.acts);
         out.tell_started |= step.tell_started;
         out.blows.extend(step.blows);
+        // TROG-B: the smash that met the bench shoves it in this tick, before the env step
+        // (the Hoarder's path); the id is the tell's start tick, so one smash is one shove.
+        out.env_stimuli
+            .extend(step.shoves.iter().map(|s| SlotStimulus {
+                prop: s.prop,
+                stimulus: Stimulus::Shove {
+                    shove_id: u32::try_from(stamp).unwrap_or(u32::MAX),
+                    impulse_px_s: s.impulse_px_s,
+                    source: id,
+                    credit: s.credit,
+                },
+            }));
     }
 
     fn apply_hit(&mut self, hit: &SlotHit, tick: u64, out: &mut SlotOut) -> Option<SlotHitResult> {

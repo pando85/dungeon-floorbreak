@@ -128,6 +128,10 @@ pub const MAX_LANE_OBSTACLE_PX: i32 = 48;
 /// [`MAX_LANE_OBSTACLE_PX`], and so does a static solid that carries a `slide` (a moving mass
 /// behaves like a prop); only a plain, non-sliding static solid may reach 80 px.
 pub const MAX_STATIC_SOLID_PX: i32 = 80;
+/// TROG-B (TROG-Q14, TROGB-AD1): the tallest `partition` prop that stands solid while intact
+/// (Carl's class limit, the Test of Strength's bench stack). Every other solid prop and every
+/// remnant stay at [`MAX_LANE_OBSTACLE_PX`].
+pub const MAX_PARTITION_SOLID_PX: i32 = 80;
 /// A hanging weight's lowest point is at least this far above the lane.
 pub const MIN_HANG_PX: i32 = 96;
 /// Contact margin of a landing link: the footprint grows by this on each side.
@@ -1214,7 +1218,7 @@ impl std::fmt::Display for EncounterError {
             ),
             ObstacleTooTall { prop, px } => write!(
                 f,
-                "prop {prop} leaves a {px} px solid on the lane, at most {MAX_LANE_OBSTACLE_PX} px"
+                "prop {prop} leaves a {px} px solid on the lane, at most {MAX_LANE_OBSTACLE_PX} px ({MAX_PARTITION_SOLID_PX} px for a partition)"
             ),
             ValveConfig { prop, reason } => write!(f, "prop {prop}: valve config: {reason}"),
             RemnantHeadroom {
@@ -2270,7 +2274,12 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
                     None
                 }
             });
-        if p.solid_intact && target.h > MAX_LANE_OBSTACLE_PX {
+        let solid_cap = if kind == PropKind::Partition {
+            MAX_PARTITION_SOLID_PX
+        } else {
+            MAX_LANE_OBSTACLE_PX
+        };
+        if p.solid_intact && target.h > solid_cap {
             errs.push(E::ObstacleTooTall {
                 prop: p.id.clone(),
                 px: target.h,

@@ -141,51 +141,32 @@ fn strength_ctx() -> Context {
     }
 }
 
-/// TROG-B's first action (work order, plan 5.4): the 80 px `bench_stack` partition goes through
-/// the sidecar validator. **It is refused**: a `solid_intact` prop is at most
-/// `MAX_LANE_OBSTACLE_PX` (48) px high. That is the plan's stop condition, and the declared
-/// fallback is taken (TROG-AD12, TROG-AD43, TROG-AD46): the shipped room carries an 80 px static
-/// bench and no partition, and the prop rule is not widened. This test is the recorded evidence;
-/// if the validator's cap ever moves for a partition, it fails and the 80 px bench stack
-/// (TROG-Q14) is the follow-up.
+/// TROG-Q14 resolved by TROGB-AD1: the 80 px `bench_stack` partition goes through the sidecar
+/// validator (a **partition** prop may be as tall as Carl's class limit, `MAX_PARTITION_SOLID_PX`),
+/// while a partition of 81 px is refused and every other solid prop stays at
+/// `MAX_LANE_OBSTACLE_PX` (48; the 48 px corral screen is unchanged).
 #[test]
-fn the_80_px_bench_stack_partition_is_refused_so_the_static_fallback_is_taken() {
-    let mut v = strength();
-    v["props"] = json!([{
-        "id": "bench_stack",
-        "kind": "partition",
-        "target": { "x": 640, "y": 500, "w": 32, "h": 80 },
-        "solid_intact": true,
-        "remnant": { "x": 640, "y": 564, "w": 32, "h": 16 },
-        "partition": { "break_hits": 3, "shove_min_impulse_px_s": 160 }
-    }]);
-    v["statics"]
-        .as_array_mut()
-        .unwrap()
-        .retain(|st| st["id"] != "bench");
-    let errs = parse_sidecar(&v.to_string(), &strength_ctx()).expect_err("an 80 px solid prop");
+fn the_80_px_bench_stack_partition_is_accepted_and_81_px_is_refused() {
+    let with_h = |h: i32| {
+        let mut v = strength();
+        v["props"][0]["target"] = json!({ "x": 640, "y": 580 - h, "w": 32, "h": h });
+        parse_sidecar(&v.to_string(), &strength_ctx())
+    };
+    with_h(80).unwrap_or_else(|e| panic!("the 80 px partition passes: {}", text(&e)));
+    with_h(48).unwrap_or_else(|e| panic!("a 48 px partition passes: {}", text(&e)));
+    let errs = with_h(81).expect_err("an 81 px partition");
     assert!(
         errs.iter()
-            .any(|e| matches!(e, EncounterError::ObstacleTooTall { prop, px: 80 } if prop == "bench_stack")),
+            .any(|e| matches!(e, EncounterError::ObstacleTooTall { prop, px: 81 } if prop == "bench_stack")),
         "{}",
         text(&errs)
     );
-    // The same stack at the cap (48 px, the corral's pen partition) is accepted.
-    let mut ok = strength();
-    ok["props"] = json!([{
-        "id": "bench_stack",
-        "kind": "partition",
-        "target": { "x": 640, "y": 532, "w": 32, "h": 48 },
-        "solid_intact": true,
-        "remnant": { "x": 640, "y": 564, "w": 32, "h": 16 },
-        "partition": { "break_hits": 3, "shove_min_impulse_px_s": 160 }
-    }]);
-    ok["statics"]
-        .as_array_mut()
-        .unwrap()
-        .retain(|st| st["id"] != "bench");
-    parse_sidecar(&ok.to_string(), &strength_ctx())
-        .unwrap_or_else(|e| panic!("a 48 px partition passes: {}", text(&e)));
+    assert_eq!(MAX_PARTITION_SOLID_PX, 80);
+    assert_eq!(
+        MAX_LANE_OBSTACLE_PX, 48,
+        "every other solid prop stays at 48"
+    );
+    assert_eq!(MAX_STATIC_SOLID_PX, 80);
 }
 
 #[test]
@@ -194,22 +175,39 @@ fn the_shipped_strength_sidecar_passes_every_rule() {
         .unwrap_or_else(|e| panic!("{}", text(&e)));
 }
 
-/// The fallback's geometry (plan 5.4, TROG-AD43, TROG-AD46): the bench is an 80 px static solid, no prop
-/// stands in the room, and the Basher's leash (spawn 800, half-width 96) starts at 704, so it can
-/// never stand at the bench's face (672).
+/// The bench stack's geometry (plan 5.4, TROGB-AD1): the bench is the 80 px `bench_stack`
+/// partition prop at 640..672 (y 500) with a 16 px remnant, the shelf is the only static, and the
+/// Basher (spawn 776, half-width 96) has the leash 680..872, so the intact bench walk-blocks it at
+/// pivot 696 (body front 672), rule (b)'s precondition.
 #[test]
-fn the_static_fallback_bench_and_the_basher_leash() {
+fn the_bench_stack_partition_and_the_basher_leash() {
     let loaded = load(root(), STRENGTH).unwrap_or_else(|e| panic!("{}", text(&e)));
     let enc = &loaded.encounter;
-    assert!(enc.props.is_empty(), "the fallback has no partition prop");
-    let bench = enc.statics.iter().find(|s| s.id == "bench").expect("bench");
-    assert_eq!(bench.kind, StaticKind::Solid);
-    assert_eq!(
-        (bench.rect.x, bench.rect.y, bench.rect.w, bench.rect.h),
-        (640, 500, 32, 80)
+    assert_eq!(enc.props.len(), 1, "one prop: the bench stack");
+    let bench = &enc.props[0];
+    assert_eq!(bench.id, "bench_stack");
+    assert_eq!(bench.kind, crate::encounter::PropKind::Partition);
+    assert!(bench.solid_intact);
+    let t = bench.target;
+    assert_eq!((t.x, t.y, t.w, t.h), (640, 500, 32, 80));
+    let r = bench.remnant.expect("a remnant");
+    assert_eq!((r.x, r.y, r.w, r.h), (640, 564, 32, 16));
+    let cfg = bench.partition.expect("partition config");
+    assert_eq!((cfg.break_hits, cfg.shove_min_impulse_px_s), (3, 160));
+    assert!(
+        u16::try_from(i32::from(
+            crate::trog::TrogTuning::active().basher.bench_shove_px_s
+        ))
+        .unwrap()
+            >= cfg.shove_min_impulse_px_s,
+        "the Basher's shove (200 px/s) breaks it"
+    );
+    assert!(
+        enc.statics.iter().all(|s| s.id != "bench"),
+        "no static bench"
     );
     // `trog_eval`'s surfaces are the sidecar's (TROG-AD47): they cannot drift.
-    assert_eq!(bench.rect.h, crate::trog_eval::BENCH_RISE_PX);
+    assert_eq!(t.h, crate::trog_eval::BENCH_RISE_PX);
     let shelf = enc.statics.iter().find(|s| s.id == "shelf").expect("shelf");
     assert_eq!(shelf.rect.h, crate::trog_eval::SHELF_RISE_PX);
     let basher = enc
@@ -218,8 +216,11 @@ fn the_static_fallback_bench_and_the_basher_leash() {
         .find(|e| e.kind.trog() == Some(crate::trog::Species::Basher))
         .expect("basher");
     let leash = i32::from(crate::trog::TrogTuning::active().basher.leash_px);
-    assert_eq!(basher.x - leash, 704);
-    assert!(basher.x - leash > bench.rect.right() + 24);
+    assert_eq!((basher.x - leash, basher.x + leash), (680, 872));
+    // The body's front (idle hurtbox, 24 px behind the pivot facing left) meets the bench's right
+    // face at pivot 696, inside the leash.
+    assert_eq!(t.right() + 24, 696);
+    assert!(basher.x - leash < t.right() + 24);
 }
 
 /// V2 holds for both statics: neither lies inside a leash band (the Virtuoso's is 368..624, the
@@ -240,19 +241,19 @@ fn v2_the_shelf_and_the_bench_stay_outside_both_leash_bands() {
 }
 
 /// TROG-AD46: a sidecar static of kind `solid` may be 80 px high (Carl's class limit,
-/// `MAX_STATIC_SOLID_PX`), not 81; a solid prop and a remnant stay at 48.
+/// `MAX_STATIC_SOLID_PX`), not 81 (checked on the retreat shelf).
 #[test]
 fn a_static_solid_is_at_most_80_px() {
     let with_h = |h: i32| {
         let mut v = strength();
-        let bench = v["statics"]
+        let shelf = v["statics"]
             .as_array_mut()
             .unwrap()
             .iter_mut()
-            .find(|s| s["id"] == "bench")
+            .find(|s| s["id"] == "shelf")
             .unwrap();
-        bench["rect"]["y"] = json!(580 - h);
-        bench["rect"]["h"] = json!(h);
+        shelf["rect"]["y"] = json!(580 - h);
+        shelf["rect"]["h"] = json!(h);
         parse_sidecar(&v.to_string(), &strength_ctx())
     };
     with_h(80).unwrap_or_else(|e| panic!("80 px passes: {}", text(&e)));
@@ -260,10 +261,8 @@ fn a_static_solid_is_at_most_80_px() {
     assert!(
         errs.iter()
             .any(|e| matches!(e, EncounterError::StaticInvalid { id, reason }
-            if id == "bench" && reason.contains("at most 80 px"))),
+            if id == "shelf" && reason.contains("at most 80 px"))),
         "{}",
         text(&errs)
     );
-    assert_eq!(MAX_STATIC_SOLID_PX, 80);
-    assert_eq!(MAX_LANE_OBSTACLE_PX, 48, "a prop and a remnant stay at 48");
 }

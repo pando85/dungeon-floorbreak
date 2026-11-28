@@ -307,6 +307,38 @@ impl TrogSim {
         body.facing = facing;
     }
 
+    /// The bench stack's partition state (`None` in a room with no partition prop).
+    pub fn bench_state(&self) -> Option<crate::env_prop::PartitionState> {
+        let prop = self.bench_prop()?;
+        self.combat.env()?.partition(prop).map(|p| p.state())
+    }
+
+    /// The player credited with the bench's break, if it broke and anybody is credited.
+    pub fn bench_initiator(&self) -> Option<u32> {
+        let prop = self.bench_prop()?;
+        self.combat.env()?.partition(prop)?.initiator()
+    }
+
+    fn bench_prop(&self) -> Option<usize> {
+        self.run
+            .loaded
+            .encounter
+            .props
+            .iter()
+            .position(|p| p.kind == crate::encounter::PropKind::Partition)
+    }
+
+    /// The `BenchSmash` events, `(tick, bait)`, in log order.
+    pub fn bench_smashes(&self) -> Vec<(u64, HeroId)> {
+        self.acts()
+            .into_iter()
+            .filter_map(|(t, _, a)| match a {
+                TrogAct::BenchSmash { bait } => Some((t, bait)),
+                _ => None,
+            })
+            .collect()
+    }
+
     /// The troglodyte at roster index `i`.
     pub fn trog(&self, i: usize) -> &Trog {
         self.combat.slot_enemies()[i]
@@ -398,6 +430,7 @@ pub fn stomp() -> RawInput {
 pub struct Probe<'a> {
     pub scene: &'a SceneSim,
     pub statics: &'a [crate::encounter::StaticEntry],
+    pub props: &'a [crate::encounter::Prop],
 }
 
 impl Probe<'_> {
@@ -417,6 +450,21 @@ impl Probe<'_> {
     pub fn tick(&self) -> u64 {
         self.scene.world.tick
     }
+
+    /// The lane steps `(left, right)` a hero hops: the sidecar's statics and the partition props'
+    /// spans (the bench stack, standing or broken: its 16 px remnant is hopped too).
+    pub fn lane_steps(&self) -> Vec<(f32, f32)> {
+        self.statics
+            .iter()
+            .map(|st| (st.rect.x as f32, st.rect.right() as f32))
+            .chain(
+                self.props
+                    .iter()
+                    .filter(|p| p.kind == crate::encounter::PropKind::Partition)
+                    .map(|p| (p.target.x as f32, p.target.right() as f32)),
+            )
+            .collect()
+    }
 }
 
 impl TrogSim {
@@ -425,6 +473,7 @@ impl TrogSim {
         Probe {
             scene: &self.scene,
             statics: &self.run.loaded.encounter.statics,
+            props: &self.run.loaded.encounter.props,
         }
     }
 }
@@ -555,8 +604,7 @@ pub fn with_hop(p: &Probe, hero: HeroId, mut raw: RawInput) -> RawInput {
         return raw;
     }
     let ahead = body.x + raw.move_x.signum() * 30.0;
-    let near = p.statics.iter().any(|st| {
-        let (l, r) = (st.rect.x as f32, st.rect.right() as f32);
+    let near = p.lane_steps().iter().any(|&(l, r)| {
         let inside = ahead >= l && ahead <= r;
         let on_it = body.x >= l && body.x <= r;
         inside && !on_it
@@ -600,6 +648,9 @@ pub enum Pilot {
     Carl,
     /// The first tick swaps to Donut, who casts at them from the floor, then walks to the exit.
     Donut,
+    /// TROGB-AD1, the Test of Strength: Carl defeats the Virtuoso, stands in the bait zone (x 616)
+    /// until the Basher smashes the bench, then fights it and walks to the exit.
+    Bait,
 }
 
 impl Pilot {
@@ -607,7 +658,10 @@ impl Pilot {
         match text {
             "carl" => Ok(Self::Carl),
             "donut" => Ok(Self::Donut),
-            other => Err(format!("unknown --trog-pilot {other:?} (carl or donut)")),
+            "bait" => Ok(Self::Bait),
+            other => Err(format!(
+                "unknown --trog-pilot {other:?} (carl, donut or bait)"
+            )),
         }
     }
 }
@@ -618,10 +672,14 @@ pub fn pilot(
     kind: Pilot,
     combat: &CombatState,
     scene: &SceneSim,
-    statics: &[crate::encounter::StaticEntry],
+    encounter: &crate::encounter::Encounter,
     exit_x: f32,
 ) -> RawInput {
-    let probe = Probe { scene, statics };
+    let probe = Probe {
+        scene,
+        statics: &encounter.statics,
+        props: &encounter.props,
+    };
     if kind == Pilot::Donut && scene.world.tick == 0 {
         return RawInput {
             swap: true,
@@ -629,7 +687,7 @@ pub fn pilot(
         };
     }
     let hero = match kind {
-        Pilot::Carl => HeroId::Carl,
+        Pilot::Carl | Pilot::Bait => HeroId::Carl,
         Pilot::Donut => HeroId::Donut,
     };
     let target = combat.slot_enemies().iter().find_map(|e| {
@@ -638,9 +696,40 @@ pub fn pilot(
             .filter(|t| t.trog().alive())
             .map(|t| t.trog().clone())
     });
+    if kind == Pilot::Bait {
+        // The Virtuoso first (the Basher stays asleep left of x 600); then hold the bait column
+        // while the bench stands; then the Basher (the bench is down) and the exit.
+        let bench_up = combat
+            .env()
+            .and_then(|e| e.partition(0))
+            .is_some_and(|p| p.is_standing());
+        let virtuoso = combat
+            .slot_enemies()
+            .first()
+            .and_then(|e| e.as_any())
+            .and_then(|a| a.downcast_ref::<TrogEnemy>())
+            .filter(|t| t.trog().alive())
+            .map(|t| t.trog().clone());
+        let x = probe.x_of(HeroId::Carl);
+        let raw = match (&virtuoso, &target) {
+            (Some(t), _) => carl_vs(&probe, t, &mut 0),
+            (None, Some(_)) if bench_up => {
+                // Walk to the column with no hop (the bench's face would trigger one).
+                return if (x - 616.0).abs() <= 2.0 {
+                    RawInput::NONE
+                } else {
+                    moving(if x < 616.0 { 1.0 } else { -1.0 })
+                };
+            }
+            (None, Some(t)) => carl_vs(&probe, t, &mut 0),
+            (None, None) => moving(if x < exit_x { 1.0 } else { 0.0 }),
+        };
+        return with_hop(&probe, HeroId::Carl, raw);
+    }
     let raw = match (&target, kind) {
         (Some(t), Pilot::Carl) => carl_vs(&probe, t, &mut 0),
         (Some(t), Pilot::Donut) => donut_vs(&probe, t, &mut 0),
+        (Some(_), Pilot::Bait) => unreachable!("the bait pilot returned above"),
         (None, _) => moving(if probe.x_of(hero) < exit_x { 1.0 } else { 0.0 }),
     };
     with_hop(&probe, hero, raw)
@@ -723,6 +812,15 @@ pub enum Case {
     /// F09 (TROG-B): `trog_strength`, Carl solo (Donut parked) defeats the Virtuoso left of
     /// x 600, climbs the 80 px bench and defeats the Basher: the bench is passed, never broken.
     StrengthDirect,
+    /// F10 (TROGB-AD1): Carl stands in the bait zone (x 616) after the Virtuoso is down; the
+    /// Basher, walk-blocked by the bench, smashes it: one `BenchSmash`, credited to Carl.
+    StrengthBait,
+    /// F11 (TROGB-AD1): Carl breaks the bench by hand with three separate jabs from pivot 620;
+    /// no `BenchSmash`.
+    StrengthBenchByHand,
+    /// F12 (TROGB-AD1): Donut fights the Basher from x 720 and from x 760: the bench stays
+    /// standing, no `BenchSmash`.
+    StrengthNoBreakFarSide,
     /// F13: both troglodytes eligible at once, one hero each (2P): the tell gap holds.
     StrengthTellGap,
     /// F15: P1 Carl and P2 Donut clear the Test of Strength.
@@ -732,7 +830,7 @@ pub enum Case {
 }
 
 impl Case {
-    pub const ALL: [Case; 12] = [
+    pub const ALL: [Case; 15] = [
         Case::PygmyDodgeAndPunish,
         Case::PygmyStationaryDonut,
         Case::BasherFlankAndPunish,
@@ -742,6 +840,9 @@ impl Case {
         Case::Run2P,
         Case::RunSoloCompanion,
         Case::StrengthDirect,
+        Case::StrengthBait,
+        Case::StrengthBenchByHand,
+        Case::StrengthNoBreakFarSide,
         Case::StrengthTellGap,
         Case::Strength2P,
         Case::StrengthSoloCompanion,
@@ -751,6 +852,9 @@ impl Case {
     pub const fn room(self) -> TrogRoom {
         match self {
             Self::StrengthDirect
+            | Self::StrengthBait
+            | Self::StrengthBenchByHand
+            | Self::StrengthNoBreakFarSide
             | Self::StrengthTellGap
             | Self::Strength2P
             | Self::StrengthSoloCompanion => TrogRoom::Strength,
@@ -769,6 +873,9 @@ impl Case {
             Self::Run2P => "trog_run_2p",
             Self::RunSoloCompanion => "trog_run_solo_companion",
             Self::StrengthDirect => "trog_strength_direct",
+            Self::StrengthBait => "trog_strength_bait",
+            Self::StrengthBenchByHand => "trog_strength_bench_by_hand",
+            Self::StrengthNoBreakFarSide => "trog_strength_no_break_from_far_side",
             Self::StrengthTellGap => "trog_strength_tell_gap",
             Self::Strength2P => "trog_strength_2p",
             Self::StrengthSoloCompanion => "trog_strength_solo_companion",
@@ -782,12 +889,22 @@ pub fn run(root: &Path, case: Case) -> Result<(Report, TrogSim), String> {
         Case::PygmyDodgeAndPunish | Case::BasherFlankAndPunish | Case::RunSoloCarl => {
             TrogSim::new(root, Party::Solo { uncontrolled: BOT }, Some(HeroId::Donut))?
         }
-        Case::StrengthDirect => TrogSim::for_room(
+        Case::StrengthDirect | Case::StrengthBait | Case::StrengthBenchByHand => TrogSim::for_room(
             root,
             TrogRoom::Strength,
             Party::Solo { uncontrolled: BOT },
             Some(HeroId::Donut),
         )?,
+        Case::StrengthNoBreakFarSide => {
+            let mut s = TrogSim::for_room(
+                root,
+                TrogRoom::Strength,
+                Party::Solo { uncontrolled: BOT },
+                Some(HeroId::Carl),
+            )?;
+            s.swap_to_donut();
+            s
+        }
         Case::StrengthTellGap | Case::Strength2P => {
             TrogSim::for_room(root, TrogRoom::Strength, Party::TwoPlayer, None)?
         }
@@ -814,6 +931,9 @@ pub fn run(root: &Path, case: Case) -> Result<(Report, TrogSim), String> {
         Case::RunSoloDonut => clear_run(&mut sim, HeroId::Donut),
         Case::Run2P | Case::Strength2P => clear_run_2p(&mut sim),
         Case::StrengthDirect | Case::StrengthSoloCompanion => clear_run(&mut sim, HeroId::Carl),
+        Case::StrengthBait => strength_bait(&mut sim),
+        Case::StrengthBenchByHand => strength_bench_by_hand(&mut sim),
+        Case::StrengthNoBreakFarSide => strength_no_break_far_side(&mut sim),
         Case::StrengthTellGap => strength_tell_gap(&mut sim),
     }
     Ok((Report::of(case.name(), &sim), sim))
@@ -1074,6 +1194,103 @@ fn clear_run_2p(sim: &mut TrogSim) {
 }
 
 // ------------------------------------------------------------- TROG-B
+
+/// Carl (the controlled hero, left of x 600 so the Basher stays Dormant) defeats the Virtuoso.
+fn defeat_the_virtuoso(sim: &mut TrogSim) {
+    let mut last = 0u64;
+    for _ in 0..MAX_TICKS {
+        if !sim.trog(0).alive() {
+            break;
+        }
+        let t = sim.trog(0).clone();
+        let raw = carl_vs(&sim.probe(), &t, &mut last);
+        let raw = with_hop(&sim.probe(), HeroId::Carl, raw);
+        sim.step1(raw);
+    }
+}
+
+/// F10 (TROGB-AD1). The Virtuoso is down. Carl stands in the bait zone at 616 (a setup write) and
+/// holds still: the Basher wakes at 600, walks to the bench face (pivot 696), and rule (b) starts a
+/// smash at the bench. Its impact breaks the bench; Carl is out of reach and punishes the recovery.
+fn strength_bait(sim: &mut TrogSim) {
+    defeat_the_virtuoso(sim);
+    sim.place(HeroId::Carl, 616.0, 1);
+    let mut last = 0u64;
+    let mut broke_at: Option<u64> = None;
+    for _ in 0..MAX_TICKS {
+        if !sim.trog(1).alive() {
+            break;
+        }
+        let broken = sim.bench_state() == Some(crate::env_prop::PartitionState::Broken);
+        if broken && broke_at.is_none() {
+            broke_at = Some(sim.tick());
+        }
+        let raw = if broken {
+            // The bench is gone: Carl fights the Basher (it is in its recovery).
+            let t = sim.trog(1).clone();
+            let raw = carl_vs(&sim.probe(), &t, &mut last);
+            with_hop(&sim.probe(), HeroId::Carl, raw)
+        } else {
+            RawInput::NONE
+        };
+        sim.step1(raw);
+    }
+}
+
+/// F11 (TROGB-AD1). The Virtuoso is down and Carl is left of 600 (the Basher is Dormant). He walks
+/// to pivot 620 (crossing 600 wakes the Basher), then makes three separate jabs, each pressed
+/// after the previous one ended, at the bench.
+fn strength_bench_by_hand(sim: &mut TrogSim) {
+    defeat_the_virtuoso(sim);
+    sim.place(HeroId::Carl, 560.0, 1);
+    let mut presses = 0u32;
+    let mut last = 0u64;
+    for _ in 0..400 {
+        if sim.bench_state() == Some(crate::env_prop::PartitionState::Broken) {
+            break;
+        }
+        let x = sim.x_of(HeroId::Carl);
+        let idle = !sim.scene.world.hero.melee.busy();
+        let raw = if x < 620.0 {
+            moving(1.0)
+        } else if idle && presses < 3 && sim.tick().saturating_sub(last) >= 14 {
+            presses += 1;
+            last = sim.tick();
+            press()
+        } else {
+            RawInput::NONE
+        };
+        sim.step1(raw);
+    }
+    for _ in 0..30 {
+        sim.step1(RawInput::NONE);
+    }
+}
+
+/// F12 (TROGB-AD1). Donut (Carl parked) stands on the floor at 720, then at 760, and casts at the
+/// Basher: the open band lies inside the hitbox, so no smash reaches the bench.
+fn strength_no_break_far_side(sim: &mut TrogSim) {
+    let mut last = 0u64;
+    for column in [720.0f32, 760.0] {
+        sim.place(HeroId::Donut, column, -1);
+        for _ in 0..450 {
+            if !sim.trog(1).alive() {
+                break;
+            }
+            let raw = if sim.tick().saturating_sub(last) >= 17 {
+                last = sim.tick();
+                RawInput {
+                    move_x: -0.01,
+                    attack: true,
+                    ..RawInput::NONE
+                }
+            } else {
+                RawInput::NONE
+            };
+            sim.step1(raw);
+        }
+    }
+}
 
 /// How many troglodyte hitboxes are live on `hero` this tick (the committed hitbox of each
 /// troglodyte on a strike or impact tick, against the hero's hurtbox).

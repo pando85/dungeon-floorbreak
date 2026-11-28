@@ -1,6 +1,6 @@
 {
   "schema": "floor01-encounter-v1",
-  "status": "TROG-B data (docs/01-design/floor-01-troglodyte-integration.md sections 4.2 and 5.4, TROG-AD1..AD46): the Test of Strength, one Virtuoso and one Basher on ENEMY-SLOT under goal defeat_roster, a 48 px retreat shelf and an 80 px bench as sidecar statics of kind solid. The bench is a static, not the plan's partition (TROG-AD12, TROG-AD43: the validator refuses an 80 px solid prop), and 80 px is Carl's class limit and the height at which no bolt over the bench can meet a troglodyte (TROG-AD46, the validator's MAX_STATIC_SOLID_PX); the bench break, rule (b) and the bench smash stay cut and the Basher's leash starts at 704. Validated by src/encounter.rs (the TROG-V rules), launched as the room trog_strength of --scene f01_late (src/f01_trog.rs). Greybox hypotheses; every number is a tuning knob. Coordinates are layout pixels, y down, like the room file.",
+  "status": "TROG-B data (docs/01-design/floor-01-troglodyte-integration.md sections 4.2 and 5.4, TROG-AD1..AD47, TROGB-AD1): the Test of Strength, one Virtuoso and one Basher on ENEMY-SLOT under goal defeat_roster, a 48 px retreat shelf (a sidecar static) and the 80 px bench_stack partition prop (3 hero melee tokens or the Basher's smash shove break it into a 16 px remnant). The validator lets a partition prop reach Carl's class limit of 80 px while every other solid prop stays at 48 (TROG-Q14 resolved by TROGB-AD1); 80 px is also the height at which no bolt over the bench can meet a troglodyte (TROG-AD46). The Basher spawns at 776 (leash 680..872) so the intact bench walk-blocks it at pivot 696 for rule (b), the bench smash. Validated by src/encounter.rs (the TROG-V rules), launched as the room trog_strength of --scene f01_late (src/f01_trog.rs). Greybox hypotheses; every number is a tuning knob. Coordinates are layout pixels, y down, like the room file.",
   "id": "F01-TROG-STRENGTH-ENC",
   "room_file": "f01_trog_strength.room.json",
   "room_id": "F01-TROG-STRENGTH",
@@ -13,17 +13,25 @@
   "protected_spawn": { "x": 16, "y": 484, "w": 208, "h": 96 },
   "checkpoint": { "x": 32, "y": 484, "w": 48, "h": 96 },
   "exit": { "x": 944, "y": 484, "w": 64, "h": 96 },
-  "props": [],
+  "props": [
+    {
+      "id": "bench_stack",
+      "kind": "partition",
+      "target": { "x": 640, "y": 500, "w": 32, "h": 80 },
+      "solid_intact": true,
+      "remnant": { "x": 640, "y": 564, "w": 32, "h": 16 },
+      "partition": { "break_hits": 3, "shove_min_impulse_px_s": 160 }
+    }
+  ],
   "hazards": [],
   "links": [],
   "roster": [
     { "id": "vir_a", "kind": "trog_virtuoso", "x": 496, "beat": "T4", "trigger_x": 240, "delay_ticks": 0 },
-    { "id": "bas_a", "kind": "trog_basher", "x": 800, "beat": "T4", "trigger_x": 600, "delay_ticks": 0 }
+    { "id": "bas_a", "kind": "trog_basher", "x": 776, "beat": "T4", "trigger_x": 600, "delay_ticks": 0 }
   ],
   "gates": [],
   "vantages": [],
   "statics": [
-    { "id": "shelf", "kind": "solid", "rect": { "x": 288, "y": 532, "w": 64, "h": 48 } },
-    { "id": "bench", "kind": "solid", "rect": { "x": 640, "y": 500, "w": 32, "h": 80 } }
+    { "id": "shelf", "kind": "solid", "rect": { "x": 288, "y": 532, "w": 64, "h": 48 } }
   ]
 }

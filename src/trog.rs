@@ -46,6 +46,9 @@ pub const TUNING_HASH: u64 = 0xde76_c204_0e24_ea83;
 /// The key of the pin in a session manifest's `content_hashes`.
 pub const PIN_KEY: &str = "trog_tuning";
 
+/// TROGB-AD2: a standing solid this low (px) or lower never blocks a troglodyte's walk or leap.
+pub const LOW_STEP_PX: f32 = 16.0;
+
 /// The `HeroBlow::source` base of a troglodyte (the ASCII "TR"). The roster index goes in the
 /// high half ([`trog_source`]).
 pub const TROG_SOURCE_ID: u32 = 0x5452;
@@ -418,6 +421,10 @@ pub enum TrogAct {
     Whiff,
     /// Code 7: a hit cancelled the tell.
     Interrupted,
+    /// Code 8 (TROG-B, TROGB-AD1, appended): a Basher's smash reached a standing bench stack and
+    /// shoved it. `bait` is the baiting hero's stable id: the hero that met rule (b) at the tell
+    /// start, or the committed target of a smash at the far face. Logged once per smash.
+    BenchSmash { bait: HeroId },
 }
 
 impl TrogAct {
@@ -430,6 +437,7 @@ impl TrogAct {
             Self::Strike => 5,
             Self::Whiff => 6,
             Self::Interrupted => 7,
+            Self::BenchSmash { .. } => 8,
         }
     }
 
@@ -442,6 +450,7 @@ impl TrogAct {
             Self::Strike => "strike",
             Self::Whiff => "whiff",
             Self::Interrupted => "interrupted",
+            Self::BenchSmash { .. } => "bench_smash",
         }
     }
 
@@ -456,6 +465,7 @@ impl TrogAct {
                 }
             ),
             Self::Tell { target } => format!("target={}", target.index()),
+            Self::BenchSmash { bait } => format!("bait={}", bait.index()),
             _ => String::new(),
         }
     }
@@ -465,6 +475,7 @@ impl TrogAct {
         match self {
             Self::Wake { cause } => mix(cause as u64),
             Self::Tell { target } => mix(target.index() as u64),
+            Self::BenchSmash { bait } => mix(bait.index() as u64),
             _ => {}
         }
     }
@@ -548,6 +559,31 @@ pub struct TrogCtx<'a> {
     pub token_free: bool,
     /// The tick of the last tell start of the scene (any enemy).
     pub last_tell_start: Option<u64>,
+    /// TROG-B (TROGB-AD1): the standing breakable solid props of the room (the bench stack), as
+    /// world rectangles. Empty in a room with none.
+    pub faces: &'a [BenchFace],
+}
+
+/// A standing breakable prop a Basher's smash may shove (the bench stack, TROG-B).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct BenchFace {
+    /// The prop's index in the encounter.
+    pub prop: u16,
+    /// Its world rectangle (y up).
+    pub rect: Rect,
+}
+
+/// A shove the Basher's smash sends to a bench prop on its impact tick (once per smash).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct BenchShove {
+    pub prop: u16,
+    /// Shove speed at the contact (px/s).
+    pub impulse_px_s: u16,
+    /// The hero named by `BenchSmash` (the baiting hero).
+    pub bait: HeroId,
+    /// The player credited: the bait's player, `None` when the bait is the companion bot
+    /// (TROG-AD26).
+    pub credit: Option<u32>,
 }
 
 /// What one step asks the scene to do.
@@ -557,6 +593,8 @@ pub struct TrogStep {
     pub blows: Vec<HeroBlow>,
     /// The enemy began a tell on this tick and took an attack token.
     pub tell_started: bool,
+    /// TROG-B: the shove of a smash that met a bench stack on this tick.
+    pub shoves: Vec<BenchShove>,
 }
 
 /// One troglodyte.
@@ -586,6 +624,8 @@ pub struct Trog {
     /// Heroes this attack instance resolved (blow landed or evaded).
     hit_mask: u8,
     struck: bool,
+    /// TROG-B: this smash instance already shoved a bench (at most one shove per smash).
+    bench_sent: bool,
     rest_left: u16,
     hurt_left: u16,
     /// The Basher's interrupt budget: the tick of the last interrupt or flinch.
@@ -665,6 +705,7 @@ impl Trog {
             },
             hit_mask: 0,
             struck: false,
+            bench_sent: false,
             rest_left: 0,
             hurt_left: 0,
             last_react: None,
@@ -1059,6 +1100,17 @@ impl Trog {
         } else if dx < 0.0 {
             self.facing = -1;
         }
+        if self.species == Species::Basher
+            && self.in_view(t, ctx)
+            && ctx.token_free
+            && self.gap_ok(t, ctx)
+            && let Some(bait) = self.bench_bait(t, ctx)
+        {
+            // Rule (b), the bench smash: the tell is the ordinary smash, aimed at the bench.
+            self.facing = if bait.x > self.x { 1 } else { -1 };
+            self.begin_tell(t, ctx, &bait, out);
+            return;
+        }
         if self.is_candidate(t, &hero)
             && self.in_view(t, ctx)
             && ctx.token_free
@@ -1069,6 +1121,51 @@ impl Trog {
             return;
         }
         self.walk(t, ctx, &hero);
+    }
+
+    /// Rule (b) of the bench smash (plan 5.4, TROGB-AD1): the Basher's walk toward its target is
+    /// blocked within 4 px by a standing bench face, and a living hero stands on the room floor
+    /// on the face's far side (away from the Basher) within `bait_px` of the pivot. Returns the
+    /// baiting hero: the nearest to the pivot, ties to Donut. The committed smash rectangle must
+    /// overlap the face by `bench_min_overlap_px` (the truth rule, so the tell is never a lie).
+    fn bench_bait(&self, t: &TrogTuning, ctx: &TrogCtx<'_>) -> Option<HeroView> {
+        let sp = t.species(self.species);
+        let dir: f32 = if self.facing >= 0 { 1.0 } else { -1.0 };
+        let body = self.idle_box_at(t, self.x);
+        let smash = rect_of(&sp.hitbox, self.x, self.facing, self.foot_y);
+        let face = ctx.faces.iter().find(|f| {
+            let y_ok = f.rect.bottom < body.top() && f.rect.top() > body.bottom;
+            let gap = if dir < 0.0 {
+                body.left - f.rect.right()
+            } else {
+                f.rect.left - body.right()
+            };
+            let overlap = smash.right().min(f.rect.right()) - smash.left.max(f.rect.left);
+            y_ok && (-0.5..=4.0).contains(&gap)
+                && overlap >= f32::from(sp.bench_min_overlap_px)
+                && smash.bottom < f.rect.top()
+                && smash.top() > f.rect.bottom
+        })?;
+        let far = |h: &HeroView| {
+            h.present
+                && (h.foot_y - self.foot_y).abs() <= 2.0
+                && if dir < 0.0 {
+                    h.x < face.rect.left
+                } else {
+                    h.x > face.rect.right()
+                }
+                && (h.x - self.x).abs() <= f32::from(sp.bait_px)
+        };
+        ctx.heroes
+            .iter()
+            .filter(|h| far(h))
+            .min_by(|a, b| {
+                (a.x - self.x)
+                    .abs()
+                    .total_cmp(&(b.x - self.x).abs())
+                    .then(b.id.index().cmp(&a.id.index()))
+            })
+            .copied()
     }
 
     /// The truth rule: the committed geometry can overlap the target's current hurtbox, and
@@ -1122,6 +1219,7 @@ impl Trog {
         self.tell_start_tick = ctx.tick;
         self.hit_mask = 0;
         self.struck = false;
+        self.bench_sent = false;
         self.leap_blocked = false;
         self.lift = 0.0;
         self.commit = Commit {
@@ -1141,11 +1239,13 @@ impl Trog {
         out.tell_started = true;
     }
 
-    /// Whether a standing solid blocks the walk body at `next` while moving `dir`.
+    /// Whether a standing solid blocks the walk body at `next` while moving `dir`. A solid at most
+    /// [`LOW_STEP_PX`] high (the broken bench's remnant, TROGB-AD2) is stepped over: it blocks no
+    /// walk, as V2 already treats such a solid as no obstacle in a leash band.
     fn walk_blocked(&self, t: &TrogTuning, solids: &[Block], next: f32, dir: f32) -> bool {
         let body = self.idle_box_at(t, next);
         solids.iter().any(|s| {
-            s.intact && body.overlaps(s.rect) && {
+            s.intact && s.rect.height > LOW_STEP_PX && body.overlaps(s.rect) && {
                 let centre = s.rect.left + s.rect.width * 0.5;
                 (centre - self.x) * dir > 0.0
             }
@@ -1246,6 +1346,7 @@ impl Trog {
         let Some(hitbox) = self.hitbox_at(t, ctx.solids) else {
             return;
         };
+        self.bench_shove(t, ctx, &hitbox, out);
         for h in ctx.heroes.iter() {
             let bit = 1u8 << h.id.index();
             if !h.present || !h.vulnerable || self.hit_mask & bit != 0 || !hitbox.overlaps(h.hurt) {
@@ -1268,6 +1369,41 @@ impl Trog {
                 knock_vy: sp.knock_vy,
             });
         }
+    }
+
+    /// TROG-B (plan 5.4): the smash's rectangle overlapping a standing bench face by
+    /// `bench_min_overlap_px` on an impact tick shoves it, once per smash instance; the
+    /// `BenchSmash` event names the baiting hero (the committed target).
+    fn bench_shove(
+        &mut self,
+        t: &TrogTuning,
+        ctx: &TrogCtx<'_>,
+        hitbox: &Rect,
+        out: &mut TrogStep,
+    ) {
+        if self.species != Species::Basher || self.bench_sent {
+            return;
+        }
+        let sp = t.species(self.species);
+        let min = f32::from(sp.bench_min_overlap_px);
+        let Some(face) = ctx.faces.iter().find(|f| {
+            hitbox.bottom < f.rect.top()
+                && hitbox.top() > f.rect.bottom
+                && hitbox.right().min(f.rect.right()) - hitbox.left.max(f.rect.left) >= min
+        }) else {
+            return;
+        };
+        let Some(bait) = self.target else {
+            return;
+        };
+        self.bench_sent = true;
+        out.shoves.push(BenchShove {
+            prop: face.prop,
+            impulse_px_s: sp.bench_shove_px_s,
+            bait,
+            credit: (!ctx.heroes[bait.index()].bot).then(|| bait.index() as u32),
+        });
+        out.acts.push(TrogAct::BenchSmash { bait });
     }
 
     // ------------------------------------------------------------- hash
@@ -1306,6 +1442,11 @@ impl Trog {
         mix(u64::from(self.struck));
         mix(u64::from(self.leap_blocked));
         mix(self.last_react.map_or(0, |l| l + 1));
+        // TROG-B: appended only once a smash shoved a bench, so a room without one hashes as
+        // before.
+        if self.bench_sent {
+            mix(0x4245_4e43);
+        }
     }
 }
 

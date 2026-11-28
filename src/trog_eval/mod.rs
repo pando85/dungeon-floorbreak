@@ -154,6 +154,9 @@ impl Stage {
         let mut out: Vec<Start> = (240..=928).step_by(16).map(|x| at(x, 0)).collect();
         out.extend((288..=352).step_by(16).map(|x| at(x, SHELF_RISE_PX)));
         out.extend((640..=672).step_by(16).map(|x| at(x, BENCH_RISE_PX)));
+        // TROGB-AD1: the far face of the bench stack (Donut's pivot pressed against its right face,
+        // 672 + her 10 px half width), where a normal smash also reaches the bench; reported.
+        out.push(at(682, 0));
         out
     }
 }
@@ -374,6 +377,9 @@ pub struct RunRecord {
     pub strikes: u32,
     pub whiffs: u32,
     pub interrupted: u32,
+    /// TROGB-AD1: the Basher's smashes that shoved the bench (rule b or the far face); reported,
+    /// never gated (TROG-Q3: a bait-zone clear is the skill answer).
+    pub bench_smashes: u32,
     pub wakes_proximity: u32,
     pub wakes_hit: u32,
     pub donut_hurt_events: u32,
@@ -613,6 +619,7 @@ pub fn run(root: &Path, spec: &RunSpec) -> RunRecord {
         strikes: 0,
         whiffs: 0,
         interrupted: 0,
+        bench_smashes: 0,
         wakes_proximity: 0,
         wakes_hit: 0,
         donut_hurt_events: 0,
@@ -700,6 +707,7 @@ pub fn run(root: &Path, spec: &RunSpec) -> RunRecord {
                         TrogAct::Strike => record.strikes += 1,
                         TrogAct::Whiff => record.whiffs += 1,
                         TrogAct::Interrupted => record.interrupted += 1,
+                        TrogAct::BenchSmash { .. } => record.bench_smashes += 1,
                         TrogAct::Wake { cause } => match cause {
                             crate::trog::WakeCause::Proximity => record.wakes_proximity += 1,
                             crate::trog::WakeCause::Hit => record.wakes_hit += 1,

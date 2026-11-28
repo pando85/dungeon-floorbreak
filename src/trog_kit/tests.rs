@@ -587,15 +587,21 @@ fn strength_the_dressing_changes_no_collider_spawn_exit_view_or_walk_line() {
         dressed.pieces.len() != plain.pieces.len(),
         "the dressing did happen"
     );
-    for (x, y, w, h) in [(288, 532, 64, 48), (640, 500, 32, 80)] {
-        assert!(
-            dressed
-                .solid_rects
-                .iter()
-                .any(|r| (r.x, r.y, r.w, r.h) == (x, y, w, h)),
-            "the static at ({x}, {y})"
-        );
-    }
+    assert!(
+        dressed
+            .solid_rects
+            .iter()
+            .any(|r| (r.x, r.y, r.w, r.h) == (288, 532, 64, 48)),
+        "the shelf static"
+    );
+    // The bench stack is a partition prop (an env solid while it stands), never a kit lane solid.
+    assert!(
+        dressed
+            .solid_rects
+            .iter()
+            .all(|r| (r.x, r.y, r.w, r.h) != (640, 500, 32, 80)),
+        "the bench is the prop's"
+    );
     let a = f01_trog::launch_with(&root(), STRENGTH, false).unwrap();
     let b = f01_trog::launch(&root(), STRENGTH).unwrap();
     assert_eq!(b.rules.checkpoints, a.rules.checkpoints);
@@ -708,7 +714,7 @@ fn strength_every_placed_piece_exists_and_lies_inside_the_room() {
     let (_, dressed) = kits_of(STRENGTH);
     assert!(d.remove.is_empty() && d.parallax.is_empty());
     assert_eq!(d.backwall_fill.len(), 1);
-    assert_eq!(d.place.len(), 20);
+    assert_eq!(d.place.len(), 19);
     for p in &d.place {
         let def = contract
             .pieces
@@ -735,8 +741,10 @@ fn strength_every_placed_piece_exists_and_lies_inside_the_room() {
     }
 }
 
-/// The shelf faces cover the shelf static edge to edge, and the placed bench key's drawn bounds
-/// equal the sidecar's bench static exactly (TROG-AD46).
+/// The shelf faces cover the shelf static edge to edge, and the bench presenter's frames sit on the
+/// partition prop (TROGB-AD1): the intact and weakened frames' opaque bounds are the prop's target
+/// at the presenter's origin, the broken frame's are the remnant, and the dressing places no bench
+/// piece (the presenter draws it, so a break never leaves an intact bench baked into the room).
 #[test]
 fn strength_the_shelf_and_the_bench_are_drawn_on_their_statics() {
     let contract = load_contract(&root(), TROG_CONTRACT).unwrap();
@@ -744,16 +752,13 @@ fn strength_the_shelf_and_the_bench_are_drawn_on_their_statics() {
         .unwrap()
         .loaded;
     let d = strength_dressing();
-    let rect_of = |id: &str| {
-        let s = loaded
-            .encounter
-            .statics
-            .iter()
-            .find(|s| s.id == id)
-            .unwrap();
-        (s.rect.x, s.rect.y, s.rect.w, s.rect.h)
-    };
-    let shelf = rect_of("shelf");
+    let shelf = loaded
+        .encounter
+        .statics
+        .iter()
+        .find(|s| s.id == "shelf")
+        .map(|s| (s.rect.x, s.rect.y, s.rect.w, s.rect.h))
+        .unwrap();
     let mut spans: Vec<(i32, i32, i32)> = d
         .place
         .iter()
@@ -777,51 +782,140 @@ fn strength_the_shelf_and_the_bench_are_drawn_on_their_statics() {
         x = x1;
     }
     assert_eq!(x, shelf.0 + shelf.2);
-    // The bench: one placed `trog_bench_intact`, its opaque bounding box is the static's rect.
-    let bench = rect_of("bench");
-    let placed: Vec<_> = d
-        .place
-        .iter()
-        .filter(|p| p.piece.starts_with("trog_bench"))
-        .collect();
-    assert_eq!(placed.len(), 1, "one static bench key, no partition frames");
-    assert_eq!(placed[0].piece, "trog_bench_intact");
-    let def = contract
-        .pieces
-        .iter()
-        .find(|c| c.id == "trog_bench_intact")
-        .unwrap();
+    // The bench: the presenter's frames, never placed by the dressing.
+    assert!(
+        d.place.iter().all(|p| !p.piece.starts_with("trog_bench")),
+        "the dressing places no bench piece"
+    );
+    let prop = &loaded.encounter.props[0];
+    let origin = bench_origin(prop.target);
+    assert_eq!(origin, (640, 500));
     let mut cache = BTreeMap::new();
-    let px = opaque_rect(&mut cache, &def.atlas, def.rect);
-    let (mut x0, mut y0, mut x1, mut y1) = (i32::MAX, i32::MAX, i32::MIN, i32::MIN);
-    for (dy, row) in px.iter().enumerate() {
-        for (dx, &on) in row.iter().enumerate() {
-            if on {
-                x0 = x0.min(placed[0].x + dx as i32);
-                x1 = x1.max(placed[0].x + dx as i32);
-                y0 = y0.min(placed[0].y + dy as i32);
-                y1 = y1.max(placed[0].y + dy as i32);
+    let mut bounds = |piece: &str| {
+        let def = contract.pieces.iter().find(|c| c.id == piece).unwrap();
+        let px = opaque_rect(&mut cache, &def.atlas, def.rect);
+        let (mut x0, mut y0, mut x1, mut y1) = (i32::MAX, i32::MAX, i32::MIN, i32::MIN);
+        for (dy, row) in px.iter().enumerate() {
+            for (dx, &on) in row.iter().enumerate() {
+                if on {
+                    x0 = x0.min(origin.0 + dx as i32);
+                    x1 = x1.max(origin.0 + dx as i32);
+                    y0 = y0.min(origin.1 + dy as i32);
+                    y1 = y1.max(origin.1 + dy as i32);
+                }
             }
         }
-    }
+        (x0, y0, x1 - x0 + 1, y1 - y0 + 1)
+    };
+    let t = prop.target;
+    let remnant = prop.remnant.unwrap();
+    assert_eq!(bounds("trog_bench_intact"), (t.x, t.y, t.w, t.h));
+    assert_eq!(bounds("trog_bench_weakened"), (t.x, t.y, t.w, t.h));
     assert_eq!(
-        (x0, y0, x1 - x0 + 1, y1 - y0 + 1),
-        bench,
-        "the drawn bounds are the bench static"
+        bounds("trog_bench_broken"),
+        (remnant.x, remnant.y, remnant.w, remnant.h)
     );
-    // The weakened, broken and debris keys are reserved (TROG-Q14), never placed or packed.
-    let text = std::fs::read_to_string(root().join(TROG_CONTRACT)).unwrap();
-    for reserved in [
-        "trog_bench_weakened",
-        "trog_bench_broken",
-        "trog_bench_debris",
-        "state_groups",
-    ] {
-        assert!(
-            !text.contains(reserved),
-            "{reserved} is not in the runtime contract"
-        );
+    // The contract carries the three states and the six burst frames; the pure lookups agree.
+    let (bench, debris) = bench_atlas_rects(&root()).unwrap();
+    for (rect, id) in bench.iter().zip(BENCH_PIECES) {
+        let def = contract.pieces.iter().find(|c| c.id == id).unwrap();
+        assert_eq!(*rect, def.rect, "{id}");
+        assert_eq!(def.atlas, "floor01_trog_bench");
     }
+    for rect in &debris {
+        assert_eq!((rect[2], rect[3]), (112, 96), "112 x 96 per burst frame");
+    }
+    assert_eq!(bench_piece(PartitionState::Intact), "trog_bench_intact");
+    assert_eq!(bench_piece(PartitionState::Weakened), "trog_bench_weakened");
+    assert_eq!(bench_piece(PartitionState::Broken), "trog_bench_broken");
+    assert!(
+        !std::fs::read_to_string(root().join(TROG_CONTRACT))
+            .unwrap()
+            .contains("state_groups")
+    );
+}
+
+/// The burst's frame mapping (spec section 7): frames 0..4 last 3, 4, 4, 5 and 6 ticks from the
+/// break tick, frame 5 then holds; the burst is hidden while the bench stands; a bench broken with
+/// no break event in the attempt shows frame 5 with no burst; the mirror given at the break is kept
+/// on every frame. A pure function of the break tick and the tick, so a presenter that skips frames
+/// draws the same frame.
+#[test]
+fn debris_frame_mapping() {
+    use PartitionState::{Broken, Intact, Weakened};
+    assert_eq!(debris_frame(Intact, None, 10, false), None);
+    assert_eq!(debris_frame(Weakened, Some(3), 10, true), None);
+    let frames: Vec<usize> = (20..46)
+        .map(|tick| debris_frame(Broken, Some(20), tick, true).unwrap().0)
+        .collect();
+    assert_eq!(
+        &frames[..22],
+        &[
+            0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4
+        ]
+    );
+    assert!(frames[22..].iter().all(|f| *f == 5), "the litter holds");
+    assert_eq!(debris_frame(Broken, Some(20), 20, true), Some((0, true)));
+    assert_eq!(debris_frame(Broken, Some(20), 50, false), Some((5, false)));
+    // A bench that starts broken (authored, or a respawn after the burst) never bursts.
+    assert_eq!(debris_frame(Broken, None, 0, true), Some((5, false)));
+}
+
+/// The break's tick and cause come from the attempt's event log: the latest break is the one drawn,
+/// a `Restart` hides every earlier one, and a `BenchSmash` on the break tick (or the tick before)
+/// marks the Basher's smash.
+#[test]
+fn the_break_tick_and_cause_come_from_the_event_log() {
+    use crate::combat::{CombatEvent, PropPhase};
+    use crate::trog::TrogAct;
+    let broken = |tick| CombatEvent::PropPhase {
+        tick,
+        prop: 0,
+        phase: PropPhase::Broken,
+        player: None,
+    };
+    let smash = |tick| CombatEvent::Trog {
+        tick,
+        enemy: 0,
+        act: TrogAct::BenchSmash {
+            bait: crate::party::HeroId::Carl,
+        },
+    };
+    assert_eq!(break_tick(&[], 0), None);
+    assert_eq!(break_tick(&[broken(30)], 0), Some(30));
+    assert_eq!(break_tick(&[broken(30)], 1), None, "another prop");
+    let hand = [broken(30)];
+    assert!(!break_was_smash(&hand, 30), "a hand break");
+    let by_smash = [smash(100), broken(100)];
+    assert_eq!(break_tick(&by_smash, 0), Some(100));
+    assert!(break_was_smash(&by_smash, 100));
+    assert!(
+        break_was_smash(&[smash(99), broken(100)], 100),
+        "one tick before"
+    );
+    assert!(
+        !break_was_smash(&[smash(90), broken(100)], 100),
+        "an older smash"
+    );
+}
+
+/// TROG-ART-AD9: a Basher smash keeps the authored leftward burst; a hand break mirrors it when the
+/// breaker (the living hero nearest the bench) stands left of it.
+#[test]
+fn the_burst_mirrors_for_a_breaker_left_of_the_bench() {
+    assert!(
+        !break_mirror(true, &[600.0, 700.0]),
+        "a smash never mirrors"
+    );
+    assert!(
+        break_mirror(false, &[630.0, 900.0]),
+        "Carl at 630 hit it from the left"
+    );
+    assert!(
+        !break_mirror(false, &[700.0, 300.0]),
+        "Carl at 700 hit it from the right"
+    );
+    assert!(!break_mirror(false, &[]), "no hero: the authored direction");
 }
 
 /// TROG-ART-A5 for bay 3: the undressed bay's background span lies inside the `backwall_fill`
@@ -856,7 +950,7 @@ fn strength_no_background_shows_in_the_bricked_bay() {
 }
 
 /// TROG-ART-A6 for the strength room: every placement touching y 561..579 is on a layer above the
-/// collision layer (shelf face, mats, threshold and the bench).
+/// collision layer (shelf face, mats and threshold).
 #[test]
 fn strength_the_floor_pieces_draw_above_the_collision_layer() {
     let contract = load_contract(&root(), TROG_CONTRACT).unwrap();
@@ -880,8 +974,9 @@ fn strength_the_floor_pieces_draw_above_the_collision_layer() {
             n += 1;
         }
     }
-    // the five shelf pieces, the three mats, the threshold and the bench (the rack and the plate tree end at y 559)
-    assert_eq!(n, 5 + 3 + 1 + 1);
+    // the five shelf pieces, the three mats and the threshold (the bench is the presenter's; the rack
+    // and the plate tree end at y 559)
+    assert_eq!(n, 5 + 3 + 1);
 }
 
 /// TROG-ART-A4 for the strength room: no `prop` pixel in an open window (56..207, 392..543) above
