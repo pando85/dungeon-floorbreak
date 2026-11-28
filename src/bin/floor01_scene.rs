@@ -170,6 +170,9 @@ mod fastfood_art;
 // AREA-ACT1-01: the act-1 rooms' timbers, barricade, grant box and portal overlay (presenter pieces).
 #[path = "floor01_scene/act1_art.rs"]
 mod act1_art;
+// GUILD-VERB-01: the hero interact animations (Carl's hand/floor/push, Donut's paw/nudge).
+#[path = "floor01_scene/interact_art.rs"]
+mod interact_art;
 // BOS-ART: the Ball of Swine's body, chain weight and open stairwell (presenter sprites).
 #[path = "floor01_scene/ball_art.rs"]
 mod ball_art;
@@ -2085,7 +2088,7 @@ fn parse_args_full(
         };
         if !kind.fits(room) {
             return Err(format!(
-                "--act1-pilot {kind:?} does not fit the room {}: strike plays in act1_shore, donut in act1_guild, hide, skip and watch in act1_chase, walk in any",
+                "--act1-pilot {kind:?} does not fit the room {}: strike plays in act1_shore, donut and interact in act1_guild, hide, skip and watch in act1_chase, walk in any",
                 room.id()
             ));
         }
@@ -4212,6 +4215,8 @@ struct Controls {
     /// EquippedSpecial (keyboard L).
     ability_tap: bool,
     swap_tap: bool,
+    /// GUILD-VERB-01: the latched Interact key (E) edge.
+    interact_tap: bool,
     restart: bool,
     /// DEMO-01 PR C: Carl was moved on purpose (a respawn, a restart): the
     /// presentation camera cuts to the new framing instead of panning.
@@ -5124,6 +5129,7 @@ fn run_window(
                     sync_act1_chase,
                     act1_art::sync_act1_art,
                     ball_art::sync_ball_art,
+                    interact_art::sync_interact_art,
                 ),
             )
                 .chain(),
@@ -5911,6 +5917,23 @@ fn setup(
                 layers_of("prop"),
             );
         }
+        // GUILD-VERB-01: the heroes' interact frames, drawn over their locomotion sprites while
+        // the verb runs (only the guild has an interact target).
+        if run.room == f01_act1::Act1Room::Guild {
+            interact_art::spawn(
+                &mut commands,
+                &asset_server,
+                &mut layouts,
+                &mut combat_handles,
+                if args.headless {
+                    FrameSource::GridSource
+                } else {
+                    FrameSource::ExportedAtlas
+                },
+                kit.actor_z + CARL_Z_OFFSET + 0.05,
+                layers_of("actors"),
+            );
+        }
     }
 
     // TROG-A: the troglodyte room's atlas bodies (labelled rectangles where the atlas is
@@ -6655,6 +6678,8 @@ fn pad_buttons(is: impl Fn(GamepadButton) -> bool) -> PadButtons {
         physical: is(GamepadButton::North),
         ability: is(GamepadButton::East),
         swap: is(GamepadButton::LeftTrigger),
+        // GUILD-VERB-01: Interact is R1/RB (RightTrigger), the contract's binding.
+        interact: is(GamepadButton::RightTrigger),
         restart: is(GamepadButton::Select),
         start: is(GamepadButton::Start),
     }
@@ -6676,6 +6701,7 @@ const fn key_code(name: KeyName) -> KeyCode {
         KeyName::KeyA => KeyCode::KeyA,
         KeyName::KeyD => KeyCode::KeyD,
         KeyName::KeyS => KeyCode::KeyS,
+        KeyName::KeyE => KeyCode::KeyE,
     }
 }
 
@@ -6704,6 +6730,7 @@ fn latch_keyboard_taps(keys: &ButtonInput<KeyCode>, controls: &mut Controls) {
     controls.physical_tap |= key_tapped(keys, KeyAction::Physical);
     controls.ability_tap |= key_tapped(keys, KeyAction::Special);
     controls.swap_tap |= key_tapped(keys, KeyAction::Swap);
+    controls.interact_tap |= keys.just_pressed(key_code(key_bindings::INTERACT_KEY));
 }
 
 /// P1's keyboard input for one fixed tick: held keys plus the latched taps,
@@ -6714,6 +6741,7 @@ fn keyboard_input(keys: &ButtonInput<KeyCode>, controls: &mut Controls) -> RawIn
     let physical_tap = std::mem::take(&mut controls.physical_tap);
     let ability_tap = std::mem::take(&mut controls.ability_tap);
     let swap_tap = std::mem::take(&mut controls.swap_tap);
+    let interact_tap = std::mem::take(&mut controls.interact_tap);
     let left = key_held(keys, KeyAction::MoveLeft);
     let right = key_held(keys, KeyAction::MoveRight);
     RawInput {
@@ -6723,6 +6751,8 @@ fn keyboard_input(keys: &ButtonInput<KeyCode>, controls: &mut Controls) -> RawIn
         physical: key_held(keys, KeyAction::Physical) || physical_tap,
         ability: key_held(keys, KeyAction::Special) || ability_tap,
         swap: swap_tap,
+        // GUILD-VERB-01 (GUILDV-AD2): Interact on the keyboard is E.
+        interact: keys.pressed(key_code(key_bindings::INTERACT_KEY)) || interact_tap,
         // CF02-Q01: Down (the Down arrow or S). Only Carl's Physical press
         // under `--cf02` reads it.
         down: key_held(keys, KeyAction::Down),
@@ -7533,6 +7563,7 @@ fn sync_mordecai(
     after_exit: Res<AfterExitTicks>,
     reference: Res<ReferencePose>,
     mordecai: Res<MordecaiRes>,
+    combat: Res<Combat>,
     mut sprites: Query<(&mut Transform, &mut Sprite), With<MordecaiVisual>>,
 ) {
     let Some((spec, m)) = mordecai.0.as_ref() else {
@@ -7543,7 +7574,13 @@ fn sync_mordecai(
     let flip = m.facing == refuge::Facing::Left;
     let (cx, cy) = actor_center(*spec, m.x as f32, to_world_y(kit.height, line), flip);
     let tick = presentation_tick(&sim.0, &after_exit, &reference);
-    let talking = reference.0.is_none() && m.talks_to(sim.0.world.hero.x);
+    // GUILD-VERB-01: an Interact press near the guide holds his `talk` key as well.
+    let talking = reference.0.is_none()
+        && (m.talks_to(sim.0.world.hero.x)
+            || combat
+                .0
+                .as_ref()
+                .is_some_and(|c| c.interact_guide_talking(sim.0.world.tick)));
     let frame = m.frame_at(tick, talking);
     for (mut transform, mut sprite) in &mut sprites {
         transform.translation.x = cx;
@@ -13590,6 +13627,12 @@ mod tests {
         };
         assert!(with("act1_shore", "strike").unwrap().act1_pilot.is_some());
         assert!(with("act1_guild", "donut").is_ok());
+        assert!(with("act1_guild", "interact").is_ok());
+        assert!(
+            with("act1_shore", "interact")
+                .unwrap_err()
+                .contains("does not fit")
+        );
         assert!(with("act1_shore", "walk").is_ok() && with("act1_guild", "walk").is_ok());
         assert!(with("act1_chase", "hide").is_ok() && with("act1_chase", "skip").is_ok());
         assert!(with("act1_chase", "walk").is_ok());

@@ -191,12 +191,24 @@ fn actions_round_trip_bit_exact() {
         pause: true,
         swap: true,
         down: true,
+        interact: true,
     };
-    assert_eq!(ActionBits::from_raw(all).1, 0b111_1111);
+    assert_eq!(ActionBits::from_raw(all).1, 0b1111_1111);
     // `rawinput-bits/1` records (no down bit) still decode, with Down released.
     let v1 = ActionBits(0x3f80_0000, 0b11_1111).to_raw();
-    assert!(!v1.down && v1.swap && v1.jump);
-    assert_eq!(super::codec::ACTION_SCHEMA, "rawinput-bits/2");
+    assert!(!v1.down && !v1.interact && v1.swap && v1.jump);
+    // GUILD-VERB-01: `rawinput-bits/2` records (no interact bit) still decode, Interact released.
+    let v2 = ActionBits(0x3f80_0000, 0b111_1111).to_raw();
+    assert!(v2.down && !v2.interact && v2.swap && v2.jump);
+    // Interact is bit 128 and nothing else.
+    let only = crate::input::RawInput {
+        interact: true,
+        ..crate::input::RawInput::NONE
+    };
+    assert_eq!(ActionBits::from_raw(only).1, 128);
+    assert!(ActionBits(0, 128).to_raw().interact);
+    assert_eq!(super::codec::ACTION_SCHEMA, "rawinput-bits/3");
+    assert_eq!(super::codec::ACTION_SCHEMA_V2, "rawinput-bits/2");
     assert_eq!(super::codec::ACTION_SCHEMA_V1, "rawinput-bits/1");
     assert_eq!(
         ActionBits::from_raw(crate::input::RawInput::NONE),

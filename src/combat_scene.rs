@@ -68,6 +68,7 @@ mod donut;
 pub mod dozer;
 mod env;
 mod evade;
+mod interact;
 mod morale_cf02;
 pub mod pile_boss;
 pub mod slime;
@@ -978,6 +979,10 @@ pub struct CombatState {
     /// of a room with a sidecar (the Goblin Boiler), `None` everywhere else:
     /// nothing is stepped, evented or hashed then.
     env: Option<Box<EnvRuntime>>,
+    /// GUILD-VERB-01: the Interact verb of a room with an interact site (`act1_guild`), `None`
+    /// everywhere else: a press does nothing and nothing is stepped or hashed. Even with a site
+    /// it mixes nothing into the hash until the first accepted press.
+    interact: Option<crate::interact::Interact>,
     /// CARL-PROG-01 CP-A: the story-unlock ledger and its armed triggers.
     /// `Some` only under the story flags or a fixture's declared pin; `None`
     /// is the legacy game and every golden (nothing is hashed or evented).
@@ -1159,6 +1164,7 @@ impl CombatState {
             companion: CompanionRuntime::default(),
             slot: SlotRuntime::default(),
             env: None,
+            interact: None,
             story: None,
             cf02: cf02::fixture_runs_cf02(fixture.name).then(cf02::active),
             carl_cf02: CarlCf02::default(),
@@ -1442,6 +1448,9 @@ impl CombatState {
         self.crew_respawn();
         self.carl_cf02 = CarlCf02::default();
         self.input = InputFrame::default();
+        if let Some(interact) = self.interact.as_mut() {
+            interact.cancel();
+        }
         self.donut_input = InputFrame::default();
         self.hurt_ticks = 0;
         self.hero_hit_stop = 0;
@@ -1555,6 +1564,9 @@ impl CombatState {
         self.contacts.clear();
         self.carl_cf02 = CarlCf02::default();
         self.input = InputFrame::default();
+        if let Some(interact) = self.interact.as_mut() {
+            interact.reset();
+        }
         self.donut_input = InputFrame::default();
         self.hurt_ticks = 0;
         self.hero_hit_stop = 0;
@@ -1714,9 +1726,10 @@ impl CombatState {
         let donut_launch = self.donut_launch_now();
         scene.set_donut_launch(donut_launch);
         let inputs = self.companion_inputs(scene, inputs);
-        let raw = inputs[0];
         let live = scene.party_live();
         let tick = scene.world.tick + 1;
+        let inputs = self.step_interact(scene, inputs, live, tick);
+        let raw = inputs[0];
         self.elapsed += 1;
         self.morale_feed.clear();
         self.input.advance(raw);
@@ -3589,6 +3602,10 @@ impl CombatState {
             put(0x444f_574e);
         }
         put(u64::from(held.pause));
+        // GUILD-VERB-01: mixed only from the first accepted Interact press.
+        if let Some(interact) = self.interact.as_ref() {
+            interact.mix_into(&mut put);
+        }
         hero.melee.mix_into(&mut put);
         // CF02-H: Carl's buffer and air state, mixed only under `cf02_rules` and
         // only while it is not the default.

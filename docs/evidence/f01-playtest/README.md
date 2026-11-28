@@ -45,6 +45,7 @@ To play two players, connect a second pad and press Start: P1 plays Carl and P2 
 | Equipped special (Carl's dynamite, Donut's blink) | L | East (Circle / B) |
 | Down (stomp or dive under the CF02 rules) | S or Down arrow | D-pad down, or left stick down |
 | Swap hero (solo) | Q | L1 / LB |
+| Interact (the guild's strongbox and guide; nothing in other rooms yet) | E | R1 / RB |
 | Restart the room (a tap respawns, a long hold restarts in a manual room scene) | R | Select |
 | Quit | Esc | Start on P1's pad (Start on a second pad joins P2) |
 

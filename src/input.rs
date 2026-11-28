@@ -27,6 +27,10 @@ pub struct RawInput {
     /// `cf02_rules` reads it (Down + Physical is the stomp, or the dive in the
     /// air); every other consumer ignores it.
     pub down: bool,
+    /// Interact (R1/RB, keyboard E): GUILD-VERB-01. A press edge that starts a
+    /// hero's interact verb on a valid target (`crate::interact`); it does
+    /// nothing in a room without a target, and never grabs an enemy.
+    pub interact: bool,
 }
 
 impl RawInput {
@@ -40,6 +44,7 @@ impl RawInput {
         pause: false,
         swap: false,
         down: false,
+        interact: false,
     };
 }
 
@@ -60,6 +65,8 @@ pub struct Actions {
     pub swap: bool,
     /// Down is held (CF02-Q01); a direction with no press edge.
     pub down: bool,
+    /// Interact (R1/RB, GUILD-VERB-01).
+    pub interact: bool,
 }
 
 impl From<RawInput> for Actions {
@@ -78,6 +85,7 @@ impl From<RawInput> for Actions {
             pause: raw.pause,
             swap: raw.swap,
             down: raw.down,
+            interact: raw.interact,
         }
     }
 }
@@ -91,6 +99,7 @@ pub struct InputFrame {
     pub ability_pressed: bool,
     pub pause_pressed: bool,
     pub swap_pressed: bool,
+    pub interact_pressed: bool,
 }
 
 impl InputFrame {
@@ -102,6 +111,7 @@ impl InputFrame {
         self.ability_pressed = next.ability && !self.held.ability;
         self.pause_pressed = next.pause && !self.held.pause;
         self.swap_pressed = next.swap && !self.held.swap;
+        self.interact_pressed = next.interact && !self.held.interact;
         self.held = next;
     }
 }

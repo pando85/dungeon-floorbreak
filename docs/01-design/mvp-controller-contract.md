@@ -97,7 +97,7 @@ No Floor 2+ ability is approved here. New floors should define capabilities for 
 
 **Migration order:**
 1. **Done in `floor01_scene` (PR A):** a distinct physical-attack action exists without breaking WORK-021/CP fixtures; the old `special_pressed`-as-kick wiring is migrated, with regression coverage for punch and kick.
-2. Bind Square/X -> primary, Triangle/Y -> physical, Circle/B -> equipped special (only post-unlock), R1/RB -> interact, L1/LB -> solo swap (**primary, physical, special and the solo swap are done in `floor01_scene`; interact is not**); preserve keyboard adapters and clearly document temporary defaults.
+2. Bind Square/X -> primary, Triangle/Y -> physical, Circle/B -> equipped special (only post-unlock), R1/RB -> interact, L1/LB -> solo swap (**primary, physical, special and the solo swap are done in `floor01_scene`; interact is done for the guild's strongbox and guide only (GUILD-VERB-01, no prompt yet)**); preserve keyboard adapters and clearly document temporary defaults.
 3. Test deterministic command recording/replay, one press causing one kick, action buffering during recovery, button-hold semantics, and no phantom action at startup/reconnect.
 4. Verify the same encounters with Carl and Donut, independent controllers, safe camera, Steam Controller mappings, and both 640x360 and 640x400 presentation.
 5. Only then experiment with repeat/hold attacks, aerial/down variants, optional precision aim and special cycling. Keep failed experiments reversible.

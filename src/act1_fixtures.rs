@@ -282,6 +282,9 @@ pub enum Pilot {
     /// The guild: swap to Donut on the first tick, walk right past the guide and through the
     /// door.
     Donut,
+    /// The guild (GUILD-VERB-01): Carl walks to [`INTERACT_FROM_X`], presses Interact on the
+    /// grant strongbox (the hand verb opens it), then presses it again to talk to the guide.
+    Interact,
     /// The shore: Carl strikes the rotten shore from its column, then fights on and walks to
     /// the exit.
     Strike,
@@ -301,12 +304,13 @@ impl Pilot {
         match name {
             "walk" => Ok(Self::Walk),
             "donut" => Ok(Self::Donut),
+            "interact" => Ok(Self::Interact),
             "strike" => Ok(Self::Strike),
             "hide" => Ok(Self::Hide),
             "skip" => Ok(Self::Skip),
             "watch" => Ok(Self::Watch),
             other => Err(format!(
-                "--act1-pilot {other:?}: expected walk, donut, strike, hide, skip or watch"
+                "--act1-pilot {other:?}: expected walk, donut, interact, strike, hide, skip or watch"
             )),
         }
     }
@@ -315,7 +319,7 @@ impl Pilot {
     pub const fn fits(self, room: Act1Room) -> bool {
         match self {
             Self::Walk => true,
-            Self::Donut => matches!(room, Act1Room::Guild),
+            Self::Donut | Self::Interact => matches!(room, Act1Room::Guild),
             Self::Strike => matches!(room, Act1Room::Shore),
             Self::Hide | Self::Skip | Self::Watch => matches!(room, Act1Room::Chase),
         }
@@ -330,6 +334,7 @@ pub fn pilot(kind: Pilot, combat: &CombatState, scene: &SceneSim, exit_x: f32) -
         Pilot::Donut if scene.world.tick == 0 => swap(),
         Pilot::Donut => walk_in(donut.x, exit_x),
         Pilot::Walk => clear_and_exit(combat, scene, exit_x),
+        Pilot::Interact => interact_input(combat, scene),
         Pilot::Strike => strike_input(combat, scene, exit_x),
         Pilot::Watch => {
             let carl = scene.world.body(HeroId::Carl);
@@ -348,6 +353,30 @@ pub fn pilot(kind: Pilot, combat: &CombatState, scene: &SceneSim, exit_x: f32) -
             let carl = scene.world.body(HeroId::Carl);
             crate::act1_chase_fixtures::Runner { target }.input(carl.x, carl.grounded)
         }
+    }
+}
+
+/// Where the guild's interact pilot stops: 24 px before the strongbox's left face (340), inside
+/// the hand verb's reach window (14 to 32 px).
+pub const INTERACT_FROM_X: f32 = 316.0;
+
+/// GUILD-VERB-01: Carl walks to [`INTERACT_FROM_X`] and presses Interact on the strongbox; once it
+/// is open and the verb is over he presses it again (every other tick, so each press is an edge)
+/// until the guide talks.
+fn interact_input(combat: &CombatState, scene: &SceneSim) -> RawInput {
+    let carl = scene.world.body(HeroId::Carl);
+    let tick = scene.world.tick + 1;
+    if combat.interact_pose(HeroId::Carl).is_some() {
+        return RawInput::NONE;
+    }
+    if !combat.interact_box_open() {
+        let mut raw = walk_in(carl.x, INTERACT_FROM_X);
+        raw.interact = raw.move_x == 0.0;
+        return raw;
+    }
+    RawInput {
+        interact: tick.is_multiple_of(2) && !combat.interact_guide_talking(tick),
+        ..RawInput::NONE
     }
 }
 

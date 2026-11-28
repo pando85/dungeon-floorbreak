@@ -71,10 +71,10 @@ mod tests_robust;
 mod tests_verify;
 
 pub use codec::{
-    ACTION_SCHEMA, ACTION_SCHEMA_V1, ActionBits, ChunkTrailer, ControlEvent, ControlRecord,
-    ControlSource, DiagRecord, EVENT_SCHEMA, EpisodeBoundary, EpisodeReason, EventRecord,
-    OBS_ENCODING, OBS_SCHEMA_ID, QUEUE_BOUND, SESSION_SCHEMA, TICKS_PER_CHUNK, TickRecord,
-    chunk_file_name, decode_obs_bits, encode_obs_bits, hex64,
+    ACTION_SCHEMA, ACTION_SCHEMA_V1, ACTION_SCHEMA_V2, ActionBits, ChunkTrailer, ControlEvent,
+    ControlRecord, ControlSource, DiagRecord, EVENT_SCHEMA, EpisodeBoundary, EpisodeReason,
+    EventRecord, OBS_ENCODING, OBS_SCHEMA_ID, QUEUE_BOUND, SESSION_SCHEMA, TICKS_PER_CHUNK,
+    TickRecord, chunk_file_name, decode_obs_bits, encode_obs_bits, hex64,
 };
 pub use cursor::{
     ReplayCounters, ReplayCursor, ReplayPolicy, ReplayResult, TickOutcome, Trust,

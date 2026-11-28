@@ -38,7 +38,14 @@ pub enum KeyName {
     KeyA,
     KeyD,
     KeyS,
+    KeyE,
 }
+
+/// GUILD-VERB-01 (GUILDV-AD2): the keyboard's Interact key. The contract fixes only R1/RB; `E` is
+/// free (J, K, L, Q, Space, the arrows, A, D and S are bound, R and Esc are the scene's). It has
+/// no row in [`KEY_BINDINGS`] because a row needs a HUD key cap and no prompt is drawn yet
+/// (GUILDV-Q2); the adapter reads this constant directly.
+pub const INTERACT_KEY: KeyName = KeyName::KeyE;
 
 /// The cap the HUD draws for an action (one of the `Glyph::Key*` glyphs).
 pub type KeyCap = Glyph;
@@ -124,6 +131,16 @@ mod tests {
             assert!(!caps[i + 1..].contains(c), "{c:?} on two rows");
         }
         assert!(KEY_BINDINGS.iter().all(|(_, _, keys)| !keys.is_empty()));
+    }
+
+    #[test]
+    fn the_interact_key_is_free_of_every_table_row() {
+        assert_eq!(INTERACT_KEY, KeyName::KeyE);
+        assert!(
+            KEY_BINDINGS
+                .iter()
+                .all(|(_, _, keys)| !keys.contains(&INTERACT_KEY))
+        );
     }
 
     #[test]

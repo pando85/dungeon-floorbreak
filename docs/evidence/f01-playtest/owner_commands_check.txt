@@ -30,10 +30,10 @@
 [ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-run --f01-room act1_chase
 [ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room act1_chase --act1-pilot hide
 [ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room act1_chase --act1-pilot skip
-[refuse] refused (exit 2): floor01_scene: --act1-pilot Hide does not fit the room act1_shore: strike plays in act1_shore, donut in act1_guild, hide, skip and watch in act1_chase, walk in  :: floor01_scene --scene f01_late --scale 2 --f01-room act1_shore --act1-pilot hide
+[refuse] refused (exit 2): floor01_scene: --act1-pilot Hide does not fit the room act1_shore: strike plays in act1_shore, donut and interact in act1_guild, hide, skip and watch in act1_ch :: floor01_scene --scene f01_late --scale 2 --f01-room act1_shore --act1-pilot hide
 [ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room act1_shore --act1-pilot strike
 [ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room act1_guild --act1-pilot donut
-[refuse] refused (exit 2): floor01_scene: --act1-pilot Strike does not fit the room act1_guild: strike plays in act1_shore, donut in act1_guild, hide, skip and watch in act1_chase, walk i :: floor01_scene --scene f01_late --scale 2 --f01-room act1_guild --act1-pilot strike
+[refuse] refused (exit 2): floor01_scene: --act1-pilot Strike does not fit the room act1_guild: strike plays in act1_shore, donut and interact in act1_guild, hide, skip and watch in act1_ :: floor01_scene --scene f01_late --scale 2 --f01-room act1_guild --act1-pilot strike
 [refuse] refused (exit 2): floor01_scene: --act1-pilot needs an Act I room (--scene f01_late --f01-room act1_chase, act1_shore or act1_guild) :: floor01_scene --scene f01_late --scale 2 --f01-room hoarder --act1-pilot walk
 [refuse] refused (exit 2): floor01_scene: --act1-pilot is a one-room evidence pilot: drop --f01-run (a floor run relaunches into the next room) :: floor01_scene --scene f01_late --scale 2 --f01-run --f01-room act1_shore --act1-pilot walk
 [ok] ok :: floor01_scene --scene f01_late --scale 2 --f01-room act1_chase --act1-pilot watch

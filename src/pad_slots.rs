@@ -42,6 +42,8 @@ pub struct PadButtons {
     pub ability: bool,
     /// SwapCharacter (L1/LB).
     pub swap: bool,
+    /// Interact (R1/RB, RightTrigger): GUILD-VERB-01.
+    pub interact: bool,
     /// Restart (Select).
     pub restart: bool,
     /// Start / Menu / Options.
@@ -56,6 +58,7 @@ impl PadButtons {
             physical: self.physical || other.physical,
             ability: self.ability || other.ability,
             swap: self.swap || other.swap,
+            interact: self.interact || other.interact,
             restart: self.restart || other.restart,
             start: self.start || other.start,
         }
@@ -291,6 +294,7 @@ impl PadSlots {
             ability: state.held.ability || state.taps.ability,
             swap: state.taps.swap,
             down: state.down,
+            interact: state.held.interact || state.taps.interact,
             ..RawInput::NONE
         }
     }
@@ -307,7 +311,8 @@ impl PadSlots {
             || keyboard.physical
             || keyboard.ability
             || keyboard.swap
-            || keyboard.down;
+            || keyboard.down
+            || keyboard.interact;
         if keyboard_active {
             self.party.note_keyboard_p1();
         }
@@ -320,7 +325,8 @@ impl PadSlots {
             || p1_pad.physical
             || p1_pad.ability
             || p1_pad.swap
-            || p1_pad.down;
+            || p1_pad.down
+            || p1_pad.interact;
         match (keyboard_active, pad_active) {
             (true, false) => self.keyboard_p1 = true,
             (false, true) => self.keyboard_p1 = false,
@@ -345,6 +351,7 @@ impl PadSlots {
                     pause: keyboard.pause || pad.pause,
                     swap: keyboard.swap || pad.swap,
                     down: keyboard.down || pad.down,
+                    interact: keyboard.interact || pad.interact,
                 }
             } else {
                 pad
