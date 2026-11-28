@@ -265,7 +265,7 @@ Each question is non-blocking; the right-hand side is what is in the game now.
 | TROG-Q4 | Does dynamite break the bench? | No |
 | TROG-Q13 | A grounded Donut cannot be hit by the Virtuoso: is that "Carl's problem"? | Yes: the Virtuoso is Carl's problem; a grounded Donut bolts it freely in co-op |
 | TROG-Q14 | Let a partition be 80 px, restoring the breakable bench (rule b, BenchSmash)? | Yes, resolved by TROGB-AD1 (#327): the bench is the 80 px `bench_stack` partition and breaks in play |
-| TROGB-Q1, Q2 | Does the bait read as a skill answer or a trap? Does the broken-bench overlap of the Virtuoso's band and the Basher's smash matter? | Left as built; accepted and recorded (F13 asserts the standing-bench geometry) |
+| TROGB-Q1, Q2 | Does the bait read as a skill answer or a trap? Does the broken-bench overlap of the Virtuoso's band and the Basher's smash matter? | Left as built; adopted default, recorded, game-feel review pending (F13 asserts the standing-bench geometry) |
 | RINGC-Q1 to Q4 | One closure or a re-arm; is the 40-tick warning readable without audio; is the 150-tick dwell too long; should the partner prefer the walkway? | Keep one closure; game-feel review (RING-D adds cues); keep; no companion code |
 | GUILDV-Q1 to Q5 | Should the box grant the biscuit; a prompt chip; getup; targets for the floor, push and Donut verbs; a `playtrace stats` column for interact? | Keep the zone; a HUD-ART follow-up; getup skipped (no sim recovery phase); wire with the first prop that uses them; add when a model consumes it |
 | SMALL02-Q1 to Q3 | ROOM-PILOT-RUN (a per-room pilot table); LLAMA-03-FU (a pixel edit of reviewed llama frames); the ENG-02 tail | Not done: recorded in [small-02-spec.md](../02-art/small-02-spec.md) |
