@@ -661,7 +661,7 @@ fn present_tick(
             }
         }
     }
-    step_hud(hud, sim, combat.0.as_ref());
+    step_hud(hud, sim, combat.0.as_ref(), death.0.as_ref());
     if sim.world.complete && !was_complete {
         println!("FLOOR1_EXIT_REACHED tick={}", sim.world.tick);
     }

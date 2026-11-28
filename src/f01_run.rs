@@ -351,6 +351,7 @@ pub fn on_exit(input: &ExitInput<'_>) -> Result<(RoomFacts, PanelText, Decision)
                 tally,
                 &held_of(input.combat),
                 input.recording,
+                input.audience,
             );
             Ok((facts, panel, Decision::Quit))
         }
@@ -525,6 +526,7 @@ pub fn floor_end_panel(
     tally_after: RunTally,
     held: &[(u8, String)],
     recording: &str,
+    audience: Option<AudienceCarry>,
 ) -> PanelText {
     let mut lines = vec![
         format!(
@@ -562,6 +564,11 @@ pub fn floor_end_panel(
             }
         ));
     }
+    // AUDFIN-AD2 (amends AR-AD20 for this panel only): the viewers at the exit, a flat count
+    // with the per-hero split, only while the broadcast was live in the last room.
+    if let Some(carry) = audience {
+        lines.push(viewers_line(carry));
+    }
     lines.push(format!("recording: {recording}"));
     lines.push("Facts only: no score, no rating.".to_owned());
     // BOS-AD24: after the Ball's room the floor is cleared. The heading and the
@@ -584,6 +591,30 @@ pub fn floor_end_panel(
         lines,
         hint: "Enter, A or Start: quit".to_owned(),
     }
+}
+
+/// AUDFIN-AD2: a count with thousands separators (`12,345`), ASCII, no locale.
+fn grouped(n: u64) -> String {
+    let digits = n.to_string();
+    let mut out = String::with_capacity(digits.len() + digits.len() / 3);
+    for (i, c) in digits.chars().enumerate() {
+        if i > 0 && (digits.len() - i).is_multiple_of(3) {
+            out.push(',');
+        }
+        out.push(c);
+    }
+    out
+}
+
+/// AUDFIN-AD2: the floor-end fact line of the broadcast: the viewers of both heroes at the exit
+/// tick (the carried current counts, not the peaks) and the per-hero split.
+pub fn viewers_line(carry: AudienceCarry) -> String {
+    format!(
+        "viewers at the exit: {} (Carl {}, Donut {})",
+        grouped(carry.carl.0.saturating_add(carry.donut.0)),
+        grouped(carry.carl.0),
+        grouped(carry.donut.0)
+    )
 }
 
 /// The stored capabilities a finished room holds, `(hero, capability)`.
@@ -897,6 +928,82 @@ mod tests {
             .unwrap()
             .retain(|o| o["id"] != "corral");
         assert!(Manifest::from_json(&value.to_string(), StoryTable::active()).is_err());
+    }
+
+    /// AUDFIN-AD2: the floor-end panel (and only it) carries the viewers at the exit, as a flat
+    /// fact line; a run whose last room had no broadcast shows none, and no room-clear panel
+    /// shows a viewer number (AR-AD20 stands for those).
+    #[test]
+    fn the_floor_end_panel_shows_the_viewers_at_the_exit() {
+        assert_eq!(grouped(0), "0");
+        assert_eq!(grouped(999), "999");
+        assert_eq!(grouped(1_000), "1,000");
+        assert_eq!(grouped(12_345), "12,345");
+        assert_eq!(grouped(1_234_567), "1,234,567");
+        let carry = AudienceCarry {
+            carl: (8_000, 9_100),
+            donut: (4_345, 4_345),
+        };
+        assert_eq!(
+            viewers_line(carry),
+            "viewers at the exit: 12,345 (Carl 8,000, Donut 4,345)"
+        );
+        let manifest = manifest();
+        let bos = manifest.room(BOS_ROOM_ID).unwrap();
+        let facts = RoomFacts {
+            id: bos.id.clone(),
+            title: bos.title.clone(),
+            ticks: 600,
+            deaths: 0,
+            restarts: 0,
+            grants: vec![],
+        };
+        let tally = RunTally::default().with(&facts);
+        let with = floor_end_panel(&manifest, &facts, tally, &[], "REC", Some(carry));
+        let without = floor_end_panel(&manifest, &facts, tally, &[], "REC", None);
+        assert_eq!(with.heading, "FLOOR 1 CLEARED");
+        let at = with
+            .lines
+            .iter()
+            .position(|l| l.starts_with("viewers at the exit: "))
+            .expect("the viewers line");
+        // Before the recording line and the facts-only closing line, which stay last.
+        assert_eq!(with.lines[at + 1], "recording: REC");
+        assert!(with.lines.last().unwrap().starts_with("Facts only"));
+        assert!(!without.lines.iter().any(|l| l.contains("viewers")));
+        let mut stripped = with.lines.clone();
+        stripped.remove(at);
+        assert_eq!(stripped, without.lines, "nothing else changes");
+        // It fits the panel box (the overlay's 86 character rule).
+        assert!(112 + 5 * with.lines[at].chars().count() <= 544);
+        // No room-clear panel shows a viewer number.
+        for (i, row) in manifest.rooms.iter().enumerate() {
+            let Some(next) = manifest.rooms.get(i + 1) else {
+                continue;
+            };
+            let facts = RoomFacts {
+                id: row.id.clone(),
+                title: row.title.clone(),
+                ticks: 600,
+                deaths: 0,
+                restarts: 0,
+                grants: vec![],
+            };
+            let panel = room_clear_panel(
+                &manifest,
+                &facts,
+                RunTally::default(),
+                next,
+                true,
+                "REC",
+                true,
+            );
+            assert!(
+                !panel.lines.iter().any(|l| l.contains("viewers at")),
+                "{}",
+                row.id
+            );
+        }
     }
 
     #[test]
@@ -2001,7 +2108,14 @@ mod tests {
         assert!(panel.lines[1].contains("special_thrown_charge (Carl)"));
         assert!(panel.lines[3].contains("Goblin Boiler (story ledger carried)"));
         assert!(panel.lines.last().unwrap().starts_with("Facts only"));
-        let end = floor_end_panel(&manifest, &facts, tally, &held_of(&hoarder.combat), "REC");
+        let end = floor_end_panel(
+            &manifest,
+            &facts,
+            tally,
+            &held_of(&hoarder.combat),
+            "REC",
+            None,
+        );
         assert_eq!(end.heading, "FLOOR 1 SLICE FINISHED");
         assert!(
             end.lines[2].contains(&format!("1 of {} listed rooms", manifest.rooms.len())),
@@ -2021,7 +2135,14 @@ mod tests {
         }
         let (mastery, _) = room_run(last, carry.as_ref());
         let last_facts = RoomFacts::of(last, &mastery, carry.as_ref());
-        let real_end = floor_end_panel(&manifest, &last_facts, tally, &held_of(&mastery), "REC");
+        let real_end = floor_end_panel(
+            &manifest,
+            &last_facts,
+            tally,
+            &held_of(&mastery),
+            "REC",
+            None,
+        );
         for text in panel
             .lines
             .iter()

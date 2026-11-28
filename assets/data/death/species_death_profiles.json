@@ -51,6 +51,24 @@
         { "kind": "crushed", "finish": "brute_crushed", "causes": ["crush"], "min_force": "catastrophic" },
         { "kind": "knockback_down", "finish": "brute_ko_timber", "causes": ["blunt"], "min_force": "routine" }
       ]
+    },
+    {
+      "id": "slime",
+      "body_material": "gelatinous",
+      "fallback_finish": "slime_down",
+      "recipes": [
+        { "kind": "crushed", "finish": "slime_down", "causes": ["crush"], "min_force": "routine" },
+        { "kind": "knockback_down", "finish": "slime_down", "causes": ["blunt"], "min_force": "routine" }
+      ]
+    },
+    {
+      "id": "rolling_brute",
+      "body_material": "organic",
+      "fallback_finish": "ball_down",
+      "recipes": [
+        { "kind": "crushed", "finish": "ball_down", "causes": ["crush"], "min_force": "routine" },
+        { "kind": "knockback_down", "finish": "ball_down", "causes": ["blunt"], "min_force": "routine" }
+      ]
     }
   ]
 }

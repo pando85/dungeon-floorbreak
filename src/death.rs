@@ -454,6 +454,46 @@ mod tests {
         (s.finish.to_string(), s.kind, s.fallback)
     }
 
+    /// AUDFIN-AD5, AUDFIN-AD6: the real slime (HAZ-Q16) and the Ball (BOS-ART-AD4) have a species
+    /// row that maps every defeat to their own `down` finish, so neither falls to the generic one.
+    #[test]
+    fn the_slime_and_the_ball_have_their_own_profile_rows() {
+        let generic = DeathProfiles::builtin().generic_fallback_finish.clone();
+        for (species, own) in [("slime", "slime_down"), ("rolling_brute", "ball_down")] {
+            for cause in [
+                MELEE,
+                BLOCK,
+                EDGE,
+                BLAST_PB,
+                BLAST_RING,
+                DefeatCause::DropHazard { player: 0, rack: 0 },
+            ] {
+                for force in [
+                    ForceTier::Routine,
+                    ForceTier::Heavy,
+                    ForceTier::Catastrophic,
+                ] {
+                    let (id, _, _) = finish(species, cause, force);
+                    assert_eq!(id, own, "{species} {cause:?} {force:?}");
+                    assert_ne!(id, generic);
+                }
+            }
+        }
+        // The overlays keep them: the cf02 and troglodyte overlays only add in front.
+        for profiles in [DeathProfiles::cf02(), DeathProfiles::with_trogs(true)] {
+            assert_eq!(
+                profiles.select("slime", MELEE, ForceTier::Heavy).finish,
+                "slime_down"
+            );
+            assert_eq!(
+                profiles
+                    .select("rolling_brute", MELEE, ForceTier::Heavy)
+                    .finish,
+                "ball_down"
+            );
+        }
+    }
+
     #[test]
     fn the_embedded_profiles_are_valid_and_every_species_has_a_fallback() {
         let profiles = DeathProfiles::builtin();
@@ -467,7 +507,10 @@ mod tests {
                 "llama",
                 "skeleton_mock",
                 "slime_mock",
-                "brute_boss"
+                "brute_boss",
+                // AUDFIN-AD5, AUDFIN-AD6: the real slime and the Ball.
+                "slime",
+                "rolling_brute"
             ]
         );
         assert!(
