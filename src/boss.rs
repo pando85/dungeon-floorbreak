@@ -91,6 +91,11 @@ pub struct CrashData {
     pub stun_by_phase: [u16; 3],
     pub rebound_px: f32,
     pub ticks: u16,
+    /// BOSB-AD12: the HP an arch or wall crash costs the boss itself. Absent (the
+    /// Juicer) is 0. A crash never takes the last HP: a defeat always has a hero
+    /// to credit.
+    #[serde(default)]
+    pub self_damage: u16,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
@@ -299,6 +304,100 @@ pub struct BossData {
     /// every hash as they were.
     #[serde(default)]
     pub siege: Option<SiegeData>,
+    /// BOSB-AD1..AD9, AD14: the Tusklings the boss sheds. `None` (the Juicer) leaves
+    /// every behaviour and every hash as they were.
+    #[serde(default)]
+    pub tusklings: Option<TusklingData>,
+    /// BOSB-AD10 (BOS-Q4): where the follower bot flees when a roll is telegraphed.
+    /// `None` (the Juicer): the bot's jump dodge only.
+    #[serde(default)]
+    pub bot_flee: Option<BotFleeData>,
+    /// BOSB-AD11 (BOS-Q7): the fact written once on the boss' defeat. Empty (the
+    /// Juicer): none.
+    #[serde(default)]
+    pub ledger_fact: String,
+}
+
+/// BOSB-AD10: the follower bot's alcove flee.
+#[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BotFleeData {
+    /// The bot is "in" the left alcove at pivot `left_in` and below, in the right one
+    /// at `right_in` and above.
+    pub left_in: f32,
+    pub right_in: f32,
+    /// How far inside the edge the bot runs to (px).
+    pub goal_inset_px: f32,
+}
+
+/// What the follower bot reads of the alcoves (carried by [`BossThreat::Charge`]).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Refuge {
+    pub left_in: f32,
+    pub right_in: f32,
+    pub goal_inset_px: f32,
+}
+
+/// The Tusklings of one boss (`docs/01-design/floor-01-bos-b-tusklings.md`). Every
+/// number carries its BOSB-AD id; none of them is a constant in code.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TusklingData {
+    /// BOSB-AD3: the detach count of the first qualifying impact.
+    pub first_detach: u8,
+    /// BOSB-AD3: the count of every later one.
+    pub later_detach: u8,
+    /// BOSB-AD4: at most this many live at once.
+    pub max_live: u8,
+    /// BOSB-AD4: the total spawned per attempt. A skipped spawn spends none.
+    pub budget: u8,
+    /// BOSB-AD5: clearance from every hero and solid at the spawn (px).
+    pub clearance_px: f32,
+    /// BOSB-AD5: ticks a new Tuskling moves with no attack.
+    pub scramble_ticks: u16,
+    /// BOSB-AD6: hit points in `punch_a` hits (Carl's jab damage each).
+    pub hp_punches: u8,
+    /// BOSB-AD6: the attack damage is `ceil(goblin jab damage / this)`, at least 1.
+    pub damage_goblin_jab_divisor: u8,
+    /// BOSB-AD7: walk speed as a multiple of the goblin's.
+    pub walk_goblin_mult: f32,
+    /// BOSB-AD7: tell ticks, the art's onset and hold (8 + 20).
+    pub tell_onset_ticks: u16,
+    pub tell_hold_ticks: u16,
+    /// BOSB-AD7: the lunge ticks before the strike (the art's frame 9).
+    pub lunge_ticks: u16,
+    /// BOSB-AD7: how far the lunge carries the body (px).
+    pub lunge_px: f32,
+    /// BOSB-AD7: the strike's reach past the body's front (px) and its band.
+    pub reach_px: f32,
+    pub strike_y: [f32; 2],
+    /// BOSB-AD7: the active (art frame 10) and recover (frame 11) ticks.
+    pub active_ticks: u16,
+    pub recover_ticks: u16,
+    /// BOSB-AD7: ticks after the strike ends before the next tell.
+    pub cooldown_ticks: u16,
+    /// BOSB-AD7: a tell starts at least this many ticks after the scene's last tell start
+    /// (the art's note: stagger a group's tells).
+    pub tell_spacing_ticks: u16,
+    /// BOSB-AD7: a tell starts when the target is within the strike's reach less this (px).
+    pub trigger_margin_px: f32,
+    /// BOSB-AD5: the first candidate pivot lies this far beyond the Ball's flank (px), and each
+    /// further one `spawn_step_px` beyond it, `spawn_tries` in all.
+    pub flank_gap_px: f32,
+    pub spawn_step_px: f32,
+    pub spawn_tries: u8,
+    /// The art's hurt hold (frame 12).
+    pub hurt_ticks: u16,
+    /// BOSB-AD8: the Ball's stagger from a kicked Tuskling (ticks), once per launch.
+    pub kick_stagger_ticks: u16,
+    /// BOSB-AD8: ticks a kicked Tuskling flies.
+    pub kick_flight_ticks: u16,
+    /// The art's collision half width (px) and hurtbox (pivot-relative, facing right).
+    pub body_half_width: f32,
+    pub hurt_box: BoxData,
+    /// The ids this block adopts (documentation).
+    #[serde(default)]
+    pub adopted: String,
 }
 
 impl BossData {
@@ -360,6 +459,20 @@ impl BossData {
             return Err(
                 "boss data: siege warn_ticks must be above 0 and below after_ticks".to_owned(),
             );
+        }
+        if let Some(t) = &self.tusklings {
+            if t.tell_onset_ticks + t.tell_hold_ticks < self.fairness.min_tell {
+                return Err("boss data: the Tuskling tell is under the fairness floor".to_owned());
+            }
+            if t.max_live == 0 || t.budget == 0 || t.first_detach == 0 || t.later_detach == 0 {
+                return Err("boss data: the Tuskling counts must be above 0".to_owned());
+            }
+            if t.damage_goblin_jab_divisor == 0 || t.hp_punches == 0 {
+                return Err("boss data: the Tuskling HP and damage rules are malformed".to_owned());
+            }
+            if self.siege.is_none() {
+                return Err("boss data: Tusklings need the siege data (the alcoves)".to_owned());
+            }
         }
         Ok(())
     }
@@ -440,6 +553,21 @@ pub fn ball_with_decoy_rule(on: bool) -> &'static BossData {
         if let Some(siege) = data.siege.as_mut() {
             siege.ignore_bot_decoy = on;
         }
+        data
+    })
+}
+
+/// The Ball's data as BOS-A shipped it: no Tusklings, no crash self-damage, no bot flee and no
+/// fact (the BOSB rules removed). The BOS-A fixture tests F4..F9 and F19 run on it, so the siege,
+/// the recentre and the bait stay proven apart from the Tusklings.
+pub fn ball_bos_a() -> &'static BossData {
+    static BOS_A: OnceLock<BossData> = OnceLock::new();
+    BOS_A.get_or_init(|| {
+        let mut data = ball().clone();
+        data.tusklings = None;
+        data.bot_flee = None;
+        data.ledger_fact = String::new();
+        data.crash.self_damage = 0;
         data
     })
 }
@@ -1015,6 +1143,11 @@ impl Boss {
                 speed: self.data.charge.speed_px_s * TICK,
                 lead_ticks: self.data.ai_charge_jump_lead,
                 started: self.charge_started,
+                refuge: self.data.bot_flee.map(|f| Refuge {
+                    left_in: f.left_in,
+                    right_in: f.right_in,
+                    goal_inset_px: f.goal_inset_px,
+                }),
             }),
             _ => None,
         }
@@ -1898,10 +2031,46 @@ impl Boss {
                 tick: ctx.tick,
                 wall: dir,
             });
+            self.crash_self_damage(ctx, out);
             if self.siege_roll {
                 self.siege_debris(ctx, dir, out);
             }
         }
+    }
+
+    /// BOSB-AD12: the crash costs the boss `crash.self_damage` HP, never the last one.
+    fn crash_self_damage(&mut self, ctx: &BossCtx, out: &mut BossOut) {
+        let take = self.data.crash.self_damage.min(self.hp.saturating_sub(1));
+        if take == 0 {
+            return;
+        }
+        self.hp -= take;
+        out.events.push(CombatEvent::BossSelfHurt {
+            tick: ctx.tick,
+            damage: take.min(255) as u8,
+            hp_left: self.hp.min(255) as u8,
+        });
+    }
+
+    /// BOSB-AD8: a kicked Tuskling reached the ball. It staggers: its clock stands still for
+    /// `ticks` (the hit-stop freeze), whatever it was doing, and resumes after; nothing is
+    /// cancelled, and a freeze already longer wins. Returns whether it took effect (a boss with
+    /// no Tusklings, a dormant or a defeated one, and a freeze that was already as long do not).
+    pub fn kick_stagger(&mut self, ticks: u16) -> bool {
+        let ticks = u8::try_from(ticks).unwrap_or(u8::MAX);
+        if self.data.tusklings.is_none()
+            || matches!(self.mode, BossMode::Dormant | BossMode::Defeated)
+            || self.hit_stop >= ticks
+        {
+            return false;
+        }
+        self.hit_stop = ticks;
+        true
+    }
+
+    /// BOSB-AD8: ticks of freeze left (the hit-stop).
+    pub fn stagger_left(&self) -> u16 {
+        u16::from(self.hit_stop)
     }
 
     /// BOS-AD20: a siege crash drops debris on every hero in the sieged alcove
@@ -2139,6 +2308,9 @@ pub enum BossThreat {
         /// charge, so chained charges are told apart (FA-Q09 keys the AI's
         /// per-charge dodge latch by it).
         started: u64,
+        /// BOSB-AD10: the alcoves the follower bot may flee to. `None` (the Juicer):
+        /// the jump dodge only.
+        refuge: Option<Refuge>,
     },
 }
 

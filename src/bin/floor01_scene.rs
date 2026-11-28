@@ -176,6 +176,9 @@ mod interact_art;
 // BOS-ART: the Ball of Swine's body, chain weight and open stairwell (presenter sprites).
 #[path = "floor01_scene/ball_art.rs"]
 mod ball_art;
+// BOSB: the Ball's Tusklings (TUSK-01 atlas frames, native scale).
+#[path = "floor01_scene/tusk_art.rs"]
+mod tusk_art;
 
 /// Draw order above the actor plane. Carl is drawn above every goblin, except
 /// that a goblin in its smear or impact is drawn over him (its club lands on
@@ -2189,7 +2192,10 @@ fn parse_args_full(
             || (pilot.plan == room_pilots::Plan::Juicer) != juicer
             || matches!(
                 pilot.plan,
-                room_pilots::Plan::Bos | room_pilots::Plan::BosWeight
+                room_pilots::Plan::Bos
+                    | room_pilots::Plan::BosWeight
+                    | room_pilots::Plan::BosEnv
+                    | room_pilots::Plan::BosKick
             ) != bos
         {
             return Err("--room-pilot mastery needs --f01-room mastery, --room-pilot juicer needs --f01-room juicer and --room-pilot bos needs --f01-room bos, and each of those rooms takes only its own plan".into());
@@ -2222,6 +2228,8 @@ fn parse_args_full(
                     | room_pilots::Plan::Juicer
                     | room_pilots::Plan::Bos
                     | room_pilots::Plan::BosWeight
+                    | room_pilots::Plan::BosEnv
+                    | room_pilots::Plan::BosKick
                     | room_pilots::Plan::HazSpectacular
                     | room_pilots::Plan::HazTactical
             )
@@ -5131,6 +5139,7 @@ fn run_window(
                     sync_act1_chase,
                     act1_art::sync_act1_art,
                     ball_art::sync_ball_art,
+                    tusk_art::sync_tusk_art,
                     interact_art::sync_interact_art,
                 ),
             )
@@ -6216,6 +6225,24 @@ fn setup(
                 layers_of("actors"),
                 layers_of("prop"),
             );
+            // BOSB: the Ball's Tusklings, one pooled sprite per budgeted spawn.
+            if let Some(budget) = combat
+                .0
+                .as_ref()
+                .and_then(|c| c.boss.as_ref())
+                .and_then(|b| b.data().tusklings.as_ref())
+                .map(|t| t.budget)
+            {
+                tusk_art::spawn(
+                    &mut commands,
+                    &asset_server,
+                    &mut layouts,
+                    &mut combat_handles,
+                    budget,
+                    kit.actor_z,
+                    layers_of("actors"),
+                );
+            }
         }
     }
 

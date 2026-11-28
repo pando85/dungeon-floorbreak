@@ -1874,6 +1874,26 @@ pub enum CombatEvent {
         enemy: u32,
         act: crate::trog::TrogAct,
     },
+    /// BOSB-AD12, appended: an arch or wall crash cost the boss itself `damage` HP (never the
+    /// last one). Not a hero's hit: `BossHurt` stays the heroes' and the weight's damage.
+    BossSelfHurt {
+        tick: u64,
+        damage: u8,
+        hp_left: u8,
+    },
+    /// BOSB, appended: a sub-event of a Tuskling (`enemy` is its slot target id, 0 for a
+    /// skipped detach). Its defeat is the existing `EnemyDefeated` and its blows on heroes the
+    /// existing `HeroHurt`. Only the Ball's room emits it.
+    Tuskling {
+        tick: u64,
+        enemy: u32,
+        act: crate::tuskling::TuskAct,
+    },
+    /// BOSB-AD11, appended: the boss' defeat wrote the named fact, once per attempt.
+    LedgerFact {
+        tick: u64,
+        fact: &'static str,
+    },
 }
 
 /// BOIL-B wire: the phases of an environmental prop that are logged
@@ -2543,6 +2563,30 @@ impl CombatEvent {
                 mix(u64::from(enemy));
                 act.mix_into(mix);
             }
+            // BOSB: "BSLF", "TUSK", "FACT"; only the Ball's room emits them.
+            Self::BossSelfHurt {
+                tick,
+                damage,
+                hp_left,
+            } => {
+                mix(0x4253_4c46);
+                mix(tick);
+                mix(u64::from(damage));
+                mix(u64::from(hp_left));
+            }
+            Self::Tuskling { tick, enemy, act } => {
+                mix(0x5455_534b);
+                mix(tick);
+                mix(u64::from(enemy));
+                act.mix_into(mix);
+            }
+            Self::LedgerFact { tick, fact } => {
+                mix(0x4641_4354);
+                mix(tick);
+                for byte in fact.bytes() {
+                    mix(u64::from(byte));
+                }
+            }
         }
     }
 }
@@ -3116,6 +3160,29 @@ impl fmt::Display for CombatEvent {
                     write!(f, " {fields}")?;
                 }
                 Ok(())
+            }
+            Self::BossSelfHurt {
+                tick,
+                damage,
+                hp_left,
+            } => write!(
+                f,
+                "COMBAT_EVENT tick={tick} kind=boss_self_hurt damage={damage} hp_left={hp_left}"
+            ),
+            Self::Tuskling { tick, enemy, act } => {
+                write!(
+                    f,
+                    "COMBAT_EVENT tick={tick} kind=tuskling enemy={enemy} act={}",
+                    act.name()
+                )?;
+                let fields = act.fields();
+                if !fields.is_empty() {
+                    write!(f, " {fields}")?;
+                }
+                Ok(())
+            }
+            Self::LedgerFact { tick, fact } => {
+                write!(f, "COMBAT_EVENT tick={tick} kind=ledger_fact fact={fact}")
             }
         }
     }

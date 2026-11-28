@@ -459,7 +459,11 @@ mod tests {
     #[test]
     fn the_slime_and_the_ball_have_their_own_profile_rows() {
         let generic = DeathProfiles::builtin().generic_fallback_finish.clone();
-        for (species, own) in [("slime", "slime_down"), ("rolling_brute", "ball_down")] {
+        for (species, own) in [
+            ("slime", "slime_down"),
+            ("rolling_brute", "ball_down"),
+            ("tuskling", "tuskling_down"),
+        ] {
             for cause in [
                 MELEE,
                 BLOCK,
@@ -510,7 +514,9 @@ mod tests {
                 "brute_boss",
                 // AUDFIN-AD5, AUDFIN-AD6: the real slime and the Ball.
                 "slime",
-                "rolling_brute"
+                "rolling_brute",
+                // BOSB-AD14: the Ball's Tusklings.
+                "tuskling"
             ]
         );
         assert!(

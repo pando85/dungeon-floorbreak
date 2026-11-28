@@ -87,6 +87,14 @@ pub enum Plan {
     /// twice from the left alcove and a third time on the crash, so the weight lands on the stunned
     /// ball ([`crate::ball_fixtures::weight_pilot`]). Only valid in the Ball's room, solo.
     BosWeight,
+    /// BOSB (evidence harness, room 18): `carl_environment`, [`Plan::BosWeight`] that jabs a
+    /// Tuskling in reach first, so the ball falls with one still alive ([`crate::ball_fixtures::environment_pilot`]).
+    /// Only valid in the Ball's room, solo.
+    BosEnv,
+    /// BOSB (evidence harness, room 18): [`Plan::Bos`] that, once the first crash has shed its
+    /// Tusklings, stands in the arch pocket and kicks the one that comes within reach into the ball
+    /// ([`crate::ball_fixtures::kick_pilot`]). Only valid in the Ball's room, solo.
+    BosKick,
     /// PT-GATE-D (room 4, the spectacular route): the mastery pilot clears pocket A, then
     /// throws dynamite so that its blast lights the latched Rot Sticker of pocket B
     /// ([`haz_spectacular`]). Only valid in the hazards room.
@@ -179,6 +187,8 @@ impl Plan {
             Self::Juicer => "juicer",
             Self::Bos => "bos",
             Self::BosWeight => "bos_weight",
+            Self::BosEnv => "bos_env",
+            Self::BosKick => "bos_kick",
             Self::HazSpectacular => "haz_spectacular",
             Self::HazTactical => "haz_tactical",
             Self::Hazards => "hazards",
@@ -424,6 +434,8 @@ impl RoomPilot {
             "juicer" => Plan::Juicer,
             "bos" => Plan::Bos,
             "bos_weight" => Plan::BosWeight,
+            "bos_env" => Plan::BosEnv,
+            "bos_kick" => Plan::BosKick,
             "haz_spectacular" => Plan::HazSpectacular,
             "haz_tactical" => Plan::HazTactical,
             "hoarder" => Plan::Hoarder,
@@ -438,7 +450,7 @@ impl RoomPilot {
             }
             other => {
                 return Err(format!(
-                    "unknown --room-pilot plan {other:?} (expected direct, valve, chain, mastery, juicer, bos, bos_weight, hoarder, corral, corral_rush, corral_partition, haz_spectacular or haz_tactical, optionally :2p, or mastery|juicer|hazards|corral:WHO:SEED, hoarder:carl_solo:SEED, or boiler:WHO:direct|both:SEED)"
+                    "unknown --room-pilot plan {other:?} (expected direct, valve, chain, mastery, juicer, bos, bos_weight, bos_env, bos_kick, hoarder, corral, corral_rush, corral_partition, haz_spectacular or haz_tactical, optionally :2p, or mastery|juicer|hazards|corral:WHO:SEED, hoarder:carl_solo:SEED, or boiler:WHO:direct|both:SEED)"
                 ));
             }
         };
@@ -524,6 +536,20 @@ impl RoomPilot {
             )[0],
             Plan::BosWeight => crate::boss_scene::pilot_inputs(
                 Pilot::CarlWeight,
+                [RawInput::NONE; 2],
+                sim.world.tick + 1,
+                combat,
+                sim,
+            )[0],
+            Plan::BosEnv => crate::boss_scene::pilot_inputs(
+                Pilot::CarlEnvironment,
+                [RawInput::NONE; 2],
+                sim.world.tick + 1,
+                combat,
+                sim,
+            )[0],
+            Plan::BosKick => crate::boss_scene::pilot_inputs(
+                Pilot::CarlKick,
                 [RawInput::NONE; 2],
                 sim.world.tick + 1,
                 combat,
@@ -2834,6 +2860,8 @@ mod tests {
             ("juicer", Plan::Juicer, false),
             ("bos", Plan::Bos, false),
             ("bos_weight", Plan::BosWeight, false),
+            ("bos_env", Plan::BosEnv, false),
+            ("bos_kick", Plan::BosKick, false),
         ] {
             let pilot = RoomPilot::parse(text).unwrap();
             assert_eq!((pilot.plan, pilot.two_player), (plan, two));

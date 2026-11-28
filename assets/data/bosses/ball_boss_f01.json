@@ -41,7 +41,8 @@
   "crash": {
     "stun_by_phase": [66, 66, 66],
     "rebound_px": 24.0,
-    "ticks": 8
+    "ticks": 8,
+    "self_damage": 3
   },
   "double_pound": {
     "step_ticks": 12,
@@ -123,5 +124,42 @@
     "debris_launch": [0.0, 120.0],
     "notice": "IT SNIFFS AT THE ARCH",
     "recentre_px_per_tick": 3.0
-  }
+  },
+  "tusklings": {
+    "adopted": "BOSB-AD1..AD9, AD14 (docs/01-design/floor-01-bos-b-tusklings.md); open BOSB-Q1..Q3",
+    "first_detach": 2,
+    "later_detach": 1,
+    "max_live": 3,
+    "budget": 5,
+    "clearance_px": 24.0,
+    "scramble_ticks": 20,
+    "hp_punches": 2,
+    "damage_goblin_jab_divisor": 2,
+    "walk_goblin_mult": 1.2,
+    "tell_onset_ticks": 8,
+    "tell_hold_ticks": 20,
+    "lunge_ticks": 3,
+    "lunge_px": 8.0,
+    "reach_px": 20.0,
+    "strike_y": [12.0, 24.0],
+    "active_ticks": 6,
+    "recover_ticks": 14,
+    "cooldown_ticks": 60,
+    "tell_spacing_ticks": 12,
+    "trigger_margin_px": 4.0,
+    "flank_gap_px": 4.0,
+    "spawn_step_px": 28.0,
+    "spawn_tries": 6,
+    "hurt_ticks": 12,
+    "kick_stagger_ticks": 20,
+    "kick_flight_ticks": 14,
+    "body_half_width": 12.0,
+    "hurt_box": { "x": [-13.0, 16.0], "y": [0.0, 32.0] }
+  },
+  "bot_flee": {
+    "left_in": 110.0,
+    "right_in": 530.0,
+    "goal_inset_px": 10.0
+  },
+  "ledger_fact": "f01_ball_defeated"
 }

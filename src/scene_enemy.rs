@@ -527,6 +527,10 @@ pub trait SlotEnemy: fmt::Debug + Send + Sync {
     /// Hoarder's short reveal, HRD-Q05) marks itself here. The default: nothing.
     fn on_retry(&mut self) {}
 
+    /// BOSB-AD9: the room's boss was just defeated (seen once per attempt). An enemy that
+    /// reacts (the Ball's Tusklings cower) acts through `out`. The default: nothing.
+    fn on_boss_defeated(&mut self, _tick: u64, _out: &mut SlotOut) {}
+
     /// Fold the whole state into a state hash (everything the simulation reads).
     fn mix_into(&self, mix: &mut dyn FnMut(u64));
 }

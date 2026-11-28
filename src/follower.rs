@@ -13,7 +13,7 @@
 //! The off-screen regroup rule lives with the camera in
 //! [`crate::corridor::SceneSim`].
 
-use crate::boss::BossThreat;
+use crate::boss::{BossThreat, Refuge};
 use crate::input::{InputFrame, RawInput};
 use crate::party::{HeroId, MotionProfile, PartyTuning};
 use crate::prototype::{Block, GRAVITY, HERO_HALF_HEIGHT, HERO_HALF_WIDTH, Hero, JUMP_SPEED, Rect};
@@ -181,7 +181,16 @@ pub fn follower_input_boss(
             speed,
             lead_ticks,
             started: _,
+            refuge,
         } => {
+            // BOSB-AD10: with alcoves to flee to, a bot in the roll lane runs for the nearest
+            // one on its side of the ball and holds it for the whole tell and run (it never
+            // jumps the roll); once the roll ends the threat is gone and the follow resumes.
+            if let Some(refuge) = refuge {
+                raw.move_x = flee_step(me.x, x, refuge);
+                raw.jump = false;
+                return raw;
+            }
             // The tell counts too (M3: the ram reaches the bot within
             // `lead_ticks`, takeoff included): the arrival is the rest of the
             // tell plus the run to the bot, so the jump comes 14..22 ticks
@@ -198,6 +207,19 @@ pub fn follower_input_boss(
         }
     }
     raw
+}
+
+/// BOSB-AD10: the bot's move (-1, 0 or +1) toward the alcove on its side of the ball
+/// (`ball_x`), or 0 (hold) once it is inside one.
+fn flee_step(me_x: f32, ball_x: f32, refuge: Refuge) -> f32 {
+    let left_goal = refuge.left_in - refuge.goal_inset_px;
+    let right_goal = refuge.right_in + refuge.goal_inset_px;
+    if me_x <= refuge.left_in || me_x >= refuge.right_in {
+        return 0.0;
+    }
+    // The alcove on the bot's own side of the ball: it never runs through the body.
+    let goal = if me_x < ball_x { left_goal } else { right_goal };
+    if goal < me_x { -1.0 } else { 1.0 }
 }
 
 fn obstacle_top(me: &Hero, dir: f32, solids: &[Block]) -> Option<f32> {
@@ -422,6 +444,7 @@ mod tests {
             speed: 5.0,
             lead_ticks: 18,
             started: 0,
+            refuge: None,
         };
         let jump = |threat: BossThreat| {
             follower_input_boss(
@@ -441,5 +464,66 @@ mod tests {
             "12 ticks left plus the run: inside the lead"
         );
         assert!(jump(charge(0, true)), "running and close: still jumps");
+    }
+
+    /// BOSB-AD10: with alcoves to flee to, a bot in the roll lane runs for the nearest one on
+    /// its side of the ball and never jumps the roll; inside one it holds; without alcoves
+    /// (the Juicer) it jumps as before.
+    #[test]
+    fn a_bot_in_the_roll_lane_flees_to_the_alcove_on_its_side_of_the_ball() {
+        use crate::boss::{BossThreat, Refuge};
+        let solids = [floor()];
+        let leader = hero(400.0);
+        let refuge = Refuge {
+            left_in: 110.0,
+            right_in: 530.0,
+            goal_inset_px: 10.0,
+        };
+        let threat = |refuge: Option<Refuge>| BossThreat::Charge {
+            tell_left: 12,
+            x: 448.0,
+            dir: -1,
+            running: false,
+            front: 64.0,
+            depth: 64.0,
+            speed: 4.33,
+            lead_ticks: 18,
+            started: 0,
+            refuge,
+        };
+        let act = |x: f32, refuge: Option<Refuge>| {
+            let me = hero(x);
+            follower_input_boss(
+                (HeroId::Donut, &me),
+                &InputFrame::default(),
+                &leader,
+                &solids,
+                &[],
+                Some(&threat(refuge)),
+                (&PROVISIONAL_TUNING, None),
+            )
+        };
+        let left = act(300.0, Some(refuge));
+        assert_eq!(
+            (left.move_x, left.jump),
+            (-1.0, false),
+            "toward the left alcove, no jump"
+        );
+        let right = act(480.0, Some(refuge));
+        assert_eq!(
+            (right.move_x, right.jump),
+            (1.0, false),
+            "the ball's far side: the right alcove"
+        );
+        let inside = act(90.0, Some(refuge));
+        assert_eq!(
+            (inside.move_x, inside.jump),
+            (0.0, false),
+            "inside an alcove it holds"
+        );
+        assert!(
+            act(380.0, None).jump,
+            "no alcoves (the Juicer): the jump dodge, as before"
+        );
     }
 }
