@@ -1,6 +1,6 @@
 # MORDECAI-01: Mordecai (Rat Hooligan guide) native sprite, design spec (keys frozen)
 
-**Status:** keys **frozen** (frame 0 idle key, frame 4 talk key, `tests/fixtures/mordecai-01_keys.json`, validator V09); silhouette gate PASS (round 2); idle in-betweens 1 to 3 drawn; atlas exported and manifest written (`assets/manifests/mordecai_h44.json`). Validator PASS. Independent review pending; not wired into Bevy.
+**Status:** keys **frozen** (frame 0 idle key, frame 4 talk key, `tests/fixtures/mordecai-01_keys.json`, validator V09); silhouette gate PASS (round 2); idle in-betweens 1 to 3 drawn; atlas exported and manifest written (`assets/manifests/mordecai_h44.json`). Validator PASS. Independent review pending. Wired into Bevy since #218 and #219 (the rooms draw him); SMALL-02 drives the idle loop and the talk key in the live guild room (SMALL02-AD1).
 
 **Decision record (adopted by the editor):** idle opaque height **44 px** (rows 4 to 47, MORD-Q1), frame **52 x 48**, pivot **(24, 47)**, hands-in-pockets rest pose (MORD-Q2), authored facing right with runtime mirroring around the pivot column (MORD-Q3), 4-frame idle loop, one talk-gesture key, 19 palette keys.
 

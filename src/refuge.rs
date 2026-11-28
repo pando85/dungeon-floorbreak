@@ -203,8 +203,10 @@ impl Room {
     }
 }
 
-/// Mordecai as the scene draws him: his MORDECAI-01 atlas (`mordecai_h44`) at his mark. The room
-/// shows the first idle frame (a review pose, like Carl and Donut); the loop lives in the atlas.
+/// Mordecai as the scene draws him: his MORDECAI-01 atlas (`mordecai_h44`) at his mark. The
+/// review room (`refuge_guild`, presentation tick 0) shows the first idle frame; a live room
+/// (SMALL-02) loops the `idle` tag over its frame durations and shows the `talk` key while Carl
+/// is within [`TALK_RADIUS`] ([`Mordecai::frame_at`]).
 #[derive(Debug, Clone, PartialEq)]
 pub struct Mordecai {
     /// Atlas image path relative to the Bevy asset root (`generated/art/`).
@@ -217,8 +219,45 @@ pub struct Mordecai {
     pub frame_count: usize,
     /// First frame of the `idle` tag.
     pub idle_first: usize,
+    /// Ticks (60 Hz, at least 1) each frame of the `idle` tag is held, read from the atlas
+    /// frame durations (40, 22, 14 and 22 for MORDECAI-01).
+    pub idle_ticks: Vec<u32>,
+    /// The `talk` key frame, when the atlas has one.
+    pub talk_frame: Option<usize>,
     pub x: i32,
     pub facing: Facing,
+}
+
+/// SMALL02-AD1: Mordecai shows his `talk` key while Carl stands within this many pixels of his
+/// column (the default of the work order; the simpler of "a text beat is on screen" and "Carl is
+/// near", because the guild's lines are HUD messages the scene does not read back).
+pub const TALK_RADIUS: i32 = 48;
+
+impl Mordecai {
+    /// The atlas frame at presentation tick `tick`: the `talk` key while `talking`, else the
+    /// `idle` loop (0, 1, 2, 3, 0, ... at the atlas durations). Pure and deterministic.
+    pub fn frame_at(&self, tick: u64, talking: bool) -> usize {
+        if let (true, Some(talk)) = (talking, self.talk_frame) {
+            return talk;
+        }
+        let cycle: u64 = self.idle_ticks.iter().map(|&t| u64::from(t)).sum();
+        if cycle == 0 {
+            return self.idle_first;
+        }
+        let mut at = tick % cycle;
+        for (i, &t) in self.idle_ticks.iter().enumerate() {
+            if at < u64::from(t) {
+                return self.idle_first + i;
+            }
+            at -= u64::from(t);
+        }
+        self.idle_first
+    }
+
+    /// Whether Carl at `carl_x` is close enough for the `talk` key.
+    pub fn talks_to(&self, carl_x: f32) -> bool {
+        (carl_x - self.x as f32).abs() <= TALK_RADIUS as f32
+    }
 }
 
 impl Room {
@@ -258,11 +297,23 @@ impl Room {
             .ok_or_else(|| format!("{manifest_path}: missing output_metadata"))?;
         let meta = read(meta_path)?;
         let frame_count = meta["frames"].as_array().map_or(0, Vec::len);
-        let idle_first = meta["meta"]["frameTags"]
-            .as_array()
-            .and_then(|tags| tags.iter().find(|t| t["name"] == "idle"))
-            .and_then(|t| t["from"].as_u64())
+        let tags = meta["meta"]["frameTags"].as_array();
+        let tag = |name: &str| tags.and_then(|tags| tags.iter().find(|t| t["name"] == name));
+        let idle = tag("idle").ok_or_else(|| format!("{meta_path}: no idle tag"))?;
+        let idle_first = idle["from"]
+            .as_u64()
             .ok_or_else(|| format!("{meta_path}: no idle tag"))? as usize;
+        let idle_last = idle["to"].as_u64().map_or(idle_first, |to| to as usize);
+        let talk_frame = tag("talk")
+            .and_then(|t| t["from"].as_u64())
+            .map(|f| f as usize)
+            .filter(|f| *f < frame_count);
+        let idle_ticks: Vec<u32> = (idle_first..=idle_last.min(frame_count.saturating_sub(1)))
+            .map(|i| {
+                let ms = meta["frames"][i]["duration"].as_f64().unwrap_or(0.0);
+                ((ms * 60.0 / 1000.0).round() as u32).max(1)
+            })
+            .collect();
         if frame_count == 0 || idle_first >= frame_count {
             return Err(format!(
                 "{meta_path}: idle frame {idle_first} of {frame_count}"
@@ -276,6 +327,8 @@ impl Room {
             pivot_y,
             frame_count,
             idle_first,
+            idle_ticks,
+            talk_frame,
             x: mark.x,
             facing: mark.facing,
         }))
@@ -455,6 +508,47 @@ mod tests {
             (380, Facing::Left, 0, "mordecai_h44.png")
         );
         assert!(m.frame_count >= 5);
+        // SMALL-02: the loop and the talk key come from the atlas tags and durations.
+        assert_eq!(m.idle_ticks, vec![40, 22, 14, 22]);
+        assert_eq!(m.talk_frame, Some(4));
+    }
+
+    fn sample() -> Mordecai {
+        Mordecai {
+            atlas_asset: "mordecai_h44.png".into(),
+            frame_w: 52,
+            frame_h: 48,
+            pivot_x: 24,
+            pivot_y: 47,
+            frame_count: 5,
+            idle_first: 0,
+            idle_ticks: vec![40, 22, 14, 22],
+            talk_frame: Some(4),
+            x: 380,
+            facing: Facing::Left,
+        }
+    }
+
+    /// SMALL02-AD1: the idle loop holds 40, 22, 14 and 22 ticks (98 in all), tick 0 is the first
+    /// idle frame (the review pose), and the talk key replaces the loop while Carl is near.
+    #[test]
+    fn mordecai_frame_follows_the_loop_and_the_talk_radius() {
+        let m = sample();
+        let at = |t| m.frame_at(t, false);
+        assert_eq!((at(0), at(39), at(40), at(61), at(62)), (0, 0, 1, 1, 2));
+        assert_eq!(
+            (at(75), at(76), at(97), at(98), at(98 + 40)),
+            (2, 3, 3, 0, 1)
+        );
+        assert_eq!(m.frame_at(0, true), 4);
+        assert_eq!(m.frame_at(500, true), 4);
+        assert!(m.talks_to(380.0 + TALK_RADIUS as f32) && m.talks_to(380.0 - TALK_RADIUS as f32));
+        assert!(!m.talks_to(380.0 + TALK_RADIUS as f32 + 0.5));
+        let no_talk = Mordecai {
+            talk_frame: None,
+            ..sample()
+        };
+        assert_eq!(no_talk.frame_at(41, true), 1);
     }
 
     #[test]

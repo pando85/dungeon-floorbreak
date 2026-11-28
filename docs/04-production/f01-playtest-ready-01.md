@@ -230,7 +230,7 @@ Each question is non-blocking; the right-hand side is what is in the game now.
 | REST-Q1 | Does the shelf-opens-door beat read as a reveal or a roadblock? | Option A1 kept; A2 (drop the lock) is a one-line sidecar edit |
 | REST-Q2 | Which survivors, names, lines? | Four anonymous, faceless figures |
 | REST-Q6 | What does the heavy bag do? | Inert in the sim; a cosmetic swing only (CAMP-AD7) |
-| REST-Q10 | Should audience decay freeze in empty quiet rooms? | No change: decay runs |
+| REST-Q10 | Should audience decay freeze in empty quiet rooms? | No change: decay runs (pinned by a test in SMALL-02) |
 | CAMP-Q1 to Q6 | Survivors, crate animation, idles, bag combat half, audio, fallen tube | Anonymous, none, none, inert, none, no tube |
 | FF-Q6 | Lamp pair of the refuge door (olive open lamp, colour-blind weak) | Keys frozen; the panel carries the state |
 | FF-Q1 to Q5 | Palette ramp, cool strips, box glow, rolling ball, paw frames | No, yes, no, static, no |
@@ -239,7 +239,7 @@ Each question is non-blocking; the right-hand side is what is in the game now.
 | HEAT-OQ5 | Is the pen's density enough ("the corral fights back")? | The caps as built |
 | LL3-OQ1 | Range-end readability of the rush without a lane band | No band; the muzzle pokes up to 17 px past the hitbox |
 | DZ-OQ1, OQ2 | Narrative placement of the revenge beat; same machine or same model | In the slice as room 8; "another Dozer of the same family" |
-| ST-OQ1 | The Boiler plume over the drum base | Art unchanged |
+| ST-OQ1 | The Boiler plume over the drum base | Art unchanged; SMALL-02 drops the right plume at the flush drum (SMALL02-AD2) |
 | RNG-OQ5 | Is one full ring and two arcs enough "awe"? | As built |
 | HA2-Q2 | Item chip on the grant notice, glyph in the socket? | Kept (the fallback is not recommended) |
 | TROG-Q3 | Is a stationary clear from the bait zone acceptable? | Yes, reported not gated |
@@ -286,9 +286,9 @@ These come from the independent art-director reviews and the executors' risk not
 
 None of these blocks the playtest.
 
-- **R4 `exit_open` capture nondeterminism.** A 32x8 patch of an `exit_open` capture differs between runs (reported by the #312 review as R4); follow-up PR. Two wording nits (manifest "bench stack", room "exit apron at 944") ride with it.
+- **R4 `exit_open` capture nondeterminism.** A 32x8 patch of an `exit_open` capture differed between two passes once in four shoots (reported by the #312 review as R4). SMALL-02 could **not reproduce it**: 10 captures of `trog_strength` tick 450 (and 6 of `trog_run` tick 960) were byte-identical, and so were 4 more shot in parallel under load, so there is no timing or seed fix to make; the committed pairs stay byte-identical. The one-in-four sighting is treated as a load-dependent window or asset-load artifact (see the capture-lock note in `scripts/room_capture.sh`); the evidence scripts already capture twice and fail on a difference. Two wording nits (manifest "bench stack", room "exit apron at 944") are still open.
 - **EVID-REFRESH-01.** Old evidence is stale: the `deck-*` lines of `capture_lines_d.txt` no longer reproduce, several clips predate the room title and the exit door, the room 5 and `f01-danger-fx` stills predate the gate drop and the gym kit, older folders still show the green acid pool, and the `hoarder:carl_solo` scorecard row drifts. No gameplay depends on them.
 - **HUD-TRY-01** is fixed (#293, HT-AD1, game-feel pending): `TRY n` counts every attempt start. The Juicer's boss strip still hides the location strip.
-- **ART-HOLE-TRIAGE** (69 unallowed pockets on GOB-01 A/B, a top-tier call), **LOS-UNIFY** (one line-of-sight rule for stickers and blasts), **ROOM-PILOT-RUN** (a piloted `--f01-run` cannot cross a room boundary), **DOZER-PERF-01** (about +9 % tick mean from the stop frame, debug under xvfb), **DOZER-NAV-01**, **HRD-D**, **HAZ-C/D**, **DOZ-02-FU F4 to F7**, **HEAT-FU-1**, **LLAMA-03-FU** (the limp ear), **ENG-02** follow-ups (pot origin, ram cycle), and the owed re-reviews of #149, #154 and #150.
+- **ART-HOLE-TRIAGE** (69 unallowed pockets on GOB-01 A/B, a top-tier call), **LOS-UNIFY** (one line-of-sight rule for stickers and blasts), **ROOM-PILOT-RUN** (a piloted `--f01-run` cannot cross a room boundary; not small, left as SMALL02-Q1 in [small-02-spec.md](../02-art/small-02-spec.md)), **DOZER-PERF-01** (about +9 % tick mean from the stop frame, debug under xvfb), **DOZER-NAV-01**, **HRD-D**, **HAZ-C/D**, **DOZ-02-FU F4 to F7**, **HEAT-FU-1** (decided in SMALL-02: the M0 spit trace is dropped, SMALL02-AD4), **LLAMA-03-FU** (the limp ear, SMALL02-Q2), **ENG-02** follow-ups (pot origin, ram cycle; SMALL02-Q3), and the owed re-reviews of #149, #154 and #150.
 - **Edges.** A non-demo defeat retry would close a latched door while the story keeps the boost (unreachable in today's rooms); a companion's last hit drops a thrown-stick moment in co-op (#299 watch item); a human P2 who stays behind x 1072 in the chase never wakes the machine (ACT1-AD7, by choice); with the default companion the bot is rescued into the chase pocket (twice with Carl active).
 - **Never run:** real two-pad play, real-display frame times and a release-build benchmark (all perf numbers are debug under xvfb), real-window recording with `tools/record-run.sh`, audio for any new room, and any human game-feel session. Nothing is claimed about Steam Deck, performance or legal clearance.

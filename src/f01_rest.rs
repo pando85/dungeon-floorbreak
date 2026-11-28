@@ -16,9 +16,9 @@
 //! Bevy-free. [`launch`] loads the room and its sidecar through the one room parser
 //! ([`crate::encounter::load`], the whole validation: the `hero_on_surface` lock, the
 //! DP-Q45 lane ceiling rule, the K8 nest rule, an empty roster under `reach_exit`,
-//! REST-AD13), composes the kit like the Boiler ([`crate::f01_boiler::compose_kit`], no
-//! dressing: the AREA-FASTFOOD-01 art is a separate later work order, so the room is a
-//! **labelled playable greybox**) and builds the fixture and the checkpoint rules from
+//! REST-AD13), composes the kit like the Boiler ([`crate::f01_boiler::compose_kit`]; the
+//! rooms are dressed by AREA-FASTFOOD-01 and AREA-CAMP-01, and the labelled [`Decor`] rectangles
+//! below are the fallback of an undressed launch) and builds the fixture and the checkpoint rules from
 //! the sidecar. [`combat_for`] builds the combat state the scene, the fixtures and the
 //! PLAYTRACE verifier share:
 //!
@@ -209,7 +209,7 @@ impl RestRoom {
 }
 
 /// A presentation-only rectangle of a room (REST-AD10, REST-AD16): a flat labelled
-/// greybox shape in layout px (y down). Never a solid, never in the sim, never hashed.
+/// shape in layout px (y down), the undressed fallback of the dressed rooms. Never a solid, never in the sim, never hashed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Decor {
     pub label: &'static str,
@@ -223,7 +223,7 @@ const fn d(label: &'static str, x: i32, y: i32, w: i32, h: i32) -> Decor {
     }
 }
 
-/// The refuge's greybox decor: the counter behind the plane, booths, windows on the
+/// The refuge's undressed decor (a dressed refuge, AREA-FASTFOOD-01, skips it): the counter behind the plane, booths, windows on the
 /// back wall and the reward box standing on the grant column (REST-AD16: non-collidable
 /// decor; the table's zone covers any height at the box).
 const REFUGE_DECOR: [Decor; 8] = [
@@ -243,7 +243,7 @@ const REFUGE_DECOR: [Decor; 8] = [
     ),
 ];
 
-/// The camp's greybox decor (REST-B, REST-AD10): the entrance marker (`ring_marker_a`
+/// The camp's undressed decor (REST-B, REST-AD10; a dressed room, AREA-CAMP-01, skips it): the entrance marker (`ring_marker_a`
 /// once its sprite is wired), four anonymous survivor figures (flat grey, no faces),
 /// the central light over the checkpoint, the crate stack (REST-IMP-8: a decor
 /// rectangle, not a platform) and the chalk marks over the last 128 px.
@@ -258,7 +258,7 @@ const CAMP_DECOR: [Decor; 8] = [
     d("chalk", 1328, 548, 128, 32),
 ];
 
-/// The aftermath's greybox decor (REST-C, REST-AD10, REST-AD12): the wrecked-gym
+/// The aftermath's undressed decor (REST-C, REST-AD10, REST-AD12; a dressed room, AREA-CAMP-01, skips it): the wrecked-gym
 /// egress, the heavy bag (it mirrors the sidecar's inert static), the two chalk marks
 /// of the 112 px blink lane (floor ticks, never solids) and the arena's circular
 /// grooves on the back wall.

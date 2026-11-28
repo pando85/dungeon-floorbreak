@@ -196,5 +196,5 @@ Choices made while implementing, each changeable in a follow-up:
 - A `DropHazard` defeat is credited to the player it names and counts as a falling block for `CINE-MIXED-CHAIN`; the boss itself is never mapped (F8), so no v0 chain reaches it.
 - The camera emphasis is the planner's constant 2 px for the moment, signed by Carl's facing.
 - The planner skips a moment when the death presenter has no unsettled defeat sequence for the moment's target (`DeathPresenter::finish_active`), and when there is no presenter.
-- There is no cinematic reduced-motion flag: HUD-DEBT-08 owns world reduced motion and must disable CINE.
+- There is no cinematic reduced-motion flag of its own. SMALL-02 (CINE-REDUCED-MOTION): the HUD reduced-motion setting (`--hud-reduced-motion`, `FLOORBREAK_HUD_REDUCED_MOTION`) now also turns the cinematic finishes off (`PresentationSettings::with_reduced_motion`): no slow motion and no camera emphasis, even over an explicit `--cinematic-finishes`; hit-stop, death VFX and every gameplay tick are unchanged. HUD-DEBT-08 still owns the rest of world reduced motion (camera shake).
 
