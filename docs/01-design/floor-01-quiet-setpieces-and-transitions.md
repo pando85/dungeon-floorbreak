@@ -334,7 +334,7 @@ The greybox uses the existing Floor 01 kit and flat labelled rectangles. Every R
 | REST-Q7 | Does the Ball of Swine replace or follow `mastery`, and where does REST-C exit then? | #192 integration | REST-C → `mastery` |
 | REST-Q8 | Slot order once #179, #189 R-regions and #191 land | their integration steps | slots S0 to S4; S0 is placed by the [Act I integration plan](floor-01-act-01-integration.md) (three rooms before the corral) |
 | REST-Q9 | Should 2P also get a door hint? | owner, after the playtest | no |
-| REST-Q10 | Should audience decay freeze in rooms with an empty roster (the REST rooms), so the aftermath keeps the Juicer peak? | owner, game feel | decay runs (REST-AD14); data-ready, not implemented |
+| REST-Q10 | Should audience decay freeze in rooms with an empty roster (the REST rooms), so the aftermath keeps the Juicer peak? | owner, game feel | decay runs (REST-AD14): the decided default, honoured and pinned by `quiet_rooms_do_not_freeze_audience_decay` (SMALL-02); a freeze would be a new owner decision |
 
 ### G.9 Tests and fixtures (names and expected results)
 

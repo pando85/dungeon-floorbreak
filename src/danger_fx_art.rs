@@ -405,9 +405,51 @@ pub fn slam_dust(edge: i32, floor: i32, toward: i8, age: u64) -> Option<FxDraw> 
     })
 }
 
+/// SMALL-02 (ST-OQ1, SMALL02-AD2): a landing plume stops at the nearest other prop that stands
+/// in its way. `edge` is the plume's pivot column (the remnant's edge), `toward` its direction,
+/// `floor_row` the remnant's bottom in layout rows (y down). Returns the screen columns of the
+/// plume cell that stay visible as `(first, last_exclusive)`, or `None` when the prop stands
+/// flush and nothing of the plume is left. A prop is in the way when it overlaps the plume's
+/// 20 row band and begins at or past the edge, within the cell's reach.
+fn plume_limit(
+    env: &EnvRuntime,
+    skip: usize,
+    edge: i32,
+    toward: i8,
+    floor_row: i32,
+) -> Option<(i32, i32)> {
+    let reach = DUST_W - 1 - DUST_PIVOT_X;
+    let (mut first, mut last) = if toward > 0 {
+        (edge - DUST_PIVOT_X, edge + reach + 1)
+    } else {
+        (edge - reach, edge + DUST_PIVOT_X + 1)
+    };
+    for j in 0..env.props() {
+        if j == skip {
+            continue;
+        }
+        let Some(t) = env.prop_target(j) else {
+            continue;
+        };
+        if t.bottom() <= floor_row - DUST_H || t.y >= floor_row {
+            continue;
+        }
+        if toward > 0 && t.x >= edge && t.x < last {
+            last = t.x;
+        } else if toward < 0 && t.right() <= edge + 1 && t.right() > first {
+            first = t.right();
+        }
+    }
+    let visible_from = if toward > 0 { edge } else { first };
+    let visible_to = if toward > 0 { last } else { edge + 1 };
+    (visible_to > visible_from).then_some((first, last))
+}
+
 /// The landing dust of every falling mass that landed (the Boiler weight): one plume
 /// from each side of its remnant, from the landing tick on. `layout_h` flips the
-/// room's layout rows (y down) into world rows (y up).
+/// room's layout rows (y down) into world rows (y up). A plume is cropped at a prop
+/// that stands in its way and dropped when the prop stands flush against the remnant
+/// (the Boiler's drum on the right, ST-OQ1).
 pub fn landing_dust(env: &EnvRuntime, layout_h: i32, tick: u64) -> Vec<FxDraw> {
     let mut out = Vec::new();
     for i in 0..env.props() {
@@ -421,8 +463,23 @@ pub fn landing_dust(env: &EnvRuntime, layout_h: i32, tick: u64) -> Vec<FxDraw> {
             continue;
         };
         let floor = layout_h - remnant.bottom();
-        out.extend(slam_dust(remnant.x + remnant.w, floor, 1, age));
-        out.extend(slam_dust(remnant.x - 1, floor, -1, age));
+        for (edge, toward) in [(remnant.x + remnant.w, 1i8), (remnant.x - 1, -1i8)] {
+            let Some(mut draw) = slam_dust(edge, floor, toward, age) else {
+                continue;
+            };
+            let Some((first, last)) = plume_limit(env, i, edge, toward, remnant.bottom()) else {
+                continue;
+            };
+            // Crop to the visible screen columns `first..last` of the cell; a mirrored
+            // sprite takes its crop from the unmirrored cell.
+            let (a, b) = (first - draw.x, last - draw.x);
+            if (a, b) != (0, DUST_W) {
+                draw.src_x = if draw.flip_x { DUST_W - b } else { a };
+                draw.w = b - a;
+                draw.x = first;
+            }
+            out.push(draw);
+        }
     }
     out
 }

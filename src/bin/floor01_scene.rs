@@ -144,7 +144,7 @@ mod hazard_decals;
 mod hazards_art;
 #[path = "floor01_scene/trog_art.rs"]
 mod trog_art;
-// FA-Q23 (HRD-P): the Hoarder's stand-in presentation (HOARD-01 frames, labelled greybox).
+// FA-Q23 (HRD-P): the Hoarder's presentation (the HOARD-02 atlas frames and the dressed room kit).
 #[path = "floor01_scene/hoarder_art.rs"]
 mod hoarder_art;
 #[path = "floor01_scene/pierce_spark.rs"]
@@ -155,7 +155,8 @@ mod carl_gauntlet;
 // ROOM-PORTALS-01: the exit door of rooms 2, 4, 4a, 4b and 6 (the grate down while the exit gate stands).
 #[path = "floor01_scene/room_exit_art.rs"]
 mod room_exit_art;
-// CORRAL-WIRE and CORRAL-E: room 0's M3 gate grate and the rush stand-in (greybox).
+// CORRAL-WIRE, CORRAL-E and AREA-POLISH-01: room 0's M3 gate grate, partition and splinter burst
+// (dressed art since #320).
 #[path = "floor01_scene/corral_art.rs"]
 mod corral_art;
 // DR-A and DOZ-02: room 3's machine (the DOZ-01 rig and its damage states) and its room pieces.
@@ -416,18 +417,19 @@ struct Args {
     /// The launched Ring room (`main` fills it right after parsing).
     ring_run: Option<Box<f01_ring::RingRun>>,
     /// REST-WIRE: `--scene f01_late --f01-room rest_refuge`, the fast-food refuge
-    /// (no scene of its own, like the Ring rooms). Under the room rules; a playable
-    /// greybox (the AREA-FASTFOOD-01 art is a separate work order).
+    /// (no scene of its own, like the Ring rooms). Under the room rules; a playable room dressed
+    /// by AREA-FASTFOOD-01 (the refuge) and AREA-CAMP-01 (the camp and the aftermath).
     f01_rest: Option<f01_rest::RestRoom>,
     /// The launched quiet room (`main` fills it right after parsing).
     rest_run: Option<Box<f01_rest::RestRun>>,
     /// ACT1-A: `--scene f01_late --f01-room act1_shore` (or `act1_guild`), Act I's shore and
-    /// guild (no scene of its own). Under the room rules; a playable greybox.
+    /// guild (no scene of its own). Under the room rules; a playable room dressed by
+    /// AREA-ACT1-01 (the chase wedge stays a labelled greybox, ACT1-Q3).
     f01_act1: Option<f01_act1::Act1Room>,
     /// The launched Act I room (`main` fills it right after parsing).
     act1_run: Option<Box<f01_act1::Act1Run>>,
     /// TROG-A: `--scene f01_late --f01-room trog_run`, the troglodyte run (no scene of its own).
-    /// Under the room rules; a playable greybox.
+    /// Under the room rules; a playable room dressed by AREA-TROG-01 and TROG-FX-01.
     f01_trog: Option<f01_trog::TrogRoom>,
     /// The launched troglodyte room (`main` fills it right after parsing).
     trog_run: Option<Box<f01_trog::TrogRun>>,
@@ -743,13 +745,16 @@ impl Args {
             && self.capture_sequence.is_none()
             && self.perf_frames.is_none()
             && (self.exit_after_ticks.is_none() || self.live_room_exit());
-        if self.cinematic_set {
+        let settings = if self.cinematic_set {
             self.cinematic
         } else if live {
             PresentationSettings::DEFAULT
         } else {
             PresentationSettings::OFF
-        }
+        };
+        // SMALL-02 (CINE-REDUCED-MOTION): the HUD reduced-motion setting wins, even over an
+        // explicit `--cinematic-finishes`.
+        settings.with_reduced_motion(self.hud_settings.reduced_motion)
     }
 
     fn hud_config(&self) -> HudConfig {
@@ -5361,7 +5366,8 @@ fn setup(
         kit.actor_z + CARL_Z_OFFSET,
     );
 
-    // AREA-REFUGE-01: Mordecai, behind Donut and Carl, on his mark (first idle frame).
+    // AREA-REFUGE-01: Mordecai, behind Donut and Carl, on his mark (first idle frame at spawn;
+    // `sync_mordecai` drives the loop and the talk key).
     let mut refuge_handles: Vec<(String, Handle<Image>)> = Vec::new();
     if let Some((_, m)) = mordecai.0.as_ref() {
         let texture: Handle<Image> = asset_server.load(m.atlas_asset.clone());
@@ -5843,8 +5849,8 @@ fn setup(
         }
     }
 
-    // ACT1-A: the Act I rooms' flat labelled greybox decor and the guild door (no art yet:
-    // ACT1-Q7). Presentation only.
+    // ACT1-A: the Act I rooms' flat labelled greybox decor and the guild door, drawn only by an
+    // undressed room (a dressed room, AREA-ACT1-01, skips them; ACT1-Q7). Presentation only.
     if let Some(run) = args.act1_run.as_ref() {
         spawn_act1_greybox(
             &mut commands,
@@ -7491,9 +7497,15 @@ fn sync_visuals(
 }
 
 /// AREA-REFUGE-01: Mordecai on his mark, standing on the walking line of his column, mirrored
-/// about his pivot when he faces left (he is authored facing right).
+/// about his pivot when he faces left (he is authored facing right). SMALL-02 (ACT1-ART-Q2):
+/// his `idle` loop runs on the presentation tick and the `talk` key shows while Carl is near
+/// (SMALL02-AD1); the review pose (`--scene refuge_guild`, tick 0) stays on the first idle frame.
+/// Presentation only: it reads the sim and never writes it.
 fn sync_mordecai(
     setup: Res<Setup>,
+    sim: Res<Sim>,
+    after_exit: Res<AfterExitTicks>,
+    reference: Res<ReferencePose>,
     mordecai: Res<MordecaiRes>,
     mut sprites: Query<(&mut Transform, &mut Sprite), With<MordecaiVisual>>,
 ) {
@@ -7504,10 +7516,16 @@ fn sync_mordecai(
     let line = kit.walking_line_at(m.x).unwrap_or(kit.base_walk_line_y);
     let flip = m.facing == refuge::Facing::Left;
     let (cx, cy) = actor_center(*spec, m.x as f32, to_world_y(kit.height, line), flip);
+    let tick = presentation_tick(&sim.0, &after_exit, &reference);
+    let talking = reference.0.is_none() && m.talks_to(sim.0.world.hero.x);
+    let frame = m.frame_at(tick, talking);
     for (mut transform, mut sprite) in &mut sprites {
         transform.translation.x = cx;
         transform.translation.y = cy;
         sprite.flip_x = flip;
+        if let Some(atlas) = sprite.texture_atlas.as_mut() {
+            atlas.index = frame;
+        }
     }
 }
 
@@ -8467,13 +8485,14 @@ fn sync_dust_visuals(
     }
 }
 
-/// ACT1-A: the guild door sprite (a solid greybox rectangle while Donut's mana is locked,
-/// hidden once it unlocks). Presentation only.
+/// ACT1-A: the guild door sprite (a solid greybox rectangle in an undressed room, the portal overlay
+/// in a dressed one, while Donut's mana is locked; hidden once it unlocks). Presentation only.
 #[derive(Component)]
 struct Act1DoorSprite;
 
-/// ACT1-B: the chase's barricade sprite (a solid greybox rectangle until the machine's front
-/// reaches it, then hidden). Presentation only.
+/// ACT1-B: the chase's barricade sprite (a solid greybox rectangle in an undressed room, the
+/// barricade art in a dressed one, until the machine's front reaches it, then hidden).
+/// Presentation only.
 #[derive(Component)]
 struct Act1BarricadeSprite;
 
@@ -11499,9 +11518,14 @@ mod tests {
         let off = args(&["--cinematic-finishes=off"]).unwrap();
         assert!(!off.cinematic_settings().cinematic_finishes);
         assert!(args(&["--cinematic-finishes=sometimes"]).is_err());
-        // The HUD flag is a different setting (review F5).
+        // SMALL-02: the HUD reduced-motion flag drops the slow motion and the camera emphasis,
+        // also over an explicit `--cinematic-finishes`; `--hud-reduced-motion=off` changes nothing.
         let hud = args(&["--hud-reduced-motion"]).unwrap();
-        assert!(hud.cinematic_settings().cinematic_finishes);
+        assert!(!hud.cinematic_settings().cinematic_finishes);
+        let both = args(&["--hud-reduced-motion", "--cinematic-finishes"]).unwrap();
+        assert!(!both.cinematic_settings().cinematic_finishes);
+        let hud_off = args(&["--hud-reduced-motion=off"]).unwrap();
+        assert!(hud_off.cinematic_settings().cinematic_finishes);
     }
 
     /// FIX-TOOL: `--exit-after-ticks N` on a live room run with no room pilot is a scripted exit

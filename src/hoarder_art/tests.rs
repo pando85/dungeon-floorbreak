@@ -1288,3 +1288,57 @@ fn the_lead_x_counts_donut_only_while_the_party_is_live() {
         Stir::None
     );
 }
+
+/// SMALL-02 (HC-OQ3): a counted hit on the J-B post has an age for the flash and the splinter burst
+/// (`POST_FLASH_TICKS`, then `BURST_FRAMES` frames of `BURST_FRAME_TICKS`); other props' hits and an
+/// earlier attempt's hit have none.
+#[test]
+fn a_counted_post_hit_flashes_and_bursts_for_a_few_ticks() {
+    use crate::env_prop::StimulusKind;
+    use crate::heat_kit::{BURST_FRAME_TICKS, BURST_FRAMES};
+    let mut rig = Rig::new(&root(), Plan::carl_at(60.0)).unwrap();
+    let enc = rig.run.loaded.encounter.clone();
+    assert_eq!(post_hit_age(&rig.combat, &enc, 100), None, "no hit yet");
+    let hit = |tick, prop| CombatEvent::PropHit {
+        tick,
+        prop,
+        kind: StimulusKind::MeleeHit,
+        progress: 1,
+        player: Some(0),
+    };
+    // Prop 1 is the J-B stack (`mass_state(1)`); prop 0 is bank A, never the post.
+    rig.combat.events.push(hit(90, 0));
+    assert_eq!(
+        post_hit_age(&rig.combat, &enc, 100),
+        None,
+        "bank A is not the post"
+    );
+    rig.combat.events.push(hit(100, 1));
+    let total = BURST_FRAMES * BURST_FRAME_TICKS;
+    assert_eq!(
+        post_hit_age(&rig.combat, &enc, 99),
+        None,
+        "not before the hit"
+    );
+    assert_eq!(post_hit_age(&rig.combat, &enc, 100), Some(0));
+    assert_eq!(
+        post_hit_age(&rig.combat, &enc, 100 + total - 1),
+        Some(total - 1)
+    );
+    assert_eq!(
+        post_hit_age(&rig.combat, &enc, 100 + total),
+        None,
+        "the burst is over"
+    );
+    assert_eq!(post_burst_frame(0), Some(0));
+    assert_eq!(post_burst_frame(BURST_FRAME_TICKS), Some(1));
+    assert_eq!(post_burst_frame(total - 1), Some(BURST_FRAMES as usize - 1));
+    assert_eq!(post_burst_frame(total), None);
+    assert!(POST_FLASH_TICKS <= total);
+    // A restart ends the attempt: the earlier hit is not drawn again.
+    rig.combat.events.push(CombatEvent::Restart {
+        tick: 101,
+        deaths: 1,
+    });
+    assert_eq!(post_hit_age(&rig.combat, &enc, 102), None);
+}

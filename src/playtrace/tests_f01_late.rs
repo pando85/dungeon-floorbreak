@@ -1230,6 +1230,57 @@ fn the_refuge_runs_the_audience_at_the_baseline_and_decay_runs_unchanged() {
     assert_eq!(max_current, 250);
 }
 
+/// SMALL-02 (REST-Q10, adopted default: decay runs; see `f01-playtest-ready-01.md`): a quiet
+/// room has an empty roster, so nothing awards, and the audience model decays a carried peak
+/// exactly as in any other room. No freeze exists in the model: the first decay lands on the
+/// 480th award-free step (23 permille of the excess over the 250 baseline, with the milli
+/// remainder), the next one 60 steps later, the peak is kept and the floor is the baseline.
+/// A future freeze must change this test and the REST-Q10 rows on purpose.
+#[test]
+fn quiet_rooms_do_not_freeze_audience_decay() {
+    use crate::audience::{AudienceInput, AudienceState};
+    use crate::party::HeroId;
+    let mut s = AudienceState::locked();
+    s.resume([(1_400, 1_900), (600, 800)]).expect("valid carry");
+    let positions = [
+        AudienceInput::HeroX {
+            hero: HeroId::Carl,
+            x: 100,
+        },
+        AudienceInput::HeroX {
+            hero: HeroId::Donut,
+            x: 100,
+        },
+    ];
+    // A quiet room reports positions only (no defeat, no chain, no award).
+    for _ in 0..479 {
+        s.step(&positions);
+    }
+    assert_eq!(
+        s.carry(),
+        Some([(1_400, 1_900), (600, 800)]),
+        "inside the delay"
+    );
+    s.step(&positions);
+    // Excess 1150 * 23 = 26_450 permille -> 26, rem 450; Donut: 350 * 23 = 8_050 -> 8, rem 50.
+    assert_eq!(
+        s.carry(),
+        Some([(1_374, 1_900), (592, 800)]),
+        "decay runs: the 480th step"
+    );
+    for _ in 0..59 {
+        s.step(&positions);
+    }
+    assert_eq!(
+        s.carry(),
+        Some([(1_374, 1_900), (592, 800)]),
+        "the next decay is 60 steps on"
+    );
+    s.step(&positions);
+    assert_eq!(s.carry(), Some([(1_348, 1_900), (585, 800)]));
+    assert_eq!(s.count(HeroId::Carl), Some(1_348));
+}
+
 /// REST-WIRE evidence helper (ignored, writes only under `REST_REC_DIR`): records the
 /// refuge's scripted sessions so the replay viewer can render the room with the heroes in
 /// every beat, at both view heights, and prints the session ids and the ticks worth a

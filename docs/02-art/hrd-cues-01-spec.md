@@ -137,7 +137,7 @@ For `out_age` a in 0..7 and k in 0..3 with dx = 0, 2, 14, 16: x = post.x + dx + 
 
 - **HC-OQ1.** A reactive "dead knock" (post jolt, grey grit, no white-wood flash) when a human hero's melee meets the post while she is not out. It needs an unhashed observer field (for example the last refused post-hit tick, excluded from `mix_into` like F01-SIM-TICKS ST-AD1). Owner call after playing the ambient cue.
 - **HC-OQ2.** Audio (a heap creak on the heave, a strap ping on the give) is out of scope until the room has an audio pass; the "stack creak" owner question stays open.
-- **HC-OQ3.** The white-wood flash and splinter spray on a qualifying post hit (HOARD-02 section 7) is not drawn today; it is the natural counterpart of the give beat and belongs to a follow-up order.
+- **HC-OQ3.** The white-wood flash and splinter spray on a qualifying post hit (HOARD-02 section 7) was not drawn; **resolved by SMALL-02 (SMALL02-AD3):** a counted hit on the J-B post (a `PropHit` of its stack, so a refused hit draws nothing) flashes the post white for 4 ticks and plays one ENV-02 `timber_splinter_burst` at 30 px above the post's foot, 16 ticks. Presentation only, no gore (FA-Q23).
 
 ## 9. Test plan
 

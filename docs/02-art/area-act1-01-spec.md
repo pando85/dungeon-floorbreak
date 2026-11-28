@@ -105,7 +105,7 @@ The shore stays otherwise as composed: the strike column and the goblins need an
 | `refuge_stool` | pr | (150, 562) | |
 | `refuge_desk` + `refuge_candle_flame` (the refuge offset) | pr | (272, 554) | in front of the bay, behind the actors |
 | **`act1_grant_box_closed` / `_open`** **P** (key) | pr | (340, 552) | grant zone 336..376, left of the guide; `open` once the guild door lock is open (`donut_unlocked`) |
-| `mordecai_h44` (unchanged) | actor | as on main (x 380, facing left) | idle and talk animation out of scope (ACT1-ART-Q2) |
+| `mordecai_h44` (unchanged) | actor | as on main (x 380, facing left) | idle loop and talk key driven by SMALL-02 ([small-02-spec.md](small-02-spec.md), SMALL02-AD1); no new key |
 | `refuge_wall_map` | bw | (474, 484) | on plain back wall 464..527 |
 | `refuge_bookshelf` | pr | (474, 524) | between pier_r and the door |
 | `guild_portal_closed` / `_open` (composer piece (536, 444)) | pr | | the scene overlays `guild_portal_open` once the lock opens and hides the flat lock bar |
@@ -265,7 +265,7 @@ Adopted under the owner's design-defaults authorization (AGENTS.md, 2026-11-19);
 | Id | Open question | Recommendation | Owner of the answer |
 | --- | --- | --- | --- |
 | ACT1-ART-Q1 | End-on wedge art for the chase and the shore (ACT1-Q3) | keep the greybox wedge draw until a DOZ-01 follow-up | owner art review |
-| ACT1-ART-Q2 | Mordecai's idle and talk animation | out of scope; follow-up **GUILD-BEAT-01** (audit work order 13) | follow-up |
+| ACT1-ART-Q2 | Mordecai's idle and talk animation | done by SMALL-02 (SMALL02-AD1): the existing `idle` loop (frames 0 to 3, 40/22/14/22 ticks) and the `talk` key (frame 4) while Carl is within 48 px; no new key. The interact verbs stay GUILD-VERB-01 | resolved, owner art review pending |
 | ACT1-ART-Q3 | The guild ceiling slab y 336..351 has no art | follow TROG-ART-Q1 (one kit-wide answer) | owner art review |
 | ACT1-ART-Q4 | Should the alcove light have a visible source (a lamp sprite)? | no: a flame would stand over the ledge, where the player waits | owner art review |
 | ACT1-ART-Q5 | Should the guild portal's lights switch to the open-state lights? | yes, in the presenter follow-up, if the overlay reads wrong | executor / review |

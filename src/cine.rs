@@ -1086,9 +1086,10 @@ pub struct SlowMoRequest {
 /// The comfort setting that gates the presentation (never the evaluator).
 ///
 /// Review F5: `cinematic_finishes: on/off` has its own flag and environment
-/// variable. It does **not** reuse the HUD-only [`crate::hud_settings`]
-/// reduced-motion flag (HUD scope; world motion is deferred to HUD-DEBT-08,
-/// which must also disable CINE once it exists).
+/// variable. SMALL-02 (CINE-REDUCED-MOTION): the HUD reduced-motion setting
+/// ([`crate::hud_settings`]) also gates it, through
+/// [`PresentationSettings::with_reduced_motion`]: reduced motion drops the slow
+/// motion and the camera emphasis and keeps every gameplay tick as it was.
 ///
 /// Environment: `FLOORBREAK_CINEMATIC_FINISHES` (`1`/`true`/`on`/`yes`,
 /// `0`/`false`/`off`/`no`). Flag: `--cinematic-finishes[=on|off]` (the bare
@@ -1117,6 +1118,15 @@ impl PresentationSettings {
 
     pub const fn allows_slow_motion(&self) -> bool {
         self.cinematic_finishes
+    }
+
+    /// The HUD reduced-motion comfort setting wins over every other layer
+    /// (default, environment, flag): no time dilation and no camera emphasis.
+    /// Hit-stop, death VFX and outcomes are unchanged (gameplay timing is kept).
+    pub const fn with_reduced_motion(self, reduced_motion: bool) -> Self {
+        PresentationSettings {
+            cinematic_finishes: self.cinematic_finishes && !reduced_motion,
+        }
     }
 
     /// Defaults overridden by whatever `get` returns (an env lookup in the
@@ -3090,10 +3100,38 @@ mod tests {
         assert_eq!(s, PresentationSettings::DEFAULT);
         assert_eq!(s.apply_flag("--cinematic-finishes=off"), Ok(true));
         assert!(!s.allows_slow_motion());
-        // There is no cinematic reduced-motion flag (review F5): HUD-DEBT-08.
+        // There is no cinematic reduced-motion flag of its own (review F5); the HUD setting gates
+        // it through `with_reduced_motion` (SMALL-02), not through `apply_flag`.
         assert_eq!(s.apply_flag("--cinematic-reduced-motion=on"), Ok(false));
         assert_eq!(s.apply_flag("--hud-reduced-motion"), Ok(false));
         assert!(s.apply_flag("--cinematic-finishes=bogus").is_err());
+    }
+
+    /// SMALL-02 (CINE-REDUCED-MOTION): reduced motion turns the slow motion and camera emphasis
+    /// off whatever the default, the environment or the flag said; without it nothing changes.
+    #[test]
+    fn reduced_motion_drops_the_cinematic_finishes() {
+        assert_eq!(
+            PresentationSettings::DEFAULT.with_reduced_motion(false),
+            PresentationSettings::DEFAULT
+        );
+        assert_eq!(
+            PresentationSettings::DEFAULT.with_reduced_motion(true),
+            PresentationSettings::OFF
+        );
+        assert!(
+            !PresentationSettings::DEFAULT
+                .with_reduced_motion(true)
+                .allows_slow_motion()
+        );
+        assert_eq!(
+            PresentationSettings::OFF.with_reduced_motion(false),
+            PresentationSettings::OFF
+        );
+        assert_eq!(
+            PresentationSettings::OFF.with_reduced_motion(true),
+            PresentationSettings::OFF
+        );
     }
 
     #[test]

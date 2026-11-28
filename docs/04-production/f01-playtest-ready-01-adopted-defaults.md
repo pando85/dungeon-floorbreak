@@ -706,7 +706,7 @@ Each question was raised in a spec or a PR with a recommended default; the orche
 
 | ID | Question -> adopted answer | PR |
 | --- | --- | --- |
-| ST-OQ1 | The right Boiler plume rolls over the drum base for 20 ticks; art unchanged, a follow-up could clip the plume at a flush prop (owner) | #288 |
+| ST-OQ1 | The right Boiler plume rolls over the drum base for 20 ticks; art unchanged, a follow-up could clip the plume at a flush prop (owner). **Resolved by SMALL-02 (SMALL02-AD2):** a plume is cropped at a prop in its way and dropped when the prop stands flush (the Boiler's right plume) | #288, SMALL-02 |
 
 ### RNG questions (5)
 
@@ -749,7 +749,7 @@ Each question was raised in a spec or a PR with a recommended default; the orche
 | --- | --- | --- |
 | HC-OQ1 | A reactive 'dead knock' on a refused post hit needs an unhashed observer field: not done | #296 |
 | HC-OQ2 | Audio: out of scope until the room has an audio pass | #296 |
-| HC-OQ3 | The white-wood flash and splinter spray on a qualifying post hit is not drawn: follow-up order | #296 |
+| HC-OQ3 | The white-wood flash and splinter spray on a qualifying post hit is not drawn: follow-up order. **Resolved by SMALL-02 (SMALL02-AD3):** a counted hit on the post flashes it white for 4 ticks and plays the ENV-02 splinter burst once | #296, SMALL-02 |
 
 ### AR questions (9)
 
@@ -788,7 +788,7 @@ Each question was raised in a spec or a PR with a recommended default; the orche
 | REST-Q7 | Does the Ball of Swine replace or follow `mastery`, and where does REST-C exit then? -> #192 integration | #301 |
 | REST-Q8 | Slot order once #179, #189 R-regions and #191 land -> their integration steps | #301 |
 | REST-Q9 | Should 2P also get a door hint? -> owner, after the playtest | #301 |
-| REST-Q10 | Should audience decay freeze in rooms with an empty roster (the REST rooms), so the aftermath keeps the Juicer peak? -> owner, game feel | #301 |
+| REST-Q10 | Should audience decay freeze in rooms with an empty roster (the REST rooms), so the aftermath keeps the Juicer peak? -> owner, game feel. **Decided default: decay runs** (REST-AD14); SMALL-02 pins it with a test and changes nothing | #301, SMALL-02 |
 
 ### ACT1 questions (10)
 

@@ -538,7 +538,7 @@ fn the_slam_dust_plays_once_and_mirrors_about_its_pivot() {
 }
 
 /// F01-SIM-TICKS: in the Boiler, the weight's landing tick is the scene tick on
-/// which it lands, and the landing dust draws both plumes from that very tick, at
+/// which it lands, and the landing dust draws its plumes from that very tick, at
 /// the remnant's two edges on its floor, for 20 ticks, never before.
 #[test]
 fn the_boiler_weight_throws_its_landing_dust_on_the_landing_tick() {
@@ -602,19 +602,29 @@ fn the_boiler_weight_throws_its_landing_dust_on_the_landing_tick() {
     let remnant = mass.remnant().unwrap();
     let floor = layout_h - remnant.bottom();
     let at = dust_of(&combat, t);
-    assert_eq!(at.len(), 2, "one plume on each side");
-    let right = at.iter().find(|d| !d.flip_x).unwrap();
-    let left = at.iter().find(|d| d.flip_x).unwrap();
+    // SMALL-02 (ST-OQ1): the drum stands flush against the remnant's right edge, so the right
+    // plume is dropped; the left plume still rolls away from the left edge.
+    let drum = combat.env().unwrap().prop_target(2).unwrap();
     assert_eq!(
-        (right.x + DUST_PIVOT_X, right.y, right.frame),
-        (remnant.x + remnant.w, floor, 0)
+        drum.x,
+        remnant.x + remnant.w,
+        "the drum is flush on the right"
     );
+    assert_eq!(at.len(), 1, "the right plume is dropped at the flush drum");
+    let left = &at[0];
+    assert!(left.flip_x);
     assert_eq!(
-        (left.x + DUST_W - 1 - DUST_PIVOT_X, left.y, left.frame),
-        (remnant.x - 1, floor, 0)
+        (
+            left.x + DUST_W - 1 - DUST_PIVOT_X,
+            left.y,
+            left.frame,
+            left.w,
+            left.src_x
+        ),
+        (remnant.x - 1, floor, 0, DUST_W, 0)
     );
     assert_eq!(dust_of(&combat, t + 2)[0].frame, DUST_KEY_FRAME);
-    assert_eq!(dust_of(&combat, t + 19).len(), 2);
+    assert_eq!(dust_of(&combat, t + 19).len(), 1);
     assert!(dust_of(&combat, t + 20).is_empty(), "played once");
 }
 
@@ -690,7 +700,8 @@ fn a_restart_clears_the_gate_drop_and_the_slam_dust() {
             break;
         }
     }
-    assert_eq!(dust(&combat, layout_h, scene.world.tick), 2);
+    // One plume: the drum stands flush on the right (ST-OQ1, SMALL-02).
+    assert_eq!(dust(&combat, layout_h, scene.world.tick), 1);
     combat.restart(&mut scene);
     assert_eq!(combat.env().unwrap().mass(1).unwrap().landed_tick(), None);
     assert_eq!(dust(&combat, layout_h, scene.world.tick), 0);

@@ -222,6 +222,56 @@ pub const POST_SHORED: u8 = 3;
 pub const POST_GIVE: u8 = 4;
 /// The give beat lasts this many ticks from her first out tick (HC-AD7).
 pub const GIVE_TICKS: u64 = 8;
+/// SMALL-02 (HC-OQ3, SMALL02-AD3): a counted hit on the J-B post flashes the post white for this
+/// many ticks and plays one ENV-02 splinter burst ([`crate::heat_kit::BURST_FRAMES`] frames of
+/// [`crate::heat_kit::BURST_FRAME_TICKS`] ticks) at the post's middle. Presentation only; no gore.
+pub const POST_FLASH_TICKS: u64 = 4;
+/// Where the burst sits on the post: this many px above its foot (the post is 64 px tall).
+pub const POST_BURST_ABOVE_FOOT: i32 = 30;
+
+/// Ticks since the latest counted hit on a J-B stack's post in the current attempt (the scan stops
+/// at the latest `Restart`), or `None` when there is none or the burst is over. A refused hit (she is
+/// not out) is no event, so only a qualifying hit has an age. A function of the event log and
+/// `tick`: it never reaches the simulation.
+pub fn post_hit_age(combat: &CombatState, encounter: &Encounter, tick: u64) -> Option<u64> {
+    use crate::combat::CombatEvent;
+    let env = combat.env()?;
+    let stacks: Vec<u16> = env
+        .pile_props(encounter)
+        .into_iter()
+        .filter(|(id, i)| {
+            encounter
+                .statics
+                .iter()
+                .any(|s| s.id == *id && s.kind == StaticKind::HitTarget)
+                && env.mass(usize::from(*i)).is_some()
+        })
+        .map(|(_, i)| i)
+        .collect();
+    let hit = combat
+        .events
+        .iter()
+        .rev()
+        .take_while(|e| !matches!(e, CombatEvent::Restart { .. }))
+        .find_map(|e| match *e {
+            CombatEvent::PropHit { tick, prop, .. } if stacks.contains(&prop) => Some(tick),
+            _ => None,
+        })?;
+    let age = tick.checked_sub(hit)?;
+    let burst = crate::heat_kit::BURST_FRAMES * crate::heat_kit::BURST_FRAME_TICKS;
+    (age < burst.max(POST_FLASH_TICKS)).then_some(age)
+}
+
+/// The burst frame of a post hit `age` ticks ago, `None` once its frames are over.
+pub const fn post_burst_frame(age: u64) -> Option<usize> {
+    let frame = age / crate::heat_kit::BURST_FRAME_TICKS;
+    if frame < crate::heat_kit::BURST_FRAMES {
+        Some(frame as usize)
+    } else {
+        None
+    }
+}
+
 /// HC-AD11: once S1 is active it stays active until the lead hero is this many px under
 /// `hrdq05_stir_x`, so hovering on the line does not restart the breath.
 pub const STIR_HOLD_PX: f32 = 16.0;

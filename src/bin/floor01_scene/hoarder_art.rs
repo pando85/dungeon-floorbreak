@@ -11,8 +11,9 @@ use super::*;
 use dungeon_floorbreak::encounter::Encounter;
 use dungeon_floorbreak::env_kit::ATLAS_ASSET_PREFIX;
 use dungeon_floorbreak::hoarder_art::{
-    ATLAS, FRAME_SIZE, FRAMES, HoarderLook, HoarderMemo, Layer, MAX_MOTES, MAX_PROPS, Prop, Shade,
-    draw, lead_x, stack_released, stir_level_held,
+    ATLAS, FRAME_SIZE, FRAMES, HoarderLook, HoarderMemo, Layer, MAX_MOTES, MAX_PROPS,
+    POST_BURST_ABOVE_FOOT, POST_FLASH_TICKS, Prop, Shade, draw, lead_x, post_burst_frame,
+    post_hit_age, stack_released, stir_level_held,
 };
 use dungeon_floorbreak::party::HeroId;
 
@@ -27,6 +28,10 @@ pub(super) struct HoarderProp(usize);
 /// One pooled dust mote.
 #[derive(Component, Clone, Copy)]
 pub(super) struct HoarderMote(usize);
+
+/// SMALL-02 (HC-OQ3): the ENV-02 splinter burst on a counted hit on the J-B post (one sprite).
+#[derive(Component, Clone, Copy)]
+pub(super) struct HoarderPostBurst;
 
 /// The J-B footprint's floor shadow (one sprite, scaled to the band).
 #[derive(Component, Clone, Copy)]
@@ -56,6 +61,8 @@ pub(super) struct HoarderArt {
     prop_z: f32,
     front_z: f32,
     mote_z: f32,
+    /// SMALL-02: the splinter burst's z, in front of the actors like the partition's.
+    burst_z: f32,
 }
 
 fn atlas_present(path: &str) -> bool {
@@ -119,7 +126,32 @@ pub(super) fn spawn(
         // In front of every actor (Carl is +0.1, a glob +0.2): the mound's front lip.
         front_z: actor_z + 0.3,
         mote_z: actor_z + GOBLIN_Z_OFFSET - 32.0 * GOBLIN_Z_STEP + 0.0005,
+        burst_z: actor_z + 0.305,
     });
+    // SMALL-02 (HC-OQ3): the ENV-02 splinter burst of a counted post hit (a missing atlas draws none).
+    {
+        use dungeon_floorbreak::heat_kit::{BURST_ATLAS, BURST_FRAME_PX, BURST_FRAMES};
+        if atlas_present(BURST_ATLAS) {
+            let asset = asset_path(BURST_ATLAS);
+            let image: Handle<Image> = asset_server.load(asset.clone());
+            handles.push((asset, image.clone()));
+            let layout = layouts.add(TextureAtlasLayout::from_grid(
+                UVec2::splat(BURST_FRAME_PX),
+                BURST_FRAMES as u32,
+                1,
+                None,
+                None,
+            ));
+            commands.spawn((
+                HoarderPostBurst,
+                Sprite::from_atlas_image(image, TextureAtlas { layout, index: 0 }),
+                Transform::from_xyz(0.0, 0.0, actor_z + 0.305),
+                Visibility::Hidden,
+                layers.clone(),
+            ));
+            *entities += 1;
+        }
+    }
     if atlas_present(ATLAS) {
         let asset = asset_path(ATLAS);
         let texture: Handle<Image> = asset_server.load(asset.clone());
@@ -185,6 +217,7 @@ pub(super) fn sync_hoarder_art(
             Without<HoarderProp>,
             Without<HoarderMote>,
             Without<HoarderShadow>,
+            Without<HoarderPostBurst>,
         ),
     >,
     mut prop_sprites: Query<
@@ -193,6 +226,7 @@ pub(super) fn sync_hoarder_art(
             Without<HoarderSprite>,
             Without<HoarderMote>,
             Without<HoarderShadow>,
+            Without<HoarderPostBurst>,
         ),
     >,
     mut mote_sprites: Query<
@@ -201,6 +235,7 @@ pub(super) fn sync_hoarder_art(
             Without<HoarderSprite>,
             Without<HoarderProp>,
             Without<HoarderShadow>,
+            Without<HoarderPostBurst>,
         ),
     >,
     mut shadow_sprite: Query<
@@ -210,6 +245,17 @@ pub(super) fn sync_hoarder_art(
             Without<HoarderSprite>,
             Without<HoarderProp>,
             Without<HoarderMote>,
+            Without<HoarderPostBurst>,
+        ),
+    >,
+    mut burst_sprite: Query<
+        (&mut Transform, &mut Sprite, &mut Visibility),
+        (
+            With<HoarderPostBurst>,
+            Without<HoarderSprite>,
+            Without<HoarderProp>,
+            Without<HoarderMote>,
+            Without<HoarderShadow>,
         ),
     >,
 ) {
@@ -265,6 +311,9 @@ pub(super) fn sync_hoarder_art(
             None => *visibility = Visibility::Hidden,
         }
     }
+    // SMALL-02 (HC-OQ3): the age of a counted hit on the post (flash and splinter burst).
+    let post_hit = post_hit_age(state, &art.encounter, tick);
+    let mut post_at = None;
     for (slot, mut transform, mut sprite, mut visibility) in &mut prop_sprites {
         let drawn_prop = drawn.props.get(slot.0);
         let atlas = drawn_prop.and_then(|p| art.props.iter().find(|a| a.prop == p.prop));
@@ -287,11 +336,32 @@ pub(super) fn sync_hoarder_art(
                         Layer::Front => art.front_z,
                     },
                 );
+                if p.prop == Prop::Post {
+                    post_at = Some((p.x as f32 + w as f32 / 2.0, p.y as f32));
+                    sprite.color = if post_hit.is_some_and(|age| age < POST_FLASH_TICKS) {
+                        FLASH_TINT
+                    } else {
+                        Color::WHITE
+                    };
+                }
                 sprite.image = a.image.clone();
                 sprite.texture_atlas = Some(TextureAtlas {
                     layout: a.layout.clone(),
                     index: usize::from(p.frame),
                 });
+                *visibility = Visibility::Inherited;
+            }
+            _ => *visibility = Visibility::Hidden,
+        }
+    }
+    for (mut transform, mut sprite, mut visibility) in &mut burst_sprite {
+        match (post_at, post_hit.and_then(post_burst_frame)) {
+            (Some((cx, foot)), Some(frame)) => {
+                transform.translation =
+                    Vec3::new(cx, foot + POST_BURST_ABOVE_FOOT as f32, art.burst_z);
+                if let Some(atlas) = sprite.texture_atlas.as_mut() {
+                    atlas.index = frame;
+                }
                 *visibility = Visibility::Inherited;
             }
             _ => *visibility = Visibility::Hidden,
