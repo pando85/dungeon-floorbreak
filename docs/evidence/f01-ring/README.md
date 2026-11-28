@@ -2,6 +2,8 @@
 
 Rooms 4a `ring_court` and 4b `ring_split` of the late-Floor-1 slice ([plan section 15](../../07-agents/f01-playtest-integration-plan.md#15-ring-owner-pr-189)), launched with `--scene f01_late --f01-room ring_court` (or `ring_split`). Milestone `greybox` when these files were made: geometry composed from the approved Floor 01 kit, the court's static closed shutter drawn as a labelled greybox stand-in (KR17). Since AREA-RINGS-01 the rooms carry the Broken Ring kit (see [`../area-rings-01/`](../area-rings-01/README.md)); the still below is the greybox before. Game feel is the owner's call: nothing here is accepted.
 
+**Stale since #326 (RING-C wire):** the runs and stills in this folder record the RING-B static gate, which is now the `--ring-static-gate` mode; the default court runs the moving shutter. They are historical and were not regenerated.
+
 | File | What it shows | How it was made |
 | --- | --- | --- |
 | `physics_exact.txt` | K8 on both launched kits: edges each class replays with the real integrator, and the lane walk to the exit (the walk is `None`, so not listed, in the court's closed-shutter states: the closed shutter is a real cut) | `cargo test --lib -- ring_fixtures::tests::the_physics_exact_run_proves_both_rooms --nocapture` |

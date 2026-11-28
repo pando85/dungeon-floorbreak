@@ -2,6 +2,8 @@
 
 Evidence for [the AREA-RINGS-01 spec](../../02-art/area-rings-01-spec.md): the kit drawn and wired into both rooms, the stone shutter presenter, the real captures and the measurements. Prototype art (`prototype_fixture_unapproved`): the silhouette gate passed with the key edits K1..K4 (spec section 16), the independent review is pending, and nothing here is owner-approved. Game feel is the owner's call.
 
+**Stale since #326 (RING-C wire):** these stills and `capture_lines.txt` record the RING-B static gate, which is now the `--ring-static-gate` mode; the default court runs the moving shutter, so its later stills would differ. They were not regenerated.
+
 ## Real Bevy captures (`scene_*`)
 
 Every still is the real window of `--scene f01_late --f01-run --f01-room ROOM --ring-pilot`, under xvfb, in three sizes: `640x360` (`--scale 1`), `1920x1080` (`--scale 3`) and the `640x400` deck view (`--deck --scale 1`). `scripts/make_rings01_evidence.sh` captured each one **twice** (two full passes) and the two PNGs are byte-identical; the window's final `COMBAT_STATE` hash equals the headless run's at the same tick for every line. [`capture_lines.txt`](capture_lines.txt) holds one `RINGS_STILL` line per still and size (33 lines, 11 stills in 3 sizes: window hash, headless hash, `hash_match=yes`, `passes_byte_identical=yes`, the file's SHA-256, and the sim camera x at that tick).
