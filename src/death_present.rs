@@ -1055,7 +1055,7 @@ impl Finish {
             // AUDFIN-AD5, AUDFIN-AD6 (HAZ-Q16, BOS-ART-AD4): the slime and the Ball play their own
             // `down` frames, which their room presenters draw (the hazards art and `ball_art`); the generic
             // presenter adds nothing, so the finish is named but draws no extra part.
-            "slime_down" | "ball_down" => Self::NoArt,
+            "slime_down" | "ball_down" | "tuskling_down" => Self::NoArt,
             // TROG-FX-01: a troglodyte keeps its approved `down` frames and gains blood (the
             // knockback script); a point blank blast throws its own cut parts (the explosion
             // script with the kind's set and table).
@@ -4722,6 +4722,7 @@ mod tests {
         assert_eq!(r.finish_notices().len(), FINISH_LOG_LEN);
         assert_eq!(Finish::from_id("slime_down"), Finish::NoArt);
         assert_eq!(Finish::from_id("ball_down"), Finish::NoArt);
+        assert_eq!(Finish::from_id("tuskling_down"), Finish::NoArt);
     }
 
     #[test]

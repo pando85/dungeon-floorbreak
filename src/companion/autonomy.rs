@@ -5713,6 +5713,7 @@ mod tests {
             speed: RAM_SPEED,
             lead_ticks: 18,
             started: 0,
+            refuge: None,
         }
     }
 
@@ -5793,6 +5794,7 @@ mod tests {
             speed: RAM_SPEED,
             lead_ticks: 18,
             started: 0,
+            refuge: None,
         };
         assert!(boss_case(away).choose(lands(440.0, 100.0)).is_none());
     }

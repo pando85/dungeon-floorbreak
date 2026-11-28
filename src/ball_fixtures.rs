@@ -48,10 +48,72 @@ const fn toward(from: f32, to: f32) -> f32 {
     if to > from { 1.0 } else { -1.0 }
 }
 
+/// BOSB: the pilot fights a Tuskling this close (px, pivot to pivot): the reach of its lunge.
+const TUSK_FIGHT_PX: f32 = 44.0;
+/// BOSB: the pilot closes to this gap before it jabs.
+const TUSK_JAB_PX: f32 = 30.0;
+
+/// The signed x gap (target minus `x`) to the nearest living, non-cowering Tuskling within
+/// `within` px, or `None`.
+pub fn nearest_tusk_gap(combat: &CombatState, x: f32, within: f32) -> Option<f32> {
+    use crate::combat_scene::tuskling::TuskEnemy;
+    use crate::tuskling::State;
+    combat
+        .slot_enemies()
+        .iter()
+        .filter_map(|e| e.as_any()?.downcast_ref::<TuskEnemy>())
+        .filter(|t| !matches!(t.tusk().state, State::Down | State::Cower))
+        .map(|t| t.tusk().x - x)
+        .filter(|gap| gap.abs() <= within)
+        .min_by(|a, b| a.abs().total_cmp(&b.abs()))
+}
+
+/// Jab the Tuskling at signed gap `gap` without leaving the spot: turn to it (one step), then a
+/// jab every 12 ticks.
+fn hold_and_jab(tick: u64, gap: f32, facing: i8) -> RawInput {
+    let side = if gap >= 0.0 { 1.0 } else { -1.0 };
+    if f32::from(facing) != side {
+        return run(side);
+    }
+    RawInput {
+        attack: tick.is_multiple_of(12),
+        ..RawInput::NONE
+    }
+}
+
+/// Jab the Tuskling at signed gap `gap`: close in, then a jab every 12 ticks (BOSB, AD13).
+fn fight_tusk(tick: u64, gap: f32) -> RawInput {
+    let side = if gap >= 0.0 { 1.0 } else { -1.0 };
+    if gap.abs() > TUSK_JAB_PX {
+        return run(side);
+    }
+    RawInput {
+        attack: tick.is_multiple_of(12),
+        move_x: side,
+        ..RawInput::NONE
+    }
+}
+
 /// `carl_bait_punish` (BOS-AD22, F11): Carl runs into the alcove behind the arch
 /// the roll is aimed at, steps out to punish the crash (not the shove: it baits
 /// the next roll instead, BOS-AD34), and steps out of the shove's box. A pure function of the state.
 pub fn bait_pilot(tick: u64, combat: &CombatState, scene: &SceneSim, boss: &Boss) -> RawInput {
+    bait_inner(tick, combat, scene, boss, true)
+}
+
+/// [`bait_pilot`] that leaves the Tusklings alone: the Ball's half of `duo_coop` (BOSB-AD13),
+/// whose other hero is on them.
+pub fn bait_ball_only(tick: u64, combat: &CombatState, scene: &SceneSim, boss: &Boss) -> RawInput {
+    bait_inner(tick, combat, scene, boss, false)
+}
+
+fn bait_inner(
+    tick: u64,
+    combat: &CombatState,
+    scene: &SceneSim,
+    boss: &Boss,
+    fight_tusks: bool,
+) -> RawInput {
     let hero = &scene.world.hero;
     let x = hero.x;
     let idle = RawInput::default();
@@ -79,7 +141,12 @@ pub fn bait_pilot(tick: u64, combat: &CombatState, scene: &SceneSim, boss: &Boss
                 (x >= 536.0, ALCOVE_RIGHT_X)
             };
             if safe {
-                idle
+                // In the alcove the roll cannot reach him: a Tuskling that follows him in is jabbed
+                // in place (BOSB), never chased out.
+                match nearest_tusk_gap(combat, x, TUSK_FIGHT_PX).filter(|_| fight_tusks) {
+                    Some(gap) => hold_and_jab(tick, gap, hero.facing),
+                    None => idle,
+                }
             } else {
                 RawInput {
                     move_x: toward(x, target),
@@ -94,11 +161,20 @@ pub fn bait_pilot(tick: u64, combat: &CombatState, scene: &SceneSim, boss: &Boss
                     move_x: if away >= 0.0 { 1.0 } else { -1.0 },
                     ..RawInput::NONE
                 }
+            } else if let Some(gap) =
+                nearest_tusk_gap(combat, x, TUSK_FIGHT_PX).filter(|_| fight_tusks)
+            {
+                hold_and_jab(tick, gap, hero.facing)
             } else {
                 idle
             }
         }
         _ => {
+            // BOSB: a Tuskling within a lunge's reach is jabbed first (two jabs lay one down, a
+            // jab on its tell cancels it); a farther one is ignored.
+            if let Some(gap) = nearest_tusk_gap(combat, x, TUSK_FIGHT_PX).filter(|_| fight_tusks) {
+                return fight_tusk(tick, gap);
+            }
             let Some(body) = boss.hurtbox() else {
                 return idle;
             };
@@ -188,6 +264,99 @@ pub fn weight_pilot(tick: u64, combat: &CombatState, scene: &SceneSim, boss: &Bo
     bait_pilot(tick, combat, scene, boss)
 }
 
+/// `carl_environment` (BOSB-AD13): Carl baits the crashes and uses the chain weight
+/// ([`weight_pilot`]), and jabs a Tuskling that comes within a lunge's reach first. A pure
+/// function of the state.
+pub fn environment_pilot(
+    tick: u64,
+    combat: &CombatState,
+    scene: &SceneSim,
+    boss: &Boss,
+) -> RawInput {
+    let live = boss.gate_closed() && !boss.released() && !combat.hero_defeated;
+    if live && let Some(gap) = nearest_tusk_gap(combat, scene.world.hero.x, TUSK_FIGHT_PX) {
+        return hold_and_jab(tick, gap, scene.world.hero.facing);
+    }
+    weight_pilot(tick, combat, scene, boss)
+}
+
+/// The pocket column where the evidence pilot [`kick_pilot`] waits for a Tuskling: just inside the
+/// left arch's lane, where the ball (standing at the crash pivot) is a Tuskling's length away.
+pub const KICK_POCKET_X: f32 = 125.0;
+
+/// BOSB evidence pilot `bos_kick`: [`bait_pilot`] until the first crash has shed its Tusklings, then
+/// Carl stands at [`KICK_POCKET_X`] and kicks the Tuskling that comes within reach, so it flies into
+/// the ball (BOSB-AD8). It baits the rolls as usual (the ball's tells win over the kick). Harness
+/// only: no fixture, golden or pin selects it. A pure function of the state.
+pub fn kick_pilot(tick: u64, combat: &CombatState, scene: &SceneSim, boss: &Boss) -> RawInput {
+    let x = scene.world.hero.x;
+    let busy = matches!(boss.mode, BossMode::ChargeTell | BossMode::Charge);
+    if combat.hero_defeated || boss.released() || busy || combat.tusk_impacts() == 0 {
+        return bait_pilot(tick, combat, scene, boss);
+    }
+    if combat.tusklings_live() == 0 {
+        return bait_pilot(tick, combat, scene, boss);
+    }
+    if (x - KICK_POCKET_X).abs() > 4.0 {
+        return run(toward(x, KICK_POCKET_X));
+    }
+    match nearest_tusk_gap(combat, x, 34.0).filter(|g| *g > 0.0) {
+        Some(_) => RawInput {
+            physical: true,
+            move_x: 1.0,
+            ..RawInput::NONE
+        },
+        None => RawInput::default(),
+    }
+}
+
+/// The Tuskling hunter of `duo_coop` (BOSB-AD13): Donut turns to the nearest Tuskling within
+/// the missile's reach, casts at it, and backs off the alcove side when it gets close. With
+/// none, she waits in the left alcove. A pure function of the state.
+pub fn donut_tusk_pilot(
+    tick: u64,
+    combat: &CombatState,
+    scene: &SceneSim,
+    boss: &Boss,
+) -> RawInput {
+    let x = scene.world.donut_body.x;
+    let facing = scene.world.donut_body.facing;
+    if boss.released() {
+        return RawInput::default();
+    }
+    if !boss.gate_closed() {
+        // Both seats walk in to close the gate.
+        return if x < ENTER_X {
+            run(1.0)
+        } else {
+            RawInput::default()
+        };
+    }
+    let Some(gap) = nearest_tusk_gap(combat, x, DONUT_CAST_PX) else {
+        return if x > ALCOVE_LEFT_X + 20.0 {
+            run(-1.0)
+        } else {
+            RawInput::default()
+        };
+    };
+    let side = if gap >= 0.0 { 1.0 } else { -1.0 };
+    if gap.abs() < DONUT_BACK_OFF_PX {
+        return run(-side);
+    }
+    if f32::from(facing) != side {
+        return run(side);
+    }
+    RawInput {
+        attack: tick.is_multiple_of(2),
+        ..RawInput::NONE
+    }
+}
+
+/// Donut casts at a Tuskling this close (px) and no farther.
+const DONUT_CAST_PX: f32 = 260.0;
+/// She backs away from one closer than this (px).
+const DONUT_BACK_OFF_PX: f32 = 50.0;
+
 const CLEAR_SOLO_BASE: Fixture = boss_base(
     "ball01_full_clear_solo",
     "BOS-A F11: solo Carl clears the Ball with the bait-and-punish pilot, the follower bot at his back",
@@ -203,6 +372,42 @@ pub const BALL01_FULL_CLEAR_SOLO: PartyFixture = PartyFixture {
     tuning: PROVISIONAL_TUNING,
     script: &[],
     pilot: Pilot::CarlBait,
+    donut: DonutSetup::unlocked(8),
+};
+
+const ENV_BASE: Fixture = boss_base(
+    "ball01_env_clear_solo",
+    "BOSB-AD13 carl_environment: solo Carl baits the crashes, uses the chain weight and jabs the Tusklings, the follower bot at his back",
+    0x0B05_0111,
+    56,
+    BALL_FULL,
+    7200,
+);
+/// `carl_environment` (BOSB-AD13): the solo clear that uses the weight (G-0e).
+pub const BALL01_ENV_CLEAR_SOLO: PartyFixture = PartyFixture {
+    base: &ENV_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[],
+    pilot: Pilot::CarlEnvironment,
+    donut: DonutSetup::unlocked(8),
+};
+
+const COOP_BASE: Fixture = boss_base(
+    "ball01_duo_coop",
+    "BOSB-AD13 duo_coop: two players, Carl on the Ball (bait and punish), Donut on the Tusklings (missiles)",
+    0x0B05_0112,
+    56,
+    BALL_FULL,
+    7200,
+);
+/// `duo_coop` (BOSB-AD13): one hero on the Tusklings, one on the Ball (G-0d).
+pub const BALL01_DUO_COOP: PartyFixture = PartyFixture {
+    base: &COOP_BASE,
+    two_player: true,
+    tuning: PROVISIONAL_TUNING,
+    script: &[],
+    pilot: Pilot::DuoCoop,
     donut: DonutSetup::unlocked(8),
 };
 
@@ -486,9 +691,28 @@ mod tests {
 
     /// A two-seat room with the gate closed: the heroes ran in, then are placed
     /// (setup only), the ball is on `ball_x` facing `facing`, still on its first
-    /// Neutral tick.
+    /// Neutral tick. The BOS-A staging: the ball on its BOS-A data (no Tusklings, no crash
+    /// self-damage), so the fixture tests F4..F9 and F19 prove the siege and the bait apart from
+    /// them.
     fn staged(ball_x: f32, facing: i8, carl: f32, donut: f32) -> Rig {
+        staged_on(crate::boss::ball_bos_a(), ball_x, facing, carl, donut)
+    }
+
+    /// [`staged`] on the committed data (the BOSB rules).
+    fn staged_b(ball_x: f32, facing: i8, carl: f32, donut: f32) -> Rig {
+        staged_on(crate::boss::ball(), ball_x, facing, carl, donut)
+    }
+
+    fn staged_on(
+        data: &'static crate::boss::BossData,
+        ball_x: f32,
+        facing: i8,
+        carl: f32,
+        donut: f32,
+    ) -> Rig {
         let mut rig = Rig::new(root(), &BALL01_DUO).unwrap();
+        let floor_y = rig.boss().floor_y();
+        rig.sim.combat.boss = Some(Boss::new(data, floor_y));
         for hero in [HeroId::Carl, HeroId::Donut] {
             rig.place(hero, 150.0);
         }
@@ -752,7 +976,24 @@ mod tests {
     // F7: leave the alcove at Stun start and jab.
     #[test]
     fn f7_the_stun_gives_at_least_two_punish_hits() {
-        let mut rig = staged(448.0, -1, 100.0, 320.0);
+        let hits = f7_punish_hits(false);
+        assert!(hits >= 2, "F7: {hits} hits in the stun");
+    }
+
+    // F7 with the BOSB rules (the Tusklings, the crash cost): the stun still gives its hits.
+    #[test]
+    fn f7b_the_stun_still_gives_at_least_two_punish_hits_with_the_tusklings() {
+        let hits = f7_punish_hits(true);
+        println!("BOSB-F7 punish_hits={hits}");
+        assert!(hits >= 2, "F7b: {hits} hits in the stun");
+    }
+
+    fn f7_punish_hits(bosb: bool) -> u32 {
+        let mut rig = if bosb {
+            staged_b(448.0, -1, 100.0, 320.0)
+        } else {
+            staged(448.0, -1, 100.0, 320.0)
+        };
         let mut stun_from = None;
         let mut carl_hits = 0u32;
         let mut before = 0;
@@ -788,9 +1029,63 @@ mod tests {
                 break;
             }
         }
-        println!("BOS-F7 punish_hits={carl_hits}");
-        assert!(carl_hits >= 2, "F7: {carl_hits} hits in the stun");
+        println!("BOS-F7 bosb={bosb} punish_hits={carl_hits}");
         assert_eq!(rig.tally.party_loss, 0);
+        carl_hits
+    }
+
+    // The clearing policies (BOSB-AD13) and the numbers of the clear (BOSB-AD3, AD4, AD11, AD12).
+    #[test]
+    fn the_three_clearing_policies_clear_the_ball_with_tusklings_and_stay_in_band() {
+        for (fixture, ids) in [
+            (&BALL01_FULL_CLEAR_SOLO, "carl_bait_punish"),
+            (&BALL01_ENV_CLEAR_SOLO, "carl_environment"),
+            (&BALL01_DUO_COOP, "duo_coop"),
+        ] {
+            let mut rig = Rig::new(root(), fixture).unwrap();
+            for _ in 0..7200u64 {
+                rig.step_scripted();
+                if rig.tally.defeated_at.is_some() {
+                    break;
+                }
+            }
+            let at = rig
+                .tally
+                .defeated_at
+                .unwrap_or_else(|| panic!("{ids} clears"));
+            println!(
+                "BOSB-CLEAR {ids} defeated_at={at} party_loss={} crashes={} restarts={}",
+                rig.tally.party_loss,
+                rig.tally.crashes.len(),
+                rig.tally.restarts
+            );
+            assert_eq!(rig.tally.restarts, 0, "{ids}: nobody went down");
+            assert!(
+                rig.sim.combat.tusklings_spent() <= 5,
+                "{ids}: the budget holds"
+            );
+            let facts = rig
+                .sim
+                .combat
+                .events
+                .iter()
+                .filter(|e| matches!(e, CombatEvent::LedgerFact { .. }))
+                .count();
+            assert_eq!(facts, 1, "{ids}: the fact is written once");
+            // Every Tuskling of the clear that fell was credited like any enemy.
+            assert!(rig.boss().released());
+        }
+        // F11's recorded band (1200..6000) holds with the crash costing 3: BOSB-AD12 stays 3.
+        let mut rig = Rig::new(root(), &BALL01_FULL_CLEAR_SOLO).unwrap();
+        while rig.tally.defeated_at.is_none() {
+            rig.step_scripted();
+            assert!(rig.sim.scene.world.tick < 7000);
+        }
+        let at = rig.tally.defeated_at.unwrap();
+        assert!(
+            (1200..=6000).contains(&at),
+            "F11 under the BOSB rules: {at}"
+        );
     }
 
     /// Both heroes in the left alcove (Carl 80, Donut 60) from the gate close.
@@ -1014,6 +1309,8 @@ mod tests {
         assert!(dropped_at.is_some(), "three hits dropped the weight");
         // `pin_ticks` 90 counts the landing tick: 89 Pinned ticks follow it.
         assert!((89..=90).contains(&pinned), "pinned for 90 ticks: {pinned}");
+        // F10 runs on the BOS-A staging (no crash self-damage): the weight deals 4. The BOSB
+        // crash cost of 3 is asserted by `bosb_tests`.
         assert_eq!(rig.boss().hp, 20, "the weight deals 4");
         assert_eq!(rig.tally.party_loss, 0, "the alcove heroes are untouched");
         assert_eq!(rig.boss().racks[0].state, RackState::Landed, "one shot");
@@ -1144,5 +1441,38 @@ mod tests {
             0xf41a_f63c_e01b_a84f,
             "TABLE_HASH is unchanged"
         );
+    }
+
+    /// The evidence pilot `bos_kick` reaches a natural kick into the ball (BOSB-AD8): a Tuskling
+    /// is kicked into it once per launch and the ball is staggered, for 0 HP.
+    #[test]
+    fn the_kick_pilot_kicks_a_tuskling_into_the_ball_and_the_ball_staggers() {
+        let mut rig = Rig::new(root(), &BALL01_FULL_CLEAR_SOLO).unwrap();
+        let mut first = None;
+        for t in 0..700u64 {
+            let boss = rig.boss().clone();
+            let carl = kick_pilot(t + 1, &rig.sim.combat, &rig.sim.scene, &boss);
+            let hp = boss.hp;
+            rig.step([carl, IDLE]);
+            for e in &rig.sim.combat.events {
+                if let CombatEvent::Tuskling {
+                    tick,
+                    act: crate::tuskling::TuskAct::KickContact { launch, staggered },
+                    ..
+                } = e
+                    && first.is_none()
+                {
+                    first = Some((*tick, *launch, *staggered, hp, rig.boss().hp));
+                }
+            }
+            if first.is_some() {
+                break;
+            }
+        }
+        let (tick, launch, staggered, hp_before, hp_after) =
+            first.expect("a kick reached the ball");
+        println!("BOSB-KICK tick={tick} launch={launch} staggered={staggered}");
+        assert!(staggered, "the ball was staggered");
+        assert_eq!(hp_before, hp_after, "0 HP damage");
     }
 }

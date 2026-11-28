@@ -329,13 +329,13 @@ If one of these moves, BOS-A stops and reports. It does not re-pin.
 | BOS-Q1 | Ball HP | 24 (the top of #192's range, so the fight is not over in two cycles) |
 | BOS-Q2 | Roll damage 1 or 2 | 1, with launch. Carl's only dodge is the alcove, so a hit costs a quarter of his HP |
 | BOS-Q3 | Siege rule, or #192's BSW-14 "search" behaviour | the siege: it is cheaper and gives an asserted anti-turret result |
-| BOS-Q4 | Should the bot flee into alcoves? | no in BOS-A (M1 covers it); BOS-B adds it |
+| BOS-Q4 | Should the bot flee into alcoves? | no in BOS-A (M1 covers it); BOS-B adds it. **Resolved by BOS-B: yes** (BOSB-AD10) |
 | BOS-Q5 | Floor-end heading | "FLOOR 1 CLEARED" |
 | BOS-Q6 | Keep `mastery` before the Ball? | yes (#192) |
-| BOS-Q7 | A `f01_ball_defeated` ledger fact or pin | deferred to BOS-B, because the exit already proves the defeat |
+| BOS-Q7 | A `f01_ball_defeated` ledger fact or pin | deferred to BOS-B, because the exit already proves the defeat. **Resolved by BOS-B: yes**, written once on the defeat as a combat-log fact (BOSB-AD11, BOSB-A8, BOSB-Q4) |
 | BOS-Q8 | Siege warning text | data, "IT SNIFFS AT THE ARCH" (placeholder) |
 | BOS-Q9 | Should the weight re-arm within one attempt? | no: once per attempt |
-| BOS-Q10 | Should the arch crash hurt the ball (#192 "gate impact 3..4")? | no in BOS-A; the weight carries the environmental damage. BOS-B may add `crash.self_damage` |
+| BOS-Q10 | Should the arch crash hurt the ball (#192 "gate impact 3..4")? | no in BOS-A; the weight carries the environmental damage. BOS-B may add `crash.self_damage`. **Resolved by BOS-B: yes, 3** (BOSB-AD12) |
 | BOS-Q12 | After a crash the ball stays at the crash pivot and the fight collapses into a shove loop (one roll per fight) | adopted: it recentres at 3.0 px/tick (BOS-AD34). With it F11 measures 8 crashes and a clear at tick 2083 |
 | BOS-Q11 | Should the siege counter ignore the M1 bot in solo? | only if G-6 or G-7 fails: then the counter treats the M1-protected bot as unreachable while the player-controlled hero is in an alcove (6.4) |
 
@@ -346,15 +346,15 @@ If one of these moves, BOS-A stops and reports. It does not re-pin.
 | BOS-CUT1 | 1200 px arena and camera pullback | the locked 640 px arena | BOS-C |
 | BOS-CUT2 | the central suspended gate (Raised..Ascending) | the abstract arches plus the chain weight | BOS-C |
 | BOS-CUT3 | the optional outer support | the chain weight stands in for it | BOS-C |
-| BOS-CUT4 | Tusklings (at most 3 live, budget 4..6, Carl's kick-stagger) | none | **BOS-B** |
+| BOS-CUT4 | Tusklings (at most 3 live, budget 4..6, Carl's kick-stagger) | none | **BOS-B**: resolved by BOS-B ([the BOS-B mini-spec](floor-01-bos-b-tusklings.md), BOSB-AD1..AD9) |
 | BOS-CUT5 | L0..L4 reliefs and elevated routes | a flat floor | BOS-C |
 | BOS-CUT6 | roll travel of 320..480 px | at most 256 (the arena width) | BOS-C |
 | BOS-CUT7 | the six-frame native roll, tells and stun art | a greybox body with a label | **BOS-ART** |
 | BOS-CUT8 | intro and exit cinematics (E0, E6) | a notice plus the panel | BOS-C |
-| BOS-CUT9 | the `f01_ball_defeated` pin | the panel derives the defeat from the exit | BOS-B |
-| BOS-CUT10 | gate-impact damage to the ball | none | BOS-B (BOS-Q10) |
+| BOS-CUT9 | the `f01_ball_defeated` pin | the panel derives the defeat from the exit | BOS-B: resolved by BOS-B (BOSB-AD11, BOSB-A8) |
+| BOS-CUT10 | gate-impact damage to the ball | none | BOS-B (BOS-Q10): resolved by BOS-B (BOSB-AD12) |
 | BOS-CUT11 | the BSW-14 search AI | the siege (6.4) | replaced by the siege; not deferred |
-| BOS-CUT12 | policies `carl_environment`, `duo_coop` | G-0 and F10 cover the beats | BOS-B |
+| BOS-CUT12 | policies `carl_environment`, `duo_coop` | G-0 and F10 cover the beats | BOS-B: resolved by BOS-B (BOSB-AD13, `bos_eval` rows G-0e and G-0d) |
 
 **Contradiction flagged.** #192 asks for a central gate as the main impact surface. This plan uses side arches instead. A single central arch in a 640 px arena would leave no run-up on either side of it. Restoring the central gate depends on BOS-C's wider arena.
 
@@ -365,7 +365,7 @@ If one of these moves, BOS-A stops and reports. It does not re-pin.
 | PR | Scope | Tier |
 |---|---|---|
 | **BOS-A** | everything in sections 3..10 and 17: the data file and loader; the optional fields (`hero_right_wall_x`, `siege`); the siege-gated reachability and hashing; `RoomScene::Ball`; the manifest row; arena selection by data; greybox arches, post and ball; the panel; the room-18 run, smoke and replay plumbing; F1..F18; `bos_eval` G-0..G-7; the packet update | Sonnet, one PR |
-| BOS-B | Tusklings on ENEMY-SLOT; bot alcove-flee; the ledger fact; crash self-damage | Sonnet, after a top-tier mini-spec |
+| BOS-B | Tusklings on ENEMY-SLOT; bot alcove-flee; the ledger fact; crash self-damage (built: [the BOS-B mini-spec](floor-01-bos-b-tusklings.md)) | Sonnet, after a top-tier mini-spec |
 | BOS-ART | SWINE-01 runtime export and presenter, arch and weight props from existing kits | art pipeline |
 | BOS-C | the wide arena, camera pullback, central gate, reliefs, cinematics | needs a top-tier design |
 

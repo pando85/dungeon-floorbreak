@@ -72,6 +72,9 @@ impl SlotRuntime {
     /// A new attempt: every enemy back to its spawn state.
     pub(super) fn reset(&mut self) {
         if self.pristine.is_empty() {
+            // BOSB: enemies spawned during the attempt (the Ball's Tusklings) leave with it.
+            self.enemies.clear();
+            self.deferred.clear();
             return;
         }
         self.enemies = self.pristine.clone();

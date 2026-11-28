@@ -22,9 +22,13 @@
 
 use std::path::Path;
 
-use crate::ball_fixtures::{BALL01_DUO, BALL01_FULL_CLEAR_SOLO, BALL01_SOLO, Rig, Tally};
+use crate::ball_fixtures::{
+    BALL01_DUO, BALL01_DUO_COOP, BALL01_ENV_CLEAR_SOLO, BALL01_FULL_CLEAR_SOLO, BALL01_SOLO, Rig,
+    Tally,
+};
 use crate::input::RawInput;
 use crate::party::HeroId;
+use crate::party_scene::PartyFixture;
 
 /// The ticks a row holds its policy after the gate closed.
 pub const HOLD_TICKS: u64 = 7200;
@@ -93,7 +97,7 @@ impl RowResult {
     /// G-0 must clear; every stationary row passes when it does **not** defeat the
     /// ball at a party health loss of 1 or less.
     pub fn passes(&self) -> bool {
-        if self.id == "G-0" {
+        if self.id.starts_with("G-0") {
             self.defeated
         } else {
             !(self.defeated && self.tally.party_loss <= 1)
@@ -353,7 +357,44 @@ pub fn run_row(root: &Path, row: &Row, q11: bool) -> Result<RowResult, String> {
 
 /// G-0: the control. `carl_bait_punish` must clear.
 pub fn run_control(root: &Path, q11: bool) -> Result<RowResult, String> {
-    let mut rig = Rig::new(root, &BALL01_FULL_CLEAR_SOLO)?;
+    run_policy(
+        root,
+        q11,
+        &BALL01_FULL_CLEAR_SOLO,
+        "G-0",
+        "carl_bait_punish (F11), the follower bot at his back",
+    )
+}
+
+/// G-0e and G-0d (BOSB-AD13): the other two clearing policies, `carl_environment` (the chain
+/// weight) and `duo_coop` (one hero on the Tusklings, one on the Ball). Each must clear.
+pub fn run_policies(root: &Path, q11: bool) -> Result<Vec<RowResult>, String> {
+    Ok(vec![
+        run_policy(
+            root,
+            q11,
+            &BALL01_ENV_CLEAR_SOLO,
+            "G-0e",
+            "carl_environment (BOSB-AD13): the weight and the jab on the Tusklings, the follower bot at his back",
+        )?,
+        run_policy(
+            root,
+            q11,
+            &BALL01_DUO_COOP,
+            "G-0d",
+            "duo_coop (BOSB-AD13): Carl on the Ball, Donut on the Tusklings",
+        )?,
+    ])
+}
+
+fn run_policy(
+    root: &Path,
+    q11: bool,
+    fixture: &'static PartyFixture,
+    id: &'static str,
+    setup: &str,
+) -> Result<RowResult, String> {
+    let mut rig = Rig::new(root, fixture)?;
     if q11 {
         rig.set_ignore_bot_decoy(true);
     }
@@ -369,8 +410,8 @@ pub fn run_control(root: &Path, q11: bool) -> Result<RowResult, String> {
     }
     let t = rig.tally.clone();
     Ok(RowResult {
-        id: "G-0",
-        setup: "carl_bait_punish (F11), the follower bot at his back".into(),
+        id,
+        setup: setup.into(),
         ticks,
         gate_closed: closed,
         engaged: t.boss_damage >= 6,
@@ -384,6 +425,7 @@ pub fn run_control(root: &Path, q11: bool) -> Result<RowResult, String> {
 /// Run the whole gate.
 pub fn evaluate(root: &Path, q11: bool) -> Result<Evaluation, String> {
     let mut results = vec![run_control(root, q11)?];
+    results.extend(run_policies(root, q11)?);
     for row in rows() {
         results.push(run_row(root, &row, q11)?);
     }
@@ -495,9 +537,11 @@ mod tests {
     fn the_stationary_gate_passes_and_every_row_is_valid() {
         let e = evaluate(root(), false).unwrap();
         println!("{}", e.text());
-        assert_eq!(e.rows.len(), 1 + rows().len());
-        let g0 = &e.rows[0];
-        assert!(g0.defeated, "G-0: carl_bait_punish clears");
+        assert_eq!(e.rows.len(), 3 + rows().len());
+        for id in ["G-0", "G-0e", "G-0d"] {
+            let control = e.rows.iter().find(|r| r.id == id).unwrap();
+            assert!(control.defeated, "{id}: the clearing policy clears");
+        }
         for r in &e.rows {
             assert!(r.valid(), "{} is invalid: {:?}", r.id, r.setup);
             assert!(r.passes(), "{} fails", r.id);

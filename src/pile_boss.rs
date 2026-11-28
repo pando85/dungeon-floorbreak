@@ -1290,6 +1290,7 @@ impl PileBoss {
                     speed: f32::from(self.tun.hrdq11_px_per_tick),
                     lead_ticks: self.tun.hrdq33_ai_jump_lead,
                     started: self.shove_started,
+                    refuge: None,
                 })
             }
             _ => None,
@@ -4873,6 +4874,7 @@ mod tests {
                 speed,
                 lead_ticks,
                 started,
+                refuge: _,
             }) => {
                 assert_eq!(tell_left, 39);
                 assert_eq!(started, 1, "the clock of the tell's first tick");

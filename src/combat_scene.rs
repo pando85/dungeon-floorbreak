@@ -76,6 +76,7 @@ mod slot;
 mod story;
 mod thrown;
 pub mod trog;
+pub mod tuskling;
 use self::carl_cf02::{CarlCf02, CarlCf02Plan};
 use self::companion::CompanionRuntime;
 pub use self::env::{ENV_SOURCE_ID, EnvRuntime, EnvSolidKind};
@@ -975,6 +976,9 @@ pub struct CombatState {
     /// ENEMY-SLOT: the new enemies of this run (`scene_enemy`), empty on every
     /// legacy fixture: nothing of it is stepped, logged or hashed then.
     slot: SlotRuntime,
+    /// BOSB: the Ball's detach bookkeeping (impacts, budget spent, kick launches seen). Empty
+    /// and unhashed on every other fixture and until the first qualifying impact.
+    tusk: self::tuskling::TuskYard,
     /// BOIL-B wire and BOIL-C wire: the env props, hazards and runtime solids
     /// of a room with a sidecar (the Goblin Boiler), `None` everywhere else:
     /// nothing is stepped, evented or hashed then.
@@ -1163,6 +1167,7 @@ impl CombatState {
             donut_kit: DonutKit::new(DonutSetup::NONE),
             companion: CompanionRuntime::default(),
             slot: SlotRuntime::default(),
+            tusk: self::tuskling::TuskYard::default(),
             env: None,
             interact: None,
             story: None,
@@ -1559,6 +1564,8 @@ impl CombatState {
         self.thrower = Thrower::default();
         // ENEMY-SLOT: every slot enemy is back at its spawn state.
         self.slot.reset();
+        // BOSB: a restart sheds no Tuskling: the impacts, the budget and the kicks are new.
+        self.tusk = self::tuskling::TuskYard::default();
         // BOIL-B wire: every prop is back at its first state.
         self.env_reset();
         self.contacts.clear();
@@ -2212,6 +2219,8 @@ impl CombatState {
                 bot: drive.is_bot(id),
             }
         });
+        // BOSB-AD8: a kicked Tuskling that reached the ball staggers it before it acts.
+        self.tusk_kick_contacts(&mut boss, tick);
         let out = boss.step(&BossCtx {
             heroes,
             solids: &scene.world.solids,
@@ -2219,14 +2228,18 @@ impl CombatState {
             tick,
         });
         self.apply_boss_out(scene, &boss, out, tick);
+        // BOSB-AD9, AD11: the defeat's cower and fact.
+        self.tusk_after_boss_step(scene, &boss, tick);
         crate::boss_scene::sync_arena_solids(&mut scene.world.solids, Some(&boss));
         self.boss = Some(boss);
     }
 
     fn apply_boss_out(&mut self, scene: &mut SceneSim, boss: &Boss, out: BossOut, tick: u64) {
-        for event in out.events {
-            self.log(event);
+        for event in &out.events {
+            self.log(*event);
         }
+        // BOSB-AD2: a crash or a pin detaches Tusklings, after its own event in the log.
+        self.tusk_on_boss_events(scene, boss, &out.events, tick);
         for (id, x) in out.shifts {
             scene.world.body_mut(id).x = x;
         }
@@ -3660,6 +3673,8 @@ impl CombatState {
         }
         // ENEMY-SLOT: nothing is mixed while the slot is empty.
         self.slot.mix_into(&mut put);
+        // BOSB: nothing is mixed before the first qualifying impact.
+        self.tusk.mix_into(&mut put);
         // BOIL-B wire: nothing is mixed in a room without env props.
         if let Some(env) = &self.env {
             env.mix_into(&mut put);

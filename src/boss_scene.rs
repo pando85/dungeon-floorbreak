@@ -245,6 +245,17 @@ pub enum Pilot {
     /// on the stunned ball ([`crate::ball_fixtures::weight_pilot`]). Only the room pilot
     /// `bos_weight` selects it.
     CarlWeight,
+    /// BOSB-AD13 (appended): `carl_environment`, [`Pilot::CarlWeight`] that jabs a Tuskling in
+    /// reach first ([`crate::ball_fixtures::environment_pilot`]). Only the Ball's fixtures select it.
+    CarlEnvironment,
+    /// BOSB-AD13 (appended): `duo_coop`, Carl plays the Ball with `carl_bait_punish` and leaves the
+    /// Tusklings, Donut hunts them with missiles ([`crate::ball_fixtures::bait_ball_only`],
+    /// [`crate::ball_fixtures::donut_tusk_pilot`]). Only the Ball's fixtures select it.
+    DuoCoop,
+    /// BOSB (appended, evidence harness): [`Pilot::CarlBait`] that, after the first crash, stands in
+    /// the arch pocket and kicks the Tuskling that comes within reach
+    /// ([`crate::ball_fixtures::kick_pilot`]). Only the room pilot `bos_kick` selects it.
+    CarlKick,
 }
 
 pub(crate) const fn boss_base(
@@ -672,6 +683,16 @@ pub fn pilot_inputs(
         }
         Pilot::CarlWeight => {
             slots[0] = crate::ball_fixtures::weight_pilot(tick, combat, scene, boss);
+        }
+        Pilot::CarlEnvironment => {
+            slots[0] = crate::ball_fixtures::environment_pilot(tick, combat, scene, boss);
+        }
+        Pilot::CarlKick => {
+            slots[0] = crate::ball_fixtures::kick_pilot(tick, combat, scene, boss);
+        }
+        Pilot::DuoCoop => {
+            slots[0] = crate::ball_fixtures::bait_ball_only(tick, combat, scene, boss);
+            slots[1] = crate::ball_fixtures::donut_tusk_pilot(tick, combat, scene, boss);
         }
         Pilot::CarlRack => slots[0] = carl_pilot(tick, combat, scene, boss, true),
         Pilot::Duo => {

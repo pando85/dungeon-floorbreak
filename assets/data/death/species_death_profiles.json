@@ -69,6 +69,15 @@
         { "kind": "crushed", "finish": "ball_down", "causes": ["crush"], "min_force": "routine" },
         { "kind": "knockback_down", "finish": "ball_down", "causes": ["blunt"], "min_force": "routine" }
       ]
+    },
+    {
+      "id": "tuskling",
+      "body_material": "organic",
+      "fallback_finish": "tuskling_down",
+      "recipes": [
+        { "kind": "crushed", "finish": "tuskling_down", "causes": ["crush"], "min_force": "routine" },
+        { "kind": "knockback_down", "finish": "tuskling_down", "causes": ["blunt"], "min_force": "routine" }
+      ]
     }
   ]
 }
