@@ -77,6 +77,49 @@ Everything merged in #262 to #267 is "merged, game-feel review pending" (mechani
 - **Goblin Workshop (#264):** the hanging weight is redrawn as three iron slabs (a frozen-key change under the reviewer's authority). The denser plume (about 52 % coverage at alpha 0x90) washes out Carl's head and torso in the lane: owner note, alpha 0x80 is an easy fix. The torch stands under the weight (a level-composition call); boiler brightness stays the owner's call; landing dust still needs a sim change (`FallingMass` keeps no landing tick).
 - **Evidence gap:** unchanged; the 9 `room=hoarder` lines of `render_replay_lines.txt` are still stale and `scripts/make_f01_gate_d_replay.sh` was NOT RUN in #262 to #267.
 
+## Floor 1 follow-ups bundle (batch 15, 2026-11-28)
+
+Six PRs merged after batch 14. Nothing is accepted. "merged, game-feel review pending" is a mechanic or presentation change the owner judges in play; the interact art is existing approved material, and the new drawn frames (the bench debris burst) stay "owner art review pending".
+
+- **STALE-DOCS-01 #323** (`273e6a91`): docs only, game feel not applicable. Fixes the stale and contradictory statements found by the 2026-11-28 audits (packet room rows, backlog wording, status lines); CHAR-Q-CELEBRATE is recorded as open, not resolved.
+- **SMALL-02 #324** (`a33e06d2`), merged, game-feel review pending (owner art review pending; reuse only, no new art):
+  - Mordecai loops his `idle` tag and shows `talk` while Carl is within 48 px (SMALL02-AD1);
+  - `--hud-reduced-motion` also turns the cinematic finishes off (CINE-REDUCED-MOTION);
+  - the Boiler's right plume is dropped at the flush drum (SMALL02-AD2);
+  - a counted hit on the J-B post flashes it and plays one splinter burst (SMALL02-AD3);
+  - the M0 spit trace is dropped (SMALL02-AD4);
+  - R4 `exit_open` was not reproducible (20 of 20 captures byte-identical);
+  - skipped and recorded: ROOM-PILOT-RUN, LLAMA-03-FU, the ENG-02 tail.
+  - Open: **SMALL02-Q1..Q3**; review notes **N1** (the post flash also fires on the Hoarder's own shove, HOARD-02 section 7 says a qualifying hit) and **N2** (the talk trigger tests Carl's x only).
+- **AUD-FIN-01 #325** (`8b6f95d1`), merged, game-feel review pending:
+  - the Ball of Swine notices `ROLL CALL!`, `WALL WINS!`, `DEAD WEIGHT!`, `BACON BOWLED!` (AUDFIN-AD1);
+  - the `FLOOR 1 CLEARED` panel shows the viewers at the exit with the per-hero split (AUDFIN-AD2, amends AR-AD20 for that panel only);
+  - a defeat notice follows the finish the presenter chose: `BLOWN AWAY!`, `HEADS UP!`, `FLATTENED!` (AUDFIN-AD3);
+  - the `rolling_brute` (`ball_down`) and `slime` (`slime_down`) profile rows, no new art (AUDFIN-AD4, AD5);
+  - an 18-room audience launch test, the CINE guard for the Hoarder id, `TRY n` stays hidden under the boss strip (AUDFIN-AD6 to AD8).
+  - Known: a boss-defeat notice can queue behind a live one (the Juicer's `KNOCKOUT!` does the same); AUD-Q4 (the viewers line, the peak) stays open.
+- **RING-C wire #326** (`7ca0be67`), merged, game-feel review pending:
+  - the Shutter Court's moving shutter is on by default (warning 40, closing 34, closed 150, opening 34 ticks, one closure per attempt);
+  - `--ring-static-gate` restores the RING-B static gate;
+  - `COURT_ENCOUNTER_HASH` re-pinned, `MANIFEST_HASH` unchanged;
+  - the `f01-ring` runs and the AREA-RINGS-01 stills are stale by design (they record the static gate);
+  - a PLAYTRACE recording made under `--ring-static-gate` does not verify under the default build.
+  - Open: **RINGC-Q1..Q4**.
+- **Bench smash #327** (`d2378ae5`), merged, game-feel review pending (art stays owner art review pending):
+  - TROG-Q14 resolved by TROGB-AD1: the Test of Strength's bench is the 80 px `bench_stack` partition again;
+  - the Basher's bench smash (rule b, `BenchSmash`), F10..F12, the 3-state bench and the 6-frame debris burst;
+  - `STRENGTH_ENCOUNTER_HASH` and `STRENGTH_ROOM_HASH` re-pinned, `MANIFEST_HASH` unchanged; `trog_eval` G-1..G-5 pass.
+  - Open: **TROGB-Q1, TROGB-Q2**. Reported, not gated: a following bot Carl can bait the bench open under Donut (TROGB-AD4).
+- **GUILD-VERB-01 #328** (`100bec18`), merged, game-feel review pending (the interact art is existing approved material):
+  - the Interact verb (R1/RB, keyboard E) from a Bevy-free fixed-tick core (`src/interact.rs`);
+  - the guild grant strongbox opens on Carl's hand interact, Mordecai holds `talk` on Interact within 64 px;
+  - the hero interact animations from the existing atlases;
+  - PLAYTRACE `rawinput-bits/3` (bit 128; `/1` and `/2` still verify);
+  - `MANIFEST_HASH` and every golden unchanged.
+  - Open: **GUILDV-Q1..Q5** (Q3: getup is skipped, no sim recovery phase exists).
+- **Packet and evidence notes (this PR):** the playtest packet carries the new controls, what to try and the game-feel questions; the two ring evidence READMEs carry a stale-evidence note.
+- **Marked done from the open lists** (the 2026-11-28 audit follow-ups, see the batch 14 "Still open" list below): RING-C wire (#326), TROG-Q14 (#327), GUILD-BEAT-01 (#324, reuse only, no new key), GUILD-VERB-01 (#328), the R4 `exit_open` item (#324, not reproducible, closed as not a defect). Still open: ROOM-PILOT-RUN (SMALL02-Q1), LLAMA-03-FU (SMALL02-Q2), the ENG-02 tail (SMALL02-Q3), EVID-REFRESH-01 (which now also covers the two ring evidence folders), BOS-B, BOS-C, DOZ-02-FU F4 to F7, the V7 workshop wall, the figures in the camp are still static.
+
 ## Floor 1 art completion (batch 14, 2026-11-27)
 
 The owner asked, "Work on them", meaning the remaining art. All 18 rooms now have art.
@@ -95,15 +138,15 @@ The owner asked, "Work on them", meaning the remaining art. All 18 rooms now hav
 - **Status for all three:** owner art review pending. The owner notes are in the playtest packet.
 - **BOS-Q13** (the shove cap) was deliberately not built: per the #316 re-review, the owner judges it in play.
 - **Still open, drawn or needing wiring:**
-  - RING-C wire (the moving shutter);
-  - TROG-Q14 (the bench break);
-  - GUILD-BEAT-01 (Mordecai's idle and talk; needs new keys);
-  - GUILD-VERB-01;
-  - the camp figures are static;
+  - RING-C wire (the moving shutter): **done, #326** (merged, game-feel review pending);
+  - TROG-Q14 (the bench break): **done, #327** (TROGB-AD1, merged, game-feel review pending);
+  - GUILD-BEAT-01 (Mordecai's idle and talk): **done, #324** (reuse of existing atlas frames, no new key was needed; merged, game-feel review pending);
+  - GUILD-VERB-01: **done, #328** (merged, game-feel review pending);
+  - the camp figures are static (still open);
   - DOZ-02-FU F4–F7 ([defined in the DOZ-02 spec section 15](../02-art/doz-02-dozer-damage-spec.md#15-follow-ups-doz-02-fu-f4-to-f7));
   - BOS-B (Tusklings) and BOS-C;
   - the V7 workshop wall;
-  - cleanup (R4 `exit_open`, ROOM-PILOT-RUN, EVID-REFRESH-01).
+  - cleanup: R4 `exit_open` **closed, #324** (not reproducible: 20 of 20 captures byte-identical); ROOM-PILOT-RUN still open (SMALL02-Q1); EVID-REFRESH-01 still open.
 
 ## Floor 1 finale and Act I art (batch 13, 2026-11-27)
 
@@ -121,7 +164,7 @@ The owner asked, "Work on them", meaning the remaining art. All 18 rooms now hav
   2. BOS-Q13 shove cap;
   3. BOS-B, BOS-ART and BOS-C;
   4. cleanup: the R4 `exit_open` capture nondeterminism, ROOM-PILOT-RUN and EVID-REFRESH-01;
-  5. GUILD-BEAT-01 and GUILD-VERB-01;
+  5. GUILD-BEAT-01 (done, #324) and GUILD-VERB-01 (done, #328);
   6. the V7 workshop wall.
 
 ## Floor 1 completion and the owner playtest (batch 12, 2026-11-27)
@@ -214,23 +257,24 @@ Derived from `docs/03-tech/floor01-scene.md`, the presenters in `src/` (`hoarder
 | --- | --- | --- | --- | --- |
 | 1, the first chase (`act1_chase`, ACT1-B #307) | the DOZ-01 Murder Dozer rig (approved pixel art) on the opening profile | AREA-ACT1-01 #317: catacomb and ENV-02 kit, the `act1_gallery_breach` key, timbers, barricade, alcove niche; ENV-02 splinter bursts | the charge tell and wheel (presenter) | dressed, owner art review pending (batch 13) |
 | 2, the rotten shore (`act1_shore`, ACT1-A #306) | goblins GOB-01 (pixel art) | AREA-ACT1-01 #317: ENV-02 shore, the wedged DOZ-01 rig | none | dressed, owner art review pending (batch 13) |
-| 3, the guild door (`act1_guild`, ACT1-A #306) | none | AREA-ACT1-01 #317: refuge kit hearth and furniture, guild portal, `act1_grant_box_closed/_open` key; the guide is `mordecai_h44` | the `MAGIC MISSILE` notice (HUD) | dressed, owner art review pending (batch 13); missing: GUILD-BEAT-01 (Mordecai idle/talk), GUILD-VERB-01 (interact verbs) |
-| 4, the Infernal Corral (`corral`, #276 #280 #283 #298) | goblins GOB-01, llamas LLAMA-01 with the LLAMA-03 rush art (pixel art, #295) | AREA-HEAT-01 kit (pixel art, #294): scorched pen, shelves, the partition in 3 states placed at (1380, 532) | the rush tell and bonk; the partition break reuses the wall-break cue | stand-in: the M3 grate (labelled greybox, HEAT-OQ1); no splinter VFX for the partition (CD-AD9) |
+| 3, the guild door (`act1_guild`, ACT1-A #306) | none | AREA-ACT1-01 #317: refuge kit hearth and furniture, guild portal, `act1_grant_box_closed/_open` key; the guide is `mordecai_h44` | the `MAGIC MISSILE` notice (HUD) | dressed, owner art review pending (batch 13); Mordecai loops his `idle` tag and shows `talk` within 48 px of Carl (#324, reuse of his atlas frames); the Interact verb opens the grant strongbox and holds `talk` within 64 px, drawn with the existing hero interact atlases (#328); no prompt chip (GUILDV-Q2); no text beat; the box grants nothing (GUILDV-Q1) |
+| 4, the Infernal Corral (`corral`, #276 #280 #283 #298) | goblins GOB-01, llamas LLAMA-01 with the LLAMA-03 rush art (pixel art, #295) | AREA-HEAT-01 kit (pixel art, #294): scorched pen, shelves, the partition in 3 states placed at (1380, 532) | the rush tell and bonk; the partition break reuses the wall-break cue | none left: the M3 grate is the `dfx_gate` art and the partition break plays ENV-02 splinter bursts since #320 (owner notes: the grate can read as a pipe, the burst is small); unchanged by batch 15 |
 | 5, the Wrong Restaurant (`rest_refuge`, #302) | none | AREA-FASTFOOD-01 kit (pixel art, #305): the staff door (14 pre-baked frames), the Light on Your Feet box, skins, strip lights | the `SWAP TO DONUT` hint (text), `LIGHT FEET` notice | no greybox label left; owner notes on olive brass and the lamp pair |
-| 6, the Hoarder (`hoarder`) | the Hoarder: HOARD-02 atlas, 29 frames (pixel art, #258) | AREA-HOARDER-01 kit (pixel art, #258; E6 polish #266): lair mound (sealed, opened), bank A (5 states), J-B post (3), stack (4: the landed frame shows the stack's junk, the falling strut is snapped to 20 px), exit door, entry gate, three heaps (heap b rim-lit) | her Reveal shadow tint, dust and first-hittable burst (presenter); the released stack's shudder and sag (presenter, #266); the stack's footprint floor shadow (code-drawn, HRD-C) | no STAND-IN label left; window stills of the shove, lunge, jam, warning, fall, pinned and get-up since #266; bank A's states after `stable` have no runtime still (offline composites only); the stir cue before she wakes and the post's not-yet cue are drawn since #296 (HC-AD1..AD11) |
-| 7, the Goblin Boiler (`boiler`) | goblins GOB-01 A and B, the Engineer ENG-01 (pixel art) | Goblin Workshop kit, 13 atlases (pixel art, #256; review follow-ups #264: the weight as three iron slabs, the rig's chain end, a denser plume, the scorch under the blast with an ember fade) | four tell atlases: steam sputter and plume, weight shadow (alpha 0x70 since #264), drum ring (pixel art, #256); the drum's blast is the VFX-01 burst plus the 48 px shock wave (`dfx_wave_r48`, pixel art, #263) | code-drawn by design (the spec keeps them as footprints, they are taller than the art): the steam warning area and edge, the drum's blast-area outline; landing dust since #288 (ST-AD1..AD9; the right plume merges with the drum, ST-OQ1); the V7 wall dressing is missing |
+| 6, the Hoarder (`hoarder`) | the Hoarder: HOARD-02 atlas, 29 frames (pixel art, #258) | AREA-HOARDER-01 kit (pixel art, #258; E6 polish #266): lair mound (sealed, opened), bank A (5 states), J-B post (3), stack (4: the landed frame shows the stack's junk, the falling strut is snapped to 20 px), exit door, entry gate, three heaps (heap b rim-lit) | her Reveal shadow tint, dust and first-hittable burst (presenter); the released stack's shudder and sag (presenter, #266); the stack's footprint floor shadow (code-drawn, HRD-C) | no STAND-IN label left; a counted hit on the J-B post flashes it white for 4 ticks and plays one ENV-02 splinter burst since #324 (SMALL02-AD3; it also fires on her own shove, review note N1); window stills of the shove, lunge, jam, warning, fall, pinned and get-up since #266; bank A's states after `stable` have no runtime still (offline composites only); the stir cue before she wakes and the post's not-yet cue are drawn since #296 (HC-AD1..AD11) |
+| 7, the Goblin Boiler (`boiler`) | goblins GOB-01 A and B, the Engineer ENG-01 (pixel art) | Goblin Workshop kit, 13 atlases (pixel art, #256; review follow-ups #264: the weight as three iron slabs, the rig's chain end, a denser plume, the scorch under the blast with an ember fade) | four tell atlases: steam sputter and plume, weight shadow (alpha 0x70 since #264), drum ring (pixel art, #256); the drum's blast is the VFX-01 burst plus the 48 px shock wave (`dfx_wave_r48`, pixel art, #263) | code-drawn by design (the spec keeps them as footprints, they are taller than the art): the steam warning area and edge, the drum's blast-area outline; landing dust since #288 (ST-AD1..AD9); since #324 the right plume is dropped at the flush drum and the left is unchanged (SMALL02-AD2, answers ST-OQ1); the V7 wall dressing is missing |
 | 8, the Dozer (`dozer`, #279 #282 #287 #289 #292) | the DOZ-01 machine and its DOZ-02 damage states (pixel art, #291); riders GOB-01; the crew | DOZ-02 gate, lintel and fill tiles; the brace frame, remnant and glance are wired art since #291 | the stop frame, hit sparks and splinter bursts (DRD-AD1, DRD-AD2) | room shell greybox; faint hull damage at 1x (DOZ-02-FU F4 to F7) |
 | 9, slimes and Rot Stickers (`hazards`) | slimes SLIME-01, Rot Stickers ROT-01, goblins GOB-01 (pixel art) | none beyond the greybox pockets and soffits | ROT-01 warning frames; the acid pool (`dfx_acid`), the Rot Sticker's 48 px reach ring (`dfx_ring_r48`), the shock waves (`dfx_wave_r48`, `dfx_wave_r64`) and Carl's 64 px dynamite ring (`dfx_ring_r64`) (pixel art, #263); the blast core is the shared VFX-01 burst | the teal acid, ring tape backing, entry splash, corrosion decals, nest and a spent drip are pixel art since #285 (HZB-AD1..AD18); the room exit door since #274; no stand-in label left |
-| 10, the Shutter Court (`ring_court`, #271 #290) | goblins GOB-01 | AREA-RINGS-01 kit (pixel art, #290): ring masonry, the static stone shutter, the great arc and ring, the crowned keystone; exit door #274 | none | the moving shutter states are drawn and unit-tested but not wired (RING-C wire) |
+| 10, the Shutter Court (`ring_court`, #271 #290) | goblins GOB-01 | AREA-RINGS-01 kit (pixel art, #290): ring masonry, the stone shutter, the great arc and ring, the crowned keystone; exit door #274 | the moving shutter (warning, closing, closed, opening) is wired since #326 and on by default; `--ring-static-gate` restores the RING-B static gate; no audio cue (RINGC-Q2) | none beyond the owner notes; the `f01-ring` and AREA-RINGS-01 evidence record the static gate |
 | 11, the Split Passage (`ring_split`, #271 #290) | goblins GOB-01 | AREA-RINGS-01 kit: breach, far-camp silhouettes, `ring_marker_a`, torch bake; exit door #274 | none | none beyond the owner notes |
 | 12, the Survivors' Camp (`rest_camp`, #304 #308) | none | AREA-CAMP-01 kit (pixel art, #308): the hearth fire, four anonymous figures, the toy cart, the heavy bag with its 5-frame sway | the bag's swing (presenter, cosmetic, CAMP-AD7) | no audio; figures are static; the sim bag is inert (REST-Q6) |
-| 13, the Troglodyte Run (`trog_run`, #310 #311) | Pygmy, Basher, Virtuoso (TROG-01/02/03 atlases, unreviewed candidates) | AREA-TROG-01 stage 1 (pixel art, #311): fist hole, bell, knuckle marks, slam crack, crater, threshold, brick faces | translucent stand-in telegraph (code-drawn) | the telegraph is a stand-in; no audio; no death profiles |
-| 14, the Test of Strength (`trog_strength`, #312; art #313) | Basher and Virtuoso (as room 13) | AREA-TROG-01 stage 2 (pixel art, #313, `e9a05b1c`): the 80 px static bench key, the shelf, the gym bay, mirror shards, threshold and mats; the shelf torch is removed (AD-S7) | the telegraph as room 13 | the weakened and broken bench keys and the debris are drawn but not wired (TROG-Q14); owner art notes in the packet |
+| 13, the Troglodyte Run (`trog_run`, #310 #311) | Pygmy, Basher, Virtuoso (TROG-01/02/03 atlases, unreviewed candidates) | AREA-TROG-01 stage 1 (pixel art, #311): fist hole, bell, knuckle marks, slam crack, crater, threshold, brick faces | the approved weight-shadow telegraph (TROG-FX-01 #321, art) | death profiles per kind since #321 (TROG-FX-Q1: the parts are straight chunks); no audio |
+| 14, the Test of Strength (`trog_strength`, #312; art #313) | Basher and Virtuoso (as room 13) | AREA-TROG-01 stage 2 (pixel art, #313, `e9a05b1c`): the 80 px `bench_stack` partition since #327 (intact, weakened and broken keys and the 6-frame debris burst are wired, no new key), the shelf, the gym bay, mirror shards, threshold and mats; the shelf torch is removed (AD-S7) | the telegraph as room 13; the Basher's 36-tick bench smash tell (#327, TROGB-AD1) | none left for the bench; no audio; owner art notes in the packet |
 | 15, the Juicer (`juicer`) | the Juicer: JUICE-01 base plus the `boss-f01` encounter set (pixel art) | rack, strut and ledge atlases (`boss-f01-rack`, `-strut`, `-ledge`, pixel art); the boss gate (`dfx_gate`, 28 x 224, closed and raised, pixel art, #263) | `boss-f01-vfx` (pound debris, ripple, crash dust, roar ring and more, pixel art) | the gym kit (pixel art, #275: mirror bays, reception desk, turnstile, rack, bench, plate tree, cable tower and tyres; the banner, posters, punching bag and lockers of the concept are not drawn, GYM-AD6) and its own 20 px exit door (GYM-AD2, #275; not the #274 door) since; the gate drops since #288 (the drop frame is mostly hidden at 1x); the exit door lintel cap since AREA-POLISH-01 #320 (was #263 follow-up F3) |
 | 16, After the Juicer (`rest_aftermath`, #304 #308) | none | AREA-CAMP-01 aftermath dressing (pixel art, #308): the wrecked-gym egress, bricked B2, girders, torn mirror, the heavy bag with sway, grooves, the blink lane marks | the bag's swing (cosmetic) | the sim bag is inert; the blink lane has no reward (floor marks only) |
 | 17, the mastery arena (`mastery`) | goblins GOB-01, llamas LLAMA-01, the Engineer ENG-01, the slime SLIME-01, a Rot Sticker ROT-01 (pixel art) | the CF02 microarena pieces (perches, parapet, rotten shore) | as room 4 (acid, rings and waves, pixel art, #263) | stand-in: the spent drip (as room 4); the exit gate is drawn since #274 (`defeat_roster`); the room has no dressing (post-reset queue) |
+| 18, the Ball of Swine (`bos`, BOS-A #316, BOS-ART #319) | the Ball: the SWINE-01 atlas and presenter (pixel art, #319); its death profile `ball_down` reuses the existing `down` strip (no new art, AUDFIN-AD4, #325) | the dressed arena with two arches and alcoves, the iron chain-weight key (route B), the stairwell exit (#319); the FLOOR 1 CLEARED panel shows the viewers at the exit with the per-hero split since #325 (AUDFIN-AD2) | the roll tell, the sniff cue and the Ball's own notices `ROLL CALL!`, `WALL WINS!`, `DEAD WEIGHT!`, `BACON BOWLED!` (HUD, #325) | the Tusklings (BOS-B), the wide arena, central gate, reliefs and cinematics (BOS-C) are not built; a boss-defeat notice can queue behind a live one; owner art review pending |
 
-Rooms 1 to 17 are the manifest order of the floor run (the first column's numbers are run positions; older docs use the legacy room labels: the Hoarder is room 1, the Boiler 2, the Dozer 3, the hazards 4, the Juicer 5, the mastery arena 6). Cross-room: since #263 the dynamite blast's drawn size reads as its gameplay radius (`dfx_wave_r64`, `DANGER-FX-DYNAMITE`) in every room where Carl holds dynamite. `docs/03-tech/floor01-scene.md` describes the Hoarder's presentation from the merged code since #265.
+Rooms 1 to 18 are the manifest order of the floor run (the first column's numbers are run positions; older docs use the legacy room labels: the Hoarder is room 1, the Boiler 2, the Dozer 3, the hazards 4, the Juicer 5, the mastery arena 6). Cross-room: since #263 the dynamite blast's drawn size reads as its gameplay radius (`dfx_wave_r64`, `DANGER-FX-DYNAMITE`) in every room where Carl holds dynamite. `docs/03-tech/floor01-scene.md` describes the Hoarder's presentation from the merged code since #265.
 
 ## MVP controller grammar — approved design (2026-11-18)
 
