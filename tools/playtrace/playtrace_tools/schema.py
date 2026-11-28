@@ -14,7 +14,7 @@ import struct
 import numpy as np
 
 OBS_SCHEMA_ID = "autoplay-obs/2+f32bits-rle-hex/1"
-ACTION_SCHEMAS = ("rawinput-bits/1", "rawinput-bits/2")
+ACTION_SCHEMAS = ("rawinput-bits/1", "rawinput-bits/2", "rawinput-bits/3")
 
 # ObservationV2 layout (flattened, in schema order).
 SELF_LEN = 22

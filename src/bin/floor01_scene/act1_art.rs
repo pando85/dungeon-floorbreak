@@ -10,7 +10,7 @@
 //!   `Dozer::barrier_hit()` (rewind- and respawn-safe: the break stays through the defeat delay
 //!   and the respawn closes the lock again);
 //! * the grant box (24 x 28 at (340, 552)) is `act1_grant_box_open` once the guild door's lock is
-//!   open (`donut_unlocked`), and the composer's portal gets the `guild_portal_open` overlay.
+//!   open (`donut_unlocked`) or a hero's Interact verb opened it (GUILD-VERB-01), and the composer's portal gets the `guild_portal_open` overlay.
 //!
 //! The shore's wedged machine is a static pose (`dozer_art::spawn_wedge`).
 //! **Presentation only**: it reads the combat state through a shared reference and writes only the
@@ -147,6 +147,8 @@ pub(super) fn sync_act1_art(
     };
     let machine = dungeon_floorbreak::dozer_art::dozer_of(state);
     let door_open = state.donut_unlocked();
+    // GUILD-VERB-01: a hero's Interact verb opens the strongbox too (the grant stays the zone's).
+    let box_open = door_open || state.interact_box_open();
     for (kind, mut sprite, mut visibility) in &mut sprites {
         let rect = match kind {
             Act1Sprite::Timber(i) => machine.map(|d| {
@@ -157,7 +159,7 @@ pub(super) fn sync_act1_art(
                 let hit = d.barrier_hit();
                 art.rects.barricade[usize::from(hit)].1
             }),
-            Act1Sprite::Box => Some(art.rects.boxes[usize::from(door_open)].1),
+            Act1Sprite::Box => Some(art.rects.boxes[usize::from(box_open)].1),
             Act1Sprite::PortalOpen => Some(art.rects.portal_open.1),
         };
         if let Some(r) = rect {

@@ -38,7 +38,9 @@ use crate::party::{MotionProfile, PartyTuning};
 use crate::party_scene::PartyFixtureSim;
 
 use super::build_info::{BUILD_COMMIT, SOURCE_FINGERPRINT};
-use super::codec::{ACTION_SCHEMA, ACTION_SCHEMA_V1, EVENT_SCHEMA, OBS_SCHEMA_ID};
+use super::codec::{
+    ACTION_SCHEMA, ACTION_SCHEMA_V1, ACTION_SCHEMA_V2, EVENT_SCHEMA, OBS_SCHEMA_ID,
+};
 use super::cursor::{ReplayCursor, ReplayPolicy, Trust};
 use super::manifest::{SessionManifest, SessionStatus};
 use super::reader::{LoadedSession, read_session};
@@ -709,7 +711,9 @@ pub(super) fn preflight(
             ))
         }
     };
-    if manifest.action_schema_id != ACTION_SCHEMA && manifest.action_schema_id != ACTION_SCHEMA_V1 {
+    if ![ACTION_SCHEMA, ACTION_SCHEMA_V2, ACTION_SCHEMA_V1]
+        .contains(&manifest.action_schema_id.as_str())
+    {
         rules("action schema", &manifest.action_schema_id, ACTION_SCHEMA)?;
     }
     rules("event schema", &manifest.event_schema_id, EVENT_SCHEMA)?;

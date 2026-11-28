@@ -80,6 +80,10 @@ pub const CARL_DYNAMITE_MANIFEST: &str = "carl_book1_h52_dynamite.json";
 /// CF02-I: the ART-CARL-CF02, ART-DONUT-CF02 and ART-GOB-CF02 sheets.
 pub const CARL_CF02_MANIFEST: &str = "carl_book1_h52_cf02.json";
 pub const DONUT_CF02_MANIFEST: &str = "donut_h40_cf02.json";
+/// GUILD-VERB-01: the ANIM-INTERACT-01 sheets (Carl's hand, floor and push verbs, Donut's paw and
+/// nudge), read by tag and frame index through [`crate::interact::Verb`].
+pub const CARL_INTERACT_MANIFEST: &str = "carl_book1_h52_interact.json";
+pub const DONUT_INTERACT_MANIFEST: &str = "donut_h40_interact.json";
 pub const GOBLIN_CF02_MANIFESTS: [&str; 2] = ["goblin_a_h36_cf02.json", "goblin_b_h36_cf02.json"];
 pub const GOBLIN_SLAMMED_MANIFESTS: [&str; 2] =
     ["goblin_a_slammed_h36.json", "goblin_b_slammed_h36.json"];
@@ -373,6 +377,8 @@ impl SpriteClips {
             Kind::Cf02Goblin => cf02_goblin_ticks(&manifest, frame_count).map_err(err)?,
             Kind::Engineer => engineer_ticks(frame_count).map_err(err)?,
             Kind::CarlDynamite => dynamite_ticks(&manifest, frame_count).map_err(err)?,
+            // The verb clock (`crate::interact`) picks the frame, so no per-frame ticks.
+            Kind::Interact => (vec![None; frame_count], Vec::new()),
         };
         let atlas_asset = str_field(&manifest, "output_atlas", &path)?
             .strip_prefix(crate::actor_sprite::ATLAS_ASSET_PREFIX)
@@ -500,6 +506,31 @@ impl SpriteClips {
             CARL_SHADOW_FOOTPRINT,
             source,
             Kind::CarlDynamite,
+        )
+    }
+
+    /// GUILD-VERB-01: Carl's interact sheet (12 frames, three verbs), pivot-anchored like the
+    /// locomotion atlas.
+    pub fn load_carl_interact(root: &Path, source: FrameSource) -> Result<Self, String> {
+        Self::load(
+            root,
+            "CARL_INTERACT",
+            CARL_INTERACT_MANIFEST,
+            CARL_SHADOW_FOOTPRINT,
+            source,
+            Kind::Interact,
+        )
+    }
+
+    /// GUILD-VERB-01: Donut's interact sheet (8 frames, two verbs).
+    pub fn load_donut_interact(root: &Path, source: FrameSource) -> Result<Self, String> {
+        Self::load(
+            root,
+            "DONUT_INTERACT",
+            DONUT_INTERACT_MANIFEST,
+            DONUT_SHADOW_FOOTPRINT,
+            source,
+            Kind::Interact,
         )
     }
 
@@ -705,6 +736,8 @@ impl SpriteClips {
 
 #[derive(Clone, Copy)]
 enum Kind {
+    /// GUILD-VERB-01: the interact sheets.
+    Interact,
     CarlMelee,
     Goblin,
     Llama,

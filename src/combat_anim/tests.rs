@@ -1571,3 +1571,48 @@ fn engineer_ticks_accepts_only_the_22_frame_atlas() {
     assert!(engineer_ticks(22).is_ok());
     assert!(engineer_ticks(18).is_err());
 }
+
+/// GUILD-VERB-01: the interact sheets map each verb's four frames, by the spec's tags, onto the
+/// atlas frames in order (Carl hand 0..3, floor 4..7, push 8..11; Donut paw 0..3, nudge 4..7),
+/// from both frame sources, and the verb clock picks them.
+#[test]
+fn the_interact_frames_follow_the_verb_clock_by_tag() {
+    use crate::interact::Verb;
+    for source in [FrameSource::GridSource, FrameSource::ExportedAtlas] {
+        let carl = SpriteClips::load_carl_interact(root(), source);
+        let donut = SpriteClips::load_donut_interact(root(), source);
+        let (carl, donut) = match (carl, donut) {
+            (Ok(c), Ok(d)) => (c, d),
+            // The exported atlases come from `scripts/export_assets.sh`; the grid source always loads.
+            (Err(e), _) | (_, Err(e)) if source == FrameSource::ExportedAtlas => {
+                eprintln!("skipping the exported-atlas mapping: {e}");
+                continue;
+            }
+            (Err(e), _) | (_, Err(e)) => panic!("{e}"),
+        };
+        assert_eq!((carl.frame_count, donut.frame_count), (12, 8));
+        for (clips, verb, first) in [
+            (&carl, Verb::Hand, 0),
+            (&carl, Verb::Floor, 4),
+            (&carl, Verb::Push, 8),
+            (&donut, Verb::Paw, 0),
+            (&donut, Verb::Nudge, 4),
+        ] {
+            assert_eq!(clips.tag(verb.tag()), (first, 4), "{}", verb.tag());
+            for clock in 0..verb.total_ticks() {
+                let index = verb.frame_at(clock).expect("inside the verb");
+                assert_eq!(clips.frame_in(verb.tag(), index), first + index);
+            }
+            // The contact frame is shown from the contact tick (the effect tick).
+            let contact = verb.frame_at(verb.contact_tick()).unwrap();
+            assert_eq!(
+                contact,
+                1,
+                "{}: the second frame is the contact key",
+                verb.tag()
+            );
+        }
+        assert_eq!((carl.spec.width, carl.spec.height), (48, 56));
+        assert_eq!((donut.spec.width, donut.spec.height), (72, 44));
+    }
+}

@@ -6,7 +6,7 @@ The [MVP controller contract](../01-design/mvp-controller-contract.md) defines t
 
 Normalize device-specific inputs to player-scoped logical actions such as `Move`, `Jump`, `PrimaryAttack`, `PhysicalAttack`, `EquippedSpecial`, `Interact`, `SwapCharacter`, `Pause` and optional `PrecisionAim` / `CycleSpecial`. Preserve `tick`, player ownership, deterministic edge/held semantics and headless replay. Keep character abilities and narrative unlocks separate from the physical device binding; never hardcode PS5 button identifiers in the gameplay domain.
 
-**Approved default mappings:** Cross/A jump; Square/X primary; Triangle/Y physical; Circle/B special; R1/RB interact; L1/LB solo switch. Carl's Triangle/Y is **a kick, not a grab**. Donut's pre-biscuit primary is weak feline contact, changing to Magic Missile only after the story unlock. Optional L2/right-stick precision aim and R2 cycling are not MVP combat dependencies; D-pad locomotion must remain possible.
+**Approved default mappings:** Cross/A jump; Square/X primary; Triangle/Y physical; Circle/B special; R1/RB interact (implemented for the `act1_guild` strongbox and guide only, keyboard E: [interact-verb.md](interact-verb.md)); L1/LB solo switch. Carl's Triangle/Y is **a kick, not a grab**. Donut's pre-biscuit primary is weak feline contact, changing to Magic Missile only after the story unlock. Optional L2/right-stick precision aim and R2 cycling are not MVP combat dependencies; D-pad locomotion must remain possible.
 
 ### Down (COMBAT-FUN-02, `--cf02` only)
 

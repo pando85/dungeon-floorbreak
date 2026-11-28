@@ -2,6 +2,7 @@ use super::*;
 use crate::combat_scene::EnvSolidKind;
 use crate::encounter::{ReachHero, route_graphs};
 use crate::f01_late::Loadout;
+use crate::party::HeroId;
 use std::path::PathBuf;
 
 fn root() -> PathBuf {
@@ -507,4 +508,158 @@ fn the_chase_smoke_reaches_the_exit_by_the_pocket_and_not_by_walking() {
             ..
         }
     )));
+}
+
+fn interact_press() -> RawInput {
+    RawInput {
+        interact: true,
+        ..RawInput::NONE
+    }
+}
+
+/// GUILD-VERB-01: the pinned site is the dressing's box and the guide's column.
+#[test]
+fn the_guild_interact_site_is_the_dressed_box_and_the_guide() {
+    let (left, right) = GUILD_BOX_FACES;
+    assert_eq!(left, crate::act1_kit::BOX_AT.0);
+    assert_eq!(right - left, 24, "the strongbox is 24 px wide");
+    let guide = decor(Act1Room::Guild)
+        .iter()
+        .find(|d| d.label == "guide")
+        .expect("the guide decor");
+    assert_eq!(GUILD_GUIDE_X, guide.rect.x + guide.rect.w / 2);
+    assert_eq!(GUILD_INTERACT.guide_x, Some(GUILD_GUIDE_X));
+}
+
+/// GUILD-VERB-01 (GUILDV-AD1): Carl's Interact at the box plays the hand verb, holds him still,
+/// opens the box once on the contact tick and grants nothing (the zone's grant is untouched).
+#[test]
+fn carl_opens_the_grant_box_with_interact_and_it_grants_nothing() {
+    use crate::interact::Verb;
+    let run = guild();
+    let mut scene = scene_of(&run);
+    let mut combat = combat_of(&run, &mut scene).unwrap();
+    scene.world.hero.x = 321.0;
+    for _ in 0..3 {
+        combat.step(&mut scene, RawInput::NONE);
+    }
+    assert!(!combat.interact_box_open());
+    combat.step(&mut scene, interact_press());
+    assert_eq!(combat.interact_pose(HeroId::Carl), Some((Verb::Hand, 0)));
+    assert_eq!(scene.world.hero.x, 323.0, "snapped to the 17 px stand-off");
+    let contact = Verb::Hand.contact_tick() as usize;
+    for k in 1..Verb::Hand.total_ticks() as usize {
+        // The player holds right and jump; the verb strips both.
+        combat.step(
+            &mut scene,
+            RawInput {
+                move_x: 1.0,
+                jump: true,
+                interact: true,
+                ..RawInput::NONE
+            },
+        );
+        assert_eq!(scene.world.hero.x, 323.0, "planted at clock {k}");
+        assert!(scene.world.hero.grounded);
+        let (verb, frame) = combat
+            .interact_pose(HeroId::Carl)
+            .unwrap_or((Verb::Hand, 99));
+        if k < Verb::Hand.total_ticks() as usize - 1 {
+            assert_eq!(verb.frame_at(k as u32), Some(frame), "clock {k}");
+        }
+        assert_eq!(combat.interact_box_open(), k >= contact, "clock {k}");
+    }
+    assert!(combat.interact_box_open());
+    // Released: Carl moves again, the door stays shut and the biscuit is not granted.
+    combat.step(&mut scene, RawInput::NONE);
+    assert!(combat.interact_pose(HeroId::Carl).is_none());
+    combat.step(
+        &mut scene,
+        RawInput {
+            move_x: 1.0,
+            ..RawInput::NONE
+        },
+    );
+    assert!(scene.world.hero.x > 323.0);
+    assert!(
+        !combat.donut_unlocked(),
+        "the box grants nothing (GUILDV-Q1)"
+    );
+}
+
+/// GUILD-VERB-01: Interact near the guide holds his talk key for the window and locks nobody.
+#[test]
+fn interact_near_the_guide_holds_his_talk_key() {
+    let run = guild();
+    let mut scene = scene_of(&run);
+    let mut combat = combat_of(&run, &mut scene).unwrap();
+    scene.world.hero.x = 400.0;
+    combat.step(&mut scene, RawInput::NONE);
+    assert!(!combat.interact_guide_talking(scene.world.tick));
+    combat.step(&mut scene, interact_press());
+    let tick = scene.world.tick;
+    assert!(combat.interact_guide_talking(tick));
+    assert!(combat.interact_pose(HeroId::Carl).is_none());
+    assert!(combat.interact_guide_talking(tick + crate::interact::TALK_TICKS - 1));
+    assert!(!combat.interact_guide_talking(tick + crate::interact::TALK_TICKS));
+}
+
+/// GUILD-VERB-01: a press with no target changes nothing, in the guild far from both targets
+/// and in a room with no interact site at all (tick-for-tick equal state hashes).
+#[test]
+fn interact_without_a_target_changes_nothing() {
+    for room in [Act1Room::Guild, Act1Room::Shore, Act1Room::Chase] {
+        let run = launch(&root(), room).expect("launches");
+        let mut a_scene = scene_of(&run);
+        let mut a = combat_of(&run, &mut a_scene).unwrap();
+        let mut b_scene = scene_of(&run);
+        let mut b = combat_of(&run, &mut b_scene).unwrap();
+        for tick in 0..120 {
+            let walk = RawInput {
+                move_x: if tick < 30 { 1.0 } else { 0.0 },
+                ..RawInput::NONE
+            };
+            a.step(&mut a_scene, walk);
+            b.step(
+                &mut b_scene,
+                RawInput {
+                    interact: tick % 7 < 3,
+                    ..walk
+                },
+            );
+            assert_eq!(
+                a.state_hash(&a_scene),
+                b.state_hash(&b_scene),
+                "{room:?} tick {tick}"
+            );
+        }
+    }
+}
+
+/// GUILD-VERB-01: the verb is deterministic: two runs with the same inputs hash alike, and the
+/// state hash moves once a press is accepted.
+#[test]
+fn the_interact_verb_is_deterministic_and_enters_the_hash_once_accepted() {
+    let run = guild();
+    let hashes = |press_at: Option<u64>| {
+        let mut scene = scene_of(&run);
+        let mut combat = combat_of(&run, &mut scene).unwrap();
+        scene.world.hero.x = 321.0;
+        (0..60u64)
+            .map(|t| {
+                combat.step(
+                    &mut scene,
+                    RawInput {
+                        interact: press_at == Some(t),
+                        ..RawInput::NONE
+                    },
+                );
+                combat.state_hash(&scene)
+            })
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(hashes(Some(5)), hashes(Some(5)));
+    let (plain, pressed) = (hashes(None), hashes(Some(5)));
+    assert_eq!(plain[..5], pressed[..5]);
+    assert_ne!(plain[6], pressed[6]);
 }

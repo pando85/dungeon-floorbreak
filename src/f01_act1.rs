@@ -116,6 +116,16 @@ pub const SHORE_TEMPERAMENTS: [Temperament; 2] = [Temperament::Brawler, Temperam
 /// Donut's guild zone: her pivot entering this half-open x range grants the biscuit
 /// (GUILD-BEAT-01), in front of the guide's mark (x 380).
 pub const GUILD_ZONE_X: (i32, i32) = (336, 376);
+/// GUILD-VERB-01: the grant strongbox's left and right faces (`act1_kit::BOX_AT` x, 24 px wide),
+/// layout px. Interact opens it (GUILDV-AD1); the grant itself stays the zone's (GUILDV-Q1).
+pub const GUILD_BOX_FACES: (i32, i32) = (340, 364);
+/// GUILD-VERB-01: the guide Mordecai's column (the `guide` decor's centre, the refuge mark).
+pub const GUILD_GUIDE_X: i32 = 380;
+/// The guild's interact site: the strongbox and the guide.
+pub const GUILD_INTERACT: crate::interact::InteractSite = crate::interact::InteractSite {
+    box_faces: Some(GUILD_BOX_FACES),
+    guide_x: Some(GUILD_GUIDE_X),
+};
 /// The guild door's sidecar lock id.
 pub const GUILD_DOOR: &str = "guild_door";
 /// The chase's barricade lock id (`dozer_contact`).
@@ -605,6 +615,11 @@ pub fn combat_for(
         combat = combat.with_goblin_temperaments(&SHORE_TEMPERAMENTS);
     }
     let mut combat = combat.with_env(env_runtime(run)?);
+    if run.room == Act1Room::Guild {
+        // GUILD-VERB-01: the Interact verb's targets (the strongbox and the guide). It mixes
+        // nothing into the hash until a press is accepted.
+        combat = combat.with_interact(GUILD_INTERACT);
+    }
     if run.room == Act1Room::Chase {
         // ACT1-B: the machine spawns from the sidecar roster through ENEMY-SLOT, installed
         // **last** (a `with_*` builder after the slot would mark the attempt as retried).
