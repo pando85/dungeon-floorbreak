@@ -101,6 +101,8 @@ The llama rows equal the goblin rows with `llama_*` ids. `src/death.rs` pins eve
 | --- | --- | --- |
 | `goblin` | `{ "kind": "slammed", "finish": "goblin_slammed", "causes": ["blunt"], "min_force": "heavy" }` | a heavy (or catastrophic) blunt defeat is the slammed finish; a routine blunt kill keeps `goblin_knockback_down`; crush, shear and blast rows are unchanged |
 
+**`slime` and `rolling_brute` (AUDFIN-AD4, AUDFIN-AD5; HAZ-Q16, BOS-ART-AD4).** Two species rows appended to the global file (existing rows untouched): the real slime and the Ball of Swine. Every recipe and the fallback select the species' own `down` (`slime_down`, `ball_down`), which `Finish::from_id` maps to `NoArt`: the generic presenter adds nothing and the room's own presenter draws the existing `down` frames. Neither species falls to `generic_collapse` any more. A test pins every cause and force.
+
 **`pile_boss` (FA-Q23, HRD sheet section 10).** The overlay's `add_species` also carries the Hoarder (the global file stays byte-identical): the five recipes and the fallback all select `pile_boss_down`, which `Finish::from_id` maps to `NoArt`. The generic presenter therefore draws nothing for her (no gibs, no dismemberment, no blood: "a ruined person, not a target for spectacle"); her own presenter (`hoarder_art`) draws HOARD-01's `down` frames 13 to 15. She is not CINE-eligible. A test pins every cause and force.
 
 **`goblin_engineer` (ENG-02).** The overlay's `add_species` also carries the Engineer: five recipes in file order, `engineer_slammed` (blunt, heavy), `engineer_exploded` (blast, catastrophic), `engineer_decapitated` (shear, heavy), `engineer_crushed` (crush, routine) and `engineer_knockback_down` (blunt, routine, the fallback). The global file stays byte-identical.

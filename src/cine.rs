@@ -302,8 +302,10 @@ impl CineEvent {
             } => Self::Defeated {
                 tick,
                 target,
-                // Review F8: a boss defeat never triggers CINE in v0.
-                cause: if target == BOSS_ENEMY_ID {
+                // Review F8: a boss defeat never triggers CINE in v0. AUDFIN-AD7: the Hoarder
+                // (`PILE_BOSS_ID`) is a boss too; the planner kept her out already, the
+                // mapping now says so itself.
+                cause: if target == BOSS_ENEMY_ID || target == PILE_BOSS_ID {
                     CineCause::Other
                 } else {
                     cine_cause(cause)
@@ -2192,6 +2194,58 @@ mod tests {
             blast(250, PILE_BOSS_ID, 7, Some(0)),
         ];
         assert!(run(&mut showcase_ev(), &events).is_empty());
+    }
+
+    /// AUDFIN-AD7: the mapping itself keeps every boss id out of CINE, whatever the cause, not only
+    /// the planner (a no-op for the outputs: the planner never read these causes).
+    #[test]
+    fn audfin_from_combat_maps_every_boss_defeat_to_other() {
+        for target in [BOSS_ENEMY_ID, PILE_BOSS_ID] {
+            for cause in [
+                DefeatCause::Melee,
+                DefeatCause::DropHazard { player: 0, rack: 0 },
+                DefeatCause::Explosion {
+                    charge: 1,
+                    player: Some(0),
+                    point_blank: false,
+                },
+            ] {
+                let mapped = CineEvent::from_combat(&CombatEvent::EnemyDefeated {
+                    tick: 9,
+                    target,
+                    cause,
+                    force: ForceTier::Heavy,
+                    instigator: Some(0),
+                })
+                .unwrap();
+                assert!(
+                    matches!(
+                        mapped,
+                        CineEvent::Defeated {
+                            cause: CineCause::Other,
+                            ..
+                        }
+                    ),
+                    "{target} {cause:?}: {mapped:?}"
+                );
+            }
+        }
+        // An ordinary target keeps its cause.
+        let goblin = CineEvent::from_combat(&CombatEvent::EnemyDefeated {
+            tick: 9,
+            target: 0,
+            cause: DefeatCause::Melee,
+            force: ForceTier::Routine,
+            instigator: Some(0),
+        })
+        .unwrap();
+        assert!(matches!(
+            goblin,
+            CineEvent::Defeated {
+                cause: CineCause::Melee,
+                ..
+            }
+        ));
     }
 
     #[test]

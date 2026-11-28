@@ -2447,6 +2447,30 @@ mod tests {
         assert!(!texts(&list).contains(&"LAUNCHED!"));
     }
 
+    /// AUDFIN-AD8: the boss strip and the location strip share the centre band (the Hybrid-A
+    /// spec: the location strip shows "always, except while the boss strip shows"), so `TRY n`
+    /// stays hidden in the two boss rooms and shows again the moment the strip slides out.
+    #[test]
+    fn the_attempt_counter_stays_hidden_while_the_boss_strip_shows() {
+        let mut real = crate::hud::test_inputs(4, 4);
+        real.location = Some("THE BALL OF SWINE \u{b7} TRY 3".to_owned());
+        let layout = HudLayout::new(360, 288);
+        let mut list = Vec::new();
+        build_draw_list(&build_snapshot(&real, None, 0), &layout, &mut list);
+        assert!(texts(&list).iter().any(|t| t.contains("TRY 3")));
+        real.boss = Some(crate::hud::BossView {
+            name: "THE BALL OF SWINE".to_owned(),
+            fill_px: 234,
+            chip_px: 0,
+            warning: false,
+            warning_bright: true,
+            slide_tick: crate::hud::BOSS_SLIDE_TICKS,
+            emblem: None,
+        });
+        build_draw_list(&build_snapshot(&real, None, 0), &layout, &mut list);
+        assert!(!texts(&list).iter().any(|t| t.contains("TRY")));
+    }
+
     #[test]
     fn each_plate_draws_its_own_pads_glyphs() {
         let mut real = crate::hud::test_inputs(4, 4);

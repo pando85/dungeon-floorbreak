@@ -2659,7 +2659,12 @@ fn presents_dynamite(args: &Args) -> bool {
 
 /// One HUD step after a finished simulation tick: the real health values and
 /// the newest combat events. Read-only on the simulation.
-fn step_hud(hud: &mut HudRuntime, sim: &SceneSim, combat: Option<&CombatState>) {
+fn step_hud(
+    hud: &mut HudRuntime,
+    sim: &SceneSim,
+    combat: Option<&CombatState>,
+    death: Option<&DeathPresenter>,
+) {
     let (events, dropped) =
         combat.map_or((&[][..], 0), |c| (c.events.as_slice(), c.dropped_events));
     // Melee input is live exactly when the combat state exists (see the
@@ -2708,10 +2713,14 @@ fn step_hud(hud: &mut HudRuntime, sim: &SceneSim, combat: Option<&CombatState>) 
         // (HT-AD1): a checkpoint respawn is an attempt too.
         hud.set_attempt(combat.hud_try());
     }
+    // AUDFIN-AD3: the finishes the death presenter chose, for the defeat notices (read only).
+    hud.set_defeat_finishes(death.map_or(&[][..], DeathPresenter::finish_notices));
     // HUD-DEBT-03: the boss strip reads the simulation's boss state.
     match combat.and_then(|c| c.boss.as_ref()) {
         Some(boss) => {
             let data = boss.data();
+            // AUDFIN-AD1: the Ball has its own notice copy (the boss data's species).
+            hud.set_boss_species(Some(&data.species));
             hud.set_boss(
                 Some(boss.state()),
                 &data.hud.display_name,
@@ -2719,7 +2728,10 @@ fn step_hud(hud: &mut HudRuntime, sim: &SceneSim, combat: Option<&CombatState>) 
                 data.exit_slide_delay,
             );
         }
-        None => hud.set_boss(None, "", "", 0),
+        None => {
+            hud.set_boss_species(None);
+            hud.set_boss(None, "", "", 0);
+        }
     }
     hud.step(
         sim.world.hero.health,
@@ -2994,7 +3006,7 @@ fn build_scene(
                 lab_reseat(args, &mut party);
             }
             feat_feed.observe(&combat, hud);
-            step_hud(hud, &sim, Some(&combat));
+            step_hud(hud, &sim, Some(&combat), Some(&death));
             if args.death_stress && args.perf_from_tick.is_some() {
                 // Lab: load the pools before the probe starts measuring.
                 death.stress_tick(sim.world.hero.x, sim.world.hero.y - HERO_HALF_HEIGHT);
@@ -3016,7 +3028,7 @@ fn build_scene(
         let trace = args.anim_trace;
         sim.run_scenario_observed(scenario, ticks, |state| {
             anim.step(&state.world);
-            step_hud(hud, state, None);
+            step_hud(hud, state, None, None);
             if trace {
                 println!("{}", trace_line(state, &anim));
             }
@@ -7092,7 +7104,7 @@ fn fixed_step(
         rec.end_tick(&sim.0, combat.0.as_ref(), pads.0.party(), respawned_in_step);
     }
     sinks.rec.flush();
-    step_hud(&mut hud.0, &sim.0, combat.0.as_ref());
+    step_hud(&mut hud.0, &sim.0, combat.0.as_ref(), death.0.as_ref());
     if sim.0.world.complete && !was_complete {
         println!("FLOOR1_EXIT_REACHED tick={}", sim.0.world.tick);
     }
@@ -9692,7 +9704,7 @@ fn perf_step(
                 pads.0.party_mut().restart();
             }
         }
-        step_hud(&mut hud.0, &sim.0, Some(&*combat));
+        step_hud(&mut hud.0, &sim.0, Some(&*combat), death.0.as_ref());
     }
     if setup.args.death_stress
         && let Some(death) = death.0.as_mut()
@@ -10065,7 +10077,7 @@ fn capture_sequence(
                 // One HUD step per simulated tick, as in the live loop (DP-D: the
                 // captured HUD no longer stays on the state of the first frame, so
                 // the socket, its flash and the notices are real in the evidence).
-                step_hud(&mut hud.0, &sim.0, combat.0.as_ref());
+                step_hud(&mut hud.0, &sim.0, combat.0.as_ref(), death.0.as_ref());
                 // One camera step per simulated tick, as in the live loop.
                 camera_tick(
                     &mut cam,
@@ -10674,7 +10686,7 @@ mod tests {
                 awards += 1;
                 hud_live.push_chain_feat(feat);
             }
-            step_hud(&mut hud_live, &sim, Some(&combat));
+            step_hud(&mut hud_live, &sim, Some(&combat), Some(&death));
         }
 
         assert!(awards > 0, "the fixture must earn a CINE chain feat");
@@ -10997,6 +11009,62 @@ mod tests {
         );
     }
 
+    /// AUDFIN-AD6: every run room resolves to the audience state AR-AD1 gives it, pinned by
+    /// launching it: the Act I rooms and the corral are locked (the broadcast starts after the
+    /// corral), every later room, the two boss rooms and the quiet rooms included, is live at the
+    /// baseline with no carry. Asserts today's behaviour.
+    #[test]
+    fn every_run_room_resolves_to_its_audience_state() {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        let kit = EnvKit::load(root, LAYOUT_PATH).unwrap();
+        let actors =
+            Actors::load(root, FrameSource::GridSource, true, false, false, false).unwrap();
+        let manifest = f01_late::Manifest::load(root).unwrap();
+        let state = |room: &str| {
+            let parsed = args(&["--scene", "f01_late", "--f01-run", "--f01-room", room])
+                .unwrap_or_else(|e| panic!("{room}: {e}"));
+            let hud = new_hud(&parsed, &kit, &actors);
+            (
+                hud.audience().is_unlocked(),
+                hud.audience().carry(),
+                hud.audience().count(HeroId::Carl),
+            )
+        };
+        let locked = ["act1_chase", "act1_shore", "act1_guild", "corral"];
+        let live = [
+            "rest_refuge",
+            "hoarder",
+            "boiler",
+            "dozer",
+            "hazards",
+            "ring_court",
+            "ring_split",
+            "rest_camp",
+            "trog_run",
+            "trog_strength",
+            "juicer",
+            "rest_aftermath",
+            "mastery",
+            "bos",
+        ];
+        let listed: Vec<&str> = manifest.rooms.iter().map(|r| r.id.as_str()).collect();
+        assert_eq!(
+            listed,
+            locked.iter().chain(&live).copied().collect::<Vec<_>>(),
+            "every listed room is pinned, in run order"
+        );
+        for room in locked {
+            assert_eq!(state(room), (false, None, None), "{room}");
+        }
+        for room in live {
+            assert_eq!(
+                state(room),
+                (true, Some([(250, 250), (250, 250)]), Some(250)),
+                "{room}"
+            );
+        }
+    }
+
     /// AUDIENCE-RUN (AR-AD5, evidence item 5): in a run room that resumed from a carry,
     /// a checkpoint respawn keeps the counts and the dedupe set, and a restart
     /// restores the counts the room began with (so it never farms viewers and never
@@ -11129,7 +11197,7 @@ mod tests {
         for feat in feats {
             hud_live.push_chain_feat(feat);
         }
-        step_hud(&mut hud_live, &sim, Some(&live_combat));
+        step_hud(&mut hud_live, &sim, Some(&live_combat), None);
         assert_eq!(
             hud_fast.audience().count(HeroId::Carl),
             hud_live.audience().count(HeroId::Carl),

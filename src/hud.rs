@@ -215,6 +215,18 @@ pub enum LabelId {
     /// has turned to the alcove (the text is the boss data's `siege.notice`, a
     /// placeholder). Presentation only, never hashed; not a grant notice.
     ItSniffsAtTheArch,
+    /// AUDFIN-AD1: the Ball's own intro notice (the gate closed on room 18).
+    RollCall,
+    /// AUDFIN-AD1: the Ball hit a wall at the end of a charge and is stunned.
+    WallWins,
+    /// AUDFIN-AD1: a rack landed on the Ball and pinned it.
+    DeadWeight,
+    /// AUDFIN-AD1: the Ball was defeated.
+    BaconBowled,
+    /// AUDFIN-AD3: a defeat whose chosen finish is the point blank blast.
+    BlownAway,
+    /// AUDFIN-AD3: a defeat whose chosen finish is the decapitation.
+    HeadsUp,
 }
 
 impl LabelId {
@@ -244,6 +256,12 @@ impl LabelId {
             Self::MagicMissile => "MAGIC MISSILE",
             Self::GetIntoTheAlcove => "GET INTO THE ALCOVE",
             Self::ItSniffsAtTheArch => "IT SNIFFS AT THE ARCH",
+            Self::RollCall => "ROLL CALL!",
+            Self::WallWins => "WALL WINS!",
+            Self::DeadWeight => "DEAD WEIGHT!",
+            Self::BaconBowled => "BACON BOWLED!",
+            Self::BlownAway => "BLOWN AWAY!",
+            Self::HeadsUp => "HEADS UP!",
         }
     }
 
@@ -259,7 +277,7 @@ impl LabelId {
     }
 
     /// Every label, in declaration order (the closed set the width checks iterate).
-    pub const ALL: [Self; 24] = [
+    pub const ALL: [Self; 30] = [
         Self::Punch,
         Self::Kick,
         Self::Swat,
@@ -284,6 +302,12 @@ impl LabelId {
         Self::MagicMissile,
         Self::GetIntoTheAlcove,
         Self::ItSniffsAtTheArch,
+        Self::RollCall,
+        Self::WallWins,
+        Self::DeadWeight,
+        Self::BaconBowled,
+        Self::BlownAway,
+        Self::HeadsUp,
     ];
 
     /// The labels that can sit above the special socket (at most 33 px, HA2-AD1).
@@ -312,7 +336,13 @@ impl LabelId {
             | Self::SwapToDonut
             | Self::MagicMissile
             | Self::GetIntoTheAlcove
-            | Self::ItSniffsAtTheArch => false,
+            | Self::ItSniffsAtTheArch
+            | Self::RollCall
+            | Self::WallWins
+            | Self::DeadWeight
+            | Self::BaconBowled
+            | Self::BlownAway
+            | Self::HeadsUp => false,
         }
     }
 
@@ -354,9 +384,83 @@ pub const NOTICE_TRIGGERS: [(ForceTier, LabelId); 2] = [
     (ForceTier::Catastrophic, LabelId::Flattened),
 ];
 
+/// AUDFIN-AD3: the finish a defeat played, as far as the notice is concerned. Only the three
+/// finishes with their own headline are named: every other finish (the knockback, the slam, a
+/// species with no art) keeps the force notice. Chosen by the death presenter from the species
+/// profile, so a species with no decapitation never shows `HEADS UP!`. Presentation only.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DefeatFinish {
+    /// The falling block: the existing crush line.
+    Crushed,
+    /// The block's edge across the neck.
+    Decapitated,
+    /// A point blank blast.
+    Exploded,
+}
+
+impl DefeatFinish {
+    /// The headline of a defeat that played this finish.
+    pub const fn label(self) -> LabelId {
+        match self {
+            Self::Crushed => LabelId::Flattened,
+            Self::Decapitated => LabelId::HeadsUp,
+            Self::Exploded => LabelId::BlownAway,
+        }
+    }
+}
+
+/// One defeat's chosen finish, keyed by the defeat event (`tick`, `target`).
+pub type FinishRecord = (u64, u32, DefeatFinish);
+
+/// AUDFIN-AD1: which boss copy the notices use. The set follows the boss data's `species`
+/// (`rolling_brute` is the Ball); every other boss, the Juicer included, keeps its copy.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum BossNotices {
+    /// `MAIN EVENT!`, `NO SPOTTER!`, `KNOCKOUT!` (frozen).
+    #[default]
+    Juicer,
+    /// `ROLL CALL!`, `WALL WINS!`, `DEAD WEIGHT!`, `BACON BOWLED!`.
+    Ball,
+}
+
+impl BossNotices {
+    /// The set of a boss species.
+    pub fn of_species(species: &str) -> Self {
+        if species == "rolling_brute" {
+            Self::Ball
+        } else {
+            Self::Juicer
+        }
+    }
+}
+
 /// The notice headline a combat event raises, if any. `GoblinTell` (a threat
 /// telegraph), `HeroHurt`, `HeroDefeated` and routine kills never do.
 pub fn notice_for_event(event: &CombatEvent) -> Option<LabelId> {
+    notice_for_event_with(event, BossNotices::Juicer, &[])
+}
+
+/// [`notice_for_event`] with the boss copy of the room and the finishes the death presenter
+/// chose (AUDFIN-AD1, AUDFIN-AD3). A defeat with a recorded finish of its own headline shows
+/// that headline; any other defeat keeps the force table.
+pub fn notice_for_event_with(
+    event: &CombatEvent,
+    boss: BossNotices,
+    finishes: &[FinishRecord],
+) -> Option<LabelId> {
+    match (boss, event) {
+        (BossNotices::Ball, CombatEvent::EnemyDefeated { target, .. })
+            if *target == BOSS_ENEMY_ID =>
+        {
+            return Some(LabelId::BaconBowled);
+        }
+        (BossNotices::Ball, CombatEvent::BossEngaged { .. }) => return Some(LabelId::RollCall),
+        (BossNotices::Ball, CombatEvent::BossCrash { .. }) => return Some(LabelId::WallWins),
+        (BossNotices::Ball, CombatEvent::RackLanded { crushed: true, .. }) => {
+            return Some(LabelId::DeadWeight);
+        }
+        _ => {}
+    }
     match event {
         // The boss encounter (HUD-DEBT-03). Its defeat is a knockout whatever
         // the force; every other defeat keeps the table below.
@@ -404,10 +508,22 @@ pub fn notice_for_event(event: &CombatEvent) -> Option<LabelId> {
         CombatEvent::Mana(crate::donut_mana::ManaEvent::UnlockGranted { .. }) => {
             Some(LabelId::MagicMissile)
         }
-        CombatEvent::EnemyDefeated { force, .. } => NOTICE_TRIGGERS
+        // AUDFIN-AD3: the chosen finish first, the force table as the fallback.
+        CombatEvent::EnemyDefeated {
+            tick,
+            target,
+            force,
+            ..
+        } => finishes
             .iter()
-            .find(|(tier, _)| tier == force)
-            .map(|(_, label)| *label),
+            .find(|(at, who, _)| at == tick && who == target)
+            .map(|(_, _, finish)| finish.label())
+            .or_else(|| {
+                NOTICE_TRIGGERS
+                    .iter()
+                    .find(|(tier, _)| tier == force)
+                    .map(|(_, label)| *label)
+            }),
         _ => None,
     }
 }
@@ -1453,6 +1569,11 @@ pub struct HudRuntime {
     attempt: u32,
     /// The real boss encounter (HUD-DEBT-03), `None` outside one.
     boss: Option<BossHud>,
+    /// AUDFIN-AD1: the boss copy of the room's notices (the Juicer's unless the boss is the
+    /// Ball). Presentation only, never hashed.
+    boss_notices: BossNotices,
+    /// AUDFIN-AD3: the finishes the death presenter chose for recent defeats. Presentation only.
+    finishes: Vec<FinishRecord>,
     /// HUD-DEBT-02: Donut's unlocked mana pool as `(mana, mana_max)`, `None`
     /// while the biscuit is locked. Fed by the scene from the simulation's
     /// `DonutMana`; the HUD never invents it.
@@ -1544,6 +1665,8 @@ impl HudRuntime {
             room: None,
             attempt: 1,
             boss: None,
+            boss_notices: BossNotices::Juicer,
+            finishes: Vec::new(),
             donut_mana: None,
             empty_press: EmptyPress::Dry,
             depleted: donut_hud::DepletedFlash::default(),
@@ -1622,6 +1745,20 @@ impl HudRuntime {
     /// before [`Self::step`]. Never hashed.
     pub fn set_siege_warning(&mut self, live: bool) {
         self.siege_warning = live;
+    }
+
+    /// AUDFIN-AD1: the boss copy of the notices, from the boss data's species (`None` outside
+    /// an encounter). Call once per tick before [`Self::step`]. Never hashed.
+    pub fn set_boss_species(&mut self, species: Option<&str>) {
+        self.boss_notices = species.map_or(BossNotices::Juicer, BossNotices::of_species);
+    }
+
+    /// AUDFIN-AD3: the finishes the death presenter chose, looked up by the defeat event of the
+    /// tick (a defeat with none keeps the force notice). Call once per tick before
+    /// [`Self::step`]. Never hashed.
+    pub fn set_defeat_finishes(&mut self, finishes: &[FinishRecord]) {
+        self.finishes.clear();
+        self.finishes.extend_from_slice(finishes);
     }
 
     /// REST-AD7: the solo swap hint. In solo (Carl driven by a player, Donut by the
@@ -2040,7 +2177,9 @@ impl HudRuntime {
                     });
                 }
                 other => {
-                    if let Some(headline) = notice_for_event(&other) {
+                    if let Some(headline) =
+                        notice_for_event_with(&other, self.boss_notices, &self.finishes)
+                    {
                         self.notices.offer(headline);
                     }
                 }
@@ -3513,6 +3652,152 @@ mod tests {
             hud.tick(boss_state(30, mode), &[]);
             assert_eq!(hud.snapshot().boss.unwrap().warning, expected, "{mode:?}");
         }
+    }
+
+    /// AUDFIN-AD1: the Ball's room raises its own copy for the intro, the wall crash, the pin
+    /// and the defeat; the Juicer's copy and every shared notice stay as they were.
+    #[test]
+    fn the_ball_has_its_own_boss_notices_and_the_juicer_keeps_its_own() {
+        use crate::combat::DefeatCause;
+        assert_eq!(BossNotices::of_species("rolling_brute"), BossNotices::Ball);
+        assert_eq!(BossNotices::of_species("brute_boss"), BossNotices::Juicer);
+        let engaged = CombatEvent::BossEngaged { tick: 1 };
+        let crash = CombatEvent::BossCrash { tick: 1, wall: 1 };
+        let pin = CombatEvent::RackLanded {
+            tick: 1,
+            rack: 0,
+            crushed: true,
+        };
+        let miss = CombatEvent::RackLanded {
+            tick: 1,
+            rack: 0,
+            crushed: false,
+        };
+        let phase = CombatEvent::BossPhase { tick: 1, phase: 2 };
+        let down = CombatEvent::EnemyDefeated {
+            tick: 1,
+            target: BOSS_ENEMY_ID,
+            cause: DefeatCause::DropHazard { player: 0, rack: 0 },
+            force: ForceTier::Catastrophic,
+            instigator: Some(0),
+        };
+        let ball = |e: &CombatEvent| notice_for_event_with(e, BossNotices::Ball, &[]);
+        let juicer = |e: &CombatEvent| notice_for_event_with(e, BossNotices::Juicer, &[]);
+        assert_eq!(ball(&engaged), Some(LabelId::RollCall));
+        assert_eq!(ball(&crash), Some(LabelId::WallWins));
+        assert_eq!(ball(&pin), Some(LabelId::DeadWeight));
+        assert_eq!(ball(&miss), None);
+        assert_eq!(ball(&down), Some(LabelId::BaconBowled));
+        // A shared notice (the thresholds) is the Juicer's and the Ball's alike.
+        assert_eq!(ball(&phase), Some(LabelId::RoundTwo));
+        // The Juicer's set is byte-for-byte the old one, and the old entry point is the Juicer's.
+        assert_eq!(juicer(&engaged), Some(LabelId::MainEvent));
+        assert_eq!(juicer(&crash), None);
+        assert_eq!(juicer(&pin), Some(LabelId::NoSpotter));
+        assert_eq!(juicer(&down), Some(LabelId::Knockout));
+        for event in [&engaged, &crash, &pin, &miss, &phase, &down] {
+            assert_eq!(notice_for_event(event), juicer(event), "{event:?}");
+        }
+        // A non-boss defeat in the Ball's room keeps the force table.
+        let goblin = CombatEvent::EnemyDefeated {
+            tick: 1,
+            target: 3,
+            cause: DefeatCause::Melee,
+            force: ForceTier::Heavy,
+            instigator: Some(0),
+        };
+        assert_eq!(ball(&goblin), Some(LabelId::Launched));
+        for label in [
+            LabelId::RollCall,
+            LabelId::WallWins,
+            LabelId::DeadWeight,
+            LabelId::BaconBowled,
+        ] {
+            assert!(label.text().len() <= 13, "{}", label.text());
+            assert!(!label.is_grant() && !label.is_socket_label());
+        }
+    }
+
+    /// AUDFIN-AD1 through the runtime: the species the scene reports picks the copy, and a room
+    /// with no boss goes back to the Juicer's.
+    #[test]
+    fn the_runtime_raises_the_ball_copy_only_for_the_ball() {
+        for (species, expected) in [
+            (Some("rolling_brute"), LabelId::RollCall),
+            (Some("brute_boss"), LabelId::MainEvent),
+            (None, LabelId::MainEvent),
+        ] {
+            let mut hud = HudRuntime::new(HudConfig::default());
+            hud.set_boss_species(species);
+            hud.step(4, 4, &[CombatEvent::BossEngaged { tick: 1 }], 0);
+            assert_eq!(
+                hud.real_inputs().notice.map(|n| n.headline),
+                Some(expected),
+                "{species:?}"
+            );
+        }
+    }
+
+    /// AUDFIN-AD3: the headline follows the finish the presenter chose, and the force table is
+    /// the fallback when no finish with its own headline was chosen.
+    #[test]
+    fn a_defeat_notice_follows_the_chosen_finish_and_falls_back_to_force() {
+        use crate::combat::DefeatCause;
+        let event = |tick, target, cause, force| CombatEvent::EnemyDefeated {
+            tick,
+            target,
+            cause,
+            force,
+            instigator: Some(0),
+        };
+        let blast = DefeatCause::Explosion {
+            charge: 0,
+            player: Some(0),
+            point_blank: true,
+        };
+        let edge = DefeatCause::ShoreBlockEdge { player: 0 };
+        let block = DefeatCause::ShoreBlock { player: 0 };
+        let cat = ForceTier::Catastrophic;
+        let finishes = [
+            (10, 1, DefeatFinish::Exploded),
+            (20, 2, DefeatFinish::Decapitated),
+            (30, 3, DefeatFinish::Crushed),
+        ];
+        let with = |e: &CombatEvent| notice_for_event_with(e, BossNotices::Juicer, &finishes);
+        assert_eq!(with(&event(10, 1, blast, cat)), Some(LabelId::BlownAway));
+        assert_eq!(with(&event(20, 2, edge, cat)), Some(LabelId::HeadsUp));
+        assert_eq!(with(&event(30, 3, block, cat)), Some(LabelId::Flattened));
+        // No record for the defeat (another target or tick): the force table.
+        assert_eq!(with(&event(10, 2, blast, cat)), Some(LabelId::Flattened));
+        assert_eq!(with(&event(11, 1, blast, cat)), Some(LabelId::Flattened));
+        assert_eq!(
+            with(&event(5, 9, DefeatCause::Melee, ForceTier::Heavy)),
+            Some(LabelId::Launched)
+        );
+        assert_eq!(
+            with(&event(5, 9, DefeatCause::Melee, ForceTier::Routine)),
+            None
+        );
+        // The old entry point never sees a finish.
+        assert_eq!(
+            notice_for_event(&event(10, 1, blast, cat)),
+            Some(LabelId::Flattened)
+        );
+        // A boss defeat keeps its own headline whatever its finish.
+        let boss = event(10, BOSS_ENEMY_ID, block, cat);
+        let boss_finish = [(10, BOSS_ENEMY_ID, DefeatFinish::Crushed)];
+        assert_eq!(
+            notice_for_event_with(&boss, BossNotices::Juicer, &boss_finish),
+            Some(LabelId::Knockout)
+        );
+        // Through the runtime.
+        let mut hud = HudRuntime::new(HudConfig::default());
+        hud.set_defeat_finishes(&finishes);
+        hud.step(4, 4, &[event(10, 1, blast, cat)], 0);
+        assert_eq!(
+            hud.real_inputs().notice.map(|n| n.headline),
+            Some(LabelId::BlownAway)
+        );
     }
 
     #[test]

@@ -41,6 +41,7 @@ use crate::gore::{
     TROG_KINDS, Ttl, keeps_stream_item, lowest_below_centre, part_center_for_anchor,
     pose_anchor_world, rest_angle, scale_count,
 };
+use crate::hud::{DefeatFinish, FinishRecord};
 use crate::llama::{LLAMA_HALF_HEIGHT, LlamaMode};
 use crate::prototype::TICK_SECONDS;
 use crate::shore::FOOTPRINT_WIDTH;
@@ -987,6 +988,9 @@ const EDGE_SQUEEZE_DROPS: u32 = 8;
 
 // ---------------------------------------------------------------- finish ----
 
+/// AUDFIN-AD3: how many chosen finishes the notice log keeps (a defeat is read within its tick).
+const FINISH_LOG_LEN: usize = 16;
+
 /// What a defeated goblin plays, from the DEATH-B finish id.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Finish {
@@ -1048,6 +1052,10 @@ impl Finish {
             // (`hoarder_art`). The generic presenter adds nothing: no gibs, no dismemberment, no
             // blood (a ruined person, not a target for spectacle), and she is not CINE-eligible.
             "pile_boss_down" => Self::NoArt,
+            // AUDFIN-AD5, AUDFIN-AD6 (HAZ-Q16, BOS-ART-AD4): the slime and the Ball play their own
+            // `down` frames, which their room presenters draw (the hazards art and `ball_art`); the generic
+            // presenter adds nothing, so the finish is named but draws no extra part.
+            "slime_down" | "ball_down" => Self::NoArt,
             // TROG-FX-01: a troglodyte keeps its approved `down` frames and gains blood (the
             // knockback script); a point blank blast throws its own cut parts (the explosion
             // script with the kind's set and table).
@@ -1467,6 +1475,9 @@ pub struct DeathPresenter {
     preset: GorePreset,
     /// The finish id chosen for the boss' defeat (HUD-DEBT-03).
     boss_finish: Option<String>,
+    /// AUDFIN-AD3: the finishes chosen for the latest defeats that have their own notice
+    /// headline (read by the HUD through [`Self::finish_notices`]). Presentation only.
+    finish_log: Vec<FinishRecord>,
     clock: u64,
     attempt: u32,
     seen_events: usize,
@@ -1540,6 +1551,7 @@ impl DeathPresenter {
             engineers: Vec::new(),
             preset,
             boss_finish: None,
+            finish_log: Vec::new(),
             clock: 0,
             attempt: 0,
             seen_events: 0,
@@ -1739,6 +1751,7 @@ impl DeathPresenter {
     /// Forget every piece and death (a restart). The attempt counter is kept.
     pub fn clear(&mut self) {
         self.boss_finish = None;
+        self.finish_log.clear();
         self.deaths.clear();
         self.retired.clear();
         self.exploded.clear();
@@ -2174,7 +2187,11 @@ impl DeathPresenter {
         slot: Option<u32>,
     ) -> Option<String> {
         let CombatEvent::EnemyDefeated {
-            tick, cause, force, ..
+            tick,
+            target,
+            cause,
+            force,
+            ..
         } = *event
         else {
             return None;
@@ -2188,6 +2205,7 @@ impl DeathPresenter {
         {
             finish = lab;
         }
+        self.note_finish(tick, target, finish);
         let start = self.spawn_synthetic_in(finish, variant, x, ground_y, flip, tick);
         if let (Some(slot), Some(start), Finish::Exploded) = (slot, start, finish)
             && variant.is_some()
@@ -2196,6 +2214,26 @@ impl DeathPresenter {
             self.exploded.push((slot, start));
         }
         Some(finish_id)
+    }
+
+    /// AUDFIN-AD3: the chosen finish of the latest defeats whose finish has its own notice
+    /// headline, keyed by the defeat event's tick and target. Presentation only.
+    pub fn finish_notices(&self) -> &[FinishRecord] {
+        &self.finish_log
+    }
+
+    /// Record the finish a defeat plays, when it has a notice headline of its own.
+    fn note_finish(&mut self, tick: u64, target: u32, finish: Finish) {
+        let notice = match finish {
+            Finish::Crushed => DefeatFinish::Crushed,
+            Finish::Decapitated => DefeatFinish::Decapitated,
+            Finish::Exploded => DefeatFinish::Exploded,
+            _ => return,
+        };
+        if self.finish_log.len() >= FINISH_LOG_LEN {
+            self.finish_log.remove(0);
+        }
+        self.finish_log.push((tick, target, notice));
     }
 
     /// The finish id chosen for the boss' defeat, if it fell.
@@ -2251,6 +2289,7 @@ impl DeathPresenter {
         {
             finish = lab;
         }
+        self.note_finish(tick, target, finish);
         let flip = facing < 0;
         let mut x = x;
         // A crushed llama's pose is drawn with its mirrored `hit_origin` under
@@ -4631,6 +4670,58 @@ mod tests {
         );
         assert!(kick.stats().parts_spawned > jab.stats().parts_spawned);
         assert!(jab.stats().parts_spawned > 0);
+    }
+
+    /// AUDFIN-AD3: the presenter records the finish it chose for a defeat that has its own notice
+    /// headline (crushed, decapitated, exploded), keyed by the event's tick and target, and
+    /// nothing for the others. The slime's and the Ball's finishes draw nothing of their own.
+    #[test]
+    fn the_presenter_logs_the_finishes_that_have_a_notice_headline() {
+        let goblins = [goblin_at(484.0), goblin_at(300.0), goblin_at(200.0)];
+        let mut p = presenter(GorePreset::Full);
+        p.step(
+            &[
+                defeat(5, 0, BLOCK, ForceTier::Catastrophic),
+                defeat(5, 1, EDGE, ForceTier::Catastrophic),
+                defeat(6, 2, DefeatCause::Melee, ForceTier::Routine),
+            ],
+            obs(&goblins),
+        );
+        assert_eq!(
+            p.finish_notices(),
+            [
+                (5, 0, DefeatFinish::Crushed),
+                (5, 1, DefeatFinish::Decapitated)
+            ]
+        );
+        let mut q = presenter(GorePreset::Full);
+        let blast = DefeatCause::Explosion {
+            charge: 0,
+            player: None,
+            point_blank: true,
+        };
+        q.step(
+            &[defeat(7, 0, blast, ForceTier::Catastrophic)],
+            obs(&goblins),
+        );
+        assert_eq!(q.finish_notices(), [(7, 0, DefeatFinish::Exploded)]);
+        // A restart forgets them.
+        q.step(
+            &[CombatEvent::Restart { tick: 8, deaths: 1 }],
+            obs(&goblins),
+        );
+        assert!(q.finish_notices().is_empty());
+        // The log is bounded.
+        let mut r = presenter(GorePreset::Full);
+        for t in 0..40u64 {
+            r.step(
+                &[defeat(t, 0, BLOCK, ForceTier::Catastrophic)],
+                obs(&goblins),
+            );
+        }
+        assert_eq!(r.finish_notices().len(), FINISH_LOG_LEN);
+        assert_eq!(Finish::from_id("slime_down"), Finish::NoArt);
+        assert_eq!(Finish::from_id("ball_down"), Finish::NoArt);
     }
 
     #[test]
